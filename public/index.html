@@ -50,12 +50,32 @@
       <section id="dashboard" hidden>
         <div id="snapshot-warning" class="notice warn" hidden></div>
         <nav class="views" role="tablist">
+          <button type="button" class="view-tab" data-view="hoy">Hoy</button>
           <button type="button" class="view-tab active" data-view="leads">Leads</button>
           <button type="button" class="view-tab" data-view="metricas">Métricas</button>
+          <button type="button" class="view-tab" data-view="comparar">Comparar</button>
         </nav>
+
+        <section id="view-hoy" hidden>
+          <p class="muted hoy-intro">A quién escribir hoy, por prioridad. Cada lead aparece una sola vez, en su lista más importante.</p>
+          <div id="hoy-lists" class="hoy-grid"></div>
+        </section>
+
+        <section id="view-comparar" hidden>
+          <section class="card metric-card">
+            <h2>Comparar lanzamientos</h2>
+            <div id="compare-pick" class="compare-pick"></div>
+            <button id="btn-compare" class="btn primary" type="button">Comparar</button>
+            <div class="table-scroll" style="margin-top:12px"><table class="metric-table" id="compare-table"></table></div>
+          </section>
+        </section>
 
         <section id="view-metricas" hidden>
           <div id="metric-cards" class="kpis"></div>
+          <section class="card metric-card">
+            <h2>Inversión y rentabilidad</h2>
+            <div id="eco-cards" class="kpis"></div>
+          </section>
           <section class="card metric-card">
             <h2>Embudo del lanzamiento <span class="muted">· sobre el total de registros</span></h2>
             <div id="funnel"></div>
@@ -69,14 +89,28 @@
             <h2>Conversión a compra</h2>
             <div class="table-scroll"><table class="metric-table" id="conversion-table"></table></div>
           </section>
+          <section class="card metric-card">
+            <h2>Origen de los leads <span class="muted">· según las UTM de GHL y los nombres de Meta</span></h2>
+            <label class="field inline" style="margin-bottom:8px"><span>Ver por</span>
+              <select id="src-level"><option value="campaign">Campaña</option><option value="adset">Conjunto de anuncios</option><option value="ad">Anuncio</option></select></label>
+            <div class="table-scroll"><table class="metric-table" id="source-table"></table></div>
+          </section>
+          <section class="card metric-card">
+            <h2>Trabajo de la setter <span class="muted">· contactadas por WhatsApp y resultado</span></h2>
+            <div class="table-scroll"><table class="metric-table" id="setter-table"></table></div>
+          </section>
           <section id="consumo" class="card consumo-card"></section>
           <section class="card metric-card">
             <h2>Compras por estado <span class="muted">· ¿predice bien la puntuación?</span></h2>
             <div class="table-scroll"><table class="metric-table" id="estado-table"></table></div>
           </section>
+          <section class="card metric-card">
+            <h2>Qué predice la compra <span class="muted">· para afinar la puntuación con datos reales</span></h2>
+            <div class="table-scroll"><table class="metric-table" id="lift-table"></table></div>
+          </section>
         </section>
 
-        <section id="view-leads">
+        <section id="view-leads" hidden>
         <div id="kpis" class="kpis"></div>
 
         <div class="filters">
@@ -98,6 +132,12 @@
             <option value="clase2_25">Empezó la clase 2</option>
             <option value="sin_clases">No ha visto ninguna clase</option>
             <option value="sin_actividad">Sin actividad</option>
+            <option value="sin_resultado">Contactadas sin resultado</option>
+            <option value="res_respondio">Resultado: respondió</option>
+            <option value="res_interesada">Resultado: interesada</option>
+            <option value="res_llamada">Resultado: llamada agendada</option>
+            <option value="res_no_contesta">Resultado: no contesta</option>
+            <option value="res_no_interesada">Resultado: no interesada</option>
           </select>
           <label class="check"><input id="f-pending" type="checkbox"> Solo sin contactar</label>
           <span class="spacer"></span>
@@ -179,6 +219,10 @@
             <label class="field"><span>Página de venta de Raíces</span><input id="cfg-raices" type="url"></label>
             <label class="field"><span>Enlace de pago (checkout)</span><input id="cfg-venta" type="url"></label>
             <label class="field"><span>Enlace para reservar llamada</span><input id="cfg-llamada" type="url"></label>
+            <label class="field"><span>Precio de la entrada VIP (€)</span><input id="cfg-precio-vip" inputmode="decimal" placeholder="27"></label>
+            <label class="field"><span>Precio de Raíces (€) <small>(o el importe medio cobrado)</small></span><input id="cfg-precio-programa" inputmode="decimal" placeholder="997"></label>
+            <label class="field"><span>Inversión en anuncios (€) <small>(si no conectas Meta)</small></span><input id="cfg-inversion" inputmode="decimal"></label>
+            <label class="field"><span>Campañas de Meta de este lanzamiento <small>(texto que contiene su nombre)</small></span><input id="cfg-meta-filtro" placeholder="webinar nov26"></label>
           </div>
           <div id="cfg-snapshot" class="snapshot-box"></div>
           <datalist id="tag-list"></datalist>
@@ -190,6 +234,12 @@
           <label class="field"><span>2 · Ha visto ≥50% de la grabación → oferta Raíces</span><textarea id="tpl-raices" rows="4"></textarea></label>
           <label class="field"><span>3 · Llegó al final (directo hasta el final o grabación ≥90%) → venta o llamada</span><textarea id="tpl-cierre" rows="4"></textarea></label>
           <label class="field narrow"><span>Prefijo para móviles sin prefijo</span><input id="cfg-country" inputmode="numeric" value="34"></label>
+          <h3 class="cfg-h3">Resumen diario por email</h3>
+          <p class="muted">Cada mañana: registros, ventas y la lista de muy calientes y VIP sin contactar. El email tiene que existir como contacto en GHL.</p>
+          <div class="row">
+            <label class="field"><span>Enviar el resumen a</span><input id="cfg-digest-email" type="email" placeholder="tu@email.com"></label>
+            <button type="button" class="btn" id="btn-digest-test">Enviar resumen de prueba</button>
+          </div>
         </section>
 
         <section class="tab-panel" data-panel="snippets" hidden>

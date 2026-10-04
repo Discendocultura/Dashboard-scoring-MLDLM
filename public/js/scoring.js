@@ -12,6 +12,16 @@ export const SIGNALS = [
   // "Foto" al crear el lanzamiento: quién tenía ya la etiqueta VIP / de compra (de lanzamientos
   // anteriores). Esas personas no cuentan como VIP / compra de este lanzamiento.
   'vip_previo', 'compra_previo',
+  // Resultado del contacto de la setter (solo uno a la vez).
+  'res_respondio', 'res_interesada', 'res_llamada', 'res_no_interesada', 'res_no_contesta',
+];
+
+export const OUTCOMES = [
+  { id: 'respondio', label: 'Respondió' },
+  { id: 'interesada', label: 'Interesada' },
+  { id: 'llamada', label: 'Llamada agendada' },
+  { id: 'no_contesta', label: 'No contesta' },
+  { id: 'no_interesada', label: 'No interesada' },
 ];
 
 // Etiquetas fijas (no cambian entre lanzamientos) que se "fotografían" al crear el lanzamiento.

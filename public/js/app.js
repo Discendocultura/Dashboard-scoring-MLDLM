@@ -1,7 +1,7 @@
 import {
-  signalsFor, score, estadoFor, ESTADOS, nextStepFor, NEXT_STEPS, buildMessage, waPhone, tagFor, LAUNCH_CODE_RE,
-  THRESHOLDS, watched, SNAPSHOT_TAGS,
+  ESTADOS, NEXT_STEPS, buildMessage, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, OUTCOMES,
 } from './scoring.js';
+import { enrichLead, computeMetrics, bySource } from './metrics.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -106,6 +106,7 @@ async function start() {
   renderLaunchSelect();
   if (role === 'admin') api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
   await selectLaunch(pickInitialLaunch());
+  if (!$('#view-comparar').hidden) renderCompareSelector();
 }
 
 function launchesSorted() {
@@ -150,6 +151,7 @@ async function selectLaunch(code) {
 
 // ---------- Carga de leads (paginada contra GHL) ----------
 async function loadLeads() {
+  if (state.compare) delete state.compare.cache[state.launchCode];
   const launch = state.config.launches[state.launchCode];
   const token = ++state.loadToken;
   const out = [];
@@ -167,9 +169,10 @@ async function loadLeads() {
       cursor = page.cursor;
       progress(out.length, total, `Cargando leads… ${out.length}${total ? ` de ${total}` : ''}`);
     } while (cursor);
-    state.leads = out.map((c) => enrich(c, launch));
+    state.leads = out.map((c) => enrich(c));
     state.page = 0;
     render();
+    loadMeta(token);
     if (!out.length) notice(`No hay contactos con la etiqueta "${launch.registroTag}".`);
   } catch (e) {
     notice(`No se pudieron cargar los leads: ${e.message}`, true);
@@ -181,25 +184,22 @@ async function loadLeads() {
   }
 }
 
-// Las ventas de un lanzamiento terminan cuando empieza la captación del siguiente.
-function nextLaunchStart(code) {
-  const start = state.config.launches[code]?.inicioCaptacion;
-  if (!start) return '';
-  return Object.values(state.config.launches).map((l) => l.inicioCaptacion).filter((d) => d && d > start).sort()[0] || '';
+// Inversión y nombres de anuncios de Meta (si está conectado). No bloquea la carga de leads.
+async function loadMeta(token) {
+  state.meta = null;
+  try {
+    const meta = await api(`/api/meta?launch=${encodeURIComponent(state.launchCode)}`);
+    if (token !== state.loadToken) return;
+    state.meta = meta.configured ? meta : null;
+  } catch (e) {
+    if (token !== state.loadToken) return;
+    state.meta = { configured: true, error: e.message };
+  }
+  render();
 }
 
-function enrich(contact, launch) {
-  const s = signalsFor(contact.tags, state.launchCode, { ...launch, finVentas: nextLaunchStart(state.launchCode) }, contact);
-  const pts = score(s);
-  return {
-    ...contact,
-    s,
-    score: pts,
-    estado: estadoFor(pts),
-    step: nextStepFor(s),
-    phoneWa: waPhone(contact.phone, state.config.defaultCountryCode),
-    search: `${contact.name} ${contact.email} ${contact.phone}`.toLowerCase(),
-  };
+function enrich(contact) {
+  return enrichLead(contact, state.launchCode, state.config);
 }
 
 // ---------- Filtros y orden ----------
@@ -213,6 +213,8 @@ function filtered() {
     if (f.pending && l.s.wa_enviado) return false;
     if (f.signal === 'sin_actividad') return l.score === 0 && !l.s.directo_click;
     if (f.signal === 'no_compra') return !l.s.compra;
+    if (f.signal.startsWith('res_')) return l.outcome === f.signal.slice(4);
+    if (f.signal === 'sin_resultado') return l.s.wa_enviado && !l.outcome;
     if (f.signal === 'vip_no_compra') return l.s.vip && !l.s.compra;
     if (f.signal === 'trafico_frio') return l.s.trafico === 'frio';
     if (f.signal === 'trafico_templado') return l.s.trafico === 'templado';
@@ -248,6 +250,7 @@ $$('.leads th[data-sort]').forEach((th) => th.addEventListener('click', () => {
 // ---------- Render ----------
 function render() {
   renderKpis();
+  renderHoy();
   renderMetrics();
   renderSnapshotWarning();
   const rows = filtered();
@@ -289,48 +292,19 @@ function renderConsumo() {
 
 // ---------- Métricas del embudo ----------
 const pctOf = (n, d) => (d ? `${Math.round((n / d) * 1000) / 10}%` : '–');
+const eur = (n) => (n == null || !Number.isFinite(n) ? '–' : n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: n >= 100 ? 0 : 2 }));
+const card = (label, value, sub) => `<div class="kpi static"><span class="kpi-label">${label}</span><span class="kpi-value">${value}</span><span class="kpi-sub">${sub}</span></div>`;
 
-function funnelStats() {
-  const L = state.leads;
+function currentMetrics() {
   const launch = state.config.launches[state.launchCode];
-  const c = (fn) => L.filter(fn).length;
-  const viewedReplay = (l) => watched(l.s, 'replay') >= 25;
-  return {
-    launch,
-    total: L.length,
-    clase1: c((l) => watched(l.s, 'clase1') >= 25),
-    clase2: c((l) => watched(l.s, 'clase2') >= 25),
-    vip: c((l) => l.s.vip),
-    click: c((l) => l.s.directo_click || l.s.directo_asistio),
-    live: c((l) => l.s.directo_asistio),
-    liveFinal: c((l) => l.s.directo_final),
-    replay: c(viewedReplay),
-    compra: c((l) => l.s.compra),
-    compraVip: c((l) => l.s.compra && l.s.vip),
-    noVip: c((l) => !l.s.vip),
-    compraNoVip: c((l) => l.s.compra && !l.s.vip),
-    vipLive: c((l) => l.s.vip && l.s.directo_asistio),
-    compraLive: c((l) => l.s.compra && l.s.directo_asistio),
-    compraFinal: c((l) => l.s.compra && l.s.directo_final),
-    soloReplay: c((l) => !l.s.directo_asistio && viewedReplay(l)),
-    compraSoloReplay: c((l) => l.s.compra && !l.s.directo_asistio && viewedReplay(l)),
-    nada: c((l) => !l.s.directo_asistio && !viewedReplay(l)),
-    compraNada: c((l) => l.s.compra && !l.s.directo_asistio && !viewedReplay(l)),
-    compraDirecto: c((l) => l.s.compra_directo),
-    compraDirectoAsist: c((l) => l.s.compra_directo && l.s.directo_asistio),
-    frio: c((l) => l.s.trafico === 'frio'),
-    templado: c((l) => l.s.trafico === 'templado'),
-    compraFrio: c((l) => l.s.compra && l.s.trafico === 'frio'),
-    compraTemplado: c((l) => l.s.compra && l.s.trafico === 'templado'),
-    vipAnterior: c((l) => l.s.vip_anterior),
-    clientaAnterior: c((l) => l.s.clienta_anterior),
-  };
+  return computeMetrics(state.leads, launch, { metaSpend: state.meta?.configured && !state.meta.error ? state.meta.total : null });
 }
 
 function renderMetrics() {
-  const m = funnelStats();
-  const card = (label, value, sub) => `<div class="kpi static"><span class="kpi-label">${label}</span><span class="kpi-value">${value}</span><span class="kpi-sub">${sub}</span></div>`;
-  const directoCard = m.launch.fechaDirecto && m.launch.compraDateField
+  const launch = state.config.launches[state.launchCode];
+  const m = currentMetrics();
+  m.launch = launch;
+  const directoCard = launch.fechaDirecto && launch.compraDateField
     ? card('Ventas en directo', m.compraDirecto, `${pctOf(m.compraDirecto, m.compra)} de las ventas · ${pctOf(m.compraDirecto, m.live)} de los asistentes`)
     : card('Ventas en directo', '–', 'Configura el día del directo y el campo de fecha de compra');
   $('#metric-cards').innerHTML = [
@@ -341,6 +315,8 @@ function renderMetrics() {
     card('Compras de VIP', m.compraVip, `${pctOf(m.compraVip, m.vip)} de las VIP`),
     directoCard,
   ].join('');
+
+  renderEconomics(m, launch);
 
   const steps = [
     ['Registros', m.total],
@@ -369,7 +345,7 @@ function renderMetrics() {
     ['No fueron al directo, vieron la grabación', m.soloReplay, m.compraSoloReplay],
     ['Ni directo ni grabación', m.nada, m.compraNada],
   ];
-  if (m.launch.fechaDirecto && m.launch.compraDateField) rows.splice(4, 0, ['Asistieron al directo y compraron ese mismo día', m.live, m.compraDirectoAsist]);
+  if (launch.fechaDirecto && launch.compraDateField) rows.splice(4, 0, ['Asistieron al directo y compraron ese mismo día', m.live, m.compraDirectoAsist]);
   renderTraffic(m);
   $('#conversion-table').innerHTML = `
     <thead><tr><th>Segmento</th><th class="num">Leads</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
@@ -377,11 +353,62 @@ function renderMetrics() {
 
   $('#estado-table').innerHTML = `
     <thead><tr><th>Estado</th><th class="num">Leads</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
-    <tbody>${ESTADOS.map((e) => {
-    const inE = state.leads.filter((l) => l.estado.id === e.id);
-    const buy = inE.filter((l) => l.s.compra).length;
-    return `<tr><td><span class="estado st-${e.id}"><span class="dot"></span>${e.label}</span></td><td class="num">${inE.length}</td><td class="num">${buy}</td><td class="num big">${pctOf(buy, inE.length)}</td></tr>`;
-  }).join('')}</tbody>`;
+    <tbody>${m.estados.map((e) => `<tr><td><span class="estado st-${e.id}"><span class="dot"></span>${e.label}</span></td><td class="num">${e.leads}</td><td class="num">${e.compras}</td><td class="num big">${pctOf(e.compras, e.leads)}</td></tr>`).join('')}</tbody>`;
+
+  renderSources();
+  renderSetterMetrics(m);
+  renderLift(m);
+}
+
+// Inversión, facturación y rentabilidad.
+function renderEconomics(m, launch) {
+  const e = m.eco;
+  const hasPrices = launch.precioVip || launch.precioPrograma;
+  const fuente = e.inversionFuente === 'meta' ? `Meta Ads (${esc(state.meta.since)} → ${esc(state.meta.until)})` : 'introducida a mano';
+  const metaWarn = state.meta?.error ? `<p class="muted">Meta: ${esc(state.meta.error)}</p>` : '';
+  $('#eco-cards').innerHTML = `${[
+    card('Inversión en anuncios', e.inversion ? eur(e.inversion) : '–', e.inversion ? fuente : 'Conecta Meta o introdúcela en Configuración'),
+    card('Facturación', hasPrices ? eur(e.facturacion) : '–', hasPrices ? `VIP ${eur(e.facturacionVip)} · Raíces ${eur(e.facturacionPrograma)}` : 'Añade los precios en Configuración'),
+    card('ROAS', e.roas != null && hasPrices ? `${e.roas.toFixed(2)}x` : '–', e.roas != null && hasPrices ? `Beneficio: ${eur(e.beneficio)}` : 'facturación / inversión'),
+    card('Coste por lead', eur(e.cpl), e.cplFrio != null ? `${eur(e.cplFrio)} por lead de tráfico frío` : 'inversión / registros'),
+    card('Coste por VIP', eur(e.cpVip), 'inversión / entradas VIP'),
+    card('Coste por venta', eur(e.cpa), 'inversión / ventas de Raíces'),
+  ].join('')}${metaWarn ? `<div style="grid-column:1/-1">${metaWarn}</div>` : ''}`;
+}
+
+// Registros, VIP y ventas por campaña / conjunto / anuncio (UTM de GHL + nombres e inversión de Meta).
+function renderSources() {
+  const level = $('#src-level').value;
+  const names = state.meta?.names || {};
+  const spendBy = state.meta?.spendBy || {};
+  const groups = bySource(state.leads, level, names);
+  const hasSpend = Object.keys(spendBy).length > 0;
+  $('#source-table').innerHTML = `
+    <thead><tr><th>${{ campaign: 'Campaña', adset: 'Conjunto de anuncios', ad: 'Anuncio' }[level]}</th><th class="num">Registros</th><th class="num">Frío</th><th class="num">VIP</th><th class="num">Ventas</th><th class="num">Conversión</th>${hasSpend ? '<th class="num">Inversión</th><th class="num">CPL</th><th class="num">Coste/venta</th>' : ''}</tr></thead>
+    <tbody>${groups.map((g) => {
+    const spend = spendBy[g.key];
+    return `<tr><td>${esc(g.label)}</td><td class="num">${g.leads}</td><td class="num">${g.frio}</td><td class="num">${g.vip} <span class="muted">${pctOf(g.vip, g.leads)}</span></td><td class="num">${g.compras}</td><td class="num big">${pctOf(g.compras, g.leads)}</td>${hasSpend ? `<td class="num">${spend ? eur(spend) : '–'}</td><td class="num">${spend ? eur(spend / g.leads) : '–'}</td><td class="num">${spend && g.compras ? eur(spend / g.compras) : '–'}</td>` : ''}</tr>`;
+  }).join('') || '<tr><td colspan="9" class="muted">Sin datos de origen.</td></tr>'}</tbody>`;
+}
+
+// Trabajo de la setter: contactadas y resultado.
+function renderSetterMetrics(m) {
+  const st = m.setter;
+  $('#setter-table').innerHTML = `
+    <thead><tr><th>Grupo</th><th class="num">Leads</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Contactadas por WhatsApp</strong></td><td class="num">${st.contactadas}</td><td class="num">${st.compraContactadas}</td><td class="num big">${pctOf(st.compraContactadas, st.contactadas)}</td></tr>
+      <tr><td>No contactadas</td><td class="num">${st.noContactadas}</td><td class="num">${st.compraNoContactadas}</td><td class="num big">${pctOf(st.compraNoContactadas, st.noContactadas)}</td></tr>
+      ${st.resultados.map((r) => `<tr><td>· ${r.label}</td><td class="num">${r.leads}</td><td class="num">${r.compras}</td><td class="num big">${pctOf(r.compras, r.leads)}</td></tr>`).join('')}
+    </tbody>`;
+}
+
+// Qué señales predicen la compra (para afinar la puntuación con datos reales).
+function renderLift(m) {
+  const rows = [...m.lift].sort((a, b) => (b.veces ?? 0) - (a.veces ?? 0));
+  $('#lift-table').innerHTML = `
+    <thead><tr><th>Señal</th><th class="num">Conversión con la señal</th><th class="num">Sin la señal</th><th class="num">Multiplica por</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr><td>${r.label} <span class="muted">(${r.con})</span></td><td class="num">${pctOf(r.convCon * r.con, r.con)}</td><td class="num">${pctOf(r.convSin * r.sin, r.sin)}</td><td class="num big">${r.veces == null ? '–' : `${r.veces.toFixed(1)}x`}</td></tr>`).join('')}</tbody>`;
 }
 
 // Reparto de las ventas entre tráfico frío y templado (suma 100%).
@@ -409,13 +436,100 @@ function renderTraffic(m) {
     <tbody>${row('Frío (nuevo en GHL)', m.frio, m.compraFrio)}${row('Templado (ya estaba en GHL)', m.templado, m.compraTemplado)}</tbody>`;
 }
 
-$$('.view-tab').forEach((t) => t.addEventListener('click', () => {
-  $$('.view-tab').forEach((x) => x.classList.toggle('active', x === t));
-  $('#view-leads').hidden = t.dataset.view !== 'leads';
-  $('#view-metricas').hidden = t.dataset.view !== 'metricas';
-  ls.set('lsd_view', t.dataset.view);
-}));
-if (ls.get('lsd_view') === 'metricas') $('.view-tab[data-view="metricas"]').click();
+$('#src-level').addEventListener('change', () => { if (state.leads.length) renderSources(); });
+
+// ---------- Comparar lanzamientos ----------
+state.compare = { selected: new Set(), cache: {} };
+
+function renderCompareSelector() {
+  const list = launchesSorted();
+  if (!state.compare.selected.size) list.slice(0, 3).forEach(([c]) => state.compare.selected.add(c));
+  $('#compare-pick').innerHTML = list.map(([c, l]) => `<label class="check"><input type="checkbox" value="${esc(c)}" ${state.compare.selected.has(c) ? 'checked' : ''}> ${esc(l.name)}</label>`).join('')
+    || '<p class="muted">Todavía no hay lanzamientos.</p>';
+}
+
+$('#compare-pick').addEventListener('change', (e) => {
+  if (e.target.checked) state.compare.selected.add(e.target.value);
+  else state.compare.selected.delete(e.target.value);
+});
+
+async function loadLaunchMetrics(code) {
+  if (state.compare.cache[code]) return state.compare.cache[code];
+  const launch = state.config.launches[code];
+  const leads = [];
+  let cursor = null;
+  do {
+    const qs = new URLSearchParams({ tag: launch.registroTag });
+    if (cursor) qs.set('cursor', JSON.stringify(cursor));
+    const page = await api(`/api/leads?${qs}`);
+    leads.push(...page.contacts);
+    cursor = page.cursor;
+    progress(leads.length, page.total, `Comparar · ${launch.name}: ${leads.length}${page.total ? ` de ${page.total}` : ''} leads`);
+  } while (cursor);
+  let metaSpend = null;
+  try {
+    const meta = await api(`/api/meta?launch=${encodeURIComponent(code)}`);
+    if (meta.configured && !meta.error) metaSpend = meta.total;
+  } catch { /* sin Meta: se usa la inversión manual */ }
+  const m = computeMetrics(leads.map((c) => enrichLead(c, code, state.config)), launch, { metaSpend });
+  state.compare.cache[code] = m;
+  return m;
+}
+
+$('#btn-compare').addEventListener('click', async () => {
+  const codes = launchesSorted().map(([c]) => c).filter((c) => state.compare.selected.has(c)).reverse();
+  if (!codes.length) return;
+  const btn = $('#btn-compare');
+  btn.disabled = true;
+  try {
+    const results = [];
+    for (const c of codes) results.push([c, await loadLaunchMetrics(c)]);
+    renderCompareTable(results);
+  } catch (e) {
+    notice(`No se pudo comparar: ${e.message}`, true);
+  } finally {
+    progress(null);
+    btn.disabled = false;
+  }
+});
+
+function renderCompareTable(results) {
+  const L = state.config.launches;
+  const rows = [
+    ['Registros', (m) => m.total],
+    ['Tráfico frío', (m) => pctOf(m.frio, m.total)],
+    ['Empezaron la clase 1', (m) => pctOf(m.clase1, m.total)],
+    ['Empezaron la clase 2', (m) => pctOf(m.clase2, m.total)],
+    ['Entradas VIP', (m) => `${m.vip} · ${pctOf(m.vip, m.total)}`],
+    ['Asistencia al directo', (m) => `${m.live} · ${pctOf(m.live, m.total)}`],
+    ['Directo hasta el final', (m) => pctOf(m.liveFinal, m.total)],
+    ['Vieron la grabación', (m) => pctOf(m.replay, m.total)],
+    ['Ventas', (m) => m.compra],
+    ['Conversión total', (m) => pctOf(m.compra, m.total)],
+    ['Conversión de las VIP', (m) => pctOf(m.compraVip, m.vip)],
+    ['Ventas en directo', (m) => `${m.compraDirecto} · ${pctOf(m.compraDirecto, m.compra)}`],
+    ['% ventas de tráfico frío', (m) => pctOf(m.compraFrio, m.compraFrio + m.compraTemplado)],
+    ['Inversión', (m) => eur(m.eco.inversion || null)],
+    ['Facturación', (m) => eur(m.eco.facturacion || null)],
+    ['ROAS', (m) => (m.eco.roas != null && m.eco.facturacion ? `${m.eco.roas.toFixed(2)}x` : '–')],
+    ['Coste por lead', (m) => eur(m.eco.cpl)],
+    ['Coste por venta', (m) => eur(m.eco.cpa)],
+  ];
+  $('#compare-table').innerHTML = `
+    <thead><tr><th></th>${results.map(([c]) => `<th class="num">${esc(L[c].name)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(([label, fn]) => `<tr><td>${label}</td>${results.map(([, m]) => `<td class="num">${fn(m)}</td>`).join('')}</tr>`).join('')}</tbody>`;
+}
+
+// ---------- Vistas ----------
+const VIEWS = ['hoy', 'leads', 'metricas', 'comparar'];
+function showView(view) {
+  $$('.view-tab').forEach((x) => x.classList.toggle('active', x.dataset.view === view));
+  for (const v of VIEWS) $(`#view-${v}`).hidden = v !== view;
+  ls.set('lsd_view', view);
+  if (view === 'comparar' && state.config) renderCompareSelector();
+}
+$$('.view-tab').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
+showView(VIEWS.includes(ls.get('lsd_view')) ? ls.get('lsd_view') : 'leads');
 
 function renderKpis() {
   renderConsumo();
@@ -494,8 +608,86 @@ function rowHtml(l) {
     <td>${compraChip(l.s)}</td>
     <td class="num"><span class="score">${l.score}</span></td>
     <td><span class="estado st-${l.estado.id}"><span class="dot"></span>${l.estado.label}</span></td>
-    <td><div class="wa-cell">${waBtn}${l.step === 'comprado' ? '' : `<span class="wa-step">${NEXT_STEPS[l.step]}</span>`}</div></td>
+    <td><div class="wa-cell">${waBtn}${l.step === 'comprado' ? '' : `<span class="wa-step">${NEXT_STEPS[l.step]}</span>`}${outcomeSelect(l)}</div></td>
   </tr>`;
+}
+
+// Resultado del contacto de la setter (se guarda como etiqueta en GHL).
+function outcomeSelect(l) {
+  if (!l.s.wa_enviado && !l.outcome) return '';
+  return `<select class="outcome" data-outcome="${esc(l.id)}" aria-label="Resultado del contacto">
+    <option value="">Resultado…</option>
+    ${OUTCOMES.map((o) => `<option value="${o.id}" ${l.outcome === o.id ? 'selected' : ''}>${o.label}</option>`).join('')}
+  </select>`;
+}
+
+async function setOutcome(lead, outcome) {
+  const prev = lead.outcome;
+  const remove = OUTCOMES.filter((o) => o.id !== outcome && lead.s[`res_${o.id}`]).map((o) => tagFor(state.launchCode, `res_${o.id}`));
+  const tags = outcome ? [tagFor(state.launchCode, `res_${outcome}`)] : [];
+  for (const o of OUTCOMES) lead.s[`res_${o.id}`] = o.id === outcome;
+  lead.outcome = outcome;
+  render();
+  try {
+    if (tags.length || remove.length) await api('/api/apply-tags', { method: 'POST', body: { items: [{ id: lead.id, tags, remove }] } });
+  } catch (ex) {
+    for (const o of OUTCOMES) lead.s[`res_${o.id}`] = o.id === prev;
+    lead.outcome = prev;
+    render();
+    notice(`No se pudo guardar el resultado en GHL: ${ex.message}`, true);
+  }
+}
+
+document.addEventListener('change', (e) => {
+  const sel = e.target.closest('[data-outcome]');
+  if (!sel) return;
+  const lead = state.leads.find((l) => l.id === sel.dataset.outcome);
+  if (lead) setOutcome(lead, sel.value);
+});
+
+// ---------- Vista "Hoy" para la setter ----------
+// Listas cortas y priorizadas: a quién escribir hoy.
+function renderHoy() {
+  const open = (l) => !l.s.compra && l.phoneWa;
+  const byScore = (a, b) => b.score - a.score;
+  const buckets = [
+    { id: 'calientes', title: '🔥 Muy calientes sin contactar', hint: 'Máxima prioridad', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.estado.id === 'muy-caliente') },
+    { id: 'vip', title: '⭐ VIP que no han comprado', hint: 'Pagaron la entrada: están cerca', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.vip) },
+    { id: 'grabacion', title: '🎬 Vieron la grabación y no han comprado', hint: '≥50% de la grabación', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && !l.s.vip && l.estado.id !== 'muy-caliente' && watched(l.s, 'replay') >= 50) },
+    { id: 'seguimiento', title: '💬 Seguimiento pendiente', hint: 'Respondieron, interesadas o no contestan', rows: state.leads.filter((l) => open(l) && ['respondio', 'interesada', 'no_contesta'].includes(l.outcome)) },
+    { id: 'sinresultado', title: '📝 Contactadas sin resultado anotado', hint: 'Anota qué pasó', rows: state.leads.filter((l) => open(l) && l.s.wa_enviado && !l.outcome) },
+  ];
+  const seen = new Set();
+  $('#hoy-lists').innerHTML = buckets.map((b) => {
+    const rows = b.rows.filter((l) => !seen.has(l.id)).sort(byScore);
+    rows.forEach((l) => seen.add(l.id));
+    const shown = rows.slice(0, 30);
+    return `<section class="card hoy-card">
+      <h2>${b.title} <span class="badge">${rows.length}</span></h2>
+      <p class="muted">${b.hint}</p>
+      ${shown.length ? `<ul class="hoy-list">${shown.map(hoyItem).join('')}</ul>` : '<p class="muted">Nada pendiente aquí ✓</p>'}
+      ${rows.length > shown.length ? `<p class="muted">…y ${rows.length - shown.length} más en la pestaña Leads.</p>` : ''}
+    </section>`;
+  }).join('');
+}
+
+function hoyItem(l) {
+  const signals = [
+    l.s.vip ? 'VIP' : '',
+    l.s.directo_final ? 'Directo hasta el final' : l.s.directo_asistio ? 'Asistió al directo' : '',
+    watched(l.s, 'replay') ? `Grabación ${watched(l.s, 'replay')}%` : '',
+    watched(l.s, 'clase1') || watched(l.s, 'clase2') ? `Clases ${watched(l.s, 'clase1')}% / ${watched(l.s, 'clase2')}%` : '',
+  ].filter(Boolean).join(' · ');
+  return `<li class="hoy-item">
+    <div class="hoy-main">
+      <div><span class="lead-name">${esc(l.name || l.email)}</span> <span class="estado st-${l.estado.id}"><span class="dot"></span>${l.score}</span></div>
+      <div class="lead-meta">${esc(signals || 'Sin actividad')} · ${NEXT_STEPS[l.step]}</div>
+    </div>
+    <div class="hoy-actions">
+      <button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}">${l.s.wa_enviado ? 'Reenviar' : 'WhatsApp'}</button>
+      ${outcomeSelect(l)}
+    </div>
+  </li>`;
 }
 
 function messageFor(l) {
@@ -504,7 +696,7 @@ function messageFor(l) {
 }
 
 // ---------- WhatsApp ----------
-$('#leads-body').addEventListener('click', async (e) => {
+document.addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-wa]');
   if (!btn) return;
   const lead = state.leads.find((l) => l.id === btn.dataset.wa);
@@ -612,7 +804,11 @@ function openConfig(code) {
   // Las etiquetas de VIP y compra son fijas: un lanzamiento nuevo hereda las del último.
   const last = launchesSorted()[0]?.[1] || {};
   const l = editingCode ? state.config.launches[editingCode]
-    : { vipTag: last.vipTag, compraTag: last.compraTag, compraDateField: last.compraDateField, inicioCaptacion: new Date().toISOString().slice(0, 10) };
+    : {
+      vipTag: last.vipTag, compraTag: last.compraTag, compraDateField: last.compraDateField,
+      precioVip: last.precioVip, precioPrograma: last.precioPrograma,
+      inicioCaptacion: new Date().toISOString().slice(0, 10),
+    };
   $('#cfg-code').value = editingCode || '';
   $('#cfg-code').readOnly = Boolean(editingCode);
   $('#cfg-name').value = l.name || '';
@@ -628,6 +824,11 @@ function openConfig(code) {
   $('#cfg-raices').value = l.raicesUrl || '';
   $('#cfg-venta').value = l.ventaUrl || '';
   $('#cfg-llamada').value = l.llamadaUrl || '';
+  $('#cfg-precio-vip').value = l.precioVip || '';
+  $('#cfg-precio-programa').value = l.precioPrograma || '';
+  $('#cfg-inversion').value = l.inversion || '';
+  $('#cfg-meta-filtro').value = l.metaFiltro || '';
+  $('#cfg-digest-email').value = state.config.digestEmail || '';
   $('#tpl-grabacion').value = state.config.templates.grabacion;
   $('#tpl-raices').value = state.config.templates.raices;
   $('#tpl-cierre').value = state.config.templates.cierre;
@@ -672,6 +873,10 @@ function readForm() {
       raicesUrl: $('#cfg-raices').value.trim(),
       ventaUrl: $('#cfg-venta').value.trim(),
       llamadaUrl: $('#cfg-llamada').value.trim(),
+      precioVip: $('#cfg-precio-vip').value,
+      precioPrograma: $('#cfg-precio-programa').value,
+      inversion: $('#cfg-inversion').value,
+      metaFiltro: $('#cfg-meta-filtro').value.trim(),
     },
   };
 }
@@ -686,6 +891,7 @@ $('#cfg-save').addEventListener('click', async () => {
     const next = {
       ...state.config,
       defaultCountryCode: $('#cfg-country').value,
+      digestEmail: $('#cfg-digest-email').value.trim(),
       templates: { grabacion: $('#tpl-grabacion').value, raices: $('#tpl-raices').value, cierre: $('#tpl-cierre').value },
       launches: { ...state.config.launches, [code]: launch },
     };
@@ -804,6 +1010,21 @@ document.addEventListener('click', async (e) => {
   await runSnapshot(code);
   if (dlg.open) renderSnapshotBox();
   await selectLaunch(state.launchCode);
+});
+
+$('#btn-digest-test').addEventListener('click', async () => {
+  const b = $('#btn-digest-test');
+  const email = $('#cfg-digest-email').value.trim();
+  if (email !== (state.config.digestEmail || '')) return window.alert('Guarda primero la configuración con este email.');
+  b.disabled = true;
+  try {
+    const r = await api('/api/digest', { method: 'POST' });
+    window.alert(r.sent ? `Resumen enviado a ${email}: «${r.subject}»` : `No se envió: ${r.reason}`);
+  } catch (e) {
+    window.alert(`No se pudo enviar: ${e.message}`);
+  } finally {
+    b.disabled = false;
+  }
 });
 
 function renderSnippets() {

@@ -192,6 +192,21 @@ table.metric-table { width: 100%; border-collapse: collapse; min-width: 520px; }
 .split-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; margin-bottom: 10px; }
 .split-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
 
+/* Hoy */
+.hoy-intro { margin: 0 0 12px; }
+.hoy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+.hoy-card { padding: 14px 16px; }
+.hoy-card h2 { font-size: 15px; margin: 0; display: flex; gap: 8px; align-items: center; }
+.hoy-card > p { margin: 2px 0 10px; font-size: 12px; }
+.hoy-list { list-style: none; margin: 0; padding: 0; }
+.hoy-item { display: flex; gap: 10px; justify-content: space-between; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.hoy-main { min-width: 0; flex: 1 1 180px; }
+.hoy-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+select.outcome { font-size: 12px; padding: 4px 6px; }
+.compare-pick { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 10px; }
+.cfg-h3 { font-size: 14px; margin: 10px 0 0; }
+@media (max-width: 640px) { .hoy-grid { grid-template-columns: 1fr; } }
+
 /* Consumo de vídeos */
 .consumo-card { padding: 14px 16px; margin-bottom: 14px; }
 .consumo-card h2 { font-size: 14px; margin: 0 0 10px; }

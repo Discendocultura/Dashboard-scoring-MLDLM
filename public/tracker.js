@@ -106,8 +106,33 @@
     var btn = form.querySelector('button');
     var f = function (n) { return form.querySelector('[name="' + n + '"]'); };
     var signup = false;
+    var turnstileToken = '';
+    var turnstileShown = false;
 
-    function showSignup(known) {
+    // Verificación anti-bots de Cloudflare (solo si está configurada en el dashboard).
+    function showTurnstile(siteKey) {
+      if (!siteKey || turnstileShown) return;
+      turnstileShown = true;
+      var holder = document.createElement('div');
+      holder.style.margin = '4px 0';
+      form.insertBefore(holder, btn);
+      function render() {
+        window.turnstile.render(holder, {
+          sitekey: siteKey,
+          callback: function (t) { turnstileToken = t; },
+          'expired-callback': function () { turnstileToken = ''; },
+        });
+      }
+      if (window.turnstile) return render();
+      var sc = document.createElement('script');
+      sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+      sc.async = true;
+      sc.onload = render;
+      document.head.appendChild(sc);
+    }
+
+    function showSignup(known, siteKey) {
+      showTurnstile(siteKey);
       signup = true;
       title.innerHTML = known
         ? '<strong>Todavía no estás registrada en este webinar.</strong> Completa tus datos para registrarte y acceder.'
@@ -125,7 +150,7 @@
       btn.disabled = true;
       err.hidden = true;
       var payload = { email: email, launch: launch, website: f('website').value };
-      if (signup) { payload.name = f('name').value.trim(); payload.phone = f('phone').value.trim(); }
+      if (signup) { payload.name = f('name').value.trim(); payload.phone = f('phone').value.trim(); payload.turnstile = turnstileToken; }
       post('/api/access', payload).then(function (r) {
         btn.disabled = false;
         if (r && r.ok) {
@@ -134,8 +159,11 @@
           return done({ email: email });
         }
         if (r && r.needs === 'signup') {
-          if (signup) { err.textContent = 'Revisa tu nombre y tu móvil.'; err.hidden = false; }
-          return showSignup(r.known);
+          if (signup) {
+            err.textContent = r.error === 'turnstile' ? 'Confirma que no eres un robot y vuelve a pulsar.' : 'Revisa tu nombre y tu móvil.';
+            err.hidden = false;
+          }
+          return showSignup(r.known, r.siteKey);
         }
         err.textContent = 'No hemos podido comprobar ese email. Revísalo e inténtalo de nuevo.';
         err.hidden = false;

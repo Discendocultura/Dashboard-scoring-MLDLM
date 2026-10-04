@@ -6,6 +6,7 @@
 // tiene la etiqueta de registro del lanzamiento, se le piden nombre y móvil y se registra antes de entrar.
 import { addTags, getContact } from '../lib/ghl.js';
 import { ensureRegistered, hasTag } from '../lib/access.js';
+import { turnstileSiteKey, verifyTurnstile } from '../lib/turnstile.js';
 import { getConfig } from '../lib/config-store.js';
 import { addRegistrant, zoomConfigured } from '../lib/zoom.js';
 import { html, escapeHtml, isEmail } from '../lib/http.js';
@@ -44,6 +45,8 @@ function signupForm(launchCode, email, error = '') {
       <input type="email" name="email" required value="${escapeHtml(email)}" autocomplete="email">
       <input type="text" name="nombre" required placeholder="Tu nombre" autocomplete="name">
       <input type="tel" name="telefono" required placeholder="Tu móvil (WhatsApp)" autocomplete="tel">
+      ${turnstileSiteKey() ? `<div class="cf-turnstile" data-sitekey="${escapeHtml(turnstileSiteKey())}" style="margin-top:10px"></div>
+      <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ''}
       <button type="submit">Registrarme y entrar</button>
     </form>`);
 }
@@ -100,6 +103,10 @@ export async function GET(request, ctx) {
     if (contact && launch.registroTag && !hasTag(contact, launch.registroTag)) {
       emailParam = contact.email;
       contact = null;
+    }
+    if (!contact && emailParam && url.searchParams.has('nombre')
+      && !(await verifyTurnstile(url.searchParams.get('cf-turnstile-response'), request.headers.get('cf-connecting-ip')))) {
+      return signupForm(code, emailParam, 'Confirma que no eres un robot y vuelve a intentarlo.');
     }
     if (!contact && emailParam) {
       // Registrada en el lanzamiento, o se registra ahora (si no existe, pedimos nombre y móvil).

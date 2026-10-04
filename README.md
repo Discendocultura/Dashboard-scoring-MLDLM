@@ -171,6 +171,54 @@ Pega en un bloque **Código HTML** de la página de GHL (un solo `<script>` para
 - El enlace `/directo` también recuerda a la lead en su navegador durante 90 días: si vuelve a entrar desde el
   grupo de WhatsApp, va directa.
 
+## Vistas del dashboard
+- **Hoy**: listas priorizadas para la setter (muy calientes sin contactar, VIP sin comprar, vieron la grabación,
+  seguimientos pendientes y contactadas sin resultado). Cada lead sale una sola vez.
+- **Leads**: la tabla completa con filtros. Tras enviar un WhatsApp aparece el selector de **resultado**
+  (respondió, interesada, llamada agendada, no contesta, no interesada), que se guarda en GHL como
+  `<código>_res_…`.
+- **Métricas**: embudo, inversión y rentabilidad, tráfico frío/templado, conversión por segmento, **origen**
+  (campaña / conjunto / anuncio), trabajo de la setter, consumo de vídeos, compras por estado y **qué predice la
+  compra** (para ajustar los pesos de la puntuación con datos reales).
+- **Comparar**: varios lanzamientos lado a lado.
+
+## Inversión y rentabilidad
+En la configuración del lanzamiento: **precio de la VIP**, **precio de Raíces** (o el importe medio cobrado) y,
+si no conectas Meta, la **inversión**. Facturación = VIP × precio VIP + ventas × precio Raíces.
+
+### Conectar Meta Ads (opcional, gratis)
+1. [business.facebook.com](https://business.facebook.com) → *Configuración del negocio → Usuarios del sistema → Añadir*
+   (rol administrador) → *Asignar activos*: tu cuenta publicitaria con permiso de ver rendimiento.
+2. *Generar token* → elige tu app (o crea una en developers.facebook.com, tipo *Empresa*) → permiso **`ads_read`** →
+   caducidad **Nunca**.
+3. En Cloudflare añade los secretos `META_ACCESS_TOKEN` y `META_AD_ACCOUNT_ID` (el número de la cuenta, con o sin `act_`).
+4. En el lanzamiento, rellena **Campañas de Meta de este lanzamiento** con un texto que contengan sus nombres
+   (p. ej. `webinar`) para no sumar el gasto de otros embudos.
+El periodo es desde el inicio de captación hasta el día antes del siguiente lanzamiento (o hoy). La tabla de origen
+cruza las UTM de GHL (`utm_campaign`, `utm_term`, `utm_content` con los ID de Meta) con los nombres y el gasto.
+
+## Resumen diario por email
+1. Configuración → Mensajes → **Enviar el resumen a**: tu email (tiene que existir como contacto en GHL).
+   Pulsa **Enviar resumen de prueba**.
+2. El token de GHL necesita además el permiso **`conversations/message.write`**.
+3. Para recibirlo cada mañana: añade en Cloudflare el secreto `DIGEST_KEY` (texto aleatorio largo) y crea una tarea
+   gratuita en [cron-job.org](https://cron-job.org) que abra a las 8:00 (hora de Madrid):
+   `https://<tu-proyecto>.pages.dev/api/digest?key=<DIGEST_KEY>`
+
+## Anti-bots (Cloudflare Turnstile, gratis)
+Cloudflare → *Turnstile → Add widget* → dominios: el de tus páginas de GHL y `<tu-proyecto>.pages.dev`, modo
+*Managed*. Copia la *Site Key* y la *Secret Key* a los secretos `TURNSTILE_SITE_KEY` y `TURNSTILE_SECRET`. A partir de
+ahí, registrarse desde la página de recursos o el directo pide la verificación (casi siempre invisible).
+
+## Prueba completa antes de cada lanzamiento
+Con un email tuyo que **no** esté en GHL:
+1. Abre la página de recursos sin `cid` → te pide registrarte → regístrate → en GHL tienes la etiqueta de registro.
+2. Mira 2-3 minutos de la clase 1 → en GHL aparece `<código>_clase1_25` (según la duración del vídeo).
+3. Pulsa el enlace al directo → entras a Zoom → en GHL `<código>_directo_click` y en Zoom apareces como inscrita.
+4. En el dashboard sales en Leads con tu puntuación; envíate el WhatsApp y marca un resultado.
+5. Haz una compra de prueba (o pon la etiqueta de compra y la fecha a mano) → cuenta en Métricas.
+6. Borra después tu contacto de prueba en GHL.
+
 ## Accesos
 - **Admin** (`ADMIN_PASSWORD`): todo, incluida la configuración y la sincronización con Zoom.
 - **Setter** (`SETTER_PASSWORD`): ver leads, filtrar, exportar y enviar WhatsApp.

@@ -132,12 +132,12 @@ test('acceso: registrada, existente sin etiqueta y email nuevo', async () => {
   assert.deepEqual(await call({ email: reg.email }), { ok: true, status: 'registered' });
   // existe en GHL (otro embudo) pero no en este lanzamiento → tiene que registrarse
   const otra = await upsertContact({ email: 'vsl@example.com', firstName: 'Vera' });
-  assert.deepEqual(await call({ email: 'vsl@example.com' }), { ok: false, needs: 'signup', known: true });
+  assert.deepEqual(await call({ email: 'vsl@example.com' }), { ok: false, needs: 'signup', known: true, siteKey: '' });
   assert.ok(!(await getContact(otra.id)).tags.includes('registro-webinar-demo'));
   assert.deepEqual(await call({ email: 'vsl@example.com', name: 'Vera Ruiz', phone: '+34 655 44 33 22' }), { ok: true, status: 'signed_up_existing' });
   assert.ok((await getContact(otra.id)).tags.includes('registro-webinar-demo'));
   // no existe → pide datos; con nombre y móvil se crea registrada
-  assert.deepEqual(await call({ email: 'nueva@example.com' }), { ok: false, needs: 'signup', known: false });
+  assert.deepEqual(await call({ email: 'nueva@example.com' }), { ok: false, needs: 'signup', known: false, siteKey: '' });
   assert.deepEqual(await call({ email: 'nueva@example.com', name: 'Nora Gil', phone: '600 11 22 33' }), { ok: true, status: 'created' });
   const nueva = await findContactByEmail('nueva@example.com');
   assert.equal(nueva.phone, '+34600112233');
@@ -169,4 +169,41 @@ test('directo con cid de alguien sin registro en el lanzamiento: pide registrars
   const ok = await GET(req('/directo?l=demo&email=newsletter@example.com&nombre=Nel&telefono=622334455'));
   assert.equal(ok.status, 302);
   assert.ok((await findContactByEmail('newsletter@example.com')).tags.includes('registro-webinar-demo'));
+});
+
+test('resumen diario: protegido por clave y enviado por GHL', async () => {
+  const { setEnv } = await import('../lib/env.js');
+  const { GET, POST } = await import('../handlers/digest.js');
+  setEnv({ DIGEST_KEY: 'clave-larga-de-prueba-123' });
+  assert.equal((await GET(req('/api/digest?key=mala'))).status, 401);
+  // sin email configurado → error claro
+  assert.equal((await GET(req('/api/digest?key=clave-larga-de-prueba-123'))).status, 400);
+  const admin = await login('admin');
+  const config = await import('../handlers/config.js');
+  const cur = await (await config.GET(req('/api/config', { cookie: admin }))).json();
+  const { getContact } = await import('../lib/ghl.js');
+  const dest = await getContact('mock00001');
+  await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, digestEmail: dest.email } }));
+  const r = await (await POST(req('/api/digest', { method: 'POST', cookie: admin }))).json();
+  assert.equal(r.sent, true);
+  const { sentEmails } = await import('../lib/mock.js');
+  assert.match(sentEmails.at(-1).html, /Muy calientes sin contactar/);
+});
+
+test('apply-tags: la setter puede cambiar el resultado, pero no quitar otras etiquetas', async () => {
+  const setter = await login('setter');
+  const { POST } = await import('../handlers/apply-tags.js');
+  const ok = await POST(req('/api/apply-tags', { method: 'POST', cookie: setter, body: { items: [{ id: 'mock00020', tags: ['demo_res_interesada'], remove: ['demo_res_respondio'] }] } }));
+  assert.equal(ok.status, 200);
+  const bad = await POST(req('/api/apply-tags', { method: 'POST', cookie: setter, body: { items: [{ id: 'mock00020', tags: [], remove: ['demo_vip_previo'] }] } }));
+  assert.equal(bad.status, 400);
+});
+
+test('meta: inversión por campaña con filtro por nombre', async () => {
+  const { adSpend } = await import('../lib/meta.js');
+  const all = await adSpend({ since: '2026-10-01', until: '2026-10-20' });
+  const retarg = await adSpend({ since: '2026-10-01', until: '2026-10-20', filter: 'retargeting' });
+  assert.ok(all.total > retarg.total && retarg.total > 0);
+  assert.equal(retarg.campaigns.length, 1);
+  assert.ok(all.names['331']);
 });

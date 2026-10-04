@@ -1,0 +1,142 @@
+// Métricas de un lanzamiento a partir de sus leads ya enriquecidos. Lo usan el dashboard
+// (pestaña Métricas y Comparar) y el resumen diario del servidor.
+import {
+  signalsFor, score, estadoFor, nextStepFor, waPhone, watched, ESTADOS, OUTCOMES,
+} from './scoring.js';
+
+// Inicio de captación del lanzamiento siguiente: ahí terminan las ventas de este.
+export function nextLaunchStart(config, code) {
+  const start = config.launches[code]?.inicioCaptacion;
+  if (!start) return '';
+  return Object.values(config.launches).map((l) => l.inicioCaptacion).filter((d) => d && d > start).sort()[0] || '';
+}
+
+export function enrichLead(contact, code, config) {
+  const launch = config.launches[code];
+  const s = signalsFor(contact.tags, code, { ...launch, finVentas: nextLaunchStart(config, code) }, contact);
+  const pts = score(s);
+  return {
+    ...contact,
+    s,
+    score: pts,
+    estado: estadoFor(pts),
+    step: nextStepFor(s),
+    outcome: OUTCOMES.find((o) => s[`res_${o.id}`])?.id || '',
+    phoneWa: waPhone(contact.phone, config.defaultCountryCode),
+    search: `${contact.name} ${contact.email} ${contact.phone}`.toLowerCase(),
+  };
+}
+
+const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+
+export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
+  const c = (fn) => leads.filter(fn).length;
+  const viewedReplay = (l) => watched(l.s, 'replay') >= 25;
+  const m = {
+    total: leads.length,
+    clase1: c((l) => watched(l.s, 'clase1') >= 25),
+    clase2: c((l) => watched(l.s, 'clase2') >= 25),
+    vip: c((l) => l.s.vip),
+    click: c((l) => l.s.directo_click || l.s.directo_asistio),
+    live: c((l) => l.s.directo_asistio),
+    liveFinal: c((l) => l.s.directo_final),
+    replay: c(viewedReplay),
+    compra: c((l) => l.s.compra),
+    compraVip: c((l) => l.s.compra && l.s.vip),
+    noVip: c((l) => !l.s.vip),
+    compraNoVip: c((l) => l.s.compra && !l.s.vip),
+    vipLive: c((l) => l.s.vip && l.s.directo_asistio),
+    compraLive: c((l) => l.s.compra && l.s.directo_asistio),
+    compraFinal: c((l) => l.s.compra && l.s.directo_final),
+    soloReplay: c((l) => !l.s.directo_asistio && viewedReplay(l)),
+    compraSoloReplay: c((l) => l.s.compra && !l.s.directo_asistio && viewedReplay(l)),
+    nada: c((l) => !l.s.directo_asistio && !viewedReplay(l)),
+    compraNada: c((l) => l.s.compra && !l.s.directo_asistio && !viewedReplay(l)),
+    compraDirecto: c((l) => l.s.compra_directo),
+    compraDirectoAsist: c((l) => l.s.compra_directo && l.s.directo_asistio),
+    vipAnterior: c((l) => l.s.vip_anterior),
+    clientaAnterior: c((l) => l.s.clienta_anterior),
+    frio: c((l) => l.s.trafico === 'frio'),
+    templado: c((l) => l.s.trafico === 'templado'),
+    compraFrio: c((l) => l.s.compra && l.s.trafico === 'frio'),
+    compraTemplado: c((l) => l.s.compra && l.s.trafico === 'templado'),
+    estados: ESTADOS.map((e) => {
+      const inE = leads.filter((l) => l.estado.id === e.id);
+      return { ...e, leads: inE.length, compras: inE.filter((l) => l.s.compra).length };
+    }),
+  };
+
+  // Setter: contactadas por WhatsApp y qué pasó.
+  const contacted = leads.filter((l) => l.s.wa_enviado);
+  m.setter = {
+    contactadas: contacted.length,
+    compraContactadas: contacted.filter((l) => l.s.compra).length,
+    noContactadas: leads.length - contacted.length,
+    compraNoContactadas: leads.filter((l) => !l.s.wa_enviado && l.s.compra).length,
+    resultados: OUTCOMES.map((o) => {
+      const inO = leads.filter((l) => l.outcome === o.id);
+      return { ...o, leads: inO.length, compras: inO.filter((l) => l.s.compra).length };
+    }),
+  };
+
+  // Economía del lanzamiento.
+  const inversion = metaSpend != null ? metaSpend : num(launch.inversion);
+  const facturacion = m.vip * num(launch.precioVip) + m.compra * num(launch.precioPrograma);
+  m.eco = {
+    inversion,
+    inversionFuente: metaSpend != null ? 'meta' : 'manual',
+    facturacion,
+    facturacionVip: m.vip * num(launch.precioVip),
+    facturacionPrograma: m.compra * num(launch.precioPrograma),
+    beneficio: facturacion - inversion,
+    roas: inversion ? facturacion / inversion : null,
+    // CPL de pago: solo cuenta el tráfico frío (los templados ya estaban en tu base de datos).
+    cpl: inversion && m.total ? inversion / m.total : null,
+    cplFrio: inversion && m.frio ? inversion / m.frio : null,
+    cpVip: inversion && m.vip ? inversion / m.vip : null,
+    cpa: inversion && m.compra ? inversion / m.compra : null,
+  };
+
+  // Qué señales predicen la compra: conversión con la señal frente a sin ella.
+  const SIGNAL_TESTS = [
+    ['Vio ≥50% de la clase 1', (l) => watched(l.s, 'clase1') >= 50],
+    ['Vio ≥50% de la clase 2', (l) => watched(l.s, 'clase2') >= 50],
+    ['Compró la VIP', (l) => l.s.vip],
+    ['Pulsó el enlace del directo', (l) => l.s.directo_click || l.s.directo_asistio],
+    ['Asistió al directo', (l) => l.s.directo_asistio],
+    ['Más de 60 min en el directo', (l) => l.s.directo_60],
+    ['Directo hasta el final', (l) => l.s.directo_final],
+    ['Vio ≥50% de la grabación', (l) => watched(l.s, 'replay') >= 50],
+    ['Tráfico templado', (l) => l.s.trafico === 'templado'],
+    ['Contactada por WhatsApp', (l) => l.s.wa_enviado],
+  ];
+  m.lift = SIGNAL_TESTS.map(([label, fn]) => {
+    const yes = leads.filter(fn);
+    const no = leads.filter((l) => !fn(l));
+    const cy = yes.length ? yes.filter((l) => l.s.compra).length / yes.length : 0;
+    const cn = no.length ? no.filter((l) => l.s.compra).length / no.length : 0;
+    return { label, con: yes.length, convCon: cy, sin: no.length, convSin: cn, veces: yes.length && cn ? cy / cn : null };
+  });
+  return m;
+}
+
+// Agrupa los leads por su origen (campaña o anuncio de Meta según las UTM de GHL).
+export function bySource(leads, level = 'campaign', names = {}) {
+  const groups = new Map();
+  for (const l of leads) {
+    const src = l.src || {};
+    const id = level === 'ad' ? src.content : level === 'adset' ? src.term : src.campaign;
+    const key = id || (src.source ? `__${src.source}` : '__sin');
+    const g = groups.get(key) || {
+      key,
+      label: id ? (names[id] || id) : src.source ? `Sin campaña (${src.source})` : 'Sin origen (orgánico / directo)',
+      leads: 0, frio: 0, vip: 0, compras: 0,
+    };
+    g.leads++;
+    if (l.s.trafico === 'frio') g.frio++;
+    if (l.s.vip) g.vip++;
+    if (l.s.compra) g.compras++;
+    groups.set(key, g);
+  }
+  return [...groups.values()].sort((a, b) => b.leads - a.leads);
+}
