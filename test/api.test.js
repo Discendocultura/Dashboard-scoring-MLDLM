@@ -100,3 +100,26 @@ test('login ignora espacios y health no revela valores', async () => {
   assert.equal(body.vars.ADMIN_PASSWORD, true);
   assert.ok(!JSON.stringify(body).includes(env.SESSION_SECRET));
 });
+
+test('identify comprueba el registro en el lanzamiento', async () => {
+  const { POST } = await import('../handlers/identify.js');
+  const { getContact } = await import('../lib/ghl.js');
+  const registrada = await getContact('mock00005');
+  const ok = await (await POST(req('/api/identify', { method: 'POST', body: { email: registrada.email, launch: 'demo' } }))).json();
+  assert.deepEqual(ok, { found: true, registered: true });
+  const nadie = await (await POST(req('/api/identify', { method: 'POST', body: { email: 'nadie@example.com', launch: 'demo' } }))).json();
+  assert.deepEqual(nadie, { found: false, registered: false });
+});
+
+test('el directo recuerda a la lead en ese navegador', async () => {
+  const { GET } = await import('../handlers/directo.js');
+  const first = await GET(req('/directo?l=demo&cid=mock00007'));
+  assert.equal(first.status, 302);
+  const cookie = first.headers.get('set-cookie');
+  assert.match(cookie, /lsd_who=cid%3Amock00007; Path=\/directo/);
+  // segunda vez, desde el grupo de WhatsApp (sin cid): entra directa sin formulario
+  const again = await GET(req('/directo?l=demo', { cookie: cookie.split(';')[0] }));
+  assert.equal(again.status, 302);
+  // sin cookie: formulario de email
+  assert.equal((await GET(req('/directo?l=demo'))).status, 200);
+});

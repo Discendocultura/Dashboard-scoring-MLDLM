@@ -147,6 +147,24 @@ El plan gratuito incluye 100.000 peticiones al día, de sobra para varios lanzam
 En cada vídeo: *Privacidad → Dónde se puede insertar → Solo en dominios específicos*, y añade
 tu dominio de GHL. Si el vídeo es oculto, usa su URL completa con el hash (`https://vimeo.com/123/abcdef`).
 
+## Página de recursos (clase 1 y clase 2 en la misma página)
+Pega en un bloque **Código HTML** de la página de GHL (un solo `<script>` para toda la página):
+
+```html
+<div data-lsd-gate></div>  <!-- opcional: dónde aparece el formulario de acceso -->
+<div data-lsd-video="clase1" data-vimeo="https://vimeo.com/111/aaa" data-launch="nov26"></div>
+<div data-lsd-video="clase2" data-vimeo="https://vimeo.com/222/bbb" data-launch="nov26"></div>
+<a href="https://<tu-proyecto>.pages.dev/directo?l=nov26">Entrar al directo</a>
+<script src="https://<tu-proyecto>.pages.dev/tracker.js" defer></script>
+```
+
+- Si la lead llega con `?cid={{contact.id}}` (desde un email de GHL), ve las clases directamente.
+- Si no, aparece **un único** formulario de email que solo deja pasar a quien tenga la etiqueta de registro
+  del lanzamiento. Ese navegador la recuerda para la próxima vez.
+- El enlace al directo de la página se completa solo con su identidad, así entra a Zoom sin escribir nada.
+- El enlace `/directo` también recuerda a la lead en su navegador durante 90 días: si vuelve a entrar desde el
+  grupo de WhatsApp, va directa.
+
 ## Accesos
 - **Admin** (`ADMIN_PASSWORD`): todo, incluida la configuración y la sincronización con Zoom.
 - **Setter** (`SETTER_PASSWORD`): ver leads, filtrar, exportar y enviar WhatsApp.

@@ -32,15 +32,42 @@ function emailForm(launchCode, error = '') {
     </form>`);
 }
 
-export async function GET(request) {
+// Recordamos quién es en este navegador (cookie solo de /directo) para que, si vuelve a entrar
+// desde el grupo de WhatsApp o tras cortarse la conexión, no tenga que escribir el email otra vez.
+const WHO_COOKIE = 'lsd_who';
+const WHO_MAX_AGE = 90 * 24 * 3600;
+
+function rememberedWho(request) {
+  const m = (request.headers.get('cookie') || '').match(/(?:^|;\s*)lsd_who=([^;]+)/);
+  if (!m) return {};
+  const v = decodeURIComponent(m[1]);
+  if (/^cid:[A-Za-z0-9]{6,40}$/.test(v)) return { cid: v.slice(4) };
+  if (/^email:/.test(v) && isEmail(v.slice(6))) return { email: v.slice(6) };
+  return {};
+}
+
+const isCid = (v) => /^[A-Za-z0-9]{6,40}$/.test(v);
+
+export async function GET(request, ctx) {
   const url = new URL(request.url);
   const code = url.searchParams.get('l') || '';
-  const cid = url.searchParams.get('cid') || '';
-  const emailParam = (url.searchParams.get('email') || '').trim().toLowerCase();
+  let cid = url.searchParams.get('cid') || '';
+  let emailParam = (url.searchParams.get('email') || '').trim().toLowerCase();
+  if (!isCid(cid)) cid = '';
+  if (!cid && !emailParam) ({ cid = '', email: emailParam = '' } = rememberedWho(request));
 
+  if (emailParam && !isEmail(emailParam)) return emailForm(code, 'Ese email no parece correcto.');
+
+  // Configuración y contacto en paralelo para que la redirección sea lo más rápida posible.
   let launch;
+  let contact = null;
   try {
-    launch = (await getConfig()).launches[code];
+    const [config, byId] = await Promise.all([
+      getConfig(),
+      cid ? getContact(cid).catch((e) => { console.error(e); return null; }) : null,
+    ]);
+    launch = config.launches[code];
+    contact = byId;
   } catch (e) {
     console.error(e);
   }
@@ -48,14 +75,15 @@ export async function GET(request) {
   const fallback = launch.zoomJoinUrl;
 
   if (!cid && !emailParam) return emailForm(code);
-  if (emailParam && !isEmail(emailParam)) return emailForm(code, 'Ese email no parece correcto.');
 
-  let contact = null;
   let joinUrl = '';
   try {
-    if (/^[A-Za-z0-9]{6,40}$/.test(cid)) contact = await getContact(cid);
     if (!contact && emailParam) contact = await findContactByEmail(emailParam);
-    if (contact) await addTags(contact.id, [tagFor(code, 'directo_click')]).catch((e) => console.error(e));
+    if (contact) {
+      // La etiqueta se guarda después de redirigir: la lead no espera por ella.
+      const tagging = addTags(contact.id, [tagFor(code, 'directo_click')]).catch((e) => console.error(e));
+      if (ctx?.waitUntil) ctx.waitUntil(tagging);
+    }
 
     const email = contact?.email || emailParam;
     if (email && launch.zoomMeetingId && zoomConfigured()) {
@@ -68,5 +96,8 @@ export async function GET(request) {
 
   const target = joinUrl || fallback;
   if (!target) return page('Directo', '<h1>El enlace del directo aún no está disponible</h1><p>Vuelve a intentarlo un poco más tarde.</p>');
-  return new Response(null, { status: 302, headers: { location: target, 'cache-control': 'no-store' } });
+  const headers = new Headers({ location: target, 'cache-control': 'no-store' });
+  const who = contact ? `cid:${contact.id}` : emailParam ? `email:${emailParam}` : '';
+  if (who) headers.append('set-cookie', `${WHO_COOKIE}=${encodeURIComponent(who)}; Path=/directo; Max-Age=${WHO_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`);
+  return new Response(null, { status: 302, headers });
 }
