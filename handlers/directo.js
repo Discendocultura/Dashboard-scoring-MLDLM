@@ -3,9 +3,9 @@
 // 2) Lo inscribe en la reunión de Zoom con su email y le redirige a su enlace personal,
 //    para que después el informe de Zoom diga quién asistió y cuánto tiempo.
 // Si llega sin identificar (p. ej. desde el grupo de WhatsApp) se le pide el email; si ese email no
-// existe en GHL, se le piden nombre y móvil y se registra en el lanzamiento antes de entrar.
+// tiene la etiqueta de registro del lanzamiento, se le piden nombre y móvil y se registra antes de entrar.
 import { addTags, getContact } from '../lib/ghl.js';
-import { ensureRegistered } from '../lib/access.js';
+import { ensureRegistered, hasTag } from '../lib/access.js';
 import { getConfig } from '../lib/config-store.js';
 import { addRegistrant, zoomConfigured } from '../lib/zoom.js';
 import { html, escapeHtml, isEmail } from '../lib/http.js';
@@ -96,6 +96,11 @@ export async function GET(request, ctx) {
 
   let joinUrl = '';
   try {
+    // Por enlace con cid pero sin la etiqueta de registro: también tiene que registrarse.
+    if (contact && launch.registroTag && !hasTag(contact, launch.registroTag)) {
+      emailParam = contact.email;
+      contact = null;
+    }
     if (!contact && emailParam) {
       // Registrada en el lanzamiento, o se registra ahora (si no existe, pedimos nombre y móvil).
       const result = await ensureRegistered(launch, {
@@ -108,10 +113,8 @@ export async function GET(request, ctx) {
       contact = result.contact;
     }
     if (contact) {
-      const tags = [tagFor(code, 'directo_click')];
-      if (launch.registroTag && !contact.tags.map((t) => t.toLowerCase()).includes(launch.registroTag)) tags.push(launch.registroTag);
-      // Las etiquetas se guardan después de redirigir: la lead no espera por ellas.
-      const tagging = addTags(contact.id, tags).catch((e) => console.error(e));
+      // La etiqueta se guarda después de redirigir: la lead no espera por ella.
+      const tagging = addTags(contact.id, [tagFor(code, 'directo_click')]).catch((e) => console.error(e));
       if (ctx?.waitUntil) ctx.waitUntil(tagging);
     }
 

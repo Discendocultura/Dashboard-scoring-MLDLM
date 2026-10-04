@@ -130,12 +130,14 @@ test('acceso: registrada, existente sin etiqueta y email nuevo', async () => {
   const call = async (body) => (await POST(req('/api/access', { method: 'POST', body: { launch: 'demo', ...body } }))).json();
   const reg = await getContact('mock00011');
   assert.deepEqual(await call({ email: reg.email }), { ok: true, status: 'registered' });
-  // existe en GHL (otro embudo) pero no en este lanzamiento → se le añade la etiqueta
+  // existe en GHL (otro embudo) pero no en este lanzamiento → tiene que registrarse
   const otra = await upsertContact({ email: 'vsl@example.com', firstName: 'Vera' });
-  assert.deepEqual(await call({ email: 'vsl@example.com' }), { ok: true, status: 'tagged' });
+  assert.deepEqual(await call({ email: 'vsl@example.com' }), { ok: false, needs: 'signup', known: true });
+  assert.ok(!(await getContact(otra.id)).tags.includes('registro-webinar-demo'));
+  assert.deepEqual(await call({ email: 'vsl@example.com', name: 'Vera Ruiz', phone: '+34 655 44 33 22' }), { ok: true, status: 'signed_up_existing' });
   assert.ok((await getContact(otra.id)).tags.includes('registro-webinar-demo'));
   // no existe → pide datos; con nombre y móvil se crea registrada
-  assert.deepEqual(await call({ email: 'nueva@example.com' }), { ok: false, needs: 'signup' });
+  assert.deepEqual(await call({ email: 'nueva@example.com' }), { ok: false, needs: 'signup', known: false });
   assert.deepEqual(await call({ email: 'nueva@example.com', name: 'Nora Gil', phone: '600 11 22 33' }), { ok: true, status: 'created' });
   const nueva = await findContactByEmail('nueva@example.com');
   assert.equal(nueva.phone, '+34600112233');
@@ -155,4 +157,16 @@ test('directo con email nuevo: pide datos, registra y entra', async () => {
   const { findContactByEmail } = await import('../lib/ghl.js');
   const c = await findContactByEmail('directo-nueva@example.com');
   assert.ok(c.tags.includes('registro-webinar-demo') && c.tags.includes('demo_directo_click'));
+});
+
+test('directo con cid de alguien sin registro en el lanzamiento: pide registrarse', async () => {
+  const { GET } = await import('../handlers/directo.js');
+  const { upsertContact, findContactByEmail } = await import('../lib/ghl.js');
+  const c = await upsertContact({ email: 'newsletter@example.com', firstName: 'Nel' });
+  const form = await GET(req(`/directo?l=demo&cid=${c.id}`));
+  assert.equal(form.status, 200);
+  assert.match(await form.text(), /newsletter@example.com/);
+  const ok = await GET(req('/directo?l=demo&email=newsletter@example.com&nombre=Nel&telefono=622334455'));
+  assert.equal(ok.status, 302);
+  assert.ok((await findContactByEmail('newsletter@example.com')).tags.includes('registro-webinar-demo'));
 });

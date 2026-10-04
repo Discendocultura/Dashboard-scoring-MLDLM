@@ -107,9 +107,11 @@
     var f = function (n) { return form.querySelector('[name="' + n + '"]'); };
     var signup = false;
 
-    function showSignup() {
+    function showSignup(known) {
       signup = true;
-      title.innerHTML = '<strong>No encontramos tu registro.</strong> Completa tus datos y accede ahora mismo.';
+      title.innerHTML = known
+        ? '<strong>Todavía no estás registrada en este webinar.</strong> Completa tus datos para registrarte y acceder.'
+        : '<strong>No encontramos tu registro.</strong> Completa tus datos para registrarte y acceder.';
       f('name').hidden = false; f('name').required = true;
       f('phone').hidden = false; f('phone').required = true;
       btn.textContent = 'Registrarme y acceder';
@@ -133,7 +135,7 @@
         }
         if (r && r.needs === 'signup') {
           if (signup) { err.textContent = 'Revisa tu nombre y tu móvil.'; err.hidden = false; }
-          return showSignup();
+          return showSignup(r.known);
         }
         err.textContent = 'No hemos podido comprobar ese email. Revísalo e inténtalo de nuevo.';
         err.hidden = false;

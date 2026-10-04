@@ -161,8 +161,9 @@ Pega en un bloque **Código HTML** de la página de GHL (un solo `<script>` para
 - Si la lead llega con `?cid={{contact.id}}` (desde un email de GHL), ve las clases directamente.
 - Si no, aparece **un único** formulario de acceso con el email del registro:
   - **ya registrada** en el lanzamiento → entra;
-  - **existe en GHL** (otro embudo) pero sin la etiqueta de registro → se le añade la etiqueta y entra;
-  - **no existe** → se le piden nombre y móvil, se crea en GHL con la etiqueta de registro y entra.
+  - **no tiene la etiqueta de registro** del lanzamiento en curso (sea nueva o ya esté en GHL por otro embudo)
+    → tiene que registrarse: nombre y móvil. Se crea o actualiza en GHL con la etiqueta de registro (cuenta como
+    lead del lanzamiento) y entra.
   Ese navegador la recuerda para la próxima vez. El enlace `/directo` funciona igual.
 - Las nuevas se crean con la **etiqueta de registro**, así que los workflows de GHL que se disparan con esa
   etiqueta (bienvenida, recordatorios…) se activan igual que con el formulario.
