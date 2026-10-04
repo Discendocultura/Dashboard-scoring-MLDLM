@@ -89,3 +89,14 @@ test('router: rutas de la API y del directo', async () => {
   assert.equal((await route(req('/api/login'), env)).status, 405);
   assert.equal((await route(req('/directo?l=demo&cid=mock00003'), env)).status, 302);
 });
+
+test('login ignora espacios y health no revela valores', async () => {
+  const { setEnv, env } = await import('../lib/env.js');
+  setEnv({ ADMIN_PASSWORD: ' admin ' });
+  assert.ok(await login(' admin'));
+  setEnv({ ADMIN_PASSWORD: 'admin' });
+  const { GET } = await import('../handlers/health.js');
+  const body = await (await GET()).json();
+  assert.equal(body.vars.ADMIN_PASSWORD, true);
+  assert.ok(!JSON.stringify(body).includes(env.SESSION_SECRET));
+});
