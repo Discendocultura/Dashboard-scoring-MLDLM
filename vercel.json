@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [{ "source": "/directo", "destination": "/api/directo" }],
+  "headers": [
+    { "source": "/tracker.js", "headers": [{ "key": "Cache-Control", "value": "public, max-age=300" }, { "key": "Access-Control-Allow-Origin", "value": "*" }] },
+    { "source": "/(.*)", "headers": [{ "key": "X-Frame-Options", "value": "DENY" }, { "key": "Referrer-Policy", "value": "same-origin" }] }
+  ]
+}

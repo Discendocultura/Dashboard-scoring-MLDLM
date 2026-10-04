@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Lead Scoring</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body>
+  <!-- Acceso -->
+  <section id="login" class="login" hidden>
+    <form id="login-form" class="card login-card">
+      <h1>Lead Scoring</h1>
+      <p class="muted">Introduce la contraseña del dashboard.</p>
+      <input id="login-password" type="password" autocomplete="current-password" placeholder="Contraseña" required>
+      <p id="login-error" class="error" hidden></p>
+      <button class="btn primary" type="submit">Entrar</button>
+    </form>
+  </section>
+
+  <!-- Dashboard -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand">Lead Scoring <span id="role-badge" class="badge"></span></div>
+      <div class="topbar-controls">
+        <label class="field inline">
+          <span>Lanzamiento</span>
+          <select id="launch-select"></select>
+        </label>
+        <button id="btn-reload" class="btn" type="button" title="Volver a cargar los leads desde GHL">Actualizar</button>
+        <button id="btn-zoom" class="btn admin-only" type="button" title="Leer la asistencia del directo en Zoom y etiquetar a los leads">Sincronizar Zoom</button>
+        <button id="btn-config" class="btn admin-only" type="button">Configuración</button>
+        <button id="btn-logout" class="btn ghost" type="button">Salir</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <div id="notice" class="notice" hidden></div>
+      <div id="progress" class="progress" hidden><div class="progress-bar"></div><span class="progress-text"></span></div>
+
+      <section id="empty-state" class="card empty" hidden>
+        <h2>Crea tu primer lanzamiento</h2>
+        <p class="muted">Elige la etiqueta de registro y la de compra VIP, y pega los enlaces de la grabación y de la oferta.</p>
+        <button class="btn primary admin-only" type="button" data-action="new-launch">Nuevo lanzamiento</button>
+        <p class="muted setter-only">Pide al administrador que configure el lanzamiento.</p>
+      </section>
+
+      <section id="dashboard" hidden>
+        <div id="kpis" class="kpis"></div>
+
+        <div class="filters">
+          <input id="f-search" type="search" placeholder="Buscar nombre, email o teléfono">
+          <select id="f-estado"><option value="">Todos los estados</option></select>
+          <select id="f-step"><option value="">Todos los mensajes</option></select>
+          <select id="f-signal">
+            <option value="">Cualquier actividad</option>
+            <option value="vip">Compró VIP</option>
+            <option value="directo_asistio">Asistió al directo</option>
+            <option value="directo_final">Directo hasta el final</option>
+            <option value="replay_50">Vio la grabación (≥50%)</option>
+            <option value="sin_actividad">Sin actividad</option>
+          </select>
+          <label class="check"><input id="f-pending" type="checkbox"> Solo sin contactar</label>
+          <span class="spacer"></span>
+          <button id="btn-csv" class="btn" type="button">Exportar CSV</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="leads">
+            <thead>
+              <tr>
+                <th data-sort="name">Lead</th>
+                <th>Clase 1</th>
+                <th>Clase 2</th>
+                <th>VIP</th>
+                <th>Directo</th>
+                <th>Grabación</th>
+                <th data-sort="score" class="num">Puntos</th>
+                <th>Estado</th>
+                <th>WhatsApp</th>
+              </tr>
+            </thead>
+            <tbody id="leads-body"></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <span id="page-info" class="muted"></span>
+          <span class="spacer"></span>
+          <button id="page-prev" class="btn" type="button">Anterior</button>
+          <button id="page-next" class="btn" type="button">Siguiente</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Configuración (solo admin) -->
+  <dialog id="config-dialog" class="dialog">
+    <form id="config-form" method="dialog">
+      <header class="dialog-head">
+        <h2>Configuración</h2>
+        <button class="btn ghost" value="cancel" formnovalidate type="submit" aria-label="Cerrar">✕</button>
+      </header>
+
+      <div class="dialog-body">
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" data-tab="launch">Lanzamiento</button>
+          <button type="button" class="tab" data-tab="messages">Mensajes de WhatsApp</button>
+          <button type="button" class="tab" data-tab="snippets">Códigos para GHL</button>
+        </div>
+
+        <section class="tab-panel" data-panel="launch">
+          <div class="row">
+            <label class="field">
+              <span>Lanzamiento a editar</span>
+              <select id="cfg-launch-pick"></select>
+            </label>
+            <button type="button" class="btn" data-action="new-launch">+ Nuevo</button>
+          </div>
+          <div class="grid2">
+            <label class="field"><span>Código <small>(minúsculas, sin espacios: p. ej. <code>nov26</code>)</small></span>
+              <input id="cfg-code" required pattern="[a-z0-9\-]{2,24}"></label>
+            <label class="field"><span>Nombre</span><input id="cfg-name" placeholder="Webinar noviembre 2026"></label>
+            <label class="field"><span>Etiqueta de registro (leads del lanzamiento)</span>
+              <input id="cfg-registro" list="tag-list" required placeholder="Busca la etiqueta…"></label>
+            <label class="field"><span>Etiqueta de compra VIP</span>
+              <input id="cfg-vip" list="tag-list" placeholder="Busca la etiqueta…"></label>
+            <label class="field"><span>ID de la reunión de Zoom</span><input id="cfg-zoom-id" inputmode="numeric" placeholder="812 3456 7890"></label>
+            <label class="field"><span>Enlace genérico de Zoom <small>(por si falla el registro)</small></span><input id="cfg-zoom-url" type="url"></label>
+            <label class="field"><span>Página de la grabación</span><input id="cfg-replay" type="url"></label>
+            <label class="field"><span>Página de Raíces (oferta)</span><input id="cfg-raices" type="url"></label>
+            <label class="field"><span>Página de venta / checkout</span><input id="cfg-venta" type="url"></label>
+            <label class="field"><span>Enlace para reservar llamada</span><input id="cfg-llamada" type="url"></label>
+          </div>
+          <datalist id="tag-list"></datalist>
+        </section>
+
+        <section class="tab-panel" data-panel="messages" hidden>
+          <p class="muted">Variables: <code>{nombre}</code> <code>{link_grabacion}</code> <code>{link_raices}</code> <code>{link_venta}</code> <code>{link_llamada}</code>. Los enlaces se personalizan solos con el ID del lead para seguir midiendo.</p>
+          <label class="field"><span>1 · No ha visto la grabación → enviarle a la grabación</span><textarea id="tpl-grabacion" rows="4"></textarea></label>
+          <label class="field"><span>2 · Ha visto ≥50% de la grabación → oferta Raíces</span><textarea id="tpl-raices" rows="4"></textarea></label>
+          <label class="field"><span>3 · Llegó al final (directo hasta el final o grabación ≥90%) → venta o llamada</span><textarea id="tpl-cierre" rows="4"></textarea></label>
+          <label class="field narrow"><span>Prefijo para móviles sin prefijo</span><input id="cfg-country" inputmode="numeric" value="34"></label>
+        </section>
+
+        <section class="tab-panel" data-panel="snippets" hidden>
+          <p class="muted">Guarda primero el lanzamiento. Después pega cada código en un bloque <strong>Código HTML</strong> de la página correspondiente de GHL y sustituye el enlace de Vimeo.</p>
+          <div id="snippets"></div>
+        </section>
+      </div>
+
+      <footer class="dialog-foot">
+        <span id="cfg-status" class="muted"></span>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate type="submit">Cancelar</button>
+        <button id="cfg-save" class="btn primary" type="button">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
+</body>
+</html>
