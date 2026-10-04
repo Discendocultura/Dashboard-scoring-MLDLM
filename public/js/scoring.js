@@ -4,15 +4,21 @@
 // Señales que se guardan como etiquetas en GHL con el formato `<lanzamiento>_<señal>`,
 // p. ej. `nov26_clase1_50`. Así cada lanzamiento tiene su propio historial.
 export const SIGNALS = [
-  'clase1_50', 'clase1_90',
-  'clase2_50', 'clase2_90',
-  'replay_50', 'replay_90',
+  'clase1_25', 'clase1_50', 'clase1_75', 'clase1_90',
+  'clase2_25', 'clase2_50', 'clase2_75', 'clase2_90',
+  'replay_25', 'replay_50', 'replay_75', 'replay_90',
   'directo_click', 'directo_asistio', 'directo_60', 'directo_final',
   'wa_enviado',
 ];
 
 export const VIDEOS = ['clase1', 'clase2', 'replay'];
-export const THRESHOLDS = [50, 90];
+export const THRESHOLDS = [25, 50, 75, 90];
+
+// Mayor porcentaje visto de un vídeo (0, 25, 50, 75 o 90).
+export function watched(s, video) {
+  for (let i = THRESHOLDS.length - 1; i >= 0; i--) if (s[`${video}_${THRESHOLDS[i]}`]) return THRESHOLDS[i];
+  return 0;
+}
 
 export const LAUNCH_CODE_RE = /^[a-z0-9-]{2,24}$/;
 
@@ -49,11 +55,11 @@ export function signalsFor(contactTags, launch, vipTag) {
 
 // Puntuación (0-100). Ajusta aquí los pesos si quieres cambiar el criterio.
 export const POINTS = {
-  clase50: 8, clase90: 15,          // por cada clase pre-webinar
+  clase: { 25: 4, 50: 8, 75: 12, 90: 15 },   // por cada clase pre-webinar
   vip: 30,
   directoClick: 5,                  // pulsó el enlace al directo (sin asistencia confirmada)
   directoAsistio: 15, directo60: 10, directoFinal: 15,
-  replay50: 20, replay90: 40,
+  replay: { 25: 10, 50: 20, 75: 30, 90: 40 },
 };
 
 export const ESTADOS = [
@@ -66,14 +72,14 @@ export const ESTADOS = [
 export function score(s) {
   const P = POINTS;
   let pts = 0;
-  pts += s.clase1_90 ? P.clase90 : s.clase1_50 ? P.clase50 : 0;
-  pts += s.clase2_90 ? P.clase90 : s.clase2_50 ? P.clase50 : 0;
+  pts += P.clase[watched(s, 'clase1')] || 0;
+  pts += P.clase[watched(s, 'clase2')] || 0;
   if (s.vip) pts += P.vip;
   // Directo y grabación son dos formas de ver lo mismo: cuenta la mejor de las dos.
   const live = (s.directo_asistio ? P.directoAsistio : 0)
     + (s.directo_60 ? P.directo60 : 0)
     + (s.directo_final ? P.directoFinal : 0);
-  const replay = s.replay_90 ? P.replay90 : s.replay_50 ? P.replay50 : 0;
+  const replay = P.replay[watched(s, 'replay')] || 0;
   pts += Math.max(live, replay);
   if (s.directo_click && !s.directo_asistio) pts += P.directoClick;
   return Math.min(pts, 100);
@@ -94,8 +100,9 @@ export const NEXT_STEPS = {
 };
 
 export function nextStepFor(s) {
-  if (s.directo_final || s.replay_90) return 'cierre';
-  if (s.replay_50) return 'raices';
+  const replay = watched(s, 'replay');
+  if (s.directo_final || replay >= 90) return 'cierre';
+  if (replay >= 50) return 'raices';
   return 'grabacion';
 }
 

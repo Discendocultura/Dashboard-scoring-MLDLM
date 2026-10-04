@@ -14,7 +14,7 @@ las etiquetas y calcula la puntuación. Puedes usar esas mismas etiquetas en wor
 |---|---|---|
 | Registrado | la que elijas | formulario de GHL (lo que ya haces) |
 | VIP | la que elijas | tu checkout de GHL (lo que ya haces) |
-| Clase 1 / Clase 2 / Grabación | `<código>_clase1_50`, `_clase1_90`, `_clase2_…`, `_replay_…` | `tracker.js` en la página de GHL: cuenta los segundos realmente vistos en Vimeo y avisa al 50% y al 90% |
+| Clase 1 / Clase 2 / Grabación | `<código>_clase1_25` … `_clase1_90` (25, 50, 75, 90), igual para `clase2` y `replay` | `tracker.js` en la página de GHL: cuenta los segundos realmente vistos en Vimeo y avisa al 25%, 50%, 75% y 90% |
 | Pulsó el enlace al directo | `<código>_directo_click` | enlace puente `/directo` |
 | Asistió al directo | `_directo_asistio`, `_directo_60` (+60 min), `_directo_final` | botón **Sincronizar Zoom** (informe de participantes) |
 | Contactado por WhatsApp | `<código>_wa_enviado` | al pulsar el botón de WhatsApp |
@@ -23,10 +23,10 @@ las etiquetas y calcula la puntuación. Puedes usar esas mismas etiquetas en wor
 
 | Acción | Puntos |
 |---|---|
-| Cada clase pre-webinar: 50% / 90% | 8 / 15 |
+| Cada clase pre-webinar: 25% / 50% / 75% / 90% | 4 / 8 / 12 / 15 |
 | Compra VIP | 30 |
 | Directo: asistió / +60 min / hasta el final | 15 / +10 / +15 |
-| Grabación: 50% / 90% | 20 / 40 |
+| Grabación: 25% / 50% / 75% / 90% | 10 / 20 / 30 / 40 |
 | Pulsó el enlace al directo, pero no consta su asistencia | 5 |
 
 Directo y grabación **no se suman**: cuenta el mejor de los dos (son la misma clase).

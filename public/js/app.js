@@ -1,5 +1,6 @@
 import {
   signalsFor, score, estadoFor, ESTADOS, nextStepFor, NEXT_STEPS, buildMessage, waPhone, tagFor, LAUNCH_CODE_RE,
+  THRESHOLDS, watched,
 } from './scoring.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -202,7 +203,8 @@ function filtered() {
     if (f.step && l.step !== f.step) return false;
     if (f.pending && l.s.wa_enviado) return false;
     if (f.signal === 'sin_actividad') return l.score === 0 && !l.s.directo_click;
-    if (f.signal === 'replay_50') return l.s.replay_50 || l.s.replay_90;
+    if (f.signal === 'sin_clases') return !watched(l.s, 'clase1') && !watched(l.s, 'clase2');
+    if (f.signal === 'replay_50') return watched(l.s, 'replay') >= 50;
     if (f.signal && !l.s[f.signal]) return false;
     return true;
   });
@@ -250,7 +252,28 @@ function render() {
   });
 }
 
+const VIDEO_LABELS = { clase1: 'Clase 1', clase2: 'Clase 2', replay: 'Grabación' };
+
+// Cuántos leads han visto cada vídeo al menos un 25 / 50 / 75 / 90 %.
+function renderConsumo() {
+  const L = state.leads;
+  const pct = (n) => (L.length ? Math.round((n / L.length) * 100) : 0);
+  const rows = Object.entries(VIDEO_LABELS).map(([v, label]) => {
+    const counts = THRESHOLDS.map((t) => L.filter((l) => watched(l.s, v) >= t).length);
+    return `<tr><th scope="row">${label}</th>${counts.map((n) => `
+      <td><div class="meter" title="${n} leads (${pct(n)}%)"><span style="width:${pct(n)}%"></span></div>
+      <span class="meter-num">${n}</span> <span class="muted">${pct(n)}%</span></td>`).join('')}</tr>`;
+  }).join('');
+  $('#consumo').innerHTML = `
+    <h2>Consumo de vídeos <span class="muted">· leads que han visto al menos…</span></h2>
+    <div class="table-scroll"><table class="consumo">
+      <thead><tr><th></th>${THRESHOLDS.map((t) => `<th>${t === 90 ? '90% (completo)' : `${t}%`}</th>`).join('')}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+}
+
 function renderKpis() {
+  renderConsumo();
   const L = state.leads;
   const counts = Object.fromEntries(ESTADOS.map((e) => [e.id, 0]));
   let vip = 0; let live = 0; let replay = 0; let sent = 0;
@@ -258,7 +281,7 @@ function renderKpis() {
     counts[l.estado.id]++;
     if (l.s.vip) vip++;
     if (l.s.directo_asistio) live++;
-    if (l.s.replay_50 || l.s.replay_90) replay++;
+    if (watched(l.s, 'replay') >= 50) replay++;
     if (l.s.wa_enviado) sent++;
   }
   const pct = (n) => (L.length ? `${Math.round((n / L.length) * 100)}%` : '–');
@@ -288,8 +311,9 @@ function renderKpis() {
 const chip = (label, cls = '') => `<span class="chip ${cls}">${label}</span>`;
 
 function videoChip(s, v) {
-  if (s[`${v}_90`]) return chip('Completo', 'on');
-  if (s[`${v}_50`]) return chip('50%', 'half');
+  const pct = watched(s, v);
+  if (pct >= 90) return chip('Completo', 'on');
+  if (pct) return chip(`${pct}%`, 'half');
   return chip('—');
 }
 
@@ -344,7 +368,7 @@ $('#leads-body').addEventListener('click', async (e) => {
 // ---------- CSV ----------
 $('#btn-csv').addEventListener('click', () => {
   const head = ['Nombre', 'Email', 'Teléfono', 'Clase 1', 'Clase 2', 'VIP', 'Directo', 'Grabación', 'Puntos', 'Estado', 'Siguiente mensaje', 'Contactado'];
-  const v = (s, k) => (s[`${k}_90`] ? '90%' : s[`${k}_50`] ? '50%' : '');
+  const v = (s, k) => (watched(s, k) ? `${watched(s, k)}%` : '');
   const live = (s) => (s.directo_final ? 'Hasta el final' : s.directo_60 ? '+60 min' : s.directo_asistio ? 'Asistió' : s.directo_click ? 'Clic' : '');
   const lines = filtered().map((l) => [l.name, l.email, l.phone, v(l.s, 'clase1'), v(l.s, 'clase2'), l.s.vip ? 'Sí' : '', live(l.s), v(l.s, 'replay'), l.score, l.estado.label, NEXT_STEPS[l.step], l.s.wa_enviado ? 'Sí' : '']);
   const csv = [head, ...lines].map((r) => r.map((x) => `"${String(x ?? '').replaceAll('"', '""')}"`).join(';')).join('\r\n');

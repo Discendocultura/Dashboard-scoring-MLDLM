@@ -58,3 +58,10 @@ test('validación de etiquetas de señales', () => {
   assert.ok(!isValidSignalTag('NOV 26_clase1_50'));
   assert.deepEqual(launchCodesFromTags(['nov26_clase1_50', 'otra', 'oct26_wa_enviado']), ['nov26', 'oct26']);
 });
+
+test('porcentajes intermedios 25/75', () => {
+  const sig = s(['nov26_clase1_25', 'nov26_clase1_50', 'nov26_clase1_75', 'nov26_clase2_25', 'nov26_replay_25']);
+  assert.equal(score(sig), 12 + 4 + 10);
+  assert.equal(nextStepFor(s(['nov26_replay_25', 'nov26_replay_50', 'nov26_replay_75'])), 'raices');
+  assert.ok(isValidSignalTag('nov26_replay_75'));
+});

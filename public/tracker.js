@@ -15,7 +15,7 @@
  * y lo recuerda en ese navegador para el resto de vídeos.
  *
  * Cuenta los segundos realmente reproducidos (saltar al final no cuenta) y avisa al
- * dashboard al llegar al 50% y al 90%.
+ * dashboard al llegar al 25%, 50%, 75% y 90%.
  */
 (function () {
   'use strict';
@@ -133,7 +133,7 @@
 
     function check() {
       var pct = Object.keys(buckets).length;
-      [50, 90].forEach(function (t) {
+      [25, 50, 75, 90].forEach(function (t) {
         if (pct >= t && !sent[t]) {
           sent[t] = true;
           save();
