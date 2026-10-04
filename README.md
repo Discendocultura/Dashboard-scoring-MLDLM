@@ -130,7 +130,7 @@ El plan gratuito incluye 100.000 peticiones al día, de sobra para varios lanzam
 ## Cada lanzamiento
 
 1. **Configuración → + Nuevo**. Rellena el código (p. ej. `nov26`), las etiquetas de registro y VIP,
-   el ID de la reunión de Zoom y los enlaces de la grabación, Raíces, venta y llamada.
+   el ID de la reunión de Zoom y los enlaces de la grabación, la página de venta de Raíces, el enlace de pago (checkout) y la llamada.
 2. **Zoom**: crea una reunión nueva para cada lanzamiento con **Registro: obligatorio**. En
    *Registro → Ajustes*, desactiva los emails de confirmación de Zoom si no los quieres.
 3. **Páginas de GHL**: en *Configuración → Códigos para GHL* copia el bloque de cada vídeo y pégalo

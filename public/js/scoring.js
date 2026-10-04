@@ -161,8 +161,8 @@ export function nextStepFor(s) {
 
 export const DEFAULT_TEMPLATES = {
   grabacion: 'Hola {nombre} 🌱 Soy del equipo de Me lo dijo la matrona. Ya tienes disponible la grabación de la clase en directo, te dejo aquí el enlace: {link_grabacion} ¿Me cuentas qué te parece cuando la veas?',
-  raices: 'Hola {nombre} 🌱 He visto que ya has empezado a ver la grabación, ¡qué bien! Te dejo aquí toda la información de Raíces, el programa de acompañamiento para quedarte embarazada de forma natural: {link_raices} ¿Tienes alguna duda que pueda resolverte?',
-  cierre: 'Hola {nombre} 🌱 ¡Gracias por quedarte hasta el final! Si sientes que Raíces es para ti, puedes unirte aquí: {link_venta} O si prefieres que lo hablemos, reserva una llamada conmigo: {link_llamada}',
+  raices: 'Hola {nombre} 🌱 He visto que ya has empezado a ver la grabación, ¡qué bien! Te dejo aquí toda la información de Raíces, el programa de acompañamiento para quedarte embarazada de forma natural: {link_pagina_venta} ¿Tienes alguna duda que pueda resolverte?',
+  cierre: 'Hola {nombre} 🌱 ¡Gracias por quedarte hasta el final! Si sientes que Raíces es para ti, puedes unirte aquí: {link_pago} O si prefieres que lo hablemos, reserva una llamada conmigo: {link_llamada}',
 };
 
 export function withContactId(url, contactId) {
@@ -181,11 +181,14 @@ export function buildMessage(template, { nombre, contactId, launch }) {
     link_grabacion: withContactId(launch?.replayUrl, contactId),
     link_raices: withContactId(launch?.raicesUrl, contactId),
     link_venta: withContactId(launch?.ventaUrl, contactId),
+    // Nombres claros: página de venta de Raíces y enlace de pago (los antiguos siguen funcionando).
+    link_pagina_venta: withContactId(launch?.raicesUrl, contactId),
+    link_pago: withContactId(launch?.ventaUrl, contactId),
     link_llamada: launch?.llamadaUrl || '',
   };
   return String(template || '')
     .replaceAll('{nombre}', nombre || '')
-    .replace(/\{(link_[a-z]+)\}/g, (m, k) => (k in links ? links[k] : m))
+    .replace(/\{(link_[a-z_]+)\}/g, (m, k) => (k in links ? links[k] : m))
     .replace(/ {2,}/g, ' ')
     .trim();
 }

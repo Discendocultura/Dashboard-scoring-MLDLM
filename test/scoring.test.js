@@ -106,3 +106,9 @@ test('tráfico frío / templado según la fecha de alta en GHL', () => {
   assert.equal(t('2025-01-01T10:00:00.000Z'), 'templado');
   assert.equal(signalsFor([], 'nov26', {}, { dateAdded: '2025-01-01T10:00:00Z' }).trafico, '');
 });
+
+test('variables de enlace: página de venta y enlace de pago', () => {
+  const launch = { raicesUrl: 'https://x.com/raices', ventaUrl: 'https://pay.x.com/checkout' };
+  const msg = buildMessage('{link_pagina_venta} | {link_pago} | {link_raices}', { nombre: 'A', contactId: 'c1', launch });
+  assert.equal(msg, 'https://x.com/raices?cid=c1 | https://pay.x.com/checkout?cid=c1 | https://x.com/raices?cid=c1');
+});

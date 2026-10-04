@@ -176,8 +176,8 @@
             <label class="field"><span>ID de la reunión de Zoom</span><input id="cfg-zoom-id" inputmode="numeric" placeholder="812 3456 7890"></label>
             <label class="field"><span>Enlace genérico de Zoom <small>(por si falla el registro)</small></span><input id="cfg-zoom-url" type="url"></label>
             <label class="field"><span>Página de la grabación</span><input id="cfg-replay" type="url"></label>
-            <label class="field"><span>Página de Raíces (oferta)</span><input id="cfg-raices" type="url"></label>
-            <label class="field"><span>Página de venta / checkout</span><input id="cfg-venta" type="url"></label>
+            <label class="field"><span>Página de venta de Raíces</span><input id="cfg-raices" type="url"></label>
+            <label class="field"><span>Enlace de pago (checkout)</span><input id="cfg-venta" type="url"></label>
             <label class="field"><span>Enlace para reservar llamada</span><input id="cfg-llamada" type="url"></label>
           </div>
           <div id="cfg-snapshot" class="snapshot-box"></div>
@@ -185,7 +185,7 @@
         </section>
 
         <section class="tab-panel" data-panel="messages" hidden>
-          <p class="muted">Variables: <code>{nombre}</code> <code>{link_grabacion}</code> <code>{link_raices}</code> <code>{link_venta}</code> <code>{link_llamada}</code>. Los enlaces se personalizan solos con el ID del lead para seguir midiendo.</p>
+          <p class="muted">Variables: <code>{nombre}</code> <code>{link_grabacion}</code> <code>{link_pagina_venta}</code> (página de venta de Raíces) <code>{link_pago}</code> (enlace de pago) <code>{link_llamada}</code>. Los enlaces se personalizan solos con el ID del lead para seguir midiendo.</p>
           <label class="field"><span>1 · No ha visto la grabación → enviarle a la grabación</span><textarea id="tpl-grabacion" rows="4"></textarea></label>
           <label class="field"><span>2 · Ha visto ≥50% de la grabación → oferta Raíces</span><textarea id="tpl-raices" rows="4"></textarea></label>
           <label class="field"><span>3 · Llegó al final (directo hasta el final o grabación ≥90%) → venta o llamada</span><textarea id="tpl-cierre" rows="4"></textarea></label>
