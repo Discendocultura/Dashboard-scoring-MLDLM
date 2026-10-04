@@ -205,5 +205,6 @@ test('meta: inversión por campaña con filtro por nombre', async () => {
   const retarg = await adSpend({ since: '2026-10-01', until: '2026-10-20', filter: 'retargeting' });
   assert.ok(all.total > retarg.total && retarg.total > 0);
   assert.equal(retarg.campaigns.length, 1);
+  assert.equal((await adSpend({ since: '2026-10-01', until: '2026-10-20', filter: 'FRIO' })).campaigns.length, 1); // sin tildes
   assert.ok(all.names['331']);
 });
