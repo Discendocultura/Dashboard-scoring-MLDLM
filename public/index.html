@@ -61,6 +61,11 @@
             <div id="funnel"></div>
           </section>
           <section class="card metric-card">
+            <h2>Ventas por tipo de tráfico <span class="muted">· templado = ya estaba en GHL antes de abrir la captación</span></h2>
+            <div id="traffic-split"></div>
+            <div class="table-scroll"><table class="metric-table" id="traffic-table"></table></div>
+          </section>
+          <section class="card metric-card">
             <h2>Conversión a compra</h2>
             <div class="table-scroll"><table class="metric-table" id="conversion-table"></table></div>
           </section>
@@ -84,6 +89,8 @@
             <option value="no_compra">No ha comprado</option>
             <option value="vip">Compró VIP</option>
             <option value="vip_no_compra">VIP que no ha comprado</option>
+            <option value="trafico_frio">Tráfico frío</option>
+            <option value="trafico_templado">Tráfico templado</option>
             <option value="directo_asistio">Asistió al directo</option>
             <option value="directo_final">Directo hasta el final</option>
             <option value="replay_50">Vio la grabación (≥50%)</option>
@@ -160,8 +167,12 @@
               <input id="cfg-vip" list="tag-list" placeholder="Busca la etiqueta…"></label>
             <label class="field"><span>Etiqueta de compra del programa (Raíces)</span>
               <input id="cfg-compra" list="tag-list" placeholder="Busca la etiqueta…"></label>
-            <label class="field"><span>Etiqueta de compra en directo <small>(opcional: si el directo tiene su propio checkout)</small></span>
-              <input id="cfg-compra-directo" list="tag-list" placeholder="Busca la etiqueta…"></label>
+            <label class="field"><span>Campo de fecha de compra <small>(para ventas en directo y del lanzamiento)</small></span>
+              <select id="cfg-compra-fecha"><option value="">— Sin campo de fecha —</option></select></label>
+            <label class="field"><span>Inicio de captación <small>(día en que se abren los registros)</small></span>
+              <input id="cfg-inicio" type="date"></label>
+            <label class="field"><span>Día del directo</span>
+              <input id="cfg-directo-fecha" type="date"></label>
             <label class="field"><span>ID de la reunión de Zoom</span><input id="cfg-zoom-id" inputmode="numeric" placeholder="812 3456 7890"></label>
             <label class="field"><span>Enlace genérico de Zoom <small>(por si falla el registro)</small></span><input id="cfg-zoom-url" type="url"></label>
             <label class="field"><span>Página de la grabación</span><input id="cfg-replay" type="url"></label>

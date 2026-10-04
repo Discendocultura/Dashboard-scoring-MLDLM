@@ -11,14 +11,13 @@ export const SIGNALS = [
   'wa_enviado',
   // "Foto" al crear el lanzamiento: quién tenía ya la etiqueta VIP / de compra (de lanzamientos
   // anteriores). Esas personas no cuentan como VIP / compra de este lanzamiento.
-  'vip_previo', 'compra_previo', 'compradirecto_previo',
+  'vip_previo', 'compra_previo',
 ];
 
 // Etiquetas fijas (no cambian entre lanzamientos) que se "fotografían" al crear el lanzamiento.
 export const SNAPSHOT_TAGS = [
   { field: 'vipTag', signal: 'vip_previo', label: 'VIP' },
   { field: 'compraTag', signal: 'compra_previo', label: 'compra' },
-  { field: 'compraDirectoTag', signal: 'compradirecto_previo', label: 'compra en directo' },
 ];
 
 export const VIDEOS = ['clase1', 'clase2', 'replay'];
@@ -55,17 +54,53 @@ export function launchCodesFromTags(tags) {
   return [...codes].sort();
 }
 
-// `cfg` es la configuración del lanzamiento: { vipTag, compraTag, compraDirectoTag }.
-export function signalsFor(contactTags, launch, cfg = {}) {
+// Día (AAAA-MM-DD) de un campo de fecha de GHL. Los campos de solo fecha se guardan como
+// medianoche (UTC o España según el caso): sumando 12 h siempre caemos en el día correcto.
+export function dayOfDateField(value) {
+  if (value == null || value === '') return '';
+  const n = typeof value === 'number' || /^\d{10,}$/.test(String(value)) ? Number(value) : Date.parse(value);
+  if (Number.isNaN(n)) return /^\d{4}-\d{2}-\d{2}/.test(String(value)) ? String(value).slice(0, 10) : '';
+  return new Date(n + 12 * 3600_000).toISOString().slice(0, 10);
+}
+
+// Día (AAAA-MM-DD) en hora de España de un instante (p. ej. la fecha de alta del contacto).
+const madridDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit' });
+export function dayInMadrid(iso) {
+  const n = Date.parse(iso);
+  return Number.isNaN(n) ? '' : madridDay.format(new Date(n));
+}
+
+// `cfg` es la configuración del lanzamiento: { vipTag, compraTag, compraDateField, inicioCaptacion,
+// finVentas, fechaDirecto }. `contact` aporta { dateAdded, cf } (cf = campos personalizados por id).
+export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   const tags = new Set((contactTags || []).map((t) => String(t).toLowerCase()));
   const has = (t) => Boolean(t) && tags.has(String(t).toLowerCase());
   const s = {};
   for (const sig of SIGNALS) s[sig] = tags.has(tagFor(launch, sig));
   s.vip = has(cfg.vipTag) && !s.vip_previo;
   s.vip_anterior = has(cfg.vipTag) && s.vip_previo;
-  s.compra_directo = has(cfg.compraDirectoTag) && !s.compradirecto_previo;
-  s.compra = (has(cfg.compraTag) && !s.compra_previo) || s.compra_directo;
-  s.clienta_anterior = (has(cfg.compraTag) && s.compra_previo) || (has(cfg.compraDirectoTag) && s.compradirecto_previo);
+
+  // Compra: si hay "fecha de compra", manda la fecha (dentro del lanzamiento = de este lanzamiento);
+  // si no, la foto de clientas anteriores.
+  const buyDay = dayOfDateField(contact.cf?.[cfg.compraDateField]);
+  const inicio = cfg.inicioCaptacion || '';
+  s.compra = false;
+  s.clienta_anterior = false;
+  if (has(cfg.compraTag)) {
+    if (buyDay && inicio) {
+      s.compra = buyDay >= inicio && (!cfg.finVentas || buyDay < cfg.finVentas);
+      s.clienta_anterior = buyDay < inicio;
+    } else {
+      s.compra = !s.compra_previo;
+      s.clienta_anterior = s.compra_previo;
+    }
+  }
+  s.fecha_compra = s.compra ? buyDay : '';
+  s.compra_directo = s.compra && Boolean(cfg.fechaDirecto) && buyDay === cfg.fechaDirecto;
+
+  // Tráfico: templado si ya estaba en GHL (algún embudo anterior) antes de abrir la captación.
+  const alta = dayInMadrid(contact.dateAdded);
+  s.trafico = alta && inicio ? (alta < inicio ? 'templado' : 'frio') : '';
   return s;
 }
 

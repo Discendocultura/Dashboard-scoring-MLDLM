@@ -181,8 +181,15 @@ async function loadLeads() {
   }
 }
 
+// Las ventas de un lanzamiento terminan cuando empieza la captación del siguiente.
+function nextLaunchStart(code) {
+  const start = state.config.launches[code]?.inicioCaptacion;
+  if (!start) return '';
+  return Object.values(state.config.launches).map((l) => l.inicioCaptacion).filter((d) => d && d > start).sort()[0] || '';
+}
+
 function enrich(contact, launch) {
-  const s = signalsFor(contact.tags, state.launchCode, launch);
+  const s = signalsFor(contact.tags, state.launchCode, { ...launch, finVentas: nextLaunchStart(state.launchCode) }, contact);
   const pts = score(s);
   return {
     ...contact,
@@ -207,6 +214,8 @@ function filtered() {
     if (f.signal === 'sin_actividad') return l.score === 0 && !l.s.directo_click;
     if (f.signal === 'no_compra') return !l.s.compra;
     if (f.signal === 'vip_no_compra') return l.s.vip && !l.s.compra;
+    if (f.signal === 'trafico_frio') return l.s.trafico === 'frio';
+    if (f.signal === 'trafico_templado') return l.s.trafico === 'templado';
     if (f.signal === 'sin_clases') return !watched(l.s, 'clase1') && !watched(l.s, 'clase2');
     if (f.signal === 'replay_50') return watched(l.s, 'replay') >= 50;
     if (f.signal && !l.s[f.signal]) return false;
@@ -308,6 +317,11 @@ function funnelStats() {
     nada: c((l) => !l.s.directo_asistio && !viewedReplay(l)),
     compraNada: c((l) => l.s.compra && !l.s.directo_asistio && !viewedReplay(l)),
     compraDirecto: c((l) => l.s.compra_directo),
+    compraDirectoAsist: c((l) => l.s.compra_directo && l.s.directo_asistio),
+    frio: c((l) => l.s.trafico === 'frio'),
+    templado: c((l) => l.s.trafico === 'templado'),
+    compraFrio: c((l) => l.s.compra && l.s.trafico === 'frio'),
+    compraTemplado: c((l) => l.s.compra && l.s.trafico === 'templado'),
     vipAnterior: c((l) => l.s.vip_anterior),
     clientaAnterior: c((l) => l.s.clienta_anterior),
   };
@@ -316,9 +330,9 @@ function funnelStats() {
 function renderMetrics() {
   const m = funnelStats();
   const card = (label, value, sub) => `<div class="kpi static"><span class="kpi-label">${label}</span><span class="kpi-value">${value}</span><span class="kpi-sub">${sub}</span></div>`;
-  const directoCard = m.launch.compraDirectoTag
-    ? card('Compras en directo', m.compraDirecto, `${pctOf(m.compraDirecto, m.live)} de los asistentes`)
-    : card('Compras de asistentes', m.compraLive, `${pctOf(m.compraLive, m.live)} de los asistentes al directo`);
+  const directoCard = m.launch.fechaDirecto && m.launch.compraDateField
+    ? card('Ventas en directo', m.compraDirecto, `${pctOf(m.compraDirecto, m.compra)} de las ventas · ${pctOf(m.compraDirecto, m.live)} de los asistentes`)
+    : card('Ventas en directo', '–', 'Configura el día del directo y el campo de fecha de compra');
   $('#metric-cards').innerHTML = [
     card('Registros', m.total, m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'leads del lanzamiento'),
     card('Entradas VIP', m.vip, `${pctOf(m.vip, m.total)} de los registros`),
@@ -355,7 +369,8 @@ function renderMetrics() {
     ['No fueron al directo, vieron la grabación', m.soloReplay, m.compraSoloReplay],
     ['Ni directo ni grabación', m.nada, m.compraNada],
   ];
-  if (m.launch.compraDirectoTag) rows.splice(4, 0, ['Compras con el checkout del directo (sobre asistentes)', m.live, m.compraDirecto]);
+  if (m.launch.fechaDirecto && m.launch.compraDateField) rows.splice(4, 0, ['Asistieron al directo y compraron ese mismo día', m.live, m.compraDirectoAsist]);
+  renderTraffic(m);
   $('#conversion-table').innerHTML = `
     <thead><tr><th>Segmento</th><th class="num">Leads</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
     <tbody>${rows.map(([label, n, buy]) => `<tr><td>${label}</td><td class="num">${n}</td><td class="num">${buy}</td><td class="num big">${pctOf(buy, n)}</td></tr>`).join('')}</tbody>`;
@@ -367,6 +382,31 @@ function renderMetrics() {
     const buy = inE.filter((l) => l.s.compra).length;
     return `<tr><td><span class="estado st-${e.id}"><span class="dot"></span>${e.label}</span></td><td class="num">${inE.length}</td><td class="num">${buy}</td><td class="num big">${pctOf(buy, inE.length)}</td></tr>`;
   }).join('')}</tbody>`;
+}
+
+// Reparto de las ventas entre tráfico frío y templado (suma 100%).
+function renderTraffic(m) {
+  if (!m.launch.inicioCaptacion) {
+    $('#traffic-split').innerHTML = '<p class="muted">Configura el <strong>inicio de captación</strong> del lanzamiento para separar tráfico frío y templado.</p>';
+    $('#traffic-table').innerHTML = '';
+    return;
+  }
+  const buys = m.compraFrio + m.compraTemplado;
+  const pf = buys ? Math.round((m.compraFrio / buys) * 1000) / 10 : 0;
+  const pt = buys ? Math.round((100 - pf) * 10) / 10 : 0;
+  $('#traffic-split').innerHTML = buys ? `
+    <div class="split-bar" role="img" aria-label="Ventas: ${pf}% tráfico frío, ${pt}% tráfico templado">
+      ${m.compraFrio ? `<span class="frio" style="flex:${m.compraFrio}">${pf}%</span>` : ''}
+      ${m.compraTemplado ? `<span class="templado" style="flex:${m.compraTemplado}">${pt}%</span>` : ''}
+    </div>
+    <div class="split-legend">
+      <span><span class="sw" style="background:var(--st-frio)"></span><strong>Frío:</strong> ${pf}% de las ventas (${m.compraFrio})</span>
+      <span><span class="sw" style="background:var(--accent)"></span><strong>Templado:</strong> ${pt}% de las ventas (${m.compraTemplado})</span>
+    </div>` : '<p class="muted">Todavía no hay ventas en este lanzamiento.</p>';
+  const row = (label, n, buy) => `<tr><td>${label}</td><td class="num">${n} <span class="muted">${pctOf(n, m.total)}</span></td><td class="num">${buy}</td><td class="num">${pctOf(buy, buys)}</td><td class="num big">${pctOf(buy, n)}</td></tr>`;
+  $('#traffic-table').innerHTML = `
+    <thead><tr><th>Tráfico</th><th class="num">Registros</th><th class="num">Ventas</th><th class="num">% de las ventas</th><th class="num">Conversión</th></tr></thead>
+    <tbody>${row('Frío (nuevo en GHL)', m.frio, m.compraFrio)}${row('Templado (ya estaba en GHL)', m.templado, m.compraTemplado)}</tbody>`;
 }
 
 $$('.view-tab').forEach((t) => t.addEventListener('click', () => {
@@ -445,7 +485,7 @@ function rowHtml(l) {
     ? `<button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}" title="${esc(msgPreview)}">${l.s.wa_enviado ? 'Enviado ✓ · reenviar' : 'Enviar WhatsApp'}</button>`
     : '<span class="muted">Sin teléfono</span>';
   return `<tr>
-    <td><div class="lead-name">${esc(l.name || '(sin nombre)')}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}</div></td>
+    <td><div class="lead-name">${esc(l.name || '(sin nombre)')}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
     <td>${videoChip(l.s, 'clase1')}</td>
     <td>${videoChip(l.s, 'clase2')}</td>
     <td>${l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>
@@ -482,10 +522,10 @@ $('#leads-body').addEventListener('click', async (e) => {
 
 // ---------- CSV ----------
 $('#btn-csv').addEventListener('click', () => {
-  const head = ['Nombre', 'Email', 'Teléfono', 'Clase 1', 'Clase 2', 'VIP', 'Directo', 'Grabación', 'Compra', 'Puntos', 'Estado', 'Siguiente mensaje', 'Contactado'];
+  const head = ['Nombre', 'Email', 'Teléfono', 'Tráfico', 'Clase 1', 'Clase 2', 'VIP', 'Directo', 'Grabación', 'Compra', 'Fecha compra', 'Puntos', 'Estado', 'Siguiente mensaje', 'Contactado'];
   const v = (s, k) => (watched(s, k) ? `${watched(s, k)}%` : '');
   const live = (s) => (s.directo_final ? 'Hasta el final' : s.directo_60 ? '+60 min' : s.directo_asistio ? 'Asistió' : s.directo_click ? 'Clic' : '');
-  const lines = filtered().map((l) => [l.name, l.email, l.phone, v(l.s, 'clase1'), v(l.s, 'clase2'), l.s.vip ? 'Sí' : '', live(l.s), v(l.s, 'replay'), l.s.compra_directo ? 'En directo' : l.s.compra ? 'Sí' : '', l.score, l.estado.label, NEXT_STEPS[l.step], l.s.wa_enviado ? 'Sí' : '']);
+  const lines = filtered().map((l) => [l.name, l.email, l.phone, l.s.trafico, v(l.s, 'clase1'), v(l.s, 'clase2'), l.s.vip ? 'Sí' : '', live(l.s), v(l.s, 'replay'), l.s.compra_directo ? 'En directo' : l.s.compra ? 'Sí' : '', l.s.fecha_compra, l.score, l.estado.label, NEXT_STEPS[l.step], l.s.wa_enviado ? 'Sí' : '']);
   const csv = [head, ...lines].map((r) => r.map((x) => `"${String(x ?? '').replaceAll('"', '""')}"`).join(';')).join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' }));
@@ -541,6 +581,24 @@ $('#btn-zoom').addEventListener('click', async () => {
 const dlg = $('#config-dialog');
 let editingCode = null; // null = lanzamiento nuevo
 
+async function fillDateFields(selected) {
+  const sel = $('#cfg-compra-fecha');
+  if (!state.dateFields) {
+    try {
+      state.dateFields = (await api('/api/fields')).fields;
+    } catch (e) {
+      state.dateFields = null;
+      sel.innerHTML = `<option value="${esc(selected || '')}">No se pudieron leer los campos de GHL (${esc(e.message)})</option>`;
+      return;
+    }
+  }
+  // Si no hay uno elegido, proponemos el que se llame "Fecha compra Raíces".
+  const guess = selected || state.dateFields.find((f) => /fecha\s*compra\s*ra[ií]ces/i.test(f.name))?.id || '';
+  sel.innerHTML = '<option value="">— Sin campo de fecha —</option>'
+    + state.dateFields.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('');
+  sel.value = guess;
+}
+
 function fillTagList() {
   $('#tag-list').innerHTML = state.tags.map((t) => `<option value="${esc(t)}">`).join('');
 }
@@ -554,14 +612,16 @@ function openConfig(code) {
   // Las etiquetas de VIP y compra son fijas: un lanzamiento nuevo hereda las del último.
   const last = launchesSorted()[0]?.[1] || {};
   const l = editingCode ? state.config.launches[editingCode]
-    : { vipTag: last.vipTag, compraTag: last.compraTag, compraDirectoTag: last.compraDirectoTag };
+    : { vipTag: last.vipTag, compraTag: last.compraTag, compraDateField: last.compraDateField, inicioCaptacion: new Date().toISOString().slice(0, 10) };
   $('#cfg-code').value = editingCode || '';
   $('#cfg-code').readOnly = Boolean(editingCode);
   $('#cfg-name').value = l.name || '';
   $('#cfg-registro').value = l.registroTag || '';
   $('#cfg-vip').value = l.vipTag || '';
   $('#cfg-compra').value = l.compraTag || '';
-  $('#cfg-compra-directo').value = l.compraDirectoTag || '';
+  $('#cfg-inicio').value = l.inicioCaptacion || '';
+  $('#cfg-directo-fecha').value = l.fechaDirecto || '';
+  fillDateFields(l.compraDateField);
   $('#cfg-zoom-id').value = l.zoomMeetingId || '';
   $('#cfg-zoom-url').value = l.zoomJoinUrl || '';
   $('#cfg-replay').value = l.replayUrl || '';
@@ -603,7 +663,9 @@ function readForm() {
       registroTag,
       vipTag: $('#cfg-vip').value.trim().toLowerCase(),
       compraTag: $('#cfg-compra').value.trim().toLowerCase(),
-      compraDirectoTag: $('#cfg-compra-directo').value.trim().toLowerCase(),
+      compraDateField: $('#cfg-compra-fecha').value,
+      inicioCaptacion: $('#cfg-inicio').value,
+      fechaDirecto: $('#cfg-directo-fecha').value,
       zoomMeetingId: $('#cfg-zoom-id').value,
       zoomJoinUrl: $('#cfg-zoom-url').value.trim(),
       replayUrl: $('#cfg-replay').value.trim(),
@@ -644,6 +706,7 @@ $('#cfg-save').addEventListener('click', async () => {
     }
     renderSnapshotBox();
     await selectLaunch(code);
+    status.textContent = 'Guardado ✓';
   } catch (e) {
     status.textContent = '';
     window.alert(e.message);

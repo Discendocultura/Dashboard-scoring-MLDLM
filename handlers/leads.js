@@ -2,6 +2,7 @@
 // páginas con el cursor hasta tenerlas todas, así escala a miles de leads sin timeouts.
 import { requireRole } from '../lib/auth.js';
 import { contactsByTag } from '../lib/ghl.js';
+import { getConfig } from '../lib/config-store.js';
 import { json, errorResponse } from '../lib/http.js';
 
 export async function GET(request) {
@@ -19,7 +20,9 @@ export async function GET(request) {
         return json({ error: 'Cursor no válido' }, 400);
       }
     }
-    return json(await contactsByTag(tag, cursor));
+    // Solo se envían al navegador los campos de fecha de compra configurados.
+    const fields = [...new Set(Object.values((await getConfig()).launches).map((l) => l.compraDateField).filter(Boolean))];
+    return json(await contactsByTag(tag, cursor, fields));
   } catch (e) {
     return errorResponse(e);
   }

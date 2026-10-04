@@ -4,7 +4,7 @@ import {
   signalsFor, score, estadoFor, nextStepFor, buildMessage, waPhone, isValidSignalTag, launchCodesFromTags,
 } from '../public/js/scoring.js';
 
-const s = (tags) => signalsFor(tags, 'nov26', { vipTag: 'compra-vip', compraTag: 'clienta-raices', compraDirectoTag: 'raices-directo' });
+const s = (tags) => signalsFor(tags, 'nov26', { vipTag: 'compra-vip', compraTag: 'clienta-raices' });
 
 test('lead sin actividad es frío y va a la grabación', () => {
   const sig = s(['registro']);
@@ -75,8 +75,34 @@ test('VIP y compras anteriores al lanzamiento no cuentan', () => {
   assert.equal(score(antigua), 0);
   // la foto de otro lanzamiento no afecta a este
   assert.equal(s(['compra-vip', 'oct26_vip_previo']).vip, true);
-  const nueva = s(['compra-vip', 'raices-directo']);
-  assert.ok(nueva.vip && nueva.compra && nueva.compra_directo);
+  const nueva = s(['compra-vip', 'clienta-raices']);
+  assert.ok(nueva.vip && nueva.compra);
   assert.equal(nextStepFor(nueva), 'comprado');
-  assert.ok(isValidSignalTag('nov26_compradirecto_previo'));
+  assert.ok(isValidSignalTag('nov26_compra_previo'));
+});
+
+test('fecha de compra: compra del lanzamiento, en directo y clientas anteriores', () => {
+  const cfg = { compraTag: 'clienta-raices', compraDateField: 'F', inicioCaptacion: '2026-10-01', fechaDirecto: '2026-10-15', finVentas: '2026-12-01' };
+  const sig = (cf, tags = ['clienta-raices'], extra = {}) => signalsFor(tags, 'nov26', cfg, { cf: { F: cf }, ...extra });
+  assert.ok(sig('2026-10-15T00:00:00.000Z').compra_directo);            // medianoche UTC
+  assert.ok(sig('2026-10-14T22:00:00.000Z').compra_directo);            // medianoche en España
+  assert.ok(sig(Date.UTC(2026, 9, 15)).compra_directo);                 // milisegundos
+  const despues = sig('2026-10-17T00:00:00.000Z');
+  assert.ok(despues.compra && !despues.compra_directo);
+  const antigua = sig('2026-03-02T00:00:00.000Z');
+  assert.ok(!antigua.compra && antigua.clienta_anterior);
+  assert.ok(!sig('2026-12-05T00:00:00.000Z').compra);                   // compró en el siguiente lanzamiento
+  // con la foto marcada pero con fecha dentro del lanzamiento, manda la fecha
+  assert.ok(sig('2026-10-20T00:00:00.000Z', ['clienta-raices', 'nov26_compra_previo']).compra);
+  // sin etiqueta de compra no hay compra aunque haya fecha
+  assert.ok(!sig('2026-10-20T00:00:00.000Z', []).compra);
+});
+
+test('tráfico frío / templado según la fecha de alta en GHL', () => {
+  const cfg = { inicioCaptacion: '2026-10-01' };
+  const t = (dateAdded) => signalsFor([], 'nov26', cfg, { dateAdded }).trafico;
+  assert.equal(t('2026-09-30T21:59:00.000Z'), 'templado');  // 23:59 del 30/09 en España
+  assert.equal(t('2026-09-30T22:01:00.000Z'), 'frio');      // 00:01 del 01/10 en España
+  assert.equal(t('2025-01-01T10:00:00.000Z'), 'templado');
+  assert.equal(signalsFor([], 'nov26', {}, { dateAdded: '2025-01-01T10:00:00Z' }).trafico, '');
 });

@@ -56,6 +56,19 @@ Esas personas aparecen como "VIP anterior" o "Clienta anterior" y no cuentan en 
 **Crea el lanzamiento en el dashboard antes de abrir la venta de la VIP.** Si alguien que ya era VIP vuelve
 a comprarla, no se puede distinguir solo con la etiqueta, así que no cuenta en este lanzamiento.
 
+### Ventas en directo y del lanzamiento (campo "Fecha compra Raíces")
+En la configuración del lanzamiento se elige el **campo de fecha de compra** (se propone "Fecha compra Raíces"),
+el **inicio de captación** (día en que se abren los registros) y el **día del directo**:
+- Una compra es **de este lanzamiento** si la fecha de compra es igual o posterior al inicio de captación y anterior
+  al inicio de captación del siguiente lanzamiento. Si la fecha es anterior, es una clienta anterior.
+- Es **venta en directo** si la fecha de compra coincide con el día del directo.
+- Si un contacto tiene la etiqueta de compra pero no tiene la fecha rellena, se usa la "foto" de clientas anteriores.
+
+### Tráfico frío / templado
+Un registro es **templado** si el contacto ya existía en GHL antes del inicio de captación, porque ya había entrado por
+otro embudo (lanzamientos anteriores, VSL, newsletter…). Si es nuevo, es **frío**. Las métricas muestran el % de las
+ventas que viene de cada tipo (los dos suman 100%) y la conversión de cada uno.
+
 ### Pestaña Métricas
 Registros, entradas VIP, asistencia (en número y en %), compras totales, compras de VIP, compras en directo,
 el embudo completo, la conversión por segmento (VIP / no VIP / directo / grabación), el consumo de cada vídeo y
