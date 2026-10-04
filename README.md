@@ -2,7 +2,7 @@
 
 Muestra todos los leads de un lanzamiento (por etiqueta de GHL), lo que ha hecho cada uno
 (clases pre-webinar, VIP, directo, grabación), su **puntuación y estado** y un botón para
-**abrir WhatsApp con el mensaje adecuado**. Todo con planes gratuitos: no usa webhooks de GHL.
+**abrir WhatsApp con el mensaje adecuado**. Todo con planes gratuitos (Cloudflare Pages): no usa webhooks de GHL.
 
 ## Cómo funciona
 
@@ -55,20 +55,50 @@ En la subcuenta **Me lo dijo la matrona** → *Ajustes → Integraciones privada
 `locations/customValues.readonly`, `locations/customValues.write`.
 
 ### 2. App de Zoom (gratis, cuenta Pro o superior)
-[marketplace.zoom.us](https://marketplace.zoom.us) → *Develop → Build App → Server-to-Server OAuth*. Permisos (scopes):
-`meeting:write:registrant:admin`, `meeting:read:list_registrants:admin`,
-`report:read:list_meeting_participants:admin`. Activa la app y copia el Account ID, el Client ID y el Client Secret.
+1. Entra en [marketplace.zoom.us](https://marketplace.zoom.us) con la cuenta propietaria de Zoom.
+2. *Develop → Build App → Server-to-Server OAuth App → Create*. Nombre: `Lead scoring dashboard`.
+3. **App Credentials**: copia el *Account ID*, el *Client ID* y el *Client Secret*.
+4. **Information**: rellena el nombre de la empresa y el nombre y email de contacto (son obligatorios).
+5. **Scopes → Add Scopes**, y marca:
+   - `meeting:write:registrant:admin`: inscribir a los leads en la reunión.
+   - `meeting:read:list_registrants:admin`: leer los inscritos.
+   - `report:read:list_meeting_participants:admin`: leer quién asistió y cuánto tiempo.
+6. **Activation → Activate your app**.
 
-### 3. Vercel
-1. Importa este repositorio en [vercel.com/new](https://vercel.com/new). No hace falta compilar nada.
-2. En *Settings → Environment Variables* añade las variables de `.env.example`:
+Si no ves la opción *Server-to-Server OAuth*: *Admin → Gestión de usuarios → Roles → Owner/Admin →
+Funciones avanzadas* y activa "Server-to-Server OAuth app".
+
+### Reunión de Zoom para cada directo
+1. *zoom.us → Reuniones → Programar una reunión*. Pon el título, la fecha, una duración de 3 h 30 min y la zona horaria de Madrid.
+2. **ID de reunión: Generar automáticamente.** No uses tu ID personal (PMI).
+3. **Registro: Obligatorio** ✅. Sin esto no podemos saber quién asiste.
+4. Seguridad: deja el código de acceso **incrustado en el enlace** y desactiva la **sala de espera**,
+   para no tener que admitir a cientos de personas a mano.
+5. Guarda. En la página de la reunión:
+   - Pestaña **Registro → Editar**: *Aprobación automática*, desactiva "Enviar email al anfitrión cuando
+     alguien se registre" y deja solo nombre, apellidos y email como preguntas.
+   - Pestaña **Configuración de email → Email de confirmación a los inscritos**: desactívalo si no quieres
+     que Zoom mande su propio email (el enlace lo das tú desde GHL).
+6. Copia el **ID de la reunión** (11 dígitos) y el **enlace de invitación**, y pégalos en el lanzamiento del dashboard
+   (*ID de la reunión de Zoom* y *Enlace genérico de Zoom*).
+7. Prueba: abre `https://<tu-proyecto>.pages.dev/directo?l=<código>`, pon tu email y comprueba que entras
+   en la sala de Zoom y que aparece como inscrito en la pestaña Registro.
+
+### 3. Cloudflare Pages (gratis, también para uso comercial)
+1. Crea una cuenta en [dash.cloudflare.com](https://dash.cloudflare.com).
+2. *Workers & Pages → Create → Pages → Connect to Git* y elige este repositorio.
+3. Configuración de la compilación:
+   - **Framework preset:** None
+   - **Build command:** déjalo vacío
+   - **Build output directory:** `public`
+4. En *Settings → Variables and Secrets*, añade como **Secret** (en Production) las variables de `.env.example`:
    `GHL_TOKEN`, `GHL_LOCATION_ID`, `ADMIN_PASSWORD`, `SETTER_PASSWORD`, `SESSION_SECRET`
    y las tres `ZOOM_*`.
-3. Despliega. El dashboard queda en `https://<tu-proyecto>.vercel.app`.
+5. Vuelve a desplegar (*Deployments → Retry deployment*) para que se apliquen las variables.
+   El dashboard queda en `https://<tu-proyecto>.pages.dev`. Si quieres, en *Custom domains* puedes
+   ponerle un subdominio tuyo, como `leads.melodijolamatrona.com`.
 
-> ⚠️ El plan **Hobby** de Vercel es gratuito, pero sus condiciones lo limitan a uso personal y no
-> comercial. Para un negocio, Vercel pide el plan Pro. Si quieres seguir sin pagar, este código
-> se puede mover a Cloudflare Pages (gratis también para uso comercial) con pocos cambios.
+El plan gratuito incluye 100.000 peticiones al día, de sobra para varios lanzamientos.
 
 ## Cada lanzamiento
 
@@ -81,7 +111,7 @@ En la subcuenta **Me lo dijo la matrona** → *Ajustes → Integraciones privada
    mismas, así que en esas páginas solo hay que cambiar `data-launch` al nuevo código.
 4. **Enlaces que envías**:
    - En los emails de GHL, añade `?cid={{contact.id}}` a los enlaces de las clases y de la grabación,
-     y usa `https://<tu-proyecto>.vercel.app/directo?l=<código>&cid={{contact.id}}` para el directo.
+     y usa `https://<tu-proyecto>.pages.dev/directo?l=<código>&cid={{contact.id}}` para el directo.
    - En el grupo de WhatsApp, usa los mismos enlaces sin `cid`. La página pedirá el email una sola
      vez y lo recordará en ese móvil.
 5. **Después del directo**: espera unos 30 minutos a que Zoom genere el informe y pulsa **Sincronizar Zoom**.
@@ -106,4 +136,5 @@ en bloques de 25 y respeta el límite de peticiones de GHL.
 npm run dev:mock   # datos falsos, contraseñas "admin" / "setter" → http://localhost:3000
 npm run dev        # contra GHL real, con las variables en un fichero .env
 npm test
+npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)
 ```

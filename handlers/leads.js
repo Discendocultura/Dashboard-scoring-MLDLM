@@ -6,7 +6,7 @@ import { json, errorResponse } from '../lib/http.js';
 
 export async function GET(request) {
   try {
-    requireRole(request);
+    await requireRole(request);
     const url = new URL(request.url);
     const tag = (url.searchParams.get('tag') || '').trim();
     if (!tag) return json({ error: 'Falta la etiqueta' }, 400);

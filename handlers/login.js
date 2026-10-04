@@ -9,7 +9,7 @@ export async function POST(request) {
       await new Promise((r) => setTimeout(r, 800)); // frena intentos por fuerza bruta
       return json({ error: 'Contraseña incorrecta' }, 401);
     }
-    return json({ role }, 200, { 'set-cookie': sessionCookie(role) });
+    return json({ role }, 200, { 'set-cookie': await sessionCookie(role) });
   } catch (e) {
     return errorResponse(e);
   }

@@ -6,7 +6,7 @@ import { json, errorResponse } from '../lib/http.js';
 
 export async function GET(request) {
   try {
-    requireRole(request, { admin: true });
+    await requireRole(request, { admin: true });
     if (!zoomConfigured()) return json({ error: 'Zoom no está configurado (faltan las variables ZOOM_*)' }, 400);
     const code = new URL(request.url).searchParams.get('launch');
     const launch = (await getConfig()).launches[code];

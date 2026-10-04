@@ -7,10 +7,10 @@ import { isValidSignalTag } from '../public/js/scoring.js';
 
 export async function POST(request) {
   try {
-    requireRole(request);
+    await requireRole(request);
     const { items } = await readBody(request);
-    if (!Array.isArray(items) || items.length === 0 || items.length > 50) {
-      return json({ error: 'Envía entre 1 y 50 contactos por petición' }, 400);
+    if (!Array.isArray(items) || items.length === 0 || items.length > 40) {
+      return json({ error: 'Envía entre 1 y 40 contactos por petición' }, 400);
     }
     for (const it of items) {
       if (typeof it?.id !== 'string' || !Array.isArray(it.tags) || !it.tags.length || !it.tags.every((t) => typeof t === 'string' && isValidSignalTag(t))) {

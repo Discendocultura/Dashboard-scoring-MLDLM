@@ -5,7 +5,7 @@ import { json, readBody, errorResponse } from '../lib/http.js';
 
 export async function GET(request) {
   try {
-    const role = requireRole(request);
+    const role = await requireRole(request);
     const config = await getConfig({ fresh: new URL(request.url).searchParams.has('fresh') });
     return json({ role, config, zoomConfigured: zoomConfigured() });
   } catch (e) {
@@ -15,7 +15,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    requireRole(request, { admin: true });
+    await requireRole(request, { admin: true });
     const config = await saveConfig(await readBody(request));
     return json({ config });
   } catch (e) {

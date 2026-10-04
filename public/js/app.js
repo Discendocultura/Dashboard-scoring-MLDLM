@@ -358,7 +358,7 @@ $('#btn-csv').addEventListener('click', () => {
 // ---------- Sincronizar Zoom ----------
 $('#btn-zoom').addEventListener('click', async () => {
   const launch = state.config.launches[state.launchCode];
-  if (!state.zoomConfigured) return notice('Zoom no está conectado todavía (faltan las variables ZOOM_* en Vercel).', true);
+  if (!state.zoomConfigured) return notice('Zoom no está conectado todavía (faltan las variables ZOOM_* en Cloudflare).', true);
   if (!launch.zoomMeetingId) return notice('Añade el ID de la reunión de Zoom en la configuración del lanzamiento.', true);
   const btn = $('#btn-zoom');
   btn.disabled = true;

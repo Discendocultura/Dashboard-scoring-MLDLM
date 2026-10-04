@@ -4,7 +4,7 @@
  * Pega esto en un bloque "Código HTML" de la página:
  *
  *   <div data-lsd-video="clase1" data-vimeo="https://vimeo.com/123456789" data-launch="nov26"></div>
- *   <script src="https://TU-DASHBOARD.vercel.app/tracker.js" defer></script>
+ *   <script src="https://TU-DASHBOARD.pages.dev/tracker.js" defer></script>
  *
  *   data-lsd-video: clase1 | clase2 | replay
  *   data-vimeo:     ID o URL del vídeo (si es oculto, la URL con el hash: https://vimeo.com/123/abcdef)

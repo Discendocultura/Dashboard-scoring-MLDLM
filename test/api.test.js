@@ -1,11 +1,9 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 
-before(() => {
-  process.env.GHL_MOCK = '1';
-  process.env.ADMIN_PASSWORD = 'admin';
-  process.env.SETTER_PASSWORD = 'setter';
-  process.env.SESSION_SECRET = 'test-secret-test-secret';
+before(async () => {
+  const { setEnv } = await import('../lib/env.js');
+  setEnv({ GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret' });
 });
 
 const req = (path, { method = 'GET', body, cookie } = {}) => new Request(`http://localhost${path}`, {
@@ -15,17 +13,17 @@ const req = (path, { method = 'GET', body, cookie } = {}) => new Request(`http:/
 });
 
 async function login(password) {
-  const { POST } = await import('../api/login.js');
+  const { POST } = await import('../handlers/login.js');
   const res = await POST(req('/api/login', { method: 'POST', body: { password } }));
   return res.headers.get('set-cookie')?.split(';')[0];
 }
 
 test('login y permisos por rol', async () => {
-  const { POST: badLogin } = await import('../api/login.js');
+  const { POST: badLogin } = await import('../handlers/login.js');
   assert.equal((await badLogin(req('/api/login', { method: 'POST', body: { password: 'x' } }))).status, 401);
   const setter = await login('setter');
   const admin = await login('admin');
-  const config = await import('../api/config.js');
+  const config = await import('../handlers/config.js');
   assert.equal((await config.GET(req('/api/config'))).status, 401);
   assert.equal((await config.GET(req('/api/config', { cookie: setter }))).status, 200);
   const body = { launches: { demo: { name: 'Demo', registroTag: 'registro-webinar-demo', vipTag: 'compra-vip-demo', zoomMeetingId: '812 345 6789', replayUrl: 'https://ejemplo.com/replay' } } };
@@ -36,7 +34,7 @@ test('login y permisos por rol', async () => {
 
 test('leads paginados y tracking de vídeo', async () => {
   const admin = await login('admin');
-  const leads = await import('../api/leads.js');
+  const leads = await import('../handlers/leads.js');
   const p1 = await (await leads.GET(req('/api/leads?tag=registro-webinar-demo', { cookie: admin }))).json();
   assert.equal(p1.contacts.length, 100);
   assert.equal(p1.total, 1850);
@@ -44,7 +42,7 @@ test('leads paginados y tracking de vídeo', async () => {
   assert.notEqual(p2.contacts[0].id, p1.contacts[0].id);
 
   const target = p1.contacts.find((c) => !c.tags.includes('demo_replay_90'));
-  const track = await import('../api/track.js');
+  const track = await import('../handlers/track.js');
   const r = await (await track.POST(req('/api/track', { method: 'POST', body: { launch: 'demo', video: 'replay', pct: 90, cid: target.id } }))).json();
   assert.equal(r.ok, true);
   const { getContact } = await import('../lib/ghl.js');
@@ -57,7 +55,7 @@ test('leads paginados y tracking de vídeo', async () => {
 
 test('apply-tags rechaza etiquetas arbitrarias', async () => {
   const setter = await login('setter');
-  const { POST } = await import('../api/apply-tags.js');
+  const { POST } = await import('../handlers/apply-tags.js');
   const bad = await POST(req('/api/apply-tags', { method: 'POST', cookie: setter, body: { items: [{ id: 'mock00001', tags: ['clienta-raices'] }] } }));
   assert.equal(bad.status, 400);
   const ok = await POST(req('/api/apply-tags', { method: 'POST', cookie: setter, body: { items: [{ id: 'mock00001', tags: ['demo_wa_enviado'] }] } }));
@@ -65,7 +63,7 @@ test('apply-tags rechaza etiquetas arbitrarias', async () => {
 });
 
 test('puente al directo: pide email, etiqueta y redirige a Zoom', async () => {
-  const { GET } = await import('../api/directo.js');
+  const { GET } = await import('../handlers/directo.js');
   const form = await GET(req('/directo?l=demo'));
   assert.match(await form.text(), /type="email"/);
   const res = await GET(req('/directo?l=demo&cid=mock00002'));
@@ -77,8 +75,17 @@ test('puente al directo: pide email, etiqueta y redirige a Zoom', async () => {
 
 test('informe de Zoom agrega asistencia por email', async () => {
   const admin = await login('admin');
-  const { GET } = await import('../api/zoom-report.js');
+  const { GET } = await import('../handlers/zoom-report.js');
   const data = await (await GET(req('/api/zoom-report?launch=demo', { cookie: admin }))).json();
   assert.ok(data.attendees.length > 100);
   assert.ok(data.attendees.some((a) => a.final) && data.attendees.some((a) => !a.final));
+});
+
+test('router: rutas de la API y del directo', async () => {
+  const { route } = await import('../lib/router.js');
+  const env = { GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret' };
+  assert.equal((await route(req('/api/me'), env)).status, 401);
+  assert.equal((await route(req('/api/nada'), env)).status, 404);
+  assert.equal((await route(req('/api/login'), env)).status, 405);
+  assert.equal((await route(req('/directo?l=demo&cid=mock00003'), env)).status, 302);
 });

@@ -4,7 +4,7 @@ import { json, errorResponse } from '../lib/http.js';
 
 export async function GET(request) {
   try {
-    requireRole(request);
+    await requireRole(request);
     return json({ tags: await listTags() });
   } catch (e) {
     return errorResponse(e);
