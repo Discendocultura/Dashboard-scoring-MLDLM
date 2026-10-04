@@ -147,29 +147,31 @@ El plan gratuito incluye 100.000 peticiones al día, de sobra para varios lanzam
 En cada vídeo: *Privacidad → Dónde se puede insertar → Solo en dominios específicos*, y añade
 tu dominio de GHL. Si el vídeo es oculto, usa su URL completa con el hash (`https://vimeo.com/123/abcdef`).
 
-## Página de recursos (clase 1 y clase 2 en la misma página)
-Pega en un bloque **Código HTML** de la página de GHL (un solo `<script>` para toda la página):
+## Página de login + página de recursos
+Dos páginas en GHL (los códigos exactos, con el lanzamiento ya puesto, están en *Configuración → Códigos para GHL*):
 
+**Login** (bloque Código HTML):
 ```html
-<div data-lsd-gate></div>  <!-- opcional: dónde aparece el formulario de acceso -->
-<div data-lsd-video="clase1" data-vimeo="https://vimeo.com/111/aaa" data-launch="nov26"></div>
+<div data-lsd-login data-launch="nov26" data-redirect="https://tu-dominio/recursos-webinar"></div>
+<script src="https://<tu-proyecto>.pages.dev/tracker.js" defer></script>
+```
+- Escribe su email. **Registrada en el lanzamiento** → va a la página de recursos.
+- **No registrada** (nueva o en GHL por otro embudo) → nombre y móvil → se crea/actualiza en GHL con la etiqueta de
+  registro → va a la página de recursos.
+- Si llega con `?cid={{contact.id}}` (email de GHL) va directa a recursos sin escribir nada.
+- Opcional: `data-title="…"` y `data-button="…"` para cambiar los textos.
+
+**Recursos** (uno o varios bloques Código HTML; el `<script>` una sola vez):
+```html
+<div data-lsd-video="clase1" data-vimeo="https://vimeo.com/111/aaa" data-launch="nov26" data-login="https://tu-dominio/login-webinar"></div>
 <div data-lsd-video="clase2" data-vimeo="https://vimeo.com/222/bbb" data-launch="nov26"></div>
 <a href="https://<tu-proyecto>.pages.dev/directo?l=nov26">Entrar al directo</a>
 <script src="https://<tu-proyecto>.pages.dev/tracker.js" defer></script>
 ```
-
-- Si la lead llega con `?cid={{contact.id}}` (desde un email de GHL), ve las clases directamente.
-- Si no, aparece **un único** formulario de acceso con el email del registro:
-  - **ya registrada** en el lanzamiento → entra;
-  - **no tiene la etiqueta de registro** del lanzamiento en curso (sea nueva o ya esté en GHL por otro embudo)
-    → tiene que registrarse: nombre y móvil. Se crea o actualiza en GHL con la etiqueta de registro (cuenta como
-    lead del lanzamiento) y entra.
-  Ese navegador la recuerda para la próxima vez. El enlace `/directo` funciona igual.
-- Las nuevas se crean con la **etiqueta de registro**, así que los workflows de GHL que se disparan con esa
-  etiqueta (bienvenida, recordatorios…) se activan igual que con el formulario.
-- El enlace al directo de la página se completa solo con su identidad, así entra a Zoom sin escribir nada.
-- El enlace `/directo` también recuerda a la lead en su navegador durante 90 días: si vuelve a entrar desde el
-  grupo de WhatsApp, va directa.
+- Quien abre la página sin pasar por el login (o sin estar registrada en este lanzamiento) es enviada al login.
+- Mide cada vídeo al 25/50/75/90 %. El botón al directo se completa con su identidad: entra a Zoom sin escribir nada.
+- Sin `data-login`, la propia página muestra el formulario de acceso en lugar de redirigir.
+- El dominio de las páginas tiene que estar en los *Hostnames* de Turnstile.
 
 ## Vistas del dashboard
 - **Hoy**: listas priorizadas para la setter (muy calientes sin contactar, VIP sin comprar, vieron la grabación,

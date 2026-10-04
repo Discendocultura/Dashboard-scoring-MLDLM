@@ -24,7 +24,7 @@ export async function POST(request) {
     }
     const result = await ensureRegistered(launch, { email, name, phone }, config);
     if (result.status === 'needs_signup') return json({ ok: false, needs: 'signup', known: result.known, siteKey: turnstileSiteKey() }, 200, CORS_HEADERS);
-    return json({ ok: true, status: result.status }, 200, CORS_HEADERS);
+    return json({ ok: true, status: result.status, cid: result.contact?.id || '' }, 200, CORS_HEADERS);
   } catch (e) {
     return errorResponse(e, CORS_HEADERS);
   }

@@ -129,17 +129,18 @@ test('acceso: registrada, existente sin etiqueta y email nuevo', async () => {
   const { getContact, findContactByEmail, upsertContact } = await import('../lib/ghl.js');
   const call = async (body) => (await POST(req('/api/access', { method: 'POST', body: { launch: 'demo', ...body } }))).json();
   const reg = await getContact('mock00011');
-  assert.deepEqual(await call({ email: reg.email }), { ok: true, status: 'registered' });
+  assert.deepEqual(await call({ email: reg.email }), { ok: true, status: 'registered', cid: reg.id });
   // existe en GHL (otro embudo) pero no en este lanzamiento → tiene que registrarse
   const otra = await upsertContact({ email: 'vsl@example.com', firstName: 'Vera' });
   assert.deepEqual(await call({ email: 'vsl@example.com' }), { ok: false, needs: 'signup', known: true, siteKey: '' });
   assert.ok(!(await getContact(otra.id)).tags.includes('registro-webinar-demo'));
-  assert.deepEqual(await call({ email: 'vsl@example.com', name: 'Vera Ruiz', phone: '+34 655 44 33 22' }), { ok: true, status: 'signed_up_existing' });
+  assert.deepEqual(await call({ email: 'vsl@example.com', name: 'Vera Ruiz', phone: '+34 655 44 33 22' }), { ok: true, status: 'signed_up_existing', cid: otra.id });
   assert.ok((await getContact(otra.id)).tags.includes('registro-webinar-demo'));
   // no existe → pide datos; con nombre y móvil se crea registrada
   assert.deepEqual(await call({ email: 'nueva@example.com' }), { ok: false, needs: 'signup', known: false, siteKey: '' });
-  assert.deepEqual(await call({ email: 'nueva@example.com', name: 'Nora Gil', phone: '600 11 22 33' }), { ok: true, status: 'created' });
+  const creada = await call({ email: 'nueva@example.com', name: 'Nora Gil', phone: '600 11 22 33' });
   const nueva = await findContactByEmail('nueva@example.com');
+  assert.deepEqual(creada, { ok: true, status: 'created', cid: nueva.id });
   assert.equal(nueva.phone, '+34600112233');
   assert.ok(nueva.tags.includes('registro-webinar-demo'));
   // bots (campo trampa) no crean nada

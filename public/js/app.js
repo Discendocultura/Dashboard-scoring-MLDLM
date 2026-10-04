@@ -1059,14 +1059,23 @@ function renderSnippets() {
   const box = $('#snippets');
   if (!code) { box.innerHTML = '<p class="muted">Guarda el lanzamiento para ver sus códigos.</p>'; return; }
   const origin = location.origin;
-  const video = (v, label) => `<div data-lsd-video="${v}" data-vimeo="https://vimeo.com/ID_DEL_VIDEO_${label}" data-launch="${code}"></div>\n<script src="${origin}/tracker.js" defer></script>`;
+  const script = `<script src="${origin}/tracker.js" defer></script>`;
+  const LOGIN = 'https://TU-DOMINIO/login-webinar';
+  const RECURSOS = 'https://TU-DOMINIO/recursos-webinar';
   const items = [
-    ['Página Clase 1 (bloque Código HTML)', video('clase1', 'CLASE1')],
-    ['Página Clase 2 (bloque Código HTML)', video('clase2', 'CLASE2')],
-    ['Página de la grabación (bloque Código HTML)', video('replay', 'GRABACION')],
-    ['Enlace al directo para emails de GHL', `${origin}/directo?l=${code}&cid={{contact.id}}`],
+    ['1 · Página de LOGIN (bloque Código HTML). Cambia la URL de data-redirect por la de tu página de recursos',
+      `<div data-lsd-login data-launch="${code}" data-redirect="${RECURSOS}"></div>\n${script}`],
+    ['2 · Página de RECURSOS: bloque de la clase 1 (cambia la URL de Vimeo y la de data-login por la de tu página de login)',
+      `<div data-lsd-video="clase1" data-vimeo="https://vimeo.com/ID_CLASE_1" data-launch="${code}" data-login="${LOGIN}"></div>\n${script}`],
+    ['2 · Página de RECURSOS: bloque de la clase 2 (sin script: con uno por página basta)',
+      `<div data-lsd-video="clase2" data-vimeo="https://vimeo.com/ID_CLASE_2" data-launch="${code}"></div>`],
+    ['2 · Página de RECURSOS: botón al directo (entra con su email sin escribir nada)',
+      `<a href="${origin}/directo?l=${code}" class="boton-directo">Entrar a la clase en directo</a>`],
+    ['3 · Página de la GRABACIÓN (bloque Código HTML)',
+      `<div data-lsd-video="replay" data-vimeo="https://vimeo.com/ID_GRABACION" data-launch="${code}" data-login="${LOGIN}"></div>\n${script}`],
+    ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
+    ['Enlace al directo en emails de GHL', `${origin}/directo?l=${code}&cid={{contact.id}}`],
     ['Enlace al directo para el grupo de WhatsApp (pide el email)', `${origin}/directo?l=${code}`],
-    ['Enlaces a las clases en emails de GHL (añádelo al final de la URL)', '?cid={{contact.id}}'],
   ];
   box.innerHTML = items.map(([title, text], i) => `
     <div class="snippet">

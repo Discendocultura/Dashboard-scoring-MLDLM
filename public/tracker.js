@@ -37,12 +37,30 @@
     }
   }
 
+  // Identidad de la lead: de la URL (cid/email) o la que recuerda este navegador.
+  // `ok` guarda en qué lanzamientos ya se comprobó que está registrada.
   function identity() {
+    var saved = store(STORE) || {};
     var cid = params.get('cid') || params.get('contact_id');
     var email = params.get('email');
-    if (cid && !/^\{\{/.test(cid)) { store(STORE, { cid: cid }); return { cid: cid }; }
-    if (email && /@/.test(email)) { store(STORE, { email: email.toLowerCase() }); return { email: email.toLowerCase() }; }
-    return store(STORE);
+    if (cid && !/^\{\{/.test(cid)) {
+      var w = { cid: cid, email: saved.cid === cid ? saved.email : undefined, ok: saved.cid === cid ? saved.ok : undefined, fromUrl: true };
+      store(STORE, { cid: cid, email: w.email, ok: w.ok });
+      return w;
+    }
+    if (email && /@/.test(email)) {
+      email = email.toLowerCase();
+      store(STORE, { email: email, cid: saved.email === email ? saved.cid : undefined, ok: saved.email === email ? saved.ok : undefined });
+      return { email: email };
+    }
+    return saved.cid || saved.email ? saved : null;
+  }
+
+  function markRegistered(who, launch) {
+    var saved = store(STORE) || {};
+    var ok = (saved.cid === who.cid || saved.email === who.email) && saved.ok ? saved.ok : {};
+    ok[launch] = 1;
+    store(STORE, { cid: who.cid || saved.cid, email: who.email || saved.email, ok: ok });
   }
 
   function post(path, payload) {
@@ -73,7 +91,8 @@
     '.lsd-gate form{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:100%;max-width:420px}' +
     '.lsd-gate input{flex:1 1 100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #d8d0c9;font:inherit}' +
     '.lsd-gate button{padding:12px 18px;border:0;border-radius:8px;background:#b4552d;color:#fff;font:inherit;font-weight:600;cursor:pointer}' +
-    '.lsd-gate .lsd-err{color:#b3261e;font-size:.9em}';
+    '.lsd-gate .lsd-err{color:#b3261e;font-size:.9em}' +
+    '.lsd-gate.lsd-gate-login{aspect-ratio:auto;padding:28px 20px}';
 
   function injectCss() {
     if (document.getElementById('lsd-css')) return;
@@ -86,18 +105,19 @@
   // Formulario de acceso: se muestra UNA sola vez por página (aunque haya varios vídeos).
   // Paso 1: email. Si está registrada (o existe en GHL, y entonces se registra) → acceso.
   // Paso 2 (email nuevo): nombre y teléfono → se registra en GHL → acceso.
-  function gate(container, launch, done, presetEmail) {
+  function gate(container, launch, done, presetEmail, opts) {
+    opts = opts || {};
     injectCss();
     var box = document.createElement('div');
-    box.className = 'lsd-gate';
+    box.className = 'lsd-gate' + (opts.login ? ' lsd-gate-login' : '');
     box.innerHTML =
-      '<p class="lsd-title"><strong>Escribe el email con el que te registraste al webinar</strong> para acceder a las clases.</p>' +
+      '<p class="lsd-title"><strong>' + (opts.title || 'Escribe el email con el que te registraste al webinar') + '</strong>' + (opts.login ? '' : ' para acceder a las clases.') + '</p>' +
       '<form autocomplete="on">' +
       '<input name="email" type="email" required placeholder="tu@email.com" autocomplete="email">' +
       '<input name="name" type="text" placeholder="Tu nombre" autocomplete="name" hidden>' +
       '<input name="phone" type="tel" placeholder="Tu móvil (WhatsApp)" autocomplete="tel" hidden>' +
       '<input name="website" type="text" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">' +
-      '<button type="submit">Acceder</button></form>' +
+      '<button type="submit">' + (opts.button || 'Acceder') + '</button></form>' +
       '<p class="lsd-err" hidden></p>';
     container.appendChild(box);
     var form = box.querySelector('form');
@@ -154,9 +174,11 @@
       post('/api/access', payload).then(function (r) {
         btn.disabled = false;
         if (r && r.ok) {
-          store(STORE, { email: email });
+          var who = r.cid ? { cid: r.cid, email: email } : { email: email };
+          store(STORE, who);
+          markRegistered(who, launch);
           box.remove();
-          return done({ email: email });
+          return done(who);
         }
         if (r && r.needs === 'signup') {
           if (signup) {
@@ -237,12 +259,46 @@
     window.addEventListener('pagehide', save);
   }
 
+  // Lleva a una URL añadiendo la identidad de la lead (cid o email) y conservando el resto.
+  function goTo(url, who) {
+    var u = new URL(url, location.href);
+    if (who && who.cid) u.searchParams.set('cid', who.cid);
+    else if (who && who.email) u.searchParams.set('email', who.email);
+    location.replace(u.toString());
+  }
+
+  // Página de login: <div data-lsd-login data-launch="nov26" data-redirect="https://…/recursos"></div>
+  // Registrada → redirige. Si no, pide nombre y móvil, la registra con la etiqueta del lanzamiento y redirige.
+  function initLogin(el) {
+    if (el.getAttribute('data-lsd-ready')) return;
+    el.setAttribute('data-lsd-ready', '1');
+    var launch = params.get('l') || el.getAttribute('data-launch');
+    var redirect = el.getAttribute('data-redirect');
+    var cid = params.get('cid');
+    if (cid && !/^\{\{/.test(cid)) { store(STORE, { cid: cid }); return goTo(redirect, { cid: cid }); } // viene de un email de GHL
+    var stored = store(STORE) || {};
+    var preset = params.get('email') || '';
+    gate(el, launch, function (who) { goTo(redirect, who); }, preset || '', {
+      login: true,
+      title: el.getAttribute('data-title') || 'Accede a las clases con el email con el que te registraste',
+      button: el.getAttribute('data-button') || 'Acceder',
+    });
+    // Si este navegador ya la conoce, dejamos su email escrito (pero puede cambiarlo).
+    if (!preset && stored.email) { var inp = el.querySelector('input[name="email"]'); if (inp) inp.value = stored.email; }
+  }
+
   function init() {
+    var login = document.querySelector('[data-lsd-login]');
+    if (login) initLogin(login);
+
     var containers = Array.prototype.slice.call(document.querySelectorAll('[data-lsd-video]'))
       .filter(function (c) { return !c.getAttribute('data-lsd-ready'); });
     if (!containers.length) return;
     containers.forEach(function (c) { c.setAttribute('data-lsd-ready', '1'); c.classList.add('lsd-wrap'); });
     var launch = params.get('l') || containers[0].getAttribute('data-launch');
+    // Con data-login="URL de la página de login", quien llega sin identificar va al login.
+    var loginEl = document.querySelector('[data-lsd-video][data-login]');
+    var loginUrl = loginEl ? loginEl.getAttribute('data-login') : '';
 
     function start(who) {
       decorateLiveLinks(who);
@@ -253,6 +309,7 @@
 
     var gateHost = document.querySelector('[data-lsd-gate]') || containers[0];
     function showGate(presetEmail) {
+      if (loginUrl) return goTo(loginUrl, presetEmail ? { email: presetEmail } : null);
       containers.forEach(function (c) { if (c !== gateHost) c.style.display = 'none'; });
       gate(gateHost, launch, function (w) {
         containers.forEach(function (c) { c.style.display = ''; });
@@ -261,11 +318,16 @@
     }
 
     var who = identity();
-    if (who && who.cid) return start(who); // viene de un email de GHL: ya sabemos quién es
     if (!who) return showGate();
-    // Email recordado o en la URL: comprobamos (y si hace falta registramos) en este lanzamiento.
+    // Ya comprobada en este lanzamiento, o llega con su cid desde el login o un email de GHL.
+    if ((who.ok && who.ok[launch]) || (who.cid && (who.fromUrl || !who.email))) return start(who);
+    // Si no, comprobamos que esté registrada en este lanzamiento (p. ej. viene de uno anterior).
     post('/api/access', { email: who.email, launch: launch }).then(function (r) {
-      if (r && r.ok) return start(who);
+      if (r && r.ok) {
+        var w = r.cid ? { cid: r.cid, email: who.email } : who;
+        markRegistered(w, launch);
+        return start(w);
+      }
       if (r && r.needs === 'signup') return showGate(who.email);
       start(who);
     }).catch(function () { start(who); });
