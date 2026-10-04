@@ -2,8 +2,10 @@
 // 1) Marca en GHL que el lead ha pulsado el enlace (`<l>_directo_click`).
 // 2) Lo inscribe en la reunión de Zoom con su email y le redirige a su enlace personal,
 //    para que después el informe de Zoom diga quién asistió y cuánto tiempo.
-// Si llega sin identificar (p. ej. desde el grupo de WhatsApp) se le pide el email.
-import { addTags, getContact, findContactByEmail } from '../lib/ghl.js';
+// Si llega sin identificar (p. ej. desde el grupo de WhatsApp) se le pide el email; si ese email no
+// existe en GHL, se le piden nombre y móvil y se registra en el lanzamiento antes de entrar.
+import { addTags, getContact } from '../lib/ghl.js';
+import { ensureRegistered } from '../lib/access.js';
 import { getConfig } from '../lib/config-store.js';
 import { addRegistrant, zoomConfigured } from '../lib/zoom.js';
 import { html, escapeHtml, isEmail } from '../lib/http.js';
@@ -29,6 +31,20 @@ function emailForm(launchCode, error = '') {
       <input type="hidden" name="l" value="${escapeHtml(launchCode)}">
       <input type="email" name="email" required placeholder="tu@email.com" autocomplete="email">
       <button type="submit">Entrar al directo</button>
+    </form>`);
+}
+
+function signupForm(launchCode, email, error = '') {
+  return page('Accede al directo', `
+    <h1>No encontramos tu registro</h1>
+    <p>Completa tus datos para registrarte y entrar ahora mismo a la clase en directo.</p>
+    ${error ? `<p class="err">${escapeHtml(error)}</p>` : ''}
+    <form method="get">
+      <input type="hidden" name="l" value="${escapeHtml(launchCode)}">
+      <input type="email" name="email" required value="${escapeHtml(email)}" autocomplete="email">
+      <input type="text" name="nombre" required placeholder="Tu nombre" autocomplete="name">
+      <input type="tel" name="telefono" required placeholder="Tu móvil (WhatsApp)" autocomplete="tel">
+      <button type="submit">Registrarme y entrar</button>
     </form>`);
 }
 
@@ -60,9 +76,11 @@ export async function GET(request, ctx) {
 
   // Configuración y contacto en paralelo para que la redirección sea lo más rápida posible.
   let launch;
+  let config;
   let contact = null;
   try {
-    const [config, byId] = await Promise.all([
+    let byId;
+    [config, byId] = await Promise.all([
       getConfig(),
       cid ? getContact(cid).catch((e) => { console.error(e); return null; }) : null,
     ]);
@@ -78,10 +96,22 @@ export async function GET(request, ctx) {
 
   let joinUrl = '';
   try {
-    if (!contact && emailParam) contact = await findContactByEmail(emailParam);
+    if (!contact && emailParam) {
+      // Registrada en el lanzamiento, o se registra ahora (si no existe, pedimos nombre y móvil).
+      const result = await ensureRegistered(launch, {
+        email: emailParam, name: url.searchParams.get('nombre'), phone: url.searchParams.get('telefono'),
+      }, config);
+      if (result.status === 'needs_signup') {
+        const tried = url.searchParams.has('nombre');
+        return signupForm(code, emailParam, tried ? 'Revisa tu nombre y tu móvil.' : '');
+      }
+      contact = result.contact;
+    }
     if (contact) {
-      // La etiqueta se guarda después de redirigir: la lead no espera por ella.
-      const tagging = addTags(contact.id, [tagFor(code, 'directo_click')]).catch((e) => console.error(e));
+      const tags = [tagFor(code, 'directo_click')];
+      if (launch.registroTag && !contact.tags.map((t) => t.toLowerCase()).includes(launch.registroTag)) tags.push(launch.registroTag);
+      // Las etiquetas se guardan después de redirigir: la lead no espera por ellas.
+      const tagging = addTags(contact.id, tags).catch((e) => console.error(e));
       if (ctx?.waitUntil) ctx.waitUntil(tagging);
     }
 

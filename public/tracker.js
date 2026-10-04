@@ -12,8 +12,9 @@
  *
  * Puede haber varios vídeos en la misma página (p. ej. una página de recursos con la clase 1 y 2).
  * Identifica al lead por ?cid={{contact.id}} o ?email={{contact.email}} en la URL.
- * Si llega sin identificar, muestra UN formulario de acceso que solo deja pasar emails con la
- * etiqueta de registro del lanzamiento, y lo recuerda en ese navegador.
+ * Si llega sin identificar, muestra UN formulario de acceso con el email del registro. Si el email
+ * existe en GHL se le pone la etiqueta de registro (si no la tenía); si no existe, se le piden nombre
+ * y móvil y se registra como nueva. El navegador la recuerda para la próxima vez.
  * Opcional: <div data-lsd-gate></div> para colocar el formulario en otro sitio de la página.
  * Los enlaces de la página a /directo se completan solos con la identidad de la lead.
  *
@@ -70,7 +71,7 @@
     '.lsd-gate{display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;text-align:center;padding:32px 20px;border-radius:12px;background:#f6f3ef;color:#2b2522;aspect-ratio:16/9;box-sizing:border-box}' +
     '.lsd-gate p{margin:0;max-width:420px;line-height:1.45}' +
     '.lsd-gate form{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:100%;max-width:420px}' +
-    '.lsd-gate input{flex:1 1 220px;padding:12px;border-radius:8px;border:1px solid #d8d0c9;font:inherit}' +
+    '.lsd-gate input{flex:1 1 100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #d8d0c9;font:inherit}' +
     '.lsd-gate button{padding:12px 18px;border:0;border-radius:8px;background:#b4552d;color:#fff;font:inherit;font-weight:600;cursor:pointer}' +
     '.lsd-gate .lsd-err{color:#b3261e;font-size:.9em}';
 
@@ -83,35 +84,59 @@
   }
 
   // Formulario de acceso: se muestra UNA sola vez por página (aunque haya varios vídeos).
-  // Solo deja pasar emails con la etiqueta de registro del lanzamiento.
-  function gate(container, launch, done) {
+  // Paso 1: email. Si está registrada (o existe en GHL, y entonces se registra) → acceso.
+  // Paso 2 (email nuevo): nombre y teléfono → se registra en GHL → acceso.
+  function gate(container, launch, done, presetEmail) {
     injectCss();
     var box = document.createElement('div');
     box.className = 'lsd-gate';
-    box.innerHTML = '<p><strong>Escribe el email con el que te registraste al webinar</strong> para acceder a las clases.</p>' +
-      '<form><input type="email" required placeholder="tu@email.com" autocomplete="email"><button type="submit">Acceder</button></form>' +
+    box.innerHTML =
+      '<p class="lsd-title"><strong>Escribe el email con el que te registraste al webinar</strong> para acceder a las clases.</p>' +
+      '<form autocomplete="on">' +
+      '<input name="email" type="email" required placeholder="tu@email.com" autocomplete="email">' +
+      '<input name="name" type="text" placeholder="Tu nombre" autocomplete="name" hidden>' +
+      '<input name="phone" type="tel" placeholder="Tu móvil (WhatsApp)" autocomplete="tel" hidden>' +
+      '<input name="website" type="text" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">' +
+      '<button type="submit">Acceder</button></form>' +
       '<p class="lsd-err" hidden></p>';
     container.appendChild(box);
     var form = box.querySelector('form');
+    var title = box.querySelector('.lsd-title');
     var err = box.querySelector('.lsd-err');
+    var btn = form.querySelector('button');
+    var f = function (n) { return form.querySelector('[name="' + n + '"]'); };
+    var signup = false;
+
+    function showSignup() {
+      signup = true;
+      title.innerHTML = '<strong>No encontramos tu registro.</strong> Completa tus datos y accede ahora mismo.';
+      f('name').hidden = false; f('name').required = true;
+      f('phone').hidden = false; f('phone').required = true;
+      btn.textContent = 'Registrarme y acceder';
+      f('name').focus();
+    }
+    if (presetEmail) { f('email').value = presetEmail; showSignup(); }
+
     form.onsubmit = function (e) {
       e.preventDefault();
-      var email = form.querySelector('input').value.trim().toLowerCase();
-      var btn = form.querySelector('button');
+      var email = f('email').value.trim().toLowerCase();
       btn.disabled = true;
       err.hidden = true;
-      post('/api/identify', { email: email, launch: launch }).then(function (r) {
-        if (r && r.registered) {
+      var payload = { email: email, launch: launch, website: f('website').value };
+      if (signup) { payload.name = f('name').value.trim(); payload.phone = f('phone').value.trim(); }
+      post('/api/access', payload).then(function (r) {
+        btn.disabled = false;
+        if (r && r.ok) {
           store(STORE, { email: email });
           box.remove();
-          done({ email: email });
-        } else {
-          err.textContent = r && r.found
-            ? 'Este email no está registrado en este webinar. Usa el email con el que te registraste.'
-            : 'No encontramos ese email. Prueba con el que usaste al registrarte.';
-          err.hidden = false;
-          btn.disabled = false;
+          return done({ email: email });
         }
+        if (r && r.needs === 'signup') {
+          if (signup) { err.textContent = 'Revisa tu nombre y tu móvil.'; err.hidden = false; }
+          return showSignup();
+        }
+        err.textContent = 'No hemos podido comprobar ese email. Revísalo e inténtalo de nuevo.';
+        err.hidden = false;
       }).catch(function () {
         // Si nuestro servidor no responde, no bloqueamos el acceso a las clases.
         box.remove();
@@ -196,15 +221,24 @@
       });
     }
 
-    var who = identity();
-    if (who) return start(who);
-    // Sin identificar: un único formulario de acceso. Los vídeos se ocultan hasta entrar.
     var gateHost = document.querySelector('[data-lsd-gate]') || containers[0];
-    containers.forEach(function (c) { if (c !== gateHost) c.style.display = 'none'; });
-    gate(gateHost, launch, function (w) {
-      containers.forEach(function (c) { c.style.display = ''; });
-      start(w);
-    });
+    function showGate(presetEmail) {
+      containers.forEach(function (c) { if (c !== gateHost) c.style.display = 'none'; });
+      gate(gateHost, launch, function (w) {
+        containers.forEach(function (c) { c.style.display = ''; });
+        start(w);
+      }, presetEmail);
+    }
+
+    var who = identity();
+    if (who && who.cid) return start(who); // viene de un email de GHL: ya sabemos quién es
+    if (!who) return showGate();
+    // Email recordado o en la URL: comprobamos (y si hace falta registramos) en este lanzamiento.
+    post('/api/access', { email: who.email, launch: launch }).then(function (r) {
+      if (r && r.ok) return start(who);
+      if (r && r.needs === 'signup') return showGate(who.email);
+      start(who);
+    }).catch(function () { start(who); });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

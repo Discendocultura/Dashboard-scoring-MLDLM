@@ -123,3 +123,36 @@ test('el directo recuerda a la lead en ese navegador', async () => {
   // sin cookie: formulario de email
   assert.equal((await GET(req('/directo?l=demo'))).status, 200);
 });
+
+test('acceso: registrada, existente sin etiqueta y email nuevo', async () => {
+  const { POST } = await import('../handlers/access.js');
+  const { getContact, findContactByEmail, upsertContact } = await import('../lib/ghl.js');
+  const call = async (body) => (await POST(req('/api/access', { method: 'POST', body: { launch: 'demo', ...body } }))).json();
+  const reg = await getContact('mock00011');
+  assert.deepEqual(await call({ email: reg.email }), { ok: true, status: 'registered' });
+  // existe en GHL (otro embudo) pero no en este lanzamiento → se le añade la etiqueta
+  const otra = await upsertContact({ email: 'vsl@example.com', firstName: 'Vera' });
+  assert.deepEqual(await call({ email: 'vsl@example.com' }), { ok: true, status: 'tagged' });
+  assert.ok((await getContact(otra.id)).tags.includes('registro-webinar-demo'));
+  // no existe → pide datos; con nombre y móvil se crea registrada
+  assert.deepEqual(await call({ email: 'nueva@example.com' }), { ok: false, needs: 'signup' });
+  assert.deepEqual(await call({ email: 'nueva@example.com', name: 'Nora Gil', phone: '600 11 22 33' }), { ok: true, status: 'created' });
+  const nueva = await findContactByEmail('nueva@example.com');
+  assert.equal(nueva.phone, '+34600112233');
+  assert.ok(nueva.tags.includes('registro-webinar-demo'));
+  // bots (campo trampa) no crean nada
+  assert.deepEqual(await call({ email: 'bot@example.com', name: 'Bot', phone: '600000000', website: 'x' }), { ok: false });
+  assert.equal(await findContactByEmail('bot@example.com'), null);
+});
+
+test('directo con email nuevo: pide datos, registra y entra', async () => {
+  const { GET } = await import('../handlers/directo.js');
+  const form = await GET(req('/directo?l=demo&email=directo-nueva@example.com'));
+  assert.equal(form.status, 200);
+  assert.match(await form.text(), /name="nombre"/);
+  const ok = await GET(req('/directo?l=demo&email=directo-nueva@example.com&nombre=Ana&telefono=611223344'));
+  assert.equal(ok.status, 302);
+  const { findContactByEmail } = await import('../lib/ghl.js');
+  const c = await findContactByEmail('directo-nueva@example.com');
+  assert.ok(c.tags.includes('registro-webinar-demo') && c.tags.includes('demo_directo_click'));
+});

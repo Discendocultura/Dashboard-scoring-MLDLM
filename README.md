@@ -159,8 +159,13 @@ Pega en un bloque **Código HTML** de la página de GHL (un solo `<script>` para
 ```
 
 - Si la lead llega con `?cid={{contact.id}}` (desde un email de GHL), ve las clases directamente.
-- Si no, aparece **un único** formulario de email que solo deja pasar a quien tenga la etiqueta de registro
-  del lanzamiento. Ese navegador la recuerda para la próxima vez.
+- Si no, aparece **un único** formulario de acceso con el email del registro:
+  - **ya registrada** en el lanzamiento → entra;
+  - **existe en GHL** (otro embudo) pero sin la etiqueta de registro → se le añade la etiqueta y entra;
+  - **no existe** → se le piden nombre y móvil, se crea en GHL con la etiqueta de registro y entra.
+  Ese navegador la recuerda para la próxima vez. El enlace `/directo` funciona igual.
+- Las nuevas se crean con la **etiqueta de registro**, así que los workflows de GHL que se disparan con esa
+  etiqueta (bienvenida, recordatorios…) se activan igual que con el formulario.
 - El enlace al directo de la página se completa solo con su identidad, así entra a Zoom sin escribir nada.
 - El enlace `/directo` también recuerda a la lead en su navegador durante 90 días: si vuelve a entrar desde el
   grupo de WhatsApp, va directa.
