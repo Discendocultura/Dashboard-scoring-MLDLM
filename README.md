@@ -192,8 +192,11 @@ si no conectas Meta, la **inversión**. Facturación = VIP × precio VIP + venta
 2. *Generar token* → elige tu app (o crea una en developers.facebook.com, tipo *Empresa*) → permiso **`ads_read`** →
    caducidad **Nunca**.
 3. En Cloudflare añade los secretos `META_ACCESS_TOKEN` y `META_AD_ACCOUNT_ID` (el número de la cuenta, con o sin `act_`).
-4. En el lanzamiento, rellena **Campañas de Meta de este lanzamiento** con un texto que contengan sus nombres
-   (p. ej. `webinar`) para no sumar el gasto de otros embudos.
+4. **Nombra la campaña de captación con el código del lanzamiento**, p. ej. `Captación webinar nov26`. El dashboard
+   solo suma el gasto de las campañas cuyo nombre contiene el código (o el texto que pongas en *Campañas de Meta de
+   este lanzamiento*). La configuración del lanzamiento muestra siempre este recordatorio con el nombre exacto.
+5. En cada anuncio, *Parámetros de URL*:
+   `utm_source={{site_source_name}}&utm_medium=paid&utm_campaign={{campaign.id}}&utm_term={{adset.id}}&utm_content={{ad.id}}`
 El periodo es desde el inicio de captación hasta el día antes del siguiente lanzamiento (o hoy). La tabla de origen
 cruza las UTM de GHL (`utm_campaign`, `utm_term`, `utm_content` con los ID de Meta) con los nombres y el gasto.
 

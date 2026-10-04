@@ -828,6 +828,7 @@ function openConfig(code) {
   $('#cfg-precio-programa').value = l.precioPrograma || '';
   $('#cfg-inversion').value = l.inversion || '';
   $('#cfg-meta-filtro').value = l.metaFiltro || '';
+  renderMetaNaming();
   $('#cfg-digest-email').value = state.config.digestEmail || '';
   $('#tpl-grabacion').value = state.config.templates.grabacion;
   $('#tpl-raices').value = state.config.templates.raices;
@@ -1025,6 +1026,32 @@ $('#btn-digest-test').addEventListener('click', async () => {
   } finally {
     b.disabled = false;
   }
+});
+
+// Nota fija: cómo nombrar las campañas de Meta para que el dashboard las reconozca.
+const UTM_PARAMS = 'utm_source={{site_source_name}}&utm_medium=paid&utm_campaign={{campaign.id}}&utm_term={{adset.id}}&utm_content={{ad.id}}';
+
+function renderMetaNaming() {
+  const code = ($('#cfg-code').value.trim().toLowerCase() || 'codigo');
+  const filtro = $('#cfg-meta-filtro').value.trim() || code;
+  const campaign = `Captación webinar ${code}`;
+  $('#meta-naming').innerHTML = `
+    <strong>📣 Antes de lanzar los anuncios en Meta</strong>
+    <p>1. Nombra la campaña de captación de este lanzamiento con su código. El dashboard solo suma la inversión de las campañas cuyo nombre contiene <code>${esc(filtro)}</code>:</p>
+    <div class="copy-row"><code>${esc(campaign)}</code><button type="button" class="btn" data-copy-text="${esc(campaign)}">Copiar</button></div>
+    <p>2. En cada anuncio, en <em>Parámetros de URL</em>, pega esto (así cada lead llega con su campaña, conjunto y anuncio):</p>
+    <div class="copy-row"><code>${esc(UTM_PARAMS)}</code><button type="button" class="btn" data-copy-text="${esc(UTM_PARAMS)}">Copiar</button></div>
+    <p class="muted">Si duplicas una campaña de un lanzamiento anterior, cámbiale el código del nombre.</p>`;
+}
+
+$('#cfg-code').addEventListener('input', renderMetaNaming);
+$('#cfg-meta-filtro').addEventListener('input', renderMetaNaming);
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-copy-text]');
+  if (!b) return;
+  await navigator.clipboard.writeText(b.dataset.copyText);
+  b.textContent = 'Copiado ✓';
+  setTimeout(() => { b.textContent = 'Copiar'; }, 1500);
 });
 
 function renderSnippets() {

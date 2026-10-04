@@ -197,6 +197,7 @@
             </label>
             <button type="button" class="btn" data-action="new-launch">+ Nuevo</button>
           </div>
+          <div id="meta-naming" class="meta-note" role="note"></div>
           <div class="grid2">
             <label class="field"><span>Código <small>(minúsculas, sin espacios: p. ej. <code>nov26</code>)</small></span>
               <input id="cfg-code" required pattern="[a-z0-9\-]{2,24}"></label>
@@ -222,7 +223,7 @@
             <label class="field"><span>Precio de la entrada VIP (€)</span><input id="cfg-precio-vip" inputmode="decimal" placeholder="27"></label>
             <label class="field"><span>Precio de Raíces (€) <small>(o el importe medio cobrado)</small></span><input id="cfg-precio-programa" inputmode="decimal" placeholder="997"></label>
             <label class="field"><span>Inversión en anuncios (€) <small>(si no conectas Meta)</small></span><input id="cfg-inversion" inputmode="decimal"></label>
-            <label class="field"><span>Campañas de Meta de este lanzamiento <small>(texto que contiene su nombre)</small></span><input id="cfg-meta-filtro" placeholder="webinar nov26"></label>
+            <label class="field"><span>Campañas de Meta de este lanzamiento <small>(texto que contiene su nombre; vacío = el código)</small></span><input id="cfg-meta-filtro" placeholder="el código del lanzamiento"></label>
           </div>
           <div id="cfg-snapshot" class="snapshot-box"></div>
           <datalist id="tag-list"></datalist>
