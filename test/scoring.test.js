@@ -4,7 +4,7 @@ import {
   signalsFor, score, estadoFor, nextStepFor, buildMessage, waPhone, isValidSignalTag, launchCodesFromTags,
 } from '../public/js/scoring.js';
 
-const s = (tags, vip = 'compra-vip') => signalsFor(tags, 'nov26', vip);
+const s = (tags) => signalsFor(tags, 'nov26', { vipTag: 'compra-vip', compraTag: 'clienta-raices', compraDirectoTag: 'raices-directo' });
 
 test('lead sin actividad es frío y va a la grabación', () => {
   const sig = s(['registro']);
@@ -64,4 +64,19 @@ test('porcentajes intermedios 25/75', () => {
   assert.equal(score(sig), 12 + 4 + 10);
   assert.equal(nextStepFor(s(['nov26_replay_25', 'nov26_replay_50', 'nov26_replay_75'])), 'raices');
   assert.ok(isValidSignalTag('nov26_replay_75'));
+});
+
+test('VIP y compras anteriores al lanzamiento no cuentan', () => {
+  const antigua = s(['compra-vip', 'nov26_vip_previo', 'clienta-raices', 'nov26_compra_previo']);
+  assert.equal(antigua.vip, false);
+  assert.equal(antigua.vip_anterior, true);
+  assert.equal(antigua.compra, false);
+  assert.equal(antigua.clienta_anterior, true);
+  assert.equal(score(antigua), 0);
+  // la foto de otro lanzamiento no afecta a este
+  assert.equal(s(['compra-vip', 'oct26_vip_previo']).vip, true);
+  const nueva = s(['compra-vip', 'raices-directo']);
+  assert.ok(nueva.vip && nueva.compra && nueva.compra_directo);
+  assert.equal(nextStepFor(nueva), 'comprado');
+  assert.ok(isValidSignalTag('nov26_compradirecto_previo'));
 });

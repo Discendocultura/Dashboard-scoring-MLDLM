@@ -150,6 +150,40 @@ body.is-admin .setter-only { display: none !important; }
 .distribution { display: flex; height: 8px; gap: 2px; border-radius: 4px; overflow: hidden; margin: -4px 0 14px; }
 .distribution span { background: var(--st); min-width: 2px; }
 
+/* Vistas */
+.views { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+.view-tab { font: inherit; font-weight: 600; font-size: 15px; background: none; border: 0; padding: 10px 14px; color: var(--text-2); cursor: pointer; border-bottom: 2px solid transparent; }
+.view-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.notice.warn { border-color: var(--st-caliente); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.notice.warn p { margin: 0; flex: 1 1 320px; }
+
+/* Métricas */
+.metric-card { padding: 14px 16px; margin-bottom: 14px; }
+.metric-card h2 { font-size: 14px; margin: 0 0 12px; }
+.metric-card h2 .muted { font-weight: 400; }
+.funnel-row { display: grid; grid-template-columns: minmax(130px, 220px) 1fr minmax(90px, auto); gap: 10px; align-items: center; padding: 5px 0; }
+.funnel-label { font-size: 13px; font-weight: 600; }
+.funnel-label small { display: block; font-weight: 400; color: var(--muted); }
+.funnel-bar { height: 14px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.funnel-bar span { display: block; height: 100%; border-radius: 4px; background: var(--accent); min-width: 2px; }
+.funnel-bar.buy span { background: var(--wa); }
+.funnel-num { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; white-space: nowrap; }
+.funnel-num strong { font-size: 14px; }
+table.metric-table { width: 100%; border-collapse: collapse; min-width: 520px; }
+.metric-table th, .metric-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+.metric-table thead th { font-size: 12px; color: var(--text-2); }
+.metric-table td.num, .metric-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.metric-table tr:last-child td { border-bottom: 0; }
+.metric-table .big { font-weight: 700; font-size: 15px; }
+.snapshot-box { padding: 12px; border-radius: 8px; background: var(--surface-2); font-size: 13px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.snapshot-box p { margin: 0; }
+@media (max-width: 640px) {
+  table.metric-table { min-width: 0; }
+  .metric-table th, .metric-table td { padding: 8px 4px; }
+  .funnel-row { grid-template-columns: 1fr auto; }
+  .funnel-bar { grid-column: 1 / -1; grid-row: 2; }
+}
+
 /* Consumo de vídeos */
 .consumo-card { padding: 14px 16px; margin-bottom: 14px; }
 .consumo-card h2 { font-size: 14px; margin: 0 0 10px; }

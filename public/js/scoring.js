@@ -9,6 +9,16 @@ export const SIGNALS = [
   'replay_25', 'replay_50', 'replay_75', 'replay_90',
   'directo_click', 'directo_asistio', 'directo_60', 'directo_final',
   'wa_enviado',
+  // "Foto" al crear el lanzamiento: quién tenía ya la etiqueta VIP / de compra (de lanzamientos
+  // anteriores). Esas personas no cuentan como VIP / compra de este lanzamiento.
+  'vip_previo', 'compra_previo', 'compradirecto_previo',
+];
+
+// Etiquetas fijas (no cambian entre lanzamientos) que se "fotografían" al crear el lanzamiento.
+export const SNAPSHOT_TAGS = [
+  { field: 'vipTag', signal: 'vip_previo', label: 'VIP' },
+  { field: 'compraTag', signal: 'compra_previo', label: 'compra' },
+  { field: 'compraDirectoTag', signal: 'compradirecto_previo', label: 'compra en directo' },
 ];
 
 export const VIDEOS = ['clase1', 'clase2', 'replay'];
@@ -45,11 +55,17 @@ export function launchCodesFromTags(tags) {
   return [...codes].sort();
 }
 
-export function signalsFor(contactTags, launch, vipTag) {
+// `cfg` es la configuración del lanzamiento: { vipTag, compraTag, compraDirectoTag }.
+export function signalsFor(contactTags, launch, cfg = {}) {
   const tags = new Set((contactTags || []).map((t) => String(t).toLowerCase()));
+  const has = (t) => Boolean(t) && tags.has(String(t).toLowerCase());
   const s = {};
   for (const sig of SIGNALS) s[sig] = tags.has(tagFor(launch, sig));
-  s.vip = Boolean(vipTag) && tags.has(vipTag.toLowerCase());
+  s.vip = has(cfg.vipTag) && !s.vip_previo;
+  s.vip_anterior = has(cfg.vipTag) && s.vip_previo;
+  s.compra_directo = has(cfg.compraDirectoTag) && !s.compradirecto_previo;
+  s.compra = (has(cfg.compraTag) && !s.compra_previo) || s.compra_directo;
+  s.clienta_anterior = (has(cfg.compraTag) && s.compra_previo) || (has(cfg.compraDirectoTag) && s.compradirecto_previo);
   return s;
 }
 
@@ -94,12 +110,14 @@ export function estadoFor(points) {
 //  - raices:    vio al menos el 50% de la grabación → oferta de Raíces
 //  - grabacion: todavía no ha visto la grabación → enviarle a la grabación
 export const NEXT_STEPS = {
+  comprado: 'Ya compró',
   cierre: 'Venta / llamada',
   raices: 'Oferta Raíces',
   grabacion: 'Ver grabación',
 };
 
 export function nextStepFor(s) {
+  if (s.compra) return 'comprado';
   const replay = watched(s, 'replay');
   if (s.directo_final || replay >= 90) return 'cierre';
   if (replay >= 50) return 'raices';

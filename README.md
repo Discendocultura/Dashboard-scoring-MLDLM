@@ -47,6 +47,20 @@ Los textos se editan en **Configuración → Mensajes de WhatsApp**. Los enlaces
 Que seguía conectado en los últimos 15 minutos de la reunión (cuando se presenta la oferta)
 y estuvo al menos 20 minutos en total.
 
+### VIP y compras: etiquetas fijas entre lanzamientos
+
+Las etiquetas de **compra VIP**, **compra del programa** y, si existe, **compra en directo** son siempre las
+mismas. GHL no guarda cuándo se puso una etiqueta, así que al **crear un lanzamiento** el dashboard hace una
+"foto": marca con `<código>_vip_previo` / `_compra_previo` / `_compradirecto_previo` a quien ya las tenía.
+Esas personas aparecen como "VIP anterior" o "Clienta anterior" y no cuentan en las métricas del lanzamiento.
+**Crea el lanzamiento en el dashboard antes de abrir la venta de la VIP.** Si alguien que ya era VIP vuelve
+a comprarla, no se puede distinguir solo con la etiqueta, así que no cuenta en este lanzamiento.
+
+### Pestaña Métricas
+Registros, entradas VIP, asistencia (en número y en %), compras totales, compras de VIP, compras en directo,
+el embudo completo, la conversión por segmento (VIP / no VIP / directo / grabación), el consumo de cada vídeo y
+la conversión por estado (para comprobar si la puntuación predice bien).
+
 ## Instalación (una sola vez)
 
 ### 1. Token de GHL (gratis)

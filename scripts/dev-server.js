@@ -22,6 +22,11 @@ createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     let path = url.pathname;
+    if (path === '/__mock/sales' && process.env.GHL_MOCK === '1') {
+      const { simulateSales } = await import('../lib/mock.js');
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ vip: simulateSales() }));
+      return;
+    }
     if (path === '/directo' || path.startsWith('/api/')) {
       const chunks = [];
       for await (const c of req) chunks.push(c);
