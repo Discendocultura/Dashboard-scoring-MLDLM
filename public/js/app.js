@@ -3,7 +3,7 @@ import {
 } from './scoring.js';
 import { icon } from './icons.js';
 import { ENCUESTA_PREGUNTAS } from './encuesta.js';
-import { enrichLead, computeMetrics, bySource, ventasPorDia, porRespuesta, avisosLanzamiento } from './metrics.js';
+import { enrichLead, computeMetrics, bySource, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar } from './metrics.js';
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -457,23 +457,82 @@ document.addEventListener('click', (e) => {
   goToField('cfg-obj-registros');
 });
 
-// Ventas según las respuestas de la encuesta del avatar (una tabla por pregunta).
+// Avatares de compradoras: perfiles sacados de la encuesta y de quién compra de verdad.
+const AV_TONES = ['buy', 'vip', 'live'];
+const pct0 = (x) => `${Math.round(x * 100)}%`;
+const veces = (x) => `×${x.toLocaleString('es-ES', { maximumFractionDigits: 1, minimumFractionDigits: 1 })}`;
 function renderEncuestaMetrics() {
   const box = $('#encuesta-metrics');
   const total = state.leads.length;
-  const respondieron = state.leads.filter((l) => ENCUESTA_PREGUNTAS.some((p) => l.cf?.[p.id] != null && String(l.cf[p.id]).trim() !== '')).length;
-  box.innerHTML = `<p class="muted">${respondieron} de ${total} leads han respondido la encuesta (${pctOf(respondieron, total)}).</p>` + ENCUESTA_PREGUNTAS.map((p) => {
-    const rows = porRespuesta(state.leads, p);
-    const multi = p.tipo === 'opciones' && rows.reduce((t, r) => t + r.leads, 0) > total;
-    return `<h3 class="cfg-h4">${esc(p.name)}</h3>
-      ${multi ? '<p class="muted">Se pueden marcar varias respuestas: una lead cuenta en cada opción que marcó.</p>' : ''}
-      ${p.tipo === 'texto' ? '<p class="muted">Respuesta libre: se juntan las que son iguales (sin distinguir mayúsculas).</p>' : ''}
-      <div class="table-scroll"><table class="metric-table">
-      <thead><tr><th>Respuesta</th><th class="num">Leads</th><th class="num">% de los leads</th><th class="num">VIP</th><th class="num">Ventas</th><th class="num">Conversión</th></tr></thead>
-      <tbody>${rows.map((r) => `<tr><td>${r.respuesta ? (r.otras ? `<span class="muted">${esc(r.respuesta)}</span>` : esc(r.respuesta)) : '<span class="muted">Sin respuesta</span>'}</td><td class="num">${r.leads}</td><td class="num">${pctOf(r.leads, total)}</td><td class="num">${r.vip} <span class="muted">${pctOf(r.vip, r.leads)}</span></td><td class="num">${r.compras}</td><td class="num big">${pctOf(r.compras, r.leads)}</td></tr>`).join('')}</tbody>
-      </table></div>`;
+  const compras = state.leads.filter((l) => l.s.compra).length;
+  // Antes del carrito aún no hay ventas: por defecto se analizan las VIP.
+  const objetivo = state.avatarObj || (compras >= 10 ? 'compra' : 'vip');
+  const r = perfilesCompradoras(state.leads, ENCUESTA_PREGUNTAS, objetivo);
+  const que = objetivo === 'vip' ? 'compran la VIP' : 'compran Raíces';
+  const quien = objetivo === 'vip' ? 'compradoras de VIP' : 'compradoras de Raíces';
+  const toggle = `<div class="seg" role="tablist" aria-label="Qué analizar">
+      <button type="button" class="seg-btn${objetivo === 'compra' ? ' on' : ''}" data-avatar-obj="compra">${icon('cart')} Ventas de Raíces</button>
+      <button type="button" class="seg-btn${objetivo === 'vip' ? ' on' : ''}" data-avatar-obj="vip">${icon('star')} Entradas VIP</button></div>`;
+  const resumen = `<p class="av-resumen">${toggle}<span><strong>${r.leads}</strong> de ${total} leads han respondido la encuesta (${pctOf(r.leads, total)}) · <strong>${r.compras}</strong> ${que} · conversión media <strong>${pctOf(r.compras, r.leads)}</strong></span></p>`;
+
+  if (!r.leads) {
+    box.innerHTML = `${resumen}<p class="muted">Aún no hay respuestas de la encuesta en este lanzamiento.</p>`;
+    return;
+  }
+  const avatares = r.avatares.length
+    ? `<div class="av-grid">${r.avatares.map((a, i) => `
+        <article class="av-card tone-${AV_TONES[i]}">
+          <header><span class="av-ico">${icon('users')}</span><div><span class="av-kicker">Avatar ${i + 1}</span><h3>${a.traits.map(([, v]) => esc(v)).join(' · ')}</h3></div></header>
+          <p class="av-frase">${esc(describirAvatar(a.traits, ENCUESTA_PREGUNTAS))}</p>
+          <div class="av-stats">
+            <div title="Compra ${veces(a.indice)} veces más que la media"><strong>${veces(a.indice)}</strong><span>vs. la media</span></div>
+            <div title="${a.compras} de tus ${r.compras} ${quien}"><strong>${pct0(a.pesoCompras)}</strong><span>${objetivo === 'vip' ? 'de las VIP' : 'de las ventas'}</span></div>
+            <div title="${a.compras} de ${a.leads} leads con este perfil"><strong>${pctOf(a.compras, a.leads)}</strong><span>conversión</span></div>
+          </div>
+          <div class="av-bar" title="${pct0(a.pesoLeads)} de las leads, ${pct0(a.pesoCompras)} de las compradoras"><span class="l" style="width:${a.pesoLeads * 100}%"></span><span class="c" style="width:${a.pesoCompras * 100}%"></span></div>
+          <p class="av-pie">Son el ${pct0(a.pesoLeads)} de las leads pero el ${pct0(a.pesoCompras)} de las ${quien}.</p>
+        </article>`).join('')}
+        ${r.anti ? `<article class="av-card av-anti">
+          <header><span class="av-ico">${icon('alert')}</span><div><span class="av-kicker">Compra poco</span><h3>${r.anti.traits.map(([, v]) => esc(v)).join(' · ')}</h3></div></header>
+          <p class="av-frase">${esc(describirAvatar(r.anti.traits, ENCUESTA_PREGUNTAS))}</p>
+          <div class="av-stats"><div><strong>${veces(r.anti.indice)}</strong><span>vs. la media</span></div><div><strong>${pct0(r.anti.pesoLeads)}</strong><span>de las leads</span></div><div><strong>${pctOf(r.anti.compras, r.anti.leads)}</strong><span>conversión</span></div></div>
+          <p class="av-pie">Mucho volumen y poca compra: revisa si los anuncios atraen a este perfil o si necesita otro mensaje.</p>
+        </article>` : ''}</div>`
+    : `<p class="av-vacio">${icon('sparkle')} Todavía no hay datos suficientes para sacar avatares fiables: hace falta que cada perfil tenga al menos ${r.minN} leads y ${r.minK} ${objetivo === 'vip' ? 'VIP' : 'ventas'}. ${objetivo === 'compra' ? 'Mientras, prueba con «Entradas VIP».' : ''}</p>`;
+
+  const preguntas = r.preguntas.map(({ p, rows }) => {
+    // Las barras se escalan a la respuesta más grande de cada pregunta para que se lean bien.
+    const max = Math.max(0.01, ...rows.flatMap((x) => [x.pesoLeads, x.pesoCompras]));
+    return `
+    <section class="av-q">
+      <h4>${esc(p.name)}</h4>
+      ${rows.map((x) => `<div class="av-row${x.pocos ? ' pocos' : ''}" title="${x.leads} leads · ${x.compras} ${que} · conversión ${pctOf(x.compras, x.leads)}${x.pocos ? ' · pocos datos' : ''}">
+        <span class="av-label">${esc(x.respuesta)}</span>
+        <span class="av-bars"><span class="l" style="width:${(x.pesoLeads / max) * 100}%"></span><span class="c" style="width:${(x.pesoCompras / max) * 100}%"></span></span>
+        <span class="av-idx ${x.indice >= 1.15 ? 'up' : x.indice <= 0.85 ? 'down' : ''}">${x.pocos ? 'pocos datos' : `${x.indice >= 1.15 ? '▲' : x.indice <= 0.85 ? '▼' : '•'} ${veces(x.indice || 0)}`}</span>
+      </div>`).join('')}
+    </section>`;
   }).join('');
+
+  const tablas = ENCUESTA_PREGUNTAS.map((p) => {
+    const rows = porRespuesta(state.leads, p);
+    return `<h4 class="cfg-h4">${esc(p.name)}</h4><div class="table-scroll"><table class="metric-table">
+      <thead><tr><th>Respuesta</th><th class="num">Leads</th><th class="num">% de los leads</th><th class="num">VIP</th><th class="num">Ventas</th><th class="num">Conversión</th></tr></thead>
+      <tbody>${rows.map((x) => `<tr><td>${x.respuesta ? (x.otras ? `<span class="muted">${esc(x.respuesta)}</span>` : esc(x.respuesta)) : '<span class="muted">Sin respuesta</span>'}</td><td class="num">${x.leads}</td><td class="num">${pctOf(x.leads, total)}</td><td class="num">${x.vip} <span class="muted">${pctOf(x.vip, x.leads)}</span></td><td class="num">${x.compras}</td><td class="num big">${pctOf(x.compras, x.leads)}</td></tr>`).join('')}</tbody></table></div>`;
+  }).join('');
+
+  box.innerHTML = `${resumen}${avatares}
+    <h3 class="av-h">Qué respuestas compran más</h3>
+    <p class="av-leyenda"><span class="sw l"></span> % de las leads <span class="sw c"></span> % de las ${quien} <span class="av-idx up">▲ ×1,5</span> compra 1,5 veces más que la media <span class="av-idx down">▼ ×0,6</span> compra menos</p>
+    <div class="av-qs">${preguntas}</div>
+    <details class="av-tablas"><summary>Ver las tablas con todos los datos</summary>${tablas}</details>`;
 }
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-avatar-obj]');
+  if (!b) return;
+  state.avatarObj = b.dataset.avatarObj;
+  renderEncuestaMetrics();
+});
 
 
 // Informe del lanzamiento: las métricas en una página aparte, lista para guardar en PDF o compartir.

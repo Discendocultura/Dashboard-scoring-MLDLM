@@ -223,6 +223,111 @@ export function porRespuesta(leads, pregunta) {
   return [...rows, ...sinRespuesta];
 }
 
+// Respuestas de una lead a una pregunta, ya normalizadas (como en porRespuesta).
+function respuestasDe(l, p) {
+  const v = l.cf?.[p.id];
+  let vals = (Array.isArray(v) ? v : [v]).map((x) => String(x ?? '').trim().replace(/\s+/g, ' ')).filter(Boolean);
+  if (p.tipo === 'edad') vals = vals.map(tramoEdad).filter(Boolean);
+  if (p.tipo === 'texto') vals = vals.map((x) => x.charAt(0).toUpperCase() + x.slice(1).toLowerCase().replace(/[.\s]+$/, ''));
+  return [...new Set(vals)];
+}
+
+// Perfiles de compradoras a partir de la encuesta. `objetivo`: 'compra' (Raíces) o 'vip'.
+// - Por pregunta: cada respuesta con su conversión, cuántas veces la media («índice») y su peso
+//   entre las leads frente a entre las compradoras.
+// - Avatares: las combinaciones de 2-3 respuestas que más compran (con un mínimo de leads y de
+//   ventas para que no sea casualidad), elegidas para que no se repitan entre sí.
+export function perfilesCompradoras(leads, preguntas, objetivo = 'compra') {
+  const buys = (l) => (objetivo === 'vip' ? l.s.vip : l.s.compra);
+  const answered = leads.filter((l) => preguntas.some((p) => respuestasDe(l, p).length));
+  const N = answered.length;
+  const K = answered.filter(buys).length;
+  const base = N ? K / N : 0;
+  const res = { objetivo, leads: N, compras: K, conv: base, preguntas: [], avatares: [], anti: null };
+  if (!N) return res;
+  const minN = Math.max(8, Math.ceil(N * 0.02));
+  const minK = Math.max(3, Math.ceil(K * 0.05));
+
+  const answersOf = new Map(answered.map((l) => [l, Object.fromEntries(preguntas.map((p) => [p.id, respuestasDe(l, p)]))]));
+  for (const p of preguntas) {
+    const g = new Map();
+    for (const l of answered) {
+      for (const r of answersOf.get(l)[p.id]) {
+        const x = g.get(r) || { respuesta: r, leads: 0, compras: 0 };
+        x.leads++;
+        if (buys(l)) x.compras++;
+        g.set(r, x);
+      }
+    }
+    let rows = [...g.values()].map((x) => ({
+      ...x, conv: x.compras / x.leads, indice: base ? x.compras / x.leads / base : null,
+      pesoLeads: x.leads / N, pesoCompras: K ? x.compras / K : 0, pocos: x.leads < minN,
+    }));
+    if (p.tipo === 'edad') rows.sort((a, b) => ORDEN_EDAD.indexOf(a.respuesta) - ORDEN_EDAD.indexOf(b.respuesta));
+    else rows.sort((a, b) => b.leads - a.leads);
+    if (p.tipo === 'texto') rows = rows.slice(0, 8);
+    res.preguntas.push({ p, rows });
+  }
+
+  // Combinaciones de 2 y 3 preguntas (y, si faltan avatares, de 1).
+  const ids = preguntas.map((p) => p.id);
+  const combos = [];
+  for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+    combos.push([ids[i], ids[j]]);
+    for (let k = j + 1; k < ids.length; k++) combos.push([ids[i], ids[j], ids[k]]);
+  }
+  const segs = new Map();
+  const addSeg = (traits, l) => {
+    const key = traits.map(([id, r]) => `${id}=${r}`).join('|');
+    const x = segs.get(key) || { traits, leads: 0, compras: 0, vip: 0 };
+    x.leads++;
+    if (buys(l)) x.compras++;
+    if (l.s.vip) x.vip++;
+    segs.set(key, x);
+  };
+  for (const l of answered) {
+    const a = answersOf.get(l);
+    const expand = (combo) => combo.reduce((acc, id) => acc.flatMap((t) => a[id].map((r) => [...t, [id, r]])), [[]]).filter((t) => t.length === combo.length);
+    for (const c of [...combos, ...ids.map((id) => [id])]) for (const t of expand(c)) addSeg(t, l);
+  }
+  const cands = [...segs.values()]
+    .filter((x) => x.leads >= minN && x.compras >= minK)
+    .map((x) => ({ ...x, conv: x.compras / x.leads, indice: base ? x.compras / x.leads / base : 0, pesoCompras: K ? x.compras / K : 0, pesoLeads: x.leads / N }));
+  const score = (x) => x.compras * Math.log(Math.max(x.indice, 1e-6)) * (x.traits.length === 1 ? 0.6 : 1);
+  const buenos = cands.filter((x) => x.indice >= 1.15).sort((a, b) => score(b) - score(a));
+  const solapa = (a, b) => a.traits.filter(([id, r]) => b.traits.some(([id2, r2]) => id === id2 && r === r2)).length;
+  // Primero perfiles sin ningún rasgo en común; si faltan, se permite compartir uno.
+  for (const max of [0, 1]) {
+    for (const c of buenos) {
+      if (res.avatares.length >= 3) break;
+      if (res.avatares.includes(c) || res.avatares.some((x) => solapa(x, c) > max || solapa(x, c) >= c.traits.length)) continue;
+      res.avatares.push(c);
+    }
+  }
+  res.avatares.sort((a, b) => score(b) - score(a));
+  const malos = cands.filter((x) => x.leads >= minN * 2 && x.indice <= 0.7 && x.traits.length <= 2)
+    .sort((a, b) => a.indice - b.indice || b.leads - a.leads);
+  res.anti = malos[0] || null;
+  res.minN = minN;
+  res.minK = minK;
+  return res;
+}
+
+// Frase que describe un avatar a partir de sus respuestas.
+export function describirAvatar(traits, preguntas) {
+  const parts = traits.map(([id, r]) => {
+    const p = preguntas.find((q) => q.id === id);
+    const v = r.charAt(0).toLowerCase() + r.slice(1);
+    if (p?.tipo === 'edad') return `tiene ${v}`;
+    if (/tiempo/i.test(p?.name || '')) return /todav/i.test(r) ? 'todavía no ha empezado a buscar' : `lleva ${v} buscando embarazo`;
+    if (/bloque|retras|frena/i.test(p?.name || '')) return `cree que lo que la frena es «${v}»`;
+    if (/probado/i.test(p?.name || '')) return `ha probado «${v}»`;
+    return `${p?.name || id}: ${r}`;
+  });
+  const frase = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} y ${parts.at(-1)}` : parts[0];
+  return frase.charAt(0).toUpperCase() + frase.slice(1) + '.';
+}
+
 // Avisos de configuración y de datos: cosas que hacen que las métricas salgan mal.
 export function avisosLanzamiento(leads, launch, m) {
   const out = [];

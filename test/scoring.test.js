@@ -197,3 +197,22 @@ test('encuesta: la edad va por tramos y el texto libre se agrupa sin mayúsculas
   assert.deepEqual(porRespuesta(leads, { id: 't', tipo: 'texto' }).filter((r) => r.respuesta).map((r) => [r.respuesta, r.leads, r.compras]),
     [['El estrés', 2, 1], ['Mis hormonas', 1, 0]]);
 });
+
+test('perfiles de compradoras: avatares con las combinaciones que más compran', async () => {
+  const { perfilesCompradoras, describirAvatar } = await import('../public/js/metrics.js');
+  const P = [{ id: 'e', tipo: 'edad', name: 'Edad' }, { id: 't', tipo: 'opciones', name: '¿Cuánto tiempo llevas buscando embarazo?' }];
+  const leads = [];
+  for (let i = 0; i < 200; i++) {
+    const e = [28, 36, 42][i % 3];
+    const t = ['Más de 1 año', '0 - 6 meses'][(i >> 1) % 2];
+    const compra = e === 36 && t === 'Más de 1 año' ? i % 2 === 0 || i % 5 === 0 : i % 25 === 0;
+    leads.push({ s: { compra, vip: false }, cf: { e, t: [t] } });
+  }
+  const r = perfilesCompradoras(leads, P);
+  assert.ok(r.avatares.length >= 1);
+  const top = r.avatares[0];
+  assert.deepEqual(top.traits.map(([, v]) => v).sort(), ['35 a 37 años', 'Más de 1 año']);
+  assert.ok(top.indice > 2);
+  assert.equal(describirAvatar(top.traits, P), 'Tiene 35 a 37 años y lleva más de 1 año buscando embarazo.');
+  assert.equal(r.preguntas[0].rows.map((x) => x.respuesta).join(','), 'Menos de 30 años,35 a 37 años,Más de 40 años');
+});
