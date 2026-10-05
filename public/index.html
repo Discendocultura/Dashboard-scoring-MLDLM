@@ -224,42 +224,68 @@
             </details>
             <div id="tags-used" class="muted"></div>
           </div>
-          <div id="meta-naming" class="meta-note" role="note"></div>
-          <div class="grid2">
-            <label class="field"><span>Código <small>(minúsculas, sin espacios: p. ej. <code>nov26</code>)</small></span>
+          <section class="cfg-sec" data-sec="1">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">1</span><div><h3>Identificación</h3><p>Código y nombre del lanzamiento.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Código <small>(minúsculas, sin espacios: p. ej. <code>nov26</code>)</small></span>
               <input id="cfg-code" required pattern="[a-z0-9\-]{2,24}"></label>
-            <label class="field"><span>Nombre</span><input id="cfg-name" placeholder="Webinar noviembre 2026"></label>
-            <label class="field"><span>Etiqueta de registro (leads del lanzamiento)</span>
+              <label class="field"><span>Nombre</span><input id="cfg-name" placeholder="Webinar noviembre 2026"></label>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="2">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">2</span><div><h3>Etiquetas de GHL</h3><p>Registro y encuesta son nuevas en cada lanzamiento; VIP, compra y llamada son siempre las mismas.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Etiqueta de registro (leads del lanzamiento)</span>
               <input id="cfg-registro" list="tag-list" required placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-registro" hidden></small></label>
-            <label class="field"><span>Etiqueta de compra VIP</span>
-              <input id="cfg-vip" list="tag-list" placeholder="Busca la etiqueta…"></label>
-            <label class="field"><span>Etiqueta de compra del programa (Raíces)</span>
-              <input id="cfg-compra" list="tag-list" placeholder="Busca la etiqueta…"></label>
-            <label class="field"><span>Etiqueta de llamada agendada <small>(la que pone el workflow de la llamada; vacío = solo cuenta lo que marque la setter)</small></span>
-              <input id="cfg-llamada-tag" list="tag-list" placeholder="Busca la etiqueta…"></label>
-            <label class="field"><span>Etiqueta de encuesta rellenada <small>(sin ella no se ven las clases 1 y 2; vacío = sin encuesta)</small></span>
+              <label class="field"><span>Etiqueta de encuesta rellenada <small>(sin ella no se ven las clases 1 y 2; vacío = sin encuesta)</small></span>
               <input id="cfg-encuesta-tag" list="tag-list" placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-encuesta" hidden></small></label>
-            <label class="field"><span>Enlace de la encuesta <small>(botón de la página de recursos; se rellena solo con el email y el nombre)</small></span>
-              <input id="cfg-encuesta-url" type="url" placeholder="https://…/survey/…"></label>
-            <label class="field"><span>Campo de fecha de compra <small>(para ventas en directo y del lanzamiento)</small></span>
+              <label class="field"><span>Etiqueta de compra VIP</span>
+              <input id="cfg-vip" list="tag-list" placeholder="Busca la etiqueta…"></label>
+              <label class="field"><span>Etiqueta de compra del programa (Raíces)</span>
+              <input id="cfg-compra" list="tag-list" placeholder="Busca la etiqueta…"></label>
+              <label class="field"><span>Etiqueta de llamada agendada <small>(la que pone el workflow de la llamada; vacío = solo cuenta lo que marque la setter)</small></span>
+              <input id="cfg-llamada-tag" list="tag-list" placeholder="Busca la etiqueta…"></label>
+              <label class="field"><span>Campo de fecha de compra <small>(para ventas en directo y del lanzamiento)</small></span>
               <select id="cfg-compra-fecha"><option value="">— Sin campo de fecha —</option></select></label>
-            <label class="field"><span>Inicio de captación <small>(día en que se abren los registros)</small></span>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="3">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">3</span><div><h3>Fechas del lanzamiento</h3><p>En hora de España. Las fechas de las clases y del cierre del carrito están en «Página de recursos».</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Inicio de captación <small>(día en que se abren los registros)</small></span>
               <input id="cfg-inicio" type="date"></label>
-            <label class="field"><span>Día del directo</span>
+              <label class="field"><span>Día del directo</span>
               <input id="cfg-directo-fecha" type="date"></label>
-            <label class="field"><span>Hora del directo <small>(hora de España)</small></span>
+              <label class="field"><span>Hora del directo <small>(hora de España)</small></span>
               <input id="cfg-directo-hora" type="time"></label>
-            <label class="field"><span>ID de la reunión de Zoom</span><input id="cfg-zoom-id" inputmode="numeric" placeholder="812 3456 7890"></label>
-            <label class="field"><span>Enlace genérico de Zoom <small>(por si falla el registro)</small></span><input id="cfg-zoom-url" type="url"></label>
-            <label class="field"><span>Página de la grabación</span><input id="cfg-replay" type="url"></label>
-            <label class="field"><span>Página de venta de Raíces</span><input id="cfg-raices" type="url"></label>
-            <label class="field"><span>Enlace de pago (checkout)</span><input id="cfg-venta" type="url"></label>
-            <label class="field"><span>Enlace para reservar llamada</span><input id="cfg-llamada" type="url"></label>
-            <label class="field"><span>Precio de la entrada VIP (€)</span><input id="cfg-precio-vip" inputmode="decimal" placeholder="27"></label>
-            <label class="field"><span>Precio de Raíces (€) <small>(o el importe medio cobrado)</small></span><input id="cfg-precio-programa" inputmode="decimal" placeholder="997"></label>
-            <label class="field"><span>Inversión en anuncios (€) <small>(si no conectas Meta)</small></span><input id="cfg-inversion" inputmode="decimal"></label>
-            <label class="field"><span>Campañas de Meta de este lanzamiento <small>(texto que contiene su nombre; vacío = el código)</small></span><input id="cfg-meta-filtro" placeholder="el código del lanzamiento"></label>
-          </div>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="4">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">4</span><div><h3>Directo en Zoom</h3><p>La reunión nueva de este lanzamiento.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>ID de la reunión de Zoom</span><input id="cfg-zoom-id" inputmode="numeric" placeholder="812 3456 7890"></label>
+              <label class="field"><span>Enlace genérico de Zoom <small>(por si falla el registro)</small></span><input id="cfg-zoom-url" type="url"></label>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="5">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">5</span><div><h3>Venta y seguimiento</h3><p>Páginas y enlaces que reciben las leads después del directo (también en los mensajes de WhatsApp).</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Página de la grabación</span><input id="cfg-replay" type="url"></label>
+              <label class="field"><span>Página de venta de Raíces</span><input id="cfg-raices" type="url"></label>
+              <label class="field"><span>Enlace de pago (checkout)</span><input id="cfg-venta" type="url"></label>
+              <label class="field"><span>Enlace para reservar llamada</span><input id="cfg-llamada" type="url"></label>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="6">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">6</span><div><h3>Precios y anuncios</h3><p>Para la facturación, el ROAS y el CAC de Métricas.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Precio de la entrada VIP (€)</span><input id="cfg-precio-vip" inputmode="decimal" placeholder="27"></label>
+              <label class="field"><span>Precio de Raíces (€) <small>(o el importe medio cobrado)</small></span><input id="cfg-precio-programa" inputmode="decimal" placeholder="997"></label>
+              <label class="field"><span>Inversión en anuncios (€) <small>(si no conectas Meta)</small></span><input id="cfg-inversion" inputmode="decimal"></label>
+              <label class="field"><span>Campañas de Meta de este lanzamiento <small>(texto que contiene su nombre; vacío = el código)</small></span><input id="cfg-meta-filtro" placeholder="el código del lanzamiento"></label>
+            </div>
+            <div id="meta-naming" class="meta-note" role="note"></div>
+          </section>
           <div id="cfg-snapshot" class="snapshot-box"></div>
           <datalist id="tag-list"></datalist>
         </section>
@@ -279,46 +305,82 @@
         </section>
 
         <section class="tab-panel" data-panel="pagina" hidden>
-          <p class="muted">La página de recursos de GHL lo lee sola: en el próximo lanzamiento solo cambias esto. Los colores de cada campo siguen la guía de la pestaña Lanzamiento. Las fechas son en <strong>hora de España</strong>.</p>
-          <div id="page-phase-now" class="snapshot-box"></div>
-          <div class="grid2">
-            <label class="field"><span>URL de la página de login</span><input id="cfg-login-url" type="url" placeholder="https://lp.saraguzman.com/…"></label>
-            <label class="field"><span>URL de la página de recursos</span><input id="cfg-recursos-url" type="url"></label>
-            <p class="muted full">Si hay <strong>etiqueta de encuesta</strong> (pestaña Lanzamiento), las clases 1 y 2 solo se ven cuando la lead la tiene; mientras, se le muestra el botón a la encuesta.</p>
-            <label class="field"><span>Clase 1 · vídeo de Vimeo</span><input id="cfg-clase1-url" type="url" placeholder="https://vimeo.com/123/abc"></label>
-            <label class="field"><span>Clase 1 · se desbloquea</span><input id="cfg-clase1-at" type="datetime-local"></label>
-            <label class="field"><span>Clase 2 · vídeo de Vimeo</span><input id="cfg-clase2-url" type="url"></label>
-            <label class="field"><span>Clase 2 · se desbloquea</span><input id="cfg-clase2-at" type="datetime-local"></label>
-            <label class="field"><span>Grabación del directo · vídeo de Vimeo</span><input id="cfg-replay-video" type="url"></label>
-            <label class="field"><span>Grabación · se desbloquea <small>(vacío = 00:00 del día siguiente al directo)</small></span><input id="cfg-replay-at" type="datetime-local"></label>
-            <label class="field"><span>Entrada VIP · enlace de pago <small>(se cierra a la hora del directo)</small></span><input id="cfg-vip-url" type="url"></label>
-            <label class="field"><span>Contador de VIP · empieza en <small>(la página muestra este número + las VIP vendidas en el lanzamiento; <code>data-lsd-text="vipContador"</code>)</small></span><input id="cfg-vip-base" inputmode="numeric" placeholder="41"></label>
-            <label class="field"><span>Grupo de WhatsApp · enlace</span><input id="cfg-whatsapp-url" type="url" placeholder="https://chat.whatsapp.com/…"></label>
-            <label class="field"><span>Cierre del carrito de Raíces</span><input id="cfg-cierre" type="datetime-local"></label>
-            <label class="field"><span>Botón «Añadir al calendario» <small>(vacío = Google Calendar con la fecha y hora del directo, generado solo)</small></span><input id="cfg-calendario-url" type="url" placeholder="Se genera solo"></label>
+          <p class="muted">La página de recursos de GHL lo lee sola: en el próximo lanzamiento solo cambias esto. Los colores siguen la guía de la pestaña Lanzamiento.</p>
+          <div class="guia" role="note">
+            <strong>Checklist de la página de recursos</strong>
+            <div id="guia-check-pagina" class="guia-check"></div>
           </div>
-          <h3 class="cfg-h3">Textos de la página</h3>
-          <p class="muted">Se ven en la página de recursos sin tocar GHL. Si dejas uno vacío, se queda el texto que haya en el diseño. En el HTML: <code>&lt;span data-lsd-text="clase1-titulo"&gt;&lt;/span&gt;</code>.</p>
-          <div class="grid2" id="cfg-textos-fijos">
+          <div id="page-phase-now" class="snapshot-box"></div>
+          <section class="cfg-sec" data-sec="1">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">1</span><div><h3>Páginas de GHL</h3><p>Dónde están el login y la página de recursos.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>URL de la página de login</span><input id="cfg-login-url" type="url" placeholder="https://lp.saraguzman.com/…"></label>
+              <label class="field"><span>URL de la página de recursos</span><input id="cfg-recursos-url" type="url"></label>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="2">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">2</span><div><h3>Calendario de la página</h3><p>Cuándo se abre cada cosa (hora de España). El directo se configura en la pestaña Lanzamiento.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Clase 1 · se desbloquea</span><input id="cfg-clase1-at" type="datetime-local"></label>
+              <label class="field"><span>Clase 2 · se desbloquea</span><input id="cfg-clase2-at" type="datetime-local"></label>
+              <label class="field"><span>Grabación · se desbloquea <small>(vacío = 00:00 del día siguiente al directo)</small></span><input id="cfg-replay-at" type="datetime-local"></label>
+              <label class="field"><span>Cierre del carrito de Raíces</span><input id="cfg-cierre" type="datetime-local"></label>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="3">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">3</span><div><h3>Etapa 1 · Encuesta</h3><p>Si hay etiqueta de encuesta (pestaña Lanzamiento), las clases 1 y 2 solo se ven al rellenarla; mientras, se muestra este botón.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Enlace de la encuesta <small>(botón de la página de recursos; se rellena solo con el email y el nombre)</small></span>
+              <input id="cfg-encuesta-url" type="url" placeholder="https://…/survey/…"></label>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="4">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">4</span><div><h3>Etapa 2 · Clases</h3><p>Vídeos y textos de las clases. Si dejas un texto vacío, se queda el del diseño.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Clase 1 · vídeo de Vimeo</span><input id="cfg-clase1-url" type="url" placeholder="https://vimeo.com/123/abc"></label>
+              <label class="field"><span>Clase 2 · vídeo de Vimeo</span><input id="cfg-clase2-url" type="url"></label>
             <label class="field"><span>Etapa 2 · titular <small>(<code>clases-titulo</code>)</small></span><input data-texto="clases-titulo" placeholder="Mira las clases antes del directo"></label>
             <label class="field"><span>Etapa 2 · subtítulo <small>(<code>clases-subtitulo</code>)</small></span><textarea data-texto="clases-subtitulo" rows="2"></textarea></label>
             <label class="field"><span>Clase 1 · título <small>(<code>clase1-titulo</code>)</small></span><input data-texto="clase1-titulo"></label>
             <label class="field"><span>Clase 1 · descripción <small>(<code>clase1-descripcion</code>)</small></span><textarea data-texto="clase1-descripcion" rows="2"></textarea></label>
             <label class="field"><span>Clase 2 · título <small>(<code>clase2-titulo</code>)</small></span><input data-texto="clase2-titulo"></label>
             <label class="field"><span>Clase 2 · descripción <small>(<code>clase2-descripcion</code>)</small></span><textarea data-texto="clase2-descripcion" rows="2"></textarea></label>
-          </div>
-          <p class="muted">Otros textos (para bloques futuros): nombre en minúsculas y guiones, p. ej. <code>etapa3-titulo</code> → <code>&lt;span data-lsd-text="etapa3-titulo"&gt;</code>.</p>
-          <div id="cfg-textos" class="enlaces-list"></div>
-          <button type="button" class="btn" id="btn-add-texto">+ Añadir texto</button>
-
-          <h3 class="cfg-h3">Enlaces personalizados para botones</h3>
-          <p class="muted">Para cualquier otro botón de la página. En el HTML: <code>&lt;a data-lsd-link="nombre"&gt;</code>. Nombre en minúsculas, sin espacios (p. ej. <code>guia</code>, <code>instagram</code>).</p>
-          <div id="cfg-enlaces" class="enlaces-list"></div>
-          <button type="button" class="btn" id="btn-add-enlace">+ Añadir enlace</button>
-          <p class="muted">La <strong>fecha y hora del directo</strong> y la <strong>página de la grabación</strong> se configuran en la pestaña Lanzamiento. A la hora del directo, la página de recursos manda al directo; desde las 00:00 del día siguiente, a la página de la grabación.</p>
-          <h3 class="cfg-h3">Barra de urgencia</h3>
-          <p class="muted">Un mensaje por fase. <code>{cuenta}</code> = cuenta atrás hasta el siguiente momento. Si lo dejas vacío se usa el texto de ejemplo.</p>
-          <div class="table-scroll"><table class="metric-table bar-table"><thead><tr><th>Fase</th><th>Mensaje</th><th>Botón</th><th>Texto del botón</th></tr></thead><tbody id="cfg-barra"></tbody></table></div>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="5">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">5</span><div><h3>Directo y grabación</h3><p>A la hora del directo la página manda al directo; desde las 00:00 del día siguiente, a la grabación.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Grabación del directo · vídeo de Vimeo</span><input id="cfg-replay-video" type="url"></label>
+              <label class="field"><span>Botón «Añadir al calendario» <small>(vacío = Google Calendar con la fecha y hora del directo, generado solo)</small></span><input id="cfg-calendario-url" type="url" placeholder="Se genera solo"></label>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="6">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">6</span><div><h3>Entrada VIP</h3><p>Se cierra sola a la hora del directo.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Entrada VIP · enlace de pago <small>(se cierra a la hora del directo)</small></span><input id="cfg-vip-url" type="url"></label>
+              <label class="field"><span>Contador de VIP · empieza en <small>(la página muestra este número + las VIP vendidas en el lanzamiento; <code>data-lsd-text="vipContador"</code>)</small></span><input id="cfg-vip-base" inputmode="numeric" placeholder="41"></label>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="7">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">7</span><div><h3>Grupo de WhatsApp</h3><p>Barra fija de la página.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Grupo de WhatsApp · enlace</span><input id="cfg-whatsapp-url" type="url" placeholder="https://chat.whatsapp.com/…"></label>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="8">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">8</span><div><h3>Textos y botones extra</h3><p>Para bloques nuevos de la página.</p></div></header>
+            <p class="muted">Otros textos (para bloques futuros): nombre en minúsculas y guiones, p. ej. <code>etapa3-titulo</code> → <code>&lt;span data-lsd-text="etapa3-titulo"&gt;</code>.</p>
+            <div id="cfg-textos" class="enlaces-list"></div>
+            <button type="button" class="btn" id="btn-add-texto">+ Añadir texto</button>
+            <h4 class="cfg-h4">Enlaces personalizados para botones</h4>
+            <p class="muted">Para cualquier otro botón de la página. En el HTML: <code>&lt;a data-lsd-link="nombre"&gt;</code>. Nombre en minúsculas, sin espacios (p. ej. <code>guia</code>, <code>instagram</code>).</p>
+            <div id="cfg-enlaces" class="enlaces-list"></div>
+            <button type="button" class="btn" id="btn-add-enlace">+ Añadir enlace</button>
+          </section>
+          <section class="cfg-sec" data-sec="9">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">9</span><div><h3>Barra de urgencia</h3><p>Un mensaje por fase. <code>{cuenta}</code> = cuenta atrás hasta el siguiente momento. Si lo dejas vacío se usa el texto de ejemplo.</p></div></header>
+            <div class="table-scroll"><table class="metric-table bar-table"><thead><tr><th>Fase</th><th>Mensaje</th><th>Botón</th><th>Texto del botón</th></tr></thead><tbody id="cfg-barra"></tbody></table></div>
+          </section>
           <h3 class="cfg-h3">Vista previa</h3>
           <div class="row">
             <label class="field"><span>Ver la página de recursos como si fuera…</span><input id="cfg-preview-at" type="datetime-local"></label>

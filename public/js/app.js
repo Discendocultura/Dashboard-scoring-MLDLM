@@ -948,17 +948,17 @@ const CICLO = [
   { id: 'cfg-replay', c: 'revisar', label: 'Página de la grabación' },
   { id: 'cfg-raices', c: 'revisar', label: 'Página de venta de Raíces' },
   { id: 'cfg-venta', c: 'revisar', label: 'Enlace de pago' },
-  { id: 'cfg-llamada', c: 'revisar', label: 'Reservar llamada' },
+  { id: 'cfg-llamada', c: 'revisar', label: 'Reservar llamada', opcional: true },
   { id: 'cfg-precio-vip', c: 'revisar', label: 'Precio VIP' },
   { id: 'cfg-precio-programa', c: 'revisar', label: 'Precio de Raíces' },
   { id: 'cfg-login-url', c: 'revisar', label: 'Página de login' },
   { id: 'cfg-recursos-url', c: 'revisar', label: 'Página de recursos' },
   { id: 'cfg-clase1-url', c: 'revisar', label: 'Clase 1 · vídeo' },
   { id: 'cfg-clase2-url', c: 'revisar', label: 'Clase 2 · vídeo' },
-  { id: 'cfg-replay-at', c: 'revisar', label: 'Grabación · desbloqueo' },
+  { id: 'cfg-replay-at', c: 'revisar', label: 'Grabación · desbloqueo', opcional: true },
   { id: 'cfg-vip-url', c: 'revisar', label: 'Entrada VIP · pago' },
   { id: 'cfg-vip-base', c: 'revisar', label: 'Contador VIP' },
-  { id: 'cfg-calendario-url', c: 'revisar', label: 'Añadir al calendario' },
+  { id: 'cfg-calendario-url', c: 'revisar', label: 'Añadir al calendario', opcional: true },
   { id: 'cfg-vip', c: 'fijo' },
   { id: 'cfg-compra', c: 'fijo' },
   { id: 'cfg-llamada-tag', c: 'fijo' },
@@ -994,29 +994,53 @@ function goToField(id) {
   el?.focus({ preventScroll: true });
 }
 
-// Estado de los campos «nuevo»: falta, repetido de otro lanzamiento, o listo.
-let guiaHtml = '';
+// Estado de cada campo que cambia o hay que revisar: falta, repetido de otro lanzamiento, o listo.
+function fieldStatus(f, others, tagIssues) {
+  const v = document.getElementById(f.id).value.trim();
+  let issue = '';
+  if (f.id === 'cfg-registro' && tagIssues.registro) issue = 'repetida';
+  else if (f.id === 'cfg-encuesta-tag' && tagIssues.encuesta) issue = 'repetida';
+  else if (v && f.key) {
+    const same = others.find(([, l]) => String(l[f.key] ?? '').trim().toLowerCase() === v.toLowerCase());
+    if (same) issue = `igual que en «${same[1].name || same[0]}»`;
+  }
+  const st = issue ? 'warn' : v ? 'ok' : f.opcional ? 'opt' : 'falta';
+  return { st, txt: issue || (v ? 'listo' : f.opcional ? 'vacío (opcional)' : 'falta') };
+}
+const GUIA_ICON = { ok: '✓', warn: '⚠', opt: '○', falta: '✗' };
+
+// Checklist de cada pestaña, agrupada por sus secciones, y el estado en la cabecera de cada sección.
+let guiaHtml = {};
 function renderGuia() {
   const code = editingCode || $('#cfg-code').value.trim().toLowerCase();
   const others = Object.entries(state.config.launches).filter(([c]) => c !== code);
   const tagIssues = tagProblems();
-  const items = CICLO.filter((f) => f.c === 'nuevo').map((f) => {
-    const v = document.getElementById(f.id).value.trim();
-    let issue = '';
-    if (f.id === 'cfg-registro' && tagIssues.registro) issue = 'repetida';
-    else if (f.id === 'cfg-encuesta-tag' && tagIssues.encuesta) issue = 'repetida';
-    else if (v && f.key) {
-      const same = others.find(([, l]) => String(l[f.key] ?? '').trim().toLowerCase() === v.toLowerCase());
-      if (same) issue = `igual que en «${same[1].name || same[0]}»`;
-    }
-    const st = issue ? 'warn' : v ? 'ok' : f.opcional ? 'opt' : 'falta';
-    const txt = issue || (v ? 'listo' : f.opcional ? 'vacío (opcional)' : 'falta');
-    return `<button type="button" class="guia-item guia-${st}" data-goto="${f.id}">${st === 'ok' ? '✓' : st === 'warn' ? '⚠' : st === 'opt' ? '○' : '✗'} ${esc(f.label)} <small>${esc(txt)}</small></button>`;
-  });
-  // Solo se repinta si algo cambió: el «change» al salir de un campo no debe borrar el botón que se está pulsando.
-  const html = `<p class="guia-sub">Campos nuevos de este lanzamiento (pulsa uno para ir a él):</p><div class="guia-items">${items.join('')}</div>`;
-  if (html !== guiaHtml) $('#guia-check').innerHTML = guiaHtml = html;
+  for (const [panel, box] of [['launch', '#guia-check'], ['pagina', '#guia-check-pagina']]) {
+    const groups = $$(`.tab-panel[data-panel="${panel}"] .cfg-sec`).map((sec) => {
+      const items = $$('.field', sec).map((el) => CICLO.find((f) => f.id === $('input, select, textarea', el)?.id))
+        .filter((f) => f && f.c !== 'fijo')
+        .map((f) => ({ f, ...fieldStatus(f, others, tagIssues) }));
+      const falta = items.filter((i) => i.st === 'falta').length;
+      const warn = items.filter((i) => i.st === 'warn').length;
+      const status = $('.cfg-sec-status', sec);
+      if (status) {
+        status.className = `cfg-sec-status ${falta ? 'guia-falta' : warn ? 'guia-warn' : items.length ? 'guia-ok' : ''}`;
+        status.textContent = falta ? `Falta${falta > 1 ? 'n' : ''} ${falta}` : warn ? `Revisa ${warn}` : items.length ? '✓ Completo' : '';
+      }
+      return { title: $('h3', sec).textContent, items };
+    }).filter((g) => g.items.length);
+    const total = groups.flatMap((g) => g.items);
+    const listos = total.filter((i) => i.st === 'ok' || i.st === 'opt').length;
+    const html = `<p class="guia-sub"><strong>${listos} de ${total.length}</strong> listos · pulsa uno para ir a él</p>
+      <div class="guia-groups">${groups.map((g) => `<div class="guia-group"><span class="guia-group-t">${esc(g.title)}</span><div class="guia-items">${g.items.map((i) => `<button type="button" class="guia-item guia-${i.st}" data-goto="${i.f.id}">${GUIA_ICON[i.st]} ${esc(i.f.label)} <small>${esc(i.txt)}</small></button>`).join('')}</div></div>`).join('')}</div>`;
+    // Solo se repinta si algo cambió: el «change» al salir de un campo no debe borrar el botón que se está pulsando.
+    if (html !== guiaHtml[panel]) $(box).innerHTML = guiaHtml[panel] = html;
+  }
 }
+$('#guia-check-pagina').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-goto]');
+  if (b) goToField(b.dataset.goto);
+});
 $('#guia-check').addEventListener('click', (e) => {
   const b = e.target.closest('[data-goto]');
   if (b) goToField(b.dataset.goto);
