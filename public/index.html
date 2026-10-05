@@ -200,16 +200,26 @@
             </label>
             <button type="button" class="btn" data-action="new-launch">+ Nuevo</button>
           </div>
-          <div class="tags-note" role="note">
-            <strong>Etiquetas: qué cambiar en cada lanzamiento</strong>
-            <div class="tags-note-cols">
-              <div><span class="badge-cambia">Cambia en cada lanzamiento</span>
-                <ul><li><strong>Etiqueta de registro</strong>: una nueva para cada lanzamiento (si repites la anterior, se mezclan los leads).</li>
-                  <li><strong>Etiqueta de encuesta</strong>: una nueva para cada lanzamiento (si repites la anterior, quien la rellenó entonces vería las clases sin hacerla y la métrica saldría inflada).</li></ul></div>
-              <div><span class="badge-fija">Siempre la misma</span>
-                <ul><li><strong>Etiqueta de compra VIP</strong> y <strong>etiqueta de compra de Raíces</strong>: no las cambies; el dashboard separa solo las compras anteriores (foto al crear el lanzamiento y fecha de compra).</li>
-                  <li><strong>Campo de fecha de compra</strong>: el mismo siempre.</li></ul></div>
+          <div class="guia" role="note">
+            <strong>Guía del lanzamiento: qué cambiar y qué no</strong>
+            <div class="guia-leyenda">
+              <span><span class="badge-cambia">Nuevo en cada lanzamiento</span> pon un valor nuevo siempre (si repites el anterior, se mezclan datos)</span>
+              <span><span class="badge-revisa">Revisar</span> suele ser igual; comprueba que sigue siendo correcto</span>
+              <span><span class="badge-fija">Siempre igual</span> no lo toques</span>
             </div>
+            <div id="guia-check" class="guia-check"></div>
+            <details class="guia-ghl">
+              <summary>Lo que hay que hacer fuera del dashboard (en GHL, Zoom, WhatsApp y Vimeo)</summary>
+              <ol>
+                <li><strong>GHL · Etiqueta de registro:</strong> crea la etiqueta nueva y cámbiala en la acción «Add tag» del workflow del formulario de registro.</li>
+                <li><strong>GHL · Encuesta:</strong> duplica la encuesta, y en su workflow («Survey Submitted» → «Add tag») pon la etiqueta de encuesta nueva. Copia el enlace de la encuesta nueva.</li>
+                <li><strong>WhatsApp:</strong> crea el grupo nuevo y copia su enlace de invitación.</li>
+                <li><strong>Zoom:</strong> crea la reunión del directo (con registro activado) y copia su ID.</li>
+                <li><strong>GHL · Emails y WhatsApp automáticos:</strong> revisa que no lleven fechas, enlaces de grupo ni de encuesta del lanzamiento anterior.</li>
+                <li><strong>Vimeo:</strong> después del directo, sube la grabación y pega su enlace en «Página de recursos».</li>
+                <li><strong>Etiquetas de VIP y de compra:</strong> no se cambian. Al guardar un lanzamiento nuevo se hace la «foto» de quién ya las tenía (abajo del todo).</li>
+              </ol>
+            </details>
             <div id="tags-used" class="muted"></div>
           </div>
           <div id="meta-naming" class="meta-note" role="note"></div>
@@ -217,17 +227,17 @@
             <label class="field"><span>Código <small>(minúsculas, sin espacios: p. ej. <code>nov26</code>)</small></span>
               <input id="cfg-code" required pattern="[a-z0-9\-]{2,24}"></label>
             <label class="field"><span>Nombre</span><input id="cfg-name" placeholder="Webinar noviembre 2026"></label>
-            <label class="field"><span>Etiqueta de registro (leads del lanzamiento) <span class="badge-cambia">Nueva en cada lanzamiento</span></span>
+            <label class="field"><span>Etiqueta de registro (leads del lanzamiento)</span>
               <input id="cfg-registro" list="tag-list" required placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-registro" hidden></small></label>
-            <label class="field"><span>Etiqueta de compra VIP <span class="badge-fija">Siempre la misma</span></span>
+            <label class="field"><span>Etiqueta de compra VIP</span>
               <input id="cfg-vip" list="tag-list" placeholder="Busca la etiqueta…"></label>
-            <label class="field"><span>Etiqueta de compra del programa (Raíces) <span class="badge-fija">Siempre la misma</span></span>
+            <label class="field"><span>Etiqueta de compra del programa (Raíces)</span>
               <input id="cfg-compra" list="tag-list" placeholder="Busca la etiqueta…"></label>
-            <label class="field"><span>Etiqueta de encuesta rellenada <span class="badge-cambia">Nueva en cada lanzamiento</span> <small>(sin ella no se ven las clases 1 y 2; vacío = sin encuesta)</small></span>
+            <label class="field"><span>Etiqueta de encuesta rellenada <small>(sin ella no se ven las clases 1 y 2; vacío = sin encuesta)</small></span>
               <input id="cfg-encuesta-tag" list="tag-list" placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-encuesta" hidden></small></label>
             <label class="field"><span>Enlace de la encuesta <small>(botón de la página de recursos; se rellena solo con el email y el nombre)</small></span>
               <input id="cfg-encuesta-url" type="url" placeholder="https://…/survey/…"></label>
-            <label class="field"><span>Campo de fecha de compra <span class="badge-fija">Siempre el mismo</span> <small>(para ventas en directo y del lanzamiento)</small></span>
+            <label class="field"><span>Campo de fecha de compra <small>(para ventas en directo y del lanzamiento)</small></span>
               <select id="cfg-compra-fecha"><option value="">— Sin campo de fecha —</option></select></label>
             <label class="field"><span>Inicio de captación <small>(día en que se abren los registros)</small></span>
               <input id="cfg-inicio" type="date"></label>
@@ -265,7 +275,7 @@
         </section>
 
         <section class="tab-panel" data-panel="pagina" hidden>
-          <p class="muted">Todo lo que cambia en cada lanzamiento. La página de recursos de GHL lo lee sola: en el próximo lanzamiento solo cambias esto. Las fechas son en <strong>hora de España</strong>.</p>
+          <p class="muted">La página de recursos de GHL lo lee sola: en el próximo lanzamiento solo cambias esto. Los colores de cada campo siguen la guía de la pestaña Lanzamiento. Las fechas son en <strong>hora de España</strong>.</p>
           <div id="page-phase-now" class="snapshot-box"></div>
           <div class="grid2">
             <label class="field"><span>URL de la página de login</span><input id="cfg-login-url" type="url" placeholder="https://lp.saraguzman.com/…"></label>

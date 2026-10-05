@@ -865,6 +865,7 @@ function openConfig(code) {
   $('#cfg-status').textContent = '';
   renderSnippets();
   renderSnapshotBox();
+  renderGuia();
   if (!dlg.open) dlg.showModal();
 }
 
@@ -917,6 +918,103 @@ function checkLaunchTags() {
     : '';
 }
 ['#cfg-registro', '#cfg-encuesta-tag', '#cfg-vip', '#cfg-compra', '#cfg-code'].forEach((sel) => $(sel).addEventListener('input', checkLaunchTags));
+
+// ---------- Guía por colores: qué cambia en cada lanzamiento ----------
+// nuevo = valor nuevo siempre · revisar = suele repetirse, pero hay que comprobarlo · fijo = no se toca.
+// `key` es el campo del lanzamiento (para avisar si se repite el de otro lanzamiento); `opcional` no cuenta como «falta».
+const CICLO = [
+  { id: 'cfg-code', c: 'nuevo', label: 'Código' },
+  { id: 'cfg-name', c: 'nuevo', label: 'Nombre', key: 'name' },
+  { id: 'cfg-registro', c: 'nuevo', label: 'Etiqueta de registro' },
+  { id: 'cfg-encuesta-tag', c: 'nuevo', label: 'Etiqueta de encuesta', opcional: true },
+  { id: 'cfg-encuesta-url', c: 'nuevo', label: 'Enlace de la encuesta', key: 'encuestaUrl', opcional: true },
+  { id: 'cfg-inicio', c: 'nuevo', label: 'Inicio de captación', key: 'inicioCaptacion' },
+  { id: 'cfg-directo-fecha', c: 'nuevo', label: 'Día del directo', key: 'fechaDirecto' },
+  { id: 'cfg-directo-hora', c: 'nuevo', label: 'Hora del directo' },
+  { id: 'cfg-zoom-id', c: 'nuevo', label: 'ID de Zoom', key: 'zoomMeetingId' },
+  { id: 'cfg-zoom-url', c: 'nuevo', label: 'Enlace genérico de Zoom', key: 'zoomJoinUrl', opcional: true },
+  { id: 'cfg-inversion', c: 'nuevo', label: 'Inversión en anuncios', opcional: true },
+  { id: 'cfg-meta-filtro', c: 'nuevo', label: 'Campañas de Meta', key: 'metaFiltro', opcional: true },
+  { id: 'cfg-clase1-at', c: 'nuevo', label: 'Clase 1 · desbloqueo', key: 'clase1At' },
+  { id: 'cfg-clase2-at', c: 'nuevo', label: 'Clase 2 · desbloqueo', key: 'clase2At' },
+  { id: 'cfg-replay-video', c: 'nuevo', label: 'Vídeo de la grabación', key: 'replayVideoUrl', opcional: true },
+  { id: 'cfg-whatsapp-url', c: 'nuevo', label: 'Grupo de WhatsApp', key: 'whatsappUrl' },
+  { id: 'cfg-cierre', c: 'nuevo', label: 'Cierre del carrito', key: 'cierreCarrito' },
+  { id: 'cfg-replay', c: 'revisar', label: 'Página de la grabación' },
+  { id: 'cfg-raices', c: 'revisar', label: 'Página de venta de Raíces' },
+  { id: 'cfg-venta', c: 'revisar', label: 'Enlace de pago' },
+  { id: 'cfg-llamada', c: 'revisar', label: 'Reservar llamada' },
+  { id: 'cfg-precio-vip', c: 'revisar', label: 'Precio VIP' },
+  { id: 'cfg-precio-programa', c: 'revisar', label: 'Precio de Raíces' },
+  { id: 'cfg-login-url', c: 'revisar', label: 'Página de login' },
+  { id: 'cfg-recursos-url', c: 'revisar', label: 'Página de recursos' },
+  { id: 'cfg-clase1-url', c: 'revisar', label: 'Clase 1 · vídeo' },
+  { id: 'cfg-clase2-url', c: 'revisar', label: 'Clase 2 · vídeo' },
+  { id: 'cfg-replay-at', c: 'revisar', label: 'Grabación · desbloqueo' },
+  { id: 'cfg-vip-url', c: 'revisar', label: 'Entrada VIP · pago' },
+  { id: 'cfg-vip-base', c: 'revisar', label: 'Contador VIP' },
+  { id: 'cfg-calendario-url', c: 'revisar', label: 'Añadir al calendario' },
+  { id: 'cfg-vip', c: 'fijo' },
+  { id: 'cfg-compra', c: 'fijo' },
+  { id: 'cfg-compra-fecha', c: 'fijo' },
+  { id: 'tpl-grabacion', c: 'fijo' },
+  { id: 'tpl-raices', c: 'fijo' },
+  { id: 'tpl-cierre', c: 'fijo' },
+  { id: 'cfg-country', c: 'fijo' },
+  { id: 'cfg-digest-email', c: 'fijo' },
+];
+const CICLO_BADGE = {
+  nuevo: '<span class="badge-cambia">Nuevo en cada lanzamiento</span>',
+  revisar: '<span class="badge-revisa">Revisar</span>',
+  fijo: '<span class="badge-fija">Siempre igual</span>',
+};
+
+(function decorateCiclo() {
+  for (const f of CICLO) {
+    const field = document.getElementById(f.id)?.closest('.field');
+    if (!field) continue;
+    field.classList.add(`ciclo-${f.c}`);
+    field.querySelector('span')?.insertAdjacentHTML('beforeend', ` ${CICLO_BADGE[f.c]}`);
+    field.addEventListener('input', renderGuia);
+    field.addEventListener('change', renderGuia);
+  }
+}());
+
+function goToField(id) {
+  const el = document.getElementById(id);
+  const panel = el?.closest('.tab-panel')?.dataset.panel;
+  if (panel) $(`.tab[data-tab="${panel}"]`)?.click();
+  el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  el?.focus({ preventScroll: true });
+}
+
+// Estado de los campos «nuevo»: falta, repetido de otro lanzamiento, o listo.
+let guiaHtml = '';
+function renderGuia() {
+  const code = editingCode || $('#cfg-code').value.trim().toLowerCase();
+  const others = Object.entries(state.config.launches).filter(([c]) => c !== code);
+  const tagIssues = tagProblems();
+  const items = CICLO.filter((f) => f.c === 'nuevo').map((f) => {
+    const v = document.getElementById(f.id).value.trim();
+    let issue = '';
+    if (f.id === 'cfg-registro' && tagIssues.registro) issue = 'repetida';
+    else if (f.id === 'cfg-encuesta-tag' && tagIssues.encuesta) issue = 'repetida';
+    else if (v && f.key) {
+      const same = others.find(([, l]) => String(l[f.key] ?? '').trim().toLowerCase() === v.toLowerCase());
+      if (same) issue = `igual que en «${same[1].name || same[0]}»`;
+    }
+    const st = issue ? 'warn' : v ? 'ok' : f.opcional ? 'opt' : 'falta';
+    const txt = issue || (v ? 'listo' : f.opcional ? 'vacío (opcional)' : 'falta');
+    return `<button type="button" class="guia-item guia-${st}" data-goto="${f.id}">${st === 'ok' ? '✓' : st === 'warn' ? '⚠' : st === 'opt' ? '○' : '✗'} ${esc(f.label)} <small>${esc(txt)}</small></button>`;
+  });
+  // Solo se repinta si algo cambió: el «change» al salir de un campo no debe borrar el botón que se está pulsando.
+  const html = `<p class="guia-sub">Campos nuevos de este lanzamiento (pulsa uno para ir a él):</p><div class="guia-items">${items.join('')}</div>`;
+  if (html !== guiaHtml) $('#guia-check').innerHTML = guiaHtml = html;
+}
+$('#guia-check').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-goto]');
+  if (b) goToField(b.dataset.goto);
+});
 
 function readForm() {
   const code = $('#cfg-code').value.trim().toLowerCase();
