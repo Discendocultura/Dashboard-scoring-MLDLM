@@ -315,6 +315,7 @@ function renderMetrics() {
     card('Entradas VIP', m.vip, `${pctOf(m.vip, m.total)} de los registros`),
     card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros · ${pctOf(m.vipLive, m.vip)} de las VIP`),
     card('Compras totales', m.compra, `${pctOf(m.compra, m.total)} de los registros`),
+    card('Ventas de Raíces de VIP', `${m.compraVip} <small class="muted">de ${m.compra}</small>`, `${pctOf(m.compraVip, m.compra)} de las ventas · compra el ${pctOf(m.compraVip, m.vip)} de las VIP`),
     card('Llamadas agendadas', `${m.llamada} <small class="muted">de ${m.total}</small>`, `${pctOf(m.llamada, m.total)} de los registros · ${pctOf(m.compraLlamada, m.llamada)} compran`),
     directoCard,
   ].join('');
