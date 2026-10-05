@@ -44,6 +44,11 @@
 .mldlm-paso2 .mldlm-e2__fecha{display:flex; align-items:center; gap:8px; margin:0; font-size:14px; line-height:1.4; color:#6b5448;}
 .mldlm-paso2 .mldlm-e2__fecha svg{width:16px; height:16px; flex:none; color:var(--mldlm-burdeos);}
 .mldlm-paso2 .mldlm-e2__fecha span{font-weight:700; color:var(--mldlm-texto);}
+/* Cuenta atrás pequeña junto a la fecha: solo se ve mientras la clase no ha llegado (vacía = oculta) */
+.mldlm-paso2 .mldlm-e2__fecha{flex-wrap:wrap;}
+.mldlm-paso2 .mldlm-e2__fecha .mldlm-e2__falta{display:inline-flex; align-items:center; gap:5px; padding:3px 10px 3px 8px; border-radius:999px; background:var(--mldlm-pastel); border:1px solid var(--mldlm-linea); font-size:13px; font-weight:700; color:var(--mldlm-texto); white-space:nowrap;}
+.mldlm-paso2 .mldlm-e2__fecha .mldlm-e2__falta:empty{display:none;}
+.mldlm-paso2 .mldlm-e2__fecha .mldlm-e2__falta::before{content:"⏳ Faltan";}
 
 /* Contenedor del vídeo (Vimeo lo inserta el script) */
 .mldlm-paso2 [data-lsd-video]{border-radius:14px; overflow:hidden; background:var(--mldlm-pastel);}
@@ -121,7 +126,7 @@
       <span class="mldlm-e2__num"><i>1</i>Clase 1</span>
       <h3 data-lsd-text="clase1-titulo">Clase 1</h3>
       <p class="mldlm-e2__desc" data-lsd-text="clase1-descripcion"></p>
-      <p class="mldlm-e2__fecha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>Disponible: <span data-lsd-text="clase1"></span></p>
+      <p class="mldlm-e2__fecha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>Disponible: <span data-lsd-text="clase1"></span><span class="mldlm-e2__falta" data-lsd-countdown="clase1"></span></p>
     </div>
     <div data-lsd-video="clase1" data-encuesta-text="Completa la Etapa 1 para ver esta clase" data-encuesta-label="Ir a la Etapa 1"></div>
   </article>
@@ -134,7 +139,7 @@
       <span class="mldlm-e2__num"><i>2</i>Clase 2</span>
       <h3 data-lsd-text="clase2-titulo">Clase 2</h3>
       <p class="mldlm-e2__desc" data-lsd-text="clase2-descripcion"></p>
-      <p class="mldlm-e2__fecha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>Disponible: <span data-lsd-text="clase2"></span></p>
+      <p class="mldlm-e2__fecha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>Disponible: <span data-lsd-text="clase2"></span><span class="mldlm-e2__falta" data-lsd-countdown="clase2"></span></p>
     </div>
     <div data-lsd-video="clase2" data-encuesta-text="Completa la Etapa 1 para ver esta clase" data-encuesta-label="Ir a la Etapa 1"></div>
   </article>
