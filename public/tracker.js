@@ -92,7 +92,7 @@
     '.lsd-gate input{flex:1 1 100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #d8d0c9;font:inherit}' +
     '.lsd-gate button{padding:12px 18px;border:0;border-radius:8px;background:#b4552d;color:#fff;font:inherit;font-weight:600;cursor:pointer}' +
     '.lsd-gate .lsd-err{color:#b3261e;font-size:.9em}' +
-    '.lsd-gate.lsd-gate-login{aspect-ratio:auto;padding:28px 20px}' +
+    '.lsd-gate.lsd-gate-login,.lsd-gate-page .lsd-gate,.lsd-gate-page.lsd-gate{aspect-ratio:auto;padding:28px 20px}' +
     '.lsd-locked{aspect-ratio:16/9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:20px;border-radius:12px;background:#f6f3ef;color:#2b2522;box-sizing:border-box}' +
     '.lsd-locked-btn{display:inline-block;margin-top:8px;padding:10px 18px;border-radius:999px;background:#b4552d;color:#fff;font-weight:600;text-decoration:none}' +
     '.lsd-locked p{margin:0}.lsd-locked-icon{font-size:2em}.lsd-locked-text{font-weight:600}.lsd-cd{font-variant-numeric:tabular-nums;font-weight:700}' +
@@ -340,7 +340,7 @@
   var esc = function (t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var show = function (el, on) { el.style.display = on ? '' : 'none'; };
 
-  function renderPage(data, who, onVideo) {
+  function renderPage(data, who, onVideo, noVideos) {
     injectCss();
     var linkWho = function (href) {
       if (!href || !who) return href;
@@ -408,7 +408,7 @@
 
     // Vídeos sin data-vimeo: la URL llega del dashboard cuando se desbloquean.
     document.querySelectorAll('[data-lsd-video]').forEach(function (el) {
-      if (el.getAttribute('data-lsd-fixed') === '1') return;
+      if (noVideos || el.getAttribute('data-lsd-fixed') === '1' || el.querySelector('.lsd-gate')) return;
       var v = data.videos[el.getAttribute('data-lsd-video')];
       if (!v) return;
       if (v.url) {
@@ -524,6 +524,7 @@
       function showGate(presetEmail) {
         if (loginUrl) return goTo(loginUrl, presetEmail ? { email: presetEmail } : null);
         containers.forEach(function (c) { if (c !== gateHost) c.style.display = 'none'; });
+        if (gateHost === pageEl) pageEl.classList.add('lsd-gate-page');
         gate(gateHost, launch, function (w) {
           containers.forEach(function (c) { c.style.display = ''; });
           start(w);
@@ -551,6 +552,8 @@
     // Con el dashboard: primero sabemos qué lanzamiento es (y su URL de login).
     fetchPage(launchAttr, null).then(function (d) {
       if (!d || d.error) return begin(launchAttr, attrLogin);
+      // Fechas, cuenta atrás, barra y botones se pintan ya (son públicos), antes de identificarla.
+      try { renderPage(d, null, function () {}, true); } catch (e) { /* sigue igual */ }
       begin(d.code, attrLogin || d.links.login);
     }).catch(function () { begin(launchAttr, attrLogin); });
   }
