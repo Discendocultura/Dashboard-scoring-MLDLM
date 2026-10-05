@@ -21,6 +21,7 @@ export const LINK_KEYS = {
   pago: 'Enlace de pago',
   llamada: 'Reservar llamada',
   calendario: 'Añadir al calendario',
+  encuesta: 'Rellenar la encuesta',
 };
 
 // Enlace de Google Calendar con el directo ya relleno.

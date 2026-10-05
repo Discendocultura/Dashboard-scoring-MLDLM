@@ -130,6 +130,8 @@
             <option value="replay_50">Vio la grabación (≥50%)</option>
             <option value="clase1_25">Empezó la clase 1</option>
             <option value="clase2_25">Empezó la clase 2</option>
+            <option value="encuesta">Rellenó la encuesta</option>
+            <option value="sin_encuesta">No ha rellenado la encuesta</option>
             <option value="sin_clases">No ha visto ninguna clase</option>
             <option value="sin_actividad">Sin actividad</option>
             <option value="sin_resultado">Contactadas sin resultado</option>
@@ -209,6 +211,10 @@
               <input id="cfg-vip" list="tag-list" placeholder="Busca la etiqueta…"></label>
             <label class="field"><span>Etiqueta de compra del programa (Raíces)</span>
               <input id="cfg-compra" list="tag-list" placeholder="Busca la etiqueta…"></label>
+            <label class="field"><span>Etiqueta de encuesta rellenada <small>(sin ella no se ven las clases 1 y 2; vacío = sin encuesta)</small></span>
+              <input id="cfg-encuesta-tag" list="tag-list" placeholder="Busca la etiqueta…"></label>
+            <label class="field"><span>Enlace de la encuesta <small>(botón de la página de recursos; se rellena solo con el email y el nombre)</small></span>
+              <input id="cfg-encuesta-url" type="url" placeholder="https://…/survey/…"></label>
             <label class="field"><span>Campo de fecha de compra <small>(para ventas en directo y del lanzamiento)</small></span>
               <select id="cfg-compra-fecha"><option value="">— Sin campo de fecha —</option></select></label>
             <label class="field"><span>Inicio de captación <small>(día en que se abren los registros)</small></span>
@@ -252,6 +258,7 @@
           <div class="grid2">
             <label class="field"><span>URL de la página de login</span><input id="cfg-login-url" type="url" placeholder="https://lp.saraguzman.com/…"></label>
             <label class="field"><span>URL de la página de recursos</span><input id="cfg-recursos-url" type="url"></label>
+            <p class="muted full">Si hay <strong>etiqueta de encuesta</strong> (pestaña Lanzamiento), las clases 1 y 2 solo se ven cuando la lead la tiene; mientras, se le muestra el botón a la encuesta.</p>
             <label class="field"><span>Clase 1 · vídeo de Vimeo</span><input id="cfg-clase1-url" type="url" placeholder="https://vimeo.com/123/abc"></label>
             <label class="field"><span>Clase 1 · se desbloquea</span><input id="cfg-clase1-at" type="datetime-local"></label>
             <label class="field"><span>Clase 2 · vídeo de Vimeo</span><input id="cfg-clase2-url" type="url"></label>

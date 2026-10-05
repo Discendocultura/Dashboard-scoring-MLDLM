@@ -1,7 +1,8 @@
 // Datos de la página de recursos / grabación de un lanzamiento (público, lo lee tracker.js).
 //   GET /api/page?l=<código|auto>&cid=<id>&preview=<token>
 // Devuelve la fase actual, la barra de urgencia, los vídeos (la URL solo cuando ya están
-// desbloqueados), los enlaces y los textos con fechas. Con `cid` dice además si ya es VIP.
+// desbloqueados), los enlaces y los textos con fechas. Con `cid` dice además si ya es VIP y si
+// ya ha rellenado la encuesta (si el lanzamiento la exige, las clases 1 y 2 no se ven sin ella).
 import { getConfig } from '../lib/config-store.js';
 import { getContact } from '../lib/ghl.js';
 import { currentLaunch } from '../lib/digest.js';
@@ -57,21 +58,33 @@ export async function GET(request) {
       login: launch.loginUrl || '',
     };
 
-    const video = (urlKey, unlockAt) => {
-      const unlocked = Boolean(launch[urlKey]) && (unlockAt == null || now >= unlockAt);
-      return { unlockAt, unlockText: formatLong(unlockAt), unlocked, url: unlocked ? launch[urlKey] : '' };
-    };
-
-    const bar = barFor(launch, phase.id);
-    let isVip = null;
+    let contact = null;
     if (cid) {
       try {
-        const c = await getContact(cid);
-        if (c) isVip = signalsFor(c.tags, code, launch, c).vip;
+        contact = await getContact(cid);
       } catch (e) {
         console.error(e);
       }
     }
+    const sig = contact ? signalsFor(contact.tags, code, launch, contact) : null;
+    const isVip = sig ? sig.vip : null;
+
+    // Encuesta: si hay etiqueta configurada, las clases 1 y 2 solo se entregan a quien la tiene.
+    // En la vista previa del dashboard (sin contacto) se muestran como si ya la hubiera rellenado.
+    const encuestaRequired = Boolean(launch.encuestaTag);
+    const encuestaDone = !encuestaRequired || (sig ? sig.encuesta : preview && !cid);
+    links.encuesta = encuestaDone && encuestaRequired && !preview ? '' : encuestaUrl(launch.encuestaUrl, contact);
+
+    const video = (urlKey, unlockAt, gated = false) => {
+      const unlocked = Boolean(launch[urlKey]) && (unlockAt == null || now >= unlockAt);
+      const blocked = gated && !encuestaDone;
+      return {
+        unlockAt, unlockText: formatLong(unlockAt), unlocked, needsEncuesta: blocked,
+        url: unlocked && !blocked ? launch[urlKey] : '',
+      };
+    };
+
+    const bar = barFor(launch, phase.id);
 
     return json({
       code,
@@ -84,11 +97,12 @@ export async function GET(request) {
       redirectTo: phase.id === 'en_directo' ? 'directo' : (phase.id === 'replay' || phase.id === 'cerrado') ? 'grabacion' : '',
       bar: { text: bar.text, button: bar.button && links[bar.button] ? { key: bar.button, label: bar.buttonLabel, href: links[bar.button] } : null },
       videos: {
-        clase1: video('clase1Url', m.clase1),
-        clase2: video('clase2Url', m.clase2),
+        clase1: video('clase1Url', m.clase1, true),
+        clase2: video('clase2Url', m.clase2, true),
         replay: video('replayVideoUrl', m.replay),
       },
       links,
+      encuesta: { required: encuestaRequired, done: encuestaDone },
       vip: { open: vipOpen, closesAt: m.directo, isVip, precio: launch.precioVip || 0 },
       texts: {
         nombre: launch.name || '',
@@ -100,6 +114,24 @@ export async function GET(request) {
     }, 200, { ...CORS_HEADERS, 'cache-control': 'no-store' });
   } catch (e) {
     return errorResponse(e, CORS_HEADERS);
+  }
+}
+
+// Enlace a la encuesta con el email, nombre y teléfono ya rellenos (GHL rellena los campos
+// del formulario/encuesta con esos parámetros de la URL), para que la etiqueta caiga en el mismo contacto.
+function encuestaUrl(base, contact) {
+  if (!base) return '';
+  if (!contact) return base;
+  try {
+    const u = new URL(base);
+    const set = (k, v) => { if (v && !u.searchParams.has(k)) u.searchParams.set(k, v); };
+    set('email', contact.email);
+    set('first_name', contact.firstName);
+    set('last_name', contact.lastName);
+    set('phone', contact.phone);
+    return u.toString();
+  } catch {
+    return base;
   }
 }
 

@@ -27,6 +27,13 @@ createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ vip: simulateSales() }));
       return;
     }
+    // Simula que una lead rellena la encuesta: /__mock/tag?cid=…&tag=…
+    if (path === '/__mock/tag' && process.env.GHL_MOCK === '1') {
+      const { addTags } = await import('../lib/mock.js');
+      addTags(url.searchParams.get('cid'), [url.searchParams.get('tag')]);
+      res.writeHead(200, { 'content-type': 'application/json' }).end('{"ok":true}');
+      return;
+    }
     if (path === '/directo' || path.startsWith('/api/')) {
       const chunks = [];
       for await (const c of req) chunks.push(c);

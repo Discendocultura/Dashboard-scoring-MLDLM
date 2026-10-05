@@ -34,6 +34,9 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
   const viewedReplay = (l) => watched(l.s, 'replay') >= 25;
   const m = {
     total: leads.length,
+    encuestaActiva: Boolean(launch?.encuestaTag),
+    encuesta: c((l) => l.s.encuesta),
+    compraEncuesta: c((l) => l.s.compra && l.s.encuesta),
     clase1: c((l) => watched(l.s, 'clase1') >= 25),
     clase2: c((l) => watched(l.s, 'clase2') >= 25),
     vip: c((l) => l.s.vip),
@@ -94,11 +97,13 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     cpl: inversion && m.total ? inversion / m.total : null,
     cplFrio: inversion && m.frio ? inversion / m.frio : null,
     cpVip: inversion && m.vip ? inversion / m.vip : null,
-    cpa: inversion && m.compra ? inversion / m.compra : null,
+    // CAC: lo que cuesta conseguir cada clienta nueva de Raíces en este lanzamiento.
+    cac: inversion && m.compra ? inversion / m.compra : null,
   };
 
   // Qué señales predicen la compra: conversión con la señal frente a sin ella.
   const SIGNAL_TESTS = [
+    ...(m.encuestaActiva ? [['Rellenó la encuesta', (l) => l.s.encuesta]] : []),
     ['Vio ≥50% de la clase 1', (l) => watched(l.s, 'clase1') >= 50],
     ['Vio ≥50% de la clase 2', (l) => watched(l.s, 'clase2') >= 50],
     ['Compró la VIP', (l) => l.s.vip],

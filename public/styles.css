@@ -291,3 +291,4 @@ table.leads { width: 100%; border-collapse: collapse; min-width: 960px; }
   #launch-select { flex: 1; min-width: 0; }
   .kpi .kpi-value { font-size: 22px; }
 }
+.grid2 > .full { grid-column: 1 / -1; margin: 0; }

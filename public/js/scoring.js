@@ -89,6 +89,7 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   for (const sig of SIGNALS) s[sig] = tags.has(tagFor(launch, sig));
   s.vip = has(cfg.vipTag) && !s.vip_previo;
   s.vip_anterior = has(cfg.vipTag) && s.vip_previo;
+  s.encuesta = has(cfg.encuestaTag);
 
   // Compra: si hay "fecha de compra", manda la fecha (dentro del lanzamiento = de este lanzamiento);
   // si no, la foto de clientas anteriores.

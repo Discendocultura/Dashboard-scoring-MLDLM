@@ -246,6 +246,47 @@ test('página de recursos: fases, vídeos ocultos hasta su hora, VIP y vista pre
   assert.ok((await (await page.GET(req('/api/page?l=auto'))).json()).code);
 });
 
+test('encuesta: sin la etiqueta no se entregan las clases 1 y 2', async () => {
+  const admin = await login('admin');
+  const config = await import('../handlers/config.js');
+  const cur = await (await config.GET(req('/api/config', { cookie: admin }))).json();
+  await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, launches: { ...cur.config.launches, 'enc-test': {
+    name: 'Enc', registroTag: 'registro-webinar-demo', inicioCaptacion: '2026-10-01', encuestaTag: 'Encuesta-Demo',
+    encuestaUrl: 'https://forms.example.com/survey/abc', fechaDirecto: '2026-10-29', horaDirecto: '19:00',
+    clase1At: '2026-10-22T19:00', clase2At: '2026-10-25T19:00',
+    clase1Url: 'https://vimeo.com/111/aaa', clase2Url: 'https://vimeo.com/222/bbb', replayVideoUrl: 'https://vimeo.com/333/ccc',
+  } } } }));
+  const page = await import('../handlers/page.js');
+  const tok = (await (await page.POST(req('/api/page', { method: 'POST', cookie: admin, body: { at: '2026-10-31T10:00' } }))).json()).token;
+  const { contactsByTag, addTags } = await import('../lib/ghl.js');
+  const { contacts } = await contactsByTag('registro-webinar-demo');
+  const lead = contacts.find((c) => !c.tags.includes('encuesta-demo'));
+  const get = async () => (await page.GET(req(`/api/page?l=enc-test&preview=${encodeURIComponent(tok)}&cid=${lead.id}`))).json();
+
+  const before = await get();
+  assert.deepEqual(before.encuesta, { required: true, done: false });
+  assert.equal(before.videos.clase1.url, '');
+  assert.equal(before.videos.clase1.needsEncuesta, true);
+  assert.equal(before.videos.clase2.url, '');
+  assert.equal(before.videos.replay.url, 'https://vimeo.com/333/ccc');   // la grabación no depende de la encuesta
+  const enc = new URL(before.links.encuesta);
+  assert.equal(enc.searchParams.get('email'), lead.email);              // encuesta rellena con su email
+
+  await addTags(lead.id, ['encuesta-demo']);
+  const after = await get();
+  assert.equal(after.encuesta.done, true);
+  assert.equal(after.videos.clase1.url, 'https://vimeo.com/111/aaa');
+  assert.equal(after.videos.clase2.url, 'https://vimeo.com/222/bbb');
+
+  const { signalsFor } = await import('../public/js/scoring.js');
+  assert.equal(signalsFor(['Encuesta-Demo'], 'enc-test', { encuestaTag: 'encuesta-demo' }).encuesta, true);
+  const { computeMetrics } = await import('../public/js/metrics.js');
+  const mk = (encuesta, compra) => ({ s: { encuesta, compra }, estado: { id: 'frio' } });
+  const m = computeMetrics([mk(true, true), mk(true, false), mk(false, false), mk(false, false)], { encuestaTag: 'x', inversion: 300 });
+  assert.equal(m.encuesta, 2);
+  assert.equal(m.eco.cac, 300);
+});
+
 test('enlaces personalizados para botones', async () => {
   const { sanitizeConfig } = await import('../lib/config-store.js');
   const c = sanitizeConfig({ launches: { x1: { registroTag: 'r', enlaces: { Guia: 'https://a.com/g', vip: 'https://hack', 'mal nombre': 'https://b.com', ig: 'javascript:alert(1)' } } } });

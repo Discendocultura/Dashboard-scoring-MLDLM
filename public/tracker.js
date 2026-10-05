@@ -94,6 +94,7 @@
     '.lsd-gate .lsd-err{color:#b3261e;font-size:.9em}' +
     '.lsd-gate.lsd-gate-login{aspect-ratio:auto;padding:28px 20px}' +
     '.lsd-locked{aspect-ratio:16/9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:20px;border-radius:12px;background:#f6f3ef;color:#2b2522;box-sizing:border-box}' +
+    '.lsd-locked-btn{display:inline-block;margin-top:8px;padding:10px 18px;border-radius:999px;background:#b4552d;color:#fff;font-weight:600;text-decoration:none}' +
     '.lsd-locked p{margin:0}.lsd-locked-icon{font-size:2em}.lsd-locked-text{font-weight:600}.lsd-cd{font-variant-numeric:tabular-nums;font-weight:700}' +
     '.lsd-cdb{display:flex;gap:10px;justify-content:center}.lsd-cdb-unit{display:flex;flex-direction:column;align-items:center;min-width:64px;padding:10px 8px;border-radius:10px;background:#f6f3ef}' +
     '.lsd-cdb-num{font-size:2em;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}.lsd-cdb-label{font-size:.75em;text-transform:uppercase;letter-spacing:.05em;margin-top:4px}' +
@@ -366,6 +367,8 @@
     document.querySelectorAll('[data-lsd-link]').forEach(function (el) {
       var href = data.links[el.getAttribute('data-lsd-link')];
       if (href) { el.setAttribute('href', linkWho(href)); show(el, true); } else show(el, false);
+      // La encuesta se abre en otra pestaña: al volver, la página detecta que ya está hecha.
+      if (el.getAttribute('data-lsd-link') === 'encuesta' && !el.getAttribute('target')) { el.setAttribute('target', '_blank'); el.setAttribute('rel', 'noopener'); }
     });
 
     // Textos: <span data-lsd-text="fechaDirecto|horaDirecto|directo|clase1|clase2|replay|cierreVip|cierreCarrito|precioVip">
@@ -388,11 +391,19 @@
       show(el, el.getAttribute('data-lsd-phase').split(/[\s,]+/).indexOf(data.phase) >= 0);
     });
 
-    // Mostrar/ocultar por VIP: data-lsd-if="vip-abierta|vip-cerrada|ya-vip"
+    // Mostrar/ocultar por VIP y encuesta: data-lsd-if="vip-abierta|vip-cerrada|ya-vip|encuesta-pendiente|encuesta-hecha"
     var isVip = data.vip.isVip === true;
+    var enc = data.encuesta || {};
+    var conds = {
+      'ya-vip': isVip,
+      'vip-abierta': data.vip.open && !isVip,
+      'vip-cerrada': !data.vip.open && !isVip,
+      'encuesta-pendiente': Boolean(enc.required && !enc.done),
+      'encuesta-hecha': Boolean(enc.required && enc.done),
+    };
     document.querySelectorAll('[data-lsd-if]').forEach(function (el) {
       var c = el.getAttribute('data-lsd-if');
-      show(el, c === 'ya-vip' ? isVip : c === 'vip-abierta' ? (data.vip.open && !isVip) : c === 'vip-cerrada' ? (!data.vip.open && !isVip) : true);
+      show(el, Object.prototype.hasOwnProperty.call(conds, c) ? conds[c] : true);
     });
 
     // Vídeos sin data-vimeo: la URL llega del dashboard cuando se desbloquean.
@@ -400,7 +411,7 @@
       if (el.getAttribute('data-lsd-fixed') === '1') return;
       var v = data.videos[el.getAttribute('data-lsd-video')];
       if (!v) return;
-      if (v.unlocked) {
+      if (v.url) {
         if (el.getAttribute('data-lsd-playing') === '1') return;
         el.innerHTML = '';
         el.setAttribute('data-vimeo', v.url);
@@ -408,20 +419,26 @@
         onVideo(el);
       } else {
         // Bloqueado hasta su hora; si ya pasó la hora pero aún no hay vídeo, "muy pronto".
+        // Si falta la encuesta, además se pide (y al llegar la hora solo se pide la encuesta).
         var pending = v.unlockAt && v.unlockAt > serverNow();
-        var state = pending ? 'cuenta' : 'pronto';
+        var encHref = data.links.encuesta;
+        var state = v.unlocked ? 'encuesta' : (pending ? 'cuenta' : 'pronto') + (v.needsEncuesta ? '-encuesta' : '');
         if (el.getAttribute('data-lsd-locked') === state) return;
         el.setAttribute('data-lsd-locked', state);
+        var encBtn = v.needsEncuesta && encHref ? '<a class="lsd-locked-btn" data-lsd-encuesta href="' + esc(encHref) + '" target="_blank" rel="noopener">' + esc(el.getAttribute('data-encuesta-label') || 'Rellenar la encuesta') + '</a>' : '';
+        var encText = esc(el.getAttribute('data-encuesta-text') || 'Completa la encuesta para desbloquear las clases');
         el.innerHTML = '<div class="lsd-locked"><div class="lsd-locked-icon">🔒</div>' +
-          (pending ? '<p class="lsd-locked-text">Disponible el ' + esc(v.unlockText) + '</p><p class="lsd-locked-count">Faltan ' + cdSpan(v.unlockAt) + '</p>'
-            : '<p class="lsd-locked-text">Muy pronto disponible</p>') + '</div>';
+          (state === 'encuesta' ? '<p class="lsd-locked-text">' + encText + '</p>'
+            : pending ? '<p class="lsd-locked-text">Disponible el ' + esc(v.unlockText) + '</p><p class="lsd-locked-count">Faltan ' + cdSpan(v.unlockAt) + '</p>' + (v.needsEncuesta ? '<p>' + encText + '</p>' : '')
+            : '<p class="lsd-locked-text">Muy pronto disponible</p>' + (v.needsEncuesta ? '<p>' + encText + '</p>' : '')) +
+          encBtn + '</div>';
       }
     });
     startCountdowns();
   }
 
   function defaultLabel(key) {
-    return { whatsapp: 'Unirme al grupo', vip: 'Quiero mi entrada VIP', directo: 'Entrar al directo', grabacion: 'Ver la grabación', venta: 'Conocer Raíces', pago: 'Unirme a Raíces', llamada: 'Reservar llamada', calendario: 'Añadir al calendario' }[key] || 'Ir';
+    return { whatsapp: 'Unirme al grupo', vip: 'Quiero mi entrada VIP', directo: 'Entrar al directo', grabacion: 'Ver la grabación', venta: 'Conocer Raíces', pago: 'Unirme a Raíces', llamada: 'Reservar llamada', calendario: 'Añadir al calendario', encuesta: 'Rellenar la encuesta' }[key] || 'Ir';
   }
 
   // Página gestionada desde el dashboard (recursos / grabación). Vuelve a pedir los datos cuando
@@ -439,9 +456,16 @@
         var next = [data.changesAt, data.videos.clase1.unlockAt, data.videos.clase2.unlockAt, data.videos.replay.unlockAt]
           .filter(function (t) { return t && t > data.now; }).sort(function (a, b) { return a - b; })[0];
         clearTimeout(timer);
+        // Encuesta pendiente: se vuelve a comprobar cada 15 s (y al volver a la pestaña).
+        waitingEncuesta = Boolean(data.encuesta && data.encuesta.required && !data.encuesta.done && who && who.cid);
+        if (waitingEncuesta && !document.hidden) next = Math.min(next || Infinity, serverNow() + 15000);
         if (next) timer = setTimeout(cycle, Math.min(next - serverNow() + 1500, 2147483000));
       }).catch(function () { /* sin conexión: se queda como está */ });
     }
+    var waitingEncuesta = false;
+    function recheck() { if (waitingEncuesta && !document.hidden) { clearTimeout(timer); cycle(); } }
+    window.addEventListener('focus', recheck);
+    document.addEventListener('visibilitychange', recheck);
     cycle();
   }
 

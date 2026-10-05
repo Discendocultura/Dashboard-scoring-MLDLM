@@ -214,6 +214,7 @@ function filtered() {
     if (f.pending && l.s.wa_enviado) return false;
     if (f.signal === 'sin_actividad') return l.score === 0 && !l.s.directo_click;
     if (f.signal === 'no_compra') return !l.s.compra;
+    if (f.signal === 'sin_encuesta') return !l.s.encuesta;
     if (f.signal.startsWith('res_')) return l.outcome === f.signal.slice(4);
     if (f.signal === 'sin_resultado') return l.s.wa_enviado && !l.outcome;
     if (f.signal === 'vip_no_compra') return l.s.vip && !l.s.compra;
@@ -310,6 +311,7 @@ function renderMetrics() {
     : card('Ventas en directo', '–', 'Configura el día del directo y el campo de fecha de compra');
   $('#metric-cards').innerHTML = [
     card('Registros', m.total, m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'leads del lanzamiento'),
+    ...(m.encuestaActiva ? [card('Encuesta rellenada', `${m.encuesta} <small class="muted">de ${m.total}</small>`, `${pctOf(m.encuesta, m.total)} de los registros`)] : []),
     card('Entradas VIP', m.vip, `${pctOf(m.vip, m.total)} de los registros`),
     card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros · ${pctOf(m.vipLive, m.vip)} de las VIP`),
     card('Compras totales', m.compra, `${pctOf(m.compra, m.total)} de los registros`),
@@ -321,6 +323,7 @@ function renderMetrics() {
 
   const steps = [
     ['Registros', m.total],
+    ...(m.encuestaActiva ? [['Rellenaron la encuesta', m.encuesta, 'desbloquea las clases']] : []),
     ['Empezaron la clase 1', m.clase1, '≥25% visto'],
     ['Empezaron la clase 2', m.clase2, '≥25% visto'],
     ['Compraron entrada VIP', m.vip],
@@ -373,7 +376,7 @@ function renderEconomics(m, launch) {
     card('ROAS', e.roas != null && hasPrices ? `${e.roas.toFixed(2)}x` : '–', e.roas != null && hasPrices ? `Beneficio: ${eur(e.beneficio)}` : 'facturación / inversión'),
     card('Coste por lead', eur(e.cpl), e.cplFrio != null ? `${eur(e.cplFrio)} por lead de tráfico frío` : 'inversión / registros'),
     card('Coste por VIP', eur(e.cpVip), 'inversión / entradas VIP'),
-    card('Coste por venta', eur(e.cpa), 'inversión / ventas de Raíces'),
+    card('CAC', eur(e.cac), 'coste por clienta nueva de Raíces (inversión / ventas)'),
   ].join('')}${metaWarn ? `<div style="grid-column:1/-1">${metaWarn}</div>` : ''}`;
 }
 
@@ -499,6 +502,7 @@ function renderCompareTable(results) {
   const rows = [
     ['Registros', (m) => m.total],
     ['Tráfico frío', (m) => pctOf(m.frio, m.total)],
+    ['Encuesta rellenada', (m) => (m.encuestaActiva ? `${m.encuesta} · ${pctOf(m.encuesta, m.total)}` : '–')],
     ['Empezaron la clase 1', (m) => pctOf(m.clase1, m.total)],
     ['Empezaron la clase 2', (m) => pctOf(m.clase2, m.total)],
     ['Entradas VIP', (m) => `${m.vip} · ${pctOf(m.vip, m.total)}`],
@@ -514,7 +518,7 @@ function renderCompareTable(results) {
     ['Facturación', (m) => eur(m.eco.facturacion || null)],
     ['ROAS', (m) => (m.eco.roas != null && m.eco.facturacion ? `${m.eco.roas.toFixed(2)}x` : '–')],
     ['Coste por lead', (m) => eur(m.eco.cpl)],
-    ['Coste por venta', (m) => eur(m.eco.cpa)],
+    ['CAC (coste por clienta)', (m) => eur(m.eco.cac)],
   ];
   $('#compare-table').innerHTML = `
     <thead><tr><th></th>${results.map(([c]) => `<th class="num">${esc(L[c].name)}</th>`).join('')}</tr></thead>
@@ -816,6 +820,8 @@ function openConfig(code) {
   $('#cfg-registro').value = l.registroTag || '';
   $('#cfg-vip').value = l.vipTag || '';
   $('#cfg-compra').value = l.compraTag || '';
+  $('#cfg-encuesta-tag').value = l.encuestaTag || '';
+  $('#cfg-encuesta-url').value = l.encuestaUrl || '';
   $('#cfg-inicio').value = l.inicioCaptacion || '';
   $('#cfg-directo-fecha').value = l.fechaDirecto || '';
   $('#cfg-directo-hora').value = l.horaDirecto || '';
@@ -882,6 +888,8 @@ function readForm() {
       registroTag,
       vipTag: $('#cfg-vip').value.trim().toLowerCase(),
       compraTag: $('#cfg-compra').value.trim().toLowerCase(),
+      encuestaTag: $('#cfg-encuesta-tag').value.trim().toLowerCase(),
+      encuestaUrl: $('#cfg-encuesta-url').value.trim(),
       compraDateField: $('#cfg-compra-fecha').value,
       inicioCaptacion: $('#cfg-inicio').value,
       fechaDirecto: $('#cfg-directo-fecha').value,
@@ -1171,6 +1179,8 @@ function renderSnippets() {
       '<div data-lsd-if="vip-abierta">\n  Entrada VIP por <span data-lsd-text="precioVip"></span> · se cierra en <span data-lsd-countdown="vip"></span>\n  <a data-lsd-link="vip">Quiero mi entrada VIP</a>\n</div>\n<div data-lsd-if="ya-vip">✓ Ya tienes tu entrada VIP</div>'],
     ['RECURSOS · botón del grupo de WhatsApp', '<a data-lsd-link="whatsapp" target="_blank">Unirme al grupo de WhatsApp</a>'],
     ['RECURSOS · botón del directo', '<a data-lsd-link="directo">Entrar al directo</a>'],
+    ['RECURSOS · encuesta (sin ella no se ven las clases 1 y 2)',
+      '<div data-lsd-if="encuesta-pendiente">\n  Antes de ver las clases, cuéntanos un poco sobre ti\n  <a data-lsd-link="encuesta">Rellenar la encuesta</a>\n</div>\n<div data-lsd-if="encuesta-hecha">✓ ¡Gracias por rellenar la encuesta!</div>'],
     ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
     ['GRABACIÓN · bloques de la página del replay', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
