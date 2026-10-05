@@ -108,7 +108,8 @@ test('tráfico frío / templado según la fecha de alta en GHL', () => {
 });
 
 test('variables de enlace: página de venta y enlace de pago', () => {
-  const launch = { raicesUrl: 'https://x.com/raices', ventaUrl: 'https://pay.x.com/checkout' };
+  const launch = { raicesUrl: 'https://x.com/raices', ventaUrl: 'https://pay.x.com/checkout', ventaFraccionadoUrl: 'https://pay.hotmart.com/X1' };
+  assert.equal(buildMessage('{link_pago_fraccionado}', { contactId: 'c1', launch }), 'https://pay.hotmart.com/X1?cid=c1');
   const msg = buildMessage('{link_pagina_venta} | {link_pago} | {link_raices}', { nombre: 'A', contactId: 'c1', launch });
   assert.equal(msg, 'https://x.com/raices?cid=c1 | https://pay.x.com/checkout?cid=c1 | https://x.com/raices?cid=c1');
 });

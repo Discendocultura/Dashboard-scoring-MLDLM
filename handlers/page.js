@@ -47,6 +47,7 @@ export async function GET(request) {
       grabacion: withContactId(launch.replayUrl, cid),
       venta: withContactId(launch.raicesUrl, cid),
       pago: withContactId(launch.ventaUrl, cid),
+      'pago-fraccionado': withContactId(launch.ventaFraccionadoUrl, cid),
       llamada: launch.llamadaUrl || '',
       recursos: launch.recursosUrl || '',
       // Añadir al calendario: el enlace configurado o, si no hay, uno de Google Calendar generado solo.

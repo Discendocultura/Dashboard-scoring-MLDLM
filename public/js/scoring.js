@@ -199,6 +199,7 @@ export function buildMessage(template, { nombre, contactId, launch }) {
     // Nombres claros: página de venta de Raíces y enlace de pago (los antiguos siguen funcionando).
     link_pagina_venta: withContactId(launch?.raicesUrl, contactId),
     link_pago: withContactId(launch?.ventaUrl, contactId),
+    link_pago_fraccionado: withContactId(launch?.ventaFraccionadoUrl, contactId),
     link_llamada: launch?.llamadaUrl || '',
   };
   return String(template || '')

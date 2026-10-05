@@ -855,6 +855,7 @@ function openConfig(code) {
   $('#cfg-replay').value = l.replayUrl || '';
   $('#cfg-raices').value = l.raicesUrl || '';
   $('#cfg-venta').value = l.ventaUrl || '';
+  $('#cfg-venta-fraccionado').value = l.ventaFraccionadoUrl || '';
   $('#cfg-llamada').value = l.llamadaUrl || '';
   $('#cfg-precio-vip').value = l.precioVip || '';
   $('#cfg-precio-programa').value = l.precioPrograma || '';
@@ -947,7 +948,8 @@ const CICLO = [
   { id: 'cfg-cierre', c: 'nuevo', label: 'Cierre del carrito', key: 'cierreCarrito' },
   { id: 'cfg-replay', c: 'revisar', label: 'Página de la grabación' },
   { id: 'cfg-raices', c: 'revisar', label: 'Página de venta de Raíces' },
-  { id: 'cfg-venta', c: 'revisar', label: 'Enlace de pago' },
+  { id: 'cfg-venta', c: 'revisar', label: 'Pago único (ThriveCart)' },
+  { id: 'cfg-venta-fraccionado', c: 'revisar', label: 'Pago fraccionado (Hotmart)' },
   { id: 'cfg-llamada', c: 'revisar', label: 'Reservar llamada', opcional: true },
   { id: 'cfg-precio-vip', c: 'revisar', label: 'Precio VIP' },
   { id: 'cfg-precio-programa', c: 'revisar', label: 'Precio de Raíces' },
@@ -1089,6 +1091,7 @@ function readForm() {
       replayUrl: $('#cfg-replay').value.trim(),
       raicesUrl: $('#cfg-raices').value.trim(),
       ventaUrl: $('#cfg-venta').value.trim(),
+      ventaFraccionadoUrl: $('#cfg-venta-fraccionado').value.trim(),
       llamadaUrl: $('#cfg-llamada').value.trim(),
       precioVip: $('#cfg-precio-vip').value,
       precioPrograma: $('#cfg-precio-programa').value,
