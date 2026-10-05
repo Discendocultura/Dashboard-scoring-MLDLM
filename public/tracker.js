@@ -95,6 +95,8 @@
     '.lsd-gate.lsd-gate-login{aspect-ratio:auto;padding:28px 20px}' +
     '.lsd-locked{aspect-ratio:16/9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:20px;border-radius:12px;background:#f6f3ef;color:#2b2522;box-sizing:border-box}' +
     '.lsd-locked p{margin:0}.lsd-locked-icon{font-size:2em}.lsd-locked-text{font-weight:600}.lsd-cd{font-variant-numeric:tabular-nums;font-weight:700}' +
+    '.lsd-cdb{display:flex;gap:10px;justify-content:center}.lsd-cdb-unit{display:flex;flex-direction:column;align-items:center;min-width:64px;padding:10px 8px;border-radius:10px;background:#f6f3ef}' +
+    '.lsd-cdb-num{font-size:2em;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}.lsd-cdb-label{font-size:.75em;text-transform:uppercase;letter-spacing:.05em;margin-top:4px}' +
     '[data-lsd-bar]{display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap}' +
     '.lsd-bar-btn{display:inline-block;padding:6px 14px;border-radius:999px;background:#b4552d;color:#fff;font-weight:600;text-decoration:none}';
 
@@ -304,6 +306,30 @@
     document.querySelectorAll('[data-lsd-cd]').forEach(function (el) {
       el.textContent = fmtCountdown(Number(el.getAttribute('data-lsd-cd')) - serverNow());
     });
+    // Cuenta atrás en cajas (días / horas / min / seg).
+    document.querySelectorAll('[data-lsd-cdb-at]').forEach(function (el) {
+      var ms = Math.max(0, Number(el.getAttribute('data-lsd-cdb-at')) - serverNow());
+      var s = Math.floor(ms / 1000);
+      var parts = { d: Math.floor(s / 86400), h: Math.floor((s % 86400) / 3600), m: Math.floor((s % 3600) / 60), s: s % 60 };
+      el.querySelectorAll('[data-u]').forEach(function (n) {
+        var v = parts[n.getAttribute('data-u')];
+        n.textContent = (v < 10 ? '0' : '') + v;
+      });
+    });
+  }
+
+  // <div data-lsd-countdown-boxes="directo|clase1|clase2|vip"></div>
+  function renderCountdownBoxes(data) {
+    document.querySelectorAll('[data-lsd-countdown-boxes]').forEach(function (el) {
+      var k = el.getAttribute('data-lsd-countdown-boxes');
+      var at = k === 'directo' || k === 'vip' ? data.vip.closesAt : k === 'fase' ? data.countdownTo : (data.videos[k] || {}).unlockAt;
+      if (!at || at <= serverNow()) { el.innerHTML = ''; el.removeAttribute('data-lsd-cdb-at'); show(el, false); return; }
+      show(el, true);
+      if (Number(el.getAttribute('data-lsd-cdb-at')) === at) return;
+      el.setAttribute('data-lsd-cdb-at', at);
+      var unit = function (u, label) { return '<div class="lsd-cdb-unit"><span class="lsd-cdb-num" data-u="' + u + '">00</span><span class="lsd-cdb-label">' + label + '</span></div>'; };
+      el.innerHTML = '<div class="lsd-cdb">' + unit('d', 'días') + unit('h', 'horas') + unit('m', 'min') + unit('s', 'seg') + '</div>';
+    });
   }
   function startCountdowns() {
     tickCountdowns();
@@ -354,6 +380,8 @@
       var at = k === 'fase' ? data.countdownTo : k === 'vip' ? data.vip.closesAt : k === 'directo' ? data.vip.closesAt : (data.videos[k] || {}).unlockAt;
       el.innerHTML = at && at > serverNow() ? cdSpan(at) : '';
     });
+
+    renderCountdownBoxes(data);
 
     // Mostrar/ocultar por fase: data-lsd-phase="pre_c1 c1 c2 dia_directo en_directo replay cerrado"
     document.querySelectorAll('[data-lsd-phase]').forEach(function (el) {

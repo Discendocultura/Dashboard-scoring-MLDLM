@@ -91,6 +91,7 @@ export async function GET(request) {
       links,
       vip: { open: vipOpen, closesAt: m.directo, isVip, precio: launch.precioVip || 0 },
       texts: {
+        nombre: launch.name || '',
         fechaDirecto: formatDate(m.directo), horaDirecto: formatTime(m.directo), directo: formatLong(m.directo),
         clase1: formatLong(m.clase1), clase2: formatLong(m.clase2), replay: formatLong(m.replay),
         cierreVip: formatLong(m.directo), cierreCarrito: formatLong(m.cierre),
