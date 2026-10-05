@@ -165,3 +165,25 @@ test('origen del lead: publicidad, orgánico o sin etiqueta; y canal por utm_sou
   const canales = bySource(leads, 'source');
   assert.deepEqual(canales.map((g) => [g.label, g.leads]), [['facebook', 2], ['instagram', 1], ['Sin canal (sin utm_source)', 1]]);
 });
+
+test('CAC y ROAS de publicidad, objetivos, respuestas de la encuesta y avisos', async () => {
+  const { computeMetrics, porRespuesta, avisosLanzamiento } = await import('../public/js/metrics.js');
+  const cfg = { compraTag: 'clienta', vipTag: 'vip', publiTag: 'publi', organicoTag: 'org', unicoTag: 'tc', fraccionadoTag: 'hm' };
+  const lead = (tags, cf = {}) => ({ s: signalsFor(tags, 'nov26', cfg), estado: { id: 'frio' }, cf });
+  const leads = [
+    lead(['publi', 'vip', 'clienta', 'tc'], { q: 'Más de 2 años', m: ['A', 'B'] }),
+    lead(['publi'], { q: 'Más de 2 años' }), lead(['org', 'clienta'], { q: 'Menos de 6 meses', m: ['A'] }), lead([]),
+  ];
+  const launch = { ...cfg, precioVip: 27, precioPrograma: 1000, inversion: 500, objetivos: { ventas: 4, registros: 0 } };
+  const m = computeMetrics(leads, launch);
+  assert.equal(m.eco.publi.cac, 500);
+  assert.equal(m.eco.publi.facturacion, 1027);
+  assert.equal(m.eco.publi.cpl, 250);
+  assert.deepEqual(m.objetivos.map((o) => [o.label, o.actual, o.meta]), [['Ventas de Raíces', 2, 4]]);
+  assert.deepEqual(porRespuesta(leads, 'q').map((r) => [r.respuesta, r.leads, r.compras]), [['Más de 2 años', 2, 1], ['Menos de 6 meses', 1, 1], ['', 1, 0]]);
+  assert.deepEqual(porRespuesta(leads, 'm').map((r) => [r.respuesta, r.leads]), [['A', 2], ['B', 1], ['', 2]]);
+  const avisos = avisosLanzamiento(leads, launch, m);
+  assert.ok(avisos.some((a) => a.startsWith('1 ventas de Raíces sin etiqueta de pago')));
+  assert.ok(avisos.some((a) => a.startsWith('1 leads sin etiqueta')));
+  assert.ok(avisos.some((a) => a.startsWith('Falta en Configuración')));
+});

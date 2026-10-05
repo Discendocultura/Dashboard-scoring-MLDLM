@@ -1,7 +1,7 @@
 import {
   ESTADOS, NEXT_STEPS, buildMessage, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, OUTCOMES,
 } from './scoring.js';
-import { enrichLead, computeMetrics, bySource, ventasPorDia } from './metrics.js';
+import { enrichLead, computeMetrics, bySource, ventasPorDia, porRespuesta, avisosLanzamiento } from './metrics.js';
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -324,6 +324,9 @@ function renderMetrics() {
   renderVentasDia(launch);
   renderPago(m, launch);
   renderOrigen(m, launch);
+  renderEncuestaMetrics(launch);
+  renderObjetivos(m);
+  renderAvisos(m, launch);
 
   const steps = [
     ['Registros', m.total],
@@ -399,6 +402,105 @@ function renderVentasDia(launch) {
     <p class="muted">Total: <strong>${v.total}</strong> ventas de Raíces${precio ? ` · ${eur(v.importe)}` : ''}.</p>`;
 }
 
+// Avisos: lo que falta configurar o los datos que no cuadran (lo mismo que llega en el resumen diario).
+function renderAvisos(m, launch) {
+  const avisos = avisosLanzamiento(state.leads, launch, m);
+  const el = $('#avisos');
+  el.hidden = !avisos.length;
+  el.innerHTML = avisos.length ? `<strong>Revisa ${avisos.length === 1 ? 'esto' : `estas ${avisos.length} cosas`}:</strong><ul>${avisos.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>` : '';
+}
+
+// Progreso hacia los objetivos del lanzamiento.
+function renderObjetivos(m) {
+  $('#objetivos-card').hidden = !m.objetivos.length;
+  const fmt = (o, n) => (o.unit === 'eur' ? eur(n) : n.toLocaleString('es-ES'));
+  $('#objetivos').innerHTML = m.objetivos.map((o) => `
+    <div class="funnel-row">
+      <div class="funnel-label">${o.label}<small>${o.actual >= o.meta ? '¡objetivo conseguido!' : `faltan ${fmt(o, o.meta - o.actual)}`}</small></div>
+      <div class="funnel-bar ${o.actual >= o.meta ? 'buy' : ''}"><span style="width:${Math.min(100, o.pct * 100)}%"></span></div>
+      <div class="funnel-num"><strong>${fmt(o, o.actual)}</strong> <span class="muted">de ${fmt(o, o.meta)} · ${Math.round(o.pct * 100)}%</span></div>
+    </div>`).join('');
+}
+
+// Ventas según las respuestas de la encuesta (una tabla por pregunta elegida en Configuración).
+function renderEncuestaMetrics(launch) {
+  const box = $('#encuesta-metrics');
+  const campos = launch.encuestaCampos || [];
+  if (!campos.length) {
+    box.innerHTML = '<p class="muted">Elige las preguntas de la encuesta en Configuración → Lanzamiento → «Preguntas de la encuesta a analizar».</p>';
+    return;
+  }
+  const total = state.leads.length;
+  box.innerHTML = campos.map((id) => {
+    const rows = porRespuesta(state.leads, id);
+    const multi = rows.reduce((t, r) => t + r.leads, 0) > total;
+    return `<h3 class="cfg-h4">${esc(launch.encuestaNombres?.[id] || id)}</h3>
+      ${multi ? '<p class="muted">Pregunta de varias respuestas: una lead cuenta en cada opción que marcó.</p>' : ''}
+      <div class="table-scroll"><table class="metric-table">
+      <thead><tr><th>Respuesta</th><th class="num">Leads</th><th class="num">% de los leads</th><th class="num">VIP</th><th class="num">Ventas</th><th class="num">Conversión</th></tr></thead>
+      <tbody>${rows.map((r) => `<tr><td>${r.respuesta ? esc(r.respuesta) : '<span class="muted">Sin respuesta</span>'}</td><td class="num">${r.leads}</td><td class="num">${pctOf(r.leads, total)}</td><td class="num">${r.vip} <span class="muted">${pctOf(r.vip, r.leads)}</span></td><td class="num">${r.compras}</td><td class="num big">${pctOf(r.compras, r.leads)}</td></tr>`).join('')}</tbody>
+      </table></div>`;
+  }).join('');
+}
+
+// Campos de GHL para elegir las preguntas de la encuesta (Configuración).
+async function renderEncuestaCampos(selected, nombres) {
+  const box = $('#cfg-encuesta-campos');
+  box.dataset.nombres = JSON.stringify(nombres);
+  if (!state.allFields) {
+    try {
+      state.allFields = (await api('/api/fields?todos')).fields.filter((f) => f.type !== 'DATE');
+    } catch (e) {
+      box.innerHTML = `<p class="muted">No se pudieron leer los campos de GHL (${esc(e.message)}).</p>`;
+      return;
+    }
+  }
+  const sel = new Set(selected);
+  const list = [...state.allFields].sort((a, b) => sel.has(b.id) - sel.has(a.id));
+  box.innerHTML = list.map((f) => `<label class="campo"><input type="checkbox" value="${esc(f.id)}" data-name="${esc(f.name)}"${sel.has(f.id) ? ' checked' : ''}> ${esc(f.name)}</label>`).join('')
+    || '<p class="muted">No hay campos personalizados en GHL.</p>';
+}
+
+function readEncuestaCampos() {
+  const checked = $$('#cfg-encuesta-campos input:checked');
+  if (!checked.length && !state.allFields) {
+    // Si los campos no han cargado, se conserva lo que hubiera.
+    const prev = state.config.launches[editingCode] || {};
+    return { encuestaCampos: prev.encuestaCampos || [], encuestaNombres: prev.encuestaNombres || {} };
+  }
+  const picked = checked.slice(0, 10);
+  return {
+    encuestaCampos: picked.map((c) => c.value),
+    encuestaNombres: Object.fromEntries(picked.map((c) => [c.value, c.dataset.name])),
+  };
+}
+$('#cfg-encuesta-campos-buscar').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  $$('#cfg-encuesta-campos .campo').forEach((l) => { l.hidden = Boolean(q) && !l.textContent.toLowerCase().includes(q); });
+});
+$('#cfg-encuesta-campos').addEventListener('change', () => {
+  const checked = $$('#cfg-encuesta-campos input:checked');
+  if (checked.length > 10) { checked.at(-1).checked = false; window.alert('Puedes elegir hasta 10 preguntas.'); }
+});
+
+// Informe del lanzamiento: las métricas en una página aparte, lista para guardar en PDF o compartir.
+$('#btn-informe').addEventListener('click', () => {
+  const launch = state.config.launches[state.launchCode];
+  const view = $('#view-metricas').cloneNode(true);
+  view.hidden = false;
+  view.querySelectorAll('button, select, .metric-actions, [hidden]').forEach((el) => el.remove());
+  const fecha = new Date().toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' });
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Informe · ${esc(launch.name)}</title><link rel="stylesheet" href="${location.origin}/styles.css">
+    <style>body{padding:24px;max-width:1100px;margin:0 auto}.informe-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+    .informe-head h1{margin:0}@media print{body{padding:0}.no-print{display:none}.metric-card,.kpi{break-inside:avoid}}</style></head>
+    <body><header class="informe-head"><div><h1>Informe · ${esc(launch.name)}</h1><p class="muted">${esc(state.launchCode)} · directo ${esc(launch.fechaDirecto || '–')} · generado el ${esc(fecha)} · ${state.leads.length} leads</p></div>
+    <button class="btn no-print" onclick="window.print()">Guardar en PDF / imprimir</button></header>${view.innerHTML}</body></html>`;
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  window.open(url, '_blank', 'noopener');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+});
+
 // Leads de publicidad vs orgánicos (por sus etiquetas): leads, %, VIP, ventas, conversión y facturación.
 function renderOrigen(m, launch) {
   const t = $('#origen-table');
@@ -443,7 +545,12 @@ function renderEconomics(m, launch) {
     card('ROAS', e.roas != null && hasPrices ? `${e.roas.toFixed(2)}x` : '–', e.roas != null && hasPrices ? `Beneficio: ${eur(e.beneficio)}` : 'facturación / inversión'),
     card('Coste por lead', eur(e.cpl), e.cplFrio != null ? `${eur(e.cplFrio)} por lead de tráfico frío` : 'inversión / registros'),
     card('Coste por VIP', eur(e.cpVip), 'inversión / entradas VIP'),
-    card('CAC', eur(e.cac), 'coste por clienta nueva de Raíces (inversión / ventas)'),
+    card('CAC', eur(e.cac), 'coste por clienta nueva de Raíces (inversión / todas las ventas)'),
+    ...(e.publi ? [
+      card('CAC de publicidad', eur(e.publi.cac), `inversión / ${e.publi.compras} ventas de leads de publicidad`),
+      card('ROAS de publicidad', e.publi.roas != null && hasPrices ? `${e.publi.roas.toFixed(2)}x` : '–', `facturación de publicidad ${eur(e.publi.facturacion)} / inversión`),
+      card('Coste por lead de publicidad', eur(e.publi.cpl), `${e.publi.leads} leads de publicidad · ${eur(e.publi.cpVip)} por VIP`),
+    ] : []),
   ].join('')}${metaWarn ? `<div style="grid-column:1/-1">${metaWarn}</div>` : ''}`;
 }
 
@@ -878,7 +985,8 @@ function openConfig(code) {
   const l = editingCode ? state.config.launches[editingCode]
     : {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
-      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag, vipContadorBase: last.vipContadorBase,
+      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag,
+      encuestaCampos: last.encuestaCampos, encuestaNombres: last.encuestaNombres, vipContadorBase: last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, textos: last.textos,
       inicioCaptacion: new Date().toISOString().slice(0, 10),
@@ -927,6 +1035,11 @@ function openConfig(code) {
   $('#cfg-fraccionado-tag').value = l.fraccionadoTag || '';
   $('#cfg-unico-tag').value = l.unicoTag || '';
   $('#cfg-publi-tag').value = l.publiTag || '';
+  $('#cfg-obj-registros').value = l.objetivos?.registros || '';
+  $('#cfg-obj-vip').value = l.objetivos?.vip || '';
+  $('#cfg-obj-ventas').value = l.objetivos?.ventas || '';
+  $('#cfg-obj-facturacion').value = l.objetivos?.facturacion || '';
+  renderEncuestaCampos(l.encuestaCampos || [], l.encuestaNombres || {});
   $('#cfg-organico-tag').value = l.organicoTag || '';
   $('#cfg-inversion').value = l.inversion || '';
   $('#cfg-meta-filtro').value = l.metaFiltro || '';
@@ -1173,6 +1286,11 @@ function readForm() {
       fraccionadoTag: $('#cfg-fraccionado-tag').value.trim().toLowerCase(),
       unicoTag: $('#cfg-unico-tag').value.trim().toLowerCase(),
       publiTag: $('#cfg-publi-tag').value.trim().toLowerCase(),
+      objetivos: {
+        registros: $('#cfg-obj-registros').value, vip: $('#cfg-obj-vip').value,
+        ventas: $('#cfg-obj-ventas').value, facturacion: $('#cfg-obj-facturacion').value,
+      },
+      ...readEncuestaCampos(),
       organicoTag: $('#cfg-organico-tag').value.trim().toLowerCase(),
       inversion: $('#cfg-inversion').value,
       metaFiltro: $('#cfg-meta-filtro').value.trim(),

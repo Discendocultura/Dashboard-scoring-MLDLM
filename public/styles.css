@@ -385,3 +385,8 @@ table.leads { width: 100%; border-collapse: collapse; min-width: 960px; }
 
 .field-note { display: block; margin-top: 4px; font-size: 12px; line-height: 1.45; color: var(--muted, #7a6a60); background: var(--surface-2); border-radius: 6px; padding: 6px 8px; }
 .metric-table tr.total td { border-top: 2px solid var(--border); }
+
+.campos-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 4px 12px; max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.campos-list .campo { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 3px 0; cursor: pointer; }
+.metric-actions { display: flex; justify-content: flex-end; }
+#avisos ul { margin: 6px 0 0; padding-left: 20px; }

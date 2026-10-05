@@ -1,7 +1,7 @@
 // Métricas de un lanzamiento a partir de sus leads ya enriquecidos. Lo usan el dashboard
 // (pestaña Métricas y Comparar) y el resumen diario del servidor.
 import {
-  signalsFor, score, estadoFor, nextStepFor, waPhone, watched, ESTADOS, OUTCOMES,
+  signalsFor, score, estadoFor, nextStepFor, waPhone, watched, ESTADOS, OUTCOMES, SNAPSHOT_TAGS,
 } from './scoring.js';
 
 // Inicio de captación del lanzamiento siguiente: ahí terminan las ventas de este.
@@ -127,6 +127,28 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     total: origenDe(() => true),
   };
 
+  // Rentabilidad solo de publicidad: la inversión en anuncios frente a lo que traen los leads de publicidad.
+  if (launch?.publiTag) {
+    const p = m.origen.publi;
+    const facturacionPubli = p.vip * num(launch.precioVip) + p.importe;
+    m.eco.publi = {
+      leads: p.leads, vip: p.vip, compras: p.compras, facturacion: facturacionPubli,
+      cpl: inversion && p.leads ? inversion / p.leads : null,
+      cpVip: inversion && p.vip ? inversion / p.vip : null,
+      cac: inversion && p.compras ? inversion / p.compras : null,
+      roas: inversion ? facturacionPubli / inversion : null,
+    };
+  }
+
+  // Objetivos del lanzamiento y cuánto se ha alcanzado.
+  const obj = launch?.objetivos || {};
+  m.objetivos = [
+    ['Registros', m.total, num(obj.registros)],
+    ['Entradas VIP', m.vip, num(obj.vip)],
+    ['Ventas de Raíces', m.compra, num(obj.ventas)],
+    ['Facturación', facturacion, num(obj.facturacion), 'eur'],
+  ].filter(([, , meta]) => meta > 0).map(([label, actual, meta, unit]) => ({ label, actual, meta, unit, pct: actual / meta }));
+
   // Reparto de las ventas de Raíces por tipo de pago (suma 100% con las que no llevan ninguna etiqueta).
   const pagoDe = (fn) => {
     const ls = leads.filter((l) => l.s.compra && fn(l));
@@ -162,6 +184,49 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     return { label, con: yes.length, convCon: cy, sin: no.length, convSin: cn, veces: yes.length && cn ? cy / cn : null };
   });
   return m;
+}
+
+// Ventas según la respuesta a una pregunta de la encuesta (campo de GHL). Si la respuesta es
+// de opción múltiple, la lead cuenta en cada opción que marcó.
+export function porRespuesta(leads, fieldId) {
+  const groups = new Map();
+  const add = (key, l) => {
+    const g = groups.get(key) || { respuesta: key, leads: 0, vip: 0, compras: 0 };
+    g.leads++;
+    if (l.s.vip) g.vip++;
+    if (l.s.compra) g.compras++;
+    groups.set(key, g);
+  };
+  for (const l of leads) {
+    const v = l.cf?.[fieldId];
+    const vals = (Array.isArray(v) ? v : [v]).map((x) => String(x ?? '').trim()).filter(Boolean);
+    if (!vals.length) add('', l);
+    else for (const x of new Set(vals)) add(x, l);
+  }
+  return [...groups.values()].sort((a, b) => (a.respuesta === '') - (b.respuesta === '') || b.leads - a.leads);
+}
+
+// Avisos de configuración y de datos: cosas que hacen que las métricas salgan mal.
+export function avisosLanzamiento(leads, launch, m) {
+  const out = [];
+  if (!launch) return out;
+  const falta = [
+    [launch.fechaDirecto, 'el día del directo'], [launch.horaDirecto, 'la hora del directo'],
+    [launch.compraTag, 'la etiqueta de compra de Raíces'], [launch.compraDateField, 'el campo de fecha de compra'],
+    [launch.precioPrograma, 'el precio de Raíces'], [launch.precioVip, 'el precio de la VIP'],
+    [launch.whatsappUrl, 'el enlace del grupo de WhatsApp'], [launch.cierreCarrito, 'el cierre del carrito'],
+  ].filter(([v]) => !v).map(([, t]) => t);
+  if (falta.length) out.push(`Falta en Configuración: ${falta.join(', ')}.`);
+  const sinFoto = SNAPSHOT_TAGS.filter((f) => launch[f.field] && launch.snapshot?.tags?.[f.field] !== launch[f.field]);
+  if (sinFoto.length) out.push(`Falta la «foto» de ${sinFoto.map((f) => f.label).join(', ')}: quien ya la tenía de lanzamientos anteriores cuenta como de este.`);
+  if ((launch.unicoTag || launch.fraccionadoTag) && m.pago.sinEtiqueta.n) out.push(`${m.pago.sinEtiqueta.n} ventas de Raíces sin etiqueta de pago único ni fraccionado: revisa los workflows de compra.`);
+  if (!launch.unicoTag && !launch.fraccionadoTag && m.compra) out.push('Elige las etiquetas de pago único y fraccionado para separar las ventas y su facturación.');
+  if ((launch.publiTag || launch.organicoTag) && m.origen.sinEtiqueta.leads) out.push(`${m.origen.sinEtiqueta.leads} leads sin etiqueta de publicidad ni orgánico: revisa los formularios de registro.`);
+  if (launch.compraDateField) {
+    const sinFecha = leads.filter((l) => l.s.compra && !l.s.fecha_compra).length;
+    if (sinFecha) out.push(`${sinFecha} ventas de Raíces sin fecha de compra: no salen en las ventas por día ni en las del directo.`);
+  }
+  return out;
 }
 
 // Ventas de Raíces por día del carrito (del día del directo al cierre), según la fecha de compra.

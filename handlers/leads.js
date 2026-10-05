@@ -20,8 +20,9 @@ export async function GET(request) {
         return json({ error: 'Cursor no válido' }, 400);
       }
     }
-    // Solo se envían al navegador los campos de fecha de compra configurados.
-    const fields = [...new Set(Object.values((await getConfig()).launches).map((l) => l.compraDateField).filter(Boolean))];
+    // Solo se envían al navegador los campos configurados: fecha de compra y preguntas de la encuesta.
+    const fields = [...new Set(Object.values((await getConfig()).launches)
+      .flatMap((l) => [l.compraDateField, ...(l.encuestaCampos || [])]).filter(Boolean))];
     return json(await contactsByTag(tag, cursor, fields));
   } catch (e) {
     return errorResponse(e);
