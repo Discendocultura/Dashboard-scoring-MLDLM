@@ -81,6 +81,10 @@
             <div id="ventas-dia"></div>
           </section>
           <section class="card metric-card">
+            <h2>Pago único vs fraccionado <span class="muted">· ventas de Raíces</span></h2>
+            <div class="table-scroll"><table class="metric-table" id="pago-table"></table></div>
+          </section>
+          <section class="card metric-card">
             <h2>Embudo del lanzamiento <span class="muted">· sobre el total de registros</span></h2>
             <div id="funnel"></div>
           </section>
@@ -237,7 +241,7 @@
             </div>
           </section>
           <section class="cfg-sec" data-sec="2">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">2</span><div><h3>Etiquetas de GHL</h3><p>Registro y encuesta son nuevas en cada lanzamiento; VIP, compra y llamada son siempre las mismas.</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">2</span><div><h3>Etiquetas de GHL</h3><p>Registro y encuesta son nuevas en cada lanzamiento; VIP, compra, llamada y tipo de pago son siempre las mismas.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Etiqueta de registro (leads del lanzamiento)</span>
               <input id="cfg-registro" list="tag-list" required placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-registro" hidden></small></label>
@@ -249,8 +253,12 @@
               <input id="cfg-compra" list="tag-list" placeholder="Busca la etiqueta…"></label>
               <label class="field"><span>Etiqueta de llamada agendada <small>(la que pone el workflow de la llamada; vacío = solo cuenta lo que marque la setter)</small></span>
               <input id="cfg-llamada-tag" list="tag-list" placeholder="Busca la etiqueta…"></label>
-            <label class="field"><span>Etiqueta de pago fraccionado <small>(la que pone el workflow de compra en Hotmart; distingue el precio de cada venta)</small></span>
-              <input id="cfg-fraccionado-tag" list="tag-list" placeholder="Busca la etiqueta…"></label>
+            <label class="field"><span>Etiqueta de pago único de Raíces</span>
+              <input id="cfg-unico-tag" list="tag-list" placeholder="Busca la etiqueta…">
+              <small class="field-note">ⓘ La pone el workflow de compra de ThriveCart. Sirve para saber quién pagó Raíces de una vez y calcular el % de pagos únicos y su facturación en Métricas. <strong>No la cambies ni la uses para otra cosa</strong>: si cambia, las ventas dejan de clasificarse bien.</small></label>
+            <label class="field"><span>Etiqueta de pago fraccionado de Raíces</span>
+              <input id="cfg-fraccionado-tag" list="tag-list" placeholder="Busca la etiqueta…">
+              <small class="field-note">ⓘ La pone el workflow de compra de Hotmart. Sirve para saber quién pagó Raíces a plazos, aplicarle el precio fraccionado y calcular el % de pagos fraccionados en Métricas. <strong>No la cambies ni la uses para otra cosa</strong>: si cambia, las ventas dejan de clasificarse bien.</small></label>
               <label class="field"><span>Campo de fecha de compra <small>(para ventas en directo y del lanzamiento)</small></span>
               <select id="cfg-compra-fecha"><option value="">— Sin campo de fecha —</option></select></label>
             </div>

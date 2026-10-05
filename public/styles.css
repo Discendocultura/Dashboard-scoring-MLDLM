@@ -382,3 +382,6 @@ table.leads { width: 100%; border-collapse: collapse; min-width: 960px; }
 .guia-group { display: grid; grid-template-columns: 170px 1fr; gap: 8px; align-items: start; }
 .guia-group-t { font-weight: 600; padding-top: 4px; }
 @media (max-width: 640px) { .guia-group { grid-template-columns: 1fr; gap: 4px; } }
+
+.field-note { display: block; margin-top: 4px; font-size: 12px; line-height: 1.45; color: var(--muted, #7a6a60); background: var(--surface-2); border-radius: 6px; padding: 6px 8px; }
+.metric-table tr.total td { border-top: 2px solid var(--border); }

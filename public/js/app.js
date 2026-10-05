@@ -321,6 +321,7 @@ function renderMetrics() {
 
   renderEconomics(m, launch);
   renderVentasDia(launch);
+  renderPago(m, launch);
 
   const steps = [
     ['Registros', m.total],
@@ -390,10 +391,26 @@ function renderVentasDia(launch) {
   const cierre = (launch.cierreCarrito || '').slice(0, 10);
   box.innerHTML = `${v.antes ? row('Antes del directo', '', v.antes, 'extra') : ''}
     ${v.days.map((d, i) => row(`Día ${i + 1} · ${dayFmt.format(new Date(`${d.day}T12:00:00Z`))}`,
-    [i === 0 ? 'día del directo' : '', d.day === cierre ? 'cierre del carrito' : '', launch.fraccionadoTag && d.n ? `${d.n - d.fracc} único · ${d.fracc} fraccionado` : '', `acumulado ${acum + d.n} de ${v.total}`].filter(Boolean).join(' · '), d.n, '', d.importe)).join('')}
+    [i === 0 ? 'día del directo' : '', d.day === cierre ? 'cierre del carrito' : '', (launch.fraccionadoTag || launch.unicoTag) && d.n ? `${d.unico} único · ${d.fracc} fraccionado` : '', `acumulado ${acum + d.n} de ${v.total}`].filter(Boolean).join(' · '), d.n, '', d.importe)).join('')}
     ${v.despues ? row('Después del cierre', '', v.despues, 'extra') : ''}
     ${v.sinFecha ? row('Sin fecha de compra', 'clientas con la etiqueta pero sin fecha', v.sinFecha, 'extra') : ''}
     <p class="muted">Total: <strong>${v.total}</strong> ventas de Raíces${precio ? ` · ${eur(v.importe)}` : ''}.</p>`;
+}
+
+// Ventas de Raíces por tipo de pago: número, % (suma 100%) y facturación.
+function renderPago(m, launch) {
+  const t = $('#pago-table');
+  if (!launch.unicoTag && !launch.fraccionadoTag) {
+    t.innerHTML = '<tbody><tr><td class="muted">Elige las etiquetas de pago único y fraccionado en Configuración → Lanzamiento → Etiquetas de GHL.</td></tr></tbody>';
+    return;
+  }
+  const p = m.pago;
+  const rows = [['Pago único', p.unico], ['Pago fraccionado', p.fraccionado]];
+  if (p.sinEtiqueta.n) rows.push(['Sin etiqueta de pago <small class="muted">(revisa sus workflows)</small>', p.sinEtiqueta]);
+  t.innerHTML = `
+    <thead><tr><th>Tipo de pago</th><th class="num">Ventas</th><th class="num">% de las ventas</th><th class="num">Facturación</th><th class="num">% de la facturación</th></tr></thead>
+    <tbody>${rows.map(([label, r]) => `<tr><td>${label}</td><td class="num">${r.n}</td><td class="num big">${pctOf(r.n, p.total.n)}</td><td class="num">${eur(r.importe)}</td><td class="num">${pctOf(r.importe, p.total.importe)}</td></tr>`).join('')}
+      <tr class="total"><td><strong>Total</strong></td><td class="num"><strong>${p.total.n}</strong></td><td class="num">${p.total.n ? '100%' : '–'}</td><td class="num"><strong>${eur(p.total.importe)}</strong></td><td class="num">${p.total.importe ? '100%' : '–'}</td></tr></tbody>`;
 }
 
 // Inversión, facturación y rentabilidad.
@@ -404,7 +421,7 @@ function renderEconomics(m, launch) {
   const metaWarn = state.meta?.error ? `<p class="muted">Meta: ${esc(state.meta.error)}</p>` : '';
   $('#eco-cards').innerHTML = `${[
     card('Inversión en anuncios', e.inversion ? eur(e.inversion) : '–', e.inversion ? fuente : 'Conecta Meta o introdúcela en Configuración'),
-    card('Facturación', hasPrices ? eur(e.facturacion) : '–', hasPrices ? `VIP ${eur(e.facturacionVip)} · Raíces ${eur(e.facturacionPrograma)}${launch.fraccionadoTag ? ` (${m.compra - m.compraFraccionado} único · ${m.compraFraccionado} fraccionado)` : ''}` : 'Añade los precios en Configuración'),
+    card('Facturación', hasPrices ? eur(e.facturacion) : '–', hasPrices ? `VIP ${eur(e.facturacionVip)} · Raíces ${eur(e.facturacionPrograma)}${launch.fraccionadoTag || launch.unicoTag ? ` (${m.compraUnico} único · ${m.compraFraccionado} fraccionado)` : ''}` : 'Añade los precios en Configuración'),
     card('ROAS', e.roas != null && hasPrices ? `${e.roas.toFixed(2)}x` : '–', e.roas != null && hasPrices ? `Beneficio: ${eur(e.beneficio)}` : 'facturación / inversión'),
     card('Coste por lead', eur(e.cpl), e.cplFrio != null ? `${eur(e.cplFrio)} por lead de tráfico frío` : 'inversión / registros'),
     card('Coste por VIP', eur(e.cpVip), 'inversión / entradas VIP'),
@@ -843,7 +860,7 @@ function openConfig(code) {
   const l = editingCode ? state.config.launches[editingCode]
     : {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
-      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, fraccionadoTag: last.fraccionadoTag, vipContadorBase: last.vipContadorBase,
+      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, vipContadorBase: last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, textos: last.textos,
       inicioCaptacion: new Date().toISOString().slice(0, 10),
@@ -890,6 +907,7 @@ function openConfig(code) {
   $('#cfg-precio-programa').value = l.precioPrograma || '';
   $('#cfg-precio-fraccionado').value = l.precioFraccionado || '';
   $('#cfg-fraccionado-tag').value = l.fraccionadoTag || '';
+  $('#cfg-unico-tag').value = l.unicoTag || '';
   $('#cfg-inversion').value = l.inversion || '';
   $('#cfg-meta-filtro').value = l.metaFiltro || '';
   renderMetaNaming();
@@ -996,6 +1014,7 @@ const CICLO = [
   { id: 'cfg-vip', c: 'fijo' },
   { id: 'cfg-compra', c: 'fijo' },
   { id: 'cfg-llamada-tag', c: 'fijo' },
+  { id: 'cfg-unico-tag', c: 'fijo' },
   { id: 'cfg-fraccionado-tag', c: 'fijo' },
   { id: 'cfg-compra-fecha', c: 'fijo' },
   { id: 'tpl-grabacion', c: 'fijo' },
@@ -1130,6 +1149,7 @@ function readForm() {
       precioPrograma: $('#cfg-precio-programa').value,
       precioFraccionado: $('#cfg-precio-fraccionado').value,
       fraccionadoTag: $('#cfg-fraccionado-tag').value.trim().toLowerCase(),
+      unicoTag: $('#cfg-unico-tag').value.trim().toLowerCase(),
       inversion: $('#cfg-inversion').value,
       metaFiltro: $('#cfg-meta-filtro').value.trim(),
     },

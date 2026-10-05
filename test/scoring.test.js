@@ -137,14 +137,18 @@ test('ventas por día del carrito según la fecha de compra', async () => {
 
 test('facturación de Raíces con precio de pago único y fraccionado', async () => {
   const { computeMetrics, ventasPorDia } = await import('../public/js/metrics.js');
-  const cfg = { compraTag: 'clienta', fraccionadoTag: 'hotmart' };
+  const cfg = { compraTag: 'clienta', fraccionadoTag: 'hotmart', unicoTag: 'thrivecart' };
   const lead = (tags) => ({ s: signalsFor(tags, 'nov26', cfg), estado: { id: 'frio' } });
-  const leads = [lead(['clienta']), lead(['clienta', 'hotmart']), lead(['hotmart']), lead([])];
+  const leads = [lead(['clienta']), lead(['clienta', 'hotmart']), lead(['hotmart']), lead([]), lead(['clienta', 'thrivecart'])];
   const launch = { ...cfg, precioPrograma: 997, precioFraccionado: 1164 };
   const m = computeMetrics(leads, launch);
-  assert.equal(m.compra, 2);
+  assert.equal(m.compra, 3);
   assert.equal(m.compraFraccionado, 1);
-  assert.equal(m.eco.facturacionPrograma, 997 + 1164);
-  assert.equal(computeMetrics(leads, { ...launch, precioFraccionado: 0 }).eco.facturacionPrograma, 997 * 2);
-  assert.equal(ventasPorDia(leads, { ...launch, fechaDirecto: '2026-10-29', compraDateField: 'f' }).importe, 997 + 1164);
+  assert.equal(m.compraUnico, 1);
+  assert.deepEqual([m.pago.unico.n, m.pago.fraccionado.n, m.pago.sinEtiqueta.n], [1, 1, 1]);
+  assert.equal(m.pago.unico.n + m.pago.fraccionado.n + m.pago.sinEtiqueta.n, m.pago.total.n);
+  assert.equal(m.eco.facturacionPrograma, 997 * 2 + 1164);
+  assert.equal(m.pago.fraccionado.importe, 1164);
+  assert.equal(computeMetrics(leads, { ...launch, precioFraccionado: 0 }).eco.facturacionPrograma, 997 * 3);
+  assert.equal(ventasPorDia(leads, { ...launch, fechaDirecto: '2026-10-29', compraDateField: 'f' }).importe, 997 * 2 + 1164);
 });

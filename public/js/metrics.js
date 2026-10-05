@@ -53,6 +53,7 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     compraLlamada: c((l) => l.s.compra && l.s.llamada),
     compra: c((l) => l.s.compra),
     compraFraccionado: c((l) => l.s.fraccionado),
+    compraUnico: c((l) => l.s.unico),
     compraVip: c((l) => l.s.compra && l.s.vip),
     noVip: c((l) => !l.s.vip),
     compraNoVip: c((l) => l.s.compra && !l.s.vip),
@@ -110,6 +111,18 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     cac: inversion && m.compra ? inversion / m.compra : null,
   };
 
+  // Reparto de las ventas de Raíces por tipo de pago (suma 100% con las que no llevan ninguna etiqueta).
+  const pagoDe = (fn) => {
+    const ls = leads.filter((l) => l.s.compra && fn(l));
+    return { n: ls.length, importe: ls.reduce((t, l) => t + importeCompra(l, launch), 0) };
+  };
+  m.pago = {
+    unico: pagoDe((l) => l.s.unico),
+    fraccionado: pagoDe((l) => l.s.fraccionado),
+    sinEtiqueta: pagoDe((l) => !l.s.unico && !l.s.fraccionado),
+    total: { n: m.compra, importe: facturacionPrograma },
+  };
+
   // Qué señales predicen la compra: conversión con la señal frente a sin ella.
   const SIGNAL_TESTS = [
     ...(m.encuestaActiva ? [['Rellenó la encuesta', (l) => l.s.encuesta]] : []),
@@ -146,7 +159,7 @@ export function ventasPorDia(leads, launch) {
   const end = (launch.cierreCarrito || '').slice(0, 10) || [start, ...daysWithSales].sort().at(-1);
   const days = [];
   let importe = 0;
-  for (let d = start, i = 0; d <= end && i < 60; d = addDay(d, 1), i++) days.push({ day: d, n: 0, fracc: 0, importe: 0 });
+  for (let d = start, i = 0; d <= end && i < 60; d = addDay(d, 1), i++) days.push({ day: d, n: 0, unico: 0, fracc: 0, importe: 0 });
   let antes = 0; let despues = 0; let sinFecha = 0;
   for (const l of buys) {
     const d = l.s.fecha_compra;
@@ -158,6 +171,7 @@ export function ventasPorDia(leads, launch) {
       const x = days.find((y) => y.day === d);
       x.n++;
       if (l.s.fraccionado) x.fracc++;
+      if (l.s.unico) x.unico++;
       x.importe += importeCompra(l, launch);
     }
   }

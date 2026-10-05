@@ -111,8 +111,9 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
     }
   }
   s.fecha_compra = s.compra ? buyDay : '';
-  // Pago fraccionado (Hotmart): la etiqueta que lo distingue del pago único.
+  // Tipo de pago de Raíces: cada uno con su etiqueta (si llevara las dos, cuenta como fraccionado).
   s.fraccionado = s.compra && has(cfg.fraccionadoTag);
+  s.unico = s.compra && !s.fraccionado && has(cfg.unicoTag);
   s.compra_directo = s.compra && Boolean(cfg.fechaDirecto) && buyDay === cfg.fechaDirecto;
 
   // Tráfico: templado si ya estaba en GHL (algún embudo anterior) antes de abrir la captación.
