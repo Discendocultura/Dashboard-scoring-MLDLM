@@ -1,0 +1,146 @@
+<!-- HERO · página de recursos (Me lo dijo la matrona)
+     Pegar en un elemento "Código personalizado" de GHL, arriba del todo.
+     - Sube el sello (PNG) a Medios de GHL y pega su URL en src="PEGA_AQUI_LA_URL_DEL_SELLO".
+     - La cuenta atrás, la fecha/hora y los enlaces del calendario los rellena tracker.js con lo del dashboard.
+       Si no hay fecha del directo, el enlace de Apple/Outlook se oculta solo. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+.mldlm-hero{
+  --mldlm-burdeos:#860d0e; --mldlm-boton:#c49b79; --mldlm-pastel:#f0e4da;
+  --mldlm-texto:#3a2a24; --mldlm-linea:#e2d3c5; --mldlm-marron:#4a2c20;
+  background:#ffffff; font-family:'Lato',sans-serif; color:var(--mldlm-texto);
+  /* 96 px: hueco para la barra de urgencia fija (unos 60 px) + aire. Sin barra, bájalo a 40px */ para la barra de urgencia fija + aire */
+  padding:96px 20px 48px; box-sizing:border-box; width:100%;
+}
+.mldlm-hero *,.mldlm-hero *::before,.mldlm-hero *::after{box-sizing:border-box;}
+.mldlm-hero .mldlm-hero__inner{max-width:600px; margin:0 auto; text-align:center;}
+.mldlm-hero .mldlm-hero__sello{display:block; width:130px; height:auto; margin:0 auto 20px;}
+.mldlm-hero .mldlm-hero__titulo{margin:0 0 14px; font-family:'Lato',sans-serif; font-size:28px; font-weight:900; line-height:1.18; letter-spacing:-.01em; color:var(--mldlm-marron);}
+.mldlm-hero .mldlm-hero__sub{margin:0 auto 24px; max-width:30em; font-size:17px; line-height:1.6; color:var(--mldlm-texto);}
+
+/* ===== Cuenta atrás ===== */
+.mldlm-hero .mldlm-hero__cuenta{background:var(--mldlm-pastel); border:1px solid var(--mldlm-linea); border-radius:16px; padding:24px 16px 22px; margin:0 0 28px;}
+.mldlm-hero .mldlm-hero__cuenta-intro{display:inline-flex; align-items:center; gap:10px; margin:0 0 16px; font-size:17px; font-weight:700; line-height:1.4; color:var(--mldlm-texto);}
+.mldlm-hero .mldlm-hero__cuenta-fecha{margin:16px 0 0; font-size:15px; line-height:1.5; color:var(--mldlm-texto);}
+.mldlm-hero .mldlm-hero__cuenta-fecha span{font-weight:700;}
+.mldlm-hero .lsd-cdb{display:flex !important; justify-content:center !important; align-items:stretch !important; gap:8px !important; margin:0 !important; padding:0 !important; flex-wrap:nowrap !important;}
+.mldlm-hero .lsd-cdb-unit{flex:1 1 0 !important; max-width:92px !important; min-width:0 !important; background:#ffffff !important; border:1px solid var(--mldlm-linea) !important; border-radius:12px !important; padding:12px 4px 10px !important; margin:0 !important; display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; box-shadow:0 4px 14px rgba(134,13,14,.06) !important;}
+.mldlm-hero .lsd-cdb-num{display:block !important; font-family:'Lato',sans-serif !important; font-size:30px !important; font-weight:900 !important; line-height:1 !important; color:var(--mldlm-burdeos) !important; font-variant-numeric:tabular-nums !important; margin:0 !important;}
+.mldlm-hero .lsd-cdb-label{display:block !important; font-family:'Lato',sans-serif !important; font-size:13px !important; font-weight:700 !important; line-height:1.2 !important; color:var(--mldlm-texto) !important; margin:6px 0 0 !important; text-transform:none !important; letter-spacing:0 !important;}
+
+/* ===== Calendario ===== */
+.mldlm-hero .mldlm-hero__btn{display:inline-flex; align-items:center; justify-content:center; gap:10px; min-height:46px; padding:11px 24px; font-family:'Lato',sans-serif; font-size:15px; font-weight:900; line-height:1.2; color:var(--mldlm-texto); background:var(--mldlm-boton); border-radius:999px; text-decoration:none; cursor:pointer; box-shadow:0 4px 12px rgba(196,155,121,.4); transition:background-color .2s ease,color .2s ease,transform .2s ease;}
+.mldlm-hero .mldlm-hero__btn svg{width:18px; height:18px; flex:none; transition:transform .3s ease;}
+.mldlm-hero .mldlm-hero__btn:hover svg{transform:rotate(-10deg) scale(1.1);}
+.mldlm-hero .mldlm-hero__btn:hover{background:var(--mldlm-burdeos); color:#ffffff;}
+.mldlm-hero .mldlm-hero__btn:focus-visible,.mldlm-hero .mldlm-hero__link:focus-visible{outline:3px solid var(--mldlm-burdeos); outline-offset:3px;}
+.mldlm-hero .mldlm-hero__link{display:table; margin:16px auto 0; font-size:15px; line-height:1.4; color:var(--mldlm-burdeos); text-decoration:underline; text-underline-offset:3px; cursor:pointer;}
+.mldlm-hero .mldlm-hero__link:hover{text-decoration-thickness:2px;}
+
+/* ===== Movimiento ===== */
+.mldlm-hero .mldlm-hero__punto{position:relative; width:10px; height:10px; border-radius:50%; background:var(--mldlm-burdeos); flex:none;}
+.mldlm-hero .mldlm-hero__punto::after{content:""; position:absolute; inset:0; border-radius:50%; background:var(--mldlm-burdeos); animation:mldlmPulso 1.6s ease-out infinite;}
+@keyframes mldlmPulso{0%{transform:scale(1); opacity:.6;} 100%{transform:scale(3); opacity:0;}}
+.mldlm-hero .mldlm-hero__cuenta{animation:mldlmEntra .7s cubic-bezier(.2,.8,.2,1) both .15s;}
+@keyframes mldlmEntra{from{opacity:0; transform:translateY(14px) scale(.98);} to{opacity:1; transform:none;}}
+.mldlm-hero .lsd-cdb-unit{overflow:hidden !important;}
+.mldlm-hero .lsd-cdb-num.mldlm-tick{animation:mldlmTick .45s cubic-bezier(.2,.8,.2,1) !important;}
+@keyframes mldlmTick{0%{transform:translateY(-70%); opacity:0;} 100%{transform:none; opacity:1;}}
+.mldlm-hero .lsd-cdb-unit.mldlm-latido{animation:mldlmLatido .45s ease-out !important;}
+@keyframes mldlmLatido{0%{transform:scale(1);} 35%{transform:scale(1.06);} 100%{transform:scale(1);}}
+@media (prefers-reduced-motion:reduce){
+  .mldlm-hero .mldlm-hero__punto::after,.mldlm-hero .mldlm-hero__cuenta,.mldlm-hero .lsd-cdb-num.mldlm-tick,.mldlm-hero .mldlm-hero__social-fila,.mldlm-hero .mldlm-hero__avatares span,.mldlm-hero .lsd-cdb-unit.mldlm-latido{animation:none !important;}
+}
+
+/* ===== Prueba social ===== */
+.mldlm-hero .mldlm-hero__social{margin:0 auto 28px; text-align:center;}
+.mldlm-hero .mldlm-hero__social-fila{display:flex; width:fit-content; align-items:center; gap:12px; margin:0 auto 10px; padding:8px 18px 8px 10px; border-radius:999px; background:#ffffff; border:1px solid var(--mldlm-linea); box-shadow:0 6px 18px rgba(134,13,14,.08); animation:mldlmEntra .7s cubic-bezier(.2,.8,.2,1) both .05s;}
+.mldlm-hero .mldlm-hero__avatares{display:flex; flex:none;}
+.mldlm-hero .mldlm-hero__avatares span{width:30px; height:30px; margin-left:-9px; border-radius:50%; border:2px solid #ffffff; display:flex; align-items:flex-end; justify-content:center; overflow:hidden; animation:mldlmPop .5s cubic-bezier(.3,1.6,.5,1) both;}
+.mldlm-hero .mldlm-hero__avatares span:first-child{margin-left:0;}
+.mldlm-hero .mldlm-hero__avatares span:nth-child(1){background:#e9cdb6; animation-delay:.25s;}
+.mldlm-hero .mldlm-hero__avatares span:nth-child(2){background:#c49b79; animation-delay:.35s;}
+.mldlm-hero .mldlm-hero__avatares span:nth-child(3){background:#a8664a; animation-delay:.45s;}
+.mldlm-hero .mldlm-hero__avatares svg{width:24px; height:24px; margin-bottom:-3px; color:rgba(255,255,255,.92);}
+@keyframes mldlmPop{from{opacity:0; transform:scale(.3);} to{opacity:1; transform:none;}}
+.mldlm-hero .mldlm-hero__social-txt{margin:0; font-size:14px; white-space:nowrap; line-height:1.35; color:var(--mldlm-texto); text-align:left;}
+.mldlm-hero .mldlm-hero__social-txt strong{font-weight:900; color:var(--mldlm-burdeos); font-size:16px;}
+.mldlm-hero .mldlm-hero__toca{margin:0; font-size:15px; font-weight:900; letter-spacing:.14em; line-height:1.3; color:var(--mldlm-burdeos);}
+
+@media (max-width:359px){
+  .mldlm-hero .mldlm-hero__social-fila{gap:8px; padding:7px 12px 7px 8px;}
+  .mldlm-hero .mldlm-hero__avatares span{width:24px; height:24px; margin-left:-8px;}
+  .mldlm-hero .mldlm-hero__avatares svg{width:19px; height:19px;}
+  .mldlm-hero .mldlm-hero__social-txt{font-size:12.5px;}
+  .mldlm-hero .mldlm-hero__social-txt strong{font-size:14px;}
+}
+@media (min-width:768px){
+  .mldlm-hero{padding:120px 24px 80px;}
+  .mldlm-hero .mldlm-hero__sello{width:170px; margin-bottom:24px;}
+  .mldlm-hero .mldlm-hero__titulo{font-size:40px; margin-bottom:18px;}
+  .mldlm-hero .mldlm-hero__sub{font-size:18px; margin-bottom:32px;}
+  .mldlm-hero .mldlm-hero__social{margin-bottom:36px;}
+  .mldlm-hero .mldlm-hero__social-txt{font-size:16px;}
+  .mldlm-hero .mldlm-hero__toca{font-size:16px;}
+  .mldlm-hero .mldlm-hero__cuenta{padding:32px 32px 28px; margin-bottom:32px;}
+  .mldlm-hero .mldlm-hero__cuenta-intro{font-size:18px; margin-bottom:20px;}
+  .mldlm-hero .mldlm-hero__btn{font-size:16px; padding:12px 28px;}
+  .mldlm-hero .lsd-cdb{gap:14px !important;}
+  .mldlm-hero .lsd-cdb-unit{max-width:110px !important; padding:16px 6px 14px !important;}
+  .mldlm-hero .lsd-cdb-num{font-size:40px !important;}
+  .mldlm-hero .lsd-cdb-label{font-size:14px !important;}
+}
+</style>
+<div class="mldlm-hero">
+  <div class="mldlm-hero__inner">
+    <img class="mldlm-hero__sello" src="PEGA_AQUI_LA_URL_DEL_SELLO" alt="El Camino · Me lo dijo la matrona" width="170" height="174">
+    <h1 class="mldlm-hero__titulo">El camino hacia tu embarazo natural empieza aquí</h1>
+    <p class="mldlm-hero__sub">En esta página tienes acceso a todos los recursos para que vayas preparada al directo.</p>
+    <div class="mldlm-hero__social">
+      <div class="mldlm-hero__social-fila">
+        <span class="mldlm-hero__avatares" aria-hidden="true"><span><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="9" r="4.2"/><path d="M3.5 24c.6-5 4.2-8 8.5-8s7.9 3 8.5 8z"/></svg></span><span><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="9" r="4.2"/><path d="M3.5 24c.6-5 4.2-8 8.5-8s7.9 3 8.5 8z"/></svg></span><span><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="9" r="4.2"/><path d="M3.5 24c.6-5 4.2-8 8.5-8s7.9 3 8.5 8z"/></svg></span></span>
+        <p class="mldlm-hero__social-txt"><strong>+60.000 personas</strong> ya la han vivido</p>
+      </div>
+      <p class="mldlm-hero__toca">AHORA TE TOCA A TI</p>
+    </div>
+
+    <div class="mldlm-hero__cuenta">
+      <p class="mldlm-hero__cuenta-intro"><span class="mldlm-hero__punto" aria-hidden="true"></span>El directo empieza en…</p>
+      <div data-lsd-countdown-boxes="directo"></div>
+      <p class="mldlm-hero__cuenta-fecha"><span data-lsd-text="fechaDirecto">jueves, 29 de octubre</span> a las <span data-lsd-text="horaDirecto">19:00</span> h</p>
+    </div>
+
+    <a class="mldlm-hero__btn" data-lsd-link="calendario" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="M12 13v5M9.5 15.5h5"/></svg><span>Añadir al calendario</span></a>
+    <a class="mldlm-hero__link" data-lsd-link="calendario-ics">¿Usas Apple u Outlook? Añádelo aquí</a>
+  </div>
+</div>
+<script>
+(function(){
+  /* Anima cada número de la cuenta atrás cuando cambia (solo este bloque) */
+  function vigila(caja){
+    var prev=[];
+    function revisa(){
+      var nums=caja.querySelectorAll('.lsd-cdb-num');
+      nums.forEach(function(n,i){
+        var v=n.textContent;
+        if(prev[i]!==undefined && prev[i]!==v){
+          n.classList.remove('mldlm-tick'); void n.offsetWidth; n.classList.add('mldlm-tick');
+          var u=n.closest('.lsd-cdb-unit');
+          if(u && i===nums.length-1){u.classList.remove('mldlm-latido'); void u.offsetWidth; u.classList.add('mldlm-latido');}
+        }
+        prev[i]=v;
+      });
+    }
+    var pendiente=false;
+    new MutationObserver(function(){
+      if(pendiente) return; pendiente=true;
+      requestAnimationFrame(function(){pendiente=false; revisa();});
+    }).observe(caja,{childList:true,subtree:true,characterData:true});
+    revisa();
+  }
+  function inicia(){document.querySelectorAll('.mldlm-hero [data-lsd-countdown-boxes]').forEach(vigila);}
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',inicia);}else{inicia();}
+})();
+</script>
