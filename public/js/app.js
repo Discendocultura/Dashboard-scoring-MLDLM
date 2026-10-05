@@ -840,6 +840,7 @@ function openConfig(code) {
   renderBarraEditor(l.barra || {});
   renderEnlacesEditor(l.enlaces || {});
   renderPhaseNow(l);
+  checkLaunchTags();
   fillDateFields(l.compraDateField);
   $('#cfg-zoom-id').value = l.zoomMeetingId || '';
   $('#cfg-zoom-url').value = l.zoomJoinUrl || '';
@@ -872,6 +873,46 @@ $$('.tab').forEach((t) => t.addEventListener('click', () => {
   $$('.tab').forEach((x) => x.classList.toggle('active', x === t));
   $$('.tab-panel').forEach((p) => { p.hidden = p.dataset.panel !== t.dataset.tab; });
 }));
+
+// ---------- Etiquetas que deben cambiar en cada lanzamiento ----------
+// Registro y encuesta: una nueva por lanzamiento. VIP y compra: siempre las mismas.
+function tagProblems() {
+  const code = editingCode || $('#cfg-code').value.trim().toLowerCase();
+  const others = Object.entries(state.config.launches).filter(([c]) => c !== code);
+  const val = (sel) => $(sel).value.trim().toLowerCase();
+  const reg = val('#cfg-registro');
+  const enc = val('#cfg-encuesta-tag');
+  const fixed = [val('#cfg-vip'), val('#cfg-compra')].filter(Boolean);
+  const usedBy = (tag, key) => others.filter(([, l]) => l[key] === tag).map(([, l]) => l.name || '');
+  const out = { registro: '', encuesta: '' };
+  if (reg) {
+    const u = usedBy(reg, 'registroTag');
+    if (u.length) out.registro = `Ya es la etiqueta de registro de «${u.join('», «')}». Crea una nueva para este lanzamiento.`;
+    else if (fixed.includes(reg)) out.registro = 'Es la misma que la de VIP o compra. Elige la etiqueta del formulario de registro.';
+  }
+  if (enc) {
+    const u = usedBy(enc, 'encuestaTag');
+    if (u.length) out.encuesta = `Ya se usó en «${u.join('», «')}»: quien la rellenó entonces vería las clases sin hacer la encuesta. Crea una nueva.`;
+    else if (enc === reg) out.encuesta = 'Es la misma que la de registro: todas verían las clases sin rellenar la encuesta.';
+    else if (fixed.includes(enc)) out.encuesta = 'Es la misma que la de VIP o compra. Elige la etiqueta que añade la encuesta.';
+  }
+  return out;
+}
+
+function checkLaunchTags() {
+  const p = tagProblems();
+  for (const k of ['registro', 'encuesta']) {
+    const el = $(`#warn-${k}`);
+    el.textContent = p[k] ? `⚠ ${p[k]}` : '';
+    el.hidden = !p[k];
+  }
+  const code = editingCode || $('#cfg-code').value.trim().toLowerCase();
+  const prev = launchesSorted().filter(([c]) => c !== code).slice(0, 3);
+  $('#tags-used').innerHTML = prev.length
+    ? `Usadas en lanzamientos anteriores (no las repitas): ${prev.map(([, l]) => `<span>${esc(l.name)}: registro <code>${esc(l.registroTag || '–')}</code>${l.encuestaTag ? ` · encuesta <code>${esc(l.encuestaTag)}</code>` : ''}</span>`).join(' · ')}`
+    : '';
+}
+['#cfg-registro', '#cfg-encuesta-tag', '#cfg-vip', '#cfg-compra', '#cfg-code'].forEach((sel) => $(sel).addEventListener('input', checkLaunchTags));
 
 function readForm() {
   const code = $('#cfg-code').value.trim().toLowerCase();
@@ -926,6 +967,8 @@ $('#cfg-save').addEventListener('click', async () => {
   const status = $('#cfg-status');
   try {
     const { code, launch } = readForm();
+    const probs = Object.values(tagProblems()).filter(Boolean);
+    if (probs.length && !window.confirm(`Revisa las etiquetas:\n\n• ${probs.join('\n• ')}\n\n¿Guardar igualmente?`)) return;
     if (state.tags.length && !state.tags.map((t) => t.toLowerCase()).includes(launch.registroTag)) {
       if (!window.confirm(`La etiqueta "${launch.registroTag}" no existe en GHL todavía. ¿Guardar igualmente?`)) return;
     }

@@ -200,22 +200,34 @@
             </label>
             <button type="button" class="btn" data-action="new-launch">+ Nuevo</button>
           </div>
+          <div class="tags-note" role="note">
+            <strong>Etiquetas: qué cambiar en cada lanzamiento</strong>
+            <div class="tags-note-cols">
+              <div><span class="badge-cambia">Cambia en cada lanzamiento</span>
+                <ul><li><strong>Etiqueta de registro</strong>: una nueva para cada lanzamiento (si repites la anterior, se mezclan los leads).</li>
+                  <li><strong>Etiqueta de encuesta</strong>: una nueva para cada lanzamiento (si repites la anterior, quien la rellenó entonces vería las clases sin hacerla y la métrica saldría inflada).</li></ul></div>
+              <div><span class="badge-fija">Siempre la misma</span>
+                <ul><li><strong>Etiqueta de compra VIP</strong> y <strong>etiqueta de compra de Raíces</strong>: no las cambies; el dashboard separa solo las compras anteriores (foto al crear el lanzamiento y fecha de compra).</li>
+                  <li><strong>Campo de fecha de compra</strong>: el mismo siempre.</li></ul></div>
+            </div>
+            <div id="tags-used" class="muted"></div>
+          </div>
           <div id="meta-naming" class="meta-note" role="note"></div>
           <div class="grid2">
             <label class="field"><span>Código <small>(minúsculas, sin espacios: p. ej. <code>nov26</code>)</small></span>
               <input id="cfg-code" required pattern="[a-z0-9\-]{2,24}"></label>
             <label class="field"><span>Nombre</span><input id="cfg-name" placeholder="Webinar noviembre 2026"></label>
-            <label class="field"><span>Etiqueta de registro (leads del lanzamiento)</span>
-              <input id="cfg-registro" list="tag-list" required placeholder="Busca la etiqueta…"></label>
-            <label class="field"><span>Etiqueta de compra VIP <small>(fija entre lanzamientos)</small></span>
+            <label class="field"><span>Etiqueta de registro (leads del lanzamiento) <span class="badge-cambia">Nueva en cada lanzamiento</span></span>
+              <input id="cfg-registro" list="tag-list" required placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-registro" hidden></small></label>
+            <label class="field"><span>Etiqueta de compra VIP <span class="badge-fija">Siempre la misma</span></span>
               <input id="cfg-vip" list="tag-list" placeholder="Busca la etiqueta…"></label>
-            <label class="field"><span>Etiqueta de compra del programa (Raíces)</span>
+            <label class="field"><span>Etiqueta de compra del programa (Raíces) <span class="badge-fija">Siempre la misma</span></span>
               <input id="cfg-compra" list="tag-list" placeholder="Busca la etiqueta…"></label>
-            <label class="field"><span>Etiqueta de encuesta rellenada <small>(sin ella no se ven las clases 1 y 2; vacío = sin encuesta)</small></span>
-              <input id="cfg-encuesta-tag" list="tag-list" placeholder="Busca la etiqueta…"></label>
+            <label class="field"><span>Etiqueta de encuesta rellenada <span class="badge-cambia">Nueva en cada lanzamiento</span> <small>(sin ella no se ven las clases 1 y 2; vacío = sin encuesta)</small></span>
+              <input id="cfg-encuesta-tag" list="tag-list" placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-encuesta" hidden></small></label>
             <label class="field"><span>Enlace de la encuesta <small>(botón de la página de recursos; se rellena solo con el email y el nombre)</small></span>
               <input id="cfg-encuesta-url" type="url" placeholder="https://…/survey/…"></label>
-            <label class="field"><span>Campo de fecha de compra <small>(para ventas en directo y del lanzamiento)</small></span>
+            <label class="field"><span>Campo de fecha de compra <span class="badge-fija">Siempre el mismo</span> <small>(para ventas en directo y del lanzamiento)</small></span>
               <select id="cfg-compra-fecha"><option value="">— Sin campo de fecha —</option></select></label>
             <label class="field"><span>Inicio de captación <small>(día en que se abren los registros)</small></span>
               <input id="cfg-inicio" type="date"></label>
