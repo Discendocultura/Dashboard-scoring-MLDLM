@@ -378,10 +378,14 @@
         el.setAttribute('data-vimeo', v.url);
         el.setAttribute('data-lsd-playing', '1');
         onVideo(el);
-      } else if (!el.querySelector('.lsd-locked')) {
-        injectCss();
+      } else {
+        // Bloqueado hasta su hora; si ya pasó la hora pero aún no hay vídeo, "muy pronto".
+        var pending = v.unlockAt && v.unlockAt > serverNow();
+        var state = pending ? 'cuenta' : 'pronto';
+        if (el.getAttribute('data-lsd-locked') === state) return;
+        el.setAttribute('data-lsd-locked', state);
         el.innerHTML = '<div class="lsd-locked"><div class="lsd-locked-icon">🔒</div>' +
-          (v.unlockAt ? '<p class="lsd-locked-text">Disponible el ' + esc(v.unlockText) + '</p><p class="lsd-locked-count">Faltan ' + cdSpan(v.unlockAt) + '</p>'
+          (pending ? '<p class="lsd-locked-text">Disponible el ' + esc(v.unlockText) + '</p><p class="lsd-locked-count">Faltan ' + cdSpan(v.unlockAt) + '</p>'
             : '<p class="lsd-locked-text">Muy pronto disponible</p>') + '</div>';
       }
     });

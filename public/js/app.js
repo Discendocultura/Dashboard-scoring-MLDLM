@@ -831,6 +831,7 @@ function openConfig(code) {
   $('#cfg-whatsapp-url').value = l.whatsappUrl || '';
   $('#cfg-cierre').value = l.cierreCarrito || '';
   renderBarraEditor(l.barra || {});
+  renderEnlacesEditor(l.enlaces || {});
   renderPhaseNow(l);
   fillDateFields(l.compraDateField);
   $('#cfg-zoom-id').value = l.zoomMeetingId || '';
@@ -896,6 +897,7 @@ function readForm() {
       whatsappUrl: $('#cfg-whatsapp-url').value.trim(),
       cierreCarrito: $('#cfg-cierre').value,
       barra: readBarraEditor(),
+      enlaces: readEnlacesEditor(),
       zoomMeetingId: $('#cfg-zoom-id').value,
       zoomJoinUrl: $('#cfg-zoom-url').value.trim(),
       replayUrl: $('#cfg-replay').value.trim(),
@@ -1069,6 +1071,27 @@ function renderBarraEditor(barra) {
     </tr>`;
   }).join('');
 }
+
+function enlaceRow(key = '', url = '') {
+  return `<div class="enlace-row"><input class="enl-key" value="${esc(key)}" placeholder="nombre (p. ej. guia)"><input class="enl-url" type="url" value="${esc(url)}" placeholder="https://…"><button type="button" class="btn ghost enl-del" aria-label="Quitar">✕</button></div>`;
+}
+
+function renderEnlacesEditor(enlaces) {
+  $('#cfg-enlaces').innerHTML = Object.entries(enlaces).map(([k, v]) => enlaceRow(k, v)).join('');
+}
+
+function readEnlacesEditor() {
+  const out = {};
+  $$('#cfg-enlaces .enlace-row').forEach((r) => {
+    const k = $('.enl-key', r).value.trim().toLowerCase();
+    const v = $('.enl-url', r).value.trim();
+    if (k && v) out[k] = v;
+  });
+  return out;
+}
+
+$('#btn-add-enlace').addEventListener('click', () => $('#cfg-enlaces').insertAdjacentHTML('beforeend', enlaceRow()));
+$('#cfg-enlaces').addEventListener('click', (e) => { if (e.target.closest('.enl-del')) e.target.closest('.enlace-row').remove(); });
 
 function readBarraEditor() {
   const out = {};

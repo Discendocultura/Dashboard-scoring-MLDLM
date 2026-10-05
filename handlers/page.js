@@ -39,6 +39,7 @@ export async function GET(request) {
     const live = `${url.origin}/directo?l=${encodeURIComponent(code)}`;
 
     const links = {
+      ...(launch.enlaces || {}),
       whatsapp: launch.whatsappUrl || '',
       vip: vipOpen ? withContactId(launch.vipUrl, cid) : '',
       directo: cid ? `${live}&cid=${cid}` : live,

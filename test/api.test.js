@@ -245,3 +245,9 @@ test('página de recursos: fases, vídeos ocultos hasta su hora, VIP y vista pre
   // l=auto resuelve el lanzamiento en curso
   assert.ok((await (await page.GET(req('/api/page?l=auto'))).json()).code);
 });
+
+test('enlaces personalizados para botones', async () => {
+  const { sanitizeConfig } = await import('../lib/config-store.js');
+  const c = sanitizeConfig({ launches: { x1: { registroTag: 'r', enlaces: { Guia: 'https://a.com/g', vip: 'https://hack', 'mal nombre': 'https://b.com', ig: 'javascript:alert(1)' } } } });
+  assert.deepEqual(c.launches.x1.enlaces, { guia: 'https://a.com/g' });
+});

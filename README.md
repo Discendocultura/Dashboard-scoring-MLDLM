@@ -189,8 +189,9 @@ Marcadores para el diseño de GHL (`data-launch="auto"` = lanzamiento en curso, 
 | `<div data-lsd-page="recursos" data-launch="auto"></div>` + `<script src=".../tracker.js">` | Activa la página (una vez) |
 | `<div data-lsd-page="grabacion" data-launch="auto"></div>` | Página del replay |
 | `<div data-lsd-bar></div>` | Barra de urgencia: texto (`.lsd-bar-text`), cuenta atrás (`.lsd-cd`) y botón (`.lsd-bar-btn`) |
-| `<div data-lsd-video="clase1|clase2|replay"></div>` | Vídeo; antes de su hora, tarjeta bloqueada (`.lsd-locked`) con cuenta atrás |
+| `<div data-lsd-video="clase1|clase2|replay"></div>` | Vídeo; antes de su hora, tarjeta bloqueada (`.lsd-locked`) con cuenta atrás; si ya es la hora pero aún no hay vídeo en el dashboard, "Muy pronto disponible" |
 | `<a data-lsd-link="vip|whatsapp|directo|grabacion|venta|pago|llamada">` | Pone el enlace; se oculta si no hay |
+| `<a data-lsd-link="guia">` (cualquier nombre) | Enlace personalizado creado en *Página de recursos → Enlaces personalizados* |
 | `<span data-lsd-text="fechaDirecto|horaDirecto|directo|clase1|clase2|replay|cierreVip|cierreCarrito|precioVip">` | Escribe el dato |
 | `<span data-lsd-countdown="vip|directo|clase1|clase2|replay|fase">` | Cuenta atrás |
 | `data-lsd-if="vip-abierta|vip-cerrada|ya-vip"` | Muestra el elemento solo en ese caso |
