@@ -292,6 +292,14 @@ test('encuesta: sin la etiqueta no se entregan las clases 1 y 2', async () => {
   assert.equal(m.eco.cac, 300);
 });
 
+test('precio VIP en formato español', async () => {
+  const { euros } = await import('../handlers/page.js');
+  assert.equal(euros(27), '27 €');
+  assert.equal(euros(27.5), '27,50 €');
+  assert.equal(euros(1997), '1997 €');
+  assert.equal(euros(0), '');
+});
+
 test('enlaces personalizados para botones', async () => {
   const { sanitizeConfig } = await import('../lib/config-store.js');
   const c = sanitizeConfig({ launches: { x1: { registroTag: 'r', enlaces: { Guia: 'https://a.com/g', vip: 'https://hack', 'mal nombre': 'https://b.com', ig: 'javascript:alert(1)' } } } });

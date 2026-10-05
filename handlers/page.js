@@ -117,7 +117,7 @@ export async function GET(request) {
         fechaDirecto: formatDate(m.directo), horaDirecto: formatTime(m.directo), directo: formatLong(m.directo),
         clase1: formatLong(m.clase1), clase2: formatLong(m.clase2), replay: formatLong(m.replay),
         cierreVip: formatLong(m.directo), cierreCarrito: formatLong(m.cierre),
-        precioVip: launch.precioVip ? `${launch.precioVip} €` : '',
+        precioVip: euros(launch.precioVip),
         vipContador: String(vipContador),
       },
     }, 200, { ...CORS_HEADERS, 'cache-control': 'no-store' });
@@ -142,6 +142,12 @@ function encuestaUrl(base, contact) {
   } catch {
     return base;
   }
+}
+
+// 27 → "27 €", 27.5 → "27,50 €" (formato español).
+export function euros(n) {
+  if (!n) return '';
+  return `${Number(n).toLocaleString('es-ES', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })} €`;
 }
 
 // VIP vendidas en este lanzamiento = quien tiene la etiqueta VIP menos las que ya la tenían antes

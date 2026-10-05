@@ -1,0 +1,233 @@
+<!-- BLOQUE · ENTRADA VIP · Página de recursos · Me lo dijo la matrona -->
+<!-- Precio, enlace de pago y contador se cambian en el dashboard. El script enseña solo uno de los 3 estados: abierta / ya la tiene / cerrada. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+.mldlm-vip{
+  --vip-burdeos:#860d0e; --vip-noche:#4f0708; --vip-oro:#d9b47a; --vip-oro-claro:#f3e2bf; --vip-crema:#fbf3ea;
+  --vip-boton:#c49b79; --vip-pastel:#f0e4da; --vip-texto:#3a2a24; --vip-marron:#4a2c20; --vip-linea:#e2d3c5;
+  position:relative; width:100%; margin:0; box-sizing:border-box; overflow:hidden;
+  background:var(--vip-pastel); font-family:'Lato',sans-serif; color:var(--vip-crema);
+}
+.mldlm-vip *,.mldlm-vip *::before,.mldlm-vip *::after{box-sizing:border-box;}
+
+/* ===== Transición desde la etapa anterior ===== */
+.mldlm-vip .mldlm-vip__entrada{position:relative; display:block; width:100%; height:120px;}
+.mldlm-vip .mldlm-vip__entrada svg{position:absolute; inset:0; width:100%; height:100%;}
+.mldlm-vip .mldlm-vip__trazo{stroke-dasharray:2 12; animation:mldlmVipMarcha 1s linear infinite;}
+@keyframes mldlmVipMarcha{to{stroke-dashoffset:-14;}}
+
+/* ===== Fondo de lujo ===== */
+.mldlm-vip .mldlm-vip__fondo{position:relative; padding:8px 18px 64px;
+  background:
+    radial-gradient(90% 45% at 50% 38%, rgba(217,180,122,.18) 0%, rgba(217,180,122,0) 70%),
+    radial-gradient(80% 50% at 100% 100%, rgba(0,0,0,.25) 0%, rgba(0,0,0,0) 70%),
+    linear-gradient(180deg, var(--vip-burdeos) 0%, var(--vip-noche) 100%);}
+.mldlm-vip .mldlm-vip__chispas{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
+.mldlm-vip .mldlm-vip__chispas i{position:absolute; width:6px; height:6px; background:var(--vip-oro-claro); clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%); opacity:0; animation:mldlmVipChispa 4s ease-in-out infinite;}
+.mldlm-vip .mldlm-vip__chispas i:nth-child(1){top:8%; left:12%; animation-delay:0s;}
+.mldlm-vip .mldlm-vip__chispas i:nth-child(2){top:22%; right:10%; animation-delay:1.2s; width:9px; height:9px;}
+.mldlm-vip .mldlm-vip__chispas i:nth-child(3){top:46%; left:6%; animation-delay:2.1s;}
+.mldlm-vip .mldlm-vip__chispas i:nth-child(4){top:62%; right:7%; animation-delay:.6s; width:8px; height:8px;}
+.mldlm-vip .mldlm-vip__chispas i:nth-child(5){top:84%; left:18%; animation-delay:2.8s;}
+.mldlm-vip .mldlm-vip__chispas i:nth-child(6){top:34%; left:48%; animation-delay:3.4s; width:5px; height:5px;}
+@keyframes mldlmVipChispa{0%,100%{opacity:0; transform:scale(.4) rotate(0);} 50%{opacity:.95; transform:scale(1.2) rotate(45deg);}}
+.mldlm-vip .mldlm-vip__inner{position:relative; max-width:980px; margin:0 auto;}
+
+/* ===== Cabecera ===== */
+.mldlm-vip .mldlm-vip__cab{text-align:center; max-width:640px; margin:0 auto 8px;}
+.mldlm-vip .mldlm-vip__ante{display:inline-flex; align-items:center; gap:8px; margin:0 0 16px; padding:7px 16px; border-radius:999px; border:1px solid rgba(243,226,191,.45); background:rgba(0,0,0,.18); font-size:13px; font-weight:900; letter-spacing:.14em; line-height:1.2;
+  background-image:linear-gradient(100deg,#d9b47a 0%,#fff3d6 45%,#d9b47a 60%,#d9b47a 100%); background-size:250% 100%; -webkit-background-clip:text; background-clip:text; color:transparent; animation:mldlmVipOro 4s linear infinite;}
+.mldlm-vip .mldlm-vip__ante svg{width:15px; height:15px; color:var(--vip-oro);}
+@keyframes mldlmVipOro{from{background-position:100% 0;} to{background-position:-150% 0;}}
+.mldlm-vip .mldlm-vip__titulo{margin:0 0 14px; font-family:'Lato',sans-serif; font-size:31px; font-weight:900; line-height:1.15; letter-spacing:-.01em; color:#ffffff; text-shadow:0 2px 18px rgba(0,0,0,.25);}
+.mldlm-vip .mldlm-vip__sub{margin:0 auto; max-width:32em; font-size:17px; line-height:1.6; color:rgba(251,243,234,.88);}
+
+/* ===== Mockup del pase ===== */
+.mldlm-vip .mldlm-vip__pase{position:relative; perspective:1100px; margin:26px auto 30px; max-width:440px; padding:10px 6px 24px;}
+.mldlm-vip .mldlm-vip__halo{position:absolute; left:50%; top:50%; width:110%; aspect-ratio:1; transform:translate(-50%,-50%); background:radial-gradient(circle, rgba(243,226,191,.38) 0%, rgba(217,180,122,.12) 38%, rgba(217,180,122,0) 66%); animation:mldlmVipHalo 5s ease-in-out infinite; pointer-events:none;}
+@keyframes mldlmVipHalo{0%,100%{opacity:.7; transform:translate(-50%,-50%) scale(.94);} 50%{opacity:1; transform:translate(-50%,-50%) scale(1.04);}}
+.mldlm-vip .mldlm-vip__objeto{position:relative; transform-style:preserve-3d; animation:mldlmVipFlota 6s ease-in-out infinite;}
+@keyframes mldlmVipFlota{
+  0%,100%{transform:rotateX(8deg) rotateY(-14deg) rotateZ(-2deg) translateY(0);}
+  50%{transform:rotateX(4deg) rotateY(-8deg) rotateZ(-1deg) translateY(-12px);}
+}
+.mldlm-vip .mldlm-vip__img{display:block; width:100%; height:auto; filter:drop-shadow(0 34px 34px rgba(0,0,0,.48)) drop-shadow(0 6px 10px rgba(0,0,0,.25));}
+.mldlm-vip .mldlm-vip__brillo{position:absolute; inset:0; pointer-events:none; overflow:hidden;
+  -webkit-mask:url("https://assets.cdn.filesafe.space/Uxda6Ag6FfezFhIdtabk/media/6ac3d84c22bc27f58f783494.png") center / contain no-repeat; mask:url("https://assets.cdn.filesafe.space/Uxda6Ag6FfezFhIdtabk/media/6ac3d84c22bc27f58f783494.png") center / contain no-repeat;}
+.mldlm-vip .mldlm-vip__brillo::after{content:""; position:absolute; top:-20%; bottom:-20%; left:-70%; width:45%; background:linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,250,235,.75) 50%, rgba(255,255,255,0) 100%); transform:skewX(-18deg); animation:mldlmVipBrillo 5.5s ease-in-out 1s infinite;}
+@keyframes mldlmVipBrillo{0%,62%{left:-70%;} 100%{left:140%;}}
+
+/* ===== Columna de venta ===== */
+.mldlm-vip .mldlm-vip__venta{max-width:560px; margin:0 auto;}
+.mldlm-vip .mldlm-vip__incluye{margin:0 0 12px; font-size:15px; font-weight:900; letter-spacing:.06em; line-height:1.3; color:var(--vip-oro);}
+.mldlm-vip .mldlm-vip__lista{list-style:none; margin:0 0 26px; padding:0; display:grid; gap:10px;}
+.mldlm-vip .mldlm-vip__lista li{display:flex; align-items:flex-start; gap:14px; margin:0; padding:12px 14px; border-radius:14px; background:linear-gradient(135deg, rgba(255,255,255,.10), rgba(255,255,255,.03)); border:1px solid rgba(243,226,191,.22); font-size:15px; line-height:1.45; color:rgba(251,243,234,.85);}
+.mldlm-vip .mldlm-vip__lista li::before{display:none;}
+.mldlm-vip .mldlm-vip__lista li strong{display:block; margin:0 0 2px; font-size:16px; font-weight:900; line-height:1.35; color:#ffffff;}
+.mldlm-vip .mldlm-vip__ico{flex:none; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--vip-noche); background:linear-gradient(145deg,#fff1cf 0%,#d9b47a 55%,#b88e52 100%); box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 4px 10px rgba(0,0,0,.25);}
+.mldlm-vip .mldlm-vip__ico svg{width:21px; height:21px;}
+
+/* Precio (lo pone el dashboard) */
+.mldlm-vip .mldlm-vip__precio{display:flex; align-items:baseline; justify-content:center; flex-wrap:wrap; gap:4px 12px; margin:0 0 16px; text-align:center;}
+.mldlm-vip .mldlm-vip__precio-etq{width:100%; font-size:14px; font-weight:700; letter-spacing:.04em; color:rgba(251,243,234,.75);}
+.mldlm-vip .mldlm-vip__precio-num{font-size:52px; font-weight:900; line-height:1; letter-spacing:-.02em;
+  background:linear-gradient(180deg,#fff7e4 0%,#f3e2bf 40%,#d9b47a 100%); -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 3px 10px rgba(0,0,0,.3));}
+
+/* Botón (el enlace lo pone el dashboard) */
+.mldlm-vip .mldlm-vip__btn{position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:60px; padding:16px 26px; border-radius:999px; text-decoration:none; cursor:pointer;
+  font-family:'Lato',sans-serif; font-size:18px; font-weight:900; line-height:1.2; color:var(--vip-noche);
+  background:linear-gradient(180deg,#fbe9c6 0%,#e2c08b 45%,#c49b79 100%);
+  border:1px solid rgba(255,244,220,.8); box-shadow:inset 0 1px 0 rgba(255,255,255,.75), inset 0 -3px 0 rgba(120,70,30,.25), 0 10px 26px rgba(0,0,0,.35);
+  transition:transform .25s ease, filter .25s ease; animation:mldlmVipPulso 2.8s ease-in-out infinite;}
+.mldlm-vip .mldlm-vip__btn::after{content:""; position:absolute; top:0; bottom:0; left:-60%; width:38%; background:linear-gradient(100deg,transparent,rgba(255,255,255,.8),transparent); transform:skewX(-20deg); animation:mldlmVipBoton 3.2s ease-in-out infinite;}
+.mldlm-vip .mldlm-vip__btn svg{width:20px; height:20px; flex:none; transition:transform .3s ease;}
+.mldlm-vip .mldlm-vip__btn:hover{transform:translateY(-2px) scale(1.01); filter:brightness(1.05);}
+.mldlm-vip .mldlm-vip__btn:hover svg{transform:translateX(4px);}
+.mldlm-vip .mldlm-vip__btn:focus-visible{outline:3px solid var(--vip-oro-claro); outline-offset:4px;}
+@keyframes mldlmVipBoton{0%,50%{left:-60%;} 100%{left:140%;}}
+@keyframes mldlmVipPulso{0%,100%{box-shadow:inset 0 1px 0 rgba(255,255,255,.75), inset 0 -3px 0 rgba(120,70,30,.25), 0 10px 26px rgba(0,0,0,.35), 0 0 0 0 rgba(243,226,191,.45);} 50%{box-shadow:inset 0 1px 0 rgba(255,255,255,.75), inset 0 -3px 0 rgba(120,70,30,.25), 0 10px 26px rgba(0,0,0,.35), 0 0 0 14px rgba(243,226,191,0);}}
+
+/* Prueba social (el número lo pone el dashboard) */
+.mldlm-vip .mldlm-vip__social{display:flex; align-items:center; justify-content:center; gap:12px; margin:18px 0 0; padding:12px 16px; border-radius:16px; background:#ffffff; color:var(--vip-texto); box-shadow:0 10px 26px rgba(0,0,0,.25); font-size:15px; line-height:1.35; text-align:left;}
+.mldlm-vip .mldlm-vip__avatares{flex:none; display:flex;}
+.mldlm-vip .mldlm-vip__avatares span{width:30px; height:30px; border-radius:50%; border:2px solid #ffffff; margin-left:-9px; display:flex; align-items:flex-end; justify-content:center; overflow:hidden;}
+.mldlm-vip .mldlm-vip__avatares span:first-child{margin-left:0;}
+.mldlm-vip .mldlm-vip__avatares span:nth-child(1){background:#e9cdb6;} .mldlm-vip .mldlm-vip__avatares span:nth-child(2){background:#c49b79;} .mldlm-vip .mldlm-vip__avatares span:nth-child(3){background:#a8664a;}
+.mldlm-vip .mldlm-vip__avatares svg{width:24px; height:24px; color:rgba(255,255,255,.9); margin-bottom:-3px;}
+.mldlm-vip .mldlm-vip__social-txt{margin:0;}
+.mldlm-vip .mldlm-vip__social-txt strong{font-weight:900; color:var(--vip-burdeos); font-size:17px;}
+.mldlm-vip .mldlm-vip__vivo{position:relative; flex:none; width:10px; height:10px; border-radius:50%; background:#22c55e;}
+.mldlm-vip .mldlm-vip__vivo::after{content:""; position:absolute; inset:0; border-radius:50%; background:#22c55e; animation:mldlmVipVivo 1.6s ease-out infinite;}
+@keyframes mldlmVipVivo{0%{transform:scale(1); opacity:.7;} 100%{transform:scale(3); opacity:0;}}
+
+/* Urgencia + cuenta atrás (la genera el script) */
+.mldlm-vip .mldlm-vip__urgencia{margin:30px auto 0; max-width:640px; padding:22px 14px 20px; text-align:center; border-radius:18px; border:1px solid rgba(243,226,191,.3); background:rgba(0,0,0,.2);}
+.mldlm-vip .mldlm-vip__urg-txt{display:flex; align-items:center; justify-content:center; gap:8px; margin:0 0 16px; font-size:15px; font-weight:900; line-height:1.4; color:var(--vip-oro-claro);}
+.mldlm-vip .mldlm-vip__urg-txt svg{width:18px; height:18px; flex:none; color:var(--vip-oro); animation:mldlmVipReloj 3s ease-in-out infinite;}
+@keyframes mldlmVipReloj{0%,40%{transform:rotate(0);} 50%,90%{transform:rotate(180deg);} 100%{transform:rotate(180deg);}}
+.mldlm-vip .lsd-cdb{display:flex !important; justify-content:center !important; gap:8px !important; margin:0 !important; padding:0 !important; flex-wrap:nowrap !important;}
+.mldlm-vip .lsd-cdb-unit{flex:1 1 0 !important; max-width:96px !important; min-width:0 !important; margin:0 !important; padding:12px 4px 10px !important; display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important;
+  background:linear-gradient(180deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,.04) 100%) !important; border:1px solid rgba(217,180,122,.65) !important; border-radius:12px !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 8px 18px rgba(0,0,0,.25) !important;}
+.mldlm-vip .lsd-cdb-num{display:block !important; font-family:'Lato',sans-serif !important; font-size:30px !important; font-weight:900 !important; line-height:1 !important; font-variant-numeric:tabular-nums !important; margin:0 !important;
+  background:linear-gradient(180deg,#fff7e4 0%,#f3e2bf 45%,#d9b47a 100%) !important; -webkit-background-clip:text !important; background-clip:text !important; color:transparent !important;}
+.mldlm-vip .lsd-cdb-label{display:block !important; margin:6px 0 0 !important; font-family:'Lato',sans-serif !important; font-size:11px !important; font-weight:900 !important; letter-spacing:.12em !important; text-transform:uppercase !important; line-height:1.2 !important; color:var(--vip-oro) !important;}
+
+/* ===== Estados cortos: ya la tiene / cerrada ===== */
+.mldlm-vip .mldlm-vip__corto{max-width:600px; margin:0 auto; text-align:center; padding:30px 20px; border-radius:20px; border:1px solid rgba(243,226,191,.35); background:linear-gradient(135deg, rgba(255,255,255,.10), rgba(255,255,255,.03));}
+.mldlm-vip .mldlm-vip__sello{width:72px; height:72px; margin:0 auto 14px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--vip-noche); background:linear-gradient(145deg,#fff1cf 0%,#d9b47a 55%,#b88e52 100%); box-shadow:inset 0 2px 0 rgba(255,255,255,.7), 0 10px 24px rgba(0,0,0,.3); animation:mldlmVipSello .9s cubic-bezier(.3,1.6,.5,1) both .2s;}
+.mldlm-vip .mldlm-vip__sello svg{width:34px; height:34px;}
+.mldlm-vip .mldlm-vip__sello--cerrada{background:rgba(255,255,255,.12); color:var(--vip-oro-claro); box-shadow:none; border:1px solid rgba(243,226,191,.4);}
+@keyframes mldlmVipSello{0%{opacity:0; transform:scale(1.7) rotate(-25deg);} 100%{opacity:1; transform:none;}}
+.mldlm-vip .mldlm-vip__corto-tit{margin:0 0 8px; font-size:24px; font-weight:900; line-height:1.25; color:#ffffff;}
+.mldlm-vip .mldlm-vip__corto-txt{margin:0; font-size:16px; line-height:1.6; color:rgba(251,243,234,.85);}
+
+/* ===== Salida del sendero ===== */
+.mldlm-vip .mldlm-vip__salida{display:block; width:120px; height:90px; margin:34px auto 0;}
+.mldlm-vip .mldlm-vip__concha{transform-box:fill-box; transform-origin:50% 50%; animation:mldlmVipBota 2s ease-in-out infinite;}
+@keyframes mldlmVipBota{0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);}}
+
+@media (min-width:860px){
+  .mldlm-vip .mldlm-vip__entrada{height:150px;}
+  .mldlm-vip .mldlm-vip__fondo{padding:16px 32px 80px;}
+  .mldlm-vip .mldlm-vip__titulo{font-size:44px;}
+  .mldlm-vip .mldlm-vip__sub{font-size:18px;}
+  .mldlm-vip .mldlm-vip__grid{display:grid; grid-template-columns:1.05fr 1fr; gap:48px; align-items:center; margin-top:28px;}
+  .mldlm-vip .mldlm-vip__pase{margin:0; max-width:none;}
+  .mldlm-vip .mldlm-vip__venta{margin:0;}
+  .mldlm-vip .mldlm-vip__precio{justify-content:flex-start; text-align:left;}
+  .mldlm-vip .mldlm-vip__precio-num{font-size:60px;}
+  .mldlm-vip .mldlm-vip__urgencia{margin-top:48px; padding:28px 32px 26px;}
+  .mldlm-vip .mldlm-vip__urg-txt{font-size:17px;}
+  .mldlm-vip .lsd-cdb{gap:14px !important;}
+  .mldlm-vip .lsd-cdb-unit{max-width:116px !important; padding:16px 6px 14px !important;}
+  .mldlm-vip .lsd-cdb-num{font-size:42px !important;}
+  .mldlm-vip .lsd-cdb-label{font-size:12px !important;}
+  .mldlm-vip .mldlm-vip__corto{padding:40px 40px;}
+}
+@media (prefers-reduced-motion:reduce){
+  .mldlm-vip *,.mldlm-vip *::before,.mldlm-vip *::after{animation:none !important; transition:none !important;}
+  .mldlm-vip .mldlm-vip__objeto{transform:rotateX(6deg) rotateY(-10deg) rotateZ(-1.5deg);}
+}
+</style>
+
+<section class="mldlm-vip">
+  <div class="mldlm-vip__entrada" aria-hidden="true">
+    <svg viewBox="0 0 1200 150" preserveAspectRatio="none"><path d="M0 150 V112 C 260 40, 940 40, 1200 112 V150Z" fill="#860d0e"/></svg>
+    <svg viewBox="0 0 120 150" preserveAspectRatio="xMidYMin meet" style="left:50%;width:120px;transform:translateX(-50%)">
+      <path d="M60 0 C 95 35, 25 70, 60 140" fill="none" stroke="#e6d4c3" stroke-width="12" stroke-linecap="round" opacity=".9"/>
+      <path class="mldlm-vip__trazo" d="M60 0 C 95 35, 25 70, 60 140" fill="none" stroke="#d9b47a" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="mldlm-vip__fondo">
+   <div class="mldlm-vip__chispas" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+   <div class="mldlm-vip__inner">
+
+    <!-- ESTADO 1 · VIP ABIERTA -->
+    <div data-lsd-if="vip-abierta">
+      <div class="mldlm-vip__cab">
+        <p class="mldlm-vip__ante"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8z"/></svg>ENTRADA VIP · PLAZAS LIMITADAS</p>
+        <h2 class="mldlm-vip__titulo">Para las que van en serio con su camino</h2>
+        <p class="mldlm-vip__sub">Vive el directo desde la primera fila, con todo lo que necesitas para dar el siguiente paso hacia tu embarazo natural.</p>
+      </div>
+      <div class="mldlm-vip__grid">
+        <div class="mldlm-vip__pase">
+          <div class="mldlm-vip__halo"></div>
+          <div class="mldlm-vip__objeto">
+            <img class="mldlm-vip__img" src="https://assets.cdn.filesafe.space/Uxda6Ag6FfezFhIdtabk/media/6ac3d84c22bc27f58f783494.png" alt="Entrada VIP de El Camino" loading="lazy">
+            <div class="mldlm-vip__brillo"></div>
+          </div>
+        </div>
+        <div class="mldlm-vip__venta">
+          <p class="mldlm-vip__incluye">TU ENTRADA VIP INCLUYE</p>
+          <ul class="mldlm-vip__lista">
+            <li><span class="mldlm-vip__ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#5e0a0b" stroke-width="1" stroke-linecap="round" opacity=".45"/></svg></span><span><strong>Tu pase VIP para el directo</strong>Vívelo desde la primera fila.</span></li>
+            <li><span class="mldlm-vip__ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#5e0a0b" stroke-width="1" stroke-linecap="round" opacity=".45"/></svg></span><span><strong>Grabación de la clase</strong>Para volver a los puntos clave con calma y sin prisas.</span></li>
+            <li><span class="mldlm-vip__ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#5e0a0b" stroke-width="1" stroke-linecap="round" opacity=".45"/></svg></span><span><strong>Test «¿Por qué no me quedo embarazada?»</strong>Descubre en minutos qué podría estar frenando tu positivo.</span></li>
+            <li><span class="mldlm-vip__ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#5e0a0b" stroke-width="1" stroke-linecap="round" opacity=".45"/></svg></span><span><strong>Gráfica para registrar tu ciclo</strong>Detecta tu ovulación y tus días fértiles sin depender de las tiras.</span></li>
+            <li><span class="mldlm-vip__ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#5e0a0b" stroke-width="1" stroke-linecap="round" opacity=".45"/></svg></span><span><strong>Guía «Todo está bien» (pero no te quedas embarazada)</strong>5 claves para no cometer los errores que te alejan del embarazo.</span></li>
+            <li><span class="mldlm-vip__ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#5e0a0b" stroke-width="1" stroke-linecap="round" opacity=".45"/></svg></span><span><strong>Meditación «Cuando el positivo no llega»</strong>Para esos momentos en los que tu cabeza no para.</span></li>
+          </ul>
+          <p class="mldlm-vip__precio"><span class="mldlm-vip__precio-etq">Tu entrada VIP por solo</span><span class="mldlm-vip__precio-num" data-lsd-text="precioVip"></span></p>
+          <a data-lsd-link="vip" class="mldlm-vip__btn"><span>Quiero mi entrada VIP</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+          <div class="mldlm-vip__social">
+            <span class="mldlm-vip__avatares" aria-hidden="true"><span><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="9" r="4.2"/><path d="M3.5 24c.6-5 4.2-8 8.5-8s7.9 3 8.5 8z"/></svg></span><span><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="9" r="4.2"/><path d="M3.5 24c.6-5 4.2-8 8.5-8s7.9 3 8.5 8z"/></svg></span><span><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="9" r="4.2"/><path d="M3.5 24c.6-5 4.2-8 8.5-8s7.9 3 8.5 8z"/></svg></span></span>
+            <p class="mldlm-vip__social-txt"><strong><span data-lsd-text="vipContador">41</span></strong> registradas ya la han comprado</p>
+            <span class="mldlm-vip__vivo" aria-hidden="true"></span>
+          </div>
+        </div>
+      </div>
+      <div class="mldlm-vip__urgencia">
+        <p class="mldlm-vip__urg-txt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>Las entradas VIP se cierran cuando empiece el directo</p>
+        <div data-lsd-countdown-boxes="vip"></div>
+      </div>
+    </div>
+
+    <!-- ESTADO 2 · YA TIENE LA VIP -->
+    <div data-lsd-if="ya-vip">
+      <div class="mldlm-vip__corto">
+        <div class="mldlm-vip__sello"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+        <p class="mldlm-vip__corto-tit">✓ Ya tienes tu entrada VIP</p>
+        <p class="mldlm-vip__corto-txt">Gracias por dar este paso. En tu email tienes todos los detalles de lo que incluye y cómo vivirlo en el directo.</p>
+      </div>
+    </div>
+
+    <!-- ESTADO 3 · VIP CERRADA -->
+    <div data-lsd-if="vip-cerrada">
+      <div class="mldlm-vip__corto">
+        <div class="mldlm-vip__sello mldlm-vip__sello--cerrada"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M7.5 10.5V7.5a4.5 4.5 0 0 1 9 0v3"/><rect x="4" y="10" width="16" height="12" rx="2.6" fill="currentColor" stroke="none"/></svg></div>
+        <p class="mldlm-vip__corto-tit">La venta de entradas VIP se ha cerrado</p>
+        <p class="mldlm-vip__corto-txt">Gracias por tu interés. Nos vemos en el directo.</p>
+      </div>
+    </div>
+
+    <svg class="mldlm-vip__salida" viewBox="0 0 120 90" aria-hidden="true">
+      <path d="M60 0 C 25 25, 95 45, 60 66" fill="none" stroke="rgba(243,226,191,.25)" stroke-width="12" stroke-linecap="round"/>
+      <path class="mldlm-vip__trazo" d="M60 0 C 25 25, 95 45, 60 66" fill="none" stroke="#d9b47a" stroke-width="3" stroke-linecap="round"/>
+      <g class="mldlm-vip__concha" color="#d9b47a"><g transform="translate(48 66)"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#5e0a0b" stroke-width="1" stroke-linecap="round" opacity=".45"/></g></g>
+    </svg>
+   </div>
+  </div>
+</section>
