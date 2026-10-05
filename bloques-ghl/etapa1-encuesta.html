@@ -1,0 +1,153 @@
+<!-- BLOQUE · ETAPA 1: ENCUESTA · Página de recursos · Me lo dijo la matrona -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+.mldlm-paso1{
+  --mldlm-burdeos:#860d0e; --mldlm-boton:#c49b79; --mldlm-pastel:#f0e4da;
+  --mldlm-texto:#3a2a24; --mldlm-linea:#e2d3c5; --mldlm-marron:#4a2c20;
+  background:var(--mldlm-pastel); font-family:'Lato',sans-serif; color:var(--mldlm-texto);
+  padding:64px 20px 0; box-sizing:border-box; width:100%; margin:0; overflow:hidden;
+}
+.mldlm-paso1 *,.mldlm-paso1 *::before,.mldlm-paso1 *::after{box-sizing:border-box;}
+.mldlm-paso1 .mldlm-e1__inner{max-width:600px; margin:0 auto; text-align:center;}
+
+/* ===== Tarjeta de la etapa ===== */
+.mldlm-paso1 .mldlm-e1__card{position:relative; background:#ffffff; border:1px solid var(--mldlm-linea); border-radius:20px; box-shadow:0 14px 40px rgba(134,13,14,.10); animation:mldlmE1Entra .8s cubic-bezier(.2,.8,.2,1) both;}
+@keyframes mldlmE1Entra{from{opacity:0; transform:translateY(22px);} to{opacity:1; transform:none;}}
+
+/* Mojón jacobeo con el número */
+.mldlm-paso1 .mldlm-e1__mojon{position:absolute; top:-34px; left:50%; width:62px; transform:translateX(-50%); z-index:3; filter:drop-shadow(0 6px 10px rgba(74,44,32,.22)); animation:mldlmE1Mojon 3.2s ease-in-out infinite;}
+.mldlm-paso1 .mldlm-e1__mojon svg{display:block; width:100%; height:auto;}
+@keyframes mldlmE1Mojon{0%,100%{transform:translateX(-50%) translateY(0);} 50%{transform:translateX(-50%) translateY(-5px);}}
+
+/* Paisaje con el camino */
+.mldlm-paso1 .mldlm-e1__paisaje{position:relative; height:150px; border-radius:20px 20px 0 0; overflow:hidden; background:linear-gradient(180deg,#fbf6f1 0%,#f6ebe1 100%);}
+.mldlm-paso1 .mldlm-e1__paisaje svg{position:absolute; inset:0; width:100%; height:100%;}
+.mldlm-paso1 .mldlm-e1__sol{transform-origin:470px 46px; animation:mldlmE1Sol 5s ease-in-out infinite;}
+@keyframes mldlmE1Sol{0%,100%{opacity:.55; transform:scale(1);} 50%{opacity:.85; transform:scale(1.08);}}
+.mldlm-paso1 .mldlm-e1__nube{animation:mldlmE1Nube 26s linear infinite;}
+.mldlm-paso1 .mldlm-e1__nube--2{animation-duration:38s; animation-delay:-14s;}
+@keyframes mldlmE1Nube{from{transform:translateX(-160px);} to{transform:translateX(760px);}}
+.mldlm-paso1 .mldlm-e1__trazo{stroke-dasharray:3 11; animation:mldlmE1Marcha 1.1s linear infinite;}
+@keyframes mldlmE1Marcha{to{stroke-dashoffset:-14;}}
+.mldlm-paso1 .mldlm-e1__cipres{transform-box:fill-box; transform-origin:50% 100%; animation:mldlmE1Viento 4s ease-in-out infinite;}
+.mldlm-paso1 .mldlm-e1__cipres--b{animation-delay:-1.6s;}
+@keyframes mldlmE1Viento{0%,100%{transform:rotate(0);} 50%{transform:rotate(2.5deg);}}
+
+/* Contenido */
+.mldlm-paso1 .mldlm-e1__cuerpo{padding:22px 20px 30px;}
+.mldlm-paso1 .mldlm-e1__etiqueta{display:flex; width:fit-content; align-items:center; gap:8px; margin:0 auto 12px; font-size:15px; font-weight:900; letter-spacing:.03em; line-height:1.3; color:var(--mldlm-burdeos);}
+.mldlm-paso1 .mldlm-e1__etiqueta svg{width:18px; height:18px;}
+.mldlm-paso1 .mldlm-e1__titulo{margin:0 0 16px; font-family:'Lato',sans-serif; font-size:25px; font-weight:900; line-height:1.24; letter-spacing:-.01em; color:var(--mldlm-marron);}
+.mldlm-paso1 .mldlm-e1__titulo strong{font-weight:900; color:var(--mldlm-burdeos); white-space:nowrap;}
+.mldlm-paso1 .mldlm-e1__chip{display:flex; width:fit-content; align-items:center; gap:6px; margin:0 auto 24px; padding:6px 14px; border-radius:999px; background:var(--mldlm-pastel); border:1px solid var(--mldlm-linea); font-size:14px; font-weight:700; line-height:1.2; color:var(--mldlm-texto);}
+.mldlm-paso1 .mldlm-e1__chip svg{width:16px; height:16px; flex:none; color:var(--mldlm-burdeos);}
+.mldlm-paso1 .mldlm-e1__chip svg .aguja{transform-origin:12px 12px; animation:mldlmE1Aguja 4s linear infinite;}
+@keyframes mldlmE1Aguja{to{transform:rotate(360deg);}}
+
+/* Botón */
+.mldlm-paso1 .mldlm-e1__btn{position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:56px; padding:14px 24px; font-family:'Lato',sans-serif; font-size:17px; font-weight:900; line-height:1.2; color:var(--mldlm-texto); background:var(--mldlm-boton); border-radius:999px; text-decoration:none; cursor:pointer; box-shadow:0 6px 18px rgba(196,155,121,.5); transition:background-color .25s ease,color .25s ease,transform .25s ease; animation:mldlmE1Llama 2.6s ease-in-out infinite;}
+.mldlm-paso1 .mldlm-e1__btn::after{content:""; position:absolute; top:0; bottom:0; left:-60%; width:40%; background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent); transform:skewX(-20deg); animation:mldlmE1Brillo 3.4s ease-in-out infinite;}
+.mldlm-paso1 .mldlm-e1__btn svg{width:20px; height:20px; flex:none; transition:transform .3s ease;}
+.mldlm-paso1 .mldlm-e1__btn:hover{background:var(--mldlm-burdeos); color:#ffffff; transform:translateY(-2px);}
+.mldlm-paso1 .mldlm-e1__btn:hover svg{transform:translateX(4px);}
+.mldlm-paso1 .mldlm-e1__btn:focus-visible{outline:3px solid var(--mldlm-burdeos); outline-offset:3px;}
+@keyframes mldlmE1Brillo{0%,55%{left:-60%;} 100%{left:130%;}}
+@keyframes mldlmE1Llama{0%,100%{box-shadow:0 6px 18px rgba(196,155,121,.5),0 0 0 0 rgba(196,155,121,.45);} 50%{box-shadow:0 6px 18px rgba(196,155,121,.5),0 0 0 10px rgba(196,155,121,0);}}
+.mldlm-paso1 .mldlm-e1__micro{margin:14px auto 0; max-width:26em; font-size:14px; line-height:1.5; color:#6b5448;}
+
+/* ===== Etapa completada: sello de la credencial ===== */
+.mldlm-paso1 .mldlm-e1__hecho{display:flex; align-items:center; gap:16px; text-align:left; background:#ffffff; border:1px solid var(--mldlm-linea); border-radius:16px; padding:14px 18px 14px 14px; box-shadow:0 8px 24px rgba(134,13,14,.07);}
+.mldlm-paso1 .mldlm-e1__sello{flex:none; width:68px; height:68px; animation:mldlmE1Sellar .9s cubic-bezier(.3,1.6,.5,1) both .2s;}
+.mldlm-paso1 .mldlm-e1__sello svg{display:block; width:100%; height:100%;}
+.mldlm-paso1 .mldlm-e1__sello .giro{transform-origin:50px 50px; animation:mldlmE1Giro 18s linear infinite;}
+@keyframes mldlmE1Sellar{0%{opacity:0; transform:scale(1.8) rotate(-30deg);} 60%{opacity:1;} 100%{opacity:1; transform:scale(1) rotate(-10deg);}}
+@keyframes mldlmE1Giro{to{transform:rotate(360deg);}}
+.mldlm-paso1 .mldlm-e1__hecho-etq{margin:0 0 3px; font-size:14px; font-weight:900; letter-spacing:.03em; line-height:1.3; color:var(--mldlm-burdeos);}
+.mldlm-paso1 .mldlm-e1__hecho-txt{margin:0; font-size:15px; line-height:1.45; color:var(--mldlm-texto);}
+
+/* ===== Camino hacia la etapa 2 ===== */
+.mldlm-paso1 .mldlm-e1__sendero{display:block; width:120px; height:130px; margin:6px auto 0;}
+.mldlm-paso1 .mldlm-e1__sendero .mldlm-e1__trazo{stroke-dasharray:2 12; animation-duration:1s;}
+.mldlm-paso1 .mldlm-e1__concha{transform-box:fill-box; transform-origin:50% 50%; animation:mldlmE1Bota 2s ease-in-out infinite;}
+@keyframes mldlmE1Bota{0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);}}
+
+@media (min-width:768px){
+  .mldlm-paso1{padding:96px 24px 0;}
+  .mldlm-paso1 .mldlm-e1__mojon{width:70px; top:-40px;}
+  .mldlm-paso1 .mldlm-e1__paisaje{height:180px;}
+  .mldlm-paso1 .mldlm-e1__cuerpo{padding:26px 48px 38px;}
+  .mldlm-paso1 .mldlm-e1__titulo{font-size:31px;}
+  .mldlm-paso1 .mldlm-e1__btn{display:inline-flex; width:auto; min-width:340px;}
+  .mldlm-paso1 .mldlm-e1__hecho{padding:16px 24px 16px 16px;}
+  .mldlm-paso1 .mldlm-e1__hecho-txt{font-size:16px;}
+}
+@media (prefers-reduced-motion:reduce){
+  .mldlm-paso1 *,.mldlm-paso1 *::after{animation:none !important; transition:none !important;}
+  .mldlm-paso1 .mldlm-e1__peregrina{visibility:hidden;}
+}
+</style>
+
+<section class="paso1 mldlm-paso1">
+ <div class="mldlm-e1__inner">
+  <div data-lsd-if="encuesta-pendiente">
+    <div class="mldlm-e1__card">
+      <div class="mldlm-e1__mojon"><svg viewBox="0 0 70 92" aria-hidden="true">
+        <path d="M6 88V30C6 14 19 4 35 4s29 10 29 26v58Z" fill="#e9dccf" stroke="#cdb7a2" stroke-width="2"/>
+        <rect x="15" y="16" width="40" height="34" rx="5" fill="#860d0e"/>
+        <g transform="translate(23 19) scale(1)" color="#c49b79"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#ffffff" stroke-width="1" stroke-linecap="round" opacity=".55"/></g>
+        <text x="35" y="76" text-anchor="middle" font-family="Lato,sans-serif" font-size="24" font-weight="900" fill="#4a2c20">1</text>
+      </svg></div>
+      <div class="mldlm-e1__paisaje">
+      <svg viewBox="0 0 600 180" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <circle class="mldlm-e1__sol" cx="470" cy="46" r="26" fill="#f3d9bf"/>
+        <g class="mldlm-e1__nube" fill="#ffffff" opacity=".9"><ellipse cx="80" cy="34" rx="30" ry="9"/><ellipse cx="100" cy="28" rx="18" ry="9"/></g>
+        <g class="mldlm-e1__nube mldlm-e1__nube--2" fill="#ffffff" opacity=".8"><ellipse cx="60" cy="58" rx="24" ry="7"/><ellipse cx="74" cy="53" rx="13" ry="7"/></g>
+        <path d="M0 112 C 80 82, 150 96, 230 84 S 380 58, 460 76 S 560 70, 600 62 V180 H0Z" fill="#ead9c9"/>
+        <path d="M0 140 C 100 120, 200 132, 300 120 S 480 108, 600 116 V180 H0Z" fill="#dfc7b0"/>
+        <path d="M-10 150 C 90 140, 120 104, 210 108 S 360 132, 420 98 S 540 62, 620 70" fill="none" stroke="#f8f0e8" stroke-width="20" stroke-linecap="round"/>
+        <path class="mldlm-e1__trazo" d="M-10 150 C 90 140, 120 104, 210 108 S 360 132, 420 98 S 540 62, 620 70" fill="none" stroke="#c49b79" stroke-width="3" stroke-linecap="round"/>
+        <g class="mldlm-e1__cipres"><path d="M118 132c-6-12-6-30 0-44 6 14 6 32 0 44Z" fill="#8a7a55"/></g>
+        <g class="mldlm-e1__cipres mldlm-e1__cipres--b"><path d="M512 104c-5-10-5-26 0-38 5 12 5 28 0 38Z" fill="#8a7a55"/><path d="M528 104c-4-8-4-20 0-30 4 10 4 22 0 30Z" fill="#9c8c66"/></g>
+        <g opacity=".55" fill="#ffffff"><circle cx="300" cy="150" r="2"/><circle cx="318" cy="156" r="1.6"/><circle cx="70" cy="160" r="1.8"/><circle cx="560" cy="140" r="1.6"/></g>
+        <g class="mldlm-e1__peregrina">
+          <g>
+            <circle r="13" fill="#860d0e" stroke="#ffffff" stroke-width="3"/>
+            <g transform="translate(-7 -7.5) scale(.6)" color="#ffffff"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#860d0e" stroke-width="1" stroke-linecap="round" opacity=".55"/></g>
+            <animateMotion dur="9s" repeatCount="indefinite" path="M-10 150 C 90 140, 120 104, 210 108 S 360 132, 420 98 S 540 62, 620 70" keyPoints="0;1" keyTimes="0;1" calcMode="linear"/>
+          </g>
+        </g>
+      </svg>
+      </div>
+      <div class="mldlm-e1__cuerpo">
+        <p class="mldlm-e1__etiqueta"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="8" cy="7" rx="2.6" ry="4"/><ellipse cx="7.6" cy="14.4" rx="1.8" ry="2.2"/><ellipse cx="16" cy="10" rx="2.6" ry="4"/><ellipse cx="15.6" cy="17.4" rx="1.8" ry="2.2"/></svg>Etapa 1</p>
+        <h2 class="mldlm-e1__titulo">Rellena este breve formulario para personalizar <strong>TU CAMINO</strong></h2>
+        <p class="mldlm-e1__chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path class="aguja" d="M12 12V6.5"/><path d="M12 12l3 2"/></svg>1 min.</p>
+        <a data-lsd-link="encuesta" class="mldlm-e1__btn"><span>Rellenar el formulario</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+        <p class="mldlm-e1__micro">Al terminar, vuelve a esta página: tus clases se desbloquearán solas.</p>
+      </div>
+    </div>
+  </div>
+  <div data-lsd-if="encuesta-hecha">
+    <div class="mldlm-e1__hecho">
+      <div class="mldlm-e1__sello"><svg viewBox="0 0 100 100" aria-hidden="true">
+          <defs><path id="mldlmE1Circulo" d="M50 50m-36 0a36 36 0 1 1 72 0a36 36 0 1 1-72 0"/></defs>
+          <circle cx="50" cy="50" r="47" fill="#fbf4ee" stroke="#860d0e" stroke-width="2.5"/>
+          <circle cx="50" cy="50" r="27" fill="none" stroke="#860d0e" stroke-width="1.5" stroke-dasharray="3 3"/>
+          <g class="giro"><text font-family="Lato,sans-serif" font-size="10.5" font-weight="900" letter-spacing="2.2" fill="#860d0e"><textPath href="#mldlmE1Circulo">ETAPA 1 · SELLADA · ETAPA 1 · SELLADA ·</textPath></text></g>
+          <g transform="translate(36 35) scale(1.18)" color="#860d0e"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#fbf4ee" stroke-width="1" stroke-linecap="round" opacity=".55"/></g>
+        </svg></div>
+      <div>
+        <p class="mldlm-e1__hecho-etq">Etapa 1 ✓ Completada</p>
+        <p class="mldlm-e1__hecho-txt">¡Gracias! Ya tienes desbloqueadas tus clases. Continúa con la etapa&nbsp;2&nbsp;👇</p>
+      </div>
+    </div>
+  </div>
+  <svg class="mldlm-e1__sendero" viewBox="0 0 120 130" aria-hidden="true">
+    <path d="M60 0 C 20 30, 100 60, 60 100" fill="none" stroke="#e6d4c3" stroke-width="12" stroke-linecap="round"/>
+    <path class="mldlm-e1__trazo" d="M60 0 C 20 30, 100 60, 60 100" fill="none" stroke="#c49b79" stroke-width="3" stroke-linecap="round"/>
+    <g class="mldlm-e1__concha" color="#860d0e"><g transform="translate(48 104)"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#ffffff" stroke-width="1" stroke-linecap="round" opacity=".55"/></g></g>
+  </svg>
+ </div>
+</section>
