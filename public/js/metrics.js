@@ -3,6 +3,7 @@
 import {
   signalsFor, score, estadoFor, nextStepFor, waPhone, watched, ESTADOS, OUTCOMES, SNAPSHOT_TAGS,
 } from './scoring.js';
+import { tramoEdad, ORDEN_EDAD } from './encuesta.js';
 
 // Inicio de captación del lanzamiento siguiente: ahí terminan las ventas de este.
 export function nextLaunchStart(config, code) {
@@ -187,8 +188,11 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
 }
 
 // Ventas según la respuesta a una pregunta de la encuesta (campo de GHL). Si la respuesta es
-// de opción múltiple, la lead cuenta en cada opción que marcó.
-export function porRespuesta(leads, fieldId) {
+// de opción múltiple, la lead cuenta en cada opción que marcó. La edad se agrupa por tramos y las
+// respuestas de texto libre se juntan sin distinguir mayúsculas (las 12 más repetidas + «Otras»).
+export function porRespuesta(leads, pregunta) {
+  const fieldId = typeof pregunta === 'string' ? pregunta : pregunta.id;
+  const tipo = typeof pregunta === 'string' ? 'opciones' : pregunta.tipo;
   const groups = new Map();
   const add = (key, l) => {
     const g = groups.get(key) || { respuesta: key, leads: 0, vip: 0, compras: 0 };
@@ -199,11 +203,24 @@ export function porRespuesta(leads, fieldId) {
   };
   for (const l of leads) {
     const v = l.cf?.[fieldId];
-    const vals = (Array.isArray(v) ? v : [v]).map((x) => String(x ?? '').trim()).filter(Boolean);
+    let vals = (Array.isArray(v) ? v : [v]).map((x) => String(x ?? '').trim().replace(/\s+/g, ' ')).filter(Boolean);
+    if (tipo === 'edad') vals = vals.map(tramoEdad).filter(Boolean);
+    if (tipo === 'texto') vals = vals.map((x) => x.charAt(0).toUpperCase() + x.slice(1).toLowerCase().replace(/[.\s]+$/, ''));
     if (!vals.length) add('', l);
     else for (const x of new Set(vals)) add(x, l);
   }
-  return [...groups.values()].sort((a, b) => (a.respuesta === '') - (b.respuesta === '') || b.leads - a.leads);
+  let rows = [...groups.values()];
+  const sinRespuesta = rows.filter((r) => r.respuesta === '');
+  rows = rows.filter((r) => r.respuesta !== '');
+  if (tipo === 'edad') rows.sort((a, b) => ORDEN_EDAD.indexOf(a.respuesta) - ORDEN_EDAD.indexOf(b.respuesta));
+  else rows.sort((a, b) => b.leads - a.leads);
+  if (tipo === 'texto' && rows.length > 13) {
+    const resto = rows.slice(12);
+    const otras = { respuesta: `Otras respuestas (${resto.length} distintas)`, otras: true, leads: 0, vip: 0, compras: 0 };
+    for (const r of resto) { otras.leads += r.leads; otras.vip += r.vip; otras.compras += r.compras; }
+    rows = [...rows.slice(0, 12), otras];
+  }
+  return [...rows, ...sinRespuesta];
 }
 
 // Avisos de configuración y de datos: cosas que hacen que las métricas salgan mal.

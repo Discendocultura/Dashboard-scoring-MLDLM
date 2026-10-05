@@ -2,6 +2,7 @@ import {
   ESTADOS, NEXT_STEPS, buildMessage, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, OUTCOMES, dayInMadrid,
 } from './scoring.js';
 import { icon } from './icons.js';
+import { ENCUESTA_PREGUNTAS } from './encuesta.js';
 import { enrichLead, computeMetrics, bySource, ventasPorDia, porRespuesta, avisosLanzamiento } from './metrics.js';
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
 
@@ -326,7 +327,7 @@ function renderMetrics() {
   renderVentasDia(launch);
   renderPago(m, launch);
   renderOrigen(m, launch);
-  renderEncuestaMetrics(launch);
+  renderEncuestaMetrics();
   renderObjetivos(m);
   renderAvisos(m, launch);
 
@@ -456,66 +457,24 @@ document.addEventListener('click', (e) => {
   goToField('cfg-obj-registros');
 });
 
-// Ventas según las respuestas de la encuesta (una tabla por pregunta elegida en Configuración).
-function renderEncuestaMetrics(launch) {
+// Ventas según las respuestas de la encuesta del avatar (una tabla por pregunta).
+function renderEncuestaMetrics() {
   const box = $('#encuesta-metrics');
-  const campos = launch.encuestaCampos || [];
-  if (!campos.length) {
-    box.innerHTML = '<p class="muted">Elige las preguntas de la encuesta en Configuración → Lanzamiento → «Preguntas de la encuesta a analizar».</p>';
-    return;
-  }
   const total = state.leads.length;
-  box.innerHTML = campos.map((id) => {
-    const rows = porRespuesta(state.leads, id);
-    const multi = rows.reduce((t, r) => t + r.leads, 0) > total;
-    return `<h3 class="cfg-h4">${esc(launch.encuestaNombres?.[id] || id)}</h3>
-      ${multi ? '<p class="muted">Pregunta de varias respuestas: una lead cuenta en cada opción que marcó.</p>' : ''}
+  const respondieron = state.leads.filter((l) => ENCUESTA_PREGUNTAS.some((p) => l.cf?.[p.id] != null && String(l.cf[p.id]).trim() !== '')).length;
+  box.innerHTML = `<p class="muted">${respondieron} de ${total} leads han respondido la encuesta (${pctOf(respondieron, total)}).</p>` + ENCUESTA_PREGUNTAS.map((p) => {
+    const rows = porRespuesta(state.leads, p);
+    const multi = p.tipo === 'opciones' && rows.reduce((t, r) => t + r.leads, 0) > total;
+    return `<h3 class="cfg-h4">${esc(p.name)}</h3>
+      ${multi ? '<p class="muted">Se pueden marcar varias respuestas: una lead cuenta en cada opción que marcó.</p>' : ''}
+      ${p.tipo === 'texto' ? '<p class="muted">Respuesta libre: se juntan las que son iguales (sin distinguir mayúsculas).</p>' : ''}
       <div class="table-scroll"><table class="metric-table">
       <thead><tr><th>Respuesta</th><th class="num">Leads</th><th class="num">% de los leads</th><th class="num">VIP</th><th class="num">Ventas</th><th class="num">Conversión</th></tr></thead>
-      <tbody>${rows.map((r) => `<tr><td>${r.respuesta ? esc(r.respuesta) : '<span class="muted">Sin respuesta</span>'}</td><td class="num">${r.leads}</td><td class="num">${pctOf(r.leads, total)}</td><td class="num">${r.vip} <span class="muted">${pctOf(r.vip, r.leads)}</span></td><td class="num">${r.compras}</td><td class="num big">${pctOf(r.compras, r.leads)}</td></tr>`).join('')}</tbody>
+      <tbody>${rows.map((r) => `<tr><td>${r.respuesta ? (r.otras ? `<span class="muted">${esc(r.respuesta)}</span>` : esc(r.respuesta)) : '<span class="muted">Sin respuesta</span>'}</td><td class="num">${r.leads}</td><td class="num">${pctOf(r.leads, total)}</td><td class="num">${r.vip} <span class="muted">${pctOf(r.vip, r.leads)}</span></td><td class="num">${r.compras}</td><td class="num big">${pctOf(r.compras, r.leads)}</td></tr>`).join('')}</tbody>
       </table></div>`;
   }).join('');
 }
 
-// Campos de GHL para elegir las preguntas de la encuesta (Configuración).
-async function renderEncuestaCampos(selected, nombres) {
-  const box = $('#cfg-encuesta-campos');
-  box.dataset.nombres = JSON.stringify(nombres);
-  if (!state.allFields) {
-    try {
-      state.allFields = (await api('/api/fields?todos')).fields.filter((f) => f.type !== 'DATE');
-    } catch (e) {
-      box.innerHTML = `<p class="muted">No se pudieron leer los campos de GHL (${esc(e.message)}).</p>`;
-      return;
-    }
-  }
-  const sel = new Set(selected);
-  const list = [...state.allFields].sort((a, b) => sel.has(b.id) - sel.has(a.id));
-  box.innerHTML = list.map((f) => `<label class="campo"><input type="checkbox" value="${esc(f.id)}" data-name="${esc(f.name)}"${sel.has(f.id) ? ' checked' : ''}> ${esc(f.name)}</label>`).join('')
-    || '<p class="muted">No hay campos personalizados en GHL.</p>';
-}
-
-function readEncuestaCampos() {
-  const checked = $$('#cfg-encuesta-campos input:checked');
-  if (!checked.length && !state.allFields) {
-    // Si los campos no han cargado, se conserva lo que hubiera.
-    const prev = state.config.launches[editingCode] || {};
-    return { encuestaCampos: prev.encuestaCampos || [], encuestaNombres: prev.encuestaNombres || {} };
-  }
-  const picked = checked.slice(0, 10);
-  return {
-    encuestaCampos: picked.map((c) => c.value),
-    encuestaNombres: Object.fromEntries(picked.map((c) => [c.value, c.dataset.name])),
-  };
-}
-$('#cfg-encuesta-campos-buscar').addEventListener('input', (e) => {
-  const q = e.target.value.trim().toLowerCase();
-  $$('#cfg-encuesta-campos .campo').forEach((l) => { l.hidden = Boolean(q) && !l.textContent.toLowerCase().includes(q); });
-});
-$('#cfg-encuesta-campos').addEventListener('change', () => {
-  const checked = $$('#cfg-encuesta-campos input:checked');
-  if (checked.length > 10) { checked.at(-1).checked = false; window.alert('Puedes elegir hasta 10 preguntas.'); }
-});
 
 // Informe del lanzamiento: las métricas en una página aparte, lista para guardar en PDF o compartir.
 $('#btn-informe').addEventListener('click', () => {
@@ -1028,8 +987,7 @@ function openConfig(code) {
   const l = editingCode ? state.config.launches[editingCode]
     : {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
-      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag,
-      encuestaCampos: last.encuestaCampos, encuestaNombres: last.encuestaNombres, vipContadorBase: last.vipContadorBase,
+      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag, vipContadorBase: last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, textos: last.textos,
       inicioCaptacion: new Date().toISOString().slice(0, 10),
@@ -1082,7 +1040,6 @@ function openConfig(code) {
   $('#cfg-obj-vip').value = l.objetivos?.vip || '';
   $('#cfg-obj-ventas').value = l.objetivos?.ventas || '';
   $('#cfg-obj-facturacion').value = l.objetivos?.facturacion || '';
-  renderEncuestaCampos(l.encuestaCampos || [], l.encuestaNombres || {});
   $('#cfg-organico-tag').value = l.organicoTag || '';
   $('#cfg-inversion').value = l.inversion || '';
   $('#cfg-meta-filtro').value = l.metaFiltro || '';
@@ -1333,7 +1290,6 @@ function readForm() {
         registros: $('#cfg-obj-registros').value, vip: $('#cfg-obj-vip').value,
         ventas: $('#cfg-obj-ventas').value, facturacion: $('#cfg-obj-facturacion').value,
       },
-      ...readEncuestaCampos(),
       organicoTag: $('#cfg-organico-tag').value.trim().toLowerCase(),
       inversion: $('#cfg-inversion').value,
       metaFiltro: $('#cfg-meta-filtro').value.trim(),

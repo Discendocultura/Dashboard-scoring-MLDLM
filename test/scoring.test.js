@@ -187,3 +187,13 @@ test('CAC y ROAS de publicidad, objetivos, respuestas de la encuesta y avisos', 
   assert.ok(avisos.some((a) => a.startsWith('1 leads sin etiqueta')));
   assert.ok(avisos.some((a) => a.startsWith('Falta en Configuración')));
 });
+
+test('encuesta: la edad va por tramos y el texto libre se agrupa sin mayúsculas', async () => {
+  const { porRespuesta } = await import('../public/js/metrics.js');
+  const lead = (cf, compra = false) => ({ s: { compra, vip: false }, cf });
+  const leads = [lead({ e: 29 }), lead({ e: '36' }, true), lead({ e: 41 }), lead({ e: 'treinta' }), lead({ t: 'El estrés' }), lead({ t: 'el estrés.' }, true), lead({ t: 'Mis hormonas' })];
+  assert.deepEqual(porRespuesta(leads, { id: 'e', tipo: 'edad' }).map((r) => [r.respuesta, r.leads, r.compras]),
+    [['Menos de 30 años', 1, 0], ['35 a 37 años', 1, 1], ['Más de 40 años', 1, 0], ['', 4, 1]]);
+  assert.deepEqual(porRespuesta(leads, { id: 't', tipo: 'texto' }).filter((r) => r.respuesta).map((r) => [r.respuesta, r.leads, r.compras]),
+    [['El estrés', 2, 1], ['Mis hormonas', 1, 0]]);
+});
