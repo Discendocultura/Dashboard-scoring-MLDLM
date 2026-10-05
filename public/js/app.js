@@ -858,6 +858,7 @@ function openConfig(code) {
   $('#cfg-meta-filtro').value = l.metaFiltro || '';
   renderMetaNaming();
   $('#cfg-digest-email').value = state.config.digestEmail || '';
+  renderAccesosEditor(state.config.accesos);
   $('#tpl-grabacion').value = state.config.templates.grabacion;
   $('#tpl-raices').value = state.config.templates.raices;
   $('#tpl-cierre').value = state.config.templates.cierre;
@@ -1080,6 +1081,7 @@ $('#cfg-save').addEventListener('click', async () => {
       ...state.config,
       defaultCountryCode: $('#cfg-country').value,
       digestEmail: $('#cfg-digest-email').value.trim(),
+      accesos: readAccesosEditor(),
       templates: { grabacion: $('#tpl-grabacion').value, raices: $('#tpl-raices').value, cierre: $('#tpl-cierre').value },
       launches: { ...state.config.launches, [code]: launch },
     };
@@ -1249,6 +1251,34 @@ function readEnlacesEditor() {
 
 $('#btn-add-enlace').addEventListener('click', () => $('#cfg-enlaces').insertAdjacentHTML('beforeend', enlaceRow()));
 $('#cfg-enlaces').addEventListener('click', (e) => { if (e.target.closest('.enl-del')) e.target.closest('.enlace-row').remove(); });
+
+// Accesos directos a GHL. Si no hay ninguno, se proponen los habituales con la URL vacía.
+const ACCESOS_SUGERIDOS = ['Workflow · formulario de registro', 'Workflow · encuesta rellenada', 'Encuesta del avatar', 'Formulario de registro', 'Página de recursos (editor)'];
+const accesoRow = (nombre = '', url = '') => `<div class="enlace-row acceso-row">
+  <input class="acc-nombre" value="${esc(nombre)}" placeholder="Nombre" maxlength="60">
+  <input class="acc-url" type="url" value="${esc(url)}" placeholder="https://app.gohighlevel.com/…">
+  <a class="btn acc-open" target="_blank" rel="noopener"${url ? ` href="${esc(url)}"` : ' aria-disabled="true"'}>Abrir ↗</a>
+  <button type="button" class="btn acc-del" title="Quitar">✕</button></div>`;
+
+function renderAccesosEditor(accesos) {
+  const list = accesos?.length ? accesos : ACCESOS_SUGERIDOS.map((nombre) => ({ nombre, url: '' }));
+  $('#cfg-accesos').innerHTML = list.map((a) => accesoRow(a.nombre, a.url)).join('');
+}
+
+function readAccesosEditor() {
+  return $$('#cfg-accesos .acceso-row')
+    .map((r) => ({ nombre: $('.acc-nombre', r).value.trim(), url: $('.acc-url', r).value.trim() }))
+    .filter((a) => a.nombre);
+}
+
+$('#btn-add-acceso').addEventListener('click', () => $('#cfg-accesos').insertAdjacentHTML('beforeend', accesoRow()));
+$('#cfg-accesos').addEventListener('click', (e) => { if (e.target.closest('.acc-del')) e.target.closest('.acceso-row').remove(); });
+$('#cfg-accesos').addEventListener('input', (e) => {
+  if (!e.target.classList.contains('acc-url')) return;
+  const a = $('.acc-open', e.target.closest('.acceso-row'));
+  const url = e.target.value.trim();
+  if (/^https:\/\//i.test(url)) { a.href = url; a.removeAttribute('aria-disabled'); } else { a.removeAttribute('href'); a.setAttribute('aria-disabled', 'true'); }
+});
 
 // Textos de la página: los fijos (bloque de clases) + los que añada a mano.
 const textoRow = (k = '', v = '') => `<div class="enlace-row texto-row">

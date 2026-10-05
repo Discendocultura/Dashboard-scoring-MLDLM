@@ -190,6 +190,7 @@
           <button type="button" class="tab" data-tab="messages">Mensajes de WhatsApp</button>
           <button type="button" class="tab" data-tab="pagina">Página de recursos</button>
           <button type="button" class="tab" data-tab="snippets">Códigos para GHL</button>
+          <button type="button" class="tab" data-tab="accesos">Accesos a GHL</button>
         </div>
 
         <section class="tab-panel" data-panel="launch">
@@ -210,6 +211,7 @@
             <div id="guia-check" class="guia-check"></div>
             <details class="guia-ghl">
               <summary>Lo que hay que hacer fuera del dashboard (en GHL, Zoom, WhatsApp y Vimeo)</summary>
+              <p class="guia-sub">Los enlaces directos a cada workflow están en la pestaña <strong>Accesos a GHL</strong>.</p>
               <ol>
                 <li><strong>GHL · Etiqueta de registro:</strong> crea la etiqueta nueva y cámbiala en la acción «Add tag» del workflow del formulario de registro.</li>
                 <li><strong>GHL · Encuesta:</strong> duplica la encuesta, y en su workflow («Survey Submitted» → «Add tag») pon la etiqueta de encuesta nueva. Copia el enlace de la encuesta nueva.</li>
@@ -321,6 +323,12 @@
             <button type="button" class="btn" id="btn-preview">Abrir vista previa</button>
           </div>
           <p class="muted">Abre tu página de recursos simulando esa fecha (solo cambia lo que ves tú; para las leads sigue siendo hoy). Guarda antes los cambios.</p>
+        </section>
+
+        <section class="tab-panel" data-panel="accesos" hidden>
+          <p class="muted">Enlaces directos a lo que hay que tocar en GHL en cada lanzamiento (workflows, encuesta, formulario…). Se abren en una pestaña nueva. Para copiar la URL: abre el workflow en GHL y copia la dirección del navegador. Pulsa <strong>Guardar</strong> para conservarlos.</p>
+          <div id="cfg-accesos" class="enlaces-list"></div>
+          <button type="button" class="btn" id="btn-add-acceso">+ Añadir acceso</button>
         </section>
 
         <section class="tab-panel" data-panel="snippets" hidden>
