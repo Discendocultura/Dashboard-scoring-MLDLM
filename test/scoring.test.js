@@ -122,3 +122,15 @@ test('llamada agendada: etiqueta fija sin las de antes, o marcada por la setter'
   assert.equal(signalsFor(['registro'], 'nov26', cfg).llamada, false);
   assert.ok(isValidSignalTag('nov26_llamada_previo'));
 });
+
+test('ventas por día del carrito según la fecha de compra', async () => {
+  const { ventasPorDia } = await import('../public/js/metrics.js');
+  const lead = (compra, fecha) => ({ s: { compra, fecha_compra: compra ? fecha : '' } });
+  const launch = { fechaDirecto: '2026-10-29', compraDateField: 'f1', cierreCarrito: '2026-11-01T23:59' };
+  const v = ventasPorDia([lead(true, '2026-10-29'), lead(true, '2026-10-29'), lead(true, '2026-11-01'), lead(true, '2026-10-20'), lead(true, ''), lead(false)], launch);
+  assert.deepEqual(v.days.map((d) => [d.day, d.n]), [['2026-10-29', 2], ['2026-10-30', 0], ['2026-10-31', 0], ['2026-11-01', 1]]);
+  assert.equal(v.antes, 1);
+  assert.equal(v.sinFecha, 1);
+  assert.equal(v.total, 5);
+  assert.equal(ventasPorDia([], { fechaDirecto: '2026-10-29' }), null);
+});

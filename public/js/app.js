@@ -1,7 +1,7 @@
 import {
   ESTADOS, NEXT_STEPS, buildMessage, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, OUTCOMES,
 } from './scoring.js';
-import { enrichLead, computeMetrics, bySource } from './metrics.js';
+import { enrichLead, computeMetrics, bySource, ventasPorDia } from './metrics.js';
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -316,11 +316,11 @@ function renderMetrics() {
     card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros · ${pctOf(m.vipLive, m.vip)} de las VIP`),
     card('Compras totales', m.compra, `${pctOf(m.compra, m.total)} de los registros`),
     card('Llamadas agendadas', `${m.llamada} <small class="muted">de ${m.total}</small>`, `${pctOf(m.llamada, m.total)} de los registros · ${pctOf(m.compraLlamada, m.llamada)} compran`),
-    card('Compras de VIP', m.compraVip, `${pctOf(m.compraVip, m.vip)} de las VIP`),
     directoCard,
   ].join('');
 
   renderEconomics(m, launch);
+  renderVentasDia(launch);
 
   const steps = [
     ['Registros', m.total],
@@ -365,6 +365,35 @@ function renderMetrics() {
   renderSources();
   renderSetterMetrics(m);
   renderLift(m);
+}
+
+// Ventas de Raíces por día del carrito (fecha de compra de Raíces).
+const dayFmt = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+function renderVentasDia(launch) {
+  const v = ventasPorDia(state.leads, launch);
+  const box = $('#ventas-dia');
+  if (!v) {
+    box.innerHTML = '<p class="muted">Configura el <strong>día del directo</strong> y el <strong>campo de fecha de compra</strong> (Configuración → Lanzamiento) para ver las ventas de cada día.</p>';
+    return;
+  }
+  const precio = Number(launch.precioPrograma) || 0;
+  const max = Math.max(1, ...v.days.map((d) => d.n));
+  let acum = v.antes;
+  const row = (label, hint, n, cls = '') => {
+    acum += cls === 'extra' ? 0 : n;
+    return `<div class="funnel-row">
+      <div class="funnel-label">${label}${hint ? `<small>${hint}</small>` : ''}</div>
+      <div class="funnel-bar buy ${cls}"><span style="width:${(n / max) * 100}%"></span></div>
+      <div class="funnel-num"><strong>${n}</strong> <span class="muted">${pctOf(n, v.total)}${precio && n ? ` · ${eur(n * precio)}` : ''}</span></div>
+    </div>`;
+  };
+  const cierre = (launch.cierreCarrito || '').slice(0, 10);
+  box.innerHTML = `${v.antes ? row('Antes del directo', '', v.antes, 'extra') : ''}
+    ${v.days.map((d, i) => row(`Día ${i + 1} · ${dayFmt.format(new Date(`${d.day}T12:00:00Z`))}`,
+    [i === 0 ? 'día del directo' : '', d.day === cierre ? 'cierre del carrito' : '', `acumulado ${acum + d.n} de ${v.total}`].filter(Boolean).join(' · '), d.n)).join('')}
+    ${v.despues ? row('Después del cierre', '', v.despues, 'extra') : ''}
+    ${v.sinFecha ? row('Sin fecha de compra', 'clientas con la etiqueta pero sin fecha', v.sinFecha, 'extra') : ''}
+    <p class="muted">Total: <strong>${v.total}</strong> ventas de Raíces${precio ? ` · ${eur(v.total * precio)}` : ''}.</p>`;
 }
 
 // Inversión, facturación y rentabilidad.

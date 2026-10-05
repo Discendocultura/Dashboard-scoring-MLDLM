@@ -167,6 +167,7 @@ body.is-admin .setter-only { display: none !important; }
 .funnel-bar { height: 14px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
 .funnel-bar span { display: block; height: 100%; border-radius: 4px; background: var(--accent); min-width: 2px; }
 .funnel-bar.buy span { background: var(--wa); }
+.funnel-bar.extra span { opacity: .45; }
 .funnel-num { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; white-space: nowrap; }
 .funnel-num strong { font-size: 14px; }
 table.metric-table { width: 100%; border-collapse: collapse; min-width: 520px; }

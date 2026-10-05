@@ -128,6 +128,28 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
   return m;
 }
 
+// Ventas de Raíces por día del carrito (del día del directo al cierre), según la fecha de compra.
+// Las que caen antes, después o sin fecha van aparte para que el total cuadre.
+const addDay = (day, n) => new Date(Date.parse(`${day}T12:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
+export function ventasPorDia(leads, launch) {
+  const start = launch?.fechaDirecto;
+  if (!start || !launch.compraDateField) return null;
+  const buys = leads.filter((l) => l.s.compra);
+  const daysWithSales = buys.map((l) => l.s.fecha_compra).filter(Boolean).sort();
+  const end = (launch.cierreCarrito || '').slice(0, 10) || [start, ...daysWithSales].sort().at(-1);
+  const days = [];
+  for (let d = start, i = 0; d <= end && i < 60; d = addDay(d, 1), i++) days.push({ day: d, n: 0 });
+  let antes = 0; let despues = 0; let sinFecha = 0;
+  for (const l of buys) {
+    const d = l.s.fecha_compra;
+    if (!d) sinFecha++;
+    else if (d < start) antes++;
+    else if (d > end) despues++;
+    else days.find((x) => x.day === d).n++;
+  }
+  return { days, antes, despues, sinFecha, total: buys.length };
+}
+
 // Agrupa los leads por su origen (campaña o anuncio de Meta según las UTM de GHL).
 export function bySource(leads, level = 'campaign', names = {}) {
   const groups = new Map();
