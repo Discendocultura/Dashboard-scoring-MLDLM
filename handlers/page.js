@@ -105,6 +105,7 @@ export async function GET(request) {
       encuesta: { required: encuestaRequired, done: encuestaDone },
       vip: { open: vipOpen, closesAt: m.directo, isVip, precio: launch.precioVip || 0 },
       texts: {
+        ...(launch.textos || {}),
         nombre: launch.name || '',
         fechaDirecto: formatDate(m.directo), horaDirecto: formatTime(m.directo), directo: formatLong(m.directo),
         clase1: formatLong(m.clase1), clase2: formatLong(m.clase2), replay: formatLong(m.replay),

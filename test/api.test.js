@@ -291,4 +291,6 @@ test('enlaces personalizados para botones', async () => {
   const { sanitizeConfig } = await import('../lib/config-store.js');
   const c = sanitizeConfig({ launches: { x1: { registroTag: 'r', enlaces: { Guia: 'https://a.com/g', vip: 'https://hack', 'mal nombre': 'https://b.com', ig: 'javascript:alert(1)' } } } });
   assert.deepEqual(c.launches.x1.enlaces, { guia: 'https://a.com/g' });
+  const t = sanitizeConfig({ launches: { x1: { registroTag: 'r', textos: { 'Clase1-Titulo': ' Hola ', clase1: 'pisa la fecha', 'mal nombre': 'x', vacio: '' } } } });
+  assert.deepEqual(t.launches.x1.textos, { 'clase1-titulo': 'Hola' });
 });

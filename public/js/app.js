@@ -812,6 +812,8 @@ function openConfig(code) {
     : {
       vipTag: last.vipTag, compraTag: last.compraTag, compraDateField: last.compraDateField,
       precioVip: last.precioVip, precioPrograma: last.precioPrograma,
+      // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
+      clase1Url: last.clase1Url, clase2Url: last.clase2Url, textos: last.textos,
       inicioCaptacion: new Date().toISOString().slice(0, 10),
     };
   $('#cfg-code').value = editingCode || '';
@@ -839,6 +841,7 @@ function openConfig(code) {
   $('#cfg-calendario-url').value = l.calendarioUrl || '';
   renderBarraEditor(l.barra || {});
   renderEnlacesEditor(l.enlaces || {});
+  renderTextosEditor(l.textos || {});
   renderPhaseNow(l);
   checkLaunchTags();
   fillDateFields(l.compraDateField);
@@ -949,6 +952,7 @@ function readForm() {
       calendarioUrl: $('#cfg-calendario-url').value.trim(),
       barra: readBarraEditor(),
       enlaces: readEnlacesEditor(),
+      textos: readTextosEditor(),
       zoomMeetingId: $('#cfg-zoom-id').value,
       zoomJoinUrl: $('#cfg-zoom-url').value.trim(),
       replayUrl: $('#cfg-replay').value.trim(),
@@ -1145,6 +1149,32 @@ function readEnlacesEditor() {
 
 $('#btn-add-enlace').addEventListener('click', () => $('#cfg-enlaces').insertAdjacentHTML('beforeend', enlaceRow()));
 $('#cfg-enlaces').addEventListener('click', (e) => { if (e.target.closest('.enl-del')) e.target.closest('.enlace-row').remove(); });
+
+// Textos de la página: los fijos (bloque de clases) + los que añada a mano.
+const textoRow = (k = '', v = '') => `<div class="enlace-row texto-row">
+  <input class="txt-key" value="${esc(k)}" placeholder="nombre-del-texto" pattern="[a-z0-9\\-]{2,40}">
+  <textarea class="txt-val" rows="1" placeholder="Texto">${esc(v)}</textarea>
+  <button type="button" class="btn txt-del" title="Quitar">✕</button></div>`;
+
+function renderTextosEditor(textos) {
+  const fixed = new Set();
+  $$('#cfg-textos-fijos [data-texto]').forEach((el) => { fixed.add(el.dataset.texto); el.value = textos[el.dataset.texto] || ''; });
+  $('#cfg-textos').innerHTML = Object.entries(textos).filter(([k]) => !fixed.has(k)).map(([k, v]) => textoRow(k, v)).join('');
+}
+
+function readTextosEditor() {
+  const out = {};
+  $$('#cfg-textos .texto-row').forEach((r) => {
+    const k = $('.txt-key', r).value.trim().toLowerCase();
+    const v = $('.txt-val', r).value.trim();
+    if (k && v) out[k] = v;
+  });
+  $$('#cfg-textos-fijos [data-texto]').forEach((el) => { if (el.value.trim()) out[el.dataset.texto] = el.value.trim(); });
+  return out;
+}
+
+$('#btn-add-texto').addEventListener('click', () => $('#cfg-textos').insertAdjacentHTML('beforeend', textoRow()));
+$('#cfg-textos').addEventListener('click', (e) => { if (e.target.closest('.txt-del')) e.target.closest('.texto-row').remove(); });
 
 function readBarraEditor() {
   const out = {};

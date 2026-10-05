@@ -1,0 +1,146 @@
+<!-- BLOQUE · ETAPA 2: LAS CLASES · Página de recursos · Me lo dijo la matrona -->
+<!-- Titular, subtítulo, títulos y descripciones se editan en el dashboard: Configuración → Página de recursos → Textos de la página -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+.mldlm-paso2{
+  --mldlm-burdeos:#860d0e; --mldlm-boton:#c49b79; --mldlm-pastel:#f0e4da;
+  --mldlm-texto:#3a2a24; --mldlm-linea:#e2d3c5; --mldlm-marron:#4a2c20;
+  background:var(--mldlm-pastel); font-family:'Lato',sans-serif; color:var(--mldlm-texto);
+  padding:0 16px 0; box-sizing:border-box; width:100%; margin:0; overflow:hidden;
+}
+.mldlm-paso2 *,.mldlm-paso2 *::before,.mldlm-paso2 *::after{box-sizing:border-box;}
+.mldlm-paso2 .mldlm-e2__inner{max-width:760px; margin:0 auto;}
+
+/* ===== Llegada del sendero y mojón 2 ===== */
+.mldlm-paso2 .mldlm-e2__sendero{display:block; width:120px; height:90px; margin:0 auto;}
+.mldlm-paso2 .mldlm-e2__trazo{stroke-dasharray:2 12; animation:mldlmE2Marcha 1s linear infinite;}
+@keyframes mldlmE2Marcha{to{stroke-dashoffset:-14;}}
+.mldlm-paso2 .mldlm-e2__mojon{display:block; width:62px; margin:-6px auto 18px; filter:drop-shadow(0 6px 10px rgba(74,44,32,.22)); animation:mldlmE2Mojon 3.2s ease-in-out infinite;}
+.mldlm-paso2 .mldlm-e2__mojon svg{display:block; width:100%; height:auto;}
+@keyframes mldlmE2Mojon{0%,100%{transform:translateY(0);} 50%{transform:translateY(-5px);}}
+
+/* ===== Cabecera ===== */
+.mldlm-paso2 .mldlm-e2__cab{text-align:center; margin:0 auto 28px; max-width:600px;}
+.mldlm-paso2 .mldlm-e2__etiqueta{display:flex; width:fit-content; align-items:center; gap:8px; margin:0 auto 12px; font-size:15px; font-weight:900; letter-spacing:.03em; line-height:1.3; color:var(--mldlm-burdeos);}
+.mldlm-paso2 .mldlm-e2__etiqueta svg{width:18px; height:18px;}
+.mldlm-paso2 .mldlm-e2__titulo{margin:0 0 12px; font-family:'Lato',sans-serif; font-size:28px; font-weight:900; line-height:1.2; letter-spacing:-.01em; color:var(--mldlm-marron);}
+.mldlm-paso2 .mldlm-e2__sub{margin:0; font-size:17px; line-height:1.6; color:var(--mldlm-texto);}
+
+/* ===== Aviso: falta la etapa 1 ===== */
+.mldlm-paso2 .mldlm-e2__aviso{margin:0 auto 28px; max-width:600px; padding:14px 18px; text-align:center; font-size:15px; font-weight:700; line-height:1.45; color:var(--mldlm-burdeos); background:#ffffff; border:1.5px dashed var(--mldlm-boton); border-radius:16px;}
+
+/* ===== Tarjetas de clase ===== */
+.mldlm-paso2 .mldlm-e2__clase{position:relative; background:#ffffff; border:1px solid var(--mldlm-linea); border-radius:20px; padding:22px 14px 14px; margin:0; box-shadow:0 14px 40px rgba(134,13,14,.10); animation:mldlmE2Entra .8s cubic-bezier(.2,.8,.2,1) both;}
+.mldlm-paso2 .mldlm-e2__clase + .mldlm-e2__tramo + .mldlm-e2__clase{animation-delay:.15s;}
+@keyframes mldlmE2Entra{from{opacity:0; transform:translateY(22px);} to{opacity:1; transform:none;}}
+.mldlm-paso2 .mldlm-e2__info{padding:0 6px; margin:0 0 18px;}
+.mldlm-paso2 .mldlm-e2__num{display:inline-flex; align-items:center; gap:8px; margin:0 0 10px; padding:6px 14px 6px 8px; border-radius:999px; background:var(--mldlm-pastel); font-size:14px; font-weight:900; line-height:1.2; color:var(--mldlm-burdeos);}
+.mldlm-paso2 .mldlm-e2__num i{display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--mldlm-burdeos); color:#ffffff; font-style:normal; font-size:13px;}
+.mldlm-paso2 .mldlm-e2__clase h3{margin:0 0 8px; font-family:'Lato',sans-serif; font-size:22px; font-weight:900; line-height:1.25; color:var(--mldlm-marron);}
+.mldlm-paso2 .mldlm-e2__desc{margin:0 0 12px; font-size:16px; line-height:1.6; color:var(--mldlm-texto); white-space:pre-line;}
+.mldlm-paso2 .mldlm-e2__desc:empty{display:none;}
+.mldlm-paso2 .mldlm-e2__fecha{display:flex; align-items:center; gap:8px; margin:0; font-size:14px; line-height:1.4; color:#6b5448;}
+.mldlm-paso2 .mldlm-e2__fecha svg{width:16px; height:16px; flex:none; color:var(--mldlm-burdeos);}
+.mldlm-paso2 .mldlm-e2__fecha span{font-weight:700; color:var(--mldlm-texto);}
+
+/* Contenedor del vídeo (Vimeo lo inserta el script) */
+.mldlm-paso2 [data-lsd-video]{border-radius:14px; overflow:hidden; background:var(--mldlm-pastel);}
+.mldlm-paso2 [data-lsd-video] iframe{display:block; border:0; border-radius:14px;}
+
+/* ===== Tarjeta bloqueada (la genera el script) ===== */
+.mldlm-paso2 .lsd-locked{position:relative !important; aspect-ratio:16/9 !important; min-height:auto !important; width:100% !important; display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:10px !important; padding:24px 18px 40px !important; margin:0 !important; text-align:center !important; border:1px solid var(--mldlm-linea) !important; border-radius:14px !important; background:linear-gradient(180deg,#fbf6f1 0%,#f6ebe1 100%) !important; overflow:visible !important; font-family:'Lato',sans-serif !important; color:var(--mldlm-texto) !important;}
+.mldlm-paso2 .lsd-locked::before{content:"" !important; position:absolute !important; left:0 !important; right:0 !important; bottom:0 !important; height:62% !important; background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%201200%20300%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M0%20170%20C%20200%20120%2C%20340%20150%2C%20520%20130%20S%20860%2090%2C%201020%20120%20S%201150%20110%2C%201200%20104%20V300%20H0Z%22%20fill%3D%22%23ecdccd%22/%3E%3Cpath%20d%3D%22M0%20220%20C%20220%20196%2C%20420%20214%2C%20620%20198%20S%20960%20182%2C%201200%20192%20V300%20H0Z%22%20fill%3D%22%23e3cdb8%22/%3E%3Cpath%20d%3D%22M-20%20290%20C%20180%20270%2C%20300%20226%2C%20480%20232%20S%20760%20262%2C%20880%20220%20S%201100%20170%2C%201220%20176%22%20fill%3D%22none%22%20stroke%3D%22%23f7efe7%22%20stroke-width%3D%2222%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M-20%20290%20C%20180%20270%2C%20300%20226%2C%20480%20232%20S%20760%20262%2C%20880%20220%20S%201100%20170%2C%201220%20176%22%20fill%3D%22none%22%20stroke%3D%22%23c49b79%22%20stroke-width%3D%223%22%20stroke-dasharray%3D%223%2012%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E") repeat-x 0 100% / 1200px 100% !important; opacity:.85 !important; animation:mldlmE2Paisaje 40s linear infinite !important; pointer-events:none !important; z-index:0 !important;}
+@keyframes mldlmE2Paisaje{to{background-position:-1200px 100%;}}
+.mldlm-paso2 .lsd-locked > *{position:relative !important; z-index:1 !important;}
+.mldlm-paso2 .lsd-locked-icon{display:flex !important; align-items:center !important; justify-content:center !important; width:58px !important; height:58px !important; margin:0 0 4px !important; border-radius:50% !important; background:var(--mldlm-burdeos) !important; color:#ffffff !important; font-size:24px !important; line-height:1 !important; box-shadow:0 0 0 0 rgba(134,13,14,.35) !important; animation:mldlmE2Candado 2.4s ease-out infinite !important;}
+.mldlm-paso2 .lsd-locked-icon{font-size:0 !important; color:transparent !important;}
+.mldlm-paso2 .lsd-locked-icon > *{display:none !important;}
+.mldlm-paso2 .lsd-locked-icon::before{content:"" !important; display:block !important; width:30px !important; height:30px !important; background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M7.5%2010.5V7.5a4.5%204.5%200%200%201%209%200v3%22%20fill%3D%22none%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22/%3E%3Crect%20x%3D%224%22%20y%3D%2210%22%20width%3D%2216%22%20height%3D%2212%22%20rx%3D%222.6%22%20fill%3D%22%23ffffff%22/%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2215%22%20r%3D%221.7%22%20fill%3D%22%23860d0e%22/%3E%3Crect%20x%3D%2211.15%22%20y%3D%2215.5%22%20width%3D%221.7%22%20height%3D%223.6%22%20rx%3D%22.85%22%20fill%3D%22%23860d0e%22/%3E%3C/svg%3E") center / contain no-repeat !important; transform-origin:50% 0 !important; animation:mldlmE2Balanceo 3s ease-in-out infinite !important;}
+@keyframes mldlmE2Balanceo{0%,70%,100%{transform:rotate(0);} 76%{transform:rotate(-10deg);} 82%{transform:rotate(8deg);} 88%{transform:rotate(-5deg);} 94%{transform:rotate(2deg);}}
+@keyframes mldlmE2Candado{0%{box-shadow:0 0 0 0 rgba(134,13,14,.35);} 70%,100%{box-shadow:0 0 0 18px rgba(134,13,14,0);}}
+.mldlm-paso2 .lsd-locked-text{margin:0 !important; max-width:26em !important; font-size:16px !important; font-weight:900 !important; line-height:1.4 !important; color:var(--mldlm-marron) !important;}
+.mldlm-paso2 .lsd-locked-count{margin:0 !important; font-size:14px !important; font-weight:700 !important; line-height:1.4 !important; color:var(--mldlm-texto) !important; background:rgba(255,255,255,.85) !important; border:1px solid var(--mldlm-linea) !important; border-radius:999px !important; padding:6px 14px !important;}
+.mldlm-paso2 .lsd-cd{font-weight:900 !important; color:var(--mldlm-burdeos) !important; font-variant-numeric:tabular-nums !important;}
+.mldlm-paso2 .lsd-locked-btn{display:inline-flex !important; align-items:center !important; justify-content:center !important; min-height:48px !important; padding:12px 26px !important; margin:4px 0 0 !important; font-family:'Lato',sans-serif !important; font-size:16px !important; font-weight:900 !important; line-height:1.2 !important; color:var(--mldlm-texto) !important; background:var(--mldlm-boton) !important; border:0 !important; border-radius:999px !important; text-decoration:none !important; cursor:pointer !important; box-shadow:0 6px 18px rgba(196,155,121,.5) !important; transition:background-color .25s ease,color .25s ease !important;}
+.mldlm-paso2 .lsd-locked-btn:hover{background:var(--mldlm-burdeos) !important; color:#ffffff !important;}
+.mldlm-paso2 .lsd-locked-btn:focus-visible{outline:3px solid var(--mldlm-burdeos) !important; outline-offset:3px !important;}
+/* "Muy pronto disponible": candado en color suave */
+.mldlm-paso2 [data-lsd-locked^="pronto"] .lsd-locked-icon{background:var(--mldlm-boton) !important;}
+
+/* ===== Tramo de camino entre clases y salida ===== */
+.mldlm-paso2 .mldlm-e2__tramo{display:block; width:120px; height:70px; margin:0 auto;}
+.mldlm-paso2 .mldlm-e2__concha{transform-box:fill-box; transform-origin:50% 50%; animation:mldlmE2Bota 2s ease-in-out infinite;}
+@keyframes mldlmE2Bota{0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);}}
+.mldlm-paso2 .mldlm-e2__salida{display:block; width:120px; height:110px; margin:0 auto;}
+
+@media (min-width:768px){
+  .mldlm-paso2{padding:0 24px;}
+  .mldlm-paso2 .mldlm-e2__mojon{width:70px;}
+  .mldlm-paso2 .mldlm-e2__cab{margin-bottom:36px;}
+  .mldlm-paso2 .mldlm-e2__titulo{font-size:38px;}
+  .mldlm-paso2 .mldlm-e2__sub{font-size:18px;}
+  .mldlm-paso2 .mldlm-e2__clase{padding:30px 24px 24px;}
+  .mldlm-paso2 .mldlm-e2__info{padding:0 8px; margin-bottom:22px;}
+  .mldlm-paso2 .mldlm-e2__clase h3{font-size:28px;}
+  .mldlm-paso2 .mldlm-e2__desc{font-size:17px;}
+  .mldlm-paso2 .lsd-locked{gap:12px !important;}
+  .mldlm-paso2 .lsd-locked-text{font-size:19px !important;}
+  .mldlm-paso2 .lsd-locked-count{font-size:15px !important;}
+  .mldlm-paso2 .lsd-locked-icon{width:66px !important; height:66px !important;}
+  .mldlm-paso2 .lsd-locked-icon::before{width:34px !important; height:34px !important;}
+}
+@media (prefers-reduced-motion:reduce){
+  .mldlm-paso2 *,.mldlm-paso2 *::before,.mldlm-paso2 *::after{animation:none !important; transition:none !important;}
+}
+</style>
+
+<section class="paso2 mldlm-paso2">
+ <div class="mldlm-e2__inner">
+  <svg class="mldlm-e2__sendero" viewBox="0 0 120 90" aria-hidden="true">
+    <path d="M60 0 C 95 30, 25 55, 60 90" fill="none" stroke="#e6d4c3" stroke-width="12" stroke-linecap="round"/>
+    <path class="mldlm-e2__trazo" d="M60 0 C 95 30, 25 55, 60 90" fill="none" stroke="#c49b79" stroke-width="3" stroke-linecap="round"/>
+  </svg>
+  <div class="mldlm-e2__mojon"><svg viewBox="0 0 70 92" aria-hidden="true">
+      <path d="M6 88V30C6 14 19 4 35 4s29 10 29 26v58Z" fill="#e9dccf" stroke="#cdb7a2" stroke-width="2"/>
+      <rect x="15" y="16" width="40" height="34" rx="5" fill="#860d0e"/>
+      <g transform="translate(23 19)" color="#c49b79"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#ffffff" stroke-width="1" stroke-linecap="round" opacity=".55"/></g>
+      <text x="35" y="76" text-anchor="middle" font-family="Lato,sans-serif" font-size="24" font-weight="900" fill="#4a2c20">2</text>
+    </svg></div>
+  <div class="mldlm-e2__cab">
+    <p class="mldlm-e2__etiqueta"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="8" cy="7" rx="2.6" ry="4"/><ellipse cx="7.6" cy="14.4" rx="1.8" ry="2.2"/><ellipse cx="16" cy="10" rx="2.6" ry="4"/><ellipse cx="15.6" cy="17.4" rx="1.8" ry="2.2"/></svg>Etapa 2</p>
+    <h2 class="mldlm-e2__titulo" data-lsd-text="clases-titulo">Mira las clases antes del directo</h2>
+    <p class="mldlm-e2__sub" data-lsd-text="clases-subtitulo">Te preparan para llegar al directo con todo claro y sacarle el máximo partido.</p>
+  </div>
+
+  <div data-lsd-if="encuesta-pendiente" class="mldlm-e2__aviso">🔒 Completa la Etapa 1 para desbloquear tus clases</div>
+
+  <article class="clase mldlm-e2__clase">
+    <div class="mldlm-e2__info">
+      <span class="mldlm-e2__num"><i>1</i>Clase 1</span>
+      <h3 data-lsd-text="clase1-titulo">Clase 1</h3>
+      <p class="mldlm-e2__desc" data-lsd-text="clase1-descripcion"></p>
+      <p class="mldlm-e2__fecha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>Disponible: <span data-lsd-text="clase1"></span></p>
+    </div>
+    <div data-lsd-video="clase1" data-encuesta-text="Completa la Etapa 1 para ver esta clase" data-encuesta-label="Ir a la Etapa 1"></div>
+  </article>
+  <svg class="mldlm-e2__tramo" viewBox="0 0 120 70" aria-hidden="true">
+    <path d="M60 0 C 30 25, 90 45, 60 70" fill="none" stroke="#e6d4c3" stroke-width="12" stroke-linecap="round"/>
+    <path class="mldlm-e2__trazo" d="M60 0 C 30 25, 90 45, 60 70" fill="none" stroke="#c49b79" stroke-width="3" stroke-linecap="round"/>
+  </svg>
+  <article class="clase mldlm-e2__clase">
+    <div class="mldlm-e2__info">
+      <span class="mldlm-e2__num"><i>2</i>Clase 2</span>
+      <h3 data-lsd-text="clase2-titulo">Clase 2</h3>
+      <p class="mldlm-e2__desc" data-lsd-text="clase2-descripcion"></p>
+      <p class="mldlm-e2__fecha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>Disponible: <span data-lsd-text="clase2"></span></p>
+    </div>
+    <div data-lsd-video="clase2" data-encuesta-text="Completa la Etapa 1 para ver esta clase" data-encuesta-label="Ir a la Etapa 1"></div>
+  </article>
+  <svg class="mldlm-e2__salida" viewBox="0 0 120 110" aria-hidden="true">
+    <path d="M60 0 C 20 30, 100 55, 60 84" fill="none" stroke="#e6d4c3" stroke-width="12" stroke-linecap="round"/>
+    <path class="mldlm-e2__trazo" d="M60 0 C 20 30, 100 55, 60 84" fill="none" stroke="#c49b79" stroke-width="3" stroke-linecap="round"/><g class="mldlm-e2__concha" color="#860d0e"><g transform="translate(48 84)"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#ffffff" stroke-width="1" stroke-linecap="round" opacity=".55"/></g></g>
+  </svg>
+ </div>
+</section>

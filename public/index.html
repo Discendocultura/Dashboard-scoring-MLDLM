@@ -282,6 +282,20 @@
             <label class="field"><span>Cierre del carrito de Raíces</span><input id="cfg-cierre" type="datetime-local"></label>
             <label class="field"><span>Botón «Añadir al calendario» <small>(vacío = Google Calendar con la fecha y hora del directo, generado solo)</small></span><input id="cfg-calendario-url" type="url" placeholder="Se genera solo"></label>
           </div>
+          <h3 class="cfg-h3">Textos de la página</h3>
+          <p class="muted">Se ven en la página de recursos sin tocar GHL. Si dejas uno vacío, se queda el texto que haya en el diseño. En el HTML: <code>&lt;span data-lsd-text="clase1-titulo"&gt;&lt;/span&gt;</code>.</p>
+          <div class="grid2" id="cfg-textos-fijos">
+            <label class="field"><span>Etapa 2 · titular <small>(<code>clases-titulo</code>)</small></span><input data-texto="clases-titulo" placeholder="Mira las clases antes del directo"></label>
+            <label class="field"><span>Etapa 2 · subtítulo <small>(<code>clases-subtitulo</code>)</small></span><textarea data-texto="clases-subtitulo" rows="2"></textarea></label>
+            <label class="field"><span>Clase 1 · título <small>(<code>clase1-titulo</code>)</small></span><input data-texto="clase1-titulo"></label>
+            <label class="field"><span>Clase 1 · descripción <small>(<code>clase1-descripcion</code>)</small></span><textarea data-texto="clase1-descripcion" rows="2"></textarea></label>
+            <label class="field"><span>Clase 2 · título <small>(<code>clase2-titulo</code>)</small></span><input data-texto="clase2-titulo"></label>
+            <label class="field"><span>Clase 2 · descripción <small>(<code>clase2-descripcion</code>)</small></span><textarea data-texto="clase2-descripcion" rows="2"></textarea></label>
+          </div>
+          <p class="muted">Otros textos (para bloques futuros): nombre en minúsculas y guiones, p. ej. <code>etapa3-titulo</code> → <code>&lt;span data-lsd-text="etapa3-titulo"&gt;</code>.</p>
+          <div id="cfg-textos" class="enlaces-list"></div>
+          <button type="button" class="btn" id="btn-add-texto">+ Añadir texto</button>
+
           <h3 class="cfg-h3">Enlaces personalizados para botones</h3>
           <p class="muted">Para cualquier otro botón de la página. En el HTML: <code>&lt;a data-lsd-link="nombre"&gt;</code>. Nombre en minúsculas, sin espacios (p. ej. <code>guia</code>, <code>instagram</code>).</p>
           <div id="cfg-enlaces" class="enlaces-list"></div>
