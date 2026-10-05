@@ -313,6 +313,14 @@ export function perfilesCompradoras(leads, preguntas, objetivo = 'compra') {
   return res;
 }
 
+// Primer avatar con el que encaja una lead (todas sus respuestas coinciden) o -1.
+export function avatarDeLead(l, avatares, preguntas) {
+  return avatares.findIndex((a) => a.traits.every(([id, r]) => {
+    const p = preguntas.find((q) => q.id === id);
+    return p && respuestasDe(l, p).includes(r);
+  }));
+}
+
 // Frase que describe un avatar a partir de sus respuestas.
 export function describirAvatar(traits, preguntas) {
   const parts = traits.map(([id, r]) => {

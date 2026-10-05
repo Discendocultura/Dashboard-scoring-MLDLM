@@ -523,3 +523,41 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .av-tablas { margin-top: 16px; }
 .av-tablas summary { cursor: pointer; font-weight: 600; font-size: 13px; }
 @media (max-width: 640px) { .av-qs { grid-template-columns: 1fr; } .av-stats strong { font-size: 16px; } }
+
+/* Avatar en la lista de leads */
+.av-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; vertical-align: middle; white-space: nowrap;
+  color: var(--tone); background: color-mix(in srgb, var(--tone) 13%, transparent); }
+.av-chip .ico { width: 12px; height: 12px; }
+
+/* Carrito frente a otro lanzamiento */
+.cc { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px; }
+.cc-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cc-head h3 { margin: 0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.cc-head .ico { color: var(--accent); }
+.cc-pick { margin: 0; }
+.cc-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.cc-kpis > div { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; background: var(--surface); }
+.cc-kpis span { font-size: 12px; color: var(--text-2); }
+.cc-kpis strong { font-size: 24px; font-variant-numeric: tabular-nums; }
+.cc-kpis em { font-style: normal; font-size: 12px; color: var(--muted); line-height: 1.4; }
+.cc-kpis em.up { color: var(--tone-buy); font-weight: 700; }
+.cc-kpis em.down { color: var(--st-muy-caliente); font-weight: 700; }
+.cc-kpis .cc-prev { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.cc-kpis .cc-prev strong { color: var(--accent); }
+.cc-leyenda { display: flex; gap: 6px 14px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--text-2); margin: 0; }
+.sw.cur { background: var(--accent); }
+.sw.prev { background: var(--muted); }
+.cc-chart-wrap { overflow-x: auto; }
+.cc-chart { width: 100%; max-width: 820px; min-width: 460px; height: auto; display: block; }
+.cc-grid { stroke: var(--border); stroke-width: 1; }
+.cc-ax { fill: var(--muted); font-size: 11px; }
+.cc-line { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.cc-line.cur { stroke: var(--accent); }
+.cc-line.prev { stroke: var(--muted); stroke-dasharray: 5 5; }
+.cc-dot { stroke: var(--surface); stroke-width: 2; }
+.cc-dot.cur { fill: var(--accent); }
+.cc-dot.prev { fill: var(--muted); }
+.cc-lbl { font-size: 12px; font-weight: 700; }
+.cc-lbl.cur { fill: var(--text); }
+.cc-lbl.prev { fill: var(--muted); }
+.cc-nota { margin-top: 12px; }

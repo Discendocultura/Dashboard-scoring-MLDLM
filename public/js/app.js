@@ -3,7 +3,7 @@ import {
 } from './scoring.js';
 import { icon } from './icons.js';
 import { ENCUESTA_PREGUNTAS } from './encuesta.js';
-import { enrichLead, computeMetrics, bySource, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar } from './metrics.js';
+import { enrichLead, computeMetrics, bySource, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -155,6 +155,7 @@ async function selectLaunch(code) {
 // ---------- Carga de leads (paginada contra GHL) ----------
 async function loadLeads() {
   if (state.compare) delete state.compare.cache[state.launchCode];
+  state.allAvatarLeads = null; // se vuelven a cargar con los datos nuevos
   const launch = state.config.launches[state.launchCode];
   const token = ++state.loadToken;
   const out = [];
@@ -212,6 +213,7 @@ function filtered() {
   let rows = state.leads.filter((l) => {
     if (q && !l.search.includes(q)) return false;
     if (f.estado && l.estado.id !== f.estado) return false;
+    if (f.avatar && !(l.avatar >= 0)) return false;
     if (f.step && l.step !== f.step) return false;
     if (f.pending && l.s.wa_enviado) return false;
     if (f.signal === 'sin_actividad') return l.score === 0 && !l.s.directo_click;
@@ -241,6 +243,7 @@ $('#f-estado').addEventListener('change', (e) => { state.filters.estado = e.targ
 $('#f-step').addEventListener('change', (e) => { state.filters.step = e.target.value; state.page = 0; render(); });
 $('#f-signal').addEventListener('change', (e) => { state.filters.signal = e.target.value; state.page = 0; render(); });
 $('#f-pending').addEventListener('change', (e) => { state.filters.pending = e.target.checked; state.page = 0; render(); });
+$('#f-avatar').addEventListener('change', (e) => { state.filters.avatar = e.target.checked; state.page = 0; render(); });
 $('#page-prev').addEventListener('click', () => { state.page--; render(); window.scrollTo({ top: 0 }); });
 $('#page-next').addEventListener('click', () => { state.page++; render(); window.scrollTo({ top: 0 }); });
 $$('.leads th[data-sort]').forEach((th) => th.addEventListener('click', () => {
@@ -253,6 +256,7 @@ $$('.leads th[data-sort]').forEach((th) => th.addEventListener('click', () => {
 
 // ---------- Render ----------
 function render() {
+  computeAvatares();
   renderKpis();
   renderHoy();
   renderMetrics();
@@ -325,6 +329,7 @@ function renderMetrics() {
 
   renderEconomics(m, launch);
   renderVentasDia(launch);
+  renderCarritoCompara(launch);
   renderPago(m, launch);
   renderOrigen(m, launch);
   renderEncuestaMetrics();
@@ -405,6 +410,112 @@ function renderVentasDia(launch) {
     <p class="muted">Total: <strong>${v.total}</strong> ventas de Raíces${precio ? ` · ${eur(v.importe)}` : ''}.</p>`;
 }
 
+// ---------- Carrito frente a un lanzamiento anterior, con previsión de cierre ----------
+// Ventas acumuladas por día del carrito (Día 1 = día del directo), incluidas las de antes del directo.
+function acumuladoCarrito(leads, launch) {
+  const v = ventasPorDia(leads, launch);
+  if (!v) return null;
+  let acc = v.antes;
+  return { cum: v.days.map((d) => (acc += d.n)), total: v.total, days: v.days, importeMedio: v.total ? v.importe / v.total : 0 };
+}
+// Lanzamientos con los que comparar: primero los anteriores a este (el más reciente, el primero).
+function carritoCandidatos(launch) {
+  const otros = launchesSorted().filter(([c, l]) => c !== state.launchCode && l.fechaDirecto && l.compraDateField);
+  const antes = otros.filter(([, l]) => !launch.fechaDirecto || l.fechaDirecto < launch.fechaDirecto);
+  return [...antes, ...otros.filter((x) => !antes.includes(x))];
+}
+function renderCarritoCompara(launch) {
+  const box = $('#carrito-compara');
+  const cands = carritoCandidatos(launch);
+  if (!launch.fechaDirecto || !launch.compraDateField || !cands.length) {
+    box.innerHTML = cands.length ? '' : '<p class="muted cc-nota">Cuando haya un lanzamiento anterior con día del directo y fecha de compra, aquí verás la comparación del carrito y una previsión de cierre.</p>';
+    return;
+  }
+  const code = cands.some(([c]) => c === state.carritoRef) ? state.carritoRef : cands[0][0];
+  const ref = state.config.launches[code];
+  const select = `<label class="field inline cc-pick"><span>Comparar con</span><select id="cc-launch">${cands.map(([c, l]) => `<option value="${esc(c)}"${c === code ? ' selected' : ''}>${esc(l.name)}</option>`).join('')}</select></label>`;
+  const prevLeads = state.launchLeads[code];
+  if (!prevLeads) {
+    box.innerHTML = `<div class="cc">${select}<p class="muted">Cargando las ventas de «${esc(ref.name)}»…</p></div>`;
+    if (!state.carritoLoading) {
+      state.carritoLoading = true;
+      loadLaunchLeads(code, 'Carrito').then(() => renderCarritoCompara(launch))
+        .catch((e) => { box.innerHTML = `<p class="muted">No se pudo cargar «${esc(ref.name)}»: ${esc(e.message)}</p>`; })
+        .finally(() => { state.carritoLoading = false; });
+    }
+    return;
+  }
+  const cur = acumuladoCarrito(state.leads, launch);
+  const prev = acumuladoCarrito(prevLeads, ref);
+  if (!cur || !prev || !prev.total) {
+    box.innerHTML = `<div class="cc">${select}<p class="muted">«${esc(ref.name)}» no tiene ventas con fecha de compra para comparar.</p></div>`;
+    return;
+  }
+  // Día del carrito en el que estamos (1 = día del directo).
+  const today = dayInMadrid(new Date().toISOString());
+  const dia = Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${launch.fechaDirecto}T12:00:00Z`)) / 86400_000) + 1;
+  const D = Math.max(cur.cum.length, prev.cum.length);
+  const hasta = Math.min(Math.max(dia, 0), cur.cum.length); // días del carrito actual ya vividos
+  const curPts = cur.cum.slice(0, hasta);
+  const prevAt = (d) => prev.cum[Math.min(d, prev.cum.length) - 1] ?? prev.total;
+
+  // Resumen y previsión.
+  let resumen;
+  if (dia < 1) {
+    const d1 = prev.cum[0] || 0;
+    resumen = `<div class="cc-kpis"><div><span>El carrito empieza</span><strong>${esc(dayFmt.format(new Date(`${launch.fechaDirecto}T12:00:00Z`)))}</strong></div>
+      <div><span>«${esc(ref.name)}» vendió el día 1</span><strong>${d1}</strong><em>${pct0(d1 / prev.total)} de su total</em></div>
+      <div><span>«${esc(ref.name)}» vendió en total</span><strong>${prev.total}</strong></div></div>`;
+  } else {
+    const d = Math.min(dia, cur.cum.length);
+    const llevas = cur.cum[d - 1];
+    const antes = prevAt(d);
+    const dif = antes ? (llevas - antes) / antes : null;
+    const parte = antes / prev.total; // qué parte de sus ventas tenía el anterior a estas alturas
+    const prevision = dia <= cur.cum.length && parte > 0 && llevas > 0 ? Math.round(llevas / parte) : null;
+    const importeMedio = cur.importeMedio || prev.importeMedio;
+    const terminado = dia > cur.cum.length;
+    resumen = `<div class="cc-kpis">
+      <div><span>${terminado ? 'Ventas del carrito' : `Llevas (día ${d})`}</span><strong>${llevas}</strong></div>
+      <div><span>«${esc(ref.name)}» el día ${d}</span><strong>${antes}</strong>${dif != null ? `<em class="${dif >= 0 ? 'up' : 'down'}">${dif >= 0 ? '▲' : '▼'} ${pct0(Math.abs(dif))} ${dif >= 0 ? 'por delante' : 'por detrás'}</em>` : ''}</div>
+      ${terminado ? `<div><span>«${esc(ref.name)}» en total</span><strong>${prev.total}</strong></div>`
+    : `<div class="cc-prev"><span>Previsión de cierre</span><strong>${prevision != null ? `~${prevision}` : '–'}</strong><em>${prevision == null ? `Saldrá con las primeras ventas del carrito. «${esc(ref.name)}» llevaba a estas alturas el ${pct0(parte)} de sus ventas.` : `${importeMedio ? `≈ ${eur(prevision * importeMedio)} · ` : ''}si sigue el ritmo de «${esc(ref.name)}», que a estas alturas llevaba el ${pct0(parte)} de sus ventas`}</em></div>`}
+    </div>`;
+  }
+
+  // Gráfica de ventas acumuladas: este carrito (hasta hoy) frente al de referencia.
+  const W = 760; const H = 240; const pl = 40; const pr = 150; const pt = 16; const pb = 34;
+  const corto = (t) => (t.length > 16 ? `${t.slice(0, 15)}…` : t);
+  const paso = Math.ceil(D / 12); // como mucho ~12 etiquetas en el eje
+  const maxY = Math.max(1, ...prev.cum, ...curPts) * 1.08;
+  const x = (i) => pl + (D <= 1 ? 0 : (i * (W - pl - pr)) / (D - 1));
+  const y = (v) => pt + (H - pt - pb) * (1 - v / maxY);
+  const path = (pts) => pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => Math.round(t * maxY / 1.08));
+  const svg = `<svg class="cc-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Ventas acumuladas por día del carrito">
+    ${ticks.map((t) => `<line x1="${pl}" x2="${W - pr}" y1="${y(t)}" y2="${y(t)}" class="cc-grid"/><text x="${pl - 6}" y="${y(t) + 4}" class="cc-ax" text-anchor="end">${t}</text>`).join('')}
+    ${Array.from({ length: D }, (_, i) => (i % paso === 0 || i === D - 1 ? `<text x="${x(i)}" y="${H - 14}" class="cc-ax" text-anchor="middle">${i + 1}</text>` : '')).join('')}
+    <text x="${(pl + W - pr) / 2}" y="${H - 1}" class="cc-ax" text-anchor="middle">día del carrito</text>
+    <path d="${path(prev.cum)}" class="cc-line prev"/>
+    ${prev.cum.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="4" class="cc-dot prev"><title>${esc(ref.name)} · día ${i + 1}: ${v} ventas acumuladas</title></circle>`).join('')}
+    <text x="${x(prev.cum.length - 1) + 8}" y="${y(prev.cum.at(-1)) + 4}" class="cc-lbl prev">${esc(corto(ref.name))} · ${prev.cum.at(-1)}</text>
+    ${curPts.length ? `<path d="${path(curPts)}" class="cc-line cur"/>
+    ${curPts.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="4.5" class="cc-dot cur"><title>Este lanzamiento · día ${i + 1}: ${v} ventas acumuladas</title></circle>`).join('')}
+    <text x="${x(curPts.length - 1) + 8}" y="${y(curPts.at(-1)) - 8}" class="cc-lbl cur">Este · ${curPts.at(-1)}</text>` : ''}
+  </svg>`;
+  box.innerHTML = `<div class="cc">
+    <div class="cc-head"><h3>${icon('compare')} Este carrito frente a otro lanzamiento</h3>${select}</div>
+    ${resumen}
+    <p class="cc-leyenda"><span class="sw cur"></span> ${esc(launch.name)} (hasta hoy) <span class="sw prev"></span> ${esc(ref.name)}</p>
+    <div class="cc-chart-wrap">${svg}</div>
+  </div>`;
+}
+document.addEventListener('change', (e) => {
+  if (e.target.id !== 'cc-launch') return;
+  state.carritoRef = e.target.value;
+  renderCarritoCompara(state.config.launches[state.launchCode]);
+});
+
 // Avisos: lo que falta configurar o los datos que no cuadran (lo mismo que llega en el resumen diario).
 function renderAvisos(m, launch) {
   const avisos = avisosLanzamiento(state.leads, launch, m);
@@ -458,22 +569,39 @@ document.addEventListener('click', (e) => {
 });
 
 // Avatares de compradoras: perfiles sacados de la encuesta y de quién compra de verdad.
+// Se calculan una vez por render (con este lanzamiento o con todos) y marcan a cada lead.
+function avatarLeads() {
+  return state.avatarScope === 'todos' && state.allAvatarLeads ? state.allAvatarLeads : state.leads;
+}
+function computeAvatares() {
+  const leads = avatarLeads();
+  const compras = leads.filter((l) => l.s.compra).length;
+  const objetivo = state.avatarObj || (compras >= 10 ? 'compra' : 'vip');
+  state.avatar = perfilesCompradoras(leads, ENCUESTA_PREGUNTAS, objetivo);
+  for (const l of state.leads) l.avatar = avatarDeLead(l, state.avatar.avatares, ENCUESTA_PREGUNTAS);
+}
+const avatarChip = (l) => (l.avatar >= 0
+  ? `<span class="av-chip tone-${AV_TONES[l.avatar]}" title="${esc(describirAvatar(state.avatar.avatares[l.avatar].traits, ENCUESTA_PREGUNTAS))} Compra ${veces(state.avatar.avatares[l.avatar].indice)} respecto a la media.">${icon('users')} Avatar ${l.avatar + 1}</span>`
+  : '');
 const AV_TONES = ['buy', 'vip', 'live'];
 const pct0 = (x) => `${Math.round(x * 100)}%`;
 const veces = (x) => `×${x.toLocaleString('es-ES', { maximumFractionDigits: 1, minimumFractionDigits: 1 })}`;
 function renderEncuestaMetrics() {
   const box = $('#encuesta-metrics');
-  const total = state.leads.length;
-  const compras = state.leads.filter((l) => l.s.compra).length;
+  const todos = state.avatarScope === 'todos' && state.allAvatarLeads;
+  const total = avatarLeads().length;
   // Antes del carrito aún no hay ventas: por defecto se analizan las VIP.
-  const objetivo = state.avatarObj || (compras >= 10 ? 'compra' : 'vip');
-  const r = perfilesCompradoras(state.leads, ENCUESTA_PREGUNTAS, objetivo);
+  const r = state.avatar;
+  const { objetivo } = r;
   const que = objetivo === 'vip' ? 'compran la VIP' : 'compran Raíces';
   const quien = objetivo === 'vip' ? 'compradoras de VIP' : 'compradoras de Raíces';
   const toggle = `<div class="seg" role="tablist" aria-label="Qué analizar">
       <button type="button" class="seg-btn${objetivo === 'compra' ? ' on' : ''}" data-avatar-obj="compra">${icon('cart')} Ventas de Raíces</button>
-      <button type="button" class="seg-btn${objetivo === 'vip' ? ' on' : ''}" data-avatar-obj="vip">${icon('star')} Entradas VIP</button></div>`;
-  const resumen = `<p class="av-resumen">${toggle}<span><strong>${r.leads}</strong> de ${total} leads han respondido la encuesta (${pctOf(r.leads, total)}) · <strong>${r.compras}</strong> ${que} · conversión media <strong>${pctOf(r.compras, r.leads)}</strong></span></p>`;
+      <button type="button" class="seg-btn${objetivo === 'vip' ? ' on' : ''}" data-avatar-obj="vip">${icon('star')} Entradas VIP</button></div>
+    <div class="seg" role="tablist" aria-label="Con qué lanzamientos">
+      <button type="button" class="seg-btn${todos ? '' : ' on'}" data-avatar-scope="este">Este lanzamiento</button>
+      <button type="button" class="seg-btn${todos ? ' on' : ''}" data-avatar-scope="todos">Todos los lanzamientos</button></div>`;
+  const resumen = `<p class="av-resumen">${toggle}<span>${todos ? `<strong>${Object.keys(state.config.launches).length}</strong> lanzamientos · ` : ''}<strong>${r.leads}</strong> de ${total} leads han respondido la encuesta (${pctOf(r.leads, total)}) · <strong>${r.compras}</strong> ${que} · conversión media <strong>${pctOf(r.compras, r.leads)}</strong></span></p>`;
 
   if (!r.leads) {
     box.innerHTML = `${resumen}<p class="muted">Aún no hay respuestas de la encuesta en este lanzamiento.</p>`;
@@ -527,11 +655,30 @@ function renderEncuestaMetrics() {
     <div class="av-qs">${preguntas}</div>
     <details class="av-tablas"><summary>Ver las tablas con todos los datos</summary>${tablas}</details>`;
 }
-document.addEventListener('click', (e) => {
+document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-avatar-obj]');
-  if (!b) return;
-  state.avatarObj = b.dataset.avatarObj;
-  renderEncuestaMetrics();
+  if (b) {
+    state.avatarObj = b.dataset.avatarObj;
+    render();
+    return;
+  }
+  const sc = e.target.closest('[data-avatar-scope]');
+  if (!sc) return;
+  if (sc.dataset.avatarScope === 'todos' && !state.allAvatarLeads) {
+    sc.disabled = true;
+    try {
+      const all = [];
+      for (const [code] of launchesSorted()) all.push(...await loadLaunchLeads(code, 'Avatares'));
+      state.allAvatarLeads = all;
+    } catch (err) {
+      notice(`No se pudieron cargar todos los lanzamientos: ${err.message}`, true);
+      return;
+    } finally {
+      sc.disabled = false;
+    }
+  }
+  state.avatarScope = sc.dataset.avatarScope;
+  render();
 });
 
 
@@ -686,25 +833,41 @@ $('#compare-pick').addEventListener('change', (e) => {
   else state.compare.selected.delete(e.target.value);
 });
 
+// Leads (ya enriquecidos) de cualquier lanzamiento; el actual sale de lo ya cargado.
+// Se guardan para no volver a pedirlos (Comparar, avatares de todos los lanzamientos, carrito).
+state.launchLeads = {};
+async function loadLaunchLeads(code, label = 'Cargando') {
+  if (code === state.launchCode) return state.leads;
+  if (state.launchLeads[code]) return state.launchLeads[code];
+  const launch = state.config.launches[code];
+  const raw = [];
+  let cursor = null;
+  try {
+    do {
+      const qs = new URLSearchParams({ tag: launch.registroTag });
+      if (cursor) qs.set('cursor', JSON.stringify(cursor));
+      const page = await api(`/api/leads?${qs}`);
+      raw.push(...page.contacts);
+      cursor = page.cursor;
+      progress(raw.length, page.total, `${label} · ${launch.name}: ${raw.length}${page.total ? ` de ${page.total}` : ''} leads`);
+    } while (cursor);
+  } finally {
+    progress(null);
+  }
+  state.launchLeads[code] = raw.map((c) => enrichLead(c, code, state.config));
+  return state.launchLeads[code];
+}
+
 async function loadLaunchMetrics(code) {
   if (state.compare.cache[code]) return state.compare.cache[code];
   const launch = state.config.launches[code];
-  const leads = [];
-  let cursor = null;
-  do {
-    const qs = new URLSearchParams({ tag: launch.registroTag });
-    if (cursor) qs.set('cursor', JSON.stringify(cursor));
-    const page = await api(`/api/leads?${qs}`);
-    leads.push(...page.contacts);
-    cursor = page.cursor;
-    progress(leads.length, page.total, `Comparar · ${launch.name}: ${leads.length}${page.total ? ` de ${page.total}` : ''} leads`);
-  } while (cursor);
+  const leads = await loadLaunchLeads(code, 'Comparar');
   let metaSpend = null;
   try {
     const meta = await api(`/api/meta?launch=${encodeURIComponent(code)}`);
     if (meta.configured && !meta.error) metaSpend = meta.total;
   } catch { /* sin Meta: se usa la inversión manual */ }
-  const m = computeMetrics(leads.map((c) => enrichLead(c, code, state.config)), launch, { metaSpend });
+  const m = computeMetrics(leads, launch, { metaSpend });
   state.compare.cache[code] = m;
   return m;
 }
@@ -839,7 +1002,7 @@ function rowHtml(l) {
     ? `<button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}" title="${esc(msgPreview)}">${l.s.wa_enviado ? 'Enviado ✓ · reenviar' : 'Enviar WhatsApp'}</button>`
     : '<span class="muted">Sin teléfono</span>';
   return `<tr>
-    <td><div class="lead-name">${esc(l.name || '(sin nombre)')}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
+    <td><div class="lead-name">${esc(l.name || '(sin nombre)')} ${avatarChip(l)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
     <td>${videoChip(l.s, 'clase1')}</td>
     <td>${videoChip(l.s, 'clase2')}</td>
     <td>${l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>
@@ -889,7 +1052,8 @@ document.addEventListener('change', (e) => {
 // Listas cortas y priorizadas: a quién escribir hoy.
 function renderHoy() {
   const open = (l) => !l.s.compra && l.phoneWa;
-  const byScore = (a, b) => b.score - a.score;
+  // Dentro de cada lista, primero las que encajan con un avatar comprador.
+  const byScore = (a, b) => (b.avatar >= 0) - (a.avatar >= 0) || b.score - a.score;
   const buckets = [
     { id: 'calientes', title: '🔥 Muy calientes sin contactar', hint: 'Máxima prioridad', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.estado.id === 'muy-caliente') },
     { id: 'vip', title: '⭐ VIP que no han comprado', hint: 'Pagaron la entrada: están cerca', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.vip) },
@@ -920,7 +1084,7 @@ function hoyItem(l) {
   ].filter(Boolean).join(' · ');
   return `<li class="hoy-item">
     <div class="hoy-main">
-      <div><span class="lead-name">${esc(l.name || l.email)}</span> <span class="estado st-${l.estado.id}"><span class="dot"></span>${l.score}</span></div>
+      <div><span class="lead-name">${esc(l.name || l.email)}</span> <span class="estado st-${l.estado.id}"><span class="dot"></span>${l.score}</span> ${avatarChip(l)}</div>
       <div class="lead-meta">${esc(signals || 'Sin actividad')} · ${NEXT_STEPS[l.step]}</div>
     </div>
     <div class="hoy-actions">
