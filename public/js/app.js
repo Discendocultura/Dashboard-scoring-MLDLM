@@ -811,7 +811,7 @@ function openConfig(code) {
   const l = editingCode ? state.config.launches[editingCode]
     : {
       vipTag: last.vipTag, compraTag: last.compraTag, compraDateField: last.compraDateField,
-      precioVip: last.precioVip, precioPrograma: last.precioPrograma,
+      precioVip: last.precioVip, precioPrograma: last.precioPrograma, vipContadorBase: last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, textos: last.textos,
       inicioCaptacion: new Date().toISOString().slice(0, 10),
@@ -836,6 +836,7 @@ function openConfig(code) {
   $('#cfg-replay-video').value = l.replayVideoUrl || '';
   $('#cfg-replay-at').value = l.replayAt || '';
   $('#cfg-vip-url').value = l.vipUrl || '';
+  $('#cfg-vip-base').value = l.vipContadorBase ?? 41;
   $('#cfg-whatsapp-url').value = l.whatsappUrl || '';
   $('#cfg-cierre').value = l.cierreCarrito || '';
   $('#cfg-calendario-url').value = l.calendarioUrl || '';
@@ -947,6 +948,7 @@ function readForm() {
       replayVideoUrl: $('#cfg-replay-video').value.trim(),
       replayAt: $('#cfg-replay-at').value,
       vipUrl: $('#cfg-vip-url').value.trim(),
+      vipContadorBase: $('#cfg-vip-base').value.trim(),
       whatsappUrl: $('#cfg-whatsapp-url').value.trim(),
       cierreCarrito: $('#cfg-cierre').value,
       calendarioUrl: $('#cfg-calendario-url').value.trim(),

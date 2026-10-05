@@ -242,6 +242,11 @@ test('página de recursos: fases, vídeos ocultos hasta su hora, VIP y vista pre
   const { contacts } = await contactsByTag('compra-vip-demo');
   const vip = await get('2026-10-23T10:00', `&cid=${contacts[0].id}`);
   assert.equal(typeof vip.vip.isVip, 'boolean');
+  // contador de VIP: 41 + VIP vendidas en el lanzamiento (sin las anteriores)
+  const { countByTag } = await import('../lib/ghl.js');
+  const vendidas = await countByTag('compra-vip-demo');
+  assert.equal(vip.vip.contador, 41 + vendidas);
+  assert.equal(vip.texts.vipContador, String(41 + vendidas));
   // l=auto resuelve el lanzamiento en curso
   assert.ok((await (await page.GET(req('/api/page?l=auto'))).json()).code);
 });

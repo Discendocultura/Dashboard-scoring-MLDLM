@@ -4,11 +4,11 @@
 // desbloqueados), los enlaces y los textos con fechas. Con `cid` dice además si ya es VIP y si
 // ya ha rellenado la encuesta (si el lanzamiento la exige, las clases 1 y 2 no se ven sin ella).
 import { getConfig } from '../lib/config-store.js';
-import { getContact } from '../lib/ghl.js';
+import { getContact, countByTag } from '../lib/ghl.js';
 import { currentLaunch } from '../lib/digest.js';
 import { verifyToken, signToken, requireRole } from '../lib/auth.js';
 import { json, errorResponse, CORS_HEADERS } from '../lib/http.js';
-import { signalsFor, withContactId } from '../public/js/scoring.js';
+import { signalsFor, withContactId, tagFor } from '../public/js/scoring.js';
 import { phaseAt, barFor, milestones, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
 
 export function OPTIONS() {
@@ -85,6 +85,13 @@ export async function GET(request) {
     };
 
     const bar = barFor(launch, phase.id);
+    let vendidas = 0;
+    try {
+      vendidas = await vipVendidas(code, launch);
+    } catch (e) {
+      console.error(e);
+    }
+    const vipContador = (launch.vipContadorBase ?? 41) + vendidas;
 
     return json({
       code,
@@ -103,7 +110,7 @@ export async function GET(request) {
       },
       links,
       encuesta: { required: encuestaRequired, done: encuestaDone },
-      vip: { open: vipOpen, closesAt: m.directo, isVip, precio: launch.precioVip || 0 },
+      vip: { open: vipOpen, closesAt: m.directo, isVip, precio: launch.precioVip || 0, contador: vipContador },
       texts: {
         ...(launch.textos || {}),
         nombre: launch.name || '',
@@ -111,6 +118,7 @@ export async function GET(request) {
         clase1: formatLong(m.clase1), clase2: formatLong(m.clase2), replay: formatLong(m.replay),
         cierreVip: formatLong(m.directo), cierreCarrito: formatLong(m.cierre),
         precioVip: launch.precioVip ? `${launch.precioVip} €` : '',
+        vipContador: String(vipContador),
       },
     }, 200, { ...CORS_HEADERS, 'cache-control': 'no-store' });
   } catch (e) {
@@ -134,6 +142,19 @@ function encuestaUrl(base, contact) {
   } catch {
     return base;
   }
+}
+
+// VIP vendidas en este lanzamiento = quien tiene la etiqueta VIP menos las que ya la tenían antes
+// (la "foto" las marcó con <código>_vip_previo). Se guarda 1 minuto para no consultar GHL en cada visita.
+const vipCache = new Map();
+async function vipVendidas(code, launch) {
+  if (!launch.vipTag) return 0;
+  const hit = vipCache.get(code);
+  if (hit && hit.at > Date.now() - 60_000 && hit.tag === launch.vipTag) return hit.n;
+  const [total, previas] = await Promise.all([countByTag(launch.vipTag), countByTag(tagFor(code, 'vip_previo'))]);
+  const n = Math.max(0, total - previas);
+  vipCache.set(code, { at: Date.now(), n, tag: launch.vipTag });
+  return n;
 }
 
 // POST (admin): enlace firmado para ver la página como si fuera otra fecha/hora.
