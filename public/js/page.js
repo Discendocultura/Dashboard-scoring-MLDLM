@@ -20,7 +20,38 @@ export const LINK_KEYS = {
   venta: 'Página de venta de Raíces',
   pago: 'Enlace de pago',
   llamada: 'Reservar llamada',
+  calendario: 'Añadir al calendario',
 };
+
+// Enlace de Google Calendar con el directo ya relleno.
+const gcalDate = (ms) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+export function googleCalendarUrl({ title, start, minutes = 180, details = '' }) {
+  if (start == null) return '';
+  const u = new URL('https://calendar.google.com/calendar/render');
+  u.searchParams.set('action', 'TEMPLATE');
+  u.searchParams.set('text', title);
+  u.searchParams.set('dates', `${gcalDate(start)}/${gcalDate(start + minutes * 60_000)}`);
+  if (details) u.searchParams.set('details', details);
+  return u.toString();
+}
+
+// Archivo .ics (Apple Calendar, Outlook…) del directo.
+export function icsFile({ title, start, minutes = 180, url = '', uid }) {
+  const esc = (t) => String(t).replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\n/g, '\\n');
+  return [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Lead Scoring//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${gcalDate(Date.now())}`,
+    `DTSTART:${gcalDate(start)}`,
+    `DTEND:${gcalDate(start + minutes * 60_000)}`,
+    `SUMMARY:${esc(title)}`,
+    url ? `DESCRIPTION:${esc(`Entra al directo aquí: ${url}`)}` : '',
+    url ? `URL:${url}` : '',
+    'BEGIN:VALARM', 'TRIGGER:-PT1H', 'ACTION:DISPLAY', `DESCRIPTION:${esc(title)}`, 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+}
 
 export const LOCAL_DT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 

@@ -830,6 +830,7 @@ function openConfig(code) {
   $('#cfg-vip-url').value = l.vipUrl || '';
   $('#cfg-whatsapp-url').value = l.whatsappUrl || '';
   $('#cfg-cierre').value = l.cierreCarrito || '';
+  $('#cfg-calendario-url').value = l.calendarioUrl || '';
   renderBarraEditor(l.barra || {});
   renderEnlacesEditor(l.enlaces || {});
   renderPhaseNow(l);
@@ -896,6 +897,7 @@ function readForm() {
       vipUrl: $('#cfg-vip-url').value.trim(),
       whatsappUrl: $('#cfg-whatsapp-url').value.trim(),
       cierreCarrito: $('#cfg-cierre').value,
+      calendarioUrl: $('#cfg-calendario-url').value.trim(),
       barra: readBarraEditor(),
       enlaces: readEnlacesEditor(),
       zoomMeetingId: $('#cfg-zoom-id').value,
@@ -1169,6 +1171,7 @@ function renderSnippets() {
       '<div data-lsd-if="vip-abierta">\n  Entrada VIP por <span data-lsd-text="precioVip"></span> · se cierra en <span data-lsd-countdown="vip"></span>\n  <a data-lsd-link="vip">Quiero mi entrada VIP</a>\n</div>\n<div data-lsd-if="ya-vip">✓ Ya tienes tu entrada VIP</div>'],
     ['RECURSOS · botón del grupo de WhatsApp', '<a data-lsd-link="whatsapp" target="_blank">Unirme al grupo de WhatsApp</a>'],
     ['RECURSOS · botón del directo', '<a data-lsd-link="directo">Entrar al directo</a>'],
+    ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
     ['GRABACIÓN · bloques de la página del replay', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
     ['Enlace al directo en emails de GHL', `${origin}/directo?l=auto&cid={{contact.id}}`],

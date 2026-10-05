@@ -37,3 +37,13 @@ test('mensajes de la barra: configurado o por defecto', () => {
   assert.match(barFor(launch, 'c1').text, /clase 2 se abre/);
   assert.equal(barFor({ barra: { c1: { text: 'Hola', button: 'whatsapp' } } }, 'c1').button, 'whatsapp');
 });
+
+test('añadir al calendario: Google Calendar y .ics con la hora del directo', async () => {
+  const { googleCalendarUrl, icsFile } = await import('../public/js/page.js');
+  const start = madridToEpoch('2026-10-29T19:00');
+  const g = new URL(googleCalendarUrl({ title: 'El Camino', start }));
+  assert.equal(g.searchParams.get('dates'), '20261029T180000Z/20261029T210000Z');
+  const ics = icsFile({ title: 'El Camino', start, url: 'https://x/directo?l=a', uid: 'a@x' });
+  assert.match(ics, /DTSTART:20261029T180000Z/);
+  assert.match(ics, /BEGIN:VALARM/);
+});

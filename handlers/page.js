@@ -8,7 +8,7 @@ import { currentLaunch } from '../lib/digest.js';
 import { verifyToken, signToken, requireRole } from '../lib/auth.js';
 import { json, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { signalsFor, withContactId } from '../public/js/scoring.js';
-import { phaseAt, barFor, milestones, madridToEpoch, formatLong, formatDate, formatTime } from '../public/js/page.js';
+import { phaseAt, barFor, milestones, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
 
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -48,6 +48,12 @@ export async function GET(request) {
       pago: withContactId(launch.ventaUrl, cid),
       llamada: launch.llamadaUrl || '',
       recursos: launch.recursosUrl || '',
+      // Añadir al calendario: el enlace configurado o, si no hay, uno de Google Calendar generado solo.
+      calendario: launch.calendarioUrl || googleCalendarUrl({
+        title: launch.name || 'Clase en directo', start: m.directo,
+        details: `Entra al directo aquí: ${live}`,
+      }),
+      'calendario-ics': m.directo != null ? `${url.origin}/api/ics?l=${encodeURIComponent(code)}` : '',
       login: launch.loginUrl || '',
     };
 

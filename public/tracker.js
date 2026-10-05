@@ -393,7 +393,7 @@
   }
 
   function defaultLabel(key) {
-    return { whatsapp: 'Unirme al grupo', vip: 'Quiero mi entrada VIP', directo: 'Entrar al directo', grabacion: 'Ver la grabación', venta: 'Conocer Raíces', pago: 'Unirme a Raíces', llamada: 'Reservar llamada' }[key] || 'Ir';
+    return { whatsapp: 'Unirme al grupo', vip: 'Quiero mi entrada VIP', directo: 'Entrar al directo', grabacion: 'Ver la grabación', venta: 'Conocer Raíces', pago: 'Unirme a Raíces', llamada: 'Reservar llamada', calendario: 'Añadir al calendario' }[key] || 'Ir';
   }
 
   // Página gestionada desde el dashboard (recursos / grabación). Vuelve a pedir los datos cuando
