@@ -116,6 +116,9 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   s.unico = s.compra && !s.fraccionado && has(cfg.unicoTag);
   s.compra_directo = s.compra && Boolean(cfg.fechaDirecto) && buyDay === cfg.fechaDirecto;
 
+  // Origen del lead: publicidad u orgánico, cada uno con su etiqueta (si lleva las dos, cuenta como publicidad).
+  s.origen = has(cfg.publiTag) ? 'publi' : has(cfg.organicoTag) ? 'organico' : '';
+
   // Tráfico: templado si ya estaba en GHL (algún embudo anterior) antes de abrir la captación.
   const alta = dayInMadrid(contact.dateAdded);
   s.trafico = alta && inicio ? (alta < inicio ? 'templado' : 'frio') : '';

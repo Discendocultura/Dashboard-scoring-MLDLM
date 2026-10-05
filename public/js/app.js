@@ -322,6 +322,7 @@ function renderMetrics() {
   renderEconomics(m, launch);
   renderVentasDia(launch);
   renderPago(m, launch);
+  renderOrigen(m, launch);
 
   const steps = [
     ['Registros', m.total],
@@ -397,6 +398,22 @@ function renderVentasDia(launch) {
     <p class="muted">Total: <strong>${v.total}</strong> ventas de Raíces${precio ? ` · ${eur(v.importe)}` : ''}.</p>`;
 }
 
+// Leads de publicidad vs orgánicos (por sus etiquetas): leads, %, VIP, ventas, conversión y facturación.
+function renderOrigen(m, launch) {
+  const t = $('#origen-table');
+  if (!launch.publiTag && !launch.organicoTag) {
+    t.innerHTML = '<tbody><tr><td class="muted">Elige las etiquetas de leads de publicidad y orgánicos en Configuración → Lanzamiento → Etiquetas de GHL. Mientras, tienes el desglose por canal (utm_source) en «Canales y campañas».</td></tr></tbody>';
+    return;
+  }
+  const o = m.origen;
+  const rows = [['Publicidad', o.publi], ['Orgánico', o.organico]];
+  if (o.sinEtiqueta.leads) rows.push(['Sin etiqueta de origen', o.sinEtiqueta]);
+  const tr = (label, r, total = false) => `<tr${total ? ' class="total"' : ''}><td>${total ? `<strong>${label}</strong>` : label}</td><td class="num">${r.leads}</td><td class="num big">${pctOf(r.leads, o.total.leads)}</td><td class="num">${r.vip} <span class="muted">${pctOf(r.vip, r.leads)}</span></td><td class="num">${r.compras}</td><td class="num">${pctOf(r.compras, r.leads)}</td><td class="num">${pctOf(r.compras, o.total.compras)}</td><td class="num">${eur(r.importe)}</td></tr>`;
+  t.innerHTML = `
+    <thead><tr><th>Origen</th><th class="num">Leads</th><th class="num">% de los leads</th><th class="num">VIP</th><th class="num">Ventas</th><th class="num">Conversión</th><th class="num">% de las ventas</th><th class="num">Facturación Raíces</th></tr></thead>
+    <tbody>${rows.map(([label, r]) => tr(label, r)).join('')}${tr('Total', o.total, true)}</tbody>`;
+}
+
 // Ventas de Raíces por tipo de pago: número, % (suma 100%) y facturación.
 function renderPago(m, launch) {
   const t = $('#pago-table');
@@ -437,7 +454,7 @@ function renderSources() {
   const groups = bySource(state.leads, level, names);
   const hasSpend = Object.keys(spendBy).length > 0;
   $('#source-table').innerHTML = `
-    <thead><tr><th>${{ campaign: 'Campaña', adset: 'Conjunto de anuncios', ad: 'Anuncio' }[level]}</th><th class="num">Registros</th><th class="num">Frío</th><th class="num">VIP</th><th class="num">Ventas</th><th class="num">Conversión</th>${hasSpend ? '<th class="num">Inversión</th><th class="num">CPL</th><th class="num">Coste/venta</th>' : ''}</tr></thead>
+    <thead><tr><th>${{ source: 'Canal (utm_source)', campaign: 'Campaña', adset: 'Conjunto de anuncios', ad: 'Anuncio' }[level]}</th><th class="num">Registros</th><th class="num">Frío</th><th class="num">VIP</th><th class="num">Ventas</th><th class="num">Conversión</th>${hasSpend ? '<th class="num">Inversión</th><th class="num">CPL</th><th class="num">Coste/venta</th>' : ''}</tr></thead>
     <tbody>${groups.map((g) => {
     const spend = spendBy[g.key];
     return `<tr><td>${esc(g.label)}</td><td class="num">${g.leads}</td><td class="num">${g.frio}</td><td class="num">${g.vip} <span class="muted">${pctOf(g.vip, g.leads)}</span></td><td class="num">${g.compras}</td><td class="num big">${pctOf(g.compras, g.leads)}</td>${hasSpend ? `<td class="num">${spend ? eur(spend) : '–'}</td><td class="num">${spend ? eur(spend / g.leads) : '–'}</td><td class="num">${spend && g.compras ? eur(spend / g.compras) : '–'}</td>` : ''}</tr>`;
@@ -860,7 +877,7 @@ function openConfig(code) {
   const l = editingCode ? state.config.launches[editingCode]
     : {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
-      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, vipContadorBase: last.vipContadorBase,
+      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag, vipContadorBase: last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, textos: last.textos,
       inicioCaptacion: new Date().toISOString().slice(0, 10),
@@ -908,6 +925,8 @@ function openConfig(code) {
   $('#cfg-precio-fraccionado').value = l.precioFraccionado || '';
   $('#cfg-fraccionado-tag').value = l.fraccionadoTag || '';
   $('#cfg-unico-tag').value = l.unicoTag || '';
+  $('#cfg-publi-tag').value = l.publiTag || '';
+  $('#cfg-organico-tag').value = l.organicoTag || '';
   $('#cfg-inversion').value = l.inversion || '';
   $('#cfg-meta-filtro').value = l.metaFiltro || '';
   renderMetaNaming();
@@ -1014,6 +1033,8 @@ const CICLO = [
   { id: 'cfg-vip', c: 'fijo' },
   { id: 'cfg-compra', c: 'fijo' },
   { id: 'cfg-llamada-tag', c: 'fijo' },
+  { id: 'cfg-publi-tag', c: 'fijo' },
+  { id: 'cfg-organico-tag', c: 'fijo' },
   { id: 'cfg-unico-tag', c: 'fijo' },
   { id: 'cfg-fraccionado-tag', c: 'fijo' },
   { id: 'cfg-compra-fecha', c: 'fijo' },
@@ -1150,6 +1171,8 @@ function readForm() {
       precioFraccionado: $('#cfg-precio-fraccionado').value,
       fraccionadoTag: $('#cfg-fraccionado-tag').value.trim().toLowerCase(),
       unicoTag: $('#cfg-unico-tag').value.trim().toLowerCase(),
+      publiTag: $('#cfg-publi-tag').value.trim().toLowerCase(),
+      organicoTag: $('#cfg-organico-tag').value.trim().toLowerCase(),
       inversion: $('#cfg-inversion').value,
       metaFiltro: $('#cfg-meta-filtro').value.trim(),
     },

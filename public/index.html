@@ -81,6 +81,10 @@
             <div id="ventas-dia"></div>
           </section>
           <section class="card metric-card">
+            <h2>Origen de los leads <span class="muted">· publicidad vs orgánico</span></h2>
+            <div class="table-scroll"><table class="metric-table" id="origen-table"></table></div>
+          </section>
+          <section class="card metric-card">
             <h2>Pago único vs fraccionado <span class="muted">· ventas de Raíces</span></h2>
             <div class="table-scroll"><table class="metric-table" id="pago-table"></table></div>
           </section>
@@ -98,9 +102,9 @@
             <div class="table-scroll"><table class="metric-table" id="conversion-table"></table></div>
           </section>
           <section class="card metric-card">
-            <h2>Origen de los leads <span class="muted">· según las UTM de GHL y los nombres de Meta</span></h2>
+            <h2>Canales y campañas <span class="muted">· según las UTM de GHL y los nombres de Meta</span></h2>
             <label class="field inline" style="margin-bottom:8px"><span>Ver por</span>
-              <select id="src-level"><option value="campaign">Campaña</option><option value="adset">Conjunto de anuncios</option><option value="ad">Anuncio</option></select></label>
+              <select id="src-level"><option value="source">Canal (utm_source)</option><option value="campaign">Campaña</option><option value="adset">Conjunto de anuncios</option><option value="ad">Anuncio</option></select></label>
             <div class="table-scroll"><table class="metric-table" id="source-table"></table></div>
           </section>
           <section class="card metric-card">
@@ -253,6 +257,12 @@
               <input id="cfg-compra" list="tag-list" placeholder="Busca la etiqueta…"></label>
               <label class="field"><span>Etiqueta de llamada agendada <small>(la que pone el workflow de la llamada; vacío = solo cuenta lo que marque la setter)</small></span>
               <input id="cfg-llamada-tag" list="tag-list" placeholder="Busca la etiqueta…"></label>
+            <label class="field"><span>Etiqueta de leads de publicidad</span>
+              <input id="cfg-publi-tag" list="tag-list" placeholder="Busca la etiqueta…">
+              <small class="field-note">ⓘ La lleva quien se registra desde los anuncios (la pone el formulario o workflow de la página de publicidad). Sirve para contar en Métricas cuántos leads, VIP y ventas vienen de publicidad. <strong>No la cambies ni la uses para otra cosa</strong>.</small></label>
+            <label class="field"><span>Etiqueta de leads orgánicos</span>
+              <input id="cfg-organico-tag" list="tag-list" placeholder="Busca la etiqueta…">
+              <small class="field-note">ⓘ La lleva quien se registra sin anuncios (redes, email, web…). Sirve para contar en Métricas cuántos leads, VIP y ventas vienen de orgánico. <strong>No la cambies ni la uses para otra cosa</strong>.</small></label>
             <label class="field"><span>Etiqueta de pago único de Raíces</span>
               <input id="cfg-unico-tag" list="tag-list" placeholder="Busca la etiqueta…">
               <small class="field-note">ⓘ La pone el workflow de compra de ThriveCart. Sirve para saber quién pagó Raíces de una vez y calcular el % de pagos únicos y su facturación en Métricas. <strong>No la cambies ni la uses para otra cosa</strong>: si cambia, las ventas dejan de clasificarse bien.</small></label>

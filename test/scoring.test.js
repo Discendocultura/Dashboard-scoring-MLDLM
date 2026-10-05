@@ -152,3 +152,16 @@ test('facturación de Raíces con precio de pago único y fraccionado', async ()
   assert.equal(computeMetrics(leads, { ...launch, precioFraccionado: 0 }).eco.facturacionPrograma, 997 * 3);
   assert.equal(ventasPorDia(leads, { ...launch, fechaDirecto: '2026-10-29', compraDateField: 'f' }).importe, 997 * 2 + 1164);
 });
+
+test('origen del lead: publicidad, orgánico o sin etiqueta; y canal por utm_source', async () => {
+  const { computeMetrics, bySource } = await import('../public/js/metrics.js');
+  const cfg = { compraTag: 'clienta', publiTag: 'lead-publi', organicoTag: 'lead-organico' };
+  const lead = (tags, source = '') => ({ s: signalsFor(tags, 'nov26', cfg), estado: { id: 'frio' }, src: { source } });
+  const leads = [lead(['lead-publi', 'clienta'], 'facebook'), lead(['lead-publi'], 'Facebook'), lead(['lead-organico'], 'instagram'), lead([])];
+  const m = computeMetrics(leads, { ...cfg, precioPrograma: 100 });
+  assert.deepEqual([m.origen.publi.leads, m.origen.organico.leads, m.origen.sinEtiqueta.leads, m.origen.total.leads], [2, 1, 1, 4]);
+  assert.equal(m.origen.publi.compras, 1);
+  assert.equal(m.origen.publi.importe, 100);
+  const canales = bySource(leads, 'source');
+  assert.deepEqual(canales.map((g) => [g.label, g.leads]), [['facebook', 2], ['instagram', 1], ['Sin canal (sin utm_source)', 1]]);
+});

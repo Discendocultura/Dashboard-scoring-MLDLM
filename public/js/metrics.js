@@ -111,6 +111,22 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     cac: inversion && m.compra ? inversion / m.compra : null,
   };
 
+  // Origen de los leads (etiquetas de publicidad / orgánico): suma 100% con los que no llevan ninguna.
+  const origenDe = (fn) => {
+    const ls = leads.filter(fn);
+    const buys = ls.filter((l) => l.s.compra);
+    return {
+      leads: ls.length, vip: ls.filter((l) => l.s.vip).length, compras: buys.length,
+      importe: buys.reduce((t, l) => t + importeCompra(l, launch), 0),
+    };
+  };
+  m.origen = {
+    publi: origenDe((l) => l.s.origen === 'publi'),
+    organico: origenDe((l) => l.s.origen === 'organico'),
+    sinEtiqueta: origenDe((l) => !l.s.origen),
+    total: origenDe(() => true),
+  };
+
   // Reparto de las ventas de Raíces por tipo de pago (suma 100% con las que no llevan ninguna etiqueta).
   const pagoDe = (fn) => {
     const ls = leads.filter((l) => l.s.compra && fn(l));
@@ -183,6 +199,16 @@ export function bySource(leads, level = 'campaign', names = {}) {
   const groups = new Map();
   for (const l of leads) {
     const src = l.src || {};
+    if (level === 'source') {
+      const key = (src.source || '').toLowerCase() || '__sin';
+      const g = groups.get(key) || { key, label: src.source || 'Sin canal (sin utm_source)', leads: 0, frio: 0, vip: 0, compras: 0 };
+      g.leads++;
+      if (l.s.trafico === 'frio') g.frio++;
+      if (l.s.vip) g.vip++;
+      if (l.s.compra) g.compras++;
+      groups.set(key, g);
+      continue;
+    }
     const id = level === 'ad' ? src.content : level === 'adset' ? src.term : src.campaign;
     const key = id || (src.source ? `__${src.source}` : '__sin');
     const g = groups.get(key) || {
