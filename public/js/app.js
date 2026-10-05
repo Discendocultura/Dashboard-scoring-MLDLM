@@ -376,35 +376,35 @@ function renderVentasDia(launch) {
     box.innerHTML = '<p class="muted">Configura el <strong>día del directo</strong> y el <strong>campo de fecha de compra</strong> (Configuración → Lanzamiento) para ver las ventas de cada día.</p>';
     return;
   }
-  const precio = Number(launch.precioPrograma) || 0;
+  const precio = Number(launch.precioPrograma) || Number(launch.precioFraccionado) || 0;
   const max = Math.max(1, ...v.days.map((d) => d.n));
   let acum = v.antes;
-  const row = (label, hint, n, cls = '') => {
+  const row = (label, hint, n, cls = '', importe = null) => {
     acum += cls === 'extra' ? 0 : n;
     return `<div class="funnel-row">
       <div class="funnel-label">${label}${hint ? `<small>${hint}</small>` : ''}</div>
       <div class="funnel-bar buy ${cls}"><span style="width:${(n / max) * 100}%"></span></div>
-      <div class="funnel-num"><strong>${n}</strong> <span class="muted">${pctOf(n, v.total)}${precio && n ? ` · ${eur(n * precio)}` : ''}</span></div>
+      <div class="funnel-num"><strong>${n}</strong> <span class="muted">${pctOf(n, v.total)}${precio && n && importe != null ? ` · ${eur(importe)}` : ''}</span></div>
     </div>`;
   };
   const cierre = (launch.cierreCarrito || '').slice(0, 10);
   box.innerHTML = `${v.antes ? row('Antes del directo', '', v.antes, 'extra') : ''}
     ${v.days.map((d, i) => row(`Día ${i + 1} · ${dayFmt.format(new Date(`${d.day}T12:00:00Z`))}`,
-    [i === 0 ? 'día del directo' : '', d.day === cierre ? 'cierre del carrito' : '', `acumulado ${acum + d.n} de ${v.total}`].filter(Boolean).join(' · '), d.n)).join('')}
+    [i === 0 ? 'día del directo' : '', d.day === cierre ? 'cierre del carrito' : '', launch.fraccionadoTag && d.n ? `${d.n - d.fracc} único · ${d.fracc} fraccionado` : '', `acumulado ${acum + d.n} de ${v.total}`].filter(Boolean).join(' · '), d.n, '', d.importe)).join('')}
     ${v.despues ? row('Después del cierre', '', v.despues, 'extra') : ''}
     ${v.sinFecha ? row('Sin fecha de compra', 'clientas con la etiqueta pero sin fecha', v.sinFecha, 'extra') : ''}
-    <p class="muted">Total: <strong>${v.total}</strong> ventas de Raíces${precio ? ` · ${eur(v.total * precio)}` : ''}.</p>`;
+    <p class="muted">Total: <strong>${v.total}</strong> ventas de Raíces${precio ? ` · ${eur(v.importe)}` : ''}.</p>`;
 }
 
 // Inversión, facturación y rentabilidad.
 function renderEconomics(m, launch) {
   const e = m.eco;
-  const hasPrices = launch.precioVip || launch.precioPrograma;
+  const hasPrices = launch.precioVip || launch.precioPrograma || launch.precioFraccionado;
   const fuente = e.inversionFuente === 'meta' ? `Meta Ads (${esc(state.meta.since)} → ${esc(state.meta.until)})` : 'introducida a mano';
   const metaWarn = state.meta?.error ? `<p class="muted">Meta: ${esc(state.meta.error)}</p>` : '';
   $('#eco-cards').innerHTML = `${[
     card('Inversión en anuncios', e.inversion ? eur(e.inversion) : '–', e.inversion ? fuente : 'Conecta Meta o introdúcela en Configuración'),
-    card('Facturación', hasPrices ? eur(e.facturacion) : '–', hasPrices ? `VIP ${eur(e.facturacionVip)} · Raíces ${eur(e.facturacionPrograma)}` : 'Añade los precios en Configuración'),
+    card('Facturación', hasPrices ? eur(e.facturacion) : '–', hasPrices ? `VIP ${eur(e.facturacionVip)} · Raíces ${eur(e.facturacionPrograma)}${launch.fraccionadoTag ? ` (${m.compra - m.compraFraccionado} único · ${m.compraFraccionado} fraccionado)` : ''}` : 'Añade los precios en Configuración'),
     card('ROAS', e.roas != null && hasPrices ? `${e.roas.toFixed(2)}x` : '–', e.roas != null && hasPrices ? `Beneficio: ${eur(e.beneficio)}` : 'facturación / inversión'),
     card('Coste por lead', eur(e.cpl), e.cplFrio != null ? `${eur(e.cplFrio)} por lead de tráfico frío` : 'inversión / registros'),
     card('Coste por VIP', eur(e.cpVip), 'inversión / entradas VIP'),
@@ -843,7 +843,7 @@ function openConfig(code) {
   const l = editingCode ? state.config.launches[editingCode]
     : {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
-      precioVip: last.precioVip, precioPrograma: last.precioPrograma, vipContadorBase: last.vipContadorBase,
+      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, fraccionadoTag: last.fraccionadoTag, vipContadorBase: last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, textos: last.textos,
       inicioCaptacion: new Date().toISOString().slice(0, 10),
@@ -888,6 +888,8 @@ function openConfig(code) {
   $('#cfg-llamada').value = l.llamadaUrl || '';
   $('#cfg-precio-vip').value = l.precioVip || '';
   $('#cfg-precio-programa').value = l.precioPrograma || '';
+  $('#cfg-precio-fraccionado').value = l.precioFraccionado || '';
+  $('#cfg-fraccionado-tag').value = l.fraccionadoTag || '';
   $('#cfg-inversion').value = l.inversion || '';
   $('#cfg-meta-filtro').value = l.metaFiltro || '';
   renderMetaNaming();
@@ -981,7 +983,8 @@ const CICLO = [
   { id: 'cfg-venta-fraccionado', c: 'revisar', label: 'Pago fraccionado (Hotmart)' },
   { id: 'cfg-llamada', c: 'revisar', label: 'Reservar llamada', opcional: true },
   { id: 'cfg-precio-vip', c: 'revisar', label: 'Precio VIP' },
-  { id: 'cfg-precio-programa', c: 'revisar', label: 'Precio de Raíces' },
+  { id: 'cfg-precio-programa', c: 'revisar', label: 'Precio Raíces · único' },
+  { id: 'cfg-precio-fraccionado', c: 'revisar', label: 'Precio Raíces · fraccionado', opcional: true },
   { id: 'cfg-login-url', c: 'revisar', label: 'Página de login' },
   { id: 'cfg-recursos-url', c: 'revisar', label: 'Página de recursos' },
   { id: 'cfg-clase1-url', c: 'revisar', label: 'Clase 1 · vídeo' },
@@ -993,6 +996,7 @@ const CICLO = [
   { id: 'cfg-vip', c: 'fijo' },
   { id: 'cfg-compra', c: 'fijo' },
   { id: 'cfg-llamada-tag', c: 'fijo' },
+  { id: 'cfg-fraccionado-tag', c: 'fijo' },
   { id: 'cfg-compra-fecha', c: 'fijo' },
   { id: 'tpl-grabacion', c: 'fijo' },
   { id: 'tpl-raices', c: 'fijo' },
@@ -1124,6 +1128,8 @@ function readForm() {
       llamadaUrl: $('#cfg-llamada').value.trim(),
       precioVip: $('#cfg-precio-vip').value,
       precioPrograma: $('#cfg-precio-programa').value,
+      precioFraccionado: $('#cfg-precio-fraccionado').value,
+      fraccionadoTag: $('#cfg-fraccionado-tag').value.trim().toLowerCase(),
       inversion: $('#cfg-inversion').value,
       metaFiltro: $('#cfg-meta-filtro').value.trim(),
     },

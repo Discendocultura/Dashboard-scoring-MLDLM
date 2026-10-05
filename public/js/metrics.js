@@ -29,6 +29,11 @@ export function enrichLead(contact, code, config) {
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
+// Importe de una compra de Raíces: precio fraccionado si pagó a plazos (y hay precio), si no el único.
+export function importeCompra(l, launch) {
+  return l.s.fraccionado && num(launch?.precioFraccionado) ? num(launch.precioFraccionado) : num(launch?.precioPrograma);
+}
+
 export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
   const c = (fn) => leads.filter(fn).length;
   const viewedReplay = (l) => watched(l.s, 'replay') >= 25;
@@ -47,6 +52,7 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     llamada: c((l) => l.s.llamada),
     compraLlamada: c((l) => l.s.compra && l.s.llamada),
     compra: c((l) => l.s.compra),
+    compraFraccionado: c((l) => l.s.fraccionado),
     compraVip: c((l) => l.s.compra && l.s.vip),
     noVip: c((l) => !l.s.vip),
     compraNoVip: c((l) => l.s.compra && !l.s.vip),
@@ -86,13 +92,14 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
 
   // Economía del lanzamiento.
   const inversion = metaSpend != null ? metaSpend : num(launch.inversion);
-  const facturacion = m.vip * num(launch.precioVip) + m.compra * num(launch.precioPrograma);
+  const facturacionPrograma = leads.filter((l) => l.s.compra).reduce((t, l) => t + importeCompra(l, launch), 0);
+  const facturacion = m.vip * num(launch.precioVip) + facturacionPrograma;
   m.eco = {
     inversion,
     inversionFuente: metaSpend != null ? 'meta' : 'manual',
     facturacion,
     facturacionVip: m.vip * num(launch.precioVip),
-    facturacionPrograma: m.compra * num(launch.precioPrograma),
+    facturacionPrograma,
     beneficio: facturacion - inversion,
     roas: inversion ? facturacion / inversion : null,
     // CPL de pago: solo cuenta el tráfico frío (los templados ya estaban en tu base de datos).
@@ -138,16 +145,23 @@ export function ventasPorDia(leads, launch) {
   const daysWithSales = buys.map((l) => l.s.fecha_compra).filter(Boolean).sort();
   const end = (launch.cierreCarrito || '').slice(0, 10) || [start, ...daysWithSales].sort().at(-1);
   const days = [];
-  for (let d = start, i = 0; d <= end && i < 60; d = addDay(d, 1), i++) days.push({ day: d, n: 0 });
+  let importe = 0;
+  for (let d = start, i = 0; d <= end && i < 60; d = addDay(d, 1), i++) days.push({ day: d, n: 0, fracc: 0, importe: 0 });
   let antes = 0; let despues = 0; let sinFecha = 0;
   for (const l of buys) {
     const d = l.s.fecha_compra;
+    importe += importeCompra(l, launch);
     if (!d) sinFecha++;
     else if (d < start) antes++;
     else if (d > end) despues++;
-    else days.find((x) => x.day === d).n++;
+    else {
+      const x = days.find((y) => y.day === d);
+      x.n++;
+      if (l.s.fraccionado) x.fracc++;
+      x.importe += importeCompra(l, launch);
+    }
   }
-  return { days, antes, despues, sinFecha, total: buys.length };
+  return { days, antes, despues, sinFecha, total: buys.length, importe };
 }
 
 // Agrupa los leads por su origen (campaña o anuncio de Meta según las UTM de GHL).

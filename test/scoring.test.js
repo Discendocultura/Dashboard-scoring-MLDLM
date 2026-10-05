@@ -134,3 +134,17 @@ test('ventas por día del carrito según la fecha de compra', async () => {
   assert.equal(v.total, 5);
   assert.equal(ventasPorDia([], { fechaDirecto: '2026-10-29' }), null);
 });
+
+test('facturación de Raíces con precio de pago único y fraccionado', async () => {
+  const { computeMetrics, ventasPorDia } = await import('../public/js/metrics.js');
+  const cfg = { compraTag: 'clienta', fraccionadoTag: 'hotmart' };
+  const lead = (tags) => ({ s: signalsFor(tags, 'nov26', cfg), estado: { id: 'frio' } });
+  const leads = [lead(['clienta']), lead(['clienta', 'hotmart']), lead(['hotmart']), lead([])];
+  const launch = { ...cfg, precioPrograma: 997, precioFraccionado: 1164 };
+  const m = computeMetrics(leads, launch);
+  assert.equal(m.compra, 2);
+  assert.equal(m.compraFraccionado, 1);
+  assert.equal(m.eco.facturacionPrograma, 997 + 1164);
+  assert.equal(computeMetrics(leads, { ...launch, precioFraccionado: 0 }).eco.facturacionPrograma, 997 * 2);
+  assert.equal(ventasPorDia(leads, { ...launch, fechaDirecto: '2026-10-29', compraDateField: 'f' }).importe, 997 + 1164);
+});

@@ -249,6 +249,8 @@
               <input id="cfg-compra" list="tag-list" placeholder="Busca la etiqueta…"></label>
               <label class="field"><span>Etiqueta de llamada agendada <small>(la que pone el workflow de la llamada; vacío = solo cuenta lo que marque la setter)</small></span>
               <input id="cfg-llamada-tag" list="tag-list" placeholder="Busca la etiqueta…"></label>
+            <label class="field"><span>Etiqueta de pago fraccionado <small>(la que pone el workflow de compra en Hotmart; distingue el precio de cada venta)</small></span>
+              <input id="cfg-fraccionado-tag" list="tag-list" placeholder="Busca la etiqueta…"></label>
               <label class="field"><span>Campo de fecha de compra <small>(para ventas en directo y del lanzamiento)</small></span>
               <select id="cfg-compra-fecha"><option value="">— Sin campo de fecha —</option></select></label>
             </div>
@@ -285,7 +287,8 @@
             <header class="cfg-sec-head"><span class="cfg-sec-num">6</span><div><h3>Precios y anuncios</h3><p>Para la facturación, el ROAS y el CAC de Métricas.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Precio de la entrada VIP (€)</span><input id="cfg-precio-vip" inputmode="decimal" placeholder="27"></label>
-              <label class="field"><span>Precio de Raíces (€) <small>(o el importe medio cobrado)</small></span><input id="cfg-precio-programa" inputmode="decimal" placeholder="997"></label>
+              <label class="field"><span>Precio de Raíces · pago único (€) <small>(ThriveCart)</small></span><input id="cfg-precio-programa" inputmode="decimal" placeholder="997"></label>
+              <label class="field"><span>Precio de Raíces · pago fraccionado (€) <small>(Hotmart; total de todos los plazos)</small></span><input id="cfg-precio-fraccionado" inputmode="decimal" placeholder="1.164"></label>
               <label class="field"><span>Inversión en anuncios (€) <small>(si no conectas Meta)</small></span><input id="cfg-inversion" inputmode="decimal"></label>
               <label class="field"><span>Campañas de Meta de este lanzamiento <small>(texto que contiene su nombre; vacío = el código)</small></span><input id="cfg-meta-filtro" placeholder="el código del lanzamiento"></label>
             </div>
