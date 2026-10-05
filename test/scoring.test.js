@@ -112,3 +112,12 @@ test('variables de enlace: página de venta y enlace de pago', () => {
   const msg = buildMessage('{link_pagina_venta} | {link_pago} | {link_raices}', { nombre: 'A', contactId: 'c1', launch });
   assert.equal(msg, 'https://x.com/raices?cid=c1 | https://pay.x.com/checkout?cid=c1 | https://x.com/raices?cid=c1');
 });
+
+test('llamada agendada: etiqueta fija sin las de antes, o marcada por la setter', () => {
+  const cfg = { llamadaTag: 'llamada-agendada' };
+  assert.equal(signalsFor(['llamada-agendada'], 'nov26', cfg).llamada, true);
+  assert.equal(signalsFor(['llamada-agendada', 'nov26_llamada_previo'], 'nov26', cfg).llamada, false);
+  assert.equal(signalsFor(['nov26_res_llamada'], 'nov26', {}).llamada, true);
+  assert.equal(signalsFor(['registro'], 'nov26', cfg).llamada, false);
+  assert.ok(isValidSignalTag('nov26_llamada_previo'));
+});

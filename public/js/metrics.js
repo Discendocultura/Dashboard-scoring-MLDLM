@@ -44,6 +44,8 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     live: c((l) => l.s.directo_asistio),
     liveFinal: c((l) => l.s.directo_final),
     replay: c(viewedReplay),
+    llamada: c((l) => l.s.llamada),
+    compraLlamada: c((l) => l.s.compra && l.s.llamada),
     compra: c((l) => l.s.compra),
     compraVip: c((l) => l.s.compra && l.s.vip),
     noVip: c((l) => !l.s.vip),
@@ -114,6 +116,7 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     ['Vio ≥50% de la grabación', (l) => watched(l.s, 'replay') >= 50],
     ['Tráfico templado', (l) => l.s.trafico === 'templado'],
     ['Contactada por WhatsApp', (l) => l.s.wa_enviado],
+    ['Agendó llamada', (l) => l.s.llamada],
   ];
   m.lift = SIGNAL_TESTS.map(([label, fn]) => {
     const yes = leads.filter(fn);

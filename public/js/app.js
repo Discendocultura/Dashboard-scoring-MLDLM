@@ -315,6 +315,7 @@ function renderMetrics() {
     card('Entradas VIP', m.vip, `${pctOf(m.vip, m.total)} de los registros`),
     card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros · ${pctOf(m.vipLive, m.vip)} de las VIP`),
     card('Compras totales', m.compra, `${pctOf(m.compra, m.total)} de los registros`),
+    card('Llamadas agendadas', `${m.llamada} <small class="muted">de ${m.total}</small>`, `${pctOf(m.llamada, m.total)} de los registros · ${pctOf(m.compraLlamada, m.llamada)} compran`),
     card('Compras de VIP', m.compraVip, `${pctOf(m.compraVip, m.vip)} de las VIP`),
     directoCard,
   ].join('');
@@ -331,6 +332,7 @@ function renderMetrics() {
     ['Asistieron al directo', m.live],
     ['Directo hasta el final', m.liveFinal],
     ['Vieron la grabación', m.replay, '≥25% visto'],
+    ['Agendaron llamada', m.llamada, 'etiqueta de llamada o marcada por la setter'],
     ['Compraron', m.compra, '', 'buy'],
   ];
   $('#funnel').innerHTML = steps.map(([label, n, hint, cls]) => `
@@ -348,6 +350,7 @@ function renderMetrics() {
     ['Asistieron hasta el final', m.liveFinal, m.compraFinal],
     ['No fueron al directo, vieron la grabación', m.soloReplay, m.compraSoloReplay],
     ['Ni directo ni grabación', m.nada, m.compraNada],
+    ['Agendaron llamada', m.llamada, m.compraLlamada],
   ];
   if (launch.fechaDirecto && launch.compraDateField) rows.splice(4, 0, ['Asistieron al directo y compraron ese mismo día', m.live, m.compraDirectoAsist]);
   renderTraffic(m);
@@ -810,7 +813,7 @@ function openConfig(code) {
   const last = launchesSorted()[0]?.[1] || {};
   const l = editingCode ? state.config.launches[editingCode]
     : {
-      vipTag: last.vipTag, compraTag: last.compraTag, compraDateField: last.compraDateField,
+      vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
       precioVip: last.precioVip, precioPrograma: last.precioPrograma, vipContadorBase: last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, textos: last.textos,
@@ -823,6 +826,7 @@ function openConfig(code) {
   $('#cfg-vip').value = l.vipTag || '';
   $('#cfg-compra').value = l.compraTag || '';
   $('#cfg-encuesta-tag').value = l.encuestaTag || '';
+  $('#cfg-llamada-tag').value = l.llamadaTag || '';
   $('#cfg-encuesta-url').value = l.encuestaUrl || '';
   $('#cfg-inicio').value = l.inicioCaptacion || '';
   $('#cfg-directo-fecha').value = l.fechaDirecto || '';
@@ -888,7 +892,7 @@ function tagProblems() {
   const val = (sel) => $(sel).value.trim().toLowerCase();
   const reg = val('#cfg-registro');
   const enc = val('#cfg-encuesta-tag');
-  const fixed = [val('#cfg-vip'), val('#cfg-compra')].filter(Boolean);
+  const fixed = [val('#cfg-vip'), val('#cfg-compra'), val('#cfg-llamada-tag')].filter(Boolean);
   const usedBy = (tag, key) => others.filter(([, l]) => l[key] === tag).map(([, l]) => l.name || '');
   const out = { registro: '', encuesta: '' };
   if (reg) {
@@ -957,6 +961,7 @@ const CICLO = [
   { id: 'cfg-calendario-url', c: 'revisar', label: 'Añadir al calendario' },
   { id: 'cfg-vip', c: 'fijo' },
   { id: 'cfg-compra', c: 'fijo' },
+  { id: 'cfg-llamada-tag', c: 'fijo' },
   { id: 'cfg-compra-fecha', c: 'fijo' },
   { id: 'tpl-grabacion', c: 'fijo' },
   { id: 'tpl-raices', c: 'fijo' },
@@ -1033,6 +1038,7 @@ function readForm() {
       vipTag: $('#cfg-vip').value.trim().toLowerCase(),
       compraTag: $('#cfg-compra').value.trim().toLowerCase(),
       encuestaTag: $('#cfg-encuesta-tag').value.trim().toLowerCase(),
+      llamadaTag: $('#cfg-llamada-tag').value.trim().toLowerCase(),
       encuestaUrl: $('#cfg-encuesta-url').value.trim(),
       compraDateField: $('#cfg-compra-fecha').value,
       inicioCaptacion: $('#cfg-inicio').value,
@@ -1155,7 +1161,7 @@ async function runSnapshot(code) {
     const next = { ...state.config, launches: { ...state.config.launches, [code]: { ...launch, snapshot } } };
     state.config = (await api('/api/config', { method: 'POST', body: next })).config;
   } catch (e) {
-    notice(`No se pudo completar la foto de VIP/clientas anteriores: ${e.message}`, true);
+    notice(`No se pudo completar la foto de VIP/clientas/llamadas anteriores: ${e.message}`, true);
   } finally {
     progress(null);
   }
@@ -1165,14 +1171,14 @@ function snapshotSummary(launch) {
   const s = launch.snapshot;
   if (!s) return '';
   const parts = SNAPSHOT_TAGS.filter((f) => s.tags?.[f.field]).map((f) => `${s.counts[f.field] ?? 0} con «${esc(s.tags[f.field])}»`);
-  return `Foto hecha el ${new Date(s.at).toLocaleString('es-ES')}: ${parts.join(', ')}. No cuentan como VIP ni como compra de este lanzamiento.`;
+  return `Foto hecha el ${new Date(s.at).toLocaleString('es-ES')}: ${parts.join(', ')}. No cuentan como VIP, compra ni llamada de este lanzamiento.`;
 }
 
 function renderSnapshotBox() {
   const box = $('#cfg-snapshot');
   const launch = editingCode && state.config.launches[editingCode];
   if (!launch) {
-    box.innerHTML = '<p class="muted">Al guardar se hará una «foto» de quién tiene ya las etiquetas de VIP y de compra, para no contarlas como de este lanzamiento. Crea el lanzamiento <strong>antes de abrir la venta de la VIP</strong>.</p>';
+    box.innerHTML = '<p class="muted">Al guardar se hará una «foto» de quién tiene ya las etiquetas de VIP, compra y llamada, para no contarlas como de este lanzamiento. Crea el lanzamiento <strong>antes de abrir la venta de la VIP</strong>.</p>';
     return;
   }
   const missing = missingSnapshot(launch);
@@ -1187,7 +1193,7 @@ function renderSnapshotWarning() {
   const missing = state.role === 'admin' && launch ? missingSnapshot(launch) : [];
   el.hidden = !missing.length;
   if (!missing.length) return;
-  el.innerHTML = `<p><strong>Falta la foto de VIP/clientas anteriores</strong> (${missing.map((f) => `«${esc(launch[f.field])}»`).join(', ')}). Mientras tanto, quien compró en lanzamientos anteriores cuenta como VIP/compra de este. Hazla antes de abrir la venta.</p>
+  el.innerHTML = `<p><strong>Falta la foto de lanzamientos anteriores</strong> (${missing.map((f) => `«${esc(launch[f.field])}»`).join(', ')}). Mientras tanto, quien la tenía de lanzamientos anteriores cuenta como de este. Hazla antes de abrir la venta.</p>
     <button type="button" class="btn" data-action="snapshot">Hacer la foto ahora</button>`;
 }
 
@@ -1253,7 +1259,10 @@ $('#btn-add-enlace').addEventListener('click', () => $('#cfg-enlaces').insertAdj
 $('#cfg-enlaces').addEventListener('click', (e) => { if (e.target.closest('.enl-del')) e.target.closest('.enlace-row').remove(); });
 
 // Accesos directos a GHL. Si no hay ninguno, se proponen los habituales con la URL vacía.
-const ACCESOS_SUGERIDOS = ['Workflow · formulario de registro', 'Workflow · encuesta rellenada', 'Encuesta del avatar', 'Formulario de registro', 'Página de recursos (editor)'];
+const ACCESOS_SUGERIDOS = [
+  'Workflow · formulario de registro', 'Workflow · encuesta rellenada', 'Workflow · compra', 'Workflow · bonus',
+  'Workflow · llamada agendada', 'Encuesta del avatar', 'Formulario de registro', 'Página de recursos (editor)',
+];
 const accesoRow = (nombre = '', url = '') => `<div class="enlace-row acceso-row">
   <input class="acc-nombre" value="${esc(nombre)}" placeholder="Nombre" maxlength="60">
   <input class="acc-url" type="url" value="${esc(url)}" placeholder="https://app.gohighlevel.com/…">
@@ -1261,7 +1270,9 @@ const accesoRow = (nombre = '', url = '') => `<div class="enlace-row acceso-row"
   <button type="button" class="btn acc-del" title="Quitar">✕</button></div>`;
 
 function renderAccesosEditor(accesos) {
-  const list = accesos?.length ? accesos : ACCESOS_SUGERIDOS.map((nombre) => ({ nombre, url: '' }));
+  // Los sugeridos que aún no estén en la lista se añaden al final, vacíos.
+  const list = [...(accesos || [])];
+  for (const nombre of ACCESOS_SUGERIDOS) if (!list.some((a) => a.nombre === nombre)) list.push({ nombre, url: '' });
   $('#cfg-accesos').innerHTML = list.map((a) => accesoRow(a.nombre, a.url)).join('');
 }
 
