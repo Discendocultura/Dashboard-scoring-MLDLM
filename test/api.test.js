@@ -209,3 +209,39 @@ test('meta: inversión por campaña con filtro por nombre', async () => {
   assert.equal((await adSpend({ since: '2026-10-01', until: '2026-10-20', filter: 'FRIO' })).campaigns.length, 1); // sin tildes
   assert.ok(all.names['331']);
 });
+
+test('página de recursos: fases, vídeos ocultos hasta su hora, VIP y vista previa firmada', async () => {
+  const admin = await login('admin');
+  const config = await import('../handlers/config.js');
+  const cur = await (await config.GET(req('/api/config', { cookie: admin }))).json();
+  await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, launches: { ...cur.config.launches, 'pag-test': {
+    name: 'Pág', registroTag: 'registro-webinar-demo', vipTag: 'compra-vip-demo', inicioCaptacion: '2026-10-01',
+    fechaDirecto: '2026-10-29', horaDirecto: '19:00', clase1At: '2026-10-22T19:00', clase2At: '2026-10-25T19:00',
+    clase1Url: 'https://vimeo.com/111/aaa', clase2Url: 'https://vimeo.com/222/bbb', vipUrl: 'https://pago.example.com/vip',
+  } } } }));
+  const page = await import('../handlers/page.js');
+  const tok = async (at) => (await (await page.POST(req('/api/page', { method: 'POST', cookie: admin, body: { at } }))).json()).token;
+  const get = async (at, extra = '') => (await page.GET(req(`/api/page?l=pag-test&preview=${encodeURIComponent(await tok(at))}${extra}`))).json();
+
+  const pre = await get('2026-10-21T10:00');
+  assert.equal(pre.phase, 'pre_c1');
+  assert.equal(pre.videos.clase1.url, '');            // no se filtra antes de tiempo
+  assert.ok(pre.links.vip);
+  const c1 = await get('2026-10-23T10:00');
+  assert.equal(c1.videos.clase1.url, 'https://vimeo.com/111/aaa');
+  assert.equal(c1.videos.clase2.url, '');
+  const live = await get('2026-10-29T19:01');
+  assert.equal(live.redirectTo, 'directo');
+  assert.equal(live.links.vip, '');                   // la VIP se cierra al empezar el directo
+  assert.equal((await get('2026-10-30T00:00')).redirectTo, 'grabacion');
+  // token manipulado → hora real (no se puede adelantar el desbloqueo)
+  const fake = await (await page.GET(req('/api/page?l=pag-test&preview=1793300000000.falso'))).json();
+  assert.equal(fake.preview, false);
+  // con cid sabe si ya es VIP
+  const { contactsByTag } = await import('../lib/ghl.js');
+  const { contacts } = await contactsByTag('compra-vip-demo');
+  const vip = await get('2026-10-23T10:00', `&cid=${contacts[0].id}`);
+  assert.equal(typeof vip.vip.isVip, 'boolean');
+  // l=auto resuelve el lanzamiento en curso
+  assert.ok((await (await page.GET(req('/api/page?l=auto'))).json()).code);
+});

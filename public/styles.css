@@ -213,6 +213,9 @@ table.metric-table { width: 100%; border-collapse: collapse; min-width: 520px; }
 select.outcome { font-size: 12px; padding: 4px 6px; }
 .compare-pick { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 10px; }
 .cfg-h3 { font-size: 14px; margin: 10px 0 0; }
+.bar-table input, .bar-table select { width: 100%; font-size: 13px; padding: 6px 8px; }
+.bar-table td:first-child { font-size: 12px; font-weight: 600; min-width: 130px; }
+.bar-table td:nth-child(2) { min-width: 260px; }
 @media (max-width: 640px) { .hoy-grid { grid-template-columns: 1fr; } }
 
 /* Consumo de vídeos */

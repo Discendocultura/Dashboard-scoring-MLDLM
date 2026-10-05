@@ -186,6 +186,7 @@
         <div class="tabs" role="tablist">
           <button type="button" class="tab active" data-tab="launch">Lanzamiento</button>
           <button type="button" class="tab" data-tab="messages">Mensajes de WhatsApp</button>
+          <button type="button" class="tab" data-tab="pagina">Página de recursos</button>
           <button type="button" class="tab" data-tab="snippets">Códigos para GHL</button>
         </div>
 
@@ -214,6 +215,8 @@
               <input id="cfg-inicio" type="date"></label>
             <label class="field"><span>Día del directo</span>
               <input id="cfg-directo-fecha" type="date"></label>
+            <label class="field"><span>Hora del directo <small>(hora de España)</small></span>
+              <input id="cfg-directo-hora" type="time"></label>
             <label class="field"><span>ID de la reunión de Zoom</span><input id="cfg-zoom-id" inputmode="numeric" placeholder="812 3456 7890"></label>
             <label class="field"><span>Enlace genérico de Zoom <small>(por si falla el registro)</small></span><input id="cfg-zoom-url" type="url"></label>
             <label class="field"><span>Página de la grabación</span><input id="cfg-replay" type="url"></label>
@@ -241,6 +244,34 @@
             <label class="field"><span>Enviar el resumen a</span><input id="cfg-digest-email" type="email" placeholder="tu@email.com"></label>
             <button type="button" class="btn" id="btn-digest-test">Enviar resumen de prueba</button>
           </div>
+        </section>
+
+        <section class="tab-panel" data-panel="pagina" hidden>
+          <p class="muted">Todo lo que cambia en cada lanzamiento. La página de recursos de GHL lo lee sola: en el próximo lanzamiento solo cambias esto. Las fechas son en <strong>hora de España</strong>.</p>
+          <div id="page-phase-now" class="snapshot-box"></div>
+          <div class="grid2">
+            <label class="field"><span>URL de la página de login</span><input id="cfg-login-url" type="url" placeholder="https://lp.saraguzman.com/…"></label>
+            <label class="field"><span>URL de la página de recursos</span><input id="cfg-recursos-url" type="url"></label>
+            <label class="field"><span>Clase 1 · vídeo de Vimeo</span><input id="cfg-clase1-url" type="url" placeholder="https://vimeo.com/123/abc"></label>
+            <label class="field"><span>Clase 1 · se desbloquea</span><input id="cfg-clase1-at" type="datetime-local"></label>
+            <label class="field"><span>Clase 2 · vídeo de Vimeo</span><input id="cfg-clase2-url" type="url"></label>
+            <label class="field"><span>Clase 2 · se desbloquea</span><input id="cfg-clase2-at" type="datetime-local"></label>
+            <label class="field"><span>Grabación del directo · vídeo de Vimeo</span><input id="cfg-replay-video" type="url"></label>
+            <label class="field"><span>Grabación · se desbloquea <small>(vacío = 00:00 del día siguiente al directo)</small></span><input id="cfg-replay-at" type="datetime-local"></label>
+            <label class="field"><span>Entrada VIP · enlace de pago <small>(se cierra a la hora del directo)</small></span><input id="cfg-vip-url" type="url"></label>
+            <label class="field"><span>Grupo de WhatsApp · enlace</span><input id="cfg-whatsapp-url" type="url" placeholder="https://chat.whatsapp.com/…"></label>
+            <label class="field"><span>Cierre del carrito de Raíces</span><input id="cfg-cierre" type="datetime-local"></label>
+          </div>
+          <p class="muted">La <strong>fecha y hora del directo</strong> y la <strong>página de la grabación</strong> se configuran en la pestaña Lanzamiento. A la hora del directo, la página de recursos manda al directo; desde las 00:00 del día siguiente, a la página de la grabación.</p>
+          <h3 class="cfg-h3">Barra de urgencia</h3>
+          <p class="muted">Un mensaje por fase. <code>{cuenta}</code> = cuenta atrás hasta el siguiente momento. Si lo dejas vacío se usa el texto de ejemplo.</p>
+          <div class="table-scroll"><table class="metric-table bar-table"><thead><tr><th>Fase</th><th>Mensaje</th><th>Botón</th><th>Texto del botón</th></tr></thead><tbody id="cfg-barra"></tbody></table></div>
+          <h3 class="cfg-h3">Vista previa</h3>
+          <div class="row">
+            <label class="field"><span>Ver la página de recursos como si fuera…</span><input id="cfg-preview-at" type="datetime-local"></label>
+            <button type="button" class="btn" id="btn-preview">Abrir vista previa</button>
+          </div>
+          <p class="muted">Abre tu página de recursos simulando esa fecha (solo cambia lo que ves tú; para las leads sigue siendo hoy). Guarda antes los cambios.</p>
         </section>
 
         <section class="tab-panel" data-panel="snippets" hidden>

@@ -92,7 +92,11 @@
     '.lsd-gate input{flex:1 1 100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #d8d0c9;font:inherit}' +
     '.lsd-gate button{padding:12px 18px;border:0;border-radius:8px;background:#b4552d;color:#fff;font:inherit;font-weight:600;cursor:pointer}' +
     '.lsd-gate .lsd-err{color:#b3261e;font-size:.9em}' +
-    '.lsd-gate.lsd-gate-login{aspect-ratio:auto;padding:28px 20px}';
+    '.lsd-gate.lsd-gate-login{aspect-ratio:auto;padding:28px 20px}' +
+    '.lsd-locked{aspect-ratio:16/9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:20px;border-radius:12px;background:#f6f3ef;color:#2b2522;box-sizing:border-box}' +
+    '.lsd-locked p{margin:0}.lsd-locked-icon{font-size:2em}.lsd-locked-text{font-weight:600}.lsd-cd{font-variant-numeric:tabular-nums;font-weight:700}' +
+    '[data-lsd-bar]{display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap}' +
+    '.lsd-bar-btn{display:inline-block;padding:6px 14px;border-radius:999px;background:#b4552d;color:#fff;font-weight:600;text-decoration:none}';
 
   function injectCss() {
     if (document.getElementById('lsd-css')) return;
@@ -212,9 +216,9 @@
     });
   }
 
-  function track(container, who) {
+  function track(container, who, launchCode) {
     var video = container.getAttribute('data-lsd-video');
-    var launch = params.get('l') || container.getAttribute('data-launch');
+    var launch = launchCode || container.getAttribute('data-launch') || params.get('l');
     var src = container.getAttribute('data-vimeo') || '';
     var key = 'lsd_' + launch + '_' + video;
     var saved = store(key) || {};
@@ -264,73 +268,235 @@
     var u = new URL(url, location.href);
     if (who && who.cid) u.searchParams.set('cid', who.cid);
     else if (who && who.email) u.searchParams.set('email', who.email);
+    // La vista previa del dashboard se conserva al pasar de una página a otra (no al directo).
+    if (params.get('lsd_preview') && u.pathname !== '/directo') u.searchParams.set('lsd_preview', params.get('lsd_preview'));
     location.replace(u.toString());
   }
 
-  // Página de login: <div data-lsd-login data-launch="nov26" data-redirect="https://…/recursos"></div>
+  // ---------- Datos del lanzamiento configurados en el dashboard ----------
+  var clockSkew = 0; // diferencia entre la hora del servidor y la del dispositivo
+
+  function fetchPage(launch, who) {
+    var q = new URLSearchParams({ l: launch || 'auto' });
+    if (who && who.cid) q.set('cid', who.cid);
+    if (params.get('lsd_preview')) q.set('preview', params.get('lsd_preview'));
+    return fetch(API + '/api/page?' + q.toString()).then(function (r) { return r.json(); }).then(function (d) {
+      if (d && d.now) clockSkew = d.now - Date.now();
+      return d;
+    });
+  }
+
+  var serverNow = function () { return Date.now() + clockSkew; };
+
+  function fmtCountdown(ms) {
+    if (ms <= 0) return '0:00:00';
+    var s = Math.floor(ms / 1000);
+    var d = Math.floor(s / 86400); s %= 86400;
+    var h = Math.floor(s / 3600); s %= 3600;
+    var m = Math.floor(s / 60); s %= 60;
+    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d > 0 ? d + ' d ' + h + ' h ' + pad(m) + ' min' : h + ':' + pad(m) + ':' + pad(s);
+  }
+
+  // Todas las cuentas atrás de la página (<span data-lsd-cd="epoch">) se actualizan cada segundo.
+  var cdTimer = null;
+  function tickCountdowns() {
+    document.querySelectorAll('[data-lsd-cd]').forEach(function (el) {
+      el.textContent = fmtCountdown(Number(el.getAttribute('data-lsd-cd')) - serverNow());
+    });
+  }
+  function startCountdowns() {
+    tickCountdowns();
+    if (!cdTimer) cdTimer = setInterval(tickCountdowns, 1000);
+  }
+  var cdSpan = function (at) { return at ? '<span class="lsd-cd" data-lsd-cd="' + at + '"></span>' : ''; };
+  var esc = function (t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var show = function (el, on) { el.style.display = on ? '' : 'none'; };
+
+  function renderPage(data, who, onVideo) {
+    injectCss();
+    var linkWho = function (href) {
+      if (!href || !who) return href;
+      try {
+        var u = new URL(href);
+        if (u.origin === API && u.pathname === '/directo') {
+          if (who.cid) u.searchParams.set('cid', who.cid); else if (who.email) u.searchParams.set('email', who.email);
+        }
+        return u.toString();
+      } catch (e) { return href; }
+    };
+
+    // Barra de urgencia: <div data-lsd-bar></div>
+    document.querySelectorAll('[data-lsd-bar]').forEach(function (el) {
+      var b = data.bar || {};
+      var text = esc(b.text || '').replace('{cuenta}', cdSpan(data.countdownTo));
+      var btn = b.button ? '<a class="lsd-bar-btn" href="' + esc(linkWho(b.button.href)) + '"' + (b.button.key === 'whatsapp' ? ' target="_blank" rel="noopener"' : '') + '>' + esc(b.button.label || defaultLabel(b.button.key)) + '</a>' : '';
+      el.innerHTML = '<span class="lsd-bar-text">' + text + '</span>' + btn;
+      el.setAttribute('data-lsd-phase-now', data.phase);
+      show(el, Boolean(b.text));
+    });
+
+    // Enlaces: <a data-lsd-link="vip|whatsapp|directo|grabacion|venta|pago|llamada">
+    document.querySelectorAll('[data-lsd-link]').forEach(function (el) {
+      var href = data.links[el.getAttribute('data-lsd-link')];
+      if (href) { el.setAttribute('href', linkWho(href)); show(el, true); } else show(el, false);
+    });
+
+    // Textos: <span data-lsd-text="fechaDirecto|horaDirecto|directo|clase1|clase2|replay|cierreVip|cierreCarrito|precioVip">
+    document.querySelectorAll('[data-lsd-text]').forEach(function (el) {
+      var v = data.texts[el.getAttribute('data-lsd-text')];
+      if (v != null) el.textContent = v;
+    });
+
+    // Cuentas atrás sueltas: <span data-lsd-countdown="directo|clase1|clase2|replay|vip|fase">
+    document.querySelectorAll('[data-lsd-countdown]').forEach(function (el) {
+      var k = el.getAttribute('data-lsd-countdown');
+      var at = k === 'fase' ? data.countdownTo : k === 'vip' ? data.vip.closesAt : k === 'directo' ? data.vip.closesAt : (data.videos[k] || {}).unlockAt;
+      el.innerHTML = at && at > serverNow() ? cdSpan(at) : '';
+    });
+
+    // Mostrar/ocultar por fase: data-lsd-phase="pre_c1 c1 c2 dia_directo en_directo replay cerrado"
+    document.querySelectorAll('[data-lsd-phase]').forEach(function (el) {
+      show(el, el.getAttribute('data-lsd-phase').split(/[\s,]+/).indexOf(data.phase) >= 0);
+    });
+
+    // Mostrar/ocultar por VIP: data-lsd-if="vip-abierta|vip-cerrada|ya-vip"
+    var isVip = data.vip.isVip === true;
+    document.querySelectorAll('[data-lsd-if]').forEach(function (el) {
+      var c = el.getAttribute('data-lsd-if');
+      show(el, c === 'ya-vip' ? isVip : c === 'vip-abierta' ? (data.vip.open && !isVip) : c === 'vip-cerrada' ? (!data.vip.open && !isVip) : true);
+    });
+
+    // Vídeos sin data-vimeo: la URL llega del dashboard cuando se desbloquean.
+    document.querySelectorAll('[data-lsd-video]').forEach(function (el) {
+      if (el.getAttribute('data-lsd-fixed') === '1') return;
+      var v = data.videos[el.getAttribute('data-lsd-video')];
+      if (!v) return;
+      if (v.unlocked) {
+        if (el.getAttribute('data-lsd-playing') === '1') return;
+        el.innerHTML = '';
+        el.setAttribute('data-vimeo', v.url);
+        el.setAttribute('data-lsd-playing', '1');
+        onVideo(el);
+      } else if (!el.querySelector('.lsd-locked')) {
+        injectCss();
+        el.innerHTML = '<div class="lsd-locked"><div class="lsd-locked-icon">🔒</div>' +
+          (v.unlockAt ? '<p class="lsd-locked-text">Disponible el ' + esc(v.unlockText) + '</p><p class="lsd-locked-count">Faltan ' + cdSpan(v.unlockAt) + '</p>'
+            : '<p class="lsd-locked-text">Muy pronto disponible</p>') + '</div>';
+      }
+    });
+    startCountdowns();
+  }
+
+  function defaultLabel(key) {
+    return { whatsapp: 'Unirme al grupo', vip: 'Quiero mi entrada VIP', directo: 'Entrar al directo', grabacion: 'Ver la grabación', venta: 'Conocer Raíces', pago: 'Unirme a Raíces', llamada: 'Reservar llamada' }[key] || 'Ir';
+  }
+
+  // Página gestionada desde el dashboard (recursos / grabación). Vuelve a pedir los datos cuando
+  // cambia de fase o se desbloquea un vídeo, y redirige (recursos → directo → grabación).
+  function runManagedPage(kind, launchAttr, who, onVideo) {
+    var timer = null;
+    function cycle() {
+      fetchPage(launchAttr, who).then(function (data) {
+        if (!data || data.error) return;
+        if (kind === 'recursos' && data.redirectTo && data.links[data.redirectTo]) {
+          return goTo(data.links[data.redirectTo], who);
+        }
+        renderPage(data, who, function (el) { onVideo(el, data.code); });
+        // Próximo cambio: fase o desbloqueo de vídeo.
+        var next = [data.changesAt, data.videos.clase1.unlockAt, data.videos.clase2.unlockAt, data.videos.replay.unlockAt]
+          .filter(function (t) { return t && t > data.now; }).sort(function (a, b) { return a - b; })[0];
+        clearTimeout(timer);
+        if (next) timer = setTimeout(cycle, Math.min(next - serverNow() + 1500, 2147483000));
+      }).catch(function () { /* sin conexión: se queda como está */ });
+    }
+    cycle();
+  }
+
+  // Página de login: <div data-lsd-login data-launch="auto" data-redirect="https://…/recursos"></div>
   // Registrada → redirige. Si no, pide nombre y móvil, la registra con la etiqueta del lanzamiento y redirige.
   function initLogin(el) {
     if (el.getAttribute('data-lsd-ready')) return;
     el.setAttribute('data-lsd-ready', '1');
-    var launch = params.get('l') || el.getAttribute('data-launch');
-    var redirect = el.getAttribute('data-redirect');
-    var cid = params.get('cid');
-    if (cid && !/^\{\{/.test(cid)) { store(STORE, { cid: cid }); return goTo(redirect, { cid: cid }); } // viene de un email de GHL
-    var stored = store(STORE) || {};
-    var preset = params.get('email') || '';
-    gate(el, launch, function (who) { goTo(redirect, who); }, preset || '', {
-      login: true,
-      title: el.getAttribute('data-title') || 'Accede a las clases con el email con el que te registraste',
-      button: el.getAttribute('data-button') || 'Acceder',
+    var attr = params.get('l') || el.getAttribute('data-launch') || 'auto';
+    var ready = attr === 'auto' || !el.getAttribute('data-redirect')
+      ? fetchPage(attr, null).then(function (d) { return { code: d.code, redirect: el.getAttribute('data-redirect') || d.links.recursos }; })
+      : Promise.resolve({ code: attr, redirect: el.getAttribute('data-redirect') });
+    ready.catch(function () { return { code: attr, redirect: el.getAttribute('data-redirect') }; }).then(function (cfg) {
+      var cid = params.get('cid');
+      if (cid && !/^\{\{/.test(cid)) { store(STORE, { cid: cid }); return goTo(cfg.redirect, { cid: cid }); } // viene de un email de GHL
+      var stored = store(STORE) || {};
+      var preset = params.get('email') || '';
+      gate(el, cfg.code, function (who) { goTo(cfg.redirect, who); }, preset || '', {
+        login: true,
+        title: el.getAttribute('data-title') || 'Accede a las clases con el email con el que te registraste',
+        button: el.getAttribute('data-button') || 'Acceder',
+      });
+      // Si este navegador ya la conoce, dejamos su email escrito (pero puede cambiarlo).
+      if (!preset && stored.email) { var inp = el.querySelector('input[name="email"]'); if (inp) inp.value = stored.email; }
     });
-    // Si este navegador ya la conoce, dejamos su email escrito (pero puede cambiarlo).
-    if (!preset && stored.email) { var inp = el.querySelector('input[name="email"]'); if (inp) inp.value = stored.email; }
   }
 
   function init() {
     var login = document.querySelector('[data-lsd-login]');
     if (login) initLogin(login);
 
+    var pageEl = document.querySelector('[data-lsd-page]');
     var containers = Array.prototype.slice.call(document.querySelectorAll('[data-lsd-video]'))
       .filter(function (c) { return !c.getAttribute('data-lsd-ready'); });
-    if (!containers.length) return;
-    containers.forEach(function (c) { c.setAttribute('data-lsd-ready', '1'); c.classList.add('lsd-wrap'); });
-    var launch = params.get('l') || containers[0].getAttribute('data-launch');
-    // Con data-login="URL de la página de login", quien llega sin identificar va al login.
-    var loginEl = document.querySelector('[data-lsd-video][data-login]');
-    var loginUrl = loginEl ? loginEl.getAttribute('data-login') : '';
+    if (!containers.length && !pageEl) return;
+    containers.forEach(function (c) {
+      c.setAttribute('data-lsd-ready', '1');
+      c.classList.add('lsd-wrap');
+      if (c.getAttribute('data-vimeo')) c.setAttribute('data-lsd-fixed', '1');
+    });
+    var managed = Boolean(pageEl) || containers.some(function (c) { return !c.getAttribute('data-vimeo'); });
+    var kind = pageEl ? pageEl.getAttribute('data-lsd-page') : 'recursos';
+    var launchAttr = params.get('l') || (pageEl && pageEl.getAttribute('data-launch')) || (containers[0] && containers[0].getAttribute('data-launch')) || 'auto';
+    // URL del login: data-login en la página o en un vídeo, o la configurada en el dashboard.
+    var loginAttrEl = document.querySelector('[data-lsd-page][data-login], [data-lsd-video][data-login]');
 
-    function start(who) {
-      decorateLiveLinks(who);
-      loadVimeo(function () {
-        containers.forEach(function (c) { track(c, who); });
-      });
-    }
-
-    var gateHost = document.querySelector('[data-lsd-gate]') || containers[0];
-    function showGate(presetEmail) {
-      if (loginUrl) return goTo(loginUrl, presetEmail ? { email: presetEmail } : null);
-      containers.forEach(function (c) { if (c !== gateHost) c.style.display = 'none'; });
-      gate(gateHost, launch, function (w) {
-        containers.forEach(function (c) { c.style.display = ''; });
-        start(w);
-      }, presetEmail);
-    }
-
-    var who = identity();
-    if (!who) return showGate();
-    // Ya comprobada en este lanzamiento, o llega con su cid desde el login o un email de GHL.
-    if ((who.ok && who.ok[launch]) || (who.cid && (who.fromUrl || !who.email))) return start(who);
-    // Si no, comprobamos que esté registrada en este lanzamiento (p. ej. viene de uno anterior).
-    post('/api/access', { email: who.email, launch: launch }).then(function (r) {
-      if (r && r.ok) {
-        var w = r.cid ? { cid: r.cid, email: who.email } : who;
-        markRegistered(w, launch);
-        return start(w);
+    function begin(launch, loginUrl) {
+      function start(who) {
+        decorateLiveLinks(who);
+        var playVideo = function (el, code) { loadVimeo(function () { track(el, who, code || launch); }); };
+        containers.filter(function (c) { return c.getAttribute('data-lsd-fixed') === '1'; }).forEach(function (c) { playVideo(c, launch); });
+        if (managed) runManagedPage(kind, launchAttr === 'auto' ? launch : launchAttr, who, playVideo);
       }
-      if (r && r.needs === 'signup') return showGate(who.email);
-      start(who);
-    }).catch(function () { start(who); });
+
+      var gateHost = document.querySelector('[data-lsd-gate]') || containers[0] || pageEl;
+      function showGate(presetEmail) {
+        if (loginUrl) return goTo(loginUrl, presetEmail ? { email: presetEmail } : null);
+        containers.forEach(function (c) { if (c !== gateHost) c.style.display = 'none'; });
+        gate(gateHost, launch, function (w) {
+          containers.forEach(function (c) { c.style.display = ''; });
+          start(w);
+        }, presetEmail);
+      }
+
+      var who = identity();
+      if (!who) return showGate();
+      // Ya comprobada en este lanzamiento, o llega con su cid desde el login o un email de GHL.
+      if ((who.ok && who.ok[launch]) || (who.cid && (who.fromUrl || !who.email))) return start(who);
+      // Si no, comprobamos que esté registrada en este lanzamiento (p. ej. viene de uno anterior).
+      post('/api/access', { email: who.email, launch: launch }).then(function (r) {
+        if (r && r.ok) {
+          var w = r.cid ? { cid: r.cid, email: who.email } : who;
+          markRegistered(w, launch);
+          return start(w);
+        }
+        if (r && r.needs === 'signup') return showGate(who.email);
+        start(who);
+      }).catch(function () { start(who); });
+    }
+
+    var attrLogin = loginAttrEl ? loginAttrEl.getAttribute('data-login') : '';
+    if (!managed && launchAttr !== 'auto') return begin(launchAttr, attrLogin);
+    // Con el dashboard: primero sabemos qué lanzamiento es (y su URL de login).
+    fetchPage(launchAttr, null).then(function (d) {
+      if (!d || d.error) return begin(launchAttr, attrLogin);
+      begin(d.code, attrLogin || d.links.login);
+    }).catch(function () { begin(launchAttr, attrLogin); });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

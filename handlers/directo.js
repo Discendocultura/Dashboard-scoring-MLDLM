@@ -11,6 +11,7 @@ import { getConfig } from '../lib/config-store.js';
 import { addRegistrant, zoomConfigured } from '../lib/zoom.js';
 import { html, escapeHtml, isEmail } from '../lib/http.js';
 import { tagFor } from '../public/js/scoring.js';
+import { currentLaunch } from '../lib/digest.js';
 
 const page = (title, body) => html(`<!doctype html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title>
@@ -69,7 +70,7 @@ const isCid = (v) => /^[A-Za-z0-9]{6,40}$/.test(v);
 
 export async function GET(request, ctx) {
   const url = new URL(request.url);
-  const code = url.searchParams.get('l') || '';
+  let code = url.searchParams.get('l') || '';
   let cid = url.searchParams.get('cid') || '';
   let emailParam = (url.searchParams.get('email') || '').trim().toLowerCase();
   if (!isCid(cid)) cid = '';
@@ -87,6 +88,7 @@ export async function GET(request, ctx) {
       getConfig(),
       cid ? getContact(cid).catch((e) => { console.error(e); return null; }) : null,
     ]);
+    if (code === 'auto') code = currentLaunch(config) || '';
     launch = config.launches[code];
     contact = byId;
   } catch (e) {

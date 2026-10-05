@@ -2,6 +2,7 @@ import {
   ESTADOS, NEXT_STEPS, buildMessage, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, OUTCOMES,
 } from './scoring.js';
 import { enrichLead, computeMetrics, bySource } from './metrics.js';
+import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -817,6 +818,20 @@ function openConfig(code) {
   $('#cfg-compra').value = l.compraTag || '';
   $('#cfg-inicio').value = l.inicioCaptacion || '';
   $('#cfg-directo-fecha').value = l.fechaDirecto || '';
+  $('#cfg-directo-hora').value = l.horaDirecto || '';
+  $('#cfg-login-url').value = l.loginUrl || '';
+  $('#cfg-recursos-url').value = l.recursosUrl || '';
+  $('#cfg-clase1-url').value = l.clase1Url || '';
+  $('#cfg-clase1-at').value = l.clase1At || '';
+  $('#cfg-clase2-url').value = l.clase2Url || '';
+  $('#cfg-clase2-at').value = l.clase2At || '';
+  $('#cfg-replay-video').value = l.replayVideoUrl || '';
+  $('#cfg-replay-at').value = l.replayAt || '';
+  $('#cfg-vip-url').value = l.vipUrl || '';
+  $('#cfg-whatsapp-url').value = l.whatsappUrl || '';
+  $('#cfg-cierre').value = l.cierreCarrito || '';
+  renderBarraEditor(l.barra || {});
+  renderPhaseNow(l);
   fillDateFields(l.compraDateField);
   $('#cfg-zoom-id').value = l.zoomMeetingId || '';
   $('#cfg-zoom-url').value = l.zoomJoinUrl || '';
@@ -868,6 +883,19 @@ function readForm() {
       compraDateField: $('#cfg-compra-fecha').value,
       inicioCaptacion: $('#cfg-inicio').value,
       fechaDirecto: $('#cfg-directo-fecha').value,
+      horaDirecto: $('#cfg-directo-hora').value,
+      loginUrl: $('#cfg-login-url').value.trim(),
+      recursosUrl: $('#cfg-recursos-url').value.trim(),
+      clase1Url: $('#cfg-clase1-url').value.trim(),
+      clase1At: $('#cfg-clase1-at').value,
+      clase2Url: $('#cfg-clase2-url').value.trim(),
+      clase2At: $('#cfg-clase2-at').value,
+      replayVideoUrl: $('#cfg-replay-video').value.trim(),
+      replayAt: $('#cfg-replay-at').value,
+      vipUrl: $('#cfg-vip-url').value.trim(),
+      whatsappUrl: $('#cfg-whatsapp-url').value.trim(),
+      cierreCarrito: $('#cfg-cierre').value,
+      barra: readBarraEditor(),
       zoomMeetingId: $('#cfg-zoom-id').value,
       zoomJoinUrl: $('#cfg-zoom-url').value.trim(),
       replayUrl: $('#cfg-replay').value.trim(),
@@ -1028,6 +1056,53 @@ $('#btn-digest-test').addEventListener('click', async () => {
   }
 });
 
+// ---------- Página de recursos: barra de urgencia y vista previa ----------
+function renderBarraEditor(barra) {
+  const opts = (sel) => Object.entries(LINK_KEYS).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v}</option>`).join('');
+  $('#cfg-barra').innerHTML = PHASES.map((p) => {
+    const b = barra[p.id] || {};
+    return `<tr data-phase="${p.id}">
+      <td>${esc(p.label)}</td>
+      <td><input class="bar-text" value="${esc(b.text || '')}" placeholder="${esc(p.text)}"></td>
+      <td><select class="bar-button">${opts(b.button != null ? b.button : p.button)}</select></td>
+      <td><input class="bar-label" value="${esc(b.buttonLabel || '')}" placeholder="Texto del botón"></td>
+    </tr>`;
+  }).join('');
+}
+
+function readBarraEditor() {
+  const out = {};
+  $$('#cfg-barra tr').forEach((tr) => {
+    out[tr.dataset.phase] = { text: $('.bar-text', tr).value.trim(), button: $('.bar-button', tr).value, buttonLabel: $('.bar-label', tr).value.trim() };
+  });
+  return out;
+}
+
+function renderPhaseNow(l) {
+  const box = $('#page-phase-now');
+  if (!l || !editingCode) { box.innerHTML = '<p class="muted">Guarda el lanzamiento para ver en qué fase está la página.</p>'; return; }
+  const p = phaseAt(l, Date.now());
+  const label = PHASES.find((x) => x.id === p.id)?.label || p.id;
+  const bar = barFor(l, p.id);
+  box.innerHTML = `<p><strong>Ahora mismo la página está en la fase:</strong> ${esc(label)}${p.changesAt ? ` · cambia el ${esc(formatLong(p.changesAt))}` : ''}</p>
+    <p class="muted">Barra: «${esc(bar.text.replace('{cuenta}', '⏳'))}»${p.id === 'en_directo' ? ' · la página de recursos redirige al directo' : (p.id === 'replay' || p.id === 'cerrado') ? ' · la página de recursos redirige a la grabación' : ''}</p>`;
+}
+
+$('#btn-preview').addEventListener('click', async () => {
+  const l = editingCode && state.config.launches[editingCode];
+  const at = $('#cfg-preview-at').value;
+  if (!l?.recursosUrl) return window.alert('Guarda primero la URL de la página de recursos.');
+  if (!at) return window.alert('Elige la fecha y hora que quieres simular.');
+  try {
+    const { token } = await api('/api/page', { method: 'POST', body: { at } });
+    const u = new URL(l.recursosUrl);
+    u.searchParams.set('lsd_preview', token);
+    window.open(u.toString(), '_blank', 'noopener');
+  } catch (e) {
+    window.alert(e.message);
+  }
+});
+
 // Nota fija: cómo nombrar las campañas de Meta para que el dashboard las reconozca.
 const UTM_PARAMS = 'utm_source={{site_source_name}}&utm_medium=paid&utm_campaign={{campaign.id}}&utm_term={{adset.id}}&utm_content={{ad.id}}';
 
@@ -1060,24 +1135,23 @@ function renderSnippets() {
   if (!code) { box.innerHTML = '<p class="muted">Guarda el lanzamiento para ver sus códigos.</p>'; return; }
   const origin = location.origin;
   const script = `<script src="${origin}/tracker.js" defer></script>`;
-  const LOGIN = 'https://TU-DOMINIO/login-webinar';
-  const RECURSOS = 'https://TU-DOMINIO/recursos-webinar';
   const items = [
-    ['1 · Página de LOGIN (bloque Código HTML). Cambia la URL de data-redirect por la de tu página de recursos',
-      `<div data-lsd-login data-launch="${code}" data-redirect="${RECURSOS}"></div>\n${script}`],
-    ['2 · Página de RECURSOS: bloque de la clase 1 (cambia la URL de Vimeo y la de data-login por la de tu página de login)',
-      `<div data-lsd-video="clase1" data-vimeo="https://vimeo.com/ID_CLASE_1" data-launch="${code}" data-login="${LOGIN}"></div>\n${script}`],
-    ['2 · Página de RECURSOS: bloque de la clase 2 (sin script: con uno por página basta)',
-      `<div data-lsd-video="clase2" data-vimeo="https://vimeo.com/ID_CLASE_2" data-launch="${code}"></div>`],
-    ['2 · Página de RECURSOS: botón al directo (entra con su email sin escribir nada)',
-      `<a href="${origin}/directo?l=${code}" class="boton-directo">Entrar a la clase en directo</a>`],
-    ['3 · Página de la GRABACIÓN (bloque Código HTML)',
-      `<div data-lsd-video="replay" data-vimeo="https://vimeo.com/ID_GRABACION" data-launch="${code}" data-login="${LOGIN}"></div>\n${script}`],
+    ['LOGIN · bloque del formulario (no cambia entre lanzamientos)',
+      `<div data-lsd-login data-launch="auto"\n     data-title="Accede a las clases con el email con el que te registraste"\n     data-button="Acceder a las clases"></div>\n${script}`],
+    ['RECURSOS · bloque base (una vez por página, en cualquier sitio)', `<div data-lsd-page="recursos" data-launch="auto"></div>\n${script}`],
+    ['RECURSOS · barra de urgencia (dale estilo de barra fija arriba)', '<div class="mi-barra" data-lsd-bar></div>'],
+    ['RECURSOS · vídeo de la clase 1 (bloqueado con cuenta atrás hasta su hora)', '<div data-lsd-video="clase1"></div>'],
+    ['RECURSOS · vídeo de la clase 2', '<div data-lsd-video="clase2"></div>'],
+    ['RECURSOS · oferta VIP (se oculta al empezar el directo y a quien ya es VIP)',
+      '<div data-lsd-if="vip-abierta">\n  Entrada VIP por <span data-lsd-text="precioVip"></span> · se cierra en <span data-lsd-countdown="vip"></span>\n  <a data-lsd-link="vip">Quiero mi entrada VIP</a>\n</div>\n<div data-lsd-if="ya-vip">✓ Ya tienes tu entrada VIP</div>'],
+    ['RECURSOS · botón del grupo de WhatsApp', '<a data-lsd-link="whatsapp" target="_blank">Unirme al grupo de WhatsApp</a>'],
+    ['RECURSOS · botón del directo', '<a data-lsd-link="directo">Entrar al directo</a>'],
+    ['GRABACIÓN · bloques de la página del replay', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
-    ['Enlace al directo en emails de GHL', `${origin}/directo?l=${code}&cid={{contact.id}}`],
-    ['Enlace al directo para el grupo de WhatsApp (pide el email)', `${origin}/directo?l=${code}`],
+    ['Enlace al directo en emails de GHL', `${origin}/directo?l=auto&cid={{contact.id}}`],
+    ['Enlace al directo para el grupo de WhatsApp (pide el email)', `${origin}/directo?l=auto`],
   ];
-  box.innerHTML = items.map(([title, text], i) => `
+  box.innerHTML = `<p class="muted">Con <code>data-launch="auto"</code> las páginas usan siempre el <strong>lanzamiento en curso</strong> (el último cuyo inicio de captación ya ha llegado): en el próximo lanzamiento no hay que tocar GHL, solo esta configuración.</p>` + items.map(([title, text], i) => `
     <div class="snippet">
       <h3>${esc(title)}</h3>
       <pre id="snip-${i}">${esc(text)}</pre>
