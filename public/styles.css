@@ -22,6 +22,14 @@
   --chip-half-bg: #fbf1dc;
   --chip-half-ink: #8a5a00;
 
+  /* Tonos de las tarjetas de métricas (icono y acentos) */
+  --tone-accent: #b4552d;
+  --tone-vip: #a86b00;
+  --tone-buy: #128c4a;
+  --tone-live: #6b4fc8;
+  --tone-info: #2f6aa8;
+  --tone-money: #17716a;
+
   --radius: 12px;
   --shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 4px 16px rgba(0, 0, 0, .05);
   color-scheme: light;
@@ -49,6 +57,12 @@
     --chip-half-bg: #3d3018;
     --chip-half-ink: #f1cd7c;
     --shadow: none;
+    --tone-accent: #e0784b;
+    --tone-vip: #e8b54a;
+    --tone-buy: #3ccf7f;
+    --tone-live: #a995ff;
+    --tone-info: #7aa6dc;
+    --tone-money: #5fcfc2;
     color-scheme: dark;
   }
 }
@@ -390,3 +404,73 @@ table.leads { width: 100%; border-collapse: collapse; min-width: 960px; }
 .campos-list .campo { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 3px 0; cursor: pointer; }
 .metric-actions { display: flex; justify-content: flex-end; }
 #avisos ul { margin: 6px 0 0; padding-left: 20px; }
+
+/* ---------- Iconos y aspecto de tarjetas y secciones ---------- */
+.ico { width: 18px; height: 18px; flex: none; }
+.ico-xl { width: 44px; height: 44px; color: var(--accent); }
+.tone-accent { --tone: var(--tone-accent); }
+.tone-vip { --tone: var(--tone-vip); }
+.tone-buy { --tone: var(--tone-buy); }
+.tone-live { --tone: var(--tone-live); }
+.tone-info { --tone: var(--tone-info); }
+.tone-money { --tone: var(--tone-money); }
+.kpi-estado { --tone: var(--st); }
+
+.kpis { gap: 12px; }
+.kpi { padding: 14px 16px 14px; gap: 4px; position: relative; overflow: hidden; transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease; }
+.kpi::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--tone, var(--accent)); opacity: .85; }
+.kpi .kpi-label { font-weight: 600; gap: 8px; line-height: 1.25; }
+.kpi .kpi-ico { width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; flex: none;
+  color: var(--tone, var(--accent)); background: color-mix(in srgb, var(--tone, var(--accent)) 13%, transparent); }
+.kpi .kpi-ico .ico { width: 17px; height: 17px; }
+.kpi .kpi-value { font-size: 28px; line-height: 1.15; margin-top: 4px; letter-spacing: -.01em; }
+.kpi .kpi-value small { font-size: 14px; font-weight: 600; }
+.kpi .kpi-sub { line-height: 1.4; }
+button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.kpi.active { outline-color: var(--tone, var(--accent)); background: color-mix(in srgb, var(--tone, var(--accent)) 7%, var(--surface)); }
+
+.metric-card { padding: 16px 18px; }
+.metric-card h2 { font-size: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.metric-card h2 .muted { font-size: 13px; }
+.h-ico { width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; flex: none;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.h-ico .ico { width: 17px; height: 17px; }
+.metric-table thead th { text-transform: uppercase; letter-spacing: .04em; font-size: 11px; font-weight: 700; background: var(--surface-2); }
+.metric-table thead th:first-child { border-top-left-radius: 8px; }
+.metric-table thead th:last-child { border-top-right-radius: 8px; }
+.metric-table tbody tr:hover td { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.funnel-bar { height: 16px; border-radius: 6px; }
+.funnel-bar span { border-radius: 6px; background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 75%, transparent), var(--accent)); }
+.funnel-bar.buy span { background: linear-gradient(90deg, color-mix(in srgb, var(--wa) 70%, transparent), var(--wa)); }
+
+.view-tab { display: inline-flex; align-items: center; gap: 7px; }
+.view-tab .ico { width: 17px; height: 17px; opacity: .75; }
+.view-tab.active .ico { color: var(--accent); opacity: 1; }
+@media (max-width: 640px) { .views { overflow-x: auto; } .view-tab { padding: 10px 10px; white-space: nowrap; } }
+
+.metric-actions .btn { display: inline-flex; align-items: center; gap: 6px; }
+#avisos { align-items: flex-start; }
+
+/* Pestaña Objetivos */
+.obj-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.obj-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; display: flex; flex-direction: column; gap: 10px; position: relative; overflow: hidden; }
+.obj-card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--tone); }
+.obj-card header { display: flex; align-items: center; gap: 10px; }
+.obj-card h3 { margin: 0; font-size: 15px; flex: 1; }
+.obj-card .kpi-ico { width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; color: var(--tone); background: color-mix(in srgb, var(--tone) 13%, transparent); }
+.obj-pct { font-size: 22px; font-weight: 800; color: var(--tone); font-variant-numeric: tabular-nums; }
+.obj-value { margin: 0; font-size: 15px; }
+.obj-value strong { font-size: 30px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.obj-bar { height: 12px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.obj-bar span { display: block; height: 100%; border-radius: 999px; background: var(--tone); min-width: 4px; transition: width .4s ease; }
+.obj-ritmo { margin: 0; font-size: 13px; color: var(--text-2); line-height: 1.45; }
+.obj-card.done { border-color: color-mix(in srgb, var(--tone-buy) 45%, var(--border)); }
+.obj-card.done .obj-bar span { background: var(--tone-buy); }
+.obj-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.obj-empty p { max-width: 46ch; margin: 0; }
+@media (prefers-reduced-motion: reduce) { .kpi, .obj-bar span { transition: none; } }
+#kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 760px) { #kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+#metric-cards, #eco-cards { grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); }
+.kpi { min-width: 0; }
+.kpi .kpi-value { font-size: clamp(22px, 2.1vw, 28px); overflow-wrap: anywhere; }

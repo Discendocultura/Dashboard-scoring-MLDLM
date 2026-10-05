@@ -1,6 +1,7 @@
 import {
-  ESTADOS, NEXT_STEPS, buildMessage, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, OUTCOMES,
+  ESTADOS, NEXT_STEPS, buildMessage, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, OUTCOMES, dayInMadrid,
 } from './scoring.js';
+import { icon } from './icons.js';
 import { enrichLead, computeMetrics, bySource, ventasPorDia, porRespuesta, avisosLanzamiento } from './metrics.js';
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
 
@@ -295,7 +296,8 @@ function renderConsumo() {
 // ---------- Métricas del embudo ----------
 const pctOf = (n, d) => (d ? `${Math.round((n / d) * 1000) / 10}%` : '–');
 const eur = (n) => (n == null || !Number.isFinite(n) ? '–' : n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: n >= 100 ? 0 : 2 }));
-const card = (label, value, sub) => `<div class="kpi static"><span class="kpi-label">${label}</span><span class="kpi-value">${value}</span><span class="kpi-sub">${sub}</span></div>`;
+// Tarjeta de métrica: icono con su tono (accent, vip, buy, live, info, warn, money), etiqueta, valor y contexto.
+const card = (label, value, sub, ico = 'sparkle', tone = 'accent') => `<div class="kpi static tone-${tone}"><span class="kpi-label"><span class="kpi-ico">${icon(ico)}</span>${label}</span><span class="kpi-value">${value}</span><span class="kpi-sub">${sub}</span></div>`;
 
 function currentMetrics() {
   const launch = state.config.launches[state.launchCode];
@@ -307,16 +309,16 @@ function renderMetrics() {
   const m = currentMetrics();
   m.launch = launch;
   const directoCard = launch.fechaDirecto && launch.compraDateField
-    ? card('Ventas en directo', m.compraDirecto, `${pctOf(m.compraDirecto, m.compra)} de las ventas · ${pctOf(m.compraDirecto, m.live)} de los asistentes`)
-    : card('Ventas en directo', '–', 'Configura el día del directo y el campo de fecha de compra');
+    ? card('Ventas en directo', m.compraDirecto, `${pctOf(m.compraDirecto, m.compra)} de las ventas · ${pctOf(m.compraDirecto, m.live)} de los asistentes`, 'live', 'buy')
+    : card('Ventas en directo', '–', 'Configura el día del directo y el campo de fecha de compra', 'live', 'buy');
   $('#metric-cards').innerHTML = [
-    card('Registros', m.total, m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'leads del lanzamiento'),
-    ...(m.encuestaActiva ? [card('Encuesta rellenada', `${m.encuesta} <small class="muted">de ${m.total}</small>`, `${pctOf(m.encuesta, m.total)} de los registros`)] : []),
-    card('Entradas VIP', m.vip, `${pctOf(m.vip, m.total)} de los registros`),
-    card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros · ${pctOf(m.vipLive, m.vip)} de las VIP`),
-    card('Compras totales', m.compra, `${pctOf(m.compra, m.total)} de los registros`),
-    card('Ventas de Raíces de VIP', `${m.compraVip} <small class="muted">de ${m.compra}</small>`, `${pctOf(m.compraVip, m.compra)} de las ventas · compra el ${pctOf(m.compraVip, m.vip)} de las VIP`),
-    card('Llamadas agendadas', `${m.llamada} <small class="muted">de ${m.total}</small>`, `${pctOf(m.llamada, m.total)} de los registros · ${pctOf(m.compraLlamada, m.llamada)} compran`),
+    card('Registros', m.total, m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'leads del lanzamiento', 'users', 'accent'),
+    ...(m.encuestaActiva ? [card('Encuesta rellenada', `${m.encuesta} <small class="muted">de ${m.total}</small>`, `${pctOf(m.encuesta, m.total)} de los registros`, 'survey', 'info')] : []),
+    card('Entradas VIP', m.vip, `${pctOf(m.vip, m.total)} de los registros`, 'star', 'vip'),
+    card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros · ${pctOf(m.vipLive, m.vip)} de las VIP`, 'live', 'live'),
+    card('Compras totales', m.compra, `${pctOf(m.compra, m.total)} de los registros`, 'cart', 'buy'),
+    card('Ventas de Raíces de VIP', `${m.compraVip} <small class="muted">de ${m.compra}</small>`, `${pctOf(m.compraVip, m.compra)} de las ventas · compra el ${pctOf(m.compraVip, m.vip)} de las VIP`, 'crown', 'vip'),
+    card('Llamadas agendadas', `${m.llamada} <small class="muted">de ${m.total}</small>`, `${pctOf(m.llamada, m.total)} de los registros · ${pctOf(m.compraLlamada, m.llamada)} compran`, 'phone', 'info'),
     directoCard,
   ].join('');
 
@@ -410,17 +412,49 @@ function renderAvisos(m, launch) {
   el.innerHTML = avisos.length ? `<strong>Revisa ${avisos.length === 1 ? 'esto' : `estas ${avisos.length} cosas`}:</strong><ul>${avisos.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>` : '';
 }
 
-// Progreso hacia los objetivos del lanzamiento.
+// Pestaña Objetivos: progreso hacia cada objetivo y ritmo necesario hasta su fecha límite.
+const OBJ_INFO = {
+  Registros: { ico: 'users', tone: 'accent', hasta: 'fechaDirecto', hastaTxt: 'el directo' },
+  'Entradas VIP': { ico: 'star', tone: 'vip', hasta: 'fechaDirecto', hastaTxt: 'el directo (cierra la VIP)' },
+  'Ventas de Raíces': { ico: 'cart', tone: 'buy', hasta: 'cierreCarrito', hastaTxt: 'el cierre del carrito' },
+  Facturación: { ico: 'coins', tone: 'money', hasta: 'cierreCarrito', hastaTxt: 'el cierre del carrito' },
+};
 function renderObjetivos(m) {
-  $('#objetivos-card').hidden = !m.objetivos.length;
-  const fmt = (o, n) => (o.unit === 'eur' ? eur(n) : n.toLocaleString('es-ES'));
-  $('#objetivos').innerHTML = m.objetivos.map((o) => `
-    <div class="funnel-row">
-      <div class="funnel-label">${o.label}<small>${o.actual >= o.meta ? '¡objetivo conseguido!' : `faltan ${fmt(o, o.meta - o.actual)}`}</small></div>
-      <div class="funnel-bar ${o.actual >= o.meta ? 'buy' : ''}"><span style="width:${Math.min(100, o.pct * 100)}%"></span></div>
-      <div class="funnel-num"><strong>${fmt(o, o.actual)}</strong> <span class="muted">de ${fmt(o, o.meta)} · ${Math.round(o.pct * 100)}%</span></div>
-    </div>`).join('');
+  const launch = state.config.launches[state.launchCode];
+  const box = $('#objetivos');
+  if (!m.objetivos.length) {
+    box.innerHTML = `<div class="card empty obj-empty">${icon('target', 'ico-xl')}<h2>Aún no hay objetivos para este lanzamiento</h2>
+      <p class="muted">Pon metas de registros, entradas VIP, ventas y facturación y aquí verás cuánto llevas, cuánto falta y a qué ritmo hay que ir.</p>
+      <button type="button" class="btn primary admin-only" data-action="poner-objetivos">Poner objetivos</button></div>`;
+    return;
+  }
+  const fmt = (o, n) => (o.unit === 'eur' ? eur(n) : Math.round(n).toLocaleString('es-ES'));
+  // El ritmo diario lleva un decimal si es pequeño (1,3 al día mejor que 1).
+  const fmtDia = (o, n) => (o.unit === 'eur' ? eur(n) : n.toLocaleString('es-ES', { maximumFractionDigits: n < 10 ? 1 : 0 }));
+  const today = Date.parse(`${dayInMadrid(new Date().toISOString())}T12:00:00Z`);
+  box.innerHTML = `<div class="obj-grid">${m.objetivos.map((o) => {
+    const info = OBJ_INFO[o.label] || { ico: 'target', tone: 'accent' };
+    const done = o.actual >= o.meta;
+    const falta = Math.max(0, o.meta - o.actual);
+    const limite = String(launch[info.hasta] || '').slice(0, 10);
+    const dias = limite ? Math.round((Date.parse(`${limite}T12:00:00Z`) - today) / 86400_000) + 1 : null;
+    const ritmo = done ? '¡Objetivo conseguido! 🎉'
+      : dias == null ? `Faltan ${fmt(o, falta)}`
+        : dias <= 0 ? `Faltaron ${fmt(o, falta)} · el plazo (${info.hastaTxt}) ya terminó`
+          : `Faltan ${fmt(o, falta)} · ${fmtDia(o, falta / dias)} al día durante ${dias} ${dias === 1 ? 'día' : 'días'} hasta ${info.hastaTxt}`;
+    return `<article class="obj-card tone-${info.tone}${done ? ' done' : ''}">
+      <header><span class="kpi-ico">${icon(info.ico)}</span><h3>${o.label}</h3><span class="obj-pct">${Math.round(o.pct * 100)}%</span></header>
+      <p class="obj-value"><strong>${fmt(o, o.actual)}</strong> <span class="muted">de ${fmt(o, o.meta)}</span></p>
+      <div class="obj-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(Math.min(1, o.pct) * 100)}"><span style="width:${Math.min(100, o.pct * 100)}%"></span></div>
+      <p class="obj-ritmo">${ritmo}</p>
+    </article>`;
+  }).join('')}</div>`;
 }
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('[data-action="poner-objetivos"]')) return;
+  openConfig(state.launchCode);
+  goToField('cfg-obj-registros');
+});
 
 // Ventas según las respuestas de la encuesta (una tabla por pregunta elegida en Configuración).
 function renderEncuestaMetrics(launch) {
@@ -488,6 +522,9 @@ $('#btn-informe').addEventListener('click', () => {
   const launch = state.config.launches[state.launchCode];
   const view = $('#view-metricas').cloneNode(true);
   view.hidden = false;
+  if (state.config.launches[state.launchCode]?.objetivos && $('#objetivos .obj-grid')) {
+    view.insertAdjacentHTML('afterbegin', `<section class="card metric-card"><h2>Objetivos del lanzamiento</h2>${$('#objetivos').innerHTML}</section>`);
+  }
   view.querySelectorAll('button, select, .metric-actions, [hidden]').forEach((el) => el.remove());
   const fecha = new Date().toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' });
   const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -540,16 +577,16 @@ function renderEconomics(m, launch) {
   const fuente = e.inversionFuente === 'meta' ? `Meta Ads (${esc(state.meta.since)} → ${esc(state.meta.until)})` : 'introducida a mano';
   const metaWarn = state.meta?.error ? `<p class="muted">Meta: ${esc(state.meta.error)}</p>` : '';
   $('#eco-cards').innerHTML = `${[
-    card('Inversión en anuncios', e.inversion ? eur(e.inversion) : '–', e.inversion ? fuente : 'Conecta Meta o introdúcela en Configuración'),
-    card('Facturación', hasPrices ? eur(e.facturacion) : '–', hasPrices ? `VIP ${eur(e.facturacionVip)} · Raíces ${eur(e.facturacionPrograma)}${launch.fraccionadoTag || launch.unicoTag ? ` (${m.compraUnico} único · ${m.compraFraccionado} fraccionado)` : ''}` : 'Añade los precios en Configuración'),
-    card('ROAS', e.roas != null && hasPrices ? `${e.roas.toFixed(2)}x` : '–', e.roas != null && hasPrices ? `Beneficio: ${eur(e.beneficio)}` : 'facturación / inversión'),
-    card('Coste por lead', eur(e.cpl), e.cplFrio != null ? `${eur(e.cplFrio)} por lead de tráfico frío` : 'inversión / registros'),
-    card('Coste por VIP', eur(e.cpVip), 'inversión / entradas VIP'),
-    card('CAC', eur(e.cac), 'coste por clienta nueva de Raíces (inversión / todas las ventas)'),
+    card('Inversión en anuncios', e.inversion ? eur(e.inversion) : '–', e.inversion ? fuente : 'Conecta Meta o introdúcela en Configuración', 'megaphone', 'accent'),
+    card('Facturación', hasPrices ? eur(e.facturacion) : '–', hasPrices ? `VIP ${eur(e.facturacionVip)} · Raíces ${eur(e.facturacionPrograma)}${launch.fraccionadoTag || launch.unicoTag ? ` (${m.compraUnico} único · ${m.compraFraccionado} fraccionado)` : ''}` : 'Añade los precios en Configuración', 'coins', 'money'),
+    card('ROAS', e.roas != null && hasPrices ? `${e.roas.toFixed(2)}x` : '–', e.roas != null && hasPrices ? `Beneficio: ${eur(e.beneficio)}` : 'facturación / inversión', 'trend', 'money'),
+    card('Coste por lead', eur(e.cpl), e.cplFrio != null ? `${eur(e.cplFrio)} por lead de tráfico frío` : 'inversión / registros', 'users', 'accent'),
+    card('Coste por VIP', eur(e.cpVip), 'inversión / entradas VIP', 'star', 'vip'),
+    card('CAC', eur(e.cac), 'coste por clienta nueva de Raíces (inversión / todas las ventas)', 'target', 'buy'),
     ...(e.publi ? [
-      card('CAC de publicidad', eur(e.publi.cac), `inversión / ${e.publi.compras} ventas de leads de publicidad`),
-      card('ROAS de publicidad', e.publi.roas != null && hasPrices ? `${e.publi.roas.toFixed(2)}x` : '–', `facturación de publicidad ${eur(e.publi.facturacion)} / inversión`),
-      card('Coste por lead de publicidad', eur(e.publi.cpl), `${e.publi.leads} leads de publicidad · ${eur(e.publi.cpVip)} por VIP`),
+      card('CAC de publicidad', eur(e.publi.cac), `inversión / ${e.publi.compras} ventas de leads de publicidad`, 'target', 'accent'),
+      card('ROAS de publicidad', e.publi.roas != null && hasPrices ? `${e.publi.roas.toFixed(2)}x` : '–', `facturación de publicidad ${eur(e.publi.facturacion)} / inversión`, 'trend', 'accent'),
+      card('Coste por lead de publicidad', eur(e.publi.cpl), `${e.publi.leads} leads de publicidad · ${eur(e.publi.cpVip)} por VIP`, 'megaphone', 'accent'),
     ] : []),
   ].join('')}${metaWarn ? `<div style="grid-column:1/-1">${metaWarn}</div>` : ''}`;
 }
@@ -700,7 +737,11 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'leads', 'metricas', 'comparar'];
+const VIEWS = ['hoy', 'leads', 'metricas', 'objetivos', 'comparar'];
+// Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
+const VIEW_ICONS = { hoy: 'sun2', leads: 'users', metricas: 'trend', objetivos: 'target', comparar: 'compare' };
+$$('.view-tab').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view])));
+$$('[data-icon] > h2').forEach((h) => h.insertAdjacentHTML('afterbegin', `<span class="h-ico">${icon(h.parentElement.dataset.icon)}</span>`));
 function showView(view) {
   $$('.view-tab').forEach((x) => x.classList.toggle('active', x.dataset.view === view));
   for (const v of VIEWS) $(`#view-${v}`).hidden = v !== view;
@@ -709,6 +750,8 @@ function showView(view) {
 }
 $$('.view-tab').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
 showView(VIEWS.includes(ls.get('lsd_view')) ? ls.get('lsd_view') : 'leads');
+
+const ESTADO_ICONS = { 'muy-caliente': 'flame', caliente: 'sun', templado: 'thermo', frio: 'snow' };
 
 function renderKpis() {
   renderConsumo();
@@ -725,16 +768,16 @@ function renderKpis() {
   const pct = (n) => (L.length ? `${Math.round((n / L.length) * 100)}%` : '–');
   const f = state.filters.estado;
   $('#kpis').innerHTML = `
-    <div class="kpi static"><span class="kpi-label">Leads registrados</span><span class="kpi-value">${L.length}</span><span class="kpi-sub">${sent} contactados por WhatsApp</span></div>
+    <div class="kpi static tone-accent"><span class="kpi-label"><span class="kpi-ico">${icon('users')}</span>Leads registrados</span><span class="kpi-value">${L.length}</span><span class="kpi-sub">${sent} contactados por WhatsApp</span></div>
     ${ESTADOS.map((e) => `
-      <button type="button" class="kpi st-${e.id} ${f === e.id ? 'active' : ''}" data-estado="${e.id}" title="Filtrar por ${e.label}">
-        <span class="kpi-label"><span class="dot"></span>${e.label}</span>
+      <button type="button" class="kpi kpi-estado st-${e.id} ${f === e.id ? 'active' : ''}" data-estado="${e.id}" title="Filtrar por ${e.label}">
+        <span class="kpi-label"><span class="kpi-ico">${icon(ESTADO_ICONS[e.id])}</span>${e.label}</span>
         <span class="kpi-value">${counts[e.id]}</span>
         <span class="kpi-sub">${pct(counts[e.id])} · ${e.min}+ puntos</span>
       </button>`).join('')}
-    <div class="kpi static"><span class="kpi-label">Compraron VIP</span><span class="kpi-value">${vip}</span><span class="kpi-sub">${pct(vip)}</span></div>
-    <div class="kpi static"><span class="kpi-label">Asistieron al directo</span><span class="kpi-value">${live}</span><span class="kpi-sub">${pct(live)}</span></div>
-    <div class="kpi static"><span class="kpi-label">Vieron la grabación</span><span class="kpi-value">${replay}</span><span class="kpi-sub">${pct(replay)} (≥50%)</span></div>
+    <div class="kpi static tone-vip"><span class="kpi-label"><span class="kpi-ico">${icon('star')}</span>Compraron VIP</span><span class="kpi-value">${vip}</span><span class="kpi-sub">${pct(vip)}</span></div>
+    <div class="kpi static tone-live"><span class="kpi-label"><span class="kpi-ico">${icon('live')}</span>Asistieron al directo</span><span class="kpi-value">${live}</span><span class="kpi-sub">${pct(live)}</span></div>
+    <div class="kpi static tone-info"><span class="kpi-label"><span class="kpi-ico">${icon('play')}</span>Vieron la grabación</span><span class="kpi-value">${replay}</span><span class="kpi-sub">${pct(replay)} (≥50%)</span></div>
     <div class="distribution" style="grid-column:1/-1" aria-hidden="true">
       ${ESTADOS.map((e) => (counts[e.id] ? `<span class="st-${e.id}" style="flex:${counts[e.id]}" title="${e.label}: ${counts[e.id]}"></span>` : '')).join('')}
     </div>`;

@@ -53,6 +53,7 @@
           <button type="button" class="view-tab" data-view="hoy">Hoy</button>
           <button type="button" class="view-tab active" data-view="leads">Leads</button>
           <button type="button" class="view-tab" data-view="metricas">Métricas</button>
+          <button type="button" class="view-tab" data-view="objetivos">Objetivos</button>
           <button type="button" class="view-tab" data-view="comparar">Comparar</button>
         </nav>
 
@@ -62,7 +63,7 @@
         </section>
 
         <section id="view-comparar" hidden>
-          <section class="card metric-card">
+          <section class="card metric-card" data-icon="compare">
             <h2>Comparar lanzamientos</h2>
             <div id="compare-pick" class="compare-pick"></div>
             <button id="btn-compare" class="btn primary" type="button">Comparar</button>
@@ -70,63 +71,64 @@
           </section>
         </section>
 
+        <section id="view-objetivos" hidden>
+          <p class="muted hoy-intro">Cuánto llevas de cada objetivo y a qué ritmo hay que ir hasta su fecha límite. Los objetivos se ponen en Configuración → Lanzamiento → Objetivos.</p>
+          <div id="objetivos"></div>
+        </section>
+
         <section id="view-metricas" hidden>
           <div class="metric-actions"><button type="button" class="btn" id="btn-informe">Informe del lanzamiento ↗</button></div>
           <div id="avisos" class="notice warn" hidden></div>
-          <section class="card metric-card" id="objetivos-card" hidden>
-            <h2>Objetivos del lanzamiento</h2>
-            <div id="objetivos"></div>
-          </section>
           <div id="metric-cards" class="kpis"></div>
-          <section class="card metric-card">
+          <section class="card metric-card" data-icon="coins">
             <h2>Inversión y rentabilidad</h2>
             <div id="eco-cards" class="kpis"></div>
           </section>
-          <section class="card metric-card">
+          <section class="card metric-card" data-icon="calendar">
             <h2>Ventas por día del carrito <span class="muted">· según la fecha de compra de Raíces</span></h2>
             <div id="ventas-dia"></div>
           </section>
-          <section class="card metric-card">
+          <section class="card metric-card" data-icon="compass">
             <h2>Origen de los leads <span class="muted">· publicidad vs orgánico</span></h2>
             <div class="table-scroll"><table class="metric-table" id="origen-table"></table></div>
           </section>
-          <section class="card metric-card">
+          <section class="card metric-card" data-icon="survey">
             <h2>Ventas según la encuesta <span class="muted">· qué avatar compra</span></h2>
             <div id="encuesta-metrics"></div>
           </section>
-          <section class="card metric-card">
+          <section class="card metric-card" data-icon="split">
             <h2>Pago único vs fraccionado <span class="muted">· ventas de Raíces</span></h2>
             <div class="table-scroll"><table class="metric-table" id="pago-table"></table></div>
           </section>
-          <section class="card metric-card">
+          <section class="card metric-card" data-icon="funnel">
             <h2>Embudo del lanzamiento <span class="muted">· sobre el total de registros</span></h2>
             <div id="funnel"></div>
           </section>
-          <section class="card metric-card">
+          <section class="card metric-card" data-icon="thermo">
             <h2>Ventas por tipo de tráfico <span class="muted">· templado = ya estaba en GHL antes de abrir la captación</span></h2>
             <div id="traffic-split"></div>
             <div class="table-scroll"><table class="metric-table" id="traffic-table"></table></div>
           </section>
-          <section class="card metric-card">
+          <section class="card metric-card" data-icon="cart">
             <h2>Conversión a compra</h2>
             <div class="table-scroll"><table class="metric-table" id="conversion-table"></table></div>
           </section>
-          <section class="card metric-card">
+          <section class="card metric-card" data-icon="megaphone">
             <h2>Canales y campañas <span class="muted">· según las UTM de GHL y los nombres de Meta</span></h2>
             <label class="field inline" style="margin-bottom:8px"><span>Ver por</span>
               <select id="src-level"><option value="source">Canal (utm_source)</option><option value="campaign">Campaña</option><option value="adset">Conjunto de anuncios</option><option value="ad">Anuncio</option></select></label>
             <div class="table-scroll"><table class="metric-table" id="source-table"></table></div>
           </section>
-          <section class="card metric-card">
+          <section class="card metric-card" data-icon="chat">
             <h2>Trabajo de la setter <span class="muted">· contactadas por WhatsApp y resultado</span></h2>
             <div class="table-scroll"><table class="metric-table" id="setter-table"></table></div>
           </section>
           <section id="consumo" class="card consumo-card"></section>
-          <section class="card metric-card">
+          <section class="card metric-card" data-icon="flame">
             <h2>Compras por estado <span class="muted">· ¿predice bien la puntuación?</span></h2>
             <div class="table-scroll"><table class="metric-table" id="estado-table"></table></div>
           </section>
-          <section class="card metric-card">
+          <section class="card metric-card" data-icon="sparkle">
             <h2>Qué predice la compra <span class="muted">· para afinar la puntuación con datos reales</span></h2>
             <div class="table-scroll"><table class="metric-table" id="lift-table"></table></div>
           </section>
