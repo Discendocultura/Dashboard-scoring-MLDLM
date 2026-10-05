@@ -269,6 +269,9 @@ table.leads { width: 100%; border-collapse: collapse; min-width: 960px; }
 .dialog-head h2 { margin: 0; font-size: 18px; flex: 1; }
 .dialog-foot { border-top: 1px solid var(--border); }
 .dialog-body { padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+/* Que la ventana no aplaste las pestañas ni los paneles cuando el contenido es largo. */
+.dialog-body > * { flex-shrink: 0; }
+.tabs { flex-shrink: 0; position: sticky; top: -16px; z-index: 2; background: var(--surface); padding-top: 4px; }
 .tab-panel { display: flex; flex-direction: column; gap: 12px; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); overflow-x: auto; }
 .tab { font: inherit; font-weight: 600; background: none; border: 0; padding: 8px 12px; color: var(--text-2); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
