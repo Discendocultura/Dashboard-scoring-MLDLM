@@ -109,6 +109,8 @@ export async function GET(request) {
         clase2: video('clase2Url', m.clase2, true),
         replay: video('replayVideoUrl', m.replay),
       },
+      // Vídeos que se muestran tal cual (sin medir ni bloquear): <div data-lsd-embed="gracias">
+      embeds: { gracias: launch.graciasVideoUrl || '' },
       links,
       encuesta: { required: encuestaRequired, done: encuestaDone },
       vip: { open: vipOpen, closesAt: m.directo, isVip, precio: launch.precioVip || 0, contador: vipContador },

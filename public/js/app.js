@@ -1238,6 +1238,7 @@ function openConfig(code) {
   $('#cfg-vip-url').value = l.vipUrl || '';
   $('#cfg-vip-base').value = l.vipContadorBase ?? 41;
   $('#cfg-whatsapp-url').value = l.whatsappUrl || '';
+  $('#cfg-gracias-video').value = l.graciasVideoUrl || '';
   $('#cfg-cierre').value = l.cierreCarrito || '';
   $('#cfg-calendario-url').value = l.calendarioUrl || '';
   renderBarraEditor(l.barra || {});
@@ -1350,6 +1351,7 @@ const CICLO = [
   { id: 'cfg-clase2-at', c: 'nuevo', label: 'Clase 2 · desbloqueo', key: 'clase2At' },
   { id: 'cfg-replay-video', c: 'nuevo', label: 'Vídeo de la grabación', key: 'replayVideoUrl', opcional: true },
   { id: 'cfg-whatsapp-url', c: 'nuevo', label: 'Grupo de WhatsApp', key: 'whatsappUrl' },
+  { id: 'cfg-gracias-video', c: 'revisar', label: 'Vídeo de gracias', opcional: true },
   { id: 'cfg-cierre', c: 'nuevo', label: 'Cierre del carrito', key: 'cierreCarrito' },
   { id: 'cfg-replay', c: 'revisar', label: 'Página de la grabación' },
   { id: 'cfg-raices', c: 'revisar', label: 'Página de venta de Raíces' },
@@ -1491,6 +1493,7 @@ function readForm() {
       vipUrl: $('#cfg-vip-url').value.trim(),
       vipContadorBase: $('#cfg-vip-base').value.trim(),
       whatsappUrl: $('#cfg-whatsapp-url').value.trim(),
+      graciasVideoUrl: $('#cfg-gracias-video').value.trim(),
       cierreCarrito: $('#cfg-cierre').value,
       calendarioUrl: $('#cfg-calendario-url').value.trim(),
       barra: readBarraEditor(),

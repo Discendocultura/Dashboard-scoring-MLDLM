@@ -99,6 +99,7 @@
     '.lsd-cdb{display:flex;gap:10px;justify-content:center}.lsd-cdb-unit{display:flex;flex-direction:column;align-items:center;min-width:64px;padding:10px 8px;border-radius:10px;background:#f6f3ef}' +
     '.lsd-cdb-num{font-size:2em;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}.lsd-cdb-label{font-size:.75em;text-transform:uppercase;letter-spacing:.05em;margin-top:4px}' +
     '[data-lsd-bar]{display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap}' +
+    '.lsd-embed{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}.lsd-embed iframe{position:absolute;inset:0;width:100%;height:100%;border:0}' +
     '.lsd-bar-btn{display:inline-block;padding:6px 14px;border-radius:999px;background:#b4552d;color:#fff;font-weight:600;text-decoration:none}';
 
   function injectCss() {
@@ -346,6 +347,19 @@
   var esc = function (t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var show = function (el, on) { el.style.display = on ? '' : 'none'; };
 
+  // URL de reproductor a partir de un enlace de Vimeo (también oculto, con hash) o de YouTube.
+  function embedSrc(url) {
+    if (!url) return '';
+    var m = String(url).match(/vimeo\.com\/(?:video\/)?(\d+)(?:\/([0-9a-f]+))?/i);
+    if (m) {
+      var h = m[2] || (String(url).match(/[?&]h=([0-9a-f]+)/i) || [])[1];
+      return 'https://player.vimeo.com/video/' + m[1] + '?' + (h ? 'h=' + h + '&' : '') + 'title=0&byline=0&portrait=0&dnt=1';
+    }
+    var y = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/);
+    if (y) return 'https://www.youtube-nocookie.com/embed/' + y[1] + '?rel=0';
+    return '';
+  }
+
   function renderPage(data, who, onVideo, noVideos) {
     injectCss();
     var linkWho = function (href) {
@@ -358,6 +372,17 @@
         return u.toString();
       } catch (e) { return href; }
     };
+
+    // Vídeos sin medir (p. ej. el de la página de gracias): <div data-lsd-embed="gracias"></div>
+    // La URL de Vimeo o YouTube sale del dashboard; si no hay, el elemento se oculta.
+    document.querySelectorAll('[data-lsd-embed]').forEach(function (el) {
+      var src = embedSrc((data.embeds || {})[el.getAttribute('data-lsd-embed')]);
+      if (!src) return show(el, false);
+      show(el, true);
+      if (el.getAttribute('data-lsd-embed-src') === src) return;
+      el.setAttribute('data-lsd-embed-src', src);
+      el.innerHTML = '<div class="lsd-embed"><iframe src="' + esc(src) + '" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy" title="Vídeo"></iframe></div>';
+    });
 
     // Barra de urgencia: <div data-lsd-bar></div>
     document.querySelectorAll('[data-lsd-bar]').forEach(function (el) {

@@ -425,7 +425,13 @@
             </div>
           </section>
           <section class="cfg-sec" data-sec="9">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">9</span><div><h3>Textos y botones extra</h3><p>Para bloques nuevos de la página.</p></div></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">9</span><div><h3>Página de gracias</h3><p>La que ven justo después de registrarse. Sus botones usan el grupo de WhatsApp y el enlace de pago de la VIP de esta pestaña.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Vídeo de la página de gracias <small>(Vimeo o YouTube; en el HTML: <code>&lt;div data-lsd-embed="gracias"&gt;&lt;/div&gt;</code>)</small></span><input id="cfg-gracias-video" type="url" placeholder="https://vimeo.com/123/abc"></label>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="10">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">10</span><div><h3>Textos y botones extra</h3><p>Para bloques nuevos de la página.</p></div></header>
             <p class="muted">Otros textos (para bloques futuros): nombre en minúsculas y guiones, p. ej. <code>etapa3-titulo</code> → <code>&lt;span data-lsd-text="etapa3-titulo"&gt;</code>.</p>
             <div id="cfg-textos" class="enlaces-list"></div>
             <button type="button" class="btn" id="btn-add-texto">+ Añadir texto</button>
@@ -434,8 +440,8 @@
             <div id="cfg-enlaces" class="enlaces-list"></div>
             <button type="button" class="btn" id="btn-add-enlace">+ Añadir enlace</button>
           </section>
-          <section class="cfg-sec" data-sec="10">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">10</span><div><h3>Barra de urgencia</h3><p>Un mensaje por fase. <code>{cuenta}</code> = cuenta atrás hasta el siguiente momento. Si lo dejas vacío se usa el texto de ejemplo.</p></div></header>
+          <section class="cfg-sec" data-sec="11">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">11</span><div><h3>Barra de urgencia</h3><p>Un mensaje por fase. <code>{cuenta}</code> = cuenta atrás hasta el siguiente momento. Si lo dejas vacío se usa el texto de ejemplo.</p></div></header>
             <div class="table-scroll"><table class="metric-table bar-table"><thead><tr><th>Fase</th><th>Mensaje</th><th>Botón</th><th>Texto del botón</th></tr></thead><tbody id="cfg-barra"></tbody></table></div>
           </section>
           <h3 class="cfg-h3">Vista previa</h3>
