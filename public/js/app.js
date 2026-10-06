@@ -3278,10 +3278,12 @@ function renderLlamadas() {
   const maxMot = m.motivos[0]?.[1] || 1;
   top.innerHTML = `
     <div class="kpis ll-kpis">
-      <div class="kpi static tone-info"><span class="kpi-label"><span class="kpi-ico">${icon('calendar')}</span>Agendadas</span><span class="kpi-value">${m.agendadas}</span><span class="kpi-sub">${m.proximas} próximas</span></div>
-      <div class="kpi static tone-live"><span class="kpi-label"><span class="kpi-ico">${icon('phone')}</span>Realizadas</span><span class="kpi-value">${m.realizadas}</span><span class="kpi-sub">asistencia ${pct(m.asistencia)} · ${m.noshow} no se presentaron</span></div>
-      <div class="kpi static tone-buy"><span class="kpi-label"><span class="kpi-ico">${icon('cart')}</span>Ventas en llamada</span><span class="kpi-value">${m.ventas}</span><span class="kpi-sub">cierre ${pct(m.cierre)} · ${m.seguimiento} en seguimiento</span></div>
-      <div class="kpi static ${m.sinResultado ? 'tone-accent' : ''}"><span class="kpi-label"><span class="kpi-ico">${icon('alert')}</span>Sin anotar</span><span class="kpi-value">${m.sinResultado}</span><span class="kpi-sub">llamadas pasadas sin resultado</span></div>
+      <div class="kpi static tone-info"><span class="kpi-label"><span class="kpi-ico">${icon('calendar')}</span>Reservadas</span><span class="kpi-value">${m.reservadas}</span><span class="kpi-sub">${m.proximas} próximas · ${m.pasadas} ya pasadas</span></div>
+      <div class="kpi static tone-live"><span class="kpi-label"><span class="kpi-ico">${icon('phone')}</span>Shows</span><span class="kpi-value">${m.shows} <small class="ll-pct">${pct(m.pctShow)}</small></span><span class="kpi-sub">se presentaron y se hizo la llamada</span></div>
+      <div class="kpi static tone-accent"><span class="kpi-label"><span class="kpi-ico">${icon('alert')}</span>No shows</span><span class="kpi-value">${m.noshow} <small class="ll-pct">${pct(m.pctNoshow)}</small></span><span class="kpi-sub">no se presentaron (sobre shows + no shows)</span></div>
+      <div class="kpi static"><span class="kpi-label"><span class="kpi-ico">${icon('calendar')}</span>Canceladas</span><span class="kpi-value">${m.canceladas} <small class="ll-pct">${pct(m.pctCancel)}</small></span><span class="kpi-sub">de las reservadas${m.reagendadas ? ` · ${m.reagendadas} reagendadas` : ''}</span></div>
+      <div class="kpi static tone-buy"><span class="kpi-label"><span class="kpi-ico">${icon('cart')}</span>Ventas · conversión</span><span class="kpi-value">${m.ventas} <small class="ll-pct">${pct(m.conversion)}</small></span><span class="kpi-sub">sobre shows · ${m.seguimiento} en seguimiento · ${m.perdidas} no compran</span></div>
+      <div class="kpi static ${m.sinResultado ? 'tone-accent' : ''}"><span class="kpi-label"><span class="kpi-ico">${icon('list')}</span>Sin anotar</span><span class="kpi-value">${m.sinResultado}</span><span class="kpi-sub">llamadas pasadas sin resultado</span></div>
     </div>
     ${d.pipeline ? `<div class="card ll-pipe"><h3>Pipeline · ${esc(d.pipeline.name)}</h3><div class="ll-stages">${d.pipeline.stages.map((s) => `<span class="ll-stage" style="--c:${esc(s.color || '#8a817b')}"><i></i>${esc(s.name)} <strong>${s.total}</strong></span>`).join('')}</div></div>` : ''}
     ${m.motivos.length ? `<div class="card ll-motivos"><h3>Por qué no compran</h3>${m.motivos.map(([k, v]) => `<div class="ll-mot"><span>${esc(k)}</span><div class="gan-bar"><span style="width:${(v / maxMot) * 100}%;background:var(--error)"></span><b>${v}</b></div></div>`).join('')}</div>` : ''}`;
@@ -3336,6 +3338,9 @@ $('#llamadas-list').addEventListener('click', (e) => {
   if (b) openLlamada(b.dataset.ll);
 });
 $('#btn-ll-reload').addEventListener('click', loadLlamadas);
+// La ayuda se ve abierta hasta que la cierras (se recuerda en este navegador).
+if (ls.get('lsd_ll_ayuda') !== 'cerrada') $('#ll-ayuda').open = true;
+$('#ll-ayuda').addEventListener('toggle', (e) => ls.set('lsd_ll_ayuda', e.target.open ? 'abierta' : 'cerrada'));
 $('#ll-save').addEventListener('click', async () => {
   const resultado = $('#ll-resultados input:checked')?.value;
   if (!resultado) { $('#ll-status').textContent = 'Elige un resultado.'; return; }

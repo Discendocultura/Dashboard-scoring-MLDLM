@@ -49,26 +49,40 @@ export function calendarioDeUrl(url) {
 }
 
 // Métricas: llamadas = [{ start (ms), resultado: { resultado, motivo } | null, cancelada }]
+//  · % cancelaciones: sobre todas las citas reservadas.
+//  · % shows y % no shows: sobre las citas ya pasadas que tenían que hacerse (show + no show).
+//  · % conversión: ventas sobre shows (llamadas realizadas).
 export function metricasLlamadas(llamadas, ahora = Date.now()) {
+  const pct = (n, d) => (d ? n / d : null);
   const validas = llamadas.filter((l) => !l.cancelada);
   const pasadas = validas.filter((l) => l.start < ahora);
   const con = (id) => pasadas.filter((l) => l.resultado?.resultado === id).length;
-  const realizadas = con('venta') + con('seguimiento') + con('perdido');
+  const shows = con('venta') + con('seguimiento') + con('perdido');
+  const noshow = con('noshow');
+  const canceladas = llamadas.length - validas.length;
   const motivos = {};
   for (const l of pasadas) if (l.resultado?.resultado === 'perdido') motivos[l.resultado.motivo || 'Sin motivo'] = (motivos[l.resultado.motivo || 'Sin motivo'] || 0) + 1;
   return {
+    reservadas: llamadas.length,
     agendadas: validas.length,
     proximas: validas.length - pasadas.length,
     pasadas: pasadas.length,
-    realizadas,
-    noshow: con('noshow'),
+    realizadas: shows,
+    shows,
+    noshow,
+    canceladas,
     reagendadas: con('reagendar'),
     ventas: con('venta'),
     seguimiento: con('seguimiento'),
     perdidas: con('perdido'),
     sinResultado: pasadas.filter((l) => !l.resultado).length,
-    asistencia: realizadas + con('noshow') ? realizadas / (realizadas + con('noshow')) : null,
-    cierre: realizadas ? con('venta') / realizadas : null,
+    pctShow: pct(shows, shows + noshow),
+    pctNoshow: pct(noshow, shows + noshow),
+    pctCancel: pct(canceladas, llamadas.length),
+    conversion: pct(con('venta'), shows),
+    // Compatibilidad con nombres anteriores
+    asistencia: pct(shows, shows + noshow),
+    cierre: pct(con('venta'), shows),
     motivos: Object.entries(motivos).sort((a, b) => b[1] - a[1]),
   };
 }

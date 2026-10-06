@@ -24,6 +24,14 @@ test('llamadas: asistencia, cierre y motivos de no compra', () => {
     L(1, 'venta'), L(2, 'venta'), L(3, 'perdido', 'Precio'), L(4, 'perdido', 'Precio'), L(5, 'perdido', 'Pareja'),
     L(6, 'seguimiento'), L(7, 'noshow'), L(8, 'noshow'), L(9, null), L(now + 5, null), { start: 10, cancelada: true },
   ], now);
+  assert.equal(m.reservadas, 11);
+  assert.equal(m.canceladas, 1);
+  assert.equal(m.pctCancel, 1 / 11);
+  assert.equal(m.shows, 6);
+  assert.equal(m.noshow, 2);
+  assert.equal(m.pctShow, 6 / 8);
+  assert.equal(m.pctNoshow, 2 / 8);
+  assert.equal(m.conversion, 2 / 6);
   assert.equal(m.agendadas, 10);
   assert.equal(m.proximas, 1);
   assert.equal(m.realizadas, 6);

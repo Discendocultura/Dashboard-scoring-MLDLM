@@ -988,3 +988,10 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
   .ll-mot { grid-template-columns: 1fr; gap: 2px; }
 }
 .ll-opt span { display: inline-flex; align-items: center; gap: 6px; }
+.ll-pct { font-size: 15px; font-weight: 700; color: var(--text-2); margin-left: 4px; }
+.ll-ayuda { padding: 12px 16px; margin-bottom: 12px; background: color-mix(in srgb, var(--tone-info) 6%, var(--surface)); }
+.ll-ayuda > summary { cursor: pointer; }
+.ll-ayuda ol { margin: 10px 0 2px; padding-left: 20px; line-height: 1.55; }
+.ll-ayuda li { margin: 4px 0; }
+.ll-ayuda ul { margin: 4px 0; padding-left: 18px; }
+.ll-kpis { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
