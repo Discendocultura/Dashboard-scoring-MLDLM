@@ -556,9 +556,12 @@
     // Páginas públicas (p. ej. la de registro: <div data-lsd-page="registro" data-launch="auto">):
     // solo se pintan los datos del lanzamiento (fecha, hora, cuentas atrás, enlaces), sin pedir
     // el email ni redirigir al login, porque quien está ahí todavía no se ha registrado.
-    if (kind === 'registro' || kind === 'publica') {
-      fetchPage(launchAttr, null).then(function (d) {
-        if (d && !d.error) renderPage(d, null, function () {}, true);
+    // Si la página trae ?cid= (p. ej. la de gracias tras el registro) o el navegador ya la conoce,
+    // los enlaces (checkout de la VIP, directo…) llevan su identidad para medir quién compra.
+    if (kind === 'registro' || kind === 'publica' || kind === 'gracias') {
+      var whoPub = identity();
+      fetchPage(launchAttr, whoPub).then(function (d) {
+        if (d && !d.error) renderPage(d, whoPub, function () {}, true);
       }).catch(function () { /* sin datos: se queda el texto del diseño */ });
       return;
     }
