@@ -1069,3 +1069,7 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .roles-add { margin-top: 12px; align-items: flex-end; }
 #config-dialog { width: min(1120px, calc(100vw - 32px)); }
 .rol-label { width: 190px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.form-ads { margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--surface-2); }
+.form-ads h4 { margin: 0 0 4px; font-size: 14px; }
+.form-ads p { margin: 0 0 10px; font-size: 12.5px; }

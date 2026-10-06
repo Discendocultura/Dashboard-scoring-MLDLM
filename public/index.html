@@ -466,6 +466,15 @@
               <label class="field"><span>Campañas de Meta de este lanzamiento <small>(texto que contiene su nombre; vacío = el código)</small></span><input id="cfg-meta-filtro" placeholder="el código del lanzamiento"></label>
             </div>
             <div id="meta-naming" class="meta-note" role="note"></div>
+            <div class="form-ads" role="group" aria-labelledby="form-ads-h">
+              <h4 id="form-ads-h">Formularios instantáneos de Meta <small class="muted">(opcional, común a todos los lanzamientos)</small></h4>
+              <p class="muted">Quien se registra en un formulario instantáneo no trae UTM. Si en la integración de GHL guardas el ID de la campaña, del conjunto y del anuncio en campos del contacto, elige aquí cuáles son y esos registros contarán en «Anuncios ganadores» y como publi. Si GHL ya los guarda en la atribución del contacto, se leen solos.</p>
+              <div class="grid3">
+                <label class="field"><span>Campo con el ID de campaña</span><select id="cfg-fa-campaign"></select></label>
+                <label class="field"><span>Campo con el ID de conjunto</span><select id="cfg-fa-adset"></select></label>
+                <label class="field"><span>Campo con el ID de anuncio</span><select id="cfg-fa-ad"></select></label>
+              </div>
+            </div>
           </section>
           <section class="cfg-sec" data-sec="7">
             <header class="cfg-sec-head"><span class="cfg-sec-num">7</span><div><h3>Objetivos del lanzamiento</h3><p>Opcional. En Métricas verás el progreso hacia cada uno. Vacío = sin objetivo.</p></div></header>

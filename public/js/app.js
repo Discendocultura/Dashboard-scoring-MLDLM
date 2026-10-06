@@ -1379,6 +1379,7 @@ function openConfig(code) {
   $('#cfg-meta-filtro').value = l.metaFiltro || '';
   renderMetaNaming();
   $('#cfg-digest-email').value = state.config.digestEmail || '';
+  fillFormAdsFields();
   renderAccesosEditor(state.config.accesos);
   $('#tpl-grabacion').value = state.config.templates.grabacion;
   $('#tpl-raices').value = state.config.templates.raices;
@@ -1652,6 +1653,7 @@ $('#cfg-save').addEventListener('click', async () => {
       defaultCountryCode: $('#cfg-country').value,
       digestEmail: $('#cfg-digest-email').value.trim(),
       accesos: readAccesosEditor(),
+      formAds: { campaign: $('#cfg-fa-campaign').value, adset: $('#cfg-fa-adset').value, ad: $('#cfg-fa-ad').value },
       templates: { grabacion: $('#tpl-grabacion').value, raices: $('#tpl-raices').value, cierre: $('#tpl-cierre').value, ...Object.fromEntries($$('#tpl-llamadas [data-tpl]').map((t) => [t.dataset.tpl, t.value])) },
       launches: { ...state.config.launches, [code]: launch },
     };
@@ -3613,6 +3615,25 @@ $('#ll-save').addEventListener('click', async () => {
     btn.disabled = false;
   }
 });
+
+// ---------- Campos de los formularios instantáneos de Meta (Configuración) ----------
+async function fillFormAdsFields() {
+  const fa = state.config.formAds || {};
+  const sels = { campaign: '#cfg-fa-campaign', adset: '#cfg-fa-adset', ad: '#cfg-fa-ad' };
+  const pintar = (fields) => {
+    for (const [k, sel] of Object.entries(sels)) {
+      const v = fa[k] || '';
+      const opts = [...fields];
+      if (v && !opts.some((f) => f.id === v)) opts.push({ id: v, name: `(campo ${v})` });
+      $(sel).innerHTML = `<option value="">— Ninguno —</option>${opts.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}`;
+      $(sel).value = v;
+    }
+  };
+  pintar(state.textFields || []);
+  if (!state.textFields) {
+    try { state.textFields = (await api('/api/fields?tipo=texto')).fields; pintar(state.textFields); } catch { /* sin permiso o sin conexión: se queda lo guardado */ }
+  }
+}
 
 // ---------- Roles y permisos (Configuración, solo admin) ----------
 // Desplegables de rol (alta de personas): los roles configurados, con Setter primero si existe.

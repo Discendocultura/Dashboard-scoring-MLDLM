@@ -594,3 +594,26 @@ test('roles configurables: permisos por rol, roles nuevos y no borrar roles en u
   // Restaurar el permiso del setter para el resto de pruebas
   await rolesH.POST(req('/api/roles', { method: 'POST', cookie: admin, body: { roles: r.roles.map(({ id, label, permisos }) => ({ id, label, permisos })) } }));
 });
+
+test('formularios instantáneos de Meta: el origen sale de la atribución o de los campos configurados', async () => {
+  const { sourceDe, aplicarCamposFormulario } = await import('../lib/ghl.js');
+  assert.deepEqual(sourceDe({ adId: '338', adGroupId: '225', campaignId: '1203', medium: 'facebook' }), { source: 'formulario-meta', medium: 'paid', campaign: '1203', term: '225', content: '338' });
+  assert.deepEqual(sourceDe({ utmSource: 'ig', utmMedium: 'paid', utmCampaign: 'c', utmTerm: 't', utmContent: 'a' }), { source: 'ig', medium: 'paid', campaign: 'c', term: 't', content: 'a' });
+  const fa = { campaign: 'fc', adset: 'fs', ad: 'fa' };
+  const c1 = aplicarCamposFormulario({ cf: { fc: '1', fs: '2', fa: '3' }, src: { source: '', medium: '', campaign: '', term: '', content: '' } }, fa);
+  assert.deepEqual(c1.src, { source: 'formulario-meta', medium: 'paid', campaign: '1', term: '2', content: '3' });
+  const c2 = aplicarCamposFormulario({ cf: { fa: '3' }, src: { source: 'ig', medium: 'paid', campaign: 'x', term: 'y', content: 'z' } }, fa);
+  assert.equal(c2.src.content, 'z'); // con UTM, mandan las UTM
+
+  const admin = await login('admin');
+  const config = await import('../handlers/config.js');
+  const cur = (await (await config.GET(req('/api/config', { cookie: admin }))).json()).config;
+  await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...cur, formAds: { campaign: 'mockFbCampaign', adset: 'mockFbAdset', ad: 'mockFbAd' } } }));
+  const leads = await import('../handlers/leads.js');
+  const p = await (await leads.GET(req('/api/leads?tag=registro-webinar-demo', { cookie: admin }))).json();
+  const deForm = p.contacts.filter((c) => c.src.source === 'formulario-meta');
+  assert.ok(deForm.length >= 4);
+  assert.deepEqual([deForm[0].src.campaign, deForm[0].src.term, deForm[0].src.content], ['1203', '225', '338']);
+  const fields = await import('../handlers/fields.js');
+  assert.equal((await (await fields.GET(req('/api/fields?tipo=texto', { cookie: admin }))).json()).fields.length, 3);
+});

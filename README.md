@@ -242,6 +242,7 @@ Pestaña **Llamadas** (admin, técnico y setter), conectada a GHL:
 Pestaña para admin y técnico con:
 - **Anuncios ganadores**: ranking (🥇🥈🥉 y tabla) de anuncios, conjuntos o campañas por ventas de Raíces que traen, con conversión, registros, VIP, facturado y, si Meta está conectado, inversión, CAC y ROAS. Se atribuye por las UTM del registro (utm_content = anuncio, utm_term = conjunto, utm_campaign = campaña).
 - **Ventas por canal, campaña, conjunto y anuncio**.
+- **Formularios instantáneos de Meta**: como no traen UTM, el origen se completa con la atribución que guarde GHL (adId, adGroupId, campaignId) o con los campos personalizados elegidos en Configuración → Lanzamiento → «Formularios instantáneos de Meta» (ID de campaña, conjunto y anuncio). Aparecen como canal «Formulario instantáneo (Meta)», cuentan como publi y entran en el ranking de anuncios ganadores.
 - **Avatares de compradoras** sacados de la encuesta.
 
 ## Inversión y rentabilidad

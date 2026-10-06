@@ -396,7 +396,7 @@ export function bySource(leads, level = 'campaign', names = {}) {
     const src = l.src || {};
     if (level === 'source') {
       const key = (src.source || '').toLowerCase() || '__sin';
-      const g = groups.get(key) || { key, label: src.source || 'Sin canal (sin utm_source)', leads: 0, frio: 0, vip: 0, compras: 0 };
+      const g = groups.get(key) || { key, label: src.source === 'formulario-meta' ? 'Formulario instantáneo (Meta)' : src.source || 'Sin canal (sin utm_source)', leads: 0, frio: 0, vip: 0, compras: 0 };
       g.leads++;
       if (l.s.trafico === 'frio') g.frio++;
       if (l.s.vip) g.vip++;
