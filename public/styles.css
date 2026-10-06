@@ -843,6 +843,7 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .tb-zoom { --tb: #2d8cff; }
 .tb-config { --tb: var(--accent); }
 .tb-cuenta { --tb: var(--tone-live); }
+.tb-equipo { --tb: var(--tone-vip, var(--accent)); }
 .tb-logout { --tb: var(--muted); background: transparent; border-color: transparent; }
 .tb-logout .tb-ico { background: var(--surface-2); color: var(--text-2); }
 .tb-logout:hover { --tb: var(--error); }

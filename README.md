@@ -288,9 +288,9 @@ Con un email tuyo que **no** esté en GHL:
 6. Borra después tu contacto de prueba en GHL.
 
 ## Accesos y equipo
-Cada persona entra con **su email y su contraseña**. Se dan de alta en *Configuración → Equipo* (o al asignar una tarea a «+ Nueva persona»): se crea su contacto en GHL con la etiqueta `equipo-dashboard` y le llega un email desde GHL con el enlace, su email y una contraseña generada. Desde «Mi cuenta» puede cambiarla; desde Equipo se puede reenviar el acceso (contraseña nueva), cambiar el rol, desactivar o borrar.
+Cada persona entra con **su email y su contraseña**. Se dan de alta en el botón *Equipo → Miembros del equipo* (arriba, solo admin) (o al asignar una tarea a «+ Nueva persona»): se crea su contacto en GHL con la etiqueta `equipo-dashboard` y le llega un email desde GHL con el enlace, su email y una contraseña generada. Desde «Mi cuenta» puede cambiarla; desde Equipo se puede reenviar el acceso (contraseña nueva), cambiar el rol, desactivar o borrar.
 
-Los roles y lo que ve cada uno se configuran en **Configuración → Roles y permisos** (solo admin): una tabla con una casilla por pestaña (Setteo hoy, Llamadas, Leads, Métricas, Objetivos, Avatar y anuncios, Comparar) y por acción (Configuración de lanzamientos, Sincronizar Zoom, Crear/editar/borrar tareas y eventos). Se pueden crear roles nuevos, renombrarlos y borrarlos (si nadie los tiene). El servidor aplica los mismos permisos.
+Los roles y lo que ve cada uno se configuran en el botón **Equipo → Roles y permisos** (arriba, solo admin): una tabla con una casilla por pestaña (Setteo hoy, Llamadas, Leads, Métricas, Objetivos, Avatar y anuncios, Comparar) y por acción (Configuración de lanzamientos, Sincronizar Zoom, Crear/editar/borrar tareas y eventos). Se pueden crear roles nuevos, renombrarlos y borrarlos (si nadie los tiene). El servidor aplica los mismos permisos.
 - **Admin**: todo, siempre (y es el único que gestiona el equipo y los roles).
 - **Todos los roles**: Tareas y Calendario (cada uno marca sus tareas y las de su rol).
 - De serie: **Técnico** (configuración, Zoom, Setteo hoy, Llamadas, Leads, Métricas, Objetivos, Avatar) y **Setter** (Setteo hoy, Llamadas, Leads). Se guardan en `lsd_roles`.

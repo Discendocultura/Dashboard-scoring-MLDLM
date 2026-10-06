@@ -113,7 +113,7 @@ $('#btn-logout').addEventListener('click', async () => {
 });
 
 // ---------- Arranque ----------
-// Roles y permisos: vienen de /api/me (configurables en Configuración → Roles y permisos).
+// Roles y permisos: vienen de /api/me (configurables en Equipo → Roles y permisos).
 const roleLabel = (id) => (id === 'admin' ? 'Admin' : state.roles.find((r) => r.id === id)?.label || id);
 const ROLE_LABEL = new Proxy({}, { get: (_, id) => roleLabel(String(id)) });
 const rolesUI = () => ['admin', ...state.roles.map((r) => r.id)];
@@ -1399,9 +1399,11 @@ $('#btn-config').addEventListener('click', () => openConfig(state.launchCode));
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-action="new-launch"]')) openConfig(null);
 });
+// Pestañas dentro de cada ventana (Configuración, Equipo): solo afectan a su ventana.
 $$('.tab').forEach((t) => t.addEventListener('click', () => {
-  $$('.tab').forEach((x) => x.classList.toggle('active', x === t));
-  $$('.tab-panel').forEach((p) => { p.hidden = p.dataset.panel !== t.dataset.tab; });
+  const box = t.closest('dialog');
+  $$('.tab', box).forEach((x) => x.classList.toggle('active', x === t));
+  $$('.tab-panel', box).forEach((p) => { p.hidden = p.dataset.panel !== t.dataset.tab; });
 }));
 
 // ---------- Etiquetas que deben cambiar en cada lanzamiento ----------
@@ -2750,6 +2752,10 @@ $('#equipo-list').addEventListener('click', async (e) => {
 });
 
 $('.tab[data-tab="equipo"]').addEventListener('click', () => { equipoResult(''); loadEquipo(); });
+$('#btn-equipo').addEventListener('click', () => {
+  $('.tab[data-tab="equipo"]').click();
+  $('#equipo-dialog').showModal();
+});
 
 // ---------- Mi cuenta ----------
 $('#btn-cuenta').addEventListener('click', () => {

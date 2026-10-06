@@ -32,7 +32,7 @@ export async function POST(request) {
     for (const r of actuales) {
       if (nuevos.some((n) => n.id === r.id)) continue;
       const n = users.filter((u) => u.rol === r.id).length;
-      if (n) throw bad(`No puedes borrar el rol «${r.label}»: lo tienen ${n} persona${n === 1 ? '' : 's'}. Cámbiales antes el rol en la pestaña Equipo.`);
+      if (n) throw bad(`No puedes borrar el rol «${r.label}»: lo tienen ${n} persona${n === 1 ? '' : 's'}. Cámbiales antes el rol en Equipo → Miembros del equipo.`);
     }
     return json({ roles: await conUso(await saveRoles(nuevos)) });
   } catch (e) {

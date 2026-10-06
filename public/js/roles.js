@@ -1,4 +1,4 @@
-// Roles y permisos (configurables por la admin en Configuración → Roles y permisos).
+// Roles y permisos (configurables por la admin en Equipo → Roles y permisos).
 // Admin lo tiene todo siempre. Tareas y Calendario los tiene todo el mundo.
 
 export const PERMISOS = [

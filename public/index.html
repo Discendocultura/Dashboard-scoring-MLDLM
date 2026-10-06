@@ -34,6 +34,7 @@
         <button id="btn-reload" class="tb-btn tb-reload" type="button" data-tb-icon="refresh" title="Volver a cargar los datos desde GHL"><span class="tb-txt">Actualizar</span></button>
         <button id="btn-zoom" class="tb-btn tb-zoom zoom-only" type="button" data-tb-icon="video" title="Leer la asistencia del directo en Zoom y etiquetar a los leads"><span class="tb-txt">Sincronizar Zoom</span></button>
         <button id="btn-config" class="tb-btn tb-config config-only" type="button" data-tb-icon="gear" title="Configuración del lanzamiento"><span class="tb-txt">Configuración</span></button>
+        <button id="btn-equipo" class="tb-btn tb-equipo admin-only" type="button" data-tb-icon="users" title="Miembros del equipo, roles y permisos"><span class="tb-txt">Equipo</span></button>
         <button id="btn-cuenta" class="tb-btn tb-cuenta" type="button" data-tb-icon="user" title="Mi cuenta y contraseña" hidden><span class="tb-txt">Mi cuenta</span></button>
         <button id="btn-logout" class="tb-btn tb-logout" type="button" data-tb-icon="logout" title="Cerrar sesión"><span class="tb-txt">Salir</span></button>
       </div>
@@ -353,8 +354,6 @@
           <button type="button" class="tab" data-tab="embudo" data-tab-icon="funnel">Otras páginas del embudo</button>
           <button type="button" class="tab" data-tab="snippets" data-tab-icon="code">Códigos para GHL</button>
           <button type="button" class="tab" data-tab="accesos" data-tab-icon="link">Recursos lanzamiento</button>
-          <button type="button" class="tab admin-only" data-tab="equipo" data-tab-icon="users">Equipo</button>
-          <button type="button" class="tab admin-only" data-tab="roles" data-tab-icon="shield">Roles y permisos</button>
         </div>
 
         <section class="tab-panel" data-panel="launch">
@@ -627,31 +626,6 @@
           <div id="cfg-accesos"></div>
         </section>
 
-        <section class="tab-panel" data-panel="equipo" hidden>
-          <p class="muted">Personas con acceso al dashboard. Al crear una, se crea su contacto en GHL con la etiqueta <code>equipo-dashboard</code> y le llega un email con el enlace, su email y una contraseña. Los cambios de esta pestaña se aplican al momento (no hace falta pulsar Guardar).</p>
-          <p class="roles-note muted">Qué ve cada rol se decide en la pestaña <strong>Roles y permisos</strong> (ahí también puedes crear roles nuevos). Todos tienen Tareas y Calendario.</p>
-          <div id="equipo-list"></div>
-          <h3 class="cfg-h3">Añadir persona</h3>
-          <div class="row equipo-add">
-            <label class="field"><span>Nombre</span><input id="eq-nombre" placeholder="Sara Guzmán"></label>
-            <label class="field"><span>Email</span><input id="eq-email" type="email" placeholder="sara@…"></label>
-            <label class="field narrow"><span>Rol</span><select id="eq-rol"><option value="setter">Setter</option><option value="tecnico">Técnico</option><option value="admin">Admin</option></select></label>
-            <button type="button" class="btn primary" id="btn-eq-crear">Crear y enviar acceso</button>
-          </div>
-          <div id="equipo-result" class="notice" hidden></div>
-        </section>
-
-        <section class="tab-panel" data-panel="roles" hidden>
-          <p class="muted">Marca qué puede ver y hacer cada rol. <strong>Admin</strong> lo tiene todo siempre y <strong>todos los roles tienen Tareas y Calendario</strong>. Los cambios se aplican al pulsar «Guardar roles y permisos» (cada persona los verá al recargar el dashboard).</p>
-          <div class="table-scroll"><table class="metric-table roles-table" id="roles-table"></table></div>
-          <div class="row roles-add">
-            <label class="field"><span>Nuevo rol</span><input id="rol-nuevo" maxlength="30" placeholder="Community manager, Editor de vídeo…"></label>
-            <button type="button" class="btn" id="btn-rol-add">+ Añadir rol</button>
-            <span class="spacer"></span>
-            <button type="button" class="btn primary" id="btn-roles-save">Guardar roles y permisos</button>
-          </div>
-          <div id="roles-result" class="notice" hidden></div>
-        </section>
 
         <section class="tab-panel" data-panel="snippets" hidden>
           <p class="muted">Guarda primero el lanzamiento. Después pega cada código en un bloque <strong>Código HTML</strong> de la página correspondiente de GHL y sustituye el enlace de Vimeo.</p>
@@ -818,6 +792,50 @@
   </dialog>
 
   <!-- Mi cuenta -->
+  <dialog id="equipo-dialog" class="dialog">
+    <form method="dialog">
+      <header class="dialog-head">
+        <h2>Equipo</h2>
+        <button class="btn ghost" value="cancel" formnovalidate type="submit" aria-label="Cerrar">✕</button>
+      </header>
+      <div class="dialog-body">
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" data-tab="equipo" data-tab-icon="users">Miembros del equipo</button>
+          <button type="button" class="tab" data-tab="roles" data-tab-icon="shield">Roles y permisos</button>
+        </div>
+        <section class="tab-panel" data-panel="equipo">
+          <p class="muted">Personas con acceso al dashboard. Al crear una, se crea su contacto en GHL con la etiqueta <code>equipo-dashboard</code> y le llega un email con el enlace, su email y una contraseña. Los cambios se aplican al momento.</p>
+          <p class="muted">Qué ve cada rol se decide en la pestaña <strong>Roles y permisos</strong> de esta misma ventana (ahí también puedes crear roles nuevos). Todos tienen Tareas y Calendario.</p>
+          <div id="equipo-list"></div>
+          <h3 class="cfg-h3">Añadir persona</h3>
+          <div class="row equipo-add">
+            <label class="field"><span>Nombre</span><input id="eq-nombre" placeholder="Sara Guzmán"></label>
+            <label class="field"><span>Email</span><input id="eq-email" type="email" placeholder="sara@…"></label>
+            <label class="field narrow"><span>Rol</span><select id="eq-rol"><option value="setter">Setter</option><option value="tecnico">Técnico</option><option value="admin">Admin</option></select></label>
+            <button type="button" class="btn primary" id="btn-eq-crear">Crear y enviar acceso</button>
+          </div>
+          <div id="equipo-result" class="notice" hidden></div>
+        </section>
+
+        <section class="tab-panel" data-panel="roles" hidden>
+          <p class="muted">Marca qué puede ver y hacer cada rol. <strong>Admin</strong> lo tiene todo siempre y <strong>todos los roles tienen Tareas y Calendario</strong>. Los cambios se aplican al pulsar «Guardar roles y permisos» (cada persona los verá al recargar el dashboard).</p>
+          <div class="table-scroll"><table class="metric-table roles-table" id="roles-table"></table></div>
+          <div class="row roles-add">
+            <label class="field"><span>Nuevo rol</span><input id="rol-nuevo" maxlength="30" placeholder="Community manager, Editor de vídeo…"></label>
+            <button type="button" class="btn" id="btn-rol-add">+ Añadir rol</button>
+            <span class="spacer"></span>
+            <button type="button" class="btn primary" id="btn-roles-save">Guardar roles y permisos</button>
+          </div>
+          <div id="roles-result" class="notice" hidden></div>
+        </section>
+      </div>
+      <footer class="dialog-foot">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate type="submit">Cerrar</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog id="cuenta-dialog" class="dialog dialog-sm">
     <form id="cuenta-form" method="dialog">
       <header class="dialog-head"><h2>Mi cuenta</h2></header>
