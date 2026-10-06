@@ -5,7 +5,8 @@ import { icon } from './icons.js';
 import { ENCUESTA_PREGUNTAS } from './encuesta.js';
 import { enrichLead, computeMetrics, bySource, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
-import { FASES, puedeMarcar, esMia, vencida } from './tareas.js';
+import { FASES, puedeMarcar, esMia, vencida, addDays } from './tareas.js';
+import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -106,7 +107,7 @@ $('#btn-logout').addEventListener('click', async () => {
 // ---------- Arranque ----------
 const ROLE_LABEL = { admin: 'Admin', setter: 'Setter', equipo: 'Equipo' };
 // Pestañas que ve cada rol (el servidor también impide al equipo leer leads y métricas).
-const ROLE_VIEWS = { admin: null, setter: ['hoy', 'leads', 'tareas'], equipo: ['tareas'] };
+const ROLE_VIEWS = { admin: null, setter: ['hoy', 'leads', 'tareas', 'calendario'], equipo: ['tareas', 'calendario'] };
 const allowedViews = () => ROLE_VIEWS[state.role] || VIEWS;
 
 async function start() {
@@ -122,7 +123,8 @@ async function start() {
   $('#login').hidden = true;
   $('#app').hidden = false;
   $$('.view-tab').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
-  const wanted = window.location.hash === '#tareas' ? 'tareas' : ls.get('lsd_view');
+  const hash = window.location.hash.slice(1);
+  const wanted = ['tareas', 'calendario'].includes(hash) ? hash : ls.get('lsd_view');
   showView(allowedViews().includes(wanted) ? wanted : allowedViews().includes('leads') ? 'leads' : allowedViews()[0]);
   fillStaticSelects();
   renderLaunchSelect();
@@ -169,6 +171,7 @@ async function selectLaunch(code) {
   ls.set('lsd_launch', code);
   $('#launch-select').value = code;
   loadTareas();
+  loadEventos();
   if (state.role !== 'equipo') await loadLeads();
 }
 
@@ -938,9 +941,9 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'leads', 'metricas', 'objetivos', 'comparar', 'tareas'];
+const VIEWS = ['hoy', 'leads', 'metricas', 'objetivos', 'comparar', 'tareas', 'calendario'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
-const VIEW_ICONS = { hoy: 'sun2', leads: 'users', metricas: 'trend', objetivos: 'target', comparar: 'compare', tareas: 'list' };
+const VIEW_ICONS = { hoy: 'sun2', leads: 'users', metricas: 'trend', objetivos: 'target', comparar: 'compare', tareas: 'list', calendario: 'calendar' };
 $$('.view-tab').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view])));
 $$('[data-icon] > h2').forEach((h) => h.insertAdjacentHTML('afterbegin', `<span class="h-ico">${icon(h.parentElement.dataset.icon)}</span>`));
 function showView(view) {
@@ -949,6 +952,7 @@ function showView(view) {
   for (const v of VIEWS) $(`#view-${v}`).hidden = v !== view;
   ls.set('lsd_view', view);
   if (view === 'comparar' && state.config) renderCompareSelector();
+  if (view === 'calendario' && state.config) renderCalendario();
 }
 $$('.view-tab').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
 showView(VIEWS.includes(ls.get('lsd_view')) ? ls.get('lsd_view') : 'leads');
@@ -1246,6 +1250,8 @@ function openConfig(code) {
   $('#cfg-llamada-tag').value = l.llamadaTag || '';
   $('#cfg-encuesta-url').value = l.encuestaUrl || '';
   $('#cfg-inicio').value = l.inicioCaptacion || '';
+  $('#cfg-fin-captacion').value = l.finCaptacion || '';
+  $('#cfg-apertura-carrito').value = l.aperturaCarrito || '';
   $('#cfg-directo-fecha').value = l.fechaDirecto || '';
   $('#cfg-directo-hora').value = l.horaDirecto || '';
   $('#cfg-login-url').value = l.loginUrl || '';
@@ -1364,6 +1370,8 @@ const CICLO = [
   { id: 'cfg-inicio', c: 'nuevo', label: 'Inicio de captación', key: 'inicioCaptacion' },
   { id: 'cfg-directo-fecha', c: 'nuevo', label: 'Día del directo', key: 'fechaDirecto' },
   { id: 'cfg-directo-hora', c: 'nuevo', label: 'Hora del directo' },
+  { id: 'cfg-fin-captacion', c: 'nuevo', label: 'Fin de la publi', opcional: true },
+  { id: 'cfg-apertura-carrito', c: 'nuevo', label: 'Apertura del carrito', opcional: true },
   { id: 'cfg-zoom-id', c: 'nuevo', label: 'ID de Zoom', key: 'zoomMeetingId' },
   { id: 'cfg-zoom-url', c: 'nuevo', label: 'Enlace genérico de Zoom', key: 'zoomJoinUrl', opcional: true },
   { id: 'cfg-inversion', c: 'nuevo', label: 'Inversión en anuncios', opcional: true },
@@ -1501,6 +1509,8 @@ function readForm() {
       encuestaUrl: $('#cfg-encuesta-url').value.trim(),
       compraDateField: $('#cfg-compra-fecha').value,
       inicioCaptacion: $('#cfg-inicio').value,
+      finCaptacion: $('#cfg-fin-captacion').value,
+      aperturaCarrito: $('#cfg-apertura-carrito').value,
       fechaDirecto: $('#cfg-directo-fecha').value,
       horaDirecto: $('#cfg-directo-hora').value,
       loginUrl: $('#cfg-login-url').value.trim(),
@@ -2083,6 +2093,7 @@ function renderTareas() {
   const order = (a, b) => (a.hecha - b.hecha) || (a.fecha || '9999').localeCompare(b.fecha || '9999') || a.titulo.localeCompare(b.titulo, 'es');
   const groups = FASES.map((f) => ({ f, all: list.filter((t) => t.fase === f.id), items: shown.filter((t) => t.fase === f.id).sort(order) }))
     .filter((g) => g.items.length);
+  if (!$('#view-calendario').hidden) renderCalendario();
   $('#tareas-list').innerHTML = !list.length ? '' : groups.length ? groups.map(({ f, all, items }) => {
     const d = all.filter((t) => t.hecha).length;
     return `<section class="card tarea-fase">
@@ -2391,6 +2402,274 @@ $('#cuenta-save').addEventListener('click', async () => {
   } catch (e) {
     status.textContent = e.message;
   }
+});
+
+// ---------- Calendario ----------
+const CAL_FASE_COLOR = { captacion: 'info', clases: 'live', directo: 'accent', carrito: 'buy' };
+const DOW = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+const cal = {
+  modo: ls.get('lsd_cal_modo') === 'semana' ? 'semana' : 'mes',
+  ref: null, // día de referencia (YYYY-MM-DD)
+  refCode: null,
+  sel: null,
+  eventos: { code: null, list: [] },
+  show: (() => { try { return { tareas: true, eventos: true, otros: false, ...JSON.parse(ls.get('lsd_cal_show') || '{}') }; } catch { return { tareas: true, eventos: true, otros: false }; } })(),
+};
+const dow = (d) => (new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7; // 0 = lunes
+const monthStart = (d) => `${d.slice(0, 7)}-01`;
+const addMonths = (d, n) => {
+  const x = new Date(`${monthStart(d)}T12:00:00Z`);
+  x.setUTCMonth(x.getUTCMonth() + n);
+  return x.toISOString().slice(0, 10);
+};
+const fmtDay = (d, opts) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { timeZone: 'UTC', ...opts });
+
+async function loadEventos() {
+  const code = state.launchCode;
+  if (!code) return;
+  try {
+    const d = await api(`/api/eventos?l=${encodeURIComponent(code)}`);
+    if (code !== state.launchCode) return;
+    cal.eventos = { code, list: d.eventos };
+  } catch (e) {
+    cal.eventos = { code, list: [], error: e.message };
+  }
+  if (!$('#view-calendario').hidden) renderCalendario();
+}
+
+// Día inicial: hoy si el lanzamiento está en marcha; si no, el mes del directo (o del primer hito).
+function calInitialRef() {
+  const hoy = today();
+  const days = hitosLanzamiento(state.config.launches[state.launchCode] || {}).map((h) => h.day).sort();
+  if (!days.length || (hoy >= addDays(days[0], -21) && hoy <= addDays(days[days.length - 1], 14))) return hoy;
+  const l = state.config.launches[state.launchCode];
+  return l.fechaDirecto || days[0];
+}
+
+// Todo lo que cae en cada día: { 'YYYY-MM-DD': [item…] }
+function calItems() {
+  const map = {};
+  const push = (d, it) => { (map[d] ||= []).push(it); };
+  const code = state.launchCode;
+  const L = state.config.launches;
+  const codes = cal.show.otros ? Object.keys(L) : [code];
+  for (const c of codes) {
+    for (const h of hitosLanzamiento(L[c])) push(h.day, { kind: 'hito', code: c, own: c === code, icon: h.icon, titulo: h.titulo, time: h.time, launch: L[c].name, hid: h.id });
+  }
+  if (cal.show.eventos && cal.eventos.code === code) {
+    for (const e of cal.eventos.list) {
+      const tipo = EVENTO_TIPOS.find((t) => t.id === e.tipo);
+      for (let d = e.fecha; d && d <= (e.fin || e.fecha); d = addDays(d, 1)) push(d, { kind: 'evento', ev: e, icon: tipo?.icon || '📌', titulo: e.titulo, time: d === e.fecha ? e.hora : '', cont: d !== e.fecha });
+    }
+  }
+  if (cal.show.tareas && state.tareas?.code === code) {
+    for (const t of state.tareas.list) if (t.fecha) push(t.fecha, { kind: 'tarea', t, titulo: t.titulo, time: '' });
+  }
+  const rank = { hito: 0, evento: 1, tarea: 2 };
+  for (const list of Object.values(map)) list.sort((a, b) => (rank[a.kind] - rank[b.kind]) || (a.time || '').localeCompare(b.time || '') || (b.own === true) - (a.own === true));
+  return map;
+}
+
+function calChip(it, hoy) {
+  if (it.kind === 'tarea') {
+    const t = it.t;
+    const cls = t.hecha ? 'done' : vencida(t, hoy) ? 'late' : esMia(t, meSess()) ? 'mine' : '';
+    return `<span class="cal-chip k-tarea ${cls}" title="${esc(t.titulo)} · ${esc(asignadoTexto(t.asignado))}"><span class="cc-ico">${t.hecha ? '✓' : '☐'}</span><span class="cc-txt">${esc(t.titulo)}</span></span>`;
+  }
+  const other = it.kind === 'hito' && !it.own;
+  const tipo = it.kind === 'evento' ? ` t-${it.ev.tipo}` : '';
+  return `<span class="cal-chip k-${it.kind}${tipo} ${other ? 'other' : ''} ${it.cont ? 'cont' : ''}" title="${esc(it.titulo)}${other ? ` · ${esc(it.launch)}` : ''}"><span class="cc-ico">${it.icon}</span>${it.time ? `<span class="cc-time">${esc(it.time)}</span>` : ''}<span class="cc-txt">${esc(it.titulo)}${other ? ` · ${esc(it.launch)}` : ''}</span></span>`;
+}
+
+function renderCalendario() {
+  if (!state.config || !state.launchCode || !state.config.launches[state.launchCode]) return;
+  if (cal.refCode !== state.launchCode) { cal.ref = calInitialRef(); cal.refCode = state.launchCode; cal.sel = null; }
+  const hoy = today();
+  const launch = state.config.launches[state.launchCode];
+  const fases = fasesLanzamiento(launch);
+  const items = calItems();
+  $$('#cal-modo .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.m === cal.modo));
+  $('#cal-show-tareas').checked = cal.show.tareas;
+  $('#cal-show-eventos').checked = cal.show.eventos;
+  $('#cal-show-otros').checked = cal.show.otros;
+
+  let days;
+  if (cal.modo === 'mes') {
+    const first = monthStart(cal.ref);
+    const start = addDays(first, -dow(first));
+    const last = addDays(addMonths(first, 1), -1);
+    const end = addDays(last, 6 - dow(last));
+    days = [];
+    for (let d = start; d <= end; d = addDays(d, 1)) days.push(d);
+    const t = fmtDay(first, { month: 'long', year: 'numeric' });
+    $('#cal-title').textContent = t.charAt(0).toUpperCase() + t.slice(1);
+  } else {
+    const start = addDays(cal.ref, -dow(cal.ref));
+    days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+    const a = fmtDay(days[0], { day: 'numeric', month: 'short' });
+    const b = fmtDay(days[6], { day: 'numeric', month: 'short', year: 'numeric' });
+    $('#cal-title').textContent = `${a} – ${b}`;
+  }
+
+  const unknownDates = !hitosLanzamiento(launch).length;
+  $('#cal-legend').innerHTML = `${fases.map((f) => `<span class="cal-leg tone-${CAL_FASE_COLOR[f.id]}"><i></i>${esc(f.label)}</span>`).join('')}
+    <span class="cal-leg-sep"></span>
+    <span class="cal-leg k"><span class="cal-chip k-hito">🔴 Hito</span></span>
+    ${cal.show.eventos ? '<span class="cal-leg k"><span class="cal-chip k-evento">📌 Evento</span></span>' : ''}
+    ${cal.show.tareas ? '<span class="cal-leg k"><span class="cal-chip k-tarea"><span class="cc-ico">☐</span>Tarea</span></span><span class="cal-leg k"><span class="cal-chip k-tarea late"><span class="cc-ico">☐</span>Vencida</span></span>' : ''}
+    ${unknownDates ? `<span class="muted">Este lanzamiento aún no tiene fechas${state.role === 'admin' ? ': ponlas en Configuración.' : '.'}</span>` : ''}
+    ${cal.eventos.error ? `<span class="error">No se pudieron cargar los eventos: ${esc(cal.eventos.error)}</span>` : ''}`;
+
+  const month = cal.ref.slice(0, 7);
+  const max = cal.modo === 'mes' ? 3 : 99;
+  const cell = (d) => {
+    const list = items[d] || [];
+    const bands = fases.filter((f) => d >= f.from && d <= f.to);
+    const more = list.length - max;
+    return `<button type="button" class="cal-day ${d.slice(0, 7) !== month && cal.modo === 'mes' ? 'out' : ''} ${d === hoy ? 'today' : ''} ${d === cal.sel ? 'sel' : ''} ${d < hoy ? 'past' : ''}" data-day="${d}" aria-label="${esc(fmtDay(d, { weekday: 'long', day: 'numeric', month: 'long' }))}${list.length ? `, ${list.length} elementos` : ''}">
+      <span class="cal-bands">${bands.map((f) => `<i class="tone-${CAL_FASE_COLOR[f.id]}" title="${esc(f.label)}"></i>`).join('')}</span>
+      <span class="cal-num">${cal.modo === 'semana' ? `<span class="cal-dow">${DOW[dow(d)]}</span> ` : ''}${Number(d.slice(8))}${cal.modo === 'semana' ? ` <span class="cal-dow">${fmtDay(d, { month: 'short' })}</span>` : ''}</span>
+      <span class="cal-chips">${list.slice(0, max).map((it) => calChip(it, hoy)).join('')}${more > 0 ? `<span class="cal-more">+${more} más</span>` : ''}</span>
+      ${list.length ? `<span class="cal-dots">${list.slice(0, 5).map((it) => `<i class="d-${it.kind}${it.kind === 'tarea' && vencida(it.t, hoy) ? ' late' : ''}"></i>`).join('')}</span>` : ''}
+    </button>`;
+  };
+  $('#cal-grid').innerHTML = `<div class="cal ${cal.modo === 'mes' ? 'cal-mes' : 'cal-semana'}">
+    ${cal.modo === 'mes' ? `<div class="cal-head">${DOW.map((x) => `<span>${x}</span>`).join('')}</div>` : ''}
+    <div class="cal-body">${days.map(cell).join('')}</div></div>`;
+  renderCalDia(items);
+}
+
+// Panel del día seleccionado, con acciones.
+function renderCalDia(items = calItems()) {
+  const box = $('#cal-dia');
+  const d = cal.sel;
+  box.hidden = !d;
+  if (!d) return;
+  const hoy = today();
+  const list = items[d] || [];
+  const admin = state.role === 'admin';
+  const row = (it) => {
+    if (it.kind === 'tarea') {
+      const t = it.t;
+      const puede = puedeMarcar(t, meSess());
+      return `<li class="cd-row k-tarea ${t.hecha ? 'done' : ''} ${vencida(t, hoy) ? 'late' : ''}">
+        <label class="t-check"><input type="checkbox" data-cal-tid="${esc(t.id)}" ${t.hecha ? 'checked' : ''} ${puede ? '' : 'disabled'}><span class="t-box" aria-hidden="true"></span></label>
+        <div class="cd-main"><strong>${esc(t.titulo)}</strong><span class="muted">Tarea · ${esc(asignadoTexto(t.asignado))}${t.hecha ? ` · hecha por ${esc(t.hechaPor || '')}` : vencida(t, hoy) ? ' · vencida' : ''}</span>${t.notas ? `<span class="cd-notas">${esc(t.notas)}</span>` : ''}</div>
+        ${admin ? `<button type="button" class="btn ghost" data-cal-tedit="${esc(t.id)}">Editar</button>` : ''}</li>`;
+    }
+    if (it.kind === 'evento') {
+      const e = it.ev;
+      const tipo = EVENTO_TIPOS.find((x) => x.id === e.tipo);
+      return `<li class="cd-row k-evento"><span class="cd-ico">${it.icon}</span>
+        <div class="cd-main"><strong>${esc(e.titulo)}</strong><span class="muted">${esc(tipo?.label || 'Evento')}${e.hora ? ` · ${esc(e.hora)} h` : ''}${e.fin ? ` · del ${esc(fmtDay(e.fecha, { day: 'numeric', month: 'short' }))} al ${esc(fmtDay(e.fin, { day: 'numeric', month: 'short' }))}` : ''}</span>${e.notas ? `<span class="cd-notas">${esc(e.notas)}</span>` : ''}</div>
+        ${admin ? `<button type="button" class="btn ghost" data-cal-eedit="${esc(e.id)}">Editar</button>` : ''}</li>`;
+    }
+    return `<li class="cd-row k-hito ${it.own ? '' : 'other'}"><span class="cd-ico">${it.icon}</span>
+      <div class="cd-main"><strong>${esc(it.titulo)}</strong><span class="muted">${it.time ? `${esc(it.time)} h · ` : ''}${esc(it.launch)}</span></div>
+      ${admin ? `<button type="button" class="btn ghost" data-cal-hito="${esc(it.code)}" title="Las fechas se cambian en la configuración del lanzamiento">Cambiar fecha</button>` : ''}</li>`;
+  };
+  const t = fmtDay(d, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  box.innerHTML = `<header class="cd-head"><h3>${esc(t.charAt(0).toUpperCase() + t.slice(1))}</h3>
+      ${admin ? `<button type="button" class="btn" data-cal-new-evento="${d}">+ Evento</button><button type="button" class="btn" data-cal-new-tarea="${d}">+ Tarea</button>` : ''}
+      <button type="button" class="btn ghost" data-cal-close aria-label="Cerrar">✕</button></header>
+    ${list.length ? `<ul class="cd-list">${list.map(row).join('')}</ul>` : '<p class="muted">Nada este día.</p>'}`;
+}
+
+$('#cal-prev').addEventListener('click', () => { cal.ref = cal.modo === 'mes' ? addMonths(cal.ref, -1) : addDays(cal.ref, -7); renderCalendario(); });
+$('#cal-next').addEventListener('click', () => { cal.ref = cal.modo === 'mes' ? addMonths(cal.ref, 1) : addDays(cal.ref, 7); renderCalendario(); });
+$('#cal-hoy').addEventListener('click', () => { cal.ref = today(); cal.sel = today(); renderCalendario(); });
+$('#cal-modo').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-m]');
+  if (!b) return;
+  cal.modo = b.dataset.m;
+  if (cal.sel) cal.ref = cal.sel;
+  ls.set('lsd_cal_modo', cal.modo);
+  renderCalendario();
+});
+for (const k of ['tareas', 'eventos', 'otros']) {
+  $(`#cal-show-${k}`).addEventListener('change', (e) => {
+    cal.show[k] = e.target.checked;
+    ls.set('lsd_cal_show', JSON.stringify(cal.show));
+    renderCalendario();
+  });
+}
+$('#cal-grid').addEventListener('click', (e) => {
+  const c = e.target.closest('[data-day]');
+  if (!c) return;
+  cal.sel = cal.sel === c.dataset.day ? null : c.dataset.day;
+  renderCalendario();
+  if (cal.sel && window.innerWidth < 700) $('#cal-dia').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+$('#cal-dia').addEventListener('click', (e) => {
+  if (e.target.closest('[data-cal-close]')) { cal.sel = null; renderCalendario(); return; }
+  const te = e.target.closest('[data-cal-tedit]');
+  if (te) return openTarea(state.tareas.list.find((t) => t.id === te.dataset.calTedit));
+  const ee = e.target.closest('[data-cal-eedit]');
+  if (ee) return openEvento(cal.eventos.list.find((x) => x.id === ee.dataset.calEedit));
+  const h = e.target.closest('[data-cal-hito]');
+  if (h) return openConfig(h.dataset.calHito);
+  const ne = e.target.closest('[data-cal-new-evento]');
+  if (ne) return openEvento(null, ne.dataset.calNewEvento);
+  const nt = e.target.closest('[data-cal-new-tarea]');
+  if (nt) { openTarea(null); $('#t-fecha').value = nt.dataset.calNewTarea; }
+});
+$('#cal-dia').addEventListener('change', async (e) => {
+  const cb = e.target.closest('input[data-cal-tid]');
+  if (!cb) return;
+  cb.disabled = true;
+  try { await tareasOp({ op: 'marcar', id: cb.dataset.calTid, hecha: cb.checked }); } catch (ex) { cb.checked = !cb.checked; cb.disabled = false; notice(ex.message, true); }
+});
+
+// Diálogo de evento
+const edlg = $('#evento-dialog');
+let editingEvento = null;
+$('#e-tipo').innerHTML = EVENTO_TIPOS.map((t) => `<option value="${t.id}">${t.icon} ${esc(t.label)}</option>`).join('');
+function openEvento(ev, dia = '') {
+  editingEvento = ev || null;
+  $('#evento-title').textContent = ev ? 'Editar evento' : 'Nuevo evento';
+  $('#e-titulo').value = ev?.titulo || '';
+  $('#e-tipo').value = ev?.tipo || 'email';
+  $('#e-fecha').value = ev?.fecha || dia || cal.sel || today();
+  $('#e-hora').value = ev?.hora || '';
+  $('#e-fin').value = ev?.fin || '';
+  $('#e-notas').value = ev?.notas || '';
+  $('#evento-del').hidden = !ev;
+  $('#evento-status').textContent = '';
+  edlg.showModal();
+  $('#e-titulo').focus();
+}
+async function eventosOp(body) {
+  const d = await api('/api/eventos', { method: 'POST', body: { l: state.launchCode, ...body } });
+  cal.eventos = { code: state.launchCode, list: d.eventos };
+  renderCalendario();
+}
+$('#btn-evento-nuevo').addEventListener('click', () => openEvento(null));
+$('#evento-save').addEventListener('click', async () => {
+  const evento = { titulo: $('#e-titulo').value, tipo: $('#e-tipo').value, fecha: $('#e-fecha').value, hora: $('#e-hora').value, fin: $('#e-fin').value, notas: $('#e-notas').value };
+  if (!evento.titulo.trim()) { $('#e-titulo').focus(); return; }
+  try {
+    await eventosOp(editingEvento ? { op: 'editar', id: editingEvento.id, evento } : { op: 'crear', evento });
+    edlg.close();
+  } catch (ex) { $('#evento-status').textContent = ex.message; }
+});
+$('#evento-del').addEventListener('click', async () => {
+  if (!editingEvento || !window.confirm(`¿Eliminar el evento «${editingEvento.titulo}»?`)) return;
+  try { await eventosOp({ op: 'borrar', id: editingEvento.id }); edlg.close(); } catch (ex) { $('#evento-status').textContent = ex.message; }
+});
+
+// Suscripción
+$('#btn-cal-sync').addEventListener('click', async () => {
+  try {
+    const d = await api('/api/cal');
+    $('#sync-url').value = d.url;
+    $('#sync-webcal').href = d.webcal;
+    $('#sync-dialog').showModal();
+    $('#sync-url').select();
+  } catch (e) { notice(e.message, true); }
+});
+$('#sync-copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('#sync-url').value); $('#sync-copy').textContent = 'Copiado ✓'; } catch { $('#sync-url').select(); }
+  setTimeout(() => { $('#sync-copy').textContent = 'Copiar'; }, 1500);
 });
 
 // ---------- Inicio ----------

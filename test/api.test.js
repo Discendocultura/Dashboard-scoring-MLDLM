@@ -403,3 +403,40 @@ test('tareas: plantilla, asignación con aviso por email y permisos para marcar'
   assert.equal((await (await post(admin, { op: 'borrar-todas' })).json()).tareas.length, 0);
   assert.equal((await post(saraCookie, { op: 'marcar', id: mine.id, hecha: false })).status, 404);
 });
+
+test('calendario: hitos, eventos propios y enlace de suscripción .ics', async () => {
+  const { hitosLanzamiento, fasesLanzamiento } = await import('../public/js/calendario.js');
+  const L = { inicioCaptacion: '2026-10-05', fechaDirecto: '2026-10-29', horaDirecto: '19:00', clase1At: '2026-10-26T09:00', clase2At: '2026-10-27T09:00', cierreCarrito: '2026-11-05T23:59' };
+  const h = Object.fromEntries(hitosLanzamiento(L).map((x) => [x.id, x]));
+  assert.equal(h.directo.time, '19:00');
+  assert.equal(h.carrito.day, '2026-10-29'); // sin apertura: al empezar el directo
+  assert.equal(h.replay.day, '2026-10-30');
+  assert.equal(h['fin-captacion'], undefined);
+  const f = Object.fromEntries(fasesLanzamiento(L).map((x) => [x.id, x]));
+  assert.deepEqual([f.captacion.from, f.captacion.to], ['2026-10-05', '2026-10-28']);
+  assert.deepEqual([f.carrito.from, f.carrito.to], ['2026-10-29', '2026-11-05']);
+
+  const admin = await login('admin');
+  const setter = await login('setter');
+  const config = await import('../handlers/config.js');
+  const cur = (await (await config.GET(req('/api/config', { cookie: admin }))).json()).config;
+  cur.launches.demo = { ...cur.launches.demo, ...L, fechaDirecto: '2099-10-29' };
+  await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: cur }));
+
+  const ev = await import('../handlers/eventos.js');
+  assert.equal((await ev.POST(req('/api/eventos', { method: 'POST', cookie: setter, body: { l: 'demo', op: 'crear', evento: { titulo: 'x', fecha: '2026-10-10' } } }))).status, 403);
+  assert.equal((await ev.POST(req('/api/eventos', { method: 'POST', cookie: admin, body: { l: 'demo', op: 'crear', evento: { titulo: 'Sin fecha' } } }))).status, 400);
+  const r = await (await ev.POST(req('/api/eventos', { method: 'POST', cookie: admin, body: { l: 'demo', op: 'crear', evento: { titulo: 'Email recordatorio; clase 1', fecha: '2026-10-25', hora: '10:00', tipo: 'email' } } }))).json();
+  assert.equal(r.eventos.length, 1);
+  assert.equal((await (await ev.GET(req('/api/eventos?l=demo', { cookie: setter }))).json()).eventos[0].hora, '10:00');
+
+  const cal = await import('../handlers/cal.js');
+  const link = await (await cal.GET(req('/api/cal', { cookie: setter }))).json();
+  assert.match(link.webcal, /^webcal:\/\/localhost\/api\/cal\?t=/);
+  const ics = await (await cal.GET(req(link.url.replace('http://localhost', '')))).text();
+  assert.match(ics, /BEGIN:VCALENDAR/);
+  assert.ok(ics.includes('SUMMARY:✉️ Email recordatorio\\; clase 1'));
+  assert.match(ics, /DTSTART:20261025T090000Z/); // 10:00 en Madrid (ese día ya es horario de invierno)
+  assert.match(ics, /Se libera la clase 1/);
+  assert.equal((await cal.GET(req('/api/cal?t=cal:admin.firmafalsa'))).status, 403);
+});

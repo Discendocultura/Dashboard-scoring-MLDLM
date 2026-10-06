@@ -3,7 +3,7 @@ import { getConfig, saveConfig } from '../lib/config-store.js';
 import { zoomConfigured } from '../lib/zoom.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 
-const EQUIPO_FIELDS = ['name', 'inicioCaptacion', 'fechaDirecto', 'horaDirecto', 'clase1At', 'clase2At', 'cierreCarrito', 'createdAt'];
+const EQUIPO_FIELDS = ['name', 'inicioCaptacion', 'finCaptacion', 'fechaDirecto', 'horaDirecto', 'clase1At', 'clase2At', 'replayAt', 'aperturaCarrito', 'cierreCarrito', 'createdAt'];
 function equipoConfig(config) {
   const launches = {};
   for (const [code, l] of Object.entries(config.launches)) launches[code] = Object.fromEntries(EQUIPO_FIELDS.map((k) => [k, l[k] ?? '']));

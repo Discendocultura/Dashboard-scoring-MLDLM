@@ -59,7 +59,34 @@
           <button type="button" class="view-tab" data-view="objetivos">Objetivos</button>
           <button type="button" class="view-tab" data-view="comparar">Comparar</button>
           <button type="button" class="view-tab" data-view="tareas">Tareas <span id="tareas-badge" class="tab-count" hidden></span></button>
+          <button type="button" class="view-tab" data-view="calendario">Calendario</button>
         </nav>
+
+        <section id="view-calendario" hidden>
+          <div class="cal-toolbar">
+            <div class="cal-nav">
+              <button type="button" class="btn" id="cal-prev" aria-label="Anterior">‹</button>
+              <button type="button" class="btn" id="cal-hoy">Hoy</button>
+              <button type="button" class="btn" id="cal-next" aria-label="Siguiente">›</button>
+              <h2 id="cal-title"></h2>
+            </div>
+            <div class="seg" id="cal-modo" role="tablist" aria-label="Vista">
+              <button type="button" class="seg-btn on" data-m="mes">Mes</button>
+              <button type="button" class="seg-btn" data-m="semana">Semana</button>
+            </div>
+            <div class="cal-toggles">
+              <label class="check"><input type="checkbox" id="cal-show-tareas" checked> Tareas</label>
+              <label class="check"><input type="checkbox" id="cal-show-eventos" checked> Eventos</label>
+              <label class="check"><input type="checkbox" id="cal-show-otros"> Otros lanzamientos</label>
+            </div>
+            <span class="spacer"></span>
+            <button type="button" class="btn" id="btn-cal-sync">Sincronizar con mi calendario</button>
+            <button type="button" class="btn primary admin-only" id="btn-evento-nuevo">+ Evento</button>
+          </div>
+          <div id="cal-legend" class="cal-legend"></div>
+          <div id="cal-grid"></div>
+          <div id="cal-dia" class="card cal-dia" hidden></div>
+        </section>
 
         <section id="view-tareas" hidden>
           <div id="tareas-resumen" class="tareas-resumen"></div>
@@ -329,6 +356,10 @@
               <input id="cfg-directo-fecha" type="date"></label>
               <label class="field"><span>Hora del directo <small>(hora de España)</small></span>
               <input id="cfg-directo-hora" type="time"></label>
+              <label class="field"><span>Fin de la publi de captación <small>(opcional; vacío = la víspera del directo)</small></span>
+              <input id="cfg-fin-captacion" type="date"></label>
+              <label class="field"><span>Apertura del carrito de Raíces <small>(opcional; vacío = al empezar el directo)</small></span>
+              <input id="cfg-apertura-carrito" type="datetime-local"></label>
             </div>
           </section>
           <section class="cfg-sec" data-sec="4">
@@ -551,6 +582,46 @@
         <button class="btn" value="cancel" formnovalidate type="submit">Cancelar</button>
         <button id="tarea-save" class="btn primary" type="button">Guardar tarea</button>
       </footer>
+    </form>
+  </dialog>
+
+  <!-- Evento del calendario -->
+  <dialog id="evento-dialog" class="dialog dialog-sm">
+    <form id="evento-form" method="dialog">
+      <header class="dialog-head"><h2 id="evento-title">Nuevo evento</h2></header>
+      <div class="dialog-body">
+        <label class="field"><span>Evento</span><input id="e-titulo" maxlength="200" placeholder="Email recordatorio clase 1, directo en Instagram…"></label>
+        <div class="row">
+          <label class="field"><span>Tipo</span><select id="e-tipo"></select></label>
+          <label class="field"><span>Día</span><input id="e-fecha" type="date"></label>
+          <label class="field"><span>Hora <small>(vacío = todo el día)</small></span><input id="e-hora" type="time"></label>
+        </div>
+        <label class="field"><span>Hasta el día <small>(opcional, si dura varios días)</small></span><input id="e-fin" type="date"></label>
+        <label class="field"><span>Notas <small>(opcional)</small></span><textarea id="e-notas" rows="3" maxlength="1000"></textarea></label>
+      </div>
+      <footer class="dialog-foot">
+        <button id="evento-del" class="btn danger-ghost" type="button" hidden>Eliminar</button>
+        <span id="evento-status" class="muted"></span>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate type="submit">Cancelar</button>
+        <button id="evento-save" class="btn primary" type="button">Guardar evento</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Suscripción al calendario -->
+  <dialog id="sync-dialog" class="dialog dialog-sm">
+    <form method="dialog">
+      <header class="dialog-head"><h2>Sincronizar con tu calendario</h2></header>
+      <div class="dialog-body">
+        <p>Este es <strong>tu enlace privado</strong>: verás los hitos de los lanzamientos, los eventos y tus tareas con fecha, y se actualiza solo (Google tarda unas horas en refrescar). No lo compartas.</p>
+        <div class="row"><input id="sync-url" readonly class="sync-url"><button type="button" class="btn" id="sync-copy">Copiar</button></div>
+        <div class="sync-how">
+          <div><h3>Google Calendar (ordenador)</h3><ol><li>Abre <a href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl" target="_blank" rel="noopener">Google Calendar → Añadir calendario → Desde URL</a>.</li><li>Pega el enlace y pulsa <em>Añadir calendario</em>.</li></ol></div>
+          <div><h3>iPhone / Mac</h3><ol><li>Pulsa <a id="sync-webcal" href="#">Suscribirme en Calendario</a> desde el iPhone o el Mac.</li><li>Confirma con <em>Suscribirse</em>.</li></ol></div>
+        </div>
+      </div>
+      <footer class="dialog-foot"><span class="spacer"></span><button class="btn" value="cancel" type="submit">Cerrar</button></footer>
     </form>
   </dialog>
 

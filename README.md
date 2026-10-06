@@ -282,7 +282,16 @@ Las contraseñas generales `ADMIN_PASSWORD` / `SETTER_PASSWORD` siguen funcionan
 ## Tareas
 Cada lanzamiento tiene su pestaña **Tareas**, agrupadas por fase (preparación → cierre) con barra de progreso, vencidas y filtros (pendientes, mías, vencidas, hechas, por persona). La admin crea, edita y borra (también varias a la vez con «Seleccionar», o todas con «Eliminar todas»); cada tarea se asigna a una persona o a todo un rol y, si se marca «Avisar», le llega un email. El resto marca como hechas las suyas o las de su rol. «Cargar tareas habituales» añade la lista de siempre con fechas calculadas a partir de las del lanzamiento (sin duplicar).
 
-La configuración se guarda en el Custom Value `lead_scoring_dashboard_config` de GHL, los usuarios en `lsd_usuarios` (contraseñas solo como hash PBKDF2) y las tareas en `lsd_tareas_<código>`. No los borres.
+## Calendario
+Pestaña **Calendario** (todos los roles), con vista **mensual** y **semanal**:
+- **Hitos** del lanzamiento sacados de la configuración: inicio y fin de la publi de captación, clase 1, clase 2, directo, apertura del carrito (vacío = al empezar el directo), grabación y cierre del carrito.
+- **Franjas de fase** de colores: captación, clases previas, directo y carrito abierto.
+- **Tareas** con fecha (las vencidas en rojo) y **eventos propios** (email, RRSS, publicidad, reunión, directo/live; pueden durar varios días). Solo la admin crea o cambia eventos.
+- **Otros lanzamientos**: muestra también sus hitos para ver si se solapan.
+- Pulsa un día para ver el detalle, marcar tareas o (admin) añadir eventos y tareas ese día.
+- **Sincronizar con mi calendario**: cada persona tiene un enlace privado para Google Calendar (*Añadir calendario → Desde URL*) o iPhone/Mac (webcal). Incluye hitos, eventos y sus tareas, y se actualiza solo. Si se desactiva a la persona, su enlace deja de funcionar.
+
+La configuración se guarda en el Custom Value `lead_scoring_dashboard_config` de GHL, los usuarios en `lsd_usuarios` (contraseñas solo como hash PBKDF2) las tareas en `lsd_tareas_<código>` y los eventos en `lsd_eventos_<código>`. No los borres.
 
 ## Escala
 Los leads se cargan en páginas de 100 desde el navegador, así que 2.000 leads son unas 20
