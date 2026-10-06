@@ -1,8 +1,9 @@
 // Gestión de usuarios del equipo (solo admin) y cambio de la propia contraseña (cualquiera con usuario).
 import { requireSession } from '../lib/auth.js';
 import {
-  listUsers, saveUsers, hashPassword, checkPassword, generatePassword, newId, normEmail, publicUser, sendAccessEmail,
+  listUsers, saveUsers, hashPassword, checkPassword, generatePassword, newId, normEmail, publicUser, sendAccessEmail, FOTO_RE, FOTO_MAX, fotoKey,
 } from '../lib/users.js';
+import { saveCustomValue } from '../lib/ghl.js';
 import { json, readBody, errorResponse, isEmail } from '../lib/http.js';
 import { rolExiste } from '../lib/roles.js';
 
@@ -47,6 +48,24 @@ export async function POST(request) {
       Object.assign(me, await hashPassword(nueva));
       await saveUsers(users);
       return json({ ok: true });
+    }
+
+    if (op === 'mi-foto') {
+      const s = await requireSession(request);
+      if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
+      const foto = String(body.foto || '');
+      if (foto && (!FOTO_RE.test(foto) || foto.length > FOTO_MAX)) throw bad('La foto no es válida o es demasiado grande');
+      const users = await listUsers({ fresh: true });
+      const me = users.find((u) => u.id === s.uid);
+      if (!me) throw bad('Usuario no encontrado', 404);
+      if (foto) {
+        await saveCustomValue(fotoKey(me.id), foto);
+        me.foto = Date.now().toString(36); // versión: cambia la URL para que no se vea la foto vieja
+      } else {
+        me.foto = null;
+      }
+      await saveUsers(users);
+      return json({ ok: true, user: publicUser(me) });
     }
 
     const s = await requireSession(request, { admin: true });

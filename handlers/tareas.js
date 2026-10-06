@@ -19,7 +19,7 @@ async function launchOf(code) {
 }
 
 // Lista mínima de personas para mostrar y asignar (sin emails para el rol equipo).
-const team = (users, s) => users.filter((u) => u.activo !== false).map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol, ...(tienePermiso(s, 'tareas_gestion') ? { email: u.email } : {}) }));
+const team = (users, s) => users.filter((u) => u.activo !== false).map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol, foto: u.foto || null, ...(tienePermiso(s, 'tareas_gestion') ? { email: u.email } : {}) }));
 
 export async function GET(request) {
   try {

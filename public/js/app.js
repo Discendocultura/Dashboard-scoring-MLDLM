@@ -140,6 +140,7 @@ async function start() {
   document.body.classList.toggle('is-equipo', role === 'equipo');
   $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
   $('#btn-cuenta').hidden = !state.user;
+  pintarFotoCuenta();
   $('#login').hidden = true;
   $('#app').hidden = false;
   fillRolSelects();
@@ -2062,6 +2063,9 @@ const today = () => dayInMadrid(new Date().toISOString());
 const meSess = () => ({ role: state.role, uid: state.user?.id || '' });
 const fechaCorta = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 const iniciales = (n) => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+const fotoUrl = (u) => (u?.foto ? `/api/foto?u=${encodeURIComponent(u.id)}&v=${encodeURIComponent(u.foto)}` : '');
+// Círculo con la foto de perfil o, si no tiene, sus iniciales.
+const avatarHtml = (u, nombre = u?.nombre) => `<span class="t-avatar">${u?.foto ? `<img src="${esc(fotoUrl(u))}" alt="" loading="lazy">` : esc(iniciales(nombre))}</span>`;
 
 async function loadTareas() {
   const code = state.launchCode;
@@ -2138,7 +2142,7 @@ function tareaRow(t) {
   const puede = puedeMarcar(t, meSess());
   const a = t.asignado;
   const who = a?.tipo === 'persona'
-    ? `<span class="t-who"><span class="t-avatar">${esc(iniciales(asignadoTexto(a)))}</span>${esc(asignadoTexto(a))}</span>`
+    ? `<span class="t-who">${avatarHtml(state.tareas.users.find((u) => u.id === a.id), asignadoTexto(a))}${esc(asignadoTexto(a))}</span>`
     : `<span class="t-who ${a ? 't-rol' : 't-nadie'}">${a ? icon('users') : ''}${esc(asignadoTexto(a))}</span>`;
   const fecha = t.fecha
     ? `<span class="t-fecha ${!t.hecha && venc ? 'vencida' : !t.hecha && t.fecha === hoy ? 'hoy' : ''}">${icon('calendar')}${!t.hecha && venc ? 'Vencida · ' : !t.hecha && t.fecha === hoy ? 'Hoy · ' : ''}${esc(fechaCorta(t.fecha))}</span>`
@@ -2311,7 +2315,7 @@ function tarjeta(t) {
   const col = columnaDe(t, extraCols());
   const a = t.asignado;
   const who = a?.tipo === 'persona'
-    ? `<span class="t-who"><span class="t-avatar">${esc(iniciales(asignadoTexto(a)))}</span>${esc(asignadoTexto(a))}</span>`
+    ? `<span class="t-who">${avatarHtml(state.tareas.users.find((u) => u.id === a.id), asignadoTexto(a))}${esc(asignadoTexto(a))}</span>`
     : `<span class="t-who ${a ? 't-rol' : 't-nadie'}">${a ? icon('users') : ''}${esc(asignadoTexto(a))}</span>`;
   const fecha = t.fecha ? `<span class="t-fecha ${!t.hecha && venc ? 'vencida' : !t.hecha && t.fecha === hoy ? 'hoy' : ''}">${icon('calendar')}${esc(fechaCorta(t.fecha))}</span>` : '';
   // En su columna de fase no hace falta repetir la fase; en las demás sí.
@@ -2673,7 +2677,7 @@ function renderEquipo() {
   $('#equipo-list').innerHTML = users.length ? `<div class="table-scroll"><table class="metric-table equipo-table">
     <thead><tr><th>Persona</th><th>Rol</th><th>Último acceso</th><th></th></tr></thead>
     <tbody>${users.map((u) => `<tr class="${u.activo ? '' : 'inactivo'}" data-uid="${esc(u.id)}">
-      <td><span class="t-who"><span class="t-avatar">${esc(iniciales(u.nombre))}</span><span><strong>${esc(u.nombre)}</strong><br><span class="muted">${esc(u.email)}</span>${u.activo ? '' : ' · <em>desactivada</em>'}</span></span></td>
+      <td><span class="t-who">${avatarHtml(u)}<span><strong>${esc(u.nombre)}</strong><br><span class="muted">${esc(u.email)}</span>${u.activo ? '' : ' · <em>desactivada</em>'}</span></span></td>
       <td><select class="eq-rol" ${u.id === state.user?.id ? 'disabled' : ''}>${[...rolesUI(), ...(rolesUI().includes(u.rol) ? [] : [u.rol])].map((r) => `<option value="${r}" ${r === u.rol ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></td>
       <td class="muted">${fmt(u.lastLogin)}</td>
       <td class="eq-actions">
@@ -2758,9 +2762,63 @@ $('#btn-equipo').addEventListener('click', () => {
 });
 
 // ---------- Mi cuenta ----------
+// En la barra, el botón «Mi cuenta» lleva la foto de perfil en vez del icono.
+function pintarFotoCuenta() {
+  const ico = $('#btn-cuenta .tb-ico');
+  if (!ico) return;
+  const url = fotoUrl(state.user);
+  ico.classList.toggle('tb-foto', Boolean(url));
+  ico.innerHTML = url ? `<img src="${esc(url)}" alt="">` : icon('user');
+  $('#cuenta-foto').innerHTML = url ? `<img src="${esc(url)}" alt="Tu foto de perfil">` : esc(iniciales(state.user?.nombre));
+  $('#c-foto-quitar').hidden = !url;
+}
+
+// Recorta la imagen en cuadrado por el centro y la reduce a 160×160 (JPEG) para que pese poco.
+function fotoReducida(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const lado = Math.min(img.naturalWidth, img.naturalHeight);
+      const c = document.createElement('canvas');
+      c.width = c.height = 160;
+      c.getContext('2d').drawImage(img, (img.naturalWidth - lado) / 2, (img.naturalHeight - lado) / 2, lado, lado, 0, 0, 160, 160);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.8));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se ha podido leer la imagen. Prueba con una foto JPG o PNG.')); };
+    img.src = url;
+  });
+}
+
+async function guardarFoto(foto) {
+  const status = $('#cuenta-foto-status');
+  status.textContent = foto ? 'Subiendo foto…' : 'Quitando foto…';
+  try {
+    const d = await api('/api/usuarios', { method: 'POST', body: { op: 'mi-foto', foto } });
+    state.user = d.user;
+    const yo = state.tareas?.users?.find((u) => u.id === d.user.id);
+    if (yo) { yo.foto = d.user.foto; renderTareas(); }
+    pintarFotoCuenta();
+    status.textContent = foto ? 'Foto guardada ✓' : 'Foto quitada ✓';
+  } catch (e) {
+    status.textContent = e.message;
+  }
+}
+$('#c-foto').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { $('#cuenta-foto-status').textContent = 'Elige una imagen (JPG, PNG…).'; return; }
+  try { await guardarFoto(await fotoReducida(file)); } catch (err) { $('#cuenta-foto-status').textContent = err.message; }
+});
+$('#c-foto-quitar').addEventListener('click', () => guardarFoto(''));
+
 $('#btn-cuenta').addEventListener('click', () => {
   const u = state.user;
   $('#cuenta-info').textContent = `${u.nombre} · ${u.email} · Rol ${ROLE_LABEL[state.role]}`;
+  $('#cuenta-foto-status').textContent = '';
+  pintarFotoCuenta();
   $('#c-actual').value = '';
   $('#c-nueva').value = '';
   $('#cuenta-status').textContent = '';

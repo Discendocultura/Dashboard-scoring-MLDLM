@@ -646,6 +646,14 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .t-nadie { font-style: italic; color: var(--muted); }
 .t-avatar { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 18%, var(--surface)); color: var(--accent); font-size: 10px; font-weight: 800; flex: none; }
 .equipo-table .t-avatar { width: 32px; height: 32px; font-size: 12px; }
+.t-avatar { overflow: hidden; }
+.t-avatar img, .tb-foto img, .cuenta-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tb-ico.tb-foto { overflow: hidden; background: var(--surface-2); }
+.cuenta-foto-row { display: flex; gap: 14px; align-items: center; }
+.cuenta-foto { flex: none; width: 72px; height: 72px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 18%, var(--surface)); color: var(--accent); font-size: 24px; font-weight: 800; }
+.cuenta-foto-acc { display: flex; flex-direction: column; gap: 6px; }
+.cuenta-foto-acc .row { align-items: center; }
+.cuenta-foto-acc label.btn { cursor: pointer; }
 .equipo-table .t-who { gap: 10px; }
 .t-hecha { color: var(--tone-buy); font-weight: 600; }
 .t-actions { display: flex; gap: 2px; flex: none; }

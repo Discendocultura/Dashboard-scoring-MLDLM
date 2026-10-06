@@ -352,6 +352,20 @@ test('usuarios del equipo: alta con email de acceso, login con email y permisos 
   assert.equal((await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: equipo, body: { op: 'mi-clave', actual: r.password, nueva: 'nuevaclave1' } }))).status, 200);
   assert.equal((await doLogin(req('/api/login', { method: 'POST', body: { email: 'quique@example.com', password: 'nuevaclave1' } }))).status, 200);
 
+  // Foto de perfil: solo imágenes pequeñas; se sirve con sesión y se puede quitar
+  const foto = await import('../handlers/foto.js');
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  assert.equal((await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: equipo, body: { op: 'mi-foto', foto: 'data:text/html;base64,PGI+' } }))).status, 400);
+  assert.equal((await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: equipo, body: { op: 'mi-foto', foto: `data:image/png;base64,${'A'.repeat(70_000)}` } }))).status, 400);
+  const fr = await (await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: equipo, body: { op: 'mi-foto', foto: png } }))).json();
+  assert.ok(fr.user.foto);
+  const img = await foto.GET(req(`/api/foto?u=${r.user.id}&v=${fr.user.foto}`, { cookie: equipo }));
+  assert.equal(img.status, 200);
+  assert.equal(img.headers.get('content-type'), 'image/png');
+  assert.equal((await foto.GET(req(`/api/foto?u=${r.user.id}`))).status, 401);
+  assert.equal((await (await import('../handlers/me.js')).GET(req('/api/me', { cookie: equipo })).then((x) => x.json())).user.foto, fr.user.foto);
+  assert.equal((await (await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: equipo, body: { op: 'mi-foto', foto: '' } }))).json()).user.foto, null);
+
   // Desactivado: la sesión deja de valer
   await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'editar', id: r.user.id, activo: false } }));
   assert.equal((await (await import('../handlers/me.js')).GET(req('/api/me', { cookie: equipo }))).status, 401);

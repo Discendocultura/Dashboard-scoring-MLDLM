@@ -840,6 +840,18 @@
     <form id="cuenta-form" method="dialog">
       <header class="dialog-head"><h2>Mi cuenta</h2></header>
       <div class="dialog-body">
+        <div class="cuenta-foto-row">
+          <span id="cuenta-foto" class="cuenta-foto"></span>
+          <div class="cuenta-foto-acc">
+            <strong>Foto de perfil</strong>
+            <div class="row">
+              <label class="btn" for="c-foto">Subir foto</label>
+              <input id="c-foto" type="file" accept="image/*" hidden>
+              <button id="c-foto-quitar" class="btn ghost" type="button" hidden>Quitar</button>
+            </div>
+            <small id="cuenta-foto-status" class="muted" aria-live="polite"></small>
+          </div>
+        </div>
         <p id="cuenta-info" class="muted"></p>
         <label class="field"><span>Contraseña actual</span><input id="c-actual" type="password" autocomplete="current-password"></label>
         <label class="field"><span>Contraseña nueva <small>(mínimo 8 caracteres)</small></span><input id="c-nueva" type="password" autocomplete="new-password" minlength="8"></label>
