@@ -228,6 +228,12 @@ Marcadores para el diseño de GHL (`data-launch="auto"` = lanzamiento en curso, 
   compra** (para ajustar los pesos de la puntuación con datos reales).
 - **Comparar**: varios lanzamientos lado a lado.
 
+## Avatar y anuncios ganadores
+Pestaña para admin y técnico con:
+- **Anuncios ganadores**: ranking (🥇🥈🥉 y tabla) de anuncios, conjuntos o campañas por ventas de Raíces que traen, con conversión, registros, VIP, facturado y, si Meta está conectado, inversión, CAC y ROAS. Se atribuye por las UTM del registro (utm_content = anuncio, utm_term = conjunto, utm_campaign = campaña).
+- **Ventas por canal, campaña, conjunto y anuncio**.
+- **Avatares de compradoras** sacados de la encuesta.
+
 ## Inversión y rentabilidad
 En la configuración del lanzamiento: **precio de la VIP**, **precio de Raíces** (o el importe medio cobrado) y,
 si no conectas Meta, la **inversión**. Facturación = VIP × precio VIP + ventas × precio Raíces.
@@ -274,7 +280,7 @@ Con un email tuyo que **no** esté en GHL:
 Cada persona entra con **su email y su contraseña**. Se dan de alta en *Configuración → Equipo* (o al asignar una tarea a «+ Nueva persona»): se crea su contacto en GHL con la etiqueta `equipo-dashboard` y le llega un email desde GHL con el enlace, su email y una contraseña generada. Desde «Mi cuenta» puede cambiarla; desde Equipo se puede reenviar el acceso (contraseña nueva), cambiar el rol, desactivar o borrar.
 
 - **Admin**: todo (incluida la gestión del equipo y crear/editar tareas y eventos).
-- **Técnico**: configuración de lanzamientos, Setteo hoy, Leads, Métricas y Objetivos.
+- **Técnico**: configuración de lanzamientos, Setteo hoy, Leads, Métricas, Objetivos y Avatar y anuncios.
 - **Setter**: Setteo hoy y Leads.
 - **Todos**: Tareas y Calendario (cada uno marca sus tareas y las de su rol).
 
@@ -286,6 +292,8 @@ Cada lanzamiento tiene su pestaña **Tareas**, agrupadas por fase (preparación 
 Cada tarea tiene una **descripción con formato** (títulos, negrita, listas con viñetas o numeradas, enlaces externos y **vídeos de Vimeo, YouTube o Loom** que se reproducen dentro de la tarea). Pulsa el título de una tarea para verla completa. El servidor limpia el HTML: solo pasa el formato permitido.
 
 **Tareas habituales**: al marcar «🔁 Tarea habitual» la tarea se guarda en la plantilla (Custom Value `lsd_tareas_habituales`) con su descripción, fase, persona o rol asignado y fecha relativa a un hito (captación, clase 1, directo o cierre). «Cargar tareas habituales» en el siguiente lanzamiento las crea con esa misma asignación (si la persona ya no está, se asigna a su rol) y sin duplicar. Editar una habitual actualiza la plantilla; desmarcar la casilla la quita.
+
+**Avisos para la admin**: si una tarea asignada a otra persona o a otro rol (no admin) pasa su fecha sin completarse, aparece un aviso rojo arriba del dashboard (solo para admin) con quién va tarde, qué tarea y cuántos días; «Ver vencidas» lleva a la lista y «Entendido» lo oculta hasta mañana o hasta que haya otra. También salen en el resumen diario por email.
 
 Con «Seleccionar» la admin puede **asignar varias tareas a la vez** (p. ej. todas las de «Rol Admin» a una persona) o eliminarlas.
 

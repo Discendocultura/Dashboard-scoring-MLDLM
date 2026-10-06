@@ -216,3 +216,40 @@ test('perfiles de compradoras: avatares con las combinaciones que más compran',
   assert.equal(describirAvatar(top.traits, P), 'Tiene 35 a 37 años y lleva más de 1 año buscando embarazo.');
   assert.equal(r.preguntas[0].rows.map((x) => x.respuesta).join(','), 'Menos de 30 años,35 a 37 años,Más de 40 años');
 });
+
+test('anuncios ganadores: ranking por ventas con campaña, conjunto, coste por venta y ROAS', async () => {
+  const { rankingGanadores } = await import('../public/js/metrics.js');
+  const L = (content, term, campaign, s) => ({ src: { content, term, campaign }, s });
+  const leads = [
+    L('a1', 's1', 'c1', { compra: true }), L('a1', 's1', 'c1', { vip: true }), L('a1', 's1', 'c1', {}),
+    L('a2', 's2', 'c1', { compra: true, fraccionado: true }), L('a2', 's2', 'c1', { compra: true }),
+    L('a3', 's2', 'c2', {}), L('', '', '', { compra: true }),
+  ];
+  const launch = { precioPrograma: 1000, precioFraccionado: 1200, precioVip: 10 };
+  const r = rankingGanadores(leads, launch, 'ad', { a2: 'Reel matrona', c1: 'Webinar frío', s2: 'Lookalike' }, { a2: 300 });
+  assert.deepEqual(r.map((x) => x.id), ['a2', 'a1', 'a3']);
+  assert.equal(r[0].label, 'Reel matrona');
+  assert.equal(r[0].campaign, 'Webinar frío');
+  assert.equal(r[0].adset, 'Lookalike');
+  assert.equal(r[0].ingresos, 2200);
+  assert.equal(r[0].cac, 150);
+  assert.ok(Math.abs(r[0].roas - 2200 / 300) < 1e-9);
+  assert.equal(r[1].ingresos, 1010);
+  assert.deepEqual(rankingGanadores(leads, launch, 'campaign').map((x) => [x.id, x.compras]), [['c1', 3], ['c2', 0]]);
+});
+
+test('avisos a la admin: tareas vencidas del resto del equipo', async () => {
+  const { vencidasEquipo } = await import('../public/js/tareas.js');
+  const users = [{ id: 'u1', nombre: 'Quique', rol: 'admin' }, { id: 'u2', nombre: 'Ana', rol: 'tecnico' }];
+  const t = (id, fecha, asignado, hecha = false) => ({ id, titulo: id, fecha, asignado, hecha });
+  const r = vencidasEquipo([
+    t('a', '2026-10-01', { tipo: 'persona', id: 'u2' }),
+    t('b', '2026-10-04', { tipo: 'rol', rol: 'setter' }),
+    t('c', '2026-10-01', { tipo: 'persona', id: 'u1' }), // admin: no
+    t('d', '2026-10-01', { tipo: 'rol', rol: 'admin' }), // admin: no
+    t('e', '2026-10-01', { tipo: 'rol', rol: 'setter' }, true), // completada
+    t('f', '2026-10-06', { tipo: 'rol', rol: 'setter' }), // vence hoy: aún no
+    t('g', '2026-10-01', null), // sin asignar
+  ], users, '2026-10-06');
+  assert.deepEqual(r.map((x) => [x.tarea.id, x.quien, x.dias]), [['a', 'Ana', 5], ['b', 'Rol Setter', 2]]);
+});

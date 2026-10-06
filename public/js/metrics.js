@@ -419,3 +419,34 @@ export function bySource(leads, level = 'campaign', names = {}) {
   }
   return [...groups.values()].sort((a, b) => b.leads - a.leads);
 }
+
+// Ranking de anuncios (o conjuntos / campañas) por ventas de Raíces que traen.
+// level: 'ad' (utm_content) | 'adset' (utm_term) | 'campaign' (utm_campaign).
+export function rankingGanadores(leads, launch, level = 'ad', names = {}, spendBy = {}) {
+  const field = { ad: 'content', adset: 'term', campaign: 'campaign' }[level] || 'content';
+  const groups = new Map();
+  const moda = (m) => [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+  for (const l of leads) {
+    const id = l.src?.[field];
+    if (!id) continue;
+    const g = groups.get(id) || { id, label: names[id] || id, leads: 0, vip: 0, compras: 0, ingresos: 0, camp: new Map(), set: new Map() };
+    g.leads++;
+    if (l.s.vip) { g.vip++; g.ingresos += num(launch?.precioVip); }
+    if (l.s.compra) { g.compras++; g.ingresos += importeCompra(l, launch); }
+    if (l.src.campaign) g.camp.set(l.src.campaign, (g.camp.get(l.src.campaign) || 0) + 1);
+    if (l.src.term) g.set.set(l.src.term, (g.set.get(l.src.term) || 0) + 1);
+    groups.set(id, g);
+  }
+  return [...groups.values()].map((g) => {
+    const campaign = moda(g.camp);
+    const adset = moda(g.set);
+    const spend = num(spendBy[g.id]) || null;
+    return {
+      id: g.id, label: g.label, leads: g.leads, vip: g.vip, compras: g.compras, ingresos: g.ingresos,
+      conversion: g.leads ? g.compras / g.leads : 0,
+      campaign: level !== 'campaign' && campaign ? names[campaign] || campaign : '',
+      adset: level === 'ad' && adset ? names[adset] || adset : '',
+      spend, cac: spend && g.compras ? spend / g.compras : null, roas: spend ? g.ingresos / spend : null,
+    };
+  }).sort((a, b) => (b.compras - a.compras) || (b.ingresos - a.ingresos) || (b.conversion - a.conversion) || (b.leads - a.leads));
+}

@@ -52,11 +52,13 @@
 
       <section id="dashboard" hidden>
         <div id="snapshot-warning" class="notice warn" hidden></div>
+        <div id="avisos-equipo" class="avisos-equipo admin-only" hidden></div>
         <nav class="views" role="tablist">
           <button type="button" class="view-tab" data-view="hoy">Setteo hoy</button>
           <button type="button" class="view-tab active" data-view="leads">Leads</button>
           <button type="button" class="view-tab" data-view="metricas">Métricas</button>
           <button type="button" class="view-tab" data-view="objetivos">Objetivos</button>
+          <button type="button" class="view-tab" data-view="avatar">Avatar y anuncios</button>
           <button type="button" class="view-tab" data-view="comparar">Comparar</button>
           <button type="button" class="view-tab" data-view="tareas">Tareas <span id="tareas-badge" class="tab-count" hidden></span></button>
           <button type="button" class="view-tab" data-view="calendario">Calendario</button>
@@ -143,6 +145,28 @@
           <div id="objetivos"></div>
         </section>
 
+        <section id="view-avatar" hidden>
+          <section class="card metric-card ganadores-card" data-icon="crown">
+            <h2>Anuncios ganadores <span class="muted">· ranking por ventas de Raíces que traen</span></h2>
+            <div class="seg" id="gan-level" role="tablist" aria-label="Ranking de">
+              <button type="button" class="seg-btn on" data-gl="ad">Anuncios</button>
+              <button type="button" class="seg-btn" data-gl="adset">Conjuntos</button>
+              <button type="button" class="seg-btn" data-gl="campaign">Campañas</button>
+            </div>
+            <div id="ganadores"></div>
+          </section>
+          <section class="card metric-card" data-icon="megaphone">
+            <h2>Ventas por canal, campaña, conjunto y anuncio <span class="muted">· según las UTM de GHL y los nombres de Meta</span></h2>
+            <label class="field inline" style="margin-bottom:8px"><span>Ver por</span>
+              <select id="src-level"><option value="source">Canal (utm_source)</option><option value="campaign">Campaña</option><option value="adset">Conjunto de anuncios</option><option value="ad">Anuncio</option></select></label>
+            <div class="table-scroll"><table class="metric-table" id="source-table"></table></div>
+          </section>
+          <section class="card metric-card" data-icon="survey">
+            <h2>Avatares de compradoras <span class="muted">· sacados de la encuesta y de quién compra</span></h2>
+            <div id="encuesta-metrics"></div>
+          </section>
+        </section>
+
         <section id="view-metricas" hidden>
           <div class="metric-actions"><button type="button" class="btn" id="btn-informe">Informe del lanzamiento ↗</button></div>
           <div id="avisos" class="notice warn" hidden></div>
@@ -160,10 +184,6 @@
             <h2>Origen de los leads <span class="muted">· publicidad vs orgánico</span></h2>
             <div class="table-scroll"><table class="metric-table" id="origen-table"></table></div>
           </section>
-          <section class="card metric-card" data-icon="survey">
-            <h2>Avatares de compradoras <span class="muted">· sacados de la encuesta y de quién compra</span></h2>
-            <div id="encuesta-metrics"></div>
-          </section>
           <section class="card metric-card" data-icon="split">
             <h2>Pago único vs fraccionado <span class="muted">· ventas de Raíces</span></h2>
             <div class="table-scroll"><table class="metric-table" id="pago-table"></table></div>
@@ -180,12 +200,6 @@
           <section class="card metric-card" data-icon="cart">
             <h2>Conversión a compra</h2>
             <div class="table-scroll"><table class="metric-table" id="conversion-table"></table></div>
-          </section>
-          <section class="card metric-card" data-icon="megaphone">
-            <h2>Canales y campañas <span class="muted">· según las UTM de GHL y los nombres de Meta</span></h2>
-            <label class="field inline" style="margin-bottom:8px"><span>Ver por</span>
-              <select id="src-level"><option value="source">Canal (utm_source)</option><option value="campaign">Campaña</option><option value="adset">Conjunto de anuncios</option><option value="ad">Anuncio</option></select></label>
-            <div class="table-scroll"><table class="metric-table" id="source-table"></table></div>
           </section>
           <section class="card metric-card" data-icon="chat">
             <h2>Trabajo de la setter <span class="muted">· contactadas por WhatsApp y resultado</span></h2>

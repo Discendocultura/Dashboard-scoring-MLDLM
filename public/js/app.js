@@ -3,9 +3,9 @@ import {
 } from './scoring.js';
 import { icon } from './icons.js';
 import { ENCUESTA_PREGUNTAS } from './encuesta.js';
-import { enrichLead, computeMetrics, bySource, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
+import { enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
-import { FASES, puedeMarcar, esMia, vencida, addDays, ESTADOS_TAREA, estadoDe } from './tareas.js';
+import { FASES, puedeMarcar, esMia, vencida, addDays, ESTADOS_TAREA, estadoDe, vencidasEquipo } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
@@ -115,7 +115,7 @@ const puedeConfig = () => state.role === 'admin' || state.role === 'tecnico';
 // Pestañas que ve cada rol (el servidor también impide al equipo leer leads y métricas).
 const ROLE_VIEWS = {
   admin: null,
-  tecnico: ['hoy', 'leads', 'metricas', 'objetivos', 'tareas', 'calendario'],
+  tecnico: ['hoy', 'leads', 'metricas', 'objetivos', 'avatar', 'tareas', 'calendario'],
   setter: ['hoy', 'leads', 'tareas', 'calendario'],
   equipo: ['tareas', 'calendario'],
 };
@@ -368,6 +368,7 @@ function renderMetrics() {
   renderPago(m, launch);
   renderOrigen(m, launch);
   renderEncuestaMetrics();
+  renderGanadores();
   renderObjetivos(m);
   renderAvisos(m, launch);
 
@@ -853,6 +854,62 @@ function renderTraffic(m) {
 
 $('#src-level').addEventListener('change', () => { if (state.leads.length) renderSources(); });
 
+// ---------- Anuncios ganadores ----------
+state.ganLevel = 'ad';
+function renderGanadores() {
+  const box = $('#ganadores');
+  const launch = state.config.launches[state.launchCode];
+  const names = state.meta?.names || {};
+  const spendBy = state.meta?.spendBy || {};
+  const all = rankingGanadores(state.leads, launch, state.ganLevel, names, spendBy);
+  const conVentas = all.filter((r) => r.compras > 0);
+  $$('#gan-level .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.gl === state.ganLevel));
+  const que = { ad: 'anuncio', adset: 'conjunto', campaign: 'campaña' }[state.ganLevel];
+  if (!all.length) {
+    box.innerHTML = `<p class="muted">Ningún registro trae el ${que} en las UTM (utm_${{ ad: 'content', adset: 'term', campaign: 'campaign' }[state.ganLevel]}). Revisa que los anuncios de Meta lleven los parámetros de URL.</p>`;
+    return;
+  }
+  if (!conVentas.length) {
+    box.innerHTML = '<p class="muted">Todavía no hay ventas de Raíces atribuidas a anuncios en este lanzamiento. Aquí aparecerá el ranking en cuanto entren las primeras.</p>';
+    return;
+  }
+  const max = conVentas[0].compras;
+  const medal = ['🥇', '🥈', '🥉'];
+  const ruta = (r) => [r.campaign, r.adset].filter(Boolean).map(esc).join(' › ');
+  const extra = (r) => [
+    r.ingresos ? `<span><strong>${eur(r.ingresos)}</strong> facturado</span>` : '',
+    r.spend ? `<span>${eur(r.spend)} invertido</span>` : '',
+    r.cac != null ? `<span>CAC <strong>${eur(r.cac)}</strong></span>` : '',
+    r.roas != null ? `<span>ROAS <strong>${r.roas.toFixed(1)}x</strong></span>` : '',
+  ].filter(Boolean).join('');
+  const podio = conVentas.slice(0, 3).map((r, i) => `<article class="gan-podio p${i + 1}">
+      <div class="gp-medal" aria-hidden="true">${medal[i]}</div>
+      <div class="gp-main">
+        <div class="gp-name" title="${esc(r.label)}">${esc(r.label)}</div>
+        ${ruta(r) ? `<div class="gp-ruta">${ruta(r)}</div>` : ''}
+        <div class="gp-nums"><span class="gp-ventas">${r.compras}</span><span class="gp-lbl">venta${r.compras === 1 ? '' : 's'}</span>
+          <span class="gp-conv">${(r.conversion * 100).toFixed(1)}% conv.</span></div>
+        <div class="gp-extra"><span>${r.leads} registros</span><span>${r.vip} VIP</span>${extra(r)}</div>
+      </div>
+    </article>`).join('');
+  const hasSpend = conVentas.some((r) => r.spend);
+  const resto = conVentas.slice(3);
+  box.innerHTML = `<div class="gan-podios">${podio}</div>
+    ${resto.length ? `<div class="table-scroll"><table class="metric-table gan-table">
+      <thead><tr><th class="num">#</th><th>${que.charAt(0).toUpperCase() + que.slice(1)}</th><th>Ventas</th><th class="num">Conversión</th><th class="num">Registros</th><th class="num">VIP</th><th class="num">Facturado</th>${hasSpend ? '<th class="num">CAC</th><th class="num">ROAS</th>' : ''}</tr></thead>
+      <tbody>${resto.map((r, i) => `<tr><td class="num">${i + 4}</td><td><strong>${esc(r.label)}</strong>${ruta(r) ? `<br><span class="muted">${ruta(r)}</span>` : ''}</td>
+        <td><div class="gan-bar"><span style="width:${(r.compras / max) * 100}%"></span><b>${r.compras}</b></div></td>
+        <td class="num">${(r.conversion * 100).toFixed(1)}%</td><td class="num">${r.leads}</td><td class="num">${r.vip}</td><td class="num">${r.ingresos ? eur(r.ingresos) : '–'}</td>
+        ${hasSpend ? `<td class="num">${r.cac != null ? eur(r.cac) : '–'}</td><td class="num">${r.roas != null ? `${r.roas.toFixed(1)}x` : '–'}</td>` : ''}</tr>`).join('')}</tbody></table></div>` : ''}
+    <p class="muted gan-note">${all.length - conVentas.length ? `${all.length - conVentas.length} ${que}${all.length - conVentas.length === 1 ? '' : 's'} más con registros pero sin ventas todavía. ` : ''}Ventas = compras de Raíces de las personas que se registraron desde ese ${que} (UTM). Facturado incluye la entrada VIP.</p>`;
+}
+$('#gan-level').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-gl]');
+  if (!b) return;
+  state.ganLevel = b.dataset.gl;
+  renderGanadores();
+});
+
 // ---------- Comparar lanzamientos ----------
 state.compare = { selected: new Set(), cache: {} };
 
@@ -953,9 +1010,9 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'leads', 'metricas', 'objetivos', 'comparar', 'tareas', 'calendario'];
+const VIEWS = ['hoy', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
-const VIEW_ICONS = { hoy: 'sun2', leads: 'users', metricas: 'trend', objetivos: 'target', comparar: 'compare', tareas: 'list', calendario: 'calendar' };
+const VIEW_ICONS = { hoy: 'sun2', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar' };
 $$('.view-tab').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view])));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
 $$('[data-icon] > h2').forEach((h) => h.insertAdjacentHTML('afterbegin', `<span class="h-ico">${icon(h.parentElement.dataset.icon)}</span>`));
@@ -2078,9 +2135,41 @@ function tareaRow(t) {
   </li>`;
 }
 
+// Aviso solo para admin: tareas de los demás que han pasado su fecha sin completarse.
+function renderAvisosEquipo() {
+  const el = $('#avisos-equipo');
+  const T = state.tareas;
+  const lista = state.role === 'admin' && T && T.code === state.launchCode ? vencidasEquipo(T.list, T.users, today()) : [];
+  const firma = `${today()}|${lista.map((r) => r.tarea.id).join(',')}`;
+  if (!lista.length || ls.get('lsd_avisos_equipo_ok') === firma) { el.hidden = true; return; }
+  const porQuien = new Map();
+  for (const r of lista) porQuien.set(r.quien, [...(porQuien.get(r.quien) || []), r]);
+  el.hidden = false;
+  el.innerHTML = `<div class="ae-head"><span class="ae-ico" aria-hidden="true">⏰</span>
+      <strong>${lista.length} tarea${lista.length === 1 ? '' : 's'} del equipo sin completar a tiempo</strong>
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-ae="ver">Ver vencidas</button>
+      <button type="button" class="btn ghost" data-ae="ok" title="Ocultar hasta que cambie algo o hasta mañana">Entendido</button></div>
+    <ul class="ae-list">${[...porQuien.entries()].map(([quien, rs]) => `<li><span class="ae-quien">${esc(quien)}</span>
+      ${rs.slice(0, 4).map((r) => `<button type="button" class="ae-task" data-tver="${esc(r.tarea.id)}">${esc(r.tarea.titulo)} <span class="ae-dias">${r.dias} día${r.dias === 1 ? '' : 's'} tarde</span></button>`).join('')}
+      ${rs.length > 4 ? `<span class="muted">y ${rs.length - 4} más</span>` : ''}</li>`).join('')}</ul>`;
+  el.dataset.firma = firma;
+}
+$('#avisos-equipo').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ae]');
+  if (!b) return;
+  if (b.dataset.ae === 'ok') { ls.set('lsd_avisos_equipo_ok', $('#avisos-equipo').dataset.firma); $('#avisos-equipo').hidden = true; return; }
+  state.tFiltro = 'vencidas';
+  state.tResp = '';
+  if (state.tVista === 'tablero') state.tVista = 'lista';
+  showView('tareas');
+  renderTareas();
+});
+
 function renderTareas() {
   const T = state.tareas;
   if (!T || T.code !== state.launchCode) return;
+  renderAvisosEquipo();
   const list = T.list;
   const hoy = today();
   const done = list.filter((t) => t.hecha).length;
