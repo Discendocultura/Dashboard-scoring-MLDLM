@@ -5,7 +5,7 @@ import { json, errorResponse } from '../lib/http.js';
 
 export async function GET(request) {
   try {
-    await requireRole(request, { tecnico: true });
+    await requireRole(request, { permiso: 'config' });
     return json({ fields: await listDateFields() });
   } catch (e) {
     return errorResponse(e);

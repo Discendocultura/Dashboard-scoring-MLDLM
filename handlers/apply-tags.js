@@ -8,7 +8,7 @@ import { isValidSignalTag } from '../public/js/scoring.js';
 
 export async function POST(request) {
   try {
-    await requireRole(request);
+    await requireRole(request, { permiso: ['hoy', 'leads', 'llamadas'] });
     const { items } = await readBody(request);
     if (!Array.isArray(items) || items.length === 0 || items.length > 40) {
       return json({ error: 'Envía entre 1 y 40 contactos por petición' }, 400);

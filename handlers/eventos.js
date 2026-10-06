@@ -13,7 +13,7 @@ async function checkLaunch(code) {
 
 export async function GET(request) {
   try {
-    await requireSession(request, { equipo: true });
+    await requireSession(request);
     const code = new URL(request.url).searchParams.get('l') || '';
     await checkLaunch(code);
     return json({ eventos: await getEventos(code) });
@@ -24,7 +24,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const s = await requireSession(request, { admin: true });
+    const s = await requireSession(request, { permiso: 'tareas_gestion' });
     const body = await readBody(request);
     const code = String(body.l || '');
     await checkLaunch(code);

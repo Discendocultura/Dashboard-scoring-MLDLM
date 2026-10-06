@@ -8,7 +8,7 @@ import { ENCUESTA_PREGUNTAS } from '../public/js/encuesta.js';
 
 export async function GET(request) {
   try {
-    await requireRole(request);
+    await requireRole(request, { permiso: ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar'] });
     const url = new URL(request.url);
     const tag = (url.searchParams.get('tag') || '').trim();
     if (!tag) return json({ error: 'Falta la etiqueta' }, 400);

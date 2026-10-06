@@ -22,7 +22,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    await requireRole(request, { tecnico: true });
+    await requireRole(request, { permiso: 'config' });
     return json(await sendDigest(await getConfig({ fresh: true }), dashboardUrl(request)));
   } catch (e) {
     return errorResponse(e);

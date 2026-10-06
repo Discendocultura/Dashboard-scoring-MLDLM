@@ -88,7 +88,7 @@ export const vencida = (tarea, today) => !tarea.hecha && Boolean(tarea.fecha) &&
 
 // Tareas vencidas de los demás (no asignadas al rol admin ni a una persona admin), para avisar a la admin.
 // users: [{ id, nombre, rol }]. Devuelve [{ tarea, quien, rol, dias }] de la más retrasada a la menos.
-export function vencidasEquipo(tareas, users, today) {
+export function vencidasEquipo(tareas, users, today, roles = []) {
   const out = [];
   for (const t of tareas || []) {
     if (!vencida(t, today) || !t.asignado) continue;
@@ -96,7 +96,8 @@ export function vencidasEquipo(tareas, users, today) {
     const rol = t.asignado.tipo === 'rol' ? t.asignado.rol : u?.rol || '';
     if (rol === 'admin') continue;
     const dias = Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${t.fecha}T12:00:00Z`)) / 86_400_000);
-    out.push({ tarea: t, quien: u ? u.nombre : `Rol ${{ tecnico: 'Técnico', setter: 'Setter', equipo: 'Equipo' }[rol] || rol}`, rol, dias });
+    const label = roles.find((r) => r.id === rol)?.label || { tecnico: 'Técnico', setter: 'Setter', equipo: 'Equipo' }[rol] || rol;
+    out.push({ tarea: t, quien: u ? u.nombre : `Rol ${label}`, rol, dias });
   }
   return out.sort((a, b) => b.dias - a.dias);
 }

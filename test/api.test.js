@@ -558,3 +558,39 @@ test('llamadas: citas del calendario con su etapa y resultado que mueve el pipel
   const d3 = await (await ll.GET(req('/api/llamadas?l=demo', { cookie: admin }))).json();
   assert.equal(d3.llamadas.find((c) => c.id === otra.id).opp.pipelineStageId, 'st4');
 });
+
+test('roles configurables: permisos por rol, roles nuevos y no borrar roles en uso', async () => {
+  const admin = await login('admin');
+  const setter = await login('setter');
+  const rolesH = await import('../handlers/roles.js');
+  assert.equal((await rolesH.GET(req('/api/roles', { cookie: setter }))).status, 403);
+  const cur = (await (await rolesH.GET(req('/api/roles', { cookie: admin }))).json()).roles;
+  assert.ok(cur.some((r) => r.id === 'tecnico'));
+  const nuevos = [...cur.map(({ id, label, permisos }) => ({ id, label, permisos })), { id: 'community', label: 'Community manager', permisos: ['metricas', 'avatar', 'inventado'] }];
+  const r = await (await rolesH.POST(req('/api/roles', { method: 'POST', cookie: admin, body: { roles: nuevos } }))).json();
+  assert.deepEqual(r.roles.find((x) => x.id === 'community').permisos, ['metricas', 'avatar']);
+
+  const usuarios = await import('../handlers/usuarios.js');
+  const u = await (await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'crear', nombre: 'Lola CM', email: 'lola@example.com', rol: 'community' } }))).json();
+  assert.equal(u.user.rol, 'community');
+  const { POST: doLogin } = await import('../handlers/login.js');
+  const lola = (await doLogin(req('/api/login', { method: 'POST', body: { email: 'lola@example.com', password: u.password } }))).headers.get('set-cookie').split(';')[0];
+  const me = await (await (await import('../handlers/me.js')).GET(req('/api/me', { cookie: lola }))).json();
+  assert.deepEqual(me.permisos, ['metricas', 'avatar']);
+  assert.ok(me.roles.some((x) => x.label === 'Community manager'));
+  assert.equal((await (await import('../handlers/leads.js')).GET(req('/api/leads?tag=registro-webinar-demo', { cookie: lola }))).status, 200);
+  assert.equal((await (await import('../handlers/llamadas.js')).GET(req('/api/llamadas?l=demo', { cookie: lola }))).status, 403);
+  const config = await import('../handlers/config.js');
+  const cfg = (await (await config.GET(req('/api/config', { cookie: lola }))).json()).config;
+  assert.equal((await config.POST(req('/api/config', { method: 'POST', cookie: lola, body: cfg }))).status, 403);
+  assert.equal((await (await import('../handlers/tareas.js')).GET(req('/api/tareas?l=demo', { cookie: lola }))).status, 200);
+  // Quitar el permiso de llamadas al setter
+  const sinLlamadas = r.roles.map(({ id, label, permisos }) => ({ id, label, permisos: id === 'setter' ? permisos.filter((p) => p !== 'llamadas') : permisos }));
+  await rolesH.POST(req('/api/roles', { method: 'POST', cookie: admin, body: { roles: sinLlamadas } }));
+  assert.equal((await (await import('../handlers/llamadas.js')).GET(req('/api/llamadas?l=demo', { cookie: setter }))).status, 403);
+  // No se puede borrar un rol en uso
+  const sinCommunity = sinLlamadas.filter((x) => x.id !== 'community');
+  assert.equal((await rolesH.POST(req('/api/roles', { method: 'POST', cookie: admin, body: { roles: sinCommunity } }))).status, 400);
+  // Restaurar el permiso del setter para el resto de pruebas
+  await rolesH.POST(req('/api/roles', { method: 'POST', cookie: admin, body: { roles: r.roles.map(({ id, label, permisos }) => ({ id, label, permisos })) } }));
+});

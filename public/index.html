@@ -32,7 +32,7 @@
           <select id="launch-select"></select>
         </label>
         <button id="btn-reload" class="tb-btn tb-reload" type="button" data-tb-icon="refresh" title="Volver a cargar los datos desde GHL"><span class="tb-txt">Actualizar</span></button>
-        <button id="btn-zoom" class="tb-btn tb-zoom config-only" type="button" data-tb-icon="video" title="Leer la asistencia del directo en Zoom y etiquetar a los leads"><span class="tb-txt">Sincronizar Zoom</span></button>
+        <button id="btn-zoom" class="tb-btn tb-zoom zoom-only" type="button" data-tb-icon="video" title="Leer la asistencia del directo en Zoom y etiquetar a los leads"><span class="tb-txt">Sincronizar Zoom</span></button>
         <button id="btn-config" class="tb-btn tb-config config-only" type="button" data-tb-icon="gear" title="Configuración del lanzamiento"><span class="tb-txt">Configuración</span></button>
         <button id="btn-cuenta" class="tb-btn tb-cuenta" type="button" data-tb-icon="user" title="Mi cuenta y contraseña" hidden><span class="tb-txt">Mi cuenta</span></button>
         <button id="btn-logout" class="tb-btn tb-logout" type="button" data-tb-icon="logout" title="Cerrar sesión"><span class="tb-txt">Salir</span></button>
@@ -84,7 +84,7 @@
             </div>
             <span class="spacer"></span>
             <button type="button" class="btn" id="btn-cal-sync">Sincronizar con mi calendario</button>
-            <button type="button" class="btn primary admin-only" id="btn-evento-nuevo">+ Evento</button>
+            <button type="button" class="btn primary tareas-only" id="btn-evento-nuevo">+ Evento</button>
           </div>
           <div id="cal-legend" class="cal-legend"></div>
           <div id="cal-grid"></div>
@@ -109,9 +109,9 @@
             </div>
             <select id="tareas-resp" aria-label="Responsable"></select>
             <span class="spacer"></span>
-            <button type="button" class="btn admin-only" id="btn-tareas-sel" title="Elegir tareas para eliminarlas">Seleccionar</button>
-            <button type="button" class="btn admin-only" id="btn-tareas-plantilla" title="Añade las tareas de siempre con fechas calculadas a partir de las del lanzamiento (no duplica las que ya estén)">Cargar tareas habituales</button>
-            <button type="button" class="btn primary admin-only" id="btn-tarea-nueva">+ Nueva tarea</button>
+            <button type="button" class="btn tareas-only" id="btn-tareas-sel" title="Elegir tareas para eliminarlas">Seleccionar</button>
+            <button type="button" class="btn tareas-only" id="btn-tareas-plantilla" title="Añade las tareas de siempre con fechas calculadas a partir de las del lanzamiento (no duplica las que ya estén)">Cargar tareas habituales</button>
+            <button type="button" class="btn primary tareas-only" id="btn-tarea-nueva">+ Nueva tarea</button>
           </div>
           <div id="tareas-selbar" class="tareas-selbar" hidden>
             <strong id="tareas-selcount">0 seleccionadas</strong>
@@ -353,6 +353,7 @@
           <button type="button" class="tab" data-tab="snippets">Códigos para GHL</button>
           <button type="button" class="tab" data-tab="accesos">Recursos lanzamiento</button>
           <button type="button" class="tab admin-only" data-tab="equipo">Equipo</button>
+          <button type="button" class="tab admin-only" data-tab="roles">Roles y permisos</button>
         </div>
 
         <section class="tab-panel" data-panel="launch">
@@ -602,12 +603,7 @@
 
         <section class="tab-panel" data-panel="equipo" hidden>
           <p class="muted">Personas con acceso al dashboard. Al crear una, se crea su contacto en GHL con la etiqueta <code>equipo-dashboard</code> y le llega un email con el enlace, su email y una contraseña. Los cambios de esta pestaña se aplican al momento (no hace falta pulsar Guardar).</p>
-          <div class="roles-note">
-            <span><strong>Admin</strong> · todo</span>
-            <span><strong>Técnico</strong> · configuración de lanzamientos, Setteo hoy, Leads, Métricas y Objetivos</span>
-            <span><strong>Setter</strong> · Setteo hoy y Leads</span>
-            <span>Todos · Tareas y Calendario</span>
-          </div>
+          <p class="roles-note muted">Qué ve cada rol se decide en la pestaña <strong>Roles y permisos</strong> (ahí también puedes crear roles nuevos). Todos tienen Tareas y Calendario.</p>
           <div id="equipo-list"></div>
           <h3 class="cfg-h3">Añadir persona</h3>
           <div class="row equipo-add">
@@ -617,6 +613,18 @@
             <button type="button" class="btn primary" id="btn-eq-crear">Crear y enviar acceso</button>
           </div>
           <div id="equipo-result" class="notice" hidden></div>
+        </section>
+
+        <section class="tab-panel" data-panel="roles" hidden>
+          <p class="muted">Marca qué puede ver y hacer cada rol. <strong>Admin</strong> lo tiene todo siempre y <strong>todos los roles tienen Tareas y Calendario</strong>. Los cambios se aplican al pulsar «Guardar roles y permisos» (cada persona los verá al recargar el dashboard).</p>
+          <div class="table-scroll"><table class="metric-table roles-table" id="roles-table"></table></div>
+          <div class="row roles-add">
+            <label class="field"><span>Nuevo rol</span><input id="rol-nuevo" maxlength="30" placeholder="Community manager, Editor de vídeo…"></label>
+            <button type="button" class="btn" id="btn-rol-add">+ Añadir rol</button>
+            <span class="spacer"></span>
+            <button type="button" class="btn primary" id="btn-roles-save">Guardar roles y permisos</button>
+          </div>
+          <div id="roles-result" class="notice" hidden></div>
         </section>
 
         <section class="tab-panel" data-panel="snippets" hidden>
@@ -735,7 +743,7 @@
       <footer class="dialog-foot">
         <div id="tv-estado" class="tv-estado" role="group" aria-label="Estado"></div>
         <span class="spacer"></span>
-        <button id="tv-editar" class="btn admin-only" type="button">Editar</button>
+        <button id="tv-editar" class="btn tareas-only" type="button">Editar</button>
         <button class="btn" value="cancel" type="submit">Cerrar</button>
       </footer>
     </form>

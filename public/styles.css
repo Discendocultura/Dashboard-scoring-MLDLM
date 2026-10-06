@@ -128,6 +128,8 @@ textarea { width: 100%; resize: vertical; }
 #launch-select { min-width: 180px; }
 body:not(.is-admin) .admin-only { display: none !important; }
 body:not(.can-config) .config-only { display: none !important; }
+body:not(.can-zoom) .zoom-only { display: none !important; }
+body:not(.can-tareas) .tareas-only { display: none !important; }
 body.is-admin .setter-only { display: none !important; }
 
 .container { max-width: 1320px; margin: 0 auto; padding: 16px; }
@@ -1055,3 +1057,15 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 #ll-sub .ll-chip { margin-left: 4px; }
 .llc-extra { align-self: flex-start; text-align: left; }
 .llc.cal-semana .llc-nombre { align-items: flex-start; text-align: left; }
+
+/* ---------- Roles y permisos ---------- */
+.roles-table th, .roles-table td { vertical-align: middle; }
+.roles-grupo { text-align: center; border-bottom: 1px solid var(--border); }
+.roles-perm { font-size: 11.5px; text-transform: none; letter-spacing: 0; text-align: center; min-width: 78px; line-height: 1.25; }
+.roles-cell { text-align: center; }
+.roles-cell input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+.roles-admin td { background: var(--surface-2); }
+.rol-label { width: 160px; font-weight: 700; }
+.roles-add { margin-top: 12px; align-items: flex-end; }
+#config-dialog { width: min(1120px, calc(100vw - 32px)); }
+.rol-label { width: 190px; }

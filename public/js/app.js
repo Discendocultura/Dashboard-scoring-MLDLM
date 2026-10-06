@@ -8,6 +8,7 @@ import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
 import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
+import { PERMISOS, PERMISOS_DATOS, idDeRol } from './roles.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -16,6 +17,8 @@ const PAGE_SIZE = 100;
 
 const state = {
   role: null,
+  permisos: [],
+  roles: [],
   user: null,
   tareas: null, // { code, list, users }
   tFiltro: 'pendientes',
@@ -110,39 +113,43 @@ $('#btn-logout').addEventListener('click', async () => {
 });
 
 // ---------- Arranque ----------
-const ROLE_LABEL = { admin: 'Admin', tecnico: 'Técnico', setter: 'Setter', equipo: 'Equipo' };
-// Roles que se ofrecen al asignar (equipo es un rol antiguo que ya no se usa).
-const ROLES_UI = ['admin', 'tecnico', 'setter'];
-const puedeConfig = () => state.role === 'admin' || state.role === 'tecnico';
+// Roles y permisos: vienen de /api/me (configurables en Configuración → Roles y permisos).
+const roleLabel = (id) => (id === 'admin' ? 'Admin' : state.roles.find((r) => r.id === id)?.label || id);
+const ROLE_LABEL = new Proxy({}, { get: (_, id) => roleLabel(String(id)) });
+const rolesUI = () => ['admin', ...state.roles.map((r) => r.id)];
+const tiene = (p) => state.role === 'admin' || [].concat(p).some((x) => state.permisos.includes(x));
+const puedeConfig = () => tiene('config');
+const puedeTareas = () => tiene('tareas_gestion');
+const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas que ve cada rol (el servidor también impide al equipo leer leads y métricas).
-const ROLE_VIEWS = {
-  admin: null,
-  tecnico: ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'tareas', 'calendario'],
-  setter: ['hoy', 'llamadas', 'leads', 'tareas', 'calendario'],
-  equipo: ['tareas', 'calendario'],
-};
-const allowedViews = () => ROLE_VIEWS[state.role] || VIEWS;
+// Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
+const allowedViews = () => VIEWS.filter((v) => v === 'tareas' || v === 'calendario' || tiene(v));
 
 async function start() {
   const [me, { role, config, zoomConfigured }] = await Promise.all([api('/api/me'), api('/api/config')]);
   state.role = role;
   state.user = me.user || null;
+  state.permisos = me.permisos || [];
+  state.roles = me.roles || [];
   state.config = config;
   state.zoomConfigured = zoomConfigured;
   document.body.classList.toggle('is-admin', role === 'admin');
-  document.body.classList.toggle('can-config', role === 'admin' || role === 'tecnico');
+  document.body.classList.toggle('can-config', puedeConfig());
+  document.body.classList.toggle('can-zoom', tiene('zoom'));
+  document.body.classList.toggle('can-tareas', puedeTareas());
   document.body.classList.toggle('is-equipo', role === 'equipo');
   $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
   $('#btn-cuenta').hidden = !state.user;
   $('#login').hidden = true;
   $('#app').hidden = false;
+  fillRolSelects();
   $$('.view-tab').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
   const hash = window.location.hash.slice(1);
   const wanted = VIEWS.includes(hash) ? hash : ls.get('lsd_view');
   showView(allowedViews().includes(wanted) ? wanted : allowedViews().includes('leads') ? 'leads' : allowedViews()[0]);
   fillStaticSelects();
   renderLaunchSelect();
-  if (role === 'admin' || role === 'tecnico') api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
+  if (puedeConfig()) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
   await selectLaunch(pickInitialLaunch());
   if (!$('#view-comparar').hidden) renderCompareSelector();
 }
@@ -186,8 +193,8 @@ async function selectLaunch(code) {
   $('#launch-select').value = code;
   loadTareas();
   loadEventos();
-  if (state.role !== 'equipo') loadLlamadas();
-  if (state.role !== 'equipo') await loadLeads();
+  if (tiene('llamadas')) loadLlamadas();
+  if (tieneDatos()) await loadLeads();
 }
 
 // ---------- Carga de leads (paginada contra GHL) ----------
@@ -2102,7 +2109,7 @@ function renderRespSelect() {
   const sel = $('#tareas-resp');
   const users = state.tareas?.users || [];
   sel.innerHTML = `<option value="">Todas las personas</option>
-    <optgroup label="Roles">${ROLES_UI.map((r) => `<option value="rol:${r}">Rol ${ROLE_LABEL[r]}</option>`).join('')}<option value="sin">Sin asignar</option></optgroup>
+    <optgroup label="Roles">${rolesUI().map((r) => `<option value="rol:${r}">Rol ${ROLE_LABEL[r]}</option>`).join('')}<option value="sin">Sin asignar</option></optgroup>
     ${users.length ? `<optgroup label="Personas">${users.map((u) => `<option value="u:${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}</optgroup>` : ''}`;
   sel.value = state.tResp;
   if (sel.value !== state.tResp) { state.tResp = ''; sel.value = ''; }
@@ -2138,7 +2145,7 @@ function tareaRow(t) {
       ${notasExtracto(t)}
       <div class="t-meta">${(() => { const c = !t.hecha && extraCols().find((x) => x.id === t.columna); return c ? `<span class="t-encurso">${c.icon} ${esc(c.label)}</span>` : ''; })()}${fecha}${who}${hecha}</div>
     </div>
-    ${state.role === 'admin' ? `<div class="t-actions"><button type="button" class="btn ghost" data-tedit="${esc(t.id)}" title="Editar" aria-label="Editar">✎</button><button type="button" class="btn ghost" data-tdel="${esc(t.id)}" title="Borrar" aria-label="Borrar">✕</button></div>` : ''}
+    ${puedeTareas() ? `<div class="t-actions"><button type="button" class="btn ghost" data-tedit="${esc(t.id)}" title="Editar" aria-label="Editar">✎</button><button type="button" class="btn ghost" data-tdel="${esc(t.id)}" title="Borrar" aria-label="Borrar">✕</button></div>` : ''}
   </li>`;
 }
 
@@ -2146,7 +2153,7 @@ function tareaRow(t) {
 function renderAvisosEquipo() {
   const el = $('#avisos-equipo');
   const T = state.tareas;
-  const lista = state.role === 'admin' && T && T.code === state.launchCode ? vencidasEquipo(T.list, T.users, today()) : [];
+  const lista = state.role === 'admin' && T && T.code === state.launchCode ? vencidasEquipo(T.list, T.users, today(), state.roles) : [];
   const firma = `${today()}|${lista.map((r) => r.tarea.id).join(',')}`;
   if (!lista.length || ls.get('lsd_avisos_equipo_ok') === firma) { el.hidden = true; return; }
   const porQuien = new Map();
@@ -2214,7 +2221,7 @@ function renderTareas() {
     </div>` : `
     <div class="card empty tareas-empty">
       <h2>Aún no hay tareas en este lanzamiento</h2>
-      ${state.role === 'admin'
+      ${puedeTareas()
     ? '<p class="muted">Empieza con las tareas habituales (con fechas calculadas a partir de las del lanzamiento) y ajústalas, o crea las tuyas.</p><p><button type="button" class="btn primary" data-action="tareas-plantilla">Cargar tareas habituales</button> <button type="button" class="btn" data-action="tarea-nueva">+ Nueva tarea</button></p>'
     : '<p class="muted">Cuando la administradora asigne tareas aparecerán aquí.</p>'}
     </div>`;
@@ -2289,7 +2296,7 @@ function columnasTablero() {
 function tarjeta(t) {
   const hoy = today();
   const puede = puedeMarcar(t, meSess());
-  const admin = state.role === 'admin';
+  const admin = puedeTareas();
   const fase = FASES.find((f) => f.id === t.fase);
   const venc = vencida(t, hoy);
   const col = columnaDe(t, extraCols());
@@ -2312,7 +2319,7 @@ function tarjeta(t) {
 }
 
 function renderTablero(shown) {
-  const admin = state.role === 'admin';
+  const admin = puedeTareas();
   const cols = columnasTablero();
   const extras = extraCols();
   const order = (a, b) => (a.fecha || '9999').localeCompare(b.fecha || '9999') || a.titulo.localeCompare(b.titulo, 'es');
@@ -2347,7 +2354,7 @@ async function moverTarea(id, destino) {
     if (destino === COLUMNA_HECHAS) {
       if (!puedeMarcar(t, meSess())) throw new Error('Solo puede completarla su responsable');
       await tareasOp({ op: 'marcar', id, hecha: true });
-    } else if (state.role === 'admin') {
+    } else if (puedeTareas()) {
       await tareasOp({ op: 'mover', id, columna: destino });
     } else if (t.hecha && (destino === t.fase || destino === t.columna)) {
       await tareasOp({ op: 'marcar', id, hecha: false });
@@ -2562,7 +2569,7 @@ $('#t-fase').addEventListener('change', syncSubField);
 function fillAsignadoSelect(value) {
   const users = state.tareas?.users || [];
   $('#t-asignado').innerHTML = `<option value="">Sin asignar</option>
-    <optgroup label="Todo un rol">${ROLES_UI.map((r) => `<option value="rol:${r}">Rol ${ROLE_LABEL[r]}</option>`).join('')}</optgroup>
+    <optgroup label="Todo un rol">${rolesUI().map((r) => `<option value="rol:${r}">Rol ${ROLE_LABEL[r]}</option>`).join('')}</optgroup>
     <optgroup label="Personas">${users.map((u) => `<option value="u:${esc(u.id)}">${esc(u.nombre)} · ${ROLE_LABEL[u.rol]}</option>`).join('')}
     <option value="nueva">+ Nueva persona (nombre + email)…</option></optgroup>`;
   $('#t-asignado').value = value;
@@ -2658,7 +2665,7 @@ function renderEquipo() {
     <thead><tr><th>Persona</th><th>Rol</th><th>Último acceso</th><th></th></tr></thead>
     <tbody>${users.map((u) => `<tr class="${u.activo ? '' : 'inactivo'}" data-uid="${esc(u.id)}">
       <td><span class="t-who"><span class="t-avatar">${esc(iniciales(u.nombre))}</span><span><strong>${esc(u.nombre)}</strong><br><span class="muted">${esc(u.email)}</span>${u.activo ? '' : ' · <em>desactivada</em>'}</span></span></td>
-      <td><select class="eq-rol" ${u.id === state.user?.id ? 'disabled' : ''}>${[...ROLES_UI, ...(ROLES_UI.includes(u.rol) ? [] : [u.rol])].map((r) => `<option value="${r}" ${r === u.rol ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></td>
+      <td><select class="eq-rol" ${u.id === state.user?.id ? 'disabled' : ''}>${[...rolesUI(), ...(rolesUI().includes(u.rol) ? [] : [u.rol])].map((r) => `<option value="${r}" ${r === u.rol ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></td>
       <td class="muted">${fmt(u.lastLogin)}</td>
       <td class="eq-actions">
         <button type="button" class="btn" data-eq="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
@@ -2903,7 +2910,7 @@ function renderCalDia(items = calItems()) {
   if (!d) return;
   const hoy = today();
   const list = items[d] || [];
-  const admin = state.role === 'admin';
+  const admin = puedeTareas();
   const row = (it) => {
     if (it.kind === 'tarea') {
       const t = it.t;
@@ -3149,7 +3156,7 @@ function openTareaVer(id) {
   const puede = puedeMarcar(t, meSess());
   const cols = columnasTablero().filter((c) => c.tipo !== 'hechas');
   $('#tv-estado').innerHTML = `<button type="button" class="btn ${t.hecha ? '' : 'primary'}" data-tvdone ${puede ? '' : 'disabled'}>${t.hecha ? '↩︎ Volver a pendiente' : '✓ Marcar como completada'}</button>
-    ${state.role === 'admin' && !t.hecha ? `<label class="field inline"><span>Columna</span><select data-tvcol>${cols.map((c) => `<option value="${esc(c.id)}" ${columnaDe(t, extraCols()) === c.id ? 'selected' : ''}>${c.icon} ${esc(c.label)}</option>`).join('')}</select></label>` : ''}`;
+    ${puedeTareas() && !t.hecha ? `<label class="field inline"><span>Columna</span><select data-tvcol>${cols.map((c) => `<option value="${esc(c.id)}" ${columnaDe(t, extraCols()) === c.id ? 'selected' : ''}>${c.icon} ${esc(c.label)}</option>`).join('')}</select></label>` : ''}`;
   if (!tvDlg.open) tvDlg.showModal();
 }
 $('#tv-estado').addEventListener('click', async (e) => {
@@ -3183,7 +3190,7 @@ function fillSelAsignar() {
   const sel = $('#sel-asignar');
   const v = sel.value;
   sel.innerHTML = `<option value="">Asignar a…</option><option value="ninguno">Sin asignar</option>
-    <optgroup label="Todo un rol">${ROLES_UI.map((r) => `<option value="rol:${r}">Rol ${ROLE_LABEL[r]}</option>`).join('')}</optgroup>
+    <optgroup label="Todo un rol">${rolesUI().map((r) => `<option value="rol:${r}">Rol ${ROLE_LABEL[r]}</option>`).join('')}</optgroup>
     <optgroup label="Personas">${users.map((u) => `<option value="u:${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}</optgroup>`;
   sel.value = v;
   $('#btn-sel-asignar').disabled = !state.tSel?.size || !sel.value;
@@ -3606,6 +3613,98 @@ $('#ll-save').addEventListener('click', async () => {
     btn.disabled = false;
   }
 });
+
+// ---------- Roles y permisos (Configuración, solo admin) ----------
+// Desplegables de rol (alta de personas): los roles configurados, con Setter primero si existe.
+function fillRolSelects() {
+  const ids = state.roles.map((r) => r.id);
+  const orden = [...(ids.includes('setter') ? ['setter'] : []), ...ids.filter((id) => id !== 'setter'), 'admin'];
+  for (const sel of ['#eq-rol', '#t-np-rol']) {
+    const el = $(sel);
+    const v = el.value;
+    el.innerHTML = orden.map((id) => `<option value="${esc(id)}">${esc(roleLabel(id))}</option>`).join('');
+    if (orden.includes(v)) el.value = v;
+  }
+}
+
+let rolesDraft = null;
+function rolesResult(msg, isError = false) {
+  const el = $('#roles-result');
+  el.textContent = msg;
+  el.classList.toggle('err', isError);
+  el.hidden = !msg;
+}
+async function loadRoles() {
+  $('#roles-table').innerHTML = '<tbody><tr><td class="muted">Cargando…</td></tr></tbody>';
+  try {
+    const d = await api('/api/roles');
+    rolesDraft = { roles: d.roles, adminPersonas: d.adminPersonas };
+    renderRoles();
+  } catch (e) { rolesResult(e.message, true); }
+}
+function renderRoles() {
+  const { roles, adminPersonas } = rolesDraft;
+  const grupos = [...new Set(PERMISOS.map((p) => p.grupo))];
+  $('#roles-table').innerHTML = `
+    <thead>
+      <tr><th rowspan="2">Rol</th>${grupos.map((g) => `<th colspan="${PERMISOS.filter((p) => p.grupo === g).length}" class="roles-grupo">${esc(g)}</th>`).join('')}<th rowspan="2" class="num">Personas</th><th rowspan="2"></th></tr>
+      <tr>${PERMISOS.map((p) => `<th class="roles-perm"><span>${esc(p.label)}</span></th>`).join('')}</tr>
+    </thead>
+    <tbody>
+      <tr class="roles-admin"><td><strong>Admin</strong><br><small class="muted">todo, siempre</small></td>${PERMISOS.map(() => '<td class="roles-cell"><input type="checkbox" checked disabled></td>').join('')}<td class="num">${adminPersonas ?? ''}</td><td></td></tr>
+      ${roles.map((r, i) => `<tr data-ri="${i}">
+        <td><input class="rol-label" value="${esc(r.label)}" maxlength="30" aria-label="Nombre del rol"><br><small class="muted">${esc(r.id)}</small></td>
+        ${PERMISOS.map((p) => `<td class="roles-cell"><input type="checkbox" data-perm="${p.id}" ${r.permisos.includes(p.id) ? 'checked' : ''} aria-label="${esc(`${r.label}: ${p.label}`)}"></td>`).join('')}
+        <td class="num">${r.personas ?? 0}</td>
+        <td><button type="button" class="btn ghost" data-rol-del="${i}" ${r.personas ? `disabled title="Lo tienen ${r.personas} persona(s): cámbiales antes el rol en Equipo"` : 'title="Borrar el rol"'} aria-label="Borrar rol">✕</button></td>
+      </tr>`).join('')}
+    </tbody>`;
+}
+$('#roles-table').addEventListener('change', (e) => {
+  const tr = e.target.closest('tr[data-ri]');
+  if (!tr) return;
+  const r = rolesDraft.roles[tr.dataset.ri];
+  if (e.target.dataset.perm) {
+    const p = e.target.dataset.perm;
+    r.permisos = e.target.checked ? [...new Set([...r.permisos, p])] : r.permisos.filter((x) => x !== p);
+  }
+  if (e.target.classList.contains('rol-label')) r.label = e.target.value.trim() || r.label;
+  rolesResult('Cambios sin guardar.');
+});
+$('#roles-table').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-rol-del]');
+  if (!b || b.disabled) return;
+  const r = rolesDraft.roles[b.dataset.rolDel];
+  if (!window.confirm(`¿Borrar el rol «${r.label}»? (Se borra al guardar.)`)) return;
+  rolesDraft.roles.splice(Number(b.dataset.rolDel), 1);
+  renderRoles();
+  rolesResult('Cambios sin guardar.');
+});
+$('#btn-rol-add').addEventListener('click', () => {
+  const label = $('#rol-nuevo').value.trim();
+  if (!label) { $('#rol-nuevo').focus(); return; }
+  rolesDraft.roles.push({ id: idDeRol(label, rolesDraft.roles.map((r) => r.id)), label, permisos: [], personas: 0 });
+  $('#rol-nuevo').value = '';
+  renderRoles();
+  rolesResult(`Rol «${label}» añadido: marca sus permisos y pulsa «Guardar roles y permisos».`);
+});
+$('#btn-roles-save').addEventListener('click', async () => {
+  const b = $('#btn-roles-save');
+  b.disabled = true;
+  try {
+    const d = await api('/api/roles', { method: 'POST', body: { roles: rolesDraft.roles.map(({ id, label, permisos }) => ({ id, label, permisos })) } });
+    rolesDraft.roles = d.roles;
+    state.roles = d.roles.map(({ id, label }) => ({ id, label }));
+    fillRolSelects();
+    renderRoles();
+    rolesResult('Roles y permisos guardados ✓ Cada persona verá los cambios al recargar el dashboard.');
+  } catch (e) {
+    rolesResult(e.message, true);
+  } finally {
+    b.disabled = false;
+  }
+});
+$('.tab[data-tab="roles"]').addEventListener('click', () => { rolesResult(''); loadRoles(); });
 
 // ---------- Inicio ----------
 api('/api/me').then(start).catch((e) => {

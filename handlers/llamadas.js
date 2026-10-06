@@ -45,7 +45,7 @@ async function contexto(code) {
 
 export async function GET(request) {
   try {
-    await requireSession(request);
+    await requireSession(request, { permiso: 'llamadas' });
     const code = new URL(request.url).searchParams.get('l') || '';
     const { config, launch, calendarId } = await contexto(code);
     if (!calendarId) return json({ configurado: false, motivo: 'Pon en Configuración → Lanzamiento el «Enlace para reservar llamada» (el del calendario de GHL).' });
@@ -89,7 +89,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const s = await requireSession(request);
+    const s = await requireSession(request, { permiso: 'llamadas' });
     const body = await readBody(request);
     const code = String(body.l || '');
     if (body.op === 'wa') {

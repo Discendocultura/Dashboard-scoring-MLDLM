@@ -1,4 +1,5 @@
-import { requireRole } from '../lib/auth.js';
+import { requireRole, requireSession, tienePermiso } from '../lib/auth.js';
+import { PERMISOS_DATOS } from '../public/js/roles.js';
 import { getConfig, saveConfig } from '../lib/config-store.js';
 import { zoomConfigured } from '../lib/zoom.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
@@ -12,10 +13,11 @@ function equipoConfig(config) {
 
 export async function GET(request) {
   try {
-    const role = await requireRole(request, { equipo: true });
+    const ses = await requireSession(request);
+    const role = ses.role;
     const config = await getConfig({ fresh: new URL(request.url).searchParams.has('fresh') });
     // El equipo solo ve las tareas: le basta con el nombre y las fechas de cada lanzamiento.
-    if (role === 'equipo') return json({ role, config: equipoConfig(config), zoomConfigured: false });
+    if (!tienePermiso(ses, [...PERMISOS_DATOS, 'config'])) return json({ role, config: equipoConfig(config), zoomConfigured: false });
     return json({ role, config, zoomConfigured: zoomConfigured() });
   } catch (e) {
     return errorResponse(e);
@@ -24,7 +26,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    await requireRole(request, { tecnico: true });
+    await requireRole(request, { permiso: 'config' });
     const config = await saveConfig(await readBody(request));
     return json({ config });
   } catch (e) {

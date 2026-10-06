@@ -13,7 +13,7 @@ const dayBefore = (d) => new Date(Date.parse(`${d}T12:00:00Z`) - 86_400_000).toI
 
 export async function GET(request) {
   try {
-    await requireRole(request);
+    await requireRole(request, { permiso: ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar'] });
     if (!metaConfigured()) return json({ configured: false });
     const code = new URL(request.url).searchParams.get('launch');
     const config = await getConfig();

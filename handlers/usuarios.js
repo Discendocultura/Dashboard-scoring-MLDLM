@@ -1,9 +1,10 @@
 // Gestión de usuarios del equipo (solo admin) y cambio de la propia contraseña (cualquiera con usuario).
 import { requireSession } from '../lib/auth.js';
 import {
-  ROLES, listUsers, saveUsers, hashPassword, checkPassword, generatePassword, newId, normEmail, publicUser, sendAccessEmail,
+  listUsers, saveUsers, hashPassword, checkPassword, generatePassword, newId, normEmail, publicUser, sendAccessEmail,
 } from '../lib/users.js';
 import { json, readBody, errorResponse, isEmail } from '../lib/http.js';
+import { rolExiste } from '../lib/roles.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const dashboardUrl = (request) => `${new URL(request.url).origin}/`;
@@ -36,7 +37,7 @@ export async function POST(request) {
 
     // Cambiar mi contraseña (cualquier usuario con email, también del rol equipo).
     if (op === 'mi-clave') {
-      const s = await requireSession(request, { equipo: true });
+      const s = await requireSession(request);
       if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
       const nueva = String(body.nueva || '').trim();
       if (nueva.length < 8) throw bad('La contraseña nueva debe tener al menos 8 caracteres');
@@ -59,7 +60,7 @@ export async function POST(request) {
     if (op === 'crear') {
       const nombre = String(body.nombre || '').trim().slice(0, 80);
       const email = normEmail(body.email);
-      const rol = ROLES.includes(body.rol) ? body.rol : 'setter';
+      const rol = (await rolExiste(body.rol)) ? body.rol : 'setter';
       if (!nombre) throw bad('Falta el nombre');
       if (!isEmail(email)) throw bad('El email no es válido');
       if (users.some((u) => u.email === email)) throw bad('Ya hay un usuario con ese email');
@@ -86,7 +87,7 @@ export async function POST(request) {
     if (op === 'editar') {
       const user = find();
       if (body.nombre != null) user.nombre = String(body.nombre).trim().slice(0, 80) || user.nombre;
-      if (ROLES.includes(body.rol)) {
+      if (body.rol != null && (await rolExiste(body.rol))) {
         if (user.id === s.uid && body.rol !== 'admin') throw bad('No puedes quitarte a ti misma el rol de admin');
         user.rol = body.rol;
       }

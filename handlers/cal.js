@@ -27,7 +27,7 @@ export async function GET(request) {
     const url = new URL(request.url);
     const token = url.searchParams.get('t');
     if (!token) {
-      const s = await requireSession(request, { equipo: true });
+      const s = await requireSession(request);
       const t = await signToken(`cal:${s.uid || s.role}`);
       const feed = `${url.origin}/api/cal?t=${encodeURIComponent(t)}`;
       return json({ url: feed, webcal: feed.replace(/^https?:/, 'webcal:') });

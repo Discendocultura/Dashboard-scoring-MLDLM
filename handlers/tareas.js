@@ -1,5 +1,5 @@
 // Tareas por lanzamiento. Todos los roles las ven; admin crea, edita y borra; el resto marca las suyas.
-import { requireSession } from '../lib/auth.js';
+import { requireSession, tienePermiso } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { getTareas, saveTareas, sanitizeTarea, sanitizeAsignado, avisarAsignaciones, MAX_TAREAS } from '../lib/tareas.js';
 import { listUsers, newId } from '../lib/users.js';
@@ -10,7 +10,6 @@ import { json, readBody, errorResponse } from '../lib/http.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const actor = (s) => s.user?.nombre || (s.role === 'admin' ? 'Admin' : 'Setter');
-const ROLES_TAREA = ['admin', 'tecnico', 'setter', 'equipo'];
 
 async function launchOf(code) {
   const config = await getConfig();
@@ -20,11 +19,11 @@ async function launchOf(code) {
 }
 
 // Lista mínima de personas para mostrar y asignar (sin emails para el rol equipo).
-const team = (users, s) => users.filter((u) => u.activo !== false).map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol, ...(s.role === 'admin' ? { email: u.email } : {}) }));
+const team = (users, s) => users.filter((u) => u.activo !== false).map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol, ...(tienePermiso(s, 'tareas_gestion') ? { email: u.email } : {}) }));
 
 export async function GET(request) {
   try {
-    const s = await requireSession(request, { equipo: true });
+    const s = await requireSession(request);
     const code = new URL(request.url).searchParams.get('l') || '';
     await launchOf(code);
     const [tareas, users, habituales, columnas] = await Promise.all([getTareas(code), listUsers(), getHabituales(), getColumnas()]);
@@ -36,7 +35,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const s = await requireSession(request, { equipo: true });
+    const s = await requireSession(request);
     const body = await readBody(request);
     const code = String(body.l || '');
     const launch = await launchOf(code);
@@ -70,7 +69,7 @@ export async function POST(request) {
       }
       if (estado === 'en-curso') { t.enCursoPor = actor(s); t.enCursoEn = now; }
     } else {
-      if (s.role !== 'admin') throw bad('Solo el administrador puede crear, editar o borrar tareas', 403);
+      if (!tienePermiso(s, 'tareas_gestion')) throw bad('Tu rol no puede crear, editar ni borrar tareas', 403);
       if (op === 'columnas') {
         // Columnas extra del tablero (comunes a todos los lanzamientos).
         const columnas = sanitizeColumnas(body.columnas);
