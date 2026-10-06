@@ -311,3 +311,88 @@ test('enlaces personalizados para botones', async () => {
   const t = sanitizeConfig({ launches: { x1: { registroTag: 'r', textos: { 'Clase1-Titulo': ' Hola ', clase1: 'pisa la fecha', 'mal nombre': 'x', vacio: '' } } } });
   assert.deepEqual(t.launches.x1.textos, { 'clase1-titulo': 'Hola' });
 });
+
+test('usuarios del equipo: alta con email de acceso, login con email y permisos del rol equipo', async () => {
+  const admin = await login('admin');
+  const usuarios = await import('../handlers/usuarios.js');
+  const mock = await import('../lib/mock.js');
+  const before = mock.sentEmails.length;
+  const setterCookie = await login('setter');
+  assert.equal((await usuarios.GET(req('/api/usuarios', { cookie: setterCookie }))).status, 403);
+
+  const r = await (await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'crear', nombre: 'Quique de la Cierva', email: 'Quique@Example.com', rol: 'equipo' } }))).json();
+  assert.equal(r.emailEnviado, true);
+  assert.equal(r.user.email, 'quique@example.com');
+  assert.equal(r.password.length, 12);
+  const mail = mock.sentEmails.at(-1);
+  assert.equal(mock.sentEmails.length, before + 1);
+  assert.ok(mail.html.includes(r.password) && mail.html.includes('http://localhost/'));
+  const { getContact } = await import('../lib/ghl.js');
+  assert.ok((await getContact(mail.contactId)).tags.includes('equipo-dashboard'));
+  assert.equal((await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'crear', nombre: 'Otra', email: 'quique@example.com' } }))).status, 400);
+  const list = await (await usuarios.GET(req('/api/usuarios', { cookie: admin }))).json();
+  assert.ok(!('hash' in list.users[0]) && !('salt' in list.users[0]));
+
+  const { POST: doLogin } = await import('../handlers/login.js');
+  assert.equal((await doLogin(req('/api/login', { method: 'POST', body: { email: 'quique@example.com', password: 'mala' } }))).status, 401);
+  const ok = await doLogin(req('/api/login', { method: 'POST', body: { email: 'QUIQUE@example.com ', password: r.password } }));
+  assert.equal(ok.status, 200);
+  const equipo = ok.headers.get('set-cookie').split(';')[0];
+  const me = await (await (await import('../handlers/me.js')).GET(req('/api/me', { cookie: equipo }))).json();
+  assert.equal(me.role, 'equipo');
+  assert.equal(me.user.nombre, 'Quique de la Cierva');
+  const leads = await import('../handlers/leads.js');
+  assert.equal((await leads.GET(req('/api/leads?tag=registro-webinar-demo', { cookie: equipo }))).status, 403);
+  const cfg = await (await (await import('../handlers/config.js')).GET(req('/api/config', { cookie: equipo }))).json();
+  assert.equal(cfg.config.launches.demo.registroTag, undefined);
+  assert.equal(cfg.config.launches.demo.name, 'Demo');
+
+  // Cambiar su contraseña
+  assert.equal((await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: equipo, body: { op: 'mi-clave', actual: 'x', nueva: 'nuevaclave1' } }))).status, 403);
+  assert.equal((await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: equipo, body: { op: 'mi-clave', actual: r.password, nueva: 'nuevaclave1' } }))).status, 200);
+  assert.equal((await doLogin(req('/api/login', { method: 'POST', body: { email: 'quique@example.com', password: 'nuevaclave1' } }))).status, 200);
+
+  // Desactivado: la sesión deja de valer
+  await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'editar', id: r.user.id, activo: false } }));
+  assert.equal((await (await import('../handlers/me.js')).GET(req('/api/me', { cookie: equipo }))).status, 401);
+  await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'editar', id: r.user.id, activo: true } }));
+});
+
+test('tareas: plantilla, asignación con aviso por email y permisos para marcar', async () => {
+  const admin = await login('admin');
+  const setter = await login('setter');
+  const tareas = await import('../handlers/tareas.js');
+  const usuarios = await import('../handlers/usuarios.js');
+  const mock = await import('../lib/mock.js');
+  const sara = await (await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'crear', nombre: 'Sara Guzmán', email: 'sara@example.com', rol: 'equipo' } }))).json();
+  const { POST: doLogin } = await import('../handlers/login.js');
+  const saraCookie = (await doLogin(req('/api/login', { method: 'POST', body: { email: 'sara@example.com', password: sara.password } }))).headers.get('set-cookie').split(';')[0];
+
+  const post = (cookie, body) => tareas.POST(req('/api/tareas', { method: 'POST', cookie, body: { l: 'demo', ...body } }));
+  const pl = await (await post(admin, { op: 'plantilla' })).json();
+  assert.ok(pl.tareas.length > 15);
+  assert.equal((await (await post(admin, { op: 'plantilla' })).json()).tareas.length, pl.tareas.length); // no duplica
+  assert.equal((await post(setter, { op: 'crear', tarea: { titulo: 'x' } })).status, 403);
+
+  const before = mock.sentEmails.length;
+  const c = await (await post(admin, { op: 'crear', tarea: { titulo: 'Grabar vídeo de bienvenida', fase: 'captacion', fecha: '2026-10-20', asignado: { tipo: 'persona', id: sara.user.id } } })).json();
+  assert.equal(c.aviso.enviados, 1);
+  assert.equal(mock.sentEmails.length, before + 1);
+  assert.match(mock.sentEmails.at(-1).subject, /Grabar vídeo de bienvenida/);
+  const mine = c.tareas.find((t) => t.titulo === 'Grabar vídeo de bienvenida');
+
+  const setterTask = c.tareas.find((t) => t.asignado?.rol === 'setter');
+  const adminTask = c.tareas.find((t) => t.asignado?.rol === 'admin');
+  assert.equal((await post(saraCookie, { op: 'marcar', id: adminTask.id, hecha: true })).status, 403);
+  assert.equal((await post(setter, { op: 'marcar', id: setterTask.id, hecha: true })).status, 200);
+  const m = await (await post(saraCookie, { op: 'marcar', id: mine.id, hecha: true })).json();
+  const done = m.tareas.find((t) => t.id === mine.id);
+  assert.equal(done.hecha, true);
+  assert.equal(done.hechaPor, 'Sara Guzmán');
+
+  const list = await (await tareas.GET(req('/api/tareas?l=demo', { cookie: saraCookie }))).json();
+  assert.equal(list.me.uid, sara.user.id);
+  assert.ok(list.users.every((u) => !u.email));
+  assert.equal((await post(admin, { op: 'borrar', id: mine.id })).status, 200);
+  assert.equal((await post(saraCookie, { op: 'marcar', id: mine.id, hecha: false })).status, 404);
+});

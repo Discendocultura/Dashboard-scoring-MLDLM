@@ -13,8 +13,10 @@
   <section id="login" class="login" hidden>
     <form id="login-form" class="card login-card">
       <h1>Lanzamientos MLDLM</h1>
-      <p class="muted">Introduce la contraseña del dashboard.</p>
+      <p class="muted">Entra con tu email y tu contraseña.</p>
+      <input id="login-email" type="email" autocomplete="username" placeholder="Email">
       <input id="login-password" type="password" autocomplete="current-password" placeholder="Contraseña" required>
+      <p class="muted login-hint">¿Usas la contraseña general del dashboard? Deja el email vacío.</p>
       <p id="login-error" class="error" hidden></p>
       <button class="btn primary" type="submit">Entrar</button>
     </form>
@@ -32,6 +34,7 @@
         <button id="btn-reload" class="btn" type="button" title="Volver a cargar los leads desde GHL">Actualizar</button>
         <button id="btn-zoom" class="btn admin-only" type="button" title="Leer la asistencia del directo en Zoom y etiquetar a los leads">Sincronizar Zoom</button>
         <button id="btn-config" class="btn admin-only" type="button">Configuración</button>
+        <button id="btn-cuenta" class="btn ghost" type="button" hidden>Mi cuenta</button>
         <button id="btn-logout" class="btn ghost" type="button">Salir</button>
       </div>
     </header>
@@ -55,7 +58,26 @@
           <button type="button" class="view-tab" data-view="metricas">Métricas</button>
           <button type="button" class="view-tab" data-view="objetivos">Objetivos</button>
           <button type="button" class="view-tab" data-view="comparar">Comparar</button>
+          <button type="button" class="view-tab" data-view="tareas">Tareas <span id="tareas-badge" class="tab-count" hidden></span></button>
         </nav>
+
+        <section id="view-tareas" hidden>
+          <div id="tareas-resumen" class="tareas-resumen"></div>
+          <div class="tareas-toolbar">
+            <div class="seg" role="tablist" aria-label="Qué tareas ver" id="tareas-filtro">
+              <button type="button" class="seg-btn on" data-f="pendientes">Pendientes</button>
+              <button type="button" class="seg-btn" data-f="mias">Mías</button>
+              <button type="button" class="seg-btn" data-f="vencidas">Vencidas</button>
+              <button type="button" class="seg-btn" data-f="hechas">Hechas</button>
+              <button type="button" class="seg-btn" data-f="todas">Todas</button>
+            </div>
+            <select id="tareas-resp" aria-label="Responsable"></select>
+            <span class="spacer"></span>
+            <button type="button" class="btn admin-only" id="btn-tareas-plantilla" title="Añade las tareas de siempre con fechas calculadas a partir de las del lanzamiento (no duplica las que ya estén)">Cargar tareas habituales</button>
+            <button type="button" class="btn primary admin-only" id="btn-tarea-nueva">+ Nueva tarea</button>
+          </div>
+          <div id="tareas-list"></div>
+        </section>
 
         <section id="view-hoy" hidden>
           <p class="muted hoy-intro">A quién escribir hoy, por prioridad. Cada lead aparece una sola vez, en su lista más importante.</p>
@@ -217,6 +239,7 @@
           <button type="button" class="tab" data-tab="pagina">Página preclase</button>
           <button type="button" class="tab" data-tab="snippets">Códigos para GHL</button>
           <button type="button" class="tab" data-tab="accesos">Recursos lanzamiento</button>
+          <button type="button" class="tab" data-tab="equipo">Equipo</button>
         </div>
 
         <section class="tab-panel" data-panel="launch">
@@ -457,6 +480,24 @@
           <div id="cfg-accesos"></div>
         </section>
 
+        <section class="tab-panel" data-panel="equipo" hidden>
+          <p class="muted">Personas con acceso al dashboard. Al crear una, se crea su contacto en GHL con la etiqueta <code>equipo-dashboard</code> y le llega un email con el enlace, su email y una contraseña. Los cambios de esta pestaña se aplican al momento (no hace falta pulsar Guardar).</p>
+          <div class="roles-note">
+            <span><strong>Admin</strong> · todo</span>
+            <span><strong>Setter</strong> · Setteo hoy, Leads y Tareas</span>
+            <span><strong>Equipo</strong> · solo Tareas</span>
+          </div>
+          <div id="equipo-list"></div>
+          <h3 class="cfg-h3">Añadir persona</h3>
+          <div class="row equipo-add">
+            <label class="field"><span>Nombre</span><input id="eq-nombre" placeholder="Sara Guzmán"></label>
+            <label class="field"><span>Email</span><input id="eq-email" type="email" placeholder="sara@…"></label>
+            <label class="field narrow"><span>Rol</span><select id="eq-rol"><option value="equipo">Equipo</option><option value="setter">Setter</option><option value="admin">Admin</option></select></label>
+            <button type="button" class="btn primary" id="btn-eq-crear">Crear y enviar acceso</button>
+          </div>
+          <div id="equipo-result" class="notice" hidden></div>
+        </section>
+
         <section class="tab-panel" data-panel="snippets" hidden>
           <p class="muted">Guarda primero el lanzamiento. Después pega cada código en un bloque <strong>Código HTML</strong> de la página correspondiente de GHL y sustituye el enlace de Vimeo.</p>
           <div id="snippets"></div>
@@ -468,6 +509,55 @@
         <span class="spacer"></span>
         <button class="btn" value="cancel" formnovalidate type="submit">Cancelar</button>
         <button id="cfg-save" class="btn primary" type="button">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Tarea -->
+  <dialog id="tarea-dialog" class="dialog dialog-sm">
+    <form id="tarea-form" method="dialog">
+      <header class="dialog-head"><h2 id="tarea-title">Nueva tarea</h2></header>
+      <div class="dialog-body">
+        <label class="field"><span>Tarea</span><input id="t-titulo" required maxlength="200" placeholder="Qué hay que hacer"></label>
+        <label class="field"><span>Notas <small>(opcional)</small></span><textarea id="t-notas" rows="3" maxlength="2000" placeholder="Detalles, enlaces…"></textarea></label>
+        <div class="row">
+          <label class="field"><span>Fase</span><select id="t-fase"></select></label>
+          <label class="field"><span>Fecha límite</span><input id="t-fecha" type="date"></label>
+        </div>
+        <label class="field"><span>Responsable</span><select id="t-asignado"></select></label>
+        <div id="t-nueva-persona" class="nueva-persona" hidden>
+          <p class="muted">Se creará su usuario y le llegará un email con el enlace del dashboard, su email y una contraseña.</p>
+          <div class="row">
+            <label class="field"><span>Nombre</span><input id="t-np-nombre" placeholder="Nombre y apellidos"></label>
+            <label class="field"><span>Email</span><input id="t-np-email" type="email" placeholder="email@…"></label>
+            <label class="field narrow"><span>Rol</span><select id="t-np-rol"><option value="equipo">Equipo</option><option value="setter">Setter</option><option value="admin">Admin</option></select></label>
+          </div>
+        </div>
+        <label class="check"><input id="t-avisar" type="checkbox" checked> Avisar por email a la persona (o a todo el rol)</label>
+      </div>
+      <footer class="dialog-foot">
+        <span id="tarea-status" class="muted"></span>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate type="submit">Cancelar</button>
+        <button id="tarea-save" class="btn primary" type="button">Guardar tarea</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Mi cuenta -->
+  <dialog id="cuenta-dialog" class="dialog dialog-sm">
+    <form id="cuenta-form" method="dialog">
+      <header class="dialog-head"><h2>Mi cuenta</h2></header>
+      <div class="dialog-body">
+        <p id="cuenta-info" class="muted"></p>
+        <label class="field"><span>Contraseña actual</span><input id="c-actual" type="password" autocomplete="current-password"></label>
+        <label class="field"><span>Contraseña nueva <small>(mínimo 8 caracteres)</small></span><input id="c-nueva" type="password" autocomplete="new-password" minlength="8"></label>
+        <p id="cuenta-status" class="muted"></p>
+      </div>
+      <footer class="dialog-foot">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate type="submit">Cerrar</button>
+        <button id="cuenta-save" class="btn primary" type="button">Cambiar contraseña</button>
       </footer>
     </form>
   </dialog>

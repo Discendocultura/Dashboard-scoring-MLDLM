@@ -1,0 +1,85 @@
+// Tareas de cada lanzamiento: fases, plantilla de tareas habituales y utilidades.
+// Lo usan el navegador y el servidor (lib/tareas.js).
+
+export const FASES = [
+  { id: 'preparacion', label: 'Preparación', icon: '🧰' },
+  { id: 'captacion', label: 'Captación', icon: '📣' },
+  { id: 'clases', label: 'Clases previas', icon: '🎬' },
+  { id: 'directo', label: 'Directo', icon: '🔴' },
+  { id: 'carrito', label: 'Carrito abierto', icon: '🛒' },
+  { id: 'cierre', label: 'Cierre y análisis', icon: '📊' },
+];
+export const FASE_IDS = FASES.map((f) => f.id);
+
+// Tareas habituales. `base` es el hito del lanzamiento del que sale la fecha y `dias` el desfase.
+export const PLANTILLA = [
+  { fase: 'preparacion', titulo: 'Crear el lanzamiento en el dashboard y revisar sus etiquetas (registro, VIP, compra, encuesta, llamada, pagos, publi/orgánico)', base: 'captacion', dias: -10, rol: 'admin' },
+  { fase: 'preparacion', titulo: 'Duplicar los workflows de GHL y cambiarles las etiquetas del nuevo lanzamiento', base: 'captacion', dias: -10, rol: 'admin' },
+  { fase: 'preparacion', titulo: 'Crear la reunión de Zoom y pegar su ID en el dashboard', base: 'captacion', dias: -7, rol: 'admin' },
+  { fase: 'preparacion', titulo: 'Revisar precios y enlaces de pago (entrada VIP, Raíces pago único y fraccionado)', base: 'captacion', dias: -7, rol: 'admin' },
+  { fase: 'preparacion', titulo: 'Crear el grupo de WhatsApp y poner su enlace en el dashboard', base: 'captacion', dias: -7, rol: 'equipo' },
+  { fase: 'preparacion', titulo: 'Poner fechas del directo, clases y cierre del carrito y revisar los textos de la página preclase', base: 'captacion', dias: -5, rol: 'admin' },
+  { fase: 'preparacion', titulo: 'Programar los emails del lanzamiento con las fechas nuevas', base: 'captacion', dias: -5, rol: 'equipo' },
+  { fase: 'preparacion', titulo: 'Revisar en el móvil las páginas de registro, gracias y preclase', base: 'captacion', dias: -2, rol: 'equipo' },
+  { fase: 'captacion', titulo: 'Activar las campañas de Meta y comprobar el filtro de campañas del dashboard', base: 'captacion', dias: 0, rol: 'admin' },
+  { fase: 'captacion', titulo: 'Revisar registros, coste por lead y objetivos en el dashboard', base: 'captacion', dias: 3, rol: 'admin' },
+  { fase: 'captacion', titulo: 'Subir los vídeos de las clases a Vimeo y pegar sus URLs en el dashboard', base: 'clase1', dias: -3, rol: 'equipo' },
+  { fase: 'clases', titulo: 'Comprobar que la clase 1 se desbloquea y se ve bien en la página preclase', base: 'clase1', dias: 0, rol: 'equipo' },
+  { fase: 'clases', titulo: 'Contactar por WhatsApp a las leads calientes de «Setteo hoy»', base: 'clase1', dias: 1, rol: 'setter' },
+  { fase: 'clases', titulo: 'Comprobar que la clase 2 se desbloquea y se ve bien', base: 'clase2', dias: 0, rol: 'equipo' },
+  { fase: 'directo', titulo: 'Probar el enlace del directo y la sala de Zoom', base: 'directo', dias: -1, rol: 'admin' },
+  { fase: 'directo', titulo: 'Recordatorio del directo en el grupo de WhatsApp', base: 'directo', dias: 0, rol: 'equipo' },
+  { fase: 'directo', titulo: 'Sincronizar la asistencia de Zoom en el dashboard', base: 'directo', dias: 1, rol: 'admin' },
+  { fase: 'directo', titulo: 'Subir la grabación y poner la URL del replay en el dashboard', base: 'directo', dias: 1, rol: 'equipo' },
+  { fase: 'carrito', titulo: 'Seguimiento por WhatsApp/llamada a las que vieron el directo y no han comprado', base: 'directo', dias: 1, rol: 'setter' },
+  { fase: 'carrito', titulo: 'Revisar ventas por día del carrito frente al objetivo', base: 'directo', dias: 2, rol: 'admin' },
+  { fase: 'cierre', titulo: 'Cerrar el carrito: comprobar que los enlaces de pago ya no están accesibles', base: 'cierre', dias: 0, rol: 'admin' },
+  { fase: 'cierre', titulo: 'Revisar los perfiles de compradoras y apuntar conclusiones', base: 'cierre', dias: 2, rol: 'admin' },
+  { fase: 'cierre', titulo: 'Informe final del lanzamiento (métricas, objetivos y aprendizajes)', base: 'cierre', dias: 3, rol: 'admin' },
+];
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+export function addDays(day, n) {
+  if (!ISO_DAY.test(day || '')) return '';
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// Días de los hitos del lanzamiento (YYYY-MM-DD o '').
+export function hitos(launch = {}) {
+  const day = (v) => String(v || '').slice(0, 10);
+  const directo = day(launch.fechaDirecto);
+  return {
+    captacion: day(launch.inicioCaptacion),
+    clase1: day(launch.clase1At),
+    clase2: day(launch.clase2At),
+    directo,
+    cierre: day(launch.cierreCarrito) || addDays(directo, 7),
+  };
+}
+
+export function plantillaTareas(launch) {
+  const h = hitos(launch);
+  return PLANTILLA.map((t) => ({
+    fase: t.fase, titulo: t.titulo, fecha: addDays(h[t.base], t.dias), asignado: { tipo: 'rol', rol: t.rol },
+  }));
+}
+
+// ¿Puede esta sesión marcar la tarea? Admin siempre; el resto, si es suya, de su rol o sin asignar.
+export function puedeMarcar(tarea, { role, uid }) {
+  if (role === 'admin') return true;
+  const a = tarea.asignado;
+  if (!a) return true;
+  if (a.tipo === 'rol') return a.rol === role;
+  return Boolean(uid) && a.id === uid;
+}
+
+export const esMia = (tarea, { role, uid }) => {
+  const a = tarea.asignado;
+  if (!a) return false;
+  return a.tipo === 'rol' ? a.rol === role : Boolean(uid) && a.id === uid;
+};
+
+export const vencida = (tarea, today) => !tarea.hecha && Boolean(tarea.fecha) && tarea.fecha < today;

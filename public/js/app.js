@@ -5,6 +5,7 @@ import { icon } from './icons.js';
 import { ENCUESTA_PREGUNTAS } from './encuesta.js';
 import { enrichLead, computeMetrics, bySource, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
+import { FASES, puedeMarcar, esMia, vencida } from './tareas.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -12,6 +13,11 @@ const PAGE_SIZE = 100;
 
 const state = {
   role: null,
+  user: null,
+  tareas: null, // { code, list, users }
+  tFiltro: 'pendientes',
+  tResp: '',
+  equipo: [],
   config: null,
   zoomConfigured: false,
   tags: [],
@@ -80,7 +86,7 @@ $('#login-form').addEventListener('submit', async (e) => {
   const err = $('#login-error');
   err.hidden = true;
   try {
-    await api('/api/login', { method: 'POST', body: { password: $('#login-password').value } });
+    await api('/api/login', { method: 'POST', body: { email: $('#login-email').value.trim(), password: $('#login-password').value } });
     $('#login-password').value = '';
     await start();
   } catch (ex) {
@@ -92,19 +98,31 @@ $('#login-form').addEventListener('submit', async (e) => {
 $('#btn-logout').addEventListener('click', async () => {
   await api('/api/logout', { method: 'POST' }).catch(() => {});
   state.leads = [];
+  state.tareas = null;
   showLogin();
 });
 
 // ---------- Arranque ----------
+const ROLE_LABEL = { admin: 'Admin', setter: 'Setter', equipo: 'Equipo' };
+// Pestañas que ve cada rol (el servidor también impide al equipo leer leads y métricas).
+const ROLE_VIEWS = { admin: null, setter: ['hoy', 'leads', 'tareas'], equipo: ['tareas'] };
+const allowedViews = () => ROLE_VIEWS[state.role] || VIEWS;
+
 async function start() {
-  const { role, config, zoomConfigured } = await api('/api/config');
+  const [me, { role, config, zoomConfigured }] = await Promise.all([api('/api/me'), api('/api/config')]);
   state.role = role;
+  state.user = me.user || null;
   state.config = config;
   state.zoomConfigured = zoomConfigured;
   document.body.classList.toggle('is-admin', role === 'admin');
-  $('#role-badge').textContent = role === 'admin' ? 'Admin' : 'Setter';
+  document.body.classList.toggle('is-equipo', role === 'equipo');
+  $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
+  $('#btn-cuenta').hidden = !state.user;
   $('#login').hidden = true;
   $('#app').hidden = false;
+  $$('.view-tab').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
+  const wanted = window.location.hash === '#tareas' ? 'tareas' : ls.get('lsd_view');
+  showView(allowedViews().includes(wanted) ? wanted : allowedViews().includes('leads') ? 'leads' : allowedViews()[0]);
   fillStaticSelects();
   renderLaunchSelect();
   if (role === 'admin') api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
@@ -149,7 +167,8 @@ async function selectLaunch(code) {
   if (!hasLaunch) return;
   ls.set('lsd_launch', code);
   $('#launch-select').value = code;
-  await loadLeads();
+  loadTareas();
+  if (state.role !== 'equipo') await loadLeads();
 }
 
 // ---------- Carga de leads (paginada contra GHL) ----------
@@ -918,12 +937,13 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'leads', 'metricas', 'objetivos', 'comparar'];
+const VIEWS = ['hoy', 'leads', 'metricas', 'objetivos', 'comparar', 'tareas'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
-const VIEW_ICONS = { hoy: 'sun2', leads: 'users', metricas: 'trend', objetivos: 'target', comparar: 'compare' };
+const VIEW_ICONS = { hoy: 'sun2', leads: 'users', metricas: 'trend', objetivos: 'target', comparar: 'compare', tareas: 'list' };
 $$('.view-tab').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view])));
 $$('[data-icon] > h2').forEach((h) => h.insertAdjacentHTML('afterbegin', `<span class="h-ico">${icon(h.parentElement.dataset.icon)}</span>`));
 function showView(view) {
+  if (state.role && !allowedViews().includes(view)) view = allowedViews()[0];
   $$('.view-tab').forEach((x) => x.classList.toggle('active', x.dataset.view === view));
   for (const v of VIEWS) $(`#view-${v}`).hidden = v !== view;
   ls.set('lsd_view', view);
@@ -1931,6 +1951,400 @@ $('#snippets').addEventListener('click', async (e) => {
   await navigator.clipboard.writeText($(`#${b.dataset.copy}`).textContent);
   b.textContent = 'Copiado ✓';
   setTimeout(() => { b.textContent = 'Copiar'; }, 1500);
+});
+
+// ---------- Tareas del lanzamiento ----------
+const today = () => dayInMadrid(new Date().toISOString());
+const meSess = () => ({ role: state.role, uid: state.user?.id || '' });
+const fechaCorta = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+const iniciales = (n) => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+
+async function loadTareas() {
+  const code = state.launchCode;
+  if (!code) return;
+  try {
+    const d = await api(`/api/tareas?l=${encodeURIComponent(code)}`);
+    if (code !== state.launchCode) return;
+    state.tareas = { code, list: d.tareas, users: d.users };
+  } catch (e) {
+    state.tareas = { code, list: [], users: [], error: e.message };
+  }
+  renderTareas();
+}
+
+function asignadoTexto(a) {
+  if (!a) return 'Sin asignar';
+  if (a.tipo === 'rol') return `Rol ${ROLE_LABEL[a.rol] || a.rol}`;
+  return state.tareas.users.find((u) => u.id === a.id)?.nombre || 'Persona eliminada';
+}
+
+function filtroResp(t) {
+  const r = state.tResp;
+  if (!r) return true;
+  const a = t.asignado;
+  if (r === 'sin') return !a;
+  if (r.startsWith('rol:')) return a?.tipo === 'rol' && a.rol === r.slice(4);
+  const u = state.tareas.users.find((x) => x.id === r.slice(2));
+  return Boolean(a) && ((a.tipo === 'persona' && a.id === u?.id) || (a.tipo === 'rol' && a.rol === u?.rol));
+}
+
+function filtroEstado(t) {
+  const f = state.tFiltro;
+  if (f === 'pendientes') return !t.hecha;
+  if (f === 'hechas') return t.hecha;
+  if (f === 'vencidas') return vencida(t, today());
+  if (f === 'mias') return !t.hecha && esMia(t, meSess());
+  return true;
+}
+
+function renderRespSelect() {
+  const sel = $('#tareas-resp');
+  const users = state.tareas?.users || [];
+  sel.innerHTML = `<option value="">Todas las personas</option>
+    <optgroup label="Roles">${['admin', 'setter', 'equipo'].map((r) => `<option value="rol:${r}">Rol ${ROLE_LABEL[r]}</option>`).join('')}<option value="sin">Sin asignar</option></optgroup>
+    ${users.length ? `<optgroup label="Personas">${users.map((u) => `<option value="u:${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}</optgroup>` : ''}`;
+  sel.value = state.tResp;
+  if (sel.value !== state.tResp) { state.tResp = ''; sel.value = ''; }
+}
+
+function tareaRow(t) {
+  const hoy = today();
+  const venc = vencida(t, hoy);
+  const puede = puedeMarcar(t, meSess());
+  const a = t.asignado;
+  const who = a?.tipo === 'persona'
+    ? `<span class="t-who"><span class="t-avatar">${esc(iniciales(asignadoTexto(a)))}</span>${esc(asignadoTexto(a))}</span>`
+    : `<span class="t-who ${a ? 't-rol' : 't-nadie'}">${a ? icon('users') : ''}${esc(asignadoTexto(a))}</span>`;
+  const fecha = t.fecha
+    ? `<span class="t-fecha ${!t.hecha && venc ? 'vencida' : !t.hecha && t.fecha === hoy ? 'hoy' : ''}">${icon('calendar')}${!t.hecha && venc ? 'Vencida · ' : !t.hecha && t.fecha === hoy ? 'Hoy · ' : ''}${esc(fechaCorta(t.fecha))}</span>`
+    : '';
+  const hecha = t.hecha ? `<span class="t-hecha">✓ ${esc(t.hechaPor || '')}${t.hechaEn ? ` · ${esc(new Date(t.hechaEn).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }))}` : ''}</span>` : '';
+  return `<li class="tarea ${t.hecha ? 'done' : ''} ${venc ? 'is-vencida' : ''} ${esMia(t, meSess()) ? 'is-mia' : ''}">
+    <label class="t-check" title="${puede ? (t.hecha ? 'Marcar como pendiente' : 'Marcar como hecha') : 'Solo puede marcarla su responsable'}">
+      <input type="checkbox" data-tid="${esc(t.id)}" ${t.hecha ? 'checked' : ''} ${puede ? '' : 'disabled'}><span class="t-box" aria-hidden="true"></span>
+    </label>
+    <div class="t-main">
+      <div class="t-titulo">${esc(t.titulo)}</div>
+      ${t.notas ? `<div class="t-notas">${esc(t.notas)}</div>` : ''}
+      <div class="t-meta">${fecha}${who}${hecha}</div>
+    </div>
+    ${state.role === 'admin' ? `<div class="t-actions"><button type="button" class="btn ghost" data-tedit="${esc(t.id)}" title="Editar" aria-label="Editar">✎</button><button type="button" class="btn ghost" data-tdel="${esc(t.id)}" title="Borrar" aria-label="Borrar">✕</button></div>` : ''}
+  </li>`;
+}
+
+function renderTareas() {
+  const T = state.tareas;
+  if (!T || T.code !== state.launchCode) return;
+  const list = T.list;
+  const hoy = today();
+  const done = list.filter((t) => t.hecha).length;
+  const venc = list.filter((t) => vencida(t, hoy)).length;
+  const paraHoy = list.filter((t) => !t.hecha && t.fecha === hoy).length;
+  const mias = list.filter((t) => !t.hecha && esMia(t, meSess())).length;
+  const pct = list.length ? Math.round((done / list.length) * 100) : 0;
+
+  const badge = $('#tareas-badge');
+  badge.hidden = !mias;
+  badge.textContent = mias;
+  badge.title = 'Tareas pendientes asignadas a ti o a tu rol';
+
+  $('#tareas-resumen').innerHTML = T.error ? `<div class="notice err">No se pudieron cargar las tareas: ${esc(T.error)}</div>` : list.length ? `
+    <div class="card tareas-progress">
+      <div class="tp-head"><strong>${done} de ${list.length} tareas hechas</strong><span class="tp-pct">${pct}%</span></div>
+      <div class="obj-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div>
+      <div class="tp-chips">
+        <button type="button" class="tp-chip ${venc ? 'bad' : ''}" data-tf="vencidas">${icon('alert')}${venc} vencida${venc === 1 ? '' : 's'}</button>
+        <button type="button" class="tp-chip ${paraHoy ? 'warn' : ''}" data-tf="pendientes">${icon('calendar')}${paraHoy} para hoy</button>
+        <button type="button" class="tp-chip ${mias ? 'mine' : ''}" data-tf="mias">${icon('check')}${mias} pendiente${mias === 1 ? '' : 's'} tuya${mias === 1 ? '' : 's'}</button>
+      </div>
+    </div>` : `
+    <div class="card empty tareas-empty">
+      <h2>Aún no hay tareas en este lanzamiento</h2>
+      ${state.role === 'admin'
+    ? '<p class="muted">Empieza con las tareas habituales (con fechas calculadas a partir de las del lanzamiento) y ajústalas, o crea las tuyas.</p><p><button type="button" class="btn primary" data-action="tareas-plantilla">Cargar tareas habituales</button> <button type="button" class="btn" data-action="tarea-nueva">+ Nueva tarea</button></p>'
+    : '<p class="muted">Cuando la administradora asigne tareas aparecerán aquí.</p>'}
+    </div>`;
+
+  $$('#tareas-filtro .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.f === state.tFiltro));
+  renderRespSelect();
+
+  const shown = list.filter((t) => filtroEstado(t) && filtroResp(t));
+  const order = (a, b) => (a.hecha - b.hecha) || (a.fecha || '9999').localeCompare(b.fecha || '9999') || a.titulo.localeCompare(b.titulo, 'es');
+  const groups = FASES.map((f) => ({ f, all: list.filter((t) => t.fase === f.id), items: shown.filter((t) => t.fase === f.id).sort(order) }))
+    .filter((g) => g.items.length);
+  $('#tareas-list').innerHTML = !list.length ? '' : groups.length ? groups.map(({ f, all, items }) => {
+    const d = all.filter((t) => t.hecha).length;
+    return `<section class="card tarea-fase">
+      <header class="tf-head"><span class="tf-ico" aria-hidden="true">${f.icon}</span><h3>${esc(f.label)}</h3><span class="tf-count">${d}/${all.length}</span>
+        <span class="tf-bar"><span style="width:${all.length ? (d / all.length) * 100 : 0}%"></span></span></header>
+      <ul class="tareas-ul">${items.map(tareaRow).join('')}</ul>
+    </section>`;
+  }).join('') : `<p class="muted tareas-none">${state.tFiltro === 'vencidas' ? '¡Nada vencido! 🎉' : state.tFiltro === 'mias' ? 'No tienes tareas pendientes.' : 'No hay tareas con este filtro.'}</p>`;
+}
+
+async function tareasOp(body) {
+  const d = await api('/api/tareas', { method: 'POST', body: { l: state.tareas.code, ...body } });
+  state.tareas.list = d.tareas;
+  renderTareas();
+  return d;
+}
+
+$('#tareas-filtro').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-f]');
+  if (!b) return;
+  state.tFiltro = b.dataset.f;
+  renderTareas();
+});
+$('#tareas-resp').addEventListener('change', (e) => { state.tResp = e.target.value; renderTareas(); });
+$('#tareas-resumen').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tf]');
+  if (!b) return;
+  state.tFiltro = b.dataset.tf;
+  renderTareas();
+});
+
+$('#tareas-list').addEventListener('change', async (e) => {
+  const cb = e.target.closest('input[data-tid]');
+  if (!cb) return;
+  cb.disabled = true;
+  try {
+    await tareasOp({ op: 'marcar', id: cb.dataset.tid, hecha: cb.checked });
+  } catch (ex) {
+    cb.checked = !cb.checked;
+    cb.disabled = false;
+    notice(ex.message, true);
+  }
+});
+
+$('#tareas-list').addEventListener('click', async (e) => {
+  const ed = e.target.closest('[data-tedit]');
+  if (ed) return openTarea(state.tareas.list.find((t) => t.id === ed.dataset.tedit));
+  const del = e.target.closest('[data-tdel]');
+  if (!del) return;
+  const t = state.tareas.list.find((x) => x.id === del.dataset.tdel);
+  if (!t || !window.confirm(`¿Borrar la tarea «${t.titulo}»?`)) return;
+  try { await tareasOp({ op: 'borrar', id: t.id }); } catch (ex) { notice(ex.message, true); }
+});
+
+async function cargarPlantilla() {
+  const l = state.config.launches[state.launchCode];
+  const faltan = [['inicioCaptacion', 'inicio de captación'], ['fechaDirecto', 'fecha del directo']].filter(([k]) => !l[k]).map(([, v]) => v);
+  if (faltan.length && !window.confirm(`Falta ${faltan.join(' y ')} en la configuración: algunas tareas se crearán sin fecha. ¿Continuar?`)) return;
+  const antes = state.tareas.list.length;
+  try {
+    await tareasOp({ op: 'plantilla' });
+    const n = state.tareas.list.length - antes;
+    notice(n ? `Añadidas ${n} tareas habituales. Revísalas y asígnalas a quien corresponda.` : 'Ya estaban todas las tareas habituales.');
+  } catch (ex) { notice(ex.message, true); }
+}
+$('#btn-tareas-plantilla').addEventListener('click', cargarPlantilla);
+$('#btn-tarea-nueva').addEventListener('click', () => openTarea(null));
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-action="tareas-plantilla"]')) cargarPlantilla();
+  if (e.target.closest('[data-action="tarea-nueva"]')) openTarea(null);
+});
+
+// Diálogo de tarea
+const tdlg = $('#tarea-dialog');
+let editingTarea = null;
+$('#t-fase').innerHTML = FASES.map((f) => `<option value="${f.id}">${f.icon} ${esc(f.label)}</option>`).join('');
+
+function fillAsignadoSelect(value) {
+  const users = state.tareas?.users || [];
+  $('#t-asignado').innerHTML = `<option value="">Sin asignar</option>
+    <optgroup label="Todo un rol">${['admin', 'setter', 'equipo'].map((r) => `<option value="rol:${r}">Rol ${ROLE_LABEL[r]}</option>`).join('')}</optgroup>
+    <optgroup label="Personas">${users.map((u) => `<option value="u:${esc(u.id)}">${esc(u.nombre)} · ${ROLE_LABEL[u.rol]}</option>`).join('')}
+    <option value="nueva">+ Nueva persona (nombre + email)…</option></optgroup>`;
+  $('#t-asignado').value = value;
+  $('#t-nueva-persona').hidden = value !== 'nueva';
+}
+
+function openTarea(t) {
+  editingTarea = t || null;
+  $('#tarea-title').textContent = t ? 'Editar tarea' : 'Nueva tarea';
+  $('#t-titulo').value = t?.titulo || '';
+  $('#t-notas').value = t?.notas || '';
+  $('#t-fase').value = t?.fase || FASES[0].id;
+  $('#t-fecha').value = t?.fecha || '';
+  const a = t?.asignado;
+  fillAsignadoSelect(a ? (a.tipo === 'rol' ? `rol:${a.rol}` : `u:${a.id}`) : '');
+  ['#t-np-nombre', '#t-np-email'].forEach((s) => { $(s).value = ''; });
+  $('#t-np-rol').value = 'equipo';
+  $('#t-avisar').checked = true;
+  $('#tarea-status').textContent = '';
+  tdlg.showModal();
+  $('#t-titulo').focus();
+}
+$('#t-asignado').addEventListener('change', (e) => {
+  $('#t-nueva-persona').hidden = e.target.value !== 'nueva';
+  if (e.target.value === 'nueva') $('#t-np-nombre').focus();
+});
+
+// Crea el usuario y explica qué ha pasado con el email de acceso.
+async function crearUsuario({ nombre, email, rol }) {
+  const r = await api('/api/usuarios', { method: 'POST', body: { op: 'crear', nombre, email, rol } });
+  if (state.tareas) state.tareas.users.push({ id: r.user.id, nombre: r.user.nombre, rol: r.user.rol, email: r.user.email });
+  state.equipo.push(r.user);
+  return r;
+}
+const accesoMsg = (r) => (r.emailEnviado
+  ? `Usuario creado: ${r.user.nombre} ya tiene en su email (${r.user.email}) el enlace y su contraseña.`
+  : `Usuario creado, pero NO se pudo enviar el email${r.emailError ? ` (${r.emailError})` : ''}. Pásale tú estos datos: email ${r.user.email} · contraseña ${r.password}`);
+
+$('#tarea-save').addEventListener('click', async () => {
+  const titulo = $('#t-titulo').value.trim();
+  if (!titulo) { $('#t-titulo').focus(); return; }
+  const btn = $('#tarea-save');
+  const status = $('#tarea-status');
+  btn.disabled = true;
+  try {
+    let sel = $('#t-asignado').value;
+    let creado = null;
+    if (sel === 'nueva') {
+      const nombre = $('#t-np-nombre').value.trim();
+      const email = $('#t-np-email').value.trim();
+      if (!nombre || !email) { status.textContent = 'Pon el nombre y el email de la persona.'; return; }
+      status.textContent = 'Creando usuario y enviando su acceso…';
+      creado = await crearUsuario({ nombre, email, rol: $('#t-np-rol').value });
+      sel = `u:${creado.user.id}`;
+      fillAsignadoSelect(sel);
+    }
+    const asignado = !sel ? null : sel.startsWith('rol:') ? { tipo: 'rol', rol: sel.slice(4) } : { tipo: 'persona', id: sel.slice(2) };
+    const tarea = { titulo, notas: $('#t-notas').value, fase: $('#t-fase').value, fecha: $('#t-fecha').value, asignado };
+    status.textContent = 'Guardando…';
+    const d = await tareasOp(editingTarea ? { op: 'editar', id: editingTarea.id, tarea, avisar: $('#t-avisar').checked } : { op: 'crear', tarea, avisar: $('#t-avisar').checked });
+    tdlg.close();
+    const partes = [];
+    if (creado) partes.push(accesoMsg(creado));
+    if (d.aviso?.enviados) partes.push(`Aviso de la tarea enviado por email a ${d.aviso.enviados} persona${d.aviso.enviados === 1 ? '' : 's'}.`);
+    if (d.aviso?.errores?.length) partes.push(`No se pudo avisar a: ${d.aviso.errores.join(', ')}.`);
+    if (partes.length) notice(partes.join(' '), Boolean(creado && !creado.emailEnviado) || Boolean(d.aviso?.errores?.length));
+  } catch (ex) {
+    status.textContent = ex.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---------- Equipo (Configuración) ----------
+async function loadEquipo() {
+  const box = $('#equipo-list');
+  box.innerHTML = '<p class="muted">Cargando…</p>';
+  try {
+    state.equipo = (await api('/api/usuarios')).users;
+    renderEquipo();
+  } catch (e) {
+    box.innerHTML = `<p class="error">${esc(e.message)}</p>`;
+  }
+}
+
+function renderEquipo() {
+  const users = state.equipo;
+  const fmt = (d) => (d ? new Date(d).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Nunca');
+  $('#equipo-list').innerHTML = users.length ? `<div class="table-scroll"><table class="metric-table equipo-table">
+    <thead><tr><th>Persona</th><th>Rol</th><th>Último acceso</th><th></th></tr></thead>
+    <tbody>${users.map((u) => `<tr class="${u.activo ? '' : 'inactivo'}" data-uid="${esc(u.id)}">
+      <td><span class="t-who"><span class="t-avatar">${esc(iniciales(u.nombre))}</span><span><strong>${esc(u.nombre)}</strong><br><span class="muted">${esc(u.email)}</span>${u.activo ? '' : ' · <em>desactivada</em>'}</span></span></td>
+      <td><select class="eq-rol" ${u.id === state.user?.id ? 'disabled' : ''}>${['admin', 'setter', 'equipo'].map((r) => `<option value="${r}" ${r === u.rol ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></td>
+      <td class="muted">${fmt(u.lastLogin)}</td>
+      <td class="eq-actions">
+        <button type="button" class="btn" data-eq="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
+        ${u.id === state.user?.id ? '' : `<button type="button" class="btn ghost" data-eq="${u.activo ? 'desactivar' : 'activar'}">${u.activo ? 'Desactivar' : 'Activar'}</button>
+        <button type="button" class="btn ghost" data-eq="borrar" aria-label="Borrar">✕</button>`}
+      </td></tr>`).join('')}</tbody></table></div>`
+    : '<p class="muted">Todavía no hay nadie. Añade a Sara, Quique… con su nombre y email: les llegará el acceso.</p>';
+}
+
+function equipoResult(msg, isError = false) {
+  const el = $('#equipo-result');
+  el.textContent = msg;
+  el.classList.toggle('err', isError);
+  el.hidden = !msg;
+}
+
+$('#btn-eq-crear').addEventListener('click', async () => {
+  const nombre = $('#eq-nombre').value.trim();
+  const email = $('#eq-email').value.trim();
+  if (!nombre || !email) return equipoResult('Pon el nombre y el email.', true);
+  const b = $('#btn-eq-crear');
+  b.disabled = true;
+  equipoResult('Creando usuario y enviando su acceso…');
+  try {
+    const r = await crearUsuario({ nombre, email, rol: $('#eq-rol').value });
+    $('#eq-nombre').value = '';
+    $('#eq-email').value = '';
+    renderEquipo();
+    equipoResult(accesoMsg(r), !r.emailEnviado);
+  } catch (e) {
+    equipoResult(e.message, true);
+  } finally {
+    b.disabled = false;
+  }
+});
+
+$('#equipo-list').addEventListener('change', async (e) => {
+  const sel = e.target.closest('.eq-rol');
+  if (!sel) return;
+  const id = sel.closest('tr').dataset.uid;
+  try {
+    await api('/api/usuarios', { method: 'POST', body: { op: 'editar', id, rol: sel.value } });
+    state.equipo.find((u) => u.id === id).rol = sel.value;
+    equipoResult('Rol cambiado. Se aplica en su próxima acción.');
+    if (state.tareas) loadTareas();
+  } catch (ex) { equipoResult(ex.message, true); loadEquipo(); }
+});
+
+$('#equipo-list').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-eq]');
+  if (!b) return;
+  const id = b.closest('tr').dataset.uid;
+  const u = state.equipo.find((x) => x.id === id);
+  const op = b.dataset.eq;
+  if (op === 'regenerar' && !window.confirm(`Se generará una contraseña nueva para ${u.nombre} y se le enviará por email. La anterior dejará de funcionar. ¿Continuar?`)) return;
+  if (op === 'borrar' && !window.confirm(`¿Borrar a ${u.nombre}? Perderá el acceso y sus tareas quedarán como «Persona eliminada».`)) return;
+  b.disabled = true;
+  try {
+    if (op === 'regenerar') {
+      const r = await api('/api/usuarios', { method: 'POST', body: { op, id } });
+      equipoResult(r.emailEnviado ? `Contraseña nueva enviada a ${u.email}.` : `No se pudo enviar el email${r.emailError ? ` (${r.emailError})` : ''}. Pásale tú la contraseña nueva: ${r.password}`, !r.emailEnviado);
+    } else if (op === 'borrar') {
+      await api('/api/usuarios', { method: 'POST', body: { op, id } });
+      equipoResult(`${u.nombre} borrada.`);
+    } else {
+      await api('/api/usuarios', { method: 'POST', body: { op: 'editar', id, activo: op === 'activar' } });
+      equipoResult(op === 'activar' ? `${u.nombre} vuelve a tener acceso.` : `${u.nombre} ya no puede entrar.`);
+    }
+    await loadEquipo();
+    if (state.tareas) loadTareas();
+  } catch (ex) {
+    equipoResult(ex.message, true);
+    b.disabled = false;
+  }
+});
+
+$('.tab[data-tab="equipo"]').addEventListener('click', () => { equipoResult(''); loadEquipo(); });
+
+// ---------- Mi cuenta ----------
+$('#btn-cuenta').addEventListener('click', () => {
+  const u = state.user;
+  $('#cuenta-info').textContent = `${u.nombre} · ${u.email} · Rol ${ROLE_LABEL[state.role]}`;
+  $('#c-actual').value = '';
+  $('#c-nueva').value = '';
+  $('#cuenta-status').textContent = '';
+  $('#cuenta-dialog').showModal();
+});
+$('#cuenta-save').addEventListener('click', async () => {
+  const status = $('#cuenta-status');
+  const nueva = $('#c-nueva').value.trim();
+  if (nueva.length < 8) { status.textContent = 'La contraseña nueva debe tener al menos 8 caracteres.'; return; }
+  try {
+    await api('/api/usuarios', { method: 'POST', body: { op: 'mi-clave', actual: $('#c-actual').value, nueva } });
+    status.textContent = 'Contraseña cambiada ✓';
+    $('#c-actual').value = '';
+    $('#c-nueva').value = '';
+  } catch (e) {
+    status.textContent = e.message;
+  }
 });
 
 // ---------- Inicio ----------

@@ -270,11 +270,19 @@ Con un email tuyo que **no** esté en GHL:
 5. Haz una compra de prueba (o pon la etiqueta de compra y la fecha a mano) → cuenta en Métricas.
 6. Borra después tu contacto de prueba en GHL.
 
-## Accesos
-- **Admin** (`ADMIN_PASSWORD`): todo, incluida la configuración y la sincronización con Zoom.
-- **Setter** (`SETTER_PASSWORD`): ver leads, filtrar, exportar y enviar WhatsApp.
+## Accesos y equipo
+Cada persona entra con **su email y su contraseña**. Se dan de alta en *Configuración → Equipo* (o al asignar una tarea a «+ Nueva persona»): se crea su contacto en GHL con la etiqueta `equipo-dashboard` y le llega un email desde GHL con el enlace, su email y una contraseña generada. Desde «Mi cuenta» puede cambiarla; desde Equipo se puede reenviar el acceso (contraseña nueva), cambiar el rol, desactivar o borrar.
 
-La configuración se guarda en el Custom Value `lead_scoring_dashboard_config` de GHL. No lo borres.
+- **Admin**: todo, incluida la configuración, el equipo y la sincronización con Zoom.
+- **Setter**: Setteo hoy, Leads y Tareas.
+- **Equipo**: solo Tareas (el servidor no le deja leer leads ni métricas).
+
+Las contraseñas generales `ADMIN_PASSWORD` / `SETTER_PASSWORD` siguen funcionando (dejando el email vacío) como acceso de emergencia.
+
+## Tareas
+Cada lanzamiento tiene su pestaña **Tareas**, agrupadas por fase (preparación → cierre) con barra de progreso, vencidas y filtros (pendientes, mías, vencidas, hechas, por persona). La admin crea, edita y borra; cada tarea se asigna a una persona o a todo un rol y, si se marca «Avisar», le llega un email. El resto marca como hechas las suyas o las de su rol. «Cargar tareas habituales» añade la lista de siempre con fechas calculadas a partir de las del lanzamiento (sin duplicar).
+
+La configuración se guarda en el Custom Value `lead_scoring_dashboard_config` de GHL, los usuarios en `lsd_usuarios` (contraseñas solo como hash PBKDF2) y las tareas en `lsd_tareas_<código>`. No los borres.
 
 ## Escala
 Los leads se cargan en páginas de 100 desde el navegador, así que 2.000 leads son unas 20

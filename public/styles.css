@@ -582,3 +582,75 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .acc-detail-head h3 { margin: 0; font-size: 16px; }
 .acc-add { align-self: flex-start; }
 @media (prefers-reduced-motion: reduce) { .acc-cat { transition: none; } }
+
+/* ---------- Tareas ---------- */
+.login-hint { font-size: 12px; }
+.tab-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 4px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 11px; font-weight: 700; vertical-align: 1px; }
+.tareas-resumen { margin-bottom: 12px; }
+.tareas-progress { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; --tone: var(--tone-buy); }
+.tp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.tp-pct { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tp-chip { font: inherit; font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); cursor: pointer; }
+.tp-chip .ico { width: 14px; height: 14px; }
+.tp-chip.bad { background: color-mix(in srgb, var(--error) 12%, var(--surface)); border-color: color-mix(in srgb, var(--error) 35%, transparent); color: var(--error); }
+.tp-chip.warn { background: var(--chip-half-bg); color: var(--chip-half-ink); border-color: transparent; }
+.tp-chip.mine { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent); border-color: transparent; }
+.tareas-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.tareas-toolbar .seg { flex-wrap: wrap; }
+.tareas-empty p { margin: 8px 0; }
+.tareas-none { text-align: center; padding: 24px 0; }
+.tarea-fase { padding: 0; margin-bottom: 12px; overflow: hidden; }
+.tf-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); flex-wrap: wrap; }
+.tf-head h3 { margin: 0; font-size: 15px; flex: 1; }
+.tf-ico { font-size: 18px; line-height: 1; }
+.tf-count { font-size: 12px; font-weight: 700; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.tf-bar { width: 80px; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.tf-bar span { display: block; height: 100%; background: var(--tone-buy); border-radius: 999px; }
+.tareas-ul { list-style: none; margin: 0; padding: 0; }
+.tarea { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-bottom: 1px solid var(--border); transition: background-color .15s; }
+.tarea:last-child { border-bottom: 0; }
+.tarea:hover { background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.tarea.is-mia { box-shadow: inset 3px 0 0 var(--accent); }
+.tarea.is-vencida:not(.done) { box-shadow: inset 3px 0 0 var(--error); }
+.t-check { position: relative; flex: none; width: 24px; height: 24px; margin-top: 1px; cursor: pointer; }
+.t-check input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: inherit; }
+.t-box { display: block; width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--border); background: var(--surface); transition: background-color .15s, border-color .15s; }
+.t-check:hover .t-box { border-color: var(--tone-buy); }
+.t-check input:checked + .t-box { background: var(--tone-buy); border-color: var(--tone-buy); }
+.t-check input:checked + .t-box::after { content: ""; display: block; width: 6px; height: 11px; margin: 3px 0 0 7px; border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
+.t-check input:focus-visible + .t-box { outline: 2px solid var(--focus); outline-offset: 2px; }
+.t-check input:disabled + .t-box { opacity: .45; }
+.t-check:has(input:disabled) { cursor: not-allowed; }
+.t-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.t-titulo { font-weight: 600; overflow-wrap: anywhere; }
+.tarea.done .t-titulo { text-decoration: line-through; color: var(--muted); font-weight: 500; }
+.t-notas { font-size: 13px; color: var(--text-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.t-meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 12px; color: var(--text-2); }
+.t-meta .ico, .t-who .ico { width: 14px; height: 14px; }
+.t-fecha, .t-who { display: inline-flex; align-items: center; gap: 5px; }
+.t-fecha.vencida { color: var(--error); font-weight: 700; }
+.t-fecha.hoy { color: var(--chip-half-ink); font-weight: 700; }
+.t-rol { padding: 1px 8px; border-radius: 999px; background: var(--surface-2); }
+.t-nadie { font-style: italic; color: var(--muted); }
+.t-avatar { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 18%, var(--surface)); color: var(--accent); font-size: 10px; font-weight: 800; flex: none; }
+.equipo-table .t-avatar { width: 32px; height: 32px; font-size: 12px; }
+.equipo-table .t-who { gap: 10px; }
+.t-hecha { color: var(--tone-buy); font-weight: 600; }
+.t-actions { display: flex; gap: 2px; flex: none; }
+.t-actions .btn { padding: 4px 8px; }
+.dialog-sm { width: min(560px, calc(100vw - 32px)); }
+.nueva-persona { padding: 12px; border-radius: 10px; background: var(--surface-2); border: 1px dashed var(--border); }
+.nueva-persona p { margin: 0 0 8px; font-size: 13px; }
+.roles-note { display: flex; flex-wrap: wrap; gap: 6px; }
+.roles-note span { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); }
+.equipo-table tr.inactivo td { opacity: .55; }
+.eq-actions { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap; }
+.equipo-add { align-items: flex-end; }
+@media (max-width: 600px) {
+  .tarea { padding: 12px; gap: 10px; }
+  .tf-bar { display: none; }
+  .tareas-toolbar .spacer { display: none; }
+  #tareas-resp { flex: 1 1 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .t-box, .tarea { transition: none; } }
