@@ -53,7 +53,8 @@ async function api(path, { method = 'GET', body } = {}) {
     showLogin();
     throw new Error('Sesión caducada');
   }
-  if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+  // A la admin se le enseña el detalle técnico (p. ej. la respuesta de GHL) para poder diagnosticar.
+  if (!res.ok) throw new Error(`${data.error || `Error ${res.status}`}${data.detail && data.detail !== data.error && state.role === 'admin' ? ` · Detalle: ${String(data.detail).slice(0, 300)}` : ''}`);
   return data;
 }
 
