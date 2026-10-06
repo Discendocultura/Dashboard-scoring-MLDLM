@@ -141,6 +141,7 @@ async function start() {
   $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
   $('#btn-cuenta').hidden = !state.user;
   pintarFotoCuenta();
+  pintarPlantillas();
   $('#login').hidden = true;
   $('#app').hidden = false;
   fillRolSelects();
@@ -3904,10 +3905,14 @@ $('#f-llamada').addEventListener('change', (e) => { state.filters.llamada = e.ta
 // Plantillas de mensajes por fase en Setteo hoy → Mensajes de WhatsApp.
 $('#tpl-llamadas').innerHTML = FASES_LLAMADA.filter((f) => f.plantilla).map((f) => `<label class="field"><span>${f.icon} ${esc(f.label)}</span><textarea id="tpl-${f.plantilla}" data-tpl="${f.plantilla}" rows="3"></textarea></label>`).join('');
 
-// Mensajes de WhatsApp (en «Setteo hoy», para quien puede cambiar la configuración).
+// Mensajes de WhatsApp (en «Setteo hoy»): los ve quien hace el setteo y los cambia quien tiene el permiso «mensajes».
 const waBox = $('#wa-plantillas');
 let waSucio = false;
 function pintarPlantillas() {
+  const edita = tiene('mensajes');
+  $$('#wa-plantillas textarea, #cfg-country').forEach((el) => { el.readOnly = !edita; });
+  $('#wa-pl-save').hidden = !edita;
+  $('#wa-pl-sub').textContent = `Los textos que se envían con cada botón de WhatsApp. Pulsa para ${edita ? 'verlos o cambiarlos' : 'verlos (tu rol no puede cambiarlos)'}.`;
   const tp = state.config?.templates || {};
   $$('#wa-plantillas textarea[id^="tpl-"]').forEach((t) => { t.value = tp[t.dataset.tpl || t.id.slice(4)] || ''; });
   $('#cfg-country').value = state.config?.defaultCountryCode || '34';
@@ -3922,8 +3927,8 @@ $('#wa-pl-guardar').addEventListener('click', async () => {
   status.textContent = 'Guardando…';
   try {
     const templates = { ...state.config.templates, ...Object.fromEntries($$('#wa-plantillas textarea[id^="tpl-"]').map((t) => [t.dataset.tpl || t.id.slice(4), t.value])) };
-    const next = { ...state.config, templates, defaultCountryCode: $('#cfg-country').value };
-    state.config = (await api('/api/config', { method: 'POST', body: next })).config;
+    const d = await api('/api/config', { method: 'POST', body: { op: 'plantillas', templates, defaultCountryCode: $('#cfg-country').value } });
+    state.config = { ...state.config, templates: d.templates, defaultCountryCode: d.defaultCountryCode };
     pintarPlantillas();
     render();
     status.textContent = 'Mensajes guardados ✓';

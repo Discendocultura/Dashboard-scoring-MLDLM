@@ -12,16 +12,30 @@ export const PERMISOS = [
   { id: 'config', label: 'Configuración de lanzamientos', grupo: 'Acciones' },
   { id: 'zoom', label: 'Sincronizar Zoom', grupo: 'Acciones' },
   { id: 'tareas_gestion', label: 'Crear, editar y borrar tareas y eventos', grupo: 'Acciones' },
+  { id: 'mensajes', label: 'Editar mensajes de WhatsApp', grupo: 'Acciones' },
 ];
 export const PERMISO_IDS = PERMISOS.map((p) => p.id);
 // Pestañas que necesitan los datos de los leads.
 export const PERMISOS_DATOS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar'];
 
 export const ROLES_POR_DEFECTO = [
-  { id: 'tecnico', label: 'Técnico', permisos: ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'config', 'zoom'] },
-  { id: 'setter', label: 'Setter', permisos: ['hoy', 'llamadas', 'leads'] },
+  { id: 'tecnico', label: 'Técnico', permisos: ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'config', 'zoom', 'mensajes'] },
+  { id: 'setter', label: 'Setter', permisos: ['hoy', 'llamadas', 'leads', 'mensajes'] },
   { id: 'equipo', label: 'Equipo', permisos: [] },
 ];
+
+// Permisos añadidos después de que la admin guardara sus roles: qué roles los reciben de entrada
+// (luego se pueden quitar en la tabla). Cada rol guarda en `vistos` los permisos que ya conocía.
+export const PERMISOS_NUEVOS = {
+  mensajes: (r) => (r.permisos || []).includes('hoy'), // quien hace el setteo edita los mensajes
+};
+export function completarPermisosNuevos(list) {
+  return (Array.isArray(list) ? list : []).map((r) => {
+    const vistos = Array.isArray(r?.vistos) ? r.vistos : [];
+    const extra = Object.keys(PERMISOS_NUEVOS).filter((p) => !vistos.includes(p) && PERMISOS_NUEVOS[p](r));
+    return extra.length ? { ...r, permisos: [...(r.permisos || []), ...extra] } : r;
+  });
+}
 
 export const ROL_ID_RE = /^[a-z][a-z0-9-]{1,23}$/;
 

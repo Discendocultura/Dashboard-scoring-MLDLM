@@ -39,7 +39,7 @@ Los pesos están en `public/js/scoring.js` (`POINTS` y `ESTADOS`).
 2. **Oferta Raíces**: ha visto ≥50% de la grabación.
 3. **Venta / llamada**: estuvo en el directo hasta el final o vio ≥90% de la grabación.
 
-Los textos se editan en **Setteo hoy → 💬 Mensajes de WhatsApp** (abajo del todo; solo quien puede cambiar la configuración, con su botón «Guardar mensajes»). Los enlaces llevan el
+Los textos se editan en **Setteo hoy → 💬 Mensajes de WhatsApp** (abajo del todo). Los ve todo el que tiene «Setteo hoy» y los cambia quien tiene el permiso **Editar mensajes de WhatsApp** (de serie: Setter y Técnico; se ajusta en Equipo → Roles y permisos), con su botón «Guardar mensajes». Los enlaces llevan el
 `cid` del lead para seguir midiendo lo que hace después.
 
 ### ¿Qué significa "hasta el final" en el directo?

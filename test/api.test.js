@@ -631,6 +631,27 @@ test('roles configurables: permisos por rol, roles nuevos y no borrar roles en u
   assert.equal((await rolesH.POST(req('/api/roles', { method: 'POST', cookie: admin, body: { roles: sinCommunity } }))).status, 400);
   // Restaurar el permiso del setter para el resto de pruebas
   await rolesH.POST(req('/api/roles', { method: 'POST', cookie: admin, body: { roles: r.roles.map(({ id, label, permisos }) => ({ id, label, permisos })) } }));
+  // Mensajes de WhatsApp: la setter los cambia (permiso «mensajes»); Lola no; el resto de la config no se toca
+  const antesCfg = (await (await config.GET(req('/api/config', { cookie: admin }))).json()).config;
+  const pl = await config.POST(req('/api/config', { method: 'POST', cookie: setter, body: { op: 'plantillas', templates: { grabacion: 'Hola {nombre} NUEVO', inventada: 'x' }, launches: {} } }));
+  assert.equal(pl.status, 200);
+  const despues = (await (await config.GET(req('/api/config', { cookie: admin }))).json()).config;
+  assert.equal(despues.templates.grabacion, 'Hola {nombre} NUEVO');
+  assert.equal(despues.templates.raices, antesCfg.templates.raices);
+  assert.equal(despues.templates.inventada, undefined);
+  assert.deepEqual(Object.keys(despues.launches), Object.keys(antesCfg.launches));
+  assert.equal((await config.POST(req('/api/config', { method: 'POST', cookie: lola, body: { op: 'plantillas', templates: { grabacion: 'x' } } }))).status, 403);
+  assert.equal((await config.POST(req('/api/config', { method: 'POST', cookie: setter, body: antesCfg }))).status, 403); // la config completa, no
+});
+
+test('permisos nuevos: los roles guardados antes reciben «mensajes» si hacen setteo', async () => {
+  const { completarPermisosNuevos, sanitizeRoles } = await import('../public/js/roles.js');
+  const viejos = [{ id: 'setter', label: 'Setter', permisos: ['hoy', 'leads'] }, { id: 'cm', label: 'CM', permisos: ['metricas'] }];
+  const r = sanitizeRoles(completarPermisosNuevos(viejos));
+  assert.deepEqual(r[0].permisos, ['hoy', 'leads', 'mensajes']);
+  assert.deepEqual(r[1].permisos, ['metricas']);
+  // Si la admin ya lo vio y lo quitó, no vuelve
+  assert.deepEqual(completarPermisosNuevos([{ ...viejos[0], vistos: ['mensajes'] }])[0].permisos, ['hoy', 'leads']);
 });
 
 test('formularios instantáneos de Meta: el origen sale de la atribución o de los campos configurados', async () => {

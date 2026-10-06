@@ -187,8 +187,8 @@
         <section id="view-hoy" hidden>
           <p class="muted hoy-intro">A quién escribir hoy, por prioridad. Cada lead aparece una sola vez, en su lista más importante.</p>
           <div id="hoy-lists" class="hoy-grid"></div>
-          <details id="wa-plantillas" class="card wa-plantillas config-only">
-            <summary><span class="wa-pl-ico" aria-hidden="true">💬</span><span><strong>Mensajes de WhatsApp</strong><small class="muted">Los textos que se envían con cada botón de WhatsApp. Pulsa para verlos o cambiarlos.</small></span></summary>
+          <details id="wa-plantillas" class="card wa-plantillas">
+            <summary><span class="wa-pl-ico" aria-hidden="true">💬</span><span><strong>Mensajes de WhatsApp</strong><small class="muted" id="wa-pl-sub">Los textos que se envían con cada botón de WhatsApp. Pulsa para verlos.</small></span></summary>
             <div class="wa-pl-body">
           <h4 class="cfg-h3">Mensajes de «Setteo hoy»</h4>
           <p class="muted">Variables: <code>{nombre}</code> <code>{link_grabacion}</code> <code>{link_pagina_venta}</code> (página de venta de Raíces) <code>{link_pago}</code> (pago único) <code>{link_pago_fraccionado}</code> (pago fraccionado) <code>{link_llamada}</code>. Los enlaces se personalizan solos con el ID del lead para seguir midiendo.</p>
@@ -199,7 +199,7 @@
           <p class="muted">Se usan en Llamadas → «Por fase». Además de {nombre} y los enlaces ({link_pago}, {link_pago_fraccionado}, {link_llamada}, {link_pagina_venta}), puedes usar {dia_llamada} y {hora_llamada}.</p>
           <div id="tpl-llamadas"></div>
           <label class="field narrow"><span>Prefijo para móviles sin prefijo</span><input id="cfg-country" inputmode="numeric" value="34"></label>
-              <div class="row wa-pl-save"><span id="wa-pl-status" class="muted" aria-live="polite"></span><span class="spacer"></span><button type="button" class="btn primary" id="wa-pl-guardar">Guardar mensajes</button></div>
+              <div class="row wa-pl-save" id="wa-pl-save"><span id="wa-pl-status" class="muted" aria-live="polite"></span><span class="spacer"></span><button type="button" class="btn primary" id="wa-pl-guardar">Guardar mensajes</button></div>
             </div>
           </details>
         </section>

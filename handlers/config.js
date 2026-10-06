@@ -26,8 +26,18 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    const body = await readBody(request);
+    // Solo los mensajes de WhatsApp (Setteo hoy): basta con el permiso «Editar mensajes de WhatsApp».
+    if (body.op === 'plantillas') {
+      await requireRole(request, { permiso: 'mensajes' });
+      const actual = await getConfig({ fresh: true });
+      const templates = { ...actual.templates };
+      for (const k of Object.keys(templates)) if (typeof body.templates?.[k] === 'string') templates[k] = body.templates[k];
+      const config = await saveConfig({ ...actual, templates, defaultCountryCode: body.defaultCountryCode ?? actual.defaultCountryCode });
+      return json({ templates: config.templates, defaultCountryCode: config.defaultCountryCode });
+    }
     await requireRole(request, { permiso: 'config' });
-    const config = await saveConfig(await readBody(request));
+    const config = await saveConfig(body);
     return json({ config });
   } catch (e) {
     return errorResponse(e);
