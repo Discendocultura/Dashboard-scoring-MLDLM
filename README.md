@@ -39,7 +39,7 @@ Los pesos están en `public/js/scoring.js` (`POINTS` y `ESTADOS`).
 2. **Oferta Raíces**: ha visto ≥50% de la grabación.
 3. **Venta / llamada**: estuvo en el directo hasta el final o vio ≥90% de la grabación.
 
-Los textos se editan en **Configuración → Mensajes de WhatsApp**. Los enlaces llevan el
+Los textos se editan en **Setteo hoy → 💬 Mensajes de WhatsApp** (abajo del todo; solo quien puede cambiar la configuración, con su botón «Guardar mensajes»). Los enlaces llevan el
 `cid` del lead para seguir midiendo lo que hace después.
 
 ### ¿Qué significa "hasta el final" en el directo?
@@ -234,7 +234,7 @@ Pestaña **Llamadas** (admin, técnico y setter), conectada a GHL:
 - Cada llamada muestra la ficha del lead (puntuación, VIP, directo, clases, grabación, encuesta) y se agrupa en *Pendientes de anotar*, *Hoy*, *Próximos días* y *Ya anotadas*.
 - «Anotar resultado» (Venta, Seguimiento, No compra + motivo, No se presentó, Reagendar) mueve la oportunidad de etapa (o la crea), marca la cita como realizada / no presentada / cancelada y deja una nota en la ficha del contacto. «No se presentó» avanza No contesta 1 → 2 → 3.
 - Resultado **💳 Pendiente de pago**: va a la etapa «Pendiente de pago» del pipeline si existe (si no, a «Seguimiento»).
-- Vista **👥 Por fase**: cada persona aparece en la fase de su última llamada (próxima, sin anotar, pendiente de pago, seguimiento, venta, no compra, no show, reagendar, cancelada), con filtros y un botón de **WhatsApp con el mensaje de esa fase** (plantillas editables en Configuración → Mensajes de WhatsApp; admiten {dia_llamada} y {hora_llamada}). Queda registrado cuándo se envió. La fase también se puede filtrar en la pestaña Leads.
+- Vista **👥 Por fase**: cada persona aparece en la fase de su última llamada (próxima, sin anotar, pendiente de pago, seguimiento, venta, no compra, no show, reagendar, cancelada), con filtros y un botón de **WhatsApp con el mensaje de esa fase** (plantillas editables en Setteo hoy → Mensajes de WhatsApp; admiten {dia_llamada} y {hora_llamada}). Queda registrado cuándo se envió. La fase también se puede filtrar en la pestaña Leads.
 - Métricas: reservadas, shows, no shows, canceladas y conversión (número y %), sin anotar y motivos de no compra. El resultado se guarda también en `lsd_llamadas_<código>`.
 - El token de GHL (integración privada) necesita los permisos de calendarios, eventos de calendario y oportunidades (lectura y escritura) y de notas de contactos.
 
@@ -266,7 +266,7 @@ El periodo es desde el inicio de captación hasta el día antes del siguiente la
 cruza las UTM de GHL (`utm_campaign`, `utm_term`, `utm_content` con los ID de Meta) con los nombres y el gasto.
 
 ## Resumen diario por email
-1. Configuración → Mensajes → **Enviar el resumen a**: tu email (tiene que existir como contacto en GHL).
+1. Configuración → Lanzamiento (abajo) → **Enviar el resumen a**: tu email (tiene que existir como contacto en GHL).
    Pulsa **Enviar resumen de prueba**.
 2. El token de GHL necesita además el permiso **`conversations/message.write`**.
 3. Para recibirlo cada mañana: añade en Cloudflare el secreto `DIGEST_KEY` (texto aleatorio largo) y crea una tarea

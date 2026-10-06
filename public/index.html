@@ -187,6 +187,21 @@
         <section id="view-hoy" hidden>
           <p class="muted hoy-intro">A quién escribir hoy, por prioridad. Cada lead aparece una sola vez, en su lista más importante.</p>
           <div id="hoy-lists" class="hoy-grid"></div>
+          <details id="wa-plantillas" class="card wa-plantillas config-only">
+            <summary><span class="wa-pl-ico" aria-hidden="true">💬</span><span><strong>Mensajes de WhatsApp</strong><small class="muted">Los textos que se envían con cada botón de WhatsApp. Pulsa para verlos o cambiarlos.</small></span></summary>
+            <div class="wa-pl-body">
+          <h4 class="cfg-h3">Mensajes de «Setteo hoy»</h4>
+          <p class="muted">Variables: <code>{nombre}</code> <code>{link_grabacion}</code> <code>{link_pagina_venta}</code> (página de venta de Raíces) <code>{link_pago}</code> (pago único) <code>{link_pago_fraccionado}</code> (pago fraccionado) <code>{link_llamada}</code>. Los enlaces se personalizan solos con el ID del lead para seguir midiendo.</p>
+          <label class="field"><span>1 · No ha visto la grabación → enviarle a la grabación</span><textarea id="tpl-grabacion" rows="4"></textarea></label>
+          <label class="field"><span>2 · Ha visto ≥50% de la grabación → oferta Raíces</span><textarea id="tpl-raices" rows="4"></textarea></label>
+          <label class="field"><span>3 · Llegó al final (directo hasta el final o grabación ≥90%) → venta o llamada</span><textarea id="tpl-cierre" rows="4"></textarea></label>
+          <h4 class="cfg-h3">Mensajes según la fase de la llamada de valoración</h4>
+          <p class="muted">Se usan en Llamadas → «Por fase». Además de {nombre} y los enlaces ({link_pago}, {link_pago_fraccionado}, {link_llamada}, {link_pagina_venta}), puedes usar {dia_llamada} y {hora_llamada}.</p>
+          <div id="tpl-llamadas"></div>
+          <label class="field narrow"><span>Prefijo para móviles sin prefijo</span><input id="cfg-country" inputmode="numeric" value="34"></label>
+              <div class="row wa-pl-save"><span id="wa-pl-status" class="muted" aria-live="polite"></span><span class="spacer"></span><button type="button" class="btn primary" id="wa-pl-guardar">Guardar mensajes</button></div>
+            </div>
+          </details>
         </section>
 
         <section id="view-comparar" hidden>
@@ -353,7 +368,6 @@
       <div class="dialog-body">
         <div class="tabs" role="tablist">
           <button type="button" class="tab active" data-tab="launch" data-tab-icon="rocket">Lanzamiento</button>
-          <button type="button" class="tab" data-tab="messages" data-tab-icon="chat">Mensajes de WhatsApp</button>
           <button type="button" class="tab" data-tab="pagina" data-tab-icon="play">Página preclase</button>
           <button type="button" class="tab" data-tab="embudo" data-tab-icon="funnel">Otras páginas del embudo</button>
           <button type="button" class="tab" data-tab="snippets" data-tab-icon="code">Códigos para GHL</button>
@@ -491,17 +505,6 @@
           </section>
           <div id="cfg-snapshot" class="snapshot-box"></div>
           <datalist id="tag-list"></datalist>
-        </section>
-
-        <section class="tab-panel" data-panel="messages" hidden>
-          <p class="muted">Variables: <code>{nombre}</code> <code>{link_grabacion}</code> <code>{link_pagina_venta}</code> (página de venta de Raíces) <code>{link_pago}</code> (pago único) <code>{link_pago_fraccionado}</code> (pago fraccionado) <code>{link_llamada}</code>. Los enlaces se personalizan solos con el ID del lead para seguir midiendo.</p>
-          <label class="field"><span>1 · No ha visto la grabación → enviarle a la grabación</span><textarea id="tpl-grabacion" rows="4"></textarea></label>
-          <label class="field"><span>2 · Ha visto ≥50% de la grabación → oferta Raíces</span><textarea id="tpl-raices" rows="4"></textarea></label>
-          <label class="field"><span>3 · Llegó al final (directo hasta el final o grabación ≥90%) → venta o llamada</span><textarea id="tpl-cierre" rows="4"></textarea></label>
-          <h3 class="cfg-h3">Mensajes según la fase de la llamada de valoración</h3>
-          <p class="muted">Se usan en Llamadas → «Por fase». Además de {nombre} y los enlaces ({link_pago}, {link_pago_fraccionado}, {link_llamada}, {link_pagina_venta}), puedes usar {dia_llamada} y {hora_llamada}.</p>
-          <div id="tpl-llamadas"></div>
-          <label class="field narrow"><span>Prefijo para móviles sin prefijo</span><input id="cfg-country" inputmode="numeric" value="34"></label>
           <h3 class="cfg-h3">Resumen diario por email</h3>
           <p class="muted">Cada mañana: registros, ventas y la lista de muy calientes y VIP sin contactar. El email tiene que existir como contacto en GHL.</p>
           <div class="row">
@@ -509,6 +512,7 @@
             <button type="button" class="btn" id="btn-digest-test">Enviar resumen de prueba</button>
           </div>
         </section>
+
 
         <section class="tab-panel" data-panel="pagina" hidden>
           <p class="muted">La página preclase de GHL lo lee sola: en el próximo lanzamiento solo cambias esto. Los colores siguen la guía de la pestaña Lanzamiento.</p>

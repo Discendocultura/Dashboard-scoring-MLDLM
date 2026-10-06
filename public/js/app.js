@@ -1383,11 +1383,6 @@ function openConfig(code) {
   $('#cfg-digest-email').value = state.config.digestEmail || '';
   fillFormAdsFields();
   renderAccesosEditor(state.config.accesos);
-  $('#tpl-grabacion').value = state.config.templates.grabacion;
-  $('#tpl-raices').value = state.config.templates.raices;
-  $('#tpl-cierre').value = state.config.templates.cierre;
-  $$('#tpl-llamadas [data-tpl]').forEach((t) => { t.value = state.config.templates[t.dataset.tpl] || ''; });
-  $('#cfg-country').value = state.config.defaultCountryCode || '34';
   $('#cfg-status').textContent = '';
   renderSnippets();
   renderSnapshotBox();
@@ -1495,10 +1490,6 @@ const CICLO = [
   { id: 'cfg-unico-tag', c: 'fijo' },
   { id: 'cfg-fraccionado-tag', c: 'fijo' },
   { id: 'cfg-compra-fecha', c: 'fijo' },
-  { id: 'tpl-grabacion', c: 'fijo' },
-  { id: 'tpl-raices', c: 'fijo' },
-  { id: 'tpl-cierre', c: 'fijo' },
-  { id: 'cfg-country', c: 'fijo' },
   { id: 'cfg-digest-email', c: 'fijo' },
 ];
 const CICLO_BADGE = {
@@ -1658,11 +1649,9 @@ $('#cfg-save').addEventListener('click', async () => {
     }
     const next = {
       ...state.config,
-      defaultCountryCode: $('#cfg-country').value,
       digestEmail: $('#cfg-digest-email').value.trim(),
       accesos: readAccesosEditor(),
       formAds: { campaign: $('#cfg-fa-campaign').value, adset: $('#cfg-fa-adset').value, ad: $('#cfg-fa-ad').value },
-      templates: { grabacion: $('#tpl-grabacion').value, raices: $('#tpl-raices').value, cierre: $('#tpl-cierre').value, ...Object.fromEntries($$('#tpl-llamadas [data-tpl]').map((t) => [t.dataset.tpl, t.value])) },
       launches: { ...state.config.launches, [code]: launch },
     };
     status.textContent = 'Guardando…';
@@ -3912,8 +3901,38 @@ $('#llf-list').addEventListener('click', async (e) => {
 });
 $('#f-llamada').addEventListener('change', (e) => { state.filters.llamada = e.target.value; state.page = 0; render(); });
 
-// Plantillas de mensajes por fase en Configuración → Mensajes de WhatsApp.
+// Plantillas de mensajes por fase en Setteo hoy → Mensajes de WhatsApp.
 $('#tpl-llamadas').innerHTML = FASES_LLAMADA.filter((f) => f.plantilla).map((f) => `<label class="field"><span>${f.icon} ${esc(f.label)}</span><textarea id="tpl-${f.plantilla}" data-tpl="${f.plantilla}" rows="3"></textarea></label>`).join('');
+
+// Mensajes de WhatsApp (en «Setteo hoy», para quien puede cambiar la configuración).
+const waBox = $('#wa-plantillas');
+let waSucio = false;
+function pintarPlantillas() {
+  const tp = state.config?.templates || {};
+  $$('#wa-plantillas textarea[id^="tpl-"]').forEach((t) => { t.value = tp[t.dataset.tpl || t.id.slice(4)] || ''; });
+  $('#cfg-country').value = state.config?.defaultCountryCode || '34';
+  waSucio = false;
+}
+waBox.addEventListener('toggle', () => { if (waBox.open && !waSucio) pintarPlantillas(); });
+waBox.addEventListener('input', () => { waSucio = true; $('#wa-pl-status').textContent = 'Cambios sin guardar.'; });
+$('#wa-pl-guardar').addEventListener('click', async () => {
+  const b = $('#wa-pl-guardar');
+  const status = $('#wa-pl-status');
+  b.disabled = true;
+  status.textContent = 'Guardando…';
+  try {
+    const templates = { ...state.config.templates, ...Object.fromEntries($$('#wa-plantillas textarea[id^="tpl-"]').map((t) => [t.dataset.tpl || t.id.slice(4), t.value])) };
+    const next = { ...state.config, templates, defaultCountryCode: $('#cfg-country').value };
+    state.config = (await api('/api/config', { method: 'POST', body: next })).config;
+    pintarPlantillas();
+    render();
+    status.textContent = 'Mensajes guardados ✓';
+  } catch (e) {
+    status.textContent = e.message;
+  } finally {
+    b.disabled = false;
+  }
+});
 
 // Diálogo para anotar el resultado
 const lldlg = $('#llamada-dialog');

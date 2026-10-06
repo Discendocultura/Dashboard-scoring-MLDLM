@@ -1145,3 +1145,15 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 @keyframes notifRing { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-14deg); } 40% { transform: rotate(12deg); } 60% { transform: rotate(-8deg); } 80% { transform: rotate(5deg); } }
 @media (max-width: 640px) { .notif-panel { position: fixed; top: 64px; left: 16px; right: 16px; width: auto; } }
 @media (prefers-reduced-motion: reduce) { .tb-notif.has-new .tb-ico { animation: none; } }
+
+/* Mensajes de WhatsApp (Setteo hoy) */
+.wa-plantillas { margin-top: 18px; padding: 0; }
+.wa-plantillas > summary { list-style: none; cursor: pointer; display: flex; gap: 12px; align-items: center; padding: 14px 16px; }
+.wa-plantillas > summary::-webkit-details-marker { display: none; }
+.wa-plantillas > summary::after { content: '▾'; margin-left: auto; color: var(--text-2); transition: transform .15s; }
+.wa-plantillas[open] > summary::after { transform: rotate(180deg); }
+.wa-plantillas > summary > span:nth-child(2) { display: flex; flex-direction: column; gap: 2px; }
+.wa-pl-ico { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, #25d366 18%, var(--surface)); font-size: 17px; }
+.wa-pl-body { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 16px; border-top: 1px solid var(--border); }
+.wa-pl-body .cfg-h3 { margin: 14px 0 0; }
+.wa-pl-save { align-items: center; position: sticky; bottom: 0; background: var(--surface); padding-top: 8px; }

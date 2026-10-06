@@ -93,7 +93,7 @@ export function metricasLlamadas(llamadas, ahora = Date.now()) {
 }
 
 // ---------- Fase de cada persona (según su última llamada) ----------
-// Cada fase tiene su mensaje de WhatsApp (plantilla editable en Configuración → Mensajes).
+// Cada fase tiene su mensaje de WhatsApp (plantilla editable en Setteo hoy → Mensajes de WhatsApp).
 export const FASES_LLAMADA = [
   { id: 'proxima', label: 'Llamada próxima', icon: '📅', plantilla: 'll_proxima' },
   { id: 'pendiente', label: 'Sin anotar', icon: '⚠️', plantilla: '' },
