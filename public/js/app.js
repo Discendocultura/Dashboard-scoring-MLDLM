@@ -2980,7 +2980,7 @@ function calChip(it, hoy) {
     return `<span class="cal-chip k-tarea ${cls}" title="${esc(t.titulo)} · ${esc(asignadoTexto(t.asignado))}"><span class="cc-ico">${t.hecha ? '✓' : '☐'}</span><span class="cc-txt">${esc(t.titulo)}</span></span>`;
   }
   const other = it.kind === 'hito' && !it.own;
-  const tipo = it.kind === 'evento' ? ` t-${it.ev.tipo}` : '';
+  const tipo = it.kind === 'evento' ? ` t-${it.ev.tipo}` : it.kind === 'hito' && it.hid === 'directo' ? ' h-webinar' : '';
   return `<span class="cal-chip k-${it.kind}${tipo} ${other ? 'other' : ''} ${it.cont ? 'cont' : ''}" title="${esc(it.titulo)}${other ? ` · ${esc(it.launch)}` : ''}"><span class="cc-ico">${it.icon}</span>${it.time ? `<span class="cc-time">${esc(it.time)}</span>` : ''}<span class="cc-txt">${esc(it.titulo)}${other ? ` · ${esc(it.launch)}` : ''}</span></span>`;
 }
 
@@ -3029,12 +3029,13 @@ function renderCalendario() {
     const list = items[d] || [];
     const bands = fases.filter((f) => d >= f.from && d <= f.to);
     const more = list.length - max;
-    // Días con un hito del lanzamiento o un evento: todo el día coloreado para que salten a la vista.
+    // La fase colorea el día entero (una sola: la más importante si se solapan) y los hitos
+    // del lanzamiento lo enmarcan; el del webinar, en rojo.
+    const fase = ['directo', 'carrito', 'clases', 'captacion'].map((id) => bands.find((f) => f.id === id)).find(Boolean);
     const hito = list.find((it) => it.kind === 'hito' && it.own);
-    const evento = list.find((it) => it.kind === 'evento');
-    const marca = hito ? `dia-hito${hito.hid === 'directo' ? ' dia-webinar' : ''}` : evento ? `dia-evento t-${evento.ev.tipo}` : '';
+    const marca = `${fase ? `con-fase tone-${CAL_FASE_COLOR[fase.id]}` : ''} ${hito ? `dia-hito${hito.hid === 'directo' ? ' dia-webinar' : ''}` : ''}`;
     return `<button type="button" class="cal-day ${marca} ${d.slice(0, 7) !== month && cal.modo === 'mes' ? 'out' : ''} ${d === hoy ? 'today' : ''} ${d === cal.sel ? 'sel' : ''} ${d < hoy ? 'past' : ''}" data-day="${d}" aria-label="${esc(fmtDay(d, { weekday: 'long', day: 'numeric', month: 'long' }))}${list.length ? `, ${list.length} elementos` : ''}">
-      <span class="cal-bands">${bands.map((f) => `<i class="tone-${CAL_FASE_COLOR[f.id]}" title="${esc(f.label)}"></i>`).join('')}</span>
+      <span class="cal-bands">${fase ? `<i title="${esc(fase.label)}"></i>` : ''}</span>
       <span class="cal-num">${cal.modo === 'semana' ? `<span class="cal-dow">${DOW[dow(d)]}</span> ` : ''}${Number(d.slice(8))}${cal.modo === 'semana' ? ` <span class="cal-dow">${fmtDay(d, { month: 'short' })}</span>` : ''}</span>
       <span class="cal-chips">${list.slice(0, max).map((it) => calChip(it, hoy)).join('')}${more > 0 ? `<span class="cal-more">+${more} más</span>` : ''}</span>
       ${list.length ? `<span class="cal-dots">${list.slice(0, 5).map((it) => `<i class="d-${it.kind}${it.kind === 'tarea' && vencida(it.t, hoy) ? ' late' : ''}"></i>`).join('')}</span>` : ''}

@@ -332,7 +332,7 @@ Registro → vídeo de venta → compra directa o llamada de valoración. Pesta�
 Pestaña **Calendario** (todos los roles), con vista **mensual** y **semanal**:
 - **Hitos** del lanzamiento sacados de la configuración: inicio y fin de la publi de captación, clase 1, clase 2, webinar en directo, apertura del carrito (vacío = al empezar el directo), grabación y cierre del carrito.
 - **Franjas de fase** de colores: captación, clases previas, webinar en directo y carrito abierto.
-- Los **días con un hito o un evento** se colorean enteros (el del webinar en directo, en rojo; los eventos, con el color de su tipo) para que se vean de un vistazo.
+- Cada **fase colorea el día entero** (tono suave + línea gruesa arriba, del color de la fase; si se solapan, manda la más importante). Los **hitos** enmarcan el día y su etiqueta va en color sólido; el del **webinar en directo**, en rojo.
 - **Tareas** con fecha (las vencidas en rojo) y **eventos propios** (email, RRSS, publicidad, reunión, directo/live; pueden durar varios días). Solo la admin crea o cambia eventos.
 - **Otros lanzamientos**: muestra también sus hitos para ver si se solapan.
 - Pulsa un día para ver el detalle, marcar tareas o (admin) añadir eventos y tareas ese día.

@@ -1220,13 +1220,14 @@ body.embudo-vsl .lanz-only { display: none !important; }
 }
 .vsl-rango [hidden], #vl-mas[hidden] { display: none !important; }
 
-/* Calendario: días con hito o evento, coloreados enteros */
-.cal-day.dia-hito { background: color-mix(in srgb, var(--accent) 13%, var(--surface)); box-shadow: inset 4px 0 0 var(--accent); }
-.cal-day.dia-hito.dia-webinar { background: color-mix(in srgb, #d93025 16%, var(--surface)); box-shadow: inset 4px 0 0 #d93025; }
-.cal-day.dia-evento { background: color-mix(in srgb, var(--tone-info) 11%, var(--surface)); box-shadow: inset 4px 0 0 var(--tone-info); }
-.cal-day.dia-evento.t-rrss { background: color-mix(in srgb, var(--tone-live) 11%, var(--surface)); box-shadow: inset 4px 0 0 var(--tone-live); }
-.cal-day.dia-evento.t-publi { background: color-mix(in srgb, var(--tone-vip) 13%, var(--surface)); box-shadow: inset 4px 0 0 var(--tone-vip); }
-.cal-day.dia-evento.t-reunion { background: color-mix(in srgb, var(--tone-money) 12%, var(--surface)); box-shadow: inset 4px 0 0 var(--tone-money); }
-.cal-day.dia-hito:hover, .cal-day.dia-evento:hover { filter: brightness(.97); }
-.cal-day.dia-hito.sel, .cal-day.dia-evento.sel { box-shadow: inset 0 0 0 2px var(--accent); }
-.cal-day.out.dia-hito, .cal-day.out.dia-evento { opacity: .75; }
+/* Calendario: la fase colorea el día entero; los hitos lo enmarcan y su etiqueta va en color sólido */
+.cal-day.con-fase { background: color-mix(in srgb, var(--tone) 14%, var(--surface)); }
+.cal-day.con-fase:hover { background: color-mix(in srgb, var(--tone) 22%, var(--surface)); }
+.cal-day.con-fase .cal-bands i { height: 6px; background: var(--tone); opacity: 1; }
+.cal-day.out.con-fase { background: color-mix(in srgb, var(--tone) 7%, var(--surface-2)); }
+.cal-day.dia-hito { box-shadow: inset 0 0 0 3px var(--accent); }
+.cal-day.dia-hito.dia-webinar { box-shadow: inset 0 0 0 3px #d93025; }
+.cal-day.dia-hito.sel { box-shadow: inset 0 0 0 3px var(--accent), inset 0 0 0 5px var(--surface); }
+.cal-chip.k-hito:not(.other) { background: var(--accent); color: var(--accent-ink); font-weight: 800; }
+.cal-chip.k-hito.h-webinar:not(.other) { background: #d93025; color: #fff; }
+.cal-chip.k-hito:not(.other) .cc-time { color: inherit; opacity: .9; }
