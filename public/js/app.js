@@ -3245,16 +3245,17 @@ function llamadaCard(c) {
     lead.s.encuesta ? '<span class="ll-chip">📋 Encuesta</span>' : '',
     lead.s.compra ? '<span class="ll-chip buy">✅ Ya compró Raíces</span>' : '',
   ].filter(Boolean).join('') : '<span class="ll-chip muted">No está entre los registros de este lanzamiento</span>';
-  const phone = lead?.phone || '';
-  const wa = lead?.phoneWa;
+  const k = contactoDe(c);
+  const phone = k.phone;
+  const wa = k.phoneWa;
   return `<article class="ll-card ${pasada && !r && !llCancelada(c) ? 'pendiente' : ''} ${r ? `res-${r.id}` : ''} ${llCancelada(c) ? 'cancelada' : ''}">
     <div class="ll-when"><span class="ll-dia">${esc(cuando)}</span><span class="ll-hora">${esc(hora)}</span></div>
     <div class="ll-main">
       <div class="ll-name">${esc(lead?.name || c.title || 'Sin nombre')}
         ${etapa ? `<span class="ll-etapa" style="--c:${esc(etapa.color || '#8a817b')}" title="Etapa en el pipeline de GHL">${esc(etapa.name)}</span>` : '<span class="ll-etapa none" title="Aún no está en el pipeline: se añadirá al anotar el resultado">Sin etapa</span>'}
         ${llCancelada(c) ? '<span class="ll-etapa none">Cita cancelada</span>' : ''}</div>
-      <div class="ll-contact">${phone ? `<a href="tel:${esc(phone)}">${icon('phone')}${esc(phone)}</a>` : ''}${wa ? `<a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${lead?.email ? `<span class="muted">${esc(lead.email)}</span>` : ''}</div>
-      <div class="ll-chips">${chips}</div>
+      <div class="ll-contact">${phone ? `<a href="tel:${esc(phone)}">${icon('phone')}${esc(phone)}</a>` : ''}${wa ? `<a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}${phone ? '' : '<span class="muted">Sin teléfono</span>'}</div>
+      <div class="ll-chips">${origenChip(c)}${chips}</div>
       ${r ? `<div class="ll-res">${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span>${c.resultado.notas ? `<div class="ll-notas">${esc(c.resultado.notas)}</div>` : ''}</div>` : ''}
     </div>
     <div class="ll-actions">${llCancelada(c) ? '' : `<button type="button" class="btn ${pasada && !r ? 'primary' : ''}" data-ll="${esc(c.id)}">${r ? 'Cambiar resultado' : 'Anotar resultado'}</button>`}</div>
@@ -3317,10 +3318,11 @@ function llcChip(c) {
   const hora = new Date(c.startTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
   const r = c.resultado?.resultado;
   const cls = llCancelada(c) ? 'cancel' : r ? `res-${r}` : llStart(c) < ahora ? 'pend' : 'prox';
-  const nombre = leadDe(c.contactId)?.name || c.title || 'Sin nombre';
+  const k = contactoDe(c);
+  const o = origenLlamada(c);
   const res = r ? RESULTADOS.find((x) => x.id === r) : null;
-  return `<button type="button" class="llc-chip ${cls}" ${llCancelada(c) ? 'disabled' : `data-ll="${esc(c.id)}"`} title="${esc(`${hora} · ${nombre}${res ? ` · ${res.label}` : ''}`)}">
-    <span class="llc-hora">${esc(hora)}</span><span class="llc-nombre">${res ? `${res.icon} ` : ''}${esc(nombre)}</span></button>`;
+  return `<button type="button" class="llc-chip ${cls}" ${llCancelada(c) ? 'disabled' : `data-ll="${esc(c.id)}"`} title="${esc(`${hora} · ${k.nombre}${k.phone ? ` · ${k.phone}` : ''} · ${o.label.replace(/^\S+ /, '')}${res ? ` · ${res.label}` : ''}`)}">
+    <span class="llc-hora">${esc(hora)}</span><span class="llc-nombre">${res ? `${res.icon} ` : ''}${esc(k.nombre)}${llc.modo === 'semana' ? `<small class="llc-extra">${o.tipo === 'publi' ? '📣' : o.tipo === 'organico' ? '🌱' : ''} ${esc(k.phone)}</small>` : ''}</span></button>`;
 }
 function renderLlCal() {
   const L = state.llamadas;
@@ -3418,6 +3420,31 @@ function faseChip(contactId) {
   return `<span class="fase-chip fase-${f.fase}" title="Fase de la llamada de valoración">${i.icon} ${esc(i.label)}</span>`;
 }
 
+// Origen de quien reserva: etiqueta de publi/orgánico del lanzamiento (como en Métricas) o, si no
+// la tiene, sus UTM (utm_medium «paid» o anuncio de Meta = publi). Devuelve { tipo, label, detalle }.
+function origenLlamada(c) {
+  const lead = leadDe(c.contactId);
+  const launch = state.config.launches[state.launchCode] || {};
+  const tags = (lead?.tags || c.opp?.tags || c.contacto?.tags || []).map((t) => String(t).toLowerCase());
+  const src = lead?.src || c.opp?.src || c.contacto?.src || {};
+  let tipo = lead?.s.origen || '';
+  if (!tipo && launch.publiTag && tags.includes(launch.publiTag)) tipo = 'publi';
+  if (!tipo && launch.organicoTag && tags.includes(launch.organicoTag)) tipo = 'organico';
+  if (!tipo && (/^(paid|cpc|ppc|ads?)$/i.test(src.medium || '') || src.content || /^(fb|ig|facebook|instagram)$/i.test(src.source || '') && src.campaign)) tipo = 'publi';
+  if (!tipo && (src.source || tags.length)) tipo = 'organico';
+  const names = state.meta?.names || {};
+  const anuncio = tipo === 'publi' ? names[src.content] || names[src.campaign] || '' : '';
+  return {
+    tipo,
+    label: tipo === 'publi' ? '📣 Publi' : tipo === 'organico' ? '🌱 Orgánico' : '❔ Origen sin datos',
+    detalle: anuncio,
+  };
+}
+const origenChip = (c) => {
+  const o = origenLlamada(c);
+  return `<span class="ll-chip origen-${o.tipo || 'nd'}" title="${esc(o.detalle ? `Anuncio: ${o.detalle}` : o.tipo === 'publi' ? 'Vino por publicidad' : o.tipo === 'organico' ? 'Vino por orgánico' : 'Sin etiqueta de publi/orgánico ni UTM')}">${o.label}${o.detalle ? ` · ${esc(o.detalle)}` : ''}</span>`;
+};
+
 // Datos de contacto: el lead del lanzamiento o, si no está, lo que devuelve GHL.
 function contactoDe(c) {
   const lead = leadDe(c.contactId);
@@ -3481,7 +3508,7 @@ function renderFases() {
         <div class="llf-name">${esc(k.nombre)} <span class="fase-chip fase-${fase}">${info.icon} ${esc(info.label)}</span></div>
         <div class="llf-meta">${fase === 'proxima' ? 'Llamada' : 'Última llamada'}: ${esc(fecha)}${r?.motivo ? ` · Motivo: ${esc(r.motivo)}` : ''}${k.phone ? ` · ${esc(k.phone)}` : ''}</div>
         ${r?.notas ? `<div class="llf-notas">${esc(r.notas)}</div>` : ''}
-        ${k.lead ? `<div class="ll-chips">${k.lead.s.vip ? '<span class="ll-chip vip">⭐ VIP</span>' : ''}<span class="ll-chip st-${k.lead.estado.id}">${esc(k.lead.estado.label)} · ${k.lead.score} pts</span>${k.lead.s.compra ? '<span class="ll-chip buy">✅ Compró Raíces</span>' : ''}</div>` : ''}
+        <div class="ll-chips">${origenChip(c)}${k.lead ? `${k.lead.s.vip ? '<span class="ll-chip vip">⭐ VIP</span>' : ''}<span class="ll-chip st-${k.lead.estado.id}">${esc(k.lead.estado.label)} · ${k.lead.score} pts</span>${k.lead.s.compra ? '<span class="ll-chip buy">✅ Compró Raíces</span>' : ''}` : ''}</div>
       </div>
       <div class="llf-actions">
         ${waOk ? `<button type="button" class="btn wa ${wa && wa.fase === fase ? 'sent' : ''}" data-llwa="${esc(contactId)}" title="${esc(msg)}">WhatsApp · ${esc(info.label)}</button>` : info.plantilla ? '<span class="muted">Sin teléfono</span>' : ''}
@@ -3542,7 +3569,8 @@ function openLlamada(id) {
   llActual = c;
   const lead = leadDe(c.contactId);
   $('#ll-titulo').textContent = lead?.name || c.title || 'Llamada';
-  $('#ll-sub').textContent = new Date(c.startTime).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  const kk = contactoDe(c);
+  $('#ll-sub').innerHTML = `${esc(new Date(c.startTime).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }))}${kk.phone ? ` · <a href="tel:${esc(kk.phone)}">${esc(kk.phone)}</a>` : ''} ${origenChip(c)}`;
   const actual = c.resultado?.resultado || (llStart(c) > Date.now() ? '' : 'venta');
   $('#ll-resultados').innerHTML = RESULTADOS.map((r) => `<label class="ll-opt ll-${r.id}"><input type="radio" name="ll-res" value="${r.id}" ${r.id === actual ? 'checked' : ''}><span>${r.icon} ${esc(r.label)}</span></label>`).join('');
   $('#ll-motivo').value = c.resultado?.motivo && MOTIVOS.includes(c.resultado.motivo) ? c.resultado.motivo : MOTIVOS[0];

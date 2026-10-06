@@ -1046,3 +1046,12 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .llc-chip.res-pendiente_pago { --c: #c27c00; }
 #f-llamada[hidden] { display: none !important; }
 @media (max-width: 640px) { .llf-row { flex-direction: column; } .llf-actions { width: 100%; align-items: stretch; } }
+.ll-chip.origen-publi { background: color-mix(in srgb, var(--tone-info) 14%, var(--surface)); color: var(--tone-info); }
+.ll-chip.origen-organico { background: color-mix(in srgb, var(--tone-buy) 13%, var(--surface)); color: var(--tone-buy); }
+.ll-chip.origen-nd { font-weight: 500; }
+.llc.cal-semana .llc-chip { align-items: flex-start; }
+.llc.cal-semana .llc-nombre { white-space: normal; display: flex; flex-direction: column; }
+.llc-extra { font-size: 11px; color: var(--text-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ll-sub .ll-chip { margin-left: 4px; }
+.llc-extra { align-self: flex-start; text-align: left; }
+.llc.cal-semana .llc-nombre { align-items: flex-start; text-align: left; }
