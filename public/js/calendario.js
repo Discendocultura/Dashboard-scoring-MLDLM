@@ -24,11 +24,11 @@ export function hitosLanzamiento(launch = {}) {
   const list = [
     { id: 'captacion', titulo: 'Empieza la publi de captación', icon: '📣', at: launch.inicioCaptacion },
     { id: 'fin-captacion', titulo: 'Termina la publi de captación', icon: '🛑', at: launch.finCaptacion },
-    { id: 'clase1', titulo: 'Se libera la clase 1', icon: '🎬', at: launch.clase1At },
-    { id: 'clase2', titulo: 'Se libera la clase 2', icon: '🎬', at: launch.clase2At },
+    { id: 'clase1', titulo: 'Clase 1 disponible', icon: '🎬', at: launch.clase1At },
+    { id: 'clase2', titulo: 'Clase 2 disponible', icon: '🎬', at: launch.clase2At },
     { id: 'directo', titulo: 'Webinar en directo', icon: '🔴', at: directoDT, minutos: 180 },
     { id: 'carrito', titulo: 'Abre el carrito de Raíces', icon: '🛒', at: apertura },
-    { id: 'replay', titulo: 'Se libera la grabación', icon: '📼', at: replay },
+    { id: 'replay', titulo: 'Grabación disponible', icon: '📼', at: replay },
     { id: 'cierre', titulo: 'Cierre del carrito', icon: '🔒', at: launch.cierreCarrito },
   ];
   return list.filter((h) => /^\d{4}-\d{2}-\d{2}/.test(h.at || '')).map((h) => ({ ...h, day: day(h.at), time: time(h.at) }));

@@ -482,7 +482,7 @@ test('calendario: hitos, eventos propios y enlace de suscripción .ics', async (
   assert.match(ics, /BEGIN:VCALENDAR/);
   assert.ok(ics.includes('SUMMARY:✉️ Email recordatorio\\; clase 1'));
   assert.match(ics, /DTSTART:20261025T090000Z/); // 10:00 en Madrid (ese día ya es horario de invierno)
-  assert.match(ics, /Se libera la clase 1/);
+  assert.match(ics, /Clase 1 disponible/);
   assert.equal((await cal.GET(req('/api/cal?t=cal:admin.firmafalsa'))).status, 403);
 });
 
