@@ -1360,7 +1360,7 @@ const CICLO = [
   { id: 'cfg-precio-programa', c: 'revisar', label: 'Precio Raíces · único' },
   { id: 'cfg-precio-fraccionado', c: 'revisar', label: 'Precio Raíces · fraccionado', opcional: true },
   { id: 'cfg-login-url', c: 'revisar', label: 'Página de login' },
-  { id: 'cfg-recursos-url', c: 'revisar', label: 'Página de recursos' },
+  { id: 'cfg-recursos-url', c: 'revisar', label: 'Página preclase' },
   { id: 'cfg-clase1-url', c: 'revisar', label: 'Clase 1 · vídeo' },
   { id: 'cfg-clase2-url', c: 'revisar', label: 'Clase 2 · vídeo' },
   { id: 'cfg-replay-at', c: 'revisar', label: 'Grabación · desbloqueo', opcional: true },
@@ -1720,7 +1720,7 @@ const ACCESO_TIPOS = {
 const ACCESOS_SUGERIDOS = [
   ['workflow', 'Workflow · formulario de registro'], ['workflow', 'Workflow · encuesta rellenada'], ['workflow', 'Workflow · compra'],
   ['workflow', 'Workflow · bonus'], ['workflow', 'Workflow · llamada agendada'], ['encuesta', 'Encuesta del avatar'],
-  ['formulario', 'Formulario de registro'], ['pagina', 'Página de recursos (editor)'],
+  ['formulario', 'Formulario de registro'], ['pagina', 'Página preclase (editor)'],
 ];
 // Para accesos guardados antes de que hubiera tipo: se deduce del nombre.
 const guessTipo = (nombre) => (/workflow/i.test(nombre) ? 'workflow' : /encuesta/i.test(nombre) ? 'encuesta' : /formulario/i.test(nombre) ? 'formulario'
@@ -1845,13 +1845,13 @@ function renderPhaseNow(l) {
   const label = PHASES.find((x) => x.id === p.id)?.label || p.id;
   const bar = barFor(l, p.id);
   box.innerHTML = `<p><strong>Ahora mismo la página está en la fase:</strong> ${esc(label)}${p.changesAt ? ` · cambia el ${esc(formatLong(p.changesAt))}` : ''}</p>
-    <p class="muted">Barra: «${esc(bar.text.replace('{cuenta}', '⏳'))}»${p.id === 'en_directo' ? ' · la página de recursos redirige al directo' : (p.id === 'replay' || p.id === 'cerrado') ? ' · la página de recursos redirige a la grabación' : ''}</p>`;
+    <p class="muted">Barra: «${esc(bar.text.replace('{cuenta}', '⏳'))}»${p.id === 'en_directo' ? ' · la página preclase redirige al directo' : (p.id === 'replay' || p.id === 'cerrado') ? ' · la página preclase redirige a la grabación' : ''}</p>`;
 }
 
 $('#btn-preview').addEventListener('click', async () => {
   const l = editingCode && state.config.launches[editingCode];
   const at = $('#cfg-preview-at').value;
-  if (!l?.recursosUrl) return window.alert('Guarda primero la URL de la página de recursos.');
+  if (!l?.recursosUrl) return window.alert('Guarda primero la URL de la página preclase.');
   if (!at) return window.alert('Elige la fecha y hora que quieres simular.');
   try {
     const { token } = await api('/api/page', { method: 'POST', body: { at } });

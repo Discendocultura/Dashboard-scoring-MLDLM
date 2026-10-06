@@ -214,7 +214,7 @@
         <div class="tabs" role="tablist">
           <button type="button" class="tab active" data-tab="launch">Lanzamiento</button>
           <button type="button" class="tab" data-tab="messages">Mensajes de WhatsApp</button>
-          <button type="button" class="tab" data-tab="pagina">Página de recursos</button>
+          <button type="button" class="tab" data-tab="pagina">Página preclase</button>
           <button type="button" class="tab" data-tab="snippets">Códigos para GHL</button>
           <button type="button" class="tab" data-tab="accesos">Recursos lanzamiento</button>
         </div>
@@ -244,7 +244,7 @@
                 <li><strong>WhatsApp:</strong> crea el grupo nuevo y copia su enlace de invitación.</li>
                 <li><strong>Zoom:</strong> crea la reunión del directo (con registro activado) y copia su ID.</li>
                 <li><strong>GHL · Emails y WhatsApp automáticos:</strong> revisa que no lleven fechas, enlaces de grupo ni de encuesta del lanzamiento anterior.</li>
-                <li><strong>Vimeo:</strong> después del directo, sube la grabación y pega su enlace en «Página de recursos».</li>
+                <li><strong>Vimeo:</strong> después del directo, sube la grabación y pega su enlace en «Página preclase».</li>
                 <li><strong>Etiquetas de VIP, compra y llamada agendada:</strong> no se cambian. Al guardar un lanzamiento nuevo se hace la «foto» de quién ya las tenía (abajo del todo).</li>
               </ol>
             </details>
@@ -288,7 +288,7 @@
             </div>
           </section>
           <section class="cfg-sec" data-sec="3">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">3</span><div><h3>Fechas del lanzamiento</h3><p>En hora de España. Las fechas de las clases y del cierre del carrito están en «Página de recursos».</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">3</span><div><h3>Fechas del lanzamiento</h3><p>En hora de España. Las fechas de las clases y del cierre del carrito están en «Página preclase».</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Inicio de captación <small>(día en que se abren los registros)</small></span>
               <input id="cfg-inicio" type="date"></label>
@@ -354,17 +354,17 @@
         </section>
 
         <section class="tab-panel" data-panel="pagina" hidden>
-          <p class="muted">La página de recursos de GHL lo lee sola: en el próximo lanzamiento solo cambias esto. Los colores siguen la guía de la pestaña Lanzamiento.</p>
+          <p class="muted">La página preclase de GHL lo lee sola: en el próximo lanzamiento solo cambias esto. Los colores siguen la guía de la pestaña Lanzamiento.</p>
           <div class="guia" role="note">
-            <strong>Checklist de la página de recursos</strong>
+            <strong>Checklist de la página preclase</strong>
             <div id="guia-check-pagina" class="guia-check"></div>
           </div>
           <div id="page-phase-now" class="snapshot-box"></div>
           <section class="cfg-sec" data-sec="1">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">1</span><div><h3>Páginas de GHL</h3><p>Dónde están el login y la página de recursos.</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">1</span><div><h3>Páginas de GHL</h3><p>Dónde están el login y la página preclase.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>URL de la página de login</span><input id="cfg-login-url" type="url" placeholder="https://lp.saraguzman.com/…"></label>
-              <label class="field"><span>URL de la página de recursos</span><input id="cfg-recursos-url" type="url"></label>
+              <label class="field"><span>URL de la página preclase</span><input id="cfg-recursos-url" type="url"></label>
             </div>
           </section>
           <section class="cfg-sec" data-sec="2">
@@ -379,7 +379,7 @@
           <section class="cfg-sec" data-sec="3">
             <header class="cfg-sec-head"><span class="cfg-sec-num">3</span><div><h3>Etapa 1 · Encuesta</h3><p>Si hay etiqueta de encuesta (pestaña Lanzamiento), las clases 1 y 2 solo se ven al rellenarla; mientras, se muestra este botón.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
-              <label class="field"><span>Enlace de la encuesta <small>(botón de la página de recursos; se rellena solo con el email y el nombre)</small></span>
+              <label class="field"><span>Enlace de la encuesta <small>(botón de la página preclase; se rellena solo con el email y el nombre)</small></span>
               <input id="cfg-encuesta-url" type="url" placeholder="https://…/survey/…"></label>
             </div>
           </section>
@@ -432,10 +432,10 @@
           </section>
           <h3 class="cfg-h3">Vista previa</h3>
           <div class="row">
-            <label class="field"><span>Ver la página de recursos como si fuera…</span><input id="cfg-preview-at" type="datetime-local"></label>
+            <label class="field"><span>Ver la página preclase como si fuera…</span><input id="cfg-preview-at" type="datetime-local"></label>
             <button type="button" class="btn" id="btn-preview">Abrir vista previa</button>
           </div>
-          <p class="muted">Abre tu página de recursos simulando esa fecha (solo cambia lo que ves tú; para las leads sigue siendo hoy). Guarda antes los cambios.</p>
+          <p class="muted">Abre tu página preclase simulando esa fecha (solo cambia lo que ves tú; para las leads sigue siendo hoy). Guarda antes los cambios.</p>
         </section>
 
         <section class="tab-panel" data-panel="accesos" hidden>
