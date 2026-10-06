@@ -163,7 +163,7 @@
       showTurnstile(siteKey);
       signup = true;
       title.innerHTML = known
-        ? '<strong>Todavía no estás registrada en este webinar.</strong> Completa tus datos para registrarte y acceder.'
+        ? '<strong>Todavía no estás registrada en este evento.</strong> Completa tus datos para registrarte y acceder.'
         : '<strong>No encontramos tu registro.</strong> Completa tus datos para registrarte y acceder.';
       f('name').hidden = false; f('name').required = true;
       f('phone').hidden = false; f('phone').required = true;
