@@ -130,6 +130,8 @@ test('acceso: registrada, existente sin etiqueta y email nuevo', async () => {
   const call = async (body) => (await POST(req('/api/access', { method: 'POST', body: { launch: 'demo', ...body } }))).json();
   const reg = await getContact('mock00011');
   assert.deepEqual(await call({ email: reg.email }), { ok: true, status: 'registered', cid: reg.id });
+  // `auto` = el lanzamiento en curso (si la página no pudo averiguar el código)
+  assert.equal((await call({ email: reg.email, launch: 'auto' })).ok, true);
   // existe en GHL (otro embudo) pero no en este lanzamiento → tiene que registrarse
   const otra = await upsertContact({ email: 'vsl@example.com', firstName: 'Vera' });
   assert.deepEqual(await call({ email: 'vsl@example.com' }), { ok: false, needs: 'signup', known: true, siteKey: '' });
@@ -144,7 +146,9 @@ test('acceso: registrada, existente sin etiqueta y email nuevo', async () => {
   assert.equal(nueva.phone, '+34600112233');
   assert.ok(nueva.tags.includes('registro-webinar-demo'));
   // bots (campo trampa) no crean nada
-  assert.deepEqual(await call({ email: 'bot@example.com', name: 'Bot', phone: '600000000', website: 'x' }), { ok: false });
+  assert.deepEqual(await call({ email: 'bot@example.com', name: 'Bot', phone: '600000000', hp: 'x' }), { ok: false, error: 'bot' });
+  // El campo antiguo `website` (lo rellenaban algunos autorrellenos) ya no deja fuera a nadie.
+  assert.equal((await call({ email: 'nueva-autofill@example.com', website: 'https://x.com' })).needs, 'signup');
   assert.equal(await findContactByEmail('bot@example.com'), null);
 });
 

@@ -2,6 +2,7 @@
 // Respuesta: { ok: true } si puede ver las clases, o { ok: false, needs: 'signup' } si no tiene la
 // etiqueta de registro del lanzamiento y hay que pedirle nombre y móvil para registrarla.
 import { getConfig } from '../lib/config-store.js';
+import { currentLaunch } from '../lib/digest.js';
 import { ensureRegistered } from '../lib/access.js';
 import { turnstileSiteKey, verifyTurnstile } from '../lib/turnstile.js';
 import { json, readBody, errorResponse, isEmail, CORS_HEADERS } from '../lib/http.js';
@@ -12,10 +13,13 @@ export function OPTIONS() {
 
 export async function POST(request) {
   try {
-    const { email, launch: code, name, phone, website, turnstile } = await readBody(request);
-    if (website) return json({ ok: false }, 200, CORS_HEADERS); // campo trampa para bots
+    const { email, launch: asked, name, phone, hp, turnstile } = await readBody(request);
+    // Campo trampa para bots. Antes se llamaba `website` y algunos autorrellenos lo rellenaban
+    // dejando fuera a leads de verdad: ese nombre ya no se mira.
+    if (hp) return json({ ok: false, error: 'bot' }, 200, CORS_HEADERS);
     if (!isEmail(email)) return json({ ok: false, error: 'email' }, 200, CORS_HEADERS);
     const config = await getConfig();
+    const code = !asked || asked === 'auto' ? currentLaunch(config) : asked;
     const launch = config.launches[code];
     if (!launch?.registroTag) return json({ ok: false, error: 'launch' }, 404, CORS_HEADERS);
     // Solo se pide la verificación anti-bots al registrar (cuando llegan nombre y móvil).

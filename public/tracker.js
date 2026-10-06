@@ -123,7 +123,8 @@
       '<input name="email" type="email" required placeholder="tu@email.com" autocomplete="email">' +
       '<input name="name" type="text" placeholder="Tu nombre" autocomplete="name" hidden>' +
       '<input name="phone" type="tel" placeholder="Tu móvil (WhatsApp)" autocomplete="tel" hidden>' +
-      '<input name="website" type="text" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">' +
+      // Campo trampa para bots: nombre raro para que ningún autorrelleno ni gestor de contraseñas lo rellene.
+      '<input name="lsd_hp_zq" type="text" tabindex="-1" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true" data-form-type="other" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">' +
       '<button type="submit">' + (opts.button || 'Acceder') + '</button></form>' +
       '<p class="lsd-err" hidden></p>';
     container.appendChild(box);
@@ -176,7 +177,7 @@
       var email = f('email').value.trim().toLowerCase();
       btn.disabled = true;
       err.hidden = true;
-      var payload = { email: email, launch: launch, website: f('website').value };
+      var payload = { email: email, launch: launch, hp: f('lsd_hp_zq').value };
       if (signup) { payload.name = f('name').value.trim(); payload.phone = f('phone').value.trim(); payload.turnstile = turnstileToken; }
       post('/api/access', payload).then(function (r) {
         btn.disabled = false;
@@ -194,7 +195,12 @@
           }
           return showSignup(r.known, r.siteKey);
         }
-        err.textContent = 'No hemos podido comprobar ese email. Revísalo e inténtalo de nuevo.';
+        // Mensaje según el motivo (y el código, para poder ver qué ha pasado).
+        var code = (r && r.error) || 'sin-respuesta';
+        if (window.console) console.warn('[lsd] acceso no completado:', r);
+        err.textContent = code === 'email' ? 'Ese email no parece válido. Revísalo e inténtalo de nuevo.'
+          : code === 'launch' ? 'Ahora mismo no hay ningún lanzamiento abierto. Inténtalo más tarde.'
+            : 'No hemos podido comprobar tu email ahora mismo. Inténtalo de nuevo en unos minutos. (' + code + ')';
         err.hidden = false;
       }).catch(function () {
         // Si nuestro servidor no responde, no bloqueamos el acceso a las clases.
