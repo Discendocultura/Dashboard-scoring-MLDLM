@@ -1,0 +1,290 @@
+<!-- BLOQUE · ETAPA 3: EL DIRECTO · Página preclase · Me lo dijo la matrona
+     Va justo después de la Etapa 2 y antes de la entrada VIP.
+     Cambia solo según la fase (lo hace tracker.js):
+       - Antes del directo: cuenta atrás, checklist para prepararse y botón de calendario.
+       - Durante el directo: botón grande para entrar (entra a Zoom con sus datos).
+       - Después: botón a la grabación y cuenta atrás hasta que se retira.
+     Fecha y hora del directo, enlaces y textos salen del dashboard. Textos editables en
+     Configuración → Página preclase → Textos de la página: etapa3-titulo, etapa3-subtitulo y
+     etapa3-final (el aviso «quédate hasta el final»: si está vacío no se muestra). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
+<style>
+.mldlm-paso3{
+  --mldlm-burdeos:#860d0e; --mldlm-boton:#c49b79; --mldlm-pastel:#f0e4da; --mldlm-crema:#fbf6f1;
+  --mldlm-texto:#3a2a24; --mldlm-linea:#e2d3c5; --mldlm-marron:#4a2c20; --mldlm-suave:#6b5448;
+  background:var(--mldlm-pastel); font-family:'Lato',sans-serif; color:var(--mldlm-texto);
+  padding:0 16px 8px; box-sizing:border-box; width:100%; margin:0; overflow:hidden;
+}
+.mldlm-paso3 *,.mldlm-paso3 *::before,.mldlm-paso3 *::after{box-sizing:border-box;}
+.mldlm-paso3 .e3-inner{max-width:980px; margin:0 auto;}
+.mldlm-paso3 .e3-estrecho{max-width:760px; margin-left:auto; margin-right:auto;}
+
+/* ===== Llegada del camino y mojón 3 ===== */
+.mldlm-paso3 .e3-sendero{display:block; width:120px; height:80px; margin:0 auto;}
+.mldlm-paso3 .e3-trazo{stroke-dasharray:2 12; animation:mldlmE3Marcha 1s linear infinite;}
+@keyframes mldlmE3Marcha{to{stroke-dashoffset:-14;}}
+.mldlm-paso3 .e3-mojon{display:block; width:62px; margin:-6px auto 18px; filter:drop-shadow(0 6px 10px rgba(74,44,32,.22)); animation:mldlmE3Mojon 3.2s ease-in-out infinite;}
+.mldlm-paso3 .e3-mojon svg{display:block; width:100%; height:auto;}
+@keyframes mldlmE3Mojon{0%,100%{transform:translateY(0);} 50%{transform:translateY(-5px);}}
+
+/* ===== Cabecera ===== */
+.mldlm-paso3 .e3-cab{text-align:center; margin:0 auto 26px; max-width:640px;}
+.mldlm-paso3 .e3-etiqueta{display:flex; width:fit-content; align-items:center; gap:8px; margin:0 auto 12px; font-size:15px; font-weight:900; letter-spacing:.03em; line-height:1.3; color:var(--mldlm-burdeos);}
+.mldlm-paso3 .e3-etiqueta svg{width:18px; height:18px;}
+.mldlm-paso3 .e3-titulo{margin:0 0 12px; font-size:28px; font-weight:900; line-height:1.2; letter-spacing:-.01em; color:var(--mldlm-marron);}
+.mldlm-paso3 .e3-sub{margin:0 0 18px; font-size:17px; line-height:1.6; color:var(--mldlm-texto);}
+.mldlm-paso3 .e3-cita{display:inline-flex; align-items:center; gap:10px; padding:9px 18px 9px 10px; border-radius:999px; background:#ffffff; border:1px solid var(--mldlm-linea); box-shadow:0 6px 18px rgba(134,13,14,.08); font-size:15px; line-height:1.3;}
+.mldlm-paso3 .e3-cita i{display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; background:var(--mldlm-burdeos); color:#ffffff; font-style:normal;}
+.mldlm-paso3 .e3-cita i svg{width:17px; height:17px;}
+.mldlm-paso3 .e3-cita strong{font-weight:900; color:var(--mldlm-burdeos);}
+
+/* ===== Tarjeta según la fase ===== */
+.mldlm-paso3 .e3-fase{position:relative; background:#ffffff; border:1px solid var(--mldlm-linea); border-radius:20px; padding:26px 18px 24px; box-shadow:0 14px 40px rgba(134,13,14,.10); margin:0 auto 44px; text-align:center;}
+.mldlm-paso3 .e3-fase-tit{margin:0 0 16px; font-size:17px; font-weight:900; color:var(--mldlm-marron); display:inline-flex; align-items:center; gap:10px;}
+.mldlm-paso3 .e3-punto{position:relative; width:10px; height:10px; border-radius:50%; background:var(--mldlm-burdeos); flex:none;}
+.mldlm-paso3 .e3-punto::after{content:""; position:absolute; inset:0; border-radius:50%; background:var(--mldlm-burdeos); animation:mldlmE3Pulso 1.6s ease-out infinite;}
+@keyframes mldlmE3Pulso{0%{transform:scale(1); opacity:.6;} 100%{transform:scale(3); opacity:0;}}
+/* Cuenta atrás en cajas (la genera tracker.js) */
+.mldlm-paso3 .lsd-cdb{display:flex !important; justify-content:center !important; gap:8px !important; margin:0 0 20px !important; padding:0 !important; flex-wrap:nowrap !important;}
+.mldlm-paso3 .lsd-cdb-unit{flex:1 1 0 !important; max-width:96px !important; min-width:0 !important; background:var(--mldlm-crema) !important; border:1px solid var(--mldlm-linea) !important; border-radius:12px !important; padding:12px 4px 10px !important; margin:0 !important;}
+.mldlm-paso3 .lsd-cdb-num{display:block !important; font-family:'Lato',sans-serif !important; font-size:30px !important; font-weight:900 !important; line-height:1 !important; color:var(--mldlm-burdeos) !important; font-variant-numeric:tabular-nums !important;}
+.mldlm-paso3 .lsd-cdb-label{display:block !important; font-family:'Lato',sans-serif !important; font-size:13px !important; font-weight:700 !important; color:var(--mldlm-texto) !important; margin:6px 0 0 !important; text-transform:none !important; letter-spacing:0 !important;}
+/* Checklist para prepararse */
+.mldlm-paso3 .e3-prep{text-align:left; background:var(--mldlm-crema); border-radius:14px; padding:16px 16px 6px; margin:0 0 20px;}
+.mldlm-paso3 .e3-prep h3{margin:0 0 10px; font-size:15px; font-weight:900; color:var(--mldlm-burdeos); letter-spacing:.02em;}
+.mldlm-paso3 .e3-prep ul{list-style:none; margin:0; padding:0; display:grid; gap:2px 18px;}
+.mldlm-paso3 .e3-prep li{display:flex; gap:10px; align-items:flex-start; font-size:15px; line-height:1.45; padding:0 0 10px;}
+.mldlm-paso3 .e3-prep li::before{content:""; flex:none; width:20px; height:20px; margin-top:1px; border-radius:6px; background:var(--mldlm-burdeos) url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%273.2%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5%2012.5l4.5%204.5L19%207.5%27%2F%3E%3C%2Fsvg%3E") center / 14px no-repeat;}
+.mldlm-paso3 .e3-prep li a{color:var(--mldlm-burdeos); font-weight:700;}
+/* Botones */
+.mldlm-paso3 .e3-btn{display:inline-flex; align-items:center; justify-content:center; gap:10px; min-height:50px; padding:12px 26px; font-family:'Lato',sans-serif; font-size:16px; font-weight:900; line-height:1.2; color:var(--mldlm-texto); background:var(--mldlm-boton); border-radius:999px; text-decoration:none; cursor:pointer; box-shadow:0 6px 18px rgba(196,155,121,.45); transition:background-color .2s ease,color .2s ease,transform .2s ease;}
+.mldlm-paso3 .e3-btn svg{width:19px; height:19px; flex:none;}
+.mldlm-paso3 .e3-btn:hover{background:var(--mldlm-burdeos); color:#ffffff; transform:translateY(-2px);}
+.mldlm-paso3 .e3-btn:focus-visible{outline:3px solid var(--mldlm-burdeos); outline-offset:3px;}
+.mldlm-paso3 .e3-link{display:table; margin:12px auto 0; font-size:14px; color:var(--mldlm-burdeos); text-decoration:underline; text-underline-offset:3px;}
+/* Durante el directo */
+.mldlm-paso3 .e3-vivo{background:linear-gradient(160deg,#9a1112,var(--mldlm-burdeos) 60%,#5c0809); border:0; color:#ffffff;}
+.mldlm-paso3 .e3-vivo .e3-fase-tit{color:#ffffff; font-size:22px;}
+.mldlm-paso3 .e3-vivo p{margin:0 0 18px; font-size:16px; line-height:1.5; color:rgba(255,255,255,.9);}
+.mldlm-paso3 .e3-envivo{display:inline-flex; align-items:center; gap:8px; margin:0 0 12px; padding:5px 12px; border-radius:999px; background:#ffffff; color:var(--mldlm-burdeos); font-size:12px; font-weight:900; letter-spacing:.12em;}
+.mldlm-paso3 .e3-envivo .e3-punto,.mldlm-paso3 .e3-envivo .e3-punto::after{background:#e0242a;}
+.mldlm-paso3 .e3-btn-vivo{min-height:58px; font-size:18px; background:#ffffff; color:var(--mldlm-burdeos); box-shadow:0 0 0 0 rgba(255,255,255,.6); animation:mldlmE3Llama 2s ease-in-out infinite;}
+.mldlm-paso3 .e3-btn-vivo:hover{background:var(--mldlm-pastel); color:var(--mldlm-burdeos);}
+@keyframes mldlmE3Llama{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.55);} 50%{box-shadow:0 0 0 14px rgba(255,255,255,0);}}
+/* Aviso «quédate hasta el final» (solo si hay texto en el dashboard) */
+.mldlm-paso3 .e3-final{display:flex; gap:12px; align-items:center; text-align:left; margin:0 auto 44px; padding:14px 18px; border-radius:16px; background:#ffffff; border:1.5px dashed var(--mldlm-boton);}
+.mldlm-paso3 .e3-final:has(.e3-final-txt:empty){display:none;}
+.mldlm-paso3 .e3-final i{flex:none; display:inline-flex; align-items:center; justify-content:center; width:42px; height:42px; border-radius:50%; background:var(--mldlm-pastel); color:var(--mldlm-burdeos); font-style:normal;}
+.mldlm-paso3 .e3-final i svg{width:22px; height:22px;}
+.mldlm-paso3 .e3-final-txt{margin:0; font-size:15px; line-height:1.5; font-weight:700; color:var(--mldlm-marron);}
+
+/* ===== Títulos de bloque ===== */
+.mldlm-paso3 .e3-kicker{display:block; margin:0 0 8px; text-align:center; font-size:13px; font-weight:900; letter-spacing:.16em; text-transform:uppercase; color:var(--mldlm-boton);}
+.mldlm-paso3 .e3-h{margin:0 auto 6px; text-align:center; font-size:27px; font-weight:900; line-height:1.2; color:var(--mldlm-marron); max-width:20em;}
+.mldlm-paso3 .e3-h em,.mldlm-paso3 .e3-tarjeta h3 em,.mldlm-paso3 .e3-col h3 em{font-style:italic; color:var(--mldlm-burdeos);}
+.mldlm-paso3 .e3-raya{display:block; width:56px; height:3px; margin:12px auto 26px; border-radius:3px; background:var(--mldlm-burdeos);}
+
+/* ===== Lo que descubrirás: 3 tarjetas ===== */
+.mldlm-paso3 .e3-tarjetas{display:grid; grid-template-columns:1fr; gap:16px; margin:0 0 52px;}
+.mldlm-paso3 .e3-tarjeta{background:#ffffff; border:1px solid var(--mldlm-linea); border-radius:20px; overflow:hidden; box-shadow:0 10px 30px rgba(134,13,14,.08); transition:transform .25s ease, box-shadow .25s ease;}
+.mldlm-paso3 .e3-tarjeta:hover{transform:translateY(-4px); box-shadow:0 18px 40px rgba(134,13,14,.14);}
+.mldlm-paso3 .e3-ilus{position:relative; height:132px; display:flex; align-items:center; justify-content:center; background:linear-gradient(180deg,#fbf6f1,#f3e6da);}
+.mldlm-paso3 .e3-ilus::after{content:""; position:absolute; left:0; right:0; bottom:0; height:38px; background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20400%2040%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20d%3D%27M0%2024%20C%2080%2010%2C%20150%2032%2C%20230%2020%20S%20350%206%2C%20400%2016%20V40%20H0Z%27%20fill%3D%27%23ead9c9%27%2F%3E%3C%2Fsvg%3E") bottom / 100% 100% no-repeat;}
+.mldlm-paso3 .e3-ilus span{position:relative; z-index:1; display:inline-flex; align-items:center; justify-content:center; width:74px; height:74px; border-radius:50%; background:#ffffff; color:var(--mldlm-burdeos); box-shadow:0 8px 22px rgba(134,13,14,.15);}
+.mldlm-paso3 .e3-ilus span svg{width:36px; height:36px;}
+.mldlm-paso3 .e3-ilus b{position:absolute; top:12px; left:14px; z-index:1; font-size:40px; font-weight:900; line-height:1; color:rgba(134,13,14,.12);}
+.mldlm-paso3 .e3-tarjeta-txt{padding:18px 20px 22px;}
+.mldlm-paso3 .e3-tarjeta-txt small{display:block; margin:0 0 8px; font-size:12px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; color:var(--mldlm-boton);}
+.mldlm-paso3 .e3-tarjeta h3{margin:0 0 8px; font-size:20px; font-weight:900; line-height:1.25; color:var(--mldlm-marron);}
+.mldlm-paso3 .e3-tarjeta p{margin:0; font-size:15px; line-height:1.6; color:var(--mldlm-suave);}
+
+/* ===== Mitos frente a lo que sí funciona ===== */
+.mldlm-paso3 .e3-vs{position:relative; display:grid; grid-template-columns:1fr; gap:18px; margin:0 0 30px;}
+.mldlm-paso3 .e3-col{border-radius:22px; padding:24px 18px 14px;}
+.mldlm-paso3 .e3-col header{display:flex; align-items:center; gap:12px; margin:0 0 16px;}
+.mldlm-paso3 .e3-col header i{flex:none; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:50%; font-style:normal;}
+.mldlm-paso3 .e3-col header i svg{width:22px; height:22px;}
+.mldlm-paso3 .e3-col header small{display:block; font-size:11.5px; font-weight:900; letter-spacing:.14em; text-transform:uppercase;}
+.mldlm-paso3 .e3-col h3{margin:2px 0 0; font-size:21px; font-weight:900; line-height:1.2;}
+.mldlm-paso3 .e3-col ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px;}
+.mldlm-paso3 .e3-col li{display:flex; gap:12px; align-items:flex-start; padding:13px 14px; border-radius:14px; font-size:15px; line-height:1.5;}
+.mldlm-paso3 .e3-col li::before{content:""; flex:none; width:24px; height:24px; margin-top:-1px; border-radius:50%;}
+/* Mitos: tono apagado, se «tachan» */
+.mldlm-paso3 .e3-mitos{background:rgba(255,255,255,.55); border:1px solid var(--mldlm-linea);}
+.mldlm-paso3 .e3-mitos header i{background:#ffffff; color:#a3473d; border:1.5px solid #e5c3bd;}
+.mldlm-paso3 .e3-mitos header small{color:#a3473d;}
+.mldlm-paso3 .e3-mitos h3{color:var(--mldlm-marron);}
+.mldlm-paso3 .e3-mitos li{background:#ffffff; border:1px solid #efe2d6; color:var(--mldlm-suave);}
+.mldlm-paso3 .e3-mitos li::before{border:1.5px solid #c98b82; background:#ffffff url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%23a3473d%27%20stroke-width%3D%272.6%27%20stroke-linecap%3D%27round%27%3E%3Cpath%20d%3D%27M8%208l8%208M16%208l-8%208%27%2F%3E%3C%2Fsvg%3E") center / 14px no-repeat;}
+.mldlm-paso3 .e3-mitos li strong{color:#a3473d; font-weight:900;}
+/* Lo que sí: protagonista */
+.mldlm-paso3 .e3-si{background:var(--mldlm-burdeos); color:#ffffff; box-shadow:0 18px 44px rgba(134,13,14,.28);}
+.mldlm-paso3 .e3-si header i{background:#ffffff; color:var(--mldlm-burdeos);}
+.mldlm-paso3 .e3-si header small{color:var(--mldlm-boton);}
+.mldlm-paso3 .e3-si h3{color:#ffffff;}
+.mldlm-paso3 .e3-si h3 em{color:#f3d3b4;}
+.mldlm-paso3 .e3-si li{background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); color:rgba(255,255,255,.92);}
+.mldlm-paso3 .e3-si li::before{background:var(--mldlm-boton) url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%234a2c20%27%20stroke-width%3D%273%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5%2012.5l4.5%204.5L19%207.5%27%2F%3E%3C%2Fsvg%3E") center / 14px no-repeat;}
+.mldlm-paso3 .e3-si li strong{color:#f3d3b4; font-weight:900;}
+.mldlm-paso3 .e3-versus{display:none;}
+
+/* ===== Salida hacia la VIP ===== */
+.mldlm-paso3 .e3-salida{display:block; width:120px; height:100px; margin:0 auto;}
+.mldlm-paso3 .e3-concha{transform-box:fill-box; transform-origin:50% 50%; animation:mldlmE3Bota 2s ease-in-out infinite;}
+@keyframes mldlmE3Bota{0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);}}
+.mldlm-paso3 .e3-a-vip{display:table; margin:0 auto 6px; font-size:15px; font-weight:900; color:var(--mldlm-burdeos); text-decoration:none; cursor:pointer; background:none; border:0; font-family:inherit;}
+.mldlm-paso3 .e3-a-vip:hover{text-decoration:underline; text-underline-offset:3px;}
+
+@media (min-width:640px){
+  .mldlm-paso3 .e3-prep ul{grid-template-columns:1fr 1fr;}
+}
+@media (min-width:768px){
+  .mldlm-paso3{padding:0 24px 12px;}
+  .mldlm-paso3 .e3-mojon{width:70px;}
+  .mldlm-paso3 .e3-titulo{font-size:38px;}
+  .mldlm-paso3 .e3-sub{font-size:18px;}
+  .mldlm-paso3 .e3-fase{padding:32px 32px 28px;}
+  .mldlm-paso3 .lsd-cdb{gap:14px !important;}
+  .mldlm-paso3 .lsd-cdb-unit{max-width:112px !important; padding:16px 6px 14px !important;}
+  .mldlm-paso3 .lsd-cdb-num{font-size:40px !important;}
+  .mldlm-paso3 .e3-h{font-size:34px;}
+  .mldlm-paso3 .e3-tarjetas{grid-template-columns:repeat(3,1fr);}
+  .mldlm-paso3 .e3-vs{grid-template-columns:1fr 1fr; gap:26px; align-items:start;}
+  .mldlm-paso3 .e3-col{padding:28px 24px 18px;}
+  .mldlm-paso3 .e3-si{transform:translateY(-10px);}
+  .mldlm-paso3 .e3-versus{display:flex; position:absolute; left:50%; top:46px; z-index:2; transform:translateX(-50%); width:48px; height:48px; border-radius:50%; align-items:center; justify-content:center; background:#ffffff; border:2px solid var(--mldlm-linea); font-size:13px; font-weight:900; letter-spacing:.06em; color:var(--mldlm-burdeos); box-shadow:0 6px 16px rgba(74,44,32,.15);}
+}
+@media (prefers-reduced-motion:reduce){
+  .mldlm-paso3 *,.mldlm-paso3 *::before,.mldlm-paso3 *::after{animation:none !important; transition:none !important;}
+}
+</style>
+
+<section class="paso3 mldlm-paso3">
+ <div class="e3-inner">
+  <svg class="e3-sendero" viewBox="0 0 120 80" aria-hidden="true">
+    <path d="M60 0 C 95 28, 25 50, 60 80" fill="none" stroke="#e6d4c3" stroke-width="12" stroke-linecap="round"/>
+    <path class="e3-trazo" d="M60 0 C 95 28, 25 50, 60 80" fill="none" stroke="#c49b79" stroke-width="3" stroke-linecap="round"/>
+  </svg>
+  <div class="e3-mojon"><svg viewBox="0 0 70 92" aria-hidden="true">
+      <path d="M6 88V30C6 14 19 4 35 4s29 10 29 26v58Z" fill="#e9dccf" stroke="#cdb7a2" stroke-width="2"/>
+      <rect x="15" y="16" width="40" height="34" rx="5" fill="#860d0e"/>
+      <g transform="translate(23 19)" color="#c49b79"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#ffffff" stroke-width="1" stroke-linecap="round" opacity=".55"/></g>
+      <text x="35" y="76" text-anchor="middle" font-family="Lato,sans-serif" font-size="24" font-weight="900" fill="#4a2c20">3</text>
+    </svg></div>
+
+  <div class="e3-cab">
+    <p class="e3-etiqueta"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="8" cy="7" rx="2.6" ry="4"/><ellipse cx="7.6" cy="14.4" rx="1.8" ry="2.2"/><ellipse cx="16" cy="10" rx="2.6" ry="4"/><ellipse cx="15.6" cy="17.4" rx="1.8" ry="2.2"/></svg>Etapa 3</p>
+    <h2 class="e3-titulo" data-lsd-text="etapa3-titulo">El directo: tu siguiente paso</h2>
+    <p class="e3-sub" data-lsd-text="etapa3-subtitulo">Aquí lo unimos todo. Conéctate en directo y sal con claridad sobre qué está frenando tu positivo y qué hacer a partir de hoy.</p>
+    <p class="e3-cita"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg></i><span><strong data-lsd-text="fechaDirecto">jueves, 29 de octubre</strong> · <strong data-lsd-text="horaDirecto">19:00</strong> h (hora de España)</span></p>
+  </div>
+
+  <!-- Antes del directo -->
+  <div class="e3-fase e3-estrecho" data-lsd-phase="pre_c1 c1 c2 dia_directo">
+    <p class="e3-fase-tit"><span class="e3-punto" aria-hidden="true"></span>El directo empieza en…</p>
+    <div data-lsd-countdown-boxes="directo"></div>
+    <div class="e3-prep">
+      <h3>Prepárate para el directo</h3>
+      <ul>
+        <li><span>Mira las clases 1 y 2 de la Etapa 2</span></li>
+        <li><span>Añade el directo a tu calendario</span></li>
+        <li><span>Únete al <a data-lsd-link="whatsapp" target="_blank" rel="noopener">grupo de WhatsApp</a>: ahí te mandamos el enlace</span></li>
+        <li><span>Ten a mano papel y boli</span></li>
+        <li><span>Conéctate 5 minutos antes</span></li>
+        <li><span>Busca un rato tranquilo, solo para ti</span></li>
+      </ul>
+    </div>
+    <a class="e3-btn" data-lsd-link="calendario" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="M12 13v5M9.5 15.5h5"/></svg><span>Añadir al calendario</span></a>
+    <a class="e3-link" data-lsd-link="calendario-ics">¿Usas Apple u Outlook? Añádelo aquí</a>
+  </div>
+
+  <!-- Durante el directo -->
+  <div class="e3-fase e3-vivo e3-estrecho" data-lsd-phase="en_directo" style="display:none">
+    <span class="e3-envivo"><span class="e3-punto" aria-hidden="true"></span>EN DIRECTO</span>
+    <p class="e3-fase-tit">Estamos en directo</p>
+    <p>Entra ahora: te conectas con tus datos, sin escribir nada.</p>
+    <a class="e3-btn e3-btn-vivo" data-lsd-link="directo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="m15.5 10.5 6-3.5v10l-6-3.5"/></svg><span>Entrar al directo ahora</span></a>
+  </div>
+
+  <!-- Después del directo -->
+  <div class="e3-fase e3-estrecho" data-lsd-phase="replay" style="display:none">
+    <p class="e3-fase-tit">¿Te lo perdiste o quieres verlo otra vez?</p>
+    <div data-lsd-countdown-boxes="fase"></div>
+    <a class="e3-btn" data-lsd-link="grabacion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3Z"/></svg><span>Ver la grabación</span></a>
+    <p class="e3-link" style="text-decoration:none">La grabación estará disponible solo unos días.</p>
+  </div>
+
+  <!-- Aviso «quédate hasta el final»: solo se ve si hay texto en el dashboard (etapa3-final) -->
+  <div class="e3-final e3-estrecho" data-lsd-phase="pre_c1 c1 c2 dia_directo en_directo">
+    <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18M12 8c-1.5-3-5-4-5-1.5S10 8 12 8Zm0 0c1.5-3 5-4 5-1.5S14 8 12 8Z"/></svg></i>
+    <p class="e3-final-txt" data-lsd-text="etapa3-final"></p>
+  </div>
+
+  <!-- Lo que descubrirás -->
+  <span class="e3-kicker">Lo que vas a aprender</span>
+  <h3 class="e3-h">Esto es lo que descubrirás <em>en el directo</em></h3>
+  <span class="e3-raya" aria-hidden="true"></span>
+  <div class="e3-tarjetas">
+    <article class="e3-tarjeta">
+      <div class="e3-ilus"><b>01</b><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><circle cx="12" cy="15" r="2.6"/><path d="M12 12.4v-.8M12 18.4v-.8"/></svg></span></div>
+      <div class="e3-tarjeta-txt"><small>Por qué no llega</small><h3>Por qué estás tardando más de lo que <em>te imaginabas</em></h3><p>La mayoría de mujeres van a ciegas sin saberlo. Te explico qué podría estar pasando y qué puedes hacer hoy para empezar a cambiarlo.</p></div>
+    </article>
+    <article class="e3-tarjeta">
+      <div class="e3-ilus"><b>02</b><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5.5c3-1.4 6-1.4 9.5.7v13c-3.5-2.1-6.5-2.1-9.5-.7Z"/><path d="M21.5 5.5c-3-1.4-6-1.4-9.5.7v13c3.5-2.1 6.5-2.1 9.5-.7Z"/><path d="m15 9.5 3.5 3.5M18.5 9.5 15 13"/></svg></span></div>
+      <div class="e3-tarjeta-txt"><small>Lo que te frena</small><h3>Los mitos que te hacen perder <em>tiempo y energía</em></h3><p>La mayoría de mujeres cometen los mismos errores al buscar embarazo y, sin saberlo, se alejan del positivo.</p></div>
+    </article>
+    <article class="e3-tarjeta">
+      <div class="e3-ilus"><b>03</b><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7.5-4.6-7.5-10.3A4.3 4.3 0 0 1 12 8a4.3 4.3 0 0 1 7.5 2.7C19.5 16.4 12 21 12 21Z"/><path d="M12 3v2M5.2 4.6l1.2 1.6M18.8 4.6l-1.2 1.6"/></svg></span></div>
+      <div class="e3-tarjeta-txt"><small>Lo que puedes hacer</small><h3>Herramientas reales para <em>aumentar tus probabilidades</em></h3><p>Pasos concretos que puedes aplicar desde hoy para acercarte al positivo.</p></div>
+    </article>
+  </div>
+
+  <!-- Mitos frente a lo que sí funciona -->
+  <span class="e3-kicker">Mitos frente a realidad</span>
+  <h3 class="e3-h">Lo que te han contado… <em>y lo que de verdad funciona</em></h3>
+  <span class="e3-raya" aria-hidden="true"></span>
+  <div class="e3-vs">
+    <span class="e3-versus" aria-hidden="true">VS</span>
+    <section class="e3-col e3-mitos">
+      <header><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg></i><div><small>Los mitos que vamos a desmontar</small><h3>Cosas que te han dicho y que <em>no funcionan</em></h3></div></header>
+      <ul>
+        <li><span>Dejar las piernas en alto después de tener relaciones no aumenta tus probabilidades. <strong>Solo te deja sin circulación.</strong></span></li>
+        <li><span>Tener buenos hábitos y ser joven influye. <strong>Pero no es suficiente</strong> para conseguir el positivo.</span></li>
+        <li><span>No puedes quedarte embarazada todos los días del mes. Pero <strong>¿sabes detectar cuáles son tus días fértiles?</strong></span></li>
+        <li><span>Tener la regla cada mes <strong>no significa que estés ovulando.</strong> Te explico cuál es la señal clave.</span></li>
+      </ul>
+    </section>
+    <section class="e3-col e3-si">
+      <header><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i><div><small>Lo que sí vamos a trabajar</small><h3>Lo que de verdad <em>marca la diferencia</em></h3></div></header>
+      <ul>
+        <li><span>Cómo detectar tu <strong>ventana fértil</strong> sin complicaciones ni depender de métodos poco fiables como las tiras o la app.</span></li>
+        <li><span>Por qué diagnósticos como <strong>SOP, baja reserva o endometriosis</strong> no son una sentencia.</span></li>
+        <li><span>Las señales que te manda tu ciclo y que llevas meses <strong>pasando por alto</strong> sin saberlo.</span></li>
+        <li><span>Cómo dejar de ir a ciegas y empezar a actuar <strong>con una estrategia clara.</strong></span></li>
+        <li><span>Información y recursos que te den <strong>tranquilidad</strong> y te ayuden a gestionar la incertidumbre.</span></li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- Salida del camino hacia la entrada VIP -->
+  <button type="button" class="e3-a-vip" data-lsd-phase="pre_c1 c1 c2 dia_directo">¿Quieres vivirlo desde la primera fila? ↓</button>
+  <svg class="e3-salida" viewBox="0 0 120 100" aria-hidden="true">
+    <path d="M60 0 C 20 28, 100 50, 60 76" fill="none" stroke="#e6d4c3" stroke-width="12" stroke-linecap="round"/>
+    <path class="e3-trazo" d="M60 0 C 20 28, 100 50, 60 76" fill="none" stroke="#c49b79" stroke-width="3" stroke-linecap="round"/>
+    <g class="e3-concha" color="#860d0e"><g transform="translate(48 76)"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="currentColor"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#ffffff" stroke-width="1" stroke-linecap="round" opacity=".55"/></g></g>
+  </svg>
+ </div>
+</section>
+<script>
+(function(){
+  /* «¿Quieres vivirlo desde la primera fila?» baja hasta la sección de la entrada VIP */
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('.mldlm-paso3 .e3-a-vip');
+    if (!b) return;
+    var vip = document.querySelector('.mldlm-vip');
+    if (vip) vip.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+})();
+</script>

@@ -397,27 +397,35 @@
             </div>
           </section>
           <section class="cfg-sec" data-sec="5">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">5</span><div><h3>Directo y grabación</h3><p>A la hora del directo la página manda al directo; desde las 00:00 del día siguiente, a la grabación.</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">5</span><div><h3>Etapa 3 · El directo</h3><p>Textos del bloque del directo. Si dejas uno vacío, se queda el del diseño. El aviso «quédate hasta el final» solo se muestra si escribes algo.</p></div></header>
+            <div class="grid2">
+              <label class="field"><span>Etapa 3 · titular <small>(<code>etapa3-titulo</code>)</small></span><input data-texto="etapa3-titulo" placeholder="El directo: tu siguiente paso"></label>
+              <label class="field"><span>Etapa 3 · subtítulo <small>(<code>etapa3-subtitulo</code>)</small></span><textarea data-texto="etapa3-subtitulo" rows="2"></textarea></label>
+              <label class="field full"><span>Aviso «quédate hasta el final» <small>(<code>etapa3-final</code>; p. ej. qué hay al final del directo para quien siga conectada)</small></span><textarea data-texto="etapa3-final" rows="2" placeholder="Quédate hasta el final: al terminar hay una sorpresa solo para quienes estén conectadas."></textarea></label>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="6">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">6</span><div><h3>Directo y grabación</h3><p>A la hora del directo la página manda al directo; desde las 00:00 del día siguiente, a la grabación.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Grabación del directo · vídeo de Vimeo</span><input id="cfg-replay-video" type="url"></label>
               <label class="field"><span>Botón «Añadir al calendario» <small>(vacío = Google Calendar con la fecha y hora del directo, generado solo)</small></span><input id="cfg-calendario-url" type="url" placeholder="Se genera solo"></label>
             </div>
           </section>
-          <section class="cfg-sec" data-sec="6">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">6</span><div><h3>Entrada VIP</h3><p>Se cierra sola a la hora del directo.</p></div><span class="cfg-sec-status"></span></header>
+          <section class="cfg-sec" data-sec="7">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">7</span><div><h3>Entrada VIP</h3><p>Se cierra sola a la hora del directo.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Entrada VIP · enlace de pago <small>(se cierra a la hora del directo)</small></span><input id="cfg-vip-url" type="url"></label>
               <label class="field"><span>Contador de VIP · empieza en <small>(la página muestra este número + las VIP vendidas en el lanzamiento; <code>data-lsd-text="vipContador"</code>)</small></span><input id="cfg-vip-base" inputmode="numeric" placeholder="41"></label>
             </div>
           </section>
-          <section class="cfg-sec" data-sec="7">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">7</span><div><h3>Grupo de WhatsApp</h3><p>Barra fija de la página.</p></div><span class="cfg-sec-status"></span></header>
+          <section class="cfg-sec" data-sec="8">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">8</span><div><h3>Grupo de WhatsApp</h3><p>Barra fija de la página.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Grupo de WhatsApp · enlace</span><input id="cfg-whatsapp-url" type="url" placeholder="https://chat.whatsapp.com/…"></label>
             </div>
           </section>
-          <section class="cfg-sec" data-sec="8">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">8</span><div><h3>Textos y botones extra</h3><p>Para bloques nuevos de la página.</p></div></header>
+          <section class="cfg-sec" data-sec="9">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">9</span><div><h3>Textos y botones extra</h3><p>Para bloques nuevos de la página.</p></div></header>
             <p class="muted">Otros textos (para bloques futuros): nombre en minúsculas y guiones, p. ej. <code>etapa3-titulo</code> → <code>&lt;span data-lsd-text="etapa3-titulo"&gt;</code>.</p>
             <div id="cfg-textos" class="enlaces-list"></div>
             <button type="button" class="btn" id="btn-add-texto">+ Añadir texto</button>
@@ -426,8 +434,8 @@
             <div id="cfg-enlaces" class="enlaces-list"></div>
             <button type="button" class="btn" id="btn-add-enlace">+ Añadir enlace</button>
           </section>
-          <section class="cfg-sec" data-sec="9">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">9</span><div><h3>Barra de urgencia</h3><p>Un mensaje por fase. <code>{cuenta}</code> = cuenta atrás hasta el siguiente momento. Si lo dejas vacío se usa el texto de ejemplo.</p></div></header>
+          <section class="cfg-sec" data-sec="10">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">10</span><div><h3>Barra de urgencia</h3><p>Un mensaje por fase. <code>{cuenta}</code> = cuenta atrás hasta el siguiente momento. Si lo dejas vacío se usa el texto de ejemplo.</p></div></header>
             <div class="table-scroll"><table class="metric-table bar-table"><thead><tr><th>Fase</th><th>Mensaje</th><th>Botón</th><th>Texto del botón</th></tr></thead><tbody id="cfg-barra"></tbody></table></div>
           </section>
           <h3 class="cfg-h3">Vista previa</h3>

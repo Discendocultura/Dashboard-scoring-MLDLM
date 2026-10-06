@@ -1812,7 +1812,7 @@ const textoRow = (k = '', v = '') => `<div class="enlace-row texto-row">
 
 function renderTextosEditor(textos) {
   const fixed = new Set();
-  $$('#cfg-textos-fijos [data-texto]').forEach((el) => { fixed.add(el.dataset.texto); el.value = textos[el.dataset.texto] || ''; });
+  $$('.tab-panel[data-panel="pagina"] [data-texto]').forEach((el) => { fixed.add(el.dataset.texto); el.value = textos[el.dataset.texto] || ''; });
   $('#cfg-textos').innerHTML = Object.entries(textos).filter(([k]) => !fixed.has(k)).map(([k, v]) => textoRow(k, v)).join('');
 }
 
@@ -1823,7 +1823,7 @@ function readTextosEditor() {
     const v = $('.txt-val', r).value.trim();
     if (k && v) out[k] = v;
   });
-  $$('#cfg-textos-fijos [data-texto]').forEach((el) => { if (el.value.trim()) out[el.dataset.texto] = el.value.trim(); });
+  $$('.tab-panel[data-panel="pagina"] [data-texto]').forEach((el) => { if (el.value.trim()) out[el.dataset.texto] = el.value.trim(); });
   return out;
 }
 
