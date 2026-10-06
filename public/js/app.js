@@ -1713,6 +1713,7 @@ const ACCESO_TIPOS = {
   encuesta: { label: 'Encuesta', plural: 'Encuestas', uno: 'encuesta', icon: svgIco('<path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 17h8"/>') },
   calendario: { label: 'Calendario', plural: 'Calendarios', uno: 'calendario', icon: svgIco('<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>') },
   email: { label: 'Email / campaña', plural: 'Emails y campañas', uno: 'email o campaña', icon: svgIco('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>') },
+  whatsapp: { label: 'WhatsApp', plural: 'WhatsApp', uno: 'enlace de WhatsApp', icon: svgIco('<path d="M20.5 11.6a8.5 8.5 0 0 1-12.6 7.5L3.5 20.5l1.4-4.3a8.5 8.5 0 1 1 15.6-4.6Z"/><path d="M9 8.5c.2 2.6 2.4 5 5.2 5.6l1-1.1 1.8.8c-.2 1-1 1.7-2 1.7C11.6 15.5 8.5 12.4 8.5 9c0-1 .7-1.8 1.7-2l.8 1.8Z"/>') },
   pago: { label: 'Pago / producto', plural: 'Pagos y productos', uno: 'enlace de pago', icon: svgIco('<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6.5 15h4"/>') },
   otro: { label: 'Otro enlace', plural: 'Otros enlaces', uno: 'enlace', icon: svgIco('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>') },
 };
@@ -1723,9 +1724,9 @@ const ACCESOS_SUGERIDOS = [
 ];
 // Para accesos guardados antes de que hubiera tipo: se deduce del nombre.
 const guessTipo = (nombre) => (/workflow/i.test(nombre) ? 'workflow' : /encuesta/i.test(nombre) ? 'encuesta' : /formulario/i.test(nombre) ? 'formulario'
-  : /p[aá]gina|landing|funnel|embudo/i.test(nombre) ? 'pagina' : /calendario|agenda/i.test(nombre) ? 'calendario' : /email|campa/i.test(nombre) ? 'email' : 'otro');
+  : /whatsapp|grupo de wa/i.test(nombre) ? 'whatsapp' : /p[aá]gina|landing|funnel|embudo/i.test(nombre) ? 'pagina' : /calendario|agenda/i.test(nombre) ? 'calendario' : /email|campa/i.test(nombre) ? 'email' : 'otro');
 
-// Accesos a GHL en dos niveles: primero las categorías y, al pulsar una, sus enlaces.
+// Recursos del lanzamiento en dos niveles: primero las categorías y, al pulsar una, sus enlaces.
 // Se editan sobre state.accesosEdit (lo que se guarda) y state.accesosCat (la categoría abierta).
 const accesoRow = (a, i) => `<div class="acceso-row" data-i="${i}">
   <input class="acc-nombre" value="${esc(a.nombre)}" placeholder="Nombre (p. ej. ${esc(ACCESO_TIPOS[a.tipo].uno)} de registro)" maxlength="60" aria-label="Nombre">
@@ -1734,9 +1735,10 @@ const accesoRow = (a, i) => `<div class="acceso-row" data-i="${i}">
   <button type="button" class="btn acc-del" title="Quitar">✕</button></div>`;
 
 function renderAccesosEditor(accesos) {
-  // Los sugeridos que aún no estén en la lista se añaden vacíos.
+  // Los sugeridos solo se proponen la primera vez (lista vacía): después se respeta lo guardado
+  // y nunca se añaden filas nuevas por su cuenta.
   const list = (accesos || []).map((a) => ({ ...a, tipo: ACCESO_TIPOS[a.tipo] ? a.tipo : guessTipo(a.nombre) }));
-  for (const [tipo, nombre] of ACCESOS_SUGERIDOS) if (!list.some((a) => a.nombre === nombre)) list.push({ tipo, nombre, url: '' });
+  if (!list.length) for (const [tipo, nombre] of ACCESOS_SUGERIDOS) list.push({ tipo, nombre, url: '' });
   state.accesosEdit = list;
   state.accesosCat = null;
   drawAccesos();
