@@ -4,6 +4,7 @@
 // Resultado que anota la setter → estado de la cita en GHL y etapa del pipeline.
 export const RESULTADOS = [
   { id: 'venta', label: 'Venta', icon: '✅', cita: 'showed', etapa: 'venta', status: 'won' },
+  { id: 'pendiente_pago', label: 'Pendiente de pago', icon: '💳', cita: 'showed', etapa: 'pendientepago', status: 'open' },
   { id: 'seguimiento', label: 'Seguimiento', icon: '🔁', cita: 'showed', etapa: 'seguimiento', status: 'open' },
   { id: 'perdido', label: 'No compra', icon: '❌', cita: 'showed', etapa: 'perdido', status: 'lost' },
   { id: 'noshow', label: 'No se presentó', icon: '🚫', cita: 'noshow', etapa: 'nocontesta', status: 'open' },
@@ -27,6 +28,7 @@ export function etapasPipeline(pipeline) {
     else if (/agenda/.test(n)) out.agenda = s.id;
     else if (/no contesta/.test(n)) out.nocontesta.push(s.id);
     else if (/seguimiento/.test(n)) out.seguimiento = s.id;
+    else if (/pendiente.*pago|pago pendiente/.test(n)) out.pendientepago = s.id;
     else if (/venta|ganad/.test(n)) out.venta = s.id;
     else if (/perdid/.test(n)) out.perdido = s.id;
   }
@@ -37,6 +39,8 @@ export function etapasPipeline(pipeline) {
 export function etapaDestino(resultado, etapas, etapaActual) {
   const r = RESULTADOS.find((x) => x.id === resultado);
   if (!r) return null;
+  // «Pendiente de pago» va a su etapa si existe en el pipeline; si no, a «Seguimiento».
+  if (r.etapa === 'pendientepago') return etapas.pendientepago || etapas.seguimiento || null;
   if (r.etapa !== 'nocontesta') return etapas[r.etapa] || null;
   const nc = etapas.nocontesta;
   const i = nc.indexOf(etapaActual);
@@ -57,7 +61,7 @@ export function metricasLlamadas(llamadas, ahora = Date.now()) {
   const validas = llamadas.filter((l) => !l.cancelada);
   const pasadas = validas.filter((l) => l.start < ahora);
   const con = (id) => pasadas.filter((l) => l.resultado?.resultado === id).length;
-  const shows = con('venta') + con('seguimiento') + con('perdido');
+  const shows = con('venta') + con('pendiente_pago') + con('seguimiento') + con('perdido');
   const noshow = con('noshow');
   const canceladas = llamadas.length - validas.length;
   const motivos = {};
@@ -74,6 +78,7 @@ export function metricasLlamadas(llamadas, ahora = Date.now()) {
     reagendadas: con('reagendar'),
     ventas: con('venta'),
     seguimiento: con('seguimiento'),
+    pendientesPago: con('pendiente_pago'),
     perdidas: con('perdido'),
     sinResultado: pasadas.filter((l) => !l.resultado).length,
     pctShow: pct(shows, shows + noshow),
@@ -85,4 +90,38 @@ export function metricasLlamadas(llamadas, ahora = Date.now()) {
     cierre: pct(con('venta'), shows),
     motivos: Object.entries(motivos).sort((a, b) => b[1] - a[1]),
   };
+}
+
+// ---------- Fase de cada persona (según su última llamada) ----------
+// Cada fase tiene su mensaje de WhatsApp (plantilla editable en Configuración → Mensajes).
+export const FASES_LLAMADA = [
+  { id: 'proxima', label: 'Llamada próxima', icon: '📅', plantilla: 'll_proxima' },
+  { id: 'pendiente', label: 'Sin anotar', icon: '⚠️', plantilla: '' },
+  { id: 'pendiente_pago', label: 'Pendiente de pago', icon: '💳', plantilla: 'll_pendiente_pago' },
+  { id: 'seguimiento', label: 'Seguimiento', icon: '🔁', plantilla: 'll_seguimiento' },
+  { id: 'venta', label: 'Venta', icon: '✅', plantilla: 'll_venta' },
+  { id: 'perdido', label: 'No compra', icon: '❌', plantilla: 'll_perdido' },
+  { id: 'noshow', label: 'No se presentó', icon: '🚫', plantilla: 'll_noshow' },
+  { id: 'reagendar', label: 'Reagendar', icon: '📅', plantilla: 'll_reagendar' },
+  { id: 'cancelada', label: 'Canceló la cita', icon: '✖️', plantilla: 'll_cancelada' },
+];
+
+// citas: [{ id, contactId, start (ms), cancelada, resultado }] → Map(contactId → { fase, cita })
+// Manda una llamada futura (p. ej. si reservó otra tras un «no show»); si no, la última con resultado;
+// si no, la última pasada sin anotar; si solo tiene citas canceladas, «cancelada».
+export function fasesPorContacto(citas, ahora = Date.now()) {
+  const porContacto = new Map();
+  for (const c of citas) if (c.contactId) porContacto.set(c.contactId, [...(porContacto.get(c.contactId) || []), c]);
+  const out = new Map();
+  for (const [id, cs] of porContacto) {
+    const orden = [...cs].sort((a, b) => b.start - a.start);
+    const futura = orden.filter((c) => !c.cancelada && c.start >= ahora).pop();
+    const conRes = orden.find((c) => c.resultado);
+    const pasadaSin = orden.find((c) => !c.cancelada && c.start < ahora && !c.resultado);
+    if (futura && (!conRes || conRes.start < futura.start)) out.set(id, { fase: 'proxima', cita: futura });
+    else if (conRes && (!pasadaSin || pasadaSin.start < conRes.start)) out.set(id, { fase: conRes.resultado.resultado, cita: conRes });
+    else if (pasadaSin) out.set(id, { fase: 'pendiente', cita: pasadaSin });
+    else out.set(id, { fase: 'cancelada', cita: orden[0] });
+  }
+  return out;
 }

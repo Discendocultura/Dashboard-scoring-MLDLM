@@ -184,6 +184,15 @@ export const DEFAULT_TEMPLATES = {
   grabacion: 'Hola {nombre} 🌱 Soy del equipo de Me lo dijo la matrona. Ya tienes disponible la grabación de la clase en directo, te dejo aquí el enlace: {link_grabacion} ¿Me cuentas qué te parece cuando la veas?',
   raices: 'Hola {nombre} 🌱 He visto que ya has empezado a ver la grabación, ¡qué bien! Te dejo aquí toda la información de Raíces, el programa de acompañamiento para quedarte embarazada de forma natural: {link_pagina_venta} ¿Tienes alguna duda que pueda resolverte?',
   cierre: 'Hola {nombre} 🌱 ¡Gracias por quedarte hasta el final! Si sientes que Raíces es para ti, puedes unirte aquí: {link_pago} O si prefieres que lo hablemos, reserva una llamada conmigo: {link_llamada}',
+  // Llamadas de valoración: un mensaje por fase.
+  ll_proxima: 'Hola {nombre} 🌱 Soy del equipo de Me lo dijo la matrona. Te escribo para recordarte nuestra llamada de valoración el {dia_llamada} a las {hora_llamada}. Si puedes, conéctate con tu pareja 💛 ¡Hasta entonces!',
+  ll_pendiente_pago: 'Hola {nombre} 🌱 ¡Qué ilusión que vayas a empezar Raíces! Te dejo el enlace para completar tu inscripción: {link_pago} Si prefieres pagarlo a plazos, aquí tienes la opción fraccionada: {link_pago_fraccionado} Cualquier duda, me dices 💛',
+  ll_seguimiento: 'Hola {nombre} 🌱 ¿Has podido pensarlo (o hablarlo con tu pareja)? Si te quedó alguna duda sobre Raíces estoy aquí para resolverla. Te dejo el enlace por si decides dar el paso: {link_pago}',
+  ll_venta: 'Hola {nombre} 🌱 ¡Bienvenida a Raíces! 🎉 Ya está todo listo: en breve te llegará un email con tu acceso. Aquí me tienes para lo que necesites 💛',
+  ll_perdido: 'Hola {nombre} 🌱 Gracias por tu tiempo en la llamada. Entiendo que ahora no es el momento; si en algún momento quieres retomarlo, aquí me tienes 💛',
+  ll_noshow: 'Hola {nombre} 🌱 Te estaba esperando para nuestra llamada de valoración y no hemos podido conectar. ¿La reprogramamos? Puedes elegir otro hueco aquí: {link_llamada}',
+  ll_reagendar: 'Hola {nombre} 🌱 Sin problema, cambiamos la llamada. Elige el hueco que mejor te venga aquí: {link_llamada} 💛',
+  ll_cancelada: 'Hola {nombre} 🌱 He visto que has cancelado la llamada de valoración. Si quieres, puedes reservar otro momento aquí: {link_llamada} 💛',
 };
 
 export function withContactId(url, contactId) {
@@ -197,7 +206,7 @@ export function withContactId(url, contactId) {
   }
 }
 
-export function buildMessage(template, { nombre, contactId, launch }) {
+export function buildMessage(template, { nombre, contactId, launch, extra = {} }) {
   const links = {
     link_grabacion: withContactId(launch?.replayUrl, contactId),
     link_raices: withContactId(launch?.raicesUrl, contactId),
@@ -211,6 +220,7 @@ export function buildMessage(template, { nombre, contactId, launch }) {
   return String(template || '')
     .replaceAll('{nombre}', nombre || '')
     .replace(/\{(link_[a-z_]+)\}/g, (m, k) => (k in links ? links[k] : m))
+    .replace(/\{([a-z_]+)\}/g, (m, k) => (k in extra ? extra[k] : m))
     .replace(/ {2,}/g, ' ')
     .trim();
 }

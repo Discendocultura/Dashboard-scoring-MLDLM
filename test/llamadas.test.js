@@ -40,3 +40,22 @@ test('llamadas: asistencia, cierre y motivos de no compra', () => {
   assert.equal(m.cierre, 2 / 6);
   assert.deepEqual(m.motivos, [['Precio', 2], ['Pareja', 1]]);
 });
+
+test('llamadas: pendiente de pago y fase de cada persona según su última llamada', async () => {
+  const { fasesPorContacto } = await import('../public/js/llamadas.js');
+  const e = etapasPipeline(pipeline);
+  assert.equal(etapaDestino('pendiente_pago', e, 's2'), 's6'); // sin etapa propia → Seguimiento
+  const conEtapa = etapasPipeline({ stages: [...pipeline.stages, { id: 'pp', name: 'Pendiente de pago', position: 9 }] });
+  assert.equal(etapaDestino('pendiente_pago', conEtapa, 's2'), 'pp');
+  const now = 1000;
+  const f = fasesPorContacto([
+    { contactId: 'a', start: 100, resultado: { resultado: 'noshow' } }, { contactId: 'a', start: 2000 }, // reservó otra → próxima
+    { contactId: 'b', start: 100, resultado: { resultado: 'pendiente_pago' } },
+    { contactId: 'c', start: 500 },
+    { contactId: 'd', start: 500, cancelada: true },
+    { contactId: 'e', start: 100 }, { contactId: 'e', start: 300, resultado: { resultado: 'venta' } },
+  ], now);
+  assert.deepEqual([...f].map(([k, v]) => [k, v.fase]), [['a', 'proxima'], ['b', 'pendiente_pago'], ['c', 'pendiente'], ['d', 'cancelada'], ['e', 'venta']]);
+  const { buildMessage } = await import('../public/js/scoring.js');
+  assert.equal(buildMessage('Hola {nombre}, el {dia_llamada} a las {hora_llamada} {otra}', { nombre: 'Ana', extra: { dia_llamada: 'lunes', hora_llamada: '10:00' } }), 'Hola Ana, el lunes a las 10:00 {otra}');
+});

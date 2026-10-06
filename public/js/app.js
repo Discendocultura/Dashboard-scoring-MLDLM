@@ -1,5 +1,5 @@
 import {
-  ESTADOS, NEXT_STEPS, buildMessage, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, OUTCOMES, dayInMadrid,
+  ESTADOS, NEXT_STEPS, buildMessage, waPhone, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, OUTCOMES, dayInMadrid,
 } from './scoring.js';
 import { icon } from './icons.js';
 import { ENCUESTA_PREGUNTAS } from './encuesta.js';
@@ -7,7 +7,7 @@ import { enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, p
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
 import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
-import { RESULTADOS, MOTIVOS, metricasLlamadas } from './llamadas.js';
+import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -254,6 +254,7 @@ function filtered() {
     if (f.avatar && !(l.avatar >= 0)) return false;
     if (f.step && l.step !== f.step) return false;
     if (f.pending && l.s.wa_enviado) return false;
+    if (f.llamada && state.llFases.get(l.id)?.fase !== f.llamada) return false;
     if (f.signal === 'sin_actividad') return l.score === 0 && !l.s.directo_click;
     if (f.signal === 'no_compra') return !l.s.compra;
     if (f.signal === 'sin_encuesta') return !l.s.encuesta;
@@ -1102,7 +1103,7 @@ function rowHtml(l) {
     ? `<button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}" title="${esc(msgPreview)}">${l.s.wa_enviado ? 'Enviado ✓ · reenviar' : 'Enviar WhatsApp'}</button>`
     : '<span class="muted">Sin teléfono</span>';
   return `<tr>
-    <td><div class="lead-name">${esc(l.name || '(sin nombre)')} ${avatarChip(l)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
+    <td><div class="lead-name">${esc(l.name || '(sin nombre)')} ${avatarChip(l)} ${faseChip(l.id)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
     <td>${videoChip(l.s, 'clase1')}</td>
     <td>${videoChip(l.s, 'clase2')}</td>
     <td>${l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>
@@ -1375,6 +1376,7 @@ function openConfig(code) {
   $('#tpl-grabacion').value = state.config.templates.grabacion;
   $('#tpl-raices').value = state.config.templates.raices;
   $('#tpl-cierre').value = state.config.templates.cierre;
+  $$('#tpl-llamadas [data-tpl]').forEach((t) => { t.value = state.config.templates[t.dataset.tpl] || ''; });
   $('#cfg-country').value = state.config.defaultCountryCode || '34';
   $('#cfg-status').textContent = '';
   renderSnippets();
@@ -1643,7 +1645,7 @@ $('#cfg-save').addEventListener('click', async () => {
       defaultCountryCode: $('#cfg-country').value,
       digestEmail: $('#cfg-digest-email').value.trim(),
       accesos: readAccesosEditor(),
-      templates: { grabacion: $('#tpl-grabacion').value, raices: $('#tpl-raices').value, cierre: $('#tpl-cierre').value },
+      templates: { grabacion: $('#tpl-grabacion').value, raices: $('#tpl-raices').value, cierre: $('#tpl-cierre').value, ...Object.fromEntries($$('#tpl-llamadas [data-tpl]').map((t) => [t.dataset.tpl, t.value])) },
       launches: { ...state.config.launches, [code]: launch },
     };
     status.textContent = 'Guardando…';
@@ -3211,6 +3213,7 @@ async function loadLlamadas() {
     const d = await api(`/api/llamadas?l=${encodeURIComponent(code)}`);
     if (code !== state.launchCode) return;
     state.llamadas = { code, data: d };
+    if (state.leads.length) { calcularFases(); render(); }
   } catch (e) {
     if (code !== state.launchCode) return;
     state.llamadas = { code, error: e.message };
@@ -3267,6 +3270,7 @@ function renderLlamadas() {
   if (L.error) { top.innerHTML = `<div class="notice err">No se pudieron cargar las llamadas: ${esc(L.error)}</div>`; box.innerHTML = ''; badge.hidden = true; return; }
   const d = L.data;
   if (!d.configurado) { top.innerHTML = `<div class="card empty"><h2>Llamadas de valoración</h2><p class="muted">${esc(d.motivo)}</p></div>`; box.innerHTML = ''; badge.hidden = true; return; }
+  calcularFases();
   const ahora = Date.now();
   const list = d.llamadas;
   const m = metricasLlamadas(list.map((c) => ({ start: llStart(c), resultado: c.resultado, cancelada: llCancelada(c) })), ahora);
@@ -3282,7 +3286,7 @@ function renderLlamadas() {
       <div class="kpi static tone-live"><span class="kpi-label"><span class="kpi-ico">${icon('phone')}</span>Shows</span><span class="kpi-value">${m.shows} <small class="ll-pct">${pct(m.pctShow)}</small></span><span class="kpi-sub">se presentaron y se hizo la llamada</span></div>
       <div class="kpi static tone-accent"><span class="kpi-label"><span class="kpi-ico">${icon('alert')}</span>No shows</span><span class="kpi-value">${m.noshow} <small class="ll-pct">${pct(m.pctNoshow)}</small></span><span class="kpi-sub">no se presentaron (sobre shows + no shows)</span></div>
       <div class="kpi static"><span class="kpi-label"><span class="kpi-ico">${icon('calendar')}</span>Canceladas</span><span class="kpi-value">${m.canceladas} <small class="ll-pct">${pct(m.pctCancel)}</small></span><span class="kpi-sub">de las reservadas${m.reagendadas ? ` · ${m.reagendadas} reagendadas` : ''}</span></div>
-      <div class="kpi static tone-buy"><span class="kpi-label"><span class="kpi-ico">${icon('cart')}</span>Ventas · conversión</span><span class="kpi-value">${m.ventas} <small class="ll-pct">${pct(m.conversion)}</small></span><span class="kpi-sub">sobre shows · ${m.seguimiento} en seguimiento · ${m.perdidas} no compran</span></div>
+      <div class="kpi static tone-buy"><span class="kpi-label"><span class="kpi-ico">${icon('cart')}</span>Ventas · conversión</span><span class="kpi-value">${m.ventas} <small class="ll-pct">${pct(m.conversion)}</small></span><span class="kpi-sub">sobre shows · ${m.pendientesPago} pendientes de pago · ${m.seguimiento} en seguimiento · ${m.perdidas} no compran</span></div>
       <div class="kpi static ${m.sinResultado ? 'tone-accent' : ''}"><span class="kpi-label"><span class="kpi-ico">${icon('list')}</span>Sin anotar</span><span class="kpi-value">${m.sinResultado}</span><span class="kpi-sub">llamadas pasadas sin resultado</span></div>
     </div>
     ${d.pipeline ? `<div class="card ll-pipe"><h3>Pipeline · ${esc(d.pipeline.name)}</h3><div class="ll-stages">${d.pipeline.stages.map((s) => `<span class="ll-stage" style="--c:${esc(s.color || '#8a817b')}"><i></i>${esc(s.name)} <strong>${s.total}</strong></span>`).join('')}</div></div>` : ''}
@@ -3304,7 +3308,7 @@ function renderLlamadas() {
 
 // ---------- Llamadas en calendario (semana / mes) ----------
 const llc = {
-  vista: ls.get('lsd_ll_vista') === 'calendario' ? 'calendario' : 'lista',
+  vista: ['calendario', 'fases'].includes(ls.get('lsd_ll_vista')) ? ls.get('lsd_ll_vista') : 'lista',
   modo: ls.get('lsd_llc_modo') === 'mes' ? 'mes' : 'semana',
   ref: null,
 };
@@ -3359,7 +3363,9 @@ function syncLlVista() {
   $$('#ll-vista .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.llv === llc.vista));
   $('#llamadas-list').hidden = llc.vista !== 'lista';
   $('#ll-cal').hidden = llc.vista !== 'calendario';
+  $('#ll-fases').hidden = llc.vista !== 'fases';
   if (llc.vista === 'calendario') renderLlCal();
+  if (llc.vista === 'fases') renderFases();
 }
 $('#ll-vista').addEventListener('click', (e) => {
   const b = e.target.closest('[data-llv]');
@@ -3385,12 +3391,141 @@ $('#llc-grid').addEventListener('click', (e) => {
   if (m) { llc.modo = 'semana'; llc.ref = m.dataset.llcDia; ls.set('lsd_llc_modo', 'semana'); renderLlCal(); }
 });
 
+// ---------- Llamadas: personas por fase y WhatsApp según la fase ----------
+state.llFases = new Map(); // contactId → { fase, cita }
+state.llFiltro = ls.get('lsd_llf_filtro') || 'todas';
+const FASE_INFO = Object.fromEntries(FASES_LLAMADA.map((f) => [f.id, f]));
+
+function calcularFases() {
+  const d = state.llamadas?.code === state.launchCode ? state.llamadas.data : null;
+  state.llFases = d?.configurado
+    ? fasesPorContacto(d.llamadas.map((c) => ({ id: c.id, contactId: c.contactId, start: llStart(c), cancelada: llCancelada(c), resultado: c.resultado, c })))
+    : new Map();
+  // Filtro de la pestaña Leads: fases con su número de personas.
+  const counts = {};
+  for (const { fase } of state.llFases.values()) counts[fase] = (counts[fase] || 0) + 1;
+  const sel = $('#f-llamada');
+  const v = state.filters.llamada || '';
+  sel.innerHTML = `<option value="">Cualquier fase de llamada</option>${FASES_LLAMADA.filter((f) => counts[f.id]).map((f) => `<option value="${f.id}">${f.icon} ${esc(f.label)} (${counts[f.id]})</option>`).join('')}`;
+  sel.value = v;
+  sel.hidden = !state.llFases.size;
+}
+
+function faseChip(contactId) {
+  const f = state.llFases.get(contactId);
+  if (!f) return '';
+  const i = FASE_INFO[f.fase];
+  return `<span class="fase-chip fase-${f.fase}" title="Fase de la llamada de valoración">${i.icon} ${esc(i.label)}</span>`;
+}
+
+// Datos de contacto: el lead del lanzamiento o, si no está, lo que devuelve GHL.
+function contactoDe(c) {
+  const lead = leadDe(c.contactId);
+  const phone = lead?.phone || c.opp?.phone || c.contacto?.phone || '';
+  return {
+    lead,
+    nombre: lead?.name || c.title || 'Sin nombre',
+    primerNombre: lead?.firstName || String(c.title || '').split(/\s+/)[0] || '',
+    phone,
+    phoneWa: lead?.phoneWa || waPhone(phone, state.config.defaultCountryCode || '34'),
+    email: lead?.email || c.opp?.email || c.contacto?.email || '',
+  };
+}
+
+function mensajeFase(contactId) {
+  const f = state.llFases.get(contactId);
+  const info = f && FASE_INFO[f.fase];
+  if (!info?.plantilla) return '';
+  const c = f.cita.c;
+  const k = contactoDe(c);
+  const d = new Date(c.startTime);
+  return buildMessage(state.config.templates[info.plantilla], {
+    nombre: k.primerNombre, contactId, launch: state.config.launches[state.launchCode],
+    extra: {
+      dia_llamada: d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' }),
+      hora_llamada: d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }),
+    },
+  });
+}
+
+const haceCuanto = (iso) => {
+  const min = Math.round((Date.now() - Date.parse(iso)) / 60_000);
+  if (min < 60) return `hace ${Math.max(1, min)} min`;
+  if (min < 1440) return `hace ${Math.round(min / 60)} h`;
+  return `hace ${Math.round(min / 1440)} d`;
+};
+
+function renderFases() {
+  const d = state.llamadas?.data;
+  if (!d?.configurado) return;
+  const counts = {};
+  for (const { fase } of state.llFases.values()) counts[fase] = (counts[fase] || 0) + 1;
+  if (state.llFiltro !== 'todas' && !counts[state.llFiltro]) state.llFiltro = 'todas';
+  $('#llf-filtros').innerHTML = `<button type="button" class="llf-f ${state.llFiltro === 'todas' ? 'on' : ''}" data-llf="todas">Todas <b>${state.llFases.size}</b></button>
+    ${FASES_LLAMADA.filter((f) => counts[f.id]).map((f) => `<button type="button" class="llf-f fase-${f.id} ${state.llFiltro === f.id ? 'on' : ''}" data-llf="${f.id}">${f.icon} ${esc(f.label)} <b>${counts[f.id]}</b></button>`).join('')}`;
+  const orden = FASES_LLAMADA.map((f) => f.id);
+  const filas = [...state.llFases.entries()]
+    .filter(([, v]) => state.llFiltro === 'todas' || v.fase === state.llFiltro)
+    .sort((a, b) => (orden.indexOf(a[1].fase) - orden.indexOf(b[1].fase)) || (b[1].cita.start - a[1].cita.start));
+  $('#llf-list').innerHTML = filas.length ? filas.map(([contactId, { fase, cita }]) => {
+    const c = cita.c;
+    const k = contactoDe(c);
+    const info = FASE_INFO[fase];
+    const r = c.resultado;
+    const wa = d.wa?.[contactId];
+    const fecha = new Date(c.startTime).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+    const msg = mensajeFase(contactId);
+    const waOk = info.plantilla && k.phoneWa && msg;
+    return `<article class="llf-row fase-${fase}">
+      <div class="llf-main">
+        <div class="llf-name">${esc(k.nombre)} <span class="fase-chip fase-${fase}">${info.icon} ${esc(info.label)}</span></div>
+        <div class="llf-meta">${fase === 'proxima' ? 'Llamada' : 'Última llamada'}: ${esc(fecha)}${r?.motivo ? ` · Motivo: ${esc(r.motivo)}` : ''}${k.phone ? ` · ${esc(k.phone)}` : ''}</div>
+        ${r?.notas ? `<div class="llf-notas">${esc(r.notas)}</div>` : ''}
+        ${k.lead ? `<div class="ll-chips">${k.lead.s.vip ? '<span class="ll-chip vip">⭐ VIP</span>' : ''}<span class="ll-chip st-${k.lead.estado.id}">${esc(k.lead.estado.label)} · ${k.lead.score} pts</span>${k.lead.s.compra ? '<span class="ll-chip buy">✅ Compró Raíces</span>' : ''}</div>` : ''}
+      </div>
+      <div class="llf-actions">
+        ${waOk ? `<button type="button" class="btn wa ${wa && wa.fase === fase ? 'sent' : ''}" data-llwa="${esc(contactId)}" title="${esc(msg)}">WhatsApp · ${esc(info.label)}</button>` : info.plantilla ? '<span class="muted">Sin teléfono</span>' : ''}
+        ${wa ? `<span class="llf-wa muted">✓ WhatsApp «${esc(FASE_INFO[wa.fase]?.label || wa.fase)}» ${esc(haceCuanto(wa.en))}</span>` : ''}
+        ${llCancelada(c) ? '' : `<button type="button" class="btn ghost" data-ll="${esc(c.id)}">${r ? 'Cambiar resultado' : 'Anotar resultado'}</button>`}
+      </div>
+    </article>`;
+  }).join('') : '<p class="muted">No hay personas en esta fase.</p>';
+}
+
+$('#llf-filtros').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-llf]');
+  if (!b) return;
+  state.llFiltro = b.dataset.llf;
+  ls.set('lsd_llf_filtro', state.llFiltro);
+  renderFases();
+});
+$('#llf-list').addEventListener('click', async (e) => {
+  const a = e.target.closest('[data-ll]');
+  if (a) { openLlamada(a.dataset.ll); return; }
+  const b = e.target.closest('[data-llwa]');
+  if (!b) return;
+  const contactId = b.dataset.llwa;
+  const f = state.llFases.get(contactId);
+  const k = contactoDe(f.cita.c);
+  window.open(`https://wa.me/${k.phoneWa}?text=${encodeURIComponent(mensajeFase(contactId))}`, '_blank', 'noopener');
+  try {
+    const r = await api('/api/llamadas', { method: 'POST', body: { l: state.llamadas.code, op: 'wa', contactId, fase: f.fase } });
+    state.llamadas.data.wa = { ...(state.llamadas.data.wa || {}), [contactId]: r.wa };
+    renderFases();
+  } catch (ex) { notice(ex.message, true); }
+});
+$('#f-llamada').addEventListener('change', (e) => { state.filters.llamada = e.target.value; state.page = 0; render(); });
+
+// Plantillas de mensajes por fase en Configuración → Mensajes de WhatsApp.
+$('#tpl-llamadas').innerHTML = FASES_LLAMADA.filter((f) => f.plantilla).map((f) => `<label class="field"><span>${f.icon} ${esc(f.label)}</span><textarea id="tpl-${f.plantilla}" data-tpl="${f.plantilla}" rows="3"></textarea></label>`).join('');
+
 // Diálogo para anotar el resultado
 const lldlg = $('#llamada-dialog');
 let llActual = null;
 $('#ll-motivo').innerHTML = MOTIVOS.map((x) => `<option>${esc(x)}</option>`).join('');
 const LL_EXPLICA = {
   venta: 'La cita se marca como realizada y la oportunidad pasa a «Venta» (ganada) en el pipeline.',
+  pendiente_pago: 'La cita se marca como realizada y la oportunidad pasa a «Pendiente de pago» (o a «Seguimiento» si esa etapa no existe en el pipeline). En «Por fase» tendrás el WhatsApp con los enlaces de pago.',
   seguimiento: 'La cita se marca como realizada y la oportunidad pasa a «Seguimiento».',
   perdido: 'La cita se marca como realizada y la oportunidad pasa a «Perdido» con el motivo.',
   noshow: 'La cita se marca como «no se presentó» y la oportunidad avanza a «No contesta 1» (o al siguiente).',

@@ -132,6 +132,7 @@
             <div class="seg" id="ll-vista" role="tablist" aria-label="Vista de llamadas">
               <button type="button" class="seg-btn on" data-llv="lista">☰ Lista</button>
               <button type="button" class="seg-btn" data-llv="calendario">📅 Calendario</button>
+              <button type="button" class="seg-btn" data-llv="fases">👥 Por fase</button>
             </div>
             <p class="muted" id="ll-fuente"></p>
             <span class="spacer"></span>
@@ -154,6 +155,10 @@
           </details>
           <div id="llamadas-top"></div>
           <div id="llamadas-list"></div>
+          <div id="ll-fases" hidden>
+            <div class="llf-filtros" id="llf-filtros" role="tablist" aria-label="Fase"></div>
+            <div id="llf-list"></div>
+          </div>
           <div id="ll-cal" hidden>
             <div class="cal-toolbar">
               <div class="cal-nav">
@@ -167,7 +172,7 @@
                 <button type="button" class="seg-btn" data-m="mes">Mes</button>
               </div>
               <div class="llc-leyenda">
-                <span class="llc-chip pend">Pendiente de anotar</span><span class="llc-chip prox">Próxima</span><span class="llc-chip res-venta">Venta</span><span class="llc-chip res-seguimiento">Seguimiento</span><span class="llc-chip res-perdido">No compra</span><span class="llc-chip res-noshow">No show</span><span class="llc-chip cancel">Cancelada</span>
+                <span class="llc-chip pend">Pendiente de anotar</span><span class="llc-chip prox">Próxima</span><span class="llc-chip res-venta">Venta</span><span class="llc-chip res-pendiente_pago">Pendiente de pago</span><span class="llc-chip res-seguimiento">Seguimiento</span><span class="llc-chip res-perdido">No compra</span><span class="llc-chip res-noshow">No show</span><span class="llc-chip cancel">Cancelada</span>
               </div>
             </div>
             <div id="llc-grid"></div>
@@ -295,6 +300,7 @@
             <option value="res_no_contesta">Resultado: no contesta</option>
             <option value="res_no_interesada">Resultado: no interesada</option>
           </select>
+          <select id="f-llamada" aria-label="Fase de la llamada"><option value="">Cualquier fase de llamada</option></select>
           <label class="check"><input id="f-pending" type="checkbox"> Solo sin contactar</label>
           <label class="check" title="Leads que encajan con uno de los avatares de compradoras (Métricas)"><input id="f-avatar" type="checkbox"> Solo avatar comprador</label>
           <span class="spacer"></span>
@@ -478,6 +484,9 @@
           <label class="field"><span>1 · No ha visto la grabación → enviarle a la grabación</span><textarea id="tpl-grabacion" rows="4"></textarea></label>
           <label class="field"><span>2 · Ha visto ≥50% de la grabación → oferta Raíces</span><textarea id="tpl-raices" rows="4"></textarea></label>
           <label class="field"><span>3 · Llegó al final (directo hasta el final o grabación ≥90%) → venta o llamada</span><textarea id="tpl-cierre" rows="4"></textarea></label>
+          <h3 class="cfg-h3">Mensajes según la fase de la llamada de valoración</h3>
+          <p class="muted">Se usan en Llamadas → «Por fase». Además de {nombre} y los enlaces ({link_pago}, {link_pago_fraccionado}, {link_llamada}, {link_pagina_venta}), puedes usar {dia_llamada} y {hora_llamada}.</p>
+          <div id="tpl-llamadas"></div>
           <label class="field narrow"><span>Prefijo para móviles sin prefijo</span><input id="cfg-country" inputmode="numeric" value="34"></label>
           <h3 class="cfg-h3">Resumen diario por email</h3>
           <p class="muted">Cada mañana: registros, ventas y la lista de muy calientes y VIP sin contactar. El email tiene que existir como contacto en GHL.</p>

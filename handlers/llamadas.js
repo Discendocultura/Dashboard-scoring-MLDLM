@@ -5,7 +5,7 @@
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import {
-  getPipelines, searchOpportunities, createOpportunity, updateOpportunity, calendarEvents, getCalendar,
+  getPipelines, searchOpportunities, getContact, createOpportunity, updateOpportunity, calendarEvents, getCalendar,
   updateAppointmentStatus, addContactNote, getCustomValue, saveCustomValue,
 } from '../lib/ghl.js';
 import { RESULTADOS, MOTIVOS, PIPELINE_POR_DEFECTO, etapasPipeline, etapaDestino, calendarioDeUrl } from '../public/js/llamadas.js';
@@ -65,6 +65,12 @@ export async function GET(request) {
     if (pipeline) {
       const ids = [...new Set(citas.map((c) => c.contactId).filter(Boolean))];
       await mapLimit(ids, 4, async (id) => { opps[id] = (await searchOpportunities({ pipelineId: pipeline.id, contactId: id, limit: 5 })).opportunities[0] || null; });
+    }
+    // Teléfono y email de quien no está en el pipeline (para poder escribirle por WhatsApp).
+    const contactos = {};
+    const sinOpp = [...new Set(citas.map((c) => c.contactId).filter((id) => id && !opps[id]?.phone))].slice(0, 60);
+    await mapLimit(sinOpp, 4, async (id) => { const c = await getContact(id).catch(() => null); if (c) contactos[id] = { phone: c.phone || '', email: c.email || '' }; });
+    if (pipeline) {
       etapas = await mapLimit([...pipeline.stages].sort((a, b) => a.position - b.position), 3, async (s) => ({
         id: s.id, name: s.name, color: s.color || '', total: (await searchOpportunities({ pipelineId: pipeline.id, pipelineStageId: s.id, limit: 1 })).total,
       }));
@@ -73,7 +79,8 @@ export async function GET(request) {
       configurado: true,
       calendario: { id: calendarId, name: calendario?.name || 'Calendario de llamadas' },
       pipeline: pipeline ? { id: pipeline.id, name: pipeline.name, stages: etapas } : null,
-      llamadas: citas.map((c) => ({ ...c, opp: opps[c.contactId] || null, resultado: resultados[c.id] || null })),
+      llamadas: citas.map((c) => ({ ...c, opp: opps[c.contactId] || null, contacto: contactos[c.contactId] || null, resultado: resultados[c.id] || null })),
+      wa: resultados._wa || {},
     });
   } catch (e) {
     return errorResponse(e);
@@ -84,8 +91,18 @@ export async function POST(request) {
   try {
     const s = await requireSession(request);
     const body = await readBody(request);
-    if (body.op !== 'resultado') throw bad('Operación no válida');
     const code = String(body.l || '');
+    if (body.op === 'wa') {
+      // Registro de que se ha enviado el WhatsApp de una fase (para verlo en el dashboard).
+      const contactId = String(body.contactId || '');
+      if (!/^[A-Za-z0-9_-]{2,64}$/.test(contactId)) throw bad('Contacto no válido');
+      await contexto(code);
+      const resultados = await getResultados(code);
+      resultados._wa = { ...(resultados._wa || {}), [contactId]: { fase: String(body.fase || '').slice(0, 30), en: new Date().toISOString(), por: s.user?.nombre || s.role } };
+      await saveCustomValue(storeName(code), JSON.stringify(resultados));
+      return json({ wa: resultados._wa[contactId] });
+    }
+    if (body.op !== 'resultado') throw bad('Operación no válida');
     const { config } = await contexto(code);
     const r = RESULTADOS.find((x) => x.id === body.resultado);
     if (!r) throw bad('Resultado no válido');
