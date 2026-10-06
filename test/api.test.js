@@ -394,5 +394,12 @@ test('tareas: plantilla, asignación con aviso por email y permisos para marcar'
   assert.equal(list.me.uid, sara.user.id);
   assert.ok(list.users.every((u) => !u.email));
   assert.equal((await post(admin, { op: 'borrar', id: mine.id })).status, 200);
+  const dos = list.tareas.filter((t) => t.id !== mine.id).slice(0, 2).map((t) => t.id);
+  assert.equal((await post(setter, { op: 'borrar-varias', ids: dos })).status, 403);
+  const bv = await (await post(admin, { op: 'borrar-varias', ids: dos })).json();
+  assert.equal(bv.tareas.length, list.tareas.length - 3);
+  assert.ok(!bv.tareas.some((t) => dos.includes(t.id)));
+  assert.equal((await post(saraCookie, { op: 'borrar-todas' })).status, 403);
+  assert.equal((await (await post(admin, { op: 'borrar-todas' })).json()).tareas.length, 0);
   assert.equal((await post(saraCookie, { op: 'marcar', id: mine.id, hecha: false })).status, 404);
 });

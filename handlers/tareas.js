@@ -70,6 +70,13 @@ export async function POST(request) {
       } else if (op === 'borrar') {
         const t = find();
         tareas.splice(tareas.indexOf(t), 1);
+      } else if (op === 'borrar-varias') {
+        const ids = new Set(Array.isArray(body.ids) ? body.ids.slice(0, MAX_TAREAS).map(String) : []);
+        if (!ids.size) throw bad('No hay tareas seleccionadas');
+        const quedan = tareas.filter((t) => !ids.has(t.id));
+        tareas.splice(0, tareas.length, ...quedan);
+      } else if (op === 'borrar-todas') {
+        tareas.splice(0, tareas.length);
       } else if (op === 'plantilla') {
         const existentes = new Set(tareas.map((t) => t.titulo));
         const nuevas = plantillaTareas(launch).filter((t) => !existentes.has(t.titulo));

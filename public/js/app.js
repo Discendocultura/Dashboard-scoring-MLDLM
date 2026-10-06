@@ -17,6 +17,7 @@ const state = {
   tareas: null, // { code, list, users }
   tFiltro: 'pendientes',
   tResp: '',
+  tSel: null, // Set de ids seleccionados (modo selección del admin) o null
   equipo: [],
   config: null,
   zoomConfigured: false,
@@ -1965,6 +1966,7 @@ async function loadTareas() {
   try {
     const d = await api(`/api/tareas?l=${encodeURIComponent(code)}`);
     if (code !== state.launchCode) return;
+    if (state.tareas?.code !== code) state.tSel = null;
     state.tareas = { code, list: d.tareas, users: d.users };
   } catch (e) {
     state.tareas = { code, list: [], users: [], error: e.message };
@@ -2019,7 +2021,8 @@ function tareaRow(t) {
     ? `<span class="t-fecha ${!t.hecha && venc ? 'vencida' : !t.hecha && t.fecha === hoy ? 'hoy' : ''}">${icon('calendar')}${!t.hecha && venc ? 'Vencida · ' : !t.hecha && t.fecha === hoy ? 'Hoy · ' : ''}${esc(fechaCorta(t.fecha))}</span>`
     : '';
   const hecha = t.hecha ? `<span class="t-hecha">✓ ${esc(t.hechaPor || '')}${t.hechaEn ? ` · ${esc(new Date(t.hechaEn).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }))}` : ''}</span>` : '';
-  return `<li class="tarea ${t.hecha ? 'done' : ''} ${venc ? 'is-vencida' : ''} ${esMia(t, meSess()) ? 'is-mia' : ''}">
+  const sel = state.tSel ? `<label class="t-sel" title="Seleccionar"><input type="checkbox" data-sel="${esc(t.id)}" ${state.tSel.has(t.id) ? 'checked' : ''} aria-label="Seleccionar tarea"></label>` : '';
+  return `<li class="tarea ${t.hecha ? 'done' : ''} ${venc ? 'is-vencida' : ''} ${esMia(t, meSess()) ? 'is-mia' : ''} ${state.tSel?.has(t.id) ? 'is-sel' : ''}">${sel}
     <label class="t-check" title="${puede ? (t.hecha ? 'Marcar como pendiente' : 'Marcar como hecha') : 'Solo puede marcarla su responsable'}">
       <input type="checkbox" data-tid="${esc(t.id)}" ${t.hecha ? 'checked' : ''} ${puede ? '' : 'disabled'}><span class="t-box" aria-hidden="true"></span>
     </label>
@@ -2066,6 +2069,14 @@ function renderTareas() {
     </div>`;
 
   $$('#tareas-filtro .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.f === state.tFiltro));
+  if (state.tSel) for (const id of [...state.tSel]) if (!list.some((t) => t.id === id)) state.tSel.delete(id);
+  $('#tareas-selbar').hidden = !state.tSel;
+  $('#btn-tareas-sel').hidden = Boolean(state.tSel) || !list.length;
+  if (state.tSel) {
+    $('#tareas-selcount').textContent = `${state.tSel.size} seleccionada${state.tSel.size === 1 ? '' : 's'}`;
+    $('#btn-del-sel').disabled = !state.tSel.size;
+    $('#btn-del-todas').disabled = !list.length;
+  }
   renderRespSelect();
 
   const shown = list.filter((t) => filtroEstado(t) && filtroResp(t));
@@ -2124,6 +2135,41 @@ $('#tareas-list').addEventListener('click', async (e) => {
   const t = state.tareas.list.find((x) => x.id === del.dataset.tdel);
   if (!t || !window.confirm(`¿Borrar la tarea «${t.titulo}»?`)) return;
   try { await tareasOp({ op: 'borrar', id: t.id }); } catch (ex) { notice(ex.message, true); }
+});
+
+// Selección y borrado en bloque (solo admin)
+const visiblesIds = () => $$('#tareas-list input[data-sel]').map((x) => x.dataset.sel);
+$('#btn-tareas-sel').addEventListener('click', () => { state.tSel = new Set(); renderTareas(); });
+$('#btn-sel-salir').addEventListener('click', () => { state.tSel = null; renderTareas(); });
+$('#btn-sel-visibles').addEventListener('click', () => { visiblesIds().forEach((id) => state.tSel.add(id)); renderTareas(); });
+$('#btn-sel-ninguna').addEventListener('click', () => { state.tSel.clear(); renderTareas(); });
+$('#tareas-list').addEventListener('change', (e) => {
+  const cb = e.target.closest('input[data-sel]');
+  if (!cb || !state.tSel) return;
+  if (cb.checked) state.tSel.add(cb.dataset.sel); else state.tSel.delete(cb.dataset.sel);
+  renderTareas();
+});
+$('#btn-del-sel').addEventListener('click', async () => {
+  const n = state.tSel.size;
+  if (!n || !window.confirm(`¿Eliminar ${n} tarea${n === 1 ? '' : 's'}? No se puede deshacer.`)) return;
+  try {
+    await tareasOp({ op: 'borrar-varias', ids: [...state.tSel] });
+    state.tSel = null;
+    renderTareas();
+    notice(`${n} tarea${n === 1 ? ' eliminada' : 's eliminadas'}.`);
+  } catch (ex) { notice(ex.message, true); }
+});
+$('#btn-del-todas').addEventListener('click', async () => {
+  const n = state.tareas.list.length;
+  const name = state.config.launches[state.tareas.code]?.name || state.tareas.code;
+  if (!window.confirm(`¿Eliminar TODAS las tareas (${n}) de «${name}»? No se puede deshacer.`)) return;
+  if (window.prompt('Para confirmar, escribe ELIMINAR') !== 'ELIMINAR') return;
+  try {
+    await tareasOp({ op: 'borrar-todas' });
+    state.tSel = null;
+    renderTareas();
+    notice(`Eliminadas las ${n} tareas de «${name}».`);
+  } catch (ex) { notice(ex.message, true); }
 });
 
 async function cargarPlantilla() {
