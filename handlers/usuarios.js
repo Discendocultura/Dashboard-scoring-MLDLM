@@ -59,7 +59,7 @@ export async function POST(request) {
     if (op === 'crear') {
       const nombre = String(body.nombre || '').trim().slice(0, 80);
       const email = normEmail(body.email);
-      const rol = ROLES.includes(body.rol) ? body.rol : 'equipo';
+      const rol = ROLES.includes(body.rol) ? body.rol : 'setter';
       if (!nombre) throw bad('Falta el nombre');
       if (!isEmail(email)) throw bad('El email no es válido');
       if (users.some((u) => u.email === email)) throw bad('Ya hay un usuario con ese email');

@@ -273,14 +273,21 @@ Con un email tuyo que **no** esté en GHL:
 ## Accesos y equipo
 Cada persona entra con **su email y su contraseña**. Se dan de alta en *Configuración → Equipo* (o al asignar una tarea a «+ Nueva persona»): se crea su contacto en GHL con la etiqueta `equipo-dashboard` y le llega un email desde GHL con el enlace, su email y una contraseña generada. Desde «Mi cuenta» puede cambiarla; desde Equipo se puede reenviar el acceso (contraseña nueva), cambiar el rol, desactivar o borrar.
 
-- **Admin**: todo, incluida la configuración, el equipo y la sincronización con Zoom.
-- **Setter**: Setteo hoy, Leads y Tareas.
-- **Equipo**: solo Tareas (el servidor no le deja leer leads ni métricas).
+- **Admin**: todo (incluida la gestión del equipo y crear/editar tareas y eventos).
+- **Técnico**: configuración de lanzamientos, Setteo hoy, Leads, Métricas y Objetivos.
+- **Setter**: Setteo hoy y Leads.
+- **Todos**: Tareas y Calendario (cada uno marca sus tareas y las de su rol).
 
 Las contraseñas generales `ADMIN_PASSWORD` / `SETTER_PASSWORD` siguen funcionando (dejando el email vacío) como acceso de emergencia.
 
 ## Tareas
-Cada lanzamiento tiene su pestaña **Tareas**, agrupadas por fase (preparación → cierre) con barra de progreso, vencidas y filtros (pendientes, mías, vencidas, hechas, por persona). La admin crea, edita y borra (también varias a la vez con «Seleccionar», o todas con «Eliminar todas»); cada tarea se asigna a una persona o a todo un rol y, si se marca «Avisar», le llega un email. El resto marca como hechas las suyas o las de su rol. Se ven en **Lista** (por fases) o en **Tablero** kanban (Por hacer → En curso → Hecha): arrastra las tarjetas de columna o usa los botones ‹ › (en el móvil). «Cargar tareas habituales» añade la lista de siempre con fechas calculadas a partir de las del lanzamiento (sin duplicar).
+Cada lanzamiento tiene su pestaña **Tareas**, agrupadas por fase (preparación → cierre) con barra de progreso, vencidas y filtros (pendientes, mías, vencidas, hechas, por persona). La admin crea, edita y borra (también varias a la vez con «Seleccionar», o todas con «Eliminar todas»); cada tarea se asigna a una persona o a todo un rol y, si se marca «Avisar», le llega un email. El resto marca como hechas las suyas o las de su rol. Se ven en **Lista** (por fases) o en **Tablero** kanban (Por hacer → En curso → Hecha): arrastra las tarjetas de columna o usa los botones ‹ › (en el móvil). Filtros: pendientes, hoy, esta semana, mías, vencidas, hechas y por persona.
+
+Cada tarea tiene una **descripción con formato** (títulos, negrita, listas con viñetas o numeradas, enlaces externos y **vídeos de Vimeo, YouTube o Loom** que se reproducen dentro de la tarea). Pulsa el título de una tarea para verla completa. El servidor limpia el HTML: solo pasa el formato permitido.
+
+**Tareas habituales**: al marcar «🔁 Tarea habitual» la tarea se guarda en la plantilla (Custom Value `lsd_tareas_habituales`) con su descripción, fase, persona o rol asignado y fecha relativa a un hito (captación, clase 1, directo o cierre). «Cargar tareas habituales» en el siguiente lanzamiento las crea con esa misma asignación (si la persona ya no está, se asigna a su rol) y sin duplicar. Editar una habitual actualiza la plantilla; desmarcar la casilla la quita.
+
+Con «Seleccionar» la admin puede **asignar varias tareas a la vez** (p. ej. todas las de «Rol Admin» a una persona) o eliminarlas.
 
 ## Calendario
 Pestaña **Calendario** (todos los roles), con vista **mensual** y **semanal**:

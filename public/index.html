@@ -32,8 +32,8 @@
           <select id="launch-select"></select>
         </label>
         <button id="btn-reload" class="btn" type="button" title="Volver a cargar los leads desde GHL">Actualizar</button>
-        <button id="btn-zoom" class="btn admin-only" type="button" title="Leer la asistencia del directo en Zoom y etiquetar a los leads">Sincronizar Zoom</button>
-        <button id="btn-config" class="btn admin-only" type="button">Configuración</button>
+        <button id="btn-zoom" class="btn config-only" type="button" title="Leer la asistencia del directo en Zoom y etiquetar a los leads">Sincronizar Zoom</button>
+        <button id="btn-config" class="btn config-only" type="button">Configuración</button>
         <button id="btn-cuenta" class="btn ghost" type="button" hidden>Mi cuenta</button>
         <button id="btn-logout" class="btn ghost" type="button">Salir</button>
       </div>
@@ -46,7 +46,7 @@
       <section id="empty-state" class="card empty" hidden>
         <h2>Crea tu primer lanzamiento</h2>
         <p class="muted">Elige la etiqueta de registro y la de compra VIP, y pega los enlaces de la grabación y de la oferta.</p>
-        <button class="btn primary admin-only" type="button" data-action="new-launch">Nuevo lanzamiento</button>
+        <button class="btn primary config-only" type="button" data-action="new-launch">Nuevo lanzamiento</button>
         <p class="muted setter-only">Pide al administrador que configure el lanzamiento.</p>
       </section>
 
@@ -97,6 +97,8 @@
             </div>
             <div class="seg" role="tablist" aria-label="Qué tareas ver" id="tareas-filtro">
               <button type="button" class="seg-btn on" data-f="pendientes">Pendientes</button>
+              <button type="button" class="seg-btn" data-f="hoy">Hoy</button>
+              <button type="button" class="seg-btn" data-f="semana">Esta semana</button>
               <button type="button" class="seg-btn" data-f="mias">Mías</button>
               <button type="button" class="seg-btn" data-f="vencidas">Vencidas</button>
               <button type="button" class="seg-btn" data-f="hechas">Hechas</button>
@@ -113,6 +115,8 @@
             <button type="button" class="btn ghost" id="btn-sel-visibles">Seleccionar las que se ven</button>
             <button type="button" class="btn ghost" id="btn-sel-ninguna">Quitar selección</button>
             <span class="spacer"></span>
+            <select id="sel-asignar" aria-label="Asignar las seleccionadas a"></select>
+            <button type="button" class="btn" id="btn-sel-asignar" disabled>Asignar</button>
             <button type="button" class="btn danger" id="btn-del-sel" disabled>Eliminar seleccionadas</button>
             <button type="button" class="btn danger-ghost" id="btn-del-todas">Eliminar todas</button>
             <button type="button" class="btn" id="btn-sel-salir">Hecho</button>
@@ -280,7 +284,7 @@
           <button type="button" class="tab" data-tab="pagina">Página preclase</button>
           <button type="button" class="tab" data-tab="snippets">Códigos para GHL</button>
           <button type="button" class="tab" data-tab="accesos">Recursos lanzamiento</button>
-          <button type="button" class="tab" data-tab="equipo">Equipo</button>
+          <button type="button" class="tab admin-only" data-tab="equipo">Equipo</button>
         </div>
 
         <section class="tab-panel" data-panel="launch">
@@ -529,15 +533,16 @@
           <p class="muted">Personas con acceso al dashboard. Al crear una, se crea su contacto en GHL con la etiqueta <code>equipo-dashboard</code> y le llega un email con el enlace, su email y una contraseña. Los cambios de esta pestaña se aplican al momento (no hace falta pulsar Guardar).</p>
           <div class="roles-note">
             <span><strong>Admin</strong> · todo</span>
-            <span><strong>Setter</strong> · Setteo hoy, Leads y Tareas</span>
-            <span><strong>Equipo</strong> · solo Tareas</span>
+            <span><strong>Técnico</strong> · configuración de lanzamientos, Setteo hoy, Leads, Métricas y Objetivos</span>
+            <span><strong>Setter</strong> · Setteo hoy y Leads</span>
+            <span>Todos · Tareas y Calendario</span>
           </div>
           <div id="equipo-list"></div>
           <h3 class="cfg-h3">Añadir persona</h3>
           <div class="row equipo-add">
             <label class="field"><span>Nombre</span><input id="eq-nombre" placeholder="Sara Guzmán"></label>
             <label class="field"><span>Email</span><input id="eq-email" type="email" placeholder="sara@…"></label>
-            <label class="field narrow"><span>Rol</span><select id="eq-rol"><option value="equipo">Equipo</option><option value="setter">Setter</option><option value="admin">Admin</option></select></label>
+            <label class="field narrow"><span>Rol</span><select id="eq-rol"><option value="setter">Setter</option><option value="tecnico">Técnico</option><option value="admin">Admin</option></select></label>
             <button type="button" class="btn primary" id="btn-eq-crear">Crear y enviar acceso</button>
           </div>
           <div id="equipo-result" class="notice" hidden></div>
@@ -564,7 +569,24 @@
       <header class="dialog-head"><h2 id="tarea-title">Nueva tarea</h2></header>
       <div class="dialog-body">
         <label class="field"><span>Tarea</span><input id="t-titulo" required maxlength="200" placeholder="Qué hay que hacer"></label>
-        <label class="field"><span>Notas <small>(opcional)</small></span><textarea id="t-notas" rows="3" maxlength="2000" placeholder="Detalles, enlaces…"></textarea></label>
+        <div class="field"><span>Descripción <small>(opcional)</small></span>
+          <div class="rt-editor">
+            <div class="rt-toolbar" role="toolbar" aria-label="Formato del texto">
+              <select data-rt-block aria-label="Tamaño del texto"><option value="p">Texto normal</option><option value="h2">Título</option><option value="h3">Subtítulo</option></select>
+              <button type="button" data-rt="bold" title="Negrita" aria-label="Negrita"><strong>B</strong></button>
+              <button type="button" data-rt="italic" title="Cursiva" aria-label="Cursiva"><em>I</em></button>
+              <button type="button" data-rt="underline" title="Subrayado" aria-label="Subrayado"><u>U</u></button>
+              <span class="rt-sep"></span>
+              <button type="button" data-rt="insertUnorderedList" title="Lista con viñetas">• Lista</button>
+              <button type="button" data-rt="insertOrderedList" title="Lista numerada">1. Lista</button>
+              <span class="rt-sep"></span>
+              <button type="button" data-rt="link" title="Enlace externo">🔗 Enlace</button>
+              <button type="button" data-rt="video" title="Vídeo de Vimeo, YouTube o Loom">🎬 Vídeo</button>
+              <button type="button" data-rt="removeFormat" title="Quitar formato">Tx</button>
+            </div>
+            <div id="t-notas" class="rt-area rich" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Pasos, enlaces, vídeos explicativos…"></div>
+          </div>
+        </div>
         <div class="row">
           <label class="field"><span>Fase</span><select id="t-fase"></select></label>
           <label class="field"><span>Fecha límite</span><input id="t-fecha" type="date"></label>
@@ -575,10 +597,11 @@
           <div class="row">
             <label class="field"><span>Nombre</span><input id="t-np-nombre" placeholder="Nombre y apellidos"></label>
             <label class="field"><span>Email</span><input id="t-np-email" type="email" placeholder="email@…"></label>
-            <label class="field narrow"><span>Rol</span><select id="t-np-rol"><option value="equipo">Equipo</option><option value="setter">Setter</option><option value="admin">Admin</option></select></label>
+            <label class="field narrow"><span>Rol</span><select id="t-np-rol"><option value="setter">Setter</option><option value="tecnico">Técnico</option><option value="admin">Admin</option></select></label>
           </div>
         </div>
         <label class="check"><input id="t-avisar" type="checkbox" checked> Avisar por email a la persona (o a todo el rol)</label>
+        <label class="check habitual-check"><input id="t-habitual" type="checkbox"> 🔁 <span><strong>Tarea habitual</strong> · se añadirá en los próximos lanzamientos al pulsar «Cargar tareas habituales», con la misma persona o rol y la misma fecha relativa</span></label>
       </div>
       <footer class="dialog-foot">
         <span id="tarea-status" class="muted"></span>
@@ -626,6 +649,23 @@
         </div>
       </div>
       <footer class="dialog-foot"><span class="spacer"></span><button class="btn" value="cancel" type="submit">Cerrar</button></footer>
+    </form>
+  </dialog>
+
+  <!-- Ver tarea -->
+  <dialog id="tarea-ver" class="dialog dialog-md">
+    <form method="dialog">
+      <header class="dialog-head"><h2 id="tv-titulo"></h2><button class="btn ghost" value="cancel" type="submit" aria-label="Cerrar">✕</button></header>
+      <div class="dialog-body">
+        <div id="tv-meta" class="tv-meta"></div>
+        <div id="tv-notas" class="rich tv-notas"></div>
+      </div>
+      <footer class="dialog-foot">
+        <div id="tv-estado" class="seg" role="group" aria-label="Estado"></div>
+        <span class="spacer"></span>
+        <button id="tv-editar" class="btn admin-only" type="button">Editar</button>
+        <button class="btn" value="cancel" type="submit">Cerrar</button>
+      </footer>
     </form>
   </dialog>
 

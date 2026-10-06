@@ -5,7 +5,7 @@ import { json, errorResponse } from '../lib/http.js';
 
 export async function GET(request) {
   try {
-    await requireRole(request, { admin: true });
+    await requireRole(request, { tecnico: true });
     return json({ fields: await listDateFields() });
   } catch (e) {
     return errorResponse(e);

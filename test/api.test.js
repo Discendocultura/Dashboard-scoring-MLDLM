@@ -446,3 +446,58 @@ test('calendario: hitos, eventos propios y enlace de suscripción .ics', async (
   assert.match(ics, /Se libera la clase 1/);
   assert.equal((await cal.GET(req('/api/cal?t=cal:admin.firmafalsa'))).status, 403);
 });
+
+test('roles: el técnico configura lanzamientos pero no gestiona el equipo ni crea tareas', async () => {
+  const admin = await login('admin');
+  const usuarios = await import('../handlers/usuarios.js');
+  const r = await (await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'crear', nombre: 'Técnica Prueba', email: 'tecnica@example.com', rol: 'tecnico' } }))).json();
+  const { POST: doLogin } = await import('../handlers/login.js');
+  const tec = (await doLogin(req('/api/login', { method: 'POST', body: { email: 'tecnica@example.com', password: r.password } }))).headers.get('set-cookie').split(';')[0];
+  const config = await import('../handlers/config.js');
+  const cur = (await (await config.GET(req('/api/config', { cookie: tec }))).json()).config;
+  assert.equal((await config.POST(req('/api/config', { method: 'POST', cookie: tec, body: cur }))).status, 200);
+  assert.equal((await (await import('../handlers/leads.js')).GET(req('/api/leads?tag=registro-webinar-demo', { cookie: tec }))).status, 200);
+  assert.equal((await usuarios.GET(req('/api/usuarios', { cookie: tec }))).status, 403);
+  const tareas = await import('../handlers/tareas.js');
+  assert.equal((await tareas.POST(req('/api/tareas', { method: 'POST', cookie: tec, body: { l: 'demo', op: 'crear', tarea: { titulo: 'x' } } }))).status, 403);
+  const setter = await login('setter');
+  assert.equal((await config.POST(req('/api/config', { method: 'POST', cookie: setter, body: cur }))).status, 403);
+});
+
+test('tareas habituales: se guardan con su asignación y su fecha relativa y se cargan en el siguiente lanzamiento', async () => {
+  const admin = await login('admin');
+  const config = await import('../handlers/config.js');
+  const cur = (await (await config.GET(req('/api/config', { cookie: admin }))).json()).config;
+  cur.launches.uno = { name: 'Uno', registroTag: 'registro-webinar-demo', inicioCaptacion: '2026-10-01', fechaDirecto: '2026-10-29', horaDirecto: '19:00' };
+  cur.launches.dos = { name: 'Dos', registroTag: 'registro-webinar-demo', inicioCaptacion: '2026-12-01', fechaDirecto: '2026-12-17', horaDirecto: '19:00' };
+  await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: cur }));
+  const usuarios = await import('../handlers/usuarios.js');
+  const quique = (await (await usuarios.GET(req('/api/usuarios', { cookie: admin }))).json()).users.find((u) => u.email === 'quique@example.com');
+  const tareas = await import('../handlers/tareas.js');
+  const post = (l, body) => tareas.POST(req('/api/tareas', { method: 'POST', cookie: admin, body: { l, avisar: false, ...body } }));
+
+  let d = await (await post('uno', { op: 'plantilla' })).json();
+  const nSerie = d.tareas.length;
+  assert.ok(d.tareas.every((t) => t.habitual && t.habId));
+  // Nueva habitual con texto con formato y vídeo, dos días antes del directo, asignada a Quique.
+  d = await (await post('uno', { op: 'crear', tarea: { titulo: 'Grabar vídeo de bienvenida', fase: 'directo', fecha: '2026-10-27', habitual: true, notas: '<h2>Pasos</h2><ol><li>Guion</li></ol><div data-video="https://vimeo.com/123456"></div><script>alert(1)</script>', asignado: { tipo: 'persona', id: quique.id } } })).json();
+  const nueva = d.tareas.find((t) => t.titulo === 'Grabar vídeo de bienvenida');
+  assert.equal(nueva.notas, '<h2>Pasos</h2><ol><li>Guion</li></ol><div data-video="https://vimeo.com/123456"></div>');
+  // Reasignar en bloque todas las de «Rol Admin» a Quique.
+  const deAdmin = d.tareas.filter((t) => t.asignado?.tipo === 'rol' && t.asignado.rol === 'admin').map((t) => t.id);
+  assert.ok(deAdmin.length > 3);
+  d = await (await post('uno', { op: 'asignar', ids: deAdmin, asignado: { tipo: 'persona', id: quique.id } })).json();
+  assert.ok(d.tareas.filter((t) => deAdmin.includes(t.id)).every((t) => t.asignado.id === quique.id));
+  // Una habitual deja de serlo.
+  const quitar = d.tareas.find((t) => t.asignado?.rol === 'setter');
+  await post('uno', { op: 'editar', id: quitar.id, tarea: { ...quitar, habitual: false } });
+
+  const dos = await (await post('dos', { op: 'plantilla' })).json();
+  assert.equal(dos.tareas.length, nSerie); // +1 nueva, -1 quitada
+  const n2 = dos.tareas.find((t) => t.titulo === 'Grabar vídeo de bienvenida');
+  assert.equal(n2.fecha, '2026-12-15');
+  assert.equal(n2.asignado.id, quique.id);
+  assert.match(n2.notas, /data-video/);
+  assert.ok(!dos.tareas.some((t) => t.titulo === quitar.titulo));
+  assert.equal(dos.tareas.filter((t) => t.asignado?.tipo === 'rol' && t.asignado.rol === 'admin').length, 0);
+});

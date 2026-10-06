@@ -24,7 +24,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    await requireRole(request, { admin: true });
+    await requireRole(request, { tecnico: true });
     const config = await saveConfig(await readBody(request));
     return json({ config });
   } catch (e) {

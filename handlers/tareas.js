@@ -1,13 +1,15 @@
 // Tareas por lanzamiento. Todos los roles las ven; admin crea, edita y borra; el resto marca las suyas.
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
-import { getTareas, saveTareas, sanitizeTarea, avisarAsignaciones, MAX_TAREAS } from '../lib/tareas.js';
+import { getTareas, saveTareas, sanitizeTarea, sanitizeAsignado, avisarAsignaciones, MAX_TAREAS } from '../lib/tareas.js';
 import { listUsers, newId } from '../lib/users.js';
-import { plantillaTareas, puedeMarcar } from '../public/js/tareas.js';
+import { puedeMarcar } from '../public/js/tareas.js';
+import { getHabituales, saveHabituales, enlazar, guardarDesdeTarea, quitar, tareasDesdePlantilla } from '../lib/habituales.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const actor = (s) => s.user?.nombre || (s.role === 'admin' ? 'Admin' : 'Setter');
+const ROLES_TAREA = ['admin', 'tecnico', 'setter', 'equipo'];
 
 async function launchOf(code) {
   const config = await getConfig();
@@ -24,8 +26,8 @@ export async function GET(request) {
     const s = await requireSession(request, { equipo: true });
     const code = new URL(request.url).searchParams.get('l') || '';
     await launchOf(code);
-    const [tareas, users] = await Promise.all([getTareas(code), listUsers()]);
-    return json({ tareas, users: team(users, s), me: { role: s.role, uid: s.uid } });
+    const [tareas, users, habituales] = await Promise.all([getTareas(code), listUsers(), getHabituales()]);
+    return json({ tareas: enlazar(tareas, habituales), users: team(users, s), me: { role: s.role, uid: s.uid } });
   } catch (e) {
     return errorResponse(e);
   }
@@ -40,6 +42,9 @@ export async function POST(request) {
     const op = String(body.op || '');
     const tareas = await getTareas(code); // lectura fresca: cada operación modifica la última versión
     const users = await listUsers({ fresh: true });
+    const habituales = await getHabituales();
+    let habCambio = false;
+    enlazar(tareas, habituales);
     const now = new Date().toISOString();
     const find = () => {
       const t = tareas.find((x) => x.id === body.id);
@@ -70,11 +75,26 @@ export async function POST(request) {
         const t = { id: newId('t'), ...sanitizeTarea(body.tarea, users), hecha: false, hechaPor: '', hechaEn: '', creadaPor: actor(s), creadaEn: now };
         tareas.push(t);
         nuevasAsignadas = [t];
+        if (body.tarea?.habitual) { guardarDesdeTarea(habituales, t, launch, users, newId); habCambio = true; }
       } else if (op === 'editar') {
         const t = find();
         const before = JSON.stringify(t.asignado || null);
         Object.assign(t, sanitizeTarea(body.tarea, users), { editadaEn: now });
         if (JSON.stringify(t.asignado || null) !== before) nuevasAsignadas = [t];
+        // Marcada como habitual: la plantilla se actualiza con lo último (texto, fase, fecha y a quién).
+        if (body.tarea?.habitual) { guardarDesdeTarea(habituales, t, launch, users, newId); habCambio = true; } else if (t.habId) { quitar(habituales, t); habCambio = true; }
+      } else if (op === 'asignar') {
+        // Reasignar varias tareas a la vez (p. ej. todas las de «Rol Admin» a una persona).
+        const ids = new Set(Array.isArray(body.ids) ? body.ids.slice(0, MAX_TAREAS).map(String) : []);
+        if (!ids.size) throw bad('No hay tareas seleccionadas');
+        const asignado = sanitizeAsignado(body.asignado, users);
+        for (const t of tareas) {
+          if (!ids.has(t.id) || JSON.stringify(t.asignado || null) === JSON.stringify(asignado)) continue;
+          t.asignado = asignado;
+          t.editadaEn = now;
+          nuevasAsignadas.push(t);
+          if (t.habId) { guardarDesdeTarea(habituales, t, launch, users, newId); habCambio = true; }
+        }
       } else if (op === 'borrar') {
         const t = find();
         tareas.splice(tareas.indexOf(t), 1);
@@ -86,16 +106,16 @@ export async function POST(request) {
       } else if (op === 'borrar-todas') {
         tareas.splice(0, tareas.length);
       } else if (op === 'plantilla') {
-        const existentes = new Set(tareas.map((t) => t.titulo));
-        const nuevas = plantillaTareas(launch).filter((t) => !existentes.has(t.titulo));
+        const nuevas = tareasDesdePlantilla(habituales, launch, tareas, users);
         if (tareas.length + nuevas.length > MAX_TAREAS) throw bad(`Máximo ${MAX_TAREAS} tareas por lanzamiento`);
-        for (const t of nuevas) tareas.push({ id: newId('t'), ...t, notas: '', hecha: false, hechaPor: '', hechaEn: '', creadaPor: actor(s), creadaEn: now });
+        for (const t of nuevas) tareas.push({ id: newId('t'), ...t, hecha: false, hechaPor: '', hechaEn: '', creadaPor: actor(s), creadaEn: now });
       } else {
         throw bad('Operación no válida');
       }
     }
 
     await saveTareas(code, tareas);
+    if (habCambio) await saveHabituales(habituales);
     const aviso = nuevasAsignadas.length && body.avisar !== false
       ? await avisarAsignaciones(nuevasAsignadas, { launchName: launch.name, dashboardUrl, exceptUid: s.uid })
       : { enviados: 0, errores: [] };

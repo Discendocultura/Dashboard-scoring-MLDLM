@@ -169,7 +169,7 @@ async function vipVendidas(code, launch) {
 // POST (admin): enlace firmado para ver la página como si fuera otra fecha/hora.
 export async function POST(request) {
   try {
-    await requireRole(request, { admin: true });
+    await requireRole(request, { tecnico: true });
     const { at } = await request.json().catch(() => ({}));
     const epoch = madridToEpoch(at);
     if (epoch == null) return json({ error: 'Fecha no válida' }, 400);

@@ -10,6 +10,7 @@ import { hitosLanzamiento, icsCalendar, EVENTO_TIPOS } from '../public/js/calend
 import { esMia, addDays } from '../public/js/tareas.js';
 import { dayInMadrid } from '../public/js/scoring.js';
 import { json, errorResponse } from '../lib/http.js';
+import { richToText } from '../public/js/richtext.js';
 
 // Lanzamientos que interesan: los que tienen alguna fecha en los últimos 90 días o en el futuro (máx. 4).
 function relevantes(config) {
@@ -52,7 +53,7 @@ export async function GET(request) {
       }
       for (const t of tareas) {
         if (!t.fecha || (sess.role !== 'admin' && !esMia(t, sess))) continue;
-        items.push({ uid: `${code}-${t.id}@mldlm`, titulo: `${t.hecha ? '✅' : '☐'} ${t.titulo}${tag}`, day: t.fecha, notas: [t.notas, `Márcala en ${url.origin}/#tareas`].filter(Boolean).join('\n\n') });
+        items.push({ uid: `${code}-${t.id}@mldlm`, titulo: `${t.hecha ? '✅' : '☐'} ${t.titulo}${tag}`, day: t.fecha, notas: [richToText(t.notas), `Márcala en ${url.origin}/#tareas`].filter(Boolean).join('\n\n') });
       }
     }
     return new Response(icsCalendar('Lanzamientos MLDLM', items), {

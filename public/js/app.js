@@ -7,6 +7,7 @@ import { enrichLead, computeMetrics, bySource, ventasPorDia, porRespuesta, aviso
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
 import { FASES, puedeMarcar, esMia, vencida, addDays, ESTADOS_TAREA, estadoDe } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
+import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -107,9 +108,17 @@ $('#btn-logout').addEventListener('click', async () => {
 });
 
 // ---------- Arranque ----------
-const ROLE_LABEL = { admin: 'Admin', setter: 'Setter', equipo: 'Equipo' };
+const ROLE_LABEL = { admin: 'Admin', tecnico: 'Técnico', setter: 'Setter', equipo: 'Equipo' };
+// Roles que se ofrecen al asignar (equipo es un rol antiguo que ya no se usa).
+const ROLES_UI = ['admin', 'tecnico', 'setter'];
+const puedeConfig = () => state.role === 'admin' || state.role === 'tecnico';
 // Pestañas que ve cada rol (el servidor también impide al equipo leer leads y métricas).
-const ROLE_VIEWS = { admin: null, setter: ['hoy', 'leads', 'tareas', 'calendario'], equipo: ['tareas', 'calendario'] };
+const ROLE_VIEWS = {
+  admin: null,
+  tecnico: ['hoy', 'leads', 'metricas', 'objetivos', 'tareas', 'calendario'],
+  setter: ['hoy', 'leads', 'tareas', 'calendario'],
+  equipo: ['tareas', 'calendario'],
+};
 const allowedViews = () => ROLE_VIEWS[state.role] || VIEWS;
 
 async function start() {
@@ -119,6 +128,7 @@ async function start() {
   state.config = config;
   state.zoomConfigured = zoomConfigured;
   document.body.classList.toggle('is-admin', role === 'admin');
+  document.body.classList.toggle('can-config', role === 'admin' || role === 'tecnico');
   document.body.classList.toggle('is-equipo', role === 'equipo');
   $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
   $('#btn-cuenta').hidden = !state.user;
@@ -130,7 +140,7 @@ async function start() {
   showView(allowedViews().includes(wanted) ? wanted : allowedViews().includes('leads') ? 'leads' : allowedViews()[0]);
   fillStaticSelects();
   renderLaunchSelect();
-  if (role === 'admin') api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
+  if (role === 'admin' || role === 'tecnico') api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
   await selectLaunch(pickInitialLaunch());
   if (!$('#view-comparar').hidden) renderCompareSelector();
 }
@@ -562,7 +572,7 @@ function renderObjetivos(m) {
   if (!m.objetivos.length) {
     box.innerHTML = `<div class="card empty obj-empty">${icon('target', 'ico-xl')}<h2>Aún no hay objetivos para este lanzamiento</h2>
       <p class="muted">Pon metas de registros, entradas VIP, ventas y facturación y aquí verás cuánto llevas, cuánto falta y a qué ritmo hay que ir.</p>
-      <button type="button" class="btn primary admin-only" data-action="poner-objetivos">Poner objetivos</button></div>`;
+      <button type="button" class="btn primary config-only" data-action="poner-objetivos">Poner objetivos</button></div>`;
     return;
   }
   const fmt = (o, n) => (o.unit === 'eur' ? eur(n) : Math.round(n).toLocaleString('es-ES'));
@@ -1672,7 +1682,7 @@ function renderSnapshotBox() {
 function renderSnapshotWarning() {
   const el = $('#snapshot-warning');
   const launch = state.config.launches[state.launchCode];
-  const missing = state.role === 'admin' && launch ? missingSnapshot(launch) : [];
+  const missing = puedeConfig() && launch ? missingSnapshot(launch) : [];
   el.hidden = !missing.length;
   if (!missing.length) return;
   el.innerHTML = `<p><strong>Falta la foto de lanzamientos anteriores</strong> (${missing.map((f) => `«${esc(launch[f.field])}»`).join(', ')}). Mientras tanto, quien la tenía de lanzamientos anteriores cuenta como de este. Hazla antes de abrir la venta.</p>
@@ -2002,8 +2012,18 @@ function filtroResp(t) {
   return Boolean(a) && ((a.tipo === 'persona' && a.id === u?.id) || (a.tipo === 'rol' && a.rol === u?.rol));
 }
 
+// Lunes y domingo de la semana actual (YYYY-MM-DD).
+function semanaActual() {
+  const hoy = today();
+  const lunes = addDays(hoy, -((new Date(`${hoy}T12:00:00Z`).getUTCDay() + 6) % 7));
+  return [lunes, addDays(lunes, 6)];
+}
+
 function filtroEstado(t) {
   const f = state.tFiltro;
+  // Por fecha: valen en la lista y en el tablero (se ven también las ya hechas, para ver el avance).
+  if (f === 'hoy') return t.fecha === today();
+  if (f === 'semana') { const [a, b] = semanaActual(); return Boolean(t.fecha) && t.fecha >= a && t.fecha <= b; }
   // En el tablero las columnas ya separan por estado: solo cuentan «Mías» y «Vencidas».
   if (state.tVista === 'tablero') return f === 'mias' ? esMia(t, meSess()) : f === 'vencidas' ? vencida(t, today()) : true;
   if (f === 'pendientes') return !t.hecha;
@@ -2017,10 +2037,18 @@ function renderRespSelect() {
   const sel = $('#tareas-resp');
   const users = state.tareas?.users || [];
   sel.innerHTML = `<option value="">Todas las personas</option>
-    <optgroup label="Roles">${['admin', 'setter', 'equipo'].map((r) => `<option value="rol:${r}">Rol ${ROLE_LABEL[r]}</option>`).join('')}<option value="sin">Sin asignar</option></optgroup>
+    <optgroup label="Roles">${ROLES_UI.map((r) => `<option value="rol:${r}">Rol ${ROLE_LABEL[r]}</option>`).join('')}<option value="sin">Sin asignar</option></optgroup>
     ${users.length ? `<optgroup label="Personas">${users.map((u) => `<option value="u:${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}</optgroup>` : ''}`;
   sel.value = state.tResp;
   if (sel.value !== state.tResp) { state.tResp = ''; sel.value = ''; }
+}
+
+// Resumen de la descripción para listas y tarjetas (el contenido completo se ve al abrir la tarea).
+function notasExtracto(t, cls = 't-notas', max = 160) {
+  if (!t.notas) return '';
+  const txt = richToText(t.notas).replace(/🎬/g, '').replace(/\s+/g, ' ').trim();
+  const extras = `${richTieneVideo(t.notas) ? '<span class="t-media">🎬 vídeo</span>' : ''}${richTieneEnlace(t.notas) ? '<span class="t-media">🔗 enlaces</span>' : ''}`;
+  return `<div class="${cls}">${esc(txt.length > max ? `${txt.slice(0, max)}…` : txt)}${extras ? ` ${extras}` : ''}</div>`;
 }
 
 function tareaRow(t) {
@@ -2041,8 +2069,8 @@ function tareaRow(t) {
       <input type="checkbox" data-tid="${esc(t.id)}" ${t.hecha ? 'checked' : ''} ${puede ? '' : 'disabled'}><span class="t-box" aria-hidden="true"></span>
     </label>
     <div class="t-main">
-      <div class="t-titulo">${esc(t.titulo)}</div>
-      ${t.notas ? `<div class="t-notas">${esc(t.notas)}</div>` : ''}
+      <button type="button" class="t-titulo t-open" data-tver="${esc(t.id)}">${t.habitual ? '<span class="t-hab" title="Tarea habitual">🔁</span>' : ''}${esc(t.titulo)}</button>
+      ${notasExtracto(t)}
       <div class="t-meta">${estadoDe(t) === 'en-curso' ? '<span class="t-encurso">⏳ En curso</span>' : ''}${fecha}${who}${hecha}</div>
     </div>
     ${state.role === 'admin' ? `<div class="t-actions"><button type="button" class="btn ghost" data-tedit="${esc(t.id)}" title="Editar" aria-label="Editar">✎</button><button type="button" class="btn ghost" data-tdel="${esc(t.id)}" title="Borrar" aria-label="Borrar">✕</button></div>` : ''}
@@ -2071,7 +2099,7 @@ function renderTareas() {
       <div class="obj-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div>
       <div class="tp-chips">
         <button type="button" class="tp-chip ${venc ? 'bad' : ''}" data-tf="vencidas">${icon('alert')}${venc} vencida${venc === 1 ? '' : 's'}</button>
-        <button type="button" class="tp-chip ${paraHoy ? 'warn' : ''}" data-tf="pendientes">${icon('calendar')}${paraHoy} para hoy</button>
+        <button type="button" class="tp-chip ${paraHoy ? 'warn' : ''}" data-tf="hoy">${icon('calendar')}${paraHoy} para hoy</button>
         <button type="button" class="tp-chip ${mias ? 'mine' : ''}" data-tf="mias">${icon('check')}${mias} pendiente${mias === 1 ? '' : 's'} tuya${mias === 1 ? '' : 's'}</button>
       </div>
     </div>` : `
@@ -2089,6 +2117,7 @@ function renderTareas() {
   if (state.tSel) {
     $('#tareas-selcount').textContent = `${state.tSel.size} seleccionada${state.tSel.size === 1 ? '' : 's'}`;
     $('#btn-del-sel').disabled = !state.tSel.size;
+    fillSelAsignar();
     $('#btn-del-todas').disabled = !list.length;
   }
   renderRespSelect();
@@ -2101,7 +2130,7 @@ function renderTareas() {
   $$('#tareas-vista .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.v === state.tVista));
   $$('#tareas-filtro [data-f="pendientes"], #tareas-filtro [data-f="hechas"]').forEach((b) => { b.hidden = state.tVista === 'tablero'; });
   if (state.tVista === 'tablero') {
-    if (state.tFiltro === 'mias' || state.tFiltro === 'vencidas') { /* se mantienen */ } else state.tFiltro = 'todas';
+    if (!['mias', 'vencidas', 'hoy', 'semana'].includes(state.tFiltro)) state.tFiltro = 'todas';
     $$('#tareas-filtro .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.f === state.tFiltro));
     $('#tareas-list').innerHTML = list.length ? renderTablero(shown.sort(order)) : '';
     return;
@@ -2113,7 +2142,7 @@ function renderTareas() {
         <span class="tf-bar"><span style="width:${all.length ? (d / all.length) * 100 : 0}%"></span></span></header>
       <ul class="tareas-ul">${items.map(tareaRow).join('')}</ul>
     </section>`;
-  }).join('') : `<p class="muted tareas-none">${state.tFiltro === 'vencidas' ? '¡Nada vencido! 🎉' : state.tFiltro === 'mias' ? 'No tienes tareas pendientes.' : 'No hay tareas con este filtro.'}</p>`;
+  }).join('') : `<p class="muted tareas-none">${state.tFiltro === 'vencidas' ? '¡Nada vencido! 🎉' : state.tFiltro === 'hoy' ? 'No hay tareas con fecha de hoy.' : state.tFiltro === 'semana' ? 'No hay tareas con fecha esta semana.' : state.tFiltro === 'mias' ? 'No tienes tareas pendientes.' : 'No hay tareas con este filtro.'}</p>`;
 }
 
 // ---------- Tablero kanban ----------
@@ -2135,8 +2164,8 @@ function tarjeta(t) {
   return `<article class="kb-card ${t.hecha ? 'done' : ''} ${venc ? 'is-vencida' : ''} ${esMia(t, meSess()) ? 'is-mia' : ''} ${puede ? '' : 'locked'}" ${puede ? 'draggable="true"' : ''} data-kid="${esc(t.id)}">
     <div class="kb-top"><span class="kb-fase" title="${esc(fase?.label || '')}">${fase?.icon || ''} ${esc(fase?.label || '')}</span>
       ${state.role === 'admin' ? `<button type="button" class="kb-edit" data-tedit="${esc(t.id)}" title="Editar" aria-label="Editar">✎</button>` : ''}</div>
-    <div class="kb-titulo">${esc(t.titulo)}</div>
-    ${t.notas ? `<div class="kb-notas">${esc(t.notas)}</div>` : ''}
+    <button type="button" class="kb-titulo t-open" data-tver="${esc(t.id)}">${t.habitual ? '<span class="t-hab" title="Tarea habitual">🔁</span>' : ''}${esc(t.titulo)}</button>
+    ${notasExtracto(t, 'kb-notas', 110)}
     <div class="t-meta">${fecha}${who}</div>
     ${t.hecha ? `<div class="t-hecha">✓ ${esc(t.hechaPor || '')}</div>` : ''}
     <div class="kb-actions">${move(-1)}${move(1)}</div>
@@ -2309,7 +2338,7 @@ $('#t-fase').innerHTML = FASES.map((f) => `<option value="${f.id}">${f.icon} ${e
 function fillAsignadoSelect(value) {
   const users = state.tareas?.users || [];
   $('#t-asignado').innerHTML = `<option value="">Sin asignar</option>
-    <optgroup label="Todo un rol">${['admin', 'setter', 'equipo'].map((r) => `<option value="rol:${r}">Rol ${ROLE_LABEL[r]}</option>`).join('')}</optgroup>
+    <optgroup label="Todo un rol">${ROLES_UI.map((r) => `<option value="rol:${r}">Rol ${ROLE_LABEL[r]}</option>`).join('')}</optgroup>
     <optgroup label="Personas">${users.map((u) => `<option value="u:${esc(u.id)}">${esc(u.nombre)} · ${ROLE_LABEL[u.rol]}</option>`).join('')}
     <option value="nueva">+ Nueva persona (nombre + email)…</option></optgroup>`;
   $('#t-asignado').value = value;
@@ -2320,13 +2349,14 @@ function openTarea(t) {
   editingTarea = t || null;
   $('#tarea-title').textContent = t ? 'Editar tarea' : 'Nueva tarea';
   $('#t-titulo').value = t?.titulo || '';
-  $('#t-notas').value = t?.notas || '';
+  setEditor(t?.notas || '');
+  $('#t-habitual').checked = Boolean(t?.habitual);
   $('#t-fase').value = t?.fase || FASES[0].id;
   $('#t-fecha').value = t?.fecha || '';
   const a = t?.asignado;
   fillAsignadoSelect(a ? (a.tipo === 'rol' ? `rol:${a.rol}` : `u:${a.id}`) : '');
   ['#t-np-nombre', '#t-np-email'].forEach((s) => { $(s).value = ''; });
-  $('#t-np-rol').value = 'equipo';
+  $('#t-np-rol').value = 'setter';
   $('#t-avisar').checked = true;
   $('#tarea-status').textContent = '';
   tdlg.showModal();
@@ -2367,7 +2397,7 @@ $('#tarea-save').addEventListener('click', async () => {
       fillAsignadoSelect(sel);
     }
     const asignado = !sel ? null : sel.startsWith('rol:') ? { tipo: 'rol', rol: sel.slice(4) } : { tipo: 'persona', id: sel.slice(2) };
-    const tarea = { titulo, notas: $('#t-notas').value, fase: $('#t-fase').value, fecha: $('#t-fecha').value, asignado };
+    const tarea = { titulo, notas: getEditor(), fase: $('#t-fase').value, fecha: $('#t-fecha').value, asignado, habitual: $('#t-habitual').checked };
     status.textContent = 'Guardando…';
     const d = await tareasOp(editingTarea ? { op: 'editar', id: editingTarea.id, tarea, avisar: $('#t-avisar').checked } : { op: 'crear', tarea, avisar: $('#t-avisar').checked });
     tdlg.close();
@@ -2402,7 +2432,7 @@ function renderEquipo() {
     <thead><tr><th>Persona</th><th>Rol</th><th>Último acceso</th><th></th></tr></thead>
     <tbody>${users.map((u) => `<tr class="${u.activo ? '' : 'inactivo'}" data-uid="${esc(u.id)}">
       <td><span class="t-who"><span class="t-avatar">${esc(iniciales(u.nombre))}</span><span><strong>${esc(u.nombre)}</strong><br><span class="muted">${esc(u.email)}</span>${u.activo ? '' : ' · <em>desactivada</em>'}</span></span></td>
-      <td><select class="eq-rol" ${u.id === state.user?.id ? 'disabled' : ''}>${['admin', 'setter', 'equipo'].map((r) => `<option value="${r}" ${r === u.rol ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></td>
+      <td><select class="eq-rol" ${u.id === state.user?.id ? 'disabled' : ''}>${[...ROLES_UI, ...(ROLES_UI.includes(u.rol) ? [] : [u.rol])].map((r) => `<option value="${r}" ${r === u.rol ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></td>
       <td class="muted">${fmt(u.lastLogin)}</td>
       <td class="eq-actions">
         <button type="button" class="btn" data-eq="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
@@ -2617,7 +2647,7 @@ function renderCalendario() {
     <span class="cal-leg k"><span class="cal-chip k-hito">🔴 Hito</span></span>
     ${cal.show.eventos ? '<span class="cal-leg k"><span class="cal-chip k-evento">📌 Evento</span></span>' : ''}
     ${cal.show.tareas ? '<span class="cal-leg k"><span class="cal-chip k-tarea"><span class="cc-ico">☐</span>Tarea</span></span><span class="cal-leg k"><span class="cal-chip k-tarea late"><span class="cc-ico">☐</span>Vencida</span></span>' : ''}
-    ${unknownDates ? `<span class="muted">Este lanzamiento aún no tiene fechas${state.role === 'admin' ? ': ponlas en Configuración.' : '.'}</span>` : ''}
+    ${unknownDates ? `<span class="muted">Este lanzamiento aún no tiene fechas${puedeConfig() ? ': ponlas en Configuración.' : '.'}</span>` : ''}
     ${cal.eventos.error ? `<span class="error">No se pudieron cargar los eventos: ${esc(cal.eventos.error)}</span>` : ''}`;
 
   const month = cal.ref.slice(0, 7);
@@ -2654,7 +2684,8 @@ function renderCalDia(items = calItems()) {
       const puede = puedeMarcar(t, meSess());
       return `<li class="cd-row k-tarea ${t.hecha ? 'done' : ''} ${vencida(t, hoy) ? 'late' : ''}">
         <label class="t-check"><input type="checkbox" data-cal-tid="${esc(t.id)}" ${t.hecha ? 'checked' : ''} ${puede ? '' : 'disabled'}><span class="t-box" aria-hidden="true"></span></label>
-        <div class="cd-main"><strong>${esc(t.titulo)}</strong><span class="muted">Tarea · ${esc(asignadoTexto(t.asignado))}${t.hecha ? ` · hecha por ${esc(t.hechaPor || '')}` : vencida(t, hoy) ? ' · vencida' : ''}</span>${t.notas ? `<span class="cd-notas">${esc(t.notas)}</span>` : ''}</div>
+        <div class="cd-main"><strong>${esc(t.titulo)}</strong><span class="muted">Tarea · ${esc(asignadoTexto(t.asignado))}${t.hecha ? ` · hecha por ${esc(t.hechaPor || '')}` : vencida(t, hoy) ? ' · vencida' : ''}</span>${notasExtracto(t, 'cd-notas')}</div>
+        <button type="button" class="btn ghost" data-tver="${esc(t.id)}">Abrir</button>
         ${admin ? `<button type="button" class="btn ghost" data-cal-tedit="${esc(t.id)}">Editar</button>` : ''}</li>`;
     }
     if (it.kind === 'evento') {
@@ -2666,7 +2697,7 @@ function renderCalDia(items = calItems()) {
     }
     return `<li class="cd-row k-hito ${it.own ? '' : 'other'}"><span class="cd-ico">${it.icon}</span>
       <div class="cd-main"><strong>${esc(it.titulo)}</strong><span class="muted">${it.time ? `${esc(it.time)} h · ` : ''}${esc(it.launch)}</span></div>
-      ${admin ? `<button type="button" class="btn ghost" data-cal-hito="${esc(it.code)}" title="Las fechas se cambian en la configuración del lanzamiento">Cambiar fecha</button>` : ''}</li>`;
+      ${puedeConfig() ? `<button type="button" class="btn ghost" data-cal-hito="${esc(it.code)}" title="Las fechas se cambian en la configuración del lanzamiento">Cambiar fecha</button>` : ''}</li>`;
   };
   const t = fmtDay(d, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   box.innerHTML = `<header class="cd-head"><h3>${esc(t.charAt(0).toUpperCase() + t.slice(1))}</h3>
@@ -2770,6 +2801,169 @@ $('#btn-cal-sync').addEventListener('click', async () => {
 $('#sync-copy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText($('#sync-url').value); $('#sync-copy').textContent = 'Copiado ✓'; } catch { $('#sync-url').select(); }
   setTimeout(() => { $('#sync-copy').textContent = 'Copiar'; }, 1500);
+});
+
+// ---------- Descripción con formato (editor) y vista de la tarea ----------
+// Monta los reproductores de vídeo dentro de un contenedor con HTML ya limpio.
+function hydrateVideos(root, editable = false) {
+  $$('[data-video]', root).forEach((el) => {
+    const src = videoEmbed(el.dataset.video);
+    if (!src) { el.remove(); return; }
+    el.className = 'rt-video';
+    if (editable) el.contentEditable = 'false';
+    el.innerHTML = `<div class="rt-frame"><iframe src="${esc(src)}" title="Vídeo" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>
+      ${editable ? `<div class="rt-video-bar"><span>🎬 ${esc(el.dataset.video)}</span><button type="button" class="btn ghost" data-rt-delvideo>Quitar vídeo</button></div>` : ''}`;
+  });
+}
+
+const editor = $('#t-notas');
+function setEditor(notas) {
+  editor.innerHTML = richToHtml(notas);
+  hydrateVideos(editor, true);
+}
+function getEditor() {
+  const clone = editor.cloneNode(true);
+  $$('[data-video]', clone).forEach((el) => { el.innerHTML = ''; });
+  return sanitizeRich(clone.innerHTML);
+}
+
+let rtRange = null;
+const saveRange = () => {
+  const s = window.getSelection();
+  if (s.rangeCount && editor.contains(s.anchorNode)) rtRange = s.getRangeAt(0).cloneRange();
+};
+const restoreRange = () => {
+  editor.focus();
+  if (!rtRange) return;
+  const s = window.getSelection();
+  s.removeAllRanges();
+  s.addRange(rtRange);
+};
+editor.addEventListener('keyup', saveRange);
+editor.addEventListener('mouseup', saveRange);
+editor.addEventListener('input', saveRange);
+
+function insertVideo(url) {
+  if (!videoEmbed(url)) { window.alert('Pega un enlace de un vídeo de Vimeo, YouTube o Loom (por ejemplo https://vimeo.com/123456789).'); return; }
+  restoreRange();
+  document.execCommand('insertHTML', false, `<div data-video="${esc(url)}"></div><p><br></p>`);
+  hydrateVideos(editor, true);
+  saveRange();
+}
+
+const rtToolbar = $('.rt-toolbar');
+rtToolbar.addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); }); // no perder la selección
+rtToolbar.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-rt]');
+  if (!b) return;
+  const cmd = b.dataset.rt;
+  if (cmd === 'link') {
+    const sel = rtRange && !rtRange.collapsed ? rtRange.toString() : '';
+    const url = safeHref((window.prompt('Pega el enlace (https://…)', 'https://') || '').trim());
+    if (!url) return;
+    if (videoEmbed(url) && !sel && window.confirm('Es un vídeo. ¿Quieres que se vea reproducible dentro de la tarea?')) { insertVideo(url); return; }
+    restoreRange();
+    if (sel) document.execCommand('createLink', false, url);
+    else document.execCommand('insertHTML', false, `<a href="${esc(url)}">${esc(url)}</a>&nbsp;`);
+    saveRange();
+    return;
+  }
+  if (cmd === 'video') {
+    const url = (window.prompt('Pega el enlace del vídeo (Vimeo, YouTube o Loom)') || '').trim();
+    if (url) insertVideo(url);
+    return;
+  }
+  restoreRange();
+  document.execCommand(cmd, false, null);
+  saveRange();
+});
+$('[data-rt-block]').addEventListener('change', (e) => {
+  restoreRange();
+  document.execCommand('formatBlock', false, `<${e.target.value}>`);
+  e.target.value = 'p';
+  saveRange();
+});
+editor.addEventListener('click', (e) => {
+  const del = e.target.closest('[data-rt-delvideo]');
+  if (del) { del.closest('.rt-video').remove(); return; }
+  if (e.target.closest('a')) e.preventDefault(); // en el editor el enlace no se abre
+});
+// Al pegar: solo formato permitido. Un enlace de vídeo suelto se convierte en reproductor.
+editor.addEventListener('paste', (e) => {
+  const cd = e.clipboardData;
+  if (!cd) return;
+  e.preventDefault();
+  const text = (cd.getData('text/plain') || '').trim();
+  if (/^https?:\/\/\S+$/.test(text) && videoEmbed(text)) { saveRange(); insertVideo(text); return; }
+  const html = cd.getData('text/html');
+  const clean = html ? sanitizeRich(html) : esc(cd.getData('text/plain')).replace(/\n/g, '<br>');
+  document.execCommand('insertHTML', false, clean);
+  hydrateVideos(editor, true);
+});
+
+// Vista de una tarea (descripción completa con vídeos reproducibles).
+const tvDlg = $('#tarea-ver');
+let tvId = null;
+function openTareaVer(id) {
+  const t = state.tareas?.list.find((x) => x.id === id);
+  if (!t) return;
+  tvId = id;
+  const hoy = today();
+  const fase = FASES.find((f) => f.id === t.fase);
+  $('#tv-titulo').textContent = t.titulo;
+  $('#tv-meta').innerHTML = `
+    <span class="tv-chip">${fase ? `${fase.icon} ${esc(fase.label)}` : ''}</span>
+    ${t.fecha ? `<span class="tv-chip ${vencida(t, hoy) ? 'late' : ''}">${icon('calendar')} ${esc(fechaCorta(t.fecha))}${vencida(t, hoy) ? ' · vencida' : ''}</span>` : ''}
+    <span class="tv-chip">${icon('users')} ${esc(asignadoTexto(t.asignado))}</span>
+    ${t.habitual ? '<span class="tv-chip">🔁 Habitual</span>' : ''}
+    ${t.hecha ? `<span class="tv-chip ok">✓ Hecha por ${esc(t.hechaPor || '')}</span>` : ''}`;
+  const box = $('#tv-notas');
+  box.innerHTML = richToHtml(t.notas) || '<p class="muted">Sin descripción.</p>';
+  hydrateVideos(box);
+  const puede = puedeMarcar(t, meSess());
+  $('#tv-estado').innerHTML = ESTADOS_TAREA.map((e) => `<button type="button" class="seg-btn ${estadoDe(t) === e.id ? 'on' : ''}" data-tvest="${e.id}" ${puede ? '' : 'disabled'}>${e.icon} ${esc(e.label)}</button>`).join('');
+  if (!tvDlg.open) tvDlg.showModal();
+}
+$('#tv-estado').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-tvest]');
+  if (!b || b.classList.contains('on')) return;
+  try { await tareasOp({ op: 'estado', id: tvId, estado: b.dataset.tvest }); openTareaVer(tvId); } catch (ex) { notice(ex.message, true); }
+});
+$('#tv-editar').addEventListener('click', () => {
+  const t = state.tareas.list.find((x) => x.id === tvId);
+  tvDlg.close();
+  if (t) openTarea(t);
+});
+tvDlg.addEventListener('close', () => { $('#tv-notas').innerHTML = ''; }); // para el vídeo al cerrar
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tver]');
+  if (b && !e.target.closest('#tarea-ver')) openTareaVer(b.dataset.tver);
+});
+
+// Reasignar las seleccionadas
+function fillSelAsignar() {
+  const users = state.tareas?.users || [];
+  const sel = $('#sel-asignar');
+  const v = sel.value;
+  sel.innerHTML = `<option value="">Asignar a…</option><option value="ninguno">Sin asignar</option>
+    <optgroup label="Todo un rol">${ROLES_UI.map((r) => `<option value="rol:${r}">Rol ${ROLE_LABEL[r]}</option>`).join('')}</optgroup>
+    <optgroup label="Personas">${users.map((u) => `<option value="u:${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}</optgroup>`;
+  sel.value = v;
+  $('#btn-sel-asignar').disabled = !state.tSel?.size || !sel.value;
+}
+$('#sel-asignar').addEventListener('change', fillSelAsignar);
+$('#btn-sel-asignar').addEventListener('click', async () => {
+  const v = $('#sel-asignar').value;
+  const n = state.tSel.size;
+  if (!v || !n) return;
+  const asignado = v === 'ninguno' ? null : v.startsWith('rol:') ? { tipo: 'rol', rol: v.slice(4) } : { tipo: 'persona', id: v.slice(2) };
+  const avisar = asignado ? window.confirm(`¿Enviar un email de aviso con las ${n} tareas a quien las recibe?\n(Aceptar = sí · Cancelar = asignar sin avisar)`) : false;
+  try {
+    const d = await tareasOp({ op: 'asignar', ids: [...state.tSel], asignado, avisar });
+    state.tSel = null;
+    renderTareas();
+    notice(`${n} tarea${n === 1 ? ' asignada' : 's asignadas'} a ${asignadoTexto(asignado)}.${d.aviso?.enviados ? ' Aviso enviado por email.' : ''} Si eran habituales, en los próximos lanzamientos se cargarán ya con esta asignación.`);
+  } catch (ex) { notice(ex.message, true); }
 });
 
 // ---------- Inicio ----------
