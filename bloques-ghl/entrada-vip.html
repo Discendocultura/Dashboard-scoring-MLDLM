@@ -151,6 +151,10 @@
   .mldlm-vip *,.mldlm-vip *::before,.mldlm-vip *::after{animation:none !important; transition:none !important;}
   .mldlm-vip .mldlm-vip__objeto{transform:rotateX(6deg) rotateY(-10deg) rotateZ(-1.5deg);}
 }
+/* Ancho completo: el bloque se sale del contenedor de GHL (que tiene ancho máximo y márgenes)
+   y ocupa toda la pantalla, en móvil y en ordenador. El contenido sigue centrado. */
+.mldlm-vip{width:100vw !important; max-width:100vw !important; margin-left:calc(50% - 50vw) !important; margin-right:calc(50% - 50vw) !important;}
+html,body{overflow-x:hidden;}
 </style>
 
 <section class="mldlm-vip">

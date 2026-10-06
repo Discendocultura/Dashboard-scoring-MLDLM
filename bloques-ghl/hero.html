@@ -93,6 +93,10 @@
   .mldlm-hero .lsd-cdb-num{font-size:40px !important;}
   .mldlm-hero .lsd-cdb-label{font-size:14px !important;}
 }
+/* Ancho completo: el bloque se sale del contenedor de GHL (que tiene ancho máximo y márgenes)
+   y ocupa toda la pantalla, en móvil y en ordenador. El contenido sigue centrado. */
+.mldlm-hero{width:100vw !important; max-width:100vw !important; margin-left:calc(50% - 50vw) !important; margin-right:calc(50% - 50vw) !important;}
+html,body{overflow-x:hidden;}
 </style>
 <div class="mldlm-hero">
   <div class="mldlm-hero__inner">

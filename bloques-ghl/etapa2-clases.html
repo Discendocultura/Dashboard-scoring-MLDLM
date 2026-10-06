@@ -99,6 +99,10 @@
 @media (prefers-reduced-motion:reduce){
   .mldlm-paso2 *,.mldlm-paso2 *::before,.mldlm-paso2 *::after{animation:none !important; transition:none !important;}
 }
+/* Ancho completo: el bloque se sale del contenedor de GHL (que tiene ancho máximo y márgenes)
+   y ocupa toda la pantalla, en móvil y en ordenador. El contenido sigue centrado. */
+.mldlm-paso2{width:100vw !important; max-width:100vw !important; margin-left:calc(50% - 50vw) !important; margin-right:calc(50% - 50vw) !important;}
+html,body{overflow-x:hidden;}
 </style>
 
 <section class="paso2 mldlm-paso2">
