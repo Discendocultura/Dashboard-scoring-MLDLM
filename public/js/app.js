@@ -3299,7 +3299,91 @@ function renderLlamadas() {
     ${sec('🗓️ Próximos días', proximas)}
     ${anotadas.length ? `<details class="ll-sec ll-done"><summary><h3>✅ Ya anotadas <span class="muted">${anotadas.length}</span></h3></summary>${anotadas.map(llamadaCard).join('')}</details>` : ''}`
     : '<div class="card empty"><p class="muted">Todavía no hay llamadas agendadas en el calendario para este lanzamiento.</p></div>';
+  syncLlVista();
 }
+
+// ---------- Llamadas en calendario (semana / mes) ----------
+const llc = {
+  vista: ls.get('lsd_ll_vista') === 'calendario' ? 'calendario' : 'lista',
+  modo: ls.get('lsd_llc_modo') === 'mes' ? 'mes' : 'semana',
+  ref: null,
+};
+function llcChip(c) {
+  const ahora = Date.now();
+  const hora = new Date(c.startTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  const r = c.resultado?.resultado;
+  const cls = llCancelada(c) ? 'cancel' : r ? `res-${r}` : llStart(c) < ahora ? 'pend' : 'prox';
+  const nombre = leadDe(c.contactId)?.name || c.title || 'Sin nombre';
+  const res = r ? RESULTADOS.find((x) => x.id === r) : null;
+  return `<button type="button" class="llc-chip ${cls}" ${llCancelada(c) ? 'disabled' : `data-ll="${esc(c.id)}"`} title="${esc(`${hora} · ${nombre}${res ? ` · ${res.label}` : ''}`)}">
+    <span class="llc-hora">${esc(hora)}</span><span class="llc-nombre">${res ? `${res.icon} ` : ''}${esc(nombre)}</span></button>`;
+}
+function renderLlCal() {
+  const L = state.llamadas;
+  if (!L?.data?.configurado) { $('#llc-grid').innerHTML = ''; return; }
+  if (!llc.ref) llc.ref = today();
+  const porDia = {};
+  for (const c of L.data.llamadas) (porDia[dayInMadrid(c.startTime)] ||= []).push(c);
+  for (const list of Object.values(porDia)) list.sort((a, b) => llStart(a) - llStart(b));
+  $$('#llc-modo .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.m === llc.modo));
+  const hoy = today();
+  let days;
+  if (llc.modo === 'mes') {
+    const first = monthStart(llc.ref);
+    const start = addDays(first, -dow(first));
+    const last = addDays(addMonths(first, 1), -1);
+    const end = addDays(last, 6 - dow(last));
+    days = [];
+    for (let d = start; d <= end; d = addDays(d, 1)) days.push(d);
+    const t = fmtDay(first, { month: 'long', year: 'numeric' });
+    $('#llc-title').textContent = t.charAt(0).toUpperCase() + t.slice(1);
+  } else {
+    const start = addDays(llc.ref, -dow(llc.ref));
+    days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+    $('#llc-title').textContent = `${fmtDay(days[0], { day: 'numeric', month: 'short' })} – ${fmtDay(days[6], { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  }
+  const month = llc.ref.slice(0, 7);
+  const max = llc.modo === 'mes' ? 4 : 99;
+  $('#llc-grid').innerHTML = `<div class="cal ${llc.modo === 'mes' ? 'cal-mes' : 'cal-semana'} llc">
+    ${llc.modo === 'mes' ? `<div class="cal-head">${DOW.map((x) => `<span>${x}</span>`).join('')}</div>` : ''}
+    <div class="cal-body">${days.map((d) => {
+    const list = porDia[d] || [];
+    const more = list.length - max;
+    return `<div class="cal-day llc-day ${d.slice(0, 7) !== month && llc.modo === 'mes' ? 'out' : ''} ${d === hoy ? 'today' : ''} ${d < hoy ? 'past' : ''}">
+      <span class="cal-num">${llc.modo === 'semana' ? `<span class="cal-dow">${DOW[dow(d)]}</span> ` : ''}${Number(d.slice(8))}${list.length ? ` <span class="llc-count">${list.length}</span>` : ''}</span>
+      <span class="cal-chips">${list.slice(0, max).map(llcChip).join('')}${more > 0 ? `<button type="button" class="cal-more llc-more" data-llc-dia="${d}">+${more} más</button>` : ''}</span>
+    </div>`;
+  }).join('')}</div></div>`;
+}
+function syncLlVista() {
+  $$('#ll-vista .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.llv === llc.vista));
+  $('#llamadas-list').hidden = llc.vista !== 'lista';
+  $('#ll-cal').hidden = llc.vista !== 'calendario';
+  if (llc.vista === 'calendario') renderLlCal();
+}
+$('#ll-vista').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-llv]');
+  if (!b) return;
+  llc.vista = b.dataset.llv;
+  ls.set('lsd_ll_vista', llc.vista);
+  syncLlVista();
+});
+$('#llc-modo').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-m]');
+  if (!b) return;
+  llc.modo = b.dataset.m;
+  ls.set('lsd_llc_modo', llc.modo);
+  renderLlCal();
+});
+$('#llc-prev').addEventListener('click', () => { llc.ref = llc.modo === 'mes' ? addMonths(llc.ref, -1) : addDays(llc.ref, -7); renderLlCal(); });
+$('#llc-next').addEventListener('click', () => { llc.ref = llc.modo === 'mes' ? addMonths(llc.ref, 1) : addDays(llc.ref, 7); renderLlCal(); });
+$('#llc-hoy').addEventListener('click', () => { llc.ref = today(); renderLlCal(); });
+$('#llc-grid').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ll]');
+  if (b) { openLlamada(b.dataset.ll); return; }
+  const m = e.target.closest('[data-llc-dia]');
+  if (m) { llc.modo = 'semana'; llc.ref = m.dataset.llcDia; ls.set('lsd_llc_modo', 'semana'); renderLlCal(); }
+});
 
 // Diálogo para anotar el resultado
 const lldlg = $('#llamada-dialog');

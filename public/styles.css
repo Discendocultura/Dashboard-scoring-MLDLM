@@ -995,3 +995,34 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .ll-ayuda li { margin: 4px 0; }
 .ll-ayuda ul { margin: 4px 0; padding-left: 18px; }
 .ll-kpis { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+
+/* ---------- Llamadas en calendario ---------- */
+.ll-toolbar .seg { flex: none; }
+.llc-leyenda { display: flex; flex-wrap: wrap; gap: 4px; }
+.llc-leyenda .llc-chip { cursor: default; font-size: 11px; padding: 2px 8px; }
+.llc-chip { --c: var(--muted); display: flex; align-items: center; gap: 5px; width: 100%; min-width: 0; font: inherit; font-size: 12px; text-align: left; padding: 4px 7px; border-radius: 7px; border: 1px solid color-mix(in srgb, var(--c) 40%, var(--border)); border-left: 4px solid var(--c); background: color-mix(in srgb, var(--c) 10%, var(--surface)); color: var(--text); cursor: pointer; }
+.llc-chip:hover:not(:disabled) { background: color-mix(in srgb, var(--c) 20%, var(--surface)); }
+.llc-chip.pend { --c: var(--error); font-weight: 700; }
+.llc-chip.prox { --c: var(--tone-info); }
+.llc-chip.res-venta { --c: var(--tone-buy); }
+.llc-chip.res-seguimiento { --c: var(--tone-live); }
+.llc-chip.res-perdido { --c: #8a817b; }
+.llc-chip.res-noshow { --c: var(--tone-vip); }
+.llc-chip.res-reagendar, .llc-chip.cancel { --c: #b5aca5; opacity: .7; text-decoration: line-through; }
+.llc-leyenda .llc-chip.cancel, .llc-leyenda .llc-chip.res-reagendar { text-decoration: none; }
+.llc-hora { flex: none; font-weight: 800; font-variant-numeric: tabular-nums; }
+.llc-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.llc-day { cursor: default; }
+.llc .cal-day:hover { background: var(--surface); }
+.llc-count { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--surface-2); font-size: 11px; color: var(--text-2); margin-left: 4px; }
+.llc-more { font: inherit; border: 0; background: none; cursor: pointer; text-align: left; }
+.llc.cal-semana .cal-day { min-height: 220px; }
+@media (max-width: 700px) {
+  .llc.cal-mes .cal-chips { display: flex; }
+  .llc.cal-mes .llc-chip .llc-nombre { display: none; }
+  .llc.cal-mes .llc-chip { padding: 2px 3px; font-size: 10px; justify-content: center; border-left-width: 3px; }
+}
+.llc-leyenda .llc-chip { width: auto; display: inline-flex; }
+.views { overflow-x: auto; scrollbar-width: thin; }
+.view-tab { white-space: nowrap; flex: none; display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 640px) { .ll-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ll-kpis .kpi-sub { font-size: 11px; } }
