@@ -8,7 +8,7 @@ const EQUIPO_FIELDS = ['name', 'inicioCaptacion', 'finCaptacion', 'fechaDirecto'
 function equipoConfig(config) {
   const launches = {};
   for (const [code, l] of Object.entries(config.launches)) launches[code] = Object.fromEntries(EQUIPO_FIELDS.map((k) => [k, l[k] ?? '']));
-  return { launches, templates: {}, accesos: [], digestEmail: '', defaultCountryCode: config.defaultCountryCode, vsl: { name: config.vsl?.name || 'VSL' } };
+  return { launches, templates: {}, accesos: [], digestEmail: '', defaultCountryCode: config.defaultCountryCode, vsls: Object.fromEntries(Object.entries(config.vsls || {}).map(([id, v]) => [id, { name: v.name }])), embudos: config.embudos };
 }
 
 export async function GET(request) {
@@ -37,7 +37,9 @@ export async function POST(request) {
       return json({ templates: config.templates, defaultCountryCode: config.defaultCountryCode });
     }
     await requireRole(request, { permiso: 'config' });
-    const config = await saveConfig(body);
+    // Si no vienen los embudos (p. ej. un navegador con la versión anterior), se conservan los guardados.
+    const actual = !('vsls' in body) || !('embudos' in body) ? await getConfig({ fresh: true }) : null;
+    const config = await saveConfig(actual ? { vsls: actual.vsls, embudos: actual.embudos, ...body, ...('vsl' in body && !('vsls' in body) ? { vsls: { ...actual.vsls, vsl: body.vsl } } : {}) } : body);
     return json({ config });
   } catch (e) {
     return errorResponse(e);

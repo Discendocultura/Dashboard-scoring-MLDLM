@@ -1231,3 +1231,46 @@ body.embudo-vsl .lanz-only { display: none !important; }
 .cal-chip.k-hito:not(.other) { background: var(--accent); color: var(--accent-ink); font-weight: 800; }
 .cal-chip.k-hito.h-webinar:not(.other) { background: #d93025; color: #fff; }
 .cal-chip.k-hito:not(.other) .cc-time { color: inherit; opacity: .9; }
+
+/* ---------- Varios clientes ---------- */
+body:not(.is-superadmin) .superadmin-only { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.cliente-pick select { font: inherit; font-weight: 800; font-size: 15px; padding: 5px 30px 5px 12px; border-radius: 999px; border: 1px solid var(--border); background-color: color-mix(in srgb, var(--cliente, var(--accent)) 10%, var(--surface)); color: var(--text); cursor: pointer; max-width: 260px; }
+.cliente-pick[hidden] { display: none; }
+.sa-badge { background: var(--accent); color: var(--accent-ink); }
+.eq-clientes { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.eq-cli { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); }
+.eq-accesos { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: var(--surface-2); }
+.acc-clis { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.acc-cli { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); }
+.eq-fuera { margin-top: 12px; }
+.eq-fuera summary { cursor: pointer; font-weight: 700; color: var(--text-2); }
+.cl-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.cl-card { border: 1px solid var(--border); border-top: 4px solid var(--cl); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; background: var(--surface); }
+.cl-card.actual { box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl) 40%, transparent); }
+.cl-card header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cl-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--cl); flex: none; }
+.cl-nombre { font: inherit; font-weight: 800; font-size: 16px; border: 1px solid transparent; border-radius: 6px; padding: 2px 6px; background: transparent; color: var(--text); flex: 1; min-width: 120px; }
+.cl-nombre:hover, .cl-nombre:focus { border-color: var(--border); background: var(--surface); }
+.cl-datos { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.cl-estado.ok { color: var(--tone-buy); font-weight: 700; }
+.cl-estado.ko { color: var(--error); font-weight: 700; }
+.cl-acciones { flex-wrap: wrap; align-items: center; }
+.cl-ayuda { margin-top: 14px; font-size: 13px; }
+.cl-ayuda ol { padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+
+/* Menú lateral: embudos del cliente y «+» */
+.sb-items { display: flex; flex-direction: column; gap: 6px; }
+.sb-add { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; font: inherit; color: var(--text-2); background: none; border: 1px dashed var(--border); border-radius: 12px; padding: 8px 10px; cursor: pointer; margin-top: 4px; }
+.sb-add:hover { color: var(--text); border-color: var(--accent); background: var(--surface); }
+.sb-add .sb-ico { background: transparent; font-weight: 800; }
+@media (max-width: 900px) { .sb-items { flex-direction: row; } .sb-add { width: auto; flex: none; margin-top: 0; } .sb-add .sb-txt { display: none; } }
+.emb-tipos { display: flex; flex-direction: column; gap: 10px; }
+.emb-tipo { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
+.emb-tipo:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.emb-tipo input { margin-top: 4px; accent-color: var(--accent); }
+.emb-tipo > span:last-child { display: flex; flex-direction: column; gap: 3px; }
+.emb-tipo small { color: var(--text-2); line-height: 1.4; }
+.emb-ico { font-size: 22px; line-height: 1; }
+input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; }
+.cl-card header .cl-nombre { flex: 1 1 100%; order: -1; }

@@ -20,6 +20,8 @@
   var API = script ? new URL(script.src).origin : '';
   // Cliente del dashboard (varios clientes): viene en el src del script, p. ej. tracker.js?c=clinica-sol.
   var CLIENTE = script ? new URL(script.src).searchParams.get('c') || '' : '';
+  // VSL concreta (si el cliente tiene varias): vsl.js?v=<id>. Sin él, la primera.
+  var VSL_ID = script ? new URL(script.src).searchParams.get('v') || '' : '';
   function conCliente(path) { return CLIENTE ? path + (path.indexOf('?') >= 0 ? '&' : '?') + 'c=' + encodeURIComponent(CLIENTE) : path; }
   var STORE = 'lsd_identity';
   var params = new URLSearchParams(location.search);
@@ -144,7 +146,7 @@
 
     loadVimeo(function () {
       var player = new window.Vimeo.Player(box.querySelector('iframe'));
-      var KEY = 'lsd_vsl_vsl';
+      var KEY = 'lsd_vsl_' + (data.id || 'vsl');
       var sent = store(KEY) || {};
       var visto = 0;
       var last = null;
@@ -161,7 +163,7 @@
           if (pct >= t && !sent[t]) {
             sent[t] = 1;
             store(KEY, sent);
-            post('/api/track', { launch: 'vsl', video: 'vsl', pct: t, cid: who.cid, email: who.email });
+            post('/api/track', { launch: data.id || 'vsl', video: 'vsl', pct: t, cid: who.cid, email: who.email });
           }
         });
       });
@@ -177,6 +179,7 @@
     var who = identity();
     var q = new URLSearchParams();
     if (who && who.cid) q.set('cid', who.cid);
+    if (VSL_ID) q.set('v', VSL_ID);
     fetch(API + conCliente('/api/vsl?' + q.toString())).then(function (r) { return r.json(); }).then(function (data) {
       if (!data || data.error) return;
       vslEls.forEach(function (el) { vsl(el, data, who); });

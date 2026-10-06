@@ -683,20 +683,21 @@ test('embudo VSL: configuración de serie, código reservado, tareas, vídeo, ll
   const setter = await login('setter');
   const config = await import('../handlers/config.js');
   const cfg = (await (await config.GET(req('/api/config', { cookie: admin }))).json()).config;
-  assert.equal(cfg.vsl.registroTag, 'et-registro-vsl-búsqueda');
-  assert.equal(cfg.vsl.llamadasPipeline, 'Leads evergreen');
+  assert.equal(cfg.vsls.vsl.registroTag, 'et-registro-vsl-búsqueda');
+  assert.deepEqual(cfg.embudos.map((e) => [e.id, e.tipo]), [['lanz', 'lanzamientos'], ['vsl', 'vsl']]);
+  assert.equal(cfg.vsls.vsl.llamadasPipeline, 'Leads evergreen');
   // Guardar la VSL (y que el resto no cambie); «vsl» no puede ser un lanzamiento
-  const conVsl = { ...cfg, vsl: { ...cfg.vsl, vslVideoUrl: 'https://vimeo.com/111', botonSegundos: '600', compraDateField: 'mockFechaCompraVsl', ventaUrl: 'https://pago.example.com/raices', precioPrograma: '997', accesos: [{ tipo: 'workflow', nombre: 'WF VSL', url: 'https://app.gohighlevel.com/x' }] } };
+  const conVsl = { ...cfg, vsls: { vsl: { ...cfg.vsls.vsl, vslVideoUrl: 'https://vimeo.com/111', botonSegundos: '600', compraDateField: 'mockFechaCompraVsl', ventaUrl: 'https://pago.example.com/raices', precioPrograma: '997', accesos: [{ tipo: 'workflow', nombre: 'WF VSL', url: 'https://app.gohighlevel.com/x' }] } } };
   const saved = (await (await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: conVsl }))).json()).config;
-  assert.equal(saved.vsl.botonSegundos, 600);
-  assert.equal(saved.vsl.precioPrograma, 997);
-  assert.equal(saved.vsl.accesos.length, 1);
+  assert.equal(saved.vsls.vsl.botonSegundos, 600);
+  assert.equal(saved.vsls.vsl.precioPrograma, 997);
+  assert.equal(saved.vsls.vsl.accesos.length, 1);
   assert.deepEqual(Object.keys(saved.launches), Object.keys(cfg.launches));
   assert.equal((await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...cfg, launches: { ...cfg.launches, vsl: { name: 'x' } } } }))).status, 400);
   // El guardado de mensajes de la setter conserva la VSL
   await config.POST(req('/api/config', { method: 'POST', cookie: setter, body: { op: 'plantillas', templates: { vsl_novio: 'Hola {nombre} {link_vsl}' } } }));
   const tras = (await (await config.GET(req('/api/config', { cookie: admin }))).json()).config;
-  assert.equal(tras.vsl.botonSegundos, 600);
+  assert.equal(tras.vsls.vsl.botonSegundos, 600);
   assert.equal(tras.templates.vsl_novio, 'Hola {nombre} {link_vsl}');
 
   // Leads de la VSL con su fecha de compra
@@ -735,9 +736,53 @@ test('embudo VSL: configuración de serie, código reservado, tareas, vídeo, ll
 
   // Página pública de la VSL
   const vsl = await import('../handlers/vsl.js');
-  const pub = await (await vsl.GET(req('/api/vsl?cid=mockv0002'))).json();
+  const pub = await (await vsl.GET(req('/api/vsl?cid=mockv0002'))).json(); // sin ?v=: la primera VSL
+  assert.equal((await vsl.GET(req('/api/vsl?v=otra'))).status, 404);
   assert.equal(pub.video, 'https://vimeo.com/111');
   assert.equal(pub.botonSegundos, 600);
   assert.equal(pub.links.compra, 'https://pago.example.com/raices?cid=mockv0002');
   assert.ok(pub.links.llamada.includes('6pgezBW77b9AMkJ8aqDJ'));
+});
+
+test('embudos: varias VSL por cliente, lanzamientos por embudo y migración de la VSL antigua', async () => {
+  const admin = await login('admin');
+  const config = await import('../handlers/config.js');
+  const cfg = (await (await config.GET(req('/api/config', { cookie: admin }))).json()).config;
+  const nueva = {
+    ...cfg,
+    embudos: [...cfg.embudos, { id: 'vsl-fertilidad', tipo: 'vsl', nombre: 'VSL Fertilidad' }, { id: 'retos', tipo: 'lanzamientos', nombre: 'Retos' }, { id: 'mal id', tipo: 'vsl' }],
+    vsls: { ...cfg.vsls, 'vsl-fertilidad': { name: 'VSL Fertilidad', registroTag: 'registro-fert' } },
+    launches: { ...cfg.launches, 'reto-oct': { name: 'Reto octubre', registroTag: 'reto', embudo: 'retos' }, 'sin-embudo': { name: 'X', registroTag: 'x', embudo: 'no-existe' } },
+  };
+  const saved = (await (await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: nueva }))).json()).config;
+  assert.deepEqual(saved.embudos.map((e) => e.id), ['lanz', 'vsl', 'vsl-fertilidad', 'retos']);
+  assert.equal(saved.vsls['vsl-fertilidad'].registroTag, 'registro-fert');
+  assert.equal(saved.vsls['vsl-fertilidad'].vioTag, ''); // una VSL nueva no hereda las etiquetas de la VSL de MLDLM
+  assert.equal(saved.vsls['vsl-fertilidad'].llamadaUrl, '');
+  assert.equal(saved.launches['reto-oct'].embudo, 'retos');
+  assert.equal(saved.launches['sin-embudo'].embudo, 'lanz');
+  // Un lanzamiento no puede usar el código de una VSL
+  assert.equal((await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...saved, launches: { ...saved.launches, 'vsl-fertilidad': { name: 'x' } } } }))).status, 400);
+  // Tareas y vídeo de la segunda VSL, con su propio código
+  const tareas = await import('../handlers/tareas.js');
+  assert.equal((await tareas.POST(req('/api/tareas', { method: 'POST', cookie: admin, body: { l: 'vsl-fertilidad', op: 'crear', avisar: false, tarea: { titulo: 'T' } } }))).status, 200);
+  const track = await import('../handlers/track.js');
+  assert.equal((await track.POST(req('/api/track', { method: 'POST', body: { launch: 'vsl-fertilidad', video: 'vsl', pct: 25, cid: 'mockv0003' } }))).status, 200);
+  assert.ok((await (await import('../lib/mock.js')).getContact('mockv0003')).tags.includes('vsl-fertilidad_vsl_25'));
+  const vsl = await import('../handlers/vsl.js');
+  assert.equal((await vsl.GET(req('/api/vsl?v=vsl-fertilidad'))).status, 200);
+  // Quitar la VSL del menú quita su configuración
+  const sinFert = { ...saved, embudos: saved.embudos.filter((e) => e.id !== 'vsl-fertilidad'), vsls: { vsl: saved.vsls.vsl } };
+  const tras = (await (await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: sinFert }))).json()).config;
+  assert.equal(tras.vsls['vsl-fertilidad'], undefined);
+  // Config antigua (con `vsl`): se lee como vsls.vsl
+  const { saveCustomValue } = await import('../lib/ghl.js');
+  const { getConfig } = await import('../lib/config-store.js');
+  await saveCustomValue('lead_scoring_dashboard_config', JSON.stringify({ launches: {}, vsl: { name: 'Vieja', registroTag: 'r-vieja' } }));
+  const vieja = await getConfig({ fresh: true });
+  assert.equal(vieja.vsls.vsl.registroTag, 'r-vieja');
+  assert.equal(vieja.vsls.vsl.vioTag, 'et-ve-vsl-raices');
+  assert.deepEqual(vieja.embudos.map((e) => e.id), ['lanz', 'vsl']);
+  assert.equal(vieja.vsl, undefined);
+  await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: tras }));
 });

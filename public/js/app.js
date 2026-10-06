@@ -32,7 +32,7 @@ const state = {
   zoomConfigured: false,
   tags: [],
   launchCode: null,
-  embudo: 'lanz', // 'lanz' (lanzamientos) | 'vsl'
+  embudo: '', // id del embudo activo (menú lateral)
   leads: [],
   filters: { search: '', estado: '', step: '', signal: '', pending: false },
   sort: { key: 'score', dir: 'desc' },
@@ -45,12 +45,29 @@ const ls = {
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } },
 };
 if (ls.get('lsd_tareas_vista') === 'tablero') state.tVista = 'tablero';
+// Cliente (varios clientes en el mismo dashboard): el de la URL (?c=) o el último elegido.
+state.cliente = new URLSearchParams(location.search).get('c') || ls.get('lsd_cliente') || '';
+state.clientes = [];
+state.superadmin = false;
+
+// En los códigos para GHL: los clientes que no son el principal llevan ?c=<cliente>.
+const esPrincipal = () => state.clientes.find((c) => c.id === state.cliente)?.principal !== false;
+const cParam = (sep = '?') => (esPrincipal() ? '' : `${sep}c=${encodeURIComponent(state.cliente)}`);
+
+function cambiarCliente(id) {
+  const c = state.clientes.find((x) => x.id === id);
+  ls.set('lsd_cliente', id);
+  const u = new URL(location.href);
+  if (c?.principal) u.searchParams.delete('c'); else u.searchParams.set('c', id);
+  u.hash = '';
+  location.href = u.toString();
+}
 
 // ---------- API ----------
 async function api(path, { method = 'GET', body } = {}) {
   const res = await fetch(path, {
     method,
-    headers: body ? { 'content-type': 'application/json' } : {},
+    headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...(state.cliente ? { 'x-cliente': state.cliente } : {}) },
     body: body ? JSON.stringify(body) : undefined,
     credentials: 'same-origin',
   });
@@ -129,16 +146,34 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'ambos' };
 const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar' };
-const allowedViews = () => VIEWS.filter((v) => [state.embudo, 'ambos'].includes(VIEW_EMBUDO[v] || 'lanz')
+// Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
+const embudos = () => state.config?.embudos || [];
+const embudoInfo = (id = state.embudo) => embudos().find((e) => e.id === id) || null;
+const enVsl = () => embudoInfo()?.tipo === 'vsl';
+const tipoActual = () => (enVsl() ? 'vsl' : 'lanz');
+const allowedViews = () => VIEWS.filter((v) => [tipoActual(), 'ambos'].includes(VIEW_EMBUDO[v] || 'lanz')
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
-const enVsl = () => state.embudo === 'vsl';
-// Código del embudo activo para tareas y llamadas: el lanzamiento elegido o «vsl».
-const codigo = () => (enVsl() ? 'vsl' : state.launchCode);
-const vslCfg = () => ({ ...(state.config?.vsl || {}), name: state.config?.vsl?.name || 'VSL', esVsl: true });
+// Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
+const codigo = () => (enVsl() ? state.embudo : state.launchCode);
+const vslCfg = (id = state.embudo) => ({ ...(state.config?.vsls?.[id] || {}), name: state.config?.vsls?.[id]?.name || 'VSL', id, esVsl: true });
 const embudoActual = () => (enVsl() ? vslCfg() : state.config?.launches[state.launchCode]);
+// Embudo de lanzamientos al que pertenece un lanzamiento.
+const embudoDeLanz = (l) => l?.embudo || embudos().find((e) => e.tipo === 'lanzamientos')?.id || 'lanz';
 
 async function start() {
-  const [me, { role, config, zoomConfigured }] = await Promise.all([api('/api/me'), api('/api/config')]);
+  const me = await api('/api/me');
+  state.clientes = me.clientes || [];
+  state.superadmin = Boolean(me.superadmin);
+  if (!me.role) {
+    // Sin acceso a este cliente: a su primer cliente (o, si no tiene ninguno, a la pantalla de acceso).
+    const otro = state.clientes.find((c) => c.id !== me.cliente?.id);
+    if (otro) { cambiarCliente(otro.id); return; }
+    showLogin();
+    throw new Error('Tu usuario no tiene acceso a ningún cliente: habla con el superadmin');
+  }
+  state.cliente = me.cliente.id;
+  ls.set('lsd_cliente', me.cliente.id);
+  const { role, config, zoomConfigured } = await api('/api/config');
   state.role = role;
   state.user = me.user || null;
   state.permisos = me.permisos || [];
@@ -150,6 +185,8 @@ async function start() {
   document.body.classList.toggle('can-zoom', tiene('zoom'));
   document.body.classList.toggle('can-tareas', puedeTareas());
   document.body.classList.toggle('is-equipo', role === 'equipo');
+  document.body.classList.toggle('is-superadmin', state.superadmin);
+  pintarCliente(me.cliente);
   $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
   $('#btn-cuenta').hidden = !state.user;
   pintarFotoCuenta();
@@ -158,9 +195,12 @@ async function start() {
   $('#app').hidden = false;
   fillRolSelects();
   const hash = window.location.hash.slice(1);
-  if (hash === 'vsl' || VIEW_EMBUDO[hash] === 'vsl') state.embudo = 'vsl';
-  else if (VIEWS.includes(hash) && VIEW_EMBUDO[hash] !== 'ambos') state.embudo = 'lanz';
-  else state.embudo = ls.get('lsd_embudo') === 'vsl' ? 'vsl' : 'lanz';
+  const primero = (tipo) => embudos().find((e) => e.tipo === tipo)?.id;
+  const guardado = ls.get('lsd_embudo');
+  if (embudoInfo(hash)) state.embudo = hash;
+  else if (VIEW_EMBUDO[hash] === 'vsl' && primero('vsl')) state.embudo = embudoInfo(guardado)?.tipo === 'vsl' ? guardado : primero('vsl');
+  else if (VIEWS.includes(hash) && VIEW_EMBUDO[hash] !== 'ambos' && primero('lanzamientos')) state.embudo = embudoInfo(guardado)?.tipo === 'lanzamientos' ? guardado : primero('lanzamientos');
+  else state.embudo = embudoInfo(guardado) ? guardado : embudos()[0]?.id || '';
   fillStaticSelects();
   renderLaunchSelect();
   if (puedeConfig()) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
@@ -171,12 +211,13 @@ async function start() {
 
 function launchesSorted() {
   return Object.entries(state.config.launches)
+    .filter(([, l]) => enVsl() || embudoDeLanz(l) === state.embudo)
     .sort((a, b) => String(b[1].createdAt).localeCompare(String(a[1].createdAt)));
 }
 
 function pickInitialLaunch() {
   const saved = ls.get('lsd_launch');
-  if (saved && state.config.launches[saved]) return saved;
+  if (saved && state.config.launches[saved] && embudoDeLanz(state.config.launches[saved]) === state.embudo) return saved;
   return launchesSorted()[0]?.[0] || null;
 }
 
@@ -196,13 +237,41 @@ function fillStaticSelects() {
 $('#launch-select').addEventListener('change', (e) => selectLaunch(e.target.value));
 $('#btn-reload').addEventListener('click', () => (enVsl() ? recargarVsl() : selectLaunch(state.launchCode)));
 
+// ---------- Clientes (desplegable de arriba) ----------
+function pintarCliente(c) {
+  $('#brand-nombre').textContent = state.clientes.length > 1 ? 'Dashboard' : `Dashboard ${c.nombre}`;
+  document.title = `Dashboard · ${c.nombre}`;
+  const pick = $('#cliente-pick');
+  pick.hidden = state.clientes.length < 2;
+  $('#cliente-select').innerHTML = state.clientes.map((x) => `<option value="${esc(x.id)}" ${x.id === c.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('');
+  if (c.color) document.documentElement.style.setProperty('--cliente', c.color); else document.documentElement.style.removeProperty('--cliente');
+}
+$('#cliente-select').addEventListener('change', (e) => cambiarCliente(e.target.value));
+
 // ---------- Embudos (menú lateral) ----------
+function pintarSidebar() {
+  $('#sb-items').innerHTML = embudos().map((e) => {
+    const sub = e.tipo === 'vsl' ? 'VSL · siempre abierta'
+      : (() => { const n = Object.values(state.config.launches).filter((l) => embudoDeLanz(l) === e.id).length; return `${n} lanzamiento${n === 1 ? '' : 's'}`; })();
+    return `<button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${e.tipo === 'vsl' ? '🎬' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>`;
+  }).join('');
+}
+
 async function setEmbudo(e, { vista = null } = {}) {
-  state.embudo = e === 'vsl' ? 'vsl' : 'lanz';
+  state.embudo = embudoInfo(e) ? e : embudos()[0]?.id || '';
   ls.set('lsd_embudo', state.embudo);
   document.body.classList.toggle('embudo-vsl', enVsl());
-  $$('.sb-item').forEach((b) => b.classList.toggle('active', b.dataset.embudo === state.embudo));
-  $('#sb-vsl-sub').textContent = state.config?.vsl?.name || 'Siempre abierta';
+  pintarSidebar();
+  // Cliente sin embudos todavía.
+  const sin = !embudos().length;
+  $('#sin-embudos').hidden = !sin;
+  if (sin) { $('#dashboard').hidden = true; $('#empty-state').hidden = true; return; }
+  // Cada embudo de lanzamientos enseña solo sus lanzamientos.
+  if (!enVsl()) {
+    renderLaunchSelect();
+    if (!state.config.launches[state.launchCode] || embudoDeLanz(state.config.launches[state.launchCode]) !== state.embudo) state.launchCode = pickInitialLaunch();
+  }
+  if (enVsl() && state.vsl.code !== state.embudo) Object.assign(state.vsl, { code: state.embudo, leads: null, raw: null, meta: null });
   $$('.view-tab').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
   const guardada = ls.get(`lsd_view_${state.embudo}`) || (enVsl() ? '' : ls.get('lsd_view'));
   const quiero = [vista, guardada].find((v) => v && allowedViews().includes(v));
@@ -1699,7 +1768,7 @@ $('#cfg-save').addEventListener('click', async () => {
       digestEmail: $('#cfg-digest-email').value.trim(),
       accesos: readAccesosEditor(),
       formAds: { campaign: $('#cfg-fa-campaign').value, adset: $('#cfg-fa-adset').value, ad: $('#cfg-fa-ad').value },
-      launches: { ...state.config.launches, [code]: launch },
+      launches: { ...state.config.launches, [code]: { ...launch, embudo: state.config.launches[code]?.embudo || (enVsl() ? undefined : state.embudo) } },
     };
     status.textContent = 'Guardando…';
     $('#cfg-save').disabled = true;
@@ -2068,7 +2137,7 @@ function renderSnippets() {
   const box = $('#snippets');
   if (!code) { box.innerHTML = '<p class="muted">Guarda el lanzamiento para ver sus códigos.</p>'; return; }
   const origin = location.origin;
-  const script = `<script src="${origin}/tracker.js" defer></script>`;
+  const script = `<script src="${origin}/tracker.js${cParam()}" defer></script>`;
   const items = [
     ['LOGIN · bloque del formulario (no cambia entre lanzamientos)',
       `<div data-lsd-login data-launch="auto"\n     data-title="Accede a las clases con el email con el que te registraste"\n     data-button="Acceder a las clases"></div>\n${script}`],
@@ -2085,8 +2154,8 @@ function renderSnippets() {
     ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
     ['GRABACIÓN · bloques de la página del replay', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
-    ['Enlace al directo en emails de GHL', `${origin}/directo?l=auto&cid={{contact.id}}`],
-    ['Enlace al directo para el grupo de WhatsApp (pide el email)', `${origin}/directo?l=auto`],
+    ['Enlace al directo en emails de GHL', `${origin}/directo?l=auto&cid={{contact.id}}${cParam('&')}`],
+    ['Enlace al directo para el grupo de WhatsApp (pide el email)', `${origin}/directo?l=auto${cParam('&')}`],
   ];
   box.innerHTML = `<p class="muted">Con <code>data-launch="auto"</code> las páginas usan siempre el <strong>lanzamiento en curso</strong> (el último cuyo inicio de captación ya ha llegado): en el próximo lanzamiento no hay que tocar GHL, solo esta configuración.</p>` + items.map(([title, text], i) => `
     <div class="snippet">
@@ -2129,18 +2198,26 @@ async function loadTareas() {
 }
 
 // Tareas del otro embudo (solo para la campanita: avisa de las de los dos).
-const otroCodigo = () => (enVsl() ? state.launchCode : 'vsl');
+// Códigos de los demás embudos (para la campanita): las VSL y el lanzamiento elegido de cada embudo de lanzamientos.
+function otrosCodigos() {
+  const out = [];
+  for (const e of embudos()) {
+    if (e.tipo === 'vsl') out.push(e.id);
+    else {
+      const ls_ = Object.entries(state.config.launches).filter(([, l]) => embudoDeLanz(l) === e.id).sort((a, b) => String(b[1].createdAt).localeCompare(String(a[1].createdAt)));
+      const elegido = e.id === state.embudo || (embudoDeLanz(state.config.launches[state.launchCode]) === e.id) ? state.launchCode : ls_[0]?.[0];
+      if (elegido) out.push(elegido);
+    }
+  }
+  return [...new Set(out)].filter((c) => c && c !== codigo()).slice(0, 8);
+}
 async function cargarTareasOtro() {
-  const code = otroCodigo();
-  if (!code) { state.tareasOtro = null; return; }
-  try {
-    const d = await api(`/api/tareas?l=${encodeURIComponent(code)}`);
-    if (code !== otroCodigo()) return;
-    state.tareasOtro = { code, list: d.tareas, users: d.users };
-  } catch { state.tareasOtro = null; }
+  const codes = otrosCodigos();
+  const res = await Promise.all(codes.map((code) => api(`/api/tareas?l=${encodeURIComponent(code)}`).then((d) => ({ code, list: d.tareas, users: d.users })).catch(() => null)));
+  state.tareasOtros = res.filter(Boolean);
   renderNotif();
 }
-const nombreEmbudo = (code) => (code === 'vsl' ? state.config?.vsl?.name || 'VSL' : state.config?.launches[code]?.name || code);
+const nombreEmbudo = (code) => state.config?.vsls?.[code]?.name || state.config?.launches[code]?.name || code;
 
 function asignadoTexto(a) {
   if (!a) return 'Sin asignar';
@@ -2689,7 +2766,7 @@ async function crearUsuario({ nombre, email, rol }) {
   state.equipo.push(r.user);
   return r;
 }
-const accesoMsg = (r) => (r.emailEnviado
+const accesoMsg = (r) => (r.anadido ? `${r.user.nombre} ya tenía usuario (trabaja en otros clientes): ahora también tiene acceso aquí, con su misma contraseña.` : r.emailEnviado
   ? `Usuario creado: ${r.user.nombre} ya tiene en su email (${r.user.email}) el enlace y su contraseña.`
   : `Usuario creado, pero NO se pudo enviar el email${r.emailError ? ` (${r.emailError})` : ''}. Pásale tú estos datos: email ${r.user.email} · contraseña ${r.password}`);
 
@@ -2733,7 +2810,10 @@ async function loadEquipo() {
   const box = $('#equipo-list');
   box.innerHTML = '<p class="muted">Cargando…</p>';
   try {
-    state.equipo = (await api('/api/usuarios')).users;
+    const d = await api('/api/usuarios');
+    state.equipo = d.users;
+    state.equipoTodos = d.todos || null; // solo superadmin: todo el mundo, para dar accesos a varios clientes
+    state.clientesLista = d.clientes || [];
     renderEquipo();
   } catch (e) {
     box.innerHTML = `<p class="error">${esc(e.message)}</p>`;
@@ -2746,15 +2826,48 @@ function renderEquipo() {
   $('#equipo-list').innerHTML = users.length ? `<div class="table-scroll"><table class="metric-table equipo-table">
     <thead><tr><th>Persona</th><th>Rol</th><th>Último acceso</th><th></th></tr></thead>
     <tbody>${users.map((u) => `<tr class="${u.activo ? '' : 'inactivo'}" data-uid="${esc(u.id)}">
-      <td><span class="t-who">${avatarHtml(u)}<span><strong>${esc(u.nombre)}</strong><br><span class="muted">${esc(u.email)}</span>${u.activo ? '' : ' · <em>desactivada</em>'}</span></span></td>
+      <td><span class="t-who">${avatarHtml(u)}<span><strong>${esc(u.nombre)}</strong>${u.superadmin ? ' <span class="badge sa-badge">Superadmin</span>' : ''}<br><span class="muted">${esc(u.email)}</span>${u.activo ? '' : ' · <em>desactivada</em>'}${otrosClientes(u)}</span></span></td>
       <td><select class="eq-rol" ${u.id === state.user?.id ? 'disabled' : ''}>${[...rolesUI(), ...(rolesUI().includes(u.rol) ? [] : [u.rol])].map((r) => `<option value="${r}" ${r === u.rol ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></td>
       <td class="muted">${fmt(u.lastLogin)}</td>
       <td class="eq-actions">
         <button type="button" class="btn" data-eq="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
+        ${state.equipoTodos ? '<button type="button" class="btn ghost" data-eq="accesos" title="Clientes a los que tiene acceso y con qué rol">Clientes</button>' : ''}
         ${u.id === state.user?.id ? '' : `<button type="button" class="btn ghost" data-eq="${u.activo ? 'desactivar' : 'activar'}">${u.activo ? 'Desactivar' : 'Activar'}</button>
         <button type="button" class="btn ghost" data-eq="borrar" aria-label="Borrar">✕</button>`}
       </td></tr>`).join('')}</tbody></table></div>`
-    : '<p class="muted">Todavía no hay nadie. Añade a Sara, Quique… con su nombre y email: les llegará el acceso.</p>';
+    : '<p class="muted">Todavía no hay nadie. Añade a las personas con su nombre y email: les llegará el acceso.</p>';
+  // Superadmin: personas de otros clientes (p. ej. de la agencia) a las que dar acceso aquí.
+  const fuera = (state.equipoTodos || []).filter((u) => !users.some((x) => x.id === u.id));
+  if (fuera.length) {
+    $('#equipo-list').insertAdjacentHTML('beforeend', `<details class="eq-fuera"><summary>Personas de otros clientes (${fuera.length}) · dales acceso aquí</summary>
+      <div class="table-scroll"><table class="metric-table equipo-table"><tbody>${fuera.map((u) => `<tr data-uid="${esc(u.id)}" data-fuera="1">
+        <td><span class="t-who">${avatarHtml(u)}<span><strong>${esc(u.nombre)}</strong><br><span class="muted">${esc(u.email)}</span>${otrosClientes(u)}</span></span></td>
+        <td class="eq-actions"><button type="button" class="btn" data-eq="accesos">Dar acceso…</button></td></tr>`).join('')}</tbody></table></div></details>`);
+  }
+}
+
+// Clientes en los que trabaja una persona (además de este), para el superadmin.
+function otrosClientes(u) {
+  if (!state.equipoTodos) return '';
+  const nombres = Object.keys(u.accesos || {}).filter((k) => k !== state.cliente).map((k) => state.clientesLista.find((c) => c.id === k)?.nombre || k);
+  return nombres.length ? `<br><span class="eq-clientes">${nombres.map((n) => `<span class="eq-cli">${esc(n)}</span>`).join('')}</span>` : '';
+}
+
+// Superadmin: accesos de una persona a cada cliente (rol en cada uno) y si es superadmin.
+const ROLES_COMUNES = ['admin', 'tecnico', 'setter', 'equipo'];
+function editorAccesos(u) {
+  const roles = [...new Set([...ROLES_COMUNES, ...rolesUI()])];
+  const fila = (c) => {
+    const actual = u.accesos?.[c.id] || '';
+    return `<label class="acc-cli"><span>${esc(c.nombre)}</span><select data-acc-cli="${esc(c.id)}"><option value="">Sin acceso</option>${[...roles, ...(actual && !roles.includes(actual) ? [actual] : [])].map((r) => `<option value="${esc(r)}" ${r === actual ? 'selected' : ''}>${esc(ROLE_LABEL[r] || r)}</option>`).join('')}</select></label>`;
+  };
+  return `<tr class="eq-accesos-row" data-uid="${esc(u.id)}"><td colspan="4">
+    <div class="eq-accesos"><strong>Clientes de ${esc(u.nombre)}</strong>
+      <div class="acc-clis">${state.clientesLista.map(fila).join('')}</div>
+      <label class="check"><input type="checkbox" data-acc-sa ${u.superadmin ? 'checked' : ''}> Superadmin (entra en todos los clientes como admin y gestiona los clientes)</label>
+      <div class="row"><button type="button" class="btn primary" data-eq="guardar-accesos">Guardar accesos</button><button type="button" class="btn ghost" data-eq="cerrar-accesos">Cancelar</button></div>
+      <small class="muted">Los roles de cada cliente se configuran en su propio Equipo → Roles y permisos.</small>
+    </div></td></tr>`;
 }
 
 function equipoResult(msg, isError = false) {
@@ -2800,18 +2913,36 @@ $('#equipo-list').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-eq]');
   if (!b) return;
   const id = b.closest('tr').dataset.uid;
-  const u = state.equipo.find((x) => x.id === id);
+  const u = state.equipo.find((x) => x.id === id) || state.equipoTodos?.find((x) => x.id === id);
   const op = b.dataset.eq;
+  if (op === 'accesos') {
+    $$('.eq-accesos-row').forEach((r) => r.remove());
+    b.closest('tr').insertAdjacentHTML('afterend', editorAccesos(state.equipoTodos?.find((x) => x.id === id) || u));
+    return;
+  }
+  if (op === 'cerrar-accesos') { b.closest('tr').remove(); return; }
+  if (op === 'guardar-accesos') {
+    const row = b.closest('tr');
+    const accesos = Object.fromEntries($$('[data-acc-cli]', row).map((s) => [s.dataset.accCli, s.value]).filter(([, v]) => v));
+    b.disabled = true;
+    try {
+      await api('/api/usuarios', { method: 'POST', body: { op: 'accesos', id, accesos, superadmin: $('[data-acc-sa]', row).checked } });
+      equipoResult(`Accesos de ${u.nombre} guardados.`);
+      await loadEquipo();
+    } catch (ex) { equipoResult(ex.message, true); b.disabled = false; }
+    return;
+  }
   if (op === 'regenerar' && !window.confirm(`Se generará una contraseña nueva para ${u.nombre} y se le enviará por email. La anterior dejará de funcionar. ¿Continuar?`)) return;
-  if (op === 'borrar' && !window.confirm(`¿Borrar a ${u.nombre}? Perderá el acceso y sus tareas quedarán como «Persona eliminada».`)) return;
+  const multi = Object.keys(u.accesos || {}).some((k) => k !== state.cliente) || u.superadmin;
+  if (op === 'borrar' && !window.confirm(multi ? `¿Quitar a ${u.nombre} del equipo de este cliente? Seguirá teniendo acceso a sus otros clientes.` : `¿Borrar a ${u.nombre}? Perderá el acceso y sus tareas quedarán como «Persona eliminada».`)) return;
   b.disabled = true;
   try {
     if (op === 'regenerar') {
       const r = await api('/api/usuarios', { method: 'POST', body: { op, id } });
       equipoResult(r.emailEnviado ? `Contraseña nueva enviada a ${u.email}.` : `No se pudo enviar el email${r.emailError ? ` (${r.emailError})` : ''}. Pásale tú la contraseña nueva: ${r.password}`, !r.emailEnviado);
     } else if (op === 'borrar') {
-      await api('/api/usuarios', { method: 'POST', body: { op, id } });
-      equipoResult(`${u.nombre} borrada.`);
+      const r = await api('/api/usuarios', { method: 'POST', body: { op, id } });
+      equipoResult(r.quitadoDeCliente ? `${u.nombre} ya no está en el equipo de este cliente.` : `${u.nombre} borrada.`);
     } else {
       await api('/api/usuarios', { method: 'POST', body: { op: 'editar', id, activo: op === 'activar' } });
       equipoResult(op === 'activar' ? `${u.nombre} vuelve a tener acceso.` : `${u.nombre} ya no puede entrar.`);
@@ -2825,6 +2956,80 @@ $('#equipo-list').addEventListener('click', async (e) => {
 });
 
 $('.tab[data-tab="equipo"]').addEventListener('click', () => { equipoResult(''); loadEquipo(); });
+
+// ---------- Clientes (solo superadmin) ----------
+const slugCliente = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/^[^a-z]+/, '').slice(0, 24);
+async function loadClientes() {
+  const box = $('#clientes-list');
+  box.innerHTML = '<p class="muted">Cargando…</p>';
+  try {
+    pintarClientes((await api('/api/clientes')).clientes);
+  } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+function pintarClientes(lista) {
+  state.clientesAdmin = lista;
+  $('#clientes-list').innerHTML = `<div class="cl-cards">${lista.map((c) => `<article class="cl-card ${c.id === state.cliente ? 'actual' : ''}" data-cl="${esc(c.id)}" style="--cl:${esc(c.color || 'var(--accent)')}">
+    <header><span class="cl-dot"></span><input class="cl-nombre" value="${esc(c.nombre)}" maxlength="60" aria-label="Nombre">
+      ${c.principal ? '<span class="badge">Principal</span>' : ''}${c.id === state.cliente ? '<span class="badge">Estás aquí</span>' : ''}</header>
+    <div class="cl-datos">
+      <span>Código <code>${esc(c.id)}</code></span>
+      <span class="cl-estado ${c.conectado ? 'ok' : 'ko'}">${c.conectado ? '● GHL conectado' : `● Falta el token: añade <code>${esc(c.variables[0])}</code> en Cloudflare`}</span>
+      ${c.principal ? '<span class="muted">Usa GHL_TOKEN y GHL_LOCATION_ID de Cloudflare</span>' : `
+      <label class="field"><span>Location ID</span><input class="cl-location" value="${esc(c.locationId || '')}" maxlength="40"></label>
+      <label class="field"><span>Cuenta de Meta</span><input class="cl-meta" value="${esc(c.metaAdAccount || '')}" maxlength="30" inputmode="numeric"></label>`}
+      <label class="field narrow"><span>Color</span><input class="cl-color" type="color" value="${esc(c.color || '#b4552d')}"></label>
+    </div>
+    <div class="row cl-acciones">
+      <button type="button" class="btn" data-cl-op="probar">Probar conexión</button>
+      <button type="button" class="btn" data-cl-op="guardar">Guardar</button>
+      ${c.id === state.cliente ? '' : '<button type="button" class="btn primary" data-cl-op="entrar">Entrar →</button>'}
+      ${c.principal ? '' : '<button type="button" class="btn ghost" data-cl-op="borrar" title="Quitar del dashboard (no borra nada de su GHL)">Quitar</button>'}
+      <span class="muted cl-res" aria-live="polite"></span>
+    </div></article>`).join('')}</div>`;
+}
+$('.tab[data-tab="clientes"]').addEventListener('click', loadClientes);
+$('#cl-nombre').addEventListener('input', () => { if (!$('#cl-id').dataset.tocado) $('#cl-id').value = slugCliente($('#cl-nombre').value); });
+$('#cl-id').addEventListener('input', () => { $('#cl-id').dataset.tocado = '1'; });
+$('#btn-cl-crear').addEventListener('click', async () => {
+  const cliente = { nombre: $('#cl-nombre').value.trim(), id: slugCliente($('#cl-id').value), locationId: $('#cl-location').value.trim(), metaAdAccount: $('#cl-meta').value.trim(), color: $('#cl-color').value };
+  if (!cliente.nombre || !cliente.id || !cliente.locationId) { $('#cl-status').textContent = 'Pon el nombre, el código y el ID de la subcuenta de GHL.'; return; }
+  const b = $('#btn-cl-crear');
+  b.disabled = true;
+  try {
+    const d = await api('/api/clientes', { method: 'POST', body: { op: 'guardar', cliente } });
+    pintarClientes(d.clientes);
+    state.clientes = d.clientes.map(({ id, nombre, color, principal: p }) => ({ id, nombre, color, principal: p }));
+    pintarCliente(state.clientes.find((c) => c.id === state.cliente) || state.clientes[0]);
+    for (const id of ['#cl-nombre', '#cl-id', '#cl-location', '#cl-meta']) $(id).value = '';
+    delete $('#cl-id').dataset.tocado;
+    $('#cl-status').textContent = `Cliente «${cliente.nombre}» añadido. Ahora conecta su GHL (pasos de abajo).`;
+  } catch (e) { $('#cl-status').textContent = e.message; } finally { b.disabled = false; }
+});
+$('#clientes-list').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-cl-op]');
+  if (!b) return;
+  const card = b.closest('[data-cl]');
+  const id = card.dataset.cl;
+  const c = state.clientesAdmin.find((x) => x.id === id);
+  const res = $('.cl-res', card);
+  const op = b.dataset.clOp;
+  if (op === 'entrar') { cambiarCliente(id); return; }
+  if (op === 'borrar' && !window.confirm(`¿Quitar a «${c.nombre}» del dashboard? Su equipo perderá el acceso. No se borra nada de su GHL y puedes volver a añadirlo.`)) return;
+  b.disabled = true;
+  try {
+    if (op === 'probar') {
+      const r = await api('/api/clientes', { method: 'POST', body: { op, id } });
+      res.textContent = r.ok ? `✓ Conectado (${r.etiquetas} etiquetas en su GHL)` : `✗ ${r.error}`;
+    } else {
+      const body = op === 'borrar' ? { op, id } : { op: 'guardar', cliente: { ...c, nombre: $('.cl-nombre', card).value.trim(), color: $('.cl-color', card).value, ...(c.principal ? {} : { locationId: $('.cl-location', card).value.trim(), metaAdAccount: $('.cl-meta', card).value.trim() }) } };
+      const d = await api('/api/clientes', { method: 'POST', body });
+      pintarClientes(d.clientes);
+      state.clientes = d.clientes.map(({ id: i, nombre, color, principal: p }) => ({ id: i, nombre, color, principal: p }));
+      pintarCliente(state.clientes.find((x) => x.id === state.cliente) || state.clientes[0]);
+      if (op !== 'borrar') $('.cl-res', $(`[data-cl="${CSS.escape(id)}"]`)).textContent = 'Guardado ✓';
+    }
+  } catch (ex) { res.textContent = ex.message; } finally { b.disabled = false; }
+});
 $('#btn-equipo').addEventListener('click', () => {
   $('.tab[data-tab="equipo"]').click();
   $('#equipo-dialog').showModal();
@@ -3494,7 +3699,8 @@ function abrirTarea(id, { comentar = false } = {}) {
 // Tarea de otro embudo (desde la campanita): se cambia de embudo y se abre.
 async function abrirTareaEn(code, id, opts) {
   if (code && code !== codigo()) {
-    await setEmbudo(code === 'vsl' ? 'vsl' : 'lanz');
+    if (state.config.vsls?.[code]) await setEmbudo(code);
+    else { state.launchCode = code; await setEmbudo(embudoDeLanz(state.config.launches[code])); }
     if (state.tareas?.code !== code || !state.tareas.list.some((t) => t.id === id)) await loadTareas();
   }
   abrirTarea(id, opts);
@@ -3514,7 +3720,7 @@ function notifItems() {
   const hoy = today();
   const limite = addDays(hoy, NOTIF_DIAS);
   const out = [];
-  const fuentes = [state.tareas, state.tareasOtro].filter((T) => T && [codigo(), otroCodigo()].includes(T.code));
+  const fuentes = [state.tareas, ...(state.tareasOtros || []).filter((T) => T.code !== codigo())].filter(Boolean);
   for (const T of fuentes) {
   const desde = out.length;
   for (const t of T.list) {
@@ -3557,7 +3763,7 @@ function notifHtml(n) {
   else txt = `${tit} de <strong>${esc(n.quien)}</strong>: ${n.dias} día${n.dias === 1 ? '' : 's'} de retraso`;
   const extra = n.c ? `<span class="notif-cita">${esc(n.c.texto.slice(0, 140))}${n.c.texto.length > 140 ? '…' : ''}</span><span class="notif-when">${esc(hace(n.c.en))}</span>` : '';
   return `<button type="button" class="notif-item t-${n.tipo} ${n.nueva ? 'nueva' : ''}" data-nt="${esc(n.t.id)}" data-ncode="${esc(n.code || '')}" ${n.c ? 'data-ntc="1"' : ''}>
-    <span class="notif-ico" aria-hidden="true">${ico}</span><span class="notif-txt">${n.code && n.code !== codigo() ? `<span class="notif-emb">${n.code === 'vsl' ? '🎬' : '🚀'} ${esc(nombreEmbudo(n.code))}</span>` : ''}${txt}${extra}</span>${n.nueva ? '<span class="notif-dot" aria-label="Nueva"></span>' : ''}</button>`;
+    <span class="notif-ico" aria-hidden="true">${ico}</span><span class="notif-txt">${n.code && n.code !== codigo() ? `<span class="notif-emb">${state.config.vsls?.[n.code] ? '🎬' : '🚀'} ${esc(nombreEmbudo(n.code))}</span>` : ''}${txt}${extra}</span>${n.nueva ? '<span class="notif-dot" aria-label="Nueva"></span>' : ''}</button>`;
 }
 
 function renderNotif() {
@@ -3575,7 +3781,7 @@ function renderNotif() {
     [`Vencen en los próximos ${NOTIF_DIAS} días`, items.filter((n) => n.tipo === 'pronto').sort((a, b) => a.t.fecha.localeCompare(b.t.fecha))],
     ['Vencidas del equipo', items.filter((n) => n.tipo === 'equipo')],
   ].filter(([, l]) => l.length);
-  panel.innerHTML = `<div class="notif-head"><strong>Notificaciones</strong><span class="muted">${esc([codigo(), otroCodigo()].filter(Boolean).map(nombreEmbudo).join(' · '))}</span></div>
+  panel.innerHTML = `<div class="notif-head"><strong>Notificaciones</strong><span class="muted">${esc(nombreEmbudo(codigo()))}${state.tareasOtros?.length ? ` y ${state.tareasOtros.length} embudo${state.tareasOtros.length === 1 ? '' : 's'} más` : ''}</span></div>
     ${grupos.length ? grupos.map(([g, l]) => `<div class="notif-grupo"><h4>${esc(g)}</h4>${l.map(notifHtml).join('')}</div>`).join('')
     : '<p class="muted notif-vacio">Todo al día: no tienes comentarios nuevos ni tareas vencidas o a punto de vencer. 🎉</p>'}`;
 }
@@ -3663,7 +3869,7 @@ async function loadLlamadas() {
     if (code !== codigo()) return;
     state.llamadas = { code, data: d };
     calcularFases();
-    if (code === 'vsl') { if (state.vsl.raw) { enriquecerVsl(); renderVsl(); } } else if (state.leads.length) render();
+    if (state.config.vsls?.[code]) { if (state.vsl.raw && state.vsl.code === code) { enriquecerVsl(); renderVsl(); } } else if (state.leads.length) render();
   } catch (e) {
     if (code !== codigo()) return;
     state.llamadas = { code, error: e.message };
@@ -4304,7 +4510,7 @@ async function loadVslLeads() {
 
 // Citas del calendario de la VSL por contacto (para saber quién ha agendado llamada).
 function citasVsl() {
-  const d = state.llamadas?.code === 'vsl' ? state.llamadas.data : null;
+  const d = state.llamadas?.code === state.vsl.code ? state.llamadas.data : null;
   const m = new Map();
   for (const c of d?.configurado ? d.llamadas : []) {
     if (!c.contactId) continue;
@@ -4315,7 +4521,7 @@ function citasVsl() {
 function enriquecerVsl() {
   if (!state.vsl.raw) return;
   const citas = citasVsl();
-  state.vsl.leads = state.vsl.raw.map((c) => enrichVsl(c, vslCfg(), { pais: state.config.defaultCountryCode, citas }));
+  state.vsl.leads = state.vsl.raw.map((c) => enrichVsl(c, vslCfg(state.vsl.code), { pais: state.config.defaultCountryCode, citas, code: state.vsl.code }));
 }
 
 let vslMetaToken = 0;
@@ -4323,7 +4529,7 @@ async function loadVslMeta() {
   const r = vslRango();
   const token = ++vslMetaToken;
   try {
-    const m = await api(`/api/meta?launch=vsl&since=${r.desde}&until=${r.hasta}`);
+    const m = await api(`/api/meta?launch=${encodeURIComponent(state.vsl.code)}&since=${r.desde}&until=${r.hasta}`);
     if (token !== vslMetaToken) return;
     state.vsl.meta = m.configured ? m : null;
   } catch (e) {
@@ -4351,7 +4557,7 @@ function renderVslMetricas() {
   const inversion = state.vsl.meta && !state.vsl.meta.error && Number.isFinite(Number(state.vsl.meta.total)) ? Number(state.vsl.meta.total) : null;
   const m = computeVsl(L, r, v, { inversion });
   const kpi = (tono, ico, label, valor, sub = '') => `<div class="kpi static tone-${tono}"><span class="kpi-label"><span class="kpi-ico">${icon(ico)}</span>${label}</span><span class="kpi-value">${valor}</span><span class="kpi-sub">${sub}</span></div>`;
-  const metaNota = state.vsl.meta?.error ? `Meta: ${esc(state.vsl.meta.error)}` : state.vsl.meta ? `campañas con «${esc(v.metaFiltro || 'vsl')}»` : 'Meta no conectado';
+  const metaNota = state.vsl.meta?.error ? `Meta: ${esc(state.vsl.meta.error)}` : state.vsl.meta ? `${v.metaFiltro ? `campañas con «${esc(v.metaFiltro)}»` : 'todas las campañas (pon un filtro en la configuración)'}` : 'Meta no conectado';
   $('#vm-kpis').innerHTML = [
     kpi('accent', 'users', 'Registros', m.registros, `${m.publi} publicidad · ${m.organico} orgánico`),
     kpi('info', 'play', 'Vieron la VSL', m.vio, `${pctOf(m.vio, m.registros)} · ${m.vio50} vieron ≥50%`),
@@ -4387,9 +4593,9 @@ function renderVslMetricas() {
 
   // Llamadas con cita en el periodo
   const box = $('#vm-llamadas');
-  const d = state.llamadas?.code === 'vsl' ? state.llamadas.data : null;
+  const d = state.llamadas?.code === codigo() ? state.llamadas.data : null;
   if (!tiene('llamadas')) box.innerHTML = '<p class="muted">Tu rol no tiene acceso a las llamadas.</p>';
-  else if (state.llamadas?.code === 'vsl' && state.llamadas.error) box.innerHTML = `<p class="error">${esc(state.llamadas.error)}</p>`;
+  else if (state.llamadas?.code === codigo() && state.llamadas.error) box.innerHTML = `<p class="error">${esc(state.llamadas.error)}</p>`;
   else if (!d) box.innerHTML = '<p class="muted">Cargando llamadas…</p>';
   else if (!d.configurado) box.innerHTML = `<p class="muted">${esc(d.motivo || 'Configura el calendario de la VSL.')}</p>`;
   else {
@@ -4552,8 +4758,10 @@ const aSegundos = (t) => {
   return m ? Number(m[1]) * 60 + Number(m[2] || 0) : 0; // «12» = minuto 12; «12:30» = 12 min 30 s
 };
 
-async function openVslConfig() {
-  const v = vslCfg();
+async function openVslConfig(id = state.embudo) {
+  vcId = id;
+  const v = vslCfg(id);
+  $('#vsl-config-dialog h2').textContent = `Configuración · ${v.name}`;
   for (const k of VC_TEXTOS) $(`#vc-${k}`).value = v[k] ?? '';
   for (const k of ['precioPrograma', 'precioFraccionado']) $(`#vc-${k}`).value = v[k] ? String(v[k]).replace('.', ',') : '';
   $('#vc-boton').value = v.botonSegundos ? mmss(v.botonSegundos) : '0';
@@ -4577,13 +4785,14 @@ async function openVslConfig() {
 }
 
 function renderVslSnippets() {
-  const script = `<script src="${location.origin}/vsl.js" defer></script>`;
+  const qs = [`v=${encodeURIComponent(vcId || state.embudo)}`, cParam('').replace(/^\?/, '')].filter(Boolean).join('&');
+  const script = `<script src="${location.origin}/vsl.js?${qs}" defer></script>`;
   const items = [
     ['PÁGINA DE LA VSL · vídeo medido + botones de compra y llamada', `<div data-lsd-vsl></div>\n${script}`],
     ['PÁGINA DE GRACIAS DEL REGISTRO · vídeo (se oculta si no hay)', `<div data-lsd-vsl-embed="gracias"></div>\n${script}`],
     ['PÁGINA DE GRACIAS DE LA LLAMADA · vídeo (se oculta si no hay)', `<div data-lsd-vsl-embed="agenda"></div>\n${script}`],
     ['Al final de la URL a la que redirige el formulario de registro (identifica a la lead para medir el vídeo)', '?cid={{contact.id}}'],
-    ['Enlace a la VSL en emails y WhatsApp de GHL', `${vslCfg().vslUrl || 'https://tu-pagina-de-la-vsl'}?cid={{contact.id}}`],
+    ['Enlace a la VSL en emails y WhatsApp de GHL', `${vslCfg(vcId || state.embudo).vslUrl || 'https://tu-pagina-de-la-vsl'}?cid={{contact.id}}`],
   ];
   $('#vc-snippets').innerHTML = items.map(([title, text], i) => `
     <div class="snippet">
@@ -4591,7 +4800,7 @@ function renderVslSnippets() {
       <pre id="vsnip-${i}">${esc(text)}</pre>
       <button type="button" class="btn" data-copy="vsnip-${i}">Copiar</button>
     </div>`).join('')
-    + '<p class="muted">El vídeo se mide con los segundos realmente vistos: al llegar al 25%, 50%, 75% y 90% la lead recibe las etiquetas <code>vsl_vsl_25</code>, <code>vsl_vsl_50</code>… (se ven en Métricas y en Leads).</p>';
+    + `<p class="muted">El vídeo se mide con los segundos realmente vistos: al llegar al 25%, 50%, 75% y 90% la lead recibe las etiquetas <code>${esc(vcId || state.embudo)}_vsl_25</code>, <code>${esc(vcId || state.embudo)}_vsl_50</code>… (se ven en Métricas y en Leads).</p>`;
 }
 $('#vc-snippets').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-copy]');
@@ -4601,11 +4810,15 @@ $('#vc-snippets').addEventListener('click', async (e) => {
   setTimeout(() => { b.textContent = 'Copiar'; }, 1500);
 });
 
+// Embudo que se está configurando en la ventana de la VSL.
+let vcId = null;
 $('#vc-save').addEventListener('click', async () => {
   const status = $('#vc-status');
   const reg = $('#vc-registroTag').value.trim();
   if (!reg) { $('.tab[data-tab="vembudo"]').click(); $('#vc-registroTag').focus(); status.textContent = 'Falta la etiqueta de registro.'; return; }
-  const vsl = { ...state.config.vsl };
+  const id = vcId;
+  const previa = state.config.vsls[id] || {};
+  const vsl = { ...previa };
   for (const k of VC_TEXTOS) vsl[k] = $(`#vc-${k}`).value.trim();
   for (const k of ['precioPrograma', 'precioFraccionado']) vsl[k] = vsl[k].replace(/\./g, '').replace(',', '.');
   for (const k of ['registroDateField', 'compraDateField']) vsl[k] = $(`#vc-${k}`).value;
@@ -4615,14 +4828,15 @@ $('#vc-save').addEventListener('click', async () => {
   b.disabled = true;
   status.textContent = 'Guardando…';
   try {
-    const antes = JSON.stringify([state.config.vsl.registroTag, state.config.vsl.vioTag, state.config.vsl.compraTag, state.config.vsl.registroDateField, state.config.vsl.compraDateField, state.config.vsl.llamadaUrl, state.config.vsl.llamadasPipeline]);
-    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, vsl } });
+    const clave = (v) => JSON.stringify([v.registroTag, v.vioTag, v.compraTag, v.registroDateField, v.compraDateField, v.llamadaUrl, v.llamadasPipeline]);
+    const antes = clave(previa);
+    const embudosN = embudos().map((e) => (e.id === id ? { ...e, nombre: vsl.name || e.nombre } : e));
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, vsls: { ...state.config.vsls, [id]: vsl }, embudos: embudosN } });
     state.config = config;
     status.textContent = 'Guardado ✓';
     renderVslSnippets();
-    $('#sb-vsl-sub').textContent = config.vsl.name;
-    const ahora = JSON.stringify([config.vsl.registroTag, config.vsl.vioTag, config.vsl.compraTag, config.vsl.registroDateField, config.vsl.compraDateField, config.vsl.llamadaUrl, config.vsl.llamadasPipeline]);
-    if (antes !== ahora) recargarVsl(); else { enriquecerVsl(); loadVslMeta(); }
+    pintarSidebar();
+    if (state.embudo === id) { if (antes !== clave(config.vsls[id])) recargarVsl(); else { enriquecerVsl(); loadVslMeta(); } }
   } catch (e) {
     status.textContent = '';
     window.alert(e.message);
@@ -4631,8 +4845,63 @@ $('#vc-save').addEventListener('click', async () => {
   }
 });
 
+$('#vc-borrar').addEventListener('click', async () => {
+  const id = vcId;
+  const v = state.config.vsls[id];
+  if (!v || !window.confirm(`¿Eliminar el embudo «${v.name}» del dashboard? Se borra su configuración (etiquetas, páginas, recursos). Sus contactos y etiquetas en GHL no se tocan.`)) return;
+  try {
+    const vsls = { ...state.config.vsls };
+    delete vsls[id];
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, vsls, embudos: embudos().filter((e) => e.id !== id) } });
+    state.config = config;
+    $('#vsl-config-dialog').close();
+    await setEmbudo(embudos()[0]?.id || '');
+  } catch (e) { window.alert(e.message); }
+});
+
+// ---------- Nuevo embudo («+» del menú lateral) ----------
+const embDlg = $('#embudo-dialog');
+function abrirNuevoEmbudo() {
+  $('input[name="emb-tipo"][value="lanzamientos"]').checked = true;
+  $('#emb-nombre').value = '';
+  $('#emb-status').textContent = '';
+  embDlg.showModal();
+  $('#emb-nombre').focus();
+}
+$('#sb-add').addEventListener('click', abrirNuevoEmbudo);
+document.addEventListener('click', (e) => { if (e.target.closest('[data-action="nuevo-embudo"]')) abrirNuevoEmbudo(); });
+$('#emb-crear').addEventListener('click', async () => {
+  const tipo = $('input[name="emb-tipo"]:checked').value;
+  const nombre = $('#emb-nombre').value.trim() || (tipo === 'vsl' ? 'VSL' : 'Lanzamientos');
+  // id: a partir del nombre, sin chocar con otros embudos ni con códigos de lanzamiento.
+  const usados = new Set([...embudos().map((e) => e.id), ...Object.keys(state.config.launches)]);
+  const base = slugCliente(nombre) || (tipo === 'vsl' ? 'vsl' : 'lanz');
+  let id = base.slice(0, 20);
+  for (let n = 2; usados.has(id) || id.length < 2; n++) id = `${base.slice(0, 18)}-${n}`;
+  const b = $('#emb-crear');
+  b.disabled = true;
+  $('#emb-status').textContent = 'Creando…';
+  try {
+    const body = {
+      ...state.config,
+      embudos: [...embudos(), { id, tipo, nombre }],
+      vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre } } : state.config.vsls,
+    };
+    const { config } = await api('/api/config', { method: 'POST', body });
+    state.config = config;
+    embDlg.close();
+    await setEmbudo(id);
+    // Y a configurarlo: etiquetas de GHL (VSL) o el primer lanzamiento.
+    if (tipo === 'vsl') openVslConfig(); else openConfig(null);
+  } catch (e) {
+    $('#emb-status').textContent = e.message;
+  } finally {
+    b.disabled = false;
+  }
+});
+
 // ---------- Inicio ----------
-api('/api/me').then(start).catch((e) => {
+start().catch((e) => {
   if (e.message !== 'Sesión caducada') notice(e.message, true);
   showLogin();
 });

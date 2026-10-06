@@ -5,7 +5,8 @@ import { dayInMadrid, waPhone } from './scoring.js';
 
 export const VSL_PCTS = [25, 50, 75, 90];
 // Etiqueta que pone vsl.js al ver el X% del vídeo (como en los lanzamientos: <código>_<vídeo>_<pct>).
-export const vslTag = (pct) => `vsl_vsl_${pct}`;
+// El código es el id de la VSL («vsl» la primera de MLDLM → vsl_vsl_50).
+export const vslTag = (pct, code = 'vsl') => `${code}_vsl_${pct}`;
 
 const DAY = 86_400_000;
 const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
@@ -44,10 +45,10 @@ export function rangoDe({ preset = '30d', mes = '', semana = 0, desde = '', hast
 const enRango = (d, r) => Boolean(d) && d >= r.desde && d <= r.hasta;
 
 // Señales de un contacto de la VSL. `citas`: Map contactId → [{ start, resultado }] (opcional).
-export function enrichVsl(c, vsl, { pais = '34', citas = null } = {}) {
+export function enrichVsl(c, vsl, { pais = '34', citas = null, code = vsl.id || 'vsl' } = {}) {
   const tags = new Set((c.tags || []).map((t) => String(t).toLowerCase()));
   const has = (t) => Boolean(t) && tags.has(String(t).toLowerCase());
-  const pct = [...VSL_PCTS].reverse().find((p) => tags.has(vslTag(p))) || 0;
+  const pct = [...VSL_PCTS].reverse().find((p) => tags.has(vslTag(p, code))) || 0;
   const misCitas = citas?.get(c.id) || [];
   const src = c.src || {};
   const pagado = /paid|cpc|ppc|ads?$/i.test(src.medium || '') || src.source === 'formulario-meta' || Boolean(src.campaign);

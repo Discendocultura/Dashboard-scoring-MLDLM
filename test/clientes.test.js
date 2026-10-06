@@ -96,8 +96,10 @@ test('varios clientes: registro, datos separados, equipo por cliente y accesos d
   assert.equal((await call('/api/me', { cookie: anaCookie, cliente: 'clinica-sol' })).data.role, 'tecnico');
 
   // Las páginas públicas eligen el cliente con ?c= (sin él, el principal)
-  assert.equal((await call('/api/vsl?c=clinica-sol')).status, 200);
-  assert.equal((await call('/api/vsl?c=nadie')).status, 404);
+  assert.equal((await call('/api/vsl?c=clinica-sol')).data.error, 'VSL no encontrada'); // un cliente nuevo no tiene VSL
+  assert.equal((await call('/api/vsl?c=nadie')).data.error, 'Cliente no encontrado');
+  assert.deepEqual(cfgSol.embudos, []); // ni embudos: los crea con «+»
+  assert.deepEqual(cfgSol.vsls, {});
 
   // Quitar el cliente: sus accesos desaparecen
   await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'borrar', id: 'clinica-sol' } });

@@ -25,7 +25,9 @@
   <!-- Dashboard -->
   <div id="app" hidden>
     <header class="topbar">
-      <div class="brand">Dashboard MLDLM <span id="role-badge" class="badge"></span></div>
+      <div class="brand"><span id="brand-nombre">Dashboard</span>
+        <label class="cliente-pick" id="cliente-pick" hidden><span class="sr-only">Cliente</span><select id="cliente-select" aria-label="Cliente"></select></label>
+        <span id="role-badge" class="badge"></span></div>
       <div class="topbar-controls">
         <label class="field inline lanz-only">
           <span>Lanzamiento</span>
@@ -48,12 +50,19 @@
     <!-- Embudos: cada uno con sus pestañas, datos, tareas y configuración -->
     <nav id="sidebar" class="sidebar" aria-label="Embudos">
       <span class="sb-title">Embudos</span>
-      <button type="button" class="sb-item" data-embudo="lanz"><span class="sb-ico" aria-hidden="true">🚀</span><span class="sb-txt"><strong>Lanzamientos</strong><small>Webinar «El Camino»</small></span></button>
-      <button type="button" class="sb-item" data-embudo="vsl"><span class="sb-ico" aria-hidden="true">🎬</span><span class="sb-txt"><strong>VSL</strong><small id="sb-vsl-sub">Siempre abierta</small></span></button>
+      <div id="sb-items" class="sb-items"></div>
+      <button type="button" class="sb-add config-only" id="sb-add" title="Añadir un embudo"><span class="sb-ico" aria-hidden="true">＋</span><span class="sb-txt"><strong>Nuevo embudo</strong></span></button>
     </nav>
     <main class="container">
       <div id="notice" class="notice" hidden></div>
       <div id="progress" class="progress" hidden><div class="progress-bar"></div><span class="progress-text"></span></div>
+
+      <section id="sin-embudos" class="card empty" hidden>
+        <h2>Este cliente aún no tiene embudos</h2>
+        <p class="muted">Pulsa <strong>＋ Nuevo embudo</strong> en el menú de la izquierda y elige el tipo: lanzamientos con webinar o VSL. Después pon sus etiquetas de GHL.</p>
+        <button class="btn primary config-only" type="button" data-action="nuevo-embudo">＋ Nuevo embudo</button>
+        <p class="muted setter-only">Pide a la administradora que cree el primer embudo.</p>
+      </section>
 
       <section id="empty-state" class="card empty" hidden>
         <h2>Crea tu primer lanzamiento</h2>
@@ -749,6 +758,27 @@
   </dialog>
 
   <!-- Tarea -->
+  <!-- Nuevo embudo -->
+  <dialog id="embudo-dialog" class="dialog dialog-sm">
+    <form method="dialog">
+      <header class="dialog-head"><h2>Nuevo embudo</h2></header>
+      <div class="dialog-body">
+        <div class="emb-tipos" role="radiogroup" aria-label="Tipo de embudo">
+          <label class="emb-tipo"><input type="radio" name="emb-tipo" value="lanzamientos" checked><span class="emb-ico">🚀</span><span><strong>Lanzamientos con webinar</strong><small>Captación → clases → webinar en directo → carrito. Cada lanzamiento con sus fechas, etiquetas, setteo, métricas, objetivos y calendario.</small></span></label>
+          <label class="emb-tipo"><input type="radio" name="emb-tipo" value="vsl"><span class="emb-ico">🎬</span><span><strong>VSL (siempre abierta)</strong><small>Registro → vídeo de venta → compra directa o llamada. Se analiza por fechas, meses y semanas.</small></span></label>
+        </div>
+        <label class="field"><span>Nombre del embudo</span><input id="emb-nombre" maxlength="40" placeholder="Webinar «El Camino», VSL Fertilidad…"></label>
+        <p class="muted">Al crearlo se abre su configuración para que pongas las etiquetas de GHL (registro, ventas…).</p>
+        <p id="emb-status" class="muted"></p>
+      </div>
+      <footer class="dialog-foot">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate type="submit">Cancelar</button>
+        <button id="emb-crear" class="btn primary" type="button">Crear embudo</button>
+      </footer>
+    </form>
+  </dialog>
+
   <!-- Configuración de la VSL -->
   <dialog id="vsl-config-dialog" class="dialog">
     <form method="dialog">
@@ -841,6 +871,7 @@
         </section>
       </div>
       <footer class="dialog-foot">
+        <button id="vc-borrar" class="btn danger-ghost" type="button">Eliminar este embudo</button>
         <span id="vc-status" class="muted"></span>
         <span class="spacer"></span>
         <button class="btn" value="cancel" formnovalidate type="submit">Cerrar</button>
@@ -1010,7 +1041,30 @@
         <div class="tabs" role="tablist">
           <button type="button" class="tab active" data-tab="equipo" data-tab-icon="users">Miembros del equipo</button>
           <button type="button" class="tab" data-tab="roles" data-tab-icon="shield">Roles y permisos</button>
+          <button type="button" class="tab superadmin-only" data-tab="clientes" data-tab-icon="compass">Clientes</button>
         </div>
+        <section class="tab-panel" data-panel="clientes" hidden>
+          <p class="muted">Cada cliente tiene su propio dashboard conectado a su GHL: sus embudos, tareas, roles y equipo. Solo el superadmin ve esta pestaña y entra en todos.</p>
+          <div id="clientes-list"></div>
+          <h3 class="cfg-h3">Añadir cliente</h3>
+          <div class="grid2 cliente-add">
+            <label class="field"><span>Nombre</span><input id="cl-nombre" maxlength="60" placeholder="Clínica Sol"></label>
+            <label class="field"><span>Código <small>(minúsculas y guiones; no se puede cambiar)</small></span><input id="cl-id" maxlength="24" placeholder="clinica-sol"></label>
+            <label class="field"><span>ID de la subcuenta de GHL <small>(Ajustes → Información del negocio → Location ID)</small></span><input id="cl-location" maxlength="40"></label>
+            <label class="field"><span>Cuenta publicitaria de Meta <small>(opcional, solo números)</small></span><input id="cl-meta" maxlength="30" inputmode="numeric"></label>
+            <label class="field narrow"><span>Color</span><input id="cl-color" type="color" value="#b4552d"></label>
+          </div>
+          <div class="row"><button type="button" class="btn primary" id="btn-cl-crear">Añadir cliente</button><span id="cl-status" class="muted"></span></div>
+          <div class="cl-ayuda muted">
+            <p><strong>Para conectar su GHL</strong> (una vez por cliente):</p>
+            <ol>
+              <li>En la subcuenta del cliente: <em>Ajustes → Integraciones privadas → Crear</em>, con los mismos permisos que la de MLDLM (contactos, custom values, calendarios, oportunidades, conversaciones). Copia el token.</li>
+              <li>En Cloudflare: <em>Workers &amp; Pages → el dashboard → Settings → Variables and secrets → Add</em>, tipo <strong>Secret</strong>, con el nombre que aparece en su tarjeta (p. ej. <code>GHL_TOKEN_CLINICA_SOL</code>) y el token como valor. No lo pegues en ningún chat.</li>
+              <li>Vuelve a desplegar (Deployments → Retry deployment) y pulsa «Probar conexión».</li>
+            </ol>
+            <p>Meta: si el token de Meta de la agencia tiene acceso a su cuenta publicitaria, basta con poner su número aquí. Zoom: variables <code>ZOOM_ACCOUNT_ID_&lt;CÓDIGO&gt;</code>, <code>ZOOM_CLIENT_ID_&lt;CÓDIGO&gt;</code> y <code>ZOOM_CLIENT_SECRET_&lt;CÓDIGO&gt;</code>.</p>
+          </div>
+        </section>
         <section class="tab-panel" data-panel="equipo">
           <p class="muted">Personas con acceso al dashboard. Al crear una, se crea su contacto en GHL con la etiqueta <code>equipo-dashboard</code> y le llega un email con el enlace, su email y una contraseña. Los cambios se aplican al momento.</p>
           <p class="muted">Qué ve cada rol se decide en la pestaña <strong>Roles y permisos</strong> de esta misma ventana (ahí también puedes crear roles nuevos). Todos tienen Tareas y Calendario.</p>
