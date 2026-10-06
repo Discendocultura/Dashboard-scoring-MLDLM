@@ -1026,6 +1026,7 @@ const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'c
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 const VIEW_ICONS = { hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar' };
 $$('.view-tab').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view])));
+$$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
 $$('[data-icon] > h2').forEach((h) => h.insertAdjacentHTML('afterbegin', `<span class="h-ico">${icon(h.parentElement.dataset.icon)}</span>`));
 function showView(view) {
@@ -1543,7 +1544,7 @@ function renderGuia() {
   const code = editingCode || $('#cfg-code').value.trim().toLowerCase();
   const others = Object.entries(state.config.launches).filter(([c]) => c !== code);
   const tagIssues = tagProblems();
-  for (const [panel, box] of [['launch', '#guia-check'], ['pagina', '#guia-check-pagina']]) {
+  for (const [panel, box] of [['launch', '#guia-check'], ['pagina', '#guia-check-pagina'], ['embudo', '#guia-check-embudo']]) {
     const groups = $$(`.tab-panel[data-panel="${panel}"] .cfg-sec`).map((sec) => {
       const items = $$('.field', sec).map((el) => CICLO.find((f) => f.id === $('input, select, textarea', el)?.id))
         .filter((f) => f && f.c !== 'fijo')
@@ -1565,6 +1566,10 @@ function renderGuia() {
     if (html !== guiaHtml[panel]) $(box).innerHTML = guiaHtml[panel] = html;
   }
 }
+$('#guia-check-embudo').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-goto]');
+  if (b) goToField(b.dataset.goto);
+});
 $('#guia-check-pagina').addEventListener('click', (e) => {
   const b = e.target.closest('[data-goto]');
   if (b) goToField(b.dataset.goto);

@@ -330,6 +330,12 @@ table.leads { width: 100%; border-collapse: collapse; min-width: 960px; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); overflow-x: auto; }
 .tab { font: inherit; font-weight: 600; background: none; border: 0; padding: 8px 12px; color: var(--text-2); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
 .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.tab[data-tab-icon] { display: inline-flex; align-items: center; gap: 6px; }
+.tab-ico { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--surface-2); color: var(--text-2); flex: none; }
+.tab-ico .ico { width: 14px; height: 14px; }
+.tab.active .tab-ico { background: var(--accent); color: var(--accent-ink); }
+.cfg-sec-num.cfg-sec-ico { background: var(--surface-2); font-size: 15px; }
+.cfg-pronto { margin: 0; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 10px; font-size: 13px; }
 .row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
 .row .field { flex: 1 1 240px; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
