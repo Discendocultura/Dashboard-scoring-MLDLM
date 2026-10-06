@@ -9,6 +9,7 @@ import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPA
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
 import { PERMISOS, PERMISOS_DATOS, idDeRol } from './roles.js';
+import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -16,6 +17,7 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const PAGE_SIZE = 100;
 
 const state = {
+  vsl: { leads: null, raw: null, meta: null, ganLevel: 'ad', loadToken: 0, mostrar: 100 },
   role: null,
   permisos: [],
   roles: [],
@@ -30,6 +32,7 @@ const state = {
   zoomConfigured: false,
   tags: [],
   launchCode: null,
+  embudo: 'lanz', // 'lanz' (lanzamientos) | 'vsl'
   leads: [],
   filters: { search: '', estado: '', step: '', signal: '', pending: false },
   sort: { key: 'score', dir: 'desc' },
@@ -123,7 +126,16 @@ const puedeTareas = () => tiene('tareas_gestion');
 const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas que ve cada rol (el servidor también impide al equipo leer leads y métricas).
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
-const allowedViews = () => VIEWS.filter((v) => v === 'tareas' || v === 'calendario' || tiene(v));
+// Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'ambos' };
+const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar' };
+const allowedViews = () => VIEWS.filter((v) => [state.embudo, 'ambos'].includes(VIEW_EMBUDO[v] || 'lanz')
+  && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
+const enVsl = () => state.embudo === 'vsl';
+// Código del embudo activo para tareas y llamadas: el lanzamiento elegido o «vsl».
+const codigo = () => (enVsl() ? 'vsl' : state.launchCode);
+const vslCfg = () => ({ ...(state.config?.vsl || {}), name: state.config?.vsl?.name || 'VSL', esVsl: true });
+const embudoActual = () => (enVsl() ? vslCfg() : state.config?.launches[state.launchCode]);
 
 async function start() {
   const [me, { role, config, zoomConfigured }] = await Promise.all([api('/api/me'), api('/api/config')]);
@@ -145,14 +157,15 @@ async function start() {
   $('#login').hidden = true;
   $('#app').hidden = false;
   fillRolSelects();
-  $$('.view-tab').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
   const hash = window.location.hash.slice(1);
-  const wanted = VIEWS.includes(hash) ? hash : ls.get('lsd_view');
-  showView(allowedViews().includes(wanted) ? wanted : allowedViews().includes('leads') ? 'leads' : allowedViews()[0]);
+  if (hash === 'vsl' || VIEW_EMBUDO[hash] === 'vsl') state.embudo = 'vsl';
+  else if (VIEWS.includes(hash) && VIEW_EMBUDO[hash] !== 'ambos') state.embudo = 'lanz';
+  else state.embudo = ls.get('lsd_embudo') === 'vsl' ? 'vsl' : 'lanz';
   fillStaticSelects();
   renderLaunchSelect();
   if (puedeConfig()) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
-  await selectLaunch(pickInitialLaunch());
+  state.launchCode = pickInitialLaunch();
+  await setEmbudo(state.embudo, { vista: VIEWS.includes(hash) ? hash : null });
   if (!$('#view-comparar').hidden) renderCompareSelector();
 }
 
@@ -181,10 +194,37 @@ function fillStaticSelects() {
 }
 
 $('#launch-select').addEventListener('change', (e) => selectLaunch(e.target.value));
-$('#btn-reload').addEventListener('click', () => selectLaunch(state.launchCode));
+$('#btn-reload').addEventListener('click', () => (enVsl() ? recargarVsl() : selectLaunch(state.launchCode)));
+
+// ---------- Embudos (menú lateral) ----------
+async function setEmbudo(e, { vista = null } = {}) {
+  state.embudo = e === 'vsl' ? 'vsl' : 'lanz';
+  ls.set('lsd_embudo', state.embudo);
+  document.body.classList.toggle('embudo-vsl', enVsl());
+  $$('.sb-item').forEach((b) => b.classList.toggle('active', b.dataset.embudo === state.embudo));
+  $('#sb-vsl-sub').textContent = state.config?.vsl?.name || 'Siempre abierta';
+  $$('.view-tab').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
+  const guardada = ls.get(`lsd_view_${state.embudo}`) || (enVsl() ? '' : ls.get('lsd_view'));
+  const quiero = [vista, guardada].find((v) => v && allowedViews().includes(v));
+  const porDefecto = enVsl() ? ['vmetricas', 'vleads', 'llamadas', 'tareas'] : ['leads', 'hoy', 'tareas'];
+  showView(quiero || porDefecto.find((v) => allowedViews().includes(v)) || allowedViews()[0]);
+  if (enVsl()) {
+    $('#empty-state').hidden = true;
+    $('#dashboard').hidden = false;
+    notice('');
+    await recargarVsl();
+  } else {
+    await selectLaunch(state.launchCode);
+  }
+}
+$('#sidebar').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-embudo]');
+  if (b && b.dataset.embudo !== state.embudo) setEmbudo(b.dataset.embudo);
+});
 
 async function selectLaunch(code) {
   state.launchCode = code;
+  if (enVsl()) return; // se cargará al volver a Lanzamientos
   notice('');
   const hasLaunch = Boolean(code && state.config.launches[code]);
   $('#empty-state').hidden = hasLaunch;
@@ -871,20 +911,23 @@ $('#src-level').addEventListener('change', () => { if (state.leads.length) rende
 // ---------- Anuncios ganadores ----------
 state.ganLevel = 'ad';
 function renderGanadores() {
-  const box = $('#ganadores');
-  const launch = state.config.launches[state.launchCode];
-  const names = state.meta?.names || {};
-  const spendBy = state.meta?.spendBy || {};
-  const all = rankingGanadores(state.leads, launch, state.ganLevel, names, spendBy);
-  const conVentas = all.filter((r) => r.compras > 0);
   $$('#gan-level .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.gl === state.ganLevel));
-  const que = { ad: 'anuncio', adset: 'conjunto', campaign: 'campaña' }[state.ganLevel];
+  pintarGanadores($('#ganadores'), state.leads, state.config.launches[state.launchCode], state.ganLevel, state.meta);
+}
+
+// Ranking de anuncios / conjuntos / campañas por ventas (lanzamientos y VSL).
+function pintarGanadores(box, leads, launch, level, meta, { vip = true, donde = 'en este lanzamiento' } = {}) {
+  const names = meta?.names || {};
+  const spendBy = meta?.spendBy || {};
+  const all = rankingGanadores(leads, launch, level, names, spendBy);
+  const conVentas = all.filter((r) => r.compras > 0);
+  const que = { ad: 'anuncio', adset: 'conjunto', campaign: 'campaña' }[level];
   if (!all.length) {
-    box.innerHTML = `<p class="muted">Ningún registro trae el ${que} en las UTM (utm_${{ ad: 'content', adset: 'term', campaign: 'campaign' }[state.ganLevel]}). Revisa que los anuncios de Meta lleven los parámetros de URL.</p>`;
+    box.innerHTML = `<p class="muted">Ningún registro trae el ${que} en las UTM (utm_${{ ad: 'content', adset: 'term', campaign: 'campaign' }[level]}). Revisa que los anuncios de Meta lleven los parámetros de URL.</p>`;
     return;
   }
   if (!conVentas.length) {
-    box.innerHTML = '<p class="muted">Todavía no hay ventas de Raíces atribuidas a anuncios en este lanzamiento. Aquí aparecerá el ranking en cuanto entren las primeras.</p>';
+    box.innerHTML = `<p class="muted">Todavía no hay ventas de Raíces atribuidas a anuncios ${donde}. Aquí aparecerá el ranking en cuanto entren las primeras.</p>`;
     return;
   }
   const max = conVentas[0].compras;
@@ -903,19 +946,19 @@ function renderGanadores() {
         ${ruta(r) ? `<div class="gp-ruta">${ruta(r)}</div>` : ''}
         <div class="gp-nums"><span class="gp-ventas">${r.compras}</span><span class="gp-lbl">venta${r.compras === 1 ? '' : 's'}</span>
           <span class="gp-conv">${(r.conversion * 100).toFixed(1)}% conv.</span></div>
-        <div class="gp-extra"><span>${r.leads} registros</span><span>${r.vip} VIP</span>${extra(r)}</div>
+        <div class="gp-extra"><span>${r.leads} registros</span>${vip ? `<span>${r.vip} VIP</span>` : ''}${extra(r)}</div>
       </div>
     </article>`).join('');
   const hasSpend = conVentas.some((r) => r.spend);
   const resto = conVentas.slice(3);
   box.innerHTML = `<div class="gan-podios">${podio}</div>
     ${resto.length ? `<div class="table-scroll"><table class="metric-table gan-table">
-      <thead><tr><th class="num">#</th><th>${que.charAt(0).toUpperCase() + que.slice(1)}</th><th>Ventas</th><th class="num">Conversión</th><th class="num">Registros</th><th class="num">VIP</th><th class="num">Facturado</th>${hasSpend ? '<th class="num">CAC</th><th class="num">ROAS</th>' : ''}</tr></thead>
+      <thead><tr><th class="num">#</th><th>${que.charAt(0).toUpperCase() + que.slice(1)}</th><th>Ventas</th><th class="num">Conversión</th><th class="num">Registros</th>${vip ? '<th class="num">VIP</th>' : ''}<th class="num">Facturado</th>${hasSpend ? '<th class="num">CAC</th><th class="num">ROAS</th>' : ''}</tr></thead>
       <tbody>${resto.map((r, i) => `<tr><td class="num">${i + 4}</td><td><strong>${esc(r.label)}</strong>${ruta(r) ? `<br><span class="muted">${ruta(r)}</span>` : ''}</td>
         <td><div class="gan-bar"><span style="width:${(r.compras / max) * 100}%"></span><b>${r.compras}</b></div></td>
-        <td class="num">${(r.conversion * 100).toFixed(1)}%</td><td class="num">${r.leads}</td><td class="num">${r.vip}</td><td class="num">${r.ingresos ? eur(r.ingresos) : '–'}</td>
+        <td class="num">${(r.conversion * 100).toFixed(1)}%</td><td class="num">${r.leads}</td>${vip ? `<td class="num">${r.vip}</td>` : ''}<td class="num">${r.ingresos ? eur(r.ingresos) : '–'}</td>
         ${hasSpend ? `<td class="num">${r.cac != null ? eur(r.cac) : '–'}</td><td class="num">${r.roas != null ? `${r.roas.toFixed(1)}x` : '–'}</td>` : ''}</tr>`).join('')}</tbody></table></div>` : ''}
-    <p class="muted gan-note">${all.length - conVentas.length ? `${all.length - conVentas.length} ${que}${all.length - conVentas.length === 1 ? '' : 's'} más con registros pero sin ventas todavía. ` : ''}Ventas = compras de Raíces de las personas que se registraron desde ese ${que} (UTM). Facturado incluye la entrada VIP.</p>`;
+    <p class="muted gan-note">${all.length - conVentas.length ? `${all.length - conVentas.length} ${que}${all.length - conVentas.length === 1 ? '' : 's'} más con registros pero sin ventas todavía. ` : ''}Ventas = compras de Raíces de las personas que se registraron desde ese ${que} (UTM).${vip ? ' Facturado incluye la entrada VIP.' : ''}</p>`;
 }
 $('#gan-level').addEventListener('click', (e) => {
   const b = e.target.closest('[data-gl]');
@@ -1024,9 +1067,9 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario'];
+const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'vmetricas', 'vleads', 'vanuncios'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
-const VIEW_ICONS = { hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar' };
+const VIEW_ICONS = { hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown' };
 $$('.view-tab').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view])));
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
@@ -1035,10 +1078,13 @@ function showView(view) {
   if (state.role && !allowedViews().includes(view)) view = allowedViews()[0];
   $$('.view-tab').forEach((x) => x.classList.toggle('active', x.dataset.view === view));
   for (const v of VIEWS) $(`#view-${v}`).hidden = v !== view;
-  ls.set('lsd_view', view);
+  ls.set(`lsd_view_${state.embudo}`, view);
+  if (!enVsl()) ls.set('lsd_view', view);
+  $('#vsl-rango').hidden = !['vmetricas', 'vleads', 'vanuncios'].includes(view);
+  if (enVsl() && state.vsl.leads) renderVsl();
   if (view === 'comparar' && state.config) renderCompareSelector();
   if (view === 'calendario' && state.config) renderCalendario();
-  if (view === 'llamadas' && state.config) { if (state.llamadas?.code !== state.launchCode) loadLlamadas(); else renderLlamadas(); }
+  if (view === 'llamadas' && state.config) { if (state.llamadas?.code !== codigo()) loadLlamadas(); else renderLlamadas(); }
 }
 $$('.view-tab').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
 showView(VIEWS.includes(ls.get('lsd_view')) ? ls.get('lsd_view') : 'leads');
@@ -1392,7 +1438,7 @@ function openConfig(code) {
 }
 
 $('#cfg-launch-pick').addEventListener('change', (e) => openConfig(e.target.value));
-$('#btn-config').addEventListener('click', () => openConfig(state.launchCode));
+$('#btn-config').addEventListener('click', () => (enVsl() ? openVslConfig() : openConfig(state.launchCode)));
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-action="new-launch"]')) openConfig(null);
 });
@@ -1852,18 +1898,26 @@ const accesoRow = (a, i) => `<div class="acceso-row" data-i="${i}">
   <a class="btn acc-open" target="_blank" rel="noopener"${/^https:\/\//i.test(a.url) ? ` href="${esc(a.url)}"` : ' aria-disabled="true"'}>Abrir ↗</a>
   <button type="button" class="btn acc-del" title="Quitar">✕</button></div>`;
 
-function renderAccesosEditor(accesos) {
+const ACCESOS_SUGERIDOS_VSL = [
+  ['workflow', 'Workflow · registro en la VSL'], ['workflow', 'Workflow · compra desde la VSL'], ['workflow', 'Workflow · llamada agendada'],
+  ['pagina', 'Página de registro (editor)'], ['pagina', 'Página de la VSL (editor)'], ['pagina', 'Página de gracias (editor)'],
+  ['formulario', 'Formulario de registro'], ['calendario', 'Calendario de llamadas'],
+];
+
+// box: el contenedor del editor (Recursos de los lanzamientos o de la VSL).
+function renderAccesosEditor(accesos, { box = '#cfg-accesos', sugeridos = ACCESOS_SUGERIDOS } = {}) {
   // Los sugeridos solo se proponen la primera vez (lista vacía): después se respeta lo guardado
   // y nunca se añaden filas nuevas por su cuenta.
   const list = (accesos || []).map((a) => ({ ...a, tipo: ACCESO_TIPOS[a.tipo] ? a.tipo : guessTipo(a.nombre) }));
-  if (!list.length) for (const [tipo, nombre] of ACCESOS_SUGERIDOS) list.push({ tipo, nombre, url: '' });
+  if (!list.length) for (const [tipo, nombre] of sugeridos) list.push({ tipo, nombre, url: '' });
+  state.accesosBox = box;
   state.accesosEdit = list;
   state.accesosCat = null;
   drawAccesos();
 }
 
 function drawAccesos(focusLast = false) {
-  const box = $('#cfg-accesos');
+  const box = $(state.accesosBox || '#cfg-accesos');
   const list = state.accesosEdit;
   const cat = state.accesosCat;
   if (!cat) {
@@ -1888,14 +1942,15 @@ function drawAccesos(focusLast = false) {
     <div class="enlaces-list">${rows.map(([a, i]) => accesoRow(a, i)).join('') || `<p class="muted">Todavía no hay ${t.plural.toLowerCase()}. Añade el primero.</p>`}</div>
     <button type="button" class="btn acc-add">+ Añadir ${t.uno}</button>
   </div>`;
-  if (focusLast) $('#cfg-accesos .acceso-row:last-child .acc-nombre')?.focus();
+  if (focusLast) $('.acceso-row:last-child .acc-nombre', box)?.focus();
 }
 
 function readAccesosEditor() {
   return (state.accesosEdit || []).map((a) => ({ tipo: a.tipo, nombre: a.nombre.trim(), url: a.url.trim() })).filter((a) => a.nombre);
 }
 
-$('#cfg-accesos').addEventListener('click', (e) => {
+for (const accBox of ['#cfg-accesos', '#vc-accesos']) {
+$(accBox).addEventListener('click', (e) => {
   const cat = e.target.closest('[data-cat]');
   if (cat) { state.accesosCat = cat.dataset.cat; drawAccesos(); return; }
   if (e.target.closest('.acc-back')) { state.accesosCat = null; drawAccesos(); return; }
@@ -1910,7 +1965,7 @@ $('#cfg-accesos').addEventListener('click', (e) => {
     drawAccesos();
   }
 });
-$('#cfg-accesos').addEventListener('input', (e) => {
+$(accBox).addEventListener('input', (e) => {
   const row = e.target.closest('.acceso-row');
   if (!row) return;
   const a = state.accesosEdit[Number(row.dataset.i)];
@@ -1921,6 +1976,7 @@ $('#cfg-accesos').addEventListener('input', (e) => {
   const url = e.target.value.trim();
   if (/^https:\/\//i.test(url)) { open.href = url; open.removeAttribute('aria-disabled'); } else { open.removeAttribute('href'); open.setAttribute('aria-disabled', 'true'); }
 });
+}
 
 // Textos de la página: los fijos (bloque de clases) + los que añada a mano.
 const textoRow = (k = '', v = '') => `<div class="enlace-row texto-row">
@@ -2058,18 +2114,33 @@ const fotoUrl = (u) => (u?.foto ? `/api/foto?u=${encodeURIComponent(u.id)}&v=${e
 const avatarHtml = (u, nombre = u?.nombre) => `<span class="t-avatar">${u?.foto ? `<img src="${esc(fotoUrl(u))}" alt="" loading="lazy">` : esc(iniciales(nombre))}</span>`;
 
 async function loadTareas() {
-  const code = state.launchCode;
+  const code = codigo();
   if (!code) return;
   try {
     const d = await api(`/api/tareas?l=${encodeURIComponent(code)}`);
-    if (code !== state.launchCode) return;
+    if (code !== codigo()) return;
     if (state.tareas?.code !== code) state.tSel = null;
     state.tareas = { code, list: d.tareas, users: d.users, columnas: d.columnas || [] };
   } catch (e) {
     state.tareas = { code, list: [], users: [], error: e.message };
   }
   renderTareas();
+  cargarTareasOtro();
 }
+
+// Tareas del otro embudo (solo para la campanita: avisa de las de los dos).
+const otroCodigo = () => (enVsl() ? state.launchCode : 'vsl');
+async function cargarTareasOtro() {
+  const code = otroCodigo();
+  if (!code) { state.tareasOtro = null; return; }
+  try {
+    const d = await api(`/api/tareas?l=${encodeURIComponent(code)}`);
+    if (code !== otroCodigo()) return;
+    state.tareasOtro = { code, list: d.tareas, users: d.users };
+  } catch { state.tareasOtro = null; }
+  renderNotif();
+}
+const nombreEmbudo = (code) => (code === 'vsl' ? state.config?.vsl?.name || 'VSL' : state.config?.launches[code]?.name || code);
 
 function asignadoTexto(a) {
   if (!a) return 'Sin asignar';
@@ -2156,7 +2227,7 @@ function tareaRow(t) {
 function renderAvisosEquipo() {
   const el = $('#avisos-equipo');
   const T = state.tareas;
-  const lista = state.role === 'admin' && T && T.code === state.launchCode ? vencidasEquipo(T.list, T.users, today(), state.roles) : [];
+  const lista = state.role === 'admin' && T && T.code === codigo() ? vencidasEquipo(T.list, T.users, today(), state.roles) : [];
   const firma = `${today()}|${lista.map((r) => r.tarea.id).join(',')}`;
   if (!lista.length || ls.get('lsd_avisos_equipo_ok') === firma) { el.hidden = true; return; }
   const porQuien = new Map();
@@ -2197,7 +2268,7 @@ function subgruposPreparacion(items, all) {
 
 function renderTareas() {
   const T = state.tareas;
-  if (!T || T.code !== state.launchCode) return;
+  if (!T || T.code !== codigo()) return;
   renderAvisosEquipo();
   renderNotif();
   refrescarComentarios();
@@ -2225,8 +2296,10 @@ function renderTareas() {
       </div>
     </div>` : `
     <div class="card empty tareas-empty">
-      <h2>Aún no hay tareas en este lanzamiento</h2>
-      ${puedeTareas()
+      <h2>Aún no hay tareas ${enVsl() ? 'en la VSL' : 'en este lanzamiento'}</h2>
+      ${puedeTareas() && enVsl()
+    ? '<p class="muted">Crea las tareas de la VSL: revisiones del vídeo, anuncios, seguimiento de leads…</p><p><button type="button" class="btn primary" data-action="tarea-nueva">+ Nueva tarea</button></p>'
+    : puedeTareas()
     ? '<p class="muted">Empieza con las tareas habituales (con fechas calculadas a partir de las del lanzamiento) y ajústalas, o crea las tuyas.</p><p><button type="button" class="btn primary" data-action="tareas-plantilla">Cargar tareas habituales</button> <button type="button" class="btn" data-action="tarea-nueva">+ Nueva tarea</button></p>'
     : '<p class="muted">Cuando la administradora asigne tareas aparecerán aquí.</p>'}
     </div>`;
@@ -3413,6 +3486,15 @@ function abrirTarea(id, { comentar = false } = {}) {
   }
 }
 
+// Tarea de otro embudo (desde la campanita): se cambia de embudo y se abre.
+async function abrirTareaEn(code, id, opts) {
+  if (code && code !== codigo()) {
+    await setEmbudo(code === 'vsl' ? 'vsl' : 'lanz');
+    if (state.tareas?.code !== code || !state.tareas.list.some((t) => t.id === id)) await loadTareas();
+  }
+  abrirTarea(id, opts);
+}
+
 // ---------- Campanita de notificaciones ----------
 // Comentarios en mis tareas, menciones, mis tareas vencidas o a punto de vencer y (admin) las vencidas del equipo.
 const NOTIF_DIAS = 2;
@@ -3423,12 +3505,13 @@ function notifVistas() {
 const notifVistoEn = () => state.user?.notifVisto || ls.get(`lsd_notif_visto_${notifQuien()}`) || '';
 
 function notifItems() {
-  const T = state.tareas;
-  if (!T || T.code !== state.launchCode) return [];
   const yo = meSess();
   const hoy = today();
   const limite = addDays(hoy, NOTIF_DIAS);
   const out = [];
+  const fuentes = [state.tareas, state.tareasOtro].filter((T) => T && [codigo(), otroCodigo()].includes(T.code));
+  for (const T of fuentes) {
+  const desde = out.length;
   for (const t of T.list) {
     const mia = esMia(t, yo);
     for (const c of t.comentarios || []) {
@@ -3443,6 +3526,8 @@ function notifItems() {
   }
   if (state.role === 'admin') {
     for (const r of vencidasEquipo(T.list, T.users, hoy, state.roles)) out.push({ tipo: 'equipo', t: r.tarea, quien: r.quien, dias: r.dias, key: `e:${r.tarea.id}:${r.tarea.fecha}` });
+  }
+  for (const n of out.slice(desde)) n.code = T.code;
   }
   const visto = notifVistoEn();
   const vistas = notifVistas();
@@ -3466,8 +3551,8 @@ function notifHtml(n) {
   else if (n.tipo === 'pronto') txt = `${tit} ${cuandoVence(n.t.fecha)}`;
   else txt = `${tit} de <strong>${esc(n.quien)}</strong>: ${n.dias} día${n.dias === 1 ? '' : 's'} de retraso`;
   const extra = n.c ? `<span class="notif-cita">${esc(n.c.texto.slice(0, 140))}${n.c.texto.length > 140 ? '…' : ''}</span><span class="notif-when">${esc(hace(n.c.en))}</span>` : '';
-  return `<button type="button" class="notif-item t-${n.tipo} ${n.nueva ? 'nueva' : ''}" data-nt="${esc(n.t.id)}" ${n.c ? 'data-ntc="1"' : ''}>
-    <span class="notif-ico" aria-hidden="true">${ico}</span><span class="notif-txt">${txt}${extra}</span>${n.nueva ? '<span class="notif-dot" aria-label="Nueva"></span>' : ''}</button>`;
+  return `<button type="button" class="notif-item t-${n.tipo} ${n.nueva ? 'nueva' : ''}" data-nt="${esc(n.t.id)}" data-ncode="${esc(n.code || '')}" ${n.c ? 'data-ntc="1"' : ''}>
+    <span class="notif-ico" aria-hidden="true">${ico}</span><span class="notif-txt">${n.code && n.code !== codigo() ? `<span class="notif-emb">${n.code === 'vsl' ? '🎬' : '🚀'} ${esc(nombreEmbudo(n.code))}</span>` : ''}${txt}${extra}</span>${n.nueva ? '<span class="notif-dot" aria-label="Nueva"></span>' : ''}</button>`;
 }
 
 function renderNotif() {
@@ -3485,7 +3570,7 @@ function renderNotif() {
     [`Vencen en los próximos ${NOTIF_DIAS} días`, items.filter((n) => n.tipo === 'pronto').sort((a, b) => a.t.fecha.localeCompare(b.t.fecha))],
     ['Vencidas del equipo', items.filter((n) => n.tipo === 'equipo')],
   ].filter(([, l]) => l.length);
-  panel.innerHTML = `<div class="notif-head"><strong>Notificaciones</strong><span class="muted">${esc(state.tareas?.code ? (state.config?.launches?.[state.tareas.code]?.name || '') : '')}</span></div>
+  panel.innerHTML = `<div class="notif-head"><strong>Notificaciones</strong><span class="muted">${esc([codigo(), otroCodigo()].filter(Boolean).map(nombreEmbudo).join(' · '))}</span></div>
     ${grupos.length ? grupos.map(([g, l]) => `<div class="notif-grupo"><h4>${esc(g)}</h4>${l.map(notifHtml).join('')}</div>`).join('')
     : '<p class="muted notif-vacio">Todo al día: no tienes comentarios nuevos ni tareas vencidas o a punto de vencer. 🎉</p>'}`;
 }
@@ -3526,13 +3611,13 @@ $('#notif-panel').addEventListener('click', (e) => {
   const b = e.target.closest('[data-nt]');
   if (!b) return;
   cerrarNotif();
-  abrirTarea(b.dataset.nt, { comentar: Boolean(b.dataset.ntc) });
+  abrirTareaEn(b.dataset.ncode, b.dataset.nt, { comentar: Boolean(b.dataset.ntc) });
 });
 document.addEventListener('click', (e) => { if (!e.target.closest('.notif-wrap')) cerrarNotif(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarNotif(); });
 // Comentarios y avisos al día sin recargar: cada 2 minutos, si la pestaña está a la vista y no hay nada abierto.
 setInterval(() => {
-  if (document.hidden || !state.launchCode || $$('dialog').some((d) => d.open)) return;
+  if (document.hidden || !codigo() || $$('dialog').some((d) => d.open)) return;
   loadTareas();
 }, 120_000);
 
@@ -3564,17 +3649,18 @@ $('#btn-sel-asignar').addEventListener('click', async () => {
 
 // ---------- Llamadas de valoración ----------
 async function loadLlamadas() {
-  const code = state.launchCode;
+  const code = codigo();
   if (!code) return;
   state.llamadas = { code, loading: true };
   if (!$('#view-llamadas').hidden) renderLlamadas();
   try {
     const d = await api(`/api/llamadas?l=${encodeURIComponent(code)}`);
-    if (code !== state.launchCode) return;
+    if (code !== codigo()) return;
     state.llamadas = { code, data: d };
-    if (state.leads.length) { calcularFases(); render(); }
+    calcularFases();
+    if (code === 'vsl') { if (state.vsl.raw) { enriquecerVsl(); renderVsl(); } } else if (state.leads.length) render();
   } catch (e) {
-    if (code !== state.launchCode) return;
+    if (code !== codigo()) return;
     state.llamadas = { code, error: e.message };
   }
   renderLlamadas();
@@ -3582,7 +3668,7 @@ async function loadLlamadas() {
 
 const llCancelada = (c) => ['cancelled', 'invalid'].includes(c.status) && c.resultado?.resultado !== 'reagendar';
 const llStart = (c) => Date.parse(c.startTime);
-const leadDe = (contactId) => state.leads.find((l) => l.id === contactId) || null;
+const leadDe = (contactId) => (enVsl() ? state.vsl.leads || [] : state.leads).find((l) => l.id === contactId) || null;
 
 function llamadaCard(c) {
   const ahora = Date.now();
@@ -3626,7 +3712,7 @@ function renderLlamadas() {
   const box = $('#llamadas-list');
   const L = state.llamadas;
   const badge = $('#llamadas-badge');
-  if (!L || L.code !== state.launchCode || L.loading) { top.innerHTML = '<p class="muted">Cargando llamadas de GHL…</p>'; box.innerHTML = ''; return; }
+  if (!L || L.code !== codigo() || L.loading) { top.innerHTML = '<p class="muted">Cargando llamadas de GHL…</p>'; box.innerHTML = ''; return; }
   if (L.error) { top.innerHTML = `<div class="notice err">No se pudieron cargar las llamadas: ${esc(L.error)}</div>`; box.innerHTML = ''; badge.hidden = true; return; }
   const d = L.data;
   if (!d.configurado) { top.innerHTML = `<div class="card empty"><h2>Llamadas de valoración</h2><p class="muted">${esc(d.motivo)}</p></div>`; box.innerHTML = ''; badge.hidden = true; return; }
@@ -3758,7 +3844,7 @@ state.llFiltro = ls.get('lsd_llf_filtro') || 'todas';
 const FASE_INFO = Object.fromEntries(FASES_LLAMADA.map((f) => [f.id, f]));
 
 function calcularFases() {
-  const d = state.llamadas?.code === state.launchCode ? state.llamadas.data : null;
+  const d = state.llamadas?.code === codigo() ? state.llamadas.data : null;
   state.llFases = d?.configurado
     ? fasesPorContacto(d.llamadas.map((c) => ({ id: c.id, contactId: c.contactId, start: llStart(c), cancelada: llCancelada(c), resultado: c.resultado, c })))
     : new Map();
@@ -3783,7 +3869,7 @@ function faseChip(contactId) {
 // la tiene, sus UTM (utm_medium «paid» o anuncio de Meta = publi). Devuelve { tipo, label, detalle }.
 function origenLlamada(c) {
   const lead = leadDe(c.contactId);
-  const launch = state.config.launches[state.launchCode] || {};
+  const launch = embudoActual() || {};
   const tags = (lead?.tags || c.opp?.tags || c.contacto?.tags || []).map((t) => String(t).toLowerCase());
   const src = lead?.src || c.opp?.src || c.contacto?.src || {};
   let tipo = lead?.s.origen || '';
@@ -3826,7 +3912,7 @@ function mensajeFase(contactId) {
   const k = contactoDe(c);
   const d = new Date(c.startTime);
   return buildMessage(state.config.templates[info.plantilla], {
-    nombre: k.primerNombre, contactId, launch: state.config.launches[state.launchCode],
+    nombre: k.primerNombre, contactId, launch: embudoActual(),
     extra: {
       dia_llamada: d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' }),
       hora_llamada: d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }),
@@ -4110,6 +4196,435 @@ $('#btn-roles-save').addEventListener('click', async () => {
   }
 });
 $('.tab[data-tab="roles"]').addEventListener('click', () => { rolesResult(''); loadRoles(); });
+
+// ---------- Embudo VSL ----------
+// Siempre abierta: los leads se cargan una vez y se analizan por el periodo elegido.
+const VR_KEY = 'lsd_vsl_rango';
+state.vsl.sel = (() => { try { return { preset: '30d', ...JSON.parse(ls.get(VR_KEY) || '{}') }; } catch { return { preset: '30d' }; } })();
+const vslRango = () => rangoDe(state.vsl.sel, today());
+const fechaLarga = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const nombreMes = (ym) => `${MESES[Number(ym.slice(5)) - 1]} ${ym.slice(0, 4)}`;
+const ORD = ['', '1ª', '2ª', '3ª', '4ª', '5ª'];
+
+function pintarRango() {
+  const sel = state.vsl.sel;
+  const r = vslRango();
+  $('#vr-preset').value = sel.preset;
+  const esMes = sel.preset === 'mes';
+  const esCustom = sel.preset === 'personalizado';
+  $('#vr-mes-f').hidden = !esMes;
+  $('#vr-semanas').hidden = !(esMes || sel.preset === 'mes-actual' || sel.preset === 'mes-pasado');
+  $('#vr-desde-f').hidden = !esCustom;
+  $('#vr-hasta-f').hidden = !esCustom;
+  const ym = sel.preset === 'mes-actual' ? today().slice(0, 7) : sel.preset === 'mes-pasado' ? addDay(`${today().slice(0, 7)}-01`, -1).slice(0, 7) : (sel.mes || today().slice(0, 7));
+  $('#vr-mes').value = ym;
+  if (!$('#vr-semanas').hidden) {
+    $('#vr-semanas').innerHTML = `<button type="button" class="seg-btn ${!sel.semana ? 'on' : ''}" data-sem="0">Mes completo</button>${semanasDelMes(ym).map((w) => `<button type="button" class="seg-btn ${Number(sel.semana) === w.n ? 'on' : ''}" data-sem="${w.n}" title="Del ${Number(w.desde.slice(8))} al ${Number(w.hasta.slice(8))}">${ORD[w.n]} semana</button>`).join('')}`;
+  }
+  $('#vr-desde').value = esCustom ? sel.desde || r.desde : r.desde;
+  $('#vr-hasta').value = esCustom ? sel.hasta || r.hasta : r.hasta;
+  $('#vr-texto').textContent = `${fechaLarga(r.desde)} – ${fechaLarga(r.hasta)}`;
+}
+
+function cambiarRango(cambios) {
+  state.vsl.sel = { ...state.vsl.sel, ...cambios };
+  ls.set(VR_KEY, JSON.stringify(state.vsl.sel));
+  loadVslMeta();
+  renderVsl();
+}
+$('#vr-preset').addEventListener('change', (e) => {
+  const preset = e.target.value;
+  const extra = preset === 'mes' ? { mes: state.vsl.sel.mes || today().slice(0, 7) } : preset === 'personalizado' ? { desde: vslRango().desde, hasta: vslRango().hasta } : {};
+  cambiarRango({ preset, semana: 0, ...extra });
+});
+$('#vr-mes').addEventListener('change', (e) => { if (e.target.value) cambiarRango({ preset: 'mes', mes: e.target.value, semana: 0 }); });
+$('#vr-semanas').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-sem]');
+  if (!b) return;
+  const sel = state.vsl.sel;
+  const mes = sel.preset === 'mes' ? sel.mes : $('#vr-mes').value;
+  cambiarRango({ preset: 'mes', mes, semana: Number(b.dataset.sem) });
+});
+for (const id of ['#vr-desde', '#vr-hasta']) {
+  $(id).addEventListener('change', () => { if ($('#vr-desde').value && $('#vr-hasta').value) cambiarRango({ preset: 'personalizado', desde: $('#vr-desde').value, hasta: $('#vr-hasta').value }); });
+}
+
+// Carga: leads de la etiqueta de registro (paginado), tareas, llamadas e inversión de Meta.
+async function recargarVsl() {
+  loadTareas();
+  if (tiene('llamadas')) loadLlamadas();
+  pintarRango();
+  if (tieneDatos()) await loadVslLeads();
+  else renderVsl();
+}
+
+async function loadVslLeads() {
+  const v = vslCfg();
+  const token = ++state.vsl.loadToken;
+  const out = [];
+  let cursor = null;
+  let total = null;
+  $('#btn-reload').disabled = true;
+  state.vsl.leads = null;
+  renderVsl();
+  try {
+    if (!v.registroTag) throw new Error('Falta la etiqueta de registro de la VSL (Configuración de la VSL → Embudo).');
+    do {
+      const qs = new URLSearchParams({ tag: v.registroTag });
+      if (cursor) qs.set('cursor', JSON.stringify(cursor));
+      const page = await api(`/api/leads?${qs}`);
+      if (token !== state.vsl.loadToken) return;
+      out.push(...page.contacts);
+      total = page.total ?? total;
+      cursor = page.cursor;
+      progress(out.length, total, `Cargando leads de la VSL… ${out.length}${total ? ` de ${total}` : ''}`);
+    } while (cursor);
+    state.vsl.raw = out;
+    enriquecerVsl();
+    loadVslMeta();
+    if (!out.length) notice(`No hay contactos con la etiqueta "${v.registroTag}".`);
+  } catch (e) {
+    state.vsl.raw = [];
+    enriquecerVsl();
+    notice(`No se pudieron cargar los leads de la VSL: ${e.message}`, true);
+  } finally {
+    if (token === state.vsl.loadToken) {
+      progress(null);
+      $('#btn-reload').disabled = false;
+      renderVsl();
+    }
+  }
+}
+
+// Citas del calendario de la VSL por contacto (para saber quién ha agendado llamada).
+function citasVsl() {
+  const d = state.llamadas?.code === 'vsl' ? state.llamadas.data : null;
+  const m = new Map();
+  for (const c of d?.configurado ? d.llamadas : []) {
+    if (!c.contactId) continue;
+    m.set(c.contactId, [...(m.get(c.contactId) || []), { start: llStart(c), resultado: c.resultado, cancelada: llCancelada(c) }]);
+  }
+  return m;
+}
+function enriquecerVsl() {
+  if (!state.vsl.raw) return;
+  const citas = citasVsl();
+  state.vsl.leads = state.vsl.raw.map((c) => enrichVsl(c, vslCfg(), { pais: state.config.defaultCountryCode, citas }));
+}
+
+let vslMetaToken = 0;
+async function loadVslMeta() {
+  const r = vslRango();
+  const token = ++vslMetaToken;
+  try {
+    const m = await api(`/api/meta?launch=vsl&since=${r.desde}&until=${r.hasta}`);
+    if (token !== vslMetaToken) return;
+    state.vsl.meta = m.configured ? m : null;
+  } catch (e) {
+    if (token !== vslMetaToken) return;
+    state.vsl.meta = { configured: true, error: e.message };
+  }
+  renderVsl();
+}
+
+function renderVsl() {
+  if (!enVsl() || !state.config) return;
+  pintarRango();
+  if (!$('#view-vmetricas').hidden) renderVslMetricas();
+  if (!$('#view-vleads').hidden) renderVslLeads();
+  if (!$('#view-vanuncios').hidden) renderVslAnuncios();
+}
+const vslCargando = (box) => { box.innerHTML = '<p class="muted">Cargando los leads de la VSL…</p>'; };
+
+// ----- Métricas -----
+function renderVslMetricas() {
+  if (!state.vsl.leads) { vslCargando($('#vm-kpis')); return; }
+  const v = vslCfg();
+  const r = vslRango();
+  const L = state.vsl.leads;
+  const inversion = state.vsl.meta && !state.vsl.meta.error && Number.isFinite(Number(state.vsl.meta.total)) ? Number(state.vsl.meta.total) : null;
+  const m = computeVsl(L, r, v, { inversion });
+  const kpi = (tono, ico, label, valor, sub = '') => `<div class="kpi static tone-${tono}"><span class="kpi-label"><span class="kpi-ico">${icon(ico)}</span>${label}</span><span class="kpi-value">${valor}</span><span class="kpi-sub">${sub}</span></div>`;
+  const metaNota = state.vsl.meta?.error ? `Meta: ${esc(state.vsl.meta.error)}` : state.vsl.meta ? `campañas con «${esc(v.metaFiltro || 'vsl')}»` : 'Meta no conectado';
+  $('#vm-kpis').innerHTML = [
+    kpi('accent', 'users', 'Registros', m.registros, `${m.publi} publicidad · ${m.organico} orgánico`),
+    kpi('info', 'play', 'Vieron la VSL', m.vio, `${pctOf(m.vio, m.registros)} · ${m.vio50} vieron ≥50%`),
+    kpi('live', 'phone', 'Agendaron llamada', m.llamada, pctOf(m.llamada, m.registros)),
+    kpi('buy', 'cart', 'Ventas', m.ventas, `${m.ventasDirectas} directas · ${m.ventasLlamada} tras llamada`),
+    kpi('buy', 'euro', 'Facturación', eur(m.ingresos), v.precioPrograma ? `a ${eur(Number(v.precioPrograma))} la venta` : 'Pon el precio en la configuración'),
+    kpi('vip', 'coins', 'Inversión Meta', inversion != null ? eur(inversion) : '–', metaNota),
+    kpi('accent', 'target', 'Coste por lead', eur(m.cpl), `Coste por venta ${eur(m.cpa)}`),
+    kpi('info', 'trend', 'ROAS', m.roas != null ? `${m.roas.toFixed(2)}x` : '–', `Conversión ${pctOf(m.compraCohorte, m.registros)} (registro → venta)`),
+  ].join('');
+
+  const pasos = [
+    ['Se registraron', m.registros], ['Entraron a ver la VSL', m.vio], ['Vieron ≥25%', m.vio25], ['Vieron ≥50%', m.vio50],
+    ['Vieron ≥90%', m.vio90], ['Agendaron llamada', m.llamada], ['Compraron', m.compraCohorte],
+  ];
+  $('#vm-embudo').innerHTML = pasos.map(([label, n], i) => `<div class="vm-paso">
+      <span class="vm-paso-lbl">${label}</span>
+      <div class="vm-paso-bar"><span style="width:${m.registros ? Math.max(1.5, (n / m.registros) * 100) : 0}%"></span></div>
+      <span class="vm-paso-n"><strong>${n}</strong> <span class="muted">${i ? pctOf(n, m.registros) : ''}</span></span></div>`).join('')
+    + `<p class="muted vm-nota">Las ventas del embudo son de quienes se registraron en el periodo. Las ventas de las tarjetas de arriba son las compradas en el periodo (aunque se registraran antes)${v.compraDateField ? '' : '; sin campo de «fecha de compra» se usa la fecha de registro'}.</p>`;
+
+  const sem = porSemanas(L, r, v);
+  const fila = (lbl, x, extra = '') => `<tr class="${extra}"><td>${lbl}</td><td class="num">${x.registros}</td><td class="num">${x.vio} <span class="muted">${pctOf(x.vio, x.registros)}</span></td><td class="num">${x.vio50}</td><td class="num">${x.llamada}</td><td class="num">${x.ventas}</td><td class="num big">${pctOf(x.compraCohorte, x.registros)}</td><td class="num">${eur(x.ingresos)}</td></tr>`;
+  $('#vm-semanas').innerHTML = `<thead><tr><th>Semana</th><th class="num">Registros</th><th class="num">Vieron VSL</th><th class="num">≥50%</th><th class="num">Llamadas</th><th class="num">Ventas</th><th class="num">Conversión</th><th class="num">Facturado</th></tr></thead>
+    <tbody>${sem.map((w) => fila(`<strong>${ORD[w.n]} semana</strong> <span class="muted">${nombreMes(w.ym)} · ${Number(w.desde.slice(8))}–${Number(w.hasta.slice(8))}</span>`, w.m)).join('')}
+    ${sem.length > 1 ? fila('<strong>Total del periodo</strong>', m, 'vm-total') : ''}</tbody>`;
+
+  const dias = porDias(L, r);
+  const max = Math.max(1, ...dias.map((d) => d.registros));
+  $('#vm-dias').innerHTML = `<div class="vm-chart" style="--n:${dias.length}">${dias.map((d) => `<div class="vm-col" title="${fechaLarga(d.d)}: ${d.registros} registros, ${d.ventas} ventas">
+      <span class="vm-reg" style="height:${(d.registros / max) * 100}%"></span>${d.ventas ? `<span class="vm-venta">${d.ventas}</span>` : ''}</div>`).join('')}</div>
+    <div class="vm-eje"><span>${fechaLarga(r.desde)}</span><span class="vm-leyenda"><span class="sw vm-sw-reg"></span> Registros <span class="sw vm-sw-venta"></span> Ventas</span><span>${fechaLarga(r.hasta)}</span></div>`;
+
+  // Llamadas con cita en el periodo
+  const box = $('#vm-llamadas');
+  const d = state.llamadas?.code === 'vsl' ? state.llamadas.data : null;
+  if (!tiene('llamadas')) box.innerHTML = '<p class="muted">Tu rol no tiene acceso a las llamadas.</p>';
+  else if (state.llamadas?.code === 'vsl' && state.llamadas.error) box.innerHTML = `<p class="error">${esc(state.llamadas.error)}</p>`;
+  else if (!d) box.innerHTML = '<p class="muted">Cargando llamadas…</p>';
+  else if (!d.configurado) box.innerHTML = `<p class="muted">${esc(d.motivo || 'Configura el calendario de la VSL.')}</p>`;
+  else {
+    const enR = d.llamadas.filter((c) => { const day = dayInMadrid(c.startTime); return day >= r.desde && day <= r.hasta; });
+    const ml = metricasLlamadas(enR.map((c) => ({ start: llStart(c), resultado: c.resultado, cancelada: llCancelada(c) })));
+    const p = (x) => (x == null ? '–' : `${Math.round(x * 100)}%`);
+    box.innerHTML = `<div class="kpis ll-kpis">
+      ${kpi('info', 'calendar', 'Reservadas', ml.reservadas, `${ml.proximas} próximas`)}
+      ${kpi('buy', 'check', 'Shows', ml.shows, `${p(ml.pctShow)} de las que tocaban`)}
+      ${kpi('accent', 'alert', 'No shows', ml.noshow, p(ml.pctNoshow))}
+      ${kpi('vip', 'refresh', 'Canceladas', ml.canceladas, p(ml.pctCancel))}
+      ${kpi('buy', 'cart', 'Ventas en llamada', ml.ventas, `${p(ml.conversion)} sobre shows`)}
+    </div>${ml.sinResultado ? `<p class="muted">${ml.sinResultado} llamada${ml.sinResultado === 1 ? '' : 's'} pasada${ml.sinResultado === 1 ? '' : 's'} sin resultado anotado (pestaña Llamadas).</p>` : ''}`;
+  }
+
+  const reg = L.filter((l) => l.fReg >= r.desde && l.fReg <= r.hasta);
+  const og = (o) => { const x = reg.filter((l) => l.s.origen === o); return { n: x.length, vio: x.filter((l) => l.s.vio).length, ll: x.filter((l) => l.s.llamada).length, c: x.filter((l) => l.s.compra).length }; };
+  const filaO = (lbl, x) => `<tr><td>${lbl}</td><td class="num">${x.n} <span class="muted">${pctOf(x.n, reg.length)}</span></td><td class="num">${x.vio} <span class="muted">${pctOf(x.vio, x.n)}</span></td><td class="num">${x.ll}</td><td class="num">${x.c}</td><td class="num big">${pctOf(x.c, x.n)}</td></tr>`;
+  $('#vm-origen').innerHTML = `<thead><tr><th>Origen</th><th class="num">Registros</th><th class="num">Vieron VSL</th><th class="num">Llamadas</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
+    <tbody>${filaO('📣 Publicidad', og('publi'))}${filaO('🌱 Orgánico', og('organico'))}</tbody>`;
+}
+
+// ----- Leads -----
+function vslFiltrados() {
+  const r = vslRango();
+  const q = $('#vl-buscar').value.trim().toLowerCase();
+  const est = $('#vl-estado').value;
+  const ori = $('#vl-origen').value;
+  const todos = $('#vl-todos').checked;
+  return state.vsl.leads
+    .filter((l) => (todos || (l.fReg >= r.desde && l.fReg <= r.hasta)) && (!est || l.estado === est) && (!ori || l.s.origen === ori) && (!q || l.search.includes(q)))
+    .sort((a, b) => String(b.fReg).localeCompare(String(a.fReg)) || String(b.dateAdded).localeCompare(String(a.dateAdded)));
+}
+
+function waVsl(l) {
+  const e = ESTADOS_VSL.find((x) => x.id === l.estado);
+  if (!e?.plantilla || !l.phoneWa) return '';
+  const msg = buildMessage(state.config.templates[e.plantilla], { nombre: l.firstName, contactId: l.id, launch: vslCfg() });
+  return `https://wa.me/${l.phoneWa}?text=${encodeURIComponent(msg)}`;
+}
+
+function renderVslLeads() {
+  const tabla = $('#vl-table');
+  if (!state.vsl.leads) { tabla.innerHTML = '<tbody><tr><td class="muted">Cargando los leads de la VSL…</td></tr></tbody>'; return; }
+  const r = vslRango();
+  const enPeriodo = state.vsl.leads.filter((l) => $('#vl-todos').checked || (l.fReg >= r.desde && l.fReg <= r.hasta));
+  const counts = {};
+  for (const l of enPeriodo) counts[l.estado] = (counts[l.estado] || 0) + 1;
+  const sel = $('#vl-estado');
+  const v = sel.value;
+  sel.innerHTML = `<option value="">Todos los estados (${enPeriodo.length})</option>${ESTADOS_VSL.map((e) => `<option value="${e.id}">${e.icon} ${esc(e.label)} (${counts[e.id] || 0})</option>`).join('')}`;
+  sel.value = v;
+  $('#vl-resumen').innerHTML = ESTADOS_VSL.map((e) => `<button type="button" class="vl-chip ${v === e.id ? 'on' : ''}" data-vest="${e.id}"><span>${e.icon}</span> ${esc(e.label)} <strong>${counts[e.id] || 0}</strong></button>`).join('');
+  const rows = vslFiltrados();
+  $('#vl-count').textContent = `${rows.length} lead${rows.length === 1 ? '' : 's'}`;
+  const vis = rows.slice(0, state.vsl.mostrar);
+  const fmtF = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' }) : '–');
+  const ahora = Date.now();
+  const cita = (l) => {
+    const prox = l.citas.filter((c) => !c.cancelada && c.start >= ahora).sort((a, b) => a.start - b.start)[0];
+    if (prox) return `<span class="vl-cita">📅 ${esc(new Date(prox.start).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span>`;
+    const ult = [...l.citas].sort((a, b) => b.start - a.start)[0];
+    if (ult) { const res = RESULTADOS.find((x) => x.id === ult.resultado?.resultado); return res ? `${res.icon} ${esc(res.label)}` : ult.cancelada ? '❌ Cancelada' : '⚠️ Sin anotar'; }
+    return l.s.llamada ? '📞 Agendó' : '<span class="muted">–</span>';
+  };
+  tabla.innerHTML = `<thead><tr><th>Lead</th><th>Registro</th><th>Vídeo</th><th>Llamada</th><th>Compra</th><th>WhatsApp</th></tr></thead>
+    <tbody>${vis.map((l) => {
+    const wa = waVsl(l);
+    const e = ESTADOS_VSL.find((x) => x.id === l.estado);
+    return `<tr>
+      <td><strong>${esc(l.name || l.email)}</strong><br><span class="muted">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}</span>
+        <br><span class="vl-origen ${l.s.origen}">${l.s.origen === 'publi' ? '📣 Publicidad' : '🌱 Orgánico'}</span></td>
+      <td>${fmtF(l.fReg)}</td>
+      <td><div class="vl-video" title="${l.s.pct ? `Ha visto al menos el ${l.s.pct}%` : l.s.vio ? 'Entró a la página de la VSL' : 'No ha visto el vídeo'}"><span style="width:${l.s.pct || (l.s.vio ? 6 : 0)}%"></span></div><small class="muted">${l.s.pct ? `≥${l.s.pct}%` : l.s.vio ? 'Entró' : 'No'}</small></td>
+      <td>${cita(l)}</td>
+      <td>${l.s.compra ? `🎉 ${fmtF(l.fCompra)}` : '<span class="muted">–</span>'}</td>
+      <td>${wa ? `<a class="btn wa" href="${esc(wa)}" target="_blank" rel="noopener" title="${esc(e.label)}">Enviar WhatsApp</a><br><small class="muted">${esc(e.icon)} ${esc(e.label)}</small>` : l.estado === 'llamada' ? '<small class="muted">Ver en Llamadas</small>' : !l.phoneWa && e?.plantilla ? '<small class="muted">Sin móvil</small>' : '<span class="muted">–</span>'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" class="muted">No hay leads con estos filtros.</td></tr>'}</tbody>`;
+  $('#vl-mas').hidden = rows.length <= vis.length;
+  $('#vl-mas').textContent = `Ver más (${rows.length - vis.length})`;
+}
+for (const id of ['#vl-buscar', '#vl-estado', '#vl-origen', '#vl-todos']) {
+  $(id).addEventListener(id === '#vl-buscar' ? 'input' : 'change', () => { state.vsl.mostrar = 100; renderVslLeads(); });
+}
+$('#vl-mas').addEventListener('click', () => { state.vsl.mostrar += 200; renderVslLeads(); });
+$('#vl-resumen').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-vest]');
+  if (!b) return;
+  $('#vl-estado').value = $('#vl-estado').value === b.dataset.vest ? '' : b.dataset.vest;
+  state.vsl.mostrar = 100;
+  renderVslLeads();
+});
+
+// Mensajes de WhatsApp de la VSL (mismo permiso que los de Setteo hoy).
+const vplBox = $('#vsl-plantillas');
+let vplSucio = false;
+function pintarPlantillasVsl() {
+  const edita = tiene('mensajes');
+  $$('#vsl-plantillas textarea').forEach((t) => { t.readOnly = !edita; t.value = state.config?.templates?.[t.dataset.vtpl] || ''; });
+  $('#vsl-pl-save').hidden = !edita;
+  $('#vsl-pl-sub').textContent = `Los textos de los botones de WhatsApp de esta lista. Pulsa para ${edita ? 'verlos o cambiarlos' : 'verlos (tu rol no puede cambiarlos)'}.`;
+  vplSucio = false;
+}
+vplBox.addEventListener('toggle', () => { if (vplBox.open && !vplSucio) pintarPlantillasVsl(); });
+vplBox.addEventListener('input', () => { vplSucio = true; $('#vsl-pl-status').textContent = 'Cambios sin guardar.'; });
+$('#vsl-pl-guardar').addEventListener('click', async () => {
+  const b = $('#vsl-pl-guardar');
+  b.disabled = true;
+  $('#vsl-pl-status').textContent = 'Guardando…';
+  try {
+    const templates = Object.fromEntries($$('#vsl-plantillas textarea').map((t) => [t.dataset.vtpl, t.value]));
+    const d = await api('/api/config', { method: 'POST', body: { op: 'plantillas', templates } });
+    state.config = { ...state.config, templates: d.templates };
+    pintarPlantillasVsl();
+    renderVslLeads();
+    $('#vsl-pl-status').textContent = 'Mensajes guardados ✓';
+  } catch (e) {
+    $('#vsl-pl-status').textContent = e.message;
+  } finally {
+    b.disabled = false;
+  }
+});
+
+// ----- Anuncios ganadores -----
+function renderVslAnuncios() {
+  if (!state.vsl.leads) { vslCargando($('#vganadores')); return; }
+  const r = vslRango();
+  const reg = state.vsl.leads.filter((l) => l.fReg >= r.desde && l.fReg <= r.hasta);
+  $$('#vgan-level .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.gl === state.vsl.ganLevel));
+  pintarGanadores($('#vganadores'), reg, vslCfg(), state.vsl.ganLevel, state.vsl.meta, { vip: false, donde: 'en este periodo' });
+  const level = $('#vsrc-level').value;
+  const names = state.vsl.meta?.names || {};
+  const spendBy = state.vsl.meta?.spendBy || {};
+  const groups = bySource(reg.map((l) => ({ ...l, s: { ...l.s, trafico: '' } })), level, names);
+  const hasSpend = Object.keys(spendBy).length > 0;
+  $('#vsrc-table').innerHTML = `
+    <thead><tr><th>${{ source: 'Canal (utm_source)', campaign: 'Campaña', adset: 'Conjunto de anuncios', ad: 'Anuncio' }[level]}</th><th class="num">Registros</th><th class="num">Ventas</th><th class="num">Conversión</th>${hasSpend ? '<th class="num">Inversión</th><th class="num">CPL</th><th class="num">Coste/venta</th>' : ''}</tr></thead>
+    <tbody>${groups.map((g) => {
+    const spend = spendBy[g.key];
+    return `<tr><td>${esc(g.label)}</td><td class="num">${g.leads}</td><td class="num">${g.compras}</td><td class="num big">${pctOf(g.compras, g.leads)}</td>${hasSpend ? `<td class="num">${spend ? eur(spend) : '–'}</td><td class="num">${spend ? eur(spend / g.leads) : '–'}</td><td class="num">${spend && g.compras ? eur(spend / g.compras) : '–'}</td>` : ''}</tr>`;
+  }).join('') || '<tr><td colspan="7" class="muted">Sin registros en el periodo.</td></tr>'}</tbody>`;
+}
+$('#vgan-level').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-gl]');
+  if (!b) return;
+  state.vsl.ganLevel = b.dataset.gl;
+  renderVslAnuncios();
+});
+$('#vsrc-level').addEventListener('change', renderVslAnuncios);
+
+// ----- Configuración de la VSL -----
+const vcDlg = $('#vsl-config-dialog');
+const VC_TEXTOS = ['name', 'registroTag', 'vioTag', 'compraTag', 'llamadaTag', 'fraccionadoTag', 'unicoTag', 'publiTag', 'organicoTag',
+  'vslUrl', 'raicesUrl', 'ventaUrl', 'ventaFraccionadoUrl', 'llamadaUrl', 'llamadasPipeline', 'precioPrograma', 'precioFraccionado', 'metaFiltro',
+  'vslVideoUrl', 'textoCompra', 'textoLlamada', 'graciasVideoUrl', 'agendaVideoUrl'];
+const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+const aSegundos = (t) => {
+  const m = /^\s*(\d{1,3})(?::(\d{1,2}))?\s*$/.exec(String(t || ''));
+  return m ? Number(m[1]) * 60 + Number(m[2] || 0) : 0; // «12» = minuto 12; «12:30» = 12 min 30 s
+};
+
+async function openVslConfig() {
+  const v = vslCfg();
+  for (const k of VC_TEXTOS) $(`#vc-${k}`).value = v[k] ?? '';
+  for (const k of ['precioPrograma', 'precioFraccionado']) $(`#vc-${k}`).value = v[k] ? String(v[k]).replace('.', ',') : '';
+  $('#vc-boton').value = v.botonSegundos ? mmss(v.botonSegundos) : '0';
+  $('#vc-status').textContent = '';
+  renderAccesosEditor(v.accesos, { box: '#vc-accesos', sugeridos: ACCESOS_SUGERIDOS_VSL });
+  renderVslSnippets();
+  $('.tab[data-tab="vembudo"]').click();
+  vcDlg.showModal();
+  // Campos de fecha y pipelines de GHL (para elegir sin escribir IDs).
+  const pintarFechas = (fields) => {
+    for (const k of ['registroDateField', 'compraDateField']) {
+      $(`#vc-${k}`).innerHTML = `<option value="">— Fecha de alta del contacto —</option>${(fields || []).map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}`;
+      if (v[k] && !(fields || []).some((f) => f.id === v[k])) $(`#vc-${k}`).insertAdjacentHTML('beforeend', `<option value="${esc(v[k])}">${esc(v[k])}</option>`);
+      $(`#vc-${k}`).value = v[k] || '';
+    }
+  };
+  pintarFechas(state.dateFields);
+  if (!state.dateFields) { try { state.dateFields = (await api('/api/fields')).fields; pintarFechas(state.dateFields); } catch { /* se queda lo guardado */ } }
+  const pipes = state.llamadas?.data?.pipeline ? [state.llamadas.data.pipeline.name] : [];
+  $('#vc-pipelines').innerHTML = [...new Set(['Leads evergreen', 'Leads Lanzamientos', ...pipes])].map((p) => `<option value="${esc(p)}">`).join('');
+}
+
+function renderVslSnippets() {
+  const script = `<script src="${location.origin}/vsl.js" defer></script>`;
+  const items = [
+    ['PÁGINA DE LA VSL · vídeo medido + botones de compra y llamada', `<div data-lsd-vsl></div>\n${script}`],
+    ['PÁGINA DE GRACIAS DEL REGISTRO · vídeo (se oculta si no hay)', `<div data-lsd-vsl-embed="gracias"></div>\n${script}`],
+    ['PÁGINA DE GRACIAS DE LA LLAMADA · vídeo (se oculta si no hay)', `<div data-lsd-vsl-embed="agenda"></div>\n${script}`],
+    ['Al final de la URL a la que redirige el formulario de registro (identifica a la lead para medir el vídeo)', '?cid={{contact.id}}'],
+    ['Enlace a la VSL en emails y WhatsApp de GHL', `${vslCfg().vslUrl || 'https://tu-pagina-de-la-vsl'}?cid={{contact.id}}`],
+  ];
+  $('#vc-snippets').innerHTML = items.map(([title, text], i) => `
+    <div class="snippet">
+      <h3>${esc(title)}</h3>
+      <pre id="vsnip-${i}">${esc(text)}</pre>
+      <button type="button" class="btn" data-copy="vsnip-${i}">Copiar</button>
+    </div>`).join('')
+    + '<p class="muted">El vídeo se mide con los segundos realmente vistos: al llegar al 25%, 50%, 75% y 90% la lead recibe las etiquetas <code>vsl_vsl_25</code>, <code>vsl_vsl_50</code>… (se ven en Métricas y en Leads).</p>';
+}
+$('#vc-snippets').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-copy]');
+  if (!b) return;
+  await navigator.clipboard.writeText($(`#${b.dataset.copy}`).textContent);
+  b.textContent = 'Copiado ✓';
+  setTimeout(() => { b.textContent = 'Copiar'; }, 1500);
+});
+
+$('#vc-save').addEventListener('click', async () => {
+  const status = $('#vc-status');
+  const reg = $('#vc-registroTag').value.trim();
+  if (!reg) { $('.tab[data-tab="vembudo"]').click(); $('#vc-registroTag').focus(); status.textContent = 'Falta la etiqueta de registro.'; return; }
+  const vsl = { ...state.config.vsl };
+  for (const k of VC_TEXTOS) vsl[k] = $(`#vc-${k}`).value.trim();
+  for (const k of ['precioPrograma', 'precioFraccionado']) vsl[k] = vsl[k].replace(/\./g, '').replace(',', '.');
+  for (const k of ['registroDateField', 'compraDateField']) vsl[k] = $(`#vc-${k}`).value;
+  vsl.botonSegundos = aSegundos($('#vc-boton').value);
+  vsl.accesos = readAccesosEditor();
+  const b = $('#vc-save');
+  b.disabled = true;
+  status.textContent = 'Guardando…';
+  try {
+    const antes = JSON.stringify([state.config.vsl.registroTag, state.config.vsl.vioTag, state.config.vsl.compraTag, state.config.vsl.registroDateField, state.config.vsl.compraDateField, state.config.vsl.llamadaUrl, state.config.vsl.llamadasPipeline]);
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, vsl } });
+    state.config = config;
+    status.textContent = 'Guardado ✓';
+    renderVslSnippets();
+    $('#sb-vsl-sub').textContent = config.vsl.name;
+    const ahora = JSON.stringify([config.vsl.registroTag, config.vsl.vioTag, config.vsl.compraTag, config.vsl.registroDateField, config.vsl.compraDateField, config.vsl.llamadaUrl, config.vsl.llamadasPipeline]);
+    if (antes !== ahora) recargarVsl(); else { enriquecerVsl(); loadVslMeta(); }
+  } catch (e) {
+    status.textContent = '';
+    window.alert(e.message);
+  } finally {
+    b.disabled = false;
+  }
+});
 
 // ---------- Inicio ----------
 api('/api/me').then(start).catch((e) => {

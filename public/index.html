@@ -25,14 +25,14 @@
   <!-- Dashboard -->
   <div id="app" hidden>
     <header class="topbar">
-      <div class="brand">Lanzamientos MLDLM <span id="role-badge" class="badge"></span></div>
+      <div class="brand">Dashboard MLDLM <span id="role-badge" class="badge"></span></div>
       <div class="topbar-controls">
-        <label class="field inline">
+        <label class="field inline lanz-only">
           <span>Lanzamiento</span>
           <select id="launch-select"></select>
         </label>
         <button id="btn-reload" class="tb-btn tb-reload" type="button" data-tb-icon="refresh" title="Volver a cargar los datos desde GHL"><span class="tb-txt">Actualizar</span></button>
-        <button id="btn-zoom" class="tb-btn tb-zoom zoom-only" type="button" data-tb-icon="video" title="Leer la asistencia del directo en Zoom y etiquetar a los leads"><span class="tb-txt">Sincronizar Zoom</span></button>
+        <button id="btn-zoom" class="tb-btn tb-zoom zoom-only lanz-only" type="button" data-tb-icon="video" title="Leer la asistencia del directo en Zoom y etiquetar a los leads"><span class="tb-txt">Sincronizar Zoom</span></button>
         <button id="btn-config" class="tb-btn tb-config config-only" type="button" data-tb-icon="gear" title="Configuración del lanzamiento"><span class="tb-txt">Configuración</span></button>
         <button id="btn-equipo" class="tb-btn tb-equipo admin-only" type="button" data-tb-icon="users" title="Miembros del equipo, roles y permisos"><span class="tb-txt">Equipo</span></button>
         <span class="notif-wrap">
@@ -44,6 +44,13 @@
       </div>
     </header>
 
+    <div class="app-body">
+    <!-- Embudos: cada uno con sus pestañas, datos, tareas y configuración -->
+    <nav id="sidebar" class="sidebar" aria-label="Embudos">
+      <span class="sb-title">Embudos</span>
+      <button type="button" class="sb-item" data-embudo="lanz"><span class="sb-ico" aria-hidden="true">🚀</span><span class="sb-txt"><strong>Lanzamientos</strong><small>Webinar «El Camino»</small></span></button>
+      <button type="button" class="sb-item" data-embudo="vsl"><span class="sb-ico" aria-hidden="true">🎬</span><span class="sb-txt"><strong>VSL</strong><small id="sb-vsl-sub">Siempre abierta</small></span></button>
+    </nav>
     <main class="container">
       <div id="notice" class="notice" hidden></div>
       <div id="progress" class="progress" hidden><div class="progress-bar"></div><span class="progress-text"></span></div>
@@ -59,6 +66,8 @@
         <div id="snapshot-warning" class="notice warn" hidden></div>
         <div id="avisos-equipo" class="avisos-equipo admin-only" hidden></div>
         <nav class="views" role="tablist">
+          <button type="button" class="view-tab" data-view="vmetricas">Métricas</button>
+          <button type="button" class="view-tab" data-view="vleads">Leads</button>
           <button type="button" class="view-tab" data-view="hoy">Setteo hoy</button>
           <button type="button" class="view-tab" data-view="llamadas">Llamadas <span id="llamadas-badge" class="tab-count" hidden></span></button>
           <button type="button" class="view-tab active" data-view="leads">Leads</button>
@@ -66,9 +75,97 @@
           <button type="button" class="view-tab" data-view="objetivos">Objetivos</button>
           <button type="button" class="view-tab" data-view="avatar">Avatar y anuncios</button>
           <button type="button" class="view-tab" data-view="comparar">Comparar</button>
+          <button type="button" class="view-tab" data-view="vanuncios">Anuncios ganadores</button>
           <button type="button" class="view-tab" data-view="tareas">Tareas <span id="tareas-badge" class="tab-count" hidden></span></button>
           <button type="button" class="view-tab" data-view="calendario">Calendario</button>
         </nav>
+
+        <!-- VSL: periodo de análisis (Métricas, Leads y Anuncios) -->
+        <div id="vsl-rango" class="vsl-rango card" hidden>
+          <label class="field inline"><span>Periodo</span>
+            <select id="vr-preset">
+              <option value="7d">Últimos 7 días</option>
+              <option value="30d" selected>Últimos 30 días</option>
+              <option value="90d">Últimos 90 días</option>
+              <option value="mes-actual">Este mes</option>
+              <option value="mes-pasado">Mes pasado</option>
+              <option value="mes">Elegir mes y semana…</option>
+              <option value="personalizado">Fechas a medida…</option>
+            </select>
+          </label>
+          <label class="field inline" id="vr-mes-f" hidden><span>Mes</span><input id="vr-mes" type="month"></label>
+          <div class="seg vr-semanas" id="vr-semanas" hidden role="group" aria-label="Semana del mes"></div>
+          <label class="field inline" id="vr-desde-f" hidden><span>Desde</span><input id="vr-desde" type="date"></label>
+          <label class="field inline" id="vr-hasta-f" hidden><span>Hasta</span><input id="vr-hasta" type="date"></label>
+          <span id="vr-texto" class="vr-texto"></span>
+        </div>
+
+        <section id="view-vmetricas" hidden>
+          <div id="vm-kpis" class="kpis vm-kpis"></div>
+          <section class="card metric-card" data-icon="funnel">
+            <h2>Embudo del periodo <span class="muted">· de las personas que se registraron en estas fechas</span></h2>
+            <div id="vm-embudo" class="vm-embudo"></div>
+          </section>
+          <section class="card metric-card" data-icon="calendar">
+            <h2>Por semanas del mes <span class="muted">· 1ª (días 1-7), 2ª (8-14), 3ª (15-21), 4ª (22-28) y 5ª (29-fin)</span></h2>
+            <div class="table-scroll"><table class="metric-table" id="vm-semanas"></table></div>
+          </section>
+          <section class="card metric-card" data-icon="trend">
+            <h2>Registros y ventas por día</h2>
+            <div id="vm-dias" class="vm-dias"></div>
+          </section>
+          <section class="card metric-card" data-icon="phone">
+            <h2>Llamadas de valoración del periodo <span class="muted">· citas del calendario de la VSL</span></h2>
+            <div id="vm-llamadas"></div>
+          </section>
+          <section class="card metric-card" data-icon="split">
+            <h2>Publicidad u orgánico</h2>
+            <div class="table-scroll"><table class="metric-table" id="vm-origen"></table></div>
+          </section>
+        </section>
+
+        <section id="view-vleads" hidden>
+          <div class="filters vl-filters">
+            <input id="vl-buscar" type="search" placeholder="Buscar nombre, email o teléfono" aria-label="Buscar">
+            <select id="vl-estado" aria-label="Estado"></select>
+            <select id="vl-origen" aria-label="Origen"><option value="">Publicidad y orgánico</option><option value="publi">Solo publicidad</option><option value="organico">Solo orgánico</option></select>
+            <label class="check"><input id="vl-todos" type="checkbox"> Todos (no solo los registrados en el periodo)</label>
+            <span class="spacer"></span>
+            <span id="vl-count" class="muted"></span>
+          </div>
+          <div id="vl-resumen" class="vl-resumen"></div>
+          <div class="table-wrap card"><div class="table-scroll"><table class="leads vl-table" id="vl-table"></table></div></div>
+          <div class="row vl-more"><button type="button" class="btn" id="vl-mas" hidden>Ver más</button></div>
+          <details id="vsl-plantillas" class="card wa-plantillas">
+            <summary><span class="wa-pl-ico" aria-hidden="true">💬</span><span><strong>Mensajes de WhatsApp de la VSL</strong><small class="muted" id="vsl-pl-sub">Los textos de los botones de WhatsApp de esta lista. Pulsa para verlos.</small></span></summary>
+            <div class="wa-pl-body">
+              <p class="muted">Variables: <code>{nombre}</code> <code>{link_vsl}</code> (página de la VSL) <code>{link_pagina_venta}</code> <code>{link_pago}</code> <code>{link_pago_fraccionado}</code> <code>{link_llamada}</code>. Los enlaces llevan el ID de la lead para seguir midiendo.</p>
+              <label class="field"><span>🙈 No ha visto el vídeo → enviarle a la VSL</span><textarea id="vtpl-vsl_novio" data-vtpl="vsl_novio" rows="3"></textarea></label>
+              <label class="field"><span>▶️ Ha empezado el vídeo → información de Raíces</span><textarea id="vtpl-vsl_vio" data-vtpl="vsl_vio" rows="3"></textarea></label>
+              <label class="field"><span>🔥 Lo vio hasta el final → compra o llamada</span><textarea id="vtpl-vsl_final" data-vtpl="vsl_final" rows="3"></textarea></label>
+              <div class="row wa-pl-save" id="vsl-pl-save"><span id="vsl-pl-status" class="muted" aria-live="polite"></span><span class="spacer"></span><button type="button" class="btn primary" id="vsl-pl-guardar">Guardar mensajes</button></div>
+            </div>
+          </details>
+        </section>
+
+        <section id="view-vanuncios" hidden>
+          <section class="card metric-card gan-card" data-icon="crown">
+            <h2>Anuncios ganadores de la VSL <span class="muted">· ranking por ventas de las personas registradas en el periodo</span></h2>
+            <div class="seg" id="vgan-level" role="tablist" aria-label="Ranking de">
+              <button type="button" class="seg-btn on" data-gl="ad">Anuncios</button>
+              <button type="button" class="seg-btn" data-gl="adset">Conjuntos</button>
+              <button type="button" class="seg-btn" data-gl="campaign">Campañas</button>
+            </div>
+            <div id="vganadores"></div>
+          </section>
+          <section class="card metric-card" data-icon="megaphone">
+            <h2>Registros y ventas por campaña, conjunto y anuncio</h2>
+            <label class="field inline" style="margin-bottom:8px"><span>Ver por</span>
+              <select id="vsrc-level"><option value="campaign">Campaña</option><option value="adset">Conjunto</option><option value="ad">Anuncio</option><option value="source">Canal (utm_source)</option></select>
+            </label>
+            <div class="table-scroll"><table class="metric-table" id="vsrc-table"></table></div>
+          </section>
+        </section>
 
         <section id="view-calendario" hidden>
           <div class="cal-toolbar">
@@ -115,7 +212,7 @@
             <select id="tareas-resp" aria-label="Responsable"></select>
             <span class="spacer"></span>
             <button type="button" class="btn tareas-only" id="btn-tareas-sel" title="Elegir tareas para eliminarlas">Seleccionar</button>
-            <button type="button" class="btn tareas-only" id="btn-tareas-plantilla" title="Añade las tareas de siempre con fechas calculadas a partir de las del lanzamiento (no duplica las que ya estén)">Cargar tareas habituales</button>
+            <button type="button" class="btn tareas-only lanz-only" id="btn-tareas-plantilla" title="Añade las tareas de siempre con fechas calculadas a partir de las del lanzamiento (no duplica las que ya estén)">Cargar tareas habituales</button>
             <button type="button" class="btn primary tareas-only" id="btn-tarea-nueva">+ Nueva tarea</button>
           </div>
           <div id="tareas-selbar" class="tareas-selbar" hidden>
@@ -355,6 +452,7 @@
         </section>
       </section>
     </main>
+    </div>
   </div>
 
   <!-- Configuración (solo admin) -->
@@ -651,6 +749,106 @@
   </dialog>
 
   <!-- Tarea -->
+  <!-- Configuración de la VSL -->
+  <dialog id="vsl-config-dialog" class="dialog">
+    <form method="dialog">
+      <header class="dialog-head">
+        <h2>Configuración de la VSL</h2>
+        <button class="btn ghost" value="cancel" formnovalidate type="submit" aria-label="Cerrar">✕</button>
+      </header>
+      <div class="dialog-body">
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" data-tab="vembudo" data-tab-icon="funnel">Embudo</button>
+          <button type="button" class="tab" data-tab="vpaginas" data-tab-icon="play">Páginas del embudo</button>
+          <button type="button" class="tab" data-tab="vcodigos" data-tab-icon="code">Códigos para GHL</button>
+          <button type="button" class="tab" data-tab="vrecursos" data-tab-icon="link">Recursos</button>
+        </div>
+
+        <section class="tab-panel" data-panel="vembudo">
+          <p class="muted">Registro → vídeo de venta (VSL) → compra directa o llamada de valoración. Está siempre abierta: los datos se analizan por fechas desde el propio dashboard.</p>
+          <section class="cfg-sec">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🏷️</span><div><h3>Etiquetas de GHL</h3><p>Las que ponen los formularios y workflows de la VSL. Escribe para buscar entre las que ya existen.</p></div></header>
+            <div class="grid2">
+              <label class="field"><span>Registro en la VSL</span><input id="vc-registroTag" list="tag-list" required></label>
+              <label class="field"><span>Ha entrado a ver la VSL</span><input id="vc-vioTag" list="tag-list"></label>
+              <label class="field"><span>Compra de Raíces desde la VSL</span><input id="vc-compraTag" list="tag-list"></label>
+              <label class="field"><span>Ha agendado llamada <small>(opcional: también se ve en el calendario)</small></span><input id="vc-llamadaTag" list="tag-list"></label>
+              <label class="field"><span>Pago fraccionado <small>(opcional)</small></span><input id="vc-fraccionadoTag" list="tag-list"></label>
+              <label class="field"><span>Pago único <small>(opcional)</small></span><input id="vc-unicoTag" list="tag-list"></label>
+              <label class="field"><span>Viene de publicidad <small>(opcional; si no, se deduce de las UTM)</small></span><input id="vc-publiTag" list="tag-list"></label>
+              <label class="field"><span>Viene de orgánico <small>(opcional)</small></span><input id="vc-organicoTag" list="tag-list"></label>
+            </div>
+          </section>
+          <section class="cfg-sec">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📅</span><div><h3>Fechas</h3><p>GHL no guarda cuándo se pone una etiqueta. Si un workflow guarda la fecha en un campo, elígelo; si no, se usa la fecha de alta del contacto.</p></div></header>
+            <div class="grid2">
+              <label class="field"><span>Fecha de registro en la VSL</span><select id="vc-registroDateField"></select></label>
+              <label class="field"><span>Fecha de compra</span><select id="vc-compraDateField"></select></label>
+            </div>
+          </section>
+          <section class="cfg-sec">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🔗</span><div><h3>Enlaces</h3><p>Se usan en los mensajes de WhatsApp y en los botones de la página de la VSL.</p></div></header>
+            <div class="grid2">
+              <label class="field"><span>Página de la VSL</span><input id="vc-vslUrl" type="url" placeholder="https://…"></label>
+              <label class="field"><span>Página de venta de Raíces</span><input id="vc-raicesUrl" type="url" placeholder="https://…"></label>
+              <label class="field"><span>Enlace de pago único</span><input id="vc-ventaUrl" type="url" placeholder="https://…"></label>
+              <label class="field"><span>Enlace de pago fraccionado</span><input id="vc-ventaFraccionadoUrl" type="url" placeholder="https://…"></label>
+              <label class="field"><span>Enlace para reservar llamada <small>(el del calendario de GHL)</small></span><input id="vc-llamadaUrl" type="url" placeholder="https://api.leadconnectorhq.com/widget/booking/…"></label>
+              <label class="field"><span>Pipeline de las llamadas</span><input id="vc-llamadasPipeline" list="vc-pipelines" placeholder="Leads evergreen"><datalist id="vc-pipelines"></datalist></label>
+            </div>
+          </section>
+          <section class="cfg-sec">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">💶</span><div><h3>Precios y publicidad</h3><p>Para calcular facturación, coste por lead, coste por venta y ROAS.</p></div></header>
+            <div class="grid2">
+              <label class="field"><span>Precio de Raíces (pago único, €)</span><input id="vc-precioPrograma" inputmode="decimal"></label>
+              <label class="field"><span>Precio en pago fraccionado (total, €)</span><input id="vc-precioFraccionado" inputmode="decimal"></label>
+              <label class="field"><span>Campañas de Meta de la VSL <small>(su nombre contiene…)</small></span><input id="vc-metaFiltro" placeholder="vsl"></label>
+              <label class="field"><span>Nombre del embudo</span><input id="vc-name" maxlength="80"></label>
+            </div>
+          </section>
+        </section>
+
+        <section class="tab-panel" data-panel="vpaginas" hidden>
+          <p class="muted">Lo que muestran las páginas de la VSL en GHL (con los códigos de la pestaña «Códigos para GHL»). Al guardar, las páginas cambian solas.</p>
+          <section class="cfg-sec">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🎬</span><div><h3>Página de la VSL</h3><p>El vídeo se mide (25%, 50%, 75% y 90% vistos) y los botones aparecen en el minuto que elijas.</p></div></header>
+            <div class="grid2">
+              <label class="field"><span>Vídeo de la VSL (Vimeo)</span><input id="vc-vslVideoUrl" type="url" placeholder="https://vimeo.com/…"></label>
+              <label class="field"><span>Los botones aparecen en el minuto <small>(mm:ss; 0 = desde el principio)</small></span><input id="vc-boton" placeholder="12:30" pattern="\d{1,3}(:\d{2})?"></label>
+              <label class="field"><span>Texto del botón de compra</span><input id="vc-textoCompra" maxlength="60"></label>
+              <label class="field"><span>Texto del botón de llamada</span><input id="vc-textoLlamada" maxlength="60"></label>
+            </div>
+            <p class="muted">El botón de compra lleva a la página de venta (o, si no hay, al pago único) y el de llamada al calendario, los dos de la pestaña «Embudo».</p>
+          </section>
+          <section class="cfg-sec">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🎉</span><div><h3>Página de gracias del registro</h3><p>La que ven justo después de registrarse.</p></div></header>
+            <label class="field"><span>Vídeo (Vimeo o YouTube; opcional)</span><input id="vc-graciasVideoUrl" type="url" placeholder="https://vimeo.com/…"></label>
+          </section>
+          <section class="cfg-sec">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📞</span><div><h3>Página de gracias de la llamada</h3><p>La que ven al reservar la llamada de valoración (gracias-agenda-vsl).</p></div></header>
+            <label class="field"><span>Vídeo (Vimeo o YouTube; opcional)</span><input id="vc-agendaVideoUrl" type="url" placeholder="https://vimeo.com/…"></label>
+          </section>
+        </section>
+
+        <section class="tab-panel" data-panel="vcodigos" hidden>
+          <p class="muted">Pega cada código en un bloque <strong>Código HTML</strong> de la página de GHL. No hace falta tocarlos al cambiar el vídeo o los textos: se cambian en «Páginas del embudo».</p>
+          <div id="vc-snippets"></div>
+        </section>
+
+        <section class="tab-panel" data-panel="vrecursos" hidden>
+          <p class="muted">Enlaces directos a lo que hay que tocar en GHL para la VSL, por categorías (igual que en los lanzamientos). Pulsa <strong>Guardar</strong> para conservarlos.</p>
+          <div id="vc-accesos" class="cfg-accesos"></div>
+        </section>
+      </div>
+      <footer class="dialog-foot">
+        <span id="vc-status" class="muted"></span>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate type="submit">Cerrar</button>
+        <button id="vc-save" class="btn primary" type="button">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog id="tarea-dialog" class="dialog dialog-md">
     <form id="tarea-form" method="dialog">
       <header class="dialog-head"><h2 id="tarea-title">Nueva tarea</h2></header>
@@ -689,7 +887,7 @@
           </div>
         </div>
         <label class="check"><input id="t-avisar" type="checkbox" checked> Avisar por email a la persona (o a todo el rol)</label>
-        <label class="check habitual-check"><input id="t-habitual" type="checkbox"> 🔁 <span><strong>Tarea habitual</strong> · se añadirá en los próximos lanzamientos al pulsar «Cargar tareas habituales», con la misma persona o rol y la misma fecha relativa</span></label>
+        <label class="check habitual-check lanz-only"><input id="t-habitual" type="checkbox"> 🔁 <span><strong>Tarea habitual</strong> · se añadirá en los próximos lanzamientos al pulsar «Cargar tareas habituales», con la misma persona o rol y la misma fecha relativa</span></label>
         <div id="t-coments" class="coments" hidden></div>
       </div>
       <footer class="dialog-foot">
