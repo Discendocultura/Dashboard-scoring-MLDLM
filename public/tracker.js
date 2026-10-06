@@ -553,6 +553,15 @@
       }).catch(function () { start(who); });
     }
 
+    // Páginas públicas (p. ej. la de registro: <div data-lsd-page="registro" data-launch="auto">):
+    // solo se pintan los datos del lanzamiento (fecha, hora, cuentas atrás, enlaces), sin pedir
+    // el email ni redirigir al login, porque quien está ahí todavía no se ha registrado.
+    if (kind === 'registro' || kind === 'publica') {
+      fetchPage(launchAttr, null).then(function (d) {
+        if (d && !d.error) renderPage(d, null, function () {}, true);
+      }).catch(function () { /* sin datos: se queda el texto del diseño */ });
+      return;
+    }
     var attrLogin = loginAttrEl ? loginAttrEl.getAttribute('data-login') : '';
     if (!managed && launchAttr !== 'auto') return begin(launchAttr, attrLogin);
     // Con el dashboard: primero sabemos qué lanzamiento es (y su URL de login).
