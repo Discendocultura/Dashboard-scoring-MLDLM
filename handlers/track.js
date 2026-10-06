@@ -13,9 +13,11 @@ export async function POST(request) {
   try {
     const { launch, video, pct, cid, email } = await readBody(request);
     const p = Number(pct);
-    if (!VIDEOS.includes(video) || !THRESHOLDS.includes(p)) return json({ error: 'Datos no válidos' }, 400, CORS_HEADERS);
+    // La VSL tiene un único vídeo («vsl»); los lanzamientos, clase 1, clase 2 y grabación.
+    const okVideo = launch === 'vsl' ? video === 'vsl' : VIDEOS.includes(video);
+    if (!okVideo || !THRESHOLDS.includes(p)) return json({ error: 'Datos no válidos' }, 400, CORS_HEADERS);
     const config = await getConfig();
-    if (!config.launches[launch]) return json({ error: 'Lanzamiento desconocido' }, 404, CORS_HEADERS);
+    if (launch !== 'vsl' && !config.launches[launch]) return json({ error: 'Lanzamiento desconocido' }, 404, CORS_HEADERS);
 
     let contact = null;
     if (typeof cid === 'string' && /^[A-Za-z0-9]{6,40}$/.test(cid)) contact = await getContact(cid);

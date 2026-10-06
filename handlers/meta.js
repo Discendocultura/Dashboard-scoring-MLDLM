@@ -15,8 +15,18 @@ export async function GET(request) {
   try {
     await requireRole(request, { permiso: ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar'] });
     if (!metaConfigured()) return json({ configured: false });
-    const code = new URL(request.url).searchParams.get('launch');
+    const url = new URL(request.url);
+    const code = url.searchParams.get('launch');
     const config = await getConfig();
+    // VSL: inversión del rango de fechas elegido en el dashboard.
+    if (code === 'vsl') {
+      const day = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v : '');
+      const since = day(url.searchParams.get('since'));
+      const until = day(url.searchParams.get('until'));
+      if (!since || !until || until < since) return json({ error: 'Rango de fechas no válido' }, 400);
+      const data = await adSpend({ since, until, filter: config.vsl?.metaFiltro || 'vsl' });
+      return json({ configured: true, since, until, ...data });
+    }
     const launch = config.launches[code];
     if (!launch?.inicioCaptacion) return json({ configured: true, error: 'Falta el inicio de captación del lanzamiento' });
     const next = nextLaunchStart(config, code);

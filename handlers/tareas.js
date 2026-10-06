@@ -9,13 +9,14 @@ import { puedeMarcar, FASE_IDS } from '../public/js/tareas.js';
 import { getColumnas, saveColumnas, sanitizeColumnas } from '../lib/columnas.js';
 import { getHabituales, saveHabituales, enlazar, guardarDesdeTarea, quitar, tareasDesdePlantilla } from '../lib/habituales.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
+import { embudoDe, VSL } from '../lib/embudos.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const actor = (s) => s.user?.nombre || (s.role === 'admin' ? 'Admin' : 'Setter');
 
 async function launchOf(code) {
   const config = await getConfig();
-  const launch = config.launches[code];
+  const launch = embudoDe(config, code);
   if (!launch) throw bad('Lanzamiento no encontrado', 404);
   return launch;
 }
@@ -42,6 +43,8 @@ export async function POST(request) {
     const code = String(body.l || '');
     const launch = await launchOf(code);
     const op = String(body.op || '');
+    // La VSL no tiene hitos: sus tareas no se guardan como habituales (van atadas a fechas del lanzamiento).
+    if (launch.esVsl && body.tarea) body.tarea.habitual = false;
     const tareas = await getTareas(code); // lectura fresca: cada operación modifica la última versión
     const users = await listUsers({ fresh: true });
     const habituales = await getHabituales();
@@ -140,6 +143,7 @@ export async function POST(request) {
       } else if (op === 'borrar-todas') {
         tareas.splice(0, tareas.length);
       } else if (op === 'plantilla') {
+        if (launch.esVsl) throw bad('Las tareas habituales son de los lanzamientos');
         const nuevas = tareasDesdePlantilla(habituales, launch, tareas, users);
         if (tareas.length + nuevas.length > MAX_TAREAS) throw bad(`Máximo ${MAX_TAREAS} tareas por lanzamiento`);
         for (const t of nuevas) tareas.push({ id: newId('t'), ...t, hecha: false, hechaPor: '', hechaEn: '', creadaPor: actor(s), creadaEn: now });

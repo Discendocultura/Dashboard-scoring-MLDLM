@@ -25,7 +25,7 @@ export async function GET(request) {
     const config = await getConfig();
     const formAds = config.formAds || {};
     const fields = [...new Set(Object.values(config.launches)
-      .map((l) => l.compraDateField).concat(ENCUESTA_PREGUNTAS.map((p) => p.id), formAds.campaign, formAds.adset, formAds.ad).filter(Boolean))];
+      .map((l) => l.compraDateField).concat(config.vsl?.compraDateField, config.vsl?.registroDateField, ENCUESTA_PREGUNTAS.map((p) => p.id), formAds.campaign, formAds.adset, formAds.ad).filter(Boolean))];
     const page = await contactsByTag(tag, cursor, fields);
     page.contacts = page.contacts.map((c) => aplicarCamposFormulario(c, formAds));
     return json(page);

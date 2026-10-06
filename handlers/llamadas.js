@@ -10,14 +10,17 @@ import {
 } from '../lib/ghl.js';
 import { RESULTADOS, MOTIVOS, PIPELINE_POR_DEFECTO, etapasPipeline, etapaDestino, calendarioDeUrl } from '../public/js/llamadas.js';
 import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
+import { embudoDe } from '../lib/embudos.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const DAY = 86_400_000;
 let pipeCache = null;
 
-async function pipelineLanzamientos(config) {
+// Pipeline de llamadas: el de los lanzamientos o el que tenga configurado la VSL.
+const nombrePipeline = (config, launch) => (launch?.esVsl ? launch.llamadasPipeline : config.llamadasPipeline) || PIPELINE_POR_DEFECTO;
+async function pipelineLanzamientos(config, launch) {
   if (!pipeCache || pipeCache.at < Date.now() - 10 * 60_000) pipeCache = { at: Date.now(), list: await getPipelines() };
-  const want = String(config.llamadasPipeline || PIPELINE_POR_DEFECTO).trim().toLowerCase();
+  const want = String(nombrePipeline(config, launch)).trim().toLowerCase();
   return pipeCache.list.find((p) => String(p.name).trim().toLowerCase() === want) || null;
 }
 
@@ -37,7 +40,7 @@ function permisos(e) {
 
 async function contexto(code) {
   const config = await getConfig();
-  const launch = config.launches[code];
+  const launch = embudoDe(config, code);
   if (!launch) throw bad('Lanzamiento no encontrado', 404);
   const calendarId = calendarioDeUrl(launch.llamadaUrl);
   return { config, launch, calendarId };
@@ -48,10 +51,11 @@ export async function GET(request) {
     await requireSession(request, { permiso: 'llamadas' });
     const code = new URL(request.url).searchParams.get('l') || '';
     const { config, launch, calendarId } = await contexto(code);
-    if (!calendarId) return json({ configurado: false, motivo: 'Pon en Configuración → Lanzamiento el «Enlace para reservar llamada» (el del calendario de GHL).' });
-    const pipeline = await pipelineLanzamientos(config).catch((e) => { throw permisos(e); });
+    if (!calendarId) return json({ configurado: false, motivo: launch.esVsl ? 'Pon en Configuración de la VSL → Embudo el «Enlace para reservar llamada» (el del calendario de GHL).' : 'Pon en Configuración → Lanzamiento el «Enlace para reservar llamada» (el del calendario de GHL).' });
+    const pipeline = await pipelineLanzamientos(config, launch).catch((e) => { throw permisos(e); });
     const now = Date.now();
-    const desde = launch.inicioCaptacion ? Math.min(Date.parse(`${launch.inicioCaptacion}T00:00:00Z`) - 7 * DAY, now - 7 * DAY) : now - 45 * DAY;
+    // La VSL está siempre abierta: sus últimos 60 días.
+    const desde = launch.esVsl ? now - 60 * DAY : launch.inicioCaptacion ? Math.min(Date.parse(`${launch.inicioCaptacion}T00:00:00Z`) - 7 * DAY, now - 7 * DAY) : now - 45 * DAY;
     const hasta = now + 30 * DAY;
     const [eventos, calendario, resultados] = await Promise.all([
       calendarEvents({ calendarId, startTime: desde, endTime: hasta }).catch((e) => { throw permisos(e); }),
@@ -103,7 +107,7 @@ export async function POST(request) {
       return json({ wa: resultados._wa[contactId] });
     }
     if (body.op !== 'resultado') throw bad('Operación no válida');
-    const { config } = await contexto(code);
+    const { config, launch } = await contexto(code);
     const r = RESULTADOS.find((x) => x.id === body.resultado);
     if (!r) throw bad('Resultado no válido');
     const eventId = String(body.eventId || '');
@@ -116,9 +120,9 @@ export async function POST(request) {
     const avisos = [];
 
     // 1) Pipeline: mover (o crear) la oportunidad de la persona.
-    const pipeline = await pipelineLanzamientos(config).catch((e) => { throw permisos(e); });
+    const pipeline = await pipelineLanzamientos(config, launch).catch((e) => { throw permisos(e); });
     let etapaNueva = null;
-    if (!pipeline) avisos.push(`No existe el pipeline «${config.llamadasPipeline || PIPELINE_POR_DEFECTO}» en GHL: no se ha movido la etapa.`);
+    if (!pipeline) avisos.push(`No existe el pipeline «${nombrePipeline(config, launch)}» en GHL: no se ha movido la etapa.`);
     else {
       const etapas = etapasPipeline(pipeline);
       const opp = (await searchOpportunities({ pipelineId: pipeline.id, contactId, limit: 5 }).catch((e) => { throw permisos(e); })).opportunities[0];

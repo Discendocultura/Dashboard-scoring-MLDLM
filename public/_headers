@@ -2,6 +2,10 @@
   Cache-Control: public, max-age=300
   Access-Control-Allow-Origin: *
 
+/vsl.js
+  Cache-Control: public, max-age=300
+  Access-Control-Allow-Origin: *
+
 /
   X-Frame-Options: DENY
   Referrer-Policy: same-origin

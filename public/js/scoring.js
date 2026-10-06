@@ -184,6 +184,10 @@ export const DEFAULT_TEMPLATES = {
   grabacion: 'Hola {nombre} 🌱 Soy del equipo de Me lo dijo la matrona. Ya tienes disponible la grabación de la clase en directo, te dejo aquí el enlace: {link_grabacion} ¿Me cuentas qué te parece cuando la veas?',
   raices: 'Hola {nombre} 🌱 He visto que ya has empezado a ver la grabación, ¡qué bien! Te dejo aquí toda la información de Raíces, el programa de acompañamiento para quedarte embarazada de forma natural: {link_pagina_venta} ¿Tienes alguna duda que pueda resolverte?',
   cierre: 'Hola {nombre} 🌱 ¡Gracias por quedarte hasta el final! Si sientes que Raíces es para ti, puedes unirte aquí: {link_pago} O si prefieres que lo hablemos, reserva una llamada conmigo: {link_llamada}',
+  // Embudo VSL: según lo que ha visto del vídeo.
+  vsl_novio: 'Hola {nombre} 🌱 Soy del equipo de Me lo dijo la matrona. Vi que te registraste para ver el vídeo sobre cómo quedarte embarazada de forma natural y aún no has podido verlo. Te lo dejo aquí: {link_vsl} ¿Me cuentas qué te parece?',
+  vsl_vio: 'Hola {nombre} 🌱 He visto que ya has empezado a ver el vídeo, ¡qué bien! Aquí tienes toda la información de Raíces: {link_pagina_venta} ¿Tienes alguna duda que pueda resolverte?',
+  vsl_final: 'Hola {nombre} 🌱 ¡Gracias por ver el vídeo hasta el final! Si sientes que Raíces es para ti, puedes unirte aquí: {link_pago} O si prefieres que lo hablemos, reserva una llamada de valoración: {link_llamada}',
   // Llamadas de valoración: un mensaje por fase.
   ll_proxima: 'Hola {nombre} 🌱 Soy del equipo de Me lo dijo la matrona. Te escribo para recordarte nuestra llamada de valoración el {dia_llamada} a las {hora_llamada}. Si puedes, conéctate con tu pareja 💛 ¡Hasta entonces!',
   ll_pendiente_pago: 'Hola {nombre} 🌱 ¡Qué ilusión que vayas a empezar Raíces! Te dejo el enlace para completar tu inscripción: {link_pago} Si prefieres pagarlo a plazos, aquí tienes la opción fraccionada: {link_pago_fraccionado} Cualquier duda, me dices 💛',
@@ -216,6 +220,7 @@ export function buildMessage(template, { nombre, contactId, launch, extra = {} }
     link_pago: withContactId(launch?.ventaUrl, contactId),
     link_pago_fraccionado: withContactId(launch?.ventaFraccionadoUrl, contactId),
     link_llamada: launch?.llamadaUrl || '',
+    link_vsl: withContactId(launch?.vslUrl, contactId), // embudo VSL
   };
   return String(template || '')
     .replaceAll('{nombre}', nombre || '')

@@ -207,10 +207,11 @@ test('apply-tags: la setter puede cambiar el resultado, pero no quitar otras eti
 test('meta: inversión por campaña con filtro por nombre', async () => {
   const { adSpend } = await import('../lib/meta.js');
   const all = await adSpend({ since: '2026-10-01', until: '2026-10-20' });
-  const retarg = await adSpend({ since: '2026-10-01', until: '2026-10-20', filter: 'retargeting' });
+  const retarg = await adSpend({ since: '2026-10-01', until: '2026-10-20', filter: 'webinar · retargeting' });
   assert.ok(all.total > retarg.total && retarg.total > 0);
   assert.equal(retarg.campaigns.length, 1);
-  assert.equal((await adSpend({ since: '2026-10-01', until: '2026-10-20', filter: 'FRIO' })).campaigns.length, 1); // sin tildes
+  assert.equal((await adSpend({ since: '2026-10-01', until: '2026-10-20', filter: 'webinar · FRIO' })).campaigns.length, 1); // sin tildes
+  assert.equal((await adSpend({ since: '2026-10-01', until: '2026-10-20', filter: 'vsl' })).campaigns.length, 2);
   assert.ok(all.names['331']);
 });
 
@@ -675,4 +676,68 @@ test('formularios instantáneos de Meta: el origen sale de la atribución o de l
   assert.deepEqual([deForm[0].src.campaign, deForm[0].src.term, deForm[0].src.content], ['1203', '225', '338']);
   const fields = await import('../handlers/fields.js');
   assert.equal((await (await fields.GET(req('/api/fields?tipo=texto', { cookie: admin }))).json()).fields.length, 3);
+});
+
+test('embudo VSL: configuración de serie, código reservado, tareas, vídeo, llamadas, Meta y página pública', async () => {
+  const admin = await login('admin');
+  const setter = await login('setter');
+  const config = await import('../handlers/config.js');
+  const cfg = (await (await config.GET(req('/api/config', { cookie: admin }))).json()).config;
+  assert.equal(cfg.vsl.registroTag, 'et-registro-vsl-búsqueda');
+  assert.equal(cfg.vsl.llamadasPipeline, 'Leads evergreen');
+  // Guardar la VSL (y que el resto no cambie); «vsl» no puede ser un lanzamiento
+  const conVsl = { ...cfg, vsl: { ...cfg.vsl, vslVideoUrl: 'https://vimeo.com/111', botonSegundos: '600', compraDateField: 'mockFechaCompraVsl', ventaUrl: 'https://pago.example.com/raices', precioPrograma: '997', accesos: [{ tipo: 'workflow', nombre: 'WF VSL', url: 'https://app.gohighlevel.com/x' }] } };
+  const saved = (await (await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: conVsl }))).json()).config;
+  assert.equal(saved.vsl.botonSegundos, 600);
+  assert.equal(saved.vsl.precioPrograma, 997);
+  assert.equal(saved.vsl.accesos.length, 1);
+  assert.deepEqual(Object.keys(saved.launches), Object.keys(cfg.launches));
+  assert.equal((await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...cfg, launches: { ...cfg.launches, vsl: { name: 'x' } } } }))).status, 400);
+  // El guardado de mensajes de la setter conserva la VSL
+  await config.POST(req('/api/config', { method: 'POST', cookie: setter, body: { op: 'plantillas', templates: { vsl_novio: 'Hola {nombre} {link_vsl}' } } }));
+  const tras = (await (await config.GET(req('/api/config', { cookie: admin }))).json()).config;
+  assert.equal(tras.vsl.botonSegundos, 600);
+  assert.equal(tras.templates.vsl_novio, 'Hola {nombre} {link_vsl}');
+
+  // Leads de la VSL con su fecha de compra
+  const leads = await (await (await import('../handlers/leads.js')).GET(req(`/api/leads?tag=${encodeURIComponent('et-registro-vsl-búsqueda')}`, { cookie: setter }))).json();
+  assert.equal(leads.total, 420);
+  assert.ok(leads.contacts.some((c) => c.cf.mockFechaCompraVsl));
+
+  // Tareas propias de la VSL (sin habituales)
+  const tareas = await import('../handlers/tareas.js');
+  const t = await (await tareas.POST(req('/api/tareas', { method: 'POST', cookie: admin, body: { l: 'vsl', op: 'crear', avisar: false, tarea: { titulo: 'Revisar VSL', habitual: true } } }))).json();
+  assert.equal(t.tareas.length, 1);
+  assert.ok(!t.tareas[0].habId);
+  assert.equal((await tareas.POST(req('/api/tareas', { method: 'POST', cookie: admin, body: { l: 'vsl', op: 'plantilla' } }))).status, 400);
+  assert.equal((await (await tareas.GET(req('/api/tareas?l=vsl', { cookie: setter }))).json()).tareas[0].titulo, 'Revisar VSL');
+  assert.equal((await (await tareas.GET(req('/api/tareas?l=demo', { cookie: admin }))).json()).tareas.some((x) => x.titulo === 'Revisar VSL'), false);
+
+  // Seguimiento del vídeo de la VSL
+  const track = await import('../handlers/track.js');
+  assert.equal((await track.POST(req('/api/track', { method: 'POST', body: { launch: 'vsl', video: 'vsl', pct: 50, cid: 'mockv0001' } }))).status, 200);
+  assert.ok((await (await import('../lib/mock.js')).getContact('mockv0001')).tags.includes('vsl_vsl_50'));
+  assert.equal((await track.POST(req('/api/track', { method: 'POST', body: { launch: 'vsl', video: 'clase1', pct: 50, cid: 'mockv0001' } }))).status, 400);
+
+  // Llamadas: calendario y pipeline de la VSL
+  const llamadas = await import('../handlers/llamadas.js');
+  const ll = await (await llamadas.GET(req('/api/llamadas?l=vsl', { cookie: setter }))).json();
+  assert.equal(ll.configurado, true);
+  assert.equal(ll.pipeline.name, 'Leads evergreen');
+  assert.ok(ll.llamadas.length >= 5 && ll.llamadas.every((x) => x.contactId.startsWith('mockv')));
+  const pasada = ll.llamadas.find((x) => Date.parse(x.startTime) < Date.now());
+  const r = await (await llamadas.POST(req('/api/llamadas', { method: 'POST', cookie: setter, body: { l: 'vsl', op: 'resultado', eventId: pasada.id, contactId: pasada.contactId, resultado: 'venta' } }))).json();
+  assert.ok(r.resultado.etapa.startsWith('sv'));
+
+  // Meta: inversión del rango
+  const meta = await import('../handlers/meta.js');
+  assert.equal((await meta.GET(req('/api/meta?launch=vsl&since=2026-10-10&until=2026-10-01', { cookie: admin }))).status, 400);
+
+  // Página pública de la VSL
+  const vsl = await import('../handlers/vsl.js');
+  const pub = await (await vsl.GET(req('/api/vsl?cid=mockv0002'))).json();
+  assert.equal(pub.video, 'https://vimeo.com/111');
+  assert.equal(pub.botonSegundos, 600);
+  assert.equal(pub.links.compra, 'https://pago.example.com/raices?cid=mockv0002');
+  assert.ok(pub.links.llamada.includes('6pgezBW77b9AMkJ8aqDJ'));
 });
