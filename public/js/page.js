@@ -41,7 +41,7 @@ export function googleCalendarUrl({ title, start, minutes = 180, details = '' })
 export function icsFile({ title, start, minutes = 180, url = '', uid }) {
   const esc = (t) => String(t).replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\n/g, '\\n');
   return [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Lead Scoring//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Lanzamientos MLDLM//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
     'BEGIN:VEVENT',
     `UID:${uid}`,
     `DTSTAMP:${gcalDate(Date.now())}`,
