@@ -1,0 +1,51 @@
+<!-- BLOQUE · BARRA DE URGENCIA · Página preclase · Me lo dijo la matrona
+     Barra fija arriba del todo. El texto, la cuenta atrás y el botón cambian solos en cada fase
+     y se escriben en el dashboard: Configuración → Página preclase → Barra de urgencia
+     ({cuenta} = cuenta atrás). Si una fase no tiene texto, la barra no se muestra.
+     Pégalo en un elemento "Código personalizado" (da igual dónde: se queda fija arriba). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+.mldlm-urg{
+  --mldlm-burdeos:#860d0e; --mldlm-boton:#c49b79; --mldlm-pastel:#f0e4da; --mldlm-texto:#3a2a24;
+  position:fixed; top:0; left:0; right:0; z-index:9999; box-sizing:border-box;
+  display:flex !important; align-items:center !important; justify-content:center !important; flex-wrap:wrap !important; gap:8px 14px !important;
+  min-height:56px; padding:10px 16px; padding-top:calc(10px + env(safe-area-inset-top, 0px));
+  background:linear-gradient(90deg,#740b0c 0%,var(--mldlm-burdeos) 50%,#740b0c 100%);
+  color:#ffffff; font-family:'Lato',sans-serif; font-size:14px; line-height:1.35; text-align:center;
+  box-shadow:0 4px 18px rgba(74,13,14,.28);
+  animation:mldlmUrgEntra .5s cubic-bezier(.2,.8,.2,1) both;
+}
+/* Antes de que el tracker la rellene (o si la fase no tiene texto) no se ve */
+.mldlm-urg:empty{display:none !important;}
+.mldlm-urg *{box-sizing:border-box;}
+.mldlm-urg .lsd-bar-text{display:inline-flex; align-items:center; flex-wrap:wrap; justify-content:center; gap:6px 8px; font-weight:700; letter-spacing:.01em;}
+/* Punto que late, como en el hero */
+.mldlm-urg .lsd-bar-text::before{content:""; flex:none; width:8px; height:8px; border-radius:50%; background:#ffffff; box-shadow:0 0 0 0 rgba(255,255,255,.7); animation:mldlmUrgPulso 1.6s ease-out infinite;}
+/* Cuenta atrás en una píldora */
+.mldlm-urg .lsd-cd{display:inline-block; padding:3px 10px; border-radius:999px; background:var(--mldlm-pastel); color:var(--mldlm-burdeos); font-weight:900; font-variant-numeric:tabular-nums; letter-spacing:.02em; white-space:nowrap;}
+.mldlm-urg .lsd-cd:empty{display:none;}
+/* Botón */
+.mldlm-urg .lsd-bar-btn{display:inline-flex !important; align-items:center; gap:6px; padding:7px 16px !important; border-radius:999px !important;
+  background:var(--mldlm-boton) !important; color:var(--mldlm-texto) !important; font-family:'Lato',sans-serif; font-size:13px; font-weight:900 !important;
+  text-decoration:none !important; white-space:nowrap; box-shadow:0 3px 10px rgba(0,0,0,.18); transition:background-color .2s ease,color .2s ease,transform .2s ease;}
+.mldlm-urg .lsd-bar-btn::after{content:"→"; transition:transform .2s ease;}
+.mldlm-urg .lsd-bar-btn:hover{background:#ffffff !important; color:var(--mldlm-burdeos) !important; transform:translateY(-1px);}
+.mldlm-urg .lsd-bar-btn:hover::after{transform:translateX(3px);}
+.mldlm-urg .lsd-bar-btn:focus-visible{outline:3px solid #ffffff; outline-offset:2px;}
+@keyframes mldlmUrgEntra{from{transform:translateY(-100%);} to{transform:none;}}
+@keyframes mldlmUrgPulso{0%{box-shadow:0 0 0 0 rgba(255,255,255,.7);} 100%{box-shadow:0 0 0 8px rgba(255,255,255,0);}}
+@media (max-width:480px){
+  .mldlm-urg{font-size:13px; padding:8px 12px; padding-top:calc(8px + env(safe-area-inset-top, 0px)); gap:6px 10px;}
+  .mldlm-urg .lsd-bar-btn{padding:6px 13px !important; font-size:12.5px;}
+}
+@media (min-width:768px){
+  .mldlm-urg{font-size:15px; min-height:60px;}
+}
+@media (prefers-reduced-motion:reduce){
+  .mldlm-urg,.mldlm-urg .lsd-bar-text::before{animation:none !important;}
+  .mldlm-urg .lsd-bar-btn,.mldlm-urg .lsd-bar-btn::after{transition:none !important;}
+}
+</style>
+<div class="mldlm-urg" data-lsd-bar role="region" aria-label="Aviso del lanzamiento"></div>
