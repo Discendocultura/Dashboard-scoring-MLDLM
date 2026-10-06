@@ -228,6 +228,14 @@ Marcadores para el diseño de GHL (`data-launch="auto"` = lanzamiento en curso, 
   compra** (para ajustar los pesos de la puntuación con datos reales).
 - **Comparar**: varios lanzamientos lado a lado.
 
+## Llamadas de valoración
+Pestaña **Llamadas** (admin, técnico y setter), conectada a GHL:
+- Lee las citas del calendario del «Enlace para reservar llamada» del lanzamiento y la etapa de cada persona en el pipeline **Leads Lanzamientos** (se busca por nombre; otro nombre: `llamadasPipeline` en la configuración).
+- Cada llamada muestra la ficha del lead (puntuación, VIP, directo, clases, grabación, encuesta) y se agrupa en *Pendientes de anotar*, *Hoy*, *Próximos días* y *Ya anotadas*.
+- «Anotar resultado» (Venta, Seguimiento, No compra + motivo, No se presentó, Reagendar) mueve la oportunidad de etapa (o la crea), marca la cita como realizada / no presentada / cancelada y deja una nota en la ficha del contacto. «No se presentó» avanza No contesta 1 → 2 → 3.
+- Métricas: agendadas, realizadas, asistencia, ventas y cierre en llamada, sin anotar y motivos de no compra. El resultado se guarda también en `lsd_llamadas_<código>`.
+- El token de GHL (integración privada) necesita los permisos de calendarios, eventos de calendario y oportunidades (lectura y escritura) y de notas de contactos.
+
 ## Avatar y anuncios ganadores
 Pestaña para admin y técnico con:
 - **Anuncios ganadores**: ranking (🥇🥈🥉 y tabla) de anuncios, conjuntos o campañas por ventas de Raíces que traen, con conversión, registros, VIP, facturado y, si Meta está conectado, inversión, CAC y ROAS. Se atribuye por las UTM del registro (utm_content = anuncio, utm_term = conjunto, utm_campaign = campaña).

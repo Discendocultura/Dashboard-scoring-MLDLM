@@ -524,3 +524,37 @@ test('tablero: columnas extra de la admin y mover tarjetas entre fases y columna
   assert.equal(columnaDe({ fase: 'clases', columna: 'cborrada' }, r.columnas), 'clases');
   assert.equal(columnaDe({ fase: 'clases', columna: 'cbloq01', hecha: true }, r.columnas), 'completadas');
 });
+
+test('llamadas: citas del calendario con su etapa y resultado que mueve el pipeline en GHL', async () => {
+  const admin = await login('admin');
+  const setter = await login('setter');
+  const config = await import('../handlers/config.js');
+  const cur = (await (await config.GET(req('/api/config', { cookie: admin }))).json()).config;
+  cur.launches.demo = { ...cur.launches.demo, llamadaUrl: 'https://api.leadconnectorhq.com/widget/booking/calMock' };
+  await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: cur }));
+  const ll = await import('../handlers/llamadas.js');
+  const d = await (await ll.GET(req('/api/llamadas?l=demo', { cookie: setter }))).json();
+  assert.equal(d.configurado, true);
+  assert.equal(d.pipeline.name, 'Leads Lanzamientos');
+  assert.ok(d.llamadas.length >= 10);
+  assert.equal(d.pipeline.stages.find((s) => s.name === 'Agenda llamada').total, 14);
+  const pasada = d.llamadas.find((c) => Date.parse(c.startTime) < Date.now());
+  const post = (body) => ll.POST(req('/api/llamadas', { method: 'POST', cookie: setter, body: { l: 'demo', op: 'resultado', eventId: pasada.id, contactId: pasada.contactId, nombre: pasada.title, startTime: pasada.startTime, ...body } }));
+  assert.equal((await post({ resultado: 'perdido' })).status, 400); // falta motivo
+  const r = await (await post({ resultado: 'perdido', motivo: 'Precio', notas: 'Quizá en el próximo' })).json();
+  assert.equal(r.resultado.resultado, 'perdido');
+  assert.deepEqual(r.avisos, []);
+  const mock = await import('../lib/mock.js');
+  assert.match(mock.notes.at(-1).body, /No compra · Motivo: Precio/);
+  const d2 = await (await ll.GET(req('/api/llamadas?l=demo', { cookie: setter }))).json();
+  const c2 = d2.llamadas.find((c) => c.id === pasada.id);
+  assert.equal(c2.resultado.motivo, 'Precio');
+  assert.equal(c2.status, 'showed');
+  assert.equal(d2.pipeline.stages.find((s) => s.name === 'Perdido').total, 1);
+  // No se presentó → No contesta 1, y la siguiente vez → No contesta 2
+  const otra = d2.llamadas.filter((c) => Date.parse(c.startTime) < Date.now())[1];
+  const ns = (body) => ll.POST(req('/api/llamadas', { method: 'POST', cookie: setter, body: { l: 'demo', op: 'resultado', eventId: otra.id, contactId: otra.contactId, resultado: 'noshow', ...body } }));
+  await ns(); await ns();
+  const d3 = await (await ll.GET(req('/api/llamadas?l=demo', { cookie: admin }))).json();
+  assert.equal(d3.llamadas.find((c) => c.id === otra.id).opp.pipelineStageId, 'st4');
+});

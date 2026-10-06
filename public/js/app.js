@@ -7,6 +7,7 @@ import { enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, p
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
 import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
+import { RESULTADOS, MOTIVOS, metricasLlamadas } from './llamadas.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -115,8 +116,8 @@ const puedeConfig = () => state.role === 'admin' || state.role === 'tecnico';
 // Pestañas que ve cada rol (el servidor también impide al equipo leer leads y métricas).
 const ROLE_VIEWS = {
   admin: null,
-  tecnico: ['hoy', 'leads', 'metricas', 'objetivos', 'avatar', 'tareas', 'calendario'],
-  setter: ['hoy', 'leads', 'tareas', 'calendario'],
+  tecnico: ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'tareas', 'calendario'],
+  setter: ['hoy', 'llamadas', 'leads', 'tareas', 'calendario'],
   equipo: ['tareas', 'calendario'],
 };
 const allowedViews = () => ROLE_VIEWS[state.role] || VIEWS;
@@ -136,7 +137,7 @@ async function start() {
   $('#app').hidden = false;
   $$('.view-tab').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
   const hash = window.location.hash.slice(1);
-  const wanted = ['tareas', 'calendario'].includes(hash) ? hash : ls.get('lsd_view');
+  const wanted = VIEWS.includes(hash) ? hash : ls.get('lsd_view');
   showView(allowedViews().includes(wanted) ? wanted : allowedViews().includes('leads') ? 'leads' : allowedViews()[0]);
   fillStaticSelects();
   renderLaunchSelect();
@@ -184,6 +185,7 @@ async function selectLaunch(code) {
   $('#launch-select').value = code;
   loadTareas();
   loadEventos();
+  if (state.role !== 'equipo') loadLlamadas();
   if (state.role !== 'equipo') await loadLeads();
 }
 
@@ -296,6 +298,7 @@ function render() {
   renderHoy();
   renderMetrics();
   renderSnapshotWarning();
+  if (state.llamadas?.data && state.llamadas.code === state.launchCode) renderLlamadas(); // con los datos del lead
   const rows = filtered();
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   state.page = Math.min(Math.max(0, state.page), pages - 1);
@@ -1010,9 +1013,9 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario'];
+const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
-const VIEW_ICONS = { hoy: 'sun2', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar' };
+const VIEW_ICONS = { hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar' };
 $$('.view-tab').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view])));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
 $$('[data-icon] > h2').forEach((h) => h.insertAdjacentHTML('afterbegin', `<span class="h-ico">${icon(h.parentElement.dataset.icon)}</span>`));
@@ -1023,6 +1026,7 @@ function showView(view) {
   ls.set('lsd_view', view);
   if (view === 'comparar' && state.config) renderCompareSelector();
   if (view === 'calendario' && state.config) renderCalendario();
+  if (view === 'llamadas' && state.config) { if (state.llamadas?.code !== state.launchCode) loadLlamadas(); else renderLlamadas(); }
 }
 $$('.view-tab').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
 showView(VIEWS.includes(ls.get('lsd_view')) ? ls.get('lsd_view') : 'leads');
@@ -3194,6 +3198,160 @@ $('#btn-sel-asignar').addEventListener('click', async () => {
     renderTareas();
     notice(`${n} tarea${n === 1 ? ' asignada' : 's asignadas'} a ${asignadoTexto(asignado)}.${d.aviso?.enviados ? ' Aviso enviado por email.' : ''} Si eran habituales, en los próximos lanzamientos se cargarán ya con esta asignación.`);
   } catch (ex) { notice(ex.message, true); }
+});
+
+// ---------- Llamadas de valoración ----------
+async function loadLlamadas() {
+  const code = state.launchCode;
+  if (!code) return;
+  state.llamadas = { code, loading: true };
+  if (!$('#view-llamadas').hidden) renderLlamadas();
+  try {
+    const d = await api(`/api/llamadas?l=${encodeURIComponent(code)}`);
+    if (code !== state.launchCode) return;
+    state.llamadas = { code, data: d };
+  } catch (e) {
+    if (code !== state.launchCode) return;
+    state.llamadas = { code, error: e.message };
+  }
+  renderLlamadas();
+}
+
+const llCancelada = (c) => ['cancelled', 'invalid'].includes(c.status) && c.resultado?.resultado !== 'reagendar';
+const llStart = (c) => Date.parse(c.startTime);
+const leadDe = (contactId) => state.leads.find((l) => l.id === contactId) || null;
+
+function llamadaCard(c) {
+  const ahora = Date.now();
+  const lead = leadDe(c.contactId);
+  const d = new Date(c.startTime);
+  const hoyD = today();
+  const dia = dayInMadrid(c.startTime);
+  const etapa = state.llamadas.data.pipeline?.stages.find((s) => s.id === c.opp?.pipelineStageId);
+  const r = c.resultado && RESULTADOS.find((x) => x.id === c.resultado.resultado);
+  const pasada = llStart(c) < ahora;
+  const cuando = dia === hoyD ? 'Hoy' : dia === addDays(hoyD, 1) ? 'Mañana' : dia === addDays(hoyD, -1) ? 'Ayer' : d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' });
+  const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  const chips = lead ? [
+    `<span class="ll-chip st-${lead.estado.id}" title="Puntuación del lead">${esc(lead.estado.label)} · ${lead.score} pts</span>`,
+    lead.s.vip ? '<span class="ll-chip vip">⭐ VIP</span>' : '',
+    lead.s.directo_asistio ? '<span class="ll-chip">🔴 Vio el directo</span>' : '',
+    watched(lead.s, 'clase1') || watched(lead.s, 'clase2') ? `<span class="ll-chip">🎬 Clases: ${[watched(lead.s, 'clase1') ? 1 : 0, watched(lead.s, 'clase2') ? 2 : 0].filter(Boolean).join(' y ')}</span>` : '',
+    watched(lead.s, 'replay') >= 25 ? `<span class="ll-chip">📼 Grabación ${watched(lead.s, 'replay')}%</span>` : '',
+    lead.s.encuesta ? '<span class="ll-chip">📋 Encuesta</span>' : '',
+    lead.s.compra ? '<span class="ll-chip buy">✅ Ya compró Raíces</span>' : '',
+  ].filter(Boolean).join('') : '<span class="ll-chip muted">No está entre los registros de este lanzamiento</span>';
+  const phone = lead?.phone || '';
+  const wa = lead?.phoneWa;
+  return `<article class="ll-card ${pasada && !r && !llCancelada(c) ? 'pendiente' : ''} ${r ? `res-${r.id}` : ''} ${llCancelada(c) ? 'cancelada' : ''}">
+    <div class="ll-when"><span class="ll-dia">${esc(cuando)}</span><span class="ll-hora">${esc(hora)}</span></div>
+    <div class="ll-main">
+      <div class="ll-name">${esc(lead?.name || c.title || 'Sin nombre')}
+        ${etapa ? `<span class="ll-etapa" style="--c:${esc(etapa.color || '#8a817b')}" title="Etapa en el pipeline de GHL">${esc(etapa.name)}</span>` : '<span class="ll-etapa none" title="Aún no está en el pipeline: se añadirá al anotar el resultado">Sin etapa</span>'}
+        ${llCancelada(c) ? '<span class="ll-etapa none">Cita cancelada</span>' : ''}</div>
+      <div class="ll-contact">${phone ? `<a href="tel:${esc(phone)}">${icon('phone')}${esc(phone)}</a>` : ''}${wa ? `<a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${lead?.email ? `<span class="muted">${esc(lead.email)}</span>` : ''}</div>
+      <div class="ll-chips">${chips}</div>
+      ${r ? `<div class="ll-res">${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span>${c.resultado.notas ? `<div class="ll-notas">${esc(c.resultado.notas)}</div>` : ''}</div>` : ''}
+    </div>
+    <div class="ll-actions">${llCancelada(c) ? '' : `<button type="button" class="btn ${pasada && !r ? 'primary' : ''}" data-ll="${esc(c.id)}">${r ? 'Cambiar resultado' : 'Anotar resultado'}</button>`}</div>
+  </article>`;
+}
+
+function renderLlamadas() {
+  const top = $('#llamadas-top');
+  const box = $('#llamadas-list');
+  const L = state.llamadas;
+  const badge = $('#llamadas-badge');
+  if (!L || L.code !== state.launchCode || L.loading) { top.innerHTML = '<p class="muted">Cargando llamadas de GHL…</p>'; box.innerHTML = ''; return; }
+  if (L.error) { top.innerHTML = `<div class="notice err">No se pudieron cargar las llamadas: ${esc(L.error)}</div>`; box.innerHTML = ''; badge.hidden = true; return; }
+  const d = L.data;
+  if (!d.configurado) { top.innerHTML = `<div class="card empty"><h2>Llamadas de valoración</h2><p class="muted">${esc(d.motivo)}</p></div>`; box.innerHTML = ''; badge.hidden = true; return; }
+  const ahora = Date.now();
+  const list = d.llamadas;
+  const m = metricasLlamadas(list.map((c) => ({ start: llStart(c), resultado: c.resultado, cancelada: llCancelada(c) })), ahora);
+  badge.hidden = !m.sinResultado;
+  badge.textContent = m.sinResultado;
+  badge.title = 'Llamadas ya pasadas sin resultado anotado';
+  $('#ll-fuente').innerHTML = `Calendario <strong>${esc(d.calendario.name)}</strong>${d.pipeline ? ` · pipeline <strong>${esc(d.pipeline.name)}</strong>` : ' · <span class="error">no encuentro el pipeline «Leads Lanzamientos» en GHL</span>'}`;
+  const pct = (v) => (v == null ? '–' : `${Math.round(v * 100)}%`);
+  const maxMot = m.motivos[0]?.[1] || 1;
+  top.innerHTML = `
+    <div class="kpis ll-kpis">
+      <div class="kpi static tone-info"><span class="kpi-label"><span class="kpi-ico">${icon('calendar')}</span>Agendadas</span><span class="kpi-value">${m.agendadas}</span><span class="kpi-sub">${m.proximas} próximas</span></div>
+      <div class="kpi static tone-live"><span class="kpi-label"><span class="kpi-ico">${icon('phone')}</span>Realizadas</span><span class="kpi-value">${m.realizadas}</span><span class="kpi-sub">asistencia ${pct(m.asistencia)} · ${m.noshow} no se presentaron</span></div>
+      <div class="kpi static tone-buy"><span class="kpi-label"><span class="kpi-ico">${icon('cart')}</span>Ventas en llamada</span><span class="kpi-value">${m.ventas}</span><span class="kpi-sub">cierre ${pct(m.cierre)} · ${m.seguimiento} en seguimiento</span></div>
+      <div class="kpi static ${m.sinResultado ? 'tone-accent' : ''}"><span class="kpi-label"><span class="kpi-ico">${icon('alert')}</span>Sin anotar</span><span class="kpi-value">${m.sinResultado}</span><span class="kpi-sub">llamadas pasadas sin resultado</span></div>
+    </div>
+    ${d.pipeline ? `<div class="card ll-pipe"><h3>Pipeline · ${esc(d.pipeline.name)}</h3><div class="ll-stages">${d.pipeline.stages.map((s) => `<span class="ll-stage" style="--c:${esc(s.color || '#8a817b')}"><i></i>${esc(s.name)} <strong>${s.total}</strong></span>`).join('')}</div></div>` : ''}
+    ${m.motivos.length ? `<div class="card ll-motivos"><h3>Por qué no compran</h3>${m.motivos.map(([k, v]) => `<div class="ll-mot"><span>${esc(k)}</span><div class="gan-bar"><span style="width:${(v / maxMot) * 100}%;background:var(--error)"></span><b>${v}</b></div></div>`).join('')}</div>` : ''}`;
+  const hoyD = today();
+  const pendientes = list.filter((c) => llStart(c) < ahora && !c.resultado && !llCancelada(c)).reverse();
+  const deHoy = list.filter((c) => dayInMadrid(c.startTime) === hoyD && llStart(c) >= ahora);
+  const proximas = list.filter((c) => llStart(c) >= ahora && dayInMadrid(c.startTime) !== hoyD);
+  const anotadas = list.filter((c) => llStart(c) < ahora && (c.resultado || llCancelada(c))).reverse();
+  const sec = (titulo, items, cls = '', vacio = '') => (items.length || vacio ? `<section class="ll-sec ${cls}"><h3>${titulo} <span class="muted">${items.length}</span></h3>${items.map(llamadaCard).join('') || `<p class="muted">${vacio}</p>`}</section>` : '');
+  box.innerHTML = list.length ? `
+    ${sec('⚠️ Pendientes de anotar', pendientes, 'warn')}
+    ${sec('📞 Hoy', deHoy, '', 'No hay más llamadas hoy.')}
+    ${sec('🗓️ Próximos días', proximas)}
+    ${anotadas.length ? `<details class="ll-sec ll-done"><summary><h3>✅ Ya anotadas <span class="muted">${anotadas.length}</span></h3></summary>${anotadas.map(llamadaCard).join('')}</details>` : ''}`
+    : '<div class="card empty"><p class="muted">Todavía no hay llamadas agendadas en el calendario para este lanzamiento.</p></div>';
+}
+
+// Diálogo para anotar el resultado
+const lldlg = $('#llamada-dialog');
+let llActual = null;
+$('#ll-motivo').innerHTML = MOTIVOS.map((x) => `<option>${esc(x)}</option>`).join('');
+const LL_EXPLICA = {
+  venta: 'La cita se marca como realizada y la oportunidad pasa a «Venta» (ganada) en el pipeline.',
+  seguimiento: 'La cita se marca como realizada y la oportunidad pasa a «Seguimiento».',
+  perdido: 'La cita se marca como realizada y la oportunidad pasa a «Perdido» con el motivo.',
+  noshow: 'La cita se marca como «no se presentó» y la oportunidad avanza a «No contesta 1» (o al siguiente).',
+  reagendar: 'La cita se cancela y la oportunidad vuelve a «Agenda llamada» para que reserve otra vez.',
+};
+function syncLlDialog() {
+  const v = $('#ll-resultados input:checked')?.value;
+  $('#ll-motivo-field').hidden = v !== 'perdido';
+  $('#ll-explica').textContent = LL_EXPLICA[v] || '';
+}
+function openLlamada(id) {
+  const c = state.llamadas.data.llamadas.find((x) => x.id === id);
+  if (!c) return;
+  llActual = c;
+  const lead = leadDe(c.contactId);
+  $('#ll-titulo').textContent = lead?.name || c.title || 'Llamada';
+  $('#ll-sub').textContent = new Date(c.startTime).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  const actual = c.resultado?.resultado || (llStart(c) > Date.now() ? '' : 'venta');
+  $('#ll-resultados').innerHTML = RESULTADOS.map((r) => `<label class="ll-opt ll-${r.id}"><input type="radio" name="ll-res" value="${r.id}" ${r.id === actual ? 'checked' : ''}><span>${r.icon} ${esc(r.label)}</span></label>`).join('');
+  $('#ll-motivo').value = c.resultado?.motivo && MOTIVOS.includes(c.resultado.motivo) ? c.resultado.motivo : MOTIVOS[0];
+  $('#ll-notas').value = c.resultado?.notas || '';
+  $('#ll-status').textContent = '';
+  syncLlDialog();
+  lldlg.showModal();
+}
+$('#ll-resultados').addEventListener('change', syncLlDialog);
+$('#llamadas-list').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ll]');
+  if (b) openLlamada(b.dataset.ll);
+});
+$('#btn-ll-reload').addEventListener('click', loadLlamadas);
+$('#ll-save').addEventListener('click', async () => {
+  const resultado = $('#ll-resultados input:checked')?.value;
+  if (!resultado) { $('#ll-status').textContent = 'Elige un resultado.'; return; }
+  const btn = $('#ll-save');
+  btn.disabled = true;
+  $('#ll-status').textContent = 'Guardando en GHL…';
+  try {
+    const c = llActual;
+    const r = await api('/api/llamadas', { method: 'POST', body: { l: state.llamadas.code, op: 'resultado', eventId: c.id, contactId: c.contactId, nombre: leadDe(c.contactId)?.name || c.title, startTime: c.startTime, resultado, motivo: resultado === 'perdido' ? $('#ll-motivo').value : '', notas: $('#ll-notas').value } });
+    lldlg.close();
+    notice(r.avisos?.length ? `Resultado guardado, pero: ${r.avisos.join(' ')}` : 'Resultado guardado: pipeline, cita y nota actualizados en GHL.', Boolean(r.avisos?.length));
+    await loadLlamadas();
+  } catch (ex) {
+    $('#ll-status').textContent = ex.message;
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 // ---------- Inicio ----------

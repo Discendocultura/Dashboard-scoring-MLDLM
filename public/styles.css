@@ -936,3 +936,55 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 }
 .kb-titulo.t-open { display: block; cursor: pointer; }
 .kb-card[draggable="true"] { -webkit-user-drag: element; }
+
+/* ---------- Llamadas de valoración ---------- */
+.ll-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.ll-toolbar p { margin: 0; }
+.ll-kpis { margin-bottom: 12px; }
+.ll-pipe, .ll-motivos { padding: 12px 16px; margin-bottom: 12px; }
+.ll-pipe h3, .ll-motivos h3 { margin: 0 0 8px; font-size: 14px; }
+.ll-stages { display: flex; flex-wrap: wrap; gap: 6px; }
+.ll-stage { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); }
+.ll-stage i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.ll-stage strong { font-variant-numeric: tabular-nums; }
+.ll-mot { display: grid; grid-template-columns: minmax(140px, 260px) 1fr; gap: 10px; align-items: center; font-size: 13px; margin: 4px 0; }
+.ll-sec { margin: 14px 0; }
+.ll-sec h3 { font-size: 15px; margin: 0 0 8px; }
+.ll-sec.warn h3 { color: var(--error); }
+.ll-done > summary { list-style: none; cursor: pointer; }
+.ll-done > summary::-webkit-details-marker { display: none; }
+.ll-card { display: flex; gap: 14px; align-items: flex-start; padding: 12px 14px; margin-bottom: 8px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow); }
+.ll-card.pendiente { border-left: 4px solid var(--error); }
+.ll-card.res-venta { border-left: 4px solid var(--tone-buy); }
+.ll-card.res-perdido { border-left: 4px solid var(--muted); }
+.ll-card.res-seguimiento { border-left: 4px solid var(--tone-live); }
+.ll-card.cancelada { opacity: .6; }
+.ll-when { flex: none; width: 74px; text-align: center; padding: 6px 0; border-radius: 10px; background: var(--surface-2); display: flex; flex-direction: column; }
+.ll-dia { font-size: 12px; font-weight: 700; color: var(--text-2); text-transform: capitalize; }
+.ll-hora { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ll-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.ll-name { font-weight: 800; font-size: 15px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ll-etapa { font-size: 11.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; color: #fff; background: var(--c); }
+.ll-etapa.none { background: var(--surface-2); color: var(--text-2); }
+.ll-contact { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; }
+.ll-contact a { display: inline-flex; align-items: center; gap: 4px; color: var(--tone-info); text-decoration: none; font-weight: 600; }
+.ll-contact .ico { width: 14px; height: 14px; }
+.ll-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.ll-chip { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); }
+.ll-chip.vip { background: color-mix(in srgb, var(--tone-vip) 15%, var(--surface)); color: var(--tone-vip); }
+.ll-chip.buy { background: var(--chip-on-bg); color: var(--chip-on-ink); }
+.ll-chip[class*="st-"] { color: var(--st); background: color-mix(in srgb, var(--st) 12%, var(--surface)); }
+.ll-res { font-size: 13px; padding: 6px 10px; border-radius: 8px; background: var(--surface-2); }
+.ll-notas { margin-top: 4px; white-space: pre-wrap; color: var(--text-2); }
+.ll-actions { flex: none; }
+.ll-resultados { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.ll-opt { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); cursor: pointer; font-weight: 700; }
+.ll-opt:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.ll-explica { font-size: 12.5px; margin: 0; }
+@media (max-width: 640px) {
+  .ll-card { flex-wrap: wrap; }
+  .ll-actions { width: 100%; }
+  .ll-actions .btn { width: 100%; }
+  .ll-mot { grid-template-columns: 1fr; gap: 2px; }
+}
+.ll-opt span { display: inline-flex; align-items: center; gap: 6px; }

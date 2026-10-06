@@ -55,6 +55,7 @@
         <div id="avisos-equipo" class="avisos-equipo admin-only" hidden></div>
         <nav class="views" role="tablist">
           <button type="button" class="view-tab" data-view="hoy">Setteo hoy</button>
+          <button type="button" class="view-tab" data-view="llamadas">Llamadas <span id="llamadas-badge" class="tab-count" hidden></span></button>
           <button type="button" class="view-tab active" data-view="leads">Leads</button>
           <button type="button" class="view-tab" data-view="metricas">Métricas</button>
           <button type="button" class="view-tab" data-view="objetivos">Objetivos</button>
@@ -124,6 +125,16 @@
             <button type="button" class="btn" id="btn-sel-salir">Hecho</button>
           </div>
           <div id="tareas-list"></div>
+        </section>
+
+        <section id="view-llamadas" hidden>
+          <div class="ll-toolbar">
+            <p class="muted" id="ll-fuente"></p>
+            <span class="spacer"></span>
+            <button type="button" class="btn" id="btn-ll-reload">Actualizar llamadas</button>
+          </div>
+          <div id="llamadas-top"></div>
+          <div id="llamadas-list"></div>
         </section>
 
         <section id="view-hoy" hidden>
@@ -702,6 +713,26 @@
         <span class="spacer"></span>
         <button class="btn" value="cancel" formnovalidate type="submit">Cancelar</button>
         <button id="col-save" class="btn primary" type="button">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Resultado de una llamada -->
+  <dialog id="llamada-dialog" class="dialog dialog-sm">
+    <form method="dialog">
+      <header class="dialog-head"><h2 id="ll-titulo">Resultado de la llamada</h2></header>
+      <div class="dialog-body">
+        <p id="ll-sub" class="muted"></p>
+        <div id="ll-resultados" class="ll-resultados" role="radiogroup" aria-label="Resultado"></div>
+        <label class="field" id="ll-motivo-field" hidden><span>¿Por qué no compra?</span><select id="ll-motivo"></select></label>
+        <label class="field"><span>Notas <small>(se guardan también en la ficha del contacto en GHL)</small></span><textarea id="ll-notas" rows="3" maxlength="2000" placeholder="Qué le preocupa, cuándo volver a llamar, si lo hablará con su pareja…"></textarea></label>
+        <p class="muted ll-explica" id="ll-explica"></p>
+      </div>
+      <footer class="dialog-foot">
+        <span id="ll-status" class="muted"></span>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate type="submit">Cancelar</button>
+        <button id="ll-save" class="btn primary" type="button">Guardar resultado</button>
       </footer>
     </form>
   </dialog>
