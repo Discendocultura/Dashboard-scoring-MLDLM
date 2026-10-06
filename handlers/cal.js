@@ -6,6 +6,7 @@ import { getConfig } from '../lib/config-store.js';
 import { getEventos } from '../lib/eventos.js';
 import { getTareas } from '../lib/tareas.js';
 import { findUser } from '../lib/users.js';
+import { clienteActual } from '../lib/cliente.js';
 import { hitosLanzamiento, icsCalendar, EVENTO_TIPOS } from '../public/js/calendario.js';
 import { esMia, addDays } from '../public/js/tareas.js';
 import { dayInMadrid } from '../public/js/scoring.js';
@@ -29,7 +30,8 @@ export async function GET(request) {
     if (!token) {
       const s = await requireSession(request);
       const t = await signToken(`cal:${s.uid || s.role}`);
-      const feed = `${url.origin}/api/cal?t=${encodeURIComponent(t)}`;
+      const c = clienteActual();
+      const feed = `${url.origin}/api/cal?t=${encodeURIComponent(t)}${c.principal ? '' : `&c=${encodeURIComponent(c.id)}`}`;
       return json({ url: feed, webcal: feed.replace(/^https?:/, 'webcal:') });
     }
     const who = (await verifyToken(token))?.match(/^cal:(.+)$/)?.[1];
@@ -38,7 +40,7 @@ export async function GET(request) {
     if (who === 'admin' || who === 'setter') sess = { role: who, uid: '' };
     else {
       const u = await findUser(who);
-      if (!u || u.activo === false) return new Response('Usuario desactivado', { status: 403 });
+      if (!u || u.activo === false || !u.rol) return new Response('Usuario desactivado o sin acceso a este cliente', { status: 403 });
       sess = { role: u.rol, uid: u.id };
     }
     const config = await getConfig();
@@ -46,18 +48,18 @@ export async function GET(request) {
     for (const { code, l } of relevantes(config)) {
       const [eventos, tareas] = await Promise.all([getEventos(code), getTareas(code)]);
       const tag = ` · ${l.name}`;
-      for (const h of hitosLanzamiento(l)) items.push({ uid: `${code}-${h.id}@mldlm`, titulo: `${h.icon} ${h.titulo}${tag}`, day: h.day, time: h.time, minutos: h.minutos });
+      for (const h of hitosLanzamiento(l)) items.push({ uid: `${code}-${h.id}@${clienteActual().id}`, titulo: `${h.icon} ${h.titulo}${tag}`, day: h.day, time: h.time, minutos: h.minutos });
       for (const e of eventos) {
         const tipo = EVENTO_TIPOS.find((t) => t.id === e.tipo);
-        items.push({ uid: `${code}-${e.id}@mldlm`, titulo: `${tipo?.icon || '📌'} ${e.titulo}${tag}`, day: e.fecha, fin: e.fin, time: e.hora, minutos: 60, notas: e.notas });
+        items.push({ uid: `${code}-${e.id}@${clienteActual().id}`, titulo: `${tipo?.icon || '📌'} ${e.titulo}${tag}`, day: e.fecha, fin: e.fin, time: e.hora, minutos: 60, notas: e.notas });
       }
       for (const t of tareas) {
         if (!t.fecha || (sess.role !== 'admin' && !esMia(t, sess))) continue;
-        items.push({ uid: `${code}-${t.id}@mldlm`, titulo: `${t.hecha ? '✅' : '☐'} ${t.titulo}${tag}`, day: t.fecha, notas: [richToText(t.notas), `Márcala en ${url.origin}/#tareas`].filter(Boolean).join('\n\n') });
+        items.push({ uid: `${code}-${t.id}@${clienteActual().id}`, titulo: `${t.hecha ? '✅' : '☐'} ${t.titulo}${tag}`, day: t.fecha, notas: [richToText(t.notas), `Márcala en ${url.origin}/#tareas`].filter(Boolean).join('\n\n') });
       }
     }
-    return new Response(icsCalendar('Lanzamientos MLDLM', items), {
-      headers: { 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'no-store', 'content-disposition': 'inline; filename="lanzamientos-mldlm.ics"' },
+    return new Response(icsCalendar(`Lanzamientos · ${clienteActual().nombre}`, items), {
+      headers: { 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'no-store', 'content-disposition': `inline; filename="lanzamientos-${clienteActual().id}.ics"` },
     });
   } catch (e) {
     return errorResponse(e);

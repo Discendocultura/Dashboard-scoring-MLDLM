@@ -4,20 +4,36 @@ import {
   listUsers, saveUsers, hashPassword, checkPassword, generatePassword, newId, normEmail, publicUser, sendAccessEmail, FOTO_RE, FOTO_MAX, fotoKey,
 } from '../lib/users.js';
 import { saveCustomValue } from '../lib/ghl.js';
+import { clienteActual, enPrincipal } from '../lib/cliente.js';
+import { listClientes } from '../lib/clientes.js';
 import { json, readBody, errorResponse, isEmail } from '../lib/http.js';
 import { rolExiste } from '../lib/roles.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
-const dashboardUrl = (request) => `${new URL(request.url).origin}/`;
+// Enlace al dashboard ya en este cliente (los que no son el principal llevan ?c=).
+export const dashboardUrl = (request, hash = '') => {
+  const c = clienteActual();
+  return `${new URL(request.url).origin}/${c.principal ? '' : `?c=${encodeURIComponent(c.id)}`}${hash}`;
+};
 
+// Equipo de este cliente (quien tiene acceso). El superadmin recibe además a todo el mundo y la
+// lista de clientes, para dar accesos a varios clientes a la vez.
 export async function GET(request) {
   try {
-    await requireSession(request, { admin: true });
-    return json({ users: (await listUsers({ fresh: true })).map(publicUser) });
+    const s = await requireSession(request, { admin: true });
+    const users = await listUsers({ fresh: true });
+    return json({
+      users: users.filter((u) => u.rol).map(publicUser),
+      ...(s.superadmin ? { todos: users.map(publicUser), clientes: (await listClientes()).map((c) => ({ id: c.id, nombre: c.nombre })) } : {}),
+    });
   } catch (e) {
     return errorResponse(e);
   }
 }
+
+// ¿Puede la admin de este cliente tocar la cuenta (contraseña, activar, borrar) de esta persona?
+// Solo si la persona no trabaja en otros clientes (si no, lo hace el superadmin).
+const soloAqui = (u, cid) => !u.superadmin && Object.keys(u.accesos || {}).every((k) => k === cid);
 
 // Envía el email de acceso; si falla, el usuario se guarda igual y se devuelve la contraseña para darla a mano.
 async function deliver(user, password, request, nuevo) {
@@ -71,7 +87,7 @@ export async function POST(request) {
       const me = users.find((u) => u.id === s.uid);
       if (!me) throw bad('Usuario no encontrado', 404);
       if (foto) {
-        await saveCustomValue(fotoKey(me.id), foto);
+        await enPrincipal(() => saveCustomValue(fotoKey(me.id), foto));
         me.foto = Date.now().toString(36); // versión: cambia la URL para que no se vea la foto vieja
       } else {
         me.foto = null;
@@ -81,11 +97,15 @@ export async function POST(request) {
     }
 
     const s = await requireSession(request, { admin: true });
+    const cid = clienteActual().id;
     const users = await listUsers({ fresh: true });
     const find = () => {
       const u = users.find((x) => x.id === body.id);
       if (!u) throw bad('Usuario no encontrado', 404);
       return u;
+    };
+    const puedeCuenta = (u) => {
+      if (!s.superadmin && !soloAqui(u, cid)) throw bad('Esta persona trabaja también en otros clientes: su cuenta la gestiona el superadmin', 403);
     };
 
     if (op === 'crear') {
@@ -94,10 +114,17 @@ export async function POST(request) {
       const rol = (await rolExiste(body.rol)) ? body.rol : 'setter';
       if (!nombre) throw bad('Falta el nombre');
       if (!isEmail(email)) throw bad('El email no es válido');
-      if (users.some((u) => u.email === email)) throw bad('Ya hay un usuario con ese email');
-      if (users.length >= 50) throw bad('Máximo 50 usuarios');
+      const existe = users.find((u) => u.email === email);
+      if (existe) {
+        // Ya tiene usuario (p. ej. alguien de la agencia): solo se le da acceso a este cliente.
+        if (existe.rol) throw bad('Ya hay un usuario con ese email en el equipo');
+        existe.accesos = { ...(existe.accesos || {}), [cid]: rol };
+        await saveUsers(users);
+        return json({ user: publicUser({ ...existe, rol }), anadido: true });
+      }
+      if (users.length >= 200) throw bad('Máximo 200 usuarios');
       const password = generatePassword();
-      const user = { id: newId('u'), nombre, email, rol, activo: true, ...(await hashPassword(password)), createdAt: new Date().toISOString(), creadoPor: s.user?.nombre || s.role };
+      const user = { id: newId('u'), nombre, email, accesos: { [cid]: rol }, rol, activo: true, ...(await hashPassword(password)), createdAt: new Date().toISOString(), creadoPor: s.user?.nombre || s.role, _cid: cid };
       users.push(user);
       await saveUsers(users); // primero se guarda: si el email falla, el usuario ya existe
       const sent = body.enviar === false ? { emailEnviado: false } : await deliver(user, password, request, true);
@@ -107,6 +134,7 @@ export async function POST(request) {
 
     if (op === 'regenerar') {
       const user = find();
+      puedeCuenta(user);
       const password = generatePassword();
       Object.assign(user, await hashPassword(password));
       await saveUsers(users);
@@ -120,10 +148,13 @@ export async function POST(request) {
       if (body.nombre != null) user.nombre = String(body.nombre).trim().slice(0, 80) || user.nombre;
       if (body.rol != null && (await rolExiste(body.rol))) {
         if (user.id === s.uid && body.rol !== 'admin') throw bad('No puedes quitarte a ti misma el rol de admin');
+        if (user.superadmin) throw bad('El superadmin es admin en todos los clientes');
+        user.accesos = { ...(user.accesos || {}), [cid]: body.rol };
         user.rol = body.rol;
       }
       if (typeof body.activo === 'boolean') {
         if (user.id === s.uid && !body.activo) throw bad('No puedes desactivar tu propio usuario');
+        puedeCuenta(user);
         user.activo = body.activo;
       }
       await saveUsers(users);
@@ -133,8 +164,32 @@ export async function POST(request) {
     if (op === 'borrar') {
       const user = find();
       if (user.id === s.uid) throw bad('No puedes borrar tu propio usuario');
+      if (user.superadmin && !s.superadmin) throw bad('Al superadmin solo lo puede quitar otro superadmin', 403);
+      // Si trabaja en otros clientes, solo se le quita de este; si no, se borra su usuario.
+      const otros = Object.keys(user.accesos || {}).filter((k) => k !== cid);
+      if (otros.length || user.superadmin) {
+        delete user.accesos[cid];
+        await saveUsers(users);
+        return json({ ok: true, quitadoDeCliente: true });
+      }
       await saveUsers(users.filter((u) => u.id !== user.id));
       return json({ ok: true });
+    }
+
+    // Superadmin: accesos de una persona a todos los clientes ({ cliente: rol | '' }) y si es superadmin.
+    if (op === 'accesos') {
+      if (!s.superadmin) throw bad('Solo el superadmin puede dar acceso a otros clientes', 403);
+      const user = find();
+      const validos = new Set((await listClientes()).map((c) => c.id));
+      const accesos = {};
+      for (const [k, v] of Object.entries(body.accesos || {})) if (validos.has(k) && /^[a-z][a-z0-9-]{1,23}$/.test(String(v || ''))) accesos[k] = String(v);
+      user.accesos = accesos;
+      if (typeof body.superadmin === 'boolean') {
+        if (user.id === s.uid && !body.superadmin) throw bad('No puedes quitarte a ti mismo el superadmin');
+        user.superadmin = body.superadmin;
+      }
+      await saveUsers(users);
+      return json({ user: publicUser({ ...user, rol: undefined }) });
     }
 
     throw bad('Operación no válida');

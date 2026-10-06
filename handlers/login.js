@@ -19,7 +19,8 @@ export async function POST(request) {
       if (user.activo === false) return json({ error: 'Tu usuario está desactivado: habla con la administradora' }, 403);
       user.lastLogin = new Date().toISOString();
       await saveUsers(users).catch(() => {}); // no impedimos el acceso si falla este guardado
-      return json({ role: user.rol, user: publicUser(user) }, 200, { 'set-cookie': await sessionCookie(user.rol, user.id) });
+      // El rol de la cookie no cuenta para los usuarios con email (se lee del usuario en cada petición).
+      return json({ role: user.rol, user: publicUser(user) }, 200, { 'set-cookie': await sessionCookie(user.rol || 'usuario', user.id) });
     }
     // Contraseña general (admin / setter) de las variables de Cloudflare.
     if (!(env.ADMIN_PASSWORD || '').trim() && !(env.SETTER_PASSWORD || '').trim()) {

@@ -10,6 +10,7 @@ import { getColumnas, saveColumnas, sanitizeColumnas } from '../lib/columnas.js'
 import { getHabituales, saveHabituales, enlazar, guardarDesdeTarea, quitar, tareasDesdePlantilla } from '../lib/habituales.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { embudoDe, VSL } from '../lib/embudos.js';
+import { dashboardUrl as urlDashboard } from './usuarios.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const actor = (s) => s.user?.nombre || (s.role === 'admin' ? 'Admin' : 'Setter');
@@ -22,7 +23,7 @@ async function launchOf(code) {
 }
 
 // Lista mínima de personas para mostrar y asignar (sin emails para el rol equipo).
-const team = (users, s) => users.filter((u) => u.activo !== false).map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol, foto: u.foto || null, ...(tienePermiso(s, 'tareas_gestion') ? { email: u.email } : {}) }));
+const team = (users, s) => users.filter((u) => u.activo !== false && u.rol).map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol, foto: u.foto || null, ...(tienePermiso(s, 'tareas_gestion') ? { email: u.email } : {}) }));
 
 export async function GET(request) {
   try {
@@ -56,7 +57,7 @@ export async function POST(request) {
       if (!t) throw bad('Esa tarea ya no existe (¿la ha borrado alguien?)', 404);
       return t;
     };
-    const dashboardUrl = `${new URL(request.url).origin}/#tareas`;
+    const dashboardUrl = urlDashboard(request, '#tareas');
     let nuevasAsignadas = [];
     let comentario = null;
     let comentada = null;
@@ -80,7 +81,7 @@ export async function POST(request) {
       const t = find();
       const texto = String(body.texto ?? '').replace(/\r/g, '').trim().slice(0, MAX_COMENTARIO);
       if (!texto) throw bad('El comentario está vacío');
-      comentario = { id: newId('c'), uid: s.uid || '', nombre: actor(s), texto, en: now, menciones: mencionesDe(texto, users) };
+      comentario = { id: newId('c'), uid: s.uid || '', nombre: actor(s), texto, en: now, menciones: mencionesDe(texto, users.filter((u) => u.rol)) };
       t.comentarios = [...(Array.isArray(t.comentarios) ? t.comentarios : []), comentario].slice(-MAX_COMENTARIOS);
       comentada = t;
     } else if (op === 'borrar-comentario') {

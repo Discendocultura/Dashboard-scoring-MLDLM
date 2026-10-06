@@ -11,17 +11,18 @@ import {
 import { RESULTADOS, MOTIVOS, PIPELINE_POR_DEFECTO, etapasPipeline, etapaDestino, calendarioDeUrl } from '../public/js/llamadas.js';
 import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
 import { embudoDe } from '../lib/embudos.js';
+import { cachePorCliente } from '../lib/cliente.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const DAY = 86_400_000;
-let pipeCache = null;
+const pipeCache = cachePorCliente();
 
 // Pipeline de llamadas: el de los lanzamientos o el que tenga configurado la VSL.
 const nombrePipeline = (config, launch) => (launch?.esVsl ? launch.llamadasPipeline : config.llamadasPipeline) || PIPELINE_POR_DEFECTO;
 async function pipelineLanzamientos(config, launch) {
-  if (!pipeCache || pipeCache.at < Date.now() - 10 * 60_000) pipeCache = { at: Date.now(), list: await getPipelines() };
+  if (!pipeCache.get() || pipeCache.get().at < Date.now() - 10 * 60_000) pipeCache.set({ at: Date.now(), list: await getPipelines() });
   const want = String(nombrePipeline(config, launch)).trim().toLowerCase();
-  return pipeCache.list.find((p) => String(p.name).trim().toLowerCase() === want) || null;
+  return pipeCache.get().list.find((p) => String(p.name).trim().toLowerCase() === want) || null;
 }
 
 const storeName = (code) => `lsd_llamadas_${code}`;

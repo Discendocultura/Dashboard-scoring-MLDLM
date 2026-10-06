@@ -18,6 +18,9 @@
   'use strict';
   var script = document.currentScript;
   var API = script ? new URL(script.src).origin : '';
+  // Cliente del dashboard (varios clientes): viene en el src del script, p. ej. tracker.js?c=clinica-sol.
+  var CLIENTE = script ? new URL(script.src).searchParams.get('c') || '' : '';
+  function conCliente(path) { return CLIENTE ? path + (path.indexOf('?') >= 0 ? '&' : '?') + 'c=' + encodeURIComponent(CLIENTE) : path; }
   var STORE = 'lsd_identity';
   var params = new URLSearchParams(location.search);
   var THRESHOLDS = [25, 50, 75, 90];
@@ -50,8 +53,8 @@
 
   function post(path, data) {
     var body = JSON.stringify(data);
-    if (navigator.sendBeacon && navigator.sendBeacon(API + path, new Blob([body], { type: 'text/plain' }))) return;
-    fetch(API + path, { method: 'POST', body: body, keepalive: true }).catch(function () {});
+    if (navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) return;
+    fetch(API + conCliente(path), { method: 'POST', body: body, keepalive: true }).catch(function () {});
   }
 
   function embedSrc(url) {
@@ -174,7 +177,7 @@
     var who = identity();
     var q = new URLSearchParams();
     if (who && who.cid) q.set('cid', who.cid);
-    fetch(API + '/api/vsl?' + q.toString()).then(function (r) { return r.json(); }).then(function (data) {
+    fetch(API + conCliente('/api/vsl?' + q.toString())).then(function (r) { return r.json(); }).then(function (data) {
       if (!data || data.error) return;
       vslEls.forEach(function (el) { vsl(el, data, who); });
       embedEls.forEach(function (el) {

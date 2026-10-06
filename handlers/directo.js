@@ -10,6 +10,7 @@ import { turnstileSiteKey, verifyTurnstile } from '../lib/turnstile.js';
 import { getConfig } from '../lib/config-store.js';
 import { addRegistrant, zoomConfigured } from '../lib/zoom.js';
 import { html, escapeHtml, isEmail } from '../lib/http.js';
+import { clienteActual } from '../lib/cliente.js';
 import { tagFor } from '../public/js/scoring.js';
 import { currentLaunch } from '../lib/digest.js';
 
@@ -31,6 +32,7 @@ function emailForm(launchCode, error = '') {
     ${error ? `<p class="err">${escapeHtml(error)}</p>` : ''}
     <form method="get">
       <input type="hidden" name="l" value="${escapeHtml(launchCode)}">
+      ${clienteActual().principal ? '' : `<input type="hidden" name="c" value="${escapeHtml(clienteActual().id)}">`}
       <input type="email" name="email" required placeholder="tu@email.com" autocomplete="email">
       <button type="submit">Entrar al directo</button>
     </form>`);
@@ -43,6 +45,7 @@ function signupForm(launchCode, email, error = '') {
     ${error ? `<p class="err">${escapeHtml(error)}</p>` : ''}
     <form method="get">
       <input type="hidden" name="l" value="${escapeHtml(launchCode)}">
+      ${clienteActual().principal ? '' : `<input type="hidden" name="c" value="${escapeHtml(clienteActual().id)}">`}
       <input type="email" name="email" required value="${escapeHtml(email)}" autocomplete="email">
       <input type="text" name="nombre" required placeholder="Tu nombre" autocomplete="name">
       <input type="tel" name="telefono" required placeholder="Tu móvil (WhatsApp)" autocomplete="tel">

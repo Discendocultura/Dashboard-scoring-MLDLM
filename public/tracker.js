@@ -25,6 +25,9 @@
   'use strict';
   var script = document.currentScript;
   var API = script ? new URL(script.src).origin : '';
+  // Cliente del dashboard (varios clientes): viene en el src del script, p. ej. tracker.js?c=clinica-sol.
+  var CLIENTE = script ? new URL(script.src).searchParams.get('c') || '' : '';
+  function conCliente(path) { return CLIENTE ? path + (path.indexOf('?') >= 0 ? '&' : '?') + 'c=' + encodeURIComponent(CLIENTE) : path; }
   var STORE = 'lsd_identity';
   var params = new URLSearchParams(location.search);
 
@@ -66,10 +69,10 @@
   function post(path, payload) {
     var body = JSON.stringify(payload);
     // text/plain evita la petición previa CORS; el servidor lo interpreta como JSON.
-    if (path === '/api/track' && navigator.sendBeacon && navigator.sendBeacon(API + path, new Blob([body], { type: 'text/plain' }))) {
+    if (path === '/api/track' && navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) {
       return Promise.resolve({ ok: true });
     }
-    return fetch(API + path, { method: 'POST', body: body, headers: { 'content-type': 'text/plain' }, keepalive: true })
+    return fetch(API + conCliente(path), { method: 'POST', body: body, headers: { 'content-type': 'text/plain' }, keepalive: true })
       .then(function (r) { return r.json(); });
   }
 
@@ -290,7 +293,7 @@
     var q = new URLSearchParams({ l: launch || 'auto' });
     if (who && who.cid) q.set('cid', who.cid);
     if (params.get('lsd_preview')) q.set('preview', params.get('lsd_preview'));
-    return fetch(API + '/api/page?' + q.toString()).then(function (r) { return r.json(); }).then(function (d) {
+    return fetch(API + conCliente('/api/page?' + q.toString())).then(function (r) { return r.json(); }).then(function (d) {
       if (d && d.now) clockSkew = d.now - Date.now();
       return d;
     });

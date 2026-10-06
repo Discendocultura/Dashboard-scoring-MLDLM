@@ -4,6 +4,7 @@
 // desbloqueados), los enlaces y los textos con fechas. Con `cid` dice además si ya es VIP y si
 // ya ha rellenado la encuesta (si el lanzamiento la exige, las clases 1 y 2 no se ven sin ella).
 import { getConfig } from '../lib/config-store.js';
+import { clienteActual } from '../lib/cliente.js';
 import { getContact, countByTag } from '../lib/ghl.js';
 import { currentLaunch } from '../lib/digest.js';
 import { verifyToken, signToken, requireRole } from '../lib/auth.js';
@@ -37,7 +38,8 @@ export async function GET(request) {
     const m = milestones(launch);
     const phase = phaseAt(launch, now);
     const vipOpen = Boolean(launch.vipUrl) && (m.directo == null || now < m.directo);
-    const live = `${url.origin}/directo?l=${encodeURIComponent(code)}`;
+    const cq = clienteActual().principal ? '' : `&c=${encodeURIComponent(clienteActual().id)}`;
+    const live = `${url.origin}/directo?l=${encodeURIComponent(code)}${cq}`;
 
     const links = {
       ...(launch.enlaces || {}),
@@ -55,7 +57,7 @@ export async function GET(request) {
         title: launch.name || 'Clase en directo', start: m.directo,
         details: `Entra al directo aquí: ${live}`,
       }),
-      'calendario-ics': m.directo != null ? `${url.origin}/api/ics?l=${encodeURIComponent(code)}` : '',
+      'calendario-ics': m.directo != null ? `${url.origin}/api/ics?l=${encodeURIComponent(code)}${cq}` : '',
       login: launch.loginUrl || '',
     };
 
@@ -158,11 +160,12 @@ export function euros(n) {
 const vipCache = new Map();
 async function vipVendidas(code, launch) {
   if (!launch.vipTag) return 0;
-  const hit = vipCache.get(code);
+  const key = `${clienteActual().id}:${code}`;
+  const hit = vipCache.get(key);
   if (hit && hit.at > Date.now() - 60_000 && hit.tag === launch.vipTag) return hit.n;
   const [total, previas] = await Promise.all([countByTag(launch.vipTag), countByTag(tagFor(code, 'vip_previo'))]);
   const n = Math.max(0, total - previas);
-  vipCache.set(code, { at: Date.now(), n, tag: launch.vipTag });
+  vipCache.set(key, { at: Date.now(), n, tag: launch.vipTag });
   return n;
 }
 
