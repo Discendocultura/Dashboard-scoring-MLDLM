@@ -35,6 +35,10 @@
         <button id="btn-zoom" class="tb-btn tb-zoom zoom-only" type="button" data-tb-icon="video" title="Leer la asistencia del directo en Zoom y etiquetar a los leads"><span class="tb-txt">Sincronizar Zoom</span></button>
         <button id="btn-config" class="tb-btn tb-config config-only" type="button" data-tb-icon="gear" title="Configuración del lanzamiento"><span class="tb-txt">Configuración</span></button>
         <button id="btn-equipo" class="tb-btn tb-equipo admin-only" type="button" data-tb-icon="users" title="Miembros del equipo, roles y permisos"><span class="tb-txt">Equipo</span></button>
+        <span class="notif-wrap">
+          <button id="btn-notif" class="tb-btn tb-notif" type="button" data-tb-icon="bell" title="Notificaciones: comentarios, menciones y tareas vencidas o a punto de vencer" aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false"><span id="notif-count" class="notif-count" hidden></span></button>
+          <div id="notif-panel" class="notif-panel" hidden role="dialog" aria-label="Notificaciones"></div>
+        </span>
         <button id="btn-cuenta" class="tb-btn tb-cuenta" type="button" data-tb-icon="user" title="Mi cuenta y contraseña" hidden><span class="tb-txt">Mi cuenta</span></button>
         <button id="btn-logout" class="tb-btn tb-logout" type="button" data-tb-icon="logout" title="Cerrar sesión"><span class="tb-txt">Salir</span></button>
       </div>
@@ -643,7 +647,7 @@
   </dialog>
 
   <!-- Tarea -->
-  <dialog id="tarea-dialog" class="dialog dialog-sm">
+  <dialog id="tarea-dialog" class="dialog dialog-md">
     <form id="tarea-form" method="dialog">
       <header class="dialog-head"><h2 id="tarea-title">Nueva tarea</h2></header>
       <div class="dialog-body">
@@ -682,6 +686,7 @@
         </div>
         <label class="check"><input id="t-avisar" type="checkbox" checked> Avisar por email a la persona (o a todo el rol)</label>
         <label class="check habitual-check"><input id="t-habitual" type="checkbox"> 🔁 <span><strong>Tarea habitual</strong> · se añadirá en los próximos lanzamientos al pulsar «Cargar tareas habituales», con la misma persona o rol y la misma fecha relativa</span></label>
+        <div id="t-coments" class="coments" hidden></div>
       </div>
       <footer class="dialog-foot">
         <span id="tarea-status" class="muted"></span>
@@ -739,6 +744,7 @@
       <div class="dialog-body">
         <div id="tv-meta" class="tv-meta"></div>
         <div id="tv-notas" class="rich tv-notas"></div>
+        <div id="tv-coments" class="coments"></div>
       </div>
       <footer class="dialog-foot">
         <div id="tv-estado" class="tv-estado" role="group" aria-label="Estado"></div>

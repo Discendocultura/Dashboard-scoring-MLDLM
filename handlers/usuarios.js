@@ -50,6 +50,18 @@ export async function POST(request) {
       return json({ ok: true });
     }
 
+    // Campanita: hasta cuándo ha visto las notificaciones (para contar solo las nuevas en todos sus dispositivos).
+    if (op === 'notif-visto') {
+      const s = await requireSession(request);
+      if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
+      const users = await listUsers({ fresh: true });
+      const me = users.find((u) => u.id === s.uid);
+      if (!me) throw bad('Usuario no encontrado', 404);
+      me.notifVisto = new Date().toISOString();
+      await saveUsers(users);
+      return json({ ok: true, notifVisto: me.notifVisto });
+    }
+
     if (op === 'mi-foto') {
       const s = await requireSession(request);
       if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');

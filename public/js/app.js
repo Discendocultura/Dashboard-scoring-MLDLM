@@ -2149,7 +2149,7 @@ function tareaRow(t) {
     : '';
   const hecha = t.hecha ? `<span class="t-hecha">✓ ${esc(t.hechaPor || '')}${t.hechaEn ? ` · ${esc(new Date(t.hechaEn).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }))}` : ''}</span>` : '';
   const sel = state.tSel ? `<label class="t-sel" title="Seleccionar"><input type="checkbox" data-sel="${esc(t.id)}" ${state.tSel.has(t.id) ? 'checked' : ''} aria-label="Seleccionar tarea"></label>` : '';
-  return `<li class="tarea ${t.hecha ? 'done' : ''} ${venc ? 'is-vencida' : ''} ${esMia(t, meSess()) ? 'is-mia' : ''} ${state.tSel?.has(t.id) ? 'is-sel' : ''}">${sel}
+  return `<li data-trow="${esc(t.id)}" class="tarea ${t.hecha ? 'done' : ''} ${venc ? 'is-vencida' : ''} ${esMia(t, meSess()) ? 'is-mia' : ''} ${state.tSel?.has(t.id) ? 'is-sel' : ''}">${sel}
     <label class="t-check" title="${puede ? (t.hecha ? 'Volver a pendiente' : 'Marcar como completada') : 'Solo puede marcarla su responsable'}">
       <input type="checkbox" data-tid="${esc(t.id)}" ${t.hecha ? 'checked' : ''} ${puede ? '' : 'disabled'}><span class="t-box" aria-hidden="true"></span>
     </label>
@@ -2209,6 +2209,8 @@ function renderTareas() {
   const T = state.tareas;
   if (!T || T.code !== state.launchCode) return;
   renderAvisosEquipo();
+  renderNotif();
+  refrescarComentarios();
   const list = T.list;
   const hoy = today();
   const done = list.filter((t) => t.hecha).length;
@@ -2605,6 +2607,10 @@ function openTarea(t) {
   $('#t-np-rol').value = 'setter';
   $('#t-avisar').checked = true;
   $('#tarea-status').textContent = '';
+  const cb = $('#t-coments');
+  cb.hidden = !t;
+  cb.dataset.tid = '';
+  if (t) renderComentarios(cb, t);
   tdlg.showModal();
   $('#t-titulo').focus();
 }
@@ -3221,6 +3227,7 @@ function openTareaVer(id) {
     <span class="tv-chip">${icon('users')} ${esc(asignadoTexto(t.asignado))}</span>
     ${t.habitual ? '<span class="tv-chip">🔁 Habitual</span>' : ''}
     ${t.hecha ? `<span class="tv-chip ok">✓ Completada por ${esc(t.hechaPor || '')}</span>` : ''}`;
+  renderComentarios($('#tv-coments'), t);
   const box = $('#tv-notas');
   box.innerHTML = richToHtml(t.notas) || '<p class="muted">Sin descripción.</p>';
   hydrateVideos(box);
@@ -3248,12 +3255,296 @@ $('#tv-editar').addEventListener('click', () => {
 tvDlg.addEventListener('close', () => { $('#tv-notas').innerHTML = ''; }); // para el vídeo al cerrar
 document.addEventListener('keydown', (e) => {
   const b = (e.key === 'Enter' || e.key === ' ') && e.target.closest?.('span[data-tver]');
-  if (b) { e.preventDefault(); openTareaVer(b.dataset.tver); }
+  if (b) { e.preventDefault(); abrirTarea(b.dataset.tver); }
 });
 document.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-tver]');
-  if (b && !e.target.closest('#tarea-ver')) openTareaVer(b.dataset.tver);
+  if (e.target.closest('dialog')) return;
+  // Se abre al pulsar en cualquier parte de la tarea (salvo casillas, botones y enlaces).
+  const b = e.target.closest('[data-tver]') || (!e.target.closest('input, label, button, a, select, textarea, .t-actions') && e.target.closest('[data-trow], .kb-card[data-kid]'));
+  if (b) abrirTarea(b.dataset.tver || b.dataset.trow || b.dataset.kid);
 });
+
+// ---------- Comentarios de las tareas (con @menciones) ----------
+const normTxt = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const yoUid = () => state.user?.id || '';
+const userDe = (uid) => (uid ? state.tareas?.users.find((u) => u.id === uid) : null);
+function hace(iso) {
+  const min = Math.round((Date.now() - Date.parse(iso)) / 60_000);
+  if (!Number.isFinite(min)) return '';
+  if (min < 1) return 'ahora mismo';
+  if (min < 60) return `hace ${min} min`;
+  if (min < 24 * 60) return `hace ${Math.round(min / 60)} h`;
+  if (min < 7 * 24 * 60) return `hace ${Math.round(min / 1440)} d`;
+  return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+}
+
+// Texto del comentario: escapado, con enlaces y las menciones resaltadas.
+function textoComentario(texto) {
+  let h = esc(texto).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`);
+  const users = [...(state.tareas?.users || [])].filter((u) => u.nombre).sort((a, b) => b.nombre.length - a.nombre.length);
+  if (users.length) {
+    const re = new RegExp(users.map((u) => reEsc(esc(`@${u.nombre}`))).join('|'), 'gi');
+    h = h.replace(re, (m) => {
+      const u = users.find((x) => normTxt(esc(`@${x.nombre}`)) === normTxt(m));
+      return `<span class="mention ${u && u.id === yoUid() ? 'me' : ''}">${m}</span>`;
+    });
+  }
+  return h.replace(/\n/g, '<br>');
+}
+
+function renderComentarios(box, t) {
+  const draft = box.dataset.tid === t.id ? $('.coment-new', box)?.value || '' : '';
+  const cs = Array.isArray(t.comentarios) ? t.comentarios : [];
+  box.dataset.tid = t.id;
+  const puedeBorrar = (c) => state.role === 'admin' || (c.uid && c.uid === yoUid());
+  box.innerHTML = `<h3 class="coments-h">${icon('chat')} Comentarios${cs.length ? ` <span class="muted">(${cs.length})</span>` : ''}</h3>
+    ${cs.length ? `<ul class="coments-list">${cs.map((c) => `<li class="coment ${yoUid() && c.menciones?.includes(yoUid()) ? 'is-mencion' : ''}">
+      ${avatarHtml(userDe(c.uid), c.nombre)}
+      <div class="coment-body">
+        <div class="coment-head"><strong>${esc(c.nombre)}</strong><span class="muted" title="${esc(new Date(c.en).toLocaleString('es-ES'))}">${esc(hace(c.en))}</span>
+          ${puedeBorrar(c) ? `<button type="button" class="coment-del" data-cdel="${esc(c.id)}" title="Borrar comentario" aria-label="Borrar comentario">✕</button>` : ''}</div>
+        <div class="coment-txt">${textoComentario(c.texto)}</div>
+      </div></li>`).join('')}</ul>` : '<p class="muted coments-vacio">Todavía no hay comentarios. Escribe el primero: dudas, avances, enlaces…</p>'}
+    <div class="coment-form">
+      ${avatarHtml(state.user, state.user?.nombre || ROLE_LABEL[state.role])}
+      <div class="coment-input">
+        <textarea class="coment-new" rows="2" maxlength="2000" placeholder="Escribe un comentario… usa @ para mencionar a alguien" aria-label="Nuevo comentario"></textarea>
+        <div class="mention-list" role="listbox" hidden></div>
+      </div>
+      <button type="button" class="btn primary" data-csend>Comentar</button>
+    </div>
+    <small class="muted coment-status" aria-live="polite"></small>`;
+  $('.coment-new', box).value = draft;
+  const ul = $('.coments-list', box);
+  if (ul) ul.scrollTop = ul.scrollHeight;
+}
+
+// Vuelve a pintar los comentarios de las ventanas abiertas (tras comentar o recargar).
+function refrescarComentarios() {
+  for (const box of [$('#t-coments'), $('#tv-coments')]) {
+    if (!box || box.hidden || !box.closest('dialog')?.open || !box.dataset.tid) continue;
+    const t = state.tareas?.list.find((x) => x.id === box.dataset.tid);
+    if (t) renderComentarios(box, t);
+  }
+}
+
+async function enviarComentario(box) {
+  const ta = $('.coment-new', box);
+  const texto = ta.value.trim();
+  if (!texto) { ta.focus(); return; }
+  const btn = $('[data-csend]', box);
+  btn.disabled = true;
+  try {
+    const d = await tareasOp({ op: 'comentar', id: box.dataset.tid, texto });
+    refrescarComentarios();
+    $('.coment-new', box).value = ''; // la caja se ha vuelto a pintar: se vacía la nueva
+    const n = d.aviso?.menciones || 0;
+    $('.coment-status', box).textContent = n ? `Comentario publicado ✓ · avisado por email a ${n} persona${n === 1 ? '' : 's'}` : 'Comentario publicado ✓';
+  } catch (e) {
+    $('.coment-status', box).textContent = e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Autocompletar de @menciones.
+function mentionQuery(ta) {
+  const pre = ta.value.slice(0, ta.selectionStart);
+  const m = /(^|\s)@([^\s@]{0,30})$/.exec(pre);
+  return m ? { q: m[2], start: pre.length - m[2].length - 1 } : null;
+}
+function updateMentionList(ta) {
+  const list = ta.parentElement.querySelector('.mention-list');
+  const mq = mentionQuery(ta);
+  const q = normTxt(mq?.q);
+  const cands = mq ? (state.tareas?.users || []).filter((u) => u.nombre && (normTxt(u.nombre).startsWith(q) || normTxt(u.nombre).split(/\s+/).some((w) => w.startsWith(q)))).slice(0, 6) : [];
+  list.hidden = !cands.length;
+  list.innerHTML = cands.map((u, i) => `<button type="button" role="option" class="${i === 0 ? 'active' : ''}" data-mention="${esc(u.id)}">${avatarHtml(u)}<span>${esc(u.nombre)}</span><small class="muted">${esc(ROLE_LABEL[u.rol] || u.rol || '')}</small></button>`).join('');
+}
+function insertMention(ta, uid) {
+  const u = userDe(uid);
+  const mq = mentionQuery(ta);
+  if (!u || !mq) return;
+  const before = ta.value.slice(0, mq.start);
+  const after = ta.value.slice(ta.selectionStart);
+  ta.value = `${before}@${u.nombre} ${after.replace(/^\s+/, '')}`;
+  const pos = before.length + u.nombre.length + 2;
+  ta.focus();
+  ta.setSelectionRange(pos, pos);
+  updateMentionList(ta);
+}
+document.addEventListener('input', (e) => { if (e.target.matches?.('.coment-new')) updateMentionList(e.target); });
+document.addEventListener('mousedown', (e) => { if (e.target.closest('[data-mention]')) e.preventDefault(); }); // no perder el foco
+document.addEventListener('keydown', (e) => {
+  const ta = e.target.closest?.('.coment-new');
+  if (!ta) return;
+  const list = ta.parentElement.querySelector('.mention-list');
+  if (!list.hidden) {
+    const opts = $$('[data-mention]', list);
+    const i = opts.findIndex((o) => o.classList.contains('active'));
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const j = (i + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length;
+      opts.forEach((o, k) => o.classList.toggle('active', k === j));
+      return;
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(ta, opts[Math.max(i, 0)].dataset.mention); return; }
+    if (e.key === 'Escape') { e.preventDefault(); list.hidden = true; return; }
+  }
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); enviarComentario(ta.closest('.coments')); }
+});
+// Escape con la lista de menciones abierta la cierra a ella, no a la ventana.
+$$('dialog').forEach((d) => d.addEventListener('cancel', (e) => {
+  const l = $$('.mention-list', d).find((x) => !x.hidden);
+  if (l) { e.preventDefault(); l.hidden = true; }
+}));
+document.addEventListener('click', async (e) => {
+  const m = e.target.closest('[data-mention]');
+  if (m) { insertMention(m.closest('.coment-input').querySelector('.coment-new'), m.dataset.mention); return; }
+  const send = e.target.closest('[data-csend]');
+  if (send) { enviarComentario(send.closest('.coments')); return; }
+  const del = e.target.closest('[data-cdel]');
+  if (del) {
+    if (!confirm('¿Borrar este comentario?')) return;
+    const box = del.closest('.coments');
+    try { await tareasOp({ op: 'borrar-comentario', id: box.dataset.tid, cid: del.dataset.cdel }); refrescarComentarios(); } catch (ex) { $('.coment-status', box).textContent = ex.message; }
+  }
+});
+
+// Abrir una tarea al pulsarla: quien puede editar la abre ya en edición; el resto, en vista. Las dos con comentarios.
+function abrirTarea(id, { comentar = false } = {}) {
+  const t = state.tareas?.list.find((x) => x.id === id);
+  if (!t) return;
+  if (puedeTareas()) openTarea(t); else openTareaVer(id);
+  if (comentar) {
+    const box = puedeTareas() ? $('#t-coments') : $('#tv-coments');
+    requestAnimationFrame(() => { box.scrollIntoView({ block: 'end' }); $('.coment-new', box)?.focus(); });
+  }
+}
+
+// ---------- Campanita de notificaciones ----------
+// Comentarios en mis tareas, menciones, mis tareas vencidas o a punto de vencer y (admin) las vencidas del equipo.
+const NOTIF_DIAS = 2;
+const notifQuien = () => yoUid() || state.role;
+function notifVistas() {
+  try { return new Set(JSON.parse(ls.get(`lsd_notif_vistas_${notifQuien()}`) || '[]')); } catch { return new Set(); }
+}
+const notifVistoEn = () => state.user?.notifVisto || ls.get(`lsd_notif_visto_${notifQuien()}`) || '';
+
+function notifItems() {
+  const T = state.tareas;
+  if (!T || T.code !== state.launchCode) return [];
+  const yo = meSess();
+  const hoy = today();
+  const limite = addDays(hoy, NOTIF_DIAS);
+  const out = [];
+  for (const t of T.list) {
+    const mia = esMia(t, yo);
+    for (const c of t.comentarios || []) {
+      if (yo.uid ? c.uid === yo.uid : !c.uid) continue; // los míos no
+      const mencion = Boolean(yo.uid) && (c.menciones || []).includes(yo.uid);
+      if (mencion || mia) out.push({ tipo: mencion ? 'mencion' : 'comentario', t, c, key: `c:${c.id}` });
+    }
+    if (mia && !t.hecha && t.fecha) {
+      if (t.fecha < hoy) out.push({ tipo: 'vencida', t, key: `v:${t.id}:${t.fecha}` });
+      else if (t.fecha <= limite) out.push({ tipo: 'pronto', t, key: `p:${t.id}:${t.fecha}` });
+    }
+  }
+  if (state.role === 'admin') {
+    for (const r of vencidasEquipo(T.list, T.users, hoy, state.roles)) out.push({ tipo: 'equipo', t: r.tarea, quien: r.quien, dias: r.dias, key: `e:${r.tarea.id}:${r.tarea.fecha}` });
+  }
+  const visto = notifVistoEn();
+  const vistas = notifVistas();
+  for (const n of out) n.nueva = n.c ? n.c.en > visto : !vistas.has(n.key);
+  return out;
+}
+
+const cuandoVence = (f) => {
+  const hoy = today();
+  if (f === hoy) return 'vence hoy';
+  if (f === addDays(hoy, 1)) return 'vence mañana';
+  return `vence el ${fechaCorta(f)}`;
+};
+function notifHtml(n) {
+  const tit = `«${esc(n.t.titulo)}»`;
+  const ico = { mencion: '@', comentario: '💬', vencida: '⏰', pronto: '📅', equipo: '👥' }[n.tipo];
+  let txt = '';
+  if (n.tipo === 'mencion') txt = `<strong>${esc(n.c.nombre)}</strong> te ha mencionado en ${tit}`;
+  else if (n.tipo === 'comentario') txt = `<strong>${esc(n.c.nombre)}</strong> ha comentado en tu tarea ${tit}`;
+  else if (n.tipo === 'vencida') txt = `${tit} venció el ${esc(fechaCorta(n.t.fecha))} y sigue sin completar`;
+  else if (n.tipo === 'pronto') txt = `${tit} ${cuandoVence(n.t.fecha)}`;
+  else txt = `${tit} de <strong>${esc(n.quien)}</strong>: ${n.dias} día${n.dias === 1 ? '' : 's'} de retraso`;
+  const extra = n.c ? `<span class="notif-cita">${esc(n.c.texto.slice(0, 140))}${n.c.texto.length > 140 ? '…' : ''}</span><span class="notif-when">${esc(hace(n.c.en))}</span>` : '';
+  return `<button type="button" class="notif-item t-${n.tipo} ${n.nueva ? 'nueva' : ''}" data-nt="${esc(n.t.id)}" ${n.c ? 'data-ntc="1"' : ''}>
+    <span class="notif-ico" aria-hidden="true">${ico}</span><span class="notif-txt">${txt}${extra}</span>${n.nueva ? '<span class="notif-dot" aria-label="Nueva"></span>' : ''}</button>`;
+}
+
+function renderNotif() {
+  const items = notifItems();
+  const nuevas = items.filter((n) => n.nueva).length;
+  const count = $('#notif-count');
+  count.hidden = !nuevas;
+  count.textContent = nuevas > 99 ? '99+' : String(nuevas);
+  $('#btn-notif').classList.toggle('has-new', nuevas > 0);
+  const panel = $('#notif-panel');
+  if (panel.hidden) return;
+  const grupos = [
+    ['Comentarios y menciones', items.filter((n) => n.c).sort((a, b) => b.c.en.localeCompare(a.c.en)).slice(0, 30)],
+    ['Tus tareas vencidas', items.filter((n) => n.tipo === 'vencida').sort((a, b) => a.t.fecha.localeCompare(b.t.fecha))],
+    [`Vencen en los próximos ${NOTIF_DIAS} días`, items.filter((n) => n.tipo === 'pronto').sort((a, b) => a.t.fecha.localeCompare(b.t.fecha))],
+    ['Vencidas del equipo', items.filter((n) => n.tipo === 'equipo')],
+  ].filter(([, l]) => l.length);
+  panel.innerHTML = `<div class="notif-head"><strong>Notificaciones</strong><span class="muted">${esc(state.tareas?.code ? (state.config?.launches?.[state.tareas.code]?.name || '') : '')}</span></div>
+    ${grupos.length ? grupos.map(([g, l]) => `<div class="notif-grupo"><h4>${esc(g)}</h4>${l.map(notifHtml).join('')}</div>`).join('')
+    : '<p class="muted notif-vacio">Todo al día: no tienes comentarios nuevos ni tareas vencidas o a punto de vencer. 🎉</p>'}`;
+}
+
+async function marcarNotifVistas() {
+  const items = notifItems();
+  try {
+    const vistas = notifVistas();
+    items.filter((n) => !n.c).forEach((n) => vistas.add(n.key));
+    ls.set(`lsd_notif_vistas_${notifQuien()}`, JSON.stringify([...vistas].slice(-500)));
+  } catch { /* sin almacenamiento: se volverán a contar */ }
+  if (!items.some((n) => n.c && n.nueva)) return;
+  const ahora = new Date().toISOString();
+  if (state.user) {
+    try { state.user.notifVisto = (await api('/api/usuarios', { method: 'POST', body: { op: 'notif-visto' } })).notifVisto; } catch { state.user.notifVisto = ahora; }
+  } else ls.set(`lsd_notif_visto_${notifQuien()}`, ahora);
+}
+
+function cerrarNotif() {
+  const panel = $('#notif-panel');
+  if (panel.hidden) return;
+  panel.hidden = true;
+  $('#btn-notif').setAttribute('aria-expanded', 'false');
+  renderNotif();
+}
+$('#btn-notif').addEventListener('click', async (e) => {
+  e.stopPropagation();
+  const panel = $('#notif-panel');
+  if (!panel.hidden) { cerrarNotif(); return; }
+  panel.hidden = false;
+  $('#btn-notif').setAttribute('aria-expanded', 'true');
+  renderNotif(); // se pintan ya las «nuevas» resaltadas; después se dan por vistas
+  await marcarNotifVistas();
+  $('#notif-count').hidden = true;
+  $('#btn-notif').classList.remove('has-new');
+});
+$('#notif-panel').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-nt]');
+  if (!b) return;
+  cerrarNotif();
+  abrirTarea(b.dataset.nt, { comentar: Boolean(b.dataset.ntc) });
+});
+document.addEventListener('click', (e) => { if (!e.target.closest('.notif-wrap')) cerrarNotif(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarNotif(); });
+// Comentarios y avisos al día sin recargar: cada 2 minutos, si la pestaña está a la vista y no hay nada abierto.
+setInterval(() => {
+  if (document.hidden || !state.launchCode || $$('dialog').some((d) => d.open)) return;
+  loadTareas();
+}, 120_000);
 
 // Reasignar las seleccionadas
 function fillSelAsignar() {

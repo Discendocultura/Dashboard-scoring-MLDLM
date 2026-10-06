@@ -1,7 +1,9 @@
-// Tareas por lanzamiento. Todos los roles las ven; admin crea, edita y borra; el resto marca las suyas.
+// Tareas por lanzamiento. Todos los roles las ven y comentan; admin crea, edita y borra; el resto marca las suyas.
 import { requireSession, tienePermiso } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
-import { getTareas, saveTareas, sanitizeTarea, sanitizeAsignado, avisarAsignaciones, MAX_TAREAS } from '../lib/tareas.js';
+import {
+  getTareas, saveTareas, sanitizeTarea, sanitizeAsignado, avisarAsignaciones, MAX_TAREAS, MAX_COMENTARIOS, MAX_COMENTARIO, mencionesDe, avisarMencion,
+} from '../lib/tareas.js';
 import { listUsers, newId } from '../lib/users.js';
 import { puedeMarcar, FASE_IDS } from '../public/js/tareas.js';
 import { getColumnas, saveColumnas, sanitizeColumnas } from '../lib/columnas.js';
@@ -53,6 +55,8 @@ export async function POST(request) {
     };
     const dashboardUrl = `${new URL(request.url).origin}/#tareas`;
     let nuevasAsignadas = [];
+    let comentario = null;
+    let comentada = null;
 
     if (op === 'marcar' || op === 'estado') {
       const t = find();
@@ -68,6 +72,20 @@ export async function POST(request) {
         t.hechaEn = t.hecha ? now : '';
       }
       if (estado === 'en-curso') { t.enCursoPor = actor(s); t.enCursoEn = now; }
+    } else if (op === 'comentar') {
+      // Cualquiera que vea las tareas puede comentar y mencionar con @Nombre.
+      const t = find();
+      const texto = String(body.texto ?? '').replace(/\r/g, '').trim().slice(0, MAX_COMENTARIO);
+      if (!texto) throw bad('El comentario está vacío');
+      comentario = { id: newId('c'), uid: s.uid || '', nombre: actor(s), texto, en: now, menciones: mencionesDe(texto, users) };
+      t.comentarios = [...(Array.isArray(t.comentarios) ? t.comentarios : []), comentario].slice(-MAX_COMENTARIOS);
+      comentada = t;
+    } else if (op === 'borrar-comentario') {
+      const t = find();
+      const c = (t.comentarios || []).find((x) => x.id === body.cid);
+      if (!c) throw bad('Ese comentario ya no existe', 404);
+      if (s.role !== 'admin' && !(s.uid && c.uid === s.uid)) throw bad('Solo puedes borrar tus comentarios', 403);
+      t.comentarios = t.comentarios.filter((x) => x !== c);
     } else {
       if (!tienePermiso(s, 'tareas_gestion')) throw bad('Tu rol no puede crear, editar ni borrar tareas', 403);
       if (op === 'columnas') {
@@ -135,6 +153,9 @@ export async function POST(request) {
     const aviso = nuevasAsignadas.length && body.avisar !== false
       ? await avisarAsignaciones(nuevasAsignadas, { launchName: launch.name, dashboardUrl, exceptUid: s.uid })
       : { enviados: 0, errores: [] };
+    if (comentario?.menciones.length) {
+      aviso.menciones = await avisarMencion(comentada, comentario, { launchName: launch.name, dashboardUrl, exceptUid: s.uid });
+    }
     return json({ tareas, aviso });
   } catch (e) {
     return errorResponse(e);

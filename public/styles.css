@@ -1088,3 +1088,60 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .form-ads { margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--surface-2); }
 .form-ads h4 { margin: 0 0 4px; font-size: 14px; }
 .form-ads p { margin: 0 0 10px; font-size: 12.5px; }
+
+/* ---------- Comentarios de las tareas ---------- */
+.coments { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--border); padding-top: 14px; }
+.coments-h { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 15px; }
+.coments-h .ico { width: 16px; height: 16px; }
+.coments-vacio { margin: 0; font-size: 13px; }
+.coments-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow-y: auto; }
+.coment { display: flex; gap: 10px; align-items: flex-start; }
+.coment .t-avatar, .coment-form .t-avatar { width: 30px; height: 30px; font-size: 11px; }
+.coment-body { flex: 1; min-width: 0; background: var(--surface-2); border-radius: 4px 12px 12px 12px; padding: 8px 12px; }
+.coment.is-mencion .coment-body { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.coment-head { display: flex; gap: 8px; align-items: baseline; font-size: 13px; }
+.coment-head .muted { font-size: 12px; }
+.coment-del { margin-left: auto; background: none; border: 0; color: var(--text-2); cursor: pointer; font-size: 12px; padding: 0 2px; opacity: .6; }
+.coment-del:hover { opacity: 1; color: var(--error); }
+.coment-txt { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; margin-top: 2px; }
+.coment-txt a { color: var(--accent); }
+.mention { font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 4px; padding: 0 3px; }
+.mention.me { background: var(--accent); color: var(--accent-ink); }
+.coment-form { display: flex; gap: 10px; align-items: flex-start; }
+.coment-input { flex: 1; position: relative; }
+.coment-new { width: 100%; font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); resize: vertical; min-height: 42px; box-sizing: border-box; }
+.coment-new:focus { outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent); border-color: var(--accent); }
+.coment-status { min-height: 1em; }
+.mention-list { position: absolute; left: 0; right: 0; bottom: calc(100% + 4px); z-index: 5; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .15); padding: 4px; display: flex; flex-direction: column; }
+.mention-list[hidden] { display: none; }
+.mention-list button { display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; text-align: left; background: none; border: 0; border-radius: 8px; padding: 6px 8px; cursor: pointer; color: var(--text); }
+.mention-list button small { margin-left: auto; }
+.mention-list button.active, .mention-list button:hover { background: var(--surface-2); }
+
+/* Tareas: se abren al pulsar en cualquier parte */
+.tarea[data-trow], .kb-card[data-kid] { cursor: pointer; }
+
+/* ---------- Campanita de notificaciones ---------- */
+.notif-wrap { position: relative; display: inline-flex; }
+.tb-notif { --tb: #c0841a; position: relative; padding: 4px; }
+.tb-notif.has-new .tb-ico { animation: notifRing 1.2s ease 1; }
+.notif-count { position: absolute; top: -4px; left: 22px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--error); color: #fff; font-size: 11px; font-weight: 800; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--surface); }
+.notif-count[hidden] { display: none; }
+.notif-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; width: min(400px, calc(100vw - 32px)); max-height: min(560px, 75vh); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 40px rgb(0 0 0 / .18); padding: 6px; }
+.notif-panel[hidden] { display: none; }
+.notif-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 8px 10px; font-size: 15px; }
+.notif-head .muted { font-size: 12px; }
+.notif-grupo h4 { margin: 8px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); }
+.notif-item { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; font: inherit; font-size: 13.5px; background: none; border: 0; border-radius: 10px; padding: 8px 10px; cursor: pointer; color: var(--text); }
+.notif-item:hover { background: var(--surface-2); }
+.notif-item.nueva { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+.notif-ico { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); font-size: 14px; font-weight: 800; color: var(--accent); }
+.notif-item.t-vencida .notif-ico, .notif-item.t-equipo .notif-ico { background: color-mix(in srgb, var(--error) 15%, var(--surface)); }
+.notif-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 1.35; }
+.notif-cita { color: var(--text-2); font-size: 12.5px; overflow-wrap: anywhere; }
+.notif-when { color: var(--text-2); font-size: 11.5px; }
+.notif-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 6px; }
+.notif-vacio { padding: 10px 12px 14px; margin: 0; }
+@keyframes notifRing { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-14deg); } 40% { transform: rotate(12deg); } 60% { transform: rotate(-8deg); } 80% { transform: rotate(5deg); } }
+@media (max-width: 640px) { .notif-panel { position: fixed; top: 64px; left: 16px; right: 16px; width: auto; } }
+@media (prefers-reduced-motion: reduce) { .tb-notif.has-new .tb-ico { animation: none; } }

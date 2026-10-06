@@ -410,6 +410,30 @@ test('tareas: plantilla, asignación con aviso por email y permisos para marcar'
   assert.equal((await post(saraCookie, { op: 'estado', id: adminTask.id, estado: 'en-curso' })).status, 403);
   assert.equal((await post(admin, { op: 'estado', id: adminTask.id, estado: 'otra' })).status, 400);
 
+  // Comentarios: cualquiera comenta; «@Nombre» menciona (con email) y solo su autora o admin lo borra
+  const antes = mock.sentEmails.length;
+  const cm = await (await post(setter, { op: 'comentar', id: adminTask.id, texto: 'Hecho a medias, @sara guzman ¿lo revisas?' })).json();
+  const com = cm.tareas.find((t) => t.id === adminTask.id).comentarios.at(-1);
+  assert.deepEqual(com.menciones, [sara.user.id]);
+  assert.equal(com.nombre, 'Setter');
+  assert.equal(cm.aviso.menciones, 1);
+  assert.equal(mock.sentEmails.length, antes + 1);
+  assert.match(mock.sentEmails.at(-1).subject, /te ha mencionado/);
+  assert.equal((await post(saraCookie, { op: 'comentar', id: adminTask.id, texto: '   ' })).status, 400);
+  const propio = (await (await post(saraCookie, { op: 'comentar', id: adminTask.id, texto: 'Vale @Sara Guzmán' })).json()).tareas.find((t) => t.id === adminTask.id).comentarios.at(-1);
+  assert.equal(propio.uid, sara.user.id);
+  assert.equal(mock.sentEmails.length, antes + 1); // no se avisa a sí misma
+  assert.equal((await post(saraCookie, { op: 'borrar-comentario', id: adminTask.id, cid: com.id })).status, 403);
+  assert.equal((await post(saraCookie, { op: 'borrar-comentario', id: adminTask.id, cid: propio.id })).status, 200);
+  const sinCom = await (await post(admin, { op: 'borrar-comentario', id: adminTask.id, cid: com.id })).json();
+  assert.equal(sinCom.tareas.find((t) => t.id === adminTask.id).comentarios.length, 0);
+  // Editar la tarea no borra sus comentarios
+  await post(setter, { op: 'comentar', id: adminTask.id, texto: 'otro' });
+  const ed = await (await post(admin, { op: 'editar', id: adminTask.id, tarea: { titulo: 'Nuevo título' } })).json();
+  assert.equal(ed.tareas.find((t) => t.id === adminTask.id).comentarios.length, 1);
+  const nv = await (await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: saraCookie, body: { op: 'notif-visto' } }))).json();
+  assert.ok(nv.notifVisto);
+
   const list = await (await tareas.GET(req('/api/tareas?l=demo', { cookie: saraCookie }))).json();
   assert.equal(list.me.uid, sara.user.id);
   assert.ok(list.users.every((u) => !u.email));
