@@ -3,7 +3,8 @@ import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { getTareas, saveTareas, sanitizeTarea, sanitizeAsignado, avisarAsignaciones, MAX_TAREAS } from '../lib/tareas.js';
 import { listUsers, newId } from '../lib/users.js';
-import { puedeMarcar } from '../public/js/tareas.js';
+import { puedeMarcar, FASE_IDS } from '../public/js/tareas.js';
+import { getColumnas, saveColumnas, sanitizeColumnas } from '../lib/columnas.js';
 import { getHabituales, saveHabituales, enlazar, guardarDesdeTarea, quitar, tareasDesdePlantilla } from '../lib/habituales.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 
@@ -26,8 +27,8 @@ export async function GET(request) {
     const s = await requireSession(request, { equipo: true });
     const code = new URL(request.url).searchParams.get('l') || '';
     await launchOf(code);
-    const [tareas, users, habituales] = await Promise.all([getTareas(code), listUsers(), getHabituales()]);
-    return json({ tareas: enlazar(tareas, habituales), users: team(users, s), me: { role: s.role, uid: s.uid } });
+    const [tareas, users, habituales, columnas] = await Promise.all([getTareas(code), listUsers(), getHabituales(), getColumnas()]);
+    return json({ tareas: enlazar(tareas, habituales), users: team(users, s), columnas, me: { role: s.role, uid: s.uid } });
   } catch (e) {
     return errorResponse(e);
   }
@@ -70,7 +71,23 @@ export async function POST(request) {
       if (estado === 'en-curso') { t.enCursoPor = actor(s); t.enCursoEn = now; }
     } else {
       if (s.role !== 'admin') throw bad('Solo el administrador puede crear, editar o borrar tareas', 403);
-      if (op === 'crear') {
+      if (op === 'columnas') {
+        // Columnas extra del tablero (comunes a todos los lanzamientos).
+        const columnas = sanitizeColumnas(body.columnas);
+        await saveColumnas(columnas);
+        return json({ tareas: enlazar(tareas, habituales), columnas });
+      }
+      if (op === 'mover') {
+        // Mover una tarjeta a otra columna del tablero: una fase o una columna extra.
+        const t = find();
+        const destino = String(body.columna || '');
+        if (FASE_IDS.includes(destino)) { t.fase = destino; t.columna = ''; } else {
+          if (!(await getColumnas()).some((c) => c.id === destino)) throw bad('Esa columna ya no existe');
+          t.columna = destino;
+        }
+        if (t.hecha) { t.hecha = false; t.estado = 'pendiente'; t.hechaPor = ''; t.hechaEn = ''; }
+        t.editadaEn = now;
+      } else if (op === 'crear') {
         if (tareas.length >= MAX_TAREAS) throw bad(`Máximo ${MAX_TAREAS} tareas por lanzamiento`);
         const t = { id: newId('t'), ...sanitizeTarea(body.tarea, users), hecha: false, hechaPor: '', hechaEn: '', creadaPor: actor(s), creadaEn: now };
         tareas.push(t);

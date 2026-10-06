@@ -125,3 +125,15 @@ export function subDe(t) {
   if (/reuni[oó]n|equipo|coordinaci|llamada con/.test(s)) return 'equipo';
   return 'otras';
 }
+
+// ---------- Tablero ----------
+// Columnas: una por fase + las extra que cree la admin + «Completadas» al final.
+export const COLOR_COLUMNAS = ['gris', 'azul', 'morado', 'rojo', 'naranja', 'amarillo', 'verde', 'rosa'];
+export const COLUMNA_HECHAS = 'completadas';
+
+// Columna en la que está una tarea.
+export function columnaDe(t, extra = []) {
+  if (t.hecha) return COLUMNA_HECHAS;
+  if (t.columna && extra.some((c) => c.id === t.columna)) return t.columna;
+  return FASE_IDS.includes(t.fase) ? t.fase : 'preparacion';
+}

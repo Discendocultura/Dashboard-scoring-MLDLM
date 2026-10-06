@@ -501,3 +501,26 @@ test('tareas habituales: se guardan con su asignación y su fecha relativa y se 
   assert.ok(!dos.tareas.some((t) => t.titulo === quitar.titulo));
   assert.equal(dos.tareas.filter((t) => t.asignado?.tipo === 'rol' && t.asignado.rol === 'admin').length, 0);
 });
+
+test('tablero: columnas extra de la admin y mover tarjetas entre fases y columnas', async () => {
+  const admin = await login('admin');
+  const setter = await login('setter');
+  const tareas = await import('../handlers/tareas.js');
+  const post = (cookie, body) => tareas.POST(req('/api/tareas', { method: 'POST', cookie, body: { l: 'demo', avisar: false, ...body } }));
+  const cols = [{ id: 'cbloq01', label: 'Bloqueadas', icon: '⛔', color: 'rojo' }, { id: 'malo', label: 'x' }, { id: 'cideas01', label: '', icon: '💡' }];
+  assert.equal((await post(setter, { op: 'columnas', columnas: cols })).status, 403);
+  const r = await (await post(admin, { op: 'columnas', columnas: cols })).json();
+  assert.deepEqual(r.columnas, [{ id: 'cbloq01', label: 'Bloqueadas', icon: '⛔', color: 'rojo' }]);
+  const t = (await (await post(admin, { op: 'crear', tarea: { titulo: 'Mover me', fase: 'captacion' } })).json()).tareas.find((x) => x.titulo === 'Mover me');
+  let d = await (await post(admin, { op: 'mover', id: t.id, columna: 'cbloq01' })).json();
+  assert.equal(d.tareas.find((x) => x.id === t.id).columna, 'cbloq01');
+  d = await (await post(admin, { op: 'mover', id: t.id, columna: 'directo' })).json();
+  const moved = d.tareas.find((x) => x.id === t.id);
+  assert.deepEqual([moved.fase, moved.columna], ['directo', '']);
+  assert.equal((await post(admin, { op: 'mover', id: t.id, columna: 'cnoexiste' })).status, 400);
+  assert.equal((await post(setter, { op: 'mover', id: t.id, columna: 'captacion' })).status, 403);
+  const { columnaDe } = await import('../public/js/tareas.js');
+  assert.equal(columnaDe({ fase: 'clases', columna: 'cbloq01' }, r.columnas), 'cbloq01');
+  assert.equal(columnaDe({ fase: 'clases', columna: 'cborrada' }, r.columnas), 'clases');
+  assert.equal(columnaDe({ fase: 'clases', columna: 'cbloq01', hecha: true }, r.columnas), 'completadas');
+});

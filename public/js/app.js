@@ -5,7 +5,7 @@ import { icon } from './icons.js';
 import { ENCUESTA_PREGUNTAS } from './encuesta.js';
 import { enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
-import { FASES, puedeMarcar, esMia, vencida, addDays, ESTADOS_TAREA, estadoDe, vencidasEquipo, SUBS_PREPARACION, subDe } from './tareas.js';
+import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
@@ -2047,7 +2047,7 @@ async function loadTareas() {
     const d = await api(`/api/tareas?l=${encodeURIComponent(code)}`);
     if (code !== state.launchCode) return;
     if (state.tareas?.code !== code) state.tSel = null;
-    state.tareas = { code, list: d.tareas, users: d.users };
+    state.tareas = { code, list: d.tareas, users: d.users, columnas: d.columnas || [] };
   } catch (e) {
     state.tareas = { code, list: [], users: [], error: e.message };
   }
@@ -2129,7 +2129,7 @@ function tareaRow(t) {
     <div class="t-main">
       <button type="button" class="t-titulo t-open" data-tver="${esc(t.id)}">${t.habitual ? '<span class="t-hab" title="Tarea habitual">🔁</span>' : ''}${esc(t.titulo)}</button>
       ${notasExtracto(t)}
-      <div class="t-meta">${estadoDe(t) === 'en-curso' ? '<span class="t-encurso">⏳ En curso</span>' : ''}${fecha}${who}${hecha}</div>
+      <div class="t-meta">${(() => { const c = !t.hecha && extraCols().find((x) => x.id === t.columna); return c ? `<span class="t-encurso">${c.icon} ${esc(c.label)}</span>` : ''; })()}${fecha}${who}${hecha}</div>
     </div>
     ${state.role === 'admin' ? `<div class="t-actions"><button type="button" class="btn ghost" data-tedit="${esc(t.id)}" title="Editar" aria-label="Editar">✎</button><button type="button" class="btn ghost" data-tdel="${esc(t.id)}" title="Borrar" aria-label="Borrar">✕</button></div>` : ''}
   </li>`;
@@ -2267,47 +2267,87 @@ function renderTareas() {
 }
 
 // ---------- Tablero kanban ----------
+// Columnas: una por fase, las extra que cree la admin y «Completadas» al final.
+const COLOR_HEX = { gris: '#8a817b', azul: '#2f6aa8', morado: '#6b4fc8', rojo: '#c0362c', naranja: '#e07a1f', amarillo: '#c9a227', verde: '#128c4a', rosa: '#c2457e' };
+const FASE_COLOR = { preparacion: 'gris', captacion: 'azul', clases: 'morado', directo: 'rojo', carrito: 'verde', cierre: 'naranja' };
+const extraCols = () => state.tareas?.columnas || [];
+function columnasTablero() {
+  return [
+    ...FASES.map((f) => ({ id: f.id, label: f.label, icon: f.icon, color: FASE_COLOR[f.id], tipo: 'fase' })),
+    ...extraCols().map((c) => ({ ...c, tipo: 'extra' })),
+    { id: COLUMNA_HECHAS, label: 'Completadas', icon: '✅', color: 'verde', tipo: 'hechas' },
+  ];
+}
+
 function tarjeta(t) {
   const hoy = today();
   const puede = puedeMarcar(t, meSess());
+  const admin = state.role === 'admin';
   const fase = FASES.find((f) => f.id === t.fase);
   const venc = vencida(t, hoy);
-  const col = ESTADOS_TAREA.findIndex((e) => e.id === estadoDe(t));
+  const col = columnaDe(t, extraCols());
   const a = t.asignado;
   const who = a?.tipo === 'persona'
     ? `<span class="t-who"><span class="t-avatar">${esc(iniciales(asignadoTexto(a)))}</span>${esc(asignadoTexto(a))}</span>`
     : `<span class="t-who ${a ? 't-rol' : 't-nadie'}">${a ? icon('users') : ''}${esc(asignadoTexto(a))}</span>`;
   const fecha = t.fecha ? `<span class="t-fecha ${!t.hecha && venc ? 'vencida' : !t.hecha && t.fecha === hoy ? 'hoy' : ''}">${icon('calendar')}${esc(fechaCorta(t.fecha))}</span>` : '';
-  const move = (dir) => {
-    const dest = ESTADOS_TAREA[col + dir];
-    return puede && dest ? `<button type="button" class="kb-move" data-kmove="${esc(t.id)}" data-kto="${dest.id}" title="Mover a ${esc(dest.label)}" aria-label="Mover a ${esc(dest.label)}">${dir < 0 ? '‹' : '›'}</button>` : '<span class="kb-move-ph"></span>';
-  };
-  return `<article class="kb-card ${t.hecha ? 'done' : ''} ${venc ? 'is-vencida' : ''} ${esMia(t, meSess()) ? 'is-mia' : ''} ${puede ? '' : 'locked'}" ${puede ? 'draggable="true"' : ''} data-kid="${esc(t.id)}">
-    <div class="kb-top"><span class="kb-fase" title="${esc(fase?.label || '')}">${fase?.icon || ''} ${esc(fase?.label || '')}${t.fase === 'preparacion' ? (() => { const s = SUBS_PREPARACION.find((x) => x.id === subDe(t)); return ` · ${s.icon} ${esc(s.label)}`; })() : ''}</span>
-      ${state.role === 'admin' ? `<button type="button" class="kb-edit" data-tedit="${esc(t.id)}" title="Editar" aria-label="Editar">✎</button>` : ''}</div>
+  // En su columna de fase no hace falta repetir la fase; en las demás sí.
+  const chip = col === t.fase ? '' : `<span class="kb-fase">${fase?.icon || ''} ${esc(fase?.label || '')}</span>`;
+  const arrastrable = admin || puede;
+  return `<article class="kb-card ${t.hecha ? 'done' : ''} ${venc ? 'is-vencida' : ''} ${esMia(t, meSess()) ? 'is-mia' : ''} ${arrastrable ? '' : 'locked'}" ${arrastrable ? 'draggable="true"' : ''} data-kid="${esc(t.id)}">
+    ${chip || admin ? `<div class="kb-top">${chip || '<span></span>'}${admin ? `<button type="button" class="kb-edit" data-tedit="${esc(t.id)}" title="Editar" aria-label="Editar">✎</button>` : ''}</div>` : ''}
     <div class="kb-row"><label class="t-check" title="${puede ? (t.hecha ? 'Volver a pendiente' : 'Marcar como completada') : 'Solo puede marcarla su responsable'}"><input type="checkbox" data-tid="${esc(t.id)}" ${t.hecha ? 'checked' : ''} ${puede ? '' : 'disabled'}><span class="t-box" aria-hidden="true"></span></label>
-    <button type="button" class="kb-titulo t-open" data-tver="${esc(t.id)}">${t.habitual ? '<span class="t-hab" title="Tarea habitual">🔁</span>' : ''}${esc(t.titulo)}</button></div>
+    <span class="kb-titulo t-open" role="button" tabindex="0" data-tver="${esc(t.id)}">${t.habitual ? '<span class="t-hab" title="Tarea habitual">🔁</span>' : ''}${esc(t.titulo)}</span></div>
     ${notasExtracto(t, 'kb-notas', 110)}
     <div class="t-meta">${fecha}${who}</div>
-    ${t.hecha ? `<div class="t-hecha">✓ ${esc(t.hechaPor || '')}</div>` : ''}
-    <div class="kb-actions">${move(-1)}${move(1)}</div>
+    ${t.hecha ? `<div class="t-hecha">✓ ${esc(t.hechaPor || '')}${t.hechaEn ? ` · ${esc(new Date(t.hechaEn).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }))}` : ''}</div>` : ''}
   </article>`;
 }
 
 function renderTablero(shown) {
-  return `<div class="kanban">${ESTADOS_TAREA.map((e) => {
-    const items = shown.filter((t) => estadoDe(t) === e.id);
-    return `<section class="kb-col kb-${e.id}" data-kcol="${e.id}">
-      <header class="kb-head"><span aria-hidden="true">${e.icon}</span><h3>${esc(e.label)}</h3><span class="kb-count">${items.length}</span></header>
-      <div class="kb-list">${items.map(tarjeta).join('') || '<p class="kb-empty">Arrastra aquí una tarea</p>'}</div>
+  const admin = state.role === 'admin';
+  const cols = columnasTablero();
+  const extras = extraCols();
+  const order = (a, b) => (a.fecha || '9999').localeCompare(b.fecha || '9999') || a.titulo.localeCompare(b.titulo, 'es');
+  return `<div class="kanban" style="--kb-n:${cols.length + (admin ? 1 : 0)}">${cols.map((c) => {
+    let items = shown.filter((t) => columnaDe(t, extras) === c.id);
+    items = c.tipo === 'hechas' ? items.sort((a, b) => String(b.hechaEn || '').localeCompare(String(a.hechaEn || ''))) : items.sort(order);
+    // Preparación: tarjetas agrupadas por subcategoría.
+    const body = c.id === 'preparacion' && items.length
+      ? SUBS_PREPARACION.map((s) => {
+        const its = items.filter((t) => subDe(t) === s.id);
+        return its.length ? `<div class="kb-subhead">${s.icon} ${esc(s.label)} <span>${its.length}</span></div>${its.map(tarjeta).join('')}` : '';
+      }).join('')
+      : items.map(tarjeta).join('');
+    const tot = c.tipo === 'fase' ? state.tareas.list.filter((t) => t.fase === c.id) : null;
+    const hechasFase = tot ? tot.filter((t) => t.hecha).length : 0;
+    return `<section class="kb-col kbt-${c.tipo}" data-kcol="${esc(c.id)}" style="--kb:${COLOR_HEX[c.color] || COLOR_HEX.gris}">
+      <header class="kb-head"><span aria-hidden="true">${c.icon}</span><h3>${esc(c.label)}</h3><span class="kb-count" title="${tot ? `${hechasFase} de ${tot.length} completadas` : ''}">${items.length}</span>
+        ${admin && c.tipo === 'extra' ? `<button type="button" class="kb-coledit" data-colEdit="${esc(c.id)}" title="Editar columna" aria-label="Editar columna">⋯</button>` : ''}</header>
+      ${tot && tot.length ? `<div class="kb-prog" title="${hechasFase} de ${tot.length} completadas"><span style="width:${(hechasFase / tot.length) * 100}%"></span></div>` : ''}
+      <div class="kb-list">${body || `<p class="kb-empty">${c.tipo === 'hechas' ? 'Marca la casilla de una tarea y aparecerá aquí' : 'Sin tareas'}</p>`}</div>
     </section>`;
-  }).join('')}</div>`;
+  }).join('')}${admin ? '<button type="button" class="kb-addcol" data-col-nueva><span>＋</span>Añadir columna</button>' : ''}</div>`;
 }
 
-async function moverTarea(id, estado) {
+// Soltar una tarjeta en una columna: «Completadas» la marca; una fase o columna extra la mueve (admin).
+async function moverTarea(id, destino) {
   const t = state.tareas.list.find((x) => x.id === id);
-  if (!t || estadoDe(t) === estado) return;
-  try { await tareasOp({ op: 'estado', id, estado }); } catch (ex) { notice(ex.message, true); renderTareas(); }
+  if (!t) return;
+  const actual = columnaDe(t, extraCols());
+  if (actual === destino) return;
+  try {
+    if (destino === COLUMNA_HECHAS) {
+      if (!puedeMarcar(t, meSess())) throw new Error('Solo puede completarla su responsable');
+      await tareasOp({ op: 'marcar', id, hecha: true });
+    } else if (state.role === 'admin') {
+      await tareasOp({ op: 'mover', id, columna: destino });
+    } else if (t.hecha && (destino === t.fase || destino === t.columna)) {
+      await tareasOp({ op: 'marcar', id, hecha: false });
+    } else {
+      throw new Error('Solo la administradora puede cambiar una tarea de columna. Tú puedes marcarla como completada.');
+    }
+  } catch (ex) { notice(ex.message, true); renderTareas(); }
 }
 
 $('#tareas-vista').addEventListener('click', (e) => {
@@ -2317,10 +2357,6 @@ $('#tareas-vista').addEventListener('click', (e) => {
   ls.set('lsd_tareas_vista', state.tVista);
   if (state.tVista === 'lista' && state.tFiltro === 'todas') state.tFiltro = 'pendientes';
   renderTareas();
-});
-$('#tareas-list').addEventListener('click', (e) => {
-  const m = e.target.closest('[data-kmove]');
-  if (m) moverTarea(m.dataset.kmove, m.dataset.kto);
 });
 let dragId = null;
 $('#tareas-list').addEventListener('dragstart', (e) => {
@@ -2349,6 +2385,61 @@ $('#tareas-list').addEventListener('drop', (e) => {
   e.preventDefault();
   col.classList.remove('over');
   moverTarea(dragId, col.dataset.kcol);
+});
+
+// Columnas extra (solo admin): crear, renombrar, icono, color, mover y borrar.
+const coldlg = $('#col-dialog');
+let editingCol = null;
+const COL_ICONOS = ['📌', '⛔', '💡', '⏳', '👀', '🔁', '🚀', '🧩', '📦', '🗂️', '⭐', '❓'];
+function openColumna(id) {
+  const c = extraCols().find((x) => x.id === id) || null;
+  editingCol = c;
+  $('#col-title').textContent = c ? 'Editar columna' : 'Nueva columna';
+  $('#col-nombre').value = c?.label || '';
+  $('#col-iconos').innerHTML = COL_ICONOS.map((i) => `<button type="button" class="col-ico ${(c?.icon || '📌') === i ? 'on' : ''}" data-ci="${i}">${i}</button>`).join('');
+  $('#col-colores').innerHTML = COLOR_COLUMNAS.map((k) => `<button type="button" class="col-color ${(c?.color || 'gris') === k ? 'on' : ''}" data-cc="${k}" style="--c:${COLOR_HEX[k]}" title="${k}" aria-label="Color ${k}"></button>`).join('');
+  const i = c ? extraCols().indexOf(c) : -1;
+  $('#col-izq').hidden = !c || i === 0;
+  $('#col-der').hidden = !c || i === extraCols().length - 1;
+  $('#col-del').hidden = !c;
+  $('#col-status').textContent = '';
+  coldlg.showModal();
+  $('#col-nombre').focus();
+}
+$('#col-iconos').addEventListener('click', (e) => { const b = e.target.closest('[data-ci]'); if (b) $$('#col-iconos .col-ico').forEach((x) => x.classList.toggle('on', x === b)); });
+$('#col-colores').addEventListener('click', (e) => { const b = e.target.closest('[data-cc]'); if (b) $$('#col-colores .col-color').forEach((x) => x.classList.toggle('on', x === b)); });
+async function guardarColumnas(columnas, msg) {
+  const d = await api('/api/tareas', { method: 'POST', body: { l: state.tareas.code, op: 'columnas', columnas } });
+  state.tareas.columnas = d.columnas;
+  renderTareas();
+  if (msg) notice(msg);
+}
+$('#col-save').addEventListener('click', async () => {
+  const label = $('#col-nombre').value.trim();
+  if (!label) { $('#col-nombre').focus(); return; }
+  const datos = { label, icon: $('#col-iconos .on')?.dataset.ci || '📌', color: $('#col-colores .on')?.dataset.cc || 'gris' };
+  const list = extraCols().map((c) => ({ ...c }));
+  if (editingCol) Object.assign(list.find((c) => c.id === editingCol.id), datos);
+  else list.push({ id: `c${Math.random().toString(36).slice(2, 10)}`, ...datos });
+  try { await guardarColumnas(list); coldlg.close(); } catch (ex) { $('#col-status').textContent = ex.message; }
+});
+$('#col-del').addEventListener('click', async () => {
+  const n = state.tareas.list.filter((t) => !t.hecha && t.columna === editingCol.id).length;
+  if (!window.confirm(`¿Borrar la columna «${editingCol.label}»?${n ? ` Sus ${n} tareas volverán a la columna de su fase.` : ''}`)) return;
+  try { await guardarColumnas(extraCols().filter((c) => c.id !== editingCol.id), `Columna «${editingCol.label}» borrada.`); coldlg.close(); } catch (ex) { $('#col-status').textContent = ex.message; }
+});
+for (const [sel, dir] of [['#col-izq', -1], ['#col-der', 1]]) {
+  $(sel).addEventListener('click', async () => {
+    const list = extraCols().map((c) => ({ ...c }));
+    const i = list.findIndex((c) => c.id === editingCol.id);
+    [list[i], list[i + dir]] = [list[i + dir], list[i]];
+    try { await guardarColumnas(list); openColumna(editingCol.id); } catch (ex) { $('#col-status').textContent = ex.message; }
+  });
+}
+$('#tareas-list').addEventListener('click', (e) => {
+  if (e.target.closest('[data-col-nueva]')) openColumna(null);
+  const ed = e.target.closest('[data-coledit]');
+  if (ed) openColumna(ed.dataset.coledit);
 });
 
 async function tareasOp(body) {
@@ -3049,13 +3140,20 @@ function openTareaVer(id) {
   box.innerHTML = richToHtml(t.notas) || '<p class="muted">Sin descripción.</p>';
   hydrateVideos(box);
   const puede = puedeMarcar(t, meSess());
-  $('#tv-estado').innerHTML = ESTADOS_TAREA.map((e) => `<button type="button" class="seg-btn ${estadoDe(t) === e.id ? 'on' : ''}" data-tvest="${e.id}" ${puede ? '' : 'disabled'}>${e.icon} ${esc(e.label)}</button>`).join('');
+  const cols = columnasTablero().filter((c) => c.tipo !== 'hechas');
+  $('#tv-estado').innerHTML = `<button type="button" class="btn ${t.hecha ? '' : 'primary'}" data-tvdone ${puede ? '' : 'disabled'}>${t.hecha ? '↩︎ Volver a pendiente' : '✓ Marcar como completada'}</button>
+    ${state.role === 'admin' && !t.hecha ? `<label class="field inline"><span>Columna</span><select data-tvcol>${cols.map((c) => `<option value="${esc(c.id)}" ${columnaDe(t, extraCols()) === c.id ? 'selected' : ''}>${c.icon} ${esc(c.label)}</option>`).join('')}</select></label>` : ''}`;
   if (!tvDlg.open) tvDlg.showModal();
 }
 $('#tv-estado').addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-tvest]');
-  if (!b || b.classList.contains('on')) return;
-  try { await tareasOp({ op: 'estado', id: tvId, estado: b.dataset.tvest }); openTareaVer(tvId); } catch (ex) { notice(ex.message, true); }
+  if (!e.target.closest('[data-tvdone]')) return;
+  const t = state.tareas.list.find((x) => x.id === tvId);
+  try { await tareasOp({ op: 'marcar', id: tvId, hecha: !t.hecha }); openTareaVer(tvId); } catch (ex) { notice(ex.message, true); }
+});
+$('#tv-estado').addEventListener('change', async (e) => {
+  const sel = e.target.closest('[data-tvcol]');
+  if (!sel) return;
+  try { await tareasOp({ op: 'mover', id: tvId, columna: sel.value }); openTareaVer(tvId); } catch (ex) { notice(ex.message, true); }
 });
 $('#tv-editar').addEventListener('click', () => {
   const t = state.tareas.list.find((x) => x.id === tvId);
@@ -3063,6 +3161,10 @@ $('#tv-editar').addEventListener('click', () => {
   if (t) openTarea(t);
 });
 tvDlg.addEventListener('close', () => { $('#tv-notas').innerHTML = ''; }); // para el vídeo al cerrar
+document.addEventListener('keydown', (e) => {
+  const b = (e.key === 'Enter' || e.key === ' ') && e.target.closest?.('span[data-tver]');
+  if (b) { e.preventDefault(); openTareaVer(b.dataset.tver); }
+});
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-tver]');
   if (b && !e.target.closest('#tarea-ver')) openTareaVer(b.dataset.tver);

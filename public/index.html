@@ -676,10 +676,32 @@
         <div id="tv-notas" class="rich tv-notas"></div>
       </div>
       <footer class="dialog-foot">
-        <div id="tv-estado" class="seg" role="group" aria-label="Estado"></div>
+        <div id="tv-estado" class="tv-estado" role="group" aria-label="Estado"></div>
         <span class="spacer"></span>
         <button id="tv-editar" class="btn admin-only" type="button">Editar</button>
         <button class="btn" value="cancel" type="submit">Cerrar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Columna del tablero -->
+  <dialog id="col-dialog" class="dialog dialog-sm">
+    <form method="dialog">
+      <header class="dialog-head"><h2 id="col-title">Nueva columna</h2></header>
+      <div class="dialog-body">
+        <label class="field"><span>Nombre</span><input id="col-nombre" maxlength="30" placeholder="Bloqueadas, Ideas, Próximo lanzamiento…"></label>
+        <div class="field"><span>Icono</span><div id="col-iconos" class="col-iconos"></div></div>
+        <div class="field"><span>Color</span><div id="col-colores" class="col-colores"></div></div>
+        <p class="muted">Las columnas extra son comunes a todos los lanzamientos. Si borras una, sus tareas vuelven a la columna de su fase.</p>
+      </div>
+      <footer class="dialog-foot">
+        <button id="col-del" class="btn danger-ghost" type="button">Borrar</button>
+        <button id="col-izq" class="btn ghost" type="button" title="Mover a la izquierda">← Mover</button>
+        <button id="col-der" class="btn ghost" type="button" title="Mover a la derecha">Mover →</button>
+        <span id="col-status" class="muted"></span>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate type="submit">Cancelar</button>
+        <button id="col-save" class="btn primary" type="button">Guardar</button>
       </footer>
     </form>
   </dialog>

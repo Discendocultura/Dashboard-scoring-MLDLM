@@ -287,7 +287,7 @@ Cada persona entra con **su email y su contraseña**. Se dan de alta en *Configu
 Las contraseñas generales `ADMIN_PASSWORD` / `SETTER_PASSWORD` siguen funcionando (dejando el email vacío) como acceso de emergencia.
 
 ## Tareas
-Cada lanzamiento tiene su pestaña **Tareas**, agrupadas por fase (preparación → cierre) con barra de progreso, vencidas y filtros (pendientes, mías, vencidas, hechas, por persona). La admin crea, edita y borra (también varias a la vez con «Seleccionar», o todas con «Eliminar todas»); cada tarea se asigna a una persona o a todo un rol y, si se marca «Avisar», le llega un email. El resto marca como hechas las suyas o las de su rol. Se ven en **Lista** (por fases) o en **Tablero** kanban (Por hacer → En curso → Hecha): arrastra las tarjetas de columna o usa los botones ‹ › (en el móvil). La fase **Preparación** se divide en subcategorías (Dashboard y herramientas, Oferta y pagos, Contenido y creatividades, Comunicación, Revisión y pruebas, Equipo y reuniones, Otras): se deducen del título y se pueden elegir al crear o editar la tarea.
+Cada lanzamiento tiene su pestaña **Tareas**, agrupadas por fase (preparación → cierre) con barra de progreso, vencidas y filtros (pendientes, mías, vencidas, hechas, por persona). La admin crea, edita y borra (también varias a la vez con «Seleccionar», o todas con «Eliminar todas»); cada tarea se asigna a una persona o a todo un rol y, si se marca «Avisar», le llega un email. El resto marca como hechas las suyas o las de su rol. Se ven en **Lista** (por fases) o en **Tablero** kanban: una columna por fase (Preparación agrupada por subcategorías), las columnas extra que cree la admin (comunes a todos los lanzamientos; se renombran, mueven, colorean y borran con «⋯») y **✅ Completadas** al final: al marcar la casilla la tarjeta salta ahí tachada. La admin arrastra tarjetas entre columnas (o elige la columna al abrir la tarea); el resto marca las suyas como completadas. La fase **Preparación** se divide en subcategorías (Dashboard y herramientas, Oferta y pagos, Contenido y creatividades, Comunicación, Revisión y pruebas, Equipo y reuniones, Otras): se deducen del título y se pueden elegir al crear o editar la tarea.
 
 Filtros: pendientes, hoy, esta semana, mías, vencidas, hechas y por persona.
 
@@ -308,7 +308,7 @@ Pestaña **Calendario** (todos los roles), con vista **mensual** y **semanal**:
 - Pulsa un día para ver el detalle, marcar tareas o (admin) añadir eventos y tareas ese día.
 - **Sincronizar con mi calendario**: cada persona tiene un enlace privado para Google Calendar (*Añadir calendario → Desde URL*) o iPhone/Mac (webcal). Incluye hitos, eventos y sus tareas, y se actualiza solo. Si se desactiva a la persona, su enlace deja de funcionar.
 
-La configuración se guarda en el Custom Value `lead_scoring_dashboard_config` de GHL, los usuarios en `lsd_usuarios` (contraseñas solo como hash PBKDF2) las tareas en `lsd_tareas_<código>` y los eventos en `lsd_eventos_<código>`. No los borres.
+La configuración se guarda en el Custom Value `lead_scoring_dashboard_config` de GHL, los usuarios en `lsd_usuarios` (contraseñas solo como hash PBKDF2) las tareas en `lsd_tareas_<código>` los eventos en `lsd_eventos_<código>` y las columnas extra del tablero en `lsd_kanban_columnas`. No los borres.
 
 ## Escala
 Los leads se cargan en páginas de 100 desde el navegador, así que 2.000 leads son unas 20

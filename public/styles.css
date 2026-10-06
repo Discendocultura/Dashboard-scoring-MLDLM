@@ -902,3 +902,37 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .tf-sub-head h4 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); flex: 1; }
 .tf-sub .tarea { padding-left: 24px; }
 @media (max-width: 600px) { .tf-sub-head { padding-left: 14px; } .tf-sub .tarea { padding-left: 12px; } }
+
+/* ---------- Tablero por fases + columnas extra ---------- */
+.kanban { display: flex; gap: 12px; align-items: flex-start; overflow-x: auto; padding-bottom: 10px; scroll-snap-type: x proximity; }
+.kanban > .kb-col { flex: 0 0 300px; scroll-snap-align: start; max-height: calc(100vh - 230px); display: flex; flex-direction: column; }
+.kb-col .kb-list { overflow-y: auto; padding-right: 2px; min-height: 60px; }
+.kb-col.kbt-hechas { background: color-mix(in srgb, var(--tone-buy) 6%, var(--surface-2)); }
+.kb-col.kbt-extra { border-style: dashed; }
+.kb-head { border-bottom-color: var(--kb) !important; }
+.kb-prog { height: 4px; border-radius: 999px; background: var(--border); margin: -6px 2px 10px; overflow: hidden; }
+.kb-prog span { display: block; height: 100%; background: var(--tone-buy); }
+.kb-subhead { display: flex; align-items: center; gap: 6px; margin: 6px 2px 0; font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); }
+.kb-subhead span { margin-left: auto; font-weight: 700; color: var(--muted); }
+.kb-coledit { font: inherit; font-size: 18px; line-height: 1; border: 0; background: none; color: var(--text-2); cursor: pointer; padding: 0 6px; border-radius: 6px; }
+.kb-coledit:hover { background: var(--surface); }
+.kb-addcol { flex: 0 0 200px; min-height: 120px; font: inherit; font-weight: 700; color: var(--text-2); border: 2px dashed var(--border); border-radius: var(--radius); background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.kb-addcol span { font-size: 26px; line-height: 1; }
+.kb-addcol:hover { border-color: var(--accent); color: var(--accent); }
+.kb-card.done { opacity: .8; }
+.kb-card.done .kb-titulo { text-decoration: line-through; color: var(--muted); }
+.col-iconos, .col-colores { display: flex; flex-wrap: wrap; gap: 6px; }
+.col-ico { font-size: 20px; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; }
+.col-ico.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.col-color { width: 32px; height: 32px; border-radius: 50%; border: 3px solid var(--surface); background: var(--c); box-shadow: 0 0 0 1px var(--border); cursor: pointer; }
+.col-color.on { box-shadow: 0 0 0 3px var(--c); }
+.tv-estado { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.tv-estado select { width: auto; }
+@media (max-width: 800px) {
+  .kanban { flex-direction: column; overflow-x: visible; }
+  .kanban > .kb-col { flex: none; width: 100%; max-height: none; }
+  .kb-col .kb-list { overflow: visible; }
+  .kb-addcol { flex: none; width: 100%; min-height: 64px; }
+}
+.kb-titulo.t-open { display: block; cursor: pointer; }
+.kb-card[draggable="true"] { -webkit-user-drag: element; }
