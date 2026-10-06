@@ -230,7 +230,7 @@ select.outcome { font-size: 12px; padding: 4px 6px; }
 .cfg-h3 { font-size: 14px; margin: 10px 0 0; }
 .enlaces-list { display: flex; flex-direction: column; gap: 6px; }
 .enlace-row { display: grid; grid-template-columns: minmax(110px, 180px) 1fr auto; gap: 6px; }
-.acceso-row { display: grid; grid-template-columns: 36px 150px minmax(140px, 220px) 1fr auto auto; gap: 6px; align-items: center; }
+.acceso-row { display: grid; grid-template-columns: minmax(160px, 260px) 1fr auto auto; gap: 6px; align-items: center; }
 .acc-ico { width: 36px; height: 36px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; }
 .acc-ico svg { width: 20px; height: 20px; }
 .acc-workflow { background: #e8e3fb; color: #5a3fc0; }
@@ -244,9 +244,8 @@ select.outcome { font-size: 12px; padding: 4px 6px; }
 .acc-open { text-decoration: none; white-space: nowrap; }
 .acc-open[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 @media (max-width: 640px) {
-  .acceso-row { grid-template-columns: 36px 1fr auto; grid-template-areas: "ico tipo del" "nom nom nom" "url url open"; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
-  .acc-ico { grid-area: ico; } .acc-tipo { grid-area: tipo; } .acc-del { grid-area: del; }
-  .acc-nombre { grid-area: nom; } .acc-url { grid-area: url; min-width: 0; } .acc-open { grid-area: open; }
+  .acceso-row { grid-template-columns: 1fr auto auto; grid-template-areas: "nom nom del" "url open open"; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .acc-del { grid-area: del; } .acc-nombre { grid-area: nom; } .acc-url { grid-area: url; min-width: 0; } .acc-open { grid-area: open; }
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .acc-workflow { background: #2e2650; color: #c3b4ff; }
@@ -561,3 +560,22 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .cc-lbl.cur { fill: var(--text); }
 .cc-lbl.prev { fill: var(--muted); }
 .cc-nota { margin-top: 12px; }
+
+/* Accesos a GHL por categorías */
+.acc-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.acc-cat { font: inherit; color: inherit; text-align: left; display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.acc-cat:hover { transform: translateY(-1px); box-shadow: var(--shadow); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.acc-cat:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.acc-cat .acc-ico { width: 42px; height: 42px; border-radius: 11px; flex: none; }
+.acc-cat .acc-ico svg { width: 22px; height: 22px; }
+.acc-cat-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.acc-cat-txt strong { font-size: 15px; }
+.acc-cat-txt small { font-size: 12px; color: var(--muted); }
+.acc-cat-txt em { font-style: normal; color: var(--st-caliente); font-weight: 600; }
+.acc-cat-go { font-size: 24px; color: var(--muted); line-height: 1; }
+.acc-detail { display: flex; flex-direction: column; gap: 12px; }
+.acc-detail-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.acc-detail-head h3 { margin: 0; font-size: 16px; }
+.acc-add { align-self: flex-start; }
+@media (prefers-reduced-motion: reduce) { .acc-cat { transition: none; } }

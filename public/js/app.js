@@ -1707,14 +1707,14 @@ $('#cfg-enlaces').addEventListener('click', (e) => { if (e.target.closest('.enl-
 // Accesos directos a GHL: tipo (con su icono), nombre y URL. Los habituales se proponen con la URL vacía.
 const svgIco = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ACCESO_TIPOS = {
-  workflow: { label: 'Workflow', icon: svgIco('<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M6 8.5v1.5a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V8.5M12 13v2.5"/>') },
-  pagina: { label: 'Página', icon: svgIco('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/>') },
-  formulario: { label: 'Formulario', icon: svgIco('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>') },
-  encuesta: { label: 'Encuesta', icon: svgIco('<path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 17h8"/>') },
-  calendario: { label: 'Calendario', icon: svgIco('<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>') },
-  email: { label: 'Email / campaña', icon: svgIco('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>') },
-  pago: { label: 'Pago / producto', icon: svgIco('<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6.5 15h4"/>') },
-  otro: { label: 'Otro enlace', icon: svgIco('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>') },
+  workflow: { label: 'Workflow', plural: 'Workflows', uno: 'workflow', icon: svgIco('<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M6 8.5v1.5a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V8.5M12 13v2.5"/>') },
+  pagina: { label: 'Página', plural: 'Páginas', uno: 'página', icon: svgIco('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/>') },
+  formulario: { label: 'Formulario', plural: 'Formularios', uno: 'formulario', icon: svgIco('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>') },
+  encuesta: { label: 'Encuesta', plural: 'Encuestas', uno: 'encuesta', icon: svgIco('<path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 17h8"/>') },
+  calendario: { label: 'Calendario', plural: 'Calendarios', uno: 'calendario', icon: svgIco('<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>') },
+  email: { label: 'Email / campaña', plural: 'Emails y campañas', uno: 'email o campaña', icon: svgIco('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>') },
+  pago: { label: 'Pago / producto', plural: 'Pagos y productos', uno: 'enlace de pago', icon: svgIco('<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6.5 15h4"/>') },
+  otro: { label: 'Otro enlace', plural: 'Otros enlaces', uno: 'enlace', icon: svgIco('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>') },
 };
 const ACCESOS_SUGERIDOS = [
   ['workflow', 'Workflow · formulario de registro'], ['workflow', 'Workflow · encuesta rellenada'], ['workflow', 'Workflow · compra'],
@@ -1725,48 +1725,81 @@ const ACCESOS_SUGERIDOS = [
 const guessTipo = (nombre) => (/workflow/i.test(nombre) ? 'workflow' : /encuesta/i.test(nombre) ? 'encuesta' : /formulario/i.test(nombre) ? 'formulario'
   : /p[aá]gina|landing|funnel|embudo/i.test(nombre) ? 'pagina' : /calendario|agenda/i.test(nombre) ? 'calendario' : /email|campa/i.test(nombre) ? 'email' : 'otro');
 
-const accesoRow = (tipo = 'workflow', nombre = '', url = '') => {
-  const t = ACCESO_TIPOS[tipo] ? tipo : 'otro';
-  return `<div class="acceso-row">
-  <span class="acc-ico acc-${t}" title="${esc(ACCESO_TIPOS[t].label)}">${ACCESO_TIPOS[t].icon}</span>
-  <select class="acc-tipo" aria-label="Tipo">${Object.entries(ACCESO_TIPOS).map(([k, v]) => `<option value="${k}"${k === t ? ' selected' : ''}>${v.label}</option>`).join('')}</select>
-  <input class="acc-nombre" value="${esc(nombre)}" placeholder="Nombre" maxlength="60" aria-label="Nombre">
-  <input class="acc-url" type="url" value="${esc(url)}" placeholder="Pega aquí la URL" aria-label="URL">
-  <a class="btn acc-open" target="_blank" rel="noopener"${url ? ` href="${esc(url)}"` : ' aria-disabled="true"'}>Abrir ↗</a>
+// Accesos a GHL en dos niveles: primero las categorías y, al pulsar una, sus enlaces.
+// Se editan sobre state.accesosEdit (lo que se guarda) y state.accesosCat (la categoría abierta).
+const accesoRow = (a, i) => `<div class="acceso-row" data-i="${i}">
+  <input class="acc-nombre" value="${esc(a.nombre)}" placeholder="Nombre (p. ej. ${esc(ACCESO_TIPOS[a.tipo].uno)} de registro)" maxlength="60" aria-label="Nombre">
+  <input class="acc-url" type="url" value="${esc(a.url)}" placeholder="Pega aquí la URL" aria-label="URL">
+  <a class="btn acc-open" target="_blank" rel="noopener"${/^https:\/\//i.test(a.url) ? ` href="${esc(a.url)}"` : ' aria-disabled="true"'}>Abrir ↗</a>
   <button type="button" class="btn acc-del" title="Quitar">✕</button></div>`;
-};
 
 function renderAccesosEditor(accesos) {
-  // Los sugeridos que aún no estén en la lista se añaden al final, vacíos.
-  const list = (accesos || []).map((a) => ({ ...a, tipo: a.tipo || guessTipo(a.nombre) }));
+  // Los sugeridos que aún no estén en la lista se añaden vacíos.
+  const list = (accesos || []).map((a) => ({ ...a, tipo: ACCESO_TIPOS[a.tipo] ? a.tipo : guessTipo(a.nombre) }));
   for (const [tipo, nombre] of ACCESOS_SUGERIDOS) if (!list.some((a) => a.nombre === nombre)) list.push({ tipo, nombre, url: '' });
-  $('#cfg-accesos').innerHTML = list.map((a) => accesoRow(a.tipo, a.nombre, a.url)).join('');
+  state.accesosEdit = list;
+  state.accesosCat = null;
+  drawAccesos();
+}
+
+function drawAccesos(focusLast = false) {
+  const box = $('#cfg-accesos');
+  const list = state.accesosEdit;
+  const cat = state.accesosCat;
+  if (!cat) {
+    box.innerHTML = `<div class="acc-cats">${Object.entries(ACCESO_TIPOS).map(([k, t]) => {
+      const items = list.filter((a) => a.tipo === k);
+      const conUrl = items.filter((a) => /^https:\/\//i.test(a.url)).length;
+      const faltan = items.length - conUrl;
+      return `<button type="button" class="acc-cat" data-cat="${k}">
+        <span class="acc-ico acc-${k}">${t.icon}</span>
+        <span class="acc-cat-txt"><strong>${t.plural}</strong><small>${items.length ? `${items.length} ${items.length === 1 ? 'enlace' : 'enlaces'}${faltan ? ` · <em>${faltan} sin URL</em>` : ''}` : 'Vacía · añade el primero'}</small></span>
+        <span class="acc-cat-go" aria-hidden="true">›</span></button>`;
+    }).join('')}</div>`;
+    return;
+  }
+  const t = ACCESO_TIPOS[cat];
+  const rows = list.map((a, i) => [a, i]).filter(([a]) => a.tipo === cat);
+  box.innerHTML = `<div class="acc-detail">
+    <div class="acc-detail-head">
+      <button type="button" class="btn acc-back">← Categorías</button>
+      <span class="acc-ico acc-${cat}">${t.icon}</span><h3>${t.plural}</h3>
+    </div>
+    <div class="enlaces-list">${rows.map(([a, i]) => accesoRow(a, i)).join('') || `<p class="muted">Todavía no hay ${t.plural.toLowerCase()}. Añade el primero.</p>`}</div>
+    <button type="button" class="btn acc-add">+ Añadir ${t.uno}</button>
+  </div>`;
+  if (focusLast) $('#cfg-accesos .acceso-row:last-child .acc-nombre')?.focus();
 }
 
 function readAccesosEditor() {
-  return $$('#cfg-accesos .acceso-row')
-    .map((r) => ({ tipo: $('.acc-tipo', r).value, nombre: $('.acc-nombre', r).value.trim(), url: $('.acc-url', r).value.trim() }))
-    .filter((a) => a.nombre);
+  return (state.accesosEdit || []).map((a) => ({ tipo: a.tipo, nombre: a.nombre.trim(), url: a.url.trim() })).filter((a) => a.nombre);
 }
 
-$('#btn-add-acceso').addEventListener('click', () => {
-  $('#cfg-accesos').insertAdjacentHTML('beforeend', accesoRow());
-  $('#cfg-accesos .acceso-row:last-child .acc-nombre').focus();
-});
-$('#cfg-accesos').addEventListener('click', (e) => { if (e.target.closest('.acc-del')) e.target.closest('.acceso-row').remove(); });
-$('#cfg-accesos').addEventListener('change', (e) => {
-  if (!e.target.classList.contains('acc-tipo')) return;
-  const t = e.target.value;
-  const ico = $('.acc-ico', e.target.closest('.acceso-row'));
-  ico.className = `acc-ico acc-${t}`;
-  ico.title = ACCESO_TIPOS[t].label;
-  ico.innerHTML = ACCESO_TIPOS[t].icon;
+$('#cfg-accesos').addEventListener('click', (e) => {
+  const cat = e.target.closest('[data-cat]');
+  if (cat) { state.accesosCat = cat.dataset.cat; drawAccesos(); return; }
+  if (e.target.closest('.acc-back')) { state.accesosCat = null; drawAccesos(); return; }
+  if (e.target.closest('.acc-add')) {
+    state.accesosEdit.push({ tipo: state.accesosCat, nombre: '', url: '' });
+    drawAccesos(true);
+    return;
+  }
+  const del = e.target.closest('.acc-del');
+  if (del) {
+    state.accesosEdit.splice(Number(del.closest('.acceso-row').dataset.i), 1);
+    drawAccesos();
+  }
 });
 $('#cfg-accesos').addEventListener('input', (e) => {
+  const row = e.target.closest('.acceso-row');
+  if (!row) return;
+  const a = state.accesosEdit[Number(row.dataset.i)];
+  if (e.target.classList.contains('acc-nombre')) a.nombre = e.target.value;
   if (!e.target.classList.contains('acc-url')) return;
-  const a = $('.acc-open', e.target.closest('.acceso-row'));
+  a.url = e.target.value;
+  const open = $('.acc-open', row);
   const url = e.target.value.trim();
-  if (/^https:\/\//i.test(url)) { a.href = url; a.removeAttribute('aria-disabled'); } else { a.removeAttribute('href'); a.setAttribute('aria-disabled', 'true'); }
+  if (/^https:\/\//i.test(url)) { open.href = url; open.removeAttribute('aria-disabled'); } else { open.removeAttribute('href'); open.setAttribute('aria-disabled', 'true'); }
 });
 
 // Textos de la página: los fijos (bloque de clases) + los que añada a mano.
