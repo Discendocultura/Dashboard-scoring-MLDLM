@@ -49,12 +49,20 @@ export async function POST(request) {
     const dashboardUrl = `${new URL(request.url).origin}/#tareas`;
     let nuevasAsignadas = [];
 
-    if (op === 'marcar') {
+    if (op === 'marcar' || op === 'estado') {
       const t = find();
-      if (!puedeMarcar(t, s)) throw bad('Solo puedes marcar tus tareas o las de tu rol', 403);
-      t.hecha = Boolean(body.hecha);
-      t.hechaPor = t.hecha ? actor(s) : '';
-      t.hechaEn = t.hecha ? now : '';
+      if (!puedeMarcar(t, s)) throw bad('Solo puedes cambiar tus tareas o las de tu rol', 403);
+      // marcar: hecha sí/no. estado: columna del tablero (pendiente | en-curso | hecha).
+      const estado = op === 'marcar' ? (body.hecha ? 'hecha' : 'pendiente') : String(body.estado || '');
+      if (!['pendiente', 'en-curso', 'hecha'].includes(estado)) throw bad('Estado no válido');
+      const eraHecha = Boolean(t.hecha);
+      t.estado = estado;
+      t.hecha = estado === 'hecha';
+      if (t.hecha !== eraHecha) {
+        t.hechaPor = t.hecha ? actor(s) : '';
+        t.hechaEn = t.hecha ? now : '';
+      }
+      if (estado === 'en-curso') { t.enCursoPor = actor(s); t.enCursoEn = now; }
     } else {
       if (s.role !== 'admin') throw bad('Solo el administrador puede crear, editar o borrar tareas', 403);
       if (op === 'crear') {

@@ -5,7 +5,7 @@ import { icon } from './icons.js';
 import { ENCUESTA_PREGUNTAS } from './encuesta.js';
 import { enrichLead, computeMetrics, bySource, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
-import { FASES, puedeMarcar, esMia, vencida, addDays } from './tareas.js';
+import { FASES, puedeMarcar, esMia, vencida, addDays, ESTADOS_TAREA, estadoDe } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -17,6 +17,7 @@ const state = {
   user: null,
   tareas: null, // { code, list, users }
   tFiltro: 'pendientes',
+  tVista: 'lista', // 'lista' | 'tablero' (se recuerda en el navegador)
   tResp: '',
   tSel: null, // Set de ids seleccionados (modo selección del admin) o null
   equipo: [],
@@ -35,6 +36,7 @@ const ls = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } },
 };
+if (ls.get('lsd_tareas_vista') === 'tablero') state.tVista = 'tablero';
 
 // ---------- API ----------
 async function api(path, { method = 'GET', body } = {}) {
@@ -2002,6 +2004,8 @@ function filtroResp(t) {
 
 function filtroEstado(t) {
   const f = state.tFiltro;
+  // En el tablero las columnas ya separan por estado: solo cuentan «Mías» y «Vencidas».
+  if (state.tVista === 'tablero') return f === 'mias' ? esMia(t, meSess()) : f === 'vencidas' ? vencida(t, today()) : true;
   if (f === 'pendientes') return !t.hecha;
   if (f === 'hechas') return t.hecha;
   if (f === 'vencidas') return vencida(t, today());
@@ -2039,7 +2043,7 @@ function tareaRow(t) {
     <div class="t-main">
       <div class="t-titulo">${esc(t.titulo)}</div>
       ${t.notas ? `<div class="t-notas">${esc(t.notas)}</div>` : ''}
-      <div class="t-meta">${fecha}${who}${hecha}</div>
+      <div class="t-meta">${estadoDe(t) === 'en-curso' ? '<span class="t-encurso">⏳ En curso</span>' : ''}${fecha}${who}${hecha}</div>
     </div>
     ${state.role === 'admin' ? `<div class="t-actions"><button type="button" class="btn ghost" data-tedit="${esc(t.id)}" title="Editar" aria-label="Editar">✎</button><button type="button" class="btn ghost" data-tdel="${esc(t.id)}" title="Borrar" aria-label="Borrar">✕</button></div>` : ''}
   </li>`;
@@ -2094,6 +2098,14 @@ function renderTareas() {
   const groups = FASES.map((f) => ({ f, all: list.filter((t) => t.fase === f.id), items: shown.filter((t) => t.fase === f.id).sort(order) }))
     .filter((g) => g.items.length);
   if (!$('#view-calendario').hidden) renderCalendario();
+  $$('#tareas-vista .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.v === state.tVista));
+  $$('#tareas-filtro [data-f="pendientes"], #tareas-filtro [data-f="hechas"]').forEach((b) => { b.hidden = state.tVista === 'tablero'; });
+  if (state.tVista === 'tablero') {
+    if (state.tFiltro === 'mias' || state.tFiltro === 'vencidas') { /* se mantienen */ } else state.tFiltro = 'todas';
+    $$('#tareas-filtro .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.f === state.tFiltro));
+    $('#tareas-list').innerHTML = list.length ? renderTablero(shown.sort(order)) : '';
+    return;
+  }
   $('#tareas-list').innerHTML = !list.length ? '' : groups.length ? groups.map(({ f, all, items }) => {
     const d = all.filter((t) => t.hecha).length;
     return `<section class="card tarea-fase">
@@ -2103,6 +2115,90 @@ function renderTareas() {
     </section>`;
   }).join('') : `<p class="muted tareas-none">${state.tFiltro === 'vencidas' ? '¡Nada vencido! 🎉' : state.tFiltro === 'mias' ? 'No tienes tareas pendientes.' : 'No hay tareas con este filtro.'}</p>`;
 }
+
+// ---------- Tablero kanban ----------
+function tarjeta(t) {
+  const hoy = today();
+  const puede = puedeMarcar(t, meSess());
+  const fase = FASES.find((f) => f.id === t.fase);
+  const venc = vencida(t, hoy);
+  const col = ESTADOS_TAREA.findIndex((e) => e.id === estadoDe(t));
+  const a = t.asignado;
+  const who = a?.tipo === 'persona'
+    ? `<span class="t-who"><span class="t-avatar">${esc(iniciales(asignadoTexto(a)))}</span>${esc(asignadoTexto(a))}</span>`
+    : `<span class="t-who ${a ? 't-rol' : 't-nadie'}">${a ? icon('users') : ''}${esc(asignadoTexto(a))}</span>`;
+  const fecha = t.fecha ? `<span class="t-fecha ${!t.hecha && venc ? 'vencida' : !t.hecha && t.fecha === hoy ? 'hoy' : ''}">${icon('calendar')}${esc(fechaCorta(t.fecha))}</span>` : '';
+  const move = (dir) => {
+    const dest = ESTADOS_TAREA[col + dir];
+    return puede && dest ? `<button type="button" class="kb-move" data-kmove="${esc(t.id)}" data-kto="${dest.id}" title="Mover a ${esc(dest.label)}" aria-label="Mover a ${esc(dest.label)}">${dir < 0 ? '‹' : '›'}</button>` : '<span class="kb-move-ph"></span>';
+  };
+  return `<article class="kb-card ${t.hecha ? 'done' : ''} ${venc ? 'is-vencida' : ''} ${esMia(t, meSess()) ? 'is-mia' : ''} ${puede ? '' : 'locked'}" ${puede ? 'draggable="true"' : ''} data-kid="${esc(t.id)}">
+    <div class="kb-top"><span class="kb-fase" title="${esc(fase?.label || '')}">${fase?.icon || ''} ${esc(fase?.label || '')}</span>
+      ${state.role === 'admin' ? `<button type="button" class="kb-edit" data-tedit="${esc(t.id)}" title="Editar" aria-label="Editar">✎</button>` : ''}</div>
+    <div class="kb-titulo">${esc(t.titulo)}</div>
+    ${t.notas ? `<div class="kb-notas">${esc(t.notas)}</div>` : ''}
+    <div class="t-meta">${fecha}${who}</div>
+    ${t.hecha ? `<div class="t-hecha">✓ ${esc(t.hechaPor || '')}</div>` : ''}
+    <div class="kb-actions">${move(-1)}${move(1)}</div>
+  </article>`;
+}
+
+function renderTablero(shown) {
+  return `<div class="kanban">${ESTADOS_TAREA.map((e) => {
+    const items = shown.filter((t) => estadoDe(t) === e.id);
+    return `<section class="kb-col kb-${e.id}" data-kcol="${e.id}">
+      <header class="kb-head"><span aria-hidden="true">${e.icon}</span><h3>${esc(e.label)}</h3><span class="kb-count">${items.length}</span></header>
+      <div class="kb-list">${items.map(tarjeta).join('') || '<p class="kb-empty">Arrastra aquí una tarea</p>'}</div>
+    </section>`;
+  }).join('')}</div>`;
+}
+
+async function moverTarea(id, estado) {
+  const t = state.tareas.list.find((x) => x.id === id);
+  if (!t || estadoDe(t) === estado) return;
+  try { await tareasOp({ op: 'estado', id, estado }); } catch (ex) { notice(ex.message, true); renderTareas(); }
+}
+
+$('#tareas-vista').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-v]');
+  if (!b) return;
+  state.tVista = b.dataset.v;
+  ls.set('lsd_tareas_vista', state.tVista);
+  if (state.tVista === 'lista' && state.tFiltro === 'todas') state.tFiltro = 'pendientes';
+  renderTareas();
+});
+$('#tareas-list').addEventListener('click', (e) => {
+  const m = e.target.closest('[data-kmove]');
+  if (m) moverTarea(m.dataset.kmove, m.dataset.kto);
+});
+let dragId = null;
+$('#tareas-list').addEventListener('dragstart', (e) => {
+  const c = e.target.closest('[data-kid]');
+  if (!c) return;
+  dragId = c.dataset.kid;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragId);
+  c.classList.add('dragging');
+});
+$('#tareas-list').addEventListener('dragend', (e) => {
+  e.target.closest('[data-kid]')?.classList.remove('dragging');
+  $$('.kb-col.over').forEach((c) => c.classList.remove('over'));
+  dragId = null;
+});
+$('#tareas-list').addEventListener('dragover', (e) => {
+  const col = e.target.closest('[data-kcol]');
+  if (!col || !dragId) return;
+  e.preventDefault();
+  $$('.kb-col.over').forEach((c) => c !== col && c.classList.remove('over'));
+  col.classList.add('over');
+});
+$('#tareas-list').addEventListener('drop', (e) => {
+  const col = e.target.closest('[data-kcol]');
+  if (!col || !dragId) return;
+  e.preventDefault();
+  col.classList.remove('over');
+  moverTarea(dragId, col.dataset.kcol);
+});
 
 async function tareasOp(body) {
   const d = await api('/api/tareas', { method: 'POST', body: { l: state.tareas.code, ...body } });
@@ -2150,7 +2246,11 @@ $('#tareas-list').addEventListener('click', async (e) => {
 
 // Selección y borrado en bloque (solo admin)
 const visiblesIds = () => $$('#tareas-list input[data-sel]').map((x) => x.dataset.sel);
-$('#btn-tareas-sel').addEventListener('click', () => { state.tSel = new Set(); renderTareas(); });
+$('#btn-tareas-sel').addEventListener('click', () => {
+  state.tSel = new Set();
+  if (state.tVista === 'tablero') { state.tVista = 'lista'; state.tFiltro = 'todas'; } // las casillas de selección están en la lista
+  renderTareas();
+});
 $('#btn-sel-salir').addEventListener('click', () => { state.tSel = null; renderTareas(); });
 $('#btn-sel-visibles').addEventListener('click', () => { visiblesIds().forEach((id) => state.tSel.add(id)); renderTareas(); });
 $('#btn-sel-ninguna').addEventListener('click', () => { state.tSel.clear(); renderTareas(); });

@@ -389,6 +389,12 @@ test('tareas: plantilla, asignación con aviso por email y permisos para marcar'
   const done = m.tareas.find((t) => t.id === mine.id);
   assert.equal(done.hecha, true);
   assert.equal(done.hechaPor, 'Sara Guzmán');
+  const enCurso = (await (await post(setter, { op: 'estado', id: setterTask.id, estado: 'en-curso' })).json()).tareas.find((t) => t.id === setterTask.id);
+  assert.equal(enCurso.estado, 'en-curso');
+  assert.equal(enCurso.hecha, false);
+  assert.equal(enCurso.hechaPor, '');
+  assert.equal((await post(saraCookie, { op: 'estado', id: adminTask.id, estado: 'en-curso' })).status, 403);
+  assert.equal((await post(admin, { op: 'estado', id: adminTask.id, estado: 'otra' })).status, 400);
 
   const list = await (await tareas.GET(req('/api/tareas?l=demo', { cookie: saraCookie }))).json();
   assert.equal(list.me.uid, sara.user.id);

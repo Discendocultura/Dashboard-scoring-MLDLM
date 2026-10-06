@@ -82,4 +82,12 @@ export const esMia = (tarea, { role, uid }) => {
   return a.tipo === 'rol' ? a.rol === role : Boolean(uid) && a.id === uid;
 };
 
+// Columnas del tablero. Las tareas antiguas no tienen `estado`: se deduce de `hecha`.
+export const ESTADOS_TAREA = [
+  { id: 'pendiente', label: 'Por hacer', icon: '📝' },
+  { id: 'en-curso', label: 'En curso', icon: '⏳' },
+  { id: 'hecha', label: 'Hecha', icon: '✅' },
+];
+export const estadoDe = (t) => (t.hecha ? 'hecha' : t.estado === 'en-curso' ? 'en-curso' : 'pendiente');
+
 export const vencida = (tarea, today) => !tarea.hecha && Boolean(tarea.fecha) && tarea.fecha < today;
