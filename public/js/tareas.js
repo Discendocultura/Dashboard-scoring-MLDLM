@@ -100,3 +100,28 @@ export function vencidasEquipo(tareas, users, today) {
   }
   return out.sort((a, b) => b.dias - a.dias);
 }
+
+// Subcategorías de «Preparación» (la fase con más tareas). Si la tarea no tiene una elegida,
+// se deduce del título.
+export const SUBS_PREPARACION = [
+  { id: 'herramientas', label: 'Dashboard y herramientas', icon: '⚙️' },
+  { id: 'oferta', label: 'Oferta y pagos', icon: '💳' },
+  { id: 'contenido', label: 'Contenido y creatividades', icon: '🎬' },
+  { id: 'comunicacion', label: 'Comunicación', icon: '📧' },
+  { id: 'pruebas', label: 'Revisión y pruebas', icon: '🧪' },
+  { id: 'equipo', label: 'Equipo y reuniones', icon: '👥' },
+  { id: 'otras', label: 'Otras', icon: '📌' },
+];
+export const SUB_IDS = SUBS_PREPARACION.map((s) => s.id);
+
+export function subDe(t) {
+  if (SUB_IDS.includes(t.sub)) return t.sub;
+  const s = String(t.titulo || '').toLowerCase();
+  if (/e-?mail|whatsapp|grupo|mensaje|comunicaci|newsletter/.test(s)) return 'comunicacion';
+  if (/precio|enlaces? de pago|oferta|checkout|thrivecart|hotmart/.test(s)) return 'oferta';
+  if (/v[ií]deo|anuncio|guion|gui[oó]n|grabaci|grabar|edici|creativ|vimeo|imagen|copy/.test(s)) return 'contenido';
+  if (/m[oó]vil|prueba|probar|testear|comprobar/.test(s)) return 'pruebas';
+  if (/zoom|dashboard|workflow|etiqueta|ghl|fecha|configur|p[aá]gina|formulario|encuesta|lanzamiento/.test(s)) return 'herramientas';
+  if (/reuni[oó]n|equipo|coordinaci|llamada con/.test(s)) return 'equipo';
+  return 'otras';
+}

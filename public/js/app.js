@@ -5,7 +5,7 @@ import { icon } from './icons.js';
 import { ENCUESTA_PREGUNTAS } from './encuesta.js';
 import { enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
-import { FASES, puedeMarcar, esMia, vencida, addDays, ESTADOS_TAREA, estadoDe, vencidasEquipo } from './tareas.js';
+import { FASES, puedeMarcar, esMia, vencida, addDays, ESTADOS_TAREA, estadoDe, vencidasEquipo, SUBS_PREPARACION, subDe } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
@@ -2166,6 +2166,18 @@ $('#avisos-equipo').addEventListener('click', (e) => {
   renderTareas();
 });
 
+// Preparación es larga: se parte en subcategorías (con su propio contador).
+function subgruposPreparacion(items, all) {
+  return SUBS_PREPARACION.map((s) => {
+    const its = items.filter((t) => subDe(t) === s.id);
+    if (!its.length) return '';
+    const tot = all.filter((t) => subDe(t) === s.id);
+    const d = tot.filter((t) => t.hecha).length;
+    return `<div class="tf-sub"><div class="tf-sub-head"><span aria-hidden="true">${s.icon}</span><h4>${esc(s.label)}</h4><span class="tf-count">${d}/${tot.length}</span></div>
+      <ul class="tareas-ul">${its.map(tareaRow).join('')}</ul></div>`;
+  }).join('');
+}
+
 function renderTareas() {
   const T = state.tareas;
   if (!T || T.code !== state.launchCode) return;
@@ -2242,7 +2254,7 @@ function renderTareas() {
     return `<section class="card tarea-fase">
       <header class="tf-head"><span class="tf-ico" aria-hidden="true">${fase.icon}</span><h3>${esc(fase.label)}</h3><span class="tf-count">${d}/${all.length}</span>
         <span class="tf-bar"><span style="width:${all.length ? (d / all.length) * 100 : 0}%"></span></span></header>
-      <ul class="tareas-ul">${items.map(tareaRow).join('')}</ul>
+      ${fase.id === 'preparacion' ? subgruposPreparacion(items, all) : `<ul class="tareas-ul">${items.map(tareaRow).join('')}</ul>`}
     </section>`;
   }).join('');
   const abierta = f === 'hechas' || state.tDoneOpen;
@@ -2271,7 +2283,7 @@ function tarjeta(t) {
     return puede && dest ? `<button type="button" class="kb-move" data-kmove="${esc(t.id)}" data-kto="${dest.id}" title="Mover a ${esc(dest.label)}" aria-label="Mover a ${esc(dest.label)}">${dir < 0 ? '‹' : '›'}</button>` : '<span class="kb-move-ph"></span>';
   };
   return `<article class="kb-card ${t.hecha ? 'done' : ''} ${venc ? 'is-vencida' : ''} ${esMia(t, meSess()) ? 'is-mia' : ''} ${puede ? '' : 'locked'}" ${puede ? 'draggable="true"' : ''} data-kid="${esc(t.id)}">
-    <div class="kb-top"><span class="kb-fase" title="${esc(fase?.label || '')}">${fase?.icon || ''} ${esc(fase?.label || '')}</span>
+    <div class="kb-top"><span class="kb-fase" title="${esc(fase?.label || '')}">${fase?.icon || ''} ${esc(fase?.label || '')}${t.fase === 'preparacion' ? (() => { const s = SUBS_PREPARACION.find((x) => x.id === subDe(t)); return ` · ${s.icon} ${esc(s.label)}`; })() : ''}</span>
       ${state.role === 'admin' ? `<button type="button" class="kb-edit" data-tedit="${esc(t.id)}" title="Editar" aria-label="Editar">✎</button>` : ''}</div>
     <div class="kb-row"><label class="t-check" title="${puede ? (t.hecha ? 'Volver a pendiente' : 'Marcar como completada') : 'Solo puede marcarla su responsable'}"><input type="checkbox" data-tid="${esc(t.id)}" ${t.hecha ? 'checked' : ''} ${puede ? '' : 'disabled'}><span class="t-box" aria-hidden="true"></span></label>
     <button type="button" class="kb-titulo t-open" data-tver="${esc(t.id)}">${t.habitual ? '<span class="t-hab" title="Tarea habitual">🔁</span>' : ''}${esc(t.titulo)}</button></div>
@@ -2445,6 +2457,9 @@ document.addEventListener('click', (e) => {
 const tdlg = $('#tarea-dialog');
 let editingTarea = null;
 $('#t-fase').innerHTML = FASES.map((f) => `<option value="${f.id}">${f.icon} ${esc(f.label)}</option>`).join('');
+$('#t-sub').innerHTML = `<option value="">Automática (según el título)</option>${SUBS_PREPARACION.map((s) => `<option value="${s.id}">${s.icon} ${esc(s.label)}</option>`).join('')}`;
+const syncSubField = () => { $('#t-sub-field').hidden = $('#t-fase').value !== 'preparacion'; };
+$('#t-fase').addEventListener('change', syncSubField);
 
 function fillAsignadoSelect(value) {
   const users = state.tareas?.users || [];
@@ -2464,6 +2479,8 @@ function openTarea(t) {
   $('#t-habitual').checked = Boolean(t?.habitual);
   $('#t-fase').value = t?.fase || FASES[0].id;
   $('#t-fecha').value = t?.fecha || '';
+  $('#t-sub').value = t?.sub || '';
+  syncSubField();
   const a = t?.asignado;
   fillAsignadoSelect(a ? (a.tipo === 'rol' ? `rol:${a.rol}` : `u:${a.id}`) : '');
   ['#t-np-nombre', '#t-np-email'].forEach((s) => { $(s).value = ''; });
@@ -2508,7 +2525,7 @@ $('#tarea-save').addEventListener('click', async () => {
       fillAsignadoSelect(sel);
     }
     const asignado = !sel ? null : sel.startsWith('rol:') ? { tipo: 'rol', rol: sel.slice(4) } : { tipo: 'persona', id: sel.slice(2) };
-    const tarea = { titulo, notas: getEditor(), fase: $('#t-fase').value, fecha: $('#t-fecha').value, asignado, habitual: $('#t-habitual').checked };
+    const tarea = { titulo, notas: getEditor(), fase: $('#t-fase').value, sub: $('#t-fase').value === 'preparacion' ? $('#t-sub').value : '', fecha: $('#t-fecha').value, asignado, habitual: $('#t-habitual').checked };
     status.textContent = 'Guardando…';
     const d = await tareasOp(editingTarea ? { op: 'editar', id: editingTarea.id, tarea, avisar: $('#t-avisar').checked } : { op: 'crear', tarea, avisar: $('#t-avisar').checked });
     tdlg.close();

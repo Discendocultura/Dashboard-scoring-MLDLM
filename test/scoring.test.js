@@ -253,3 +253,14 @@ test('avisos a la admin: tareas vencidas del resto del equipo', async () => {
   ], users, '2026-10-06');
   assert.deepEqual(r.map((x) => [x.tarea.id, x.quien, x.dias]), [['a', 'Ana', 5], ['b', 'Rol Setter', 2]]);
 });
+
+test('subcategorías de Preparación: la elegida manda; si no, se deduce del título', async () => {
+  const { subDe } = await import('../public/js/tareas.js');
+  assert.equal(subDe({ titulo: 'Revisar precios y enlaces de pago' }), 'oferta');
+  assert.equal(subDe({ titulo: 'Crear la reunión de Zoom y pegar su ID' }), 'herramientas');
+  assert.equal(subDe({ titulo: 'Programar los emails del lanzamiento' }), 'comunicacion');
+  assert.equal(subDe({ titulo: 'Reunión de coordinación con equipo' }), 'equipo');
+  assert.equal(subDe({ titulo: 'Algo raro' }), 'otras');
+  assert.equal(subDe({ titulo: 'Programar los emails', sub: 'equipo' }), 'equipo');
+  assert.equal(subDe({ titulo: 'Programar los emails', sub: 'inventada' }), 'comunicacion');
+});

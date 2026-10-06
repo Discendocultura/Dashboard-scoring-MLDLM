@@ -895,3 +895,10 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .gan-bar { position: relative; display: flex; align-items: center; gap: 8px; min-width: 120px; }
 .gan-bar span { display: block; height: 10px; border-radius: 999px; background: var(--tone-buy); min-width: 4px; }
 .gan-note { margin: 10px 0 0; font-size: 12.5px; }
+
+/* Subcategorías de Preparación */
+.tf-sub + .tf-sub { border-top: 1px solid var(--border); }
+.tf-sub-head { display: flex; align-items: center; gap: 8px; padding: 9px 16px 7px 24px; background: color-mix(in srgb, var(--surface-2) 45%, var(--surface)); border-bottom: 1px dashed var(--border); }
+.tf-sub-head h4 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); flex: 1; }
+.tf-sub .tarea { padding-left: 24px; }
+@media (max-width: 600px) { .tf-sub-head { padding-left: 14px; } .tf-sub .tarea { padding-left: 12px; } }
