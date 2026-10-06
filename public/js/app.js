@@ -957,6 +957,7 @@ const VIEWS = ['hoy', 'leads', 'metricas', 'objetivos', 'comparar', 'tareas', 'c
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 const VIEW_ICONS = { hoy: 'sun2', leads: 'users', metricas: 'trend', objetivos: 'target', comparar: 'compare', tareas: 'list', calendario: 'calendar' };
 $$('.view-tab').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view])));
+$$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
 $$('[data-icon] > h2').forEach((h) => h.insertAdjacentHTML('afterbegin', `<span class="h-ico">${icon(h.parentElement.dataset.icon)}</span>`));
 function showView(view) {
   if (state.role && !allowedViews().includes(view)) view = allowedViews()[0];
@@ -2065,7 +2066,7 @@ function tareaRow(t) {
   const hecha = t.hecha ? `<span class="t-hecha">✓ ${esc(t.hechaPor || '')}${t.hechaEn ? ` · ${esc(new Date(t.hechaEn).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }))}` : ''}</span>` : '';
   const sel = state.tSel ? `<label class="t-sel" title="Seleccionar"><input type="checkbox" data-sel="${esc(t.id)}" ${state.tSel.has(t.id) ? 'checked' : ''} aria-label="Seleccionar tarea"></label>` : '';
   return `<li class="tarea ${t.hecha ? 'done' : ''} ${venc ? 'is-vencida' : ''} ${esMia(t, meSess()) ? 'is-mia' : ''} ${state.tSel?.has(t.id) ? 'is-sel' : ''}">${sel}
-    <label class="t-check" title="${puede ? (t.hecha ? 'Marcar como pendiente' : 'Marcar como hecha') : 'Solo puede marcarla su responsable'}">
+    <label class="t-check" title="${puede ? (t.hecha ? 'Volver a pendiente' : 'Marcar como completada') : 'Solo puede marcarla su responsable'}">
       <input type="checkbox" data-tid="${esc(t.id)}" ${t.hecha ? 'checked' : ''} ${puede ? '' : 'disabled'}><span class="t-box" aria-hidden="true"></span>
     </label>
     <div class="t-main">
@@ -2095,7 +2096,7 @@ function renderTareas() {
 
   $('#tareas-resumen').innerHTML = T.error ? `<div class="notice err">No se pudieron cargar las tareas: ${esc(T.error)}</div>` : list.length ? `
     <div class="card tareas-progress">
-      <div class="tp-head"><strong>${done} de ${list.length} tareas hechas</strong><span class="tp-pct">${pct}%</span></div>
+      <div class="tp-head"><strong>${done} de ${list.length} tareas completadas</strong><span class="tp-pct">${pct}%</span></div>
       <div class="obj-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div>
       <div class="tp-chips">
         <button type="button" class="tp-chip ${venc ? 'bad' : ''}" data-tf="vencidas">${icon('alert')}${venc} vencida${venc === 1 ? '' : 's'}</button>
@@ -2135,14 +2136,33 @@ function renderTareas() {
     $('#tareas-list').innerHTML = list.length ? renderTablero(shown.sort(order)) : '';
     return;
   }
-  $('#tareas-list').innerHTML = !list.length ? '' : groups.length ? groups.map(({ f, all, items }) => {
+  // Lista: las pendientes por fase y las completadas aparte, en «✅ Completadas» al final.
+  const f = state.tFiltro;
+  const activeGroups = groups.map((g) => ({ ...g, items: g.items.filter((t) => !t.hecha) })).filter((g) => g.items.length);
+  const hoyD = today();
+  const [lunes, domingo] = semanaActual();
+  const completadas = list.filter((t) => t.hecha && filtroResp(t) && (
+    f === 'vencidas' ? false
+      : f === 'hoy' ? t.fecha === hoyD
+        : f === 'semana' ? Boolean(t.fecha) && t.fecha >= lunes && t.fecha <= domingo
+          : f === 'mias' ? esMia(t, meSess()) : true))
+    .sort((a, b) => String(b.hechaEn || '').localeCompare(String(a.hechaEn || '')));
+  const vacio = f === 'vencidas' ? '¡Nada vencido! 🎉' : f === 'hoy' ? 'No hay tareas pendientes con fecha de hoy.' : f === 'semana' ? 'No hay tareas pendientes esta semana.' : f === 'mias' ? 'No tienes tareas pendientes. 🎉' : f === 'hechas' ? '' : 'No hay tareas pendientes con este filtro. 🎉';
+  const fases = activeGroups.map(({ f: fase, all, items }) => {
     const d = all.filter((t) => t.hecha).length;
     return `<section class="card tarea-fase">
-      <header class="tf-head"><span class="tf-ico" aria-hidden="true">${f.icon}</span><h3>${esc(f.label)}</h3><span class="tf-count">${d}/${all.length}</span>
+      <header class="tf-head"><span class="tf-ico" aria-hidden="true">${fase.icon}</span><h3>${esc(fase.label)}</h3><span class="tf-count">${d}/${all.length}</span>
         <span class="tf-bar"><span style="width:${all.length ? (d / all.length) * 100 : 0}%"></span></span></header>
       <ul class="tareas-ul">${items.map(tareaRow).join('')}</ul>
     </section>`;
-  }).join('') : `<p class="muted tareas-none">${state.tFiltro === 'vencidas' ? '¡Nada vencido! 🎉' : state.tFiltro === 'hoy' ? 'No hay tareas con fecha de hoy.' : state.tFiltro === 'semana' ? 'No hay tareas con fecha esta semana.' : state.tFiltro === 'mias' ? 'No tienes tareas pendientes.' : 'No hay tareas con este filtro.'}</p>`;
+  }).join('');
+  const abierta = f === 'hechas' || state.tDoneOpen;
+  const seccionHechas = completadas.length ? `<details class="card tarea-fase tareas-done" ${abierta ? 'open' : ''}>
+      <summary class="tf-head"><span class="tf-ico" aria-hidden="true">✅</span><h3>Completadas</h3><span class="tf-count">${completadas.length}</span><span class="td-chev" aria-hidden="true">▾</span></summary>
+      <ul class="tareas-ul">${completadas.map(tareaRow).join('')}</ul>
+    </details>` : (f === 'hechas' ? '<p class="muted tareas-none">Aún no hay tareas completadas.</p>' : '');
+  $('#tareas-list').innerHTML = !list.length ? '' : `${fases || (f === 'hechas' ? '' : `<p class="muted tareas-none">${vacio}</p>`)}${seccionHechas}`;
+  $('.tareas-done')?.addEventListener('toggle', (e) => { if (f !== 'hechas') state.tDoneOpen = e.target.open; });
 }
 
 // ---------- Tablero kanban ----------
@@ -2164,7 +2184,8 @@ function tarjeta(t) {
   return `<article class="kb-card ${t.hecha ? 'done' : ''} ${venc ? 'is-vencida' : ''} ${esMia(t, meSess()) ? 'is-mia' : ''} ${puede ? '' : 'locked'}" ${puede ? 'draggable="true"' : ''} data-kid="${esc(t.id)}">
     <div class="kb-top"><span class="kb-fase" title="${esc(fase?.label || '')}">${fase?.icon || ''} ${esc(fase?.label || '')}</span>
       ${state.role === 'admin' ? `<button type="button" class="kb-edit" data-tedit="${esc(t.id)}" title="Editar" aria-label="Editar">✎</button>` : ''}</div>
-    <button type="button" class="kb-titulo t-open" data-tver="${esc(t.id)}">${t.habitual ? '<span class="t-hab" title="Tarea habitual">🔁</span>' : ''}${esc(t.titulo)}</button>
+    <div class="kb-row"><label class="t-check" title="${puede ? (t.hecha ? 'Volver a pendiente' : 'Marcar como completada') : 'Solo puede marcarla su responsable'}"><input type="checkbox" data-tid="${esc(t.id)}" ${t.hecha ? 'checked' : ''} ${puede ? '' : 'disabled'}><span class="t-box" aria-hidden="true"></span></label>
+    <button type="button" class="kb-titulo t-open" data-tver="${esc(t.id)}">${t.habitual ? '<span class="t-hab" title="Tarea habitual">🔁</span>' : ''}${esc(t.titulo)}</button></div>
     ${notasExtracto(t, 'kb-notas', 110)}
     <div class="t-meta">${fecha}${who}</div>
     ${t.hecha ? `<div class="t-hecha">✓ ${esc(t.hechaPor || '')}</div>` : ''}
@@ -2254,6 +2275,7 @@ $('#tareas-list').addEventListener('change', async (e) => {
   const cb = e.target.closest('input[data-tid]');
   if (!cb) return;
   cb.disabled = true;
+  cb.closest('.tarea, .kb-card')?.classList.add(cb.checked ? 'completing' : 'uncompleting');
   try {
     await tareasOp({ op: 'marcar', id: cb.dataset.tid, hecha: cb.checked });
   } catch (ex) {
@@ -2684,7 +2706,7 @@ function renderCalDia(items = calItems()) {
       const puede = puedeMarcar(t, meSess());
       return `<li class="cd-row k-tarea ${t.hecha ? 'done' : ''} ${vencida(t, hoy) ? 'late' : ''}">
         <label class="t-check"><input type="checkbox" data-cal-tid="${esc(t.id)}" ${t.hecha ? 'checked' : ''} ${puede ? '' : 'disabled'}><span class="t-box" aria-hidden="true"></span></label>
-        <div class="cd-main"><strong>${esc(t.titulo)}</strong><span class="muted">Tarea · ${esc(asignadoTexto(t.asignado))}${t.hecha ? ` · hecha por ${esc(t.hechaPor || '')}` : vencida(t, hoy) ? ' · vencida' : ''}</span>${notasExtracto(t, 'cd-notas')}</div>
+        <div class="cd-main"><strong>${esc(t.titulo)}</strong><span class="muted">Tarea · ${esc(asignadoTexto(t.asignado))}${t.hecha ? ` · completada por ${esc(t.hechaPor || '')}` : vencida(t, hoy) ? ' · vencida' : ''}</span>${notasExtracto(t, 'cd-notas')}</div>
         <button type="button" class="btn ghost" data-tver="${esc(t.id)}">Abrir</button>
         ${admin ? `<button type="button" class="btn ghost" data-cal-tedit="${esc(t.id)}">Editar</button>` : ''}</li>`;
     }
@@ -2916,7 +2938,7 @@ function openTareaVer(id) {
     ${t.fecha ? `<span class="tv-chip ${vencida(t, hoy) ? 'late' : ''}">${icon('calendar')} ${esc(fechaCorta(t.fecha))}${vencida(t, hoy) ? ' · vencida' : ''}</span>` : ''}
     <span class="tv-chip">${icon('users')} ${esc(asignadoTexto(t.asignado))}</span>
     ${t.habitual ? '<span class="tv-chip">🔁 Habitual</span>' : ''}
-    ${t.hecha ? `<span class="tv-chip ok">✓ Hecha por ${esc(t.hechaPor || '')}</span>` : ''}`;
+    ${t.hecha ? `<span class="tv-chip ok">✓ Completada por ${esc(t.hechaPor || '')}</span>` : ''}`;
   const box = $('#tv-notas');
   box.innerHTML = richToHtml(t.notas) || '<p class="muted">Sin descripción.</p>';
   hydrateVideos(box);

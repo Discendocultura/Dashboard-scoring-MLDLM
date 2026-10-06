@@ -31,11 +31,11 @@
           <span>Lanzamiento</span>
           <select id="launch-select"></select>
         </label>
-        <button id="btn-reload" class="btn" type="button" title="Volver a cargar los leads desde GHL">Actualizar</button>
-        <button id="btn-zoom" class="btn config-only" type="button" title="Leer la asistencia del directo en Zoom y etiquetar a los leads">Sincronizar Zoom</button>
-        <button id="btn-config" class="btn config-only" type="button">Configuración</button>
-        <button id="btn-cuenta" class="btn ghost" type="button" hidden>Mi cuenta</button>
-        <button id="btn-logout" class="btn ghost" type="button">Salir</button>
+        <button id="btn-reload" class="tb-btn tb-reload" type="button" data-tb-icon="refresh" title="Volver a cargar los datos desde GHL"><span class="tb-txt">Actualizar</span></button>
+        <button id="btn-zoom" class="tb-btn tb-zoom config-only" type="button" data-tb-icon="video" title="Leer la asistencia del directo en Zoom y etiquetar a los leads"><span class="tb-txt">Sincronizar Zoom</span></button>
+        <button id="btn-config" class="tb-btn tb-config config-only" type="button" data-tb-icon="gear" title="Configuración del lanzamiento"><span class="tb-txt">Configuración</span></button>
+        <button id="btn-cuenta" class="tb-btn tb-cuenta" type="button" data-tb-icon="user" title="Mi cuenta y contraseña" hidden><span class="tb-txt">Mi cuenta</span></button>
+        <button id="btn-logout" class="tb-btn tb-logout" type="button" data-tb-icon="logout" title="Cerrar sesión"><span class="tb-txt">Salir</span></button>
       </div>
     </header>
 
@@ -101,7 +101,7 @@
               <button type="button" class="seg-btn" data-f="semana">Esta semana</button>
               <button type="button" class="seg-btn" data-f="mias">Mías</button>
               <button type="button" class="seg-btn" data-f="vencidas">Vencidas</button>
-              <button type="button" class="seg-btn" data-f="hechas">Hechas</button>
+              <button type="button" class="seg-btn" data-f="hechas">✅ Completadas</button>
               <button type="button" class="seg-btn" data-f="todas">Todas</button>
             </div>
             <select id="tareas-resp" aria-label="Responsable"></select>

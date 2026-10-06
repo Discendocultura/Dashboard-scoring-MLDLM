@@ -815,3 +815,50 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .tv-notas { font-size: 15px; }
 #tv-estado .seg-btn:disabled { opacity: .5; cursor: not-allowed; }
 .tareas-selbar select { width: auto; }
+
+/* ---------- Botones de la barra superior ---------- */
+.tb-btn {
+  --tb: var(--text-2);
+  font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 14px 5px 5px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--tb) 28%, var(--border)); background: color-mix(in srgb, var(--tb) 7%, var(--surface)); color: var(--text);
+  transition: background-color .15s, border-color .15s, transform .15s, box-shadow .15s;
+}
+.tb-btn:hover { background: color-mix(in srgb, var(--tb) 15%, var(--surface)); border-color: color-mix(in srgb, var(--tb) 50%, var(--border)); transform: translateY(-1px); box-shadow: 0 3px 10px color-mix(in srgb, var(--tb) 18%, transparent); }
+.tb-btn:active { transform: none; }
+.tb-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
+.tb-btn[hidden] { display: none !important; }
+.tb-ico { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--tb); color: #fff; flex: none; }
+.tb-ico .ico { width: 16px; height: 16px; }
+.tb-reload { --tb: var(--tone-buy); }
+.tb-zoom { --tb: #2d8cff; }
+.tb-config { --tb: var(--accent); }
+.tb-cuenta { --tb: var(--tone-live); }
+.tb-logout { --tb: var(--muted); background: transparent; border-color: transparent; }
+.tb-logout .tb-ico { background: var(--surface-2); color: var(--text-2); }
+.tb-logout:hover { --tb: var(--error); }
+.tb-logout:hover .tb-ico { background: var(--error); color: #fff; }
+.tb-reload:disabled .tb-ico .ico { animation: tbSpin 1s linear infinite; }
+@keyframes tbSpin { to { transform: rotate(360deg); } }
+@media (max-width: 760px) {
+  .tb-btn { padding: 4px; }
+  .tb-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .tb-ico { width: 34px; height: 34px; }
+}
+@media (prefers-reduced-motion: reduce) { .tb-btn { transition: none; } .tb-reload:disabled .tb-ico .ico { animation: none; } }
+
+/* ---------- Tareas completadas ---------- */
+.tareas-done > summary { list-style: none; cursor: pointer; }
+.tareas-done > summary::-webkit-details-marker { display: none; }
+.tareas-done:not([open]) > summary { border-bottom: 0; }
+.tareas-done .tf-head { background: color-mix(in srgb, var(--tone-buy) 9%, var(--surface-2)); }
+.td-chev { margin-left: auto; transition: transform .2s; color: var(--text-2); }
+.tareas-done:not([open]) .td-chev { transform: rotate(-90deg); }
+.tarea.completing .t-titulo, .kb-card.completing .kb-titulo { text-decoration: line-through; color: var(--muted); }
+.tarea.completing, .kb-card.completing { opacity: .55; transition: opacity .3s; }
+.tarea.completing .t-box, .kb-card.completing .t-box { background: var(--tone-buy); border-color: var(--tone-buy); }
+.kb-row { display: flex; gap: 10px; align-items: flex-start; }
+.kb-row .t-check { width: 22px; height: 22px; }
+.kb-row .t-box { width: 22px; height: 22px; }
+.kb-row .t-check input:checked + .t-box::after { margin: 2px 0 0 6px; }

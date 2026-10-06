@@ -80,7 +80,7 @@ export const esMia = (tarea, { role, uid }) => {
 export const ESTADOS_TAREA = [
   { id: 'pendiente', label: 'Por hacer', icon: '📝' },
   { id: 'en-curso', label: 'En curso', icon: '⏳' },
-  { id: 'hecha', label: 'Hecha', icon: '✅' },
+  { id: 'hecha', label: 'Completada', icon: '✅' },
 ];
 export const estadoDe = (t) => (t.hecha ? 'hecha' : t.estado === 'en-curso' ? 'en-curso' : 'pendiente');
 
