@@ -1219,3 +1219,14 @@ body.embudo-vsl .lanz-only { display: none !important; }
   .vr-texto { margin-left: 0; width: 100%; }
 }
 .vsl-rango [hidden], #vl-mas[hidden] { display: none !important; }
+
+/* Calendario: días con hito o evento, coloreados enteros */
+.cal-day.dia-hito { background: color-mix(in srgb, var(--accent) 13%, var(--surface)); box-shadow: inset 4px 0 0 var(--accent); }
+.cal-day.dia-hito.dia-webinar { background: color-mix(in srgb, #d93025 16%, var(--surface)); box-shadow: inset 4px 0 0 #d93025; }
+.cal-day.dia-evento { background: color-mix(in srgb, var(--tone-info) 11%, var(--surface)); box-shadow: inset 4px 0 0 var(--tone-info); }
+.cal-day.dia-evento.t-rrss { background: color-mix(in srgb, var(--tone-live) 11%, var(--surface)); box-shadow: inset 4px 0 0 var(--tone-live); }
+.cal-day.dia-evento.t-publi { background: color-mix(in srgb, var(--tone-vip) 13%, var(--surface)); box-shadow: inset 4px 0 0 var(--tone-vip); }
+.cal-day.dia-evento.t-reunion { background: color-mix(in srgb, var(--tone-money) 12%, var(--surface)); box-shadow: inset 4px 0 0 var(--tone-money); }
+.cal-day.dia-hito:hover, .cal-day.dia-evento:hover { filter: brightness(.97); }
+.cal-day.dia-hito.sel, .cal-day.dia-evento.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-day.out.dia-hito, .cal-day.out.dia-evento { opacity: .75; }

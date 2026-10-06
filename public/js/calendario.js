@@ -26,7 +26,7 @@ export function hitosLanzamiento(launch = {}) {
     { id: 'fin-captacion', titulo: 'Termina la publi de captación', icon: '🛑', at: launch.finCaptacion },
     { id: 'clase1', titulo: 'Se libera la clase 1', icon: '🎬', at: launch.clase1At },
     { id: 'clase2', titulo: 'Se libera la clase 2', icon: '🎬', at: launch.clase2At },
-    { id: 'directo', titulo: 'Directo', icon: '🔴', at: directoDT, minutos: 180 },
+    { id: 'directo', titulo: 'Webinar en directo', icon: '🔴', at: directoDT, minutos: 180 },
     { id: 'carrito', titulo: 'Abre el carrito de Raíces', icon: '🛒', at: apertura },
     { id: 'replay', titulo: 'Se libera la grabación', icon: '📼', at: replay },
     { id: 'cierre', titulo: 'Cierre del carrito', icon: '🔒', at: launch.cierreCarrito },
@@ -43,7 +43,7 @@ export function fasesLanzamiento(launch = {}) {
   const out = [];
   if (launch.inicioCaptacion) out.push({ id: 'captacion', label: 'Captación', from: launch.inicioCaptacion, to: launch.finCaptacion || addDays(directo, -1) || launch.inicioCaptacion });
   if (c1 && directo) out.push({ id: 'clases', label: 'Clases previas', from: c1, to: addDays(directo, -1) });
-  if (directo) out.push({ id: 'directo', label: 'Directo', from: directo, to: directo });
+  if (directo) out.push({ id: 'directo', label: 'Webinar en directo', from: directo, to: directo });
   if (apertura && cierre) out.push({ id: 'carrito', label: 'Carrito abierto', from: apertura, to: cierre });
   return out.filter((f) => f.from && f.to && f.from <= f.to);
 }

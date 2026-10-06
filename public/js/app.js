@@ -3029,7 +3029,11 @@ function renderCalendario() {
     const list = items[d] || [];
     const bands = fases.filter((f) => d >= f.from && d <= f.to);
     const more = list.length - max;
-    return `<button type="button" class="cal-day ${d.slice(0, 7) !== month && cal.modo === 'mes' ? 'out' : ''} ${d === hoy ? 'today' : ''} ${d === cal.sel ? 'sel' : ''} ${d < hoy ? 'past' : ''}" data-day="${d}" aria-label="${esc(fmtDay(d, { weekday: 'long', day: 'numeric', month: 'long' }))}${list.length ? `, ${list.length} elementos` : ''}">
+    // Días con un hito del lanzamiento o un evento: todo el día coloreado para que salten a la vista.
+    const hito = list.find((it) => it.kind === 'hito' && it.own);
+    const evento = list.find((it) => it.kind === 'evento');
+    const marca = hito ? `dia-hito${hito.hid === 'directo' ? ' dia-webinar' : ''}` : evento ? `dia-evento t-${evento.ev.tipo}` : '';
+    return `<button type="button" class="cal-day ${marca} ${d.slice(0, 7) !== month && cal.modo === 'mes' ? 'out' : ''} ${d === hoy ? 'today' : ''} ${d === cal.sel ? 'sel' : ''} ${d < hoy ? 'past' : ''}" data-day="${d}" aria-label="${esc(fmtDay(d, { weekday: 'long', day: 'numeric', month: 'long' }))}${list.length ? `, ${list.length} elementos` : ''}">
       <span class="cal-bands">${bands.map((f) => `<i class="tone-${CAL_FASE_COLOR[f.id]}" title="${esc(f.label)}"></i>`).join('')}</span>
       <span class="cal-num">${cal.modo === 'semana' ? `<span class="cal-dow">${DOW[dow(d)]}</span> ` : ''}${Number(d.slice(8))}${cal.modo === 'semana' ? ` <span class="cal-dow">${fmtDay(d, { month: 'short' })}</span>` : ''}</span>
       <span class="cal-chips">${list.slice(0, max).map((it) => calChip(it, hoy)).join('')}${more > 0 ? `<span class="cal-more">+${more} más</span>` : ''}</span>

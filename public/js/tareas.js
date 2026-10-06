@@ -5,7 +5,7 @@ export const FASES = [
   { id: 'preparacion', label: 'Preparación', icon: '🧰' },
   { id: 'captacion', label: 'Captación', icon: '📣' },
   { id: 'clases', label: 'Clases previas', icon: '🎬' },
-  { id: 'directo', label: 'Directo', icon: '🔴' },
+  { id: 'directo', label: 'Webinar en directo', icon: '🔴' },
   { id: 'carrito', label: 'Carrito abierto', icon: '🛒' },
   { id: 'cierre', label: 'Cierre y análisis', icon: '📊' },
 ];
