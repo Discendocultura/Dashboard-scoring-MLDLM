@@ -1528,3 +1528,17 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 @media (max-width: 640px) { .enc-op { grid-template-columns: 1fr; gap: 4px; } .enc-op-n { text-align: left; } }
 .enc-cab, .enc-preg { padding: 16px 20px; }
 #enc-leads > .card { padding: 16px 20px; }
+
+/* Botón de Agencia: aparte de los botones del cliente, junto al nombre */
+.agencia-btn { margin-left: 10px; display: inline-flex; align-items: center; gap: 8px; font: inherit; font-weight: 700; font-size: 14px; padding: 7px 16px 7px 10px; border-radius: 999px; border: 0; cursor: pointer; color: #fff; background: linear-gradient(135deg, #2c3e66, #4a3a7a); box-shadow: 0 2px 8px rgba(30, 30, 60, .25); }
+.agencia-btn:hover { filter: brightness(1.1); }
+.agencia-btn .agencia-ico { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, .18); }
+.agencia-btn .agencia-ico .ico { width: 15px; height: 15px; }
+
+/* Agencia → Equipo de la agencia */
+.age-accesos { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 14px; margin: 10px 0; }
+.age-accesos label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
+.age-cli { display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--surface-2, color-mix(in srgb, currentColor 8%, transparent)); }
+.age-cli strong { font-weight: 700; }
+.age-editor td { background: var(--surface-2, color-mix(in srgb, currentColor 4%, transparent)); }
+.eq-agencia-nota { margin-top: 12px; }

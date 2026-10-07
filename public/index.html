@@ -54,7 +54,8 @@
     <header class="topbar">
       <div class="brand"><span id="brand-nombre">Dashboard</span>
         <label class="cliente-pick" id="cliente-pick" hidden><span class="sr-only">Cliente</span><select id="cliente-select" aria-label="Cliente"></select></label>
-        <span id="role-badge" class="badge"></span></div>
+        <span id="role-badge" class="badge"></span>
+        <button id="btn-agencia" class="agencia-btn superadmin-only" type="button" title="Agencia: todos los clientes, el equipo de la agencia, altas y «Ver como»"><span class="agencia-ico" aria-hidden="true"></span>Agencia</button></div>
       <div class="topbar-controls">
         <label class="field inline lanz-only">
           <span>Lanzamiento</span>
@@ -64,7 +65,6 @@
         <button id="btn-zoom" class="tb-btn tb-zoom zoom-only lanz-only" type="button" data-tb-icon="video" title="Leer la asistencia del directo en Zoom y etiquetar a los leads"><span class="tb-txt">Sincronizar Zoom</span></button>
         <button id="btn-auditor" class="tb-btn tb-auditor config-only" type="button" data-tb-icon="shield" title="Auditor: revisa el embudo y te dice qué falta, por orden de urgencia"><span class="tb-txt">Auditor</span><span id="auditor-count" class="notif-count" hidden></span></button>
         <button id="btn-config" class="tb-btn tb-config config-only" type="button" data-tb-icon="gear" title="Configuración del lanzamiento"><span class="tb-txt">Configuración</span></button>
-        <button id="btn-agencia" class="tb-btn tb-agencia superadmin-only" type="button" data-tb-icon="compass" title="Panel de agencia: todos los clientes de un vistazo"><span class="tb-txt">Agencia</span></button>
         <button id="btn-equipo" class="tb-btn tb-equipo admin-only" type="button" data-tb-icon="users" title="Miembros del equipo, roles y permisos"><span class="tb-txt">Equipo</span></button>
         <span class="notif-wrap">
           <button id="btn-notif" class="tb-btn tb-notif" type="button" data-tb-icon="bell" title="Notificaciones: comentarios, menciones y tareas vencidas o a punto de vencer" aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false"><span id="notif-count" class="notif-count" hidden></span></button>
@@ -1306,9 +1306,22 @@
       <div class="dialog-body">
         <div class="tabs" role="tablist">
           <button type="button" class="tab active" data-tab="ag-panel" data-tab-icon="trend">Panel de clientes</button>
+          <button type="button" class="tab" data-tab="ag-equipo" data-tab-icon="users">Equipo de la agencia</button>
           <button type="button" class="tab" data-tab="clientes" data-tab-icon="compass">Añadir nuevo cliente</button>
           <button type="button" class="tab" data-tab="ag-vercomo" data-tab-icon="eye">Ver como</button>
         </div>
+        <section class="tab-panel" data-panel="ag-equipo" hidden>
+          <p class="muted">Las personas del equipo interno de la agencia y a qué clientes entran, con qué rol en cada uno. El equipo propio de cada cliente se gestiona dentro del cliente, en <strong>Equipo</strong>.</p>
+          <div id="age-lista"></div>
+          <h3 class="cfg-h3">Añadir a alguien al equipo de la agencia</h3>
+          <div class="grid2">
+            <label class="field"><span>Nombre</span><input id="age-nombre" maxlength="80" placeholder="Laura Pérez"></label>
+            <label class="field"><span>Email</span><input id="age-email" type="email" placeholder="laura@agencia.com"></label>
+          </div>
+          <div id="age-accesos-nuevo" class="age-accesos"></div>
+          <label class="check"><input type="checkbox" id="age-sa"> Superadmin (entra en todos los clientes como admin, ve la Agencia y gestiona clientes y equipo)</label>
+          <div class="row"><button type="button" class="btn primary" id="age-crear">Añadir y enviarle su acceso</button><span class="muted small" id="age-result"></span></div>
+        </section>
         <section class="tab-panel" data-panel="ag-vercomo" hidden>
           <p class="muted">Mira exactamente lo que ve un cliente cuando entra con su acceso de <strong>Cliente (solo lectura)</strong>: su portal de resultados, con sus cifras e informes. No cambia nada ni le avisa.</p>
           <div class="row vercomo-bar">

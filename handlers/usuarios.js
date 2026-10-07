@@ -4,7 +4,8 @@ import {
   listUsers, saveUsers, actualizarUsuarios, hashPassword, checkPassword, generatePassword, newId, normEmail, publicUser, sendAccessEmail, FOTO_RE, FOTO_MAX, fotoKey,
 } from '../lib/users.js';
 import { storeSet, reintentando } from '../lib/store.js';
-import { clienteActual } from '../lib/cliente.js';
+import { clienteActual, runCliente, enPrincipal } from '../lib/cliente.js';
+import { getRoles } from '../lib/roles.js';
 import { listClientes } from '../lib/clientes.js';
 import { json, readBody, errorResponse, isEmail } from '../lib/http.js';
 import { rolExiste } from '../lib/roles.js';
@@ -24,6 +25,19 @@ export async function GET(request) {
   try {
     const s = await requireSession(request, { admin: true });
     const users = await listUsers({ fresh: true });
+    // Agencia → Equipo de la agencia (superadmin): el equipo interno, los clientes y los roles de cada uno.
+    if (new URL(request.url).searchParams.has('agencia')) {
+      if (!s.superadmin) throw bad('Solo el superadmin gestiona el equipo de la agencia', 403);
+      const clientes = await listClientes();
+      const roles = {};
+      for (const c of clientes) {
+        try { roles[c.id] = (await runCliente(c, () => getRoles())).map((r) => ({ id: r.id, label: r.label })); } catch { roles[c.id] = []; }
+      }
+      return json({
+        equipo: users.filter((u) => u.agencia || u.superadmin).map(publicUser),
+        clientes: clientes.map((c) => ({ id: c.id, nombre: c.nombre })), roles,
+      });
+    }
     return json({
       users: users.filter((u) => u.rol).map(publicUser),
       ...(s.superadmin ? { todos: users.map(publicUser), clientes: (await listClientes()).map((c) => ({ id: c.id, nombre: c.nombre })) } : {}),
@@ -215,6 +229,63 @@ async function procesar(request, body) {
       return json({ ok: true, quitadoDeCliente: true });
     }
     await saveUsers(users.filter((u) => u.id !== user.id));
+    return json({ ok: true });
+  }
+
+  // Agencia → Equipo de la agencia (superadmin): alta o cambio de una persona del equipo interno de la
+  // agencia y sus accesos a uno o más clientes ({ cliente: rol }). Si el email ya tiene usuario
+  // (p. ej. del equipo de un cliente), pasa a ser de la agencia y se le suman los accesos.
+  if (op === 'agencia-guardar') {
+    if (!s.superadmin) throw bad('Solo el superadmin gestiona el equipo de la agencia', 403);
+    const validos = new Set((await listClientes()).map((c) => c.id));
+    const accesos = {};
+    for (const [k, v] of Object.entries(body.accesos || {})) if (validos.has(k) && /^[a-z][a-z0-9-]{1,23}$/.test(String(v || ''))) accesos[k] = String(v);
+    const superadmin = Boolean(body.superadmin);
+    if (body.id) {
+      const user = find();
+      if (user.id === s.uid && !superadmin) throw bad('No puedes quitarte a ti mismo el superadmin');
+      if (body.nombre != null) user.nombre = String(body.nombre).trim().slice(0, 80) || user.nombre;
+      user.agencia = true;
+      user.accesos = accesos;
+      user.superadmin = superadmin;
+      await saveUsers(users, { motivo: `equipo de la agencia: ${user.nombre}` });
+      return json({ user: publicUser({ ...user, rol: undefined }) });
+    }
+    const nombre = String(body.nombre || '').trim().slice(0, 80);
+    const email = normEmail(body.email);
+    if (!nombre) throw bad('Falta el nombre');
+    if (!isEmail(email)) throw bad('El email no es válido');
+    if (!superadmin && !Object.keys(accesos).length) throw bad('Dale acceso al menos a un cliente (o hazle superadmin)');
+    const existe = users.find((u) => u.email === email);
+    if (existe) {
+      existe.agencia = true;
+      existe.accesos = { ...(existe.accesos || {}), ...accesos };
+      if (superadmin) existe.superadmin = true;
+      await saveUsers(users, { motivo: `equipo de la agencia: ${existe.nombre}` });
+      return json({ user: publicUser({ ...existe, rol: undefined }), yaExistia: true });
+    }
+    if (users.length >= 200) throw bad('Máximo 200 usuarios');
+    const password = generatePassword();
+    const user = { id: newId('u'), nombre, email, agencia: true, superadmin, accesos, activo: true, ...(await hashPassword(password)), createdAt: new Date().toISOString(), creadoPor: s.user?.nombre || s.role, _cid: cid };
+    users.push(user);
+    await saveUsers(users, { motivo: `equipo de la agencia: alta de ${nombre}` });
+    // El email de acceso sale desde el cliente principal (la agencia) y con el rol que tenga allí.
+    const sent = body.enviar === false ? { emailEnviado: false } : await enPrincipal(async () => {
+      const visto = (await listUsers({ fresh: true })).find((u) => u.id === user.id) || user;
+      const destinatario = { ...visto, rol: visto.rol || Object.values(accesos)[0] || 'admin' };
+      const r = await deliver(destinatario, password, request, true); // anota el envío y su contacto de GHL
+      await anotarEnvio(destinatario);
+      return r;
+    });
+    return json({ user: publicUser({ ...user, rol: undefined }), password, ...sent });
+  }
+
+  // Quitar a alguien del equipo de la agencia: pierde el acceso a todos los clientes (se borra su usuario).
+  if (op === 'agencia-quitar') {
+    if (!s.superadmin) throw bad('Solo el superadmin gestiona el equipo de la agencia', 403);
+    const user = find();
+    if (user.id === s.uid) throw bad('No puedes quitarte a ti mismo del equipo de la agencia');
+    await saveUsers(users.filter((u) => u.id !== user.id), { motivo: `equipo de la agencia: baja de ${user.nombre}` });
     return json({ ok: true });
   }
 

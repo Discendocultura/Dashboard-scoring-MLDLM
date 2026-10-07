@@ -3486,7 +3486,9 @@ async function loadEquipo() {
 }
 
 function renderEquipo() {
-  const users = state.equipo;
+  // El equipo de este cliente; la gente de la agencia con acceso aquí se gestiona en Agencia → Equipo de la agencia.
+  const users = state.equipo.filter((u) => !u.agencia);
+  const deAgencia = state.equipo.filter((u) => u.agencia);
   const fmt = (d) => (d ? new Date(d).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Nunca');
   $('#equipo-list').innerHTML = users.length ? `<div class="table-scroll"><table class="metric-table equipo-table">
     <thead><tr><th>Persona</th><th>Rol</th><th>Último acceso</th><th></th></tr></thead>
@@ -3496,13 +3498,14 @@ function renderEquipo() {
       <td class="muted">${fmt(u.lastLogin)}</td>
       <td class="eq-actions">
         <button type="button" class="btn" data-eq="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
-        ${state.equipoTodos ? '<button type="button" class="btn ghost" data-eq="accesos" title="Clientes a los que tiene acceso y con qué rol">Clientes</button>' : ''}
         ${u.id === state.user?.id ? '' : `<button type="button" class="btn ghost" data-eq="${u.activo ? 'desactivar' : 'activar'}">${u.activo ? 'Desactivar' : 'Activar'}</button>
         <button type="button" class="btn ghost" data-eq="borrar" aria-label="Borrar">✕</button>`}
       </td></tr>`).join('')}</tbody></table></div>`
     : '<p class="muted">Todavía no hay nadie. Añade a las personas con su nombre y email: les llegará el acceso.</p>';
-  // Superadmin: personas de otros clientes (p. ej. de la agencia) a las que dar acceso aquí.
-  const fuera = (state.equipoTodos || []).filter((u) => !users.some((x) => x.id === u.id));
+  if (deAgencia.length) {
+    $('#equipo-list').insertAdjacentHTML('beforeend', `<p class="muted eq-agencia-nota">Del equipo de la agencia también entran aquí: ${deAgencia.map((u) => `<strong>${esc(u.nombre)}</strong> (${esc(ROLE_LABEL[u.rol] || u.rol)})`).join(', ')}.${state.superadmin ? ' Se gestionan en <strong>Agencia → Equipo de la agencia</strong>.' : ''}</p>`);
+  }
+  const fuera = [];
   if (fuera.length) {
     $('#equipo-list').insertAdjacentHTML('beforeend', `<details class="eq-fuera"><summary>Personas de otros clientes (${fuera.length}) · dales acceso aquí</summary>
       <div class="table-scroll"><table class="metric-table equipo-table"><tbody>${fuera.map((u) => `<tr data-uid="${esc(u.id)}" data-fuera="1">
@@ -3989,6 +3992,99 @@ $('#btn-agencia').addEventListener('click', () => {
   loadAgencia();
 });
 $('#ag-actualizar').addEventListener('click', () => loadAgencia(true));
+$('#btn-agencia .agencia-ico').innerHTML = icon('compass');
+
+// ---------- Agencia → Equipo de la agencia: equipo interno y sus accesos a uno o más clientes ----------
+let ageq = null; // { equipo, clientes, roles: { cliente: [{ id, label }] } }
+const fechaAge = (d) => (d ? new Date(d).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Nunca');
+function opcionesRol(cid, actual) {
+  const roles = [{ id: 'admin', label: 'Admin' }, ...((ageq.roles[cid] || []).filter((r) => r.id !== 'admin'))];
+  if (actual && !roles.some((r) => r.id === actual)) roles.push({ id: actual, label: actual });
+  return `<option value="">Sin acceso</option>${roles.map((r) => `<option value="${esc(r.id)}" ${r.id === actual ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}`;
+}
+const gridAccesos = (accesos = {}) => ageq.clientes.map((c) => `<label><span>${esc(c.nombre)}</span><select data-age-cli="${esc(c.id)}">${opcionesRol(c.id, accesos[c.id] || '')}</select></label>`).join('');
+const leerAccesos = (box) => Object.fromEntries($$('[data-age-cli]', box).map((s) => [s.dataset.ageCli, s.value]).filter(([, v]) => v));
+function pintarAgenciaEquipo() {
+  const nombreCli = (id) => ageq.clientes.find((c) => c.id === id)?.nombre || id;
+  const rolLabel = (cid, r) => (r === 'admin' ? 'Admin' : (ageq.roles[cid] || []).find((x) => x.id === r)?.label || r);
+  $('#age-lista').innerHTML = ageq.equipo.length ? `<div class="table-scroll"><table class="metric-table equipo-table">
+    <thead><tr><th>Persona</th><th>Clientes y rol</th><th>Último acceso</th><th></th></tr></thead>
+    <tbody>${ageq.equipo.map((u) => `<tr data-age-uid="${esc(u.id)}" class="${u.activo ? '' : 'inactivo'}">
+      <td><span class="t-who">${avatarHtml(u)}<span><strong>${esc(u.nombre)}</strong>${u.superadmin ? ' <span class="badge sa-badge">Superadmin</span>' : ''}<br><span class="muted">${esc(u.email)}</span>${u.dosPasos ? ' · <span class="muted">🔐 2 pasos</span>' : ''}</span></span></td>
+      <td>${u.superadmin ? '<span class="age-cli"><strong>Todos los clientes</strong> · Admin</span>' : Object.entries(u.accesos || {}).map(([cid, r]) => `<span class="age-cli"><strong>${esc(nombreCli(cid))}</strong> · ${esc(rolLabel(cid, r))}</span>`).join('') || '<span class="muted">Sin clientes</span>'}</td>
+      <td class="muted">${fechaAge(u.lastLogin)}</td>
+      <td class="eq-actions"><button type="button" class="btn" data-age="editar">Clientes y rol</button>
+        <button type="button" class="btn ghost" data-age="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
+        ${u.id === state.user?.id ? '' : '<button type="button" class="btn ghost" data-age="quitar" title="Quitar del equipo de la agencia (pierde el acceso a todos los clientes)">✕</button>'}</td></tr>`).join('')}</tbody></table></div>`
+    : '<p class="muted">Todavía no hay nadie en el equipo de la agencia.</p>';
+  $('#age-accesos-nuevo').innerHTML = gridAccesos();
+}
+async function loadAgenciaEquipo() {
+  $('#age-lista').innerHTML = '<p class="muted">Cargando el equipo de la agencia…</p>';
+  try {
+    ageq = await api('/api/usuarios?agencia=1');
+    pintarAgenciaEquipo();
+  } catch (e) { $('#age-lista').innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+$('.tab[data-tab="ag-equipo"]').addEventListener('click', loadAgenciaEquipo);
+const ageResult = (t, err = false) => { $('#age-result').textContent = t; $('#age-result').classList.toggle('error', err); };
+$('#age-crear').addEventListener('click', async () => {
+  const nombre = $('#age-nombre').value.trim();
+  const email = $('#age-email').value.trim();
+  if (!nombre || !email) { ageResult('Pon el nombre y el email.', true); return; }
+  const b = $('#age-crear');
+  b.disabled = true;
+  ageResult('Añadiendo y enviando su acceso…');
+  try {
+    const r = await api('/api/usuarios', { method: 'POST', body: { op: 'agencia-guardar', nombre, email, accesos: leerAccesos($('#age-accesos-nuevo')), superadmin: $('#age-sa').checked } });
+    $('#age-nombre').value = ''; $('#age-email').value = ''; $('#age-sa').checked = false;
+    ageResult(r.yaExistia ? `${r.user.nombre} ya tenía usuario: ahora es del equipo de la agencia con esos accesos.` : r.emailEnviado ? `${r.user.nombre} añadida. Le hemos enviado su acceso a ${r.user.email}.` : `${r.user.nombre} añadida, pero no se pudo enviar el email${r.emailError ? ` (${r.emailError})` : ''}. Pásale tú la contraseña: ${r.password}`, !r.yaExistia && !r.emailEnviado);
+    await loadAgenciaEquipo();
+  } catch (e) { ageResult(e.message, true); } finally { b.disabled = false; }
+});
+$('#age-lista').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-age]');
+  if (!b) return;
+  const tr = b.closest('tr');
+  const id = tr.dataset.ageUid || tr.previousElementSibling?.dataset.ageUid;
+  const u = ageq.equipo.find((x) => x.id === id);
+  const op = b.dataset.age;
+  if (op === 'editar') {
+    $$('.age-editor').forEach((r) => r.remove());
+    tr.insertAdjacentHTML('afterend', `<tr class="age-editor"><td colspan="4"><strong>Clientes de ${esc(u.nombre)} y su rol en cada uno</strong>
+      <div class="age-accesos">${gridAccesos(u.accesos)}</div>
+      <label class="check"><input type="checkbox" data-age-sa ${u.superadmin ? 'checked' : ''} ${u.id === state.user?.id ? 'disabled' : ''}> Superadmin (todos los clientes como admin)</label>
+      <div class="row"><button type="button" class="btn primary" data-age="guardar">Guardar</button><button type="button" class="btn ghost" data-age="cerrar">Cancelar</button></div></td></tr>`);
+    return;
+  }
+  if (op === 'cerrar') { tr.remove(); return; }
+  if (op === 'guardar') {
+    b.disabled = true;
+    try {
+      await api('/api/usuarios', { method: 'POST', body: { op: 'agencia-guardar', id, accesos: leerAccesos(tr), superadmin: $('[data-age-sa]', tr).checked } });
+      ageResult(`Accesos de ${u.nombre} guardados.`);
+      await loadAgenciaEquipo();
+      if (state.equipo) loadEquipo();
+    } catch (ex) { ageResult(ex.message, true); b.disabled = false; }
+    return;
+  }
+  if (op === 'regenerar') {
+    if (!window.confirm(`Se generará una contraseña nueva para ${u.nombre} y se le enviará por email. ¿Continuar?`)) return;
+    try {
+      const r = await api('/api/usuarios', { method: 'POST', body: { op: 'regenerar', id } });
+      ageResult(r.emailEnviado ? `Contraseña nueva enviada a ${u.email}.` : `No se pudo enviar el email. Pásale tú la contraseña nueva: ${r.password}`, !r.emailEnviado);
+    } catch (ex) { ageResult(ex.message, true); }
+    return;
+  }
+  if (op === 'quitar') {
+    if (!window.confirm(`¿Quitar a ${u.nombre} del equipo de la agencia? Perderá el acceso a todos los clientes.`)) return;
+    try {
+      await api('/api/usuarios', { method: 'POST', body: { op: 'agencia-quitar', id } });
+      ageResult(`${u.nombre} ya no está en el equipo de la agencia.`);
+      await loadAgenciaEquipo();
+    } catch (ex) { ageResult(ex.message, true); }
+  }
+});
 $('#ag-enviar').addEventListener('click', async (e) => {
   e.target.disabled = true;
   try {
