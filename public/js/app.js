@@ -593,24 +593,38 @@ function render() {
   });
 }
 
-const VIDEO_LABELS = { clase1: 'Clase 1', clase2: 'Clase 2', replay: 'Grabación' };
-
-// Cuántos leads han visto cada vídeo al menos un 25 / 50 / 75 / 90 %.
 function renderConsumo() {
   const L = state.leads;
+  const launch = state.config.launches[state.launchCode] || {};
   const pct = (n) => (L.length ? Math.round((n / L.length) * 100) : 0);
-  const rows = Object.entries(VIDEO_LABELS).map(([v, label]) => {
-    const counts = THRESHOLDS.map((t) => L.filter((l) => watched(l.s, v) >= t).length);
-    return `<tr><th scope="row">${label}</th>${counts.map((n) => `
-      <td><div class="meter" title="${n} leads (${pct(n)}%)"><span style="width:${pct(n)}%"></span></div>
-      <span class="meter-num">${n}</span> <span class="muted">${pct(n)}%</span></td>`).join('')}</tr>`;
+  const celda = (n, title = '') => `<td><div class="meter" title="${title || `${n} leads (${pct(n)}%)`}"><span style="width:${pct(n)}%"></span></div>
+      <span class="meter-num">${n}</span> <span class="muted">${pct(n)}%</span></td>`;
+  // Vídeos grabados: clases del prelanzamiento y grabación de cada vídeo del lanzamiento.
+  const vids = videosDe(launch);
+  const grabados = [
+    ...clasesDe(launch).map((c, i) => [c, `Clase ${i + 1}`]),
+    ...vids.map((v) => [v.replay, vids.length > 1 ? `${v.nombre} (grabado)` : 'Grabación']),
+  ];
+  const rows = grabados.map(([v, label]) => `<tr><th scope="row">${esc(label)}</th>${THRESHOLDS.map((t) => celda(L.filter((l) => watched(l.s, v) >= t).length)).join('')}</tr>`).join('');
+  // Directo: cada paso incluye a quien llegó más lejos (quien estuvo hasta el final también entró).
+  const pasoDirecto = (l, d) => (l.s[`${d}_final`] ? 4 : l.s[`${d}_60`] ? 3 : l.s[`${d}_asistio`] ? 2 : l.s[`${d}_click`] ? 1 : 0);
+  const directos = vids.filter((v) => esEnDirecto(v) || L.some((l) => pasoDirecto(l, v.directo)));
+  const rowsDirecto = directos.map((v) => {
+    const n = [1, 2, 3, 4].map((k) => L.filter((l) => pasoDirecto(l, v.directo) >= k).length);
+    const ret = n[1] ? `${Math.round((n[3] / n[1]) * 100)}%` : '–';
+    return `<tr><th scope="row">${esc(vids.length > 1 ? v.nombre : 'Directo')}</th>${n.map((x) => celda(x)).join('')}<td class="num"><strong>${ret}</strong><br><span class="muted small">de los que entraron siguen al final</span></td></tr>`;
   }).join('');
   $('#consumo').innerHTML = `
     <h2>Consumo de vídeos <span class="muted">· leads que han visto al menos…</span></h2>
     <div class="table-scroll"><table class="consumo">
       <thead><tr><th></th>${THRESHOLDS.map((t) => `<th>${t === 90 ? '90% (completo)' : `${t}%`}</th>`).join('')}</tr></thead>
       <tbody>${rows}</tbody>
-    </table></div>`;
+    </table></div>
+    <h3 class="cfg-h3">En directo <span class="muted">· sobre el total de registros (Zoom: sincroniza la asistencia con «Sincronizar Zoom»)</span></h3>
+    ${rowsDirecto ? `<div class="table-scroll"><table class="consumo">
+      <thead><tr><th></th><th>Pulsaron el enlace</th><th>Entraron</th><th>Más de 60 min</th><th>Hasta el final</th><th>Retención</th></tr></thead>
+      <tbody>${rowsDirecto}</tbody>
+    </table></div>` : '<p class="muted">Este lanzamiento no tiene vídeos en directo (sin Zoom configurado) o aún no hay datos del directo.</p>'}`;
 }
 
 // ---------- Métricas del embudo ----------
