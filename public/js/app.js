@@ -649,9 +649,11 @@ function renderMetrics() {
     ? card(tituloVentasDia, m.compraDirecto, `${pctOf(m.compraDirecto, m.compra)} de las ventas${vVenta ? '' : ` · ${pctOf(m.compraDirecto, m.live)} de los asistentes`}`, 'live', 'buy')
     : card(tituloVentasDia, '–', 'Configura el día del directo y el campo de fecha de compra', 'live', 'buy');
   // Asistencia por tipo de tráfico (frío / templado), además del dato global.
-  const at = launch.inicioCaptacion ? asistenciaPorTrafico(state.leads, launch) : null;
+  const conOrigen = Boolean(launch.publiTag || launch.organicoTag);
+  const at = launch.inicioCaptacion || conOrigen ? asistenciaPorTrafico(state.leads, launch, { trafico: Boolean(launch.inicioCaptacion), origen: conOrigen }) : null;
   const atPaso = at?.pasos.find((p) => (vVenta ? p.label === `${vVenta.nombre} (directo o grabación)` : p.label === 'Asistieron al directo'));
-  const porTrafico = atPaso ? ` · frío ${pctOf(atPaso.n.frio, at.grupos[1].total)} · templado ${pctOf(atPaso.n.templado, at.grupos[2].total)}` : '';
+  const atG = (id) => at?.grupos.find((g) => g.id === id);
+  const porTrafico = atPaso && atG('frio') ? ` · frío ${pctOf(atPaso.n.frio, atG('frio').total)} · templado ${pctOf(atPaso.n.templado, atG('templado').total)}` : '';
   const asistenciaCard = vVenta
     ? card(`Vieron el ${vVenta.nombre}`, vVenta.vieron, `${pctOf(vVenta.vieron, m.total)} de los registros${porTrafico} · compra el ${pctOf(vVenta.compraron, vVenta.vieron)}`, 'live', 'live')
     : card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros${porTrafico} · ${pctOf(m.vipLive, m.vip)} de las VIP`, 'live', 'live');
@@ -697,15 +699,17 @@ function renderMetrics() {
       <div class="funnel-num"><strong>${n}</strong> <span class="muted">${pctOf(n, m.total)}</span></div>
     </div>`).join('');
 
-  // Asistencia por tipo de tráfico: % de cada grupo en cada paso, y la diferencia frío − templado.
-  $('#asistencia-trafico').innerHTML = !at ? '<tbody><tr><td class="muted">Configura el <strong>inicio de captación</strong> del lanzamiento para separar tráfico frío y templado.</td></tr></tbody>' : `
-    <thead><tr><th>Paso</th>${at.grupos.map((g) => `<th class="num">${g.label} <small class="muted">(${g.total})</small></th>`).join('')}<th class="num">Frío vs templado</th></tr></thead>
-    <tbody>${at.pasos.map((p) => {
-      const [, fr, te] = at.grupos.map((g) => (g.total ? p.n[g.id] / g.total : null));
-      const dif = fr != null && te != null ? Math.round((fr - te) * 1000) / 10 : null;
-      const celda = (g) => `<td class="num${g.id === 'global' ? ' big' : ''}">${pctOf(p.n[g.id], g.total)} <span class="muted">${p.n[g.id]}</span></td>`;
-      return `<tr><td>${esc(p.label)}</td>${at.grupos.map(celda).join('')}<td class="num ${!dif ? '' : dif > 0 ? 'dif-mas' : 'dif-menos'}">${dif == null ? '–' : `${dif > 0 ? '+' : ''}${String(dif).replace('.', ',')} pp`}</td></tr>`;
-    }).join('')}</tbody>`;
+  // Asistencia y consumo por tipo de tráfico: % de cada grupo en cada paso, y las diferencias frío − templado y publi − orgánico.
+  const dif = (p, a, b) => {
+    const ga = atG(a); const gb = atG(b);
+    if (!ga?.total || !gb?.total) return '<td class="num">–</td>';
+    const d = Math.round((p.n[a] / ga.total - p.n[b] / gb.total) * 1000) / 10;
+    return `<td class="num ${!d ? '' : d > 0 ? 'dif-mas' : 'dif-menos'}">${d > 0 ? '+' : ''}${String(d).replace('.', ',')} pp</td>`;
+  };
+  const difs = [...(atG('frio') ? [['frio', 'templado', 'Frío vs templado']] : []), ...(atG('publi') ? [['publi', 'organico', 'Publi vs orgánico']] : [])];
+  $('#asistencia-trafico').innerHTML = !at ? '<tbody><tr><td class="muted">Configura el <strong>inicio de captación</strong> (frío / templado) o las <strong>etiquetas de publicidad y orgánico</strong> del lanzamiento (Configuración → Etiquetas GHL) para separar el consumo por tipo de tráfico.</td></tr></tbody>' : `
+    <thead><tr><th>Paso</th>${at.grupos.map((g) => `<th class="num">${g.label} <small class="muted">(${g.total})</small></th>`).join('')}${difs.map(([, , t]) => `<th class="num">${t}</th>`).join('')}</tr></thead>
+    <tbody>${at.pasos.map((p) => `<tr><td>${esc(p.label)}</td>${at.grupos.map((g) => `<td class="num${g.id === 'global' ? ' big' : ''}">${pctOf(p.n[g.id], g.total)} <span class="muted">${p.n[g.id]}</span></td>`).join('')}${difs.map(([a, b]) => dif(p, a, b)).join('')}</tr>`).join('')}</tbody>`;
 
   const rows = [
     ['Todos los registrados', m.total, m.compra],

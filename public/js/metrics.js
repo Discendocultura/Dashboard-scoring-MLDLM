@@ -471,19 +471,30 @@ export function rankingGanadores(leads, launch, level = 'ad', names = {}, spendB
   }).sort((a, b) => (b.compras - a.compras) || (b.ingresos - a.ingresos) || (b.conversion - a.conversion) || (b.leads - a.leads));
 }
 
-// Asistencia por tipo de tráfico: cada paso del embudo en global, frío (nuevo en GHL) y templado
-// (ya estaba en GHL antes de la captación), con su % sobre los registros de ese grupo.
-// → { grupos: [{ id, label, total }], pasos: [{ label, n: { global, frio, templado } }] }
-export function asistenciaPorTrafico(leads, launch) {
+// Asistencia y consumo por tipo de tráfico: cada paso del embudo en global, frío (nuevo en GHL) y
+// templado (ya estaba en GHL antes de la captación) y, por origen, publicidad y orgánico; con su %
+// sobre los registros de ese grupo. `trafico` / `origen`: incluir esos grupos (necesitan el inicio de
+// captación y las etiquetas de publicidad / orgánico).
+// → { grupos: [{ id, label, total }], pasos: [{ label, n: { global, frio, templado, publi, organico } }] }
+export function asistenciaPorTrafico(leads, launch, { trafico = true, origen = true } = {}) {
   const grupos = [
     { id: 'global', label: 'Global', leads },
-    { id: 'frio', label: 'Frío', leads: leads.filter((l) => l.s.trafico === 'frio') },
-    { id: 'templado', label: 'Templado', leads: leads.filter((l) => l.s.trafico === 'templado') },
+    ...(trafico ? [
+      { id: 'frio', label: 'Frío', leads: leads.filter((l) => l.s.trafico === 'frio') },
+      { id: 'templado', label: 'Templado', leads: leads.filter((l) => l.s.trafico === 'templado') },
+    ] : []),
+    ...(origen ? [
+      { id: 'publi', label: 'Publicidad', leads: leads.filter((l) => l.s.origen === 'publi') },
+      { id: 'organico', label: 'Orgánico', leads: leads.filter((l) => l.s.origen === 'organico') },
+    ] : []),
   ];
   const ms = Object.fromEntries(grupos.map((g) => [g.id, computeMetrics(g.leads, launch)]));
   const varios = videosDe(launch).length > 1;
   const def = [
-    ...clasesDe(launch).map((c, i) => [`Clase ${i + 1} (≥25% vista)`, (m) => m[c]]),
+    ...clasesDe(launch).flatMap((c, i) => [
+      [`Clase ${i + 1} (≥25% vista)`, (m) => m[c]],
+      [`Clase ${i + 1} entera (≥90%)`, (m, L) => L.filter((l) => watched(l.s, c) >= 90).length],
+    ]),
     ...(conVip(launch) ? [['Entrada VIP', (m) => m.vip]] : []),
     ...(varios
       ? (ms.global.videos || []).flatMap((v, i) => [
@@ -495,12 +506,13 @@ export function asistenciaPorTrafico(leads, launch) {
         ['Asistieron al directo', (m) => m.live],
         ['Directo hasta el final', (m) => m.liveFinal],
         ['Vieron la grabación (≥25%)', (m) => m.replay],
+        ['Grabación entera (≥90%)', (m, L) => L.filter((l) => watched(l.s, 'replay') >= 90).length],
         ['Directo o grabación', (m) => m.live + m.soloReplay],
       ]),
     ['Compraron', (m) => m.compra],
   ];
   return {
     grupos: grupos.map(({ id, label }) => ({ id, label, total: ms[id].total })),
-    pasos: def.map(([label, fn]) => ({ label, n: Object.fromEntries(grupos.map((g) => [g.id, fn(ms[g.id])])) })),
+    pasos: def.map(([label, fn]) => ({ label, n: Object.fromEntries(grupos.map((g) => [g.id, fn(ms[g.id], g.leads)])) })),
   };
 }

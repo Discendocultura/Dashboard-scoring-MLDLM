@@ -76,9 +76,11 @@ el **inicio de captación** (día en que se abren los registros) y el **día del
 Un registro es **templado** si el contacto ya existía en GHL antes del inicio de captación, porque ya había entrado por
 otro embudo (lanzamientos anteriores, VSL, newsletter…). Si es nuevo, es **frío**. Las métricas muestran el % de las
 ventas que viene de cada tipo (los dos suman 100%) y la conversión de cada uno.
-Además, bajo el embudo del lanzamiento, **Asistencia por tipo de tráfico**: cada paso (clases, VIP, clic y asistencia al
-directo, hasta el final, grabación, compra; o cada vídeo en los lanzamientos de varios vídeos) en % **global**, **frío** y
-**templado** (sobre los registros de cada grupo), con la diferencia frío − templado en puntos. La tarjeta de asistencia
+Además, en *Métricas → Consumo de vídeos*, **Asistencia y consumo por tipo de tráfico**: cada paso (clases empezadas y
+enteras, VIP, clic y asistencia al directo, hasta el final, grabación empezada y entera, compra; o cada vídeo en los
+lanzamientos de varios vídeos) en % **global**, **frío**, **templado**, **publicidad** y **orgánico** (sobre los registros de
+cada grupo), con las diferencias frío − templado y publi − orgánico en puntos. Frío/templado necesita el inicio de
+captación; publicidad/orgánico, sus etiquetas. La tarjeta de asistencia
 también enseña el % de frío y de templado junto al global.
 
 ### Pestaña Comercial
@@ -88,7 +90,7 @@ Agrupa el trabajo comercial en dos subpestañas: **Setting hoy** (a quién escri
 Agrupa en tres subpestañas **Calendario**, **Tareas** y **Rendimiento del equipo**. Como en Comercial, al entrar abre la última que usaste en ese embudo y el número de la pestaña son las tareas pendientes. Si alguien solo puede ver una, entra directo sin subpestañas.
 
 ### Pestaña Métricas
-Ordenada en subpestañas para no hacer tanto scroll (se recuerda la última elegida): **Resumen** (tarjetas principales, embudo y asistencia por tipo de tráfico), **Ventas y rentabilidad** (inversión, ROAS, ventas por día del carrito, pago único / fraccionado), **Tráfico y origen** (publicidad / orgánico, frío / templado), **Consumo de vídeos** (cuánto se ve de cada clase y grabación, y el **directo**: pulsaron el enlace, entraron, más de 60 min, hasta el final y la retención; uno por vídeo en los lanzamientos de varios vídeos) y **Conversión y setting** (conversión por segmento, trabajo de la setter, compras por estado y qué predice la compra). En las VSL: **Resumen**, **Semanas y días**, **Llamadas** y **Origen**. Los avisos de «Revisa estas cosas» se ven siempre arriba.
+Ordenada en subpestañas para no hacer tanto scroll (se recuerda la última elegida): **Resumen** (tarjetas principales y embudo), **Ventas y rentabilidad** (inversión, ROAS, ventas por día del carrito, pago único / fraccionado), **Tráfico y origen** (publicidad / orgánico, frío / templado), **Consumo de vídeos** (cuánto se ve de cada clase y grabación, y el **directo**: pulsaron el enlace, entraron, más de 60 min, hasta el final y la retención; uno por vídeo en los lanzamientos de varios vídeos) y **Conversión y setting** (conversión por segmento, trabajo de la setter, compras por estado y qué predice la compra). En las VSL: **Resumen**, **Semanas y días**, **Llamadas** y **Origen**. Los avisos de «Revisa estas cosas» se ven siempre arriba.
 
 Registros, encuesta rellenada (si el lanzamiento la usa), entradas VIP, asistencia (en número y en %), compras totales, compras de VIP, compras en directo,
 el embudo completo, la conversión por segmento (VIP / no VIP / directo / grabación), el consumo de cada vídeo y
