@@ -24,6 +24,10 @@ export const PESTANAS = {
     { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para esta VSL' },
   ],
 };
+PESTANAS.meteorico = [
+  { id: 'meteoricos', label: 'Meteóricos', desc: 'Cada oferta flash: cuenta atrás, ventas, facturación, visitas a la oferta y compradoras' },
+  { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para el calentamiento y la oferta' },
+];
 export const pestanaIds = (tipo) => (PESTANAS[tipo] || []).map((p) => p.id);
 
 // Variantes del embudo «siempre abierto» (usan el mismo motor que la VSL: registro → contenido →
@@ -64,6 +68,26 @@ export const pestanasSugeridas = (tipo, subtipo) => (tipo === 'vsl' && SUBTIPOS_
 export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar', subtipo = 'vsl', { preclase = true } = {}) {
   const on = (id) => pestanas.includes(id);
   const s = [];
+  if (tipo === 'meteorico') {
+    return [
+      { titulo: '1 · La oferta en GHL', pasos: [
+        'Crea el <strong>producto y el enlace de pago</strong> de la oferta (y, si hay, el de pago a plazos).',
+        'En el <strong>workflow del pago</strong> añade una etiqueta de compra para esta oferta (p. ej. <code>compra-bf26</code>). Si es el mismo producto que vendes en otras acciones, guarda también la fecha en un <strong>campo de fecha</strong> («Fecha compra …») o haz la «foto» antes de abrir: así solo cuentan las ventas de este meteórico.',
+      ] },
+      { titulo: '2 · Calentamiento (4-5 días)', pasos: [
+        'Programa la secuencia de <strong>emails</strong> y los mensajes de <strong>WhatsApp</strong> (vídeos incluidos) hasta la apertura. Si creas un grupo de WhatsApp nuevo, pon su enlace en el meteórico.',
+        'El último día: aviso de «mañana abre», y durante la oferta: «ya está abierta», «quedan 3 horas», «última hora».',
+      ] },
+      { titulo: '3 · Página de la oferta', pasos: [
+        'En la página de la oferta pega el <strong>código de la cuenta atrás</strong> (te lo da el meteórico): muestra «se abre en…», el botón de compra con «se cierra en…» mientras está abierta y «ha terminado» al cerrar (o manda a la página de «oferta cerrada»). También cuenta las visitas.',
+        'En los emails y WhatsApp enlaza siempre a esa página.',
+      ] },
+      { titulo: '4 · En el dashboard', pasos: [
+        'Crea cada meteórico (Black Friday, rebajas…) con sus días y horas, producto, precio, etiquetas y objetivos. El de después de un lanzamiento (downsell) se crea dentro del lanzamiento: Métricas → Downsell (meteórico).',
+        'Durante la oferta, la pestaña Meteóricos te enseña la cuenta atrás, las ventas, la facturación, las visitas y la conversión.',
+      ] },
+    ];
+  }
   if (tipo === 'vsl' && subtipo === 'leadmagnet') {
     s.push({ titulo: '1 · Etiquetas en GHL', pasos: [
       'Crea las etiquetas: <strong>descarga del lead magnet</strong> (p. ej. <code>descarga-guia-sueno</code>, la pone el formulario) y <strong>compra</strong> desde este embudo. Opcional: «ha abierto el lead magnet» (la pone un workflow cuando hace clic en el enlace del email) y «publicidad» / «orgánico».',

@@ -110,6 +110,7 @@
         <div id="snapshot-warning" class="notice warn" hidden></div>
         <div id="avisos-equipo" class="avisos-equipo admin-only" hidden></div>
         <nav class="views" role="tablist">
+          <button type="button" class="view-tab" data-view="meteoricos">Meteóricos</button>
           <button type="button" class="view-tab" data-view="vmetricas">Métricas</button>
           <button type="button" class="view-tab" data-view="vleads">Leads</button>
           <button type="button" class="view-tab" data-view-grupo="comercial">Comercial <span id="llamadas-badge" class="tab-count" hidden></span></button>
@@ -152,6 +153,17 @@
           <label class="field inline" id="vr-hasta-f" hidden><span>Hasta</span><input id="vr-hasta" type="date"></label>
           <span id="vr-texto" class="vr-texto"></span>
         </div>
+
+        <!-- ⚡ Meteóricos: ofertas flash -->
+        <section id="view-meteoricos" hidden>
+          <div class="meteo-bar">
+            <label class="field"><span>Meteórico</span><select id="meteo-select"></select></label>
+            <button type="button" class="btn primary" id="meteo-nuevo">+ Nuevo meteórico</button>
+            <button type="button" class="btn" id="meteo-config">Configurar</button>
+            <button type="button" class="btn ghost" id="meteo-recargar">Actualizar datos</button>
+          </div>
+          <div id="meteo-body"></div>
+        </section>
 
         <section id="view-vmetricas" hidden>
           <div class="metric-actions"><button type="button" class="btn primary" data-informe="ver">Informe semanal para el cliente ↗</button>
@@ -430,8 +442,16 @@
             <button type="button" class="subview-tab" data-msub-btn="origen" data-icon-msub="compass">Origen</button>
             <button type="button" class="subview-tab" data-msub-btn="consumo" data-icon-msub="play">Consumo de vídeos</button>
             <button type="button" class="subview-tab" data-msub-btn="conversion" data-icon-msub="cart">Conversión y setting</button>
+            <button type="button" class="subview-tab" data-msub-btn="meteorico" data-icon-msub="zap">Downsell (meteórico)</button>
           </nav>
           <div id="metric-cards" data-msub="resumen" class="kpis"></div>
+          <section data-msub="meteorico" class="card metric-card" data-icon="zap">
+            <h2>Meteórico posterior <span class="muted">· oferta flash tras el lanzamiento (downsell u otro producto)</span></h2>
+            <div class="row meteo-bar"><label class="field"><span>Meteórico</span><select id="meteo-l-select"></select></label>
+              <button type="button" class="btn primary" id="meteo-l-nuevo">+ Crear meteórico posterior</button>
+              <button type="button" class="btn" id="meteo-l-config">Configurar</button></div>
+            <div id="meteo-l-body"></div>
+          </section>
           <section data-msub="trafico" class="card metric-card" data-icon="megaphone">
             <h2>Tráfico de pago <span class="muted">· Meta Ads del lanzamiento (campañas con su filtro)</span></h2>
             <div id="trafico-cards" class="kpis"></div>
@@ -901,6 +921,66 @@
     </form>
   </dialog>
 
+  <!-- Configuración de un meteórico -->
+  <dialog id="meteo-dialog" class="dialog dialog-md">
+    <form method="dialog">
+      <header class="dialog-head"><h2 id="meteo-titulo">⚡ Meteórico</h2><button class="btn ghost" value="cancel" type="submit" formnovalidate aria-label="Cerrar">✕</button></header>
+      <div class="dialog-body">
+        <p class="muted" id="meteo-de"></p>
+        <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">⚡</span><div><h3>La oferta</h3><p>Qué se vende y cómo se llama esta acción.</p></div></header>
+          <div class="grid2">
+            <label class="field"><span>Nombre</span><input id="mt-name" maxlength="80" placeholder="Black Friday 2026"></label>
+            <label class="field"><span>Código <small>(minúsculas; no se puede cambiar)</small></span><input id="mt-code" maxlength="24" placeholder="bf26"></label>
+            <label class="field"><span>Producto</span><input id="mt-producto" maxlength="80" placeholder="Raíces, Guía del sueño…"></label>
+            <label class="field"><span>La oferta <small>(p. ej. «Raíces al 50 %», «2 meses gratis»)</small></span><input id="mt-oferta" maxlength="300"></label>
+            <label class="field"><span>Precio de la oferta (€)</span><input id="mt-precio" inputmode="decimal"></label>
+            <label class="field"><span>Precio a plazos (€) <small>(total; opcional)</small></span><input id="mt-precioFraccionado" inputmode="decimal"></label>
+          </div></section>
+        <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">⏱️</span><div><h3>Tiempos</h3><p>En hora de España. El calentamiento son los días de emails y WhatsApp antes de abrir.</p></div></header>
+          <div class="grid3">
+            <label class="field"><span>Empieza el calentamiento</span><input id="mt-calentamiento" type="date"></label>
+            <label class="field"><span>Abre la oferta</span><input id="mt-apertura" type="datetime-local"></label>
+            <label class="field"><span>Cierra la oferta</span><input id="mt-cierre" type="datetime-local"></label>
+          </div></section>
+        <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">🏷️</span><div><h3>Etiquetas de GHL</h3><p>Las ventas se cuentan con la etiqueta de compra. Si el producto ya se vendió antes, pon el campo de fecha de compra o haz la «foto» antes de abrir.</p></div></header>
+          <div class="grid2">
+            <label class="field"><span>Etiqueta de compra de esta oferta</span><input id="mt-compraTag" list="tag-list" placeholder="Busca la etiqueta…"></label>
+            <label class="field"><span>Etiqueta de pago a plazos <small>(opcional)</small></span><input id="mt-fraccionadoTag" list="tag-list" placeholder="Busca la etiqueta…"></label>
+            <label class="field"><span>Campo de fecha de compra <small>(recomendado)</small></span><select id="mt-compraDateField"><option value="">— Sin campo de fecha —</option></select></label>
+          </div></section>
+        <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">🔗</span><div><h3>Páginas y enlaces</h3><p>La página de la oferta lleva el código de la cuenta atrás (te lo damos en el meteórico).</p></div></header>
+          <div class="grid2">
+            <label class="field"><span>Página de la oferta</span><input id="mt-ofertaUrl" type="url" placeholder="https://…"></label>
+            <label class="field"><span>Enlace de pago</span><input id="mt-pagoUrl" type="url"></label>
+            <label class="field"><span>Enlace de pago a plazos <small>(opcional)</small></span><input id="mt-pagoFraccionadoUrl" type="url"></label>
+            <label class="field"><span>Página de «oferta cerrada» <small>(opcional: allí se manda al cerrar)</small></span><input id="mt-cerradaUrl" type="url"></label>
+            <label class="field"><span>Grupo de WhatsApp <small>(opcional)</small></span><input id="mt-whatsappUrl" type="url"></label>
+          </div>
+          <div class="grid2">
+            <label class="field"><span>Texto en el calentamiento</span><input id="mt-t-calentamiento" maxlength="160" placeholder="La oferta se abre en"></label>
+            <label class="field"><span>Texto con la oferta abierta</span><input id="mt-t-abierta" maxlength="160" placeholder="⚡ La oferta está abierta. Se cierra en"></label>
+            <label class="field"><span>Texto al cerrar</span><input id="mt-t-cerrada" maxlength="160" placeholder="La oferta ha terminado. ¡Gracias!"></label>
+            <label class="field"><span>Texto del botón</span><input id="mt-t-boton" maxlength="40" placeholder="Quiero la oferta"></label>
+          </div></section>
+        <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">🎯</span><div><h3>Objetivos e inversión</h3><p>Para el progreso, el coste por venta y el ROAS.</p></div></header>
+          <div class="grid2">
+            <label class="field"><span>Objetivo de ventas</span><input id="mt-objetivoVentas" inputmode="numeric"></label>
+            <label class="field"><span>Objetivo de facturación (€)</span><input id="mt-objetivoFacturacion" inputmode="decimal"></label>
+            <label class="field"><span>Inversión en anuncios (€) <small>(si no conectas Meta)</small></span><input id="mt-inversion" inputmode="decimal"></label>
+            <label class="field"><span>Campañas de Meta <small>(su nombre contiene…; vacío = el código)</small></span><input id="mt-metaFiltro"></label>
+          </div>
+          <label class="field"><span>Notas</span><textarea id="mt-notas" rows="3" maxlength="2000" placeholder="Secuencia de emails, mensajes de WhatsApp, a quién va…"></textarea></label></section>
+        <p id="mt-status" class="muted"></p>
+      </div>
+      <footer class="dialog-foot">
+        <button id="mt-borrar" class="btn danger-ghost" type="button">Eliminar</button>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" type="submit" formnovalidate>Cancelar</button>
+        <button id="mt-guardar" class="btn primary" type="button">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog id="auditor-dialog" class="dialog dialog-md">
     <form method="dialog">
       <header class="dialog-head"><h2 id="aud-titulo">Auditor</h2><button class="btn ghost" value="cancel" type="submit" aria-label="Cerrar">✕</button></header>
@@ -932,6 +1012,8 @@
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="leadmagnet"><span class="emb-ico">🧲</span><span><strong>Lead magnet + secuencia de emails</strong><small>Descarga de un regalo (guía, checklist, minicurso) → secuencia de emails → venta.</small></span></label>
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="evergreen"><span class="emb-ico">⏯️</span><span><strong>Webinar evergreen (grabado)</strong><small>Webinar grabado siempre disponible: registro → lo ve cuando quiere → oferta y compra o llamada.</small></span></label>
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="llamadas"><span class="emb-ico">📞</span><span><strong>Embudo de llamadas</strong><small>Anuncio → formulario de aplicación → llamada de venta. La venta se cierra en la llamada.</small></span></label>
+          <p class="emb-grupo muted small">Acciones puntuales a tu base de datos:</p>
+          <label class="emb-tipo"><input type="radio" name="emb-tipo" value="meteorico"><span class="emb-ico">⚡</span><span><strong>Meteóricos (ofertas flash)</strong><small>4-5 días de calentamiento por email y WhatsApp y una oferta de pocas horas (p. ej. 12 h): Black Friday, rebajas… Los downsell tras un lanzamiento se crean dentro del lanzamiento.</small></span></label>
         </div>
         <label class="field" id="emb-reto-box" hidden><span>Días del reto</span>
           <select id="emb-reto-dias"><option value="reto3">3 días</option><option value="reto4">4 días</option><option value="reto5" selected>5 días</option></select></label>

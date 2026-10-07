@@ -1551,3 +1551,21 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 .portal-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .portal-pick { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--text-2); }
 .portal-pick select { min-width: 220px; }
+
+/* ⚡ Meteóricos */
+body.embudo-meteo .lanz-only { display: none !important; }
+.meteo-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-bottom: 14px; }
+.meteo-bar .field { min-width: 260px; }
+#meteo-body, #meteo-l-body { display: flex; flex-direction: column; gap: 14px; }
+#meteo-body > .meteo-cab, #meteo-body > .meteo-sec, #meteo-body > .meteo-kpis { background: var(--surface); }
+.meteo-cab { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; align-items: center; padding: 16px 20px; border: 1px solid var(--border); border-radius: 14px; }
+.meteo-cab h2 { margin: 0 0 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.meteo-cab p { margin: 2px 0; }
+.meteo-tiempos { font-size: 14px; }
+.meteo-cuenta { text-align: center; padding: 10px 18px; border-radius: 12px; background: #1f1a17; color: #fff; min-width: 160px; }
+.meteo-cuenta span { display: block; font-size: 12px; opacity: .8; }
+.meteo-cuenta strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.meteo-sec { padding: 14px 18px; border: 1px solid var(--border); border-radius: 14px; }
+.meteo-sec h3 { margin: 0 0 10px; font-size: 15px; }
+.meteo-sec .snippet { white-space: pre-wrap; word-break: break-all; font-size: 12px; padding: 10px; border-radius: 8px; background: var(--surface-2, color-mix(in srgb, currentColor 6%, transparent)); }
+.meteo-sec .table-scroll { max-height: 420px; overflow-y: auto; }

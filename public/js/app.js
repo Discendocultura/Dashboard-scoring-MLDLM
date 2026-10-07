@@ -4,10 +4,11 @@ import {
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
-import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor } from './page.js';
+import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor, madridToEpoch } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
 import { rendimientoEquipo } from './rendimiento.js';
+import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico } from './meteorico.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
@@ -23,6 +24,7 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const PAGE_SIZE = 100;
 
 const state = {
+  meteo: { code: '', datos: {} }, // ⚡ meteóricos: el elegido y sus métricas
   vsl: { leads: null, raw: null, meta: null, ganLevel: 'ad', loadToken: 0, mostrar: 100 },
   role: null,
   permisos: [],
@@ -272,20 +274,23 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas que ve cada rol (el servidor también impide al equipo leer leads y métricas).
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'ambos', comparar: 'ambos', rendimiento: 'ambos' };
-const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar' };
+// En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico' };
+const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas' };
+const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
 const embudoInfo = (id = state.embudo) => embudos().find((e) => e.id === id) || null;
 const enVsl = () => embudoInfo()?.tipo === 'vsl';
-const tipoActual = () => (enVsl() ? 'vsl' : 'lanz');
+const enMeteo = () => embudoInfo()?.tipo === 'meteorico';
+const tipoActual = () => (enVsl() ? 'vsl' : enMeteo() ? 'meteorico' : 'lanz');
 // Pestañas que el embudo tiene activadas (⚙️ del menú lateral; sin lista = todas).
 const pestanasEmbudo = () => embudoInfo()?.pestanas || null;
-const allowedViews = () => VIEWS.filter((v) => [tipoActual(), 'ambos'].includes(VIEW_EMBUDO[v] || 'lanz')
+const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual())
   && (!pestanasEmbudo() || pestanasEmbudo().includes(v))
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
-const codigo = () => (enVsl() ? state.embudo : state.launchCode);
+const codigo = () => (enVsl() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
 const vslCfg = (id = state.embudo) => ({ ...(state.config?.vsls?.[id] || {}), name: state.config?.vsls?.[id]?.name || 'VSL', id, esVsl: true });
 const embudoActual = () => (enVsl() ? vslCfg() : state.config?.launches[state.launchCode]);
 // Embudo de lanzamientos al que pertenece un lanzamiento.
@@ -389,9 +394,10 @@ $('#cliente-select').addEventListener('change', (e) => cambiarCliente(e.target.v
 function pintarSidebar() {
   $('#sb-items').innerHTML = embudos().map((e) => {
     const tv = e.tipo === 'vsl' ? textosVsl(state.config.vsls[e.id]) : null;
-    const sub = tv ? `${tv.corto} · siempre abierto`
+    const nMeteo = e.tipo === 'meteorico' ? Object.values(state.config.meteoricos || {}).filter((m) => m.embudo === e.id).length : 0;
+    const sub = e.tipo === 'meteorico' ? `${nMeteo} meteórico${nMeteo === 1 ? '' : 's'}` : tv ? `${tv.corto} · siempre abierto`
       : (() => { const n = Object.values(state.config.launches).filter((l) => embudoDeLanz(l) === e.id).length; return `${n} lanzamiento${n === 1 ? '' : 's'}`; })();
-    return `<div class="sb-row"><button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${tv ? tv.ico : esReto(e.formato) ? '🏁' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(e.id)}" title="Pestañas, nombre y guía de «${esc(e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
+    return `<div class="sb-row"><button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${e.tipo === 'meteorico' ? '⚡' : tv ? tv.ico : esReto(e.formato) ? '🏁' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(e.id)}" title="Pestañas, nombre y guía de «${esc(e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
   }).join('');
 }
 
@@ -399,13 +405,14 @@ async function setEmbudo(e, { vista = null } = {}) {
   state.embudo = embudoInfo(e) ? e : embudos()[0]?.id || '';
   ls.set('lsd_embudo', state.embudo);
   document.body.classList.toggle('embudo-vsl', enVsl());
+  document.body.classList.toggle('embudo-meteo', enMeteo());
   pintarSidebar();
   // Cliente sin embudos todavía.
   const sin = !embudos().length;
   $('#sin-embudos').hidden = !sin;
   if (sin) { $('#dashboard').hidden = true; $('#empty-state').hidden = true; return; }
   // Cada embudo de lanzamientos enseña solo sus lanzamientos.
-  if (!enVsl()) {
+  if (!enVsl() && !enMeteo()) {
     renderLaunchSelect();
     if (!state.config.launches[state.launchCode] || embudoDeLanz(state.config.launches[state.launchCode]) !== state.embudo) state.launchCode = pickInitialLaunch();
   }
@@ -414,13 +421,19 @@ async function setEmbudo(e, { vista = null } = {}) {
   $$('.subview-tab[data-view]').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
   const guardada = ls.get(`lsd_view_${state.embudo}`) || (enVsl() ? '' : ls.get('lsd_view'));
   const quiero = [vista, guardada].find((v) => v && allowedViews().includes(v));
-  const porDefecto = enVsl() ? ['vmetricas', 'vleads', 'llamadas', 'tareas'] : ['leads', 'hoy', 'tareas'];
+  if (enMeteo()) pickMeteo();
+  const porDefecto = enVsl() ? ['vmetricas', 'vleads', 'llamadas', 'tareas'] : enMeteo() ? ['meteoricos'] : ['leads', 'hoy', 'tareas'];
   showView(quiero || porDefecto.find((v) => allowedViews().includes(v)) || allowedViews()[0]);
   if (enVsl()) {
     $('#empty-state').hidden = true;
     $('#dashboard').hidden = false;
     notice('');
     await recargarVsl();
+  } else if (enMeteo()) {
+    $('#empty-state').hidden = true;
+    $('#dashboard').hidden = false;
+    notice('');
+    renderMeteoView();
   } else {
     await selectLaunch(state.launchCode);
   }
@@ -432,7 +445,7 @@ $('#sidebar').addEventListener('click', (ev) => {
 
 async function selectLaunch(code) {
   state.launchCode = code;
-  if (enVsl()) return; // se cargará al volver a Lanzamientos
+  if (enVsl() || enMeteo()) return; // se cargará al volver a Lanzamientos
   notice('');
   const hasLaunch = Boolean(code && state.config.launches[code]);
   $('#empty-state').hidden = hasLaunch;
@@ -1629,13 +1642,13 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento'];
+const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas) y «Planificación» (Calendario, Tareas y Rendimiento del equipo).
 const GRUPOS = { comercial: ['hoy', 'llamadas'], planificacion: ['calendario', 'tareas', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { comercial: 'phone', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
+const VIEW_ICONS = { meteoricos: 'zap', comercial: 'phone', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
@@ -1655,6 +1668,7 @@ function showView(view) {
   if (enVsl() && state.vsl.leads) renderVsl();
   if (view === 'comparar' && state.config) { renderCompareSelector(); renderComparativas(); }
   if (view === 'rendimiento' && state.config) loadRendimiento();
+  if (view === 'meteoricos' && state.config && enMeteo()) renderMeteoView();
   if (view === 'calendario' && state.config) renderCalendario();
   if (view === 'llamadas' && state.config) { if (state.llamadas?.code !== codigo()) loadLlamadas(); else renderLlamadas(); }
 }
@@ -1676,6 +1690,7 @@ function pintarMsub(nav, cat) {
   $$('[data-msub]', view).forEach((el) => { el.hidden = el.dataset.msub !== cat; });
   ls.set(`lsd_${nav.id}`, cat);
   if (nav.id === 'msub-leads' && cat === 'encuesta' && state.config && state.leads) renderEncuestaLeads();
+  if (nav.id === 'msub-metricas' && cat === 'meteorico' && state.config) renderMeteoLanz();
 }
 $$('.msubs').forEach((nav) => {
   $$('[data-msub-btn]', nav).forEach((b) => {
@@ -2124,7 +2139,7 @@ function openConfig(code) {
 }
 
 $('#cfg-launch-pick').addEventListener('change', (e) => openConfig(e.target.value));
-$('#btn-config').addEventListener('click', () => (enVsl() ? openVslConfig() : openConfig(state.launchCode)));
+$('#btn-config').addEventListener('click', () => (enVsl() ? openVslConfig() : enMeteo() ? abrirMeteoDialog(state.meteo.code, { embudo: state.embudo }) : openConfig(state.launchCode)));
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-action="new-launch"]')) openConfig(null);
 });
@@ -6379,8 +6394,8 @@ let embEdit = null; // id del embudo que se edita (null = nuevo)
 // Opción elegida: webinar | v2 | v3 | plf | reto (embudo de lanzamientos con ese formato) o un
 // embudo siempre abierto: vsl | leadmagnet | evergreen | llamadas (motor de la VSL con su variante).
 const embOpcion = () => $('input[name="emb-tipo"]:checked').value;
-const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : SUBTIPO_IDS.includes(embOpcion()) ? 'vsl' : 'lanzamientos');
-const embFormato = () => (embEdit ? $('#emb-formato').value : embTipo() === 'vsl' ? undefined : embOpcion() === 'reto' ? $('#emb-reto-dias').value : embOpcion());
+const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : embOpcion() === 'meteorico' ? 'meteorico' : SUBTIPO_IDS.includes(embOpcion()) ? 'vsl' : 'lanzamientos');
+const embFormato = () => (embEdit ? $('#emb-formato').value : embTipo() !== 'lanzamientos' ? undefined : embOpcion() === 'reto' ? $('#emb-reto-dias').value : embOpcion());
 const embSubtipo = () => (embTipo() !== 'vsl' ? undefined : embEdit ? $('#emb-subtipo').value : embOpcion());
 const embPestanas = () => $$('#emb-pestanas input:checked').map((i) => i.value);
 // Clases del prelanzamiento y entrada VIP: solo en los embudos de lanzamientos (sin plantilla elegida).
@@ -6543,7 +6558,7 @@ $('#emb-crear').addEventListener('click', async () => {
     embDlg.close();
     await setEmbudo(id);
     // Y a configurarlo: etiquetas de GHL (VSL) o el primer lanzamiento.
-    if (tipo === 'vsl') openVslConfig(); else openConfig(null);
+    if (tipo === 'vsl') openVslConfig(); else if (tipo === 'meteorico') abrirMeteoDialog(null, { embudo: id }); else openConfig(null);
   } catch (e) {
     $('#emb-status').textContent = e.message;
   } finally {
@@ -6586,6 +6601,10 @@ function auditoria() {
     tagsGhl: state.tags?.length ? state.tags : null, pestanas: pestanasEmbudo(),
     llamadas: state.llamadas?.code === codigo() ? state.llamadas.data : null,
   };
+  if (enMeteo()) {
+    const m = state.config.meteoricos?.[state.meteo.code];
+    return m ? pendientesMeteorico(m).map((t) => ({ nivel: 'importante', area: 'Meteórico', titulo: t, detalle: '', accion: null })) : [];
+  }
   if (enVsl()) return auditarVsl({ ...comun, vsl: vslCfg(), leads: state.vsl.code === state.embudo ? state.vsl.leads : null, meta: state.vsl.meta });
   const launch = state.config.launches[state.launchCode];
   if (!launch) return [];
@@ -6654,4 +6673,193 @@ $('#aud-lista').addEventListener('click', async (e) => {
 start().catch((e) => {
   if (e.message !== 'Sesión caducada') notice(e.message, true);
   showLogin();
+});
+
+// ---------- ⚡ Meteóricos: ofertas flash (independientes o downsell tras un lanzamiento) ----------
+const meteoricos = () => Object.entries(state.config?.meteoricos || {});
+const meteoDeEmbudo = (id) => meteoricos().filter(([, m]) => m.embudo === id).sort((a, b) => String(b[1].apertura).localeCompare(String(a[1].apertura)));
+const meteoDeLanz = (code) => meteoricos().filter(([, m]) => m.lanzamiento === code).sort((a, b) => String(b[1].apertura).localeCompare(String(a[1].apertura)));
+// Elige el meteórico del embudo activo: el guardado, el que está en marcha o el más reciente.
+function pickMeteo() {
+  const lista = meteoDeEmbudo(state.embudo);
+  const guardado = ls.get(`lsd_meteo_${state.embudo}`);
+  if (lista.some(([c]) => c === state.meteo.code)) return;
+  const enMarcha = lista.find(([, m]) => ['calentamiento', 'abierta'].includes(faseMeteorico(m).id));
+  state.meteo.code = (lista.some(([c]) => c === guardado) ? guardado : enMarcha?.[0]) || lista[0]?.[0] || '';
+}
+const cuentaAtras = (ms) => {
+  if (ms == null || ms <= 0) return '';
+  const min = Math.round(ms / 60_000);
+  const d = Math.floor(min / 1440); const h = Math.floor((min % 1440) / 60); const m = min % 60;
+  return [d ? `${d} d` : '', h ? `${h} h` : '', !d && m ? `${m} min` : ''].filter(Boolean).join(' ') || 'menos de 1 min';
+};
+const fechaHoraMeteo = (v) => (v ? new Date(madridToEpoch(v)).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }) : '–');
+async function cargarMeteo(code, { fresh = false } = {}) {
+  const d = state.meteo.datos[code];
+  if (!fresh && d?.data && d.at > Date.now() - 60_000) return d.data;
+  const data = await api(`/api/meteorico?m=${encodeURIComponent(code)}`);
+  state.meteo.datos[code] = { at: Date.now(), data };
+  return data;
+}
+// Pinta un meteórico (estado, KPIs, ventas, compradoras y código de la página) dentro de `box`.
+async function pintarMeteo(box, code, { fresh = false } = {}) {
+  const m = state.config.meteoricos?.[code];
+  if (!m) { box.innerHTML = ''; return; }
+  const f = faseMeteorico(m);
+  const F = FASES_METEORICO[f.id];
+  const horas = horasOferta(m);
+  const pend = pendientesMeteorico(m);
+  const cab = `<div class="meteo-cab">
+      <div><h2>⚡ ${esc(m.name)} <span class="badge tone-${F.tono}">${F.label}</span></h2>
+        <p class="muted">${[m.producto, m.oferta].filter(Boolean).map(esc).join(' · ') || 'Pon el producto y la oferta en Configurar'}${horas ? ` · oferta de ${horas} h` : ''}</p>
+        <p class="meteo-tiempos">🔥 Calentamiento desde <strong>${m.calentamiento ? esc(fechaFicha(`${m.calentamiento}T12:00:00Z`)) : '–'}</strong> · 🟢 Abre <strong>${esc(fechaHoraMeteo(m.apertura))}</strong> · 🔴 Cierra <strong>${esc(fechaHoraMeteo(m.cierre))}</strong></p></div>
+      ${f.hasta ? `<div class="meteo-cuenta"><span>${f.id === 'abierta' ? 'Se cierra en' : f.id === 'calentamiento' ? 'Abre en' : 'Empieza en'}</span><strong>${cuentaAtras(f.hasta - Date.now())}</strong></div>` : ''}
+    </div>${pend.length ? `<div class="notice warn"><strong>Para dejarlo listo:</strong><ul>${pend.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}`;
+  box.innerHTML = `${cab}<p class="muted">Cargando las ventas…</p>`;
+  let d;
+  try { d = await cargarMeteo(code, { fresh }); } catch (e) { box.innerHTML = `${cab}<p class="error">${esc(e.message)}</p>`; return; }
+  if (state.config.meteoricos?.[code] !== m) return;
+  const pct1 = (x) => (x == null ? '–' : `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')}%`);
+  const obj = (k) => d.objetivos.find((o) => o.label === k);
+  const kpis = [
+    card('Ventas', d.ventas, obj('Ventas') ? `${Math.round(obj('Ventas').pct * 100)}% del objetivo (${obj('Ventas').meta})` : `${d.unico} pago único · ${d.fraccionado} a plazos`, 'cart', 'buy'),
+    card('Facturación', eur(d.facturacion), obj('Facturación') ? `${Math.round(obj('Facturación').pct * 100)}% de ${eur(obj('Facturación').meta)}` : d.ticket ? `ticket medio ${eur(d.ticket)}` : 'pon el precio en Configurar', 'coins', 'money'),
+    card('Visitas a la oferta', d.visitas ?? 0, d.visitas ? 'personas distintas por sesión (página con el código)' : 'Pon el código en la página de la oferta', 'eye', 'info'),
+    card('Conversión de la oferta', pct1(d.conversion), 'ventas / visitas a la página', 'funnel', 'accent'),
+    card('Inversión', d.inversion ? eur(d.inversion) : '–', d.inversionFuente === 'meta' ? 'Meta Ads' : d.inversionFuente === 'manual' ? 'introducida a mano' : 'sin publicidad', 'megaphone', 'accent'),
+    card('Coste por venta', eur(d.cac), d.roas != null ? `ROAS ${d.roas.toFixed(2)}x` : 'inversión / ventas', 'target', 'buy'),
+  ].join('');
+  const max = Math.max(1, ...d.ventasPorDia.map(([, n]) => n));
+  const visDias = Object.entries(d.visitasPorDia || {}).sort((a, b) => a[0].localeCompare(b[0]));
+  const porDia = d.ventasPorDia.length || visDias.length ? `<section class="meteo-sec"><h3>Por día</h3><div class="table-scroll"><table class="metric-table"><thead><tr><th>Día</th><th class="num">Visitas</th><th class="num">Ventas</th><th></th></tr></thead><tbody>
+      ${[...new Set([...visDias.map(([x]) => x), ...d.ventasPorDia.map(([x]) => x)])].sort().map((dia) => { const v = d.ventasPorDia.find(([x]) => x === dia)?.[1] || 0; return `<tr><td>${esc(fechaFicha(`${dia}T12:00:00Z`))}</td><td class="num">${d.visitasPorDia?.[dia] || 0}</td><td class="num"><strong>${v}</strong></td><td><div class="meter"><span style="width:${(v / max) * 100}%"></span></div></td></tr>`; }).join('')}</tbody></table></div></section>` : '';
+  const compradoras = `<section class="meteo-sec"><h3>Compradoras (${d.compradores.length})</h3>${d.compradores.length ? `<div class="table-scroll"><table class="metric-table"><thead><tr><th>Persona</th><th>Teléfono</th><th>Fecha</th><th>Pago</th></tr></thead><tbody>${d.compradores.slice(0, 300).map((c) => `<tr><td><strong>${esc(c.name || '(sin nombre)')}</strong><br><span class="muted">${esc(c.email || '')}</span></td><td>${esc(c.phone || '–')}</td><td>${c.fecha ? esc(fechaFicha(`${c.fecha}T12:00:00Z`)) : '–'}</td><td>${c.fraccionado ? 'A plazos' : 'Único'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Todavía ninguna.</p>'}</section>`;
+  const qs = [`m=${encodeURIComponent(code)}`, cParam('').replace(/^\?/, '')].filter(Boolean).join('&');
+  const snippet = `<div data-lsd-oferta></div>\n<script src="${location.origin}/oferta.js?${qs}" defer></script>`;
+  const foto = m.compraDateField ? '' : `<p class="muted small">Sin campo de fecha de compra, las ventas son quienes tienen la etiqueta y no estaban en la «foto».${d.foto ? ` Foto hecha el ${esc(new Date(d.foto.at).toLocaleString('es-ES'))} (${d.foto.n} personas ya la tenían).` : ' <strong>Aún no hay foto: hazla antes de abrir.</strong>'}</p>${puedeConfig() ? `<button type="button" class="btn" data-meteo-foto="${esc(code)}">${d.foto ? 'Rehacer la foto' : 'Hacer la foto ahora'}</button>` : ''}`;
+  box.innerHTML = `${cab}<div class="kpis meteo-kpis">${kpis}</div>${porDia}${compradoras}
+    <section class="meteo-sec"><h3>Código para la página de la oferta <span class="muted small">(bloque «Código HTML» en GHL)</span></h3>
+      <p class="muted small">Pinta la cuenta atrás («se abre en…», «se cierra en…» con el botón de compra y «ha terminado») y cuenta las visitas. Los textos y horas se cambian en Configurar.</p>
+      <pre class="snippet">${esc(snippet)}</pre><button type="button" class="btn" data-copiar-meteo="${esc(snippet)}">Copiar código</button>
+      ${m.whatsappUrl ? ` <a class="btn ghost" href="${esc(m.whatsappUrl)}" target="_blank" rel="noopener">Grupo de WhatsApp</a>` : ''}${m.ofertaUrl ? ` <a class="btn ghost" href="${esc(m.ofertaUrl)}" target="_blank" rel="noopener">Ver la página de la oferta ↗</a>` : ''}
+      ${foto}</section>
+    ${m.notas ? `<section class="meteo-sec"><h3>Notas</h3><p class="ll-notas">${esc(m.notas)}</p></section>` : ''}`;
+}
+function llenarMeteoSelect(sel, lista, code, vacio) {
+  sel.innerHTML = lista.length ? lista.map(([c, m]) => `<option value="${esc(c)}" ${c === code ? 'selected' : ''}>${esc(m.name)}${m.apertura ? ` · ${esc(fechaHoraMeteo(m.apertura))}` : ''}</option>`).join('') : `<option value="">${vacio}</option>`;
+  sel.disabled = !lista.length;
+}
+function renderMeteoView({ fresh = false } = {}) {
+  pickMeteo();
+  const lista = meteoDeEmbudo(state.embudo);
+  llenarMeteoSelect($('#meteo-select'), lista, state.meteo.code, 'Aún no hay meteóricos');
+  $('#meteo-config').hidden = !state.meteo.code || !puedeConfig();
+  $('#meteo-nuevo').hidden = !puedeConfig();
+  if (!state.meteo.code) {
+    $('#meteo-body').innerHTML = `<div class="card empty"><h2>⚡ Sin meteóricos todavía</h2><p class="muted">Crea el primero: nombre, producto y oferta, días de calentamiento, la apertura y el cierre, y la etiqueta de compra.</p>${puedeConfig() ? '<p><button type="button" class="btn primary" data-meteo-nuevo-embudo>+ Nuevo meteórico</button></p>' : ''}</div>`;
+    return;
+  }
+  pintarMeteo($('#meteo-body'), state.meteo.code, { fresh });
+}
+// Métricas del lanzamiento → Downsell (meteórico): los meteóricos posteriores de este lanzamiento.
+let meteoLanzCode = '';
+function renderMeteoLanz({ fresh = false } = {}) {
+  const lista = meteoDeLanz(state.launchCode);
+  if (!lista.some(([c]) => c === meteoLanzCode)) meteoLanzCode = lista[0]?.[0] || '';
+  llenarMeteoSelect($('#meteo-l-select'), lista, meteoLanzCode, 'Este lanzamiento no tiene meteórico posterior');
+  $('#meteo-l-config').hidden = !meteoLanzCode || !puedeConfig();
+  $('#meteo-l-nuevo').hidden = !puedeConfig();
+  if (!meteoLanzCode) { $('#meteo-l-body').innerHTML = '<p class="muted">Tras el lanzamiento puedes hacer una oferta flash (downsell u otro producto) a quien no compró: crea aquí su meteórico para medir sus ventas aparte.</p>'; return; }
+  pintarMeteo($('#meteo-l-body'), meteoLanzCode, { fresh });
+}
+$('#meteo-select').addEventListener('change', (e) => { state.meteo.code = e.target.value; ls.set(`lsd_meteo_${state.embudo}`, state.meteo.code); renderMeteoView(); actualizarAuditor(); });
+$('#meteo-l-select').addEventListener('change', (e) => { meteoLanzCode = e.target.value; renderMeteoLanz(); });
+$('#meteo-recargar').addEventListener('click', () => renderMeteoView({ fresh: true }));
+$('#meteo-nuevo').addEventListener('click', () => abrirMeteoDialog(null, { embudo: state.embudo }));
+$('#meteo-config').addEventListener('click', () => abrirMeteoDialog(state.meteo.code, { embudo: state.embudo }));
+$('#meteo-l-nuevo').addEventListener('click', () => abrirMeteoDialog(null, { lanzamiento: state.launchCode }));
+$('#meteo-l-config').addEventListener('click', () => abrirMeteoDialog(meteoLanzCode, { lanzamiento: state.launchCode }));
+document.addEventListener('click', async (e) => {
+  if (e.target.closest('[data-meteo-nuevo-embudo]')) { abrirMeteoDialog(null, { embudo: state.embudo }); return; }
+  const cp = e.target.closest('[data-copiar-meteo]');
+  if (cp) { navigator.clipboard?.writeText(cp.dataset.copiarMeteo).then(() => { cp.textContent = 'Copiado ✓'; }).catch(() => {}); return; }
+  const fb = e.target.closest('[data-meteo-foto]');
+  if (fb) {
+    if (!window.confirm('Se apunta quién tiene ya la etiqueta de compra: no contarán como ventas de este meteórico. Hazla antes de abrir la oferta. ¿Continuar?')) return;
+    fb.disabled = true;
+    try {
+      await api('/api/meteorico', { method: 'POST', body: { op: 'foto', m: fb.dataset.meteoFoto } });
+      delete state.meteo.datos[fb.dataset.meteoFoto];
+      if (enMeteo()) renderMeteoView(); else renderMeteoLanz();
+    } catch (ex) { window.alert(ex.message); fb.disabled = false; }
+  }
+});
+
+// Configuración de un meteórico (nuevo o existente).
+let meteoEdit = null; // { code | null, embudo, lanzamiento }
+const MT_CAMPOS = ['name', 'producto', 'oferta', 'precio', 'precioFraccionado', 'calentamiento', 'apertura', 'cierre', 'compraTag', 'fraccionadoTag', 'ofertaUrl', 'pagoUrl', 'pagoFraccionadoUrl', 'cerradaUrl', 'whatsappUrl', 'objetivoVentas', 'objetivoFacturacion', 'inversion', 'metaFiltro', 'notas'];
+async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
+  const m = code ? state.config.meteoricos?.[code] : null;
+  meteoEdit = { code: m ? code : null, embudo: m?.embudo ?? embudo, lanzamiento: m?.lanzamiento ?? lanzamiento };
+  $('#meteo-titulo').textContent = m ? `⚡ ${m.name}` : '⚡ Nuevo meteórico';
+  $('#meteo-de').textContent = meteoEdit.lanzamiento ? `Meteórico posterior al lanzamiento «${state.config.launches[meteoEdit.lanzamiento]?.name || meteoEdit.lanzamiento}» (downsell u otro producto).` : 'Acción independiente a tu base de datos (Black Friday, rebajas, aniversario…).';
+  for (const k of MT_CAMPOS) {
+    const el = $(`#mt-${k}`);
+    const v = m?.[k];
+    el.value = v == null || v === 0 ? '' : String(v);
+  }
+  for (const k of ['calentamiento', 'abierta', 'cerrada', 'boton']) $(`#mt-t-${k}`).value = m?.textos?.[k] || '';
+  $('#mt-code').value = code || '';
+  $('#mt-code').readOnly = Boolean(m);
+  $('#mt-borrar').hidden = !m;
+  $('#mt-status').textContent = '';
+  // Un meteórico nuevo hereda del último del mismo sitio las etiquetas, el campo de fecha y los textos.
+  if (!m) {
+    const prev = (meteoEdit.lanzamiento ? meteoDeLanz(meteoEdit.lanzamiento) : meteoDeEmbudo(meteoEdit.embudo))[0]?.[1] || meteoricos().at(-1)?.[1];
+    if (prev) for (const k of ['fraccionadoTag', 'whatsappUrl']) $(`#mt-${k}`).value = prev[k] || '';
+    if (meteoEdit.lanzamiento) $('#mt-name').value = `Downsell ${state.config.launches[meteoEdit.lanzamiento]?.name || ''}`.trim();
+  }
+  const sel = $('#mt-compraDateField');
+  const pintar = (fields) => { sel.innerHTML = `<option value="">— Sin campo de fecha —</option>${(fields || []).map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}`; sel.value = m?.compraDateField || ''; };
+  pintar(state.dateFields);
+  $('#meteo-dialog').showModal();
+  if (!state.dateFields) { try { state.dateFields = (await api('/api/fields')).fields; pintar(state.dateFields); } catch { /* sin campos */ } }
+  if (!state.tags?.length) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch(() => {});
+}
+$('#mt-guardar').addEventListener('click', async () => {
+  const code = (meteoEdit.code || $('#mt-code').value.trim().toLowerCase());
+  const status = $('#mt-status');
+  if (!LAUNCH_CODE_RE.test(code)) { status.textContent = 'El código solo puede tener minúsculas, números y guiones (2-24).'; return; }
+  if (!meteoEdit.code && (state.config.meteoricos?.[code] || state.config.launches[code] || state.config.vsls?.[code])) { status.textContent = `El código «${code}» ya está en uso.`; return; }
+  const v = Object.fromEntries(MT_CAMPOS.map((k) => [k, $(`#mt-${k}`).value.trim()]));
+  const m = {
+    ...(state.config.meteoricos?.[code] || {}), ...v,
+    compraDateField: $('#mt-compraDateField').value,
+    textos: Object.fromEntries(['calentamiento', 'abierta', 'cerrada', 'boton'].map((k) => [k, $(`#mt-t-${k}`).value.trim()])),
+    embudo: meteoEdit.lanzamiento ? '' : meteoEdit.embudo, lanzamiento: meteoEdit.lanzamiento,
+  };
+  if (!m.name) { status.textContent = 'Ponle un nombre.'; return; }
+  status.textContent = 'Guardando…';
+  try {
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, meteoricos: { ...(state.config.meteoricos || {}), [code]: m } } });
+    state.config = config;
+    delete state.meteo.datos[code];
+    $('#meteo-dialog').close();
+    pintarSidebar();
+    if (meteoEdit.lanzamiento) { meteoLanzCode = code; renderMeteoLanz(); } else { state.meteo.code = code; ls.set(`lsd_meteo_${state.embudo}`, code); if (enMeteo()) renderMeteoView(); }
+    actualizarAuditor();
+  } catch (e) { status.textContent = e.message; }
+});
+$('#mt-borrar').addEventListener('click', async () => {
+  const code = meteoEdit?.code;
+  if (!code || !window.confirm(`¿Eliminar el meteórico «${state.config.meteoricos[code].name}» del dashboard? Las etiquetas y páginas de GHL no se tocan.`)) return;
+  const resto = { ...state.config.meteoricos };
+  delete resto[code];
+  try {
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, meteoricos: resto } });
+    state.config = config;
+    $('#meteo-dialog').close();
+    pintarSidebar();
+    if (meteoEdit.lanzamiento) renderMeteoLanz(); else { state.meteo.code = ''; if (enMeteo()) renderMeteoView(); }
+  } catch (e) { $('#mt-status').textContent = e.message; }
 });

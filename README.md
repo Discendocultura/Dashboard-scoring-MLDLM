@@ -417,6 +417,22 @@ Funcionan como el webinar, con las casillas repetidas para cada vídeo (*Configu
 - **Puntuación**: la mitad por el vídeo mejor visto y la mitad por la media de todos (máximo 40 puntos, como el directo del webinar).
 - **Leads, Métricas, Calendario, Auditor y Sincronizar Zoom** muestran cada vídeo (Zoom sincroniza cada vídeo en directo ya celebrado).
 
+## ⚡ Meteóricos (ofertas flash)
+Una oferta de pocas horas (p. ej. 12 h) tras 4-5 días de calentamiento por email y WhatsApp, a la base de datos. Dos maneras:
+- **Independiente** (Black Friday, rebajas…): «＋ Nuevo embudo» → **⚡ Meteóricos**. Cada edición es un meteórico de ese embudo (desplegable arriba, «+ Nuevo meteórico»).
+- **Downsell tras un lanzamiento** (o para ofrecer otro producto): en el lanzamiento, *Métricas → Downsell (meteórico)* → «+ Crear meteórico posterior».
+
+Cada meteórico tiene: nombre y código, producto y oferta, precio (y a plazos), **calentamiento** (día), **apertura y cierre** (día y hora), etiqueta de compra (y de pago a plazos), campo de fecha de compra, página de la oferta, enlaces de pago, página de «oferta cerrada», grupo de WhatsApp, textos de la cuenta atrás, objetivos de ventas y facturación, inversión (o Meta con su filtro) y notas.
+
+El público no se mide (grupos de WhatsApp y listas). Se mide: **fase y cuenta atrás**, **ventas** (etiqueta de compra con su fecha entre el calentamiento y el cierre; si el producto ya se vendía y no hay campo de fecha, con la **«foto»** de quién ya tenía la etiqueta, que se hace antes de abrir), pago único / a plazos, **facturación** y ticket, **visitas a la página de la oferta**, **conversión** (ventas / visitas), inversión, coste por venta y ROAS, ventas y visitas por día y la lista de **compradoras**. El auditor dice qué falta para dejarlo listo y las **Tareas** funcionan igual que en los lanzamientos.
+
+**Página de la oferta** (bloque «Código HTML» en GHL; el meteórico te da el código exacto):
+```html
+<div data-lsd-oferta></div>
+<script src="https://<tu-proyecto>.pages.dev/oferta.js?m=<código>" defer></script>
+```
+Durante el calentamiento muestra «la oferta se abre en…», con la oferta abierta el botón de compra y «se cierra en…», y al cerrar «ha terminado» (o manda a la página de oferta cerrada). Cuenta una visita por persona y sesión.
+
 ## Embudos: Lanzamientos y VSL
 El menú lateral (arriba en el móvil) cambia de embudo. Cada uno tiene sus pestañas, sus tareas y su configuración; el equipo, la campanita, «Mi cuenta» y «Actualizar» son comunes. La campanita avisa de las tareas y comentarios de los dos embudos (los del otro llevan su nombre; al pulsar uno se cambia de embudo y se abre la tarea).
 
