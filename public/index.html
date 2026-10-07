@@ -35,6 +35,7 @@
         </label>
         <button id="btn-reload" class="tb-btn tb-reload" type="button" data-tb-icon="refresh" title="Volver a cargar los datos desde GHL"><span class="tb-txt">Actualizar</span></button>
         <button id="btn-zoom" class="tb-btn tb-zoom zoom-only lanz-only" type="button" data-tb-icon="video" title="Leer la asistencia del directo en Zoom y etiquetar a los leads"><span class="tb-txt">Sincronizar Zoom</span></button>
+        <button id="btn-auditor" class="tb-btn tb-auditor config-only" type="button" data-tb-icon="shield" title="Auditor: revisa el embudo y te dice qué falta, por orden de urgencia"><span class="tb-txt">Auditor</span><span id="auditor-count" class="notif-count" hidden></span></button>
         <button id="btn-config" class="tb-btn tb-config config-only" type="button" data-tb-icon="gear" title="Configuración del lanzamiento"><span class="tb-txt">Configuración</span></button>
         <button id="btn-equipo" class="tb-btn tb-equipo admin-only" type="button" data-tb-icon="users" title="Miembros del equipo, roles y permisos"><span class="tb-txt">Equipo</span></button>
         <span class="notif-wrap">
@@ -758,6 +759,22 @@
   </dialog>
 
   <!-- Tarea -->
+  <!-- Auditor de lanzamientos -->
+  <dialog id="auditor-dialog" class="dialog dialog-md">
+    <form method="dialog">
+      <header class="dialog-head"><h2 id="aud-titulo">Auditor</h2><button class="btn ghost" value="cancel" type="submit" aria-label="Cerrar">✕</button></header>
+      <div class="dialog-body">
+        <div id="aud-cabecera" class="aud-cabecera"></div>
+        <div id="aud-lista"></div>
+      </div>
+      <footer class="dialog-foot">
+        <span class="muted aud-nota">Se revisa solo cada vez que cambian la configuración, las tareas o los datos.</span>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" type="submit">Cerrar</button>
+      </footer>
+    </form>
+  </dialog>
+
   <!-- Nuevo embudo -->
   <dialog id="embudo-dialog" class="dialog dialog-md">
     <form method="dialog">

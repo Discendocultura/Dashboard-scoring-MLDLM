@@ -9,6 +9,7 @@ import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPA
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
 import { PERMISOS, PERMISOS_DATOS, idDeRol } from './roles.js';
+import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
 import { PESTANAS, guiaEmbudo, guiaCliente, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
@@ -334,6 +335,7 @@ async function loadLeads() {
       progress(out.length, total, `Cargando leads… ${out.length}${total ? ` de ${total}` : ''}`);
     } while (cursor);
     state.leads = out.map((c) => enrich(c));
+    state.leadsDe = state.launchCode; // para el auditor: los leads cargados son de este lanzamiento
     state.page = 0;
     render();
     loadMeta(token);
@@ -417,6 +419,7 @@ $$('.leads th[data-sort]').forEach((th) => th.addEventListener('click', () => {
 
 // ---------- Render ----------
 function render() {
+  actualizarAuditor();
   computeAvatares();
   renderKpis();
   renderHoy();
@@ -2353,6 +2356,7 @@ function renderTareas() {
   renderAvisosEquipo();
   renderNotif();
   refrescarComentarios();
+  actualizarAuditor();
   const list = T.list;
   const hoy = today();
   const done = list.filter((t) => t.hecha).length;
@@ -4551,6 +4555,7 @@ async function loadVslMeta() {
 
 function renderVsl() {
   if (!enVsl() || !state.config) return;
+  actualizarAuditor();
   pintarRango();
   if (!$('#view-vmetricas').hidden) renderVslMetricas();
   if (!$('#view-vleads').hidden) renderVslLeads();
@@ -4970,6 +4975,85 @@ async function eliminarEmbudo(id) {
 }
 $('#emb-borrar').addEventListener('click', async () => {
   try { if (await eliminarEmbudo(embEdit)) embDlg.close(); } catch (e) { $('#emb-status').textContent = e.message; }
+});
+
+// ---------- Auditor de lanzamientos ----------
+// Revisa el embudo activo (configuración, tareas, equipo, datos) y lo ordena por urgencia.
+const AUD_NIVEL = { critico: { icon: '🔴', label: 'Crítico', plural: 'críticos' }, importante: { icon: '🟠', label: 'Importante', plural: 'importantes' }, aviso: { icon: '🟡', label: 'Aviso', plural: 'avisos' } };
+const audIgnoradosKey = () => `lsd_aud_ign_${state.cliente || ''}_${codigo() || ''}`;
+const audIgnorados = () => { try { return new Set(JSON.parse(ls.get(audIgnoradosKey()) || '[]')); } catch { return new Set(); } };
+const audKey = (x) => `${x.area}|${x.titulo}`;
+
+function auditoria() {
+  if (!state.config || !codigo()) return [];
+  const T = state.tareas?.code === codigo() ? state.tareas : null;
+  const comun = {
+    hoy: today(), tareas: T ? T.list : null, users: T?.users || [], roles: state.roles,
+    tagsGhl: state.tags?.length ? state.tags : null, pestanas: pestanasEmbudo(),
+    llamadas: state.llamadas?.code === codigo() ? state.llamadas.data : null,
+  };
+  if (enVsl()) return auditarVsl({ ...comun, vsl: vslCfg(), leads: state.vsl.code === state.embudo ? state.vsl.leads : null, meta: state.vsl.meta });
+  const launch = state.config.launches[state.launchCode];
+  if (!launch) return [];
+  const otros = Object.entries(state.config.launches).filter(([c]) => c !== state.launchCode);
+  return auditarLanzamiento({ ...comun, launch, code: state.launchCode, otros, leads: state.leadsDe === state.launchCode ? state.leads : null, zoom: state.zoomConfigured, meta: state.meta });
+}
+
+function actualizarAuditor() {
+  if (!puedeConfig()) return;
+  const ign = audIgnorados();
+  const crit = auditoria().filter((x) => x.nivel === 'critico' && !ign.has(audKey(x))).length;
+  const c = $('#auditor-count');
+  c.hidden = !crit;
+  c.textContent = String(crit);
+  $('#btn-auditor').classList.toggle('has-crit', crit > 0);
+  if ($('#auditor-dialog').open) pintarAuditor();
+}
+
+function pintarAuditor() {
+  const lista = auditoria();
+  const ign = audIgnorados();
+  const activos = lista.filter((x) => !ign.has(audKey(x)));
+  const ignorados = lista.filter((x) => ign.has(audKey(x)));
+  const nombre = enVsl() ? vslCfg().name : state.config.launches[state.launchCode]?.name || '';
+  $('#aud-titulo').textContent = `🩺 Auditor · ${nombre}`;
+  const prox = enVsl() ? null : proximoHito(state.config.launches[state.launchCode] || {}, today());
+  const cuenta = (n) => activos.filter((x) => x.nivel === n).length;
+  $('#aud-cabecera').innerHTML = `
+    <div class="aud-resumen">${Object.entries(AUD_NIVEL).map(([k, v]) => `<span class="aud-chip n-${k}">${v.icon} <strong>${cuenta(k)}</strong> ${v.plural}</span>`).join('')}
+      ${!activos.length ? '<span class="aud-ok">✅ Todo en orden</span>' : ''}</div>
+    ${prox ? `<p class="aud-prox">Próximo hito: <strong>${esc(prox.label)}</strong> · ${esc(fechaCortaAud(prox.d))} (${esc(cuando(diasHasta(prox.d, today())))})</p>` : ''}
+    ${!state.tags?.length ? '<p class="muted aud-nota">Las etiquetas de GHL aún no se han leído: no se comprueba si existen.</p>' : ''}`;
+  const item = (x) => `<li class="aud-item n-${x.nivel}" data-aud="${esc(audKey(x))}">
+      <span class="aud-ico" aria-hidden="true">${AUD_NIVEL[x.nivel].icon}</span>
+      <div class="aud-txt"><span class="aud-area">${esc(x.area)}</span><strong>${esc(x.titulo)}</strong>${x.detalle ? `<small>${esc(x.detalle)}</small>` : ''}</div>
+      <div class="aud-acc">${x.accion ? `<button type="button" class="btn primary" data-aud-ir='${esc(JSON.stringify(x.accion))}'>Arreglar →</button>` : ''}
+        <button type="button" class="btn ghost" data-aud-ign title="No volver a avisar de esto en este lanzamiento">Ignorar</button></div></li>`;
+  $('#aud-lista').innerHTML = (activos.length ? `<ul class="aud-list">${activos.map(item).join('')}</ul>` : '<p class="aud-vacio">No hay nada pendiente: configuración, tareas y datos están en orden. 🎉</p>')
+    + (ignorados.length ? `<details class="aud-ign"><summary>${ignorados.length} ignorado${ignorados.length === 1 ? '' : 's'}</summary><ul class="aud-list">${ignorados.map((x) => item(x).replace('data-aud-ign title="No volver a avisar de esto en este lanzamiento">Ignorar', 'data-aud-rest>Volver a avisar')).join('')}</ul></details>` : '');
+}
+
+$('#btn-auditor').addEventListener('click', () => { pintarAuditor(); $('#auditor-dialog').showModal(); });
+$('#aud-lista').addEventListener('click', async (e) => {
+  const li = e.target.closest('[data-aud]');
+  if (!li) return;
+  const key = li.dataset.aud;
+  if (e.target.closest('[data-aud-ign], [data-aud-rest]')) {
+    const ign = audIgnorados();
+    if (ign.has(key)) ign.delete(key); else ign.add(key);
+    ls.set(audIgnoradosKey(), JSON.stringify([...ign]));
+    pintarAuditor();
+    actualizarAuditor();
+    return;
+  }
+  const b = e.target.closest('[data-aud-ir]');
+  if (!b) return;
+  const acc = JSON.parse(b.dataset.audIr);
+  $('#auditor-dialog').close();
+  if (acc.tipo === 'campo') { await openConfig(state.launchCode); setTimeout(() => goToField(acc.id), 150); }
+  else if (acc.tipo === 'tarea') abrirTarea(acc.id);
+  else if (acc.tipo === 'vista') showView(acc.v);
+  else if (acc.tipo === 'vsl') { await openVslConfig(); $(`#vsl-config-dialog .tab[data-tab="${acc.tab}"]`)?.click(); }
 });
 
 // ---------- Inicio ----------

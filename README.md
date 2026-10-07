@@ -348,6 +348,15 @@ Registro → vídeo de venta → compra directa o llamada de valoración. Pesta�
 - Fechas: GHL no guarda cuándo se pone una etiqueta; si un workflow guarda la fecha de registro o de compra en un campo, elígelo en la configuración (si no, se usa la fecha de alta del contacto).
 - Las tareas de la VSL se guardan en `lsd_tareas_vsl` y los resultados de sus llamadas en `lsd_llamadas_vsl`. El código `vsl` está reservado (no puede usarse para un lanzamiento).
 
+## Auditor de lanzamientos
+Botón **Auditor** arriba (quien puede configurar), con un contador rojo de lo **crítico**. Revisa el embudo activo y lo ordena por gravedad (🔴 crítico · 🟠 importante · 🟡 aviso), con un botón **«Arreglar →»** que lleva al campo de la configuración, a la tarea o a la pestaña:
+- **Fechas**: que estén todas (captación, clases, directo y su hora, cierre) y en orden.
+- **Etiquetas**: registro (que no sea la de otro lanzamiento y que exista en GHL), compra, VIP, «foto» de VIP/compra, campo de fecha de compra.
+- **Enlaces y páginas** según el hito para el que hacen falta: WhatsApp y VIP para la captación; login, preclase y vídeos para las clases; Zoom y reservar llamada para el directo; venta, pago y precio para el carrito; grabación. La urgencia sube sola: a más de 10 días es aviso, a 10 o menos importante y a 3 o menos (o pasado) crítico. También avisa de lo copiado del lanzamiento anterior sin cambiar (ID de Zoom, vídeos, grupo de WhatsApp).
+- **Integraciones** (Zoom, Meta y su filtro, llamadas), **tareas** (vencidas, que vencen en 2 días, sin responsable o sin fecha), **equipo** (sin setter) y **datos reales** (captación sin registros, días sin registros nuevos, nadie ha visto la clase 1, nadie en el directo, ventas sin fecha, leads sin origen).
+- En una VSL: etiquetas, vídeo, enlaces de compra y llamada, precio, campos de fecha, registros recientes y que el vídeo se esté midiendo.
+- «Ignorar» oculta un aviso en ese lanzamiento (se puede volver a activar).
+
 ## Calendario
 Pestaña **Calendario** (todos los roles), con vista **mensual** y **semanal**:
 - **Hitos** del lanzamiento sacados de la configuración: inicio y fin de la publi de captación, clase 1, clase 2, webinar en directo, apertura del carrito (vacío = al empezar el directo), grabación y cierre del carrito.

@@ -1297,3 +1297,32 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 .sb-row:hover .sb-edit, .sb-edit:focus-visible { opacity: 1; background: var(--surface-2); }
 @media (max-width: 900px) { .sb-row { flex: 1 1 0; min-width: 160px; } .sb-edit { opacity: .8; } }
 .emb-pest input[type="checkbox"], .emb-tipo input[type="radio"] { width: auto; flex: none; }
+
+/* ---------- Auditor ---------- */
+.tb-auditor { --tb: #6b4fc8; position: relative; }
+.tb-auditor .notif-count { left: 24px; }
+.tb-auditor.has-crit .tb-ico { box-shadow: 0 0 0 3px color-mix(in srgb, var(--error) 35%, transparent); }
+.aud-cabecera { display: flex; flex-direction: column; gap: 8px; }
+.aud-resumen { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.aud-chip { padding: 6px 12px; border-radius: 999px; background: var(--surface-2); font-size: 13.5px; }
+.aud-chip.n-critico { background: color-mix(in srgb, var(--error) 12%, var(--surface)); }
+.aud-chip.n-importante { background: color-mix(in srgb, #e8890c 14%, var(--surface)); }
+.aud-chip.n-aviso { background: color-mix(in srgb, #e0b400 14%, var(--surface)); }
+.aud-ok { font-weight: 800; color: var(--tone-buy); }
+.aud-prox { margin: 0; font-size: 14px; }
+.aud-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.aud-item { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-left-width: 4px; border-radius: 10px; background: var(--surface); }
+.aud-item.n-critico { border-left-color: var(--error); }
+.aud-item.n-importante { border-left-color: #e8890c; }
+.aud-item.n-aviso { border-left-color: #e0b400; }
+.aud-ico { font-size: 14px; line-height: 1.6; }
+.aud-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.aud-txt small { color: var(--text-2); line-height: 1.4; }
+.aud-area { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); font-weight: 700; }
+.aud-acc { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.aud-vacio { font-size: 15px; padding: 20px 0; text-align: center; }
+.aud-ign { margin-top: 14px; }
+.aud-ign summary { cursor: pointer; color: var(--text-2); font-weight: 700; }
+.aud-ign .aud-item { opacity: .6; }
+.aud-nota { font-size: 12.5px; }
+@media (max-width: 640px) { .aud-item { flex-wrap: wrap; } .aud-acc { width: 100%; justify-content: flex-start; } }
