@@ -1462,3 +1462,8 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 .prev-mal { color: var(--error); font-weight: 700; }
 .prev-warn { color: var(--st-caliente); font-weight: 700; }
 .prev-ok { color: var(--chip-on-ink); font-weight: 700; }
+
+/* Configuración → Etiquetas GHL */
+.tags-auto code { white-space: nowrap; }
+[data-panel="etiquetas"] .cfg-h4 { margin-top: 14px; color: var(--muted, inherit); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; }
+[data-panel="etiquetas"] .snapshot-box { margin-top: 14px; }

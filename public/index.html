@@ -534,6 +534,7 @@
       <div class="dialog-body">
         <div class="tabs" role="tablist">
           <button type="button" class="tab active" data-tab="launch" data-tab-icon="rocket">Lanzamiento</button>
+          <button type="button" class="tab" data-tab="etiquetas" data-tab-icon="tag">Etiquetas GHL</button>
           <button type="button" class="tab" data-tab="pagina" data-tab-icon="play">Página preclase</button>
           <button type="button" class="tab" data-tab="embudo" data-tab-icon="funnel">Otras páginas del embudo</button>
           <button type="button" class="tab" data-tab="snippets" data-tab-icon="code">Códigos para GHL</button>
@@ -566,10 +567,9 @@
                 <li><strong>Zoom:</strong> crea la reunión del directo (con registro activado) y copia su ID.</li>
                 <li><strong>GHL · Emails y WhatsApp automáticos:</strong> revisa que no lleven fechas, enlaces de grupo ni de encuesta del lanzamiento anterior.</li>
                 <li><strong>Vimeo:</strong> después del directo, sube la grabación y pega su enlace en «Página preclase».</li>
-                <li><strong>Etiquetas de VIP, compra y llamada agendada:</strong> no se cambian. Al guardar un lanzamiento nuevo se hace la «foto» de quién ya las tenía (abajo del todo).</li>
+                <li><strong>Etiquetas de GHL:</strong> están todas en la pestaña <strong>Etiquetas GHL</strong>. Solo cambian la de registro y la de encuesta; las demás son fijas (al guardar un lanzamiento nuevo se hace la «foto» de quién ya las tenía).</li>
               </ol>
             </details>
-            <div id="tags-used" class="muted"></div>
           </div>
           <section class="cfg-sec" data-sec="1">
             <header class="cfg-sec-head"><span class="cfg-sec-num">1</span><div><h3>Identificación</h3><p>Código y nombre del lanzamiento.</p></div><span class="cfg-sec-status"></span></header>
@@ -580,36 +580,7 @@
             </div>
           </section>
           <section class="cfg-sec" data-sec="2">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">2</span><div><h3>Etiquetas de GHL</h3><p>Registro y encuesta son nuevas en cada lanzamiento; VIP, compra, llamada y tipo de pago son siempre las mismas.</p></div><span class="cfg-sec-status"></span></header>
-            <div class="grid2">
-              <label class="field"><span>Etiqueta de registro (leads del lanzamiento)</span>
-              <input id="cfg-registro" list="tag-list" required placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-registro" hidden></small></label>
-              <label class="field"><span>Etiqueta de encuesta rellenada <small>(sin ella no se ven las clases 1 y 2; vacío = sin encuesta)</small></span>
-              <input id="cfg-encuesta-tag" list="tag-list" placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-encuesta" hidden></small></label>
-              <label class="field" data-vip><span>Etiqueta de compra VIP</span>
-              <input id="cfg-vip" list="tag-list" placeholder="Busca la etiqueta…"></label>
-              <label class="field"><span>Etiqueta de compra del programa (Raíces)</span>
-              <input id="cfg-compra" list="tag-list" placeholder="Busca la etiqueta…"></label>
-              <label class="field"><span>Etiqueta de llamada agendada <small>(la que pone el workflow de la llamada; vacío = solo cuenta lo que marque la setter)</small></span>
-              <input id="cfg-llamada-tag" list="tag-list" placeholder="Busca la etiqueta…"></label>
-            <label class="field"><span>Etiqueta de leads de publicidad</span>
-              <input id="cfg-publi-tag" list="tag-list" placeholder="Busca la etiqueta…">
-              <small class="field-note">ⓘ La lleva quien se registra desde los anuncios (la pone el formulario o workflow de la página de publicidad). Sirve para contar en Métricas cuántos leads, VIP y ventas vienen de publicidad. <strong>No la cambies ni la uses para otra cosa</strong>.</small></label>
-            <label class="field"><span>Etiqueta de leads orgánicos</span>
-              <input id="cfg-organico-tag" list="tag-list" placeholder="Busca la etiqueta…">
-              <small class="field-note">ⓘ La lleva quien se registra sin anuncios (redes, email, web…). Sirve para contar en Métricas cuántos leads, VIP y ventas vienen de orgánico. <strong>No la cambies ni la uses para otra cosa</strong>.</small></label>
-            <label class="field"><span>Etiqueta de pago único de Raíces</span>
-              <input id="cfg-unico-tag" list="tag-list" placeholder="Busca la etiqueta…">
-              <small class="field-note">ⓘ La pone el workflow de compra de ThriveCart. Sirve para saber quién pagó Raíces de una vez y calcular el % de pagos únicos y su facturación en Métricas. <strong>No la cambies ni la uses para otra cosa</strong>: si cambia, las ventas dejan de clasificarse bien.</small></label>
-            <label class="field"><span>Etiqueta de pago fraccionado de Raíces</span>
-              <input id="cfg-fraccionado-tag" list="tag-list" placeholder="Busca la etiqueta…">
-              <small class="field-note">ⓘ La pone el workflow de compra de Hotmart. Sirve para saber quién pagó Raíces a plazos, aplicarle el precio fraccionado y calcular el % de pagos fraccionados en Métricas. <strong>No la cambies ni la uses para otra cosa</strong>: si cambia, las ventas dejan de clasificarse bien.</small></label>
-              <label class="field"><span>Campo de fecha de compra <small>(para ventas en directo y del lanzamiento)</small></span>
-              <select id="cfg-compra-fecha"><option value="">— Sin campo de fecha —</option></select></label>
-            </div>
-          </section>
-          <section class="cfg-sec" data-sec="3">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">3</span><div><h3>Fechas del lanzamiento</h3><p>En hora de España. Las fechas de las clases y del cierre del carrito están en «Página preclase».</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">2</span><div><h3>Fechas del lanzamiento</h3><p>En hora de España. Las fechas de las clases y del cierre del carrito están en «Página preclase».</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Inicio de captación <small>(día en que se abren los registros)</small></span>
               <input id="cfg-inicio" type="date"></label>
@@ -623,8 +594,8 @@
               <input id="cfg-apertura-carrito" type="datetime-local"></label>
             </div>
           </section>
-          <section class="cfg-sec" data-sec="4">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">4</span><div><h3>Directo en Zoom</h3><p>La reunión nueva de este lanzamiento.</p></div><span class="cfg-sec-status"></span></header>
+          <section class="cfg-sec" data-sec="3">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">3</span><div><h3>Directo en Zoom</h3><p>La reunión nueva de este lanzamiento.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>ID de la reunión de Zoom</span><input id="cfg-zoom-id" inputmode="numeric" placeholder="812 3456 7890"></label>
               <label class="field"><span>Enlace genérico de Zoom <small>(por si falla el registro)</small></span><input id="cfg-zoom-url" type="url"></label>
@@ -634,8 +605,8 @@
             <header class="cfg-sec-head"><span class="cfg-sec-num">🎥</span><div><h3 id="cfg-videos-titulo">Vídeos del lanzamiento</h3><p id="cfg-videos-nota"></p></div></header>
             <div id="cfg-videos"></div>
           </section>
-          <section class="cfg-sec" data-sec="5">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">5</span><div><h3>Venta y seguimiento</h3><p>Páginas y enlaces que reciben las leads después del directo (también en los mensajes de WhatsApp).</p></div><span class="cfg-sec-status"></span></header>
+          <section class="cfg-sec" data-sec="4">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">4</span><div><h3>Venta y seguimiento</h3><p>Páginas y enlaces que reciben las leads después del directo (también en los mensajes de WhatsApp).</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Página de la grabación</span><input id="cfg-replay" type="url"></label>
               <label class="field"><span>Página de venta de Raíces</span><input id="cfg-raices" type="url"></label>
@@ -644,8 +615,8 @@
               <label class="field"><span>Enlace para reservar llamada</span><input id="cfg-llamada" type="url"></label>
             </div>
           </section>
-          <section class="cfg-sec" data-sec="6">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">6</span><div><h3>Precios y anuncios</h3><p>Para la facturación, el ROAS y el CAC de Métricas.</p></div><span class="cfg-sec-status"></span></header>
+          <section class="cfg-sec" data-sec="5">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">5</span><div><h3>Precios y anuncios</h3><p>Para la facturación, el ROAS y el CAC de Métricas.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field" data-vip><span>Precio de la entrada VIP (€)</span><input id="cfg-precio-vip" inputmode="decimal" placeholder="27"></label>
               <label class="field"><span>Precio de Raíces · pago único (€) <small>(ThriveCart)</small></span><input id="cfg-precio-programa" inputmode="decimal" placeholder="997"></label>
@@ -664,7 +635,6 @@
               </div>
             </div>
           </section>
-          <div id="cfg-snapshot" class="snapshot-box"></div>
           <datalist id="tag-list"></datalist>
           <h3 class="cfg-h3">Resumen diario por email</h3>
           <p class="muted">Cada mañana: registros, ventas y la lista de muy calientes y VIP sin contactar. El email tiene que existir como contacto en GHL.</p>
@@ -672,6 +642,61 @@
             <label class="field"><span>Enviar el resumen a</span><input id="cfg-digest-email" type="email" placeholder="tu@email.com"></label>
             <button type="button" class="btn" id="btn-digest-test">Enviar resumen de prueba</button>
           </div>
+        </section>
+
+
+        <section class="tab-panel" data-panel="etiquetas" hidden>
+          <p class="muted">Todas las etiquetas de GHL que lee este lanzamiento, en un solo sitio. Escribe para buscar entre las que ya existen en tu GHL.</p>
+          <div class="guia" role="note">
+            <div id="guia-check-etiquetas" class="guia-check"></div>
+            <div id="tags-used" class="muted"></div>
+          </div>
+          <section class="cfg-sec" data-sec="e1">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🔄</span><div><h3>Cambian en cada lanzamiento</h3><p>Crea una etiqueta nueva en GHL para cada edición y cámbiala en el workflow del formulario o de la encuesta. Si repites la de otro lanzamiento, se mezclan los leads.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Etiqueta de registro (leads del lanzamiento)</span>
+              <input id="cfg-registro" list="tag-list" required placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-registro" hidden></small></label>
+              <label class="field"><span>Etiqueta de encuesta rellenada <small>(sin ella no se ven las clases 1 y 2; vacío = sin encuesta)</small></span>
+              <input id="cfg-encuesta-tag" list="tag-list" placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-encuesta" hidden></small></label>
+            </div>
+          </section>
+          <section class="cfg-sec" data-sec="e2">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📌</span><div><h3>Fijas (siempre las mismas)</h3><p>Las ponen los workflows de compra, llamada y origen. No se cambian entre lanzamientos: el dashboard distingue cada edición con la «foto» de quién ya las tenía.</p></div><span class="cfg-sec-status"></span></header>
+            <h4 class="cfg-h4">Compras y llamadas</h4>
+            <div class="grid2">
+              <label class="field" data-vip><span>Etiqueta de compra VIP</span>
+              <input id="cfg-vip" list="tag-list" placeholder="Busca la etiqueta…"></label>
+              <label class="field"><span>Etiqueta de compra del programa (Raíces)</span>
+              <input id="cfg-compra" list="tag-list" placeholder="Busca la etiqueta…"></label>
+              <label class="field"><span>Etiqueta de llamada agendada <small>(la que pone el workflow de la llamada; vacío = solo cuenta lo que marque la setter)</small></span>
+              <input id="cfg-llamada-tag" list="tag-list" placeholder="Busca la etiqueta…"></label>
+            </div>
+            <h4 class="cfg-h4">Origen del lead</h4>
+            <div class="grid2">
+              <label class="field"><span>Etiqueta de leads de publicidad</span>
+              <input id="cfg-publi-tag" list="tag-list" placeholder="Busca la etiqueta…">
+              <small class="field-note">ⓘ La lleva quien se registra desde los anuncios (la pone el formulario o workflow de la página de publicidad). Sirve para contar en Métricas cuántos leads, VIP y ventas vienen de publicidad. <strong>No la cambies ni la uses para otra cosa</strong>.</small></label>
+              <label class="field"><span>Etiqueta de leads orgánicos</span>
+              <input id="cfg-organico-tag" list="tag-list" placeholder="Busca la etiqueta…">
+              <small class="field-note">ⓘ La lleva quien se registra sin anuncios (redes, email, web…). Sirve para contar en Métricas cuántos leads, VIP y ventas vienen de orgánico. <strong>No la cambies ni la uses para otra cosa</strong>.</small></label>
+            </div>
+            <h4 class="cfg-h4">Tipo de pago</h4>
+            <div class="grid2">
+              <label class="field"><span>Etiqueta de pago único de Raíces</span>
+              <input id="cfg-unico-tag" list="tag-list" placeholder="Busca la etiqueta…">
+              <small class="field-note">ⓘ La pone el workflow de compra de ThriveCart. Sirve para saber quién pagó Raíces de una vez y calcular el % de pagos únicos y su facturación en Métricas. <strong>No la cambies ni la uses para otra cosa</strong>: si cambia, las ventas dejan de clasificarse bien.</small></label>
+              <label class="field"><span>Etiqueta de pago fraccionado de Raíces</span>
+              <input id="cfg-fraccionado-tag" list="tag-list" placeholder="Busca la etiqueta…">
+              <small class="field-note">ⓘ La pone el workflow de compra de Hotmart. Sirve para saber quién pagó Raíces a plazos, aplicarle el precio fraccionado y calcular el % de pagos fraccionados en Métricas. <strong>No la cambies ni la uses para otra cosa</strong>: si cambia, las ventas dejan de clasificarse bien.</small></label>
+              <label class="field"><span>Campo de fecha de compra <small>(para ventas en directo y del lanzamiento)</small></span>
+              <select id="cfg-compra-fecha"><option value="">— Sin campo de fecha —</option></select></label>
+            </div>
+            <div id="cfg-snapshot" class="snapshot-box"></div>
+          </section>
+          <section class="cfg-sec" data-sec="e3">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🤖</span><div><h3>Automáticas (las pone el dashboard)</h3><p>Se crean solas con el código del lanzamiento delante: no hace falta crearlas en GHL ni usarlas en workflows, y no conviene borrarlas (son el historial de cada lead).</p></div></header>
+            <div id="cfg-tags-auto" class="tags-auto"></div>
+          </section>
         </section>
 
 

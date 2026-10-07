@@ -47,6 +47,14 @@ Los textos se editan en **Setteo hoy → 💬 Mensajes de WhatsApp** (abajo del 
 Que seguía conectado en los últimos 15 minutos de la reunión (cuando se presenta la oferta)
 y estuvo al menos 20 minutos en total.
 
+### Pestaña «Etiquetas GHL» (Configuración)
+Todas las etiquetas del lanzamiento están en *Configuración → Etiquetas GHL*, en tres bloques:
+- **🔄 Cambian en cada lanzamiento**: registro y encuesta rellenada (avisa si repites la de otra edición).
+- **📌 Fijas**: compra VIP, compra del programa, llamada agendada, publicidad / orgánico y pago único / fraccionado (más el campo de fecha de compra y la «foto» de quién ya las tenía).
+- **🤖 Automáticas**: las que pone el dashboard con el código delante (clases y vídeos vistos, directo, WhatsApp, resultado, foto). Solo informativo: no hay que crearlas.
+
+Cada etiqueta que no exista en el GHL del cliente se marca con un aviso al momento.
+
 ### VIP y compras: etiquetas fijas entre lanzamientos
 
 Las etiquetas de **compra VIP**, **compra del programa** y, si existe, **compra en directo** son siempre las
@@ -129,7 +137,7 @@ El plan gratuito incluye 100.000 peticiones al día, de sobra para varios lanzam
 
 ## Cada lanzamiento
 
-1. **Configuración → + Nuevo**. Rellena el código (p. ej. `nov26`), las etiquetas de registro y VIP,
+1. **Configuración → + Nuevo**. Rellena el código (p. ej. `nov26`), las etiquetas (pestaña **Etiquetas GHL**: la de registro y la de encuesta son nuevas; las fijas se revisan),
    el ID de la reunión de Zoom y los enlaces de la grabación, la página de venta de Raíces, los enlaces de pago de Raíces (único en ThriveCart y fraccionado en Hotmart) y la llamada.
 2. **Zoom**: crea una reunión nueva para cada lanzamiento con **Registro: obligatorio**. En
    *Registro → Ajustes*, desactiva los emails de confirmación de Zoom si no los quieres.

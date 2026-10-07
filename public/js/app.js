@@ -1827,6 +1827,7 @@ async function fillDateFields(selected) {
 
 function fillTagList() {
   $('#tag-list').innerHTML = state.tags.map((t) => `<option value="${esc(t)}">`).join('');
+  checkLaunchTags();
 }
 
 // Formato (cuántos vídeos) del lanzamiento que se edita: el de su embudo.
@@ -1951,6 +1952,7 @@ function openConfig(code) {
   renderSnapshotBox();
   renderVideosCfg(l);
   pintarPrelanzamientoCfg(l);
+  checkLaunchTags();
   renderGuia();
   if (!dlg.open) dlg.showModal();
 }
@@ -1992,20 +1994,51 @@ function tagProblems() {
   return out;
 }
 
+// Campos de la pestaña «Etiquetas GHL».
+const CAMPOS_ETIQUETA = ['cfg-registro', 'cfg-encuesta-tag', 'cfg-vip', 'cfg-compra', 'cfg-llamada-tag', 'cfg-publi-tag', 'cfg-organico-tag', 'cfg-unico-tag', 'cfg-fraccionado-tag'];
 function checkLaunchTags() {
   const p = tagProblems();
-  for (const k of ['registro', 'encuesta']) {
-    const el = $(`#warn-${k}`);
-    el.textContent = p[k] ? `⚠ ${p[k]}` : '';
-    el.hidden = !p[k];
+  // Además de los avisos de registro y encuesta, cualquier etiqueta que no exista (aún) en el GHL del cliente.
+  const existentes = state.tags?.length ? new Set(state.tags.map((t) => String(t).toLowerCase())) : null;
+  for (const id of CAMPOS_ETIQUETA) {
+    const input = document.getElementById(id);
+    const v = input.value.trim().toLowerCase();
+    const k = id === 'cfg-registro' ? 'registro' : id === 'cfg-encuesta-tag' ? 'encuesta' : '';
+    const msg = (k && p[k]) || (v && existentes && !existentes.has(v) ? `«${v}» no existe en tu GHL: créala allí (o revisa que esté bien escrita).` : '');
+    let el = k ? $(`#warn-${k}`) : input.parentElement.querySelector('.tag-warn');
+    if (!el) { input.insertAdjacentHTML('afterend', '<small class="tag-warn" hidden></small>'); el = input.nextElementSibling; }
+    el.textContent = msg ? `⚠ ${msg}` : '';
+    el.hidden = !msg;
   }
+  pintarEtiquetasAuto();
   const code = editingCode || $('#cfg-code').value.trim().toLowerCase();
   const prev = launchesSorted().filter(([c]) => c !== code).slice(0, 3);
   $('#tags-used').innerHTML = prev.length
     ? `Usadas en lanzamientos anteriores (no las repitas): ${prev.map(([, l]) => `<span>${esc(l.name)}: registro <code>${esc(l.registroTag || '–')}</code>${l.encuestaTag ? ` · encuesta <code>${esc(l.encuestaTag)}</code>` : ''}</span>`).join(' · ')}`
     : '';
 }
-['#cfg-registro', '#cfg-encuesta-tag', '#cfg-vip', '#cfg-compra', '#cfg-code'].forEach((sel) => $(sel).addEventListener('input', checkLaunchTags));
+[...CAMPOS_ETIQUETA.map((id) => `#${id}`), '#cfg-code'].forEach((sel) => $(sel).addEventListener('input', checkLaunchTags));
+
+// Etiquetas que pone el dashboard solo (con el código del lanzamiento delante), según sus clases, VIP y vídeos.
+function pintarEtiquetasAuto() {
+  const code = editingCode || $('#cfg-code').value.trim().toLowerCase() || '<código>';
+  const l = { ...(state.config.launches[editingCode] || {}), formato: formatoDeLanz(editingCode ? state.config.launches[editingCode] : null) };
+  const emb = embudoInfo(editingCode ? embudoDeLanz(state.config.launches[editingCode]) : state.embudo);
+  if (!editingCode && emb) { l.nClases = emb.clases || 2; l.vip = emb.vip !== false; }
+  const pct = '25 · 50 · 75 · 90';
+  const filas = [
+    ...clasesDe(l).map((c, i) => [`Clase ${i + 1} vista`, `${code}_${c}_…`, `% visto: ${pct}`]),
+    ...videosDe(l).flatMap((v) => [
+      [`${videosDe(l).length > 1 ? v.nombre : 'Directo'} en Zoom`, `${code}_${v.directo}_…`, 'click · asistio · 60 · final'],
+      [`${videosDe(l).length > 1 ? `${v.nombre} grabado` : 'Grabación vista'}`, `${code}_${v.replay}_…`, `% visto: ${pct}`],
+    ]),
+    ['WhatsApp enviado', `${code}_wa_enviado`, 'al pulsar «WhatsApp» en Setteo hoy'],
+    ['Resultado del contacto', `${code}_res_…`, 'respondio · interesada · llamada · no_contesta · no_interesada'],
+    ['«Foto» al crear el lanzamiento', `${code}_…_previo`, `${conVip(l) ? 'vip_previo · ' : ''}compra_previo · llamada_previo`],
+  ];
+  $('#cfg-tags-auto').innerHTML = `<div class="table-scroll"><table class="metric-table"><thead><tr><th>Qué marca</th><th>Etiqueta</th><th>Variantes</th></tr></thead>
+    <tbody>${filas.map(([a, b, c]) => `<tr><td>${esc(a)}</td><td><code>${esc(b)}</code></td><td class="muted">${esc(c)}</td></tr>`).join('')}</tbody></table></div>`;
+}
 
 // ---------- Guía por colores: qué cambia en cada lanzamiento ----------
 // nuevo = valor nuevo siempre · revisar = suele repetirse, pero hay que comprobarlo · fijo = no se toca.
@@ -2106,7 +2139,7 @@ function renderGuia() {
   const code = editingCode || $('#cfg-code').value.trim().toLowerCase();
   const others = Object.entries(state.config.launches).filter(([c]) => c !== code);
   const tagIssues = tagProblems();
-  for (const [panel, box] of [['launch', '#guia-check'], ['pagina', '#guia-check-pagina'], ['embudo', '#guia-check-embudo']]) {
+  for (const [panel, box] of [['launch', '#guia-check'], ['etiquetas', '#guia-check-etiquetas'], ['pagina', '#guia-check-pagina'], ['embudo', '#guia-check-embudo']]) {
     const groups = $$(`.tab-panel[data-panel="${panel}"] .cfg-sec`).map((sec) => {
       const items = $$('.field', sec).map((el) => CICLO.find((f) => f.id === $('input, select, textarea', el)?.id))
         .filter((f) => f && f.c !== 'fijo')
@@ -2133,6 +2166,10 @@ $('#guia-check-embudo').addEventListener('click', (e) => {
   if (b) goToField(b.dataset.goto);
 });
 $('#guia-check-pagina').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-goto]');
+  if (b) goToField(b.dataset.goto);
+});
+$('#guia-check-etiquetas').addEventListener('click', (e) => {
   const b = e.target.closest('[data-goto]');
   if (b) goToField(b.dataset.goto);
 });
@@ -2242,6 +2279,7 @@ $('#cfg-save').addEventListener('click', async () => {
   } catch (e) {
     status.textContent = '';
     window.alert(e.message);
+    if (/etiqueta de registro/.test(e.message)) goToField('cfg-registro');
   } finally {
     $('#cfg-save').disabled = false;
   }
