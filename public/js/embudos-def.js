@@ -93,6 +93,9 @@ function guiaMeta() {
   ] };
 }
 
+// Cuenta de Cloudflare donde está desplegado el dashboard (la de la agencia; los clientes no necesitan Cloudflare).
+export const CLOUDFLARE_EMAIL = 'holadiscendo@gmail.com';
+
 // Guía para conectar un cliente nuevo (GHL + Cloudflare). `variable`: p. ej. GHL_TOKEN_CLINICA_SOL.
 export function guiaCliente(variable = 'GHL_TOKEN_<CÓDIGO>', sufijo = '<CÓDIGO>') {
   return [
@@ -104,15 +107,16 @@ export function guiaCliente(variable = 'GHL_TOKEN_<CÓDIGO>', sufijo = '<CÓDIGO
       'Marca estos permisos: <strong>Contactos</strong> (ver y editar), <strong>Custom Values</strong> (ver y editar), <strong>Campos personalizados</strong> (ver), <strong>Etiquetas</strong> (ver), <strong>Conversaciones / mensajes</strong> (enviar, para los emails al equipo), <strong>Calendarios y eventos</strong> y <strong>Oportunidades</strong> (ver y editar, si usará Llamadas).',
       'Crea y <strong>copia el token</strong> (empieza por <code>pit-</code>). No lo pegues en ningún chat: va directo a Cloudflare.',
     ] },
-    { titulo: '3 · En Cloudflare: guardar el token', pasos: [
-      'Entra en <strong>dash.cloudflare.com → Workers &amp; Pages →</strong> el proyecto del dashboard <strong>→ Settings → Variables and Secrets → Add</strong>.',
+    { titulo: '3 · En Cloudflare (el de la agencia, no el del cliente): guardar el token', pasos: [
+      `Es el <strong>Cloudflare donde ya está montado este dashboard</strong> (cuenta <strong>${CLOUDFLARE_EMAIL}</strong>), no uno del cliente: el cliente no necesita Cloudflare. Todos los clientes comparten el mismo proyecto y cada uno tiene su variable.`,
+      'Entra en <strong>dash.cloudflare.com</strong> con esa cuenta <strong>→ Workers &amp; Pages →</strong> el proyecto del dashboard <strong>→ Settings → Variables and Secrets → Add</strong>.',
       `Tipo <strong>Secret</strong>, nombre <code>${variable}</code> (exactamente así) y como valor el token. Guarda.`,
       'Ve a <strong>Deployments</strong> y en el último despliegue pulsa <strong>⋯ → Retry deployment</strong> para que coja la variable (tarda 1-2 minutos).',
     ] },
     { titulo: '4 · Comprobar y empezar', pasos: [
       'Aquí, en su tarjeta, pulsa <strong>Probar conexión</strong>: debe decir «Conectado» con el número de etiquetas de su GHL.',
       '<strong>Entra</strong> en el cliente (botón «Entrar →» o el desplegable de arriba), crea su primer embudo con <strong>＋ Nuevo embudo</strong> y da de alta a su equipo en <strong>Equipo → Miembros</strong>.',
-      `Opcional · Meta: pon su cuenta publicitaria en la tarjeta (si el token de Meta de la agencia tiene acceso a ella) o añade <code>META_ACCESS_TOKEN_${sufijo}</code>. Zoom: <code>ZOOM_ACCOUNT_ID_${sufijo}</code>, <code>ZOOM_CLIENT_ID_${sufijo}</code> y <code>ZOOM_CLIENT_SECRET_${sufijo}</code>.`,
+      `Opcional · Meta: pon su cuenta publicitaria en la tarjeta (si el token de Meta de la agencia tiene acceso a ella) o añade <code>META_ACCESS_TOKEN_${sufijo}</code>. Zoom: <code>ZOOM_ACCOUNT_ID_${sufijo}</code>, <code>ZOOM_CLIENT_ID_${sufijo}</code> y <code>ZOOM_CLIENT_SECRET_${sufijo}</code>. Estas variables también van en el Cloudflare de la agencia (${CLOUDFLARE_EMAIL}).`,
     ] },
   ];
 }
