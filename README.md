@@ -39,7 +39,7 @@ Los pesos están en `public/js/scoring.js` (`POINTS` y `ESTADOS`).
 2. **Oferta Raíces**: ha visto ≥50% de la grabación.
 3. **Venta / llamada**: estuvo en el directo hasta el final o vio ≥90% de la grabación.
 
-Los textos se editan en **Setteo hoy → 💬 Mensajes de WhatsApp** (abajo del todo). Los ve todo el que tiene «Setteo hoy» y los cambia quien tiene el permiso **Editar mensajes de WhatsApp** (de serie: Setter y Técnico; se ajusta en Equipo → Roles y permisos), con su botón «Guardar mensajes». Los enlaces llevan el
+Los textos se editan en **Setting hoy → 💬 Mensajes de WhatsApp** (abajo del todo). Los ve todo el que tiene «Setting hoy» y los cambia quien tiene el permiso **Editar mensajes de WhatsApp** (de serie: Setter y Técnico; se ajusta en Equipo → Roles y permisos), con su botón «Guardar mensajes». Los enlaces llevan el
 `cid` del lead para seguir midiendo lo que hace después.
 
 ### ¿Qué significa "hasta el final" en el directo?
@@ -80,6 +80,12 @@ Además, bajo el embudo del lanzamiento, **Asistencia por tipo de tráfico**: ca
 directo, hasta el final, grabación, compra; o cada vídeo en los lanzamientos de varios vídeos) en % **global**, **frío** y
 **templado** (sobre los registros de cada grupo), con la diferencia frío − templado en puntos. La tarjeta de asistencia
 también enseña el % de frío y de templado junto al global.
+
+### Pestaña Comercial
+Agrupa el trabajo comercial en dos subpestañas: **Setting hoy** (a quién escribir hoy por WhatsApp, por prioridad) y **Llamadas** (calendario, resultados y pipeline). Al entrar abre la última que usaste en ese embudo; el número rojo de la pestaña son las llamadas pendientes de anotar. Si un embudo o un rol solo tiene una de las dos (p. ej. las VSL, que no tienen Setting hoy), entra directamente en ella sin subpestañas. Las pestañas y los permisos siguen siendo dos («Setting hoy» y «Llamadas»), así se puede dar a cada persona solo lo suyo.
+
+### Pestaña Planificación
+Agrupa en tres subpestañas **Calendario**, **Tareas** y **Rendimiento del equipo**. Como en Comercial, al entrar abre la última que usaste en ese embudo y el número de la pestaña son las tareas pendientes. Si alguien solo puede ver una, entra directo sin subpestañas.
 
 ### Pestaña Métricas
 Registros, encuesta rellenada (si el lanzamiento la usa), entradas VIP, asistencia (en número y en %), compras totales, compras de VIP, compras en directo,
@@ -246,7 +252,7 @@ Pestaña **Llamadas** (admin, técnico y setter), conectada a GHL:
 - Cada llamada muestra la ficha del lead (puntuación, VIP, directo, clases, grabación, encuesta) y se agrupa en *Pendientes de anotar*, *Hoy*, *Próximos días* y *Ya anotadas*.
 - «Anotar resultado» (Venta, Seguimiento, No compra + motivo, No se presentó, Reagendar) mueve la oportunidad de etapa (o la crea), marca la cita como realizada / no presentada / cancelada y deja una nota en la ficha del contacto. «No se presentó» avanza No contesta 1 → 2 → 3.
 - Resultado **💳 Pendiente de pago**: va a la etapa «Pendiente de pago» del pipeline si existe (si no, a «Seguimiento»).
-- Vista **👥 Por fase**: cada persona aparece en la fase de su última llamada (próxima, sin anotar, pendiente de pago, seguimiento, venta, no compra, no show, reagendar, cancelada), con filtros y un botón de **WhatsApp con el mensaje de esa fase** (plantillas editables en Setteo hoy → Mensajes de WhatsApp; admiten {dia_llamada} y {hora_llamada}). Queda registrado cuándo se envió. La fase también se puede filtrar en la pestaña Leads.
+- Vista **👥 Por fase**: cada persona aparece en la fase de su última llamada (próxima, sin anotar, pendiente de pago, seguimiento, venta, no compra, no show, reagendar, cancelada), con filtros y un botón de **WhatsApp con el mensaje de esa fase** (plantillas editables en Setting hoy → Mensajes de WhatsApp; admiten {dia_llamada} y {hora_llamada}). Queda registrado cuándo se envió. La fase también se puede filtrar en la pestaña Leads.
 - Métricas: reservadas, shows, no shows, canceladas y conversión (número y %), sin anotar y motivos de no compra. El resultado se guarda también en `lsd_llamadas_<código>`.
 - El token de GHL (integración privada) necesita los permisos de calendarios, eventos de calendario y oportunidades (lectura y escritura) y de notas de contactos.
 
@@ -320,10 +326,10 @@ Con un email tuyo que **no** esté en GHL:
 ## Accesos y equipo
 Cada persona entra con **su email y su contraseña**. Se dan de alta en el botón *Equipo → Miembros del equipo* (arriba, solo admin) (o al asignar una tarea a «+ Nueva persona»): se crea su contacto en GHL con la etiqueta `equipo-dashboard` y le llega un email desde GHL con el enlace, su email y una contraseña generada. Desde «Mi cuenta» puede cambiarla y subir su **foto de perfil** (el navegador la recorta y reduce a 160×160; se guarda como `lsd_foto_<id>` y se ve en la barra, en Equipo y en las tareas que tiene asignadas); desde Equipo se puede reenviar el acceso (contraseña nueva), cambiar el rol, desactivar o borrar.
 
-Los roles y lo que ve cada uno se configuran en el botón **Equipo → Roles y permisos** (arriba, solo admin): una tabla con una casilla por pestaña (Setteo hoy, Llamadas, Leads, Métricas, Objetivos, Avatar y anuncios, Comparar) y por acción (Configuración de lanzamientos, Sincronizar Zoom, Crear/editar/borrar tareas y eventos). Se pueden crear roles nuevos, renombrarlos y borrarlos (si nadie los tiene). El servidor aplica los mismos permisos.
+Los roles y lo que ve cada uno se configuran en el botón **Equipo → Roles y permisos** (arriba, solo admin): una tabla con una casilla por pestaña (Setting hoy, Llamadas, Leads, Métricas, Objetivos, Avatar y anuncios, Comparar) y por acción (Configuración de lanzamientos, Sincronizar Zoom, Crear/editar/borrar tareas y eventos). Se pueden crear roles nuevos, renombrarlos y borrarlos (si nadie los tiene). El servidor aplica los mismos permisos.
 - **Admin**: todo, siempre (y es el único que gestiona el equipo y los roles).
 - **Todos los roles**: Tareas y Calendario (cada uno marca sus tareas y las de su rol).
-- De serie: **Técnico** (configuración, Zoom, Setteo hoy, Llamadas, Leads, Métricas, Objetivos, Avatar) y **Setter** (Setteo hoy, Llamadas, Leads). Se guardan en `lsd_roles`.
+- De serie: **Técnico** (configuración, Zoom, Setting hoy, Llamadas, Leads, Métricas, Objetivos, Avatar) y **Setter** (Setting hoy, Llamadas, Leads). Se guardan en `lsd_roles`.
 
 Las contraseñas generales `ADMIN_PASSWORD` / `SETTER_PASSWORD` siguen funcionando (dejando el email vacío) como acceso de emergencia, salvo que el superadmin las desactive (ver **Seguridad**).
 

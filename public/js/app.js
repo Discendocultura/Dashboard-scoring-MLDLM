@@ -410,7 +410,8 @@ async function setEmbudo(e, { vista = null } = {}) {
     if (!state.config.launches[state.launchCode] || embudoDeLanz(state.config.launches[state.launchCode]) !== state.embudo) state.launchCode = pickInitialLaunch();
   }
   if (enVsl() && state.vsl.code !== state.embudo) Object.assign(state.vsl, { code: state.embudo, leads: null, raw: null, meta: null });
-  $$('.view-tab').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
+  $$('.view-tab').forEach((t) => { t.hidden = t.dataset.viewGrupo ? !GRUPOS[t.dataset.viewGrupo].some((v) => allowedViews().includes(v)) : !allowedViews().includes(t.dataset.view); });
+  $$('.subview-tab').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
   const guardada = ls.get(`lsd_view_${state.embudo}`) || (enVsl() ? '' : ls.get('lsd_view'));
   const quiero = [vista, guardada].find((v) => v && allowedViews().includes(v));
   const porDefecto = enVsl() ? ['vmetricas', 'vleads', 'llamadas', 'tareas'] : ['leads', 'hoy', 'tareas'];
@@ -1524,14 +1525,23 @@ function renderCompareTable(results) {
 // ---------- Vistas ----------
 const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
-const VIEW_ICONS = { hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
-$$('.view-tab').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view])));
+// Pestañas que agrupan varias vistas en subpestañas:
+// «Comercial» (Setting hoy y Llamadas) y «Planificación» (Calendario, Tareas y Rendimiento del equipo).
+const GRUPOS = { comercial: ['hoy', 'llamadas'], planificacion: ['calendario', 'tareas', 'rendimiento'] };
+const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
+const VIEW_ICONS = { comercial: 'phone', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
+$$('.view-tab, .subview-tab').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
 $$('[data-icon] > h2').forEach((h) => h.insertAdjacentHTML('afterbegin', `<span class="h-ico">${icon(h.parentElement.dataset.icon)}</span>`));
 function showView(view) {
   if (state.role && !allowedViews().includes(view)) view = allowedViews()[0];
-  $$('.view-tab').forEach((x) => x.classList.toggle('active', x.dataset.view === view));
+  const grupo = grupoDe(view);
+  $$('.view-tab').forEach((x) => x.classList.toggle('active', x.dataset.viewGrupo ? x.dataset.viewGrupo === grupo : x.dataset.view === view));
+  $$('.subview-tab').forEach((x) => x.classList.toggle('active', x.dataset.view === view));
+  // Las subpestañas de un grupo solo se enseñan si se puede ver más de una.
+  for (const g of Object.keys(GRUPOS)) $(`#sub-${g}`).hidden = g !== grupo || !state.role || GRUPOS[g].filter((v) => allowedViews().includes(v)).length < 2;
+  if (grupo) ls.set(`lsd_${grupo}_${state.embudo}`, view);
   for (const v of VIEWS) $(`#view-${v}`).hidden = v !== view;
   ls.set(`lsd_view_${state.embudo}`, view);
   if (!enVsl()) ls.set('lsd_view', view);
@@ -1542,7 +1552,14 @@ function showView(view) {
   if (view === 'calendario' && state.config) renderCalendario();
   if (view === 'llamadas' && state.config) { if (state.llamadas?.code !== codigo()) loadLlamadas(); else renderLlamadas(); }
 }
-$$('.view-tab').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
+$$('.view-tab').forEach((t) => t.addEventListener('click', () => {
+  if (!t.dataset.viewGrupo) { showView(t.dataset.view); return; }
+  // Grupo: la última subpestaña usada en este embudo (o la primera que se pueda ver).
+  const vistas = GRUPOS[t.dataset.viewGrupo];
+  const ultima = ls.get(`lsd_${t.dataset.viewGrupo}_${state.embudo}`);
+  showView(vistas.includes(ultima) && allowedViews().includes(ultima) ? ultima : vistas.find((v) => allowedViews().includes(v)));
+}));
+$$('.subview-tab').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
 showView(VIEWS.includes(ls.get('lsd_view')) ? ls.get('lsd_view') : 'leads');
 
 const ESTADO_ICONS = { 'muy-caliente': 'flame', caliente: 'sun', templado: 'thermo', frio: 'snow' };
@@ -2048,7 +2065,7 @@ function pintarEtiquetasAuto() {
       [`${videosDe(l).length > 1 ? v.nombre : 'Directo'} en Zoom`, `${code}_${v.directo}_…`, 'click · asistio · 60 · final'],
       [`${videosDe(l).length > 1 ? `${v.nombre} grabado` : 'Grabación vista'}`, `${code}_${v.replay}_…`, `% visto: ${pct}`],
     ]),
-    ['WhatsApp enviado', `${code}_wa_enviado`, 'al pulsar «WhatsApp» en Setteo hoy'],
+    ['WhatsApp enviado', `${code}_wa_enviado`, 'al pulsar «WhatsApp» en Setting hoy'],
     ['Resultado del contacto', `${code}_res_…`, 'respondio · interesada · llamada · no_contesta · no_interesada'],
     ['«Foto» al crear el lanzamiento', `${code}_…_previo`, `${conVip(l) ? 'vip_previo · ' : ''}compra_previo · llamada_previo`],
   ];
@@ -3876,7 +3893,7 @@ async function loadMarca() {
     <p class="muted">Las preguntas de la encuesta de GHL (cada una guarda su respuesta en un campo del contacto). Se cruzan con las ventas en «Avatar y anuncios». El campo del contacto se elige de la lista de GHL.</p>
     <div id="mc-preguntas">${preguntas.map(fila).join('')}</div>
     <button type="button" class="btn" id="mc-add">+ Añadir pregunta</button>
-    <p class="muted small">Los mensajes de WhatsApp se cambian en <em>Setteo hoy → Mensajes de WhatsApp</em> (pueden usar <code>{producto}</code>) y las tareas habituales, en <em>Tareas</em>.</p>
+    <p class="muted small">Los mensajes de WhatsApp se cambian en <em>Setting hoy → Mensajes de WhatsApp</em> (pueden usar <code>{producto}</code>) y las tareas habituales, en <em>Tareas</em>.</p>
     <div class="row"><button type="button" class="btn primary" id="mc-guardar">Guardar marca</button><span class="muted" id="mc-status" aria-live="polite"></span></div>`;
   box.dataset.fila = '1';
   $('#mc-add').onclick = () => $('#mc-preguntas').insertAdjacentHTML('beforeend', fila());
@@ -5331,10 +5348,10 @@ $('#llf-list').addEventListener('click', async (e) => {
 });
 $('#f-llamada').addEventListener('change', (e) => { state.filters.llamada = e.target.value; state.page = 0; render(); });
 
-// Plantillas de mensajes por fase en Setteo hoy → Mensajes de WhatsApp.
+// Plantillas de mensajes por fase en Setting hoy → Mensajes de WhatsApp.
 $('#tpl-llamadas').innerHTML = FASES_LLAMADA.filter((f) => f.plantilla).map((f) => `<label class="field"><span>${f.icon} ${esc(f.label)}</span><textarea id="tpl-${f.plantilla}" data-tpl="${f.plantilla}" rows="3"></textarea></label>`).join('');
 
-// Mensajes de WhatsApp (en «Setteo hoy»): los ve quien hace el setteo y los cambia quien tiene el permiso «mensajes».
+// Mensajes de WhatsApp (en «Setting hoy»): los ve quien hace el setteo y los cambia quien tiene el permiso «mensajes».
 const waBox = $('#wa-plantillas');
 let waSucio = false;
 function pintarPlantillas() {
@@ -5825,7 +5842,7 @@ $('#vl-resumen').addEventListener('click', (e) => {
   renderVslLeads();
 });
 
-// Mensajes de WhatsApp de la VSL (mismo permiso que los de Setteo hoy).
+// Mensajes de WhatsApp de la VSL (mismo permiso que los de Setting hoy).
 const vplBox = $('#vsl-plantillas');
 let vplSucio = false;
 function pintarPlantillasVsl() {

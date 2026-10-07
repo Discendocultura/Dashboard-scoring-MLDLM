@@ -30,7 +30,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await readBody(request);
-    // Solo los mensajes de WhatsApp (Setteo hoy): basta con el permiso «Editar mensajes de WhatsApp».
+    // Solo los mensajes de WhatsApp (Setting hoy): basta con el permiso «Editar mensajes de WhatsApp».
     if (body.op === 'plantillas') {
       await requireRole(request, { permiso: 'mensajes' });
       const config = await reintentando(async () => {

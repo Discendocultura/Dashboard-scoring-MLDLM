@@ -3,7 +3,7 @@
 
 export const PESTANAS = {
   lanzamientos: [
-    { id: 'hoy', label: 'Setteo hoy', desc: 'A quién escribir hoy por WhatsApp, por prioridad' },
+    { id: 'hoy', label: 'Setting hoy', desc: 'A quién escribir hoy por WhatsApp, por prioridad' },
     { id: 'llamadas', label: 'Llamadas', desc: 'Llamadas de valoración: calendario, resultados y pipeline' },
     { id: 'leads', label: 'Leads', desc: 'Lista de registrados con su puntuación y estado' },
     { id: 'metricas', label: 'Métricas', desc: 'Registros, clases, VIP, directo, ventas, coste por lead…' },
@@ -148,7 +148,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
       'La preclase (clases 1 y 2) es aparte y funciona igual que en el webinar; si no la usas, deja vacías sus fechas.',
     ] });
     if (on('hoy') || on('leads')) s.push({ titulo: `${s.length + 1} · Setteo y WhatsApp`, pasos: [
-      'Los leads se puntúan solos con lo que hacen (clases, VIP, directo, grabación). Revisa los textos de WhatsApp en <em>Setteo hoy → Mensajes de WhatsApp</em>.',
+      'Los leads se puntúan solos con lo que hacen (clases, VIP, directo, grabación). Revisa los textos de WhatsApp en <em>Setting hoy → Mensajes de WhatsApp</em>.',
       'Para el webinar en directo con Zoom: crea una app <strong>Server-to-Server OAuth</strong> en Zoom y añade sus claves en Cloudflare (ver la guía del cliente). Así «Sincronizar Zoom» marca quién asistió.',
     ] });
     if (on('llamadas')) s.push(guiaLlamadas('los lanzamientos'));

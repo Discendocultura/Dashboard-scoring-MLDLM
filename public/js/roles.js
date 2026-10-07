@@ -2,7 +2,7 @@
 // Admin lo tiene todo siempre. Tareas y Calendario los tiene todo el mundo.
 
 export const PERMISOS = [
-  { id: 'hoy', label: 'Setteo hoy', grupo: 'Pestañas' },
+  { id: 'hoy', label: 'Setting hoy', grupo: 'Pestañas' },
   { id: 'llamadas', label: 'Llamadas', grupo: 'Pestañas' },
   { id: 'leads', label: 'Leads', grupo: 'Pestañas' },
   { id: 'metricas', label: 'Métricas', grupo: 'Pestañas' },

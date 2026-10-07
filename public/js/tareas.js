@@ -25,7 +25,7 @@ export const PLANTILLA = [
   { fase: 'captacion', titulo: 'Revisar registros, coste por lead y objetivos en el dashboard', base: 'captacion', dias: 3, rol: 'admin' },
   { fase: 'captacion', titulo: 'Subir los vídeos de las clases a Vimeo y pegar sus URLs en el dashboard', base: 'clase1', dias: -3, rol: 'tecnico' },
   { fase: 'clases', titulo: 'Comprobar que la clase 1 se desbloquea y se ve bien en la página preclase', base: 'clase1', dias: 0, rol: 'tecnico' },
-  { fase: 'clases', titulo: 'Contactar por WhatsApp a las leads calientes de «Setteo hoy»', base: 'clase1', dias: 1, rol: 'setter' },
+  { fase: 'clases', titulo: 'Contactar por WhatsApp a las leads calientes de «Setting hoy»', base: 'clase1', dias: 1, rol: 'setter' },
   { fase: 'clases', titulo: 'Comprobar que la clase 2 se desbloquea y se ve bien', base: 'clase2', dias: 0, rol: 'tecnico' },
   { fase: 'directo', titulo: 'Probar el enlace del directo y la sala de Zoom', base: 'directo', dias: -1, rol: 'admin' },
   { fase: 'directo', titulo: 'Recordatorio del directo en el grupo de WhatsApp', base: 'directo', dias: 0, rol: 'tecnico' },

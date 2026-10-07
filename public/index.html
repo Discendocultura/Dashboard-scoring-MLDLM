@@ -111,17 +111,25 @@
         <nav class="views" role="tablist">
           <button type="button" class="view-tab" data-view="vmetricas">Métricas</button>
           <button type="button" class="view-tab" data-view="vleads">Leads</button>
-          <button type="button" class="view-tab" data-view="hoy">Setteo hoy</button>
-          <button type="button" class="view-tab" data-view="llamadas">Llamadas <span id="llamadas-badge" class="tab-count" hidden></span></button>
+          <button type="button" class="view-tab" data-view-grupo="comercial">Comercial <span id="llamadas-badge" class="tab-count" hidden></span></button>
           <button type="button" class="view-tab active" data-view="leads">Leads</button>
           <button type="button" class="view-tab" data-view="metricas">Métricas</button>
           <button type="button" class="view-tab" data-view="objetivos">Objetivos y calculadora</button>
           <button type="button" class="view-tab" data-view="avatar">Avatar y anuncios</button>
           <button type="button" class="view-tab" data-view="comparar">Comparar</button>
           <button type="button" class="view-tab" data-view="vanuncios">Anuncios ganadores</button>
-          <button type="button" class="view-tab" data-view="rendimiento">Rendimiento del equipo</button>
-          <button type="button" class="view-tab" data-view="tareas">Tareas <span id="tareas-badge" class="tab-count" hidden></span></button>
-          <button type="button" class="view-tab" data-view="calendario">Calendario</button>
+          <button type="button" class="view-tab" data-view-grupo="planificacion">Planificación <span id="tareas-badge" class="tab-count" hidden></span></button>
+        </nav>
+        <!-- Comercial: Setting hoy y Llamadas -->
+        <!-- Planificación: Calendario, Tareas y Rendimiento del equipo -->
+        <nav class="subviews" id="sub-planificacion" role="tablist" aria-label="Planificación" hidden>
+          <button type="button" class="subview-tab" data-view="calendario">Calendario</button>
+          <button type="button" class="subview-tab" data-view="tareas">Tareas</button>
+          <button type="button" class="subview-tab" data-view="rendimiento">Rendimiento del equipo</button>
+        </nav>
+        <nav class="subviews" id="sub-comercial" role="tablist" aria-label="Comercial" hidden>
+          <button type="button" class="subview-tab" data-view="hoy">Setting hoy</button>
+          <button type="button" class="subview-tab" data-view="llamadas">Llamadas</button>
         </nav>
 
         <!-- VSL: periodo de análisis (Métricas, Leads y Anuncios) -->
@@ -335,7 +343,7 @@
           <details id="wa-plantillas" class="card wa-plantillas">
             <summary><span class="wa-pl-ico" aria-hidden="true">💬</span><span><strong>Mensajes de WhatsApp</strong><small class="muted" id="wa-pl-sub">Los textos que se envían con cada botón de WhatsApp. Pulsa para verlos.</small></span></summary>
             <div class="wa-pl-body">
-          <h4 class="cfg-h3">Mensajes de «Setteo hoy»</h4>
+          <h4 class="cfg-h3">Mensajes de «Setting hoy»</h4>
           <p class="muted">Variables: <code>{nombre}</code> <code>{link_grabacion}</code> <code>{link_pagina_venta}</code> (página de venta de Raíces) <code>{link_pago}</code> (pago único) <code>{link_pago_fraccionado}</code> (pago fraccionado) <code>{link_llamada}</code>. Los enlaces se personalizan solos con el ID del lead para seguir midiendo.</p>
           <label class="field"><span>1 · No ha visto la grabación → enviarle a la grabación</span><textarea id="tpl-grabacion" rows="4"></textarea></label>
           <label class="field"><span>2 · Ha visto ≥50% de la grabación → oferta Raíces</span><textarea id="tpl-raices" rows="4"></textarea></label>
