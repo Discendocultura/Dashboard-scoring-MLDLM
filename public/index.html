@@ -842,8 +842,17 @@
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="v2"><span class="emb-ico">2️⃣</span><span><strong>Lanzamiento de 2 vídeos</strong><small>Igual que el webinar pero con 2 vídeos (en directo o grabados); en el 2º se hace la venta.</small></span></label>
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="v3"><span class="emb-ico">3️⃣</span><span><strong>Lanzamiento de 3 vídeos</strong><small>3 vídeos; en el 3º se hace la venta.</small></span></label>
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="plf"><span class="emb-ico">🚀</span><span><strong>PLF (Product Launch Formula)</strong><small>4 vídeos: PLC 1, 2 y 3 de contenido y el PLC 4 de venta.</small></span></label>
+          <label class="emb-tipo"><input type="radio" name="emb-tipo" value="reto"><span class="emb-ico">🏁</span><span><strong>Reto de varios días</strong><small>3, 4 o 5 días con un vídeo cada día (en directo o grabado); el último día se hace la venta.</small></span></label>
+          <p class="emb-grupo muted small">Siempre abiertos (sin fechas de lanzamiento; se analizan por días, semanas y meses):</p>
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="vsl"><span class="emb-ico">🎬</span><span><strong>VSL (siempre abierta)</strong><small>Registro → vídeo de venta → compra directa o llamada. Se analiza por fechas, meses y semanas.</small></span></label>
+          <label class="emb-tipo"><input type="radio" name="emb-tipo" value="leadmagnet"><span class="emb-ico">🧲</span><span><strong>Lead magnet + secuencia de emails</strong><small>Descarga de un regalo (guía, checklist, minicurso) → secuencia de emails → venta.</small></span></label>
+          <label class="emb-tipo"><input type="radio" name="emb-tipo" value="evergreen"><span class="emb-ico">⏯️</span><span><strong>Webinar evergreen (grabado)</strong><small>Webinar grabado siempre disponible: registro → lo ve cuando quiere → oferta y compra o llamada.</small></span></label>
+          <label class="emb-tipo"><input type="radio" name="emb-tipo" value="llamadas"><span class="emb-ico">📞</span><span><strong>Embudo de llamadas</strong><small>Anuncio → formulario de aplicación → llamada de venta. La venta se cierra en la llamada.</small></span></label>
         </div>
+        <label class="field" id="emb-reto-box" hidden><span>Días del reto</span>
+          <select id="emb-reto-dias"><option value="reto3">3 días</option><option value="reto4">4 días</option><option value="reto5" selected>5 días</option></select></label>
+        <label class="field" id="emb-subtipo-box" hidden><span>Tipo de embudo siempre abierto</span>
+          <select id="emb-subtipo"><option value="vsl">VSL</option><option value="leadmagnet">Lead magnet + secuencia de emails</option><option value="evergreen">Webinar evergreen (grabado)</option><option value="llamadas">Embudo de llamadas</option></select></label>
         <div id="emb-plantilla-box" class="emb-plantilla superadmin-only" hidden>
           <label class="field"><span>Partir de una plantilla de agencia <small>(opcional)</small></span>
             <select id="emb-plantilla"><option value="">— Sin plantilla: elijo el tipo arriba —</option></select></label>
@@ -855,7 +864,7 @@
           <p class="muted small" id="emb-plantilla-info"></p>
         </div>
         <label class="field" id="emb-formato-box" hidden><span>Formato <small>(cuántos vídeos tiene cada lanzamiento; la preclase con las clases 1 y 2 es aparte)</small></span>
-          <select id="emb-formato"><option value="webinar">Webinar (1 vídeo)</option><option value="v2">Lanzamiento de 2 vídeos</option><option value="v3">Lanzamiento de 3 vídeos</option><option value="plf">PLF (4 PLCs)</option></select></label>
+          <select id="emb-formato"><option value="webinar">Webinar (1 vídeo)</option><option value="v2">Lanzamiento de 2 vídeos</option><option value="v3">Lanzamiento de 3 vídeos</option><option value="plf">PLF (4 PLCs)</option><option value="reto3">Reto de 3 días</option><option value="reto4">Reto de 4 días</option><option value="reto5">Reto de 5 días</option></select></label>
         <div class="grid2" id="emb-prelanz">
           <label class="field"><span>Clases del prelanzamiento <small>(vídeos grabados de la página preclase)</small></span>
             <select id="emb-clases"><option value="1">1 clase</option><option value="2" selected>2 clases</option><option value="3">3 clases</option></select></label>

@@ -4,6 +4,7 @@
 //   accion: { tipo: 'campo', id } (Configuración) | { tipo: 'tarea', id } | { tipo: 'vista', v } | { tipo: 'vsl', tab }
 import { watched } from './scoring.js';
 import { videosDe, nClases, conVip } from './videos.js';
+import { SUBTIPOS_VSL, subtipoValido, conPrep } from './embudos-def.js';
 
 const DAY = 86_400_000;
 const dia = (v) => String(v || '').slice(0, 10);
@@ -190,10 +191,20 @@ export function auditarVsl(p) {
   if (!v.registroTag) add('critico', 'Etiquetas', 'Falta la etiqueta de registro', 'Sin ella no hay leads.', tab('vembudo'));
   else if (!existe(v.registroTag)) add('critico', 'Etiquetas', `La etiqueta «${v.registroTag}» no existe en GHL`, 'Ponla en el formulario de registro.', tab('vembudo'));
   if (!v.compraTag) add('critico', 'Etiquetas', 'Falta la etiqueta de compra', 'No se contarán las ventas.', tab('vembudo'));
-  if (!v.vslVideoUrl) add('critico', 'Páginas', 'Falta el vídeo de la VSL', 'La página de la VSL no tendrá vídeo.', tab('vpaginas'));
-  if (!v.ventaUrl && !v.raicesUrl) add('critico', 'Páginas', 'Falta el enlace de compra', 'El botón de compra de la página no aparecerá.', tab('vembudo'));
-  if (!v.vslUrl) add('importante', 'Enlaces', 'Falta la URL de la página de la VSL', 'Los mensajes de WhatsApp «no ha visto el vídeo» no tendrán enlace.', tab('vembudo'));
-  if (on('llamadas') && !v.llamadaUrl) add('importante', 'Llamadas', 'Falta el enlace para reservar llamada', 'Sin él no hay botón de llamada ni pestaña de Llamadas.', tab('vembudo'));
+  // Variante del embudo: cambia qué es imprescindible.
+  const sub = subtipoValido(v.subtipo);
+  const t = SUBTIPOS_VSL[sub];
+  if (sub === 'vsl' || sub === 'evergreen') {
+    if (!v.vslVideoUrl) add('critico', 'Páginas', `Falta el vídeo ${conPrep('de', t.contenido)}`, `${t.pagina} no tendrá vídeo.`, tab('vpaginas'));
+  } else if (sub === 'leadmagnet' && !v.vioTag && !v.vslVideoUrl) {
+    add('aviso', 'Etiquetas', 'No se mide quién abre el lead magnet', 'Pon la etiqueta «ha abierto el lead magnet» (workflow al hacer clic en el email) o, si es un vídeo, su URL en Páginas.', tab('vembudo'));
+  }
+  if (sub === 'llamadas') {
+    if (!v.llamadaUrl) add('critico', 'Llamadas', 'Falta el enlace para reservar llamada', 'En un embudo de llamadas es la conversión principal: sin él no hay llamadas.', tab('vembudo'));
+    if (!v.llamadasPipeline) add('importante', 'Llamadas', 'Falta el pipeline de las llamadas', 'Sin él no se ven las etapas (show, venta, perdido).', tab('vembudo'));
+  } else if (!v.ventaUrl && !v.raicesUrl) add('critico', 'Páginas', 'Falta el enlace de compra', sub === 'leadmagnet' ? 'Los emails y WhatsApp de la secuencia no tendrán a dónde enviar.' : 'El botón de compra de la página no aparecerá.', tab('vembudo'));
+  if (!v.vslUrl && sub !== 'llamadas') add('importante', 'Enlaces', `Falta la URL de la ${t.pagina.charAt(0).toLowerCase()}${t.pagina.slice(1)}`, `Los mensajes de WhatsApp «no ha visto ${t.contenido}» no tendrán enlace.`, tab('vembudo'));
+  if (on('llamadas') && sub !== 'llamadas' && !v.llamadaUrl) add('importante', 'Llamadas', 'Falta el enlace para reservar llamada', 'Sin él no hay botón de llamada ni pestaña de Llamadas.', tab('vembudo'));
   if (on('llamadas') && p.llamadas?.configurado === false) add('importante', 'Llamadas', 'Las llamadas no están bien conectadas', p.llamadas.motivo || '', tab('vembudo'));
   if (!v.precioPrograma) add('importante', 'Precios', 'Falta el precio', 'La facturación y el ROAS saldrán a 0.', tab('vembudo'));
   if (!v.compraDateField) add('aviso', 'Fechas', 'Sin campo de fecha de compra', 'Las ventas se fechan con la fecha de alta del contacto.', tab('vembudo'));
@@ -202,9 +213,10 @@ export function auditarVsl(p) {
   if (p.leads) {
     const ult = p.leads.map((x) => x.fReg).filter(Boolean).sort().at(-1);
     const dias = ult ? -diasHasta(ult, hoy) : null;
-    if (v.registroTag && !p.leads.length) add('critico', 'Datos', 'No hay ningún registro', 'Comprueba el formulario y su etiqueta.', null);
+    if (sub === 'llamadas' && p.leads.length >= 20 && p.llamadas?.configurado && Array.isArray(p.llamadas.llamadas) && !p.llamadas.llamadas.length) add('importante', 'Llamadas', `${p.leads.length} aplicaciones y ninguna llamada agendada`, 'Revisa que el formulario redirija al calendario.', tab('vembudo'));
+    if (v.registroTag && !p.leads.length) add('critico', 'Datos', `No hay ${sub === 'leadmagnet' ? 'ninguna descarga' : sub === 'llamadas' ? 'ninguna aplicación' : 'ningún registro'}`, 'Comprueba el formulario y su etiqueta.', null);
     else if (dias != null && dias >= 3) add('importante', 'Datos', `Ningún registro nuevo en ${dias} días`, '¿Se han parado los anuncios?', null);
-    if (p.leads.length >= 20 && !p.leads.some((x) => x.s.pct > 0)) add('importante', 'Datos', 'No se está midiendo el vídeo', 'Ningún lead tiene % visto: revisa el código de la página y que el registro redirija con ?cid={{contact.id}}.', tab('vcodigos'));
+    if ((sub === 'vsl' || sub === 'evergreen') && p.leads.length >= 20 && !p.leads.some((x) => x.s.pct > 0)) add('importante', 'Datos', 'No se está midiendo el vídeo', 'Ningún lead tiene % visto: revisa el código de la página y que el registro redirija con ?cid={{contact.id}}.', tab('vcodigos'));
   }
   if (on('tareas') && p.tareas) {
     for (const t of p.tareas.filter((x) => !x.hecha && x.fecha && x.fecha < hoy)) add(-diasHasta(t.fecha, hoy) >= 2 ? 'critico' : 'importante', 'Tareas', `Tarea vencida: «${t.titulo}»`, `Era para el ${fmt(t.fecha)}.`, { tipo: 'tarea', id: t.id });

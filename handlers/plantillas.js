@@ -19,10 +19,10 @@ import { json, readBody, errorResponse } from '../lib/http.js';
 const NAME = 'lsd_plantillas';
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 // De la VSL solo pasa lo que no es del cliente.
-const VSL_PLANTILLA = ['botonSegundos', 'textoCompra', 'textoLlamada', 'precioPrograma', 'precioFraccionado', 'llamadasPipeline'];
+const VSL_PLANTILLA = ['subtipo', 'botonSegundos', 'textoCompra', 'textoLlamada', 'precioPrograma', 'precioFraccionado', 'llamadasPipeline'];
 
 const listar = () => leerJSON(NAME, () => []);
-const resumen = (p) => ({ id: p.id, nombre: p.nombre, desc: p.desc, tipo: p.tipo, formato: p.formato, pestanas: p.pestanas, origen: p.origen, creada: p.creada, mensajes: Object.keys(p.mensajes || {}).length, habituales: (p.habituales || []).length });
+const resumen = (p) => ({ id: p.id, nombre: p.nombre, desc: p.desc, tipo: p.tipo, formato: p.formato, subtipo: p.vsl?.subtipo || null, pestanas: p.pestanas, origen: p.origen, creada: p.creada, mensajes: Object.keys(p.mensajes || {}).length, habituales: (p.habituales || []).length });
 
 export async function GET(request) {
   try {

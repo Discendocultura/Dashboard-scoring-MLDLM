@@ -1267,6 +1267,7 @@ body:not(.is-superadmin) .superadmin-only { display: none !important; }
 .sb-add .sb-ico { background: transparent; font-weight: 800; }
 @media (max-width: 900px) { .sb-items { flex-direction: row; } .sb-add { width: auto; flex: none; margin-top: 0; } .sb-add .sb-txt { display: none; } }
 .emb-tipos { display: flex; flex-direction: column; gap: 10px; }
+.emb-grupo { margin: 6px 0 -2px; }
 .emb-tipo { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
 .emb-tipo:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
 .emb-tipo input { margin-top: 4px; accent-color: var(--accent); }

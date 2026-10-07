@@ -5,7 +5,7 @@ import { icon } from './icons.js';
 import { nombreProducto, PRODUCTO_MLDLM } from './producto.js';
 import { importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor } from './page.js';
-import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip } from './videos.js';
+import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
 import { rendimientoEquipo } from './rendimiento.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
@@ -14,7 +14,7 @@ import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.j
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
 import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE } from './roles.js';
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
-import { PESTANAS, guiaEmbudo, guiaCliente, guiaHtml as guiaPasosHtml } from './embudos-def.js';
+import { PESTANAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaCliente, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
@@ -386,9 +386,10 @@ $('#cliente-select').addEventListener('change', (e) => cambiarCliente(e.target.v
 // ---------- Embudos (menú lateral) ----------
 function pintarSidebar() {
   $('#sb-items').innerHTML = embudos().map((e) => {
-    const sub = e.tipo === 'vsl' ? 'VSL · siempre abierta'
+    const tv = e.tipo === 'vsl' ? textosVsl(state.config.vsls[e.id]) : null;
+    const sub = tv ? `${tv.corto} · siempre abierto`
       : (() => { const n = Object.values(state.config.launches).filter((l) => embudoDeLanz(l) === e.id).length; return `${n} lanzamiento${n === 1 ? '' : 's'}`; })();
-    return `<div class="sb-row"><button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${e.tipo === 'vsl' ? '🎬' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(e.id)}" title="Pestañas, nombre y guía de «${esc(e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
+    return `<div class="sb-row"><button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${tv ? tv.ico : esReto(e.formato) ? '🏁' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(e.id)}" title="Pestañas, nombre y guía de «${esc(e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
   }).join('');
 }
 
@@ -5589,21 +5590,22 @@ function renderVslMetricas() {
   const L = state.vsl.leads;
   const inversion = state.vsl.meta && !state.vsl.meta.error && Number.isFinite(Number(state.vsl.meta.total)) ? Number(state.vsl.meta.total) : null;
   const m = computeVsl(L, r, v, { inversion });
+  const tv = textosVsl(v);
   const kpi = (tono, ico, label, valor, sub = '') => `<div class="kpi static tone-${tono}"><span class="kpi-label"><span class="kpi-ico">${icon(ico)}</span>${label}</span><span class="kpi-value">${valor}</span><span class="kpi-sub">${sub}</span></div>`;
   const metaNota = state.vsl.meta?.error ? `Meta: ${esc(state.vsl.meta.error)}` : state.vsl.meta ? `${v.metaFiltro ? `campañas con «${esc(v.metaFiltro)}»` : 'todas las campañas (pon un filtro en la configuración)'}` : 'Meta no conectado';
   $('#vm-kpis').innerHTML = [
-    kpi('accent', 'users', 'Registros', m.registros, `${m.publi} publicidad · ${m.organico} orgánico`),
-    kpi('info', 'play', 'Vieron la VSL', m.vio, `${pctOf(m.vio, m.registros)} · ${m.vio50} vieron ≥50%`),
+    kpi('accent', 'users', tv.registro, m.registros, `${m.publi} publicidad · ${m.organico} orgánico`),
+    kpi('info', 'play', tv.vio, m.vio, `${pctOf(m.vio, m.registros)} · ${m.vio50} vieron ≥50%`),
     kpi('live', 'phone', 'Agendaron llamada', m.llamada, pctOf(m.llamada, m.registros)),
     kpi('buy', 'cart', 'Ventas', m.ventas, `${m.ventasDirectas} directas · ${m.ventasLlamada} tras llamada`),
     kpi('buy', 'euro', 'Facturación', eur(m.ingresos), v.precioPrograma ? `a ${eur(Number(v.precioPrograma))} la venta` : 'Pon el precio en la configuración'),
     kpi('vip', 'coins', 'Inversión Meta', inversion != null ? eur(inversion) : '–', metaNota),
-    kpi('accent', 'target', 'Coste por lead', eur(m.cpl), `Coste por venta ${eur(m.cpa)}`),
+    kpi('accent', 'target', v.subtipo === 'leadmagnet' ? 'Coste por descarga' : v.subtipo === 'llamadas' ? 'Coste por aplicación' : 'Coste por lead', eur(m.cpl), `Coste por venta ${eur(m.cpa)}`),
     kpi('info', 'trend', 'ROAS', m.roas != null ? `${m.roas.toFixed(2)}x` : '–', `Conversión ${pctOf(m.compraCohorte, m.registros)} (registro → venta)`),
   ].join('');
 
   const pasos = [
-    ['Se registraron', m.registros], ['Entraron a ver la VSL', m.vio], ['Vieron ≥25%', m.vio25], ['Vieron ≥50%', m.vio50],
+    [v.subtipo === 'leadmagnet' ? 'Descargaron' : v.subtipo === 'llamadas' ? 'Aplicaron' : 'Se registraron', m.registros], [`Entraron ${conPrep('a', tv.contenido)}`, m.vio], ['Vieron ≥25%', m.vio25], ['Vieron ≥50%', m.vio50],
     ['Vieron ≥90%', m.vio90], ['Agendaron llamada', m.llamada], ['Compraron', m.compraCohorte],
   ];
   $('#vm-embudo').innerHTML = pasos.map(([label, n], i) => `<div class="vm-paso">
@@ -5614,7 +5616,7 @@ function renderVslMetricas() {
 
   const sem = porSemanas(L, r, v);
   const fila = (lbl, x, extra = '') => `<tr class="${extra}"><td>${lbl}</td><td class="num">${x.registros}</td><td class="num">${x.vio} <span class="muted">${pctOf(x.vio, x.registros)}</span></td><td class="num">${x.vio50}</td><td class="num">${x.llamada}</td><td class="num">${x.ventas}</td><td class="num big">${pctOf(x.compraCohorte, x.registros)}</td><td class="num">${eur(x.ingresos)}</td></tr>`;
-  $('#vm-semanas').innerHTML = `<thead><tr><th>Semana</th><th class="num">Registros</th><th class="num">Vieron VSL</th><th class="num">≥50%</th><th class="num">Llamadas</th><th class="num">Ventas</th><th class="num">Conversión</th><th class="num">Facturado</th></tr></thead>
+  $('#vm-semanas').innerHTML = `<thead><tr><th>Semana</th><th class="num">${tv.registro}</th><th class="num">${tv.vio}</th><th class="num">≥50%</th><th class="num">Llamadas</th><th class="num">Ventas</th><th class="num">Conversión</th><th class="num">Facturado</th></tr></thead>
     <tbody>${sem.map((w) => fila(`<strong>${ORD[w.n]} semana</strong> <span class="muted">${nombreMes(w.ym)} · ${Number(w.desde.slice(8))}–${Number(w.hasta.slice(8))}</span>`, w.m)).join('')}
     ${sem.length > 1 ? fila('<strong>Total del periodo</strong>', m, 'vm-total') : ''}</tbody>`;
 
@@ -5647,7 +5649,7 @@ function renderVslMetricas() {
   const reg = L.filter((l) => l.fReg >= r.desde && l.fReg <= r.hasta);
   const og = (o) => { const x = reg.filter((l) => l.s.origen === o); return { n: x.length, vio: x.filter((l) => l.s.vio).length, ll: x.filter((l) => l.s.llamada).length, c: x.filter((l) => l.s.compra).length }; };
   const filaO = (lbl, x) => `<tr><td>${lbl}</td><td class="num">${x.n} <span class="muted">${pctOf(x.n, reg.length)}</span></td><td class="num">${x.vio} <span class="muted">${pctOf(x.vio, x.n)}</span></td><td class="num">${x.ll}</td><td class="num">${x.c}</td><td class="num big">${pctOf(x.c, x.n)}</td></tr>`;
-  $('#vm-origen').innerHTML = `<thead><tr><th>Origen</th><th class="num">Registros</th><th class="num">Vieron VSL</th><th class="num">Llamadas</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
+  $('#vm-origen').innerHTML = `<thead><tr><th>Origen</th><th class="num">${textosVsl(vslCfg()).registro}</th><th class="num">${textosVsl(vslCfg()).vio}</th><th class="num">Llamadas</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
     <tbody>${filaO('📣 Publicidad', og('publi'))}${filaO('🌱 Orgánico', og('organico'))}</tbody>`;
 }
 
@@ -5794,7 +5796,15 @@ const aSegundos = (t) => {
 async function openVslConfig(id = state.embudo) {
   vcId = id;
   const v = vslCfg(id);
-  $('#vsl-config-dialog h2').textContent = `Configuración · ${v.name}`;
+  const tv = textosVsl(v);
+  $('#vsl-config-dialog h2').textContent = `${tv.ico} Configuración · ${v.name}`;
+  // Rótulos según la variante (VSL, lead magnet, webinar evergreen, embudo de llamadas).
+  const rot = (sel, txt) => { const el = $(sel)?.previousElementSibling; if (el) { el.dataset.def ??= el.textContent; el.textContent = v.subtipo && v.subtipo !== 'vsl' ? txt : el.dataset.def; } };
+  rot('#vc-registroTag', v.subtipo === 'leadmagnet' ? 'Descarga del lead magnet' : v.subtipo === 'llamadas' ? 'Aplicación enviada' : `Registro ${conPrep('de', tv.contenido)}`);
+  rot('#vc-vioTag', `Ha abierto / visto ${tv.contenido}`);
+  rot('#vc-compraTag', 'Compra desde este embudo');
+  rot('#vc-vslUrl', tv.pagina);
+  rot('#vc-vslVideoUrl', tv.video);
   for (const k of VC_TEXTOS) $(`#vc-${k}`).value = v[k] ?? '';
   for (const k of ['precioPrograma', 'precioFraccionado']) $(`#vc-${k}`).value = v[k] ? String(v[k]).replace('.', ',') : '';
   $('#vc-boton').value = v.botonSegundos ? mmss(v.botonSegundos) : '0';
@@ -5887,10 +5897,12 @@ $('#vc-borrar').addEventListener('click', async () => {
 // ---------- Embudos: crear («＋») y editar (⚙️) ----------
 const embDlg = $('#embudo-dialog');
 let embEdit = null; // id del embudo que se edita (null = nuevo)
-// Opción elegida: webinar | v2 | v3 | plf (embudo de lanzamientos con ese formato) o vsl.
+// Opción elegida: webinar | v2 | v3 | plf | reto (embudo de lanzamientos con ese formato) o un
+// embudo siempre abierto: vsl | leadmagnet | evergreen | llamadas (motor de la VSL con su variante).
 const embOpcion = () => $('input[name="emb-tipo"]:checked').value;
-const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : embOpcion() === 'vsl' ? 'vsl' : 'lanzamientos');
-const embFormato = () => (embEdit ? $('#emb-formato').value : embOpcion() === 'vsl' ? undefined : embOpcion());
+const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : SUBTIPO_IDS.includes(embOpcion()) ? 'vsl' : 'lanzamientos');
+const embFormato = () => (embEdit ? $('#emb-formato').value : embTipo() === 'vsl' ? undefined : embOpcion() === 'reto' ? $('#emb-reto-dias').value : embOpcion());
+const embSubtipo = () => (embTipo() !== 'vsl' ? undefined : embEdit ? $('#emb-subtipo').value : embOpcion());
 const embPestanas = () => $$('#emb-pestanas input:checked').map((i) => i.value);
 // Clases del prelanzamiento y entrada VIP: solo en los embudos de lanzamientos (sin plantilla elegida).
 function pintarEmbPrelanz() {
@@ -5900,11 +5912,14 @@ const embPrelanz = () => (embTipo() === 'lanzamientos' ? { clases: Number($('#em
 function pintarEmbPestanas(activas) {
   pintarEmbPrelanz();
   const tipo = embTipo();
+  $('#emb-reto-box').hidden = Boolean(embEdit) || embOpcion() !== 'reto';
+  $('#emb-subtipo-box').hidden = !embEdit || tipo !== 'vsl';
+  activas ??= pestanasSugeridas(tipo, embSubtipo());
   $('#emb-pestanas').innerHTML = PESTANAS[tipo].map((p) => `<label class="emb-pest"><input type="checkbox" value="${p.id}" ${!activas || activas.includes(p.id) ? 'checked' : ''}><span><strong>${esc(p.label)}</strong><small>${esc(p.desc)}</small></span></label>`).join('');
   pintarEmbGuia();
 }
 function pintarEmbGuia() {
-  $('#emb-guia').innerHTML = guiaPasosHtml(guiaEmbudo(embTipo(), embPestanas(), embFormato()));
+  $('#emb-guia').innerHTML = guiaPasosHtml(guiaEmbudo(embTipo(), embPestanas(), embFormato(), embSubtipo()));
 }
 // Plantillas de agencia (superadmin): se cargan al abrir «＋ Nuevo embudo».
 let plantillasAg = [];
@@ -5912,7 +5927,7 @@ async function cargarPlantillas() {
   if (!state.superadmin) return;
   try { plantillasAg = (await api('/api/plantillas')).plantillas; } catch { plantillasAg = []; }
   const sel = $('#emb-plantilla');
-  sel.innerHTML = `<option value="">— Sin plantilla: elijo el tipo arriba —</option>${plantillasAg.map((p) => `<option value="${esc(p.id)}">${esc(p.nombre)} · ${p.tipo === 'vsl' ? 'VSL' : esc(FORMATOS[p.formato || 'webinar']?.label || 'Lanzamientos')} (de ${esc(p.origen)})</option>`).join('')}`;
+  sel.innerHTML = `<option value="">— Sin plantilla: elijo el tipo arriba —</option>${plantillasAg.map((p) => `<option value="${esc(p.id)}">${esc(p.nombre)} · ${p.tipo === 'vsl' ? esc(SUBTIPOS_VSL[subtipoValido(p.subtipo)].corto) : esc(FORMATOS[p.formato || 'webinar']?.label || 'Lanzamientos')} (de ${esc(p.origen)})</option>`).join('')}`;
   $('#emb-plantilla-box').hidden = !plantillasAg.length;
   pintarPlantillaElegida();
 }
@@ -5967,7 +5982,8 @@ function abrirEditarEmbudo(id) {
   const e = embudoInfo(id);
   if (!e) return;
   embEdit = id;
-  $('#emb-titulo').textContent = `${e.tipo === 'vsl' ? '🎬' : '🚀'} ${e.nombre}`;
+  $('#emb-titulo').textContent = `${e.tipo === 'vsl' ? textosVsl(state.config.vsls[id]).ico : '🚀'} ${e.nombre}`;
+  $('#emb-subtipo').value = subtipoValido(state.config.vsls[id]?.subtipo);
   $('.emb-tipos').hidden = true;
   $('#emb-formato-box').hidden = e.tipo !== 'lanzamientos';
   $('#emb-formato').value = e.formato || 'webinar';
@@ -5990,6 +6006,8 @@ document.addEventListener('click', (e) => { if (e.target.closest('[data-action="
 $$('input[name="emb-tipo"]').forEach((r) => r.addEventListener('change', () => pintarEmbPestanas(null)));
 $('#emb-pestanas').addEventListener('change', pintarEmbGuia);
 $('#emb-formato').addEventListener('change', pintarEmbGuia);
+$('#emb-reto-dias').addEventListener('change', pintarEmbGuia);
+$('#emb-subtipo').addEventListener('change', pintarEmbGuia);
 
 $('#emb-crear').addEventListener('click', async () => {
   const pestanas = embPestanas();
@@ -6003,7 +6021,7 @@ $('#emb-crear').addEventListener('click', async () => {
       const id = embEdit;
       const nombre = $('#emb-nombre').value.trim() || embudoInfo(id).nombre;
       const lista = embudos().map((e) => (e.id === id ? { ...e, id: e.id, tipo: e.tipo, nombre, ...(e.tipo === 'lanzamientos' ? { formato: embFormato(), ...embPrelanz() } : {}), pestanas: todas ? undefined : pestanas } : e));
-      const vsls = state.config.vsls[id] ? { ...state.config.vsls, [id]: { ...state.config.vsls[id], name: nombre } } : state.config.vsls;
+      const vsls = state.config.vsls[id] ? { ...state.config.vsls, [id]: { ...state.config.vsls[id], name: nombre, subtipo: embSubtipo() } } : state.config.vsls;
       const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, vsls } });
       state.config = config;
       embDlg.close();
@@ -6022,7 +6040,8 @@ $('#emb-crear').addEventListener('click', async () => {
     }
     const tipo = embTipo();
     const formato = embFormato();
-    const nombre = $('#emb-nombre').value.trim() || (tipo === 'vsl' ? 'VSL' : FORMATOS[formato].label);
+    const subtipo = embSubtipo();
+    const nombre = $('#emb-nombre').value.trim() || (tipo === 'vsl' ? SUBTIPOS_VSL[subtipo].corto : FORMATOS[formato].label);
     // id: a partir del nombre, sin chocar con otros embudos ni con códigos de lanzamiento.
     const usados = new Set([...embudos().map((e) => e.id), ...Object.keys(state.config.launches)]);
     const base = slugCliente(nombre) || (tipo === 'vsl' ? 'vsl' : 'lanz');
@@ -6031,7 +6050,7 @@ $('#emb-crear').addEventListener('click', async () => {
     const body = {
       ...state.config,
       embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz() } : {}), ...(todas ? {} : { pestanas }) }],
-      vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre } } : state.config.vsls,
+      vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre, subtipo } } : state.config.vsls,
     };
     const { config } = await api('/api/config', { method: 'POST', body });
     state.config = config;

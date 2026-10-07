@@ -164,3 +164,30 @@ test('prelanzamiento: el embudo guarda clases y VIP, y la página no ofrece VIP'
   assert.equal(page.links.vip, '');
   assert.equal(page.videos.clase3.url, 'https://vimeo.com/3');
 });
+
+test('reto de varios días: Día 1…Día 5, la venta el último día', async () => {
+  const reto = {
+    formato: 'reto5', fechaDirecto: '2026-11-02', horaDirecto: '19:00',
+    videos: [3, 4, 5, 6].map((d) => ({ fecha: `2026-11-0${d}`, hora: '19:00', replayUrl: `https://ejemplo.com/dia${d - 1}` })),
+    cierreCarrito: '2026-11-10T23:59', nClases: 1,
+  };
+  assert.equal(nVideos('reto5'), 5);
+  assert.deepEqual(videosDe(reto).map((v) => v.nombre), ['Día 1', 'Día 2', 'Día 3', 'Día 4', 'Día 5']);
+  assert.equal(videosDe(reto)[4].venta, true);
+  assert.ok(isValidSignalTag('nov26_replay5_90') && isValidSignalTag('nov26_directo5_asistio'));
+  const s = signalsFor(['x_replay_90', 'x_replay2_90', 'x_replay3_90', 'x_replay4_90'], 'x', reto, {});
+  assert.equal(nextStepFor(s), 'grabacion'); // le falta el día 5
+  // Fase del día 5 en la página
+  const ids = phasesFor(reto).map((p) => p.id);
+  assert.ok(ids.includes('dia_directo5') && ids.includes('en_directo5'));
+  assert.equal(phaseAt(reto, madridToEpoch('2026-11-06T20:00')).id, 'en_directo5');
+  // Se guarda con sus 4 vídeos de más
+  const { sanitizeConfig } = await import('../lib/config-store.js');
+  const { runCliente } = await import('../lib/cliente.js');
+  const out = await runCliente({ id: 'principal', principal: true }, () => sanitizeConfig({
+    embudos: [{ id: 'reto', tipo: 'lanzamientos', nombre: 'Reto', formato: 'reto5' }],
+    launches: { r1: { ...reto, name: 'Reto 1', registroTag: 'r', embudo: 'reto' } },
+  }));
+  assert.equal(out.launches.r1.videos.length, 4);
+  assert.equal(out.launches.r1.videos[3].replayUrl, 'https://ejemplo.com/dia5');
+});
