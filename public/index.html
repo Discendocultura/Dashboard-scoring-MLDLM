@@ -1099,7 +1099,6 @@
         <div class="tabs" role="tablist">
           <button type="button" class="tab active" data-tab="equipo" data-tab-icon="users">Miembros del equipo</button>
           <button type="button" class="tab" data-tab="roles" data-tab-icon="shield">Roles y permisos</button>
-          <button type="button" class="tab superadmin-only" data-tab="clientes" data-tab-icon="compass">Clientes</button>
           <button type="button" class="tab" data-tab="marca" data-tab-icon="sparkle">Marca</button>
           <button type="button" class="tab" data-tab="historial" data-tab-icon="history">Historial</button>
           <button type="button" class="tab" data-tab="seguridad" data-tab-icon="lock">Seguridad</button>
@@ -1121,23 +1120,6 @@
         </section>
         <section class="tab-panel" data-panel="seguridad" hidden>
           <div id="seg-body"></div>
-        </section>
-        <section class="tab-panel" data-panel="clientes" hidden>
-          <p class="muted">Cada cliente tiene su propio dashboard conectado a su GHL: sus embudos, tareas, roles y equipo. Solo el superadmin ve esta pestaña y entra en todos.</p>
-          <div id="clientes-list"></div>
-          <h3 class="cfg-h3">Añadir cliente</h3>
-          <div class="grid2 cliente-add">
-            <label class="field"><span>Nombre</span><input id="cl-nombre" maxlength="60" placeholder="Clínica Sol"></label>
-            <label class="field"><span>Código <small>(minúsculas y guiones; no se puede cambiar)</small></span><input id="cl-id" maxlength="24" placeholder="clinica-sol"></label>
-            <label class="field"><span>ID de la subcuenta de GHL <small>(Ajustes → Información del negocio → Location ID)</small></span><input id="cl-location" maxlength="40"></label>
-            <label class="field"><span>Cuenta publicitaria de Meta <small>(opcional, solo números)</small></span><input id="cl-meta" maxlength="30" inputmode="numeric"></label>
-            <label class="field narrow"><span>Color</span><input id="cl-color" type="color" value="#b4552d"></label>
-          </div>
-          <div class="row"><button type="button" class="btn primary" id="btn-cl-crear">Añadir cliente</button><span id="cl-status" class="muted"></span></div>
-          <details class="emb-guia cl-guia-box" id="cl-guia-box">
-            <summary>📋 Guía: cómo añadir y conectar un cliente (GHL + Cloudflare)</summary>
-            <div id="cl-guia"></div>
-          </details>
         </section>
         <section class="tab-panel" data-panel="equipo">
           <p class="muted">Personas con acceso al dashboard. Al crear una, se crea su contacto en GHL con la etiqueta <code>equipo-dashboard</code> y le llega un email con el enlace, su email y una contraseña. Los cambios se aplican al momento.</p>
@@ -1176,10 +1158,15 @@
   <dialog id="agencia-dialog" class="dialog dialog-xl">
     <form method="dialog">
       <header class="dialog-head">
-        <h2>Agencia · todos los clientes</h2>
+        <h2>Agencia</h2>
         <button class="btn ghost" value="cancel" formnovalidate type="submit" aria-label="Cerrar">✕</button>
       </header>
       <div class="dialog-body">
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" data-tab="ag-panel" data-tab-icon="trend">Panel de clientes</button>
+          <button type="button" class="tab" data-tab="clientes" data-tab-icon="compass">Clientes</button>
+        </div>
+        <section class="tab-panel" data-panel="ag-panel">
         <div class="row ag-bar">
           <span class="muted" id="ag-info"></span>
           <span class="spacer"></span>
@@ -1192,6 +1179,24 @@
           <p>Cada mañana, el auditor revisa todos los clientes y os manda a los superadmin un email con los críticos, las tareas vencidas y los próximos hitos de cada uno. Para activarlo, usa la misma clave que el resumen diario (<code>DIGEST_KEY</code> en Cloudflare) y crea en <a href="https://cron-job.org" target="_blank" rel="noopener">cron-job.org</a> una tarea que abra a las 8:00 (hora de Madrid):</p>
           <pre id="ag-cron"></pre>
         </details>
+        </section>
+        <section class="tab-panel" data-panel="clientes" hidden>
+          <p class="muted">Cada cliente tiene su propio dashboard conectado a su GHL: sus embudos, tareas, roles y equipo. Solo el superadmin ve esta pestaña y entra en todos.</p>
+          <div id="clientes-list"></div>
+          <h3 class="cfg-h3">Añadir cliente</h3>
+          <div class="grid2 cliente-add">
+            <label class="field"><span>Nombre</span><input id="cl-nombre" maxlength="60" placeholder="Clínica Sol"></label>
+            <label class="field"><span>Código <small>(minúsculas y guiones; no se puede cambiar)</small></span><input id="cl-id" maxlength="24" placeholder="clinica-sol"></label>
+            <label class="field"><span>ID de la subcuenta de GHL <small>(Ajustes → Información del negocio → Location ID)</small></span><input id="cl-location" maxlength="40"></label>
+            <label class="field"><span>Cuenta publicitaria de Meta <small>(opcional, solo números)</small></span><input id="cl-meta" maxlength="30" inputmode="numeric"></label>
+            <label class="field narrow"><span>Color</span><input id="cl-color" type="color" value="#b4552d"></label>
+          </div>
+          <div class="row"><button type="button" class="btn primary" id="btn-cl-crear">Añadir cliente</button><span id="cl-status" class="muted"></span></div>
+          <details class="emb-guia cl-guia-box" id="cl-guia-box">
+            <summary>📋 Guía: cómo añadir y conectar un cliente (GHL + Cloudflare)</summary>
+            <div id="cl-guia"></div>
+          </details>
+        </section>
       </div>
     </form>
   </dialog>

@@ -3439,6 +3439,7 @@ async function loadAgencia(fresh = false) {
   } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
 $('#btn-agencia').addEventListener('click', () => {
+  $('#agencia-dialog .tab[data-tab="ag-panel"]').click();
   $('#ag-cron').textContent = `${location.origin}/api/agencia?key=<DIGEST_KEY>`;
   $('#agencia-dialog').showModal();
   loadAgencia();
