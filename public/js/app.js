@@ -23,7 +23,6 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const PAGE_SIZE = 100;
 
 const state = {
-  ia: { activo: false, chat: [] }, // asistente de IA
   vsl: { leads: null, raw: null, meta: null, ganLevel: 'ad', loadToken: 0, mostrar: 100 },
   role: null,
   permisos: [],
@@ -326,7 +325,6 @@ async function start() {
   pintarFotoCuenta();
   pintarAviso2fa();
   pintarPlantillas();
-  iniciarAsistente();
   $('#login').hidden = true;
   $('#app').hidden = false;
   fillRolSelects();
@@ -1616,7 +1614,7 @@ function rowHtml(l) {
   const waBtn = l.step === 'comprado'
     ? '<span class="chip on">Ya compró ✓</span>'
     : l.phoneWa
-    ? `<button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}" title="${esc(msgPreview)}">${l.s.wa_enviado ? 'Enviado ✓ · reenviar' : 'Enviar WhatsApp'}</button>${state.ia?.activo ? ` <button type="button" class="btn wa-ia" data-wa-ia="${esc(l.id)}" title="Borrador personalizado con IA según lo que ha hecho">✨</button>` : ''}`
+    ? `<button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}" title="${esc(msgPreview)}">${l.s.wa_enviado ? 'Enviado ✓ · reenviar' : 'Enviar WhatsApp'}</button>`
     : '<span class="muted">Sin teléfono</span>';
   return `<tr>
     <td><div class="lead-name">${esc(l.name || '(sin nombre)')} ${avatarChip(l)} ${faseChip(l.id)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
@@ -1704,7 +1702,7 @@ function hoyItem(l) {
       <div class="lead-meta">${esc(signals || 'Sin actividad')} · ${NEXT_STEPS[l.step]}</div>
     </div>
     <div class="hoy-actions">
-      <button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}">${l.s.wa_enviado ? 'Reenviar' : 'WhatsApp'}</button>${state.ia.activo ? `<button type="button" class="btn wa-ia" data-wa-ia="${esc(l.id)}" title="Borrador personalizado con IA según lo que ha hecho">✨</button>` : ''}
+      <button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}">${l.s.wa_enviado ? 'Reenviar' : 'WhatsApp'}</button>
       ${outcomeSelect(l)}
     </div>
   </li>`;
@@ -6170,136 +6168,4 @@ $('#aud-lista').addEventListener('click', async (e) => {
 start().catch((e) => {
   if (e.message !== 'Sesión caducada') notice(e.message, true);
   showLogin();
-});
-
-
-// ---------- Asistente de IA ----------
-// Preguntas sobre las cifras, resumen del lanzamiento y borradores de WhatsApp por lead.
-// Al servidor (y de ahí a Claude) solo van cifras agregadas; en los borradores, nombre de pila y comportamiento.
-async function iniciarAsistente() {
-  const puede = tiene('asistente');
-  $('#btn-asistente').hidden = !puede;
-  state.ia.chat = [];
-  $('#ia-chat').innerHTML = '';
-  try { state.ia.activo = (await api('/api/asistente')).activo; } catch { state.ia.activo = false; }
-  if (!$('#view-hoy').hidden) render();
-}
-// Markdown sencillo de las respuestas: párrafos, listas con guiones y **negrita**.
-function iaHtml(texto) {
-  const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  return String(texto).trim().split(/\n{2,}/).map((bloque) => {
-    const lineas = bloque.split('\n').filter((x) => x.trim());
-    if (lineas.length && lineas.every((x) => /^\s*([-*•]|\d+[.)])\s+/.test(x))) return `<ul>${lineas.map((x) => `<li>${inline(x.replace(/^\s*([-*•]|\d+[.)])\s+/, ''))}</li>`).join('')}</ul>`;
-    return `<p>${lineas.map(inline).join('<br>')}</p>`;
-  }).join('');
-}
-function pintarIa() {
-  $('#ia-off').hidden = state.ia.activo;
-  $('#ia-chat').innerHTML = state.ia.chat.map((x) => `<div class="ia-msg ia-yo">${esc(x.pregunta)}</div>${x.cargando ? '<div class="ia-msg ia-ia ia-cargando">Pensando… (puede tardar unos segundos)</div>' : `<div class="ia-msg ia-ia ${x.error ? 'ia-error' : ''}">${iaHtml(x.respuesta)}</div>`}`).join('');
-  const launch = !enVsl() && state.config.launches[state.launchCode];
-  const sug = [
-    ...(launch ? [['resumen', `📝 Resumen de «${launch.name}»`]] : []),
-    ['p', '¿Cómo va este lanzamiento frente al anterior?'],
-    ['p', '¿Qué es lo que más está fallando ahora mismo y qué harías?'],
-    ['p', '¿Cuánto debería invertir para llegar al objetivo de ventas?'],
-    ['p', '¿Qué embudo me está dando mejor retorno?'],
-  ];
-  $('#ia-sugerencias').innerHTML = state.ia.chat.length > 1 ? '' : sug.map(([t, txt]) => `<button type="button" class="btn ghost" data-ia-sug="${t}">${esc(txt)}</button>`).join('');
-  const box = $('#ia-chat');
-  box.scrollTop = box.scrollHeight;
-}
-async function iaPreguntar(pregunta, { resumen = false } = {}) {
-  if (!state.ia.activo || state.ia.chat.some((x) => x.cargando)) return;
-  const anteriores = state.ia.chat.filter((x) => !x.error && !x.cargando).map(({ pregunta: p, respuesta: r }) => ({ pregunta: p, respuesta: r }));
-  const item = { pregunta, cargando: true };
-  state.ia.chat.push(item);
-  pintarIa();
-  try {
-    const d = resumen
-      ? await api('/api/asistente', { method: 'POST', body: { op: 'resumen', l: state.launchCode } })
-      : await api('/api/asistente', { method: 'POST', body: { op: 'preguntar', pregunta, anteriores } });
-    item.respuesta = d.respuesta;
-  } catch (e) {
-    item.respuesta = e.message;
-    item.error = true;
-  }
-  item.cargando = false;
-  pintarIa();
-}
-$('#btn-asistente').addEventListener('click', () => { pintarIa(); $('#ia-dialog').showModal(); $('#ia-pregunta').focus(); });
-$('#ia-enviar').addEventListener('click', () => {
-  const t = $('#ia-pregunta').value.trim();
-  if (!t) return;
-  $('#ia-pregunta').value = '';
-  iaPreguntar(t);
-});
-$('#ia-pregunta').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#ia-enviar').click(); } });
-$('#ia-sugerencias').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-ia-sug]');
-  if (!b) return;
-  if (b.dataset.iaSug === 'resumen') iaPreguntar(`Resumen de «${state.config.launches[state.launchCode]?.name}»`, { resumen: true });
-  else iaPreguntar(b.textContent);
-});
-
-// Lo que ha hecho un lead del lanzamiento, en frases cortas (sin datos de contacto).
-function comportamientoLead(l, launch) {
-  const s = l.s;
-  const out = clasesDe(launch).map((c, i) => { const p = watched(s, c); return `Clase ${i + 1}: ${p >= 90 ? 'la vio entera' : p ? `vio el ${p}%` : 'no la ha visto'}`; });
-  if (conVip(launch)) out.push(s.vip ? 'Compró la entrada VIP' : s.vip_anterior ? 'Fue VIP en una edición anterior' : 'No tiene la entrada VIP');
-  for (const v of videosDe(launch)) {
-    const p = watched(s, v.replay);
-    const live = s[`${v.directo}_final`] ? 'estuvo en directo hasta el final' : s[`${v.directo}_60`] ? 'estuvo más de una hora en directo' : s[`${v.directo}_asistio`] ? 'entró al directo' : s[`${v.directo}_click`] ? 'hizo clic para entrar al directo' : '';
-    out.push(`${v.nombre}: ${[live, p ? `vio el ${p}% de la grabación` : ''].filter(Boolean).join(' y ') || 'no lo ha visto'}`);
-  }
-  if (s.clienta_anterior) out.push('Es clienta de una edición anterior');
-  return out;
-}
-let iaWaLead = null;
-async function iaBorrador() {
-  const l = iaWaLead;
-  const launch = state.config.launches[state.launchCode];
-  $('#ia-wa-estado').textContent = 'Escribiendo el borrador…';
-  $('#ia-wa-texto').value = '';
-  $('#ia-wa-otro').disabled = true;
-  try {
-    const fase = phaseAt(launch, Date.now());
-    const reg = l.dateAdded ? Math.round((Date.now() - Date.parse(l.dateAdded)) / 86_400_000) : null;
-    const { texto } = await api('/api/asistente', { method: 'POST', body: {
-      op: 'whatsapp', plantilla: state.config.templates[l.step] || '', fase: fase?.label || '',
-      perfil: { nombre: l.firstName, estado: l.estado?.label, siguientePaso: NEXT_STEPS[l.step], comportamiento: comportamientoLead(l, launch), diasDesdeRegistro: reg, resultadoAnterior: OUTCOMES.find((o) => o.id === l.outcome)?.label || '', yaContactada: Boolean(l.s.wa_enviado) },
-    } });
-    $('#ia-wa-texto').value = texto;
-    $('#ia-wa-estado').textContent = 'Las variables entre llaves ({link_…}) se cambian por sus enlaces al abrir WhatsApp.';
-  } catch (e) {
-    $('#ia-wa-estado').textContent = e.message;
-    $('#ia-wa-texto').value = messageFor(l);
-  } finally {
-    $('#ia-wa-otro').disabled = false;
-  }
-}
-document.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-wa-ia]');
-  if (!b) return;
-  iaWaLead = state.leads.find((l) => l.id === b.dataset.waIa);
-  if (!iaWaLead) return;
-  $('#ia-wa-titulo').textContent = `✨ WhatsApp para ${iaWaLead.firstName || iaWaLead.name || 'esta persona'}`;
-  $('#ia-wa-dialog').showModal();
-  iaBorrador();
-});
-$('#ia-wa-otro').addEventListener('click', iaBorrador);
-$('#ia-wa-enviar').addEventListener('click', async () => {
-  const l = iaWaLead;
-  if (!l) return;
-  const launch = state.config.launches[state.launchCode];
-  const texto = buildMessage($('#ia-wa-texto').value, { nombre: l.firstName, contactId: l.id, launch, producto: nombreProducto(state.config) });
-  window.open(`https://wa.me/${l.phoneWa}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener');
-  $('#ia-wa-dialog').close();
-  if (l.s.wa_enviado) return;
-  l.s.wa_enviado = true;
-  render();
-  try {
-    await api('/api/apply-tags', { method: 'POST', body: { items: [{ id: l.id, tags: [tagFor(state.launchCode, 'wa_enviado')] }] } });
-  } catch (ex) {
-    notice(`No se pudo marcar como contactado en GHL: ${ex.message}`, true);
-  }
 });

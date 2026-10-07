@@ -116,7 +116,7 @@ Funciones avanzadas* y activa "Server-to-Server OAuth app".
 2. *Workers & Pages → Create → Pages → Connect to Git* y elige este repositorio.
 3. Configuración de la compilación:
    - **Framework preset:** None
-   - **Build command:** `npm ci` (instala la librería de Anthropic que usa el asistente de IA)
+   - **Build command:** déjalo vacío
    - **Build output directory:** `public`
 4. En *Settings → Variables and Secrets*, añade como **Secret** (en Production) las variables de `.env.example`:
    `GHL_TOKEN`, `GHL_LOCATION_ID`, `ADMIN_PASSWORD`, `SETTER_PASSWORD`, `SESSION_SECRET`
@@ -259,16 +259,6 @@ Arriba de la calculadora: **ventas previstas al final** (con rango bajo–alto),
 
 ## Comparativas y alertas (pestaña Comparar)
 Además de comparar lanzamientos entre sí: **esta edición frente a la anterior y a la media de las anteriores** del mismo embudo (coste por lead, VIP, clase 1, conversión, coste por venta, ticket, ROAS…), **mes a mes** de una VSL (últimos 6 meses) y **VSL frente a lanzamiento** (ratios). Con alertas en claro cuando algo se separa más de un 20 %: «El coste por lead va un 40 % por encima de la edición anterior». También está en las VSL.
-
-## Asistente de IA
-Botón **✨ Asistente** arriba (permiso «Asistente de IA», que reciben de entrada los roles que ven Métricas). Usa Claude (Anthropic):
-- **Preguntas en lenguaje natural** sobre las cifras: «¿cómo va este lanzamiento frente al anterior?», «¿qué embudo me da mejor retorno?», «¿cuánto invertir para llegar a 50 ventas?». Conoce el último lanzamiento de cada embudo (objetivos, embudo de conversión, inversión, ROAS, próximos hitos), las VSL de los últimos 30 días y hasta 5 lanzamientos anteriores de cada embudo.
-- **Resumen del lanzamiento** elegido: cómo va (o cómo terminó) frente a objetivos y ediciones anteriores, y las 3 acciones más útiles.
-- **Borrador de WhatsApp por lead** (botón ✨ junto a «WhatsApp» en *Setteo hoy*, para quien hace setteo): parte del mensaje habitual de su paso y lo adapta a lo que ha hecho esa persona. Se revisa y edita antes de abrir WhatsApp; los enlaces (`{link_…}`) se rellenan solos y se marca como contactada igual que siempre.
-
-**Privacidad:** a Claude solo le llegan cifras agregadas. En los borradores, solo el nombre de pila y el comportamiento en el embudo (clases vistas, VIP, directo…): nunca apellidos, emails, teléfonos ni respuestas de la encuesta (pueden ser datos de salud). Aun así, los datos salen hacia Anthropic: conviene mencionarlo en la política de privacidad del cliente.
-
-**Activarlo:** crea una clave en [console.anthropic.com](https://console.anthropic.com) (*API keys*) y añádela en Cloudflare (*Settings → Variables and Secrets*) como **Secret** `ANTHROPIC_API_KEY`; vuelve a desplegar. Sin ella el botón explica cómo activarlo y no salen los ✨. Cada pregunta cuesta del orden de céntimos (se cobra en la cuenta de Anthropic; pon un límite de gasto allí). En local, con `GHL_MOCK=1` y sin clave, responde un texto de prueba. Si un despliegue falla con «Could not resolve "@anthropic-ai/sdk"», revisa que el *Build command* sea `npm ci`.
 
 ## Rendimiento del equipo
 Pestaña **Rendimiento** (permiso «Rendimiento del equipo»), en lanzamientos y VSL. Por persona: WhatsApps enviados, leads contactados, resultados anotados, llamadas agendadas / shows / no-shows / cierres (con % de show y de cierre), **ventas e importe de los leads que contactó primero** (útil para comisiones), tiempo de respuesta mediano desde el registro y % contactado en menos de 24 h. Arriba, los totales y cuántos leads siguen sin contactar. Cuenta desde que existe el registro de actividad (los WhatsApps y resultados anteriores a esta versión no tienen autor).

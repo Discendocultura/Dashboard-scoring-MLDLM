@@ -15,14 +15,13 @@ export const PERMISOS = [
   { id: 'zoom', label: 'Sincronizar Zoom', grupo: 'Acciones' },
   { id: 'tareas_gestion', label: 'Crear, editar y borrar tareas y eventos', grupo: 'Acciones' },
   { id: 'mensajes', label: 'Editar mensajes de WhatsApp', grupo: 'Acciones' },
-  { id: 'asistente', label: 'Asistente de IA (preguntas y resúmenes con las cifras)', grupo: 'Acciones' },
 ];
 export const PERMISO_IDS = PERMISOS.map((p) => p.id);
 // Pestañas que necesitan los datos de los leads.
 export const PERMISOS_DATOS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar'];
 
 export const ROLES_POR_DEFECTO = [
-  { id: 'tecnico', label: 'Técnico', permisos: ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'config', 'zoom', 'mensajes', 'asistente'] },
+  { id: 'tecnico', label: 'Técnico', permisos: ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'config', 'zoom', 'mensajes'] },
   { id: 'setter', label: 'Setter', permisos: ['hoy', 'llamadas', 'leads', 'mensajes'] },
   { id: 'equipo', label: 'Equipo', permisos: [] },
   // El propio cliente: solo ve su resumen (registros, ventas, facturación, ROAS, hitos), sin tocar nada.
@@ -34,7 +33,6 @@ export const ROL_CLIENTE = 'cliente';
 // (luego se pueden quitar en la tabla). Cada rol guarda en `vistos` los permisos que ya conocía.
 export const PERMISOS_NUEVOS = {
   mensajes: (r) => (r.permisos || []).includes('hoy'), // quien hace el setteo edita los mensajes
-  asistente: (r) => (r.permisos || []).includes('metricas'), // quien ve las métricas puede preguntarle a la IA
 };
 export function completarPermisosNuevos(list) {
   return (Array.isArray(list) ? list : []).map((r) => {
