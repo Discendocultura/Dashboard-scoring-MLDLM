@@ -5,6 +5,7 @@
 import { watched } from './scoring.js';
 import { videosDe, nClases, conVip } from './videos.js';
 import { SUBTIPOS_VSL, subtipoValido, conPrep } from './embudos-def.js';
+import { esSuscripcion, pendientesPago, enlacePago } from './pago.js';
 
 const DAY = 86_400_000;
 const dia = (v) => String(v || '').slice(0, 10);
@@ -107,13 +108,17 @@ export function auditarLanzamiento(p) {
     ...(nClases(l) >= 3 ? [['clase3Url', 'cfg-clase3-url', 'el vídeo de la clase 3', 'clase3']] : []),
     ['zoomMeetingId', 'cfg-zoom-id', 'el ID de la reunión de Zoom', 'directo'],
     ['raicesUrl', 'cfg-raices', 'la página de venta', 'carrito'],
-    ['ventaUrl', 'cfg-venta', 'el enlace de pago único', 'carrito'],
-    ['precioPrograma', 'cfg-precio-programa', 'el precio del programa', 'carrito'],
+    // Suscripción: los precios y enlaces van por plan (se revisan abajo).
+    ...(esSuscripcion(l) ? [] : [['ventaUrl', 'cfg-venta', 'el enlace de pago único', 'carrito'], ['precioPrograma', 'cfg-precio-programa', 'el precio del programa', 'carrito']]),
     ['replayUrl', 'cfg-replay', 'la página de la grabación', 'replay'],
     ['replayVideoUrl', 'cfg-replay-video', 'el vídeo de la grabación', 'replay'],
   ];
   if (conVip(l) && l.vipTag) enlaces.push(['vipUrl', 'cfg-vip-url', 'el enlace de pago de la entrada VIP', 'captacion'], ['precioVip', 'cfg-precio-vip', 'el precio de la VIP', 'captacion']);
   if (on('llamadas')) enlaces.push(['llamadaUrl', 'cfg-llamada', 'el enlace para reservar llamada', 'directo']);
+  if (esSuscripcion(l)) {
+    for (const t of pendientesPago(l)) add(urgencia(n('carrito')), 'Precios', t, antesDe('carrito'), campo('cfg-precio-vip'));
+    if (!enlacePago(l, '')) add(urgencia(n('carrito')), 'Enlaces y páginas', 'Falta el enlace de pago de la suscripción', antesDe('carrito'), campo('cfg-raices'));
+  }
   for (const [k, id, t, hito] of enlaces) {
     if (l[k]) continue;
     const yaPaso = H[hito].d && H[hito].d < hoy && hito !== 'captacion';
@@ -209,7 +214,8 @@ export function auditarVsl(p) {
   if (!v.vslUrl && sub !== 'llamadas') add('importante', 'Enlaces', `Falta la URL de la ${t.pagina.charAt(0).toLowerCase()}${t.pagina.slice(1)}`, `Los mensajes de WhatsApp «no ha visto ${t.contenido}» no tendrán enlace.`, tab('vembudo'));
   if (on('llamadas') && sub !== 'llamadas' && !v.llamadaUrl) add('importante', 'Llamadas', 'Falta el enlace para reservar llamada', 'Sin él no hay botón de llamada ni pestaña de Llamadas.', tab('vembudo'));
   if (on('llamadas') && p.llamadas?.configurado === false) add('importante', 'Llamadas', 'Las llamadas no están bien conectadas', p.llamadas.motivo || '', tab('vembudo'));
-  if (!v.precioPrograma) add('importante', 'Precios', 'Falta el precio', 'La facturación y el ROAS saldrán a 0.', tab('vembudo'));
+  if (esSuscripcion(v)) for (const t of pendientesPago(v)) add('importante', 'Precios', t, 'La facturación, el MRR y el ROAS saldrán mal.', tab('vembudo'));
+  else if (!v.precioPrograma) add('importante', 'Precios', 'Falta el precio', 'La facturación y el ROAS saldrán a 0.', tab('vembudo'));
   if (!v.compraDateField) add('aviso', 'Fechas', 'Sin campo de fecha de compra', 'Las ventas se fechan con la fecha de alta del contacto.', tab('vembudo'));
   if (!v.registroDateField) add('aviso', 'Fechas', 'Sin campo de fecha de registro', 'Quien ya existía en GHL cuenta con su fecha de alta antigua.', tab('vembudo'));
   if (p.meta?.configured && !v.metaFiltro) add('aviso', 'Integraciones', 'Sin filtro de campañas de Meta', 'Se suma la inversión de toda la cuenta.', tab('vembudo'));

@@ -2,6 +2,7 @@
 // Señales de cada lead, rangos de fechas (presets, mes y semanas del mes) y métricas.
 // Lo usan el navegador y los tests.
 import { dayInMadrid, waPhone } from './scoring.js';
+import { conFraccionado, esSuscripcion, importeVenta, planDeTags, resumenPlanes } from './pago.js';
 
 export const VSL_PCTS = [25, 50, 75, 90];
 // Etiqueta que pone vsl.js al ver el X% del vídeo (como en los lanzamientos: <código>_<vídeo>_<pct>).
@@ -56,8 +57,9 @@ export function enrichVsl(c, vsl, { pais = '34', citas = null, code = vsl.id || 
     vio: has(vsl.vioTag) || pct > 0,
     pct,
     compra: has(vsl.compraTag),
-    fraccionado: has(vsl.fraccionadoTag),
-    unico: has(vsl.unicoTag),
+    fraccionado: has(vsl.fraccionadoTag) && conFraccionado(vsl),
+    unico: has(vsl.unicoTag) && !esSuscripcion(vsl),
+    plan: has(vsl.compraTag) ? planDeTags(tags, vsl) : '',
     llamada: has(vsl.llamadaTag) || misCitas.length > 0,
     vip: false, // compatibilidad con el ranking de anuncios de los lanzamientos
     origen: has(vsl.publiTag) ? 'publi' : has(vsl.organicoTag) ? 'organico' : pagado ? 'publi' : 'organico',
@@ -80,7 +82,7 @@ export const ESTADOS_VSL = [
   { id: 'compro', label: 'Ha comprado', icon: '🎉', plantilla: '' },
 ];
 
-export const importeVsl = (l, vsl) => (l.s.fraccionado && Number(vsl.precioFraccionado) ? Number(vsl.precioFraccionado) : Number(vsl.precioPrograma) || 0);
+export const importeVsl = (l, vsl) => importeVenta(l.s, vsl, { unico: vsl.precioPrograma, fraccionado: vsl.precioFraccionado });
 
 // Métricas de un rango. Registros = altas en el rango; el embudo (vio, llamada, compra) es de esas altas.
 // Ventas = compras con fecha en el rango (aunque se registraran antes).
@@ -110,6 +112,7 @@ export function computeVsl(leads, rango, vsl, { inversion = null } = {}) {
   m.cpl = inversion != null && m.registros ? inversion / m.registros : null;
   m.cpa = inversion != null && m.ventas ? inversion / m.ventas : null;
   m.roas = inversion ? ingresos / inversion : null;
+  m.planes = esSuscripcion(vsl) ? resumenPlanes(ventas, vsl, (l) => l.s.plan) : null;
   return m;
 }
 

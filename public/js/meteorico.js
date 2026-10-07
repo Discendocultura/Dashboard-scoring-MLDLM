@@ -4,6 +4,7 @@
 // miden las ventas (etiqueta de compra), la facturación, las visitas a la página de la oferta y los tiempos.
 // Lo usan el navegador, el servidor y la página de la oferta.
 import { madridToEpoch } from './page.js';
+import { conFraccionado, esSuscripcion, importeVenta, planDeTags, resumenPlanes, pendientesPago, enlacePago } from './pago.js';
 
 const DAY = 86_400_000;
 export const FASES_METEORICO = {
@@ -59,8 +60,9 @@ export function esVentaMeteorico(c, m, previo = null) {
 // `visitas`: { total, porDia } de la página de la oferta; `inversion`: Meta o manual.
 export function metricasMeteorico(contactos, m, { previo = null, visitas = null, inversion = null } = {}) {
   const ventas = contactos.filter((c) => esVentaMeteorico(c, m, previo));
-  const fraccionado = (c) => tiene(c, m.fraccionadoTag);
-  const importe = (c) => (fraccionado(c) && num(m.precioFraccionado) ? num(m.precioFraccionado) : num(m.precio));
+  const fraccionado = (c) => conFraccionado(m) && tiene(c, m.fraccionadoTag);
+  const plan = (c) => planDeTags(c.tags, m);
+  const importe = (c) => importeVenta({ fraccionado: fraccionado(c), plan: plan(c) }, m, { unico: m.precio, fraccionado: m.precioFraccionado });
   const facturacion = ventas.reduce((t, c) => t + importe(c), 0);
   const inv = inversion != null ? inversion : num(m.inversion) || null;
   const porDia = new Map();
@@ -87,6 +89,7 @@ export function metricasMeteorico(contactos, m, { previo = null, visitas = null,
     roas: inv ? facturacion / inv : null,
     ventasPorDia: [...porDia.entries()].sort((a, b) => a[0].localeCompare(b[0])),
     objetivos,
+    planes: esSuscripcion(m) ? resumenPlanes(ventas, m, plan) : null,
   };
 }
 
@@ -106,8 +109,9 @@ export function pendientesMeteorico(m) {
   else if (tiemposMeteorico(m).cierre <= tiemposMeteorico(m).apertura) out.push('El cierre es anterior a la apertura.');
   if (!m.calentamiento) out.push('Pon el día en que empieza el calentamiento.');
   if (!m.compraTag) out.push('Elige la etiqueta de compra (la pone el workflow del pago de esta oferta).');
-  if (!m.precio) out.push('Pon el precio de la oferta (para la facturación y el ROAS).');
-  if (!m.pagoUrl) out.push('Pon el enlace de pago de la oferta.');
+  if (esSuscripcion(m)) out.push(...pendientesPago(m));
+  else if (!m.precio) out.push('Pon el precio de la oferta (para la facturación y el ROAS).');
+  if (!enlacePago(m, m.pagoUrl)) out.push('Pon el enlace de pago de la oferta.');
   if (!m.ofertaUrl) out.push('Pon la URL de la página de la oferta (y su código de la cuenta atrás).');
   if (m.compraTag && !m.compraDateField) out.push('Sin campo de fecha de compra: antes de abrir, haz la «foto» de quién ya tenía la etiqueta de compra.');
   return out;

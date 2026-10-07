@@ -54,6 +54,15 @@
       }
     } catch (err) { /* sin almacenamiento: no se cuenta */ }
     var t = e.textos || {};
+    // Suscripción: un botón por plan («Mensual · 29 €/mes»); si no, el botón de la oferta.
+    function botones() {
+      if (e.planes && e.planes.length > 1) {
+        return '<div>' + e.planes.map(function (p) {
+          return '<a href="' + esc(p.url) + '" style="margin:10px 5px 0">' + esc(p.label) + (p.precio ? ' · ' + esc(String(p.precio).replace('.', ',')) + ' €/' + esc(p.periodo) : '') + '</a>';
+        }).join('') + '</div>';
+      }
+      return e.pagoUrl ? '<a href="' + esc(e.pagoUrl) + '">' + esc(t.boton || 'Quiero la oferta') + '</a>' : '';
+    }
     function pintar() {
       var ahora = Date.now() - desfase;
       var fase = e.cierre && ahora >= e.cierre ? 'cerrada' : e.apertura && ahora >= e.apertura ? 'abierta' : 'calentamiento';
@@ -63,7 +72,7 @@
         html = '<p>' + esc(t.cerrada || 'La oferta ha terminado. ¡Gracias!') + '</p>';
       } else if (fase === 'abierta') {
         html = '<p>' + esc(t.abierta || '⚡ La oferta está abierta. Se cierra en') + '</p><div class="lsd-of-t">' + cuenta(e.cierre - ahora) + '</div>'
-          + (e.pagoUrl ? '<a href="' + esc(e.pagoUrl) + '">' + esc(t.boton || 'Quiero la oferta') + '</a>' : '');
+          + botones();
       } else {
         html = '<p>' + esc(t.calentamiento || 'La oferta se abre en') + '</p><div class="lsd-of-t">' + (e.apertura ? cuenta(e.apertura - ahora) : '') + '</div>';
       }

@@ -12,6 +12,7 @@ import { todosLosLeads } from '../lib/resumen.js';
 import { adSpend, metaConfigured } from '../lib/meta.js';
 import { metricasMeteorico, faseMeteorico, tiemposMeteorico } from '../public/js/meteorico.js';
 import { dayInMadrid } from '../public/js/scoring.js';
+import { enlacePago, planesActivos, planDeTags } from '../public/js/pago.js';
 import { json, readBody, errorResponse, CORS_HEADERS } from '../lib/http.js';
 
 // La página de la oferta está en el dominio de GHL: sus llamadas (estado y visita) necesitan CORS.
@@ -39,7 +40,9 @@ export async function GET(request) {
       const { m } = await meteoricoDe(code);
       const f = faseMeteorico(m);
       const T = tiemposMeteorico(m);
-      return json({ fase: f.id, ahora: Date.now(), ...T, textos: m.textos || {}, cerradaUrl: m.cerradaUrl || '', pagoUrl: m.pagoUrl || '', nombre: m.name }, 200, CORS_HEADERS);
+      return json({ fase: f.id, ahora: Date.now(), ...T, textos: m.textos || {}, cerradaUrl: m.cerradaUrl || '', pagoUrl: enlacePago(m, m.pagoUrl), nombre: m.name,
+        // Suscripción: un botón por plan.
+        planes: planesActivos(m).filter((p) => p.url).map((p) => ({ label: p.label, precio: p.precio, periodo: p.periodo, url: p.url })) }, 200, CORS_HEADERS);
     }
     await requireSession(request, { permiso: ['metricas', 'leads', 'hoy'] });
     const { m } = await meteoricoDe(code);
@@ -60,7 +63,7 @@ export async function GET(request) {
     const r = metricasMeteorico(contactos, m, { previo: foto ? new Set(foto.ids) : null, visitas, inversion });
     return json({
       ...r,
-      compradores: r.compradores.map((c) => ({ id: c.id, name: c.name, email: c.email, phone: c.phone, fecha: m.compraDateField ? String(c.cf?.[m.compraDateField] || '').slice(0, 10) : '', fraccionado: (c.tags || []).some((t) => String(t).toLowerCase() === m.fraccionadoTag) })),
+      compradores: r.compradores.map((c) => ({ id: c.id, name: c.name, email: c.email, phone: c.phone, fecha: m.compraDateField ? String(c.cf?.[m.compraDateField] || '').slice(0, 10) : '', fraccionado: (c.tags || []).some((t) => String(t).toLowerCase() === m.fraccionadoTag), plan: planDeTags(c.tags, m) })),
       visitasPorDia: visitas?.porDia || {},
       foto: foto ? { at: foto.at, n: foto.ids.length } : null,
       inversionFuente: inversion != null ? 'meta' : m.inversion ? 'manual' : '', metaError,

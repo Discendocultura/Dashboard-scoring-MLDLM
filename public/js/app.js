@@ -9,6 +9,7 @@ import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clases
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
 import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico } from './meteorico.js';
+import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago } from './pago.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
@@ -1352,6 +1353,14 @@ function renderOrigen(m, launch) {
 // Ventas de Raíces por tipo de pago: número, % (suma 100%) y facturación.
 function renderPago(m, launch) {
   const t = $('#pago-table');
+  const tit = $('#pago-titulo');
+  tit.dataset.def ??= tit.innerHTML;
+  if (esSuscripcion(launch)) {
+    tit.innerHTML = 'Planes de la suscripción <span class="muted">· altas, facturación del primer cobro y MRR</span>';
+    t.innerHTML = planesActivos(launch).length ? tablaPlanes(m.planes) : '<tbody><tr><td class="muted">Marca los planes de la suscripción en Configuración → Lanzamiento → Precios.</td></tr></tbody>';
+    return;
+  }
+  tit.innerHTML = tit.dataset.def;
   if (!launch.unicoTag && !launch.fraccionadoTag) {
     t.innerHTML = '<tbody><tr><td class="muted">Elige las etiquetas de pago único y fraccionado en Configuración → Lanzamiento → Etiquetas de GHL.</td></tr></tbody>';
     return;
@@ -1373,7 +1382,7 @@ function renderEconomics(m, launch) {
   const metaWarn = state.meta?.error ? `<p class="muted">Meta: ${esc(state.meta.error)}</p>` : '';
   $('#eco-cards').innerHTML = `${[
     card('Inversión en anuncios', e.inversion ? eur(e.inversion) : '–', e.inversion ? fuente : 'Conecta Meta o introdúcela en Configuración', 'megaphone', 'accent'),
-    card('Facturación', hasPrices ? eur(e.facturacion) : '–', hasPrices ? `VIP ${eur(e.facturacionVip)} · Raíces ${eur(e.facturacionPrograma)}${launch.fraccionadoTag || launch.unicoTag ? ` (${m.compraUnico} único · ${m.compraFraccionado} fraccionado)` : ''}` : 'Añade los precios en Configuración', 'coins', 'money'),
+    card('Facturación', hasPrices ? eur(e.facturacion) : '–', hasPrices ? `VIP ${eur(e.facturacionVip)} · Raíces ${eur(e.facturacionPrograma)}${m.planes ? ` · MRR ${eur(m.planes.mrr)}` : launch.fraccionadoTag || launch.unicoTag ? ` (${m.compraUnico} único · ${m.compraFraccionado} fraccionado)` : ''}` : 'Añade los precios en Configuración', 'coins', 'money'),
     card('ROAS', e.roas != null && hasPrices ? `${e.roas.toFixed(2)}x` : '–', e.roas != null && hasPrices ? `Beneficio: ${eur(e.beneficio)}` : 'facturación / inversión', 'trend', 'money'),
     card('Coste por lead', eur(e.cpl), e.cplFrio != null ? `${eur(e.cplFrio)} por lead de tráfico frío` : 'inversión / registros', 'users', 'accent'),
     card('Coste por VIP', eur(e.cpVip), 'inversión / entradas VIP', 'star', 'vip'),
@@ -2066,7 +2075,7 @@ function openConfig(code) {
   const l = editingCode ? state.config.launches[editingCode]
     : {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
-      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag, vipContadorBase: last.vipContadorBase,
+      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, pago: last.pago, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag, vipContadorBase: last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, clase3Url: last.clase3Url, textos: last.textos,
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
@@ -2120,6 +2129,7 @@ function openConfig(code) {
   $('#cfg-precio-fraccionado').value = l.precioFraccionado || '';
   $('#cfg-fraccionado-tag').value = l.fraccionadoTag || '';
   $('#cfg-unico-tag').value = l.unicoTag || '';
+  pintarPago('cfg', l.pago);
   $('#cfg-publi-tag').value = l.publiTag || '';
   $('#cfg-organico-tag').value = l.organicoTag || '';
   $('#cfg-inversion').value = l.inversion || '';
@@ -2419,6 +2429,7 @@ function readForm() {
       organicoTag: $('#cfg-organico-tag').value.trim().toLowerCase(),
       inversion: $('#cfg-inversion').value,
       metaFiltro: $('#cfg-meta-filtro').value.trim(),
+      pago: leerPago('cfg'),
     },
   };
 }
@@ -2427,6 +2438,7 @@ $('#cfg-save').addEventListener('click', async () => {
   const status = $('#cfg-status');
   try {
     const { code, launch } = readForm();
+    if (errorPago('cfg')) { status.textContent = errorPago('cfg'); return; }
     const probs = Object.values(tagProblems()).filter(Boolean);
     if (probs.length && !window.confirm(`Revisa las etiquetas:\n\n• ${probs.join('\n• ')}\n\n¿Guardar igualmente?`)) return;
     if (state.tags.length && !state.tags.map((t) => t.toLowerCase()).includes(launch.registroTag)) {
@@ -6092,11 +6104,14 @@ function renderVslMetricas() {
     kpi('info', 'play', tv.vio, m.vio, `${pctOf(m.vio, m.registros)} · ${m.vio50} vieron ≥50%`),
     kpi('live', 'phone', 'Agendaron llamada', m.llamada, pctOf(m.llamada, m.registros)),
     kpi('buy', 'cart', 'Ventas', m.ventas, `${m.ventasDirectas} directas · ${m.ventasLlamada} tras llamada`),
-    kpi('buy', 'euro', 'Facturación', eur(m.ingresos), v.precioPrograma ? `a ${eur(Number(v.precioPrograma))} la venta` : 'Pon el precio en la configuración'),
+    kpi('buy', 'euro', 'Facturación', eur(m.ingresos), m.planes ? `MRR ${eur(m.planes.mrr)} · ${m.planes.filas.filter((f) => f.n).map((f) => `${f.n} ${esc(f.label.toLowerCase())}`).join(' · ') || 'sin altas'}` : v.precioPrograma ? `a ${eur(Number(v.precioPrograma))} la venta` : 'Pon el precio en la configuración'),
     kpi('vip', 'coins', 'Inversión Meta', inversion != null ? eur(inversion) : '–', metaNota),
     kpi('accent', 'target', v.subtipo === 'leadmagnet' ? 'Coste por descarga' : v.subtipo === 'llamadas' ? 'Coste por aplicación' : 'Coste por lead', eur(m.cpl), `Coste por venta ${eur(m.cpa)}`),
     kpi('info', 'trend', 'ROAS', m.roas != null ? `${m.roas.toFixed(2)}x` : '–', `Conversión ${pctOf(m.compraCohorte, m.registros)} (registro → venta)`),
   ].join('');
+
+  $('#vm-planes-sec').hidden = !m.planes;
+  if (m.planes) $('#vm-planes').innerHTML = tablaPlanes(m.planes);
 
   const pasos = [
     [v.subtipo === 'leadmagnet' ? 'Descargaron' : v.subtipo === 'llamadas' ? 'Aplicaron' : 'Se registraron', m.registros], [`Entraron ${conPrep('a', tv.contenido)}`, m.vio], ['Vieron ≥25%', m.vio25], ['Vieron ≥50%', m.vio50],
@@ -6303,6 +6318,7 @@ async function openVslConfig(id = state.embudo) {
   for (const k of ['precioPrograma', 'precioFraccionado']) $(`#vc-${k}`).value = v[k] ? String(v[k]).replace('.', ',') : '';
   $('#vc-boton').value = v.botonSegundos ? mmss(v.botonSegundos) : '0';
   $('#vc-informeSemanal').checked = Boolean(v.informeSemanal);
+  pintarPago('vc', v.pago);
   $('#vc-status').textContent = '';
   renderAccesosEditor(v.accesos, { box: '#vc-accesos', sugeridos: ACCESOS_SUGERIDOS_VSL });
   renderVslSnippets();
@@ -6362,6 +6378,8 @@ $('#vc-save').addEventListener('click', async () => {
   for (const k of ['registroDateField', 'compraDateField']) vsl[k] = $(`#vc-${k}`).value;
   vsl.botonSegundos = aSegundos($('#vc-boton').value);
   vsl.informeSemanal = $('#vc-informeSemanal').checked;
+  if (errorPago('vc')) { status.textContent = errorPago('vc'); return; }
+  vsl.pago = leerPago('vc');
   vsl.accesos = readAccesosEditor();
   const b = $('#vc-save');
   b.disabled = true;
@@ -6722,8 +6740,8 @@ async function pintarMeteo(box, code, { fresh = false } = {}) {
   const pct1 = (x) => (x == null ? '–' : `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')}%`);
   const obj = (k) => d.objetivos.find((o) => o.label === k);
   const kpis = [
-    card('Ventas', d.ventas, obj('Ventas') ? `${Math.round(obj('Ventas').pct * 100)}% del objetivo (${obj('Ventas').meta})` : `${d.unico} pago único · ${d.fraccionado} a plazos`, 'cart', 'buy'),
-    card('Facturación', eur(d.facturacion), obj('Facturación') ? `${Math.round(obj('Facturación').pct * 100)}% de ${eur(obj('Facturación').meta)}` : d.ticket ? `ticket medio ${eur(d.ticket)}` : 'pon el precio en Configurar', 'coins', 'money'),
+    card('Ventas', d.ventas, obj('Ventas') ? `${Math.round(obj('Ventas').pct * 100)}% del objetivo (${obj('Ventas').meta})` : d.planes ? d.planes.filas.filter((f) => f.n).map((f) => `${f.n} ${esc(f.label.toLowerCase())}`).join(' · ') || 'suscripción' : `${d.unico} pago único · ${d.fraccionado} a plazos`, 'cart', 'buy'),
+    card('Facturación', eur(d.facturacion), obj('Facturación') ? `${Math.round(obj('Facturación').pct * 100)}% de ${eur(obj('Facturación').meta)}` : d.ticket ? `ticket medio ${eur(d.ticket)}${d.planes ? ` · MRR ${eur(d.planes.mrr)}` : ''}` : 'pon el precio en Configurar', 'coins', 'money'),
     card('Visitas a la oferta', d.visitas ?? 0, d.visitas ? 'personas distintas por sesión (página con el código)' : 'Pon el código en la página de la oferta', 'eye', 'info'),
     card('Conversión de la oferta', pct1(d.conversion), 'ventas / visitas a la página', 'funnel', 'accent'),
     card('Inversión', d.inversion ? eur(d.inversion) : '–', d.inversionFuente === 'meta' ? 'Meta Ads' : d.inversionFuente === 'manual' ? 'introducida a mano' : 'sin publicidad', 'megaphone', 'accent'),
@@ -6733,11 +6751,12 @@ async function pintarMeteo(box, code, { fresh = false } = {}) {
   const visDias = Object.entries(d.visitasPorDia || {}).sort((a, b) => a[0].localeCompare(b[0]));
   const porDia = d.ventasPorDia.length || visDias.length ? `<section class="meteo-sec"><h3>Por día</h3><div class="table-scroll"><table class="metric-table"><thead><tr><th>Día</th><th class="num">Visitas</th><th class="num">Ventas</th><th></th></tr></thead><tbody>
       ${[...new Set([...visDias.map(([x]) => x), ...d.ventasPorDia.map(([x]) => x)])].sort().map((dia) => { const v = d.ventasPorDia.find(([x]) => x === dia)?.[1] || 0; return `<tr><td>${esc(fechaFicha(`${dia}T12:00:00Z`))}</td><td class="num">${d.visitasPorDia?.[dia] || 0}</td><td class="num"><strong>${v}</strong></td><td><div class="meter"><span style="width:${(v / max) * 100}%"></span></div></td></tr>`; }).join('')}</tbody></table></div></section>` : '';
-  const compradoras = `<section class="meteo-sec"><h3>Compradoras (${d.compradores.length})</h3>${d.compradores.length ? `<div class="table-scroll"><table class="metric-table"><thead><tr><th>Persona</th><th>Teléfono</th><th>Fecha</th><th>Pago</th></tr></thead><tbody>${d.compradores.slice(0, 300).map((c) => `<tr><td><strong>${esc(c.name || '(sin nombre)')}</strong><br><span class="muted">${esc(c.email || '')}</span></td><td>${esc(c.phone || '–')}</td><td>${c.fecha ? esc(fechaFicha(`${c.fecha}T12:00:00Z`)) : '–'}</td><td>${c.fraccionado ? 'A plazos' : 'Único'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Todavía ninguna.</p>'}</section>`;
+  const compradoras = `<section class="meteo-sec"><h3>Compradoras (${d.compradores.length})</h3>${d.compradores.length ? `<div class="table-scroll"><table class="metric-table"><thead><tr><th>Persona</th><th>Teléfono</th><th>Fecha</th><th>Pago</th></tr></thead><tbody>${d.compradores.slice(0, 300).map((c) => `<tr><td><strong>${esc(c.name || '(sin nombre)')}</strong><br><span class="muted">${esc(c.email || '')}</span></td><td>${esc(c.phone || '–')}</td><td>${c.fecha ? esc(fechaFicha(`${c.fecha}T12:00:00Z`)) : '–'}</td><td>${esSuscripcion(m) ? esc(PLANES_SUSCRIPCION.find((p) => p.id === c.plan)?.label || 'Suscripción') : c.fraccionado ? 'A plazos' : 'Único'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Todavía ninguna.</p>'}</section>`;
   const qs = [`m=${encodeURIComponent(code)}`, cParam('').replace(/^\?/, '')].filter(Boolean).join('&');
   const snippet = `<div data-lsd-oferta></div>\n<script src="${location.origin}/oferta.js?${qs}" defer></script>`;
   const foto = m.compraDateField ? '' : `<p class="muted small">Sin campo de fecha de compra, las ventas son quienes tienen la etiqueta y no estaban en la «foto».${d.foto ? ` Foto hecha el ${esc(new Date(d.foto.at).toLocaleString('es-ES'))} (${d.foto.n} personas ya la tenían).` : ' <strong>Aún no hay foto: hazla antes de abrir.</strong>'}</p>${puedeConfig() ? `<button type="button" class="btn" data-meteo-foto="${esc(code)}">${d.foto ? 'Rehacer la foto' : 'Hacer la foto ahora'}</button>` : ''}`;
-  box.innerHTML = `${cab}<div class="kpis meteo-kpis">${kpis}</div>${porDia}${compradoras}
+  const planes = d.planes ? `<section class="meteo-sec"><h3>Planes de la suscripción</h3><div class="table-scroll"><table class="metric-table">${tablaPlanes(d.planes)}</table></div></section>` : '';
+  box.innerHTML = `${cab}<div class="kpis meteo-kpis">${kpis}</div>${planes}${porDia}${compradoras}
     <section class="meteo-sec"><h3>Código para la página de la oferta <span class="muted small">(bloque «Código HTML» en GHL)</span></h3>
       <p class="muted small">Pinta la cuenta atrás («se abre en…», «se cierra en…» con el botón de compra y «ha terminado») y cuenta las visitas. Los textos y horas se cambian en Configurar.</p>
       <pre class="snippet">${esc(snippet)}</pre><button type="button" class="btn" data-copiar-meteo="${esc(snippet)}">Copiar código</button>
@@ -6811,6 +6830,7 @@ async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
   for (const k of ['calentamiento', 'abierta', 'cerrada', 'boton']) $(`#mt-t-${k}`).value = m?.textos?.[k] || '';
   $('#mt-code').value = code || '';
   $('#mt-code').readOnly = Boolean(m);
+  pintarPago('mt', m?.pago);
   $('#meteo-dialog .tab[data-tab="mt-oferta"]').click();
   $('#mt-borrar').hidden = !m;
   $('#mt-status').textContent = '';
@@ -6818,6 +6838,7 @@ async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
   if (!m) {
     const prev = (meteoEdit.lanzamiento ? meteoDeLanz(meteoEdit.lanzamiento) : meteoDeEmbudo(meteoEdit.embudo))[0]?.[1] || meteoricos().at(-1)?.[1];
     if (prev) for (const k of ['fraccionadoTag', 'whatsappUrl']) $(`#mt-${k}`).value = prev[k] || '';
+    if (prev?.pago) pintarPago('mt', prev.pago);
     if (meteoEdit.lanzamiento) $('#mt-name').value = `Downsell ${state.config.launches[meteoEdit.lanzamiento]?.name || ''}`.trim();
   }
   const sel = $('#mt-compraDateField');
@@ -6838,7 +6859,9 @@ $('#mt-guardar').addEventListener('click', async () => {
     compraDateField: $('#mt-compraDateField').value,
     textos: Object.fromEntries(['calentamiento', 'abierta', 'cerrada', 'boton'].map((k) => [k, $(`#mt-t-${k}`).value.trim()])),
     embudo: meteoEdit.lanzamiento ? '' : meteoEdit.embudo, lanzamiento: meteoEdit.lanzamiento,
+    pago: leerPago('mt'),
   };
+  if (errorPago('mt')) { $('#meteo-dialog .tab[data-tab="mt-oferta"]').click(); status.textContent = errorPago('mt'); return; }
   if (!m.name) { $('#meteo-dialog .tab[data-tab="mt-oferta"]').click(); status.textContent = 'Ponle un nombre.'; return; }
   status.textContent = 'Guardando…';
   try {
@@ -6864,3 +6887,87 @@ $('#mt-borrar').addEventListener('click', async () => {
     if (meteoEdit.lanzamiento) renderMeteoLanz(); else { state.meteo.code = ''; if (enMeteo()) renderMeteoView(); }
   } catch (e) { $('#mt-status').textContent = e.message; }
 });
+
+
+// ---------- Tipo de pago (lanzamientos, VSL y meteóricos) ----------
+// Pago único (con o sin fraccionado) o suscripción con sus planes. Cada ventana tiene tres huecos:
+// el selector y los precios (data-pago-tipo), los enlaces de pago de cada plan (data-pago-enlaces) y
+// sus etiquetas (data-pago-etiquetas). Los campos de pago único / fraccionado de siempre llevan
+// data-pago="unico" o "fr" y se ocultan cuando no tocan.
+const pagoRoot = (pref) => $(`[data-pago-tipo="${pref}"]`).closest('dialog');
+function montarPago(pref) {
+  const tipo = $(`[data-pago-tipo="${pref}"]`);
+  tipo.innerHTML = `<div class="pago-sel">
+      <span class="pago-sel-label">Tipo de pago</span>
+      <div class="pago-tipos" role="radiogroup" aria-label="Tipo de pago">
+        <label><input type="radio" name="${pref}-pago-tipo" value="unico" checked><span>💳 Pago único</span></label>
+        <label><input type="radio" name="${pref}-pago-tipo" value="suscripcion"><span>🔁 Suscripción</span></label>
+      </div>
+      <label class="chk" data-pago-solo="unico"><input type="checkbox" data-pago-fr> También se puede pagar fraccionado (a plazos)</label>
+      <div class="pago-planes" data-pago-solo="suscripcion">
+        <p class="muted small">Marca los planes que tiene y el precio de cada cobro. La facturación cuenta el primer cobro de cada alta; además verás el ingreso mensual recurrente (MRR).</p>
+        ${PLANES_SUSCRIPCION.map((p) => `<div class="pago-plan">
+          <label class="chk"><input type="checkbox" data-plan-on="${p.id}"> ${p.label}</label>
+          <label class="field" data-plan-campo="${p.id}"><span>Precio por ${p.periodo} (€)</span><input data-plan-precio="${p.id}" inputmode="decimal" placeholder="0"></label>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  $(`[data-pago-enlaces="${pref}"]`).innerHTML = PLANES_SUSCRIPCION.map((p) => `<label class="field" data-plan-campo="${p.id}"><span>Enlace de pago · plan ${p.label.toLowerCase()}</span><input data-plan-url="${p.id}" type="url" placeholder="https://…"></label>`).join('');
+  $(`[data-pago-etiquetas="${pref}"]`).innerHTML = PLANES_SUSCRIPCION.map((p) => `<label class="field" data-plan-campo="${p.id}"><span>Etiqueta del plan ${p.label.toLowerCase()} <small>(la pone el workflow de ese pago)</small></span><input data-plan-tag="${p.id}" list="tag-list" placeholder="Busca la etiqueta…"></label>`).join('');
+  pagoRoot(pref).addEventListener('change', (e) => { if (e.target.matches(`[name="${pref}-pago-tipo"], [data-pago-fr], [data-plan-on]`)) refrescarPago(pref); });
+}
+function refrescarPago(pref) {
+  const root = pagoRoot(pref);
+  const sus = $(`[name="${pref}-pago-tipo"][value="suscripcion"]`, root).checked;
+  const fr = $('[data-pago-fr]', root).checked;
+  $$('[data-pago="unico"]', root).forEach((el) => { el.hidden = sus; });
+  $$('[data-pago="fr"]', root).forEach((el) => { el.hidden = sus || !fr; });
+  $$('[data-pago-solo]', root).forEach((el) => { el.hidden = el.dataset.pagoSolo !== (sus ? 'suscripcion' : 'unico'); });
+  for (const p of PLANES_SUSCRIPCION) {
+    const on = sus && $(`[data-plan-on="${p.id}"]`, root).checked;
+    $$(`[data-plan-campo="${p.id}"]`, root).forEach((el) => { el.hidden = !on; });
+  }
+}
+function pintarPago(pref, pago) {
+  const root = pagoRoot(pref);
+  const sus = pago?.tipo === 'suscripcion';
+  $(`[name="${pref}-pago-tipo"][value="${sus ? 'suscripcion' : 'unico'}"]`, root).checked = true;
+  $('[data-pago-fr]', root).checked = pago?.fraccionado !== false;
+  for (const p of PLANES_SUSCRIPCION) {
+    const x = pago?.planes?.[p.id] || {};
+    $(`[data-plan-on="${p.id}"]`, root).checked = Boolean(x.activo);
+    $(`[data-plan-precio="${p.id}"]`, root).value = x.precio ? String(x.precio).replace('.', ',') : '';
+    $(`[data-plan-url="${p.id}"]`, root).value = x.url || '';
+    $(`[data-plan-tag="${p.id}"]`, root).value = x.tag || '';
+  }
+  refrescarPago(pref);
+}
+// «9,90» → 9.9 · «1.164» → 1164 · «9.90» → 9.9
+const precioDe = (v) => { const t = String(v || '').trim(); return t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : /^\d{1,3}(\.\d{3})+$/.test(t) ? t.replace(/\./g, '') : t; };
+function leerPago(pref) {
+  const root = pagoRoot(pref);
+  return {
+    tipo: $(`[name="${pref}-pago-tipo"][value="suscripcion"]`, root).checked ? 'suscripcion' : 'unico',
+    fraccionado: $('[data-pago-fr]', root).checked,
+    planes: Object.fromEntries(PLANES_SUSCRIPCION.map((p) => [p.id, {
+      activo: $(`[data-plan-on="${p.id}"]`, root).checked,
+      precio: precioDe($(`[data-plan-precio="${p.id}"]`, root).value),
+      url: $(`[data-plan-url="${p.id}"]`, root).value.trim(),
+      tag: $(`[data-plan-tag="${p.id}"]`, root).value.trim().toLowerCase(),
+    }])),
+  };
+}
+// Un error de la suscripción (sin planes) antes de guardar; '' si está bien.
+function errorPago(pref) {
+  const p = leerPago(pref);
+  return p.tipo === 'suscripcion' && !Object.values(p.planes).some((x) => x.activo) ? 'Marca al menos un plan de la suscripción (mensual, trimestral, semestral o anual).' : '';
+}
+['cfg', 'vc', 'mt'].forEach(montarPago);
+
+// Tabla de altas por plan (suscripción). `r`: resumenPlanes().
+function tablaPlanes(r) {
+  if (!r) return '';
+  return `<thead><tr><th>Plan</th><th class="num">Altas</th><th class="num">%</th><th class="num">Facturación</th><th class="num">MRR</th></tr></thead><tbody>
+    ${r.filas.map((f) => `<tr><td>${esc(f.label)}</td><td class="num">${f.n}</td><td class="num">${r.total ? `${Math.round(f.pct * 100)}%` : '–'}</td><td class="num">${eur(f.facturacion)}</td><td class="num">${eur(f.mrr)}</td></tr>`).join('')}
+    <tr class="total"><td><strong>Total</strong></td><td class="num"><strong>${r.total}</strong></td><td class="num">${r.total ? '100%' : '–'}</td><td class="num"><strong>${eur(r.facturacion)}</strong></td><td class="num"><strong>${eur(r.mrr)}</strong></td></tr></tbody>`;
+}

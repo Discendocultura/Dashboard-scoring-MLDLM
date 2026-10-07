@@ -1569,3 +1569,22 @@ body.embudo-meteo .lanz-only { display: none !important; }
 .meteo-sec h3 { margin: 0 0 10px; font-size: 15px; }
 .meteo-sec .snippet { white-space: pre-wrap; word-break: break-all; font-size: 12px; padding: 10px; border-radius: 8px; background: var(--surface-2, color-mix(in srgb, currentColor 6%, transparent)); }
 .meteo-sec .table-scroll { max-height: 420px; overflow-y: auto; }
+
+/* Tipo de pago (pago único / suscripción) en las configuraciones */
+.pago-cfg { margin: 4px 0 12px; }
+.pago-sel { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.pago-sel-label { font-weight: 700; font-size: 13px; }
+.pago-tipos { display: flex; gap: 8px; flex-wrap: wrap; }
+.pago-tipos label { cursor: pointer; }
+.pago-tipos input { position: absolute; opacity: 0; pointer-events: none; }
+.pago-tipos span { display: inline-block; padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface, #fff); font-weight: 600; font-size: 14px; }
+.pago-tipos input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.pago-tipos input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pago-sel .chk { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.pago-sel .chk input { width: auto; }
+.pago-planes { display: flex; flex-direction: column; gap: 8px; }
+.pago-planes p { margin: 0; }
+.pago-plan { display: grid; grid-template-columns: 140px 1fr; gap: 10px; align-items: center; }
+.pago-plan .field { margin: 0; }
+@media (max-width: 560px) { .pago-plan { grid-template-columns: 1fr; } }
+[data-pago-enlaces]:empty, [data-pago-etiquetas]:empty { display: none; }

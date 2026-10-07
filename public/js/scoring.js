@@ -1,5 +1,6 @@
 // Lógica compartida entre el dashboard (navegador) y la API (servidor):
 // nombres de etiquetas, puntuación, estado y siguiente paso de cada lead.
+import { conFraccionado, esSuscripcion, planDeTags, planesActivos, enlacePago } from './pago.js';
 import { MAX_VIDEOS, nVideos, sigDirecto, sigReplay, videosDe, videoVenta, clasesDe, conVip } from './videos.js';
 
 // Señales que se guardan como etiquetas en GHL con el formato `<lanzamiento>_<señal>`,
@@ -119,8 +120,10 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   }
   s.fecha_compra = s.compra ? buyDay : '';
   // Tipo de pago de Raíces: cada uno con su etiqueta (si llevara las dos, cuenta como fraccionado).
-  s.fraccionado = s.compra && has(cfg.fraccionadoTag);
-  s.unico = s.compra && !s.fraccionado && has(cfg.unicoTag);
+  s.fraccionado = s.compra && conFraccionado(cfg) && has(cfg.fraccionadoTag);
+  s.unico = s.compra && !esSuscripcion(cfg) && !s.fraccionado && has(cfg.unicoTag);
+  // Suscripción: el plan que eligió (mensual, trimestral…), por la etiqueta de cada plan.
+  s.plan = s.compra ? planDeTags(tags, cfg) : '';
   // Compra el día del vídeo de venta (el webinar en directo, o el último vídeo del lanzamiento).
   const diaVenta = videoVenta(cfg)?.fecha || '';
   s.compra_directo = s.compra && Boolean(diaVenta) && buyDay === diaVenta;
@@ -269,7 +272,9 @@ export function buildMessage(template, { nombre, contactId, launch, extra = {}, 
     link_venta: withContactId(launch?.ventaUrl, contactId),
     // Nombres claros: página de venta de Raíces y enlace de pago (los antiguos siguen funcionando).
     link_pagina_venta: withContactId(launch?.raicesUrl, contactId),
-    link_pago: withContactId(launch?.ventaUrl, contactId),
+    link_pago: withContactId(enlacePago(launch, launch?.ventaUrl), contactId),
+    // Suscripción: un enlace por plan ({link_plan_mensual}, {link_plan_anual}…).
+    ...Object.fromEntries(planesActivos(launch).map((p) => [`link_plan_${p.id}`, withContactId(p.url, contactId)])),
     link_pago_fraccionado: withContactId(launch?.ventaFraccionadoUrl, contactId),
     link_llamada: launch?.llamadaUrl || '',
     link_vsl: withContactId(launch?.vslUrl, contactId), // embudo VSL

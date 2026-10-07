@@ -4,6 +4,7 @@ import {
   signalsFor, score, estadoFor, nextStepFor, waPhone, watched, ESTADOS, OUTCOMES, SNAPSHOT_TAGS,
 } from './scoring.js';
 import { tramoEdad, ORDEN_EDAD } from './encuesta.js';
+import { importeVenta, esSuscripcion, resumenPlanes } from './pago.js';
 import { videosDe, videoVenta, clasesDe, conVip } from './videos.js';
 
 // Inicio de captación del lanzamiento siguiente: ahí terminan las ventas de este.
@@ -32,8 +33,9 @@ export function enrichLead(contact, code, config) {
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
 // Importe de una compra de Raíces: precio fraccionado si pagó a plazos (y hay precio), si no el único.
+// En una suscripción, el precio del plan elegido (primer cobro).
 export function importeCompra(l, launch) {
-  return l.s.fraccionado && num(launch?.precioFraccionado) ? num(launch.precioFraccionado) : num(launch?.precioPrograma);
+  return importeVenta(l.s, launch, { unico: launch?.precioPrograma, fraccionado: launch?.precioFraccionado });
 }
 
 export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
@@ -164,6 +166,8 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     sinEtiqueta: pagoDe((l) => !l.s.unico && !l.s.fraccionado),
     total: { n: m.compra, importe: facturacionPrograma },
   };
+  // Suscripción: altas por plan, su facturación (primer cobro) y el ingreso mensual recurrente.
+  m.planes = esSuscripcion(launch) ? resumenPlanes(leads.filter((l) => l.s.compra), launch, (l) => l.s.plan) : null;
 
   // Lanzamientos de varios vídeos: cuánta gente ve cada vídeo (en directo o grabado) y cuántas compran.
   const vids = videosDe(launch);
@@ -363,7 +367,7 @@ export function avisosLanzamiento(leads, launch, m) {
   const falta = [
     [launch.fechaDirecto, 'el día del directo'], [launch.horaDirecto, 'la hora del directo'],
     [launch.compraTag, 'la etiqueta de compra de Raíces'], [launch.compraDateField, 'el campo de fecha de compra'],
-    [launch.precioPrograma, 'el precio de Raíces'], [launch.precioVip, 'el precio de la VIP'],
+    [esSuscripcion(launch) || launch.precioPrograma, 'el precio de Raíces'], [launch.precioVip, 'el precio de la VIP'],
     [launch.whatsappUrl, 'el enlace del grupo de WhatsApp'], [launch.cierreCarrito, 'el cierre del carrito'],
   ].filter(([v]) => !v).map(([, t]) => t);
   if (falta.length) out.push(`Falta en Configuración: ${falta.join(', ')}.`);

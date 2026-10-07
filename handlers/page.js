@@ -13,6 +13,7 @@ import { json, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { signalsFor, withContactId, tagFor } from '../public/js/scoring.js';
 import { phaseAt, barFor, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
 import { videosDe, conVip, nClases } from '../public/js/videos.js';
+import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
 
 export function OPTIONS() {
@@ -53,8 +54,9 @@ export async function GET(request, ctx) {
       directo: cid ? `${live}&cid=${cid}` : live,
       grabacion: withContactId(launch.replayUrl, cid),
       venta: withContactId(launch.raicesUrl, cid),
-      pago: withContactId(launch.ventaUrl, cid),
+      pago: withContactId(enlacePago(launch, launch.ventaUrl), cid),
       'pago-fraccionado': withContactId(launch.ventaFraccionadoUrl, cid),
+      ...Object.fromEntries(planesActivos(launch).map((p) => [`plan-${p.id}`, withContactId(p.url, cid)])),
       llamada: launch.llamadaUrl || '',
       recursos: launch.recursosUrl || '',
       // Añadir al calendario: el enlace configurado o, si no hay, uno de Google Calendar generado solo.

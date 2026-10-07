@@ -417,6 +417,15 @@ Funcionan como el webinar, con las casillas repetidas para cada vídeo (*Configu
 - **Puntuación**: la mitad por el vídeo mejor visto y la mitad por la media de todos (máximo 40 puntos, como el directo del webinar).
 - **Leads, Métricas, Calendario, Auditor y Sincronizar Zoom** muestran cada vídeo (Zoom sincroniza cada vídeo en directo ya celebrado).
 
+## 💳 Tipo de pago (lanzamientos, VSL y meteóricos)
+
+En la configuración de cada lanzamiento, VSL o meteórico eliges el **tipo de pago**:
+
+- **Pago único**: precio único y, si marcas «También se puede pagar fraccionado», el precio, la etiqueta y el enlace del pago a plazos (si no lo marcas, esos campos desaparecen).
+- **Suscripción**: marca los planes que tiene (**mensual, trimestral, semestral, anual**) y pon de cada uno su precio por periodo, su **etiqueta de GHL** (la pone el workflow de ese pago; en la pestaña de etiquetas) y su **enlace de pago** (con los enlaces).
+
+En Métricas, con suscripción, verás las **altas por plan**, la facturación (primer cobro de cada alta) y el **MRR** (ingreso mensual recurrente equivalente: un anual de 240 € son 20 €/mes). En los mensajes puedes usar `{link_plan_mensual}`, `{link_plan_anual}`…; `{link_pago}` es el del primer plan. En la página de un meteórico con varios planes sale un botón por plan.
+
 ## ⚡ Meteóricos (ofertas flash)
 Una oferta de pocas horas (p. ej. 12 h) tras 4-5 días de calentamiento por email y WhatsApp, a la base de datos. Dos maneras:
 - **Independiente** (Black Friday, rebajas…): «＋ Nuevo embudo» → **⚡ Meteóricos**. Cada edición es un meteórico de ese embudo (desplegable arriba, «+ Nuevo meteórico»).
