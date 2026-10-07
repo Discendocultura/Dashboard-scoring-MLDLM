@@ -8,16 +8,18 @@ import { clienteActual } from '../lib/cliente.js';
 import { getContact, countByTag } from '../lib/ghl.js';
 import { currentLaunch } from '../lib/digest.js';
 import { verifyToken, signToken, requireRole } from '../lib/auth.js';
+import { marcarActividad } from '../lib/actividad.js';
 import { json, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { signalsFor, withContactId, tagFor } from '../public/js/scoring.js';
 import { phaseAt, barFor, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
 import { videosDe } from '../public/js/videos.js';
+import { conProducto, nombreProducto } from '../public/js/producto.js';
 
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
-export async function GET(request) {
+export async function GET(request, ctx) {
   try {
     const url = new URL(request.url);
     const config = await getConfig();
@@ -25,6 +27,8 @@ export async function GET(request) {
     const code = asked === 'auto' ? currentLaunch(config) : asked;
     const launch = code && config.launches[code];
     if (!launch) return json({ error: 'Lanzamiento no encontrado' }, 404, CORS_HEADERS);
+    // Para el alta guiada: las páginas de GHL ya llevan el código del dashboard.
+    if (!url.searchParams.has('preview')) { const a = marcarActividad('pagina'); ctx?.waitUntil?.(a); }
 
     // Vista previa: el dashboard genera un enlace firmado para ver la página "como si fuera" otra fecha.
     let now = Date.now();
@@ -113,7 +117,7 @@ export async function GET(request) {
       countdownTo: phase.countdownTo,
       changesAt: phase.changesAt,
       redirectTo: redirectFor(launch, phase.id),
-      bar: { text: bar.text, button: bar.button && links[bar.button] ? { key: bar.button, label: bar.buttonLabel, href: links[bar.button] } : null },
+      bar: { text: conProducto(bar.text, nombreProducto(config)), button: bar.button && links[bar.button] ? { key: bar.button, label: bar.buttonLabel, href: links[bar.button] } : null },
       videos: {
         clase1: video('clase1Url', m.clase1, true),
         clase2: video('clase2Url', m.clase2, true),

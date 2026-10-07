@@ -2,7 +2,7 @@ import {
   ESTADOS, NEXT_STEPS, buildMessage, waPhone, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, OUTCOMES, dayInMadrid,
 } from './scoring.js';
 import { icon } from './icons.js';
-import { ENCUESTA_PREGUNTAS } from './encuesta.js';
+import { nombreProducto, PRODUCTO_MLDLM } from './producto.js';
 import { enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay } from './videos.js';
@@ -43,6 +43,36 @@ const state = {
   page: 0,
   loadToken: 0,
 };
+
+// Preguntas de la encuesta del avatar de este cliente.
+const preguntasEncuesta = () => state.config?.encuesta || [];
+
+// Nombre del producto del cliente: los textos dicen «Raíces» (MLDLM) y en otro cliente se cambian
+// por el suyo en todo lo que se pinta (textos, placeholders y títulos).
+const producto = { nombre: PRODUCTO_MLDLM, obs: null };
+function cambiarProductoEn(root) {
+  const n = producto.nombre;
+  if (n === PRODUCTO_MLDLM || !root) return;
+  const re = new RegExp(PRODUCTO_MLDLM, 'g');
+  if (root.nodeType === 3) { if (root.nodeValue.includes(PRODUCTO_MLDLM)) root.nodeValue = root.nodeValue.replace(re, n); return; }
+  if (root.nodeType !== 1) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let t = w.nextNode(); t; t = w.nextNode()) if (t.nodeValue.includes(PRODUCTO_MLDLM)) t.nodeValue = t.nodeValue.replace(re, n);
+  for (const el of [root, ...root.querySelectorAll('[placeholder],[title]')]) {
+    for (const a of ['placeholder', 'title']) { const v = el.getAttribute?.(a); if (v && v.includes(PRODUCTO_MLDLM)) el.setAttribute(a, v.replace(re, n)); }
+  }
+}
+function aplicarProducto() {
+  producto.nombre = nombreProducto(state.config);
+  producto.obs?.disconnect();
+  producto.obs = null;
+  if (producto.nombre === PRODUCTO_MLDLM) return;
+  cambiarProductoEn(document.body);
+  producto.obs = new MutationObserver((muts) => {
+    for (const m of muts) for (const nd of m.addedNodes) cambiarProductoEn(nd);
+  });
+  producto.obs.observe(document.body, { childList: true, subtree: true });
+}
 
 const ls = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -276,6 +306,7 @@ async function start() {
   state.roles = me.roles || [];
   state.config = config;
   state.zoomConfigured = zoomConfigured;
+  aplicarProducto();
   document.body.classList.toggle('is-admin', role === 'admin');
   document.body.classList.toggle('can-config', puedeConfig());
   document.body.classList.toggle('can-zoom', tiene('zoom'));
@@ -1061,11 +1092,11 @@ function computeAvatares() {
   const leads = avatarLeads();
   const compras = leads.filter((l) => l.s.compra).length;
   const objetivo = state.avatarObj || (compras >= 10 ? 'compra' : 'vip');
-  state.avatar = perfilesCompradoras(leads, ENCUESTA_PREGUNTAS, objetivo);
-  for (const l of state.leads) l.avatar = avatarDeLead(l, state.avatar.avatares, ENCUESTA_PREGUNTAS);
+  state.avatar = perfilesCompradoras(leads, preguntasEncuesta(), objetivo);
+  for (const l of state.leads) l.avatar = avatarDeLead(l, state.avatar.avatares, preguntasEncuesta());
 }
 const avatarChip = (l) => (l.avatar >= 0
-  ? `<span class="av-chip tone-${AV_TONES[l.avatar]}" title="${esc(describirAvatar(state.avatar.avatares[l.avatar].traits, ENCUESTA_PREGUNTAS))} Compra ${veces(state.avatar.avatares[l.avatar].indice)} respecto a la media.">${icon('users')} Avatar ${l.avatar + 1}</span>`
+  ? `<span class="av-chip tone-${AV_TONES[l.avatar]}" title="${esc(describirAvatar(state.avatar.avatares[l.avatar].traits, preguntasEncuesta()))} Compra ${veces(state.avatar.avatares[l.avatar].indice)} respecto a la media.">${icon('users')} Avatar ${l.avatar + 1}</span>`
   : '');
 const AV_TONES = ['buy', 'vip', 'live'];
 const pct0 = (x) => `${Math.round(x * 100)}%`;
@@ -1095,7 +1126,7 @@ function renderEncuestaMetrics() {
     ? `<div class="av-grid">${r.avatares.map((a, i) => `
         <article class="av-card tone-${AV_TONES[i]}">
           <header><span class="av-ico">${icon('users')}</span><div><span class="av-kicker">Avatar ${i + 1}</span><h3>${a.traits.map(([, v]) => esc(v)).join(' · ')}</h3></div></header>
-          <p class="av-frase">${esc(describirAvatar(a.traits, ENCUESTA_PREGUNTAS))}</p>
+          <p class="av-frase">${esc(describirAvatar(a.traits, preguntasEncuesta()))}</p>
           <div class="av-stats">
             <div title="Compra ${veces(a.indice)} veces más que la media"><strong>${veces(a.indice)}</strong><span>vs. la media</span></div>
             <div title="${a.compras} de tus ${r.compras} ${quien}"><strong>${pct0(a.pesoCompras)}</strong><span>${objetivo === 'vip' ? 'de las VIP' : 'de las ventas'}</span></div>
@@ -1106,7 +1137,7 @@ function renderEncuestaMetrics() {
         </article>`).join('')}
         ${r.anti ? `<article class="av-card av-anti">
           <header><span class="av-ico">${icon('alert')}</span><div><span class="av-kicker">Compra poco</span><h3>${r.anti.traits.map(([, v]) => esc(v)).join(' · ')}</h3></div></header>
-          <p class="av-frase">${esc(describirAvatar(r.anti.traits, ENCUESTA_PREGUNTAS))}</p>
+          <p class="av-frase">${esc(describirAvatar(r.anti.traits, preguntasEncuesta()))}</p>
           <div class="av-stats"><div><strong>${veces(r.anti.indice)}</strong><span>vs. la media</span></div><div><strong>${pct0(r.anti.pesoLeads)}</strong><span>de las leads</span></div><div><strong>${pctOf(r.anti.compras, r.anti.leads)}</strong><span>conversión</span></div></div>
           <p class="av-pie">Mucho volumen y poca compra: revisa si los anuncios atraen a este perfil o si necesita otro mensaje.</p>
         </article>` : ''}</div>`
@@ -1126,7 +1157,7 @@ function renderEncuestaMetrics() {
     </section>`;
   }).join('');
 
-  const tablas = ENCUESTA_PREGUNTAS.map((p) => {
+  const tablas = preguntasEncuesta().map((p) => {
     const rows = porRespuesta(state.leads, p);
     return `<h4 class="cfg-h4">${esc(p.name)}</h4><div class="table-scroll"><table class="metric-table">
       <thead><tr><th>Respuesta</th><th class="num">Leads</th><th class="num">% de los leads</th><th class="num">VIP</th><th class="num">Ventas</th><th class="num">Conversión</th></tr></thead>
@@ -1665,7 +1696,7 @@ function hoyItem(l) {
 
 function messageFor(l) {
   const launch = state.config.launches[state.launchCode];
-  return buildMessage(state.config.templates[l.step], { nombre: l.firstName, contactId: l.id, launch });
+  return buildMessage(state.config.templates[l.step], { nombre: l.firstName, contactId: l.id, launch, producto: nombreProducto(state.config) });
 }
 
 // ---------- WhatsApp ----------
@@ -1824,13 +1855,16 @@ function openConfig(code) {
     + launchesSorted().map(([c, l]) => `<option value="${esc(c)}">${esc(l.name)} (${esc(c)})</option>`).join('');
   pick.value = editingCode || '';
   // Las etiquetas de VIP y compra son fijas: un lanzamiento nuevo hereda las del último.
-  const last = launchesSorted()[0]?.[1] || {};
+  // Del mismo embudo; si aún no tiene, la base de su plantilla de agencia (o el último de cualquiera).
+  const base = embudoInfo(state.embudo)?.base;
+  const last = launchesSorted().find(([, x]) => embudoDeLanz(x) === state.embudo)?.[1] || (base ? { ...base } : launchesSorted()[0]?.[1] || {});
   const l = editingCode ? state.config.launches[editingCode]
     : {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
       precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag, vipContadorBase: last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, textos: last.textos,
+      ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
       inicioCaptacion: new Date().toISOString().slice(0, 10),
     };
   $('#cfg-code').value = editingCode || '';
@@ -3356,6 +3390,115 @@ $('.tab[data-tab="equipo"]').addEventListener('click', () => { equipoResult('');
 
 // ---------- Clientes (solo superadmin) ----------
 const slugCliente = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/^[^a-z]+/, '').slice(0, 24);
+// ---------- Panel de agencia (superadmin): todos los clientes de un vistazo ----------
+const fechaAg = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : '');
+function badgesAuditor(a, vencidas) {
+  if (!a) return '';
+  return `${a.critico ? `<span class="ag-badge crit">🔴 ${a.critico} crítico${a.critico === 1 ? '' : 's'}</span>` : ''}${a.importante ? `<span class="ag-badge imp">🟠 ${a.importante} importante${a.importante === 1 ? '' : 's'}</span>` : ''}${!a.critico && !a.importante ? '<span class="ag-badge ok">✓ Auditor sin pendientes graves</span>' : ''}${vencidas ? `<span class="ag-badge crit">${vencidas} tarea${vencidas === 1 ? '' : 's'} vencida${vencidas === 1 ? '' : 's'}</span>` : ''}`;
+}
+function tarjetaAgencia(c) {
+  const entrar = c.id === state.cliente ? '<span class="muted small">(cliente actual)</span>' : `<button type="button" class="btn primary" data-ag-entrar="${esc(c.id)}">Entrar →</button>`;
+  const alta = c.alta ? `<details class="ag-alta"${c.alta.hechos < c.alta.total ? ' open' : ''}><summary>Alta del cliente: <strong>${c.alta.hechos}/${c.alta.total}</strong> listo</summary>
+      <div class="ag-alta-bar"><span style="width:${(c.alta.hechos / c.alta.total) * 100}%"></span></div>
+      <ul>${c.alta.pasos.map((p) => `<li>${p.ok ? '✅' : '⬜'} ${esc(p.label)}${p.detalle ? ` <small class="muted">· ${esc(p.detalle)}</small>` : ''}</li>`).join('')}</ul></details>` : '';
+  if (c.error || !c.conectado) {
+    return `<article class="ag-card" style="--cl:${esc(c.color || 'var(--border)')}"><header><h3>${esc(c.nombre)}</h3><span class="spacer"></span>${entrar}</header>
+      <p class="error">${esc(c.error || 'GHL sin conectar')}</p>${alta}</article>`;
+  }
+  const l = c.lanzamiento;
+  const obj = l?.objetivos || {};
+  const deObj = (v, k) => (Number(obj[k]) > 0 && v != null ? `<small class="muted"> / ${Number(obj[k]).toLocaleString('es-ES')}</small>` : '');
+  const lanz = l ? `<div><strong>🚀 ${esc(l.nombre)}</strong> <span class="muted small">${esc(l.embudo)}${l.formato && l.formato !== 'webinar' ? ` · ${esc(FORMATOS[l.formato]?.label || '')}` : ''}</span>
+      ${l.proximoHito ? `<div class="small">Próximo: <strong>${esc(l.proximoHito.label)}</strong> el ${esc(fechaAg(l.proximoHito.dia))}</div>` : ''}</div>
+    <div class="ag-kpis">
+      <div><span>Registros</span><strong>${l.registros ?? '–'}${deObj(l.registros, 'registros')}</strong></div>
+      <div><span>VIP</span><strong>${l.vip ?? '–'}${deObj(l.vip, 'vip')}</strong></div>
+      <div><span>Ventas</span><strong>${l.ventas ?? '–'}${deObj(l.ventas, 'ventas')}</strong></div>
+      <div><span>Inversión</span><strong>${eur(l.inversion || null)}</strong></div>
+      <div><span>CPL</span><strong>${eur(l.cpl)}</strong></div>
+      <div><span>ROAS</span><strong>${l.roas ? l.roas.toLocaleString('es-ES', { maximumFractionDigits: 1 }) : '–'}</strong></div>
+    </div>
+    ${l.inversion7 != null ? `<div class="small muted">Inversión de los últimos 7 días: ${eur(l.inversion7)}</div>` : ''}
+    <div class="ag-badges">${badgesAuditor(l.auditor, l.vencidas)}</div>
+    ${l.auditor.criticos.length ? `<ul class="ag-crit">${l.auditor.criticos.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}` : '<p class="muted">Sin lanzamiento en curso.</p>';
+  const vsls = (c.vsls || []).map((v) => `<div class="ag-vsl">🎬 <strong>${esc(v.nombre)}</strong> · ${v.registros ?? '–'} registros · ${v.ventas ?? '–'} ventas <div class="ag-badges">${badgesAuditor(v.auditor, v.vencidas)}</div></div>`).join('');
+  return `<article class="ag-card" style="--cl:${esc(c.color || 'var(--accent)')}">
+    <header><h3>${esc(c.nombre)}</h3>${c.producto ? `<span class="badge">${esc(c.producto)}</span>` : ''}<span class="spacer"></span>${entrar}</header>
+    ${lanz}${vsls}${alta}</article>`;
+}
+async function loadAgencia(fresh = false) {
+  const box = $('#ag-body');
+  box.innerHTML = '<p class="muted">Revisando todos los clientes… (puede tardar unos segundos)</p>';
+  try {
+    const r = await api(`/api/agencia${fresh ? '?fresh=1' : ''}`);
+    const crit = r.clientes.reduce((t, c) => t + (c.lanzamiento?.auditor.critico || 0) + (c.vsls || []).reduce((s, v) => s + v.auditor.critico, 0), 0);
+    $('#ag-info').textContent = `${r.clientes.length} cliente${r.clientes.length === 1 ? '' : 's'} · ${crit} crítico${crit === 1 ? '' : 's'} · actualizado ${new Date(r.generado).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+    // Primero los que necesitan atención.
+    const peso = (c) => (c.error || !c.conectado ? 1000 : 0) + (c.lanzamiento?.auditor.critico || 0) * 10 + (c.lanzamiento?.vencidas || 0) + (c.alta ? c.alta.total - c.alta.hechos : 0);
+    box.innerHTML = `<div class="ag-grid">${[...r.clientes].sort((a, b) => peso(b) - peso(a)).map(tarjetaAgencia).join('')}</div>`;
+  } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+$('#btn-agencia').addEventListener('click', () => {
+  $('#ag-cron').textContent = `${location.origin}/api/agencia?key=<DIGEST_KEY>`;
+  $('#agencia-dialog').showModal();
+  loadAgencia();
+});
+$('#ag-actualizar').addEventListener('click', () => loadAgencia(true));
+$('#ag-enviar').addEventListener('click', async (e) => {
+  e.target.disabled = true;
+  try {
+    const r = await api('/api/agencia', { method: 'POST', body: { op: 'enviar' } });
+    $('#ag-info').textContent = `Resumen enviado a ${r.enviados} de ${r.destinatarios} superadmin.`;
+  } catch (err) { $('#ag-info').textContent = err.message; }
+  e.target.disabled = false;
+});
+$('#ag-body').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ag-entrar]');
+  if (b) cambiarCliente(b.dataset.agEntrar);
+});
+
+// ---------- Equipo → Marca (producto, colores de los emails y encuesta del avatar del cliente) ----------
+const TIPO_PREGUNTA = { opciones: 'Opciones (una o varias)', texto: 'Texto libre', edad: 'Edad (se agrupa por tramos)' };
+let marcaCampos = null; // campos de texto de GHL para la encuesta
+async function loadMarca() {
+  const box = $('#marca-body');
+  const m = state.config.marca || {};
+  const preguntas = preguntasEncuesta();
+  box.innerHTML = '<p class="muted">Cargando…</p>';
+  if (!marcaCampos) marcaCampos = await api('/api/fields?tipo=texto').then((d) => d.fields).catch(() => []);
+  const opcionesCampo = (sel) => `<option value="">— Campo de GHL —</option>${marcaCampos.map((f) => `<option value="${esc(f.id)}" ${f.id === sel ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}${sel && !marcaCampos.some((f) => f.id === sel) ? `<option value="${esc(sel)}" selected>${esc(sel)}</option>` : ''}`;
+  const fila = (p = {}) => `<div class="marca-preg row">
+    <select class="mp-campo" aria-label="Campo de GHL">${opcionesCampo(p.id)}</select>
+    <input class="mp-nombre" value="${esc(p.name || '')}" placeholder="Texto de la pregunta" maxlength="160">
+    <select class="mp-tipo" aria-label="Tipo">${Object.entries(TIPO_PREGUNTA).map(([k, v]) => `<option value="${k}" ${k === (p.tipo || 'opciones') ? 'selected' : ''}>${v}</option>`).join('')}</select>
+    <button type="button" class="btn ghost mp-del" aria-label="Quitar">✕</button></div>`;
+  box.innerHTML = `<div class="grid3">
+      <label class="field"><span>Nombre del producto <small>(lo que se vende en el carrito)</small></span><input id="mc-producto" maxlength="40" value="${esc(m.producto || '')}" placeholder="Raíces, Método X…"></label>
+      <label class="field narrow"><span>Color principal de los emails</span><input id="mc-color" type="color" value="${esc(m.color || '#860d0e')}"></label>
+      <label class="field narrow"><span>Color de los botones</span><input id="mc-color2" type="color" value="${esc(m.color2 || '#c49b79')}"></label>
+    </div>
+    <h3 class="cfg-h3">Encuesta del avatar</h3>
+    <p class="muted">Las preguntas de la encuesta de GHL (cada una guarda su respuesta en un campo del contacto). Se cruzan con las ventas en «Avatar y anuncios». El campo del contacto se elige de la lista de GHL.</p>
+    <div id="mc-preguntas">${preguntas.map(fila).join('')}</div>
+    <button type="button" class="btn" id="mc-add">+ Añadir pregunta</button>
+    <p class="muted small">Los mensajes de WhatsApp se cambian en <em>Setteo hoy → Mensajes de WhatsApp</em> (pueden usar <code>{producto}</code>) y las tareas habituales, en <em>Tareas</em>.</p>
+    <div class="row"><button type="button" class="btn primary" id="mc-guardar">Guardar marca</button><span class="muted" id="mc-status" aria-live="polite"></span></div>`;
+  box.dataset.fila = '1';
+  $('#mc-add').onclick = () => $('#mc-preguntas').insertAdjacentHTML('beforeend', fila());
+  $('#mc-preguntas').onclick = (e) => { if (e.target.closest('.mp-del')) e.target.closest('.marca-preg').remove(); };
+  $('#mc-guardar').onclick = async () => {
+    const st = $('#mc-status');
+    const encuesta = $$('#mc-preguntas .marca-preg').map((r) => ({ id: $('.mp-campo', r).value, name: $('.mp-nombre', r).value.trim() || $('.mp-campo', r).selectedOptions[0]?.textContent || '', tipo: $('.mp-tipo', r).value })).filter((p) => p.id);
+    st.textContent = 'Guardando…';
+    try {
+      const { config } = await api('/api/config', { method: 'POST', body: { op: 'marca', marca: { producto: $('#mc-producto').value.trim(), color: $('#mc-color').value, color2: $('#mc-color2').value }, encuesta } });
+      state.config = config;
+      st.textContent = 'Guardado ✓ Recarga el dashboard para ver el nombre nuevo en todos los textos.';
+    } catch (err) { st.textContent = err.message; }
+  };
+}
+$('.tab[data-tab="marca"]').addEventListener('click', () => loadMarca().catch((e) => { $('#marca-body').innerHTML = `<p class="error">${esc(e.message)}</p>`; }));
+
 // ---------- Equipo → Historial (cambios y copias de seguridad; necesita D1) ----------
 const fechaHora = (iso) => new Date(iso).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const pesoKb = (b) => (b >= 1024 ? `${(b / 1024).toFixed(b >= 10240 ? 0 : 1)} KB` : `${b} B`);
@@ -4717,7 +4860,7 @@ function mensajeFase(contactId) {
   const k = contactoDe(c);
   const d = new Date(c.startTime);
   return buildMessage(state.config.templates[info.plantilla], {
-    nombre: k.primerNombre, contactId, launch: embudoActual(),
+    nombre: k.primerNombre, contactId, launch: embudoActual(), producto: nombreProducto(state.config),
     extra: {
       dia_llamada: d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' }),
       hora_llamada: d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }),
@@ -5228,7 +5371,7 @@ function vslFiltrados() {
 function waVsl(l) {
   const e = ESTADOS_VSL.find((x) => x.id === l.estado);
   if (!e?.plantilla || !l.phoneWa) return '';
-  const msg = buildMessage(state.config.templates[e.plantilla], { nombre: l.firstName, contactId: l.id, launch: vslCfg() });
+  const msg = buildMessage(state.config.templates[e.plantilla], { nombre: l.firstName, contactId: l.id, launch: vslCfg(), producto: nombreProducto(state.config) });
   return `https://wa.me/${l.phoneWa}?text=${encodeURIComponent(msg)}`;
 }
 
@@ -5460,8 +5603,47 @@ function pintarEmbPestanas(activas) {
 function pintarEmbGuia() {
   $('#emb-guia').innerHTML = guiaPasosHtml(guiaEmbudo(embTipo(), embPestanas(), embFormato()));
 }
+// Plantillas de agencia (superadmin): se cargan al abrir «＋ Nuevo embudo».
+let plantillasAg = [];
+async function cargarPlantillas() {
+  if (!state.superadmin) return;
+  try { plantillasAg = (await api('/api/plantillas')).plantillas; } catch { plantillasAg = []; }
+  const sel = $('#emb-plantilla');
+  sel.innerHTML = `<option value="">— Sin plantilla: elijo el tipo arriba —</option>${plantillasAg.map((p) => `<option value="${esc(p.id)}">${esc(p.nombre)} · ${p.tipo === 'vsl' ? 'VSL' : esc(FORMATOS[p.formato || 'webinar']?.label || 'Lanzamientos')} (de ${esc(p.origen)})</option>`).join('')}`;
+  $('#emb-plantilla-box').hidden = !plantillasAg.length;
+  pintarPlantillaElegida();
+}
+function pintarPlantillaElegida() {
+  const p = plantillasAg.find((x) => x.id === $('#emb-plantilla').value);
+  $('#emb-plantilla-opts').hidden = !p;
+  $('.emb-tipos').classList.toggle('apagado', Boolean(p));
+  $('#emb-plantilla-info').textContent = p ? `${p.desc ? `${p.desc} · ` : ''}${p.mensajes} mensajes de WhatsApp${p.habituales ? ` · ${p.habituales} tareas habituales` : ''}${p.pestanas ? ` · ${p.pestanas.length} pestañas` : ''}. Las etiquetas, enlaces y fechas de GHL los pones tú después (son de cada cliente).` : '';
+  $('#emb-pl-habituales').checked = Boolean(p) && !Object.keys(state.config.launches).length;
+  if (p && !$('#emb-nombre').value.trim()) $('#emb-nombre').placeholder = p.nombre;
+}
+$('#emb-plantilla').addEventListener('change', pintarPlantillaElegida);
+$('#emb-pl-borrar').addEventListener('click', async () => {
+  const p = plantillasAg.find((x) => x.id === $('#emb-plantilla').value);
+  if (!p || !window.confirm(`¿Borrar la plantilla «${p.nombre}»? Los embudos ya creados con ella no cambian.`)) return;
+  try { await api('/api/plantillas', { method: 'POST', body: { op: 'borrar', id: p.id } }); await cargarPlantillas(); } catch (e) { $('#emb-status').textContent = e.message; }
+});
+$('#emb-plantilla-guardar').addEventListener('click', async () => {
+  const e = embudoInfo(embEdit);
+  const nombre = window.prompt('Nombre de la plantilla (la verás al crear un embudo en cualquier cliente):', `${e.nombre} (${clienteNombre()})`);
+  if (!nombre) return;
+  const desc = window.prompt('Descripción corta (opcional), p. ej. «Webinar 2 clases + carrito 5 días»:', '') || '';
+  try {
+    await api('/api/plantillas', { method: 'POST', body: { op: 'guardar', embudo: embEdit, nombre, desc } });
+    $('#emb-status').textContent = `Plantilla «${nombre}» guardada ✓ Ya puedes usarla en «＋ Nuevo embudo» de cualquier cliente.`;
+  } catch (err) { $('#emb-status').textContent = err.message; }
+});
+const clienteNombre = () => state.clientes.find((c) => c.id === state.cliente)?.nombre || '';
+
 function abrirNuevoEmbudo() {
   embEdit = null;
+  $('#emb-plantilla').value = '';
+  $('#emb-plantilla-guardar').hidden = true;
+  cargarPlantillas();
   $('#emb-titulo').textContent = 'Nuevo embudo';
   $('.emb-tipos').hidden = false;
   $('input[name="emb-tipo"][value="webinar"]').checked = true;
@@ -5488,6 +5670,8 @@ function abrirEditarEmbudo(id) {
   $('#emb-status').textContent = '';
   $('#emb-nota').hidden = true;
   $('#emb-borrar').hidden = false;
+  $('#emb-plantilla-box').hidden = true;
+  $('#emb-plantilla-guardar').hidden = !state.superadmin;
   $('#emb-crear').textContent = 'Guardar';
   $('#emb-guia-box').open = false;
   pintarEmbPestanas(e.pestanas || null);
@@ -5517,6 +5701,16 @@ $('#emb-crear').addEventListener('click', async () => {
       state.config = config;
       embDlg.close();
       await setEmbudo(state.embudo);
+      return;
+    }
+    // Desde una plantilla de agencia: la crea el servidor (embudo, mensajes, tareas habituales y base).
+    const pl = $('#emb-plantilla').value;
+    if (pl) {
+      const d = await api('/api/plantillas', { method: 'POST', body: { op: 'aplicar', id: pl, nombre: $('#emb-nombre').value.trim(), mensajes: $('#emb-pl-mensajes').checked, habituales: $('#emb-pl-habituales').checked } });
+      state.config = d.config;
+      embDlg.close();
+      await setEmbudo(d.embudo);
+      if (embudoInfo(d.embudo)?.tipo === 'vsl') openVslConfig(); else openConfig(null);
       return;
     }
     const tipo = embTipo();

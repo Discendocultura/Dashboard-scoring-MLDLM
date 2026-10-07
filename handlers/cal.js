@@ -3,6 +3,7 @@
 //   GET /api/cal?t=<token>  → archivo .ics con hitos, eventos y tareas; se actualiza solo
 import { requireSession, signToken, verifyToken } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
+import { conProducto, nombreProducto } from '../public/js/producto.js';
 import { getEventos } from '../lib/eventos.js';
 import { getTareas } from '../lib/tareas.js';
 import { findUser } from '../lib/users.js';
@@ -48,7 +49,7 @@ export async function GET(request) {
     for (const { code, l } of relevantes(config)) {
       const [eventos, tareas] = await Promise.all([getEventos(code), getTareas(code)]);
       const tag = ` · ${l.name}`;
-      for (const h of hitosLanzamiento(l)) items.push({ uid: `${code}-${h.id}@${clienteActual().id}`, titulo: `${h.icon} ${h.titulo}${tag}`, day: h.day, time: h.time, minutos: h.minutos });
+      for (const h of hitosLanzamiento(l)) items.push({ uid: `${code}-${h.id}@${clienteActual().id}`, titulo: conProducto(`${h.icon} ${h.titulo}${tag}`, nombreProducto(config)), day: h.day, time: h.time, minutos: h.minutos });
       for (const e of eventos) {
         const tipo = EVENTO_TIPOS.find((t) => t.id === e.tipo);
         items.push({ uid: `${code}-${e.id}@${clienteActual().id}`, titulo: `${tipo?.icon || '📌'} ${e.titulo}${tag}`, day: e.fecha, fin: e.fin, time: e.hora, minutos: 60, notas: e.notas });

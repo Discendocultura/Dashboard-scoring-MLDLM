@@ -2,6 +2,7 @@
 // al 50% o al 90% de un vídeo. Pone la etiqueta correspondiente al contacto en GHL.
 import { addTags, getContact, findContactByEmail } from '../lib/ghl.js';
 import { getConfig } from '../lib/config-store.js';
+import { marcarActividad } from '../lib/actividad.js';
 import { json, readBody, errorResponse, isEmail, CORS_HEADERS } from '../lib/http.js';
 import { VIDEOS, THRESHOLDS, tagFor } from '../public/js/scoring.js';
 
@@ -9,7 +10,7 @@ export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
-export async function POST(request) {
+export async function POST(request, ctx) {
   try {
     const { launch, video, pct, cid, email } = await readBody(request);
     const p = Number(pct);
@@ -27,6 +28,7 @@ export async function POST(request) {
 
     const tags = THRESHOLDS.filter((t) => t <= p).map((t) => tagFor(launch, `${video}_${t}`));
     await addTags(contact.id, tags);
+    { const a = marcarActividad('video'); ctx?.waitUntil?.(a); }
     return json({ ok: true }, 200, CORS_HEADERS);
   } catch (e) {
     return errorResponse(e, CORS_HEADERS);

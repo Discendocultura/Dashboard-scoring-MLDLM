@@ -1,0 +1,89 @@
+// Vista de agencia (solo superadmin) y auditor automático de cada mañana.
+//   GET  /api/agencia[?fresh=1]          → resumen de todos los clientes (panel de agencia)
+//   GET  /api/agencia?key=DIGEST_KEY      → lo llama el programador de tareas cada mañana: manda el resumen
+//                                           (críticos del auditor, tareas vencidas, próximos hitos) a los superadmin
+//   POST { op: 'enviar' }                 → enviarlo ahora (prueba)
+import { requireSuperadmin } from '../lib/auth.js';
+import { env } from '../lib/env.js';
+import { enPrincipal } from '../lib/cliente.js';
+import { listUsers, ensureContact, emailLayout, guardarContactos } from '../lib/users.js';
+import { sendEmail } from '../lib/ghl.js';
+import { resumenAgencia } from '../lib/agencia.js';
+import { json, readBody, errorResponse, escapeHtml } from '../lib/http.js';
+
+const eur = (n) => (n == null ? '–' : `${Math.round(n).toLocaleString('es-ES')} €`);
+const fecha = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : '');
+
+// Email con lo importante de cada cliente: primero los que tienen críticos.
+export function htmlResumen(r, dashboardUrl) {
+  const filas = [...r.clientes].sort((a, b) => (b.lanzamiento?.auditor.critico || 0) - (a.lanzamiento?.auditor.critico || 0)).map((c) => {
+    const url = `${dashboardUrl}${c.principal ? '' : `?c=${encodeURIComponent(c.id)}`}`;
+    if (c.error || !c.conectado) return `<li><strong>${escapeHtml(c.nombre)}</strong>: ${escapeHtml(c.error || 'GHL sin conectar')}</li>`;
+    const l = c.lanzamiento;
+    const vencidas = (l?.vencidas || 0) + (c.vsls || []).reduce((t, v) => t + v.vencidas, 0);
+    const criticos = [...(l?.auditor.criticos || []), ...(c.vsls || []).flatMap((v) => v.auditor.criticos.map((t) => `${v.nombre}: ${t}`))];
+    const partes = [
+      l ? `${escapeHtml(l.nombre)}: ${l.registros ?? '–'} registros · ${l.ventas ?? '–'} ventas${l.roas ? ` · ROAS ${l.roas.toFixed(1)}` : ''}${l.proximoHito ? ` · ${escapeHtml(l.proximoHito.label)} el ${fecha(l.proximoHito.dia)}` : ''}` : 'Sin lanzamiento en curso',
+      vencidas ? `<span style="color:#b3261e">${vencidas} tareas vencidas</span>` : '',
+      c.alta && c.alta.hechos < c.alta.total ? `alta: ${c.alta.hechos}/${c.alta.total}` : '',
+    ].filter(Boolean).join(' · ');
+    return `<li style="margin:0 0 12px"><a href="${escapeHtml(url)}" style="color:inherit"><strong>${escapeHtml(c.nombre)}</strong></a> — ${partes}
+      ${criticos.length ? `<ul style="margin:4px 0 0;color:#b3261e">${criticos.map((t) => `<li>🔴 ${escapeHtml(t)}</li>`).join('')}</ul>` : ''}</li>`;
+  }).join('');
+  const totalCriticos = r.clientes.reduce((t, c) => t + (c.lanzamiento?.auditor.critico || 0) + (c.vsls || []).reduce((s, v) => s + v.auditor.critico, 0), 0);
+  return {
+    subject: totalCriticos ? `Agencia: ${totalCriticos} críticos hoy en ${r.clientes.length} clientes` : `Agencia: todo en orden en ${r.clientes.length} clientes`,
+    body: `<p>Resumen de hoy (${escapeHtml(fecha(r.hoy))}) de todos los clientes:</p><ul style="padding-left:18px">${filas}</ul>
+      <p style="font-size:13px;color:#7a6458">Inversión de los últimos 7 días: ${r.clientes.map((c) => `${escapeHtml(c.nombre)} ${eur(c.lanzamiento?.inversion7)}`).join(' · ')}</p>`,
+    totalCriticos,
+  };
+}
+
+async function enviar(request) {
+  const r = await resumenAgencia({ fresh: true });
+  const dashboardUrl = new URL('/', request.url).toString();
+  const { subject, body, totalCriticos } = htmlResumen(r, dashboardUrl);
+  return enPrincipal(async () => {
+    const users = (await listUsers({ fresh: true })).filter((u) => u.superadmin && u.activo !== false && u.email);
+    let enviados = 0;
+    let nuevos = false;
+    for (const u of users) {
+      try {
+        if (!u.contactId) nuevos = true;
+        const cid = await ensureContact(u);
+        await sendEmail(cid, { subject, html: await emailLayout('Resumen de la agencia', body, { url: dashboardUrl, button: 'Abrir el panel de agencia' }) });
+        enviados++;
+      } catch (e) {
+        console.error('Resumen agencia', e);
+      }
+    }
+    if (nuevos) await guardarContactos(users);
+    return { enviados, destinatarios: users.length, criticos: totalCriticos };
+  });
+}
+
+export async function GET(request) {
+  try {
+    const url = new URL(request.url);
+    const key = url.searchParams.get('key');
+    if (key != null) {
+      if (!env.DIGEST_KEY || env.DIGEST_KEY.length < 16 || key !== env.DIGEST_KEY) return json({ error: 'No autorizado' }, 401);
+      return json(await enviar(request));
+    }
+    await requireSuperadmin(request);
+    return json(await resumenAgencia({ fresh: url.searchParams.has('fresh') }));
+  } catch (e) {
+    return errorResponse(e);
+  }
+}
+
+export async function POST(request) {
+  try {
+    await requireSuperadmin(request);
+    const body = await readBody(request);
+    if (body.op !== 'enviar') return json({ error: 'Operación no válida' }, 400);
+    return json(await enviar(request));
+  } catch (e) {
+    return errorResponse(e);
+  }
+}

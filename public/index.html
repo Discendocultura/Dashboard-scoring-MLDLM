@@ -51,6 +51,7 @@
         <button id="btn-zoom" class="tb-btn tb-zoom zoom-only lanz-only" type="button" data-tb-icon="video" title="Leer la asistencia del directo en Zoom y etiquetar a los leads"><span class="tb-txt">Sincronizar Zoom</span></button>
         <button id="btn-auditor" class="tb-btn tb-auditor config-only" type="button" data-tb-icon="shield" title="Auditor: revisa el embudo y te dice qué falta, por orden de urgencia"><span class="tb-txt">Auditor</span><span id="auditor-count" class="notif-count" hidden></span></button>
         <button id="btn-config" class="tb-btn tb-config config-only" type="button" data-tb-icon="gear" title="Configuración del lanzamiento"><span class="tb-txt">Configuración</span></button>
+        <button id="btn-agencia" class="tb-btn tb-agencia superadmin-only" type="button" data-tb-icon="compass" title="Panel de agencia: todos los clientes de un vistazo"><span class="tb-txt">Agencia</span></button>
         <button id="btn-equipo" class="tb-btn tb-equipo admin-only" type="button" data-tb-icon="users" title="Miembros del equipo, roles y permisos"><span class="tb-txt">Equipo</span></button>
         <span class="notif-wrap">
           <button id="btn-notif" class="tb-btn tb-notif" type="button" data-tb-icon="bell" title="Notificaciones: comentarios, menciones y tareas vencidas o a punto de vencer" aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false"><span id="notif-count" class="notif-count" hidden></span></button>
@@ -803,6 +804,16 @@
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="plf"><span class="emb-ico">🚀</span><span><strong>PLF (Product Launch Formula)</strong><small>4 vídeos: PLC 1, 2 y 3 de contenido y el PLC 4 de venta.</small></span></label>
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="vsl"><span class="emb-ico">🎬</span><span><strong>VSL (siempre abierta)</strong><small>Registro → vídeo de venta → compra directa o llamada. Se analiza por fechas, meses y semanas.</small></span></label>
         </div>
+        <div id="emb-plantilla-box" class="emb-plantilla superadmin-only" hidden>
+          <label class="field"><span>Partir de una plantilla de agencia <small>(opcional)</small></span>
+            <select id="emb-plantilla"><option value="">— Sin plantilla: elijo el tipo arriba —</option></select></label>
+          <div id="emb-plantilla-opts" class="row" hidden>
+            <label class="chk"><input type="checkbox" id="emb-pl-mensajes" checked> Usar sus mensajes de WhatsApp</label>
+            <label class="chk"><input type="checkbox" id="emb-pl-habituales"> Usar sus tareas habituales <small class="muted">(sustituye las de este cliente)</small></label>
+            <button type="button" class="btn ghost" id="emb-pl-borrar">Borrar plantilla</button>
+          </div>
+          <p class="muted small" id="emb-plantilla-info"></p>
+        </div>
         <label class="field" id="emb-formato-box" hidden><span>Formato <small>(cuántos vídeos tiene cada lanzamiento; la preclase con las clases 1 y 2 es aparte)</small></span>
           <select id="emb-formato"><option value="webinar">Webinar (1 vídeo)</option><option value="v2">Lanzamiento de 2 vídeos</option><option value="v3">Lanzamiento de 3 vídeos</option><option value="plf">PLF (4 PLCs)</option></select></label>
         <label class="field"><span>Nombre del embudo</span><input id="emb-nombre" maxlength="40" placeholder="Webinar «El Camino», PLF primavera, VSL Fertilidad…"></label>
@@ -818,6 +829,7 @@
       </div>
       <footer class="dialog-foot">
         <button id="emb-borrar" class="btn danger-ghost" type="button" hidden>Eliminar embudo</button>
+        <button id="emb-plantilla-guardar" class="btn superadmin-only" type="button" hidden title="Guarda este embudo (tipo, pestañas, mensajes, tareas habituales, precios y textos) para usarlo en otros clientes">Guardar como plantilla de agencia</button>
         <span class="spacer"></span>
         <button class="btn" value="cancel" formnovalidate type="submit">Cancelar</button>
         <button id="emb-crear" class="btn primary" type="button">Crear embudo</button>
@@ -1088,9 +1100,14 @@
           <button type="button" class="tab active" data-tab="equipo" data-tab-icon="users">Miembros del equipo</button>
           <button type="button" class="tab" data-tab="roles" data-tab-icon="shield">Roles y permisos</button>
           <button type="button" class="tab superadmin-only" data-tab="clientes" data-tab-icon="compass">Clientes</button>
+          <button type="button" class="tab" data-tab="marca" data-tab-icon="sparkle">Marca</button>
           <button type="button" class="tab" data-tab="historial" data-tab-icon="history">Historial</button>
           <button type="button" class="tab" data-tab="seguridad" data-tab-icon="lock">Seguridad</button>
         </div>
+        <section class="tab-panel" data-panel="marca" hidden>
+          <p class="muted">Lo propio de este cliente: el nombre de su producto (aparece en todo el dashboard, en la página preclase, en el calendario y en los emails en lugar de «Raíces»), los colores de los emails del equipo y las preguntas de su encuesta del avatar.</p>
+          <div id="marca-body"></div>
+        </section>
         <section class="tab-panel" data-panel="historial" hidden>
           <p class="muted">Quién cambió qué y cuándo (configuración, tareas, calendario, llamadas, equipo…). De cada dato se guarda una copia al día durante 30 días: si algo se borra o se estropea, pulsa «Restaurar» en la copia buena (lo que haya ahora también queda copiado, así que se puede deshacer).</p>
           <div class="row hist-bar">
@@ -1152,6 +1169,30 @@
         <span class="spacer"></span>
         <button class="btn" value="cancel" formnovalidate type="submit">Cerrar</button>
       </footer>
+    </form>
+  </dialog>
+
+  <!-- Panel de agencia (superadmin) -->
+  <dialog id="agencia-dialog" class="dialog dialog-xl">
+    <form method="dialog">
+      <header class="dialog-head">
+        <h2>Agencia · todos los clientes</h2>
+        <button class="btn ghost" value="cancel" formnovalidate type="submit" aria-label="Cerrar">✕</button>
+      </header>
+      <div class="dialog-body">
+        <div class="row ag-bar">
+          <span class="muted" id="ag-info"></span>
+          <span class="spacer"></span>
+          <button type="button" class="btn" id="ag-actualizar">Actualizar</button>
+          <button type="button" class="btn" id="ag-enviar" title="Manda ahora a los superadmin el resumen de cada mañana">Enviarme el resumen</button>
+        </div>
+        <div id="ag-body"></div>
+        <details class="emb-guia">
+          <summary>⏰ Recibir este resumen cada mañana (auditor automático)</summary>
+          <p>Cada mañana, el auditor revisa todos los clientes y os manda a los superadmin un email con los críticos, las tareas vencidas y los próximos hitos de cada uno. Para activarlo, usa la misma clave que el resumen diario (<code>DIGEST_KEY</code> en Cloudflare) y crea en <a href="https://cron-job.org" target="_blank" rel="noopener">cron-job.org</a> una tarea que abra a las 8:00 (hora de Madrid):</p>
+          <pre id="ag-cron"></pre>
+        </details>
+      </div>
     </form>
   </dialog>
 

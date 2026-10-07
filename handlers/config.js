@@ -41,6 +41,15 @@ export async function POST(request) {
       });
       return json({ templates: config.templates, defaultCountryCode: config.defaultCountryCode, version: versionDe(config) });
     }
+    // Marca del cliente (Equipo → Marca): producto, colores y encuesta del avatar. Solo admin.
+    if (body.op === 'marca') {
+      await requireRole(request, { admin: true });
+      const config = await reintentando(async () => {
+        const actual = await getConfig({ fresh: true });
+        return saveConfig({ ...actual, marca: body.marca ?? actual.marca, encuesta: body.encuesta ?? actual.encuesta }, { version: versionDe(actual), motivo: 'Marca del cliente' });
+      });
+      return json({ config, version: versionDe(config) });
+    }
     await requireRole(request, { permiso: 'config' });
     // Objetivos y supuestos de la calculadora de un lanzamiento (pestaña «Objetivos y calculadora»).
     if (body.op === 'objetivos') {

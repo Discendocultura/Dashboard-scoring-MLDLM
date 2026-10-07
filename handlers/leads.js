@@ -4,7 +4,6 @@ import { requireRole } from '../lib/auth.js';
 import { contactsByTag, aplicarCamposFormulario } from '../lib/ghl.js';
 import { getConfig } from '../lib/config-store.js';
 import { json, errorResponse } from '../lib/http.js';
-import { ENCUESTA_PREGUNTAS } from '../public/js/encuesta.js';
 
 export async function GET(request) {
   try {
@@ -25,7 +24,7 @@ export async function GET(request) {
     const config = await getConfig();
     const formAds = config.formAds || {};
     const fields = [...new Set(Object.values(config.launches)
-      .map((l) => l.compraDateField).concat(Object.values(config.vsls || {}).flatMap((v) => [v.compraDateField, v.registroDateField]), ENCUESTA_PREGUNTAS.map((p) => p.id), formAds.campaign, formAds.adset, formAds.ad).filter(Boolean))];
+      .map((l) => l.compraDateField).concat(Object.values(config.vsls || {}).flatMap((v) => [v.compraDateField, v.registroDateField]), (config.encuesta || []).map((p) => p.id), formAds.campaign, formAds.adset, formAds.ad).filter(Boolean))];
     const page = await contactsByTag(tag, cursor, fields);
     page.contacts = page.contacts.map((c) => aplicarCamposFormulario(c, formAds));
     return json(page);

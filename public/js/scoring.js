@@ -199,6 +199,24 @@ export function nextStepFor(s) {
   return 'grabacion';
 }
 
+// Mensajes de serie para un cliente nuevo: sin nada de MLDLM. {producto} = el nombre de su producto.
+export const NEUTRAL_TEMPLATES = {
+  grabacion: 'Hola {nombre} 👋 Ya tienes disponible la grabación de la clase en directo, te dejo aquí el enlace: {link_grabacion} ¿Me cuentas qué te parece cuando la veas?',
+  raices: 'Hola {nombre} 👋 He visto que ya has empezado a ver la grabación, ¡qué bien! Aquí tienes toda la información de {producto}: {link_pagina_venta} ¿Tienes alguna duda que pueda resolverte?',
+  cierre: 'Hola {nombre} 👋 ¡Gracias por quedarte hasta el final! Si sientes que {producto} es para ti, puedes unirte aquí: {link_pago} O si prefieres que lo hablemos, reserva una llamada conmigo: {link_llamada}',
+  vsl_novio: 'Hola {nombre} 👋 Vi que te registraste para ver el vídeo y aún no has podido verlo. Te lo dejo aquí: {link_vsl} ¿Me cuentas qué te parece?',
+  vsl_vio: 'Hola {nombre} 👋 He visto que ya has empezado a ver el vídeo, ¡qué bien! Aquí tienes toda la información de {producto}: {link_pagina_venta} ¿Tienes alguna duda que pueda resolverte?',
+  vsl_final: 'Hola {nombre} 👋 ¡Gracias por ver el vídeo hasta el final! Si sientes que {producto} es para ti, puedes unirte aquí: {link_pago} O si prefieres que lo hablemos, reserva una llamada: {link_llamada}',
+  ll_proxima: 'Hola {nombre} 👋 Te escribo para recordarte nuestra llamada el {dia_llamada} a las {hora_llamada}. ¡Hasta entonces!',
+  ll_pendiente_pago: 'Hola {nombre} 👋 ¡Qué ilusión que vayas a empezar {producto}! Te dejo el enlace para completar tu inscripción: {link_pago} Si prefieres pagarlo a plazos: {link_pago_fraccionado} Cualquier duda, me dices.',
+  ll_seguimiento: 'Hola {nombre} 👋 ¿Has podido pensarlo? Si te quedó alguna duda sobre {producto} estoy aquí para resolverla. Te dejo el enlace por si decides dar el paso: {link_pago}',
+  ll_venta: 'Hola {nombre} 👋 ¡Bienvenida a {producto}! 🎉 En breve te llegará un email con tu acceso. Aquí me tienes para lo que necesites.',
+  ll_perdido: 'Hola {nombre} 👋 Gracias por tu tiempo en la llamada. Entiendo que ahora no es el momento; si en algún momento quieres retomarlo, aquí me tienes.',
+  ll_noshow: 'Hola {nombre} 👋 Te estaba esperando para nuestra llamada y no hemos podido conectar. ¿La reprogramamos? Puedes elegir otro hueco aquí: {link_llamada}',
+  ll_reagendar: 'Hola {nombre} 👋 Sin problema, cambiamos la llamada. Elige el hueco que mejor te venga aquí: {link_llamada}',
+  ll_cancelada: 'Hola {nombre} 👋 He visto que has cancelado la llamada. Si quieres, puedes reservar otro momento aquí: {link_llamada}',
+};
+
 export const DEFAULT_TEMPLATES = {
   grabacion: 'Hola {nombre} 🌱 Soy del equipo de Me lo dijo la matrona. Ya tienes disponible la grabación de la clase en directo, te dejo aquí el enlace: {link_grabacion} ¿Me cuentas qué te parece cuando la veas?',
   raices: 'Hola {nombre} 🌱 He visto que ya has empezado a ver la grabación, ¡qué bien! Te dejo aquí toda la información de Raíces, el programa de acompañamiento para quedarte embarazada de forma natural: {link_pagina_venta} ¿Tienes alguna duda que pueda resolverte?',
@@ -236,7 +254,7 @@ export function grabacionActual(launch, hoy = new Date().toISOString().slice(0, 
   return (vs.filter((v) => !v.fecha || v.fecha <= hoy).at(-1) || vs[0]).replayUrl;
 }
 
-export function buildMessage(template, { nombre, contactId, launch, extra = {} }) {
+export function buildMessage(template, { nombre, contactId, launch, extra = {}, producto = '' }) {
   const links = {
     link_grabacion: withContactId(grabacionActual(launch), contactId),
     link_raices: withContactId(launch?.raicesUrl, contactId),
@@ -250,6 +268,7 @@ export function buildMessage(template, { nombre, contactId, launch, extra = {} }
   };
   return String(template || '')
     .replaceAll('{nombre}', nombre || '')
+    .replaceAll('{producto}', producto || 'el programa')
     .replace(/\{(link_[a-z_]+)\}/g, (m, k) => (k in links ? links[k] : m))
     .replace(/\{([a-z_]+)\}/g, (m, k) => (k in extra ? extra[k] : m))
     .replace(/ {2,}/g, ' ')
