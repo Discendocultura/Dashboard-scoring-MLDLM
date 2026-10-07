@@ -58,9 +58,11 @@ export const videoVenta = (launch) => videosDe(launch).at(-1) || null;
 // ¿Es en directo? (tiene Zoom). Si no, es un vídeo grabado que se publica a su hora.
 export const esEnDirecto = (v) => Boolean(v?.zoomMeetingId || v?.zoomJoinUrl);
 
-// ---- Prelanzamiento: clases grabadas de la página preclase (1, 2 o 3) y entrada VIP (sí o no) ----
-// Van en el embudo (como el formato) y se copian a cada lanzamiento: launch.nClases y launch.vip.
+// ---- Prelanzamiento: área de recursos preclase (sí o no) con sus clases grabadas (1, 2 o 3) y entrada VIP (sí o no) ----
+// Van en el embudo (como el formato) y se copian a cada lanzamiento: launch.preclase, launch.nClases y launch.vip.
+// Sin área preclase no hay clases (0) y la puntuación se reparte entre la VIP y los vídeos del lanzamiento.
 export const MAX_CLASES = 3;
-export const nClases = (l) => ([1, 2, 3].includes(Number(l?.nClases)) ? Number(l.nClases) : 2);
+export const conPreclase = (l) => l?.preclase !== false;
+export const nClases = (l) => (!conPreclase(l) ? 0 : [1, 2, 3].includes(Number(l?.nClases)) ? Number(l.nClases) : 2);
 export const clasesDe = (l) => Array.from({ length: nClases(l) }, (_, i) => `clase${i + 1}`);
 export const conVip = (l) => l?.vip !== false;

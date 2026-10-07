@@ -30,7 +30,8 @@ export function phasesFor(launch) {
   if (vs.length <= 1 && nc === 2 && vip) return PHASES;
   const botonClase = vip ? 'vip' : 'whatsapp';
   const primero = vs.length > 1 ? `el ${vs[0].nombre}` : 'el directo';
-  const out = [{ ...PHASES[0] }];
+  // Sin área preclase (sin clases): la primera fase es la cuenta atrás hasta el primer vídeo.
+  const out = [nc ? { ...PHASES[0] } : { ...PHASES[0], label: 'Antes del directo', button: 'whatsapp', text: `${primero.charAt(0).toUpperCase()}${primero.slice(1)} empieza en {cuenta}` }];
   for (let i = 1; i <= nc; i++) {
     out.push({
       id: `c${i}`, label: `Clase ${i} disponible`, button: botonClase,
@@ -171,7 +172,7 @@ export function phaseAt(launch, now) {
   // (la clase 2, o «vídeo anterior disponible»); su día; su directo o estreno; y al siguiente.
   for (const v of m.videos) {
     const s = suf(v.k);
-    const previa = v.k === 1 ? `c${nc}` : `v${v.k - 1}`;
+    const previa = v.k === 1 ? (nc ? `c${nc}` : 'pre_c1') : `v${v.k - 1}`;
     if (v.inicio == null || (v.dia != null && now < v.dia)) return { id: previa, countdownTo: v.inicio, changesAt: v.dia ?? v.inicio, m };
     if (now < v.inicio) return { id: `dia_directo${s}`, countdownTo: v.inicio, changesAt: v.inicio, m };
     if (v.post == null || now < v.post) return { id: `en_directo${s}`, countdownTo: null, changesAt: v.post, m };

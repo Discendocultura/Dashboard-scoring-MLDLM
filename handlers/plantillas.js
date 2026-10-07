@@ -43,7 +43,7 @@ export async function POST(request) {
       if (!e) throw bad('Embudo no encontrado', 404);
       const p = {
         id: newId('p'), nombre: String(body.nombre || e.nombre).trim().slice(0, 60), desc: String(body.desc || '').trim().slice(0, 300),
-        tipo: e.tipo, formato: e.formato || null, clases: e.clases || null, vip: e.vip, pestanas: e.pestanas || null,
+        tipo: e.tipo, formato: e.formato || null, clases: e.clases || null, vip: e.vip, preclase: e.preclase, pestanas: e.pestanas || null,
         mensajes: { ...config.templates },
         origen: clienteActual().nombre, creada: new Date().toISOString(), por: s.user?.nombre || 'superadmin',
       };
@@ -81,7 +81,7 @@ export async function POST(request) {
         const baseId = nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20) || (p.tipo === 'vsl' ? 'vsl' : 'lanz');
         let id = /^[a-z]/.test(baseId) ? baseId : `e-${baseId}`.slice(0, 20);
         for (let n = 2; usados.has(id) || !EMBUDO_ID_RE.test(id); n++) id = `${baseId.slice(0, 18)}-${n}`.replace(/^[^a-z]/, 'e');
-        const embudo = { id, tipo: p.tipo, nombre, ...(p.formato ? { formato: p.formato } : {}), ...(p.clases ? { clases: p.clases } : {}), ...(p.vip === false ? { vip: false } : {}), ...(p.pestanas ? { pestanas: p.pestanas } : {}), ...(p.base ? { base: p.base } : {}) };
+        const embudo = { id, tipo: p.tipo, nombre, ...(p.formato ? { formato: p.formato } : {}), ...(p.clases ? { clases: p.clases } : {}), ...(p.vip === false ? { vip: false } : {}), ...(p.preclase === false ? { preclase: false } : {}), ...(p.pestanas ? { pestanas: p.pestanas } : {}), ...(p.base ? { base: p.base } : {}) };
         const next = {
           ...actual,
           embudos: [...actual.embudos, embudo],

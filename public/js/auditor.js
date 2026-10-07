@@ -97,9 +97,12 @@ export function auditarLanzamiento(p) {
   // ---- Enlaces y páginas, según el hito para el que hacen falta ----
   const enlaces = [
     ['whatsappUrl', 'cfg-whatsapp-url', 'el enlace del grupo de WhatsApp', 'captacion'],
-    ['loginUrl', 'cfg-login-url', 'la página de login', 'clase1'],
-    ['recursosUrl', 'cfg-recursos-url', 'la página preclase', 'clase1'],
-    ['clase1Url', 'cfg-clase1-url', 'el vídeo de la clase 1', 'clase1'],
+    // Área de recursos preclase (si el embudo la tiene): sus páginas y la clase 1.
+    ...(nClases(l) >= 1 ? [
+      ['loginUrl', 'cfg-login-url', 'la página de login', 'clase1'],
+      ['recursosUrl', 'cfg-recursos-url', 'la página preclase', 'clase1'],
+      ['clase1Url', 'cfg-clase1-url', 'el vídeo de la clase 1', 'clase1'],
+    ] : []),
     ...(nClases(l) >= 2 ? [['clase2Url', 'cfg-clase2-url', 'el vídeo de la clase 2', 'clase2']] : []),
     ...(nClases(l) >= 3 ? [['clase3Url', 'cfg-clase3-url', 'el vídeo de la clase 3', 'clase3']] : []),
     ['zoomMeetingId', 'cfg-zoom-id', 'el ID de la reunión de Zoom', 'directo'],

@@ -175,8 +175,10 @@ export function score(s) {
   const por = Array.from({ length: n }, (_, i) => Math.min(puntosVideo(s, i + 1), P.directoAsistio + P.directo60 + P.directoFinal));
   const media = por.reduce((a, b) => a + b, 0) / n;
   pts += n === 1 ? puntosVideo(s, 1) : Math.round((Math.max(...por) + media) / 2);
-  // Sin entrada VIP el máximo sería 70: se lleva a 100 para que los estados (caliente…) valgan igual.
-  if (s.conVip === false) pts = (pts * 100) / 70;
+  // Sin entrada VIP (máximo 70), sin área preclase (máximo 70) o sin ninguna de las dos (máximo 40):
+  // se lleva a 100 para que los estados (caliente…) valgan igual.
+  const max = (clases.length ? 30 : 0) + (s.conVip === false ? 0 : P.vip) + 40;
+  if (max < 100) pts = (pts * 100) / max;
   return Math.min(Math.round(pts), 100);
 }
 

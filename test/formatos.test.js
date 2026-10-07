@@ -191,3 +191,31 @@ test('reto de varios días: Día 1…Día 5, la venta el último día', async ()
   assert.equal(out.launches.r1.videos.length, 4);
   assert.equal(out.launches.r1.videos[3].replayUrl, 'https://ejemplo.com/dia5');
 });
+
+test('prelanzamiento sin área de recursos preclase: sin clases, puntuación reescalada y fases', async () => {
+  const { nClases, clasesDe } = await import('../public/js/videos.js');
+  const sin = { preclase: false, nClases: 2, fechaDirecto: '2026-11-05', horaDirecto: '19:00' };
+  assert.equal(nClases(sin), 0);
+  assert.deepEqual(clasesDe(sin), []);
+  // Sin clases el máximo sería 70 (VIP 30 + directo 40): se lleva a 100
+  const s = signalsFor(['x_directo_asistio', 'x_directo_60', 'x_directo_final'], 'x', sin, {});
+  assert.equal(score(s), Math.round((40 * 100) / 70));
+  // Sin clases ni VIP, el directo completo vale 100
+  assert.equal(score(signalsFor(['x_directo_asistio', 'x_directo_60', 'x_directo_final'], 'x', { ...sin, vip: false }, {})), 100);
+  // Fases: cuenta atrás al directo desde el principio
+  const fases = phasesFor(sin);
+  assert.equal(fases[0].id, 'pre_c1');
+  assert.match(fases[0].text, /directo empieza/);
+  assert.ok(!fases.some((f) => /^c\d/.test(f.id)));
+  assert.equal(phaseAt(sin, madridToEpoch('2026-11-01T10:00')).id, 'pre_c1');
+  assert.equal(phaseAt(sin, madridToEpoch('2026-11-05T19:30')).id, 'en_directo');
+  // Se guarda en el embudo y pasa al lanzamiento
+  const { sanitizeConfig } = await import('../lib/config-store.js');
+  const { runCliente } = await import('../lib/cliente.js');
+  const out = await runCliente({ id: 'principal', principal: true }, () => sanitizeConfig({
+    embudos: [{ id: 'web', tipo: 'lanzamientos', nombre: 'Web', formato: 'webinar', preclase: false }],
+    launches: { w1: { name: 'W1', registroTag: 'r', embudo: 'web' } },
+  }));
+  assert.equal(out.embudos[0].preclase, false);
+  assert.equal(out.launches.w1.preclase, false);
+});

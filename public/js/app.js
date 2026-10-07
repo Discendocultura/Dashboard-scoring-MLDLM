@@ -1984,9 +1984,13 @@ function readVideosCfg() {
 // Prelanzamiento del embudo (clases y VIP): solo se ven las casillas que tocan.
 function pintarPrelanzamientoCfg(l) {
   const emb = embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo) || {};
-  const nc = [1, 2, 3].includes(emb.clases) ? emb.clases : 2;
+  const preclase = emb.preclase !== false;
+  const nc = !preclase ? 0 : [1, 2, 3].includes(emb.clases) ? emb.clases : 2;
   const vip = emb.vip !== false;
   $$('#config-dialog [data-clase]').forEach((el) => { el.hidden = Number(el.dataset.clase) > nc; });
+  // Sin área de recursos preclase: fuera sus páginas, la encuesta de la página y las clases.
+  $$('#config-dialog [data-preclase]').forEach((el) => { el.hidden = !preclase; });
+  $('#tab-pagina-txt').textContent = preclase ? 'Página preclase' : 'Directo y grabación';
   $$('#config-dialog [data-vip]').forEach((el) => { el.hidden = !vip; });
 }
 
@@ -2245,7 +2249,7 @@ function fieldStatus(f, others, tagIssues) {
   }
   // Con varios vídeos, el 1 puede ser grabado: su Zoom es opcional.
   const opcional = f.opcional || (f.id === 'cfg-zoom-id' && !$('#cfg-videos-sec').hidden)
-    || Boolean(document.getElementById(f.id).closest('[data-clase][hidden], [data-vip][hidden]'));
+    || Boolean(document.getElementById(f.id).closest('[data-clase][hidden], [data-vip][hidden], [data-preclase][hidden]'));
   const st = issue ? 'warn' : v ? 'ok' : opcional ? 'opt' : 'falta';
   return { st, txt: issue || (v ? 'listo' : opcional ? 'vacío (opcional)' : 'falta') };
 }
@@ -2258,8 +2262,8 @@ function renderGuia() {
   const others = Object.entries(state.config.launches).filter(([c]) => c !== code);
   const tagIssues = tagProblems();
   for (const [panel, box] of [['launch', '#guia-check'], ['etiquetas', '#guia-check-etiquetas'], ['pagina', '#guia-check-pagina'], ['embudo', '#guia-check-embudo']]) {
-    const groups = $$(`.tab-panel[data-panel="${panel}"] .cfg-sec`).map((sec) => {
-      const items = $$('.field', sec).map((el) => CICLO.find((f) => f.id === $('input, select, textarea', el)?.id))
+    const groups = $$(`.tab-panel[data-panel="${panel}"] .cfg-sec`).filter((sec) => !sec.hidden).map((sec) => {
+      const items = $$('.field', sec).filter((el) => !el.hidden).map((el) => CICLO.find((f) => f.id === $('input, select, textarea', el)?.id))
         .filter((f) => f && f.c !== 'fijo')
         .map((f) => ({ f, ...fieldStatus(f, others, tagIssues) }));
       const falta = items.filter((i) => i.st === 'falta').length;
@@ -6192,7 +6196,10 @@ const embPestanas = () => $$('#emb-pestanas input:checked').map((i) => i.value);
 function pintarEmbPrelanz() {
   $('#emb-prelanz').hidden = embTipo() !== 'lanzamientos' || Boolean(!embEdit && $('#emb-plantilla').value);
 }
-const embPrelanz = () => (embTipo() === 'lanzamientos' ? { clases: Number($('#emb-clases').value), vip: $('#emb-vip').value === 'si' } : {});
+const embPrelanz = () => (embTipo() === 'lanzamientos' ? { preclase: $('#emb-preclase').value === 'si', clases: Number($('#emb-clases').value), vip: $('#emb-vip').value === 'si' } : {});
+// Sin área preclase no hay clases: se oculta el número de clases.
+const pintarEmbClases = () => { $('#emb-clases-box').hidden = $('#emb-preclase').value === 'no'; };
+$('#emb-preclase').addEventListener('change', () => { pintarEmbClases(); pintarEmbGuia(); });
 function pintarEmbPestanas(activas) {
   pintarEmbPrelanz();
   const tipo = embTipo();
@@ -6203,7 +6210,7 @@ function pintarEmbPestanas(activas) {
   pintarEmbGuia();
 }
 function pintarEmbGuia() {
-  $('#emb-guia').innerHTML = guiaPasosHtml(guiaEmbudo(embTipo(), embPestanas(), embFormato(), embSubtipo()));
+  $('#emb-guia').innerHTML = guiaPasosHtml(guiaEmbudo(embTipo(), embPestanas(), embFormato(), embSubtipo(), { preclase: $('#emb-preclase').value !== 'no' }));
 }
 // Plantillas de agencia (superadmin): se cargan al abrir «＋ Nuevo embudo».
 let plantillasAg = [];
@@ -6250,8 +6257,10 @@ function abrirNuevoEmbudo() {
   $('.emb-tipos').hidden = false;
   $('input[name="emb-tipo"][value="webinar"]').checked = true;
   $('#emb-formato-box').hidden = true;
+  $('#emb-preclase').value = 'si';
   $('#emb-clases').value = '2';
   $('#emb-vip').value = 'si';
+  pintarEmbClases();
   $('#emb-nombre').value = '';
   $('#emb-status').textContent = '';
   $('#emb-nota').hidden = false;
@@ -6271,8 +6280,10 @@ function abrirEditarEmbudo(id) {
   $('.emb-tipos').hidden = true;
   $('#emb-formato-box').hidden = e.tipo !== 'lanzamientos';
   $('#emb-formato').value = e.formato || 'webinar';
+  $('#emb-preclase').value = e.preclase === false ? 'no' : 'si';
   $('#emb-clases').value = String(e.clases || 2);
   $('#emb-vip').value = e.vip === false ? 'no' : 'si';
+  pintarEmbClases();
   $('#emb-nombre').value = e.nombre;
   $('#emb-status').textContent = '';
   $('#emb-nota').hidden = true;

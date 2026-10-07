@@ -570,7 +570,7 @@
         <div class="tabs" role="tablist">
           <button type="button" class="tab active" data-tab="launch" data-tab-icon="rocket">Lanzamiento</button>
           <button type="button" class="tab" data-tab="etiquetas" data-tab-icon="tag">Etiquetas GHL</button>
-          <button type="button" class="tab" data-tab="pagina" data-tab-icon="play">Página preclase</button>
+          <button type="button" class="tab" data-tab="pagina" data-tab-icon="play"><span id="tab-pagina-txt">Página preclase</span></button>
           <button type="button" class="tab" data-tab="embudo" data-tab-icon="funnel">Otras páginas del embudo</button>
           <button type="button" class="tab" data-tab="snippets" data-tab-icon="code">Códigos para GHL</button>
           <button type="button" class="tab" data-tab="accesos" data-tab-icon="link">Recursos lanzamiento</button>
@@ -742,7 +742,7 @@
             <div id="guia-check-pagina" class="guia-check"></div>
           </div>
           <div id="page-phase-now" class="snapshot-box"></div>
-          <section class="cfg-sec" data-sec="1">
+          <section class="cfg-sec" data-sec="1" data-preclase>
             <header class="cfg-sec-head"><span class="cfg-sec-num">1</span><div><h3>Páginas de GHL</h3><p>Dónde están el login y la página preclase.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>URL de la página de login</span><input id="cfg-login-url" type="url" placeholder="https://lp.saraguzman.com/…"></label>
@@ -752,30 +752,30 @@
           <section class="cfg-sec" data-sec="2">
             <header class="cfg-sec-head"><span class="cfg-sec-num">2</span><div><h3>Calendario de la página</h3><p>Cuándo se abre cada cosa (hora de España). El directo se configura en la pestaña Lanzamiento.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
-              <label class="field"><span>Clase 1 · se desbloquea</span><input id="cfg-clase1-at" type="datetime-local"></label>
+              <label class="field" data-clase="1"><span>Clase 1 · se desbloquea</span><input id="cfg-clase1-at" type="datetime-local"></label>
               <label class="field" data-clase="2"><span>Clase 2 · se desbloquea</span><input id="cfg-clase2-at" type="datetime-local"></label>
               <label class="field" data-clase="3"><span>Clase 3 · se desbloquea</span><input id="cfg-clase3-at" type="datetime-local"></label>
               <label class="field"><span>Grabación · se desbloquea <small>(vacío = 00:00 del día siguiente al directo)</small></span><input id="cfg-replay-at" type="datetime-local"></label>
               <label class="field"><span>Cierre del carrito de Raíces</span><input id="cfg-cierre" type="datetime-local"></label>
             </div>
           </section>
-          <section class="cfg-sec" data-sec="3">
+          <section class="cfg-sec" data-sec="3" data-preclase>
             <header class="cfg-sec-head"><span class="cfg-sec-num">3</span><div><h3>Etapa 1 · Encuesta</h3><p>Si hay etiqueta de encuesta (pestaña Lanzamiento), las clases 1 y 2 solo se ven al rellenarla; mientras, se muestra este botón.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Enlace de la encuesta <small>(botón de la página preclase; se rellena solo con el email y el nombre)</small></span>
               <input id="cfg-encuesta-url" type="url" placeholder="https://…/survey/…"></label>
             </div>
           </section>
-          <section class="cfg-sec" data-sec="4">
+          <section class="cfg-sec" data-sec="4" data-preclase>
             <header class="cfg-sec-head"><span class="cfg-sec-num">4</span><div><h3>Etapa 2 · Clases</h3><p>Vídeos y textos de las clases. Si dejas un texto vacío, se queda el del diseño.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
-              <label class="field"><span>Clase 1 · vídeo de Vimeo</span><input id="cfg-clase1-url" type="url" placeholder="https://vimeo.com/123/abc"></label>
+              <label class="field" data-clase="1"><span>Clase 1 · vídeo de Vimeo</span><input id="cfg-clase1-url" type="url" placeholder="https://vimeo.com/123/abc"></label>
               <label class="field" data-clase="2"><span>Clase 2 · vídeo de Vimeo</span><input id="cfg-clase2-url" type="url"></label>
               <label class="field" data-clase="3"><span>Clase 3 · vídeo de Vimeo</span><input id="cfg-clase3-url" type="url"></label>
             <label class="field"><span>Etapa 2 · titular <small>(<code>clases-titulo</code>)</small></span><input data-texto="clases-titulo" placeholder="Mira las clases antes del directo"></label>
             <label class="field"><span>Etapa 2 · subtítulo <small>(<code>clases-subtitulo</code>)</small></span><textarea data-texto="clases-subtitulo" rows="2"></textarea></label>
-            <label class="field"><span>Clase 1 · título <small>(<code>clase1-titulo</code>)</small></span><input data-texto="clase1-titulo"></label>
-            <label class="field"><span>Clase 1 · descripción <small>(<code>clase1-descripcion</code>)</small></span><textarea data-texto="clase1-descripcion" rows="2"></textarea></label>
+            <label class="field" data-clase="1"><span>Clase 1 · título <small>(<code>clase1-titulo</code>)</small></span><input data-texto="clase1-titulo"></label>
+            <label class="field" data-clase="1"><span>Clase 1 · descripción <small>(<code>clase1-descripcion</code>)</small></span><textarea data-texto="clase1-descripcion" rows="2"></textarea></label>
             <label class="field" data-clase="2"><span>Clase 2 · título <small>(<code>clase2-titulo</code>)</small></span><input data-texto="clase2-titulo"></label>
             <label class="field" data-clase="2"><span>Clase 2 · descripción <small>(<code>clase2-descripcion</code>)</small></span><textarea data-texto="clase2-descripcion" rows="2"></textarea></label>
             <label class="field" data-clase="3"><span>Clase 3 · título <small>(<code>clase3-titulo</code>)</small></span><input data-texto="clase3-titulo"></label>
@@ -938,8 +938,10 @@
         </div>
         <label class="field" id="emb-formato-box" hidden><span>Formato <small>(cuántos vídeos tiene cada lanzamiento; la preclase con las clases 1 y 2 es aparte)</small></span>
           <select id="emb-formato"><option value="webinar">Webinar (1 vídeo)</option><option value="v2">Lanzamiento de 2 vídeos</option><option value="v3">Lanzamiento de 3 vídeos</option><option value="plf">PLF (4 PLCs)</option><option value="reto3">Reto de 3 días</option><option value="reto4">Reto de 4 días</option><option value="reto5">Reto de 5 días</option></select></label>
-        <div class="grid2" id="emb-prelanz">
-          <label class="field"><span>Clases del prelanzamiento <small>(vídeos grabados de la página preclase)</small></span>
+        <div class="grid3" id="emb-prelanz">
+          <label class="field"><span>Área de recursos preclase <small>(página con las clases grabadas antes del directo)</small></span>
+            <select id="emb-preclase"><option value="si">Sí, con área preclase</option><option value="no">No, sin área preclase</option></select></label>
+          <label class="field" id="emb-clases-box"><span>Clases del prelanzamiento <small>(vídeos grabados de la página preclase)</small></span>
             <select id="emb-clases"><option value="1">1 clase</option><option value="2" selected>2 clases</option><option value="3">3 clases</option></select></label>
           <label class="field"><span>Entrada VIP</span>
             <select id="emb-vip"><option value="si">Sí, con entrada VIP</option><option value="no">No, sin entrada VIP</option></select></label>
