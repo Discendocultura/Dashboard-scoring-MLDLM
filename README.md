@@ -88,6 +88,8 @@ Agrupa el trabajo comercial en dos subpestañas: **Setting hoy** (a quién escri
 Agrupa en tres subpestañas **Calendario**, **Tareas** y **Rendimiento del equipo**. Como en Comercial, al entrar abre la última que usaste en ese embudo y el número de la pestaña son las tareas pendientes. Si alguien solo puede ver una, entra directo sin subpestañas.
 
 ### Pestaña Métricas
+Ordenada en subpestañas para no hacer tanto scroll (se recuerda la última elegida): **Resumen** (tarjetas principales, embudo y asistencia por tipo de tráfico), **Ventas y rentabilidad** (inversión, ROAS, ventas por día del carrito, pago único / fraccionado), **Tráfico y origen** (publicidad / orgánico, frío / templado), **Consumo de vídeos** y **Conversión y setting** (conversión por segmento, trabajo de la setter, compras por estado y qué predice la compra). En las VSL: **Resumen**, **Semanas y días**, **Llamadas** y **Origen**. Los avisos de «Revisa estas cosas» se ven siempre arriba.
+
 Registros, encuesta rellenada (si el lanzamiento la usa), entradas VIP, asistencia (en número y en %), compras totales, compras de VIP, compras en directo,
 el embudo completo, la conversión por segmento (VIP / no VIP / directo / grabación), el consumo de cada vídeo y
 la conversión por estado (para comprobar si la puntuación predice bien).

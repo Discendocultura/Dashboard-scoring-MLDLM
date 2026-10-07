@@ -1483,3 +1483,5 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 .subview-tab .ico { width: 16px; height: 16px; opacity: .75; }
 .subview-tab.active { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); color: var(--text); }
 .subview-tab.active .ico { color: var(--accent); opacity: 1; }
+/* Métricas: categorías */
+.subviews.msubs { margin: 6px 0 16px; clear: both; }

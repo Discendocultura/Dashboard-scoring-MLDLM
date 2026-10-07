@@ -411,7 +411,7 @@ async function setEmbudo(e, { vista = null } = {}) {
   }
   if (enVsl() && state.vsl.code !== state.embudo) Object.assign(state.vsl, { code: state.embudo, leads: null, raw: null, meta: null });
   $$('.view-tab').forEach((t) => { t.hidden = t.dataset.viewGrupo ? !GRUPOS[t.dataset.viewGrupo].some((v) => allowedViews().includes(v)) : !allowedViews().includes(t.dataset.view); });
-  $$('.subview-tab').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
+  $$('.subview-tab[data-view]').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
   const guardada = ls.get(`lsd_view_${state.embudo}`) || (enVsl() ? '' : ls.get('lsd_view'));
   const quiero = [vista, guardada].find((v) => v && allowedViews().includes(v));
   const porDefecto = enVsl() ? ['vmetricas', 'vleads', 'llamadas', 'tareas'] : ['leads', 'hoy', 'tareas'];
@@ -1530,7 +1530,7 @@ const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'c
 const GRUPOS = { comercial: ['hoy', 'llamadas'], planificacion: ['calendario', 'tareas', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
 const VIEW_ICONS = { comercial: 'phone', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
-$$('.view-tab, .subview-tab').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
+$$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
 $$('[data-icon] > h2').forEach((h) => h.insertAdjacentHTML('afterbegin', `<span class="h-ico">${icon(h.parentElement.dataset.icon)}</span>`));
@@ -1538,7 +1538,7 @@ function showView(view) {
   if (state.role && !allowedViews().includes(view)) view = allowedViews()[0];
   const grupo = grupoDe(view);
   $$('.view-tab').forEach((x) => x.classList.toggle('active', x.dataset.viewGrupo ? x.dataset.viewGrupo === grupo : x.dataset.view === view));
-  $$('.subview-tab').forEach((x) => x.classList.toggle('active', x.dataset.view === view));
+  $$('.subview-tab[data-view]').forEach((x) => x.classList.toggle('active', x.dataset.view === view));
   // Las subpestañas de un grupo solo se enseñan si se puede ver más de una.
   for (const g of Object.keys(GRUPOS)) $(`#sub-${g}`).hidden = g !== grupo || !state.role || GRUPOS[g].filter((v) => allowedViews().includes(v)).length < 2;
   if (grupo) ls.set(`lsd_${grupo}_${state.embudo}`, view);
@@ -1559,7 +1559,24 @@ $$('.view-tab').forEach((t) => t.addEventListener('click', () => {
   const ultima = ls.get(`lsd_${t.dataset.viewGrupo}_${state.embudo}`);
   showView(vistas.includes(ultima) && allowedViews().includes(ultima) ? ultima : vistas.find((v) => allowedViews().includes(v)));
 }));
-$$('.subview-tab').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
+$$('.subview-tab[data-view]').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
+
+// Métricas por categorías (subpestañas dentro de Métricas): enseña solo los bloques de la elegida.
+function pintarMsub(nav, cat) {
+  const view = nav.closest('[id^="view-"]');
+  const cats = $$('[data-msub-btn]', nav).map((b) => b.dataset.msubBtn);
+  if (!cats.includes(cat)) cat = cats[0];
+  $$('[data-msub-btn]', nav).forEach((b) => b.classList.toggle('active', b.dataset.msubBtn === cat));
+  $$('[data-msub]', view).forEach((el) => { el.hidden = el.dataset.msub !== cat; });
+  ls.set(`lsd_${nav.id}`, cat);
+}
+$$('.msubs').forEach((nav) => {
+  $$('[data-msub-btn]', nav).forEach((b) => {
+    b.insertAdjacentHTML('afterbegin', icon(b.dataset.iconMsub));
+    b.addEventListener('click', () => { pintarMsub(nav, b.dataset.msubBtn); nav.scrollIntoView({ block: 'nearest' }); });
+  });
+  pintarMsub(nav, ls.get(`lsd_${nav.id}`));
+});
 showView(VIEWS.includes(ls.get('lsd_view')) ? ls.get('lsd_view') : 'leads');
 
 const ESTADO_ICONS = { 'muy-caliente': 'flame', caliente: 'sun', templado: 'thermo', frio: 'snow' };

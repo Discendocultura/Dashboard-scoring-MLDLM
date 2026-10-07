@@ -157,24 +157,30 @@
             <button type="button" class="btn" data-informe="enlace">Copiar enlace</button>
             <button type="button" class="btn" data-informe="enviar">Enviárselo ahora</button>
             <span class="muted small" data-informe-status></span></div>
-          <div id="vm-kpis" class="kpis vm-kpis"></div>
-          <section class="card metric-card" data-icon="funnel">
+          <nav class="subviews msubs" id="msub-vmetricas" role="tablist" aria-label="Categorías de métricas">
+            <button type="button" class="subview-tab" data-msub-btn="resumen" data-icon-msub="target">Resumen</button>
+            <button type="button" class="subview-tab" data-msub-btn="evolucion" data-icon-msub="trend">Semanas y días</button>
+            <button type="button" class="subview-tab" data-msub-btn="llamadas" data-icon-msub="phone">Llamadas</button>
+            <button type="button" class="subview-tab" data-msub-btn="origen" data-icon-msub="split">Origen</button>
+          </nav>
+          <div id="vm-kpis" data-msub="resumen" class="kpis vm-kpis"></div>
+          <section data-msub="resumen" class="card metric-card" data-icon="funnel">
             <h2>Embudo del periodo <span class="muted">· de las personas que se registraron en estas fechas</span></h2>
             <div id="vm-embudo" class="vm-embudo"></div>
           </section>
-          <section class="card metric-card" data-icon="calendar">
+          <section data-msub="evolucion" class="card metric-card" data-icon="calendar">
             <h2>Por semanas del mes <span class="muted">· 1ª (días 1-7), 2ª (8-14), 3ª (15-21), 4ª (22-28) y 5ª (29-fin)</span></h2>
             <div class="table-scroll"><table class="metric-table" id="vm-semanas"></table></div>
           </section>
-          <section class="card metric-card" data-icon="trend">
+          <section data-msub="evolucion" class="card metric-card" data-icon="trend">
             <h2>Registros y ventas por día</h2>
             <div id="vm-dias" class="vm-dias"></div>
           </section>
-          <section class="card metric-card" data-icon="phone">
+          <section data-msub="llamadas" class="card metric-card" data-icon="phone">
             <h2>Llamadas de valoración del periodo <span class="muted">· citas del calendario de la VSL</span></h2>
             <div id="vm-llamadas"></div>
           </section>
-          <section class="card metric-card" data-icon="split">
+          <section data-msub="origen" class="card metric-card" data-icon="split">
             <h2>Publicidad u orgánico</h2>
             <div class="table-scroll"><table class="metric-table" id="vm-origen"></table></div>
           </section>
@@ -416,49 +422,56 @@
             <button type="button" class="btn" data-informe="enviar" title="Por email a las personas con el rol Cliente (se manda solo al cerrar el carrito)">Enviárselo ahora</button>
             <span class="muted small" data-informe-status></span></div>
           <div id="avisos" class="notice warn" hidden></div>
-          <div id="metric-cards" class="kpis"></div>
-          <section class="card metric-card" data-icon="coins">
+          <nav class="subviews msubs" id="msub-metricas" role="tablist" aria-label="Categorías de métricas">
+            <button type="button" class="subview-tab" data-msub-btn="resumen" data-icon-msub="target">Resumen</button>
+            <button type="button" class="subview-tab" data-msub-btn="ventas" data-icon-msub="coins">Ventas y rentabilidad</button>
+            <button type="button" class="subview-tab" data-msub-btn="trafico" data-icon-msub="compass">Tráfico y origen</button>
+            <button type="button" class="subview-tab" data-msub-btn="consumo" data-icon-msub="play">Consumo de vídeos</button>
+            <button type="button" class="subview-tab" data-msub-btn="conversion" data-icon-msub="cart">Conversión y setting</button>
+          </nav>
+          <div id="metric-cards" data-msub="resumen" class="kpis"></div>
+          <section data-msub="ventas" class="card metric-card" data-icon="coins">
             <h2>Inversión y rentabilidad</h2>
             <div id="eco-cards" class="kpis"></div>
           </section>
-          <section class="card metric-card" data-icon="calendar">
+          <section data-msub="ventas" class="card metric-card" data-icon="calendar">
             <h2>Ventas por día del carrito <span class="muted">· según la fecha de compra de Raíces</span></h2>
             <div id="ventas-dia"></div>
             <div id="carrito-compara"></div>
           </section>
-          <section class="card metric-card" data-icon="compass">
+          <section data-msub="trafico" class="card metric-card" data-icon="compass">
             <h2>Origen de los leads <span class="muted">· publicidad vs orgánico</span></h2>
             <div class="table-scroll"><table class="metric-table" id="origen-table"></table></div>
           </section>
-          <section class="card metric-card" data-icon="split">
+          <section data-msub="ventas" class="card metric-card" data-icon="split">
             <h2>Pago único vs fraccionado <span class="muted">· ventas de Raíces</span></h2>
             <div class="table-scroll"><table class="metric-table" id="pago-table"></table></div>
           </section>
-          <section class="card metric-card" data-icon="funnel">
+          <section data-msub="resumen" class="card metric-card" data-icon="funnel">
             <h2>Embudo del lanzamiento <span class="muted">· sobre el total de registros</span></h2>
             <div id="funnel"></div>
             <h3 class="cfg-h3">Asistencia por tipo de tráfico <span class="muted">· % sobre los registros de cada grupo (templado = ya estaba en GHL antes de abrir la captación)</span></h3>
             <div class="table-scroll"><table class="metric-table" id="asistencia-trafico"></table></div>
           </section>
-          <section class="card metric-card" data-icon="thermo">
+          <section data-msub="trafico" class="card metric-card" data-icon="thermo">
             <h2>Ventas por tipo de tráfico <span class="muted">· templado = ya estaba en GHL antes de abrir la captación</span></h2>
             <div id="traffic-split"></div>
             <div class="table-scroll"><table class="metric-table" id="traffic-table"></table></div>
           </section>
-          <section class="card metric-card" data-icon="cart">
+          <section data-msub="conversion" class="card metric-card" data-icon="cart">
             <h2>Conversión a compra</h2>
             <div class="table-scroll"><table class="metric-table" id="conversion-table"></table></div>
           </section>
-          <section class="card metric-card" data-icon="chat">
+          <section data-msub="conversion" class="card metric-card" data-icon="chat">
             <h2>Trabajo de la setter <span class="muted">· contactadas por WhatsApp y resultado</span></h2>
             <div class="table-scroll"><table class="metric-table" id="setter-table"></table></div>
           </section>
-          <section id="consumo" class="card consumo-card"></section>
-          <section class="card metric-card" data-icon="flame">
+          <section id="consumo" data-msub="consumo" class="card consumo-card"></section>
+          <section data-msub="conversion" class="card metric-card" data-icon="flame">
             <h2>Compras por estado <span class="muted">· ¿predice bien la puntuación?</span></h2>
             <div class="table-scroll"><table class="metric-table" id="estado-table"></table></div>
           </section>
-          <section class="card metric-card" data-icon="sparkle">
+          <section data-msub="conversion" class="card metric-card" data-icon="sparkle">
             <h2>Qué predice la compra <span class="muted">· para afinar la puntuación con datos reales</span></h2>
             <div class="table-scroll"><table class="metric-table" id="lift-table"></table></div>
           </section>
