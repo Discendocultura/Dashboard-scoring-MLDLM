@@ -4,6 +4,7 @@ import {
   signalsFor, score, estadoFor, nextStepFor, waPhone, watched, ESTADOS, OUTCOMES, SNAPSHOT_TAGS,
 } from './scoring.js';
 import { tramoEdad, ORDEN_EDAD } from './encuesta.js';
+import { videosDe, videoVenta } from './videos.js';
 
 // Inicio de captación del lanzamiento siguiente: ahí terminan las ventas de este.
 export function nextLaunchStart(config, code) {
@@ -162,17 +163,35 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     total: { n: m.compra, importe: facturacionPrograma },
   };
 
+  // Lanzamientos de varios vídeos: cuánta gente ve cada vídeo (en directo o grabado) y cuántas compran.
+  const vids = videosDe(launch);
+  const vioVideo = (l, v) => l.s[`${v.directo}_asistio`] || watched(l.s, v.replay) >= 25;
+  m.videos = vids.map((v) => ({
+    k: v.k, nombre: v.nombre, venta: v.venta,
+    asistio: c((l) => l.s[`${v.directo}_asistio`]),
+    final: c((l) => l.s[`${v.directo}_final`]),
+    grabacion: c((l) => watched(l.s, v.replay) >= 25),
+    vieron: c((l) => vioVideo(l, v)),
+    compraron: c((l) => l.s.compra && vioVideo(l, v)),
+  }));
+  const pruebasVideos = vids.length <= 1 ? [
+    ['Pulsó el enlace del directo', (l) => l.s.directo_click || l.s.directo_asistio],
+    ['Asistió al directo', (l) => l.s.directo_asistio],
+    ['Más de 60 min en el directo', (l) => l.s.directo_60],
+    ['Directo hasta el final', (l) => l.s.directo_final],
+    ['Vio ≥50% de la grabación', (l) => watched(l.s, 'replay') >= 50],
+  ] : vids.flatMap((v) => [
+    [`Vio el ${v.nombre}`, (l) => vioVideo(l, v)],
+    [`Vio ≥50% del ${v.nombre} (directo hasta el final o grabación)`, (l) => l.s[`${v.directo}_final`] || watched(l.s, v.replay) >= 50],
+  ]);
+
   // Qué señales predicen la compra: conversión con la señal frente a sin ella.
   const SIGNAL_TESTS = [
     ...(m.encuestaActiva ? [['Rellenó la encuesta', (l) => l.s.encuesta]] : []),
     ['Vio ≥50% de la clase 1', (l) => watched(l.s, 'clase1') >= 50],
     ['Vio ≥50% de la clase 2', (l) => watched(l.s, 'clase2') >= 50],
     ['Compró la VIP', (l) => l.s.vip],
-    ['Pulsó el enlace del directo', (l) => l.s.directo_click || l.s.directo_asistio],
-    ['Asistió al directo', (l) => l.s.directo_asistio],
-    ['Más de 60 min en el directo', (l) => l.s.directo_60],
-    ['Directo hasta el final', (l) => l.s.directo_final],
-    ['Vio ≥50% de la grabación', (l) => watched(l.s, 'replay') >= 50],
+    ...pruebasVideos,
     ['Tráfico templado', (l) => l.s.trafico === 'templado'],
     ['Contactada por WhatsApp', (l) => l.s.wa_enviado],
     ['Agendó llamada', (l) => l.s.llamada],
@@ -363,7 +382,7 @@ export function avisosLanzamiento(leads, launch, m) {
 // Las que caen antes, después o sin fecha van aparte para que el total cuadre.
 const addDay = (day, n) => new Date(Date.parse(`${day}T12:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
 export function ventasPorDia(leads, launch) {
-  const start = launch?.fechaDirecto;
+  const start = (videoVenta(launch)?.fecha || '') || launch?.fechaDirecto; // el carrito empieza con el vídeo de venta
   if (!start || !launch.compraDateField) return null;
   const buys = leads.filter((l) => l.s.compra);
   const daysWithSales = buys.map((l) => l.s.fecha_compra).filter(Boolean).sort();

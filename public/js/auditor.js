@@ -3,6 +3,7 @@
 //   nivel: 'critico' | 'importante' | 'aviso'
 //   accion: { tipo: 'campo', id } (Configuración) | { tipo: 'tarea', id } | { tipo: 'vista', v } | { tipo: 'vsl', tab }
 import { watched } from './scoring.js';
+import { videosDe } from './videos.js';
 
 const DAY = 86_400_000;
 const dia = (v) => String(v || '').slice(0, 10);
@@ -26,8 +27,8 @@ export function hitosAuditor(l) {
     captacion: { d: dia(l.inicioCaptacion), label: 'el inicio de la captación' },
     clase1: { d: dia(l.clase1At), label: 'la clase 1' },
     clase2: { d: dia(l.clase2At), label: 'la clase 2' },
-    directo: { d: directo, label: 'el webinar en directo' },
-    carrito: { d: dia(l.aperturaCarrito) || directo, label: 'la apertura del carrito' },
+    directo: { d: directo, label: videosDe(l).length > 1 ? `el ${videosDe(l)[0].nombre}` : 'el webinar en directo' },
+    carrito: { d: dia(l.aperturaCarrito) || dia(videosDe(l).at(-1)?.fecha) || directo, label: 'la apertura del carrito' },
     replay: { d: replay, label: 'la grabación' },
     cierre: { d: dia(l.cierreCarrito), label: 'el cierre del carrito' },
   };
@@ -55,6 +56,19 @@ export function auditarLanzamiento(p) {
     if (!l[k]) add('critico', 'Fechas', t, 'Sin esta fecha no se calculan las fases, la página preclase, el calendario ni las tareas.', campo(id));
   }
   if (l.fechaDirecto && !l.horaDirecto) add('critico', 'Fechas', 'Falta la hora del webinar en directo', 'La página y los recordatorios no saben a qué hora empieza.', campo('cfg-directo-hora'));
+  // Lanzamientos de varios vídeos: cada vídeo con su día, su hora, en orden, y su página y vídeo antes de que toque.
+  const vids = videosDe(l);
+  for (const v of vids.slice(1)) {
+    const nv = diasHasta(v.fecha, hoy);
+    if (!v.fecha) add('critico', 'Fechas', `Falta el día del ${v.nombre}`, 'Sin él no se calculan las fases de la página, el calendario ni el carrito.', campo(`cfg-v${v.k}-fecha`));
+    else if (!v.hora) add('critico', 'Fechas', `Falta la hora del ${v.nombre}`, 'La página no sabe a qué hora se publica.', campo(`cfg-v${v.k}-hora`));
+    const ant = vids[v.k - 2];
+    if (v.fecha && ant.fecha && v.fecha < ant.fecha) add('critico', 'Fechas', `El ${v.nombre} es antes que el ${ant.nombre}`, 'Revisa el orden de los días de los vídeos.', campo(`cfg-v${v.k}-fecha`));
+    if (v.fecha && (nv == null || nv >= -1)) {
+      if (!v.replayVideoUrl) add(urgencia(nv), 'Páginas y vídeos', `Falta el vídeo del ${v.nombre}`, `Sin él la página no lo enseña. ${v.fecha ? `Se publica el ${fmt(v.fecha)} (${cuando(nv)}).` : ''}`, campo(`cfg-v${v.k}-replay-video`));
+      if (!v.replayUrl) add(urgencia(nv), 'Páginas y vídeos', `Falta la página del ${v.nombre}`, 'Es adonde manda la página preclase y el WhatsApp cuando toca este vídeo.', campo(`cfg-v${v.k}-replay`));
+    }
+  }
   for (const [k, id, t] of [['clase1At', 'cfg-clase1-at', 'Falta cuándo se desbloquea la clase 1'], ['clase2At', 'cfg-clase2-at', 'Falta cuándo se desbloquea la clase 2']]) {
     if (!l[k]) add(urgencia(n('directo')), 'Fechas', t, 'La página preclase no sabrá cuándo enseñarla.', campo(id));
   }

@@ -10,7 +10,8 @@ import { currentLaunch } from '../lib/digest.js';
 import { verifyToken, signToken, requireRole } from '../lib/auth.js';
 import { json, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { signalsFor, withContactId, tagFor } from '../public/js/scoring.js';
-import { phaseAt, barFor, milestones, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
+import { phaseAt, barFor, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
+import { videosDe } from '../public/js/videos.js';
 
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -60,6 +61,12 @@ export async function GET(request) {
       'calendario-ics': m.directo != null ? `${url.origin}/api/ics?l=${encodeURIComponent(code)}${cq}` : '',
       login: launch.loginUrl || '',
     };
+    // Lanzamientos de varios vídeos: entrar al directo y ver cada vídeo (directo2, grabacion2…).
+    const vids = videosDe(launch);
+    for (const v of vids.slice(1)) {
+      links[`directo${v.k}`] = `${live}&v=${v.k}${cid ? `&cid=${cid}` : ''}`;
+      links[`grabacion${v.k}`] = withContactId(v.replayUrl, cid);
+    }
 
     let contact = null;
     if (cid) {
@@ -78,14 +85,15 @@ export async function GET(request) {
     const encuestaDone = !encuestaRequired || (sig ? sig.encuesta : preview && !cid);
     links.encuesta = encuestaDone && encuestaRequired && !preview ? '' : encuestaUrl(launch.encuestaUrl, contact);
 
-    const video = (urlKey, unlockAt, gated = false) => {
-      const unlocked = Boolean(launch[urlKey]) && (unlockAt == null || now >= unlockAt);
+    const videoDe = (src, unlockAt, gated = false) => {
+      const unlocked = Boolean(src) && (unlockAt == null || now >= unlockAt);
       const blocked = gated && !encuestaDone;
       return {
         unlockAt, unlockText: formatLong(unlockAt), unlocked, needsEncuesta: blocked,
-        url: unlocked && !blocked ? launch[urlKey] : '',
+        url: unlocked && !blocked ? src : '',
       };
     };
+    const video = (urlKey, unlockAt, gated = false) => videoDe(launch[urlKey], unlockAt, gated);
 
     const bar = barFor(launch, phase.id);
     let vendidas = 0;
@@ -104,17 +112,21 @@ export async function GET(request) {
       phase: phase.id,
       countdownTo: phase.countdownTo,
       changesAt: phase.changesAt,
-      redirectTo: phase.id === 'en_directo' ? 'directo' : (phase.id === 'replay' || phase.id === 'cerrado') ? 'grabacion' : '',
+      redirectTo: redirectFor(launch, phase.id),
       bar: { text: bar.text, button: bar.button && links[bar.button] ? { key: bar.button, label: bar.buttonLabel, href: links[bar.button] } : null },
       videos: {
         clase1: video('clase1Url', m.clase1, true),
         clase2: video('clase2Url', m.clase2, true),
         replay: video('replayVideoUrl', m.replay),
+        // <div data-lsd-video="replay2"> … : vídeos 2, 3 y 4 del lanzamiento
+        ...Object.fromEntries(vids.slice(1).map((v) => [`replay${v.k}`, videoDe(v.replayVideoUrl, m.videos[v.k - 1].replay)])),
       },
       // Vídeos que se muestran tal cual (sin medir ni bloquear): <div data-lsd-embed="gracias">
       embeds: { gracias: launch.graciasVideoUrl || '' },
       links,
       encuesta: { required: encuestaRequired, done: encuestaDone },
+      // Inicio de cada vídeo del lanzamiento (cuentas atrás data-lsd-countdown="directo2"…).
+      directos: Object.fromEntries(m.videos.map((v) => [v.k === 1 ? 'directo' : `directo${v.k}`, v.inicio])),
       vip: { open: vipOpen, closesAt: m.directo, isVip, precio: launch.precioVip || 0, contador: vipContador },
       texts: {
         ...(launch.textos || {}),
@@ -124,6 +136,10 @@ export async function GET(request) {
         cierreVip: formatLong(m.directo), cierreCarrito: formatLong(m.cierre),
         precioVip: euros(launch.precioVip),
         vipContador: String(vipContador),
+        // Vídeos 2-4: fechaDirecto2, horaDirecto2, directo2, replay2…
+        ...Object.fromEntries(m.videos.slice(1).flatMap((v) => [
+          [`fechaDirecto${v.k}`, formatDate(v.inicio)], [`horaDirecto${v.k}`, formatTime(v.inicio)], [`directo${v.k}`, formatLong(v.inicio)], [`replay${v.k}`, formatLong(v.replay)],
+        ])),
       },
     }, 200, { ...CORS_HEADERS, 'cache-control': 'no-store' });
   } catch (e) {

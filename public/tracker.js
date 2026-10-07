@@ -6,7 +6,7 @@
  *   <div data-lsd-video="clase1" data-vimeo="https://vimeo.com/123456789" data-launch="nov26"></div>
  *   <script src="https://TU-DASHBOARD.pages.dev/tracker.js" defer></script>
  *
- *   data-lsd-video: clase1 | clase2 | replay
+ *   data-lsd-video: clase1 | clase2 | replay  (lanzamientos de varios vídeos: replay2, replay3, replay4)
  *   data-vimeo:     ID o URL del vídeo (si es oculto, la URL con el hash: https://vimeo.com/123/abcdef)
  *   data-launch:    código del lanzamiento (también puede venir en la URL como ?l=nov26)
  *
@@ -329,11 +329,11 @@
     });
   }
 
-  // <div data-lsd-countdown-boxes="directo|clase1|clase2|vip"></div>
+  // <div data-lsd-countdown-boxes="directo|directo2…|clase1|clase2|vip"></div>
   function renderCountdownBoxes(data) {
     document.querySelectorAll('[data-lsd-countdown-boxes]').forEach(function (el) {
       var k = el.getAttribute('data-lsd-countdown-boxes');
-      var at = k === 'directo' || k === 'vip' ? data.vip.closesAt : k === 'fase' ? data.countdownTo : (data.videos[k] || {}).unlockAt;
+      var at = k === 'directo' || k === 'vip' ? data.vip.closesAt : k === 'fase' ? data.countdownTo : (data.directos || {})[k] || (data.videos[k] || {}).unlockAt;
       if (!at || at <= serverNow()) { el.innerHTML = ''; el.removeAttribute('data-lsd-cdb-at'); show(el, false); return; }
       show(el, true);
       if (Number(el.getAttribute('data-lsd-cdb-at')) === at) return;
@@ -414,7 +414,7 @@
     // Cuentas atrás sueltas: <span data-lsd-countdown="directo|clase1|clase2|replay|vip|fase">
     document.querySelectorAll('[data-lsd-countdown]').forEach(function (el) {
       var k = el.getAttribute('data-lsd-countdown');
-      var at = k === 'fase' ? data.countdownTo : k === 'vip' ? data.vip.closesAt : k === 'directo' ? data.vip.closesAt : (data.videos[k] || {}).unlockAt;
+      var at = k === 'fase' ? data.countdownTo : k === 'vip' ? data.vip.closesAt : k === 'directo' ? data.vip.closesAt : (data.directos || {})[k] || (data.videos[k] || {}).unlockAt;
       el.innerHTML = at && at > serverNow() ? cdSpan(at) : '';
     });
 
@@ -487,7 +487,7 @@
         }
         renderPage(data, who, function (el) { onVideo(el, data.code); });
         // Próximo cambio: fase o desbloqueo de vídeo.
-        var next = [data.changesAt, data.videos.clase1.unlockAt, data.videos.clase2.unlockAt, data.videos.replay.unlockAt]
+        var next = [data.changesAt].concat(Object.keys(data.videos).map(function (k) { return data.videos[k].unlockAt; }))
           .filter(function (t) { return t && t > data.now; }).sort(function (a, b) { return a - b; })[0];
         clearTimeout(timer);
         // Encuesta pendiente: se vuelve a comprobar cada 15 s (y al volver a la pestaña).

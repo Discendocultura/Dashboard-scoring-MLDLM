@@ -4,7 +4,8 @@ import {
 import { icon } from './icons.js';
 import { ENCUESTA_PREGUNTAS } from './encuesta.js';
 import { enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
-import { PHASES, LINK_KEYS, phaseAt, barFor, formatLong } from './page.js';
+import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor } from './page.js';
+import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay } from './videos.js';
 import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
@@ -478,7 +479,7 @@ function filtered() {
     if (f.signal === 'trafico_frio') return l.s.trafico === 'frio';
     if (f.signal === 'trafico_templado') return l.s.trafico === 'templado';
     if (f.signal === 'sin_clases') return !watched(l.s, 'clase1') && !watched(l.s, 'clase2');
-    if (f.signal === 'replay_50') return watched(l.s, 'replay') >= 50;
+    if (f.signal === 'replay_50') return grabVenta(l.s) >= 50;
     if (f.signal && !l.s[f.signal]) return false;
     return true;
   });
@@ -508,7 +509,18 @@ $$('.leads th[data-sort]').forEach((th) => th.addEventListener('click', () => {
 }));
 
 // ---------- Render ----------
+// Cabecera de la tabla de leads: con varios vídeos, una columna «Vídeos del lanzamiento».
+function pintarCabeceraVideos() {
+  const launch = state.config?.launches?.[state.launchCode];
+  const vs = videosDe(launch);
+  const multi = vs.length > 1;
+  $('#th-directo').textContent = multi ? `Vídeos (${vs.map(nombreCorto).join(', ')})` : 'Directo';
+  $('#th-directo').colSpan = multi ? 2 : 1;
+  $('#th-grabacion').hidden = multi;
+}
+
 function render() {
+  pintarCabeceraVideos();
   actualizarAuditor();
   computeAvatares();
   renderKpis();
@@ -568,14 +580,20 @@ function renderMetrics() {
   const launch = state.config.launches[state.launchCode];
   const m = currentMetrics();
   m.launch = launch;
+  // Varios vídeos: las ventas «en directo» son las del día del vídeo de venta.
+  const vVenta = m.videos?.length > 1 ? m.videos.at(-1) : null;
+  const tituloVentasDia = vVenta ? `Ventas el día del ${vVenta.nombre}` : 'Ventas en directo';
   const directoCard = launch.fechaDirecto && launch.compraDateField
-    ? card('Ventas en directo', m.compraDirecto, `${pctOf(m.compraDirecto, m.compra)} de las ventas · ${pctOf(m.compraDirecto, m.live)} de los asistentes`, 'live', 'buy')
-    : card('Ventas en directo', '–', 'Configura el día del directo y el campo de fecha de compra', 'live', 'buy');
+    ? card(tituloVentasDia, m.compraDirecto, `${pctOf(m.compraDirecto, m.compra)} de las ventas${vVenta ? '' : ` · ${pctOf(m.compraDirecto, m.live)} de los asistentes`}`, 'live', 'buy')
+    : card(tituloVentasDia, '–', 'Configura el día del directo y el campo de fecha de compra', 'live', 'buy');
+  const asistenciaCard = vVenta
+    ? card(`Vieron el ${vVenta.nombre}`, vVenta.vieron, `${pctOf(vVenta.vieron, m.total)} de los registros · compra el ${pctOf(vVenta.compraron, vVenta.vieron)}`, 'live', 'live')
+    : card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros · ${pctOf(m.vipLive, m.vip)} de las VIP`, 'live', 'live');
   $('#metric-cards').innerHTML = [
     card('Registros', m.total, m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'leads del lanzamiento', 'users', 'accent'),
     ...(m.encuestaActiva ? [card('Encuesta rellenada', `${m.encuesta} <small class="muted">de ${m.total}</small>`, `${pctOf(m.encuesta, m.total)} de los registros`, 'survey', 'info')] : []),
     card('Entradas VIP', m.vip, `${pctOf(m.vip, m.total)} de los registros`, 'star', 'vip'),
-    card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros · ${pctOf(m.vipLive, m.vip)} de las VIP`, 'live', 'live'),
+    asistenciaCard,
     card('Compras totales', m.compra, `${pctOf(m.compra, m.total)} de los registros`, 'cart', 'buy'),
     card('Ventas de Raíces de VIP', `${m.compraVip} <small class="muted">de ${m.compra}</small>`, `${pctOf(m.compraVip, m.compra)} de las ventas · compra el ${pctOf(m.compraVip, m.vip)} de las VIP`, 'crown', 'vip'),
     card('Llamadas agendadas', `${m.llamada} <small class="muted">de ${m.total}</small>`, `${pctOf(m.llamada, m.total)} de los registros · ${pctOf(m.compraLlamada, m.llamada)} compran`, 'phone', 'info'),
@@ -598,10 +616,12 @@ function renderMetrics() {
     ['Empezaron la clase 1', m.clase1, '≥25% visto'],
     ['Empezaron la clase 2', m.clase2, '≥25% visto'],
     ['Compraron entrada VIP', m.vip],
-    ['Pulsaron el enlace del directo', m.click],
-    ['Asistieron al directo', m.live],
-    ['Directo hasta el final', m.liveFinal],
-    ['Vieron la grabación', m.replay, '≥25% visto'],
+    ...(vVenta ? m.videos.map((v) => [`Vieron el ${v.nombre}`, v.vieron, `${v.asistio ? `${v.asistio} en directo · ` : ''}${v.grabacion} grabado (≥25%)`]) : [
+      ['Pulsaron el enlace del directo', m.click],
+      ['Asistieron al directo', m.live],
+      ['Directo hasta el final', m.liveFinal],
+      ['Vieron la grabación', m.replay, '≥25% visto'],
+    ]),
     ['Agendaron llamada', m.llamada, 'etiqueta de llamada o marcada por la setter'],
     ['Compraron', m.compra, '', 'buy'],
   ];
@@ -616,13 +636,15 @@ function renderMetrics() {
     ['Todos los registrados', m.total, m.compra],
     ['Con entrada VIP', m.vip, m.compraVip],
     ['Sin entrada VIP', m.noVip, m.compraNoVip],
-    ['Asistieron al directo', m.live, m.compraLive],
-    ['Asistieron hasta el final', m.liveFinal, m.compraFinal],
-    ['No fueron al directo, vieron la grabación', m.soloReplay, m.compraSoloReplay],
-    ['Ni directo ni grabación', m.nada, m.compraNada],
+    ...(vVenta ? m.videos.map((v) => [`Vieron el ${v.nombre}`, v.vieron, v.compraron]) : [
+      ['Asistieron al directo', m.live, m.compraLive],
+      ['Asistieron hasta el final', m.liveFinal, m.compraFinal],
+      ['No fueron al directo, vieron la grabación', m.soloReplay, m.compraSoloReplay],
+      ['Ni directo ni grabación', m.nada, m.compraNada],
+    ]),
     ['Agendaron llamada', m.llamada, m.compraLlamada],
   ];
-  if (launch.fechaDirecto && launch.compraDateField) rows.splice(4, 0, ['Asistieron al directo y compraron ese mismo día', m.live, m.compraDirectoAsist]);
+  if (!vVenta && launch.fechaDirecto && launch.compraDateField) rows.splice(4, 0, ['Asistieron al directo y compraron ese mismo día', m.live, m.compraDirectoAsist]);
   renderTraffic(m);
   $('#conversion-table').innerHTML = `
     <thead><tr><th>Segmento</th><th class="num">Leads</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
@@ -1265,12 +1287,14 @@ function renderKpis() {
   for (const l of L) {
     counts[l.estado.id]++;
     if (l.s.vip) vip++;
-    if (l.s.directo_asistio) live++;
-    if (watched(l.s, 'replay') >= 50) replay++;
+    if (directoVenta(l.s, 'asistio')) live++;
+    if (grabVenta(l.s) >= 50) replay++;
     if (l.s.wa_enviado) sent++;
   }
   const pct = (n) => (L.length ? `${Math.round((n / L.length) * 100)}%` : '–');
   const f = state.filters.estado;
+  const vV = videosDe(state.config.launches[state.launchCode]);
+  const deVenta = vV.length > 1 ? ` el ${vV.at(-1).nombre}` : '';
   $('#kpis').innerHTML = `
     <div class="kpi static tone-accent"><span class="kpi-label"><span class="kpi-ico">${icon('users')}</span>Leads registrados</span><span class="kpi-value">${L.length}</span><span class="kpi-sub">${sent} contactados por WhatsApp</span></div>
     ${ESTADOS.map((e) => `
@@ -1280,8 +1304,8 @@ function renderKpis() {
         <span class="kpi-sub">${pct(counts[e.id])} · ${e.min}+ puntos</span>
       </button>`).join('')}
     <div class="kpi static tone-vip"><span class="kpi-label"><span class="kpi-ico">${icon('star')}</span>Compraron VIP</span><span class="kpi-value">${vip}</span><span class="kpi-sub">${pct(vip)}</span></div>
-    <div class="kpi static tone-live"><span class="kpi-label"><span class="kpi-ico">${icon('live')}</span>Asistieron al directo</span><span class="kpi-value">${live}</span><span class="kpi-sub">${pct(live)}</span></div>
-    <div class="kpi static tone-info"><span class="kpi-label"><span class="kpi-ico">${icon('play')}</span>Vieron la grabación</span><span class="kpi-value">${replay}</span><span class="kpi-sub">${pct(replay)} (≥50%)</span></div>
+    <div class="kpi static tone-live"><span class="kpi-label"><span class="kpi-ico">${icon('live')}</span>${deVenta ? `En directo${deVenta}` : 'Asistieron al directo'}</span><span class="kpi-value">${live}</span><span class="kpi-sub">${pct(live)}</span></div>
+    <div class="kpi static tone-info"><span class="kpi-label"><span class="kpi-ico">${icon('play')}</span>${deVenta ? `Vieron${deVenta} grabado` : 'Vieron la grabación'}</span><span class="kpi-value">${replay}</span><span class="kpi-sub">${pct(replay)} (≥50%)</span></div>
     <div class="distribution" style="grid-column:1/-1" aria-hidden="true">
       ${ESTADOS.map((e) => (counts[e.id] ? `<span class="st-${e.id}" style="flex:${counts[e.id]}" title="${e.label}: ${counts[e.id]}"></span>` : '')).join('')}
     </div>`;
@@ -1292,6 +1316,10 @@ function renderKpis() {
     render();
   }));
 }
+
+// El vídeo de venta (el webinar, o el último vídeo del lanzamiento): lo visto de su grabación y su directo.
+const grabVenta = (s) => watched(s, sigReplay(s.nVideos || 1));
+const directoVenta = (s, que) => Boolean(s[`${sigDirecto(s.nVideos || 1)}_${que}`]);
 
 const chip = (label, cls = '') => `<span class="chip ${cls}">${label}</span>`;
 
@@ -1308,6 +1336,18 @@ function liveChip(s) {
   if (s.directo_asistio) return chip('Asistió', 'half');
   if (s.directo_click) return chip('Clic', 'half');
   return chip('—');
+}
+
+// Lanzamientos de varios vídeos: lo visto de cada vídeo (en directo o grabado), uno por línea.
+const nombreCorto = (v) => v.nombre.replace('Vídeo ', 'V').replace('PLC ', 'PLC');
+function videosChips(s, launch) {
+  return videosDe(launch).map((v) => {
+    const pct = watched(s, v.replay);
+    const live = s[`${v.directo}_final`] ? 'final' : s[`${v.directo}_asistio`] ? 'directo' : '';
+    const cls = live === 'final' || pct >= 90 ? 'on' : live || pct ? 'half' : '';
+    const txt = live === 'final' ? 'hasta el final' : pct >= 90 ? 'completo' : live ? `directo${pct ? ` · ${pct}%` : ''}` : pct ? `${pct}%` : '—';
+    return `<span class="chip ${cls}" title="${esc(v.nombre)}">${esc(nombreCorto(v))} ${txt}</span>`;
+  }).join(' ');
 }
 
 function compraChip(s) {
@@ -1329,8 +1369,8 @@ function rowHtml(l) {
     <td>${videoChip(l.s, 'clase1')}</td>
     <td>${videoChip(l.s, 'clase2')}</td>
     <td>${l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>
-    <td>${liveChip(l.s)}</td>
-    <td>${videoChip(l.s, 'replay')}</td>
+    ${(l.s.nVideos || 1) > 1 ? `<td colspan="2"><div class="videos-chips">${videosChips(l.s, state.config.launches[state.launchCode])}</div></td>` : `<td>${liveChip(l.s)}</td>
+    <td>${videoChip(l.s, 'replay')}</td>`}
     <td>${compraChip(l.s)}</td>
     <td class="num"><span class="score">${l.score}</span></td>
     <td><span class="estado st-${l.estado.id}"><span class="dot"></span>${l.estado.label}</span></td>
@@ -1380,7 +1420,7 @@ function renderHoy() {
   const buckets = [
     { id: 'calientes', title: '🔥 Muy calientes sin contactar', hint: 'Máxima prioridad', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.estado.id === 'muy-caliente') },
     { id: 'vip', title: '⭐ VIP que no han comprado', hint: 'Pagaron la entrada: están cerca', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.vip) },
-    { id: 'grabacion', title: '🎬 Vieron la grabación y no han comprado', hint: '≥50% de la grabación', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && !l.s.vip && l.estado.id !== 'muy-caliente' && watched(l.s, 'replay') >= 50) },
+    { id: 'grabacion', title: '🎬 Vieron la grabación y no han comprado', hint: '≥50% de la grabación', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && !l.s.vip && l.estado.id !== 'muy-caliente' && grabVenta(l.s) >= 50) },
     { id: 'seguimiento', title: '💬 Seguimiento pendiente', hint: 'Respondieron, interesadas o no contestan', rows: state.leads.filter((l) => open(l) && ['respondio', 'interesada', 'no_contesta'].includes(l.outcome)) },
     { id: 'sinresultado', title: '📝 Contactadas sin resultado anotado', hint: 'Anota qué pasó', rows: state.leads.filter((l) => open(l) && l.s.wa_enviado && !l.outcome) },
   ];
@@ -1401,8 +1441,8 @@ function renderHoy() {
 function hoyItem(l) {
   const signals = [
     l.s.vip ? 'VIP' : '',
-    l.s.directo_final ? 'Directo hasta el final' : l.s.directo_asistio ? 'Asistió al directo' : '',
-    watched(l.s, 'replay') ? `Grabación ${watched(l.s, 'replay')}%` : '',
+    directoVenta(l.s, 'final') ? 'Directo hasta el final' : directoVenta(l.s, 'asistio') ? 'Asistió al directo' : '',
+    grabVenta(l.s) ? `Grabación ${grabVenta(l.s)}%` : '',
     watched(l.s, 'clase1') || watched(l.s, 'clase2') ? `Clases ${watched(l.s, 'clase1')}% / ${watched(l.s, 'clase2')}%` : '',
   ].filter(Boolean).join(' · ');
   return `<li class="hoy-item">
@@ -1454,40 +1494,56 @@ $('#btn-csv').addEventListener('click', () => {
 });
 
 // ---------- Sincronizar Zoom ----------
+// Con varios vídeos en directo (lanzamientos de 2, 3 o 4 vídeos), se sincroniza cada uno ya celebrado.
 $('#btn-zoom').addEventListener('click', async () => {
   const launch = state.config.launches[state.launchCode];
   if (!state.zoomConfigured) return notice('Zoom no está conectado todavía (faltan las variables ZOOM_* en Cloudflare).', true);
-  if (!launch.zoomMeetingId) return notice('Añade el ID de la reunión de Zoom en la configuración del lanzamiento.', true);
+  const hoy = new Date().toISOString().slice(0, 10);
+  const vids = videosDe(launch).filter((v) => v.zoomMeetingId && (!v.fecha || v.fecha <= hoy || v.k === 1));
+  if (!vids.length) return notice('Añade el ID de la reunión de Zoom en la configuración del lanzamiento.', true);
   const btn = $('#btn-zoom');
   btn.disabled = true;
+  const resumen = [];
+  let failed = 0;
   try {
-    progress(0, 0, 'Leyendo el informe de asistencia de Zoom…');
-    const report = await api(`/api/zoom-report?launch=${encodeURIComponent(state.launchCode)}`);
     const byEmail = new Map(state.leads.map((l) => [l.email, l]));
-    const items = [];
-    let unmatched = 0;
-    for (const a of report.attendees) {
-      const lead = byEmail.get(a.email);
-      if (!lead) { unmatched++; continue; }
-      const tags = ['directo_asistio'];
-      if (a.minutes >= 60) tags.push('directo_60');
-      if (a.final) tags.push('directo_final');
-      const missing = tags.filter((t) => !lead.s[t]).map((t) => tagFor(state.launchCode, t));
-      if (missing.length) items.push({ id: lead.id, tags: missing });
+    const items = new Map(); // id → etiquetas
+    for (const v of vids) {
+      progress(0, 0, `Leyendo el informe de asistencia de Zoom${vids.length > 1 ? ` (${v.nombre})` : ''}…`);
+      let report;
+      try {
+        report = await api(`/api/zoom-report?launch=${encodeURIComponent(state.launchCode)}${v.k > 1 ? `&v=${v.k}` : ''}`);
+      } catch (e) {
+        if (vids.length === 1) throw e;
+        resumen.push(`${v.nombre}: ${e.message}`);
+        continue;
+      }
+      let unmatched = 0;
+      let n = 0;
+      for (const a of report.attendees) {
+        const lead = byEmail.get(a.email);
+        if (!lead) { unmatched++; continue; }
+        const sigs = [`${v.directo}_asistio`];
+        if (a.minutes >= 60) sigs.push(`${v.directo}_60`);
+        if (a.final) sigs.push(`${v.directo}_final`);
+        const missing = sigs.filter((t) => !lead.s[t]).map((t) => tagFor(state.launchCode, t));
+        if (missing.length) { items.set(lead.id, [...(items.get(lead.id) || []), ...missing]); n++; }
+      }
+      resumen.push(`${vids.length > 1 ? `${v.nombre}: ` : ''}${report.attendees.length} asistentes identificados, ${n} leads actualizados`
+        + `${unmatched ? `, ${unmatched} emails que no están en este lanzamiento` : ''}`
+        + `${report.anonymous ? `, ${report.anonymous} conexiones sin email` : ''}`);
     }
-    let done = 0; let failed = 0;
-    for (let i = 0; i < items.length; i += 25) {
-      const chunk = items.slice(i, i + 25);
+    const lista = [...items].map(([id, tags]) => ({ id, tags }));
+    let done = 0;
+    for (let i = 0; i < lista.length; i += 25) {
+      const chunk = lista.slice(i, i + 25);
       const { results } = await api('/api/apply-tags', { method: 'POST', body: { items: chunk } });
       failed += results.filter((r) => !r.ok).length;
       done += chunk.length;
-      progress(done, items.length, `Etiquetando asistentes en GHL… ${done} de ${items.length}`);
+      progress(done, lista.length, `Etiquetando asistentes en GHL… ${done} de ${lista.length}`);
     }
     await loadLeads();
-    notice(`Zoom: ${report.attendees.length} asistentes identificados, ${items.length} leads actualizados`
-      + `${unmatched ? `, ${unmatched} emails que no están en este lanzamiento` : ''}`
-      + `${report.anonymous ? `, ${report.anonymous} conexiones sin email` : ''}`
-      + `${failed ? `. ${failed} no se pudieron etiquetar (vuelve a sincronizar)` : ''}.`, failed > 0);
+    notice(`Zoom: ${resumen.join(' · ')}${failed ? `. ${failed} no se pudieron etiquetar (vuelve a sincronizar)` : ''}.`, failed > 0);
   } catch (e) {
     notice(`No se pudo sincronizar Zoom: ${e.message}`, true);
   } finally {
@@ -1520,6 +1576,39 @@ async function fillDateFields(selected) {
 
 function fillTagList() {
   $('#tag-list').innerHTML = state.tags.map((t) => `<option value="${esc(t)}">`).join('');
+}
+
+// Formato (cuántos vídeos) del lanzamiento que se edita: el de su embudo.
+const formatoDeLanz = (l) => embudoInfo(l ? embudoDeLanz(l) : state.embudo)?.formato || 'webinar';
+const V_CAMPOS = [
+  ['fecha', 'Día', 'date'], ['hora', 'Hora (de España)', 'time'],
+  ['zoomMeetingId', 'ID de Zoom <small>(solo si es en directo)</small>', 'text'], ['zoomJoinUrl', 'Enlace genérico de Zoom <small>(opcional)</small>', 'url'],
+  ['replayUrl', 'Página del vídeo en GHL', 'url'], ['replayVideoUrl', 'Vídeo de Vimeo', 'url'],
+  ['replayAt', 'Se ve desde <small>(vacío = 00:00 del día siguiente si es en directo)</small>', 'datetime-local'],
+];
+// Vídeos 2, 3 y 4 del lanzamiento (el 1 son los campos del directo de siempre).
+function renderVideosCfg(l) {
+  const formato = formatoDeLanz(editingCode ? l : null);
+  const vs = videosDe({ ...l, formato });
+  const sec = $('#cfg-videos-sec');
+  sec.hidden = vs.length <= 1;
+  sec.dataset.formato = formato;
+  // El vídeo 1 usa las casillas del directo: con varios vídeos se llaman como él (PLC 1, Vídeo 1).
+  const n1 = vs.length > 1 ? vs[0].nombre : '';
+  const rotulo = (sel, multi) => { const el = $(sel)?.previousElementSibling; if (el) { el.dataset.def ??= el.innerHTML; el.innerHTML = n1 ? multi : el.dataset.def; } };
+  rotulo('#cfg-directo-fecha', `Día del ${n1}`);
+  rotulo('#cfg-directo-hora', `Hora del ${n1} <small>(hora de España)</small>`);
+  const h3Zoom = $('#cfg-zoom-id').closest('.cfg-sec')?.querySelector('h3');
+  if (h3Zoom) { h3Zoom.dataset.def ??= h3Zoom.textContent; h3Zoom.textContent = n1 ? `${n1} en Zoom (solo si es en directo)` : h3Zoom.dataset.def; }
+  if (vs.length <= 1) { $('#cfg-videos').innerHTML = ''; return; }
+  $('#cfg-videos-titulo').textContent = `${FORMATOS[formato].label}: ${vs.slice(1).map((v) => v.nombre).join(', ')}`;
+  $('#cfg-videos-nota').textContent = `El ${vs[0].nombre} usa las casillas de arriba (fechas y Zoom) y su vídeo y su página van en «Página preclase» (grabación). Si un vídeo es grabado, deja vacío su Zoom. En el ${vs.at(-1).nombre} se hace la venta.`;
+  $('#cfg-videos').innerHTML = vs.slice(1).map((v) => `<fieldset class="cfg-video" data-k="${v.k}"><legend>${esc(v.nombre)}${v.venta ? ' · vídeo de venta' : ''}</legend><div class="grid2">
+    ${V_CAMPOS.map(([c, label, type]) => `<label class="field"><span>${label}</span><input id="cfg-v${v.k}-${c === 'replayUrl' ? 'replay' : c === 'replayVideoUrl' ? 'replay-video' : c === 'replayAt' ? 'replay-at' : c}" data-vc="${c}" type="${type}" value="${esc(v[c] || '')}"${c === 'zoomMeetingId' ? ' inputmode="numeric"' : ''}></label>`).join('')}
+  </div></fieldset>`).join('');
+}
+function readVideosCfg() {
+  return $$('#cfg-videos .cfg-video').map((fs) => Object.fromEntries($$('[data-vc]', fs).map((i) => [i.dataset.vc, i.value.trim()])));
 }
 
 function openConfig(code) {
@@ -1599,6 +1688,7 @@ function openConfig(code) {
   $('#cfg-status').textContent = '';
   renderSnippets();
   renderSnapshotBox();
+  renderVideosCfg(l);
   renderGuia();
   if (!dlg.open) dlg.showModal();
 }
@@ -1740,8 +1830,10 @@ function fieldStatus(f, others, tagIssues) {
     const same = others.find(([, l]) => String(l[f.key] ?? '').trim().toLowerCase() === v.toLowerCase());
     if (same) issue = `igual que en «${same[1].name || same[0]}»`;
   }
-  const st = issue ? 'warn' : v ? 'ok' : f.opcional ? 'opt' : 'falta';
-  return { st, txt: issue || (v ? 'listo' : f.opcional ? 'vacío (opcional)' : 'falta') };
+  // Con varios vídeos, el 1 puede ser grabado: su Zoom es opcional.
+  const opcional = f.opcional || (f.id === 'cfg-zoom-id' && !$('#cfg-videos-sec').hidden);
+  const st = issue ? 'warn' : v ? 'ok' : opcional ? 'opt' : 'falta';
+  return { st, txt: issue || (v ? 'listo' : opcional ? 'vacío (opcional)' : 'falta') };
 }
 const GUIA_ICON = { ok: '✓', warn: '⚠', opt: '○', falta: '✗' };
 
@@ -1829,6 +1921,7 @@ function readForm() {
       textos: readTextosEditor(),
       zoomMeetingId: $('#cfg-zoom-id').value,
       zoomJoinUrl: $('#cfg-zoom-url').value.trim(),
+      videos: readVideosCfg(),
       replayUrl: $('#cfg-replay').value.trim(),
       raicesUrl: $('#cfg-raices').value.trim(),
       ventaUrl: $('#cfg-venta').value.trim(),
@@ -2002,7 +2095,10 @@ $('#btn-digest-test').addEventListener('click', async () => {
 // ---------- Página de recursos: barra de urgencia y vista previa ----------
 function renderBarraEditor(barra) {
   const opts = (sel) => Object.entries(LINK_KEYS).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v}</option>`).join('');
-  $('#cfg-barra').innerHTML = PHASES.map((p) => {
+  // Fases según los vídeos del lanzamiento (con varios, cada vídeo y el tiempo entre vídeos).
+  const l = editingCode ? state.config.launches[editingCode] : null;
+  const fases = phasesFor({ ...(l || {}), formato: formatoDeLanz(l) });
+  $('#cfg-barra').innerHTML = fases.map((p) => {
     const b = barra[p.id] || {};
     return `<tr data-phase="${p.id}">
       <td>${esc(p.label)}</td>
@@ -2182,10 +2278,10 @@ function renderPhaseNow(l) {
   const box = $('#page-phase-now');
   if (!l || !editingCode) { box.innerHTML = '<p class="muted">Guarda el lanzamiento para ver en qué fase está la página.</p>'; return; }
   const p = phaseAt(l, Date.now());
-  const label = PHASES.find((x) => x.id === p.id)?.label || p.id;
+  const label = phasesFor(l).find((x) => x.id === p.id)?.label || p.id;
   const bar = barFor(l, p.id);
   box.innerHTML = `<p><strong>Ahora mismo la página está en la fase:</strong> ${esc(label)}${p.changesAt ? ` · cambia el ${esc(formatLong(p.changesAt))}` : ''}</p>
-    <p class="muted">Barra: «${esc(bar.text.replace('{cuenta}', '⏳'))}»${p.id === 'en_directo' ? ' · la página preclase redirige al directo' : (p.id === 'replay' || p.id === 'cerrado') ? ' · la página preclase redirige a la grabación' : ''}</p>`;
+    <p class="muted">Barra: «${esc(bar.text.replace('{cuenta}', '⏳'))}»${/^en_directo/.test(p.id) ? ' · la página preclase redirige al directo (o al vídeo, si es grabado)' : /^v\d$/.test(p.id) ? ' · la página preclase redirige a la página de ese vídeo' : (p.id === 'replay' || p.id === 'cerrado') ? ' · la página preclase redirige a la grabación' : ''}</p>`;
 }
 
 $('#btn-preview').addEventListener('click', async () => {
@@ -2253,6 +2349,11 @@ function renderSnippets() {
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
     ['Enlace al directo en emails de GHL', `${origin}/directo?l=auto&cid={{contact.id}}${cParam('&')}`],
     ['Enlace al directo para el grupo de WhatsApp (pide el email)', `${origin}/directo?l=auto${cParam('&')}`],
+    // Lanzamientos de varios vídeos: una página por vídeo y su enlace al directo (si es en directo).
+    ...videosDe(state.config.launches[code]).slice(1).flatMap((v) => [
+      [`${v.nombre.toUpperCase()} · bloques de su página`, `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="${v.replay}"></div>\n${script}`],
+      [`${v.nombre} · enlace al directo en emails de GHL (solo si es en directo)`, `${origin}/directo?l=auto&v=${v.k}&cid={{contact.id}}${cParam('&')}`],
+    ]),
   ];
   box.innerHTML = `<p class="muted">Con <code>data-launch="auto"</code> las páginas usan siempre el <strong>lanzamiento en curso</strong> (el último cuyo inicio de captación ya ha llegado): en el próximo lanzamiento no hay que tocar GHL, solo esta configuración.</p>` + items.map(([title, text], i) => `
     <div class="snippet">
@@ -3480,7 +3581,7 @@ function calChip(it, hoy) {
     return `<span class="cal-chip k-tarea ${cls}" title="${esc(t.titulo)} · ${esc(asignadoTexto(t.asignado))}"><span class="cc-ico">${t.hecha ? '✓' : '☐'}</span><span class="cc-txt">${esc(t.titulo)}</span></span>`;
   }
   const other = it.kind === 'hito' && !it.own;
-  const tipo = it.kind === 'evento' ? ` t-${it.ev.tipo}` : it.kind === 'hito' && it.hid === 'directo' ? ' h-webinar' : '';
+  const tipo = it.kind === 'evento' ? ` t-${it.ev.tipo}` : it.kind === 'hito' && /^directo\d?$/.test(it.hid) ? ' h-webinar' : '';
   return `<span class="cal-chip k-${it.kind}${tipo} ${other ? 'other' : ''} ${it.cont ? 'cont' : ''}" title="${esc(it.titulo)}${other ? ` · ${esc(it.launch)}` : ''}"><span class="cc-ico">${it.icon}</span>${it.time ? `<span class="cc-time">${esc(it.time)}</span>` : ''}<span class="cc-txt">${esc(it.titulo)}${other ? ` · ${esc(it.launch)}` : ''}</span></span>`;
 }
 
@@ -3533,7 +3634,7 @@ function renderCalendario() {
     // del lanzamiento lo enmarcan; el del webinar, en rojo.
     const fase = ['directo', 'carrito', 'clases', 'captacion'].map((id) => bands.find((f) => f.id === id)).find(Boolean);
     const hito = list.find((it) => it.kind === 'hito' && it.own);
-    const marca = `${fase ? `con-fase tone-${CAL_FASE_COLOR[fase.id]}` : ''} ${hito ? `dia-hito${hito.hid === 'directo' ? ' dia-webinar' : ''}` : ''}`;
+    const marca = `${fase ? `con-fase tone-${CAL_FASE_COLOR[fase.id]}` : ''} ${hito ? `dia-hito${/^directo\d?$/.test(hito.hid) ? ' dia-webinar' : ''}` : ''}`;
     return `<button type="button" class="cal-day ${marca} ${d.slice(0, 7) !== month && cal.modo === 'mes' ? 'out' : ''} ${d === hoy ? 'today' : ''} ${d === cal.sel ? 'sel' : ''} ${d < hoy ? 'past' : ''}" data-day="${d}" aria-label="${esc(fmtDay(d, { weekday: 'long', day: 'numeric', month: 'long' }))}${list.length ? `, ${list.length} elementos` : ''}">
       <span class="cal-bands">${fase ? `<i title="${esc(fase.label)}"></i>` : ''}</span>
       <span class="cal-num">${cal.modo === 'semana' ? `<span class="cal-dow">${DOW[dow(d)]}</span> ` : ''}${Number(d.slice(8))}${cal.modo === 'semana' ? ` <span class="cal-dow">${fmtDay(d, { month: 'short' })}</span>` : ''}</span>
@@ -4190,9 +4291,9 @@ function llamadaCard(c) {
   const chips = lead ? [
     `<span class="ll-chip st-${lead.estado.id}" title="Puntuación del lead">${esc(lead.estado.label)} · ${lead.score} pts</span>`,
     lead.s.vip ? '<span class="ll-chip vip">⭐ VIP</span>' : '',
-    lead.s.directo_asistio ? '<span class="ll-chip">🔴 Vio el directo</span>' : '',
+    directoVenta(lead.s, 'asistio') ? '<span class="ll-chip">🔴 Vio el directo</span>' : '',
     watched(lead.s, 'clase1') || watched(lead.s, 'clase2') ? `<span class="ll-chip">🎬 Clases: ${[watched(lead.s, 'clase1') ? 1 : 0, watched(lead.s, 'clase2') ? 2 : 0].filter(Boolean).join(' y ')}</span>` : '',
-    watched(lead.s, 'replay') >= 25 ? `<span class="ll-chip">📼 Grabación ${watched(lead.s, 'replay')}%</span>` : '',
+    grabVenta(lead.s) >= 25 ? `<span class="ll-chip">📼 Grabación ${grabVenta(lead.s)}%</span>` : '',
     lead.s.encuesta ? '<span class="ll-chip">📋 Encuesta</span>' : '',
     lead.s.compra ? '<span class="ll-chip buy">✅ Ya compró Raíces</span>' : '',
   ].filter(Boolean).join('') : '<span class="ll-chip muted">No está entre los registros de este lanzamiento</span>';
@@ -5148,7 +5249,10 @@ $('#vc-borrar').addEventListener('click', async () => {
 // ---------- Embudos: crear («＋») y editar (⚙️) ----------
 const embDlg = $('#embudo-dialog');
 let embEdit = null; // id del embudo que se edita (null = nuevo)
-const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : $('input[name="emb-tipo"]:checked').value);
+// Opción elegida: webinar | v2 | v3 | plf (embudo de lanzamientos con ese formato) o vsl.
+const embOpcion = () => $('input[name="emb-tipo"]:checked').value;
+const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : embOpcion() === 'vsl' ? 'vsl' : 'lanzamientos');
+const embFormato = () => (embEdit ? $('#emb-formato').value : embOpcion() === 'vsl' ? undefined : embOpcion());
 const embPestanas = () => $$('#emb-pestanas input:checked').map((i) => i.value);
 function pintarEmbPestanas(activas) {
   const tipo = embTipo();
@@ -5156,13 +5260,14 @@ function pintarEmbPestanas(activas) {
   pintarEmbGuia();
 }
 function pintarEmbGuia() {
-  $('#emb-guia').innerHTML = guiaPasosHtml(guiaEmbudo(embTipo(), embPestanas()));
+  $('#emb-guia').innerHTML = guiaPasosHtml(guiaEmbudo(embTipo(), embPestanas(), embFormato()));
 }
 function abrirNuevoEmbudo() {
   embEdit = null;
   $('#emb-titulo').textContent = 'Nuevo embudo';
   $('.emb-tipos').hidden = false;
-  $('input[name="emb-tipo"][value="lanzamientos"]').checked = true;
+  $('input[name="emb-tipo"][value="webinar"]').checked = true;
+  $('#emb-formato-box').hidden = true;
   $('#emb-nombre').value = '';
   $('#emb-status').textContent = '';
   $('#emb-nota').hidden = false;
@@ -5179,6 +5284,8 @@ function abrirEditarEmbudo(id) {
   embEdit = id;
   $('#emb-titulo').textContent = `${e.tipo === 'vsl' ? '🎬' : '🚀'} ${e.nombre}`;
   $('.emb-tipos').hidden = true;
+  $('#emb-formato-box').hidden = e.tipo !== 'lanzamientos';
+  $('#emb-formato').value = e.formato || 'webinar';
   $('#emb-nombre').value = e.nombre;
   $('#emb-status').textContent = '';
   $('#emb-nota').hidden = true;
@@ -5193,6 +5300,7 @@ $('#sidebar').addEventListener('click', (e) => { const b = e.target.closest('[da
 document.addEventListener('click', (e) => { if (e.target.closest('[data-action="nuevo-embudo"]')) abrirNuevoEmbudo(); });
 $$('input[name="emb-tipo"]').forEach((r) => r.addEventListener('change', () => pintarEmbPestanas(null)));
 $('#emb-pestanas').addEventListener('change', pintarEmbGuia);
+$('#emb-formato').addEventListener('change', pintarEmbGuia);
 
 $('#emb-crear').addEventListener('click', async () => {
   const pestanas = embPestanas();
@@ -5205,7 +5313,7 @@ $('#emb-crear').addEventListener('click', async () => {
     if (embEdit) {
       const id = embEdit;
       const nombre = $('#emb-nombre').value.trim() || embudoInfo(id).nombre;
-      const lista = embudos().map((e) => (e.id === id ? { id: e.id, tipo: e.tipo, nombre, ...(todas ? {} : { pestanas }) } : e));
+      const lista = embudos().map((e) => (e.id === id ? { id: e.id, tipo: e.tipo, nombre, ...(e.tipo === 'lanzamientos' ? { formato: embFormato() } : {}), ...(todas ? {} : { pestanas }) } : e));
       const vsls = state.config.vsls[id] ? { ...state.config.vsls, [id]: { ...state.config.vsls[id], name: nombre } } : state.config.vsls;
       const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, vsls } });
       state.config = config;
@@ -5214,7 +5322,8 @@ $('#emb-crear').addEventListener('click', async () => {
       return;
     }
     const tipo = embTipo();
-    const nombre = $('#emb-nombre').value.trim() || (tipo === 'vsl' ? 'VSL' : 'Lanzamientos');
+    const formato = embFormato();
+    const nombre = $('#emb-nombre').value.trim() || (tipo === 'vsl' ? 'VSL' : FORMATOS[formato].label);
     // id: a partir del nombre, sin chocar con otros embudos ni con códigos de lanzamiento.
     const usados = new Set([...embudos().map((e) => e.id), ...Object.keys(state.config.launches)]);
     const base = slugCliente(nombre) || (tipo === 'vsl' ? 'vsl' : 'lanz');
@@ -5222,7 +5331,7 @@ $('#emb-crear').addEventListener('click', async () => {
     for (let n = 2; usados.has(id) || id.length < 2; n++) id = `${base.slice(0, 18)}-${n}`;
     const body = {
       ...state.config,
-      embudos: [...embudos(), { id, tipo, nombre, ...(todas ? {} : { pestanas }) }],
+      embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato } : {}), ...(todas ? {} : { pestanas }) }],
       vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre } } : state.config.vsls,
     };
     const { config } = await api('/api/config', { method: 'POST', body });

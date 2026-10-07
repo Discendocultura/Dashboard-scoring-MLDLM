@@ -24,7 +24,7 @@ export const PESTANAS = {
 export const pestanaIds = (tipo) => (PESTANAS[tipo] || []).map((p) => p.id);
 
 // Guía: secciones { titulo, pasos[] } según el tipo y las pestañas elegidas (texto con <strong>/<code>).
-export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo)) {
+export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar') {
   const on = (id) => pestanas.includes(id);
   const s = [];
   if (tipo === 'vsl') {
@@ -56,6 +56,13 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo)) {
       'Página de registro y de gracias, página de <strong>login/recursos (preclase)</strong> y de <strong>grabación</strong>: en cada una, los bloques de <em>Configuración → Códigos para GHL</em>.',
       'Sube las clases y la grabación a <strong>Vimeo</strong> y pega sus URLs en la configuración del lanzamiento: se desbloquean solas a su hora y se mide cuánto ve cada persona.',
       'En los emails de GHL, los enlaces a recursos y al directo llevan <code>?cid={{contact.id}}</code> (los tienes listos para copiar).',
+    ] });
+    const nv = { v2: 2, v3: 3, plf: 4 }[formato];
+    if (nv) s.push({ titulo: `${s.length + 1} · Los ${nv} vídeos del lanzamiento${formato === 'plf' ? ' (PLC 1-4)' : ''}`, pasos: [
+      `Cada vídeo tiene las mismas casillas que un webinar: <strong>día y hora</strong>, <strong>Zoom</strong> (solo si ese vídeo es en directo), <strong>página</strong> y <strong>vídeo de Vimeo</strong> y desde cuándo se ve. En el ${formato === 'plf' ? 'PLC 4' : `vídeo ${nv}`} se hace la venta: con él se abre el carrito.`,
+      'Crea en GHL <strong>una página por vídeo</strong> con el bloque de vídeo de <em>Códigos para GHL</em> (<code>data-lsd-video="replay2"</code>, <code>replay3</code>…): así se mide cuánto ve cada persona de cada vídeo.',
+      'La página preclase manda sola a cada vídeo cuando toca. En los emails de cada vídeo usa el enlace de su página con <code>?cid={{contact.id}}</code>.',
+      'La preclase (clases 1 y 2) es aparte y funciona igual que en el webinar; si no la usas, deja vacías sus fechas.',
     ] });
     if (on('hoy') || on('leads')) s.push({ titulo: `${s.length + 1} · Setteo y WhatsApp`, pasos: [
       'Los leads se puntúan solos con lo que hacen (clases, VIP, directo, grabación). Revisa los textos de WhatsApp en <em>Setteo hoy → Mensajes de WhatsApp</em>.',

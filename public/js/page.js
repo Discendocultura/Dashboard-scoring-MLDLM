@@ -1,5 +1,6 @@
 // Fases de la página de recursos / grabación de un lanzamiento. Lo usan el servidor (/api/page)
 // y el dashboard (vista previa). Las fechas se escriben en hora de España ("2026-10-27T19:00").
+import { videosDe, esEnDirecto, MAX_VIDEOS } from './videos.js';
 
 export const PHASES = [
   { id: 'pre_c1', label: 'Antes de la clase 1', button: 'whatsapp', text: 'La clase 1 se abre en {cuenta}' },
@@ -11,12 +12,43 @@ export const PHASES = [
   { id: 'cerrado', label: 'Carrito cerrado', button: '', text: 'Las puertas de Raíces se han cerrado' },
 ];
 
+// Lanzamientos de varios vídeos: fases de cada vídeo (el 1 usa las de siempre) y entre vídeos.
+const suf = (k) => (k === 1 ? '' : String(k));
+const otrosVideos = Array.from({ length: MAX_VIDEOS - 1 }, (_, i) => i + 2);
+export const PHASE_IDS = [
+  ...PHASES.map((p) => p.id),
+  ...otrosVideos.flatMap((k) => [`dia_directo${k}`, `en_directo${k}`]),
+  ...Array.from({ length: MAX_VIDEOS - 1 }, (_, i) => `v${i + 1}`),
+];
+
+// Fases de la página según los vídeos del lanzamiento (con uno solo, las de siempre).
+export function phasesFor(launch) {
+  const vs = videosDe(launch);
+  if (vs.length <= 1) return PHASES;
+  const out = PHASES.slice(0, 3).map((p) => (p.id === 'c2' ? { ...p, text: `Ya puedes ver la clase 2 · El ${vs[0].nombre} empieza en {cuenta}` } : p));
+  for (const v of vs) {
+    const s = suf(v.k);
+    const directo = esEnDirecto(v);
+    out.push({ id: `dia_directo${s}`, label: `Día del ${v.nombre} (antes de empezar)`, button: directo ? `directo${s}` : '', text: `Hoy es el ${v.nombre} · Empieza en {cuenta}` });
+    out.push({ id: `en_directo${s}`, label: directo ? `${v.nombre} en directo (hasta las 00:00)` : `${v.nombre} recién publicado (hasta las 00:00)`, button: directo ? `directo${s}` : `grabacion${s}`, text: directo ? '🔴 Estamos en directo' : `Ya está disponible el ${v.nombre}` });
+    if (!v.venta) {
+      const sig = vs[v.k];
+      out.push({ id: `v${v.k}`, label: `${v.nombre} disponible`, button: `grabacion${s}`, text: `Ya puedes ver el ${v.nombre} · El ${sig.nombre} empieza en {cuenta}` });
+    }
+  }
+  const ultimo = vs.at(-1);
+  out.push({ id: 'replay', label: 'Carrito abierto', button: 'venta', text: `El ${ultimo.nombre} se retira en {cuenta}` });
+  out.push(PHASES.at(-1));
+  return out;
+}
+
 export const LINK_KEYS = {
   '': 'Sin botón',
   whatsapp: 'Grupo de WhatsApp',
   vip: 'Comprar entrada VIP',
   directo: 'Entrar al directo',
   grabacion: 'Ver la grabación',
+  ...Object.fromEntries(otrosVideos.flatMap((k) => [[`directo${k}`, `Entrar al vídeo ${k} (directo)`], [`grabacion${k}`, `Ver el vídeo ${k}`]])),
   venta: 'Página de venta de Raíces',
   pago: 'Pago único de Raíces',
   'pago-fraccionado': 'Pago fraccionado de Raíces',
@@ -91,17 +123,24 @@ function nextDay(isoDay) {
 //  - directo: a esa hora la página de recursos manda al directo.
 //  - postDirecto: 00:00 del día siguiente al directo → la página de recursos manda al replay.
 //  - replay: cuando se desbloquea la grabación (por defecto, también a las 00:00 del día siguiente).
+//  - videos: lo mismo para cada vídeo del lanzamiento (el [0] es el webinar / vídeo 1).
+function momentosVideo(v) {
+  const inicio = v.fecha && v.hora ? madridToEpoch(`${v.fecha}T${v.hora}`) : null;
+  const post = v.fecha ? madridToEpoch(`${nextDay(v.fecha)}T00:00`) : null;
+  return { k: v.k, dia: v.fecha ? madridToEpoch(`${v.fecha}T00:00`) : null, inicio, post, replay: madridToEpoch(v.replayAt) ?? post };
+}
 export function milestones(launch) {
-  const directo = launch.fechaDirecto && launch.horaDirecto ? madridToEpoch(`${launch.fechaDirecto}T${launch.horaDirecto}`) : null;
-  const postDirecto = launch.fechaDirecto ? madridToEpoch(`${nextDay(launch.fechaDirecto)}T00:00`) : null;
+  const videos = videosDe(launch).map(momentosVideo);
+  const v1 = videos[0] || { dia: null, inicio: null, post: null, replay: null };
   return {
     clase1: madridToEpoch(launch.clase1At),
     clase2: madridToEpoch(launch.clase2At),
-    diaDirecto: launch.fechaDirecto ? madridToEpoch(`${launch.fechaDirecto}T00:00`) : null,
-    directo,
-    postDirecto,
-    replay: madridToEpoch(launch.replayAt) ?? postDirecto,
+    diaDirecto: v1.dia,
+    directo: v1.inicio,
+    postDirecto: v1.post,
+    replay: v1.replay,
     cierre: madridToEpoch(launch.cierreCarrito),
+    videos,
   };
 }
 
@@ -109,29 +148,39 @@ export function milestones(launch) {
 export function phaseAt(launch, now) {
   const m = milestones(launch);
   const before = (t) => t == null || now < t;
-  let id;
-  if (m.clase1 != null && now < m.clase1) id = 'pre_c1';
-  else if (m.clase2 != null && now < m.clase2) id = 'c1';
-  else if (m.directo == null || (m.diaDirecto != null && now < m.diaDirecto)) id = 'c2';
-  else if (now < m.directo) id = 'dia_directo';
-  else if (m.postDirecto == null || now < m.postDirecto) id = 'en_directo';
-  else if (before(m.cierre)) id = 'replay';
-  else id = 'cerrado';
+  if (m.clase1 != null && now < m.clase1) return { id: 'pre_c1', countdownTo: m.clase1, changesAt: m.clase1, m };
+  if (m.clase2 != null && now < m.clase2) return { id: 'c1', countdownTo: m.clase2, changesAt: m.clase2, m };
+  // Vídeos del lanzamiento, uno detrás de otro: antes de su día sigue la fase anterior
+  // (la clase 2, o «vídeo anterior disponible»); su día; su directo o estreno; y al siguiente.
+  for (const v of m.videos) {
+    const s = suf(v.k);
+    const previa = v.k === 1 ? 'c2' : `v${v.k - 1}`;
+    if (v.inicio == null || (v.dia != null && now < v.dia)) return { id: previa, countdownTo: v.inicio, changesAt: v.dia ?? v.inicio, m };
+    if (now < v.inicio) return { id: `dia_directo${s}`, countdownTo: v.inicio, changesAt: v.inicio, m };
+    if (v.post == null || now < v.post) return { id: `en_directo${s}`, countdownTo: null, changesAt: v.post, m };
+  }
+  if (before(m.cierre)) return { id: 'replay', countdownTo: m.cierre, changesAt: m.cierre, m };
+  return { id: 'cerrado', countdownTo: null, changesAt: null, m };
+}
 
-  const target = {
-    pre_c1: m.clase1, c1: m.clase2, c2: m.directo, dia_directo: m.directo,
-    en_directo: null, replay: m.cierre, cerrado: null,
-  }[id];
-  const ends = {
-    pre_c1: m.clase1, c1: m.clase2, c2: m.diaDirecto ?? m.directo, dia_directo: m.directo,
-    en_directo: m.postDirecto, replay: m.cierre, cerrado: null,
-  }[id];
-  return { id, countdownTo: target ?? null, changesAt: ends ?? null, m };
+// Adónde manda la página de recursos en cada fase (clave de `links`), o '' para quedarse.
+export function redirectFor(launch, phaseId) {
+  const vs = videosDe(launch);
+  const ultimo = vs.at(-1);
+  if (phaseId === 'replay' || phaseId === 'cerrado') return ultimo && ultimo.k > 1 ? `grabacion${ultimo.k}` : 'grabacion';
+  const en = /^en_directo(\d?)$/.exec(phaseId);
+  if (en) {
+    const v = vs[(Number(en[1]) || 1) - 1];
+    return esEnDirecto(v) || v?.k === 1 ? `directo${en[1]}` : `grabacion${en[1]}`;
+  }
+  const entre = /^v(\d)$/.exec(phaseId);
+  if (entre) return entre[1] === '1' ? 'grabacion' : `grabacion${entre[1]}`;
+  return '';
 }
 
 // Mensaje y botón de la barra para una fase (lo configurado o el texto por defecto).
 export function barFor(launch, phaseId) {
-  const def = PHASES.find((p) => p.id === phaseId) || PHASES[0];
+  const def = phasesFor(launch).find((p) => p.id === phaseId) || PHASES[0];
   const cfg = launch.barra?.[phaseId] || {};
   return {
     text: cfg.text != null && cfg.text !== '' ? cfg.text : def.text,

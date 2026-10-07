@@ -1,4 +1,5 @@
 // Puente al directo: /directo?l=<lanzamiento>&cid=<id de contacto>  (o &email=...)
+// Lanzamientos de varios vídeos: &v=2 (3, 4) para el directo de ese vídeo.
 // 1) Marca en GHL que el lead ha pulsado el enlace (`<l>_directo_click`).
 // 2) Lo inscribe en la reunión de Zoom con su email y le redirige a su enlace personal,
 //    para que después el informe de Zoom diga quién asistió y cuánto tiempo.
@@ -12,6 +13,7 @@ import { addRegistrant, zoomConfigured } from '../lib/zoom.js';
 import { html, escapeHtml, isEmail } from '../lib/http.js';
 import { clienteActual } from '../lib/cliente.js';
 import { tagFor } from '../public/js/scoring.js';
+import { videosDe } from '../public/js/videos.js';
 import { currentLaunch } from '../lib/digest.js';
 
 const page = (title, body) => html(`<!doctype html><html lang="es"><head><meta charset="utf-8">
@@ -25,26 +27,28 @@ const page = (title, body) => html(`<!doctype html><html lang="es"><head><meta c
   .err{color:#b3261e}
 </style></head><body><main>${body}</main></body></html>`);
 
-function emailForm(launchCode, error = '') {
+const campoVideo = (k) => (k > 1 ? `<input type="hidden" name="v" value="${k}">` : '');
+
+function emailForm(launchCode, error = '', k = 1) {
   return page('Accede al directo', `
     <h1>Accede a la clase en directo</h1>
     <p>Escribe el email con el que te registraste y te llevamos a la sala.</p>
     ${error ? `<p class="err">${escapeHtml(error)}</p>` : ''}
     <form method="get">
-      <input type="hidden" name="l" value="${escapeHtml(launchCode)}">
+      <input type="hidden" name="l" value="${escapeHtml(launchCode)}">${campoVideo(k)}
       ${clienteActual().principal ? '' : `<input type="hidden" name="c" value="${escapeHtml(clienteActual().id)}">`}
       <input type="email" name="email" required placeholder="tu@email.com" autocomplete="email">
       <button type="submit">Entrar al directo</button>
     </form>`);
 }
 
-function signupForm(launchCode, email, error = '') {
+function signupForm(launchCode, email, error = '', k = 1) {
   return page('Accede al directo', `
     <h1>No encontramos tu registro</h1>
     <p>Completa tus datos para registrarte y entrar ahora mismo a la clase en directo.</p>
     ${error ? `<p class="err">${escapeHtml(error)}</p>` : ''}
     <form method="get">
-      <input type="hidden" name="l" value="${escapeHtml(launchCode)}">
+      <input type="hidden" name="l" value="${escapeHtml(launchCode)}">${campoVideo(k)}
       ${clienteActual().principal ? '' : `<input type="hidden" name="c" value="${escapeHtml(clienteActual().id)}">`}
       <input type="email" name="email" required value="${escapeHtml(email)}" autocomplete="email">
       <input type="text" name="nombre" required placeholder="Tu nombre" autocomplete="name">
@@ -79,7 +83,8 @@ export async function GET(request, ctx) {
   if (!isCid(cid)) cid = '';
   if (!cid && !emailParam) ({ cid = '', email: emailParam = '' } = rememberedWho(request));
 
-  if (emailParam && !isEmail(emailParam)) return emailForm(code, 'Ese email no parece correcto.');
+  const kPedido = Math.min(Math.max(Number(url.searchParams.get('v')) || 1, 1), 4);
+  if (emailParam && !isEmail(emailParam)) return emailForm(code, 'Ese email no parece correcto.', kPedido);
 
   // Configuración y contacto en paralelo para que la redirección sea lo más rápida posible.
   let launch;
@@ -98,9 +103,12 @@ export async function GET(request, ctx) {
     console.error(e);
   }
   if (!launch) return page('Enlace no válido', '<h1>Enlace no válido</h1><p>Revisa el enlace que te hemos enviado.</p>');
-  const fallback = launch.zoomJoinUrl;
+  // Vídeo del lanzamiento (el 1 = el webinar de siempre).
+  const vid = videosDe(launch)[kPedido - 1] || videosDe(launch)[0];
+  const k = vid?.k || 1;
+  const fallback = vid?.zoomJoinUrl || launch.zoomJoinUrl;
 
-  if (!cid && !emailParam) return emailForm(code);
+  if (!cid && !emailParam) return emailForm(code, '', k);
 
   let joinUrl = '';
   try {
@@ -111,7 +119,7 @@ export async function GET(request, ctx) {
     }
     if (!contact && emailParam && url.searchParams.has('nombre')
       && !(await verifyTurnstile(url.searchParams.get('cf-turnstile-response'), request.headers.get('cf-connecting-ip')))) {
-      return signupForm(code, emailParam, 'Confirma que no eres un robot y vuelve a intentarlo.');
+      return signupForm(code, emailParam, 'Confirma que no eres un robot y vuelve a intentarlo.', k);
     }
     if (!contact && emailParam) {
       // Registrada en el lanzamiento, o se registra ahora (si no existe, pedimos nombre y móvil).
@@ -120,20 +128,21 @@ export async function GET(request, ctx) {
       }, config);
       if (result.status === 'needs_signup') {
         const tried = url.searchParams.has('nombre');
-        return signupForm(code, emailParam, tried ? 'Revisa tu nombre y tu móvil.' : '');
+        return signupForm(code, emailParam, tried ? 'Revisa tu nombre y tu móvil.' : '', k);
       }
       contact = result.contact;
     }
     if (contact) {
       // La etiqueta se guarda después de redirigir: la lead no espera por ella.
-      const tagging = addTags(contact.id, [tagFor(code, 'directo_click')]).catch((e) => console.error(e));
+      const tagging = addTags(contact.id, [tagFor(code, `${vid?.directo || 'directo'}_click`)]).catch((e) => console.error(e));
       if (ctx?.waitUntil) ctx.waitUntil(tagging);
     }
 
     const email = contact?.email || emailParam;
-    if (email && launch.zoomMeetingId && zoomConfigured()) {
+    const meetingId = vid?.zoomMeetingId || '';
+    if (email && meetingId && zoomConfigured()) {
       const [firstName, ...rest] = (contact?.name || '').split(' ');
-      joinUrl = await addRegistrant(launch.zoomMeetingId, { email, firstName, lastName: rest.join(' ') });
+      joinUrl = await addRegistrant(meetingId, { email, firstName, lastName: rest.join(' ') });
     }
   } catch (e) {
     console.error(e); // nunca dejamos a nadie fuera del directo: usamos el enlace genérico

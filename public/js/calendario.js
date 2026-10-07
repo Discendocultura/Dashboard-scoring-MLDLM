@@ -2,6 +2,7 @@
 // Lo usan el navegador (pestaña Calendario) y el servidor (/api/cal).
 import { madridToEpoch } from './page.js';
 import { addDays } from './tareas.js';
+import { videosDe, esEnDirecto } from './videos.js';
 
 // Tipos de evento propio (los añade la admin a mano).
 export const EVENTO_TIPOS = [
@@ -18,17 +19,25 @@ const time = (v) => (/T\d{2}:\d{2}/.test(String(v || '')) ? String(v).slice(11, 
 
 // Hitos del lanzamiento con su día (YYYY-MM-DD) y hora ('' = todo el día). Solo los que tienen fecha.
 export function hitosLanzamiento(launch = {}) {
-  const directoDT = launch.fechaDirecto ? `${launch.fechaDirecto}T${launch.horaDirecto || ''}` : '';
-  const apertura = launch.aperturaCarrito || directoDT;
+  const vs = videosDe(launch);
+  const unico = vs.length <= 1;
+  const dt = (v) => (v?.fecha ? `${v.fecha}T${v.hora || ''}` : '');
+  const venta = vs.at(-1);
+  const apertura = launch.aperturaCarrito || dt(venta);
   const replay = launch.replayAt || (launch.fechaDirecto ? `${addDays(launch.fechaDirecto, 1)}T00:00` : '');
   const list = [
     { id: 'captacion', titulo: 'Empieza la publi de captación', icon: '📣', at: launch.inicioCaptacion },
     { id: 'fin-captacion', titulo: 'Termina la publi de captación', icon: '🛑', at: launch.finCaptacion },
     { id: 'clase1', titulo: 'Clase 1 disponible', icon: '🎬', at: launch.clase1At },
     { id: 'clase2', titulo: 'Clase 2 disponible', icon: '🎬', at: launch.clase2At },
-    { id: 'directo', titulo: 'Webinar en directo', icon: '🔴', at: directoDT, minutos: 180 },
+    // Vídeos del lanzamiento: el webinar en directo, o cada vídeo / PLC (el de venta, marcado).
+    ...vs.map((v) => ({
+      id: v.k === 1 ? 'directo' : `directo${v.k}`,
+      titulo: unico ? 'Webinar en directo' : `${v.nombre}${v.venta ? ' (venta)' : ''}${esEnDirecto(v) ? ' en directo' : ''}`,
+      icon: esEnDirecto(v) || unico ? '🔴' : '🎥', at: dt(v), minutos: 180,
+    })),
     { id: 'carrito', titulo: 'Abre el carrito de Raíces', icon: '🛒', at: apertura },
-    { id: 'replay', titulo: 'Grabación disponible', icon: '📼', at: replay },
+    ...(unico ? [{ id: 'replay', titulo: 'Grabación disponible', icon: '📼', at: replay }] : []),
     { id: 'cierre', titulo: 'Cierre del carrito', icon: '🔒', at: launch.cierreCarrito },
   ];
   return list.filter((h) => /^\d{4}-\d{2}-\d{2}/.test(h.at || '')).map((h) => ({ ...h, day: day(h.at), time: time(h.at) }));
@@ -36,14 +45,16 @@ export function hitosLanzamiento(launch = {}) {
 
 // Franjas de fase (de día a día, ambos incluidos) para sombrear el calendario.
 export function fasesLanzamiento(launch = {}) {
+  const vs = videosDe(launch);
   const directo = launch.fechaDirecto || '';
+  const ultimo = vs.at(-1)?.fecha || directo;
   const c1 = day(launch.clase1At);
-  const apertura = day(launch.aperturaCarrito) || directo;
+  const apertura = day(launch.aperturaCarrito) || ultimo;
   const cierre = day(launch.cierreCarrito);
   const out = [];
   if (launch.inicioCaptacion) out.push({ id: 'captacion', label: 'Captación', from: launch.inicioCaptacion, to: launch.finCaptacion || addDays(directo, -1) || launch.inicioCaptacion });
   if (c1 && directo) out.push({ id: 'clases', label: 'Clases previas', from: c1, to: addDays(directo, -1) });
-  if (directo) out.push({ id: 'directo', label: 'Webinar en directo', from: directo, to: directo });
+  if (directo) out.push({ id: 'directo', label: vs.length > 1 ? 'Vídeos del lanzamiento' : 'Webinar en directo', from: directo, to: ultimo >= directo ? ultimo : directo });
   if (apertura && cierre) out.push({ id: 'carrito', label: 'Carrito abierto', from: apertura, to: cierre });
   return out.filter((f) => f.from && f.to && f.from <= f.to);
 }

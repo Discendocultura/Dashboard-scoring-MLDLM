@@ -461,8 +461,8 @@
                 <th>Clase 1</th>
                 <th>Clase 2</th>
                 <th>VIP</th>
-                <th>Directo</th>
-                <th>Grabación</th>
+                <th id="th-directo">Directo</th>
+                <th id="th-grabacion">Grabación</th>
                 <th>Compra</th>
                 <th data-sort="score" class="num">Puntos</th>
                 <th>Estado</th>
@@ -590,6 +590,10 @@
               <label class="field"><span>ID de la reunión de Zoom</span><input id="cfg-zoom-id" inputmode="numeric" placeholder="812 3456 7890"></label>
               <label class="field"><span>Enlace genérico de Zoom <small>(por si falla el registro)</small></span><input id="cfg-zoom-url" type="url"></label>
             </div>
+          </section>
+          <section class="cfg-sec" id="cfg-videos-sec" hidden>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">🎥</span><div><h3 id="cfg-videos-titulo">Vídeos del lanzamiento</h3><p id="cfg-videos-nota"></p></div></header>
+            <div id="cfg-videos"></div>
           </section>
           <section class="cfg-sec" data-sec="5">
             <header class="cfg-sec-head"><span class="cfg-sec-num">5</span><div><h3>Venta y seguimiento</h3><p>Páginas y enlaces que reciben las leads después del directo (también en los mensajes de WhatsApp).</p></div><span class="cfg-sec-status"></span></header>
@@ -800,10 +804,15 @@
       <header class="dialog-head"><h2 id="emb-titulo">Nuevo embudo</h2></header>
       <div class="dialog-body">
         <div class="emb-tipos" role="radiogroup" aria-label="Tipo de embudo">
-          <label class="emb-tipo"><input type="radio" name="emb-tipo" value="lanzamientos" checked><span class="emb-ico">🚀</span><span><strong>Lanzamientos con webinar</strong><small>Captación → clases → webinar en directo → carrito. Cada lanzamiento con sus fechas, etiquetas, setteo, métricas, objetivos y calendario.</small></span></label>
+          <label class="emb-tipo"><input type="radio" name="emb-tipo" value="webinar" checked><span class="emb-ico">🔴</span><span><strong>Webinar</strong><small>Lanzamiento de 1 vídeo: captación → preclase → webinar en directo → grabación y carrito.</small></span></label>
+          <label class="emb-tipo"><input type="radio" name="emb-tipo" value="v2"><span class="emb-ico">2️⃣</span><span><strong>Lanzamiento de 2 vídeos</strong><small>Igual que el webinar pero con 2 vídeos (en directo o grabados); en el 2º se hace la venta.</small></span></label>
+          <label class="emb-tipo"><input type="radio" name="emb-tipo" value="v3"><span class="emb-ico">3️⃣</span><span><strong>Lanzamiento de 3 vídeos</strong><small>3 vídeos; en el 3º se hace la venta.</small></span></label>
+          <label class="emb-tipo"><input type="radio" name="emb-tipo" value="plf"><span class="emb-ico">🚀</span><span><strong>PLF (Product Launch Formula)</strong><small>4 vídeos: PLC 1, 2 y 3 de contenido y el PLC 4 de venta.</small></span></label>
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="vsl"><span class="emb-ico">🎬</span><span><strong>VSL (siempre abierta)</strong><small>Registro → vídeo de venta → compra directa o llamada. Se analiza por fechas, meses y semanas.</small></span></label>
         </div>
-        <label class="field"><span>Nombre del embudo</span><input id="emb-nombre" maxlength="40" placeholder="Webinar «El Camino», VSL Fertilidad…"></label>
+        <label class="field" id="emb-formato-box" hidden><span>Formato <small>(cuántos vídeos tiene cada lanzamiento; la preclase con las clases 1 y 2 es aparte)</small></span>
+          <select id="emb-formato"><option value="webinar">Webinar (1 vídeo)</option><option value="v2">Lanzamiento de 2 vídeos</option><option value="v3">Lanzamiento de 3 vídeos</option><option value="plf">PLF (4 PLCs)</option></select></label>
+        <label class="field"><span>Nombre del embudo</span><input id="emb-nombre" maxlength="40" placeholder="Webinar «El Camino», PLF primavera, VSL Fertilidad…"></label>
         <div class="field"><span>Pestañas de este embudo <small>(lo que necesita este cliente; se puede cambiar cuando quieras con ⚙️)</small></span>
           <div id="emb-pestanas" class="emb-pestanas"></div>
         </div>

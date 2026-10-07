@@ -1,5 +1,6 @@
 // Lógica compartida entre el dashboard (navegador) y la API (servidor):
 // nombres de etiquetas, puntuación, estado y siguiente paso de cada lead.
+import { MAX_VIDEOS, nVideos, sigDirecto, sigReplay, videosDe, videoVenta } from './videos.js';
 
 // Señales que se guardan como etiquetas en GHL con el formato `<lanzamiento>_<señal>`,
 // p. ej. `nov26_clase1_50`. Así cada lanzamiento tiene su propio historial.
@@ -8,6 +9,11 @@ export const SIGNALS = [
   'clase2_25', 'clase2_50', 'clase2_75', 'clase2_90',
   'replay_25', 'replay_50', 'replay_75', 'replay_90',
   'directo_click', 'directo_asistio', 'directo_60', 'directo_final',
+  // Lanzamientos de 2, 3 o 4 vídeos (PLF): las mismas señales de cada vídeo con su número.
+  ...Array.from({ length: MAX_VIDEOS - 1 }, (_, i) => i + 2).flatMap((k) => [
+    `directo${k}_click`, `directo${k}_asistio`, `directo${k}_60`, `directo${k}_final`,
+    `replay${k}_25`, `replay${k}_50`, `replay${k}_75`, `replay${k}_90`,
+  ]),
   'wa_enviado',
   // "Foto" al crear el lanzamiento: quién tenía ya la etiqueta VIP / de compra (de lanzamientos
   // anteriores). Esas personas no cuentan como VIP / compra de este lanzamiento.
@@ -31,7 +37,7 @@ export const SNAPSHOT_TAGS = [
   { field: 'llamadaTag', signal: 'llamada_previo', label: 'llamada' },
 ];
 
-export const VIDEOS = ['clase1', 'clase2', 'replay'];
+export const VIDEOS = ['clase1', 'clase2', ...Array.from({ length: MAX_VIDEOS }, (_, i) => sigReplay(i + 1))];
 export const THRESHOLDS = [25, 50, 75, 90];
 
 // Mayor porcentaje visto de un vídeo (0, 25, 50, 75 o 90).
@@ -114,7 +120,10 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   // Tipo de pago de Raíces: cada uno con su etiqueta (si llevara las dos, cuenta como fraccionado).
   s.fraccionado = s.compra && has(cfg.fraccionadoTag);
   s.unico = s.compra && !s.fraccionado && has(cfg.unicoTag);
-  s.compra_directo = s.compra && Boolean(cfg.fechaDirecto) && buyDay === cfg.fechaDirecto;
+  // Compra el día del vídeo de venta (el webinar en directo, o el último vídeo del lanzamiento).
+  const diaVenta = videoVenta(cfg)?.fecha || '';
+  s.compra_directo = s.compra && Boolean(diaVenta) && buyDay === diaVenta;
+  s.nVideos = nVideos(cfg);
 
   // Origen del lead: publicidad u orgánico, cada uno con su etiqueta (si lleva las dos, cuenta como publicidad).
   s.origen = has(cfg.publiTag) ? 'publi' : has(cfg.organicoTag) ? 'organico' : '';
@@ -141,19 +150,27 @@ export const ESTADOS = [
   { id: 'frio', label: 'Frío', min: 0 },
 ];
 
+// Lo visto de un vídeo del lanzamiento (0-40): el directo o la grabación, lo mejor de los dos.
+export function puntosVideo(s, k) {
+  const P = POINTS;
+  const d = sigDirecto(k);
+  const live = (s[`${d}_asistio`] ? P.directoAsistio : 0) + (s[`${d}_60`] ? P.directo60 : 0) + (s[`${d}_final`] ? P.directoFinal : 0);
+  const replay = P.replay[watched(s, sigReplay(k))] || 0;
+  return Math.max(live, replay) + (s[`${d}_click`] && !s[`${d}_asistio`] ? P.directoClick : 0);
+}
+
 export function score(s) {
   const P = POINTS;
   let pts = 0;
   pts += P.clase[watched(s, 'clase1')] || 0;
   pts += P.clase[watched(s, 'clase2')] || 0;
   if (s.vip) pts += P.vip;
-  // Directo y grabación son dos formas de ver lo mismo: cuenta la mejor de las dos.
-  const live = (s.directo_asistio ? P.directoAsistio : 0)
-    + (s.directo_60 ? P.directo60 : 0)
-    + (s.directo_final ? P.directoFinal : 0);
-  const replay = P.replay[watched(s, 'replay')] || 0;
-  pts += Math.max(live, replay);
-  if (s.directo_click && !s.directo_asistio) pts += P.directoClick;
+  // Vídeos del lanzamiento: con uno (webinar), lo visto de él. Con varios, la mitad por el mejor
+  // y la mitad por la media (premia ver todos, sin hundir a quien solo ha podido ver uno).
+  const n = s.nVideos || 1;
+  const por = Array.from({ length: n }, (_, i) => Math.min(puntosVideo(s, i + 1), P.directoAsistio + P.directo60 + P.directoFinal));
+  const media = por.reduce((a, b) => a + b, 0) / n;
+  pts += n === 1 ? puntosVideo(s, 1) : Math.round((Math.max(...por) + media) / 2);
   return Math.min(pts, 100);
 }
 
@@ -172,10 +189,12 @@ export const NEXT_STEPS = {
   grabacion: 'Ver grabación',
 };
 
+// Se mira el vídeo de venta (el webinar, o el último vídeo del lanzamiento).
 export function nextStepFor(s) {
   if (s.compra) return 'comprado';
-  const replay = watched(s, 'replay');
-  if (s.directo_final || replay >= 90) return 'cierre';
+  const k = s.nVideos || 1;
+  const replay = watched(s, sigReplay(k));
+  if (s[`${sigDirecto(k)}_final`] || replay >= 90) return 'cierre';
   if (replay >= 50) return 'raices';
   return 'grabacion';
 }
@@ -210,9 +229,16 @@ export function withContactId(url, contactId) {
   }
 }
 
+// Página del último vídeo ya publicado (con un solo vídeo, la de la grabación de siempre).
+export function grabacionActual(launch, hoy = new Date().toISOString().slice(0, 10)) {
+  const vs = videosDe(launch).filter((v) => v.replayUrl);
+  if (!vs.length) return launch?.replayUrl || '';
+  return (vs.filter((v) => !v.fecha || v.fecha <= hoy).at(-1) || vs[0]).replayUrl;
+}
+
 export function buildMessage(template, { nombre, contactId, launch, extra = {} }) {
   const links = {
-    link_grabacion: withContactId(launch?.replayUrl, contactId),
+    link_grabacion: withContactId(grabacionActual(launch), contactId),
     link_raices: withContactId(launch?.raicesUrl, contactId),
     link_venta: withContactId(launch?.ventaUrl, contactId),
     // Nombres claros: página de venta de Raíces y enlace de pago (los antiguos siguen funcionando).
