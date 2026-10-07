@@ -759,19 +759,27 @@
 
   <!-- Tarea -->
   <!-- Nuevo embudo -->
-  <dialog id="embudo-dialog" class="dialog dialog-sm">
+  <dialog id="embudo-dialog" class="dialog dialog-md">
     <form method="dialog">
-      <header class="dialog-head"><h2>Nuevo embudo</h2></header>
+      <header class="dialog-head"><h2 id="emb-titulo">Nuevo embudo</h2></header>
       <div class="dialog-body">
         <div class="emb-tipos" role="radiogroup" aria-label="Tipo de embudo">
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="lanzamientos" checked><span class="emb-ico">🚀</span><span><strong>Lanzamientos con webinar</strong><small>Captación → clases → webinar en directo → carrito. Cada lanzamiento con sus fechas, etiquetas, setteo, métricas, objetivos y calendario.</small></span></label>
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="vsl"><span class="emb-ico">🎬</span><span><strong>VSL (siempre abierta)</strong><small>Registro → vídeo de venta → compra directa o llamada. Se analiza por fechas, meses y semanas.</small></span></label>
         </div>
         <label class="field"><span>Nombre del embudo</span><input id="emb-nombre" maxlength="40" placeholder="Webinar «El Camino», VSL Fertilidad…"></label>
-        <p class="muted">Al crearlo se abre su configuración para que pongas las etiquetas de GHL (registro, ventas…).</p>
+        <div class="field"><span>Pestañas de este embudo <small>(lo que necesita este cliente; se puede cambiar cuando quieras con ⚙️)</small></span>
+          <div id="emb-pestanas" class="emb-pestanas"></div>
+        </div>
+        <details id="emb-guia-box" class="emb-guia" open>
+          <summary>📋 Qué tienes que preparar en GHL para este embudo</summary>
+          <div id="emb-guia"></div>
+        </details>
+        <p id="emb-nota" class="muted">Al crearlo se abre su configuración para que pongas las etiquetas de GHL (registro, ventas…).</p>
         <p id="emb-status" class="muted"></p>
       </div>
       <footer class="dialog-foot">
+        <button id="emb-borrar" class="btn danger-ghost" type="button" hidden>Eliminar embudo</button>
         <span class="spacer"></span>
         <button class="btn" value="cancel" formnovalidate type="submit">Cancelar</button>
         <button id="emb-crear" class="btn primary" type="button">Crear embudo</button>
@@ -1055,15 +1063,10 @@
             <label class="field narrow"><span>Color</span><input id="cl-color" type="color" value="#b4552d"></label>
           </div>
           <div class="row"><button type="button" class="btn primary" id="btn-cl-crear">Añadir cliente</button><span id="cl-status" class="muted"></span></div>
-          <div class="cl-ayuda muted">
-            <p><strong>Para conectar su GHL</strong> (una vez por cliente):</p>
-            <ol>
-              <li>En la subcuenta del cliente: <em>Ajustes → Integraciones privadas → Crear</em>, con los mismos permisos que la de MLDLM (contactos, custom values, calendarios, oportunidades, conversaciones). Copia el token.</li>
-              <li>En Cloudflare: <em>Workers &amp; Pages → el dashboard → Settings → Variables and secrets → Add</em>, tipo <strong>Secret</strong>, con el nombre que aparece en su tarjeta (p. ej. <code>GHL_TOKEN_CLINICA_SOL</code>) y el token como valor. No lo pegues en ningún chat.</li>
-              <li>Vuelve a desplegar (Deployments → Retry deployment) y pulsa «Probar conexión».</li>
-            </ol>
-            <p>Meta: si el token de Meta de la agencia tiene acceso a su cuenta publicitaria, basta con poner su número aquí. Zoom: variables <code>ZOOM_ACCOUNT_ID_&lt;CÓDIGO&gt;</code>, <code>ZOOM_CLIENT_ID_&lt;CÓDIGO&gt;</code> y <code>ZOOM_CLIENT_SECRET_&lt;CÓDIGO&gt;</code>.</p>
-          </div>
+          <details class="emb-guia cl-guia-box" id="cl-guia-box">
+            <summary>📋 Guía: cómo añadir y conectar un cliente (GHL + Cloudflare)</summary>
+            <div id="cl-guia"></div>
+          </details>
         </section>
         <section class="tab-panel" data-panel="equipo">
           <p class="muted">Personas con acceso al dashboard. Al crear una, se crea su contacto en GHL con la etiqueta <code>equipo-dashboard</code> y le llega un email con el enlace, su email y una contraseña. Los cambios se aplican al momento.</p>

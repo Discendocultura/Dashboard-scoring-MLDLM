@@ -1274,3 +1274,26 @@ body:not(.is-superadmin) .superadmin-only { display: none !important; }
 .emb-ico { font-size: 22px; line-height: 1; }
 input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; }
 .cl-card header .cl-nombre { flex: 1 1 100%; order: -1; }
+
+/* Guías (nuevo embudo, nuevo cliente) y pestañas del embudo */
+.emb-pestanas { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.emb-pest { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+.emb-pest:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.emb-pest input { margin-top: 3px; accent-color: var(--accent); }
+.emb-pest > span { display: flex; flex-direction: column; gap: 2px; }
+.emb-pest small { color: var(--text-2); font-size: 12px; line-height: 1.35; }
+.emb-guia { border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); padding: 10px 14px; }
+.emb-guia > summary { cursor: pointer; font-weight: 800; }
+.guia-sec h4 { margin: 12px 0 6px; font-size: 14px; }
+.guia-sec ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; line-height: 1.5; }
+.guia-sec code { font-size: 12px; overflow-wrap: anywhere; }
+.cl-guia-box { margin-bottom: 14px; }
+.cl-card-guia { font-size: 13px; }
+.emb-tipos[hidden] { display: none; }
+/* ⚙️ junto a cada embudo del menú lateral */
+.sb-row { position: relative; display: flex; }
+.sb-row .sb-item { padding-right: 34px; }
+.sb-edit { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border-radius: 8px; border: 0; background: transparent; cursor: pointer; opacity: .35; font-size: 14px; }
+.sb-row:hover .sb-edit, .sb-edit:focus-visible { opacity: 1; background: var(--surface-2); }
+@media (max-width: 900px) { .sb-row { flex: 1 1 0; min-width: 160px; } .sb-edit { opacity: .8; } }
+.emb-pest input[type="checkbox"], .emb-tipo input[type="radio"] { width: auto; flex: none; }

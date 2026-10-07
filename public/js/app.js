@@ -9,6 +9,7 @@ import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPA
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
 import { PERMISOS, PERMISOS_DATOS, idDeRol } from './roles.js';
+import { PESTANAS, guiaEmbudo, guiaCliente, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
@@ -151,7 +152,10 @@ const embudos = () => state.config?.embudos || [];
 const embudoInfo = (id = state.embudo) => embudos().find((e) => e.id === id) || null;
 const enVsl = () => embudoInfo()?.tipo === 'vsl';
 const tipoActual = () => (enVsl() ? 'vsl' : 'lanz');
+// Pestañas que el embudo tiene activadas (⚙️ del menú lateral; sin lista = todas).
+const pestanasEmbudo = () => embudoInfo()?.pestanas || null;
 const allowedViews = () => VIEWS.filter((v) => [tipoActual(), 'ambos'].includes(VIEW_EMBUDO[v] || 'lanz')
+  && (!pestanasEmbudo() || pestanasEmbudo().includes(v))
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() ? state.embudo : state.launchCode);
@@ -253,7 +257,7 @@ function pintarSidebar() {
   $('#sb-items').innerHTML = embudos().map((e) => {
     const sub = e.tipo === 'vsl' ? 'VSL · siempre abierta'
       : (() => { const n = Object.values(state.config.launches).filter((l) => embudoDeLanz(l) === e.id).length; return `${n} lanzamiento${n === 1 ? '' : 's'}`; })();
-    return `<button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${e.tipo === 'vsl' ? '🎬' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>`;
+    return `<div class="sb-row"><button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${e.tipo === 'vsl' ? '🎬' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(e.id)}" title="Pestañas, nombre y guía de «${esc(e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
   }).join('');
 }
 
@@ -2979,6 +2983,7 @@ function pintarClientes(lista) {
       <label class="field"><span>Cuenta de Meta</span><input class="cl-meta" value="${esc(c.metaAdAccount || '')}" maxlength="30" inputmode="numeric"></label>`}
       <label class="field narrow"><span>Color</span><input class="cl-color" type="color" value="${esc(c.color || '#b4552d')}"></label>
     </div>
+    ${c.conectado ? '' : `<details class="emb-guia cl-card-guia" ${c.id === state.clienteNuevo ? 'open' : ''}><summary>📋 Cómo conectar su GHL</summary>${guiaPasosHtml(guiaCliente(c.variables[0], c.variables[0].replace(/^GHL_TOKEN_/, '')))}</details>`}
     <div class="row cl-acciones">
       <button type="button" class="btn" data-cl-op="probar">Probar conexión</button>
       <button type="button" class="btn" data-cl-op="guardar">Guardar</button>
@@ -2987,7 +2992,10 @@ function pintarClientes(lista) {
       <span class="muted cl-res" aria-live="polite"></span>
     </div></article>`).join('')}</div>`;
 }
-$('.tab[data-tab="clientes"]').addEventListener('click', loadClientes);
+$('.tab[data-tab="clientes"]').addEventListener('click', () => {
+  $('#cl-guia').innerHTML = guiaPasosHtml(guiaCliente());
+  loadClientes();
+});
 $('#cl-nombre').addEventListener('input', () => { if (!$('#cl-id').dataset.tocado) $('#cl-id').value = slugCliente($('#cl-nombre').value); });
 $('#cl-id').addEventListener('input', () => { $('#cl-id').dataset.tocado = '1'; });
 $('#btn-cl-crear').addEventListener('click', async () => {
@@ -2997,12 +3005,14 @@ $('#btn-cl-crear').addEventListener('click', async () => {
   b.disabled = true;
   try {
     const d = await api('/api/clientes', { method: 'POST', body: { op: 'guardar', cliente } });
+    state.clienteNuevo = cliente.id;
     pintarClientes(d.clientes);
+    $(`[data-cl="${CSS.escape(cliente.id)}"]`)?.scrollIntoView({ block: 'center' });
     state.clientes = d.clientes.map(({ id, nombre, color, principal: p }) => ({ id, nombre, color, principal: p }));
     pintarCliente(state.clientes.find((c) => c.id === state.cliente) || state.clientes[0]);
     for (const id of ['#cl-nombre', '#cl-id', '#cl-location', '#cl-meta']) $(id).value = '';
     delete $('#cl-id').dataset.tocado;
-    $('#cl-status').textContent = `Cliente «${cliente.nombre}» añadido. Ahora conecta su GHL (pasos de abajo).`;
+    $('#cl-status').textContent = `Cliente «${cliente.nombre}» añadido. Sigue los pasos de su tarjeta para conectar su GHL.`;
   } catch (e) { $('#cl-status').textContent = e.message; } finally { b.disabled = false; }
 });
 $('#clientes-list').addEventListener('click', async (e) => {
@@ -4846,45 +4856,87 @@ $('#vc-save').addEventListener('click', async () => {
 });
 
 $('#vc-borrar').addEventListener('click', async () => {
-  const id = vcId;
-  const v = state.config.vsls[id];
-  if (!v || !window.confirm(`¿Eliminar el embudo «${v.name}» del dashboard? Se borra su configuración (etiquetas, páginas, recursos). Sus contactos y etiquetas en GHL no se tocan.`)) return;
-  try {
-    const vsls = { ...state.config.vsls };
-    delete vsls[id];
-    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, vsls, embudos: embudos().filter((e) => e.id !== id) } });
-    state.config = config;
-    $('#vsl-config-dialog').close();
-    await setEmbudo(embudos()[0]?.id || '');
-  } catch (e) { window.alert(e.message); }
+  try { if (await eliminarEmbudo(vcId)) $('#vsl-config-dialog').close(); } catch (e) { window.alert(e.message); }
 });
 
-// ---------- Nuevo embudo («+» del menú lateral) ----------
+// ---------- Embudos: crear («＋») y editar (⚙️) ----------
 const embDlg = $('#embudo-dialog');
+let embEdit = null; // id del embudo que se edita (null = nuevo)
+const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : $('input[name="emb-tipo"]:checked').value);
+const embPestanas = () => $$('#emb-pestanas input:checked').map((i) => i.value);
+function pintarEmbPestanas(activas) {
+  const tipo = embTipo();
+  $('#emb-pestanas').innerHTML = PESTANAS[tipo].map((p) => `<label class="emb-pest"><input type="checkbox" value="${p.id}" ${!activas || activas.includes(p.id) ? 'checked' : ''}><span><strong>${esc(p.label)}</strong><small>${esc(p.desc)}</small></span></label>`).join('');
+  pintarEmbGuia();
+}
+function pintarEmbGuia() {
+  $('#emb-guia').innerHTML = guiaPasosHtml(guiaEmbudo(embTipo(), embPestanas()));
+}
 function abrirNuevoEmbudo() {
+  embEdit = null;
+  $('#emb-titulo').textContent = 'Nuevo embudo';
+  $('.emb-tipos').hidden = false;
   $('input[name="emb-tipo"][value="lanzamientos"]').checked = true;
   $('#emb-nombre').value = '';
   $('#emb-status').textContent = '';
+  $('#emb-nota').hidden = false;
+  $('#emb-borrar').hidden = true;
+  $('#emb-crear').textContent = 'Crear embudo';
+  $('#emb-guia-box').open = true;
+  pintarEmbPestanas(null);
   embDlg.showModal();
   $('#emb-nombre').focus();
 }
+function abrirEditarEmbudo(id) {
+  const e = embudoInfo(id);
+  if (!e) return;
+  embEdit = id;
+  $('#emb-titulo').textContent = `${e.tipo === 'vsl' ? '🎬' : '🚀'} ${e.nombre}`;
+  $('.emb-tipos').hidden = true;
+  $('#emb-nombre').value = e.nombre;
+  $('#emb-status').textContent = '';
+  $('#emb-nota').hidden = true;
+  $('#emb-borrar').hidden = false;
+  $('#emb-crear').textContent = 'Guardar';
+  $('#emb-guia-box').open = false;
+  pintarEmbPestanas(e.pestanas || null);
+  embDlg.showModal();
+}
 $('#sb-add').addEventListener('click', abrirNuevoEmbudo);
+$('#sidebar').addEventListener('click', (e) => { const b = e.target.closest('[data-emb-edit]'); if (b) abrirEditarEmbudo(b.dataset.embEdit); });
 document.addEventListener('click', (e) => { if (e.target.closest('[data-action="nuevo-embudo"]')) abrirNuevoEmbudo(); });
+$$('input[name="emb-tipo"]').forEach((r) => r.addEventListener('change', () => pintarEmbPestanas(null)));
+$('#emb-pestanas').addEventListener('change', pintarEmbGuia);
+
 $('#emb-crear').addEventListener('click', async () => {
-  const tipo = $('input[name="emb-tipo"]:checked').value;
-  const nombre = $('#emb-nombre').value.trim() || (tipo === 'vsl' ? 'VSL' : 'Lanzamientos');
-  // id: a partir del nombre, sin chocar con otros embudos ni con códigos de lanzamiento.
-  const usados = new Set([...embudos().map((e) => e.id), ...Object.keys(state.config.launches)]);
-  const base = slugCliente(nombre) || (tipo === 'vsl' ? 'vsl' : 'lanz');
-  let id = base.slice(0, 20);
-  for (let n = 2; usados.has(id) || id.length < 2; n++) id = `${base.slice(0, 18)}-${n}`;
+  const pestanas = embPestanas();
+  if (!pestanas.length) { $('#emb-status').textContent = 'Deja al menos una pestaña activada.'; return; }
+  const todas = pestanas.length === PESTANAS[embTipo()].length;
   const b = $('#emb-crear');
   b.disabled = true;
-  $('#emb-status').textContent = 'Creando…';
+  $('#emb-status').textContent = 'Guardando…';
   try {
+    if (embEdit) {
+      const id = embEdit;
+      const nombre = $('#emb-nombre').value.trim() || embudoInfo(id).nombre;
+      const lista = embudos().map((e) => (e.id === id ? { id: e.id, tipo: e.tipo, nombre, ...(todas ? {} : { pestanas }) } : e));
+      const vsls = state.config.vsls[id] ? { ...state.config.vsls, [id]: { ...state.config.vsls[id], name: nombre } } : state.config.vsls;
+      const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, vsls } });
+      state.config = config;
+      embDlg.close();
+      await setEmbudo(state.embudo);
+      return;
+    }
+    const tipo = embTipo();
+    const nombre = $('#emb-nombre').value.trim() || (tipo === 'vsl' ? 'VSL' : 'Lanzamientos');
+    // id: a partir del nombre, sin chocar con otros embudos ni con códigos de lanzamiento.
+    const usados = new Set([...embudos().map((e) => e.id), ...Object.keys(state.config.launches)]);
+    const base = slugCliente(nombre) || (tipo === 'vsl' ? 'vsl' : 'lanz');
+    let id = base.slice(0, 20);
+    for (let n = 2; usados.has(id) || id.length < 2; n++) id = `${base.slice(0, 18)}-${n}`;
     const body = {
       ...state.config,
-      embudos: [...embudos(), { id, tipo, nombre }],
+      embudos: [...embudos(), { id, tipo, nombre, ...(todas ? {} : { pestanas }) }],
       vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre } } : state.config.vsls,
     };
     const { config } = await api('/api/config', { method: 'POST', body });
@@ -4898,6 +4950,26 @@ $('#emb-crear').addEventListener('click', async () => {
   } finally {
     b.disabled = false;
   }
+});
+
+// Eliminar un embudo (las VSL, con su configuración; los de lanzamientos, solo si ya no tienen lanzamientos).
+async function eliminarEmbudo(id) {
+  const e = embudoInfo(id);
+  if (!e) return false;
+  if (e.tipo === 'lanzamientos' && Object.values(state.config.launches).some((l) => embudoDeLanz(l) === id)) {
+    window.alert('Este embudo tiene lanzamientos. Bórralos antes (Configuración → Lanzamiento) o déjalo y desactiva sus pestañas.');
+    return false;
+  }
+  if (!window.confirm(`¿Eliminar el embudo «${e.nombre}» del dashboard? Se borra su configuración. Sus contactos, etiquetas y páginas de GHL no se tocan.`)) return false;
+  const vsls = { ...state.config.vsls };
+  delete vsls[id];
+  const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, vsls, embudos: embudos().filter((x) => x.id !== id) } });
+  state.config = config;
+  await setEmbudo(state.embudo === id ? embudos()[0]?.id || '' : state.embudo);
+  return true;
+}
+$('#emb-borrar').addEventListener('click', async () => {
+  try { if (await eliminarEmbudo(embEdit)) embDlg.close(); } catch (e) { $('#emb-status').textContent = e.message; }
 });
 
 // ---------- Inicio ----------

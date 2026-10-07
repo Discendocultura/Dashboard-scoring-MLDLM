@@ -319,7 +319,7 @@ El mismo dashboard sirve a varios clientes (MLDLM es el **principal**). Arriba, 
 
 - **Usuarios**: cada persona tiene un único usuario (email y contraseña) y **accesos** por cliente, con un rol en cada uno. La admin de un cliente gestiona su equipo (si añade un email que ya existe, por ejemplo de la agencia, solo le da acceso a su cliente). Lo que afecta a la cuenta de alguien que trabaja en varios clientes (contraseña, desactivar) lo hace el **superadmin**.
 - **Superadmin**: entra en todos los clientes como admin, ve la pestaña **Equipo → Clientes** y, en Miembros, el botón «Clientes» de cada persona para darle acceso a otros clientes o hacerla superadmin. La contraseña general de admin (`ADMIN_PASSWORD`) también es superadmin.
-- **Añadir un cliente** (Equipo → Clientes): nombre, código (p. ej. `clinica-sol`), *Location ID* de su subcuenta y, opcional, su cuenta publicitaria de Meta. Después:
+- **Añadir un cliente** (Equipo → Clientes; hay una guía paso a paso y, en la tarjeta de cada cliente sin conectar, sus pasos con el nombre exacto de su variable): nombre, código (p. ej. `clinica-sol`), *Location ID* de su subcuenta y, opcional, su cuenta publicitaria de Meta. Después:
   1. En su subcuenta de GHL, crea una **integración privada** (con los mismos permisos que la de MLDLM) y copia el token.
   2. En Cloudflare (*Settings → Variables and secrets*), añade el secreto **`GHL_TOKEN_<CÓDIGO>`** (mayúsculas y `_`, p. ej. `GHL_TOKEN_CLINICA_SOL`) y vuelve a desplegar.
   3. Pulsa «Probar conexión».
@@ -332,7 +332,7 @@ El mismo dashboard sirve a varios clientes (MLDLM es el **principal**). Arriba, 
 Cada cliente tiene sus embudos en el menú lateral. Con **＋ Nuevo embudo** (quien puede configurar) se elige el tipo:
 - **🚀 Lanzamientos con webinar**: agrupa sus lanzamientos (cada uno con fechas, etiquetas, setteo, métricas, objetivos, calendario y tareas). Un cliente puede tener varios (p. ej. dos webinars distintos); cada lanzamiento pertenece a uno.
 - **🎬 VSL**: siempre abierta, con su configuración (etiquetas, páginas, códigos, recursos). Puede haber varias; cada una tiene su código (su id) para tareas, llamadas y vídeo (`<id>_vsl_50`), y sus páginas usan `vsl.js?v=<id>`. Desde su configuración se puede eliminar.
-Un cliente nuevo empieza sin embudos y sin nada de MLDLM. Los de MLDLM («Lanzamientos» y «VSL Raíces») se conservan tal cual.
+Al crearlo se eligen sus **pestañas** (no todos los clientes necesitan Setteo, Avatar, Llamadas…) y se ve una **guía** de lo que hay que preparar en GHL según esas pestañas (etiquetas, formularios, workflows, páginas, calendario y pipeline con los nombres exactos de las etapas, UTMs de Meta…). Con el **⚙️** de cada embudo se cambian sus pestañas y su nombre, se vuelve a ver la guía o se elimina (los de lanzamientos, cuando ya no tienen lanzamientos). Un cliente nuevo empieza sin embudos y sin nada de MLDLM. Los de MLDLM («Lanzamientos» y «VSL Raíces») se conservan tal cual.
 
 ## Embudos: Lanzamientos y VSL
 El menú lateral (arriba en el móvil) cambia de embudo. Cada uno tiene sus pestañas, sus tareas y su configuración; el equipo, la campanita, «Mi cuenta» y «Actualizar» son comunes. La campanita avisa de las tareas y comentarios de los dos embudos (los del otro llevan su nombre; al pulsar uno se cambia de embudo y se abre la tarea).

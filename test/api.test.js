@@ -750,13 +750,15 @@ test('embudos: varias VSL por cliente, lanzamientos por embudo y migración de l
   const cfg = (await (await config.GET(req('/api/config', { cookie: admin }))).json()).config;
   const nueva = {
     ...cfg,
-    embudos: [...cfg.embudos, { id: 'vsl-fertilidad', tipo: 'vsl', nombre: 'VSL Fertilidad' }, { id: 'retos', tipo: 'lanzamientos', nombre: 'Retos' }, { id: 'mal id', tipo: 'vsl' }],
+    embudos: [...cfg.embudos, { id: 'vsl-fertilidad', tipo: 'vsl', nombre: 'VSL Fertilidad', pestanas: ['vmetricas', 'vleads', 'hoy'] }, { id: 'retos', tipo: 'lanzamientos', nombre: 'Retos', pestanas: [] }, { id: 'mal id', tipo: 'vsl' }],
     vsls: { ...cfg.vsls, 'vsl-fertilidad': { name: 'VSL Fertilidad', registroTag: 'registro-fert' } },
     launches: { ...cfg.launches, 'reto-oct': { name: 'Reto octubre', registroTag: 'reto', embudo: 'retos' }, 'sin-embudo': { name: 'X', registroTag: 'x', embudo: 'no-existe' } },
   };
   const saved = (await (await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: nueva }))).json()).config;
   assert.deepEqual(saved.embudos.map((e) => e.id), ['lanz', 'vsl', 'vsl-fertilidad', 'retos']);
   assert.equal(saved.vsls['vsl-fertilidad'].registroTag, 'registro-fert');
+  assert.deepEqual(saved.embudos.find((e) => e.id === 'vsl-fertilidad').pestanas, ['vmetricas', 'vleads']); // «hoy» no es de una VSL
+  assert.equal(saved.embudos.find((e) => e.id === 'retos').pestanas, undefined); // vacía = todas
   assert.equal(saved.vsls['vsl-fertilidad'].vioTag, ''); // una VSL nueva no hereda las etiquetas de la VSL de MLDLM
   assert.equal(saved.vsls['vsl-fertilidad'].llamadaUrl, '');
   assert.equal(saved.launches['reto-oct'].embudo, 'retos');
