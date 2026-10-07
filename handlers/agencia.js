@@ -9,6 +9,9 @@ import { enPrincipal } from '../lib/cliente.js';
 import { listUsers, ensureContact, emailLayout, guardarContactos } from '../lib/users.js';
 import { sendEmail } from '../lib/ghl.js';
 import { resumenAgencia } from '../lib/agencia.js';
+import { listClientes } from '../lib/clientes.js';
+import { runCliente } from '../lib/cliente.js';
+import { informesPendientes } from '../lib/informe-envio.js';
 import { json, readBody, errorResponse, escapeHtml } from '../lib/http.js';
 
 const eur = (n) => (n == null ? '–' : `${Math.round(n).toLocaleString('es-ES')} €`);
@@ -68,7 +71,12 @@ export async function GET(request) {
     const key = url.searchParams.get('key');
     if (key != null) {
       if (!env.DIGEST_KEY || env.DIGEST_KEY.length < 16 || key !== env.DIGEST_KEY) return json({ error: 'No autorizado' }, 401);
-      return json(await enviar(request));
+      // Informes automáticos a cada cliente (lanzamientos recién cerrados y VSL los lunes).
+      const informes = [];
+      for (const c of await listClientes({ fresh: true })) {
+        try { informes.push(...(await runCliente(c, () => informesPendientes(new URL(request.url).origin))).map((x) => ({ cliente: c.id, ...x }))); } catch (e) { console.error('Informes', c.id, e.message); }
+      }
+      return json({ ...(await enviar(request)), informes });
     }
     await requireSuperadmin(request);
     return json(await resumenAgencia({ fresh: url.searchParams.has('fresh') }));

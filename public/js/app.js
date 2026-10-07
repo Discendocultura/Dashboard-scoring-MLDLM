@@ -3414,6 +3414,29 @@ $('.tab[data-tab="equipo"]').addEventListener('click', () => { equipoResult('');
 
 // ---------- Clientes (solo superadmin) ----------
 const slugCliente = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/^[^a-z]+/, '').slice(0, 24);
+// ---------- Informe para el cliente (lanzamiento o VSL semanal) ----------
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-informe]');
+  if (!b) return;
+  const st = b.parentElement.querySelector('[data-informe-status]');
+  const que = enVsl() ? { v: state.embudo } : { l: state.launchCode };
+  const cq = state.cliente && !state.clientes.find((c) => c.id === state.cliente)?.principal ? `&c=${encodeURIComponent(state.cliente)}` : '';
+  if (b.dataset.informe === 'ver') { window.open(`/api/informe?${new URLSearchParams(que)}${cq}`, '_blank', 'noopener'); return; }
+  b.disabled = true;
+  try {
+    if (b.dataset.informe === 'enlace') {
+      const { url } = await api('/api/informe', { method: 'POST', body: { op: 'enlace', ...que } });
+      await navigator.clipboard?.writeText(url).catch(() => {});
+      st.innerHTML = `Enlace copiado ✓ <a href="${esc(url)}" target="_blank" rel="noopener">abrir</a>`;
+    } else {
+      if (!window.confirm('¿Mandar ahora el informe por email a las personas con el rol Cliente?')) return;
+      st.textContent = 'Preparando el informe…';
+      const r = await api('/api/informe', { method: 'POST', body: { op: 'enviar', ...que } });
+      st.textContent = r.destinatarios ? `Enviado a ${r.enviados} de ${r.destinatarios} ✓` : 'No hay nadie con el rol Cliente: créale un usuario en Equipo (o copia el enlace).';
+    }
+  } catch (err) { st.textContent = err.message; } finally { b.disabled = false; }
+});
+
 // ---------- Portal del cliente (rol «Cliente»: solo lectura) ----------
 const fechaPortal = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '');
 const ESTADO_PORTAL = { captacion: ['Captación', 'info'], carrito: ['Carrito abierto', 'buy'], cerrado: ['Cerrado', ''] };
@@ -3446,6 +3469,7 @@ function tarjetaPortal(e) {
     ${objetivos ? `<h3>Objetivos</h3>${objetivos}` : ''}
     <h3>Embudo</h3><div class="portal-funnel">${funnel}</div>
     ${hitos ? `<h3>Próximos hitos</h3><ul class="portal-hitos">${hitos}</ul>` : ''}
+    <p><a class="btn" href="/api/informe?${e.tipo === 'vsl' ? 'v' : 'l'}=${encodeURIComponent(e.code)}${state.clientes.find((c) => c.id === state.cliente)?.principal ? '' : `&c=${encodeURIComponent(state.cliente)}`}" target="_blank" rel="noopener">${e.tipo === 'vsl' ? 'Informe de la semana pasada ↗' : 'Informe completo ↗'}</a></p>
   </article>`;
 }
 async function mostrarPortal({ vistaPrevia = false } = {}) {
@@ -5583,6 +5607,7 @@ async function openVslConfig(id = state.embudo) {
   for (const k of VC_TEXTOS) $(`#vc-${k}`).value = v[k] ?? '';
   for (const k of ['precioPrograma', 'precioFraccionado']) $(`#vc-${k}`).value = v[k] ? String(v[k]).replace('.', ',') : '';
   $('#vc-boton').value = v.botonSegundos ? mmss(v.botonSegundos) : '0';
+  $('#vc-informeSemanal').checked = Boolean(v.informeSemanal);
   $('#vc-status').textContent = '';
   renderAccesosEditor(v.accesos, { box: '#vc-accesos', sugeridos: ACCESOS_SUGERIDOS_VSL });
   renderVslSnippets();
@@ -5641,6 +5666,7 @@ $('#vc-save').addEventListener('click', async () => {
   for (const k of ['precioPrograma', 'precioFraccionado']) vsl[k] = vsl[k].replace(/\./g, '').replace(',', '.');
   for (const k of ['registroDateField', 'compraDateField']) vsl[k] = $(`#vc-${k}`).value;
   vsl.botonSegundos = aSegundos($('#vc-boton').value);
+  vsl.informeSemanal = $('#vc-informeSemanal').checked;
   vsl.accesos = readAccesosEditor();
   const b = $('#vc-save');
   b.disabled = true;

@@ -110,3 +110,30 @@ test('rol Cliente: solo ve su resumen (sin datos personales) y nada más', async
   await call('/api/roles', { method: 'POST', cookie: admin, body: { roles: roles.map((x) => (x.id === 'cliente' ? { ...x, permisos: ['leads'] } : x)) } });
   assert.deepEqual((await call('/api/roles', { cookie: admin })).data.roles.find((x) => x.id === 'cliente').permisos, ['resumen']);
 });
+
+test('informe para el cliente: página, enlace firmado, envío y automático al cerrar el carrito', async () => {
+  const admin = await login('admin');
+  const cfg = (await call('/api/config', { cookie: admin })).data.config;
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...cfg, launches: { ...cfg.launches, cerr: { name: 'Cerrado', registroTag: 'registro-webinar-demo', vipTag: 'compra-vip-demo', compraTag: 'clienta-raices', precioVip: 27, precioPrograma: 997, inversion: 4000, inicioCaptacion: '2026-09-01', fechaDirecto: '2026-09-20', cierreCarrito: '2026-10-05T23:59', objetivos: { ventas: 80, registros: 3000 } } } } });
+  // Sin sesión ni firma: no
+  assert.equal((await route(new Request('http://localhost/api/informe?l=cerr'), ENV)).status, 401);
+  const r = await route(new Request('http://localhost/api/informe?l=cerr', { headers: { cookie: admin } }), ENV);
+  assert.equal(r.status, 200);
+  const html = await r.text();
+  for (const t of ['Resultados frente a objetivos', 'Embudo', 'Aprendizajes', 'Guardar en PDF']) assert.ok(html.includes(t), t);
+  const { url } = (await call('/api/informe', { method: 'POST', cookie: admin, body: { op: 'enlace', l: 'cerr' } })).data;
+  assert.equal((await route(new Request(url), ENV)).status, 200); // con el enlace firmado, sin sesión
+  assert.equal((await route(new Request(url.replace('l=cerr', 'l=otro')), ENV)).status, 401); // la firma es de ese informe
+  // Envío: a las personas con el rol Cliente (creada en el test anterior)
+  const env = (await call('/api/informe', { method: 'POST', cookie: admin, body: { op: 'enviar', l: 'cerr' } })).data;
+  assert.ok(env.destinatarios >= 1 && env.enviados === env.destinatarios);
+  // Automático: con el resumen de cada mañana, una sola vez
+  const cron = (await call('/api/agencia?key=clave-larga-de-prueba-123')).data;
+  assert.ok(cron.informes.some((x) => x.code === 'cerr'));
+  assert.ok((await call('/api/config', { cookie: admin })).data.config.launches.cerr.informeEnviado);
+  const otra = (await call('/api/agencia?key=clave-larga-de-prueba-123')).data;
+  assert.equal(otra.informes.some((x) => x.code === 'cerr'), false);
+  // Semanal de la VSL
+  const v = await route(new Request('http://localhost/api/informe?v=vsl', { headers: { cookie: admin } }), ENV);
+  assert.match(await v.text(), /Informe semanal/);
+});

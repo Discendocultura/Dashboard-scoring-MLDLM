@@ -143,6 +143,10 @@
         </div>
 
         <section id="view-vmetricas" hidden>
+          <div class="metric-actions"><button type="button" class="btn primary" data-informe="ver">Informe semanal para el cliente ↗</button>
+            <button type="button" class="btn" data-informe="enlace">Copiar enlace</button>
+            <button type="button" class="btn" data-informe="enviar">Enviárselo ahora</button>
+            <span class="muted small" data-informe-status></span></div>
           <div id="vm-kpis" class="kpis vm-kpis"></div>
           <section class="card metric-card" data-icon="funnel">
             <h2>Embudo del periodo <span class="muted">· de las personas que se registraron en estas fechas</span></h2>
@@ -382,7 +386,11 @@
         </section>
 
         <section id="view-metricas" hidden>
-          <div class="metric-actions"><button type="button" class="btn" id="btn-informe">Informe del lanzamiento ↗</button></div>
+          <div class="metric-actions"><button type="button" class="btn" id="btn-informe">Informe interno ↗</button>
+            <button type="button" class="btn primary" data-informe="ver" title="Resultados frente a objetivos, embudo, anuncios ganadores, avatar y aprendizajes">Informe para el cliente ↗</button>
+            <button type="button" class="btn" data-informe="enlace">Copiar enlace para el cliente</button>
+            <button type="button" class="btn" data-informe="enviar" title="Por email a las personas con el rol Cliente (se manda solo al cerrar el carrito)">Enviárselo ahora</button>
+            <span class="muted small" data-informe-status></span></div>
           <div id="avisos" class="notice warn" hidden></div>
           <div id="metric-cards" class="kpis"></div>
           <section class="card metric-card" data-icon="coins">
@@ -914,6 +922,7 @@
               <label class="field"><span>Precio de Raíces (pago único, €)</span><input id="vc-precioPrograma" inputmode="decimal"></label>
               <label class="field"><span>Precio en pago fraccionado (total, €)</span><input id="vc-precioFraccionado" inputmode="decimal"></label>
               <label class="field"><span>Campañas de Meta de la VSL <small>(su nombre contiene…)</small></span><input id="vc-metaFiltro" placeholder="vsl"></label>
+              <label class="field chk-field"><span>Informe semanal al cliente</span><span class="chk"><input type="checkbox" id="vc-informeSemanal"> Cada lunes, el de la semana anterior, por email a las personas con el rol Cliente</span></label>
               <label class="field"><span>Nombre del embudo</span><input id="vc-name" maxlength="80"></label>
             </div>
           </section>
