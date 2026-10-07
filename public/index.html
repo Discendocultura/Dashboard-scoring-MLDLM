@@ -118,6 +118,7 @@
           <button type="button" class="view-tab" data-view="avatar">Avatar y anuncios</button>
           <button type="button" class="view-tab" data-view="comparar">Comparar</button>
           <button type="button" class="view-tab" data-view="vanuncios">Anuncios ganadores</button>
+          <button type="button" class="view-tab" data-view="rendimiento">Rendimiento del equipo</button>
           <button type="button" class="view-tab" data-view="tareas">Tareas <span id="tareas-badge" class="tab-count" hidden></span></button>
           <button type="button" class="view-tab" data-view="calendario">Calendario</button>
         </nav>
@@ -345,6 +346,14 @@
               <div class="row wa-pl-save" id="wa-pl-save"><span id="wa-pl-status" class="muted" aria-live="polite"></span><span class="spacer"></span><button type="button" class="btn primary" id="wa-pl-guardar">Guardar mensajes</button></div>
             </div>
           </details>
+        </section>
+
+        <section id="view-rendimiento" hidden>
+          <section class="card metric-card" data-icon="users">
+            <h2>Rendimiento del equipo</h2>
+            <p class="muted">Por persona: WhatsApps enviados desde el dashboard, leads contactados, resultados anotados, llamadas (shows, no shows y cierres), ventas de los leads que contactó primero y tiempo de respuesta desde que se registraron. Para comisiones y para ver dónde se atasca el embudo. Cuenta lo hecho desde que existe este registro.</p>
+            <div id="rend-body"></div>
+          </section>
         </section>
 
         <section id="view-comparar" hidden>

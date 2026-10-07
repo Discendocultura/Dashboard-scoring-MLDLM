@@ -260,6 +260,9 @@ Arriba de la calculadora: **ventas previstas al final** (con rango bajo–alto),
 ## Comparativas y alertas (pestaña Comparar)
 Además de comparar lanzamientos entre sí: **esta edición frente a la anterior y a la media de las anteriores** del mismo embudo (coste por lead, VIP, clase 1, conversión, coste por venta, ticket, ROAS…), **mes a mes** de una VSL (últimos 6 meses) y **VSL frente a lanzamiento** (ratios). Con alertas en claro cuando algo se separa más de un 20 %: «El coste por lead va un 40 % por encima de la edición anterior». También está en las VSL.
 
+## Rendimiento del equipo
+Pestaña **Rendimiento** (permiso «Rendimiento del equipo»), en lanzamientos y VSL. Por persona: WhatsApps enviados, leads contactados, resultados anotados, llamadas agendadas / shows / no-shows / cierres (con % de show y de cierre), **ventas e importe de los leads que contactó primero** (útil para comisiones), tiempo de respuesta mediano desde el registro y % contactado en menos de 24 h. Arriba, los totales y cuántos leads siguen sin contactar. Cuenta desde que existe el registro de actividad (los WhatsApps y resultados anteriores a esta versión no tienen autor).
+
 ## Inversión y rentabilidad
 En la configuración del lanzamiento: **precio de la VIP**, **precio de Raíces** (o el importe medio cobrado) y,
 si no conectas Meta, la **inversión**. Facturación = VIP × precio VIP + ventas × precio Raíces.

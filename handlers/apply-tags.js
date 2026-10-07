@@ -1,14 +1,15 @@
 // Añade etiquetas de señales (p. ej. `nov26_directo_asistio`, `nov26_wa_enviado`) a varios
 // contactos. Solo admite etiquetas con el formato del dashboard, nunca etiquetas arbitrarias.
 // `remove` solo puede quitar etiquetas de resultado de la setter (`<código>_res_…`).
-import { requireRole } from '../lib/auth.js';
+import { requireSession } from '../lib/auth.js';
+import { registrarActividadEquipo, eventosDeEtiquetas } from '../lib/actividad-equipo.js';
 import { addTags, removeTags } from '../lib/ghl.js';
 import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
 import { isValidSignalTag } from '../public/js/scoring.js';
 
 export async function POST(request) {
   try {
-    await requireRole(request, { permiso: ['hoy', 'leads', 'llamadas'] });
+    const s = await requireSession(request, { permiso: ['hoy', 'leads', 'llamadas'] });
     const { items } = await readBody(request);
     if (!Array.isArray(items) || items.length === 0 || items.length > 40) {
       return json({ error: 'Envía entre 1 y 40 contactos por petición' }, 400);
@@ -32,6 +33,12 @@ export async function POST(request) {
         return { id: it.id, ok: false };
       }
     });
+    // Rendimiento del equipo: quién ha enviado cada WhatsApp y anotado cada resultado.
+    const ok = new Set(results.filter((r) => r.ok).map((r) => r.id));
+    const actor = { uid: s.uid, nombre: s.user?.nombre || (s.role === 'admin' ? 'Admin (contraseña general)' : 'Setter (contraseña general)') };
+    for (const [code, eventos] of eventosDeEtiquetas(items.filter((it) => ok.has(it.id)), actor)) {
+      await registrarActividadEquipo(code, eventos).catch((e) => console.error('Actividad del equipo', e.message));
+    }
     return json({ results });
   } catch (e) {
     return errorResponse(e);

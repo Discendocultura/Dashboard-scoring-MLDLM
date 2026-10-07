@@ -9,6 +9,7 @@ export const PERMISOS = [
   { id: 'objetivos', label: 'Objetivos y calculadora', grupo: 'Pestañas' },
   { id: 'avatar', label: 'Avatar y anuncios', grupo: 'Pestañas' },
   { id: 'comparar', label: 'Comparar', grupo: 'Pestañas' },
+  { id: 'rendimiento', label: 'Rendimiento del equipo', grupo: 'Pestañas' },
   { id: 'resumen', label: 'Resumen del cliente (portal de solo lectura)', grupo: 'Pestañas' },
   { id: 'config', label: 'Configuración de lanzamientos', grupo: 'Acciones' },
   { id: 'zoom', label: 'Sincronizar Zoom', grupo: 'Acciones' },

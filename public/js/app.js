@@ -3,10 +3,11 @@ import {
 } from './scoring.js';
 import { icon } from './icons.js';
 import { nombreProducto, PRODUCTO_MLDLM } from './producto.js';
-import { enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
+import { importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
+import { rendimientoEquipo } from './rendimiento.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
@@ -269,7 +270,7 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas que ve cada rol (el servidor también impide al equipo leer leads y métricas).
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'ambos', comparar: 'ambos' };
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'ambos', comparar: 'ambos', rendimiento: 'ambos' };
 const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar' };
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
@@ -340,6 +341,7 @@ async function start() {
   state.launchCode = pickInitialLaunch();
   await setEmbudo(state.embudo, { vista: VIEWS.includes(hash) ? hash : null });
   if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); }
+  if (!$('#view-rendimiento').hidden) loadRendimiento();
 }
 
 function launchesSorted() {
@@ -1503,9 +1505,9 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'vmetricas', 'vleads', 'vanuncios'];
+const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
-const VIEW_ICONS = { hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown' };
+const VIEW_ICONS = { hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
 $$('.view-tab').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view])));
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
@@ -1519,6 +1521,7 @@ function showView(view) {
   $('#vsl-rango').hidden = !['vmetricas', 'vleads', 'vanuncios'].includes(view);
   if (enVsl() && state.vsl.leads) renderVsl();
   if (view === 'comparar' && state.config) { renderCompareSelector(); renderComparativas(); }
+  if (view === 'rendimiento' && state.config) loadRendimiento();
   if (view === 'calendario' && state.config) renderCalendario();
   if (view === 'llamadas' && state.config) { if (state.llamadas?.code !== codigo()) loadLlamadas(); else renderLlamadas(); }
 }
@@ -3566,6 +3569,41 @@ function renderPrevision(m, launch) {
   </section>`;
 }
 
+// ---------- Rendimiento del equipo ----------
+const horasTxt = (h) => (h == null ? '–' : h < 1 ? `${Math.round(h * 60)} min` : h < 48 ? `${h.toLocaleString('es-ES', { maximumFractionDigits: 1 })} h` : `${Math.round(h / 24)} días`);
+async function loadRendimiento() {
+  const box = $('#rend-body');
+  const code = codigo();
+  if (!code) { box.innerHTML = '<p class="muted">Elige un lanzamiento.</p>'; return; }
+  try {
+    // Los datos del servidor se reutilizan unos segundos (render() se llama a menudo).
+    if (!(state.rend?.code === code && state.rend.at > Date.now() - 15_000)) {
+      box.innerHTML = '<p class="muted">Cargando…</p>';
+      state.rend = { code, at: Date.now(), d: await api(`/api/rendimiento?l=${encodeURIComponent(code)}`) };
+    }
+    const { d } = state.rend;
+    const vsl = enVsl();
+    const fuente = vsl ? (state.vsl.leads || []) : state.leads;
+    const launch = embudoActual();
+    const leads = fuente.map((l) => ({ id: l.id, regAt: l.dateAdded, compra: l.s.compra, importe: vsl ? importeVsl(l, launch) : importeCompra(l, launch) }));
+    const rango = vsl ? vslRango() : null;
+    const r = rendimientoEquipo({ eventos: d.eventos, llamadas: d.llamadas, leads, rango });
+    const pc = (x) => (x == null ? '–' : `${Math.round(x * 100)}%`);
+    const t = r.total;
+    box.innerHTML = `<div class="prev-kpis">
+        <div><span>WhatsApps enviados</span><strong>${t.wa}</strong><small>${t.contactados} leads contactados</small></div>
+        <div><span>Sin contactar (y sin comprar)</span><strong>${t.sinContactar}</strong><small>de ${leads.length} leads${rango ? ' (todas las fechas)' : ''}</small></div>
+        <div><span>Llamadas hechas</span><strong>${t.llamadas}</strong><small>${t.cierres} cierres</small></div>
+        <div><span>Tiempo de respuesta (mediana)</span><strong>${horasTxt(t.respuestaMediana)}</strong><small>desde el registro hasta el primer WhatsApp</small></div>
+      </div>
+      ${r.personas.length ? `<div class="table-scroll"><table class="metric-table"><thead><tr><th>Persona</th><th class="num">WhatsApps</th><th class="num">Contactados</th><th class="num">Respuesta (mediana)</th><th class="num">En &lt;24 h</th><th class="num">Resultados</th><th class="num">Llamadas (shows)</th><th class="num">No shows</th><th class="num">Cierres</th><th class="num">% cierre</th><th class="num">Ventas de sus contactados</th><th class="num">Importe</th></tr></thead>
+      <tbody>${r.personas.map((x) => `<tr><td><strong>${esc(x.nombre)}</strong></td><td class="num">${x.wa}</td><td class="num">${x.contactados}</td><td class="num">${horasTxt(x.respuestaMediana)}</td><td class="num">${pc(x.en24h)}</td>
+        <td class="num" title="${esc(Object.entries(x.resultados).map(([k, n]) => `${k}: ${n}`).join(' · '))}">${Object.values(x.resultados).reduce((a, b) => a + b, 0)}</td>
+        <td class="num">${x.shows}</td><td class="num">${x.noshows}</td><td class="num">${x.cierres}</td><td class="num">${pc(x.cierreRate)}</td><td class="num">${x.ventas} <small class="muted">${pc(x.conversion)}</small></td><td class="num">${eur(x.importe || null)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="muted small">«Ventas de sus contactados»: compras de los leads a los que esa persona escribió primero (para comisiones). Los cierres son las llamadas con resultado «Venta».${rango ? ' Periodo: el elegido en Métricas de la VSL.' : ''}</p>` : '<p class="muted">Aún no hay actividad registrada: aparecerá en cuanto el equipo envíe WhatsApps o anote resultados desde el dashboard.</p>'}`;
+  } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+
 // ---------- Informe para el cliente (lanzamiento o VSL semanal) ----------
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-informe]');
@@ -5533,6 +5571,7 @@ async function loadVslMeta() {
 }
 
 function renderVsl() {
+  if (!$('#view-rendimiento').hidden && state.vsl.leads) loadRendimiento();
   if (!enVsl() || !state.config) return;
   actualizarAuditor();
   pintarRango();
