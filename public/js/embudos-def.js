@@ -9,7 +9,7 @@ export const PESTANAS = {
     { id: 'metricas', label: 'Métricas', desc: 'Registros, clases, VIP, directo, ventas, coste por lead…' },
     { id: 'objetivos', label: 'Objetivos y calculadora', desc: 'Objetivos, ritmo necesario y calculadora de inversión y CPL por escenarios' },
     { id: 'avatar', label: 'Avatar y anuncios', desc: 'Perfil de compradoras (encuesta) y anuncios ganadores' },
-    { id: 'comparar', label: 'Comparar', desc: 'Comparar lanzamientos entre sí' },
+    { id: 'comparar', label: 'Comparar', desc: 'Lanzamientos entre sí, edición actual frente a las anteriores, VSL frente a lanzamiento' },
     { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo con comentarios y avisos' },
     { id: 'calendario', label: 'Calendario', desc: 'Hitos, fases y eventos del lanzamiento' },
   ],
@@ -18,6 +18,7 @@ export const PESTANAS = {
     { id: 'vleads', label: 'Leads', desc: 'Cada persona con lo que ha visto y WhatsApp según su estado' },
     { id: 'llamadas', label: 'Llamadas', desc: 'Llamadas de valoración de la VSL' },
     { id: 'vanuncios', label: 'Anuncios ganadores', desc: 'Qué campañas, conjuntos y anuncios traen ventas' },
+    { id: 'comparar', label: 'Comparar', desc: 'Mes a mes y frente a los lanzamientos, con alertas' },
     { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para esta VSL' },
   ],
 };

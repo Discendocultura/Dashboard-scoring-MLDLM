@@ -254,6 +254,12 @@ Pestaña **Objetivos y calculadora** de cada lanzamiento:
 - **Proyector**: a dónde llegas **al ritmo actual** (media de registros al día desde el inicio de la captación) y **con tu presupuesto**, y si llegas a cada objetivo.
 - **Sugerencias**: cuánto invertir, cuántos registros al día faltan y si tu CPL actual está por debajo del recomendado (escalar), entre el recomendado y el máximo (ajustar) o por encima del máximo (parar y revisar).
 
+### Previsión durante el lanzamiento
+Arriba de la calculadora: **ventas previstas al final** (con rango bajo–alto), registros al final de la captación al ritmo actual y si se llega al objetivo de ventas (con margen / probable / en el límite / no se llega). Usa la conversión del histórico corregida por cómo va esta edición (compra de VIP y visionado de la clase 1 frente a lo normal). Si no llega: cuántos registros faltan, cuánto subir el presupuesto al día a tu CPL actual y cuántos leads calientes quedan sin contactar.
+
+## Comparativas y alertas (pestaña Comparar)
+Además de comparar lanzamientos entre sí: **esta edición frente a la anterior y a la media de las anteriores** del mismo embudo (coste por lead, VIP, clase 1, conversión, coste por venta, ticket, ROAS…), **mes a mes** de una VSL (últimos 6 meses) y **VSL frente a lanzamiento** (ratios). Con alertas en claro cuando algo se separa más de un 20 %: «El coste por lead va un 40 % por encima de la edición anterior». También está en las VSL.
+
 ## Inversión y rentabilidad
 En la configuración del lanzamiento: **precio de la VIP**, **precio de Raíces** (o el importe medio cobrado) y,
 si no conectas Meta, la **inversión**. Facturación = VIP × precio VIP + ventas × precio Raíces.

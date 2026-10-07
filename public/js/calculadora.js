@@ -28,6 +28,7 @@ export function resumenLanzamiento(code, launch, m) {
     cpl: div(inversion, m.total),
     convVip: div(m.vip, m.total),
     convVenta: div(m.compra, m.total),
+    convClase1: div(m.clase1, m.total),
     ticket: div(n(fact), m.compra),
     roas: div(n(m.eco?.facturacion), inversion),
   };
@@ -129,4 +130,42 @@ export function noLlega(obj, r) {
   if (!r) return [];
   return [['registros', 'registros'], ['vip', 'VIP'], ['ventas', 'ventas'], ['facturacion', 'facturación']]
     .filter(([k]) => n(obj[k]) > 0 && n(r[k]) < n(obj[k])).map(([, l]) => l);
+}
+
+// ---- Previsión durante el lanzamiento ----
+// Ventas finales estimadas: registros al final de la captación (al ritmo actual) × la conversión
+// histórica, corregida por las señales tempranas de esta edición (compra de VIP y visionado de la
+// clase 1 frente al histórico). Rango con los lanzamientos peores y mejores (percentiles 25 y 75).
+//  actual: { registros, vip, clase1, ventas, carritoAbierto }
+//  hist: resúmenes de lanzamientos anteriores (resumenLanzamiento)
+export function prevision(actual, hist, { diasCaptacion = 0, ritmoDiario = null, objetivoVentas = 0, conVip = true } = {}) {
+  const validos = hist.filter((h) => h.registros > 0 && h.convVenta != null);
+  const regFinal = Math.round(n(actual.registros) + (ritmoDiario && diasCaptacion > 0 ? ritmoDiario * diasCaptacion : 0));
+  const convs = validos.map((h) => h.convVenta);
+  let base = percentil(convs, 0.5);
+  let bajo = convs.length >= 3 ? percentil(convs, 0.25) : base != null ? base * 0.8 : null;
+  let alto = convs.length >= 3 ? percentil(convs, 0.75) : base != null ? base * 1.2 : null;
+  // Señales tempranas frente a la media histórica.
+  const ratios = [];
+  const r = n(actual.registros);
+  const vipH = percentil(validos.map((h) => h.convVip), 0.5);
+  const claseH = percentil(validos.map((h) => h.convClase1), 0.5);
+  if (conVip && vipH && r >= 50) ratios.push({ que: 'compra de VIP', v: n(actual.vip) / r / vipH });
+  if (claseH && r >= 50 && n(actual.clase1) > 0) ratios.push({ que: 'visionado de la clase 1', v: n(actual.clase1) / r / claseH });
+  const factor = ratios.length ? Math.min(1.8, Math.max(0.5, Math.exp(ratios.reduce((a, x) => a + Math.log(x.v), 0) / ratios.length))) : 1;
+  let fuente = 'histórico';
+  if (base == null) {
+    // Sin histórico: si el carrito ya está abierto, la conversión que lleva esta edición.
+    if (actual.carritoAbierto && r) { base = n(actual.ventas) / r; bajo = base * 0.8; alto = base * 1.3; fuente = 'esta edición'; } else return { calculable: false, regFinal };
+  }
+  const v = (c) => Math.max(n(actual.ventas), Math.round(regFinal * c * factor));
+  const res = { calculable: true, fuente, regFinal, factor, ratios, ventas: v(base), bajo: v(bajo), alto: v(alto) };
+  if (objetivoVentas > 0) {
+    res.objetivo = objetivoVentas;
+    res.estado = res.alto < objetivoVentas ? 'no-llega' : res.ventas < objetivoVentas ? 'justo' : res.bajo >= objetivoVentas ? 'sobrado' : 'probable';
+    // Registros extra para llegar con la conversión prevista.
+    const convPrev = base * factor;
+    res.registrosExtra = convPrev ? Math.max(0, Math.ceil(objetivoVentas / convPrev - regFinal)) : null;
+  }
+  return res;
 }

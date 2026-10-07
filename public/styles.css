@@ -1442,3 +1442,22 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 .chk-field .chk { display: flex; gap: 8px; align-items: center; font-size: 14px; }
 .chk-field .chk input { width: auto; }
 .metric-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* Comparativas y previsión */
+.cmp-modos { margin: 4px 0 12px; flex-wrap: wrap; }
+.seg-btn.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.cmp-delta.up { color: var(--chip-on-ink); font-weight: 700; }
+.cmp-delta.down { color: var(--error); font-weight: 700; }
+.cmp-alertas { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.cmp-alertas li { padding: 8px 12px; border-radius: 8px; background: var(--surface-2); }
+.cmp-alertas li.mal { background: color-mix(in srgb, var(--error) 10%, transparent); }
+.cmp-alertas li.bien { background: var(--chip-on-bg); }
+.card.prev { padding: 16px; margin: 16px 0; display: flex; flex-direction: column; gap: 10px; }
+.card.prev h3 { margin: 0; display: flex; gap: 8px; align-items: center; }
+.prev-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.prev-kpis div { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; }
+.prev-kpis span { font-size: 12px; color: var(--muted); }
+.prev-kpis strong { font-size: 24px; }
+.prev-mal { color: var(--error); font-weight: 700; }
+.prev-warn { color: var(--st-caliente); font-weight: 700; }
+.prev-ok { color: var(--chip-on-ink); font-weight: 700; }

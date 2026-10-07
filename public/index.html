@@ -348,7 +348,12 @@
         </section>
 
         <section id="view-comparar" hidden>
-          <section class="card metric-card" data-icon="compare">
+          <section class="card metric-card" data-icon="trend" id="cmp-card">
+            <h2>Comparativas y alertas</h2>
+            <div class="seg cmp-modos" id="cmp-modos"></div>
+            <div id="cmp-body"></div>
+          </section>
+          <section class="card metric-card lanz-only" data-icon="compare" id="cmp-lanzamientos">
             <h2>Comparar lanzamientos</h2>
             <div id="compare-pick" class="compare-pick"></div>
             <button id="btn-compare" class="btn primary" type="button">Comparar</button>
@@ -360,6 +365,7 @@
           <p class="muted hoy-intro">Pon aquí los objetivos del lanzamiento: verás cuánto llevas y a qué ritmo hay que ir. Debajo, la calculadora usa los lanzamientos anteriores para decirte, en tres escenarios, cuántos registros e inversión necesitas, el CPL máximo y el recomendado, y a dónde llegas al ritmo actual o con tu presupuesto.</p>
           <div id="obj-form"></div>
           <div id="objetivos"></div>
+          <div id="prevision"></div>
           <div id="calculadora"></div>
         </section>
 

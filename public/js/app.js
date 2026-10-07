@@ -6,7 +6,8 @@ import { nombreProducto, PRODUCTO_MLDLM } from './producto.js';
 import { enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip } from './videos.js';
-import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento } from './calculadora.js';
+import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
+import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
@@ -268,7 +269,7 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas que ve cada rol (el servidor también impide al equipo leer leads y métricas).
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'ambos' };
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'ambos', comparar: 'ambos' };
 const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar' };
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
@@ -338,7 +339,7 @@ async function start() {
   if (puedeConfig()) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
   state.launchCode = pickInitialLaunch();
   await setEmbudo(state.embudo, { vista: VIEWS.includes(hash) ? hash : null });
-  if (!$('#view-comparar').hidden) renderCompareSelector();
+  if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); }
 }
 
 function launchesSorted() {
@@ -878,6 +879,7 @@ function renderObjetivos(m) {
       </article>`;
     }).join('')}</div>`;
   }
+  renderPrevision(m, launch);
   renderCalculadora(m, launch);
 }
 
@@ -1516,7 +1518,7 @@ function showView(view) {
   if (!enVsl()) ls.set('lsd_view', view);
   $('#vsl-rango').hidden = !['vmetricas', 'vleads', 'vanuncios'].includes(view);
   if (enVsl() && state.vsl.leads) renderVsl();
-  if (view === 'comparar' && state.config) renderCompareSelector();
+  if (view === 'comparar' && state.config) { renderCompareSelector(); renderComparativas(); }
   if (view === 'calendario' && state.config) renderCalendario();
   if (view === 'llamadas' && state.config) { if (state.llamadas?.code !== codigo()) loadLlamadas(); else renderLlamadas(); }
 }
@@ -3414,6 +3416,156 @@ $('.tab[data-tab="equipo"]').addEventListener('click', () => { equipoResult('');
 
 // ---------- Clientes (solo superadmin) ----------
 const slugCliente = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/^[^a-z]+/, '').slice(0, 24);
+// ---------- Comparativas y alertas (Comparar): edición vs anteriores, mes a mes, VSL vs lanzamiento ----------
+const CMP_MODOS = [
+  { id: 'edicion', label: 'Esta edición frente a las anteriores', lanz: true },
+  { id: 'meses', label: 'Mes a mes (VSL)' },
+  { id: 'vsl-lanz', label: 'VSL frente a lanzamiento' },
+];
+state.cmp = { modo: '', vslLeads: {} };
+const fmtInd = (fmt, v) => (v == null || !Number.isFinite(v) ? '–' : fmt === 'eur' ? eur(v) : fmt === 'pct' ? `${(v * 100).toLocaleString('es-ES', { maximumFractionDigits: 1 })}%` : fmt === 'x' ? `${v.toLocaleString('es-ES', { maximumFractionDigits: 1 })}x` : Math.round(v).toLocaleString('es-ES'));
+const deltaHtml = (d) => (d ? `<span class="cmp-delta ${d.bueno ? 'up' : 'down'}">${d.pct > 0 ? '▲' : d.pct < 0 ? '▼' : ''} ${Math.round(Math.abs(d.pct) * 100)}%</span>` : '–');
+const alertasHtml = (lista) => (lista.length ? `<ul class="cmp-alertas">${lista.map((a) => `<li class="${a.nivel}">${a.nivel === 'mal' ? '⚠️' : '✅'} ${esc(a.texto)}.</li>`).join('')}</ul>` : '<p class="muted">Sin diferencias de más del 20 %.</p>');
+function tablaComparativa(columnas, filas = INDICADORES) {
+  // columnas: [{ titulo, ind, delta? }]
+  return `<div class="table-scroll"><table class="metric-table"><thead><tr><th></th>${columnas.map((c) => `<th class="num">${esc(c.titulo)}</th>`).join('')}</tr></thead>
+    <tbody>${filas.filter((f) => columnas.some((c) => c.ind?.[f.id] != null)).map((f) => `<tr><td>${esc(f.label)}</td>${columnas.map((c) => `<td class="num">${c.delta ? deltaHtml(c.delta[f.id]) : fmtInd(f.fmt, c.ind?.[f.id])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function renderComparativas() {
+  const modos = CMP_MODOS.filter((x) => !(x.lanz && enVsl()) && (x.id === 'edicion' || Object.keys(state.config.vsls || {}).length));
+  if (!modos.some((x) => x.id === state.cmp.modo)) state.cmp.modo = modos[0]?.id || '';
+  $('#cmp-modos').innerHTML = modos.map((x) => `<button type="button" class="seg-btn${x.id === state.cmp.modo ? ' on' : ''}" data-cmp-modo="${x.id}">${esc(x.label)}</button>`).join('');
+  const box = $('#cmp-body');
+  const vsls = Object.entries(state.config.vsls || {});
+  const selVsl = () => `<select id="cmp-vsl">${vsls.map(([id, v]) => `<option value="${esc(id)}" ${id === (enVsl() ? state.embudo : vsls[0]?.[0]) ? 'selected' : ''}>${esc(v.name)}</option>`).join('')}</select>`;
+  if (state.cmp.modo === 'edicion') {
+    box.innerHTML = `<p class="muted">Compara «${esc(state.config.launches[state.launchCode]?.name || '')}» con la edición anterior y con la media de las anteriores de este embudo (carga los leads de cada una).</p><button type="button" class="btn primary" data-cmp-calc>Comparar</button><div id="cmp-res"></div>`;
+  } else if (state.cmp.modo === 'meses') {
+    box.innerHTML = `<div class="row"><label class="field narrow"><span>VSL</span>${selVsl()}</label><button type="button" class="btn primary" data-cmp-calc>Comparar los últimos 6 meses</button></div><div id="cmp-res"></div>`;
+  } else if (state.cmp.modo === 'vsl-lanz') {
+    box.innerHTML = `<div class="row"><label class="field narrow"><span>VSL (últimos 90 días)</span>${selVsl()}</label>
+      <label class="field narrow"><span>Lanzamiento</span><select id="cmp-lanz">${launchesSorted().map(([c, l]) => `<option value="${esc(c)}">${esc(l.name)}</option>`).join('')}</select></label>
+      <button type="button" class="btn primary" data-cmp-calc>Comparar</button></div><div id="cmp-res"></div>`;
+  } else box.innerHTML = '<p class="muted">No hay nada que comparar todavía.</p>';
+}
+async function leadsVslDe(id) {
+  if (state.cmp.vslLeads[id]) return state.cmp.vslLeads[id];
+  const v = vslCfg(id);
+  if (!v.registroTag) throw new Error(`Falta la etiqueta de registro de «${v.name}»`);
+  const out = [];
+  let cursor = null;
+  try {
+    do {
+      const qs = new URLSearchParams({ tag: v.registroTag });
+      if (cursor) qs.set('cursor', JSON.stringify(cursor));
+      const page = await api(`/api/leads?${qs}`);
+      out.push(...page.contacts);
+      cursor = page.cursor;
+      progress(out.length, page.total, `Cargando ${v.name}: ${out.length} leads`);
+    } while (cursor);
+  } finally { progress(null); }
+  state.cmp.vslLeads[id] = out.map((c) => enrichVsl(c, v, { pais: state.config.defaultCountryCode, code: id }));
+  return state.cmp.vslLeads[id];
+}
+async function indVslRango(id, rango) {
+  const leads = await leadsVslDe(id);
+  let inversion = null;
+  try { const m = await api(`/api/meta?launch=${encodeURIComponent(id)}&since=${rango.desde}&until=${rango.hasta}`); if (m.configured && !m.error) inversion = m.total; } catch { /* sin Meta */ }
+  return indicadoresVsl(computeVsl(leads, rango, vslCfg(id), { inversion }));
+}
+document.addEventListener('click', async (e) => {
+  const mb = e.target.closest('[data-cmp-modo]');
+  if (mb) { state.cmp.modo = mb.dataset.cmpModo; renderComparativas(); return; }
+  const b = e.target.closest('[data-cmp-calc]');
+  if (!b) return;
+  const res = $('#cmp-res');
+  b.disabled = true;
+  res.innerHTML = '<p class="muted">Calculando…</p>';
+  try {
+    if (state.cmp.modo === 'edicion') {
+      const actual = state.config.launches[state.launchCode];
+      const emb = embudoDeLanz(actual);
+      const anteriores = launchesSorted().filter(([c, l]) => c !== state.launchCode && embudoDeLanz(l) === emb && (!actual.inicioCaptacion || !l.inicioCaptacion || l.inicioCaptacion < actual.inicioCaptacion));
+      if (!anteriores.length) { res.innerHTML = '<p class="muted">No hay ediciones anteriores en este embudo.</p>'; return; }
+      const ia = indicadoresLanzamiento(currentMetrics(), actual);
+      const prev = [];
+      for (const [c, l] of anteriores) prev.push(indicadoresLanzamiento(await loadLaunchMetrics(c), l));
+      const ultima = prev[0];
+      const media = mediaIndicadores(prev);
+      const enCurso = !actual.cierreCarrito || actual.cierreCarrito.slice(0, 10) >= dayInMadrid(new Date().toISOString());
+      const omitir = enCurso ? ['registros', 'ventas', 'facturacion'] : [];
+      res.innerHTML = `${tablaComparativa([
+        { titulo: 'Esta edición', ind: ia }, { titulo: `Anterior (${anteriores[0][1].name})`, ind: ultima }, { titulo: `Media de ${prev.length}`, ind: media },
+        { titulo: 'vs anterior', delta: diferencias(ia, ultima) }, { titulo: 'vs media', delta: diferencias(ia, media) },
+      ])}${enCurso ? '<p class="muted small">El lanzamiento sigue en marcha: los totales (registros, ventas, facturación) aún no son comparables; las alertas miran los ratios.</p>' : ''}
+      <h3 class="cfg-h3">Alertas</h3>${alertasHtml([...alertas(ia, ultima, 'la edición anterior', { omitir }), ...alertas(ia, media, 'la media de las anteriores', { omitir })])}`;
+    } else if (state.cmp.modo === 'meses') {
+      const id = $('#cmp-vsl').value;
+      const hoy = dayInMadrid(new Date().toISOString());
+      const meses = ultimosMeses(hoy, 6);
+      const filas = [];
+      for (const ym of meses) filas.push([ym, await indVslRango(id, rangoDe({ preset: 'mes', mes: ym }, hoy))]);
+      const ult = filas.at(-1)[1];
+      const antp = filas.at(-2)?.[1];
+      const media = mediaIndicadores(filas.slice(0, -1).map((f) => f[1]));
+      const mesTxt = (ym) => new Date(`${ym}-15T12:00:00Z`).toLocaleDateString('es-ES', { month: 'short', year: '2-digit', timeZone: 'UTC' });
+      res.innerHTML = `${tablaComparativa(filas.map(([ym, ind]) => ({ titulo: mesTxt(ym), ind })).concat(antp ? [{ titulo: 'vs mes anterior', delta: diferencias(ult, antp) }] : []), INDICADORES.filter((x) => !['convVip', 'convClase1'].includes(x.id)))}
+        <p class="muted small">El mes en curso va hasta hoy: sus totales se comparan con los ratios en mente.</p>
+        <h3 class="cfg-h3">Alertas</h3>${alertasHtml([...(antp ? alertas(ult, antp, 'el mes pasado', { omitir: ['registros', 'ventas', 'facturacion'] }) : []), ...alertas(ult, media, 'la media de los 5 meses anteriores', { omitir: ['registros', 'ventas', 'facturacion'] })])}`;
+    } else {
+      const id = $('#cmp-vsl').value;
+      const code = $('#cmp-lanz').value;
+      const hoy = dayInMadrid(new Date().toISOString());
+      const iv = await indVslRango(id, { desde: addDay(hoy, -89), hasta: hoy });
+      const il = indicadoresLanzamiento(await loadLaunchMetrics(code), state.config.launches[code]);
+      const filas = INDICADORES.filter((x) => !['convVip', 'convClase1', 'registros', 'ventas', 'facturacion'].includes(x.id));
+      res.innerHTML = `${tablaComparativa([{ titulo: `${vslCfg(id).name} (90 días)`, ind: iv }, { titulo: state.config.launches[code].name, ind: il }, { titulo: 'VSL vs lanzamiento', delta: diferencias(iv, il) }], filas)}
+        <p class="muted small">Se comparan ratios (coste por lead, conversión, coste por venta, ticket, ROAS): los totales dependen de la duración de cada uno.</p>
+        <h3 class="cfg-h3">Lectura</h3>${alertasHtml(alertas(iv, il, `«${state.config.launches[code].name}»`, { omitir: ['registros', 'ventas', 'facturacion', 'convVip', 'convClase1'] }).map((a) => ({ ...a, texto: `En la VSL, ${a.texto.charAt(0).toLowerCase()}${a.texto.slice(1)}` })))}`;
+    }
+  } catch (err) { res.innerHTML = `<p class="error">${esc(err.message)}</p>`; } finally { b.disabled = false; }
+});
+
+// ---------- Previsión durante el lanzamiento (pestaña Objetivos y calculadora) ----------
+function renderPrevision(m, launch) {
+  const box = $('#prevision');
+  const hist = historico();
+  const hoy = dayInMadrid(new Date().toISOString());
+  const finCapt = launch.finCaptacion || (launch.fechaDirecto ? addDays(launch.fechaDirecto, -1) : '');
+  const dias = finCapt ? Math.round((Date.parse(`${finCapt}T12:00:00Z`) - Date.parse(`${hoy}T12:00:00Z`)) / 86400_000) + 1 : 0;
+  const llevaDias = launch.inicioCaptacion && launch.inicioCaptacion <= hoy ? Math.round((Date.parse(`${hoy}T12:00:00Z`) - Date.parse(`${launch.inicioCaptacion}T12:00:00Z`)) / 86400_000) + 1 : 0;
+  const ritmo = llevaDias ? m.total / llevaDias : null;
+  const objVentas = Number(launch.objetivos?.ventas) || 0;
+  const cerrado = launch.cierreCarrito && launch.cierreCarrito.slice(0, 10) < hoy;
+  if (cerrado) { box.innerHTML = ''; return; }
+  const p = prevision({ registros: m.total, vip: m.vip, clase1: m.clase1, ventas: m.compra, carritoAbierto: Boolean(launch.fechaDirecto && launch.fechaDirecto <= hoy) }, hist,
+    { diasCaptacion: Math.max(0, dias), ritmoDiario: ritmo, objetivoVentas: objVentas, conVip: conVip(launch) });
+  if (!p.calculable) {
+    box.innerHTML = `<section class="card prev"><h3>${icon('trend')} Previsión de ventas</h3><p class="muted">Para estimar las ventas finales hace falta el histórico: pulsa «Cargar histórico» en la calculadora de abajo.</p></section>`;
+    return;
+  }
+  const ESTADOS_P = { 'no-llega': ['mal', 'Al ritmo actual no se llega al objetivo'], justo: ['warn', 'En el límite: puede no llegar'], probable: ['ok', 'Lo normal es llegar al objetivo'], sobrado: ['ok', 'Se llega con margen'] };
+  const [tono, texto] = ESTADOS_P[p.estado] || ['', ''];
+  const cplActual = m.eco.inversion && m.total ? m.eco.inversion / m.total : null;
+  const sinContactar = state.leads.filter((l) => ['muy-caliente', 'caliente'].includes(l.estado.id) && !l.s.wa_enviado && !l.s.compra).length;
+  const sug = [];
+  if (p.estado === 'no-llega' || p.estado === 'justo') {
+    if (p.registrosExtra && dias > 0) sug.push(`Faltan unos <strong>${p.registrosExtra.toLocaleString('es-ES')} registros más</strong> (≈ ${Math.ceil(p.registrosExtra / dias).toLocaleString('es-ES')} al día)${cplActual ? `: sube el presupuesto unos <strong>${eur((p.registrosExtra / dias) * cplActual)}/día</strong> a tu CPL actual` : ''}.`);
+    if (sinContactar) sug.push(`Refuerza el setteo: hay <strong>${sinContactar} leads calientes o muy calientes sin contactar</strong> por WhatsApp.`);
+    sug.push('Revisa los anuncios ganadores y apaga los que no traen ventas.');
+  }
+  box.innerHTML = `<section class="card prev">
+    <h3>${icon('trend')} Previsión de ventas al final del lanzamiento</h3>
+    <div class="prev-kpis">
+      <div><span>Ventas previstas</span><strong>${p.ventas.toLocaleString('es-ES')}</strong><small>entre ${p.bajo.toLocaleString('es-ES')} y ${p.alto.toLocaleString('es-ES')}</small></div>
+      <div><span>Registros al final de la captación</span><strong>${p.regFinal.toLocaleString('es-ES')}</strong><small>${ritmo ? `a ${ritmo.toLocaleString('es-ES', { maximumFractionDigits: 1 })} al día` : ''}${dias > 0 ? ` · quedan ${dias} días` : ''}</small></div>
+      ${objVentas ? `<div><span>Objetivo de ventas</span><strong>${objVentas.toLocaleString('es-ES')}</strong><small class="prev-${tono}">${esc(texto)}</small></div>` : ''}
+    </div>
+    <p class="muted small">Conversión del ${esc(p.fuente)}${p.ratios.length ? ', ajustada por cómo va esta edición: ' + p.ratios.map((r) => `${esc(r.que)} ${r.v >= 1 ? '▲' : '▼'} ×${r.v.toLocaleString('es-ES', { maximumFractionDigits: 2 })} frente a lo normal`).join(' · ') : ''}.</p>
+    ${sug.length ? `<ul class="calc-sug">${sug.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
+  </section>`;
+}
+
 // ---------- Informe para el cliente (lanzamiento o VSL semanal) ----------
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-informe]');
