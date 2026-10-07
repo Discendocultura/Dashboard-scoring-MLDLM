@@ -560,6 +560,8 @@ function pintarCabeceraVideos() {
   $('#th-directo').textContent = multi ? `Vídeos (${vs.map(nombreCorto).join(', ')})` : 'Directo';
   $('#th-directo').colSpan = multi ? 2 : 1;
   $('#th-grabacion').hidden = multi;
+  // Encuesta: solo si el lanzamiento tiene etiqueta de encuesta.
+  $('#th-encuesta').hidden = !launch?.encuestaTag;
   // Prelanzamiento: columnas de las clases que haya y de la VIP (si la hay).
   const nc = nClases(launch);
   $('#th-c2').hidden = nc < 2;
@@ -581,7 +583,7 @@ function render() {
   state.page = Math.min(Math.max(0, state.page), pages - 1);
   const slice = rows.slice(state.page * PAGE_SIZE, (state.page + 1) * PAGE_SIZE);
   $('#leads-body').innerHTML = slice.map(rowHtml).join('')
-    || '<tr><td colspan="10" class="muted">No hay leads con estos filtros.</td></tr>';
+    || '<tr><td colspan="14" class="muted">No hay leads con estos filtros.</td></tr>';
   $('#page-info').textContent = rows.length
     ? `${state.page * PAGE_SIZE + 1}–${state.page * PAGE_SIZE + slice.length} de ${rows.length} leads`
     : '0 leads';
@@ -1686,6 +1688,7 @@ function rowHtml(l) {
     : '<span class="muted">Sin teléfono</span>';
   return `<tr>
     <td><div class="lead-name">${esc(l.name || '(sin nombre)')} ${avatarChip(l)} ${faseChip(l.id)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
+    ${state.config.launches[state.launchCode]?.encuestaTag ? `<td>${l.s.encuesta ? '<span class="enc-si" title="Ha rellenado la encuesta">✓</span>' : '<span class="enc-no" title="No ha rellenado la encuesta">✗</span>'}</td>` : ''}
     ${(l.s.clases || ['clase1', 'clase2']).map((c) => `<td>${videoChip(l.s, c)}</td>`).join('')}
     ${l.s.conVip === false ? '' : `<td>${l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>`}
     ${(l.s.nVideos || 1) > 1 ? `<td colspan="2"><div class="videos-chips">${videosChips(l.s, state.config.launches[state.launchCode])}</div></td>` : `<td>${liveChip(l.s)}</td>

@@ -1485,3 +1485,8 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 .subview-tab.active .ico { color: var(--accent); opacity: 1; }
 /* Métricas: categorías */
 .subviews.msubs { margin: 6px 0 16px; clear: both; }
+
+/* Leads: columna Encuesta */
+.enc-si, .enc-no { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-weight: 700; font-size: 14px; }
+.enc-si { color: #fff; background: var(--ok, #1e7a3c); }
+.enc-no { color: var(--error, #b3261e); background: color-mix(in srgb, var(--error, #b3261e) 12%, transparent); }
