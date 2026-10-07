@@ -380,7 +380,7 @@ El dashboard guarda sus datos (configuración, tareas, eventos, llamadas, equipo
 ### Conectar D1 (una sola vez, ~3 minutos)
 1. Entra en Cloudflare (holadiscendo@gmail.com) → **Storage & Databases → D1 SQL Database → Create**. Nombre: `dashboard-datos`. Ubicación: Europa (Western Europe).
 2. Copia el **Database ID** que aparece (un código tipo `xxxxxxxx-xxxx-…`). No es secreto.
-3. En `wrangler.toml` quita el `#` de las 4 líneas de `[[d1_databases]]` y pon ese ID (o pásamelo y lo hago yo). Al desplegar, el dashboard la usa: las tablas se crean solas.
+3. Ese ID va en `wrangler.toml` (`[[d1_databases]]`, ya puesto: `dashboard-datos`). Al desplegar, el dashboard la usa: las tablas se crean solas.
 
 Como el proyecto tiene `wrangler.toml`, la base de datos se conecta ahí (no desde *Settings → Bindings* del panel).
 

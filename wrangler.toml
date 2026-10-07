@@ -6,9 +6,8 @@ compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_als"]
 
 # Base de datos propia del dashboard (Cloudflare D1): historial, copias y cambios sin pisarse.
-# Créala en Cloudflare → Storage & Databases → D1 → Create («dashboard-datos»), copia su Database ID,
-# pégalo aquí y quita los «#». Sin esto el dashboard sigue guardando en los Custom Values de GHL.
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "dashboard-datos"
-# database_id = "PEGA-AQUI-EL-DATABASE-ID"
+# (Cloudflare → Storage & Databases → D1 → «dashboard-datos»). Las tablas se crean solas al usarla.
+[[d1_databases]]
+binding = "DB"
+database_name = "dashboard-datos"
+database_id = "c7907527-5fc4-4dd2-83ec-90f6ee182e2c"
