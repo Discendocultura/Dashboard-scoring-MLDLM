@@ -7,7 +7,7 @@ export const PESTANAS = {
     { id: 'llamadas', label: 'Llamadas', desc: 'Llamadas de valoración: calendario, resultados y pipeline' },
     { id: 'leads', label: 'Leads', desc: 'Lista de registrados con su puntuación y estado' },
     { id: 'metricas', label: 'Métricas', desc: 'Registros, clases, VIP, directo, ventas, coste por lead…' },
-    { id: 'objetivos', label: 'Objetivos', desc: 'Cuánto llevas de cada objetivo y a qué ritmo hay que ir' },
+    { id: 'objetivos', label: 'Objetivos y calculadora', desc: 'Objetivos, ritmo necesario y calculadora de inversión y CPL por escenarios' },
     { id: 'avatar', label: 'Avatar y anuncios', desc: 'Perfil de compradoras (encuesta) y anuncios ganadores' },
     { id: 'comparar', label: 'Comparar', desc: 'Comparar lanzamientos entre sí' },
     { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo con comentarios y avisos' },
@@ -74,7 +74,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
       'Las respuestas se guardan en campos personalizados del contacto: el perfil de compradoras sale de esos campos.',
     ] });
     if (on('metricas') || on('avatar') || on('objetivos')) s.push(guiaMeta());
-    if (on('objetivos')) s.push({ titulo: `${s.length + 1} · Objetivos`, pasos: ['En la configuración de cada lanzamiento pon los objetivos de registros, VIP, ventas y facturación: la pestaña calcula el ritmo necesario hasta cada fecha.'] });
+    if (on('objetivos')) s.push({ titulo: `${s.length + 1} · Objetivos`, pasos: ['En la pestaña <em>Objetivos y calculadora</em> pon los objetivos de registros, VIP, ventas y facturación: calcula el ritmo necesario y, con los lanzamientos anteriores, la inversión, los registros y el CPL máximo y recomendado en tres escenarios.'] });
     s.push({ titulo: `${s.length + 1} · En el dashboard`, pasos: [
       'Crea el primer lanzamiento (se abre al crear el embudo): nombre, código, etiquetas, fechas de captación, clases, directo y cierre, enlaces y precios.',
       ...(on('tareas') ? ['En <em>Tareas</em>, «Cargar tareas habituales» crea la lista de siempre con fechas calculadas.'] : []),

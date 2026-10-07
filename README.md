@@ -245,6 +245,15 @@ Pestaña para admin y técnico con:
 - **Formularios instantáneos de Meta**: como no traen UTM, el origen se completa con la atribución que guarde GHL (adId, adGroupId, campaignId) o con los campos personalizados elegidos en Configuración → Lanzamiento → «Formularios instantáneos de Meta» (ID de campaña, conjunto y anuncio). Aparecen como canal «Formulario instantáneo (Meta)», cuentan como publi y entran en el ranking de anuncios ganadores.
 - **Avatares de compradoras** sacados de la encuesta.
 
+## Objetivos y calculadora
+Pestaña **Objetivos y calculadora** de cada lanzamiento:
+- **Objetivos**: registros, entradas VIP, ventas y facturación se escriben ahí mismo (quien puede configurar; el resto los ve). Debajo, cuánto llevas de cada uno y el ritmo diario necesario hasta su fecha.
+- **Calculadora**: «Cargar histórico» lee los lanzamientos anteriores del mismo embudo (registros, inversión, CPL, % VIP, % venta, ticket medio, ROAS; se recuerdan en el navegador). Con ellos hay tres **escenarios**: **neutro** (la mediana), **favorable** (CPL bajo y conversiones altas: percentiles 25/75) y **desfavorable** (al revés). Con menos de 3 lanzamientos, ±20 % del neutro.
+- **Supuestos** editables para simular (CPL, % VIP, % venta, ticket, ROAS objetivo y presupuesto); vacío = el dato del histórico. «Guardar supuestos» los deja en el lanzamiento.
+- Para cada escenario: **registros necesarios** (y qué objetivo manda), **inversión total** y la que falta, **CPL máximo** (con él lo invertido = lo facturado) y **CPL recomendado** (para el ROAS objetivo), ventas, VIP, facturación y ROAS esperados, y el **ritmo desde hoy** (registros y € al día hasta el fin de la captación).
+- **Proyector**: a dónde llegas **al ritmo actual** (media de registros al día desde el inicio de la captación) y **con tu presupuesto**, y si llegas a cada objetivo.
+- **Sugerencias**: cuánto invertir, cuántos registros al día faltan y si tu CPL actual está por debajo del recomendado (escalar), entre el recomendado y el máximo (ajustar) o por encima del máximo (parar y revisar).
+
 ## Inversión y rentabilidad
 En la configuración del lanzamiento: **precio de la VIP**, **precio de Raíces** (o el importe medio cobrado) y,
 si no conectas Meta, la **inversión**. Facturación = VIP × precio VIP + ventas × precio Raíces.

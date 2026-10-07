@@ -42,6 +42,17 @@ export async function POST(request) {
       return json({ templates: config.templates, defaultCountryCode: config.defaultCountryCode, version: versionDe(config) });
     }
     await requireRole(request, { permiso: 'config' });
+    // Objetivos y supuestos de la calculadora de un lanzamiento (pestaña «Objetivos y calculadora»).
+    if (body.op === 'objetivos') {
+      const code = String(body.l || '');
+      const config = await reintentando(async () => {
+        const actual = await getConfig({ fresh: true });
+        if (!actual.launches[code]) throw Object.assign(new Error('Lanzamiento no encontrado'), { status: 404, publicMessage: 'Lanzamiento no encontrado' });
+        const l = { ...actual.launches[code], objetivos: body.objetivos ?? actual.launches[code].objetivos, calculadora: body.calculadora ?? actual.launches[code].calculadora };
+        return saveConfig({ ...actual, launches: { ...actual.launches, [code]: l } }, { version: versionDe(actual), motivo: 'Objetivos' });
+      });
+      return json({ config, version: versionDe(config) });
+    }
     // Si no vienen los embudos (p. ej. un navegador con la versión anterior), se conservan los guardados.
     const actual = !('vsls' in body) || !('embudos' in body) ? await getConfig({ fresh: true }) : null;
     // Con `_version` (la que tenía el navegador): si otra persona guardó después, se avisa en vez de pisarlo.

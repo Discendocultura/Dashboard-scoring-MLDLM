@@ -6,7 +6,7 @@ export const PERMISOS = [
   { id: 'llamadas', label: 'Llamadas', grupo: 'Pestañas' },
   { id: 'leads', label: 'Leads', grupo: 'Pestañas' },
   { id: 'metricas', label: 'Métricas', grupo: 'Pestañas' },
-  { id: 'objetivos', label: 'Objetivos', grupo: 'Pestañas' },
+  { id: 'objetivos', label: 'Objetivos y calculadora', grupo: 'Pestañas' },
   { id: 'avatar', label: 'Avatar y anuncios', grupo: 'Pestañas' },
   { id: 'comparar', label: 'Comparar', grupo: 'Pestañas' },
   { id: 'config', label: 'Configuración de lanzamientos', grupo: 'Acciones' },

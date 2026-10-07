@@ -101,7 +101,7 @@
           <button type="button" class="view-tab" data-view="llamadas">Llamadas <span id="llamadas-badge" class="tab-count" hidden></span></button>
           <button type="button" class="view-tab active" data-view="leads">Leads</button>
           <button type="button" class="view-tab" data-view="metricas">Métricas</button>
-          <button type="button" class="view-tab" data-view="objetivos">Objetivos</button>
+          <button type="button" class="view-tab" data-view="objetivos">Objetivos y calculadora</button>
           <button type="button" class="view-tab" data-view="avatar">Avatar y anuncios</button>
           <button type="button" class="view-tab" data-view="comparar">Comparar</button>
           <button type="button" class="view-tab" data-view="vanuncios">Anuncios ganadores</button>
@@ -340,8 +340,10 @@
         </section>
 
         <section id="view-objetivos" hidden>
-          <p class="muted hoy-intro">Cuánto llevas de cada objetivo y a qué ritmo hay que ir hasta su fecha límite. Los objetivos se ponen en Configuración → Lanzamiento → Objetivos.</p>
+          <p class="muted hoy-intro">Pon aquí los objetivos del lanzamiento: verás cuánto llevas y a qué ritmo hay que ir. Debajo, la calculadora usa los lanzamientos anteriores para decirte, en tres escenarios, cuántos registros e inversión necesitas, el CPL máximo y el recomendado, y a dónde llegas al ritmo actual o con tu presupuesto.</p>
+          <div id="obj-form"></div>
           <div id="objetivos"></div>
+          <div id="calculadora"></div>
         </section>
 
         <section id="view-avatar" hidden>
@@ -623,15 +625,6 @@
                 <label class="field"><span>Campo con el ID de conjunto</span><select id="cfg-fa-adset"></select></label>
                 <label class="field"><span>Campo con el ID de anuncio</span><select id="cfg-fa-ad"></select></label>
               </div>
-            </div>
-          </section>
-          <section class="cfg-sec" data-sec="7">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">7</span><div><h3>Objetivos del lanzamiento</h3><p>Opcional. En Métricas verás el progreso hacia cada uno. Vacío = sin objetivo.</p></div></header>
-            <div class="grid2">
-              <label class="field"><span>Registros</span><input id="cfg-obj-registros" inputmode="numeric" placeholder="2000"></label>
-              <label class="field"><span>Entradas VIP</span><input id="cfg-obj-vip" inputmode="numeric" placeholder="300"></label>
-              <label class="field"><span>Ventas de Raíces</span><input id="cfg-obj-ventas" inputmode="numeric" placeholder="100"></label>
-              <label class="field"><span>Facturación total (€) <small>(VIP + Raíces)</small></span><input id="cfg-obj-facturacion" inputmode="decimal" placeholder="120000"></label>
             </div>
           </section>
           <div id="cfg-snapshot" class="snapshot-box"></div>

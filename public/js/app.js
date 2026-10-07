@@ -6,6 +6,7 @@ import { ENCUESTA_PREGUNTAS } from './encuesta.js';
 import { enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay } from './videos.js';
+import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento } from './calculadora.js';
 import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
@@ -811,39 +812,244 @@ const OBJ_INFO = {
 };
 function renderObjetivos(m) {
   const launch = state.config.launches[state.launchCode];
+  renderObjForm(launch);
   const box = $('#objetivos');
   if (!m.objetivos.length) {
     box.innerHTML = `<div class="card empty obj-empty">${icon('target', 'ico-xl')}<h2>Aún no hay objetivos para este lanzamiento</h2>
-      <p class="muted">Pon metas de registros, entradas VIP, ventas y facturación y aquí verás cuánto llevas, cuánto falta y a qué ritmo hay que ir.</p>
-      <button type="button" class="btn primary config-only" data-action="poner-objetivos">Poner objetivos</button></div>`;
+      <p class="muted">${puedeConfig() ? 'Pon arriba las metas de registros, entradas VIP, ventas y facturación' : 'Cuando se pongan las metas de registros, VIP, ventas y facturación'} y aquí verás cuánto llevas, cuánto falta y a qué ritmo hay que ir.</p></div>`;
+  } else {
+    const fmt = (o, n) => (o.unit === 'eur' ? eur(n) : Math.round(n).toLocaleString('es-ES'));
+    // El ritmo diario lleva un decimal si es pequeño (1,3 al día mejor que 1).
+    const fmtDia = (o, n) => (o.unit === 'eur' ? eur(n) : n.toLocaleString('es-ES', { maximumFractionDigits: n < 10 ? 1 : 0 }));
+    const today = Date.parse(`${dayInMadrid(new Date().toISOString())}T12:00:00Z`);
+    box.innerHTML = `<div class="obj-grid">${m.objetivos.map((o) => {
+      const info = OBJ_INFO[o.label] || { ico: 'target', tone: 'accent' };
+      const done = o.actual >= o.meta;
+      const falta = Math.max(0, o.meta - o.actual);
+      const limite = String(launch[info.hasta] || '').slice(0, 10);
+      const dias = limite ? Math.round((Date.parse(`${limite}T12:00:00Z`) - today) / 86400_000) + 1 : null;
+      const ritmo = done ? '¡Objetivo conseguido! 🎉'
+        : dias == null ? `Faltan ${fmt(o, falta)}`
+          : dias <= 0 ? `Faltaron ${fmt(o, falta)} · el plazo (${info.hastaTxt}) ya terminó`
+            : `Faltan ${fmt(o, falta)} · ${fmtDia(o, falta / dias)} al día durante ${dias} ${dias === 1 ? 'día' : 'días'} hasta ${info.hastaTxt}`;
+      return `<article class="obj-card tone-${info.tone}${done ? ' done' : ''}">
+        <header><span class="kpi-ico">${icon(info.ico)}</span><h3>${o.label}</h3><span class="obj-pct">${Math.round(o.pct * 100)}%</span></header>
+        <p class="obj-value"><strong>${fmt(o, o.actual)}</strong> <span class="muted">de ${fmt(o, o.meta)}</span></p>
+        <div class="obj-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(Math.min(1, o.pct) * 100)}"><span style="width:${Math.min(100, o.pct * 100)}%"></span></div>
+        <p class="obj-ritmo">${ritmo}</p>
+      </article>`;
+    }).join('')}</div>`;
+  }
+  renderCalculadora(m, launch);
+}
+
+// Objetivos editables en la propia pestaña (quien puede configurar; el resto los ve).
+const OBJ_CAMPOS = [['registros', 'Registros', '2000'], ['vip', 'Entradas VIP', '300'], ['ventas', 'Ventas de Raíces', '100'], ['facturacion', 'Facturación total (€) <small>(VIP + Raíces)</small>', '120000']];
+function renderObjForm(launch) {
+  const box = $('#obj-form');
+  if (box.dataset.code === state.launchCode && box.contains(document.activeElement)) return; // no pisar lo que se escribe
+  box.dataset.code = state.launchCode;
+  const o = launch.objetivos || {};
+  const editable = puedeConfig();
+  box.innerHTML = `<form class="card obj-form" id="obj-form-el">
+    <h3>${icon('target')} Objetivos de «${esc(launch.name)}»</h3>
+    <div class="grid4">${OBJ_CAMPOS.map(([k, label, ph]) => `<label class="field"><span>${label}</span><input data-obj="${k}" inputmode="decimal" value="${o[k] || ''}" placeholder="${ph}" ${editable ? '' : 'readonly'}></label>`).join('')}</div>
+    ${editable ? '<div class="row"><button type="submit" class="btn primary">Guardar objetivos</button><span class="muted" id="obj-status" aria-live="polite"></span></div>' : '<p class="muted small">Solo quien puede configurar cambia los objetivos.</p>'}
+  </form>`;
+}
+document.addEventListener('submit', async (e) => {
+  if (e.target.id !== 'obj-form-el') return;
+  e.preventDefault();
+  const objetivos = Object.fromEntries($$('[data-obj]').map((i) => [i.dataset.obj, i.value.trim().replace(/\./g, '').replace(',', '.')]));
+  await guardarObjetivos({ objetivos }, '#obj-status');
+});
+async function guardarObjetivos(cambio, statusSel) {
+  const st = $(statusSel);
+  st.textContent = 'Guardando…';
+  try {
+    const { config } = await api('/api/config', { method: 'POST', body: { op: 'objetivos', l: state.launchCode, ...cambio } });
+    state.config = config;
+    $('#obj-form').dataset.code = '';
+    render();
+    const st2 = $(statusSel);
+    if (st2) st2.textContent = 'Guardado ✓';
+  } catch (err) { st.textContent = err.message; }
+}
+
+// ---------- Calculadora: escenarios con el histórico, CPL máximo y recomendado, y proyector ----------
+// Resumen de los lanzamientos anteriores (se guarda en este navegador para no recargar sus leads cada vez).
+const CALC_KEY = () => `lsd_calc_hist_${state.cliente || 'principal'}`;
+function histGuardado() {
+  try { return JSON.parse(ls.get(CALC_KEY()) || '{}'); } catch { return {}; }
+}
+function lanzamientosHistorico() {
+  const actual = state.config.launches[state.launchCode];
+  const embudo = embudoDeLanz(actual);
+  // Anteriores a este (por inicio de captación) del mismo embudo.
+  return launchesSorted().filter(([c, l]) => c !== state.launchCode && embudoDeLanz(l) === embudo
+    && (!actual.inicioCaptacion || !l.inicioCaptacion || l.inicioCaptacion < actual.inicioCaptacion));
+}
+function historico() {
+  const g = histGuardado();
+  return lanzamientosHistorico().map(([c]) => g[c]).filter(Boolean);
+}
+async function cargarHistorico() {
+  const g = histGuardado();
+  for (const [c, l] of lanzamientosHistorico()) {
+    const m = await loadLaunchMetrics(c);
+    g[c] = { ...resumenLanzamiento(c, l, m), at: new Date().toISOString() };
+  }
+  try { ls.set(CALC_KEY(), JSON.stringify(g)); } catch { /* sin almacenamiento */ }
+}
+const pctTxt = (x) => (x == null ? '–' : `${(x * 100).toLocaleString('es-ES', { maximumFractionDigits: 1 })}%`);
+const numTxt = (x) => (x == null ? '–' : Math.round(x).toLocaleString('es-ES'));
+
+// Supuestos de la pantalla (lo escrito, sin guardar) o los guardados en el lanzamiento.
+function supuestosCalc(launch) {
+  const box = $('#calc-supuestos');
+  const g = launch.calculadora || {};
+  if (!box || box.dataset.code !== state.launchCode) return { ...g };
+  return Object.fromEntries($$('[data-calc]', box).map((i) => [i.dataset.calc, i.value.trim().replace(',', '.')]));
+}
+
+function renderCalculadora(m, launch, { soloResultados = false } = {}) {
+  const box = $('#calculadora');
+  const hist = historico();
+  const pendientes = lanzamientosHistorico().length - hist.length;
+  const sup = supuestosCalc(launch);
+  const manual = {
+    cpl: sup.cpl, ticket: sup.ticket,
+    convVip: sup.convVip ? Number(sup.convVip) / 100 : '', convVenta: sup.convVenta ? Number(sup.convVenta) / 100 : '',
+  };
+  const esc3 = escenarios(hist, manual);
+  const obj = launch.objetivos || {};
+  const hayObj = ['registros', 'vip', 'ventas', 'facturacion'].some((k) => Number(obj[k]) > 0);
+  // Días de captación que quedan y ritmo medio desde que empezó.
+  const hoy = dayInMadrid(new Date().toISOString());
+  const finCapt = launch.finCaptacion || (launch.fechaDirecto ? addDays(launch.fechaDirecto, -1) : '');
+  const diasHasta = (d) => (d ? Math.round((Date.parse(`${d}T12:00:00Z`) - Date.parse(`${hoy}T12:00:00Z`)) / 86400_000) + 1 : null);
+  const quedan = diasHasta(finCapt);
+  const llevaDias = launch.inicioCaptacion ? Math.max(1, -diasHasta(launch.inicioCaptacion) + 1) : null;
+  const ritmo = llevaDias && launch.inicioCaptacion <= hoy ? m.total / llevaDias : null;
+  const actual = { registros: m.total, vip: m.vip, ventas: m.compra, facturacion: m.eco.facturacion, inversion: m.eco.inversion || Number(launch.inversion) || 0 };
+  const opts = {
+    precioVip: Number(launch.precioVip) || 0, roasObjetivo: Number(sup.roasObjetivo) || ROAS_OBJETIVO_DEF,
+    diasCaptacion: quedan > 0 ? quedan : null, ritmoDiario: ritmo, presupuesto: Number(sup.presupuesto) || 0,
+  };
+  const res = Object.fromEntries(ESCENARIOS.map((e) => [e.id, proyectar(obj, esc3[e.id], actual, opts)]));
+  const cplActual = actual.inversion && m.total ? actual.inversion / m.total : null;
+
+  const resultados = !hayObj
+    ? '<p class="muted">Pon al menos un objetivo arriba para calcular lo que necesitas.</p>'
+    : !res.neutro.calculable
+      ? '<div class="notice warn">Faltan datos para calcular: la conversión a venta (y a VIP, si hay objetivo de VIP). Carga el histórico o escribe los supuestos.</div>'
+      : `${esc3.neutro.cpl == null ? '<div class="notice warn">Sin CPL no se calcula la inversión: carga un histórico con inversión o escribe el CPL en los supuestos.</div>' : ''}<div class="calc-esc">${ESCENARIOS.map((e) => {
+        const r = res[e.id];
+        const s = esc3[e.id];
+        const nec = r.necesario;
+        const cplOk = cplActual != null && r.cplRecomendado != null ? (cplActual <= r.cplRecomendado ? 'ok' : cplActual <= r.cplMax ? 'warn' : 'mal') : '';
+        return `<article class="calc-card tone-${e.tone}">
+          <header><h4>${e.label}</h4><small class="muted">CPL ${eur(s.cpl)} · VIP ${pctTxt(s.convVip)} · venta ${pctTxt(s.convVenta)} · ticket ${eur(s.ticket)}</small></header>
+          <dl>
+            <div><dt>Registros necesarios</dt><dd><strong>${numTxt(nec.registros)}</strong><small>manda el objetivo de ${{ registros: 'registros', ventas: 'ventas', vip: 'VIP', facturacion: 'facturación' }[r.manda]}</small></dd></div>
+            <div><dt>Inversión total</dt><dd><strong>${nec.inversion == null ? '–' : eur(nec.inversion)}</strong><small>${r.inversionPendiente != null && actual.inversion ? `faltan ${eur(r.inversionPendiente)}` : ''}</small></dd></div>
+            <div><dt>CPL máximo</dt><dd><strong>${eur(r.cplMax)}</strong><small>con él, lo invertido = lo facturado</small></dd></div>
+            <div><dt>CPL recomendado</dt><dd><strong class="${cplOk}">${eur(r.cplRecomendado)}</strong><small>para un ROAS de ${opts.roasObjetivo.toLocaleString('es-ES')}</small></dd></div>
+            <div><dt>Resultado</dt><dd><strong>${numTxt(nec.ventas)} ventas · ${numTxt(nec.vip)} VIP</strong><small>${eur(nec.facturacion)} · ROAS ${nec.roas ? nec.roas.toLocaleString('es-ES', { maximumFractionDigits: 1 }) : '–'}</small></dd></div>
+            ${r.porDia != null ? `<div><dt>Ritmo desde hoy</dt><dd><strong>${numTxt(r.porDia)} registros/día</strong><small>${r.inversionDia != null ? `${eur(r.inversionDia)}/día · ` : ''}${quedan} días de captación</small></dd></div>` : ''}
+          </dl>
+        </article>`;
+      }).join('')}</div>`;
+
+  // Proyector: a dónde se llega al ritmo actual y con el presupuesto.
+  const fila = (titulo, clave) => {
+    if (!ESCENARIOS.some((e) => res[e.id][clave])) return '';
+    return `<tr><th>${titulo}</th>${ESCENARIOS.map((e) => {
+      const r = res[e.id][clave];
+      if (!r) return '<td>–</td>';
+      const no = noLlega(obj, r);
+      return `<td><strong>${numTxt(r.ventas)} ventas</strong> · ${numTxt(r.registros)} registros<br><small>${eur(r.facturacion)}${r.inversion != null ? ` · inversión ${eur(r.inversion)}` : ''}</small><br>${hayObj ? (no.length ? `<span class="error small">✗ no llega a ${no.join(', ')}</span>` : '<span class="ok-txt small">✓ llega a los objetivos</span>') : ''}</td>`;
+    }).join('')}</tr>`;
+  };
+  const proyector = fila(`Al ritmo actual <small>(${ritmo != null ? `${ritmo.toLocaleString('es-ES', { maximumFractionDigits: 1 })} registros/día` : '–'}${quedan > 0 ? ` · ${quedan} días` : ''})</small>`, 'alRitmo')
+    + fila(`Con tu presupuesto <small>(${eur(opts.presupuesto)})</small>`, 'conPresupuesto');
+
+  // Sugerencias en claro.
+  const sug = [];
+  const n = res.neutro;
+  if (hayObj && n.calculable && n.necesario) {
+    sug.push(`En el escenario neutro necesitas <strong>${numTxt(n.necesario.registros)} registros</strong>${n.necesario.inversion != null ? ` e invertir <strong>${eur(n.necesario.inversion)}</strong> (entre ${eur(res.favorable.necesario?.inversion)} si va bien y ${eur(res.desfavorable.necesario?.inversion)} si va mal)` : ` (entre ${numTxt(res.favorable.necesario?.registros)} si va bien y ${numTxt(res.desfavorable.necesario?.registros)} si va mal)`}.`);
+    if (n.faltan > 0 && n.porDia != null) sug.push(`Te faltan ${numTxt(n.faltan)} registros: unos <strong>${numTxt(n.porDia)} al día</strong>${n.inversionDia != null ? ` (≈ ${eur(n.inversionDia)}/día de publicidad)` : ''} hasta el fin de la captación.`);
+    if (ritmo != null && n.porDia != null && ritmo < n.porDia) sug.push(`Vas a ${ritmo.toLocaleString('es-ES', { maximumFractionDigits: 1 })} registros al día: necesitas <strong>${numTxt(n.porDia - ritmo)} más al día</strong>. Sube presupuesto en los anuncios ganadores o abre nuevos públicos.`);
+    if (cplActual != null && n.cplMax != null) {
+      if (cplActual > n.cplMax) sug.push(`<span class="error">Tu CPL actual (${eur(cplActual)}) supera el máximo (${eur(n.cplMax)}): estás perdiendo dinero con cada registro. Para y revisa creatividades y públicos.</span>`);
+      else if (cplActual > n.cplRecomendado) sug.push(`Tu CPL actual (${eur(cplActual)}) está entre el recomendado (${eur(n.cplRecomendado)}) y el máximo (${eur(n.cplMax)}): rentable pero justo. Apaga los anuncios con peor CPL.`);
+      else sug.push(`Tu CPL actual (${eur(cplActual)}) está por debajo del recomendado (${eur(n.cplRecomendado)}): hay margen para <strong>escalar la inversión</strong>.`);
+    }
+    if (opts.presupuesto && n.conPresupuesto) {
+      const noP = noLlega(obj, n.conPresupuesto);
+      sug.push(noP.length
+        ? `Con ${eur(opts.presupuesto)} llegarías a unas ${numTxt(n.conPresupuesto.ventas)} ventas (neutro). Para los objetivos el presupuesto debería ser de unos <strong>${eur(n.necesario.inversion)}</strong>.`
+        : `Con ${eur(opts.presupuesto)} llegas a los objetivos en el escenario neutro (${numTxt(n.conPresupuesto.ventas)} ventas).`);
+    }
+  }
+  if (esc3.n < 3) sug.push(`<span class="muted">Con ${esc3.n} lanzamiento${esc3.n === 1 ? '' : 's'} de histórico los escenarios favorable y desfavorable son ±20 % del neutro. Con 3 o más se usan los lanzamientos mejores y peores.</span>`);
+
+  const resultadosHtml = `${resultados}
+    ${proyector ? `<h4 class="calc-h">Proyector: a dónde llegas</h4><div class="table-scroll"><table class="metric-table calc-proy"><thead><tr><th></th>${ESCENARIOS.map((e) => `<th>${e.label}</th>`).join('')}</tr></thead><tbody>${proyector}</tbody></table></div>` : ''}
+    ${sug.length ? `<h4 class="calc-h">Sugerencias</h4><ul class="calc-sug">${sug.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}`;
+  if (soloResultados && $('#calc-resultados')) { $('#calc-resultados').innerHTML = resultadosHtml; return; }
+
+  const g = launch.calculadora || {};
+  const campo = (k, label, ph, extra = '') => `<label class="field"><span>${label}</span><input data-calc="${k}" inputmode="decimal" value="${g[k] ?? ''}" placeholder="${ph}" ${extra}></label>`;
+  const editable = puedeConfig() ? '' : 'readonly';
+  const neutro = esc3.neutro;
+  const histTabla = hist.length ? `<details class="calc-hist"><summary>Histórico usado (${hist.length} lanzamiento${hist.length === 1 ? '' : 's'})</summary><div class="table-scroll"><table class="metric-table"><thead><tr><th>Lanzamiento</th><th class="num">Registros</th><th class="num">Inversión</th><th class="num">CPL</th><th class="num">% VIP</th><th class="num">% venta</th><th class="num">Ticket</th><th class="num">ROAS</th></tr></thead><tbody>${hist.map((h) => `<tr><td>${esc(h.name)}</td><td class="num">${numTxt(h.registros)}</td><td class="num">${eur(h.inversion)}</td><td class="num">${eur(h.cpl)}</td><td class="num">${pctTxt(h.convVip)}</td><td class="num">${pctTxt(h.convVenta)}</td><td class="num">${eur(h.ticket)}</td><td class="num">${h.roas ? h.roas.toLocaleString('es-ES', { maximumFractionDigits: 1 }) : '–'}</td></tr>`).join('')}</tbody></table></div></details>` : '';
+  box.innerHTML = `<section class="card calc">
+    <h3>${icon('trend')} Calculadora y proyector</h3>
+    <p class="muted">Con los datos de los lanzamientos anteriores de este embudo (o los supuestos que escribas) calcula lo que necesitas para llegar a los objetivos en tres escenarios.</p>
+    <div class="row calc-hist-bar">
+      <button type="button" class="btn" id="calc-cargar">${hist.length ? 'Actualizar histórico' : 'Cargar histórico'}</button>
+      <span class="muted">${lanzamientosHistorico().length ? `${hist.length} de ${lanzamientosHistorico().length} lanzamientos anteriores cargados${pendientes ? ' · pulsa para cargar el resto' : ''}` : 'No hay lanzamientos anteriores en este embudo: escribe los supuestos.'}</span>
+    </div>
+    ${histTabla}
+    <div id="calc-supuestos" data-code="${esc(state.launchCode)}">
+      <h4 class="calc-h">Supuestos <small class="muted">(vacío = el dato del histórico; escribe para simular)</small></h4>
+      <div class="grid4">
+        ${campo('cpl', 'CPL (€ por registro)', neutro.cpl != null && esc3.fuente.cpl !== 'manual' ? eur(neutro.cpl) : 'p. ej. 4', editable)}
+        ${campo('convVip', '% que compra la VIP', neutro.convVip != null && esc3.fuente.convVip !== 'manual' ? pctTxt(neutro.convVip) : 'p. ej. 10', editable)}
+        ${campo('convVenta', '% que compra el programa', neutro.convVenta != null && esc3.fuente.convVenta !== 'manual' ? pctTxt(neutro.convVenta) : 'p. ej. 3', editable)}
+        ${campo('ticket', 'Ticket medio del programa (€)', neutro.ticket != null && esc3.fuente.ticket !== 'manual' ? eur(neutro.ticket) : eur(Number(launch.precioPrograma) || 0), editable)}
+        ${campo('roasObjetivo', 'ROAS objetivo <small>(facturación ÷ inversión)</small>', String(ROAS_OBJETIVO_DEF).replace('.', ','), editable)}
+        ${campo('presupuesto', 'Presupuesto total de publicidad (€) <small>(opcional)</small>', 'p. ej. 15000', editable)}
+      </div>
+      <p class="muted small">Precio de la VIP: ${eur(Number(launch.precioVip) || 0)} (de Configuración). Llevas ${numTxt(m.total)} registros${actual.inversion ? `, ${eur(actual.inversion)} invertidos (CPL ${eur(cplActual)})` : ''}.</p>
+      ${puedeConfig() ? '<div class="row"><button type="button" class="btn" id="calc-guardar">Guardar supuestos</button><span class="muted" id="calc-status" aria-live="polite"></span></div>' : ''}
+    </div>
+    <div id="calc-resultados">${resultadosHtml}</div>
+  </section>`;
+}
+document.addEventListener('input', (e) => {
+  if (!e.target.closest('#calc-supuestos')) return;
+  const launch = state.config.launches[state.launchCode];
+  renderCalculadora(currentMetrics(), launch, { soloResultados: true });
+});
+document.addEventListener('click', async (e) => {
+  if (e.target.id === 'calc-guardar') {
+    const sup = Object.fromEntries($$('#calc-supuestos [data-calc]').map((i) => [i.dataset.calc, i.value.trim().replace(/\.(?=\d{3})/g, '').replace(',', '.')]));
+    await guardarObjetivos({ calculadora: sup }, '#calc-status');
     return;
   }
-  const fmt = (o, n) => (o.unit === 'eur' ? eur(n) : Math.round(n).toLocaleString('es-ES'));
-  // El ritmo diario lleva un decimal si es pequeño (1,3 al día mejor que 1).
-  const fmtDia = (o, n) => (o.unit === 'eur' ? eur(n) : n.toLocaleString('es-ES', { maximumFractionDigits: n < 10 ? 1 : 0 }));
-  const today = Date.parse(`${dayInMadrid(new Date().toISOString())}T12:00:00Z`);
-  box.innerHTML = `<div class="obj-grid">${m.objetivos.map((o) => {
-    const info = OBJ_INFO[o.label] || { ico: 'target', tone: 'accent' };
-    const done = o.actual >= o.meta;
-    const falta = Math.max(0, o.meta - o.actual);
-    const limite = String(launch[info.hasta] || '').slice(0, 10);
-    const dias = limite ? Math.round((Date.parse(`${limite}T12:00:00Z`) - today) / 86400_000) + 1 : null;
-    const ritmo = done ? '¡Objetivo conseguido! 🎉'
-      : dias == null ? `Faltan ${fmt(o, falta)}`
-        : dias <= 0 ? `Faltaron ${fmt(o, falta)} · el plazo (${info.hastaTxt}) ya terminó`
-          : `Faltan ${fmt(o, falta)} · ${fmtDia(o, falta / dias)} al día durante ${dias} ${dias === 1 ? 'día' : 'días'} hasta ${info.hastaTxt}`;
-    return `<article class="obj-card tone-${info.tone}${done ? ' done' : ''}">
-      <header><span class="kpi-ico">${icon(info.ico)}</span><h3>${o.label}</h3><span class="obj-pct">${Math.round(o.pct * 100)}%</span></header>
-      <p class="obj-value"><strong>${fmt(o, o.actual)}</strong> <span class="muted">de ${fmt(o, o.meta)}</span></p>
-      <div class="obj-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(Math.min(1, o.pct) * 100)}"><span style="width:${Math.min(100, o.pct * 100)}%"></span></div>
-      <p class="obj-ritmo">${ritmo}</p>
-    </article>`;
-  }).join('')}</div>`;
-}
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('[data-action="poner-objetivos"]')) return;
-  openConfig(state.launchCode);
-  goToField('cfg-obj-registros');
+  if (e.target.id !== 'calc-cargar') return;
+  e.target.disabled = true;
+  try {
+    await cargarHistorico();
+    render();
+  } catch (err) {
+    notice(`No se pudo cargar el histórico: ${err.message}`, true);
+  } finally {
+    e.target.disabled = false;
+  }
 });
 
 // Avatares de compradoras: perfiles sacados de la encuesta y de quién compra de verdad.
@@ -1674,10 +1880,6 @@ function openConfig(code) {
   $('#cfg-fraccionado-tag').value = l.fraccionadoTag || '';
   $('#cfg-unico-tag').value = l.unicoTag || '';
   $('#cfg-publi-tag').value = l.publiTag || '';
-  $('#cfg-obj-registros').value = l.objetivos?.registros || '';
-  $('#cfg-obj-vip').value = l.objetivos?.vip || '';
-  $('#cfg-obj-ventas').value = l.objetivos?.ventas || '';
-  $('#cfg-obj-facturacion').value = l.objetivos?.facturacion || '';
   $('#cfg-organico-tag').value = l.organicoTag || '';
   $('#cfg-inversion').value = l.inversion || '';
   $('#cfg-meta-filtro').value = l.metaFiltro || '';
@@ -1933,10 +2135,6 @@ function readForm() {
       fraccionadoTag: $('#cfg-fraccionado-tag').value.trim().toLowerCase(),
       unicoTag: $('#cfg-unico-tag').value.trim().toLowerCase(),
       publiTag: $('#cfg-publi-tag').value.trim().toLowerCase(),
-      objetivos: {
-        registros: $('#cfg-obj-registros').value, vip: $('#cfg-obj-vip').value,
-        ventas: $('#cfg-obj-ventas').value, facturacion: $('#cfg-obj-facturacion').value,
-      },
       organicoTag: $('#cfg-organico-tag').value.trim().toLowerCase(),
       inversion: $('#cfg-inversion').value,
       metaFiltro: $('#cfg-meta-filtro').value.trim(),
