@@ -6811,6 +6811,7 @@ async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
   for (const k of ['calentamiento', 'abierta', 'cerrada', 'boton']) $(`#mt-t-${k}`).value = m?.textos?.[k] || '';
   $('#mt-code').value = code || '';
   $('#mt-code').readOnly = Boolean(m);
+  $('#meteo-dialog .tab[data-tab="mt-oferta"]').click();
   $('#mt-borrar').hidden = !m;
   $('#mt-status').textContent = '';
   // Un meteórico nuevo hereda del último del mismo sitio las etiquetas, el campo de fecha y los textos.
@@ -6829,7 +6830,7 @@ async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
 $('#mt-guardar').addEventListener('click', async () => {
   const code = (meteoEdit.code || $('#mt-code').value.trim().toLowerCase());
   const status = $('#mt-status');
-  if (!LAUNCH_CODE_RE.test(code)) { status.textContent = 'El código solo puede tener minúsculas, números y guiones (2-24).'; return; }
+  if (!LAUNCH_CODE_RE.test(code)) { $('#meteo-dialog .tab[data-tab="mt-oferta"]').click(); status.textContent = 'El código solo puede tener minúsculas, números y guiones (2-24).'; return; }
   if (!meteoEdit.code && (state.config.meteoricos?.[code] || state.config.launches[code] || state.config.vsls?.[code])) { status.textContent = `El código «${code}» ya está en uso.`; return; }
   const v = Object.fromEntries(MT_CAMPOS.map((k) => [k, $(`#mt-${k}`).value.trim()]));
   const m = {
@@ -6838,7 +6839,7 @@ $('#mt-guardar').addEventListener('click', async () => {
     textos: Object.fromEntries(['calentamiento', 'abierta', 'cerrada', 'boton'].map((k) => [k, $(`#mt-t-${k}`).value.trim()])),
     embudo: meteoEdit.lanzamiento ? '' : meteoEdit.embudo, lanzamiento: meteoEdit.lanzamiento,
   };
-  if (!m.name) { status.textContent = 'Ponle un nombre.'; return; }
+  if (!m.name) { $('#meteo-dialog .tab[data-tab="mt-oferta"]').click(); status.textContent = 'Ponle un nombre.'; return; }
   status.textContent = 'Guardando…';
   try {
     const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, meteoricos: { ...(state.config.meteoricos || {}), [code]: m } } });

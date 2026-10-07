@@ -927,6 +927,11 @@
       <header class="dialog-head"><h2 id="meteo-titulo">⚡ Meteórico</h2><button class="btn ghost" value="cancel" type="submit" formnovalidate aria-label="Cerrar">✕</button></header>
       <div class="dialog-body">
         <p class="muted" id="meteo-de"></p>
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" data-tab="mt-oferta" data-tab-icon="rocket">Oferta y tiempos</button>
+          <button type="button" class="tab" data-tab="mt-recursos" data-tab-icon="tag">Etiquetas y recursos</button>
+        </div>
+        <section class="tab-panel" data-panel="mt-oferta">
         <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">⚡</span><div><h3>La oferta</h3><p>Qué se vende y cómo se llama esta acción.</p></div></header>
           <div class="grid2">
             <label class="field"><span>Nombre</span><input id="mt-name" maxlength="80" placeholder="Black Friday 2026"></label>
@@ -942,6 +947,16 @@
             <label class="field"><span>Abre la oferta</span><input id="mt-apertura" type="datetime-local"></label>
             <label class="field"><span>Cierra la oferta</span><input id="mt-cierre" type="datetime-local"></label>
           </div></section>
+        <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">🎯</span><div><h3>Objetivos e inversión</h3><p>Para el progreso, el coste por venta y el ROAS.</p></div></header>
+          <div class="grid2">
+            <label class="field"><span>Objetivo de ventas</span><input id="mt-objetivoVentas" inputmode="numeric"></label>
+            <label class="field"><span>Objetivo de facturación (€)</span><input id="mt-objetivoFacturacion" inputmode="decimal"></label>
+            <label class="field"><span>Inversión en anuncios (€) <small>(si no conectas Meta)</small></span><input id="mt-inversion" inputmode="decimal"></label>
+            <label class="field"><span>Campañas de Meta <small>(su nombre contiene…; vacío = el código)</small></span><input id="mt-metaFiltro"></label>
+          </div>
+          <label class="field"><span>Notas</span><textarea id="mt-notas" rows="3" maxlength="2000" placeholder="Secuencia de emails, mensajes de WhatsApp, a quién va…"></textarea></label></section>
+        </section>
+        <section class="tab-panel" data-panel="mt-recursos" hidden>
         <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">🏷️</span><div><h3>Etiquetas de GHL</h3><p>Las ventas se cuentan con la etiqueta de compra. Si el producto ya se vendió antes, pon el campo de fecha de compra o haz la «foto» antes de abrir.</p></div></header>
           <div class="grid2">
             <label class="field"><span>Etiqueta de compra de esta oferta</span><input id="mt-compraTag" list="tag-list" placeholder="Busca la etiqueta…"></label>
@@ -962,14 +977,7 @@
             <label class="field"><span>Texto al cerrar</span><input id="mt-t-cerrada" maxlength="160" placeholder="La oferta ha terminado. ¡Gracias!"></label>
             <label class="field"><span>Texto del botón</span><input id="mt-t-boton" maxlength="40" placeholder="Quiero la oferta"></label>
           </div></section>
-        <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">🎯</span><div><h3>Objetivos e inversión</h3><p>Para el progreso, el coste por venta y el ROAS.</p></div></header>
-          <div class="grid2">
-            <label class="field"><span>Objetivo de ventas</span><input id="mt-objetivoVentas" inputmode="numeric"></label>
-            <label class="field"><span>Objetivo de facturación (€)</span><input id="mt-objetivoFacturacion" inputmode="decimal"></label>
-            <label class="field"><span>Inversión en anuncios (€) <small>(si no conectas Meta)</small></span><input id="mt-inversion" inputmode="decimal"></label>
-            <label class="field"><span>Campañas de Meta <small>(su nombre contiene…; vacío = el código)</small></span><input id="mt-metaFiltro"></label>
-          </div>
-          <label class="field"><span>Notas</span><textarea id="mt-notas" rows="3" maxlength="2000" placeholder="Secuencia de emails, mensajes de WhatsApp, a quién va…"></textarea></label></section>
+        </section>
         <p id="mt-status" class="muted"></p>
       </div>
       <footer class="dialog-foot">
