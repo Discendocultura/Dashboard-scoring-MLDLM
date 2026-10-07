@@ -62,6 +62,7 @@
         <button id="btn-reload" class="tb-btn tb-reload" type="button" data-tb-icon="refresh" title="Volver a cargar los datos desde GHL"><span class="tb-txt">Actualizar</span></button>
         <button id="btn-zoom" class="tb-btn tb-zoom zoom-only lanz-only" type="button" data-tb-icon="video" title="Leer la asistencia del directo en Zoom y etiquetar a los leads"><span class="tb-txt">Sincronizar Zoom</span></button>
         <button id="btn-auditor" class="tb-btn tb-auditor config-only" type="button" data-tb-icon="shield" title="Auditor: revisa el embudo y te dice qué falta, por orden de urgencia"><span class="tb-txt">Auditor</span><span id="auditor-count" class="notif-count" hidden></span></button>
+        <button id="btn-asistente" class="tb-btn tb-asistente" type="button" data-tb-icon="sparkle" title="Asistente de IA: pregúntale por tus cifras o pídele un resumen del lanzamiento" hidden><span class="tb-txt">Asistente</span></button>
         <button id="btn-config" class="tb-btn tb-config config-only" type="button" data-tb-icon="gear" title="Configuración del lanzamiento"><span class="tb-txt">Configuración</span></button>
         <button id="btn-agencia" class="tb-btn tb-agencia superadmin-only" type="button" data-tb-icon="compass" title="Panel de agencia: todos los clientes de un vistazo"><span class="tb-txt">Agencia</span></button>
         <button id="btn-equipo" class="tb-btn tb-equipo admin-only" type="button" data-tb-icon="users" title="Miembros del equipo, roles y permisos"><span class="tb-txt">Equipo</span></button>
@@ -817,6 +818,41 @@
 
   <!-- Tarea -->
   <!-- Auditor de lanzamientos -->
+  <!-- Asistente de IA -->
+  <dialog id="ia-dialog" class="dialog dialog-md">
+    <form method="dialog" id="ia-form">
+      <header class="dialog-head"><h2>✨ Asistente de IA</h2><button class="btn ghost" value="cancel" type="submit" formnovalidate aria-label="Cerrar">✕</button></header>
+      <div class="dialog-body">
+        <p id="ia-off" class="ia-off" hidden>El asistente no está activado. Para activarlo, la agencia añade el secreto <code>ANTHROPIC_API_KEY</code> en Cloudflare (ver README, «Asistente de IA»).</p>
+        <div id="ia-chat" class="ia-chat" aria-live="polite"></div>
+        <div id="ia-sugerencias" class="ia-sugerencias"></div>
+        <p class="muted small ia-privacidad">Al asistente solo le llegan cifras agregadas del dashboard (registros, ventas, conversiones, inversión…), nunca nombres, emails, teléfonos ni respuestas de la encuesta. Revisa sus conclusiones: puede equivocarse.</p>
+      </div>
+      <footer class="dialog-foot ia-foot">
+        <textarea id="ia-pregunta" rows="2" maxlength="1000" placeholder="Pregunta lo que quieras: «¿Cómo va este lanzamiento frente al anterior?»"></textarea>
+        <button id="ia-enviar" class="btn primary" type="button">Preguntar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Borrador de WhatsApp con IA -->
+  <dialog id="ia-wa-dialog" class="dialog dialog-sm">
+    <form method="dialog">
+      <header class="dialog-head"><h2 id="ia-wa-titulo">✨ WhatsApp personalizado</h2><button class="btn ghost" value="cancel" type="submit" aria-label="Cerrar">✕</button></header>
+      <div class="dialog-body">
+        <p class="muted small">Borrador escrito por la IA a partir del mensaje habitual y de lo que ha hecho esta persona (solo con su nombre de pila). Revísalo y edítalo antes de enviarlo.</p>
+        <textarea id="ia-wa-texto" rows="7"></textarea>
+        <p id="ia-wa-estado" class="muted small"></p>
+      </div>
+      <footer class="dialog-foot">
+        <button id="ia-wa-otro" class="btn" type="button">Otra versión</button>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" type="submit">Cancelar</button>
+        <button id="ia-wa-enviar" class="btn primary" type="button">Abrir en WhatsApp</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog id="auditor-dialog" class="dialog dialog-md">
     <form method="dialog">
       <header class="dialog-head"><h2 id="aud-titulo">Auditor</h2><button class="btn ghost" value="cancel" type="submit" aria-label="Cerrar">✕</button></header>

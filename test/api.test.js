@@ -652,7 +652,8 @@ test('permisos nuevos: los roles guardados antes reciben «mensajes» si hacen s
   const viejos = [{ id: 'setter', label: 'Setter', permisos: ['hoy', 'leads'] }, { id: 'cm', label: 'CM', permisos: ['metricas'] }];
   const r = sanitizeRoles(completarPermisosNuevos(viejos));
   assert.deepEqual(r[0].permisos, ['hoy', 'leads', 'mensajes']);
-  assert.deepEqual(r[1].permisos, ['metricas']);
+  // Quien ve las métricas recibe el asistente de IA
+  assert.deepEqual(r[1].permisos, ['metricas', 'asistente']);
   // Si la admin ya lo vio y lo quitó, no vuelve
   assert.deepEqual(completarPermisosNuevos([{ ...viejos[0], vistos: ['mensajes'] }])[0].permisos, ['hoy', 'leads']);
 });
