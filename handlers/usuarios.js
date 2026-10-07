@@ -73,7 +73,7 @@ async function procesar(request, body) {
 
   // Cambiar mi contraseña (cualquier usuario con email, también del rol equipo).
   if (op === 'mi-clave') {
-    const s = await requireSession(request);
+    const s = await requireSession(request, { cliente: true });
     if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
     const nueva = String(body.nueva || '').trim();
     if (nueva.length < 8) throw bad('La contraseña nueva debe tener al menos 8 caracteres');
@@ -87,7 +87,7 @@ async function procesar(request, body) {
 
   // Campanita: hasta cuándo ha visto las notificaciones (para contar solo las nuevas en todos sus dispositivos).
   if (op === 'notif-visto') {
-    const s = await requireSession(request);
+    const s = await requireSession(request, { cliente: true });
     if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
     const users = await listUsers({ fresh: true });
     const me = users.find((u) => u.id === s.uid);
@@ -99,7 +99,7 @@ async function procesar(request, body) {
 
   // Verificación en dos pasos (Mi cuenta): iniciar → activar con el primer código; quitar pide contraseña y código.
   if (op === 'mi-2fa-iniciar' || op === 'mi-2fa-activar' || op === 'mi-2fa-quitar') {
-    const s = await requireSession(request);
+    const s = await requireSession(request, { cliente: true });
     if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
     if (op === 'mi-2fa-iniciar') return json(await iniciarAlta(s.uid));
     if (op === 'mi-2fa-activar') return json({ ok: true, codigosRecuperacion: await confirmarAlta(s.uid, body.codigo) });
@@ -112,7 +112,7 @@ async function procesar(request, body) {
   }
 
   if (op === 'mi-foto') {
-    const s = await requireSession(request);
+    const s = await requireSession(request, { cliente: true });
     if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
     const foto = String(body.foto || '');
     if (foto && (!FOTO_RE.test(foto) || foto.length > FOTO_MAX)) throw bad('La foto no es válida o es demasiado grande');

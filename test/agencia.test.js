@@ -84,3 +84,29 @@ test('agencia: marca por cliente, plantillas de embudo y panel de todos los clie
   assert.match(h.subject, /críticos hoy en 2 clientes/);
   assert.match(h.body, /\?c=clinica-sol/);
 });
+
+test('rol Cliente: solo ve su resumen (sin datos personales) y nada más', async () => {
+  const admin = await login('admin');
+  const nuevo = await call('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'crear', nombre: 'Cliente Prueba', email: 'cliente@ejemplo.com', rol: 'cliente', enviar: false } });
+  assert.equal(nuevo.status, 200);
+  const cli = (await call('/api/login', { method: 'POST', body: { email: 'cliente@ejemplo.com', password: nuevo.data.password } })).res.headers.get('set-cookie').split(';')[0];
+  const cfg = (await call('/api/config', { cookie: admin })).data.config;
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...cfg, launches: { ...cfg.launches, demo: { name: 'Demo', registroTag: 'registro-webinar-demo', vipTag: 'compra-vip-demo', compraTag: 'clienta-raices', precioVip: 27, precioPrograma: 997, inversion: 3000, inicioCaptacion: '2026-10-05', fechaDirecto: '2026-12-20', objetivos: { ventas: 100 } } } } });
+  const r = await call('/api/resumen?fresh=1', { cookie: cli });
+  assert.equal(r.status, 200);
+  const lanz = r.data.embudos.find((e) => e.tipo === 'lanzamiento' && e.code === 'demo');
+  assert.ok(lanz.kpis.registros > 0 && lanz.kpis.ventas >= 0);
+  assert.equal(lanz.kpis.inversion, 3000);
+  assert.ok(lanz.objetivos.some((o) => o.label === 'Ventas de Raíces'));
+  assert.ok(!JSON.stringify(r.data).includes('@')); // sin emails ni datos personales
+  // Nada de la cocina interna
+  for (const path of ['/api/tareas?l=demo', '/api/eventos?l=demo', '/api/leads?tag=registro-webinar-demo', '/api/meta?launch=demo', '/api/usuarios']) {
+    assert.equal((await call(path, { cookie: cli })).status, 403, path);
+  }
+  assert.equal((await call('/api/me', { cookie: cli })).data.role, 'cliente');
+  assert.equal((await call('/api/config', { cookie: cli })).status, 200); // solo nombres y fechas
+  // El rol Cliente no se puede ampliar
+  const roles = (await call('/api/roles', { cookie: admin })).data.roles;
+  await call('/api/roles', { method: 'POST', cookie: admin, body: { roles: roles.map((x) => (x.id === 'cliente' ? { ...x, permisos: ['leads'] } : x)) } });
+  assert.deepEqual((await call('/api/roles', { cookie: admin })).data.roles.find((x) => x.id === 'cliente').permisos, ['resumen']);
+});

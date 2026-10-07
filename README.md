@@ -337,6 +337,9 @@ El mismo dashboard sirve a varios clientes (MLDLM es el **principal**). Arriba, 
 - Los usuarios y el registro de clientes se guardan en el GHL del principal (`lsd_usuarios`, `lsd_clientes`). Cada petición sabe de qué cliente es gracias a `AsyncLocalStorage` (en `wrangler.toml`: `compatibility_flags = ["nodejs_als"]`).
 - Pendiente para clientes que no son MLDLM: algunos textos fijos (nombre del programa «Raíces», mensajes de WhatsApp de serie, tareas habituales, encuesta del avatar) son de MLDLM; se editan o se adaptarán por cliente.
 
+## Portal del cliente (rol «Cliente», solo lectura)
+Para que el cliente vea sus resultados sin tocar nada: en *Equipo → Miembros*, crea su usuario con el rol **Cliente (solo lectura)**. Al entrar ve solo un portal limpio con cada embudo: registros, VIP, ventas, facturación, inversión, ROAS, coste por registro y por venta, sus objetivos, el embudo de conversión y los próximos hitos (en las VSL, los últimos 30 días). No ve leads, tareas, calendario, setteo, configuración ni nada interno, y el servidor se lo impide (solo recibe cifras agregadas, ningún dato personal). Los datos se recalculan cada 15 minutos. En *Equipo → Miembros*, «Ver lo que ve el cliente» lo enseña a la agencia.
+
 ## Vista de agencia (superadmin)
 - **Panel de agencia** (botón *Agencia* arriba): todos los clientes de un vistazo, primero los que necesitan atención. De cada uno: lanzamiento en curso y su próximo hito, registros, VIP y ventas (con su objetivo), inversión total y de los últimos 7 días, CPL, ROAS, críticos e importantes del auditor, tareas vencidas, sus VSL y **«Entrar →»**.
 - **Alta guiada del cliente** (en cada tarjeta): se marca sola: GHL conectado, nombre del producto, equipo con acceso, al menos un embudo, etiquetas de registro y compra creadas en GHL, calendario y pipeline (si usa Llamadas), páginas de GHL con el código (llega la primera visita) y primer registro recibido.

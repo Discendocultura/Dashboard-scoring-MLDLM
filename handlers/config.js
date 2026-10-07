@@ -9,12 +9,12 @@ const EQUIPO_FIELDS = ['name', 'inicioCaptacion', 'finCaptacion', 'fechaDirecto'
 function equipoConfig(config) {
   const launches = {};
   for (const [code, l] of Object.entries(config.launches)) launches[code] = Object.fromEntries(EQUIPO_FIELDS.map((k) => [k, l[k] ?? '']));
-  return { launches, templates: {}, accesos: [], digestEmail: '', defaultCountryCode: config.defaultCountryCode, vsls: Object.fromEntries(Object.entries(config.vsls || {}).map(([id, v]) => [id, { name: v.name }])), embudos: config.embudos };
+  return { launches, templates: {}, accesos: [], digestEmail: '', marca: { producto: config.marca?.producto || '' }, defaultCountryCode: config.defaultCountryCode, vsls: Object.fromEntries(Object.entries(config.vsls || {}).map(([id, v]) => [id, { name: v.name }])), embudos: config.embudos };
 }
 
 export async function GET(request) {
   try {
-    const ses = await requireSession(request);
+    const ses = await requireSession(request, { cliente: true });
     const role = ses.role;
     const config = await getConfig({ fresh: new URL(request.url).searchParams.has('fresh') });
     // El equipo solo ve las tareas: le basta con el nombre y las fechas de cada lanzamiento.

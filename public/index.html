@@ -36,6 +36,18 @@
     </form>
   </section>
 
+  <!-- Portal del cliente (rol «Cliente»: solo lectura, solo su resumen) -->
+  <div id="portal" class="portal" hidden>
+    <header class="portal-head">
+      <div><h1 id="portal-titulo">Resultados</h1><p class="muted" id="portal-sub"></p></div>
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" id="portal-volver" hidden>← Volver al dashboard</button>
+      <button type="button" class="btn" id="portal-cuenta">Mi cuenta</button>
+      <button type="button" class="btn" id="portal-salir">Salir</button>
+    </header>
+    <main class="portal-body" id="portal-body"></main>
+  </div>
+
   <!-- Dashboard -->
   <div id="app" hidden>
     <header class="topbar">
@@ -1133,6 +1145,7 @@
           <div id="seg-body"></div>
         </section>
         <section class="tab-panel" data-panel="equipo">
+          <p class="muted portal-nota">👁️ Para que el cliente vea sus resultados sin tocar nada, crea su usuario con el rol <strong>Cliente (solo lectura)</strong>: solo verá un resumen (registros, ventas, facturación, ROAS, objetivos y próximos hitos). <button type="button" class="btn ghost" id="btn-ver-portal">Ver lo que ve el cliente</button></p>
           <p class="muted">Personas con acceso al dashboard. Al crear una, se crea su contacto en GHL con la etiqueta <code>equipo-dashboard</code> y le llega un email con el enlace, su email y una contraseña. Los cambios se aplican al momento.</p>
           <p class="muted">Qué ve cada rol se decide en la pestaña <strong>Roles y permisos</strong> de esta misma ventana (ahí también puedes crear roles nuevos). Todos tienen Tareas y Calendario.</p>
           <div id="equipo-list"></div>

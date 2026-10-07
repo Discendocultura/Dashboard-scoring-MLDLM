@@ -9,6 +9,7 @@ export const PERMISOS = [
   { id: 'objetivos', label: 'Objetivos y calculadora', grupo: 'Pestañas' },
   { id: 'avatar', label: 'Avatar y anuncios', grupo: 'Pestañas' },
   { id: 'comparar', label: 'Comparar', grupo: 'Pestañas' },
+  { id: 'resumen', label: 'Resumen del cliente (portal de solo lectura)', grupo: 'Pestañas' },
   { id: 'config', label: 'Configuración de lanzamientos', grupo: 'Acciones' },
   { id: 'zoom', label: 'Sincronizar Zoom', grupo: 'Acciones' },
   { id: 'tareas_gestion', label: 'Crear, editar y borrar tareas y eventos', grupo: 'Acciones' },
@@ -22,7 +23,10 @@ export const ROLES_POR_DEFECTO = [
   { id: 'tecnico', label: 'Técnico', permisos: ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'config', 'zoom', 'mensajes'] },
   { id: 'setter', label: 'Setter', permisos: ['hoy', 'llamadas', 'leads', 'mensajes'] },
   { id: 'equipo', label: 'Equipo', permisos: [] },
+  // El propio cliente: solo ve su resumen (registros, ventas, facturación, ROAS, hitos), sin tocar nada.
+  { id: 'cliente', label: 'Cliente (solo lectura)', permisos: ['resumen'] },
 ];
+export const ROL_CLIENTE = 'cliente';
 
 // Permisos añadidos después de que la admin guardara sus roles: qué roles los reciben de entrada
 // (luego se pueden quitar en la tabla). Cada rol guarda en `vistos` los permisos que ya conocía.
@@ -49,11 +53,16 @@ export function idDeRol(label, existentes = []) {
 
 export function sanitizeRoles(list) {
   const seen = new Set(['admin']);
-  return (Array.isArray(list) ? list : []).slice(0, 20).map((r) => ({
+  const out = (Array.isArray(list) ? list : []).slice(0, 20).map((r) => ({
     id: String(r?.id || '').trim(),
     label: String(r?.label || '').trim().slice(0, 30),
     permisos: [...new Set((Array.isArray(r?.permisos) ? r.permisos : []).filter((p) => PERMISO_IDS.includes(p)))],
   })).filter((r) => ROL_ID_RE.test(r.id) && r.label && !seen.has(r.id) && seen.add(r.id));
+  // El rol «Cliente» existe siempre y solo ve su resumen.
+  const cli = out.find((r) => r.id === ROL_CLIENTE);
+  if (cli) cli.permisos = ['resumen'];
+  else out.push({ id: ROL_CLIENTE, label: 'Cliente (solo lectura)', permisos: ['resumen'] });
+  return out;
 }
 
 export function permisosDeRol(roleId, roles) {

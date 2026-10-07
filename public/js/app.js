@@ -10,7 +10,7 @@ import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenL
 import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
-import { PERMISOS, PERMISOS_DATOS, idDeRol } from './roles.js';
+import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE } from './roles.js';
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
 import { PESTANAS, guiaEmbudo, guiaCliente, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
@@ -145,6 +145,7 @@ function progress(done, total, label) {
 // ---------- Login ----------
 function showLogin() {
   $('#app').hidden = true;
+  $('#portal').hidden = true;
   $('#login').hidden = false;
   $('#login-password').focus();
 }
@@ -314,6 +315,9 @@ async function start() {
   document.body.classList.toggle('is-equipo', role === 'equipo');
   document.body.classList.toggle('is-superadmin', state.superadmin);
   pintarCliente(me.cliente);
+  // El cliente (solo lectura) ve únicamente su portal de resultados.
+  if (role === ROL_CLIENTE) { pintarFotoCuenta(); await mostrarPortal(); return; }
+  $('#portal').hidden = true;
   $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
   $('#btn-cuenta').hidden = !state.user;
   pintarFotoCuenta();
@@ -3410,6 +3414,61 @@ $('.tab[data-tab="equipo"]').addEventListener('click', () => { equipoResult('');
 
 // ---------- Clientes (solo superadmin) ----------
 const slugCliente = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/^[^a-z]+/, '').slice(0, 24);
+// ---------- Portal del cliente (rol «Cliente»: solo lectura) ----------
+const fechaPortal = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '');
+const ESTADO_PORTAL = { captacion: ['Captación', 'info'], carrito: ['Carrito abierto', 'buy'], cerrado: ['Cerrado', ''] };
+function tarjetaPortal(e) {
+  if (e.tipo === 'error') return `<article class="portal-card"><h2>${esc(e.nombre)}</h2><p class="error">No se pudieron leer los datos: ${esc(e.error)}</p></article>`;
+  const k = e.kpis;
+  const roas = (x) => (x ? x.toLocaleString('es-ES', { maximumFractionDigits: 1 }) : '–');
+  const kpi = (label, v, sub = '') => `<div class="portal-kpi"><span>${label}</span><strong>${v}</strong>${sub ? `<small>${sub}</small>` : ''}</div>`;
+  const total = e.funnel[0]?.[1] || 0;
+  const funnel = e.funnel.map(([label, n]) => `<div class="funnel-row"><div class="funnel-label">${esc(label)}</div>
+    <div class="funnel-bar"><span style="width:${total ? (n / total) * 100 : 0}%"></span></div><div class="funnel-num"><strong>${(n ?? 0).toLocaleString('es-ES')}</strong> <span class="muted">${pctOf(n, total)}</span></div></div>`).join('');
+  const objetivos = (e.objetivos || []).map((o) => `<div class="portal-obj"><div class="row"><strong>${esc(o.label)}</strong><span class="spacer"></span><span>${o.unit === 'eur' ? eur(o.actual) : Math.round(o.actual).toLocaleString('es-ES')} <span class="muted">de ${o.unit === 'eur' ? eur(o.meta) : o.meta.toLocaleString('es-ES')}</span> · <strong>${Math.round(o.pct * 100)}%</strong></span></div>
+    <div class="obj-bar"><span style="width:${Math.min(100, o.pct * 100)}%"></span></div></div>`).join('');
+  const hitos = (e.hitos || []).map((h) => `<li><strong>${esc(fechaPortal(h.dia))}</strong>${h.hora ? ` · ${esc(h.hora)}` : ''} — ${esc(h.titulo)}</li>`).join('');
+  const [estado, tono] = ESTADO_PORTAL[e.estado] || ['', ''];
+  const cabecera = e.tipo === 'vsl'
+    ? `<h2>🎬 ${esc(e.nombre)}</h2><p class="muted">Últimos 30 días (${esc(fechaPortal(e.periodo.desde))} – ${esc(fechaPortal(e.periodo.hasta))})</p>`
+    : `<h2>🚀 ${esc(e.nombre)} ${estado ? `<span class="badge tone-${tono}">${estado}</span>` : ''}</h2><p class="muted">${esc(e.embudo)} · ${esc(e.formato)}${e.fechas.directo ? ` · webinar el ${esc(fechaPortal(e.fechas.directo))}` : ''}${e.fechas.cierre ? ` · cierre ${esc(fechaPortal(e.fechas.cierre))}` : ''}</p>`;
+  return `<article class="portal-card">${cabecera}
+    <div class="portal-kpis">
+      ${kpi('Registros', (k.registros ?? 0).toLocaleString('es-ES'))}
+      ${k.vip != null ? kpi('Entradas VIP', k.vip.toLocaleString('es-ES')) : ''}
+      ${kpi('Ventas', (k.ventas ?? 0).toLocaleString('es-ES'))}
+      ${kpi('Facturación', eur(k.facturacion || 0))}
+      ${kpi('Inversión en anuncios', eur(k.inversion))}
+      ${kpi('ROAS', roas(k.roas), 'facturación ÷ inversión')}
+      ${kpi('Coste por registro', eur(k.cpl))}
+      ${kpi('Coste por venta', eur(k.cac))}
+    </div>
+    ${objetivos ? `<h3>Objetivos</h3>${objetivos}` : ''}
+    <h3>Embudo</h3><div class="portal-funnel">${funnel}</div>
+    ${hitos ? `<h3>Próximos hitos</h3><ul class="portal-hitos">${hitos}</ul>` : ''}
+  </article>`;
+}
+async function mostrarPortal({ vistaPrevia = false } = {}) {
+  $('#app').hidden = true;
+  $('#login').hidden = true;
+  $('#portal').hidden = false;
+  $('#portal-volver').hidden = !vistaPrevia;
+  $('#portal-cuenta').hidden = !state.user;
+  const cli = state.clientes.find((c) => c.id === state.cliente);
+  $('#portal-titulo').textContent = `Resultados · ${cli?.nombre || ''}`;
+  const body = $('#portal-body');
+  body.innerHTML = '<p class="muted">Cargando los resultados…</p>';
+  try {
+    const r = await api(`/api/resumen${vistaPrevia ? '?fresh=1' : ''}`);
+    $('#portal-sub').textContent = `Datos actualizados a las ${new Date(r.generado).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} · ${r.producto}`;
+    body.innerHTML = r.embudos.length ? r.embudos.map(tarjetaPortal).join('') : '<p class="muted">Todavía no hay ningún lanzamiento en marcha.</p>';
+  } catch (e) { body.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+$('#portal-salir').addEventListener('click', () => $('#btn-logout').click());
+$('#portal-cuenta').addEventListener('click', () => $('#btn-cuenta').click());
+$('#portal-volver').addEventListener('click', () => { $('#portal').hidden = true; $('#app').hidden = false; });
+$('#btn-ver-portal').addEventListener('click', () => { $('#equipo-dialog').close(); mostrarPortal({ vistaPrevia: true }); });
+
 // ---------- Panel de agencia (superadmin): todos los clientes de un vistazo ----------
 const fechaAg = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : '');
 function badgesAuditor(a, vencidas) {
@@ -5114,9 +5173,9 @@ function renderRoles() {
       <tr class="roles-admin"><td><strong>Admin</strong><br><small class="muted">todo, siempre</small></td>${PERMISOS.map(() => '<td class="roles-cell"><input type="checkbox" checked disabled></td>').join('')}<td class="num">${adminPersonas ?? ''}</td><td></td></tr>
       ${roles.map((r, i) => `<tr data-ri="${i}">
         <td><input class="rol-label" value="${esc(r.label)}" maxlength="30" aria-label="Nombre del rol"><br><small class="muted">${esc(r.id)}</small></td>
-        ${PERMISOS.map((p) => `<td class="roles-cell"><input type="checkbox" data-perm="${p.id}" ${r.permisos.includes(p.id) ? 'checked' : ''} aria-label="${esc(`${r.label}: ${p.label}`)}"></td>`).join('')}
+        ${PERMISOS.map((p) => `<td class="roles-cell"><input type="checkbox" data-perm="${p.id}" ${r.permisos.includes(p.id) ? 'checked' : ''} ${r.id === ROL_CLIENTE ? 'disabled title="El rol Cliente solo ve su resumen"' : ''} aria-label="${esc(`${r.label}: ${p.label}`)}"></td>`).join('')}
         <td class="num">${r.personas ?? 0}</td>
-        <td><button type="button" class="btn ghost" data-rol-del="${i}" ${r.personas ? `disabled title="Lo tienen ${r.personas} persona(s): cámbiales antes el rol en Equipo"` : 'title="Borrar el rol"'} aria-label="Borrar rol">✕</button></td>
+        <td><button type="button" class="btn ghost" data-rol-del="${i}" ${r.id === ROL_CLIENTE ? 'disabled title="El rol Cliente no se puede borrar"' : r.personas ? `disabled title="Lo tienen ${r.personas} persona(s): cámbiales antes el rol en Equipo"` : 'title="Borrar el rol"'} aria-label="Borrar rol">✕</button></td>
       </tr>`).join('')}
     </tbody>`;
 }
