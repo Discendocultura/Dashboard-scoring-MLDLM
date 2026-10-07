@@ -2,7 +2,7 @@ import {
   ESTADOS, NEXT_STEPS, buildMessage, waPhone, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, OUTCOMES, dayInMadrid,
 } from './scoring.js';
 import { icon } from './icons.js';
-import { nombreProducto, PRODUCTO_MLDLM } from './producto.js';
+import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { asistenciaPorTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
@@ -55,6 +55,8 @@ const producto = { nombre: PRODUCTO_MLDLM, obs: null };
 function cambiarProductoEn(root) {
   const n = producto.nombre;
   if (n === PRODUCTO_MLDLM || !root) return;
+  // «Ver como» otro cliente: su portal lleva ya el nombre de su producto.
+  if (root.closest?.('[data-otro-cliente]') || root.parentElement?.closest('[data-otro-cliente]')) return;
   const re = new RegExp(PRODUCTO_MLDLM, 'g');
   if (root.nodeType === 3) { if (root.nodeValue.includes(PRODUCTO_MLDLM)) root.nodeValue = root.nodeValue.replace(re, n); return; }
   if (root.nodeType !== 1) return;
@@ -100,13 +102,13 @@ function cambiarCliente(id) {
 }
 
 // ---------- API ----------
-async function api(path, { method = 'GET', body } = {}) {
+async function api(path, { method = 'GET', body, cliente = state.cliente } = {}) {
   // Configuración: se manda la versión que se cargó; si otra persona guardó después, el servidor avisa (409).
   const esConfig = path.split('?')[0] === '/api/config';
   if (esConfig && method === 'POST' && body && !body.op && state.configVersion != null) body = { ...body, _version: state.configVersion };
   const res = await fetch(path, {
     method,
-    headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...(state.cliente ? { 'x-cliente': state.cliente } : {}) },
+    headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...(cliente ? { 'x-cliente': cliente } : {}) },
     body: body ? JSON.stringify(body) : undefined,
     credentials: 'same-origin',
   });
@@ -3712,28 +3714,74 @@ function tarjetaPortal(e) {
     ${objetivos ? `<h3>Objetivos</h3>${objetivos}` : ''}
     <h3>Embudo</h3><div class="portal-funnel">${funnel}</div>
     ${hitos ? `<h3>Próximos hitos</h3><ul class="portal-hitos">${hitos}</ul>` : ''}
-    <p><a class="btn" href="/api/informe?${e.tipo === 'vsl' ? 'v' : 'l'}=${encodeURIComponent(e.code)}${state.clientes.find((c) => c.id === state.cliente)?.principal ? '' : `&c=${encodeURIComponent(state.cliente)}`}" target="_blank" rel="noopener">${e.tipo === 'vsl' ? 'Informe de la semana pasada ↗' : 'Informe completo ↗'}</a></p>
+    <p><a class="btn" href="/api/informe?${e.tipo === 'vsl' ? 'v' : 'l'}=${encodeURIComponent(e.code)}${state.clientes.find((c) => c.id === portalCliente)?.principal ? '' : `&c=${encodeURIComponent(portalCliente)}`}" target="_blank" rel="noopener">${e.tipo === 'vsl' ? 'Informe de la semana pasada ↗' : 'Informe completo ↗'}</a></p>
   </article>`;
 }
-async function mostrarPortal({ vistaPrevia = false } = {}) {
+// Cliente cuyo portal se está viendo (el actual o, con «Ver como», otro cliente de la agencia).
+let portalCliente = null;
+async function mostrarPortal({ vistaPrevia = false, cliente = state.cliente } = {}) {
+  portalCliente = cliente;
   $('#app').hidden = true;
   $('#login').hidden = true;
   $('#portal').hidden = false;
   $('#portal-volver').hidden = !vistaPrevia;
-  $('#portal-cuenta').hidden = !state.user;
-  const cli = state.clientes.find((c) => c.id === state.cliente);
+  $('#portal-cuenta').hidden = !state.user || vistaPrevia;
+  $('#portal-salir').hidden = vistaPrevia;
+  const cli = state.clientes.find((c) => c.id === cliente);
   $('#portal-titulo').textContent = `Resultados · ${cli?.nombre || ''}`;
+  $('#portal-aviso').hidden = !vistaPrevia;
+  $('#portal-aviso').innerHTML = vistaPrevia ? `👁 <strong>Vista «Ver como»:</strong> esto es exactamente lo que ve <strong>${esc(cli?.nombre || 'este cliente')}</strong> al entrar con su acceso de cliente. No le cambia nada ni le avisa.` : '';
   const body = $('#portal-body');
   body.innerHTML = '<p class="muted">Cargando los resultados…</p>';
   try {
-    const r = await api(`/api/resumen${vistaPrevia ? '?fresh=1' : ''}`);
+    const r = await api(`/api/resumen${vistaPrevia ? '?fresh=1' : ''}`, { cliente });
     $('#portal-sub').textContent = `Datos actualizados a las ${new Date(r.generado).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} · ${r.producto}`;
-    body.innerHTML = r.embudos.length ? r.embudos.map(tarjetaPortal).join('') : '<p class="muted">Todavía no hay ningún lanzamiento en marcha.</p>';
+    const html = r.embudos.length ? r.embudos.map(tarjetaPortal).join('') : '<p class="muted">Todavía no hay ningún lanzamiento en marcha.</p>';
+    // Viendo otro cliente: con el nombre de SU producto (no el del cliente en el que estás).
+    if (cliente !== state.cliente) body.dataset.otroCliente = '1'; else delete body.dataset.otroCliente;
+    body.innerHTML = cliente !== state.cliente ? conProducto(html, r.producto) : html;
   } catch (e) { body.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
 $('#portal-salir').addEventListener('click', () => $('#btn-logout').click());
 $('#portal-cuenta').addEventListener('click', () => $('#btn-cuenta').click());
-$('#portal-volver').addEventListener('click', () => { $('#portal').hidden = true; $('#app').hidden = false; });
+$('#portal-volver').addEventListener('click', () => {
+  $('#portal').hidden = true;
+  $('#app').hidden = false;
+  // Si venía de «Ver como» en Agencia, vuelve ahí.
+  if (vcVolverAgencia) { vcVolverAgencia = false; $('#agencia-dialog').showModal(); }
+});
+
+// «Ver como» (Agencia, superadmin): el portal de cualquier cliente tal y como lo ve él.
+let vcVolverAgencia = false;
+async function pintarVerComo() {
+  const sel = $('#vc-cliente');
+  const prev = sel.value || state.cliente;
+  sel.innerHTML = state.clientes.map((c) => `<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join('');
+  sel.value = state.clientes.some((c) => c.id === prev) ? prev : state.clientes[0]?.id || '';
+  pintarQuienVe();
+}
+async function pintarQuienVe() {
+  const id = $('#vc-cliente').value;
+  const box = $('#vc-quien');
+  box.textContent = '';
+  try {
+    const { users } = await api('/api/usuarios', { cliente: id });
+    const quien = users.filter((u) => u.rol === ROL_CLIENTE && u.activo !== false);
+    if ($('#vc-cliente').value !== id) return;
+    box.innerHTML = quien.length
+      ? `Lo ven con su acceso de cliente: ${quien.map((u) => `<strong>${esc(u.nombre)}</strong> <span class="muted">(${esc(u.email)})</span>`).join(', ')}.`
+      : 'Este cliente aún no tiene a nadie con acceso de «Cliente (solo lectura)». Se le da en Equipo → Miembros del equipo, entrando en el cliente.';
+  } catch { /* sin datos del equipo: no pasa nada */ }
+}
+$('#vc-cliente').addEventListener('change', pintarQuienVe);
+$('.tab[data-tab="ag-vercomo"]').addEventListener('click', pintarVerComo);
+$('#vc-ver').addEventListener('click', () => {
+  const id = $('#vc-cliente').value;
+  if (!id) return;
+  vcVolverAgencia = true;
+  $('#agencia-dialog').close();
+  mostrarPortal({ vistaPrevia: true, cliente: id });
+});
 $('#btn-ver-portal').addEventListener('click', () => { $('#equipo-dialog').close(); mostrarPortal({ vistaPrevia: true }); });
 
 // ---------- Panel de agencia (superadmin): todos los clientes de un vistazo ----------

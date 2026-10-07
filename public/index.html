@@ -45,6 +45,7 @@
       <button type="button" class="btn" id="portal-cuenta">Mi cuenta</button>
       <button type="button" class="btn" id="portal-salir">Salir</button>
     </header>
+    <p class="portal-aviso" id="portal-aviso" hidden></p>
     <main class="portal-body" id="portal-body"></main>
   </div>
 
@@ -1249,7 +1250,16 @@
         <div class="tabs" role="tablist">
           <button type="button" class="tab active" data-tab="ag-panel" data-tab-icon="trend">Panel de clientes</button>
           <button type="button" class="tab" data-tab="clientes" data-tab-icon="compass">Añadir nuevo cliente</button>
+          <button type="button" class="tab" data-tab="ag-vercomo" data-tab-icon="eye">Ver como</button>
         </div>
+        <section class="tab-panel" data-panel="ag-vercomo" hidden>
+          <p class="muted">Mira exactamente lo que ve un cliente cuando entra con su acceso de <strong>Cliente (solo lectura)</strong>: su portal de resultados, con sus cifras e informes. No cambia nada ni le avisa.</p>
+          <div class="row vercomo-bar">
+            <label class="field"><span>Cliente</span><select id="vc-cliente"></select></label>
+            <button type="button" class="btn primary" id="vc-ver">👁 Ver como este cliente</button>
+          </div>
+          <div id="vc-quien" class="muted small"></div>
+        </section>
         <section class="tab-panel" data-panel="ag-panel">
         <div class="row ag-bar">
           <span class="muted" id="ag-info"></span>

@@ -1471,3 +1471,8 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 /* Asistencia por tipo de tráfico: diferencia frío − templado en puntos */
 .dif-mas { color: var(--ok, #1e7a3c); }
 .dif-menos { color: var(--error, #b3261e); }
+
+/* «Ver como» (Agencia) */
+.portal-aviso { margin: 0; padding: 10px 24px; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-bottom: 1px solid var(--border); font-size: 14px; }
+.vercomo-bar { align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.vercomo-bar .field { min-width: 260px; }
