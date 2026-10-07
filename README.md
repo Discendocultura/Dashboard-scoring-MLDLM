@@ -417,6 +417,14 @@ Funcionan como el webinar, con las casillas repetidas para cada vídeo (*Configu
 - **Puntuación**: la mitad por el vídeo mejor visto y la mitad por la media de todos (máximo 40 puntos, como el directo del webinar).
 - **Leads, Métricas, Calendario, Auditor y Sincronizar Zoom** muestran cada vídeo (Zoom sincroniza cada vídeo en directo ya celebrado).
 
+## 🗓️ Planificación por tipo de embudo y calendario del cliente
+
+- **Calendario**: es **el mismo en todos los embudos del cliente**. Enseña los hitos (lanzamientos y meteóricos), las tareas con fecha y los eventos de **todos** sus embudos; lo del embudo abierto se resalta y lo de los demás lleva su nombre («De otro embudo», con botón «Ir al embudo»). Las franjas de color son las del embudo abierto (captación, clases, directo, carrito… o calentamiento y oferta abierta). «Solo este embudo» filtra.
+- **Tareas**: cada tipo de embudo tiene sus fases y su planificación:
+  - **Lanzamientos**: Preparación, Captación, Clases, Directo, Carrito y Cierre, con las tareas habituales («Cargar tareas habituales»).
+  - **Meteóricos**: Preparación, Calentamiento, Oferta abierta y Cierre. Al crear un meteórico se crean **ya** sus tareas, adaptadas a su configuración (downsell de un lanzamiento o a la base de datos, pago único / a plazos / suscripción, anuncios, grupo de WhatsApp, «foto» si no hay campo de fecha de compra, página de oferta cerrada…). Las fechas salen del calentamiento, la apertura y el cierre; lo que ya debería estar hecho queda **para hoy** (acciones inmediatas). En Tareas eliges el meteórico y «Crear tareas del meteórico» añade las que falten.
+  - **VSL**: Preparación, Publicidad y captación, Llamadas y seguimiento, Revisión y mejora («Crear tareas de la VSL»).
+
 ## 💳 Tipo de pago (lanzamientos, VSL y meteóricos)
 
 En la configuración de cada lanzamiento, VSL o meteórico eliges el **tipo de pago**:

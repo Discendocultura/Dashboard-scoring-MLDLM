@@ -261,7 +261,7 @@
             <div class="cal-toggles">
               <label class="check"><input type="checkbox" id="cal-show-tareas" checked> Tareas</label>
               <label class="check"><input type="checkbox" id="cal-show-eventos" checked> Eventos</label>
-              <label class="check"><input type="checkbox" id="cal-show-otros"> Otros lanzamientos</label>
+              <label class="check" title="Por defecto el calendario muestra todos los embudos del cliente"><input type="checkbox" id="cal-show-solo"> Solo este embudo</label>
             </div>
             <span class="spacer"></span>
             <button type="button" class="btn" id="btn-cal-sync">Sincronizar con mi calendario</button>
@@ -289,9 +289,10 @@
               <button type="button" class="seg-btn" data-f="todas">Todas</button>
             </div>
             <select id="tareas-resp" aria-label="Responsable"></select>
+            <select id="t-meteo-select" aria-label="Meteórico" hidden></select>
             <span class="spacer"></span>
             <button type="button" class="btn tareas-only" id="btn-tareas-sel" title="Elegir tareas para eliminarlas">Seleccionar</button>
-            <button type="button" class="btn tareas-only lanz-only" id="btn-tareas-plantilla" title="Añade las tareas de siempre con fechas calculadas a partir de las del lanzamiento (no duplica las que ya estén)">Cargar tareas habituales</button>
+            <button type="button" class="btn tareas-only" id="btn-tareas-plantilla" title="Añade las tareas de siempre con fechas calculadas a partir de las del lanzamiento (no duplica las que ya estén)">Cargar tareas habituales</button>
             <button type="button" class="btn primary tareas-only" id="btn-tarea-nueva">+ Nueva tarea</button>
           </div>
           <div id="tareas-selbar" class="tareas-selbar" hidden>

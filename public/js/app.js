@@ -8,10 +8,10 @@ import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor, madridToEpoch } from
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
 import { rendimientoEquipo } from './rendimiento.js';
-import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico } from './meteorico.js';
+import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
 import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago } from './pago.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
-import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
+import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
 import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE } from './roles.js';
@@ -276,7 +276,7 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico' };
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico' };
 const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas' };
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
@@ -288,7 +288,8 @@ const tipoActual = () => (enVsl() ? 'vsl' : enMeteo() ? 'meteorico' : 'lanz');
 // Pestañas que el embudo tiene activadas (⚙️ del menú lateral; sin lista = todas).
 const pestanasEmbudo = () => embudoInfo()?.pestanas || null;
 const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual())
-  && (!pestanasEmbudo() || pestanasEmbudo().includes(v))
+  // El calendario es el del cliente (todos sus embudos): está en todos.
+  && (!pestanasEmbudo() || pestanasEmbudo().includes(v) || v === 'calendario')
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
@@ -408,6 +409,7 @@ async function setEmbudo(e, { vista = null } = {}) {
   document.body.classList.toggle('embudo-vsl', enVsl());
   document.body.classList.toggle('embudo-meteo', enMeteo());
   pintarSidebar();
+  renderSnapshotWarning();
   // Cliente sin embudos todavía.
   const sin = !embudos().length;
   $('#sin-embudos').hidden = !sin;
@@ -438,6 +440,22 @@ async function setEmbudo(e, { vista = null } = {}) {
   } else {
     await selectLaunch(state.launchCode);
   }
+}
+// Abre el embudo de un código (lanzamiento, VSL o meteórico) en su pestaña de tareas.
+function irAEmbudoDe(code) {
+  const l = state.config.launches[code];
+  const m = state.config.meteoricos?.[code];
+  if (state.config.vsls?.[code]) return setEmbudo(code, { vista: 'tareas' });
+  if (m?.embudo) {
+    state.meteo.code = code;
+    ls.set(`lsd_meteo_${m.embudo}`, code);
+    return setEmbudo(m.embudo, { vista: 'tareas' });
+  }
+  const lanz = l ? code : m?.lanzamiento;
+  if (!lanz || !state.config.launches[lanz]) return;
+  state.launchCode = lanz;
+  const emb = embudoDeLanz(state.config.launches[lanz]);
+  return emb === state.embudo ? selectLaunch(lanz) : setEmbudo(emb, { vista: m ? 'metricas' : 'tareas' });
 }
 $('#sidebar').addEventListener('click', (ev) => {
   const b = ev.target.closest('[data-embudo]');
@@ -1679,6 +1697,8 @@ function showView(view) {
   if (view === 'rendimiento' && state.config) loadRendimiento();
   if (view === 'meteoricos' && state.config && enMeteo()) renderMeteoView();
   if (view === 'calendario' && state.config) renderCalendario();
+  // Tareas del embudo abierto (en meteóricos, del meteórico elegido).
+  if (view === 'tareas' && state.config) { if (codigo() && state.tareas?.code !== codigo()) loadTareas(); else { pintarCabeceraTareas(); renderTareas(); } }
   if (view === 'llamadas' && state.config) { if (state.llamadas?.code !== codigo()) loadLlamadas(); else renderLlamadas(); }
 }
 $$('.view-tab').forEach((t) => t.addEventListener('click', () => {
@@ -2551,7 +2571,7 @@ function renderSnapshotBox() {
 function renderSnapshotWarning() {
   const el = $('#snapshot-warning');
   const launch = state.config.launches[state.launchCode];
-  const missing = puedeConfig() && launch ? missingSnapshot(launch) : [];
+  const missing = puedeConfig() && launch && !enVsl() && !enMeteo() ? missingSnapshot(launch) : []; // solo en los lanzamientos
   el.hidden = !missing.length;
   if (!missing.length) return;
   el.innerHTML = `<p><strong>Falta la foto de lanzamientos anteriores</strong> (${missing.map((f) => `«${esc(launch[f.field])}»`).join(', ')}). Mientras tanto, quien la tenía de lanzamientos anteriores cuenta como de este. Hazla antes de abrir la venta.</p>
@@ -2873,6 +2893,19 @@ const fotoUrl = (u) => (u?.foto ? `/api/foto?u=${encodeURIComponent(u.id)}&v=${e
 // Círculo con la foto de perfil o, si no tiene, sus iniciales.
 const avatarHtml = (u, nombre = u?.nombre) => `<span class="t-avatar">${u?.foto ? `<img src="${esc(fotoUrl(u))}" alt="" loading="lazy">` : esc(iniciales(nombre))}</span>`;
 
+// Cabecera de Tareas según el embudo: botón de planificación y, en meteóricos, de cuál de ellos.
+function pintarCabeceraTareas() {
+  const b = $('#btn-tareas-plantilla');
+  b.textContent = enMeteo() ? 'Crear tareas del meteórico' : enVsl() ? 'Crear tareas de la VSL' : 'Cargar tareas habituales';
+  b.title = enMeteo() ? 'Añade las tareas del meteórico según su configuración, con fechas desde las suyas (no duplica las que ya estén)' : enVsl() ? 'Añade las tareas de la VSL según su configuración (no duplica las que ya estén)' : 'Añade las tareas de siempre con fechas calculadas a partir de las del lanzamiento (no duplica las que ya estén)';
+  const sel = $('#t-meteo-select');
+  const lista = enMeteo() ? meteoDeEmbudo(state.embudo) : [];
+  sel.hidden = !lista.length;
+  if (lista.length) sel.innerHTML = lista.map(([c, m]) => `<option value="${esc(c)}" ${c === state.meteo.code ? 'selected' : ''}>⚡ ${esc(m.name)}</option>`).join('');
+}
+// Fases de las tareas según el tipo de embudo abierto (lanzamiento, VSL o meteórico).
+const fasesT = () => fasesDe(tipoActual());
+
 async function loadTareas() {
   const code = codigo();
   if (!code) return;
@@ -3036,6 +3069,7 @@ function subgruposPreparacion(items, all) {
 
 function renderTareas() {
   const T = state.tareas;
+  pintarCabeceraTareas();
   if (!T || T.code !== codigo()) return;
   renderAvisosEquipo();
   renderNotif();
@@ -3065,9 +3099,11 @@ function renderTareas() {
       </div>
     </div>` : `
     <div class="card empty tareas-empty">
-      <h2>Aún no hay tareas ${enVsl() ? 'en la VSL' : 'en este lanzamiento'}</h2>
-      ${puedeTareas() && enVsl()
-    ? '<p class="muted">Crea las tareas de la VSL: revisiones del vídeo, anuncios, seguimiento de leads…</p><p><button type="button" class="btn primary" data-action="tarea-nueva">+ Nueva tarea</button></p>'
+      <h2>Aún no hay tareas ${enVsl() ? 'en la VSL' : enMeteo() ? 'en este meteórico' : 'en este lanzamiento'}</h2>
+      ${puedeTareas() && enMeteo()
+    ? '<p class="muted">Crea la planificación del meteórico: preparación de la oferta, pagos y páginas, calentamiento, apertura y cierre, con fechas a partir de las suyas (lo urgente, para hoy).</p><p><button type="button" class="btn primary" data-action="tareas-plantilla">Crear las tareas del meteórico</button> <button type="button" class="btn" data-action="tarea-nueva">+ Nueva tarea</button></p>'
+    : puedeTareas() && enVsl()
+    ? '<p class="muted">Crea la planificación de la VSL: revisión de etiquetas, página y pagos, anuncios, seguimiento y mejora, o crea las tuyas.</p><p><button type="button" class="btn primary" data-action="tareas-plantilla">Crear las tareas de la VSL</button> <button type="button" class="btn" data-action="tarea-nueva">+ Nueva tarea</button></p>'
     : puedeTareas()
     ? '<p class="muted">Empieza con las tareas habituales (con fechas calculadas a partir de las del lanzamiento) y ajústalas, o crea las tuyas.</p><p><button type="button" class="btn primary" data-action="tareas-plantilla">Cargar tareas habituales</button> <button type="button" class="btn" data-action="tarea-nueva">+ Nueva tarea</button></p>'
     : '<p class="muted">Cuando la administradora asigne tareas aparecerán aquí.</p>'}
@@ -3087,7 +3123,7 @@ function renderTareas() {
 
   const shown = list.filter((t) => filtroEstado(t) && filtroResp(t));
   const order = (a, b) => (a.hecha - b.hecha) || (a.fecha || '9999').localeCompare(b.fecha || '9999') || a.titulo.localeCompare(b.titulo, 'es');
-  const groups = FASES.map((f) => ({ f, all: list.filter((t) => t.fase === f.id), items: shown.filter((t) => t.fase === f.id).sort(order) }))
+  const groups = fasesT().map((f) => ({ f, all: list.filter((t) => t.fase === f.id), items: shown.filter((t) => t.fase === f.id).sort(order) }))
     .filter((g) => g.items.length);
   if (!$('#view-calendario').hidden) renderCalendario();
   $$('#tareas-vista .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.v === state.tVista));
@@ -3130,11 +3166,11 @@ function renderTareas() {
 // ---------- Tablero kanban ----------
 // Columnas: una por fase, las extra que cree la admin y «Completadas» al final.
 const COLOR_HEX = { gris: '#8a817b', azul: '#2f6aa8', morado: '#6b4fc8', rojo: '#c0362c', naranja: '#e07a1f', amarillo: '#c9a227', verde: '#128c4a', rosa: '#c2457e' };
-const FASE_COLOR = { preparacion: 'gris', captacion: 'azul', clases: 'morado', directo: 'rojo', carrito: 'verde', cierre: 'naranja' };
+const FASE_COLOR = { preparacion: 'gris', captacion: 'azul', clases: 'morado', directo: 'rojo', carrito: 'verde', cierre: 'naranja', calentamiento: 'amarillo', oferta: 'rojo', seguimiento: 'verde', optimizacion: 'morado' };
 const extraCols = () => state.tareas?.columnas || [];
 function columnasTablero() {
   return [
-    ...FASES.map((f) => ({ id: f.id, label: f.label, icon: f.icon, color: FASE_COLOR[f.id], tipo: 'fase' })),
+    ...fasesT().map((f) => ({ id: f.id, label: f.label, icon: f.icon, color: FASE_COLOR[f.id], tipo: 'fase' })),
     ...extraCols().map((c) => ({ ...c, tipo: 'extra' })),
     { id: COLUMNA_HECHAS, label: 'Completadas', icon: '✅', color: 'verde', tipo: 'hechas' },
   ];
@@ -3144,9 +3180,9 @@ function tarjeta(t) {
   const hoy = today();
   const puede = puedeMarcar(t, meSess());
   const admin = puedeTareas();
-  const fase = FASES.find((f) => f.id === t.fase);
+  const fase = fasesT().find((f) => f.id === t.fase);
   const venc = vencida(t, hoy);
-  const col = columnaDe(t, extraCols());
+  const col = columnaDe(t, extraCols(), fasesT());
   const a = t.asignado;
   const who = a?.tipo === 'persona'
     ? `<span class="t-who">${avatarHtml(state.tareas.users.find((u) => u.id === a.id), asignadoTexto(a))}${esc(asignadoTexto(a))}</span>`
@@ -3171,7 +3207,7 @@ function renderTablero(shown) {
   const extras = extraCols();
   const order = (a, b) => (a.fecha || '9999').localeCompare(b.fecha || '9999') || a.titulo.localeCompare(b.titulo, 'es');
   return `<div class="kanban" style="--kb-n:${cols.length + (admin ? 1 : 0)}">${cols.map((c) => {
-    let items = shown.filter((t) => columnaDe(t, extras) === c.id);
+    let items = shown.filter((t) => columnaDe(t, extras, fasesT()) === c.id);
     items = c.tipo === 'hechas' ? items.sort((a, b) => String(b.hechaEn || '').localeCompare(String(a.hechaEn || ''))) : items.sort(order);
     // Preparación: tarjetas agrupadas por subcategoría.
     const body = c.id === 'preparacion' && items.length
@@ -3195,7 +3231,7 @@ function renderTablero(shown) {
 async function moverTarea(id, destino) {
   const t = state.tareas.list.find((x) => x.id === id);
   if (!t) return;
-  const actual = columnaDe(t, extraCols());
+  const actual = columnaDe(t, extraCols(), fasesT());
   if (actual === destino) return;
   try {
     if (destino === COLUMNA_HECHAS) {
@@ -3388,6 +3424,7 @@ $('#btn-del-todas').addEventListener('click', async () => {
 });
 
 async function cargarPlantilla() {
+  if (enMeteo() || enVsl()) return crearPlanificacion();
   const l = state.config.launches[state.launchCode];
   const faltan = [['inicioCaptacion', 'inicio de captación'], ['fechaDirecto', 'fecha del directo']].filter(([k]) => !l[k]).map(([, v]) => v);
   if (faltan.length && !window.confirm(`Falta ${faltan.join(' y ')} en la configuración: algunas tareas se crearán sin fecha. ¿Continuar?`)) return;
@@ -3398,7 +3435,21 @@ async function cargarPlantilla() {
     notice(n ? `Añadidas ${n} tareas habituales. Revísalas y asígnalas a quien corresponda.` : 'Ya estaban todas las tareas habituales.');
   } catch (ex) { notice(ex.message, true); }
 }
+// Meteóricos y VSL: su planificación propia (según su configuración). Lo que ya debería estar hecho, para hoy.
+async function crearPlanificacion({ silencioso = false } = {}) {
+  try {
+    const d = await tareasOp({ op: 'plantilla' });
+    if (!silencioso || d.creadas) notice(d.creadas ? `Creadas ${d.creadas} tareas de ${enMeteo() ? 'este meteórico' : 'la VSL'} (las urgentes, para hoy). Revísalas y asígnalas a quien corresponda.` : 'Ya estaban todas las tareas de la planificación.');
+    loadEventos();
+  } catch (ex) { notice(ex.message, true); }
+}
 $('#btn-tareas-plantilla').addEventListener('click', cargarPlantilla);
+$('#t-meteo-select').addEventListener('change', (e) => {
+  state.meteo.code = e.target.value;
+  ls.set(`lsd_meteo_${state.embudo}`, state.meteo.code);
+  loadTareas();
+  if (!$('#view-calendario').hidden) renderCalendario();
+});
 $('#btn-tarea-nueva').addEventListener('click', () => openTarea(null));
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-action="tareas-plantilla"]')) cargarPlantilla();
@@ -3408,7 +3459,6 @@ document.addEventListener('click', (e) => {
 // Diálogo de tarea
 const tdlg = $('#tarea-dialog');
 let editingTarea = null;
-$('#t-fase').innerHTML = FASES.map((f) => `<option value="${f.id}">${f.icon} ${esc(f.label)}</option>`).join('');
 $('#t-sub').innerHTML = `<option value="">Automática (según el título)</option>${SUBS_PREPARACION.map((s) => `<option value="${s.id}">${s.icon} ${esc(s.label)}</option>`).join('')}`;
 const syncSubField = () => { $('#t-sub-field').hidden = $('#t-fase').value !== 'preparacion'; };
 $('#t-fase').addEventListener('change', syncSubField);
@@ -3429,7 +3479,8 @@ function openTarea(t) {
   $('#t-titulo').value = t?.titulo || '';
   setEditor(t?.notas || '');
   $('#t-habitual').checked = Boolean(t?.habitual);
-  $('#t-fase').value = t?.fase || FASES[0].id;
+  $('#t-fase').innerHTML = fasesT().map((f) => `<option value="${f.id}">${f.icon} ${esc(f.label)}</option>`).join('');
+  $('#t-fase').value = fasesT().some((f) => f.id === t?.fase) ? t.fase : 'preparacion';
   $('#t-fecha').value = t?.fecha || '';
   $('#t-sub').value = t?.sub || '';
   syncSubField();
@@ -4569,15 +4620,16 @@ $('#cuenta-save').addEventListener('click', async () => {
 });
 
 // ---------- Calendario ----------
-const CAL_FASE_COLOR = { captacion: 'info', clases: 'live', directo: 'accent', carrito: 'buy' };
+const CAL_FASE_COLOR = { captacion: 'info', clases: 'live', directo: 'accent', carrito: 'buy', calentamiento: 'vip', oferta: 'buy' };
 const DOW = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
 const cal = {
   modo: ls.get('lsd_cal_modo') === 'semana' ? 'semana' : 'mes',
   ref: null, // día de referencia (YYYY-MM-DD)
   refCode: null,
   sel: null,
-  eventos: { code: null, list: [] },
-  show: (() => { try { return { tareas: true, eventos: true, otros: false, ...JSON.parse(ls.get('lsd_cal_show') || '{}') }; } catch { return { tareas: true, eventos: true, otros: false }; } })(),
+  // Tareas con fecha y eventos de TODOS los embudos del cliente (el calendario es el mismo en todos).
+  datos: { cliente: null, tareas: [], eventos: [] },
+  show: (() => { try { return { tareas: true, eventos: true, solo: false, ...JSON.parse(ls.get('lsd_cal_show') || '{}') }; } catch { return { tareas: true, eventos: true, solo: false }; } })(),
 };
 const dow = (d) => (new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7; // 0 = lunes
 const monthStart = (d) => `${d.slice(0, 7)}-01`;
@@ -4589,48 +4641,62 @@ const addMonths = (d, n) => {
 const fmtDay = (d, opts) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { timeZone: 'UTC', ...opts });
 
 async function loadEventos() {
-  const code = state.launchCode;
-  if (!code) return;
+  const cliente = state.cliente;
   try {
-    const d = await api(`/api/eventos?l=${encodeURIComponent(code)}`);
-    if (code !== state.launchCode) return;
-    cal.eventos = { code, list: d.eventos };
+    const d = await api('/api/calendario');
+    if (cliente !== state.cliente) return;
+    cal.datos = { cliente, tareas: d.tareas, eventos: d.eventos };
   } catch (e) {
-    cal.eventos = { code, list: [], error: e.message };
+    cal.datos = { cliente, tareas: [], eventos: [], error: e.message };
   }
   if (!$('#view-calendario').hidden) renderCalendario();
 }
 
-// Día inicial: hoy si el lanzamiento está en marcha; si no, el mes del directo (o del primer hito).
+// Embudo «propio» del calendario (el que está abierto): sus hitos y fases se resaltan.
+const calCodigo = () => codigo() || '';
+// Hitos de cualquier embudo del cliente: lanzamientos y meteóricos (las VSL no tienen fechas).
+function hitosDe(code) {
+  const l = state.config.launches[code];
+  if (l) return hitosLanzamiento(l);
+  const m = state.config.meteoricos?.[code];
+  return m ? hitosMeteorico(m) : [];
+}
+const fasesDe_ = (code) => (state.config.launches[code] ? fasesLanzamiento(state.config.launches[code]) : state.config.meteoricos?.[code] ? fasesMeteoricoCal(state.config.meteoricos[code]) : []);
+const nombreCal = (code) => state.config.launches[code]?.name || (state.config.meteoricos?.[code] ? `⚡ ${state.config.meteoricos[code].name}` : '') || state.config.vsls?.[code]?.name || code;
+
+// Día inicial: hoy si el embudo abierto está en marcha (o no tiene fechas); si no, el mes de su primer hito.
 function calInitialRef() {
   const hoy = today();
-  const days = hitosLanzamiento(state.config.launches[state.launchCode] || {}).map((h) => h.day).sort();
+  const days = hitosDe(calCodigo()).map((h) => h.day).sort();
   if (!days.length || (hoy >= addDays(days[0], -21) && hoy <= addDays(days[days.length - 1], 14))) return hoy;
-  const l = state.config.launches[state.launchCode];
-  return l.fechaDirecto || days[0];
+  return state.config.launches[calCodigo()]?.fechaDirecto || days[0];
 }
 
 // Todo lo que cae en cada día: { 'YYYY-MM-DD': [item…] }
 function calItems() {
   const map = {};
   const push = (d, it) => { (map[d] ||= []).push(it); };
-  const code = state.launchCode;
-  const L = state.config.launches;
-  const codes = cal.show.otros ? Object.keys(L) : [code];
+  const code = calCodigo();
+  const solo = cal.show.solo;
+  const codes = solo ? [code] : [...Object.keys(state.config.launches), ...Object.keys(state.config.meteoricos || {})];
   for (const c of codes) {
-    for (const h of hitosLanzamiento(L[c])) push(h.day, { kind: 'hito', code: c, own: c === code, icon: h.icon, titulo: h.titulo, time: h.time, launch: L[c].name, hid: h.id });
+    for (const h of hitosDe(c)) push(h.day, { kind: 'hito', code: c, own: c === code, icon: h.icon, titulo: h.titulo, time: h.time, launch: nombreCal(c), hid: h.id });
   }
-  if (cal.show.eventos && cal.eventos.code === code) {
-    for (const e of cal.eventos.list) {
+  if (cal.show.eventos) {
+    for (const e of cal.datos.eventos) {
+      if (solo && e.code !== code) continue;
       const tipo = EVENTO_TIPOS.find((t) => t.id === e.tipo);
-      for (let d = e.fecha; d && d <= (e.fin || e.fecha); d = addDays(d, 1)) push(d, { kind: 'evento', ev: e, icon: tipo?.icon || '📌', titulo: e.titulo, time: d === e.fecha ? e.hora : '', cont: d !== e.fecha });
+      for (let d = e.fecha; d && d <= (e.fin || e.fecha); d = addDays(d, 1)) push(d, { kind: 'evento', ev: e, code: e.code, own: e.code === code, launch: nombreCal(e.code), icon: tipo?.icon || '📌', titulo: e.titulo, time: d === e.fecha ? e.hora : '', cont: d !== e.fecha });
     }
   }
-  if (cal.show.tareas && state.tareas?.code === code) {
-    for (const t of state.tareas.list) if (t.fecha) push(t.fecha, { kind: 'tarea', t, titulo: t.titulo, time: '' });
+  if (cal.show.tareas) {
+    // Las del embudo abierto, de su lista (al día); las de los demás, de la carga del calendario.
+    const propias = state.tareas?.code === code ? state.tareas.list : cal.datos.tareas.filter((t) => t.code === code);
+    for (const t of propias) if (t.fecha) push(t.fecha, { kind: 'tarea', t, code, own: true, titulo: t.titulo, time: '' });
+    if (!solo) for (const t of cal.datos.tareas) if (t.code !== code) push(t.fecha, { kind: 'tarea', t, code: t.code, own: false, launch: nombreCal(t.code), titulo: t.titulo, time: '' });
   }
   const rank = { hito: 0, evento: 1, tarea: 2 };
-  for (const list of Object.values(map)) list.sort((a, b) => (rank[a.kind] - rank[b.kind]) || (a.time || '').localeCompare(b.time || '') || (b.own === true) - (a.own === true));
+  for (const list of Object.values(map)) list.sort((a, b) => (rank[a.kind] - rank[b.kind]) || (b.own === true) - (a.own === true) || (a.time || '').localeCompare(b.time || ''));
   return map;
 }
 
@@ -4638,24 +4704,25 @@ function calChip(it, hoy) {
   if (it.kind === 'tarea') {
     const t = it.t;
     const cls = t.hecha ? 'done' : vencida(t, hoy) ? 'late' : esMia(t, meSess()) ? 'mine' : '';
-    return `<span class="cal-chip k-tarea ${cls}" title="${esc(t.titulo)} · ${esc(asignadoTexto(t.asignado))}"><span class="cc-ico">${t.hecha ? '✓' : '☐'}</span><span class="cc-txt">${esc(t.titulo)}</span></span>`;
+    return `<span class="cal-chip k-tarea ${cls} ${it.own ? '' : 'other'}" title="${esc(t.titulo)} · ${esc(asignadoTexto(t.asignado))}${it.own ? '' : ` · ${esc(it.launch)}`}"><span class="cc-ico">${t.hecha ? '✓' : '☐'}</span><span class="cc-txt">${esc(t.titulo)}</span></span>`;
   }
-  const other = it.kind === 'hito' && !it.own;
+  const other = !it.own;
   const tipo = it.kind === 'evento' ? ` t-${it.ev.tipo}` : it.kind === 'hito' && /^directo\d?$/.test(it.hid) ? ' h-webinar' : '';
   return `<span class="cal-chip k-${it.kind}${tipo} ${other ? 'other' : ''} ${it.cont ? 'cont' : ''}" title="${esc(it.titulo)}${other ? ` · ${esc(it.launch)}` : ''}"><span class="cc-ico">${it.icon}</span>${it.time ? `<span class="cc-time">${esc(it.time)}</span>` : ''}<span class="cc-txt">${esc(it.titulo)}${other ? ` · ${esc(it.launch)}` : ''}</span></span>`;
 }
 
 function renderCalendario() {
-  if (!state.config || !state.launchCode || !state.config.launches[state.launchCode]) return;
-  if (cal.refCode !== state.launchCode) { cal.ref = calInitialRef(); cal.refCode = state.launchCode; cal.sel = null; }
+  if (!state.config) return;
+  if (cal.datos.cliente !== state.cliente) { cal.datos.cliente = state.cliente; loadEventos(); }
+  const code = calCodigo();
+  if (cal.refCode !== code || !cal.ref) { cal.ref = calInitialRef(); cal.refCode = code; cal.sel = null; }
   const hoy = today();
-  const launch = state.config.launches[state.launchCode];
-  const fases = fasesLanzamiento(launch);
+  const fases = fasesDe_(code);
   const items = calItems();
   $$('#cal-modo .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.m === cal.modo));
   $('#cal-show-tareas').checked = cal.show.tareas;
   $('#cal-show-eventos').checked = cal.show.eventos;
-  $('#cal-show-otros').checked = cal.show.otros;
+  $('#cal-show-solo').checked = cal.show.solo;
 
   let days;
   if (cal.modo === 'mes') {
@@ -4675,14 +4742,15 @@ function renderCalendario() {
     $('#cal-title').textContent = `${a} – ${b}`;
   }
 
-  const unknownDates = !hitosLanzamiento(launch).length;
+  const unknownDates = Boolean(code) && !enVsl() && !hitosDe(code).length;
   $('#cal-legend').innerHTML = `${fases.map((f) => `<span class="cal-leg tone-${CAL_FASE_COLOR[f.id]}"><i></i>${esc(f.label)}</span>`).join('')}
     <span class="cal-leg-sep"></span>
     <span class="cal-leg k"><span class="cal-chip k-hito">🔴 Hito</span></span>
     ${cal.show.eventos ? '<span class="cal-leg k"><span class="cal-chip k-evento">📌 Evento</span></span>' : ''}
     ${cal.show.tareas ? '<span class="cal-leg k"><span class="cal-chip k-tarea"><span class="cc-ico">☐</span>Tarea</span></span><span class="cal-leg k"><span class="cal-chip k-tarea late"><span class="cc-ico">☐</span>Vencida</span></span>' : ''}
-    ${unknownDates ? `<span class="muted">Este lanzamiento aún no tiene fechas${puedeConfig() ? ': ponlas en Configuración.' : '.'}</span>` : ''}
-    ${cal.eventos.error ? `<span class="error">No se pudieron cargar los eventos: ${esc(cal.eventos.error)}</span>` : ''}`;
+    ${!cal.show.solo ? '<span class="cal-leg k"><span class="cal-chip other">De otro embudo</span></span>' : ''}
+    ${unknownDates ? `<span class="muted">${enMeteo() ? 'Este meteórico' : 'Este lanzamiento'} aún no tiene fechas${puedeConfig() ? ': ponlas en Configuración.' : '.'}</span>` : ''}
+    ${cal.datos.error ? `<span class="error">No se pudieron cargar las tareas y eventos del calendario: ${esc(cal.datos.error)}</span>` : ''}`;
 
   const month = cal.ref.slice(0, 7);
   const max = cal.modo === 'mes' ? 3 : 99;
@@ -4692,7 +4760,7 @@ function renderCalendario() {
     const more = list.length - max;
     // La fase colorea el día entero (una sola: la más importante si se solapan) y los hitos
     // del lanzamiento lo enmarcan; el del webinar, en rojo.
-    const fase = ['directo', 'carrito', 'clases', 'captacion'].map((id) => bands.find((f) => f.id === id)).find(Boolean);
+    const fase = ['directo', 'oferta', 'carrito', 'clases', 'calentamiento', 'captacion'].map((id) => bands.find((f) => f.id === id)).find(Boolean);
     const hito = list.find((it) => it.kind === 'hito' && it.own);
     const marca = `${fase ? `con-fase tone-${CAL_FASE_COLOR[fase.id]}` : ''} ${hito ? `dia-hito${/^directo\d?$/.test(hito.hid) ? ' dia-webinar' : ''}` : ''}`;
     return `<button type="button" class="cal-day ${marca} ${d.slice(0, 7) !== month && cal.modo === 'mes' ? 'out' : ''} ${d === hoy ? 'today' : ''} ${d === cal.sel ? 'sel' : ''} ${d < hoy ? 'past' : ''}" data-day="${d}" aria-label="${esc(fmtDay(d, { weekday: 'long', day: 'numeric', month: 'long' }))}${list.length ? `, ${list.length} elementos` : ''}">
@@ -4720,23 +4788,23 @@ function renderCalDia(items = calItems()) {
   const row = (it) => {
     if (it.kind === 'tarea') {
       const t = it.t;
-      const puede = puedeMarcar(t, meSess());
-      return `<li class="cd-row k-tarea ${t.hecha ? 'done' : ''} ${vencida(t, hoy) ? 'late' : ''}">
+      const puede = it.own && puedeMarcar(t, meSess());
+      return `<li class="cd-row k-tarea ${t.hecha ? 'done' : ''} ${vencida(t, hoy) ? 'late' : ''} ${it.own ? '' : 'other'}">
         <label class="t-check"><input type="checkbox" data-cal-tid="${esc(t.id)}" ${t.hecha ? 'checked' : ''} ${puede ? '' : 'disabled'}><span class="t-box" aria-hidden="true"></span></label>
-        <div class="cd-main"><strong>${esc(t.titulo)}</strong><span class="muted">Tarea · ${esc(asignadoTexto(t.asignado))}${t.hecha ? ` · completada por ${esc(t.hechaPor || '')}` : vencida(t, hoy) ? ' · vencida' : ''}</span>${notasExtracto(t, 'cd-notas')}</div>
-        <button type="button" class="btn ghost" data-tver="${esc(t.id)}">Abrir</button>
-        ${admin ? `<button type="button" class="btn ghost" data-cal-tedit="${esc(t.id)}">Editar</button>` : ''}</li>`;
+        <div class="cd-main"><strong>${esc(t.titulo)}</strong><span class="muted">Tarea${it.own ? '' : ` de ${esc(it.launch)}`} · ${esc(asignadoTexto(t.asignado))}${t.hecha ? ` · completada por ${esc(t.hechaPor || '')}` : vencida(t, hoy) ? ' · vencida' : ''}</span>${notasExtracto(t, 'cd-notas')}</div>
+        ${it.own ? `<button type="button" class="btn ghost" data-tver="${esc(t.id)}">Abrir</button>
+        ${admin ? `<button type="button" class="btn ghost" data-cal-tedit="${esc(t.id)}">Editar</button>` : ''}` : `<button type="button" class="btn ghost" data-cal-ir="${esc(it.code)}">Ir al embudo</button>`}</li>`;
     }
     if (it.kind === 'evento') {
       const e = it.ev;
       const tipo = EVENTO_TIPOS.find((x) => x.id === e.tipo);
       return `<li class="cd-row k-evento"><span class="cd-ico">${it.icon}</span>
-        <div class="cd-main"><strong>${esc(e.titulo)}</strong><span class="muted">${esc(tipo?.label || 'Evento')}${e.hora ? ` · ${esc(e.hora)} h` : ''}${e.fin ? ` · del ${esc(fmtDay(e.fecha, { day: 'numeric', month: 'short' }))} al ${esc(fmtDay(e.fin, { day: 'numeric', month: 'short' }))}` : ''}</span>${e.notas ? `<span class="cd-notas">${esc(e.notas)}</span>` : ''}</div>
-        ${admin ? `<button type="button" class="btn ghost" data-cal-eedit="${esc(e.id)}">Editar</button>` : ''}</li>`;
+        <div class="cd-main"><strong>${esc(e.titulo)}</strong><span class="muted">${esc(tipo?.label || 'Evento')}${it.own ? '' : ` · ${esc(it.launch)}`}${e.hora ? ` · ${esc(e.hora)} h` : ''}${e.fin ? ` · del ${esc(fmtDay(e.fecha, { day: 'numeric', month: 'short' }))} al ${esc(fmtDay(e.fin, { day: 'numeric', month: 'short' }))}` : ''}</span>${e.notas ? `<span class="cd-notas">${esc(e.notas)}</span>` : ''}</div>
+        ${admin && it.own ? `<button type="button" class="btn ghost" data-cal-eedit="${esc(e.id)}">Editar</button>` : ''}</li>`;
     }
     return `<li class="cd-row k-hito ${it.own ? '' : 'other'}"><span class="cd-ico">${it.icon}</span>
       <div class="cd-main"><strong>${esc(it.titulo)}</strong><span class="muted">${it.time ? `${esc(it.time)} h · ` : ''}${esc(it.launch)}</span></div>
-      ${puedeConfig() ? `<button type="button" class="btn ghost" data-cal-hito="${esc(it.code)}" title="Las fechas se cambian en la configuración del lanzamiento">Cambiar fecha</button>` : ''}</li>`;
+      ${puedeConfig() ? `<button type="button" class="btn ghost" data-cal-hito="${esc(it.code)}" title="Las fechas se cambian en la configuración del embudo">Cambiar fecha</button>` : ''}</li>`;
   };
   const t = fmtDay(d, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   box.innerHTML = `<header class="cd-head"><h3>${esc(t.charAt(0).toUpperCase() + t.slice(1))}</h3>
@@ -4756,7 +4824,7 @@ $('#cal-modo').addEventListener('click', (e) => {
   ls.set('lsd_cal_modo', cal.modo);
   renderCalendario();
 });
-for (const k of ['tareas', 'eventos', 'otros']) {
+for (const k of ['tareas', 'eventos', 'solo']) {
   $(`#cal-show-${k}`).addEventListener('change', (e) => {
     cal.show[k] = e.target.checked;
     ls.set('lsd_cal_show', JSON.stringify(cal.show));
@@ -4775,9 +4843,11 @@ $('#cal-dia').addEventListener('click', (e) => {
   const te = e.target.closest('[data-cal-tedit]');
   if (te) return openTarea(state.tareas.list.find((t) => t.id === te.dataset.calTedit));
   const ee = e.target.closest('[data-cal-eedit]');
-  if (ee) return openEvento(cal.eventos.list.find((x) => x.id === ee.dataset.calEedit));
+  if (ee) return openEvento(cal.datos.eventos.find((x) => x.id === ee.dataset.calEedit && x.code === calCodigo()));
   const h = e.target.closest('[data-cal-hito]');
-  if (h) return openConfig(h.dataset.calHito);
+  if (h) return state.config.meteoricos?.[h.dataset.calHito] ? abrirMeteoDialog(h.dataset.calHito) : openConfig(h.dataset.calHito);
+  const ir = e.target.closest('[data-cal-ir]');
+  if (ir) return irAEmbudoDe(ir.dataset.calIr);
   const ne = e.target.closest('[data-cal-new-evento]');
   if (ne) return openEvento(null, ne.dataset.calNewEvento);
   const nt = e.target.closest('[data-cal-new-tarea]');
@@ -4809,8 +4879,10 @@ function openEvento(ev, dia = '') {
   $('#e-titulo').focus();
 }
 async function eventosOp(body) {
-  const d = await api('/api/eventos', { method: 'POST', body: { l: state.launchCode, ...body } });
-  cal.eventos = { code: state.launchCode, list: d.eventos };
+  const code = calCodigo();
+  if (!code) throw new Error('Elige primero un embudo (lanzamiento, VSL o meteórico) para el evento.');
+  const d = await api('/api/eventos', { method: 'POST', body: { l: code, ...body } });
+  cal.datos.eventos = [...cal.datos.eventos.filter((x) => x.code !== code), ...d.eventos.map((x) => ({ ...x, code }))];
   renderCalendario();
 }
 $('#btn-evento-nuevo').addEventListener('click', () => openEvento(null));
@@ -4948,7 +5020,7 @@ function openTareaVer(id) {
   if (!t) return;
   tvId = id;
   const hoy = today();
-  const fase = FASES.find((f) => f.id === t.fase);
+  const fase = fasesT().find((f) => f.id === t.fase);
   $('#tv-titulo').textContent = t.titulo;
   $('#tv-meta').innerHTML = `
     <span class="tv-chip">${fase ? `${fase.icon} ${esc(fase.label)}` : ''}</span>
@@ -4963,7 +5035,7 @@ function openTareaVer(id) {
   const puede = puedeMarcar(t, meSess());
   const cols = columnasTablero().filter((c) => c.tipo !== 'hechas');
   $('#tv-estado').innerHTML = `<button type="button" class="btn ${t.hecha ? '' : 'primary'}" data-tvdone ${puede ? '' : 'disabled'}>${t.hecha ? '↩︎ Volver a pendiente' : '✓ Marcar como completada'}</button>
-    ${puedeTareas() && !t.hecha ? `<label class="field inline"><span>Columna</span><select data-tvcol>${cols.map((c) => `<option value="${esc(c.id)}" ${columnaDe(t, extraCols()) === c.id ? 'selected' : ''}>${c.icon} ${esc(c.label)}</option>`).join('')}</select></label>` : ''}`;
+    ${puedeTareas() && !t.hecha ? `<label class="field inline"><span>Columna</span><select data-tvcol>${cols.map((c) => `<option value="${esc(c.id)}" ${columnaDe(t, extraCols(), fasesT()) === c.id ? 'selected' : ''}>${c.icon} ${esc(c.label)}</option>`).join('')}</select></label>` : ''}`;
   if (!tvDlg.open) tvDlg.showModal();
 }
 $('#tv-estado').addEventListener('click', async (e) => {
@@ -6867,6 +6939,15 @@ $('#mt-guardar').addEventListener('click', async () => {
   try {
     const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, meteoricos: { ...(state.config.meteoricos || {}), [code]: m } } });
     state.config = config;
+    // Meteórico nuevo: su planificación se crea ya (acciones inmediatas para hoy, el resto con sus fechas).
+    if (!meteoEdit.code && puedeTareas()) {
+      try {
+        const d = await api('/api/tareas', { method: 'POST', body: { l: code, op: 'plantilla' } });
+        if (d.creadas) notice(`Creadas ${d.creadas} tareas del meteórico «${m.name}» (lo urgente, para hoy). Las tienes en Planificación → Tareas.`);
+        if (state.tareas?.code === code) { state.tareas.list = d.tareas; renderTareas(); }
+      } catch (ex) { notice(`El meteórico se ha guardado, pero no se pudieron crear sus tareas: ${ex.message}`, true); }
+    }
+    loadEventos();
     delete state.meteo.datos[code];
     $('#meteo-dialog').close();
     pintarSidebar();

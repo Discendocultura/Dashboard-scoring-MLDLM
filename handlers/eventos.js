@@ -1,6 +1,7 @@
 // Eventos propios del calendario. Todos los roles los ven; solo admin los crea, edita y borra.
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
+import { embudoDe } from '../lib/embudos.js';
 import { reintentando } from '../lib/store.js';
 import { getEventos, saveEventos, sanitizeEvento, MAX_EVENTOS } from '../lib/eventos.js';
 import { newId } from '../lib/users.js';
@@ -8,8 +9,9 @@ import { json, readBody, errorResponse } from '../lib/http.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 
+// Los eventos van atados a un embudo: un lanzamiento, una VSL o un meteórico.
 async function checkLaunch(code) {
-  if (!(await getConfig()).launches[code]) throw bad('Lanzamiento no encontrado', 404);
+  if (!embudoDe(await getConfig(), code)) throw bad('Embudo no encontrado', 404);
 }
 
 export async function GET(request) {

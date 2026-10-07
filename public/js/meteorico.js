@@ -4,7 +4,8 @@
 // miden las ventas (etiqueta de compra), la facturación, las visitas a la página de la oferta y los tiempos.
 // Lo usan el navegador, el servidor y la página de la oferta.
 import { madridToEpoch } from './page.js';
-import { conFraccionado, esSuscripcion, importeVenta, planDeTags, resumenPlanes, pendientesPago, enlacePago } from './pago.js';
+import { conFraccionado, esSuscripcion, importeVenta, planDeTags, resumenPlanes, pendientesPago, enlacePago, planesActivos } from './pago.js';
+import { addDays } from './tareas.js';
 
 const DAY = 86_400_000;
 export const FASES_METEORICO = {
@@ -96,10 +97,72 @@ export function metricasMeteorico(contactos, m, { previo = null, visitas = null,
 // Días del calendario: calentamiento → apertura → cierre.
 export function hitosMeteorico(m) {
   const out = [];
-  if (m.calentamiento) out.push({ day: m.calentamiento, titulo: `Empieza el calentamiento de «${m.name}»` });
-  if (m.apertura) out.push({ day: dia(m.apertura), time: String(m.apertura).slice(11, 16), titulo: `Abre la oferta «${m.name}»` });
-  if (m.cierre) out.push({ day: dia(m.cierre), time: String(m.cierre).slice(11, 16), titulo: `Cierra la oferta «${m.name}»` });
+  if (m.calentamiento) out.push({ id: 'calentamiento', icon: '🔥', day: m.calentamiento, time: '', titulo: 'Empieza el calentamiento' });
+  if (m.apertura) out.push({ id: 'apertura', icon: '⚡', day: dia(m.apertura), time: String(m.apertura).slice(11, 16), titulo: 'Abre la oferta' });
+  if (m.cierre) out.push({ id: 'cierre', icon: '🔒', day: dia(m.cierre), time: String(m.cierre).slice(11, 16), titulo: 'Cierra la oferta' });
   return out;
+}
+
+// Franjas del calendario: calentamiento (hasta el día antes de abrir) y oferta abierta.
+export function fasesMeteoricoCal(m) {
+  const ap = dia(m.apertura);
+  const ci = dia(m.cierre) || ap;
+  const out = [];
+  if (m.calentamiento && ap && m.calentamiento < ap) out.push({ id: 'calentamiento', label: 'Calentamiento', from: m.calentamiento, to: addDays(ap, -1) });
+  if (ap) out.push({ id: 'oferta', label: 'Oferta abierta', from: ap, to: ci >= ap ? ci : ap });
+  return out;
+}
+
+// Planificación del meteórico: sus tareas, adaptadas a su configuración (downsell o a la base de datos,
+// pago único / a plazos / suscripción, grupo de WhatsApp, anuncios, foto de compradoras…) y con fecha
+// relativa a sus hitos. Es una acción rápida: lo que ya debería estar hecho se pone para hoy (acciones
+// inmediatas) y, sin fechas todavía, la preparación también es para hoy.
+// Devuelve [{ clave, fase, titulo, notas, fecha, rol }].
+export function tareasMeteorico(m, { hoy, lanzamiento = '' } = {}) {
+  const H = { calentamiento: m.calentamiento || '', apertura: dia(m.apertura), cierre: dia(m.cierre) || dia(m.apertura) };
+  const sus = esSuscripcion(m);
+  const planes = planesActivos(m).map((p) => p.label.toLowerCase());
+  const tag = m.compraTag ? `«${m.compraTag}»` : 'de compra de la oferta';
+  const T = [];
+  const add = (clave, fase, titulo, base, dias, rol, notas = '') => T.push({ clave, fase, titulo, base, dias, rol, notas });
+  // --- Preparación (lo antes posible: el calentamiento dura pocos días)
+  add('oferta', 'preparacion', `Cerrar la oferta: ${m.oferta || 'qué se ofrece'}${m.producto ? ` de ${m.producto}` : ''}, precio y condiciones`, 'calentamiento', -4, 'admin');
+  if (!H.calentamiento || !H.apertura || !m.cierre) add('fechas', 'preparacion', 'Poner en el dashboard el día del calentamiento y la hora de apertura y cierre', 'calentamiento', -4, 'admin');
+  if (lanzamiento) add('segmento', 'preparacion', `Segmentar el público: quien estuvo en «${lanzamiento}» y no compró (excluir a las compradoras)`, 'calentamiento', -3, 'tecnico');
+  else add('segmento', 'preparacion', 'Elegir a quién va (listas y etiquetas de la base de datos, grupos de WhatsApp) y segmentarlo en GHL', 'calentamiento', -3, 'admin');
+  if (sus) add('pago', 'preparacion', `Crear los planes de la suscripción${planes.length ? ` (${planes.join(', ')})` : ''} con su precio y enlace de pago`, 'calentamiento', -3, 'tecnico');
+  else {
+    add('pago', 'preparacion', `Crear el enlace de pago de la oferta${num(m.precio) ? ` (${num(m.precio)} €)` : ''}`, 'calentamiento', -3, 'tecnico');
+    if (conFraccionado(m) && (m.fraccionadoTag || num(m.precioFraccionado) || m.pagoFraccionadoUrl)) add('pago-plazos', 'preparacion', 'Crear el enlace de pago a plazos de la oferta', 'calentamiento', -3, 'tecnico');
+  }
+  add('workflow', 'preparacion', `Workflow de compra: que ponga la etiqueta ${tag}${sus ? ' y la de cada plan' : ''}${m.compraDateField ? ' y guarde la fecha de compra' : ''}`, 'calentamiento', -2, 'tecnico');
+  add('pagina', 'preparacion', 'Crear la página de la oferta y pegar el código de la cuenta atrás del dashboard', 'calentamiento', -2, 'tecnico');
+  if (!m.cerradaUrl) add('pagina-cerrada', 'preparacion', 'Crear la página de «oferta cerrada» y ponerla en el dashboard', 'apertura', -1, 'tecnico');
+  add('emails', 'preparacion', 'Escribir y programar los emails del calentamiento, la apertura y el último aviso', 'calentamiento', -2, 'tecnico');
+  add('whatsapp', 'preparacion', m.whatsappUrl ? 'Preparar los mensajes y vídeos del grupo de WhatsApp' : 'Crear el grupo de WhatsApp (o elegir los grupos) y preparar los mensajes y vídeos', 'calentamiento', -2, 'admin');
+  if (num(m.inversion) || m.metaFiltro) add('anuncios', 'preparacion', `Preparar los anuncios del meteórico${m.metaFiltro ? ` (campañas con «${m.metaFiltro}» en el nombre)` : ''}`, 'calentamiento', -1, 'admin');
+  add('pruebas', 'preparacion', 'Probar en el móvil la página, la cuenta atrás y el pago (compra de prueba)', 'apertura', -1, 'tecnico');
+  if (m.compraTag && !m.compraDateField) add('foto', 'preparacion', 'Hacer la «foto» de quién ya tenía la etiqueta de compra (botón en ⚡ Meteóricos)', 'apertura', -1, 'admin', 'Sin campo de fecha de compra, es la única forma de no contar como ventas a las clientas anteriores.');
+  // --- Calentamiento
+  add('cal-inicio', 'calentamiento', 'Empieza el calentamiento: primer email y mensaje de WhatsApp', 'calentamiento', 0, 'tecnico');
+  add('cal-contenido', 'calentamiento', 'Contenido de calentamiento cada día (WhatsApp, emails, stories)', 'calentamiento', 1, 'admin');
+  if (num(m.inversion) || m.metaFiltro) add('anuncios-on', 'calentamiento', 'Activar los anuncios y revisar el coste en el dashboard', 'calentamiento', 0, 'admin');
+  add('cal-manana', 'calentamiento', 'Aviso: «mañana se abre la oferta» (email + WhatsApp)', 'apertura', -1, 'tecnico');
+  // --- Oferta abierta
+  add('apertura', 'oferta', 'Abrir la oferta: comprobar el botón de compra y enviar el email y el WhatsApp de apertura', 'apertura', 0, 'tecnico');
+  add('seguimiento', 'oferta', 'Revisar ventas y visitas en el dashboard a mitad de la oferta y reforzar si hace falta', 'apertura', 0, 'admin');
+  add('ultimo-aviso', 'oferta', 'Último aviso: quedan pocas horas (email + WhatsApp)', 'cierre', 0, 'tecnico');
+  // --- Cierre
+  add('cierre', 'cierre', 'Cerrar: comprobar que la página manda a «oferta cerrada» y que el pago ya no está accesible', 'cierre', 0, 'admin');
+  add('analisis', 'cierre', 'Analizar el meteórico: ventas, conversión de la página, facturación y aprendizajes', 'cierre', 1, 'admin');
+  return T.map((t) => {
+    const base = H[t.base] || (t.base === 'calentamiento' ? H.apertura : '') || '';
+    let fecha = base ? addDays(base, t.dias) : '';
+    // Acciones inmediatas: lo que ya debería estar hecho (antes de un hito que aún no ha llegado) es para hoy.
+    if (hoy && fecha && fecha < hoy && base >= hoy) fecha = hoy;
+    if (hoy && !fecha && t.fase === 'preparacion') fecha = hoy;
+    return { clave: `meteo:${t.clave}`, fase: t.fase, titulo: t.titulo, notas: t.notas, fecha, rol: t.rol };
+  });
 }
 
 // Pasos para dejarlo listo (checklist del meteórico).

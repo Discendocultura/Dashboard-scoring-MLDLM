@@ -712,7 +712,11 @@ test('embudo VSL: configuración de serie, código reservado, tareas, vídeo, ll
   const t = await (await tareas.POST(req('/api/tareas', { method: 'POST', cookie: admin, body: { l: 'vsl', op: 'crear', avisar: false, tarea: { titulo: 'Revisar VSL', habitual: true } } }))).json();
   assert.equal(t.tareas.length, 1);
   assert.ok(!t.tareas[0].habId);
-  assert.equal((await tareas.POST(req('/api/tareas', { method: 'POST', cookie: admin, body: { l: 'vsl', op: 'plantilla' } }))).status, 400);
+  // La VSL tiene su propia planificación (no las tareas habituales de los lanzamientos), sin duplicar.
+  const plan = await (await tareas.POST(req('/api/tareas', { method: 'POST', cookie: admin, body: { l: 'vsl', op: 'plantilla' } }))).json();
+  assert.ok(plan.creadas > 5);
+  assert.ok(plan.tareas.some((t) => t.clave === 'vsl:setting' && t.fase === 'seguimiento'));
+  assert.equal((await (await tareas.POST(req('/api/tareas', { method: 'POST', cookie: admin, body: { l: 'vsl', op: 'plantilla' } }))).json()).creadas, 0);
   assert.equal((await (await tareas.GET(req('/api/tareas?l=vsl', { cookie: setter }))).json()).tareas[0].titulo, 'Revisar VSL');
   assert.equal((await (await tareas.GET(req('/api/tareas?l=demo', { cookie: admin }))).json()).tareas.some((x) => x.titulo === 'Revisar VSL'), false);
 

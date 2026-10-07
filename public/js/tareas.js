@@ -11,6 +11,24 @@ export const FASES = [
 ];
 export const FASE_IDS = FASES.map((f) => f.id);
 
+// Cada tipo de embudo tiene sus propias fases (columnas del tablero y grupos de la lista).
+export const FASES_METEORICO_T = [
+  { id: 'preparacion', label: 'Preparación', icon: '🧰' },
+  { id: 'calentamiento', label: 'Calentamiento', icon: '🔥' },
+  { id: 'oferta', label: 'Oferta abierta', icon: '⚡' },
+  { id: 'cierre', label: 'Cierre y análisis', icon: '📊' },
+];
+export const FASES_VSL_T = [
+  { id: 'preparacion', label: 'Preparación', icon: '🧰' },
+  { id: 'captacion', label: 'Publicidad y captación', icon: '📣' },
+  { id: 'seguimiento', label: 'Llamadas y seguimiento', icon: '📞' },
+  { id: 'optimizacion', label: 'Revisión y mejora', icon: '🔧' },
+];
+// tipo: 'lanz' | 'vsl' | 'meteorico' (también acepta 'lanzamientos').
+export const fasesDe = (tipo) => (tipo === 'meteorico' ? FASES_METEORICO_T : tipo === 'vsl' ? FASES_VSL_T : FASES);
+// Todas las fases válidas (el servidor no sabe de qué tipo es cada tarea al validarla).
+export const TODAS_FASE_IDS = [...new Set([...FASES, ...FASES_METEORICO_T, ...FASES_VSL_T].map((f) => f.id))];
+
 // Tareas habituales. `base` es el hito del lanzamiento del que sale la fecha y `dias` el desfase.
 export const PLANTILLA = [
   { fase: 'preparacion', titulo: 'Crear el lanzamiento en el dashboard y revisar sus etiquetas (registro, VIP, compra, encuesta, llamada, pagos, publi/orgánico)', base: 'captacion', dias: -10, rol: 'admin' },
@@ -133,8 +151,8 @@ export const COLOR_COLUMNAS = ['gris', 'azul', 'morado', 'rojo', 'naranja', 'ama
 export const COLUMNA_HECHAS = 'completadas';
 
 // Columna en la que está una tarea.
-export function columnaDe(t, extra = []) {
+export function columnaDe(t, extra = [], fases = FASES) {
   if (t.hecha) return COLUMNA_HECHAS;
   if (t.columna && extra.some((c) => c.id === t.columna)) return t.columna;
-  return FASE_IDS.includes(t.fase) ? t.fase : 'preparacion';
+  return fases.some((f) => f.id === t.fase) ? t.fase : 'preparacion';
 }

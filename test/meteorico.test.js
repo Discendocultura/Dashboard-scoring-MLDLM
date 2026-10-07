@@ -92,5 +92,50 @@ test('meteórico: independiente y downsell, foto, visitas y estado público', as
   assert.equal(r.foto.n, foto.n);
   // Las tareas funcionan con el código del meteórico
   assert.equal((await call('/api/tareas?l=bf26', { cookie: admin })).status, 200);
+  // Su planificación propia (no la del webinar), sin duplicar al repetir
+  const plan = (await call('/api/tareas', { method: 'POST', cookie: admin, body: { l: 'bf26', op: 'plantilla' } })).data;
+  assert.ok(plan.creadas > 10);
+  assert.ok(plan.tareas.every((t) => ['preparacion', 'calentamiento', 'oferta', 'cierre'].includes(t.fase)));
+  assert.ok(plan.tareas.some((t) => t.fase === 'calentamiento' && t.asignado?.tipo === 'rol'));
+  assert.equal((await call('/api/tareas', { method: 'POST', cookie: admin, body: { l: 'bf26', op: 'plantilla' } })).data.creadas, 0);
+  // Evento en el meteórico y calendario del cliente: tareas y eventos de todos los embudos
+  assert.equal((await call('/api/eventos', { method: 'POST', cookie: admin, body: { l: 'bf26', op: 'crear', evento: { titulo: 'Email BF', tipo: 'email', fecha: '2026-11-20' } } })).status, 200);
+  await call('/api/tareas', { method: 'POST', cookie: admin, body: { l: 'oct', op: 'crear', avisar: false, tarea: { titulo: 'Tarea del lanzamiento', fecha: '2026-11-01' } } });
+  const calendario = (await call('/api/calendario', { cookie: admin })).data;
+  assert.ok(calendario.tareas.some((t) => t.code === 'bf26'));
+  assert.ok(calendario.tareas.some((t) => t.code === 'oct' && t.titulo === 'Tarea del lanzamiento'));
+  assert.ok(calendario.eventos.some((e) => e.code === 'bf26' && e.titulo === 'Email BF'));
+  assert.equal((await call('/api/calendario')).status, 401);
   assert.equal((await call('/api/meteorico?m=bf26')).status, 401);
 });
+
+test('planificación del meteórico: adaptada a su configuración y con acciones inmediatas para hoy', async () => {
+  const { tareasMeteorico, fasesMeteoricoCal, hitosMeteorico } = await import('../public/js/meteorico.js');
+  const { FASES_METEORICO_T } = await import('../public/js/tareas.js');
+  const base = { name: 'BF', calentamiento: '2026-10-09', apertura: '2026-10-13T09:00', cierre: '2026-10-13T21:00', compraTag: 'compra-bf' };
+  const t = tareasMeteorico(base, { hoy: '2026-10-07' });
+  const ids = FASES_METEORICO_T.map((f) => f.id);
+  assert.ok(t.every((x) => ids.includes(x.fase)));
+  assert.ok(!t.some((x) => /webinar|directo|clase/i.test(x.titulo)));
+  // Lo que debería estar hecho 4 días antes del calentamiento es para hoy
+  assert.equal(t.find((x) => x.clave === 'meteo:oferta').fecha, '2026-10-07');
+  assert.equal(t.find((x) => x.clave === 'meteo:apertura').fecha, '2026-10-13');
+  assert.equal(t.find((x) => x.clave === 'meteo:analisis').fecha, '2026-10-14');
+  assert.ok(t.some((x) => x.clave === 'meteo:foto')); // sin campo de fecha de compra
+  assert.ok(!t.some((x) => x.clave === 'meteo:fechas')); // ya tiene fechas
+  assert.ok(!t.some((x) => x.clave === 'meteo:anuncios')); // sin publicidad
+  // Downsell con suscripción, anuncios y campo de fecha
+  const d = tareasMeteorico({ ...base, compraDateField: 'f', metaFiltro: 'bf', pago: { tipo: 'suscripcion', planes: { mensual: { activo: true, precio: 9 } } } }, { hoy: '2026-10-07', lanzamiento: 'Octubre' });
+  assert.match(d.find((x) => x.clave === 'meteo:segmento').titulo, /Octubre/);
+  assert.match(d.find((x) => x.clave === 'meteo:pago').titulo, /suscripción \(mensual\)/);
+  assert.ok(d.some((x) => x.clave === 'meteo:anuncios'));
+  assert.ok(!d.some((x) => x.clave === 'meteo:foto'));
+  // Sin fechas: la preparación, para hoy
+  const s = tareasMeteorico({ name: 'X' }, { hoy: '2026-10-07' });
+  assert.ok(s.filter((x) => x.fase === 'preparacion').every((x) => x.fecha === '2026-10-07'));
+  assert.ok(s.some((x) => x.clave === 'meteo:fechas'));
+  // Calendario
+  assert.deepEqual(fasesMeteoricoCal(base).map((f) => [f.id, f.from, f.to]), [['calentamiento', '2026-10-09', '2026-10-12'], ['oferta', '2026-10-13', '2026-10-13']]);
+  assert.deepEqual(hitosMeteorico(base).map((h) => h.id), ['calentamiento', 'apertura', 'cierre']);
+});
+

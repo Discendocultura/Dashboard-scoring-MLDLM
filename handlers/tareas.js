@@ -5,13 +5,28 @@ import {
   getTareas, saveTareas, sanitizeTarea, sanitizeAsignado, avisarAsignaciones, MAX_TAREAS, MAX_COMENTARIOS, MAX_COMENTARIO, mencionesDe, avisarMencion,
 } from '../lib/tareas.js';
 import { listUsers, newId } from '../lib/users.js';
-import { puedeMarcar, FASE_IDS } from '../public/js/tareas.js';
+import { puedeMarcar, TODAS_FASE_IDS } from '../public/js/tareas.js';
 import { getColumnas, saveColumnas, sanitizeColumnas } from '../lib/columnas.js';
 import { getHabituales, saveHabituales, enlazar, guardarDesdeTarea, quitar, tareasDesdePlantilla } from '../lib/habituales.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { reintentando } from '../lib/store.js';
 import { embudoDe, VSL } from '../lib/embudos.js';
 import { dashboardUrl as urlDashboard } from './usuarios.js';
+import { tareasMeteorico } from '../public/js/meteorico.js';
+import { tareasVsl } from '../public/js/embudo-vsl.js';
+import { dayInMadrid } from '../public/js/scoring.js';
+
+// Tareas que faltan de la planificación de un meteórico o una VSL (no repite las que ya tiene, por clave o título).
+function planificacion(emb, existentes, config) {
+  const hoy = dayInMadrid(new Date().toISOString());
+  const lista = emb.esMeteorico ? tareasMeteorico(emb, { hoy, lanzamiento: config.launches?.[emb.lanzamiento]?.name || '' }) : tareasVsl(emb, { hoy });
+  const claves = new Set(existentes.map((t) => t.clave).filter(Boolean));
+  const titulos = new Set(existentes.map((t) => t.titulo));
+  return lista.filter((t) => !claves.has(t.clave) && !titulos.has(t.titulo)).map((t) => ({
+    titulo: t.titulo, notas: t.notas || '', fase: t.fase, sub: '', fecha: t.fecha, clave: t.clave,
+    asignado: t.rol ? { tipo: 'rol', rol: t.rol } : null, habitual: false,
+  }));
+}
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const actor = (s) => s.user?.nombre || (s.role === 'admin' ? 'Admin' : 'Setter');
@@ -52,6 +67,7 @@ export async function POST(request) {
     let nuevasAsignadas = [];
     let comentario = null;
     let comentada = null;
+    let creadas = 0;
     // Leer-cambiar-guardar: si otra persona guardó a la vez, se repite sobre lo último guardado.
     const respuesta = await reintentando(async () => {
       tareas = await getTareas(code); // lectura fresca: cada operación modifica la última versión
@@ -109,7 +125,7 @@ export async function POST(request) {
           // Mover una tarjeta a otra columna del tablero: una fase o una columna extra.
           const t = find();
           const destino = String(body.columna || '');
-          if (FASE_IDS.includes(destino)) { t.fase = destino; t.columna = ''; } else {
+          if (TODAS_FASE_IDS.includes(destino)) { t.fase = destino; t.columna = ''; } else {
             if (!(await getColumnas()).some((c) => c.id === destino)) throw bad('Esa columna ya no existe');
             t.columna = destino;
           }
@@ -151,8 +167,9 @@ export async function POST(request) {
         } else if (op === 'borrar-todas') {
           tareas.splice(0, tareas.length);
         } else if (op === 'plantilla') {
-          if (launch.esVsl) throw bad('Las tareas habituales son de los lanzamientos');
-          const nuevas = tareasDesdePlantilla(habituales, launch, tareas, users);
+          // Lanzamientos: tareas habituales. Meteóricos y VSL: su planificación propia, según su configuración.
+          const nuevas = launch.esMeteorico || launch.esVsl ? planificacion(launch, tareas, await getConfig()) : tareasDesdePlantilla(habituales, launch, tareas, users);
+          creadas = nuevas.length;
           if (tareas.length + nuevas.length > MAX_TAREAS) throw bad(`Máximo ${MAX_TAREAS} tareas por lanzamiento`);
           for (const t of nuevas) tareas.push({ id: newId('t'), ...t, hecha: false, hechaPor: '', hechaEn: '', creadaPor: actor(s), creadaEn: now });
         } else {
@@ -171,7 +188,7 @@ export async function POST(request) {
     if (comentario?.menciones.length) {
       aviso.menciones = await avisarMencion(comentada, comentario, { launchName: launch.name, dashboardUrl, exceptUid: s.uid });
     }
-    return json({ tareas, aviso });
+    return json({ tareas, aviso, creadas });
   } catch (e) {
     return errorResponse(e);
   }

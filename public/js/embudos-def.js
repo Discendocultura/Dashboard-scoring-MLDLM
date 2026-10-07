@@ -12,7 +12,7 @@ export const PESTANAS = {
     { id: 'comparar', label: 'Comparar', desc: 'Lanzamientos entre sí, edición actual frente a las anteriores, VSL frente a lanzamiento' },
     { id: 'rendimiento', label: 'Rendimiento del equipo', desc: 'WhatsApps, llamadas, shows, cierres y tiempo de respuesta por persona' },
     { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo con comentarios y avisos' },
-    { id: 'calendario', label: 'Calendario', desc: 'Hitos, fases y eventos del lanzamiento' },
+    { id: 'calendario', label: 'Calendario', desc: 'El calendario del cliente: hitos, tareas y eventos de todos sus embudos' },
   ],
   vsl: [
     { id: 'vmetricas', label: 'Métricas', desc: 'Registros, visionado, llamadas, ventas y ROAS por fechas y semanas' },
@@ -22,11 +22,13 @@ export const PESTANAS = {
     { id: 'comparar', label: 'Comparar', desc: 'Mes a mes y frente a los lanzamientos, con alertas' },
     { id: 'rendimiento', label: 'Rendimiento del equipo', desc: 'WhatsApps, llamadas, shows, cierres y tiempo de respuesta por persona' },
     { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para esta VSL' },
+    { id: 'calendario', label: 'Calendario', desc: 'El calendario del cliente: hitos, tareas y eventos de todos sus embudos' },
   ],
 };
 PESTANAS.meteorico = [
   { id: 'meteoricos', label: 'Meteóricos', desc: 'Cada oferta flash: cuenta atrás, ventas, facturación, visitas a la oferta y compradoras' },
   { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para el calentamiento y la oferta' },
+  { id: 'calendario', label: 'Calendario', desc: 'El calendario del cliente: hitos, tareas y eventos de todos sus embudos' },
 ];
 export const pestanaIds = (tipo) => (PESTANAS[tipo] || []).map((p) => p.id);
 

@@ -2,7 +2,7 @@
 // Señales de cada lead, rangos de fechas (presets, mes y semanas del mes) y métricas.
 // Lo usan el navegador y los tests.
 import { dayInMadrid, waPhone } from './scoring.js';
-import { conFraccionado, esSuscripcion, importeVenta, planDeTags, resumenPlanes } from './pago.js';
+import { conFraccionado, esSuscripcion, importeVenta, planDeTags, resumenPlanes, planesActivos } from './pago.js';
 
 export const VSL_PCTS = [25, 50, 75, 90];
 // Etiqueta que pone vsl.js al ver el X% del vídeo (como en los lanzamientos: <código>_<vídeo>_<pct>).
@@ -139,4 +139,26 @@ export function porDias(leads, rango) {
     if (idx.has(l.fCompra)) dias[idx.get(l.fCompra)].ventas++;
   }
   return dias;
+}
+
+// Planificación de una VSL (siempre abierta): sus tareas con fechas desde hoy, adaptadas a su
+// configuración (variante, tipo de pago, llamadas, anuncios). Devuelve [{ clave, fase, titulo, notas, fecha, rol }].
+export function tareasVsl(v, { hoy } = {}) {
+  const d = (n) => addDay(hoy, n);
+  const llamadas = v.subtipo === 'llamadas' || Boolean(v.llamadaUrl || v.llamadaTag);
+  const sus = esSuscripcion(v);
+  const T = [
+    ['etiquetas', 'preparacion', 'Revisar las etiquetas y workflows de GHL de la VSL (registro, visionado, compra, pagos, publi/orgánico)', 0, 'tecnico'],
+    ['pagina', 'preparacion', 'Revisar en el móvil la página, el vídeo y el momento en que aparece el botón', 0, 'tecnico'],
+    ['pago', 'preparacion', sus ? `Comprobar los planes de la suscripción (${planesActivos(v).map((p) => p.label.toLowerCase()).join(', ') || 'márcalos en la configuración'}) y sus enlaces de pago` : `Comprobar el enlace de pago${conFraccionado(v) ? ' único y el de pago a plazos' : ''}`, 0, 'admin'],
+    ['emails', 'preparacion', 'Revisar la secuencia de emails y WhatsApp de quien no ha visto el vídeo o no ha comprado', 1, 'tecnico'],
+    ...(llamadas ? [['calendario', 'preparacion', 'Comprobar el calendario de llamadas y el pipeline en GHL', 1, 'admin']] : []),
+    ['anuncios', 'captacion', `Activar o revisar los anuncios${v.metaFiltro ? ` (campañas con «${v.metaFiltro}»)` : ''}`, 1, 'admin'],
+    ['cpl', 'captacion', 'Revisar el coste por lead y por venta de la semana en Métricas', 7, 'admin'],
+    ['setting', 'seguimiento', 'WhatsApp a quien vio el vídeo hasta el final y no ha comprado', 1, 'setter'],
+    ...(llamadas ? [['llamadas', 'seguimiento', 'Revisar las llamadas de la semana: shows, no-shows y cierres', 7, 'setter']] : []),
+    ['creatividades', 'optimizacion', 'Probar nuevas creatividades o un nuevo gancho en el inicio del vídeo', 14, 'admin'],
+    ['revision', 'optimizacion', 'Revisión del mes: embudo, anuncios ganadores y comparación con el mes anterior', 30, 'admin'],
+  ];
+  return T.map(([clave, fase, titulo, dias, rol]) => ({ clave: `vsl:${clave}`, fase, titulo, notas: '', fecha: hoy ? d(dias) : '', rol }));
 }
