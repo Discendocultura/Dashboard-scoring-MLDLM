@@ -481,6 +481,11 @@
         </section>
 
         <section id="view-leads" hidden>
+        <nav class="subviews msubs" id="msub-leads" role="tablist" aria-label="Leads">
+          <button type="button" class="subview-tab" data-msub-btn="lista" data-icon-msub="users">Lista de leads</button>
+          <button type="button" class="subview-tab" data-msub-btn="encuesta" data-icon-msub="survey">Encuesta</button>
+        </nav>
+        <div data-msub="lista">
         <div id="kpis" class="kpis"></div>
 
         <div class="filters">
@@ -545,6 +550,8 @@
           <button id="page-prev" class="btn" type="button">Anterior</button>
           <button id="page-next" class="btn" type="button">Siguiente</button>
         </div>
+        </div>
+        <div data-msub="encuesta" hidden><div id="enc-leads"></div></div>
         </section>
       </section>
     </main>
@@ -870,6 +877,19 @@
 
   <!-- Tarea -->
   <!-- Auditor de lanzamientos -->
+  <!-- Ficha completa del lead (Comercial → Llamadas) -->
+  <dialog id="ficha-dialog" class="dialog dialog-md">
+    <form method="dialog">
+      <header class="dialog-head"><h2 id="ficha-titulo">Ficha del lead</h2><button class="btn ghost" value="cancel" type="submit" aria-label="Cerrar">✕</button></header>
+      <div class="dialog-body" id="ficha-body"></div>
+      <footer class="dialog-foot">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" type="submit">Cerrar</button>
+        <button class="btn primary" id="ficha-anotar" type="button">Anotar resultado</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog id="auditor-dialog" class="dialog dialog-md">
     <form method="dialog">
       <header class="dialog-head"><h2 id="aud-titulo">Auditor</h2><button class="btn ghost" value="cancel" type="submit" aria-label="Cerrar">✕</button></header>

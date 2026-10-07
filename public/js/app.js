@@ -3,7 +3,7 @@ import {
 } from './scoring.js';
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
-import { asistenciaPorTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
+import { asistenciaPorTrafico, resumenEncuesta, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
@@ -593,7 +593,53 @@ function render() {
     th.classList.toggle('sorted', th.dataset.sort === state.sort.key);
     th.classList.toggle('asc', state.sort.dir === 'asc');
   });
+  if (!$('#view-leads').hidden && !$('#enc-leads').parentElement.hidden) renderEncuestaLeads();
 }
+
+// ---------- Leads → Encuesta: % de cada respuesta y respuestas de texto libre ----------
+const encLibreVer = new Map(); // pregunta → cuántas respuestas libres se enseñan
+function renderEncuestaLeads() {
+  const box = $('#enc-leads');
+  const preguntas = preguntasEncuesta();
+  const launch = state.config.launches[state.launchCode];
+  if (!preguntas.length) { box.innerHTML = '<div class="card"><p class="muted">Este cliente no tiene preguntas de encuesta. Se configuran en <strong>Equipo → Marca</strong> (los campos de GHL de cada pregunta).</p></div>'; return; }
+  const r = resumenEncuesta(state.leads, preguntas);
+  const cab = `<div class="card enc-cab"><strong>${r.respondieron}</strong> de ${r.total} leads han respondido la encuesta (<strong>${pctOf(r.respondieron, r.total)}</strong>)${launch?.encuestaTag ? ` · con la etiqueta «${esc(launch.encuestaTag)}»: ${state.leads.filter((l) => l.s.encuesta).length}` : ''}.
+    <span class="muted">Los % de cada pregunta son sobre quienes la contestaron; en las de varias respuestas pueden sumar más de 100%.</span></div>`;
+  if (!r.respondieron) { box.innerHTML = `${cab}<div class="card"><p class="muted">Todavía no hay respuestas de la encuesta en este lanzamiento.</p></div>`; return; }
+  const barras = (q) => `<div class="enc-opciones">${q.opciones.map((o) => `<div class="enc-op">
+      <span class="enc-op-lbl">${esc(o.respuesta)}</span>
+      <div class="enc-op-bar"><span style="width:${Math.max(1.5, o.pct * 100)}%"></span></div>
+      <span class="enc-op-n"><strong>${Math.round(o.pct * 1000) / 10}%</strong> <span class="muted">${o.n}${o.compras ? ` · ${o.compras} compr${o.compras === 1 ? 'ó' : 'aron'}` : ''}</span></span></div>`).join('')}</div>`;
+  box.innerHTML = cab + r.preguntas.map((q, i) => {
+    const ver = encLibreVer.get(q.p.id) || 30;
+    const libres = q.libres.length ? `<details class="enc-libres"${q.opciones.length ? '' : ' open'}><summary>Todas las respuestas (${q.libres.length})</summary>
+        <input type="search" class="enc-buscar" data-enc-buscar="${i}" placeholder="Buscar en las respuestas…">
+        <ul class="enc-lista" data-enc-lista="${i}">${q.libres.slice(0, ver).map((x) => `<li><span>${esc(x.texto)}</span> <span class="muted small">— ${esc(x.nombre)}${x.compra ? ' · ✅ compró' : ''}</span></li>`).join('')}</ul>
+        ${q.libres.length > ver ? `<button type="button" class="btn ghost" data-enc-mas="${esc(q.p.id)}">Ver ${Math.min(100, q.libres.length - ver)} más</button>` : ''}</details>` : '';
+    return `<section class="card enc-preg">
+      <h3>${esc(q.p.name || q.p.id)} <span class="muted small">· ${q.respondieron} respuestas (${pctOf(q.respondieron, r.total)} de los leads)</span></h3>
+      ${q.opciones.length ? `${q.p.tipo === 'texto' ? '<p class="muted small">Respuestas que más se repiten:</p>' : ''}${barras(q)}` : ''}
+      ${libres}
+    </section>`;
+  }).join('');
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-enc-mas]');
+  if (!b) return;
+  encLibreVer.set(b.dataset.encMas, (encLibreVer.get(b.dataset.encMas) || 30) + 100);
+  renderEncuestaLeads();
+});
+document.addEventListener('input', (e) => {
+  const inp = e.target.closest('[data-enc-buscar]');
+  if (!inp) return;
+  const q = inp.value.trim().toLowerCase();
+  const lista = $(`[data-enc-lista="${inp.dataset.encBuscar}"]`);
+  const preguntas = preguntasEncuesta();
+  const p = resumenEncuesta(state.leads, preguntas).preguntas[Number(inp.dataset.encBuscar)];
+  const items = q ? p.libres.filter((x) => `${x.texto} ${x.nombre}`.toLowerCase().includes(q)) : p.libres.slice(0, encLibreVer.get(p.p.id) || 30);
+  lista.innerHTML = items.map((x) => `<li><span>${esc(x.texto)}</span> <span class="muted small">— ${esc(x.nombre)}${x.compra ? ' · ✅ compró' : ''}</span></li>`).join('') || '<li class="muted">Ninguna respuesta coincide.</li>';
+});
 
 function renderConsumo() {
   const L = state.leads;
@@ -1589,6 +1635,7 @@ function pintarMsub(nav, cat) {
   $$('[data-msub-btn]', nav).forEach((b) => b.classList.toggle('active', b.dataset.msubBtn === cat));
   $$('[data-msub]', view).forEach((el) => { el.hidden = el.dataset.msub !== cat; });
   ls.set(`lsd_${nav.id}`, cat);
+  if (nav.id === 'msub-leads' && cat === 'encuesta' && state.config && state.leads) renderEncuestaLeads();
 }
 $$('.msubs').forEach((nav) => {
   $$('[data-msub-btn]', nav).forEach((b) => {
@@ -5091,7 +5138,7 @@ function llamadaCard(c) {
   const k = contactoDe(c);
   const phone = k.phone;
   const wa = k.phoneWa;
-  return `<article class="ll-card ${pasada && !r && !llCancelada(c) ? 'pendiente' : ''} ${r ? `res-${r.id}` : ''} ${llCancelada(c) ? 'cancelada' : ''}">
+  return `<article data-ll-card="${esc(c.id)}" title="Pulsa para ver la ficha completa" class="ll-card ${pasada && !r && !llCancelada(c) ? 'pendiente' : ''} ${r ? `res-${r.id}` : ''} ${llCancelada(c) ? 'cancelada' : ''}">
     <div class="ll-when"><span class="ll-dia">${esc(cuando)}</span><span class="ll-hora">${esc(hora)}</span></div>
     <div class="ll-main">
       <div class="ll-name">${esc(lead?.name || c.title || 'Sin nombre')}
@@ -5459,7 +5506,89 @@ function openLlamada(id) {
 $('#ll-resultados').addEventListener('change', syncLlDialog);
 $('#llamadas-list').addEventListener('click', (e) => {
   const b = e.target.closest('[data-ll]');
-  if (b) openLlamada(b.dataset.ll);
+  if (b) { openLlamada(b.dataset.ll); return; }
+  // El resto de la tarjeta (menos enlaces y botones) abre la ficha completa del lead.
+  if (e.target.closest('a, button, select, input, textarea')) return;
+  const card = e.target.closest('[data-ll-card]');
+  if (card) abrirFicha(card.dataset.llCard);
+});
+
+// ---------- Ficha completa del lead (al pulsar una llamada) ----------
+// Todo lo que ayuda a la setter antes de llamar: temperatura y puntuación, qué ha hecho en el embudo,
+// la encuesta, el formulario de reserva de la llamada (y otros campos de GHL) y las notas.
+let fichaLlamada = null;
+const fechaFicha = (d) => (d ? new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Madrid' }) : '');
+function hechosLead(lead) {
+  const s = lead.s;
+  if (enVsl()) {
+    return [
+      s.pct ? `🎬 Vio el ${s.pct}% del vídeo` : s.vio ? '🎬 Entró a ver el vídeo' : '🎬 No ha visto el vídeo',
+      s.llamada ? '📞 Agendó llamada' : '',
+      s.compra ? '✅ Ya compró' : '',
+    ].filter(Boolean);
+  }
+  const launch = state.config.launches[state.launchCode] || {};
+  const pctTxt = (p) => (p >= 90 ? 'entera' : p ? `${p}%` : 'no la ha visto');
+  return [
+    ...clasesDe(launch).map((c, i) => `🎓 Clase ${i + 1}: ${pctTxt(watched(s, c))}`),
+    ...(conVip(launch) ? [s.vip ? '⭐ Compró la entrada VIP' : s.vip_anterior ? '⭐ VIP en una edición anterior' : '⭐ Sin entrada VIP'] : []),
+    ...videosDe(launch).map((v) => {
+      const live = s[`${v.directo}_final`] ? 'estuvo en directo hasta el final' : s[`${v.directo}_60`] ? 'estuvo en directo más de 60 min' : s[`${v.directo}_asistio`] ? 'entró al directo' : s[`${v.directo}_click`] ? 'pulsó el enlace del directo (no consta que entrara)' : '';
+      const p = watched(s, v.replay);
+      const nombre = videosDe(launch).length > 1 ? v.nombre : 'Webinar';
+      return `🔴 ${nombre}: ${[live, p ? `vio el ${p}% de la grabación` : ''].filter(Boolean).join(' · ') || 'no lo ha visto'}`;
+    }),
+    s.encuesta ? '📋 Rellenó la encuesta' : '',
+    s.wa_enviado ? '💬 Ya se le escribió por WhatsApp' : '',
+    s.compra ? '✅ Ya compró' : s.clienta_anterior ? '✅ Clienta de una edición anterior' : '',
+  ].filter(Boolean);
+}
+function pintarFicha(c, f, error = '') {
+  const lead = leadDe(c.contactId);
+  const k = contactoDe(c);
+  const d = new Date(c.startTime);
+  const cita = `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' })} a las ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })}`;
+  const etapa = state.llamadas.data.pipeline?.stages.find((x) => x.id === c.opp?.pipelineStageId);
+  const r = c.resultado && RESULTADOS.find((x) => x.id === c.resultado.resultado);
+  const filas = (lista, vacio) => (lista.length ? `<dl class="ficha-dl">${lista.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${b ? esc(b) : '<span class="muted">—</span>'}</dd>`).join('')}</dl>` : `<p class="muted">${vacio}</p>`);
+  const reg = lead?.dateAdded || f?.contacto?.dateAdded;
+  const dias = reg ? Math.max(0, Math.round((Date.now() - Date.parse(reg)) / 86_400_000)) : null;
+  const encuestaRespondida = f?.encuesta?.some((x) => x.respuesta);
+  const temp = lead ? `<div class="ficha-temp st-${lead.estado.id}"><span class="estado st-${lead.estado.id}"><span class="dot"></span>${esc(lead.estado.label)}</span>
+      <div class="ficha-score"><div class="ficha-score-bar"><span style="width:${Math.min(100, lead.score)}%"></span></div><strong>${lead.score}</strong> <span class="muted">/ 100 puntos</span></div>
+      ${!enVsl() && lead.step !== 'comprado' ? `<span class="muted">Siguiente paso: <strong>${esc(NEXT_STEPS[lead.step])}</strong></span>` : ''}</div>` : '<p class="muted">No está entre los registros de este embudo: no tiene puntuación.</p>';
+  $('#ficha-titulo').textContent = lead?.name || f?.contacto?.name || c.title || 'Ficha del lead';
+  $('#ficha-body').innerHTML = `
+    <p class="ficha-cita">📅 Llamada el <strong>${esc(cita)}</strong>${etapa ? ` · etapa <strong>${esc(etapa.name)}</strong>` : ''}${llCancelada(c) ? ' · <strong>cancelada</strong>' : ''}</p>
+    <div class="ll-contact ficha-contacto">${k.phone ? `<a href="tel:${esc(k.phone)}">${icon('phone')}${esc(k.phone)}</a>` : '<span class="muted">Sin teléfono</span>'}${k.phoneWa ? `<a href="https://wa.me/${esc(k.phoneWa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}</div>
+    <section class="ficha-sec"><h3>🌡️ Temperatura (lead scoring)</h3>${temp}</section>
+    ${lead ? `<section class="ficha-sec"><h3>🧭 Qué ha hecho</h3><ul class="ficha-hechos">${hechosLead(lead).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+      <p class="ficha-meta">${[origenChip(c), lead.s.trafico ? `<span class="ll-chip">${lead.s.trafico === 'frio' ? '❄️ Tráfico frío (nueva en GHL)' : '🔥 Tráfico templado (ya estaba en GHL)'}</span>` : '', avatarChip(lead), dias != null ? `<span class="ll-chip">Registrada hace ${dias} día${dias === 1 ? '' : 's'} (${esc(fechaFicha(reg))})</span>` : ''].filter(Boolean).join(' ')}</p></section>` : ''}
+    ${r ? `<section class="ficha-sec"><h3>📝 Resultado anotado</h3><p>${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span></p>${c.resultado.notas ? `<p class="ll-notas">${esc(c.resultado.notas)}</p>` : ''}</section>` : ''}
+    ${error ? `<p class="error">${esc(error)}</p>` : !f ? '<p class="muted">Cargando la encuesta, el formulario y las notas de GHL…</p>' : `
+    <section class="ficha-sec"><h3>📋 Encuesta</h3>${encuestaRespondida ? filas(f.encuesta.map((x) => [x.pregunta, x.respuesta])) : `<p class="muted">${f.encuesta.length ? 'No ha rellenado la encuesta.' : 'Este cliente no tiene preguntas de encuesta configuradas (Equipo → Marca).'}</p>`}</section>
+    <section class="ficha-sec"><h3>📞 Formulario de la llamada y otros datos de GHL</h3>${filas(f.otros.map((x) => [x.campo, x.fecha ? fechaFicha(x.valor) : x.valor]), 'No hay más datos en su ficha de GHL.')}</section>
+    ${f.notas.length ? `<section class="ficha-sec"><h3>🗒️ Notas en GHL</h3><ul class="ficha-notas">${f.notas.map((n) => `<li><span class="muted small">${esc(fechaFicha(n.dateAdded))}</span><div>${esc(n.body)}</div></li>`).join('')}</ul></section>` : ''}`}`;
+  $('#ficha-anotar').hidden = llCancelada(c);
+  $('#ficha-anotar').textContent = r ? 'Cambiar resultado' : 'Anotar resultado';
+}
+async function abrirFicha(id) {
+  const c = state.llamadas?.data?.llamadas?.find((x) => x.id === id);
+  if (!c) return;
+  fichaLlamada = c;
+  pintarFicha(c, null);
+  $('#ficha-dialog').showModal();
+  try {
+    const f = await api(`/api/ficha?cid=${encodeURIComponent(c.contactId)}`);
+    if (fichaLlamada === c) pintarFicha(c, f);
+  } catch (e) {
+    if (fichaLlamada === c) pintarFicha(c, null, e.message);
+  }
+}
+$('#ficha-anotar').addEventListener('click', () => {
+  if (!fichaLlamada) return;
+  $('#ficha-dialog').close();
+  openLlamada(fichaLlamada.id);
 });
 $('#btn-ll-reload').addEventListener('click', loadLlamadas);
 // La ayuda se ve abierta hasta que la cierras (se recuerda en este navegador).

@@ -26,3 +26,25 @@ test('asistencia por tipo de tráfico: también publicidad y orgánico', async (
   assert.deepEqual(r.grupos.map((g) => g.id), ['global', 'publi', 'organico']);
   assert.deepEqual(r.pasos.find((p) => p.label === 'Asistieron al directo').n, { global: 2, publi: 1, organico: 1 });
 });
+
+test('resumen de la encuesta: % por opción y respuestas libres', async () => {
+  const { resumenEncuesta } = await import('../public/js/metrics.js');
+  const preguntas = [{ id: 'tiempo', name: '¿Cuánto tiempo?', tipo: 'opciones' }, { id: 'libre', name: '¿Qué te bloquea?', tipo: 'texto' }, { id: 'edad', name: 'Edad', tipo: 'edad' }];
+  const L = (cf, compra = false) => ({ id: Math.random().toString(36), name: 'X', cf, s: { compra } });
+  const leads = [
+    L({ tiempo: ['0 - 6 meses'], libre: 'El estrés', edad: 33 }, true),
+    L({ tiempo: ['0 - 6 meses'], libre: 'el estrés.', edad: 41 }),
+    L({ tiempo: ['Más de 1 año'], libre: 'Mis hormonas', edad: 29 }),
+    L({}),
+  ];
+  const r = resumenEncuesta(leads, preguntas);
+  assert.equal(r.total, 4);
+  assert.equal(r.respondieron, 3);
+  const t = r.preguntas[0];
+  assert.equal(t.respondieron, 3);
+  assert.deepEqual(t.opciones.map((o) => [o.respuesta, o.n, Math.round(o.pct * 100), o.compras]), [['0 - 6 meses', 2, 67, 1], ['Más de 1 año', 1, 33, 0]]);
+  const libre = r.preguntas[1];
+  assert.equal(libre.libres.length, 3); // todas las respuestas tal cual
+  assert.deepEqual(libre.opciones.map((o) => [o.respuesta, o.n]), [['El estrés', 2]]); // «El estrés» y «el estrés.» son la misma
+  assert.deepEqual(r.preguntas[2].opciones.map((o) => o.respuesta), ['Menos de 30 años', '30 a 34 años', 'Más de 40 años']);
+});

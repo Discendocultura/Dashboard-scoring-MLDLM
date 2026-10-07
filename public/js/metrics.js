@@ -516,3 +516,38 @@ export function asistenciaPorTrafico(leads, launch, { trafico = true, origen = t
     pasos: def.map(([label, fn]) => ({ label, n: Object.fromEntries(grupos.map((g) => [g.id, fn(ms[g.id], g.leads)])) })),
   };
 }
+
+// Resumen de la encuesta (Leads → Encuesta): por pregunta, el % de cada respuesta sobre quienes la
+// contestaron (y cuántas de ellas compran). En las de texto libre, además, todas las respuestas.
+// → { total, respondieron, preguntas: [{ p, respondieron, opciones: [{ respuesta, n, pct, compras }], libres }] }
+export function resumenEncuesta(leads, preguntas) {
+  const respondieron = leads.filter((l) => preguntas.some((p) => respuestasDe(l, p).length)).length;
+  return {
+    total: leads.length,
+    respondieron,
+    preguntas: preguntas.map((p) => {
+      const con = leads.filter((l) => respuestasDe(l, p).length);
+      const g = new Map();
+      for (const l of con) {
+        for (const r of respuestasDe(l, p)) {
+          const x = g.get(r) || { respuesta: r, n: 0, compras: 0 };
+          x.n++;
+          if (l.s.compra) x.compras++;
+          g.set(r, x);
+        }
+      }
+      let opciones = [...g.values()].map((x) => ({ ...x, pct: con.length ? x.n / con.length : 0 }));
+      if (p.tipo === 'edad') opciones.sort((a, b) => ORDEN_EDAD.indexOf(a.respuesta) - ORDEN_EDAD.indexOf(b.respuesta));
+      else opciones.sort((a, b) => b.n - a.n || a.respuesta.localeCompare(b.respuesta, 'es'));
+      // Texto libre: las más repetidas como opciones y la lista completa de respuestas.
+      const libres = p.tipo === 'texto'
+        ? con.map((l) => {
+          const v = l.cf?.[p.id];
+          return { id: l.id, nombre: l.name || l.email || '', texto: (Array.isArray(v) ? v.join(', ') : String(v ?? '')).trim(), compra: Boolean(l.s.compra) };
+        }).filter((x) => x.texto)
+        : [];
+      if (p.tipo === 'texto') opciones = opciones.filter((o) => o.n > 1).slice(0, 10);
+      return { p, respondieron: con.length, opciones, libres };
+    }),
+  };
+}
