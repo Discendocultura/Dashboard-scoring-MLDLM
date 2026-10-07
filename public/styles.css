@@ -1542,3 +1542,12 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 .age-cli strong { font-weight: 700; }
 .age-editor td { background: var(--surface-2, color-mix(in srgb, currentColor 4%, transparent)); }
 .eq-agencia-nota { margin-top: 12px; }
+
+/* Portal del cliente: elegir embudo, lanzamiento y periodo */
+.portal-nav { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 18px; padding: 14px 24px 0; max-width: 1100px; margin: 0 auto; }
+.portal-nav:empty { display: none; }
+.portal-chips { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+.portal-chip { font: inherit; font-weight: 600; font-size: 14px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; }
+.portal-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.portal-pick { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--text-2); }
+.portal-pick select { min-width: 220px; }

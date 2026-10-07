@@ -3851,7 +3851,7 @@ function tarjetaPortal(e) {
   const hitos = (e.hitos || []).map((h) => `<li><strong>${esc(fechaPortal(h.dia))}</strong>${h.hora ? ` · ${esc(h.hora)}` : ''} — ${esc(h.titulo)}</li>`).join('');
   const [estado, tono] = ESTADO_PORTAL[e.estado] || ['', ''];
   const cabecera = e.tipo === 'vsl'
-    ? `<h2>🎬 ${esc(e.nombre)}</h2><p class="muted">Últimos 30 días (${esc(fechaPortal(e.periodo.desde))} – ${esc(fechaPortal(e.periodo.hasta))})</p>`
+    ? `<h2>🎬 ${esc(e.nombre)}</h2><p class="muted">${esc(PERIODOS_PORTAL[e.preset || '30d'] || 'Últimos 30 días')} (${esc(fechaPortal(e.periodo.desde))} – ${esc(fechaPortal(e.periodo.hasta))})</p>`
     : `<h2>🚀 ${esc(e.nombre)} ${estado ? `<span class="badge tone-${tono}">${estado}</span>` : ''}</h2><p class="muted">${esc(e.embudo)} · ${esc(e.formato)}${e.fechas.directo ? ` · webinar el ${esc(fechaPortal(e.fechas.directo))}` : ''}${e.fechas.cierre ? ` · cierre ${esc(fechaPortal(e.fechas.cierre))}` : ''}</p>`;
   return `<article class="portal-card">${cabecera}
     <div class="portal-kpis">
@@ -3872,6 +3872,52 @@ function tarjetaPortal(e) {
 }
 // Cliente cuyo portal se está viendo (el actual o, con «Ver como», otro cliente de la agencia).
 let portalCliente = null;
+// El cliente elige qué embudo ver (o todos), y en cada uno qué lanzamiento o qué periodo (VSL).
+const PERIODOS_PORTAL = { '7d': 'Últimos 7 días', '30d': 'Últimos 30 días', '90d': 'Últimos 90 días', 'mes-actual': 'Este mes', 'mes-pasado': 'El mes pasado' };
+const portal = { catalogo: [], resumen: null, sel: 'todos', l: '', periodo: '30d', vistaPrevia: false };
+const portalHtml = (html, producto) => (portalCliente !== state.cliente ? conProducto(html, producto) : html);
+function pintarPortalNav() {
+  const chip = (id, txt) => `<button type="button" class="portal-chip ${portal.sel === id ? 'on' : ''}" data-portal-emb="${esc(id)}">${txt}</button>`;
+  const e = portal.catalogo.find((x) => x.id === portal.sel);
+  const extra = !e ? '' : e.tipo === 'lanzamientos'
+    ? (e.lanzamientos.length > 1 ? `<label class="portal-pick"><span>Lanzamiento</span><select id="portal-lanz">${e.lanzamientos.map((x) => `<option value="${esc(x.code)}" ${x.code === portal.l ? 'selected' : ''}>${esc(x.nombre)}${x.inicio ? ` · ${esc(fechaPortal(x.inicio))}` : ''}</option>`).join('')}</select></label>` : '')
+    : `<label class="portal-pick"><span>Periodo</span><select id="portal-periodo">${Object.entries(PERIODOS_PORTAL).map(([k, v]) => `<option value="${k}" ${k === portal.periodo ? 'selected' : ''}>${v}</option>`).join('')}</select></label>`;
+  $('#portal-nav').innerHTML = portal.catalogo.length > 1 || extra
+    ? `<div class="portal-chips">${portal.catalogo.length > 1 ? chip('todos', 'Todos los embudos') : ''}${portal.catalogo.map((x) => chip(x.id, `${x.tipo === 'vsl' ? '🎬' : '🚀'} ${esc(x.nombre)}`)).join('')}</div>${extra}`
+    : '';
+}
+async function pintarPortalCuerpo() {
+  const body = $('#portal-body');
+  if (portal.sel === 'todos' || !portal.catalogo.some((x) => x.id === portal.sel)) {
+    const r = portal.resumen;
+    body.innerHTML = portalHtml(r.embudos.length ? r.embudos.map(tarjetaPortal).join('') : '<p class="muted">Todavía no hay ningún lanzamiento en marcha.</p>', r.producto);
+    return;
+  }
+  body.innerHTML = '<p class="muted">Cargando…</p>';
+  try {
+    const q = new URLSearchParams({ embudo: portal.sel, ...(portal.l ? { l: portal.l } : {}), periodo: portal.periodo, ...(portal.vistaPrevia ? { fresh: '1' } : {}) });
+    const { detalle } = await api(`/api/resumen?${q}`, { cliente: portalCliente });
+    body.innerHTML = detalle.tipo === 'vacio'
+      ? `<div class="portal-card"><h2>🚀 ${esc(detalle.nombre)}</h2><p class="muted">Este embudo todavía no tiene ningún lanzamiento en marcha.</p></div>`
+      : portalHtml(tarjetaPortal(detalle), portal.resumen?.producto);
+  } catch (e) { body.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+$('#portal-nav').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-portal-emb]');
+  if (!b) return;
+  portal.sel = b.dataset.portalEmb;
+  const emb = portal.catalogo.find((x) => x.id === portal.sel);
+  portal.l = emb?.lanzamientos?.[0]?.code || '';
+  ls.set(`lsd_portal_${portalCliente}`, portal.sel);
+  pintarPortalNav();
+  pintarPortalCuerpo();
+});
+$('#portal-nav').addEventListener('change', (e) => {
+  if (e.target.id === 'portal-lanz') portal.l = e.target.value;
+  else if (e.target.id === 'portal-periodo') portal.periodo = e.target.value;
+  else return;
+  pintarPortalCuerpo();
+});
 async function mostrarPortal({ vistaPrevia = false, cliente = state.cliente } = {}) {
   portalCliente = cliente;
   $('#app').hidden = true;
@@ -3886,13 +3932,18 @@ async function mostrarPortal({ vistaPrevia = false, cliente = state.cliente } = 
   $('#portal-aviso').innerHTML = vistaPrevia ? `👁 <strong>Vista «Ver como»:</strong> esto es exactamente lo que ve <strong>${esc(cli?.nombre || 'este cliente')}</strong> al entrar con su acceso de cliente. No le cambia nada ni le avisa.` : '';
   const body = $('#portal-body');
   body.innerHTML = '<p class="muted">Cargando los resultados…</p>';
+  $('#portal-nav').innerHTML = '';
+  // Viendo otro cliente: con el nombre de SU producto (no el del cliente en el que estás).
+  if (cliente !== state.cliente) body.dataset.otroCliente = '1'; else delete body.dataset.otroCliente;
   try {
     const r = await api(`/api/resumen${vistaPrevia ? '?fresh=1' : ''}`, { cliente });
     $('#portal-sub').textContent = `Datos actualizados a las ${new Date(r.generado).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} · ${r.producto}`;
-    const html = r.embudos.length ? r.embudos.map(tarjetaPortal).join('') : '<p class="muted">Todavía no hay ningún lanzamiento en marcha.</p>';
-    // Viendo otro cliente: con el nombre de SU producto (no el del cliente en el que estás).
-    if (cliente !== state.cliente) body.dataset.otroCliente = '1'; else delete body.dataset.otroCliente;
-    body.innerHTML = cliente !== state.cliente ? conProducto(html, r.producto) : html;
+    Object.assign(portal, { resumen: r, catalogo: r.catalogo || [], vistaPrevia, periodo: '30d' });
+    const guardado = ls.get(`lsd_portal_${cliente}`);
+    portal.sel = portal.catalogo.length === 1 ? portal.catalogo[0].id : portal.catalogo.some((x) => x.id === guardado) ? guardado : 'todos';
+    portal.l = portal.catalogo.find((x) => x.id === portal.sel)?.lanzamientos?.[0]?.code || '';
+    pintarPortalNav();
+    await pintarPortalCuerpo();
   } catch (e) { body.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
 $('#portal-salir').addEventListener('click', () => $('#btn-logout').click());
