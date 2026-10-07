@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 
 before(async () => {
   const { setEnv } = await import('../lib/env.js');
-  setEnv({ GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret' });
+  const { crearD1Local } = await import('../lib/d1-local.js');
+  // Con base de datos D1 (local); vsl.test.js y llamadas.test.js prueban el modo sin D1 (todo en GHL).
+  setEnv({ GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret', DB: crearD1Local() });
 });
 
 const req = (path, { method = 'GET', body, cookie } = {}) => new Request(`http://localhost${path}`, {
@@ -778,7 +780,7 @@ test('embudos: varias VSL por cliente, lanzamientos por embudo y migración de l
   const tras = (await (await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: sinFert }))).json()).config;
   assert.equal(tras.vsls['vsl-fertilidad'], undefined);
   // Config antigua (con `vsl`): se lee como vsls.vsl
-  const { saveCustomValue } = await import('../lib/ghl.js');
+  const { storeSet: saveCustomValue } = await import('../lib/store.js');
   const { getConfig } = await import('../lib/config-store.js');
   await saveCustomValue('lead_scoring_dashboard_config', JSON.stringify({ launches: {}, vsl: { name: 'Vieja', registroTag: 'r-vieja' } }));
   const vieja = await getConfig({ fresh: true });
@@ -787,4 +789,25 @@ test('embudos: varias VSL por cliente, lanzamientos por embudo y migración de l
   assert.deepEqual(vieja.embudos.map((e) => e.id), ['lanz', 'vsl']);
   assert.equal(vieja.vsl, undefined);
   await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: tras }));
+});
+
+test('configuración: dos personas guardando a la vez no se pisan (versión)', async () => {
+  const { POST: login } = await import('../handlers/login.js');
+  const admin = (await login(req('/api/login', { method: 'POST', body: { password: 'admin' } }))).headers.get('set-cookie').split(';')[0];
+  const config = await import('../handlers/config.js');
+  const leida = await (await config.GET(req('/api/config?fresh=1', { cookie: admin }))).json();
+  assert.ok(Number.isInteger(leida.version));
+  const a = await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...leida.config, digestEmail: 'a@ejemplo.com', _version: leida.version } }));
+  assert.equal(a.status, 200);
+  const nueva = (await a.json()).version;
+  assert.equal(nueva, leida.version + 1);
+  // La otra persona tenía la versión de antes: se le avisa en vez de pisar el cambio
+  const b = await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...leida.config, digestEmail: 'b@ejemplo.com', _version: leida.version } }));
+  assert.equal(b.status, 409);
+  assert.match((await b.json()).error, /a la vez/);
+  // Los mensajes de WhatsApp se guardan sobre lo último (sin conflicto)
+  const p = await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { op: 'plantillas', templates: { general: 'Hola' } } }));
+  assert.equal(p.status, 200);
+  const final = await (await config.GET(req('/api/config?fresh=1', { cookie: admin }))).json();
+  assert.equal(final.config.digestEmail, 'a@ejemplo.com');
 });

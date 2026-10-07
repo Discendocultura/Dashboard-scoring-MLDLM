@@ -7,7 +7,7 @@ import { requireSuperadmin } from '../lib/auth.js';
 import { listClientes, saveClientes, sanitizeCliente } from '../lib/clientes.js';
 import { runCliente, sufijo } from '../lib/cliente.js';
 import { ghlConectado, listTags } from '../lib/ghl.js';
-import { listUsersRaw, saveUsers } from '../lib/users.js';
+import { actualizarUsuarios } from '../lib/users.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
@@ -59,9 +59,7 @@ export async function POST(request) {
     }
     if (body.op === 'borrar') {
       if (c.principal) throw bad('El cliente principal no se puede quitar');
-      const users = await listUsersRaw({ fresh: true });
-      for (const u of users) if (u.accesos?.[c.id]) delete u.accesos[c.id];
-      await saveUsers(users);
+      await actualizarUsuarios((users) => { for (const u of users) if (u.accesos?.[c.id]) delete u.accesos[c.id]; }, `Quitar el cliente ${c.id}`);
       return json({ clientes: (await saveClientes(lista.filter((x) => x.id !== c.id))).map(conEstado) });
     }
     throw bad('Operación no válida');

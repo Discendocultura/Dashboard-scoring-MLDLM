@@ -1326,3 +1326,32 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 .aud-ign .aud-item { opacity: .6; }
 .aud-nota { font-size: 12.5px; }
 @media (max-width: 640px) { .aud-item { flex-wrap: wrap; } .aud-acc { width: 100%; justify-content: flex-start; } }
+
+/* Equipo → Historial */
+.hist-bar { align-items: flex-end; }
+.hist-table td { white-space: nowrap; }
+.hist-table td:last-child { white-space: normal; }
+.hist-copias { border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; margin: 0 0 8px; background: var(--surface); }
+.hist-copias summary { cursor: pointer; }
+.hist-copias ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.hist-copias li { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+
+/* Verificación en dos pasos y Equipo → Seguridad */
+.ok-txt { color: var(--chip-on-ink); font-weight: 600; }
+.cuenta-2fa { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; background: var(--surface-2); }
+.cuenta-2fa p { margin: 0; }
+.dospasos-alta { display: flex; flex-direction: column; gap: 8px; }
+.qr-box { align-self: center; padding: 10px; background: #fff; border-radius: 10px; line-height: 0; }
+.qr-box:empty { display: none; }
+.qr-box img, .qr-box canvas { display: block; max-width: 100%; height: auto; }
+.secreto { word-break: break-all; user-select: all; }
+.notice.recup { display: block; }
+#hist-ambito { min-width: 320px; }
+.recup-lista { list-style: none; display: grid; grid-template-columns: repeat(2, max-content); gap: 4px 28px; margin: 8px 0; padding: 0; font-size: 14px; }
+.small { font-size: 12px; }
+.seg-tabla td, .seg-tabla th { white-space: nowrap; }
+.seg-ajuste { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.seg-ajuste input { width: auto; margin-top: 3px; }
+.perm-lista { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
+.perm-lista li { display: grid; grid-template-columns: 24px 1fr; gap: 4px 8px; align-items: start; }
+.perm-lista li small { grid-column: 2; }

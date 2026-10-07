@@ -15,6 +15,9 @@ if (existsSync(join(root, '.env'))) {
     if (m && !(m[1] in process.env)) process.env[m[1]] = m[2];
   }
 }
+// Base de datos local que imita a D1 (en memoria; D1_FILE=datos.sqlite para conservarla; NO_D1=1 para probar sin ella).
+const { crearD1Local } = await import('../lib/d1-local.js');
+const DB = process.env.NO_D1 === '1' ? null : crearD1Local(process.env.D1_FILE || ':memory:');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json' };
 const port = Number(process.env.PORT || 3000);
 
@@ -42,7 +45,7 @@ createServer(async (req, res) => {
         headers: req.headers,
         body: ['GET', 'HEAD'].includes(req.method) ? undefined : Buffer.concat(chunks),
       });
-      const response = await route(request, process.env);
+      const response = await route(request, DB ? { ...process.env, DB } : process.env);
       const headers = {};
       response.headers.forEach((v, k) => { headers[k] = v; });
       // En local (http) quitamos "Secure" para que el navegador guarde la cookie.

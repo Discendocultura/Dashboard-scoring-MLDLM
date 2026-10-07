@@ -1,6 +1,7 @@
 // Diagnóstico público: indica qué variables de entorno están configuradas (nunca sus valores).
 import { env } from '../lib/env.js';
 import { json } from '../lib/http.js';
+import { usaD1 } from '../lib/store.js';
 
 const VARS = ['GHL_TOKEN', 'GHL_LOCATION_ID', 'ADMIN_PASSWORD', 'SETTER_PASSWORD', 'SESSION_SECRET', 'ZOOM_ACCOUNT_ID', 'ZOOM_CLIENT_ID', 'ZOOM_CLIENT_SECRET'];
 // Opcionales: Meta (inversión), Turnstile (anti-bots) y el resumen diario.
@@ -10,5 +11,6 @@ export function GET() {
   const vars = Object.fromEntries(VARS.map((k) => [k, Boolean((env[k] || '').trim())]));
   const sessionOk = (env.SESSION_SECRET || '').trim().length >= 16;
   const optional = Object.fromEntries(OPTIONAL.map((k) => [k, Boolean((env[k] || '').trim())]));
-  return json({ ok: VARS.every((k) => vars[k]) && sessionOk, vars, optional, sessionSecretLongEnough: sessionOk });
+  // baseDatosD1: si está conectada la base de datos propia (si no, todo va a los Custom Values de GHL).
+  return json({ ok: VARS.every((k) => vars[k]) && sessionOk, vars, optional, sessionSecretLongEnough: sessionOk, baseDatosD1: usaD1() });
 }

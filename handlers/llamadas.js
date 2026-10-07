@@ -6,8 +6,9 @@ import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import {
   getPipelines, searchOpportunities, getContact, createOpportunity, updateOpportunity, calendarEvents, getCalendar,
-  updateAppointmentStatus, addContactNote, getCustomValue, saveCustomValue,
+  updateAppointmentStatus, addContactNote,
 } from '../lib/ghl.js';
+import { leerJSON, guardarJSON, reintentando } from '../lib/store.js';
 import { RESULTADOS, MOTIVOS, PIPELINE_POR_DEFECTO, etapasPipeline, etapaDestino, calendarioDeUrl } from '../public/js/llamadas.js';
 import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
 import { embudoDe } from '../lib/embudos.js';
@@ -27,9 +28,16 @@ async function pipelineLanzamientos(config, launch) {
 
 const storeName = (code) => `lsd_llamadas_${code}`;
 async function getResultados(code) {
-  const cv = await getCustomValue(storeName(code));
-  try { return cv?.value ? JSON.parse(cv.value) || {} : {}; } catch { return {}; }
+  const r = await leerJSON(storeName(code), () => ({}));
+  return r && typeof r === 'object' && !Array.isArray(r) ? r : {};
 }
+// Leer-cambiar-guardar con reintento si otra persona anota a la vez.
+const cambiarResultados = (code, fn, motivo) => reintentando(async () => {
+  const resultados = await getResultados(code);
+  const out = fn(resultados);
+  await guardarJSON(storeName(code), resultados, { motivo });
+  return out;
+});
 
 // Los errores de permisos de GHL se explican en claro.
 function permisos(e) {
@@ -102,10 +110,11 @@ export async function POST(request) {
       const contactId = String(body.contactId || '');
       if (!/^[A-Za-z0-9_-]{2,64}$/.test(contactId)) throw bad('Contacto no válido');
       await contexto(code);
-      const resultados = await getResultados(code);
-      resultados._wa = { ...(resultados._wa || {}), [contactId]: { fase: String(body.fase || '').slice(0, 30), en: new Date().toISOString(), por: s.user?.nombre || s.role } };
-      await saveCustomValue(storeName(code), JSON.stringify(resultados));
-      return json({ wa: resultados._wa[contactId] });
+      const wa = await cambiarResultados(code, (resultados) => {
+        resultados._wa = { ...(resultados._wa || {}), [contactId]: { fase: String(body.fase || '').slice(0, 30), en: new Date().toISOString(), por: s.user?.nombre || s.role } };
+        return resultados._wa[contactId];
+      }, 'WhatsApp enviado');
+      return json({ wa });
     }
     if (body.op !== 'resultado') throw bad('Operación no válida');
     const { config, launch } = await contexto(code);
@@ -139,10 +148,11 @@ export async function POST(request) {
     await addContactNote(contactId, `📞 Llamada de valoración${cuando ? ` (${cuando})` : ''}: ${r.icon} ${r.label}${motivo ? ` · Motivo: ${motivo}` : ''}${notas ? `\n${notas}` : ''}\n— ${quien}, desde el dashboard`)
       .catch((e) => avisos.push(`No se pudo guardar la nota en GHL (${String(e.message).slice(0, 120)}).`));
     // 4) Registro propio para las métricas.
-    const resultados = await getResultados(code);
-    resultados[eventId] = { resultado: r.id, motivo, notas, contactId, por: quien, en: new Date().toISOString(), etapa: etapaNueva };
-    await saveCustomValue(storeName(code), JSON.stringify(resultados));
-    return json({ resultado: resultados[eventId], avisos, motivos: MOTIVOS });
+    const resultado = await cambiarResultados(code, (resultados) => {
+      resultados[eventId] = { resultado: r.id, motivo, notas, contactId, por: quien, en: new Date().toISOString(), etapa: etapaNueva };
+      return resultados[eventId];
+    }, `Resultado de llamada: ${r.label}`);
+    return json({ resultado, avisos, motivos: MOTIVOS });
   } catch (e) {
     return errorResponse(e);
   }

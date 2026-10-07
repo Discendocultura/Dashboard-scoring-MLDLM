@@ -288,14 +288,14 @@ Con un email tuyo que **no** esté en GHL:
 6. Borra después tu contacto de prueba en GHL.
 
 ## Accesos y equipo
-Cada persona entra con **su email y su contraseña**. Se dan de alta en el botón *Equipo → Miembros del equipo* (arriba, solo admin) (o al asignar una tarea a «+ Nueva persona»): se crea su contacto en GHL con la etiqueta `equipo-dashboard` y le llega un email desde GHL con el enlace, su email y una contraseña generada. Desde «Mi cuenta» puede cambiarla y subir su **foto de perfil** (el navegador la recorta y reduce a 160×160; se guarda en el Custom Value `lsd_foto_<id>` y se ve en la barra, en Equipo y en las tareas que tiene asignadas); desde Equipo se puede reenviar el acceso (contraseña nueva), cambiar el rol, desactivar o borrar.
+Cada persona entra con **su email y su contraseña**. Se dan de alta en el botón *Equipo → Miembros del equipo* (arriba, solo admin) (o al asignar una tarea a «+ Nueva persona»): se crea su contacto en GHL con la etiqueta `equipo-dashboard` y le llega un email desde GHL con el enlace, su email y una contraseña generada. Desde «Mi cuenta» puede cambiarla y subir su **foto de perfil** (el navegador la recorta y reduce a 160×160; se guarda como `lsd_foto_<id>` y se ve en la barra, en Equipo y en las tareas que tiene asignadas); desde Equipo se puede reenviar el acceso (contraseña nueva), cambiar el rol, desactivar o borrar.
 
 Los roles y lo que ve cada uno se configuran en el botón **Equipo → Roles y permisos** (arriba, solo admin): una tabla con una casilla por pestaña (Setteo hoy, Llamadas, Leads, Métricas, Objetivos, Avatar y anuncios, Comparar) y por acción (Configuración de lanzamientos, Sincronizar Zoom, Crear/editar/borrar tareas y eventos). Se pueden crear roles nuevos, renombrarlos y borrarlos (si nadie los tiene). El servidor aplica los mismos permisos.
 - **Admin**: todo, siempre (y es el único que gestiona el equipo y los roles).
 - **Todos los roles**: Tareas y Calendario (cada uno marca sus tareas y las de su rol).
 - De serie: **Técnico** (configuración, Zoom, Setteo hoy, Llamadas, Leads, Métricas, Objetivos, Avatar) y **Setter** (Setteo hoy, Llamadas, Leads). Se guardan en `lsd_roles`.
 
-Las contraseñas generales `ADMIN_PASSWORD` / `SETTER_PASSWORD` siguen funcionando (dejando el email vacío) como acceso de emergencia.
+Las contraseñas generales `ADMIN_PASSWORD` / `SETTER_PASSWORD` siguen funcionando (dejando el email vacío) como acceso de emergencia, salvo que el superadmin las desactive (ver **Seguridad**).
 
 ## Tareas
 Cada lanzamiento tiene su pestaña **Tareas**, agrupadas por fase (preparación → cierre) con barra de progreso, vencidas y filtros (pendientes, mías, vencidas, hechas, por persona). La admin crea, edita y borra (también varias a la vez con «Seleccionar», o todas con «Eliminar todas»); cada tarea se asigna a una persona o a todo un rol y, si se marca «Avisar», le llega un email. El resto marca como hechas las suyas o las de su rol. Se ven en **Lista** (por fases) o en **Tablero** kanban: una columna por fase (Preparación agrupada por subcategorías), las columnas extra que cree la admin (comunes a todos los lanzamientos; se renombran, mueven, colorean y borran con «⋯») y **✅ Completadas** al final: al marcar la casilla la tarjeta salta ahí tachada. La admin arrastra tarjetas entre columnas (o elige la columna al abrir la tarea); el resto marca las suyas como completadas. La fase **Preparación** se divide en subcategorías (Dashboard y herramientas, Oferta y pagos, Contenido y creatividades, Comunicación, Revisión y pruebas, Equipo y reuniones, Otras): se deducen del título y se pueden elegir al crear o editar la tarea.
@@ -367,7 +367,30 @@ Pestaña **Calendario** (todos los roles), con vista **mensual** y **semanal**:
 - Pulsa un día para ver el detalle, marcar tareas o (admin) añadir eventos y tareas ese día.
 - **Sincronizar con mi calendario**: cada persona tiene un enlace privado para Google Calendar (*Añadir calendario → Desde URL*) o iPhone/Mac (webcal). Incluye hitos, eventos y sus tareas, y se actualiza solo. Si se desactiva a la persona, su enlace deja de funcionar.
 
-La configuración se guarda en el Custom Value `lead_scoring_dashboard_config` de GHL, los usuarios en `lsd_usuarios` (contraseñas solo como hash PBKDF2) las tareas en `lsd_tareas_<código>` los eventos en `lsd_eventos_<código>` y las columnas extra del tablero en `lsd_kanban_columnas`. No los borres.
+Los datos se llaman igual que siempre: la configuración `lead_scoring_dashboard_config`, los usuarios `lsd_usuarios` (contraseñas solo como hash PBKDF2), las tareas `lsd_tareas_<código>`, los eventos `lsd_eventos_<código>` y las columnas extra del tablero `lsd_kanban_columnas`. Con la base de datos D1 viven en ella; sin D1, en los Custom Values de GHL (no los borres). Ver **Base de datos (D1)**.
+
+## Base de datos (D1), historial y copias
+El dashboard guarda sus datos (configuración, tareas, eventos, llamadas, equipo, roles, clientes…) en su **propia base de datos**: Cloudflare D1, gratis, en la misma cuenta de Cloudflare del dashboard (holadiscendo@gmail.com). Sin D1 sigue funcionando como antes (todo en los Custom Values del GHL de MLDLM), pero con D1:
+- **No depende del GHL de un cliente**: lo común (equipo, clientes, seguridad, fotos) va aparte, en la «agencia».
+- **Nadie pisa los cambios de otra persona**: cada dato lleva una versión. Si dos personas guardan a la vez, el servidor vuelve a aplicar el cambio sobre lo último (tareas, eventos, llamadas, equipo) o, en la Configuración, avisa: «Otra persona ha cambiado esto a la vez que tú. Vuelve a cargar y repite el cambio».
+- **Historial** (*Equipo → Historial*, admin): quién cambió qué y cuándo. El superadmin ve también el de la agencia.
+- **Copias de seguridad**: de cada dato se guarda una copia al día (las últimas 30) y se puede **restaurar** con un clic (lo que había queda a su vez copiado). Botón para **descargar todos los datos** en JSON. Además, Cloudflare guarda la base de datos entera 30 días (*Time Travel*).
+- **Migración automática**: la primera vez que se lee cada dato que aún no está en D1, se copia desde GHL. No hay que hacer nada; lo de GHL se queda como estaba (de reserva).
+
+### Conectar D1 (una sola vez, ~3 minutos)
+1. Entra en Cloudflare (holadiscendo@gmail.com) → **Storage & Databases → D1 SQL Database → Create**. Nombre: `dashboard-datos`. Ubicación: Europa (Western Europe).
+2. Copia el **Database ID** que aparece (un código tipo `xxxxxxxx-xxxx-…`). No es secreto.
+3. En `wrangler.toml` quita el `#` de las 4 líneas de `[[d1_databases]]` y pon ese ID (o pásamelo y lo hago yo). Al desplegar, el dashboard la usa: las tablas se crean solas.
+
+Como el proyecto tiene `wrangler.toml`, la base de datos se conecta ahí (no desde *Settings → Bindings* del panel).
+
+## Seguridad
+*Equipo → Seguridad* (admin; los ajustes, solo el superadmin):
+- **Verificación en dos pasos** (TOTP: Google Authenticator, Microsoft Authenticator, 1Password…). Cada persona la activa en **Mi cuenta** escaneando un QR; recibe 10 **códigos de recuperación** de un solo uso. Al entrar se pide la contraseña y el código. Si alguien pierde el móvil, un admin (o el superadmin, si trabaja en varios clientes) se la quita y la vuelve a activar. Los admins sin ella ven un aviso arriba.
+- **Exigirla a los admins**: quien sea admin en algún cliente tendrá que activarla al entrar (y no podrá quitársela).
+- **Bloqueo de intentos**: 5 fallos seguidos con un email (o 20 desde una misma conexión) bloquean 15 minutos. También el código de verificación y la contraseña general.
+- **Desactivar la contraseña general** (`ADMIN_PASSWORD`/`SETTER_PASSWORD`): deja de valer para entrar y las sesiones abiertas con ella se cierran. Solo puede hacerlo un superadmin que haya entrado con su email. Si os quedáis fuera: variable `REACTIVAR_CONTRASENA_GENERAL=1` en Cloudflare y volver a desplegar.
+- **Permisos del token de GHL**: botón que comprueba, solo leyendo, a qué llega el token del cliente (contactos, etiquetas, custom values y fields, pipelines, calendarios, citas, conversaciones) y dice cuál falta marcar en la integración privada. Lo mínimo que necesita: lo de esa lista, nada más (no le des permisos de facturación, pagos, usuarios ni ajustes de la subcuenta).
 
 ## Escala
 Los leads se cargan en páginas de 100 desde el navegador, así que 2.000 leads son unas 20
@@ -377,6 +400,7 @@ en bloques de 25 y respeta el límite de peticiones de GHL.
 ## Desarrollo local
 ```bash
 npm run dev:mock   # datos falsos, contraseñas "admin" / "setter" → http://localhost:3000
+                   # (con una D1 local en memoria; D1_FILE=datos.sqlite para conservarla, NO_D1=1 para probar sin ella)
 npm run dev        # contra GHL real, con las variables en un fichero .env
 npm test
 npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)

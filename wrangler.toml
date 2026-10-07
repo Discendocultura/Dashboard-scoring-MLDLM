@@ -4,3 +4,11 @@ pages_build_output_dir = "public"
 compatibility_date = "2026-09-01"
 # AsyncLocalStorage: cada petición sabe de qué cliente es (varios clientes en el mismo dashboard).
 compatibility_flags = ["nodejs_als"]
+
+# Base de datos propia del dashboard (Cloudflare D1): historial, copias y cambios sin pisarse.
+# Créala en Cloudflare → Storage & Databases → D1 → Create («dashboard-datos»), copia su Database ID,
+# pégalo aquí y quita los «#». Sin esto el dashboard sigue guardando en los Custom Values de GHL.
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "dashboard-datos"
+# database_id = "PEGA-AQUI-EL-DATABASE-ID"

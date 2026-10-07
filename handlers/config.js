@@ -3,6 +3,7 @@ import { PERMISOS_DATOS } from '../public/js/roles.js';
 import { getConfig, saveConfig } from '../lib/config-store.js';
 import { zoomConfigured } from '../lib/zoom.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
+import { versionDe, reintentando } from '../lib/store.js';
 
 const EQUIPO_FIELDS = ['name', 'inicioCaptacion', 'finCaptacion', 'fechaDirecto', 'horaDirecto', 'clase1At', 'clase2At', 'replayAt', 'aperturaCarrito', 'cierreCarrito', 'createdAt'];
 function equipoConfig(config) {
@@ -17,8 +18,10 @@ export async function GET(request) {
     const role = ses.role;
     const config = await getConfig({ fresh: new URL(request.url).searchParams.has('fresh') });
     // El equipo solo ve las tareas: le basta con el nombre y las fechas de cada lanzamiento.
-    if (!tienePermiso(ses, [...PERMISOS_DATOS, 'config'])) return json({ role, config: equipoConfig(config), zoomConfigured: false });
-    return json({ role, config, zoomConfigured: zoomConfigured() });
+    // `version`: el navegador la devuelve al guardar, para no pisar lo que otra persona guardó entretanto.
+    const version = versionDe(config);
+    if (!tienePermiso(ses, [...PERMISOS_DATOS, 'config'])) return json({ role, config: equipoConfig(config), zoomConfigured: false, version });
+    return json({ role, config, zoomConfigured: zoomConfigured(), version });
   } catch (e) {
     return errorResponse(e);
   }
@@ -30,17 +33,24 @@ export async function POST(request) {
     // Solo los mensajes de WhatsApp (Setteo hoy): basta con el permiso «Editar mensajes de WhatsApp».
     if (body.op === 'plantillas') {
       await requireRole(request, { permiso: 'mensajes' });
-      const actual = await getConfig({ fresh: true });
-      const templates = { ...actual.templates };
-      for (const k of Object.keys(templates)) if (typeof body.templates?.[k] === 'string') templates[k] = body.templates[k];
-      const config = await saveConfig({ ...actual, templates, defaultCountryCode: body.defaultCountryCode ?? actual.defaultCountryCode });
-      return json({ templates: config.templates, defaultCountryCode: config.defaultCountryCode });
+      const config = await reintentando(async () => {
+        const actual = await getConfig({ fresh: true });
+        const templates = { ...actual.templates };
+        for (const k of Object.keys(templates)) if (typeof body.templates?.[k] === 'string') templates[k] = body.templates[k];
+        return saveConfig({ ...actual, templates, defaultCountryCode: body.defaultCountryCode ?? actual.defaultCountryCode }, { version: versionDe(actual), motivo: 'Mensajes de WhatsApp' });
+      });
+      return json({ templates: config.templates, defaultCountryCode: config.defaultCountryCode, version: versionDe(config) });
     }
     await requireRole(request, { permiso: 'config' });
     // Si no vienen los embudos (p. ej. un navegador con la versión anterior), se conservan los guardados.
     const actual = !('vsls' in body) || !('embudos' in body) ? await getConfig({ fresh: true }) : null;
-    const config = await saveConfig(actual ? { vsls: actual.vsls, embudos: actual.embudos, ...body, ...('vsl' in body && !('vsls' in body) ? { vsls: { ...actual.vsls, vsl: body.vsl } } : {}) } : body);
-    return json({ config });
+    // Con `_version` (la que tenía el navegador): si otra persona guardó después, se avisa en vez de pisarlo.
+    const version = Number.isInteger(body._version) ? body._version : null;
+    const config = await saveConfig(
+      actual ? { vsls: actual.vsls, embudos: actual.embudos, ...body, ...('vsl' in body && !('vsls' in body) ? { vsls: { ...actual.vsls, vsl: body.vsl } } : {}) } : body,
+      { version },
+    );
+    return json({ config, version: versionDe(config) });
   } catch (e) {
     return errorResponse(e);
   }

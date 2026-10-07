@@ -5,6 +5,8 @@ const ENV = { GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter',
 let route;
 before(async () => {
   const { setEnv } = await import('../lib/env.js');
+  const { crearD1Local } = await import('../lib/d1-local.js');
+  ENV.DB = crearD1Local();
   setEnv(ENV);
   ({ route } = await import('../lib/router.js'));
 });

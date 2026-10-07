@@ -67,6 +67,9 @@ function cambiarCliente(id) {
 
 // ---------- API ----------
 async function api(path, { method = 'GET', body } = {}) {
+  // Configuración: se manda la versión que se cargó; si otra persona guardó después, el servidor avisa (409).
+  const esConfig = path.split('?')[0] === '/api/config';
+  if (esConfig && method === 'POST' && body && !body.op && state.configVersion != null) body = { ...body, _version: state.configVersion };
   const res = await fetch(path, {
     method,
     headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...(state.cliente ? { 'x-cliente': state.cliente } : {}) },
@@ -74,6 +77,7 @@ async function api(path, { method = 'GET', body } = {}) {
     credentials: 'same-origin',
   });
   const data = await res.json().catch(() => ({}));
+  if (esConfig && res.ok && 'version' in data) state.configVersion = data.version;
   if (res.status === 401 && path !== '/api/login') {
     showLogin();
     throw new Error('Sesión caducada');
@@ -118,12 +122,97 @@ $('#login-form').addEventListener('submit', async (e) => {
   const err = $('#login-error');
   err.hidden = true;
   try {
-    await api('/api/login', { method: 'POST', body: { email: $('#login-email').value.trim(), password: $('#login-password').value } });
+    const d = await api('/api/login', { method: 'POST', body: { email: $('#login-email').value.trim(), password: $('#login-password').value } });
     $('#login-password').value = '';
+    if (d.dosPasos) { segundoPaso(d); return; }
     await start();
   } catch (ex) {
     err.textContent = ex.message;
     err.hidden = false;
+  }
+});
+
+// ---------- Verificación en dos pasos (al entrar y en Mi cuenta) ----------
+// QR con qrcodejs (cdnjs), cargado solo cuando hace falta; si no carga, queda la clave escrita.
+let qrLib = null;
+function pintarQr(el, uri) {
+  el.innerHTML = '';
+  qrLib ||= new Promise((ok, ko) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    sc.onload = ok;
+    sc.onerror = () => { qrLib = null; ko(new Error('Sin QR')); };
+    document.head.appendChild(sc);
+  });
+  qrLib.then(() => { el.innerHTML = ''; new window.QRCode(el, { text: uri, width: 176, height: 176, correctLevel: window.QRCode.CorrectLevel.M }); }).catch(() => { el.hidden = true; });
+}
+const secretoLegible = (s) => s.replace(/(.{4})/g, '$1 ').trim();
+function codigosRecuperacionHtml(codigos) {
+  return `<div class="notice warn recup"><strong>Guarda estos códigos de recuperación</strong> (cada uno vale una vez, por si pierdes el móvil). No se vuelven a mostrar.
+    <ul class="recup-lista">${codigos.map((c) => `<li><code>${esc(c)}</code></li>`).join('')}</ul>
+    <button type="button" class="btn" data-copiar-codigos="${esc(codigos.join('\n'))}">Copiar</button></div>`;
+}
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-copiar-codigos]');
+  if (!b) return;
+  navigator.clipboard?.writeText(b.dataset.copiarCodigos).then(() => { b.textContent = 'Copiados ✓'; }).catch(() => {});
+});
+
+const l2 = { ticket: '', alta: false, listo: false };
+async function segundoPaso(d) {
+  Object.assign(l2, { ticket: d.ticket, alta: d.alta, listo: false });
+  $('#login-form').hidden = true;
+  $('#login-2fa').hidden = false;
+  $('#l2-error').hidden = true;
+  $('#l2-recup').hidden = true;
+  $('#l2-codigo').hidden = false;
+  $('#l2-codigo').value = '';
+  $('#l2-btn').textContent = 'Verificar';
+  $('#l2-alta').hidden = !d.alta;
+  $('#l2-texto').textContent = d.alta
+    ? 'Para los admins es obligatoria. Instala una app de códigos (Google Authenticator, Microsoft Authenticator, 1Password…), escanea el QR y escribe el código que te muestra.'
+    : 'Escribe el código de 6 cifras de tu app de autenticación (o uno de tus códigos de recuperación).';
+  if (d.alta) {
+    try {
+      const a = await api('/api/login', { method: 'POST', body: { ticket: l2.ticket, op: '2fa-iniciar' } });
+      $('#l2-secreto').textContent = secretoLegible(a.secreto);
+      pintarQr($('#l2-qr'), a.uri);
+    } catch (ex) { $('#l2-error').textContent = ex.message; $('#l2-error').hidden = false; }
+  }
+  $('#l2-codigo').focus();
+}
+function salirSegundoPaso() {
+  $('#login-2fa').hidden = true;
+  $('#login-form').hidden = false;
+  l2.ticket = '';
+}
+$('#l2-volver').addEventListener('click', salirSegundoPaso);
+$('#login-2fa').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (l2.listo) { l2.listo = false; salirSegundoPaso(); await start(); return; }
+  const err = $('#l2-error');
+  err.hidden = true;
+  try {
+    const d = await api('/api/login', { method: 'POST', body: { ticket: l2.ticket, codigo: $('#l2-codigo').value.trim() } });
+    if (d.codigosRecuperacion) {
+      // Recién activada: primero que guarde los códigos de recuperación.
+      $('#l2-alta').hidden = true;
+      $('#l2-codigo').hidden = true;
+      $('#l2-texto').textContent = 'Verificación activada ✓';
+      $('#l2-recup').innerHTML = codigosRecuperacionHtml(d.codigosRecuperacion);
+      $('#l2-recup').hidden = false;
+      $('#l2-btn').textContent = 'Ya los he guardado → Entrar';
+      l2.listo = true;
+      return;
+    }
+    if (d.recuperacionQuedan != null) alert(`Has entrado con un código de recuperación. Te quedan ${d.recuperacionQuedan}. Si has perdido el móvil, en Mi cuenta puedes volver a activar la verificación con otro.`);
+    salirSegundoPaso();
+    await start();
+  } catch (ex) {
+    if (/caducado/.test(ex.message)) salirSegundoPaso();
+    const box = $('#login-2fa').hidden ? $('#login-error') : err;
+    box.textContent = ex.message;
+    box.hidden = false;
   }
 });
 
@@ -195,6 +284,7 @@ async function start() {
   $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
   $('#btn-cuenta').hidden = !state.user;
   pintarFotoCuenta();
+  pintarAviso2fa();
   pintarPlantillas();
   $('#login').hidden = true;
   $('#app').hidden = false;
@@ -2967,6 +3057,121 @@ $('.tab[data-tab="equipo"]').addEventListener('click', () => { equipoResult('');
 
 // ---------- Clientes (solo superadmin) ----------
 const slugCliente = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/^[^a-z]+/, '').slice(0, 24);
+// ---------- Equipo → Historial (cambios y copias de seguridad; necesita D1) ----------
+const fechaHora = (iso) => new Date(iso).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const pesoKb = (b) => (b >= 1024 ? `${(b / 1024).toFixed(b >= 10240 ? 0 : 1)} KB` : `${b} B`);
+const histAmbito = () => (state.superadmin ? $('#hist-ambito').value : 'cliente');
+async function loadHistorial() {
+  const box = $('#hist-body');
+  const ambito = histAmbito();
+  const q = new URLSearchParams({ ambito, ...(state.cliente ? { c: state.cliente } : {}) });
+  $('#hist-exportar').href = `/api/historial?${q}&exportar=1`;
+  box.innerHTML = '<p class="muted">Cargando…</p>';
+  try {
+    const d = await api(`/api/historial?ambito=${ambito}`);
+    $('#hist-exportar').hidden = !d.disponible;
+    if (!d.disponible) {
+      box.innerHTML = `<div class="notice">El historial y las copias necesitan la base de datos propia del dashboard (Cloudflare D1), que aún no está conectada. Mientras tanto, los datos siguen guardándose en GHL como siempre.${state.superadmin ? ' <br><small>Cómo conectarla: README → «Base de datos (D1)».</small>' : ''}</div>`;
+      return;
+    }
+    const cambios = d.cambios.length
+      ? `<div class="table-scroll"><table class="metric-table hist-table"><thead><tr><th>Cuándo</th><th>Quién</th><th>Qué</th><th>Detalle</th></tr></thead><tbody>${d.cambios.map((c) => `<tr>
+          <td title="${esc(c.en)}">${esc(fechaHora(c.en))}</td><td>${esc(c.por || '—')}</td><td>${esc(c.etiqueta)}</td><td class="muted">${esc([c.motivo, c.version ? `v${c.version}` : ''].filter(Boolean).join(' · '))}</td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="muted">Aún no hay cambios registrados.</p>';
+    const grupos = new Map();
+    for (const c of d.copias) {
+      if (!grupos.has(c.clave)) grupos.set(c.clave, { etiqueta: c.etiqueta, lista: [] });
+      grupos.get(c.clave).lista.push(c);
+    }
+    const copias = grupos.size
+      ? [...grupos.values()].map((g) => `<details class="hist-copias"><summary><strong>${esc(g.etiqueta)}</strong> <span class="muted">· ${g.lista.length} copia${g.lista.length === 1 ? '' : 's'}</span></summary>
+          <ul>${g.lista.map((c) => `<li><span>${esc(fechaHora(c.en))} <span class="muted">· versión ${c.version} · ${pesoKb(c.bytes)}</span></span><button type="button" class="btn" data-restaurar="${c.id}" data-etiqueta="${esc(g.etiqueta)}" data-en="${esc(fechaHora(c.en))}">Restaurar</button></li>`).join('')}</ul></details>`).join('')
+      : '<p class="muted">Todavía no hay copias: se hace la primera cuando un dato cambia (y luego una al día como mucho).</p>';
+    box.innerHTML = `<h3 class="cfg-h3">Últimos cambios</h3>${cambios}<h3 class="cfg-h3">Copias de seguridad</h3>${copias}
+      <p class="muted small">Además, Cloudflare guarda la base de datos completa de los últimos 30 días («Time Travel»): si hiciera falta volver atrás todo a la vez, se puede desde Cloudflare.</p>`;
+  } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+$('.tab[data-tab="historial"]').addEventListener('click', loadHistorial);
+$('#hist-ambito').addEventListener('change', loadHistorial);
+$('#hist-body').addEventListener('click', async (ev) => {
+  const b = ev.target.closest('[data-restaurar]');
+  if (!b) return;
+  if (!confirm(`¿Restaurar «${b.dataset.etiqueta}» como estaba el ${b.dataset.en}?\n\nLo que hay ahora queda guardado como copia, así que se puede deshacer.`)) return;
+  b.disabled = true;
+  try {
+    await api('/api/historial', { method: 'POST', body: { op: 'restaurar', id: Number(b.dataset.restaurar), ambito: histAmbito() } });
+    alert('Restaurado ✓ Recarga el dashboard para ver los datos como estaban.');
+    loadHistorial();
+  } catch (e) { alert(e.message); b.disabled = false; }
+});
+
+// ---------- Equipo → Seguridad ----------
+async function loadSeguridad() {
+  const box = $('#seg-body');
+  box.innerHTML = '<p class="muted">Cargando…</p>';
+  try {
+    const d = await api('/api/seguridad');
+    const s = d.seguridad;
+    const ajustes = state.superadmin ? `<h3 class="cfg-h3">Ajustes de la agencia <small class="muted">(todos los clientes)</small></h3>
+      <label class="seg-ajuste"><input type="checkbox" id="seg-general" ${s.contrasenaGeneral ? 'checked' : ''}>
+        <span><strong>Permitir entrar con la contraseña general</strong><br><small class="muted">La de las variables ADMIN_PASSWORD / SETTER_PASSWORD de Cloudflare. Es compartida y no deja rastro de quién entra: cuando todo el equipo tenga su usuario con email, desactívala. Si alguna vez os quedáis fuera, poniendo la variable REACTIVAR_CONTRASENA_GENERAL=1 en Cloudflare vuelve a funcionar.</small>
+        ${d.reactivadaPorVariable ? '<br><small class="error">Ahora mismo está forzada por la variable REACTIVAR_CONTRASENA_GENERAL=1: quítala de Cloudflare cuando ya no haga falta.</small>' : ''}</span></label>
+      <label class="seg-ajuste"><input type="checkbox" id="seg-2fa" ${s.exigir2fa ? 'checked' : ''}>
+        <span><strong>Exigir la verificación en dos pasos a los admins</strong><br><small class="muted">Quien sea admin en algún cliente (y el superadmin) tendrá que activarla la próxima vez que entre.</small></span></label>
+      <div class="row"><button type="button" class="btn primary" id="seg-guardar">Guardar ajustes</button><span id="seg-status" class="muted" aria-live="polite"></span></div>` : '';
+    const filas = d.usuarios.map((u) => `<tr><td>${esc(u.nombre)}${u.superadmin ? ' <span class="badge">superadmin</span>' : ''}${u.activo ? '' : ' <span class="muted">(desactivado)</span>'}</td>
+      <td>${esc(u.superadmin ? 'Admin' : ROLE_LABEL[u.rol] || u.rol)}</td>
+      <td>${u.dosPasos ? '<span class="ok-txt">✓ Activada</span>' : u.esAdmin ? '<span class="error">No (es admin)</span>' : '<span class="muted">No</span>'}</td>
+      <td>${u.dosPasos && u.id !== yoUid() ? `<button type="button" class="btn ghost" data-quitar-2fa="${esc(u.id)}" data-nombre="${esc(u.nombre)}" title="Si ha perdido el móvil: la vuelve a activar al entrar">Quitar</button>` : ''}</td></tr>`).join('');
+    box.innerHTML = `${ajustes}
+      <h3 class="cfg-h3">Verificación en dos pasos del equipo</h3>
+      <p class="muted">Cada persona la activa en <strong>Mi cuenta</strong>. Si alguien pierde el móvil y no tiene sus códigos de recuperación, quítasela aquí y la vuelve a activar.</p>
+      <div class="table-scroll"><table class="metric-table seg-tabla"><thead><tr><th>Persona</th><th>Rol</th><th>Dos pasos</th><th></th></tr></thead><tbody>${filas || '<tr><td colspan="4" class="muted">Nadie con usuario propio todavía.</td></tr>'}</tbody></table></div>
+      <h3 class="cfg-h3">Intentos de entrar</h3>
+      <p class="muted">Tras ${d.limites.fallos} intentos fallidos con un mismo email (o ${d.limites.fallosIp} desde una misma conexión) se bloquea ${d.limites.minutos} minutos. ${d.limites.compartido ? '' : 'Sin la base de datos D1, cada servidor de Cloudflare cuenta por su lado (protege menos).'}</p>
+      <h3 class="cfg-h3">Permisos del token de GHL de este cliente</h3>
+      <p class="muted">Comprueba, solo leyendo (no cambia nada), a qué partes de GHL llega el token. Lo que salga en rojo hay que marcarlo en GHL → Ajustes → Integraciones privadas → la del dashboard → permisos.</p>
+      <div class="row"><button type="button" class="btn" id="seg-token">Comprobar permisos</button></div>
+      <div id="seg-token-res"></div>`;
+  } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+$('.tab[data-tab="seguridad"]').addEventListener('click', loadSeguridad);
+$('#seg-body').addEventListener('click', async (ev) => {
+  const t = ev.target;
+  if (t.id === 'seg-guardar') {
+    const st = $('#seg-status');
+    if (!$('#seg-general').checked && !confirm('¿Desactivar la contraseña general? Desde ahora solo se podrá entrar con email y contraseña propios.')) return;
+    try {
+      await api('/api/seguridad', { method: 'POST', body: { op: 'guardar', contrasenaGeneral: $('#seg-general').checked, exigir2fa: $('#seg-2fa').checked } });
+      st.textContent = 'Guardado ✓';
+    } catch (e) { st.textContent = e.message; }
+    return;
+  }
+  if (t.id === 'seg-token') {
+    const res = $('#seg-token-res');
+    t.disabled = true;
+    res.innerHTML = '<p class="muted">Comprobando…</p>';
+    try {
+      const { permisos } = await api('/api/seguridad', { method: 'POST', body: { op: 'probar-token' } });
+      const mal = permisos.filter((p) => !p.ok).length;
+      res.innerHTML = `<p class="${mal ? 'error' : 'ok-txt'}">${mal ? `Faltan ${mal} permiso${mal === 1 ? '' : 's'}` : 'El token llega a todo lo que usa el dashboard ✓'}</p>
+        <ul class="perm-lista">${permisos.map((p) => `<li><span>${p.ok ? '✅' : '❌'}</span><span><strong>${esc(p.nombre)}</strong> <code class="small">${esc(p.scope)}</code></span>
+          <small class="${p.ok ? 'muted' : 'error'}">${esc(p.ok ? `${p.para}${p.nota ? ` · ${p.nota}` : ''}` : `${p.error} · Se usa para: ${p.para}`)}</small></li>`).join('')}</ul>
+        <p class="muted small">Los permisos de escritura (.write) no se pueden probar sin cambiar nada: márcalos también en la integración.</p>`;
+    } catch (e) { res.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+    t.disabled = false;
+    return;
+  }
+  const q = t.closest('[data-quitar-2fa]');
+  if (q) {
+    if (!confirm(`¿Quitar la verificación en dos pasos de ${q.dataset.nombre}? La tendrá que volver a activar.`)) return;
+    try {
+      await api('/api/usuarios', { method: 'POST', body: { op: 'quitar-2fa', id: q.dataset.quitar2fa } });
+      loadSeguridad();
+    } catch (e) { alert(e.message); }
+  }
+});
+
 async function loadClientes() {
   const box = $('#clientes-list');
   box.innerHTML = '<p class="muted">Cargando…</p>';
@@ -3102,8 +3307,84 @@ $('#c-foto').addEventListener('change', async (e) => {
 });
 $('#c-foto-quitar').addEventListener('click', () => guardarFoto(''));
 
+// Mi cuenta → verificación en dos pasos. c2.modo: '' | 'alta' | 'quitar'
+const c2 = { modo: '' };
+function pintarDosPasos() {
+  const u = state.user;
+  const activa = Boolean(u?.dosPasos);
+  $('#c2-estado').innerHTML = activa
+    ? `<span class="ok-txt">Activada</span>${u.dosPasosDesde ? ` desde el ${esc(new Date(u.dosPasosDesde).toLocaleDateString('es-ES'))}` : ''}. Al entrar te pedimos tu contraseña y un código de la app del móvil.`
+    : 'Además de la contraseña, al entrar te pedimos un código que cambia cada 30 segundos en una app del móvil. Así nadie puede entrar aunque sepa tu contraseña.';
+  $('#c2-alta').hidden = c2.modo !== 'alta';
+  $('#c2-codigo-box').hidden = !c2.modo;
+  $('#c2-codigo-label').textContent = c2.modo === 'quitar' ? 'Código de la app (y escribe tu contraseña actual abajo)' : 'Código de la app';
+  $('#c2-cancelar').hidden = !c2.modo;
+  $('#c2-btn').textContent = c2.modo === 'alta' ? 'Activar' : c2.modo === 'quitar' ? 'Desactivar' : activa ? 'Desactivar o cambiar de móvil' : 'Activar';
+  $('#c2-btn').classList.toggle('primary', c2.modo === 'alta' || (!activa && !c2.modo));
+}
+$('#c2-cancelar').addEventListener('click', () => { c2.modo = ''; $('#c2-status').textContent = ''; pintarDosPasos(); });
+$('#c2-btn').addEventListener('click', async () => {
+  const st = $('#c2-status');
+  st.textContent = '';
+  const activa = Boolean(state.user?.dosPasos);
+  try {
+    if (!c2.modo && !activa) {
+      const a = await api('/api/usuarios', { method: 'POST', body: { op: 'mi-2fa-iniciar' } });
+      c2.modo = 'alta';
+      $('#c2-recup').hidden = true;
+      $('#c2-secreto').textContent = secretoLegible(a.secreto);
+      pintarQr($('#c2-qr'), a.uri);
+      $('#c2-codigo').value = '';
+      pintarDosPasos();
+      $('#c2-codigo').focus();
+      return;
+    }
+    if (!c2.modo && activa) {
+      c2.modo = 'quitar';
+      $('#c2-codigo').value = '';
+      pintarDosPasos();
+      st.textContent = 'Para desactivarla (p. ej. para pasarla a otro móvil), escribe el código y tu contraseña actual. Luego puedes volver a activarla.';
+      return;
+    }
+    if (c2.modo === 'alta') {
+      const d = await api('/api/usuarios', { method: 'POST', body: { op: 'mi-2fa-activar', codigo: $('#c2-codigo').value.trim() } });
+      state.user = { ...state.user, dosPasos: true, dosPasosDesde: new Date().toISOString() };
+      c2.modo = '';
+      $('#c2-recup').innerHTML = codigosRecuperacionHtml(d.codigosRecuperacion);
+      $('#c2-recup').hidden = false;
+      pintarDosPasos();
+      pintarAviso2fa();
+      st.textContent = 'Activada ✓ La próxima vez que entres te pediremos el código.';
+      return;
+    }
+    await api('/api/usuarios', { method: 'POST', body: { op: 'mi-2fa-quitar', codigo: $('#c2-codigo').value.trim(), actual: $('#c-actual').value } });
+    state.user = { ...state.user, dosPasos: false, dosPasosDesde: null };
+    c2.modo = '';
+    pintarDosPasos();
+    pintarAviso2fa();
+    st.textContent = 'Desactivada.';
+  } catch (e) { st.textContent = e.message; }
+});
+
+// Aviso arriba para los admins sin verificación en dos pasos (se puede posponer en esta sesión).
+function pintarAviso2fa() {
+  const esAdmin = state.role === 'admin' || state.superadmin;
+  let pospuesto = false;
+  try { pospuesto = sessionStorage.getItem('lsd_aviso2fa') === '1'; } catch { /* sin almacenamiento */ }
+  $('#aviso-2fa').hidden = !(state.user && esAdmin && !state.user.dosPasos && !pospuesto);
+}
+$('#aviso-2fa-cerrar').addEventListener('click', () => {
+  try { sessionStorage.setItem('lsd_aviso2fa', '1'); } catch { /* sin almacenamiento */ }
+  $('#aviso-2fa').hidden = true;
+});
+$('#aviso-2fa-ir').addEventListener('click', () => $('#btn-cuenta').click());
+
 $('#btn-cuenta').addEventListener('click', () => {
   const u = state.user;
+  c2.modo = '';
+  $('#c2-status').textContent = '';
+  $('#c2-recup').hidden = true;
+  pintarDosPasos();
   $('#cuenta-info').textContent = `${u.nombre} · ${u.email} · Rol ${ROLE_LABEL[state.role]}`;
   $('#cuenta-foto-status').textContent = '';
   pintarFotoCuenta();

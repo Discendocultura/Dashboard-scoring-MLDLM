@@ -20,6 +20,20 @@
       <p id="login-error" class="error" hidden></p>
       <button class="btn primary" type="submit">Entrar</button>
     </form>
+    <!-- Segundo paso: código de la app (o activarla, si es obligatoria y aún no la tiene) -->
+    <form id="login-2fa" class="card login-card" hidden>
+      <h1>Verificación en dos pasos</h1>
+      <p id="l2-texto" class="muted"></p>
+      <div id="l2-alta" class="dospasos-alta" hidden>
+        <div id="l2-qr" class="qr-box"></div>
+        <p class="muted small">¿No puedes escanear? Escribe esta clave en la app: <code id="l2-secreto" class="secreto"></code></p>
+      </div>
+      <input id="l2-codigo" inputmode="numeric" autocomplete="one-time-code" placeholder="Código de 6 cifras" maxlength="12">
+      <p id="l2-error" class="error" hidden></p>
+      <div id="l2-recup" hidden></div>
+      <button class="btn primary" type="submit" id="l2-btn">Verificar</button>
+      <button class="btn ghost" type="button" id="l2-volver">← Volver</button>
+    </form>
   </section>
 
   <!-- Dashboard -->
@@ -55,6 +69,11 @@
       <button type="button" class="sb-add config-only" id="sb-add" title="Añadir un embudo"><span class="sb-ico" aria-hidden="true">＋</span><span class="sb-txt"><strong>Nuevo embudo</strong></span></button>
     </nav>
     <main class="container">
+      <div id="aviso-2fa" class="notice warn" hidden>
+        <span>🔐 <strong>Protege tu cuenta:</strong> eres admin y aún no tienes la verificación en dos pasos (un código del móvil además de la contraseña).</span>
+        <button type="button" class="btn primary" id="aviso-2fa-ir">Activarla ahora</button>
+        <button type="button" class="btn ghost" id="aviso-2fa-cerrar" aria-label="Ahora no">Ahora no</button>
+      </div>
       <div id="notice" class="notice" hidden></div>
       <div id="progress" class="progress" hidden><div class="progress-bar"></div><span class="progress-text"></span></div>
 
@@ -1067,7 +1086,23 @@
           <button type="button" class="tab active" data-tab="equipo" data-tab-icon="users">Miembros del equipo</button>
           <button type="button" class="tab" data-tab="roles" data-tab-icon="shield">Roles y permisos</button>
           <button type="button" class="tab superadmin-only" data-tab="clientes" data-tab-icon="compass">Clientes</button>
+          <button type="button" class="tab" data-tab="historial" data-tab-icon="history">Historial</button>
+          <button type="button" class="tab" data-tab="seguridad" data-tab-icon="lock">Seguridad</button>
         </div>
+        <section class="tab-panel" data-panel="historial" hidden>
+          <p class="muted">Quién cambió qué y cuándo (configuración, tareas, calendario, llamadas, equipo…). De cada dato se guarda una copia al día durante 30 días: si algo se borra o se estropea, pulsa «Restaurar» en la copia buena (lo que haya ahora también queda copiado, así que se puede deshacer).</p>
+          <div class="row hist-bar">
+            <label class="field narrow superadmin-only"><span>Ver</span>
+              <select id="hist-ambito"><option value="cliente">Este cliente</option><option value="agencia">Agencia (equipo, clientes, seguridad)</option></select>
+            </label>
+            <span class="spacer"></span>
+            <a class="btn" id="hist-exportar" href="#" download>Descargar todos los datos (JSON)</a>
+          </div>
+          <div id="hist-body"></div>
+        </section>
+        <section class="tab-panel" data-panel="seguridad" hidden>
+          <div id="seg-body"></div>
+        </section>
         <section class="tab-panel" data-panel="clientes" hidden>
           <p class="muted">Cada cliente tiene su propio dashboard conectado a su GHL: sus embudos, tareas, roles y equipo. Solo el superadmin ve esta pestaña y entra en todos.</p>
           <div id="clientes-list"></div>
@@ -1135,6 +1170,21 @@
           </div>
         </div>
         <p id="cuenta-info" class="muted"></p>
+        <div class="cuenta-2fa">
+          <strong>🔐 Verificación en dos pasos</strong>
+          <p id="c2-estado" class="muted"></p>
+          <div id="c2-alta" class="dospasos-alta" hidden>
+            <p class="muted small">1. Instala una app de códigos (Google Authenticator, Microsoft Authenticator, 1Password…) y escanea este QR.</p>
+            <div id="c2-qr" class="qr-box"></div>
+            <p class="muted small">¿No puedes escanear? Escribe esta clave en la app: <code id="c2-secreto" class="secreto"></code></p>
+            <p class="muted small">2. Escribe el código de 6 cifras que te muestra la app:</p>
+          </div>
+          <label class="field" id="c2-codigo-box" hidden><span id="c2-codigo-label">Código de la app</span><input id="c2-codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="12"></label>
+          <div id="c2-recup" hidden></div>
+          <div class="row"><button id="c2-btn" class="btn" type="button">Activar</button><button id="c2-cancelar" class="btn ghost" type="button" hidden>Cancelar</button></div>
+          <small id="c2-status" class="muted" aria-live="polite"></small>
+        </div>
+        <h3 class="cfg-h3">Cambiar contraseña</h3>
         <label class="field"><span>Contraseña actual</span><input id="c-actual" type="password" autocomplete="current-password"></label>
         <label class="field"><span>Contraseña nueva <small>(mínimo 8 caracteres)</small></span><input id="c-nueva" type="password" autocomplete="new-password" minlength="8"></label>
         <p id="cuenta-status" class="muted"></p>
