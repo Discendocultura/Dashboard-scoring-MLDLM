@@ -3,7 +3,7 @@ import {
 } from './scoring.js';
 import { icon } from './icons.js';
 import { nombreProducto, PRODUCTO_MLDLM } from './producto.js';
-import { importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
+import { asistenciaPorTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
@@ -631,9 +631,13 @@ function renderMetrics() {
   const directoCard = launch.fechaDirecto && launch.compraDateField
     ? card(tituloVentasDia, m.compraDirecto, `${pctOf(m.compraDirecto, m.compra)} de las ventas${vVenta ? '' : ` · ${pctOf(m.compraDirecto, m.live)} de los asistentes`}`, 'live', 'buy')
     : card(tituloVentasDia, '–', 'Configura el día del directo y el campo de fecha de compra', 'live', 'buy');
+  // Asistencia por tipo de tráfico (frío / templado), además del dato global.
+  const at = launch.inicioCaptacion ? asistenciaPorTrafico(state.leads, launch) : null;
+  const atPaso = at?.pasos.find((p) => (vVenta ? p.label === `${vVenta.nombre} (directo o grabación)` : p.label === 'Asistieron al directo'));
+  const porTrafico = atPaso ? ` · frío ${pctOf(atPaso.n.frio, at.grupos[1].total)} · templado ${pctOf(atPaso.n.templado, at.grupos[2].total)}` : '';
   const asistenciaCard = vVenta
-    ? card(`Vieron el ${vVenta.nombre}`, vVenta.vieron, `${pctOf(vVenta.vieron, m.total)} de los registros · compra el ${pctOf(vVenta.compraron, vVenta.vieron)}`, 'live', 'live')
-    : card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros · ${pctOf(m.vipLive, m.vip)} de las VIP`, 'live', 'live');
+    ? card(`Vieron el ${vVenta.nombre}`, vVenta.vieron, `${pctOf(vVenta.vieron, m.total)} de los registros${porTrafico} · compra el ${pctOf(vVenta.compraron, vVenta.vieron)}`, 'live', 'live')
+    : card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros${porTrafico} · ${pctOf(m.vipLive, m.vip)} de las VIP`, 'live', 'live');
   $('#metric-cards').innerHTML = [
     card('Registros', m.total, m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'leads del lanzamiento', 'users', 'accent'),
     ...(m.encuestaActiva ? [card('Encuesta rellenada', `${m.encuesta} <small class="muted">de ${m.total}</small>`, `${pctOf(m.encuesta, m.total)} de los registros`, 'survey', 'info')] : []),
@@ -675,6 +679,16 @@ function renderMetrics() {
       <div class="funnel-bar ${cls || ''}"><span style="width:${m.total ? (n / m.total) * 100 : 0}%"></span></div>
       <div class="funnel-num"><strong>${n}</strong> <span class="muted">${pctOf(n, m.total)}</span></div>
     </div>`).join('');
+
+  // Asistencia por tipo de tráfico: % de cada grupo en cada paso, y la diferencia frío − templado.
+  $('#asistencia-trafico').innerHTML = !at ? '<tbody><tr><td class="muted">Configura el <strong>inicio de captación</strong> del lanzamiento para separar tráfico frío y templado.</td></tr></tbody>' : `
+    <thead><tr><th>Paso</th>${at.grupos.map((g) => `<th class="num">${g.label} <small class="muted">(${g.total})</small></th>`).join('')}<th class="num">Frío vs templado</th></tr></thead>
+    <tbody>${at.pasos.map((p) => {
+      const [, fr, te] = at.grupos.map((g) => (g.total ? p.n[g.id] / g.total : null));
+      const dif = fr != null && te != null ? Math.round((fr - te) * 1000) / 10 : null;
+      const celda = (g) => `<td class="num${g.id === 'global' ? ' big' : ''}">${pctOf(p.n[g.id], g.total)} <span class="muted">${p.n[g.id]}</span></td>`;
+      return `<tr><td>${esc(p.label)}</td>${at.grupos.map(celda).join('')}<td class="num ${!dif ? '' : dif > 0 ? 'dif-mas' : 'dif-menos'}">${dif == null ? '–' : `${dif > 0 ? '+' : ''}${String(dif).replace('.', ',')} pp`}</td></tr>`;
+    }).join('')}</tbody>`;
 
   const rows = [
     ['Todos los registrados', m.total, m.compra],

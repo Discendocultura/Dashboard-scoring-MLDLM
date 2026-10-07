@@ -76,6 +76,10 @@ el **inicio de captación** (día en que se abren los registros) y el **día del
 Un registro es **templado** si el contacto ya existía en GHL antes del inicio de captación, porque ya había entrado por
 otro embudo (lanzamientos anteriores, VSL, newsletter…). Si es nuevo, es **frío**. Las métricas muestran el % de las
 ventas que viene de cada tipo (los dos suman 100%) y la conversión de cada uno.
+Además, bajo el embudo del lanzamiento, **Asistencia por tipo de tráfico**: cada paso (clases, VIP, clic y asistencia al
+directo, hasta el final, grabación, compra; o cada vídeo en los lanzamientos de varios vídeos) en % **global**, **frío** y
+**templado** (sobre los registros de cada grupo), con la diferencia frío − templado en puntos. La tarjeta de asistencia
+también enseña el % de frío y de templado junto al global.
 
 ### Pestaña Métricas
 Registros, encuesta rellenada (si el lanzamiento la usa), entradas VIP, asistencia (en número y en %), compras totales, compras de VIP, compras en directo,

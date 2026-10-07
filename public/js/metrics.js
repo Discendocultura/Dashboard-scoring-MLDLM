@@ -470,3 +470,37 @@ export function rankingGanadores(leads, launch, level = 'ad', names = {}, spendB
     };
   }).sort((a, b) => (b.compras - a.compras) || (b.ingresos - a.ingresos) || (b.conversion - a.conversion) || (b.leads - a.leads));
 }
+
+// Asistencia por tipo de tráfico: cada paso del embudo en global, frío (nuevo en GHL) y templado
+// (ya estaba en GHL antes de la captación), con su % sobre los registros de ese grupo.
+// → { grupos: [{ id, label, total }], pasos: [{ label, n: { global, frio, templado } }] }
+export function asistenciaPorTrafico(leads, launch) {
+  const grupos = [
+    { id: 'global', label: 'Global', leads },
+    { id: 'frio', label: 'Frío', leads: leads.filter((l) => l.s.trafico === 'frio') },
+    { id: 'templado', label: 'Templado', leads: leads.filter((l) => l.s.trafico === 'templado') },
+  ];
+  const ms = Object.fromEntries(grupos.map((g) => [g.id, computeMetrics(g.leads, launch)]));
+  const varios = videosDe(launch).length > 1;
+  const def = [
+    ...clasesDe(launch).map((c, i) => [`Clase ${i + 1} (≥25% vista)`, (m) => m[c]]),
+    ...(conVip(launch) ? [['Entrada VIP', (m) => m.vip]] : []),
+    ...(varios
+      ? (ms.global.videos || []).flatMap((v, i) => [
+        [`${v.nombre} en directo`, (m) => m.videos[i].asistio],
+        [`${v.nombre} (directo o grabación)`, (m) => m.videos[i].vieron],
+      ])
+      : [
+        ['Pulsaron el enlace del directo', (m) => m.click],
+        ['Asistieron al directo', (m) => m.live],
+        ['Directo hasta el final', (m) => m.liveFinal],
+        ['Vieron la grabación (≥25%)', (m) => m.replay],
+        ['Directo o grabación', (m) => m.live + m.soloReplay],
+      ]),
+    ['Compraron', (m) => m.compra],
+  ];
+  return {
+    grupos: grupos.map(({ id, label }) => ({ id, label, total: ms[id].total })),
+    pasos: def.map(([label, fn]) => ({ label, n: Object.fromEntries(grupos.map((g) => [g.id, fn(ms[g.id])])) })),
+  };
+}
