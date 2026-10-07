@@ -425,11 +425,21 @@
           <nav class="subviews msubs" id="msub-metricas" role="tablist" aria-label="Categorías de métricas">
             <button type="button" class="subview-tab" data-msub-btn="resumen" data-icon-msub="target">Resumen</button>
             <button type="button" class="subview-tab" data-msub-btn="ventas" data-icon-msub="coins">Ventas y rentabilidad</button>
-            <button type="button" class="subview-tab" data-msub-btn="trafico" data-icon-msub="compass">Tráfico y origen</button>
+            <button type="button" class="subview-tab" data-msub-btn="trafico" data-icon-msub="megaphone">Tráfico</button>
+            <button type="button" class="subview-tab" data-msub-btn="origen" data-icon-msub="compass">Origen</button>
             <button type="button" class="subview-tab" data-msub-btn="consumo" data-icon-msub="play">Consumo de vídeos</button>
             <button type="button" class="subview-tab" data-msub-btn="conversion" data-icon-msub="cart">Conversión y setting</button>
           </nav>
           <div id="metric-cards" data-msub="resumen" class="kpis"></div>
+          <section data-msub="trafico" class="card metric-card" data-icon="megaphone">
+            <h2>Tráfico de pago <span class="muted">· Meta Ads del lanzamiento (campañas con su filtro)</span></h2>
+            <div id="trafico-cards" class="kpis"></div>
+            <p class="muted small" id="trafico-nota"></p>
+          </section>
+          <section data-msub="trafico" class="card metric-card" data-icon="trend">
+            <h2>Por campaña <span class="muted">· inversión y resultados de cada campaña de Meta</span></h2>
+            <div class="table-scroll"><table class="metric-table" id="trafico-campanas"></table></div>
+          </section>
           <section data-msub="ventas" class="card metric-card" data-icon="coins">
             <h2>Inversión y rentabilidad</h2>
             <div id="eco-cards" class="kpis"></div>
@@ -439,7 +449,7 @@
             <div id="ventas-dia"></div>
             <div id="carrito-compara"></div>
           </section>
-          <section data-msub="trafico" class="card metric-card" data-icon="compass">
+          <section data-msub="origen" class="card metric-card" data-icon="compass">
             <h2>Origen de los leads <span class="muted">· publicidad vs orgánico</span></h2>
             <div class="table-scroll"><table class="metric-table" id="origen-table"></table></div>
           </section>
@@ -451,7 +461,7 @@
             <h2>Embudo del lanzamiento <span class="muted">· sobre el total de registros</span></h2>
             <div id="funnel"></div>
           </section>
-          <section data-msub="trafico" class="card metric-card" data-icon="thermo">
+          <section data-msub="origen" class="card metric-card" data-icon="thermo">
             <h2>Ventas por tipo de tráfico <span class="muted">· templado = ya estaba en GHL antes de abrir la captación</span></h2>
             <div id="traffic-split"></div>
             <div class="table-scroll"><table class="metric-table" id="traffic-table"></table></div>

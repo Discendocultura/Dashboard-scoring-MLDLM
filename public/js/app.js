@@ -3,7 +3,7 @@ import {
 } from './scoring.js';
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
-import { asistenciaPorTrafico, resumenEncuesta, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
+import { asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
@@ -705,8 +705,12 @@ function renderMetrics() {
   const asistenciaCard = vVenta
     ? card(`Vieron el ${vVenta.nombre}`, vVenta.vieron, `${pctOf(vVenta.vieron, m.total)} de los registros${porTrafico} · compra el ${pctOf(vVenta.compraron, vVenta.vieron)}`, 'live', 'live')
     : card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros${porTrafico} · ${pctOf(m.vipLive, m.vip)} de las VIP`, 'live', 'live');
+  const tr = resumenTrafico(m, state.meta);
+  const pct1 = (x) => (x == null ? '–' : `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')}%`);
   $('#metric-cards').innerHTML = [
     card('Registros', m.total, m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'leads del lanzamiento', 'users', 'accent'),
+    card('CPL medio', eur(tr.cpl), tr.cpl == null ? 'Conecta Meta o pon la inversión en Configuración' : `inversión / registros${tr.cplPubli != null ? ` · ${eur(tr.cplPubli)} por lead de publicidad` : ''}`, 'coins', 'money'),
+    card('Conversión de la página de registro', pct1(tr.conversionPagina), tr.conversionPagina == null ? (state.meta ? 'Meta no da visitas a la página (landing page views)' : 'Conecta Meta para ver las visitas a la página') : `${tr.registrosPubli} registros${tr.conOrigen ? ' de publicidad' : ''} de ${tr.visitas.toLocaleString('es-ES')} visitas (Meta)`, 'funnel', 'info'),
     ...(m.encuestaActiva ? [card('Encuesta rellenada', `${m.encuesta} <small class="muted">de ${m.total}</small>`, `${pctOf(m.encuesta, m.total)} de los registros`, 'survey', 'info')] : []),
     ...(m.conVip ? [card('Entradas VIP', m.vip, `${pctOf(m.vip, m.total)} de los registros`, 'star', 'vip')] : []),
     asistenciaCard,
@@ -717,6 +721,7 @@ function renderMetrics() {
   ].join('');
 
   renderEconomics(m, launch);
+  renderTrafico(m, launch, tr);
   renderVentasDia(launch);
   renderCarritoCompara(launch);
   renderPago(m, launch);
@@ -1368,6 +1373,41 @@ function renderEconomics(m, launch) {
   ].join('')}${metaWarn ? `<div style="grid-column:1/-1">${metaWarn}</div>` : ''}`;
 }
 
+// Métricas → Tráfico: todo lo publicitario (Meta) del lanzamiento y el desglose por campaña.
+function renderTrafico(m, launch, tr) {
+  const n = (x) => (x == null ? '–' : Math.round(x).toLocaleString('es-ES'));
+  const pct1 = (x) => (x == null ? '–' : `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')}%`);
+  const eur2 = (x) => (x == null ? '–' : x.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }));
+  const sinMeta = !state.meta || state.meta.error;
+  $('#trafico-cards').innerHTML = [
+    card('Inversión', tr.inversion ? eur(tr.inversion) : '–', state.meta?.since ? `Meta Ads · ${esc(state.meta.since)} → ${esc(state.meta.until)}` : 'introducida a mano', 'megaphone', 'accent'),
+    card('Impresiones', n(tr.impresiones), `CPM ${eur2(tr.cpm)} (coste por mil)`, 'eye', 'info'),
+    card('Clics en el enlace', n(tr.clics), `CTR ${pct1(tr.ctr)} · CPC ${eur2(tr.cpc)}`, 'trend', 'info'),
+    card('Visitas a la página de registro', n(tr.visitas), tr.visitas ? `${pct1(tr.cargan)} de los clics llegan a cargarla · ${eur2(tr.costeVisita)} por visita` : 'landing page views de Meta', 'play', 'info'),
+    card('Conversión de la página', pct1(tr.conversionPagina), tr.conversionPagina != null ? `${n(tr.registrosPubli)} registros${tr.conOrigen ? ' de publicidad' : ''} / ${n(tr.visitas)} visitas${tr.registrosMeta ? ` · Meta cuenta ${n(tr.registrosMeta)}` : ''}` : 'registros / visitas a la página', 'funnel', 'buy'),
+    card('CPL medio', eur2(tr.cpl), 'inversión / todos los registros', 'users', 'money'),
+    card('CPL de publicidad', eur2(tr.cplPubli), tr.conOrigen ? `inversión / ${n(m.origen.publi.leads)} leads de publicidad` : 'Pon las etiquetas de publicidad y orgánico', 'megaphone', 'money'),
+    card('CPL de tráfico frío', eur2(tr.cplFrio), 'inversión / leads nuevos en GHL', 'snow', 'money'),
+    ...(conVip(launch) ? [card('Coste por VIP', eur2(tr.cpVip), 'inversión / entradas VIP', 'star', 'vip')] : []),
+    card('Coste por venta', eur2(tr.cac), 'inversión / ventas', 'cart', 'buy'),
+    card('ROAS', tr.roas != null ? `${tr.roas.toFixed(2)}x` : '–', 'facturación / inversión', 'trend', 'money'),
+  ].join('');
+  $('#trafico-nota').innerHTML = sinMeta
+    ? (state.meta?.error ? `Meta: ${esc(state.meta.error)}` : 'Conecta Meta Ads para ver impresiones, clics y visitas (variables META_ACCESS_TOKEN y la cuenta publicitaria del cliente). Sin Meta solo se calculan los costes con la inversión puesta a mano.')
+    : 'Visitas = «landing page views» de Meta (personas que hicieron clic y la página llegó a cargar). La conversión de la página usa los registros con etiqueta de publicidad (los orgánicos no pasan por los anuncios).';
+  // Por campaña: lo de Meta (inversión, impresiones, clics, visitas) + lo de GHL (registros, VIP y ventas por UTM).
+  const ghl = new Map(rankingGanadores(state.leads, launch, 'campaign', state.meta?.names || {}, state.meta?.spendBy || {}).map((r) => [r.id, r]));
+  const camps = (state.meta?.campaigns || []).map((c) => ({ ...c, st: state.meta.statsBy?.[c.id] || {}, g: ghl.get(c.id) }));
+  for (const [id, g] of ghl) if (!camps.some((c) => c.id === id)) camps.push({ id, name: g.label, spend: g.spend, st: {}, g });
+  camps.sort((a, b) => (b.spend || 0) - (a.spend || 0));
+  $('#trafico-campanas').innerHTML = !camps.length ? '<tbody><tr><td class="muted">Sin campañas: conecta Meta o revisa que los registros lleguen con UTM (utm_campaign).</td></tr></tbody>' : `
+    <thead><tr><th>Campaña</th><th class="num">Inversión</th><th class="num">Impresiones</th><th class="num">CTR</th><th class="num">CPC</th><th class="num">Visitas</th><th class="num">Registros</th><th class="num">Conv. página</th><th class="num">CPL</th>${conVip(launch) ? '<th class="num">VIP</th>' : ''}<th class="num">Ventas</th><th class="num">Coste/venta</th></tr></thead>
+    <tbody>${camps.map((c) => {
+      const reg = c.g?.leads || 0;
+      return `<tr><td>${esc(c.name || c.id)}</td><td class="num">${eur2(c.spend)}</td><td class="num">${n(c.st.impresiones)}</td><td class="num">${pct1(c.st.impresiones ? c.st.clics / c.st.impresiones : null)}</td><td class="num">${eur2(c.st.clics ? c.spend / c.st.clics : null)}</td><td class="num">${n(c.st.visitas)}</td><td class="num">${reg}</td><td class="num">${pct1(c.st.visitas ? reg / c.st.visitas : null)}</td><td class="num big">${eur2(reg && c.spend ? c.spend / reg : null)}</td>${conVip(launch) ? `<td class="num">${c.g?.vip || 0}</td>` : ''}<td class="num">${c.g?.compras || 0}</td><td class="num">${eur2(c.g?.compras && c.spend ? c.spend / c.g.compras : null)}</td></tr>`;
+    }).join('')}</tbody>`;
+}
+
 // Registros, VIP y ventas por campaña / conjunto / anuncio (UTM de GHL + nombres e inversión de Meta).
 function renderSources() {
   const level = $('#src-level').value;
@@ -1652,9 +1692,11 @@ function renderKpis() {
   renderConsumo();
   const L = state.leads;
   const counts = Object.fromEntries(ESTADOS.map((e) => [e.id, 0]));
-  let vip = 0; let live = 0; let replay = 0; let sent = 0;
+  let vip = 0; let live = 0; let replay = 0; let sent = 0; let publi = 0; let organico = 0;
   for (const l of L) {
     counts[l.estado.id]++;
+    if (l.s.origen === 'publi') publi++;
+    else if (l.s.origen === 'organico') organico++;
     if (l.s.vip) vip++;
     if (directoVenta(l.s, 'asistio')) live++;
     if (grabVenta(l.s) >= 50) replay++;
@@ -1675,6 +1717,8 @@ function renderKpis() {
     ${conVip(state.config.launches[state.launchCode]) ? `<div class="kpi static tone-vip"><span class="kpi-label"><span class="kpi-ico">${icon('star')}</span>Compraron VIP</span><span class="kpi-value">${vip}</span><span class="kpi-sub">${pct(vip)}</span></div>` : ''}
     <div class="kpi static tone-live"><span class="kpi-label"><span class="kpi-ico">${icon('live')}</span>${deVenta ? `En directo${deVenta}` : 'Asistieron al directo'}</span><span class="kpi-value">${live}</span><span class="kpi-sub">${pct(live)}</span></div>
     <div class="kpi static tone-info"><span class="kpi-label"><span class="kpi-ico">${icon('play')}</span>${deVenta ? `Vieron${deVenta} grabado` : 'Vieron la grabación'}</span><span class="kpi-value">${replay}</span><span class="kpi-sub">${pct(replay)} (≥50%)</span></div>
+    ${publi + organico ? `<div class="kpi static tone-accent"><span class="kpi-label"><span class="kpi-ico">${icon('megaphone')}</span>De pago (publicidad)</span><span class="kpi-value">${pct(publi)}</span><span class="kpi-sub">${publi} leads</span></div>
+    <div class="kpi static tone-buy"><span class="kpi-label"><span class="kpi-ico">${icon('compass')}</span>Orgánicos</span><span class="kpi-value">${pct(organico)}</span><span class="kpi-sub">${organico} leads${L.length - publi - organico ? ` · ${L.length - publi - organico} sin etiqueta` : ''}</span></div>` : ''}
     <div class="distribution" style="grid-column:1/-1" aria-hidden="true">
       ${ESTADOS.map((e) => (counts[e.id] ? `<span class="st-${e.id}" style="flex:${counts[e.id]}" title="${e.label}: ${counts[e.id]}"></span>` : '')).join('')}
     </div>`;

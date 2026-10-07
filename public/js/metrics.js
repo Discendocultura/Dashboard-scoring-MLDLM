@@ -551,3 +551,37 @@ export function resumenEncuesta(leads, preguntas) {
     }),
   };
 }
+
+// Métricas publicitarias del lanzamiento (Métricas → Tráfico y Resumen): inversión, impresiones,
+// CPM, clics, CTR, CPC, visitas a la página de registro, su conversión y los costes por resultado.
+// `meta`: lo que devuelve /api/meta (o null). La conversión de la página usa los registros de
+// publicidad si hay etiquetas de origen; si no, todos los registros.
+export function resumenTrafico(m, meta) {
+  const div = (a, b) => (a != null && b ? a / b : null);
+  const st = meta && !meta.error ? meta.stats || null : null;
+  const inversion = m.eco?.inversion || 0;
+  const conOrigen = Boolean(m.origen?.publi?.leads || m.origen?.organico?.leads);
+  const registrosPubli = conOrigen ? m.origen.publi.leads : m.total;
+  const visitas = st?.visitas || null;
+  return {
+    inversion: inversion || null,
+    impresiones: st?.impresiones ?? null,
+    cpm: st?.impresiones ? div(inversion, st.impresiones / 1000) : null,
+    clics: st?.clics ?? null,
+    ctr: st?.impresiones ? div(st.clics, st.impresiones) : null,
+    cpc: div(inversion || null, st?.clics),
+    visitas,
+    cargan: div(visitas, st?.clics), // de los que hacen clic, cuántos llegan a cargar la página
+    costeVisita: div(inversion || null, visitas),
+    registrosPubli,
+    registrosMeta: st?.registrosMeta ?? null,
+    conOrigen,
+    conversionPagina: div(registrosPubli, visitas),
+    cpl: div(inversion || null, m.total),
+    cplPubli: conOrigen ? div(inversion || null, m.origen.publi.leads) : null,
+    cplFrio: div(inversion || null, m.frio),
+    cpVip: div(inversion || null, m.vip),
+    cac: div(inversion || null, m.compra),
+    roas: m.eco?.roas ?? null,
+  };
+}

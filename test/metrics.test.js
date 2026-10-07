@@ -48,3 +48,23 @@ test('resumen de la encuesta: % por opción y respuestas libres', async () => {
   assert.deepEqual(libre.opciones.map((o) => [o.respuesta, o.n]), [['El estrés', 2]]); // «El estrés» y «el estrés.» son la misma
   assert.deepEqual(r.preguntas[2].opciones.map((o) => o.respuesta), ['Menos de 30 años', '30 a 34 años', 'Más de 40 años']);
 });
+
+test('métricas de tráfico: CPM, CTR, CPC, visitas y conversión de la página de registro', async () => {
+  const { resumenTrafico } = await import('../public/js/metrics.js');
+  const m = { total: 200, frio: 150, vip: 20, compra: 10, eco: { inversion: 1000, roas: 3 }, origen: { publi: { leads: 160 }, organico: { leads: 40 } } };
+  const t = resumenTrafico(m, { stats: { impresiones: 100000, clics: 2000, visitas: 1600, registrosMeta: 150 } });
+  assert.equal(t.cpm, 10);
+  assert.equal(t.ctr, 0.02);
+  assert.equal(t.cpc, 0.5);
+  assert.equal(t.cargan, 0.8);
+  assert.equal(t.conversionPagina, 160 / 1600); // registros de publicidad / visitas
+  assert.equal(t.cpl, 5);
+  assert.equal(t.cplPubli, 1000 / 160);
+  assert.equal(t.cac, 100);
+  // Sin Meta: solo lo que sale de la inversión manual
+  const sin = resumenTrafico({ ...m, origen: { publi: { leads: 0 }, organico: { leads: 0 } } }, null);
+  assert.equal(sin.impresiones, null);
+  assert.equal(sin.conversionPagina, null);
+  assert.equal(sin.cpl, 5);
+  assert.equal(sin.cplPubli, null);
+});
