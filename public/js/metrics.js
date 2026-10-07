@@ -4,7 +4,7 @@ import {
   signalsFor, score, estadoFor, nextStepFor, waPhone, watched, ESTADOS, OUTCOMES, SNAPSHOT_TAGS,
 } from './scoring.js';
 import { tramoEdad, ORDEN_EDAD } from './encuesta.js';
-import { videosDe, videoVenta } from './videos.js';
+import { videosDe, videoVenta, clasesDe, conVip } from './videos.js';
 
 // Inicio de captación del lanzamiento siguiente: ahí terminan las ventas de este.
 export function nextLaunchStart(config, code) {
@@ -46,6 +46,8 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     compraEncuesta: c((l) => l.s.compra && l.s.encuesta),
     clase1: c((l) => watched(l.s, 'clase1') >= 25),
     clase2: c((l) => watched(l.s, 'clase2') >= 25),
+    clase3: c((l) => watched(l.s, 'clase3') >= 25),
+    clases: clasesDe(launch), conVip: conVip(launch),
     vip: c((l) => l.s.vip),
     click: c((l) => l.s.directo_click || l.s.directo_asistio),
     live: c((l) => l.s.directo_asistio),
@@ -146,7 +148,7 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
   const obj = launch?.objetivos || {};
   m.objetivos = [
     ['Registros', m.total, num(obj.registros)],
-    ['Entradas VIP', m.vip, num(obj.vip)],
+    ...(conVip(launch) ? [['Entradas VIP', m.vip, num(obj.vip)]] : []),
     ['Ventas de Raíces', m.compra, num(obj.ventas)],
     ['Facturación', facturacion, num(obj.facturacion), 'eur'],
   ].filter(([, , meta]) => meta > 0).map(([label, actual, meta, unit]) => ({ label, actual, meta, unit, pct: actual / meta }));
@@ -188,9 +190,8 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
   // Qué señales predicen la compra: conversión con la señal frente a sin ella.
   const SIGNAL_TESTS = [
     ...(m.encuestaActiva ? [['Rellenó la encuesta', (l) => l.s.encuesta]] : []),
-    ['Vio ≥50% de la clase 1', (l) => watched(l.s, 'clase1') >= 50],
-    ['Vio ≥50% de la clase 2', (l) => watched(l.s, 'clase2') >= 50],
-    ['Compró la VIP', (l) => l.s.vip],
+    ...clasesDe(launch).map((cl, i) => [`Vio ≥50% de la clase ${i + 1}`, (l) => watched(l.s, cl) >= 50]),
+    ...(conVip(launch) ? [['Compró la VIP', (l) => l.s.vip]] : []),
     ...pruebasVideos,
     ['Tráfico templado', (l) => l.s.trafico === 'templado'],
     ['Contactada por WhatsApp', (l) => l.s.wa_enviado],

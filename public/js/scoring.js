@@ -1,12 +1,13 @@
 // Lógica compartida entre el dashboard (navegador) y la API (servidor):
 // nombres de etiquetas, puntuación, estado y siguiente paso de cada lead.
-import { MAX_VIDEOS, nVideos, sigDirecto, sigReplay, videosDe, videoVenta } from './videos.js';
+import { MAX_VIDEOS, nVideos, sigDirecto, sigReplay, videosDe, videoVenta, clasesDe, conVip } from './videos.js';
 
 // Señales que se guardan como etiquetas en GHL con el formato `<lanzamiento>_<señal>`,
 // p. ej. `nov26_clase1_50`. Así cada lanzamiento tiene su propio historial.
 export const SIGNALS = [
   'clase1_25', 'clase1_50', 'clase1_75', 'clase1_90',
   'clase2_25', 'clase2_50', 'clase2_75', 'clase2_90',
+  'clase3_25', 'clase3_50', 'clase3_75', 'clase3_90', // prelanzamientos de 3 clases
   'replay_25', 'replay_50', 'replay_75', 'replay_90',
   'directo_click', 'directo_asistio', 'directo_60', 'directo_final',
   // Lanzamientos de 2, 3 o 4 vídeos (PLF): las mismas señales de cada vídeo con su número.
@@ -37,7 +38,7 @@ export const SNAPSHOT_TAGS = [
   { field: 'llamadaTag', signal: 'llamada_previo', label: 'llamada' },
 ];
 
-export const VIDEOS = ['clase1', 'clase2', ...Array.from({ length: MAX_VIDEOS }, (_, i) => sigReplay(i + 1))];
+export const VIDEOS = ['clase1', 'clase2', 'clase3', ...Array.from({ length: MAX_VIDEOS }, (_, i) => sigReplay(i + 1))];
 export const THRESHOLDS = [25, 50, 75, 90];
 
 // Mayor porcentaje visto de un vídeo (0, 25, 50, 75 o 90).
@@ -124,6 +125,8 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   const diaVenta = videoVenta(cfg)?.fecha || '';
   s.compra_directo = s.compra && Boolean(diaVenta) && buyDay === diaVenta;
   s.nVideos = nVideos(cfg);
+  s.clases = clasesDe(cfg); // clases del prelanzamiento de este embudo
+  s.conVip = conVip(cfg);
 
   // Origen del lead: publicidad u orgánico, cada uno con su etiqueta (si lleva las dos, cuenta como publicidad).
   s.origen = has(cfg.publiTag) ? 'publi' : has(cfg.organicoTag) ? 'organico' : '';
@@ -162,8 +165,9 @@ export function puntosVideo(s, k) {
 export function score(s) {
   const P = POINTS;
   let pts = 0;
-  pts += P.clase[watched(s, 'clase1')] || 0;
-  pts += P.clase[watched(s, 'clase2')] || 0;
+  // Clases del prelanzamiento: 30 puntos repartidos entre las que haya (15 cada una con 2 clases).
+  const clases = s.clases || ['clase1', 'clase2'];
+  for (const c of clases) pts += ((P.clase[watched(s, c)] || 0) * 2) / clases.length;
   if (s.vip) pts += P.vip;
   // Vídeos del lanzamiento: con uno (webinar), lo visto de él. Con varios, la mitad por el mejor
   // y la mitad por la media (premia ver todos, sin hundir a quien solo ha podido ver uno).
@@ -171,7 +175,9 @@ export function score(s) {
   const por = Array.from({ length: n }, (_, i) => Math.min(puntosVideo(s, i + 1), P.directoAsistio + P.directo60 + P.directoFinal));
   const media = por.reduce((a, b) => a + b, 0) / n;
   pts += n === 1 ? puntosVideo(s, 1) : Math.round((Math.max(...por) + media) / 2);
-  return Math.min(pts, 100);
+  // Sin entrada VIP el máximo sería 70: se lleva a 100 para que los estados (caliente…) valgan igual.
+  if (s.conVip === false) pts = (pts * 100) / 70;
+  return Math.min(Math.round(pts), 100);
 }
 
 export function estadoFor(points) {

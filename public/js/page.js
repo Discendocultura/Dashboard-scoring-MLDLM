@@ -1,6 +1,6 @@
 // Fases de la página de recursos / grabación de un lanzamiento. Lo usan el servidor (/api/page)
 // y el dashboard (vista previa). Las fechas se escriben en hora de España ("2026-10-27T19:00").
-import { videosDe, esEnDirecto, MAX_VIDEOS } from './videos.js';
+import { videosDe, esEnDirecto, MAX_VIDEOS, nClases, conVip } from './videos.js';
 
 export const PHASES = [
   { id: 'pre_c1', label: 'Antes de la clase 1', button: 'whatsapp', text: 'La clase 1 se abre en {cuenta}' },
@@ -16,16 +16,28 @@ export const PHASES = [
 const suf = (k) => (k === 1 ? '' : String(k));
 const otrosVideos = Array.from({ length: MAX_VIDEOS - 1 }, (_, i) => i + 2);
 export const PHASE_IDS = [
-  ...PHASES.map((p) => p.id),
+  ...PHASES.map((p) => p.id), 'c3',
   ...otrosVideos.flatMap((k) => [`dia_directo${k}`, `en_directo${k}`]),
   ...Array.from({ length: MAX_VIDEOS - 1 }, (_, i) => `v${i + 1}`),
 ];
 
-// Fases de la página según los vídeos del lanzamiento (con uno solo, las de siempre).
+// Fases de la página según el prelanzamiento (1, 2 o 3 clases; con o sin VIP) y los vídeos del
+// lanzamiento. Con 2 clases, VIP y un vídeo (el webinar de siempre), las de siempre.
 export function phasesFor(launch) {
   const vs = videosDe(launch);
-  if (vs.length <= 1) return PHASES;
-  const out = PHASES.slice(0, 3).map((p) => (p.id === 'c2' ? { ...p, text: `Ya puedes ver la clase 2 · El ${vs[0].nombre} empieza en {cuenta}` } : p));
+  const nc = nClases(launch);
+  const vip = conVip(launch);
+  if (vs.length <= 1 && nc === 2 && vip) return PHASES;
+  const botonClase = vip ? 'vip' : 'whatsapp';
+  const primero = vs.length > 1 ? `el ${vs[0].nombre}` : 'el directo';
+  const out = [{ ...PHASES[0] }];
+  for (let i = 1; i <= nc; i++) {
+    out.push({
+      id: `c${i}`, label: `Clase ${i} disponible`, button: botonClase,
+      text: i < nc ? `Ya puedes ver la clase ${i} · La clase ${i + 1} se abre en {cuenta}` : `Ya puedes ver la clase ${i} · ${primero.charAt(0).toUpperCase()}${primero.slice(1)} empieza en {cuenta}`,
+    });
+  }
+  if (vs.length <= 1) return [...out, ...PHASES.slice(3)];
   for (const v of vs) {
     const s = suf(v.k);
     const directo = esEnDirecto(v);
@@ -135,6 +147,7 @@ export function milestones(launch) {
   return {
     clase1: madridToEpoch(launch.clase1At),
     clase2: madridToEpoch(launch.clase2At),
+    clase3: madridToEpoch(launch.clase3At),
     diaDirecto: v1.dia,
     directo: v1.inicio,
     postDirecto: v1.post,
@@ -148,13 +161,17 @@ export function milestones(launch) {
 export function phaseAt(launch, now) {
   const m = milestones(launch);
   const before = (t) => t == null || now < t;
-  if (m.clase1 != null && now < m.clase1) return { id: 'pre_c1', countdownTo: m.clase1, changesAt: m.clase1, m };
-  if (m.clase2 != null && now < m.clase2) return { id: 'c1', countdownTo: m.clase2, changesAt: m.clase2, m };
+  // Clases del prelanzamiento: antes de la 1, «pre_c1»; luego «c1», «c2»… hasta la siguiente.
+  const nc = nClases(launch);
+  for (let i = 1; i <= nc; i++) {
+    const t = m[`clase${i}`];
+    if (t != null && now < t) return { id: i === 1 ? 'pre_c1' : `c${i - 1}`, countdownTo: t, changesAt: t, m };
+  }
   // Vídeos del lanzamiento, uno detrás de otro: antes de su día sigue la fase anterior
   // (la clase 2, o «vídeo anterior disponible»); su día; su directo o estreno; y al siguiente.
   for (const v of m.videos) {
     const s = suf(v.k);
-    const previa = v.k === 1 ? 'c2' : `v${v.k - 1}`;
+    const previa = v.k === 1 ? `c${nc}` : `v${v.k - 1}`;
     if (v.inicio == null || (v.dia != null && now < v.dia)) return { id: previa, countdownTo: v.inicio, changesAt: v.dia ?? v.inicio, m };
     if (now < v.inicio) return { id: `dia_directo${s}`, countdownTo: v.inicio, changesAt: v.inicio, m };
     if (v.post == null || now < v.post) return { id: `en_directo${s}`, countdownTo: null, changesAt: v.post, m };

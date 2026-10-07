@@ -3,7 +3,7 @@
 //   nivel: 'critico' | 'importante' | 'aviso'
 //   accion: { tipo: 'campo', id } (Configuración) | { tipo: 'tarea', id } | { tipo: 'vista', v } | { tipo: 'vsl', tab }
 import { watched } from './scoring.js';
-import { videosDe } from './videos.js';
+import { videosDe, nClases, conVip } from './videos.js';
 
 const DAY = 86_400_000;
 const dia = (v) => String(v || '').slice(0, 10);
@@ -26,7 +26,8 @@ export function hitosAuditor(l) {
   return {
     captacion: { d: dia(l.inicioCaptacion), label: 'el inicio de la captación' },
     clase1: { d: dia(l.clase1At), label: 'la clase 1' },
-    clase2: { d: dia(l.clase2At), label: 'la clase 2' },
+    clase2: { d: nClases(l) >= 2 ? dia(l.clase2At) : '', label: 'la clase 2' },
+    clase3: { d: nClases(l) >= 3 ? dia(l.clase3At) : '', label: 'la clase 3' },
     directo: { d: directo, label: videosDe(l).length > 1 ? `el ${videosDe(l)[0].nombre}` : 'el webinar en directo' },
     carrito: { d: dia(l.aperturaCarrito) || dia(videosDe(l).at(-1)?.fecha) || directo, label: 'la apertura del carrito' },
     replay: { d: replay, label: 'la grabación' },
@@ -69,10 +70,10 @@ export function auditarLanzamiento(p) {
       if (!v.replayUrl) add(urgencia(nv), 'Páginas y vídeos', `Falta la página del ${v.nombre}`, 'Es adonde manda la página preclase y el WhatsApp cuando toca este vídeo.', campo(`cfg-v${v.k}-replay`));
     }
   }
-  for (const [k, id, t] of [['clase1At', 'cfg-clase1-at', 'Falta cuándo se desbloquea la clase 1'], ['clase2At', 'cfg-clase2-at', 'Falta cuándo se desbloquea la clase 2']]) {
+  for (const [k, id, t] of [1, 2, 3].slice(0, nClases(l)).map((i) => [`clase${i}At`, `cfg-clase${i}-at`, `Falta cuándo se desbloquea la clase ${i}`])) {
     if (!l[k]) add(urgencia(n('directo')), 'Fechas', t, 'La página preclase no sabrá cuándo enseñarla.', campo(id));
   }
-  const orden = [['captacion', 'el inicio de captación'], ['clase1', 'la clase 1'], ['clase2', 'la clase 2'], ['directo', 'el directo'], ['cierre', 'el cierre del carrito']].filter(([k]) => H[k].d);
+  const orden = [['captacion', 'el inicio de captación'], ['clase1', 'la clase 1'], ['clase2', 'la clase 2'], ['clase3', 'la clase 3'], ['directo', 'el directo'], ['cierre', 'el cierre del carrito']].filter(([k]) => H[k].d);
   for (let i = 1; i < orden.length; i++) {
     if (H[orden[i][0]].d < H[orden[i - 1][0]].d) add('critico', 'Fechas', `Fechas descolocadas: ${orden[i][1]} es antes que ${orden[i - 1][1]}`, `${fmt(H[orden[i][0]].d)} frente a ${fmt(H[orden[i - 1][0]].d)}.`, campo('cfg-inicio'));
   }
@@ -87,8 +88,8 @@ export function auditarLanzamiento(p) {
   }
   if (!l.compraTag) add('importante', 'Etiquetas', 'Falta la etiqueta de compra del programa', 'No se contarán las ventas.', campo('cfg-compra'));
   else if (!existe(l.compraTag)) add('importante', 'Etiquetas', `La etiqueta de compra «${l.compraTag}» no existe en GHL`, 'Revisa que el workflow de compra la pone.', campo('cfg-compra'));
-  if (l.vipTag && !existe(l.vipTag)) add('importante', 'Etiquetas', `La etiqueta VIP «${l.vipTag}» no existe en GHL`, '', campo('cfg-vip'));
-  const sinFoto = [['vipTag', 'VIP'], ['compraTag', 'compra'], ['llamadaTag', 'llamada']].filter(([f]) => l[f] && l.snapshot?.tags?.[f] !== l[f]);
+  if (conVip(l) && l.vipTag && !existe(l.vipTag)) add('importante', 'Etiquetas', `La etiqueta VIP «${l.vipTag}» no existe en GHL`, '', campo('cfg-vip'));
+  const sinFoto = [['vipTag', 'VIP'], ['compraTag', 'compra'], ['llamadaTag', 'llamada']].filter(([f]) => l[f] && (f !== 'vipTag' || conVip(l)) && l.snapshot?.tags?.[f] !== l[f]);
   if (sinFoto.length) add('importante', 'Etiquetas', `Falta la «foto» de ${sinFoto.map(([, t]) => t).join(', ')}`, 'Quien ya tenía esas etiquetas de lanzamientos anteriores cuenta como de este (aviso arriba del dashboard: «Hacer la foto ahora»).', null);
   if (!l.compraDateField) add('importante', 'Etiquetas', 'Falta el campo de fecha de compra', 'Sin él no salen las ventas por día del carrito.', campo('cfg-compra-fecha'));
 
@@ -98,7 +99,8 @@ export function auditarLanzamiento(p) {
     ['loginUrl', 'cfg-login-url', 'la página de login', 'clase1'],
     ['recursosUrl', 'cfg-recursos-url', 'la página preclase', 'clase1'],
     ['clase1Url', 'cfg-clase1-url', 'el vídeo de la clase 1', 'clase1'],
-    ['clase2Url', 'cfg-clase2-url', 'el vídeo de la clase 2', 'clase2'],
+    ...(nClases(l) >= 2 ? [['clase2Url', 'cfg-clase2-url', 'el vídeo de la clase 2', 'clase2']] : []),
+    ...(nClases(l) >= 3 ? [['clase3Url', 'cfg-clase3-url', 'el vídeo de la clase 3', 'clase3']] : []),
     ['zoomMeetingId', 'cfg-zoom-id', 'el ID de la reunión de Zoom', 'directo'],
     ['raicesUrl', 'cfg-raices', 'la página de venta', 'carrito'],
     ['ventaUrl', 'cfg-venta', 'el enlace de pago único', 'carrito'],
@@ -106,12 +108,12 @@ export function auditarLanzamiento(p) {
     ['replayUrl', 'cfg-replay', 'la página de la grabación', 'replay'],
     ['replayVideoUrl', 'cfg-replay-video', 'el vídeo de la grabación', 'replay'],
   ];
-  if (l.vipTag) enlaces.push(['vipUrl', 'cfg-vip-url', 'el enlace de pago de la entrada VIP', 'captacion'], ['precioVip', 'cfg-precio-vip', 'el precio de la VIP', 'captacion']);
+  if (conVip(l) && l.vipTag) enlaces.push(['vipUrl', 'cfg-vip-url', 'el enlace de pago de la entrada VIP', 'captacion'], ['precioVip', 'cfg-precio-vip', 'el precio de la VIP', 'captacion']);
   if (on('llamadas')) enlaces.push(['llamadaUrl', 'cfg-llamada', 'el enlace para reservar llamada', 'directo']);
   for (const [k, id, t, hito] of enlaces) {
     if (l[k]) continue;
     const yaPaso = H[hito].d && H[hito].d < hoy && hito !== 'captacion';
-    if (yaPaso && ['clase1', 'clase2'].includes(hito)) continue; // ya no tiene arreglo útil
+    if (yaPaso && ['clase1', 'clase2', 'clase3'].includes(hito)) continue; // ya no tiene arreglo útil
     add(urgencia(n(hito)), 'Enlaces y páginas', `Falta ${t}`, antesDe(hito), campo(id));
   }
   // Repetidos del lanzamiento anterior (copiados al duplicar y sin cambiar).

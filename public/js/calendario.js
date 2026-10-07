@@ -2,7 +2,7 @@
 // Lo usan el navegador (pestaña Calendario) y el servidor (/api/cal).
 import { madridToEpoch } from './page.js';
 import { addDays } from './tareas.js';
-import { videosDe, esEnDirecto } from './videos.js';
+import { videosDe, esEnDirecto, nClases } from './videos.js';
 
 // Tipos de evento propio (los añade la admin a mano).
 export const EVENTO_TIPOS = [
@@ -28,8 +28,8 @@ export function hitosLanzamiento(launch = {}) {
   const list = [
     { id: 'captacion', titulo: 'Empieza la publi de captación', icon: '📣', at: launch.inicioCaptacion },
     { id: 'fin-captacion', titulo: 'Termina la publi de captación', icon: '🛑', at: launch.finCaptacion },
-    { id: 'clase1', titulo: 'Clase 1 disponible', icon: '🎬', at: launch.clase1At },
-    { id: 'clase2', titulo: 'Clase 2 disponible', icon: '🎬', at: launch.clase2At },
+    // Clases del prelanzamiento (1, 2 o 3 según el embudo).
+    ...Array.from({ length: nClases(launch) }, (_, i) => ({ id: `clase${i + 1}`, titulo: `Clase ${i + 1} disponible`, icon: '🎬', at: launch[`clase${i + 1}At`] })),
     // Vídeos del lanzamiento: el webinar en directo, o cada vídeo / PLC (el de venta, marcado).
     ...vs.map((v) => ({
       id: v.k === 1 ? 'directo' : `directo${v.k}`,

@@ -5,7 +5,7 @@ import { icon } from './icons.js';
 import { nombreProducto, PRODUCTO_MLDLM } from './producto.js';
 import { enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor } from './page.js';
-import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay } from './videos.js';
+import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento } from './calculadora.js';
 import { FASES, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
@@ -549,6 +549,11 @@ function pintarCabeceraVideos() {
   $('#th-directo').textContent = multi ? `Vídeos (${vs.map(nombreCorto).join(', ')})` : 'Directo';
   $('#th-directo').colSpan = multi ? 2 : 1;
   $('#th-grabacion').hidden = multi;
+  // Prelanzamiento: columnas de las clases que haya y de la VIP (si la hay).
+  const nc = nClases(launch);
+  $('#th-c2').hidden = nc < 2;
+  $('#th-c3').hidden = nc < 3;
+  $('#th-vip').hidden = !conVip(launch);
 }
 
 function render() {
@@ -624,10 +629,10 @@ function renderMetrics() {
   $('#metric-cards').innerHTML = [
     card('Registros', m.total, m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'leads del lanzamiento', 'users', 'accent'),
     ...(m.encuestaActiva ? [card('Encuesta rellenada', `${m.encuesta} <small class="muted">de ${m.total}</small>`, `${pctOf(m.encuesta, m.total)} de los registros`, 'survey', 'info')] : []),
-    card('Entradas VIP', m.vip, `${pctOf(m.vip, m.total)} de los registros`, 'star', 'vip'),
+    ...(m.conVip ? [card('Entradas VIP', m.vip, `${pctOf(m.vip, m.total)} de los registros`, 'star', 'vip')] : []),
     asistenciaCard,
     card('Compras totales', m.compra, `${pctOf(m.compra, m.total)} de los registros`, 'cart', 'buy'),
-    card('Ventas de Raíces de VIP', `${m.compraVip} <small class="muted">de ${m.compra}</small>`, `${pctOf(m.compraVip, m.compra)} de las ventas · compra el ${pctOf(m.compraVip, m.vip)} de las VIP`, 'crown', 'vip'),
+    ...(!m.conVip ? [] : [card('Ventas de Raíces de VIP', `${m.compraVip} <small class="muted">de ${m.compra}</small>`, `${pctOf(m.compraVip, m.compra)} de las ventas · compra el ${pctOf(m.compraVip, m.vip)} de las VIP`, 'crown', 'vip')]),
     card('Llamadas agendadas', `${m.llamada} <small class="muted">de ${m.total}</small>`, `${pctOf(m.llamada, m.total)} de los registros · ${pctOf(m.compraLlamada, m.llamada)} compran`, 'phone', 'info'),
     directoCard,
   ].join('');
@@ -645,9 +650,8 @@ function renderMetrics() {
   const steps = [
     ['Registros', m.total],
     ...(m.encuestaActiva ? [['Rellenaron la encuesta', m.encuesta, 'desbloquea las clases']] : []),
-    ['Empezaron la clase 1', m.clase1, '≥25% visto'],
-    ['Empezaron la clase 2', m.clase2, '≥25% visto'],
-    ['Compraron entrada VIP', m.vip],
+    ...m.clases.map((c, i) => [`Empezaron la clase ${i + 1}`, m[c], '≥25% visto']),
+    ...(m.conVip ? [['Compraron entrada VIP', m.vip]] : []),
     ...(vVenta ? m.videos.map((v) => [`Vieron el ${v.nombre}`, v.vieron, `${v.asistio ? `${v.asistio} en directo · ` : ''}${v.grabacion} grabado (≥25%)`]) : [
       ['Pulsaron el enlace del directo', m.click],
       ['Asistieron al directo', m.live],
@@ -666,8 +670,7 @@ function renderMetrics() {
 
   const rows = [
     ['Todos los registrados', m.total, m.compra],
-    ['Con entrada VIP', m.vip, m.compraVip],
-    ['Sin entrada VIP', m.noVip, m.compraNoVip],
+    ...(m.conVip ? [['Con entrada VIP', m.vip, m.compraVip], ['Sin entrada VIP', m.noVip, m.compraNoVip]] : []),
     ...(vVenta ? m.videos.map((v) => [`Vieron el ${v.nombre}`, v.vieron, v.compraron]) : [
       ['Asistieron al directo', m.live, m.compraLive],
       ['Asistieron hasta el final', m.liveFinal, m.compraFinal],
@@ -884,7 +887,7 @@ function renderObjForm(launch) {
   const editable = puedeConfig();
   box.innerHTML = `<form class="card obj-form" id="obj-form-el">
     <h3>${icon('target')} Objetivos de «${esc(launch.name)}»</h3>
-    <div class="grid4">${OBJ_CAMPOS.map(([k, label, ph]) => `<label class="field"><span>${label}</span><input data-obj="${k}" inputmode="decimal" value="${o[k] || ''}" placeholder="${ph}" ${editable ? '' : 'readonly'}></label>`).join('')}</div>
+    <div class="grid4">${OBJ_CAMPOS.filter(([k]) => k !== 'vip' || conVip(launch)).map(([k, label, ph]) => `<label class="field"><span>${label}</span><input data-obj="${k}" inputmode="decimal" value="${o[k] || ''}" placeholder="${ph}" ${editable ? '' : 'readonly'}></label>`).join('')}</div>
     ${editable ? '<div class="row"><button type="submit" class="btn primary">Guardar objetivos</button><span class="muted" id="obj-status" aria-live="polite"></span></div>' : '<p class="muted small">Solo quien puede configurar cambia los objetivos.</p>'}
   </form>`;
 }
@@ -953,7 +956,9 @@ function renderCalculadora(m, launch, { soloResultados = false } = {}) {
     convVip: sup.convVip ? Number(sup.convVip) / 100 : '', convVenta: sup.convVenta ? Number(sup.convVenta) / 100 : '',
   };
   const esc3 = escenarios(hist, manual);
-  const obj = launch.objetivos || {};
+  // Sin entrada VIP: ni conversión a VIP ni objetivo de VIP.
+  if (!conVip(launch)) for (const e of ESCENARIOS) esc3[e.id].convVip = 0;
+  const obj = conVip(launch) ? (launch.objetivos || {}) : { ...(launch.objetivos || {}), vip: 0 };
   const hayObj = ['registros', 'vip', 'ventas', 'facturacion'].some((k) => Number(obj[k]) > 0);
   // Días de captación que quedan y ritmo medio desde que empezó.
   const hoy = dayInMadrid(new Date().toISOString());
@@ -1048,7 +1053,7 @@ function renderCalculadora(m, launch, { soloResultados = false } = {}) {
       <h4 class="calc-h">Supuestos <small class="muted">(vacío = el dato del histórico; escribe para simular)</small></h4>
       <div class="grid4">
         ${campo('cpl', 'CPL (€ por registro)', neutro.cpl != null && esc3.fuente.cpl !== 'manual' ? eur(neutro.cpl) : 'p. ej. 4', editable)}
-        ${campo('convVip', '% que compra la VIP', neutro.convVip != null && esc3.fuente.convVip !== 'manual' ? pctTxt(neutro.convVip) : 'p. ej. 10', editable)}
+        ${!conVip(launch) ? '' : campo('convVip', '% que compra la VIP', neutro.convVip != null && esc3.fuente.convVip !== 'manual' ? pctTxt(neutro.convVip) : 'p. ej. 10', editable)}
         ${campo('convVenta', '% que compra el programa', neutro.convVenta != null && esc3.fuente.convVenta !== 'manual' ? pctTxt(neutro.convVenta) : 'p. ej. 3', editable)}
         ${campo('ticket', 'Ticket medio del programa (€)', neutro.ticket != null && esc3.fuente.ticket !== 'manual' ? eur(neutro.ticket) : eur(Number(launch.precioPrograma) || 0), editable)}
         ${campo('roasObjetivo', 'ROAS objetivo <small>(facturación ÷ inversión)</small>', String(ROAS_OBJETIVO_DEF).replace('.', ','), editable)}
@@ -1540,7 +1545,7 @@ function renderKpis() {
         <span class="kpi-value">${counts[e.id]}</span>
         <span class="kpi-sub">${pct(counts[e.id])} · ${e.min}+ puntos</span>
       </button>`).join('')}
-    <div class="kpi static tone-vip"><span class="kpi-label"><span class="kpi-ico">${icon('star')}</span>Compraron VIP</span><span class="kpi-value">${vip}</span><span class="kpi-sub">${pct(vip)}</span></div>
+    ${conVip(state.config.launches[state.launchCode]) ? `<div class="kpi static tone-vip"><span class="kpi-label"><span class="kpi-ico">${icon('star')}</span>Compraron VIP</span><span class="kpi-value">${vip}</span><span class="kpi-sub">${pct(vip)}</span></div>` : ''}
     <div class="kpi static tone-live"><span class="kpi-label"><span class="kpi-ico">${icon('live')}</span>${deVenta ? `En directo${deVenta}` : 'Asistieron al directo'}</span><span class="kpi-value">${live}</span><span class="kpi-sub">${pct(live)}</span></div>
     <div class="kpi static tone-info"><span class="kpi-label"><span class="kpi-ico">${icon('play')}</span>${deVenta ? `Vieron${deVenta} grabado` : 'Vieron la grabación'}</span><span class="kpi-value">${replay}</span><span class="kpi-sub">${pct(replay)} (≥50%)</span></div>
     <div class="distribution" style="grid-column:1/-1" aria-hidden="true">
@@ -1603,9 +1608,8 @@ function rowHtml(l) {
     : '<span class="muted">Sin teléfono</span>';
   return `<tr>
     <td><div class="lead-name">${esc(l.name || '(sin nombre)')} ${avatarChip(l)} ${faseChip(l.id)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
-    <td>${videoChip(l.s, 'clase1')}</td>
-    <td>${videoChip(l.s, 'clase2')}</td>
-    <td>${l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>
+    ${(l.s.clases || ['clase1', 'clase2']).map((c) => `<td>${videoChip(l.s, c)}</td>`).join('')}
+    ${l.s.conVip === false ? '' : `<td>${l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>`}
     ${(l.s.nVideos || 1) > 1 ? `<td colspan="2"><div class="videos-chips">${videosChips(l.s, state.config.launches[state.launchCode])}</div></td>` : `<td>${liveChip(l.s)}</td>
     <td>${videoChip(l.s, 'replay')}</td>`}
     <td>${compraChip(l.s)}</td>
@@ -1848,6 +1852,15 @@ function readVideosCfg() {
   return $$('#cfg-videos .cfg-video').map((fs) => Object.fromEntries($$('[data-vc]', fs).map((i) => [i.dataset.vc, i.value.trim()])));
 }
 
+// Prelanzamiento del embudo (clases y VIP): solo se ven las casillas que tocan.
+function pintarPrelanzamientoCfg(l) {
+  const emb = embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo) || {};
+  const nc = [1, 2, 3].includes(emb.clases) ? emb.clases : 2;
+  const vip = emb.vip !== false;
+  $$('#config-dialog [data-clase]').forEach((el) => { el.hidden = Number(el.dataset.clase) > nc; });
+  $$('#config-dialog [data-vip]').forEach((el) => { el.hidden = !vip; });
+}
+
 function openConfig(code) {
   editingCode = code && state.config.launches[code] ? code : null;
   const pick = $('#cfg-launch-pick');
@@ -1863,7 +1876,7 @@ function openConfig(code) {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
       precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag, vipContadorBase: last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
-      clase1Url: last.clase1Url, clase2Url: last.clase2Url, textos: last.textos,
+      clase1Url: last.clase1Url, clase2Url: last.clase2Url, clase3Url: last.clase3Url, textos: last.textos,
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
       inicioCaptacion: new Date().toISOString().slice(0, 10),
     };
@@ -1887,6 +1900,8 @@ function openConfig(code) {
   $('#cfg-clase1-at').value = l.clase1At || '';
   $('#cfg-clase2-url').value = l.clase2Url || '';
   $('#cfg-clase2-at').value = l.clase2At || '';
+  $('#cfg-clase3-url').value = l.clase3Url || '';
+  $('#cfg-clase3-at').value = l.clase3At || '';
   $('#cfg-replay-video').value = l.replayVideoUrl || '';
   $('#cfg-replay-at').value = l.replayAt || '';
   $('#cfg-vip-url').value = l.vipUrl || '';
@@ -1925,6 +1940,7 @@ function openConfig(code) {
   renderSnippets();
   renderSnapshotBox();
   renderVideosCfg(l);
+  pintarPrelanzamientoCfg(l);
   renderGuia();
   if (!dlg.open) dlg.showModal();
 }
@@ -2067,7 +2083,8 @@ function fieldStatus(f, others, tagIssues) {
     if (same) issue = `igual que en «${same[1].name || same[0]}»`;
   }
   // Con varios vídeos, el 1 puede ser grabado: su Zoom es opcional.
-  const opcional = f.opcional || (f.id === 'cfg-zoom-id' && !$('#cfg-videos-sec').hidden);
+  const opcional = f.opcional || (f.id === 'cfg-zoom-id' && !$('#cfg-videos-sec').hidden)
+    || Boolean(document.getElementById(f.id).closest('[data-clase][hidden], [data-vip][hidden]'));
   const st = issue ? 'warn' : v ? 'ok' : opcional ? 'opt' : 'falta';
   return { st, txt: issue || (v ? 'listo' : opcional ? 'vacío (opcional)' : 'falta') };
 }
@@ -2144,6 +2161,8 @@ function readForm() {
       clase1At: $('#cfg-clase1-at').value,
       clase2Url: $('#cfg-clase2-url').value.trim(),
       clase2At: $('#cfg-clase2-at').value,
+      clase3Url: $('#cfg-clase3-url').value.trim(),
+      clase3At: $('#cfg-clase3-at').value,
       replayVideoUrl: $('#cfg-replay-video').value.trim(),
       replayAt: $('#cfg-replay-at').value,
       vipUrl: $('#cfg-vip-url').value.trim(),
@@ -2569,9 +2588,10 @@ function renderSnippets() {
     ['RECURSOS · bloque base (una vez por página, en cualquier sitio)', `<div data-lsd-page="recursos" data-launch="auto"></div>\n${script}`],
     ['RECURSOS · barra de urgencia (dale estilo de barra fija arriba)', '<div class="mi-barra" data-lsd-bar></div>'],
     ['RECURSOS · vídeo de la clase 1 (bloqueado con cuenta atrás hasta su hora)', '<div data-lsd-video="clase1"></div>'],
-    ['RECURSOS · vídeo de la clase 2', '<div data-lsd-video="clase2"></div>'],
-    ['RECURSOS · oferta VIP (se oculta al empezar el directo y a quien ya es VIP)',
-      '<div data-lsd-if="vip-abierta">\n  Entrada VIP por <span data-lsd-text="precioVip"></span> · se cierra en <span data-lsd-countdown="vip"></span>\n  <a data-lsd-link="vip">Quiero mi entrada VIP</a>\n</div>\n<div data-lsd-if="ya-vip">✓ Ya tienes tu entrada VIP</div>'],
+    ...(nClases(state.config.launches[code]) >= 2 ? [['RECURSOS · vídeo de la clase 2', '<div data-lsd-video="clase2"></div>']] : []),
+    ...(nClases(state.config.launches[code]) >= 3 ? [['RECURSOS · vídeo de la clase 3', '<div data-lsd-video="clase3"></div>']] : []),
+    ...(!conVip(state.config.launches[code]) ? [] : [['RECURSOS · oferta VIP (se oculta al empezar el directo y a quien ya es VIP)',
+      '<div data-lsd-if="vip-abierta">\n  Entrada VIP por <span data-lsd-text="precioVip"></span> · se cierra en <span data-lsd-countdown="vip"></span>\n  <a data-lsd-link="vip">Quiero mi entrada VIP</a>\n</div>\n<div data-lsd-if="ya-vip">✓ Ya tienes tu entrada VIP</div>']]),
     ['RECURSOS · botón del grupo de WhatsApp', '<a data-lsd-link="whatsapp" target="_blank">Unirme al grupo de WhatsApp</a>'],
     ['RECURSOS · botón del directo', '<a data-lsd-link="directo">Entrar al directo</a>'],
     ['RECURSOS · encuesta (sin ella no se ven las clases 1 y 2)',
@@ -5596,7 +5616,13 @@ const embOpcion = () => $('input[name="emb-tipo"]:checked').value;
 const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : embOpcion() === 'vsl' ? 'vsl' : 'lanzamientos');
 const embFormato = () => (embEdit ? $('#emb-formato').value : embOpcion() === 'vsl' ? undefined : embOpcion());
 const embPestanas = () => $$('#emb-pestanas input:checked').map((i) => i.value);
+// Clases del prelanzamiento y entrada VIP: solo en los embudos de lanzamientos (sin plantilla elegida).
+function pintarEmbPrelanz() {
+  $('#emb-prelanz').hidden = embTipo() !== 'lanzamientos' || Boolean(!embEdit && $('#emb-plantilla').value);
+}
+const embPrelanz = () => (embTipo() === 'lanzamientos' ? { clases: Number($('#emb-clases').value), vip: $('#emb-vip').value === 'si' } : {});
 function pintarEmbPestanas(activas) {
+  pintarEmbPrelanz();
   const tipo = embTipo();
   $('#emb-pestanas').innerHTML = PESTANAS[tipo].map((p) => `<label class="emb-pest"><input type="checkbox" value="${p.id}" ${!activas || activas.includes(p.id) ? 'checked' : ''}><span><strong>${esc(p.label)}</strong><small>${esc(p.desc)}</small></span></label>`).join('');
   pintarEmbGuia();
@@ -5622,7 +5648,7 @@ function pintarPlantillaElegida() {
   $('#emb-pl-habituales').checked = Boolean(p) && !Object.keys(state.config.launches).length;
   if (p && !$('#emb-nombre').value.trim()) $('#emb-nombre').placeholder = p.nombre;
 }
-$('#emb-plantilla').addEventListener('change', pintarPlantillaElegida);
+$('#emb-plantilla').addEventListener('change', () => { pintarPlantillaElegida(); pintarEmbPrelanz(); });
 $('#emb-pl-borrar').addEventListener('click', async () => {
   const p = plantillasAg.find((x) => x.id === $('#emb-plantilla').value);
   if (!p || !window.confirm(`¿Borrar la plantilla «${p.nombre}»? Los embudos ya creados con ella no cambian.`)) return;
@@ -5649,6 +5675,8 @@ function abrirNuevoEmbudo() {
   $('.emb-tipos').hidden = false;
   $('input[name="emb-tipo"][value="webinar"]').checked = true;
   $('#emb-formato-box').hidden = true;
+  $('#emb-clases').value = '2';
+  $('#emb-vip').value = 'si';
   $('#emb-nombre').value = '';
   $('#emb-status').textContent = '';
   $('#emb-nota').hidden = false;
@@ -5667,6 +5695,8 @@ function abrirEditarEmbudo(id) {
   $('.emb-tipos').hidden = true;
   $('#emb-formato-box').hidden = e.tipo !== 'lanzamientos';
   $('#emb-formato').value = e.formato || 'webinar';
+  $('#emb-clases').value = String(e.clases || 2);
+  $('#emb-vip').value = e.vip === false ? 'no' : 'si';
   $('#emb-nombre').value = e.nombre;
   $('#emb-status').textContent = '';
   $('#emb-nota').hidden = true;
@@ -5696,7 +5726,7 @@ $('#emb-crear').addEventListener('click', async () => {
     if (embEdit) {
       const id = embEdit;
       const nombre = $('#emb-nombre').value.trim() || embudoInfo(id).nombre;
-      const lista = embudos().map((e) => (e.id === id ? { id: e.id, tipo: e.tipo, nombre, ...(e.tipo === 'lanzamientos' ? { formato: embFormato() } : {}), ...(todas ? {} : { pestanas }) } : e));
+      const lista = embudos().map((e) => (e.id === id ? { ...e, id: e.id, tipo: e.tipo, nombre, ...(e.tipo === 'lanzamientos' ? { formato: embFormato(), ...embPrelanz() } : {}), pestanas: todas ? undefined : pestanas } : e));
       const vsls = state.config.vsls[id] ? { ...state.config.vsls, [id]: { ...state.config.vsls[id], name: nombre } } : state.config.vsls;
       const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, vsls } });
       state.config = config;
@@ -5724,7 +5754,7 @@ $('#emb-crear').addEventListener('click', async () => {
     for (let n = 2; usados.has(id) || id.length < 2; n++) id = `${base.slice(0, 18)}-${n}`;
     const body = {
       ...state.config,
-      embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato } : {}), ...(todas ? {} : { pestanas }) }],
+      embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz() } : {}), ...(todas ? {} : { pestanas }) }],
       vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre } } : state.config.vsls,
     };
     const { config } = await api('/api/config', { method: 'POST', body });

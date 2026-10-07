@@ -114,3 +114,53 @@ test('formatos: embudo PLF, sus vídeos se guardan y la página da sus enlaces',
   // Seguimiento del vídeo 2
   assert.equal((await call('/api/track', { method: 'POST', body: { launch: 'prim', video: 'replay2', pct: 50, cid: 'mock0001' } })).status, 200);
 });
+
+test('prelanzamiento: 1, 2 o 3 clases y con o sin entrada VIP', async () => {
+  const tres = { nClases: 3, vip: false, clase1At: '2026-11-01T10:00', clase2At: '2026-11-02T10:00', clase3At: '2026-11-03T10:00', fechaDirecto: '2026-11-05', horaDirecto: '19:00', cierreCarrito: '2026-11-10T23:59' };
+  const at = (l, dt) => phaseAt(l, madridToEpoch(dt)).id;
+  assert.equal(at(tres, '2026-11-02T12:00'), 'c2');
+  assert.equal(at(tres, '2026-11-04T12:00'), 'c3');
+  assert.equal(at(tres, '2026-11-05T20:00'), 'en_directo');
+  const fases = phasesFor(tres);
+  assert.deepEqual(fases.slice(0, 4).map((p) => p.id), ['pre_c1', 'c1', 'c2', 'c3']);
+  assert.ok(fases.every((p) => p.button !== 'vip')); // sin VIP no hay botón de VIP
+  const una = { nClases: 1, clase1At: '2026-11-01T10:00', fechaDirecto: '2026-11-05', horaDirecto: '19:00' };
+  assert.equal(at(una, '2026-11-03T12:00'), 'c1');
+  assert.match(phasesFor(una).find((p) => p.id === 'c1').text, /El directo empieza/);
+  // Puntuación: sin VIP se lleva a 100; 3 clases reparten los mismos 30 puntos
+  const s3 = signalsFor(['x_clase1_90', 'x_clase2_90', 'x_clase3_90', 'x_directo_asistio', 'x_directo_60', 'x_directo_final'], 'x', tres, {});
+  assert.equal(score(s3), 100);
+  const s2 = signalsFor(['x_clase1_90', 'x_clase2_90'], 'x', {}, {});
+  assert.equal(score(s2), 30); // webinar de siempre: igual que antes
+  // Calendario y auditor
+  assert.ok(hitosLanzamiento(tres).some((h) => h.id === 'clase3'));
+  assert.equal(hitosLanzamiento(una).some((h) => h.id === 'clase2'), false);
+  const a = auditarLanzamiento({ launch: { ...tres, clase3At: '', vipTag: 'vip-x' }, code: 'x', hoy: '2026-10-20', tareas: [], users: [], roles: [] });
+  assert.ok(a.some((x) => x.titulo === 'Falta cuándo se desbloquea la clase 3'));
+  assert.equal(a.some((x) => /VIP/.test(x.titulo)), false);
+});
+
+test('prelanzamiento: el embudo guarda clases y VIP, y la página no ofrece VIP', async () => {
+  const call = async (path, { method = 'GET', body, cookie } = {}) => {
+    const res = await route(new Request(`http://localhost${path}`, { method, headers: { ...(cookie ? { cookie } : {}), 'content-type': 'text/plain' }, body: body ? JSON.stringify(body) : undefined }), {});
+    return { status: res.status, data: await res.json().catch(() => null), res };
+  };
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const cfg = (await call('/api/config', { cookie: admin })).data.config;
+  const body = {
+    ...cfg,
+    embudos: [...cfg.embudos, { id: 'tres-clases', tipo: 'lanzamientos', nombre: 'Tres clases', formato: 'webinar', clases: 3, vip: false }],
+    launches: { ...cfg.launches, tc: { name: 'TC', registroTag: 'registro-tc', embudo: 'tres-clases', clase3Url: 'https://vimeo.com/3', clase3At: '2026-01-01T10:00', vipUrl: 'https://pago.vip', inicioCaptacion: '2025-12-01' } },
+  };
+  const saved = (await call('/api/config', { method: 'POST', cookie: admin, body })).data.config;
+  const e = saved.embudos.find((x) => x.id === 'tres-clases');
+  assert.equal(e.clases, 3);
+  assert.equal(e.vip, false);
+  assert.equal(saved.launches.tc.nClases, 3);
+  assert.equal(saved.launches.tc.vip, false);
+  assert.equal(saved.embudos.find((x) => x.id === 'lanz')?.clases ?? 2, 2);
+  const page = (await call('/api/page?l=tc')).data;
+  assert.equal(page.vip.open, false);
+  assert.equal(page.links.vip, '');
+  assert.equal(page.videos.clase3.url, 'https://vimeo.com/3');
+});

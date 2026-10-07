@@ -12,7 +12,7 @@ import { marcarActividad } from '../lib/actividad.js';
 import { json, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { signalsFor, withContactId, tagFor } from '../public/js/scoring.js';
 import { phaseAt, barFor, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
-import { videosDe } from '../public/js/videos.js';
+import { videosDe, conVip, nClases } from '../public/js/videos.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
 
 export function OPTIONS() {
@@ -42,7 +42,7 @@ export async function GET(request, ctx) {
     const cid = /^[A-Za-z0-9]{6,40}$/.test(url.searchParams.get('cid') || '') ? url.searchParams.get('cid') : '';
     const m = milestones(launch);
     const phase = phaseAt(launch, now);
-    const vipOpen = Boolean(launch.vipUrl) && (m.directo == null || now < m.directo);
+    const vipOpen = conVip(launch) && Boolean(launch.vipUrl) && (m.directo == null || now < m.directo);
     const cq = clienteActual().principal ? '' : `&c=${encodeURIComponent(clienteActual().id)}`;
     const live = `${url.origin}/directo?l=${encodeURIComponent(code)}${cq}`;
 
@@ -121,6 +121,7 @@ export async function GET(request, ctx) {
       videos: {
         clase1: video('clase1Url', m.clase1, true),
         clase2: video('clase2Url', m.clase2, true),
+        ...(nClases(launch) >= 3 ? { clase3: video('clase3Url', m.clase3, true) } : {}),
         replay: video('replayVideoUrl', m.replay),
         // <div data-lsd-video="replay2"> … : vídeos 2, 3 y 4 del lanzamiento
         ...Object.fromEntries(vids.slice(1).map((v) => [`replay${v.k}`, videoDe(v.replayVideoUrl, m.videos[v.k - 1].replay)])),
@@ -136,7 +137,7 @@ export async function GET(request, ctx) {
         ...(launch.textos || {}),
         nombre: launch.name || '',
         fechaDirecto: formatDate(m.directo), horaDirecto: formatTime(m.directo), directo: formatLong(m.directo),
-        clase1: formatLong(m.clase1), clase2: formatLong(m.clase2), replay: formatLong(m.replay),
+        clase1: formatLong(m.clase1), clase2: formatLong(m.clase2), clase3: formatLong(m.clase3), replay: formatLong(m.replay),
         cierreVip: formatLong(m.directo), cierreCarrito: formatLong(m.cierre),
         precioVip: euros(launch.precioVip),
         vipContador: String(vipContador),
