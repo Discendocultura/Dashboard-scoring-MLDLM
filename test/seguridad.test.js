@@ -148,3 +148,17 @@ test('acceso público: no cambia el nombre ni el móvil de un contacto que ya ex
   assert.equal(c.phone, '+34600111222');
   assert.equal(c.firstName, 'Ana');
 });
+
+test('leads: solo etiquetas de los embudos configurados', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).cookie;
+  assert.equal((await call('/api/leads?tag=equipo-dashboard', { cookie: admin })).status, 403);
+  const cfg = (await call('/api/config', { cookie: admin })).data;
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...cfg.config, _version: cfg.version, launches: { ...cfg.config.launches, 'prueba-2610': { name: 'Prueba', registroTag: 'Registro-Prueba' } } } });
+  assert.equal((await call('/api/leads?tag=registro-prueba', { cookie: admin })).status, 200);
+});
+
+test('errores de endpoints públicos sin detalle técnico', async () => {
+  const r = await call('/api/meteorico?estado=1&m=noexiste');
+  assert.equal(r.status, 404);
+  assert.equal(r.data.detail, undefined);
+});

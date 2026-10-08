@@ -49,8 +49,8 @@ before(async () => {
   setEnv(ENV);
   ({ route } = await import('../lib/router.js'));
 });
-async function call(path, { method = 'GET', body, cookie } = {}) {
-  const res = await route(new Request(`http://localhost${path}`, { method, headers: { ...(cookie ? { cookie } : {}), 'content-type': 'text/plain' }, body: body ? JSON.stringify(body) : undefined }), ENV);
+async function call(path, { method = 'GET', body, cookie, ip } = {}) {
+  const res = await route(new Request(`http://localhost${path}`, { method, headers: { ...(cookie ? { cookie } : {}), ...(ip ? { 'cf-connecting-ip': ip } : {}), 'content-type': 'text/plain' }, body: body ? JSON.stringify(body) : undefined }), ENV);
   return { status: res.status, data: await res.json().catch(() => null), res };
 }
 
@@ -84,8 +84,9 @@ test('meteórico: independiente y downsell, foto, visitas y estado público', as
   const foto = (await call('/api/meteorico', { method: 'POST', cookie: admin, body: { op: 'foto', m: 'bf26' } })).data.foto;
   assert.ok(foto.n > 0);
   // Visitas (públicas)
-  await call('/api/meteorico', { method: 'POST', body: { op: 'visita', m: 'bf26' } });
-  await call('/api/meteorico', { method: 'POST', body: { op: 'visita', m: 'bf26' } });
+  await call('/api/meteorico', { method: 'POST', ip: '1.1.1.1', body: { op: 'visita', m: 'bf26' } });
+  await call('/api/meteorico', { method: 'POST', ip: '2.2.2.2', body: { op: 'visita', m: 'bf26' } });
+  await call('/api/meteorico', { method: 'POST', ip: '1.1.1.1', body: { op: 'visita', m: 'bf26' } }); // la misma conexión otra vez: no cuenta
   const r = (await call('/api/meteorico?m=bf26', { cookie: admin })).data;
   assert.equal(r.visitas, 2);
   assert.equal(r.ventas, 0);

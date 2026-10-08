@@ -7,7 +7,9 @@
 // fecha (campo de fecha de compra) o, sin ella, de quien no estaba en la foto.
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
-import { leerJSON, guardarJSON, reintentando } from '../lib/store.js';
+import { leerJSON, guardarJSON, reintentando, db, esquema } from '../lib/store.js';
+import { ipDe } from '../lib/intentos.js';
+import { clienteActual } from '../lib/cliente.js';
 import { todosLosLeads } from '../lib/resumen.js';
 import { adSpend, metaConfigured } from '../lib/meta.js';
 import { metricasMeteorico, faseMeteorico, tiemposMeteorico } from '../public/js/meteorico.js';
@@ -24,6 +26,29 @@ const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publi
 const claveVisitas = (code) => `lsd_meteo_visitas_${code}`;
 const claveFoto = (code) => `lsd_meteo_previo_${code}`;
 
+// Una visita por conexión y meteórico cada 30 min: así el contador no se infla recargando la página
+// (ni llamando a la API desde fuera). Con D1 se apunta en la tabla «intentos»; sin D1, en memoria.
+const VISITA_MS = 30 * 60_000;
+const visitasMem = new Map();
+async function visitaNueva(request, code) {
+  const ip = ipDe(request);
+  if (!ip) return true;
+  const clave = `visita:${clienteActual().id}:${code}:${ip}`;
+  const ahora = Date.now();
+  const d = db();
+  if (!d) {
+    if ((visitasMem.get(clave) || 0) > ahora - VISITA_MS) return false;
+    visitasMem.set(clave, ahora);
+    if (visitasMem.size > 5000) visitasMem.delete(visitasMem.keys().next().value);
+    return true;
+  }
+  await esquema(d);
+  // Solo inserta (o renueva) si no hay una visita de esa conexión en los últimos 30 min.
+  const r = await d.prepare('INSERT INTO intentos (clave, n, desde, bloqueo) VALUES (?, 1, ?, 0) ON CONFLICT (clave) DO UPDATE SET n = intentos.n + 1, desde = excluded.desde WHERE intentos.desde < ?')
+    .bind(clave, ahora, ahora - VISITA_MS).run();
+  return Boolean(r.meta?.changes);
+}
+
 async function meteoricoDe(code) {
   const config = await getConfig();
   const m = Object.hasOwn(config.meteoricos || {}, code) ? config.meteoricos[code] : null;
@@ -32,6 +57,7 @@ async function meteoricoDe(code) {
 }
 
 export async function GET(request) {
+  const publico = new URL(request.url).searchParams.has('estado');
   try {
     const url = new URL(request.url);
     const code = url.searchParams.get('m') || '';
@@ -69,18 +95,21 @@ export async function GET(request) {
       inversionFuente: inversion != null ? 'meta' : m.inversion ? 'manual' : '', metaError,
     });
   } catch (e) {
-    return errorResponse(e);
+    return errorResponse(e, publico ? CORS_HEADERS : {});
   }
 }
 
 export async function POST(request) {
+  let publico = false;
   try {
     const body = await readBody(request);
+    publico = body.op === 'visita';
     const code = String(body.m || '');
     if (body.op === 'visita') {
       const { m } = await meteoricoDe(code);
       // Solo cuenta mientras tiene sentido (calentamiento, abierta y el día del cierre).
       if (faseMeteorico(m).id === 'preparacion') return json({ ok: true }, 200, CORS_HEADERS);
+      if (!(await visitaNueva(request, code))) return json({ ok: true }, 200, CORS_HEADERS);
       const dia = dayInMadrid(new Date().toISOString());
       await reintentando(async () => {
         const v = await leerJSON(claveVisitas(code), () => ({ total: 0, porDia: {} }));
@@ -101,6 +130,6 @@ export async function POST(request) {
     }
     return json({ error: 'Operación no válida' }, 400);
   } catch (e) {
-    return errorResponse(e);
+    return errorResponse(e, publico ? CORS_HEADERS : {});
   }
 }
