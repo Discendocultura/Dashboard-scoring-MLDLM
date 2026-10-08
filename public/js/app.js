@@ -2546,7 +2546,7 @@ function renderVideosCfg(l) {
   if (h3Zoom) { h3Zoom.dataset.def ??= h3Zoom.textContent; h3Zoom.textContent = n1 ? `${n1} en Zoom (solo si es en directo)` : h3Zoom.dataset.def; }
   if (vs.length <= 1) { $('#cfg-videos').innerHTML = ''; return; }
   $('#cfg-videos-titulo').textContent = `${FORMATOS[formato].label}: ${vs.slice(1).map((v) => v.nombre).join(', ')}`;
-  $('#cfg-videos-nota').textContent = `El ${vs[0].nombre} usa las casillas de arriba (fechas y Zoom) y su vídeo y su página van en la pestaña «Preclase» (grabación). Si un vídeo es grabado, deja vacío su Zoom. En el ${vs.at(-1).nombre} se hace la venta.`;
+  $('#cfg-videos-nota').textContent = `El ${vs[0].nombre} usa las casillas de arriba (fechas y Zoom) y su vídeo y su página van en la pestaña «Páginas» (Directo y grabación, Página de replay). Si un vídeo es grabado, deja vacío su Zoom. En el ${vs.at(-1).nombre} se hace la venta.`;
   $('#cfg-videos').innerHTML = vs.slice(1).map((v) => `<fieldset class="cfg-video" data-k="${v.k}"><legend>${esc(v.nombre)}${v.venta ? ' · vídeo de venta' : ''}</legend><div class="grid2">
     ${V_CAMPOS.map(([c, label, type]) => `<label class="field"><span>${label}</span><input id="cfg-v${v.k}-${c === 'replayUrl' ? 'replay' : c === 'replayVideoUrl' ? 'replay-video' : c === 'replayAt' ? 'replay-at' : c}" data-vc="${c}" type="${type}" value="${esc(v[c] || '')}"${c === 'zoomMeetingId' ? ' inputmode="numeric"' : ''}></label>`).join('')}
   </div></fieldset>`).join('');
@@ -2621,6 +2621,7 @@ function openConfig(code) {
   $('#cfg-vip-base').value = l.vipContadorBase ?? embudoInfo(embudoDeLanz(l))?.vipContadorBase ?? (esPrincipal() ? 41 : 0);
   $('#cfg-whatsapp-url').value = l.whatsappUrl || '';
   $('#cfg-gracias-video').value = l.graciasVideoUrl || '';
+  $('#cfg-gracias-url').value = l.graciasUrl || '';
   $('#cfg-cierre').value = l.cierreCarrito || '';
   $('#cfg-calendario-url').value = l.calendarioUrl || '';
   renderBarraEditor(l.barra || {});
@@ -2767,9 +2768,10 @@ const CICLO = [
   { id: 'cfg-clase2-at', c: 'nuevo', label: 'Clase 2 · desbloqueo', key: 'clase2At' },
   { id: 'cfg-replay-video', c: 'nuevo', label: 'Vídeo de la grabación', key: 'replayVideoUrl', opcional: true },
   { id: 'cfg-whatsapp-url', c: 'nuevo', label: 'Grupo de WhatsApp', key: 'whatsappUrl' },
+  { id: 'cfg-gracias-url', c: 'revisar', label: 'Página de gracias', opcional: true },
   { id: 'cfg-gracias-video', c: 'revisar', label: 'Vídeo de gracias', opcional: true },
   { id: 'cfg-cierre', c: 'nuevo', label: 'Cierre del carrito', key: 'cierreCarrito' },
-  { id: 'cfg-replay', c: 'revisar', label: 'Página de la grabación' },
+  { id: 'cfg-replay', c: 'revisar', label: 'Página de replay' },
   { id: 'cfg-raices', c: 'revisar', label: 'Página de venta de Raíces' },
   { id: 'cfg-venta', c: 'revisar', label: 'Pago único (ThriveCart)' },
   { id: 'cfg-venta-fraccionado', c: 'revisar', label: 'Pago fraccionado (Hotmart)' },
@@ -2985,6 +2987,7 @@ function readForm() {
       vipContadorBase: $('#cfg-vip-base').value.trim(),
       whatsappUrl: $('#cfg-whatsapp-url').value.trim(),
       graciasVideoUrl: $('#cfg-gracias-video').value.trim(),
+      graciasUrl: $('#cfg-gracias-url').value.trim(),
       cierreCarrito: $('#cfg-cierre').value,
       calendarioUrl: $('#cfg-calendario-url').value.trim(),
       barra: readBarraEditor(),
