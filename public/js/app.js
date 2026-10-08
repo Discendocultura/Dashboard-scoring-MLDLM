@@ -3,7 +3,7 @@ import {
 } from './scoring.js';
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
-import { asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
+import { asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor, madridToEpoch } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
@@ -433,6 +433,7 @@ async function setEmbudo(e, { vista = null } = {}) {
   state.embudo = embudoInfo(e) ? e : embudos()[0]?.id || '';
   ls.set('lsd_embudo', state.embudo);
   $('#alertas-carrito').hidden = true;
+  if (state.hist?.datos) { state.hist.datos = null; $('#hist-anuncios').innerHTML = '<p class="muted small">Pulsa «Cargar todos los lanzamientos» para ver los anuncios de este embudo.</p>'; $('#btn-hist-anuncios').textContent = 'Cargar todos los lanzamientos'; }
   document.body.classList.toggle('embudo-vsl', enVsl());
   document.body.classList.toggle('embudo-meteo', enMeteo());
   pintarSidebar();
@@ -1914,6 +1915,45 @@ async function loadLaunchLeads(code, label = 'Cargando') {
   state.launchLeads[code] = raw.map((c) => enrichLead(c, code, state.config));
   return state.launchLeads[code];
 }
+
+// Anuncios de todos los lanzamientos del embudo (Análisis → Avatar y anuncios).
+state.hist = { level: 'ad', datos: null };
+async function cargarHistoricoAnuncios() {
+  const btn = $('#btn-hist-anuncios');
+  const codes = launchesSorted().filter(([, l]) => embudoDeLanz(l) === state.embudo && l.registroTag && l.inicioCaptacion && l.inicioCaptacion <= today()).map(([c]) => c);
+  if (!codes.length) { $('#hist-anuncios').innerHTML = '<p class="muted">Aún no hay lanzamientos empezados en este embudo.</p>'; return; }
+  btn.disabled = true;
+  const datos = [];
+  try {
+    for (const code of codes) {
+      const leads = await loadLaunchLeads(code, 'Anuncios');
+      let meta = null;
+      try { const r = await api(`/api/meta?launch=${encodeURIComponent(code)}`); meta = r.configured && !r.error ? r : null; } catch { /* sin Meta */ }
+      datos.push({ code, nombre: state.config.launches[code].name, leads, meta });
+    }
+    state.hist.datos = datos;
+    pintarHistoricoAnuncios();
+  } catch (e) {
+    $('#hist-anuncios').innerHTML = `<p class="error">${esc(e.message)}</p>`;
+  } finally { btn.disabled = false; btn.textContent = 'Volver a cargar'; }
+}
+function pintarHistoricoAnuncios() {
+  $$('#hist-level .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.hl === state.hist.level));
+  if (!state.hist.datos) return;
+  const lvl = state.hist.level;
+  const h = historicoAnuncios(state.hist.datos.map((d) => ({ code: d.code, nombre: d.nombre, filas: rankingGanadores(d.leads, state.config.launches[d.code], lvl, d.meta?.names || {}, d.meta?.spendBy || {}) })));
+  const que = { ad: 'anuncio', adset: 'conjunto', campaign: 'campaña' }[lvl];
+  if (!h.filas.length) { $('#hist-anuncios').innerHTML = `<p class="muted">Ningún registro trae el ${que} en las UTM.</p>`; return; }
+  const reco = { reutilizar: '<span class="em-niv alto">Reutilizar</span>', revisar: '<span class="em-niv bajo">Revisar</span>' };
+  $('#hist-anuncios').innerHTML = `<p class="muted small">${h.lanzamientos} lanzamiento${h.lanzamientos === 1 ? '' : 's'} · ${h.roasMedio != null ? `ROAS medio ${h.roasMedio.toFixed(2).replace('.', ',')}x` : `conversión media ${pctE(h.convMedia)}`}. «Reutilizar»: vendió al menos 2 veces y rinde un 20 % más que la media; «Revisar»: no recupera la inversión o rinde la mitad que la media.</p>
+    <div class="table-scroll"><table class="metric-table"><thead><tr><th>${que[0].toUpperCase()}${que.slice(1)}</th><th>Lanzamientos</th><th class="num">Leads</th><th class="num">Ventas</th><th class="num">Conversión</th><th class="num">Inversión</th><th class="num">Coste por venta</th><th class="num">ROAS</th><th></th></tr></thead><tbody>
+    ${h.filas.slice(0, 60).map((f) => `<tr><td><strong>${esc(f.label)}</strong></td><td class="small">${f.lanzamientos.map((x) => `${esc(x.nombre)} <span class="muted">(${x.compras})</span>`).join(' · ')}</td>
+      <td class="num">${f.leads}</td><td class="num"><strong>${f.compras}</strong></td><td class="num">${pctE(f.conversion)}</td>
+      <td class="num">${f.spend != null ? eur(f.spend) : '–'}</td><td class="num">${f.cac != null ? eur(f.cac) : '–'}</td><td class="num">${f.roas != null ? `${f.roas.toFixed(1).replace('.', ',')}x` : '–'}</td><td>${reco[f.recomendacion] || ''}</td></tr>`).join('')}
+    </tbody></table></div>${h.filas.length > 60 ? `<p class="muted small">…y ${h.filas.length - 60} más con menos ventas.</p>` : ''}`;
+}
+$('#btn-hist-anuncios').addEventListener('click', cargarHistoricoAnuncios);
+$('#hist-level').addEventListener('click', (e) => { const b = e.target.closest('[data-hl]'); if (!b) return; state.hist.level = b.dataset.hl; pintarHistoricoAnuncios(); });
 
 async function loadLaunchMetrics(code) {
   if (state.compare.cache[code]) return state.compare.cache[code];

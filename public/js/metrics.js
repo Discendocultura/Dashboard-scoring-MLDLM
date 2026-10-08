@@ -594,3 +594,40 @@ export function resumenTrafico(m, meta) {
     roas: m.eco?.roas ?? null,
   };
 }
+
+// Anuncios ganadores de todos los lanzamientos: cada anuncio (por su nombre, que se mantiene aunque se
+// duplique en otra campaña) con sus ventas, inversión, coste por venta y ROAS en cada lanzamiento y en
+// total, y si conviene reutilizarlo. `porLanzamiento`: [{ code, nombre, filas: rankingGanadores(...) }].
+export function historicoAnuncios(porLanzamiento) {
+  const grupos = new Map();
+  for (const { code, nombre, filas } of porLanzamiento) {
+    for (const r of filas) {
+      const clave = String(r.label || r.id).trim().toLowerCase();
+      const g = grupos.get(clave) || { label: r.label || r.id, leads: 0, compras: 0, ingresos: 0, spend: 0, conSpend: false, lanzamientos: [] };
+      g.leads += r.leads;
+      g.compras += r.compras;
+      g.ingresos += r.ingresos;
+      if (r.spend) { g.spend += r.spend; g.conSpend = true; }
+      g.lanzamientos.push({ code, nombre, compras: r.compras, leads: r.leads });
+      grupos.set(clave, g);
+    }
+  }
+  const filas = [...grupos.values()].map((g) => ({
+    ...g,
+    spend: g.conSpend ? g.spend : null,
+    conversion: g.leads ? g.compras / g.leads : 0,
+    cac: g.conSpend && g.compras ? g.spend / g.compras : null,
+    roas: g.conSpend && g.spend ? g.ingresos / g.spend : null,
+  }));
+  // Medias para comparar: ROAS conjunto (si hay inversión) o conversión.
+  const tot = filas.reduce((a, f) => ({ ingresos: a.ingresos + (f.spend ? f.ingresos : 0), spend: a.spend + (f.spend || 0), compras: a.compras + f.compras, leads: a.leads + f.leads }), { ingresos: 0, spend: 0, compras: 0, leads: 0 });
+  const roasMedio = tot.spend ? tot.ingresos / tot.spend : null;
+  const convMedia = tot.leads ? tot.compras / tot.leads : 0;
+  for (const f of filas) {
+    const mejor = f.roas != null && roasMedio ? f.roas >= roasMedio * 1.2 : f.conversion >= convMedia * 1.2;
+    const peor = f.roas != null ? f.roas < 1 || (roasMedio && f.roas <= roasMedio * 0.6) : f.leads >= 30 && f.conversion <= convMedia * 0.5;
+    f.recomendacion = f.compras >= 2 && mejor ? 'reutilizar' : peor && (f.spend || f.leads >= 30) ? 'revisar' : '';
+  }
+  filas.sort((a, b) => (b.compras - a.compras) || ((b.roas ?? 0) - (a.roas ?? 0)) || (b.leads - a.leads));
+  return { filas, roasMedio, convMedia, lanzamientos: porLanzamiento.length };
+}
