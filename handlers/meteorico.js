@@ -11,7 +11,7 @@ import { leerJSON, guardarJSON, reintentando } from '../lib/store.js';
 import { todosLosLeads } from '../lib/resumen.js';
 import { adSpend, metaConfigured } from '../lib/meta.js';
 import { metricasMeteorico, faseMeteorico, tiemposMeteorico } from '../public/js/meteorico.js';
-import { dayInMadrid } from '../public/js/scoring.js';
+import { dayInMadrid, dayOfDateField, momentoDeCampo } from '../public/js/scoring.js';
 import { enlacePago, planesActivos, planDeTags } from '../public/js/pago.js';
 import { json, readBody, errorResponse, CORS_HEADERS } from '../lib/http.js';
 
@@ -63,7 +63,7 @@ export async function GET(request) {
     const r = metricasMeteorico(contactos, m, { previo: foto ? new Set(foto.ids) : null, visitas, inversion });
     return json({
       ...r,
-      compradores: r.compradores.map((c) => ({ id: c.id, name: c.name, email: c.email, phone: c.phone, fecha: m.compraDateField ? String(c.cf?.[m.compraDateField] || '').slice(0, 10) : '', fraccionado: (c.tags || []).some((t) => String(t).toLowerCase() === m.fraccionadoTag), plan: planDeTags(c.tags, m) })),
+      compradores: r.compradores.map((c) => ({ id: c.id, name: c.name, email: c.email, phone: c.phone, fecha: m.compraDateField ? dayOfDateField(c.cf?.[m.compraDateField]) : '', momento: m.compraDateField ? momentoDeCampo(c.cf?.[m.compraDateField]) : null, fraccionado: (c.tags || []).some((t) => String(t).toLowerCase() === m.fraccionadoTag), plan: planDeTags(c.tags, m) })),
       visitasPorDia: visitas?.porDia || {},
       foto: foto ? { at: foto.at, n: foto.ids.length } : null,
       inversionFuente: inversion != null ? 'meta' : m.inversion ? 'manual' : '', metaError,

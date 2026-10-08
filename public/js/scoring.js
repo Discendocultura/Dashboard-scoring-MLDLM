@@ -2,6 +2,7 @@
 // nombres de etiquetas, puntuación, estado y siguiente paso de cada lead.
 import { conFraccionado, esSuscripcion, planDeTags, planesActivos, enlacePago } from './pago.js';
 import { MAX_VIDEOS, nVideos, sigDirecto, sigReplay, videosDe, videoVenta, clasesDe, conVip } from './videos.js';
+import { madridToEpoch } from './page.js';
 
 // Señales que se guardan como etiquetas en GHL con el formato `<lanzamiento>_<señal>`,
 // p. ej. `nov26_clase1_50`. Así cada lanzamiento tiene su propio historial.
@@ -87,6 +88,7 @@ export function launchCodesFromTags(tags) {
 export function dayOfDateField(value) {
   if (value == null || value === '') return '';
   const t = String(value).trim();
+  if (LOCAL_SIN_ZONA.test(t)) return t.slice(0, 10); // ya es hora de España
   let n = typeof value === 'number' || /^\d{10,}$/.test(t) ? Number(value) : Date.parse(t);
   if (Number.isNaN(n)) return /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 10) : '';
   if (n < 1e11) n *= 1000; // segundos
@@ -94,6 +96,27 @@ export function dayOfDateField(value) {
   const d = new Date(n);
   const medianoche = d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0 && [0, 22, 23].includes(d.getUTCHours());
   return medianoche ? new Date(n + 12 * 3600_000).toISOString().slice(0, 10) : madridDay.format(d);
+}
+
+// Instante exacto (epoch ms) de un campo de fecha de GHL, solo si guarda la hora de verdad (p. ej. un
+// campo de texto rellenado con {{right_now}}). Los campos de solo fecha (medianoche) devuelven null.
+// Fecha y hora sin zona («2026-11-27 18:32» o «2026-11-27T18:32:05»): hora de España.
+const LOCAL_SIN_ZONA = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::(\d{2}))?$/;
+const localMadrid = (t) => {
+  const x = LOCAL_SIN_ZONA.exec(t);
+  return x ? madridToEpoch(`${x[1]}T${x[2]}`) + Number(x[3] || 0) * 1000 : null;
+};
+export function momentoDeCampo(value) {
+  if (value == null || value === '') return null;
+  const t = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+  if (LOCAL_SIN_ZONA.test(t)) return localMadrid(t);
+  let n = typeof value === 'number' || /^\d{10,}$/.test(t) ? Number(value) : Date.parse(t);
+  if (Number.isNaN(n)) return null;
+  if (n < 1e11) n *= 1000;
+  const d = new Date(n);
+  const medianoche = d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0 && [0, 22, 23].includes(d.getUTCHours());
+  return medianoche ? null : n;
 }
 
 // Día (AAAA-MM-DD) en hora de España de un instante (p. ej. la fecha de alta del contacto).

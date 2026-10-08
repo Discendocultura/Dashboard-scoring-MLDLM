@@ -10,7 +10,7 @@
  *     <script src="https://TU-DASHBOARD.pages.dev/vsl.js" defer></script>
  *
  * Todo (vídeo, minuto de los botones, textos y enlaces) se cambia en el dashboard:
- * VSL → Configuración → Páginas del embudo. Identifica a la lead por ?cid={{contact.id}} o
+ * VSL → Configuración → Páginas. Identifica a la lead por ?cid={{contact.id}} o
  * ?email={{contact.email}} en la URL (o lo que recuerda el navegador) y avisa al dashboard al
  * llegar al 25%, 50%, 75% y 90% del vídeo (segundos realmente vistos).
  */

@@ -161,7 +161,7 @@ El plan gratuito incluye 100.000 peticiones al día, de sobra para varios lanzam
    el ID de la reunión de Zoom y los enlaces de la grabación, la página de venta de Raíces, los enlaces de pago de Raíces (único en ThriveCart y fraccionado en Hotmart) y la llamada.
 2. **Zoom**: crea una reunión nueva para cada lanzamiento con **Registro: obligatorio**. En
    *Registro → Ajustes*, desactiva los emails de confirmación de Zoom si no los quieres.
-3. **Páginas de GHL**: en *Configuración → Códigos para GHL* copia el bloque de cada vídeo y pégalo
+3. **Páginas de GHL**: en *Configuración → Códigos* copia el bloque de cada vídeo y pégalo
    en un elemento **Código HTML**, cambiando el enlace de Vimeo. Las clases 1 y 2 son siempre las
    mismas, así que en esas páginas solo hay que cambiar `data-launch` al nuevo código.
 4. **Enlaces que envías**:
@@ -176,7 +176,7 @@ En cada vídeo: *Privacidad → Dónde se puede insertar → Solo en dominios es
 tu dominio de GHL. Si el vídeo es oculto, usa su URL completa con el hash (`https://vimeo.com/123/abcdef`).
 
 ## Página de login + página de recursos
-Dos páginas en GHL (los códigos exactos, con el lanzamiento ya puesto, están en *Configuración → Códigos para GHL*):
+Dos páginas en GHL (los códigos exactos, con el lanzamiento ya puesto, están en *Configuración → Códigos*):
 
 **Login** (bloque Código HTML):
 ```html
@@ -232,7 +232,7 @@ Marcadores para el diseño de GHL (`data-launch="auto"` = lanzamiento en curso, 
 | `<a data-lsd-link="vip|whatsapp|directo|grabacion|venta|pago|pago-fraccionado|llamada">` | Pone el enlace; se oculta si no hay |
 | `<a data-lsd-link="calendario">` / `data-lsd-link="calendario-ics"` | Añadir el directo a Google Calendar (o el enlace que pongas en el dashboard) / archivo .ics para Apple y Outlook |
 | `<span data-lsd-text="clases-titulo|clases-subtitulo|clase1-titulo|clase1-descripcion|clase2-titulo|clase2-descripcion">` | Textos editables en *Página de recursos → Textos de la página* (vacío = se queda el texto del diseño); también textos con nombre propio |
-| `<div data-lsd-embed="gracias"></div>` | Vídeo de la página de gracias (Vimeo o YouTube) desde *Otras páginas del embudo → Página de gracias*; se oculta si no hay |
+| `<div data-lsd-embed="gracias"></div>` | Vídeo de la página de gracias (Vimeo o YouTube) desde *Configuración → Páginas → Página de gracias*; se oculta si no hay |
 | `<span data-lsd-text="vipContador">` | Prueba social: número de partida (se elige al crear el embudo de lanzamientos, en «Contador de VIP · empieza en», y cada lanzamiento lo puede cambiar en su configuración) + VIP vendidas en este lanzamiento (las de lanzamientos anteriores no cuentan; se actualiza cada minuto) |
 | `<a data-lsd-link="guia">` (cualquier nombre) | Enlace personalizado creado en *Página de recursos → Enlaces personalizados* |
 | `<span data-lsd-text="nombre|fechaDirecto|horaDirecto|directo|clase1|clase2|replay|cierreVip|cierreCarrito|precioVip">` | Escribe el dato |
@@ -371,7 +371,7 @@ El mismo dashboard sirve a varios clientes (MLDLM es el **principal**). Arriba, 
   2. En el **Cloudflare de la agencia, donde ya está desplegado el dashboard** (cuenta `holadiscendo@gmail.com`; el cliente no necesita Cloudflare) → *Workers & Pages → el proyecto → Settings → Variables and secrets*, añade el secreto **`GHL_TOKEN_<CÓDIGO>`** (mayúsculas y `_`, p. ej. `GHL_TOKEN_CLINICA_SOL`) y vuelve a desplegar.
   3. Pulsa «Probar conexión».
   - Meta: usa `META_ACCESS_TOKEN` (el de la agencia) con la cuenta del cliente, o `META_ACCESS_TOKEN_<CÓDIGO>`. Zoom: `ZOOM_ACCOUNT_ID_<CÓDIGO>`, `ZOOM_CLIENT_ID_<CÓDIGO>`, `ZOOM_CLIENT_SECRET_<CÓDIGO>`.
-- **Páginas de GHL de otros clientes**: sus códigos (Configuración → Códigos para GHL) ya llevan `?c=<código>` en `tracker.js`, `vsl.js` y los enlaces al directo. Los del cliente principal no cambian.
+- **Páginas de GHL de otros clientes**: sus códigos (Configuración → Códigos) ya llevan `?c=<código>` en `tracker.js`, `vsl.js` y los enlaces al directo. Los del cliente principal no cambian.
 - Los usuarios y el registro de clientes se guardan en el GHL del principal (`lsd_usuarios`, `lsd_clientes`). Cada petición sabe de qué cliente es gracias a `AsyncLocalStorage` (en `wrangler.toml`: `compatibility_flags = ["nodejs_als"]`).
 - Pendiente para clientes que no son MLDLM: algunos textos fijos (nombre del programa «Raíces», mensajes de WhatsApp de serie, tareas habituales, encuesta del avatar) son de MLDLM; se editan o se adaptarán por cliente.
 
@@ -413,7 +413,7 @@ Al crear un embudo de lanzamientos (o con su ⚙️) se eligen las **clases del 
 
 ### Lanzamientos de varios vídeos (2, 3 o PLF)
 Funcionan como el webinar, con las casillas repetidas para cada vídeo (*Configuración → Lanzamiento*, bloque «Vídeos del lanzamiento»): **día y hora**, **Zoom** (solo si ese vídeo es en directo; si no, es grabado y se publica a su hora), **página del vídeo en GHL**, **vídeo de Vimeo** y desde cuándo se ve. El vídeo 1 usa las casillas de siempre del directo y su grabación.
-- **Señales** de cada vídeo: `<código>_directo2_asistio`, `_directo2_final`, `_replay2_50`… (el vídeo 1, las de siempre). En cada página de vídeo va su bloque `<div data-lsd-video="replay2">` (está en *Códigos para GHL*), y el enlace al directo de cada vídeo lleva `&v=2`.
+- **Señales** de cada vídeo: `<código>_directo2_asistio`, `_directo2_final`, `_replay2_50`… (el vídeo 1, las de siempre). En cada página de vídeo va su bloque `<div data-lsd-video="replay2">` (está en *Configuración → Códigos*), y el enlace al directo de cada vídeo lleva `&v=2`.
 - **Página preclase**: tras las clases, fases por vídeo (su día, su directo o estreno y «vídeo N disponible» hasta el siguiente). Manda sola a la página de cada vídeo cuando toca; tras el último, carrito abierto. La barra de urgencia se configura por cada una de esas fases.
 - **Venta**: en el último vídeo. El carrito se abre con él (si no se pone otra apertura), «ventas el día del vídeo de venta» y el WhatsApp de cierre miran ese vídeo. El enlace `{link_grabacion}` lleva a la página del último vídeo ya publicado.
 - **Puntuación**: la mitad por el vídeo mejor visto y la mitad por la media de todos (máximo 40 puntos, como el directo del webinar).
@@ -480,6 +480,8 @@ El público no se mide (grupos de WhatsApp y listas). Se mide: **fase y cuenta a
 ```
 Durante el calentamiento muestra «la oferta se abre en…», con la oferta abierta el botón de compra y «se cierra en…», y al cerrar «ha terminado» (o manda a la página de oferta cerrada). Cuenta una visita por persona y sesión.
 
+**Oferta y bonus del meteórico**: en *Configurar → Oferta* van los entregables y los bonus: **BAR 30 min** y **BAR 1 h** (para quien compra en los primeros 30 minutos o en la primera hora tras abrir), BAR 24 h / 48 h y bonus de toda la oferta (o con fin a mano). La pestaña **Oferta** del embudo (y la sección de abajo en *Métricas → Downsell*) cruza los bonus con las ventas **hora a hora**: ventas en la ventana de cada bonus, ritmo de ventas por hora mientras estuvo activo frente al resto de la oferta y el empujón de los últimos minutos antes de que caduque. Para medir por horas hace falta la **hora** de cada compra: un campo de **texto** en GHL que el workflow de compra rellene con la fecha y hora (`{{right_now}}`), elegido como «Campo de fecha de compra» (el desplegable muestra los de fecha y los de texto). Con un campo de solo fecha, la oferta se ve pero el análisis por horas no.
+
 ## Embudos: Lanzamientos y VSL
 El menú lateral (arriba en el móvil) cambia de embudo. Cada uno tiene sus pestañas, sus tareas y su configuración; el equipo, la campanita, «Mi cuenta» y «Actualizar» son comunes. La campanita avisa de las tareas y comentarios de los dos embudos (los del otro llevan su nombre; al pulsar uno se cambia de embudo y se abre la tarea).
 
@@ -489,7 +491,7 @@ Registro → vídeo de venta → compra directa o llamada de valoración. Pesta�
 - **Métricas**: registros (publicidad/orgánico), vieron la VSL (y ≥50%), llamadas agendadas, ventas (directas o tras llamada), facturación, inversión en Meta (campañas cuyo nombre contiene el filtro, del periodo), coste por lead y por venta, ROAS; embudo del periodo, tabla **por semanas del mes**, gráfico diario, llamadas del periodo (shows, no shows, canceladas, ventas) y publicidad vs orgánico.
 - **Leads**: estado de cada persona (no ha visto el vídeo, lo ha empezado, lo vio hasta el final, agendó llamada, compró), cuánto vio, su cita y su compra, con **WhatsApp** adaptado a su estado (mensajes editables abajo, con el permiso «Editar mensajes de WhatsApp»; variable nueva `{link_vsl}`).
 - **Llamadas**: igual que en los lanzamientos, con el calendario y el pipeline de la VSL («Llamada de valoración RAICES» y «Leads evergreen» de serie).
-- **Configuración de la VSL** (botón Configuración estando en la VSL): *Embudo* (etiquetas, campos de fecha, enlaces, pipeline, precios y filtro de campañas de Meta), *Páginas del embudo* (vídeo de la VSL, minuto en que aparecen los botones de compra y llamada y sus textos, vídeos de las páginas de gracias), *Códigos para GHL* y *Recursos* (como en los lanzamientos).
+- **Configuración de la VSL** (botón Configuración estando en la VSL): *Embudo* (etiquetas, campos de fecha, enlaces, pipeline, precios y filtro de campañas de Meta), *Páginas* (vídeo de la VSL, minuto en que aparecen los botones de compra y llamada y sus textos, vídeos de las páginas de gracias), *Códigos* y *Recursos* (como en los lanzamientos).
 - **Páginas de GHL**: `<div data-lsd-vsl></div>` + `<script src="…/vsl.js" defer></script>` pinta el vídeo, mide los segundos realmente vistos (etiquetas `vsl_vsl_25/50/75/90`) y enseña los botones en el minuto elegido. `data-lsd-vsl-embed="gracias"` / `"agenda"` para los vídeos de las páginas de gracias. La lead se identifica con `?cid={{contact.id}}` en la URL.
 - Fechas: GHL no guarda cuándo se pone una etiqueta; si un workflow guarda la fecha de registro o de compra en un campo, elígelo en la configuración (si no, se usa la fecha de alta del contacto).
 - Las tareas de la VSL se guardan en `lsd_tareas_vsl` y los resultados de sus llamadas en `lsd_llamadas_vsl`. El código `vsl` está reservado (no puede usarse para un lanzamiento).

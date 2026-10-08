@@ -121,6 +121,7 @@
         <div id="avisos-equipo" class="avisos-equipo admin-only" hidden></div>
         <nav class="views" role="tablist">
           <button type="button" class="view-tab" data-view="meteoricos">Meteóricos</button>
+          <button type="button" class="view-tab" data-view="moferta">Oferta</button>
           <button type="button" class="view-tab" data-view="vmetricas">Métricas</button>
           <button type="button" class="view-tab" data-view="vleads">Leads</button>
           <button type="button" class="view-tab" data-view-grupo="comercial">Comercial <span id="llamadas-badge" class="tab-count" hidden></span></button>
@@ -173,6 +174,14 @@
             <button type="button" class="btn ghost" id="meteo-recargar">Actualizar datos</button>
           </div>
           <div id="meteo-body"></div>
+        </section>
+
+        <section id="view-moferta" hidden>
+          <div class="meteo-bar">
+            <label class="field"><span>Meteórico</span><select id="moferta-select"></select></label>
+            <button type="button" class="btn" id="moferta-config">Editar la oferta</button>
+          </div>
+          <div id="moferta-body"></div>
         </section>
 
         <section id="view-vmetricas" hidden>
@@ -489,6 +498,7 @@
               <button type="button" class="btn primary" id="meteo-l-nuevo">+ Crear meteórico posterior</button>
               <button type="button" class="btn" id="meteo-l-config">Configurar</button></div>
             <div id="meteo-l-body"></div>
+            <div id="meteo-l-oferta" class="meteo-l-oferta"></div>
           </section>
           <section data-msub="trafico" class="card metric-card" data-icon="megaphone">
             <h2>Tráfico de pago <span class="muted">· Meta Ads del lanzamiento (campañas con su filtro)</span></h2>
@@ -644,10 +654,10 @@
           <button type="button" class="tab active" data-tab="launch" data-tab-icon="rocket">Lanzamiento</button>
           <button type="button" class="tab" data-tab="oferta" data-tab-icon="gift">Oferta</button>
           <button type="button" class="tab" data-tab="etiquetas" data-tab-icon="tag">Etiquetas GHL</button>
-          <button type="button" class="tab" data-tab="pagina" data-tab-icon="play"><span id="tab-pagina-txt">Página preclase</span></button>
-          <button type="button" class="tab" data-tab="embudo" data-tab-icon="funnel">Otras páginas del embudo</button>
-          <button type="button" class="tab" data-tab="snippets" data-tab-icon="code">Códigos para GHL</button>
-          <button type="button" class="tab" data-tab="accesos" data-tab-icon="link">Recursos lanzamiento</button>
+          <button type="button" class="tab" data-tab="pagina" data-tab-icon="play"><span id="tab-pagina-txt">Preclase</span></button>
+          <button type="button" class="tab" data-tab="embudo" data-tab-icon="funnel">Páginas</button>
+          <button type="button" class="tab" data-tab="snippets" data-tab-icon="code">Códigos</button>
+          <button type="button" class="tab" data-tab="accesos" data-tab-icon="link">Recursos</button>
         </div>
 
         <section class="tab-panel" data-panel="launch">
@@ -668,14 +678,14 @@
             <div id="guia-check" class="guia-check"></div>
             <details class="guia-ghl">
               <summary>Lo que hay que hacer fuera del dashboard (en GHL, Zoom, WhatsApp y Vimeo)</summary>
-              <p class="guia-sub">Los enlaces directos a cada workflow están en la pestaña <strong>Recursos lanzamiento</strong>.</p>
+              <p class="guia-sub">Los enlaces directos a cada workflow están en la pestaña <strong>Recursos</strong>.</p>
               <ol>
                 <li><strong>GHL · Etiqueta de registro:</strong> crea la etiqueta nueva y cámbiala en la acción «Add tag» del workflow del formulario de registro.</li>
                 <li><strong>GHL · Encuesta:</strong> duplica la encuesta, y en su workflow («Survey Submitted» → «Add tag») pon la etiqueta de encuesta nueva. Copia el enlace de la encuesta nueva.</li>
                 <li><strong>WhatsApp:</strong> crea el grupo nuevo y copia su enlace de invitación.</li>
                 <li><strong>Zoom:</strong> crea la reunión del directo (con registro activado) y copia su ID.</li>
                 <li><strong>GHL · Emails y WhatsApp automáticos:</strong> revisa que no lleven fechas, enlaces de grupo ni de encuesta del lanzamiento anterior.</li>
-                <li><strong>Vimeo:</strong> después del directo, sube la grabación y pega su enlace en «Página preclase».</li>
+                <li><strong>Vimeo:</strong> después del directo, sube la grabación y pega su enlace en la pestaña «Preclase».</li>
                 <li><strong>Etiquetas de GHL:</strong> están todas en la pestaña <strong>Etiquetas GHL</strong>. Solo cambian la de registro y la de encuesta; las demás son fijas (al guardar un lanzamiento nuevo se hace la «foto» de quién ya las tenía).</li>
               </ol>
             </details>
@@ -689,7 +699,7 @@
             </div>
           </section>
           <section class="cfg-sec" data-sec="2">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">2</span><div><h3>Fechas del lanzamiento</h3><p>En hora de España. Las fechas de las clases y del cierre del carrito están en «Página preclase».</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">2</span><div><h3>Fechas del lanzamiento</h3><p>En hora de España. Las fechas de las clases y del cierre del carrito están en la pestaña «Preclase».</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Inicio de captación <small>(día en que se abren los registros)</small></span>
               <input id="cfg-inicio" type="date"></label>
@@ -917,7 +927,7 @@
             <div id="guia-check-embudo" class="guia-check"></div>
           </div>
           <section class="cfg-sec" data-sec="1">
-            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🎉</span><div><h3>Página de gracias</h3><p>La que ven justo después de registrarse. Sus botones usan el grupo de WhatsApp y el enlace de pago de la entrada VIP de la pestaña «Página preclase».</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🎉</span><div><h3>Página de gracias</h3><p>La que ven justo después de registrarse. Sus botones usan el grupo de WhatsApp y el enlace de pago de la entrada VIP de la pestaña «Preclase».</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Vídeo de la página de gracias <small>(Vimeo o YouTube; en el HTML: <code>&lt;div data-lsd-embed="gracias"&gt;&lt;/div&gt;</code>)</small></span><input id="cfg-gracias-video" type="url" placeholder="https://vimeo.com/123/abc"></label>
             </div>
@@ -928,7 +938,7 @@
           </section>
           <section class="cfg-sec" data-sec="3">
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📼</span><div><h3>Página de replay</h3><p>La página donde se ve la grabación del directo.</p></div><span class="cfg-sec-status"></span></header>
-            <p class="muted cfg-pronto">Aquí irán los ajustes de la página de replay. De momento, su enlace está en «Lanzamiento» y el vídeo y la hora de desbloqueo de la grabación en «Página preclase».</p>
+            <p class="muted cfg-pronto">Aquí irán los ajustes de la página de replay. De momento, su enlace está en «Lanzamiento» y el vídeo y la hora de desbloqueo de la grabación en la pestaña «Preclase».</p>
           </section>
         </section>
 
@@ -999,7 +1009,8 @@
       <div class="dialog-body">
         <p class="muted" id="meteo-de"></p>
         <div class="tabs" role="tablist">
-          <button type="button" class="tab active" data-tab="mt-oferta" data-tab-icon="rocket">Oferta y tiempos</button>
+          <button type="button" class="tab active" data-tab="mt-oferta" data-tab-icon="rocket">Producto y tiempos</button>
+          <button type="button" class="tab" data-tab="mt-paquete" data-tab-icon="gift">Oferta</button>
           <button type="button" class="tab" data-tab="mt-recursos" data-tab-icon="tag">Etiquetas y recursos</button>
         </div>
         <section class="tab-panel" data-panel="mt-oferta">
@@ -1028,6 +1039,21 @@
             <label class="field"><span>Emails del meteórico <small>(nombre de la campaña o workflow contiene…; vacío = las campañas enviadas en sus fechas)</small></span><input id="mt-emailFiltro" maxlength="200" placeholder="Black Friday"></label>
           </div>
           <label class="field"><span>Notas</span><textarea id="mt-notas" rows="3" maxlength="2000" placeholder="Secuencia de emails, mensajes de WhatsApp, a quién va…"></textarea></label></section>
+        </section>
+        <section class="tab-panel" data-panel="mt-paquete" hidden>
+          <p class="muted">Lo que incluye la oferta y sus bonus. Se cruza con las ventas hora a hora en la pestaña <strong>Oferta</strong> del embudo, para ver qué bonus empujan la venta.</p>
+          <div id="mt-of-resumen" class="of-resumen"></div>
+          <section class="cfg-sec">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">📦</span><div><h3>Entregables</h3><p>Lo que se lleva quien compra. El valor (opcional) suma al valor total de la oferta.</p></div></header>
+            <div id="mt-of-entregables" class="of-lista"></div>
+            <button type="button" class="btn" id="mt-of-add-entregable">+ Añadir entregable</button>
+          </section>
+          <section class="cfg-sec">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">🎁</span><div><h3>Bonus</h3><p>BAR 30 min y BAR 1 h: para quien compra en los primeros 30 minutos o en la primera hora tras abrir. BAR 24 h / 48 h: desde que abre. Bonus: toda la oferta. Si uno acaba a otra hora, pon su fin a mano.</p></div></header>
+            <div id="mt-of-bonus" class="of-lista"></div>
+            <button type="button" class="btn" id="mt-of-add-bonus">+ Añadir bonus</button>
+          </section>
+          <p class="muted small">Para medir los bonus por horas (30 min, 1 h) hace falta la <strong>hora</strong> de cada compra: el «Campo de fecha de compra» (pestaña Etiquetas y recursos) tiene que guardar fecha y hora. En GHL, un campo de texto que el workflow de compra rellene con <code>{{right_now}}</code>. Con un campo de solo fecha, se ve por días.</p>
         </section>
         <section class="tab-panel" data-panel="mt-recursos" hidden>
         <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">🏷️</span><div><h3>Etiquetas de GHL</h3><p>Las ventas se cuentan con la etiqueta de compra. Si el producto ya se vendió antes, pon el campo de fecha de compra o haz la «foto» antes de abrir.</p></div></header>
@@ -1155,8 +1181,8 @@
       <div class="dialog-body">
         <div class="tabs" role="tablist">
           <button type="button" class="tab active" data-tab="vembudo" data-tab-icon="funnel">Embudo</button>
-          <button type="button" class="tab" data-tab="vpaginas" data-tab-icon="play">Páginas del embudo</button>
-          <button type="button" class="tab" data-tab="vcodigos" data-tab-icon="code">Códigos para GHL</button>
+          <button type="button" class="tab" data-tab="vpaginas" data-tab-icon="play">Páginas</button>
+          <button type="button" class="tab" data-tab="vcodigos" data-tab-icon="code">Códigos</button>
           <button type="button" class="tab" data-tab="vrecursos" data-tab-icon="link">Recursos</button>
         </div>
 
@@ -1210,7 +1236,7 @@
         </section>
 
         <section class="tab-panel" data-panel="vpaginas" hidden>
-          <p class="muted">Lo que muestran las páginas de la VSL en GHL (con los códigos de la pestaña «Códigos para GHL»). Al guardar, las páginas cambian solas.</p>
+          <p class="muted">Lo que muestran las páginas de la VSL en GHL (con los códigos de la pestaña «Códigos»). Al guardar, las páginas cambian solas.</p>
           <section class="cfg-sec">
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🎬</span><div><h3>Página de la VSL</h3><p>El vídeo se mide (25%, 50%, 75% y 90% vistos) y los botones aparecen en el minuto que elijas.</p></div></header>
             <div class="grid2">
@@ -1232,7 +1258,7 @@
         </section>
 
         <section class="tab-panel" data-panel="vcodigos" hidden>
-          <p class="muted">Pega cada código en un bloque <strong>Código HTML</strong> de la página de GHL. No hace falta tocarlos al cambiar el vídeo o los textos: se cambian en «Páginas del embudo».</p>
+          <p class="muted">Pega cada código en un bloque <strong>Código HTML</strong> de la página de GHL. No hace falta tocarlos al cambiar el vídeo o los textos: se cambian en la pestaña «Páginas».</p>
           <div id="vc-snippets"></div>
         </section>
 

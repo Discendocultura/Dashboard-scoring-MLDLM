@@ -27,6 +27,7 @@ export const PESTANAS = {
 };
 PESTANAS.meteorico = [
   { id: 'meteoricos', label: 'Meteóricos', desc: 'Cada oferta flash: cuenta atrás, ventas, facturación, visitas a la oferta y compradoras' },
+  { id: 'moferta', label: 'Oferta', desc: 'Entregables y bonus (BAR 30 min, 1 h…) frente a las ventas hora a hora' },
   { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para el calentamiento y la oferta' },
   { id: 'calendario', label: 'Calendario', desc: 'El calendario del cliente: hitos, tareas y eventos de todos sus embudos' },
 ];
@@ -96,7 +97,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
       'Recomendado: un campo de fecha «Fecha descarga» que rellene el workflow al registrarse, y otro «Fecha compra …» en el workflow de compra.',
     ] });
     s.push({ titulo: '2 · Página y secuencia de emails', pasos: [
-      'Página de captación con el formulario → página de gracias / entrega. Si el lead magnet es un vídeo, pon en la página de entrega el bloque de vídeo de <em>Configuración → Códigos para GHL</em> para medir cuánto ve cada persona.',
+      'Página de captación con el formulario → página de gracias / entrega. Si el lead magnet es un vídeo, pon en la página de entrega el bloque de vídeo de <em>Configuración → Códigos</em> para medir cuánto ve cada persona.',
       'En GHL → <strong>Automatización</strong> crea el workflow de la <strong>secuencia de emails</strong> (disparador: etiqueta de descarga). Los enlaces a la página de venta llevan <code>?cid={{contact.id}}</code>.',
       'Añade un paso que <strong>quite a quien compra</strong> de la secuencia (condición: tiene la etiqueta de compra).',
       'Guarda el enlace del workflow en <em>Recursos</em> para tenerlo a mano.',
@@ -116,7 +117,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
     ] });
     s.push({ titulo: '2 · Página de aplicación y calendario', pasos: [
       'Página con vídeo corto (opcional) + formulario de aplicación. Al enviar, redirige al <strong>calendario de reserva</strong> añadiendo <code>?cid={{contact.id}}</code>.',
-      'Si la página tiene vídeo, pon el bloque de <em>Códigos para GHL</em> para medir quién lo ve antes de aplicar.',
+      'Si la página tiene vídeo, pon el bloque de <em>Configuración → Códigos</em> para medir quién lo ve antes de aplicar.',
       'Recordatorios de la llamada por email y WhatsApp en un workflow con disparador «Cita reservada».',
     ] });
     s.push(guiaLlamadas('este embudo'));
@@ -137,7 +138,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
     ] });
     s.push({ titulo: '2 · Páginas del embudo', pasos: [
       `Página de registro → al enviar, redirige a la página ${conPrep('de', c.contenido)} añadiendo <code>?cid={{contact.id}}</code> al final de la URL (así se mide quién ve el vídeo).`,
-      `${c.pagina}: un bloque <strong>Código HTML</strong> con el código de <em>Configuración → Códigos para GHL</em>. El vídeo, el minuto en que salen los botones de compra y llamada y sus textos se cambian luego en <em>Páginas del embudo</em>.`,
+      `${c.pagina}: un bloque <strong>Código HTML</strong> con el código de <em>Configuración → Códigos</em>. El vídeo, el minuto en que salen los botones de compra y llamada y sus textos se cambian luego en <em>Configuración → Páginas</em>.`,
       ...(subtipo === 'evergreen' ? ['Webinar evergreen: sube la <strong>grabación completa</strong> a Vimeo (sin cortes de «directo») y pon los botones de compra en el minuto de la oferta. En los emails de la secuencia («¿lo has visto?», «la oferta se acaba») usa el enlace con <code>?cid={{contact.id}}</code>.', 'Si quieres sensación de evento, usa en GHL un temporizador por contacto (p. ej. 72 h desde el registro) en la página de venta.'] : []),
       'Páginas de gracias (tras registrarse y tras reservar llamada): su bloque de código si quieres mostrar un vídeo.',
     ] });
@@ -156,8 +157,8 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
     ] });
     s.push({ titulo: '2 · Páginas y vídeos', pasos: [
       preclase
-        ? 'Página de registro y de gracias, página de <strong>login/recursos (preclase)</strong> y de <strong>grabación</strong>: en cada una, los bloques de <em>Configuración → Códigos para GHL</em>.'
-        : 'Página de registro y de gracias y página de <strong>grabación</strong> (sin área de recursos preclase): en cada una, los bloques de <em>Configuración → Códigos para GHL</em>. Tras registrarse, la persona espera directamente al directo (recordatorios por email y WhatsApp).',
+        ? 'Página de registro y de gracias, página de <strong>login/recursos (preclase)</strong> y de <strong>grabación</strong>: en cada una, los bloques de <em>Configuración → Códigos</em>.'
+        : 'Página de registro y de gracias y página de <strong>grabación</strong> (sin área de recursos preclase): en cada una, los bloques de <em>Configuración → Códigos</em>. Tras registrarse, la persona espera directamente al directo (recordatorios por email y WhatsApp).',
       preclase
         ? 'Sube las clases y la grabación a <strong>Vimeo</strong> y pega sus URLs en la configuración del lanzamiento: se desbloquean solas a su hora y se mide cuánto ve cada persona.'
         : 'Sube la grabación a <strong>Vimeo</strong> y pega su URL en la configuración del lanzamiento: se desbloquea sola a su hora y se mide cuánto ve cada persona.',
@@ -167,13 +168,13 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
     const nd = { reto3: 3, reto4: 4, reto5: 5 }[formato];
     if (nd) s.push({ titulo: `${s.length + 1} · Los ${nd} días del reto`, pasos: [
       `Cada día tiene su vídeo (en directo con Zoom o grabado) con las mismas casillas que un webinar: <strong>día y hora</strong>, <strong>Zoom</strong> (si es en directo), <strong>página</strong> y <strong>vídeo de Vimeo</strong>. El <strong>día ${nd}</strong> se hace la venta: con él se abre el carrito.`,
-      'Crea en GHL <strong>una página por día</strong> con el bloque de vídeo de <em>Códigos para GHL</em> (<code>data-lsd-video="replay2"</code>, <code>replay3</code>…) y, si das tareas o deberes, el grupo de WhatsApp o Telegram del reto en el botón.',
+      'Crea en GHL <strong>una página por día</strong> con el bloque de vídeo de <em>Configuración → Códigos</em> (<code>data-lsd-video="replay2"</code>, <code>replay3</code>…) y, si das tareas o deberes, el grupo de WhatsApp o Telegram del reto en el botón.',
       'Emails y WhatsApp de cada mañana con el enlace del día y <code>?cid={{contact.id}}</code>. La puntuación de cada lead suma lo que ve de cada día: quien sigue el reto entero sale «muy caliente».',
       ...(preclase ? ['La preclase (clases grabadas) es opcional en un reto: si no la quieres, elige «sin área preclase» en el ⚙️ del embudo.'] : []),
     ] });
     if (nv) s.push({ titulo: `${s.length + 1} · Los ${nv} vídeos del lanzamiento${formato === 'plf' ? ' (PLC 1-4)' : ''}`, pasos: [
       `Cada vídeo tiene las mismas casillas que un webinar: <strong>día y hora</strong>, <strong>Zoom</strong> (solo si ese vídeo es en directo), <strong>página</strong> y <strong>vídeo de Vimeo</strong> y desde cuándo se ve. En el ${formato === 'plf' ? 'PLC 4' : `vídeo ${nv}`} se hace la venta: con él se abre el carrito.`,
-      'Crea en GHL <strong>una página por vídeo</strong> con el bloque de vídeo de <em>Códigos para GHL</em> (<code>data-lsd-video="replay2"</code>, <code>replay3</code>…): así se mide cuánto ve cada persona de cada vídeo.',
+      'Crea en GHL <strong>una página por vídeo</strong> con el bloque de vídeo de <em>Configuración → Códigos</em> (<code>data-lsd-video="replay2"</code>, <code>replay3</code>…): así se mide cuánto ve cada persona de cada vídeo.',
       'La página preclase manda sola a cada vídeo cuando toca. En los emails de cada vídeo usa el enlace de su página con <code>?cid={{contact.id}}</code>.',
       ...(preclase ? ['La preclase (clases grabadas) es aparte y funciona igual que en el webinar.'] : []),
     ] });

@@ -15,6 +15,14 @@ export const TIPOS_BONUS = [
   { id: 'bar_48h', label: 'BAR 48 h', largo: 'Bonus de acción rápida 48 h', corto: 'BAR 48 h', icon: '⏳', desc: 'Para quien compra en las primeras 48 h del carrito' },
   { id: 'bonus', label: 'Bonus', corto: 'Bonus', icon: '🎁', desc: 'Para todas las compras del carrito' },
 ];
+// Meteóricos (ofertas de pocas horas): los BAR cuentan desde que abre la oferta.
+export const TIPOS_BONUS_METEO = [
+  { id: 'bar_30m', label: 'BAR 30 min', largo: 'Bonus de acción rápida 30 min', corto: 'BAR 30 min', icon: '⚡', desc: 'Para quien compra en los primeros 30 minutos tras abrir', min: 30 },
+  { id: 'bar_1h', label: 'BAR 1 h', largo: 'Bonus de acción rápida 1 h', corto: 'BAR 1 h', icon: '⏱️', desc: 'Para quien compra en la primera hora tras abrir', min: 60 },
+  { id: 'bar_24h', label: 'BAR 24 h', largo: 'Bonus de acción rápida 24 h', corto: 'BAR 24 h', icon: '⏳', desc: 'Para quien compra en las primeras 24 h tras abrir', min: 24 * 60 },
+  { id: 'bar_48h', label: 'BAR 48 h', largo: 'Bonus de acción rápida 48 h', corto: 'BAR 48 h', icon: '⌛', desc: 'Para quien compra en las primeras 48 h tras abrir', min: 48 * 60 },
+  { id: 'bonus', label: 'Bonus', corto: 'Bonus', icon: '🎁', desc: 'Para todas las compras de la oferta' },
+];
 export const TIPOS_ENTREGABLE = [
   { id: 'grabado', label: 'Contenido grabado', icon: '🎬' },
   { id: 'grupal', label: 'Sesión grupal en directo', icon: '👥' },
@@ -31,7 +39,7 @@ const HORA = 3_600_000;
 const str = (v, max) => String(v ?? '').trim().slice(0, max);
 const idDe = (v, i, p) => (/^[a-z0-9_-]{1,24}$/i.test(String(v || '')) ? String(v) : `${p}${i + 1}`);
 
-export function sanitizeOferta(o) {
+export function sanitizeOferta(o, { tipos = IDS_BONUS } = {}) {
   const ents = Array.isArray(o?.entregables) ? o.entregables : [];
   const bons = Array.isArray(o?.bonus) ? o.bonus : [];
   return {
@@ -40,7 +48,7 @@ export function sanitizeOferta(o) {
       nombre: str(e?.nombre, 120), detalle: str(e?.detalle, 300), valor: dinero(e?.valor),
     })).filter((e) => e.nombre),
     bonus: bons.slice(0, 30).map((b, i) => ({
-      id: idDe(b?.id, i, 'b'), tipo: IDS_BONUS.includes(b?.tipo) ? b.tipo : 'bonus',
+      id: idDe(b?.id, i, 'b'), tipo: tipos.includes(b?.tipo) ? b.tipo : 'bonus',
       nombre: str(b?.nombre, 120), detalle: str(b?.detalle, 300), valor: dinero(b?.valor),
       // Fin a mano (opcional): si no, sale del tipo y de las fechas del carrito.
       hasta: LOCAL_DT.test(String(b?.hasta || '')) ? b.hasta : '',
@@ -48,7 +56,8 @@ export function sanitizeOferta(o) {
   };
 }
 
-export const tipoBonus = (id) => TIPOS_BONUS.find((t) => t.id === id) || TIPOS_BONUS[3];
+export const tipoBonus = (id) => TIPOS_BONUS.find((t) => t.id === id) || TIPOS_BONUS_METEO.find((t) => t.id === id) || TIPOS_BONUS[3];
+export const IDS_BONUS_METEO = TIPOS_BONUS_METEO.map((t) => t.id);
 export const tipoEntregable = (id) => TIPOS_ENTREGABLE.find((t) => t.id === id) || TIPOS_ENTREGABLE[0];
 
 // Momentos del carrito (epoch ms): directo de venta, apertura y cierre.

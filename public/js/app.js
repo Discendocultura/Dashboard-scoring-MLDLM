@@ -11,7 +11,8 @@ import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
 import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago } from './pago.js';
 import { cicloDeContactos, textoDias } from './ciclo.js';
-import { TIPOS_BONUS, TIPOS_ENTREGABLE, tipoBonus, tipoEntregable, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
+import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoEntregable, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
+import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
@@ -280,8 +281,8 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico' };
-const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas' };
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico' };
+const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas' };
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
@@ -293,7 +294,9 @@ const tipoActual = () => (enVsl() ? 'vsl' : enMeteo() ? 'meteorico' : 'lanz');
 const pestanasEmbudo = () => embudoInfo()?.pestanas || null;
 const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual())
   // El calendario es el del cliente (todos sus embudos): está en todos.
-  && (!pestanasEmbudo() || pestanasEmbudo().includes(v) || v === 'calendario')
+  && (!pestanasEmbudo() || pestanasEmbudo().includes(v) || v === 'calendario'
+    // «Oferta» es nueva: los embudos de meteóricos con pestañas elegidas antes la ven junto a «Meteóricos».
+    || (v === 'moferta' && pestanasEmbudo().includes('meteoricos')))
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
@@ -1693,13 +1696,13 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos'];
+const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas) y «Planificación» (Calendario, Tareas y Rendimiento del equipo).
 const GRUPOS = { comercial: ['hoy', 'llamadas'], planificacion: ['calendario', 'tareas', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { meteoricos: 'zap', comercial: 'phone', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
+const VIEW_ICONS = { meteoricos: 'zap', moferta: 'gift', comercial: 'phone', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
@@ -1749,6 +1752,7 @@ function showView(view) {
   if (view === 'comparar' && state.config) { renderCompareSelector(); renderComparativas(); }
   if (view === 'rendimiento' && state.config) loadRendimiento();
   if (view === 'meteoricos' && state.config && enMeteo()) renderMeteoView();
+  if (view === 'moferta' && state.config && enMeteo()) renderMOfertaView();
   if (view === 'calendario' && state.config) renderCalendario();
   // Tareas del embudo abierto (en meteóricos, del meteórico elegido).
   if (view === 'tareas' && state.config) { if (codigo() && state.tareas?.code !== codigo()) loadTareas(); else { pintarCabeceraTareas(); renderTareas(); } }
@@ -2116,7 +2120,7 @@ function renderVideosCfg(l) {
   if (h3Zoom) { h3Zoom.dataset.def ??= h3Zoom.textContent; h3Zoom.textContent = n1 ? `${n1} en Zoom (solo si es en directo)` : h3Zoom.dataset.def; }
   if (vs.length <= 1) { $('#cfg-videos').innerHTML = ''; return; }
   $('#cfg-videos-titulo').textContent = `${FORMATOS[formato].label}: ${vs.slice(1).map((v) => v.nombre).join(', ')}`;
-  $('#cfg-videos-nota').textContent = `El ${vs[0].nombre} usa las casillas de arriba (fechas y Zoom) y su vídeo y su página van en «Página preclase» (grabación). Si un vídeo es grabado, deja vacío su Zoom. En el ${vs.at(-1).nombre} se hace la venta.`;
+  $('#cfg-videos-nota').textContent = `El ${vs[0].nombre} usa las casillas de arriba (fechas y Zoom) y su vídeo y su página van en la pestaña «Preclase» (grabación). Si un vídeo es grabado, deja vacío su Zoom. En el ${vs.at(-1).nombre} se hace la venta.`;
   $('#cfg-videos').innerHTML = vs.slice(1).map((v) => `<fieldset class="cfg-video" data-k="${v.k}"><legend>${esc(v.nombre)}${v.venta ? ' · vídeo de venta' : ''}</legend><div class="grid2">
     ${V_CAMPOS.map(([c, label, type]) => `<label class="field"><span>${label}</span><input id="cfg-v${v.k}-${c === 'replayUrl' ? 'replay' : c === 'replayVideoUrl' ? 'replay-video' : c === 'replayAt' ? 'replay-at' : c}" data-vc="${c}" type="${type}" value="${esc(v[c] || '')}"${c === 'zoomMeetingId' ? ' inputmode="numeric"' : ''}></label>`).join('')}
   </div></fieldset>`).join('');
@@ -2134,7 +2138,7 @@ function pintarPrelanzamientoCfg(l) {
   $$('#config-dialog [data-clase]').forEach((el) => { el.hidden = Number(el.dataset.clase) > nc; });
   // Sin área de recursos preclase: fuera sus páginas, la encuesta de la página y las clases.
   $$('#config-dialog [data-preclase]').forEach((el) => { el.hidden = !preclase; });
-  $('#tab-pagina-txt').textContent = preclase ? 'Página preclase' : 'Directo y grabación';
+  $('#tab-pagina-txt').textContent = preclase ? 'Preclase' : 'Directo y grabación';
   $$('#config-dialog [data-vip]').forEach((el) => { el.hidden = !vip; });
 }
 
@@ -6978,8 +6982,8 @@ function renderMeteoLanz({ fresh = false } = {}) {
   llenarMeteoSelect($('#meteo-l-select'), lista, meteoLanzCode, 'Este lanzamiento no tiene meteórico posterior');
   $('#meteo-l-config').hidden = !meteoLanzCode || !puedeConfig();
   $('#meteo-l-nuevo').hidden = !puedeConfig();
-  if (!meteoLanzCode) { $('#meteo-l-body').innerHTML = '<p class="muted">Tras el lanzamiento puedes hacer una oferta flash (downsell u otro producto) a quien no compró: crea aquí su meteórico para medir sus ventas aparte.</p>'; return; }
-  pintarMeteo($('#meteo-l-body'), meteoLanzCode, { fresh });
+  if (!meteoLanzCode) { $('#meteo-l-body').innerHTML = '<p class="muted">Tras el lanzamiento puedes hacer una oferta flash (downsell u otro producto) a quien no compró: crea aquí su meteórico para medir sus ventas aparte.</p>'; $('#meteo-l-oferta').innerHTML = ''; return; }
+  pintarMeteo($('#meteo-l-body'), meteoLanzCode, { fresh }).then(() => pintarOfertaMeteo($('#meteo-l-oferta'), meteoLanzCode));
 }
 $('#meteo-select').addEventListener('change', (e) => { state.meteo.code = e.target.value; ls.set(`lsd_meteo_${state.embudo}`, state.meteo.code); renderMeteoView(); actualizarAuditor(); });
 $('#meteo-l-select').addEventListener('change', (e) => { meteoLanzCode = e.target.value; renderMeteoLanz(); });
@@ -7021,6 +7025,7 @@ async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
   $('#mt-code').value = code || '';
   $('#mt-code').readOnly = Boolean(m);
   pintarPago('mt', m?.pago);
+  pintarPaqueteMeteo(m?.paquete);
   $('#meteo-dialog .tab[data-tab="mt-oferta"]').click();
   $('#mt-borrar').hidden = !m;
   $('#mt-status').textContent = '';
@@ -7032,16 +7037,22 @@ async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
     if (meteoEdit.lanzamiento) $('#mt-name').value = `Downsell ${state.config.launches[meteoEdit.lanzamiento]?.name || ''}`.trim();
   }
   const sel = $('#mt-compraDateField');
-  const pintar = (fields) => {
+  // Campos de fecha y, aparte, de texto (con fecha y hora: para medir los bonus de 30 min y 1 h).
+  const pintar = () => {
+    const fields = state.dateFields;
+    const textos = state.textFields || [];
     const actual = m?.compraDateField || '';
     // Sin la lista de GHL todavía, el campo guardado se mantiene como opción (si se guarda antes, no se pierde).
-    const extra = actual && !(fields || []).some((f) => f.id === actual) ? `<option value="${esc(actual)}">${fields ? 'Campo guardado (no está en GHL)' : 'Cargando campos de GHL…'}</option>` : '';
-    sel.innerHTML = `<option value="">— Sin campo de fecha —</option>${extra}${(fields || []).map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}`;
+    const conocido = [...(fields || []), ...textos].some((f) => f.id === actual);
+    const extra = actual && !conocido ? `<option value="${esc(actual)}">${fields ? 'Campo guardado (no está en GHL)' : 'Cargando campos de GHL…'}</option>` : '';
+    const opts = (l) => l.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('');
+    sel.innerHTML = `<option value="">— Sin campo de fecha —</option>${extra}${fields?.length ? `<optgroup label="Campos de fecha (solo el día)">${opts(fields)}</optgroup>` : ''}${textos.length ? `<optgroup label="Campos de texto (fecha y hora, p. ej. {{right_now}})">${opts(textos)}</optgroup>` : ''}`;
     sel.value = actual;
   };
-  pintar(state.dateFields);
+  pintar();
   $('#meteo-dialog').showModal();
-  if (!state.dateFields) { try { state.dateFields = (await api('/api/fields')).fields; pintar(state.dateFields); } catch { /* sin campos */ } }
+  if (!state.dateFields) { try { state.dateFields = (await api('/api/fields')).fields; pintar(); } catch { /* sin campos */ } }
+  if (!state.textFields) { try { state.textFields = (await api('/api/fields?tipo=texto')).fields; pintar(); } catch { /* sin campos */ } }
   if (!state.tags?.length) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch(() => {});
 }
 $('#mt-guardar').addEventListener('click', async () => {
@@ -7056,6 +7067,7 @@ $('#mt-guardar').addEventListener('click', async () => {
     textos: Object.fromEntries(['calentamiento', 'abierta', 'cerrada', 'boton'].map((k) => [k, $(`#mt-t-${k}`).value.trim()])),
     embudo: meteoEdit.lanzamiento ? '' : meteoEdit.embudo, lanzamiento: meteoEdit.lanzamiento,
     pago: leerPago('mt'),
+    paquete: leerPaqueteMeteo(),
   };
   if (errorPago('mt')) { $('#meteo-dialog .tab[data-tab="mt-oferta"]').click(); status.textContent = errorPago('mt'); return; }
   if (!m.name) { $('#meteo-dialog .tab[data-tab="mt-oferta"]').click(); status.textContent = 'Ponle un nombre.'; return; }
@@ -7076,6 +7088,7 @@ $('#mt-guardar').addEventListener('click', async () => {
     $('#meteo-dialog').close();
     pintarSidebar();
     if (meteoEdit.lanzamiento) { meteoLanzCode = code; renderMeteoLanz(); } else { state.meteo.code = code; ls.set(`lsd_meteo_${state.embudo}`, code); if (enMeteo()) renderMeteoView(); }
+    if (enMeteo() && !$('#view-moferta').hidden) renderMOfertaView();
     actualizarAuditor();
   } catch (e) { status.textContent = e.message; }
 });
@@ -7307,9 +7320,9 @@ function filaEntregable(e = {}) {
     <input class="of-valor" inputmode="decimal" placeholder="Valor €" value="${esc(valorTxt(e.valor))}" aria-label="Valor en euros">
     <button type="button" class="btn ghost of-del" aria-label="Quitar">✕</button></div>`;
 }
-function filaBonus(b = {}) {
+function filaBonus(b = {}, tipos = TIPOS_BONUS) {
   return `<div class="of-fila of-fila-bonus" data-of="bonus" data-id="${esc(b.id || '')}">
-    <select class="of-tipo" aria-label="Tipo de bonus">${optsTipo(TIPOS_BONUS, b.tipo || 'bonus')}</select>
+    <select class="of-tipo" aria-label="Tipo de bonus">${optsTipo(tipos, b.tipo || 'bonus')}</select>
     <input class="of-nombre" maxlength="120" placeholder="Nombre del bonus" value="${esc(b.nombre || '')}">
     <input class="of-detalle" maxlength="300" placeholder="Detalle (opcional)" value="${esc(b.detalle || '')}">
     <input class="of-valor" inputmode="decimal" placeholder="Valor €" value="${esc(valorTxt(b.valor))}" aria-label="Valor en euros">
@@ -7400,6 +7413,99 @@ function renderOfertaAnalisis(launch) {
     </tbody></table></div>
     <p class="muted small">Las ventas se cuentan por día (fecha de compra), así que un bonus de unas horas cuenta todo su día. «Ventas/día activo vs. resto»: media de ventas diarias mientras el bonus estaba activo frente a la de los días del carrito sin él. «Día que caduca»: ventas de ese día frente a la media del carrito (el efecto de la fecha límite). ${vpd.antes || vpd.despues || vpd.sinFecha ? `Fuera del carrito: ${vpd.antes} antes, ${vpd.despues} después y ${vpd.sinFecha} sin fecha.` : ''}</p>`;
   box.innerHTML = resumen + tablaDias + tablaBonus;
+}
+
+// ---------- Meteóricos: su oferta (entregables y bonus) y su impacto en las ventas hora a hora ----------
+function pintarPaqueteMeteo(p = {}) {
+  $('#mt-of-entregables').innerHTML = (p?.entregables || []).map(filaEntregable).join('');
+  $('#mt-of-bonus').innerHTML = (p?.bonus || []).map((b) => filaBonus(b, TIPOS_BONUS_METEO)).join('');
+  refrescarPaqueteMeteo();
+}
+function leerPaqueteMeteo() {
+  const fila = (el) => ({ id: el.dataset.id || nuevoId(el.dataset.of === 'bonus' ? 'b' : 'e'), tipo: $('.of-tipo', el).value, nombre: $('.of-nombre', el).value.trim(), detalle: $('.of-detalle', el).value.trim(), valor: $('.of-valor', el).value.trim() });
+  return {
+    entregables: $$('#mt-of-entregables .of-fila').map(fila).filter((x) => x.nombre),
+    bonus: $$('#mt-of-bonus .of-fila').map((el) => ({ ...fila(el), hasta: $('.of-hasta-in', el).value })).filter((x) => x.nombre),
+  };
+}
+function refrescarPaqueteMeteo() {
+  const m = { apertura: $('#mt-apertura').value, cierre: $('#mt-cierre').value };
+  for (const el of $$('#mt-of-bonus .of-fila')) {
+    const w = ventanaBonusMeteo({ tipo: $('.of-tipo', el).value, hasta: $('.of-hasta-in', el).value }, m);
+    $('.of-ventana', el).textContent = w.desde != null && w.hasta != null ? `Activo: ${fechaHoraCorta(w.desde)} → ${fechaHoraCorta(w.hasta)}` : 'Pon cuándo abre y cierra la oferta (pestaña Producto y tiempos) para ver cuándo está activo.';
+  }
+  const o = leerPaqueteMeteo();
+  const v = valorOferta({ entregables: o.entregables.map((e) => ({ valor: dinero(e.valor) })), bonus: o.bonus.map((b) => ({ valor: dinero(b.valor) })) }, dinero($('#mt-precio').value));
+  $('#mt-of-resumen').innerHTML = `<span><strong>${o.entregables.length}</strong> entregables</span><span><strong>${o.bonus.length}</strong> bonus</span>${v.total ? `<span>Valor total <strong>${eur(v.total)}</strong></span>` : ''}${v.ratio ? `<span>= <strong>${v.ratio.toFixed(1).replace('.', ',')}×</strong> el precio</span>` : ''}`;
+}
+$('#mt-of-add-entregable').addEventListener('click', () => { $('#mt-of-entregables').insertAdjacentHTML('beforeend', filaEntregable()); $('#mt-of-entregables .of-fila:last-child .of-nombre').focus(); refrescarPaqueteMeteo(); });
+$('#mt-of-add-bonus').addEventListener('click', () => { $('#mt-of-bonus').insertAdjacentHTML('beforeend', filaBonus({}, TIPOS_BONUS_METEO)); $('#mt-of-bonus .of-fila:last-child .of-nombre').focus(); refrescarPaqueteMeteo(); });
+for (const id of ['#mt-of-entregables', '#mt-of-bonus']) {
+  $(id).addEventListener('click', (e) => { if (e.target.closest('.of-del')) { e.target.closest('.of-fila').remove(); refrescarPaqueteMeteo(); } });
+  $(id).addEventListener('change', refrescarPaqueteMeteo);
+  $(id).addEventListener('input', (e) => { if (e.target.matches('.of-valor')) refrescarPaqueteMeteo(); });
+}
+$('.tab[data-tab="mt-paquete"]').addEventListener('click', refrescarPaqueteMeteo);
+
+// Pestaña «Oferta» del embudo de meteóricos (y sección del downsell en el lanzamiento).
+function renderMOfertaView() {
+  pickMeteo();
+  const lista = meteoDeEmbudo(state.embudo);
+  llenarMeteoSelect($('#moferta-select'), lista, state.meteo.code, 'Aún no hay meteóricos');
+  $('#moferta-config').hidden = !state.meteo.code || !puedeConfig();
+  if (!state.meteo.code) { $('#moferta-body').innerHTML = '<div class="card empty"><h2>🎁 Sin meteóricos todavía</h2><p class="muted">Crea un meteórico en la pestaña Meteóricos y añade aquí su oferta.</p></div>'; return; }
+  pintarOfertaMeteo($('#moferta-body'), state.meteo.code);
+}
+$('#moferta-select').addEventListener('change', (e) => { state.meteo.code = e.target.value; ls.set(`lsd_meteo_${state.embudo}`, state.meteo.code); renderMOfertaView(); });
+$('#moferta-config').addEventListener('click', async () => {
+  await abrirMeteoDialog(state.meteo.code, { embudo: state.embudo });
+  $('#meteo-dialog .tab[data-tab="mt-paquete"]').click();
+});
+
+async function pintarOfertaMeteo(box, code) {
+  const m = state.config.meteoricos?.[code];
+  if (!m) { box.innerHTML = ''; return; }
+  const p = m.paquete || { entregables: [], bonus: [] };
+  const precio = Number(m.precio) || 0;
+  const valor = valorOferta(p, precio);
+  const chipB = (b) => { const t = tipoBonus(b.tipo); return `<span class="of-chip b-${b.tipo}" title="${esc(t.largo || t.label)} · ${esc(t.desc)}">${t.icon} ${esc(b.nombre)}</span>`; };
+  const resumen = `<section class="card metric-card"><h2>🎁 La oferta <span class="muted">· ${esc(m.name)}${m.oferta ? ` · ${esc(m.oferta)}` : ''}</span></h2><div class="of-oferta">
+      <div><h4>📦 Entregables (${p.entregables.length})</h4>${p.entregables.length ? `<ul>${p.entregables.map((e) => `<li>${tipoEntregable(e.tipo).icon} <strong>${esc(e.nombre)}</strong> <span class="muted small">${esc(tipoEntregable(e.tipo).label)}${e.valor ? ` · ${eur(e.valor)}` : ''}</span></li>`).join('')}</ul>` : '<p class="muted small">Sin entregables.</p>'}</div>
+      <div><h4>🎁 Bonus (${p.bonus.length})</h4>${p.bonus.length ? `<ul>${p.bonus.map((b) => { const w = ventanaBonusMeteo(b, m); return `<li>${chipB(b)}${b.valor ? ` <span class="muted small">${eur(b.valor)}</span>` : ''}<br><span class="muted small">${fechaHoraCorta(w.desde)} → ${fechaHoraCorta(w.hasta)}</span></li>`; }).join('')}</ul>` : '<p class="muted small">Sin bonus.</p>'}</div>
+      <div class="of-valor-box"><span class="muted small">Precio</span><strong>${precio ? eur(precio) : '–'}</strong>${valor.total ? `<span class="muted small">Valor de la oferta</span><strong>${eur(valor.total)}</strong>` : ''}${valor.ratio ? `<span class="of-ratio">${valor.ratio.toFixed(1).replace('.', ',')}× el precio</span>` : ''}</div>
+    </div></section>`;
+  if (!p.entregables.length && !p.bonus.length) {
+    box.innerHTML = `${resumen}<p class="muted">Añade los entregables y los bonus (BAR 30 min, BAR 1 h…) en <strong>Editar la oferta</strong> para ver aquí qué bonus empujan la venta.</p>`;
+    return;
+  }
+  box.innerHTML = `${resumen}<p class="muted">Cargando las ventas…</p>`;
+  let d;
+  try { d = await cargarMeteo(code); } catch (e) { box.innerHTML = `${resumen}<p class="error">${esc(e.message)}</p>`; return; }
+  if (state.config.meteoricos?.[code] !== m) return;
+  const momentos = d.compradores.map((c) => c.momento).filter((t) => t != null);
+  const a = analizarOfertaMeteo(m, momentos, d.ventas);
+  const efectoChip = (x) => (x == null ? '–' : `<span class="em-niv ${x >= 1.5 ? 'alto' : x >= 1.1 ? 'medio' : 'bajo'}">${x.toFixed(1).replace('.', ',')}×</span>`);
+  const ritmo = (x) => (x == null ? '–' : `${x.toFixed(1).replace('.', ',')}/h`);
+  const sinHora = !momentos.length
+    ? `<div class="notice warn"><span>Para medir los bonus por horas hace falta la <strong>hora</strong> de cada compra. ${m.compraDateField ? 'El campo de fecha de compra de este meteórico solo guarda el día.' : 'Este meteórico no tiene campo de fecha de compra.'} En GHL, crea un campo de <strong>texto</strong>, haz que el workflow de compra lo rellene con la fecha y hora actuales (<code>{{right_now}}</code>) y elígelo en <strong>Configurar → Etiquetas y recursos → Campo de fecha de compra</strong>.</span></div>`
+    : a.conHora < d.ventas ? `<p class="muted small">${a.conHora} de ${d.ventas} ventas tienen hora; el análisis usa esas.</p>` : '';
+  const porId = new Map(p.bonus.map((b) => [b.id, b]));
+  const max = Math.max(1, ...a.horas.map((h) => h.n));
+  const horaFmt = (ms) => new Date(ms).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  const tablaBonus = momentos.length ? `<section class="card metric-card"><h2>Impacto de cada bonus <span class="muted">· ventas por hora mientras estuvo activo frente al resto de la oferta</span></h2>
+    <div class="table-scroll"><table class="metric-table of-bonus-t"><thead><tr><th>Bonus</th><th>Activo</th><th class="num">Ventas en su ventana</th><th class="num">% de la oferta</th><th class="num">Ritmo activo vs. resto</th><th class="num">Al final de su ventana</th><th>Lectura</th></tr></thead><tbody>
+    ${a.bonus.map((b) => `<tr><td>${chipB(b)}</td><td class="small">${fechaHoraCorta(b.ventana.desde)} →<br>${fechaHoraCorta(b.ventana.hasta)}</td>
+      <td class="num"><strong>${b.ventas ?? 0}</strong></td><td class="num">${pctE(b.pct)}</td>
+      <td class="num">${b.sinDatos ? '–' : b.ritmoFuera == null ? ritmo(b.ritmoDentro) : `${ritmo(b.ritmoDentro)} vs ${ritmo(b.ritmoFuera)}<br>${efectoChip(b.efecto)}`}</td>
+      <td class="num">${b.sinDatos || b.tipo === 'bonus' ? '–' : `${b.ventasFinal} en ${b.tramoMin} min${b.urgencia != null ? `<br>${efectoChip(b.urgencia)}` : ''}`}</td>
+      <td class="em-consejo">${esc(lecturaBonusMeteo(b))}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="muted small">«Ritmo activo vs. resto»: ventas por hora mientras el bonus estaba activo frente a las del resto de la oferta. «Al final de su ventana»: ventas en el último tramo antes de que caduque frente al ritmo medio de la oferta (el efecto de la fecha límite).</p></section>` : '';
+  const tablaHoras = a.horas.length && momentos.length ? `<section class="card metric-card"><h2>Ventas hora a hora <span class="muted">· y bonus activos</span></h2>
+    <div class="table-scroll of-horas"><table class="metric-table of-dias"><thead><tr><th>Hora</th><th class="num">Ventas</th><th></th><th>Bonus activos</th></tr></thead><tbody>
+    ${a.horas.map((h) => `<tr><td>${esc(horaFmt(h.desde))}</td><td class="num"><strong>${h.n}</strong></td><td class="of-barra"><div class="meter"><span style="width:${(h.n / max) * 100}%"></span></div></td><td>${h.activos.map((id) => chipB(porId.get(id))).join(' ') || '<span class="muted small">Ninguno</span>'}</td></tr>`).join('')}
+    </tbody></table></div></section>` : '';
+  box.innerHTML = resumen + sinHora + tablaBonus + tablaHoras;
 }
 
 
