@@ -103,7 +103,15 @@
     '.lsd-cdb-num{font-size:2em;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}.lsd-cdb-label{font-size:.75em;text-transform:uppercase;letter-spacing:.05em;margin-top:4px}' +
     '[data-lsd-bar]{display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap}' +
     '.lsd-embed{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}.lsd-embed iframe{position:absolute;inset:0;width:100%;height:100%;border:0}' +
-    '.lsd-bar-btn{display:inline-block;padding:6px 14px;border-radius:999px;background:#b4552d;color:#fff;font-weight:600;text-decoration:none}';
+    '.lsd-bar-btn{display:inline-block;padding:6px 14px;border-radius:999px;background:#b4552d;color:#fff;font-weight:600;text-decoration:none}' +
+    // Recursos de la preclase: música, votación (el diseño de la página puede cambiar --lsd-acento)
+    '.lsd-rec{border-radius:12px;padding:16px;background:#f6f3ef;color:#2b2522;font-family:inherit;box-sizing:border-box}' +
+    '.lsd-rec-lock{display:flex;gap:10px;align-items:center;opacity:.85}.lsd-rec-lock .lsd-locked-icon{font-size:1.5em}' +
+    '.lsd-rec audio{width:100%;margin-top:8px}.lsd-rec-t{margin:0 0 4px;font-weight:700}.lsd-rec-s{margin:0;font-size:.92em;opacity:.85}' +
+    '.lsd-vot-ops{display:grid;gap:8px;margin-top:10px}.lsd-vot-op{display:block;width:100%;text-align:left;padding:12px 14px;border-radius:10px;border:1px solid #d8d0c9;background:#fff;font:inherit;cursor:pointer}' +
+    '.lsd-vot-op:hover{border-color:var(--lsd-acento,#b4552d)}.lsd-vot-res{position:relative;padding:10px 12px;border-radius:10px;background:#fff;overflow:hidden;border:1px solid #e6ded6}' +
+    '.lsd-vot-res i{position:absolute;inset:0 auto 0 0;background:var(--lsd-acento,#b4552d);opacity:.16}.lsd-vot-res span{position:relative;display:flex;justify-content:space-between;gap:10px}' +
+    '.lsd-vot-res.mio{border-color:var(--lsd-acento,#b4552d);font-weight:700}.lsd-vot-total{margin:8px 0 0;font-size:.88em;opacity:.8}';
 
   function injectCss() {
     if (document.getElementById('lsd-css')) return;
@@ -255,6 +263,8 @@
           sent[t] = true;
           save();
           if (who) post('/api/track', { launch: launch, video: video, pct: t, cid: who.cid, email: who.email });
+          // La música y la votación de la preclase se desbloquean al ver el 75 % de su clase.
+          try { document.dispatchEvent(new CustomEvent('lsd:progreso', { detail: { video: video, pct: t } })); } catch (e) { /* navegador antiguo */ }
         }
       });
     }
@@ -333,7 +343,7 @@
   function renderCountdownBoxes(data) {
     document.querySelectorAll('[data-lsd-countdown-boxes]').forEach(function (el) {
       var k = el.getAttribute('data-lsd-countdown-boxes');
-      var at = k === 'directo' || k === 'vip' ? data.vip.closesAt : k === 'fase' ? data.countdownTo : (data.directos || {})[k] || (data.videos[k] || {}).unlockAt;
+      var at = k === 'directo' || k === 'vip' ? data.vip.closesAt : k === 'fase' ? data.countdownTo : (data.directos || {})[k] || (data.videos[k] || {}).unlockAt || ((data.recursos || {})[k] || {}).unlockAt;
       if (!at || at <= serverNow()) { el.innerHTML = ''; el.removeAttribute('data-lsd-cdb-at'); show(el, false); return; }
       show(el, true);
       if (Number(el.getAttribute('data-lsd-cdb-at')) === at) return;
@@ -402,7 +412,13 @@
       var href = data.links[el.getAttribute('data-lsd-link')];
       if (href) { el.setAttribute('href', linkWho(href)); show(el, true); } else show(el, false);
       // La encuesta se abre en otra pestaña: al volver, la página detecta que ya está hecha.
-      if (el.getAttribute('data-lsd-link') === 'encuesta' && !el.getAttribute('target')) { el.setAttribute('target', '_blank'); el.setAttribute('rel', 'noopener'); }
+      var lk = el.getAttribute('data-lsd-link');
+      if ((lk === 'encuesta' || lk === 'test' || lk === 'descargable') && !el.getAttribute('target')) { el.setAttribute('target', '_blank'); el.setAttribute('rel', 'noopener'); }
+      // El descargable cuenta como abierto al pulsarlo (etiqueta <código>_descarga).
+      if (lk === 'descargable' && !el.getAttribute('data-lsd-medido')) {
+        el.setAttribute('data-lsd-medido', '1');
+        el.addEventListener('click', function () { if (who) post('/api/track', { launch: data.code, video: 'descarga', pct: 0, cid: who.cid, email: who.email }); });
+      }
     });
 
     // Textos: <span data-lsd-text="fechaDirecto|horaDirecto|directo|clase1|clase2|replay|cierreVip|cierreCarrito|precioVip">
@@ -414,7 +430,7 @@
     // Cuentas atrás sueltas: <span data-lsd-countdown="directo|clase1|clase2|replay|vip|fase">
     document.querySelectorAll('[data-lsd-countdown]').forEach(function (el) {
       var k = el.getAttribute('data-lsd-countdown');
-      var at = k === 'fase' ? data.countdownTo : k === 'vip' ? data.vip.closesAt : k === 'directo' ? data.vip.closesAt : (data.directos || {})[k] || (data.videos[k] || {}).unlockAt;
+      var at = k === 'fase' ? data.countdownTo : k === 'vip' ? data.vip.closesAt : k === 'directo' ? data.vip.closesAt : (data.directos || {})[k] || (data.videos[k] || {}).unlockAt || ((data.recursos || {})[k] || {}).unlockAt;
       el.innerHTML = at && at > serverNow() ? cdSpan(at) : '';
     });
 
@@ -435,10 +451,20 @@
       'encuesta-pendiente': Boolean(enc.required && !enc.done),
       'encuesta-hecha': Boolean(enc.required && enc.done),
     };
+    // Recursos de la preclase: data-lsd-if="test-bloqueado|test-disponible|test-hecho|musica-bloqueada|
+    // musica-disponible|votacion-bloqueada|votacion-disponible|votacion-hecha|descargable-bloqueado|descargable-disponible"
+    var rec = data.recursos || {};
+    var vista = function (r) { return Boolean(r && (r.claseVista || progresoLocal(data.code, r.tras) >= (r.umbral || 75))); };
+    if (rec.test) { conds['test-bloqueado'] = !rec.test.unlocked; conds['test-disponible'] = rec.test.unlocked && !rec.test.done; conds['test-hecho'] = Boolean(rec.test.done); }
+    if (rec.musica) { conds['musica-bloqueada'] = !(rec.musica.url && vista(rec.musica)); conds['musica-disponible'] = Boolean(rec.musica.url && vista(rec.musica)); }
+    if (rec.votacion) { conds['votacion-bloqueada'] = !(rec.votacion.claseDisponible && vista(rec.votacion)); conds['votacion-disponible'] = Boolean(rec.votacion.claseDisponible && vista(rec.votacion) && !rec.votacion.miVoto); conds['votacion-hecha'] = Boolean(rec.votacion.miVoto); }
+    if (rec.descargable) { conds['descargable-bloqueado'] = !rec.descargable.unlocked; conds['descargable-disponible'] = Boolean(rec.descargable.unlocked); }
     document.querySelectorAll('[data-lsd-if]').forEach(function (el) {
       var c = el.getAttribute('data-lsd-if');
       show(el, Object.prototype.hasOwnProperty.call(conds, c) ? conds[c] : true);
     });
+
+    renderRecursos(data, who);
 
     // Vídeos sin data-vimeo: la URL llega del dashboard cuando se desbloquean.
     document.querySelectorAll('[data-lsd-video]').forEach(function (el) {
@@ -471,8 +497,140 @@
     startCountdowns();
   }
 
+  // Lo visto de un vídeo en este navegador (0-100), aunque la etiqueta aún no haya llegado a GHL.
+  function progresoLocal(launch, video) {
+    if (!launch || !video) return 0;
+    var saved = store('lsd_' + launch + '_' + video) || {};
+    return Object.keys(saved.b || {}).length;
+  }
+
+  // Recursos de la preclase:
+  //   <div data-lsd-audio="musica"></div>  música (bloqueada hasta ver el 75 % de su clase)
+  //   <div data-lsd-votacion></div>        votación (bloqueada igual; al votar, los % de todas)
+  //   <div data-lsd-etapa="clase1|test|clase2|encuesta|directo|descargable"> → atributo data-lsd-estado
+  //       (bloqueada | disponible | hecha) para el diseño; <span data-lsd-etapa-n="test"></span> → su número
+  var ultimaPagina = null;
+  function renderRecursos(data, who) {
+    ultimaPagina = { data: data, who: who };
+    var rec = data.recursos || {};
+    var claseTxt = function (k) { return 'la clase ' + String(k || '').replace('clase', ''); };
+    var vista = function (r) { return Boolean(r && (r.claseVista || progresoLocal(data.code, r.tras) >= (r.umbral || 75))); };
+    var lockHtml = function (texto, sub) { return '<div class="lsd-rec lsd-rec-lock"><span class="lsd-locked-icon">🔒</span><div><p class="lsd-rec-t">' + esc(texto) + '</p>' + (sub ? '<p class="lsd-rec-s">' + esc(sub) + '</p>' : '') + '</div></div>'; };
+
+    document.querySelectorAll('[data-lsd-audio]').forEach(function (el) {
+      var r = rec.musica;
+      if (!r) return show(el, false);
+      show(el, true);
+      var ok = r.url && vista(r);
+      var estado = ok ? 'on' : r.claseDisponible ? 'falta' : 'clase';
+      if (el.getAttribute('data-lsd-estado-audio') === estado) return;
+      el.setAttribute('data-lsd-estado-audio', estado);
+      if (!ok) {
+        var pct = progresoLocal(data.code, r.tras);
+        el.innerHTML = lockHtml(el.getAttribute('data-texto-bloqueado') || 'Se desbloquea al ver el ' + (r.umbral || 75) + ' % de ' + claseTxt(r.tras),
+          estado === 'falta' ? (pct ? 'Llevas el ' + pct + ' % de ' + claseTxt(r.tras) + '.' : 'Dale al play a ' + claseTxt(r.tras) + ' y vuelve aquí.') : 'Primero tiene que estar disponible ' + claseTxt(r.tras) + '.');
+        return;
+      }
+      el.innerHTML = '<div class="lsd-rec">' + (r.nombre ? '<p class="lsd-rec-t">🎵 ' + esc(r.nombre) + '</p>' : '') + (r.texto ? '<p class="lsd-rec-s">' + esc(r.texto) + '</p>' : '') + '<audio controls preload="none" src="' + esc(r.url) + '"></audio></div>';
+      medirAudio(el.querySelector('audio'), data.code, who);
+    });
+
+    document.querySelectorAll('[data-lsd-votacion]').forEach(function (el) {
+      var r = rec.votacion;
+      if (!r) return show(el, false);
+      show(el, true);
+      var abierta = r.claseDisponible && vista(r);
+      var estado = r.resultados ? 'res' + r.miVoto + (r.resultados.total) : abierta ? 'votar' : 'lock';
+      if (el.getAttribute('data-lsd-estado-vot') === estado) return;
+      el.setAttribute('data-lsd-estado-vot', estado);
+      if (r.resultados && r.miVoto) { el.innerHTML = votacionResultados(r); return; }
+      if (!abierta) { el.innerHTML = lockHtml(el.getAttribute('data-texto-bloqueado') || 'La votación se abre al ver el ' + (r.umbral || 75) + ' % de ' + claseTxt(r.tras), ''); return; }
+      el.innerHTML = '<div class="lsd-rec"><p class="lsd-rec-t">' + esc(r.pregunta) + '</p><div class="lsd-vot-ops">' +
+        r.opciones.map(function (o) { return '<button type="button" class="lsd-vot-op" data-op="' + esc(o.id) + '">' + esc(o.texto) + '</button>'; }).join('') + '</div><p class="lsd-err" hidden></p></div>';
+      el.querySelectorAll('[data-op]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (!who) return;
+          el.querySelectorAll('[data-op]').forEach(function (x) { x.disabled = true; });
+          post('/api/votacion', { launch: data.code, cid: who.cid, email: who.email, opcion: b.getAttribute('data-op') }).then(function (res) {
+            if (!res || !res.ok) throw new Error((res && res.error) || 'No se pudo votar');
+            r.miVoto = res.miVoto;
+            r.resultados = res.resultados;
+            el.setAttribute('data-lsd-estado-vot', 'res' + r.miVoto + r.resultados.total);
+            el.innerHTML = votacionResultados(r);
+          }).catch(function (e) {
+            el.querySelectorAll('[data-op]').forEach(function (x) { x.disabled = false; });
+            var err = el.querySelector('.lsd-err'); if (err) { err.textContent = e.message; err.hidden = false; }
+          });
+        });
+      });
+    });
+
+    // Condiciones de los recursos (también al desbloquearse sin recargar).
+    var cr = {};
+    if (rec.musica) { cr['musica-bloqueada'] = !(rec.musica.url && vista(rec.musica)); cr['musica-disponible'] = !cr['musica-bloqueada']; }
+    if (rec.votacion) { var va = rec.votacion.claseDisponible && vista(rec.votacion); cr['votacion-bloqueada'] = !va && !rec.votacion.miVoto; cr['votacion-disponible'] = Boolean(va && !rec.votacion.miVoto); cr['votacion-hecha'] = Boolean(rec.votacion.miVoto); }
+    document.querySelectorAll('[data-lsd-if]').forEach(function (el) {
+      var c = el.getAttribute('data-lsd-if');
+      if (Object.prototype.hasOwnProperty.call(cr, c)) show(el, cr[c]);
+    });
+
+    // Etapas: estado para el diseño y su número (las de vídeo se marcan hechas al ver el 75 % aquí mismo).
+    var etapas = data.etapas || [];
+    document.querySelectorAll('[data-lsd-etapa]').forEach(function (el) {
+      var e = etapas.filter(function (x) { return x.id === el.getAttribute('data-lsd-etapa'); })[0];
+      if (!e) return show(el, false);
+      show(el, true);
+      var estado = e.estado;
+      if (e.tipo === 'clase' && estado === 'disponible' && progresoLocal(data.code, e.id) >= 75) estado = 'hecha';
+      el.setAttribute('data-lsd-estado', estado);
+    });
+    document.querySelectorAll('[data-lsd-etapa-n]').forEach(function (el) {
+      var e = etapas.filter(function (x) { return x.id === el.getAttribute('data-lsd-etapa-n'); })[0];
+      if (e) el.textContent = e.n;
+    });
+  }
+
+  function votacionResultados(r) {
+    var res = r.resultados;
+    return '<div class="lsd-rec"><p class="lsd-rec-t">' + esc(r.pregunta) + '</p><div class="lsd-vot-ops">' +
+      res.opciones.map(function (o) {
+        var p = Math.round(o.pct * 100);
+        return '<div class="lsd-vot-res' + (o.id === r.miVoto ? ' mio' : '') + '"><i style="width:' + p + '%"></i><span><span>' + (o.id === r.miVoto ? '✓ ' : '') + esc(o.texto) + '</span><strong>' + p + ' %</strong></span></div>';
+      }).join('') + '</div><p class="lsd-vot-total">' + res.total + (res.total === 1 ? ' voto' : ' votos') + ' · gracias por votar</p></div>';
+  }
+
+  // Música: cuenta los segundos realmente escuchados (como los vídeos) y avisa al reproducir, al 50 % y al 90 %.
+  function medirAudio(audio, launch, who) {
+    if (!audio || !who) return;
+    var key = 'lsd_' + launch + '_musica';
+    var saved = store(key) || {};
+    var buckets = saved.b || {};
+    var sent = saved.s || {};
+    var last = null;
+    var save = function () { store(key, { b: buckets, s: sent }); };
+    var enviar = function (p) { if (sent[p]) return; sent[p] = true; save(); post('/api/track', { launch: launch, video: 'musica', pct: p, cid: who.cid, email: who.email }); };
+    audio.addEventListener('play', function () { enviar(0); });
+    audio.addEventListener('timeupdate', function () {
+      var d = audio.duration;
+      var t = audio.currentTime;
+      if (d && last !== null && t >= last && t - last <= 3) {
+        var from = Math.floor((last / d) * 100);
+        var to = Math.min(99, Math.floor((t / d) * 100));
+        for (var i = from; i <= to; i++) buckets[i] = 1;
+      }
+      last = t;
+      var pct = Object.keys(buckets).length;
+      if (pct >= 50) enviar(50);
+      if (pct >= 90) enviar(90);
+    });
+    audio.addEventListener('seeked', function () { last = audio.currentTime; });
+    audio.addEventListener('pause', save);
+  }
+  // Al llegar al 75 % de una clase, se desbloquean su música y su votación sin recargar.
+  document.addEventListener('lsd:progreso', function () { if (ultimaPagina) renderRecursos(ultimaPagina.data, ultimaPagina.who); });
+
   function defaultLabel(key) {
-    return { whatsapp: 'Unirme al grupo', vip: 'Quiero mi entrada VIP', directo: 'Entrar al directo', grabacion: 'Ver la grabación', venta: 'Conocer Raíces', pago: 'Unirme a Raíces', 'pago-fraccionado': 'Pagar a plazos', llamada: 'Reservar llamada', calendario: 'Añadir al calendario', encuesta: 'Rellenar la encuesta' }[key] || 'Ir';
+    return { test: 'Hacer el test', descargable: 'Descargar', whatsapp: 'Unirme al grupo', vip: 'Quiero mi entrada VIP', directo: 'Entrar al directo', grabacion: 'Ver la grabación', venta: 'Conocer Raíces', pago: 'Unirme a Raíces', 'pago-fraccionado': 'Pagar a plazos', llamada: 'Reservar llamada', calendario: 'Añadir al calendario', encuesta: 'Rellenar la encuesta' }[key] || 'Ir';
   }
 
   // Página gestionada desde el dashboard (recursos / grabación). Vuelve a pedir los datos cuando
@@ -487,11 +645,12 @@
         }
         renderPage(data, who, function (el) { onVideo(el, data.code); });
         // Próximo cambio: fase o desbloqueo de vídeo.
-        var next = [data.changesAt].concat(Object.keys(data.videos).map(function (k) { return data.videos[k].unlockAt; }))
+        var rec = data.recursos || {};
+        var next = [data.changesAt].concat(Object.keys(data.videos).map(function (k) { return data.videos[k].unlockAt; }), Object.keys(rec).map(function (k) { return rec[k] && rec[k].unlockAt; }))
           .filter(function (t) { return t && t > data.now; }).sort(function (a, b) { return a - b; })[0];
         clearTimeout(timer);
         // Encuesta pendiente: se vuelve a comprobar cada 15 s (y al volver a la pestaña).
-        waitingEncuesta = Boolean(data.encuesta && data.encuesta.required && !data.encuesta.done && who && who.cid);
+        waitingEncuesta = Boolean(((data.encuesta && data.encuesta.required && !data.encuesta.done) || (data.recursos && data.recursos.test && data.recursos.test.unlocked && !data.recursos.test.done)) && who && who.cid);
         if (waitingEncuesta && !document.hidden) next = Math.min(next || Infinity, serverNow() + 15000);
         if (next) timer = setTimeout(cycle, Math.min(next - serverNow() + 1500, 2147483000));
       }).catch(function () { /* sin conexión: se queda como está */ });
