@@ -188,7 +188,12 @@
             <button type="button" class="subview-tab" data-msub-btn="emails" data-icon-msub="mail">Emails</button>
           </nav>
           <div id="vm-kpis" data-msub="resumen" class="kpis vm-kpis"></div>
+          <div id="ciclo-kpi-v" data-msub="resumen" class="kpis ciclo-kpis"></div>
           <div id="em-kpis-v" data-msub="resumen" class="kpis em-kpis" hidden></div>
+          <section data-msub="resumen" class="card metric-card" data-icon="calendar">
+            <h2>Ciclo de compra <span class="muted">· días desde que el contacto entró en GHL hasta que compró</span></h2>
+            <div id="ciclo-v"></div>
+          </section>
           <section data-msub="emails" class="card metric-card" data-icon="mail">
             <h2>Emails de la VSL <span class="muted">· apertura, CTR y qué mejorar en cada uno (datos acumulados desde que se envía cada email)</span></h2>
             <div id="em-v"></div>
@@ -468,6 +473,7 @@
             <button type="button" class="subview-tab" data-msub-btn="meteorico" data-icon-msub="zap">Downsell (meteórico)</button>
           </nav>
           <div id="metric-cards" data-msub="resumen" class="kpis"></div>
+          <div id="ciclo-kpi-l" data-msub="resumen" class="kpis ciclo-kpis"></div>
           <div id="em-kpis-l" data-msub="resumen" class="kpis em-kpis" hidden></div>
           <section data-msub="oferta" class="card metric-card" data-icon="gift">
             <h2>Oferta y bonus <span class="muted">· qué se vendía cada día del carrito y qué empujó la venta</span></h2>
@@ -492,6 +498,10 @@
           <section data-msub="trafico" class="card metric-card" data-icon="trend">
             <h2>Por campaña <span class="muted">· inversión y resultados de cada campaña de Meta</span></h2>
             <div class="table-scroll"><table class="metric-table" id="trafico-campanas"></table></div>
+          </section>
+          <section data-msub="ventas" class="card metric-card" data-icon="calendar">
+            <h2>Ciclo de compra <span class="muted">· días desde que el contacto entró en GHL hasta que compró</span></h2>
+            <div id="ciclo-l"></div>
           </section>
           <section data-msub="ventas" class="card metric-card" data-icon="coins">
             <h2>Inversión y rentabilidad</h2>

@@ -1903,3 +1903,16 @@ body.is-superadmin .container { padding-bottom: 96px; }
 .of-caduca { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--st-caliente); }
 .of-bonus-t td { vertical-align: top; }
 .enc-ant { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-weight: 700; font-size: 14px; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); }
+
+/* ---------- Ciclo de compra ---------- */
+.ciclo-kpis { margin-bottom: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.ciclo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 800px) { .ciclo-grid { grid-template-columns: 1fr; } }
+.ciclo-col h4 { margin: 0 0 10px; font-size: 14px; }
+.ciclo-cifras { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-bottom: 12px; }
+.ciclo-cifras div { display: flex; flex-direction: column; }
+.ciclo-cifras strong { font-size: 19px; letter-spacing: -.02em; }
+.ciclo-tramo { display: grid; grid-template-columns: 120px 1fr 74px; gap: 10px; align-items: center; font-size: 13px; padding: 3px 0; }
+.ciclo-tramo .meter { margin: 0; }
+.ciclo-tramo .num { text-align: right; font-variant-numeric: tabular-nums; }
+.ciclo-trafico { margin: 14px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13.5px; }

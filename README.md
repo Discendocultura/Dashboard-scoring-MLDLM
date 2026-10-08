@@ -417,6 +417,10 @@ Funcionan como el webinar, con las casillas repetidas para cada vídeo (*Configu
 - **Puntuación**: la mitad por el vídeo mejor visto y la mitad por la media de todos (máximo 40 puntos, como el directo del webinar).
 - **Leads, Métricas, Calendario, Auditor y Sincronizar Zoom** muestran cada vídeo (Zoom sincroniza cada vídeo en directo ya celebrado).
 
+## ⏳ Ciclo de compra
+
+Días desde que el contacto se creó en GHL hasta su fecha de compra del producto principal (etiqueta y campo de fecha de compra del lanzamiento o de la VSL). En **Métricas → Resumen**, la tarjeta «Ciclo de compra medio» (de **todas** las compradoras de esa etiqueta, con la mediana y el dato de este lanzamiento); en **Ventas y rentabilidad** (y en el Resumen de la VSL), el detalle: media, mediana, entre qué valores está la mitad, reparto por tramos (mismo día, 1-7 días, 8-30, 1-3 meses, 3-6, 6-12, más de 1 año) y, en lanzamientos, tráfico frío frente a templado. Se recalcula cada hora; no cuentan las compras sin fecha ni las anteriores a la creación del contacto (contactos importados después).
+
 ## 📝 Encuesta fija (misma URL y etiqueta en todos los lanzamientos)
 
 La encuesta de la Etapa 1 puede ser siempre la misma: misma URL y misma etiqueta al terminarla (está en «Etiquetas GHL → Fijas»). Un lanzamiento nuevo las hereda. Al crearlo, la «foto» marca a quien ya tenía la etiqueta de la encuesta (`<código>_encuesta_previo`): esas personas **no cuentan** como «rellenó la encuesta» de este lanzamiento (en Leads salen con ↺), pero **sí ven las clases** sin tener que repetirla.

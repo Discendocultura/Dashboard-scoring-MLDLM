@@ -10,6 +10,7 @@ import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenL
 import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
 import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago } from './pago.js';
+import { cicloDeContactos, textoDias } from './ciclo.js';
 import { TIPOS_BONUS, TIPOS_ENTREGABLE, tipoBonus, tipoEntregable, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
@@ -757,6 +758,7 @@ function renderMetrics() {
 
   renderEconomics(m, launch);
   renderOfertaAnalisis(launch);
+  mostrarCiclo(state.launchCode, { kpi: '#ciclo-kpi-l', detalle: '#ciclo-l', propias: state.leads.filter((l) => l.s.compra), dateField: launch.compraDateField, nombre: 'este lanzamiento', porTrafico: Boolean(launch.inicioCaptacion) });
   mostrarEmails(state.launchCode, { kpis: '#em-kpis-l', tabla: '#em-l' });
   renderTrafico(m, launch, tr);
   renderVentasDia(launch);
@@ -6232,6 +6234,7 @@ function renderVslMetricas() {
   ].join('');
 
   mostrarEmails(state.embudo, { kpis: '#em-kpis-v', tabla: '#em-v' });
+  mostrarCiclo(state.embudo, { kpi: '#ciclo-kpi-v', detalle: '#ciclo-v', propias: L.filter((l) => l.s.compra), dateField: v.compraDateField, nombre: 'esta VSL' });
   $('#vm-planes-sec').hidden = !m.planes;
   if (m.planes) $('#vm-planes').innerHTML = tablaPlanes(m.planes);
 
@@ -7328,4 +7331,49 @@ function renderOfertaAnalisis(launch) {
     </tbody></table></div>
     <p class="muted small">Las ventas se cuentan por día (fecha de compra), así que un bonus de unas horas cuenta todo su día. «Ventas/día activo vs. resto»: media de ventas diarias mientras el bonus estaba activo frente a la de los días del carrito sin él. «Día que caduca»: ventas de ese día frente a la media del carrito (el efecto de la fecha límite). ${vpd.antes || vpd.despues || vpd.sinFecha ? `Fuera del carrito: ${vpd.antes} antes, ${vpd.despues} después y ${vpd.sinFecha} sin fecha.` : ''}</p>`;
   box.innerHTML = resumen + tablaDias + tablaBonus;
+}
+
+
+// ---------- Ciclo de compra: días desde que el contacto entra en GHL hasta que compra ----------
+// Media de TODAS las compradoras del producto (servidor, /api/ciclo) y las de este lanzamiento / VSL.
+const cicloCache = {};
+function mostrarCiclo(code, { kpi, detalle, propias = [], dateField, nombre, porTrafico = false }) {
+  if (!code || !tiene('metricas')) return;
+  const boxK = $(kpi);
+  const boxD = $(detalle);
+  const propio = dateField ? cicloDeContactos(propias, dateField) : null;
+  const pintar = () => {
+    const g = cicloCache[code];
+    const todas = g?.datos?.ciclo;
+    if (boxK) {
+      boxK.innerHTML = !dateField
+        ? card('Ciclo de compra medio', '–', 'Elige el campo de fecha de compra en Configuración', 'calendar', 'info')
+        : card('Ciclo de compra medio', textoDias(todas?.media ?? propio?.media),
+          todas?.n ? `mediana ${textoDias(todas.mediana)} · ${todas.n.toLocaleString('es-ES')} compradoras con fecha${propio?.n ? ` · ${nombre}: ${textoDias(propio.media)}` : ''}`
+            : g?.cargando ? `${nombre}: ${propio?.n ? `${propio.n} compradoras` : 'sin compras con fecha'} · calculando el de todas…`
+              : propio?.n ? `${nombre} (${propio.n} compradoras) · mediana ${textoDias(propio.mediana)}` : 'Aún no hay compras con fecha', 'calendar', 'info');
+    }
+    if (boxD) boxD.innerHTML = cicloDetalle({ todas, propio, nombre, error: g?.error, porTrafico: porTrafico ? propias : null, dateField });
+  };
+  if (dateField && !cicloCache[code]?.datos && !cicloCache[code]?.cargando) {
+    cicloCache[code] = { cargando: true };
+    api(`/api/ciclo?l=${encodeURIComponent(code)}`).then((datos) => { cicloCache[code] = { datos }; }).catch((e) => { cicloCache[code] = { error: e.message }; }).finally(pintar);
+  }
+  pintar();
+}
+function cicloDetalle({ todas, propio, nombre, error, porTrafico, dateField }) {
+  if (!dateField) return '<p class="muted">Para medir el ciclo de compra hace falta el <strong>campo de fecha de compra</strong> (Configuración).</p>';
+  const col = (titulo, c, extra = '') => `<div class="ciclo-col"><h4>${titulo}</h4>${!c ? `<p class="muted small">${extra || 'Calculando…'}</p>` : !c.n ? '<p class="muted small">Sin compras con fecha.</p>' : `
+    <div class="ciclo-cifras"><div><span class="muted small">Media</span><strong>${textoDias(c.media)}</strong></div><div><span class="muted small">Mediana</span><strong>${textoDias(c.mediana)}</strong></div><div><span class="muted small">La mitad, entre</span><strong>${textoDias(c.p25)} y ${textoDias(c.p75)}</strong></div></div>
+    ${c.tramos.map((t) => `<div class="ciclo-tramo"><span>${t.label}</span><div class="meter"><span style="width:${Math.round(t.pct * 100)}%"></span></div><span class="num">${t.n} <span class="muted small">${Math.round(t.pct * 100)}%</span></span></div>`).join('')}
+    <p class="muted small">${c.n.toLocaleString('es-ES')} compradoras con fecha${c.sinFecha ? ` · ${c.sinFecha} más sin fecha de compra válida (no cuentan)` : ''}</p>`}</div>`;
+  let trafico = '';
+  if (porTrafico?.length) {
+    const g = (t) => cicloDeContactos(porTrafico.filter((l) => l.s.trafico === t), dateField);
+    const fr = g('frio');
+    const te = g('templado');
+    if (fr.n || te.n) trafico = `<p class="ciclo-trafico">❄️ Tráfico frío (entraron en este lanzamiento): <strong>${textoDias(fr.media)}</strong> de media (${fr.n}) · 🔥 Templado (ya estaban en la base de datos): <strong>${textoDias(te.media)}</strong> de media (${te.n})</p>`;
+  }
+  return `<div class="ciclo-grid">${col('Todas las compradoras', todas, error ? esc(error) : '')}${col(`Compradoras de ${nombre}`, propio)}</div>${trafico}
+    <p class="muted small">Desde la fecha de creación del contacto en GHL hasta la fecha de compra del producto principal. Cambia con el tiempo: es una idea general de cuánto tarda una persona en comprar desde que te conoce.</p>`;
 }
