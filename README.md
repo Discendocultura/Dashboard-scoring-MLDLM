@@ -417,6 +417,10 @@ Funcionan como el webinar, con las casillas repetidas para cada vídeo (*Configu
 - **Puntuación**: la mitad por el vídeo mejor visto y la mitad por la media de todos (máximo 40 puntos, como el directo del webinar).
 - **Leads, Métricas, Calendario, Auditor y Sincronizar Zoom** muestran cada vídeo (Zoom sincroniza cada vídeo en directo ya celebrado).
 
+## 📝 Encuesta fija (misma URL y etiqueta en todos los lanzamientos)
+
+La encuesta de la Etapa 1 puede ser siempre la misma: misma URL y misma etiqueta al terminarla (está en «Etiquetas GHL → Fijas»). Un lanzamiento nuevo las hereda. Al crearlo, la «foto» marca a quien ya tenía la etiqueta de la encuesta (`<código>_encuesta_previo`): esas personas **no cuentan** como «rellenó la encuesta» de este lanzamiento (en Leads salen con ↺), pero **sí ven las clases** sin tener que repetirla.
+
 ## 🎁 Oferta: entregables, precio y bonus
 
 - **Configuración → Oferta** (cada lanzamiento): el **precio** (tipo de pago, precios VIP y del programa; antes estaban en «Precios y anuncios»), los **entregables** (contenido grabado, sesión grupal en directo, sesión individual en directo, presencial, descargable o audio) y los **bonus** (BAR en directo, BAR 24 h, BAR 48 h o bonus de todo el carrito). Se añaden y quitan libremente; cada uno con nombre, detalle y valor opcional. Debajo de cada bonus se ve cuándo está activo (sale de la hora del directo de venta y de la apertura y el cierre del carrito; se puede poner su fin a mano). Arriba, el valor total de la oferta y cuántas veces el precio.

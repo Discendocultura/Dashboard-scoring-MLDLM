@@ -88,7 +88,8 @@ export async function GET(request, ctx) {
     // Encuesta: si hay etiqueta configurada, las clases 1 y 2 solo se entregan a quien la tiene.
     // En la vista previa del dashboard (sin contacto) se muestran como si ya la hubiera rellenado.
     const encuestaRequired = Boolean(launch.encuestaTag);
-    const encuestaDone = !encuestaRequired || (sig ? sig.encuesta : preview && !cid);
+    // Quien ya la rellenó en un lanzamiento anterior (misma encuesta y etiqueta) no tiene que repetirla.
+    const encuestaDone = !encuestaRequired || (sig ? sig.encuesta || sig.encuesta_anterior : preview && !cid);
     links.encuesta = encuestaDone && encuestaRequired && !preview ? '' : encuestaUrl(launch.encuestaUrl, contact);
 
     const videoDe = (src, unlockAt, gated = false) => {

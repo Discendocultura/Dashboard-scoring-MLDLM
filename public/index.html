@@ -750,16 +750,20 @@
             <div id="tags-used" class="muted"></div>
           </div>
           <section class="cfg-sec" data-sec="e1">
-            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🔄</span><div><h3>Cambian en cada lanzamiento</h3><p>Crea una etiqueta nueva en GHL para cada edición y cámbiala en el workflow del formulario o de la encuesta. Si repites la de otro lanzamiento, se mezclan los leads.</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🔄</span><div><h3>Cambian en cada lanzamiento</h3><p>Crea una etiqueta de registro nueva en GHL para cada edición y cámbiala en el workflow del formulario. Si repites la de otro lanzamiento, se mezclan los leads.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Etiqueta de registro (leads del lanzamiento)</span>
               <input id="cfg-registro" list="tag-list" required placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-registro" hidden></small></label>
-              <label class="field"><span>Etiqueta de encuesta rellenada <small>(sin ella no se ven las clases 1 y 2; vacío = sin encuesta)</small></span>
-              <input id="cfg-encuesta-tag" list="tag-list" placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-encuesta" hidden></small></label>
             </div>
           </section>
           <section class="cfg-sec" data-sec="e2">
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📌</span><div><h3>Fijas (siempre las mismas)</h3><p>Las ponen los workflows de compra, llamada y origen. No se cambian entre lanzamientos: el dashboard distingue cada edición con la «foto» de quién ya las tenía.</p></div><span class="cfg-sec-status"></span></header>
+            <h4 class="cfg-h4">Encuesta</h4>
+            <div class="grid2">
+              <label class="field"><span>Etiqueta de encuesta rellenada <small>(la misma en todos los lanzamientos; sin ella no se ven las clases; vacío = sin encuesta)</small></span>
+              <input id="cfg-encuesta-tag" list="tag-list" placeholder="Busca la etiqueta…"><small class="tag-warn" id="warn-encuesta" hidden></small>
+              <small class="field-note">ⓘ La pone la encuesta al terminarla. Puede ser siempre la misma (y la misma URL de encuesta): al crear el lanzamiento se hace la «foto» de quién ya la tenía, y esas personas no cuentan como «rellenó la encuesta» de este lanzamiento (pero ven las clases sin repetirla).</small></label>
+            </div>
             <h4 class="cfg-h4">Compras y llamadas</h4>
             <div class="grid2">
               <label class="field" data-vip><span>Etiqueta de compra VIP</span>
@@ -826,7 +830,7 @@
           <section class="cfg-sec" data-sec="3" data-preclase>
             <header class="cfg-sec-head"><span class="cfg-sec-num">3</span><div><h3>Etapa 1 · Encuesta</h3><p>Si hay etiqueta de encuesta (pestaña Lanzamiento), las clases 1 y 2 solo se ven al rellenarla; mientras, se muestra este botón.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
-              <label class="field"><span>Enlace de la encuesta <small>(botón de la página preclase; se rellena solo con el email y el nombre)</small></span>
+              <label class="field"><span>Enlace de la encuesta <small>(botón de la página preclase; se rellena solo con el email y el nombre; puede ser siempre el mismo)</small></span>
               <input id="cfg-encuesta-url" type="url" placeholder="https://…/survey/…"></label>
             </div>
           </section>

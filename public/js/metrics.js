@@ -1,7 +1,7 @@
 // Métricas de un lanzamiento a partir de sus leads ya enriquecidos. Lo usan el dashboard
 // (pestaña Métricas y Comparar) y el resumen diario del servidor.
 import {
-  signalsFor, score, estadoFor, nextStepFor, waPhone, watched, ESTADOS, OUTCOMES, SNAPSHOT_TAGS,
+  signalsFor, score, estadoFor, nextStepFor, waPhone, watched, ESTADOS, OUTCOMES, SNAPSHOT_TAGS, fotosPendientes,
 } from './scoring.js';
 import { tramoEdad, ORDEN_EDAD } from './encuesta.js';
 import { importeVenta, esSuscripcion, resumenPlanes } from './pago.js';
@@ -371,7 +371,7 @@ export function avisosLanzamiento(leads, launch, m) {
     [launch.whatsappUrl, 'el enlace del grupo de WhatsApp'], [launch.cierreCarrito, 'el cierre del carrito'],
   ].filter(([v]) => !v).map(([, t]) => t);
   if (falta.length) out.push(`Falta en Configuración: ${falta.join(', ')}.`);
-  const sinFoto = SNAPSHOT_TAGS.filter((f) => launch[f.field] && launch.snapshot?.tags?.[f.field] !== launch[f.field]);
+  const sinFoto = fotosPendientes(launch);
   if (sinFoto.length) out.push(`Falta la «foto» de ${sinFoto.map((f) => f.label).join(', ')}: quien ya la tenía de lanzamientos anteriores cuenta como de este.`);
   if ((launch.unicoTag || launch.fraccionadoTag) && m.pago.sinEtiqueta.n) out.push(`${m.pago.sinEtiqueta.n} ventas de Raíces sin etiqueta de pago único ni fraccionado: revisa los workflows de compra.`);
   if (!launch.unicoTag && !launch.fraccionadoTag && m.compra) out.push('Elige las etiquetas de pago único y fraccionado para separar las ventas y su facturación.');

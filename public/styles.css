@@ -1902,3 +1902,4 @@ body.is-superadmin .container { padding-bottom: 96px; }
 .of-barra { width: 28%; }
 .of-caduca { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--st-caliente); }
 .of-bonus-t td { vertical-align: top; }
+.enc-ant { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-weight: 700; font-size: 14px; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); }

@@ -19,7 +19,7 @@ export const SIGNALS = [
   'wa_enviado',
   // "Foto" al crear el lanzamiento: quién tenía ya la etiqueta VIP / de compra (de lanzamientos
   // anteriores). Esas personas no cuentan como VIP / compra de este lanzamiento.
-  'vip_previo', 'compra_previo', 'llamada_previo',
+  'vip_previo', 'compra_previo', 'llamada_previo', 'encuesta_previo',
   // Resultado del contacto de la setter (solo uno a la vez).
   'res_respondio', 'res_interesada', 'res_llamada', 'res_no_interesada', 'res_no_contesta',
 ];
@@ -37,7 +37,14 @@ export const SNAPSHOT_TAGS = [
   { field: 'vipTag', signal: 'vip_previo', label: 'VIP' },
   { field: 'compraTag', signal: 'compra_previo', label: 'compra' },
   { field: 'llamadaTag', signal: 'llamada_previo', label: 'llamada' },
+  // La encuesta puede ser siempre la misma (misma URL y etiqueta): solo hace falta su foto si la etiqueta
+  // ya la usaba un lanzamiento anterior (`encuestaCompartida`, la calcula la configuración).
+  { field: 'encuestaTag', signal: 'encuesta_previo', label: 'encuesta' },
 ];
+// Fotos que faltan por hacer en un lanzamiento.
+export const fotosPendientes = (launch) => SNAPSHOT_TAGS.filter((f) => launch?.[f.field]
+  && (f.field !== 'encuestaTag' || launch.encuestaCompartida)
+  && launch.snapshot?.tags?.[f.field] !== launch[f.field]);
 
 export const VIDEOS = ['clase1', 'clase2', 'clase3', ...Array.from({ length: MAX_VIDEOS }, (_, i) => sigReplay(i + 1))];
 export const THRESHOLDS = [25, 50, 75, 90];
@@ -98,7 +105,9 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   for (const sig of SIGNALS) s[sig] = tags.has(tagFor(launch, sig));
   s.vip = has(cfg.vipTag) && !s.vip_previo;
   s.vip_anterior = has(cfg.vipTag) && s.vip_previo;
-  s.encuesta = has(cfg.encuestaTag);
+  // Encuesta de este lanzamiento; quien la rellenó en uno anterior (misma etiqueta) no cuenta aquí.
+  s.encuesta = has(cfg.encuestaTag) && !s.encuesta_previo;
+  s.encuesta_anterior = has(cfg.encuestaTag) && s.encuesta_previo;
   // Llamada agendada: la etiqueta fija (sin contar a quien ya la tenía al crear el lanzamiento)
   // o el resultado «Llamada agendada» que marca la setter.
   s.llamada = (has(cfg.llamadaTag) && !s.llamada_previo) || s.res_llamada;

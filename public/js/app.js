@@ -1,5 +1,5 @@
 import {
-  ESTADOS, NEXT_STEPS, buildMessage, waPhone, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, OUTCOMES, dayInMadrid,
+  ESTADOS, NEXT_STEPS, buildMessage, waPhone, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, fotosPendientes, OUTCOMES, dayInMadrid,
 } from './scoring.js';
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
@@ -1857,7 +1857,7 @@ function rowHtml(l) {
     : '<span class="muted">Sin teléfono</span>';
   return `<tr>
     <td><div class="lead-name">${esc(l.name || '(sin nombre)')} ${avatarChip(l)} ${faseChip(l.id)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
-    ${state.config.launches[state.launchCode]?.encuestaTag ? `<td>${l.s.encuesta ? '<span class="enc-si" title="Ha rellenado la encuesta">✓</span>' : '<span class="enc-no" title="No ha rellenado la encuesta">✗</span>'}</td>` : ''}
+    ${state.config.launches[state.launchCode]?.encuestaTag ? `<td>${l.s.encuesta ? '<span class="enc-si" title="Ha rellenado la encuesta">✓</span>' : l.s.encuesta_anterior ? '<span class="enc-ant" title="La rellenó en un lanzamiento anterior (ve las clases sin repetirla)">↺</span>' : '<span class="enc-no" title="No ha rellenado la encuesta">✗</span>'}</td>` : ''}
     ${(l.s.clases || ['clase1', 'clase2']).map((c) => `<td>${videoChip(l.s, c)}</td>`).join('')}
     ${l.s.conVip === false ? '' : `<td>${l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>`}
     ${(l.s.nVideos || 1) > 1 ? `<td colspan="2"><div class="videos-chips">${videosChips(l.s, state.config.launches[state.launchCode])}</div></td>` : `<td>${liveChip(l.s)}</td>
@@ -2129,6 +2129,8 @@ function openConfig(code) {
   const l = editingCode ? state.config.launches[editingCode]
     : {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
+      // La encuesta es siempre la misma: misma URL y misma etiqueta.
+      encuestaTag: last.encuestaTag, encuestaUrl: last.encuestaUrl,
       precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, pago: last.pago, oferta: last.oferta, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag, vipContadorBase: last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, clase3Url: last.clase3Url, textos: last.textos,
@@ -2217,7 +2219,7 @@ $$('.tab').forEach((t) => t.addEventListener('click', () => {
 }));
 
 // ---------- Etiquetas que deben cambiar en cada lanzamiento ----------
-// Registro y encuesta: una nueva por lanzamiento. VIP y compra: siempre las mismas.
+// Registro: una nueva por lanzamiento. Encuesta, VIP y compra: siempre las mismas (con su «foto»).
 function tagProblems() {
   const code = editingCode || $('#cfg-code').value.trim().toLowerCase();
   const others = Object.entries(state.config.launches).filter(([c]) => c !== code);
@@ -2233,9 +2235,8 @@ function tagProblems() {
     else if (fixed.includes(reg)) out.registro = 'Es la misma que la de VIP o compra. Elige la etiqueta del formulario de registro.';
   }
   if (enc) {
-    const u = usedBy(enc, 'encuestaTag');
-    if (u.length) out.encuesta = `Ya se usó en «${u.join('», «')}»: quien la rellenó entonces vería las clases sin hacer la encuesta. Crea una nueva.`;
-    else if (enc === reg) out.encuesta = 'Es la misma que la de registro: todas verían las clases sin rellenar la encuesta.';
+    // La encuesta puede repetirse en todos los lanzamientos (la «foto» separa a quien la hizo antes).
+    if (enc === reg) out.encuesta = 'Es la misma que la de registro: todas verían las clases sin rellenar la encuesta.';
     else if (fixed.includes(enc)) out.encuesta = 'Es la misma que la de VIP o compra. Elige la etiqueta que añade la encuesta.';
   }
   return out;
@@ -2261,7 +2262,7 @@ function checkLaunchTags() {
   const code = editingCode || $('#cfg-code').value.trim().toLowerCase();
   const prev = launchesSorted().filter(([c]) => c !== code).slice(0, 3);
   $('#tags-used').innerHTML = prev.length
-    ? `Usadas en lanzamientos anteriores (no las repitas): ${prev.map(([, l]) => `<span>${esc(l.name)}: registro <code>${esc(l.registroTag || '–')}</code>${l.encuestaTag ? ` · encuesta <code>${esc(l.encuestaTag)}</code>` : ''}</span>`).join(' · ')}`
+    ? `Etiquetas de registro de lanzamientos anteriores (no las repitas): ${prev.map(([, l]) => `<span>${esc(l.name)}: <code>${esc(l.registroTag || '–')}</code></span>`).join(' · ')}`
     : '';
 }
 [...CAMPOS_ETIQUETA.map((id) => `#${id}`), '#cfg-code'].forEach((sel) => $(sel).addEventListener('input', checkLaunchTags));
@@ -2294,8 +2295,8 @@ const CICLO = [
   { id: 'cfg-code', c: 'nuevo', label: 'Código' },
   { id: 'cfg-name', c: 'nuevo', label: 'Nombre', key: 'name' },
   { id: 'cfg-registro', c: 'nuevo', label: 'Etiqueta de registro' },
-  { id: 'cfg-encuesta-tag', c: 'nuevo', label: 'Etiqueta de encuesta', opcional: true },
-  { id: 'cfg-encuesta-url', c: 'nuevo', label: 'Enlace de la encuesta', key: 'encuestaUrl', opcional: true },
+  { id: 'cfg-encuesta-tag', c: 'fijo', label: 'Etiqueta de encuesta', opcional: true },
+  { id: 'cfg-encuesta-url', c: 'fijo', label: 'Enlace de la encuesta', key: 'encuestaUrl', opcional: true },
   { id: 'cfg-inicio', c: 'nuevo', label: 'Inicio de captación', key: 'inicioCaptacion' },
   { id: 'cfg-directo-fecha', c: 'nuevo', label: 'Día del directo', key: 'fechaDirecto' },
   { id: 'cfg-directo-hora', c: 'nuevo', label: 'Hora del directo' },
@@ -2540,7 +2541,7 @@ $('#cfg-save').addEventListener('click', async () => {
 // Las etiquetas de VIP y compra no cambian entre lanzamientos y GHL no guarda cuándo se pusieron.
 // Al crear el lanzamiento marcamos a quien ya las tenía (`<código>_vip_previo`…) para no contarlas.
 function missingSnapshot(launch) {
-  return SNAPSHOT_TAGS.filter((f) => launch?.[f.field] && launch.snapshot?.tags?.[f.field] !== launch[f.field]);
+  return fotosPendientes(launch);
 }
 
 async function fetchAllIds(tag, label) {
@@ -2580,7 +2581,7 @@ async function runSnapshot(code) {
     const next = { ...state.config, launches: { ...state.config.launches, [code]: { ...launch, snapshot } } };
     state.config = (await api('/api/config', { method: 'POST', body: next })).config;
   } catch (e) {
-    notice(`No se pudo completar la foto de VIP/clientas/llamadas anteriores: ${e.message}`, true);
+    notice(`No se pudo completar la foto de VIP/clientas/llamadas/encuesta anteriores: ${e.message}`, true);
   } finally {
     progress(null);
   }
@@ -2590,14 +2591,14 @@ function snapshotSummary(launch) {
   const s = launch.snapshot;
   if (!s) return '';
   const parts = SNAPSHOT_TAGS.filter((f) => s.tags?.[f.field]).map((f) => `${s.counts[f.field] ?? 0} con «${esc(s.tags[f.field])}»`);
-  return `Foto hecha el ${new Date(s.at).toLocaleString('es-ES')}: ${parts.join(', ')}. No cuentan como VIP, compra ni llamada de este lanzamiento.`;
+  return `Foto hecha el ${new Date(s.at).toLocaleString('es-ES')}: ${parts.join(', ')}. No cuentan como VIP, compra, llamada ni encuesta de este lanzamiento.`;
 }
 
 function renderSnapshotBox() {
   const box = $('#cfg-snapshot');
   const launch = editingCode && state.config.launches[editingCode];
   if (!launch) {
-    box.innerHTML = '<p class="muted">Al guardar se hará una «foto» de quién tiene ya las etiquetas de VIP, compra y llamada, para no contarlas como de este lanzamiento. Crea el lanzamiento <strong>antes de abrir la venta de la VIP</strong>.</p>';
+    box.innerHTML = '<p class="muted">Al guardar se hará una «foto» de quién tiene ya las etiquetas de VIP, compra, llamada y encuesta (si es la de un lanzamiento anterior), para no contarlas como de este lanzamiento. Crea el lanzamiento <strong>antes de abrir la venta de la VIP</strong>.</p>';
     return;
   }
   const missing = missingSnapshot(launch);
