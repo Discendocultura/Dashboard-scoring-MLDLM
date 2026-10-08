@@ -13,10 +13,13 @@ export const PLANES_SUSCRIPCION = [
 ];
 export const TIPOS_PAGO = { unico: 'Pago único', suscripcion: 'Suscripción' };
 
-const num = (v) => {
-  const n = Number(String(v ?? '').replace(',', '.'));
+// Importe escrito a mano: «1.200» o «1.200,50» (miles con punto) · «97,5» · «97.5». 0 si no es válido.
+export const dinero = (v) => {
+  const t = String(v ?? '').trim();
+  const n = typeof v === 'number' ? v : Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : /^\d{1,3}(\.\d{3})+$/.test(t) ? t.replace(/\./g, '') : t);
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
 };
+const num = dinero;
 const str = (v, max) => String(v ?? '').trim().slice(0, max);
 const url = (v) => (/^https?:\/\//i.test(str(v, 600)) ? str(v, 600) : '');
 

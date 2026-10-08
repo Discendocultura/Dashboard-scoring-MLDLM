@@ -5,6 +5,9 @@
 import { madridToEpoch, milestones } from './page.js';
 import { dayInMadrid } from './scoring.js';
 import { addDays } from './tareas.js';
+import { dinero } from './pago.js';
+
+export { dinero };
 
 export const TIPOS_BONUS = [
   { id: 'bar_directo', label: 'BAR en directo', largo: 'Bonus de acción rápida en directo', corto: 'BAR directo', icon: '🔴', desc: 'Solo para quien compra durante el directo' },
@@ -26,12 +29,6 @@ const LOCAL_DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 const HORA = 3_600_000;
 
 const str = (v, max) => String(v ?? '').trim().slice(0, max);
-export const dinero = (v) => {
-  const t = String(v ?? '').trim();
-  // «1.200» o «1.200,50» (miles con punto) · «97,5» · «97.5»
-  const n = Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : /^\d{1,3}(\.\d{3})+$/.test(t) ? t.replace(/\./g, '') : t);
-  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
-};
 const idDe = (v, i, p) => (/^[a-z0-9_-]{1,24}$/i.test(String(v || '')) ? String(v) : `${p}${i + 1}`);
 
 export function sanitizeOferta(o) {

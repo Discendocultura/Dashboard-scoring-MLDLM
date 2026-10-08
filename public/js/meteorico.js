@@ -6,6 +6,7 @@
 import { madridToEpoch } from './page.js';
 import { conFraccionado, esSuscripcion, importeVenta, planDeTags, resumenPlanes, pendientesPago, enlacePago, planesActivos } from './pago.js';
 import { addDays } from './tareas.js';
+import { dayOfDateField } from './scoring.js';
 
 const DAY = 86_400_000;
 export const FASES_METEORICO = {
@@ -48,7 +49,7 @@ const tiene = (c, tag) => Boolean(tag) && (c.tags || []).some((x) => String(x).t
 // del cierre. Sin él: cualquiera con la etiqueta que no estuviera en la «foto» de antes de abrir.
 export function esVentaMeteorico(c, m, previo = null) {
   if (!tiene(c, m.compraTag)) return false;
-  const f = m.compraDateField ? dia(c.cf?.[m.compraDateField]) : '';
+  const f = m.compraDateField ? dayOfDateField(c.cf?.[m.compraDateField]) : '';
   if (m.compraDateField && f) {
     const desde = m.calentamiento || dia(m.apertura);
     const hasta = dia(m.cierre) || dia(m.apertura);
@@ -68,7 +69,7 @@ export function metricasMeteorico(contactos, m, { previo = null, visitas = null,
   const inv = inversion != null ? inversion : num(m.inversion) || null;
   const porDia = new Map();
   for (const c of ventas) {
-    const d = (m.compraDateField && dia(c.cf?.[m.compraDateField])) || '';
+    const d = (m.compraDateField && dayOfDateField(c.cf?.[m.compraDateField])) || '';
     if (d) porDia.set(d, (porDia.get(d) || 0) + 1);
   }
   const vis = visitas?.total || 0;

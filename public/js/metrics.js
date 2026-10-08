@@ -7,11 +7,14 @@ import { tramoEdad, ORDEN_EDAD } from './encuesta.js';
 import { importeVenta, esSuscripcion, resumenPlanes } from './pago.js';
 import { videosDe, videoVenta, clasesDe, conVip } from './videos.js';
 
-// Inicio de captación del lanzamiento siguiente: ahí terminan las ventas de este.
+// Inicio de captación del lanzamiento siguiente DEL MISMO EMBUDO: ahí terminan las ventas de este.
+// (Un lanzamiento de otro embudo vende otro producto y no corta las ventas de este.)
 export function nextLaunchStart(config, code) {
-  const start = config.launches[code]?.inicioCaptacion;
+  const launch = config.launches[code];
+  const start = launch?.inicioCaptacion;
   if (!start) return '';
-  return Object.values(config.launches).map((l) => l.inicioCaptacion).filter((d) => d && d > start).sort()[0] || '';
+  const mismo = (l) => !launch.embudo || !l.embudo || l.embudo === launch.embudo;
+  return Object.values(config.launches).filter(mismo).map((l) => l.inicioCaptacion).filter((d) => d && d > start).sort()[0] || '';
 }
 
 export function enrichLead(contact, code, config) {
@@ -373,7 +376,7 @@ export function avisosLanzamiento(leads, launch, m) {
   if (falta.length) out.push(`Falta en Configuración: ${falta.join(', ')}.`);
   const sinFoto = fotosPendientes(launch);
   if (sinFoto.length) out.push(`Falta la «foto» de ${sinFoto.map((f) => f.label).join(', ')}: quien ya la tenía de lanzamientos anteriores cuenta como de este.`);
-  if ((launch.unicoTag || launch.fraccionadoTag) && m.pago.sinEtiqueta.n) out.push(`${m.pago.sinEtiqueta.n} ventas de Raíces sin etiqueta de pago único ni fraccionado: revisa los workflows de compra.`);
+  if (!esSuscripcion(launch) && (launch.unicoTag || launch.fraccionadoTag) && m.pago.sinEtiqueta.n) out.push(`${m.pago.sinEtiqueta.n} ventas de Raíces sin etiqueta de pago único ni fraccionado: revisa los workflows de compra.`);
   if (!launch.unicoTag && !launch.fraccionadoTag && m.compra) out.push('Elige las etiquetas de pago único y fraccionado para separar las ventas y su facturación.');
   if ((launch.publiTag || launch.organicoTag) && m.origen.sinEtiqueta.leads) out.push(`${m.origen.sinEtiqueta.leads} leads sin etiqueta de publicidad ni orgánico: revisa los formularios de registro.`);
   if (launch.compraDateField) {
@@ -391,10 +394,11 @@ export function ventasPorDia(leads, launch) {
   if (!start || !launch.compraDateField) return null;
   const buys = leads.filter((l) => l.s.compra);
   const daysWithSales = buys.map((l) => l.s.fecha_compra).filter(Boolean).sort();
-  const end = (launch.cierreCarrito || '').slice(0, 10) || [start, ...daysWithSales].sort().at(-1);
+  const fin = (launch.cierreCarrito || '').slice(0, 10) || [start, ...daysWithSales].sort().at(-1);
+  const end = [fin, addDay(start, 59)].sort()[0]; // como mucho 60 días de carrito; lo posterior va a «después»
   const days = [];
   let importe = 0;
-  for (let d = start, i = 0; d <= end && i < 60; d = addDay(d, 1), i++) days.push({ day: d, n: 0, unico: 0, fracc: 0, importe: 0 });
+  for (let d = start; d <= end; d = addDay(d, 1)) days.push({ day: d, n: 0, unico: 0, fracc: 0, importe: 0 });
   let antes = 0; let despues = 0; let sinFecha = 0;
   for (const l of buys) {
     const d = l.s.fecha_compra;
@@ -570,7 +574,7 @@ export function resumenTrafico(m, meta) {
   return {
     inversion: inversion || null,
     impresiones: st?.impresiones ?? null,
-    cpm: st?.impresiones ? div(inversion, st.impresiones / 1000) : null,
+    cpm: st?.impresiones ? div(inversion || null, st.impresiones / 1000) : null,
     clics: st?.clics ?? null,
     ctr: st?.impresiones ? div(st.clics, st.impresiones) : null,
     cpc: div(inversion || null, st?.clics),

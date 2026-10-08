@@ -1,7 +1,7 @@
 // Embudo VSL (siempre abierto): registro → vídeo → compra directa o llamada de valoración.
 // Señales de cada lead, rangos de fechas (presets, mes y semanas del mes) y métricas.
 // Lo usan el navegador y los tests.
-import { dayInMadrid, waPhone } from './scoring.js';
+import { dayInMadrid, dayOfDateField, waPhone } from './scoring.js';
 import { conFraccionado, esSuscripcion, importeVenta, planDeTags, resumenPlanes, planesActivos } from './pago.js';
 
 export const VSL_PCTS = [25, 50, 75, 90];
@@ -64,8 +64,8 @@ export function enrichVsl(c, vsl, { pais = '34', citas = null, code = vsl.id || 
     vip: false, // compatibilidad con el ranking de anuncios de los lanzamientos
     origen: has(vsl.publiTag) ? 'publi' : has(vsl.organicoTag) ? 'organico' : pagado ? 'publi' : 'organico',
   };
-  const fReg = dayInMadrid(c.cf?.[vsl.registroDateField] || c.dateAdded || '');
-  const fCompra = s.compra ? dayInMadrid(c.cf?.[vsl.compraDateField] || '') || fReg : '';
+  const fReg = (vsl.registroDateField && dayOfDateField(c.cf?.[vsl.registroDateField])) || dayInMadrid(c.dateAdded || '');
+  const fCompra = s.compra ? dayOfDateField(c.cf?.[vsl.compraDateField]) || fReg : '';
   const estado = s.compra ? 'compro' : s.llamada ? 'llamada' : s.pct >= 75 ? 'final' : s.vio ? 'vio' : 'novio';
   return {
     ...c, s, fReg, fCompra, estado, citas: misCitas,

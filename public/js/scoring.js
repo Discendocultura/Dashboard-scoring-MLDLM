@@ -81,12 +81,19 @@ export function launchCodesFromTags(tags) {
 }
 
 // Día (AAAA-MM-DD) de un campo de fecha de GHL. Los campos de solo fecha se guardan como
-// medianoche (UTC o España según el caso): sumando 12 h siempre caemos en el día correcto.
+// medianoche (UTC o España, que en UTC son las 22:00/23:00 del día anterior): sumando 12 h caemos en
+// el día correcto. Si el campo trae hora de verdad (p. ej. {{right_now}}), se usa el día en España.
+// Acepta texto ISO y marcas de tiempo en milisegundos o en segundos.
 export function dayOfDateField(value) {
   if (value == null || value === '') return '';
-  const n = typeof value === 'number' || /^\d{10,}$/.test(String(value)) ? Number(value) : Date.parse(value);
-  if (Number.isNaN(n)) return /^\d{4}-\d{2}-\d{2}/.test(String(value)) ? String(value).slice(0, 10) : '';
-  return new Date(n + 12 * 3600_000).toISOString().slice(0, 10);
+  const t = String(value).trim();
+  let n = typeof value === 'number' || /^\d{10,}$/.test(t) ? Number(value) : Date.parse(t);
+  if (Number.isNaN(n)) return /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 10) : '';
+  if (n < 1e11) n *= 1000; // segundos
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  const d = new Date(n);
+  const medianoche = d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0 && [0, 22, 23].includes(d.getUTCHours());
+  return medianoche ? new Date(n + 12 * 3600_000).toISOString().slice(0, 10) : madridDay.format(d);
 }
 
 // Día (AAAA-MM-DD) en hora de España de un instante (p. ej. la fecha de alta del contacto).
@@ -103,7 +110,7 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   const has = (t) => Boolean(t) && tags.has(String(t).toLowerCase());
   const s = {};
   for (const sig of SIGNALS) s[sig] = tags.has(tagFor(launch, sig));
-  s.vip = has(cfg.vipTag) && !s.vip_previo;
+  s.vip = conVip(cfg) !== false && has(cfg.vipTag) && !s.vip_previo; // sin entrada VIP en el embudo no puntúa
   s.vip_anterior = has(cfg.vipTag) && s.vip_previo;
   // Encuesta de este lanzamiento; quien la rellenó en uno anterior (misma etiqueta) no cuenta aquí.
   s.encuesta = has(cfg.encuestaTag) && !s.encuesta_previo;
