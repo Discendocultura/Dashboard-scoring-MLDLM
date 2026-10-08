@@ -4207,6 +4207,7 @@ async function loadAgencia(fresh = false) {
 $('#btn-agencia').addEventListener('click', () => {
   $('#agencia-dialog .tab[data-tab="ag-panel"]').click();
   $('#ag-cron').textContent = `${location.origin}/api/agencia?key=<DIGEST_KEY>`;
+  $('#ag-cron-clientes').textContent = state.clientes.map((c) => `${c.nombre}:\n${location.origin}/api/agencia?key=<DIGEST_KEY>&c=${encodeURIComponent(c.id)}`).join('\n\n');
   $('#agencia-dialog').showModal();
   loadAgencia();
 });

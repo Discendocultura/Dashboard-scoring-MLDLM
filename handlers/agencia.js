@@ -3,15 +3,15 @@
 //   GET  /api/agencia?key=DIGEST_KEY      → lo llama el programador de tareas cada mañana: manda el resumen
 //                                           (críticos del auditor, tareas vencidas, próximos hitos) a los superadmin
 //   POST { op: 'enviar' }                 → enviarlo ahora (prueba)
-import { requireSuperadmin } from '../lib/auth.js';
+import { requireSuperadmin, safeEqual } from '../lib/auth.js';
 import { env } from '../lib/env.js';
-import { enPrincipal } from '../lib/cliente.js';
+import { enPrincipal, clienteActual } from '../lib/cliente.js';
 import { listUsers, ensureContact, emailLayout, guardarContactos } from '../lib/users.js';
 import { sendEmail } from '../lib/ghl.js';
 import { resumenAgencia } from '../lib/agencia.js';
-import { listClientes } from '../lib/clientes.js';
-import { runCliente } from '../lib/cliente.js';
 import { informesPendientes } from '../lib/informe-envio.js';
+import { getConfig } from '../lib/config-store.js';
+import { sendDigest } from '../lib/digest.js';
 import { json, readBody, errorResponse, escapeHtml } from '../lib/http.js';
 
 const eur = (n) => (n == null ? '–' : `${Math.round(n).toLocaleString('es-ES')} €`);
@@ -70,13 +70,21 @@ export async function GET(request) {
     const url = new URL(request.url);
     const key = url.searchParams.get('key');
     if (key != null) {
-      if (!env.DIGEST_KEY || env.DIGEST_KEY.length < 16 || key !== env.DIGEST_KEY) return json({ error: 'No autorizado' }, 401);
-      // Informes automáticos a cada cliente (lanzamientos recién cerrados y VSL los lunes).
-      const informes = [];
-      for (const c of await listClientes({ fresh: true })) {
-        try { informes.push(...(await runCliente(c, () => informesPendientes(new URL(request.url).origin))).map((x) => ({ cliente: c.id, ...x }))); } catch (e) { console.error('Informes', c.id, e.message); }
+      if (!env.DIGEST_KEY || env.DIGEST_KEY.length < 16 || !safeEqual(key, env.DIGEST_KEY)) return json({ error: 'No autorizado' }, 401);
+      // Una tarea programada por cliente (…&c=<cliente>): sus informes automáticos (lanzamientos recién
+      // cerrados y VSL los lunes) y su resumen diario. Así cada llamada es pequeña y no se pasa del
+      // límite de peticiones de Cloudflare. Sin c=: solo el resumen de la agencia (auditor).
+      if (url.searchParams.has('c')) {
+        const c = clienteActual();
+        const out = { cliente: c.id, informes: [], resumenDiario: null };
+        try { out.informes = await informesPendientes(url.origin); } catch (e) { out.errorInformes = String(e.publicMessage || e.message).slice(0, 200); }
+        const config = await getConfig({ fresh: true });
+        if (config.digestEmail) {
+          try { out.resumenDiario = await sendDigest(config, new URL('/', request.url).toString()); } catch (e) { out.resumenDiario = { sent: false, error: String(e.publicMessage || e.message).slice(0, 200) }; }
+        }
+        return json(out);
       }
-      return json({ ...(await enviar(request)), informes });
+      return json(await enviar(request));
     }
     await requireSuperadmin(request);
     return json(await resumenAgencia({ fresh: url.searchParams.has('fresh') }));

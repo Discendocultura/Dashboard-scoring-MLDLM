@@ -317,7 +317,8 @@ cruza las UTM de GHL (`utm_campaign`, `utm_term`, `utm_content` con los ID de Me
 2. El token de GHL necesita además el permiso **`conversations/message.write`**.
 3. Para recibirlo cada mañana: añade en Cloudflare el secreto `DIGEST_KEY` (texto aleatorio largo) y crea una tarea
    gratuita en [cron-job.org](https://cron-job.org) que abra a las 8:00 (hora de Madrid):
-   `https://<tu-proyecto>.pages.dev/api/digest?key=<DIGEST_KEY>`
+   `https://<tu-proyecto>.pages.dev/api/agencia?key=<DIGEST_KEY>&c=<cliente>` (la tarea de cada cliente, ver «Tareas automáticas por cliente»).
+   La antigua `/api/digest?key=…` sigue funcionando, pero no la tengas a la vez que la del cliente o el resumen llega repetido.
 
 ## Anti-bots (Cloudflare Turnstile, gratis)
 Cloudflare → *Turnstile → Add widget* → dominios: el de tus páginas de GHL y `<tu-proyecto>.pages.dev`, modo
@@ -380,7 +381,7 @@ Para que el cliente vea sus resultados sin tocar nada: en *Equipo → Miembros*,
 **Ver como** (*Agencia → Ver como*, superadmin): eliges cualquier cliente y ves su portal exactamente como lo ve él (con sus cifras recalculadas al momento y el nombre de su producto), sin entrar en su dashboard ni avisarle. Dice también quién de ese cliente tiene acceso de «Cliente». «← Volver al dashboard» te devuelve a Agencia.
 
 ## Informe para el cliente
-En *Métricas* de cada lanzamiento: **Informe para el cliente ↗** (página con resultados frente a objetivos, embudo, anuncios ganadores, avatar comprador y aprendizajes; con botón para guardarla en PDF), **Copiar enlace para el cliente** (enlace firmado que se abre sin usuario) y **Enviárselo ahora** (email a las personas con el rol Cliente, desde su GHL). En las VSL hay un informe semanal (la semana pasada frente a la anterior). Automático, con la tarea de cada mañana de la agencia (`/api/agencia?key=…`): el informe del lanzamiento se manda solo al cerrar el carrito (una vez) y el de la VSL cada lunes si se activa en su configuración. Desde el portal, el cliente también puede abrirlo.
+En *Métricas* de cada lanzamiento: **Informe para el cliente ↗** (página con resultados frente a objetivos, embudo, anuncios ganadores, avatar comprador y aprendizajes; con botón para guardarla en PDF), **Copiar enlace para el cliente** (enlace firmado que se abre sin usuario) y **Enviárselo ahora** (email a las personas con el rol Cliente, desde su GHL). En las VSL hay un informe semanal (la semana pasada frente a la anterior). Automático, con la tarea de cada mañana de cada cliente (`/api/agencia?key=…&c=<cliente>`): el informe del lanzamiento se manda solo al cerrar el carrito (una vez) y el de la VSL cada lunes si se activa en su configuración. Desde el portal, el cliente también puede abrirlo.
 
 ## Vista de agencia (superadmin)
 El botón **Agencia** está aparte, junto al nombre del cliente (no entre los botones del cliente). Dentro:
@@ -391,6 +392,7 @@ El botón **Agencia** está aparte, junto al nombre del cliente (no entre los bo
 - **Plantillas de embudo**: en el ⚙️ de un embudo, *Guardar como plantilla de agencia* (tipo y formato, pestañas, mensajes de WhatsApp, tareas habituales y la base de los lanzamientos: precios, textos y barra de la página; de una VSL, sus textos y precios). En *＋ Nuevo embudo* de cualquier cliente, *Partir de una plantilla*: se crea el embudo con todo eso (los mensajes y las tareas habituales, si se marcan). Etiquetas, enlaces y fechas de GHL los pone cada cliente.
 - **Marca de cada cliente** (*Equipo → Marca*, admin): nombre de su producto (sustituye a «Raíces» en el dashboard, la página preclase, el calendario y los emails), colores de los emails del equipo y preguntas de su encuesta del avatar (campos de su GHL). Un cliente nuevo empieza con mensajes de WhatsApp neutros (con `{producto}`), sin encuesta y sin nada de MLDLM.
 - **Auditor automático**: cada mañana revisa todos los clientes y manda a los superadmin un email con los críticos, las tareas vencidas, el próximo hito y el alta pendiente de cada uno. Se activa con una tarea de [cron-job.org](https://cron-job.org) a las 8:00 que abra `https://<tu-proyecto>.pages.dev/api/agencia?key=<DIGEST_KEY>` (la misma clave del resumen diario). En el panel, *Enviarme el resumen* lo manda al momento.
+- **Tareas automáticas por cliente**: una tarea más por cliente (8:05, 8:10…) que abra `https://<tu-proyecto>.pages.dev/api/agencia?key=<DIGEST_KEY>&c=<cliente>`. Manda sus informes automáticos y su resumen diario. Van separadas para que ninguna llamada se pase del límite de peticiones de Cloudflare. Las URL de cada cliente están en *Agencia → Panel de clientes → Tareas automáticas de cada mañana*.
 
 ## Embudos de cada cliente («＋ Nuevo embudo»)
 Cada cliente tiene sus embudos en el menú lateral. Con **＋ Nuevo embudo** (quien puede configurar) se elige el tipo:

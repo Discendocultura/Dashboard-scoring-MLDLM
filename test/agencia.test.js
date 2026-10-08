@@ -127,11 +127,11 @@ test('informe para el cliente: página, enlace firmado, envío y automático al 
   // Envío: a las personas con el rol Cliente (creada en el test anterior)
   const env = (await call('/api/informe', { method: 'POST', cookie: admin, body: { op: 'enviar', l: 'cerr' } })).data;
   assert.ok(env.destinatarios >= 1 && env.enviados === env.destinatarios);
-  // Automático: con el resumen de cada mañana, una sola vez
-  const cron = (await call('/api/agencia?key=clave-larga-de-prueba-123')).data;
+  // Automático: con la tarea de cada mañana del cliente, una sola vez
+  const cron = (await call('/api/agencia?key=clave-larga-de-prueba-123&c=mldlm')).data;
   assert.ok(cron.informes.some((x) => x.code === 'cerr'));
   assert.ok((await call('/api/config', { cookie: admin })).data.config.launches.cerr.informeEnviado);
-  const otra = (await call('/api/agencia?key=clave-larga-de-prueba-123')).data;
+  const otra = (await call('/api/agencia?key=clave-larga-de-prueba-123&c=mldlm')).data;
   assert.equal(otra.informes.some((x) => x.code === 'cerr'), false);
   // Semanal de la VSL
   const v = await route(new Request('http://localhost/api/informe?v=vsl', { headers: { cookie: admin } }), ENV);

@@ -1509,9 +1509,13 @@
         </div>
         <div id="ag-body"></div>
         <details class="emb-guia">
-          <summary>⏰ Recibir este resumen cada mañana (auditor automático)</summary>
-          <p>Cada mañana, el auditor revisa todos los clientes y os manda a los superadmin un email con los críticos, las tareas vencidas y los próximos hitos de cada uno. Para activarlo, usa la misma clave que el resumen diario (<code>DIGEST_KEY</code> en Cloudflare) y crea en <a href="https://cron-job.org" target="_blank" rel="noopener">cron-job.org</a> una tarea que abra a las 8:00 (hora de Madrid):</p>
+          <summary>⏰ Tareas automáticas de cada mañana (cron)</summary>
+          <p>Se crean en <a href="https://cron-job.org" target="_blank" rel="noopener">cron-job.org</a> (gratis), cada día a las 8:00 hora de Madrid. Cambia <code>&lt;DIGEST_KEY&gt;</code> por la clave que tienes en Cloudflare (no la pegues en ningún chat).</p>
+          <p><strong>1. Resumen de la agencia</strong> (auditor: críticos, tareas vencidas y próximos hitos de todos los clientes, a los superadmin):</p>
           <pre id="ag-cron"></pre>
+          <p><strong>2. Una tarea por cliente</strong>: sus informes automáticos (al cerrar un carrito y los lunes en las VSL) y su resumen diario (si tiene email del resumen). Van separadas para que ninguna se pase del límite de Cloudflare; ponlas unos minutos después de la primera (8:05, 8:10…).</p>
+          <pre id="ag-cron-clientes"></pre>
+          <p class="muted small">Si ya tenías la tarea del resumen diario (<code>/api/digest?key=…</code>), bórrala: lo hace ahora la tarea del cliente y llegaría repetido.</p>
         </details>
         </section>
         <section class="tab-panel" data-panel="clientes" hidden>
