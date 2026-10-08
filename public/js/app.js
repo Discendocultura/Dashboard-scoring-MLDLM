@@ -894,6 +894,57 @@ function currentMetrics() {
   return computeMetrics(state.leads, launch, { metaSpend: state.meta?.configured && !state.meta.error ? state.meta.total : null });
 }
 
+// Casi compradoras: las que estuvieron cerca (muy calientes, calientes o VIP) y no compraron. Se pueden
+// etiquetar en GHL (`<código>_casi_compra`) para lanzarles el downsell o avisarlas en el siguiente lanzamiento.
+const esCasiCompradora = (l) => !l.s.compra && (l.s.vip || ['muy-caliente', 'caliente'].includes(l.estado?.id));
+function renderCasiCompradoras(launch) {
+  const box = $('#casi-compradoras');
+  const casi = state.leads.filter(esCasiCompradora).sort((a, b) => b.score - a.score);
+  const tag = tagFor(state.launchCode, 'casi_compra');
+  const yaEtiquetadas = casi.filter((l) => l.s.casi_compra).length;
+  const porTipo = [
+    ['VIP sin comprar', casi.filter((l) => l.s.vip).length],
+    ['Muy calientes', casi.filter((l) => l.estado?.id === 'muy-caliente').length],
+    ['Calientes', casi.filter((l) => l.estado?.id === 'caliente').length],
+  ];
+  if (!casi.length) { box.innerHTML = '<p class="muted">Ninguna por ahora.</p>'; return; }
+  box.innerHTML = `<div class="kpis">${porTipo.map(([k, n]) => card(k, n, `${pctOf(n, casi.length)} del segmento`, 'users', 'info')).join('')}${card('En el segmento', casi.length, `${yaEtiquetadas} ya etiquetadas en GHL`, 'tag', 'accent')}</div>
+    <div class="table-scroll"><table class="metric-table"><thead><tr><th>Persona</th><th class="num">Puntos</th><th>Estado</th><th>VIP</th></tr></thead><tbody>
+    ${casi.slice(0, 10).map((l) => `<tr><td><strong>${esc(l.name || l.email)}</strong></td><td class="num">${l.score}</td><td>${esc(l.estado?.label || '')}</td><td>${l.s.vip ? '⭐' : ''}</td></tr>`).join('')}
+    </tbody></table></div>${casi.length > 10 ? `<p class="muted small">…y ${casi.length - 10} más.</p>` : ''}
+    ${tiene('hoy') || tiene('leads') || tiene('llamadas') ? `<p class="row"><button type="button" class="btn primary" id="btn-casi-etiquetar" ${yaEtiquetadas === casi.length ? 'disabled' : ''}>Etiquetar en GHL (${casi.length - yaEtiquetadas})</button> <span class="muted small">Pone la etiqueta <code>${esc(tag)}</code>: úsala en GHL para el workflow del downsell o del siguiente lanzamiento.</span></p>` : ''}
+    <p class="muted small" id="casi-estado"></p>`;
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('#btn-casi-etiquetar');
+  if (!b) return;
+  const code = state.launchCode;
+  const tag = tagFor(code, 'casi_compra');
+  const pendientes = state.leads.filter((l) => esCasiCompradora(l) && !l.s.casi_compra);
+  if (!pendientes.length) return;
+  if (!window.confirm(`Se va a poner la etiqueta «${tag}» a ${pendientes.length} contactos en GHL. Si un workflow de GHL empieza con esa etiqueta, se pondrá en marcha para ellas. ¿Continuar?`)) return;
+  b.disabled = true;
+  let hechas = 0;
+  let fallos = 0;
+  for (let i = 0; i < pendientes.length; i += 25) {
+    const lote = pendientes.slice(i, i + 25);
+    try {
+      const { results } = await api('/api/apply-tags', { method: 'POST', body: { items: lote.map((l) => ({ id: l.id, tags: [tag] })) } });
+      const ok = new Set(results.filter((r) => r.ok).map((r) => r.id));
+      for (const l of lote) {
+        if (!ok.has(l.id)) { fallos++; continue; }
+        l.tags = [...(l.tags || []), tag];
+        l.s.casi_compra = true;
+        hechas++;
+      }
+    } catch { fallos += lote.length; }
+    if (state.launchCode !== code) return;
+    $('#casi-estado').textContent = `Etiquetando… ${hechas} de ${pendientes.length}`;
+  }
+  renderCasiCompradoras(state.config.launches[code]);
+  $('#casi-estado').textContent = fallos ? `Etiquetadas ${hechas}; ${fallos} no se pudieron (vuelve a pulsar para reintentarlo).` : `Etiquetadas ${hechas} en GHL ✓`;
+});
+
 // Resumen: facturación del lanzamiento, de su meteórico posterior (downsell) y la suma de las dos.
 async function renderFacturacionTotal(m) {
   const box = $('#fact-total-l');
@@ -961,6 +1012,7 @@ function renderMetrics() {
 
   renderEconomics(m, launch);
   renderFacturacionTotal(m);
+  renderCasiCompradoras(launch);
   // Métricas → Downsell abierta: el meteórico y su conversión de ESTE lanzamiento (y con sus leads).
   if (!$('#view-metricas [data-msub="meteorico"]').hidden) renderMeteoLanz();
   // Carrito abierto: ritmo frente al objetivo, bonus que caducan y cierre (visible en todas las pestañas).

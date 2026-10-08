@@ -23,6 +23,9 @@ export const SIGNALS = [
   'vip_previo', 'compra_previo', 'llamada_previo', 'encuesta_previo',
   // Resultado del contacto de la setter (solo uno a la vez).
   'res_respondio', 'res_interesada', 'res_llamada', 'res_no_interesada', 'res_no_contesta',
+  // Segmento de «casi compradoras» (muy calientes, calientes o VIP que no compraron) para el downsell
+  // o el siguiente lanzamiento.
+  'casi_compra',
 ];
 
 export const OUTCOMES = [
