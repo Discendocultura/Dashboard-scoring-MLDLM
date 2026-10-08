@@ -1,18 +1,23 @@
 // Ficha completa de un lead (Comercial → Llamadas, al pulsar una llamada).
-//   GET /api/ficha?cid=<contacto> → { contacto, encuesta: [{ pregunta, respuesta }], otros: [{ campo, valor }], notas }
+//   GET /api/ficha?cid=<contacto>[&l=<lanzamiento>] → { contacto, encuesta: [{ pregunta, respuesta }], otros: [{ campo, valor }], notas,
+//     votacion: { pregunta, miVoto, resultados } | null }  (votación de la preclase de ese lanzamiento)
 // «otros»: el resto de campos personalizados con valor (entre ellos, las respuestas del formulario de
 // reserva de la llamada), sin los técnicos que ya usa el dashboard (fechas, IDs de anuncios).
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { getContactCompleto, listAllFields, getContactNotes } from '../lib/ghl.js';
 import { json, errorResponse } from '../lib/http.js';
+import { votosDe, resultadosVotos } from '../lib/votos.js';
+import { tieneRecurso, recursosDe } from '../public/js/recursos.js';
 
 const texto = (v) => (Array.isArray(v) ? v.map(texto).filter(Boolean).join(', ') : v == null ? '' : String(v).trim());
 
 export async function GET(request) {
   try {
     await requireSession(request, { permiso: ['llamadas', 'hoy', 'leads'] });
-    const cid = new URL(request.url).searchParams.get('cid') || '';
+    const url = new URL(request.url);
+    const cid = url.searchParams.get('cid') || '';
+    const code = url.searchParams.get('l') || '';
     if (!/^[A-Za-z0-9_-]{4,64}$/.test(cid)) return json({ error: 'Contacto no válido' }, 400);
     const [config, c] = await Promise.all([getConfig(), getContactCompleto(cid)]);
     if (!c) return json({ error: 'No se ha encontrado el contacto en GHL' }, 404);
@@ -30,10 +35,17 @@ export async function GET(request) {
       .filter(([id, v]) => !preguntas.some((p) => p.id === id) && !tecnicos.has(id) && texto(v))
       .map(([id, v]) => ({ campo: nombre.get(id)?.name || id, valor: texto(v), fecha: nombre.get(id)?.tipo === 'DATE' }))
       .sort((a, b) => a.campo.localeCompare(b.campo, 'es'));
-    const notas = await getContactNotes(cid).then((n) => n.slice(0, 5)).catch(() => []);
+    const launch = Object.hasOwn(config.launches || {}, code) ? config.launches[code] : null;
+    const [notas, votacion] = await Promise.all([
+      getContactNotes(cid).then((n) => n.slice(0, 5)).catch(() => []),
+      launch && tieneRecurso(launch, 'votacion') ? votosDe(code).then((votos) => {
+        const v = recursosDe(launch).votacion;
+        return { pregunta: v.pregunta, miVoto: v.opciones.find((o) => o.id === votos[cid])?.texto || '', resultados: resultadosVotos(votos, v.opciones) };
+      }).catch(() => null) : null,
+    ]);
     return json({
       contacto: { id: c.id, name: c.name, firstName: c.firstName, email: c.email, phone: c.phone, dateAdded: c.dateAdded, src: c.src || null },
-      encuesta, otros, notas,
+      encuesta, otros, notas, votacion,
     });
   } catch (e) {
     return errorResponse(e);

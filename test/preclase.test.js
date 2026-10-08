@@ -64,6 +64,12 @@ test('preclase: recursos y etapas en la página, votación con resultados y medi
   const d = (await call('/api/votacion?l=pre-26', { cookie: admin })).data;
   assert.equal(d.votos[cid], 'o2');
   assert.equal((await call('/api/votacion?l=pre-26')).status, 401);
+  // Ficha del lead (y de la llamada del closer): su voto y los % de todas
+  const f = (await call(`/api/ficha?cid=${cid}&l=pre-26`, { cookie: admin })).data;
+  assert.equal(f.votacion.pregunta, '¿Qué tema?');
+  assert.equal(f.votacion.miVoto, 'Analíticas');
+  assert.equal(f.votacion.resultados.total, 2);
+  assert.equal((await call(`/api/ficha?cid=${cid}`, { cookie: admin })).data.votacion, null);
   // Test hecho: su etiqueta de GHL
   await ghl.addTags(cid, ['autodiagnostico-hecho']);
   p = (await call(`/api/page?l=pre-26&cid=${cid}`)).data;

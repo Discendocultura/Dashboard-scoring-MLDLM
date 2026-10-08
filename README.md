@@ -33,6 +33,8 @@ Directo y grabación **no se suman**: cuenta el mejor de los dos (son la misma c
 Estados: 🔴 **Muy caliente** ≥70 · 🟠 **Caliente** ≥40 · 🟡 **Templado** ≥15 · 🔵 **Frío** <15.
 Los pesos están en `public/js/scoring.js` (`POINTS` y `ESTADOS`).
 
+**Con recursos de preclase** (música, test o votación), los 100 puntos se reparten así: clases 20 · música 5 · test 10 · votación 5 · VIP 25 · directo/grabación 35 (los bloques que el lanzamiento no tiene se quitan y el resto se reescala a 100). Música: le dio al play 1/3, más del 50 % 2/3, más del 90 % entera. Los lanzamientos sin estos recursos siguen con el reparto de siempre (clases 30 · VIP 30 · vídeo 40).
+
 ### Mensaje de WhatsApp
 
 1. **Ver grabación**: aún no ha visto el 50% de la grabación (ni estuvo en el directo hasta el final).
@@ -241,6 +243,12 @@ Marcadores para el diseño de GHL (`data-launch="auto"` = lanzamiento en curso, 
 | `<a data-lsd-link="encuesta">` | Botón a la encuesta (se abre en otra pestaña, con los datos rellenos; se oculta cuando ya la ha hecho) |
 | `data-lsd-if="vip-abierta|vip-cerrada|ya-vip|encuesta-pendiente|encuesta-hecha"` | Muestra el elemento solo en ese caso |
 | `data-lsd-phase="pre_c1 c1 c2 dia_directo en_directo replay cerrado"` | Muestra el elemento solo en esas fases |
+| `<div data-lsd-audio="musica"></div>` | Música de la preclase: candado hasta ver el 75 % de su clase; después, el reproductor (mide play, 50 % y 90 %) |
+| `<a data-lsd-link="test">` | Botón al test de GHL (se abre en otra pestaña con el email y el nombre); `data-lsd-countdown="test"` cuenta atrás hasta su desbloqueo |
+| `<div data-lsd-votacion></div>` | Votación propia: candado hasta ver el 75 % de su clase; al votar enseña los % de todas |
+| `<a data-lsd-link="descargable">` | Recurso descargable (mide quién lo abre) |
+| `<div data-lsd-etapa="encuesta|clase1|test|clase2|descargable|directo">` | Recibe `data-lsd-estado="bloqueada|disponible|hecha"` para el diseño; `<span data-lsd-etapa-n="test">` escribe su número de etapa |
+| `data-lsd-if="test-bloqueado|test-disponible|test-hecho|musica-bloqueada|musica-disponible|votacion-bloqueada|votacion-disponible|votacion-hecha|descargable-bloqueado|descargable-disponible"` | Muestra el elemento solo en ese caso |
 
 **Vista previa:** en la misma pestaña, "Ver la página de recursos como si fuera…" abre tu página simulando una fecha
 (enlace firmado; para las leads sigue siendo la hora real y los vídeos no se desbloquean antes).
@@ -410,6 +418,15 @@ Al crearlo se eligen sus **pestañas** (no todos los clientes necesitan Setteo, 
 Al crear un embudo de lanzamientos (o con su ⚙️) se eligen las **clases del prelanzamiento** (1, 2 o 3 vídeos grabados de la página preclase) y si hay **entrada VIP** o no. Con 3 clases aparecen las casillas de la clase 3 (desbloqueo, vídeo, textos; bloque `data-lsd-video="clase3"`) y su fase en la página; con 1, desaparecen las de la clase 2. Sin VIP se ocultan su etiqueta, precio, enlace, contador, objetivo, columna y tarjetas, la página no ofrece VIP y la puntuación se reescala a 100 (las clases reparten siempre 30 puntos).
 
 **Sin área de recursos preclase** (opción al crear el embudo o con su ⚙️, para webinar, 2 o 3 vídeos, PLF y reto): el lanzamiento no tiene clases. Se ocultan las páginas de login y preclase, la encuesta de la página y las clases (la pestaña pasa a llamarse «Directo y grabación»), el auditor no las pide y la página cuenta atrás directamente hasta el primer vídeo. La puntuación se reparte entre la VIP y los vídeos del lanzamiento y se reescala a 100 (sin VIP tampoco, el directo y la grabación valen los 100 puntos).
+
+### Recursos de la preclase: música, test, votación y descargable
+Al crear el embudo se marca qué recursos tendrá la preclase además de las clases; los lanzamientos nuevos los heredan (sin fechas). En cada lanzamiento, *Configuración → Preclase → Recursos de la preclase*:
+- **Música:** enlace del MP3 (súbelo a Medios de GHL) y bajo qué clase va. Se desbloquea al ver el 75 % de esa clase (en el mismo navegador al momento; en cualquier otro, con su etiqueta).
+- **Test (GHL):** enlace, **etiqueta que pone el workflow de GHL al terminarlo** y fecha y hora de desbloqueo. Cuenta como hecho cuando la lead tiene esa etiqueta.
+- **Votación:** la hace el dashboard (tabla `votos` de D1). Pregunta, opciones (una por línea; no cambies el orden cuando ya haya votos) y bajo qué clase va (75 % para votar). Su voto sale en la ficha del lead (pulsando su nombre en Leads) y en la ficha de cada llamada, y *Métricas → Vídeos y conversión → Votación de la clase* da el % de cada opción y la conversión a compra de quienes la votaron.
+- **Descargable:** nombre, enlace y fecha opcional.
+
+Las **etapas** de la página se numeran solas: 1 la encuesta (si hay), después clases, test y descargable por orden de fecha y la última el directo; la música y la votación van dentro de la etapa de su clase. La configuración enseña el orden resultante. Etiquetas automáticas: `<código>_musica_play|_50|_90`, `<código>_voto`, `<código>_descarga`.
 
 ### Lanzamientos de varios vídeos (2, 3 o PLF)
 Funcionan como el webinar, con las casillas repetidas para cada vídeo (*Configuración → Lanzamiento*, bloque «Vídeos del lanzamiento»): **día y hora**, **Zoom** (solo si ese vídeo es en directo; si no, es grabado y se publica a su hora), **página del vídeo en GHL**, **vídeo de Vimeo** y desde cuándo se ve. El vídeo 1 usa las casillas de siempre del directo y su grabación.

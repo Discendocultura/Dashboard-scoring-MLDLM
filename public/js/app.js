@@ -684,6 +684,7 @@ async function loadLeads() {
     state.page = 0;
     render();
     loadMeta(token);
+    cargarVotos();
     if (!out.length) notice(`No hay contactos con la etiqueta "${launch.registroTag}".`);
   } catch (e) {
     notice(copia?.contacts.length ? `No se pudieron actualizar los leads (${e.message}): ves los de hace ${haceTxt}.` : `No se pudieron cargar los leads: ${e.message}`, true);
@@ -1137,7 +1138,28 @@ function renderMetrics() {
 
   renderSources();
   renderSetterMetrics(m);
+  renderVotacionMetric();
   renderLift(m);
+}
+
+// Votación de la preclase: % de cada opción y conversión a compra de quienes la votaron.
+function renderVotacionMetric() {
+  const v = state.votos;
+  const launch = state.config.launches[state.launchCode];
+  $('#votacion-card').hidden = !launch || !tieneRecurso(launch, 'votacion');
+  if ($('#votacion-card').hidden) return;
+  if (!v || v.code !== state.launchCode) { $('#votacion-metric').innerHTML = '<p class="muted">Cargando los votos…</p>'; return; }
+  const porId = new Map(state.leads.map((l) => [l.id, l]));
+  const filas = v.resultados.opciones.map((o) => {
+    const votantes = Object.entries(v.votos || {}).filter(([, op]) => op === o.id).map(([cid]) => porId.get(cid)).filter(Boolean);
+    return { ...o, leads: votantes.length, compras: votantes.filter((l) => l.s.compra).length };
+  });
+  const noVotaron = state.leads.filter((l) => !v.votos?.[l.id]);
+  $('#votacion-metric').innerHTML = `<p><strong>${esc(v.pregunta)}</strong> <span class="muted">· ${v.resultados.total} voto${v.resultados.total === 1 ? '' : 's'} (${pctOf(v.resultados.total, state.leads.length)} de los registros)</span></p>
+    ${votacionHtml(v.resultados)}
+    <div class="table-scroll"><table class="metric-table"><thead><tr><th>Opción</th><th class="num">Votos</th><th class="num">%</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
+    <tbody>${filas.map((f) => `<tr><td>${esc(f.texto)}</td><td class="num">${f.n}</td><td class="num">${Math.round(f.pct * 100)} %</td><td class="num">${f.compras}</td><td class="num big">${pctOf(f.compras, f.leads)}</td></tr>`).join('')}
+    <tr class="muted"><td>No votaron</td><td class="num">${noVotaron.length}</td><td class="num">–</td><td class="num">${noVotaron.filter((l) => l.s.compra).length}</td><td class="num">${pctOf(noVotaron.filter((l) => l.s.compra).length, noVotaron.length)}</td></tr></tbody></table></div>`;
 }
 
 // Ventas de Raíces por día del carrito (fecha de compra de Raíces).
@@ -2259,6 +2281,16 @@ function compraChip(s) {
   return chip('—');
 }
 
+// Recursos de la preclase en la fila del lead: música, test y su voto.
+function preclaseChips(l) {
+  const r = l.s.recursos || {};
+  const out = [];
+  if (r.musica && (l.s.musica_play || l.s.musica_50 || l.s.musica_90)) out.push(`<span class="ll-chip" title="Música: ${l.s.musica_90 ? 'entera' : l.s.musica_50 ? 'más de la mitad' : 'le dio al play'}">🎵${l.s.musica_90 ? ' 90%' : l.s.musica_50 ? ' 50%' : ''}</span>`);
+  if (r.test && l.s.test) out.push('<span class="ll-chip" title="Hizo el test">🧭 Test</span>');
+  const v = r.votacion && votoTexto(l.id);
+  if (v) out.push(`<span class="ll-chip" title="Su voto en la clase">🗳️ ${esc(v.length > 22 ? `${v.slice(0, 21)}…` : v)}</span>`);
+  return out.join(' ');
+}
 function rowHtml(l) {
   const msgPreview = messageFor(l);
   const waBtn = l.step === 'comprado'
@@ -2267,7 +2299,7 @@ function rowHtml(l) {
     ? `<button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}" title="${esc(msgPreview)}">${l.s.wa_enviado ? 'Enviado ✓ · reenviar' : 'Enviar WhatsApp'}</button>`
     : '<span class="muted">Sin teléfono</span>';
   return `<tr>
-    <td><div class="lead-name">${esc(l.name || '(sin nombre)')} ${avatarChip(l)} ${faseChip(l.id)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
+    <td><div class="lead-name"><button type="button" class="lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || '(sin nombre)')}</button> ${avatarChip(l)} ${faseChip(l.id)} ${preclaseChips(l)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
     ${state.config.launches[state.launchCode]?.encuestaTag ? `<td>${l.s.encuesta ? '<span class="enc-si" title="Ha rellenado la encuesta">✓</span>' : l.s.encuesta_anterior ? '<span class="enc-ant" title="La rellenó en un lanzamiento anterior (ve las clases sin repetirla)">↺</span>' : '<span class="enc-no" title="No ha rellenado la encuesta">✗</span>'}</td>` : ''}
     ${(l.s.clases || ['clase1', 'clase2']).map((c) => `<td>${videoChip(l.s, c)}</td>`).join('')}
     ${l.s.conVip === false ? '' : `<td>${l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>`}
@@ -2363,6 +2395,12 @@ function messageFor(l) {
   const launch = state.config.launches[state.launchCode];
   return buildMessage(state.config.templates[l.step], { nombre: l.firstName, contactId: l.id, launch, producto: nombreProducto(state.config) });
 }
+
+// Nombre del lead → su ficha completa (encuesta, voto, formulario y notas de GHL).
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ficha-lead]');
+  if (b) abrirFichaLead(b.dataset.fichaLead);
+});
 
 // ---------- WhatsApp ----------
 document.addEventListener('click', async (e) => {
@@ -6406,6 +6444,10 @@ function hechosLead(lead) {
       return `🔴 ${nombre}: ${[live, p ? `vio el ${p}% de la grabación` : ''].filter(Boolean).join(' · ') || 'no lo ha visto'}`;
     }),
     s.encuesta ? '📋 Rellenó la encuesta' : '',
+    ...(s.recursos?.musica ? [`🎵 Música: ${s.musica_90 ? 'la escuchó entera' : s.musica_50 ? 'escuchó más de la mitad' : s.musica_play ? 'le dio al play' : 'no la ha escuchado'}`] : []),
+    ...(s.recursos?.test ? [s.test ? `🧭 Hizo el test${recursosDe(launch).test.nombre ? ` «${recursosDe(launch).test.nombre}»` : ''}` : '🧭 No ha hecho el test'] : []),
+    ...(s.recursos?.votacion ? [votoTexto(lead.id) ? `🗳️ Votó: «${votoTexto(lead.id)}»` : s.voto ? '🗳️ Votó en la clase' : '🗳️ No ha votado'] : []),
+    ...(s.recursos?.descargable ? [s.descarga ? '📄 Abrió el descargable' : ''] : []),
     s.wa_enviado ? '💬 Ya se le escribió por WhatsApp' : '',
     s.compra ? '✅ Ya compró' : s.clienta_anterior ? '✅ Clienta de una edición anterior' : '',
   ].filter(Boolean);
@@ -6414,8 +6456,8 @@ function pintarFicha(c, f, error = '') {
   const lead = leadDe(c.contactId);
   const k = contactoDe(c);
   const d = new Date(c.startTime);
-  const cita = `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' })} a las ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })}`;
-  const etapa = state.llamadas.data.pipeline?.stages.find((x) => x.id === c.opp?.pipelineStageId);
+  const cita = c.sinLlamada ? '' : `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' })} a las ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })}`;
+  const etapa = state.llamadas?.data?.pipeline?.stages.find((x) => x.id === c.opp?.pipelineStageId);
   const r = c.resultado && RESULTADOS.find((x) => x.id === c.resultado.resultado);
   const filas = (lista, vacio) => (lista.length ? `<dl class="ficha-dl">${lista.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${b ? esc(b) : '<span class="muted">—</span>'}</dd>`).join('')}</dl>` : `<p class="muted">${vacio}</p>`);
   const reg = lead?.dateAdded || f?.contacto?.dateAdded;
@@ -6426,17 +6468,18 @@ function pintarFicha(c, f, error = '') {
       ${!enVsl() && lead.step !== 'comprado' ? `<span class="muted">Siguiente paso: <strong>${esc(NEXT_STEPS[lead.step])}</strong></span>` : ''}</div>` : '<p class="muted">No está entre los registros de este embudo: no tiene puntuación.</p>';
   $('#ficha-titulo').textContent = lead?.name || f?.contacto?.name || c.title || 'Ficha del lead';
   $('#ficha-body').innerHTML = `
-    <p class="ficha-cita">📅 Llamada el <strong>${esc(cita)}</strong>${etapa ? ` · etapa <strong>${esc(etapa.name)}</strong>` : ''}${llCancelada(c) ? ' · <strong>cancelada</strong>' : ''}</p>
+    ${c.sinLlamada ? '' : `<p class="ficha-cita">📅 Llamada el <strong>${esc(cita)}</strong>${etapa ? ` · etapa <strong>${esc(etapa.name)}</strong>` : ''}${llCancelada(c) ? ' · <strong>cancelada</strong>' : ''}</p>`}
     <div class="ll-contact ficha-contacto">${k.phone ? `<a href="tel:${esc(k.phone)}">${icon('phone')}${esc(k.phone)}</a>` : '<span class="muted">Sin teléfono</span>'}${k.phoneWa ? `<a href="https://wa.me/${esc(k.phoneWa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}</div>
     <section class="ficha-sec"><h3>🌡️ Temperatura (lead scoring)</h3>${temp}</section>
     ${lead ? `<section class="ficha-sec"><h3>🧭 Qué ha hecho</h3><ul class="ficha-hechos">${hechosLead(lead).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
-      <p class="ficha-meta">${[origenChip(c), lead.s.trafico ? `<span class="ll-chip">${lead.s.trafico === 'frio' ? '❄️ Tráfico frío (nueva en GHL)' : '🔥 Tráfico templado (ya estaba en GHL)'}</span>` : '', avatarChip(lead), dias != null ? `<span class="ll-chip">Registrada hace ${dias} día${dias === 1 ? '' : 's'} (${esc(fechaFicha(reg))})</span>` : ''].filter(Boolean).join(' ')}</p></section>` : ''}
+      <p class="ficha-meta">${[c.sinLlamada ? '' : origenChip(c), lead.s.trafico ? `<span class="ll-chip">${lead.s.trafico === 'frio' ? '❄️ Tráfico frío (nueva en GHL)' : '🔥 Tráfico templado (ya estaba en GHL)'}</span>` : '', avatarChip(lead), dias != null ? `<span class="ll-chip">Registrada hace ${dias} día${dias === 1 ? '' : 's'} (${esc(fechaFicha(reg))})</span>` : ''].filter(Boolean).join(' ')}</p></section>` : ''}
     ${r ? `<section class="ficha-sec"><h3>📝 Resultado anotado</h3><p>${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span></p>${c.resultado.notas ? `<p class="ll-notas">${esc(c.resultado.notas)}</p>` : ''}</section>` : ''}
     ${error ? `<p class="error">${esc(error)}</p>` : !f ? '<p class="muted">Cargando la encuesta, el formulario y las notas de GHL…</p>' : `
+    ${f.votacion ? `<section class="ficha-sec"><h3>🗳️ Votación de la clase</h3><p>${esc(f.votacion.pregunta)}</p>${votacionHtml(f.votacion.resultados, f.votacion.miVoto)}<p class="muted small">${f.votacion.miVoto ? `Votó «${esc(f.votacion.miVoto)}».` : 'No ha votado.'} ${f.votacion.resultados.total} voto${f.votacion.resultados.total === 1 ? '' : 's'} en total.</p></section>` : ''}
     <section class="ficha-sec"><h3>📋 Encuesta</h3>${encuestaRespondida ? filas(f.encuesta.map((x) => [x.pregunta, x.respuesta])) : `<p class="muted">${f.encuesta.length ? 'No ha rellenado la encuesta.' : 'Este cliente no tiene preguntas de encuesta configuradas (Equipo → Marca).'}</p>`}</section>
     <section class="ficha-sec"><h3>📞 Formulario de la llamada y otros datos de GHL</h3>${filas(f.otros.map((x) => [x.campo, x.fecha ? fechaFicha(x.valor) : x.valor]), 'No hay más datos en su ficha de GHL.')}</section>
     ${f.notas.length ? `<section class="ficha-sec"><h3>🗒️ Notas en GHL</h3><ul class="ficha-notas">${f.notas.map((n) => `<li><span class="muted small">${esc(fechaFicha(n.dateAdded))}</span><div>${esc(n.body)}</div></li>`).join('')}</ul></section>` : ''}`}`;
-  $('#ficha-anotar').hidden = llCancelada(c);
+  $('#ficha-anotar').hidden = c.sinLlamada || llCancelada(c);
   $('#ficha-anotar').textContent = r ? 'Cambiar resultado' : 'Anotar resultado';
 }
 async function abrirFicha(id) {
@@ -6446,12 +6489,45 @@ async function abrirFicha(id) {
   pintarFicha(c, null);
   $('#ficha-dialog').showModal();
   try {
-    const f = await api(`/api/ficha?cid=${encodeURIComponent(c.contactId)}`);
+    const f = await api(fichaUrl(c.contactId));
     if (fichaLlamada === c) pintarFicha(c, f);
   } catch (e) {
     if (fichaLlamada === c) pintarFicha(c, null, e.message);
   }
 }
+const fichaUrl = (cid) => `/api/ficha?cid=${encodeURIComponent(cid)}${!enVsl() && state.launchCode ? `&l=${encodeURIComponent(state.launchCode)}` : ''}`;
+// Ficha de un lead sin llamada (pestaña Leads): la misma, sin la cita ni el resultado.
+async function abrirFichaLead(id) {
+  const c = { id: `lead-${id}`, contactId: id, sinLlamada: true };
+  fichaLlamada = c;
+  pintarFicha(c, null);
+  $('#ficha-dialog').showModal();
+  try {
+    const f = await api(fichaUrl(id));
+    if (fichaLlamada === c) pintarFicha(c, f);
+  } catch (e) {
+    if (fichaLlamada === c) pintarFicha(c, null, e.message);
+  }
+}
+// Barras de % de una votación (ficha y métricas). `mio`: texto de la opción que votó.
+function votacionHtml(res, mio = '') {
+  return `<div class="vot-bars">${res.opciones.map((o) => `<div class="vot-bar${o.texto === mio ? ' mio' : ''}"><i style="width:${Math.round(o.pct * 100)}%"></i><span>${o.texto === mio ? '✓ ' : ''}${esc(o.texto)}</span><strong>${Math.round(o.pct * 100)} % <small class="muted">(${o.n})</small></strong></div>`).join('')}</div>`;
+}
+// Votos del lanzamiento abierto (para la tabla de leads y la ficha): { votos: { contacto → opción }, opciones }.
+async function cargarVotos() {
+  const code = state.launchCode;
+  const launch = state.config.launches[code];
+  if (enVsl() || !launch || !tieneRecurso(launch, 'votacion')) { state.votos = null; return; }
+  try {
+    const d = await api(`/api/votacion?l=${encodeURIComponent(code)}`);
+    if (state.launchCode === code) { state.votos = d.activa ? { code, ...d } : null; render(); }
+  } catch { state.votos = null; }
+}
+const votoTexto = (cid) => {
+  const v = state.votos;
+  if (!v || v.code !== state.launchCode) return '';
+  return v.opciones.find((o) => o.id === v.votos?.[cid])?.texto || '';
+};
 $('#ficha-anotar').addEventListener('click', () => {
   if (!fichaLlamada) return;
   $('#ficha-dialog').close();
