@@ -138,6 +138,8 @@ export async function GET(request, ctx) {
       },
       // Vídeos que se muestran tal cual (sin medir ni bloquear): <div data-lsd-embed="gracias">
       embeds: { gracias: launch.graciasVideoUrl || '' },
+      // Pantalla de espera antes del directo: si está activa y su vídeo (opcional).
+      espera: { activa: launch.espera?.activa !== false, video: launch.espera?.video || '' },
       // Imagen de cada etapa (Configuración → Preclase): <img data-lsd-img="clase1|test|clase2…">
       imagenes: launch.imagenes || {},
       links,

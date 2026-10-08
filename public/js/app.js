@@ -2567,6 +2567,12 @@ function readVideosCfg() {
 
 // Prelanzamiento del embudo (clases y VIP): solo se ven las casillas que tocan.
 // Enlace para conectarse al directo: la página preclase (con ?cid en los emails de GHL).
+// Pantalla de espera: sus campos solo si está activa.
+function pintarEsperaCfg() {
+  $$('#config-dialog [data-espera-campo]').forEach((el) => { el.hidden = !$('#cfg-espera-on').checked; });
+}
+$('#cfg-espera-on').addEventListener('change', pintarEsperaCfg);
+
 function pintarEnlaceDirecto() {
   const pre = $('#cfg-recursos-url').value.trim();
   const box = $('#enlace-directo-box');
@@ -2612,6 +2618,8 @@ function openConfig(code) {
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, clase3Url: last.clase3Url, textos: last.textos, imagenes: last.imagenes,
       // Los recursos de la preclase se heredan sin fechas; los que pidió el embudo al crearlo, activos.
       recursosPre: heredarRecursos(last.recursosPre, embudoInfo(state.embudo)?.recursos),
+      // Pantalla de espera: la que se eligió al crear el embudo; el vídeo, el del último lanzamiento.
+      espera: { activa: embudoInfo(state.embudo)?.espera !== false, video: last.espera?.video || '' },
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
       inicioCaptacion: new Date().toISOString().slice(0, 10),
     };
@@ -2683,6 +2691,9 @@ function openConfig(code) {
   pintarPrelanzamientoCfg(l);
   pintarRecursosCfg(l.recursosPre);
   pintarEnlaceDirecto();
+  $('#cfg-espera-on').checked = l.espera?.activa ?? (embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo)?.espera !== false);
+  $('#cfg-espera-video').value = l.espera?.video || '';
+  pintarEsperaCfg();
   checkLaunchTags();
   renderGuia();
   if (!dlg.open) dlg.showModal();
@@ -3081,6 +3092,7 @@ function readForm() {
       pago: leerPago('cfg'),
       oferta: leerOfertaEditor(),
       recursosPre: leerRecursosCfg(),
+      espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim() },
       imagenes: Object.fromEntries(['clase1', 'clase2', 'clase3', 'test', 'descargable', 'espera'].map((k) => [k, $(`#cfg-img-${k}`).value.trim()]).filter(([, v]) => v)),
     },
   };
@@ -7233,12 +7245,13 @@ function pintarEmbPrelanz() {
 const embPrelanz = () => (embTipo() === 'lanzamientos' ? {
   preclase: $('#emb-preclase').value === 'si', clases: Number($('#emb-clases').value), vip: $('#emb-vip').value === 'si',
   recursos: $('#emb-preclase').value === 'si' ? $$('input[name="emb-recurso"]:checked').map((i) => i.value) : [],
+  espera: $('#emb-espera').value === 'si',
   vipContadorBase: Math.max(0, Math.floor(Number($('#emb-vip-base').value.replace(/\./g, '')) || 0)),
 } : {});
 const pintarEmbVipBase = () => { $('#emb-vip-base-box').hidden = embTipo() !== 'lanzamientos' || $('#emb-vip').value !== 'si'; };
 $('#emb-vip').addEventListener('change', pintarEmbVipBase);
 // Sin área preclase no hay clases: se oculta el número de clases.
-const pintarEmbClases = () => { $('#emb-clases-box').hidden = $('#emb-preclase').value === 'no'; $('#emb-recursos-box').hidden = $('#emb-preclase').value === 'no' || $('#emb-prelanz').hidden; };
+const pintarEmbClases = () => { $('#emb-clases-box').hidden = $('#emb-preclase').value === 'no'; $('#emb-recursos-box').hidden = $('#emb-preclase').value === 'no' || $('#emb-prelanz').hidden; $('#emb-espera-box').hidden = $('#emb-prelanz').hidden; };
 $('#emb-preclase').addEventListener('change', () => { pintarEmbClases(); pintarEmbGuia(); });
 function pintarEmbPestanas(activas) {
   pintarEmbPrelanz();
@@ -7314,6 +7327,7 @@ function abrirNuevoEmbudo() {
   $('#emb-vip').value = 'si';
   $('#emb-vip-base').value = esPrincipal() ? '41' : '0';
   $$('input[name="emb-recurso"]').forEach((i) => { i.checked = false; });
+  $('#emb-espera').value = 'si';
   pintarEmbClases();
   pintarEmbVipBase();
   $('#emb-nombre').value = '';
@@ -7339,6 +7353,7 @@ function abrirEditarEmbudo(id) {
   $('#emb-clases').value = String(e.clases || 2);
   $('#emb-vip').value = e.vip === false ? 'no' : 'si';
   $$('input[name="emb-recurso"]').forEach((i) => { i.checked = (e.recursos || []).includes(i.value); });
+  $('#emb-espera').value = e.espera === false ? 'no' : 'si';
   $('#emb-vip-base').value = String(e.vipContadorBase ?? (launchesSorted().find(([, x]) => embudoDeLanz(x) === id)?.[1].vipContadorBase ?? (esPrincipal() ? 41 : 0)));
   pintarEmbClases();
   pintarEmbVipBase();

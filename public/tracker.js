@@ -157,6 +157,21 @@
     '@media (max-height:720px) and (min-width:601px){#lsd-espera .lsd-espera-in{padding-top:18px}#lsd-espera .lsd-espera-logo{max-height:64px;margin-bottom:12px}' +
     '#lsd-espera .lsd-espera-t{font-size:clamp(26px,4.2vw,42px)}#lsd-espera .lsd-espera-sub{margin-top:6px;font-size:clamp(17px,2.4vw,22px)}#lsd-espera .lsd-espera-cd{margin-top:16px}' +
     '#lsd-espera .lsd-espera-num{font-size:clamp(44px,8vw,80px);border-radius:18px}#lsd-espera .lsd-espera-sep{font-size:clamp(34px,6vw,62px)}#lsd-espera .lsd-espera-msg{margin-top:14px}#lsd-espera .lsd-espera-paisaje{height:clamp(110px,22vh,150px)}}' +
+    // Con vídeo: el vídeo es lo principal; titular, contador y mensaje más pequeños.
+    '#lsd-espera.lsd-espera--video .lsd-espera-in{max-width:880px;padding-top:clamp(18px,3.5vh,40px)}' +
+    '#lsd-espera.lsd-espera--video .lsd-espera-logo{max-height:64px;margin-bottom:clamp(10px,2vh,18px)}' +
+    '#lsd-espera.lsd-espera--video .lsd-espera-t{font-size:clamp(24px,3.6vw,38px)}' +
+    '#lsd-espera.lsd-espera--video .lsd-espera-sub{margin-top:6px;font-size:clamp(16px,2vw,20px)}' +
+    '#lsd-espera .lsd-espera-video{width:100%;max-width:min(820px,max(300px,calc((100vh - 480px) * 1.78)));margin:clamp(14px,2.6vh,24px) auto 0;padding:6px;box-sizing:border-box;border-radius:20px;background:#ffffff;border:1px solid #e2d3c5;box-shadow:0 18px 44px rgba(134,13,14,.14);animation:lsdEspUp .7s .24s ease both}' +
+    '#lsd-espera .lsd-espera-video .lsd-embed{border-radius:15px}' +
+    '#lsd-espera.lsd-espera--video .lsd-espera-cd{margin-top:clamp(12px,2.2vh,20px);gap:8px}' +
+    '#lsd-espera.lsd-espera--video .lsd-espera-u{gap:5px}' +
+    '#lsd-espera.lsd-espera--video .lsd-espera-num{font-size:clamp(26px,3.6vw,36px);border-radius:12px;padding:.14em .22em;box-shadow:0 6px 16px rgba(134,13,14,.10),0 2px 0 #ead9c9}' +
+    '#lsd-espera.lsd-espera--video .lsd-espera-num::after{display:none}' +
+    '#lsd-espera.lsd-espera--video .lsd-espera-sep{font-size:clamp(22px,3vw,30px);margin-top:.12em}' +
+    '#lsd-espera.lsd-espera--video .lsd-espera-lbl{font-size:10px;letter-spacing:.16em}' +
+    '#lsd-espera.lsd-espera--video .lsd-espera-msg{margin-top:clamp(12px,2.2vh,20px);font-size:clamp(14px,1.7vw,16px);padding:10px 36px 10px 14px;gap:12px}' +
+    '#lsd-espera.lsd-espera--video .lsd-espera-paisaje{height:clamp(90px,min(13vw,17vh),160px)}' +
     '@media (prefers-reduced-motion:reduce){#lsd-espera,#lsd-espera *{animation:none!important}}';
 
   function injectCss() {
@@ -733,6 +748,7 @@
   // Colores: variables CSS --lsd-espera-fondo, --lsd-espera-titulo, --lsd-espera-acento, --lsd-espera-texto.
   var ESPERA_MIN = 59;
   function esperaDirecto(data) {
+    if (data.espera && data.espera.activa === false) return null; // desactivada en Configuración → Preclase
     var m = /^dia_directo(\d?)$/.exec(data.phase || '');
     var key = m ? 'directo' + m[1] : '';
     if (!m || !data.countdownTo || !data.links[key]) return null;
@@ -785,10 +801,14 @@
       el.setAttribute('aria-modal', 'true');
       el.setAttribute('aria-labelledby', 'lsd-espera-t');
       var logo = (data.imagenes || {}).espera;
+      var videoEsp = embedSrc((data.espera || {}).video);
+      if (videoEsp) el.className = 'lsd-espera--video';
       el.innerHTML = '<div class="lsd-espera-in">' +
         (logo ? '<img class="lsd-espera-logo" src="' + esc(logo) + '" alt="">' : '') +
         '<h1 class="lsd-espera-t" id="lsd-espera-t">' + esc(t['espera-titulo'] || '¡Empezamos en unos minutos!') + '</h1>' +
         '<p class="lsd-espera-sub">' + esc(t['espera-subtitulo'] || 'Prepárate') + '</p>' +
+        // Vídeo opcional (Configuración → Preclase): con vídeo, el contador se hace pequeño y el vídeo destaca.
+        (videoEsp ? '<div class="lsd-espera-video"><div class="lsd-embed"><iframe src="' + esc(videoEsp) + '" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="Vídeo"></iframe></div></div>' : '') +
         '<div class="lsd-espera-cd" aria-live="off">' +
         '<div class="lsd-espera-u"><span class="lsd-espera-num" data-u="m">00</span><span class="lsd-espera-lbl">minutos</span></div>' +
         '<span class="lsd-espera-sep" aria-hidden="true">:</span>' +

@@ -133,3 +133,19 @@ test('preclase: votación con varias preguntas, tipo test y de respuesta libre',
   const f = (await call('/api/ficha?cid=mock00021&l=var-26', { cookie: admin })).data;
   assert.deepEqual(f.votacion.preguntas.map((q) => q.respuesta), ['Estrés', 'Que puedo empezar hoy']);
 });
+
+test('pantalla de espera: se elige en el embudo, el lanzamiento la puede cambiar y lleva vídeo opcional', async () => {
+  const { sanitizeConfig } = await import('../lib/config-store.js');
+  const base = { embudos: [{ id: 'lz', tipo: 'lanzamientos', nombre: 'L', espera: false }, { id: 'lz2', tipo: 'lanzamientos', nombre: 'L2' }] };
+  const cfg = sanitizeConfig({ ...base, launches: {
+    'la-a': { name: 'A', embudo: 'lz' }, // sin elegir: la del embudo (no)
+    'la-b': { name: 'B', embudo: 'lz2' }, // embudo sin elegir: sí (como hasta ahora)
+    'la-c': { name: 'C', embudo: 'lz', espera: { activa: true, video: 'https://vimeo.com/123' } },
+    'la-d': { name: 'D', embudo: 'lz2', espera: { activa: true, video: 'javascript:alert(1)' } },
+  } });
+  assert.equal(cfg.embudos[0].espera, false);
+  assert.deepEqual(cfg.launches['la-a'].espera, { activa: false, video: '' });
+  assert.deepEqual(cfg.launches['la-b'].espera, { activa: true, video: '' });
+  assert.deepEqual(cfg.launches['la-c'].espera, { activa: true, video: 'https://vimeo.com/123' });
+  assert.equal(cfg.launches['la-d'].espera.video, '');
+});

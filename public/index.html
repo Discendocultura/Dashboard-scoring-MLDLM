@@ -982,10 +982,12 @@
           <section class="cfg-sec" data-sec="5e">
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">⏳</span><div><h3>Pantalla de espera (59 min antes del directo)</h3><p>Los 59 minutos antes del directo, quien abra la página preclase ve solo esta pantalla: el logo, el titular, una cuenta atrás de minutos y segundos y el aviso. Al llegar a cero entra sola al directo (registrada en Zoom). Por eso el enlace para conectarse al directo, por email y por WhatsApp, es el de la página preclase (Configuración → Códigos). Si dejas un texto vacío, se usa el de ejemplo.</p></div></header>
             <div class="grid2">
-              <label class="field"><span>Logo <small>(URL de Medios de GHL; mejor PNG con fondo transparente)</small></span><input id="cfg-img-espera" type="url" placeholder="https://assets.cdn.filesafe.space/…/logo-el-camino.png"></label>
-              <label class="field"><span>Titular</span><input data-texto="espera-titulo" maxlength="120" placeholder="¡Empezamos en unos minutos!"></label>
-              <label class="field"><span>Debajo del titular</span><input data-texto="espera-subtitulo" maxlength="120" placeholder="Prepárate"></label>
-              <label class="field"><span>Mensaje debajo del contador</span><textarea data-texto="espera-mensaje" rows="2" placeholder="Quédate aquí, serás redirigida al directo en cuanto el contador llegue a cero."></textarea></label>
+              <label class="chk full"><input type="checkbox" id="cfg-espera-on"> <strong>Activar la pantalla de espera</strong> <small class="muted">(si la desactivas, la preclase se ve normal hasta la hora del directo y entonces entra sola al webinar)</small></label>
+              <label class="field full" data-espera-campo><span>Vídeo de la pantalla de espera <small>(opcional: enlace de Vimeo o YouTube. Con vídeo, el contador se hace pequeño para que el vídeo destaque; vacío = sin vídeo)</small></span><input id="cfg-espera-video" type="url" placeholder="https://vimeo.com/123456789 · https://youtu.be/…"></label>
+              <label class="field" data-espera-campo><span>Logo <small>(URL de Medios de GHL; mejor PNG con fondo transparente)</small></span><input id="cfg-img-espera" type="url" placeholder="https://assets.cdn.filesafe.space/…/logo-el-camino.png"></label>
+              <label class="field" data-espera-campo><span>Titular</span><input data-texto="espera-titulo" maxlength="120" placeholder="¡Empezamos en unos minutos!"></label>
+              <label class="field" data-espera-campo><span>Debajo del titular</span><input data-texto="espera-subtitulo" maxlength="120" placeholder="Prepárate"></label>
+              <label class="field" data-espera-campo><span>Mensaje debajo del contador</span><textarea data-texto="espera-mensaje" rows="2" placeholder="Quédate aquí, serás redirigida al directo en cuanto el contador llegue a cero."></textarea></label>
             </div>
           </section>
           <section class="cfg-sec" data-sec="6">
@@ -1250,6 +1252,8 @@
           <label class="field"><span>Entrada VIP</span>
             <select id="emb-vip"><option value="si">Sí, con entrada VIP</option><option value="no">No, sin entrada VIP</option></select></label>
         </div>
+        <label class="field" id="emb-espera-box"><span>Pantalla de espera antes del directo <small>(59 minutos antes, quien entre en la preclase ve una cuenta atrás y al llegar a cero entra sola al webinar; el vídeo opcional y los textos se ponen luego en la configuración de cada lanzamiento)</small></span>
+          <select id="emb-espera"><option value="si">Sí, con pantalla de espera que redirige al webinar</option><option value="no">No, sin pantalla de espera</option></select></label>
         <div class="field" id="emb-recursos-box"><span>Recursos de la preclase además de las clases <small>(las fechas, enlaces y textos se ponen luego en la configuración de cada lanzamiento)</small></span>
           <div class="emb-recursos">
             <label class="chk"><input type="checkbox" name="emb-recurso" value="musica"> 🎵 Música o audio <small class="muted">(debajo de una clase)</small></label>
