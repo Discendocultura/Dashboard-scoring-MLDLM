@@ -157,6 +157,23 @@
 .mldlm-etapas .lsd-vot-res.mio i{background:rgba(196,155,121,.45) !important;}
 .mldlm-etapas .lsd-vot-res.mio::after{content:"✓ Tu voto"; position:relative; z-index:1; flex:none; font-size:11px; font-weight:900; letter-spacing:.1em; text-transform:uppercase; color:#ffffff; background:var(--b); padding:4px 8px; border-radius:999px;}
 .mldlm-etapas .lsd-vot-total{margin:2px 0 0 !important; font-size:13px !important; color:var(--mudo) !important; text-align:center !important;}
+/* varias preguntas: separación, opción elegida, respuesta libre y botón de enviar */
+.mldlm-etapas .lsd-vot-q{display:flex; flex-direction:column; gap:10px;}
+.mldlm-etapas .lsd-vot-q + .lsd-vot-q{margin-top:10px !important; padding-top:14px; border-top:1px dashed var(--line);}
+.mldlm-etapas .lsd-vot-op.sel{border-color:var(--b) !important; background:var(--crema) !important; box-shadow:0 3px 0 var(--b) !important;}
+.mldlm-etapas .lsd-vot-op.sel::before{content:"✓ "; color:var(--b);}
+.mldlm-etapas .lsd-vot-libre{display:block !important; width:100% !important; min-height:96px !important; margin:0 !important; padding:12px 14px !important; resize:vertical !important;
+  background:#ffffff !important; border:1.5px solid var(--line) !important; border-radius:12px !important; font-family:'Lato',sans-serif !important; font-size:15.5px !important; line-height:1.5 !important; color:var(--txt) !important;}
+.mldlm-etapas .lsd-vot-libre:focus{outline:none !important; border-color:var(--b) !important; box-shadow:0 0 0 3px rgba(134,13,14,.10) !important;}
+.mldlm-etapas .lsd-vot-enviar{display:flex !important; align-items:center !important; justify-content:center !important; width:100% !important; min-height:52px !important; margin:14px 0 0 !important; padding:14px 20px !important; cursor:pointer !important;
+  border:0 !important; border-radius:12px !important; background:var(--btn) !important; color:var(--btnt) !important; box-shadow:0 5px 0 #a98262 !important;
+  font-family:'Lato',sans-serif !important; font-size:15px !important; font-weight:900 !important; letter-spacing:.04em !important; text-transform:uppercase !important;}
+.mldlm-etapas .lsd-vot-enviar:hover{background:var(--b) !important; color:#ffffff !important; box-shadow:0 5px 0 #5e0909 !important;}
+.mldlm-etapas .lsd-vot-enviar:disabled{opacity:.6 !important; cursor:wait !important;}
+.mldlm-etapas .lsd-vot-mia{margin:0 !important; padding:12px 14px !important; background:#ffffff !important; border:1.5px solid var(--btn) !important; border-radius:12px !important;}
+.mldlm-etapas .lsd-vot-mia span{display:block; font-size:11px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:var(--b);}
+.mldlm-etapas .lsd-vot-mia p{margin:4px 0 0 !important; font-size:15px; line-height:1.5; color:var(--txt); white-space:pre-line;}
+.mldlm-etapas .lsd-err{margin:8px 0 0 !important; font-size:13.5px; font-weight:700; color:var(--b);}
 
 /* ===== Test: sus 3 estados ===== */
 .mldlm-etapas__test-estado{display:flex; flex-direction:column; gap:12px;}

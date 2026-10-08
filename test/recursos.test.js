@@ -13,7 +13,9 @@ const launch = { encuestaTag: 'encuesta-x', clase1At: '2026-10-19T10:00', clase2
 
 test('recursos de la preclase: limpieza y etapas por fecha', () => {
   assert.equal(recursosPre.test.tag, 'autodiagnostico-completado');
-  assert.deepEqual(recursosPre.votacion.opciones.map((o) => o.texto), ['Ciclo', 'Analíticas', 'Emociones']);
+  // Una votación antigua (una pregunta con sus opciones) pasa a ser la pregunta p1 tipo test
+  assert.deepEqual(recursosPre.votacion.preguntas.map((q) => `${q.id}:${q.tipo}`), ['p1:opciones']);
+  assert.deepEqual(recursosPre.votacion.preguntas[0].opciones.map((o) => o.texto), ['Ciclo', 'Analíticas', 'Emociones']);
   assert.equal(sanitizeRecursos({ musica: { activo: true, url: 'javascript:alert(1)' } }).musica.url, '');
   assert.deepEqual(etapasPreclase(launch, 2).map((e) => `${e.n}:${e.id}`), ['1:encuesta', '2:clase1', '3:test', '4:clase2', '5:directo']);
   assert.ok(tieneRecurso(launch, 'votacion') && tieneRecurso(launch, 'musica') && !tieneRecurso(launch, 'descargable'));
@@ -30,5 +32,19 @@ test('recursos de la preclase: señales del lead (música, test y voto)', () => 
 test('recursos de la preclase: se guardan con el lanzamiento', () => {
   const cfg = sanitizeConfig({ launches: { 'oct-26': { name: 'Oct', recursosPre } } });
   assert.equal(cfg.launches['oct-26'].recursosPre.test.nombre, 'Autodiagnóstico');
-  assert.equal(cfg.launches['oct-26'].recursosPre.votacion.opciones.length, 3);
+  assert.equal(cfg.launches['oct-26'].recursosPre.votacion.preguntas[0].opciones.length, 3);
+});
+
+test('votación: varias preguntas, tipo test o libres, con ids estables', () => {
+  const v = sanitizeRecursos({ votacion: { activo: true, preguntas: [
+    { id: 'p2', tipo: 'opciones', pregunta: '¿Tema?', opciones: 'A\nB' },
+    { tipo: 'libre', pregunta: '¿Qué te llevas?' }, // nueva: va detrás de la última (p3), no hereda respuestas de otra
+    { tipo: 'opciones', pregunta: '¿Una sola opción?', opciones: 'Solo' }, // se guarda, pero no se puede contestar
+    { tipo: 'libre', pregunta: '' }, // sin pregunta: fuera
+  ] } }).votacion;
+  assert.deepEqual(v.preguntas.map((q) => `${q.id}:${q.tipo}`), ['p2:opciones', 'p3:libre', 'p4:opciones']);
+  assert.deepEqual(v.preguntas[1].opciones, []);
+  assert.ok(tieneRecurso({ recursosPre: { votacion: v } }, 'votacion'));
+  assert.ok(tieneRecurso({ recursosPre: sanitizeRecursos({ votacion: { activo: true, preguntas: [{ tipo: 'libre', pregunta: '¿Qué?' }] } }) }, 'votacion'));
+  assert.ok(!tieneRecurso({ recursosPre: sanitizeRecursos({ votacion: { activo: true, preguntas: [{ pregunta: '¿Qué?', opciones: 'Solo una' }] } }) }, 'votacion'));
 });

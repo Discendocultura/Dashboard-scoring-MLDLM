@@ -111,7 +111,11 @@
     '.lsd-vot-ops{display:grid;gap:8px;margin-top:10px}.lsd-vot-op{display:block;width:100%;text-align:left;padding:12px 14px;border-radius:10px;border:1px solid #d8d0c9;background:#fff;font:inherit;cursor:pointer}' +
     '.lsd-vot-op:hover{border-color:var(--lsd-acento,#b4552d)}.lsd-vot-res{position:relative;padding:10px 12px;border-radius:10px;background:#fff;overflow:hidden;border:1px solid #e6ded6}' +
     '.lsd-vot-res i{position:absolute;inset:0 auto 0 0;background:var(--lsd-acento,#b4552d);opacity:.16}.lsd-vot-res span{position:relative;display:flex;justify-content:space-between;gap:10px}' +
-    '.lsd-vot-res.mio{border-color:var(--lsd-acento,#b4552d);font-weight:700}.lsd-vot-total{margin:8px 0 0;font-size:.88em;opacity:.8}';
+    '.lsd-vot-res.mio{border-color:var(--lsd-acento,#b4552d);font-weight:700}.lsd-vot-total{margin:8px 0 0;font-size:.88em;opacity:.8}' +
+    '.lsd-vot-q+.lsd-vot-q{margin-top:16px}.lsd-vot-op.sel{border-color:var(--lsd-acento,#b4552d);box-shadow:inset 0 0 0 1px var(--lsd-acento,#b4552d);font-weight:700}' +
+    '.lsd-vot-libre{display:block;width:100%;box-sizing:border-box;margin-top:10px;padding:12px 14px;border-radius:10px;border:1px solid #d8d0c9;background:#fff;font:inherit;resize:vertical}' +
+    '.lsd-vot-enviar{display:block;width:100%;margin-top:14px;padding:13px 16px;border:0;border-radius:10px;background:var(--lsd-acento,#b4552d);color:#fff;font:inherit;font-weight:700;cursor:pointer}.lsd-vot-enviar:disabled{opacity:.6}' +
+    '.lsd-vot-mia{margin-top:8px;padding:10px 12px;border-radius:10px;background:#fff;border:1px solid #e6ded6}.lsd-vot-mia span{font-size:.8em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.7}.lsd-vot-mia p{margin:4px 0 0;white-space:pre-line}';
 
   function injectCss() {
     if (document.getElementById('lsd-css')) return;
@@ -467,7 +471,7 @@
     var vista = function (r) { return Boolean(r && (r.claseVista || progresoLocal(data.code, r.tras) >= (r.umbral || 75))); };
     if (rec.test) { conds['test-bloqueado'] = !rec.test.unlocked && !rec.test.done; conds['test-falta-encuesta'] = Boolean(rec.test.unlocked && rec.test.faltaEncuesta && !rec.test.done); conds['test-disponible'] = Boolean(rec.test.unlocked && !rec.test.done); conds['test-hecho'] = Boolean(rec.test.done); }
     if (rec.musica) { conds['musica-bloqueada'] = !(rec.musica.url && vista(rec.musica)); conds['musica-disponible'] = Boolean(rec.musica.url && vista(rec.musica)); }
-    if (rec.votacion) { conds['votacion-bloqueada'] = !(rec.votacion.claseDisponible && vista(rec.votacion)); conds['votacion-disponible'] = Boolean(rec.votacion.claseDisponible && vista(rec.votacion) && !rec.votacion.miVoto); conds['votacion-hecha'] = Boolean(rec.votacion.miVoto); }
+    if (rec.votacion) { conds['votacion-bloqueada'] = !(rec.votacion.claseDisponible && vista(rec.votacion)); conds['votacion-disponible'] = Boolean(rec.votacion.claseDisponible && vista(rec.votacion) && !rec.votacion.respondida); conds['votacion-hecha'] = Boolean(rec.votacion.respondida); }
     if (rec.descargable) { conds['descargable-bloqueado'] = !rec.descargable.unlocked; conds['descargable-disponible'] = Boolean(rec.descargable.unlocked); }
     document.querySelectorAll('[data-lsd-if]').forEach(function (el) {
       var c = el.getAttribute('data-lsd-if');
@@ -516,7 +520,8 @@
 
   // Recursos de la preclase:
   //   <div data-lsd-audio="musica"></div>  música (bloqueada hasta ver el 75 % de su clase)
-  //   <div data-lsd-votacion></div>        votación (bloqueada igual; al votar, los % de todas)
+  //   <div data-lsd-votacion></div>        votación: una o varias preguntas, tipo test o libres (bloqueada igual;
+  //                                        al responder, los % de las tipo test y su respuesta a las libres)
   //   <div data-lsd-etapa="clase1|test|clase2|encuesta|directo|descargable"> → atributo data-lsd-estado
   //       (bloqueada | disponible | hecha) para el diseño; <span data-lsd-etapa-n="test"></span> → su número
   var ultimaPagina = null;
@@ -550,35 +555,58 @@
       if (!r) return show(el, false);
       show(el, true);
       var abierta = r.claseDisponible && vista(r);
-      var estado = r.resultados ? 'res' + r.miVoto + (r.resultados.total) : abierta ? 'votar' : 'lock';
+      var estado = r.respondida && r.resultados ? 'res' + JSON.stringify(r.misRespuestas) + r.resultados.total : abierta ? 'votar' : 'lock';
       if (el.getAttribute('data-lsd-estado-vot') === estado) return;
       el.setAttribute('data-lsd-estado-vot', estado);
-      if (r.resultados && r.miVoto) { el.innerHTML = votacionResultados(r); return; }
+      if (r.respondida && r.resultados) { el.innerHTML = votacionResultados(r); return; }
       if (!abierta) { el.innerHTML = lockHtml(el.getAttribute('data-texto-bloqueado') || 'La votación se abre al ver el ' + (r.umbral || 75) + ' % de ' + claseTxt(r.tras), ''); return; }
-      el.innerHTML = '<div class="lsd-rec"><p class="lsd-rec-t">' + esc(r.pregunta) + '</p><div class="lsd-vot-ops">' +
-        r.opciones.map(function (o) { return '<button type="button" class="lsd-vot-op" data-op="' + esc(o.id) + '">' + esc(o.texto) + '</button>'; }).join('') + '</div><p class="lsd-err" hidden></p></div>';
+      // Una sola pregunta tipo test: se responde con un clic. Si hay más (o alguna libre), con «Enviar».
+      var solo = r.preguntas.length === 1 && r.preguntas[0].tipo === 'opciones';
+      el.innerHTML = '<div class="lsd-rec lsd-vot">' + r.preguntas.map(function (q) {
+        return '<div class="lsd-vot-q" data-q="' + esc(q.id) + '"><p class="lsd-rec-t">' + esc(q.pregunta) + '</p>' + (q.tipo === 'libre'
+          ? '<textarea class="lsd-vot-libre" rows="3" maxlength="1000" placeholder="' + esc(el.getAttribute('data-placeholder') || 'Escribe tu respuesta…') + '"></textarea>'
+          : '<div class="lsd-vot-ops">' + q.opciones.map(function (o) { return '<button type="button" class="lsd-vot-op" aria-pressed="false" data-q="' + esc(q.id) + '" data-op="' + esc(o.id) + '">' + esc(o.texto) + '</button>'; }).join('') + '</div>') + '</div>';
+      }).join('') + (solo ? '' : '<button type="button" class="lsd-vot-enviar">' + esc(el.getAttribute('data-boton') || 'Enviar respuestas') + '</button>') + '<p class="lsd-err" hidden></p></div>';
+      var sel = {};
+      var err = el.querySelector('.lsd-err');
+      var botones = function (on) { el.querySelectorAll('button, textarea').forEach(function (x) { x.disabled = !on; }); };
+      var enviar = function () {
+        if (!who) return;
+        var respuestas = {};
+        r.preguntas.forEach(function (q) {
+          if (q.tipo === 'libre') { var t = el.querySelector('[data-q="' + q.id + '"] textarea'); if (t && t.value.trim()) respuestas[q.id] = t.value.trim(); }
+          else if (sel[q.id]) respuestas[q.id] = sel[q.id];
+        });
+        var falta = r.preguntas.filter(function (q) { return q.tipo === 'opciones' && !respuestas[q.id]; }).length;
+        if (falta || !Object.keys(respuestas).length) { err.textContent = falta ? 'Elige una opción en cada pregunta.' : 'Escribe tu respuesta.'; err.hidden = false; return; }
+        err.hidden = true;
+        botones(false);
+        post('/api/votacion', { launch: data.code, cid: who.cid, email: who.email, respuestas: respuestas }).then(function (res) {
+          if (!res || !res.ok) throw new Error((res && res.error) || 'No se pudo enviar');
+          r.misRespuestas = res.misRespuestas;
+          r.respondida = true;
+          r.resultados = res.resultados;
+          el.setAttribute('data-lsd-estado-vot', 'res' + JSON.stringify(r.misRespuestas) + r.resultados.total);
+          el.innerHTML = votacionResultados(r);
+          renderRecursos(data, who); // condiciones votacion-hecha…
+        }).catch(function (e) { botones(true); err.textContent = e.message; err.hidden = false; });
+      };
       el.querySelectorAll('[data-op]').forEach(function (b) {
         b.addEventListener('click', function () {
-          if (!who) return;
-          el.querySelectorAll('[data-op]').forEach(function (x) { x.disabled = true; });
-          post('/api/votacion', { launch: data.code, cid: who.cid, email: who.email, opcion: b.getAttribute('data-op') }).then(function (res) {
-            if (!res || !res.ok) throw new Error((res && res.error) || 'No se pudo votar');
-            r.miVoto = res.miVoto;
-            r.resultados = res.resultados;
-            el.setAttribute('data-lsd-estado-vot', 'res' + r.miVoto + r.resultados.total);
-            el.innerHTML = votacionResultados(r);
-          }).catch(function (e) {
-            el.querySelectorAll('[data-op]').forEach(function (x) { x.disabled = false; });
-            var err = el.querySelector('.lsd-err'); if (err) { err.textContent = e.message; err.hidden = false; }
-          });
+          var q = b.getAttribute('data-q');
+          sel[q] = b.getAttribute('data-op');
+          el.querySelectorAll('[data-op][data-q="' + q + '"]').forEach(function (x) { var on = x === b; x.classList.toggle('sel', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+          if (solo) enviar();
         });
       });
+      var envBtn = el.querySelector('.lsd-vot-enviar');
+      if (envBtn) envBtn.addEventListener('click', enviar);
     });
 
     // Condiciones de los recursos (también al desbloquearse sin recargar).
     var cr = {};
     if (rec.musica) { cr['musica-bloqueada'] = !(rec.musica.url && vista(rec.musica)); cr['musica-disponible'] = !cr['musica-bloqueada']; }
-    if (rec.votacion) { var va = rec.votacion.claseDisponible && vista(rec.votacion); cr['votacion-bloqueada'] = !va && !rec.votacion.miVoto; cr['votacion-disponible'] = Boolean(va && !rec.votacion.miVoto); cr['votacion-hecha'] = Boolean(rec.votacion.miVoto); }
+    if (rec.votacion) { var va = rec.votacion.claseDisponible && vista(rec.votacion); var vr = Boolean(rec.votacion.respondida); cr['votacion-bloqueada'] = !va && !vr; cr['votacion-disponible'] = Boolean(va && !vr); cr['votacion-hecha'] = vr; }
     document.querySelectorAll('[data-lsd-if]').forEach(function (el) {
       var c = el.getAttribute('data-lsd-if');
       if (Object.prototype.hasOwnProperty.call(cr, c)) show(el, cr[c]);
@@ -600,13 +628,21 @@
     });
   }
 
+  // Después de responder: los % de cada pregunta tipo test (con la suya marcada) y su respuesta a las libres.
   function votacionResultados(r) {
     var res = r.resultados;
-    return '<div class="lsd-rec"><p class="lsd-rec-t">' + esc(r.pregunta) + '</p><div class="lsd-vot-ops">' +
-      res.opciones.map(function (o) {
+    var mias = r.misRespuestas || {};
+    return '<div class="lsd-rec lsd-vot">' + r.preguntas.map(function (q) {
+      var rq = (res.preguntas || {})[q.id] || { opciones: [] };
+      if (q.tipo === 'libre') {
+        return '<div class="lsd-vot-q"><p class="lsd-rec-t">' + esc(q.pregunta) + '</p>' + (mias[q.id] ? '<div class="lsd-vot-mia"><span>Tu respuesta</span><p>' + esc(mias[q.id]) + '</p></div>' : '<p class="lsd-rec-s">Sin respuesta.</p>') + '</div>';
+      }
+      return '<div class="lsd-vot-q"><p class="lsd-rec-t">' + esc(q.pregunta) + '</p><div class="lsd-vot-ops">' + rq.opciones.map(function (o) {
         var p = Math.round(o.pct * 100);
-        return '<div class="lsd-vot-res' + (o.id === r.miVoto ? ' mio' : '') + '"><i style="width:' + p + '%"></i><span><span>' + (o.id === r.miVoto ? '✓ ' : '') + esc(o.texto) + '</span><strong>' + p + ' %</strong></span></div>';
-      }).join('') + '</div><p class="lsd-vot-total">' + res.total + (res.total === 1 ? ' voto' : ' votos') + ' · gracias por votar</p></div>';
+        var mio = o.id === mias[q.id];
+        return '<div class="lsd-vot-res' + (mio ? ' mio' : '') + '"><i style="width:' + p + '%"></i><span><span>' + (mio ? '✓ ' : '') + esc(o.texto) + '</span><strong>' + p + ' %</strong></span></div>';
+      }).join('') + '</div></div>';
+    }).join('') + '<p class="lsd-vot-total">' + res.total + (res.total === 1 ? ' respuesta' : ' respuestas') + ' · gracias por participar</p></div>';
   }
 
   // Música: cuenta los segundos realmente escuchados (como los vídeos) y avisa al reproducir, al 50 % y al 90 %.

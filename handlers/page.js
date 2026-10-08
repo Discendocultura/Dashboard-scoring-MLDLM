@@ -15,7 +15,7 @@ import { phaseAt, barFor, milestones, redirectFor, madridToEpoch, formatLong, fo
 import { videosDe, conVip, nClases } from '../public/js/videos.js';
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
-import { recursosDe, tieneRecurso, etapasPreclase, UMBRAL_DESBLOQUEO } from '../public/js/recursos.js';
+import { recursosDe, tieneRecurso, etapasPreclase, preguntasValidas, UMBRAL_DESBLOQUEO } from '../public/js/recursos.js';
 import { votoDe, votosDe, resultadosVotos } from '../lib/votos.js';
 
 export function OPTIONS() {
@@ -189,11 +189,13 @@ async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, p
   }
   if (tieneRecurso(launch, 'votacion')) {
     const k = r.votacion.tras;
-    const miVoto = contact ? await votoDe(code, contact.id).catch(() => '') : '';
+    const preguntas = preguntasValidas(r.votacion);
+    const misRespuestas = contact ? await votoDe(code, contact.id).catch(() => ({})) : {};
+    const respondida = Object.keys(misRespuestas).length > 0;
     recursos.votacion = {
-      pregunta: r.votacion.pregunta, opciones: r.votacion.opciones, tras: k, umbral: UMBRAL_DESBLOQUEO,
-      claseDisponible: claseDisponible(k), claseVista: vistaClase(k) || (preview && !contact), miVoto,
-      resultados: miVoto || (preview && !contact) ? resultadosVotos(await votosDe(code).catch(() => ({})), r.votacion.opciones) : null,
+      preguntas, tras: k, umbral: UMBRAL_DESBLOQUEO,
+      claseDisponible: claseDisponible(k), claseVista: vistaClase(k) || (preview && !contact), misRespuestas, respondida,
+      resultados: respondida || (preview && !contact) ? resultadosVotos(await votosDe(code).catch(() => ({})), preguntas) : null,
     };
   }
   if (tieneRecurso(launch, 'descargable')) {

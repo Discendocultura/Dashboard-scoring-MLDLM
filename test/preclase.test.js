@@ -52,23 +52,24 @@ test('preclase: recursos y etapas en la página, votación con resultados y medi
   // Vota: resultados y etiqueta
   assert.equal((await call('/api/votacion', { method: 'POST', body: { launch: 'pre-26', cid, opcion: 'zz' } })).status, 400);
   const v = (await call('/api/votacion', { method: 'POST', body: { launch: 'pre-26', cid, opcion: 'o2' } })).data;
-  assert.equal(v.miVoto, 'o2');
+  assert.deepEqual(v.misRespuestas, { p1: 'o2' }); // formato antiguo { opcion } = la pregunta p1
   assert.equal(v.resultados.total, 1);
-  assert.equal(v.resultados.opciones[1].pct, 1);
+  assert.equal(v.resultados.preguntas.p1.opciones[1].pct, 1);
   await call('/api/votacion', { method: 'POST', body: { launch: 'pre-26', cid: 'mock00002', opcion: 'o1' } });
   assert.ok((await ghl.getContact(cid)).tags.includes('pre-26_voto'));
   p = (await call(`/api/page?l=pre-26&cid=${cid}`)).data;
-  assert.equal(p.recursos.votacion.miVoto, 'o2');
+  assert.deepEqual(p.recursos.votacion.misRespuestas, { p1: 'o2' });
+  assert.equal(p.recursos.votacion.respondida, true);
   assert.equal(p.recursos.votacion.resultados.total, 2);
   // Dashboard: votos de cada contacto
   const d = (await call('/api/votacion?l=pre-26', { cookie: admin })).data;
-  assert.equal(d.votos[cid], 'o2');
+  assert.deepEqual(d.votos[cid], { p1: 'o2' });
   assert.equal((await call('/api/votacion?l=pre-26')).status, 401);
   // Ficha del lead (y de la llamada del closer): su voto y los % de todas
   const f = (await call(`/api/ficha?cid=${cid}&l=pre-26`, { cookie: admin })).data;
-  assert.equal(f.votacion.pregunta, '¿Qué tema?');
-  assert.equal(f.votacion.miVoto, 'Analíticas');
-  assert.equal(f.votacion.resultados.total, 2);
+  assert.equal(f.votacion.preguntas[0].pregunta, '¿Qué tema?');
+  assert.equal(f.votacion.preguntas[0].respuesta, 'Analíticas');
+  assert.equal(f.votacion.preguntas[0].resultados.total, 2);
   assert.equal((await call(`/api/ficha?cid=${cid}`, { cookie: admin })).data.votacion, null);
   // Test hecho: su etiqueta de GHL
   await ghl.addTags(cid, ['autodiagnostico-hecho']);
@@ -99,4 +100,36 @@ test('preclase: el test pide haber rellenado antes la encuesta (etapa 1)', async
   assert.equal(p.recursos.test.faltaEncuesta, false);
   assert.match(p.recursos.test.url, /^https:\/\/ghl\.com\/test\?/);
   assert.equal(p.etapas.find((e) => e.id === 'test').estado, 'disponible');
+});
+
+test('preclase: votación con varias preguntas, tipo test y de respuesta libre', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const { data: cur } = await call('/api/config', { cookie: admin });
+  const launch = {
+    name: 'Varias', registroTag: 'registro-webinar-demo', inicioCaptacion: local(-10), fechaDirecto: local(5), horaDirecto: '19:00',
+    clase1Url: 'https://vimeo.com/1', clase1At: `${local(-2)}T10:00`, clase2Url: 'https://vimeo.com/2', clase2At: `${local(-1)}T10:00`,
+    recursosPre: { votacion: { activo: true, tras: 'clase2', preguntas: [
+      { tipo: 'opciones', pregunta: '¿Qué tema?', opciones: 'Ciclo\nAnalíticas\nEstrés' },
+      { tipo: 'libre', pregunta: '¿Qué te llevas de la clase?' },
+    ] } },
+  };
+  assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, _version: cur.version, launches: { ...cur.config.launches, 'var-26': launch } } })).status, 200);
+  const votar = (cid, respuestas) => call('/api/votacion', { method: 'POST', body: { launch: 'var-26', cid, respuestas } });
+  // La tipo test es obligatoria; la libre, opcional
+  assert.equal((await votar('mock00021', { p2: 'Mucho' })).status, 400);
+  assert.equal((await votar('mock00021', { p1: 'o9' })).status, 400);
+  const r = (await votar('mock00021', { p1: 'o3', p2: '  Que puedo empezar hoy  ' })).data;
+  assert.deepEqual(r.misRespuestas, { p1: 'o3', p2: 'Que puedo empezar hoy' });
+  assert.equal(r.resultados.preguntas.p1.opciones[2].pct, 1);
+  assert.deepEqual(r.resultados.preguntas.p2, { tipo: 'libre', total: 1, opciones: [] }); // los textos no se enseñan a las demás
+  assert.equal((await votar('mock00022', { p1: 'o1' })).status, 200);
+  const p = (await call('/api/page?l=var-26&cid=mock00022')).data;
+  assert.deepEqual(p.recursos.votacion.preguntas.map((q) => q.tipo), ['opciones', 'libre']);
+  assert.equal(p.recursos.votacion.resultados.total, 2);
+  assert.equal(JSON.stringify(p).includes('Que puedo empezar hoy'), false);
+  // Dashboard y ficha: las respuestas libres sí
+  const d = (await call('/api/votacion?l=var-26', { cookie: admin })).data;
+  assert.equal(d.votos.mock00021.p2, 'Que puedo empezar hoy');
+  const f = (await call('/api/ficha?cid=mock00021&l=var-26', { cookie: admin })).data;
+  assert.deepEqual(f.votacion.preguntas.map((q) => q.respuesta), ['Estrés', 'Que puedo empezar hoy']);
 });

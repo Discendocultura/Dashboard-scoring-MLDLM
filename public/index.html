@@ -945,11 +945,14 @@
               </div>
             </div>
             <div class="rec-cfg" data-rec="votacion">
-              <label class="chk"><input type="checkbox" id="cfg-rec-votacion-on"> <strong>🗳️ Votación</strong> <small class="muted">debajo de una clase; se abre al ver el 75 % y, al votar, ven los % de todas</small></label>
+              <label class="chk"><input type="checkbox" id="cfg-rec-votacion-on"> <strong>🗳️ Votación</strong> <small class="muted">debajo de una clase; se abre al ver el 75 %. Una o varias preguntas, tipo test (al responder ven los % de todas) o de respuesta libre</small></label>
               <div class="grid2">
-                <label class="field" data-rec-campo><span>Pregunta</span><input id="cfg-rec-votacion-pregunta" maxlength="200" placeholder="¿Qué te ha sorprendido más de la clase?"></label>
                 <label class="field" data-rec-campo><span>Va debajo de</span><select id="cfg-rec-votacion-tras" data-rec-clases></select></label>
-                <label class="field full" data-rec-campo><span>Opciones <small>(una por línea, de 2 a 8; no cambies su orden cuando ya haya votos)</small></span><textarea id="cfg-rec-votacion-opciones" rows="4"></textarea></label>
+              </div>
+              <div data-rec-campo class="vot-cfg">
+                <div id="cfg-rec-votacion-preguntas" class="vot-cfg-lista"></div>
+                <button type="button" class="btn" id="cfg-rec-votacion-add">+ Añadir pregunta</button>
+                <p class="muted small">Tipo test: una opción por línea (de 2 a 8). Cuando ya haya respuestas, no cambies el orden de las opciones ni borres preguntas: se guardan por su posición.</p>
               </div>
             </div>
             <div class="rec-cfg" data-rec="descargable">

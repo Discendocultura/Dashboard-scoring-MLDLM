@@ -1142,24 +1142,34 @@ function renderMetrics() {
   renderLift(m);
 }
 
-// Votación de la preclase: % de cada opción y conversión a compra de quienes la votaron.
+// Votación de la preclase: por pregunta, el % de cada opción y la conversión a compra de quienes la eligieron;
+// de las preguntas libres, todas las respuestas con el nombre de quien la escribió.
 function renderVotacionMetric() {
   const v = state.votos;
   const launch = state.config.launches[state.launchCode];
   $('#votacion-card').hidden = !launch || !tieneRecurso(launch, 'votacion');
   if ($('#votacion-card').hidden) return;
-  if (!v || v.code !== state.launchCode) { $('#votacion-metric').innerHTML = '<p class="muted">Cargando los votos…</p>'; return; }
+  if (!v || v.code !== state.launchCode) { $('#votacion-metric').innerHTML = '<p class="muted">Cargando las respuestas…</p>'; return; }
   const porId = new Map(state.leads.map((l) => [l.id, l]));
-  const filas = v.resultados.opciones.map((o) => {
-    const votantes = Object.entries(v.votos || {}).filter(([, op]) => op === o.id).map(([cid]) => porId.get(cid)).filter(Boolean);
-    return { ...o, leads: votantes.length, compras: votantes.filter((l) => l.s.compra).length };
+  const votos = Object.entries(v.votos || {});
+  const noVotaron = state.leads.filter((l) => !Object.keys(v.votos?.[l.id] || {}).length);
+  const bloques = v.preguntas.map((q, i) => {
+    const rq = v.resultados.preguntas?.[q.id] || { total: 0, opciones: [] };
+    const cab = `<h3 class="vot-m-q">${v.preguntas.length > 1 ? `${i + 1}. ` : ''}${esc(q.pregunta)} <span class="muted">· ${rq.total} respuesta${rq.total === 1 ? '' : 's'}${q.tipo === 'libre' ? ' · respuesta libre' : ''}</span></h3>`;
+    if (q.tipo === 'libre') {
+      const lista = votos.filter(([, r]) => r?.[q.id]).map(([cid, r]) => ({ lead: porId.get(cid), texto: r[q.id] }));
+      return `${cab}${lista.length ? `<ul class="vot-libres">${lista.slice(0, 300).map((x) => `<li><strong>${esc(x.lead?.name || 'Lead')}</strong>${x.lead?.s.compra ? ' <span class="chip on">Compró</span>' : ''}<p>${esc(x.texto)}</p></li>`).join('')}</ul>` : '<p class="muted">Todavía no hay respuestas.</p>'}`;
+    }
+    const filas = rq.opciones.map((o) => {
+      const eligieron = votos.filter(([, r]) => r?.[q.id] === o.id).map(([cid]) => porId.get(cid)).filter(Boolean);
+      return { ...o, leads: eligieron.length, compras: eligieron.filter((l) => l.s.compra).length };
+    });
+    return `${cab}${votacionHtml(rq)}
+      <div class="table-scroll"><table class="metric-table"><thead><tr><th>Opción</th><th class="num">Votos</th><th class="num">%</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
+      <tbody>${filas.map((f) => `<tr><td>${esc(f.texto)}</td><td class="num">${f.n}</td><td class="num">${Math.round(f.pct * 100)} %</td><td class="num">${f.compras}</td><td class="num big">${pctOf(f.compras, f.leads)}</td></tr>`).join('')}</tbody></table></div>`;
   });
-  const noVotaron = state.leads.filter((l) => !v.votos?.[l.id]);
-  $('#votacion-metric').innerHTML = `<p><strong>${esc(v.pregunta)}</strong> <span class="muted">· ${v.resultados.total} voto${v.resultados.total === 1 ? '' : 's'} (${pctOf(v.resultados.total, state.leads.length)} de los registros)</span></p>
-    ${votacionHtml(v.resultados)}
-    <div class="table-scroll"><table class="metric-table"><thead><tr><th>Opción</th><th class="num">Votos</th><th class="num">%</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
-    <tbody>${filas.map((f) => `<tr><td>${esc(f.texto)}</td><td class="num">${f.n}</td><td class="num">${Math.round(f.pct * 100)} %</td><td class="num">${f.compras}</td><td class="num big">${pctOf(f.compras, f.leads)}</td></tr>`).join('')}
-    <tr class="muted"><td>No votaron</td><td class="num">${noVotaron.length}</td><td class="num">–</td><td class="num">${noVotaron.filter((l) => l.s.compra).length}</td><td class="num">${pctOf(noVotaron.filter((l) => l.s.compra).length, noVotaron.length)}</td></tr></tbody></table></div>`;
+  $('#votacion-metric').innerHTML = `<p><strong>${v.resultados.total}</strong> ${v.resultados.total === 1 ? 'lead ha respondido' : 'leads han respondido'} (${pctOf(v.resultados.total, state.leads.length)} de los registros) · no respondieron ${noVotaron.length}, de las que compraron ${noVotaron.filter((l) => l.s.compra).length} (${pctOf(noVotaron.filter((l) => l.s.compra).length, noVotaron.length)}).</p>
+    ${bloques.join('<hr class="vot-m-sep">')}`;
 }
 
 // Ventas de Raíces por día del carrito (fecha de compra de Raíces).
@@ -2288,7 +2298,7 @@ function preclaseChips(l) {
   if (r.musica && (l.s.musica_play || l.s.musica_50 || l.s.musica_90)) out.push(`<span class="ll-chip" title="Música: ${l.s.musica_90 ? 'entera' : l.s.musica_50 ? 'más de la mitad' : 'le dio al play'}">🎵${l.s.musica_90 ? ' 90%' : l.s.musica_50 ? ' 50%' : ''}</span>`);
   if (r.test && l.s.test) out.push('<span class="ll-chip" title="Hizo el test">🧭 Test</span>');
   const v = r.votacion && votoTexto(l.id);
-  if (v) out.push(`<span class="ll-chip" title="Su voto en la clase">🗳️ ${esc(v.length > 22 ? `${v.slice(0, 21)}…` : v)}</span>`);
+  if (v) out.push(`<span class="ll-chip" title="${esc(`Sus respuestas en la clase: ${v}`)}">🗳️ ${esc(v.length > 22 ? `${v.slice(0, 21)}…` : v)}</span>`);
   return out.join(' ');
 }
 function rowHtml(l) {
@@ -2792,8 +2802,6 @@ const CICLO = [
   { id: 'cfg-rec-test-url', c: 'revisar', label: 'Test · enlace' },
   { id: 'cfg-rec-test-tag', c: 'revisar', label: 'Test · etiqueta al completarlo' },
   { id: 'cfg-rec-test-at', c: 'nuevo', label: 'Test · desbloqueo' },
-  { id: 'cfg-rec-votacion-pregunta', c: 'revisar', label: 'Votación · pregunta' },
-  { id: 'cfg-rec-votacion-opciones', c: 'revisar', label: 'Votación · opciones' },
   { id: 'cfg-rec-descargable-url', c: 'revisar', label: 'Descargable · enlace' },
   { id: 'cfg-vip', c: 'fijo' },
   { id: 'cfg-compra', c: 'fijo' },
@@ -2918,20 +2926,65 @@ function pintarRecursosCfg(recursosPre) {
   $('#cfg-rec-test-url').value = r.test.url;
   $('#cfg-rec-test-tag').value = r.test.tag;
   $('#cfg-rec-test-at').value = r.test.at;
-  $('#cfg-rec-votacion-pregunta').value = r.votacion.pregunta;
   $('#cfg-rec-votacion-tras').value = r.votacion.tras;
-  $('#cfg-rec-votacion-opciones').value = r.votacion.opciones.map((o) => o.texto).join('\n');
+  pintarPreguntasCfg(r.votacion.preguntas);
   $('#cfg-rec-descargable-nombre').value = r.descargable.nombre;
   $('#cfg-rec-descargable-url').value = r.descargable.url;
   $('#cfg-rec-descargable-at').value = r.descargable.at;
   pintarRecursosVis();
 }
+// Preguntas de la votación: cada una tipo test (opciones, una por línea) o de respuesta libre.
+// Cada pregunta guarda su id (p1, p2…) para que sus respuestas sigan siendo suyas aunque cambie el texto.
+function preguntaCfgHtml(q, i) {
+  return `<div class="vot-q" data-qid="${esc(q.id || '')}">
+    <div class="vot-q-head"><strong>Pregunta ${i + 1}</strong>
+      <select data-q-tipo aria-label="Tipo de pregunta"><option value="opciones" ${q.tipo !== 'libre' ? 'selected' : ''}>Tipo test (opciones)</option><option value="libre" ${q.tipo === 'libre' ? 'selected' : ''}>Respuesta libre</option></select>
+      <span class="spacer"></span><button type="button" class="btn ghost" data-q-quitar>Quitar</button></div>
+    <input data-q-texto maxlength="200" placeholder="¿Qué te ha sorprendido más de la clase?" value="${esc(q.pregunta || '')}" aria-label="Pregunta">
+    <textarea data-q-opciones rows="3" placeholder="Una opción por línea" aria-label="Opciones" ${q.tipo === 'libre' ? 'hidden' : ''}>${esc((q.opciones || []).map((o) => o.texto).join('\n'))}</textarea>
+  </div>`;
+}
+function pintarPreguntasCfg(preguntas) {
+  const lista = preguntas?.length ? preguntas : [{ tipo: 'opciones', pregunta: '', opciones: [] }];
+  $('#cfg-rec-votacion-preguntas').innerHTML = lista.map(preguntaCfgHtml).join('');
+  $('#cfg-rec-votacion-add').disabled = lista.length >= 6;
+}
+function leerPreguntasCfg() {
+  return $$('#cfg-rec-votacion-preguntas .vot-q').map((el) => ({
+    id: el.dataset.qid || undefined,
+    tipo: $('[data-q-tipo]', el).value,
+    pregunta: $('[data-q-texto]', el).value,
+    opciones: $('[data-q-opciones]', el).value,
+  }));
+}
+$('#cfg-rec-votacion-add').addEventListener('click', () => {
+  const actuales = leerPreguntasCfg();
+  if (actuales.length >= 6) return;
+  pintarPreguntasCfg([...actuales.map((q) => ({ ...q, opciones: String(q.opciones).split('\n').filter(Boolean).map((t) => ({ texto: t })) })), { tipo: 'opciones', pregunta: '', opciones: [] }]);
+  $$('#cfg-rec-votacion-preguntas [data-q-texto]').at(-1).focus();
+  pintarRecursosVis();
+});
+$('#cfg-rec-votacion-preguntas').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-q-quitar]');
+  if (!b) return;
+  const el = b.closest('.vot-q');
+  if ($$('#cfg-rec-votacion-preguntas .vot-q').length === 1) { $('[data-q-texto]', el).value = ''; $('[data-q-opciones]', el).value = ''; }
+  else el.remove();
+  $$('#cfg-rec-votacion-preguntas .vot-q-head strong').forEach((x, i) => { x.textContent = `Pregunta ${i + 1}`; });
+  $('#cfg-rec-votacion-add').disabled = false;
+  pintarRecursosVis();
+});
+$('#cfg-rec-votacion-preguntas').addEventListener('change', (e) => {
+  const sel = e.target.closest('[data-q-tipo]');
+  if (sel) $('[data-q-opciones]', sel.closest('.vot-q')).hidden = sel.value === 'libre';
+});
+
 // Las opciones de la votación van por posición (o1, o2…): los votos guardan esa posición.
 function leerRecursosCfg() {
   return sanitizeRecursos({
     musica: { activo: $('#cfg-rec-musica-on').checked, nombre: $('#cfg-rec-musica-nombre').value, url: $('#cfg-rec-musica-url').value, tras: $('#cfg-rec-musica-tras').value, texto: $('#cfg-rec-musica-texto').value },
     test: { activo: $('#cfg-rec-test-on').checked, nombre: $('#cfg-rec-test-nombre').value, url: $('#cfg-rec-test-url').value, tag: $('#cfg-rec-test-tag').value, at: $('#cfg-rec-test-at').value },
-    votacion: { activo: $('#cfg-rec-votacion-on').checked, pregunta: $('#cfg-rec-votacion-pregunta').value, opciones: $('#cfg-rec-votacion-opciones').value, tras: $('#cfg-rec-votacion-tras').value },
+    votacion: { activo: $('#cfg-rec-votacion-on').checked, preguntas: leerPreguntasCfg(), tras: $('#cfg-rec-votacion-tras').value },
     descargable: { activo: $('#cfg-rec-descargable-on').checked, nombre: $('#cfg-rec-descargable-nombre').value, url: $('#cfg-rec-descargable-url').value, at: $('#cfg-rec-descargable-at').value },
   }, Math.max(1, nClasesForm()));
 }
@@ -2944,7 +2997,7 @@ function pintarRecursosVis() {
   const dentro = (id) => ['musica', 'votacion'].filter((t) => tieneRecurso(sim, t) && rec[t].tras === id).map((t) => (t === 'musica' ? '🎵' : '🗳️')).join('');
   const faltan = RECURSOS_EXTRA.filter((t) => rec[t].activo && !tieneRecurso(sim, t));
   $('#cfg-rec-etapas').innerHTML = `<strong>Etapas de la página:</strong> ${etapasPreclase(sim, nc).map((e) => `<span class="rec-etapa">${e.n} · ${esc(e.label)}${dentro(e.id) ? ` + ${dentro(e.id)}` : ''}</span>`).join('')}`
-    + (faltan.length ? `<p class="muted small">Sin completar (no salen en la página): ${faltan.map((t) => TIPOS_RECURSO.find((x) => x.id === t).label).join(', ')}. ${faltan.includes('votacion') ? 'La votación necesita pregunta y al menos 2 opciones.' : ''}</p>` : '');
+    + (faltan.length ? `<p class="muted small">Sin completar (no salen en la página): ${faltan.map((t) => TIPOS_RECURSO.find((x) => x.id === t).label).join(', ')}. ${faltan.includes('votacion') ? 'La votación necesita al menos una pregunta (las tipo test, con 2 opciones o más).' : ''}</p>` : '');
 }
 $('#cfg-rec-sec').addEventListener('input', pintarRecursosVis);
 $('#cfg-rec-sec').addEventListener('change', () => { pintarRecursosVis(); renderGuia(); });
@@ -3432,7 +3485,7 @@ function renderSnippets() {
     ...(tieneRecurso(state.config.launches[code], 'musica') ? [['RECURSOS · música (debajo de su clase; se desbloquea al ver el 75 % de la clase)', '<div data-lsd-audio="musica"></div>']] : []),
     ...(tieneRecurso(state.config.launches[code], 'test') ? [['RECURSOS · test (botón; se desbloquea en su fecha y con la encuesta rellenada)',
       '<div data-lsd-if="test-bloqueado">🔒 El test se abre en <span data-lsd-countdown="test"></span></div>\n<div data-lsd-if="test-falta-encuesta">🔒 Para hacer el test, rellena primero la encuesta (etapa 1)</div>\n<div data-lsd-if="test-disponible">\n  <a data-lsd-link="test">Hacer el test</a>\n</div>\n<div data-lsd-if="test-hecho">✓ ¡Test completado!</div>']] : []),
-    ...(tieneRecurso(state.config.launches[code], 'votacion') ? [['RECURSOS · votación (debajo de su clase; se abre al ver el 75 % de la clase y enseña los % al votar)', '<div data-lsd-votacion></div>']] : []),
+    ...(tieneRecurso(state.config.launches[code], 'votacion') ? [['RECURSOS · votación (debajo de su clase; se abre al ver el 75 % de la clase; tipo test enseña los % al responder)', '<div data-lsd-votacion></div>']] : []),
     ...(tieneRecurso(state.config.launches[code], 'descargable') ? [['RECURSOS · recurso descargable (se mide quién lo abre)', '<div data-lsd-if="descargable-bloqueado">🔒 Disponible en <span data-lsd-countdown="descargable"></span></div>\n<a data-lsd-if="descargable-disponible" data-lsd-link="descargable">Descargar</a>']] : []),
     ['RECURSOS · imagen de una etapa (la URL se pone en Configuración → Preclase; sin imagen, se oculta)', '<img data-lsd-img="clase1" alt="">'],
     ['RECURSOS · etapas (cada caja recibe data-lsd-estado="bloqueada | disponible | hecha" para el diseño)',
@@ -6452,7 +6505,7 @@ function hechosLead(lead) {
     s.encuesta ? '📋 Rellenó la encuesta' : '',
     ...(s.recursos?.musica ? [`🎵 Música: ${s.musica_90 ? 'la escuchó entera' : s.musica_50 ? 'escuchó más de la mitad' : s.musica_play ? 'le dio al play' : 'no la ha escuchado'}`] : []),
     ...(s.recursos?.test ? [s.test ? `🧭 Hizo el test${recursosDe(launch).test.nombre ? ` «${recursosDe(launch).test.nombre}»` : ''}` : '🧭 No ha hecho el test'] : []),
-    ...(s.recursos?.votacion ? [votoTexto(lead.id) ? `🗳️ Votó: «${votoTexto(lead.id)}»` : s.voto ? '🗳️ Votó en la clase' : '🗳️ No ha votado'] : []),
+    ...(s.recursos?.votacion ? [votoTexto(lead.id) ? `🗳️ Respondió en la clase: «${votoTexto(lead.id)}»` : s.voto ? '🗳️ Respondió la votación de la clase' : '🗳️ No ha respondido la votación'] : []),
     ...(s.recursos?.descargable ? [s.descarga ? '📄 Abrió el descargable' : ''] : []),
     s.wa_enviado ? '💬 Ya se le escribió por WhatsApp' : '',
     s.compra ? '✅ Ya compró' : s.clienta_anterior ? '✅ Clienta de una edición anterior' : '',
@@ -6481,7 +6534,9 @@ function pintarFicha(c, f, error = '') {
       <p class="ficha-meta">${[c.sinLlamada ? '' : origenChip(c), lead.s.trafico ? `<span class="ll-chip">${lead.s.trafico === 'frio' ? '❄️ Tráfico frío (nueva en GHL)' : '🔥 Tráfico templado (ya estaba en GHL)'}</span>` : '', avatarChip(lead), dias != null ? `<span class="ll-chip">Registrada hace ${dias} día${dias === 1 ? '' : 's'} (${esc(fechaFicha(reg))})</span>` : ''].filter(Boolean).join(' ')}</p></section>` : ''}
     ${r ? `<section class="ficha-sec"><h3>📝 Resultado anotado</h3><p>${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span></p>${c.resultado.notas ? `<p class="ll-notas">${esc(c.resultado.notas)}</p>` : ''}</section>` : ''}
     ${error ? `<p class="error">${esc(error)}</p>` : !f ? '<p class="muted">Cargando la encuesta, el formulario y las notas de GHL…</p>' : `
-    ${f.votacion ? `<section class="ficha-sec"><h3>🗳️ Votación de la clase</h3><p>${esc(f.votacion.pregunta)}</p>${votacionHtml(f.votacion.resultados, f.votacion.miVoto)}<p class="muted small">${f.votacion.miVoto ? `Votó «${esc(f.votacion.miVoto)}».` : 'No ha votado.'} ${f.votacion.resultados.total} voto${f.votacion.resultados.total === 1 ? '' : 's'} en total.</p></section>` : ''}
+    ${f.votacion ? `<section class="ficha-sec"><h3>🗳️ Votación de la clase</h3>${f.votacion.preguntas.map((q) => `<div class="ficha-vot"><p><strong>${esc(q.pregunta)}</strong></p>${q.tipo === 'libre'
+      ? (q.respuesta ? `<p class="ll-notas">${esc(q.respuesta)}</p>` : '<p class="muted small">No respondió.</p>')
+      : `${votacionHtml(q.resultados, q.respuesta)}<p class="muted small">${q.respuesta ? `Votó «${esc(q.respuesta)}».` : 'No votó.'} ${q.resultados.total} voto${q.resultados.total === 1 ? '' : 's'} en total.</p>`}</div>`).join('')}</section>` : ''}
     <section class="ficha-sec"><h3>📋 Encuesta</h3>${encuestaRespondida ? filas(f.encuesta.map((x) => [x.pregunta, x.respuesta])) : `<p class="muted">${f.encuesta.length ? 'No ha rellenado la encuesta.' : 'Este cliente no tiene preguntas de encuesta configuradas (Equipo → Marca).'}</p>`}</section>
     <section class="ficha-sec"><h3>📞 Formulario de la llamada y otros datos de GHL</h3>${filas(f.otros.map((x) => [x.campo, x.fecha ? fechaFicha(x.valor) : x.valor]), 'No hay más datos en su ficha de GHL.')}</section>
     ${f.notas.length ? `<section class="ficha-sec"><h3>🗒️ Notas en GHL</h3><ul class="ficha-notas">${f.notas.map((n) => `<li><span class="muted small">${esc(fechaFicha(n.dateAdded))}</span><div>${esc(n.body)}</div></li>`).join('')}</ul></section>` : ''}`}`;
@@ -6529,11 +6584,14 @@ async function cargarVotos() {
     if (state.launchCode === code) { state.votos = d.activa ? { code, ...d } : null; render(); }
   } catch { state.votos = null; }
 }
-const votoTexto = (cid) => {
+// Respuestas de un lead a la votación: [{ q, texto }] (texto de la opción elegida o lo que escribió).
+const respuestasDe = (cid) => {
   const v = state.votos;
-  if (!v || v.code !== state.launchCode) return '';
-  return v.opciones.find((o) => o.id === v.votos?.[cid])?.texto || '';
+  if (!v || v.code !== state.launchCode) return [];
+  const mias = v.votos?.[cid] || {};
+  return v.preguntas.map((q) => ({ q, texto: q.tipo === 'libre' ? mias[q.id] || '' : q.opciones.find((o) => o.id === mias[q.id])?.texto || '' })).filter((x) => x.texto);
 };
+const votoTexto = (cid) => respuestasDe(cid).map((x) => x.texto).join(' · ');
 $('#ficha-anotar').addEventListener('click', () => {
   if (!fichaLlamada) return;
   $('#ficha-dialog').close();
@@ -7176,7 +7234,7 @@ function pintarEmbGuia() {
     pasos.push({ titulo: `${pasos.length + 1} · Recursos de la preclase`, pasos: [
       ...(rec.includes('musica') ? ['<strong>Música:</strong> sube el MP3 a GHL → <em>Medios</em> y copia su enlace (va en Configuración → Preclase).'] : []),
       ...(rec.includes('test') ? ['<strong>Test:</strong> crea el test en GHL y un <strong>workflow</strong> que, al enviarlo, ponga una etiqueta (p. ej. <code>autodiagnostico-hecho</code>). Esa etiqueta y la fecha de desbloqueo van en Configuración → Preclase.'] : []),
-      ...(rec.includes('votacion') ? ['<strong>Votación:</strong> la hace el dashboard, no hace falta nada en GHL; escribe la pregunta y las opciones en Configuración → Preclase.'] : []),
+      ...(rec.includes('votacion') ? ['<strong>Votación:</strong> la hace el dashboard, no hace falta nada en GHL; escribe las preguntas (tipo test o de respuesta libre) en Configuración → Preclase.'] : []),
       ...(rec.includes('descargable') ? ['<strong>Descargable:</strong> sube el PDF a GHL → <em>Medios</em> (o a Drive) y copia su enlace.'] : []),
       'En la página preclase pega los bloques de <em>Configuración → Códigos</em> (música, test, votación y etapas).',
     ] });
