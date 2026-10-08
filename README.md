@@ -318,7 +318,7 @@ cruza las UTM de GHL (`utm_campaign`, `utm_term`, `utm_content` con los ID de Me
 3. Para recibirlo cada mañana: añade en Cloudflare el secreto `DIGEST_KEY` (texto aleatorio largo) y crea una tarea
    gratuita en [cron-job.org](https://cron-job.org) que abra a las 8:00 (hora de Madrid):
    `https://<tu-proyecto>.pages.dev/api/agencia?key=<DIGEST_KEY>&c=<cliente>` (la tarea de cada cliente, ver «Tareas automáticas por cliente»).
-   La antigua `/api/digest?key=…` sigue funcionando, pero no la tengas a la vez que la del cliente o el resumen llega repetido.
+   La antigua `/api/digest?key=…` sigue funcionando; si están las dos, el resumen solo se manda una vez al día.
 
 ## Anti-bots (Cloudflare Turnstile, gratis)
 Cloudflare → *Turnstile → Add widget* → dominios: el de tus páginas de GHL y `<tu-proyecto>.pages.dev`, modo

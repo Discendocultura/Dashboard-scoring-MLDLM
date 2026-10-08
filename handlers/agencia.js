@@ -12,7 +12,7 @@ import { sendEmail } from '../lib/ghl.js';
 import { resumenAgencia } from '../lib/agencia.js';
 import { informesPendientes } from '../lib/informe-envio.js';
 import { getConfig } from '../lib/config-store.js';
-import { sendDigest } from '../lib/digest.js';
+import { sendDigestUnaVez } from '../lib/digest.js';
 import { json, readBody, errorResponse, escapeHtml } from '../lib/http.js';
 
 const eur = (n) => (n == null ? '–' : `${Math.round(n).toLocaleString('es-ES')} €`);
@@ -83,7 +83,7 @@ export async function GET(request) {
         if (db()) await db().prepare("DELETE FROM intentos WHERE clave LIKE 'visita:%' AND desde < ?").bind(Date.now() - 86_400_000).run().catch(() => {});
         const config = await getConfig({ fresh: true });
         if (config.digestEmail) {
-          try { out.resumenDiario = await sendDigest(config, new URL('/', request.url).toString()); } catch (e) { out.resumenDiario = { sent: false, error: String(e.publicMessage || e.message).slice(0, 200) }; }
+          try { out.resumenDiario = await sendDigestUnaVez(config, new URL('/', request.url).toString()); } catch (e) { out.resumenDiario = { sent: false, error: String(e.publicMessage || e.message).slice(0, 200) }; }
         }
         return json(out);
       }

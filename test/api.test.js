@@ -195,6 +195,13 @@ test('resumen diario: protegido por clave y enviado por GHL', async () => {
   assert.equal(r.sent, true);
   const { sentEmails } = await import('../lib/mock.js');
   assert.match(sentEmails.at(-1).html, /Muy calientes sin contactar/);
+  // Desde las tareas programadas, como mucho uno al día (aunque estén la tarea antigua y la del cliente)
+  const n = sentEmails.length;
+  const c1 = await (await GET(req('/api/digest?key=clave-larga-de-prueba-123'))).json();
+  const c2 = await (await GET(req('/api/digest?key=clave-larga-de-prueba-123'))).json();
+  assert.equal(c1.sent, true);
+  assert.equal(c2.sent, false);
+  assert.equal(sentEmails.length, n + 1);
 });
 
 test('apply-tags: la setter puede cambiar el resultado, pero no quitar otras etiquetas', async () => {
