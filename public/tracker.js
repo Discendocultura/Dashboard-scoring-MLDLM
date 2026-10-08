@@ -726,12 +726,12 @@
 
   // Página gestionada desde el dashboard (recursos / grabación). Vuelve a pedir los datos cuando
   // cambia de fase o se desbloquea un vídeo, y redirige (recursos → directo → grabación).
-  // ---------- Pantalla de espera: los 15 minutos antes del directo ----------
+  // ---------- Pantalla de espera: los 59 minutos antes del directo ----------
   // La página preclase entera se tapa con el logo, «¡Empezamos en unos minutos!», una cuenta atrás de
   // minutos y segundos y el aviso de que se la llevará al directo; al llegar a cero, va al directo.
   // Textos (Configuración → Preclase): espera-titulo, espera-subtitulo, espera-mensaje; logo: imagen «espera».
   // Colores: variables CSS --lsd-espera-fondo, --lsd-espera-titulo, --lsd-espera-acento, --lsd-espera-texto.
-  var ESPERA_MIN = 15;
+  var ESPERA_MIN = 59;
   function esperaDirecto(data) {
     var m = /^dia_directo(\d?)$/.exec(data.phase || '');
     var key = m ? 'directo' + m[1] : '';
@@ -842,7 +842,7 @@
           return goTo(data.links[data.redirectTo], who);
         }
         renderPage(data, who, function (el) { onVideo(el, data.code); });
-        // Los 15 minutos antes del directo, la preclase se convierte en la pantalla de espera.
+        // Los 59 minutos antes del directo, la preclase se convierte en la pantalla de espera.
         var esp = kind === 'recursos' ? esperaDirecto(data) : null;
         if (esp && serverNow() >= esp.desde) mostrarEspera(data, esp, who); else quitarEspera();
         // Próximo cambio: fase o desbloqueo de vídeo (o el momento de enseñar la pantalla de espera).

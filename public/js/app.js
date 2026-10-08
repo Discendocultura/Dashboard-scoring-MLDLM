@@ -2566,6 +2566,18 @@ function readVideosCfg() {
 }
 
 // Prelanzamiento del embudo (clases y VIP): solo se ven las casillas que tocan.
+// Enlace para conectarse al directo: la página preclase (con ?cid en los emails de GHL).
+function pintarEnlaceDirecto() {
+  const pre = $('#cfg-recursos-url').value.trim();
+  const box = $('#enlace-directo-box');
+  if (!pre) { box.innerHTML = '<p class="enlace-directo-falta">Pon la <strong>URL de la página preclase</strong> (más abajo, en «Páginas de GHL») y aquí aparecerán los enlaces para copiar.</p>'; return; }
+  const email = `${pre}${pre.includes('?') ? '&' : '?'}cid={{contact.id}}`;
+  const fila = (etq, txt, nota) => `<div class="enlace-directo-fila"><span class="enlace-directo-etq">${etq}</span><code>${esc(txt)}</code><button type="button" class="btn primary" data-copy-text="${esc(txt)}">Copiar</button><small>${nota}</small></div>`;
+  box.innerHTML = fila('📧 Emails de GHL', email, 'Entra directa, sin escribir nada (GHL pone el contacto en <code>{{contact.id}}</code>).')
+    + fila('💬 WhatsApp', pre, 'En el grupo y en mensajes: si el móvil no la recuerda, la página le pide su email.');
+}
+$('#cfg-recursos-url').addEventListener('input', pintarEnlaceDirecto);
+
 function pintarPrelanzamientoCfg(l) {
   const emb = embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo) || {};
   const preclase = emb.preclase !== false;
@@ -2670,6 +2682,7 @@ function openConfig(code) {
   renderVideosCfg(l);
   pintarPrelanzamientoCfg(l);
   pintarRecursosCfg(l.recursosPre);
+  pintarEnlaceDirecto();
   checkLaunchTags();
   renderGuia();
   if (!dlg.open) dlg.showModal();
@@ -3493,8 +3506,17 @@ function renderSnippets() {
     ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
     ['GRABACIÓN · bloques de la página del replay', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
-    ['Enlace al directo en emails de GHL', `${origin}/directo?l=auto&cid={{contact.id}}${cParam('&')}`],
-    ['Enlace al directo para el grupo de WhatsApp (pide el email)', `${origin}/directo?l=auto${cParam('&')}`],
+    // El enlace para conectarse al directo es el de la preclase: 59 min antes enseña la pantalla de espera y al llegar a cero entra sola.
+    ...(() => {
+      const pre = state.config.launches[code]?.recursosUrl || '';
+      const sep = pre.includes('?') ? '&' : '?';
+      return pre
+        ? [['DIRECTO · enlace para conectarse por EMAIL de GHL (la preclase: pantalla de espera 59 min antes y entra sola)', `${pre}${sep}cid={{contact.id}}`],
+          ['DIRECTO · enlace para conectarse por WHATSAPP (la preclase; si el móvil no la recuerda, pide el email)', pre]]
+        : [['DIRECTO · enlace para conectarse (email y WhatsApp)', 'Pon primero la URL de la página preclase en Configuración → Preclase → Páginas de GHL.']];
+    })(),
+    ['Enlace directo a Zoom (sin pantalla de espera) en emails de GHL', `${origin}/directo?l=auto&cid={{contact.id}}${cParam('&')}`],
+    ['Enlace directo a Zoom (sin pantalla de espera) para WhatsApp (pide el email)', `${origin}/directo?l=auto${cParam('&')}`],
     // Lanzamientos de varios vídeos: una página por vídeo y su enlace al directo (si es en directo).
     ...videosDe(state.config.launches[code]).slice(1).flatMap((v) => [
       [`${v.nombre.toUpperCase()} · bloques de su página`, `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="${v.replay}"></div>\n${script}`],
