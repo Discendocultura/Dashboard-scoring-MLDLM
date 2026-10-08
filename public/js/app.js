@@ -11,7 +11,7 @@ import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
 import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago } from './pago.js';
 import { cicloDeContactos, textoDias } from './ciclo.js';
-import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoEntregable, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
+import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusMeteo, tipoEntregable, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
 import { alertasCarrito } from './alertas.js';
 import { leerLeads, guardarLeads, borrarCopias } from './cache-leads.js';
@@ -7162,7 +7162,11 @@ async function pintarConversionDownsell(code) {
   const recuperadas = noCompraron.filter((l) => ids.has(l.id)).length;
   const yaClientas = state.leads.filter((l) => l.s.compra && ids.has(l.id)).length;
   const deFuera = d.compradores.length - recuperadas - yaClientas;
-  box.innerHTML = [
+  // Misma etiqueta de compra que el lanzamiento: sus ventas se cuentan en los dos y no se pueden separar.
+  const launch = state.config.launches[state.launchCode];
+  const m = state.config.meteoricos?.[code];
+  const mismaEtiqueta = m?.compraTag && launch?.compraTag && m.compraTag.toLowerCase() === launch.compraTag.toLowerCase();
+  box.innerHTML = (mismaEtiqueta ? `<div class="notice warn" style="grid-column:1/-1"><span>El meteórico usa la <strong>misma etiqueta de compra</strong> que el lanzamiento («${esc(m.compraTag)}»): sus ventas cuentan también como ventas del lanzamiento y la conversión no se puede medir. Ponle su propia etiqueta de compra en GHL y en Configurar.</span></div>` : '') + [
     card('Conversión del downsell', pctOf(recuperadas, noCompraron.length), `${recuperadas} de las ${noCompraron.length.toLocaleString('es-ES')} registradas que no compraron el lanzamiento`, 'zap', 'buy'),
     card('Ventas recuperadas', recuperadas, d.ventas ? `${pctOf(recuperadas, d.ventas)} de las ventas del meteórico` : 'aún sin ventas', 'cart', 'money'),
     card('Ya eran clientas del lanzamiento', yaClientas, 'compraron el lanzamiento y también el downsell', 'crown', 'vip'),
@@ -7663,7 +7667,7 @@ async function pintarOfertaMeteo(box, code) {
   const p = m.paquete || { entregables: [], bonus: [] };
   const precio = Number(m.precio) || 0;
   const valor = valorOferta(p, precio);
-  const chipB = (b) => { const t = tipoBonus(b.tipo); return `<span class="of-chip b-${b.tipo}" title="${esc(t.largo || t.label)} · ${esc(t.desc)}">${t.icon} ${esc(b.nombre)}</span>`; };
+  const chipB = (b) => { const t = tipoBonusMeteo(b.tipo); return `<span class="of-chip b-${b.tipo}" title="${esc(t.largo || t.label)} · ${esc(t.desc)}">${t.icon} ${esc(b.nombre)}</span>`; };
   const resumen = `<section class="card metric-card"><h2>🎁 La oferta <span class="muted">· ${esc(m.name)}${m.oferta ? ` · ${esc(m.oferta)}` : ''}</span></h2><div class="of-oferta">
       <div><h4>📦 Entregables (${p.entregables.length})</h4>${p.entregables.length ? `<ul>${p.entregables.map((e) => `<li>${tipoEntregable(e.tipo).icon} <strong>${esc(e.nombre)}</strong> <span class="muted small">${esc(tipoEntregable(e.tipo).label)}${e.valor ? ` · ${eur(e.valor)}` : ''}</span></li>`).join('')}</ul>` : '<p class="muted small">Sin entregables.</p>'}</div>
       <div><h4>🎁 Bonus (${p.bonus.length})</h4>${p.bonus.length ? `<ul>${p.bonus.map((b) => { const w = ventanaBonusMeteo(b, m); return `<li>${chipB(b)}${b.valor ? ` <span class="muted small">${eur(b.valor)}</span>` : ''}<br><span class="muted small">${fechaHoraCorta(w.desde)} → ${fechaHoraCorta(w.hasta)}</span></li>`; }).join('')}</ul>` : '<p class="muted small">Sin bonus.</p>'}</div>

@@ -5,7 +5,7 @@
 // Lo usan el navegador y el servidor.
 import { tiemposMeteorico } from './meteorico.js';
 import { madridToEpoch } from './page.js';
-import { tipoBonus } from './oferta.js';
+import { tipoBonusMeteo } from './oferta.js';
 
 const MIN = 60_000;
 const HORA = 60 * MIN;
@@ -14,10 +14,11 @@ const HORA = 60 * MIN;
 export function ventanaBonusMeteo(b, m) {
   const T = tiemposMeteorico(m);
   if (T.apertura == null) return { desde: null, hasta: null };
-  const min = tipoBonus(b.tipo).min;
+  const min = tipoBonusMeteo(b.tipo).min;
   let hasta = min ? T.apertura + min * MIN : T.cierre;
-  if (T.cierre != null && hasta != null) hasta = Math.min(hasta, T.cierre);
   if (b.hasta) hasta = madridToEpoch(b.hasta) ?? hasta;
+  // Nunca fuera de la oferta: un fin a mano después del cierre se queda en el cierre.
+  if (T.cierre != null && hasta != null) hasta = Math.min(hasta, T.cierre);
   return { desde: T.apertura, hasta: hasta ?? null };
 }
 

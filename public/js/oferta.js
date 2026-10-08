@@ -58,6 +58,8 @@ export function sanitizeOferta(o, { tipos = IDS_BONUS } = {}) {
 
 export const tipoBonus = (id) => TIPOS_BONUS.find((t) => t.id === id) || TIPOS_BONUS_METEO.find((t) => t.id === id) || TIPOS_BONUS[3];
 export const IDS_BONUS_METEO = TIPOS_BONUS_METEO.map((t) => t.id);
+// Tipo de bonus de un meteórico (sus BAR cuentan desde que abre la oferta, con su duración en `min`).
+export const tipoBonusMeteo = (id) => TIPOS_BONUS_METEO.find((t) => t.id === id) || TIPOS_BONUS_METEO.at(-1);
 export const tipoEntregable = (id) => TIPOS_ENTREGABLE.find((t) => t.id === id) || TIPOS_ENTREGABLE[0];
 
 // Momentos del carrito (epoch ms): directo de venta, apertura y cierre.

@@ -11,7 +11,7 @@ import { leerJSON, guardarJSON, reintentando, db, esquema } from '../lib/store.j
 import { ipDe } from '../lib/intentos.js';
 import { clienteActual } from '../lib/cliente.js';
 import { todosLosLeads } from '../lib/resumen.js';
-import { adSpend, metaConfigured } from '../lib/meta.js';
+import { inversionMeteorico } from '../lib/meteorico-inversion.js';
 import { metricasMeteorico, faseMeteorico, tiemposMeteorico } from '../public/js/meteorico.js';
 import { dayInMadrid, dayOfDateField, momentoDeCampo } from '../public/js/scoring.js';
 import { enlacePago, planesActivos, planDeTags } from '../public/js/pago.js';
@@ -77,15 +77,7 @@ export async function GET(request) {
       leerJSON(claveVisitas(code), () => ({ total: 0, porDia: {} })),
       leerJSON(claveFoto(code), () => null),
     ]);
-    let inversion = null;
-    let metaError = '';
-    if (metaConfigured() && (m.metaFiltro || m.calentamiento)) {
-      try {
-        const desde = m.calentamiento || String(m.apertura).slice(0, 10);
-        const hasta = String(m.cierre || m.apertura).slice(0, 10) || dayInMadrid(new Date().toISOString());
-        if (desde && hasta >= desde) inversion = (await adSpend({ since: desde, until: hasta, filter: m.metaFiltro || code })).total || null;
-      } catch (e) { metaError = e.publicMessage || e.message; }
-    }
+    const { inversion, metaError } = await inversionMeteorico(m, code);
     const r = metricasMeteorico(contactos, m, { previo: foto ? new Set(foto.ids) : null, visitas, inversion });
     return json({
       ...r,

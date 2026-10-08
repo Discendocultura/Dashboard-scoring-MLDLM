@@ -56,3 +56,18 @@ test('configuración: el meteórico guarda su oferta', () => {
   assert.equal(cfg.meteoricos.bf26.paquete.entregables[0].valor, 1200);
   assert.equal(cfg.meteoricos.bf26.paquete.bonus[0].tipo, 'bar_30m');
 });
+
+test('auditoría: BAR 24 h en una oferta de 3 días y fin a mano fuera de la oferta', () => {
+  const m3 = { apertura: '2026-11-27T10:00', cierre: '2026-11-30T10:00' };
+  assert.equal(ventanaBonusMeteo({ tipo: 'bar_24h' }, m3).hasta, madridToEpoch('2026-11-28T10:00'));
+  assert.equal(ventanaBonusMeteo({ tipo: 'bar_48h' }, m3).hasta, madridToEpoch('2026-11-29T10:00'));
+  assert.equal(ventanaBonusMeteo({ tipo: 'bar_1h', hasta: '2026-12-05T10:00' }, m3).hasta, madridToEpoch('2026-11-30T10:00'));
+});
+
+test('auditoría: horas de compra con milisegundos, día/mes/año y horas en punto', () => {
+  assert.equal(momentoDeCampo('2026-11-27T10:15:30.123'), t('10:15') + 30_123);
+  assert.equal(momentoDeCampo('27/11/2026 10:15'), t('10:15'));
+  assert.equal(dayOfDateField('2026-11-27 23:30:00.500'), '2026-11-27');
+  assert.equal(momentoDeCampo('2026-11-27T22:00:00.000Z'), t('23:00')); // 23:00 en España: hora real
+  assert.equal(momentoDeCampo('2026-11-27T23:00:00.000Z'), null); // medianoche en España
+});

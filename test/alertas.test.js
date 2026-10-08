@@ -18,3 +18,11 @@ test('alertas del carrito: ritmo, bonus que caduca y cierre', () => {
   assert.deepEqual(alertasCarrito(launch, 10, madridToEpoch('2026-10-19T10:00')), []); // carrito sin abrir
   assert.ok(!alertasCarrito(launch, 60, madridToEpoch('2026-10-22T10:00')).some((x) => /Ritmo/.test(x.texto))); // va bien
 });
+
+test('alertas: sin falsas alarmas al abrir ni en las últimas horas; «pasado mañana» con su día', () => {
+  assert.ok(!alertasCarrito(launch, 5, madridToEpoch('2026-10-20T21:30')).some((x) => /Ritmo/.test(x.texto)));
+  assert.ok(!alertasCarrito(launch, 90, madridToEpoch('2026-10-27T23:00')).some((x) => /Ritmo/.test(x.texto)));
+  const l2 = { ...launch, oferta: { bonus: [{ id: 'x', tipo: 'bar_24h', nombre: 'Guía', hasta: '2026-10-23T09:00' }] } };
+  const a = alertasCarrito(l2, 50, madridToEpoch('2026-10-21T22:00'));
+  assert.ok(a.some((x) => /«Guía» caduca el viernes 23 a las 09:00/.test(x.texto)), JSON.stringify(a));
+});
