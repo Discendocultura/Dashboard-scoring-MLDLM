@@ -15,6 +15,8 @@ import { phaseAt, barFor, milestones, redirectFor, madridToEpoch, formatLong, fo
 import { videosDe, conVip, nClases } from '../public/js/videos.js';
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
+import { recursosDe, tieneRecurso, etapasPreclase, UMBRAL_DESBLOQUEO } from '../public/js/recursos.js';
+import { votoDe, votosDe, resultadosVotos } from '../lib/votos.js';
 
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -102,6 +104,11 @@ export async function GET(request, ctx) {
     };
     const video = (urlKey, unlockAt, gated = false) => videoDe(launch[urlKey], unlockAt, gated);
 
+    // Recursos de la preclase (música, test, votación, descargable) y estado de cada etapa.
+    const { recursos, etapas } = await recursosPagina(code, launch, { now, sig, contact, encuestaDone, preview, m });
+    if (recursos.test?.url) links.test = recursos.test.url;
+    if (recursos.descargable?.url) links.descargable = recursos.descargable.url;
+
     const bar = barFor(launch, phase.id);
     let vendidas = 0;
     try {
@@ -133,6 +140,8 @@ export async function GET(request, ctx) {
       embeds: { gracias: launch.graciasVideoUrl || '' },
       links,
       encuesta: { required: encuestaRequired, done: encuestaDone },
+      recursos,
+      etapas,
       // Inicio de cada vídeo del lanzamiento (cuentas atrás data-lsd-countdown="directo2"…).
       directos: Object.fromEntries(m.videos.map((v) => [v.k === 1 ? 'directo' : `directo${v.k}`, v.inicio])),
       vip: { open: vipOpen, closesAt: m.directo, isVip, precio: launch.precioVip || 0, contador: vipContador },
@@ -153,6 +162,53 @@ export async function GET(request, ctx) {
   } catch (e) {
     return errorResponse(e, CORS_HEADERS);
   }
+}
+
+// Recursos de la preclase para la página y el estado de cada etapa (bloqueada | disponible | hecha).
+//   música: la URL llega en cuanto su clase está disponible; la página la deja escuchar al ver el 75 %
+//           de la clase (lo sabe la propia página mientras se ve, o por la etiqueta <código>_claseN_75).
+//   test: la URL (con el email ya puesto) desde su fecha; hecho = tiene su etiqueta de GHL.
+//   votación: la pregunta, las opciones, el voto de la lead y, si ya votó, los resultados.
+async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, preview, m }) {
+  const r = recursosDe(launch);
+  const vistaClase = (k) => Boolean(sig?.[`${k}_${UMBRAL_DESBLOQUEO}`] || sig?.[`${k}_90`]);
+  const claseDisponible = (k) => Boolean(launch[`${k}Url`]) && encuestaDone && (m[k] == null || now >= m[k]);
+  const recursos = {};
+  if (tieneRecurso(launch, 'musica')) {
+    const k = r.musica.tras;
+    recursos.musica = { nombre: r.musica.nombre, texto: r.musica.texto, tras: k, umbral: UMBRAL_DESBLOQUEO, claseDisponible: claseDisponible(k), claseVista: vistaClase(k) || (preview && !contact), url: claseDisponible(k) ? r.musica.url : '', escuchada: Boolean(sig?.musica_play) };
+  }
+  if (tieneRecurso(launch, 'test')) {
+    const at = madridToEpoch(r.test.at);
+    const unlocked = at == null || now >= at;
+    recursos.test = { nombre: r.test.nombre, unlockAt: at, unlockText: formatLong(at), unlocked, done: Boolean(sig?.test), url: unlocked ? encuestaUrl(r.test.url, contact) : '' };
+  }
+  if (tieneRecurso(launch, 'votacion')) {
+    const k = r.votacion.tras;
+    const miVoto = contact ? await votoDe(code, contact.id).catch(() => '') : '';
+    recursos.votacion = {
+      pregunta: r.votacion.pregunta, opciones: r.votacion.opciones, tras: k, umbral: UMBRAL_DESBLOQUEO,
+      claseDisponible: claseDisponible(k), claseVista: vistaClase(k) || (preview && !contact), miVoto,
+      resultados: miVoto || (preview && !contact) ? resultadosVotos(await votosDe(code).catch(() => ({})), r.votacion.opciones) : null,
+    };
+  }
+  if (tieneRecurso(launch, 'descargable')) {
+    const at = madridToEpoch(r.descargable.at);
+    const unlocked = at == null || now >= at;
+    recursos.descargable = { nombre: r.descargable.nombre, unlockAt: at, unlockText: formatLong(at), unlocked, abierto: Boolean(sig?.descarga), url: unlocked ? r.descargable.url : '' };
+  }
+  const enDirecto = m.directo != null && now >= m.directo - 30 * 60_000;
+  const etapas = etapasPreclase(launch, nClases(launch)).map((e) => {
+    let estado = 'disponible';
+    if (e.tipo === 'encuesta') estado = encuestaDone ? 'hecha' : 'disponible';
+    else if (e.tipo === 'clase') estado = !claseDisponible(e.id) ? 'bloqueada' : vistaClase(e.id) ? 'hecha' : 'disponible';
+    else if (e.tipo === 'test') estado = !recursos.test.unlocked ? 'bloqueada' : recursos.test.done ? 'hecha' : 'disponible';
+    else if (e.tipo === 'descargable') estado = !recursos.descargable.unlocked ? 'bloqueada' : recursos.descargable.abierto ? 'hecha' : 'disponible';
+    else if (e.tipo === 'directo') estado = sig?.directo_asistio ? 'hecha' : enDirecto ? 'disponible' : 'bloqueada';
+    const at = e.tipo === 'directo' ? m.directo : e.at;
+    return { n: e.n, id: e.id, tipo: e.tipo, label: e.label, estado, unlockAt: at ?? null, unlockText: formatLong(at) };
+  });
+  return { recursos, etapas };
 }
 
 // Enlace a la encuesta con el email, nombre y teléfono ya rellenos (GHL rellena los campos
