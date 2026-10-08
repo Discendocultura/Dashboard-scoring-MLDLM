@@ -132,7 +132,17 @@
     '#lsd-espera .lsd-espera-num::after{content:"";position:absolute;left:12%;right:12%;top:50%;height:1px;background:rgba(74,44,32,.07)}' +
     '#lsd-espera .lsd-espera-sep{font-size:clamp(40px,8.5vw,84px);font-weight:900;line-height:1;margin-top:.22em;color:var(--lsd-espera-acento,#860d0e);opacity:.5;animation:lsdEspSep 1s steps(1) infinite}' +
     '#lsd-espera .lsd-espera-lbl{font-size:12px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:#8a7468}' +
-    '#lsd-espera .lsd-espera-msg{margin:clamp(20px,4vh,32px) 0 0;max-width:34ch;font-size:clamp(17px,2.2vw,20px);line-height:1.5;color:var(--lsd-espera-texto,#3a2a24);animation:lsdEspUp .7s .36s ease both}' +
+    '#lsd-espera .lsd-espera-msg{position:relative;display:inline-flex;align-items:center;gap:14px;margin:clamp(22px,4vh,34px) auto 0;max-width:560px;padding:14px 24px 14px 18px;box-sizing:border-box;text-align:left;' +
+    'background:#ffffff;border:1.5px solid #e2d3c5;border-radius:999px;font-size:clamp(16px,2vw,19px);line-height:1.45;color:var(--lsd-espera-texto,#3a2a24);' +
+    'box-shadow:0 10px 28px rgba(134,13,14,.10);animation:lsdEspUp .7s .36s ease both,lsdEspAura 2.8s 1.2s ease-in-out infinite}' +
+    '#lsd-espera .lsd-espera-msg>span:last-child{text-wrap:balance}' +
+    '#lsd-espera .lsd-espera-msg strong{font-weight:900;color:var(--lsd-espera-acento,#860d0e)}' +
+    '#lsd-espera .lsd-espera-dot{position:relative;flex:none;width:12px;height:12px;border-radius:50%;background:var(--lsd-espera-acento,#860d0e)}' +
+    '#lsd-espera .lsd-espera-dot::before,#lsd-espera .lsd-espera-dot::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--lsd-espera-acento,#860d0e);opacity:.45;animation:lsdEspOnda 1.8s ease-out infinite}' +
+    '#lsd-espera .lsd-espera-dot::after{animation-delay:.9s}' +
+    '@keyframes lsdEspOnda{from{transform:scale(1);opacity:.45}to{transform:scale(3.2);opacity:0}}' +
+    '@keyframes lsdEspAura{0%,100%{box-shadow:0 10px 28px rgba(134,13,14,.10),0 0 0 0 rgba(196,155,121,.0)}50%{box-shadow:0 12px 32px rgba(134,13,14,.16),0 0 0 7px rgba(196,155,121,.22)}}' +
+    '@media (max-width:600px){#lsd-espera .lsd-espera-msg{border-radius:20px;padding:14px 18px 14px 16px;gap:12px}}' +
     '#lsd-espera .lsd-espera-paisaje{flex:none;position:relative;width:100%;height:clamp(130px,min(19vw,27vh),250px);margin-top:12px}' +
     '#lsd-espera .lsd-espera-paisaje svg{position:absolute;inset:0;width:100%;height:100%;display:block}' +
     '#lsd-espera .lsd-espera-paisaje{-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%);mask-image:linear-gradient(to bottom,transparent 0,#000 30%)}' +
@@ -759,6 +769,12 @@
     requestAnimationFrame(paso);
   }
 
+  // «Quédate aquí,» (lo que va antes de la primera coma) en negrita; el resto, normal.
+  function mensajeEspera(txt) {
+    var i = txt.indexOf(',');
+    return i > 0 && i < 40 ? '<strong>' + esc(txt.slice(0, i + 1)) + '</strong>' + esc(txt.slice(i + 1)) : esc(txt);
+  }
+
   function mostrarEspera(data, esp, who) {
     var el = document.getElementById('lsd-espera');
     var t = data.texts || {};
@@ -777,7 +793,7 @@
         '<div class="lsd-espera-u"><span class="lsd-espera-num" data-u="m">00</span><span class="lsd-espera-lbl">minutos</span></div>' +
         '<span class="lsd-espera-sep" aria-hidden="true">:</span>' +
         '<div class="lsd-espera-u"><span class="lsd-espera-num" data-u="s">00</span><span class="lsd-espera-lbl">segundos</span></div></div>' +
-        '<p class="lsd-espera-msg">' + esc(t['espera-mensaje'] || 'Quédate aquí, serás redirigida al directo en cuanto el contador llegue a cero.') + '</p>' +
+        '<p class="lsd-espera-msg"><span class="lsd-espera-dot" aria-hidden="true"></span><span>' + mensajeEspera(t['espera-mensaje'] || 'Quédate aquí, serás redirigida al directo en cuanto el contador llegue a cero.') + '</span></p>' +
         '</div>' +
         // El camino de El Camino, con la peregrina andando (el mismo paisaje que la etapa 1).
         '<div class="lsd-espera-paisaje" aria-hidden="true"><svg viewBox="0 0 1200 220" preserveAspectRatio="xMidYMax slice">' +
