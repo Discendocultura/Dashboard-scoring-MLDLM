@@ -1874,3 +1874,31 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 body.is-superadmin .container { padding-bottom: 96px; }
 @media (max-width: 640px) { .agencia-btn.agencia-flotante { right: 16px; bottom: 16px; padding: 10px 16px 10px 10px; } }
 @media print { .agencia-flotante { display: none !important; } }
+
+/* ---------- Oferta (Configuración) y Oferta y bonus (Métricas) ---------- */
+.of-resumen { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13.5px; }
+.of-resumen:empty { display: none; }
+.of-lista { display: flex; flex-direction: column; gap: 8px; }
+.of-fila { display: grid; grid-template-columns: 210px minmax(140px, 1.2fr) minmax(140px, 1.4fr) 92px auto; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.of-fila-bonus { grid-template-columns: 170px minmax(140px, 1.2fr) minmax(140px, 1.2fr) 92px 190px auto; }
+.of-fila input, .of-fila select { width: 100%; min-width: 0; }
+.of-hasta { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.of-ventana { grid-column: 1 / -1; padding: 0 2px; }
+@media (max-width: 1000px) { .of-fila, .of-fila-bonus { grid-template-columns: 1fr 1fr; } .of-fila .of-del { justify-self: end; } }
+.of-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); white-space: nowrap; margin: 1px 0; }
+.of-chip.b-bar_directo { background: color-mix(in srgb, var(--st-muy-caliente) 12%, var(--surface)); border-color: color-mix(in srgb, var(--st-muy-caliente) 30%, var(--border)); }
+.of-chip.b-bar_24h { background: color-mix(in srgb, var(--tone-vip) 13%, var(--surface)); border-color: color-mix(in srgb, var(--tone-vip) 30%, var(--border)); }
+.of-chip.b-bar_48h { background: color-mix(in srgb, var(--tone-live) 12%, var(--surface)); border-color: color-mix(in srgb, var(--tone-live) 30%, var(--border)); }
+.of-chip.b-bonus { background: color-mix(in srgb, var(--tone-buy) 11%, var(--surface)); border-color: color-mix(in srgb, var(--tone-buy) 28%, var(--border)); }
+.of-oferta { display: grid; grid-template-columns: 1fr 1fr 200px; gap: 16px; margin-bottom: 18px; }
+.of-oferta h4 { margin: 0 0 8px; font-size: 14px; }
+.of-oferta ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+.of-valor-box { display: flex; flex-direction: column; gap: 2px; padding: 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
+.of-valor-box strong { font-size: 20px; letter-spacing: -.02em; margin-bottom: 6px; }
+.of-ratio { align-self: flex-start; font-weight: 700; font-size: 12.5px; padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+@media (max-width: 900px) { .of-oferta { grid-template-columns: 1fr; } }
+.of-h3 { font-size: 14px; margin: 18px 0 10px; }
+.of-dias td { vertical-align: middle; }
+.of-barra { width: 28%; }
+.of-caduca { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--st-caliente); }
+.of-bonus-t td { vertical-align: top; }

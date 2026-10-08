@@ -10,6 +10,7 @@ import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenL
 import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
 import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago } from './pago.js';
+import { TIPOS_BONUS, TIPOS_ENTREGABLE, tipoBonus, tipoEntregable, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
@@ -755,6 +756,7 @@ function renderMetrics() {
   ].join('');
 
   renderEconomics(m, launch);
+  renderOfertaAnalisis(launch);
   mostrarEmails(state.launchCode, { kpis: '#em-kpis-l', tabla: '#em-l' });
   renderTrafico(m, launch, tr);
   renderVentasDia(launch);
@@ -2127,7 +2129,7 @@ function openConfig(code) {
   const l = editingCode ? state.config.launches[editingCode]
     : {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
-      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, pago: last.pago, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag, vipContadorBase: last.vipContadorBase,
+      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, pago: last.pago, oferta: last.oferta, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag, vipContadorBase: last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, clase3Url: last.clase3Url, textos: last.textos,
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
@@ -2182,6 +2184,7 @@ function openConfig(code) {
   $('#cfg-fraccionado-tag').value = l.fraccionadoTag || '';
   $('#cfg-unico-tag').value = l.unicoTag || '';
   pintarPago('cfg', l.pago);
+  pintarOfertaEditor(l.oferta);
   $('#cfg-publi-tag').value = l.publiTag || '';
   $('#cfg-organico-tag').value = l.organicoTag || '';
   $('#cfg-inversion').value = l.inversion || '';
@@ -2484,6 +2487,7 @@ function readForm() {
       metaFiltro: $('#cfg-meta-filtro').value.trim(),
       emailFiltro: $('#cfg-email-filtro').value.trim(),
       pago: leerPago('cfg'),
+      oferta: leerOfertaEditor(),
     },
   };
 }
@@ -7217,3 +7221,110 @@ document.addEventListener('click', async (e) => {
     if (box.classList.contains('em-kpis')) pintarEmailsKpis(box, emailsCache[code] || {}); else pintarEmailsTabla(box, emailsCache[code] || {}, code);
   }
 });
+
+
+// ---------- Oferta del lanzamiento: entregables y bonus (Configuración → Oferta) ----------
+const optsTipo = (lista, sel) => lista.map((t) => `<option value="${t.id}" ${t.id === sel ? 'selected' : ''} title="${esc(t.largo || t.label)}${t.desc ? ` · ${esc(t.desc)}` : ''}">${t.icon} ${esc(t.label)}</option>`).join('');
+const valorTxt = (v) => (v ? String(v).replace('.', ',') : '');
+function filaEntregable(e = {}) {
+  return `<div class="of-fila" data-of="entregable" data-id="${esc(e.id || '')}">
+    <select class="of-tipo" aria-label="Tipo de entregable">${optsTipo(TIPOS_ENTREGABLE, e.tipo || 'grabado')}</select>
+    <input class="of-nombre" maxlength="120" placeholder="Nombre (p. ej. Módulo 1: tu ciclo)" value="${esc(e.nombre || '')}">
+    <input class="of-detalle" maxlength="300" placeholder="Detalle (opcional)" value="${esc(e.detalle || '')}">
+    <input class="of-valor" inputmode="decimal" placeholder="Valor €" value="${esc(valorTxt(e.valor))}" aria-label="Valor en euros">
+    <button type="button" class="btn ghost of-del" aria-label="Quitar">✕</button></div>`;
+}
+function filaBonus(b = {}) {
+  return `<div class="of-fila of-fila-bonus" data-of="bonus" data-id="${esc(b.id || '')}">
+    <select class="of-tipo" aria-label="Tipo de bonus">${optsTipo(TIPOS_BONUS, b.tipo || 'bonus')}</select>
+    <input class="of-nombre" maxlength="120" placeholder="Nombre del bonus" value="${esc(b.nombre || '')}">
+    <input class="of-detalle" maxlength="300" placeholder="Detalle (opcional)" value="${esc(b.detalle || '')}">
+    <input class="of-valor" inputmode="decimal" placeholder="Valor €" value="${esc(valorTxt(b.valor))}" aria-label="Valor en euros">
+    <label class="of-hasta"><span>Fin a mano <small>(opcional)</small></span><input type="datetime-local" class="of-hasta-in" value="${esc(b.hasta || '')}"></label>
+    <button type="button" class="btn ghost of-del" aria-label="Quitar">✕</button>
+    <span class="of-ventana muted small"></span></div>`;
+}
+function pintarOfertaEditor(oferta = {}) {
+  $('#of-entregables').innerHTML = (oferta.entregables || []).map(filaEntregable).join('') || '';
+  $('#of-bonus').innerHTML = (oferta.bonus || []).map(filaBonus).join('') || '';
+  refrescarOfertaEditor();
+}
+const nuevoId = (p) => `${p}${Date.now().toString(36).slice(-5)}${Math.random().toString(36).slice(2, 4)}`;
+function leerOfertaEditor() {
+  const fila = (el) => ({ id: el.dataset.id || nuevoId(el.dataset.of === 'bonus' ? 'b' : 'e'), tipo: $('.of-tipo', el).value, nombre: $('.of-nombre', el).value.trim(), detalle: $('.of-detalle', el).value.trim(), valor: $('.of-valor', el).value.trim() });
+  return {
+    entregables: $$('#of-entregables .of-fila').map(fila).filter((x) => x.nombre),
+    bonus: $$('#of-bonus .of-fila').map((el) => ({ ...fila(el), hasta: $('.of-hasta-in', el).value })).filter((x) => x.nombre),
+  };
+}
+const fechaHoraCorta = (ms) => (ms == null ? '–' : new Date(ms).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
+// Ventana de cada bonus y resumen de valor, con las fechas que hay ahora en el formulario.
+function refrescarOfertaEditor() {
+  let launch = null;
+  try { launch = readForm().launch; } catch { launch = null; }
+  // Sin código o etiqueta todavía: bastan las fechas del formulario.
+  const datos = launch || {
+    ...(state.config.launches[editingCode] || {}), fechaDirecto: $('#cfg-directo-fecha').value, horaDirecto: $('#cfg-directo-hora').value,
+    aperturaCarrito: $('#cfg-apertura-carrito').value, cierreCarrito: $('#cfg-cierre').value,
+  };
+  for (const el of $$('#of-bonus .of-fila')) {
+    const w = ventanaBonus({ tipo: $('.of-tipo', el).value, hasta: $('.of-hasta-in', el).value }, datos);
+    $('.of-ventana', el).textContent = w.desde != null && w.hasta != null ? `Activo: ${fechaHoraCorta(w.desde)} → ${fechaHoraCorta(w.hasta)}` : 'Pon las fechas del directo y del carrito (pestaña Lanzamiento) para ver cuándo está activo.';
+  }
+  const o = leerOfertaEditor();
+  const precio = dinero($('#cfg-precio-programa').value);
+  const v = valorOferta({ entregables: o.entregables.map((e) => ({ valor: dinero(e.valor) })), bonus: o.bonus.map((b) => ({ valor: dinero(b.valor) })) }, precio);
+  $('#of-resumen').innerHTML = `<span><strong>${o.entregables.length}</strong> entregables</span><span><strong>${o.bonus.length}</strong> bonus</span>${v.total ? `<span>Valor total <strong>${eur(v.total)}</strong></span>` : ''}${v.ratio ? `<span>= <strong>${v.ratio.toFixed(1).replace('.', ',')}×</strong> el precio</span>` : ''}`;
+}
+$('#of-add-entregable').addEventListener('click', () => { $('#of-entregables').insertAdjacentHTML('beforeend', filaEntregable()); $('#of-entregables .of-fila:last-child .of-nombre').focus(); refrescarOfertaEditor(); });
+$('#of-add-bonus').addEventListener('click', () => { $('#of-bonus').insertAdjacentHTML('beforeend', filaBonus()); $('#of-bonus .of-fila:last-child .of-nombre').focus(); refrescarOfertaEditor(); });
+for (const id of ['#of-entregables', '#of-bonus']) {
+  $(id).addEventListener('click', (e) => { if (e.target.closest('.of-del')) { e.target.closest('.of-fila').remove(); refrescarOfertaEditor(); } });
+  $(id).addEventListener('change', refrescarOfertaEditor);
+  $(id).addEventListener('input', (e) => { if (e.target.matches('.of-valor')) refrescarOfertaEditor(); });
+}
+$('.tab[data-tab="oferta"]').addEventListener('click', refrescarOfertaEditor);
+
+// ---------- Métricas → Oferta y bonus: la oferta frente a las ventas de cada día del carrito ----------
+function renderOfertaAnalisis(launch) {
+  const box = $('#oferta-analisis');
+  if (!box) return;
+  const oferta = launch.oferta || { entregables: [], bonus: [] };
+  const precio = Number(launch.precioPrograma) || 0;
+  const valor = valorOferta(oferta, precio);
+  const chipB = (b) => { const t = tipoBonus(b.tipo); return `<span class="of-chip b-${b.tipo}" title="${esc(t.largo || t.label)} · ${esc(t.desc)}">${t.icon} ${esc(b.nombre)}</span>`; };
+  const resumen = `<div class="of-oferta">
+      <div><h4>📦 Entregables (${oferta.entregables.length})</h4>${oferta.entregables.length ? `<ul>${oferta.entregables.map((e) => `<li>${tipoEntregable(e.tipo).icon} <strong>${esc(e.nombre)}</strong> <span class="muted small">${esc(tipoEntregable(e.tipo).label)}${e.valor ? ` · ${eur(e.valor)}` : ''}</span></li>`).join('')}</ul>` : '<p class="muted small">Sin entregables.</p>'}</div>
+      <div><h4>🎁 Bonus (${oferta.bonus.length})</h4>${oferta.bonus.length ? `<ul>${oferta.bonus.map((b) => `<li>${chipB(b)}${b.valor ? ` <span class="muted small">${eur(b.valor)}</span>` : ''}</li>`).join('')}</ul>` : '<p class="muted small">Sin bonus.</p>'}</div>
+      <div class="of-valor-box"><span class="muted small">Precio</span><strong>${precio ? eur(precio) : '–'}</strong>${valor.total ? `<span class="muted small">Valor de la oferta</span><strong>${eur(valor.total)}</strong>` : ''}${valor.ratio ? `<span class="of-ratio">${valor.ratio.toFixed(1).replace('.', ',')}× el precio</span>` : ''}</div>
+    </div>`;
+  if (!oferta.entregables.length && !oferta.bonus.length) {
+    box.innerHTML = `<p class="muted">Añade los entregables y los bonus del lanzamiento en <strong>Configuración → Oferta</strong> para ver aquí qué bonus empujan la venta cada día del carrito.</p>`;
+    return;
+  }
+  const vpd = ventasPorDia(state.leads, launch);
+  if (!vpd) {
+    box.innerHTML = `${resumen}<p class="muted">Para cruzar la oferta con las ventas de cada día hace falta el <strong>día del directo</strong> y el <strong>campo de fecha de compra</strong> (Configuración → Lanzamiento).</p>`;
+    return;
+  }
+  const a = analizarOferta(launch, vpd);
+  const porId = new Map(oferta.bonus.map((b) => [b.id, b]));
+  const max = Math.max(1, ...a.dias.map((d) => d.n));
+  const tablaDias = `<h3 class="of-h3">Ventas de cada día del carrito y bonus activos</h3>
+    <div class="table-scroll"><table class="metric-table of-dias"><thead><tr><th>Día</th><th class="num">Ventas</th><th></th><th>Bonus activos ese día</th></tr></thead><tbody>
+    ${a.dias.map((d) => `<tr><td>${esc(dayFmt.format(new Date(`${d.day}T12:00:00Z`)))}</td><td class="num"><strong>${d.n}</strong>${d.importe ? `<br><span class="muted small">${eur(d.importe)}</span>` : ''}</td>
+      <td class="of-barra"><div class="meter"><span style="width:${(d.n / max) * 100}%"></span></div></td>
+      <td>${d.activos.map((id) => chipB(porId.get(id))).join(' ') || '<span class="muted small">Ninguno</span>'}${d.caducan.length ? `<div class="of-caduca">⏰ Hoy caduca: ${d.caducan.map((id) => esc(porId.get(id).nombre)).join(', ')}</div>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  const efectoChip = (x) => (x == null ? '–' : `<span class="em-niv ${x >= 1.5 ? 'alto' : x >= 1.1 ? 'medio' : 'bajo'}">${x.toFixed(1).replace('.', ',')}×</span>`);
+  const tablaBonus = `<h3 class="of-h3">Impacto de cada bonus</h3>
+    <div class="table-scroll"><table class="metric-table of-bonus-t"><thead><tr><th>Bonus</th><th>Activo</th><th class="num">Ventas en su ventana</th><th class="num">% del carrito</th><th class="num">Ventas/día activo vs. resto</th><th class="num">Día que caduca</th><th>Lectura</th></tr></thead><tbody>
+    ${a.bonus.map((b) => `<tr><td>${chipB(b)}</td><td class="small">${fechaHoraCorta(b.ventana.desde)} →<br>${fechaHoraCorta(b.ventana.hasta)}</td>
+      <td class="num"><strong>${b.ventas ?? 0}</strong></td><td class="num">${pctE(b.pctCarrito)}</td>
+      <td class="num">${b.porDiaDentro != null ? `${b.porDiaDentro.toFixed(1).replace('.', ',')} vs ${b.porDiaFuera != null ? b.porDiaFuera.toFixed(1).replace('.', ',') : '–'}<br>${efectoChip(b.efecto)}` : '–'}</td>
+      <td class="num">${b.ventasUltimoDia != null ? `${b.ventasUltimoDia}${b.urgencia != null ? `<br>${efectoChip(b.urgencia)}` : ''}` : '–'}</td>
+      <td class="em-consejo">${esc(lecturaBonus(b))}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="muted small">Las ventas se cuentan por día (fecha de compra), así que un bonus de unas horas cuenta todo su día. «Ventas/día activo vs. resto»: media de ventas diarias mientras el bonus estaba activo frente a la de los días del carrito sin él. «Día que caduca»: ventas de ese día frente a la media del carrito (el efecto de la fecha límite). ${vpd.antes || vpd.despues || vpd.sinFecha ? `Fuera del carrito: ${vpd.antes} antes, ${vpd.despues} después y ${vpd.sinFecha} sin fecha.` : ''}</p>`;
+  box.innerHTML = resumen + tablaDias + tablaBonus;
+}
