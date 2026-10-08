@@ -214,8 +214,7 @@
     .mldlm-etapas__desc{grid-row:5;}
     .mldlm-etapas__push{display:none;}
     .mldlm-etapas__fila [data-lsd-video],.mldlm-etapas__test-estado{grid-row:6; align-self:start;}
-    .mldlm-etapas__sub{grid-row:7;}
-    .mldlm-etapas__fila [data-lsd-audio],.mldlm-etapas__fila [data-lsd-votacion]{grid-row:8;}
+    .mldlm-etapas__extra{grid-row:7 / span 2;}
   }
 }
 @media (max-width:480px){
@@ -254,8 +253,11 @@
       <p class="mldlm-etapas__desc"><span data-lsd-text="clase1-descripcion">Aprende a leer tu cuerpo para reconocer tu ventana fértil sin depender de tiras ni apps.</span></p>
       <div class="mldlm-etapas__push"></div>
       <div data-lsd-video="clase1" data-encuesta-text="Completa la Etapa 1 para desbloquear esta clase" data-encuesta-label="Rellenar la encuesta"></div>
-      <p class="mldlm-etapas__sub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Tu música para el camino</p>
-      <div data-lsd-audio="musica"></div>
+      <!-- Música: no se ve nada hasta que ha visto el 75 % de la clase 1 -->
+      <div class="mldlm-etapas__extra" data-lsd-if="musica-disponible">
+        <p class="mldlm-etapas__sub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Tu música para el camino</p>
+        <div data-lsd-audio="musica"></div>
+      </div>
     </div>
 
     <!-- ETAPA · TEST (martes) -->
@@ -301,8 +303,11 @@
       <p class="mldlm-etapas__desc"><span data-lsd-text="clase2-descripcion">Los factores que casi nadie revisa, también en tu pareja, y los primeros cambios que puedes aplicar desde ya.</span></p>
       <div class="mldlm-etapas__push"></div>
       <div data-lsd-video="clase2" data-encuesta-text="Completa la Etapa 1 para desbloquear esta clase" data-encuesta-label="Rellenar la encuesta"></div>
-      <p class="mldlm-etapas__sub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Tu voz en el directo</p>
-      <div data-lsd-votacion></div>
+      <!-- Votación: no se ve nada hasta que ha visto el 75 % de la clase 2 (y sigue viéndose con sus resultados al responder) -->
+      <div class="mldlm-etapas__extra" data-lsd-if="votacion-abierta">
+        <p class="mldlm-etapas__sub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Tu voz en el directo</p>
+        <div data-lsd-votacion></div>
+      </div>
     </div>
 
   </div>

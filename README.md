@@ -243,13 +243,13 @@ Marcadores para el diseño de GHL (`data-launch="auto"` = lanzamiento en curso, 
 | `<a data-lsd-link="encuesta">` | Botón a la encuesta (se abre en otra pestaña, con los datos rellenos; se oculta cuando ya la ha hecho) |
 | `data-lsd-if="vip-abierta|vip-cerrada|ya-vip|encuesta-pendiente|encuesta-hecha"` | Muestra el elemento solo en ese caso |
 | `data-lsd-phase="pre_c1 c1 c2 dia_directo en_directo replay cerrado"` | Muestra el elemento solo en esas fases |
-| `<div data-lsd-audio="musica"></div>` | Música de la preclase: candado hasta ver el 75 % de su clase; después, el reproductor (mide play, 50 % y 90 %) |
+| `<div data-lsd-audio="musica"></div>` | Música de la preclase: no se ve hasta ver el 75 % de su clase (el vídeo ya invita a verla); después, el reproductor (mide play, 50 % y 90 %). Con `data-mostrar-bloqueo` enseña un candado mientras tanto |
 | `<a data-lsd-link="test">` | Botón al test de GHL (se abre en otra pestaña con el email y el nombre; solo desde su fecha y con la encuesta rellenada); `data-lsd-countdown="test"` cuenta atrás hasta su desbloqueo |
-| `<div data-lsd-votacion></div>` | Votación propia (una o varias preguntas, tipo test o libres): candado hasta ver el 75 % de su clase; al responder enseña los % de las tipo test y su respuesta a las libres. Opcional: `data-boton="…"` (texto del botón) y `data-placeholder="…"` (texto del cuadro libre) |
+| `<div data-lsd-votacion></div>` | Votación propia (una o varias preguntas, tipo test o libres): no se ve hasta ver el 75 % de su clase (con `data-mostrar-bloqueo`, un candado); al responder enseña los % de las tipo test y su respuesta a las libres. Opcional: `data-boton="…"` (texto del botón) y `data-placeholder="…"` (texto del cuadro libre) |
 | `<a data-lsd-link="descargable">` | Recurso descargable (mide quién lo abre) |
 | `<img data-lsd-img="clase1|clase2|clase3|test|descargable">` (o un `<div>`: se le mete el `<img>` dentro) | Imagen de esa etapa, de *Configuración → Preclase* (URL de Medios de GHL); sin imagen se oculta |
 | `<div data-lsd-etapa="encuesta|clase1|test|clase2|descargable|directo">` | Recibe `data-lsd-estado="bloqueada|disponible|hecha"` para el diseño; `<span data-lsd-etapa-n="test">` escribe su número de etapa |
-| `data-lsd-if="test-bloqueado|test-falta-encuesta|test-disponible|test-hecho|musica-bloqueada|musica-disponible|votacion-bloqueada|votacion-disponible|votacion-hecha|descargable-bloqueado|descargable-disponible"` | Muestra el elemento solo en ese caso |
+| `data-lsd-if="test-bloqueado|test-falta-encuesta|test-disponible|test-hecho|musica-bloqueada|musica-disponible|votacion-bloqueada|votacion-disponible|votacion-hecha|votacion-abierta|descargable-bloqueado|descargable-disponible"` | Muestra el elemento solo en ese caso |
 
 **Vista previa:** en la misma pestaña, "Ver la página de recursos como si fuera…" abre tu página simulando una fecha
 (enlace firmado; para las leads sigue siendo la hora real y los vídeos no se desbloquean antes).

@@ -466,12 +466,12 @@
       'encuesta-hecha': Boolean(enc.required && enc.done),
     };
     // Recursos de la preclase: data-lsd-if="test-bloqueado|test-falta-encuesta|test-disponible|test-hecho|musica-bloqueada|
-    // musica-disponible|votacion-bloqueada|votacion-disponible|votacion-hecha|descargable-bloqueado|descargable-disponible"
+    // musica-disponible|votacion-bloqueada|votacion-disponible|votacion-hecha|votacion-abierta|descargable-bloqueado|descargable-disponible"
     var rec = data.recursos || {};
     var vista = function (r) { return Boolean(r && (r.claseVista || progresoLocal(data.code, r.tras) >= (r.umbral || 75))); };
     if (rec.test) { conds['test-bloqueado'] = !rec.test.unlocked && !rec.test.done; conds['test-falta-encuesta'] = Boolean(rec.test.unlocked && rec.test.faltaEncuesta && !rec.test.done); conds['test-disponible'] = Boolean(rec.test.unlocked && !rec.test.done); conds['test-hecho'] = Boolean(rec.test.done); }
     if (rec.musica) { conds['musica-bloqueada'] = !(rec.musica.url && vista(rec.musica)); conds['musica-disponible'] = Boolean(rec.musica.url && vista(rec.musica)); }
-    if (rec.votacion) { conds['votacion-bloqueada'] = !(rec.votacion.claseDisponible && vista(rec.votacion)); conds['votacion-disponible'] = Boolean(rec.votacion.claseDisponible && vista(rec.votacion) && !rec.votacion.respondida); conds['votacion-hecha'] = Boolean(rec.votacion.respondida); }
+    if (rec.votacion) { conds['votacion-bloqueada'] = !(rec.votacion.claseDisponible && vista(rec.votacion)); conds['votacion-disponible'] = Boolean(rec.votacion.claseDisponible && vista(rec.votacion) && !rec.votacion.respondida); conds['votacion-hecha'] = Boolean(rec.votacion.respondida); conds['votacion-abierta'] = Boolean((rec.votacion.claseDisponible && vista(rec.votacion)) || rec.votacion.respondida); }
     if (rec.descargable) { conds['descargable-bloqueado'] = !rec.descargable.unlocked; conds['descargable-disponible'] = Boolean(rec.descargable.unlocked); }
     document.querySelectorAll('[data-lsd-if]').forEach(function (el) {
       var c = el.getAttribute('data-lsd-if');
@@ -535,11 +535,13 @@
     document.querySelectorAll('[data-lsd-audio]').forEach(function (el) {
       var r = rec.musica;
       if (!r) return show(el, false);
-      show(el, true);
       var ok = r.url && vista(r);
+      // Bloqueada: no se enseña nada (el vídeo ya invita a verlo). Con data-mostrar-bloqueo, el candado.
+      show(el, Boolean(ok || el.hasAttribute('data-mostrar-bloqueo')));
       var estado = ok ? 'on' : r.claseDisponible ? 'falta' : 'clase';
       if (el.getAttribute('data-lsd-estado-audio') === estado) return;
       el.setAttribute('data-lsd-estado-audio', estado);
+      if (!ok && !el.hasAttribute('data-mostrar-bloqueo')) { el.innerHTML = ''; return; }
       if (!ok) {
         var pct = progresoLocal(data.code, r.tras);
         el.innerHTML = lockHtml(el.getAttribute('data-texto-bloqueado') || 'Se desbloquea al ver el ' + (r.umbral || 75) + ' % de ' + claseTxt(r.tras),
@@ -553,12 +555,13 @@
     document.querySelectorAll('[data-lsd-votacion]').forEach(function (el) {
       var r = rec.votacion;
       if (!r) return show(el, false);
-      show(el, true);
       var abierta = r.claseDisponible && vista(r);
+      show(el, Boolean(abierta || r.respondida || el.hasAttribute('data-mostrar-bloqueo')));
       var estado = r.respondida && r.resultados ? 'res' + JSON.stringify(r.misRespuestas) + r.resultados.total : abierta ? 'votar' : 'lock';
       if (el.getAttribute('data-lsd-estado-vot') === estado) return;
       el.setAttribute('data-lsd-estado-vot', estado);
       if (r.respondida && r.resultados) { el.innerHTML = votacionResultados(r); return; }
+      if (!abierta && !el.hasAttribute('data-mostrar-bloqueo')) { el.innerHTML = ''; return; }
       if (!abierta) { el.innerHTML = lockHtml(el.getAttribute('data-texto-bloqueado') || 'La votación se abre al ver el ' + (r.umbral || 75) + ' % de ' + claseTxt(r.tras), ''); return; }
       // Una sola pregunta tipo test: se responde con un clic. Si hay más (o alguna libre), con «Enviar».
       var solo = r.preguntas.length === 1 && r.preguntas[0].tipo === 'opciones';
@@ -606,7 +609,7 @@
     // Condiciones de los recursos (también al desbloquearse sin recargar).
     var cr = {};
     if (rec.musica) { cr['musica-bloqueada'] = !(rec.musica.url && vista(rec.musica)); cr['musica-disponible'] = !cr['musica-bloqueada']; }
-    if (rec.votacion) { var va = rec.votacion.claseDisponible && vista(rec.votacion); var vr = Boolean(rec.votacion.respondida); cr['votacion-bloqueada'] = !va && !vr; cr['votacion-disponible'] = Boolean(va && !vr); cr['votacion-hecha'] = vr; }
+    if (rec.votacion) { var va = rec.votacion.claseDisponible && vista(rec.votacion); var vr = Boolean(rec.votacion.respondida); cr['votacion-bloqueada'] = !va && !vr; cr['votacion-disponible'] = Boolean(va && !vr); cr['votacion-hecha'] = vr; cr['votacion-abierta'] = Boolean(va || vr); }
     document.querySelectorAll('[data-lsd-if]').forEach(function (el) {
       var c = el.getAttribute('data-lsd-if');
       if (Object.prototype.hasOwnProperty.call(cr, c)) show(el, cr[c]);
