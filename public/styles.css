@@ -1932,3 +1932,12 @@ body.is-superadmin .container { padding-bottom: 96px; }
 .ciclo-tramo .meter { margin: 0; }
 .ciclo-tramo .num { text-align: right; font-variant-numeric: tabular-nums; }
 .ciclo-trafico { margin: 14px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13.5px; }
+
+/* Barras de pestañas que no caben (móvil): se difumina el borde por el que hay más pestañas. */
+.views.mas-der, .subviews.mas-der, .tabs.mas-der { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent); }
+.views.mas-izq, .subviews.mas-izq, .tabs.mas-izq { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 48px), transparent); }
+.views.mas-izq.mas-der, .subviews.mas-izq.mas-der, .tabs.mas-izq.mas-der { -webkit-mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent); }
+.subviews { overflow-x: auto; scrollbar-width: none; }
+.subviews::-webkit-scrollbar { display: none; }
+.alertas-carrito { color: var(--text); }
+.alertas-carrito ul { margin: 6px 0 0; padding-left: 20px; }

@@ -13,6 +13,7 @@ import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago } from
 import { cicloDeContactos, textoDias } from './ciclo.js';
 import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoEntregable, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
+import { alertasCarrito } from './alertas.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
@@ -417,6 +418,7 @@ function pintarSidebar() {
 async function setEmbudo(e, { vista = null } = {}) {
   state.embudo = embudoInfo(e) ? e : embudos()[0]?.id || '';
   ls.set('lsd_embudo', state.embudo);
+  $('#alertas-carrito').hidden = true;
   document.body.classList.toggle('embudo-vsl', enVsl());
   document.body.classList.toggle('embudo-meteo', enMeteo());
   pintarSidebar();
@@ -809,6 +811,10 @@ function renderMetrics() {
 
   renderEconomics(m, launch);
   renderFacturacionTotal(m);
+  // Carrito abierto: ritmo frente al objetivo, bonus que caducan y cierre (visible en todas las pestañas).
+  const alertas = alertasCarrito(launch, m.compra);
+  $('#alertas-carrito').hidden = !alertas.length;
+  $('#alertas-carrito').innerHTML = alertas.length ? `<span><strong>🚨 Carrito abierto</strong><ul>${alertas.map((a) => `<li>${esc(a.texto)}</li>`).join('')}</ul></span>` : '';
   renderOfertaAnalisis(launch);
   mostrarCiclo(state.launchCode, { kpi: '#ciclo-kpi-l', detalle: '#ciclo-l', propias: state.leads.filter((l) => l.s.compra), dateField: launch.compraDateField, nombre: 'este lanzamiento', porTrafico: Boolean(launch.inicioCaptacion) });
   mostrarEmails(state.launchCode, { kpis: '#em-kpis-l', tabla: '#em-l' });
@@ -1740,6 +1746,20 @@ $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('af
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
 
+// ---------- Barras de pestañas que no caben (móvil): avisa de que hay más deslizando ----------
+function marcarDesborde(el) {
+  const hay = el.scrollWidth > el.clientWidth + 2;
+  el.classList.toggle('mas-der', hay && el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  el.classList.toggle('mas-izq', hay && el.scrollLeft > 2);
+}
+const barrasPestanas = () => $$('.views, .subviews, .tabs');
+for (const el of barrasPestanas()) el.addEventListener('scroll', () => marcarDesborde(el), { passive: true });
+const revisarBarras = () => barrasPestanas().forEach(marcarDesborde);
+window.addEventListener('resize', revisarBarras);
+// Las pestañas cambian al cambiar de embudo, de vista o al abrir un diálogo: se revisa tras cada clic.
+document.addEventListener('click', () => requestAnimationFrame(revisarBarras));
+setTimeout(revisarBarras, 300);
+
 // ---------- Modo día / noche ----------
 // Automático según la hora (public/tema.js); el botón lo cambia a mano hasta el siguiente cambio automático.
 $$('.tema-sol').forEach((x) => { x.innerHTML = icon('sun'); });
@@ -1790,6 +1810,7 @@ function showView(view) {
   // Tareas del embudo abierto (en meteóricos, del meteórico elegido).
   if (view === 'tareas' && state.config) { if (codigo() && state.tareas?.code !== codigo()) loadTareas(); else { pintarCabeceraTareas(); renderTareas(); } }
   if (view === 'llamadas' && state.config) { if (state.llamadas?.code !== codigo()) loadLlamadas(); else renderLlamadas(); }
+  requestAnimationFrame(revisarBarras);
 }
 $$('.view-tab').forEach((t) => t.addEventListener('click', () => {
   if (!t.dataset.viewGrupo) { showView(t.dataset.view); return; }
@@ -7009,6 +7030,24 @@ function renderMeteoView({ fresh = false } = {}) {
   }
   pintarMeteo($('#meteo-body'), state.meteo.code, { fresh });
 }
+// Conversión del downsell: de las registradas que NO compraron el lanzamiento, cuántas compraron el
+// meteórico (recupera ventas) y cuántas compradoras eran ya clientas del lanzamiento o de fuera.
+async function pintarConversionDownsell(code) {
+  const box = $('#meteo-l-conv');
+  const d = state.meteo.datos[code]?.data;
+  if (!d || !state.leads?.length) { box.innerHTML = ''; return; }
+  const ids = new Set(d.compradores.map((c) => c.id));
+  const noCompraron = state.leads.filter((l) => !l.s.compra);
+  const recuperadas = noCompraron.filter((l) => ids.has(l.id)).length;
+  const yaClientas = state.leads.filter((l) => l.s.compra && ids.has(l.id)).length;
+  const deFuera = d.compradores.length - recuperadas - yaClientas;
+  box.innerHTML = [
+    card('Conversión del downsell', pctOf(recuperadas, noCompraron.length), `${recuperadas} de las ${noCompraron.length.toLocaleString('es-ES')} registradas que no compraron el lanzamiento`, 'zap', 'buy'),
+    card('Ventas recuperadas', recuperadas, d.ventas ? `${pctOf(recuperadas, d.ventas)} de las ventas del meteórico` : 'aún sin ventas', 'cart', 'money'),
+    card('Ya eran clientas del lanzamiento', yaClientas, 'compraron el lanzamiento y también el downsell', 'crown', 'vip'),
+    card('De fuera del lanzamiento', Math.max(0, deFuera), 'compraron el meteórico sin estar registradas en este lanzamiento', 'users', 'info'),
+  ].join('');
+}
 // Métricas del lanzamiento → Downsell: los meteóricos posteriores de este lanzamiento.
 let meteoLanzCode = '';
 function renderMeteoLanz({ fresh = false } = {}) {
@@ -7017,8 +7056,8 @@ function renderMeteoLanz({ fresh = false } = {}) {
   llenarMeteoSelect($('#meteo-l-select'), lista, meteoLanzCode, 'Este lanzamiento no tiene meteórico posterior');
   $('#meteo-l-config').hidden = !meteoLanzCode || !puedeConfig();
   $('#meteo-l-nuevo').hidden = !puedeConfig();
-  if (!meteoLanzCode) { $('#meteo-l-body').innerHTML = '<p class="muted">Tras el lanzamiento puedes hacer una oferta flash (downsell u otro producto) a quien no compró: crea aquí su meteórico para medir sus ventas aparte.</p>'; $('#meteo-l-oferta').innerHTML = ''; return; }
-  pintarMeteo($('#meteo-l-body'), meteoLanzCode, { fresh }).then(() => pintarOfertaMeteo($('#meteo-l-oferta'), meteoLanzCode));
+  if (!meteoLanzCode) { $('#meteo-l-body').innerHTML = '<p class="muted">Tras el lanzamiento puedes hacer una oferta flash (downsell u otro producto) a quien no compró: crea aquí su meteórico para medir sus ventas aparte.</p>'; $('#meteo-l-oferta').innerHTML = ''; $('#meteo-l-conv').innerHTML = ''; return; }
+  pintarMeteo($('#meteo-l-body'), meteoLanzCode, { fresh }).then(() => { pintarConversionDownsell(meteoLanzCode); pintarOfertaMeteo($('#meteo-l-oferta'), meteoLanzCode); });
 }
 $('#meteo-select').addEventListener('change', (e) => { state.meteo.code = e.target.value; ls.set(`lsd_meteo_${state.embudo}`, state.meteo.code); renderMeteoView(); actualizarAuditor(); });
 $('#meteo-l-select').addEventListener('change', (e) => { meteoLanzCode = e.target.value; renderMeteoLanz(); });
