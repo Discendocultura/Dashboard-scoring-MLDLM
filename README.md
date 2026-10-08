@@ -274,7 +274,7 @@ Pestaña para admin y técnico con:
 - **Avatares de compradoras** sacados de la encuesta.
 
 ## Objetivos y calculadora
-Pestaña **Objetivos y calculadora** de cada lanzamiento:
+Pestaña **Análisis → Objetivos y calculadora** de cada lanzamiento:
 - **Objetivos**: registros, entradas VIP, ventas y facturación se escriben ahí mismo (quien puede configurar; el resto los ve). Debajo, cuánto llevas de cada uno y el ritmo diario necesario hasta su fecha.
 - **Calculadora**: «Cargar histórico» lee los lanzamientos anteriores del mismo embudo (registros, inversión, CPL, % VIP, % venta, ticket medio, ROAS; se recuerdan en el navegador). Con ellos hay tres **escenarios**: **neutro** (la mediana), **favorable** (CPL bajo y conversiones altas: percentiles 25/75) y **desfavorable** (al revés). Con menos de 3 lanzamientos, ±20 % del neutro.
 - **Supuestos** editables para simular (CPL, % VIP, % venta, ticket, ROAS objetivo y presupuesto); vacío = el dato del histórico. «Guardar supuestos» los deja en el lanzamiento.
@@ -430,7 +430,7 @@ La encuesta de la Etapa 1 puede ser siempre la misma: misma URL y misma etiqueta
 ## 🎁 Oferta: entregables, precio y bonus
 
 - **Configuración → Oferta** (cada lanzamiento): el **precio** (tipo de pago, precios VIP y del programa; antes estaban en «Precios y anuncios»), los **entregables** (contenido grabado, sesión grupal en directo, sesión individual en directo, presencial, descargable o audio) y los **bonus** (BAR en directo, BAR 24 h, BAR 48 h o bonus de todo el carrito). Se añaden y quitan libremente; cada uno con nombre, detalle y valor opcional. Debajo de cada bonus se ve cuándo está activo (sale de la hora del directo de venta y de la apertura y el cierre del carrito; se puede poner su fin a mano). Arriba, el valor total de la oferta y cuántas veces el precio.
-- **Métricas → Oferta y bonus**: la oferta, las ventas de cada día del carrito con los bonus activos ese día (y cuál caduca) y el **impacto de cada bonus**: ventas en su ventana, % del carrito, ventas al día mientras estuvo activo frente al resto del carrito, ventas del día en que caduca frente a la media (efecto de la fecha límite) y una lectura. Las ventas se cuentan por día (fecha de compra).
+- **Métricas → Ventas → Oferta y bonus**: la oferta, las ventas de cada día del carrito con los bonus activos ese día (y cuál caduca) y el **impacto de cada bonus**: ventas en su ventana, % del carrito, ventas al día mientras estuvo activo frente al resto del carrito, ventas del día en que caduca frente a la media (efecto de la fecha límite) y una lectura. Las ventas se cuentan por día (fecha de compra).
 - Un lanzamiento nuevo hereda la oferta del anterior.
 
 ## ✉️ Emails: apertura, CTR e indicadores
@@ -483,10 +483,14 @@ Durante el calentamiento muestra «la oferta se abre en…», con la oferta abie
 **Oferta y bonus del meteórico**: en *Configurar → Oferta* van los entregables y los bonus: **BAR 30 min** y **BAR 1 h** (para quien compra en los primeros 30 minutos o en la primera hora tras abrir), BAR 24 h / 48 h y bonus de toda la oferta (o con fin a mano). La pestaña **Oferta** del embudo (y la sección de abajo en *Métricas → Downsell*) cruza los bonus con las ventas **hora a hora**: ventas en la ventana de cada bonus, ritmo de ventas por hora mientras estuvo activo frente al resto de la oferta y el empujón de los últimos minutos antes de que caduque. Para medir por horas hace falta la **hora** de cada compra: un campo de **texto** en GHL que el workflow de compra rellene con la fecha y hora (`{{right_now}}`), elegido como «Campo de fecha de compra» (el desplegable muestra los de fecha y los de texto). Con un campo de solo fecha, la oferta se ve pero el análisis por horas no.
 
 ## Embudos: Lanzamientos y VSL
-El menú lateral (arriba en el móvil) cambia de embudo. Cada uno tiene sus pestañas, sus tareas y su configuración; el equipo, la campanita, «Mi cuenta» y «Actualizar» son comunes. La campanita avisa de las tareas y comentarios de los dos embudos (los del otro llevan su nombre; al pulsar uno se cambia de embudo y se abre la tarea).
+El menú lateral (arriba en el móvil) cambia de embudo. Las pestañas siguen el mismo orden en todos: **Comercial** (Setting hoy y Llamadas) · **Leads** · **Métricas** · **Análisis** (Objetivos y calculadora, Avatar y anuncios / Anuncios ganadores, Comparar) · **Planificación** (Calendario, Tareas y Rendimiento del equipo). En los meteóricos: **Meteóricos** · **Oferta** · **Planificación**.
+
+**Métricas del lanzamiento** en 6 subpestañas: **Resumen** (arriba, la facturación del lanzamiento, la de su meteórico posterior y la total), **Ventas** (rentabilidad, ventas por día, tipo de pago, oferta y bonus, ciclo de compra), **Captación** (tráfico de pago, campañas, origen y tipo de tráfico), **Vídeos y conversión**, **Emails** y **Downsell**.
+
+ Cada uno tiene sus pestañas, sus tareas y su configuración; el equipo, la campanita, «Mi cuenta» y «Actualizar» son comunes. La campanita avisa de las tareas y comentarios de los dos embudos (los del otro llevan su nombre; al pulsar uno se cambia de embudo y se abre la tarea).
 
 ### VSL (siempre abierta)
-Registro → vídeo de venta → compra directa o llamada de valoración. Pestañas: **Métricas**, **Leads**, **Llamadas**, **Anuncios ganadores** y **Tareas** (con los mismos permisos que sus equivalentes de los lanzamientos).
+Registro → vídeo de venta → compra directa o llamada de valoración. Pestañas (las mismas que en los lanzamientos y en el mismo orden): **Comercial** (Llamadas), **Leads**, **Métricas**, **Análisis** (Anuncios ganadores y Comparar) y **Planificación** (con los mismos permisos que sus equivalentes de los lanzamientos).
 - **Periodo**: últimos 7/30/90 días, este mes, mes pasado, un mes concreto y su **1ª, 2ª, 3ª, 4ª o 5ª semana** (días 1-7, 8-14, 15-21, 22-28 y 29-fin) o fechas a medida. Se recuerda en el navegador.
 - **Métricas**: registros (publicidad/orgánico), vieron la VSL (y ≥50%), llamadas agendadas, ventas (directas o tras llamada), facturación, inversión en Meta (campañas cuyo nombre contiene el filtro, del periodo), coste por lead y por venta, ROAS; embudo del periodo, tabla **por semanas del mes**, gráfico diario, llamadas del periodo (shows, no shows, canceladas, ventas) y publicidad vs orgánico.
 - **Leads**: estado de cada persona (no ha visto el vídeo, lo ha empezado, lo vio hasta el final, agendó llamada, compró), cuánto vio, su cita y su compra, con **WhatsApp** adaptado a su estado (mensajes editables abajo, con el permiso «Editar mensajes de WhatsApp»; variable nueva `{link_vsl}`).

@@ -742,6 +742,37 @@ function currentMetrics() {
   return computeMetrics(state.leads, launch, { metaSpend: state.meta?.configured && !state.meta.error ? state.meta.total : null });
 }
 
+// Resumen: facturación del lanzamiento, de su meteórico posterior (downsell) y la suma de las dos.
+async function renderFacturacionTotal(m) {
+  const box = $('#fact-total-l');
+  const code = state.launchCode;
+  const eco = m.eco || {};
+  const metas = meteoDeLanz(code);
+  const pintar = (meteo) => {
+    const fm = meteo?.facturacion ?? null;
+    const total = (eco.facturacion || 0) + (fm || 0);
+    const inv = (eco.inversion || 0) + (meteo?.inversion || 0);
+    const subLanz = `${eur(eco.facturacionPrograma || 0)} del programa (${m.compra} ventas)${eco.facturacionVip ? ` + ${eur(eco.facturacionVip)} de VIP (${m.vip})` : ''}`;
+    const subMeteo = !metas.length ? 'Sin meteórico posterior (créalo en Métricas → Downsell)'
+      : meteo == null ? 'Cargando…'
+        : meteo.error ? `No se pudo leer: ${esc(meteo.error)}`
+          : `${meteo.ventas} ventas · ${metas.map(([, x]) => esc(x.name)).join(', ')}`;
+    box.innerHTML = [
+      card('Facturación del lanzamiento', eur(eco.facturacion || 0), subLanz, 'coins', 'money'),
+      card('Facturación del meteórico', !metas.length || meteo?.error ? '–' : meteo == null ? '…' : eur(fm), subMeteo, 'zap', 'vip'),
+      card('Facturación total', eur(total), `lanzamiento + meteórico${inv ? ` · ROAS ${(total / inv).toFixed(2).replace('.', ',')}x` : ''}`, 'trend', 'buy'),
+    ].join('');
+  };
+  pintar(null);
+  if (!metas.length || !tiene('metricas')) return;
+  let meteo;
+  try {
+    const datos = await Promise.all(metas.map(([c]) => cargarMeteo(c)));
+    meteo = { facturacion: datos.reduce((t, d) => t + (d.facturacion || 0), 0), ventas: datos.reduce((t, d) => t + (d.ventas || 0), 0), inversion: datos.reduce((t, d) => t + (d.inversion || 0), 0) };
+  } catch (e) { meteo = { error: e.message, facturacion: 0, ventas: 0 }; }
+  if (state.launchCode === code) pintar(meteo);
+}
+
 function renderMetrics() {
   const launch = state.config.launches[state.launchCode];
   const m = currentMetrics();
@@ -777,6 +808,7 @@ function renderMetrics() {
   ].join('');
 
   renderEconomics(m, launch);
+  renderFacturacionTotal(m);
   renderOfertaAnalisis(launch);
   mostrarCiclo(state.launchCode, { kpi: '#ciclo-kpi-l', detalle: '#ciclo-l', propias: state.leads.filter((l) => l.s.compra), dateField: launch.compraDateField, nombre: 'este lanzamiento', porTrafico: Boolean(launch.inicioCaptacion) });
   mostrarEmails(state.launchCode, { kpis: '#em-kpis-l', tabla: '#em-l' });
@@ -1699,10 +1731,11 @@ function renderCompareTable(results) {
 const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
-// «Comercial» (Setting hoy y Llamadas) y «Planificación» (Calendario, Tareas y Rendimiento del equipo).
-const GRUPOS = { comercial: ['hoy', 'llamadas'], planificacion: ['calendario', 'tareas', 'rendimiento'] };
+// «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
+// Comparar) y «Planificación» (Calendario, Tareas y Rendimiento del equipo).
+const GRUPOS = { comercial: ['hoy', 'llamadas'], analisis: ['objetivos', 'avatar', 'vanuncios', 'comparar'], planificacion: ['calendario', 'tareas', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { meteoricos: 'zap', moferta: 'gift', comercial: 'phone', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
+const VIEW_ICONS = { meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
@@ -1771,6 +1804,8 @@ $$('.subview-tab[data-view]').forEach((t) => t.addEventListener('click', () => s
 function pintarMsub(nav, cat) {
   const view = nav.closest('[id^="view-"]');
   const cats = $$('[data-msub-btn]', nav).map((b) => b.dataset.msubBtn);
+  // Subpestañas que se juntaron (la última elegida puede ser una de antes).
+  if (nav.id === 'msub-metricas') cat = { trafico: 'captacion', origen: 'captacion', consumo: 'conversion', oferta: 'ventas' }[cat] || cat;
   if (!cats.includes(cat)) cat = cats[0];
   $$('[data-msub-btn]', nav).forEach((b) => b.classList.toggle('active', b.dataset.msubBtn === cat));
   $$('[data-msub]', view).forEach((el) => { el.hidden = el.dataset.msub !== cat; });

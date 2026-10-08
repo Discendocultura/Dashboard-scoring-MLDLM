@@ -122,16 +122,20 @@
         <nav class="views" role="tablist">
           <button type="button" class="view-tab" data-view="meteoricos">Meteóricos</button>
           <button type="button" class="view-tab" data-view="moferta">Oferta</button>
-          <button type="button" class="view-tab" data-view="vmetricas">Métricas</button>
-          <button type="button" class="view-tab" data-view="vleads">Leads</button>
           <button type="button" class="view-tab" data-view-grupo="comercial">Comercial <span id="llamadas-badge" class="tab-count" hidden></span></button>
           <button type="button" class="view-tab active" data-view="leads">Leads</button>
+          <button type="button" class="view-tab" data-view="vleads">Leads</button>
           <button type="button" class="view-tab" data-view="metricas">Métricas</button>
-          <button type="button" class="view-tab" data-view="objetivos">Objetivos y calculadora</button>
-          <button type="button" class="view-tab" data-view="avatar">Avatar y anuncios</button>
-          <button type="button" class="view-tab" data-view="comparar">Comparar</button>
-          <button type="button" class="view-tab" data-view="vanuncios">Anuncios ganadores</button>
+          <button type="button" class="view-tab" data-view="vmetricas">Métricas</button>
+          <button type="button" class="view-tab" data-view-grupo="analisis">Análisis</button>
           <button type="button" class="view-tab" data-view-grupo="planificacion">Planificación <span id="tareas-badge" class="tab-count" hidden></span></button>
+        </nav>
+        <!-- Análisis: Objetivos y calculadora, Avatar y anuncios (VSL: Anuncios ganadores) y Comparar -->
+        <nav class="subviews" id="sub-analisis" role="tablist" aria-label="Análisis" hidden>
+          <button type="button" class="subview-tab" data-view="objetivos">Objetivos y calculadora</button>
+          <button type="button" class="subview-tab" data-view="avatar">Avatar y anuncios</button>
+          <button type="button" class="subview-tab" data-view="vanuncios">Anuncios ganadores</button>
+          <button type="button" class="subview-tab" data-view="comparar">Comparar</button>
         </nav>
         <!-- Comercial: Setting hoy y Llamadas -->
         <!-- Planificación: Calendario, Tareas y Rendimiento del equipo -->
@@ -472,22 +476,16 @@
           <div id="avisos" class="notice warn" hidden></div>
           <nav class="subviews msubs" id="msub-metricas" role="tablist" aria-label="Categorías de métricas">
             <button type="button" class="subview-tab" data-msub-btn="resumen" data-icon-msub="target">Resumen</button>
-            <button type="button" class="subview-tab" data-msub-btn="ventas" data-icon-msub="coins">Ventas y rentabilidad</button>
-            <button type="button" class="subview-tab" data-msub-btn="trafico" data-icon-msub="megaphone">Tráfico</button>
-            <button type="button" class="subview-tab" data-msub-btn="origen" data-icon-msub="compass">Origen</button>
-            <button type="button" class="subview-tab" data-msub-btn="consumo" data-icon-msub="play">Consumo de vídeos</button>
-            <button type="button" class="subview-tab" data-msub-btn="conversion" data-icon-msub="cart">Conversión y setting</button>
-            <button type="button" class="subview-tab" data-msub-btn="oferta" data-icon-msub="gift">Oferta y bonus</button>
+            <button type="button" class="subview-tab" data-msub-btn="ventas" data-icon-msub="coins">Ventas</button>
+            <button type="button" class="subview-tab" data-msub-btn="captacion" data-icon-msub="megaphone">Captación</button>
+            <button type="button" class="subview-tab" data-msub-btn="conversion" data-icon-msub="cart">Vídeos y conversión</button>
             <button type="button" class="subview-tab" data-msub-btn="emails" data-icon-msub="mail">Emails</button>
             <button type="button" class="subview-tab" data-msub-btn="meteorico" data-icon-msub="zap">Downsell</button>
           </nav>
+          <div id="fact-total-l" data-msub="resumen" class="kpis fact-kpis"></div>
           <div id="metric-cards" data-msub="resumen" class="kpis"></div>
           <div id="ciclo-kpi-l" data-msub="resumen" class="kpis ciclo-kpis"></div>
           <div id="em-kpis-l" data-msub="resumen" class="kpis em-kpis" hidden></div>
-          <section data-msub="oferta" class="card metric-card" data-icon="gift">
-            <h2>Oferta y bonus <span class="muted">· qué se vendía cada día del carrito y qué empujó la venta</span></h2>
-            <div id="oferta-analisis"></div>
-          </section>
           <section data-msub="emails" class="card metric-card" data-icon="mail">
             <h2>Emails del lanzamiento <span class="muted">· apertura, CTR y qué mejorar en cada uno</span></h2>
             <div id="em-l"></div>
@@ -500,18 +498,14 @@
             <div id="meteo-l-body"></div>
             <div id="meteo-l-oferta" class="meteo-l-oferta"></div>
           </section>
-          <section data-msub="trafico" class="card metric-card" data-icon="megaphone">
+          <section data-msub="captacion" class="card metric-card" data-icon="megaphone">
             <h2>Tráfico de pago <span class="muted">· Meta Ads del lanzamiento (campañas con su filtro)</span></h2>
             <div id="trafico-cards" class="kpis"></div>
             <p class="muted small" id="trafico-nota"></p>
           </section>
-          <section data-msub="trafico" class="card metric-card" data-icon="trend">
+          <section data-msub="captacion" class="card metric-card" data-icon="trend">
             <h2>Por campaña <span class="muted">· inversión y resultados de cada campaña de Meta</span></h2>
             <div class="table-scroll"><table class="metric-table" id="trafico-campanas"></table></div>
-          </section>
-          <section data-msub="ventas" class="card metric-card" data-icon="calendar">
-            <h2>Ciclo de compra <span class="muted">· días desde que el contacto entró en GHL hasta que compró</span></h2>
-            <div id="ciclo-l"></div>
           </section>
           <section data-msub="ventas" class="card metric-card" data-icon="coins">
             <h2>Inversión y rentabilidad</h2>
@@ -522,7 +516,7 @@
             <div id="ventas-dia"></div>
             <div id="carrito-compara"></div>
           </section>
-          <section data-msub="origen" class="card metric-card" data-icon="compass">
+          <section data-msub="captacion" class="card metric-card" data-icon="compass">
             <h2>Origen de los leads <span class="muted">· publicidad vs orgánico</span></h2>
             <div class="table-scroll"><table class="metric-table" id="origen-table"></table></div>
           </section>
@@ -530,14 +524,28 @@
             <h2 id="pago-titulo">Pago único vs fraccionado <span class="muted">· ventas de Raíces</span></h2>
             <div class="table-scroll"><table class="metric-table" id="pago-table"></table></div>
           </section>
+          <section data-msub="ventas" class="card metric-card" data-icon="gift">
+            <h2>Oferta y bonus <span class="muted">· qué se vendía cada día del carrito y qué empujó la venta</span></h2>
+            <div id="oferta-analisis"></div>
+          </section>
+          <section data-msub="ventas" class="card metric-card" data-icon="calendar">
+            <h2>Ciclo de compra <span class="muted">· días desde que el contacto entró en GHL hasta que compró</span></h2>
+            <div id="ciclo-l"></div>
+          </section>
           <section data-msub="resumen" class="card metric-card" data-icon="funnel">
             <h2>Embudo del lanzamiento <span class="muted">· sobre el total de registros</span></h2>
             <div id="funnel"></div>
           </section>
-          <section data-msub="origen" class="card metric-card" data-icon="thermo">
+          <section data-msub="captacion" class="card metric-card" data-icon="thermo">
             <h2>Ventas por tipo de tráfico <span class="muted">· templado = ya estaba en GHL antes de abrir la captación</span></h2>
             <div id="traffic-split"></div>
             <div class="table-scroll"><table class="metric-table" id="traffic-table"></table></div>
+          </section>
+          <section id="consumo" data-msub="conversion" class="card consumo-card"></section>
+          <section data-msub="conversion" class="card metric-card" data-icon="thermo">
+            <h2>Asistencia y consumo por tipo de tráfico <span class="muted">· % sobre los registros de cada grupo</span></h2>
+            <p class="muted small">Frío = nuevo en GHL; templado = ya estaba en GHL antes de abrir la captación. Publicidad y orgánico, según sus etiquetas de origen.</p>
+            <div class="table-scroll"><table class="metric-table" id="asistencia-trafico"></table></div>
           </section>
           <section data-msub="conversion" class="card metric-card" data-icon="cart">
             <h2>Conversión a compra</h2>
@@ -546,12 +554,6 @@
           <section data-msub="conversion" class="card metric-card" data-icon="chat">
             <h2>Trabajo de la setter <span class="muted">· contactadas por WhatsApp y resultado</span></h2>
             <div class="table-scroll"><table class="metric-table" id="setter-table"></table></div>
-          </section>
-          <section id="consumo" data-msub="consumo" class="card consumo-card"></section>
-          <section data-msub="consumo" class="card metric-card" data-icon="thermo">
-            <h2>Asistencia y consumo por tipo de tráfico <span class="muted">· % sobre los registros de cada grupo</span></h2>
-            <p class="muted small">Frío = nuevo en GHL; templado = ya estaba en GHL antes de abrir la captación. Publicidad y orgánico, según sus etiquetas de origen.</p>
-            <div class="table-scroll"><table class="metric-table" id="asistencia-trafico"></table></div>
           </section>
           <section data-msub="conversion" class="card metric-card" data-icon="flame">
             <h2>Compras por estado <span class="muted">· ¿predice bien la puntuación?</span></h2>
