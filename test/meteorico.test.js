@@ -141,14 +141,17 @@ test('planificación del meteórico: adaptada a su configuración y con acciones
 });
 
 
-test('inicio: embudos, meteóricos y agenda de todos los embudos', async () => {
+test('inicio: lista, cada embudo, cada meteórico y agenda', async () => {
   const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
-  assert.equal((await call('/api/inicio?parte=embudos')).status, 401);
-  const e = await call('/api/inicio?parte=embudos', { cookie: admin });
-  assert.equal(e.status, 200);
-  assert.ok(Array.isArray(e.data.embudos));
-  const m = await call('/api/inicio?parte=meteoricos', { cookie: admin });
-  assert.ok(m.data.meteoricos.some((x) => x.code === 'bf26'));
+  assert.equal((await call('/api/inicio?parte=lista')).status, 401);
+  const l = await call('/api/inicio?parte=lista', { cookie: admin });
+  assert.equal(l.status, 200);
+  assert.ok(l.data.embudos.length > 0);
+  assert.ok(l.data.meteoricos.some((x) => x.code === 'bf26'));
+  for (const e of l.data.embudos) assert.equal((await call(`/api/inicio?parte=embudo&id=${e.id}`, { cookie: admin })).status, 200);
+  const m = await call('/api/inicio?parte=meteorico&id=bf26', { cookie: admin });
+  assert.equal(m.data.meteorico.code, 'bf26');
+  assert.equal((await call('/api/inicio?parte=meteorico&id=constructor', { cookie: admin })).status, 404);
   const a = await call('/api/inicio?parte=agenda', { cookie: admin });
   assert.ok(Array.isArray(a.data.hitos) && typeof a.data.vencidas.total === 'number');
   assert.equal((await call('/api/inicio?parte=otra', { cookie: admin })).status, 400);

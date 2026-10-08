@@ -89,24 +89,25 @@ export async function GET(request) {
         const nuevas = r.opportunities.filter((o) => !todas.some((x) => x.id === o.id));
         if (r.opportunities.length && !nuevas.length) break; // GHL no pagina: se completa contacto a contacto
         todas.push(...nuevas);
-        if (r.opportunities.length < 100 || todas.length >= r.total) { completo = true; break; }
+        if (r.opportunities.length < 100 || (r.total != null && todas.length >= r.total)) { completo = true; break; }
       }
       for (const o of todas) {
         if (!(o.contactId in opps)) opps[o.contactId] = o;
         porEtapa[o.pipelineStageId] = (porEtapa[o.pipelineStageId] || 0) + 1;
       }
       if (!completo) {
-        const faltan = ids.filter((id) => !(id in opps)).slice(0, 15);
+        const faltan = ids.filter((id) => !(id in opps)).slice(0, 8); // con el límite de peticiones de Cloudflare
         await mapLimit(faltan, 4, async (id) => { opps[id] = (await searchOpportunities({ pipelineId: pipeline.id, contactId: id, limit: 5 })).opportunities[0] || null; });
       }
     }
     // Teléfono y email de quien no está en el pipeline (para poder escribirle por WhatsApp).
     const contactos = {};
-    const sinOpp = [...new Set(citas.map((c) => c.contactId).filter((id) => id && !opps[id]?.phone))].slice(0, MAX_CONTACTOS);
+    // Pipeline muy grande (no cabe entero): menos fichas aparte para no pasar del límite de peticiones.
+    const sinOpp = [...new Set(citas.map((c) => c.contactId).filter((id) => id && !opps[id]?.phone))].slice(0, completo || !pipeline ? MAX_CONTACTOS : 10);
     await mapLimit(sinOpp, 4, async (id) => { const c = await getContact(id).catch(() => null); if (c) contactos[id] = { phone: c.phone || '', email: c.email || '', tags: c.tags || [], src: c.src || {} }; });
     if (pipeline) {
       etapas = await mapLimit([...pipeline.stages].sort((a, b) => a.position - b.position), 3, async (s) => ({
-        id: s.id, name: s.name, color: s.color || '', total: completo ? porEtapa[s.id] || 0 : (await searchOpportunities({ pipelineId: pipeline.id, pipelineStageId: s.id, limit: 1 })).total,
+        id: s.id, name: s.name, color: s.color || '', total: completo ? porEtapa[s.id] || 0 : (await searchOpportunities({ pipelineId: pipeline.id, pipelineStageId: s.id, limit: 1 })).total ?? null,
       }));
     }
     return json({

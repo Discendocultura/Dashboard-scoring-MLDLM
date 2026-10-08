@@ -1,6 +1,7 @@
 // Calendario de suscripción (Google Calendar, iPhone…).
 //   GET /api/cal            → (con sesión) { url, webcal } enlace privado de esta persona
 //   GET /api/cal?t=<token>  → archivo .ics con hitos, eventos y tareas; se actualiza solo
+import { contrasenaGeneralActiva } from '../lib/seguridad.js';
 import { requireSession, signToken, verifyToken } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
@@ -40,6 +41,8 @@ export async function GET(request) {
     let sess;
     // La contraseña general de setter solo da acceso al cliente principal (igual que al iniciar sesión).
     if (who === 'setter' && !clienteActual().principal) return new Response('Sin acceso a este cliente', { status: 403 });
+    // Las contraseñas generales desactivadas por el superadmin tampoco sirven para el calendario.
+    if ((who === 'admin' || who === 'setter') && !(await contrasenaGeneralActiva())) return new Response('Enlace no válido', { status: 403 });
     if (who === 'admin' || who === 'setter') sess = { role: who, uid: '' };
     else {
       const u = await findUser(who);

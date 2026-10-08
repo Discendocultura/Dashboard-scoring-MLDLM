@@ -162,3 +162,13 @@ test('errores de endpoints públicos sin detalle técnico', async () => {
   assert.equal(r.status, 404);
   assert.equal(r.data.detail, undefined);
 });
+
+test('errores de GHL en endpoints públicos: mensaje genérico, sin hablar de tokens', async () => {
+  const { errorResponse, CORS_HEADERS } = await import('../lib/http.js');
+  const { GhlError } = await import('../lib/ghl.js');
+  const pub = await errorResponse(new GhlError(401, 'token caducado'), CORS_HEADERS).json();
+  assert.doesNotMatch(pub.error, /GHL_TOKEN/);
+  assert.equal(pub.detail, undefined);
+  const priv = await errorResponse(new GhlError(401, 'token caducado')).json();
+  assert.match(priv.error, /GHL_TOKEN/);
+});

@@ -69,7 +69,7 @@ async function main() {
   try {
     for (const [rol, password] of [['admin', 'admin'], ['setter', 'setter']]) {
       const page = await navegador.newPage({ viewport: { width: 1440, height: 1000 } });
-      page.on('pageerror', (e) => fallos.push(`[${rol}] error de JavaScript: ${e.message}`));
+      page.on('pageerror', (e) => fallos.push(`[${rol}] error de JavaScript: ${e.message} (${String(e.stack || '').split('\n')[1]?.trim() || ''})`));
       page.on('response', (r) => { if (r.status() >= 500 && r.url().includes('/api/')) fallos.push(`[${rol}] ${r.status()} en ${r.url().replace(base, '')}`); });
       await page.goto(`${base}/`);
       await page.waitForSelector('#login:not([hidden])');

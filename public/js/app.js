@@ -512,19 +512,28 @@ async function mostrarInicio({ fresh = false } = {}) {
   document.body.classList.add('en-inicio');
   pintarSidebar();
   $('#alertas-carrito').hidden = true;
-  const cargando = '<p class="muted">Cargando…</p>';
-  if (fresh || !state.inicio) {
-    state.inicio = {};
-    $('#inicio-embudos').innerHTML = cargando;
+  const token = (state.inicioToken = (state.inicioToken || 0) + 1);
+  const q = (qs) => api(`/api/inicio?${qs}${fresh ? '&fresh=1' : ''}`);
+  if (fresh || !state.inicio || state.inicio.cliente !== state.cliente) {
+    state.inicio = { cliente: state.cliente, embudos: null, meteoricos: null, agenda: null };
+    $('#inicio-embudos').innerHTML = '<p class="muted">Cargando…</p>';
     $('#inicio-total').innerHTML = '';
   }
-  const q = (parte) => api(`/api/inicio?parte=${parte}${fresh ? '&fresh=1' : ''}`).catch((e) => ({ error: e.message }));
-  const [emb, met] = await Promise.all([q('embudos'), q('meteoricos')]);
-  Object.assign(state.inicio, { embudos: emb, meteoricos: met });
+  let lista;
+  try { lista = await q('parte=lista'); } catch (e) { $('#inicio-embudos').innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+  if (token !== state.inicioToken) return;
+  // Cada embudo y cada meteórico en su propia petición (cada una con su límite de peticiones a GHL).
+  state.inicio.embudos = lista.embudos.map((e) => ({ ...e, cargando: true }));
+  state.inicio.meteoricos = lista.meteoricos.map((m) => ({ ...m, cargando: true }));
   pintarInicio();
-  // La agenda usa las ventas del resumen de embudos (para los avisos de ritmo): se pide después.
-  state.inicio.agenda = await q('agenda');
-  pintarInicio();
+  const tareas = [
+    ...lista.embudos.map((e, i) => q(`parte=embudo&id=${encodeURIComponent(e.id)}`)
+      .then((d) => { state.inicio.embudos[i] = d.embudo; }, (err) => { state.inicio.embudos[i] = { tipo: 'error', nombre: e.nombre, error: err.message }; })),
+    ...lista.meteoricos.map((m, i) => q(`parte=meteorico&id=${encodeURIComponent(m.code)}`)
+      .then((d) => { state.inicio.meteoricos[i] = d.meteorico; }, (err) => { state.inicio.meteoricos[i] = { code: m.code, nombre: m.nombre, error: err.message }; })),
+    q('parte=agenda').then((d) => { state.inicio.agenda = d; }, (err) => { state.inicio.agenda = { error: err.message }; }),
+  ].map((p) => p.then(() => { if (token === state.inicioToken) pintarInicio(); }));
+  await Promise.all(tareas);
 }
 $('#sb-inicio').addEventListener('click', () => mostrarInicio());
 $('#inicio-actualizar').addEventListener('click', () => mostrarInicio({ fresh: true }));
@@ -533,14 +542,15 @@ const ESTADO_LANZ = { captacion: ['Captación', 'info'], carrito: ['Carrito abie
 const FASE_METEO_TXT = { calentamiento: ['Calentamiento', 'info'], abierta: ['Oferta abierta', 'buy'], cerrada: ['Cerrada', 'muted'] };
 function pintarInicio() {
   if (!state.enInicio || !state.inicio) return;
-  const { embudos: E, meteoricos: M, agenda: A } = state.inicio;
-  const lista = E?.embudos || [];
-  const metas = M?.meteoricos || [];
+  const { agenda: A } = state.inicio;
+  const lista = (state.inicio.embudos || []).filter((e) => e.tipo !== 'vacio');
+  const metas = state.inicio.meteoricos || [];
+  const listos = lista.every((e) => !e.cargando) && metas.every((m) => !m.cargando);
   const sum = (k) => lista.reduce((t, e) => t + (e.kpis?.[k] || 0), 0) + metas.reduce((t, m) => t + (m[k] || 0), 0);
   const fact = sum('facturacion');
   const inv = sum('inversion');
-  $('#inicio-sub').textContent = E?.generado ? `Datos de las ${new Date(E.generado).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} (se actualizan cada 15 min)` : 'Todos los embudos de un vistazo';
-  $('#inicio-total').innerHTML = E?.error ? `<p class="error">${esc(E.error)}</p>` : [
+  $('#inicio-sub').textContent = listos ? 'Todos los embudos de un vistazo · los datos se actualizan cada 15 min' : 'Cargando los embudos…';
+  $('#inicio-total').innerHTML = [
     card('Facturación total', eur(fact), 'último lanzamiento de cada embudo · VSL (30 días) · meteóricos recientes', 'coins', 'money'),
     card('Ventas', sum('ventas').toLocaleString('es-ES'), `${lista.length} embudo${lista.length === 1 ? '' : 's'}${metas.length ? ` y ${metas.length} meteórico${metas.length === 1 ? '' : 's'}` : ''}`, 'cart', 'buy'),
     card('Inversión', inv ? eur(inv) : '–', inv ? `ROAS conjunto ${(fact / inv).toFixed(2).replace('.', ',')}x` : 'sin inversión registrada', 'megaphone', 'accent'),
@@ -549,6 +559,7 @@ function pintarInicio() {
   const obj = (o) => (o?.length ? `<div class="muted small">🎯 ${o.map((x) => `${esc(x.label)}: ${Math.round((x.pct || 0) * 100)}%`).join(' · ')}</div>` : '');
   const tarjetas = [
     ...lista.map((e) => {
+      if (e.cargando) return `<div class="card inicio-emb"><h3>${e.tipo === 'vsl' ? '🎬' : '🚀'} ${esc(e.nombre)}</h3><p class="muted small">Cargando…</p></div>`;
       if (e.tipo === 'error') return `<div class="card inicio-emb"><h3>${esc(e.nombre)}</h3><p class="error small">${esc(e.error)}</p></div>`;
       const est = e.tipo === 'vsl' ? ['Últimos 30 días', 'info'] : ESTADO_LANZ[e.estado] || ['', 'muted'];
       return `<button type="button" class="card inicio-emb" data-ir-inicio="${e.tipo === 'vsl' ? 'vsl' : 'lanz'}" data-code="${esc(e.code)}" data-embudo="${esc(e.embudoId || '')}">
@@ -557,6 +568,7 @@ function pintarInicio() {
         <div class="ie-cifras">${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${cifra('ROAS', e.kpis.roas != null ? `${e.kpis.roas.toFixed(2).replace('.', ',')}x` : '–')}</div>${obj(e.objetivos)}</button>`;
     }),
     ...metas.map((m) => {
+      if (m.cargando) return `<div class="card inicio-emb"><h3>⚡ ${esc(m.nombre)}</h3><p class="muted small">Cargando…</p></div>`;
       if (m.error) return `<div class="card inicio-emb"><h3>⚡ ${esc(m.nombre)}</h3><p class="error small">${esc(m.error)}</p></div>`;
       const f = FASE_METEO_TXT[m.fase] || ['', 'muted'];
       return `<button type="button" class="card inicio-emb" data-ir-inicio="meteo" data-code="${esc(m.code)}">
@@ -565,9 +577,12 @@ function pintarInicio() {
         <div class="ie-cifras">${cifra('Ventas', m.ventas)}${cifra('Facturación', eur(m.facturacion || 0))}${cifra('ROAS', m.roas != null ? `${m.roas.toFixed(2).replace('.', ',')}x` : '–')}</div>${obj(m.objetivos)}</button>`;
     }),
   ];
-  $('#inicio-embudos').innerHTML = E || M ? tarjetas.join('') || '<p class="muted">Aún no hay lanzamientos empezados, VSL ni meteóricos recientes.</p>' : '<p class="muted">Cargando…</p>';
+  $('#inicio-embudos').innerHTML = tarjetas.join('') || '<p class="muted">Aún no hay lanzamientos empezados, VSL ni meteóricos recientes.</p>';
+  // Avisos del carrito de los lanzamientos con el carrito abierto (con sus ventas).
+  const alertas = lista.filter((e) => e.tipo === 'lanzamiento' && e.estado === 'carrito')
+    .flatMap((e) => alertasCarrito(state.config.launches[e.code], e.kpis.ventas).map((a) => ({ ...a, nombre: e.nombre })));
+  $('#inicio-alertas').innerHTML = alertas.length ? `<div class="notice err alertas-carrito"><span><strong>🚨 Carrito abierto</strong><ul>${alertas.map((a) => `<li><strong>${esc(a.nombre)}:</strong> ${esc(a.texto)}</li>`).join('')}</ul></span></div>` : '';
   if (!A) return;
-  $('#inicio-alertas').innerHTML = A.alertas?.length ? `<div class="notice err alertas-carrito"><span><strong>🚨 Carrito abierto</strong><ul>${A.alertas.map((a) => `<li><strong>${esc(a.nombre)}:</strong> ${esc(a.texto)}</li>`).join('')}</ul></span></div>` : '';
   const dia = (d) => esc(dayFmt.format(new Date(`${d}T12:00:00Z`)));
   $('#inicio-hitos').innerHTML = A.error ? `<p class="error">${esc(A.error)}</p>` : A.hitos?.length
     ? `<ul class="inicio-lista">${A.hitos.map((h) => `<li><button type="button" data-ir-code="${esc(h.code)}">${esc(h.icon)} ${esc(h.titulo)} · <strong>${esc(h.nombre)}</strong></button><span class="muted small">${dia(h.dia)}${h.hora ? ` ${esc(h.hora)}` : ''}</span></li>`).join('')}</ul>`
@@ -5760,7 +5775,7 @@ function renderLlamadas() {
       <div class="kpi static tone-buy"><span class="kpi-label"><span class="kpi-ico">${icon('cart')}</span>Ventas · conversión</span><span class="kpi-value">${m.ventas} <small class="ll-pct">${pct(m.conversion)}</small></span><span class="kpi-sub">sobre shows · ${m.pendientesPago} pendientes de pago · ${m.seguimiento} en seguimiento · ${m.perdidas} no compran</span></div>
       <div class="kpi static ${m.sinResultado ? 'tone-accent' : ''}"><span class="kpi-label"><span class="kpi-ico">${icon('list')}</span>Sin anotar</span><span class="kpi-value">${m.sinResultado}</span><span class="kpi-sub">llamadas pasadas sin resultado</span></div>
     </div>
-    ${d.pipeline ? `<div class="card ll-pipe"><h3>Pipeline · ${esc(d.pipeline.name)}</h3><div class="ll-stages">${d.pipeline.stages.map((s) => `<span class="ll-stage" style="--c:${esc(s.color || '#8a817b')}"><i></i>${esc(s.name)} <strong>${s.total}</strong></span>`).join('')}</div></div>` : ''}
+    ${d.pipeline ? `<div class="card ll-pipe"><h3>Pipeline · ${esc(d.pipeline.name)}</h3><div class="ll-stages">${d.pipeline.stages.map((s) => `<span class="ll-stage" style="--c:${esc(s.color || '#8a817b')}"><i></i>${esc(s.name)} <strong>${s.total ?? "–"}</strong></span>`).join('')}</div></div>` : ''}
     ${m.motivos.length ? `<div class="card ll-motivos"><h3>Por qué no compran</h3>${m.motivos.map(([k, v]) => `<div class="ll-mot"><span>${esc(k)}</span><div class="gan-bar"><span style="width:${(v / maxMot) * 100}%;background:var(--error)"></span><b>${v}</b></div></div>`).join('')}</div>` : ''}`;
   const hoyD = today();
   const pendientes = list.filter((c) => llStart(c) < ahora && !c.resultado && !llCancelada(c)).reverse();
@@ -7530,8 +7545,8 @@ function filaBonus(b = {}, tipos = TIPOS_BONUS) {
     <span class="of-ventana muted small"></span></div>`;
 }
 function pintarOfertaEditor(oferta = {}) {
-  $('#of-entregables').innerHTML = (oferta.entregables || []).map(filaEntregable).join('') || '';
-  $('#of-bonus').innerHTML = (oferta.bonus || []).map(filaBonus).join('') || '';
+  $('#of-entregables').innerHTML = (oferta.entregables || []).map((e) => filaEntregable(e)).join('') || '';
+  $('#of-bonus').innerHTML = (oferta.bonus || []).map((b) => filaBonus(b)).join('') || '';
   refrescarOfertaEditor();
 }
 const nuevoId = (p) => `${p}${Date.now().toString(36).slice(-5)}${Math.random().toString(36).slice(2, 4)}`;
@@ -7616,7 +7631,7 @@ function renderOfertaAnalisis(launch) {
 
 // ---------- Meteóricos: su oferta (entregables y bonus) y su impacto en las ventas hora a hora ----------
 function pintarPaqueteMeteo(p = {}) {
-  $('#mt-of-entregables').innerHTML = (p?.entregables || []).map(filaEntregable).join('');
+  $('#mt-of-entregables').innerHTML = (p?.entregables || []).map((e) => filaEntregable(e)).join('');
   $('#mt-of-bonus').innerHTML = (p?.bonus || []).map((b) => filaBonus(b, TIPOS_BONUS_METEO)).join('');
   refrescarPaqueteMeteo();
 }

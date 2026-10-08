@@ -3,6 +3,7 @@
 //   GET  /api/agencia?key=DIGEST_KEY      → lo llama el programador de tareas cada mañana: manda el resumen
 //                                           (críticos del auditor, tareas vencidas, próximos hitos) a los superadmin
 //   POST { op: 'enviar' }                 → enviarlo ahora (prueba)
+import { db } from '../lib/store.js';
 import { requireSuperadmin, safeEqual } from '../lib/auth.js';
 import { env } from '../lib/env.js';
 import { enPrincipal, clienteActual } from '../lib/cliente.js';
@@ -78,6 +79,8 @@ export async function GET(request) {
         const c = clienteActual();
         const out = { cliente: c.id, informes: [], resumenDiario: null };
         try { out.informes = await informesPendientes(url.origin); } catch (e) { out.errorInformes = String(e.publicMessage || e.message).slice(0, 200); }
+        // Limpieza: las marcas de «visita ya contada» del meteórico de hace más de un día ya no hacen falta.
+        if (db()) await db().prepare("DELETE FROM intentos WHERE clave LIKE 'visita:%' AND desde < ?").bind(Date.now() - 86_400_000).run().catch(() => {});
         const config = await getConfig({ fresh: true });
         if (config.digestEmail) {
           try { out.resumenDiario = await sendDigest(config, new URL('/', request.url).toString()); } catch (e) { out.resumenDiario = { sent: false, error: String(e.publicMessage || e.message).slice(0, 200) }; }

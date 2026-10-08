@@ -25,9 +25,10 @@ export async function GET(request) {
     const url = new URL(request.url);
     const tag = (url.searchParams.get('tag') || '').trim();
     if (!tag) return json({ error: 'Falta la etiqueta' }, 400);
-    const config = await getConfig();
+    let config = await getConfig();
     // Solo etiquetas de los embudos configurados (registro, VIP, compra, encuesta, planes…): no cualquier
-    // etiqueta de la subcuenta de GHL.
+    // etiqueta de la subcuenta de GHL. Si no está, se mira la configuración recién guardada (la caché es de 30 s).
+    if (!etiquetasDeEmbudos(config).has(tag.toLowerCase())) config = await getConfig({ fresh: true });
     if (!etiquetasDeEmbudos(config).has(tag.toLowerCase())) return json({ error: 'Esa etiqueta no es de ningún embudo configurado' }, 403);
     const rawCursor = url.searchParams.get('cursor');
     let cursor = null;
