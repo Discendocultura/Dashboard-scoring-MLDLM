@@ -7139,7 +7139,7 @@ function pintarEmailsKpis(box, c) {
   ].join('');
 }
 function pintarEmailsTabla(box, c, code) {
-  if (c.error) { box.innerHTML = `<div class="notice err">${esc(c.error)}</div>`; return; }
+  if (c.error) { box.innerHTML = `<div class="notice err">${esc(c.error)}</div><button type="button" class="btn" data-em-recargar="${esc(code)}">Reintentar</button>`; return; }
   const d = c.datos;
   if (!d) return;
   if (!d.emails.length) {
