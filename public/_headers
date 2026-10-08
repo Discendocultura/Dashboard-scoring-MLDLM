@@ -10,8 +10,20 @@
   X-Frame-Options: DENY
   Referrer-Policy: same-origin
   X-Robots-Tag: noindex
+  Cache-Control: no-cache
 
 /index.html
   X-Frame-Options: DENY
   Referrer-Policy: same-origin
   X-Robots-Tag: noindex
+  Cache-Control: no-cache
+
+# El dashboard: el navegador comprueba siempre si hay versión nueva (si no cambió, no se vuelve a descargar).
+/js/*
+  Cache-Control: no-cache
+
+/styles.css
+  Cache-Control: no-cache
+
+/tema.js
+  Cache-Control: no-cache
