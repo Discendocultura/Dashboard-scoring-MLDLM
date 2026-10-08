@@ -24,7 +24,7 @@ import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.j
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
 import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE } from './roles.js';
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
-import { PESTANAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaCliente, guiaHtml as guiaPasosHtml } from './embudos-def.js';
+import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaCliente, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
@@ -452,6 +452,8 @@ async function setEmbudo(e, { vista = null } = {}) {
   if (enVsl() && state.vsl.code !== state.embudo) Object.assign(state.vsl, { code: state.embudo, leads: null, raw: null, meta: null });
   $$('.view-tab').forEach((t) => { t.hidden = t.dataset.viewGrupo ? !GRUPOS[t.dataset.viewGrupo].some((v) => allowedViews().includes(v)) : !allowedViews().includes(t.dataset.view); });
   $$('.subview-tab[data-view]').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
+  // Secciones de Métricas y Leads que el embudo tiene quitadas.
+  $$('.msubs').forEach((nav) => pintarMsub(nav, ls.get(`lsd_${nav.id}`)));
   const guardada = ls.get(`lsd_view_${state.embudo}`) || (enVsl() ? '' : ls.get('lsd_view'));
   const quiero = [vista, guardada].find((v) => v && allowedViews().includes(v));
   if (enMeteo()) pickMeteo();
@@ -2188,7 +2190,11 @@ $$('.subview-tab[data-view]').forEach((t) => t.addEventListener('click', () => s
 // Métricas por categorías (subpestañas dentro de Métricas): enseña solo los bloques de la elegida.
 function pintarMsub(nav, cat) {
   const view = nav.closest('[id^="view-"]');
-  const cats = $$('[data-msub-btn]', nav).map((b) => b.dataset.msubBtn);
+  // Secciones quitadas en este embudo («＋ Nuevo embudo» o su ⚙️): fuera su botón.
+  const vistaNav = nav.id.replace('msub-', '');
+  const ocultas = embudoInfo()?.ocultas || [];
+  $$('[data-msub-btn]', nav).forEach((b) => { b.hidden = ocultas.includes(`${vistaNav}.${b.dataset.msubBtn}`); });
+  const cats = $$('[data-msub-btn]', nav).filter((b) => !b.hidden).map((b) => b.dataset.msubBtn);
   // Subpestañas que se juntaron (la última elegida puede ser una de antes).
   if (nav.id === 'msub-metricas') cat = { trafico: 'captacion', origen: 'captacion', consumo: 'conversion', oferta: 'ventas' }[cat] || cat;
   if (!cats.includes(cat)) cat = cats[0];
@@ -7236,11 +7242,17 @@ const embOpcion = () => $('input[name="emb-tipo"]:checked').value;
 const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : embOpcion() === 'meteorico' ? 'meteorico' : SUBTIPO_IDS.includes(embOpcion()) ? 'vsl' : 'lanzamientos');
 const embFormato = () => (embEdit ? $('#emb-formato').value : embTipo() !== 'lanzamientos' ? undefined : embOpcion() === 'reto' ? $('#emb-reto-dias').value : embOpcion());
 const embSubtipo = () => (embTipo() !== 'vsl' ? undefined : embEdit ? $('#emb-subtipo').value : embOpcion());
-const embPestanas = () => $$('#emb-pestanas input:checked').map((i) => i.value);
+// Pestañas elegidas en el paso «Dashboard»: las marcadas y las que tienen alguna sección marcada.
+const embPestanas = () => [...new Set([
+  ...$$('#emb-pestanas input[data-vista]:checked').map((i) => i.dataset.vista),
+  ...$$('#emb-pestanas input[data-seccion]:checked').map((i) => i.dataset.seccion.split('.')[0]),
+])];
+// Secciones quitadas de las pestañas que sí van (vista.sección).
+const embOcultas = () => { const p = embPestanas(); return $$('#emb-pestanas input[data-seccion]:not(:checked)').map((i) => i.dataset.seccion).filter((x) => p.includes(x.split('.')[0])); };
 // Clases del prelanzamiento y entrada VIP: solo en los embudos de lanzamientos (sin plantilla elegida).
 function pintarEmbPrelanz() {
-  $('#emb-prelanz').hidden = embTipo() !== 'lanzamientos' || Boolean(!embEdit && $('#emb-plantilla').value);
   pintarEmbClases();
+  pintarEmbVipBase();
 }
 const embPrelanz = () => (embTipo() === 'lanzamientos' ? {
   preclase: $('#emb-preclase').value === 'si', clases: Number($('#emb-clases').value), vip: $('#emb-vip').value === 'si',
@@ -7251,17 +7263,105 @@ const embPrelanz = () => (embTipo() === 'lanzamientos' ? {
 const pintarEmbVipBase = () => { $('#emb-vip-base-box').hidden = embTipo() !== 'lanzamientos' || $('#emb-vip').value !== 'si'; };
 $('#emb-vip').addEventListener('change', pintarEmbVipBase);
 // Sin área preclase no hay clases: se oculta el número de clases.
-const pintarEmbClases = () => { $('#emb-clases-box').hidden = $('#emb-preclase').value === 'no'; $('#emb-recursos-box').hidden = $('#emb-preclase').value === 'no' || $('#emb-prelanz').hidden; $('#emb-espera-box').hidden = $('#emb-prelanz').hidden; };
+const pintarEmbClases = () => { const no = $('#emb-preclase').value === 'no'; $('#emb-clases-box').hidden = no; $('#emb-recursos-card').hidden = no; $('#emb-espera-card').hidden = no; };
 $('#emb-preclase').addEventListener('change', () => { pintarEmbClases(); pintarEmbGuia(); });
-function pintarEmbPestanas(activas) {
+// Paso «Dashboard»: categorías del menú (Comercial, Leads, Métricas…) con sus secciones para marcar.
+function pintarEmbPestanas(activas, ocultas = []) {
   pintarEmbPrelanz();
   const tipo = embTipo();
   $('#emb-reto-box').hidden = Boolean(embEdit) || embOpcion() !== 'reto';
   $('#emb-subtipo-box').hidden = !embEdit || tipo !== 'vsl';
   activas ??= pestanasSugeridas(tipo, embSubtipo());
-  $('#emb-pestanas').innerHTML = PESTANAS[tipo].map((p) => `<label class="emb-pest"><input type="checkbox" value="${p.id}" ${!activas || activas.includes(p.id) ? 'checked' : ''}><span><strong>${esc(p.label)}</strong><small>${esc(p.desc)}</small></span></label>`).join('');
+  const on = (v) => !activas || activas.includes(v);
+  const pest = Object.fromEntries(PESTANAS[tipo].map((p) => [p.id, p]));
+  const hijo = (attr, val, label, desc, checked) => `<label class="emb-sub"><input type="checkbox" ${attr}="${esc(val)}" ${checked ? 'checked' : ''}><span><strong>${esc(label)}</strong><small>${esc(desc)}</small></span></label>`;
+  $('#emb-pestanas').innerHTML = (CATEGORIAS[tipo] || []).map((c) => {
+    const vistas = c.vistas.filter((v) => pest[v]);
+    if (!vistas.length) return '';
+    // Una sola pestaña con secciones (Leads, Métricas): sus secciones son las subcategorías.
+    const hijos = vistas.length === 1 && SECCIONES[vistas[0]]
+      ? SECCIONES[vistas[0]].map((x) => hijo('data-seccion', `${vistas[0]}.${x.id}`, x.label, x.desc, on(vistas[0]) && !ocultas.includes(`${vistas[0]}.${x.id}`)))
+      : vistas.map((v) => hijo('data-vista', v, pest[v].label, pest[v].desc, on(v)));
+    return `<fieldset class="emb-cat" data-cat="${c.id}"><legend><label class="emb-cat-h"><input type="checkbox" data-cat-all aria-label="Toda la categoría ${esc(c.label)}"><span class="emb-cat-ico">${c.icon}</span><span><strong>${esc(c.label)}</strong><small>${esc(c.desc)}</small></span><span class="emb-cat-n"></span></label></legend><div class="emb-subs">${hijos.join('')}</div></fieldset>`;
+  }).join('');
+  pintarEmbCats();
   pintarEmbGuia();
 }
+// Casilla de cada categoría: marcada si están todas, a medias si algunas; y cuántas van.
+function pintarEmbCats() {
+  $$('#emb-pestanas .emb-cat').forEach((f) => {
+    const hijos = $$('.emb-subs input', f);
+    const n = hijos.filter((i) => i.checked).length;
+    const all = $('[data-cat-all]', f);
+    all.checked = n === hijos.length;
+    all.indeterminate = n > 0 && n < hijos.length;
+    f.classList.toggle('apagada', n === 0);
+    $('.emb-cat-n', f).textContent = `${n} de ${hijos.length}`;
+  });
+}
+$('#emb-pestanas').addEventListener('change', (e) => {
+  const all = e.target.closest('[data-cat-all]');
+  if (all) $$('.emb-subs input', all.closest('.emb-cat')).forEach((i) => { i.checked = all.checked; });
+  pintarEmbCats();
+});
+
+// ---------- Asistente por pasos ----------
+const PASO_LABEL = { tipo: 'Tipo de embudo', preclase: 'Prelanzamiento', dashboard: 'Dashboard', final: 'Nombre y resumen' };
+let embPaso = 0;
+function pasosEmb() {
+  const plantilla = !embEdit && $('#emb-plantilla').value;
+  const lanz = embTipo() === 'lanzamientos';
+  // Editando: el tipo no cambia (solo el formato de los lanzamientos o la variante de la VSL).
+  const conTipo = !embEdit || lanz || embTipo() === 'vsl';
+  return [...(conTipo ? ['tipo'] : []), ...(lanz && !plantilla ? ['preclase'] : []), ...(plantilla ? [] : ['dashboard']), 'final'];
+}
+function irPasoEmb(i) {
+  const pasos = pasosEmb();
+  embPaso = Math.max(0, Math.min(i, pasos.length - 1));
+  const actual = pasos[embPaso];
+  $$('#embudo-dialog .wiz-paso').forEach((sec) => { sec.hidden = sec.dataset.paso !== actual; });
+  $('#emb-pasos').innerHTML = pasos.map((p, n) => `<button type="button" class="wiz-dot ${n === embPaso ? 'actual' : n < embPaso ? 'hecho' : ''}" data-ir-paso="${n}" ${!embEdit && n > embPaso ? 'disabled' : ''}><span class="wiz-num">${n < embPaso && !embEdit ? '✓' : n + 1}</span><span class="wiz-lbl">${PASO_LABEL[p]}</span></button>`).join('<span class="wiz-raya" aria-hidden="true"></span>');
+  const ultimo = embPaso === pasos.length - 1;
+  $('#emb-atras').hidden = embPaso === 0;
+  $('#emb-siguiente').hidden = ultimo;
+  // Editando se puede guardar desde cualquier paso; creando, al final.
+  $('#emb-crear').hidden = !ultimo && !embEdit;
+  $('#emb-status').textContent = '';
+  if (actual === 'final') pintarEmbResumen();
+  $('#embudo-dialog .dialog-body').scrollTop = 0;
+}
+function validarPasoEmb() {
+  if (pasosEmb()[embPaso] === 'dashboard' && !embPestanas().length) { $('#emb-status').textContent = 'Deja al menos una sección marcada.'; return false; }
+  return true;
+}
+$('#emb-siguiente').addEventListener('click', () => { if (validarPasoEmb()) irPasoEmb(embPaso + 1); });
+$('#emb-atras').addEventListener('click', () => irPasoEmb(embPaso - 1));
+$('#emb-pasos').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ir-paso]');
+  if (b && !b.disabled && (Number(b.dataset.irPaso) < embPaso || validarPasoEmb())) irPasoEmb(Number(b.dataset.irPaso));
+});
+// Paso final: resumen de lo elegido.
+function pintarEmbResumen() {
+  const tipo = embTipo();
+  const plantilla = !embEdit && plantillasAg.find((x) => x.id === $('#emb-plantilla').value);
+  const opcion = embEdit ? null : $('input[name="emb-tipo"]:checked')?.closest('.emb-tipo');
+  const tipoTxt = plantilla ? `Plantilla «${plantilla.nombre}»` : opcion ? $('strong', opcion).textContent : tipo === 'vsl' ? SUBTIPOS_VSL[embSubtipo()].corto : tipo === 'meteorico' ? 'Meteóricos' : FORMATOS[embFormato()]?.label || 'Lanzamientos';
+  const filas = [['Tipo', tipoTxt + (embOpcion?.() === 'reto' && !embEdit ? ` · ${$('#emb-reto-dias').selectedOptions[0].text}` : '')]];
+  if (tipo === 'lanzamientos' && !plantilla) {
+    const pre = $('#emb-preclase').value === 'si';
+    const rec = $$('input[name="emb-recurso"]:checked').map((i) => i.closest('label').textContent.replace(/\(.*\)/, '').trim());
+    filas.push(['Área preclase', pre ? `Sí · ${$('#emb-clases').selectedOptions[0].text}${rec.length ? ` · ${rec.join(', ')}` : ''}` : 'No']);
+    filas.push(['Entrada VIP', $('#emb-vip').value === 'si' ? `Sí · el contador empieza en ${$('#emb-vip-base').value || 0}` : 'No']);
+    if (pre) filas.push(['Pantalla de espera', $('#emb-espera').value === 'si' ? 'Sí, 59 min antes y entra sola al webinar' : 'No']);
+  }
+  if (!plantilla) {
+    const cats = $$('#emb-pestanas .emb-cat').map((f) => ({ t: $('.emb-cat-h strong', f).textContent, subs: $$('.emb-subs input:checked', f).map((i) => $('strong', i.closest('label')).textContent) })).filter((c) => c.subs.length);
+    filas.push(['Dashboard', cats.map((c) => `<strong>${esc(c.t)}</strong>: ${esc(c.subs.join(', '))}`).join('<br>')]);
+  }
+  $('#emb-resumen').innerHTML = `<dl>${filas.map(([a, b], i) => `<dt>${esc(a)}</dt><dd>${i === filas.length - 1 && !plantilla ? b : esc(b)}</dd>`).join('')}</dl>`;
+}
+$('#emb-plantilla').addEventListener('change', () => irPasoEmb(embPaso));
+
 function pintarEmbGuia() {
   const pasos = guiaEmbudo(embTipo(), embPestanas(), embFormato(), embSubtipo(), { preclase: $('#emb-preclase').value !== 'no' });
   const rec = embTipo() === 'lanzamientos' && $('#emb-preclase').value !== 'no' ? $$('input[name="emb-recurso"]:checked').map((i) => i.value) : [];
@@ -7335,10 +7435,12 @@ function abrirNuevoEmbudo() {
   $('#emb-nota').hidden = false;
   $('#emb-borrar').hidden = true;
   $('#emb-crear').textContent = 'Crear embudo';
-  $('#emb-guia-box').open = true;
+  $('#emb-guia-box').open = false;
+  $('#emb-h-tipo').textContent = '¿Qué tipo de embudo es?';
+  $('#emb-sub-tipo').textContent = 'Elige el que más se parezca. En los siguientes pasos lo terminas de ajustar.';
   pintarEmbPestanas(null);
+  irPasoEmb(0);
   embDlg.showModal();
-  $('#emb-nombre').focus();
 }
 function abrirEditarEmbudo(id) {
   const e = embudoInfo(id);
@@ -7365,13 +7467,16 @@ function abrirEditarEmbudo(id) {
   $('#emb-plantilla-guardar').hidden = !state.superadmin;
   $('#emb-crear').textContent = 'Guardar';
   $('#emb-guia-box').open = false;
-  pintarEmbPestanas(e.pestanas || null);
+  $('#emb-h-tipo').textContent = e.tipo === 'vsl' ? 'Tipo de embudo siempre abierto' : 'Formato de los lanzamientos';
+  $('#emb-sub-tipo').textContent = 'El tipo de embudo no se cambia; puedes pulsar cualquier paso de arriba y guardar cuando quieras.';
+  pintarEmbPestanas(e.pestanas || null, e.ocultas || []);
+  irPasoEmb(0);
   embDlg.showModal();
 }
 $('#sb-add').addEventListener('click', abrirNuevoEmbudo);
 $('#sidebar').addEventListener('click', (e) => { const b = e.target.closest('[data-emb-edit]'); if (b) abrirEditarEmbudo(b.dataset.embEdit); });
 document.addEventListener('click', (e) => { if (e.target.closest('[data-action="nuevo-embudo"]')) abrirNuevoEmbudo(); });
-$$('input[name="emb-tipo"]').forEach((r) => r.addEventListener('change', () => { pintarEmbPestanas(null); pintarEmbVipBase(); }));
+$$('input[name="emb-tipo"]').forEach((r) => r.addEventListener('change', () => { pintarEmbPestanas(null); pintarEmbVipBase(); irPasoEmb(embPaso); }));
 $('#emb-pestanas').addEventListener('change', pintarEmbGuia);
 $('#emb-formato').addEventListener('change', pintarEmbGuia);
 $('#emb-reto-dias').addEventListener('change', pintarEmbGuia);
@@ -7379,7 +7484,8 @@ $('#emb-subtipo').addEventListener('change', pintarEmbGuia);
 
 $('#emb-crear').addEventListener('click', async () => {
   const pestanas = embPestanas();
-  if (!pestanas.length) { $('#emb-status').textContent = 'Deja al menos una pestaña activada.'; return; }
+  const ocultas = embOcultas();
+  if (!pestanas.length && !(!embEdit && $('#emb-plantilla').value)) { $('#emb-status').textContent = 'Deja al menos una sección marcada en el paso «Dashboard».'; return; }
   const todas = pestanas.length === PESTANAS[embTipo()].length;
   const b = $('#emb-crear');
   b.disabled = true;
@@ -7388,7 +7494,7 @@ $('#emb-crear').addEventListener('click', async () => {
     if (embEdit) {
       const id = embEdit;
       const nombre = $('#emb-nombre').value.trim() || embudoInfo(id).nombre;
-      const lista = embudos().map((e) => (e.id === id ? { ...e, id: e.id, tipo: e.tipo, nombre, ...(e.tipo === 'lanzamientos' ? { formato: embFormato(), ...embPrelanz() } : {}), pestanas: todas ? undefined : pestanas } : e));
+      const lista = embudos().map((e) => (e.id === id ? { ...e, id: e.id, tipo: e.tipo, nombre, ...(e.tipo === 'lanzamientos' ? { formato: embFormato(), ...embPrelanz() } : {}), pestanas: todas ? undefined : pestanas, ocultas: ocultas.length ? ocultas : undefined } : e));
       const vsls = state.config.vsls[id] ? { ...state.config.vsls, [id]: { ...state.config.vsls[id], name: nombre, subtipo: embSubtipo() } } : state.config.vsls;
       const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, vsls } });
       state.config = config;
@@ -7417,7 +7523,7 @@ $('#emb-crear').addEventListener('click', async () => {
     for (let n = 2; usados.has(id) || id.length < 2; n++) id = `${base.slice(0, 18)}-${n}`;
     const body = {
       ...state.config,
-      embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz() } : {}), ...(todas ? {} : { pestanas }) }],
+      embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz() } : {}), ...(todas ? {} : { pestanas }), ...(ocultas.length ? { ocultas } : {}) }],
       vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre, subtipo } } : state.config.vsls,
     };
     const { config } = await api('/api/config', { method: 'POST', body });

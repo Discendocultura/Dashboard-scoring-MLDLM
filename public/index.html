@@ -1209,11 +1209,15 @@
     </form>
   </dialog>
 
-  <!-- Nuevo embudo -->
+  <!-- Nuevo embudo: asistente por pasos (tipo → preclase → dashboard → nombre y resumen) -->
   <dialog id="embudo-dialog" class="dialog dialog-md">
     <form method="dialog">
       <header class="dialog-head"><h2 id="emb-titulo">Nuevo embudo</h2></header>
+      <nav id="emb-pasos" class="wiz-pasos" aria-label="Pasos"></nav>
       <div class="dialog-body">
+        <section class="wiz-paso" data-paso="tipo">
+          <h3 class="wiz-h" id="emb-h-tipo">¿Qué tipo de embudo es?</h3>
+          <p class="wiz-sub" id="emb-sub-tipo">Elige el que más se parezca. En el siguiente paso lo terminas de ajustar.</p>
         <div class="emb-tipos" role="radiogroup" aria-label="Tipo de embudo">
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="webinar" checked><span class="emb-ico">🔴</span><span><strong>Webinar</strong><small>Lanzamiento de 1 vídeo: captación → preclase → webinar en directo → grabación y carrito.</small></span></label>
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="v2"><span class="emb-ico">2️⃣</span><span><strong>Lanzamiento de 2 vídeos</strong><small>Igual que el webinar pero con 2 vídeos (en directo o grabados); en el 2º se hace la venta.</small></span></label>
@@ -1232,6 +1236,8 @@
           <select id="emb-reto-dias"><option value="reto3">3 días</option><option value="reto4">4 días</option><option value="reto5" selected>5 días</option></select></label>
         <label class="field" id="emb-subtipo-box" hidden><span>Tipo de embudo siempre abierto</span>
           <select id="emb-subtipo"><option value="vsl">VSL</option><option value="leadmagnet">Lead magnet + secuencia de emails</option><option value="evergreen">Webinar evergreen (grabado)</option><option value="llamadas">Embudo de llamadas</option></select></label>
+        <label class="field" id="emb-formato-box" hidden><span>Formato <small>(cuántos vídeos tiene cada lanzamiento; la preclase con las clases 1 y 2 es aparte)</small></span>
+          <select id="emb-formato"><option value="webinar">Webinar (1 vídeo)</option><option value="v2">Lanzamiento de 2 vídeos</option><option value="v3">Lanzamiento de 3 vídeos</option><option value="plf">PLF (4 PLCs)</option><option value="reto3">Reto de 3 días</option><option value="reto4">Reto de 4 días</option><option value="reto5">Reto de 5 días</option></select></label>
         <div id="emb-plantilla-box" class="emb-plantilla superadmin-only" hidden>
           <label class="field"><span>Partir de una plantilla de agencia <small>(opcional)</small></span>
             <select id="emb-plantilla"><option value="">— Sin plantilla: elijo el tipo arriba —</option></select></label>
@@ -1242,18 +1248,31 @@
           </div>
           <p class="muted small" id="emb-plantilla-info"></p>
         </div>
-        <label class="field" id="emb-formato-box" hidden><span>Formato <small>(cuántos vídeos tiene cada lanzamiento; la preclase con las clases 1 y 2 es aparte)</small></span>
-          <select id="emb-formato"><option value="webinar">Webinar (1 vídeo)</option><option value="v2">Lanzamiento de 2 vídeos</option><option value="v3">Lanzamiento de 3 vídeos</option><option value="plf">PLF (4 PLCs)</option><option value="reto3">Reto de 3 días</option><option value="reto4">Reto de 4 días</option><option value="reto5">Reto de 5 días</option></select></label>
-        <div class="grid3" id="emb-prelanz">
-          <label class="field"><span>Área de recursos preclase <small>(página con las clases grabadas antes del directo)</small></span>
-            <select id="emb-preclase"><option value="si">Sí, con área preclase</option><option value="no">No, sin área preclase</option></select></label>
-          <label class="field" id="emb-clases-box"><span>Clases del prelanzamiento <small>(vídeos grabados de la página preclase)</small></span>
-            <select id="emb-clases"><option value="1">1 clase</option><option value="2" selected>2 clases</option><option value="3">3 clases</option></select></label>
-          <label class="field"><span>Entrada VIP</span>
-            <select id="emb-vip"><option value="si">Sí, con entrada VIP</option><option value="no">No, sin entrada VIP</option></select></label>
-        </div>
-        <label class="field" id="emb-espera-box"><span>Pantalla de espera antes del directo <small>(59 minutos antes, quien entre en la preclase ve una cuenta atrás y al llegar a cero entra sola al webinar; el vídeo opcional y los textos se ponen luego en la configuración de cada lanzamiento)</small></span>
-          <select id="emb-espera"><option value="si">Sí, con pantalla de espera que redirige al webinar</option><option value="no">No, sin pantalla de espera</option></select></label>
+        </section>
+
+        <section class="wiz-paso" data-paso="preclase" hidden>
+          <h3 class="wiz-h">El prelanzamiento</h3>
+          <p class="wiz-sub">Lo que pasa antes del directo. Las fechas, enlaces y textos se ponen luego en la configuración de cada lanzamiento.</p>
+          <div class="wiz-cards">
+            <div class="wiz-card" id="emb-prelanz">
+              <h4>🎬 Área preclase</h4>
+              <p class="muted small">La página con las clases grabadas antes del directo.</p>
+              <label class="field"><span>¿Tendrá área preclase?</span>
+                <select id="emb-preclase"><option value="si">Sí, con área preclase</option><option value="no">No, sin área preclase</option></select></label>
+              <label class="field" id="emb-clases-box"><span>¿Cuántas clases grabadas?</span>
+                <select id="emb-clases"><option value="1">1 clase</option><option value="2" selected>2 clases</option><option value="3">3 clases</option></select></label>
+            </div>
+            <div class="wiz-card" id="emb-vip-card">
+              <h4>⭐ Entrada VIP</h4>
+              <p class="muted small">Un pago pequeño antes del directo, que se cierra a la hora del directo.</p>
+              <label class="field"><span>¿Habrá entrada VIP?</span>
+                <select id="emb-vip"><option value="si">Sí, con entrada VIP</option><option value="no">No, sin entrada VIP</option></select></label>
+              <label class="field" id="emb-vip-base-box"><span>El contador de VIP empieza en <small>(la página muestra este número + las VIP vendidas)</small></span>
+                <input id="emb-vip-base" inputmode="numeric" placeholder="0"></label>
+            </div>
+            <div class="wiz-card wiz-card-full" id="emb-recursos-card">
+              <h4>🧩 Recursos de la preclase</h4>
+              <p class="muted small">Además de las clases. Marca los que vaya a haber.</p>
         <div class="field" id="emb-recursos-box"><span>Recursos de la preclase además de las clases <small>(las fechas, enlaces y textos se ponen luego en la configuración de cada lanzamiento)</small></span>
           <div class="emb-recursos">
             <label class="chk"><input type="checkbox" name="emb-recurso" value="musica"> 🎵 Música o audio <small class="muted">(debajo de una clase)</small></label>
@@ -1262,17 +1281,32 @@
             <label class="chk"><input type="checkbox" name="emb-recurso" value="descargable"> 📄 Recurso descargable</label>
           </div>
         </div>
-        <label class="field" id="emb-vip-base-box"><span>Contador de VIP · empieza en <small>(la página de la entrada VIP muestra este número + las VIP vendidas; cada lanzamiento lo puede cambiar en su configuración)</small></span>
-          <input id="emb-vip-base" inputmode="numeric" placeholder="0"></label>
-        <label class="field"><span>Nombre del embudo</span><input id="emb-nombre" maxlength="40" placeholder="Webinar «El Camino», PLF primavera, VSL Fertilidad…"></label>
-        <div class="field"><span>Pestañas de este embudo <small>(lo que necesita este cliente; se puede cambiar cuando quieras con ⚙️)</small></span>
-          <div id="emb-pestanas" class="emb-pestanas"></div>
-        </div>
-        <details id="emb-guia-box" class="emb-guia" open>
-          <summary>📋 Qué tienes que preparar en GHL para este embudo</summary>
-          <div id="emb-guia"></div>
-        </details>
-        <p id="emb-nota" class="muted">Al crearlo se abre su configuración para que pongas las etiquetas de GHL (registro, ventas…).</p>
+            </div>
+            <div class="wiz-card wiz-card-full" id="emb-espera-card">
+              <h4>⏳ Pantalla de espera antes del directo</h4>
+              <p class="muted small">59 minutos antes, quien entre en la preclase ve una cuenta atrás y al llegar a cero entra sola al webinar. El vídeo opcional y los textos se ponen luego en la configuración del lanzamiento.</p>
+              <label class="field" id="emb-espera-box"><span>¿Quieres pantalla de espera?</span>
+                <select id="emb-espera"><option value="si">Sí, con pantalla de espera que redirige al webinar</option><option value="no">No, sin pantalla de espera</option></select></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="wiz-paso" data-paso="dashboard" hidden>
+          <h3 class="wiz-h">¿Qué quieres ver en el dashboard?</h3>
+          <p class="wiz-sub">Así se ordena el menú del embudo: categorías y, dentro, sus secciones. Quita lo que este cliente no necesite; lo puedes cambiar cuando quieras con ⚙️.</p>
+          <div id="emb-pestanas" class="emb-cats"></div>
+        </section>
+
+        <section class="wiz-paso" data-paso="final" hidden>
+          <h3 class="wiz-h">Ponle nombre y revisa</h3>
+          <label class="field"><span>Nombre del embudo</span><input id="emb-nombre" maxlength="40" placeholder="Webinar «El Camino», PLF primavera, VSL Fertilidad…"></label>
+          <div id="emb-resumen" class="emb-resumen"></div>
+          <details id="emb-guia-box" class="emb-guia">
+            <summary>📋 Qué tienes que preparar en GHL para este embudo</summary>
+            <div id="emb-guia"></div>
+          </details>
+          <p id="emb-nota" class="muted">Al crearlo se abre su configuración para que pongas las etiquetas de GHL (registro, ventas…).</p>
+        </section>
         <p id="emb-status" class="muted"></p>
       </div>
       <footer class="dialog-foot">
@@ -1280,6 +1314,8 @@
         <button id="emb-plantilla-guardar" class="btn superadmin-only" type="button" hidden title="Guarda este embudo (tipo, pestañas, mensajes, tareas habituales, precios y textos) para usarlo en otros clientes">Guardar como plantilla de agencia</button>
         <span class="spacer"></span>
         <button class="btn" value="cancel" formnovalidate type="submit">Cancelar</button>
+        <button id="emb-atras" class="btn" type="button">← Atrás</button>
+        <button id="emb-siguiente" class="btn primary" type="button">Siguiente →</button>
         <button id="emb-crear" class="btn primary" type="button">Crear embudo</button>
       </footer>
     </form>

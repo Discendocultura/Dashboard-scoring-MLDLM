@@ -2011,3 +2011,50 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 @media (max-width: 600px) { .enlace-directo-fila { grid-template-columns: minmax(0, 1fr) auto; } .enlace-directo-etq { grid-column: 1 / -1; } }
 .grid2 > .chk { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 14px; }
 .grid2 > .chk input { width: auto; }
+
+/* ---------- Asistente de «＋ Nuevo embudo» ---------- */
+.wiz-pasos { display: flex; align-items: center; gap: 6px; padding: 10px 20px 12px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.wiz-dot { display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px 4px 4px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.wiz-dot:disabled { cursor: default; opacity: .7; }
+.wiz-num { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border-strong); background: var(--surface); font-weight: 800; font-variant-numeric: tabular-nums; }
+.wiz-dot.actual { color: var(--text, inherit); }
+.wiz-dot.actual .wiz-num { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.wiz-dot.hecho .wiz-num { border-color: var(--accent); color: var(--accent); }
+.wiz-dot:not(:disabled):hover .wiz-lbl { text-decoration: underline; }
+.wiz-raya { flex: 1 0 18px; height: 2px; border-radius: 2px; background: var(--border); }
+.wiz-paso { display: grid; gap: 14px; }
+.wiz-h { margin: 0; font-size: 20px; text-wrap: balance; }
+.wiz-sub { margin: -8px 0 0; color: var(--muted); max-width: 70ch; }
+.wiz-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.wiz-card { display: grid; gap: 10px; align-content: start; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.wiz-card h4 { margin: 0; font-size: 15px; }
+.wiz-card > p { margin: -6px 0 0; }
+.wiz-card-full { grid-column: 1 / -1; }
+.wiz-card #emb-recursos-box > span { display: none; }
+.emb-cats { display: grid; gap: 12px; }
+.emb-cat { margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; transition: opacity .2s; }
+.emb-cat.apagada { opacity: .6; }
+.emb-cat legend { display: contents; }
+.emb-cat-h { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface-2); cursor: pointer; }
+.emb-cat-h input { width: 18px; height: 18px; flex: none; }
+.emb-cat-ico { font-size: 22px; }
+.emb-cat-h strong { display: block; font-size: 15px; }
+.emb-cat-h small { color: var(--muted); }
+.emb-cat-n { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.emb-subs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; padding: 12px 14px; }
+.emb-sub { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+.emb-sub:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.emb-sub input { width: auto; margin-top: 3px; flex: none; }
+.emb-sub strong { display: block; font-size: 14px; }
+.emb-sub small { color: var(--muted); font-size: 12px; }
+.emb-resumen dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+.emb-resumen dt { font-weight: 700; color: var(--muted); }
+.emb-resumen dd { margin: 0; }
+@media (max-width: 600px) { .wiz-lbl { display: none; } .wiz-dot.actual .wiz-lbl { display: inline; } .emb-resumen dl { grid-template-columns: 1fr; } }
+#embudo-dialog .emb-tipos { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+#embudo-dialog .emb-tipos .emb-grupo { grid-column: 1 / -1; margin: 6px 0 0; }
+#embudo-dialog .emb-tipos .emb-tipo { margin: 0; }
+.wiz-card .emb-recursos { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.wiz-card .emb-recursos .chk { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 2px 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 600; }
+.wiz-card .emb-recursos .chk:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.wiz-card .emb-recursos .chk small { grid-column: 2; font-weight: 400; }

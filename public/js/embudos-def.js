@@ -33,6 +33,54 @@ PESTANAS.meteorico = [
 ];
 export const pestanaIds = (tipo) => (PESTANAS[tipo] || []).map((p) => p.id);
 
+// Secciones (subpestañas) dentro de algunas pestañas: se pueden quitar una a una al crear el embudo.
+// Se guardan como «vista.sección» en `ocultas` del embudo. Mismo orden que en el dashboard.
+export const SECCIONES = {
+  leads: [
+    { id: 'lista', label: 'Lista de leads', desc: 'Cada lead con su puntuación, estado y WhatsApp' },
+    { id: 'encuesta', label: 'Encuesta', desc: '% de cada respuesta de la encuesta y respuestas libres' },
+  ],
+  metricas: [
+    { id: 'resumen', label: 'Resumen', desc: 'Cifras clave del lanzamiento y facturación' },
+    { id: 'ventas', label: 'Ventas', desc: 'Ventas por día del carrito, oferta y bonus' },
+    { id: 'captacion', label: 'Captación', desc: 'Registros, tráfico, origen y coste por lead' },
+    { id: 'conversion', label: 'Vídeos y conversión', desc: 'Clases, directo, grabación, votación y qué predice la compra' },
+    { id: 'emails', label: 'Emails', desc: 'Apertura y clics de los emails del lanzamiento' },
+    { id: 'meteorico', label: 'Downsell', desc: 'La oferta flash después del lanzamiento' },
+  ],
+  vmetricas: [
+    { id: 'resumen', label: 'Resumen', desc: 'Cifras clave del periodo' },
+    { id: 'evolucion', label: 'Semanas y días', desc: 'Evolución por semanas y días' },
+    { id: 'llamadas', label: 'Llamadas', desc: 'Llamadas agendadas, shows y cierres' },
+    { id: 'origen', label: 'Origen', desc: 'De dónde vienen los registros y las ventas' },
+    { id: 'emails', label: 'Emails', desc: 'Apertura y clics de los emails' },
+  ],
+};
+export const SECCIONES_VALIDAS = Object.entries(SECCIONES).flatMap(([v, l]) => l.map((x) => `${v}.${x.id}`));
+
+// Cómo se agrupan las pestañas en el menú del dashboard (categorías → subcategorías), por tipo de embudo.
+export const CATEGORIAS = {
+  lanzamientos: [
+    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'El trabajo diario de setters y closers', vistas: ['hoy', 'llamadas'] },
+    { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['leads'] },
+    { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va el lanzamiento, en cifras', vistas: ['metricas'] },
+    { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Para decidir: objetivos, avatar y comparativas', vistas: ['objetivos', 'avatar', 'comparar'] },
+    { id: 'planificacion', label: 'Planificación', icon: '🗓️', desc: 'Organización del equipo', vistas: ['calendario', 'tareas', 'rendimiento'] },
+  ],
+  vsl: [
+    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'Las llamadas de valoración', vistas: ['llamadas'] },
+    { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['vleads'] },
+    { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va la VSL, por fechas', vistas: ['vmetricas'] },
+    { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Anuncios y comparativas', vistas: ['vanuncios', 'comparar'] },
+    { id: 'planificacion', label: 'Planificación', icon: '🗓️', desc: 'Organización del equipo', vistas: ['calendario', 'tareas', 'rendimiento'] },
+  ],
+  meteorico: [
+    { id: 'meteoricos', label: 'Meteóricos', icon: '⚡', desc: 'Cada oferta flash', vistas: ['meteoricos'] },
+    { id: 'moferta', label: 'Oferta', icon: '🎁', desc: 'Entregables y bonus frente a las ventas', vistas: ['moferta'] },
+    { id: 'planificacion', label: 'Planificación', icon: '🗓️', desc: 'Organización del equipo', vistas: ['calendario', 'tareas'] },
+  ],
+};
+
 // Variantes del embudo «siempre abierto» (usan el mismo motor que la VSL: registro → contenido →
 // venta, analizado por fechas). Cambian los textos, la guía, las pestañas sugeridas y el auditor.
 //   registro: cómo se llama el alta · contenido: lo que consume (con artículo) · vio: KPI de consumo
