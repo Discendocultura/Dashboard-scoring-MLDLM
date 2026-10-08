@@ -85,7 +85,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
         'En los emails y WhatsApp enlaza siempre a esa página.',
       ] },
       { titulo: '4 · En el dashboard', pasos: [
-        'Crea cada meteórico (Black Friday, rebajas…) con sus días y horas, producto, precio, etiquetas y objetivos. El de después de un lanzamiento (downsell) se crea dentro del lanzamiento: Métricas → Downsell (meteórico).',
+        'Crea cada meteórico (Black Friday, rebajas…) con sus días y horas, producto, precio, etiquetas y objetivos. El de después de un lanzamiento (downsell) se crea dentro del lanzamiento: Métricas → Downsell.',
         'Durante la oferta, la pestaña Meteóricos te enseña la cuenta atrás, las ventas, la facturación, las visitas y la conversión.',
       ] },
     ];

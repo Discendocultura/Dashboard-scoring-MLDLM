@@ -6970,7 +6970,7 @@ function renderMeteoView({ fresh = false } = {}) {
   }
   pintarMeteo($('#meteo-body'), state.meteo.code, { fresh });
 }
-// Métricas del lanzamiento → Downsell (meteórico): los meteóricos posteriores de este lanzamiento.
+// Métricas del lanzamiento → Downsell: los meteóricos posteriores de este lanzamiento.
 let meteoLanzCode = '';
 function renderMeteoLanz({ fresh = false } = {}) {
   const lista = meteoDeLanz(state.launchCode);

@@ -1733,6 +1733,9 @@ html.tema-cambiando, html.tema-cambiando *, html.tema-cambiando *::before, html.
 .subviews:not(.msubs), .subviews.msubs { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; }
 .subviews:not(.msubs) { margin: -4px 0 18px; }
 .subviews.msubs { margin: 4px 0 18px; }
+.msubs .subview-tab { padding: 7px 10px; gap: 5px; } /* las 9 categorías de Métricas en una sola fila */
+@media (max-width: 1700px) { .msubs .subview-tab .ico { display: none; } }
+@media (max-width: 1400px) { .msubs .subview-tab { padding: 7px 6px; font-size: 13px; } }
 .subview-tab { border: 0; background: transparent; border-radius: 9px; padding: 7px 14px; font-size: 13.5px; color: var(--text-2); }
 .subview-tab:hover { color: var(--text); background: color-mix(in srgb, var(--surface) 60%, transparent); }
 .subview-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm), 0 0 0 1px var(--border); }
