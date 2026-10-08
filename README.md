@@ -420,6 +420,9 @@ Al crear un embudo de lanzamientos (o con su ⚙️) se eligen las **clases del 
 
 **Sin área de recursos preclase** (opción al crear el embudo o con su ⚙️, para webinar, 2 o 3 vídeos, PLF y reto): el lanzamiento no tiene clases. Se ocultan las páginas de login y preclase, la encuesta de la página y las clases (la pestaña pasa a llamarse «Directo y grabación»), el auditor no las pide y la página cuenta atrás directamente hasta el primer vídeo. La puntuación se reparte entre la VIP y los vídeos del lanzamiento y se reescala a 100 (sin VIP tampoco, el directo y la grabación valen los 100 puntos).
 
+### Pantalla de espera (15 minutos antes del directo)
+Desde 15 minutos antes del directo, quien abra la página preclase (o la tenga abierta) ve solo una pantalla de espera: el logo, «¡Empezamos en unos minutos!», «Prepárate», una cuenta atrás de minutos y segundos y el aviso «Quédate aquí, serás redirigida al directo en cuanto el contador llegue a cero». Al llegar a cero pasa sola por `/directo` (registro en Zoom y su enlace personal). No hace falta ningún bloque en GHL: lo pone el script de la página. Logo y textos en *Configuración → Preclase → Pantalla de espera* (vacíos = los de ejemplo). Colores con las variables CSS `--lsd-espera-fondo`, `--lsd-espera-titulo`, `--lsd-espera-acento` y `--lsd-espera-texto`.
+
 ### Recursos de la preclase: música, test, votación y descargable
 Al crear el embudo se marca qué recursos tendrá la preclase además de las clases; los lanzamientos nuevos los heredan (sin fechas). En cada lanzamiento, *Configuración → Preclase → Recursos de la preclase*:
 - **Música:** enlace del MP3 (súbelo a Medios de GHL) y bajo qué clase va. Se desbloquea al ver el 75 % de esa clase (en el mismo navegador al momento; en cualquier otro, con su etiqueta).

@@ -2625,7 +2625,7 @@ function openConfig(code) {
   $('#cfg-clase2-at').value = l.clase2At || '';
   $('#cfg-clase3-url').value = l.clase3Url || '';
   $('#cfg-clase3-at').value = l.clase3At || '';
-  for (const k of ['clase1', 'clase2', 'clase3', 'test', 'descargable']) $(`#cfg-img-${k}`).value = l.imagenes?.[k] || '';
+  for (const k of ['clase1', 'clase2', 'clase3', 'test', 'descargable', 'espera']) $(`#cfg-img-${k}`).value = l.imagenes?.[k] || '';
   $('#cfg-replay-video').value = l.replayVideoUrl || '';
   $('#cfg-replay-at').value = l.replayAt || '';
   $('#cfg-vip-url').value = l.vipUrl || '';
@@ -3068,7 +3068,7 @@ function readForm() {
       pago: leerPago('cfg'),
       oferta: leerOfertaEditor(),
       recursosPre: leerRecursosCfg(),
-      imagenes: Object.fromEntries(['clase1', 'clase2', 'clase3', 'test', 'descargable'].map((k) => [k, $(`#cfg-img-${k}`).value.trim()]).filter(([, v]) => v)),
+      imagenes: Object.fromEntries(['clase1', 'clase2', 'clase3', 'test', 'descargable', 'espera'].map((k) => [k, $(`#cfg-img-${k}`).value.trim()]).filter(([, v]) => v)),
     },
   };
 }

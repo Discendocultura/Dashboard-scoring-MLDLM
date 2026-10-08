@@ -116,6 +116,22 @@
     '.lsd-vot-libre{display:block;width:100%;box-sizing:border-box;margin-top:10px;padding:12px 14px;border-radius:10px;border:1px solid #d8d0c9;background:#fff;font:inherit;resize:vertical}' +
     '.lsd-vot-enviar{display:block;width:100%;margin-top:14px;padding:13px 16px;border:0;border-radius:10px;background:var(--lsd-acento,#b4552d);color:#fff;font:inherit;font-weight:700;cursor:pointer}.lsd-vot-enviar:disabled{opacity:.6}' +
     '.lsd-vot-mia{margin-top:8px;padding:10px 12px;border-radius:10px;background:#fff;border:1px solid #e6ded6}.lsd-vot-mia span{font-size:.8em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.7}.lsd-vot-mia p{margin:4px 0 0;white-space:pre-line}';
+  CSS +=
+    '#lsd-espera{position:fixed;inset:0;z-index:2147483000;overflow:auto;display:flex;align-items:center;justify-content:center;padding:32px 20px;box-sizing:border-box;' +
+    'background:var(--lsd-espera-fondo,radial-gradient(120% 90% at 50% 0%,#fbf6f1 0%,#f0e4da 70%));color:var(--lsd-espera-texto,#3a2a24);font-family:Lato,Helvetica,Arial,sans-serif;text-align:center;animation:lsdEspIn .5s ease both}' +
+    '#lsd-espera .lsd-espera-in{max-width:720px;width:100%;display:flex;flex-direction:column;align-items:center}' +
+    '#lsd-espera .lsd-espera-logo{display:block;max-width:220px;max-height:120px;width:auto;height:auto;margin:0 auto 28px;object-fit:contain}' +
+    '#lsd-espera .lsd-espera-t{margin:0;font-size:clamp(32px,6.4vw,60px);font-weight:900;line-height:1.08;letter-spacing:-.01em;color:var(--lsd-espera-titulo,#4a2c20);text-wrap:balance}' +
+    '#lsd-espera .lsd-espera-sub{margin:10px 0 0;font-size:clamp(20px,3.4vw,30px);font-weight:900;font-style:italic;color:var(--lsd-espera-acento,#860d0e)}' +
+    '#lsd-espera .lsd-espera-u{display:flex;flex-direction:column;align-items:center;gap:10px}' +
+    '#lsd-espera .lsd-espera-cd{display:flex;align-items:flex-start;justify-content:center;gap:clamp(8px,2vw,18px);margin:clamp(28px,5vw,44px) 0 6px}' +
+    '#lsd-espera .lsd-espera-num{display:inline-flex;align-items:center;justify-content:center;min-width:1.6em;padding:.12em .2em;border-radius:20px;background:#ffffff;border:1px solid #e2d3c5;box-shadow:0 14px 40px rgba(134,13,14,.12);' +
+    'font-size:clamp(64px,15vw,140px);font-weight:900;line-height:1;color:var(--lsd-espera-acento,#860d0e);font-variant-numeric:tabular-nums}' +
+    '#lsd-espera .lsd-espera-sep{font-size:clamp(48px,11vw,110px);font-weight:900;line-height:1;margin-top:.2em;color:var(--lsd-espera-acento,#860d0e);opacity:.55;animation:lsdEspSep 1s steps(1) infinite}' +
+    '#lsd-espera .lsd-espera-lbl{font-size:13px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#8a7468}' +
+    '#lsd-espera .lsd-espera-msg{margin:clamp(24px,4vw,36px) 0 0;max-width:34ch;font-size:clamp(17px,2.4vw,21px);line-height:1.5;color:var(--lsd-espera-texto,#3a2a24)}' +
+    '@keyframes lsdEspIn{from{opacity:0}to{opacity:1}}@keyframes lsdEspSep{50%{opacity:.15}}' +
+    '@media (prefers-reduced-motion:reduce){#lsd-espera,#lsd-espera .lsd-espera-sep{animation:none}}';
 
   function injectCss() {
     if (document.getElementById('lsd-css')) return;
@@ -684,6 +700,65 @@
 
   // Página gestionada desde el dashboard (recursos / grabación). Vuelve a pedir los datos cuando
   // cambia de fase o se desbloquea un vídeo, y redirige (recursos → directo → grabación).
+  // ---------- Pantalla de espera: los 15 minutos antes del directo ----------
+  // La página preclase entera se tapa con el logo, «¡Empezamos en unos minutos!», una cuenta atrás de
+  // minutos y segundos y el aviso de que se la llevará al directo; al llegar a cero, va al directo.
+  // Textos (Configuración → Preclase): espera-titulo, espera-subtitulo, espera-mensaje; logo: imagen «espera».
+  // Colores: variables CSS --lsd-espera-fondo, --lsd-espera-titulo, --lsd-espera-acento, --lsd-espera-texto.
+  var ESPERA_MIN = 15;
+  function esperaDirecto(data) {
+    var m = /^dia_directo(\d?)$/.exec(data.phase || '');
+    var key = m ? 'directo' + m[1] : '';
+    if (!m || !data.countdownTo || !data.links[key]) return null;
+    return { at: data.countdownTo, desde: data.countdownTo - ESPERA_MIN * 60000, key: key };
+  }
+  var esperaTimer = null;
+  function quitarEspera() {
+    var el = document.getElementById('lsd-espera');
+    if (!el) return;
+    clearInterval(esperaTimer);
+    el.parentNode.removeChild(el);
+    document.documentElement.style.overflow = '';
+  }
+  function mostrarEspera(data, esp, who) {
+    var el = document.getElementById('lsd-espera');
+    var t = data.texts || {};
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'lsd-espera';
+      el.setAttribute('role', 'dialog');
+      el.setAttribute('aria-modal', 'true');
+      el.setAttribute('aria-labelledby', 'lsd-espera-t');
+      var logo = (data.imagenes || {}).espera;
+      el.innerHTML = '<div class="lsd-espera-in">' +
+        (logo ? '<img class="lsd-espera-logo" src="' + esc(logo) + '" alt="">' : '') +
+        '<h1 class="lsd-espera-t" id="lsd-espera-t">' + esc(t['espera-titulo'] || '¡Empezamos en unos minutos!') + '</h1>' +
+        '<p class="lsd-espera-sub">' + esc(t['espera-subtitulo'] || 'Prepárate') + '</p>' +
+        '<div class="lsd-espera-cd" aria-live="off">' +
+        '<div class="lsd-espera-u"><span class="lsd-espera-num" data-u="m">00</span><span class="lsd-espera-lbl">minutos</span></div>' +
+        '<span class="lsd-espera-sep" aria-hidden="true">:</span>' +
+        '<div class="lsd-espera-u"><span class="lsd-espera-num" data-u="s">00</span><span class="lsd-espera-lbl">segundos</span></div></div>' +
+        '<p class="lsd-espera-msg">' + esc(t['espera-mensaje'] || 'Quédate aquí, serás redirigida al directo en cuanto el contador llegue a cero.') + '</p>' +
+        '</div>';
+      document.body.appendChild(el);
+      document.documentElement.style.overflow = 'hidden';
+    }
+    var mm = el.querySelector('[data-u="m"]');
+    var ss = el.querySelector('[data-u="s"]');
+    var ido = false;
+    var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+    var tick = function () {
+      var left = Math.max(0, esp.at - serverNow());
+      var sec = Math.ceil(left / 1000);
+      mm.textContent = pad(Math.floor(sec / 60));
+      ss.textContent = pad(sec % 60);
+      if (left <= 0 && !ido) { ido = true; clearInterval(esperaTimer); goTo(data.links[esp.key], who); }
+    };
+    clearInterval(esperaTimer);
+    tick();
+    esperaTimer = setInterval(tick, 250);
+  }
+
   function runManagedPage(kind, launchAttr, who, onVideo) {
     var timer = null;
     function cycle() {
@@ -693,9 +768,12 @@
           return goTo(data.links[data.redirectTo], who);
         }
         renderPage(data, who, function (el) { onVideo(el, data.code); });
-        // Próximo cambio: fase o desbloqueo de vídeo.
+        // Los 15 minutos antes del directo, la preclase se convierte en la pantalla de espera.
+        var esp = kind === 'recursos' ? esperaDirecto(data) : null;
+        if (esp && serverNow() >= esp.desde) mostrarEspera(data, esp, who); else quitarEspera();
+        // Próximo cambio: fase o desbloqueo de vídeo (o el momento de enseñar la pantalla de espera).
         var rec = data.recursos || {};
-        var next = [data.changesAt].concat(Object.keys(data.videos).map(function (k) { return data.videos[k].unlockAt; }), Object.keys(rec).map(function (k) { return rec[k] && rec[k].unlockAt; }))
+        var next = [data.changesAt, esp && esp.desde].concat(Object.keys(data.videos).map(function (k) { return data.videos[k].unlockAt; }), Object.keys(rec).map(function (k) { return rec[k] && rec[k].unlockAt; }))
           .filter(function (t) { return t && t > data.now; }).sort(function (a, b) { return a - b; })[0];
         clearTimeout(timer);
         // Encuesta pendiente: se vuelve a comprobar cada 15 s (y al volver a la pestaña).
