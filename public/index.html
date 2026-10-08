@@ -4,13 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#f7f6f3">
   <title>Lanzamientos MLDLM</title>
+  <script src="/tema.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="/styles.css">
   <script type="module" src="/js/app.js"></script>
 </head>
 <body>
   <!-- Acceso -->
   <section id="login" class="login" hidden>
+    <button type="button" class="tema-toggle tema-flotante" data-tema-toggle aria-label="Cambiar a modo noche"><span class="tema-ico tema-sol" aria-hidden="true"></span><span class="tema-ico tema-luna" aria-hidden="true"></span></button>
     <form id="login-form" class="card login-card">
       <h1>Lanzamientos MLDLM</h1>
       <p class="muted">Entra con tu email y tu contraseña.</p>
@@ -42,6 +48,7 @@
       <div><h1 id="portal-titulo">Resultados</h1><p class="muted" id="portal-sub"></p></div>
       <span class="spacer"></span>
       <button type="button" class="btn ghost" id="portal-volver" hidden>← Volver al dashboard</button>
+      <button type="button" class="tema-toggle" data-tema-toggle aria-label="Cambiar a modo noche"><span class="tema-ico tema-sol" aria-hidden="true"></span><span class="tema-ico tema-luna" aria-hidden="true"></span></button>
       <button type="button" class="btn" id="portal-cuenta">Mi cuenta</button>
       <button type="button" class="btn" id="portal-salir">Salir</button>
     </header>
@@ -53,7 +60,7 @@
   <!-- Dashboard -->
   <div id="app" hidden>
     <header class="topbar">
-      <div class="brand"><span id="brand-nombre">Dashboard</span>
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span><span id="brand-nombre">Dashboard</span>
         <label class="cliente-pick" id="cliente-pick" hidden><span class="sr-only">Cliente</span><select id="cliente-select" aria-label="Cliente"></select></label>
         <span id="role-badge" class="badge"></span>
         <button id="btn-agencia" class="agencia-btn superadmin-only" type="button" title="Agencia: todos los clientes, el equipo de la agencia, altas y «Ver como»"><span class="agencia-ico" aria-hidden="true"></span>Agencia</button></div>
@@ -67,6 +74,7 @@
         <button id="btn-auditor" class="tb-btn tb-auditor config-only" type="button" data-tb-icon="shield" title="Auditor: revisa el embudo y te dice qué falta, por orden de urgencia"><span class="tb-txt">Auditor</span><span id="auditor-count" class="notif-count" hidden></span></button>
         <button id="btn-config" class="tb-btn tb-config config-only" type="button" data-tb-icon="gear" title="Configuración del lanzamiento"><span class="tb-txt">Configuración</span></button>
         <button id="btn-equipo" class="tb-btn tb-equipo admin-only" type="button" data-tb-icon="users" title="Miembros del equipo, roles y permisos"><span class="tb-txt">Equipo</span></button>
+        <button id="btn-tema" class="tb-btn tb-icono tb-tema" type="button" data-tema-toggle aria-label="Cambiar a modo noche"><span class="tb-ico"><span class="tema-ico tema-sol" aria-hidden="true"></span><span class="tema-ico tema-luna" aria-hidden="true"></span></span></button>
         <span class="notif-wrap">
           <button id="btn-notif" class="tb-btn tb-notif" type="button" data-tb-icon="bell" title="Notificaciones: comentarios, menciones y tareas vencidas o a punto de vencer" aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false"><span id="notif-count" class="notif-count" hidden></span></button>
           <div id="notif-panel" class="notif-panel" hidden role="dialog" aria-label="Notificaciones"></div>

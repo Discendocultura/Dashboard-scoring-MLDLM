@@ -1679,6 +1679,35 @@ const VIEW_ICONS = { meteoricos: 'zap', comercial: 'phone', planificacion: 'cale
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
+
+// ---------- Modo día / noche ----------
+// Automático según la hora (public/tema.js); el botón lo cambia a mano hasta el siguiente cambio automático.
+$$('.tema-sol').forEach((x) => { x.innerHTML = icon('sun'); });
+$$('.tema-luna').forEach((x) => { x.innerHTML = icon('moon'); });
+const horaCorta = (d) => d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+function pintarTema() {
+  const T = window.LSD_TEMA;
+  if (!T) return;
+  const noche = T.actual() === 'dark';
+  const m = T.manual();
+  const hasta = horaCorta(m ? new Date(m.hasta) : T.siguienteCambio());
+  for (const b of $$('[data-tema-toggle]')) {
+    b.setAttribute('aria-label', noche ? 'Cambiar a modo día' : 'Cambiar a modo noche');
+    b.title = `${noche ? '🌙 Modo noche' : '☀️ Modo día'} · ${m ? `elegido a mano hasta las ${hasta}; después vuelve a ir según la hora` : `automático según la hora (cambia a las ${hasta})`}. Pulsa para cambiarlo.`;
+    b.classList.toggle('manual', Boolean(m));
+  }
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('[data-tema-toggle]') || !window.LSD_TEMA) return;
+  const t = window.LSD_TEMA.alternar();
+  const m = window.LSD_TEMA.manual();
+  pintarTema();
+  const msg = m ? `${t === 'dark' ? '🌙 Modo noche' : '☀️ Modo día'} hasta las ${horaCorta(new Date(m.hasta))}; después vuelve a cambiar solo según la hora.` : 'Vuelve a ir solo según la hora: ☀️ de 8:00 a 20:00 y 🌙 el resto.';
+  notice(msg);
+  setTimeout(() => { if ($('#notice').textContent === msg) notice(''); }, 6000);
+});
+window.LSD_TEMA?.alCambiar(pintarTema);
+pintarTema();
 $$('[data-icon] > h2').forEach((h) => h.insertAdjacentHTML('afterbegin', `<span class="h-ico">${icon(h.parentElement.dataset.icon)}</span>`));
 function showView(view) {
   if (state.role && !allowedViews().includes(view)) view = allowedViews()[0];

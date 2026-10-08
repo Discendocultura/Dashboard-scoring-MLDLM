@@ -417,6 +417,12 @@ Funcionan como el webinar, con las casillas repetidas para cada vídeo (*Configu
 - **Puntuación**: la mitad por el vídeo mejor visto y la mitad por la media de todos (máximo 40 puntos, como el directo del webinar).
 - **Leads, Métricas, Calendario, Auditor y Sincronizar Zoom** muestran cada vídeo (Zoom sincroniza cada vídeo en directo ya celebrado).
 
+## 🎨 Aspecto y modo día / noche
+
+- Diseño renovado: tipografía Inter, barra superior translúcida con botones sobrios (el color va solo en el icono; los textos se ocultan en pantallas estrechas y quedan en el aviso al pasar el ratón), menú de embudos con indicador del activo, pestañas y subpestañas más limpias, tarjetas, tablas, campos y ventanas con sombras suaves.
+- **Modo día / noche automático según la hora** del ordenador: claro de 8:00 a 20:00 y oscuro el resto (se revisa cada minuto).
+- Botón ☀️/🌙 en la barra superior (también en el acceso y en la vista del cliente) para cambiarlo a mano. Ese cambio dura **hasta el siguiente cambio automático** (las 8:00 o las 20:00) y después vuelve a seguir la hora; un puntito en el botón indica que está elegido a mano. Se guarda en el navegador (`lsd_tema`), en `public/tema.js`.
+
 ## 🗓️ Planificación por tipo de embudo y calendario del cliente
 
 - **Calendario**: es **el mismo en todos los embudos del cliente**. Enseña los hitos (lanzamientos y meteóricos), las tareas con fecha y los eventos de **todos** sus embudos; lo del embudo abierto se resalta y lo de los demás lleva su nombre («De otro embudo», con botón «Ir al embudo»). Las franjas de color son las del embudo abierto (captación, clases, directo, carrito… o calentamiento y oferta abierta). «Solo este embudo» filtra.
