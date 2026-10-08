@@ -16,6 +16,8 @@ import { cachePorCliente } from '../lib/cliente.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const DAY = 86_400_000;
+const MAX_PAGINAS_OPP = 5; // 500 oportunidades
+const MAX_CONTACTOS = 20; // fichas que se piden aparte (teléfono de quien no está en el pipeline)
 const pipeCache = cachePorCliente();
 
 // Pipeline de llamadas: el de los lanzamientos o el que tenga configurado la VSL.
@@ -75,17 +77,36 @@ export async function GET(request) {
     // Oportunidad de cada contacto en el pipeline y total por etapa.
     const opps = {};
     let etapas = [];
+    // Se lee el pipeline entero por páginas (no una búsqueda por cita: con muchas citas se pasaba del
+    // límite de peticiones de Cloudflare). Si es muy grande, lo que falte se busca contacto a contacto.
+    let completo = false;
+    let porEtapa = {};
     if (pipeline) {
       const ids = [...new Set(citas.map((c) => c.contactId).filter(Boolean))];
-      await mapLimit(ids, 4, async (id) => { opps[id] = (await searchOpportunities({ pipelineId: pipeline.id, contactId: id, limit: 5 })).opportunities[0] || null; });
+      const todas = [];
+      for (let page = 1; page <= MAX_PAGINAS_OPP; page++) {
+        const r = await searchOpportunities({ pipelineId: pipeline.id, limit: 100, page });
+        const nuevas = r.opportunities.filter((o) => !todas.some((x) => x.id === o.id));
+        if (r.opportunities.length && !nuevas.length) break; // GHL no pagina: se completa contacto a contacto
+        todas.push(...nuevas);
+        if (r.opportunities.length < 100 || todas.length >= r.total) { completo = true; break; }
+      }
+      for (const o of todas) {
+        if (!(o.contactId in opps)) opps[o.contactId] = o;
+        porEtapa[o.pipelineStageId] = (porEtapa[o.pipelineStageId] || 0) + 1;
+      }
+      if (!completo) {
+        const faltan = ids.filter((id) => !(id in opps)).slice(0, 15);
+        await mapLimit(faltan, 4, async (id) => { opps[id] = (await searchOpportunities({ pipelineId: pipeline.id, contactId: id, limit: 5 })).opportunities[0] || null; });
+      }
     }
     // Teléfono y email de quien no está en el pipeline (para poder escribirle por WhatsApp).
     const contactos = {};
-    const sinOpp = [...new Set(citas.map((c) => c.contactId).filter((id) => id && !opps[id]?.phone))].slice(0, 60);
+    const sinOpp = [...new Set(citas.map((c) => c.contactId).filter((id) => id && !opps[id]?.phone))].slice(0, MAX_CONTACTOS);
     await mapLimit(sinOpp, 4, async (id) => { const c = await getContact(id).catch(() => null); if (c) contactos[id] = { phone: c.phone || '', email: c.email || '', tags: c.tags || [], src: c.src || {} }; });
     if (pipeline) {
       etapas = await mapLimit([...pipeline.stages].sort((a, b) => a.position - b.position), 3, async (s) => ({
-        id: s.id, name: s.name, color: s.color || '', total: (await searchOpportunities({ pipelineId: pipeline.id, pipelineStageId: s.id, limit: 1 })).total,
+        id: s.id, name: s.name, color: s.color || '', total: completo ? porEtapa[s.id] || 0 : (await searchOpportunities({ pipelineId: pipeline.id, pipelineStageId: s.id, limit: 1 })).total,
       }));
     }
     return json({
