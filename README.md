@@ -233,7 +233,7 @@ Marcadores para el diseño de GHL (`data-launch="auto"` = lanzamiento en curso, 
 | `<a data-lsd-link="calendario">` / `data-lsd-link="calendario-ics"` | Añadir el directo a Google Calendar (o el enlace que pongas en el dashboard) / archivo .ics para Apple y Outlook |
 | `<span data-lsd-text="clases-titulo|clases-subtitulo|clase1-titulo|clase1-descripcion|clase2-titulo|clase2-descripcion">` | Textos editables en *Página de recursos → Textos de la página* (vacío = se queda el texto del diseño); también textos con nombre propio |
 | `<div data-lsd-embed="gracias"></div>` | Vídeo de la página de gracias (Vimeo o YouTube) desde *Otras páginas del embudo → Página de gracias*; se oculta si no hay |
-| `<span data-lsd-text="vipContador">` | Prueba social: número configurado en el dashboard (41 por defecto) + VIP vendidas en este lanzamiento (las de lanzamientos anteriores no cuentan; se actualiza cada minuto) |
+| `<span data-lsd-text="vipContador">` | Prueba social: número de partida (se elige al crear el embudo de lanzamientos, en «Contador de VIP · empieza en», y cada lanzamiento lo puede cambiar en su configuración) + VIP vendidas en este lanzamiento (las de lanzamientos anteriores no cuentan; se actualiza cada minuto) |
 | `<a data-lsd-link="guia">` (cualquier nombre) | Enlace personalizado creado en *Página de recursos → Enlaces personalizados* |
 | `<span data-lsd-text="nombre|fechaDirecto|horaDirecto|directo|clase1|clase2|replay|cierreVip|cierreCarrito|precioVip">` | Escribe el dato |
 | `<span data-lsd-countdown="vip|directo|clase1|clase2|replay|fase">` | Cuenta atrás |
@@ -381,7 +381,7 @@ Para que el cliente vea sus resultados sin tocar nada: en *Equipo → Miembros*,
 **Ver como** (*Agencia → Ver como*, superadmin): eliges cualquier cliente y ves su portal exactamente como lo ve él (con sus cifras recalculadas al momento y el nombre de su producto), sin entrar en su dashboard ni avisarle. Dice también quién de ese cliente tiene acceso de «Cliente». «← Volver al dashboard» te devuelve a Agencia.
 
 ## Informe para el cliente
-En *Métricas* de cada lanzamiento: **Informe para el cliente ↗** (página con resultados frente a objetivos, embudo, anuncios ganadores, avatar comprador y aprendizajes; con botón para guardarla en PDF), **Copiar enlace para el cliente** (enlace firmado que se abre sin usuario) y **Enviárselo ahora** (email a las personas con el rol Cliente, desde su GHL). En las VSL hay un informe semanal (la semana pasada frente a la anterior). Automático, con la tarea de cada mañana de cada cliente (`/api/agencia?key=…&c=<cliente>`): el informe del lanzamiento se manda solo al cerrar el carrito (una vez) y el de la VSL cada lunes si se activa en su configuración. Desde el portal, el cliente también puede abrirlo.
+En *Métricas* de cada lanzamiento: **Informe para el cliente ↗** (página con resultados frente a objetivos, embudo, anuncios ganadores, avatar comprador y aprendizajes; con botón para guardarla en PDF), **Copiar enlace para el cliente** (enlace firmado que se abre sin usuario y caduca a los 180 días; cada envío lleva uno nuevo) y **Enviárselo ahora** (email a las personas con el rol Cliente, desde su GHL). En las VSL hay un informe semanal (la semana pasada frente a la anterior). Automático, con la tarea de cada mañana de cada cliente (`/api/agencia?key=…&c=<cliente>`): el informe del lanzamiento se manda solo al cerrar el carrito (una vez) y el de la VSL cada lunes si se activa en su configuración. Desde el portal, el cliente también puede abrirlo.
 
 ## Vista de agencia (superadmin)
 El botón **Agencia** está aparte, junto al nombre del cliente (no entre los botones del cliente). Dentro:
@@ -551,3 +551,8 @@ npm run dev        # contra GHL real, con las variables en un fichero .env
 npm test
 npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)
 ```
+
+## Sesiones
+
+Al cambiar o regenerar la contraseña de una persona se cierran sus sesiones abiertas en otros dispositivos (quien cambia la suya sigue dentro). Desactivar a alguien le quita el acceso al momento.
+

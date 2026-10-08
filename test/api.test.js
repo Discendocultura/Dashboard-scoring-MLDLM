@@ -352,8 +352,23 @@ test('usuarios del equipo: alta con email de acceso, login con email y permisos 
 
   // Cambiar su contraseña
   assert.equal((await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: equipo, body: { op: 'mi-clave', actual: 'x', nueva: 'nuevaclave1' } }))).status, 403);
-  assert.equal((await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: equipo, body: { op: 'mi-clave', actual: r.password, nueva: 'nuevaclave1' } }))).status, 200);
+  const cambio = await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: equipo, body: { op: 'mi-clave', actual: r.password, nueva: 'nuevaclave1' } }));
+  assert.equal(cambio.status, 200);
+  assert.ok(cambio.headers.get('set-cookie')); // quien la cambia sigue dentro con una cookie nueva
   assert.equal((await doLogin(req('/api/login', { method: 'POST', body: { email: 'quique@example.com', password: 'nuevaclave1' } }))).status, 200);
+  // Una sesión abierta antes del cambio de contraseña deja de valer
+  {
+    const { listUsers, saveUsers } = await import('../lib/users.js');
+    const us = await listUsers({ fresh: true });
+    const q = us.find((u) => u.email === 'quique@example.com');
+    const antes = q.sesionesDesde;
+    q.sesionesDesde = Math.floor(Date.now() / 1000) + 60;
+    await saveUsers(us);
+    assert.equal((await (await import('../handlers/me.js')).GET(req('/api/me', { cookie: equipo }))).status, 401);
+    const us2 = await listUsers({ fresh: true });
+    us2.find((u) => u.email === 'quique@example.com').sesionesDesde = antes;
+    await saveUsers(us2);
+  }
 
   // Foto de perfil: solo imágenes pequeñas; se sirve con sesión y se puede quitar
   const foto = await import('../handlers/foto.js');

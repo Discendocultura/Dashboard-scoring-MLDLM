@@ -1,5 +1,5 @@
 // Gestión de usuarios del equipo (solo admin) y cambio de la propia contraseña (cualquiera con usuario).
-import { requireSession } from '../lib/auth.js';
+import { requireSession, sessionCookie } from '../lib/auth.js';
 import {
   listUsers, saveUsers, actualizarUsuarios, hashPassword, checkPassword, generatePassword, newId, normEmail, publicUser, sendAccessEmail, FOTO_RE, FOTO_MAX, fotoKey,
 } from '../lib/users.js';
@@ -96,7 +96,8 @@ async function procesar(request, body) {
     if (!me || !(await checkPassword(me, String(body.actual || '').trim()))) throw bad('La contraseña actual no es correcta', 403);
     Object.assign(me, await hashPassword(nueva));
     await saveUsers(users);
-    return json({ ok: true });
+    // Las demás sesiones se cierran; esta sigue abierta con una cookie nueva.
+    return json({ ok: true }, 200, { 'set-cookie': await sessionCookie(me.rol || 'usuario', me.id) });
   }
 
   // Campanita: hasta cuándo ha visto las notificaciones (para contar solo las nuevas en todos sus dispositivos).

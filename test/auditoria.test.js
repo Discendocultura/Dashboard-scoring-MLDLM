@@ -56,3 +56,14 @@ test('fecha de compra: medianoche, hora real y marcas de tiempo', () => {
   assert.equal(esVentaMeteorico({ tags: ['c'], cf: { f: '2026-11-27T23:00:00.000Z' } }, m), true);
   assert.equal(esVentaMeteorico({ tags: ['c'], cf: { f: Date.parse('2026-11-27T12:00:00Z') } }, m), true);
 });
+
+test('contador de VIP: el del embudo si el lanzamiento no tiene uno', () => {
+  const cfg = sanitizeConfig({
+    embudos: [{ id: 'lanz', tipo: 'lanzamientos', nombre: 'L', vip: true, vipContadorBase: '10' }, { id: 'otro', tipo: 'lanzamientos', nombre: 'O' }],
+    launches: { 'raices-2610': { embudo: 'lanz', vipContadorBase: '' }, 'raices-2611': { embudo: 'lanz', vipContadorBase: 3 }, 'otro-2610': { embudo: 'otro' } },
+  });
+  assert.equal(cfg.embudos.find((e) => e.id === 'lanz').vipContadorBase, 10);
+  assert.equal(cfg.launches['raices-2610'].vipContadorBase, 10);
+  assert.equal(cfg.launches['raices-2611'].vipContadorBase, 3);
+  assert.equal(cfg.launches['otro-2610'].vipContadorBase, 41); // cliente principal sin valor: 41 como hasta ahora
+});

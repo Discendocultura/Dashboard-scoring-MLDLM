@@ -2154,7 +2154,8 @@ function openConfig(code) {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
       // La encuesta es siempre la misma: misma URL y misma etiqueta.
       encuestaTag: last.encuestaTag, encuestaUrl: last.encuestaUrl,
-      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, pago: last.pago, oferta: last.oferta, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag, vipContadorBase: last.vipContadorBase,
+      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, pago: last.pago, oferta: last.oferta, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag,
+      vipContadorBase: embudoInfo(state.embudo)?.vipContadorBase ?? last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, clase3Url: last.clase3Url, textos: last.textos,
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
@@ -2185,7 +2186,7 @@ function openConfig(code) {
   $('#cfg-replay-video').value = l.replayVideoUrl || '';
   $('#cfg-replay-at').value = l.replayAt || '';
   $('#cfg-vip-url').value = l.vipUrl || '';
-  $('#cfg-vip-base').value = l.vipContadorBase ?? 41;
+  $('#cfg-vip-base').value = l.vipContadorBase ?? embudoInfo(embudoDeLanz(l))?.vipContadorBase ?? (esPrincipal() ? 41 : 0);
   $('#cfg-whatsapp-url').value = l.whatsappUrl || '';
   $('#cfg-gracias-video').value = l.graciasVideoUrl || '';
   $('#cfg-cierre').value = l.cierreCarrito || '';
@@ -6598,7 +6599,12 @@ const embPestanas = () => $$('#emb-pestanas input:checked').map((i) => i.value);
 function pintarEmbPrelanz() {
   $('#emb-prelanz').hidden = embTipo() !== 'lanzamientos' || Boolean(!embEdit && $('#emb-plantilla').value);
 }
-const embPrelanz = () => (embTipo() === 'lanzamientos' ? { preclase: $('#emb-preclase').value === 'si', clases: Number($('#emb-clases').value), vip: $('#emb-vip').value === 'si' } : {});
+const embPrelanz = () => (embTipo() === 'lanzamientos' ? {
+  preclase: $('#emb-preclase').value === 'si', clases: Number($('#emb-clases').value), vip: $('#emb-vip').value === 'si',
+  vipContadorBase: Math.max(0, Math.floor(Number($('#emb-vip-base').value.replace(/\./g, '')) || 0)),
+} : {});
+const pintarEmbVipBase = () => { $('#emb-vip-base-box').hidden = embTipo() !== 'lanzamientos' || $('#emb-vip').value !== 'si'; };
+$('#emb-vip').addEventListener('change', pintarEmbVipBase);
 // Sin área preclase no hay clases: se oculta el número de clases.
 const pintarEmbClases = () => { $('#emb-clases-box').hidden = $('#emb-preclase').value === 'no'; };
 $('#emb-preclase').addEventListener('change', () => { pintarEmbClases(); pintarEmbGuia(); });
@@ -6662,7 +6668,9 @@ function abrirNuevoEmbudo() {
   $('#emb-preclase').value = 'si';
   $('#emb-clases').value = '2';
   $('#emb-vip').value = 'si';
+  $('#emb-vip-base').value = esPrincipal() ? '41' : '0';
   pintarEmbClases();
+  pintarEmbVipBase();
   $('#emb-nombre').value = '';
   $('#emb-status').textContent = '';
   $('#emb-nota').hidden = false;
@@ -6685,7 +6693,9 @@ function abrirEditarEmbudo(id) {
   $('#emb-preclase').value = e.preclase === false ? 'no' : 'si';
   $('#emb-clases').value = String(e.clases || 2);
   $('#emb-vip').value = e.vip === false ? 'no' : 'si';
+  $('#emb-vip-base').value = String(e.vipContadorBase ?? (launchesSorted().find(([, x]) => embudoDeLanz(x) === id)?.[1].vipContadorBase ?? (esPrincipal() ? 41 : 0)));
   pintarEmbClases();
+  pintarEmbVipBase();
   $('#emb-nombre').value = e.nombre;
   $('#emb-status').textContent = '';
   $('#emb-nota').hidden = true;

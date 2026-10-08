@@ -124,6 +124,10 @@ test('informe para el cliente: página, enlace firmado, envío y automático al 
   const { url } = (await call('/api/informe', { method: 'POST', cookie: admin, body: { op: 'enlace', l: 'cerr' } })).data;
   assert.equal((await route(new Request(url), ENV)).status, 200); // con el enlace firmado, sin sesión
   assert.equal((await route(new Request(url.replace('l=cerr', 'l=otro')), ENV)).status, 401); // la firma es de ese informe
+  // El enlace caduca: uno firmado con fecha pasada ya no abre el informe
+  const { signToken } = await import('../lib/auth.js');
+  const caducado = await signToken(`informe|mldlm|l:cerr|${Math.floor(Date.now() / 1000) - 10}`);
+  assert.equal((await route(new Request(`http://localhost/api/informe?l=cerr&t=${encodeURIComponent(caducado)}`), ENV)).status, 401);
   // Envío: a las personas con el rol Cliente (creada en el test anterior)
   const env = (await call('/api/informe', { method: 'POST', cookie: admin, body: { op: 'enviar', l: 'cerr' } })).data;
   assert.ok(env.destinatarios >= 1 && env.enviados === env.destinatarios);
