@@ -150,7 +150,7 @@ function progress(done, total, label) {
   $('.progress-bar', el).style.width = `${pct}%`;
   $('.progress-text', el).textContent = label;
   const dialog = document.getElementById('config-dialog');
-  if (dialog?.open) $('#cfg-status').textContent = label;
+  if (dialog?.open && state.fotoEnCurso) $('#cfg-status').textContent = label; // solo el progreso de la foto, no el de recargar leads
 }
 
 // ---------- Login ----------
@@ -383,7 +383,11 @@ function fillStaticSelects() {
 }
 
 $('#launch-select').addEventListener('change', (e) => selectLaunch(e.target.value));
-$('#btn-reload').addEventListener('click', () => (enVsl() ? recargarVsl() : selectLaunch(state.launchCode)));
+$('#btn-reload').addEventListener('click', () => {
+  if (enVsl()) return recargarVsl();
+  if (enMeteo()) { renderMeteoView({ fresh: true }); if (codigo()) loadTareas(); return; }
+  return selectLaunch(state.launchCode);
+});
 
 // ---------- Clientes (desplegable de arriba) ----------
 function pintarCliente(c) {
@@ -445,6 +449,19 @@ async function setEmbudo(e, { vista = null } = {}) {
     await selectLaunch(state.launchCode);
   }
 }
+// «Cambiar fecha» de un hito del calendario: si es de otro embudo, primero se va a él (para que al
+// guardar no quede elegido un lanzamiento o meteórico que no es del embudo abierto).
+async function cambiarFechaHito(code) {
+  const m = state.config.meteoricos?.[code];
+  const l = state.config.launches[code];
+  const embudo = m ? m.embudo || (m.lanzamiento && embudoDeLanz(state.config.launches[m.lanzamiento] || {})) : l ? embudoDeLanz(l) : null;
+  const esDeAqui = m ? (m.embudo ? m.embudo === state.embudo && state.meteo.code === code : embudo === state.embudo) : embudo === state.embudo;
+  if (!esDeAqui && embudo) {
+    await irAEmbudoDe(m && !m.embudo ? m.lanzamiento : code);
+  }
+  return m ? abrirMeteoDialog(code) : openConfig(code);
+}
+
 // Abre el embudo de un código (lanzamiento, VSL o meteórico) en su pestaña de tareas.
 function irAEmbudoDe(code) {
   const l = state.config.launches[code];
@@ -619,7 +636,7 @@ function render() {
   state.page = Math.min(Math.max(0, state.page), pages - 1);
   const slice = rows.slice(state.page * PAGE_SIZE, (state.page + 1) * PAGE_SIZE);
   $('#leads-body').innerHTML = slice.map(rowHtml).join('')
-    || '<tr><td colspan="14" class="muted">No hay leads con estos filtros.</td></tr>';
+    || '<tr><td colspan="13" class="muted">No hay leads con estos filtros.</td></tr>';
   $('#page-info').textContent = rows.length
     ? `${state.page * PAGE_SIZE + 1}–${state.page * PAGE_SIZE + slice.length} de ${rows.length} leads`
     : '0 leads';
@@ -2052,6 +2069,9 @@ let editingCode = null; // null = lanzamiento nuevo
 async function fillDateFields(selected) {
   const sel = $('#cfg-compra-fecha');
   if (!state.dateFields) {
+    // Mientras llegan los campos de GHL, el guardado se queda como opción elegida (si se guarda antes, no se pierde).
+    sel.innerHTML = selected ? `<option value="${esc(selected)}">Cargando campos de GHL…</option>` : '<option value="">Cargando campos de GHL…</option>';
+    sel.value = selected || '';
     try {
       state.dateFields = (await api('/api/fields')).fields;
     } catch (e) {
@@ -2119,6 +2139,7 @@ function pintarPrelanzamientoCfg(l) {
 }
 
 function openConfig(code) {
+  if (!$('#config-dialog').open) $('.tab[data-tab="launch"]').click(); // al abrir, siempre en la primera pestaña
   editingCode = code && state.config.launches[code] ? code : null;
   const pick = $('#cfg-launch-pick');
   pick.innerHTML = '<option value="">— Nuevo lanzamiento —</option>'
@@ -2561,6 +2582,10 @@ async function fetchAllIds(tag, label) {
 }
 
 async function runSnapshot(code) {
+  state.fotoEnCurso = true;
+  try { return await hacerFoto(code); } finally { state.fotoEnCurso = false; }
+}
+async function hacerFoto(code) {
   const launch = state.config.launches[code];
   const fields = missingSnapshot(launch);
   if (!fields.length) return;
@@ -2724,7 +2749,7 @@ function renderAccesosEditor(accesos, { box = '#cfg-accesos', sugeridos = ACCESO
   // Los sugeridos solo se proponen la primera vez (lista vacía): después se respeta lo guardado
   // y nunca se añaden filas nuevas por su cuenta.
   const list = (accesos || []).map((a) => ({ ...a, tipo: ACCESO_TIPOS[a.tipo] ? a.tipo : guessTipo(a.nombre) }));
-  if (!list.length) for (const [tipo, nombre] of sugeridos) list.push({ tipo, nombre, url: '' });
+  if (!list.length) for (const [tipo, nombre] of sugeridos) list.push({ tipo, nombre, url: '', sugerido: true });
   state.accesosBox = box;
   state.accesosEdit = list;
   state.accesosCat = null;
@@ -2761,7 +2786,8 @@ function drawAccesos(focusLast = false) {
 }
 
 function readAccesosEditor() {
-  return (state.accesosEdit || []).map((a) => ({ tipo: a.tipo, nombre: a.nombre.trim(), url: a.url.trim() })).filter((a) => a.nombre);
+  // Los sugeridos que se quedan sin URL no se guardan (si no, se llenaba la lista de enlaces vacíos).
+  return (state.accesosEdit || []).filter((a) => !a.sugerido || a.url.trim()).map((a) => ({ tipo: a.tipo, nombre: a.nombre.trim(), url: a.url.trim() })).filter((a) => a.nombre);
 }
 
 for (const accBox of ['#cfg-accesos', '#vc-accesos']) {
@@ -2947,9 +2973,22 @@ function pintarCabeceraTareas() {
 // Fases de las tareas según el tipo de embudo abierto (lanzamiento, VSL o meteórico).
 const fasesT = () => fasesDe(tipoActual());
 
-async function loadTareas() {
+// Dos cargas del mismo código casi a la vez (al abrir un embudo se pedían dos veces): se reutiliza la primera.
+const enCurso = {};
+function unaVez(tipo, code, fn) {
+  const c = enCurso[tipo];
+  if (c && c.code === code && Date.now() - c.at < 800) return c.p;
+  const p = fn().finally(() => { if (enCurso[tipo]?.p === p) delete enCurso[tipo]; });
+  enCurso[tipo] = { code, at: Date.now(), p };
+  return p;
+}
+
+function loadTareas() {
   const code = codigo();
-  if (!code) return;
+  if (!code) return Promise.resolve();
+  return unaVez('tareas', code, () => cargarTareas(code));
+}
+async function cargarTareas(code) {
   try {
     const d = await api(`/api/tareas?l=${encodeURIComponent(code)}`);
     if (code !== codigo()) return;
@@ -2982,7 +3021,7 @@ async function cargarTareasOtro() {
   state.tareasOtros = res.filter(Boolean);
   renderNotif();
 }
-const nombreEmbudo = (code) => state.config?.vsls?.[code]?.name || state.config?.launches[code]?.name || code;
+const nombreEmbudo = (code) => state.config?.vsls?.[code]?.name || state.config?.launches[code]?.name || state.config?.meteoricos?.[code]?.name || code;
 
 function asignadoTexto(a) {
   if (!a) return 'Sin asignar';
@@ -3111,7 +3150,17 @@ function subgruposPreparacion(items, all) {
 function renderTareas() {
   const T = state.tareas;
   pintarCabeceraTareas();
-  if (!T || T.code !== codigo()) return;
+  if (!T || T.code !== codigo()) {
+    // Sin tareas de ESTE embudo (p. ej. meteóricos sin ninguno elegido): no se dejan a la vista las de otro.
+    if (!codigo()) {
+      $('#tareas-list').innerHTML = '';
+      $('#tareas-resumen').innerHTML = '';
+      $('#tareas-badge').hidden = true;
+      $('#tareas-selbar').hidden = true;
+      $('#btn-tareas-sel').hidden = true;
+    }
+    return;
+  }
   renderAvisosEquipo();
   renderNotif();
   refrescarComentarios();
@@ -3453,7 +3502,7 @@ $('#btn-del-sel').addEventListener('click', async () => {
 });
 $('#btn-del-todas').addEventListener('click', async () => {
   const n = state.tareas.list.length;
-  const name = state.config.launches[state.tareas.code]?.name || state.tareas.code;
+  const name = nombreEmbudo(state.tareas.code);
   if (!window.confirm(`¿Eliminar TODAS las tareas (${n}) de «${name}»? No se puede deshacer.`)) return;
   if (window.prompt('Para confirmar, escribe ELIMINAR') !== 'ELIMINAR') return;
   try {
@@ -4896,7 +4945,7 @@ $('#cal-dia').addEventListener('click', (e) => {
   const ee = e.target.closest('[data-cal-eedit]');
   if (ee) return openEvento(cal.datos.eventos.find((x) => x.id === ee.dataset.calEedit && x.code === calCodigo()));
   const h = e.target.closest('[data-cal-hito]');
-  if (h) return state.config.meteoricos?.[h.dataset.calHito] ? abrirMeteoDialog(h.dataset.calHito) : openConfig(h.dataset.calHito);
+  if (h) return cambiarFechaHito(h.dataset.calHito);
   const ir = e.target.closest('[data-cal-ir]');
   if (ir) return irAEmbudoDe(ir.dataset.calIr);
   const ne = e.target.closest('[data-cal-new-evento]');
@@ -5438,9 +5487,12 @@ $('#btn-sel-asignar').addEventListener('click', async () => {
 });
 
 // ---------- Llamadas de valoración ----------
-async function loadLlamadas() {
+function loadLlamadas() {
   const code = codigo();
-  if (!code) return;
+  if (!code) return Promise.resolve();
+  return unaVez('llamadas', code, () => cargarLlamadas(code));
+}
+async function cargarLlamadas(code) {
   state.llamadas = { code, loading: true };
   if (!$('#view-llamadas').hidden) renderLlamadas();
   try {
@@ -6969,7 +7021,13 @@ async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
     if (meteoEdit.lanzamiento) $('#mt-name').value = `Downsell ${state.config.launches[meteoEdit.lanzamiento]?.name || ''}`.trim();
   }
   const sel = $('#mt-compraDateField');
-  const pintar = (fields) => { sel.innerHTML = `<option value="">— Sin campo de fecha —</option>${(fields || []).map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}`; sel.value = m?.compraDateField || ''; };
+  const pintar = (fields) => {
+    const actual = m?.compraDateField || '';
+    // Sin la lista de GHL todavía, el campo guardado se mantiene como opción (si se guarda antes, no se pierde).
+    const extra = actual && !(fields || []).some((f) => f.id === actual) ? `<option value="${esc(actual)}">${fields ? 'Campo guardado (no está en GHL)' : 'Cargando campos de GHL…'}</option>` : '';
+    sel.innerHTML = `<option value="">— Sin campo de fecha —</option>${extra}${(fields || []).map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}`;
+    sel.value = actual;
+  };
   pintar(state.dateFields);
   $('#meteo-dialog').showModal();
   if (!state.dateFields) { try { state.dateFields = (await api('/api/fields')).fields; pintar(state.dateFields); } catch { /* sin campos */ } }
