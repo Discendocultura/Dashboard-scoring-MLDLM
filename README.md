@@ -554,9 +554,18 @@ en bloques de 25 y respeta el límite de peticiones de GHL.
 npm run dev:mock   # datos falsos, contraseñas "admin" / "setter" → http://localhost:3000
                    # (con una D1 local en memoria; D1_FILE=datos.sqlite para conservarla, NO_D1=1 para probar sin ella)
 npm run dev        # contra GHL real, con las variables en un fichero .env
-npm test
+npm test           # cálculos, servidor y permisos
+npm run test:e2e   # recorrido en un navegador de verdad (Playwright): todos los embudos, pestañas y diálogos,
+                   # como admin y como setter, y el móvil. Falla si salta cualquier error.
 npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)
 ```
+
+## Inicio, avisos del carrito y carga rápida
+
+- **Inicio** (menú lateral, arriba): todos los embudos del cliente de un vistazo. Facturación, ventas, inversión y ROAS conjuntos; una tarjeta por embudo (último lanzamiento de cada embudo, VSL de los últimos 30 días y meteóricos recientes) que lleva a sus métricas; avisos del carrito, próximos hitos (14 días) y tareas vencidas de todos los embudos. Se actualiza cada 15 minutos (o con «Actualizar datos»).
+- **Avisos del carrito**: con el carrito abierto, arriba en el dashboard y en el resumen diario por email (asunto con 🚨 si es urgente): ritmo de ventas por debajo del necesario para el objetivo, bonus que caducan hoy o mañana y día de cierre.
+- **Conversión del downsell** (Métricas → Downsell): de las registradas que no compraron el lanzamiento, cuántas compraron el meteórico; y cuántas compradoras ya eran clientas o venían de fuera.
+- **Leads al momento**: el navegador guarda una copia de los leads de cada lanzamiento (24 h) y la enseña al abrir mientras descarga los de ahora. Se borra al cerrar sesión.
 
 ## Sesiones
 
