@@ -77,3 +77,19 @@ test('API de emails: por filtro (campañas y workflows) y por fechas del lanzami
   assert.equal((await call('/api/emails?l=no-existe', { cookie: admin })).status, 404);
   assert.equal((await call('/api/emails?l=oct')).status, 401);
 });
+
+test('encuesta del avatar: la pregunta antigua de texto pasa al campo nuevo de opciones', async () => {
+  const { actualizarEncuesta, ENCUESTA_PREGUNTAS } = await import('../public/js/encuesta.js');
+  const vieja = [{ id: '0lVfpThUn3rOkt5nalEp', name: 'Edad', tipo: 'edad' }, { id: 'H3Q8asVCA89m3vaqFNSu', name: '¿Qué has probado hasta ahora para lograr el positivo?', tipo: 'texto' }];
+  const nueva = actualizarEncuesta(vieja);
+  assert.deepEqual(nueva.map((p) => [p.id, p.tipo]), [['0lVfpThUn3rOkt5nalEp', 'edad'], ['v4zDuixEurBx4MY7JofI', 'opciones']]);
+  assert.deepEqual(actualizarEncuesta(nueva), nueva); // no hace nada si ya está
+  assert.ok(ENCUESTA_PREGUNTAS.some((p) => p.id === 'v4zDuixEurBx4MY7JofI'));
+  assert.ok(!ENCUESTA_PREGUNTAS.some((p) => p.id === 'H3Q8asVCA89m3vaqFNSu'));
+  // La configuración guardada con la pregunta antigua se lee ya con la nueva
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const cfg = (await call('/api/config', { cookie: admin })).data.config;
+  await call('/api/config', { method: 'POST', cookie: admin, body: { op: 'marca', marca: cfg.marca, encuesta: vieja } });
+  const leida = (await call('/api/config', { cookie: admin })).data.config;
+  assert.ok(leida.encuesta.some((p) => p.id === 'v4zDuixEurBx4MY7JofI' && p.tipo === 'opciones'));
+});
