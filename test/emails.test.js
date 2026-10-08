@@ -93,3 +93,11 @@ test('encuesta del avatar: la pregunta antigua de texto pasa al campo nuevo de o
   const leida = (await call('/api/config', { cookie: admin })).data.config;
   assert.ok(leida.encuesta.some((p) => p.id === 'v4zDuixEurBx4MY7JofI' && p.tipo === 'opciones'));
 });
+
+test('campos para la encuesta: incluye los de opciones (casillas, radio) con su tipo', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const { fields } = (await call('/api/fields?tipo=encuesta', { cookie: admin })).data;
+  assert.equal(fields.find((f) => f.id === 'v4zDuixEurBx4MY7JofI')?.tipo, 'opciones');
+  assert.equal(fields.find((f) => f.id === 'Ez1HWRYbBv5LXyHNPCQW')?.tipo, 'texto');
+  assert.ok(!fields.some((f) => f.id === 'mockFechaCompraRaices')); // las fechas no
+});
