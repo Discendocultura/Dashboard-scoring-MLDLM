@@ -47,6 +47,7 @@ export async function GET(request) {
           preguntas: preguntas.map((q) => ({
             pregunta: q.pregunta, tipo: q.tipo,
             respuesta: q.tipo === 'libre' ? mias[q.id] || '' : q.opciones.find((o) => o.id === mias[q.id])?.texto || '',
+            respuestaId: q.tipo === 'libre' ? '' : mias[q.id] || '',
             resultados: res.preguntas[q.id],
           })),
         };

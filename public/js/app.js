@@ -663,6 +663,7 @@ async function loadLeads() {
     state.leadsDe = state.launchCode;
     state.page = 0;
     render();
+    cargarVotos(); // los votos no dependen de que se actualicen los leads
   } else if (state.leadsDe !== state.launchCode) {
     state.leads = []; // sin copia: no se quedan a la vista los de otro lanzamiento
     state.leadsDe = state.launchCode;
@@ -749,20 +750,21 @@ function filtered() {
   return rows;
 }
 
-$('#f-search').addEventListener('input', (e) => { state.filters.search = e.target.value; state.page = 0; render(); });
-$('#f-estado').addEventListener('change', (e) => { state.filters.estado = e.target.value; state.page = 0; render(); });
-$('#f-step').addEventListener('change', (e) => { state.filters.step = e.target.value; state.page = 0; render(); });
-$('#f-signal').addEventListener('change', (e) => { state.filters.signal = e.target.value; state.page = 0; render(); });
-$('#f-pending').addEventListener('change', (e) => { state.filters.pending = e.target.checked; state.page = 0; render(); });
-$('#f-avatar').addEventListener('change', (e) => { state.filters.avatar = e.target.checked; state.page = 0; render(); });
-$('#page-prev').addEventListener('click', () => { state.page--; render(); window.scrollTo({ top: 0 }); });
-$('#page-next').addEventListener('click', () => { state.page++; render(); window.scrollTo({ top: 0 }); });
+let buscarTimer = null;
+$('#f-search').addEventListener('input', (e) => { state.filters.search = e.target.value; state.page = 0; clearTimeout(buscarTimer); buscarTimer = setTimeout(renderTabla, 120); });
+$('#f-estado').addEventListener('change', (e) => { state.filters.estado = e.target.value; state.page = 0; renderTabla(); });
+$('#f-step').addEventListener('change', (e) => { state.filters.step = e.target.value; state.page = 0; renderTabla(); });
+$('#f-signal').addEventListener('change', (e) => { state.filters.signal = e.target.value; state.page = 0; renderTabla(); });
+$('#f-pending').addEventListener('change', (e) => { state.filters.pending = e.target.checked; state.page = 0; renderTabla(); });
+$('#f-avatar').addEventListener('change', (e) => { state.filters.avatar = e.target.checked; state.page = 0; renderTabla(); });
+$('#page-prev').addEventListener('click', () => { state.page--; renderTabla(); window.scrollTo({ top: 0 }); });
+$('#page-next').addEventListener('click', () => { state.page++; renderTabla(); window.scrollTo({ top: 0 }); });
 $$('.leads th[data-sort]').forEach((th) => th.addEventListener('click', () => {
   const key = th.dataset.sort;
   state.sort = state.sort.key === key
     ? { key, dir: state.sort.dir === 'asc' ? 'desc' : 'asc' }
     : { key, dir: key === 'name' ? 'asc' : 'desc' };
-  render();
+  renderTabla();
 }));
 
 // ---------- Render ----------
@@ -792,6 +794,12 @@ function render() {
   renderMetrics();
   renderSnapshotWarning();
   if (state.llamadas?.data && state.llamadas.code === state.launchCode) renderLlamadas(); // con los datos del lead
+  renderTabla();
+  if (!$('#view-leads').hidden && !$('#enc-leads').parentElement.hidden) renderEncuestaLeads();
+}
+
+// Solo la tabla de leads (filtros, orden y páginas): no hace falta recalcular métricas, auditor ni avatares.
+function renderTabla() {
   const rows = filtered();
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   state.page = Math.min(Math.max(0, state.page), pages - 1);
@@ -807,7 +815,6 @@ function render() {
     th.classList.toggle('sorted', th.dataset.sort === state.sort.key);
     th.classList.toggle('asc', state.sort.dir === 'asc');
   });
-  if (!$('#view-leads').hidden && !$('#enc-leads').parentElement.hidden) renderEncuestaLeads();
 }
 
 // ---------- Leads → Encuesta: % de cada respuesta y respuestas de texto libre ----------
@@ -2598,7 +2605,7 @@ function pintarPrelanzamientoCfg(l) {
   $$('#config-dialog [data-clase]').forEach((el) => { el.hidden = Number(el.dataset.clase) > nc; });
   // Sin área de recursos preclase: fuera sus páginas, la encuesta de la página y las clases.
   $$('#config-dialog [data-preclase]').forEach((el) => { el.hidden = !preclase; });
-  $('#tab-pagina-txt').textContent = preclase ? 'Preclase' : 'Directo y grabación';
+  $('#tab-pagina-txt').textContent = preclase ? 'Preclase' : 'Página del directo';
   $$('#config-dialog [data-vip]').forEach((el) => { el.hidden = !vip; });
 }
 
@@ -2665,7 +2672,6 @@ function openConfig(code) {
   renderEnlacesEditor(l.enlaces || {});
   renderTextosEditor(l.textos || {});
   renderPhaseNow(l);
-  checkLaunchTags();
   fillDateFields(l.compraDateField);
   $('#cfg-zoom-id').value = l.zoomMeetingId || '';
   $('#cfg-zoom-url').value = l.zoomJoinUrl || '';
@@ -6598,7 +6604,7 @@ function pintarFicha(c, f, error = '') {
     ${error ? `<p class="error">${esc(error)}</p>` : !f ? '<p class="muted">Cargando la encuesta, el formulario y las notas de GHL…</p>' : `
     ${f.votacion ? `<section class="ficha-sec"><h3>🗳️ Votación de la clase</h3>${f.votacion.preguntas.map((q) => `<div class="ficha-vot"><p><strong>${esc(q.pregunta)}</strong></p>${q.tipo === 'libre'
       ? (q.respuesta ? `<p class="ll-notas">${esc(q.respuesta)}</p>` : '<p class="muted small">No respondió.</p>')
-      : `${votacionHtml(q.resultados, q.respuesta)}<p class="muted small">${q.respuesta ? `Votó «${esc(q.respuesta)}».` : 'No votó.'} ${q.resultados.total} voto${q.resultados.total === 1 ? '' : 's'} en total.</p>`}</div>`).join('')}</section>` : ''}
+      : `${votacionHtml(q.resultados, q.respuesta, q.respuestaId)}<p class="muted small">${q.respuesta ? `Votó «${esc(q.respuesta)}».` : 'No votó.'} ${q.resultados.total} voto${q.resultados.total === 1 ? '' : 's'} en total.</p>`}</div>`).join('')}</section>` : ''}
     <section class="ficha-sec"><h3>📋 Encuesta</h3>${encuestaRespondida ? filas(f.encuesta.map((x) => [x.pregunta, x.respuesta])) : `<p class="muted">${f.encuesta.length ? 'No ha rellenado la encuesta.' : 'Este cliente no tiene preguntas de encuesta configuradas (Equipo → Marca).'}</p>`}</section>
     <section class="ficha-sec"><h3>📞 Formulario de la llamada y otros datos de GHL</h3>${filas(f.otros.map((x) => [x.campo, x.fecha ? fechaFicha(x.valor) : x.valor]), 'No hay más datos en su ficha de GHL.')}</section>
     ${f.notas.length ? `<section class="ficha-sec"><h3>🗒️ Notas en GHL</h3><ul class="ficha-notas">${f.notas.map((n) => `<li><span class="muted small">${esc(fechaFicha(n.dateAdded))}</span><div>${esc(n.body)}</div></li>`).join('')}</ul></section>` : ''}`}`;
@@ -6633,8 +6639,9 @@ async function abrirFichaLead(id) {
   }
 }
 // Barras de % de una votación (ficha y métricas). `mio`: texto de la opción que votó.
-function votacionHtml(res, mio = '') {
-  return `<div class="vot-bars">${res.opciones.map((o) => `<div class="vot-bar${o.texto === mio ? ' mio' : ''}"><i style="width:${Math.round(o.pct * 100)}%"></i><span>${o.texto === mio ? '✓ ' : ''}${esc(o.texto)}</span><strong>${Math.round(o.pct * 100)} % <small class="muted">(${o.n})</small></strong></div>`).join('')}</div>`;
+function votacionHtml(res, mio = '', mioId = '') {
+  const esMio = (o) => (mioId ? o.id === mioId : o.texto === mio);
+  return `<div class="vot-bars">${res.opciones.map((o) => `<div class="vot-bar${esMio(o) ? ' mio' : ''}"><i style="width:${Math.round(o.pct * 100)}%"></i><span>${esMio(o) ? '✓ ' : ''}${esc(o.texto)}</span><strong>${Math.round(o.pct * 100)} % <small class="muted">(${o.n})</small></strong></div>`).join('')}</div>`;
 }
 // Votos del lanzamiento abierto (para la tabla de leads y la ficha): { votos: { contacto → opción }, opciones }.
 async function cargarVotos() {
@@ -6644,7 +6651,7 @@ async function cargarVotos() {
   try {
     const d = await api(`/api/votacion?l=${encodeURIComponent(code)}`);
     if (state.launchCode === code) { state.votos = d.activa ? { code, ...d } : null; render(); }
-  } catch { state.votos = null; }
+  } catch { if (state.launchCode === code) state.votos = null; }
 }
 // Respuestas de un lead a la votación: [{ q, texto }] (texto de la opción elegida o lo que escribió).
 const respuestasDe = (cid) => {
@@ -7279,7 +7286,7 @@ function pintarEmbPrelanz() {
 const embPrelanz = () => (embTipo() === 'lanzamientos' ? {
   preclase: $('#emb-preclase').value === 'si', clases: Number($('#emb-clases').value), vip: $('#emb-vip').value === 'si',
   recursos: $('#emb-preclase').value === 'si' ? $$('input[name="emb-recurso"]:checked').map((i) => i.value) : [],
-  espera: $('#emb-espera').value === 'si',
+  espera: $('#emb-preclase').value === 'si' && $('#emb-espera').value === 'si',
   vipContadorBase: Math.max(0, Math.floor(Number($('#emb-vip-base').value.replace(/\./g, '')) || 0)),
 } : {});
 const pintarEmbVipBase = () => { $('#emb-vip-base-box').hidden = embTipo() !== 'lanzamientos' || $('#emb-vip').value !== 'si'; };
@@ -7293,7 +7300,8 @@ function pintarEmbPestanas(activas, ocultas = []) {
   const tipo = embTipo();
   $('#emb-reto-box').hidden = Boolean(embEdit) || embOpcion() !== 'reto';
   $('#emb-subtipo-box').hidden = !embEdit || tipo !== 'vsl';
-  activas ??= pestanasSugeridas(tipo, embSubtipo());
+  // Sugerencias solo al crear: editando, «sin lista» significa «todas» (si no, se perdería p. ej. Llamadas).
+  activas ??= embEdit ? null : pestanasSugeridas(tipo, embSubtipo());
   const on = (v) => !activas || activas.includes(v);
   const pest = Object.fromEntries(PESTANAS[tipo].map((p) => [p.id, p]));
   const hijo = (attr, val, label, desc, checked) => `<label class="emb-sub"><input type="checkbox" ${attr}="${esc(val)}" ${checked ? 'checked' : ''}><span><strong>${esc(label)}</strong><small>${esc(desc)}</small></span></label>`;
@@ -7368,7 +7376,7 @@ function pintarEmbResumen() {
   const plantilla = !embEdit && plantillasAg.find((x) => x.id === $('#emb-plantilla').value);
   const opcion = embEdit ? null : $('input[name="emb-tipo"]:checked')?.closest('.emb-tipo');
   const tipoTxt = plantilla ? `Plantilla «${plantilla.nombre}»` : opcion ? $('strong', opcion).textContent : tipo === 'vsl' ? SUBTIPOS_VSL[embSubtipo()].corto : tipo === 'meteorico' ? 'Meteóricos' : FORMATOS[embFormato()]?.label || 'Lanzamientos';
-  const filas = [['Tipo', tipoTxt + (embOpcion?.() === 'reto' && !embEdit ? ` · ${$('#emb-reto-dias').selectedOptions[0].text}` : '')]];
+  const filas = [['Tipo', tipoTxt + (!embEdit && embOpcion() === 'reto' ? ` · ${$('#emb-reto-dias').selectedOptions[0].text}` : '')]];
   if (tipo === 'lanzamientos' && !plantilla) {
     const pre = $('#emb-preclase').value === 'si';
     const rec = $$('input[name="emb-recurso"]:checked').map((i) => i.closest('label').textContent.replace(/\(.*\)/, '').trim());
