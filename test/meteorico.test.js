@@ -140,3 +140,16 @@ test('planificación del meteórico: adaptada a su configuración y con acciones
   assert.deepEqual(hitosMeteorico(base).map((h) => h.id), ['calentamiento', 'apertura', 'cierre']);
 });
 
+
+test('inicio: embudos, meteóricos y agenda de todos los embudos', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  assert.equal((await call('/api/inicio?parte=embudos')).status, 401);
+  const e = await call('/api/inicio?parte=embudos', { cookie: admin });
+  assert.equal(e.status, 200);
+  assert.ok(Array.isArray(e.data.embudos));
+  const m = await call('/api/inicio?parte=meteoricos', { cookie: admin });
+  assert.ok(m.data.meteoricos.some((x) => x.code === 'bf26'));
+  const a = await call('/api/inicio?parte=agenda', { cookie: admin });
+  assert.ok(Array.isArray(a.data.hitos) && typeof a.data.vencidas.total === 'number');
+  assert.equal((await call('/api/inicio?parte=otra', { cookie: admin })).status, 400);
+});

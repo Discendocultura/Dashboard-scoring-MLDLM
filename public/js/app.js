@@ -356,7 +356,9 @@ async function start() {
   renderLaunchSelect();
   if (puedeConfig()) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
   state.launchCode = pickInitialLaunch();
+  const abrirInicio = ls.get('lsd_inicio') === '1' && !hash;
   await setEmbudo(state.embudo, { vista: VIEWS.includes(hash) ? hash : null });
+  if (abrirInicio && tiene('metricas') && embudos().length) mostrarInicio();
   if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); }
   if (!$('#view-rendimiento').hidden) loadRendimiento();
 }
@@ -413,9 +415,14 @@ function pintarSidebar() {
       : (() => { const n = Object.values(state.config.launches).filter((l) => embudoDeLanz(l) === e.id).length; return `${n} lanzamiento${n === 1 ? '' : 's'}`; })();
     return `<div class="sb-row"><button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${e.tipo === 'meteorico' ? '⚡' : tv ? tv.ico : esReto(e.formato) ? '🏁' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(e.id)}" title="Pestañas, nombre y guía de «${esc(e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
   }).join('');
+  // «Inicio» (todos los embudos): para quien ve las métricas y si hay embudos.
+  $('#sb-inicio').hidden = !tiene('metricas') || !embudos().length;
+  $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio));
+  if (state.enInicio) $$('#sb-items .sb-item.active').forEach((b) => b.classList.remove('active'));
 }
 
 async function setEmbudo(e, { vista = null } = {}) {
+  salirInicio();
   state.embudo = embudoInfo(e) ? e : embudos()[0]?.id || '';
   ls.set('lsd_embudo', state.embudo);
   $('#alertas-carrito').hidden = true;
@@ -485,7 +492,105 @@ function irAEmbudoDe(code) {
 }
 $('#sidebar').addEventListener('click', (ev) => {
   const b = ev.target.closest('[data-embudo]');
-  if (b && b.dataset.embudo !== state.embudo) setEmbudo(b.dataset.embudo);
+  if (b && (b.dataset.embudo !== state.embudo || state.enInicio)) setEmbudo(b.dataset.embudo);
+});
+
+// ---------- Inicio: todos los embudos del cliente de un vistazo ----------
+function salirInicio() {
+  if (!state.enInicio) return;
+  state.enInicio = false;
+  ls.set('lsd_inicio', '');
+  document.body.classList.remove('en-inicio');
+  $('#sb-inicio').classList.remove('active');
+}
+async function mostrarInicio({ fresh = false } = {}) {
+  state.enInicio = true;
+  ls.set('lsd_inicio', '1');
+  document.body.classList.add('en-inicio');
+  pintarSidebar();
+  $('#alertas-carrito').hidden = true;
+  const cargando = '<p class="muted">Cargando…</p>';
+  if (fresh || !state.inicio) {
+    state.inicio = {};
+    $('#inicio-embudos').innerHTML = cargando;
+    $('#inicio-total').innerHTML = '';
+  }
+  const q = (parte) => api(`/api/inicio?parte=${parte}${fresh ? '&fresh=1' : ''}`).catch((e) => ({ error: e.message }));
+  const [emb, met] = await Promise.all([q('embudos'), q('meteoricos')]);
+  Object.assign(state.inicio, { embudos: emb, meteoricos: met });
+  pintarInicio();
+  // La agenda usa las ventas del resumen de embudos (para los avisos de ritmo): se pide después.
+  state.inicio.agenda = await q('agenda');
+  pintarInicio();
+}
+$('#sb-inicio').addEventListener('click', () => mostrarInicio());
+$('#inicio-actualizar').addEventListener('click', () => mostrarInicio({ fresh: true }));
+
+const ESTADO_LANZ = { captacion: ['Captación', 'info'], carrito: ['Carrito abierto', 'buy'], cerrado: ['Cerrado', 'muted'] };
+const FASE_METEO_TXT = { calentamiento: ['Calentamiento', 'info'], abierta: ['Oferta abierta', 'buy'], cerrada: ['Cerrada', 'muted'] };
+function pintarInicio() {
+  if (!state.enInicio || !state.inicio) return;
+  const { embudos: E, meteoricos: M, agenda: A } = state.inicio;
+  const lista = E?.embudos || [];
+  const metas = M?.meteoricos || [];
+  const sum = (k) => lista.reduce((t, e) => t + (e.kpis?.[k] || 0), 0) + metas.reduce((t, m) => t + (m[k] || 0), 0);
+  const fact = sum('facturacion');
+  const inv = sum('inversion');
+  $('#inicio-sub').textContent = E?.generado ? `Datos de las ${new Date(E.generado).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} (se actualizan cada 15 min)` : 'Todos los embudos de un vistazo';
+  $('#inicio-total').innerHTML = E?.error ? `<p class="error">${esc(E.error)}</p>` : [
+    card('Facturación total', eur(fact), 'último lanzamiento de cada embudo · VSL (30 días) · meteóricos recientes', 'coins', 'money'),
+    card('Ventas', sum('ventas').toLocaleString('es-ES'), `${lista.length} embudo${lista.length === 1 ? '' : 's'}${metas.length ? ` y ${metas.length} meteórico${metas.length === 1 ? '' : 's'}` : ''}`, 'cart', 'buy'),
+    card('Inversión', inv ? eur(inv) : '–', inv ? `ROAS conjunto ${(fact / inv).toFixed(2).replace('.', ',')}x` : 'sin inversión registrada', 'megaphone', 'accent'),
+  ].join('');
+  const cifra = (label, v) => `<span>${label}<strong>${v}</strong></span>`;
+  const obj = (o) => (o?.length ? `<div class="muted small">🎯 ${o.map((x) => `${esc(x.label)}: ${Math.round((x.pct || 0) * 100)}%`).join(' · ')}</div>` : '');
+  const tarjetas = [
+    ...lista.map((e) => {
+      if (e.tipo === 'error') return `<div class="card inicio-emb"><h3>${esc(e.nombre)}</h3><p class="error small">${esc(e.error)}</p></div>`;
+      const est = e.tipo === 'vsl' ? ['Últimos 30 días', 'info'] : ESTADO_LANZ[e.estado] || ['', 'muted'];
+      return `<button type="button" class="card inicio-emb" data-ir-inicio="${e.tipo === 'vsl' ? 'vsl' : 'lanz'}" data-code="${esc(e.code)}" data-embudo="${esc(e.embudoId || '')}">
+        <h3>${e.tipo === 'vsl' ? '🎬' : '🚀'} ${esc(e.nombre)} <span class="badge tone-${est[1]}">${est[0]}</span></h3>
+        ${e.embudo ? `<span class="muted small">${esc(e.embudo)}</span>` : ''}
+        <div class="ie-cifras">${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${cifra('ROAS', e.kpis.roas != null ? `${e.kpis.roas.toFixed(2).replace('.', ',')}x` : '–')}</div>${obj(e.objetivos)}</button>`;
+    }),
+    ...metas.map((m) => {
+      if (m.error) return `<div class="card inicio-emb"><h3>⚡ ${esc(m.nombre)}</h3><p class="error small">${esc(m.error)}</p></div>`;
+      const f = FASE_METEO_TXT[m.fase] || ['', 'muted'];
+      return `<button type="button" class="card inicio-emb" data-ir-inicio="meteo" data-code="${esc(m.code)}">
+        <h3>⚡ ${esc(m.nombre)} <span class="badge tone-${f[1]}">${f[0]}</span></h3>
+        ${m.lanzamiento ? `<span class="muted small">Downsell de ${esc(state.config.launches[m.lanzamiento]?.name || m.lanzamiento)}</span>` : ''}
+        <div class="ie-cifras">${cifra('Ventas', m.ventas)}${cifra('Facturación', eur(m.facturacion || 0))}${cifra('ROAS', m.roas != null ? `${m.roas.toFixed(2).replace('.', ',')}x` : '–')}</div>${obj(m.objetivos)}</button>`;
+    }),
+  ];
+  $('#inicio-embudos').innerHTML = E || M ? tarjetas.join('') || '<p class="muted">Aún no hay lanzamientos empezados, VSL ni meteóricos recientes.</p>' : '<p class="muted">Cargando…</p>';
+  if (!A) return;
+  $('#inicio-alertas').innerHTML = A.alertas?.length ? `<div class="notice err alertas-carrito"><span><strong>🚨 Carrito abierto</strong><ul>${A.alertas.map((a) => `<li><strong>${esc(a.nombre)}:</strong> ${esc(a.texto)}</li>`).join('')}</ul></span></div>` : '';
+  const dia = (d) => esc(dayFmt.format(new Date(`${d}T12:00:00Z`)));
+  $('#inicio-hitos').innerHTML = A.error ? `<p class="error">${esc(A.error)}</p>` : A.hitos?.length
+    ? `<ul class="inicio-lista">${A.hitos.map((h) => `<li><button type="button" data-ir-code="${esc(h.code)}">${esc(h.icon)} ${esc(h.titulo)} · <strong>${esc(h.nombre)}</strong></button><span class="muted small">${dia(h.dia)}${h.hora ? ` ${esc(h.hora)}` : ''}</span></li>`).join('')}</ul>`
+    : '<p class="muted">Nada en los próximos 14 días.</p>';
+  $('#inicio-vencidas').innerHTML = A.error ? '' : A.vencidas?.total
+    ? `<ul class="inicio-lista">${A.vencidas.lista.map((t) => `<li><button type="button" data-ir-code="${esc(t.code)}">${esc(t.titulo)} · <strong>${esc(t.nombre)}</strong></button><span class="muted small">${dia(t.fecha)}</span></li>`).join('')}</ul>${A.vencidas.total > A.vencidas.lista.length ? `<p class="muted small">…y ${A.vencidas.total - A.vencidas.lista.length} más.</p>` : ''}`
+    : '<p class="muted">Ninguna 🎉</p>';
+}
+// Desde el inicio, a cada embudo (sus métricas) o a las tareas de un código.
+$('#inicio').addEventListener('click', (e) => {
+  const ir = e.target.closest('[data-ir-inicio]');
+  if (ir) {
+    const { code } = ir.dataset;
+    if (ir.dataset.irInicio === 'vsl') return setEmbudo(code, { vista: 'vmetricas' });
+    if (ir.dataset.irInicio === 'lanz') { state.launchCode = code; return setEmbudo(ir.dataset.embudo || embudoDeLanz(state.config.launches[code]), { vista: 'metricas' }); }
+    const m = state.config.meteoricos?.[code];
+    if (!m) return;
+    if (m.embudo) { state.meteo.code = code; ls.set(`lsd_meteo_${m.embudo}`, code); return setEmbudo(m.embudo, { vista: 'meteoricos' }); }
+    if (m.lanzamiento && state.config.launches[m.lanzamiento]) {
+      state.launchCode = m.lanzamiento;
+      return setEmbudo(embudoDeLanz(state.config.launches[m.lanzamiento]), { vista: 'metricas' }).then(() => pintarMsub($('#msub-metricas'), 'meteorico'));
+    }
+    return;
+  }
+  const t = e.target.closest('[data-ir-code]');
+  if (t) irAEmbudoDe(t.dataset.irCode);
 });
 
 async function selectLaunch(code) {

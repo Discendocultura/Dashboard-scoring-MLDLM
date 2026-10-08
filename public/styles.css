@@ -1941,3 +1941,26 @@ body.is-superadmin .container { padding-bottom: 96px; }
 .subviews::-webkit-scrollbar { display: none; }
 .alertas-carrito { color: var(--text); }
 .alertas-carrito ul { margin: 6px 0 0; padding-left: 20px; }
+
+/* Inicio del cliente: todos los embudos de un vistazo */
+body:not(.en-inicio) #inicio { display: none; }
+body.en-inicio #dashboard, body.en-inicio #empty-state, body.en-inicio #sin-embudos, body.en-inicio #launch-select { display: none !important; }
+.inicio { display: grid; gap: 16px; }
+.inicio-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.inicio-cab h2 { margin: 0; }
+.inicio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.inicio-emb { display: grid; gap: 8px; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.inicio-emb:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.inicio-emb h3 { margin: 0; font-size: 15px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.inicio-emb .ie-cifras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.inicio-emb .ie-cifras span { display: grid; font-size: 12px; color: var(--muted); }
+.inicio-emb .ie-cifras strong { font-size: 18px; color: var(--text); }
+.inicio-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 900px) { .inicio-dos { grid-template-columns: 1fr; } }
+.inicio-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.inicio-lista li { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.inicio-lista li:last-child { border-bottom: 0; }
+.inicio-lista button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.inicio-lista button:hover { text-decoration: underline; }
+.inicio-emb { padding: 16px 18px; border-radius: 16px; }
+.sb-inicio + .sb-title { margin-top: 10px; }

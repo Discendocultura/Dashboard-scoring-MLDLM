@@ -89,6 +89,7 @@
     <div class="app-body">
     <!-- Embudos: cada uno con sus pestañas, datos, tareas y configuración -->
     <nav id="sidebar" class="sidebar" aria-label="Embudos">
+      <button type="button" class="sb-item sb-inicio" id="sb-inicio" hidden><span class="sb-ico" aria-hidden="true">🏠</span><span class="sb-txt"><strong>Inicio</strong><small>Todos los embudos</small></span></button>
       <span class="sb-title">Embudos</span>
       <div id="sb-items" class="sb-items"></div>
       <button type="button" class="sb-add config-only" id="sb-add" title="Añadir un embudo"><span class="sb-ico" aria-hidden="true">＋</span><span class="sb-txt"><strong>Nuevo embudo</strong></span></button>
@@ -114,6 +115,20 @@
         <p class="muted">Elige la etiqueta de registro y la de compra VIP, y pega los enlaces de la grabación y de la oferta.</p>
         <button class="btn primary config-only" type="button" data-action="new-launch">Nuevo lanzamiento</button>
         <p class="muted setter-only">Pide al administrador que configure el lanzamiento.</p>
+      </section>
+
+      <section id="inicio" class="inicio">
+        <div class="inicio-cab">
+          <div><h2>🏠 Inicio</h2><p class="muted" id="inicio-sub">Todos los embudos de un vistazo</p></div>
+          <button type="button" class="btn ghost" id="inicio-actualizar">Actualizar datos</button>
+        </div>
+        <div id="inicio-total" class="kpis inicio-total"></div>
+        <div id="inicio-alertas"></div>
+        <div id="inicio-embudos" class="inicio-grid"></div>
+        <div class="inicio-dos">
+          <section class="card metric-card"><h2>📅 Próximos hitos <span class="muted">· 14 días</span></h2><div id="inicio-hitos"><p class="muted">Cargando…</p></div></section>
+          <section class="card metric-card"><h2>⏰ Tareas vencidas</h2><div id="inicio-vencidas"><p class="muted">Cargando…</p></div></section>
+        </div>
       </section>
 
       <section id="dashboard" hidden>
