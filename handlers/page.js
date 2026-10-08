@@ -138,6 +138,8 @@ export async function GET(request, ctx) {
       },
       // Vídeos que se muestran tal cual (sin medir ni bloquear): <div data-lsd-embed="gracias">
       embeds: { gracias: launch.graciasVideoUrl || '' },
+      // Imagen de cada etapa (Configuración → Preclase): <img data-lsd-img="clase1|test|clase2…">
+      imagenes: launch.imagenes || {},
       links,
       encuesta: { required: encuestaRequired, done: encuestaDone },
       recursos,
@@ -167,7 +169,7 @@ export async function GET(request, ctx) {
 // Recursos de la preclase para la página y el estado de cada etapa (bloqueada | disponible | hecha).
 //   música: la URL llega en cuanto su clase está disponible; la página la deja escuchar al ver el 75 %
 //           de la clase (lo sabe la propia página mientras se ve, o por la etiqueta <código>_claseN_75).
-//   test: la URL (con el email ya puesto) desde su fecha; hecho = tiene su etiqueta de GHL.
+//   test: la URL (con el email ya puesto) desde su fecha y con la encuesta rellenada; hecho = tiene su etiqueta de GHL.
 //   votación: la pregunta, las opciones, el voto de la lead y, si ya votó, los resultados.
 async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, preview, m }) {
   const r = recursosDe(launch);
@@ -181,7 +183,9 @@ async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, p
   if (tieneRecurso(launch, 'test')) {
     const at = madridToEpoch(r.test.at);
     const unlocked = at == null || now >= at;
-    recursos.test = { nombre: r.test.nombre, unlockAt: at, unlockText: formatLong(at), unlocked, done: Boolean(sig?.test), url: unlocked ? encuestaUrl(r.test.url, contact) : '' };
+    // Además de su fecha, hace falta haber rellenado la encuesta (etapa 1) si el lanzamiento la tiene.
+    const faltaEncuesta = !encuestaDone;
+    recursos.test = { nombre: r.test.nombre, unlockAt: at, unlockText: formatLong(at), unlocked, faltaEncuesta, done: Boolean(sig?.test), url: unlocked && !faltaEncuesta ? encuestaUrl(r.test.url, contact) : '' };
   }
   if (tieneRecurso(launch, 'votacion')) {
     const k = r.votacion.tras;
@@ -202,7 +206,7 @@ async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, p
     let estado = 'disponible';
     if (e.tipo === 'encuesta') estado = encuestaDone ? 'hecha' : 'disponible';
     else if (e.tipo === 'clase') estado = !claseDisponible(e.id) ? 'bloqueada' : vistaClase(e.id) ? 'hecha' : 'disponible';
-    else if (e.tipo === 'test') estado = !recursos.test.unlocked ? 'bloqueada' : recursos.test.done ? 'hecha' : 'disponible';
+    else if (e.tipo === 'test') estado = !recursos.test.unlocked || recursos.test.faltaEncuesta ? 'bloqueada' : recursos.test.done ? 'hecha' : 'disponible';
     else if (e.tipo === 'descargable') estado = !recursos.descargable.unlocked ? 'bloqueada' : recursos.descargable.abierto ? 'hecha' : 'disponible';
     else if (e.tipo === 'directo') estado = sig?.directo_asistio ? 'hecha' : enDirecto ? 'disponible' : 'bloqueada';
     const at = e.tipo === 'directo' ? m.directo : e.at;

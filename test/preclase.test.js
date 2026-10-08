@@ -75,3 +75,28 @@ test('preclase: recursos y etapas en la página, votación con resultados y medi
   p = (await call(`/api/page?l=pre-26&cid=${cid}`)).data;
   assert.equal(p.etapas.find((e) => e.id === 'test').estado, 'hecha');
 });
+
+test('preclase: el test pide haber rellenado antes la encuesta (etapa 1)', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const { data: cur } = await call('/api/config', { cookie: admin });
+  const launch = {
+    name: 'Con encuesta', registroTag: 'registro-webinar-demo', encuestaTag: 'enc-test-26', inicioCaptacion: local(-10), fechaDirecto: local(5), horaDirecto: '19:00',
+    clase1Url: 'https://vimeo.com/1', clase1At: `${local(-2)}T10:00`, clase2Url: 'https://vimeo.com/2', clase2At: `${local(1)}T10:00`,
+    recursosPre: { test: { activo: true, nombre: 'Autodiagnóstico', url: 'https://ghl.com/test', tag: 'autodiag-hecho', at: `${local(-1)}T10:00` } },
+    imagenes: { clase1: 'https://assets.ghl.com/c1.jpg', test: 'http://inseguro.com/t.jpg', otra: 'https://x.com/y.jpg' },
+  };
+  assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, _version: cur.version, launches: { ...cur.config.launches, 'enc-26': launch } } })).status, 200);
+  const cid = 'mock00009';
+  let p = (await call(`/api/page?l=enc-26&cid=${cid}`)).data;
+  assert.deepEqual(p.imagenes, { clase1: 'https://assets.ghl.com/c1.jpg' }); // solo https y de las etapas
+  assert.equal(p.recursos.test.unlocked, true); // ya es su fecha…
+  assert.equal(p.recursos.test.faltaEncuesta, true); // …pero falta la encuesta
+  assert.equal(p.recursos.test.url, '');
+  assert.equal(p.links.test, undefined);
+  assert.equal(p.etapas.find((e) => e.id === 'test').estado, 'bloqueada');
+  await ghl.addTags(cid, ['enc-test-26']);
+  p = (await call(`/api/page?l=enc-26&cid=${cid}`)).data;
+  assert.equal(p.recursos.test.faltaEncuesta, false);
+  assert.match(p.recursos.test.url, /^https:\/\/ghl\.com\/test\?/);
+  assert.equal(p.etapas.find((e) => e.id === 'test').estado, 'disponible');
+});

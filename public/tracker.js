@@ -421,6 +421,16 @@
       }
     });
 
+    // Imágenes de las etapas: <img data-lsd-img="clase1"> (o un div: se le pone un <img> dentro). Sin imagen, se oculta.
+    document.querySelectorAll('[data-lsd-img]').forEach(function (el) {
+      var src = (data.imagenes || {})[el.getAttribute('data-lsd-img')];
+      if (!src) return show(el, false);
+      show(el, true);
+      var img = el.tagName === 'IMG' ? el : el.querySelector('img');
+      if (!img) { img = document.createElement('img'); img.alt = ''; el.appendChild(img); }
+      if (img.getAttribute('src') !== src) { img.loading = 'lazy'; img.src = src; }
+    });
+
     // Textos: <span data-lsd-text="fechaDirecto|horaDirecto|directo|clase1|clase2|replay|cierreVip|cierreCarrito|precioVip">
     document.querySelectorAll('[data-lsd-text]').forEach(function (el) {
       var v = data.texts[el.getAttribute('data-lsd-text')];
@@ -451,11 +461,11 @@
       'encuesta-pendiente': Boolean(enc.required && !enc.done),
       'encuesta-hecha': Boolean(enc.required && enc.done),
     };
-    // Recursos de la preclase: data-lsd-if="test-bloqueado|test-disponible|test-hecho|musica-bloqueada|
+    // Recursos de la preclase: data-lsd-if="test-bloqueado|test-falta-encuesta|test-disponible|test-hecho|musica-bloqueada|
     // musica-disponible|votacion-bloqueada|votacion-disponible|votacion-hecha|descargable-bloqueado|descargable-disponible"
     var rec = data.recursos || {};
     var vista = function (r) { return Boolean(r && (r.claseVista || progresoLocal(data.code, r.tras) >= (r.umbral || 75))); };
-    if (rec.test) { conds['test-bloqueado'] = !rec.test.unlocked; conds['test-disponible'] = rec.test.unlocked && !rec.test.done; conds['test-hecho'] = Boolean(rec.test.done); }
+    if (rec.test) { conds['test-bloqueado'] = !rec.test.unlocked && !rec.test.done; conds['test-falta-encuesta'] = Boolean(rec.test.unlocked && rec.test.faltaEncuesta && !rec.test.done); conds['test-disponible'] = Boolean(rec.test.unlocked && !rec.test.done); conds['test-hecho'] = Boolean(rec.test.done); }
     if (rec.musica) { conds['musica-bloqueada'] = !(rec.musica.url && vista(rec.musica)); conds['musica-disponible'] = Boolean(rec.musica.url && vista(rec.musica)); }
     if (rec.votacion) { conds['votacion-bloqueada'] = !(rec.votacion.claseDisponible && vista(rec.votacion)); conds['votacion-disponible'] = Boolean(rec.votacion.claseDisponible && vista(rec.votacion) && !rec.votacion.miVoto); conds['votacion-hecha'] = Boolean(rec.votacion.miVoto); }
     if (rec.descargable) { conds['descargable-bloqueado'] = !rec.descargable.unlocked; conds['descargable-disponible'] = Boolean(rec.descargable.unlocked); }

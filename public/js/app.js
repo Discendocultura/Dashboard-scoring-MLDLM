@@ -2587,7 +2587,7 @@ function openConfig(code) {
       precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, pago: last.pago, oferta: last.oferta, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag,
       vipContadorBase: embudoInfo(state.embudo)?.vipContadorBase ?? last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
-      clase1Url: last.clase1Url, clase2Url: last.clase2Url, clase3Url: last.clase3Url, textos: last.textos,
+      clase1Url: last.clase1Url, clase2Url: last.clase2Url, clase3Url: last.clase3Url, textos: last.textos, imagenes: last.imagenes,
       // Los recursos de la preclase se heredan sin fechas; los que pidió el embudo al crearlo, activos.
       recursosPre: heredarRecursos(last.recursosPre, embudoInfo(state.embudo)?.recursos),
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
@@ -2615,6 +2615,7 @@ function openConfig(code) {
   $('#cfg-clase2-at').value = l.clase2At || '';
   $('#cfg-clase3-url').value = l.clase3Url || '';
   $('#cfg-clase3-at').value = l.clase3At || '';
+  for (const k of ['clase1', 'clase2', 'clase3', 'test', 'descargable']) $(`#cfg-img-${k}`).value = l.imagenes?.[k] || '';
   $('#cfg-replay-video').value = l.replayVideoUrl || '';
   $('#cfg-replay-at').value = l.replayAt || '';
   $('#cfg-vip-url').value = l.vipUrl || '';
@@ -3014,6 +3015,7 @@ function readForm() {
       pago: leerPago('cfg'),
       oferta: leerOfertaEditor(),
       recursosPre: leerRecursosCfg(),
+      imagenes: Object.fromEntries(['clase1', 'clase2', 'clase3', 'test', 'descargable'].map((k) => [k, $(`#cfg-img-${k}`).value.trim()]).filter(([, v]) => v)),
     },
   };
 }
@@ -3428,10 +3430,11 @@ function renderSnippets() {
       '<div data-lsd-if="encuesta-pendiente">\n  Antes de ver las clases, cuéntanos un poco sobre ti\n  <a data-lsd-link="encuesta">Rellenar la encuesta</a>\n</div>\n<div data-lsd-if="encuesta-hecha">✓ ¡Gracias por rellenar la encuesta!</div>'],
     // Recursos de la preclase (pestaña Preclase): música, test, votación, descargable y etapas.
     ...(tieneRecurso(state.config.launches[code], 'musica') ? [['RECURSOS · música (debajo de su clase; se desbloquea al ver el 75 % de la clase)', '<div data-lsd-audio="musica"></div>']] : []),
-    ...(tieneRecurso(state.config.launches[code], 'test') ? [['RECURSOS · test (botón; se desbloquea en su fecha)',
-      '<div data-lsd-if="test-bloqueado">🔒 El test se abre en <span data-lsd-countdown="test"></span></div>\n<div data-lsd-if="test-disponible">\n  <a data-lsd-link="test">Hacer el test</a>\n</div>\n<div data-lsd-if="test-hecho">✓ ¡Test completado!</div>']] : []),
+    ...(tieneRecurso(state.config.launches[code], 'test') ? [['RECURSOS · test (botón; se desbloquea en su fecha y con la encuesta rellenada)',
+      '<div data-lsd-if="test-bloqueado">🔒 El test se abre en <span data-lsd-countdown="test"></span></div>\n<div data-lsd-if="test-falta-encuesta">🔒 Para hacer el test, rellena primero la encuesta (etapa 1)</div>\n<div data-lsd-if="test-disponible">\n  <a data-lsd-link="test">Hacer el test</a>\n</div>\n<div data-lsd-if="test-hecho">✓ ¡Test completado!</div>']] : []),
     ...(tieneRecurso(state.config.launches[code], 'votacion') ? [['RECURSOS · votación (debajo de su clase; se abre al ver el 75 % de la clase y enseña los % al votar)', '<div data-lsd-votacion></div>']] : []),
     ...(tieneRecurso(state.config.launches[code], 'descargable') ? [['RECURSOS · recurso descargable (se mide quién lo abre)', '<div data-lsd-if="descargable-bloqueado">🔒 Disponible en <span data-lsd-countdown="descargable"></span></div>\n<a data-lsd-if="descargable-disponible" data-lsd-link="descargable">Descargar</a>']] : []),
+    ['RECURSOS · imagen de una etapa (la URL se pone en Configuración → Preclase; sin imagen, se oculta)', '<img data-lsd-img="clase1" alt="">'],
     ['RECURSOS · etapas (cada caja recibe data-lsd-estado="bloqueada | disponible | hecha" para el diseño)',
       etapasPreclase(state.config.launches[code], nClases(state.config.launches[code])).map((e) => `<div data-lsd-etapa="${e.id}">Etapa <span data-lsd-etapa-n="${e.id}"></span> · ${e.label}</div>`).join('\n')],
     ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
