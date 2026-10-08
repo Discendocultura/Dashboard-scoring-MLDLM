@@ -71,3 +71,12 @@ test('auditoría: horas de compra con milisegundos, día/mes/año y horas en pun
   assert.equal(momentoDeCampo('2026-11-27T22:00:00.000Z'), t('23:00')); // 23:00 en España: hora real
   assert.equal(momentoDeCampo('2026-11-27T23:00:00.000Z'), null); // medianoche en España
 });
+
+test('auditoría: un campo de texto que no es fecha no rompe nada', () => {
+  assert.equal(dayOfDateField('338'), '');
+  assert.equal(momentoDeCampo('338'), null);
+  assert.equal(dayOfDateField('12345'), '');
+  assert.equal(dayOfDateField('hola'), '');
+  assert.equal(dayOfDateField('1773187200'), '2026-03-11'); // segundos
+  assert.equal(dayOfDateField(1773187200000), '2026-03-11'); // milisegundos
+});

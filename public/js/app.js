@@ -353,6 +353,7 @@ async function start() {
   const guardado = ls.get('lsd_embudo');
   if (embudoInfo(hash)) state.embudo = hash;
   else if (VIEW_EMBUDO[hash] === 'vsl' && primero('vsl')) state.embudo = embudoInfo(guardado)?.tipo === 'vsl' ? guardado : primero('vsl');
+  else if (VIEW_EMBUDO[hash] === 'meteorico' && primero('meteorico')) state.embudo = embudoInfo(guardado)?.tipo === 'meteorico' ? guardado : primero('meteorico');
   else if (VIEWS.includes(hash) && VIEW_EMBUDO[hash] !== 'ambos' && primero('lanzamientos')) state.embudo = embudoInfo(guardado)?.tipo === 'lanzamientos' ? guardado : primero('lanzamientos');
   else state.embudo = embudoInfo(guardado) ? guardado : embudos()[0]?.id || '';
   fillStaticSelects();
@@ -360,6 +361,7 @@ async function start() {
   if (puedeConfig()) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
   state.launchCode = pickInitialLaunch();
   const abrirInicio = ls.get('lsd_inicio') === '1' && !hash;
+  if (hash) ls.set('lsd_inicio', ''); // un enlace directo a una pestaña: lo último ya no es el Inicio
   await setEmbudo(state.embudo, { vista: VIEWS.includes(hash) ? hash : null });
   if (abrirInicio && tiene('metricas') && embudos().length) mostrarInicio();
   if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); }
@@ -393,6 +395,7 @@ function fillStaticSelects() {
 
 $('#launch-select').addEventListener('change', (e) => selectLaunch(e.target.value));
 $('#btn-reload').addEventListener('click', () => {
+  if (state.enInicio) return mostrarInicio({ fresh: true });
   if (enVsl()) return recargarVsl();
   if (enMeteo()) { renderMeteoView({ fresh: true }); if (codigo()) loadTareas(); return; }
   return selectLaunch(state.launchCode);
@@ -479,6 +482,7 @@ async function cambiarFechaHito(code) {
 
 // Abre el embudo de un código (lanzamiento, VSL o meteórico) en su pestaña de tareas.
 function irAEmbudoDe(code) {
+  salirInicio();
   const l = state.config.launches[code];
   const m = state.config.meteoricos?.[code];
   if (state.config.vsls?.[code]) return setEmbudo(code, { vista: 'tareas' });
@@ -491,7 +495,10 @@ function irAEmbudoDe(code) {
   if (!lanz || !state.config.launches[lanz]) return;
   state.launchCode = lanz;
   const emb = embudoDeLanz(state.config.launches[lanz]);
-  return emb === state.embudo ? selectLaunch(lanz) : setEmbudo(emb, { vista: m ? 'metricas' : 'tareas' });
+  const vista = m ? 'metricas' : 'tareas';
+  if (emb !== state.embudo) return setEmbudo(emb, { vista });
+  if (allowedViews().includes(vista)) showView(vista);
+  return selectLaunch(lanz);
 }
 $('#sidebar').addEventListener('click', (ev) => {
   const b = ev.target.closest('[data-embudo]');
@@ -587,7 +594,7 @@ function pintarInicio() {
   $('#inicio-hitos').innerHTML = A.error ? `<p class="error">${esc(A.error)}</p>` : A.hitos?.length
     ? `<ul class="inicio-lista">${A.hitos.map((h) => `<li><button type="button" data-ir-code="${esc(h.code)}">${esc(h.icon)} ${esc(h.titulo)} · <strong>${esc(h.nombre)}</strong></button><span class="muted small">${dia(h.dia)}${h.hora ? ` ${esc(h.hora)}` : ''}</span></li>`).join('')}</ul>`
     : '<p class="muted">Nada en los próximos 14 días.</p>';
-  $('#inicio-vencidas').innerHTML = A.error ? '' : A.vencidas?.total
+  $('#inicio-vencidas').innerHTML = A.error ? `<p class="error">${esc(A.error)}</p>` : A.vencidas?.total
     ? `<ul class="inicio-lista">${A.vencidas.lista.map((t) => `<li><button type="button" data-ir-code="${esc(t.code)}">${esc(t.titulo)} · <strong>${esc(t.nombre)}</strong></button><span class="muted small">${dia(t.fecha)}</span></li>`).join('')}</ul>${A.vencidas.total > A.vencidas.lista.length ? `<p class="muted small">…y ${A.vencidas.total - A.vencidas.lista.length} más.</p>` : ''}`
     : '<p class="muted">Ninguna 🎉</p>';
 }
@@ -644,8 +651,14 @@ async function loadLeads() {
   if (token !== state.loadToken) return;
   const hace = copia ? Math.max(1, Math.round((Date.now() - copia.at) / 60_000)) : 0;
   const haceTxt = hace < 60 ? `${hace} min` : `${Math.round(hace / 60)} h`;
+  state.meta = null; // la inversión de Meta es la de este lanzamiento (se vuelve a pedir al terminar)
   if (copia?.contacts.length) {
     state.leads = copia.contacts.map((c) => enrich(c));
+    state.leadsDe = state.launchCode;
+    state.page = 0;
+    render();
+  } else if (state.leadsDe !== state.launchCode) {
+    state.leads = []; // sin copia: no se quedan a la vista los de otro lanzamiento
     state.leadsDe = state.launchCode;
     state.page = 0;
     render();
@@ -659,7 +672,7 @@ async function loadLeads() {
       out.push(...page.contacts);
       total = page.total ?? total;
       cursor = page.cursor;
-      progress(out.length, total, copia ? `Actualizando… ${out.length}${total ? ` de ${total}` : ''} (ves los datos de hace ${haceTxt})` : `Cargando leads… ${out.length}${total ? ` de ${total}` : ''}`);
+      progress(out.length, total, copia?.contacts.length ? `Actualizando… ${out.length}${total ? ` de ${total}` : ''} (ves los datos de hace ${haceTxt})` : `Cargando leads… ${out.length}${total ? ` de ${total}` : ''}`);
     } while (cursor);
     guardarLeads(clave, out);
     state.leads = out.map((c) => enrich(c));
@@ -669,7 +682,7 @@ async function loadLeads() {
     loadMeta(token);
     if (!out.length) notice(`No hay contactos con la etiqueta "${launch.registroTag}".`);
   } catch (e) {
-    notice(copia ? `No se pudieron actualizar los leads (${e.message}): ves los de hace ${haceTxt}.` : `No se pudieron cargar los leads: ${e.message}`, true);
+    notice(copia?.contacts.length ? `No se pudieron actualizar los leads (${e.message}): ves los de hace ${haceTxt}.` : `No se pudieron cargar los leads: ${e.message}`, true);
   } finally {
     if (token === state.loadToken) {
       progress(null);
@@ -947,6 +960,8 @@ function renderMetrics() {
 
   renderEconomics(m, launch);
   renderFacturacionTotal(m);
+  // Métricas → Downsell abierta: el meteórico y su conversión de ESTE lanzamiento (y con sus leads).
+  if (!$('#view-metricas [data-msub="meteorico"]').hidden) renderMeteoLanz();
   // Carrito abierto: ritmo frente al objetivo, bonus que caducan y cierre (visible en todas las pestañas).
   const alertas = alertasCarrito(launch, m.compra);
   $('#alertas-carrito').hidden = !alertas.length;
@@ -6906,7 +6921,7 @@ function abrirEditarEmbudo(id) {
 $('#sb-add').addEventListener('click', abrirNuevoEmbudo);
 $('#sidebar').addEventListener('click', (e) => { const b = e.target.closest('[data-emb-edit]'); if (b) abrirEditarEmbudo(b.dataset.embEdit); });
 document.addEventListener('click', (e) => { if (e.target.closest('[data-action="nuevo-embudo"]')) abrirNuevoEmbudo(); });
-$$('input[name="emb-tipo"]').forEach((r) => r.addEventListener('change', () => pintarEmbPestanas(null)));
+$$('input[name="emb-tipo"]').forEach((r) => r.addEventListener('change', () => { pintarEmbPestanas(null); pintarEmbVipBase(); }));
 $('#emb-pestanas').addEventListener('change', pintarEmbGuia);
 $('#emb-formato').addEventListener('change', pintarEmbGuia);
 $('#emb-reto-dias').addEventListener('change', pintarEmbGuia);
@@ -7439,9 +7454,12 @@ function mostrarEmails(code, { kpis, tabla } = {}) {
 }
 function pintarEmailsKpis(box, c) {
   const d = c.datos;
-  box.hidden = false;
+  // Solo si su categoría de Métricas (Resumen) es la que está abierta.
+  const nav = box.closest('[id^="view-"]')?.querySelector('.msubs');
+  const activa = nav?.querySelector('[data-msub-btn].active')?.dataset.msubBtn;
+  box.hidden = Boolean(box.dataset.msub && activa && box.dataset.msub !== activa);
   if (c.error) { box.innerHTML = card('Apertura media de los emails', '–', esc(c.error.slice(0, 140)), 'mail', 'info'); return; }
-  if (!d) { box.hidden = true; return; }
+  if (!d) { box.hidden = true; box.innerHTML = ''; return; }
   if (!d.emails.length) {
     box.innerHTML = card('Apertura media de los emails', '–', d.sinFiltro ? 'Indica en Configuración qué emails son de este embudo' : 'No hay emails enviados con ese nombre todavía', 'mail', 'info');
     return;

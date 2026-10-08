@@ -1964,3 +1964,5 @@ body.en-inicio #dashboard, body.en-inicio #empty-state, body.en-inicio #sin-embu
 .inicio-lista button:hover { text-decoration: underline; }
 .inicio-emb { padding: 16px 18px; border-radius: 16px; }
 .sb-inicio + .sb-title { margin-top: 10px; }
+body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important; }
+@media (max-width: 1000px) { #meteo-dialog .of-fila .of-ventana { grid-column: 1 / -1 !important; } }

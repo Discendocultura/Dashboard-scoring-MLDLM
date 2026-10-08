@@ -89,10 +89,9 @@ export function dayOfDateField(value) {
   if (value == null || value === '') return '';
   const t = normalizar(String(value).trim());
   if (LOCAL_SIN_ZONA.test(t)) return t.slice(0, 10); // ya es hora de España
-  let n = typeof value === 'number' || /^\d{10,}$/.test(t) ? Number(value) : Date.parse(t);
-  if (Number.isNaN(n)) return /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 10) : '';
-  if (n < 1e11) n *= 1000; // segundos
   if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  const n = instante(value, t);
+  if (n == null) return /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 10) : '';
   const d = new Date(n);
   const medianoche = esMedianoche(d);
   return medianoche ? new Date(n + 12 * 3600_000).toISOString().slice(0, 10) : madridDay.format(d);
@@ -112,6 +111,18 @@ const localMadrid = (t) => {
   const x = LOCAL_SIN_ZONA.exec(t);
   return x ? madridToEpoch(`${x[1]}T${x[2]}`) + Number(x[3] || 0) * 1000 + Number((x[4] || '0').padEnd(3, '0')) : null;
 };
+// Instante (epoch ms) de un valor: número o texto de 9-10 cifras = segundos, de 12-13 = milisegundos,
+// o texto de fecha. Fuera de 2000-2100 (p. ej. un campo de texto que no es una fecha, «338») → null.
+const MIN_MS = Date.UTC(2000, 0, 1);
+const MAX_MS = Date.UTC(2100, 0, 1);
+function instante(value, t) {
+  let n;
+  if (typeof value === 'number' || /^\d+$/.test(t)) {
+    const x = Number(t);
+    n = t.length <= 10 ? x * 1000 : x;
+  } else n = Date.parse(t);
+  return Number.isFinite(n) && n >= MIN_MS && n < MAX_MS ? n : null;
+}
 // Medianoche de un campo de solo fecha: 00:00:00 en UTC o en hora de España (no cualquier hora en punto).
 const horaMadridFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
 function esMedianoche(d) {
@@ -124,9 +135,8 @@ export function momentoDeCampo(value) {
   const t = normalizar(String(value).trim());
   if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
   if (LOCAL_SIN_ZONA.test(t)) return localMadrid(t);
-  let n = typeof value === 'number' || /^\d{10,}$/.test(t) ? Number(value) : Date.parse(t);
-  if (Number.isNaN(n)) return null;
-  if (n < 1e11) n *= 1000;
+  const n = instante(value, t);
+  if (n == null) return null;
   const d = new Date(n);
   const medianoche = esMedianoche(d);
   return medianoche ? null : n;
