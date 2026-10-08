@@ -9,7 +9,8 @@ import { env } from '../lib/env.js';
 import { enPrincipal, clienteActual } from '../lib/cliente.js';
 import { listUsers, ensureContact, emailLayout, guardarContactos } from '../lib/users.js';
 import { sendEmail } from '../lib/ghl.js';
-import { resumenAgencia } from '../lib/agencia.js';
+import { resumenAgencia, resumenDeCliente } from '../lib/agencia.js';
+import { listClientes } from '../lib/clientes.js';
 import { informesPendientes } from '../lib/informe-envio.js';
 import { getConfig } from '../lib/config-store.js';
 import { sendDigestUnaVez } from '../lib/digest.js';
@@ -44,7 +45,7 @@ export function htmlResumen(r, dashboardUrl) {
 }
 
 async function enviar(request) {
-  const r = await resumenAgencia({ fresh: true });
+  const r = await resumenAgencia();
   const dashboardUrl = new URL('/', request.url).toString();
   const { subject, body, totalCriticos } = htmlResumen(r, dashboardUrl);
   return enPrincipal(async () => {
@@ -90,7 +91,14 @@ export async function GET(request) {
       return json(await enviar(request));
     }
     await requireSuperadmin(request);
-    return json(await resumenAgencia({ fresh: url.searchParams.has('fresh') }));
+    // ?cliente=<id>: recalcula solo ese cliente (el panel los actualiza de uno en uno).
+    const id = url.searchParams.get('cliente');
+    if (id) {
+      const c = (await listClientes({ fresh: true })).find((x) => x.id === id);
+      if (!c) return json({ error: 'Cliente no encontrado' }, 404);
+      return json(await resumenDeCliente(c));
+    }
+    return json(await resumenAgencia({ maxCalcular: 0 }));
   } catch (e) {
     return errorResponse(e);
   }

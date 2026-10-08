@@ -62,8 +62,14 @@ test('agencia: marca por cliente, plantillas de embudo y panel de todos los clie
 
   // 2.1 / 2.3 · Panel de agencia (solo superadmin) con alta guiada
   assert.equal((await call('/api/agencia', { cookie: setter })).status, 403);
-  const r = (await call('/api/agencia?fresh=1', { cookie: admin })).data;
-  assert.deepEqual(r.clientes.map((c) => c.id), ['mldlm', 'clinica-sol']);
+  // El panel recibe la lista (con lo guardado) y pide cada cliente por separado (límite de Cloudflare).
+  const panel = (await call("/api/agencia", { cookie: admin })).data;
+  assert.deepEqual(panel.clientes.map((c) => c.id), ['mldlm', 'clinica-sol']);
+  assert.ok(panel.clientes.every((c) => c.pendiente)); // aún sin resumen guardado
+  const uno = async (id) => (await call(`/api/agencia?cliente=${id}`, { cookie: admin })).data;
+  assert.equal((await call('/api/agencia?cliente=no-existe', { cookie: admin })).status, 404);
+  const r = { clientes: [await uno('mldlm'), await uno('clinica-sol')] };
+  assert.equal((await call('/api/agencia', { cookie: admin })).data.clientes.find((c) => c.id === 'clinica-sol').producto, 'Método Sol'); // ya guardado
   const csol = r.clientes.find((c) => c.id === 'clinica-sol');
   assert.equal(csol.producto, 'Método Sol');
   assert.ok(csol.alta.pasos.find((p) => p.id === 'marca').ok);
@@ -71,7 +77,7 @@ test('agencia: marca por cliente, plantillas de embudo y panel de todos los clie
   // Una visita de la página preclase marca «páginas con código»
   await call('/api/config', { method: 'POST', cookie: admin, cliente: 'clinica-sol', body: { ...a.data.config, launches: { sol: { name: 'Sol', registroTag: 'registro-sol', embudo: a.data.embudo, inicioCaptacion: '2026-10-01' } } } });
   assert.equal((await call('/api/page?l=sol&c=clinica-sol')).status, 200);
-  const r2 = (await call('/api/agencia?fresh=1', { cookie: admin })).data;
+  const r2 = { hoy: panel.hoy, clientes: [await uno('mldlm'), await uno('clinica-sol')] };
   assert.equal(r2.clientes.find((c) => c.id === 'clinica-sol').alta.pasos.find((p) => p.id === 'paginas').ok, true);
   assert.ok(r2.clientes.find((c) => c.id === 'clinica-sol').lanzamiento.auditor.critico >= 1); // faltan fechas
   // 2.5 · Resumen de cada mañana: con la clave

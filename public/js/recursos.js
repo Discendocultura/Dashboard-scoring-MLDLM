@@ -73,7 +73,13 @@ function sanitizePreguntas(v) {
 // Preguntas que se pueden contestar (las tipo test necesitan al menos 2 opciones).
 export const preguntasValidas = (v) => (v?.preguntas || []).filter((q) => q.tipo === 'libre' || q.opciones.length >= 2);
 
-export const recursosDe = (launch) => launch?.recursosPre || sanitizeRecursos(null);
+// Los datos guardados antes de un cambio (p. ej. la votación de una sola pregunta) se normalizan al leerlos.
+export const recursosDe = (launch) => {
+  const r = launch?.recursosPre;
+  if (!r) return sanitizeRecursos(null);
+  if (r.votacion && !Array.isArray(r.votacion.preguntas)) return { ...r, votacion: { ...r.votacion, preguntas: sanitizePreguntas(r.votacion) } };
+  return r;
+};
 // ¿Tiene el lanzamiento ese recurso (activo y con lo mínimo para funcionar)?
 export function tieneRecurso(launch, tipo) {
   const r = recursosDe(launch)[tipo];

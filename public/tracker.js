@@ -102,7 +102,7 @@
     '.lsd-cdb{display:flex;gap:10px;justify-content:center}.lsd-cdb-unit{display:flex;flex-direction:column;align-items:center;min-width:64px;padding:10px 8px;border-radius:10px;background:#f6f3ef}' +
     '.lsd-cdb-num{font-size:2em;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}.lsd-cdb-label{font-size:.75em;text-transform:uppercase;letter-spacing:.05em;margin-top:4px}' +
     '[data-lsd-bar]{display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap}' +
-    '.lsd-embed{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}.lsd-embed iframe{position:absolute;inset:0;width:100%;height:100%;border:0}' +
+    '.lsd-embed{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}.lsd-embed iframe{position:absolute;top:0;left:0;inset:0;width:100%;height:100%;border:0}' +
     '.lsd-bar-btn{display:inline-block;padding:6px 14px;border-radius:999px;background:#b4552d;color:#fff;font-weight:600;text-decoration:none}' +
     // Recursos de la preclase: música, votación (el diseño de la página puede cambiar --lsd-acento)
     '.lsd-rec{border-radius:12px;padding:16px;background:#f6f3ef;color:#2b2522;font-family:inherit;box-sizing:border-box}' +
@@ -110,15 +110,16 @@
     '.lsd-rec audio{width:100%;margin-top:8px}.lsd-rec-t{margin:0 0 4px;font-weight:700}.lsd-rec-s{margin:0;font-size:.92em;opacity:.85}' +
     '.lsd-vot-ops{display:grid;gap:8px;margin-top:10px}.lsd-vot-op{display:block;width:100%;text-align:left;padding:12px 14px;border-radius:10px;border:1px solid #d8d0c9;background:#fff;font:inherit;cursor:pointer}' +
     '.lsd-vot-op:hover{border-color:var(--lsd-acento,#b4552d)}.lsd-vot-res{position:relative;padding:10px 12px;border-radius:10px;background:#fff;overflow:hidden;border:1px solid #e6ded6}' +
-    '.lsd-vot-res i{position:absolute;inset:0 auto 0 0;background:var(--lsd-acento,#b4552d);opacity:.16}.lsd-vot-res span{position:relative;display:flex;justify-content:space-between;gap:10px}' +
+    '.lsd-vot-res i{position:absolute;top:0;bottom:0;left:0;inset:0 auto 0 0;background:var(--lsd-acento,#b4552d);opacity:.16}.lsd-vot-res span{position:relative;display:flex;justify-content:space-between;gap:10px}' +
     '.lsd-vot-res.mio{border-color:var(--lsd-acento,#b4552d);font-weight:700}.lsd-vot-total{margin:8px 0 0;font-size:.88em;opacity:.8}' +
     '.lsd-vot-q+.lsd-vot-q{margin-top:16px}.lsd-vot-op.sel{border-color:var(--lsd-acento,#b4552d);box-shadow:inset 0 0 0 1px var(--lsd-acento,#b4552d);font-weight:700}' +
     '.lsd-vot-libre{display:block;width:100%;box-sizing:border-box;margin-top:10px;padding:12px 14px;border-radius:10px;border:1px solid #d8d0c9;background:#fff;font:inherit;resize:vertical}' +
     '.lsd-vot-enviar{display:block;width:100%;margin-top:14px;padding:13px 16px;border:0;border-radius:10px;background:var(--lsd-acento,#b4552d);color:#fff;font:inherit;font-weight:700;cursor:pointer}.lsd-vot-enviar:disabled{opacity:.6}' +
     '.lsd-vot-mia{margin-top:8px;padding:10px 12px;border-radius:10px;background:#fff;border:1px solid #e6ded6}.lsd-vot-mia span{font-size:.8em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.7}.lsd-vot-mia p{margin:4px 0 0;white-space:pre-line}';
   CSS +=
-    '#lsd-espera{position:fixed;inset:0;z-index:2147483000;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;box-sizing:border-box;' +
+    '#lsd-espera{position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100%;inset:0;z-index:2147483000;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;box-sizing:border-box;' +
     'background:var(--lsd-espera-fondo,radial-gradient(120% 80% at 50% 0%,#fffaf5 0%,#f6ebe1 55%,#f0e4da 100%));color:var(--lsd-espera-texto,#3a2a24);font-family:Lato,Helvetica,Arial,sans-serif;text-align:center;animation:lsdEspIn .6s ease both}' +
+    '#lsd-espera:focus{outline:none}' +
     '#lsd-espera .lsd-espera-in{flex:1 0 auto;width:100%;max-width:720px;margin:0 auto;padding:clamp(28px,6vh,64px) 20px 20px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center}' +
     '#lsd-espera .lsd-espera-logo{display:block;max-width:200px;max-height:104px;width:auto;height:auto;margin:0 auto clamp(18px,3.5vh,30px);object-fit:contain;animation:lsdEspUp .7s .05s ease both}' +
     '#lsd-espera .lsd-espera-t{margin:0;font-size:clamp(30px,6vw,56px);font-weight:900;line-height:1.08;letter-spacing:-.01em;color:var(--lsd-espera-titulo,#4a2c20);text-wrap:balance;animation:lsdEspUp .7s .12s ease both}' +
@@ -144,7 +145,7 @@
     '@keyframes lsdEspAura{0%,100%{box-shadow:0 10px 28px rgba(134,13,14,.10),0 0 0 0 rgba(196,155,121,.0)}50%{box-shadow:0 12px 32px rgba(134,13,14,.16),0 0 0 7px rgba(196,155,121,.22)}}' +
     '@media (max-width:600px){#lsd-espera .lsd-espera-msg{border-radius:20px;padding:14px 40px 14px 16px;gap:12px}}' +
     '#lsd-espera .lsd-espera-paisaje{flex:none;position:relative;width:100%;height:clamp(130px,min(19vw,27vh),250px);margin-top:12px}' +
-    '#lsd-espera .lsd-espera-paisaje svg{position:absolute;inset:0;width:100%;height:100%;display:block}' +
+    '#lsd-espera .lsd-espera-paisaje svg{position:absolute;top:0;left:0;inset:0;width:100%;height:100%;display:block}' +
     '#lsd-espera .lsd-espera-paisaje{-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%);mask-image:linear-gradient(to bottom,transparent 0,#000 30%)}' +
     '#lsd-espera .lsd-esp-sol{transform-box:fill-box;transform-origin:50% 50%;animation:lsdEspSol 5s ease-in-out infinite}' +
     '#lsd-espera .lsd-esp-nube{animation:lsdEspNube 34s linear infinite}#lsd-espera .lsd-esp-nube--2{animation-duration:48s;animation-delay:-20s}' +
@@ -348,7 +349,10 @@
   }
 
   // Lleva a una URL añadiendo la identidad de la lead (cid o email) y conservando el resto.
+  var redirigido = false; // ya se está yendo a otra página: no se vuelve a redirigir
   function goTo(url, who) {
+    if (redirigido) return;
+    redirigido = true;
     var u = new URL(url, location.href);
     if (who && who.cid) u.searchParams.set('cid', who.cid);
     else if (who && who.email) u.searchParams.set('email', who.email);
@@ -359,13 +363,15 @@
 
   // ---------- Datos del lanzamiento configurados en el dashboard ----------
   var clockSkew = 0; // diferencia entre la hora del servidor y la del dispositivo
+  var skewFijado = false;
 
   function fetchPage(launch, who) {
     var q = new URLSearchParams({ l: launch || 'auto' });
     if (who && who.cid) q.set('cid', who.cid);
     if (params.get('lsd_preview')) q.set('preview', params.get('lsd_preview'));
     return fetch(API + conCliente('/api/page?' + q.toString())).then(function (r) { return r.json(); }).then(function (d) {
-      if (d && d.now) clockSkew = d.now - Date.now();
+      // En la vista previa la hora del servidor es fija: se toma solo la primera vez (si no, el contador salta atrás).
+      if (d && d.now && (!d.preview || !skewFijado)) { clockSkew = d.now - Date.now(); skewFijado = true; }
       return d;
     });
   }
@@ -595,7 +601,8 @@
       var ok = r.url && vista(r);
       // Bloqueada: no se enseña nada (el vídeo ya invita a verlo). Con data-mostrar-bloqueo, el candado.
       show(el, Boolean(ok || el.hasAttribute('data-mostrar-bloqueo')));
-      var estado = ok ? 'on' : r.claseDisponible ? 'falta' : 'clase';
+      // La identidad va en el estado: si se pintó antes de identificarla, se vuelve a pintar (y a medir) con ella.
+      var estado = (who ? 'u' : 'a') + (ok ? 'on' : r.claseDisponible ? 'falta' : 'clase');
       if (el.getAttribute('data-lsd-estado-audio') === estado) return;
       el.setAttribute('data-lsd-estado-audio', estado);
       if (!ok && !el.hasAttribute('data-mostrar-bloqueo')) { el.innerHTML = ''; return; }
@@ -614,7 +621,7 @@
       if (!r) return show(el, false);
       var abierta = r.claseDisponible && vista(r);
       show(el, Boolean(abierta || r.respondida || el.hasAttribute('data-mostrar-bloqueo')));
-      var estado = r.respondida && r.resultados ? 'res' + JSON.stringify(r.misRespuestas) + r.resultados.total : abierta ? 'votar' : 'lock';
+      var estado = (who ? 'u' : 'a') + (r.respondida && r.resultados ? 'res' + JSON.stringify(r.misRespuestas) + r.resultados.total : abierta ? 'votar' : 'lock');
       if (el.getAttribute('data-lsd-estado-vot') === estado) return;
       el.setAttribute('data-lsd-estado-vot', estado);
       if (r.respondida && r.resultados) { el.innerHTML = votacionResultados(r); return; }
@@ -646,7 +653,7 @@
           r.misRespuestas = res.misRespuestas;
           r.respondida = true;
           r.resultados = res.resultados;
-          el.setAttribute('data-lsd-estado-vot', 'res' + JSON.stringify(r.misRespuestas) + r.resultados.total);
+          el.setAttribute('data-lsd-estado-vot', (who ? 'u' : 'a') + 'res' + JSON.stringify(r.misRespuestas) + r.resultados.total);
           el.innerHTML = votacionResultados(r);
           renderRecursos(data, who); // condiciones votacion-hecha…
         }).catch(function (e) { botones(true); err.textContent = e.message; err.hidden = false; });
@@ -761,6 +768,7 @@
     clearInterval(esperaTimer);
     el.parentNode.removeChild(el);
     document.documentElement.style.overflow = '';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-lsd-oculto]'), function (c) { c.removeAttribute('aria-hidden'); c.removeAttribute('data-lsd-oculto'); });
   }
   // La peregrina recorre el camino (14 s por vuelta), siguiendo la curva del trazo.
   function andarPeregrina(el) {
@@ -776,10 +784,12 @@
     };
     if (quieta) return colocar(0.42);
     var inicio = null;
+    var ultimo = 0;
     var paso = function (ts) {
       if (!el.parentNode) return; // se quitó la pantalla
       if (inicio == null) inicio = ts;
-      colocar(((ts - inicio) % 14000) / 14000);
+      // ~30 fotogramas por segundo bastan (y ahorran batería en móviles).
+      if (ts - ultimo >= 33) { ultimo = ts; colocar(((ts - inicio) % 14000) / 14000); }
       requestAnimationFrame(paso);
     };
     requestAnimationFrame(paso);
@@ -805,7 +815,7 @@
       if (videoEsp) el.className = 'lsd-espera--video';
       el.innerHTML = '<div class="lsd-espera-in">' +
         (logo ? '<img class="lsd-espera-logo" src="' + esc(logo) + '" alt="">' : '') +
-        '<h1 class="lsd-espera-t" id="lsd-espera-t">' + esc(t['espera-titulo'] || '¡Empezamos en unos minutos!') + '</h1>' +
+        '<h2 class="lsd-espera-t" id="lsd-espera-t">' + esc(t['espera-titulo'] || '¡Empezamos en unos minutos!') + '</h2>' +
         '<p class="lsd-espera-sub">' + esc(t['espera-subtitulo'] || 'Prepárate') + '</p>' +
         // Vídeo opcional (Configuración → Preclase): con vídeo, el contador se hace pequeño y el vídeo destaca.
         (videoEsp ? '<div class="lsd-espera-video"><div class="lsd-embed"><iframe src="' + esc(videoEsp) + '" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="Vídeo"></iframe></div></div>' : '') +
@@ -835,6 +845,10 @@
         '</g></g></svg></div>';
       document.body.appendChild(el);
       document.documentElement.style.overflow = 'hidden';
+      // Lectores de pantalla: solo la pantalla de espera (lo de debajo queda oculto mientras tanto).
+      Array.prototype.forEach.call(document.body.children, function (c) { if (c !== el && !c.hasAttribute('aria-hidden')) { c.setAttribute('aria-hidden', 'true'); c.setAttribute('data-lsd-oculto', '1'); } });
+      el.setAttribute('tabindex', '-1');
+      el.focus();
       andarPeregrina(el);
     }
     var mm = el.querySelector('[data-u="m"]');
@@ -846,18 +860,24 @@
       var sec = Math.ceil(left / 1000);
       mm.textContent = pad(Math.floor(sec / 60));
       ss.textContent = pad(sec % 60);
-      if (left <= 0 && !ido) { ido = true; clearInterval(esperaTimer); goTo(data.links[esp.key], who); }
+      if (left <= 0 && !ido) {
+        ido = true;
+        clearInterval(esperaTimer);
+        // Vista previa del dashboard: no se entra de verdad al directo (ni se registra en Zoom).
+        if (params.get('lsd_preview')) { var msg = el.querySelector('.lsd-espera-msg span:last-child'); if (msg) msg.textContent = 'Vista previa: aquí entraría al directo.'; return; }
+        goTo(data.links[esp.key], who);
+      }
     };
     clearInterval(esperaTimer);
     tick();
-    esperaTimer = setInterval(tick, 250);
+    esperaTimer = setInterval(tick, 500);
   }
 
   function runManagedPage(kind, launchAttr, who, onVideo) {
     var timer = null;
     function cycle() {
       fetchPage(launchAttr, who).then(function (data) {
-        if (!data || data.error) return;
+        if (!data || data.error || redirigido) return;
         if (kind === 'recursos' && data.redirectTo && data.links[data.redirectTo]) {
           return goTo(data.links[data.redirectTo], who);
         }
@@ -871,8 +891,11 @@
           .filter(function (t) { return t && t > data.now; }).sort(function (a, b) { return a - b; })[0];
         clearTimeout(timer);
         // Encuesta pendiente: se vuelve a comprobar cada 15 s (y al volver a la pestaña).
-        waitingEncuesta = Boolean(((data.encuesta && data.encuesta.required && !data.encuesta.done) || (data.recursos && data.recursos.test && data.recursos.test.unlocked && !data.recursos.test.done)) && who && who.cid);
-        if (waitingEncuesta && !document.hidden) next = Math.min(next || Infinity, serverNow() + 15000);
+        // Encuesta pendiente: cada 15 s. Test abierto sin hacer (puede durar días): cada 60 s.
+        var encPend = Boolean(data.encuesta && data.encuesta.required && !data.encuesta.done);
+        var testPend = Boolean(data.recursos && data.recursos.test && data.recursos.test.unlocked && !data.recursos.test.done);
+        waitingEncuesta = Boolean((encPend || testPend) && who && who.cid);
+        if (waitingEncuesta && !document.hidden) next = Math.min(next || Infinity, serverNow() + (encPend ? 15000 : 60000));
         if (next) timer = setTimeout(cycle, Math.min(next - serverNow() + 1500, 2147483000));
       }).catch(function () { /* sin conexión: se queda como está */ });
     }

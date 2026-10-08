@@ -5,7 +5,7 @@
 //    para que después el informe de Zoom diga quién asistió y cuánto tiempo.
 // Si llega sin identificar (p. ej. desde el grupo de WhatsApp) se le pide el email; si ese email no
 // tiene la etiqueta de registro del lanzamiento, se le piden nombre y móvil y se registra antes de entrar.
-import { addTags, getContact } from '../lib/ghl.js';
+import { addTags, getContact, findContactByEmail } from '../lib/ghl.js';
 import { ensureRegistered, hasTag } from '../lib/access.js';
 import { turnstileSiteKey, verifyTurnstile } from '../lib/turnstile.js';
 import { getConfig } from '../lib/config-store.js';
@@ -67,7 +67,8 @@ const WHO_MAX_AGE = 90 * 24 * 3600;
 function rememberedWho(request) {
   const m = (request.headers.get('cookie') || '').match(/(?:^|;\s*)lsd_who=([^;]+)/);
   if (!m) return {};
-  const v = decodeURIComponent(m[1]);
+  let v;
+  try { v = decodeURIComponent(m[1]); } catch { return {}; } // cookie estropeada: como si no hubiera
   if (/^cid:[A-Za-z0-9]{6,40}$/.test(v)) return { cid: v.slice(4) };
   if (/^email:/.test(v) && isEmail(v.slice(6))) return { email: v.slice(6) };
   return {};
@@ -120,6 +121,11 @@ export async function GET(request, ctx) {
     if (!contact && emailParam && url.searchParams.has('nombre')
       && !(await verifyTurnstile(url.searchParams.get('cf-turnstile-response'), request.headers.get('cf-connecting-ip')))) {
       return signupForm(code, emailParam, 'Confirma que no eres un robot y vuelve a intentarlo.', k);
+    }
+    // Lanzamiento sin etiqueta de registro: no hay registro que comprobar; basta con encontrar su email.
+    if (!contact && emailParam && !launch.registroTag) {
+      contact = await findContactByEmail(emailParam).catch(() => null);
+      if (!contact) return emailForm(code, 'No encontramos ese email. Escribe el email con el que te registraste.', k);
     }
     if (!contact && emailParam) {
       // Registrada en el lanzamiento, o se registra ahora (si no existe, pedimos nombre y móvil).

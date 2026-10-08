@@ -12,7 +12,7 @@ import { marcarActividad } from '../lib/actividad.js';
 import { json, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { signalsFor, withContactId, tagFor } from '../public/js/scoring.js';
 import { phaseAt, barFor, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
-import { videosDe, conVip, nClases } from '../public/js/videos.js';
+import { videosDe, conVip, nClases, esEnDirecto } from '../public/js/videos.js';
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
 import { recursosDe, tieneRecurso, etapasPreclase, preguntasValidas, UMBRAL_DESBLOQUEO } from '../public/js/recursos.js';
@@ -72,7 +72,8 @@ export async function GET(request, ctx) {
     // Lanzamientos de varios vídeos: entrar al directo y ver cada vídeo (directo2, grabacion2…).
     const vids = videosDe(launch);
     for (const v of vids.slice(1)) {
-      links[`directo${v.k}`] = `${live}&v=${v.k}${cid ? `&cid=${cid}` : ''}`;
+      // Solo los vídeos en directo tienen sala de Zoom (un estreno grabado va a su página, no al directo).
+      if (esEnDirecto(v)) links[`directo${v.k}`] = `${live}&v=${v.k}${cid ? `&cid=${cid}` : ''}`;
       links[`grabacion${v.k}`] = withContactId(v.replayUrl, cid);
     }
 

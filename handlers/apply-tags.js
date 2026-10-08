@@ -11,8 +11,9 @@ export async function POST(request) {
   try {
     const s = await requireSession(request, { permiso: ['hoy', 'leads', 'llamadas'] });
     const { items } = await readBody(request);
-    if (!Array.isArray(items) || items.length === 0 || items.length > 40) {
-      return json({ error: 'Envía entre 1 y 40 contactos por petición' }, 400);
+    if (!Array.isArray(items) || items.length === 0 || items.length > 25) {
+      // 25 como mucho: cada uno puede ser quitar + poner etiquetas (2 llamadas) y el plan gratuito corta a las 50.
+      return json({ error: 'Envía entre 1 y 25 contactos por petición' }, 400);
     }
     const okTag = (t) => typeof t === 'string' && isValidSignalTag(t);
     for (const it of items) {

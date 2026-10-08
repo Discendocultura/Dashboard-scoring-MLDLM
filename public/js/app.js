@@ -4798,16 +4798,38 @@ function tarjetaAgencia(c) {
     <header><h3>${esc(c.nombre)}</h3>${c.producto ? `<span class="badge">${esc(c.producto)}</span>` : ''}<span class="spacer"></span>${entrar}</header>
     ${lanz}${vsls}${alta}</article>`;
 }
+// Panel de agencia: enseña al momento el último resumen guardado de cada cliente y después los actualiza
+// de uno en uno (cada cliente en su propia petición, para no pasar del límite de Cloudflare).
+let agenciaCarga = 0;
 async function loadAgencia(fresh = false) {
   const box = $('#ag-body');
-  box.innerHTML = '<p class="muted">Revisando todos los clientes… (puede tardar unos segundos)</p>';
+  const turno = ++agenciaCarga;
+  box.innerHTML = '<p class="muted">Cargando los clientes…</p>';
   try {
-    const r = await api(`/api/agencia${fresh ? '?fresh=1' : ''}`);
-    const crit = r.clientes.reduce((t, c) => t + (c.lanzamiento?.auditor.critico || 0) + (c.vsls || []).reduce((s, v) => s + v.auditor.critico, 0), 0);
-    $('#ag-info').textContent = `${r.clientes.length} cliente${r.clientes.length === 1 ? '' : 's'} · ${crit} crítico${crit === 1 ? '' : 's'} · actualizado ${new Date(r.generado).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
-    // Primero los que necesitan atención.
-    const peso = (c) => (c.error || !c.conectado ? 1000 : 0) + (c.lanzamiento?.auditor.critico || 0) * 10 + (c.lanzamiento?.vencidas || 0) + (c.alta ? c.alta.total - c.alta.hechos : 0);
-    box.innerHTML = `<div class="ag-grid">${[...r.clientes].sort((a, b) => peso(b) - peso(a)).map(tarjetaAgencia).join('')}</div>`;
+    const r = await api('/api/agencia');
+    if (turno !== agenciaCarga) return;
+    const clientes = r.clientes;
+    const pintar = (estado) => {
+      const crit = clientes.reduce((t, c) => t + (c.lanzamiento?.auditor.critico || 0) + (c.vsls || []).reduce((s, v) => s + v.auditor.critico, 0), 0);
+      $('#ag-info').textContent = `${clientes.length} cliente${clientes.length === 1 ? '' : 's'} · ${crit} crítico${crit === 1 ? '' : 's'}${estado ? ` · ${estado}` : ''}`;
+      // Primero los que necesitan atención.
+      const peso = (c) => (c.error || (!c.pendiente && !c.conectado) ? 1000 : 0) + (c.lanzamiento?.auditor.critico || 0) * 10 + (c.lanzamiento?.vencidas || 0) + (c.alta ? c.alta.total - c.alta.hechos : 0);
+      box.innerHTML = `<div class="ag-grid">${[...clientes].sort((a, b) => peso(b) - peso(a)).map((c) => (c.pendiente ? `<article class="ag-card"><header><h3>${esc(c.nombre)}</h3></header><p class="muted">Calculando…</p></article>` : tarjetaAgencia(c))).join('')}</div>`;
+    };
+    // Se actualizan los que no tienen resumen o lo tienen de hace más de 30 min (o todos con «Actualizar»).
+    const viejos = clientes.filter((c) => fresh || c.pendiente || c.viejo || !c.actualizado || Date.parse(c.actualizado) < Date.now() - 30 * 60_000);
+    pintar(viejos.length ? `actualizando 0 de ${viejos.length}…` : 'al día');
+    for (const [n, c] of viejos.entries()) {
+      try {
+        const nuevo = await api(`/api/agencia?cliente=${encodeURIComponent(c.id)}`);
+        if (turno !== agenciaCarga) return;
+        clientes[clientes.indexOf(c)] = nuevo;
+      } catch (e) {
+        if (turno !== agenciaCarga) return;
+        clientes[clientes.indexOf(c)] = { ...c, pendiente: false, error: e.message };
+      }
+      pintar(n + 1 < viejos.length ? `actualizando ${n + 1} de ${viejos.length}…` : `actualizado ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`);
+    }
   } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
 $('#btn-agencia').addEventListener('click', () => {

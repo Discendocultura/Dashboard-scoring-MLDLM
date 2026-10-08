@@ -149,3 +149,19 @@ test('pantalla de espera: se elige en el embudo, el lanzamiento la puede cambiar
   assert.deepEqual(cfg.launches['la-c'].espera, { activa: true, video: 'https://vimeo.com/123' });
   assert.equal(cfg.launches['la-d'].espera.video, '');
 });
+
+test('auditoría: votación guardada con el formato antiguo, códigos reservados y cookie dañada', async () => {
+  const { tieneRecurso, recursosDe } = await import('../public/js/recursos.js');
+  // Una votación de una sola pregunta guardada antes del cambio sigue funcionando al leerla.
+  const viejo = { recursosPre: { votacion: { activo: true, pregunta: '¿Tema?', opciones: [{ id: 'o1', texto: 'A' }, { id: 'o2', texto: 'B' }] } } };
+  assert.equal(tieneRecurso(viejo, 'votacion'), true);
+  assert.deepEqual(recursosDe(viejo).votacion.preguntas.map((q) => q.id), ['p1']);
+  // «constructor» no es un lanzamiento.
+  assert.equal((await call('/api/page?l=constructor')).status, 404);
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const { data: cur } = await call('/api/config', { cookie: admin });
+  assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, _version: cur.version, launches: { ...cur.config.launches, constructor: { name: 'X' } } } })).status, 400);
+  // Cookie de /directo estropeada: se pide el email (no un error 500).
+  const res = await route(new Request('http://localhost/directo?l=pre-26', { headers: { cookie: 'lsd_who=%E0%A4%A' } }), ENV);
+  assert.equal(res.status, 200);
+});
