@@ -184,6 +184,22 @@
   .mldlm-etapas__fila > [data-lsd-etapa] + [data-lsd-etapa]::before{display:none;}
   .mldlm-etapas [data-lsd-etapa]{padding:44px 22px 24px;}
   .mldlm-etapas__tit{font-size:21px;}
+  /* Las 3 tarjetas comparten filas: imagen, etapa, día, título, texto, caja (vídeo o test), subtítulo y música/votación
+     quedan a la misma altura en las tres, aunque los textos tengan distinto largo. */
+  @supports (grid-template-rows:subgrid){
+    .mldlm-etapas__fila{grid-template-rows:repeat(8,auto); row-gap:0;}
+    .mldlm-etapas__fila > [data-lsd-etapa]{display:grid; grid-template-rows:subgrid; grid-row:span 8; align-content:start;}
+    .mldlm-etapas__fila > [data-lsd-etapa] > *{min-width:0;}
+    .mldlm-etapas__foto{grid-row:1;}
+    .mldlm-etapas__etapa{grid-row:2;}
+    .mldlm-etapas__dia{grid-row:3;}
+    .mldlm-etapas__tit{grid-row:4;}
+    .mldlm-etapas__desc{grid-row:5;}
+    .mldlm-etapas__push{display:none;}
+    .mldlm-etapas__fila [data-lsd-video],.mldlm-etapas__test-estado{grid-row:6; align-self:start;}
+    .mldlm-etapas__sub{grid-row:7;}
+    .mldlm-etapas__fila [data-lsd-audio],.mldlm-etapas__fila [data-lsd-votacion]{grid-row:8;}
+  }
 }
 @media (max-width:480px){
   .mldlm-etapas{padding:0 14px;}
