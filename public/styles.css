@@ -1861,3 +1861,16 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 .em-barra select { width: auto; }
 .em-destacados { display: grid; gap: 6px; padding: 12px 14px; margin-bottom: 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13.5px; }
 .em-destacados p { margin: 0; }
+
+/* Agencia: botón flotante abajo a la derecha (solo superadmin) */
+.agencia-btn.agencia-flotante {
+  position: fixed; right: 24px; bottom: 24px; z-index: 30; margin: 0;
+  padding: 11px 20px 11px 12px; font-size: 14px; border-radius: 999px;
+  box-shadow: 0 14px 30px -10px rgb(40 34 90 / .6), 0 4px 10px -4px rgb(0 0 0 / .25), inset 0 1px 0 rgb(255 255 255 / .14);
+  transition: transform .15s ease, filter .15s ease, box-shadow .15s ease;
+}
+.agencia-btn.agencia-flotante:hover { transform: translateY(-2px); filter: brightness(1.12); }
+.agencia-btn.agencia-flotante .agencia-ico { width: 28px; height: 28px; }
+body.is-superadmin .container { padding-bottom: 96px; }
+@media (max-width: 640px) { .agencia-btn.agencia-flotante { right: 16px; bottom: 16px; padding: 10px 16px 10px 10px; } }
+@media print { .agencia-flotante { display: none !important; } }

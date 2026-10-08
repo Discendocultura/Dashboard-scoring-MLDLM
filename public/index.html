@@ -59,11 +59,13 @@
 
   <!-- Dashboard -->
   <div id="app" hidden>
+    <!-- Agencia (solo superadmin): botón flotante abajo a la derecha -->
+    <button id="btn-agencia" class="agencia-btn agencia-flotante superadmin-only" type="button" title="Agencia: todos los clientes, el equipo de la agencia, altas y «Ver como»"><span class="agencia-ico" aria-hidden="true"></span>Agencia</button>
     <header class="topbar">
       <div class="brand"><span class="brand-mark" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span><span id="brand-nombre">Dashboard</span>
         <label class="cliente-pick" id="cliente-pick" hidden><span class="sr-only">Cliente</span><select id="cliente-select" aria-label="Cliente"></select></label>
         <span id="role-badge" class="badge"></span>
-        <button id="btn-agencia" class="agencia-btn superadmin-only" type="button" title="Agencia: todos los clientes, el equipo de la agencia, altas y «Ver como»"><span class="agencia-ico" aria-hidden="true"></span>Agencia</button></div>
+</div>
       <div class="topbar-controls">
         <label class="field inline lanz-only">
           <span>Lanzamiento</span>
