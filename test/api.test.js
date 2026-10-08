@@ -340,7 +340,7 @@ test('usuarios del equipo: alta con email de acceso, login con email y permisos 
   assert.equal((await doLogin(req('/api/login', { method: 'POST', body: { email: 'quique@example.com', password: 'mala' } }))).status, 401);
   const ok = await doLogin(req('/api/login', { method: 'POST', body: { email: 'QUIQUE@example.com ', password: r.password } }));
   assert.equal(ok.status, 200);
-  const equipo = ok.headers.get('set-cookie').split(';')[0];
+  let equipo = ok.headers.get('set-cookie').split(';')[0];
   const me = await (await (await import('../handlers/me.js')).GET(req('/api/me', { cookie: equipo }))).json();
   assert.equal(me.role, 'equipo');
   assert.equal(me.user.nombre, 'Quique de la Cierva');
@@ -355,6 +355,9 @@ test('usuarios del equipo: alta con email de acceso, login con email y permisos 
   const cambio = await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: equipo, body: { op: 'mi-clave', actual: r.password, nueva: 'nuevaclave1' } }));
   assert.equal(cambio.status, 200);
   assert.ok(cambio.headers.get('set-cookie')); // quien la cambia sigue dentro con una cookie nueva
+  const vieja = equipo;
+  equipo = cambio.headers.get('set-cookie').split(';')[0];
+  assert.equal((await (await import('../handlers/me.js')).GET(req('/api/me', { cookie: equipo }))).status, 200);
   assert.equal((await doLogin(req('/api/login', { method: 'POST', body: { email: 'quique@example.com', password: 'nuevaclave1' } }))).status, 200);
   // Una sesión abierta antes del cambio de contraseña deja de valer
   {
@@ -364,7 +367,7 @@ test('usuarios del equipo: alta con email de acceso, login con email y permisos 
     const antes = q.sesionesDesde;
     q.sesionesDesde = Math.floor(Date.now() / 1000) + 60;
     await saveUsers(us);
-    assert.equal((await (await import('../handlers/me.js')).GET(req('/api/me', { cookie: equipo }))).status, 401);
+    assert.equal((await (await import('../handlers/me.js')).GET(req('/api/me', { cookie: vieja }))).status, 401);
     const us2 = await listUsers({ fresh: true });
     us2.find((u) => u.email === 'quique@example.com').sesionesDesde = antes;
     await saveUsers(us2);
