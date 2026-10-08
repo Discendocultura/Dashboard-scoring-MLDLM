@@ -14,6 +14,7 @@ import { cicloDeContactos, textoDias } from './ciclo.js';
 import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoEntregable, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
 import { alertasCarrito } from './alertas.js';
+import { leerLeads, guardarLeads, borrarCopias } from './cache-leads.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
@@ -157,6 +158,7 @@ function progress(done, total, label) {
 
 // ---------- Login ----------
 function showLogin() {
+  borrarCopias(); // sin sesión, fuera la copia de los leads del navegador
   $('#app').hidden = true;
   $('#portal').hidden = true;
   $('#login').hidden = false;
@@ -264,6 +266,7 @@ $('#login-2fa').addEventListener('submit', async (e) => {
 
 $('#btn-logout').addEventListener('click', async () => {
   await api('/api/logout', { method: 'POST' }).catch(() => {});
+  await borrarCopias(); // la copia de los leads del navegador no se queda tras cerrar sesión
   state.leads = [];
   state.tareas = null;
   showLogin();
@@ -620,6 +623,18 @@ async function loadLeads() {
   let cursor = null;
   let total = null;
   $('#btn-reload').disabled = true;
+  // Copia de la última vez (navegador): se enseña al momento mientras se descargan los de ahora.
+  const clave = `${state.cliente || ''}:${launch.registroTag}`;
+  const copia = await leerLeads(clave);
+  if (token !== state.loadToken) return;
+  const hace = copia ? Math.max(1, Math.round((Date.now() - copia.at) / 60_000)) : 0;
+  const haceTxt = hace < 60 ? `${hace} min` : `${Math.round(hace / 60)} h`;
+  if (copia?.contacts.length) {
+    state.leads = copia.contacts.map((c) => enrich(c));
+    state.leadsDe = state.launchCode;
+    state.page = 0;
+    render();
+  }
   try {
     do {
       const qs = new URLSearchParams({ tag: launch.registroTag });
@@ -629,8 +644,9 @@ async function loadLeads() {
       out.push(...page.contacts);
       total = page.total ?? total;
       cursor = page.cursor;
-      progress(out.length, total, `Cargando leads… ${out.length}${total ? ` de ${total}` : ''}`);
+      progress(out.length, total, copia ? `Actualizando… ${out.length}${total ? ` de ${total}` : ''} (ves los datos de hace ${haceTxt})` : `Cargando leads… ${out.length}${total ? ` de ${total}` : ''}`);
     } while (cursor);
+    guardarLeads(clave, out);
     state.leads = out.map((c) => enrich(c));
     state.leadsDe = state.launchCode; // para el auditor: los leads cargados son de este lanzamiento
     state.page = 0;
@@ -638,7 +654,7 @@ async function loadLeads() {
     loadMeta(token);
     if (!out.length) notice(`No hay contactos con la etiqueta "${launch.registroTag}".`);
   } catch (e) {
-    notice(`No se pudieron cargar los leads: ${e.message}`, true);
+    notice(copia ? `No se pudieron actualizar los leads (${e.message}): ves los de hace ${haceTxt}.` : `No se pudieron cargar los leads: ${e.message}`, true);
   } finally {
     if (token === state.loadToken) {
       progress(null);
