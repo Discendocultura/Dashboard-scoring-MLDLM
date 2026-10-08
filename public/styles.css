@@ -1966,3 +1966,4 @@ body.en-inicio #dashboard, body.en-inicio #empty-state, body.en-inicio #sin-embu
 .sb-inicio + .sb-title { margin-top: 10px; }
 body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important; }
 @media (max-width: 1000px) { #meteo-dialog .of-fila .of-ventana { grid-column: 1 / -1 !important; } }
+.retro-lista { margin: 0; padding-left: 4px; list-style: none; display: grid; gap: 6px; }

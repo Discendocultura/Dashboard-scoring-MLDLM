@@ -24,3 +24,9 @@ test('anuncios de todos los lanzamientos: juntos por nombre, con coste por venta
   assert.equal(v.recomendacion, 'reutilizar');
   assert.equal(h.filas.find((f) => f.label === 'Carrusel').recomendacion, 'revisar');
 });
+
+test('anuncios: sin ninguna venta no se marca nada para revisar', async () => {
+  const { historicoAnuncios } = await import('../public/js/metrics.js');
+  const h = historicoAnuncios([{ code: 'a', nombre: 'A', filas: [{ id: '1', label: '1', leads: 50, compras: 0, ingresos: 0, spend: null }] }]);
+  assert.equal(h.filas[0].recomendacion, '');
+});

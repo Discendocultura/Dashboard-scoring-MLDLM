@@ -625,7 +625,8 @@ export function historicoAnuncios(porLanzamiento) {
   const convMedia = tot.leads ? tot.compras / tot.leads : 0;
   for (const f of filas) {
     const mejor = f.roas != null && roasMedio ? f.roas >= roasMedio * 1.2 : f.conversion >= convMedia * 1.2;
-    const peor = f.roas != null ? f.roas < 1 || (roasMedio && f.roas <= roasMedio * 0.6) : f.leads >= 30 && f.conversion <= convMedia * 0.5;
+    // Sin ventas en ningún anuncio todavía no hay con qué comparar: ni «reutilizar» ni «revisar».
+    const peor = f.roas != null ? f.roas < 1 || (roasMedio && f.roas <= roasMedio * 0.6) : convMedia > 0 && f.leads >= 30 && f.conversion <= convMedia * 0.5;
     f.recomendacion = f.compras >= 2 && mejor ? 'reutilizar' : peor && (f.spend || f.leads >= 30) ? 'revisar' : '';
   }
   filas.sort((a, b) => (b.compras - a.compras) || ((b.roas ?? 0) - (a.roas ?? 0)) || (b.leads - a.leads));

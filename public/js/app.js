@@ -15,6 +15,7 @@ import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusM
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
 import { alertasCarrito } from './alertas.js';
 import { BLOQUES, pesosDe, proponerPesos } from './pesos.js';
+import { retrospectiva } from './retrospectiva.js';
 import { leerLeads, guardarLeads, borrarCopias } from './cache-leads.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
@@ -895,6 +896,51 @@ function currentMetrics() {
   return computeMetrics(state.leads, launch, { metaSpend: state.meta?.configured && !state.meta.error ? state.meta.total : null });
 }
 
+// Retrospectiva al cerrar el carrito: frente al lanzamiento anterior del embudo y con los bonus; sus
+// aprendizajes se pueden pasar como tareas al siguiente lanzamiento.
+const lanzDelEmbudo = (launch) => launchesSorted().filter(([, l]) => embudoDeLanz(l) === embudoDeLanz(launch) && l.inicioCaptacion).sort((a, b) => a[1].inicioCaptacion.localeCompare(b[1].inicioCaptacion));
+async function renderRetrospectiva(m, launch) {
+  const box = $('#retro-l');
+  const code = state.launchCode;
+  const cierre = String(launch.cierreCarrito || '').slice(0, 10);
+  if (!cierre || cierre >= today()) { box.innerHTML = `<p class="muted">Aparecerá al cerrar el carrito${cierre ? ` (el ${esc(dayFmt.format(new Date(`${cierre}T12:00:00Z`)))})` : ''}: cómo fue frente al lanzamiento anterior y qué cambiar en el siguiente.</p>`; return; }
+  const lista = lanzDelEmbudo(launch);
+  const i = lista.findIndex(([c]) => c === code);
+  const prev = i > 0 ? lista[i - 1] : null;
+  const next = i >= 0 && i < lista.length - 1 ? lista[i + 1] : null;
+  const vpd = launch.compraDateField ? ventasPorDia(state.leads, launch) : null;
+  const bonus = launch.oferta?.bonus?.length && vpd ? analizarOferta(launch, vpd).bonus : [];
+  const pintar = (mPrev) => {
+    if (state.launchCode !== code) return;
+    const r = retrospectiva(m, mPrev, { nombrePrev: prev?.[1].name || '', bonus });
+    const fmt = (f, v) => (v == null ? '–' : f.tipo === 'eur' ? eur(v) : f.tipo === 'pct' ? pctE(v) : f.tipo === 'x' ? `${v.toFixed(2).replace('.', ',')}x` : v.toLocaleString('es-ES'));
+    const icono = { mejor: '🟢', peor: '🔴', igual: '⚪' };
+    const conTarea = r.aprendizajes.filter((a) => a.tarea);
+    box.innerHTML = `${r.conAnterior ? `<div class="table-scroll"><table class="metric-table"><thead><tr><th></th><th class="num">Este</th><th class="num">${esc(prev[1].name)}</th><th class="num">Cambio</th></tr></thead><tbody>
+      ${r.filas.map((f) => `<tr><td>${icono[f.tono]} ${esc(f.label)}</td><td class="num"><strong>${fmt(f, f.actual)}</strong></td><td class="num">${fmt(f, f.anterior)}</td><td class="num">${f.cambio == null ? '–' : `${f.cambio > 0 ? '+' : ''}${Math.round(f.cambio * 100)} %`}</td></tr>`).join('')}
+      </tbody></table></div>` : '<p class="muted small">Es el primer lanzamiento de este embudo: sin uno anterior con el que comparar.</p>'}
+      <h3 class="of-h3">Aprendizajes</h3>${r.aprendizajes.length ? `<ul class="retro-lista">${r.aprendizajes.map((a) => `<li>${icono[a.tono]} ${esc(a.texto)}${a.tarea ? `<br><span class="muted small">→ Tarea: ${esc(a.tarea.titulo)}</span>` : ''}</li>`).join('')}</ul>` : '<p class="muted small">Nada que destacar: resultados parecidos al anterior.</p>'}
+      ${conTarea.length && puedeTareas() ? (next ? `<p class="row"><button type="button" class="btn primary" data-retro-pasar="${esc(next[0])}">Pasar ${conTarea.length} tarea${conTarea.length === 1 ? '' : 's'} a «${esc(next[1].name)}»</button> <span class="muted small" id="retro-estado"></span></p>` : '<p class="muted small">Cuando crees el siguiente lanzamiento de este embudo, vuelve aquí para pasarle estas tareas a su planificación.</p>') : ''}`;
+    box.dataset.tareas = JSON.stringify(conTarea.map((a) => ({ ...a.tarea, clave: `retro:${code}:${a.id}` })));
+  };
+  pintar(null);
+  if (!prev) return;
+  try { pintar(await loadLaunchMetrics(prev[0])); } catch { /* sin el anterior: solo los bonus */ }
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-retro-pasar]');
+  if (!b) return;
+  const destino = b.dataset.retroPasar;
+  const tareas = JSON.parse($('#retro-l').dataset.tareas || '[]');
+  b.disabled = true;
+  try {
+    const existentes = new Set(((await api(`/api/tareas?l=${encodeURIComponent(destino)}`)).tareas || []).map((t) => t.clave).filter(Boolean));
+    const nuevas = tareas.filter((t) => !existentes.has(t.clave));
+    for (const t of nuevas) await api('/api/tareas', { method: 'POST', body: { l: destino, op: 'crear', avisar: false, tarea: t } });
+    $('#retro-estado').textContent = nuevas.length ? `${nuevas.length} tarea${nuevas.length === 1 ? '' : 's'} creada${nuevas.length === 1 ? '' : 's'} en «${state.config.launches[destino]?.name || destino}» ✓` : 'Ya estaban todas en el siguiente lanzamiento.';
+  } catch (ex) { $('#retro-estado').textContent = ex.message; b.disabled = false; }
+});
+
 // Casi compradoras: las que estuvieron cerca (muy calientes, calientes o VIP) y no compraron. Se pueden
 // etiquetar en GHL (`<código>_casi_compra`) para lanzarles el downsell o avisarlas en el siguiente lanzamiento.
 const esCasiCompradora = (l) => !l.s.compra && (l.s.vip || ['muy-caliente', 'caliente'].includes(l.estado?.id));
@@ -1013,6 +1059,7 @@ function renderMetrics() {
 
   renderEconomics(m, launch);
   renderFacturacionTotal(m);
+  renderRetrospectiva(m, launch);
   renderCasiCompradoras(launch);
   // Métricas → Downsell abierta: el meteórico y su conversión de ESTE lanzamiento (y con sus leads).
   if (!$('#view-metricas [data-msub="meteorico"]').hidden) renderMeteoLanz();

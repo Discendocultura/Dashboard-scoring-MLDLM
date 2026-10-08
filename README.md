@@ -567,6 +567,13 @@ npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)
 - **Conversión del downsell** (Métricas → Downsell): de las registradas que no compraron el lanzamiento, cuántas compraron el meteórico; y cuántas compradoras ya eran clientas o venían de fuera.
 - **Leads al momento**: el navegador guarda una copia de los leads de cada lanzamiento (24 h) y la enseña al abrir mientras descarga los de ahora. Se borra al cerrar sesión.
 
+## Aprender de cada lanzamiento
+
+- **Retrospectiva** (Métricas → Resumen, al cerrar el carrito): el lanzamiento frente al anterior del mismo embudo (registros, coste por registro, asistencia, VIP, conversión, ventas, facturación y ROAS) y los aprendizajes, incluidos los bonus que funcionaron o no. Cada aprendizaje propone una tarea; con un botón se pasan a la planificación del siguiente lanzamiento (sin duplicarlas).
+- **Casi compradoras** (Métricas → Ventas): muy calientes, calientes y VIP que no compraron. Un botón les pone la etiqueta `<código>_casi_compra` en GHL (con confirmación) para el workflow del downsell o del siguiente lanzamiento.
+- **La puntuación aprende** (Métricas → Vídeos y conversión → «Qué predice la compra»): con al menos 10 ventas propone cuánto pesan las clases, la VIP y el directo o la grabación sobre los 100 puntos, según lo que separó a las que compraron. Al aplicarlo cambian la puntuación y el estado de los leads de todos los lanzamientos del cliente; se puede volver a los de serie (30/30/40).
+- **Anuncios de todos los lanzamientos** (Análisis → Avatar y anuncios): anuncios, conjuntos o campañas juntados por nombre en todos los lanzamientos del embudo, con sus ventas, inversión, coste por venta y ROAS, y si conviene reutilizarlos o revisarlos.
+
 ## Sesiones
 
 Al cambiar o regenerar la contraseña de una persona se cierran sus sesiones abiertas en otros dispositivos (quien cambia la suya sigue dentro). Desactivar a alguien le quita el acceso al momento.
