@@ -1967,3 +1967,14 @@ body.en-inicio #dashboard, body.en-inicio #empty-state, body.en-inicio #sin-embu
 body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important; }
 @media (max-width: 1000px) { #meteo-dialog .of-fila .of-ventana { grid-column: 1 / -1 !important; } }
 .retro-lista { margin: 0; padding-left: 4px; list-style: none; display: grid; gap: 6px; }
+
+/* Recursos de la preclase (configuración del lanzamiento y nuevo embudo) */
+.rec-cfg { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: var(--surface); }
+.rec-cfg > .chk { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 14px; }
+.rec-cfg > .chk input, .emb-recursos .chk input { width: auto; }
+.rec-cfg .grid2 { margin-top: 8px; }
+.rec-etapas { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+.rec-etapa { border: 1px solid var(--border-strong); border-radius: 999px; padding: 3px 10px; background: var(--surface-2); }
+.rec-etapa small { color: var(--muted); }
+.emb-recursos { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
+.emb-recursos .chk { display: flex; gap: 6px; align-items: center; font-size: 14px; }

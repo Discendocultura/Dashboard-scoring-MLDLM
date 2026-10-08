@@ -895,7 +895,7 @@
             </div>
           </section>
           <section class="cfg-sec" data-sec="4" data-preclase>
-            <header class="cfg-sec-head"><span class="cfg-sec-num">4</span><div><h3>Etapa 2 · Clases</h3><p>Vídeos y textos de las clases. Si dejas un texto vacío, se queda el del diseño.</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">4</span><div><h3>Clases</h3><p>Vídeos y textos de las clases (cada clase es una etapa). Si dejas un texto vacío, se queda el del diseño.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field" data-clase="1"><span>Clase 1 · vídeo de Vimeo</span><input id="cfg-clase1-url" type="url" placeholder="https://vimeo.com/123/abc"></label>
               <label class="field" data-clase="2"><span>Clase 2 · vídeo de Vimeo</span><input id="cfg-clase2-url" type="url"></label>
@@ -910,8 +910,46 @@
             <label class="field" data-clase="3"><span>Clase 3 · descripción <small>(<code>clase3-descripcion</code>)</small></span><textarea data-texto="clase3-descripcion" rows="2"></textarea></label>
             </div>
           </section>
+          <section class="cfg-sec" data-sec="4b" data-preclase id="cfg-rec-sec">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🧩</span><div><h3>Recursos de la preclase</h3><p>Además de las clases: música, test, votación y descargable. Activa los que haya en este lanzamiento; la página los coloca y los desbloquea sola.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="rec-cfg" data-rec="musica">
+              <label class="chk"><input type="checkbox" id="cfg-rec-musica-on"> <strong>🎵 Música o audio</strong> <small class="muted">debajo de una clase; se desbloquea al ver el 75 % de esa clase</small></label>
+              <div class="grid2">
+                <label class="field" data-rec-campo><span>Nombre <small>(p. ej. «Meditación para tu ciclo»)</small></span><input id="cfg-rec-musica-nombre" maxlength="80"></label>
+                <label class="field" data-rec-campo><span>Archivo MP3 · enlace <small>(súbelo a Medios de GHL y copia su enlace)</small></span><input id="cfg-rec-musica-url" type="url" placeholder="https://storage.googleapis.com/…/musica.mp3"></label>
+                <label class="field" data-rec-campo><span>Va debajo de</span><select id="cfg-rec-musica-tras" data-rec-clases></select></label>
+                <label class="field" data-rec-campo><span>Texto corto <small>(opcional)</small></span><input id="cfg-rec-musica-texto" maxlength="200" placeholder="Escúchala con auriculares, mejor tumbada."></label>
+              </div>
+            </div>
+            <div class="rec-cfg" data-rec="test">
+              <label class="chk"><input type="checkbox" id="cfg-rec-test-on"> <strong>🧭 Test (GHL)</strong> <small class="muted">botón a un test de GHL; se desbloquea en su fecha y cuenta como hecho con su etiqueta</small></label>
+              <div class="grid2">
+                <label class="field" data-rec-campo><span>Nombre del test</span><input id="cfg-rec-test-nombre" maxlength="120" placeholder="Autodiagnóstico: ¿por qué no te quedas embarazada?"></label>
+                <label class="field" data-rec-campo><span>Enlace del test <small>(se rellena solo con el email y el nombre)</small></span><input id="cfg-rec-test-url" type="url" placeholder="https://…/survey/…"></label>
+                <label class="field" data-rec-campo><span>Etiqueta al completarlo <small>(la que pone el workflow de GHL al terminar el test)</small></span><input id="cfg-rec-test-tag" list="tag-list" placeholder="Busca la etiqueta…"></label>
+                <label class="field" data-rec-campo><span>Test · se desbloquea</span><input id="cfg-rec-test-at" type="datetime-local"></label>
+              </div>
+            </div>
+            <div class="rec-cfg" data-rec="votacion">
+              <label class="chk"><input type="checkbox" id="cfg-rec-votacion-on"> <strong>🗳️ Votación</strong> <small class="muted">debajo de una clase; se abre al ver el 75 % y, al votar, ven los % de todas</small></label>
+              <div class="grid2">
+                <label class="field" data-rec-campo><span>Pregunta</span><input id="cfg-rec-votacion-pregunta" maxlength="200" placeholder="¿Qué te ha sorprendido más de la clase?"></label>
+                <label class="field" data-rec-campo><span>Va debajo de</span><select id="cfg-rec-votacion-tras" data-rec-clases></select></label>
+                <label class="field full" data-rec-campo><span>Opciones <small>(una por línea, de 2 a 8; no cambies su orden cuando ya haya votos)</small></span><textarea id="cfg-rec-votacion-opciones" rows="4"></textarea></label>
+              </div>
+            </div>
+            <div class="rec-cfg" data-rec="descargable">
+              <label class="chk"><input type="checkbox" id="cfg-rec-descargable-on"> <strong>📄 Recurso descargable</strong> <small class="muted">PDF, guía, plantilla…; se mide quién lo abre</small></label>
+              <div class="grid2">
+                <label class="field" data-rec-campo><span>Nombre</span><input id="cfg-rec-descargable-nombre" maxlength="120" placeholder="Guía de analíticas"></label>
+                <label class="field" data-rec-campo><span>Enlace</span><input id="cfg-rec-descargable-url" type="url"></label>
+                <label class="field" data-rec-campo><span>Se desbloquea <small>(vacío = desde el principio)</small></span><input id="cfg-rec-descargable-at" type="datetime-local"></label>
+              </div>
+            </div>
+            <div id="cfg-rec-etapas" class="rec-etapas"></div>
+          </section>
           <section class="cfg-sec" data-sec="5">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">5</span><div><h3>Etapa 3 · El directo</h3><p>Textos del bloque del directo. Si dejas uno vacío, se queda el del diseño. El aviso «quédate hasta el final» solo se muestra si escribes algo.</p></div></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">5</span><div><h3>El directo (última etapa)</h3><p>Textos del bloque del directo. Si dejas uno vacío, se queda el del diseño. El aviso «quédate hasta el final» solo se muestra si escribes algo.</p></div></header>
             <div class="grid2">
               <label class="field"><span>Etapa 3 · titular <small>(<code>etapa3-titulo</code>)</small></span><input data-texto="etapa3-titulo" placeholder="El directo: tu siguiente paso"></label>
               <label class="field"><span>Etapa 3 · subtítulo <small>(<code>etapa3-subtitulo</code>)</small></span><textarea data-texto="etapa3-subtitulo" rows="2"></textarea></label>
@@ -1187,6 +1225,14 @@
             <select id="emb-clases"><option value="1">1 clase</option><option value="2" selected>2 clases</option><option value="3">3 clases</option></select></label>
           <label class="field"><span>Entrada VIP</span>
             <select id="emb-vip"><option value="si">Sí, con entrada VIP</option><option value="no">No, sin entrada VIP</option></select></label>
+        </div>
+        <div class="field" id="emb-recursos-box"><span>Recursos de la preclase además de las clases <small>(las fechas, enlaces y textos se ponen luego en la configuración de cada lanzamiento)</small></span>
+          <div class="emb-recursos">
+            <label class="chk"><input type="checkbox" name="emb-recurso" value="musica"> 🎵 Música o audio <small class="muted">(debajo de una clase)</small></label>
+            <label class="chk"><input type="checkbox" name="emb-recurso" value="test"> 🧭 Test de GHL</label>
+            <label class="chk"><input type="checkbox" name="emb-recurso" value="votacion"> 🗳️ Votación <small class="muted">(debajo de una clase)</small></label>
+            <label class="chk"><input type="checkbox" name="emb-recurso" value="descargable"> 📄 Recurso descargable</label>
+          </div>
         </div>
         <label class="field" id="emb-vip-base-box"><span>Contador de VIP · empieza en <small>(la página de la entrada VIP muestra este número + las VIP vendidas; cada lanzamiento lo puede cambiar en su configuración)</small></span>
           <input id="emb-vip-base" inputmode="numeric" placeholder="0"></label>

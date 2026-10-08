@@ -2550,6 +2550,8 @@ function openConfig(code) {
       vipContadorBase: embudoInfo(state.embudo)?.vipContadorBase ?? last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, clase3Url: last.clase3Url, textos: last.textos,
+      // Los recursos de la preclase se heredan sin fechas; los que pidió el embudo al crearlo, activos.
+      recursosPre: heredarRecursos(last.recursosPre, embudoInfo(state.embudo)?.recursos),
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
       inicioCaptacion: new Date().toISOString().slice(0, 10),
     };
@@ -2617,6 +2619,7 @@ function openConfig(code) {
   renderSnapshotBox();
   renderVideosCfg(l);
   pintarPrelanzamientoCfg(l);
+  pintarRecursosCfg(l.recursosPre);
   checkLaunchTags();
   renderGuia();
   if (!dlg.open) dlg.showModal();
@@ -2744,6 +2747,13 @@ const CICLO = [
   { id: 'cfg-vip-url', c: 'revisar', label: 'Entrada VIP · pago' },
   { id: 'cfg-vip-base', c: 'revisar', label: 'Contador VIP' },
   { id: 'cfg-calendario-url', c: 'revisar', label: 'Añadir al calendario', opcional: true },
+  { id: 'cfg-rec-musica-url', c: 'revisar', label: 'Música · MP3' },
+  { id: 'cfg-rec-test-url', c: 'revisar', label: 'Test · enlace' },
+  { id: 'cfg-rec-test-tag', c: 'revisar', label: 'Test · etiqueta al completarlo' },
+  { id: 'cfg-rec-test-at', c: 'nuevo', label: 'Test · desbloqueo' },
+  { id: 'cfg-rec-votacion-pregunta', c: 'revisar', label: 'Votación · pregunta' },
+  { id: 'cfg-rec-votacion-opciones', c: 'revisar', label: 'Votación · opciones' },
+  { id: 'cfg-rec-descargable-url', c: 'revisar', label: 'Descargable · enlace' },
   { id: 'cfg-vip', c: 'fijo' },
   { id: 'cfg-compra', c: 'fijo' },
   { id: 'cfg-llamada-tag', c: 'fijo' },
@@ -2842,6 +2852,63 @@ $('#guia-check').addEventListener('click', (e) => {
   if (b) goToField(b.dataset.goto);
 });
 
+// ---------- Recursos de la preclase (música, test, votación, descargable) ----------
+function nClasesForm() {
+  const emb = embudoInfo(editingCode ? embudoDeLanz(state.config.launches[editingCode]) : state.embudo) || {};
+  return emb.preclase === false ? 0 : [1, 2, 3].includes(emb.clases) ? emb.clases : 2;
+}
+function heredarRecursos(prev, tipos) {
+  const r = sanitizeRecursos(prev, 3);
+  for (const t of tipos || []) if (r[t]) r[t].activo = true;
+  r.test.at = '';
+  r.descargable.at = '';
+  return r;
+}
+function pintarRecursosCfg(recursosPre) {
+  const nc = Math.max(1, nClasesForm());
+  const r = sanitizeRecursos(recursosPre, nc);
+  $$('#cfg-rec-sec [data-rec-clases]').forEach((sel) => { sel.innerHTML = Array.from({ length: nc }, (_, i) => `<option value="clase${i + 1}">Clase ${i + 1}</option>`).join(''); });
+  for (const t of RECURSOS_EXTRA) $(`#cfg-rec-${t}-on`).checked = r[t].activo;
+  $('#cfg-rec-musica-nombre').value = r.musica.nombre;
+  $('#cfg-rec-musica-url').value = r.musica.url;
+  $('#cfg-rec-musica-tras').value = r.musica.tras;
+  $('#cfg-rec-musica-texto').value = r.musica.texto;
+  $('#cfg-rec-test-nombre').value = r.test.nombre;
+  $('#cfg-rec-test-url').value = r.test.url;
+  $('#cfg-rec-test-tag').value = r.test.tag;
+  $('#cfg-rec-test-at').value = r.test.at;
+  $('#cfg-rec-votacion-pregunta').value = r.votacion.pregunta;
+  $('#cfg-rec-votacion-tras').value = r.votacion.tras;
+  $('#cfg-rec-votacion-opciones').value = r.votacion.opciones.map((o) => o.texto).join('\n');
+  $('#cfg-rec-descargable-nombre').value = r.descargable.nombre;
+  $('#cfg-rec-descargable-url').value = r.descargable.url;
+  $('#cfg-rec-descargable-at').value = r.descargable.at;
+  pintarRecursosVis();
+}
+// Las opciones de la votación van por posición (o1, o2…): los votos guardan esa posición.
+function leerRecursosCfg() {
+  return sanitizeRecursos({
+    musica: { activo: $('#cfg-rec-musica-on').checked, nombre: $('#cfg-rec-musica-nombre').value, url: $('#cfg-rec-musica-url').value, tras: $('#cfg-rec-musica-tras').value, texto: $('#cfg-rec-musica-texto').value },
+    test: { activo: $('#cfg-rec-test-on').checked, nombre: $('#cfg-rec-test-nombre').value, url: $('#cfg-rec-test-url').value, tag: $('#cfg-rec-test-tag').value, at: $('#cfg-rec-test-at').value },
+    votacion: { activo: $('#cfg-rec-votacion-on').checked, pregunta: $('#cfg-rec-votacion-pregunta').value, opciones: $('#cfg-rec-votacion-opciones').value, tras: $('#cfg-rec-votacion-tras').value },
+    descargable: { activo: $('#cfg-rec-descargable-on').checked, nombre: $('#cfg-rec-descargable-nombre').value, url: $('#cfg-rec-descargable-url').value, at: $('#cfg-rec-descargable-at').value },
+  }, Math.max(1, nClasesForm()));
+}
+// Campos de cada recurso solo si está activo, y el orden de las etapas tal y como lo verá la lead.
+function pintarRecursosVis() {
+  for (const t of RECURSOS_EXTRA) $$(`#cfg-rec-sec [data-rec="${t}"] [data-rec-campo]`).forEach((el) => { el.hidden = !$(`#cfg-rec-${t}-on`).checked; });
+  const nc = nClasesForm();
+  const rec = leerRecursosCfg();
+  const sim = { encuestaTag: $('#cfg-encuesta-tag').value.trim(), clase1At: $('#cfg-clase1-at').value, clase2At: $('#cfg-clase2-at').value, clase3At: $('#cfg-clase3-at').value, recursosPre: rec };
+  const dentro = (id) => ['musica', 'votacion'].filter((t) => tieneRecurso(sim, t) && rec[t].tras === id).map((t) => (t === 'musica' ? '🎵' : '🗳️')).join('');
+  const faltan = RECURSOS_EXTRA.filter((t) => rec[t].activo && !tieneRecurso(sim, t));
+  $('#cfg-rec-etapas').innerHTML = `<strong>Etapas de la página:</strong> ${etapasPreclase(sim, nc).map((e) => `<span class="rec-etapa">${e.n} · ${esc(e.label)}${dentro(e.id) ? ` + ${dentro(e.id)}` : ''}</span>`).join('')}`
+    + (faltan.length ? `<p class="muted small">Sin completar (no salen en la página): ${faltan.map((t) => TIPOS_RECURSO.find((x) => x.id === t).label).join(', ')}. ${faltan.includes('votacion') ? 'La votación necesita pregunta y al menos 2 opciones.' : ''}</p>` : '');
+}
+$('#cfg-rec-sec').addEventListener('input', pintarRecursosVis);
+$('#cfg-rec-sec').addEventListener('change', () => { pintarRecursosVis(); renderGuia(); });
+['#cfg-clase1-at', '#cfg-clase2-at', '#cfg-clase3-at', '#cfg-encuesta-tag'].forEach((sel) => $(sel).addEventListener('change', pintarRecursosVis));
+
 function readForm() {
   const code = $('#cfg-code').value.trim().toLowerCase();
   if (!LAUNCH_CODE_RE.test(code)) throw new Error('El código solo puede tener minúsculas, números y guiones (2-24 caracteres).');
@@ -2905,6 +2972,7 @@ function readForm() {
       emailFiltro: $('#cfg-email-filtro').value.trim(),
       pago: leerPago('cfg'),
       oferta: leerOfertaEditor(),
+      recursosPre: leerRecursosCfg(),
     },
   };
 }
@@ -6998,15 +7066,17 @@ const embPestanas = () => $$('#emb-pestanas input:checked').map((i) => i.value);
 // Clases del prelanzamiento y entrada VIP: solo en los embudos de lanzamientos (sin plantilla elegida).
 function pintarEmbPrelanz() {
   $('#emb-prelanz').hidden = embTipo() !== 'lanzamientos' || Boolean(!embEdit && $('#emb-plantilla').value);
+  pintarEmbClases();
 }
 const embPrelanz = () => (embTipo() === 'lanzamientos' ? {
   preclase: $('#emb-preclase').value === 'si', clases: Number($('#emb-clases').value), vip: $('#emb-vip').value === 'si',
+  recursos: $('#emb-preclase').value === 'si' ? $$('input[name="emb-recurso"]:checked').map((i) => i.value) : [],
   vipContadorBase: Math.max(0, Math.floor(Number($('#emb-vip-base').value.replace(/\./g, '')) || 0)),
 } : {});
 const pintarEmbVipBase = () => { $('#emb-vip-base-box').hidden = embTipo() !== 'lanzamientos' || $('#emb-vip').value !== 'si'; };
 $('#emb-vip').addEventListener('change', pintarEmbVipBase);
 // Sin área preclase no hay clases: se oculta el número de clases.
-const pintarEmbClases = () => { $('#emb-clases-box').hidden = $('#emb-preclase').value === 'no'; };
+const pintarEmbClases = () => { $('#emb-clases-box').hidden = $('#emb-preclase').value === 'no'; $('#emb-recursos-box').hidden = $('#emb-preclase').value === 'no' || $('#emb-prelanz').hidden; };
 $('#emb-preclase').addEventListener('change', () => { pintarEmbClases(); pintarEmbGuia(); });
 function pintarEmbPestanas(activas) {
   pintarEmbPrelanz();
@@ -7018,8 +7088,20 @@ function pintarEmbPestanas(activas) {
   pintarEmbGuia();
 }
 function pintarEmbGuia() {
-  $('#emb-guia').innerHTML = guiaPasosHtml(guiaEmbudo(embTipo(), embPestanas(), embFormato(), embSubtipo(), { preclase: $('#emb-preclase').value !== 'no' }));
+  const pasos = guiaEmbudo(embTipo(), embPestanas(), embFormato(), embSubtipo(), { preclase: $('#emb-preclase').value !== 'no' });
+  const rec = embTipo() === 'lanzamientos' && $('#emb-preclase').value !== 'no' ? $$('input[name="emb-recurso"]:checked').map((i) => i.value) : [];
+  if (rec.length) {
+    pasos.push({ titulo: `${pasos.length + 1} · Recursos de la preclase`, pasos: [
+      ...(rec.includes('musica') ? ['<strong>Música:</strong> sube el MP3 a GHL → <em>Medios</em> y copia su enlace (va en Configuración → Preclase).'] : []),
+      ...(rec.includes('test') ? ['<strong>Test:</strong> crea el test en GHL y un <strong>workflow</strong> que, al enviarlo, ponga una etiqueta (p. ej. <code>autodiagnostico-hecho</code>). Esa etiqueta y la fecha de desbloqueo van en Configuración → Preclase.'] : []),
+      ...(rec.includes('votacion') ? ['<strong>Votación:</strong> la hace el dashboard, no hace falta nada en GHL; escribe la pregunta y las opciones en Configuración → Preclase.'] : []),
+      ...(rec.includes('descargable') ? ['<strong>Descargable:</strong> sube el PDF a GHL → <em>Medios</em> (o a Drive) y copia su enlace.'] : []),
+      'En la página preclase pega los bloques de <em>Configuración → Códigos</em> (música, test, votación y etapas).',
+    ] });
+  }
+  $('#emb-guia').innerHTML = guiaPasosHtml(pasos);
 }
+$('#emb-recursos-box').addEventListener('change', pintarEmbGuia);
 // Plantillas de agencia (superadmin): se cargan al abrir «＋ Nuevo embudo».
 let plantillasAg = [];
 async function cargarPlantillas() {
@@ -7069,6 +7151,7 @@ function abrirNuevoEmbudo() {
   $('#emb-clases').value = '2';
   $('#emb-vip').value = 'si';
   $('#emb-vip-base').value = esPrincipal() ? '41' : '0';
+  $$('input[name="emb-recurso"]').forEach((i) => { i.checked = false; });
   pintarEmbClases();
   pintarEmbVipBase();
   $('#emb-nombre').value = '';
@@ -7093,6 +7176,7 @@ function abrirEditarEmbudo(id) {
   $('#emb-preclase').value = e.preclase === false ? 'no' : 'si';
   $('#emb-clases').value = String(e.clases || 2);
   $('#emb-vip').value = e.vip === false ? 'no' : 'si';
+  $$('input[name="emb-recurso"]').forEach((i) => { i.checked = (e.recursos || []).includes(i.value); });
   $('#emb-vip-base').value = String(e.vipContadorBase ?? (launchesSorted().find(([, x]) => embudoDeLanz(x) === id)?.[1].vipContadorBase ?? (esPrincipal() ? 41 : 0)));
   pintarEmbClases();
   pintarEmbVipBase();
