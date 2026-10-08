@@ -3,6 +3,7 @@
 import { conFraccionado, esSuscripcion, planDeTags, planesActivos, enlacePago } from './pago.js';
 import { MAX_VIDEOS, nVideos, sigDirecto, sigReplay, videosDe, videoVenta, clasesDe, conVip } from './videos.js';
 import { madridToEpoch } from './page.js';
+import { tieneRecurso, recursosDe, nivelMusica } from './recursos.js';
 
 // Señales que se guardan como etiquetas en GHL con el formato `<lanzamiento>_<señal>`,
 // p. ej. `nov26_clase1_50`. Así cada lanzamiento tiene su propio historial.
@@ -26,6 +27,9 @@ export const SIGNALS = [
   // Segmento de «casi compradoras» (muy calientes, calientes o VIP que no compraron) para el downsell
   // o el siguiente lanzamiento.
   'casi_compra',
+  // Recursos de la preclase (recursos.js): la música (la reprodujo, la escuchó al 50 % y al 90 %),
+  // la votación (votó) y el descargable (lo abrió). El test se sabe por su propia etiqueta de GHL.
+  'musica_play', 'musica_50', 'musica_90', 'voto', 'descarga',
 ];
 
 export const OUTCOMES = [
@@ -167,6 +171,9 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   // Llamada agendada: la etiqueta fija (sin contar a quien ya la tenía al crear el lanzamiento)
   // o el resultado «Llamada agendada» que marca la setter.
   s.llamada = (has(cfg.llamadaTag) && !s.llamada_previo) || s.res_llamada;
+  // Recursos de la preclase que tiene este lanzamiento (para la puntuación) y el test hecho (su etiqueta).
+  s.recursos = { musica: tieneRecurso(cfg, 'musica'), test: tieneRecurso(cfg, 'test'), votacion: tieneRecurso(cfg, 'votacion'), descargable: tieneRecurso(cfg, 'descargable') };
+  s.test = s.recursos.test && has(recursosDe(cfg).test.tag);
 
   // Compra: si hay "fecha de compra", manda la fecha (dentro del lanzamiento = de este lanzamiento);
   // si no, la foto de clientas anteriores.
@@ -230,8 +237,14 @@ export function puntosVideo(s, k) {
   return Math.max(live, replay) + (s[`${d}_click`] && !s[`${d}_asistio`] ? P.directoClick : 0);
 }
 
-// `pesos`: cuánto vale cada bloque sobre 100 (clases, vip, video); de serie 30 / 30 / 40.
-export function score(s, pesos = { clases: 30, vip: 30, video: 40 }) {
+// Pesos de serie de cada bloque sobre 100 (pesos.js los ajusta con las ventas). La música, el test y la
+// votación solo cuentan si el lanzamiento los tiene; si no, la puntuación se escala a 100 sin ellos.
+export const PESOS_SERIE = { clases: 20, musica: 5, test: 10, votacion: 5, vip: 25, video: 35 };
+// Lanzamientos sin música, test ni votación: el reparto de siempre (clases 30, VIP 30, vídeo 40).
+export const PESOS_CLASICOS = { clases: 30, musica: 0, test: 0, votacion: 0, vip: 30, video: 40 };
+export const pesosEfectivos = (aprendidos, recursos = {}) => aprendidos || (recursos.musica || recursos.test || recursos.votacion ? PESOS_SERIE : PESOS_CLASICOS);
+export function score(s, aprendidos = null) {
+  const pesos = pesosEfectivos(aprendidos, s.recursos);
   const P = POINTS;
   let pts = 0;
   // Clases del prelanzamiento: 30 puntos repartidos entre las que haya (15 cada una con 2 clases).
@@ -240,6 +253,10 @@ export function score(s, pesos = { clases: 30, vip: 30, video: 40 }) {
   for (const c of clases) ptsClases += ((P.clase[watched(s, c)] || 0) * 2) / clases.length;
   pts += (ptsClases * pesos.clases) / 30;
   if (s.vip) pts += pesos.vip;
+  const R = s.recursos || {};
+  if (R.musica) pts += nivelMusica(s) * pesos.musica;
+  if (R.test && s.test) pts += pesos.test;
+  if (R.votacion && s.voto) pts += pesos.votacion;
   // Vídeos del lanzamiento: con uno (webinar), lo visto de él. Con varios, la mitad por el mejor
   // y la mitad por la media (premia ver todos, sin hundir a quien solo ha podido ver uno).
   const n = s.nVideos || 1;
@@ -249,7 +266,8 @@ export function score(s, pesos = { clases: 30, vip: 30, video: 40 }) {
   pts += (ptsVideo * pesos.video) / 40;
   // Sin entrada VIP, sin área preclase o sin ninguna de las dos: se lleva a 100 para que los estados
   // (caliente…) valgan igual.
-  const max = (clases.length ? pesos.clases : 0) + (s.conVip === false ? 0 : pesos.vip) + pesos.video;
+  const max = (clases.length ? pesos.clases : 0) + (s.conVip === false ? 0 : pesos.vip) + pesos.video
+    + (R.musica ? pesos.musica : 0) + (R.test ? pesos.test : 0) + (R.votacion ? pesos.votacion : 0);
   if (max !== 100) pts = (pts * 100) / max;
   return Math.min(Math.round(pts), 100);
 }

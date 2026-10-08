@@ -14,7 +14,8 @@ import { cicloDeContactos, textoDias } from './ciclo.js';
 import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusMeteo, tipoEntregable, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
 import { alertasCarrito } from './alertas.js';
-import { BLOQUES, pesosDe, proponerPesos } from './pesos.js';
+import { BLOQUES, pesosDe, proponerPesos, pesosEfectivos } from './pesos.js';
+import { tieneRecurso, recursosDe, sanitizeRecursos, etapasPreclase, TIPOS_RECURSO, RECURSOS_EXTRA } from './recursos.js';
 import { retrospectiva } from './retrospectiva.js';
 import { leerLeads, guardarLeads, borrarCopias } from './cache-leads.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
@@ -1805,15 +1806,18 @@ function renderLift(m) {
 // separó a las que compraron de las que no en este lanzamiento.
 function renderPesos(launch) {
   const box = $('#pesos-propuesta');
-  const actuales = pesosDe(state.config);
+  const recursos = { musica: tieneRecurso(launch, 'musica'), test: tieneRecurso(launch, 'test'), votacion: tieneRecurso(launch, 'votacion') };
+  const actuales = pesosEfectivos(pesosDe(state.config), recursos);
   const deSerie = !state.config.pesosScore;
-  const p = proponerPesos(state.leads, { conClases: (launch.nClases ?? 2) > 0 && launch.preclase !== false, conVip: conVip(launch) });
-  const cab = `<h3 class="of-h3">La puntuación aprende de tus ventas</h3><p class="muted small">Cada lead se puntúa sobre 100 repartidos entre lo que hizo. Pesos ${deSerie ? 'de serie' : 'aprendidos'}: ${BLOQUES.map((b) => `${esc(b.label.toLowerCase())} <strong>${actuales[b.id]}</strong>`).join(' · ')}.</p>`;
+  const conClases = (launch.nClases ?? 2) > 0 && launch.preclase !== false;
+  const visibles = BLOQUES.filter((b) => (b.id !== 'clases' || conClases) && (b.id !== 'vip' || conVip(launch)) && (!['musica', 'test', 'votacion'].includes(b.id) || recursos[b.id]));
+  const p = proponerPesos(state.leads, { conClases, conVip: conVip(launch), recursos });
+  const cab = `<h3 class="of-h3">La puntuación aprende de tus ventas</h3><p class="muted small">Cada lead se puntúa sobre 100 repartidos entre lo que hizo. Pesos ${deSerie ? 'de serie' : 'aprendidos'}: ${visibles.map((b) => `${esc(b.label.toLowerCase())} <strong>${actuales[b.id]}</strong>`).join(' · ')}.</p>`;
   if (p.motivo) {
     box.innerHTML = `${cab}<p class="muted small">${esc(p.motivo)}</p>${!deSerie && puedeConfig() ? '<button type="button" class="btn ghost" data-pesos="serie">Volver a los de serie</button>' : ''}`;
     return;
   }
-  const igual = BLOQUES.every((b) => p.pesos[b.id] === actuales[b.id]);
+  const igual = p.detalle.every((d) => p.pesos[d.id] === actuales[d.id]);
   box.innerHTML = `${cab}
     <div class="table-scroll"><table class="metric-table"><thead><tr><th>Bloque</th><th class="num">Compran con la señal</th><th class="num">Sin ella</th><th class="num">Peso actual</th><th class="num">Propuesto</th></tr></thead><tbody>
     ${p.detalle.map((d) => `<tr><td>${esc(d.label)} <span class="muted small">· ${esc(d.senal)} (${d.con})</span>${d.poca ? ' <span class="muted small">· poca muestra: se queda igual</span>' : ''}</td><td class="num">${pctE(d.convCon)}</td><td class="num">${pctE(d.convSin)}</td><td class="num">${actuales[d.id]}</td><td class="num big">${p.pesos[d.id]}</td></tr>`).join('')}
@@ -1826,7 +1830,7 @@ $('#pesos-propuesta').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-pesos]');
   if (!b) return;
   const pesos = b.dataset.pesos === 'aplicar' ? JSON.parse($('#pesos-propuesta').dataset.propuesta || 'null') : null;
-  if (!window.confirm(pesos ? `¿Aplicar los pesos ${BLOQUES.map((x) => `${x.label.toLowerCase()} ${pesos[x.id]}`).join(', ')}? Cambia la puntuación de todos los leads de este cliente.` : '¿Volver a los pesos de serie (30 / 30 / 40)?')) return;
+  if (!window.confirm(pesos ? '¿Aplicar los pesos propuestos? Cambia la puntuación de todos los leads de este cliente.' : '¿Volver a los pesos de serie?')) return;
   b.disabled = true;
   try {
     const { config } = await api('/api/config', { method: 'POST', body: { op: 'pesos', pesos } });

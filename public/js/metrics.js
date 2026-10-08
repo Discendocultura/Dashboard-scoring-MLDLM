@@ -5,6 +5,7 @@ import {
 } from './scoring.js';
 import { tramoEdad, ORDEN_EDAD } from './encuesta.js';
 import { pesosDe } from './pesos.js';
+import { tieneRecurso } from './recursos.js';
 import { importeVenta, esSuscripcion, resumenPlanes } from './pago.js';
 import { videosDe, videoVenta, clasesDe, conVip } from './videos.js';
 
@@ -201,6 +202,11 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     ...clasesDe(launch).map((cl, i) => [`Vio ≥50% de la clase ${i + 1}`, (l) => watched(l.s, cl) >= 50]),
     ...(conVip(launch) ? [['Compró la VIP', (l) => l.s.vip]] : []),
     ...pruebasVideos,
+    // Recursos de la preclase (si el lanzamiento los tiene).
+    ...(tieneRecurso(launch, 'musica') ? [['Escuchó la música (≥50%)', (l) => l.s.musica_50 || l.s.musica_90]] : []),
+    ...(tieneRecurso(launch, 'test') ? [['Hizo el test', (l) => l.s.test]] : []),
+    ...(tieneRecurso(launch, 'votacion') ? [['Votó en la clase', (l) => l.s.voto]] : []),
+    ...(tieneRecurso(launch, 'descargable') ? [['Abrió el descargable', (l) => l.s.descarga]] : []),
     ['Tráfico templado', (l) => l.s.trafico === 'templado'],
     ['Contactada por WhatsApp', (l) => l.s.wa_enviado],
     ['Agendó llamada', (l) => l.s.llamada],
