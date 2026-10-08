@@ -227,23 +227,27 @@ export function puntosVideo(s, k) {
   return Math.max(live, replay) + (s[`${d}_click`] && !s[`${d}_asistio`] ? P.directoClick : 0);
 }
 
-export function score(s) {
+// `pesos`: cuánto vale cada bloque sobre 100 (clases, vip, video); de serie 30 / 30 / 40.
+export function score(s, pesos = { clases: 30, vip: 30, video: 40 }) {
   const P = POINTS;
   let pts = 0;
   // Clases del prelanzamiento: 30 puntos repartidos entre las que haya (15 cada una con 2 clases).
   const clases = s.clases || ['clase1', 'clase2'];
-  for (const c of clases) pts += ((P.clase[watched(s, c)] || 0) * 2) / clases.length;
-  if (s.vip) pts += P.vip;
+  let ptsClases = 0;
+  for (const c of clases) ptsClases += ((P.clase[watched(s, c)] || 0) * 2) / clases.length;
+  pts += (ptsClases * pesos.clases) / 30;
+  if (s.vip) pts += pesos.vip;
   // Vídeos del lanzamiento: con uno (webinar), lo visto de él. Con varios, la mitad por el mejor
   // y la mitad por la media (premia ver todos, sin hundir a quien solo ha podido ver uno).
   const n = s.nVideos || 1;
   const por = Array.from({ length: n }, (_, i) => Math.min(puntosVideo(s, i + 1), P.directoAsistio + P.directo60 + P.directoFinal));
   const media = por.reduce((a, b) => a + b, 0) / n;
-  pts += n === 1 ? puntosVideo(s, 1) : Math.round((Math.max(...por) + media) / 2);
-  // Sin entrada VIP (máximo 70), sin área preclase (máximo 70) o sin ninguna de las dos (máximo 40):
-  // se lleva a 100 para que los estados (caliente…) valgan igual.
-  const max = (clases.length ? 30 : 0) + (s.conVip === false ? 0 : P.vip) + 40;
-  if (max < 100) pts = (pts * 100) / max;
+  const ptsVideo = n === 1 ? puntosVideo(s, 1) : Math.round((Math.max(...por) + media) / 2);
+  pts += (ptsVideo * pesos.video) / 40;
+  // Sin entrada VIP, sin área preclase o sin ninguna de las dos: se lleva a 100 para que los estados
+  // (caliente…) valgan igual.
+  const max = (clases.length ? pesos.clases : 0) + (s.conVip === false ? 0 : pesos.vip) + pesos.video;
+  if (max !== 100) pts = (pts * 100) / max;
   return Math.min(Math.round(pts), 100);
 }
 

@@ -14,6 +14,7 @@ import { cicloDeContactos, textoDias } from './ciclo.js';
 import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusMeteo, tipoEntregable, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
 import { alertasCarrito } from './alertas.js';
+import { BLOQUES, pesosDe, proponerPesos } from './pesos.js';
 import { leerLeads, guardarLeads, borrarCopias } from './cache-leads.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
@@ -1697,7 +1698,44 @@ function renderLift(m) {
   $('#lift-table').innerHTML = `
     <thead><tr><th>Señal</th><th class="num">Conversión con la señal</th><th class="num">Sin la señal</th><th class="num">Multiplica por</th></tr></thead>
     <tbody>${rows.map((r) => `<tr><td>${r.label} <span class="muted">(${r.con})</span></td><td class="num">${pctOf(r.convCon * r.con, r.con)}</td><td class="num">${pctOf(r.convSin * r.sin, r.sin)}</td><td class="num big">${r.veces == null ? '–' : `${r.veces.toFixed(1)}x`}</td></tr>`).join('')}</tbody>`;
+  renderPesos(m.launch);
 }
+
+// La puntuación aprende: reparto de los 100 puntos entre clases, VIP y vídeo según lo que de verdad
+// separó a las que compraron de las que no en este lanzamiento.
+function renderPesos(launch) {
+  const box = $('#pesos-propuesta');
+  const actuales = pesosDe(state.config);
+  const deSerie = !state.config.pesosScore;
+  const p = proponerPesos(state.leads, { conClases: (launch.nClases ?? 2) > 0 && launch.preclase !== false, conVip: conVip(launch) });
+  const cab = `<h3 class="of-h3">La puntuación aprende de tus ventas</h3><p class="muted small">Cada lead se puntúa sobre 100 repartidos entre lo que hizo. Pesos ${deSerie ? 'de serie' : 'aprendidos'}: ${BLOQUES.map((b) => `${esc(b.label.toLowerCase())} <strong>${actuales[b.id]}</strong>`).join(' · ')}.</p>`;
+  if (p.motivo) {
+    box.innerHTML = `${cab}<p class="muted small">${esc(p.motivo)}</p>${!deSerie && puedeConfig() ? '<button type="button" class="btn ghost" data-pesos="serie">Volver a los de serie</button>' : ''}`;
+    return;
+  }
+  const igual = BLOQUES.every((b) => p.pesos[b.id] === actuales[b.id]);
+  box.innerHTML = `${cab}
+    <div class="table-scroll"><table class="metric-table"><thead><tr><th>Bloque</th><th class="num">Compran con la señal</th><th class="num">Sin ella</th><th class="num">Peso actual</th><th class="num">Propuesto</th></tr></thead><tbody>
+    ${p.detalle.map((d) => `<tr><td>${esc(d.label)} <span class="muted small">· ${esc(d.senal)} (${d.con})</span>${d.poca ? ' <span class="muted small">· poca muestra: se queda igual</span>' : ''}</td><td class="num">${pctE(d.convCon)}</td><td class="num">${pctE(d.convSin)}</td><td class="num">${actuales[d.id]}</td><td class="num big">${p.pesos[d.id]}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="muted small">Con ${p.ventas} ventas de este lanzamiento. Al aplicarlos cambian la puntuación y el estado (muy caliente, caliente…) de los leads de todos los lanzamientos de este cliente, y así el Setting hoy prioriza mejor.</p>
+    ${puedeConfig() ? `<div class="row">${igual ? '<span class="muted small">Ya usas estos pesos.</span>' : `<button type="button" class="btn primary" data-pesos="aplicar">Aplicar estos pesos</button>`}${!deSerie ? ' <button type="button" class="btn ghost" data-pesos="serie">Volver a los de serie</button>' : ''}</div>` : ''}`;
+  box.dataset.propuesta = JSON.stringify(p.pesos);
+}
+$('#pesos-propuesta').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-pesos]');
+  if (!b) return;
+  const pesos = b.dataset.pesos === 'aplicar' ? JSON.parse($('#pesos-propuesta').dataset.propuesta || 'null') : null;
+  if (!window.confirm(pesos ? `¿Aplicar los pesos ${BLOQUES.map((x) => `${x.label.toLowerCase()} ${pesos[x.id]}`).join(', ')}? Cambia la puntuación de todos los leads de este cliente.` : '¿Volver a los pesos de serie (30 / 30 / 40)?')) return;
+  b.disabled = true;
+  try {
+    const { config } = await api('/api/config', { method: 'POST', body: { op: 'pesos', pesos } });
+    state.config = config;
+    state.leads = state.leads.map((l) => enrich(l));
+    render();
+    notice(pesos ? 'Pesos aplicados: la puntuación de los leads ya los usa.' : 'Vuelves a los pesos de serie.');
+  } catch (ex) { notice(ex.message, true); b.disabled = false; }
+});
 
 // Reparto de las ventas entre tráfico frío y templado (suma 100%).
 function renderTraffic(m) {

@@ -51,6 +51,14 @@ export async function POST(request) {
       return json({ config, version: versionDe(config) });
     }
     const rol = await requireRole(request, { permiso: 'config' });
+    // Pesos de la puntuación (Métricas → Vídeos y conversión → «Qué predice la compra»). null = de serie.
+    if (body.op === 'pesos') {
+      const config = await reintentando(async () => {
+        const actual = await getConfig({ fresh: true });
+        return saveConfig({ ...actual, pesosScore: body.pesos ?? null }, { version: versionDe(actual), motivo: body.pesos ? 'Pesos de la puntuación' : 'Pesos de la puntuación de serie' });
+      });
+      return json({ config, version: versionDe(config) });
+    }
     // Objetivos y supuestos de la calculadora de un lanzamiento (pestaña «Objetivos y calculadora»).
     if (body.op === 'objetivos') {
       const code = String(body.l || '');

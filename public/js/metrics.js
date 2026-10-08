@@ -4,6 +4,7 @@ import {
   signalsFor, score, estadoFor, nextStepFor, waPhone, watched, ESTADOS, OUTCOMES, SNAPSHOT_TAGS, fotosPendientes,
 } from './scoring.js';
 import { tramoEdad, ORDEN_EDAD } from './encuesta.js';
+import { pesosDe } from './pesos.js';
 import { importeVenta, esSuscripcion, resumenPlanes } from './pago.js';
 import { videosDe, videoVenta, clasesDe, conVip } from './videos.js';
 
@@ -20,7 +21,7 @@ export function nextLaunchStart(config, code) {
 export function enrichLead(contact, code, config) {
   const launch = config.launches[code];
   const s = signalsFor(contact.tags, code, { ...launch, finVentas: nextLaunchStart(config, code) }, contact);
-  const pts = score(s);
+  const pts = score(s, pesosDe(config));
   return {
     ...contact,
     s,
