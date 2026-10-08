@@ -137,3 +137,14 @@ test('seguridad: 2FA obligatoria para admins y desactivar la contraseña general
   assert.equal((await call('/api/login', { method: 'POST', ip: '10.4.0.5', body: { password: 'admin' } })).status, 200);
   delete ENV.REACTIVAR_CONTRASENA_GENERAL;
 });
+
+test('acceso público: no cambia el nombre ni el móvil de un contacto que ya existe', async () => {
+  const ghl = await import('../lib/ghl.js');
+  await ghl.upsertContact({ email: 'victima@example.com', firstName: 'Ana', lastName: 'Real', phone: '+34600111222' });
+  const { ensureRegistered } = await import('../lib/access.js');
+  const r = await ensureRegistered({ registroTag: 'reg-prueba' }, { email: 'victima@example.com', name: 'Otro Nombre', phone: '699999999' });
+  assert.equal(r.status, 'signed_up_existing');
+  const c = await ghl.findContactByEmail('victima@example.com');
+  assert.equal(c.phone, '+34600111222');
+  assert.equal(c.firstName, 'Ana');
+});

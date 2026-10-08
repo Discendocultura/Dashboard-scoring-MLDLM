@@ -38,6 +38,8 @@ export async function GET(request) {
     const who = (await verifyToken(token))?.match(/^cal:(.+)$/)?.[1];
     if (!who) return new Response('Enlace no válido', { status: 403 });
     let sess;
+    // La contraseña general de setter solo da acceso al cliente principal (igual que al iniciar sesión).
+    if (who === 'setter' && !clienteActual().principal) return new Response('Sin acceso a este cliente', { status: 403 });
     if (who === 'admin' || who === 'setter') sess = { role: who, uid: '' };
     else {
       const u = await findUser(who);

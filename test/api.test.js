@@ -497,6 +497,10 @@ test('roles: el técnico configura lanzamientos pero no gestiona el equipo ni cr
   const config = await import('../handlers/config.js');
   const cur = (await (await config.GET(req('/api/config', { cookie: tec }))).json()).config;
   assert.equal((await config.POST(req('/api/config', { method: 'POST', cookie: tec, body: cur }))).status, 200);
+  // La marca y el email del resumen diario solo los cambia un admin (se conservan los guardados).
+  const tras = await (await config.POST(req('/api/config', { method: 'POST', cookie: tec, body: { ...cur, digestEmail: 'malo@example.com', marca: { ...cur.marca, producto: 'Otro' } } }))).json();
+  assert.equal(tras.config.digestEmail, cur.digestEmail);
+  assert.equal(tras.config.marca.producto, cur.marca.producto);
   assert.equal((await (await import('../handlers/leads.js')).GET(req('/api/leads?tag=registro-webinar-demo', { cookie: tec }))).status, 200);
   assert.equal((await usuarios.GET(req('/api/usuarios', { cookie: tec }))).status, 403);
   const tareas = await import('../handlers/tareas.js');

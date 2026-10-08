@@ -26,7 +26,7 @@ const claveFoto = (code) => `lsd_meteo_previo_${code}`;
 
 async function meteoricoDe(code) {
   const config = await getConfig();
-  const m = config.meteoricos?.[code];
+  const m = Object.hasOwn(config.meteoricos || {}, code) ? config.meteoricos[code] : null;
   if (!m) throw bad('Meteórico no encontrado', 404);
   return { config, m };
 }
@@ -87,7 +87,7 @@ export async function POST(request) {
         v.total = (v.total || 0) + 1;
         v.porDia = { ...(v.porDia || {}), [dia]: (v.porDia?.[dia] || 0) + 1 };
         await guardarJSON(claveVisitas(code), v);
-      });
+      }).catch(() => {}); // con muchas visitas a la vez alguna puede no contarse: mejor eso que un error en la página
       return json({ ok: true }, 200, CORS_HEADERS);
     }
     if (body.op === 'foto') {

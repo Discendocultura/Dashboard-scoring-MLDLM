@@ -50,7 +50,7 @@ export async function POST(request) {
       });
       return json({ config, version: versionDe(config) });
     }
-    await requireRole(request, { permiso: 'config' });
+    const rol = await requireRole(request, { permiso: 'config' });
     // Objetivos y supuestos de la calculadora de un lanzamiento (pestaña «Objetivos y calculadora»).
     if (body.op === 'objetivos') {
       const code = String(body.l || '');
@@ -63,11 +63,13 @@ export async function POST(request) {
       return json({ config, version: versionDe(config) });
     }
     // Si no vienen los embudos (p. ej. un navegador con la versión anterior), se conservan los guardados.
-    const actual = !('vsls' in body) || !('embudos' in body) ? await getConfig({ fresh: true }) : null;
+    const actual = !('vsls' in body) || !('embudos' in body) || rol !== 'admin' ? await getConfig({ fresh: true }) : null;
+    // La marca, la encuesta del avatar y el email del resumen diario solo los cambia un admin.
+    if (rol !== 'admin') Object.assign(body, { marca: actual.marca, encuesta: actual.encuesta, digestEmail: actual.digestEmail });
     // Con `_version` (la que tenía el navegador): si otra persona guardó después, se avisa en vez de pisarlo.
     const version = Number.isInteger(body._version) ? body._version : null;
     const config = await saveConfig(
-      actual ? { vsls: actual.vsls, embudos: actual.embudos, ...body, ...('vsl' in body && !('vsls' in body) ? { vsls: { ...actual.vsls, vsl: body.vsl } } : {}) } : body,
+      actual ? { vsls: 'vsls' in body ? body.vsls : actual.vsls, embudos: 'embudos' in body ? body.embudos : actual.embudos, ...body, ...('vsl' in body && !('vsls' in body) ? { vsls: { ...actual.vsls, vsl: body.vsl } } : {}) } : body,
       { version },
     );
     return json({ config, version: versionDe(config) });

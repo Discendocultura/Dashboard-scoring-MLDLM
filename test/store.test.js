@@ -20,6 +20,9 @@ test('store: migra desde GHL la primera vez y después ya no lo mira', async () 
   const fila = await d1.prepare('SELECT por FROM datos WHERE clave = ?').bind('lsd_prueba').first();
   assert.equal(fila.por, 'migración desde GHL');
   assert.equal(await store.storeGet('lsd_no_existe'), null);
+  // La migración es una sola vez por cliente: lo que falte después no se vuelve a buscar en GHL
+  await ghl.saveCustomValue('lsd_tarde', 'x');
+  assert.equal(await store.storeGet('lsd_tarde'), null);
 });
 
 test('store: guardado con versión detecta que otra persona guardó antes', async () => {

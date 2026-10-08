@@ -7,8 +7,9 @@ import { getConfig } from '../lib/config-store.js';
 import { adSpend, metaConfigured } from '../lib/meta.js';
 import { json, errorResponse } from '../lib/http.js';
 import { nextLaunchStart } from '../public/js/metrics.js';
+import { dayInMadrid } from '../public/js/scoring.js';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => dayInMadrid(new Date().toISOString()); // el día en España, como el resto del dashboard
 const dayBefore = (d) => new Date(Date.parse(`${d}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
 
 export async function GET(request) {
