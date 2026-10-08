@@ -117,6 +117,8 @@ async function api(path, { method = 'GET', body, cliente = state.cliente } = {})
   });
   const data = await res.json().catch(() => ({}));
   if (esConfig && res.ok && 'version' in data) state.configVersion = data.version;
+  // Configuración cambiada (p. ej. qué emails son de cada embudo): los emails se vuelven a leer.
+  if (esConfig && method === 'POST' && res.ok) for (const k of Object.keys(emailsCache)) delete emailsCache[k];
   if (res.status === 401 && path !== '/api/login') {
     showLogin();
     throw new Error('Sesión caducada');
@@ -753,6 +755,7 @@ function renderMetrics() {
   ].join('');
 
   renderEconomics(m, launch);
+  mostrarEmails(state.launchCode, { kpis: '#em-kpis-l', tabla: '#em-l' });
   renderTrafico(m, launch, tr);
   renderVentasDia(launch);
   renderCarritoCompara(launch);
@@ -2183,6 +2186,7 @@ function openConfig(code) {
   $('#cfg-organico-tag').value = l.organicoTag || '';
   $('#cfg-inversion').value = l.inversion || '';
   $('#cfg-meta-filtro').value = l.metaFiltro || '';
+  $('#cfg-email-filtro').value = l.emailFiltro || '';
   renderMetaNaming();
   $('#cfg-digest-email').value = state.config.digestEmail || '';
   fillFormAdsFields();
@@ -2478,6 +2482,7 @@ function readForm() {
       organicoTag: $('#cfg-organico-tag').value.trim().toLowerCase(),
       inversion: $('#cfg-inversion').value,
       metaFiltro: $('#cfg-meta-filtro').value.trim(),
+      emailFiltro: $('#cfg-email-filtro').value.trim(),
       pago: leerPago('cfg'),
     },
   };
@@ -6211,6 +6216,7 @@ function renderVslMetricas() {
     kpi('info', 'trend', 'ROAS', m.roas != null ? `${m.roas.toFixed(2)}x` : '–', `Conversión ${pctOf(m.compraCohorte, m.registros)} (registro → venta)`),
   ].join('');
 
+  mostrarEmails(state.embudo, { kpis: '#em-kpis-v', tabla: '#em-v' });
   $('#vm-planes-sec').hidden = !m.planes;
   if (m.planes) $('#vm-planes').innerHTML = tablaPlanes(m.planes);
 
@@ -6395,7 +6401,7 @@ $('#vsrc-level').addEventListener('change', renderVslAnuncios);
 // ----- Configuración de la VSL -----
 const vcDlg = $('#vsl-config-dialog');
 const VC_TEXTOS = ['name', 'registroTag', 'vioTag', 'compraTag', 'llamadaTag', 'fraccionadoTag', 'unicoTag', 'publiTag', 'organicoTag',
-  'vslUrl', 'raicesUrl', 'ventaUrl', 'ventaFraccionadoUrl', 'llamadaUrl', 'llamadasPipeline', 'precioPrograma', 'precioFraccionado', 'metaFiltro',
+  'vslUrl', 'raicesUrl', 'ventaUrl', 'ventaFraccionadoUrl', 'llamadaUrl', 'llamadasPipeline', 'precioPrograma', 'precioFraccionado', 'metaFiltro', 'emailFiltro',
   'vslVideoUrl', 'textoCompra', 'textoLlamada', 'graciasVideoUrl', 'agendaVideoUrl'];
 const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const aSegundos = (t) => {
@@ -6863,7 +6869,9 @@ async function pintarMeteo(box, code, { fresh = false } = {}) {
       <pre class="snippet">${esc(snippet)}</pre><button type="button" class="btn" data-copiar-meteo="${esc(snippet)}">Copiar código</button>
       ${m.whatsappUrl ? ` <a class="btn ghost" href="${esc(m.whatsappUrl)}" target="_blank" rel="noopener">Grupo de WhatsApp</a>` : ''}${m.ofertaUrl ? ` <a class="btn ghost" href="${esc(m.ofertaUrl)}" target="_blank" rel="noopener">Ver la página de la oferta ↗</a>` : ''}
       ${foto}</section>
+    <section class="meteo-sec"><h3>Emails del meteórico <span class="muted small">(apertura, CTR y qué mejorar)</span></h3><div data-em-meteo></div></section>
     ${m.notas ? `<section class="meteo-sec"><h3>Notas</h3><p class="ll-notas">${esc(m.notas)}</p></section>` : ''}`;
+  if (tiene('metricas')) mostrarEmails(code, { tabla: box.querySelector('[data-em-meteo]') });
 }
 function llenarMeteoSelect(sel, lista, code, vacio) {
   sel.innerHTML = lista.length ? lista.map(([c, m]) => `<option value="${esc(c)}" ${c === code ? 'selected' : ''}>${esc(m.name)}${m.apertura ? ` · ${esc(fechaHoraMeteo(m.apertura))}` : ''}</option>`).join('') : `<option value="">${vacio}</option>`;
@@ -6917,7 +6925,7 @@ document.addEventListener('click', async (e) => {
 
 // Configuración de un meteórico (nuevo o existente).
 let meteoEdit = null; // { code | null, embudo, lanzamiento }
-const MT_CAMPOS = ['name', 'producto', 'oferta', 'precio', 'precioFraccionado', 'calentamiento', 'apertura', 'cierre', 'compraTag', 'fraccionadoTag', 'ofertaUrl', 'pagoUrl', 'pagoFraccionadoUrl', 'cerradaUrl', 'whatsappUrl', 'objetivoVentas', 'objetivoFacturacion', 'inversion', 'metaFiltro', 'notas'];
+const MT_CAMPOS = ['name', 'producto', 'oferta', 'precio', 'precioFraccionado', 'calentamiento', 'apertura', 'cierre', 'compraTag', 'fraccionadoTag', 'ofertaUrl', 'pagoUrl', 'pagoFraccionadoUrl', 'cerradaUrl', 'whatsappUrl', 'objetivoVentas', 'objetivoFacturacion', 'inversion', 'metaFiltro', 'emailFiltro', 'notas'];
 async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
   const m = code ? state.config.meteoricos?.[code] : null;
   meteoEdit = { code: m ? code : null, embudo: m?.embudo ?? embudo, lanzamiento: m?.lanzamiento ?? lanzamiento };
@@ -7081,3 +7089,121 @@ function tablaPlanes(r) {
     ${r.filas.map((f) => `<tr><td>${esc(f.label)}</td><td class="num">${f.n}</td><td class="num">${r.total ? `${Math.round(f.pct * 100)}%` : '–'}</td><td class="num">${eur(f.facturacion)}</td><td class="num">${eur(f.mrr)}</td></tr>`).join('')}
     <tr class="total"><td><strong>Total</strong></td><td class="num"><strong>${r.total}</strong></td><td class="num">${r.total ? '100%' : '–'}</td><td class="num"><strong>${eur(r.facturacion)}</strong></td><td class="num"><strong>${eur(r.mrr)}</strong></td></tr></tbody>`;
 }
+
+
+// ---------- Emails: apertura (open rate), CTR y CTOR de cada email, con indicadores ----------
+// Datos: GHL (campañas y emails de workflows cuyo nombre lleva el texto de «Emails de este embudo»).
+const emailsCache = {};
+const pctE = (x) => (x == null ? '–' : `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')}%`);
+const NIVEL_TXT = { alto: '▲ Alta', medio: '● En la media', bajo: '▼ Baja' };
+function nivelChip(niv, dif) {
+  if (!niv) return '';
+  const d = dif != null ? ` (${dif > 0 ? '+' : ''}${Math.round(dif * 100)}% vs. el resto)` : '';
+  return `<span class="em-niv ${niv}" title="Frente a la media del resto de emails${d}">${NIVEL_TXT[niv]}</span>`;
+}
+async function cargarEmails(code, { fresh = false } = {}) {
+  const c = emailsCache[code];
+  if (c && !fresh && (c.datos || c.cargando)) return c.cargando || c.datos;
+  const p = api(`/api/emails?l=${encodeURIComponent(code)}${fresh ? '&fresh=1' : ''}`);
+  emailsCache[code] = { cargando: p };
+  try { const datos = await p; emailsCache[code] = { datos }; return datos; } catch (e) { emailsCache[code] = { error: e.message }; throw e; }
+}
+function mostrarEmails(code, { kpis, tabla } = {}) {
+  if (!code || !tiene('metricas')) return;
+  const boxK = typeof kpis === 'string' ? $(kpis) : kpis;
+  const boxT = typeof tabla === 'string' ? $(tabla) : tabla;
+  for (const b of [boxK, boxT]) if (b) b.dataset.emCode = code;
+  const pintar = () => {
+    const c = emailsCache[code] || {};
+    if (boxK && boxK.dataset.emCode === code) pintarEmailsKpis(boxK, c);
+    if (boxT && boxT.dataset.emCode === code) pintarEmailsTabla(boxT, c, code);
+  };
+  const c = emailsCache[code];
+  if (c?.datos || c?.error) { pintar(); return; }
+  if (boxT) boxT.innerHTML = '<p class="muted">Cargando los emails de GHL…</p>';
+  cargarEmails(code).catch(() => {}).finally(pintar);
+}
+function pintarEmailsKpis(box, c) {
+  const d = c.datos;
+  box.hidden = false;
+  if (c.error) { box.innerHTML = card('Apertura media de los emails', '–', esc(c.error.slice(0, 140)), 'mail', 'info'); return; }
+  if (!d) { box.hidden = true; return; }
+  if (!d.emails.length) {
+    box.innerHTML = card('Apertura media de los emails', '–', d.sinFiltro ? 'Indica en Configuración qué emails son de este embudo' : 'No hay emails enviados con ese nombre todavía', 'mail', 'info');
+    return;
+  }
+  const r = d.resumen;
+  box.innerHTML = [
+    card('Apertura media de los emails', pctE(r.apertura), `${r.n} emails · ${r.aperturas.toLocaleString('es-ES')} aperturas de ${r.entregados.toLocaleString('es-ES')} entregados`, 'mail', 'info'),
+    card('CTR medio de los emails', pctE(r.ctr), `clics / entregados · de quien abre, el ${pctE(r.ctor)} hace clic`, 'trend', 'live'),
+  ].join('');
+}
+function pintarEmailsTabla(box, c, code) {
+  if (c.error) { box.innerHTML = `<div class="notice err">${esc(c.error)}</div>`; return; }
+  const d = c.datos;
+  if (!d) return;
+  if (!d.emails.length) {
+    box.innerHTML = `<p class="muted">${d.sinFiltro ? 'Pon en la configuración del embudo el texto que llevan en el nombre sus emails de GHL (campañas o workflows), p. ej. «[VSL]».' : `No hay emails enviados que encajen (${esc(d.criterio)}). Si los emails tienen otro nombre, cámbialo en «Emails de este embudo» de la configuración.`}</p>`;
+    return;
+  }
+  const orden = state.emailsOrden || 'fecha';
+  const val = { fecha: (e) => e.fecha || '', apertura: (e) => e.apertura ?? -1, ctr: (e) => e.ctr ?? -1, ctor: (e) => e.ctor ?? -1 }[orden];
+  const lista = [...d.emails].sort((a, b) => (orden === 'fecha' ? val(b).localeCompare(val(a)) : val(b) - val(a)));
+  const r = d.resumen;
+  const mejor = (k) => d.emails.filter((e) => e.fiable && e[k] != null).sort((a, b) => b[k] - a[k])[0];
+  const peor = (k) => d.emails.filter((e) => e.fiable && e[k] != null).sort((a, b) => a[k] - b[k])[0];
+  const mA = mejor('apertura');
+  const pA = peor('apertura');
+  const mC = mejor('ctr');
+  box.innerHTML = `
+    <div class="kpis em-kpis">
+      ${card('Apertura media', pctE(r.apertura), `${r.n} emails · media ponderada por entregas`, 'mail', 'info')}
+      ${card('CTR medio', pctE(r.ctr), 'clics / entregados', 'trend', 'live')}
+      ${card('Clics sobre aperturas (CTOR)', pctE(r.ctor), 'de quien abre, cuántos hacen clic', 'target', 'buy')}
+      ${card('Bajas', r.bajas.toLocaleString('es-ES'), `${pctE(r.entregados ? r.bajas / r.entregados : null)} de las entregas`, 'logout', 'accent')}
+    </div>
+    ${mA && pA && mA !== pA ? `<div class="em-destacados">
+      <p>🏆 <strong>Mejor asunto:</strong> «${esc(mA.asunto || mA.nombre)}» · ${pctE(mA.apertura)} de apertura</p>
+      ${mC ? `<p>🎯 <strong>Mejor llamada a la acción:</strong> «${esc(mC.nombre)}» · ${pctE(mC.ctr)} de CTR</p>` : ''}
+      <p>🔧 <strong>Asunto a mejorar:</strong> «${esc(pA.asunto || pA.nombre)}» · ${pctE(pA.apertura)} de apertura</p>
+    </div>` : ''}
+    <div class="em-barra">
+      <span class="muted small">${esc(d.criterio)} · el indicador compara cada email con la media del resto (±15%).</span>
+      <span class="spacer"></span>
+      <label class="field inline"><span>Ordenar por</span><select data-em-orden>
+        ${[['fecha', 'Fecha'], ['apertura', 'Apertura'], ['ctr', 'CTR'], ['ctor', 'Clics sobre aperturas']].map(([v, l]) => `<option value="${v}" ${v === orden ? 'selected' : ''}>${l}</option>`).join('')}
+      </select></label>
+      <button type="button" class="btn" data-em-recargar="${esc(code)}">Actualizar</button>
+    </div>
+    <div class="table-scroll"><table class="metric-table em-table">
+      <thead><tr><th>Email y asunto</th><th class="num">Entregados</th><th class="num">Apertura</th><th class="num">CTR</th><th class="num">Clics / aperturas</th><th>Qué mejorar</th></tr></thead>
+      <tbody>${lista.map((e) => `<tr>
+        <td><strong>${esc(e.nombre)}</strong>${e.tipo === 'workflow' ? `<span class="em-tipo">Workflow · ${esc(e.workflow || '')}</span>` : `<span class="em-tipo">Campaña${e.fecha ? ` · ${esc(fmtDay(e.fecha, { day: 'numeric', month: 'short', year: 'numeric' }))}` : ''}</span>`}
+          <span class="em-asunto">${e.asunto ? `✉️ ${esc(e.asunto)}` : '<span class="muted">GHL no da el asunto de los emails de workflows</span>'}</span></td>
+        <td class="num">${e.entregados.toLocaleString('es-ES')}</td>
+        <td class="num"><strong>${pctE(e.apertura)}</strong><br>${nivelChip(e.niveles.apertura, e.difApertura)}</td>
+        <td class="num"><strong>${pctE(e.ctr)}</strong><br>${nivelChip(e.niveles.ctr, e.difCtr)}</td>
+        <td class="num">${pctE(e.ctor)}${e.niveles.ctor ? `<br>${nivelChip(e.niveles.ctor)}` : ''}</td>
+        <td class="em-consejo">${esc(e.consejo)}</td></tr>`).join('')}
+        <tr class="total"><td><strong>Media</strong></td><td class="num">${r.entregados.toLocaleString('es-ES')}</td><td class="num"><strong>${pctE(r.apertura)}</strong></td><td class="num"><strong>${pctE(r.ctr)}</strong></td><td class="num">${pctE(r.ctor)}</td><td></td></tr>
+      </tbody></table></div>
+    <p class="muted small">La apertura depende sobre todo del <strong>asunto</strong> (y del remitente y la hora); los clics sobre aperturas, del <strong>contenido y la llamada a la acción</strong>. Apple Mail marca como abiertos muchos emails sin leerlos, así que la apertura es orientativa: sirve para comparar emails entre sí.</p>`;
+}
+document.addEventListener('change', (e) => {
+  const sel = e.target.closest('[data-em-orden]');
+  if (!sel) return;
+  state.emailsOrden = sel.value;
+  const box = sel.closest('[data-em-code]');
+  if (box) pintarEmailsTabla(box, emailsCache[box.dataset.emCode] || {}, box.dataset.emCode);
+});
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-em-recargar]');
+  if (!b) return;
+  const code = b.dataset.emRecargar;
+  b.disabled = true;
+  b.textContent = 'Actualizando…';
+  await cargarEmails(code, { fresh: true }).catch(() => {});
+  for (const box of $$(`[data-em-code="${CSS.escape(code)}"]`)) {
+    if (box.classList.contains('em-kpis')) pintarEmailsKpis(box, emailsCache[code] || {}); else pintarEmailsTabla(box, emailsCache[code] || {}, code);
+  }
+});

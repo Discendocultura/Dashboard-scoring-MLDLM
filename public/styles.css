@@ -1846,3 +1846,18 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 .cal-day.con-fase:hover { background: color-mix(in srgb, var(--tone) 12%, var(--surface)); }
 .cal-day.con-fase .cal-bands i { height: 3px; }
 .cal-day.out.con-fase { background: color-mix(in srgb, var(--tone) 4%, var(--surface-2)); }
+
+/* ---------- Emails (Métricas → Emails) ---------- */
+.em-kpis { margin-bottom: 16px; }
+.em-niv { display: inline-block; margin-top: 4px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.em-niv.alto { background: color-mix(in srgb, var(--tone-buy) 14%, var(--surface)); color: var(--tone-buy); }
+.em-niv.medio { background: var(--surface-2); color: var(--text-2); }
+.em-niv.bajo { background: color-mix(in srgb, var(--error) 12%, var(--surface)); color: var(--error); }
+.em-tipo { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.em-asunto { display: block; font-size: 13px; color: var(--text-2); margin-top: 4px; max-width: 46ch; }
+.em-consejo { font-size: 12.5px; color: var(--text-2); max-width: 34ch; line-height: 1.45; }
+.em-table td { vertical-align: top; }
+.em-barra { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 4px 0 12px; }
+.em-barra select { width: auto; }
+.em-destacados { display: grid; gap: 6px; padding: 12px 14px; margin-bottom: 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13.5px; }
+.em-destacados p { margin: 0; }

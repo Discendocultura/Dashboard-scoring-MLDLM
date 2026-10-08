@@ -417,6 +417,14 @@ Funcionan como el webinar, con las casillas repetidas para cada vídeo (*Configu
 - **Puntuación**: la mitad por el vídeo mejor visto y la mitad por la media de todos (máximo 40 puntos, como el directo del webinar).
 - **Leads, Métricas, Calendario, Auditor y Sincronizar Zoom** muestran cada vídeo (Zoom sincroniza cada vídeo en directo ya celebrado).
 
+## ✉️ Emails: apertura, CTR e indicadores
+
+- **Métricas → Resumen**: «Apertura media de los emails» y «CTR medio de los emails» (medias ponderadas por entregas).
+- **Métricas → Emails** (lanzamientos y VSL; en los meteóricos, en su propia vista): cada email con su **asunto**, entregados, **apertura**, **CTR** y **clics sobre aperturas (CTOR)**, con indicador ▲ Alta / ● En la media / ▼ Baja frente a la **media del resto** de emails del embudo (±15 %; con menos de 30 entregas no se compara) y qué mejorar: apertura baja → el **asunto**; pocos clics de quien abre → la **llamada a la acción**. Arriba, el mejor asunto, la mejor llamada a la acción y el asunto a mejorar.
+- **Qué emails son de cada embudo**: en la configuración, «Emails de este lanzamiento / de la VSL / del meteórico»: texto que lleva en el nombre la campaña o el workflow de GHL (varios, separados por comas). Vacío en un lanzamiento o meteórico = las campañas enviadas durante sus fechas.
+- Los datos salen de GHL (estadísticas acumuladas de cada email; se guardan 10 minutos, botón «Actualizar»). De los emails de workflows GHL no da el asunto, solo el nombre del paso.
+- ⚠️ **Permisos del token**: la integración privada de GHL necesita **View Email Campaigns** (`emails/campaigns.readonly`) y **View Email Stats** (`emails/stats.readonly`). Si faltan, la pestaña lo dice.
+
 ## 🎨 Aspecto y modo día / noche
 
 - Diseño renovado: tipografía Inter, barra superior translúcida con botones sobrios (el color va solo en el icono; los textos se ocultan en pantallas estrechas y quedan en el aviso al pasar el ratón), menú de embudos con indicador del activo, pestañas y subpestañas más limpias, tarjetas, tablas, campos y ventanas con sombras suaves.
