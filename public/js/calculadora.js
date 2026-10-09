@@ -2,7 +2,7 @@
 // recientes que son, con su intervalo de predicción) proyecta el siguiente: inversión recomendada, leads,
 // CPL máximo para el ROAS objetivo, VIP, ventas, facturación, llamadas y equipo. Los objetivos del
 // lanzamiento salen de esa proyección. También la previsión durante el lanzamiento.
-// Lo usa el navegador (pestaña «Objetivos y calculadora») y los tests.
+// Lo usa el navegador (pestaña Plan → Planificador) y los tests.
 
 export const ESCENARIOS = [
   { id: 'desfavorable', label: 'Desfavorable', tone: 'warn' },

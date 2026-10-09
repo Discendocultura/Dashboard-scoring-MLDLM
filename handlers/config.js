@@ -59,7 +59,7 @@ export async function POST(request) {
       });
       return json({ config, version: versionDe(config) });
     }
-    // Objetivos y supuestos de la calculadora de un lanzamiento (pestaña «Objetivos y calculadora»).
+    // Objetivos y supuestos de la calculadora de un lanzamiento (pestaña Plan → Planificador).
     if (body.op === 'objetivos') {
       const code = String(body.l || '');
       const config = await reintentando(async () => {

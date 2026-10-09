@@ -91,7 +91,7 @@ Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por Wh
 **Ficha completa del lead** (Hoy → Llamadas): al pulsar una llamada se abre una ventana con todo lo que ayuda a la setter antes de llamar: cuándo es la cita y su etapa, teléfono / WhatsApp / email, la **temperatura** (estado y puntuación sobre 100) y el siguiente paso, **qué ha hecho** (cada clase, VIP, directo y grabación, encuesta, si ya se le escribió, si compró), origen (publi / orgánico), tráfico frío / templado, avatar y días desde el registro, las **respuestas de la encuesta**, las **respuestas del formulario de reserva de la llamada y el resto de campos de su ficha de GHL**, y las últimas **notas** de GHL. Desde ahí se anota el resultado.
 
 ### Pestaña Plan
-Para planificar: **Objetivos y calculadora** (el planificador), **Calendario**, **Carrito** y **Tareas**. Como en Hoy, al entrar abre la última que usaste en ese embudo y el número de la pestaña son las tareas pendientes. Si alguien solo puede ver una, entra directo sin subpestañas.
+Para planificar: **Planificador** (objetivos, inversión, equipo y previsión), **Calendario**, **Carrito** y **Tareas**. Como en Hoy, al entrar abre la última que usaste en ese embudo y el número de la pestaña son las tareas pendientes. Si alguien solo puede ver una, entra directo sin subpestañas.
 
 **Carrito** (Plan → Carrito): los días del carrito del lanzamiento en solo lectura (hitos automáticos, emails y WhatsApps de cada día y la estrategia), para todo el equipo con el permiso «Carrito». Se edita en Configuración → ⑦ Carrito (botón «Editar» para quien puede configurar). Al añadirse, este permiso lo reciben de entrada los roles con Setting hoy, Configuración o Métricas; luego se puede quitar en Equipo → Roles y permisos.
 
@@ -287,8 +287,8 @@ Pestaña para admin y técnico con:
 - **Formularios instantáneos de Meta**: como no traen UTM, el origen se completa con la atribución que guarde GHL (adId, adGroupId, campaignId) o con los campos personalizados elegidos en Configuración → ② Captación → «Formularios instantáneos de Meta» (ID de campaña, conjunto y anuncio). Aparecen como canal «Formulario instantáneo (Meta)», cuentan como publi y entran en el ranking de anuncios ganadores.
 - **Avatares de compradoras** sacados de la encuesta.
 
-## Objetivos y calculadora
-Pestaña **Plan → Objetivos y calculadora** de cada lanzamiento. No hay que meter datos: todo sale de los lanzamientos anteriores del mismo embudo.
+## Planificador
+Pestaña **Plan → Planificador** de cada lanzamiento (antes «Objetivos y calculadora»). No hay que meter datos: todo sale de los lanzamientos anteriores del mismo embudo.
 - **Lanzamientos anteriores**: se cargan solos al abrir la pestaña (los que faltan o llevan más de 3 días sin actualizar; se recuerdan en el navegador). Cuentan los que tienen al menos 100 registros.
 - **Medias**: ponderadas por volumen (un lanzamiento de 4.000 leads pesa más que uno de 1.000) y por lo recientes que son (cada uno pesa un 25 % menos que el siguiente). De cada dato (CPL, % VIP, % venta, ticket, % que agenda llamada, % de cierre, inversión y registros) sale el **rango del 80 %** para el próximo lanzamiento: intervalo de predicción con la t de Student y la variación entre lanzamientos, más el error de muestreo en los porcentajes; como mínimo ±10 % (±20 % con un solo lanzamiento). **Fiabilidad** alta (3 o más lanzamientos parecidos), media o baja.
 - **Inversión recomendada**: con 3 o más lanzamientos de inversiones distintas se mide cuánto sube el CPL al invertir más (CPL = a · inversión^b) y se recomienda la mayor inversión que mantiene el ROAS objetivo (como mucho el doble de la mayor hecha). Sin esa curva: la inversión media reciente, +20 % si el ROAS histórico supera el objetivo con holgura.
@@ -410,7 +410,7 @@ El botón **Agencia** está aparte, junto al nombre del cliente (no entre los bo
 - **Tareas automáticas por cliente**: una tarea más por cliente (8:05, 8:10…) que abra `https://<tu-proyecto>.pages.dev/api/agencia?key=<DIGEST_KEY>&c=<cliente>`. Manda sus informes automáticos y su resumen diario. Van separadas para que ninguna llamada se pase del límite de peticiones de Cloudflare. Las URL de cada cliente están en *Agencia → Panel de clientes → Tareas automáticas de cada mañana*.
 
 ## Embudos de cada cliente («＋ Nuevo embudo»)
-Se crea con un **asistente por pasos**: 1) **tipo de embudo**; 2) **prelanzamiento** (solo lanzamientos: área preclase y clases, entrada VIP y su contador, recursos de la preclase y pantalla de espera); 3) **dashboard**: las categorías del menú (Hoy, Leads, Métricas, Plan, Análisis; en meteóricos, Meteóricos, Oferta y Plan) con sus secciones para marcar o quitar, incluidas las subpestañas de Leads y Métricas (p. ej. quitar «Emails» o «Downsell»); 4) **nombre y resumen** de lo elegido, con lo que hay que preparar en GHL. Con el ⚙️ del embudo se abre el mismo asistente y se puede saltar a cualquier paso y guardar.
+Se crea con un **asistente por pasos**: 1) **tipo de embudo**; 2) **prelanzamiento** (solo lanzamientos: área preclase y clases, entrada VIP y su contador, recursos de la preclase y pantalla de espera); 3) **dashboard**: las categorías del menú (Hoy, Leads, Métricas, Plan, Análisis; en meteóricos, Meteóricos, Oferta y Plan) con sus secciones para marcar o quitar, incluidas las subpestañas de Leads y Métricas (p. ej. quitar «Emails» o «Meteórico posterior»); 4) **nombre y resumen** de lo elegido, con lo que hay que preparar en GHL. Con el ⚙️ del embudo se abre el mismo asistente y se puede saltar a cualquier paso y guardar.
 
 Cada cliente tiene sus embudos en el menú lateral. Con **＋ Nuevo embudo** (quien puede configurar) se elige el tipo:
 - **Lanzamientos**, en cinco formatos según cuántos **vídeos del lanzamiento** tiene (la preclase con las clases 1 y 2 grabadas es del prelanzamiento y es igual en todos): **🔴 Webinar** (1 vídeo: el webinar en directo), **Lanzamiento de 2 vídeos**, **de 3 vídeos** **PLF** (4 vídeos: PLC 1, 2, 3 y el PLC 4 de venta) y **reto** (ver abajo). Agrupa sus lanzamientos (cada uno con fechas, etiquetas, setteo, métricas, objetivos, calendario y tareas). Un cliente puede tener varios; cada lanzamiento pertenece a uno. El formato se puede cambiar con el ⚙️.
@@ -509,7 +509,7 @@ En Métricas, con suscripción, verás las **altas por plan**, la facturación (
 ## ⚡ Meteóricos (ofertas flash)
 Una oferta de pocas horas (p. ej. 12 h) tras 4-5 días de calentamiento por email y WhatsApp, a la base de datos. Dos maneras:
 - **Independiente** (Black Friday, rebajas…): «＋ Nuevo embudo» → **⚡ Meteóricos**. Cada edición es un meteórico de ese embudo (desplegable arriba, «+ Nuevo meteórico»).
-- **Downsell tras un lanzamiento** (o para ofrecer otro producto): en el lanzamiento, *Métricas → Downsell* → «+ Crear meteórico posterior».
+- **Downsell tras un lanzamiento** (o para ofrecer otro producto): en el lanzamiento, *Métricas → Meteórico posterior* → «+ Crear meteórico posterior».
 
 Cada meteórico tiene: nombre y código, producto y oferta, precio (y a plazos), **calentamiento** (día), **apertura y cierre** (día y hora), etiqueta de compra (y de pago a plazos), campo de fecha de compra, página de la oferta, enlaces de pago, página de «oferta cerrada», grupo de WhatsApp, textos de la cuenta atrás, objetivos de ventas y facturación, inversión (o Meta con su filtro) y notas.
 
@@ -525,7 +525,7 @@ Durante el calentamiento muestra «la oferta se abre en…», con la oferta abie
 **Oferta y bonus del meteórico**: en *Configurar → Oferta* van los entregables y los bonus: **BAR 30 min** y **BAR 1 h** (para quien compra en los primeros 30 minutos o en la primera hora tras abrir), BAR 24 h / 48 h y bonus de toda la oferta (o con fin a mano). La pestaña **Oferta** del embudo (y la sección de abajo en *Métricas → Downsell*) cruza los bonus con las ventas **hora a hora**: ventas en la ventana de cada bonus, ritmo de ventas por hora mientras estuvo activo frente al resto de la oferta y el empujón de los últimos minutos antes de que caduque. Para medir por horas hace falta la **hora** de cada compra: un campo de **texto** en GHL que el workflow de compra rellene con la fecha y hora (`{{right_now}}`), elegido como «Campo de fecha de compra» (el desplegable muestra los de fecha y los de texto). Con un campo de solo fecha, la oferta se ve pero el análisis por horas no.
 
 ## Embudos: Lanzamientos y VSL
-El menú lateral (arriba en el móvil) cambia de embudo. Las pestañas siguen el mismo orden en todos, por momento de uso: **Hoy** (Setting hoy, Llamadas y En directo) · **Leads** · **Métricas** · **Plan** (Objetivos y calculadora, Calendario, Carrito y Tareas) · **Análisis** (Avatar y anuncios / Anuncios ganadores, Comparar y Rendimiento del equipo). En los meteóricos: **Meteóricos** · **Oferta** · **Plan**.
+El menú lateral (arriba en el móvil) cambia de embudo. Las pestañas siguen el mismo orden en todos, por momento de uso: **Hoy** (Setting hoy, Llamadas y En directo) · **Leads** · **Métricas** · **Plan** (Planificador, Calendario, Carrito y Tareas) · **Análisis** (Avatar y anuncios / Anuncios ganadores, Comparar y Rendimiento del equipo). En los meteóricos: **Meteóricos** · **Oferta** · **Plan**.
 
 **Métricas del lanzamiento** en 6 subpestañas: **Resumen** (arriba, la facturación del lanzamiento, la de su meteórico posterior y la total), **Ventas** (rentabilidad, ventas por día, tipo de pago, oferta y bonus, ciclo de compra), **Captación** (tráfico de pago, campañas, origen y tipo de tráfico), **Vídeos y conversión**, **Emails** y **Downsell**.
 
@@ -606,7 +606,7 @@ npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)
 
 - **Inicio** (menú lateral, arriba): todos los embudos del cliente de un vistazo. Facturación, ventas, inversión y ROAS conjuntos; una tarjeta por embudo (último lanzamiento de cada embudo, VSL de los últimos 30 días y meteóricos recientes) que lleva a sus métricas; avisos del carrito, próximos hitos (14 días) y tareas vencidas de todos los embudos. Se actualiza cada 15 minutos (o con «Actualizar datos»).
 - **Avisos del carrito**: con el carrito abierto, arriba en el dashboard y en el resumen diario por email (asunto con 🚨 si es urgente): ritmo de ventas por debajo del necesario para el objetivo, bonus que caducan hoy o mañana y día de cierre.
-- **Conversión del downsell** (Métricas → Downsell): de las registradas que no compraron el lanzamiento, cuántas compraron el meteórico; y cuántas compradoras ya eran clientas o venían de fuera.
+- **Conversión del downsell** (Métricas → Meteórico posterior): de las registradas que no compraron el lanzamiento, cuántas compraron el meteórico; y cuántas compradoras ya eran clientas o venían de fuera.
 - **Leads al momento**: el navegador guarda una copia de los leads de cada lanzamiento (24 h) y la enseña al abrir mientras descarga los de ahora. Se borra al cerrar sesión.
 
 ## 🔴 En directo y visitas a la página de venta

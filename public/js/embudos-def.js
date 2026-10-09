@@ -8,7 +8,7 @@ export const PESTANAS = {
     { id: 'endirecto', label: 'En directo', desc: 'El día del webinar: quién espera, quién entra, VIP, ventas y visitas a la página de venta, minuto a minuto' },
     { id: 'leads', label: 'Leads', desc: 'Lista de registrados con su puntuación y estado' },
     { id: 'metricas', label: 'Métricas', desc: 'Registros, clases, VIP, directo, ventas, coste por lead…' },
-    { id: 'objetivos', label: 'Objetivos y calculadora', desc: 'Planificador con el histórico (inversión, leads, CPL máximo, equipo y números) y objetivos que salen de la proyección' },
+    { id: 'objetivos', label: 'Planificador', desc: 'Planificador con el histórico (inversión, leads, CPL máximo, equipo y números) y objetivos que salen de la proyección' },
     { id: 'carrito', label: 'Carrito', desc: 'Los días del carrito: hitos automáticos, emails y WhatsApps de cada día y la estrategia' },
     { id: 'avatar', label: 'Avatar y anuncios', desc: 'Perfil de compradoras (encuesta) y anuncios ganadores' },
     { id: 'comparar', label: 'Comparar', desc: 'Lanzamientos entre sí, edición actual frente a las anteriores, VSL frente a lanzamiento' },
@@ -48,7 +48,7 @@ export const SECCIONES = {
     { id: 'captacion', label: 'Captación', desc: 'Registros, tráfico, origen y coste por lead' },
     { id: 'conversion', label: 'Vídeos y conversión', desc: 'Clases, directo, grabación, votación y qué predice la compra' },
     { id: 'emails', label: 'Emails', desc: 'Apertura y clics de los emails del lanzamiento' },
-    { id: 'meteorico', label: 'Downsell', desc: 'La oferta flash después del lanzamiento' },
+    { id: 'meteorico', label: 'Meteórico posterior', desc: 'La oferta flash después del lanzamiento' },
   ],
   vmetricas: [
     { id: 'resumen', label: 'Resumen', desc: 'Cifras clave del periodo' },
@@ -150,7 +150,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
       'Página de captación con el formulario → página de gracias / entrega. Si el lead magnet es un vídeo, pon en la página de entrega el bloque de vídeo de <em>Configuración → Códigos</em> para medir cuánto ve cada persona.',
       'En GHL → <strong>Automatización</strong> crea el workflow de la <strong>secuencia de emails</strong> (disparador: etiqueta de descarga). Los enlaces a la página de venta llevan <code>?cid={{contact.id}}</code>.',
       'Añade un paso que <strong>quite a quien compra</strong> de la secuencia (condición: tiene la etiqueta de compra).',
-      'Guarda el enlace del workflow en <em>Recursos</em> para tenerlo a mano.',
+      'Guarda el enlace del workflow en <em>Configuración → Accesos y enlaces</em> para tenerlo a mano.',
     ] });
     if (on('llamadas')) s.push(guiaLlamadas('este embudo'));
     if (on('vmetricas') || on('vanuncios')) s.push(guiaMeta());
@@ -238,7 +238,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
       'Las respuestas se guardan en campos personalizados del contacto: el perfil de compradoras sale de esos campos.',
     ] });
     if (on('metricas') || on('avatar') || on('objetivos')) s.push(guiaMeta());
-    if (on('objetivos')) s.push({ titulo: `${s.length + 1} · Objetivos`, pasos: ['En la pestaña <em>Objetivos y calculadora</em> el planificador usa solo los lanzamientos anteriores: inversión recomendada, leads, CPL máximo, equipo de llamadas y números en tres escenarios. Los objetivos salen de esa proyección (se fijan solos la primera vez) y debajo ves cuánto llevas y a qué ritmo hay que ir.'] });
+    if (on('objetivos')) s.push({ titulo: `${s.length + 1} · Objetivos`, pasos: ['En <em>Plan → Planificador</em> el planificador usa solo los lanzamientos anteriores: inversión recomendada, leads, CPL máximo, equipo de llamadas y números en tres escenarios. Los objetivos salen de esa proyección (se fijan solos la primera vez) y debajo ves cuánto llevas y a qué ritmo hay que ir.'] });
     s.push({ titulo: `${s.length + 1} · En el dashboard`, pasos: [
       'Crea el primer lanzamiento (se abre al crear el embudo): nombre, código, etiquetas, fechas de captación, clases, directo y cierre, enlaces y precios.',
       ...(on('tareas') ? ['En <em>Tareas</em>, «Cargar tareas habituales» crea la lista de siempre con fechas calculadas.'] : []),

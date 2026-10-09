@@ -152,9 +152,9 @@
           <button type="button" class="subview-tab" data-view="llamadas">Llamadas</button>
           <button type="button" class="subview-tab" data-view="endirecto">En directo</button>
         </nav>
-        <!-- Plan: Objetivos y calculadora, Calendario, Carrito y Tareas -->
+        <!-- Plan: Planificador, Calendario, Carrito y Tareas -->
         <nav class="subviews" id="sub-planificacion" role="tablist" aria-label="Plan" hidden>
-          <button type="button" class="subview-tab" data-view="objetivos">Objetivos y calculadora</button>
+          <button type="button" class="subview-tab" data-view="objetivos">Planificador</button>
           <button type="button" class="subview-tab" data-view="calendario">Calendario</button>
           <button type="button" class="subview-tab" data-view="carrito">Carrito</button>
           <button type="button" class="subview-tab" data-view="tareas">Tareas</button>
@@ -437,7 +437,7 @@
         </section>
 
         <section id="view-hoy" hidden>
-          <p class="muted hoy-intro">A quién escribir hoy, por prioridad. Cada lead aparece una sola vez, en su lista más importante.</p>
+          <p class="muted hoy-intro"><strong>Setting hoy</strong> = a quién escribir hoy por WhatsApp, por prioridad (las más calientes primero). Cada lead aparece una sola vez, en su lista más importante.</p>
           <div id="hoy-lists" class="hoy-grid"></div>
           <details id="wa-plantillas" class="card wa-plantillas">
             <summary><span class="wa-pl-ico" aria-hidden="true">💬</span><span><strong>Mensajes de WhatsApp</strong><small class="muted" id="wa-pl-sub">Los textos que se envían con cada botón de WhatsApp. Pulsa para verlos.</small></span></summary>
@@ -532,7 +532,7 @@
             <button type="button" class="subview-tab" data-msub-btn="captacion" data-icon-msub="megaphone">Captación</button>
             <button type="button" class="subview-tab" data-msub-btn="conversion" data-icon-msub="cart">Vídeos y conversión</button>
             <button type="button" class="subview-tab" data-msub-btn="emails" data-icon-msub="mail">Emails</button>
-            <button type="button" class="subview-tab" data-msub-btn="meteorico" data-icon-msub="zap">Downsell</button>
+            <button type="button" class="subview-tab" data-msub-btn="meteorico" data-icon-msub="zap">Meteórico posterior</button>
           </nav>
           <div id="metric-cards" data-msub="resumen" class="kpis"></div>
           <div id="fact-total-l" data-msub="resumen" class="kpis fact-kpis"></div>
@@ -748,7 +748,7 @@
             <div id="guia-check" class="guia-check"></div>
             <details class="guia-ghl">
               <summary>Lo que hay que hacer fuera del dashboard (en GHL, Zoom, WhatsApp y Vimeo)</summary>
-              <p class="guia-sub">Los enlaces directos a cada workflow están en la pestaña <strong>Recursos</strong>.</p>
+              <p class="guia-sub">Los enlaces directos a cada workflow están en la pestaña <strong>Accesos y enlaces</strong>.</p>
               <ol>
                 <li><strong>GHL · Etiqueta de registro:</strong> crea la etiqueta nueva y cámbiala en la acción «Add tag» del workflow del formulario de registro.</li>
                 <li><strong>GHL · Encuesta:</strong> duplica la encuesta, y en su workflow («Survey Submitted» → «Add tag») pon la etiqueta de encuesta nueva. Copia el enlace de la encuesta nueva.</li>
@@ -1532,7 +1532,7 @@
           <button type="button" class="tab active" data-tab="vembudo" data-tab-icon="funnel">Embudo</button>
           <button type="button" class="tab" data-tab="vpaginas" data-tab-icon="play">Páginas</button>
           <button type="button" class="tab" data-tab="vcodigos" data-tab-icon="code">Códigos</button>
-          <button type="button" class="tab" data-tab="vrecursos" data-tab-icon="link">Recursos</button>
+          <button type="button" class="tab" data-tab="vrecursos" data-tab-icon="link">Accesos y enlaces</button>
         </div>
 
         <section class="tab-panel" data-panel="vembudo">

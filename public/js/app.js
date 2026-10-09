@@ -1031,7 +1031,7 @@ async function renderFacturacionTotal(m) {
     const total = (eco.facturacion || 0) + (fm || 0);
     const inv = (eco.inversion || 0) + (meteo?.inversion || 0);
     const subLanz = `sin IVA · ${eur(eco.facturacionPrograma || 0)} del programa (${m.compra} ventas)${eco.facturacionVip ? ` + ${eur(eco.facturacionVip)} de VIP (${m.vip})` : ''}${eco.facturacionBumps ? ` + ${eur(eco.facturacionBumps)} de bumps` : ''}`;
-    const subMeteo = !metas.length ? 'Sin meteórico posterior (créalo en Métricas → Downsell)'
+    const subMeteo = !metas.length ? 'Sin meteórico posterior (créalo en Métricas → Meteórico posterior)'
       : meteo == null ? 'Cargando…'
         : meteo.error ? `No se pudo leer: ${esc(meteo.error)}`
           : `${meteo.ventas} ventas · ${metas.map(([, x]) => esc(x.name)).join(', ')}`;
@@ -2255,6 +2255,15 @@ const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['o
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
 const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
+// Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
+{
+  const descVista = {};
+  for (const p of Object.values(PESTANAS).flat()) descVista[p.id] ??= p.desc; // si se repite, la de lanzamientos
+  $$('.view-tab[data-view], .subview-tab[data-view]').forEach((t) => { if (!t.title && descVista[t.dataset.view]) t.title = descVista[t.dataset.view]; });
+  for (const [vista, secs] of Object.entries(SECCIONES)) {
+    for (const x of secs) $$(`#msub-${vista} [data-msub-btn="${x.id}"]`).forEach((b) => { if (!b.title) b.title = x.desc; });
+  }
+}
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
 
@@ -2378,7 +2387,7 @@ function showView(view) {
   if (view === 'moferta' && state.config && enMeteo()) renderMOfertaView();
   if (view === 'calendario' && state.config) renderCalendario();
   if (view === 'carrito' && state.config) renderCarritoVista();
-  // Objetivos y calculadora: al abrirla se cargan solos los lanzamientos anteriores que falten.
+  // Planificador: al abrirla se cargan solos los lanzamientos anteriores que falten.
   if (view === 'objetivos' && state.config?.launches?.[state.launchCode] && !enVsl() && !enMeteo() && state.leads) renderObjetivos(currentMetrics());
   // Tareas del embudo abierto (en meteóricos, del meteórico elegido).
   if (view === 'tareas' && state.config) { if (codigo() && state.tareas?.code !== codigo()) loadTareas(); else { pintarCabeceraTareas(); renderTareas(); } }
@@ -5062,7 +5071,7 @@ document.addEventListener('click', async (e) => {
   } catch (err) { res.innerHTML = `<p class="error">${esc(err.message)}</p>`; } finally { b.disabled = false; }
 });
 
-// ---------- Previsión durante el lanzamiento (pestaña Objetivos y calculadora) ----------
+// ---------- Previsión durante el lanzamiento (pestaña Plan → Planificador) ----------
 function renderPrevision(m, launch) {
   const box = $('#prevision');
   const hist = historico();

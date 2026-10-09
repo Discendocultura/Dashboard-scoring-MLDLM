@@ -7,7 +7,7 @@ export const PERMISOS = [
   { id: 'endirecto', label: 'En directo', grupo: 'Pestañas' },
   { id: 'leads', label: 'Leads', grupo: 'Pestañas' },
   { id: 'metricas', label: 'Métricas', grupo: 'Pestañas' },
-  { id: 'objetivos', label: 'Objetivos y calculadora', grupo: 'Pestañas' },
+  { id: 'objetivos', label: 'Planificador (objetivos y previsión)', grupo: 'Pestañas' },
   { id: 'carrito', label: 'Carrito (días, envíos y estrategia; solo lectura)', grupo: 'Pestañas' },
   { id: 'avatar', label: 'Avatar y anuncios', grupo: 'Pestañas' },
   { id: 'comparar', label: 'Comparar', grupo: 'Pestañas' },
