@@ -2107,3 +2107,15 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 .car-dia h4 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .car-auto { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 13.5px; line-height: 1.4; }
 .car-dia .field { margin: 0; }
+.car-envios { display: grid; gap: 8px; }
+.car-canal { display: grid; gap: 6px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); }
+.car-canal-n { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13.5px; }
+.car-canal-n select { width: auto; }
+.car-horas { display: flex; flex-wrap: wrap; gap: 6px; }
+.car-horas:empty { display: none; }
+.car-hora-l { display: grid; gap: 2px; font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.car-hora { width: 110px; }
+.car-copiar { justify-self: start; }
+/* Calendario: envíos del carrito (emails, WhatsApp): se ven, pero sin el peso de los hitos */
+.cal-chip.k-hito.h-suave, .cal-chip.k-hito.h-suave:not(.other) { background: transparent; color: var(--text-2); font-weight: 500; border: 1px solid var(--border); }
+.cal-chip.k-hito.h-suave .cc-time { color: var(--muted); }

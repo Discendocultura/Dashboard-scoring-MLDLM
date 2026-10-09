@@ -38,6 +38,27 @@ export function sanitizeCarritoNotas(n) {
   return out;
 }
 
+// Envíos de cada día del carrito: cuántos emails y mensajes al grupo de WhatsApp, y a qué hora cada uno.
+// { 'YYYY-MM-DD': { emails: ['10:00', '19:00'], whatsapp: ['12:00'] } }
+export const MAX_ENVIOS_DIA = 8;
+export const CANALES_CARRITO = [
+  { id: 'emails', label: 'Emails', icon: '✉️' },
+  { id: 'whatsapp', label: 'Grupo de WhatsApp', icon: '💬' },
+];
+export function sanitizeCarritoEnvios(c) {
+  const out = {};
+  for (const [k, v] of Object.entries(c && typeof c === 'object' ? c : {}).slice(0, 60)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !v || typeof v !== 'object') continue;
+    const dia = {};
+    for (const { id } of CANALES_CARRITO) {
+      const horas = (Array.isArray(v[id]) ? v[id] : []).slice(0, MAX_ENVIOS_DIA).map((h) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(h)) ? String(h) : ''));
+      if (horas.length) dia[id] = horas;
+    }
+    if (Object.keys(dia).length) out[k] = dia;
+  }
+  return out;
+}
+
 // { faltan: [qué falta configurar], garantia, dias: [{ day, n, titulo, etiqueta, fecha, auto: [{ icon, texto }], nota }] }
 export function diasCarrito(launch = {}) {
   const M = momentosCarrito(launch);
@@ -54,7 +75,7 @@ export function diasCarrito(launch = {}) {
   const fv = fechaVenta(launch);
   const dias = [];
   for (let d = desde, i = 0; d <= hasta && i < MAX_DIAS; d = addDays(d, 1), i++) {
-    dias.push({ day: d, n: fv ? entre(fv, d) : i + 1, fecha: formatDate(madridToEpoch(`${d}T12:00`)), auto: [], nota: launch.carritoNotas?.[d] || '' });
+    dias.push({ day: d, n: fv ? entre(fv, d) : i + 1, fecha: formatDate(madridToEpoch(`${d}T12:00`)), auto: [], nota: launch.carritoNotas?.[d] || '', envios: launch.carritoEnvios?.[d] || {} });
   }
   const en = (ms) => dias.find((x) => x.day === dia(ms));
   const add = (ms, icon, texto, orden = ms) => { const x = ms != null && en(ms); if (x) x.auto.push({ icon, texto, orden }); };

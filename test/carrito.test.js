@@ -60,3 +60,31 @@ test('días de carrito: cuentan desde el día siguiente al vídeo de venta y de 
   // Sin días, el cierre es el que se puso a mano
   assert.equal(sanitizeConfig({ launches: { x1: { name: 'X', registroTag: 'r', fechaDirecto: '2026-11-02', cierreCarrito: '2026-11-09T22:00' } } }).launches.x1.cierreCarrito, '2026-11-09T22:00');
 });
+
+test('carrito: emails y mensajes al grupo de WhatsApp de cada día, con su hora', async () => {
+  const { sanitizeCarritoEnvios } = await import('../public/js/carrito.js');
+  assert.deepEqual(sanitizeCarritoEnvios({
+    '2026-11-03': { emails: ['10:00', '19:00'], whatsapp: ['12:00'], otro: ['09:00'] },
+    '2026-11-04': { emails: ['25:00', 'x'] }, mal: { emails: ['10:00'] }, '2026-11-05': { emails: [] },
+  }), { '2026-11-03': { emails: ['10:00', '19:00'], whatsapp: ['12:00'] }, '2026-11-04': { emails: ['', ''] } });
+  const cfg = sanitizeConfig({ launches: { e1: { name: 'E', registroTag: 'r', fechaDirecto: '2026-11-02', horaDirecto: '19:00', diasCarrito: 2, carritoEnvios: { '2026-11-03': { emails: ['10:00'], whatsapp: ['12:00', '20:00'] } } } } });
+  const r = diasCarrito(cfg.launches.e1);
+  assert.deepEqual(r.dias.find((d) => d.day === '2026-11-03').envios, { emails: ['10:00'], whatsapp: ['12:00', '20:00'] });
+  assert.deepEqual(r.dias.find((d) => d.day === '2026-11-04').envios, {});
+});
+
+test('calendario: envíos del carrito (suaves) y recursos de la preclase con fecha', () => {
+  const h = hitosLanzamiento({
+    fechaDirecto: '2026-11-02', horaDirecto: '19:00', clase1At: '2026-10-27T10:00', clase2At: '2026-10-30T10:00',
+    recursosPre: { test: { activo: true, nombre: 'Test autodiagnóstico', url: 'https://ghl.com/t', at: '2026-10-28T10:00' } },
+    carritoEnvios: { '2026-11-03': { emails: ['19:00', '10:00'], whatsapp: ['12:00'] } },
+  });
+  const por = Object.fromEntries(h.map((x) => [x.id, x]));
+  assert.equal(por.test.titulo, 'Test autodiagnóstico disponible');
+  assert.equal(por.test.day, '2026-10-28');
+  assert.ok(!por.test.suave && !por.clase1.suave);
+  assert.equal(por['envio-2026-11-03-emails'].titulo, '2 emails del carrito · 10:00, 19:00');
+  assert.equal(por['envio-2026-11-03-emails'].time, '10:00');
+  assert.equal(por['envio-2026-11-03-whatsapp'].titulo, 'Grupo de WhatsApp: 1 mensaje · 12:00');
+  assert.ok(por['envio-2026-11-03-emails'].suave && por['envio-2026-11-03-whatsapp'].suave);
+});

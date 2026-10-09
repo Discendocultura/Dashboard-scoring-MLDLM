@@ -4,7 +4,8 @@ import { madridToEpoch } from './page.js';
 import { addDays } from './tareas.js';
 import { videosDe, esEnDirecto, nClases } from './videos.js';
 import { ventanaBonus, tipoBonus, momentosCarrito } from './oferta.js';
-import { diasCarrito } from './carrito.js';
+import { diasCarrito, CANALES_CARRITO } from './carrito.js';
+import { recursosDe, tieneRecurso } from './recursos.js';
 
 // Tipos de evento propio (los añade la admin a mano).
 export const EVENTO_TIPOS = [
@@ -32,6 +33,9 @@ export function hitosLanzamiento(launch = {}) {
     { id: 'fin-captacion', titulo: 'Termina la publi de captación', icon: '🛑', at: launch.finCaptacion },
     // Clases del prelanzamiento (1, 2 o 3 según el embudo).
     ...Array.from({ length: nClases(launch) }, (_, i) => ({ id: `clase${i + 1}`, titulo: `Clase ${i + 1} disponible`, icon: '🎬', at: launch[`clase${i + 1}At`] })),
+    // Recursos de la preclase con fecha: el test y el descargable (la música y la votación se abren al ver la clase).
+    ...(tieneRecurso(launch, 'test') ? [{ id: 'test', titulo: `${recursosDe(launch).test.nombre || 'Test'} disponible`, icon: '🧭', at: recursosDe(launch).test.at }] : []),
+    ...(tieneRecurso(launch, 'descargable') ? [{ id: 'descargable', titulo: `${recursosDe(launch).descargable.nombre || 'Descargable'} disponible`, icon: '📄', at: recursosDe(launch).descargable.at }] : []),
     // Vídeos del lanzamiento: el webinar en directo, o cada vídeo / PLC (el de venta, marcado).
     ...vs.map((v) => ({
       id: v.k === 1 ? 'directo' : `directo${v.k}`,
@@ -44,7 +48,24 @@ export function hitosLanzamiento(launch = {}) {
   ];
   return [...list.filter((h) => /^\d{4}-\d{2}-\d{2}/.test(h.at || '')).map((h) => ({ ...h, day: day(h.at), time: time(h.at) })),
     ...hitosBonus((launch.oferta?.bonus || []).map((b) => ({ ...b, ...ventanaBonus(b, launch) })), momentosCarrito(launch).cierre),
-    ...hitosEstrategia(launch)];
+    ...hitosEstrategia(launch), ...hitosEnvios(launch)];
+}
+
+// Emails y mensajes al grupo de WhatsApp de cada día del carrito: uno por canal y día, «suave» (se ve en el
+// calendario pero sin marcar el día como los hitos importantes, ni en los próximos hitos de Inicio).
+function hitosEnvios(launch) {
+  const out = [];
+  for (const [d, v] of Object.entries(launch.carritoEnvios || {}).sort()) {
+    for (const c of CANALES_CARRITO) {
+      const horas = (v[c.id] || []);
+      if (!horas.length) continue;
+      const con = horas.filter(Boolean).sort();
+      const n = horas.length;
+      const que = c.id === 'emails' ? `${n} email${n > 1 ? 's' : ''} del carrito` : `Grupo de WhatsApp: ${n} mensaje${n > 1 ? 's' : ''}`;
+      out.push({ id: `envio-${d}-${c.id}`, icon: c.icon, titulo: `${que}${con.length ? ` · ${con.join(', ')}` : ''}`, at: `${d}T${con[0] || ''}`, day: d, time: con[0] || '', minutos: 15, suave: true });
+    }
+  }
+  return out;
 }
 
 // Estrategia de cada día del carrito (pestaña Carrito): su hito principal (la primera línea) en el calendario.

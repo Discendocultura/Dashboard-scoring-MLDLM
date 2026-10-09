@@ -17,7 +17,7 @@ import { alertasCarrito } from './alertas.js';
 import { BLOQUES, pesosDe, proponerPesos, pesosEfectivos } from './pesos.js';
 import { tieneRecurso, recursosDe, sanitizeRecursos, etapasPreclase, TIPOS_RECURSO, RECURSOS_EXTRA } from './recursos.js';
 import { retrospectiva } from './retrospectiva.js';
-import { diasCarrito, cierrePorDias, diasCarritoValido } from './carrito.js';
+import { diasCarrito, cierrePorDias, diasCarritoValido, CANALES_CARRITO, MAX_ENVIOS_DIA } from './carrito.js';
 import { leerLeads, guardarLeads, borrarCopias } from './cache-leads.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
@@ -2898,6 +2898,7 @@ function openConfig(code) {
   pintarVentaPasos();
   pintarVentaBarra(l.ventaBarra);
   carritoNotasEdit = { ...(l.carritoNotas || {}) };
+  carritoEnviosEdit = JSON.parse(JSON.stringify(l.carritoEnvios || {}));
   $('#carrito-dias').innerHTML = '';
   const rb = l.replayBarra || {};
   $('#cfg-rb-on').checked = Boolean(rb.activa);
@@ -3314,6 +3315,7 @@ function readForm() {
       espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim() },
       ventaBarra: leerVentaBarra(),
       carritoNotas: leerCarritoNotas(),
+      carritoEnvios: leerCarritoEnvios(),
       replayBarra: {
         activa: $('#cfg-rb-on').checked, texto: $('#cfg-rb-texto').value.trim(), modo: $('#cfg-rb-modo').value,
         at: $('#cfg-rb-at').value, minutos: Number($('#cfg-rb-min').value) || null, conBoton: $('#cfg-rb-con-boton').value === 'si', boton: $('#cfg-rb-boton').value.trim(), color: $('#cfg-rb-color').value,
@@ -5635,7 +5637,7 @@ function calItems() {
   const solo = cal.show.solo;
   const codes = solo ? [code] : [...Object.keys(state.config.launches), ...Object.keys(state.config.meteoricos || {})];
   for (const c of codes) {
-    for (const h of hitosDe(c)) push(h.day, { kind: 'hito', code: c, own: c === code, icon: h.icon, titulo: h.titulo, time: h.time, launch: nombreCal(c), hid: h.id });
+    for (const h of hitosDe(c)) push(h.day, { kind: 'hito', code: c, own: c === code, icon: h.icon, titulo: h.titulo, time: h.time, launch: nombreCal(c), hid: h.id, suave: h.suave });
   }
   if (cal.show.eventos) {
     for (const e of cal.datos.eventos) {
@@ -5651,7 +5653,9 @@ function calItems() {
     if (!solo) for (const t of cal.datos.tareas) if (t.code !== code) push(t.fecha, { kind: 'tarea', t, code: t.code, own: false, launch: nombreCal(t.code), titulo: t.titulo, time: '' });
   }
   const rank = { hito: 0, evento: 1, tarea: 2 };
-  for (const list of Object.values(map)) list.sort((a, b) => (rank[a.kind] - rank[b.kind]) || (b.own === true) - (a.own === true) || (a.time || '').localeCompare(b.time || ''));
+  // Los envíos del carrito (hitos «suaves») van detrás de los hitos importantes y de los eventos.
+  const rk = (it) => (it.suave ? 1.5 : rank[it.kind]);
+  for (const list of Object.values(map)) list.sort((a, b) => (rk(a) - rk(b)) || (b.own === true) - (a.own === true) || (a.time || '').localeCompare(b.time || ''));
   return map;
 }
 
@@ -5662,7 +5666,7 @@ function calChip(it, hoy) {
     return `<span class="cal-chip k-tarea ${cls} ${it.own ? '' : 'other'}" title="${esc(t.titulo)} · ${esc(asignadoTexto(t.asignado))}${it.own ? '' : ` · ${esc(it.launch)}`}"><span class="cc-ico">${t.hecha ? '✓' : '☐'}</span><span class="cc-txt">${esc(t.titulo)}</span></span>`;
   }
   const other = !it.own;
-  const tipo = it.kind === 'evento' ? ` t-${it.ev.tipo}` : it.kind === 'hito' && /^directo\d?$/.test(it.hid) ? ' h-webinar' : '';
+  const tipo = it.kind === 'evento' ? ` t-${it.ev.tipo}` : it.suave ? ' h-suave' : it.kind === 'hito' && /^directo\d?$/.test(it.hid) ? ' h-webinar' : '';
   return `<span class="cal-chip k-${it.kind}${tipo} ${other ? 'other' : ''} ${it.cont ? 'cont' : ''}" title="${esc(it.titulo)}${other ? ` · ${esc(it.launch)}` : ''}"><span class="cc-ico">${it.icon}</span>${it.time ? `<span class="cc-time">${esc(it.time)}</span>` : ''}<span class="cc-txt">${esc(it.titulo)}${other ? ` · ${esc(it.launch)}` : ''}</span></span>`;
 }
 
@@ -5716,7 +5720,7 @@ function renderCalendario() {
     // La fase colorea el día entero (una sola: la más importante si se solapan) y los hitos
     // del lanzamiento lo enmarcan; el del webinar, en rojo.
     const fase = ['directo', 'oferta', 'carrito', 'clases', 'calentamiento', 'captacion'].map((id) => bands.find((f) => f.id === id)).find(Boolean);
-    const hito = list.find((it) => it.kind === 'hito' && it.own);
+    const hito = list.find((it) => it.kind === 'hito' && it.own && !it.suave);
     const marca = `${fase ? `con-fase tone-${CAL_FASE_COLOR[fase.id]}` : ''} ${hito ? `dia-hito${/^directo\d?$/.test(hito.hid) ? ' dia-webinar' : ''}` : ''}`;
     return `<button type="button" class="cal-day ${marca} ${d.slice(0, 7) !== month && cal.modo === 'mes' ? 'out' : ''} ${d === hoy ? 'today' : ''} ${d === cal.sel ? 'sel' : ''} ${d < hoy ? 'past' : ''}" data-day="${d}" aria-label="${esc(fmtDay(d, { weekday: 'long', day: 'numeric', month: 'long' }))}${list.length ? `, ${list.length} elementos` : ''}">
       <span class="cal-bands">${fase ? `<i title="${esc(fase.label)}"></i>` : ''}</span>
@@ -8508,13 +8512,31 @@ function leerCarritoNotas() {
   for (const t of $$('#carrito-dias .car-nota')) carritoNotasEdit[t.dataset.day] = t.value;
   return Object.fromEntries(Object.entries(carritoNotasEdit).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v));
 }
-function pintarCarrito() {
+// Envíos de cada día (emails y grupo de WhatsApp): cuántos y a qué hora. Se guardan aquí mientras se edita.
+let carritoEnviosEdit = {};
+const HORAS_SUGERIDAS = ['10:00', '19:00', '13:00', '21:00', '08:30', '16:00', '22:30', '11:30'];
+function leerCarritoEnvios() {
+  for (const box of $$('#carrito-dias .car-canal')) {
+    const day = box.dataset.day;
+    carritoEnviosEdit[day] = { ...(carritoEnviosEdit[day] || {}), [box.dataset.canal]: $$('.car-hora', box).map((i) => i.value) };
+  }
+  return Object.fromEntries(Object.entries(carritoEnviosEdit).map(([d, v]) => [d, Object.fromEntries(Object.entries(v).filter(([, h]) => h.length))]).filter(([, v]) => Object.keys(v).length));
+}
+function canalHtml(day, canal, horas = []) {
+  return `<div class="car-canal" data-day="${day}" data-canal="${canal.id}">
+    <label class="car-canal-n"><span>${canal.icon} ${esc(canal.label)}</span><select class="car-cuantos" aria-label="${esc(canal.label)}: cuántos al día">${Array.from({ length: MAX_ENVIOS_DIA + 1 }, (_, i) => `<option value="${i}" ${i === horas.length ? 'selected' : ''}>${i === 0 ? 'Ninguno' : `${i} al día`}</option>`).join('')}</select></label>
+    <div class="car-horas">${horas.map((h, i) => `<label class="car-hora-l"><span>${canal.id === 'emails' ? 'Email' : 'WhatsApp'} ${i + 1}</span><input class="car-hora" type="time" value="${esc(h)}"></label>`).join('')}</div>
+  </div>`;
+}
+function pintarCarrito({ leerEnvios = true } = {}) {
   const notas = leerCarritoNotas();
+  // Tras «copiar al resto de días» lo bueno es lo copiado, no lo que había en pantalla.
+  const envios = leerEnvios ? leerCarritoEnvios() : Object.fromEntries(Object.entries(carritoEnviosEdit).filter(([, v]) => Object.values(v).some((h) => h.length)));
   let launch = null;
   try { launch = readForm().launch; } catch { launch = null; }
   const datos = {
     ...(launch || { ...(state.config.launches[editingCode] || {}), fechaDirecto: $('#cfg-directo-fecha').value, horaDirecto: $('#cfg-directo-hora').value, aperturaCarrito: $('#cfg-apertura-carrito').value, cierreCarrito: $('#cfg-cierre').value }),
-    oferta: leerOfertaEditor(), ventaBarra: leerVentaBarra(), carritoNotas: notas,
+    oferta: leerOfertaEditor(), ventaBarra: leerVentaBarra(), carritoNotas: notas, carritoEnvios: envios,
   };
   const r = diasCarrito(datos);
   const box = $('#carrito-dias');
@@ -8524,14 +8546,41 @@ function pintarCarrito() {
   }
   const hoy = dayInMadrid(new Date().toISOString());
   box.innerHTML = `<p class="car-resumen"><strong>${r.dias.length} días de carrito</strong>${r.garantia ? ` · 🛡️ ${esc(r.garantia)}` : ''}</p>
-    <div class="car-dias">${r.dias.map((d) => `<article class="car-dia${d.day === hoy ? ' car-hoy' : ''}">
+    <div class="car-dias">${r.dias.map((d) => `<article class="car-dia${d.day === hoy ? ' car-hoy' : ''}" data-n="${d.n > 0 ? d.n : 0}">
       <header><span class="car-n">${esc(d.titulo)}</span><strong>${esc(d.fecha)}</strong>${d.etiqueta ? `<span class="car-tag">${esc(d.etiqueta)}</span>` : ''}${d.day === hoy ? '<span class="car-tag car-tag-hoy">Hoy</span>' : ''}</header>
       <h4>Hitos clave</h4>
       ${d.auto.length ? `<ul class="car-auto">${d.auto.map((a) => `<li><span aria-hidden="true">${a.icon}</span> ${esc(a.texto)}</li>`).join('')}</ul>` : '<p class="muted small">Sin hitos automáticos este día: se rellenará solo cuando la oferta o la barra de la página de venta tengan algo este día. Escribe abajo la estrategia.</p>'}
+      <h4>Envíos del día</h4>
+      <div class="car-envios">${CANALES_CARRITO.map((c) => canalHtml(d.day, c, d.envios[c.id] || [])).join('')}</div>
+      ${r.dias.length > 1 ? `<button type="button" class="btn ghost small car-copiar" data-day="${d.day}" title="Pone estos mismos emails y mensajes de WhatsApp (con sus horas) en los demás días de carrito">Copiar estos envíos al resto de días</button>` : ''}
       <label class="field"><span>Estrategia / notas del día <small>(a mano)</small></span><textarea class="car-nota" data-day="${d.day}" rows="3" maxlength="1500" placeholder="Ej.: email de testimonios a las 10:00, directo de dudas en Instagram, WhatsApp a las que vieron la página de venta…">${esc(d.nota)}</textarea></label>
     </article>`).join('')}</div>`;
 }
 $('.tab[data-tab="carrito"]').addEventListener('click', pintarCarrito);
+// Cambiar cuántos envíos: aparecen (o se quitan) las horas, con una hora sugerida en las nuevas.
+$('#carrito-dias').addEventListener('change', (e) => {
+  if (!e.target.matches('.car-cuantos')) return;
+  const box = e.target.closest('.car-canal');
+  const actuales = $$('.car-hora', box).map((i) => i.value);
+  const n = Number(e.target.value);
+  const horas = actuales.slice(0, n);
+  while (horas.length < n) horas.push(HORAS_SUGERIDAS.find((h) => !horas.includes(h)) ?? '');
+  box.outerHTML = canalHtml(box.dataset.day, CANALES_CARRITO.find((c) => c.id === box.dataset.canal), horas);
+  leerCarritoEnvios();
+});
+$('#carrito-dias').addEventListener('click', (e) => {
+  const b = e.target.closest('.car-copiar');
+  if (!b) return;
+  const todos = leerCarritoEnvios();
+  const origen = todos[b.dataset.day] || {};
+  // Solo a los días de carrito (no al día del directo).
+  for (const box of $$('#carrito-dias .car-dia:not([data-n="0"]) .car-canal')) {
+    if (box.dataset.day === b.dataset.day) continue;
+    carritoEnviosEdit[box.dataset.day] = JSON.parse(JSON.stringify(origen));
+  }
+  pintarCarrito({ leerEnvios: false });
+  b.blur();
+});
 
 // ---------- Métricas → Oferta y bonus: la oferta frente a las ventas de cada día del carrito ----------
 function renderOfertaAnalisis(launch) {
