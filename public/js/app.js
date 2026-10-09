@@ -784,6 +784,8 @@ function pintarCabeceraVideos() {
   $('#th-grabacion').hidden = multi;
   // Encuesta: solo si el lanzamiento tiene etiqueta de encuesta.
   $('#th-encuesta').hidden = !launch?.encuestaTag;
+  // Test del área preclase (va después de la clase 1): solo si el lanzamiento lo tiene.
+  $('#th-test').hidden = !launch || !tieneRecurso(launch, 'test');
   // Prelanzamiento: columnas de las clases que haya y de la VIP (si la hay).
   const nc = nClases(launch);
   $('#th-c2').hidden = nc < 2;
@@ -811,7 +813,7 @@ function renderTabla() {
   state.page = Math.min(Math.max(0, state.page), pages - 1);
   const slice = rows.slice(state.page * PAGE_SIZE, (state.page + 1) * PAGE_SIZE);
   $('#leads-body').innerHTML = slice.map(rowHtml).join('')
-    || '<tr><td colspan="13" class="muted">No hay leads con estos filtros.</td></tr>';
+    || '<tr><td colspan="14" class="muted">No hay leads con estos filtros.</td></tr>';
   $('#page-info').textContent = rows.length
     ? `${state.page * PAGE_SIZE + 1}–${state.page * PAGE_SIZE + slice.length} de ${rows.length} leads`
     : '0 leads';
@@ -2362,7 +2364,6 @@ function preclaseChips(l) {
   const out = [];
   if (l.s.venta_visita && !l.s.compra) out.push(`<span class="ll-chip" title="${esc(visitaTxt(l.s.venta_visita))}">🛒${l.s.venta_visita.veces > 1 ? ` ×${l.s.venta_visita.veces}` : ''}</span>`);
   if (r.musica && (l.s.musica_play || l.s.musica_50 || l.s.musica_90)) out.push(`<span class="ll-chip" title="Música: ${l.s.musica_90 ? 'entera' : l.s.musica_50 ? 'más de la mitad' : 'le dio al play'}">🎵${l.s.musica_90 ? ' 90%' : l.s.musica_50 ? ' 50%' : ''}</span>`);
-  if (r.test && l.s.test) out.push('<span class="ll-chip" title="Hizo el test">🧭 Test</span>');
   const v = r.votacion && votoTexto(l.id);
   if (v) out.push(`<span class="ll-chip" title="${esc(`Sus respuestas en la clase: ${v}`)}">🗳️ ${esc(v.length > 22 ? `${v.slice(0, 21)}…` : v)}</span>`);
   return out.join(' ');
@@ -2377,7 +2378,7 @@ function rowHtml(l) {
   return `<tr>
     <td><div class="lead-name"><button type="button" class="lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || '(sin nombre)')}</button> ${avatarChip(l)} ${faseChip(l.id)} ${preclaseChips(l)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
     ${state.config.launches[state.launchCode]?.encuestaTag ? `<td>${l.s.encuesta ? '<span class="enc-si" title="Ha rellenado la encuesta">✓</span>' : l.s.encuesta_anterior ? '<span class="enc-ant" title="La rellenó en un lanzamiento anterior (ve las clases sin repetirla)">↺</span>' : '<span class="enc-no" title="No ha rellenado la encuesta">✗</span>'}</td>` : ''}
-    ${(l.s.clases || ['clase1', 'clase2']).map((c) => `<td>${videoChip(l.s, c)}</td>`).join('')}
+    ${(l.s.clases || ['clase1', 'clase2']).map((c, i) => `<td>${videoChip(l.s, c)}</td>${i === 0 && l.s.recursos?.test ? `<td>${l.s.test ? '<span class="enc-si" title="Ha hecho el test">✓</span>' : '<span class="enc-no" title="No ha hecho el test">✗</span>'}</td>` : ''}`).join('')}
     ${l.s.conVip === false ? '' : `<td>${l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>`}
     ${(l.s.nVideos || 1) > 1 ? `<td colspan="2"><div class="videos-chips">${videosChips(l.s, state.config.launches[state.launchCode])}</div></td>` : `<td>${liveChip(l.s)}</td>
     <td>${videoChip(l.s, 'replay')}</td>`}
@@ -2500,10 +2501,10 @@ document.addEventListener('click', async (e) => {
 
 // ---------- CSV ----------
 $('#btn-csv').addEventListener('click', () => {
-  const head = ['Nombre', 'Email', 'Teléfono', 'Tráfico', 'Clase 1', 'Clase 2', 'VIP', 'Directo', 'Grabación', 'Compra', 'Fecha compra', 'Puntos', 'Estado', 'Siguiente mensaje', 'Contactado'];
+  const head = ['Nombre', 'Email', 'Teléfono', 'Tráfico', 'Clase 1', 'Test', 'Clase 2', 'VIP', 'Directo', 'Grabación', 'Compra', 'Fecha compra', 'Puntos', 'Estado', 'Siguiente mensaje', 'Contactado'];
   const v = (s, k) => (watched(s, k) ? `${watched(s, k)}%` : '');
   const live = (s) => (s.directo_final ? 'Hasta el final' : s.directo_60 ? '+60 min' : s.directo_asistio ? 'Asistió' : s.directo_click ? 'Clic' : '');
-  const lines = filtered().map((l) => [l.name, l.email, l.phone, l.s.trafico, v(l.s, 'clase1'), v(l.s, 'clase2'), l.s.vip ? 'Sí' : '', live(l.s), v(l.s, 'replay'), l.s.compra_directo ? 'En directo' : l.s.compra ? 'Sí' : '', l.s.fecha_compra, l.score, l.estado.label, NEXT_STEPS[l.step], l.s.wa_enviado ? 'Sí' : '']);
+  const lines = filtered().map((l) => [l.name, l.email, l.phone, l.s.trafico, v(l.s, 'clase1'), l.s.recursos?.test ? (l.s.test ? 'Sí' : 'No') : '', v(l.s, 'clase2'), l.s.vip ? 'Sí' : '', live(l.s), v(l.s, 'replay'), l.s.compra_directo ? 'En directo' : l.s.compra ? 'Sí' : '', l.s.fecha_compra, l.score, l.estado.label, NEXT_STEPS[l.step], l.s.wa_enviado ? 'Sí' : '']);
   const csv = [head, ...lines].map((r) => r.map((x) => `"${String(x ?? '').replaceAll('"', '""')}"`).join(';')).join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' }));
