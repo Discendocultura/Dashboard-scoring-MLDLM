@@ -2375,6 +2375,12 @@ $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('af
 }
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
+// Menú «Cuenta» de arriba: se cierra al elegir algo o al pulsar fuera.
+document.addEventListener('click', (e) => {
+  const menu = $('#tb-menu-cuenta');
+  if (!menu?.open) return;
+  if (!menu.contains(e.target) || e.target.closest('.tb-menu-panel button')) menu.open = false;
+});
 
 // ---------- Barras de pestañas que no caben (móvil): avisa de que hay más deslizando ----------
 function marcarDesborde(el) {

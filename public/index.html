@@ -71,18 +71,25 @@
           <span>Lanzamiento</span>
           <select id="launch-select"></select>
         </label>
-        <button id="btn-reload" class="tb-btn tb-reload" type="button" data-tb-icon="refresh" title="Volver a cargar los datos desde GHL"><span class="tb-txt">Actualizar</span></button>
-        <button id="btn-zoom" class="tb-btn tb-zoom zoom-only lanz-only" type="button" data-tb-icon="video" title="Leer la asistencia del directo en Zoom y etiquetar a los leads"><span class="tb-txt">Sincronizar Zoom</span></button>
-        <button id="btn-auditor" class="tb-btn tb-auditor config-only" type="button" data-tb-icon="shield" title="Auditor: revisa el embudo y te dice qué falta, por orden de urgencia"><span class="tb-txt">Auditor</span><span id="auditor-count" class="notif-count" hidden></span></button>
-        <button id="btn-config" class="tb-btn tb-config config-only" type="button" data-tb-icon="gear" title="Configuración del lanzamiento"><span class="tb-txt">Configuración</span></button>
-        <button id="btn-equipo" class="tb-btn tb-equipo admin-only" type="button" data-tb-icon="users" title="Miembros del equipo, roles y permisos"><span class="tb-txt">Equipo</span></button>
-        <button id="btn-tema" class="tb-btn tb-icono tb-tema" type="button" data-tema-toggle aria-label="Cambiar a modo noche"><span class="tb-ico"><span class="tema-ico tema-sol" aria-hidden="true"></span><span class="tema-ico tema-luna" aria-hidden="true"></span></span></button>
+        <div class="tb-grupo tb-lanz" role="group" aria-label="Este lanzamiento">
+          <button id="btn-reload" class="tb-btn tb-reload" type="button" data-tb-icon="refresh" title="Volver a cargar los datos desde GHL"><span class="tb-txt">Actualizar</span></button>
+          <button id="btn-zoom" class="tb-btn tb-zoom zoom-only lanz-only" type="button" data-tb-icon="video" title="Leer la asistencia del directo en Zoom y etiquetar a los leads"><span class="tb-txt">Sincronizar Zoom</span></button>
+          <button id="btn-auditor" class="tb-btn tb-auditor config-only" type="button" data-tb-icon="shield" title="Auditor: revisa el embudo y te dice qué falta, por orden de urgencia"><span class="tb-txt">Auditor</span><span id="auditor-count" class="notif-count" hidden></span></button>
+          <button id="btn-config" class="tb-btn tb-config config-only" type="button" data-tb-icon="gear" title="Configuración del lanzamiento"><span class="tb-txt">Configuración</span></button>
+        </div>
         <span class="notif-wrap">
           <button id="btn-notif" class="tb-btn tb-notif" type="button" data-tb-icon="bell" title="Notificaciones: comentarios, menciones y tareas vencidas o a punto de vencer" aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false"><span id="notif-count" class="notif-count" hidden></span></button>
           <div id="notif-panel" class="notif-panel" hidden role="dialog" aria-label="Notificaciones"></div>
         </span>
-        <button id="btn-cuenta" class="tb-btn tb-cuenta" type="button" data-tb-icon="user" title="Mi cuenta y contraseña" hidden><span class="tb-txt">Mi cuenta</span></button>
-        <button id="btn-logout" class="tb-btn tb-logout" type="button" data-tb-icon="logout" title="Cerrar sesión"><span class="tb-txt">Salir</span></button>
+        <details class="tb-menu" id="tb-menu-cuenta">
+          <summary class="tb-btn tb-cuenta-menu" data-tb-icon="user" title="Equipo, tu cuenta, modo noche y salir"><span class="tb-txt">Cuenta</span></summary>
+          <div class="tb-menu-panel" role="menu" aria-label="Cuenta">
+          <button id="btn-equipo" class="tb-btn tb-equipo admin-only" type="button" data-tb-icon="users" title="Miembros del equipo, roles y permisos"><span class="tb-txt">Equipo</span></button>
+          <button id="btn-cuenta" class="tb-btn tb-cuenta" type="button" data-tb-icon="user" title="Mi cuenta y contraseña" hidden><span class="tb-txt">Mi cuenta</span></button>
+          <button id="btn-tema" class="tb-btn tb-icono tb-tema" type="button" data-tema-toggle aria-label="Cambiar a modo noche"><span class="tb-ico"><span class="tema-ico tema-sol" aria-hidden="true"></span><span class="tema-ico tema-luna" aria-hidden="true"></span></span><span class="tb-txt">Modo día / noche</span></button>
+          <button id="btn-logout" class="tb-btn tb-logout" type="button" data-tb-icon="logout" title="Cerrar sesión"><span class="tb-txt">Salir</span></button>
+          </div>
+        </details>
       </div>
     </header>
 

@@ -2195,3 +2195,17 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 .ir-config { margin-left: 6px; vertical-align: middle; }
 .link-btn { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .link-btn:hover { color: var(--accent, #b4532a); }
+/* Barra de arriba en dos grupos: lo de este lanzamiento (con texto) y la cuenta (menú) */
+.tb-grupo { display: flex; align-items: center; gap: 4px; }
+.tb-lanz { padding-right: 6px; margin-right: 2px; border-right: 1px solid var(--border); }
+.tb-menu { position: relative; }
+.tb-menu > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; }
+.tb-menu > summary::-webkit-details-marker { display: none; }
+.tb-menu > summary::after { content: "▾"; margin-left: 2px; font-size: 11px; color: var(--muted); }
+.tb-menu-panel { position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; display: flex; flex-direction: column; gap: 2px; min-width: 220px; padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 10px 30px rgba(0,0,0,.14); }
+.tb-menu-panel .tb-btn { justify-content: flex-start; width: 100%; padding: 6px 10px 6px 6px; margin: 0; }
+.tb-menu-panel .tb-tema::before { display: none; }
+/* En el menú, siempre con su texto; fuera, el de las acciones del lanzamiento se ve hasta 1180 px */
+.topbar .tb-menu-panel .tb-txt { display: inline !important; position: static; width: auto; height: auto; clip: auto; overflow: visible; }
+@media (max-width: 1640px) { .topbar .tb-lanz .tb-txt { display: inline; } .topbar .tb-lanz .tb-btn { padding: 6px 10px 6px 6px; } }
+@media (max-width: 1180px) { .topbar .tb-lanz .tb-txt { display: none; } .topbar .tb-lanz .tb-btn { padding: 6px; } }
