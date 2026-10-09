@@ -220,6 +220,8 @@ export function sanitizeReplayBarra(r) {
     modo: r?.modo === 'minutos' ? 'minutos' : 'fecha',
     at: LOCAL_DT_RE.test(String(r?.at || '')) ? String(r.at) : '',
     minutos: Number.isFinite(min) && min > 0 ? Math.min(min, 60 * 24 * 14) : null,
+    // ¿Lleva botón (a la página de venta) o es solo informativa? Se elige siempre; sin elegir, según haya texto.
+    conBoton: typeof r?.conBoton === 'boolean' ? r.conBoton : Boolean(r?.boton == null ? false : txt(r.boton, 40)),
     boton: r?.boton == null ? REPLAY_BARRA_BOTON : txt(r.boton, 40),
     color: /^#[0-9a-f]{6}$/i.test(String(r?.color || '')) ? String(r.color).toLowerCase() : '',
   };
@@ -231,7 +233,7 @@ export function replayBarraDe(launch) {
   const at = r.modo === 'fecha' ? madridToEpoch(r.at) : null;
   const minutos = r.modo === 'minutos' ? r.minutos : null;
   if (at == null && !minutos) return null;
-  return { text: r.texto || REPLAY_BARRA_TEXTO, at, minutos, boton: r.boton ?? REPLAY_BARRA_BOTON, color: r.color || '' };
+  return { text: r.texto || REPLAY_BARRA_TEXTO, at, minutos, boton: r.conBoton ? r.boton || REPLAY_BARRA_BOTON : '', color: r.color || '' };
 }
 
 // "lunes 27 de octubre, 19:00" en hora de España.

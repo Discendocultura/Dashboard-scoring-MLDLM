@@ -2677,6 +2677,7 @@ $('#cfg-raices').addEventListener('input', pintarVentaPasos);
 function pintarReplayBarraCfg() {
   const on = $('#cfg-rb-on').checked;
   $$('#config-dialog [data-rb-campo]').forEach((el) => { el.hidden = !on; });
+  $$('#config-dialog [data-rb-boton]').forEach((el) => { el.hidden = $('#cfg-rb-con-boton').value !== 'si'; });
   const modo = $('#cfg-rb-modo').value;
   $$('#config-dialog [data-rb-modo]').forEach((el) => { el.hidden = el.dataset.rbModo !== modo; });
   const falta = modo === 'fecha' ? !$('#cfg-rb-at').value : !(Number($('#cfg-rb-min').value) > 0);
@@ -2687,7 +2688,7 @@ function pintarReplayBarraCfg() {
     : `Cada lead tiene ${Number($('#cfg-rb-min').value)} minutos desde que abre la grabación; después, la página la lleva a la de venta.`;
   pintarReplayPasos();
 }
-['#cfg-rb-on', '#cfg-rb-modo', '#cfg-rb-at', '#cfg-rb-min', '#cfg-raices'].forEach((sel) => $(sel).addEventListener('input', pintarReplayBarraCfg));
+['#cfg-rb-on', '#cfg-rb-con-boton', '#cfg-rb-modo', '#cfg-rb-at', '#cfg-rb-min', '#cfg-raices'].forEach((sel) => $(sel).addEventListener('input', pintarReplayBarraCfg));
 function pintarReplayPasos() {
   const url = $('#cfg-replay').value.trim();
   const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
@@ -2820,7 +2821,8 @@ function openConfig(code) {
   $('#cfg-rb-modo').value = rb.modo === 'minutos' ? 'minutos' : 'fecha';
   $('#cfg-rb-at').value = rb.at || '';
   $('#cfg-rb-min').value = rb.minutos || '';
-  $('#cfg-rb-boton').value = rb.boton ?? 'Ver la oferta';
+  $('#cfg-rb-con-boton').value = rb.conBoton ? 'si' : 'no';
+  $('#cfg-rb-boton').value = rb.boton || 'Ver la oferta';
   $('#cfg-rb-color').value = rb.color || '#860d0e';
   pintarReplayBarraCfg();
   $('#cfg-espera-on').checked = l.espera?.activa ?? (embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo)?.espera !== false);
@@ -3227,7 +3229,7 @@ function readForm() {
       espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim() },
       replayBarra: {
         activa: $('#cfg-rb-on').checked, texto: $('#cfg-rb-texto').value.trim(), modo: $('#cfg-rb-modo').value,
-        at: $('#cfg-rb-at').value, minutos: Number($('#cfg-rb-min').value) || null, boton: $('#cfg-rb-boton').value.trim(), color: $('#cfg-rb-color').value,
+        at: $('#cfg-rb-at').value, minutos: Number($('#cfg-rb-min').value) || null, conBoton: $('#cfg-rb-con-boton').value === 'si', boton: $('#cfg-rb-boton').value.trim(), color: $('#cfg-rb-color').value,
       },
       imagenes: Object.fromEntries(['clase1', 'clase2', 'clase3', 'test', 'descargable', 'espera'].map((k) => [k, $(`#cfg-img-${k}`).value.trim()]).filter(([, v]) => v)),
     },
@@ -3390,20 +3392,26 @@ $('#btn-digest-test').addEventListener('click', async () => {
 
 // ---------- Página de recursos: barra de urgencia y vista previa ----------
 function renderBarraEditor(barra) {
-  const opts = (sel) => Object.entries(LINK_KEYS).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v}</option>`).join('');
+  const opts = (sel) => Object.entries(LINK_KEYS).filter(([k]) => k).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v}</option>`).join('');
   // Fases según los vídeos del lanzamiento (con varios, cada vídeo y el tiempo entre vídeos).
   const l = editingCode ? state.config.launches[editingCode] : null;
   const fases = phasesFor({ ...(l || {}), formato: formatoDeLanz(l) });
   $('#cfg-barra').innerHTML = fases.map((p) => {
     const b = barra[p.id] || {};
-    return `<tr data-phase="${p.id}">
+    const boton = b.button != null ? b.button : p.button;
+    // Cada barra pregunta si lleva botón: algunas son solo informativas (para crear urgencia).
+    return `<tr data-phase="${p.id}" class="${boton ? '' : 'sin-boton'}">
       <td>${esc(p.label)}</td>
       <td><input class="bar-text" value="${esc(b.text || '')}" placeholder="${esc(p.text)}"></td>
-      <td><select class="bar-button">${opts(b.button != null ? b.button : p.button)}</select></td>
+      <td><select class="bar-con-boton" aria-label="¿Lleva botón?"><option value="no" ${boton ? '' : 'selected'}>No, solo texto</option><option value="si" ${boton ? 'selected' : ''}>Sí, con botón</option></select></td>
+      <td><select class="bar-button" aria-label="Adónde lleva el botón">${opts(boton || p.button || 'venta')}</select></td>
       <td><input class="bar-label" value="${esc(b.buttonLabel || '')}" placeholder="Texto del botón"></td>
     </tr>`;
   }).join('');
 }
+$('#cfg-barra').addEventListener('change', (e) => {
+  if (e.target.matches('.bar-con-boton')) e.target.closest('tr').classList.toggle('sin-boton', e.target.value !== 'si');
+});
 
 function enlaceRow(key = '', url = '') {
   return `<div class="enlace-row"><input class="enl-key" value="${esc(key)}" placeholder="nombre (p. ej. guia)"><input class="enl-url" type="url" value="${esc(url)}" placeholder="https://…"><button type="button" class="btn ghost enl-del" aria-label="Quitar">✕</button></div>`;
@@ -3566,7 +3574,7 @@ $('#cfg-textos').addEventListener('click', (e) => { if (e.target.closest('.txt-d
 function readBarraEditor() {
   const out = {};
   $$('#cfg-barra tr').forEach((tr) => {
-    out[tr.dataset.phase] = { text: $('.bar-text', tr).value.trim(), button: $('.bar-button', tr).value, buttonLabel: $('.bar-label', tr).value.trim() };
+    out[tr.dataset.phase] = { text: $('.bar-text', tr).value.trim(), button: $('.bar-con-boton', tr).value === 'si' ? $('.bar-button', tr).value : '', buttonLabel: $('.bar-label', tr).value.trim() };
   });
   return out;
 }

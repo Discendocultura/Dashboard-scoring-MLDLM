@@ -1013,8 +1013,8 @@
             <button type="button" class="btn" id="btn-add-enlace">+ Añadir enlace</button>
           </section>
           <section class="cfg-sec" data-sec="7">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">7</span><div><h3>Barra de urgencia</h3><p>Un mensaje por fase. <code>{cuenta}</code> = cuenta atrás hasta el siguiente momento. Si lo dejas vacío se usa el texto de ejemplo.</p></div></header>
-            <div class="table-scroll"><table class="metric-table bar-table"><thead><tr><th>Fase</th><th>Mensaje</th><th>Botón</th><th>Texto del botón</th></tr></thead><tbody id="cfg-barra"></tbody></table></div>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">7</span><div><h3>Barra de urgencia</h3><p>Un mensaje por fase. <code>{cuenta}</code> = cuenta atrás hasta el siguiente momento. Si lo dejas vacío se usa el texto de ejemplo. En cada fase elige si la barra <strong>lleva botón</strong> o es <strong>solo informativa</strong> (para crear urgencia).</p></div></header>
+            <div class="table-scroll"><table class="metric-table bar-table"><thead><tr><th>Fase</th><th>Mensaje</th><th>¿Lleva botón?</th><th>Adónde lleva</th><th>Texto del botón</th></tr></thead><tbody id="cfg-barra"></tbody></table></div>
           </section>
           <h3 class="cfg-h3">Vista previa</h3>
           <div class="row">
@@ -1069,7 +1069,8 @@
                 <label class="field"><span>La cuenta atrás va…</span><select id="cfg-rb-modo"><option value="fecha">Hasta una fecha y hora fija (igual para todas)</option><option value="minutos">X minutos desde que cada lead abre la grabación</option></select></label>
                 <label class="field" data-rb-modo="fecha"><span>Fecha y hora en que llega a cero <small>(hora de España)</small></span><input id="cfg-rb-at" type="datetime-local"></label>
                 <label class="field" data-rb-modo="minutos"><span>Minutos <small>(desde que la abre por primera vez; recargar no lo reinicia)</small></span><input id="cfg-rb-min" type="number" min="1" max="20160" inputmode="numeric" placeholder="90"></label>
-                <label class="field"><span>Texto del botón <small>(lleva a la página de venta; vacío = sin botón)</small></span><input id="cfg-rb-boton" maxlength="40" placeholder="Ver la oferta"></label>
+                <label class="field"><span>¿Lleva botón?</span><select id="cfg-rb-con-boton"><option value="no">No: solo informativa (para crear urgencia)</option><option value="si">Sí: botón a la página de venta</option></select></label>
+                <label class="field" data-rb-boton><span>Texto del botón</span><input id="cfg-rb-boton" maxlength="40" placeholder="Ver la oferta"></label>
                 <label class="field"><span>Color de la barra</span><input id="cfg-rb-color" type="color" value="#860d0e"></label>
                 <p class="field-note full" id="cfg-rb-aviso"></p>
               </div>

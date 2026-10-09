@@ -247,7 +247,7 @@ test('página de replay: barra fija con cuenta atrás que lleva a la página de 
   assert.equal((await guardar(base)).status, 200);
   assert.equal((await call('/api/page?l=rep-26&pagina=grabacion&cid=mock00001')).data.replayBarra, null);
   // Fecha fija
-  await guardar({ ...base, replayBarra: { activa: true, texto: 'Se retira en {cuenta}', modo: 'fecha', at: `${local(1)}T20:00`, boton: 'Quiero unirme', color: '#123ABC' } });
+  await guardar({ ...base, replayBarra: { activa: true, texto: 'Se retira en {cuenta}', modo: 'fecha', at: `${local(1)}T20:00`, conBoton: true, boton: 'Quiero unirme', color: '#123ABC' } });
   let p = (await call('/api/page?l=rep-26&pagina=grabacion&cid=mock00001')).data;
   assert.equal(p.phase, 'replay');
   assert.equal(p.replayBarra.text, 'Se retira en {cuenta}');
@@ -261,8 +261,16 @@ test('página de replay: barra fija con cuenta atrás que lleva a la página de 
   await guardar({ ...base, replayBarra: { activa: true, modo: 'minutos', minutos: 90 } });
   p = (await call('/api/page?l=rep-26&pagina=grabacion')).data;
   assert.equal(p.replayBarra.minutos, 90);
+  assert.equal(p.replayBarra.boton, ''); // sin elegir botón: solo informativa
   assert.equal(p.replayBarra.at, null);
   assert.match(p.replayBarra.text, /\{cuenta\}/);
+  await guardar({ ...base, replayBarra: { activa: true, modo: 'minutos', minutos: 90, conBoton: false, boton: 'Ver la oferta' } });
+  assert.equal((await call('/api/page?l=rep-26&pagina=grabacion')).data.replayBarra.boton, '');
+  // Barras por fase: «sin botón» se guarda y la página no lo enseña
+  await guardar({ ...base, barra: { replay: { text: 'Últimas horas', button: '' } } });
+  p = (await call('/api/page?l=rep-26&pagina=grabacion')).data;
+  assert.equal(p.bar.text, 'Últimas horas');
+  assert.equal(p.bar.button, null);
   await guardar({ ...base, replayBarra: { activa: true, modo: 'fecha', at: 'mañana' } });
   assert.equal((await call('/api/page?l=rep-26&pagina=grabacion')).data.replayBarra, null);
   // Sin página de venta, no hay adónde llevarla
