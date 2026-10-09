@@ -709,6 +709,7 @@
         <div class="tabs" role="tablist">
           <button type="button" class="tab active" data-tab="launch" data-tab-icon="rocket">Lanzamiento</button>
           <button type="button" class="tab" data-tab="oferta" data-tab-icon="gift">Oferta</button>
+          <button type="button" class="tab" data-tab="carrito" data-tab-icon="cart">Carrito</button>
           <button type="button" class="tab" data-tab="etiquetas" data-tab-icon="tag">Etiquetas GHL</button>
           <button type="button" class="tab" data-tab="pagina" data-tab-icon="play"><span id="tab-pagina-txt">Preclase</span></button>
           <button type="button" class="tab" data-tab="embudo" data-tab-icon="funnel">Páginas</button>
@@ -1126,6 +1127,11 @@
               <label class="field full" data-gar-otra hidden><span>¿Cuál? <small>(p. ej. «Si haces el programa y no ves resultados en 90 días, te devolvemos el dinero»)</small></span><textarea id="of-gar-otra-txt" rows="2" maxlength="400"></textarea></label>
             </div>
           </section>
+        </section>
+
+        <section class="tab-panel" data-panel="carrito" hidden>
+          <p class="muted">Un día por cada día del carrito (de la apertura al cierre de la pestaña «Lanzamiento»). Los <strong>hitos clave</strong> se rellenan solos con las fechas, los bonus de «Oferta» y la barra de la página de venta; debajo puedes escribir a mano la <strong>estrategia</strong> o lo que quieras añadir de cada día.</p>
+          <div id="carrito-dias"></div>
         </section>
 
         <section class="tab-panel" data-panel="accesos" hidden>

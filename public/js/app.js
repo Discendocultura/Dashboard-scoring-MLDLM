@@ -17,6 +17,7 @@ import { alertasCarrito } from './alertas.js';
 import { BLOQUES, pesosDe, proponerPesos, pesosEfectivos } from './pesos.js';
 import { tieneRecurso, recursosDe, sanitizeRecursos, etapasPreclase, TIPOS_RECURSO, RECURSOS_EXTRA } from './recursos.js';
 import { retrospectiva } from './retrospectiva.js';
+import { diasCarrito } from './carrito.js';
 import { leerLeads, guardarLeads, borrarCopias } from './cache-leads.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
@@ -2893,6 +2894,8 @@ function openConfig(code) {
   pintarEnlaceDirecto();
   pintarVentaPasos();
   pintarVentaBarra(l.ventaBarra);
+  carritoNotasEdit = { ...(l.carritoNotas || {}) };
+  $('#carrito-dias').innerHTML = '';
   const rb = l.replayBarra || {};
   $('#cfg-rb-on').checked = Boolean(rb.activa);
   $('#cfg-rb-texto').value = rb.texto || '';
@@ -3306,6 +3309,7 @@ function readForm() {
       recursosPre: leerRecursosCfg(),
       espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim() },
       ventaBarra: leerVentaBarra(),
+      carritoNotas: leerCarritoNotas(),
       replayBarra: {
         activa: $('#cfg-rb-on').checked, texto: $('#cfg-rb-texto').value.trim(), modo: $('#cfg-rb-modo').value,
         at: $('#cfg-rb-at').value, minutos: Number($('#cfg-rb-min').value) || null, conBoton: $('#cfg-rb-con-boton').value === 'si', boton: $('#cfg-rb-boton').value.trim(), color: $('#cfg-rb-color').value,
@@ -8473,6 +8477,38 @@ for (const id of ['#of-entregables', '#of-bonus']) {
   $(id).addEventListener('input', (e) => { if (e.target.matches('.of-valor')) refrescarOfertaEditor(); });
 }
 $('.tab[data-tab="oferta"]').addEventListener('click', refrescarOfertaEditor);
+
+// ---------- Configuración → Carrito: un día por cada día del carrito, con sus hitos y la estrategia a mano ----------
+// Las notas escritas se guardan aquí mientras se edita (al cambiar fechas u oferta se vuelve a pintar sin perderlas).
+let carritoNotasEdit = {};
+function leerCarritoNotas() {
+  for (const t of $$('#carrito-dias .car-nota')) carritoNotasEdit[t.dataset.day] = t.value;
+  return Object.fromEntries(Object.entries(carritoNotasEdit).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v));
+}
+function pintarCarrito() {
+  const notas = leerCarritoNotas();
+  let launch = null;
+  try { launch = readForm().launch; } catch { launch = null; }
+  const datos = {
+    ...(launch || { ...(state.config.launches[editingCode] || {}), fechaDirecto: $('#cfg-directo-fecha').value, horaDirecto: $('#cfg-directo-hora').value, aperturaCarrito: $('#cfg-apertura-carrito').value, cierreCarrito: $('#cfg-cierre').value }),
+    oferta: leerOfertaEditor(), ventaBarra: leerVentaBarra(), carritoNotas: notas,
+  };
+  const r = diasCarrito(datos);
+  const box = $('#carrito-dias');
+  if (!r.dias.length) {
+    box.innerHTML = `<div class="car-vacio">🛒 <strong>Aquí aparecerán los días del carrito.</strong> Se rellenará automáticamente cuando configures ${esc(r.faltan.join(' y '))} en la pestaña «Lanzamiento», y los bonus en «Oferta».</div>`;
+    return;
+  }
+  const hoy = dayInMadrid(new Date().toISOString());
+  box.innerHTML = `<p class="car-resumen"><strong>${r.dias.length} días de carrito</strong>${r.garantia ? ` · 🛡️ ${esc(r.garantia)}` : ''}</p>
+    <div class="car-dias">${r.dias.map((d) => `<article class="car-dia${d.day === hoy ? ' car-hoy' : ''}">
+      <header><span class="car-n">Día ${d.n}</span><strong>${esc(d.fecha)}</strong>${d.etiqueta ? `<span class="car-tag">${esc(d.etiqueta)}</span>` : ''}${d.day === hoy ? '<span class="car-tag car-tag-hoy">Hoy</span>' : ''}</header>
+      <h4>Hitos clave</h4>
+      ${d.auto.length ? `<ul class="car-auto">${d.auto.map((a) => `<li><span aria-hidden="true">${a.icon}</span> ${esc(a.texto)}</li>`).join('')}</ul>` : '<p class="muted small">Sin hitos automáticos este día: se rellenará solo cuando la oferta o la barra de la página de venta tengan algo este día. Escribe abajo la estrategia.</p>'}
+      <label class="field"><span>Estrategia / notas del día <small>(a mano)</small></span><textarea class="car-nota" data-day="${d.day}" rows="3" maxlength="1500" placeholder="Ej.: email de testimonios a las 10:00, directo de dudas en Instagram, WhatsApp a las que vieron la página de venta…">${esc(d.nota)}</textarea></label>
+    </article>`).join('')}</div>`;
+}
+$('.tab[data-tab="carrito"]').addEventListener('click', pintarCarrito);
 
 // ---------- Métricas → Oferta y bonus: la oferta frente a las ventas de cada día del carrito ----------
 function renderOfertaAnalisis(launch) {
