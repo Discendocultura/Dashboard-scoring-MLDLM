@@ -466,6 +466,9 @@ La encuesta de la Etapa 1 puede ser siempre la misma: misma URL y misma etiqueta
 - **Métricas → Ventas → Oferta y bonus**: la oferta, las ventas de cada día del carrito con los bonus activos ese día (y cuál caduca) y el **impacto de cada bonus**: ventas en su ventana, % del carrito, ventas al día mientras estuvo activo frente al resto del carrito, ventas del día en que caduca frente a la media (efecto de la fecha límite) y una lectura. Las ventas se cuentan por día (fecha de compra).
 - Un lanzamiento nuevo hereda la oferta del anterior.
 
+- **Objetivo de cada bonus**: acelera el resultado, resuelve un problema futuro, reduce la percepción de riesgo u «Otro» (escrito a mano). Sale junto al bonus en el resumen de la oferta.
+- **Garantía**: ¿hay garantía de 15 días? y, además, ¿hay alguna otra? (con cuál es). También en los meteóricos.
+- Tipos de entregable: contenido grabado, sesiones grupales o individuales, presencial, descargable, audio, chatbot / agente, comunidad (plataforma propia, Skool, Telegram o WhatsApp), soporte (chatbot de soporte, seguimiento individual o email / WhatsApp) y servicio.
 ## ✉️ Emails: apertura, CTR e indicadores
 
 - **Métricas → Resumen**: «Apertura media de los emails» y «CTR medio de los emails» (medias ponderadas por entregas).

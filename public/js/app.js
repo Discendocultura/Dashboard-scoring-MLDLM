@@ -11,7 +11,7 @@ import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
 import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago } from './pago.js';
 import { cicloDeContactos, textoDias } from './ciclo.js';
-import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusMeteo, tipoEntregable, etiquetaEntregable, SUBTIPOS_ENTREGABLE, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
+import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusMeteo, tipoEntregable, etiquetaEntregable, SUBTIPOS_ENTREGABLE, OBJETIVOS_BONUS, objetivoBonus, textoGarantia, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
 import { alertasCarrito } from './alertas.js';
 import { BLOQUES, pesosDe, proponerPesos, pesosEfectivos } from './pesos.js';
@@ -8385,11 +8385,44 @@ function filaBonus(b = {}, tipos = TIPOS_BONUS) {
     <input class="of-valor" inputmode="decimal" placeholder="Valor €" value="${esc(valorTxt(b.valor))}" aria-label="Valor en euros">
     <label class="of-hasta"><span>Fin a mano <small>(opcional)</small></span><input type="datetime-local" class="of-hasta-in" value="${esc(b.hasta || '')}"></label>
     <button type="button" class="btn ghost of-del" aria-label="Quitar">✕</button>
+    <div class="of-obj"><label><span>Objetivo del bonus</span><select class="of-obj-sel"><option value="">Elige…</option>${OBJETIVOS_BONUS.map((o) => `<option value="${o.id}" ${o.id === b.objetivo ? 'selected' : ''}>${o.icon} ${esc(o.label)}</option>`).join('')}</select></label>
+      <input class="of-obj-otro" maxlength="160" placeholder="Escribe el objetivo" aria-label="Otro objetivo" value="${esc(b.objetivoOtro || '')}" ${b.objetivo === 'otro' ? '' : 'hidden'}></div>
     <span class="of-ventana muted small"></span></div>`;
+}
+// Objetivo «Otro»: aparece la casilla para escribirlo.
+for (const id of ['#of-bonus', '#mt-of-bonus']) {
+  $(id).addEventListener('change', (e) => {
+    if (!e.target.matches('.of-obj-sel')) return;
+    const otro = $('.of-obj-otro', e.target.closest('.of-fila'));
+    otro.hidden = e.target.value !== 'otro';
+    if (!otro.hidden) otro.focus();
+  });
+}
+const leerObjetivo = (el) => ({ objetivo: $('.of-obj-sel', el).value, objetivoOtro: $('.of-obj-sel', el).value === 'otro' ? $('.of-obj-otro', el).value.trim() : '' });
+// Garantía (lanzamientos: «of»; meteóricos: «mt-of»).
+const triVal = (v) => (v === true ? 'si' : v === false ? 'no' : '');
+function pintarGarantia(pre, g = {}) {
+  $(`#${pre}-gar-15`).value = triVal(g.dias15);
+  $(`#${pre}-gar-otra`).value = triVal(g.otra);
+  $(`#${pre}-gar-otra-txt`).value = g.otraTexto || '';
+  $(`[data-gar="${pre}"] [data-gar-otra]`).hidden = $(`#${pre}-gar-otra`).value !== 'si';
+}
+const leerGarantia = (pre) => {
+  const tri = (v) => (v === 'si' ? true : v === 'no' ? false : null);
+  const otra = tri($(`#${pre}-gar-otra`).value);
+  return { dias15: tri($(`#${pre}-gar-15`).value), otra, otraTexto: otra ? $(`#${pre}-gar-otra-txt`).value.trim() : '' };
+};
+for (const pre of ['of', 'mt-of']) {
+  $(`#${pre}-gar-otra`).addEventListener('change', () => {
+    const box = $(`[data-gar="${pre}"] [data-gar-otra]`);
+    box.hidden = $(`#${pre}-gar-otra`).value !== 'si';
+    if (!box.hidden) $(`#${pre}-gar-otra-txt`).focus();
+  });
 }
 function pintarOfertaEditor(oferta = {}) {
   $('#of-entregables').innerHTML = (oferta.entregables || []).map((e) => filaEntregable(e)).join('') || '';
   $('#of-bonus').innerHTML = (oferta.bonus || []).map((b) => filaBonus(b)).join('') || '';
+  pintarGarantia('of', oferta.garantia);
   refrescarOfertaEditor();
 }
 const nuevoId = (p) => `${p}${Date.now().toString(36).slice(-5)}${Math.random().toString(36).slice(2, 4)}`;
@@ -8397,7 +8430,8 @@ function leerOfertaEditor() {
   const fila = (el) => ({ id: el.dataset.id || nuevoId(el.dataset.of === 'bonus' ? 'b' : 'e'), tipo: $('.of-tipo', el).value, nombre: $('.of-nombre', el).value.trim(), detalle: $('.of-detalle', el).value.trim(), valor: $('.of-valor', el).value.trim(), ...($('.of-sub', el) && SUBTIPOS_ENTREGABLE[$('.of-tipo', el).value] ? { subtipo: $('.of-sub', el).value } : {}) });
   return {
     entregables: $$('#of-entregables .of-fila').map(fila).filter((x) => x.nombre),
-    bonus: $$('#of-bonus .of-fila').map((el) => ({ ...fila(el), hasta: $('.of-hasta-in', el).value })).filter((x) => x.nombre),
+    bonus: $$('#of-bonus .of-fila').map((el) => ({ ...fila(el), hasta: $('.of-hasta-in', el).value, ...leerObjetivo(el) })).filter((x) => x.nombre),
+    garantia: leerGarantia('of'),
   };
 }
 const fechaHoraCorta = (ms) => (ms == null ? '–' : new Date(ms).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
@@ -8450,7 +8484,7 @@ function renderOfertaAnalisis(launch) {
   const chipB = (b) => { const t = tipoBonus(b.tipo); return `<span class="of-chip b-${b.tipo}" title="${esc(t.largo || t.label)} · ${esc(t.desc)}">${t.icon} ${esc(b.nombre)}</span>`; };
   const resumen = `<div class="of-oferta">
       <div><h4>📦 Entregables (${oferta.entregables.length})</h4>${oferta.entregables.length ? `<ul>${oferta.entregables.map((e) => `<li>${tipoEntregable(e.tipo).icon} <strong>${esc(e.nombre)}</strong> <span class="muted small">${esc(etiquetaEntregable(e))}${e.valor ? ` · ${eur(e.valor)}` : ''}</span></li>`).join('')}</ul>` : '<p class="muted small">Sin entregables.</p>'}</div>
-      <div><h4>🎁 Bonus (${oferta.bonus.length})</h4>${oferta.bonus.length ? `<ul>${oferta.bonus.map((b) => `<li>${chipB(b)}${b.valor ? ` <span class="muted small">${eur(b.valor)}</span>` : ''}</li>`).join('')}</ul>` : '<p class="muted small">Sin bonus.</p>'}</div>
+      <div><h4>🎁 Bonus (${oferta.bonus.length})</h4>${oferta.bonus.length ? `<ul>${oferta.bonus.map((b) => `<li>${chipB(b)}${b.valor ? ` <span class="muted small">${eur(b.valor)}</span>` : ''}${objetivoBonus(b) ? ` <span class="muted small">· ${esc(objetivoBonus(b))}</span>` : ''}</li>`).join('')}</ul>` : '<p class="muted small">Sin bonus.</p>'}${textoGarantia(oferta.garantia) ? `<p class="small">🛡️ ${esc(textoGarantia(oferta.garantia))}</p>` : ''}</div>
       <div class="of-valor-box"><span class="muted small">Precio</span><strong>${precio ? eur(precio) : '–'}</strong>${valor.total ? `<span class="muted small">Valor de la oferta</span><strong>${eur(valor.total)}</strong>` : ''}${valor.ratio ? `<span class="of-ratio">${valor.ratio.toFixed(1).replace('.', ',')}× el precio</span>` : ''}</div>
     </div>`;
   if (!oferta.entregables.length && !oferta.bonus.length) {
@@ -8488,13 +8522,15 @@ function renderOfertaAnalisis(launch) {
 function pintarPaqueteMeteo(p = {}) {
   $('#mt-of-entregables').innerHTML = (p?.entregables || []).map((e) => filaEntregable(e)).join('');
   $('#mt-of-bonus').innerHTML = (p?.bonus || []).map((b) => filaBonus(b, TIPOS_BONUS_METEO)).join('');
+  pintarGarantia('mt-of', p?.garantia);
   refrescarPaqueteMeteo();
 }
 function leerPaqueteMeteo() {
   const fila = (el) => ({ id: el.dataset.id || nuevoId(el.dataset.of === 'bonus' ? 'b' : 'e'), tipo: $('.of-tipo', el).value, nombre: $('.of-nombre', el).value.trim(), detalle: $('.of-detalle', el).value.trim(), valor: $('.of-valor', el).value.trim(), ...($('.of-sub', el) && SUBTIPOS_ENTREGABLE[$('.of-tipo', el).value] ? { subtipo: $('.of-sub', el).value } : {}) });
   return {
     entregables: $$('#mt-of-entregables .of-fila').map(fila).filter((x) => x.nombre),
-    bonus: $$('#mt-of-bonus .of-fila').map((el) => ({ ...fila(el), hasta: $('.of-hasta-in', el).value })).filter((x) => x.nombre),
+    bonus: $$('#mt-of-bonus .of-fila').map((el) => ({ ...fila(el), hasta: $('.of-hasta-in', el).value, ...leerObjetivo(el) })).filter((x) => x.nombre),
+    garantia: leerGarantia('mt-of'),
   };
 }
 function refrescarPaqueteMeteo() {
@@ -8540,7 +8576,7 @@ async function pintarOfertaMeteo(box, code) {
   const chipB = (b) => { const t = tipoBonusMeteo(b.tipo); return `<span class="of-chip b-${b.tipo}" title="${esc(t.largo || t.label)} · ${esc(t.desc)}">${t.icon} ${esc(b.nombre)}</span>`; };
   const resumen = `<section class="card metric-card"><h2>🎁 La oferta <span class="muted">· ${esc(m.name)}${m.oferta ? ` · ${esc(m.oferta)}` : ''}</span></h2><div class="of-oferta">
       <div><h4>📦 Entregables (${p.entregables.length})</h4>${p.entregables.length ? `<ul>${p.entregables.map((e) => `<li>${tipoEntregable(e.tipo).icon} <strong>${esc(e.nombre)}</strong> <span class="muted small">${esc(etiquetaEntregable(e))}${e.valor ? ` · ${eur(e.valor)}` : ''}</span></li>`).join('')}</ul>` : '<p class="muted small">Sin entregables.</p>'}</div>
-      <div><h4>🎁 Bonus (${p.bonus.length})</h4>${p.bonus.length ? `<ul>${p.bonus.map((b) => { const w = ventanaBonusMeteo(b, m); return `<li>${chipB(b)}${b.valor ? ` <span class="muted small">${eur(b.valor)}</span>` : ''}<br><span class="muted small">${fechaHoraCorta(w.desde)} → ${fechaHoraCorta(w.hasta)}</span></li>`; }).join('')}</ul>` : '<p class="muted small">Sin bonus.</p>'}</div>
+      <div><h4>🎁 Bonus (${p.bonus.length})</h4>${p.bonus.length ? `<ul>${p.bonus.map((b) => { const w = ventanaBonusMeteo(b, m); return `<li>${chipB(b)}${b.valor ? ` <span class="muted small">${eur(b.valor)}</span>` : ''}<br><span class="muted small">${fechaHoraCorta(w.desde)} → ${fechaHoraCorta(w.hasta)}${objetivoBonus(b) ? ` · ${esc(objetivoBonus(b))}` : ''}</span></li>`; }).join('')}</ul>` : '<p class="muted small">Sin bonus.</p>'}${textoGarantia(p.garantia) ? `<p class="small">🛡️ ${esc(textoGarantia(p.garantia))}</p>` : ''}</div>
       <div class="of-valor-box"><span class="muted small">Precio</span><strong>${precio ? eur(precio) : '–'}</strong>${valor.total ? `<span class="muted small">Valor de la oferta</span><strong>${eur(valor.total)}</strong>` : ''}${valor.ratio ? `<span class="of-ratio">${valor.ratio.toFixed(1).replace('.', ',')}× el precio</span>` : ''}</div>
     </div></section>`;
   if (!p.entregables.length && !p.bonus.length) {

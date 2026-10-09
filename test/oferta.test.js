@@ -69,3 +69,20 @@ test('entregables: chatbot / agente, comunidad (con su plataforma) y soporte (co
   assert.deepEqual(e.map(etiquetaEntregable), ['Chatbot / Agente', 'Comunidad · Skool', 'Comunidad · Plataforma propia', 'Soporte · Seguimiento individual', 'Soporte · Soporte por email / WhatsApp', 'Soporte · Chatbot de soporte', 'Servicio']);
   assert.equal(e[0].subtipo, undefined);
 });
+
+test('bonus con su objetivo y garantía de la oferta', async () => {
+  const { sanitizeOferta, objetivoBonus, textoGarantia } = await import('../public/js/oferta.js');
+  const o = sanitizeOferta({
+    bonus: [
+      { nombre: 'A', objetivo: 'acelera' }, { nombre: 'B', objetivo: 'riesgo', objetivoOtro: 'x' },
+      { nombre: 'C', objetivo: 'otro', objetivoOtro: 'Crear comunidad' }, { nombre: 'D', objetivo: 'inventado' },
+    ],
+    garantia: { dias15: 'si', otra: true, otraTexto: 'Resultados en 90 días o te devolvemos el dinero' },
+  });
+  assert.deepEqual(o.bonus.map(objetivoBonus), ['🚀 Acelera el resultado', '🛡️ Reduce la percepción de riesgo', '✏️ Crear comunidad', '']);
+  assert.equal(o.bonus[1].objetivoOtro, '');
+  assert.deepEqual(o.garantia, { dias15: true, otra: true, otraTexto: 'Resultados en 90 días o te devolvemos el dinero' });
+  assert.equal(textoGarantia(o.garantia), 'Garantía de 15 días · Además: Resultados en 90 días o te devolvemos el dinero');
+  assert.deepEqual(sanitizeOferta({}).garantia, { dias15: null, otra: null, otraTexto: '' });
+  assert.deepEqual(sanitizeOferta({ garantia: { dias15: false, otra: false, otraTexto: 'nada' } }).garantia, { dias15: false, otra: false, otraTexto: '' });
+});

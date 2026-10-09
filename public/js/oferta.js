@@ -57,7 +57,11 @@ export function sanitizeOferta(o, { tipos = IDS_BONUS } = {}) {
       nombre: str(b?.nombre, 120), detalle: str(b?.detalle, 300), valor: dinero(b?.valor),
       // Fin a mano (opcional): si no, sale del tipo y de las fechas del carrito.
       hasta: LOCAL_DT.test(String(b?.hasta || '')) ? b.hasta : '',
+      // Objetivo del bonus: de la lista o «otro» (con su texto).
+      objetivo: OBJETIVOS_BONUS.some((o) => o.id === b?.objetivo) ? b.objetivo : '',
+      objetivoOtro: b?.objetivo === 'otro' ? str(b?.objetivoOtro, 160) : '',
     })).filter((b) => b.nombre),
+    garantia: sanitizeGarantia(o?.garantia),
   };
 }
 
@@ -65,6 +69,26 @@ export const tipoBonus = (id) => TIPOS_BONUS.find((t) => t.id === id) || TIPOS_B
 export const IDS_BONUS_METEO = TIPOS_BONUS_METEO.map((t) => t.id);
 // Tipo de bonus de un meteórico (sus BAR cuentan desde que abre la oferta, con su duración en `min`).
 export const tipoBonusMeteo = (id) => TIPOS_BONUS_METEO.find((t) => t.id === id) || TIPOS_BONUS_METEO.at(-1);
+// Objetivo de cada bonus (por qué se da): elegido de la lista u «Otro» escrito a mano.
+export const OBJETIVOS_BONUS = [
+  { id: 'acelera', label: 'Acelera el resultado', icon: '🚀' },
+  { id: 'problema', label: 'Resuelve un problema futuro', icon: '🔮' },
+  { id: 'riesgo', label: 'Reduce la percepción de riesgo', icon: '🛡️' },
+  { id: 'otro', label: 'Otro', icon: '✏️' },
+];
+export const objetivoBonus = (b) => {
+  const o = OBJETIVOS_BONUS.find((x) => x.id === b?.objetivo);
+  if (!o) return '';
+  return o.id === 'otro' ? (b.objetivoOtro ? `${o.icon} ${b.objetivoOtro}` : '') : `${o.icon} ${o.label}`;
+};
+// Garantía de la oferta: ¿hay garantía de 15 días? (true / false / null = sin contestar) y si hay otra, cuál.
+export function sanitizeGarantia(g) {
+  const tri = (v) => (v === true || v === 'si' ? true : v === false || v === 'no' ? false : null);
+  const otra = tri(g?.otra);
+  return { dias15: tri(g?.dias15), otra, otraTexto: otra ? str(g?.otraTexto, 400) : '' };
+}
+export const textoGarantia = (g) => [g?.dias15 === true ? 'Garantía de 15 días' : g?.dias15 === false ? 'Sin garantía de 15 días' : '', g?.otra && g.otraTexto ? `Además: ${g.otraTexto}` : ''].filter(Boolean).join(' · ');
+
 // Variantes de algunos entregables: dónde está la comunidad y qué tipo de soporte es.
 export const SUBTIPOS_ENTREGABLE = {
   comunidad: { label: 'Dónde está la comunidad', icon: '📍', opciones: [
