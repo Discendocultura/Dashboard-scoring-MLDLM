@@ -541,19 +541,41 @@ async function mostrarInicio({ fresh = false } = {}) {
   let lista;
   try { lista = await q('parte=lista'); } catch (e) { $('#inicio-embudos').innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
   if (token !== state.inicioToken) return;
+  // Las tareas de todos los embudos (para «Te han mencionado»), si aún no están.
+  if (!state.tareas) loadTareas().catch(() => {}); else if (!state.tareasOtros) cargarTareasOtro().catch(() => {});
   // Cada embudo y cada meteórico en su propia petición (cada una con su límite de peticiones a GHL).
   state.inicio.embudos = lista.embudos.map((e) => ({ ...e, cargando: true }));
   state.inicio.meteoricos = lista.meteoricos.map((m) => ({ ...m, cargando: true }));
   pintarInicio();
   const tareas = [
-    ...lista.embudos.map((e, i) => q(`parte=embudo&id=${encodeURIComponent(e.id)}`)
-      .then((d) => { state.inicio.embudos[i] = d.embudo; }, (err) => { state.inicio.embudos[i] = { tipo: 'error', nombre: e.nombre, error: err.message }; })),
-    ...lista.meteoricos.map((m, i) => q(`parte=meteorico&id=${encodeURIComponent(m.code)}`)
-      .then((d) => { state.inicio.meteoricos[i] = d.meteorico; }, (err) => { state.inicio.meteoricos[i] = { code: m.code, nombre: m.nombre, error: err.message }; })),
-    q('parte=agenda').then((d) => { state.inicio.agenda = d; }, (err) => { state.inicio.agenda = { error: err.message }; }),
+    ...lista.embudos.map((e, i) => cargarEmbudoInicio(e, i, fresh)),
+    ...lista.meteoricos.map((m, i) => cargarMeteoInicio(m, i, fresh)),
+    conLimite(q('parte=agenda')).then((d) => { state.inicio.agenda = d; }, (err) => { state.inicio.agenda = { error: err.message }; }),
   ].map((p) => p.then(() => { if (token === state.inicioToken) pintarInicio(); }));
   await Promise.all(tareas);
 }
+// Cada tarjeta deja de esperar al minuto (GHL lento o caído) y enseña «Reintentar» en vez de quedarse cargando.
+const conLimite = (p, ms = 60_000) => Promise.race([p, new Promise((_, rej) => { setTimeout(() => rej(new Error('Tarda demasiado en responder (GHL va lento).')), ms); })]);
+const qInicio = (qs, fresh) => api(`/api/inicio?${qs}${fresh ? '&fresh=1' : ''}`);
+function cargarEmbudoInicio(e, i, fresh) {
+  return conLimite(qInicio(`parte=embudo&id=${encodeURIComponent(e.id)}`, fresh))
+    .then((d) => { state.inicio.embudos[i] = d.embudo; }, (err) => { state.inicio.embudos[i] = { tipo: 'error', tipoOrig: e.tipo, id: e.id, nombre: e.nombre, error: err.message }; });
+}
+function cargarMeteoInicio(m, i, fresh) {
+  return conLimite(qInicio(`parte=meteorico&id=${encodeURIComponent(m.code)}`, fresh))
+    .then((d) => { state.inicio.meteoricos[i] = d.meteorico; }, (err) => { state.inicio.meteoricos[i] = { code: m.code, nombre: m.nombre, error: err.message }; });
+}
+$('#inicio-embudos').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-reintentar]');
+  if (!b) return;
+  e.stopPropagation();
+  const [tipo, i] = b.dataset.reintentar.split(':');
+  const lista = tipo === 'embudo' ? state.inicio.embudos : state.inicio.meteoricos;
+  const item = lista[Number(i)];
+  lista[Number(i)] = tipo === 'embudo' ? { id: item.id, nombre: item.nombre, tipo: item.tipoOrig, cargando: true } : { code: item.code, nombre: item.nombre, cargando: true };
+  pintarInicio();
+  (tipo === 'embudo' ? cargarEmbudoInicio({ id: item.id, nombre: item.nombre, tipo: item.tipoOrig }, Number(i), true) : cargarMeteoInicio({ code: item.code, nombre: item.nombre }, Number(i), true)).then(pintarInicio);
+});
 $('#sb-inicio').addEventListener('click', () => mostrarInicio());
 $('#inicio-actualizar').addEventListener('click', () => mostrarInicio({ fresh: true }));
 
@@ -580,7 +602,7 @@ function pintarInicio() {
   const tarjetas = [
     ...lista.map((e) => {
       if (e.cargando) return `<div class="card inicio-emb"><h3>${e.tipo === 'vsl' ? '🎬' : '🚀'} ${esc(e.nombre)}</h3><p class="muted small">Cargando…</p></div>`;
-      if (e.tipo === 'error') return `<div class="card inicio-emb"><h3>${esc(e.nombre)}</h3><p class="error small">${esc(e.error)}</p></div>`;
+      if (e.tipo === 'error') return `<div class="card inicio-emb"><h3>${esc(e.nombre)}</h3><p class="error small">${esc(e.error)}</p><button type="button" class="btn small" data-reintentar="embudo:${state.inicio.embudos.indexOf(e)}">Reintentar</button></div>`;
       const est = e.tipo === 'vsl' ? ['Últimos 30 días', 'info'] : ESTADO_LANZ[e.estado] || ['', 'muted'];
       return `<button type="button" class="card inicio-emb" data-ir-inicio="${e.tipo === 'vsl' ? 'vsl' : 'lanz'}" data-code="${esc(e.code)}" data-embudo="${esc(e.embudoId || '')}">
         <h3>${e.tipo === 'vsl' ? '🎬' : '🚀'} ${esc(e.nombre)} <span class="badge tone-${est[1]}">${est[0]}</span></h3>
@@ -592,7 +614,7 @@ function pintarInicio() {
     }),
     ...metas.map((m) => {
       if (m.cargando) return `<div class="card inicio-emb"><h3>⚡ ${esc(m.nombre)}</h3><p class="muted small">Cargando…</p></div>`;
-      if (m.error) return `<div class="card inicio-emb"><h3>⚡ ${esc(m.nombre)}</h3><p class="error small">${esc(m.error)}</p></div>`;
+      if (m.error) return `<div class="card inicio-emb"><h3>⚡ ${esc(m.nombre)}</h3><p class="error small">${esc(m.error)}</p><button type="button" class="btn small" data-reintentar="meteo:${state.inicio.meteoricos.indexOf(m)}">Reintentar</button></div>`;
       const f = FASE_METEO_TXT[m.fase] || ['', 'muted'];
       return `<button type="button" class="card inicio-emb" data-ir-inicio="meteo" data-code="${esc(m.code)}">
         <h3>⚡ ${esc(m.nombre)} <span class="badge tone-${f[1]}">${f[0]}</span></h3>
@@ -601,6 +623,7 @@ function pintarInicio() {
     }),
   ];
   $('#inicio-embudos').innerHTML = tarjetas.join('') || '<p class="muted">Aún no hay lanzamientos empezados, VSL ni meteóricos recientes.</p>';
+  pintarMencionesInicio();
   // Avisos del carrito de los lanzamientos con el carrito abierto (con sus ventas).
   const alertas = lista.filter((e) => e.tipo === 'lanzamiento' && e.estado === 'carrito')
     .flatMap((e) => alertasCarrito(state.config.launches[e.code], e.kpis.ventas).map((a) => ({ ...a, nombre: e.nombre })));
@@ -2997,13 +3020,20 @@ function pintarWaDudas() {
 // Páginas de venta y de replay: qué código va en GHL (y dónde) y el enlace con ?cid para los emails.
 const filaCopiar = (etq, txt, nota) => `<div class="enlace-directo-fila"><span class="enlace-directo-etq">${etq}</span><code${txt.includes('\n') ? ' class="multi"' : ''}>${esc(txt)}</code><button type="button" class="btn primary" data-copy-text="${esc(txt)}">Copiar</button><small>${nota}</small></div>`;
 const enlaceEmail = (url) => `${url}${url.includes('?') ? '&' : '?'}cid={{contact.id}}`;
+// Enlace para los emails (con el ID de la lead), bien visible bajo la URL de su página.
+function pintarEnlaceEmail(box, url, pagina) {
+  $(box).innerHTML = url
+    ? `<div class="ee-head"><span class="ee-ico" aria-hidden="true">✉️</span><div><strong>Enlace para tus emails a la ${pagina}</strong><span>Cópialo <strong>tal cual</strong> en los botones y enlaces de los emails de GHL. Lleva <code>?cid={{contact.id}}</code> al final: así el dashboard sabe quién la abre (y la lead entra sin login). No lo cambies.</span></div></div>
+      <div class="ee-fila"><code>${esc(enlaceEmail(url))}</code><button type="button" class="btn primary" data-copy-text="${esc(enlaceEmail(url))}">Copiar enlace</button></div>`
+    : `<div class="ee-head ee-falta"><span class="ee-ico" aria-hidden="true">✉️</span><div><strong>Enlace para tus emails a la ${pagina}</strong><span>Pon arriba la URL de la ${pagina} y aquí aparecerá el enlace que hay que copiar en los emails.</span></div></div>`;
+}
+
 function pintarVentaPasos() {
   const url = $('#cfg-raices').value.trim();
+  pintarEnlaceEmail('#venta-email-box', url, 'página de venta');
   const bloque = `<div data-lsd-venta data-launch="auto"></div>\n<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
   const fila = filaCopiar;
-  $('#venta-pasos-box').innerHTML = fila('1 · Bloque para GHL', bloque, '📍 <strong>Dónde:</strong> al final de la página, en el pie, dentro de un elemento «Código personalizado». No se ve: apunta la visita y, si la activas abajo, pinta la barra fija de arriba. También está en «Códigos».')
-    + (url ? fila('2 · Enlace para los emails', enlaceEmail(url), 'Úsalo en todos los emails que lleven a la página de venta.')
-      : '<p class="enlace-directo-falta"><strong>2 ·</strong> Pon arriba la <strong>URL de la página de venta</strong> y aquí aparecerá el enlace para los emails (con <code>?cid={{contact.id}}</code>).</p>');
+  $('#venta-pasos-box').innerHTML = fila('Bloque para GHL', bloque, '📍 <strong>Dónde:</strong> al final de la página, en el pie, dentro de un elemento «Código personalizado». No se ve: apunta la visita y, si la activas arriba, pinta la barra fija. También está en «Códigos». (El enlace para los emails está arriba, bajo la URL de la página.)');
 }
 $('#cfg-raices').addEventListener('input', pintarVentaPasos);
 // ---------- Barras fijas por tramos (páginas de venta y de pago): texto, fin y con o sin botón ----------
@@ -3194,6 +3224,7 @@ function pintarReplayBarraCfg() {
 ['#cfg-rb-on', '#cfg-rb-con-boton', '#cfg-rb-modo', '#cfg-rb-at', '#cfg-rb-min', '#cfg-raices'].forEach((sel) => $(sel).addEventListener('input', pintarReplayBarraCfg));
 function pintarReplayPasos() {
   const url = $('#cfg-replay').value.trim();
+  pintarEnlaceEmail('#replay-email-box', url, 'página de replay');
   const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
   $('#replay-pasos-box').innerHTML = filaCopiar('1 · Bloque base', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n${script}`,
     '📍 <strong>Dónde:</strong> arriba del todo, en la primera sección de la página (antes del titular). Va una sola vez y no se ve: reconoce a la lead (si no sabe quién es, la lleva al login) y activa el resto.')
@@ -3203,8 +3234,6 @@ function pintarReplayPasos() {
         '📍 <strong>Dónde:</strong> justo debajo del bloque base, encima del titular. Enseña la cuenta atrás del carrito y su botón. Opcional (o activa arriba la barra fija con cuenta atrás).'))
     + filaCopiar('3 · Vídeo de la grabación', '<div data-lsd-video="replay"></div>',
       '📍 <strong>Dónde:</strong> en el sitio exacto donde quieres que se vea el vídeo (normalmente debajo del titular, a todo el ancho de la columna). Pinta el vídeo de «Directo y grabación» y mide cuánto ve (25, 50, 75 y 90 %). En vez del elemento de vídeo de GHL.')
-    + (url ? filaCopiar('4 · Enlace para los emails', enlaceEmail(url), 'Úsalo en todos los emails que lleven a la grabación: entra directa, sin pasar por el login. Los mensajes de WhatsApp del dashboard ({link_grabacion}) ya lo llevan.')
-      : '<p class="enlace-directo-falta"><strong>4 ·</strong> Pon arriba la <strong>URL de la página de replay</strong> y aquí aparecerá el enlace para los emails (con <code>?cid={{contact.id}}</code>).</p>')
     + (videosDe(editingCode ? state.config.launches[editingCode] : null).length > 1 ? '<p class="enlace-directo-falta">Lanzamiento de varios vídeos: cada vídeo tiene su propia página con sus bloques (en «Códigos»).</p>' : '');
 }
 $('#cfg-replay').addEventListener('input', pintarReplayPasos);
@@ -6744,7 +6773,23 @@ function notifHtml(n) {
     <span class="notif-ico" aria-hidden="true">${ico}</span><span class="notif-txt">${n.code && n.code !== codigo() ? `<span class="notif-emb">${state.config.vsls?.[n.code] ? '🎬' : '🚀'} ${esc(nombreEmbudo(n.code))}</span>` : ''}${txt}${extra}</span>${n.nueva ? '<span class="notif-dot" aria-label="Nueva"></span>' : ''}</button>`;
 }
 
+// Inicio: los comentarios que te mencionan (o en tus tareas), de todos los embudos, para verlos al entrar.
+function pintarMencionesInicio() {
+  const card = $('#inicio-menciones-card');
+  if (!card || !state.enInicio) return;
+  if (!meSess().uid) { card.hidden = true; return; } // con la contraseña general nadie puede mencionarte
+  card.hidden = false;
+  const items = notifItems().filter((n) => n.c).sort((a, b) => b.c.en.localeCompare(a.c.en)).slice(0, 8);
+  $('#inicio-menciones').innerHTML = items.length ? items.map(notifHtml).join('')
+    : `<p class="muted">${state.tareas || state.tareasOtros ? 'Nadie te ha mencionado ni ha comentado en tus tareas.' : 'Cargando…'}</p>`;
+}
+$('#inicio-menciones').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-nt]');
+  if (b) abrirTareaEn(b.dataset.ncode, b.dataset.nt, { comentar: Boolean(b.dataset.ntc) });
+});
+
 function renderNotif() {
+  pintarMencionesInicio();
   const items = notifItems();
   const nuevas = items.filter((n) => n.nueva).length;
   const count = $('#notif-count');

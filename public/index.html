@@ -133,6 +133,7 @@
         <div id="inicio-total" class="kpis inicio-total"></div>
         <div id="inicio-alertas"></div>
         <div id="inicio-embudos" class="inicio-grid"></div>
+        <section class="card metric-card inicio-menciones" id="inicio-menciones-card" hidden><h2>💬 Te han mencionado <span class="muted">· comentarios para ti en las tareas</span></h2><div id="inicio-menciones"></div></section>
         <div class="inicio-dos">
           <section class="card metric-card"><h2>📅 Próximos hitos <span class="muted">· 14 días</span></h2><div id="inicio-hitos"><p class="muted">Cargando…</p></div></section>
           <section class="card metric-card"><h2>⏰ Tareas vencidas</h2><div id="inicio-vencidas"><p class="muted">Cargando…</p></div></section>
@@ -1029,6 +1030,7 @@
             <div class="grid2">
               <label class="field"><span>URL de la página de replay</span><input id="cfg-replay" type="url"></label>
             </div>
+            <div class="enlace-email" id="replay-email-box"></div>
             <fieldset class="rb-cfg">
               <legend>⏳ Barra fija con cuenta atrás (arriba del todo)</legend>
               <label class="chk full"><input type="checkbox" id="cfg-rb-on"> <strong>Activar la barra fija</strong> <small class="muted">(con el carrito abierto; al llegar a cero la lead va sola a la página de venta)</small></label>
@@ -1043,11 +1045,11 @@
                 <p class="field-note full" id="cfg-rb-aviso"></p>
               </div>
             </fieldset>
-            <section class="enlace-directo" aria-labelledby="replay-pasos-t">
-              <h3 id="replay-pasos-t">📼 Qué poner en la página de replay de GHL (y dónde)</h3>
-              <p>Pega cada código en un elemento <strong>«Código personalizado»</strong> (Custom HTML) de GHL, en el sitio que se indica. <strong>No pongas el vídeo de Vimeo con el elemento de vídeo de GHL</strong>: lo pinta el bloque 3 y así se mide cuánto ve cada lead (lo que más pesa en la puntuación y decide su mensaje de WhatsApp). En los <strong>emails</strong>, el enlace a esta página debe llevar <code>?cid={{contact.id}}</code>.</p>
+            <details class="enlace-directo codigos-pagina" aria-labelledby="replay-pasos-t">
+              <summary><span class="cp-t" id="replay-pasos-t">📼 Qué poner en la página de replay de GHL (y dónde)</span><span class="cp-hint">Solo la primera vez · pulsa para ver los códigos</span></summary>
+              <p>Pega cada código en un elemento <strong>«Código personalizado»</strong> (Custom HTML) de GHL, en el sitio que se indica. <strong>No pongas el vídeo de Vimeo con el elemento de vídeo de GHL</strong>: lo pinta el bloque 3 y así se mide cuánto ve cada lead (lo que más pesa en la puntuación y decide su mensaje de WhatsApp). El enlace para los <strong>emails</strong> está arriba, bajo la URL de la página.</p>
               <div id="replay-pasos-box" class="pasos-box"></div>
-            </section>
+            </details>
           </section>
         </section>
 
@@ -1087,6 +1089,7 @@
             <div class="grid2">
               <label class="field"><span>URL de la página de venta de Raíces</span><input id="cfg-raices" type="url"></label>
             </div>
+            <div class="enlace-email" id="venta-email-box"></div>
             <fieldset class="rb-cfg">
               <legend>⏳ Barra fija con cuenta atrás (arriba del todo)</legend>
               <label class="chk full"><input type="checkbox" id="cfg-vb-on"> <strong>Activar la barra fija en la página de venta</strong></label>
@@ -1101,11 +1104,11 @@
                 <div id="cfg-vb-resumen" class="field-note"></div>
               </div>
             </fieldset>
-            <section class="enlace-directo" aria-labelledby="venta-pasos-t">
-              <h3 id="venta-pasos-t">🛒 Para saber quién visita la página de venta (y llamarla en «Setting hoy»)</h3>
-              <p><strong>1.</strong> Pega este bloque en la página de venta de GHL, en un elemento <strong>«Código personalizado»</strong> (Custom HTML) al <strong>final de la página</strong>, en el pie (no se ve: solo apunta la visita). <strong>2.</strong> En los <strong>emails</strong>, los enlaces a la página de venta deben llevar <code>?cid={{contact.id}}</code> al final: sin eso no se sabe quién la abre. En WhatsApp, igual si usas el enlace con ese campo.</p>
+            <details class="enlace-directo codigos-pagina" aria-labelledby="venta-pasos-t">
+              <summary><span class="cp-t" id="venta-pasos-t">🛒 Para saber quién visita la página de venta (y llamarla en «Setting hoy»)</span><span class="cp-hint">Solo la primera vez · pulsa para ver los códigos</span></summary>
+              <p><strong>1.</strong> Pega este bloque en la página de venta de GHL, en un elemento <strong>«Código personalizado»</strong> (Custom HTML) al <strong>final de la página</strong>, en el pie (no se ve: solo apunta la visita). <strong>2.</strong> En los <strong>emails</strong>, usa el enlace de arriba (bajo la URL de la página): lleva <code>?cid={{contact.id}}</code> y sin eso no se sabe quién la abre.</p>
               <div id="venta-pasos-box" class="pasos-box"></div>
-            </section>
+            </details>
           </section>
           <section class="cfg-sec" data-sec="pago">
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🧾</span><div><h3>Página de pago</h3><p>La página donde se elige pago único o fraccionado: su URL, el tipo de pago y los precios, el copy de cada cajetín con su enlace y su barra de urgencia.</p></div><span class="cfg-sec-status"></span></header>
@@ -1155,11 +1158,11 @@
               </div>
               <div id="ca-enlaces" class="pasos-box"></div>
             </section>
-            <section class="enlace-directo" aria-labelledby="pago-pasos-t">
-              <h3 id="pago-pasos-t">🧾 Qué poner en la página de pago de GHL (y dónde)</h3>
+            <details class="enlace-directo codigos-pagina" aria-labelledby="pago-pasos-t">
+              <summary><span class="cp-t" id="pago-pasos-t">🧾 Qué poner en la página de pago de GHL (y dónde)</span><span class="cp-hint">Solo la primera vez · pulsa para ver los códigos</span></summary>
               <p>Cada código en un elemento <strong>«Código personalizado»</strong>. Los textos, precios y enlaces salen de aquí: si los cambias, la página se actualiza sola.</p>
               <div id="pago-pasos-box" class="pasos-box"></div>
-            </section>
+            </details>
           </section>
           <section class="cfg-sec" data-sec="llamada">
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">☎️</span><div><h3>Llamada de admisión</h3><p>Dónde reservan la llamada (los botones «Reservar llamada» de las páginas de venta, de pago y de replay) y la página de gracias que ven al reservarla, con su vídeo.</p></div><span class="cfg-sec-status"></span></header>
@@ -1168,11 +1171,11 @@
               <label class="field"><span>URL de la página de gracias por agendar</span><input id="cfg-llamada-gracias" type="url" placeholder="https://lp.saraguzman.com/…"></label>
               <label class="field full"><span>Vídeo «Mira este vídeo para confirmar tu llamada» <small>(Vimeo o YouTube; se oculta si no hay)</small></span><input id="cfg-llamada-video" type="url" placeholder="https://vimeo.com/123/abc"></label>
             </div>
-            <section class="enlace-directo" aria-labelledby="llamada-pasos-t">
-              <h3 id="llamada-pasos-t">🧾 Qué poner en la página de gracias por agendar</h3>
+            <details class="enlace-directo codigos-pagina" aria-labelledby="llamada-pasos-t">
+              <summary><span class="cp-t" id="llamada-pasos-t">🧾 Qué poner en la página de gracias por agendar</span><span class="cp-hint">Solo la primera vez · pulsa para ver los códigos</span></summary>
               <p>Cada código en un elemento <strong>«Código personalizado»</strong>. Si cambias aquí el vídeo, la página se actualiza sola.</p>
               <div id="llamada-pasos-box" class="pasos-box"></div>
-            </section>
+            </details>
           </section>
           <section class="cfg-sec" data-sec="contacto">
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📞</span><div><h3>Venta y seguimiento</h3><p>WhatsApp para resolver dudas: los botones de las páginas de venta, de pago y de replay y los mensajes de WhatsApp después del directo.</p></div><span class="cfg-sec-status"></span></header>

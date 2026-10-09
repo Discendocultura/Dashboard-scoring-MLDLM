@@ -870,3 +870,14 @@ test('visitas únicas de la página de registro: una por navegador y lanzamiento
   const { resumenTrafico } = await import('../public/js/metrics.js');
   assert.equal(resumenTrafico({ total: 50, eco: {} }, null, { visitasRegistro: 200 }).conversionPagina, 0.25);
 });
+
+test('todosLosLeads con «desde»: los más nuevos primero y se para en los anteriores', async () => {
+  const { todosLosLeads } = await import('../lib/resumen.js');
+  const todos = await todosLosLeads('registro-webinar-demo');
+  const fechas = todos.map((c) => String(c.dateAdded).slice(0, 10)).sort();
+  const desde = fechas[Math.floor(fechas.length / 2)];
+  const recientes = await todosLosLeads('registro-webinar-demo', [], { desde });
+  assert.ok(recientes.length > 0 && recientes.length < todos.length);
+  assert.ok(recientes.every((c) => String(c.dateAdded).slice(0, 10) >= desde));
+  assert.equal(recientes.length, fechas.filter((f) => f >= desde).length);
+});

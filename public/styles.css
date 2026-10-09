@@ -2221,3 +2221,26 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 .leyenda-grid h4 { margin: 0 0 6px; font-size: 13px; }
 .leyenda-grid ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-2); }
 .leyenda-grid li { display: grid; grid-template-columns: max-content 1fr; align-items: center; gap: 8px; }
+/* Inicio: comentarios que te mencionan */
+.inicio-menciones { margin-bottom: 16px; }
+.inicio-menciones .notif-item { width: 100%; }
+/* Enlace para los emails: bien visible bajo la URL de su página */
+.enlace-email { margin: 10px 0 14px; padding: 14px 16px; border: 2px solid color-mix(in srgb, var(--tone-buy, #2e7d4f) 55%, var(--border)); border-radius: 12px; background: color-mix(in srgb, var(--tone-buy, #2e7d4f) 8%, var(--surface)); }
+.enlace-email:empty { display: none; }
+.ee-head { display: flex; gap: 12px; align-items: flex-start; }
+.ee-head > div { display: flex; flex-direction: column; gap: 3px; }
+.ee-head > div > strong { font-size: 15px; }
+.ee-head span { font-size: 13px; color: var(--text-2); }
+.ee-ico { font-size: 22px; line-height: 1; }
+.ee-falta { opacity: .85; }
+.ee-fila { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.ee-fila code { flex: 1 1 320px; padding: 10px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); font-size: 14px; font-weight: 600; word-break: break-all; }
+/* Códigos para pegar en GHL: plegados (solo hacen falta la primera vez) */
+.codigos-pagina > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; list-style: none; }
+.codigos-pagina > summary::-webkit-details-marker { display: none; }
+.codigos-pagina > summary .cp-t { font-weight: 700; font-size: 15px; }
+.codigos-pagina > summary .cp-hint { flex: none; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+.codigos-pagina > summary .cp-hint::after { content: " ▾"; }
+.codigos-pagina[open] > summary .cp-hint { font-size: 0; }
+.codigos-pagina[open] > summary .cp-hint::after { content: "Ocultar códigos ▴"; font-size: 12.5px; }
+.codigos-pagina[open] > summary { margin-bottom: 8px; }

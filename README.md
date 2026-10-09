@@ -632,6 +632,15 @@ Quien llega a la página de pago con su ID (al pulsar «Quiero inscribirme» en 
 ### Configuración por fases
 La configuración de un lanzamiento sigue el orden en que se monta: **① Datos básicos** (lanzamiento a editar, identificación, fechas y días de carrito, resumen diario por email) · **② Captación** (anuncios de Meta y emails, página de gracias, entrada VIP) · **③ Preclase** (páginas de GHL, calendario, encuesta, clases, recursos, directo, pantalla de espera, barra) · **④ Directo** (Zoom, vídeos, directo y grabación, página de replay) · **⑤ Oferta** (entregables, bonus, garantía) · **⑥ Venta** (página de venta, de pago, llamada de admisión, WhatsApp de dudas) · **⑦ Carrito** (días y estrategia) · **⑧ Precios e IVA** (VIP, programa, tipo de pago, IVA y bump offers) · **⑨ Etiquetas GHL**. Aparte: **Códigos** y **Accesos y enlaces**. Cada pestaña con campos que revisar enseña arriba «Qué falta en esta pestaña» (pulsa uno para ir a él), cada sección su estado («Falta 1», «✓ Completo») y la pestaña, en rojo, cuántos le faltan. Encima de las pestañas, la barra **«Listo para lanzar: 26 de 39»** suma todo y su botón lleva al primer campo que falta (por orden de pestañas).
 
+### Inicio: carga y menciones
+- Cada tarjeta de Inicio se pide por separado y deja de esperar **al minuto**: si GHL va lento o falla, la tarjeta enseña el error y un botón **«Reintentar»** (antes podía quedarse en «Cargando…» para siempre).
+- La VSL en Inicio pide los contactos **del más nuevo al más antiguo** y para al llegar a los registrados más de 6 meses antes del periodo (30 días): una VSL de años ya no descarga todo su histórico (y no se queda con los 4000 más antiguos, dejando fuera los recientes).
+- **«Te han mencionado»**: los comentarios de las tareas que te mencionan (o en tus tareas), de todos los embudos, los más nuevos primero. Pulsa uno para abrir su tarea y contestar. Solo para quien entra con su usuario (con la contraseña general nadie puede mencionarte).
+
+### Enlaces para emails y códigos de las páginas
+- Bajo la URL de la **página de venta** (⑥ Venta) y de la **página de replay** (④ Directo) sale, bien visible, el **enlace para tus emails** (con `?cid={{contact.id}}`) y el botón «Copiar enlace»: se copia tal cual.
+- Los **códigos para pegar en GHL** de las páginas de venta, pago, replay y gracias por agendar salen **plegados** («Solo la primera vez · pulsa para ver los códigos»).
+
 ### Barra de arriba
 En dos grupos: **este lanzamiento** (Actualizar, Sincronizar Zoom, Auditor y Configuración, con su texto hasta 1180 px de ancho; por debajo, solo el icono con su explicación al pasar el ratón) y, separados, las **notificaciones** y el menú **Cuenta** (Equipo, Mi cuenta, modo día / noche y Salir).
 
