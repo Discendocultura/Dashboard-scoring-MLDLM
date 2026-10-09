@@ -1049,6 +1049,7 @@ async function renderFacturacionTotal(m) {
 }
 
 // De dónde sale la inversión (y por tanto el CPL): Meta, a mano, o por qué no hay.
+const formatoDia = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 function fuenteInversion(launch, m) {
   const meta = state.meta;
   const filtro = launch.metaFiltro || state.launchCode;
@@ -1056,6 +1057,7 @@ function fuenteInversion(launch, m) {
   if (m.eco.inversion && m.eco.inversionFuente === 'meta') return { ok: true, txt: `Meta Ads: campañas con «${esc(filtro)}» en el nombre${meta?.since ? ` (${esc(meta.since)} → ${esc(meta.until)})` : ''} · ${leads}` };
   if (m.eco.inversion) return { ok: true, txt: `inversión puesta a mano en Configuración · ${leads}` };
   if (!launch.inicioCaptacion) return { ok: false, txt: 'Falta el inicio de captación (Configuración → Lanzamiento): desde ese día se suma lo gastado en Meta' };
+  if (launch.inicioCaptacion > dayInMadrid(new Date().toISOString())) return { ok: false, txt: `La captación empieza el ${esc(formatoDia(launch.inicioCaptacion))}: desde ese día se suma sola la inversión de las campañas con «${esc(filtro)}» en el nombre` };
   if (!meta) return { ok: false, txt: 'Meta no está conectado (variables META_* en Cloudflare)' };
   if (meta.error) return { ok: false, txt: `Meta: ${esc(meta.error)}` };
   if (!(meta.campaigns || []).length) return { ok: false, txt: `Ninguna campaña de Meta lleva «${esc(filtro)}» en el nombre: ponle el código del lanzamiento al nombre de la campaña` };

@@ -30,6 +30,8 @@ export async function GET(request) {
     }
     const launch = config.launches[code];
     if (!launch?.inicioCaptacion) return json({ configured: true, error: 'Falta el inicio de captación del lanzamiento' });
+    // Captación aún sin empezar: Meta no admite fechas futuras (y aún no hay gasto que sumar).
+    if (launch.inicioCaptacion > today()) return json({ configured: true, pendiente: true, since: launch.inicioCaptacion, until: launch.inicioCaptacion, total: 0, campaigns: [] });
     const next = nextLaunchStart(config, code);
     const until = next ? dayBefore(next) : today();
     const data = await adSpend({ since: launch.inicioCaptacion, until: until < launch.inicioCaptacion ? launch.inicioCaptacion : until, filter: launch.metaFiltro || code });

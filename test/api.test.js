@@ -851,3 +851,11 @@ test('configuración: dos personas guardando a la vez no se pisan (versión)', a
   const final = await (await config.GET(req('/api/config?fresh=1', { cookie: admin }))).json();
   assert.equal(final.config.digestEmail, 'a@ejemplo.com');
 });
+
+test('Meta: con la captación aún sin empezar no se piden fechas futuras (sin gasto)', async () => {
+  const { adSpend } = await import('../lib/meta.js');
+  const futuro = new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10);
+  const r = await adSpend({ since: futuro, until: futuro, filter: 'demo' });
+  assert.equal(r.total, 0);
+  assert.deepEqual(r.campaigns, []);
+});
