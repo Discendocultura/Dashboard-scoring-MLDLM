@@ -15,7 +15,7 @@ function etiquetasDeEmbudos(config) {
       else if (v && typeof v === 'object') recorrer(v, prof + 1);
     }
   };
-  for (const grupo of [config.launches, config.vsls, config.meteoricos]) recorrer(grupo);
+  for (const grupo of [config.launches, config.vsls, config.meteoricos, config.directas]) recorrer(grupo);
   return out;
 }
 
@@ -42,7 +42,7 @@ export async function GET(request) {
     // Solo se envían al navegador los campos configurados: fecha de compra y preguntas de la encuesta.
     const formAds = config.formAds || {};
     const fields = [...new Set(Object.values(config.launches)
-      .map((l) => l.compraDateField).concat(Object.values(config.vsls || {}).flatMap((v) => [v.compraDateField, v.registroDateField]), (config.encuesta || []).map((p) => p.id), formAds.campaign, formAds.adset, formAds.ad).filter(Boolean))];
+      .map((l) => l.compraDateField).concat(Object.values(config.vsls || {}).flatMap((v) => [v.compraDateField, v.registroDateField]), Object.values(config.directas || {}).map((d) => d.compraDateField), (config.encuesta || []).map((p) => p.id), formAds.campaign, formAds.adset, formAds.ad).filter(Boolean))];
     const page = await contactsByTag(tag, cursor, fields);
     page.contacts = page.contacts.map((c) => aplicarCamposFormulario(c, formAds));
     return json(page);

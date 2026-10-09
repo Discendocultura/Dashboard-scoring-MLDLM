@@ -28,6 +28,7 @@ import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE } from './roles.js';
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaCliente, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
+import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientesDirecta } from './directa.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -36,6 +37,7 @@ const PAGE_SIZE = 100;
 
 const state = {
   meteo: { code: '', datos: {} }, // ⚡ meteóricos: el elegido y sus métricas
+  directa: { datos: null, id: '', cargando: false, buscar: '', filtro: '' }, // 🛒 venta directa: métricas del rango
   vsl: { leads: null, raw: null, meta: null, ganLevel: 'ad', loadToken: 0, mostrar: 100 },
   role: null,
   permisos: [],
@@ -290,15 +292,16 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico' };
-const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas' };
-const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa' };
+const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads' };
+const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
 const embudoInfo = (id = state.embudo) => embudos().find((e) => e.id === id) || null;
 const enVsl = () => embudoInfo()?.tipo === 'vsl';
 const enMeteo = () => embudoInfo()?.tipo === 'meteorico';
-const tipoActual = () => (enVsl() ? 'vsl' : enMeteo() ? 'meteorico' : 'lanz');
+const enDirecta = () => embudoInfo()?.tipo === 'directa';
+const tipoActual = () => (enVsl() ? 'vsl' : enMeteo() ? 'meteorico' : enDirecta() ? 'directa' : 'lanz');
 // Pestañas que el embudo tiene activadas (⚙️ del menú lateral; sin lista = todas).
 const pestanasEmbudo = () => embudoInfo()?.pestanas || null;
 const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual())
@@ -312,7 +315,7 @@ const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual
     || (v === 'carrito' && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('objetivos'))))
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
-const codigo = () => (enVsl() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
+const codigo = () => (enVsl() || enDirecta() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
 const vslCfg = (id = state.embudo) => ({ ...(state.config?.vsls?.[id] || {}), name: state.config?.vsls?.[id]?.name || 'VSL', id, esVsl: true });
 const embudoActual = () => (enVsl() ? vslCfg() : state.config?.launches[state.launchCode]);
 // Embudo de lanzamientos al que pertenece un lanzamiento.
@@ -362,6 +365,7 @@ async function start() {
   const guardado = ls.get('lsd_embudo');
   if (embudoInfo(hash)) state.embudo = hash;
   else if (VIEW_EMBUDO[hash] === 'vsl' && primero('vsl')) state.embudo = embudoInfo(guardado)?.tipo === 'vsl' ? guardado : primero('vsl');
+  else if (VIEW_EMBUDO[hash] === 'directa' && primero('directa')) state.embudo = embudoInfo(guardado)?.tipo === 'directa' ? guardado : primero('directa');
   else if (VIEW_EMBUDO[hash] === 'meteorico' && primero('meteorico')) state.embudo = embudoInfo(guardado)?.tipo === 'meteorico' ? guardado : primero('meteorico');
   else if (VIEWS.includes(hash) && VIEW_EMBUDO[hash] !== 'ambos' && primero('lanzamientos')) state.embudo = embudoInfo(guardado)?.tipo === 'lanzamientos' ? guardado : primero('lanzamientos');
   else state.embudo = embudoInfo(guardado) ? guardado : embudos()[0]?.id || '';
@@ -407,6 +411,7 @@ $('#btn-reload').addEventListener('click', () => {
   if (state.enInicio) return mostrarInicio({ fresh: true });
   if (enVsl()) return recargarVsl();
   if (enMeteo()) { renderMeteoView({ fresh: true }); if (codigo()) loadTareas(); return; }
+  if (enDirecta()) { cargarDirecta({ fresh: true }); if (codigo()) loadTareas(); return; }
   return selectLaunch(state.launchCode, { forzar: true });
 });
 
@@ -426,9 +431,9 @@ function pintarSidebar() {
   $('#sb-items').innerHTML = embudos().map((e) => {
     const tv = e.tipo === 'vsl' ? textosVsl(state.config.vsls[e.id]) : null;
     const nMeteo = e.tipo === 'meteorico' ? Object.values(state.config.meteoricos || {}).filter((m) => m.embudo === e.id).length : 0;
-    const sub = e.tipo === 'meteorico' ? `${nMeteo} meteórico${nMeteo === 1 ? '' : 's'}` : tv ? `${tv.corto} · siempre abierto`
+    const sub = e.tipo === 'meteorico' ? `${nMeteo} meteórico${nMeteo === 1 ? '' : 's'}` : e.tipo === 'directa' ? 'Venta directa · siempre abierto' : tv ? `${tv.corto} · siempre abierto`
       : (() => { const n = Object.values(state.config.launches).filter((l) => embudoDeLanz(l) === e.id).length; return `${n} lanzamiento${n === 1 ? '' : 's'}`; })();
-    return `<div class="sb-row"><button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${e.tipo === 'meteorico' ? '⚡' : tv ? tv.ico : esReto(e.formato) ? '🏁' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(e.id)}" title="Pestañas, nombre y guía de «${esc(e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
+    return `<div class="sb-row"><button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${e.tipo === 'meteorico' ? '⚡' : e.tipo === 'directa' ? '🛒' : tv ? tv.ico : esReto(e.formato) ? '🏁' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(e.id)}" title="Pestañas, nombre y guía de «${esc(e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
   }).join('');
   // «Inicio» (todos los embudos): para quien ve las métricas y si hay embudos.
   $('#sb-inicio').hidden = !tiene('metricas') || !embudos().length;
@@ -444,6 +449,7 @@ async function setEmbudo(e, { vista = null } = {}) {
   if (state.hist?.datos) { state.hist.datos = null; $('#hist-anuncios').innerHTML = '<p class="muted small">Pulsa «Cargar todos los lanzamientos» para ver los anuncios de este embudo.</p>'; $('#btn-hist-anuncios').textContent = 'Cargar todos los lanzamientos'; }
   document.body.classList.toggle('embudo-vsl', enVsl());
   document.body.classList.toggle('embudo-meteo', enMeteo());
+  document.body.classList.toggle('embudo-directa', enDirecta());
   pintarSidebar();
   renderSnapshotWarning();
   // Cliente sin embudos todavía.
@@ -451,7 +457,7 @@ async function setEmbudo(e, { vista = null } = {}) {
   $('#sin-embudos').hidden = !sin;
   if (sin) { $('#dashboard').hidden = true; $('#empty-state').hidden = true; return; }
   // Cada embudo de lanzamientos enseña solo sus lanzamientos.
-  if (!enVsl() && !enMeteo()) {
+  if (!enVsl() && !enMeteo() && !enDirecta()) {
     renderLaunchSelect();
     if (!state.config.launches[state.launchCode] || embudoDeLanz(state.config.launches[state.launchCode]) !== state.embudo) state.launchCode = pickInitialLaunch();
   }
@@ -463,7 +469,8 @@ async function setEmbudo(e, { vista = null } = {}) {
   const guardada = ls.get(`lsd_view_${state.embudo}`) || (enVsl() ? '' : ls.get('lsd_view'));
   const quiero = [vista, guardada].find((v) => v && allowedViews().includes(v));
   if (enMeteo()) pickMeteo();
-  const porDefecto = enVsl() ? ['vmetricas', 'vleads', 'llamadas', 'tareas'] : enMeteo() ? ['meteoricos'] : ['leads', 'hoy', 'tareas'];
+  if (enDirecta() && state.directa.id !== state.embudo) Object.assign(state.directa, { id: state.embudo, datos: null });
+  const porDefecto = enVsl() ? ['vmetricas', 'vleads', 'llamadas', 'tareas'] : enMeteo() ? ['meteoricos'] : enDirecta() ? ['dmetricas', 'dclientes', 'tareas'] : ['leads', 'hoy', 'tareas'];
   showView(quiero || porDefecto.find((v) => allowedViews().includes(v)) || allowedViews()[0]);
   if (enVsl()) {
     $('#empty-state').hidden = true;
@@ -475,6 +482,11 @@ async function setEmbudo(e, { vista = null } = {}) {
     $('#dashboard').hidden = false;
     notice('');
     renderMeteoView();
+  } else if (enDirecta()) {
+    $('#empty-state').hidden = true;
+    $('#dashboard').hidden = false;
+    notice('');
+    cargarDirecta();
   } else {
     await selectLaunch(state.launchCode);
   }
@@ -592,7 +604,7 @@ function pintarInicio() {
   const inv = sum('inversion');
   $('#inicio-sub').textContent = listos ? 'Todos los embudos de un vistazo · los datos se actualizan cada 15 min' : 'Cargando los embudos…';
   $('#inicio-total').innerHTML = [
-    card('Facturación total', eur(fact), 'último lanzamiento de cada embudo · VSL (30 días) · meteóricos recientes', 'coins', 'money'),
+    card('Facturación total', eur(fact), 'último lanzamiento de cada embudo · VSL y venta directa (30 días) · meteóricos recientes', 'coins', 'money'),
     card('Ventas', sum('ventas').toLocaleString('es-ES'), `${lista.length} embudo${lista.length === 1 ? '' : 's'}${metas.length ? ` y ${metas.length} meteórico${metas.length === 1 ? '' : 's'}` : ''}`, 'cart', 'buy'),
     card('Inversión', inv ? eur(inv) : '–', inv ? `ROAS conjunto ${(fact / inv).toFixed(2).replace('.', ',')}x` : 'sin inversión registrada', 'megaphone', 'accent'),
   ].join('');
@@ -601,7 +613,13 @@ function pintarInicio() {
   const obj = (o) => (o?.length ? `<div class="muted small">🎯 ${o.map((x) => `${esc(x.label)}: ${Math.round((x.pct || 0) * 100)}%`).join(' · ')}</div>` : '');
   const tarjetas = [
     ...lista.map((e) => {
-      if (e.cargando) return `<div class="card inicio-emb"><h3>${e.tipo === 'vsl' ? '🎬' : '🚀'} ${esc(e.nombre)}</h3><p class="muted small">Cargando…</p></div>`;
+      if (e.cargando) return `<div class="card inicio-emb"><h3>${e.tipo === 'vsl' ? '🎬' : e.tipo === 'directa' ? '🛒' : '🚀'} ${esc(e.nombre)}</h3><p class="muted small">Cargando…</p></div>`;
+      if (e.tipo === 'directa') {
+        return `<button type="button" class="card inicio-emb" data-ir-inicio="directa" data-code="${esc(e.code)}">
+        <h3>🛒 ${esc(e.nombre)} <span class="badge tone-info">Últimos 30 días</span></h3>
+        <div class="ie-cifras">${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${cifra('ROAS', roasIni(e.kpis.roas))}</div>
+        <div class="ie-cifras ie-sec">${cifra('Coste por venta', eur(e.kpis.cac))}${cifra('Ticket medio', eur(e.kpis.ticket))}${(e.extras || []).map((x) => cifra(`${x.tipo === 'bump' ? 'Bump' : x.tipo === 'upsell' ? 'Upsell' : 'Downsell'} · ${esc(x.nombre)}`, `${x.pct != null ? `${Math.round(x.pct * 1000) / 10}%`.replace('.', ',') : '–'} <small>(${x.n})</small>`)).join('')}</div></button>`;
+      }
       if (e.tipo === 'error') return `<div class="card inicio-emb"><h3>${esc(e.nombre)}</h3><p class="error small">${esc(e.error)}</p><button type="button" class="btn small" data-reintentar="embudo:${state.inicio.embudos.indexOf(e)}">Reintentar</button></div>`;
       const est = e.tipo === 'vsl' ? ['Últimos 30 días', 'info'] : ESTADO_LANZ[e.estado] || ['', 'muted'];
       return `<button type="button" class="card inicio-emb" data-ir-inicio="${e.tipo === 'vsl' ? 'vsl' : 'lanz'}" data-code="${esc(e.code)}" data-embudo="${esc(e.embudoId || '')}">
@@ -643,6 +661,7 @@ $('#inicio').addEventListener('click', (e) => {
   if (ir) {
     const { code } = ir.dataset;
     if (ir.dataset.irInicio === 'vsl') return setEmbudo(code, { vista: 'vmetricas' });
+    if (ir.dataset.irInicio === 'directa') return setEmbudo(code, { vista: 'dmetricas' });
     if (ir.dataset.irInicio === 'lanz') { state.launchCode = code; return setEmbudo(ir.dataset.embudo || embudoDeLanz(state.config.launches[code]), { vista: 'metricas' }); }
     const m = state.config.meteoricos?.[code];
     if (!m) return;
@@ -2397,7 +2416,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -2415,6 +2434,8 @@ const AYUDA_VISTA = {
   metricas: ['📊 Métricas', 'Cómo va el lanzamiento en cifras, por categorías (Resumen, Ventas, Captación…). Pasa el ratón por el «?» de cada tarjeta para ver cómo se calcula.'],
   objetivos: ['🎯 Planificador', 'Proyecta el lanzamiento con tus lanzamientos anteriores: inversión, leads, CPL máximo, equipo de llamadas y números. Los objetivos salen de ahí, y abajo ves cuánto llevas.'],
   calendario: ['🗓️ Calendario', 'Todas las fechas del cliente juntas: hitos de cada lanzamiento, tareas y eventos. Se puede sincronizar con tu calendario.'],
+  dmetricas: ['📊 Métricas de la venta directa', 'Ventas, facturación, ticket medio, coste por venta (CPA) y ROAS del periodo elegido arriba. Debajo, el % de compradoras que coge cada bump, upsell y downsell, y la conversión de cada página si pegaste sus códigos.'],
+  dclientes: ['🛍️ Compradoras', 'Quién ha comprado en el periodo, qué extras se llevó y su WhatsApp. Filtra por un extra para ver, por ejemplo, quién cogió el upsell.'],
   carrito: ['🛒 Carrito', 'Cada día del carrito: lo que pasa ese día (se calcula solo con las fechas, la oferta y la barra), los emails y WhatsApps previstos y la estrategia.'],
   tareas: ['✅ Tareas', 'Las tareas del equipo para este lanzamiento, con responsable y fecha. «Cargar tareas habituales» crea la lista de siempre con las fechas ya calculadas.'],
   avatar: ['👑 Avatar y anuncios', 'Qué perfil compra (según la encuesta) y qué anuncios traen ventas. Úsalo para decidir creatividades y públicos.'],
@@ -2607,6 +2628,8 @@ function showView(view) {
   ls.set(`lsd_view_${state.embudo}`, view);
   if (!enVsl()) ls.set('lsd_view', view);
   $('#vsl-rango').hidden = !['vmetricas', 'vleads', 'vanuncios'].includes(view);
+  $('#dir-rango').hidden = !['dmetricas', 'dclientes'].includes(view);
+  if ((view === 'dmetricas' || view === 'dclientes') && state.config && enDirecta()) renderDirecta();
   if (enVsl() && state.vsl.leads) renderVsl();
   if (view === 'comparar' && state.config) { renderCompareSelector(); renderComparativas(); }
   if (view === 'rendimiento' && state.config) loadRendimiento();
@@ -3444,7 +3467,7 @@ function openConfig(code) {
 }
 
 $('#cfg-launch-pick').addEventListener('change', (e) => openConfig(e.target.value));
-$('#btn-config').addEventListener('click', () => (enVsl() ? openVslConfig() : enMeteo() ? abrirMeteoDialog(state.meteo.code, { embudo: state.embudo }) : openConfig(state.launchCode)));
+$('#btn-config').addEventListener('click', () => (enVsl() ? openVslConfig() : enDirecta() ? abrirDirectaConfig() : enMeteo() ? abrirMeteoDialog(state.meteo.code, { embudo: state.embudo }) : openConfig(state.launchCode)));
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-action="new-launch"]')) openConfig(null);
 });
@@ -4366,7 +4389,7 @@ const avatarHtml = (u, nombre = u?.nombre) => `<span class="t-avatar">${u?.foto 
 // Cabecera de Tareas según el embudo: botón de planificación y, en meteóricos, de cuál de ellos.
 function pintarCabeceraTareas() {
   const b = $('#btn-tareas-plantilla');
-  b.textContent = enMeteo() ? 'Crear tareas del meteórico' : enVsl() ? 'Crear tareas de la VSL' : 'Cargar tareas habituales';
+  b.textContent = enMeteo() ? 'Crear tareas del meteórico' : enVsl() ? 'Crear tareas de la VSL' : enDirecta() ? 'Crear tareas del embudo' : 'Cargar tareas habituales';
   b.title = enMeteo() ? 'Añade las tareas del meteórico según su configuración, con fechas desde las suyas (no duplica las que ya estén)' : enVsl() ? 'Añade las tareas de la VSL según su configuración (no duplica las que ya estén)' : 'Añade las tareas de siempre con fechas calculadas a partir de las del lanzamiento (no duplica las que ya estén)';
   const sel = $('#t-meteo-select');
   const lista = enMeteo() ? meteoDeEmbudo(state.embudo) : [];
@@ -5421,24 +5444,24 @@ function tarjetaPortal(e) {
     <div class="obj-bar"><span style="width:${Math.min(100, o.pct * 100)}%"></span></div></div>`).join('');
   const hitos = (e.hitos || []).map((h) => `<li><strong>${esc(fechaPortal(h.dia))}</strong>${h.hora ? ` · ${esc(h.hora)}` : ''} — ${esc(h.titulo)}</li>`).join('');
   const [estado, tono] = ESTADO_PORTAL[e.estado] || ['', ''];
-  const cabecera = e.tipo === 'vsl'
-    ? `<h2>🎬 ${esc(e.nombre)}</h2><p class="muted">${esc(PERIODOS_PORTAL[e.preset || '30d'] || 'Últimos 30 días')} (${esc(fechaPortal(e.periodo.desde))} – ${esc(fechaPortal(e.periodo.hasta))})</p>`
+  const cabecera = e.tipo === 'vsl' || e.tipo === 'directa'
+    ? `<h2>${e.tipo === 'directa' ? '🛒' : '🎬'} ${esc(e.nombre)}</h2><p class="muted">${esc(PERIODOS_PORTAL[e.preset || '30d'] || 'Últimos 30 días')} (${esc(fechaPortal(e.periodo.desde))} – ${esc(fechaPortal(e.periodo.hasta))})</p>`
     : `<h2>🚀 ${esc(e.nombre)} ${estado ? `<span class="badge tone-${tono}">${estado}</span>` : ''}</h2><p class="muted">${esc(e.embudo)} · ${esc(e.formato)}${e.fechas.directo ? ` · webinar el ${esc(fechaPortal(e.fechas.directo))}` : ''}${e.fechas.cierre ? ` · cierre ${esc(fechaPortal(e.fechas.cierre))}` : ''}</p>`;
   return `<article class="portal-card">${cabecera}
     <div class="portal-kpis">
-      ${kpi('Registros', (k.registros ?? 0).toLocaleString('es-ES'))}
+      ${e.tipo !== 'directa' ? kpi('Registros', (k.registros ?? 0).toLocaleString('es-ES')) : ''}
       ${k.vip != null ? kpi('Entradas VIP', k.vip.toLocaleString('es-ES')) : ''}
       ${kpi('Ventas', (k.ventas ?? 0).toLocaleString('es-ES'))}
       ${kpi('Facturación', eur(k.facturacion || 0))}
       ${kpi('Inversión en anuncios', eur(k.inversion))}
       ${kpi('ROAS', roas(k.roas), 'facturación ÷ inversión')}
-      ${kpi('Coste por registro', eur(k.cpl))}
+      ${e.tipo !== 'directa' ? kpi('Coste por registro', eur(k.cpl)) : kpi('Ticket medio', eur(k.ticket), 'sin IVA, con los extras')}
       ${kpi('Coste por venta', eur(k.cac))}
     </div>
     ${objetivos ? `<h3>Objetivos</h3>${objetivos}` : ''}
     <h3>Embudo</h3><div class="portal-funnel">${funnel}</div>
     ${hitos ? `<h3>Próximos hitos</h3><ul class="portal-hitos">${hitos}</ul>` : ''}
-    <p><a class="btn" href="/api/informe?${e.tipo === 'vsl' ? 'v' : 'l'}=${encodeURIComponent(e.code)}${state.clientes.find((c) => c.id === portalCliente)?.principal ? '' : `&c=${encodeURIComponent(portalCliente)}`}" target="_blank" rel="noopener">${e.tipo === 'vsl' ? 'Informe de la semana pasada ↗' : 'Informe completo ↗'}</a></p>
+    ${e.tipo === 'directa' ? '' : `<p><a class="btn" href="/api/informe?${e.tipo === 'vsl' ? 'v' : 'l'}=${encodeURIComponent(e.code)}${state.clientes.find((c) => c.id === portalCliente)?.principal ? '' : `&c=${encodeURIComponent(portalCliente)}`}" target="_blank" rel="noopener">${e.tipo === 'vsl' ? 'Informe de la semana pasada ↗' : 'Informe completo ↗'}</a></p>`}
   </article>`;
 }
 // Cliente cuyo portal se está viendo (el actual o, con «Ver como», otro cliente de la agencia).
@@ -5454,7 +5477,7 @@ function pintarPortalNav() {
     ? (e.lanzamientos.length > 1 ? `<label class="portal-pick"><span>Lanzamiento</span><select id="portal-lanz">${e.lanzamientos.map((x) => `<option value="${esc(x.code)}" ${x.code === portal.l ? 'selected' : ''}>${esc(x.nombre)}${x.inicio ? ` · ${esc(fechaPortal(x.inicio))}` : ''}</option>`).join('')}</select></label>` : '')
     : `<label class="portal-pick"><span>Periodo</span><select id="portal-periodo">${Object.entries(PERIODOS_PORTAL).map(([k, v]) => `<option value="${k}" ${k === portal.periodo ? 'selected' : ''}>${v}</option>`).join('')}</select></label>`;
   $('#portal-nav').innerHTML = portal.catalogo.length > 1 || extra
-    ? `<div class="portal-chips">${portal.catalogo.length > 1 ? chip('todos', 'Todos los embudos') : ''}${portal.catalogo.map((x) => chip(x.id, `${x.tipo === 'vsl' ? '🎬' : '🚀'} ${esc(x.nombre)}`)).join('')}</div>${extra}`
+    ? `<div class="portal-chips">${portal.catalogo.length > 1 ? chip('todos', 'Todos los embudos') : ''}${portal.catalogo.map((x) => chip(x.id, `${x.tipo === 'vsl' ? '🎬' : x.tipo === 'directa' ? '🛒' : '🚀'} ${esc(x.nombre)}`)).join('')}</div>${extra}`
     : '';
 }
 async function pintarPortalCuerpo() {
@@ -8108,7 +8131,7 @@ let embEdit = null; // id del embudo que se edita (null = nuevo)
 // Opción elegida: webinar | v2 | v3 | plf | reto (embudo de lanzamientos con ese formato) o un
 // embudo siempre abierto: vsl | leadmagnet | evergreen | llamadas (motor de la VSL con su variante).
 const embOpcion = () => $('input[name="emb-tipo"]:checked').value;
-const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : embOpcion() === 'meteorico' ? 'meteorico' : SUBTIPO_IDS.includes(embOpcion()) ? 'vsl' : 'lanzamientos');
+const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : embOpcion() === 'meteorico' || embOpcion() === 'directa' ? embOpcion() : SUBTIPO_IDS.includes(embOpcion()) ? 'vsl' : 'lanzamientos');
 const embFormato = () => (embEdit ? $('#emb-formato').value : embTipo() !== 'lanzamientos' ? undefined : embOpcion() === 'reto' ? $('#emb-reto-dias').value : embOpcion());
 const embSubtipo = () => (embTipo() !== 'vsl' ? undefined : embEdit ? $('#emb-subtipo').value : embOpcion());
 // Pestañas elegidas en el paso «Dashboard»: las marcadas y las que tienen alguna sección marcada.
@@ -8176,14 +8199,14 @@ $('#emb-pestanas').addEventListener('change', (e) => {
 });
 
 // ---------- Asistente por pasos ----------
-const PASO_LABEL = { tipo: 'Tipo de embudo', preclase: 'Prelanzamiento', dashboard: 'Dashboard', final: 'Nombre y resumen' };
+const PASO_LABEL = { tipo: 'Tipo de embudo', preclase: 'Prelanzamiento', directa: 'Qué lleva', dashboard: 'Dashboard', final: 'Nombre y resumen' };
 let embPaso = 0;
 function pasosEmb() {
   const plantilla = !embEdit && $('#emb-plantilla').value;
   const lanz = embTipo() === 'lanzamientos';
   // Editando: el tipo no cambia (solo el formato de los lanzamientos o la variante de la VSL).
   const conTipo = !embEdit || lanz || embTipo() === 'vsl';
-  return [...(conTipo ? ['tipo'] : []), ...(lanz && !plantilla ? ['preclase'] : []), ...(plantilla ? [] : ['dashboard']), 'final'];
+  return [...(conTipo ? ['tipo'] : []), ...(lanz && !plantilla ? ['preclase'] : []), ...(embTipo() === 'directa' && !embEdit && !plantilla ? ['directa'] : []), ...(plantilla ? [] : ['dashboard']), 'final'];
 }
 function irPasoEmb(i) {
   const pasos = pasosEmb();
@@ -8224,6 +8247,10 @@ function pintarEmbResumen() {
     filas.push(['Entrada VIP', $('#emb-vip').value === 'si' ? `Sí · el contador empieza en ${$('#emb-vip-base').value || 0}` : 'No']);
     if (pre) filas.push(['Pantalla de espera', $('#emb-espera').value === 'si' ? 'Sí, 59 min antes y entra sola al webinar' : 'No']);
   }
+  if (tipo === 'directa' && !embEdit) {
+    const p = partesElegidas('#emb-partes');
+    filas.push(['Qué lleva', ['Página de venta', 'Checkout', ...PARTES_DIRECTA.filter((x) => p[x.id]).map((x) => x.label)].join(' · ')]);
+  }
   if (!plantilla) {
     const cats = $$('#emb-pestanas .emb-cat').map((f) => ({ t: $('.emb-cat-h strong', f).textContent, subs: $$('.emb-subs input:checked', f).map((i) => $('strong', i.closest('label')).textContent) })).filter((c) => c.subs.length);
     filas.push(['Dashboard', cats.map((c) => `<strong>${esc(c.t)}</strong>: ${esc(c.subs.join(', '))}`).join('<br>')]);
@@ -8233,7 +8260,7 @@ function pintarEmbResumen() {
 $('#emb-plantilla').addEventListener('change', () => irPasoEmb(embPaso));
 
 function pintarEmbGuia() {
-  const pasos = guiaEmbudo(embTipo(), embPestanas(), embFormato(), embSubtipo(), { preclase: $('#emb-preclase').value !== 'no' });
+  const pasos = guiaEmbudo(embTipo(), embPestanas(), embFormato(), embSubtipo(), { preclase: $('#emb-preclase').value !== 'no', partes: embEdit ? state.config.directas?.[embEdit]?.partes : partesElegidas('#emb-partes') });
   const rec = embTipo() === 'lanzamientos' && $('#emb-preclase').value !== 'no' ? $$('input[name="emb-recurso"]:checked').map((i) => i.value) : [];
   if (rec.length) {
     pasos.push({ titulo: `${pasos.length + 1} · Recursos de la preclase`, pasos: [
@@ -8298,6 +8325,7 @@ function abrirNuevoEmbudo() {
   $('#emb-vip-base').value = esPrincipal() ? '41' : '0';
   $$('input[name="emb-recurso"]').forEach((i) => { i.checked = false; });
   $('#emb-espera').value = 'si';
+  pintarPartes('#emb-partes', partesPorDefecto());
   pintarEmbClases();
   pintarEmbVipBase();
   $('#emb-nombre').value = '';
@@ -8316,7 +8344,7 @@ function abrirEditarEmbudo(id) {
   const e = embudoInfo(id);
   if (!e) return;
   embEdit = id;
-  $('#emb-titulo').textContent = `${e.tipo === 'vsl' ? textosVsl(state.config.vsls[id]).ico : '🚀'} ${e.nombre}`;
+  $('#emb-titulo').textContent = `${e.tipo === 'vsl' ? textosVsl(state.config.vsls[id]).ico : e.tipo === 'directa' ? '🛒' : e.tipo === 'meteorico' ? '⚡' : '🚀'} ${e.nombre}`;
   $('#emb-subtipo').value = subtipoValido(state.config.vsls[id]?.subtipo);
   $('.emb-tipos').hidden = true;
   $('#emb-formato-box').hidden = e.tipo !== 'lanzamientos';
@@ -8334,7 +8362,7 @@ function abrirEditarEmbudo(id) {
   $('#emb-nota').hidden = true;
   $('#emb-borrar').hidden = false;
   $('#emb-plantilla-box').hidden = true;
-  $('#emb-plantilla-guardar').hidden = !state.superadmin;
+  $('#emb-plantilla-guardar').hidden = !state.superadmin || e.tipo === 'directa';
   $('#emb-crear').textContent = 'Guardar';
   $('#emb-guia-box').open = false;
   $('#emb-h-tipo').textContent = e.tipo === 'vsl' ? 'Tipo de embudo siempre abierto' : 'Formato de los lanzamientos';
@@ -8366,7 +8394,8 @@ $('#emb-crear').addEventListener('click', async () => {
       const nombre = $('#emb-nombre').value.trim() || embudoInfo(id).nombre;
       const lista = embudos().map((e) => (e.id === id ? { ...e, id: e.id, tipo: e.tipo, nombre, ...(e.tipo === 'lanzamientos' ? { formato: embFormato(), ...embPrelanz() } : {}), pestanas: todas ? undefined : pestanas, ocultas: ocultas.length ? ocultas : undefined } : e));
       const vsls = state.config.vsls[id] ? { ...state.config.vsls, [id]: { ...state.config.vsls[id], name: nombre, subtipo: embSubtipo() } } : state.config.vsls;
-      const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, vsls } });
+      const directas = state.config.directas?.[id] ? { ...state.config.directas, [id]: { ...state.config.directas[id], name: nombre } } : state.config.directas;
+      const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, vsls, directas } });
       state.config = config;
       embDlg.close();
       await setEmbudo(state.embudo);
@@ -8385,23 +8414,24 @@ $('#emb-crear').addEventListener('click', async () => {
     const tipo = embTipo();
     const formato = embFormato();
     const subtipo = embSubtipo();
-    const nombre = $('#emb-nombre').value.trim() || (tipo === 'vsl' ? SUBTIPOS_VSL[subtipo].corto : FORMATOS[formato].label);
+    const nombre = $('#emb-nombre').value.trim() || (tipo === 'vsl' ? SUBTIPOS_VSL[subtipo].corto : tipo === 'directa' ? 'Venta directa' : tipo === 'meteorico' ? 'Meteóricos' : FORMATOS[formato].label);
     // id: a partir del nombre, sin chocar con otros embudos ni con códigos de lanzamiento.
-    const usados = new Set([...embudos().map((e) => e.id), ...Object.keys(state.config.launches)]);
-    const base = slugCliente(nombre) || (tipo === 'vsl' ? 'vsl' : 'lanz');
+    const usados = new Set([...embudos().map((e) => e.id), ...Object.keys(state.config.launches), ...Object.keys(state.config.meteoricos || {})]);
+    const base = slugCliente(nombre) || (tipo === 'vsl' ? 'vsl' : tipo === 'directa' ? 'venta' : 'lanz');
     let id = base.slice(0, 20);
     for (let n = 2; usados.has(id) || id.length < 2; n++) id = `${base.slice(0, 18)}-${n}`;
     const body = {
       ...state.config,
       embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz() } : {}), ...(todas ? {} : { pestanas }), ...(ocultas.length ? { ocultas } : {}) }],
       vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre, subtipo } } : state.config.vsls,
+      directas: tipo === 'directa' ? { ...(state.config.directas || {}), [id]: { name: nombre, producto: nombre, partes: partesElegidas('#emb-partes') } } : state.config.directas,
     };
     const { config } = await api('/api/config', { method: 'POST', body });
     state.config = config;
     embDlg.close();
     await setEmbudo(id);
     // Y a configurarlo: etiquetas de GHL (VSL) o el primer lanzamiento.
-    if (tipo === 'vsl') openVslConfig(); else if (tipo === 'meteorico') abrirMeteoDialog(null, { embudo: id }); else openConfig(null);
+    if (tipo === 'vsl') openVslConfig(); else if (tipo === 'meteorico') abrirMeteoDialog(null, { embudo: id }); else if (tipo === 'directa') abrirDirectaConfig(); else openConfig(null);
   } catch (e) {
     $('#emb-status').textContent = e.message;
   } finally {
@@ -8420,7 +8450,9 @@ async function eliminarEmbudo(id) {
   if (!window.confirm(`¿Eliminar el embudo «${e.nombre}» del dashboard? Se borra su configuración. Sus contactos, etiquetas y páginas de GHL no se tocan.`)) return false;
   const vsls = { ...state.config.vsls };
   delete vsls[id];
-  const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, vsls, embudos: embudos().filter((x) => x.id !== id) } });
+  const directas = { ...(state.config.directas || {}) };
+  delete directas[id];
+  const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, vsls, directas, embudos: embudos().filter((x) => x.id !== id) } });
   state.config = config;
   await setEmbudo(state.embudo === id ? embudos()[0]?.id || '' : state.embudo);
   return true;
@@ -8448,6 +8480,15 @@ function auditoria() {
     const m = state.config.meteoricos?.[state.meteo.code];
     return m ? pendientesMeteorico(m).map((t) => ({ nivel: 'importante', area: 'Meteórico', titulo: t, detalle: '', accion: null })) : [];
   }
+  if (enDirecta()) {
+    const d = state.config.directas?.[state.embudo];
+    const tags = state.tags?.length ? new Set(state.tags.map((t) => String(t).toLowerCase())) : null;
+    const noExiste = d ? [d.compraTag, ...[['bumps', d.bumps], ['upsell', d.upsells], ['downsell', d.downsells]].filter(([p]) => conParte(d, p)).flatMap(([, l]) => (l || []).filter((o) => o.activo !== false).map((o) => o.tag))].filter((t) => t && tags && !tags.has(t)) : [];
+    return d ? [
+      ...pendientesDirecta(d).map((x) => ({ nivel: x.campo === 'dc-compraTag' || x.campo === 'dc-precio' ? 'critico' : 'importante', area: 'Venta directa', titulo: x.txt, detalle: '', accion: { tipo: 'directa' } })),
+      ...noExiste.map((t) => ({ nivel: 'importante', area: 'Etiquetas', titulo: `La etiqueta «${t}» no existe en GHL`, detalle: 'Revisa que esté bien escrita o créala en el workflow de la compra.', accion: { tipo: 'directa' } })),
+    ] : [];
+  }
   if (enVsl()) return auditarVsl({ ...comun, vsl: vslCfg(), leads: state.vsl.code === state.embudo ? state.vsl.leads : null, meta: state.vsl.meta });
   const launch = state.config.launches[state.launchCode];
   if (!launch) return [];
@@ -8471,9 +8512,9 @@ function pintarAuditor() {
   const ign = audIgnorados();
   const activos = lista.filter((x) => !ign.has(audKey(x)));
   const ignorados = lista.filter((x) => ign.has(audKey(x)));
-  const nombre = enVsl() ? vslCfg().name : state.config.launches[state.launchCode]?.name || '';
+  const nombre = enVsl() ? vslCfg().name : enDirecta() ? state.config.directas?.[state.embudo]?.name || '' : state.config.launches[state.launchCode]?.name || '';
   $('#aud-titulo').textContent = `🩺 Auditor · ${nombre}`;
-  const prox = enVsl() ? null : proximoHito(state.config.launches[state.launchCode] || {}, today());
+  const prox = enVsl() || enDirecta() ? null : proximoHito(state.config.launches[state.launchCode] || {}, today());
   const cuenta = (n) => activos.filter((x) => x.nivel === n).length;
   $('#aud-cabecera').innerHTML = `
     <div class="aud-resumen">${Object.entries(AUD_NIVEL).map(([k, v]) => `<span class="aud-chip n-${k}">${v.icon} <strong>${cuenta(k)}</strong> ${v.plural}</span>`).join('')}
@@ -8509,6 +8550,7 @@ $('#aud-lista').addEventListener('click', async (e) => {
   if (acc.tipo === 'campo') { await openConfig(state.launchCode); setTimeout(() => goToField(acc.id), 150); }
   else if (acc.tipo === 'tarea') abrirTarea(acc.id);
   else if (acc.tipo === 'vista') showView(acc.v);
+  else if (acc.tipo === 'directa') abrirDirectaConfig();
   else if (acc.tipo === 'vsl') { await openVslConfig(); $(`#vsl-config-dialog .tab[data-tab="${acc.tab}"]`)?.click(); }
 });
 
@@ -9395,3 +9437,270 @@ function cicloDetalle({ todas, propio, nombre, error, porTrafico, dateField }) {
   return `<div class="ciclo-grid">${col('Todas las compradoras', todas, error ? esc(error) : '')}${col(`Compradoras de ${nombre}`, propio)}</div>${trafico}
     <p class="muted small">Desde la fecha de creación del contacto en GHL hasta la fecha de compra del producto principal. Cambia con el tiempo: es una idea general de cuánto tarda una persona en comprar desde que te conoce.</p>`;
 }
+
+// ---------- 🛒 Venta directa / producto de entrada (low ticket) ----------
+// Interruptores de «Qué lleva tu embudo» (al crearlo y en su configuración).
+function pintarPartes(sel, partes) {
+  $(sel).innerHTML = PARTES_DIRECTA.map((p) => `<label class="dir-parte${partes?.[p.id] ? ' on' : ''}"><input type="checkbox" data-parte="${p.id}"${partes?.[p.id] ? ' checked' : ''}><span class="dir-parte-ico" aria-hidden="true">${p.ico}</span><span><strong>${esc(p.label)}</strong><small>${esc(p.desc)}</small></span><span class="dir-switch" aria-hidden="true"></span></label>`).join('');
+  pintarFlujo();
+}
+const partesElegidas = (sel) => Object.fromEntries($$(`${sel} [data-parte]`).map((i) => [i.dataset.parte, i.checked]));
+// El dibujo del flujo (anuncio → venta → checkout → upsell → downsell → gracias) según lo elegido.
+function pintarFlujo() {
+  const p = partesElegidas('#emb-partes');
+  $$('#embudo-dialog [data-flujo]').forEach((x) => { x.hidden = !p[x.dataset.flujo]; });
+}
+for (const sel of ['#emb-partes', '#dc-partes']) {
+  $(sel).addEventListener('change', (e) => {
+    const i = e.target.closest('[data-parte]');
+    if (!i) return;
+    i.closest('.dir-parte').classList.toggle('on', i.checked);
+    if (sel === '#emb-partes') { pintarFlujo(); pintarEmbGuia(); } else pintarDirectaPartes();
+  });
+}
+
+// Configuración del embudo (⚙️ Configurar el embudo).
+const dcDlg = $('#directa-dialog');
+const OPC_IVA_DIR = [['', 'Elige…'], ['incluido', 'IVA incluido'], ['mas', '+ IVA'], ['exento', 'Sin IVA']];
+const LISTAS_DIR = { bumps: { nombre: 'Audios extra', tag: 'bump-…', url: false }, upsells: { nombre: 'Curso completo', tag: 'upsell-…', url: true }, downsells: { nombre: 'Minicurso', tag: 'downsell-…', url: true } };
+const ofertaFila = (lista, o = {}) => `<div class="bump-fila${LISTAS_DIR[lista].url ? ' con-url' : ''}${o.activo === false ? ' off' : ''}" data-oferta="${esc(o.id || nuevoId(lista.slice(0, 2)))}">
+    <label class="chk"><input type="checkbox" class="bump-activo"${o.activo === false ? '' : ' checked'}> Activo</label>
+    <label class="field"><span>Nombre</span><input class="bump-nombre" maxlength="80" value="${esc(o.nombre || '')}" placeholder="${LISTAS_DIR[lista].nombre}"></label>
+    <label class="field"><span>Precio (€)</span><input class="bump-precio" inputmode="decimal" value="${o.precio ? String(o.precio).replace('.', ',') : ''}" placeholder="9"></label>
+    <label class="field"><span>¿Lleva IVA?</span><select class="bump-iva">${OPC_IVA_DIR.map(([v, t]) => `<option value="${v}"${(o.iva || '') === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+    <label class="field"><span>Etiqueta de quien lo compra</span><input class="bump-tag" list="tag-list" value="${esc(o.tag || '')}" placeholder="${LISTAS_DIR[lista].tag}"></label>
+    ${LISTAS_DIR[lista].url ? `<label class="field bump-url"><span>Página <small>(opcional)</small></span><input class="oferta-url" type="url" value="${esc(o.url || '')}" placeholder="https://…"></label>` : ''}
+    <button type="button" class="btn ghost small bump-quitar" aria-label="Quitar">✕</button>
+  </div>`;
+const cajaDir = (lista) => $(`#directa-dialog [data-dc-lista="${lista}"]`);
+function pintarOfertas(lista, items) {
+  cajaDir(lista).innerHTML = (items || []).map((o) => ofertaFila(lista, o)).join('') || `<p class="muted small bump-vacio">Todavía no hay ninguno: pulsa «+ Añadir».</p>`;
+}
+const leerOfertas = (lista) => $$('.bump-fila', cajaDir(lista)).map((f) => ({
+  id: f.dataset.oferta, activo: $('.bump-activo', f).checked, nombre: $('.bump-nombre', f).value.trim(),
+  precio: $('.bump-precio', f).value.trim(), iva: $('.bump-iva', f).value, tag: $('.bump-tag', f).value.trim().toLowerCase(),
+  ...(LISTAS_DIR[lista].url ? { url: $('.oferta-url', f).value.trim() } : {}),
+}));
+dcDlg.addEventListener('click', (e) => {
+  const add = e.target.closest('[data-dc-add]');
+  if (add) {
+    const caja = cajaDir(add.dataset.dcAdd);
+    $('.bump-vacio', caja)?.remove();
+    caja.insertAdjacentHTML('beforeend', ofertaFila(add.dataset.dcAdd));
+    $('.bump-fila:last-child .bump-nombre', caja).focus();
+    return;
+  }
+  const quitar = e.target.closest('.bump-quitar');
+  if (quitar) {
+    const caja = quitar.closest('[data-dc-lista]');
+    quitar.closest('.bump-fila').remove();
+    if (!$('.bump-fila', caja)) pintarOfertas(caja.dataset.dcLista, []);
+  }
+});
+dcDlg.addEventListener('change', (e) => {
+  if (e.target.classList.contains('bump-activo')) e.target.closest('.bump-fila').classList.toggle('off', !e.target.checked);
+});
+// Cada sección se ve solo si su parte está encendida (y al encender upsell o downsell sin ninguno, sale uno vacío).
+function pintarDirectaPartes() {
+  const p = partesElegidas('#dc-partes');
+  $$('#directa-dialog [data-dc-parte]').forEach((x) => { x.hidden = !p[x.dataset.dcParte]; });
+  for (const [parte, lista] of [['bumps', 'bumps'], ['upsell', 'upsells'], ['downsell', 'downsells']]) {
+    if (p[parte] && !$('.bump-fila', cajaDir(lista))) { cajaDir(lista).innerHTML = ''; cajaDir(lista).insertAdjacentHTML('beforeend', ofertaFila(lista)); }
+  }
+  pintarCodigosDirecta();
+}
+function pintarCodigosDirecta() {
+  const id = dcDlg.dataset.id;
+  const p = partesElegidas('#dc-partes');
+  const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
+  $('#dc-codigos-box').innerHTML = `<p class="muted small">Pega cada bloque en un elemento «Código HTML» de su página (en cualquier sitio; no se ve). Cuenta visitantes únicos sin gastar llamadas a GHL.</p>`
+    + PAGINAS_DIRECTA.filter((x) => !x.parte || p[x.parte]).map((x) => filaCopiar(x.label, `<div data-lsd-directa="${x.id}" data-embudo="${id}"></div>\n${script}`, x.id === 'checkout' ? 'Llegar aquí = ha pulsado «Comprar» en la página de venta.' : x.id === 'venta' ? 'Base de la conversión de todo el embudo.' : '')).join('');
+}
+
+function abrirDirectaConfig(id = state.embudo) {
+  const d = state.config.directas?.[id];
+  if (!d) return;
+  dcDlg.dataset.id = id;
+  $('#dc-titulo').textContent = `🛒 ${d.name}`;
+  pintarPartes('#dc-partes', d.partes || partesPorDefecto());
+  const v = (k, x) => { $(`#dc-${k}`).value = x ?? ''; };
+  v('name', d.name); v('producto', d.producto); v('precio', d.precio ? String(d.precio).replace('.', ',') : '');
+  v('iva', d.iva?.producto || ''); v('ivaPct', d.iva?.pct ?? 21); v('compraTag', d.compraTag); v('compraDateField', d.compraDateField);
+  v('ventaUrl', d.ventaUrl); v('checkoutUrl', d.checkoutUrl); v('graciasUrl', d.graciasUrl);
+  v('metaFiltro', d.metaFiltro); v('inversionDia', d.inversionDia || ''); v('objetivoCpa', d.objetivoCpa || '');
+  v('objetivoRoas', d.objetivoRoas ? String(d.objetivoRoas).replace('.', ',') : ''); v('objetivoVentasMes', d.objetivoVentasMes || ''); v('notas', d.notas);
+  pintarOfertas('bumps', d.bumps);
+  pintarOfertas('upsells', d.upsells);
+  pintarOfertas('downsells', d.downsells);
+  pintarDirectaPartes();
+  const pend = pendientesDirecta(d);
+  $('#dc-pendientes').innerHTML = pend.length ? `<div class="notice warn"><strong>Falta para que las cifras salgan bien:</strong><ul>${pend.map((x) => `<li>${esc(x.txt)}</li>`).join('')}</ul></div>` : '';
+  $('#dc-status').textContent = '';
+  dcDlg.showModal();
+}
+$('#dr-config').addEventListener('click', () => abrirDirectaConfig());
+$('#dc-guardar').addEventListener('click', async () => {
+  const id = dcDlg.dataset.id;
+  const val = (k) => $(`#dc-${k}`).value.trim();
+  const d = {
+    ...state.config.directas[id],
+    name: val('name') || state.config.directas[id].name, producto: val('producto'), precio: val('precio'),
+    iva: { pct: val('ivaPct') === '' ? 21 : Number(val('ivaPct').replace(',', '.')), producto: $('#dc-iva').value },
+    compraTag: val('compraTag').toLowerCase(), compraDateField: val('compraDateField'),
+    partes: partesElegidas('#dc-partes'),
+    bumps: leerOfertas('bumps'), upsells: leerOfertas('upsells'), downsells: leerOfertas('downsells'),
+    ventaUrl: val('ventaUrl'), checkoutUrl: val('checkoutUrl'), graciasUrl: val('graciasUrl'),
+    metaFiltro: val('metaFiltro'), inversionDia: val('inversionDia'), objetivoCpa: val('objetivoCpa'),
+    objetivoRoas: val('objetivoRoas'), objetivoVentasMes: val('objetivoVentasMes'), notas: $('#dc-notas').value,
+  };
+  const b = $('#dc-guardar');
+  b.disabled = true;
+  $('#dc-status').textContent = 'Guardando…';
+  try {
+    const lista = embudos().map((e) => (e.id === id ? { ...e, nombre: d.name } : e));
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, directas: { ...state.config.directas, [id]: d } } });
+    state.config = config;
+    dcDlg.close();
+    pintarSidebar();
+    await cargarDirecta({ fresh: true });
+  } catch (e) {
+    $('#dc-status').textContent = e.message;
+  } finally {
+    b.disabled = false;
+  }
+});
+
+// Periodo (como en la VSL): últimos 7/30/90 días, este mes, el pasado o fechas a medida.
+const drRango = () => ({ preset: $('#dr-preset').value, desde: $('#dr-desde').value, hasta: $('#dr-hasta').value });
+$('#dr-preset').value = ls.get('lsd_dr_preset') || '30d';
+function pintarDrCampos() {
+  const p = $('#dr-preset').value === 'personalizado';
+  $('#dr-desde-f').hidden = !p;
+  $('#dr-hasta-f').hidden = !p;
+}
+pintarDrCampos();
+$('#dr-preset').addEventListener('change', () => { ls.set('lsd_dr_preset', $('#dr-preset').value); pintarDrCampos(); if ($('#dr-preset').value !== 'personalizado' || ($('#dr-desde').value && $('#dr-hasta').value)) cargarDirecta(); });
+['#dr-desde', '#dr-hasta'].forEach((s) => $(s).addEventListener('change', () => { if ($('#dr-desde').value && $('#dr-hasta').value) cargarDirecta(); }));
+$('#dr-recargar').addEventListener('click', () => cargarDirecta({ fresh: true }));
+
+async function cargarDirecta({ fresh = false } = {}) {
+  const id = state.embudo;
+  if (!enDirecta() || !tiene(['metricas', 'leads'])) { renderDirecta(); return; }
+  const r = drRango();
+  const qs = new URLSearchParams({ d: id, preset: r.preset, ...(r.preset === 'personalizado' ? { desde: r.desde, hasta: r.hasta } : {}), ...(fresh ? { fresh: '1' } : {}) });
+  state.directa.cargando = true;
+  renderDirecta();
+  try {
+    const datos = await api(`/api/directa?${qs}`);
+    if (state.embudo !== id) return;
+    state.directa.datos = datos;
+  } catch (e) {
+    if (state.embudo !== id) return;
+    state.directa.datos = { error: e.message };
+  } finally {
+    if (state.embudo === id) state.directa.cargando = false;
+  }
+  renderDirecta();
+}
+
+function renderDirecta() {
+  if (!enDirecta()) return;
+  const D = state.directa.datos;
+  const fecha = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  $('#dr-texto').textContent = state.directa.cargando ? 'Cargando…' : D?.rango ? `${fecha(D.rango.desde)} – ${fecha(D.rango.hasta)} · ${D.rango.dias} días` : '';
+  if (!$('#view-dmetricas').hidden) renderDirectaMetricas(D);
+  if (!$('#view-dclientes').hidden) renderDirectaClientes(D);
+}
+
+// Tarjeta con su propia ayuda «?» (las de los lanzamientos dicen otra cosa).
+const AYUDA_DIR = {
+  Ventas: 'Contactos con la etiqueta de compra cuyo día de compra cae en el periodo.',
+  Facturación: 'Precio del producto sin IVA × ventas + cada bump, upsell y downsell sin IVA × quienes lo compraron.',
+  ROAS: 'Facturación sin IVA ÷ inversión en publicidad del periodo. 1x = el embudo se paga solo.',
+  'Inversión en publicidad': 'Gasto en Meta de las campañas cuyo nombre contiene el filtro, en el periodo (o la inversión al día escrita a mano × días).',
+  'Visitas a la página de venta': 'Visitantes únicos nuevos de la página de venta en el periodo (código de medición de la página).',
+  'Clic al checkout': 'Visitantes del checkout ÷ visitantes de la página de venta.',
+  'Cierre del checkout': 'Ventas ÷ visitantes que llegaron al checkout.',
+  'Conversión de la página': 'Ventas ÷ visitantes de la página de venta.',
+  'Coste por venta (CPA)': 'Inversión ÷ ventas. Si es mayor que el ticket medio, cada venta cuesta más de lo que deja.',
+  'Ticket medio': 'Facturación sin IVA ÷ ventas: lo que deja de media cada compradora con sus extras.',
+  'Beneficio (facturación − publicidad)': 'Facturación sin IVA menos la inversión en publicidad (sin otros costes).',
+};
+const cardD = (label, value, sub, ico, tone, ayuda = AYUDA_DIR[label] || '') => `<div class="kpi static tone-${tone}"><span class="kpi-label"><span class="kpi-ico">${icon(ico)}</span>${label}${ayudaBtn(ayuda)}</span><span class="kpi-value">${value}</span><span class="kpi-sub">${sub}</span></div>`;
+const x2 = (v) => (v == null ? '–' : `${v.toFixed(2).replace('.', ',')}x`);
+const pct1d = (v) => (v == null ? '–' : `${(Math.round(v * 1000) / 10).toLocaleString('es-ES')}%`);
+function renderDirectaMetricas(D) {
+  const d = state.config.directas?.[state.embudo] || {};
+  const boton = puedeConfig() ? ' <button type="button" class="btn small" data-dir-config>Configurarlo ahora →</button>' : '';
+  if (!D) { $('#dir-hero').innerHTML = '<p class="muted">Cargando…</p>'; ['#dir-cards', '#dir-extras', '#dir-objetivos', '#dir-dias', '#dir-avisos'].forEach((s) => { $(s).innerHTML = ''; }); return; }
+  if (D.error) { $('#dir-avisos').innerHTML = `<div class="notice err">No se pudieron cargar las métricas: ${esc(D.error)}</div>`; $('#dir-hero').innerHTML = ''; return; }
+  const avisos = [
+    ...(D.pendientes || []).map((p) => p.txt),
+    ...(D.metaError ? [`Meta: ${D.metaError}`] : []),
+    ...(conParte(d, 'meta') && !D.metaConectado ? ['Meta no está conectado para este cliente: pon la inversión al día a mano en la configuración (o conecta Meta).'] : []),
+  ];
+  $('#dir-avisos').innerHTML = avisos.length ? `<div class="notice warn"><strong>Para que las cifras salgan bien:</strong><ul>${avisos.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>${boton}</div>` : '';
+  const grande = (html) => html.replace('class="kpi static', 'class="kpi static kpi-hero');
+  const invTxt = D.inversion == null ? (conParte(d, 'meta') ? 'sin datos de Meta' : 'pon la inversión en la configuración') : D.inversionFuente === 'meta' ? `Meta · campañas con «${esc(d.metaFiltro || state.embudo)}»` : 'a mano (€ al día × días)';
+  $('#dir-hero').innerHTML = [
+    grande(cardD('Ventas', D.ventas.toLocaleString('es-ES'), `${(D.ventas / Math.max(1, D.rango.dias)).toLocaleString('es-ES', { maximumFractionDigits: 1 })} al día de media`, 'cart', 'buy')),
+    grande(cardD('Facturación', eur(D.facturacion), `<strong class="kpi-hero-ventas">Sin IVA</strong>producto ${eur(D.facturacionProducto)}${D.facturacionExtras ? ` + extras ${eur(D.facturacionExtras)}` : ''}`, 'coins', 'money')),
+    grande(cardD('ROAS', x2(D.roas), D.roas != null ? `${eur(D.facturacion)} ÷ ${eur(D.inversion)} de inversión${D.roas >= 1 ? ' · se paga solo ✓' : ' · aún no se paga solo'}` : invTxt, 'trend', D.roas != null && D.roas < 1 ? 'warn' : 'buy')),
+  ].join('');
+  const v = D.visitas || {};
+  const conVisitas = conParte(d, 'visitas');
+  const sinCodigo = (pag) => `pega el código de la ${pag} (⚙️ Configurar → Páginas)`;
+  // Más compras que visitas medidas: el código se pegó con el periodo ya empezado (o falta en alguna página).
+  const incompleta = 'hay más compras que visitas medidas: el código se pegó con el periodo ya empezado o falta en alguna página';
+  const conv = (x) => (x != null && x > 1 ? null : x);
+  for (const k of ['ventaCheckout', 'checkoutCompra', 'ventaCompra']) if (D.conversion[k] > 1) D.conversion[k + 'Inc'] = true;
+  $('#dir-cards').innerHTML = [
+    cardD('Inversión en publicidad', D.inversion != null ? eur(D.inversion) : '–', invTxt, 'megaphone', 'accent'),
+    ...(conVisitas ? [
+      cardD('Visitas a la página de venta', v.venta ? v.venta.toLocaleString('es-ES') : '–', v.venta ? `visitantes únicos${D.inversion ? ` · ${eur(D.inversion / v.venta)} por visita` : ''}` : sinCodigo('página de venta'), 'eye', 'info'),
+      cardD('Clic al checkout', pct1d(conv(D.conversion.ventaCheckout)), D.conversion.ventaCheckoutInc ? incompleta : v.checkout ? `${v.checkout.toLocaleString('es-ES')} llegaron al checkout de ${v.venta.toLocaleString('es-ES')} visitas` : sinCodigo('página del checkout'), 'funnel', 'info'),
+      cardD('Cierre del checkout', pct1d(conv(D.conversion.checkoutCompra)), D.conversion.checkoutCompraInc ? incompleta : v.checkout ? `${D.ventas} compras de ${v.checkout.toLocaleString('es-ES')} que llegaron al checkout` : sinCodigo('página del checkout'), 'cart', 'buy'),
+      cardD('Conversión de la página', pct1d(conv(D.conversion.ventaCompra)), D.conversion.ventaCompraInc ? incompleta : v.venta ? `${D.ventas} compras de ${v.venta.toLocaleString('es-ES')} visitas a la página de venta` : sinCodigo('página de venta'), 'target', 'buy'),
+    ] : []),
+    cardD('Coste por venta (CPA)', eur(D.cpa), D.cpa != null ? `${eur(D.inversion)} ÷ ${D.ventas} ventas · para no perder dinero: máx. ${eur(D.cpaEquilibrio)}` : invTxt, 'coins', D.cpa != null && D.cpaEquilibrio != null && D.cpa > D.cpaEquilibrio ? 'warn' : 'money'),
+    cardD('Ticket medio', eur(D.ticket), D.subidaTicket != null && D.subidaTicket > 0.001 ? `+${pct1d(D.subidaTicket)} sobre el precio gracias a los extras · sin IVA` : 'sin IVA, por compra', 'euro', 'money'),
+    cardD('Beneficio (facturación − publicidad)', D.beneficio != null ? eur(D.beneficio) : '–', D.beneficio != null ? 'sin IVA y sin contar otros costes' : invTxt, 'trend', D.beneficio != null && D.beneficio < 0 ? 'warn' : 'buy'),
+  ].join('');
+  // Extras: en grande el % de compradoras que lo coge y, debajo, cuántos se han vendido.
+  const TIT = { bump: ['➕ Bump offers', 'de las compradoras lo añaden en el checkout'], upsell: ['⬆️ Upsell', 'de las compradoras lo cogen'], downsell: ['⬇️ Downsell', 'de las que dijeron que no al upsell lo cogen'] };
+  const grupos = ['bump', 'upsell', 'downsell'].map((t) => [t, (D.extras || []).filter((x) => x.tipo === t)]).filter(([, l]) => l.length);
+  $('#dir-extras').innerHTML = grupos.map(([t, l]) => `<section class="card dir-extra"><h3>${TIT[t][0]}</h3><div class="kpis">${l.map((x) => cardD(esc(x.nombre), pct1d(x.pct), `<strong>${x.n.toLocaleString('es-ES')} ${x.n === 1 ? 'vendido' : 'vendidos'}</strong> de ${x.base} · ${TIT[t][1]} · ${eur(x.facturacion)} sin IVA`, 'gift', t === 'bump' ? 'vip' : t === 'upsell' ? 'buy' : 'info', t === 'downsell' ? 'Quienes lo compraron ÷ compradoras que no cogieron ningún upsell (solo a ellas se les ofrece).' : 'Quienes tienen su etiqueta ÷ compradoras del periodo.')).join('')}</div></section>`).join('')
+    || (conParte(d, 'bumps') || conParte(d, 'upsell') || conParte(d, 'downsell') ? `<div class="notice">Pon la etiqueta de cada bump, upsell o downsell para ver qué % de compradoras lo coge.${boton}</div>` : '');
+  $('#dir-objetivos').innerHTML = D.objetivos?.length ? `<section class="card"><h3>🎯 Objetivos</h3><div class="kpis">${D.objetivos.map((o) => {
+    const ok = o.actual == null ? null : o.menosEsMejor ? o.actual <= o.meta : o.actual >= o.meta;
+    const fmt = (n) => (n == null ? '–' : o.unit === 'eur' ? eur(n) : o.unit === 'x' ? x2(n) : Math.round(n).toLocaleString('es-ES'));
+    return cardD(o.label, fmt(o.actual), `objetivo ${fmt(o.meta)}${ok == null ? '' : ok ? ' · ✓ lo cumples' : ' · ✗ aún no'}`, 'target', ok === false ? 'warn' : 'buy', '');
+  }).join('')}</div></section>` : '';
+  // Por días: ventas, facturación y (si se miden) visitas, con una barra.
+  const dias = (D.porDia || []).slice().reverse();
+  const max = Math.max(1, ...dias.map((x) => x.ventas));
+  $('#dir-dias').innerHTML = dias.length ? `<section class="card"><h3>📅 Día a día</h3><div class="table-wrap"><table class="metric-table dir-dias"><thead><tr><th>Día</th><th>Ventas</th><th class="num">Facturación</th>${conVisitas ? '<th class="num">Visitas</th><th class="num">Checkout</th>' : ''}</tr></thead><tbody>${dias.map((x) => `<tr><td>${new Date(`${x.dia}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</td><td><span class="dir-barra"><i style="width:${Math.round((x.ventas / max) * 100)}%"></i><b>${x.ventas}</b></span></td><td class="num">${eur(x.facturacion)}</td>${conVisitas ? `<td class="num">${x.venta || ''}</td><td class="num">${x.checkout || ''}</td>` : ''}</tr>`).join('')}</tbody></table></div>${D.sinFechaCompra ? '<p class="muted small">El día de cada venta es el día en que se creó el contacto. Si quieres el día exacto del pago (p. ej. de quien ya estaba en tu base de datos), pon el campo «Fecha de compra» en la configuración.</p>' : ''}</section>` : '';
+}
+$('#view-dmetricas').addEventListener('click', (e) => { if (e.target.closest('[data-dir-config]')) abrirDirectaConfig(); });
+
+function renderDirectaClientes(D) {
+  const d = state.config.directas?.[state.embudo] || {};
+  const extras = [...(conParte(d, 'bumps') ? d.bumps || [] : []).map((o) => ({ ...o, t: '➕' })), ...(conParte(d, 'upsell') ? d.upsells || [] : []).map((o) => ({ ...o, t: '⬆️' })), ...(conParte(d, 'downsell') ? d.downsells || [] : []).map((o) => ({ ...o, t: '⬇️' }))].filter((o) => o.tag);
+  const sel = $('#dc-filtro');
+  const antes = sel.value;
+  sel.innerHTML = `<option value="">Todas</option><option value="-">Sin ningún extra</option><option value="+">Con algún extra</option>${extras.map((o) => `<option value="${esc(o.id)}">${o.t} ${esc(o.nombre || o.tag)}</option>`).join('')}`;
+  sel.value = [...sel.options].some((o) => o.value === antes) ? antes : '';
+  if (!D || D.error) { $('#dc-body').innerHTML = `<tr><td colspan="4" class="muted">${D?.error ? esc(D.error) : 'Cargando…'}</td></tr>`; $('#dc-n').textContent = ''; return; }
+  const q = $('#dc-buscar').value.trim().toLowerCase();
+  const f = sel.value;
+  const lista = (D.compradores || []).filter((c) => (!q || `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(q))
+    && (!f || (f === '-' ? !c.extras.length : f === '+' ? c.extras.length > 0 : c.extras.includes(f))));
+  const nombreExtra = (id) => { const o = extras.find((x) => x.id === id); return o ? `${o.t} ${o.nombre || o.tag}` : id; };
+  $('#dc-n').textContent = `${lista.length.toLocaleString('es-ES')} de ${(D.compradores || []).length.toLocaleString('es-ES')} compradoras`;
+  $('#dc-body').innerHTML = lista.slice(0, 500).map((c) => {
+    const wa = waPhone(c.phone, state.config.defaultCountryCode || '34');
+    return `<tr><td>${new Date(`${c.dia}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</td><td><strong>${esc(c.name || '—')}</strong><br><small class="muted">${esc(c.email)}</small></td><td>${c.extras.length ? c.extras.map((x) => `<span class="badge">${esc(nombreExtra(x))}</span>`).join(' ') : '<span class="muted small">Solo el producto</span>'}</td><td>${wa ? `<a class="btn small" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp</a>` : '<span class="muted small">Sin teléfono</span>'}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" class="muted">Nadie con ese filtro en este periodo.</td></tr>';
+}
+$('#dc-buscar').addEventListener('input', () => renderDirectaClientes(state.directa.datos));
+$('#dc-filtro').addEventListener('change', () => renderDirectaClientes(state.directa.datos));

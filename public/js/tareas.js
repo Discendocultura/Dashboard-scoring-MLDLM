@@ -25,7 +25,7 @@ export const FASES_VSL_T = [
   { id: 'optimizacion', label: 'Revisión y mejora', icon: '🔧' },
 ];
 // tipo: 'lanz' | 'vsl' | 'meteorico' (también acepta 'lanzamientos').
-export const fasesDe = (tipo) => (tipo === 'meteorico' ? FASES_METEORICO_T : tipo === 'vsl' ? FASES_VSL_T : FASES);
+export const fasesDe = (tipo) => (tipo === 'meteorico' ? FASES_METEORICO_T : tipo === 'vsl' || tipo === 'directa' ? FASES_VSL_T : FASES);
 // Todas las fases válidas (el servidor no sabe de qué tipo es cada tarea al validarla).
 export const TODAS_FASE_IDS = [...new Set([...FASES, ...FASES_METEORICO_T, ...FASES_VSL_T].map((f) => f.id))];
 

@@ -2271,3 +2271,36 @@ button, a, summary, label, select, input, textarea { touch-action: manipulation;
   .agencia-btn.agencia-flotante { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 8px; font-size: 0; gap: 0; }
   .notif-panel { max-height: calc(100dvh - 90px); }
 }
+
+/* ---------- 🛒 Venta directa (low ticket) ---------- */
+.dir-flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 14px; font-size: 13px; }
+.dir-flujo span { padding: 5px 10px; border-radius: 999px; background: var(--surface-2, var(--surface)); border: 1px solid var(--border); white-space: nowrap; }
+.dir-flujo i { font-style: normal; color: var(--muted); }
+.dir-flujo [hidden] { display: none; }
+.dir-partes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.dir-parte { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; }
+.dir-parte input { position: absolute; opacity: 0; pointer-events: none; }
+.dir-parte strong { display: block; }
+.dir-parte small { display: block; color: var(--muted); line-height: 1.35; margin-top: 2px; }
+.dir-parte-ico { font-size: 22px; }
+.dir-parte.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.dir-parte:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dir-switch { width: 38px; height: 22px; border-radius: 999px; background: var(--border); position: relative; flex: none; transition: background .15s; }
+.dir-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.dir-parte.on .dir-switch { background: var(--accent); }
+.dir-parte.on .dir-switch::after { transform: translateX(16px); }
+.dir-partes.compacto small { font-size: 12px; }
+.bump-fila.con-url { grid-template-columns: auto 1.2fr .55fr 1fr 1.2fr 1.2fr auto; }
+@media (max-width: 760px) { .bump-fila.con-url { grid-template-columns: 1fr 1fr; } }
+.dir-rango-acc { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.dir-extra h3, #dir-objetivos h3, #dir-dias h3 { margin: 0 0 10px; }
+#dir-extras, #dir-objetivos, #dir-dias { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
+.dir-barra { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.dir-barra i { display: block; height: 10px; border-radius: 5px; background: var(--accent); min-width: 2px; }
+.dir-barra b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.dir-cli-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 10px; }
+.dir-cli td { vertical-align: top; }
+.dir-cli .badge { margin: 0 4px 4px 0; display: inline-block; }
+.dc-codigos { margin-top: 12px; }
+.dc-codigos summary { cursor: pointer; font-weight: 600; }
+body.embudo-directa .lanz-only { display: none !important; }

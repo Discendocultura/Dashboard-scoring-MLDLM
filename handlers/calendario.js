@@ -15,7 +15,7 @@ export async function GET(request) {
   try {
     await requireSession(request);
     const config = await getConfig();
-    const codes = [...Object.keys(config.launches || {}), ...Object.keys(config.vsls || {}), ...Object.keys(config.meteoricos || {})].slice(0, MAX_EMBUDOS);
+    const codes = [...Object.keys(config.launches || {}), ...Object.keys(config.vsls || {}), ...Object.keys(config.meteoricos || {}), ...Object.keys(config.directas || {})].slice(0, MAX_EMBUDOS);
     // Todas las tareas y todos los eventos del cliente en dos consultas (no dos por embudo).
     const [tareas, eventos] = await Promise.all([storeGetPrefijo('lsd_tareas_'), storeGetPrefijo('lsd_eventos_')]);
     const porCodigo = codes.map((code) => ({

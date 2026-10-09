@@ -69,7 +69,7 @@
   function post(path, payload) {
     var body = JSON.stringify(payload);
     // text/plain evita la petición previa CORS; el servidor lo interpreta como JSON.
-    if ((path === '/api/track' || path === '/api/visita' || payload.op === 'click' || payload.op === 'espera') && navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) {
+    if ((path === '/api/track' || path === '/api/visita' || payload.op === 'click' || payload.op === 'espera' || payload.op === 'visita') && navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) {
       return Promise.resolve({ ok: true });
     }
     return fetch(API + conCliente(path), { method: 'POST', body: body, headers: { 'content-type': 'text/plain' }, keepalive: true })
@@ -1178,6 +1178,21 @@
       // El servidor la cuenta una sola vez por navegador y lanzamiento (aunque recargue).
       visitaUnaVez(launchR, vid, 'registro', 24 * 60 * 60 * 1000);
     }
+    // Venta directa (low ticket): <div data-lsd-directa="venta|checkout|upsell|downsell|gracias" data-embudo="id">
+    // cuenta visitantes únicos de cada página (id anónimo del navegador; una vez al día por página).
+    document.querySelectorAll('[data-lsd-directa]').forEach(function (el) {
+      if (params.get('lsd_preview')) return;
+      var emb = params.get('d') || el.getAttribute('data-embudo') || '';
+      var pag = el.getAttribute('data-lsd-directa') || 'venta';
+      if (!emb) return;
+      var vd = store('lsd_vid');
+      if (!vd) { vd = 'v' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36); store('lsd_vid', vd); }
+      var clave = 'lsd_vd_' + emb + '_' + pag;
+      var antes = store(clave);
+      if (antes && Date.now() - antes < 24 * 60 * 60 * 1000) return;
+      store(clave, Date.now());
+      post('/api/directa', { op: 'visita', d: emb, pagina: pag, v: vd });
+    });
     // Gracias por agendar la llamada: el vídeo de confirmación y los enlaces.
     var llamada = document.querySelector('[data-lsd-llamada]');
     if (llamada) initVenta(llamada, 'llamada');

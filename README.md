@@ -518,6 +518,26 @@ En la configuración de cada lanzamiento, VSL o meteórico eliges el **tipo de p
 
 En Métricas, con suscripción, verás las **altas por plan**, la facturación (primer cobro de cada alta) y el **MRR** (ingreso mensual recurrente equivalente: un anual de 240 € son 20 €/mes). En los mensajes puedes usar `{link_plan_mensual}`, `{link_plan_anual}`…; `{link_pago}` es el del primer plan. En la página de un meteórico con varios planes sale un botón por plan.
 
+## 🛒 Venta directa / producto de entrada (low ticket)
+Embudo sin registro: **anuncio → página de venta → checkout (con bump offers) → upsell → downsell → gracias**.
+Se crea con **＋ Nuevo embudo → Venta directa** y el asistente pregunta **«¿Qué lleva tu embudo?»** con interruptores:
+bump offers, upsell, downsell, medir visitas de las páginas e inversión de Meta automática. Lo apagado no se pide en la
+configuración ni sale en las métricas (se cambia cuando quieras en **⚙️ Configurar el embudo**).
+
+- **Configuración**: producto, precio (IVA incluido, + IVA o sin IVA), etiqueta de compra (y opcional el campo «Fecha de
+  compra»); cada **bump**, **upsell** y **downsell** con nombre, precio, IVA, **su etiqueta de GHL** y su página; URLs;
+  filtro de campañas de Meta (o inversión al día a mano) y objetivos (CPA máximo, ROAS mínimo, ventas al mes).
+- **Métricas** (por periodo: 7/30/90 días, este mes, el pasado o fechas a medida): ventas, facturación sin IVA y ROAS en
+  grande; inversión, visitas, clic al checkout, cierre del checkout, conversión de la página, **CPA** (con el CPA máximo
+  para no perder dinero = ticket medio), **ticket medio** (y cuánto lo suben los extras) y beneficio. Cada bump y upsell:
+  % de compradoras que lo coge; el **downsell**, % de las que dijeron que no al upsell. Día a día con barras.
+- **Compradoras**: quién compró, cuándo, qué extras se llevó y su WhatsApp; filtro por extra.
+- **Visitas**: bloque `<div data-lsd-directa="venta|checkout|upsell|downsell|gracias" data-embudo="id">` + tracker.js
+  (en ⚙️ → Páginas → Códigos). Visitantes únicos en D1 (tabla `visitas_directa`), una petición al día por navegador y página.
+- También en **Inicio**, el **portal del cliente**, **Tareas** («Crear tareas del embudo»), **Calendario** y el **Auditor**.
+  Permisos: Métricas usa «Métricas» y Compradoras usa «Leads» (no hace falta tocar los roles).
+- API: `GET /api/directa?d=<id>&preset=30d` (cacheado 5 min en D1) y `POST /api/directa {op:'visita', d, pagina, v}` (pública).
+
 ## ⚡ Meteóricos (ofertas flash)
 Una oferta de pocas horas (p. ej. 12 h) tras 4-5 días de calentamiento por email y WhatsApp, a la base de datos. Dos maneras:
 - **Independiente** (Black Friday, rebajas…): «＋ Nuevo embudo» → **⚡ Meteóricos**. Cada edición es un meteórico de ese embudo (desplegable arriba, «+ Nuevo meteórico»).

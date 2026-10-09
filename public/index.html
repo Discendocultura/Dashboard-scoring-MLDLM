@@ -147,6 +147,8 @@
         <nav class="views" role="tablist">
           <button type="button" class="view-tab" data-view="meteoricos">Meteóricos</button>
           <button type="button" class="view-tab" data-view="moferta">Oferta</button>
+          <button type="button" class="view-tab" data-view="dmetricas">Métricas</button>
+          <button type="button" class="view-tab" data-view="dclientes">Compradoras</button>
           <button type="button" class="view-tab" data-view-grupo="comercial" title="Lo del día: a quién escribir, las llamadas y el directo">Hoy <span id="llamadas-badge" class="tab-count" hidden></span></button>
           <button type="button" class="view-tab active" data-view="leads">Leads</button>
           <button type="button" class="view-tab" data-view="vleads">Leads</button>
@@ -195,6 +197,42 @@
           <label class="field inline" id="vr-hasta-f" hidden><span>Hasta</span><input id="vr-hasta" type="date"></label>
           <span id="vr-texto" class="vr-texto"></span>
         </div>
+
+        <!-- 🛒 Venta directa (low ticket): periodo, métricas y compradoras -->
+        <div id="dir-rango" class="vsl-rango card" hidden>
+          <label class="field inline"><span>Periodo</span>
+            <select id="dr-preset">
+              <option value="7d">Últimos 7 días</option>
+              <option value="30d" selected>Últimos 30 días</option>
+              <option value="90d">Últimos 90 días</option>
+              <option value="mes-actual">Este mes</option>
+              <option value="mes-pasado">Mes pasado</option>
+              <option value="personalizado">Fechas a medida…</option>
+            </select>
+          </label>
+          <label class="field inline" id="dr-desde-f" hidden><span>Desde</span><input id="dr-desde" type="date"></label>
+          <label class="field inline" id="dr-hasta-f" hidden><span>Hasta</span><input id="dr-hasta" type="date"></label>
+          <span id="dr-texto" class="vr-texto"></span>
+          <span class="dir-rango-acc"><button type="button" class="btn ghost" id="dr-recargar">Actualizar</button><button type="button" class="btn config-only" id="dr-config">⚙️ Configurar el embudo</button></span>
+        </div>
+        <section id="view-dmetricas" hidden>
+          <div id="dir-avisos"></div>
+          <div id="dir-hero" class="kpis kpis-hero"></div>
+          <div id="dir-cards" class="kpis"></div>
+          <div id="dir-extras"></div>
+          <div id="dir-objetivos"></div>
+          <div id="dir-dias"></div>
+        </section>
+        <section id="view-dclientes" hidden>
+          <div class="card">
+            <div class="dir-cli-bar">
+              <label class="field inline"><span>Buscar</span><input id="dc-buscar" type="search" placeholder="Nombre, email o teléfono"></label>
+              <label class="field inline"><span>Mostrar</span><select id="dc-filtro"></select></label>
+              <span id="dc-n" class="muted small"></span>
+            </div>
+            <div class="table-wrap"><table class="metric-table dir-cli"><thead><tr><th>Fecha</th><th>Compradora</th><th>Extras</th><th>Contacto</th></tr></thead><tbody id="dc-body"></tbody></table></div>
+          </div>
+        </section>
 
         <!-- ⚡ Meteóricos: ofertas flash -->
         <section id="view-meteoricos" hidden>
@@ -1334,6 +1372,58 @@
   </dialog>
 
   <!-- Configuración de un meteórico -->
+  <dialog id="directa-dialog" class="dialog dialog-md">
+    <form method="dialog">
+      <header class="dialog-head"><h2 id="dc-titulo">🛒 Venta directa</h2><button class="btn ghost" value="cancel" type="submit" formnovalidate aria-label="Cerrar">✕</button></header>
+      <div class="dialog-body">
+        <div id="dc-pendientes"></div>
+        <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">🧩</span><div><h3>Qué lleva tu embudo</h3><p>Enciende o apaga cada parte: lo apagado no se pide aquí ni sale en las métricas.</p></div></header>
+          <div id="dc-partes" class="dir-partes compacto"></div></section>
+        <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">🛍️</span><div><h3>El producto</h3><p>Lo que se compra en el checkout. La etiqueta la pone el workflow de la compra en GHL.</p></div></header>
+          <div class="grid2">
+            <label class="field"><span>Nombre del embudo</span><input id="dc-name" maxlength="80" placeholder="Guía del sueño"></label>
+            <label class="field"><span>Producto</span><input id="dc-producto" maxlength="80" placeholder="Guía del sueño del bebé (PDF)"></label>
+            <label class="field"><span>Precio (€)</span><input id="dc-precio" inputmode="decimal" placeholder="27"></label>
+            <label class="field"><span>¿Lleva IVA el precio?</span><select id="dc-iva"><option value="">Elige…</option><option value="incluido">IVA incluido</option><option value="mas">+ IVA</option><option value="exento">Sin IVA (exento)</option></select></label>
+            <label class="field"><span>Etiqueta de compra</span><input id="dc-compraTag" list="tag-list" placeholder="compra-guia-sueno"></label>
+            <label class="field"><span>Campo «Fecha de compra» <small>(opcional; sin él se usa el día en que se creó el contacto)</small></span><input id="dc-compraDateField" maxlength="40" placeholder="ID del campo personalizado"></label>
+            <label class="field"><span>% de IVA</span><input id="dc-ivaPct" inputmode="decimal" placeholder="21"></label>
+          </div></section>
+        <section class="cfg-sec" data-dc-parte="bumps"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">➕</span><div><h3>Bump offers del checkout</h3><p>Cada uno con su precio y la <strong>etiqueta</strong> que reciben quienes lo añaden: así ves qué % de compradoras lo coge.</p></div></header>
+          <div class="bump-lista" data-dc-lista="bumps"></div>
+          <button type="button" class="btn" data-dc-add="bumps">+ Añadir bump offer</button></section>
+        <section class="cfg-sec" data-dc-parte="upsell"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">⬆️</span><div><h3>Upsell</h3><p>La oferta de después de pagar. Su % es sobre todas las compradoras.</p></div></header>
+          <div class="bump-lista" data-dc-lista="upsells"></div>
+          <button type="button" class="btn" data-dc-add="upsells">+ Añadir upsell</button></section>
+        <section class="cfg-sec" data-dc-parte="downsell"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">⬇️</span><div><h3>Downsell</h3><p>Para quien dice que no al upsell. Su % es sobre las compradoras que no cogieron el upsell.</p></div></header>
+          <div class="bump-lista" data-dc-lista="downsells"></div>
+          <button type="button" class="btn" data-dc-add="downsells">+ Añadir downsell</button></section>
+        <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">📄</span><div><h3>Páginas</h3><p>Para tenerlas a mano y para los códigos de medición.</p></div></header>
+          <div class="grid2">
+            <label class="field"><span>Página de venta</span><input id="dc-ventaUrl" type="url" placeholder="https://…"></label>
+            <label class="field"><span>Checkout</span><input id="dc-checkoutUrl" type="url" placeholder="https://…"></label>
+            <label class="field"><span>Página de gracias / acceso</span><input id="dc-graciasUrl" type="url" placeholder="https://…"></label>
+          </div>
+          <details class="dc-codigos" data-dc-parte="visitas"><summary>📋 Códigos para medir las visitas (pégalos una vez en cada página de GHL)</summary><div id="dc-codigos-box"></div></details></section>
+        <section class="cfg-sec"><header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">🎯</span><div><h3>Publicidad y objetivos</h3><p>Con Meta, la inversión se suma sola de las campañas que contienen el filtro.</p></div></header>
+          <div class="grid2">
+            <label class="field" data-dc-parte="meta"><span>Campañas de Meta <small>(su nombre contiene…)</small></span><input id="dc-metaFiltro" maxlength="80" placeholder="LT-guia"></label>
+            <label class="field"><span>Inversión al día (€) <small>(solo si no usas Meta)</small></span><input id="dc-inversionDia" inputmode="decimal"></label>
+            <label class="field"><span>CPA máximo (€) <small>(lo que puede costar cada venta)</small></span><input id="dc-objetivoCpa" inputmode="decimal"></label>
+            <label class="field"><span>ROAS mínimo <small>(p. ej. 1 = se paga solo)</small></span><input id="dc-objetivoRoas" inputmode="decimal" placeholder="1"></label>
+            <label class="field"><span>Objetivo de ventas al mes</span><input id="dc-objetivoVentasMes" inputmode="numeric"></label>
+          </div>
+          <label class="field"><span>Notas</span><textarea id="dc-notas" rows="3" maxlength="2000"></textarea></label></section>
+      </div>
+      <footer class="dialog-foot">
+        <span id="dc-status" class="muted" role="status"></span>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate type="submit">Cancelar</button>
+        <button id="dc-guardar" class="btn primary" type="button">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog id="meteo-dialog" class="dialog dialog-md">
     <form method="dialog">
       <header class="dialog-head"><h2 id="meteo-titulo">⚡ Meteórico</h2><button class="btn ghost" value="cancel" type="submit" formnovalidate aria-label="Cerrar">✕</button></header>
@@ -1464,6 +1554,8 @@
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="leadmagnet"><span class="emb-ico">🧲</span><span><strong>Lead magnet + secuencia de emails</strong><small>Descarga de un regalo (guía, checklist, minicurso) → secuencia de emails → venta.</small></span></label>
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="evergreen"><span class="emb-ico">⏯️</span><span><strong>Webinar evergreen (grabado)</strong><small>Webinar grabado siempre disponible: registro → lo ve cuando quiere → oferta y compra o llamada.</small></span></label>
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="llamadas"><span class="emb-ico">📞</span><span><strong>Embudo de llamadas</strong><small>Anuncio → formulario de aplicación → llamada de venta. La venta se cierra en la llamada.</small></span></label>
+          <p class="emb-grupo muted small">Venta directa desde el anuncio (sin registro previo):</p>
+          <label class="emb-tipo"><input type="radio" name="emb-tipo" value="directa"><span class="emb-ico">🛒</span><span><strong>Venta directa / producto de entrada (low ticket)</strong><small>Anuncio → página de venta → checkout (con bump offers) → upsell o downsell. Se mide el coste por venta, el ticket medio y el ROAS por fechas.</small></span></label>
           <p class="emb-grupo muted small">Acciones puntuales a tu base de datos:</p>
           <label class="emb-tipo"><input type="radio" name="emb-tipo" value="meteorico"><span class="emb-ico">⚡</span><span><strong>Meteóricos (ofertas flash)</strong><small>4-5 días de calentamiento por email y WhatsApp y una oferta de pocas horas (p. ej. 12 h): Black Friday, rebajas… Los downsell tras un lanzamiento se crean dentro del lanzamiento.</small></span></label>
         </div>
@@ -1524,6 +1616,13 @@
                 <select id="emb-espera"><option value="si">Sí, con pantalla de espera que redirige al webinar</option><option value="no">No, sin pantalla de espera</option></select></label>
             </div>
           </div>
+        </section>
+
+        <section class="wiz-paso" data-paso="directa" hidden>
+          <h3 class="wiz-h">¿Qué lleva tu embudo?</h3>
+          <p class="wiz-sub">La página de venta y el checkout van siempre. Enciende solo lo que vayas a usar: lo demás no aparecerá en la configuración ni en las métricas. Puedes cambiarlo cuando quieras.</p>
+          <div class="dir-flujo" aria-hidden="true"><span>📣 Anuncio</span><i>→</i><span>📄 Página de venta</span><i>→</i><span>💳 Checkout</span><i>→</i><span data-flujo="upsell">⬆️ Upsell</span><i data-flujo="downsell">→</i><span data-flujo="downsell">⬇️ Downsell</span><i>→</i><span>🎉 Gracias</span></div>
+          <div id="emb-partes" class="dir-partes"></div>
         </section>
 
         <section class="wiz-paso" data-paso="dashboard" hidden>

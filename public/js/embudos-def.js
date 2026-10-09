@@ -1,5 +1,6 @@
 // Tipos de embudo: qué pestañas pueden tener y la guía de lo que hay que preparar en GHL.
 // Lo usan el navegador («＋ Nuevo embudo» y su ⚙️) y el servidor (para validar las pestañas).
+import { guiaDirecta } from './directa.js';
 
 export const PESTANAS = {
   lanzamientos: [
@@ -31,6 +32,13 @@ PESTANAS.meteorico = [
   { id: 'meteoricos', label: 'Meteóricos', desc: 'Cada oferta flash: cuenta atrás, ventas, facturación, visitas a la oferta y compradoras' },
   { id: 'moferta', label: 'Oferta', desc: 'Entregables y bonus (BAR 30 min, 1 h…) frente a las ventas hora a hora' },
   { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para el calentamiento y la oferta' },
+  { id: 'calendario', label: 'Calendario', desc: 'El calendario del cliente: hitos, tareas y eventos de todos sus embudos' },
+];
+// Venta directa / producto de entrada (low ticket): anuncio → página de venta → checkout con bumps → upsell / downsell.
+PESTANAS.directa = [
+  { id: 'dmetricas', label: 'Métricas', desc: 'Ventas, facturación, ticket medio, CPA y ROAS por fechas; % de cada bump, upsell y downsell y conversión de cada página' },
+  { id: 'dclientes', label: 'Compradoras', desc: 'Quién ha comprado, cuándo y qué extras se llevó (con su WhatsApp)' },
+  { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para montar y mejorar el embudo' },
   { id: 'calendario', label: 'Calendario', desc: 'El calendario del cliente: hitos, tareas y eventos de todos sus embudos' },
 ];
 export const pestanaIds = (tipo) => (PESTANAS[tipo] || []).map((p) => p.id);
@@ -76,6 +84,11 @@ export const CATEGORIAS = {
     { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Calendario y tareas', vistas: ['calendario', 'tareas'] },
     { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Anuncios, comparativas y rendimiento del equipo', vistas: ['vanuncios', 'comparar', 'rendimiento'] },
   ],
+  directa: [
+    { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Ventas, ticket medio, CPA, ROAS y extras', vistas: ['dmetricas'] },
+    { id: 'leads', label: 'Compradoras', icon: '🛍️', desc: 'Quién ha comprado y qué extras', vistas: ['dclientes'] },
+    { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Calendario y tareas', vistas: ['calendario', 'tareas'] },
+  ],
   meteorico: [
     { id: 'meteoricos', label: 'Meteóricos', icon: '⚡', desc: 'Cada oferta flash', vistas: ['meteoricos'] },
     { id: 'moferta', label: 'Oferta', icon: '🎁', desc: 'Entregables y bonus frente a las ventas', vistas: ['moferta'] },
@@ -118,9 +131,11 @@ export const textosVsl = (vsl) => SUBTIPOS_VSL[subtipoValido(vsl?.subtipo)];
 export const pestanasSugeridas = (tipo, subtipo) => (tipo === 'vsl' && SUBTIPOS_VSL[subtipo]?.sinLlamadas ? pestanaIds('vsl').filter((p) => p !== 'llamadas') : null);
 
 // Guía: secciones { titulo, pasos[] } según el tipo y las pestañas elegidas (texto con <strong>/<code>).
-export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar', subtipo = 'vsl', { preclase = true } = {}) {
+export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar', subtipo = 'vsl', opciones = {}) {
+  const { preclase = true } = opciones;
   const on = (id) => pestanas.includes(id);
   const s = [];
+  if (tipo === 'directa') return guiaDirecta(opciones.partes);
   if (tipo === 'meteorico') {
     return [
       { titulo: '1 · La oferta en GHL', pasos: [
