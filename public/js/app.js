@@ -2661,6 +2661,17 @@ function pintarEnlaceDirecto() {
 }
 $('#cfg-recursos-url').addEventListener('input', pintarEnlaceDirecto);
 
+// Página de venta: el bloque que apunta las visitas y el enlace con ?cid para los emails.
+function pintarVentaPasos() {
+  const url = $('#cfg-raices').value.trim();
+  const bloque = `<div data-lsd-venta data-launch="auto"></div>\n<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
+  const fila = (etq, txt, nota) => `<div class="enlace-directo-fila"><span class="enlace-directo-etq">${etq}</span><code>${esc(txt)}</code><button type="button" class="btn primary" data-copy-text="${esc(txt)}">Copiar</button><small>${nota}</small></div>`;
+  $('#venta-pasos-box').innerHTML = fila('1 · Bloque para GHL', bloque, 'Pégalo en la página de venta (un elemento de código personalizado). También está en «Códigos».')
+    + (url ? fila('2 · Enlace para los emails', `${url}${url.includes('?') ? '&' : '?'}cid={{contact.id}}`, 'Úsalo en todos los emails que lleven a la página de venta.')
+      : '<p class="enlace-directo-falta"><strong>2 ·</strong> Pon arriba la <strong>URL de la página de venta</strong> y aquí aparecerá el enlace para los emails (con <code>?cid={{contact.id}}</code>).</p>');
+}
+$('#cfg-raices').addEventListener('input', pintarVentaPasos);
+
 function pintarPrelanzamientoCfg(l) {
   const emb = embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo) || {};
   const preclase = emb.preclase !== false;
@@ -2767,6 +2778,7 @@ function openConfig(code) {
   pintarPrelanzamientoCfg(l);
   pintarRecursosCfg(l.recursosPre);
   pintarEnlaceDirecto();
+  pintarVentaPasos();
   $('#cfg-espera-on').checked = l.espera?.activa ?? (embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo)?.espera !== false);
   $('#cfg-espera-video').value = l.espera?.video || '';
   pintarEsperaCfg();
