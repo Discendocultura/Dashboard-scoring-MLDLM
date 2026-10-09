@@ -1125,6 +1125,9 @@ async function renderFacturacionTotal(m) {
   if (state.launchCode === code) pintar(meteo);
 }
 
+// Botón «Configurarlo ahora» que lleva al campo exacto de la configuración (solo quien puede configurar).
+const irA = (campo, txt = 'Configurarlo ahora') => (puedeConfig() && !enVsl() && !enMeteo() ? ` <button type="button" class="btn small ir-config" ${campo.startsWith('tab:') ? `data-config-tab="${campo.slice(4)}"` : `data-ir-campo="${campo}"`}>${txt} →</button>` : '');
+
 // De dónde sale la inversión (y por tanto el CPL): Meta, a mano, o por qué no hay.
 const formatoDia = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 function fuenteInversion(launch, m) {
@@ -1133,11 +1136,11 @@ function fuenteInversion(launch, m) {
   const leads = `${m.total.toLocaleString('es-ES')} leads con la etiqueta de registro`;
   if (m.eco.inversion && m.eco.inversionFuente === 'meta') return { ok: true, txt: `Meta Ads: campañas con «${esc(filtro)}» en el nombre${meta?.since ? ` (${esc(meta.since)} → ${esc(meta.until)})` : ''} · ${leads}` };
   if (m.eco.inversion) return { ok: true, txt: `inversión puesta a mano en Configuración · ${leads}` };
-  if (!launch.inicioCaptacion) return { ok: false, txt: 'Falta el inicio de captación (Configuración → ① Datos básicos): desde ese día se suma lo gastado en Meta' };
+  if (!launch.inicioCaptacion) return { ok: false, txt: `Falta el inicio de captación: desde ese día se suma lo gastado en Meta.${irA('cfg-inicio')}` };
   if (launch.inicioCaptacion > dayInMadrid(new Date().toISOString())) return { ok: false, txt: `La captación empieza el ${esc(formatoDia(launch.inicioCaptacion))}: desde ese día se suma sola la inversión de las campañas con «${esc(filtro)}» en el nombre` };
   if (!meta) return { ok: false, txt: 'Meta no está conectado (variables META_* en Cloudflare)' };
   if (meta.error) return { ok: false, txt: `Meta: ${esc(meta.error)}` };
-  if (!(meta.campaigns || []).length) return { ok: false, txt: `Ninguna campaña de Meta lleva «${esc(filtro)}» en el nombre: ponle el código del lanzamiento al nombre de la campaña` };
+  if (!(meta.campaigns || []).length) return { ok: false, txt: `Ninguna campaña de Meta lleva «${esc(filtro)}» en el nombre: ponle el código del lanzamiento al nombre de la campaña (o cambia el texto que se busca).${irA('cfg-meta-filtro', 'Ver el texto que se busca')}` };
   return { ok: false, txt: `Las campañas con «${esc(filtro)}» aún no tienen gasto` };
 }
 
@@ -1180,7 +1183,7 @@ function renderMetrics() {
     card('Conversión de la página de registro', pct1(tr.conversionPagina), tr.conversionFuente === 'registro'
       ? `${m.total.toLocaleString('es-ES')} registros de ${tr.visitasRegistro.toLocaleString('es-ES')} visitas únicas a la página de registro`
       : tr.conversionFuente === 'meta' ? `${tr.registrosPubli} registros${tr.conOrigen ? ' de publicidad' : ''} de ${tr.visitas.toLocaleString('es-ES')} visitas (Meta) · pega el código de la página de registro (Códigos) para contar las visitas únicas`
-        : 'Pega en la página de registro el código «REGISTRO · visitas únicas» (Configuración → Códigos)', 'funnel', 'info'),
+        : `Pega en la página de registro el código «REGISTRO · visitas únicas».${irA('tab:snippets', 'Ver el código')}`, 'funnel', 'info'),
     ...(m.encuestaActiva ? [card('Encuesta rellenada', `${m.encuesta} <small class="muted">de ${m.total}</small>`, `${pctOf(m.encuesta, m.total)} de los registros`, 'survey', 'info')] : []),
     asistenciaCard,
     card('Compras totales', m.compra, `${pctOf(m.compra, m.total)} de los registros`, 'cart', 'buy'),
@@ -1242,7 +1245,7 @@ function renderMetrics() {
     return `<td class="num ${!d ? '' : d > 0 ? 'dif-mas' : 'dif-menos'}">${d > 0 ? '+' : ''}${String(d).replace('.', ',')} pp</td>`;
   };
   const difs = [...(atG('frio') ? [['frio', 'templado', 'Frío vs templado']] : []), ...(atG('publi') ? [['publi', 'organico', 'Publi vs orgánico']] : [])];
-  $('#asistencia-trafico').innerHTML = !at ? '<tbody><tr><td class="muted">Configura el <strong>inicio de captación</strong> (frío / templado) o las <strong>etiquetas de publicidad y orgánico</strong> del lanzamiento (Configuración → Etiquetas GHL) para separar el consumo por tipo de tráfico.</td></tr></tbody>' : `
+  $('#asistencia-trafico').innerHTML = !at ? `<tbody><tr><td class="muted">Configura el <strong>inicio de captación</strong> (frío / templado) o las <strong>etiquetas de publicidad y orgánico</strong> del lanzamiento para separar el consumo por tipo de tráfico.${irA('cfg-inicio')}</td></tr></tbody>` : `
     <thead><tr><th>Paso</th>${at.grupos.map((g) => `<th class="num">${g.label} <small class="muted">(${g.total})</small></th>`).join('')}${difs.map(([, , t]) => `<th class="num">${t}</th>`).join('')}</tr></thead>
     <tbody>${at.pasos.map((p) => `<tr><td>${esc(p.label)}</td>${at.grupos.map((g) => `<td class="num${g.id === 'global' ? ' big' : ''}">${pctOf(p.n[g.id], g.total)} <span class="muted">${p.n[g.id]}</span></td>`).join('')}${difs.map(([a, b]) => dif(p, a, b)).join('')}</tr>`).join('')}</tbody>`;
 
@@ -1309,7 +1312,7 @@ function renderVentasDia(launch) {
   const v = ventasPorDia(state.leads, launch);
   const box = $('#ventas-dia');
   if (!v) {
-    box.innerHTML = '<p class="muted">Configura el <strong>día del directo</strong> y el <strong>campo de fecha de compra</strong> (Configuración → ① Datos básicos y ⑨ Etiquetas GHL) para ver las ventas de cada día.</p>';
+    box.innerHTML = `<p class="muted">Configura el <strong>día del directo</strong> y el <strong>campo de fecha de compra</strong> para ver las ventas de cada día.${irA('cfg-compra-fecha')}</p>`;
     return;
   }
   const precio = Number(launch.precioPrograma) || Number(launch.precioFraccionado) || 0;
@@ -1443,7 +1446,29 @@ function renderAvisos(m, launch) {
   const avisos = avisosLanzamiento(state.leads, launch, m);
   const el = $('#avisos');
   el.hidden = !avisos.length;
-  el.innerHTML = avisos.length ? `<strong>Revisa ${avisos.length === 1 ? 'esto' : `estas ${avisos.length} cosas`}:</strong><ul>${avisos.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>` : '';
+  el.innerHTML = avisos.length ? `<strong>Revisa ${avisos.length === 1 ? 'esto' : `estas ${avisos.length} cosas`}:</strong><ul>${avisos.map((a) => `<li>${conBotones(a)}</li>`).join('')}</ul>` : '';
+}
+// En cada aviso, lo que falta lleva su botón al campo de la configuración.
+const AVISO_CAMPOS = [
+  ['el día del directo', 'cfg-directo-fecha'], ['la hora del directo', 'cfg-directo-hora'], ['la etiqueta de compra', 'cfg-compra'],
+  ['el campo de fecha de compra', 'cfg-compra-fecha'], ['el precio de ', 'cfg-precio-programa'], ['el precio de la VIP', 'cfg-precio-vip'],
+  ['el enlace del grupo de WhatsApp', 'cfg-whatsapp-url'], ['el cierre del carrito', 'cfg-cierre'], ['IVA', 'tab:precios'],
+  ['etiquetas de pago único y fraccionado', 'cfg-unico-tag'], ['sin etiqueta de pago único ni fraccionado', 'cfg-unico-tag'],
+];
+function conBotones(aviso) {
+  let html = esc(aviso);
+  if (!puedeConfig() || enVsl() || enMeteo()) return html;
+  // «Falta en Configuración: a, b, c.» → cada cosa es un botón; en el resto, un botón al final.
+  const falta = /^Falta en Configuración: (.*)\.$/.exec(aviso);
+  if (falta) {
+    return `Falta en Configuración: ${falta[1].split(', ').map((x) => {
+      const c = AVISO_CAMPOS.filter(([k]) => x.startsWith(k)).sort((a, b) => b[0].length - a[0].length)[0];
+      return c ? `<button type="button" class="link-btn" ${c[1].startsWith('tab:') ? `data-config-tab="${c[1].slice(4)}"` : `data-ir-campo="${c[1]}"`}>${esc(x)}</button>` : esc(x);
+    }).join(', ')}.`;
+  }
+  const c = AVISO_CAMPOS.find(([k]) => aviso.includes(k));
+  if (c) html += irA(c[1]);
+  return html;
 }
 
 // Pestaña Objetivos: progreso hacia cada objetivo y ritmo necesario hasta su fecha límite.
@@ -1937,7 +1962,7 @@ $('#btn-informe').addEventListener('click', () => {
 function renderOrigen(m, launch) {
   const t = $('#origen-table');
   if (!launch.publiTag && !launch.organicoTag) {
-    t.innerHTML = '<tbody><tr><td class="muted">Elige las etiquetas de leads de publicidad y orgánicos en Configuración → ⑨ Etiquetas GHL. Mientras, tienes el desglose por canal (utm_source) en «Canales y campañas».</td></tr></tbody>';
+    t.innerHTML = `<tbody><tr><td class="muted">Elige las etiquetas de leads de publicidad y orgánicos. Mientras, tienes el desglose por canal (utm_source) en «Canales y campañas».${irA('cfg-publi-tag')}</td></tr></tbody>`;
     return;
   }
   const o = m.origen;
@@ -1956,12 +1981,12 @@ function renderPago(m, launch) {
   tit.dataset.def ??= tit.innerHTML;
   if (esSuscripcion(launch)) {
     tit.innerHTML = 'Planes de la suscripción <span class="muted">· altas, facturación del primer cobro y MRR</span>';
-    t.innerHTML = planesActivos(launch).length ? tablaPlanes(m.planes) : '<tbody><tr><td class="muted">Marca los planes de la suscripción en Configuración → ⑧ Precios e IVA.</td></tr></tbody>';
+    t.innerHTML = planesActivos(launch).length ? tablaPlanes(m.planes) : `<tbody><tr><td class="muted">Marca los planes de la suscripción.${irA('tab:precios')}</td></tr></tbody>`;
     return;
   }
   tit.innerHTML = tit.dataset.def;
   if (!launch.unicoTag && !launch.fraccionadoTag) {
-    t.innerHTML = '<tbody><tr><td class="muted">Elige las etiquetas de pago único y fraccionado en Configuración → ⑨ Etiquetas GHL.</td></tr></tbody>';
+    t.innerHTML = `<tbody><tr><td class="muted">Elige las etiquetas de pago único y fraccionado.${irA('cfg-unico-tag')}</td></tr></tbody>`;
     return;
   }
   const p = m.pago;
@@ -6124,7 +6149,7 @@ function renderCalendario() {
     ${cal.show.eventos ? '<span class="cal-leg k"><span class="cal-chip k-evento">📌 Evento</span></span>' : ''}
     ${cal.show.tareas ? '<span class="cal-leg k"><span class="cal-chip k-tarea"><span class="cc-ico">☐</span>Tarea</span></span><span class="cal-leg k"><span class="cal-chip k-tarea late"><span class="cc-ico">☐</span>Vencida</span></span>' : ''}
     ${!cal.show.solo ? '<span class="cal-leg k"><span class="cal-chip other">De otro embudo</span></span>' : ''}
-    ${unknownDates ? `<span class="muted">${enMeteo() ? 'Este meteórico' : 'Este lanzamiento'} aún no tiene fechas${puedeConfig() ? ': ponlas en Configuración.' : '.'}</span>` : ''}
+    ${unknownDates ? `<span class="muted">${enMeteo() ? 'Este meteórico' : 'Este lanzamiento'} aún no tiene fechas.${enMeteo() ? '' : irA('cfg-inicio', 'Ponerlas ahora')}</span>` : ''}
     ${cal.datos.error ? `<span class="error">No se pudieron cargar las tareas y eventos del calendario: ${esc(cal.datos.error)}</span>` : ''}`;
 
   const month = cal.ref.slice(0, 7);
@@ -9008,12 +9033,14 @@ function renderCarritoVista() {
       ${d.nota ? `<h4>Estrategia</h4><p class="car-nota-txt">${esc(d.nota).replace(/\n/g, '<br>')}</p>` : ''}
     </article>`).join('')}</div>`;
 }
-// Botones «Editar en Configuración → …»: abren la configuración del lanzamiento en esa pestaña.
+// Botones «Configurarlo ahora» / «Editar en Configuración → …»: abren la configuración del lanzamiento
+// en el campo exacto (data-ir-campo="cfg-…") o en una pestaña (data-config-tab="…").
 document.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-config-tab]');
-  if (!b || !puedeConfig()) return;
+  const b = e.target.closest('[data-config-tab], [data-ir-campo]');
+  if (!b || !puedeConfig() || enVsl() || enMeteo()) return;
   openConfig(state.launchCode);
-  $(`#config-dialog .tab[data-tab="${b.dataset.configTab}"]`)?.click();
+  if (b.dataset.configTab) $(`#config-dialog .tab[data-tab="${b.dataset.configTab}"]`)?.click();
+  else requestAnimationFrame(() => goToField(b.dataset.irCampo));
 });
 // Cambiar cuántos envíos: aparecen (o se quitan) las horas, con una hora sugerida en las nuevas.
 $('#carrito-dias').addEventListener('change', (e) => {
@@ -9054,12 +9081,12 @@ function renderOfertaAnalisis(launch) {
       <div class="of-valor-box"><span class="muted small">Precio</span><strong>${precio ? eur(precio) : '–'}</strong>${valor.total ? `<span class="muted small">Valor de la oferta</span><strong>${eur(valor.total)}</strong>` : ''}${valor.ratio ? `<span class="of-ratio">${valor.ratio.toFixed(1).replace('.', ',')}× el precio</span>` : ''}</div>
     </div>`;
   if (!oferta.entregables.length && !oferta.bonus.length) {
-    box.innerHTML = `<p class="muted">Añade los entregables y los bonus del lanzamiento en <strong>Configuración → Oferta</strong> para ver aquí qué bonus empujan la venta cada día del carrito.</p>`;
+    box.innerHTML = `<p class="muted">Añade los entregables y los bonus del lanzamiento (Configuración → ⑤ Oferta) para ver aquí qué bonus empujan la venta cada día del carrito.${irA('tab:oferta')}</p>`;
     return;
   }
   const vpd = ventasPorDia(state.leads, launch);
   if (!vpd) {
-    box.innerHTML = `${resumen}<p class="muted">Para cruzar la oferta con las ventas de cada día hace falta el <strong>día del directo</strong> y el <strong>campo de fecha de compra</strong> (Configuración → ① Datos básicos y ⑨ Etiquetas GHL).</p>`;
+    box.innerHTML = `${resumen}<p class="muted">Para cruzar la oferta con las ventas de cada día hace falta el <strong>día del directo</strong> y el <strong>campo de fecha de compra</strong>.${irA('cfg-compra-fecha')}</p>`;
     return;
   }
   const a = analizarOferta(launch, vpd);
@@ -9193,7 +9220,7 @@ function mostrarCiclo(code, { kpi, detalle, propias = [], dateField, nombre, por
     const todas = g?.datos?.ciclo;
     if (boxK) {
       boxK.innerHTML = !dateField
-        ? card('Ciclo de compra medio', '–', 'Elige el campo de fecha de compra en Configuración', 'calendar', 'info')
+        ? card('Ciclo de compra medio', '–', `Elige el campo de fecha de compra.${irA('cfg-compra-fecha')}`, 'calendar', 'info')
         : card('Ciclo de compra medio', textoDias(todas?.media ?? propio?.media),
           todas?.n ? `mediana ${textoDias(todas.mediana)} · ${todas.n.toLocaleString('es-ES')} compradoras con fecha${propio?.n ? ` · ${nombre}: ${textoDias(propio.media)}` : ''}`
             : g?.cargando ? `${nombre}: ${propio?.n ? `${propio.n} compradoras` : 'sin compras con fecha'} · calculando el de todas…`
@@ -9208,7 +9235,7 @@ function mostrarCiclo(code, { kpi, detalle, propias = [], dateField, nombre, por
   pintar();
 }
 function cicloDetalle({ todas, propio, nombre, error, porTrafico, dateField }) {
-  if (!dateField) return '<p class="muted">Para medir el ciclo de compra hace falta el <strong>campo de fecha de compra</strong> (Configuración).</p>';
+  if (!dateField) return `<p class="muted">Para medir el ciclo de compra hace falta el <strong>campo de fecha de compra</strong>.${irA('cfg-compra-fecha')}</p>`;
   const col = (titulo, c, extra = '') => `<div class="ciclo-col"><h4>${titulo}</h4>${!c ? `<p class="muted small">${extra || 'Calculando…'}</p>` : !c.n ? '<p class="muted small">Sin compras con fecha.</p>' : `
     <div class="ciclo-cifras"><div><span class="muted small">Media</span><strong>${textoDias(c.media)}</strong></div><div><span class="muted small">Mediana</span><strong>${textoDias(c.mediana)}</strong></div><div><span class="muted small">La mitad, entre</span><strong>${textoDias(c.p25)} y ${textoDias(c.p75)}</strong></div></div>
     ${c.tramos.map((t) => `<div class="ciclo-tramo"><span>${t.label}</span><div class="meter"><span style="width:${Math.round(t.pct * 100)}%"></span></div><span class="num">${t.n} <span class="muted small">${Math.round(t.pct * 100)}%</span></span></div>`).join('')}
