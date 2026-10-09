@@ -138,32 +138,33 @@
         <nav class="views" role="tablist">
           <button type="button" class="view-tab" data-view="meteoricos">Meteóricos</button>
           <button type="button" class="view-tab" data-view="moferta">Oferta</button>
-          <button type="button" class="view-tab" data-view-grupo="comercial">Comercial <span id="llamadas-badge" class="tab-count" hidden></span></button>
-          <button type="button" class="view-tab" data-view="endirecto">En directo</button>
+          <button type="button" class="view-tab" data-view-grupo="comercial" title="Lo del día: a quién escribir, las llamadas y el directo">Hoy <span id="llamadas-badge" class="tab-count" hidden></span></button>
           <button type="button" class="view-tab active" data-view="leads">Leads</button>
           <button type="button" class="view-tab" data-view="vleads">Leads</button>
           <button type="button" class="view-tab" data-view="metricas">Métricas</button>
           <button type="button" class="view-tab" data-view="vmetricas">Métricas</button>
-          <button type="button" class="view-tab" data-view-grupo="analisis">Análisis</button>
-          <button type="button" class="view-tab" data-view-grupo="planificacion">Planificación <span id="tareas-badge" class="tab-count" hidden></span></button>
+          <button type="button" class="view-tab" data-view-grupo="planificacion" title="Planificar: objetivos, calendario, carrito y tareas">Plan <span id="tareas-badge" class="tab-count" hidden></span></button>
+          <button type="button" class="view-tab" data-view-grupo="analisis" title="Para decidir: avatar, anuncios, comparativas y rendimiento del equipo">Análisis</button>
         </nav>
-        <!-- Análisis: Objetivos y calculadora, Avatar y anuncios (VSL: Anuncios ganadores) y Comparar -->
-        <nav class="subviews" id="sub-analisis" role="tablist" aria-label="Análisis" hidden>
+        <!-- Hoy: Setting hoy, Llamadas y En directo -->
+        <nav class="subviews" id="sub-comercial" role="tablist" aria-label="Hoy" hidden>
+          <button type="button" class="subview-tab" data-view="hoy">Setting hoy</button>
+          <button type="button" class="subview-tab" data-view="llamadas">Llamadas</button>
+          <button type="button" class="subview-tab" data-view="endirecto">En directo</button>
+        </nav>
+        <!-- Plan: Objetivos y calculadora, Calendario, Carrito y Tareas -->
+        <nav class="subviews" id="sub-planificacion" role="tablist" aria-label="Plan" hidden>
           <button type="button" class="subview-tab" data-view="objetivos">Objetivos y calculadora</button>
+          <button type="button" class="subview-tab" data-view="calendario">Calendario</button>
+          <button type="button" class="subview-tab" data-view="carrito">Carrito</button>
+          <button type="button" class="subview-tab" data-view="tareas">Tareas</button>
+        </nav>
+        <!-- Análisis: Avatar y anuncios (VSL: Anuncios ganadores), Comparar y Rendimiento del equipo -->
+        <nav class="subviews" id="sub-analisis" role="tablist" aria-label="Análisis" hidden>
           <button type="button" class="subview-tab" data-view="avatar">Avatar y anuncios</button>
           <button type="button" class="subview-tab" data-view="vanuncios">Anuncios ganadores</button>
           <button type="button" class="subview-tab" data-view="comparar">Comparar</button>
-        </nav>
-        <!-- Comercial: Setting hoy y Llamadas -->
-        <!-- Planificación: Calendario, Tareas y Rendimiento del equipo -->
-        <nav class="subviews" id="sub-planificacion" role="tablist" aria-label="Planificación" hidden>
-          <button type="button" class="subview-tab" data-view="calendario">Calendario</button>
-          <button type="button" class="subview-tab" data-view="tareas">Tareas</button>
           <button type="button" class="subview-tab" data-view="rendimiento">Rendimiento del equipo</button>
-        </nav>
-        <nav class="subviews" id="sub-comercial" role="tablist" aria-label="Comercial" hidden>
-          <button type="button" class="subview-tab" data-view="hoy">Setting hoy</button>
-          <button type="button" class="subview-tab" data-view="llamadas">Llamadas</button>
         </nav>
 
         <!-- VSL: periodo de análisis (Métricas, Leads y Anuncios) -->
@@ -299,6 +300,11 @@
             </label>
             <div class="table-scroll"><table class="metric-table" id="vsrc-table"></table></div>
           </section>
+        </section>
+
+        <section id="view-carrito" hidden>
+          <p class="muted hoy-intro">Los días del carrito de este lanzamiento: los hitos clave (salen solos de las fechas, la oferta y la barra de la página de venta), los emails y mensajes de WhatsApp de cada día y la estrategia. Se edita en Configuración → ⑦ Carrito.</p>
+          <div id="carrito-vista"></div>
         </section>
 
         <section id="view-calendario" hidden>
@@ -1278,7 +1284,7 @@
 
   <!-- Tarea -->
   <!-- Auditor de lanzamientos -->
-  <!-- Ficha completa del lead (Comercial → Llamadas) -->
+  <!-- Ficha completa del lead (Hoy → Llamadas) -->
   <dialog id="ficha-dialog" class="dialog dialog-md">
     <form method="dialog">
       <header class="dialog-head"><h2 id="ficha-titulo">Ficha del lead</h2><button class="btn ghost" value="cancel" type="submit" aria-label="Cerrar">✕</button></header>

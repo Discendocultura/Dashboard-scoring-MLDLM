@@ -9,6 +9,7 @@ export const PESTANAS = {
     { id: 'leads', label: 'Leads', desc: 'Lista de registrados con su puntuación y estado' },
     { id: 'metricas', label: 'Métricas', desc: 'Registros, clases, VIP, directo, ventas, coste por lead…' },
     { id: 'objetivos', label: 'Objetivos y calculadora', desc: 'Planificador con el histórico (inversión, leads, CPL máximo, equipo y números) y objetivos que salen de la proyección' },
+    { id: 'carrito', label: 'Carrito', desc: 'Los días del carrito: hitos automáticos, emails y WhatsApps de cada día y la estrategia' },
     { id: 'avatar', label: 'Avatar y anuncios', desc: 'Perfil de compradoras (encuesta) y anuncios ganadores' },
     { id: 'comparar', label: 'Comparar', desc: 'Lanzamientos entre sí, edición actual frente a las anteriores, VSL frente a lanzamiento' },
     { id: 'rendimiento', label: 'Rendimiento del equipo', desc: 'WhatsApps, llamadas, shows, cierres y tiempo de respuesta por persona' },
@@ -62,24 +63,23 @@ export const SECCIONES_VALIDAS = Object.entries(SECCIONES).flatMap(([v, l]) => l
 // Cómo se agrupan las pestañas en el menú del dashboard (categorías → subcategorías), por tipo de embudo.
 export const CATEGORIAS = {
   lanzamientos: [
-    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'El trabajo diario de setters y closers', vistas: ['hoy', 'llamadas'] },
-    { id: 'endirecto', label: 'En directo', icon: '🔴', desc: 'El día del webinar, minuto a minuto', vistas: ['endirecto'] },
+    { id: 'comercial', label: 'Hoy', icon: '📞', desc: 'Lo del día: a quién escribir, las llamadas y el directo', vistas: ['hoy', 'llamadas', 'endirecto'] },
     { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['leads'] },
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va el lanzamiento, en cifras', vistas: ['metricas'] },
-    { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Para decidir: objetivos, avatar y comparativas', vistas: ['objetivos', 'avatar', 'comparar'] },
-    { id: 'planificacion', label: 'Planificación', icon: '🗓️', desc: 'Organización del equipo', vistas: ['calendario', 'tareas', 'rendimiento'] },
+    { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Objetivos, calendario, carrito y tareas', vistas: ['objetivos', 'calendario', 'carrito', 'tareas'] },
+    { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Para decidir: avatar, comparativas y rendimiento del equipo', vistas: ['avatar', 'comparar', 'rendimiento'] },
   ],
   vsl: [
-    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'Las llamadas de valoración', vistas: ['llamadas'] },
+    { id: 'comercial', label: 'Hoy', icon: '📞', desc: 'Las llamadas de valoración', vistas: ['llamadas'] },
     { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['vleads'] },
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va la VSL, por fechas', vistas: ['vmetricas'] },
-    { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Anuncios y comparativas', vistas: ['vanuncios', 'comparar'] },
-    { id: 'planificacion', label: 'Planificación', icon: '🗓️', desc: 'Organización del equipo', vistas: ['calendario', 'tareas', 'rendimiento'] },
+    { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Calendario y tareas', vistas: ['calendario', 'tareas'] },
+    { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Anuncios, comparativas y rendimiento del equipo', vistas: ['vanuncios', 'comparar', 'rendimiento'] },
   ],
   meteorico: [
     { id: 'meteoricos', label: 'Meteóricos', icon: '⚡', desc: 'Cada oferta flash', vistas: ['meteoricos'] },
     { id: 'moferta', label: 'Oferta', icon: '🎁', desc: 'Entregables y bonus frente a las ventas', vistas: ['moferta'] },
-    { id: 'planificacion', label: 'Planificación', icon: '🗓️', desc: 'Organización del equipo', vistas: ['calendario', 'tareas'] },
+    { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Calendario y tareas', vistas: ['calendario', 'tareas'] },
   ],
 };
 

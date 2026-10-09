@@ -20,7 +20,7 @@ export async function GET(request) {
     // El equipo solo ve las tareas: le basta con el nombre y las fechas de cada lanzamiento.
     // `version`: el navegador la devuelve al guardar, para no pisar lo que otra persona guardó entretanto.
     const version = versionDe(config);
-    if (!tienePermiso(ses, [...PERMISOS_DATOS, 'config'])) return json({ role, config: equipoConfig(config), zoomConfigured: false, version });
+    if (!tienePermiso(ses, [...PERMISOS_DATOS, 'config', 'carrito'])) return json({ role, config: equipoConfig(config), zoomConfigured: false, version });
     return json({ role, config, zoomConfigured: zoomConfigured(), version });
   } catch (e) {
     return errorResponse(e);

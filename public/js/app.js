@@ -307,7 +307,9 @@ const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual
     // «Oferta» es nueva: los embudos de meteóricos con pestañas elegidas antes la ven junto a «Meteóricos».
     || (v === 'moferta' && pestanasEmbudo().includes('meteoricos'))
     // «En directo» es nueva: los embudos con pestañas elegidas antes la ven junto a Setting hoy o Llamadas.
-    || (v === 'endirecto' && (pestanasEmbudo().includes('hoy') || pestanasEmbudo().includes('llamadas'))))
+    || (v === 'endirecto' && (pestanasEmbudo().includes('hoy') || pestanasEmbudo().includes('llamadas')))
+    // «Carrito» es nueva: los embudos con pestañas elegidas antes la ven junto a Calendario o Tareas.
+    || (v === 'carrito' && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('objetivos'))))
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
@@ -810,6 +812,7 @@ function render() {
   if (state.llamadas?.data && state.llamadas.code === state.launchCode) renderLlamadas(); // con los datos del lead
   renderTabla();
   if (!$('#view-leads').hidden && !$('#enc-leads').parentElement.hidden) renderEncuestaLeads();
+  if (!$('#view-carrito').hidden) renderCarritoVista();
 }
 
 // Solo la tabla de leads (filtros, orden y páginas): no hace falta recalcular métricas, auditor ni avatares.
@@ -2242,14 +2245,15 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
 // Comparar) y «Planificación» (Calendario, Tareas y Rendimiento del equipo).
-const GRUPOS = { comercial: ['hoy', 'llamadas'], analisis: ['objetivos', 'avatar', 'vanuncios', 'comparar'], planificacion: ['calendario', 'tareas', 'rendimiento'] };
+// Grupos de la barra de arriba, por momento de uso: Hoy (lo del día), Plan y Análisis.
+const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['objetivos', 'calendario', 'carrito', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
+const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
@@ -2373,6 +2377,7 @@ function showView(view) {
   if (view === 'meteoricos' && state.config && enMeteo()) renderMeteoView();
   if (view === 'moferta' && state.config && enMeteo()) renderMOfertaView();
   if (view === 'calendario' && state.config) renderCalendario();
+  if (view === 'carrito' && state.config) renderCarritoVista();
   // Objetivos y calculadora: al abrirla se cargan solos los lanzamientos anteriores que falten.
   if (view === 'objetivos' && state.config?.launches?.[state.launchCode] && !enVsl() && !enMeteo() && state.leads) renderObjetivos(currentMetrics());
   // Tareas del embudo abierto (en meteóricos, del meteórico elegido).
@@ -8466,7 +8471,7 @@ $('#mt-guardar').addEventListener('click', async () => {
     if (!meteoEdit.code && puedeTareas()) {
       try {
         const d = await api('/api/tareas', { method: 'POST', body: { l: code, op: 'plantilla' } });
-        if (d.creadas) notice(`Creadas ${d.creadas} tareas del meteórico «${m.name}» (lo urgente, para hoy). Las tienes en Planificación → Tareas.`);
+        if (d.creadas) notice(`Creadas ${d.creadas} tareas del meteórico «${m.name}» (lo urgente, para hoy). Las tienes en Plan → Tareas.`);
         if (state.tareas?.code === code) { state.tareas.list = d.tareas; renderTareas(); }
       } catch (ex) { notice(`El meteórico se ha guardado, pero no se pudieron crear sus tareas: ${ex.message}`, true); }
     }
@@ -8884,6 +8889,39 @@ function pintarCarrito({ leerEnvios = true } = {}) {
     </article>`).join('')}</div>`;
 }
 $('.tab[data-tab="carrito"]').addEventListener('click', pintarCarrito);
+
+// Plan → Carrito: los mismos días que en Configuración → ⑦ Carrito, en solo lectura (para todo el equipo).
+function renderCarritoVista() {
+  const box = $('#carrito-vista');
+  const launch = state.config?.launches?.[state.launchCode];
+  if (!box || !launch) return;
+  const r = diasCarrito(launch);
+  const editar = puedeConfig() ? '<button type="button" class="btn" data-config-tab="carrito">Editar en Configuración → ⑦ Carrito</button>' : '';
+  if (!r.dias.length) {
+    box.innerHTML = `<div class="card empty car-vacio">🛒 <strong>Aquí aparecerán los días del carrito.</strong> Falta ${esc(r.faltan.join(' y '))} (Configuración → ① Datos básicos).${puedeConfig() ? ' <button type="button" class="btn small" data-config-tab="launch">Configurarlo ahora</button>' : ''}</div>`;
+    return;
+  }
+  const hoy = dayInMadrid(new Date().toISOString());
+  const envios = (d) => CANALES_CARRITO.map((c) => {
+    const horas = (d.envios[c.id] || []).filter(Boolean);
+    return horas.length ? `<li>${c.icon} ${horas.length} ${esc(c.label.toLowerCase())}: ${horas.map(esc).join(', ')}</li>` : '';
+  }).join('');
+  box.innerHTML = `<div class="row car-vista-bar"><p class="car-resumen"><strong>${r.dias.length} días de carrito</strong>${r.garantia ? ` · 🛡️ ${esc(r.garantia)}` : ''}</p><span class="spacer"></span>${editar}</div>
+    <div class="car-dias">${r.dias.map((d) => `<article class="car-dia${d.day === hoy ? ' car-hoy' : ''}">
+      <header><span class="car-n">${esc(d.titulo)}</span><strong>${esc(d.fecha)}</strong>${d.etiqueta ? `<span class="car-tag">${esc(d.etiqueta)}</span>` : ''}${d.day === hoy ? '<span class="car-tag car-tag-hoy">Hoy</span>' : ''}</header>
+      <h4>Hitos clave</h4>
+      ${d.auto.length ? `<ul class="car-auto">${d.auto.map((a) => `<li><span aria-hidden="true">${a.icon}</span> ${esc(a.texto)}</li>`).join('')}</ul>` : '<p class="muted small">Sin hitos automáticos este día.</p>'}
+      ${envios(d) ? `<h4>Envíos del día</h4><ul class="car-auto">${envios(d)}</ul>` : ''}
+      ${d.nota ? `<h4>Estrategia</h4><p class="car-nota-txt">${esc(d.nota).replace(/\n/g, '<br>')}</p>` : ''}
+    </article>`).join('')}</div>`;
+}
+// Botones «Editar en Configuración → …»: abren la configuración del lanzamiento en esa pestaña.
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-config-tab]');
+  if (!b || !puedeConfig()) return;
+  openConfig(state.launchCode);
+  $(`#config-dialog .tab[data-tab="${b.dataset.configTab}"]`)?.click();
+});
 // Cambiar cuántos envíos: aparecen (o se quitan) las horas, con una hora sugerida en las nuevas.
 $('#carrito-dias').addEventListener('change', (e) => {
   if (!e.target.matches('.car-cuantos')) return;

@@ -8,6 +8,7 @@ export const PERMISOS = [
   { id: 'leads', label: 'Leads', grupo: 'Pestañas' },
   { id: 'metricas', label: 'Métricas', grupo: 'Pestañas' },
   { id: 'objetivos', label: 'Objetivos y calculadora', grupo: 'Pestañas' },
+  { id: 'carrito', label: 'Carrito (días, envíos y estrategia; solo lectura)', grupo: 'Pestañas' },
   { id: 'avatar', label: 'Avatar y anuncios', grupo: 'Pestañas' },
   { id: 'comparar', label: 'Comparar', grupo: 'Pestañas' },
   { id: 'rendimiento', label: 'Rendimiento del equipo', grupo: 'Pestañas' },
@@ -22,8 +23,8 @@ export const PERMISO_IDS = PERMISOS.map((p) => p.id);
 export const PERMISOS_DATOS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar'];
 
 export const ROLES_POR_DEFECTO = [
-  { id: 'tecnico', label: 'Técnico', permisos: ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'config', 'zoom', 'mensajes'] },
-  { id: 'setter', label: 'Setter', permisos: ['hoy', 'llamadas', 'endirecto', 'leads', 'mensajes'] },
+  { id: 'tecnico', label: 'Técnico', permisos: ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'carrito', 'avatar', 'config', 'zoom', 'mensajes'] },
+  { id: 'setter', label: 'Setter', permisos: ['hoy', 'llamadas', 'endirecto', 'leads', 'carrito', 'mensajes'] },
   { id: 'equipo', label: 'Equipo', permisos: [] },
   // El propio cliente: solo ve su resumen (registros, ventas, facturación, ROAS, hitos), sin tocar nada.
   { id: 'cliente', label: 'Cliente (solo lectura)', permisos: ['resumen'] },
@@ -35,6 +36,8 @@ export const ROL_CLIENTE = 'cliente';
 export const PERMISOS_NUEVOS = {
   mensajes: (r) => (r.permisos || []).includes('hoy'), // quien hace el setteo edita los mensajes
   endirecto: (r) => (r.permisos || []).includes('hoy'), // antes iba dentro de Comercial, con Setting hoy
+  // Plan → Carrito: quien hace el setteo, configura o ve las métricas (el carrito es donde más se trabaja).
+  carrito: (r) => (r.permisos || []).some((p) => ['hoy', 'config', 'metricas'].includes(p)),
 };
 export function completarPermisosNuevos(list) {
   return (Array.isArray(list) ? list : []).map((r) => {
