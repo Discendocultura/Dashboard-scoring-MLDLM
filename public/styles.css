@@ -2209,3 +2209,8 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 .topbar .tb-menu-panel .tb-txt { display: inline !important; position: static; width: auto; height: auto; clip: auto; overflow: visible; }
 @media (max-width: 1640px) { .topbar .tb-lanz .tb-txt { display: inline; } .topbar .tb-lanz .tb-btn { padding: 6px 10px 6px 6px; } }
 @media (max-width: 1180px) { .topbar .tb-lanz .tb-txt { display: none; } .topbar .tb-lanz .tb-btn { padding: 6px; } }
+/* Ayuda de la primera visita a cada pestaña */
+.ayuda-vista { display: flex; align-items: center; gap: 14px; margin: 0 0 14px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--tone-info, #2f6fb0) 35%, var(--border)); border-radius: 12px; background: color-mix(in srgb, var(--tone-info, #2f6fb0) 8%, var(--surface)); }
+.ayuda-vista > div { flex: 1; }
+.ayuda-vista p { margin: 2px 0 0; color: var(--text-2); font-size: 13.5px; }
+@media (max-width: 640px) { .ayuda-vista { flex-direction: column; align-items: stretch; } }

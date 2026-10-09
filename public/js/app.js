@@ -2359,6 +2359,46 @@ const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos',
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
 // Comparar) y «Planificación» (Calendario, Tareas y Rendimiento del equipo).
+// Ayuda de la primera visita a cada pestaña: qué hay y para qué sirve. Se cierra con «Entendido» y se
+// recuerda por usuario (Cuenta → «Volver a ver las ayudas» las enseña otra vez).
+const AYUDA_VISTA = {
+  hoy: ['☀️ Setting hoy', 'Las listas de a quién escribir hoy por WhatsApp, de más a menos caliente. Pulsa el botón de WhatsApp de cada lead: el mensaje sale ya escrito (se cambia en «Mensajes de WhatsApp», abajo).'],
+  llamadas: ['📞 Llamadas', 'Las llamadas de valoración del calendario de GHL. Pulsa una para ver la ficha del lead antes de llamar y anota el resultado al terminar: alimenta el pipeline y el rendimiento del equipo.'],
+  endirecto: ['🔴 En directo', 'El día del webinar, minuto a minuto: quién espera, quién entra, la asistencia, las VIP y las ventas desde que abre el carrito. Se actualiza solo cada minuto.'],
+  leads: ['👥 Leads', 'Cada persona registrada con su puntuación (0-100) y su estado: muy caliente, caliente, templado o frío. Filtra, ordena y abre su WhatsApp. En «Encuesta», qué ha respondido la gente.'],
+  metricas: ['📊 Métricas', 'Cómo va el lanzamiento en cifras, por categorías (Resumen, Ventas, Captación…). Pasa el ratón por el «?» de cada tarjeta para ver cómo se calcula.'],
+  objetivos: ['🎯 Planificador', 'Proyecta el lanzamiento con tus lanzamientos anteriores: inversión, leads, CPL máximo, equipo de llamadas y números. Los objetivos salen de ahí, y abajo ves cuánto llevas.'],
+  calendario: ['🗓️ Calendario', 'Todas las fechas del cliente juntas: hitos de cada lanzamiento, tareas y eventos. Se puede sincronizar con tu calendario.'],
+  carrito: ['🛒 Carrito', 'Cada día del carrito: lo que pasa ese día (se calcula solo con las fechas, la oferta y la barra), los emails y WhatsApps previstos y la estrategia.'],
+  tareas: ['✅ Tareas', 'Las tareas del equipo para este lanzamiento, con responsable y fecha. «Cargar tareas habituales» crea la lista de siempre con las fechas ya calculadas.'],
+  avatar: ['👑 Avatar y anuncios', 'Qué perfil compra (según la encuesta) y qué anuncios traen ventas. Úsalo para decidir creatividades y públicos.'],
+  comparar: ['⚖️ Comparar', 'Este lanzamiento frente a los anteriores (o la VSL frente a los lanzamientos): qué mejora y qué empeora.'],
+  rendimiento: ['📈 Rendimiento del equipo', 'Por persona: WhatsApps enviados, llamadas, shows, cierres y tiempo de respuesta.'],
+  vmetricas: ['📊 Métricas', 'Cómo va el embudo por fechas: registros, consumo, llamadas, ventas y ROAS. Elige el periodo arriba.'],
+  vleads: ['👥 Leads', 'Cada persona con lo que ha visto y su WhatsApp según su estado.'],
+  vanuncios: ['👑 Anuncios ganadores', 'Qué campañas, conjuntos y anuncios traen ventas en el periodo elegido.'],
+  meteoricos: ['⚡ Meteóricos', 'Cada oferta flash: cuenta atrás, ventas, facturación, visitas a la oferta y quién compra.'],
+  moferta: ['🎁 Oferta', 'Los entregables y bonus de la oferta frente a las ventas hora a hora.'],
+};
+const claveAyuda = (v) => `lsd_ayuda_${state.user?.email || state.user?.id || state.role || 'x'}_${v}`;
+function pintarAyudaVista(view) {
+  const sec = $(`#view-${view}`);
+  const a = AYUDA_VISTA[view];
+  $$('.ayuda-vista').forEach((x) => { if (!sec?.contains(x)) x.remove(); });
+  if (!state.role || !sec || !a || ls.get(claveAyuda(view)) || $('.ayuda-vista', sec)) return; // hasta saber quién es, nada
+  sec.insertAdjacentHTML('afterbegin', `<div class="ayuda-vista" role="note" data-vista="${view}"><div><strong>${esc(a[0])}</strong><p>${esc(a[1])}</p></div><button type="button" class="btn small" data-ayuda-ok>Entendido</button></div>`);
+}
+document.addEventListener('click', (e) => {
+  const ok = e.target.closest('[data-ayuda-ok]');
+  if (ok) { const box = ok.closest('.ayuda-vista'); ls.set(claveAyuda(box.dataset.vista), '1'); box.remove(); return; }
+  if (e.target.closest('#btn-ayudas')) {
+    for (const v of Object.keys(AYUDA_VISTA)) { try { localStorage.removeItem(claveAyuda(v)); } catch { /* sin almacenamiento */ } }
+    const actual = VIEWS.find((v) => !$(`#view-${v}`)?.hidden);
+    if (actual) pintarAyudaVista(actual);
+    notice('Las ayudas de cada pestaña vuelven a salir la próxima vez que entres en ella.');
+  }
+});
+
 // Grupos de la barra de arriba, por momento de uso: Hoy (lo del día), Plan y Análisis.
 const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['objetivos', 'calendario', 'carrito', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
@@ -2510,6 +2550,7 @@ function showView(view) {
   // «En directo»: se carga al abrirla y cada minuto mientras está abierta (y la pestaña del navegador visible).
   clearInterval(enDirectoTimer);
   if (view === 'endirecto' && state.config) { cargarEnDirecto(); enDirectoTimer = setInterval(() => { if (!document.hidden) cargarEnDirecto(); }, 60_000); }
+  pintarAyudaVista(view);
   requestAnimationFrame(revisarBarras);
 }
 $$('.view-tab').forEach((t) => t.addEventListener('click', () => {
