@@ -31,6 +31,93 @@ export function resumenLanzamiento(code, launch, m) {
     convClase1: div(m.clase1, m.total),
     ticket: div(n(fact), m.compra),
     roas: div(n(m.eco?.facturacion), inversion),
+    // Llamadas de valoración: cuántas agendaron y cuántas de ellas compraron.
+    llamadas: n(m.llamada), ventasLlamada: n(m.compraLlamada),
+    pctLlamada: div(n(m.llamada), m.total),
+    pctCierre: div(n(m.compraLlamada), n(m.llamada)),
+    diasCarrito: n(launch?.diasCarrito) || null,
+  };
+}
+
+// Lanzamiento anterior metido a mano (Calculadora → «Añadir lanzamiento anterior»): mismo formato que
+// resumenLanzamiento. `shows` (llamadas que se hicieron) es opcional: con él, el % de cierre es sobre ellas.
+export function resumenManual(r = {}) {
+  const registros = n(r.registros);
+  const inversion = n(r.inversion);
+  const facturacion = n(r.facturacion);
+  const llamadas = n(r.llamadas);
+  const shows = n(r.shows);
+  return {
+    code: r.id, name: r.nombre || 'Lanzamiento anterior', manual: true,
+    registros, vip: n(r.vip), ventas: n(r.ventas), inversion, facturacion,
+    cpl: div(inversion, registros),
+    convVip: div(n(r.vip), registros),
+    convVenta: div(n(r.ventas), registros),
+    ticket: n(r.ticket) || div(facturacion, n(r.ventas)),
+    roas: div(facturacion, inversion),
+    llamadas, shows, ventasLlamada: n(r.ventasLlamada),
+    pctLlamada: div(llamadas, registros),
+    pctShow: shows ? div(shows, llamadas) : null,
+    pctCierre: div(n(r.ventasLlamada), shows || llamadas),
+    diasCarrito: n(r.diasCarrito) || null,
+  };
+}
+
+// Medianas del histórico para el equipo de llamadas (sin datos, null).
+export function supuestosLlamadas(historico) {
+  const med = (k) => percentil(historico.map((h) => h[k]).filter((x) => x != null && x > 0), 0.5);
+  return { pctLlamada: med('pctLlamada'), pctShow: med('pctShow'), pctCierre: med('pctCierre'), diasCarrito: med('diasCarrito') };
+}
+
+// Valores de serie si no hay histórico ni supuesto escrito.
+export const PLAN_DEF = { llamadasDia: 8, pctShow: 0.7, pico: 1.5, diasCarrito: 7 };
+
+// Plan del lanzamiento con un escenario: captación, equipo de llamadas y números.
+//  r: resultado de proyectar() (r.necesario = registros, ventas, facturación… para los objetivos)
+//  esc: { cpl, convVip, convVenta, ticket }
+//  p: { roasObjetivo, diasCaptacion, pctLlamada, pctShow, pctCierre, llamadasDia, diasCarrito,
+//       costePersona, comision (tanto por uno), costesFijos, pico }
+export function planificar(r, esc, p = {}) {
+  const nec = r?.necesario;
+  if (!nec) return null;
+  const roas = n(p.roasObjetivo) || ROAS_OBJETIVO_DEF;
+  const leads = nec.registros;
+  // Captación: el CPL máximo para el ROAS objetivo y la inversión (al CPL previsto, o el techo si no hay CPL).
+  const cplMaxRoas = r.factLead ? r.factLead / roas : null;
+  const techoInversion = nec.facturacion ? nec.facturacion / roas : null;
+  const inversion = nec.inversion ?? techoInversion;
+  const diasCapt = n(p.diasCaptacion) || null;
+  // Llamadas: las que se agendan, las que se hacen y las ventas que salen de ellas.
+  const pctLlamada = p.pctLlamada ?? null;
+  const pctShow = p.pctShow ?? PLAN_DEF.pctShow;
+  const agendadas = pctLlamada != null ? Math.round(leads * pctLlamada) : null;
+  const hechas = agendadas != null ? Math.round(agendadas * pctShow) : null;
+  const ventasLlamada = hechas != null && p.pctCierre != null ? Math.round(hechas * p.pctCierre) : null;
+  // Equipo: cada persona hace setting y cierre. Las llamadas se concentran en el carrito, con picos
+  // (apertura y último día) de ~1,5× la media: se planifica para el pico.
+  const diasCarrito = n(p.diasCarrito) || PLAN_DEF.diasCarrito;
+  const capacidad = n(p.llamadasDia) || PLAN_DEF.llamadasDia;
+  const porDia = agendadas != null ? agendadas / diasCarrito : null;
+  const pico = porDia != null ? porDia * (n(p.pico) || PLAN_DEF.pico) : null;
+  const personas = pico != null ? Math.max(agendadas ? 1 : 0, Math.ceil(pico / capacidad)) : null;
+  // Números: facturación, costes y beneficio.
+  const costeEquipo = personas != null ? personas * n(p.costePersona) : 0;
+  const comisiones = ventasLlamada != null ? ventasLlamada * n(esc.ticket) * n(p.comision) : 0;
+  const costesFijos = n(p.costesFijos);
+  const costes = n(inversion) + costeEquipo + comisiones + costesFijos;
+  const beneficio = nec.facturacion - costes;
+  // Punto de equilibrio: ventas para cubrir la publicidad y los costes (lo que deja cada venta, con su VIP).
+  const porVenta = esc.convVenta ? nec.facturacion / Math.max(1, nec.ventas) : n(esc.ticket);
+  const equilibrio = porVenta ? Math.ceil((n(inversion) + costeEquipo + costesFijos) / (porVenta * (1 - n(p.comision) * (ventasLlamada && nec.ventas ? ventasLlamada / nec.ventas : 0)))) : null;
+  return {
+    leads, cplMaxRoas, cplEquilibrio: r.factLead || null, inversion, techoInversion,
+    inversionDia: inversion != null && diasCapt ? inversion / diasCapt : null,
+    leadsDia: diasCapt ? leads / diasCapt : null, diasCaptacion: diasCapt,
+    ventas: nec.ventas, vip: nec.vip, facturacion: nec.facturacion,
+    agendadas, hechas, ventasLlamada, porDia, pico, personas, capacidad, diasCarrito,
+    costeEquipo, comisiones, costesFijos, costes, beneficio,
+    roas: inversion ? nec.facturacion / inversion : null,
+    equilibrio,
   };
 }
 

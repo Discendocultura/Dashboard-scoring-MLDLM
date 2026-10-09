@@ -7,7 +7,7 @@ import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch, CAJAS_PAGO, numeroWhatsApp, enlaceWhatsApp, leerEnlaceWhatsApp } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
-import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
+import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision, resumenManual, supuestosLlamadas, planificar, PLAN_DEF } from './calculadora.js';
 import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
 import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago } from './pago.js';
@@ -1422,9 +1422,11 @@ function lanzamientosHistorico() {
   return launchesSorted().filter(([c, l]) => c !== state.launchCode && embudoDeLanz(l) === embudo
     && (!actual.inicioCaptacion || !l.inicioCaptacion || l.inicioCaptacion < actual.inicioCaptacion));
 }
+// Lanzamientos anteriores metidos a mano (se guardan en el embudo).
+const historicoManual = () => embudoInfo(embudoDeLanz(state.config.launches[state.launchCode]))?.historico || [];
 function historico() {
   const g = histGuardado();
-  return lanzamientosHistorico().map(([c]) => g[c]).filter(Boolean);
+  return [...lanzamientosHistorico().map(([c]) => g[c]).filter(Boolean), ...historicoManual().map(resumenManual)];
 }
 async function cargarHistorico() {
   const g = histGuardado();
@@ -1448,53 +1450,75 @@ function supuestosCalc(launch) {
 function renderCalculadora(m, launch, { soloResultados = false } = {}) {
   const box = $('#calculadora');
   const hist = historico();
-  const pendientes = lanzamientosHistorico().length - hist.length;
+  const pendientes = lanzamientosHistorico().length - hist.filter((h) => !h.manual).length;
   const sup = supuestosCalc(launch);
-  const manual = {
-    cpl: sup.cpl, ticket: sup.ticket,
-    convVip: sup.convVip ? Number(sup.convVip) / 100 : '', convVenta: sup.convVenta ? Number(sup.convVenta) / 100 : '',
-  };
+  const pct = (v) => (v !== '' && v != null && Number(v) > 0 ? Number(v) / 100 : null);
+  const manual = { cpl: sup.cpl, ticket: sup.ticket, convVip: pct(sup.convVip) ?? '', convVenta: pct(sup.convVenta) ?? '' };
   const esc3 = escenarios(hist, manual);
   // Sin entrada VIP: ni conversión a VIP ni objetivo de VIP.
   if (!conVip(launch)) for (const e of ESCENARIOS) esc3[e.id].convVip = 0;
   const obj = conVip(launch) ? (launch.objetivos || {}) : { ...(launch.objetivos || {}), vip: 0 };
   const hayObj = ['registros', 'vip', 'ventas', 'facturacion'].some((k) => Number(obj[k]) > 0);
-  // Días de captación que quedan y ritmo medio desde que empezó.
+  // Días de captación (todos, para planificar) y los que quedan (para el ritmo desde hoy).
   const hoy = dayInMadrid(new Date().toISOString());
   const finCapt = launch.finCaptacion || (launch.fechaDirecto ? addDays(launch.fechaDirecto, -1) : '');
-  const diasHasta = (d) => (d ? Math.round((Date.parse(`${d}T12:00:00Z`) - Date.parse(`${hoy}T12:00:00Z`)) / 86400_000) + 1 : null);
-  const quedan = diasHasta(finCapt);
-  const llevaDias = launch.inicioCaptacion ? Math.max(1, -diasHasta(launch.inicioCaptacion) + 1) : null;
+  const entre = (a, b2) => Math.round((Date.parse(`${b2}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86400_000) + 1;
+  const quedan = finCapt ? entre(hoy, finCapt) : null;
+  const diasCaptTotal = Number(sup.diasCaptacion) || (launch.inicioCaptacion && finCapt ? Math.max(1, entre(launch.inicioCaptacion, finCapt)) : null);
+  const llevaDias = launch.inicioCaptacion ? Math.max(1, entre(launch.inicioCaptacion, hoy)) : null;
   const ritmo = llevaDias && launch.inicioCaptacion <= hoy ? m.total / llevaDias : null;
   const actual = { registros: m.total, vip: m.vip, ventas: m.compra, facturacion: m.eco.facturacion, inversion: m.eco.inversion || Number(launch.inversion) || 0 };
+  const roasObj = Number(sup.roasObjetivo) || ROAS_OBJETIVO_DEF;
   const opts = {
-    precioVip: Number(launch.precioVip) || 0, roasObjetivo: Number(sup.roasObjetivo) || ROAS_OBJETIVO_DEF,
+    precioVip: Number(launch.precioVip) || 0, roasObjetivo: roasObj,
     diasCaptacion: quedan > 0 ? quedan : null, ritmoDiario: ritmo, presupuesto: Number(sup.presupuesto) || 0,
   };
   const res = Object.fromEntries(ESCENARIOS.map((e) => [e.id, proyectar(obj, esc3[e.id], actual, opts)]));
   const cplActual = actual.inversion && m.total ? actual.inversion / m.total : null;
+  // Equipo de llamadas: lo escrito o la mediana del histórico (o los valores de serie).
+  const llH = supuestosLlamadas(hist);
+  const pp = {
+    roasObjetivo: roasObj, diasCaptacion: diasCaptTotal,
+    pctLlamada: pct(sup.pctLlamada) ?? llH.pctLlamada, pctShow: pct(sup.pctShow) ?? llH.pctShow ?? PLAN_DEF.pctShow,
+    pctCierre: pct(sup.pctCierre) ?? llH.pctCierre, llamadasDia: Number(sup.llamadasDia) || PLAN_DEF.llamadasDia,
+    diasCarrito: Number(sup.diasCarrito) || Number(launch.diasCarrito) || llH.diasCarrito || PLAN_DEF.diasCarrito,
+    costePersona: Number(sup.costePersona) || 0, comision: pct(sup.comision) ?? 0, costesFijos: Number(sup.costesFijos) || 0,
+  };
+  const plan = Object.fromEntries(ESCENARIOS.map((e) => [e.id, planificar(res[e.id], esc3[e.id], pp)]));
+  const P = plan.neutro;
 
-  const resultados = !hayObj
-    ? '<p class="muted">Pon al menos un objetivo arriba para calcular lo que necesitas.</p>'
-    : !res.neutro.calculable
-      ? '<div class="notice warn">Faltan datos para calcular: la conversión a venta (y a VIP, si hay objetivo de VIP). Carga el histórico o escribe los supuestos.</div>'
-      : `${esc3.neutro.cpl == null ? '<div class="notice warn">Sin CPL no se calcula la inversión: carga un histórico con inversión o escribe el CPL en los supuestos.</div>' : ''}<div class="calc-esc">${ESCENARIOS.map((e) => {
-        const r = res[e.id];
-        const s = esc3[e.id];
-        const nec = r.necesario;
-        const cplOk = cplActual != null && r.cplRecomendado != null ? (cplActual <= r.cplRecomendado ? 'ok' : cplActual <= r.cplMax ? 'warn' : 'mal') : '';
-        return `<article class="calc-card tone-${e.tone}">
-          <header><h4>${e.label}</h4><small class="muted">CPL ${eur(s.cpl)} · VIP ${pctTxt(s.convVip)} · venta ${pctTxt(s.convVenta)} · ticket ${eur(s.ticket)}</small></header>
-          <dl>
-            <div><dt>Registros necesarios</dt><dd><strong>${numTxt(nec.registros)}</strong><small>manda el objetivo de ${{ registros: 'registros', ventas: 'ventas', vip: 'VIP', facturacion: 'facturación' }[r.manda]}</small></dd></div>
-            <div><dt>Inversión total</dt><dd><strong>${nec.inversion == null ? '–' : eur(nec.inversion)}</strong><small>${r.inversionPendiente != null && actual.inversion ? `faltan ${eur(r.inversionPendiente)}` : ''}</small></dd></div>
-            <div><dt>CPL máximo</dt><dd><strong>${eur(r.cplMax)}</strong><small>con él, lo invertido = lo facturado</small></dd></div>
-            <div><dt>CPL recomendado</dt><dd><strong class="${cplOk}">${eur(r.cplRecomendado)}</strong><small>para un ROAS de ${opts.roasObjetivo.toLocaleString('es-ES')}</small></dd></div>
-            <div><dt>Resultado</dt><dd><strong>${numTxt(nec.ventas)} ventas · ${numTxt(nec.vip)} VIP</strong><small>${eur(nec.facturacion)} · ROAS ${nec.roas ? nec.roas.toLocaleString('es-ES', { maximumFractionDigits: 1 }) : '–'}</small></dd></div>
-            ${r.porDia != null ? `<div><dt>Ritmo desde hoy</dt><dd><strong>${numTxt(r.porDia)} registros/día</strong><small>${r.inversionDia != null ? `${eur(r.inversionDia)}/día · ` : ''}${quedan} días de captación</small></dd></div>` : ''}
-          </dl>
-        </article>`;
-      }).join('')}</div>`;
+  const tile = (label, valor, sub = '', clase = '') => `<div class="plan-tile ${clase}"><span class="plan-l">${label}</span><strong class="plan-n">${valor}</strong>${sub ? `<span class="plan-s">${sub}</span>` : ''}</div>`;
+  const num1 = (x) => (x == null ? '–' : x.toLocaleString('es-ES', { maximumFractionDigits: x < 10 ? 1 : 0 }));
+  const cplClase = cplActual != null && P?.cplMaxRoas != null ? (cplActual <= P.cplMaxRoas ? 'ok' : cplActual <= P.cplEquilibrio ? 'warn' : 'mal') : '';
+  const planHtml = !hayObj
+    ? '<div class="notice">Pon arriba al menos un objetivo (ventas o facturación, por ejemplo) y aquí verás el plan completo.</div>'
+    : !res.neutro.calculable || !P
+      ? '<div class="notice warn">Faltan datos: la conversión a venta (y a VIP si hay objetivo de VIP). Añade un lanzamiento anterior abajo o escribe los supuestos.</div>'
+      : `<div class="plan-grupos">
+        <section class="plan-grupo"><h4>📣 Captación</h4><div class="plan-tiles">
+          ${tile('Leads necesarios', numTxt(P.leads), P.leadsDia != null ? `${num1(P.leadsDia)} al día · ${P.diasCaptacion} días de captación` : 'pon los días de captación')}
+          ${tile(`CPL máximo para ROAS ${roasObj.toLocaleString('es-ES')}`, eur(P.cplMaxRoas), `${cplActual != null ? `ahora vas a ${eur(cplActual)} · ` : ''}a ${eur(P.cplEquilibrio)} ni ganas ni pierdes`, cplClase)}
+          ${tile('Inversión recomendada', eur(P.inversion), esc3.neutro.cpl != null ? `al CPL de ${eur(esc3.neutro.cpl)} · como mucho ${eur(P.techoInversion)} para ROAS ${roasObj.toLocaleString('es-ES')}` : `el máximo para ROAS ${roasObj.toLocaleString('es-ES')} (sin CPL histórico)`)}
+          ${tile('Presupuesto diario', P.inversionDia != null ? eur(P.inversionDia) : '–', P.inversionDia != null ? `durante ${P.diasCaptacion} días` : 'pon los días de captación')}
+        </div></section>
+        <section class="plan-grupo"><h4>📞 Equipo de llamadas <small class="muted">(cada persona hace setting y cierre)</small></h4><div class="plan-tiles">
+          ${tile('Personas necesarias', P.personas == null ? '–' : numTxt(P.personas), P.personas == null ? 'falta el % de leads que agendan llamada' : `para el pico: ${num1(P.pico)} llamadas/día a ${P.capacidad} por persona`, P.personas ? 'destacado' : '')}
+          ${tile('Llamadas agendadas', numTxt(P.agendadas), P.agendadas != null ? `${num1(P.porDia)} al día durante ${P.diasCarrito} días de carrito` : '')}
+          ${tile('Llamadas que se harán', numTxt(P.hechas), P.hechas != null ? `${pctTxt(pp.pctShow)} de asistencia` : '')}
+          ${tile('Ventas por llamada', numTxt(P.ventasLlamada), P.ventasLlamada != null && P.ventas ? `${pctTxt(P.ventasLlamada / P.ventas)} de las ventas · cierre ${pctTxt(pp.pctCierre)}` : 'falta el % de cierre')}
+        </div></section>
+        <section class="plan-grupo"><h4>💶 Números</h4><div class="plan-tiles">
+          ${tile('Facturación esperada', eur(P.facturacion), `${numTxt(P.ventas)} ventas${conVip(launch) ? ` · ${numTxt(P.vip)} VIP` : ''}`)}
+          ${tile('Costes', eur(P.costes), [P.inversion ? `publicidad ${eur(P.inversion)}` : '', P.costeEquipo ? `equipo ${eur(P.costeEquipo)}` : '', P.comisiones ? `comisiones ${eur(P.comisiones)}` : '', P.costesFijos ? `fijos ${eur(P.costesFijos)}` : ''].filter(Boolean).join(' · '))}
+          ${tile('Beneficio estimado', eur(P.beneficio), P.roas ? `ROAS ${P.roas.toLocaleString('es-ES', { maximumFractionDigits: 1 })}` : '', P.beneficio >= 0 ? 'ok' : 'mal')}
+          ${tile('Punto de equilibrio', P.equilibrio == null ? '–' : `${numTxt(P.equilibrio)} ventas`, 'para cubrir publicidad, equipo y costes')}
+        </div></section>
+      </div>
+      <h4 class="calc-h">Si va mejor o peor <small class="muted">(escenarios con los lanzamientos mejores y peores${esc3.n < 3 ? '; con menos de 3, ±20 %' : ''})</small></h4>
+      <div class="table-scroll"><table class="metric-table plan-rango"><thead><tr><th></th>${ESCENARIOS.map((e) => `<th>${e.label}</th>`).join('')}</tr></thead><tbody>
+        ${[['Leads necesarios', (x) => numTxt(x.leads)], ['Inversión', (x) => eur(x.inversion)], ['CPL máximo (ROAS objetivo)', (x) => eur(x.cplMaxRoas)], ['Personas al teléfono', (x) => (x.personas == null ? '–' : numTxt(x.personas))], ['Beneficio', (x) => eur(x.beneficio)]]
+          .map(([l, f]) => `<tr><th>${l}</th>${ESCENARIOS.map((e) => `<td class="num">${plan[e.id] ? f(plan[e.id]) : '–'}</td>`).join('')}</tr>`).join('')}
+      </tbody></table></div>`;
 
   // Proyector: a dónde se llega al ritmo actual y con el presupuesto.
   const fila = (titulo, clave) => {
@@ -1512,58 +1536,120 @@ function renderCalculadora(m, launch, { soloResultados = false } = {}) {
   // Sugerencias en claro.
   const sug = [];
   const n = res.neutro;
-  if (hayObj && n.calculable && n.necesario) {
-    sug.push(`En el escenario neutro necesitas <strong>${numTxt(n.necesario.registros)} registros</strong>${n.necesario.inversion != null ? ` e invertir <strong>${eur(n.necesario.inversion)}</strong> (entre ${eur(res.favorable.necesario?.inversion)} si va bien y ${eur(res.desfavorable.necesario?.inversion)} si va mal)` : ` (entre ${numTxt(res.favorable.necesario?.registros)} si va bien y ${numTxt(res.desfavorable.necesario?.registros)} si va mal)`}.`);
+  if (hayObj && n.calculable && P) {
     if (n.faltan > 0 && n.porDia != null) sug.push(`Te faltan ${numTxt(n.faltan)} registros: unos <strong>${numTxt(n.porDia)} al día</strong>${n.inversionDia != null ? ` (≈ ${eur(n.inversionDia)}/día de publicidad)` : ''} hasta el fin de la captación.`);
     if (ritmo != null && n.porDia != null && ritmo < n.porDia) sug.push(`Vas a ${ritmo.toLocaleString('es-ES', { maximumFractionDigits: 1 })} registros al día: necesitas <strong>${numTxt(n.porDia - ritmo)} más al día</strong>. Sube presupuesto en los anuncios ganadores o abre nuevos públicos.`);
-    if (cplActual != null && n.cplMax != null) {
-      if (cplActual > n.cplMax) sug.push(`<span class="error">Tu CPL actual (${eur(cplActual)}) supera el máximo (${eur(n.cplMax)}): estás perdiendo dinero con cada registro. Para y revisa creatividades y públicos.</span>`);
-      else if (cplActual > n.cplRecomendado) sug.push(`Tu CPL actual (${eur(cplActual)}) está entre el recomendado (${eur(n.cplRecomendado)}) y el máximo (${eur(n.cplMax)}): rentable pero justo. Apaga los anuncios con peor CPL.`);
-      else sug.push(`Tu CPL actual (${eur(cplActual)}) está por debajo del recomendado (${eur(n.cplRecomendado)}): hay margen para <strong>escalar la inversión</strong>.`);
+    if (cplActual != null && P.cplMaxRoas != null) {
+      if (cplActual > P.cplEquilibrio) sug.push(`<span class="error">Tu CPL actual (${eur(cplActual)}) supera el de equilibrio (${eur(P.cplEquilibrio)}): pierdes dinero con cada registro. Para y revisa creatividades y públicos.</span>`);
+      else if (cplActual > P.cplMaxRoas) sug.push(`Tu CPL actual (${eur(cplActual)}) está por encima del máximo para tu ROAS objetivo (${eur(P.cplMaxRoas)}): rentable pero por debajo del ROAS que buscas. Apaga los anuncios con peor CPL.`);
+      else sug.push(`Tu CPL actual (${eur(cplActual)}) está por debajo del máximo (${eur(P.cplMaxRoas)}): hay margen para <strong>escalar la inversión</strong>.`);
     }
+    if (P.personas) sug.push(`Organiza el equipo para el <strong>primer y el último día del carrito</strong>: concentran la mayoría de llamadas (se planifica para ${num1(P.pico)} llamadas/día). Ten agenda abierta desde el directo.`);
+    if (P.beneficio < 0) sug.push('<span class="error">Con estos supuestos el lanzamiento pierde dinero: baja el CPL, sube la conversión (más llamadas, mejor oferta) o ajusta los costes.</span>');
     if (opts.presupuesto && n.conPresupuesto) {
       const noP = noLlega(obj, n.conPresupuesto);
       sug.push(noP.length
-        ? `Con ${eur(opts.presupuesto)} llegarías a unas ${numTxt(n.conPresupuesto.ventas)} ventas (neutro). Para los objetivos el presupuesto debería ser de unos <strong>${eur(n.necesario.inversion)}</strong>.`
+        ? `Con ${eur(opts.presupuesto)} llegarías a unas ${numTxt(n.conPresupuesto.ventas)} ventas (neutro). Para los objetivos el presupuesto debería ser de unos <strong>${eur(P.inversion)}</strong>.`
         : `Con ${eur(opts.presupuesto)} llegas a los objetivos en el escenario neutro (${numTxt(n.conPresupuesto.ventas)} ventas).`);
     }
   }
-  if (esc3.n < 3) sug.push(`<span class="muted">Con ${esc3.n} lanzamiento${esc3.n === 1 ? '' : 's'} de histórico los escenarios favorable y desfavorable son ±20 % del neutro. Con 3 o más se usan los lanzamientos mejores y peores.</span>`);
+  if (!hist.length) sug.push('<span class="muted">Sin lanzamientos anteriores, el plan usa los supuestos que escribas. Añade abajo los datos de tus lanzamientos anteriores para que se rellenen solos.</span>');
 
-  const resultadosHtml = `${resultados}
+  const resultadosHtml = `${planHtml}
     ${proyector ? `<h4 class="calc-h">Proyector: a dónde llegas</h4><div class="table-scroll"><table class="metric-table calc-proy"><thead><tr><th></th>${ESCENARIOS.map((e) => `<th>${e.label}</th>`).join('')}</tr></thead><tbody>${proyector}</tbody></table></div>` : ''}
     ${sug.length ? `<h4 class="calc-h">Sugerencias</h4><ul class="calc-sug">${sug.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}`;
   if (soloResultados && $('#calc-resultados')) { $('#calc-resultados').innerHTML = resultadosHtml; return; }
 
   const g = launch.calculadora || {};
-  const campo = (k, label, ph, extra = '') => `<label class="field"><span>${label}</span><input data-calc="${k}" inputmode="decimal" value="${g[k] ?? ''}" placeholder="${ph}" ${extra}></label>`;
   const editable = puedeConfig() ? '' : 'readonly';
+  const campo = (k, label, ph) => `<label class="field"><span>${label}</span><input data-calc="${k}" inputmode="decimal" value="${g[k] ?? ''}" placeholder="${esc(ph)}" ${editable}></label>`;
+  const fuente = (v, txt) => (v != null ? txt : 'p. ej.');
   const neutro = esc3.neutro;
-  const histTabla = hist.length ? `<details class="calc-hist"><summary>Histórico usado (${hist.length} lanzamiento${hist.length === 1 ? '' : 's'})</summary><div class="table-scroll"><table class="metric-table"><thead><tr><th>Lanzamiento</th><th class="num">Registros</th><th class="num">Inversión</th><th class="num">CPL</th><th class="num">% VIP</th><th class="num">% venta</th><th class="num">Ticket</th><th class="num">ROAS</th></tr></thead><tbody>${hist.map((h) => `<tr><td>${esc(h.name)}</td><td class="num">${numTxt(h.registros)}</td><td class="num">${eur(h.inversion)}</td><td class="num">${eur(h.cpl)}</td><td class="num">${pctTxt(h.convVip)}</td><td class="num">${pctTxt(h.convVenta)}</td><td class="num">${eur(h.ticket)}</td><td class="num">${h.roas ? h.roas.toLocaleString('es-ES', { maximumFractionDigits: 1 }) : '–'}</td></tr>`).join('')}</tbody></table></div></details>` : '';
+  const filaHist = (h) => `<tr${h.manual ? ' class="hist-manual"' : ''}><td>${esc(h.name)}${h.manual ? ' <small class="muted">(a mano)</small>' : ''}</td><td class="num">${numTxt(h.registros)}</td><td class="num">${eur(h.inversion)}</td><td class="num">${eur(h.cpl)}</td><td class="num">${pctTxt(h.convVip)}</td><td class="num">${pctTxt(h.convVenta)}</td><td class="num">${eur(h.ticket)}</td><td class="num">${h.roas ? h.roas.toLocaleString('es-ES', { maximumFractionDigits: 1 }) : '–'}</td><td class="num">${pctTxt(h.pctLlamada)}</td><td class="num">${pctTxt(h.pctCierre)}</td><td>${h.manual && puedeConfig() ? `<button type="button" class="btn ghost small" data-hm-editar="${esc(h.code)}">Editar</button> <button type="button" class="btn ghost small" data-hm-quitar="${esc(h.code)}" aria-label="Quitar">✕</button>` : ''}</td></tr>`;
+  const HM = [['nombre', 'Nombre', 'Lanzamiento de marzo'], ['registros', 'Registros (leads)', '2000'], ['inversion', 'Inversión en publicidad (€)', '8000'], ['vip', 'Entradas VIP', '160'], ['ventas', 'Ventas del programa', '60'], ['facturacion', 'Facturación total (€)', '62000'], ['ticket', 'Ticket medio del programa (€) <small>(opcional)</small>', '997'], ['llamadas', 'Llamadas agendadas', '120'], ['shows', 'Llamadas realizadas <small>(opcional)</small>', '90'], ['ventasLlamada', 'Ventas en llamada', '30'], ['diasCarrito', 'Días de carrito', '7']];
   box.innerHTML = `<section class="card calc">
-    <h3>${icon('trend')} Calculadora y proyector</h3>
-    <p class="muted">Con los datos de los lanzamientos anteriores de este embudo (o los supuestos que escribas) calcula lo que necesitas para llegar a los objetivos en tres escenarios.</p>
+    <h3>${icon('trend')} Planificador del lanzamiento</h3>
+    <p class="muted">Con los lanzamientos anteriores (los del dashboard y los que metas a mano) calcula lo que necesitas para los objetivos de arriba: leads, CPL máximo, inversión, el equipo de llamadas y los números. Puedes cambiar cualquier supuesto para simular.</p>
+
+    <h4 class="calc-h">1 · Lanzamientos anteriores</h4>
     <div class="row calc-hist-bar">
-      <button type="button" class="btn" id="calc-cargar">${hist.length ? 'Actualizar histórico' : 'Cargar histórico'}</button>
-      <span class="muted">${lanzamientosHistorico().length ? `${hist.length} de ${lanzamientosHistorico().length} lanzamientos anteriores cargados${pendientes ? ' · pulsa para cargar el resto' : ''}` : 'No hay lanzamientos anteriores en este embudo: escribe los supuestos.'}</span>
+      ${lanzamientosHistorico().length ? `<button type="button" class="btn" id="calc-cargar">${pendientes > 0 ? 'Cargar los del dashboard' : 'Actualizar los del dashboard'}</button><span class="muted">${lanzamientosHistorico().length - pendientes} de ${lanzamientosHistorico().length} lanzamientos del dashboard cargados</span>` : '<span class="muted">Todavía no hay lanzamientos anteriores en el dashboard: añade los datos de los que hiciste antes.</span>'}
+      ${puedeConfig() ? '<button type="button" class="btn" id="hm-nuevo">+ Añadir lanzamiento anterior</button>' : ''}
     </div>
-    ${histTabla}
+    <form id="hm-form" class="card hm-form" hidden><input type="hidden" data-hm="id">
+      <div class="grid4">${HM.map(([k, l, ph]) => `<label class="field"><span>${l}</span><input data-hm="${k}" ${k === 'nombre' ? '' : 'inputmode="decimal"'} placeholder="${ph}"></label>`).join('')}</div>
+      <div class="row"><button type="submit" class="btn primary">Guardar lanzamiento</button><button type="button" class="btn ghost" id="hm-cancelar">Cancelar</button><span class="muted" id="hm-status" aria-live="polite"></span></div>
+    </form>
+    ${hist.length ? `<div class="table-scroll"><table class="metric-table"><thead><tr><th>Lanzamiento</th><th class="num">Registros</th><th class="num">Inversión</th><th class="num">CPL</th><th class="num">% VIP</th><th class="num">% venta</th><th class="num">Ticket</th><th class="num">ROAS</th><th class="num">% agendan</th><th class="num">% cierre</th><th></th></tr></thead><tbody>${hist.map(filaHist).join('')}</tbody></table></div>` : ''}
+
     <div id="calc-supuestos" data-code="${esc(state.launchCode)}">
-      <h4 class="calc-h">Supuestos <small class="muted">(vacío = el dato del histórico; escribe para simular)</small></h4>
-      <div class="grid4">
-        ${campo('cpl', 'CPL (€ por registro)', neutro.cpl != null && esc3.fuente.cpl !== 'manual' ? eur(neutro.cpl) : 'p. ej. 4', editable)}
-        ${!conVip(launch) ? '' : campo('convVip', '% que compra la VIP', neutro.convVip != null && esc3.fuente.convVip !== 'manual' ? pctTxt(neutro.convVip) : 'p. ej. 10', editable)}
-        ${campo('convVenta', '% que compra el programa', neutro.convVenta != null && esc3.fuente.convVenta !== 'manual' ? pctTxt(neutro.convVenta) : 'p. ej. 3', editable)}
-        ${campo('ticket', 'Ticket medio del programa (€)', neutro.ticket != null && esc3.fuente.ticket !== 'manual' ? eur(neutro.ticket) : eur(Number(launch.precioPrograma) || 0), editable)}
-        ${campo('roasObjetivo', 'ROAS objetivo <small>(facturación ÷ inversión)</small>', String(ROAS_OBJETIVO_DEF).replace('.', ','), editable)}
-        ${campo('presupuesto', 'Presupuesto total de publicidad (€) <small>(opcional)</small>', 'p. ej. 15000', editable)}
+      <h4 class="calc-h">2 · Supuestos <small class="muted">(vacío = el dato del histórico, en gris; escribe para simular)</small></h4>
+      <div class="plan-sup">
+        <fieldset><legend>📣 Publicidad</legend>
+          ${campo('cpl', 'CPL (€ por lead)', neutro.cpl != null && esc3.fuente.cpl !== 'manual' ? eur(neutro.cpl) : 'p. ej. 4')}
+          ${campo('roasObjetivo', 'ROAS objetivo <small>(facturación ÷ inversión)</small>', String(ROAS_OBJETIVO_DEF).replace('.', ','))}
+          ${campo('diasCaptacion', 'Días de captación', diasCaptTotal && !sup.diasCaptacion ? `${diasCaptTotal} (de las fechas)` : 'p. ej. 21')}
+          ${campo('presupuesto', 'Presupuesto que tienes (€) <small>(opcional)</small>', 'p. ej. 15000')}
+        </fieldset>
+        <fieldset><legend>🛒 Conversión</legend>
+          ${!conVip(launch) ? '' : campo('convVip', '% que compra la VIP', neutro.convVip != null && esc3.fuente.convVip !== 'manual' ? pctTxt(neutro.convVip) : 'p. ej. 8')}
+          ${campo('convVenta', '% de leads que compra el programa', neutro.convVenta != null && esc3.fuente.convVenta !== 'manual' ? pctTxt(neutro.convVenta) : 'p. ej. 3')}
+          ${campo('ticket', 'Ticket medio del programa (€)', neutro.ticket != null && esc3.fuente.ticket !== 'manual' ? eur(neutro.ticket) : eur(Number(launch.precioPrograma) || 0))}
+        </fieldset>
+        <fieldset><legend>📞 Llamadas y equipo</legend>
+          ${campo('pctLlamada', '% de leads que agenda llamada', fuente(llH.pctLlamada, pctTxt(llH.pctLlamada)) === 'p. ej.' ? 'p. ej. 6' : pctTxt(llH.pctLlamada))}
+          ${campo('pctShow', '% que se presenta a la llamada', llH.pctShow != null ? pctTxt(llH.pctShow) : pctTxt(PLAN_DEF.pctShow))}
+          ${campo('pctCierre', '% de cierre en llamada', llH.pctCierre != null ? pctTxt(llH.pctCierre) : 'p. ej. 30')}
+          ${campo('llamadasDia', 'Llamadas al día por persona', String(PLAN_DEF.llamadasDia))}
+          ${campo('diasCarrito', 'Días de carrito', String(Number(launch.diasCarrito) || llH.diasCarrito || PLAN_DEF.diasCarrito))}
+        </fieldset>
+        <fieldset><legend>💶 Costes <small class="muted">(opcional)</small></legend>
+          ${campo('costePersona', 'Coste por persona del equipo (€ por lanzamiento)', 'p. ej. 1200')}
+          ${campo('comision', '% de comisión por venta en llamada', 'p. ej. 10')}
+          ${campo('costesFijos', 'Otros costes (€) <small>(herramientas, diseño…)</small>', 'p. ej. 500')}
+        </fieldset>
       </div>
       <p class="muted small">Precio de la VIP: ${eur(Number(launch.precioVip) || 0)} (de Configuración). Llevas ${numTxt(m.total)} registros${actual.inversion ? `, ${eur(actual.inversion)} invertidos (CPL ${eur(cplActual)})` : ''}.</p>
       ${puedeConfig() ? '<div class="row"><button type="button" class="btn" id="calc-guardar">Guardar supuestos</button><span class="muted" id="calc-status" aria-live="polite"></span></div>' : ''}
     </div>
+
+    <h4 class="calc-h">3 · Tu plan <small class="muted">(escenario neutro)</small></h4>
     <div id="calc-resultados">${resultadosHtml}</div>
   </section>`;
 }
+
+// Lanzamientos anteriores a mano: añadir, editar y quitar (se guardan en el embudo).
+async function guardarHistoricoManual(lista) {
+  const embudo = embudoDeLanz(state.config.launches[state.launchCode]);
+  const { config } = await api('/api/config', { method: 'POST', body: { op: 'historico', embudo, historico: lista } });
+  state.config = config;
+  render();
+}
+document.addEventListener('click', async (e) => {
+  const t = e.target;
+  if (t.id === 'hm-nuevo' || t.dataset.hmEditar) {
+    const f = $('#hm-form');
+    const r = t.dataset.hmEditar ? historicoManual().find((x) => x.id === t.dataset.hmEditar) : {};
+    for (const i of $$('[data-hm]', f)) i.value = r?.[i.dataset.hm] ? String(r[i.dataset.hm]).replace('.', ',') : '';
+    f.hidden = false;
+    $('[data-hm="nombre"]', f).focus();
+  } else if (t.id === 'hm-cancelar') {
+    $('#hm-form').hidden = true;
+  } else if (t.dataset.hmQuitar) {
+    if (!window.confirm('¿Quitar este lanzamiento del histórico?')) return;
+    try { await guardarHistoricoManual(historicoManual().filter((x) => x.id !== t.dataset.hmQuitar)); } catch (err) { notice(err.message, true); }
+  }
+});
+document.addEventListener('submit', async (e) => {
+  if (e.target.id !== 'hm-form') return;
+  e.preventDefault();
+  const v = Object.fromEntries($$('[data-hm]', e.target).map((i) => [i.dataset.hm, i.dataset.hm === 'nombre' || i.dataset.hm === 'id' ? i.value.trim() : precioDe(i.value)]));
+  if (!v.nombre || !(Number(v.registros) > 0)) { $('#hm-status').textContent = 'Pon al menos el nombre y los registros.'; return; }
+  const id = v.id || nuevoId('h');
+  const lista = historicoManual().filter((x) => x.id !== id);
+  $('#hm-status').textContent = 'Guardando…';
+  try { await guardarHistoricoManual([...lista, { ...v, id }]); } catch (err) { $('#hm-status').textContent = err.message; }
+});
 document.addEventListener('input', (e) => {
   if (!e.target.closest('#calc-supuestos')) return;
   const launch = state.config.launches[state.launchCode];

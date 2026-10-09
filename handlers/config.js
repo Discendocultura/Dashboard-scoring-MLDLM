@@ -70,6 +70,17 @@ export async function POST(request) {
       });
       return json({ config, version: versionDe(config) });
     }
+    // Calculadora: los lanzamientos anteriores metidos a mano, guardados en su embudo.
+    if (body.op === 'historico') {
+      const id = String(body.embudo || '');
+      const config = await reintentando(async () => {
+        const actual = await getConfig({ fresh: true });
+        if (!actual.embudos.some((e) => e.id === id && e.tipo === 'lanzamientos')) throw Object.assign(new Error('Embudo no encontrado'), { status: 404, publicMessage: 'Embudo no encontrado' });
+        const embudos = actual.embudos.map((e) => (e.id === id ? { ...e, historico: Array.isArray(body.historico) ? body.historico : [] } : e));
+        return saveConfig({ ...actual, embudos }, { version: versionDe(actual), motivo: 'Histórico de la calculadora' });
+      });
+      return json({ config, version: versionDe(config) });
+    }
     // Si no vienen los embudos (p. ej. un navegador con la versión anterior), se conservan los guardados.
     const actual = !('vsls' in body) || !('embudos' in body) || rol !== 'admin' ? await getConfig({ fresh: true }) : null;
     // La marca, la encuesta del avatar y el email del resumen diario solo los cambia un admin.
