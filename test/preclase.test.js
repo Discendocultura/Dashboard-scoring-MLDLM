@@ -314,6 +314,13 @@ test('página de venta: barra fija por tramos (sin GHL) y fin de cada bonus en e
   await call('/api/config', { method: 'POST', cookie: admin, body: { ...c2.config, _version: c2.version, launches: { ...c2.config.launches, 'ven-26': { ...c2.config.launches['ven-26'], paginaPagoUrl: 'https://ghl.com/pago-raices' } } } });
   assert.equal((await call('/api/page?l=ven-26&pagina=venta&cid=mock00001')).data.links['pagina-pago'], 'https://ghl.com/pago-raices?cid=mock00001');
   assert.equal((await call('/api/page?l=ven-26&pagina=grabacion&cid=mock00001')).data.links['pagina-pago'], 'https://ghl.com/pago-raices?cid=mock00001');
+  // …y también los botones de pago de siempre (data-lsd-link="pago" / "pago-fraccionado") de las páginas de venta y de replay
+  for (const pag of ['venta', 'grabacion']) {
+    const l = (await call(`/api/page?l=ven-26&pagina=${pag}&cid=mock00001`)).data.links;
+    assert.equal(l.pago, 'https://ghl.com/pago-raices?cid=mock00001');
+  }
+  // En la página de pago, los cajetines siguen yendo al checkout
+  assert.equal((await call('/api/page?l=ven-26&pagina=pago&cid=mock00001')).data.links.pago, 'https://pay.com/raices?cid=mock00001');
   // Calendario: el BAR 48 h acaba dos días después de abrir el carrito (el bonus de todo el carrito ya lo dice el cierre)
   const { hitosLanzamiento } = await import('../public/js/calendario.js');
   const h = hitosLanzamiento((await call('/api/config', { cookie: admin })).data.config.launches['ven-26']).filter((x) => x.id.startsWith('bonus-'));

@@ -74,6 +74,11 @@ export async function GET(request, ctx) {
       'calendario-ics': m.directo != null ? `${url.origin}/api/ics?l=${encodeURIComponent(code)}${cq}` : '',
       login: launch.loginUrl || '',
     };
+    // Con página de pago intermedia, los botones de pago de las demás páginas (venta, replay…) llevan a ella:
+    // allí se elige pago único o fraccionado. Solo en la propia página de pago van al checkout.
+    if (launch.paginaPagoUrl && url.searchParams.get('pagina') !== 'pago') {
+      for (const k of ['pago', 'pago-fraccionado', ...planesActivos(launch).map((p) => `plan-${p.id}`)]) links[k] = links['pagina-pago'];
+    }
     // Lanzamientos de varios vídeos: entrar al directo y ver cada vídeo (directo2, grabacion2…).
     const vids = videosDe(launch);
     for (const v of vids.slice(1)) {
