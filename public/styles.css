@@ -2178,3 +2178,12 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 @media (max-width: 760px) { .bump-fila { grid-template-columns: 1fr 1fr; } .bump-fila .chk, .bump-fila .bump-quitar { grid-column: auto; } }
 .inicio-emb .ie-cifras.ie-sec { margin-top: 6px; }
 .inicio-emb .ie-cifras.ie-sec strong { font-size: 14px; }
+/* Configuración: barra «Listo para lanzar» y lo que falta en cada pestaña */
+.cfg-listo { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; margin-bottom: 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+.cfg-listo:empty { display: none; }
+.cfg-listo-txt { display: flex; flex-direction: column; gap: 2px; }
+.cfg-listo-barra { height: 8px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.cfg-listo-barra span { display: block; height: 100%; background: var(--st-caliente, #d97706); border-radius: 999px; transition: width .3s; }
+.cfg-listo-barra span.ok { background: var(--tone-buy, #2e7d4f); }
+.tab .tab-falta { margin-left: 6px; min-width: 18px; padding: 0 5px; border-radius: 999px; background: #c0392b; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+@media (max-width: 640px) { .cfg-listo { grid-template-columns: 1fr; } }

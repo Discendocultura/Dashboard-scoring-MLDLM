@@ -3385,6 +3385,7 @@ function renderGuia() {
   const tagIssues = tagProblems();
   // Cada pestaña con campos que revisar tiene su checklist (las que no tienen caja, la reciben arriba).
   const CAJAS_GUIA = { launch: '#guia-check', etiquetas: '#guia-check-etiquetas', pagina: '#guia-check-pagina', embudo: '#guia-check-embudo' };
+  const todos = []; // para la barra «Listo para lanzar»
   for (const panel of $$('#config-dialog .tab-panel').map((p) => p.dataset.panel)) {
     let box = CAJAS_GUIA[panel] || `#guia-check-${panel}`;
     const groups = $$(`.tab-panel[data-panel="${panel}"] .cfg-sec`).filter((sec) => !sec.hidden).map((sec) => {
@@ -3401,6 +3402,13 @@ function renderGuia() {
       return { title: $('h3', sec).textContent, items };
     }).filter((g) => g.items.length);
     const total = groups.flatMap((g) => g.items);
+    todos.push(...total.map((i) => ({ ...i, panel })));
+    // En la pestaña, cuántas cosas faltan.
+    const tab = $(`#config-dialog .tab[data-tab="${panel}"]`);
+    const faltanTab = total.filter((i) => i.st === 'falta').length;
+    let cnt = tab && $('.tab-falta', tab);
+    if (tab && faltanTab && !cnt) { tab.insertAdjacentHTML('beforeend', '<span class="tab-falta"></span>'); cnt = $('.tab-falta', tab); }
+    if (cnt) { cnt.textContent = faltanTab || ''; cnt.hidden = !faltanTab; cnt.title = `Faltan ${faltanTab} en esta pestaña`; }
     if (!$(box)) {
       if (!total.length) continue;
       const pnl = $(`#config-dialog .tab-panel[data-panel="${panel}"]`);
@@ -3414,9 +3422,26 @@ function renderGuia() {
     // Solo se repinta si algo cambió: el «change» al salir de un campo no debe borrar el botón que se está pulsando.
     if (html !== guiaHtml[panel]) $(box).innerHTML = guiaHtml[panel] = html;
   }
+  pintarListo(todos);
+}
+
+// Barra «Listo para lanzar»: lo que está listo de todas las pestañas y un botón al primero que falta
+// (por orden de pestañas: lo de «Datos básicos» antes que lo de «Venta»).
+function pintarListo(todos) {
+  const box = $('#cfg-listo');
+  const listos = todos.filter((i) => i.st === 'ok' || i.st === 'opt').length;
+  const faltan = todos.filter((i) => i.st === 'falta');
+  const revisar = todos.filter((i) => i.st === 'warn');
+  const pct = todos.length ? Math.round((listos / todos.length) * 100) : 0;
+  const sig = faltan[0] || revisar[0];
+  const html = !todos.length ? '' : `<div class="cfg-listo-txt"><strong>${faltan.length ? 'Listo para lanzar' : '✓ Listo para lanzar'}: ${listos} de ${todos.length}</strong>
+      <span class="muted small">${faltan.length ? `Faltan ${faltan.length}` : 'No falta nada'}${revisar.length ? ` · ${revisar.length} por revisar` : ''}</span></div>
+    <div class="cfg-listo-barra" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span class="${faltan.length ? '' : 'ok'}" style="width:${pct}%"></span></div>
+    ${sig ? `<button type="button" class="btn small" data-goto="${sig.f.id}">${faltan.length ? 'Ir a lo que falta' : 'Ir a revisar'}: ${esc(sig.f.label)} →</button>` : ''}`;
+  if (box.dataset.html !== html) { box.innerHTML = html; box.dataset.html = html; }
 }
 $('#config-dialog').addEventListener('click', (e) => {
-  const b = e.target.closest('.guia-check [data-goto]');
+  const b = e.target.closest('.guia-check [data-goto], #cfg-listo [data-goto]');
   if (b) goToField(b.dataset.goto);
 });
 
