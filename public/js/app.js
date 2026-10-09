@@ -1048,6 +1048,20 @@ async function renderFacturacionTotal(m) {
   if (state.launchCode === code) pintar(meteo);
 }
 
+// De dónde sale la inversión (y por tanto el CPL): Meta, a mano, o por qué no hay.
+function fuenteInversion(launch, m) {
+  const meta = state.meta;
+  const filtro = launch.metaFiltro || state.launchCode;
+  const leads = `${m.total.toLocaleString('es-ES')} leads con la etiqueta de registro`;
+  if (m.eco.inversion && m.eco.inversionFuente === 'meta') return { ok: true, txt: `Meta Ads: campañas con «${esc(filtro)}» en el nombre${meta?.since ? ` (${esc(meta.since)} → ${esc(meta.until)})` : ''} · ${leads}` };
+  if (m.eco.inversion) return { ok: true, txt: `inversión puesta a mano en Configuración · ${leads}` };
+  if (!launch.inicioCaptacion) return { ok: false, txt: 'Falta el inicio de captación (Configuración → Lanzamiento): desde ese día se suma lo gastado en Meta' };
+  if (!meta) return { ok: false, txt: 'Meta no está conectado (variables META_* en Cloudflare)' };
+  if (meta.error) return { ok: false, txt: `Meta: ${esc(meta.error)}` };
+  if (!(meta.campaigns || []).length) return { ok: false, txt: `Ninguna campaña de Meta lleva «${esc(filtro)}» en el nombre: ponle el código del lanzamiento al nombre de la campaña` };
+  return { ok: false, txt: `Las campañas con «${esc(filtro)}» aún no tienen gasto` };
+}
+
 function renderMetrics() {
   const launch = state.config.launches[state.launchCode];
   const m = currentMetrics();
@@ -1071,12 +1085,13 @@ function renderMetrics() {
   const pct1 = (x) => (x == null ? '–' : `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')}%`);
   // Primero, en este orden: leads, CPL medio, entradas VIP, inversión y ROAS (con VIP y bumps, sin IVA).
   const roasTxt = m.eco.roas != null ? `${m.eco.roas.toFixed(2).replace('.', ',')}x` : '–';
+  const inv = fuenteInversion(launch, m);
   const factSub = [`programa ${eur(m.eco.facturacionPrograma)}`, m.conVip ? `VIP ${eur(m.eco.facturacionVip)}` : '', m.eco.facturacionBumps ? `bumps ${eur(m.eco.facturacionBumps)}` : ''].filter(Boolean).join(' + ');
   $('#metric-cards').innerHTML = [
     card('Leads totales', m.total, m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'registros del lanzamiento', 'users', 'accent'),
-    card('CPL medio', eur(tr.cpl), tr.cpl == null ? 'Conecta Meta o pon la inversión en Configuración' : `inversión / leads${tr.cplPubli != null ? ` · ${eur(tr.cplPubli)} por lead de publicidad` : ''}`, 'coins', 'money'),
+    card('CPL medio', eur(tr.cpl), tr.cpl == null ? inv.txt : `${eur(m.eco.inversion)} / ${m.total.toLocaleString('es-ES')} leads${tr.cplPubli != null ? ` · ${eur(tr.cplPubli)} por lead de publicidad` : ''}`, 'coins', 'money'),
     ...(m.conVip ? [card('Entradas VIP vendidas', m.vip, `${pctOf(m.vip, m.total)} de los leads${m.eco.facturacionVip ? ` · ${eur(m.eco.facturacionVip)} sin IVA` : ''}`, 'star', 'vip')] : []),
-    card('Inversión en publicidad', m.eco.inversion ? eur(m.eco.inversion) : '–', m.eco.inversion ? (m.eco.inversionFuente === 'meta' ? 'Meta Ads' : 'puesta a mano en Configuración') : 'Conecta Meta o ponla en Configuración', 'megaphone', 'accent'),
+    card('Inversión en publicidad', m.eco.inversion ? eur(m.eco.inversion) : '–', inv.txt, 'megaphone', 'accent'),
     card('ROAS', roasTxt, m.eco.roas != null ? `${eur(m.eco.facturacion)} sin IVA (${factSub}) / inversión` : 'facturación sin IVA / inversión', 'trend', 'money'),
     ...(m.bumps || []).map((b) => {
       const t = TIPOS_BUMP.find((x) => x.id === b.tipo);
@@ -1870,10 +1885,9 @@ function renderPago(m, launch) {
 function renderEconomics(m, launch) {
   const e = m.eco;
   const hasPrices = launch.precioVip || launch.precioPrograma || launch.precioFraccionado;
-  const fuente = e.inversionFuente === 'meta' ? `Meta Ads (${esc(state.meta.since)} → ${esc(state.meta.until)})` : 'introducida a mano';
   const metaWarn = state.meta?.error ? `<p class="muted">Meta: ${esc(state.meta.error)}</p>` : '';
   $('#eco-cards').innerHTML = `${[
-    card('Inversión en anuncios', e.inversion ? eur(e.inversion) : '–', e.inversion ? fuente : 'Conecta Meta o introdúcela en Configuración', 'megaphone', 'accent'),
+    card('Inversión en anuncios', e.inversion ? eur(e.inversion) : '–', fuenteInversion(launch, m).txt, 'megaphone', 'accent'),
     card('Facturación (sin IVA)', hasPrices ? eur(e.facturacion) : '–', hasPrices ? `VIP ${eur(e.facturacionVip)}${e.facturacionBumps ? ` · bumps ${eur(e.facturacionBumps)}` : ''} · Raíces ${eur(e.facturacionPrograma)}${m.planes ? ` · MRR ${eur(m.planes.mrr)}` : launch.fraccionadoTag || launch.unicoTag ? ` (${m.compraUnico} único · ${m.compraFraccionado} fraccionado)` : ''}` : 'Añade los precios en Configuración', 'coins', 'money'),
     card('ROAS', e.roas != null && hasPrices ? `${e.roas.toFixed(2)}x` : '–', e.roas != null && hasPrices ? `Beneficio: ${eur(e.beneficio)} (sin IVA)` : 'facturación sin IVA / inversión', 'trend', 'money'),
     card('Coste por lead', eur(e.cpl), e.cplFrio != null ? `${eur(e.cplFrio)} por lead de tráfico frío` : 'inversión / registros', 'users', 'accent'),
