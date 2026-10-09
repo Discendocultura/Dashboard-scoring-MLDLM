@@ -350,3 +350,32 @@ test('página de pago: copy y precios de los cajetines, enlaces y barra por tram
   // La página de venta sigue con su propia barra (aquí, ninguna)
   assert.equal((await call('/api/page?l=pag-26&pagina=venta')).data.ventaBarra, null);
 });
+
+test('WhatsApp para dudas: el enlace se genera con el número y el mensaje', async () => {
+  const { numeroWhatsApp, enlaceWhatsApp, leerEnlaceWhatsApp } = await import('../public/js/page.js');
+  assert.equal(numeroWhatsApp('+34 600 00 00 00'), '34600000000');
+  assert.equal(numeroWhatsApp('600 000 000'), '34600000000'); // móvil español sin prefijo
+  assert.equal(numeroWhatsApp('0052 55 1234 5678'), '525512345678');
+  assert.equal(numeroWhatsApp('123'), '');
+  assert.equal(enlaceWhatsApp('34600000000', 'Hola, tengo una duda'), 'https://wa.me/34600000000?text=Hola%2C%20tengo%20una%20duda');
+  assert.equal(enlaceWhatsApp('34600000000'), 'https://wa.me/34600000000');
+  assert.deepEqual(leerEnlaceWhatsApp('https://wa.me/34600000000?text=Hola%20t%C3%BA'), { numero: '34600000000', mensaje: 'Hola tú' });
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const guardar = async (extra) => {
+    const { data: c } = await call('/api/config', { cookie: admin });
+    await call('/api/config', { method: 'POST', cookie: admin, body: { ...c.config, _version: c.version, launches: { ...c.config.launches, 'wa-26': { name: 'WA', registroTag: 'registro-webinar-demo', inicioCaptacion: local(-5), fechaDirecto: local(2), horaDirecto: '19:00', ...extra } } } });
+    return (await call('/api/config', { cookie: admin })).data.config.launches['wa-26'];
+  };
+  let l = await guardar({ whatsappDudas: { numero: '600 000 000', mensaje: 'Tengo una duda sobre {producto}' } });
+  assert.deepEqual(l.whatsappDudas, { numero: '34600000000', mensaje: 'Tengo una duda sobre {producto}' });
+  assert.match(l.whatsappDudasUrl, /^https:\/\/wa\.me\/34600000000\?text=/);
+  const link = (await call('/api/page?l=wa-26&pagina=venta')).data.links['whatsapp-dudas'];
+  assert.match(decodeURIComponent(link), /^https:\/\/wa\.me\/34600000000\?text=Tengo una duda sobre /);
+  assert.doesNotMatch(decodeURIComponent(link), /\{producto\}/);
+  // Sin número, no hay enlace (aunque hubiera uno de antes)
+  l = await guardar({ whatsappDudas: { numero: '', mensaje: 'x' }, whatsappDudasUrl: 'https://wa.me/34611111111' });
+  assert.equal(l.whatsappDudasUrl, '');
+  // Los de antes (solo enlace) se convierten a número y mensaje
+  l = await guardar({ whatsappDudasUrl: 'https://wa.me/34622222222?text=Hola' });
+  assert.deepEqual(l.whatsappDudas, { numero: '34622222222', mensaje: 'Hola' });
+});

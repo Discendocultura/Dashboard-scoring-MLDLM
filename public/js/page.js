@@ -263,6 +263,27 @@ export function ventaBarraDe(launch, links = {}) {
   return tramos.length ? { color: r.color || '', tramos } : null;
 }
 
+// WhatsApp para dudas: el enlace se genera solo con el número y el mensaje que sale ya escrito al abrirlo.
+// Número: con prefijo de país (34…); un móvil español de 9 cifras sin prefijo se toma como +34.
+export function numeroWhatsApp(v) {
+  let d = String(v ?? '').replace(/[^\d]/g, '').replace(/^00/, '');
+  if (/^[67]\d{8}$/.test(d)) d = `34${d}`;
+  return /^\d{8,15}$/.test(d) ? d : '';
+}
+export function enlaceWhatsApp(numero, mensaje = '') {
+  const n = numeroWhatsApp(numero);
+  if (!n) return '';
+  const m = String(mensaje ?? '').trim();
+  return `https://wa.me/${n}${m ? `?text=${encodeURIComponent(m)}` : ''}`;
+}
+// De un enlace wa.me de antes, su número y su mensaje (para rellenar el generador).
+export function leerEnlaceWhatsApp(url) {
+  const m = /^https?:\/\/(?:wa\.me|api\.whatsapp\.com\/send)\/?(\d*)\/?(?:\?(.*))?$/i.exec(String(url || '').trim());
+  if (!m) return { numero: '', mensaje: '' };
+  const q = new URLSearchParams(m[2] || '');
+  return { numero: m[1] || q.get('phone') || '', mensaje: q.get('text') || '' };
+}
+
 // Página de pago (donde se elige pago único o fraccionado): el copy de cada cajetín y su barra por tramos.
 export const CAJAS_PAGO = [
   { id: 'unico', dom: 'unico', link: 'pago', titulo: 'Pago único', boton: 'Quiero entrar en un solo pago' },

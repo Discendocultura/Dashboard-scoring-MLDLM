@@ -4,7 +4,7 @@ import {
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
-import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch, CAJAS_PAGO } from './page.js';
+import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch, CAJAS_PAGO, numeroWhatsApp, enlaceWhatsApp, leerEnlaceWhatsApp } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
 import { rendimientoEquipo } from './rendimiento.js';
@@ -2662,16 +2662,18 @@ function pintarEnlaceDirecto() {
 }
 $('#cfg-recursos-url').addEventListener('input', pintarEnlaceDirecto);
 
-// WhatsApp para dudas: comprueba el enlace y recuerda dónde se usa.
+// WhatsApp para dudas: con el número y el mensaje se genera el enlace de todos los botones de WhatsApp.
 function pintarWaDudas() {
-  const v = $('#cfg-wa-dudas').value.trim();
-  $('#cfg-wa-dudas-nota').innerHTML = !v
-    ? 'Ej.: <code>https://wa.me/34600000000</code> (el número con prefijo, sin «+» ni espacios). Opcional: <code>?text=Hola, tengo una duda sobre Raíces</code> para que el mensaje salga ya escrito. Vacío = el botón de WhatsApp no se ve.'
-    : /^https:\/\/(wa\.me|api\.whatsapp\.com|wa\.link)\//i.test(v)
-      ? '✓ Los botones <code>data-lsd-link="whatsapp-dudas"</code> de las páginas de venta y de replay (el flotante y el de la sección) abrirán esta conversación. Los códigos están en «Códigos».'
-      : '⚠️ No parece un enlace de WhatsApp. Usa uno del tipo <code>https://wa.me/34600000000</code>.';
+  const crudo = $('#cfg-wa-numero').value.trim();
+  const num = numeroWhatsApp(crudo);
+  const producto = nombreProducto(state.config) || 'el programa';
+  const url = enlaceWhatsApp(num, $('#cfg-wa-mensaje').value.replace(/\{producto\}/g, producto));
+  $('#cfg-wa-dudas-nota').innerHTML = !crudo
+    ? 'Pon el número y el mensaje: el enlace se genera solo y se pone en todos los botones de WhatsApp (<code>data-lsd-link="whatsapp-dudas"</code>). Vacío = esos botones no se ven.'
+    : !num ? '⚠️ El número no es válido: ponlo con el prefijo del país (34 para España), sin «+». Ej.: 34 600 000 000.'
+    : `<strong>Enlace generado</strong> (+${esc(num)}):<div class="copy-row"><code>${esc(url)}</code><button type="button" class="btn" data-copy-text="${esc(url)}">Copiar</button><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Probar ↗</a></div>Ya está puesto en los botones de WhatsApp de las páginas de venta, de pago y de replay (el flotante y el de la sección).`;
 }
-$('#cfg-wa-dudas').addEventListener('input', pintarWaDudas);
+['#cfg-wa-numero', '#cfg-wa-mensaje'].forEach((sel) => $(sel).addEventListener('input', pintarWaDudas));
 
 // Páginas de venta y de replay: qué código va en GHL (y dónde) y el enlace con ?cid para los emails.
 const filaCopiar = (etq, txt, nota) => `<div class="enlace-directo-fila"><span class="enlace-directo-etq">${etq}</span><code${txt.includes('\n') ? ' class="multi"' : ''}>${esc(txt)}</code><button type="button" class="btn primary" data-copy-text="${esc(txt)}">Copiar</button><small>${nota}</small></div>`;
@@ -2866,7 +2868,7 @@ function openConfig(code) {
       // La barra fija del replay se hereda sin su fecha (cada lanzamiento tiene la suya).
       ...(last.replayBarra ? { replayBarra: { ...last.replayBarra, at: '' } } : {}),
       diasCarrito: last.diasCarrito,
-      whatsappDudasUrl: last.whatsappDudasUrl,
+      whatsappDudas: last.whatsappDudas, whatsappDudasUrl: last.whatsappDudasUrl,
       paginaPagoUrl: last.paginaPagoUrl,
       // La página de pago se hereda con su copy; su barra, sin fechas.
       ...(last.paginaPago ? { paginaPago: { ...last.paginaPago, barra: { ...(last.paginaPago.barra || {}), tramos: (last.paginaPago.barra?.tramos || []).map((t) => ({ ...t, hasta: '' })) } } } : {}),
@@ -2918,7 +2920,9 @@ function openConfig(code) {
   $('#cfg-zoom-url').value = l.zoomJoinUrl || '';
   $('#cfg-replay').value = l.replayUrl || '';
   $('#cfg-raices').value = l.raicesUrl || '';
-  $('#cfg-wa-dudas').value = l.whatsappDudasUrl || '';
+  const wa = l.whatsappDudas?.numero ? l.whatsappDudas : leerEnlaceWhatsApp(l.whatsappDudasUrl);
+  $('#cfg-wa-numero').value = wa.numero || '';
+  $('#cfg-wa-mensaje').value = wa.mensaje || '';
   pintarWaDudas();
   $('#cfg-venta').value = l.ventaUrl || '';
   $('#cfg-pagina-pago').value = l.paginaPagoUrl || '';
@@ -3349,7 +3353,7 @@ function readForm() {
       videos: readVideosCfg(),
       replayUrl: $('#cfg-replay').value.trim(),
       raicesUrl: $('#cfg-raices').value.trim(),
-      whatsappDudasUrl: $('#cfg-wa-dudas').value.trim(),
+      whatsappDudas: { numero: $('#cfg-wa-numero').value.trim(), mensaje: $('#cfg-wa-mensaje').value.trim() },
       ventaUrl: $('#cfg-venta').value.trim(),
       paginaPagoUrl: $('#cfg-pagina-pago').value.trim(),
       ventaFraccionadoUrl: $('#cfg-venta-fraccionado').value.trim(),

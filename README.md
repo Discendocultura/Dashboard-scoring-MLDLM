@@ -619,7 +619,7 @@ La página donde se elige pago único o fraccionado. Aquí está todo lo del pag
 
 ### 💬 WhatsApp para dudas (páginas de venta y de replay)
 
-En *Configuración → Páginas → Venta y seguimiento → WhatsApp para resolver dudas* (junto al enlace de la llamada) va el enlace que abre la conversación (`https://wa.me/34600000000?text=…`). Lo usan los botones `<a data-lsd-link="whatsapp-dudas">` de las páginas de venta y de replay (se abren en otra pestaña; sin enlace, se ocultan). En *Códigos* está el **botón flotante** (abajo a la derecha, fijo al hacer scroll; en móvil solo el icono), también en `bloques-ghl/whatsapp-flotante.html`. En la página de venta, el bloque VENTA pone además los enlaces de `pago`, `pago-fraccionado` y `llamada` con el ID de la lead.
+En *Configuración → Páginas → Venta y seguimiento → WhatsApp para resolver dudas* (junto al enlace de la llamada) se pone **el número** (con prefijo; un móvil español sin prefijo se toma como +34) y **el mensaje que sale ya escrito** (`{producto}` = nombre del producto): el enlace `https://wa.me/…?text=…` se genera solo (con «Copiar» y «Probar»). Lo usan los botones `<a data-lsd-link="whatsapp-dudas">` de las páginas de venta y de replay (se abren en otra pestaña; sin enlace, se ocultan). En *Códigos* está el **botón flotante** (abajo a la derecha, fijo al hacer scroll; en móvil solo el icono), también en `bloques-ghl/whatsapp-flotante.html`. En la página de venta, el bloque VENTA pone además los enlaces de `pago`, `pago-fraccionado` y `llamada` con el ID de la lead.
 
 ### Barra fija de la página de venta
 

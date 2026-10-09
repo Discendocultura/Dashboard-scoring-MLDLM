@@ -11,7 +11,7 @@ import { verifyToken, signToken, requireRole } from '../lib/auth.js';
 import { marcarActividad } from '../lib/actividad.js';
 import { json, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { signalsFor, withContactId, tagFor } from '../public/js/scoring.js';
-import { phaseAt, barFor, replayBarraDe, ventaBarraDe, textosPago, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
+import { phaseAt, barFor, replayBarraDe, ventaBarraDe, textosPago, enlaceWhatsApp, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
 import { videosDe, conVip, nClases, esEnDirecto, sigReplay } from '../public/js/videos.js';
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
@@ -64,7 +64,7 @@ export async function GET(request, ctx) {
       ...Object.fromEntries(planesActivos(launch).map((p) => [`plan-${p.id}`, withContactId(p.url, cid)])),
       llamada: launch.llamadaUrl || '',
       // WhatsApp para resolver dudas (páginas de venta y de replay): tal cual, sin el ID de la lead.
-      'whatsapp-dudas': launch.whatsappDudasUrl || '',
+      'whatsapp-dudas': launch.whatsappDudas?.numero ? enlaceWhatsApp(launch.whatsappDudas.numero, String(launch.whatsappDudas.mensaje || '').replaceAll('{producto}', nombreProducto(config))) : launch.whatsappDudasUrl || '',
       recursos: launch.recursosUrl || '',
       // Añadir al calendario: el enlace configurado o, si no hay, uno de Google Calendar generado solo.
       calendario: launch.calendarioUrl || googleCalendarUrl({

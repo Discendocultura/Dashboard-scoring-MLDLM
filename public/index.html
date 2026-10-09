@@ -1120,8 +1120,14 @@
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📞</span><div><h3>Venta y seguimiento</h3><p>Llamada y WhatsApp para resolver dudas: los botones de las páginas de venta, de pago y de replay y los mensajes de WhatsApp después del directo.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Enlace para reservar llamada</span><input id="cfg-llamada" type="url"></label>
-              <label class="field"><span>WhatsApp para resolver dudas <small>(abre la conversación; va en el botón de WhatsApp de las páginas de venta y de replay)</small></span><input id="cfg-wa-dudas" type="url" placeholder="https://wa.me/34600000000?text=Hola%2C%20tengo%20una%20duda%20sobre%20Ra%C3%ADces"></label>
-              <p class="field-note full" id="cfg-wa-dudas-nota"></p>
+              <fieldset class="rb-cfg full wa-gen">
+                <legend>💬 WhatsApp para resolver dudas <small class="muted">(el enlace de los botones de WhatsApp de las páginas de venta, de pago y de replay se genera solo)</small></legend>
+                <div class="grid2">
+                  <label class="field"><span>1 · Número al que escribirán <small>(con prefijo de país; ej. 34 600 000 000)</small></span><input id="cfg-wa-numero" type="tel" inputmode="tel" autocomplete="off" placeholder="34 600 000 000"></label>
+                  <label class="field full"><span>2 · Mensaje que sale ya escrito al abrirlo <small>({producto} = el nombre del producto)</small></span><textarea id="cfg-wa-mensaje" rows="2" maxlength="500" placeholder="Hola 👋 Tengo una duda sobre {producto}:"></textarea></label>
+                </div>
+                <div id="cfg-wa-dudas-nota" class="field-note"></div>
+              </fieldset>
             </div>
           </section>
           <section class="cfg-sec" data-sec="4">
