@@ -814,11 +814,18 @@
   // exacta entra directa a su enlace de Zoom: cientos a la vez no cuestan ni una llamada a GHL ni a Zoom.
   var kDe = function (key) { return key === 'directo' ? 1 : Number(String(key).replace('directo', '')) || 1; };
   var claveZoom = function (code, key) { return 'lsd_zoom_' + code + '_' + kDe(key); };
+  // Enlace de Zoom guardado en este navegador para esa lead y esa reunión (si se cambió la reunión, no vale).
+  function zoomGuardado(data, key, who) {
+    var z = store(claveZoom(data.code, key));
+    if (!z || !z.url || !who || z.cid !== who.cid) return null;
+    var id = (data.zoom || {})[key];
+    var m = /\/w\/(\d+)/.exec(z.url);
+    return !id || !m || m[1] === id ? z.url : null;
+  }
   function prepararZoom(data, esp, who) {
     if (params.get('lsd_preview') || !who || !who.cid) return;
     var clave = claveZoom(data.code, esp.key);
-    var z = store(clave);
-    if (z && z.url && z.cid === who.cid) return;
+    if (zoomGuardado(data, esp.key, who)) return;
     var queda = esp.at - serverNow();
     var margen = queda - 90000;
     var espera = margen > 0 ? Math.random() * Math.min(margen, 600000) : Math.random() * Math.max(0, Math.min(20000, queda - 5000));
@@ -830,14 +837,35 @@
     };
     setTimeout(function () { intentar(0); }, espera);
   }
+  // Inscripción en Zoom por adelantado: la primera vez que entra en la preclase (cualquier día antes del
+  // directo) se la inscribe por detrás en el próximo directo y se guarda su enlace. Así, a la hora del directo,
+  // entra al instante y la carga se reparte en la semana. Como mucho un intento cada 6 h por dispositivo; la
+  // pantalla de espera y el clic siguen de respaldo.
+  function inscribirPorAdelantado(data, who) {
+    if (params.get('lsd_preview') || !who || !who.cid || !data.directos) return;
+    var ahora = serverNow();
+    var key = Object.keys(data.directos).filter(function (k) { return data.directos[k] > ahora && data.links[k]; })
+      .sort(function (a, b) { return data.directos[a] - data.directos[b]; })[0];
+    if (!key) return;
+    var clave = claveZoom(data.code, key);
+    if (zoomGuardado(data, key, who)) return;
+    var intento = store(clave + '_intento');
+    if (intento && intento.cid === who.cid && ahora - intento.t < 6 * 3600000) return;
+    store(clave + '_intento', { cid: who.cid, t: ahora });
+    setTimeout(function () {
+      post('/api/directo-zoom', { op: 'prep', launch: data.code, k: kDe(key), cid: who.cid }).then(function (r) {
+        if (r && r.joinUrl) store(clave, { cid: who.cid, url: r.joinUrl });
+      }).catch(function () { /* se reintentará en otra visita o en la pantalla de espera */ });
+    }, 2000 + Math.random() * 8000);
+  }
   // Al directo: con su enlace de Zoom ya guardado, directa (y se apunta que entró); si no, por /directo.
   function irAlDirecto(data, key, who) {
-    var z = store(claveZoom(data.code, key));
-    if (!params.get('lsd_preview') && who && who.cid && z && z.url && z.cid === who.cid && /^https:\/\/([a-z0-9-]+\.)*zoom\.us\//i.test(z.url)) {
+    var url = zoomGuardado(data, key, who);
+    if (!params.get('lsd_preview') && who && who.cid && url && /^https:\/\/([a-z0-9-]+\.)*zoom\.us\//i.test(url)) {
       if (redirigido) return;
       redirigido = true;
       post('/api/directo-zoom', { op: 'click', launch: data.code, k: kDe(key), cid: who.cid });
-      location.replace(z.url);
+      location.replace(url);
       return;
     }
     goTo(data.links[key], who);
@@ -997,7 +1025,7 @@
         if (kind === 'grabacion') barraReplay(data, who);
         // Los 59 minutos antes del directo, la preclase se convierte en la pantalla de espera.
         var esp = kind === 'recursos' ? esperaDirecto(data) : null;
-        if (esp && serverNow() >= esp.desde) mostrarEspera(data, esp, who); else quitarEspera();
+        if (esp && serverNow() >= esp.desde) mostrarEspera(data, esp, who); else { quitarEspera(); if (kind === 'recursos') inscribirPorAdelantado(data, who); }
         // Próximo cambio: fase o desbloqueo de vídeo (o el momento de enseñar la pantalla de espera).
         var rec = data.recursos || {};
         var next = [data.changesAt, esp && esp.desde].concat(Object.keys(data.videos).map(function (k) { return data.videos[k].unlockAt; }), Object.keys(rec).map(function (k) { return rec[k] && rec[k].unlockAt; }))

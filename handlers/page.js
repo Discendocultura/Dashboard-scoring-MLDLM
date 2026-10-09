@@ -104,7 +104,9 @@ export async function GET(request, ctx) {
     // (entran cientos a la vez y GHL admite ~100 peticiones cada 10 s).
     const destino = redirectFor(launch, phase.id);
     if (url.searchParams.get('pagina') === 'recursos' && !preview && /^directo\d?$/.test(destino) && links[destino]) {
-      return json({ code, name: launch.name, now, preview, phase: phase.id, redirectTo: destino, links: { [destino]: links[destino] } }, 200, CORS_HEADERS);
+      const v = vids[(Number(destino.slice(7)) || 1) - 1];
+      const zoom = v?.zoomMeetingId ? { [destino]: String(v.zoomMeetingId).replace(/\D/g, '') } : {};
+      return json({ code, name: launch.name, now, preview, phase: phase.id, redirectTo: destino, links: { [destino]: links[destino] }, zoom }, 200, CORS_HEADERS);
     }
 
     let contact = null;
@@ -185,6 +187,8 @@ export async function GET(request, ctx) {
       etapas,
       // Inicio de cada vídeo del lanzamiento (cuentas atrás data-lsd-countdown="directo2"…).
       directos: Object.fromEntries(m.videos.map((v) => [v.k === 1 ? 'directo' : `directo${v.k}`, v.inicio])),
+      // Reunión de Zoom de cada directo: el navegador descarta un enlace guardado de una reunión anterior.
+      zoom: Object.fromEntries(vids.filter((v) => v.zoomMeetingId && (v.k === 1 || esEnDirecto(v))).map((v) => [v.k === 1 ? 'directo' : `directo${v.k}`, String(v.zoomMeetingId).replace(/\D/g, '')])),
       vip: { open: vipOpen, closesAt: m.directo, isVip, precio: launch.precioVip || 0, contador: vipContador },
       texts: {
         ...(launch.textos || {}),

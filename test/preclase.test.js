@@ -178,9 +178,20 @@ test('directo sin atascos: inscripción mientras espera, entrada directa y precl
   };
   void cur;
   const zoomOp = (body) => call('/api/directo-zoom', { method: 'POST', body: { launch: 'dir-26', k: 1, ...body } });
-  // Faltan 3 horas: todavía no se inscribe a nadie.
-  await guardar(180);
+  // Faltan 40 días: todavía no se inscribe a nadie.
+  await guardar(40 * 24 * 60);
   assert.equal((await zoomOp({ op: 'prep', cid: 'mock00031' })).data.motivo, 'fuera de hora');
+  // Faltan 5 días (entra en la preclase durante la semana): ya se la inscribe por adelantado…
+  await guardar(5 * 24 * 60);
+  assert.match((await zoomOp({ op: 'prep', cid: 'mock00033' })).data.joinUrl, /^https:\/\/zoom\.us\/w\/81234567890/);
+  // …pero «espera» y «clic» solo cuentan en la hora del directo.
+  assert.equal((await zoomOp({ op: 'espera', cid: 'mock00033' })).data.motivo, 'fuera de hora');
+  assert.equal((await zoomOp({ op: 'click', cid: 'mock00033' })).data.motivo, 'fuera de hora');
+  // Si se cambia la reunión de Zoom, el enlace guardado ya no vale: se la reinscribe en la nueva.
+  const { deLaReunion } = await import('../handlers/directo-zoom.js');
+  assert.equal(deLaReunion('https://us06web.zoom.us/w/81234567890?tk=x', '812 3456 7890'), true);
+  assert.equal(deLaReunion('https://us06web.zoom.us/w/81234567890?tk=x', '89999999999'), false);
+  assert.equal(deLaReunion('https://zoom.us/j/raro', '89999999999'), true);
   // Faltan 30 min (pantalla de espera): se inscribe y devuelve su enlace personal; la segunda vez, el mismo.
   await guardar(30);
   const r = (await zoomOp({ op: 'prep', cid: 'mock00031' })).data;
@@ -197,6 +208,7 @@ test('directo sin atascos: inscripción mientras espera, entrada directa y precl
   assert.equal(p.redirectTo, 'directo');
   assert.match(p.links.directo, /\/directo\?l=dir-26&cid=mock00032$/);
   assert.equal(p.recursos, undefined);
+  assert.deepEqual(p.zoom, { directo: '81234567890' }); // para descartar un enlace guardado de otra reunión
   // Sin «pagina=recursos» (otras páginas) sigue la respuesta completa.
   assert.ok((await call('/api/page?l=dir-26&cid=mock00032')).data.recursos);
 });

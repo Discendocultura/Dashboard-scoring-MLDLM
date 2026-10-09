@@ -2212,7 +2212,7 @@ function pintarEnDirecto(d) {
   const grupo = (titulo, extra, stats) => `<section class="card ed-card"><h3 class="ed-card-t">${titulo}${extra ? ` <span class="ed-pill">${esc(extra)}</span>` : ''}</h3><div class="ed-stats">${stats.join('')}</div></section>`;
   $('#ed-kpis').innerHTML = grupo('El directo', '', [
     stat('Pantalla de espera', num(d.esperando), 'la abrieron en la hora antes', 'eye', 'info'),
-    stat('Inscritas en Zoom', num(d.inscritas), 'antes de la hora: entran con un clic', 'check', 'accent'),
+    stat('Inscritas en Zoom', num(d.inscritas), 'desde la preclase (en la semana) o la espera: entran al instante', 'check', 'accent'),
     stat('Entraron al directo', num(d.entraron), d.esperando ? `${pct(d.entraron, d.esperando)} de las que esperaban` : 'desde la preclase o el enlace del directo', 'live', 'live'),
     stat('Asistencia', d.leads ? pct(d.entraron, d.leads) : '–', d.leads ? `${num(d.entraron)} de ${num(d.leads)} leads registradas` : d.leads === 0 ? 'todavía no hay leads registradas' : 'sobre el total de leads (de GHL)', 'users', 'accent'),
   ]) + grupo('Ventas', carrito, [

@@ -654,3 +654,6 @@ En *Configuración → Páginas → Página de replay → Barra fija con cuenta 
 
 Al cambiar o regenerar la contraseña de una persona se cierran sus sesiones abiertas en otros dispositivos (quien cambia la suya sigue dentro). Desactivar a alguien le quita el acceso al momento.
 
+### 🎥 Inscripción en Zoom por adelantado
+
+La primera vez que una lead entra en la preclase (cualquier día antes del directo, hasta 30 días antes) se la inscribe por detrás en Zoom en el próximo directo y su enlace personal se guarda (en su navegador y en D1). A la hora del directo, al llegar a cero la pantalla de espera la lleva a Zoom al instante, sin esperar a Zoom ni a GHL; y las inscripciones se reparten en la semana en vez de concentrarse en la última hora. Como mucho un intento cada 6 h por dispositivo; la pantalla de espera y el clic siguen de respaldo. Si se cambia la reunión de Zoom, los enlaces de la reunión anterior se descartan y se reinscribe. Hace falta tener la reunión de Zoom configurada desde que abre la preclase, y conviene desactivar en Zoom el email de confirmación de registro.
