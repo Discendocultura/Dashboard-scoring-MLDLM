@@ -1026,14 +1026,24 @@
     el.setAttribute('data-lsd-ready', '1');
     var attr = params.get('l') || el.getAttribute('data-launch') || 'auto';
     var ready = attr === 'auto' || !el.getAttribute('data-redirect')
-      ? fetchPage(attr, null).then(function (d) { return { code: d.code, redirect: el.getAttribute('data-redirect') || d.links.recursos }; })
+      ? fetchPage(attr, null).then(function (d) { return { code: d.code, redirect: el.getAttribute('data-redirect') || (d.links && d.links.recursos), error: d.error }; })
       : Promise.resolve({ code: attr, redirect: el.getAttribute('data-redirect') });
     ready.catch(function () { return { code: attr, redirect: el.getAttribute('data-redirect') }; }).then(function (cfg) {
+      // Sin página a la que ir (no hay lanzamiento en curso o le falta la URL de la página preclase en el
+      // dashboard), se avisa en vez de «redirigir» a la misma página.
+      var sinDestino = function () {
+        if (window.console) console.warn('[lsd] login sin página de destino: pon la «URL de la página preclase» del lanzamiento en curso (Configuración → Preclase) o data-redirect="https://…" en el bloque.', cfg);
+        var e = el.querySelector('.lsd-err');
+        if (!e) { e = document.createElement('p'); e.className = 'lsd-err'; el.appendChild(e); }
+        e.textContent = 'Ya tienes acceso, pero ahora mismo no podemos llevarte a las clases. Inténtalo de nuevo en unos minutos.';
+        e.hidden = false;
+      };
+      var ir = function (who) { if (!cfg.redirect) return sinDestino(); goTo(cfg.redirect, who); };
       var cid = params.get('cid');
-      if (cid && !/^\{\{/.test(cid)) { store(STORE, { cid: cid }); return goTo(cfg.redirect, { cid: cid }); } // viene de un email de GHL
+      if (cid && !/^\{\{/.test(cid) && cfg.redirect) { store(STORE, { cid: cid }); return goTo(cfg.redirect, { cid: cid }); } // viene de un email de GHL
       var stored = store(STORE) || {};
       var preset = params.get('email') || '';
-      gate(el, cfg.code, function (who) { goTo(cfg.redirect, who); }, preset || '', {
+      gate(el, cfg.code, ir, preset || '', {
         login: true,
         title: el.getAttribute('data-title') || 'Accede a las clases con el email con el que te registraste',
         button: el.getAttribute('data-button') || 'Acceder',
