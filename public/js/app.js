@@ -2359,6 +2359,9 @@ const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos',
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
 // Comparar) y «Planificación» (Calendario, Tareas y Rendimiento del equipo).
+// Leyenda de la tabla de Leads: los estados con sus puntos (salen de ESTADOS, así no se desfasan).
+$('#leyenda-estados').innerHTML = ESTADOS.map((e, i) => `<li><span class="estado st-${e.id}"><span class="dot"></span>${e.label}</span> ${i === 0 ? `${e.min} puntos o más` : `de ${e.min} a ${ESTADOS[i - 1].min - 1} puntos`}</li>`).join('');
+
 // Ayuda de la primera visita a cada pestaña: qué hay y para qué sirve. Se cierra con «Entendido» y se
 // recuerda por usuario (Cuenta → «Volver a ver las ayudas» las enseña otra vez).
 const AYUDA_VISTA = {

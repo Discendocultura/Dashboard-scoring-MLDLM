@@ -678,6 +678,29 @@
           <button id="btn-csv" class="btn" type="button">Exportar CSV</button>
         </div>
 
+        <details class="card leads-leyenda" id="leads-leyenda">
+          <summary>Cómo leer la tabla: estados, puntos y etiquetas</summary>
+          <div class="leyenda-grid">
+            <div><h4>Estado (según los puntos, de 0 a 100)</h4><ul id="leyenda-estados"></ul>
+              <p class="muted small">Los puntos suman lo que ha hecho cada lead: clases vistas, VIP, directo, grabación, encuesta, visitas a la página de venta, inicio del pago… Cuanto más alto, más cerca de comprar.</p></div>
+            <div><h4>Clases y grabación</h4><ul>
+              <li><span class="chip on">Completo</span> la vio entera (90 % o más)</li>
+              <li><span class="chip half">50%</span> lo que ha visto del vídeo</li>
+              <li><span class="chip">—</span> no la ha visto</li></ul></div>
+            <div><h4>Directo</h4><ul>
+              <li><span class="chip on">Hasta el final</span> se quedó hasta el final</li>
+              <li><span class="chip on">+60 min</span> estuvo más de una hora</li>
+              <li><span class="chip half">Asistió</span> entró al directo</li>
+              <li><span class="chip half">Clic</span> pulsó el enlace del directo (aún sin constar que entrara)</li></ul></div>
+            <div><h4>VIP y compra</h4><ul>
+              <li><span class="chip on">VIP</span> compró la entrada VIP de este lanzamiento</li>
+              <li><span class="chip">VIP anterior</span> la compró en un lanzamiento anterior</li>
+              <li><span class="chip on">En directo</span> compró el día del directo de venta</li>
+              <li><span class="chip on">Compró</span> compró el programa en este lanzamiento</li>
+              <li><span class="chip">Clienta anterior</span> ya era clienta de antes</li></ul></div>
+          </div>
+        </details>
+
         <div class="table-wrap">
           <table class="leads">
             <thead>
