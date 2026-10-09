@@ -5,10 +5,28 @@ import { madridToEpoch, formatTime, formatDate, milestones } from './page.js';
 import { momentosCarrito, ventanaBonus, tipoBonus, objetivoBonus, textoGarantia } from './oferta.js';
 import { dayInMadrid } from './scoring.js';
 import { addDays } from './tareas.js';
+import { videosDe } from './videos.js';
 
 const MAX_DIAS = 31;
 const dia = (ms) => dayInMadrid(new Date(ms).toISOString());
 const hora = (ms) => formatTime(ms);
+
+// Días de carrito (Configuración → Lanzamiento): empiezan a contar el día siguiente al vídeo de venta (el
+// webinar, o el último vídeo en los de varios vídeos). Venta el lunes + 4 días → del martes al viernes, y el
+// carrito cierra el viernes a las 23:59.
+export const MAX_DIAS_CARRITO = 30;
+export const diasCarritoValido = (v) => {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n >= 1 ? Math.min(n, MAX_DIAS_CARRITO) : null;
+};
+export const fechaVenta = (launch = {}) => videosDe(launch).at(-1)?.fecha || launch.fechaDirecto || '';
+export function cierrePorDias(launch = {}) {
+  const n = diasCarritoValido(launch.diasCarrito);
+  const fv = fechaVenta(launch);
+  return n && /^\d{4}-\d{2}-\d{2}$/.test(fv) ? `${addDays(fv, n)}T23:59` : '';
+}
+// Días entre dos fechas YYYY-MM-DD (b − a).
+const entre = (a, b) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86_400_000);
 
 // Notas a mano por día: solo días válidos y texto corto.
 export function sanitizeCarritoNotas(n) {
@@ -20,21 +38,23 @@ export function sanitizeCarritoNotas(n) {
   return out;
 }
 
-// { faltan: [qué falta configurar], garantia, dias: [{ day, n, etiqueta, fecha, auto: [{ icon, texto }], nota }] }
+// { faltan: [qué falta configurar], garantia, dias: [{ day, n, titulo, etiqueta, fecha, auto: [{ icon, texto }], nota }] }
 export function diasCarrito(launch = {}) {
   const M = momentosCarrito(launch);
   const cierre = madridToEpoch(launch.cierreCarrito);
   const faltan = [];
   if (M.apertura == null) faltan.push('la apertura del carrito (o la fecha y hora del directo)');
-  if (cierre == null) faltan.push('el cierre del carrito');
+  if (cierre == null) faltan.push('los días de carrito (o el cierre del carrito)');
   if (faltan.length || cierre <= M.apertura) {
     return { faltan: faltan.length ? faltan : ['un cierre del carrito posterior a la apertura'], garantia: textoGarantia(launch.oferta?.garantia), dias: [] };
   }
   const desde = dia(M.apertura);
   const hasta = dia(cierre);
+  // Día 1 = el día siguiente al vídeo de venta (el día del directo es el «día 0», con la apertura).
+  const fv = fechaVenta(launch);
   const dias = [];
   for (let d = desde, i = 0; d <= hasta && i < MAX_DIAS; d = addDays(d, 1), i++) {
-    dias.push({ day: d, n: i + 1, fecha: formatDate(madridToEpoch(`${d}T12:00`)), auto: [], nota: launch.carritoNotas?.[d] || '' });
+    dias.push({ day: d, n: fv ? entre(fv, d) : i + 1, fecha: formatDate(madridToEpoch(`${d}T12:00`)), auto: [], nota: launch.carritoNotas?.[d] || '' });
   }
   const en = (ms) => dias.find((x) => x.day === dia(ms));
   const add = (ms, icon, texto, orden = ms) => { const x = ms != null && en(ms); if (x) x.auto.push({ icon, texto, orden }); };
@@ -72,7 +92,8 @@ export function diasCarrito(launch = {}) {
   add(cierre, '🔒', `Cierre del carrito (${hora(cierre)})`);
   for (const x of dias) {
     x.auto.sort((a, b) => a.orden - b.orden);
-    x.etiqueta = x.n === 1 ? 'Apertura' : x.day === hasta ? 'Último día' : x.day === addDays(hasta, -1) ? 'Penúltimo día' : '';
+    x.titulo = x.n > 0 ? `Día ${x.n}` : x.n === 0 ? 'Día del directo' : 'Antes del directo';
+    x.etiqueta = x.day === hasta ? 'Último día' : x.day === desde ? 'Apertura' : x.day === addDays(hasta, -1) ? 'Penúltimo día' : '';
   }
   return { faltan: [], garantia: textoGarantia(launch.oferta?.garantia), dias };
 }

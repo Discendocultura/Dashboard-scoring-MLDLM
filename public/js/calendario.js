@@ -4,6 +4,7 @@ import { madridToEpoch } from './page.js';
 import { addDays } from './tareas.js';
 import { videosDe, esEnDirecto, nClases } from './videos.js';
 import { ventanaBonus, tipoBonus, momentosCarrito } from './oferta.js';
+import { diasCarrito } from './carrito.js';
 
 // Tipos de evento propio (los añade la admin a mano).
 export const EVENTO_TIPOS = [
@@ -42,7 +43,17 @@ export function hitosLanzamiento(launch = {}) {
     { id: 'cierre', titulo: 'Cierre del carrito', icon: '🔒', at: launch.cierreCarrito },
   ];
   return [...list.filter((h) => /^\d{4}-\d{2}-\d{2}/.test(h.at || '')).map((h) => ({ ...h, day: day(h.at), time: time(h.at) })),
-    ...hitosBonus((launch.oferta?.bonus || []).map((b) => ({ ...b, ...ventanaBonus(b, launch) })), momentosCarrito(launch).cierre)];
+    ...hitosBonus((launch.oferta?.bonus || []).map((b) => ({ ...b, ...ventanaBonus(b, launch) })), momentosCarrito(launch).cierre),
+    ...hitosEstrategia(launch)];
+}
+
+// Estrategia de cada día del carrito (pestaña Carrito): su hito principal (la primera línea) en el calendario.
+function hitosEstrategia(launch) {
+  if (!launch.carritoNotas || !Object.keys(launch.carritoNotas).length) return [];
+  return diasCarrito(launch).dias.filter((d) => d.nota).map((d) => ({
+    id: `carrito-${d.day}`, icon: '🎯', titulo: `${d.n > 0 ? `Día ${d.n} de carrito` : d.titulo}: ${d.nota.split('\n')[0].trim().slice(0, 120)}`,
+    at: d.day, day: d.day, time: '',
+  }));
 }
 
 // Último día de cada bonus de la oferta (lanzamientos y meteóricos): un hito el día en que acaba, para que

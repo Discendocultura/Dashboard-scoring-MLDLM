@@ -619,7 +619,9 @@ En *Configuración → Páginas → Página de venta → Barra fija con cuenta a
 
 ### 🛒 Pestaña Carrito (Configuración)
 
-Un día por cada día del carrito, de la apertura al cierre de *Lanzamiento*. Cada día trae sus **hitos clave** automáticos (apertura, directo de venta, grabación, bonus activos, último día de cada bonus con su objetivo, mensaje de la barra de la página de venta que empieza ese día y cierre) y una casilla para escribir a mano la **estrategia** de ese día. Sin fechas, avisa de que se rellenará sola al configurar el carrito y la oferta.
+**Días de carrito** (*Lanzamiento → Fechas*): empiezan a contar el día siguiente al vídeo de venta (el webinar, o el último vídeo en PLF). Venta el lunes + 4 días → día 1 el martes, último día el viernes, y el cierre se calcula solo (viernes 23:59; la casilla del cierre queda bloqueada). Vacío = el cierre se pone a mano.
+
+Un día por cada día del carrito (el día del directo, con la apertura, y luego día 1, 2…). Cada día trae sus **hitos clave** automáticos (apertura, directo de venta, grabación, bonus activos, último día de cada bonus con su objetivo, mensaje de la barra de la página de venta que empieza ese día y cierre) y una casilla para escribir a mano la **estrategia** de ese día. La primera línea de la estrategia sale en el calendario como hito de ese día («🎯 Día 2 de carrito: …»). Sin fechas, avisa de que se rellenará sola al configurar el carrito y la oferta.
 
 ### Fin de los bonus en el calendario
 

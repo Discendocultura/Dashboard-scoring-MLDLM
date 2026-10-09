@@ -4,7 +4,7 @@ import {
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
-import { LINK_KEYS, phaseAt, barFor, formatLong, phasesFor, madridToEpoch } from './page.js';
+import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
 import { rendimientoEquipo } from './rendimiento.js';
@@ -17,7 +17,7 @@ import { alertasCarrito } from './alertas.js';
 import { BLOQUES, pesosDe, proponerPesos, pesosEfectivos } from './pesos.js';
 import { tieneRecurso, recursosDe, sanitizeRecursos, etapasPreclase, TIPOS_RECURSO, RECURSOS_EXTRA } from './recursos.js';
 import { retrospectiva } from './retrospectiva.js';
-import { diasCarrito } from './carrito.js';
+import { diasCarrito, cierrePorDias, diasCarritoValido } from './carrito.js';
 import { leerLeads, guardarLeads, borrarCopias } from './cache-leads.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
@@ -2820,6 +2820,7 @@ function openConfig(code) {
       espera: { activa: embudoInfo(state.embudo)?.espera !== false, video: last.espera?.video || '' },
       // La barra fija del replay se hereda sin su fecha (cada lanzamiento tiene la suya).
       ...(last.replayBarra ? { replayBarra: { ...last.replayBarra, at: '' } } : {}),
+      diasCarrito: last.diasCarrito,
       // La barra de la página de venta se hereda con sus textos y botones, sin fechas.
       ...(last.ventaBarra?.tramos?.length ? { ventaBarra: { ...last.ventaBarra, tramos: last.ventaBarra.tramos.map((t) => ({ ...t, hasta: '' })) } } : {}),
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
@@ -2856,6 +2857,8 @@ function openConfig(code) {
   $('#cfg-gracias-video').value = l.graciasVideoUrl || '';
   $('#cfg-gracias-url').value = l.graciasUrl || '';
   $('#cfg-cierre').value = l.cierreCarrito || '';
+  $('#cfg-dias-carrito').value = l.diasCarrito || '';
+  pintarDiasCarrito();
   $('#cfg-calendario-url').value = l.calendarioUrl || '';
   renderBarraEditor(l.barra || {});
   renderEnlacesEditor(l.enlaces || {});
@@ -3282,6 +3285,7 @@ function readForm() {
       graciasVideoUrl: $('#cfg-gracias-video').value.trim(),
       graciasUrl: $('#cfg-gracias-url').value.trim(),
       cierreCarrito: $('#cfg-cierre').value,
+      diasCarrito: diasCarritoValido($('#cfg-dias-carrito').value),
       calendarioUrl: $('#cfg-calendario-url').value.trim(),
       barra: readBarraEditor(),
       enlaces: readEnlacesEditor(),
@@ -8478,6 +8482,25 @@ for (const id of ['#of-entregables', '#of-bonus']) {
 }
 $('.tab[data-tab="oferta"]').addEventListener('click', refrescarOfertaEditor);
 
+// Días de carrito: cuentan desde el día siguiente al vídeo de venta; el cierre se calcula solo (último día, 23:59).
+function pintarDiasCarrito() {
+  const n = diasCarritoValido($('#cfg-dias-carrito').value);
+  const vs = readVideosCfg();
+  const l = { fechaDirecto: $('#cfg-directo-fecha').value, formato: editingCode ? formatoDeLanz(state.config.launches[editingCode]) : embudoInfo(state.embudo)?.formato, videos: vs, diasCarrito: n };
+  const cierre = n ? cierrePorDias(l) : '';
+  const fv = vs.length ? (vs.at(-1).fecha || '') : l.fechaDirecto;
+  const fmt = (d) => formatDate(madridToEpoch(`${d}T12:00`));
+  $('#cfg-cierre').readOnly = Boolean(n);
+  if (n && cierre) $('#cfg-cierre').value = cierre;
+  $('#cfg-cierre-nota').textContent = n ? `(calculado con los ${n} días de carrito)` : '';
+  $('#cfg-dias-carrito-nota').innerHTML = !n ? 'Vacío = el cierre del carrito se pone a mano (pestaña «Preclase»).'
+    : !fv ? `Pon el día del ${vs.length ? 'vídeo de venta' : 'directo'} para calcular los días.`
+    : `Día 1 de carrito: <strong>${esc(fmt(addDays(fv, 1)))}</strong> · último día: <strong>${esc(fmt(addDays(fv, n)))}</strong> (cierra a las 23:59). De aquí salen el cierre, la pestaña «Carrito» y el calendario.`;
+}
+$('#cfg-dias-carrito').addEventListener('input', pintarDiasCarrito);
+$('#cfg-directo-fecha').addEventListener('change', pintarDiasCarrito);
+$('#cfg-videos').addEventListener('change', pintarDiasCarrito);
+
 // ---------- Configuración → Carrito: un día por cada día del carrito, con sus hitos y la estrategia a mano ----------
 // Las notas escritas se guardan aquí mientras se edita (al cambiar fechas u oferta se vuelve a pintar sin perderlas).
 let carritoNotasEdit = {};
@@ -8502,7 +8525,7 @@ function pintarCarrito() {
   const hoy = dayInMadrid(new Date().toISOString());
   box.innerHTML = `<p class="car-resumen"><strong>${r.dias.length} días de carrito</strong>${r.garantia ? ` · 🛡️ ${esc(r.garantia)}` : ''}</p>
     <div class="car-dias">${r.dias.map((d) => `<article class="car-dia${d.day === hoy ? ' car-hoy' : ''}">
-      <header><span class="car-n">Día ${d.n}</span><strong>${esc(d.fecha)}</strong>${d.etiqueta ? `<span class="car-tag">${esc(d.etiqueta)}</span>` : ''}${d.day === hoy ? '<span class="car-tag car-tag-hoy">Hoy</span>' : ''}</header>
+      <header><span class="car-n">${esc(d.titulo)}</span><strong>${esc(d.fecha)}</strong>${d.etiqueta ? `<span class="car-tag">${esc(d.etiqueta)}</span>` : ''}${d.day === hoy ? '<span class="car-tag car-tag-hoy">Hoy</span>' : ''}</header>
       <h4>Hitos clave</h4>
       ${d.auto.length ? `<ul class="car-auto">${d.auto.map((a) => `<li><span aria-hidden="true">${a.icon}</span> ${esc(a.texto)}</li>`).join('')}</ul>` : '<p class="muted small">Sin hitos automáticos este día: se rellenará solo cuando la oferta o la barra de la página de venta tengan algo este día. Escribe abajo la estrategia.</p>'}
       <label class="field"><span>Estrategia / notas del día <small>(a mano)</small></span><textarea class="car-nota" data-day="${d.day}" rows="3" maxlength="1500" placeholder="Ej.: email de testimonios a las 10:00, directo de dudas en Instagram, WhatsApp a las que vieron la página de venta…">${esc(d.nota)}</textarea></label>

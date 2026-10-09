@@ -756,7 +756,7 @@
             </div>
           </section>
           <section class="cfg-sec" data-sec="2">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">2</span><div><h3>Fechas del lanzamiento</h3><p>En hora de España. Las fechas de las clases y del cierre del carrito están en la pestaña «Preclase».</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">2</span><div><h3>Fechas del lanzamiento</h3><p>En hora de España. Las fechas de las clases están en la pestaña «Preclase». Con los <strong>días de carrito</strong>, el cierre se calcula solo.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Inicio de captación <small>(día en que se abren los registros)</small></span>
               <input id="cfg-inicio" type="date"></label>
@@ -768,6 +768,9 @@
               <input id="cfg-fin-captacion" type="date"></label>
               <label class="field"><span>Apertura del carrito de Raíces <small>(opcional; vacío = al empezar el directo)</small></span>
               <input id="cfg-apertura-carrito" type="datetime-local"></label>
+              <label class="field"><span>Días de carrito <small>(empiezan el día siguiente al vídeo de venta)</small></span>
+              <input id="cfg-dias-carrito" type="number" min="1" max="30" inputmode="numeric" placeholder="4"></label>
+              <p id="cfg-dias-carrito-nota" class="field-note full"></p>
             </div>
           </section>
           <section class="cfg-sec" data-sec="3">
@@ -912,7 +915,7 @@
               <label class="field" data-clase="2"><span>Clase 2 · se desbloquea</span><input id="cfg-clase2-at" type="datetime-local"></label>
               <label class="field" data-clase="3"><span>Clase 3 · se desbloquea</span><input id="cfg-clase3-at" type="datetime-local"></label>
               <label class="field"><span>Grabación · se desbloquea <small>(vacío = 00:00 del día siguiente al directo)</small></span><input id="cfg-replay-at" type="datetime-local"></label>
-              <label class="field"><span>Cierre del carrito de Raíces</span><input id="cfg-cierre" type="datetime-local"></label>
+              <label class="field"><span>Cierre del carrito de Raíces <small id="cfg-cierre-nota"></small></span><input id="cfg-cierre" type="datetime-local"></label>
             </div>
           </section>
           <section class="cfg-sec" data-sec="3" data-preclase>
