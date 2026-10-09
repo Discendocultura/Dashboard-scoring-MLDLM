@@ -917,7 +917,81 @@ function renderConsumo() {
 const pctOf = (n, d) => (d ? `${Math.round((n / d) * 1000) / 10}%` : '–');
 const eur = (n) => (n == null || !Number.isFinite(n) ? '–' : n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: n >= 100 ? 0 : 2 }));
 // Tarjeta de métrica: icono con su tono (accent, vip, buy, live, info, warn, money), etiqueta, valor y contexto.
-const card = (label, value, sub, ico = 'sparkle', tone = 'accent') => `<div class="kpi static tone-${tone}"><span class="kpi-label"><span class="kpi-ico">${icon(ico)}</span>${label}</span><span class="kpi-value">${value}</span><span class="kpi-sub">${sub}</span></div>`;
+// «?» de cada tarjeta: cómo se calcula y de dónde sale el dato (por el título de la tarjeta, o su comienzo).
+const AYUDA_KPI = {
+  'Leads totales': 'Contactos de GHL con la etiqueta de registro del lanzamiento.',
+  'CPL medio': 'Inversión ÷ leads totales. La inversión es la de Meta (campañas con el código del lanzamiento en el nombre, desde el inicio de captación) o, si Meta no da nada, la puesta a mano en Configuración.',
+  'Coste por lead': 'Inversión ÷ leads totales (CPL medio).',
+  'CPL de publicidad': 'Inversión ÷ leads con la etiqueta de publicidad (sin los orgánicos).',
+  'Coste por lead de publicidad': 'Inversión ÷ leads con la etiqueta de publicidad (sin los orgánicos).',
+  'CPL de tráfico frío': 'Inversión ÷ leads que no estaban en GHL antes del inicio de captación.',
+  'Entradas VIP vendidas': 'Leads con la etiqueta de compra de la VIP en este lanzamiento (no cuenta quien la tenía de un lanzamiento anterior).',
+  'Inversión en publicidad': 'Lo gastado en Meta en las campañas con el código del lanzamiento en el nombre, desde el inicio de captación hasta el siguiente lanzamiento (o hoy).',
+  'Inversión en anuncios': 'Lo gastado en Meta en las campañas con el código del lanzamiento en el nombre, desde el inicio de captación.',
+  Inversión: 'Lo gastado en Meta en las campañas de este embudo en el periodo.',
+  ROAS: 'Facturación sin IVA ÷ inversión. La facturación suma el programa, las entradas VIP y los bump offers activos.',
+  'ROAS de publicidad': 'Facturación sin IVA de los leads de publicidad ÷ inversión.',
+  'Bump offer': '% = cuántas lo compran (etiqueta del bump) sobre las VIP, o sobre las ventas de ese tipo de pago. Solo cuentan los bumps activos.',
+  'Conversión de la página de registro': 'Leads ÷ visitas únicas a la página de registro (las cuenta el código «REGISTRO · visitas únicas»). Sin ese código, registros de publicidad ÷ visitas de Meta.',
+  'Conversión de la página': 'Leads ÷ visitas únicas a la página de registro (o, sin el código, ÷ visitas de Meta).',
+  'Encuesta rellenada': 'Leads con la etiqueta de encuesta rellenada en este lanzamiento.',
+  'Asistencia al directo': 'Leads que entraron al directo (Zoom o el enlace del dashboard) ÷ leads totales.',
+  'Vieron el': 'Leads que vieron ese vídeo en directo o grabado ÷ leads totales.',
+  'Compras totales': 'Leads con la etiqueta de compra del programa en este lanzamiento (con la fecha de compra dentro del lanzamiento, si hay campo de fecha).',
+  'Ventas de Raíces de VIP': 'Compras del programa de leads que compraron la VIP.',
+  'Llamadas agendadas': 'Leads con la etiqueta de llamada agendada o el resultado «Llamada agendada» de la setter.',
+  'Ventas en directo': 'Ventas del programa con fecha de compra el día del directo de venta.',
+  'Ventas el día del': 'Ventas del programa con fecha de compra el día de ese vídeo.',
+  'Facturación (sin IVA)': 'Programa + entradas VIP + bump offers, todo sin IVA (según si cada precio lleva IVA incluido, + IVA o es exento).',
+  'Facturación del lanzamiento': 'Programa + entradas VIP + bump offers del lanzamiento, sin IVA.',
+  'Facturación del meteórico': 'Lo vendido en los meteóricos posteriores de este lanzamiento.',
+  'Facturación total': 'Lanzamiento + meteórico posterior.',
+  'Coste por VIP': 'Inversión ÷ entradas VIP vendidas.',
+  CAC: 'Inversión ÷ ventas del programa: lo que cuesta cada clienta nueva.',
+  'CAC de publicidad': 'Inversión ÷ ventas de leads de publicidad.',
+  'Coste por venta': 'Inversión ÷ ventas del programa.',
+  Impresiones: 'Veces que se mostraron los anuncios (Meta).',
+  'Clics en el enlace': 'Clics en el enlace de los anuncios (Meta). CTR = clics ÷ impresiones; CPC = inversión ÷ clics.',
+  'Visitas a la página de registro': 'Visitas a la página que cuenta Meta (landing page views): hicieron clic y la página llegó a cargar.',
+};
+const ayudaKpi = (label) => {
+  const t = String(label).replace(/<[^>]+>/g, '').trim();
+  return AYUDA_KPI[t] || Object.entries(AYUDA_KPI).find(([k]) => t.startsWith(k))?.[1] || '';
+};
+const ayudaBtn = (txt) => (txt ? `<button type="button" class="kpi-ayuda" aria-label="Cómo se calcula: ${esc(txt)}" data-ayuda="${esc(txt)}">?</button>` : '');
+// Globo flotante del «?» (fuera de la tarjeta, para que no se corte), dentro de la pantalla.
+{
+  const pop = document.createElement('div');
+  pop.className = 'ayuda-pop';
+  pop.hidden = true;
+  pop.setAttribute('role', 'tooltip');
+  document.body.append(pop);
+  let fijo = null;
+  const mostrar = (b) => {
+    pop.textContent = b.dataset.ayuda;
+    pop.hidden = false;
+    const r = b.getBoundingClientRect();
+    const w = pop.offsetWidth;
+    const h = pop.offsetHeight;
+    pop.style.left = `${Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
+    pop.style.top = `${r.bottom + 6 + h > window.innerHeight ? r.top - h - 6 : r.bottom + 6}px`;
+  };
+  const ocultar = () => { pop.hidden = true; fijo = null; };
+  document.addEventListener('mouseover', (e) => { const b = e.target.closest('.kpi-ayuda'); if (b) mostrar(b); });
+  document.addEventListener('mouseout', (e) => { if (e.target.closest('.kpi-ayuda') && !fijo) pop.hidden = true; });
+  document.addEventListener('focusin', (e) => { const b = e.target.closest('.kpi-ayuda'); if (b) mostrar(b); });
+  document.addEventListener('focusout', (e) => { if (e.target.closest('.kpi-ayuda')) ocultar(); });
+  // En el móvil (sin ratón): tocar lo abre y tocar otra vez (o fuera) lo cierra.
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('.kpi-ayuda');
+    if (!b) { if (fijo) ocultar(); return; }
+    e.preventDefault();
+    e.stopPropagation();
+    if (fijo === b) ocultar(); else { fijo = b; mostrar(b); }
+  }, true);
+  window.addEventListener('scroll', () => { if (!pop.hidden) ocultar(); }, { passive: true });
+}
+const card = (label, value, sub, ico = 'sparkle', tone = 'accent') => `<div class="kpi static tone-${tone}"><span class="kpi-label"><span class="kpi-ico">${icon(ico)}</span>${label}${ayudaBtn(ayudaKpi(label))}</span><span class="kpi-value">${value}</span><span class="kpi-sub">${sub}</span></div>`;
 
 function currentMetrics() {
   const launch = state.config.launches[state.launchCode];
@@ -1527,7 +1601,17 @@ function renderCalculadora(m, launch, { soloResultados = false } = {}) {
   }));
   const P = plan.neutro;
 
-  const tile = (label, valor, sub = '', clase = '') => `<div class="plan-tile ${clase}"><span class="plan-l">${label}</span><strong class="plan-n">${valor}</strong>${sub ? `<span class="plan-s">${sub}</span>` : ''}</div>`;
+  const AYUDA_PLAN = {
+    'Inversión': 'Con 3 o más lanzamientos de inversiones distintas: la mayor inversión que mantiene el ROAS objetivo según cómo sube tu CPL al invertir más. Si no, tu inversión media reciente (+20 % si el ROAS va sobrado).',
+    'Leads previstos': 'Inversión ÷ CPL previsto (el CPL medio de tus lanzamientos o, con curva, el de esa inversión).',
+    'CPL máximo': 'Lo que deja cada lead (VIP + programa, sin IVA) ÷ ROAS objetivo. Por encima, no llegas al ROAS que buscas.',
+    'Presupuesto diario': 'Inversión ÷ días de captación.',
+    'Personas necesarias': 'Llamadas del día más fuerte del carrito (1,5 × la media) ÷ llamadas al día por persona.',
+    'Punto de equilibrio': 'Ventas para cubrir la publicidad, el equipo y los demás costes.',
+    'Facturación prevista': 'Leads × (conversión a VIP × precio VIP + conversión a venta × ticket), sin IVA.',
+    'Beneficio previsto': 'Facturación prevista − publicidad − equipo − comisiones − otros costes.',
+  };
+  const tile = (label, valor, sub = '', clase = '') => `<div class="plan-tile ${clase}"><span class="plan-l">${label}${ayudaBtn(Object.entries(AYUDA_PLAN).find(([k]) => String(label).startsWith(k))?.[1])}</span><strong class="plan-n">${valor}</strong>${sub ? `<span class="plan-s">${sub}</span>` : ''}</div>`;
   const num1 = (x) => (x == null ? '–' : x.toLocaleString('es-ES', { maximumFractionDigits: x < 10 ? 1 : 0 }));
   const roasTxt = (x) => (x == null ? '–' : x.toLocaleString('es-ES', { maximumFractionDigits: 1 }));
   const cplClase = cplActual != null && P?.cplMaxRoas != null ? (cplActual <= P.cplMaxRoas ? 'ok' : cplActual <= P.cplEquilibrio ? 'warn' : 'mal') : '';

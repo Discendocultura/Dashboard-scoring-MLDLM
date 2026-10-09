@@ -2187,3 +2187,7 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 .cfg-listo-barra span.ok { background: var(--tone-buy, #2e7d4f); }
 .tab .tab-falta { margin-left: 6px; min-width: 18px; padding: 0 5px; border-radius: 999px; background: #c0392b; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
 @media (max-width: 640px) { .cfg-listo { grid-template-columns: 1fr; } }
+/* «?» de las tarjetas: cómo se calcula cada dato (al pasar el ratón, con el teclado o al tocarlo) */
+.kpi-ayuda { position: relative; display: inline-grid; place-items: center; width: 17px; height: 17px; margin-left: 6px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--muted); font-size: 11px; font-weight: 700; line-height: 1; cursor: help; vertical-align: middle; }
+.kpi-ayuda:hover, .kpi-ayuda:focus-visible { color: var(--text); border-color: var(--text); }
+.ayuda-pop { position: fixed; z-index: 1000; max-width: 300px; padding: 8px 10px; border-radius: 8px; background: var(--text); color: var(--surface); font-size: 12px; line-height: 1.45; box-shadow: 0 6px 20px rgba(0,0,0,.18); pointer-events: none; }
