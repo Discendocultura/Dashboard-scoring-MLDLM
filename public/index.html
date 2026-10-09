@@ -784,12 +784,6 @@
             <header class="cfg-sec-head"><span class="cfg-sec-num">🎥</span><div><h3 id="cfg-videos-titulo">Vídeos del lanzamiento</h3><p id="cfg-videos-nota"></p></div></header>
             <div id="cfg-videos"></div>
           </section>
-          <section class="cfg-sec" data-sec="4">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">4</span><div><h3>Venta y seguimiento</h3><p>Enlace de llamada que reciben las leads después del directo (también en los mensajes de WhatsApp). La página de pago, sus precios y sus enlaces están en «Páginas → Página de pago»; las páginas de venta y de replay, también en «Páginas».</p></div><span class="cfg-sec-status"></span></header>
-            <div class="grid2">
-              <label class="field"><span>Enlace para reservar llamada</span><input id="cfg-llamada" type="url"></label>
-            </div>
-          </section>
           <section class="cfg-sec" data-sec="4v" data-vip>
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">⭐</span><div><h3>Entrada VIP</h3><p>Se cierra sola a la hora del directo.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
@@ -799,7 +793,7 @@
             </div>
           </section>
           <section class="cfg-sec" data-sec="5">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">5</span><div><h3>Anuncios y emails</h3><p>Para el coste por lead, el ROAS y el CAC de Métricas, y los emails del lanzamiento. Los precios de Raíces están en la pestaña «Oferta» y el de la VIP, en «Entrada VIP».</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">4</span><div><h3>Anuncios y emails</h3><p>Para el coste por lead, el ROAS y el CAC de Métricas, y los emails del lanzamiento. Los precios de Raíces están en «Páginas → Página de pago» y el de la VIP, en «Entrada VIP».</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Inversión en anuncios (€) <small>(si no conectas Meta)</small></span><input id="cfg-inversion" inputmode="decimal"></label>
               <label class="field"><span>Campañas de Meta de este lanzamiento <small>(texto que contiene su nombre; vacío = el código)</small></span><input id="cfg-meta-filtro" placeholder="el código del lanzamiento"></label>
@@ -1050,8 +1044,6 @@
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">💳</span><div><h3>Página de venta</h3><p>La página de venta de Raíces durante el carrito. Los enlaces de pago están en «Lanzamiento» y los precios en «Oferta».</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>URL de la página de venta de Raíces</span><input id="cfg-raices" type="url"></label>
-              <label class="field"><span>WhatsApp para resolver dudas <small>(abre la conversación; va en el botón de WhatsApp de las páginas de venta y de replay)</small></span><input id="cfg-wa-dudas" type="url" placeholder="https://wa.me/34600000000?text=Hola%2C%20tengo%20una%20duda%20sobre%20Ra%C3%ADces"></label>
-              <p class="field-note full" id="cfg-wa-dudas-nota"></p>
             </div>
             <fieldset class="rb-cfg">
               <legend>⏳ Barra fija con cuenta atrás (arriba del todo)</legend>
@@ -1123,6 +1115,14 @@
               <p>Cada código en un elemento <strong>«Código personalizado»</strong>. Los textos, precios y enlaces salen de aquí: si los cambias, la página se actualiza sola.</p>
               <div id="pago-pasos-box" class="pasos-box"></div>
             </section>
+          </section>
+          <section class="cfg-sec" data-sec="contacto">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📞</span><div><h3>Venta y seguimiento</h3><p>Llamada y WhatsApp para resolver dudas: los botones de las páginas de venta, de pago y de replay y los mensajes de WhatsApp después del directo.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>Enlace para reservar llamada</span><input id="cfg-llamada" type="url"></label>
+              <label class="field"><span>WhatsApp para resolver dudas <small>(abre la conversación; va en el botón de WhatsApp de las páginas de venta y de replay)</small></span><input id="cfg-wa-dudas" type="url" placeholder="https://wa.me/34600000000?text=Hola%2C%20tengo%20una%20duda%20sobre%20Ra%C3%ADces"></label>
+              <p class="field-note full" id="cfg-wa-dudas-nota"></p>
+            </div>
           </section>
           <section class="cfg-sec" data-sec="4">
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📼</span><div><h3>Página de replay</h3><p>La página donde se ve la grabación del directo (su vídeo, arriba en «Directo y grabación»; la hora de desbloqueo, en el calendario de «Preclase»).</p></div><span class="cfg-sec-status"></span></header>

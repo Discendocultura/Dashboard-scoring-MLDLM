@@ -2789,7 +2789,7 @@ function pintarPagoPasos() {
     '📍 <strong>Dónde:</strong> en el pie de la página (o en Ajustes → Código de seguimiento → Footer). No se ve: pinta la barra fija, los textos, precios y enlaces de los cajetines.')
     + CAJAS_PAGO.map((c, i) => filaCopiar(`${i + 2} · Cajetín ${c.titulo.toLowerCase()}`, caja(c),
       `📍 <strong>Dónde:</strong> donde quieras el cajetín. Dale el diseño que quieras: solo mantén los atributos <code>data-lsd-…</code> (título, precio, texto y botón salen de aquí). ${c.id === 'fraccionado' ? 'Sin enlace de pago fraccionado, el cajetín se oculta solo.' : ''}`)).join('')
-    + filaCopiar('4 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «Página de venta».');
+    + filaCopiar('4 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «Páginas → Venta y seguimiento».');
 }
 const leerVentaBarra = () => leerBarraTramos('vb');
 const pintarVentaBarra = (vb) => pintarBarraTramos('vb', vb);
@@ -3809,7 +3809,7 @@ function renderSnippets() {
       etapasPreclase(state.config.launches[code], nClases(state.config.launches[code])).map((e) => `<div data-lsd-etapa="${e.id}">Etapa <span data-lsd-etapa-n="${e.id}"></span> · ${e.label}</div>`).join('\n')],
     ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
     ['VENTA · página de venta de Raíces: al final de la página, en el pie (apunta quién la visita para «Setting hoy» y pinta la barra fija si está activa en Páginas; los enlaces a esta página en los emails, con ?cid={{contact.id}})', `<div data-lsd-venta data-launch="auto"></div>\n${script}`],
-    ['WHATSAPP · botón flotante abajo a la derecha (páginas de venta y de replay; abre el WhatsApp de dudas de Páginas → Página de venta)', WA_FLOTANTE],
+    ['WHATSAPP · botón flotante abajo a la derecha (páginas de venta y de replay; abre el WhatsApp de dudas de Páginas → Venta y seguimiento)', WA_FLOTANTE],
     ['PAGO · bloque base de la página de pago (en el pie: barra fija, textos, precios y enlaces de los cajetines; el resto, en Páginas → Página de pago)', `<div data-lsd-pago data-launch="auto"></div>\n${script}`],
     ['INSCRIBIRME · botón a la página de pago (páginas de venta y de replay; la URL va en Lanzamiento → Página de pago)', '<a data-lsd-link="pagina-pago">Quiero inscribirme en Raíces</a>'],
     ['WHATSAPP · botón para una sección (sin estilo: dale el tuyo)', '<a data-lsd-link="whatsapp-dudas">Escríbenos por WhatsApp</a>'],
