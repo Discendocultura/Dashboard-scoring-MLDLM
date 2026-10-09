@@ -2662,6 +2662,17 @@ function pintarEnlaceDirecto() {
 }
 $('#cfg-recursos-url').addEventListener('input', pintarEnlaceDirecto);
 
+// WhatsApp para dudas: comprueba el enlace y recuerda dónde se usa.
+function pintarWaDudas() {
+  const v = $('#cfg-wa-dudas').value.trim();
+  $('#cfg-wa-dudas-nota').innerHTML = !v
+    ? 'Ej.: <code>https://wa.me/34600000000</code> (el número con prefijo, sin «+» ni espacios). Opcional: <code>?text=Hola, tengo una duda sobre Raíces</code> para que el mensaje salga ya escrito. Vacío = el botón de WhatsApp no se ve.'
+    : /^https:\/\/(wa\.me|api\.whatsapp\.com|wa\.link)\//i.test(v)
+      ? '✓ Los botones <code>data-lsd-link="whatsapp-dudas"</code> de las páginas de venta y de replay (el flotante y el de la sección) abrirán esta conversación. Los códigos están en «Códigos».'
+      : '⚠️ No parece un enlace de WhatsApp. Usa uno del tipo <code>https://wa.me/34600000000</code>.';
+}
+$('#cfg-wa-dudas').addEventListener('input', pintarWaDudas);
+
 // Páginas de venta y de replay: qué código va en GHL (y dónde) y el enlace con ?cid para los emails.
 const filaCopiar = (etq, txt, nota) => `<div class="enlace-directo-fila"><span class="enlace-directo-etq">${etq}</span><code${txt.includes('\n') ? ' class="multi"' : ''}>${esc(txt)}</code><button type="button" class="btn primary" data-copy-text="${esc(txt)}">Copiar</button><small>${nota}</small></div>`;
 const enlaceEmail = (url) => `${url}${url.includes('?') ? '&' : '?'}cid={{contact.id}}`;
@@ -2821,6 +2832,7 @@ function openConfig(code) {
       // La barra fija del replay se hereda sin su fecha (cada lanzamiento tiene la suya).
       ...(last.replayBarra ? { replayBarra: { ...last.replayBarra, at: '' } } : {}),
       diasCarrito: last.diasCarrito,
+      whatsappDudasUrl: last.whatsappDudasUrl,
       // La barra de la página de venta se hereda con sus textos y botones, sin fechas.
       ...(last.ventaBarra?.tramos?.length ? { ventaBarra: { ...last.ventaBarra, tramos: last.ventaBarra.tramos.map((t) => ({ ...t, hasta: '' })) } } : {}),
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
@@ -2869,6 +2881,8 @@ function openConfig(code) {
   $('#cfg-zoom-url').value = l.zoomJoinUrl || '';
   $('#cfg-replay').value = l.replayUrl || '';
   $('#cfg-raices').value = l.raicesUrl || '';
+  $('#cfg-wa-dudas').value = l.whatsappDudasUrl || '';
+  pintarWaDudas();
   $('#cfg-venta').value = l.ventaUrl || '';
   $('#cfg-venta-fraccionado').value = l.ventaFraccionadoUrl || '';
   $('#cfg-llamada').value = l.llamadaUrl || '';
@@ -3296,6 +3310,7 @@ function readForm() {
       videos: readVideosCfg(),
       replayUrl: $('#cfg-replay').value.trim(),
       raicesUrl: $('#cfg-raices').value.trim(),
+      whatsappDudasUrl: $('#cfg-wa-dudas').value.trim(),
       ventaUrl: $('#cfg-venta').value.trim(),
       ventaFraccionadoUrl: $('#cfg-venta-fraccionado').value.trim(),
       llamadaUrl: $('#cfg-llamada').value.trim(),
@@ -3719,6 +3734,9 @@ document.addEventListener('click', async (e) => {
   setTimeout(() => { b.textContent = 'Copiar'; }, 1500);
 });
 
+// Botón flotante de WhatsApp para dudas (el mismo que bloques-ghl/whatsapp-flotante.html).
+const WA_FLOTANTE = "<a class=\"mldlm-wa\" data-lsd-link=\"whatsapp-dudas\" target=\"_blank\" rel=\"noopener\" aria-label=\"¿Dudas? Escríbenos por WhatsApp\">\n  <span class=\"mldlm-wa__txt\">¿Dudas? Escríbenos</span>\n  <span class=\"mldlm-wa__ico\" aria-hidden=\"true\"><svg viewBox=\"0 0 32 32\" width=\"30\" height=\"30\"><path fill=\"#fff\" d=\"M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.9 2 7L3 29l6.4-2c2 1.1 4.3 1.7 6.6 1.7 7.2 0 13-5.7 13-12.8S23.2 3 16 3Zm0 23.4c-2.1 0-4.1-.6-5.9-1.7l-.4-.3-3.8 1.2 1.2-3.7-.3-.4c-1.2-1.8-1.9-3.9-1.9-6.1C4.9 9.8 9.9 5 16 5s11.1 4.8 11.1 10.8S22.1 26.4 16 26.4Zm6.1-8c-.3-.2-2-1-2.3-1.1-.3-.1-.5-.2-.8.2-.2.3-.9 1.1-1.1 1.3-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.7-1.7-1-.9-1.7-2-1.9-2.3-.2-.3 0-.5.1-.7l.5-.6c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.6l-1-2.5c-.3-.7-.5-.6-.8-.6h-.6c-.2 0-.6.1-.9.4-.3.3-1.2 1.2-1.2 2.9s1.2 3.4 1.4 3.6c.2.2 2.4 3.7 5.9 5.1 2.9 1.1 3.5.9 4.1.9.6-.1 2-.8 2.3-1.6.3-.8.3-1.5.2-1.6-.1-.2-.3-.3-.6-.4Z\"/></svg></span>\n</a>\n<style>\n.mldlm-wa{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));z-index:2147481000;display:flex;align-items:center;gap:10px;text-decoration:none!important;font-family:'Lato',Helvetica,Arial,sans-serif}\n.mldlm-wa:not([href]){display:none}\n.mldlm-wa__ico{display:flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:50%;background:#25d366;box-shadow:0 6px 18px rgba(0,0,0,.22);transition:transform .2s ease;animation:mldlm-wa-pulso 2.6s ease-out 1.5s 3}\n.mldlm-wa__txt{background:#fff;color:#3a2a24;font-weight:700;font-size:14px;padding:9px 14px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.14);white-space:nowrap}\n.mldlm-wa:hover .mldlm-wa__ico,.mldlm-wa:focus-visible .mldlm-wa__ico{transform:scale(1.07)}\n.mldlm-wa:focus-visible{outline:none}.mldlm-wa:focus-visible .mldlm-wa__ico{box-shadow:0 0 0 4px rgba(37,211,102,.35),0 6px 18px rgba(0,0,0,.22)}\n@keyframes mldlm-wa-pulso{0%{box-shadow:0 0 0 0 rgba(37,211,102,.55),0 6px 18px rgba(0,0,0,.22)}100%{box-shadow:0 0 0 18px rgba(37,211,102,0),0 6px 18px rgba(0,0,0,.22)}}\n@media (max-width:600px){.mldlm-wa__txt{display:none}.mldlm-wa__ico{width:56px;height:56px}}\n@media (prefers-reduced-motion:reduce){.mldlm-wa__ico{animation:none;transition:none}}\n</style>";
+
 function renderSnippets() {
   const code = editingCode;
   const box = $('#snippets');
@@ -3750,6 +3768,8 @@ function renderSnippets() {
       etapasPreclase(state.config.launches[code], nClases(state.config.launches[code])).map((e) => `<div data-lsd-etapa="${e.id}">Etapa <span data-lsd-etapa-n="${e.id}"></span> · ${e.label}</div>`).join('\n')],
     ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
     ['VENTA · página de venta de Raíces: al final de la página, en el pie (apunta quién la visita para «Setting hoy» y pinta la barra fija si está activa en Páginas; los enlaces a esta página en los emails, con ?cid={{contact.id}})', `<div data-lsd-venta data-launch="auto"></div>\n${script}`],
+    ['WHATSAPP · botón flotante abajo a la derecha (páginas de venta y de replay; abre el WhatsApp de dudas de Páginas → Página de venta)', WA_FLOTANTE],
+    ['WHATSAPP · botón para una sección (sin estilo: dale el tuyo)', '<a data-lsd-link="whatsapp-dudas">Escríbenos por WhatsApp</a>'],
     ['GRABACIÓN · bloques de la página del replay (el 1º y la barra arriba del todo; el de vídeo, donde quieras que se vea; el paso a paso, en Páginas → Página de replay)', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
     // El enlace para conectarse al directo es el de la preclase: 59 min antes enseña la pantalla de espera y al llegar a cero entra sola.

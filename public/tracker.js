@@ -487,7 +487,7 @@
       if (href) { el.setAttribute('href', linkWho(href)); show(el, true); } else show(el, false);
       // La encuesta se abre en otra pestaña: al volver, la página detecta que ya está hecha.
       var lk = el.getAttribute('data-lsd-link');
-      if ((lk === 'encuesta' || lk === 'test' || lk === 'descargable') && !el.getAttribute('target')) { el.setAttribute('target', '_blank'); el.setAttribute('rel', 'noopener'); }
+      if ((lk === 'encuesta' || lk === 'test' || lk === 'descargable' || lk === 'whatsapp' || lk === 'whatsapp-dudas') && !el.getAttribute('target')) { el.setAttribute('target', '_blank'); el.setAttribute('rel', 'noopener'); }
       // El descargable cuenta como abierto al pulsarlo (etiqueta <código>_descarga).
       if (lk === 'descargable' && !el.getAttribute('data-lsd-medido')) {
         el.setAttribute('data-lsd-medido', '1');
@@ -1053,7 +1053,19 @@
     var launch = params.get('l') || el.getAttribute('data-launch') || 'auto';
     // Barra fija de la página de venta (si está activa en el dashboard). Respuesta ligera: no llama a GHL.
     fetchPage(launch, who, 'venta').then(function (data) {
-      if (!data || data.error || !data.ventaBarra) return;
+      if (!data || data.error) return;
+      // Botones de la página de venta: <a data-lsd-link="pago|pago-fraccionado|llamada|whatsapp-dudas">.
+      // Sin enlace configurado, el botón se oculta.
+      var links = data.links || {};
+      document.querySelectorAll('[data-lsd-link]').forEach(function (a) {
+        var k = a.getAttribute('data-lsd-link');
+        if (!Object.prototype.hasOwnProperty.call(links, k)) return;
+        if (!links[k]) return show(a, false);
+        a.setAttribute('href', links[k]);
+        show(a, true);
+        if ((k === 'whatsapp' || k === 'whatsapp-dudas') && !a.getAttribute('target')) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener'); }
+      });
+      if (!data.ventaBarra) return;
       injectCss();
       barraVenta(data);
     }).catch(function () { /* sin conexión: sin barra */ });

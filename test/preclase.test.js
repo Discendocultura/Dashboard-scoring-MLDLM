@@ -283,7 +283,7 @@ test('página de venta: barra fija por tramos (sin GHL) y fin de cada bonus en e
   const { data: c } = await call('/api/config', { cookie: admin });
   const launch = {
     name: 'Venta', registroTag: 'registro-webinar-demo', inicioCaptacion: local(-10), fechaDirecto: local(-1), horaDirecto: '19:00',
-    aperturaCarrito: `${local(-1)}T21:00`, cierreCarrito: `${local(4)}T23:59`, raicesUrl: 'https://ghl.com/venta', ventaUrl: 'https://pay.com/raices',
+    aperturaCarrito: `${local(-1)}T21:00`, cierreCarrito: `${local(4)}T23:59`, raicesUrl: 'https://ghl.com/venta', ventaUrl: 'https://pay.com/raices', whatsappDudasUrl: 'https://wa.me/34600000000?text=Hola',
     oferta: { bonus: [{ id: 'b48', tipo: 'bar_48h', nombre: 'Guía del ciclo' }, { id: 'bt', tipo: 'bonus', nombre: 'Comunidad' }] },
     ventaBarra: { activa: true, color: '#00AA00', tramos: [
       { texto: '⏳ Último día para entrar · {cuenta}', hasta: `${local(4)}T23:59`, conBoton: true, destino: 'pago', boton: 'Entrar' },
@@ -302,6 +302,12 @@ test('página de venta: barra fija por tramos (sin GHL) y fin de cada bonus en e
   assert.equal(p.ventaBarra.tramos[1].boton, null);
   assert.deepEqual(p.ventaBarra.tramos[2].boton, { label: 'Entrar', href: 'https://pay.com/raices?cid=mock00001' });
   assert.equal(p.videos, undefined); // respuesta ligera
+  // Botones de la página de venta: pago con el ID de la lead; el WhatsApp de dudas, tal cual; sin llamada configurada, vacío
+  assert.equal(p.links.pago, 'https://pay.com/raices?cid=mock00001');
+  assert.equal(p.links['whatsapp-dudas'], 'https://wa.me/34600000000?text=Hola');
+  assert.equal(p.links.llamada, '');
+  // Y en la página de replay, también
+  assert.equal((await call('/api/page?l=ven-26&pagina=grabacion&cid=mock00001')).data.links['whatsapp-dudas'], 'https://wa.me/34600000000?text=Hola');
   // Calendario: el BAR 48 h acaba dos días después de abrir el carrito (el bonus de todo el carrito ya lo dice el cierre)
   const { hitosLanzamiento } = await import('../public/js/calendario.js');
   const h = hitosLanzamiento((await call('/api/config', { cookie: admin })).data.config.launches['ven-26']).filter((x) => x.id.startsWith('bonus-'));

@@ -613,6 +613,10 @@ npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)
 
 En todas las barras (las de cada fase en *Configuración → Preclase → Barra de urgencia* y la barra fija de la página de replay) se elige **«¿Lleva botón?»**: *Sí, con botón* (adónde lleva y su texto) o *No, solo texto* (solo informativa, para crear urgencia).
 
+### 💬 WhatsApp para dudas (páginas de venta y de replay)
+
+En *Configuración → Páginas → Página de venta → WhatsApp para resolver dudas* va el enlace que abre la conversación (`https://wa.me/34600000000?text=…`). Lo usan los botones `<a data-lsd-link="whatsapp-dudas">` de las páginas de venta y de replay (se abren en otra pestaña; sin enlace, se ocultan). En *Códigos* está el **botón flotante** (abajo a la derecha, fijo al hacer scroll; en móvil solo el icono), también en `bloques-ghl/whatsapp-flotante.html`. En la página de venta, el bloque VENTA pone además los enlaces de `pago`, `pago-fraccionado` y `llamada` con el ID de la lead.
+
 ### Barra fija de la página de venta
 
 En *Configuración → Páginas → Página de venta → Barra fija con cuenta atrás*: varios **tramos** seguidos, cada uno con su texto (`{cuenta}` = cuenta atrás hasta su fin), su fecha y hora de fin y si lleva botón (adónde y con qué texto) o es solo informativo. Al acabar un tramo empieza solo el siguiente y tras el último la barra desaparece (p. ej. «🎁 Último día para llevarte el bonus» hasta que acaba el bonus y luego «⏳ Último día para entrar» hasta el cierre). **«✨ Rellenar con los bonus de Oferta y el cierre»** crea un tramo por cada fin de bonus y otro hasta el cierre del carrito, para retocar los textos. La pinta el mismo bloque «VENTA» que apunta las visitas (no hay que pegar nada más) y no llama a GHL. En cada lanzamiento nuevo se heredan los textos y botones, sin fechas.

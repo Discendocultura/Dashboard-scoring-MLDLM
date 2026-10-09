@@ -66,6 +66,7 @@ export const LINK_KEYS = {
   pago: 'Pago único de Raíces',
   'pago-fraccionado': 'Pago fraccionado de Raíces',
   llamada: 'Reservar llamada',
+  'whatsapp-dudas': 'WhatsApp para dudas',
   calendario: 'Añadir al calendario',
   encuesta: 'Rellenar la encuesta',
 };

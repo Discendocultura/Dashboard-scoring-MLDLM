@@ -60,6 +60,8 @@ export async function GET(request, ctx) {
       'pago-fraccionado': withContactId(launch.ventaFraccionadoUrl, cid),
       ...Object.fromEntries(planesActivos(launch).map((p) => [`plan-${p.id}`, withContactId(p.url, cid)])),
       llamada: launch.llamadaUrl || '',
+      // WhatsApp para resolver dudas (páginas de venta y de replay): tal cual, sin el ID de la lead.
+      'whatsapp-dudas': launch.whatsappDudasUrl || '',
       recursos: launch.recursosUrl || '',
       // Añadir al calendario: el enlace configurado o, si no hay, uno de Google Calendar generado solo.
       calendario: launch.calendarioUrl || googleCalendarUrl({
@@ -81,7 +83,9 @@ export async function GET(request, ctx) {
     if (url.searchParams.get('pagina') === 'venta') {
       const vb = ventaBarraDe(launch, links);
       const producto = nombreProducto(config);
-      return json({ code, now, preview, ventaBarra: vb && { ...vb, tramos: vb.tramos.map((t) => ({ ...t, text: conProducto(t.text, producto), boton: t.boton && { ...t.boton, label: conProducto(t.boton.label, producto) } })) } }, 200, CORS_HEADERS);
+      // Enlaces de los botones de la página de venta (pago, llamada, WhatsApp de dudas), con el ID de la lead.
+      const enlacesVenta = Object.fromEntries(['pago', 'pago-fraccionado', 'llamada', 'whatsapp-dudas', 'whatsapp'].map((k) => [k, links[k] || '']));
+      return json({ code, now, preview, links: enlacesVenta, ventaBarra: vb && { ...vb, tramos: vb.tramos.map((t) => ({ ...t, text: conProducto(t.text, producto), boton: t.boton && { ...t.boton, label: conProducto(t.boton.label, producto) } })) } }, 200, CORS_HEADERS);
     }
 
     // A la hora del directo la preclase solo necesita saber adónde ir: se contesta sin llamar a GHL
