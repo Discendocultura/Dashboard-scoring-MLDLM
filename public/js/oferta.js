@@ -30,6 +30,7 @@ export const TIPOS_ENTREGABLE = [
   { id: 'presencial', label: 'Presencial', icon: '📍' },
   { id: 'descargable', label: 'Descargable', icon: '📄' },
   { id: 'audio', label: 'Audio', icon: '🎧' },
+  { id: 'chatbot', label: 'Chatbot / Agente', icon: '🤖' },
 ];
 const IDS_BONUS = TIPOS_BONUS.map((t) => t.id);
 const IDS_ENTREGABLE = TIPOS_ENTREGABLE.map((t) => t.id);
