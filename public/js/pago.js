@@ -101,3 +101,56 @@ export function pendientesPago(cfg, { precioUnico, unicoTag, fraccionadoTag, pre
   void unicoTag;
   return out;
 }
+
+// IVA de los precios del lanzamiento (Configuración): cada precio se escribe con el IVA incluido o «+ IVA».
+// La facturación y el ROAS se calculan SIN IVA. Sin elegir, se toma como IVA incluido (y se avisa).
+//  launch.iva = { pct: 21, vip: 'incluido' | 'mas' | '', programa: 'incluido' | 'mas' | '' }
+export const IVA_DEF = 21;
+export const MODOS_IVA = ['incluido', 'mas'];
+export function sanitizeIva(v) {
+  const modo = (x) => (MODOS_IVA.includes(x) ? x : '');
+  const pct = Number(v?.pct);
+  return { pct: Number.isFinite(pct) && v?.pct !== '' && v?.pct != null ? Math.min(100, Math.max(0, pct)) : IVA_DEF, vip: modo(v?.vip), programa: modo(v?.programa) };
+}
+export const ivaPct = (launch) => (Number.isFinite(Number(launch?.iva?.pct)) ? Number(launch.iva.pct) : IVA_DEF);
+// Importe sin IVA de un precio según cómo se escribió.
+export const sinIva = (precio, modo, pct = IVA_DEF) => (Number(precio) || 0) / (modo === 'mas' ? 1 : 1 + (Number(pct) || 0) / 100);
+// Precio de la VIP sin IVA (para la facturación y el ROAS).
+export const vipSinIva = (launch) => sinIva(launch?.precioVip, launch?.iva?.vip, ivaPct(launch));
+// Precios que aún no dicen si llevan IVA.
+export function ivaPendiente(launch) {
+  const out = [];
+  if (Number(launch?.precioVip) && !launch?.iva?.vip) out.push('entrada VIP');
+  if ((Number(launch?.precioPrograma) || Number(launch?.precioFraccionado) || esSuscripcion(launch)) && !launch?.iva?.programa) out.push('programa');
+  for (const b of todosLosBumps(launch)) if (Number(b.precio) && !b.iva) out.push(`bump «${b.nombre || 'sin nombre'}»`);
+  return out;
+}
+
+// Bump offers de la entrada VIP (Configuración → Lanzamiento → Entrada VIP): cada uno se activa o no, con
+// su nombre, precio y la etiqueta de GHL de quien lo compra. Cuentan en la facturación y el ROAS.
+// Cada precio dice si lleva el IVA incluido o es «+ IVA» (`iva`); en la facturación y el ROAS cuenta sin IVA.
+//  [{ id, activo, nombre, precio, iva: 'incluido' | 'mas' | '', tag }]
+export const MAX_BUMPS = 5;
+export function sanitizeBumps(lista) {
+  if (!Array.isArray(lista)) return [];
+  return lista.slice(0, MAX_BUMPS).map((b, i) => ({
+    id: /^[a-z0-9_-]{1,24}$/i.test(String(b?.id || '')) ? String(b.id) : `bump${i + 1}`,
+    activo: b?.activo !== false,
+    nombre: String(b?.nombre ?? '').trim().slice(0, 80),
+    precio: dinero(b?.precio),
+    iva: MODOS_IVA.includes(b?.iva) ? b.iva : '',
+    tag: String(b?.tag ?? '').trim().toLowerCase().slice(0, 120),
+  })).filter((b) => b.nombre || b.tag || b.precio);
+}
+// Dónde puede haber bump offers: con la entrada VIP, con el pago único y con el pago fraccionado.
+export const TIPOS_BUMP = [
+  { id: 'vip', campo: 'vipBumps', label: 'entrada VIP', base: 'VIP' },
+  { id: 'unico', campo: 'unicoBumps', label: 'pago único', base: 'ventas en pago único' },
+  { id: 'fraccionado', campo: 'fraccionadoBumps', label: 'pago fraccionado', base: 'ventas en pago fraccionado' },
+];
+// Los que cuentan: activos y con etiqueta (de un tipo, o de todos con su `tipo`).
+export const bumpsActivos = (launch, tipo = 'vip') => (launch?.[TIPOS_BUMP.find((t) => t.id === tipo)?.campo] || []).filter((b) => b.activo !== false && b.tag);
+export const todosLosBumps = (launch) => TIPOS_BUMP.flatMap((t) => bumpsActivos(launch, t.id).map((b) => ({ ...b, tipo: t.id })));
+// Precio del bump sin IVA (para la facturación y el ROAS) y lo que paga la lead (con IVA).
+export const precioBump = (b, launch) => sinIva(b?.precio, b?.iva, ivaPct(launch));
+export const precioBumpConIva = (b, launch) => precioBump(b, launch) * (1 + ivaPct(launch) / 100);

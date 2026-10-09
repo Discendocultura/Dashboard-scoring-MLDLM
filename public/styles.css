@@ -2171,3 +2171,10 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 .obj-proy { margin-top: 18px; padding-top: 6px; border-top: 1px solid var(--border); }
 .obj-proy .row { margin-top: 10px; align-items: center; gap: 10px; flex-wrap: wrap; }
 .obj-titulo { display: flex; align-items: center; gap: 8px; margin: 18px 0 10px; }
+.bump-lista { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.bump-fila { display: grid; grid-template-columns: auto 1.4fr .7fr .9fr 1.6fr auto; gap: 10px; align-items: end; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.bump-fila .chk { align-self: center; }
+.bump-fila.off .field { opacity: .5; }
+@media (max-width: 760px) { .bump-fila { grid-template-columns: 1fr 1fr; } .bump-fila .chk, .bump-fila .bump-quitar { grid-column: auto; } }
+.inicio-emb .ie-cifras.ie-sec { margin-top: 6px; }
+.inicio-emb .ie-cifras.ie-sec strong { font-size: 14px; }

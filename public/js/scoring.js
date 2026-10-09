@@ -1,6 +1,6 @@
 // Lógica compartida entre el dashboard (navegador) y la API (servidor):
 // nombres de etiquetas, puntuación, estado y siguiente paso de cada lead.
-import { conFraccionado, esSuscripcion, planDeTags, planesActivos, enlacePago } from './pago.js';
+import { conFraccionado, esSuscripcion, planDeTags, planesActivos, enlacePago, bumpsActivos } from './pago.js';
 import { MAX_VIDEOS, nVideos, sigDirecto, sigReplay, videosDe, videoVenta, clasesDe, conVip } from './videos.js';
 import { madridToEpoch } from './page.js';
 import { tieneRecurso, recursosDe, nivelMusica } from './recursos.js';
@@ -196,6 +196,10 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   s.unico = s.compra && !esSuscripcion(cfg) && !s.fraccionado && has(cfg.unicoTag);
   // Suscripción: el plan que eligió (mensual, trimestral…), por la etiqueta de cada plan.
   s.plan = s.compra ? planDeTags(tags, cfg) : '';
+  // Bump offers: los de la VIP cuentan con la VIP de este lanzamiento; los del pago único o fraccionado,
+  // con la compra de este lanzamiento en ese tipo de pago.
+  const bumpsDe = (tipo, ok) => (ok ? bumpsActivos(cfg, tipo).filter((b) => has(b.tag)).map((b) => b.id) : []);
+  s.bumps = [...bumpsDe('vip', s.vip), ...bumpsDe('unico', s.compra && !s.fraccionado), ...bumpsDe('fraccionado', s.fraccionado)];
   // Compra el día del vídeo de venta (el webinar en directo, o el último vídeo del lanzamiento).
   const diaVenta = videoVenta(cfg)?.fecha || '';
   s.compra_directo = s.compra && Boolean(diaVenta) && buyDay === diaVenta;

@@ -140,7 +140,7 @@ test('facturación de Raíces con precio de pago único y fraccionado', async ()
   const cfg = { compraTag: 'clienta', fraccionadoTag: 'hotmart', unicoTag: 'thrivecart' };
   const lead = (tags) => ({ s: signalsFor(tags, 'nov26', cfg), estado: { id: 'frio' } });
   const leads = [lead(['clienta']), lead(['clienta', 'hotmart']), lead(['hotmart']), lead([]), lead(['clienta', 'thrivecart'])];
-  const launch = { ...cfg, precioPrograma: 997, precioFraccionado: 1164 };
+  const launch = { ...cfg, iva: { vip: 'mas', programa: 'mas' }, precioPrograma: 997, precioFraccionado: 1164 };
   const m = computeMetrics(leads, launch);
   assert.equal(m.compra, 3);
   assert.equal(m.compraFraccionado, 1);
@@ -158,7 +158,7 @@ test('origen del lead: publicidad, orgánico o sin etiqueta; y canal por utm_sou
   const cfg = { compraTag: 'clienta', publiTag: 'lead-publi', organicoTag: 'lead-organico' };
   const lead = (tags, source = '') => ({ s: signalsFor(tags, 'nov26', cfg), estado: { id: 'frio' }, src: { source } });
   const leads = [lead(['lead-publi', 'clienta'], 'facebook'), lead(['lead-publi'], 'Facebook'), lead(['lead-organico'], 'instagram'), lead([])];
-  const m = computeMetrics(leads, { ...cfg, precioPrograma: 100 });
+  const m = computeMetrics(leads, { ...cfg, iva: { vip: 'mas', programa: 'mas' }, precioPrograma: 100 });
   assert.deepEqual([m.origen.publi.leads, m.origen.organico.leads, m.origen.sinEtiqueta.leads, m.origen.total.leads], [2, 1, 1, 4]);
   assert.equal(m.origen.publi.compras, 1);
   assert.equal(m.origen.publi.importe, 100);
@@ -174,7 +174,7 @@ test('CAC y ROAS de publicidad, objetivos, respuestas de la encuesta y avisos', 
     lead(['publi', 'vip', 'clienta', 'tc'], { q: 'Más de 2 años', m: ['A', 'B'] }),
     lead(['publi'], { q: 'Más de 2 años' }), lead(['org', 'clienta'], { q: 'Menos de 6 meses', m: ['A'] }), lead([]),
   ];
-  const launch = { ...cfg, precioVip: 27, precioPrograma: 1000, inversion: 500, objetivos: { ventas: 4, registros: 0 } };
+  const launch = { ...cfg, iva: { vip: 'mas', programa: 'mas' }, precioVip: 27, precioPrograma: 1000, inversion: 500, objetivos: { ventas: 4, registros: 0 } };
   const m = computeMetrics(leads, launch);
   assert.equal(m.eco.publi.cac, 500);
   assert.equal(m.eco.publi.facturacion, 1027);
@@ -225,7 +225,7 @@ test('anuncios ganadores: ranking por ventas con campaña, conjunto, coste por v
     L('a2', 's2', 'c1', { compra: true, fraccionado: true }), L('a2', 's2', 'c1', { compra: true }),
     L('a3', 's2', 'c2', {}), L('', '', '', { compra: true }),
   ];
-  const launch = { precioPrograma: 1000, precioFraccionado: 1200, precioVip: 10 };
+  const launch = { iva: { vip: 'mas', programa: 'mas' }, precioPrograma: 1000, precioFraccionado: 1200, precioVip: 10 };
   const r = rankingGanadores(leads, launch, 'ad', { a2: 'Reel matrona', c1: 'Webinar frío', s2: 'Lookalike' }, { a2: 300 });
   assert.deepEqual(r.map((x) => x.id), ['a2', 'a1', 'a3']);
   assert.equal(r[0].label, 'Reel matrona');
@@ -263,4 +263,54 @@ test('subcategorías de Preparación: la elegida manda; si no, se deduce del tí
   assert.equal(subDe({ titulo: 'Algo raro' }), 'otras');
   assert.equal(subDe({ titulo: 'Programar los emails', sub: 'equipo' }), 'equipo');
   assert.equal(subDe({ titulo: 'Programar los emails', sub: 'inventada' }), 'comunicacion');
+});
+
+test('IVA y bump offers de la VIP: facturación y ROAS sin IVA; % de VIP que compra cada bump', async () => {
+  const { computeMetrics, avisosLanzamiento } = await import('../public/js/metrics.js');
+  const { sanitizeBumps, precioBump } = await import('../public/js/pago.js');
+  const cfg = {
+    vipTag: 'vip', compraTag: 'clienta', precioVip: 121, precioPrograma: 1000, inversion: 100,
+    iva: { pct: 21, vip: 'incluido', programa: 'mas' },
+    vipBumps: sanitizeBumps([
+      { id: 'b1', nombre: 'Guía', precio: '9', iva: 'mas', tag: 'bump-guia' },
+      { id: 'b2', nombre: 'Apagado', precio: '20', iva: 'mas', tag: 'bump-off', activo: false },
+    ]),
+  };
+  const lead = (tags) => ({ s: signalsFor(tags, 'nov26', cfg), estado: { id: 'frio' } });
+  const leads = [lead(['vip', 'bump-guia']), lead(['vip']), lead(['vip', 'bump-guia', 'bump-off']), lead(['vip']), lead(['bump-guia']), lead(['clienta'])];
+  const m = computeMetrics(leads, cfg);
+  assert.equal(m.vip, 4);
+  assert.equal(m.bumps.length, 1); // el desactivado no cuenta
+  assert.equal(m.bumps[0].n, 2); // el que no es VIP tampoco
+  assert.equal(m.bumps[0].pct, 0.5);
+  assert.equal(precioBump({ precio: 9, iva: 'mas' }, cfg), 9);
+  assert.ok(Math.abs(precioBump({ precio: 10.89, iva: 'incluido' }, cfg) - 9) < 1e-9);
+  // VIP 121 € con IVA = 100 sin IVA; bump 9 + IVA = 9; programa 1000 + IVA = 1000.
+  assert.ok(Math.abs(m.eco.facturacionVip - 400) < 1e-9);
+  assert.equal(m.eco.facturacionBumps, 18);
+  assert.ok(Math.abs(m.eco.facturacion - (400 + 18 + 1000)) < 1e-9);
+  assert.ok(Math.abs(m.eco.roas - 14.18) < 1e-9);
+  // Sin elegir el IVA, se avisa.
+  const sinElegir = { ...cfg, iva: { pct: 21, vip: '', programa: 'mas' } };
+  assert.ok(avisosLanzamiento(leads, sinElegir, computeMetrics(leads, sinElegir)).some((a) => a.includes('IVA') && a.includes('entrada VIP')));
+});
+
+test('bump offers del pago único y del fraccionado: % sobre las ventas de cada tipo', async () => {
+  const { computeMetrics } = await import('../public/js/metrics.js');
+  const { sanitizeBumps } = await import('../public/js/pago.js');
+  const cfg = {
+    compraTag: 'clienta', fraccionadoTag: 'hotmart', unicoTag: 'thrive', precioPrograma: 1000, precioFraccionado: 1200,
+    iva: { pct: 21, programa: 'mas' },
+    unicoBumps: sanitizeBumps([{ id: 'u1', nombre: 'Sesión', precio: 50, iva: 'mas', tag: 'bump-u' }]),
+    fraccionadoBumps: sanitizeBumps([{ id: 'f1', nombre: 'Plantillas', precio: '30,25', iva: 'incluido', tag: 'bump-f' }]),
+  };
+  const lead = (tags) => ({ s: signalsFor(tags, 'nov26', cfg), estado: { id: 'frio' } });
+  const leads = [lead(['clienta', 'thrive', 'bump-u']), lead(['clienta', 'thrive']), lead(['clienta', 'hotmart', 'bump-f', 'bump-u']), lead(['bump-u'])];
+  const m = computeMetrics(leads, cfg);
+  const u = m.bumps.find((b) => b.id === 'u1');
+  const f = m.bumps.find((b) => b.id === 'f1');
+  assert.deepEqual([u.n, u.base, u.pct], [1, 2, 0.5]); // el fraccionado con la etiqueta del único no cuenta
+  assert.deepEqual([f.n, f.base, f.pct], [1, 1, 1]);
+  assert.ok(Math.abs(m.eco.facturacionBumps - (50 + 25)) < 1e-9); // 30,25 con IVA = 25 sin IVA
+  assert.ok(Math.abs(m.eco.facturacion - (2000 + 1200 + 75)) < 1e-9);
 });

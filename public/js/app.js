@@ -10,7 +10,7 @@ import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clases
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, MIN_REGISTROS, resumenLanzamiento, prevision, resumenManual, medias, supuestosEscenario, inversionRecomendada, proyeccion, planificar, PLAN_DEF } from './calculadora.js';
 import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
-import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago } from './pago.js';
+import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago, vipSinIva, TIPOS_BUMP } from './pago.js';
 import { cicloDeContactos, textoDias } from './ciclo.js';
 import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusMeteo, tipoEntregable, etiquetaEntregable, SUBTIPOS_ENTREGABLE, OBJETIVOS_BONUS, objetivoBonus, textoGarantia, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
@@ -573,6 +573,7 @@ function pintarInicio() {
     card('Inversión', inv ? eur(inv) : '–', inv ? `ROAS conjunto ${(fact / inv).toFixed(2).replace('.', ',')}x` : 'sin inversión registrada', 'megaphone', 'accent'),
   ].join('');
   const cifra = (label, v) => `<span>${label}<strong>${v}</strong></span>`;
+  const roasIni = (r) => (r != null ? `${r.toFixed(2).replace('.', ',')}x` : '–');
   const obj = (o) => (o?.length ? `<div class="muted small">🎯 ${o.map((x) => `${esc(x.label)}: ${Math.round((x.pct || 0) * 100)}%`).join(' · ')}</div>` : '');
   const tarjetas = [
     ...lista.map((e) => {
@@ -582,7 +583,10 @@ function pintarInicio() {
       return `<button type="button" class="card inicio-emb" data-ir-inicio="${e.tipo === 'vsl' ? 'vsl' : 'lanz'}" data-code="${esc(e.code)}" data-embudo="${esc(e.embudoId || '')}">
         <h3>${e.tipo === 'vsl' ? '🎬' : '🚀'} ${esc(e.nombre)} <span class="badge tone-${est[1]}">${est[0]}</span></h3>
         ${e.embudo ? `<span class="muted small">${esc(e.embudo)}</span>` : ''}
-        <div class="ie-cifras">${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${cifra('ROAS', e.kpis.roas != null ? `${e.kpis.roas.toFixed(2).replace('.', ',')}x` : '–')}</div>${obj(e.objetivos)}</button>`;
+        <div class="ie-cifras">${e.tipo === 'vsl'
+          ? `${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${cifra('ROAS', roasIni(e.kpis.roas))}`
+          : `${cifra('Leads', (e.kpis.registros || 0).toLocaleString('es-ES'))}${cifra('CPL medio', eur(e.kpis.cpl))}${e.kpis.vip != null ? cifra('Entradas VIP', e.kpis.vip) : ''}${cifra('Inversión', e.kpis.inversion ? eur(e.kpis.inversion) : '–')}${cifra('ROAS', roasIni(e.kpis.roas))}`}</div>
+        ${e.tipo !== 'vsl' ? `<div class="ie-cifras ie-sec">${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${(e.kpis.bumps || []).map((b) => cifra(`Bump · ${esc(b.nombre)}`, `${b.n}${b.pct != null ? ` <small>(${Math.round(b.pct * 100)}%)</small>` : ''}`)).join('')}</div>` : ''}${obj(e.objetivos)}</button>`;
     }),
     ...metas.map((m) => {
       if (m.cargando) return `<div class="card inicio-emb"><h3>⚡ ${esc(m.nombre)}</h3><p class="muted small">Cargando…</p></div>`;
@@ -1023,7 +1027,7 @@ async function renderFacturacionTotal(m) {
     const fm = meteo?.facturacion ?? null;
     const total = (eco.facturacion || 0) + (fm || 0);
     const inv = (eco.inversion || 0) + (meteo?.inversion || 0);
-    const subLanz = `${eur(eco.facturacionPrograma || 0)} del programa (${m.compra} ventas)${eco.facturacionVip ? ` + ${eur(eco.facturacionVip)} de VIP (${m.vip})` : ''}`;
+    const subLanz = `sin IVA · ${eur(eco.facturacionPrograma || 0)} del programa (${m.compra} ventas)${eco.facturacionVip ? ` + ${eur(eco.facturacionVip)} de VIP (${m.vip})` : ''}${eco.facturacionBumps ? ` + ${eur(eco.facturacionBumps)} de bumps` : ''}`;
     const subMeteo = !metas.length ? 'Sin meteórico posterior (créalo en Métricas → Downsell)'
       : meteo == null ? 'Cargando…'
         : meteo.error ? `No se pudo leer: ${esc(meteo.error)}`
@@ -1065,12 +1069,21 @@ function renderMetrics() {
     : card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros${porTrafico} · ${pctOf(m.vipLive, m.vip)} de las VIP`, 'live', 'live');
   const tr = resumenTrafico(m, state.meta);
   const pct1 = (x) => (x == null ? '–' : `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')}%`);
+  // Primero, en este orden: leads, CPL medio, entradas VIP, inversión y ROAS (con VIP y bumps, sin IVA).
+  const roasTxt = m.eco.roas != null ? `${m.eco.roas.toFixed(2).replace('.', ',')}x` : '–';
+  const factSub = [`programa ${eur(m.eco.facturacionPrograma)}`, m.conVip ? `VIP ${eur(m.eco.facturacionVip)}` : '', m.eco.facturacionBumps ? `bumps ${eur(m.eco.facturacionBumps)}` : ''].filter(Boolean).join(' + ');
   $('#metric-cards').innerHTML = [
-    card('Registros', m.total, m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'leads del lanzamiento', 'users', 'accent'),
-    card('CPL medio', eur(tr.cpl), tr.cpl == null ? 'Conecta Meta o pon la inversión en Configuración' : `inversión / registros${tr.cplPubli != null ? ` · ${eur(tr.cplPubli)} por lead de publicidad` : ''}`, 'coins', 'money'),
+    card('Leads totales', m.total, m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'registros del lanzamiento', 'users', 'accent'),
+    card('CPL medio', eur(tr.cpl), tr.cpl == null ? 'Conecta Meta o pon la inversión en Configuración' : `inversión / leads${tr.cplPubli != null ? ` · ${eur(tr.cplPubli)} por lead de publicidad` : ''}`, 'coins', 'money'),
+    ...(m.conVip ? [card('Entradas VIP vendidas', m.vip, `${pctOf(m.vip, m.total)} de los leads${m.eco.facturacionVip ? ` · ${eur(m.eco.facturacionVip)} sin IVA` : ''}`, 'star', 'vip')] : []),
+    card('Inversión en publicidad', m.eco.inversion ? eur(m.eco.inversion) : '–', m.eco.inversion ? (m.eco.inversionFuente === 'meta' ? 'Meta Ads' : 'puesta a mano en Configuración') : 'Conecta Meta o ponla en Configuración', 'megaphone', 'accent'),
+    card('ROAS', roasTxt, m.eco.roas != null ? `${eur(m.eco.facturacion)} sin IVA (${factSub}) / inversión` : 'facturación sin IVA / inversión', 'trend', 'money'),
+    ...(m.bumps || []).map((b) => {
+      const t = TIPOS_BUMP.find((x) => x.id === b.tipo);
+      return card(`Bump offer ${b.tipo === 'vip' ? 'de la VIP' : `del ${t.label}`} · ${esc(b.nombre)}`, `${b.n} <small class="muted">de ${b.base} ${b.tipo === 'vip' ? 'VIP' : 'ventas'}</small>`, `${b.pct == null ? '–' : pctOf(b.n, b.base)} de las ${t.base} lo compran · ${eur(b.facturacion)} sin IVA`, 'gift', b.tipo === 'vip' ? 'vip' : 'buy');
+    }),
     card('Conversión de la página de registro', pct1(tr.conversionPagina), tr.conversionPagina == null ? (state.meta ? 'Meta no da visitas a la página (landing page views)' : 'Conecta Meta para ver las visitas a la página') : `${tr.registrosPubli} registros${tr.conOrigen ? ' de publicidad' : ''} de ${tr.visitas.toLocaleString('es-ES')} visitas (Meta)`, 'funnel', 'info'),
     ...(m.encuestaActiva ? [card('Encuesta rellenada', `${m.encuesta} <small class="muted">de ${m.total}</small>`, `${pctOf(m.encuesta, m.total)} de los registros`, 'survey', 'info')] : []),
-    ...(m.conVip ? [card('Entradas VIP', m.vip, `${pctOf(m.vip, m.total)} de los registros`, 'star', 'vip')] : []),
     asistenciaCard,
     card('Compras totales', m.compra, `${pctOf(m.compra, m.total)} de los registros`, 'cart', 'buy'),
     ...(!m.conVip ? [] : [card('Ventas de Raíces de VIP', `${m.compraVip} <small class="muted">de ${m.compra}</small>`, `${pctOf(m.compraVip, m.compra)} de las ventas · compra el ${pctOf(m.compraVip, m.vip)} de las VIP`, 'crown', 'vip')]),
@@ -1456,7 +1469,8 @@ function renderCalculadora(m, launch, { soloResultados = false } = {}) {
   const esc3 = Object.fromEntries(ESCENARIOS.map((e) => [e.id, supuestosEscenario(M, e.id, manual)]));
   // Sin entrada VIP: ni conversión a VIP ni objetivo de VIP.
   if (!conVip(launch)) for (const e of ESCENARIOS) esc3[e.id].convVip = 0;
-  const precioVip = Number(launch.precioVip) || 0;
+  // Lo que deja cada VIP, sin IVA: la entrada y los bumps (con el % de VIP que los compra en este lanzamiento).
+  const precioVip = vipSinIva(launch) + (m.bumps || []).filter((b) => b.tipo === 'vip').reduce((t, b) => t + b.precio * (m.vip >= 20 ? b.pct || 0 : 0), 0);
   const roasObj = Number(sup.roasObjetivo) || ROAS_OBJETIVO_DEF;
   // Inversión: la escrita en «Presupuesto» o la recomendada por el histórico. Con CPL escrito no hay curva.
   const cplManual = Number(manual.cpl) > 0;
@@ -1635,7 +1649,7 @@ function renderCalculadora(m, launch, { soloResultados = false } = {}) {
           ${campo('costesFijos', 'Otros costes (€) <small>(herramientas, diseño…)</small>', 'p. ej. 500')}
         </fieldset>
       </div>
-      <p class="muted small">Precio de la VIP: ${eur(precioVip)} (de Configuración). Llevas ${numTxt(m.total)} registros${invActual ? `, ${eur(invActual)} invertidos (CPL ${eur(cplActual)})` : ''}.</p>
+      <p class="muted small">Cada VIP deja ${eur(precioVip)} sin IVA (entrada${m.bumps?.length ? ' + bumps' : ''}, de Configuración). Llevas ${numTxt(m.total)} registros${invActual ? `, ${eur(invActual)} invertidos (CPL ${eur(cplActual)})` : ''}.</p>
       ${puedeConfig() ? '<div class="row"><button type="button" class="btn" id="calc-guardar">Guardar ajustes</button><span class="muted" id="calc-status" aria-live="polite"></span></div>' : ''}
     </div></details>
 
@@ -1859,8 +1873,8 @@ function renderEconomics(m, launch) {
   const metaWarn = state.meta?.error ? `<p class="muted">Meta: ${esc(state.meta.error)}</p>` : '';
   $('#eco-cards').innerHTML = `${[
     card('Inversión en anuncios', e.inversion ? eur(e.inversion) : '–', e.inversion ? fuente : 'Conecta Meta o introdúcela en Configuración', 'megaphone', 'accent'),
-    card('Facturación', hasPrices ? eur(e.facturacion) : '–', hasPrices ? `VIP ${eur(e.facturacionVip)} · Raíces ${eur(e.facturacionPrograma)}${m.planes ? ` · MRR ${eur(m.planes.mrr)}` : launch.fraccionadoTag || launch.unicoTag ? ` (${m.compraUnico} único · ${m.compraFraccionado} fraccionado)` : ''}` : 'Añade los precios en Configuración', 'coins', 'money'),
-    card('ROAS', e.roas != null && hasPrices ? `${e.roas.toFixed(2)}x` : '–', e.roas != null && hasPrices ? `Beneficio: ${eur(e.beneficio)}` : 'facturación / inversión', 'trend', 'money'),
+    card('Facturación (sin IVA)', hasPrices ? eur(e.facturacion) : '–', hasPrices ? `VIP ${eur(e.facturacionVip)}${e.facturacionBumps ? ` · bumps ${eur(e.facturacionBumps)}` : ''} · Raíces ${eur(e.facturacionPrograma)}${m.planes ? ` · MRR ${eur(m.planes.mrr)}` : launch.fraccionadoTag || launch.unicoTag ? ` (${m.compraUnico} único · ${m.compraFraccionado} fraccionado)` : ''}` : 'Añade los precios en Configuración', 'coins', 'money'),
+    card('ROAS', e.roas != null && hasPrices ? `${e.roas.toFixed(2)}x` : '–', e.roas != null && hasPrices ? `Beneficio: ${eur(e.beneficio)} (sin IVA)` : 'facturación sin IVA / inversión', 'trend', 'money'),
     card('Coste por lead', eur(e.cpl), e.cplFrio != null ? `${eur(e.cplFrio)} por lead de tráfico frío` : 'inversión / registros', 'users', 'accent'),
     card('Coste por VIP', eur(e.cpVip), 'inversión / entradas VIP', 'star', 'vip'),
     card('CAC', eur(e.cac), 'coste por clienta nueva de Raíces (inversión / todas las ventas)', 'target', 'buy'),
@@ -2908,6 +2922,42 @@ function pintarCarritoAbandonado() {
 }
 ['#cfg-pagina-pago', '#cfg-llamada', '#cfg-wa-numero', '#cfg-wa-mensaje'].forEach((sel) => $(sel).addEventListener('input', pintarCarritoAbandonado));
 
+// Bump offers de la entrada VIP (Configuración → Entrada VIP): activo, nombre, precio (con o sin IVA) y etiqueta.
+const OPC_IVA = [['', 'Elige…'], ['incluido', 'IVA incluido'], ['mas', '+ IVA']];
+const bumpFila = (b = {}) => `<div class="bump-fila${b.activo === false ? ' off' : ''}" data-bump="${esc(b.id || nuevoId('bump'))}">
+    <label class="chk"><input type="checkbox" class="bump-activo"${b.activo === false ? '' : ' checked'}> Activo</label>
+    <label class="field"><span>Nombre</span><input class="bump-nombre" maxlength="80" value="${esc(b.nombre || '')}" placeholder="Guía extra"></label>
+    <label class="field"><span>Precio (€)</span><input class="bump-precio" inputmode="decimal" value="${b.precio ? String(b.precio).replace('.', ',') : ''}" placeholder="9"></label>
+    <label class="field"><span>¿Lleva IVA?</span><select class="bump-iva">${OPC_IVA.map(([v, t]) => `<option value="${v}"${(b.iva || '') === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+    <label class="field"><span>Etiqueta de quien lo compra</span><input class="bump-tag" list="tag-list" value="${esc(b.tag || '')}" placeholder="Busca la etiqueta…"></label>
+    <button type="button" class="btn ghost small bump-quitar" aria-label="Quitar este bump">✕</button>
+  </div>`;
+const cajaBumps = (tipo) => $(`#config-dialog [data-bumps="${tipo}"]`);
+function pintarBumps(tipo, lista) {
+  cajaBumps(tipo).innerHTML = (lista || []).map(bumpFila).join('') || '<p class="muted small bump-vacio">Sin bump offers.</p>';
+}
+const leerBumps = (tipo) => $$('.bump-fila', cajaBumps(tipo)).map((f) => ({
+  id: f.dataset.bump, activo: $('.bump-activo', f).checked, nombre: $('.bump-nombre', f).value.trim(),
+  precio: $('.bump-precio', f).value.trim(), iva: $('.bump-iva', f).value, tag: $('.bump-tag', f).value.trim().toLowerCase(),
+}));
+$('#config-dialog').addEventListener('click', (e) => {
+  const add = e.target.closest('[data-bump-add]');
+  if (add) {
+    const caja = cajaBumps(add.dataset.bumpAdd);
+    $('.bump-vacio', caja)?.remove();
+    caja.insertAdjacentHTML('beforeend', bumpFila());
+    $('.bump-fila:last-child .bump-nombre', caja).focus();
+    return;
+  }
+  if (!e.target.closest('.bump-quitar')) return;
+  const caja = e.target.closest('[data-bumps]');
+  e.target.closest('.bump-fila').remove();
+  if (!$('.bump-fila', caja)) pintarBumps(caja.dataset.bumps, []);
+});
+$('#config-dialog').addEventListener('change', (e) => {
+  if (e.target.classList.contains('bump-activo')) e.target.closest('.bump-fila').classList.toggle('off', !e.target.checked);
+});
+
 // Página de gracias por agendar la llamada: su bloque base y el vídeo de confirmación.
 function pintarLlamadaPasos() {
   const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
@@ -2993,7 +3043,7 @@ function openConfig(code) {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
       // La encuesta es siempre la misma: misma URL y misma etiqueta.
       encuestaTag: last.encuestaTag, encuestaUrl: last.encuestaUrl,
-      precioVip: last.precioVip, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, pago: last.pago, oferta: last.oferta, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag,
+      precioVip: last.precioVip, iva: last.iva, vipBumps: last.vipBumps, unicoBumps: last.unicoBumps, fraccionadoBumps: last.fraccionadoBumps, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, pago: last.pago, oferta: last.oferta, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag,
       vipContadorBase: embudoInfo(state.embudo)?.vipContadorBase ?? last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, clase3Url: last.clase3Url, textos: last.textos, imagenes: last.imagenes,
@@ -3069,6 +3119,10 @@ function openConfig(code) {
   $('#cfg-llamada-video').value = l.llamadaVideoUrl || '';
   pintarLlamadaPasos();
   $('#cfg-precio-vip').value = l.precioVip || '';
+  $('#cfg-iva-vip').value = l.iva?.vip || '';
+  $('#cfg-iva-programa').value = l.iva?.programa || '';
+  $('#cfg-iva-pct').value = l.iva?.pct != null && l.iva.pct !== 21 ? String(l.iva.pct).replace('.', ',') : '';
+  for (const t of TIPOS_BUMP) pintarBumps(t.id, l[t.campo]);
   $('#cfg-precio-programa').value = l.precioPrograma || '';
   $('#cfg-precio-fraccionado').value = l.precioFraccionado || '';
   $('#cfg-fraccionado-tag').value = l.fraccionadoTag || '';
@@ -3505,6 +3559,8 @@ function readForm() {
       llamadaGraciasUrl: $('#cfg-llamada-gracias').value.trim(),
       llamadaVideoUrl: $('#cfg-llamada-video').value.trim(),
       precioVip: $('#cfg-precio-vip').value,
+      iva: { vip: $('#cfg-iva-vip').value, programa: $('#cfg-iva-programa').value, pct: $('#cfg-iva-pct').value.trim() ? Number($('#cfg-iva-pct').value.trim().replace(',', '.')) : 21 },
+      ...Object.fromEntries(TIPOS_BUMP.map((t) => [t.campo, leerBumps(t.id)])),
       precioPrograma: $('#cfg-precio-programa').value,
       precioFraccionado: $('#cfg-precio-fraccionado').value,
       fraccionadoTag: $('#cfg-fraccionado-tag').value.trim().toLowerCase(),

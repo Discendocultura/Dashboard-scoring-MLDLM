@@ -58,7 +58,7 @@ test('meteórico en suscripción: facturación por plan', () => {
 });
 
 test('lanzamiento en suscripción: facturación del programa y planes', () => {
-  const launch = { ...sus, precioVip: 0 };
+  const launch = { ...sus, iva: { programa: 'mas' }, precioVip: 0 };
   const lead = (s) => ({ s, estado: { id: '' }, outcome: '' });
   const m = computeMetrics([lead({ compra: true, plan: 'anual' }), lead({ compra: true, plan: 'mensual' }), lead({})], launch);
   assert.equal(m.eco.facturacionPrograma, 269);

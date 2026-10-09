@@ -624,6 +624,12 @@ Quien llega a la página de pago con su ID (al pulsar «Quiero inscribirme» en 
 
 ### 💬 WhatsApp para dudas (páginas de venta y de replay)
 
+### IVA, bump offers y orden del resumen
+- **IVA**: junto a cada precio (entrada VIP, programa en «Páginas → Página de pago» y cada bump) se elige si lleva el **IVA incluido** o es **«+ IVA»**, y el % (21 de serie). La **facturación, el beneficio y el ROAS se calculan sin IVA**. Si un precio no lo dice, se toma como IVA incluido y sale un aviso en Métricas.
+- **Bump offers** (opcionales, cada uno se activa o no): de la **entrada VIP** (en «Entrada VIP»), del **pago único** y del **pago fraccionado** (en «Página de pago»). Cada uno con nombre, precio, IVA y la **etiqueta de GHL** de quien lo compra. Cuentan solo con la VIP o la compra de este lanzamiento en ese tipo de pago. En Métricas → Resumen y en Inicio: cuántos se compran y el **% sobre las VIP** (o sobre las ventas de ese tipo de pago); suman a la facturación y al ROAS.
+- **Orden** de Métricas → Resumen y de la tarjeta del lanzamiento en Inicio: leads totales, CPL medio, entradas VIP vendidas, inversión en publicidad y ROAS (programa + VIP + bumps, sin IVA); después, los bumps y el resto.
+- Si Meta devuelve 0 € de inversión y hay inversión puesta a mano, se usa la de mano.
+
 ### Llamada de admisión
 En *Configuración → Páginas → Llamada de admisión*: el **enlace para reservar la llamada** (calendario de GHL; lo usan los botones `data-lsd-link="llamada"`), la **URL de la página de gracias por agendar** y el **vídeo de confirmación** (Vimeo o YouTube). En la página de gracias: `<div data-lsd-llamada data-launch="auto"></div>` + `tracker.js` (respuesta ligera de `/api/page?pagina=llamada`, sin llamar a GHL) y `<div data-lsd-embed="llamada"></div>` donde va el vídeo (sin URL, se oculta). Los códigos, con «Copiar», en la misma sección.
 

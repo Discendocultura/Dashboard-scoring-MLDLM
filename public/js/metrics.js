@@ -6,7 +6,7 @@ import {
 import { tramoEdad, ORDEN_EDAD } from './encuesta.js';
 import { pesosDe } from './pesos.js';
 import { tieneRecurso } from './recursos.js';
-import { importeVenta, esSuscripcion, resumenPlanes } from './pago.js';
+import { importeVenta, esSuscripcion, resumenPlanes, todosLosBumps, precioBump, sinIva, ivaPct, vipSinIva, ivaPendiente } from './pago.js';
 import { videosDe, videoVenta, clasesDe, conVip } from './videos.js';
 
 // Inicio de captación del lanzamiento siguiente DEL MISMO EMBUDO: ahí terminan las ventas de este.
@@ -39,8 +39,9 @@ const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
 // Importe de una compra de Raíces: precio fraccionado si pagó a plazos (y hay precio), si no el único.
 // En una suscripción, el precio del plan elegido (primer cobro).
+// Importe de una venta del programa SIN IVA (los precios se escriben con IVA incluido o «+ IVA»).
 export function importeCompra(l, launch) {
-  return importeVenta(l.s, launch, { unico: launch?.precioPrograma, fraccionado: launch?.precioFraccionado });
+  return sinIva(importeVenta(l.s, launch, { unico: launch?.precioPrograma, fraccionado: launch?.precioFraccionado }), launch?.iva?.programa, ivaPct(launch));
 }
 
 export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
@@ -106,14 +107,29 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
   };
 
   // Economía del lanzamiento.
-  const inversion = metaSpend != null ? metaSpend : num(launch.inversion);
+  // Inversión: la de Meta; si Meta no da nada (o 0 €), la puesta a mano en Configuración.
+  const deMeta = metaSpend != null && (metaSpend > 0 || !num(launch.inversion));
+  const inversion = deMeta ? metaSpend : num(launch.inversion);
   const facturacionPrograma = leads.filter((l) => l.s.compra).reduce((t, l) => t + importeCompra(l, launch), 0);
-  const facturacion = m.vip * num(launch.precioVip) + facturacionPrograma;
+  // Bump offers (de la VIP, del pago único y del fraccionado): cuántas los compran sobre su base (las VIP, o
+  // las ventas en ese tipo de pago), su % y lo que facturan sin IVA.
+  const baseBump = {
+    vip: m.vip,
+    unico: leads.filter((l) => l.s.compra && !l.s.fraccionado).length,
+    fraccionado: leads.filter((l) => l.s.fraccionado).length,
+  };
+  m.bumps = todosLosBumps(launch).filter((b) => b.tipo !== 'vip' || conVip(launch)).map((b) => {
+    const n = leads.filter((l) => l.s.bumps?.includes(b.id)).length;
+    return { id: b.id, tipo: b.tipo, nombre: b.nombre || 'Bump offer', precio: precioBump(b, launch), n, base: baseBump[b.tipo], pct: baseBump[b.tipo] ? n / baseBump[b.tipo] : null, facturacion: n * precioBump(b, launch) };
+  });
+  const facturacionBumps = m.bumps.reduce((t, b) => t + b.facturacion, 0);
+  const facturacion = m.vip * vipSinIva(launch) + facturacionBumps + facturacionPrograma;
   m.eco = {
     inversion,
-    inversionFuente: metaSpend != null ? 'meta' : 'manual',
+    inversionFuente: deMeta ? 'meta' : 'manual',
     facturacion,
-    facturacionVip: m.vip * num(launch.precioVip),
+    facturacionVip: m.vip * vipSinIva(launch),
+    facturacionBumps,
     facturacionPrograma,
     beneficio: facturacion - inversion,
     roas: inversion ? facturacion / inversion : null,
@@ -144,7 +160,8 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
   // Rentabilidad solo de publicidad: la inversión en anuncios frente a lo que traen los leads de publicidad.
   if (launch?.publiTag) {
     const p = m.origen.publi;
-    const facturacionPubli = p.vip * num(launch.precioVip) + p.importe;
+    const bumpsPubli = leads.filter((l) => l.s.origen === 'publi').reduce((t, l) => t + (l.s.bumps || []).reduce((a, id) => a + num(m.bumps.find((b) => b.id === id)?.precio), 0), 0);
+    const facturacionPubli = p.vip * vipSinIva(launch) + bumpsPubli + p.importe;
     m.eco.publi = {
       leads: p.leads, vip: p.vip, compras: p.compras, facturacion: facturacionPubli,
       cpl: inversion && p.leads ? inversion / p.leads : null,
@@ -385,6 +402,8 @@ export function avisosLanzamiento(leads, launch, m) {
     [launch.whatsappUrl, 'el enlace del grupo de WhatsApp'], [launch.cierreCarrito, 'el cierre del carrito'],
   ].filter(([v]) => !v).map(([, t]) => t);
   if (falta.length) out.push(`Falta en Configuración: ${falta.join(', ')}.`);
+  const sinIvaElegido = ivaPendiente(launch);
+  if (sinIvaElegido.length) out.push(`Indica en Configuración si el precio lleva el IVA incluido o es «+ IVA» (${sinIvaElegido.join(', ')}): mientras, se toma como IVA incluido. La facturación y el ROAS se calculan sin IVA.`);
   const sinFoto = fotosPendientes(launch);
   if (sinFoto.length) out.push(`Falta la «foto» de ${sinFoto.map((f) => f.label).join(', ')}: quien ya la tenía de lanzamientos anteriores cuenta como de este.`);
   if (!esSuscripcion(launch) && (launch.unicoTag || launch.fraccionadoTag) && m.pago.sinEtiqueta.n) out.push(`${m.pago.sinEtiqueta.n} ventas de Raíces sin etiqueta de pago único ni fraccionado: revisa los workflows de compra.`);
@@ -470,7 +489,8 @@ export function rankingGanadores(leads, launch, level = 'ad', names = {}, spendB
     if (!id) continue;
     const g = groups.get(id) || { id, label: names[id] || id, leads: 0, vip: 0, compras: 0, ingresos: 0, camp: new Map(), set: new Map() };
     g.leads++;
-    if (l.s.vip) { g.vip++; g.ingresos += num(launch?.precioVip); }
+    if (l.s.vip) { g.vip++; g.ingresos += vipSinIva(launch); }
+    g.ingresos += (l.s.bumps || []).reduce((t, id) => t + precioBump(todosLosBumps(launch).find((b) => b.id === id), launch), 0);
     if (l.s.compra) { g.compras++; g.ingresos += importeCompra(l, launch); }
     if (l.src.campaign) g.camp.set(l.src.campaign, (g.camp.get(l.src.campaign) || 0) + 1);
     if (l.src.term) g.set.set(l.src.term, (g.set.get(l.src.term) || 0) + 1);

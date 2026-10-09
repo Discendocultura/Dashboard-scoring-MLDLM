@@ -528,8 +528,8 @@
             <button type="button" class="subview-tab" data-msub-btn="emails" data-icon-msub="mail">Emails</button>
             <button type="button" class="subview-tab" data-msub-btn="meteorico" data-icon-msub="zap">Downsell</button>
           </nav>
-          <div id="fact-total-l" data-msub="resumen" class="kpis fact-kpis"></div>
           <div id="metric-cards" data-msub="resumen" class="kpis"></div>
+          <div id="fact-total-l" data-msub="resumen" class="kpis fact-kpis"></div>
           <div id="ciclo-kpi-l" data-msub="resumen" class="kpis ciclo-kpis"></div>
           <div id="em-kpis-l" data-msub="resumen" class="kpis em-kpis" hidden></div>
           <section data-msub="emails" class="card metric-card" data-icon="mail">
@@ -792,8 +792,15 @@
             <div class="grid2">
               <label class="field"><span>Entrada VIP · enlace de pago <small>(se cierra a la hora del directo)</small></span><input id="cfg-vip-url" type="url"></label>
               <label class="field"><span>Precio de la entrada VIP (€)</span><input id="cfg-precio-vip" inputmode="decimal" placeholder="27"></label>
+              <label class="field"><span>¿El precio de la VIP lleva IVA? <small>(la facturación y el ROAS se calculan sin IVA)</small></span><select id="cfg-iva-vip"><option value="">Elige…</option><option value="incluido">IVA incluido</option><option value="mas">+ IVA</option></select></label>
               <label class="field"><span>Contador de VIP · empieza en <small>(la página muestra este número + las VIP vendidas en el lanzamiento; <code>data-lsd-text="vipContador"</code>)</small></span><input id="cfg-vip-base" inputmode="numeric" placeholder="41"></label>
             </div>
+            <fieldset class="rb-cfg bump-cfg">
+              <legend>➕ Bump offers de la entrada VIP <small class="muted">(lo que se añade al comprar la VIP; cuentan en la facturación y el ROAS)</small></legend>
+              <div class="bump-lista" data-bumps="vip"></div>
+              <button type="button" class="btn" data-bump-add="vip">+ Añadir bump offer</button>
+              <p class="field-note">Cada bump: actívalo, pon su precio (y si lleva el IVA incluido o es «+ IVA») y la <strong>etiqueta de GHL</strong> que reciben quienes lo compran. En Métricas verás cuántas VIP lo compran (%) y lo que factura.</p>
+            </fieldset>
           </section>
           <section class="cfg-sec" data-sec="5">
             <header class="cfg-sec-head"><span class="cfg-sec-num">4</span><div><h3>Anuncios y emails</h3><p>Para el coste por lead, el ROAS y el CAC de Métricas, y los emails del lanzamiento. Los precios de Raíces están en «Páginas → Página de pago» y el de la VIP, en «Entrada VIP».</p></div><span class="cfg-sec-status"></span></header>
@@ -1077,7 +1084,21 @@
             <div class="grid2">
               <label data-pago="unico" class="field"><span>Precio de Raíces · pago único (€) <small>(ThriveCart)</small></span><input id="cfg-precio-programa" inputmode="decimal" placeholder="997"></label>
               <label data-pago="fr" class="field"><span>Precio de Raíces · pago fraccionado (€) <small>(Hotmart; total de todos los plazos)</small></span><input id="cfg-precio-fraccionado" inputmode="decimal" placeholder="1.164"></label>
+              <label class="field"><span>¿Los precios del programa llevan IVA? <small>(único, fraccionado y planes; la facturación y el ROAS se calculan sin IVA)</small></span><select id="cfg-iva-programa"><option value="">Elige…</option><option value="incluido">IVA incluido</option><option value="mas">+ IVA</option></select></label>
+              <label class="field"><span>IVA (%) <small>(de todos los precios del lanzamiento)</small></span><input id="cfg-iva-pct" inputmode="decimal" placeholder="21"></label>
             </div>
+            <fieldset class="rb-cfg bump-cfg" data-pago="unico">
+              <legend>➕ Bump offers del pago único <small class="muted">(opcionales; cuentan en la facturación y el ROAS)</small></legend>
+              <div class="bump-lista" data-bumps="unico"></div>
+              <button type="button" class="btn" data-bump-add="unico">+ Añadir bump offer</button>
+              <p class="field-note">Actívalo y pon su precio (con o sin IVA) y la etiqueta de GHL de quien lo compra. En Métricas: cuántas ventas en pago único lo llevan (%).</p>
+            </fieldset>
+            <fieldset class="rb-cfg bump-cfg" data-pago="fr">
+              <legend>➕ Bump offers del pago fraccionado <small class="muted">(opcionales; cuentan en la facturación y el ROAS)</small></legend>
+              <div class="bump-lista" data-bumps="fraccionado"></div>
+              <button type="button" class="btn" data-bump-add="fraccionado">+ Añadir bump offer</button>
+              <p class="field-note">Igual que el del pago único, para las ventas en pago fraccionado.</p>
+            </fieldset>
               <fieldset class="pago-caja" data-pago="unico">
                 <legend>💳 Cajetín · Pago único</legend>
                 <div class="grid2">
