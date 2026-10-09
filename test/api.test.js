@@ -683,14 +683,14 @@ test('roles configurables: permisos por rol, roles nuevos y no borrar roles en u
   assert.equal((await config.POST(req('/api/config', { method: 'POST', cookie: setter, body: antesCfg }))).status, 403); // la config completa, no
 });
 
-test('permisos nuevos: los roles guardados antes reciben «mensajes» si hacen setteo', async () => {
+test('permisos nuevos: los roles guardados antes reciben «mensajes» y «En directo» si hacen setteo', async () => {
   const { completarPermisosNuevos, sanitizeRoles } = await import('../public/js/roles.js');
   const viejos = [{ id: 'setter', label: 'Setter', permisos: ['hoy', 'leads'] }, { id: 'cm', label: 'CM', permisos: ['metricas'] }];
   const r = sanitizeRoles(completarPermisosNuevos(viejos));
-  assert.deepEqual(r[0].permisos, ['hoy', 'leads', 'mensajes']);
+  assert.deepEqual([...r[0].permisos].sort(), ['endirecto', 'hoy', 'leads', 'mensajes']);
   assert.deepEqual(r[1].permisos, ['metricas']);
-  // Si la admin ya lo vio y lo quitó, no vuelve
-  assert.deepEqual(completarPermisosNuevos([{ ...viejos[0], vistos: ['mensajes'] }])[0].permisos, ['hoy', 'leads']);
+  // Si la admin ya los vio y los quitó, no vuelven
+  assert.deepEqual(completarPermisosNuevos([{ ...viejos[0], vistos: ['mensajes', 'endirecto'] }])[0].permisos, ['hoy', 'leads']);
 });
 
 test('formularios instantáneos de Meta: el origen sale de la atribución o de los campos configurados', async () => {

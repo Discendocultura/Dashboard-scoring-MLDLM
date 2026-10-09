@@ -39,7 +39,7 @@ async function ventasGhl(code, launch) {
 
 export async function GET(request) {
   try {
-    await requireSession(request, { permiso: ['hoy', 'llamadas', 'metricas', 'leads'] });
+    await requireSession(request, { permiso: 'endirecto' });
     const code = new URL(request.url).searchParams.get('l') || '';
     const config = await getConfig();
     const launch = Object.hasOwn(config.launches, code) ? config.launches[code] : null;

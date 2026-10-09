@@ -62,7 +62,8 @@ export const SECCIONES_VALIDAS = Object.entries(SECCIONES).flatMap(([v, l]) => l
 // Cómo se agrupan las pestañas en el menú del dashboard (categorías → subcategorías), por tipo de embudo.
 export const CATEGORIAS = {
   lanzamientos: [
-    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'El trabajo diario de setters y closers', vistas: ['hoy', 'llamadas', 'endirecto'] },
+    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'El trabajo diario de setters y closers', vistas: ['hoy', 'llamadas'] },
+    { id: 'endirecto', label: 'En directo', icon: '🔴', desc: 'El día del webinar, minuto a minuto', vistas: ['endirecto'] },
     { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['leads'] },
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va el lanzamiento, en cifras', vistas: ['metricas'] },
     { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Para decidir: objetivos, avatar y comparativas', vistas: ['objetivos', 'avatar', 'comparar'] },

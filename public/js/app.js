@@ -291,7 +291,7 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
 const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico' };
-const VIEW_PERMISO = { endirecto: 'hoy', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas' };
+const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas' };
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
@@ -2123,7 +2123,7 @@ const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos',
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
 // Comparar) y «Planificación» (Calendario, Tareas y Rendimiento del equipo).
-const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], analisis: ['objetivos', 'avatar', 'vanuncios', 'comparar'], planificacion: ['calendario', 'tareas', 'rendimiento'] };
+const GRUPOS = { comercial: ['hoy', 'llamadas'], analisis: ['objetivos', 'avatar', 'vanuncios', 'comparar'], planificacion: ['calendario', 'tareas', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
 const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
