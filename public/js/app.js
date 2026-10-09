@@ -1083,7 +1083,7 @@ function renderMetrics() {
   const asistenciaCard = vVenta
     ? card(`Vieron el ${vVenta.nombre}`, vVenta.vieron, `${pctOf(vVenta.vieron, m.total)} de los registros${porTrafico} · compra el ${pctOf(vVenta.compraron, vVenta.vieron)}`, 'live', 'live')
     : card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros${porTrafico} · ${pctOf(m.vipLive, m.vip)} de las VIP`, 'live', 'live');
-  const tr = resumenTrafico(m, state.meta);
+  const tr = resumenTrafico(m, state.meta, { visitasRegistro: state.visitas?.code === state.launchCode ? state.visitas.registro : 0 });
   const pct1 = (x) => (x == null ? '–' : `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')}%`);
   // Primero, en este orden: leads, CPL medio, entradas VIP, inversión y ROAS (con VIP y bumps, sin IVA).
   const roasTxt = m.eco.roas != null ? `${m.eco.roas.toFixed(2).replace('.', ',')}x` : '–';
@@ -1100,7 +1100,10 @@ function renderMetrics() {
       // En grande el % de las VIP (o de las ventas de ese tipo de pago) que lo compran; debajo, cuántos se han vendido.
       return card(`Bump offer ${b.tipo === 'vip' ? 'de la VIP' : `del ${t.label}`} · ${esc(b.nombre)}`, pctOf(b.n, b.base).replace('.', ','), `<strong>${b.n.toLocaleString('es-ES')} ${b.n === 1 ? 'bump vendido' : 'bumps vendidos'}</strong> de ${b.base} ${b.tipo === 'vip' ? 'VIP' : t.base} · ${eur(b.facturacion)} sin IVA`, 'gift', b.tipo === 'vip' ? 'vip' : 'buy');
     }),
-    card('Conversión de la página de registro', pct1(tr.conversionPagina), tr.conversionPagina == null ? (state.meta ? 'Meta no da visitas a la página (landing page views)' : 'Conecta Meta para ver las visitas a la página') : `${tr.registrosPubli} registros${tr.conOrigen ? ' de publicidad' : ''} de ${tr.visitas.toLocaleString('es-ES')} visitas (Meta)`, 'funnel', 'info'),
+    card('Conversión de la página de registro', pct1(tr.conversionPagina), tr.conversionFuente === 'registro'
+      ? `${m.total.toLocaleString('es-ES')} registros de ${tr.visitasRegistro.toLocaleString('es-ES')} visitas únicas a la página de registro`
+      : tr.conversionFuente === 'meta' ? `${tr.registrosPubli} registros${tr.conOrigen ? ' de publicidad' : ''} de ${tr.visitas.toLocaleString('es-ES')} visitas (Meta) · pega el código de la página de registro (Códigos) para contar las visitas únicas`
+        : 'Pega en la página de registro el código «REGISTRO · visitas únicas» (Configuración → Códigos)', 'funnel', 'info'),
     ...(m.encuestaActiva ? [card('Encuesta rellenada', `${m.encuesta} <small class="muted">de ${m.total}</small>`, `${pctOf(m.encuesta, m.total)} de los registros`, 'survey', 'info')] : []),
     asistenciaCard,
     card('Compras totales', m.compra, `${pctOf(m.compra, m.total)} de los registros`, 'cart', 'buy'),
@@ -1914,7 +1917,8 @@ function renderTrafico(m, launch, tr) {
     card('Impresiones', n(tr.impresiones), `CPM ${eur2(tr.cpm)} (coste por mil)`, 'eye', 'info'),
     card('Clics en el enlace', n(tr.clics), `CTR ${pct1(tr.ctr)} · CPC ${eur2(tr.cpc)}`, 'trend', 'info'),
     card('Visitas a la página de registro', n(tr.visitas), tr.visitas ? `${pct1(tr.cargan)} de los clics llegan a cargarla · ${eur2(tr.costeVisita)} por visita` : 'landing page views de Meta', 'play', 'info'),
-    card('Conversión de la página', pct1(tr.conversionPagina), tr.conversionPagina != null ? `${n(tr.registrosPubli)} registros${tr.conOrigen ? ' de publicidad' : ''} / ${n(tr.visitas)} visitas${tr.registrosMeta ? ` · Meta cuenta ${n(tr.registrosMeta)}` : ''}` : 'registros / visitas a la página', 'funnel', 'buy'),
+    card('Conversión de la página', pct1(tr.conversionPagina), tr.conversionFuente === 'registro' ? `${n(m.total)} registros / ${n(tr.visitasRegistro)} visitas únicas a la página de registro`
+      : tr.conversionPagina != null ? `${n(tr.registrosPubli)} registros${tr.conOrigen ? ' de publicidad' : ''} / ${n(tr.visitas)} visitas (Meta)${tr.registrosMeta ? ` · Meta cuenta ${n(tr.registrosMeta)}` : ''}` : 'registros / visitas únicas a la página de registro', 'funnel', 'buy'),
     card('CPL medio', eur2(tr.cpl), 'inversión / todos los registros', 'users', 'money'),
     card('CPL de publicidad', eur2(tr.cplPubli), tr.conOrigen ? `inversión / ${n(m.origen.publi.leads)} leads de publicidad` : 'Pon las etiquetas de publicidad y orgánico', 'megaphone', 'money'),
     card('CPL de tráfico frío', eur2(tr.cplFrio), 'inversión / leads nuevos en GHL', 'snow', 'money'),
@@ -4009,6 +4013,8 @@ function renderSnippets() {
   const origin = location.origin;
   const script = `<script src="${origin}/tracker.js${cParam()}" defer></script>`;
   const items = [
+    ['REGISTRO · visitas únicas de la página de registro (en el footer; para la conversión de la página en Métricas)',
+      `<div data-lsd-registro data-launch="auto"></div>\n${script}`],
     ['LOGIN · bloque del formulario (no cambia entre lanzamientos)',
       `<div data-lsd-login data-launch="auto"\n     data-title="Accede a las clases con el email con el que te registraste"\n     data-button="Acceder a las clases"></div>\n${script}`],
     ['RECURSOS · bloque base (una vez por página, en cualquier sitio)', `<div data-lsd-page="recursos" data-launch="auto"></div>\n${script}`],
@@ -7173,7 +7179,7 @@ async function cargarVisitas() {
   try {
     const d = await api(`/api/visita?l=${encodeURIComponent(code)}`);
     if (state.launchCode !== code) return;
-    state.visitas = { code, visitas: d.visitas || {}, pago: d.pago || {} };
+    state.visitas = { code, visitas: d.visitas || {}, pago: d.pago || {}, registro: d.registro || 0 };
     aplicarVisitas();
     render();
   } catch { /* sin visitas: no pasa nada */ }

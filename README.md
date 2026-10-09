@@ -630,6 +630,9 @@ Quien llega a la página de pago con su ID (al pulsar «Quiero inscribirme» en 
 - **Orden** de Métricas → Resumen y de la tarjeta del lanzamiento en Inicio: leads totales, CPL medio, entradas VIP vendidas, inversión en publicidad y ROAS (programa + VIP + bumps, sin IVA); después, los bumps y el resto.
 - **CPL medio = inversión de Meta / leads con la etiqueta de registro.** La inversión se suma sola de las campañas de Meta que llevan el código del lanzamiento (o el texto de «Campañas de Meta») en el nombre, desde el inicio de captación. Si no hay inversión, la tarjeta dice por qué (Meta sin conectar, ninguna campaña con el código, sin inicio de captación…). La inversión a mano de Configuración solo se usa si Meta no da nada.
 
+### Conversión de la página de registro
+La API de GHL no da las estadísticas de los embudos (las visitas de «Embudos → … → Estadísticas»), así que el dashboard cuenta las **visitas únicas** él mismo: en la página de registro, en el footer, `<div data-lsd-registro data-launch="auto"></div>` + `tracker.js` (Configuración → Códigos → «REGISTRO · visitas únicas»). Cada navegador cuenta una vez por lanzamiento (tabla `visitas_registro` de D1, sin GHL). **Conversión = registros (etiqueta de registro) / visitas únicas.** Sin el código, se usan las visitas de Meta (landing page views) si las hay.
+
 ### Llamada de admisión
 En *Configuración → Páginas → Llamada de admisión*: el **enlace para reservar la llamada** (calendario de GHL; lo usan los botones `data-lsd-link="llamada"`), la **URL de la página de gracias por agendar** y el **vídeo de confirmación** (Vimeo o YouTube). En la página de gracias: `<div data-lsd-llamada data-launch="auto"></div>` + `tracker.js` (respuesta ligera de `/api/page?pagina=llamada`, sin llamar a GHL) y `<div data-lsd-embed="llamada"></div>` donde va el vídeo (sin URL, se oculta). Los códigos, con «Copiar», en la misma sección.
 

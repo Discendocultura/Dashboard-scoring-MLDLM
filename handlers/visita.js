@@ -1,11 +1,12 @@
 // Visitas a la página de venta y a la de pago intermedia (bloques data-lsd-venta y data-lsd-pago de tracker.js).
-//   POST /api/visita { launch: código | 'auto', cid, pagina: 'venta' | 'pago' }  (pública) → apunta la visita en
+//   POST /api/visita { launch: código | 'auto', cid, pagina: 'venta' | 'pago' | 'registro' }  (pública) → apunta la visita en
 //        D1 (sin llamar a GHL: al abrir el carrito entran cientos a la vez). Llegar a la de pago = inició el pago.
-//   GET  /api/visita?l=<código>  (dashboard) → { visitas, pago: { contacto → { primera, ultima, veces } } }.
+//   GET  /api/visita?l=<código>  (dashboard) → { visitas, pago: { contacto → { primera, ultima, veces } }, registro: nº }.
+// En la de registro `cid` es un id anónimo del navegador (aún no hay lead): cuenta visitantes únicos.
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { currentLaunch } from '../lib/digest.js';
-import { marcarVisita, visitasDe } from '../lib/entradas.js';
+import { marcarVisita, visitasDe, contarVisitas } from '../lib/entradas.js';
 import { json, readBody, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { addTags } from '../lib/ghl.js';
 
@@ -26,7 +27,7 @@ export async function POST(request, ctx) {
     const code = lanzamiento(config, launch);
     if (!code) return json({ error: 'Lanzamiento desconocido' }, 404, CORS_HEADERS);
     const esPago = pagina === 'pago';
-    const veces = await marcarVisita(code, cid, Date.now(), esPago ? 'pago' : 'venta');
+    const veces = await marcarVisita(code, cid, Date.now(), esPago ? 'pago' : pagina === 'registro' ? 'registro' : 'venta');
     // La primera vez que llega a la página de pago: la etiqueta de carrito abandonado en GHL (dispara el workflow
     // de recuperación, que la quita si compra). Solo una llamada a GHL por lead, y sin esperar a que acabe.
     const tag = config.launches[code].carritoAbandonadoTag;
@@ -44,9 +45,9 @@ export async function GET(request) {
   try {
     await requireSession(request, { permiso: ['hoy', 'leads', 'llamadas', 'metricas'] });
     const code = lanzamiento(await getConfig(), new URL(request.url).searchParams.get('l'));
-    if (!code) return json({ visitas: {}, pago: {} });
-    const [visitas, pago] = await Promise.all([visitasDe(code), visitasDe(code, 'pago')]);
-    return json({ code, visitas, pago });
+    if (!code) return json({ visitas: {}, pago: {}, registro: 0 });
+    const [visitas, pago, registro] = await Promise.all([visitasDe(code), visitasDe(code, 'pago'), contarVisitas(code, 'registro')]);
+    return json({ code, visitas, pago, registro });
   } catch (e) {
     return errorResponse(e);
   }

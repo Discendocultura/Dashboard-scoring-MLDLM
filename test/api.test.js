@@ -859,3 +859,14 @@ test('Meta: con la captación aún sin empezar no se piden fechas futuras (sin g
   assert.equal(r.total, 0);
   assert.deepEqual(r.campaigns, []);
 });
+
+test('visitas únicas de la página de registro: una por navegador y lanzamiento', async () => {
+  const { contarVisitas, marcarVisita } = await import('../lib/entradas.js');
+  const antes = await contarVisitas('reg-26', 'registro');
+  await marcarVisita('reg-26', 'vabc123xyz', Date.now(), 'registro');
+  await marcarVisita('reg-26', 'vabc123xyz', Date.now(), 'registro'); // recarga: no suma
+  await marcarVisita('reg-26', 'vdef456uvw', Date.now(), 'registro');
+  assert.equal(await contarVisitas('reg-26', 'registro'), antes + 2);
+  const { resumenTrafico } = await import('../public/js/metrics.js');
+  assert.equal(resumenTrafico({ total: 50, eco: {} }, null, { visitasRegistro: 200 }).conversionPagina, 0.25);
+});

@@ -595,7 +595,9 @@ export function resumenEncuesta(leads, preguntas) {
 // CPM, clics, CTR, CPC, visitas a la página de registro, su conversión y los costes por resultado.
 // `meta`: lo que devuelve /api/meta (o null). La conversión de la página usa los registros de
 // publicidad si hay etiquetas de origen; si no, todos los registros.
-export function resumenTrafico(m, meta) {
+//  `visitasRegistro`: visitantes únicos de la página de registro contados por el tracker (data-lsd-registro).
+//  Con ellos la conversión es registros / visitas únicas (como las estadísticas del embudo en GHL).
+export function resumenTrafico(m, meta, { visitasRegistro = 0 } = {}) {
   const div = (a, b) => (a != null && b ? a / b : null);
   const st = meta && !meta.error ? meta.stats || null : null;
   const inversion = m.eco?.inversion || 0;
@@ -615,7 +617,9 @@ export function resumenTrafico(m, meta) {
     registrosPubli,
     registrosMeta: st?.registrosMeta ?? null,
     conOrigen,
-    conversionPagina: div(registrosPubli, visitas),
+    visitasRegistro: visitasRegistro || null,
+    conversionPagina: visitasRegistro ? div(m.total, visitasRegistro) : div(registrosPubli, visitas),
+    conversionFuente: visitasRegistro ? 'registro' : visitas ? 'meta' : '',
     cpl: div(inversion || null, m.total),
     cplPubli: conOrigen ? div(inversion || null, m.origen.publi.leads) : null,
     cplFrio: div(inversion || null, m.frio),

@@ -1138,6 +1138,15 @@
     if (venta) initVenta(venta, 'venta');
     var pago = document.querySelector('[data-lsd-pago]');
     if (pago) initVenta(pago, 'pago');
+    // Página de registro: cuenta visitantes únicos (id anónimo del navegador) para la conversión de la página.
+    var registro = document.querySelector('[data-lsd-registro]');
+    if (registro && !params.get('lsd_preview')) {
+      var launchR = params.get('l') || registro.getAttribute('data-launch') || 'auto';
+      var vid = store('lsd_vid');
+      if (!vid) { vid = 'v' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36); store('lsd_vid', vid); }
+      // El servidor la cuenta una sola vez por navegador y lanzamiento (aunque recargue).
+      post('/api/visita', { launch: launchR, cid: vid, pagina: 'registro' });
+    }
     // Gracias por agendar la llamada: el vídeo de confirmación y los enlaces.
     var llamada = document.querySelector('[data-lsd-llamada]');
     if (llamada) initVenta(llamada, 'llamada');
