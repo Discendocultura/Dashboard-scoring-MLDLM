@@ -586,7 +586,7 @@ function pintarInicio() {
         <div class="ie-cifras">${e.tipo === 'vsl'
           ? `${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${cifra('ROAS', roasIni(e.kpis.roas))}`
           : `${cifra('Leads', (e.kpis.registros || 0).toLocaleString('es-ES'))}${cifra('CPL medio', eur(e.kpis.cpl))}${e.kpis.vip != null ? cifra('Entradas VIP', e.kpis.vip) : ''}${cifra('Inversión', e.kpis.inversion ? eur(e.kpis.inversion) : '–')}${cifra('ROAS', roasIni(e.kpis.roas))}`}</div>
-        ${e.tipo !== 'vsl' ? `<div class="ie-cifras ie-sec">${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${(e.kpis.bumps || []).map((b) => cifra(`Bump · ${esc(b.nombre)}`, `${b.n}${b.pct != null ? ` <small>(${Math.round(b.pct * 100)}%)</small>` : ''}`)).join('')}</div>` : ''}${obj(e.objetivos)}</button>`;
+        ${e.tipo !== 'vsl' ? `<div class="ie-cifras ie-sec">${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${(e.kpis.bumps || []).map((b) => cifra(`Bump · ${esc(b.nombre)}`, `${b.pct != null ? `${Math.round(b.pct * 1000) / 10}%`.replace('.', ',') : '–'} <small>(${b.n} vendidos)</small>`)).join('')}</div>` : ''}${obj(e.objetivos)}</button>`;
     }),
     ...metas.map((m) => {
       if (m.cargando) return `<div class="card inicio-emb"><h3>⚡ ${esc(m.nombre)}</h3><p class="muted small">Cargando…</p></div>`;
@@ -1080,7 +1080,8 @@ function renderMetrics() {
     card('ROAS', roasTxt, m.eco.roas != null ? `${eur(m.eco.facturacion)} sin IVA (${factSub}) / inversión` : 'facturación sin IVA / inversión', 'trend', 'money'),
     ...(m.bumps || []).map((b) => {
       const t = TIPOS_BUMP.find((x) => x.id === b.tipo);
-      return card(`Bump offer ${b.tipo === 'vip' ? 'de la VIP' : `del ${t.label}`} · ${esc(b.nombre)}`, `${b.n} <small class="muted">de ${b.base} ${b.tipo === 'vip' ? 'VIP' : 'ventas'}</small>`, `${b.pct == null ? '–' : pctOf(b.n, b.base)} de las ${t.base} lo compran · ${eur(b.facturacion)} sin IVA`, 'gift', b.tipo === 'vip' ? 'vip' : 'buy');
+      // En grande el % de las VIP (o de las ventas de ese tipo de pago) que lo compran; debajo, cuántos se han vendido.
+      return card(`Bump offer ${b.tipo === 'vip' ? 'de la VIP' : `del ${t.label}`} · ${esc(b.nombre)}`, pctOf(b.n, b.base).replace('.', ','), `<strong>${b.n.toLocaleString('es-ES')} ${b.n === 1 ? 'bump vendido' : 'bumps vendidos'}</strong> de ${b.base} ${b.tipo === 'vip' ? 'VIP' : t.base} · ${eur(b.facturacion)} sin IVA`, 'gift', b.tipo === 'vip' ? 'vip' : 'buy');
     }),
     card('Conversión de la página de registro', pct1(tr.conversionPagina), tr.conversionPagina == null ? (state.meta ? 'Meta no da visitas a la página (landing page views)' : 'Conecta Meta para ver las visitas a la página') : `${tr.registrosPubli} registros${tr.conOrigen ? ' de publicidad' : ''} de ${tr.visitas.toLocaleString('es-ES')} visitas (Meta)`, 'funnel', 'info'),
     ...(m.encuestaActiva ? [card('Encuesta rellenada', `${m.encuesta} <small class="muted">de ${m.total}</small>`, `${pctOf(m.encuesta, m.total)} de los registros`, 'survey', 'info')] : []),
