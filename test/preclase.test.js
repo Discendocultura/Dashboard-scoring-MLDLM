@@ -386,3 +386,27 @@ test('WhatsApp para dudas: el enlace se genera con el número y el mensaje', asy
   l = await guardar({ whatsappDudasUrl: 'https://wa.me/34622222222?text=Hola' });
   assert.deepEqual(l.whatsappDudas, { numero: '34622222222', mensaje: 'Hola' });
 });
+
+test('iniciar el pago (llegar a la página de pago): se apunta aparte y sube la puntuación a muy caliente', async () => {
+  const { score, estadoFor } = await import('../public/js/scoring.js');
+  const base = { clases: ['clase1', 'clase2'], clase1_25: true };
+  const sin = score(base);
+  const con = score({ ...base, inicio_pago: { ultima: Date.now(), veces: 1 } });
+  assert.ok(sin < 70);
+  assert.ok(con >= 70 && con >= sin + 15);
+  assert.equal(estadoFor(con).id, 'muy-caliente');
+  // Si ya compró, no cambia
+  assert.equal(score({ ...base, compra: true, inicio_pago: { ultima: 1, veces: 1 } }), score({ ...base, compra: true }));
+  // La visita a la página de pago se guarda aparte de la de venta
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const { data: c } = await call('/api/config', { cookie: admin });
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...c.config, _version: c.version, launches: { ...c.config.launches, 'ip-26': { name: 'IP', registroTag: 'registro-webinar-demo', inicioCaptacion: local(-5), fechaDirecto: local(-1), horaDirecto: '19:00' } } } });
+  assert.equal((await call('/api/visita', { method: 'POST', body: { launch: 'ip-26', cid: 'mock00007', pagina: 'pago' } })).status, 200);
+  await call('/api/visita', { method: 'POST', body: { launch: 'ip-26', cid: 'mock00007', pagina: 'pago' } });
+  await call('/api/visita', { method: 'POST', body: { launch: 'ip-26', cid: 'mock00008' } });
+  const v = (await call('/api/visita?l=ip-26', { cookie: admin })).data;
+  assert.equal(v.pago.mock00007.veces, 2);
+  assert.equal(v.pago.mock00008, undefined);
+  assert.equal(v.visitas.mock00008.veces, 1);
+  assert.equal(v.visitas.mock00007, undefined);
+});

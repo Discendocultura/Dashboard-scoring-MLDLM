@@ -1083,9 +1083,9 @@
       injectCss();
       barraVenta(data);
     }).catch(function () { /* sin conexión: sin barra */ });
-    // Visitas a la página de venta, para «Setting hoy» del dashboard.
-    if (pagina !== 'venta' || !who || !who.cid || params.get('lsd_preview')) return;
-    post('/api/visita', { launch: launch, cid: who.cid });
+    // Visitas a la página de venta (para «Setting hoy») y a la de pago (= inició el pago).
+    if (!who || !who.cid || params.get('lsd_preview')) return;
+    post('/api/visita', { launch: launch, cid: who.cid, pagina: pagina });
   }
 
   function init() {

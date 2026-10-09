@@ -269,6 +269,9 @@ export function score(s, aprendidos = null) {
   const max = (clases.length ? pesos.clases : 0) + (s.conVip === false ? 0 : pesos.vip) + pesos.video
     + (R.musica ? pesos.musica : 0) + (R.test ? pesos.test : 0) + (R.votacion ? pesos.votacion : 0);
   if (max !== 100) pts = (pts * 100) / max;
+  // Inició el pago (llegó a la página de pago con «Quiero inscribirme») y no ha comprado: es lo más cerca de
+  // comprar que hay. Suma 15 y como mínimo queda «muy caliente».
+  if (s.inicio_pago && !s.compra) pts = Math.max(pts + 15, ESTADOS[0].min);
   return Math.min(Math.round(pts), 100);
 }
 

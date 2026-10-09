@@ -63,6 +63,9 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     llamada: c((l) => l.s.llamada),
     compraLlamada: c((l) => l.s.compra && l.s.llamada),
     compra: c((l) => l.s.compra),
+    // Iniciaron el pago: llegaron a la página de pago intermedia con «Quiero inscribirme».
+    inicioPago: c((l) => l.s.inicio_pago),
+    compraInicioPago: c((l) => l.s.compra && l.s.inicio_pago),
     compraFraccionado: c((l) => l.s.fraccionado),
     compraUnico: c((l) => l.s.unico),
     compraVip: c((l) => l.s.compra && l.s.vip),
@@ -210,6 +213,7 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     ['Tráfico templado', (l) => l.s.trafico === 'templado'],
     ['Contactada por WhatsApp', (l) => l.s.wa_enviado],
     ['Agendó llamada', (l) => l.s.llamada],
+    ...(leads.some((l) => l.s.inicio_pago) ? [['Inició el pago (página de pago)', (l) => l.s.inicio_pago]] : []),
   ];
   m.lift = SIGNAL_TESTS.map(([label, fn]) => {
     const yes = leads.filter(fn);

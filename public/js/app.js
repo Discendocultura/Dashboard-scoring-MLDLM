@@ -1,5 +1,6 @@
 import {
   ESTADOS, NEXT_STEPS, buildMessage, waPhone, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, fotosPendientes, OUTCOMES, dayInMadrid,
+  score as puntuar, estadoFor,
 } from './scoring.js';
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
@@ -1112,6 +1113,7 @@ function renderMetrics() {
       ['Vieron la grabación', m.replay, '≥25% visto'],
     ]),
     ['Agendaron llamada', m.llamada, 'etiqueta de llamada o marcada por la setter'],
+    ...(m.inicioPago || launch.paginaPagoUrl ? [['Iniciaron el pago', m.inicioPago, `pulsaron «Quiero inscribirme» · ${m.inicioPago ? `compró el ${pctOf(m.compraInicioPago, m.inicioPago)}` : 'aún nadie'}`]] : []),
     ['Compraron', m.compra, '', 'buy'],
   ];
   $('#funnel').innerHTML = steps.map(([label, n, hint, cls]) => `
@@ -2378,6 +2380,7 @@ function compraChip(s) {
 function preclaseChips(l) {
   const r = l.s.recursos || {};
   const out = [];
+  if (l.s.inicio_pago && !l.s.compra) out.push(`<span class="ll-chip" title="${esc(pagoTxt(l.s.inicio_pago))}">💳${l.s.inicio_pago.veces > 1 ? ` ×${l.s.inicio_pago.veces}` : ''}</span>`);
   if (l.s.venta_visita && !l.s.compra) out.push(`<span class="ll-chip" title="${esc(visitaTxt(l.s.venta_visita))}">🛒${l.s.venta_visita.veces > 1 ? ` ×${l.s.venta_visita.veces}` : ''}</span>`);
   if (r.musica && (l.s.musica_play || l.s.musica_50 || l.s.musica_90)) out.push(`<span class="ll-chip" title="Música: ${l.s.musica_90 ? 'entera' : l.s.musica_50 ? 'más de la mitad' : 'le dio al play'}">🎵${l.s.musica_90 ? ' 90%' : l.s.musica_50 ? ' 50%' : ''}</span>`);
   const v = r.votacion && votoTexto(l.id);
@@ -2446,6 +2449,7 @@ function renderHoy() {
   const byScore = (a, b) => (b.avatar >= 0) - (a.avatar >= 0) || b.score - a.score;
   const buckets = [
     // Las más calientes del carrito: abrieron la página de venta y no han comprado (la más reciente primero).
+    { id: 'pago', title: '💳 Iniciaron el pago y no han comprado', hint: 'Pulsaron «Quiero inscribirme» y llegaron a la página de pago: lo más cerca de comprar. Escríbeles ya', rows: state.leads.filter((l) => open(l) && l.s.inicio_pago), orden: (a, b) => b.s.inicio_pago.ultima - a.s.inicio_pago.ultima },
     { id: 'venta', title: '🛒 Visitaron la página de venta y no han comprado', hint: 'Están decidiendo ahora: escríbeles cuanto antes', rows: state.leads.filter((l) => open(l) && l.s.venta_visita), orden: (a, b) => b.s.venta_visita.ultima - a.s.venta_visita.ultima },
     { id: 'calientes', title: '🔥 Muy calientes sin contactar', hint: 'Máxima prioridad', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.estado.id === 'muy-caliente') },
     { id: 'vip', title: '⭐ VIP que no han comprado', hint: 'Pagaron la entrada: están cerca', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.vip) },
@@ -2469,6 +2473,7 @@ function renderHoy() {
 
 function hoyItem(l) {
   const signals = [
+    l.s.inicio_pago ? pagoTxt(l.s.inicio_pago) : '',
     l.s.venta_visita ? visitaTxt(l.s.venta_visita) : '',
     l.s.vip ? 'VIP' : '',
     directoVenta(l.s, 'final') ? 'Directo hasta el final' : directoVenta(l.s, 'asistio') ? 'Asistió al directo' : '',
@@ -6881,6 +6886,7 @@ function hechosLead(lead) {
     ...(s.recursos?.test ? [s.test ? `🧭 Hizo el test${recursosDe(launch).test.nombre ? ` «${recursosDe(launch).test.nombre}»` : ''}` : '🧭 No ha hecho el test'] : []),
     ...(s.recursos?.votacion ? [votoTexto(lead.id) ? `🗳️ Respondió en la clase: «${votoTexto(lead.id)}»` : s.voto ? '🗳️ Respondió la votación de la clase' : '🗳️ No ha respondido la votación'] : []),
     ...(s.recursos?.descargable ? [s.descarga ? '📄 Abrió el descargable' : ''] : []),
+    s.inicio_pago ? `💳 Inició el pago: llegó a la página de pago${s.inicio_pago.veces > 1 ? ` ${s.inicio_pago.veces} veces` : ''} (la última, ${haceTxt(s.inicio_pago.ultima)})${s.compra ? '' : ' y no ha comprado'}` : '',
     s.venta_visita ? `🛒 Abrió la página de venta${s.venta_visita.veces > 1 ? ` ${s.venta_visita.veces} veces` : ''} (la última, ${haceTxt(s.venta_visita.ultima)})` : '',
     s.wa_enviado ? '💬 Ya se le escribió por WhatsApp' : '',
     s.compra ? '✅ Ya compró' : s.clienta_anterior ? '✅ Clienta de una edición anterior' : '',
@@ -6967,7 +6973,7 @@ async function cargarVisitas() {
   try {
     const d = await api(`/api/visita?l=${encodeURIComponent(code)}`);
     if (state.launchCode !== code) return;
-    state.visitas = { code, visitas: d.visitas || {} };
+    state.visitas = { code, visitas: d.visitas || {}, pago: d.pago || {} };
     aplicarVisitas();
     render();
   } catch { /* sin visitas: no pasa nada */ }
@@ -6975,8 +6981,16 @@ async function cargarVisitas() {
 function aplicarVisitas() {
   const v = state.visitas?.code === state.launchCode ? state.visitas.visitas : null;
   if (!v) return;
-  for (const l of state.leads) { if (v[l.id]) l.s.venta_visita = v[l.id]; else delete l.s.venta_visita; }
+  const pago = state.visitas.pago || {};
+  for (const l of state.leads) {
+    if (v[l.id]) l.s.venta_visita = v[l.id]; else delete l.s.venta_visita;
+    // Llegó a la página de pago («Quiero inscribirme») = inició el pago: cuenta en la puntuación.
+    const antes = Boolean(l.s.inicio_pago);
+    if (pago[l.id]) l.s.inicio_pago = pago[l.id]; else delete l.s.inicio_pago;
+    if (antes !== Boolean(l.s.inicio_pago)) { l.score = puntuar(l.s, pesosDe(state.config)); l.estado = estadoFor(l.score); }
+  }
 }
+const pagoTxt = (v) => `💳 Inició el pago${v.veces > 1 ? ` ×${v.veces}` : ''} · ${haceTxt(v.ultima)}`;
 const haceTxt = (ms) => { const m = Math.max(0, Math.round((Date.now() - ms) / 60_000)); return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
 const visitaTxt = (v) => `🛒 Página de venta${v.veces > 1 ? ` ×${v.veces}` : ''} · ${haceTxt(v.ultima)}`;
 
