@@ -427,6 +427,14 @@ Al crear un embudo de lanzamientos con «＋» se pregunta si quieres pantalla d
 
 Desde 59 minutos antes del directo, quien abra la página preclase (o la tenga abierta) ve solo una pantalla de espera: el logo, «¡Empezamos en unos minutos!», «Prepárate», una cuenta atrás de minutos y segundos y el aviso «Quédate aquí, serás redirigida al directo en cuanto el contador llegue a cero». Al llegar a cero pasa sola por `/directo` (registro en Zoom y su enlace personal). No hace falta ningún bloque en GHL: lo pone el script de la página. **El enlace para conectarse al directo, por email y por WhatsApp, es el de la página preclase** (*Configuración → Códigos*: con `?cid={{contact.id}}` en los emails; sin nada en WhatsApp, donde la página pide el email si ese móvil no la recuerda). Logo y textos en *Configuración → Preclase → Pantalla de espera* (vacíos = los de ejemplo). Colores con las variables CSS `--lsd-espera-fondo`, `--lsd-espera-titulo`, `--lsd-espera-acento` y `--lsd-espera-texto`.
 
+### Entrada al directo sin atascos (cientos a la vez)
+GHL admite unas 100 peticiones cada 10 s, y a la hora exacta entran cientos de personas a la vez. Por eso:
+- **Mientras espera** en la pantalla de espera, cada lead se inscribe en Zoom en un momento al azar (como mucho 10 min después de abrirla y siempre antes del último minuto) con `/api/directo-zoom`; su enlace personal se guarda en su navegador y en D1 (tabla `entradas_directo`).
+- **A la hora exacta** entra directa a su enlace de Zoom: ninguna llamada a GHL ni a Zoom.
+- **Quien llega justo a la hora** sin haber esperado: la preclase recibe solo adónde ir (sin GHL) y `/directo` la inscribe (1 llamada a GHL + Zoom, con reintentos); si ya estaba inscrita, entra al momento desde D1.
+- **«Pulsó el enlace»** (`<código>_directo_click`) se apunta en D1 y se pone en GHL al pulsar **Sincronizar Zoom** después del directo, junto con la asistencia.
+- Si algo falla, nadie se queda fuera: entra por el enlace genérico de Zoom del lanzamiento.
+
 ### Recursos de la preclase: música, test, votación y descargable
 Al crear el embudo se marca qué recursos tendrá la preclase además de las clases; los lanzamientos nuevos los heredan (sin fechas). En cada lanzamiento, *Configuración → Preclase → Recursos de la preclase*:
 - **Música:** enlace del MP3 (súbelo a Medios de GHL) y bajo qué clase va. Se desbloquea al ver el 75 % de esa clase (en el mismo navegador al momento; en cualquier otro, con su etiqueta).

@@ -2492,6 +2492,13 @@ $('#btn-zoom').addEventListener('click', async () => {
         const missing = sigs.filter((t) => !lead.s[t]).map((t) => tagFor(state.launchCode, t));
         if (missing.length) { items.set(lead.id, [...(items.get(lead.id) || []), ...missing]); n++; }
       }
+      // Quién pulsó el enlace del directo (apuntado por el dashboard): su etiqueta «clic».
+      const porId = new Map(state.leads.map((l) => [l.id, l]));
+      for (const id of report.entraron || []) {
+        const lead = porId.get(id);
+        if (!lead || lead.s[`${v.directo}_click`]) continue;
+        items.set(id, [...(items.get(id) || []), tagFor(state.launchCode, `${v.directo}_click`)]);
+      }
       resumen.push(`${vids.length > 1 ? `${v.nombre}: ` : ''}${report.attendees.length} asistentes identificados, ${n} leads actualizados`
         + `${unmatched ? `, ${unmatched} emails que no están en este lanzamiento` : ''}`
         + `${report.anonymous ? `, ${report.anonymous} conexiones sin email` : ''}`);

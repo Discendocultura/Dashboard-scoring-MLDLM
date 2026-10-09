@@ -69,7 +69,7 @@
   function post(path, payload) {
     var body = JSON.stringify(payload);
     // text/plain evita la petición previa CORS; el servidor lo interpreta como JSON.
-    if (path === '/api/track' && navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) {
+    if ((path === '/api/track' || payload.op === 'click') && navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) {
       return Promise.resolve({ ok: true });
     }
     return fetch(API + conCliente(path), { method: 'POST', body: body, headers: { 'content-type': 'text/plain' }, keepalive: true })
@@ -365,8 +365,10 @@
   var clockSkew = 0; // diferencia entre la hora del servidor y la del dispositivo
   var skewFijado = false;
 
-  function fetchPage(launch, who) {
+  function fetchPage(launch, who, pagina) {
     var q = new URLSearchParams({ l: launch || 'auto' });
+    // La preclase avisa de que es ella: a la hora del directo el servidor solo devuelve adónde ir (sin llamar a GHL).
+    if (pagina) q.set('pagina', pagina);
     if (who && who.cid) q.set('cid', who.cid);
     if (params.get('lsd_preview')) q.set('preview', params.get('lsd_preview'));
     return fetch(API + conCliente('/api/page?' + q.toString())).then(function (r) { return r.json(); }).then(function (d) {
@@ -801,6 +803,41 @@
     return i > 0 && i < 40 ? '<strong>' + esc(txt.slice(0, i + 1)) + '</strong>' + esc(txt.slice(i + 1)) : esc(txt);
   }
 
+  // ---------- Entrada al directo sin atascos ----------
+  // Mientras espera, se la inscribe en Zoom en un momento al azar (como mucho 10 min después de abrir la
+  // pantalla y siempre antes del último minuto), y su enlace personal se guarda en el navegador. A la hora
+  // exacta entra directa a su enlace de Zoom: cientos a la vez no cuestan ni una llamada a GHL ni a Zoom.
+  var kDe = function (key) { return key === 'directo' ? 1 : Number(String(key).replace('directo', '')) || 1; };
+  var claveZoom = function (code, key) { return 'lsd_zoom_' + code + '_' + kDe(key); };
+  function prepararZoom(data, esp, who) {
+    if (params.get('lsd_preview') || !who || !who.cid) return;
+    var clave = claveZoom(data.code, esp.key);
+    var z = store(clave);
+    if (z && z.url && z.cid === who.cid) return;
+    var queda = esp.at - serverNow();
+    var margen = queda - 90000;
+    var espera = margen > 0 ? Math.random() * Math.min(margen, 600000) : Math.random() * Math.max(0, Math.min(20000, queda - 5000));
+    var intentar = function (n) {
+      var otraVez = function () { if (n < 2 && esp.at - serverNow() > 60000) setTimeout(function () { intentar(n + 1); }, 20000 + Math.random() * 40000); };
+      post('/api/directo-zoom', { op: 'prep', launch: data.code, k: kDe(esp.key), cid: who.cid }).then(function (r) {
+        if (r && r.joinUrl) store(clave, { cid: who.cid, url: r.joinUrl }); else if (!r || !r.motivo || r.motivo === 'zoom') otraVez();
+      }).catch(otraVez);
+    };
+    setTimeout(function () { intentar(0); }, espera);
+  }
+  // Al directo: con su enlace de Zoom ya guardado, directa (y se apunta que entró); si no, por /directo.
+  function irAlDirecto(data, key, who) {
+    var z = store(claveZoom(data.code, key));
+    if (!params.get('lsd_preview') && who && who.cid && z && z.url && z.cid === who.cid && /^https:\/\/([a-z0-9-]+\.)*zoom\.us\//i.test(z.url)) {
+      if (redirigido) return;
+      redirigido = true;
+      post('/api/directo-zoom', { op: 'click', launch: data.code, k: kDe(key), cid: who.cid });
+      location.replace(z.url);
+      return;
+    }
+    goTo(data.links[key], who);
+  }
+
   function mostrarEspera(data, esp, who) {
     var el = document.getElementById('lsd-espera');
     var t = data.texts || {};
@@ -845,6 +882,7 @@
         '</g></g></svg></div>';
       document.body.appendChild(el);
       document.documentElement.style.overflow = 'hidden';
+      prepararZoom(data, esp, who);
       // Lectores de pantalla: solo la pantalla de espera (lo de debajo queda oculto mientras tanto).
       Array.prototype.forEach.call(document.body.children, function (c) { if (c !== el && !c.hasAttribute('aria-hidden')) { c.setAttribute('aria-hidden', 'true'); c.setAttribute('data-lsd-oculto', '1'); } });
       el.setAttribute('tabindex', '-1');
@@ -865,7 +903,7 @@
         clearInterval(esperaTimer);
         // Vista previa del dashboard: no se entra de verdad al directo (ni se registra en Zoom).
         if (params.get('lsd_preview')) { var msg = el.querySelector('.lsd-espera-msg span:last-child'); if (msg) msg.textContent = 'Vista previa: aquí entraría al directo.'; return; }
-        goTo(data.links[esp.key], who);
+        irAlDirecto(data, esp.key, who);
       }
     };
     clearInterval(esperaTimer);
@@ -876,10 +914,10 @@
   function runManagedPage(kind, launchAttr, who, onVideo) {
     var timer = null;
     function cycle() {
-      fetchPage(launchAttr, who).then(function (data) {
+      fetchPage(launchAttr, who, kind).then(function (data) {
         if (!data || data.error || redirigido) return;
         if (kind === 'recursos' && data.redirectTo && data.links[data.redirectTo]) {
-          return goTo(data.links[data.redirectTo], who);
+          return /^directo\d?$/.test(data.redirectTo) ? irAlDirecto(data, data.redirectTo, who) : goTo(data.links[data.redirectTo], who);
         }
         renderPage(data, who, function (el) { onVideo(el, data.code); });
         // Los 59 minutos antes del directo, la preclase se convierte en la pantalla de espera.

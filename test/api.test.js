@@ -71,8 +71,13 @@ test('puente al directo: pide email, etiqueta y redirige a Zoom', async () => {
   const res = await GET(req('/directo?l=demo&cid=mock00002'));
   assert.equal(res.status, 302);
   assert.match(res.headers.get('location'), /^https:\/\/zoom\.us\/w\/8123456789/);
-  const { getContact } = await import('../lib/ghl.js');
-  assert.ok((await getContact('mock00002')).tags.includes('demo_directo_click'));
+  // La entrada se apunta en el dashboard (la etiqueta «clic» se pone al sincronizar Zoom, no en pleno directo).
+  const { entraronAlDirecto, entradaDe } = await import('../lib/entradas.js');
+  assert.ok((await entraronAlDirecto('demo', 1)).includes('mock00002'));
+  // Ya inscrita: la siguiente vez entra directa a su enlace (sin llamar a GHL ni a Zoom).
+  assert.equal((await entradaDe('demo', 1, 'mock00002')).join_url, res.headers.get('location'));
+  const otra = await GET(req('/directo?l=demo&cid=mock00002'));
+  assert.equal(otra.headers.get('location'), res.headers.get('location'));
 });
 
 test('informe de Zoom agrega asistencia por email', async () => {
@@ -163,7 +168,9 @@ test('directo con email nuevo: pide datos, registra y entra', async () => {
   assert.equal(ok.status, 302);
   const { findContactByEmail } = await import('../lib/ghl.js');
   const c = await findContactByEmail('directo-nueva@example.com');
-  assert.ok(c.tags.includes('registro-webinar-demo') && c.tags.includes('demo_directo_click'));
+  assert.ok(c.tags.includes('registro-webinar-demo'));
+  const { entraronAlDirecto } = await import('../lib/entradas.js');
+  assert.ok((await entraronAlDirecto('demo', 1)).includes(c.id));
 });
 
 test('directo con cid de alguien sin registro en el lanzamiento: pide registrarse', async () => {

@@ -77,6 +77,13 @@ export async function GET(request, ctx) {
       links[`grabacion${v.k}`] = withContactId(v.replayUrl, cid);
     }
 
+    // A la hora del directo la preclase solo necesita saber adónde ir: se contesta sin llamar a GHL
+    // (entran cientos a la vez y GHL admite ~100 peticiones cada 10 s).
+    const destino = redirectFor(launch, phase.id);
+    if (url.searchParams.get('pagina') === 'recursos' && !preview && /^directo\d?$/.test(destino) && links[destino]) {
+      return json({ code, name: launch.name, now, preview, phase: phase.id, redirectTo: destino, links: { [destino]: links[destino] } }, 200, CORS_HEADERS);
+    }
+
     let contact = null;
     if (cid) {
       try {

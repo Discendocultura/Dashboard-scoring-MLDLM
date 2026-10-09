@@ -165,3 +165,38 @@ test('auditoría: votación guardada con el formato antiguo, códigos reservados
   const res = await route(new Request('http://localhost/directo?l=pre-26', { headers: { cookie: 'lsd_who=%E0%A4%A' } }), ENV);
   assert.equal(res.status, 200);
 });
+
+test('directo sin atascos: inscripción mientras espera, entrada directa y preclase ligera a la hora', async () => {
+  const madrid = (ms) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(ms)).replace(' ', 'T');
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const { data: cur } = await call('/api/config', { cookie: admin });
+  const guardar = async (enMin) => {
+    const t = madrid(Date.now() + enMin * 60_000);
+    const launch = { name: 'Directo', registroTag: 'registro-webinar-demo', inicioCaptacion: local(-10), fechaDirecto: t.slice(0, 10), horaDirecto: t.slice(11), zoomMeetingId: '81234567890', zoomJoinUrl: 'https://zoom.us/j/1' };
+    const { data: c } = await call('/api/config', { cookie: admin });
+    assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { ...c.config, _version: c.version, launches: { ...c.config.launches, 'dir-26': launch } } })).status, 200);
+  };
+  void cur;
+  const zoomOp = (body) => call('/api/directo-zoom', { method: 'POST', body: { launch: 'dir-26', k: 1, ...body } });
+  // Faltan 3 horas: todavía no se inscribe a nadie.
+  await guardar(180);
+  assert.equal((await zoomOp({ op: 'prep', cid: 'mock00031' })).data.motivo, 'fuera de hora');
+  // Faltan 30 min (pantalla de espera): se inscribe y devuelve su enlace personal; la segunda vez, el mismo.
+  await guardar(30);
+  const r = (await zoomOp({ op: 'prep', cid: 'mock00031' })).data;
+  assert.match(r.joinUrl, /^https:\/\/zoom\.us\/w\/81234567890/);
+  assert.equal((await zoomOp({ op: 'prep', cid: 'mock00031' })).data.joinUrl, r.joinUrl);
+  assert.equal((await zoomOp({ op: 'prep', cid: 'xx' })).status, 400);
+  // A la hora: entra directa y se apunta (la etiqueta «clic» llega al sincronizar Zoom).
+  assert.equal((await zoomOp({ op: 'click', cid: 'mock00031' })).data.ok, true);
+  const rep = (await call('/api/zoom-report?launch=dir-26', { cookie: admin })).data;
+  assert.ok(rep.entraron.includes('mock00031'));
+  // Ya empezado: la preclase recibe solo adónde ir (sin datos de la lead ni llamadas a GHL).
+  await guardar(-5);
+  const p = (await call('/api/page?l=dir-26&cid=mock00032&pagina=recursos')).data;
+  assert.equal(p.redirectTo, 'directo');
+  assert.match(p.links.directo, /\/directo\?l=dir-26&cid=mock00032$/);
+  assert.equal(p.recursos, undefined);
+  // Sin «pagina=recursos» (otras páginas) sigue la respuesta completa.
+  assert.ok((await call('/api/page?l=dir-26&cid=mock00032')).data.recursos);
+});

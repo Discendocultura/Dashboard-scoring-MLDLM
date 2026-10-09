@@ -1,18 +1,18 @@
 // Puente al directo: /directo?l=<lanzamiento>&cid=<id de contacto>  (o &email=...)
 // Lanzamientos de varios vídeos: &v=2 (3, 4) para el directo de ese vídeo.
-// 1) Marca en GHL que el lead ha pulsado el enlace (`<l>_directo_click`).
+// 1) Apunta que el lead ha pulsado el enlace (la etiqueta `<l>_directo_click` se pone al sincronizar Zoom).
 // 2) Lo inscribe en la reunión de Zoom con su email y le redirige a su enlace personal,
 //    para que después el informe de Zoom diga quién asistió y cuánto tiempo.
 // Si llega sin identificar (p. ej. desde el grupo de WhatsApp) se le pide el email; si ese email no
 // tiene la etiqueta de registro del lanzamiento, se le piden nombre y móvil y se registra antes de entrar.
-import { addTags, getContact, findContactByEmail } from '../lib/ghl.js';
+import { getContact, findContactByEmail } from '../lib/ghl.js';
 import { ensureRegistered, hasTag } from '../lib/access.js';
 import { turnstileSiteKey, verifyTurnstile } from '../lib/turnstile.js';
 import { getConfig } from '../lib/config-store.js';
 import { addRegistrant, zoomConfigured } from '../lib/zoom.js';
+import { entradaDe, guardarInscripcion, marcarEntrada } from '../lib/entradas.js';
 import { html, escapeHtml, isEmail } from '../lib/http.js';
 import { clienteActual } from '../lib/cliente.js';
-import { tagFor } from '../public/js/scoring.js';
 import { videosDe } from '../public/js/videos.js';
 import { currentLaunch } from '../lib/digest.js';
 
@@ -87,19 +87,13 @@ export async function GET(request, ctx) {
   const kPedido = Math.min(Math.max(Number(url.searchParams.get('v')) || 1, 1), 4);
   if (emailParam && !isEmail(emailParam)) return emailForm(code, 'Ese email no parece correcto.', kPedido);
 
-  // Configuración y contacto en paralelo para que la redirección sea lo más rápida posible.
   let launch;
   let config;
   let contact = null;
   try {
-    let byId;
-    [config, byId] = await Promise.all([
-      getConfig(),
-      cid ? getContact(cid).catch((e) => { console.error(e); return null; }) : null,
-    ]);
+    config = await getConfig();
     if (code === 'auto') code = currentLaunch(config) || '';
     launch = config.launches[code];
-    contact = byId;
   } catch (e) {
     console.error(e);
   }
@@ -108,6 +102,18 @@ export async function GET(request, ctx) {
   const vid = videosDe(launch)[kPedido - 1] || videosDe(launch)[0];
   const k = vid?.k || 1;
   const fallback = vid?.zoomJoinUrl || launch.zoomJoinUrl;
+  const cookieWho = (who) => `${WHO_COOKIE}=${encodeURIComponent(who)}; Path=/directo; Max-Age=${WHO_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`;
+  // Ya inscrita en Zoom (desde la pantalla de espera o una entrada anterior): entra al momento, sin
+  // llamar a GHL ni a Zoom. Lo que importa a la hora exacta, cuando entran cientos a la vez.
+  if (cid) {
+    const ya = await entradaDe(code, k, cid).catch(() => null);
+    if (ya?.join_url) {
+      const apunte = marcarEntrada(code, k, cid).catch((e) => console.error(e));
+      if (ctx?.waitUntil) ctx.waitUntil(apunte);
+      return new Response(null, { status: 302, headers: new Headers({ location: ya.join_url, 'cache-control': 'no-store', 'set-cookie': cookieWho(`cid:${cid}`) }) });
+    }
+    contact = await getContact(cid).catch((e) => { console.error(e); return null; });
+  }
 
   if (!cid && !emailParam) return emailForm(code, '', k);
 
@@ -139,9 +145,9 @@ export async function GET(request, ctx) {
       contact = result.contact;
     }
     if (contact) {
-      // La etiqueta se guarda después de redirigir: la lead no espera por ella.
-      const tagging = addTags(contact.id, [tagFor(code, `${vid?.directo || 'directo'}_click`)]).catch((e) => console.error(e));
-      if (ctx?.waitUntil) ctx.waitUntil(tagging);
+      // Se apunta que entró (sin llamar a GHL: la etiqueta <código>_directo_click se pone al sincronizar Zoom).
+      const apunte = marcarEntrada(code, k, contact.id).catch((e) => console.error(e));
+      if (ctx?.waitUntil) ctx.waitUntil(apunte);
     }
 
     const email = contact?.email || emailParam;
@@ -149,6 +155,7 @@ export async function GET(request, ctx) {
     if (email && meetingId && zoomConfigured()) {
       const [firstName, ...rest] = (contact?.name || '').split(' ');
       joinUrl = await addRegistrant(meetingId, { email, firstName, lastName: rest.join(' ') });
+      if (joinUrl && contact) await guardarInscripcion(code, k, contact.id, joinUrl).catch((e) => console.error(e));
     }
   } catch (e) {
     console.error(e); // nunca dejamos a nadie fuera del directo: usamos el enlace genérico
@@ -158,6 +165,6 @@ export async function GET(request, ctx) {
   if (!target) return page('Directo', '<h1>El enlace del directo aún no está disponible</h1><p>Vuelve a intentarlo un poco más tarde.</p>');
   const headers = new Headers({ location: target, 'cache-control': 'no-store' });
   const who = contact ? `cid:${contact.id}` : emailParam ? `email:${emailParam}` : '';
-  if (who) headers.append('set-cookie', `${WHO_COOKIE}=${encodeURIComponent(who)}; Path=/directo; Max-Age=${WHO_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`);
+  if (who) headers.append('set-cookie', cookieWho(who));
   return new Response(null, { status: 302, headers });
 }
