@@ -752,11 +752,11 @@
           <button type="button" class="tab active" data-tab="launch" data-tab-icon="rocket">① Datos básicos</button>
           <button type="button" class="tab" data-tab="captacion" data-tab-icon="megaphone">② Captación</button>
           <button type="button" class="tab" data-tab="pagina" data-tab-icon="play"><span id="tab-pagina-txt">③ Preclase</span></button>
-          <button type="button" class="tab" data-tab="directo" data-tab-icon="live">④ Directo</button>
+          <button type="button" class="tab" data-tab="grabacion" data-tab-icon="video">④ Grabación</button>
           <button type="button" class="tab" data-tab="oferta" data-tab-icon="gift">⑤ Oferta</button>
           <button type="button" class="tab" data-tab="embudo" data-tab-icon="funnel">⑥ Venta</button>
           <button type="button" class="tab" data-tab="carrito" data-tab-icon="cart">⑦ Carrito</button>
-          <button type="button" class="tab" data-tab="precios" data-tab-icon="coins">⑧ Precios e IVA</button>
+          <button type="button" class="tab" data-tab="precios" data-tab-icon="coins">⑧ Precios</button>
           <button type="button" class="tab" data-tab="etiquetas" data-tab-icon="tag">⑨ Etiquetas GHL</button>
           <button type="button" class="tab" data-tab="snippets" data-tab-icon="code">Códigos</button>
           <button type="button" class="tab" data-tab="accesos" data-tab-icon="link">Accesos y enlaces</button>
@@ -787,7 +787,7 @@
                 <li><strong>WhatsApp:</strong> crea el grupo nuevo y copia su enlace de invitación.</li>
                 <li><strong>Zoom:</strong> crea la reunión del directo (con registro activado) y copia su ID.</li>
                 <li><strong>GHL · Emails y WhatsApp automáticos:</strong> revisa que no lleven fechas, enlaces de grupo ni de encuesta del lanzamiento anterior.</li>
-                <li><strong>Vimeo:</strong> después del directo, sube la grabación y pega su enlace en la pestaña «④ Directo» (Directo y grabación).</li>
+                <li><strong>Vimeo:</strong> después del directo, sube la grabación y pega su enlace en la pestaña «④ Grabación».</li>
                 <li><strong>Etiquetas de GHL:</strong> están todas en la pestaña <strong>Etiquetas GHL</strong>. Solo cambian la de registro y la de encuesta; las demás son fijas (al guardar un lanzamiento nuevo se hace la «foto» de quién ya las tenía).</li>
               </ol>
             </details>
@@ -815,7 +815,36 @@
               <input id="cfg-apertura-carrito" type="datetime-local"></label>
               <label class="field"><span>Días de carrito <small>(empiezan el día siguiente al vídeo de venta)</small></span>
               <input id="cfg-dias-carrito" type="number" min="1" max="30" inputmode="numeric" placeholder="4"></label>
+              <label class="field"><span>Cierre del carrito de Raíces <small id="cfg-cierre-nota"></small></span><input id="cfg-cierre" type="datetime-local"></label>
               <p id="cfg-dias-carrito-nota" class="field-note full"></p>
+            </div>
+          </section>
+<section class="cfg-sec" data-sec="3">
+            <header class="cfg-sec-head"><span class="cfg-sec-num">3</span><div><h3>El directo en Zoom</h3><p>La reunión nueva de este lanzamiento y el botón para añadirla al calendario.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field"><span>ID de la reunión de Zoom</span><input id="cfg-zoom-id" inputmode="numeric" placeholder="812 3456 7890"></label>
+              <label class="field"><span>Enlace genérico de Zoom <small>(por si falla el registro)</small></span><input id="cfg-zoom-url" type="url"></label>
+              <label class="field"><span>Botón «Añadir al calendario» <small>(vacío = Google Calendar con la fecha y hora del directo, generado solo)</small></span><input id="cfg-calendario-url" type="url" placeholder="Se genera solo"></label>
+            </div>
+          </section>
+          <section class="cfg-sec" id="cfg-videos-sec" hidden>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">🎥</span><div><h3 id="cfg-videos-titulo">Vídeos del lanzamiento</h3><p id="cfg-videos-nota"></p></div></header>
+            <div id="cfg-videos"></div>
+          </section>
+          <section class="enlace-directo" aria-labelledby="enlace-directo-t">
+            <h3 id="enlace-directo-t">🔴 Enlace para conectarse al directo</h3>
+            <p>Es <strong>el de la página preclase</strong>: es el que se envía por email y por WhatsApp para entrar al directo. Desde 59 minutos antes enseña la pantalla de espera y, al llegar a cero, entra sola a Zoom (ya registrada). <strong>No envíes el enlace de Zoom.</strong></p>
+            <div id="enlace-directo-box"></div>
+          </section>
+          <section class="cfg-sec" data-sec="5e">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">⏳</span><div><h3>Pantalla de espera (59 min antes del directo)</h3><p>Los 59 minutos antes del directo, quien abra la página preclase ve solo esta pantalla: el logo, el titular, una cuenta atrás de minutos y segundos y el aviso. Al llegar a cero entra sola al directo (registrada en Zoom). Por eso el enlace para conectarse al directo, por email y por WhatsApp, es el de la página preclase (Configuración → Códigos). Si dejas un texto vacío, se usa el de ejemplo.</p></div></header>
+            <div class="grid2">
+              <label class="chk full"><input type="checkbox" id="cfg-espera-on"> <strong>Activar la pantalla de espera</strong> <small class="muted">(si la desactivas, la preclase se ve normal hasta la hora del directo y entonces entra sola al webinar)</small></label>
+              <label class="field full" data-espera-campo><span>Vídeo de la pantalla de espera <small>(opcional: enlace de Vimeo o YouTube. Con vídeo, el contador se hace pequeño para que el vídeo destaque; vacío = sin vídeo)</small></span><input id="cfg-espera-video" type="url" placeholder="https://vimeo.com/123456789 · https://youtu.be/…"></label>
+              <label class="field" data-espera-campo><span>Logo <small>(URL de Medios de GHL; mejor PNG con fondo transparente)</small></span><input id="cfg-img-espera" type="url" placeholder="https://assets.cdn.filesafe.space/…/logo-el-camino.png"></label>
+              <label class="field" data-espera-campo><span>Titular</span><input data-texto="espera-titulo" maxlength="120" placeholder="¡Empezamos en unos minutos!"></label>
+              <label class="field" data-espera-campo><span>Debajo del titular</span><input data-texto="espera-subtitulo" maxlength="120" placeholder="Prepárate"></label>
+              <label class="field" data-espera-campo><span>Mensaje debajo del contador</span><textarea data-texto="espera-mensaje" rows="2" placeholder="Quédate aquí, serás redirigida al directo en cuanto el contador llegue a cero."></textarea></label>
             </div>
           </section>
           <section class="cfg-sec" data-sec="digest">
@@ -832,7 +861,7 @@
         <section class="tab-panel" data-panel="captacion" hidden>
           <p class="muted cfg-intro">Cómo entran los leads: anuncios de Meta y emails, la página de gracias tras el registro y la entrada VIP.</p>
 <section class="cfg-sec" data-sec="5">
-            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📣</span><div><h3>Anuncios y emails</h3><p>Para el coste por lead, el ROAS y el CAC de Métricas, y los emails del lanzamiento. Los precios están en «⑧ Precios e IVA».</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📣</span><div><h3>Anuncios y emails</h3><p>Para el coste por lead, el ROAS y el CAC de Métricas, y los emails del lanzamiento. Los precios están en «⑧ Precios».</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Inversión en anuncios (€) <small>(solo si no usas Meta: con Meta se suma sola de las campañas que llevan el código en el nombre)</small></span><input id="cfg-inversion" inputmode="decimal"></label>
               <label class="field"><span>Campañas de Meta de este lanzamiento <small>(texto que contiene su nombre; vacío = el código)</small></span><input id="cfg-meta-filtro" placeholder="el código del lanzamiento"></label>
@@ -850,18 +879,11 @@
             </div>
           </section>
           <section class="cfg-sec" data-sec="1">
-            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🎉</span><div><h3>Página de gracias</h3><p>La que ven justo después de registrarse: vídeo, grupo de WhatsApp y oferta VIP (enlace de pago en «Entrada VIP», más abajo).</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🎉</span><div><h3>Página de gracias</h3><p>La que ven justo después de registrarse: vídeo, grupo de WhatsApp y oferta VIP (su precio y su enlace de pago, en «⑧ Precios»).</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>URL de la página de gracias</span><input id="cfg-gracias-url" type="url" placeholder="https://lp.saraguzman.com/…"></label>
               <label class="field"><span>Grupo de WhatsApp · enlace <small>(botón de la página de gracias y barra fija de la preclase)</small></span><input id="cfg-whatsapp-url" type="url" placeholder="https://chat.whatsapp.com/…"></label>
               <label class="field"><span>Vídeo de la página de gracias <small>(Vimeo o YouTube; en el HTML: <code>&lt;div data-lsd-embed="gracias"&gt;&lt;/div&gt;</code>)</small></span><input id="cfg-gracias-video" type="url" placeholder="https://vimeo.com/123/abc"></label>
-            </div>
-          </section>
-          <section class="cfg-sec" data-sec="4v" data-vip>
-            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">⭐</span><div><h3>Entrada VIP</h3><p>Se cierra sola a la hora del directo.</p></div><span class="cfg-sec-status"></span></header>
-            <div class="grid2">
-              <label class="field"><span>Entrada VIP · enlace de pago <small>(se cierra a la hora del directo)</small></span><input id="cfg-vip-url" type="url"></label>
-              <label class="field"><span>Contador de VIP · empieza en <small>(la página muestra este número + las VIP vendidas en el lanzamiento; <code>data-lsd-text="vipContador"</code>)</small></span><input id="cfg-vip-base" inputmode="numeric" placeholder="41"></label>
             </div>
           </section>
         </section>
@@ -872,11 +894,6 @@
             <strong>Checklist de la página preclase</strong>
             <div id="guia-check-pagina" class="guia-check"></div>
           </div>
-          <section class="enlace-directo" aria-labelledby="enlace-directo-t">
-            <h3 id="enlace-directo-t">🔴 Enlace para conectarse al directo</h3>
-            <p>Es <strong>el de la página preclase</strong>: es el que se envía por email y por WhatsApp para entrar al directo. Desde 59 minutos antes enseña la pantalla de espera y, al llegar a cero, entra sola a Zoom (ya registrada). <strong>No envíes el enlace de Zoom.</strong></p>
-            <div id="enlace-directo-box"></div>
-          </section>
           <div id="page-phase-now" class="snapshot-box"></div>
           <section class="cfg-sec" data-sec="1" data-preclase>
             <header class="cfg-sec-head"><span class="cfg-sec-num">1</span><div><h3>Páginas de GHL</h3><p>Dónde están el login y la página preclase.</p></div><span class="cfg-sec-status"></span></header>
@@ -885,14 +902,12 @@
               <label class="field"><span>URL de la página preclase</span><input id="cfg-recursos-url" type="url"></label>
             </div>
           </section>
-          <section class="cfg-sec" data-sec="2">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">2</span><div><h3>Calendario de la página</h3><p>Cuándo se abre cada cosa (hora de España). El día del directo está en «① Datos básicos» y el Zoom y la grabación, en «④ Directo».</p></div><span class="cfg-sec-status"></span></header>
+          <section class="cfg-sec" data-sec="2" data-preclase>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">2</span><div><h3>Calendario de las clases</h3><p>Cuándo se abre cada clase (hora de España). Las fechas del lanzamiento, el directo y el cierre del carrito están en «① Datos básicos»; la grabación, en «④ Grabación».</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field" data-clase="1"><span>Clase 1 · se desbloquea</span><input id="cfg-clase1-at" type="datetime-local"></label>
               <label class="field" data-clase="2"><span>Clase 2 · se desbloquea</span><input id="cfg-clase2-at" type="datetime-local"></label>
               <label class="field" data-clase="3"><span>Clase 3 · se desbloquea</span><input id="cfg-clase3-at" type="datetime-local"></label>
-              <label class="field"><span>Grabación · se desbloquea <small>(vacío = 00:00 del día siguiente al directo)</small></span><input id="cfg-replay-at" type="datetime-local"></label>
-              <label class="field"><span>Cierre del carrito de Raíces <small id="cfg-cierre-nota"></small></span><input id="cfg-cierre" type="datetime-local"></label>
             </div>
           </section>
           <section class="cfg-sec" data-sec="3" data-preclase>
@@ -972,17 +987,6 @@
               <label class="field full"><span>Aviso «quédate hasta el final» <small>(<code>etapa3-final</code>; p. ej. qué hay al final del directo para quien siga conectada)</small></span><textarea data-texto="etapa3-final" rows="2" placeholder="Quédate hasta el final: al terminar hay una sorpresa solo para quienes estén conectadas."></textarea></label>
             </div>
           </section>
-          <section class="cfg-sec" data-sec="5e">
-            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">⏳</span><div><h3>Pantalla de espera (59 min antes del directo)</h3><p>Los 59 minutos antes del directo, quien abra la página preclase ve solo esta pantalla: el logo, el titular, una cuenta atrás de minutos y segundos y el aviso. Al llegar a cero entra sola al directo (registrada en Zoom). Por eso el enlace para conectarse al directo, por email y por WhatsApp, es el de la página preclase (Configuración → Códigos). Si dejas un texto vacío, se usa el de ejemplo.</p></div></header>
-            <div class="grid2">
-              <label class="chk full"><input type="checkbox" id="cfg-espera-on"> <strong>Activar la pantalla de espera</strong> <small class="muted">(si la desactivas, la preclase se ve normal hasta la hora del directo y entonces entra sola al webinar)</small></label>
-              <label class="field full" data-espera-campo><span>Vídeo de la pantalla de espera <small>(opcional: enlace de Vimeo o YouTube. Con vídeo, el contador se hace pequeño para que el vídeo destaque; vacío = sin vídeo)</small></span><input id="cfg-espera-video" type="url" placeholder="https://vimeo.com/123456789 · https://youtu.be/…"></label>
-              <label class="field" data-espera-campo><span>Logo <small>(URL de Medios de GHL; mejor PNG con fondo transparente)</small></span><input id="cfg-img-espera" type="url" placeholder="https://assets.cdn.filesafe.space/…/logo-el-camino.png"></label>
-              <label class="field" data-espera-campo><span>Titular</span><input data-texto="espera-titulo" maxlength="120" placeholder="¡Empezamos en unos minutos!"></label>
-              <label class="field" data-espera-campo><span>Debajo del titular</span><input data-texto="espera-subtitulo" maxlength="120" placeholder="Prepárate"></label>
-              <label class="field" data-espera-campo><span>Mensaje debajo del contador</span><textarea data-texto="espera-mensaje" rows="2" placeholder="Quédate aquí, serás redirigida al directo en cuanto el contador llegue a cero."></textarea></label>
-            </div>
-          </section>
           <section class="cfg-sec" data-sec="6">
             <header class="cfg-sec-head"><span class="cfg-sec-num">6</span><div><h3>Textos y botones extra</h3><p>Para bloques nuevos de la página.</p></div></header>
             <p class="muted">Otros textos (para bloques futuros): nombre en minúsculas y guiones, p. ej. <code>etapa3-titulo</code> → <code>&lt;span data-lsd-text="etapa3-titulo"&gt;</code>.</p>
@@ -1005,28 +1009,17 @@
           <p class="muted">Abre tu página preclase simulando esa fecha (solo cambia lo que ves tú; para las leads sigue siendo hoy). Guarda antes los cambios.</p>
         </section>
 
-        <section class="tab-panel" data-panel="directo" hidden>
+        <section class="tab-panel" data-panel="grabacion" hidden>
           <p class="muted cfg-intro">El directo de venta: la reunión de Zoom, los vídeos, qué pasa a la hora del directo y la página de la grabación.</p>
-<section class="cfg-sec" data-sec="3">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">1</span><div><h3>Directo en Zoom</h3><p>La reunión nueva de este lanzamiento.</p></div><span class="cfg-sec-status"></span></header>
-            <div class="grid2">
-              <label class="field"><span>ID de la reunión de Zoom</span><input id="cfg-zoom-id" inputmode="numeric" placeholder="812 3456 7890"></label>
-              <label class="field"><span>Enlace genérico de Zoom <small>(por si falla el registro)</small></span><input id="cfg-zoom-url" type="url"></label>
-            </div>
-          </section>
-          <section class="cfg-sec" id="cfg-videos-sec" hidden>
-            <header class="cfg-sec-head"><span class="cfg-sec-num">🎥</span><div><h3 id="cfg-videos-titulo">Vídeos del lanzamiento</h3><p id="cfg-videos-nota"></p></div></header>
-            <div id="cfg-videos"></div>
-          </section>
           <section class="cfg-sec" data-sec="2">
-            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🔴</span><div><h3>Directo y grabación</h3><p>A la hora del directo la página preclase manda al directo; desde las 00:00 del día siguiente, a la grabación.</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🔴</span><div><h3>Grabación del directo</h3><p>A la hora del directo la página preclase manda al directo; desde las 00:00 del día siguiente, a la grabación.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>Grabación del directo · vídeo de Vimeo</span><input id="cfg-replay-video" type="url"></label>
-              <label class="field"><span>Botón «Añadir al calendario» <small>(vacío = Google Calendar con la fecha y hora del directo, generado solo)</small></span><input id="cfg-calendario-url" type="url" placeholder="Se genera solo"></label>
+              <label class="field"><span>Grabación · se desbloquea <small>(vacío = 00:00 del día siguiente al directo)</small></span><input id="cfg-replay-at" type="datetime-local"></label>
             </div>
           </section>
           <section class="cfg-sec" data-sec="4">
-            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📼</span><div><h3>Página de replay</h3><p>La página donde se ve la grabación del directo (su vídeo, arriba en «Directo y grabación»; la hora de desbloqueo, en el calendario de «Preclase»).</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📼</span><div><h3>Página de replay</h3><p>La página donde se ve la grabación del directo (su vídeo y la hora de desbloqueo, arriba en «Grabación del directo»).</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>URL de la página de replay</span><input id="cfg-replay" type="url"></label>
             </div>
@@ -1056,7 +1049,7 @@
         <section class="tab-panel" data-panel="oferta" hidden>
           <p class="muted">Lo que se vende en este lanzamiento: el precio, lo que incluye el programa (entregables) y los bonus. Se cruza con las ventas de cada día del carrito en <strong>Métricas → Oferta y bonus</strong>, para ver qué bonus empujan la venta.</p>
           <div id="of-resumen" class="of-resumen"></div>
-          <p class="muted small">💶 El tipo de pago y los precios están en <strong>⑧ Precios e IVA</strong>.</p>
+          <p class="muted small">💶 El tipo de pago, los precios y los enlaces de pago están en <strong>⑧ Precios</strong>.</p>
           <section class="cfg-sec">
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">📦</span><div><h3>Entregables</h3><p>Lo que incluye el programa. El valor (opcional) suma al valor total de la oferta.</p></div></header>
             <div id="of-entregables" class="of-lista"></div>
@@ -1085,7 +1078,7 @@
             <div id="guia-check-embudo" class="guia-check"></div>
           </div>
           <section class="cfg-sec" data-sec="3">
-            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">💳</span><div><h3>Página de venta</h3><p>La página de venta de Raíces durante el carrito. Los enlaces de pago están en «Página de pago» (más abajo) y los precios en «⑧ Precios e IVA».</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">💳</span><div><h3>Página de venta</h3><p>La página de venta de Raíces durante el carrito. Los precios y los enlaces de pago están en «⑧ Precios».</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field"><span>URL de la página de venta de Raíces</span><input id="cfg-raices" type="url"></label>
             </div>
@@ -1111,7 +1104,7 @@
             </details>
           </section>
           <section class="cfg-sec" data-sec="pago">
-            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🧾</span><div><h3>Página de pago</h3><p>La página donde se elige pago único o fraccionado: su URL, el tipo de pago y los precios, el copy de cada cajetín con su enlace y su barra de urgencia.</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🧾</span><div><h3>Página de pago</h3><p>La página donde se elige pago único o fraccionado: su URL, el texto de cada cajetín y su barra de urgencia. Los precios y los enlaces de pago de los cajetines, en «⑧ Precios».</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
               <label class="field full"><span>URL de la página de pago <small>(en esta página se elige pago único o fraccionado)</small></span><input id="cfg-pagina-pago" type="url" placeholder="https://…/pago-raices"><small class="muted">Aquí llevan los botones «Quiero inscribirme» de las páginas de replay y de venta (<code>data-lsd-link="pagina-pago"</code>). Vacío = van al enlace de pago único.</small></label>
             </div>
@@ -1119,23 +1112,18 @@
                 <legend>💳 Cajetín · Pago único</legend>
                 <div class="grid2">
                   <label class="field"><span>Título del cajetín</span><input id="cfg-pp-unico-titulo" maxlength="80" placeholder="Pago único"></label>
-                  <label class="field"><span>Precio a mostrar <small>(vacío = el precio de arriba)</small></span><input id="cfg-pp-unico-precio" maxlength="60" placeholder="997 €"></label>
                   <label class="field full"><span>Texto del cajetín <small>(lo que incluye, ventajas…)</small></span><textarea id="cfg-pp-unico-texto" rows="3" maxlength="600"></textarea></label>
                   <label class="field"><span>Texto del botón</span><input id="cfg-pp-unico-boton" maxlength="50" placeholder="Quiero entrar en un solo pago"></label>
-                  <label data-pago="unico" class="field"><span>Enlace de pago único <small>(ThriveCart)</small></span><input id="cfg-venta" type="url" placeholder="https://….thrivecart.com/…"></label>
                 </div>
               </fieldset>
               <fieldset class="pago-caja" data-pago="fr">
                 <legend>🗓️ Cajetín · Pago fraccionado</legend>
                 <div class="grid2">
                   <label class="field"><span>Título del cajetín</span><input id="cfg-pp-fr-titulo" maxlength="80" placeholder="Pago fraccionado"></label>
-                  <label class="field"><span>Precio a mostrar <small>(vacío = el precio de arriba)</small></span><input id="cfg-pp-fr-precio" maxlength="60" placeholder="3 pagos de 388 €"></label>
                   <label class="field full"><span>Texto del cajetín <small>(lo que incluye, ventajas…)</small></span><textarea id="cfg-pp-fr-texto" rows="3" maxlength="600"></textarea></label>
                   <label class="field"><span>Texto del botón</span><input id="cfg-pp-fr-boton" maxlength="50" placeholder="Prefiero pagar a plazos"></label>
-                  <label data-pago="fr" class="field"><span>Enlace de pago fraccionado <small>(Hotmart)</small></span><input id="cfg-venta-fraccionado" type="url" placeholder="https://pay.hotmart.com/…"></label>
                 </div>
               </fieldset>
-            <div class="grid2" data-pago-enlaces="cfg"></div>
             <fieldset class="rb-cfg">
               <legend>⏳ Barra fija con cuenta atrás (arriba del todo)</legend>
               <label class="chk full"><input type="checkbox" id="cfg-pb-on"> <strong>Activar la barra fija en la página de pago</strong></label>
@@ -1204,6 +1192,8 @@
             <div class="grid2">
               <label class="field"><span>Precio de la entrada VIP (€)</span><input id="cfg-precio-vip" inputmode="decimal" placeholder="27"></label>
               <label class="field"><span>¿El precio de la VIP lleva IVA? <small>(la facturación y el ROAS se calculan sin IVA)</small></span><select id="cfg-iva-vip"><option value="">Elige…</option><option value="incluido">IVA incluido</option><option value="mas">+ IVA</option></select></label>
+              <label class="field"><span>Entrada VIP · enlace de pago <small>(se cierra a la hora del directo)</small></span><input id="cfg-vip-url" type="url"></label>
+              <label class="field"><span>Contador de VIP · empieza en <small>(la página muestra este número + las VIP vendidas en el lanzamiento; <code>data-lsd-text="vipContador"</code>)</small></span><input id="cfg-vip-base" inputmode="numeric" placeholder="41"></label>
             </div>
             <fieldset class="rb-cfg bump-cfg">
               <legend>➕ Bump offers de la entrada VIP <small class="muted">(lo que se añade al comprar la VIP; cuentan en la facturación y el ROAS)</small></legend>
@@ -1221,6 +1211,17 @@
               <label data-pago="fr" class="field"><span>Precio de Raíces · pago fraccionado (€) <small>(Hotmart; total de todos los plazos)</small></span><input id="cfg-precio-fraccionado" inputmode="decimal" placeholder="1.164"></label>
               <label class="field"><span>¿Los precios del programa llevan IVA? <small>(único, fraccionado y planes; la facturación y el ROAS se calculan sin IVA)</small></span><select id="cfg-iva-programa"><option value="">Elige…</option><option value="incluido">IVA incluido</option><option value="mas">+ IVA</option><option value="exento">Sin IVA (exento, p. ej. producto sanitario)</option></select></label>
               <label class="field"><span>IVA (%) <small>(de todos los precios del lanzamiento)</small></span><input id="cfg-iva-pct" inputmode="decimal" placeholder="21"></label>
+            </div>
+            <h4 class="cfg-h4">Enlaces de pago</h4>
+            <div class="grid2">
+                  <label data-pago="unico" class="field"><span>Enlace de pago único <small>(ThriveCart)</small></span><input id="cfg-venta" type="url" placeholder="https://….thrivecart.com/…"></label>
+                  <label data-pago="fr" class="field"><span>Enlace de pago fraccionado <small>(Hotmart)</small></span><input id="cfg-venta-fraccionado" type="url" placeholder="https://pay.hotmart.com/…"></label>
+            </div>
+            <div class="grid2" data-pago-enlaces="cfg"></div>
+            <h4 class="cfg-h4">Cómo se ve el precio en la página de pago <small class="muted">(opcional: vacío = el precio de arriba)</small></h4>
+            <div class="grid2">
+                  <label class="field" data-pago="unico"><span>Precio que se muestra en la página de pago · único <small>(vacío = el precio de arriba)</small></span><input id="cfg-pp-unico-precio" maxlength="60" placeholder="997 €"></label>
+                  <label class="field" data-pago="fr"><span>Precio que se muestra en la página de pago · fraccionado <small>(vacío = el precio de arriba)</small></span><input id="cfg-pp-fr-precio" maxlength="60" placeholder="3 pagos de 388 €"></label>
             </div>
             <fieldset class="rb-cfg bump-cfg" data-pago="unico">
               <legend>➕ Bump offers del pago único <small class="muted">(opcionales; cuentan en la facturación y el ROAS)</small></legend>

@@ -2976,7 +2976,7 @@ function renderVideosCfg(l) {
   if (h3Zoom) { h3Zoom.dataset.def ??= h3Zoom.textContent; h3Zoom.textContent = n1 ? `${n1} en Zoom (solo si es en directo)` : h3Zoom.dataset.def; }
   if (vs.length <= 1) { $('#cfg-videos').innerHTML = ''; return; }
   $('#cfg-videos-titulo').textContent = `${FORMATOS[formato].label}: ${vs.slice(1).map((v) => v.nombre).join(', ')}`;
-  $('#cfg-videos-nota').textContent = `El ${vs[0].nombre} usa las casillas de arriba (fechas y Zoom) y su vídeo y su página van más abajo, en «Directo y grabación» y «Página de replay». Si un vídeo es grabado, deja vacío su Zoom. En el ${vs.at(-1).nombre} se hace la venta.`;
+  $('#cfg-videos-nota').textContent = `El ${vs[0].nombre} usa las casillas de arriba (fechas y Zoom) y su grabación y su página van en la pestaña «④ Grabación». Si un vídeo es grabado, deja vacío su Zoom. En el ${vs.at(-1).nombre} se hace la venta.`;
   $('#cfg-videos').innerHTML = vs.slice(1).map((v) => `<fieldset class="cfg-video" data-k="${v.k}"><legend>${esc(v.nombre)}${v.venta ? ' · vídeo de venta' : ''}</legend><div class="grid2">
     ${V_CAMPOS.map(([c, label, type]) => `<label class="field"><span>${label}</span><input id="cfg-v${v.k}-${c === 'replayUrl' ? 'replay' : c === 'replayVideoUrl' ? 'replay-video' : c === 'replayAt' ? 'replay-at' : c}" data-vc="${c}" type="${type}" value="${esc(v[c] || '')}"${c === 'zoomMeetingId' ? ' inputmode="numeric"' : ''}></label>`).join('')}
   </div></fieldset>`).join('');
@@ -3233,7 +3233,7 @@ function pintarReplayPasos() {
       : filaCopiar('2 · Barra de urgencia', '<div class="mi-barra" data-lsd-bar></div>',
         '📍 <strong>Dónde:</strong> justo debajo del bloque base, encima del titular. Enseña la cuenta atrás del carrito y su botón. Opcional (o activa arriba la barra fija con cuenta atrás).'))
     + filaCopiar('3 · Vídeo de la grabación', '<div data-lsd-video="replay"></div>',
-      '📍 <strong>Dónde:</strong> en el sitio exacto donde quieres que se vea el vídeo (normalmente debajo del titular, a todo el ancho de la columna). Pinta el vídeo de «Directo y grabación» y mide cuánto ve (25, 50, 75 y 90 %). En vez del elemento de vídeo de GHL.')
+      '📍 <strong>Dónde:</strong> en el sitio exacto donde quieres que se vea el vídeo (normalmente debajo del titular, a todo el ancho de la columna). Pinta el vídeo de «Grabación del directo» y mide cuánto ve (25, 50, 75 y 90 %). En vez del elemento de vídeo de GHL.')
     + (videosDe(editingCode ? state.config.launches[editingCode] : null).length > 1 ? '<p class="enlace-directo-falta">Lanzamiento de varios vídeos: cada vídeo tiene su propia página con sus bloques (en «Códigos»).</p>' : '');
 }
 $('#cfg-replay').addEventListener('input', pintarReplayPasos);
@@ -4153,7 +4153,7 @@ const textoRow = (k = '', v = '') => `<div class="enlace-row texto-row">
 
 function renderTextosEditor(textos) {
   const fixed = new Set();
-  $$('.tab-panel[data-panel="pagina"] [data-texto]').forEach((el) => { fixed.add(el.dataset.texto); el.value = textos[el.dataset.texto] || ''; });
+  $$('#config-dialog [data-texto]').forEach((el) => { fixed.add(el.dataset.texto); el.value = textos[el.dataset.texto] || ''; });
   $('#cfg-textos').innerHTML = Object.entries(textos).filter(([k]) => !fixed.has(k)).map(([k, v]) => textoRow(k, v)).join('');
 }
 
@@ -4164,7 +4164,7 @@ function readTextosEditor() {
     const v = $('.txt-val', r).value.trim();
     if (k && v) out[k] = v;
   });
-  $$('.tab-panel[data-panel="pagina"] [data-texto]').forEach((el) => { if (el.value.trim()) out[el.dataset.texto] = el.value.trim(); });
+  $$('#config-dialog [data-texto]').forEach((el) => { if (el.value.trim()) out[el.dataset.texto] = el.value.trim(); });
   return out;
 }
 
@@ -4270,7 +4270,7 @@ function renderSnippets() {
     ['PAGO · bloque base de la página de pago (en el pie: barra fija, textos, precios y enlaces de los cajetines; el resto, en ⑥ Venta → Página de pago)', `<div data-lsd-pago data-launch="auto"></div>\n${script}`],
     ['INSCRIBIRME · botón a la página de pago (páginas de venta y de replay; la URL va en ⑥ Venta → Página de pago)', '<a data-lsd-link="pagina-pago">Quiero inscribirme en Raíces</a>'],
     ['WHATSAPP · botón para una sección (sin estilo: dale el tuyo)', '<a data-lsd-link="whatsapp-dudas">Escríbenos por WhatsApp</a>'],
-    ['GRABACIÓN · bloques de la página del replay (el 1º y la barra arriba del todo; el de vídeo, donde quieras que se vea; el paso a paso, en ④ Directo → Página de replay)', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
+    ['GRABACIÓN · bloques de la página del replay (el 1º y la barra arriba del todo; el de vídeo, donde quieras que se vea; el paso a paso, en ④ Grabación → Página de replay)', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
     // El enlace para conectarse al directo es el de la preclase: 59 min antes enseña la pantalla de espera y al llegar a cero entra sola.
     ...(() => {
@@ -9042,7 +9042,7 @@ function pintarDiasCarrito() {
   $('#cfg-cierre').readOnly = Boolean(n);
   if (n && cierre) $('#cfg-cierre').value = cierre;
   $('#cfg-cierre-nota').textContent = n ? `(calculado con los ${n} días de carrito)` : '';
-  $('#cfg-dias-carrito-nota').innerHTML = !n ? 'Vacío = el cierre del carrito se pone a mano (pestaña «③ Preclase», calendario de la página).'
+  $('#cfg-dias-carrito-nota').innerHTML = !n ? 'Vacío = el cierre del carrito se pone a mano (aquí abajo, «Cierre del carrito»).'
     : !fv ? `Pon el día del ${vs.length ? 'vídeo de venta' : 'directo'} para calcular los días.`
     : `Día 1 de carrito: <strong>${esc(fmt(addDays(fv, 1)))}</strong> · último día: <strong>${esc(fmt(addDays(fv, n)))}</strong> (cierra a las 23:59). De aquí salen el cierre, la pestaña «Carrito» y el calendario.`;
 }

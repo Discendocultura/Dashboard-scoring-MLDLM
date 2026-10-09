@@ -127,7 +127,7 @@ export function ivaPendiente(launch) {
   return out;
 }
 
-// Bump offers de la entrada VIP (Configuración → ⑧ Precios e IVA): cada uno se activa o no, con
+// Bump offers de la entrada VIP (Configuración → ⑧ Precios): cada uno se activa o no, con
 // su nombre, precio y la etiqueta de GHL de quien lo compra. Cuentan en la facturación y el ROAS.
 // Cada precio dice si lleva el IVA incluido o es «+ IVA» (`iva`); en la facturación y el ROAS cuenta sin IVA.
 //  [{ id, activo, nombre, precio, iva: 'incluido' | 'mas' | '', tag }]
