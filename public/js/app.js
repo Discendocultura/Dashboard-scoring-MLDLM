@@ -1056,7 +1056,7 @@ function fuenteInversion(launch, m) {
   const leads = `${m.total.toLocaleString('es-ES')} leads con la etiqueta de registro`;
   if (m.eco.inversion && m.eco.inversionFuente === 'meta') return { ok: true, txt: `Meta Ads: campañas con «${esc(filtro)}» en el nombre${meta?.since ? ` (${esc(meta.since)} → ${esc(meta.until)})` : ''} · ${leads}` };
   if (m.eco.inversion) return { ok: true, txt: `inversión puesta a mano en Configuración · ${leads}` };
-  if (!launch.inicioCaptacion) return { ok: false, txt: 'Falta el inicio de captación (Configuración → Lanzamiento): desde ese día se suma lo gastado en Meta' };
+  if (!launch.inicioCaptacion) return { ok: false, txt: 'Falta el inicio de captación (Configuración → ① Datos básicos): desde ese día se suma lo gastado en Meta' };
   if (launch.inicioCaptacion > dayInMadrid(new Date().toISOString())) return { ok: false, txt: `La captación empieza el ${esc(formatoDia(launch.inicioCaptacion))}: desde ese día se suma sola la inversión de las campañas con «${esc(filtro)}» en el nombre` };
   if (!meta) return { ok: false, txt: 'Meta no está conectado (variables META_* en Cloudflare)' };
   if (meta.error) return { ok: false, txt: `Meta: ${esc(meta.error)}` };
@@ -1232,7 +1232,7 @@ function renderVentasDia(launch) {
   const v = ventasPorDia(state.leads, launch);
   const box = $('#ventas-dia');
   if (!v) {
-    box.innerHTML = '<p class="muted">Configura el <strong>día del directo</strong> y el <strong>campo de fecha de compra</strong> (Configuración → Lanzamiento) para ver las ventas de cada día.</p>';
+    box.innerHTML = '<p class="muted">Configura el <strong>día del directo</strong> y el <strong>campo de fecha de compra</strong> (Configuración → ① Datos básicos y ⑨ Etiquetas GHL) para ver las ventas de cada día.</p>';
     return;
   }
   const precio = Number(launch.precioPrograma) || Number(launch.precioFraccionado) || 0;
@@ -1850,7 +1850,7 @@ $('#btn-informe').addEventListener('click', () => {
 function renderOrigen(m, launch) {
   const t = $('#origen-table');
   if (!launch.publiTag && !launch.organicoTag) {
-    t.innerHTML = '<tbody><tr><td class="muted">Elige las etiquetas de leads de publicidad y orgánicos en Configuración → Lanzamiento → Etiquetas de GHL. Mientras, tienes el desglose por canal (utm_source) en «Canales y campañas».</td></tr></tbody>';
+    t.innerHTML = '<tbody><tr><td class="muted">Elige las etiquetas de leads de publicidad y orgánicos en Configuración → ⑨ Etiquetas GHL. Mientras, tienes el desglose por canal (utm_source) en «Canales y campañas».</td></tr></tbody>';
     return;
   }
   const o = m.origen;
@@ -1869,12 +1869,12 @@ function renderPago(m, launch) {
   tit.dataset.def ??= tit.innerHTML;
   if (esSuscripcion(launch)) {
     tit.innerHTML = 'Planes de la suscripción <span class="muted">· altas, facturación del primer cobro y MRR</span>';
-    t.innerHTML = planesActivos(launch).length ? tablaPlanes(m.planes) : '<tbody><tr><td class="muted">Marca los planes de la suscripción en Configuración → Lanzamiento → Precios.</td></tr></tbody>';
+    t.innerHTML = planesActivos(launch).length ? tablaPlanes(m.planes) : '<tbody><tr><td class="muted">Marca los planes de la suscripción en Configuración → ⑧ Precios e IVA.</td></tr></tbody>';
     return;
   }
   tit.innerHTML = tit.dataset.def;
   if (!launch.unicoTag && !launch.fraccionadoTag) {
-    t.innerHTML = '<tbody><tr><td class="muted">Elige las etiquetas de pago único y fraccionado en Configuración → Lanzamiento → Etiquetas de GHL.</td></tr></tbody>';
+    t.innerHTML = '<tbody><tr><td class="muted">Elige las etiquetas de pago único y fraccionado en Configuración → ⑨ Etiquetas GHL.</td></tr></tbody>';
     return;
   }
   const p = m.pago;
@@ -2780,7 +2780,7 @@ function renderVideosCfg(l) {
   if (h3Zoom) { h3Zoom.dataset.def ??= h3Zoom.textContent; h3Zoom.textContent = n1 ? `${n1} en Zoom (solo si es en directo)` : h3Zoom.dataset.def; }
   if (vs.length <= 1) { $('#cfg-videos').innerHTML = ''; return; }
   $('#cfg-videos-titulo').textContent = `${FORMATOS[formato].label}: ${vs.slice(1).map((v) => v.nombre).join(', ')}`;
-  $('#cfg-videos-nota').textContent = `El ${vs[0].nombre} usa las casillas de arriba (fechas y Zoom) y su vídeo y su página van en la pestaña «Páginas» (Directo y grabación, Página de replay). Si un vídeo es grabado, deja vacío su Zoom. En el ${vs.at(-1).nombre} se hace la venta.`;
+  $('#cfg-videos-nota').textContent = `El ${vs[0].nombre} usa las casillas de arriba (fechas y Zoom) y su vídeo y su página van más abajo, en «Directo y grabación» y «Página de replay». Si un vídeo es grabado, deja vacío su Zoom. En el ${vs.at(-1).nombre} se hace la venta.`;
   $('#cfg-videos').innerHTML = vs.slice(1).map((v) => `<fieldset class="cfg-video" data-k="${v.k}"><legend>${esc(v.nombre)}${v.venta ? ' · vídeo de venta' : ''}</legend><div class="grid2">
     ${V_CAMPOS.map(([c, label, type]) => `<label class="field"><span>${label}</span><input id="cfg-v${v.k}-${c === 'replayUrl' ? 'replay' : c === 'replayVideoUrl' ? 'replay-video' : c === 'replayAt' ? 'replay-at' : c}" data-vc="${c}" type="${type}" value="${esc(v[c] || '')}"${c === 'zoomMeetingId' ? ' inputmode="numeric"' : ''}></label>`).join('')}
   </div></fieldset>`).join('');
@@ -2987,7 +2987,7 @@ function pintarLlamadaPasos() {
     '📍 <strong>Dónde:</strong> en el pie de la página (o en Ajustes → Código de seguimiento → Footer). No se ve: pinta el vídeo y los enlaces.')
     + filaCopiar('2 · Vídeo de confirmación', '<div data-lsd-embed="llamada"></div>',
       `📍 <strong>Dónde:</strong> justo debajo del titular «Mira este vídeo para confirmar tu llamada». ${video ? 'Pinta el vídeo de arriba.' : '⚠️ Pon arriba la URL del vídeo: sin ella el bloque se oculta.'}`)
-    + filaCopiar('3 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «Páginas → Venta y seguimiento».');
+    + filaCopiar('3 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «⑥ Venta → Venta y seguimiento».');
 }
 $('#cfg-llamada-video').addEventListener('input', pintarLlamadaPasos);
 
@@ -2998,7 +2998,7 @@ function pintarPagoPasos() {
     '📍 <strong>Dónde:</strong> en el pie de la página (o en Ajustes → Código de seguimiento → Footer). No se ve: pinta la barra fija, los textos, precios y enlaces de los cajetines.')
     + CAJAS_PAGO.map((c, i) => filaCopiar(`${i + 2} · Cajetín ${c.titulo.toLowerCase()}`, caja(c),
       `📍 <strong>Dónde:</strong> donde quieras el cajetín. Dale el diseño que quieras: solo mantén los atributos <code>data-lsd-…</code> (título, precio, texto y botón salen de aquí). ${c.id === 'fraccionado' ? 'Sin enlace de pago fraccionado, el cajetín se oculta solo.' : ''}`)).join('')
-    + filaCopiar('4 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «Páginas → Venta y seguimiento».');
+    + filaCopiar('4 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «⑥ Venta → Venta y seguimiento».');
 }
 const leerVentaBarra = () => leerBarraTramos('vb');
 const pintarVentaBarra = (vb) => pintarBarraTramos('vb', vb);
@@ -3044,7 +3044,7 @@ function pintarPrelanzamientoCfg(l) {
   $$('#config-dialog [data-clase]').forEach((el) => { el.hidden = Number(el.dataset.clase) > nc; });
   // Sin área de recursos preclase: fuera sus páginas, la encuesta de la página y las clases.
   $$('#config-dialog [data-preclase]').forEach((el) => { el.hidden = !preclase; });
-  $('#tab-pagina-txt').textContent = preclase ? 'Preclase' : 'Página del directo';
+  $('#tab-pagina-txt').textContent = preclase ? '③ Preclase' : '③ Página del directo';
   $$('#config-dialog [data-vip]').forEach((el) => { el.hidden = !vip; });
 }
 
@@ -3307,6 +3307,8 @@ const CICLO = [
   { id: 'cfg-llamada-gracias', c: 'revisar', label: 'Gracias por agendar', opcional: true },
   { id: 'cfg-llamada-video', c: 'revisar', label: 'Vídeo de confirmar la llamada', opcional: true },
   { id: 'cfg-precio-vip', c: 'revisar', label: 'Precio VIP' },
+  { id: 'cfg-iva-vip', c: 'revisar', label: 'IVA del precio VIP' },
+  { id: 'cfg-iva-programa', c: 'revisar', label: 'IVA de los precios del programa' },
   { id: 'cfg-precio-programa', c: 'revisar', label: 'Precio Raíces · único' },
   { id: 'cfg-precio-fraccionado', c: 'revisar', label: 'Precio Raíces · fraccionado', opcional: true },
   { id: 'cfg-login-url', c: 'revisar', label: 'Página de login' },
@@ -3381,7 +3383,10 @@ function renderGuia() {
   const code = editingCode || $('#cfg-code').value.trim().toLowerCase();
   const others = Object.entries(state.config.launches).filter(([c]) => c !== code);
   const tagIssues = tagProblems();
-  for (const [panel, box] of [['launch', '#guia-check'], ['etiquetas', '#guia-check-etiquetas'], ['pagina', '#guia-check-pagina'], ['embudo', '#guia-check-embudo']]) {
+  // Cada pestaña con campos que revisar tiene su checklist (las que no tienen caja, la reciben arriba).
+  const CAJAS_GUIA = { launch: '#guia-check', etiquetas: '#guia-check-etiquetas', pagina: '#guia-check-pagina', embudo: '#guia-check-embudo' };
+  for (const panel of $$('#config-dialog .tab-panel').map((p) => p.dataset.panel)) {
+    let box = CAJAS_GUIA[panel] || `#guia-check-${panel}`;
     const groups = $$(`.tab-panel[data-panel="${panel}"] .cfg-sec`).filter((sec) => !sec.hidden).map((sec) => {
       const items = $$('.field', sec).filter((el) => !el.hidden).map((el) => CICLO.find((f) => f.id === $('input, select, textarea', el)?.id))
         .filter((f) => f && f.c !== 'fijo')
@@ -3396,6 +3401,13 @@ function renderGuia() {
       return { title: $('h3', sec).textContent, items };
     }).filter((g) => g.items.length);
     const total = groups.flatMap((g) => g.items);
+    if (!$(box)) {
+      if (!total.length) continue;
+      const pnl = $(`#config-dialog .tab-panel[data-panel="${panel}"]`);
+      const intro = $(':scope > .cfg-intro', pnl);
+      (intro || pnl.firstElementChild).insertAdjacentHTML(intro ? 'afterend' : 'beforebegin', `<div class="guia" role="note"><strong>Qué falta en esta pestaña</strong><div id="guia-check-${panel}" class="guia-check"></div></div>`);
+      box = `#guia-check-${panel}`;
+    }
     const listos = total.filter((i) => i.st === 'ok' || i.st === 'opt').length;
     const html = `<p class="guia-sub"><strong>${listos} de ${total.length}</strong> listos · pulsa uno para ir a él</p>
       <div class="guia-groups">${groups.map((g) => `<div class="guia-group"><span class="guia-group-t">${esc(g.title)}</span><div class="guia-items">${g.items.map((i) => `<button type="button" class="guia-item guia-${i.st}" data-goto="${i.f.id}">${GUIA_ICON[i.st]} ${esc(i.f.label)} <small>${esc(i.txt)}</small></button>`).join('')}</div></div>`).join('')}</div>`;
@@ -3403,20 +3415,8 @@ function renderGuia() {
     if (html !== guiaHtml[panel]) $(box).innerHTML = guiaHtml[panel] = html;
   }
 }
-$('#guia-check-embudo').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-goto]');
-  if (b) goToField(b.dataset.goto);
-});
-$('#guia-check-pagina').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-goto]');
-  if (b) goToField(b.dataset.goto);
-});
-$('#guia-check-etiquetas').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-goto]');
-  if (b) goToField(b.dataset.goto);
-});
-$('#guia-check').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-goto]');
+$('#config-dialog').addEventListener('click', (e) => {
+  const b = e.target.closest('.guia-check [data-goto]');
   if (b) goToField(b.dataset.goto);
 });
 
@@ -4039,11 +4039,11 @@ function renderSnippets() {
       etapasPreclase(state.config.launches[code], nClases(state.config.launches[code])).map((e) => `<div data-lsd-etapa="${e.id}">Etapa <span data-lsd-etapa-n="${e.id}"></span> · ${e.label}</div>`).join('\n')],
     ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
     ['VENTA · página de venta de Raíces: al final de la página, en el pie (apunta quién la visita para «Setting hoy» y pinta la barra fija si está activa en Páginas; los enlaces a esta página en los emails, con ?cid={{contact.id}})', `<div data-lsd-venta data-launch="auto"></div>\n${script}`],
-    ['WHATSAPP · botón flotante abajo a la derecha (páginas de venta y de replay; abre el WhatsApp de dudas de Páginas → Venta y seguimiento)', WA_FLOTANTE],
-    ['PAGO · bloque base de la página de pago (en el pie: barra fija, textos, precios y enlaces de los cajetines; el resto, en Páginas → Página de pago)', `<div data-lsd-pago data-launch="auto"></div>\n${script}`],
-    ['INSCRIBIRME · botón a la página de pago (páginas de venta y de replay; la URL va en Lanzamiento → Página de pago)', '<a data-lsd-link="pagina-pago">Quiero inscribirme en Raíces</a>'],
+    ['WHATSAPP · botón flotante abajo a la derecha (páginas de venta y de replay; abre el WhatsApp de dudas de ⑥ Venta → Venta y seguimiento)', WA_FLOTANTE],
+    ['PAGO · bloque base de la página de pago (en el pie: barra fija, textos, precios y enlaces de los cajetines; el resto, en ⑥ Venta → Página de pago)', `<div data-lsd-pago data-launch="auto"></div>\n${script}`],
+    ['INSCRIBIRME · botón a la página de pago (páginas de venta y de replay; la URL va en ⑥ Venta → Página de pago)', '<a data-lsd-link="pagina-pago">Quiero inscribirme en Raíces</a>'],
     ['WHATSAPP · botón para una sección (sin estilo: dale el tuyo)', '<a data-lsd-link="whatsapp-dudas">Escríbenos por WhatsApp</a>'],
-    ['GRABACIÓN · bloques de la página del replay (el 1º y la barra arriba del todo; el de vídeo, donde quieras que se vea; el paso a paso, en Páginas → Página de replay)', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
+    ['GRABACIÓN · bloques de la página del replay (el 1º y la barra arriba del todo; el de vídeo, donde quieras que se vea; el paso a paso, en ④ Directo → Página de replay)', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
     // El enlace para conectarse al directo es el de la preclase: 59 min antes enseña la pantalla de espera y al llegar a cero entra sola.
     ...(() => {
@@ -8121,7 +8121,7 @@ async function eliminarEmbudo(id) {
   const e = embudoInfo(id);
   if (!e) return false;
   if (e.tipo === 'lanzamientos' && Object.values(state.config.launches).some((l) => embudoDeLanz(l) === id)) {
-    window.alert('Este embudo tiene lanzamientos. Bórralos antes (Configuración → Lanzamiento) o déjalo y desactiva sus pestañas.');
+    window.alert('Este embudo tiene lanzamientos. Bórralos antes (Configuración → ① Datos básicos) o déjalo y desactiva sus pestañas.');
     return false;
   }
   if (!window.confirm(`¿Eliminar el embudo «${e.nombre}» del dashboard? Se borra su configuración. Sus contactos, etiquetas y páginas de GHL no se tocan.`)) return false;
@@ -8760,7 +8760,7 @@ function refrescarOfertaEditor() {
   };
   for (const el of $$('#of-bonus .of-fila')) {
     const w = ventanaBonus({ tipo: $('.of-tipo', el).value, hasta: $('.of-hasta-in', el).value }, datos);
-    $('.of-ventana', el).textContent = w.desde != null && w.hasta != null ? `Activo: ${fechaHoraCorta(w.desde)} → ${fechaHoraCorta(w.hasta)}` : 'Pon las fechas del directo y del carrito (pestaña Lanzamiento) para ver cuándo está activo.';
+    $('.of-ventana', el).textContent = w.desde != null && w.hasta != null ? `Activo: ${fechaHoraCorta(w.desde)} → ${fechaHoraCorta(w.hasta)}` : 'Pon las fechas del directo y del carrito (pestaña «① Datos básicos») para ver cuándo está activo.';
   }
   const o = leerOfertaEditor();
   const precio = dinero($('#cfg-precio-programa').value);
@@ -8799,7 +8799,7 @@ function pintarDiasCarrito() {
   $('#cfg-cierre').readOnly = Boolean(n);
   if (n && cierre) $('#cfg-cierre').value = cierre;
   $('#cfg-cierre-nota').textContent = n ? `(calculado con los ${n} días de carrito)` : '';
-  $('#cfg-dias-carrito-nota').innerHTML = !n ? 'Vacío = el cierre del carrito se pone a mano (pestaña «Preclase»).'
+  $('#cfg-dias-carrito-nota').innerHTML = !n ? 'Vacío = el cierre del carrito se pone a mano (pestaña «③ Preclase», calendario de la página).'
     : !fv ? `Pon el día del ${vs.length ? 'vídeo de venta' : 'directo'} para calcular los días.`
     : `Día 1 de carrito: <strong>${esc(fmt(addDays(fv, 1)))}</strong> · último día: <strong>${esc(fmt(addDays(fv, n)))}</strong> (cierra a las 23:59). De aquí salen el cierre, la pestaña «Carrito» y el calendario.`;
 }
@@ -8843,7 +8843,7 @@ function pintarCarrito({ leerEnvios = true } = {}) {
   const r = diasCarrito(datos);
   const box = $('#carrito-dias');
   if (!r.dias.length) {
-    box.innerHTML = `<div class="car-vacio">🛒 <strong>Aquí aparecerán los días del carrito.</strong> Se rellenará automáticamente cuando configures ${esc(r.faltan.join(' y '))} en la pestaña «Lanzamiento», y los bonus en «Oferta».</div>`;
+    box.innerHTML = `<div class="car-vacio">🛒 <strong>Aquí aparecerán los días del carrito.</strong> Se rellenará automáticamente cuando configures ${esc(r.faltan.join(' y '))} en la pestaña «① Datos básicos», y los bonus en «⑤ Oferta».</div>`;
     return;
   }
   const hoy = dayInMadrid(new Date().toISOString());
@@ -8903,7 +8903,7 @@ function renderOfertaAnalisis(launch) {
   }
   const vpd = ventasPorDia(state.leads, launch);
   if (!vpd) {
-    box.innerHTML = `${resumen}<p class="muted">Para cruzar la oferta con las ventas de cada día hace falta el <strong>día del directo</strong> y el <strong>campo de fecha de compra</strong> (Configuración → Lanzamiento).</p>`;
+    box.innerHTML = `${resumen}<p class="muted">Para cruzar la oferta con las ventas de cada día hace falta el <strong>día del directo</strong> y el <strong>campo de fecha de compra</strong> (Configuración → ① Datos básicos y ⑨ Etiquetas GHL).</p>`;
     return;
   }
   const a = analizarOferta(launch, vpd);

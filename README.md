@@ -210,7 +210,7 @@ abre a las 00:00 del día siguiente al directo), enlace de pago de la **VIP** (s
 **WhatsApp**, **cierre del carrito** y los mensajes de la **barra de urgencia** por fase (`{cuenta}` = cuenta atrás).
 
 ### Encuesta obligatoria para ver las clases
-En *Configuración → Lanzamiento*: **etiqueta de encuesta rellenada** (la que añade la encuesta de GHL al enviarse) y
+En *Configuración → ⑨ Etiquetas GHL*: **etiqueta de encuesta rellenada** (la que añade la encuesta de GHL al enviarse) y
 **enlace de la encuesta**. Si hay etiqueta, el servidor no entrega el vídeo de la clase 1 ni de la 2 a quien no la
 tiene: en su lugar sale la tarjeta "Completa la encuesta para desbloquear las clases" con el botón. La encuesta se
 abre en otra pestaña con el email, nombre y teléfono ya rellenos (`?email=…&first_name=…&phone=…`, para que la
@@ -234,7 +234,7 @@ Marcadores para el diseño de GHL (`data-launch="auto"` = lanzamiento en curso, 
 | `<a data-lsd-link="vip|whatsapp|directo|grabacion|venta|pago|pago-fraccionado|llamada">` | Pone el enlace; se oculta si no hay |
 | `<a data-lsd-link="calendario">` / `data-lsd-link="calendario-ics"` | Añadir el directo a Google Calendar (o el enlace que pongas en el dashboard) / archivo .ics para Apple y Outlook |
 | `<span data-lsd-text="clases-titulo|clases-subtitulo|clase1-titulo|clase1-descripcion|clase2-titulo|clase2-descripcion">` | Textos editables en *Página de recursos → Textos de la página* (vacío = se queda el texto del diseño); también textos con nombre propio |
-| `<div data-lsd-embed="gracias"></div>` | Vídeo de la página de gracias (Vimeo o YouTube) desde *Configuración → Páginas → Página de gracias*; se oculta si no hay |
+| `<div data-lsd-embed="gracias"></div>` | Vídeo de la página de gracias (Vimeo o YouTube) desde *Configuración → ② Captación → Página de gracias*; se oculta si no hay |
 | `<span data-lsd-text="vipContador">` | Prueba social: número de partida (se elige al crear el embudo de lanzamientos, en «Contador de VIP · empieza en», y cada lanzamiento lo puede cambiar en su configuración) + VIP vendidas en este lanzamiento (las de lanzamientos anteriores no cuentan; se actualiza cada minuto) |
 | `<a data-lsd-link="guia">` (cualquier nombre) | Enlace personalizado creado en *Página de recursos → Enlaces personalizados* |
 | `<span data-lsd-text="nombre|fechaDirecto|horaDirecto|directo|clase1|clase2|replay|cierreVip|cierreCarrito|precioVip">` | Escribe el dato |
@@ -279,7 +279,7 @@ Pestaña **Llamadas** (admin, técnico y setter), conectada a GHL:
 Pestaña para admin y técnico con:
 - **Anuncios ganadores**: ranking (🥇🥈🥉 y tabla) de anuncios, conjuntos o campañas por ventas de Raíces que traen, con conversión, registros, VIP, facturado y, si Meta está conectado, inversión, CAC y ROAS. Se atribuye por las UTM del registro (utm_content = anuncio, utm_term = conjunto, utm_campaign = campaña).
 - **Ventas por canal, campaña, conjunto y anuncio**.
-- **Formularios instantáneos de Meta**: como no traen UTM, el origen se completa con la atribución que guarde GHL (adId, adGroupId, campaignId) o con los campos personalizados elegidos en Configuración → Lanzamiento → «Formularios instantáneos de Meta» (ID de campaña, conjunto y anuncio). Aparecen como canal «Formulario instantáneo (Meta)», cuentan como publi y entran en el ranking de anuncios ganadores.
+- **Formularios instantáneos de Meta**: como no traen UTM, el origen se completa con la atribución que guarde GHL (adId, adGroupId, campaignId) o con los campos personalizados elegidos en Configuración → ② Captación → «Formularios instantáneos de Meta» (ID de campaña, conjunto y anuncio). Aparecen como canal «Formulario instantáneo (Meta)», cuentan como publi y entran en el ranking de anuncios ganadores.
 - **Avatares de compradoras** sacados de la encuesta.
 
 ## Objetivos y calculadora
@@ -322,7 +322,7 @@ El periodo es desde el inicio de captación hasta el día antes del siguiente la
 cruza las UTM de GHL (`utm_campaign`, `utm_term`, `utm_content` con los ID de Meta) con los nombres y el gasto.
 
 ## Resumen diario por email
-1. Configuración → Lanzamiento (abajo) → **Enviar el resumen a**: tu email (tiene que existir como contacto en GHL).
+1. Configuración → ① Datos básicos → Resumen diario por email → **Enviar el resumen a**: tu email (tiene que existir como contacto en GHL).
    Pulsa **Enviar resumen de prueba**.
 2. El token de GHL necesita además el permiso **`conversations/message.write`**.
 3. Para recibirlo cada mañana: añade en Cloudflare el secreto `DIGEST_KEY` (texto aleatorio largo) y crea una tarea
@@ -446,7 +446,7 @@ Al crear el embudo se marca qué recursos tendrá la preclase además de las cla
 Las **etapas** de la página se numeran solas: 1 la encuesta (si hay), después clases, test y descargable por orden de fecha y la última el directo; la música y la votación van dentro de la etapa de su clase. La configuración enseña el orden resultante. Etiquetas automáticas: `<código>_musica_play|_50|_90`, `<código>_voto`, `<código>_descarga`.
 
 ### Lanzamientos de varios vídeos (2, 3 o PLF)
-Funcionan como el webinar, con las casillas repetidas para cada vídeo (*Configuración → Lanzamiento*, bloque «Vídeos del lanzamiento»): **día y hora**, **Zoom** (solo si ese vídeo es en directo; si no, es grabado y se publica a su hora), **página del vídeo en GHL**, **vídeo de Vimeo** y desde cuándo se ve. El vídeo 1 usa las casillas de siempre del directo y su grabación.
+Funcionan como el webinar, con las casillas repetidas para cada vídeo (*Configuración → ④ Directo*, bloque «Vídeos del lanzamiento»): **día y hora**, **Zoom** (solo si ese vídeo es en directo; si no, es grabado y se publica a su hora), **página del vídeo en GHL**, **vídeo de Vimeo** y desde cuándo se ve. El vídeo 1 usa las casillas de siempre del directo y su grabación.
 - **Señales** de cada vídeo: `<código>_directo2_asistio`, `_directo2_final`, `_replay2_50`… (el vídeo 1, las de siempre). En cada página de vídeo va su bloque `<div data-lsd-video="replay2">` (está en *Configuración → Códigos*), y el enlace al directo de cada vídeo lleva `&v=2`.
 - **Página preclase**: tras las clases, fases por vídeo (su día, su directo o estreno y «vídeo N disponible» hasta el siguiente). Manda sola a la página de cada vídeo cuando toca; tras el último, carrito abierto. La barra de urgencia se configura por cada una de esas fases.
 - **Venta**: en el último vídeo. El carrito se abre con él (si no se pone otra apertura), «ventas el día del vídeo de venta» y el WhatsApp de cierre miran ese vídeo. El enlace `{link_grabacion}` lleva a la página del último vídeo ya publicado.
@@ -614,7 +614,7 @@ npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)
 
 En todas las barras (las de cada fase en *Configuración → Preclase → Barra de urgencia* y la barra fija de la página de replay) se elige **«¿Lleva botón?»**: *Sí, con botón* (adónde lleva y su texto) o *No, solo texto* (solo informativa, para crear urgencia).
 
-### 🧾 Página de pago (Configuración → Páginas)
+### 🧾 Página de pago (Configuración → ⑥ Venta; precios en ⑧ Precios e IVA)
 
 La página donde se elige pago único o fraccionado. Aquí está todo lo del pago (salió de «Lanzamiento» y «Oferta»): la **URL de la página de pago** (adonde llevan los botones «Quiero inscribirme» de las páginas de replay y de venta: `data-lsd-link="pagina-pago"` y también los de siempre, `pago` y `pago-fraccionado`; solo en la propia página de pago van al checkout. Vacía = el pago único), el **tipo de pago y los precios**, un **cajetín por forma de pago** (título, precio a mostrar, texto, texto del botón y su enlace de pago) y su **barra fija por tramos** (como la de la página de venta). En GHL: el bloque base `<div data-lsd-pago data-launch="auto"></div>` + script en el pie, y en cada cajetín `data-lsd-caja="unico|fraccionado"` con `data-lsd-text="pago-unico-titulo|precio|texto|boton"` y el botón `data-lsd-link="pago"` / `"pago-fraccionado"` (los códigos, en esa misma sección). Sin enlace fraccionado, su cajetín se oculta.
 
@@ -624,8 +624,11 @@ Quien llega a la página de pago con su ID (al pulsar «Quiero inscribirme» en 
 
 ### 💬 WhatsApp para dudas (páginas de venta y de replay)
 
+### Configuración por fases
+La configuración de un lanzamiento sigue el orden en que se monta: **① Datos básicos** (lanzamiento a editar, identificación, fechas y días de carrito, resumen diario por email) · **② Captación** (anuncios de Meta y emails, página de gracias, entrada VIP) · **③ Preclase** (páginas de GHL, calendario, encuesta, clases, recursos, directo, pantalla de espera, barra) · **④ Directo** (Zoom, vídeos, directo y grabación, página de replay) · **⑤ Oferta** (entregables, bonus, garantía) · **⑥ Venta** (página de venta, de pago, llamada de admisión, WhatsApp de dudas) · **⑦ Carrito** (días y estrategia) · **⑧ Precios e IVA** (VIP, programa, tipo de pago, IVA y bump offers) · **⑨ Etiquetas GHL**. Aparte: **Códigos** y **Accesos y enlaces**. Cada pestaña con campos que revisar enseña arriba «Qué falta en esta pestaña» (pulsa uno para ir a él) y cada sección su estado («Falta 1», «✓ Completo»).
+
 ### IVA, bump offers y orden del resumen
-- **IVA**: junto a cada precio (entrada VIP, programa en «Páginas → Página de pago» y cada bump) se elige si lleva el **IVA incluido** o es **«+ IVA»** (el programa también puede ir **«Sin IVA»**, exento, como un producto sanitario), y el % (21 de serie). La **facturación, el beneficio y el ROAS se calculan sin IVA**. Si un precio no lo dice, se toma como IVA incluido y sale un aviso en Métricas.
+- **IVA**: junto a cada precio (entrada VIP, programa, todos en «⑧ Precios e IVA» y cada bump) se elige si lleva el **IVA incluido** o es **«+ IVA»** (el programa también puede ir **«Sin IVA»**, exento, como un producto sanitario), y el % (21 de serie). La **facturación, el beneficio y el ROAS se calculan sin IVA**. Si un precio no lo dice, se toma como IVA incluido y sale un aviso en Métricas.
 - **Bump offers** (opcionales, cada uno se activa o no): de la **entrada VIP** (en «Entrada VIP»), del **pago único** y del **pago fraccionado** (en «Página de pago»). Cada uno con nombre, precio, IVA y la **etiqueta de GHL** de quien lo compra. Cuentan solo con la VIP o la compra de este lanzamiento en ese tipo de pago. En Métricas → Resumen y en Inicio: cuántos se compran y el **% sobre las VIP** (o sobre las ventas de ese tipo de pago); suman a la facturación y al ROAS.
 - **Orden** de Métricas → Resumen y de la tarjeta del lanzamiento en Inicio: leads totales, CPL medio, entradas VIP vendidas, inversión en publicidad y ROAS (programa + VIP + bumps, sin IVA); después, los bumps y el resto.
 - **CPL medio = inversión de Meta / leads con la etiqueta de registro.** La inversión se suma sola de las campañas de Meta que llevan el código del lanzamiento (o el texto de «Campañas de Meta») en el nombre, desde el inicio de captación. Si no hay inversión, la tarjeta dice por qué (Meta sin conectar, ninguna campaña con el código, sin inicio de captación…). La inversión a mano de Configuración solo se usa si Meta no da nada.
@@ -634,17 +637,17 @@ Quien llega a la página de pago con su ID (al pulsar «Quiero inscribirme» en 
 La API de GHL no da las estadísticas de los embudos (las visitas de «Embudos → … → Estadísticas»), así que el dashboard cuenta las **visitas únicas** él mismo: en la página de registro, en el footer, `<div data-lsd-registro data-launch="auto"></div>` + `tracker.js` (Configuración → Códigos → «REGISTRO · visitas únicas»). Cada navegador cuenta una vez por lanzamiento (tabla `visitas_registro` de D1, sin GHL). **Conversión = registros (etiqueta de registro) / visitas únicas.** Sin el código, se usan las visitas de Meta (landing page views) si las hay.
 
 ### Llamada de admisión
-En *Configuración → Páginas → Llamada de admisión*: el **enlace para reservar la llamada** (calendario de GHL; lo usan los botones `data-lsd-link="llamada"`), la **URL de la página de gracias por agendar** y el **vídeo de confirmación** (Vimeo o YouTube). En la página de gracias: `<div data-lsd-llamada data-launch="auto"></div>` + `tracker.js` (respuesta ligera de `/api/page?pagina=llamada`, sin llamar a GHL) y `<div data-lsd-embed="llamada"></div>` donde va el vídeo (sin URL, se oculta). Los códigos, con «Copiar», en la misma sección.
+En *Configuración → ⑥ Venta → Llamada de admisión*: el **enlace para reservar la llamada** (calendario de GHL; lo usan los botones `data-lsd-link="llamada"`), la **URL de la página de gracias por agendar** y el **vídeo de confirmación** (Vimeo o YouTube). En la página de gracias: `<div data-lsd-llamada data-launch="auto"></div>` + `tracker.js` (respuesta ligera de `/api/page?pagina=llamada`, sin llamar a GHL) y `<div data-lsd-embed="llamada"></div>` donde va el vídeo (sin URL, se oculta). Los códigos, con «Copiar», en la misma sección.
 
-En *Configuración → Páginas → Venta y seguimiento → WhatsApp para resolver dudas* se pone **el número** (con prefijo; un móvil español sin prefijo se toma como +34) y **el mensaje que sale ya escrito** (`{producto}` = nombre del producto): el enlace `https://wa.me/…?text=…` se genera solo (con «Copiar» y «Probar»). Lo usan los botones `<a data-lsd-link="whatsapp-dudas">` de las páginas de venta y de replay (se abren en otra pestaña; sin enlace, se ocultan). En *Códigos* está el **botón flotante** (abajo a la derecha, fijo al hacer scroll; en móvil solo el icono), también en `bloques-ghl/whatsapp-flotante.html`. En la página de venta, el bloque VENTA pone además los enlaces de `pago`, `pago-fraccionado` y `llamada` con el ID de la lead.
+En *Configuración → ⑥ Venta → Venta y seguimiento → WhatsApp para resolver dudas* se pone **el número** (con prefijo; un móvil español sin prefijo se toma como +34) y **el mensaje que sale ya escrito** (`{producto}` = nombre del producto): el enlace `https://wa.me/…?text=…` se genera solo (con «Copiar» y «Probar»). Lo usan los botones `<a data-lsd-link="whatsapp-dudas">` de las páginas de venta y de replay (se abren en otra pestaña; sin enlace, se ocultan). En *Códigos* está el **botón flotante** (abajo a la derecha, fijo al hacer scroll; en móvil solo el icono), también en `bloques-ghl/whatsapp-flotante.html`. En la página de venta, el bloque VENTA pone además los enlaces de `pago`, `pago-fraccionado` y `llamada` con el ID de la lead.
 
 ### Barra fija de la página de venta
 
-En *Configuración → Páginas → Página de venta → Barra fija con cuenta atrás*: varios **tramos** seguidos, cada uno con su texto (`{cuenta}` = cuenta atrás hasta su fin), su fecha y hora de fin y si lleva botón (adónde y con qué texto) o es solo informativo. Al acabar un tramo empieza solo el siguiente y tras el último la barra desaparece (p. ej. «🎁 Último día para llevarte el bonus» hasta que acaba el bonus y luego «⏳ Último día para entrar» hasta el cierre). **«✨ Rellenar con los bonus de Oferta y el cierre»** crea un tramo por cada fin de bonus y otro hasta el cierre del carrito, para retocar los textos. La pinta el mismo bloque «VENTA» que apunta las visitas (no hay que pegar nada más) y no llama a GHL. En cada lanzamiento nuevo se heredan los textos y botones, sin fechas.
+En *Configuración → ⑥ Venta → Página de venta → Barra fija con cuenta atrás*: varios **tramos** seguidos, cada uno con su texto (`{cuenta}` = cuenta atrás hasta su fin), su fecha y hora de fin y si lleva botón (adónde y con qué texto) o es solo informativo. Al acabar un tramo empieza solo el siguiente y tras el último la barra desaparece (p. ej. «🎁 Último día para llevarte el bonus» hasta que acaba el bonus y luego «⏳ Último día para entrar» hasta el cierre). **«✨ Rellenar con los bonus de Oferta y el cierre»** crea un tramo por cada fin de bonus y otro hasta el cierre del carrito, para retocar los textos. La pinta el mismo bloque «VENTA» que apunta las visitas (no hay que pegar nada más) y no llama a GHL. En cada lanzamiento nuevo se heredan los textos y botones, sin fechas.
 
 ### 🛒 Pestaña Carrito (Configuración)
 
-**Días de carrito** (*Lanzamiento → Fechas*): empiezan a contar el día siguiente al vídeo de venta (el webinar, o el último vídeo en PLF). Venta el lunes + 4 días → día 1 el martes, último día el viernes, y el cierre se calcula solo (viernes 23:59; la casilla del cierre queda bloqueada). Vacío = el cierre se pone a mano.
+**Días de carrito** (*① Datos básicos → Fechas*): empiezan a contar el día siguiente al vídeo de venta (el webinar, o el último vídeo en PLF). Venta el lunes + 4 días → día 1 el martes, último día el viernes, y el cierre se calcula solo (viernes 23:59; la casilla del cierre queda bloqueada). Vacío = el cierre se pone a mano.
 
 Un día por cada día del carrito (el día del directo, con la apertura, y luego día 1, 2…). Cada día trae sus **hitos clave** automáticos (apertura, directo de venta, grabación, bonus activos, último día de cada bonus con su objetivo, mensaje de la barra de la página de venta que empieza ese día y cierre) y una casilla para escribir a mano la **estrategia** de ese día. La primera línea de la estrategia sale en el calendario como hito de ese día («🎯 Día 2 de carrito: …»). En cada día también se elige cuántos **emails** y cuántos mensajes al **grupo de WhatsApp** se envían y a qué hora cada uno («Copiar estos envíos al resto de días» los repite en todos los días de carrito); salen en el calendario de forma discreta (sin marcar el día ni aparecer en los próximos hitos de Inicio): «✉️ 3 emails del carrito · 10:00, 19:00, 22:15». El calendario también muestra los recursos de la preclase con fecha: clases, test (p. ej. «🧭 Test autodiagnóstico disponible») y descargable. Sin fechas, avisa de que se rellenará sola al configurar el carrito y la oferta.
 
@@ -654,7 +657,7 @@ Cada bonus de *Oferta* que acaba antes del cierre sale como hito en el calendari
 
 ### Barra fija de la página de replay
 
-En *Configuración → Páginas → Página de replay → Barra fija con cuenta atrás*: con el carrito abierto, la página de la grabación enseña una barra fija arriba del todo con su texto (`{cuenta}` = la cuenta atrás), un botón opcional a la página de venta y su color. Hay que elegir si **lleva botón** (a la página de venta) o es **solo informativa** para crear urgencia. La cuenta atrás va **hasta una fecha y hora fija** (igual para todas) o dura **X minutos desde que cada lead abre la grabación** (se recuerda en su navegador: recargar no la reinicia). Al llegar a cero, la lead va sola a la página de venta, y si vuelve a abrir la grabación después, también. No hace falta pegar ningún código más en GHL: la barra la pone el bloque base de la página de replay. Necesita la URL de la página de venta.
+En *Configuración → ④ Directo → Página de replay → Barra fija con cuenta atrás*: con el carrito abierto, la página de la grabación enseña una barra fija arriba del todo con su texto (`{cuenta}` = la cuenta atrás), un botón opcional a la página de venta y su color. Hay que elegir si **lleva botón** (a la página de venta) o es **solo informativa** para crear urgencia. La cuenta atrás va **hasta una fecha y hora fija** (igual para todas) o dura **X minutos desde que cada lead abre la grabación** (se recuerda en su navegador: recargar no la reinicia). Al llegar a cero, la lead va sola a la página de venta, y si vuelve a abrir la grabación después, también. No hace falta pegar ningún código más en GHL: la barra la pone el bloque base de la página de replay. Necesita la URL de la página de venta.
 
 ## Aprender de cada lanzamiento
 

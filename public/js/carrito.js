@@ -1,4 +1,4 @@
-// Días del carrito de un lanzamiento: de la apertura al cierre (Configuración → Lanzamiento), cada uno con
+// Días del carrito de un lanzamiento: de la apertura al cierre (Configuración → ① Datos básicos), cada uno con
 // sus hitos automáticos (sacados de las fechas, la oferta y la barra de la página de venta) y la estrategia
 // que se escriba a mano (`launch.carritoNotas`: { 'YYYY-MM-DD': texto }). Lo usan el navegador y el servidor.
 import { madridToEpoch, formatTime, formatDate, milestones } from './page.js';
@@ -11,7 +11,7 @@ const MAX_DIAS = 31;
 const dia = (ms) => dayInMadrid(new Date(ms).toISOString());
 const hora = (ms) => formatTime(ms);
 
-// Días de carrito (Configuración → Lanzamiento): empiezan a contar el día siguiente al vídeo de venta (el
+// Días de carrito (Configuración → ① Datos básicos): empiezan a contar el día siguiente al vídeo de venta (el
 // webinar, o el último vídeo en los de varios vídeos). Venta el lunes + 4 días → del martes al viernes, y el
 // carrito cierra el viernes a las 23:59.
 export const MAX_DIAS_CARRITO = 30;
