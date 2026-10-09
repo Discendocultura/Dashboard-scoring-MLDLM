@@ -2562,6 +2562,32 @@ function pintarEnDirecto(d) {
 }
 $('#ed-recargar').addEventListener('click', cargarEnDirecto);
 
+// ---------- Botón «Atrás» del navegador / del móvil ----------
+// Cada ventana que se abre y cada cambio de pestaña dejan un paso en el historial: «Atrás» cierra la
+// ventana o el panel abierto (o vuelve a la pestaña anterior) en vez de salir del dashboard.
+const nav = { restaurando: false };
+{
+  const abrir = HTMLDialogElement.prototype.showModal;
+  HTMLDialogElement.prototype.showModal = function showModalConAtras(...args) {
+    abrir.apply(this, args);
+    try { history.pushState({ ...(history.state || {}), modal: (history.state?.modal || 0) + 1 }, ''); } catch { /* sin historial */ }
+    this.addEventListener('close', () => {
+      // Cerrada con su ✕ o «Cancelar»: se quita su paso del historial (sin volver a cerrar nada).
+      if (!nav.restaurando && history.state?.modal) { nav.saltarPop = true; history.back(); }
+    }, { once: true });
+  };
+}
+window.addEventListener('popstate', (e) => {
+  if (nav.saltarPop) { nav.saltarPop = false; return; }
+  const abiertas = [...document.querySelectorAll('dialog[open]')];
+  if (abiertas.length) { nav.restaurando = true; abiertas.at(-1).close(); nav.restaurando = false; return; }
+  if (!$('#notif-panel').hidden) { cerrarNotif(); return; }
+  const menu = $('#tb-menu-cuenta');
+  if (menu?.open) { menu.open = false; return; }
+  const v = e.state?.view;
+  if (v && VIEWS.includes(v) && allowedViews().includes(v)) { nav.restaurando = true; showView(v); nav.restaurando = false; }
+});
+
 function showView(view) {
   if (state.role && !allowedViews().includes(view)) view = allowedViews()[0];
   const grupo = grupoDe(view);
@@ -2589,6 +2615,9 @@ function showView(view) {
   // «En directo»: se carga al abrirla y cada minuto mientras está abierta (y la pestaña del navegador visible).
   clearInterval(enDirectoTimer);
   if (view === 'endirecto' && state.config) { cargarEnDirecto(); enDirectoTimer = setInterval(() => { if (!document.hidden) cargarEnDirecto(); }, 60_000); }
+  if (!nav.restaurando && state.role && history.state?.view !== view) {
+    try { history[history.state?.view ? 'pushState' : 'replaceState']({ view }, ''); } catch { /* sin historial */ }
+  }
   pintarAyudaVista(view);
   requestAnimationFrame(revisarBarras);
 }
@@ -6817,7 +6846,7 @@ function renderNotif() {
     [`Vencen en los próximos ${NOTIF_DIAS} días`, items.filter((n) => n.tipo === 'pronto').sort((a, b) => a.t.fecha.localeCompare(b.t.fecha))],
     ['Vencidas del equipo', items.filter((n) => n.tipo === 'equipo')],
   ].filter(([, l]) => l.length);
-  panel.innerHTML = `<div class="notif-head"><strong>Notificaciones</strong><span class="muted">${esc(nombreEmbudo(codigo()))}${state.tareasOtros?.length ? ` y ${state.tareasOtros.length} embudo${state.tareasOtros.length === 1 ? '' : 's'} más` : ''}</span></div>
+  panel.innerHTML = `<div class="notif-head"><strong>Notificaciones</strong><button type="button" class="btn ghost notif-cerrar" aria-label="Cerrar" data-notif-cerrar>✕</button><span class="muted">${esc(nombreEmbudo(codigo()))}${state.tareasOtros?.length ? ` y ${state.tareasOtros.length} embudo${state.tareasOtros.length === 1 ? '' : 's'} más` : ''}</span></div>
     ${grupos.length ? grupos.map(([g, l]) => `<div class="notif-grupo"><h4>${esc(g)}</h4>${l.map(notifHtml).join('')}</div>`).join('')
     : '<p class="muted notif-vacio">Todo al día: no tienes comentarios nuevos ni tareas vencidas o a punto de vencer. 🎉</p>'}`;
 }
@@ -6855,6 +6884,7 @@ $('#btn-notif').addEventListener('click', async (e) => {
   $('#btn-notif').classList.remove('has-new');
 });
 $('#notif-panel').addEventListener('click', (e) => {
+  if (e.target.closest('[data-notif-cerrar]')) { cerrarNotif(); return; }
   const b = e.target.closest('[data-nt]');
   if (!b) return;
   cerrarNotif();

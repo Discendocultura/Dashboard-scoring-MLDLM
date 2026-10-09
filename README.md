@@ -632,6 +632,12 @@ Quien llega a la página de pago con su ID (al pulsar «Quiero inscribirme» en 
 ### Configuración por fases
 La configuración de un lanzamiento sigue el orden en que se monta, sin nada repetido: **① Datos básicos** (lanzamiento a editar, identificación, fechas, días y cierre del carrito, **el directo**: Zoom, vídeos, «Añadir al calendario», enlace para conectarse y **pantalla de espera** de 59 min; resumen diario por email) · **② Captación** (anuncios de Meta y emails, página de gracias) · **③ Preclase** (páginas de GHL, calendario de las clases, encuesta, clases, recursos, textos del directo, barra) · **④ Grabación** (vídeo de la grabación y cuándo se desbloquea, página de replay) · **⑤ Oferta** (entregables, bonus, garantía) · **⑥ Venta** (página de venta, textos de la página de pago, llamada de admisión, WhatsApp de dudas) · **⑦ Carrito** (días y estrategia) · **⑧ Precios** (todo lo de la entrada VIP —enlace de pago, precio, IVA, contador y bumps— y del programa —tipo de pago, precios, IVA, enlaces de pago, precio que se muestra en la página de pago y bumps—) · **⑨ Etiquetas GHL**. Aparte: **Códigos** y **Accesos y enlaces**. Cada pestaña con campos que revisar enseña arriba «Qué falta en esta pestaña» (pulsa uno para ir a él), cada sección su estado («Falta 1», «✓ Completo») y la pestaña, en rojo, cuántos le faltan. Encima de las pestañas, la barra **«Listo para lanzar: 26 de 39»** suma todo y su botón lleva al primer campo que falta (por orden de pestañas).
 
+### Móvil
+- Sin zoom al tocar dos veces (`touch-action: manipulation`; pellizcar sigue funcionando) ni al tocar un campo en iPhone (los campos van a 16 px).
+- Las ventanas se abren a **pantalla completa**, con la cabecera (✕ grande) y los botones de abajo siempre a la vista; el panel de notificaciones tiene su ✕.
+- El botón **«Atrás»** del móvil (o del navegador) cierra la ventana o el panel abierto, o vuelve a la pestaña anterior, en vez de salir del dashboard.
+- El botón flotante de Agencia es solo el icono, para no tapar el contenido.
+
 ### Inicio: carga y menciones
 - Cada tarjeta de Inicio se pide por separado y deja de esperar **al minuto**: si GHL va lento o falla, la tarjeta enseña el error y un botón **«Reintentar»** (antes podía quedarse en «Cargando…» para siempre).
 - La VSL en Inicio pide los contactos **del más nuevo al más antiguo** y para al llegar a los registrados más de 6 meses antes del periodo (30 días): una VSL de años ya no descarga todo su histórico (y no se queda con los 4000 más antiguos, dejando fuera los recientes).
