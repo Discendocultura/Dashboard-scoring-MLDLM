@@ -624,7 +624,10 @@ Quien llega a la página de pago con su ID (al pulsar «Quiero inscribirme» en 
 
 ### 💬 WhatsApp para dudas (páginas de venta y de replay)
 
-En *Configuración → Páginas → Venta y seguimiento → WhatsApp para resolver dudas* (junto al enlace de la llamada) se pone **el número** (con prefijo; un móvil español sin prefijo se toma como +34) y **el mensaje que sale ya escrito** (`{producto}` = nombre del producto): el enlace `https://wa.me/…?text=…` se genera solo (con «Copiar» y «Probar»). Lo usan los botones `<a data-lsd-link="whatsapp-dudas">` de las páginas de venta y de replay (se abren en otra pestaña; sin enlace, se ocultan). En *Códigos* está el **botón flotante** (abajo a la derecha, fijo al hacer scroll; en móvil solo el icono), también en `bloques-ghl/whatsapp-flotante.html`. En la página de venta, el bloque VENTA pone además los enlaces de `pago`, `pago-fraccionado` y `llamada` con el ID de la lead.
+### Llamada de admisión
+En *Configuración → Páginas → Llamada de admisión*: el **enlace para reservar la llamada** (calendario de GHL; lo usan los botones `data-lsd-link="llamada"`), la **URL de la página de gracias por agendar** y el **vídeo de confirmación** (Vimeo o YouTube). En la página de gracias: `<div data-lsd-llamada data-launch="auto"></div>` + `tracker.js` (respuesta ligera de `/api/page?pagina=llamada`, sin llamar a GHL) y `<div data-lsd-embed="llamada"></div>` donde va el vídeo (sin URL, se oculta). Los códigos, con «Copiar», en la misma sección.
+
+En *Configuración → Páginas → Venta y seguimiento → WhatsApp para resolver dudas* se pone **el número** (con prefijo; un móvil español sin prefijo se toma como +34) y **el mensaje que sale ya escrito** (`{producto}` = nombre del producto): el enlace `https://wa.me/…?text=…` se genera solo (con «Copiar» y «Probar»). Lo usan los botones `<a data-lsd-link="whatsapp-dudas">` de las páginas de venta y de replay (se abren en otra pestaña; sin enlace, se ocultan). En *Códigos* está el **botón flotante** (abajo a la derecha, fijo al hacer scroll; en móvil solo el icono), también en `bloques-ghl/whatsapp-flotante.html`. En la página de venta, el bloque VENTA pone además los enlaces de `pago`, `pago-fraccionado` y `llamada` con el ID de la lead.
 
 ### Barra fija de la página de venta
 

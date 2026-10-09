@@ -90,6 +90,11 @@ export async function GET(request, ctx) {
     // Página de venta: solo su barra fija (sin llamar a GHL: la visitan muchas a la vez al abrir el carrito).
     // La de pago, igual: su barra, los textos y precios de los cajetines y los enlaces.
     const ligera = url.searchParams.get('pagina');
+    // Gracias por agendar la llamada: el vídeo de confirmación y los enlaces (sin llamar a GHL).
+    if (ligera === 'llamada') {
+      const enlaces = Object.fromEntries(['llamada', 'whatsapp-dudas', 'whatsapp'].map((k) => [k, links[k] || '']));
+      return json({ code, now, preview, links: enlaces, texts: {}, embeds: { llamada: launch.llamadaVideoUrl || '' } }, 200, CORS_HEADERS);
+    }
     if (ligera === 'venta' || ligera === 'pago') {
       const vb = ventaBarraDe(ligera === 'pago' ? { ventaBarra: launch.paginaPago?.barra } : launch, links);
       const producto = nombreProducto(config);
@@ -176,7 +181,7 @@ export async function GET(request, ctx) {
         ...Object.fromEntries(vids.slice(1).map((v) => [`replay${v.k}`, videoDe(v.replayVideoUrl, m.videos[v.k - 1].replay)])),
       },
       // Vídeos que se muestran tal cual (sin medir ni bloquear): <div data-lsd-embed="gracias">
-      embeds: { gracias: launch.graciasVideoUrl || '' },
+      embeds: { gracias: launch.graciasVideoUrl || '', llamada: launch.llamadaVideoUrl || '' },
       // Pantalla de espera antes del directo: si está activa y su vídeo (opcional).
       espera: { activa: launch.espera?.activa !== false, video: launch.espera?.video || '' },
       // Imagen de cada etapa (Configuración → Preclase): <img data-lsd-img="clase1|test|clase2…">

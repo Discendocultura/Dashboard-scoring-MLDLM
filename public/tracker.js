@@ -447,6 +447,19 @@
     return '';
   }
 
+  // Vídeos sin medir (el de la página de gracias, el de confirmar la llamada…): <div data-lsd-embed="gracias|llamada"></div>
+  // La URL de Vimeo o YouTube sale del dashboard; si no hay, el elemento se oculta.
+  function pintarEmbeds(embeds) {
+    document.querySelectorAll('[data-lsd-embed]').forEach(function (el) {
+      var src = embedSrc((embeds || {})[el.getAttribute('data-lsd-embed')]);
+      if (!src) return show(el, false);
+      show(el, true);
+      if (el.getAttribute('data-lsd-embed-src') === src) return;
+      el.setAttribute('data-lsd-embed-src', src);
+      el.innerHTML = '<div class="lsd-embed"><iframe src="' + esc(src) + '" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy" title="Vídeo"></iframe></div>';
+    });
+  }
+
   function renderPage(data, who, onVideo, noVideos) {
     injectCss();
     var linkWho = function (href) {
@@ -460,16 +473,7 @@
       } catch (e) { return href; }
     };
 
-    // Vídeos sin medir (p. ej. el de la página de gracias): <div data-lsd-embed="gracias"></div>
-    // La URL de Vimeo o YouTube sale del dashboard; si no hay, el elemento se oculta.
-    document.querySelectorAll('[data-lsd-embed]').forEach(function (el) {
-      var src = embedSrc((data.embeds || {})[el.getAttribute('data-lsd-embed')]);
-      if (!src) return show(el, false);
-      show(el, true);
-      if (el.getAttribute('data-lsd-embed-src') === src) return;
-      el.setAttribute('data-lsd-embed-src', src);
-      el.innerHTML = '<div class="lsd-embed"><iframe src="' + esc(src) + '" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy" title="Vídeo"></iframe></div>';
-    });
+    pintarEmbeds(data.embeds);
 
     // Barra de urgencia: <div data-lsd-bar></div>
     document.querySelectorAll('[data-lsd-bar]').forEach(function (el) {
@@ -1117,12 +1121,13 @@
         show(a, true);
         if ((k === 'whatsapp' || k === 'whatsapp-dudas') && !a.getAttribute('target')) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener'); }
       });
+      if (data.embeds) { injectCss(); pintarEmbeds(data.embeds); }
       if (!data.ventaBarra) return;
       injectCss();
       barraVenta(data);
     }).catch(function () { /* sin conexión: sin barra */ });
     // Visitas a la página de venta (para «Setting hoy») y a la de pago (= inició el pago).
-    if (!who || !who.cid || params.get('lsd_preview')) return;
+    if (pagina === 'llamada' || !who || !who.cid || params.get('lsd_preview')) return;
     post('/api/visita', { launch: launch, cid: who.cid, pagina: pagina });
   }
 
@@ -1133,6 +1138,9 @@
     if (venta) initVenta(venta, 'venta');
     var pago = document.querySelector('[data-lsd-pago]');
     if (pago) initVenta(pago, 'pago');
+    // Gracias por agendar la llamada: el vídeo de confirmación y los enlaces.
+    var llamada = document.querySelector('[data-lsd-llamada]');
+    if (llamada) initVenta(llamada, 'llamada');
 
     var pageEl = document.querySelector('[data-lsd-page]');
     var containers = Array.prototype.slice.call(document.querySelectorAll('[data-lsd-video]'))

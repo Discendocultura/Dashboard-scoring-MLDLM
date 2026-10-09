@@ -1127,10 +1127,22 @@
               <div id="pago-pasos-box" class="pasos-box"></div>
             </section>
           </section>
-          <section class="cfg-sec" data-sec="contacto">
-            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📞</span><div><h3>Venta y seguimiento</h3><p>Llamada y WhatsApp para resolver dudas: los botones de las páginas de venta, de pago y de replay y los mensajes de WhatsApp después del directo.</p></div><span class="cfg-sec-status"></span></header>
+          <section class="cfg-sec" data-sec="llamada">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">☎️</span><div><h3>Llamada de admisión</h3><p>Dónde reservan la llamada (los botones «Reservar llamada» de las páginas de venta, de pago y de replay) y la página de gracias que ven al reservarla, con su vídeo.</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
-              <label class="field"><span>Enlace para reservar llamada</span><input id="cfg-llamada" type="url"></label>
+              <label class="field"><span>Enlace para reservar llamada <small>(el calendario de GHL)</small></span><input id="cfg-llamada" type="url" placeholder="https://api.leadconnectorhq.com/widget/booking/…"></label>
+              <label class="field"><span>URL de la página de gracias por agendar</span><input id="cfg-llamada-gracias" type="url" placeholder="https://lp.saraguzman.com/…"></label>
+              <label class="field full"><span>Vídeo «Mira este vídeo para confirmar tu llamada» <small>(Vimeo o YouTube; se oculta si no hay)</small></span><input id="cfg-llamada-video" type="url" placeholder="https://vimeo.com/123/abc"></label>
+            </div>
+            <section class="enlace-directo" aria-labelledby="llamada-pasos-t">
+              <h3 id="llamada-pasos-t">🧾 Qué poner en la página de gracias por agendar</h3>
+              <p>Cada código en un elemento <strong>«Código personalizado»</strong>. Si cambias aquí el vídeo, la página se actualiza sola.</p>
+              <div id="llamada-pasos-box" class="pasos-box"></div>
+            </section>
+          </section>
+          <section class="cfg-sec" data-sec="contacto">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">📞</span><div><h3>Venta y seguimiento</h3><p>WhatsApp para resolver dudas: los botones de las páginas de venta, de pago y de replay y los mensajes de WhatsApp después del directo.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
               <fieldset class="rb-cfg full wa-gen">
                 <legend>💬 WhatsApp para resolver dudas <small class="muted">(el enlace de los botones de WhatsApp de las páginas de venta, de pago y de replay se genera solo)</small></legend>
                 <div class="grid2">

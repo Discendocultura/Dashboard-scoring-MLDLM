@@ -2903,10 +2903,22 @@ function pintarCarritoAbandonado() {
   const conCid = (u) => `${u}${u.includes('?') ? '&' : '?'}cid={{contact.id}}`;
   const falta = (que, donde) => `<p class="enlace-directo-falta">Pon ${que} (${donde}) y aquí aparecerá su enlace.</p>`;
   $('#ca-enlaces').innerHTML = (pago ? filaCopiar('Página de pago', conCid(pago), 'Para el botón «Completar mi inscripción» de los emails (lleva el ID de la lead: no vuelve a contar como nueva).') : falta('la URL de la página de pago', 'arriba'))
-    + (llamada ? filaCopiar('Reservar llamada', llamada, 'Para «¿Prefieres hablarlo? Reserva una llamada».') : falta('el enlace de la llamada', 'Venta y seguimiento'))
+    + (llamada ? filaCopiar('Reservar llamada', llamada, 'Para «¿Prefieres hablarlo? Reserva una llamada».') : falta('el enlace de la llamada', 'Llamada de admisión'))
     + (wa ? filaCopiar('WhatsApp para dudas', wa, 'Por si quieres un botón de WhatsApp en los emails.') : '');
 }
 ['#cfg-pagina-pago', '#cfg-llamada', '#cfg-wa-numero', '#cfg-wa-mensaje'].forEach((sel) => $(sel).addEventListener('input', pintarCarritoAbandonado));
+
+// Página de gracias por agendar la llamada: su bloque base y el vídeo de confirmación.
+function pintarLlamadaPasos() {
+  const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
+  const video = $('#cfg-llamada-video').value.trim();
+  $('#llamada-pasos-box').innerHTML = filaCopiar('1 · Bloque base', `<div data-lsd-llamada data-launch="auto"></div>\n${script}`,
+    '📍 <strong>Dónde:</strong> en el pie de la página (o en Ajustes → Código de seguimiento → Footer). No se ve: pinta el vídeo y los enlaces.')
+    + filaCopiar('2 · Vídeo de confirmación', '<div data-lsd-embed="llamada"></div>',
+      `📍 <strong>Dónde:</strong> justo debajo del titular «Mira este vídeo para confirmar tu llamada». ${video ? 'Pinta el vídeo de arriba.' : '⚠️ Pon arriba la URL del vídeo: sin ella el bloque se oculta.'}`)
+    + filaCopiar('3 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «Páginas → Venta y seguimiento».');
+}
+$('#cfg-llamada-video').addEventListener('input', pintarLlamadaPasos);
 
 function pintarPagoPasos() {
   const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
@@ -3053,6 +3065,9 @@ function openConfig(code) {
   $('#cfg-pagina-pago').value = l.paginaPagoUrl || '';
   $('#cfg-venta-fraccionado').value = l.ventaFraccionadoUrl || '';
   $('#cfg-llamada').value = l.llamadaUrl || '';
+  $('#cfg-llamada-gracias').value = l.llamadaGraciasUrl || '';
+  $('#cfg-llamada-video').value = l.llamadaVideoUrl || '';
+  pintarLlamadaPasos();
   $('#cfg-precio-vip').value = l.precioVip || '';
   $('#cfg-precio-programa').value = l.precioPrograma || '';
   $('#cfg-precio-fraccionado').value = l.precioFraccionado || '';
@@ -3214,6 +3229,8 @@ const CICLO = [
   { id: 'cfg-venta', c: 'revisar', label: 'Pago único (ThriveCart)' },
   { id: 'cfg-venta-fraccionado', c: 'revisar', label: 'Pago fraccionado (Hotmart)' },
   { id: 'cfg-llamada', c: 'revisar', label: 'Reservar llamada', opcional: true },
+  { id: 'cfg-llamada-gracias', c: 'revisar', label: 'Gracias por agendar', opcional: true },
+  { id: 'cfg-llamada-video', c: 'revisar', label: 'Vídeo de confirmar la llamada', opcional: true },
   { id: 'cfg-precio-vip', c: 'revisar', label: 'Precio VIP' },
   { id: 'cfg-precio-programa', c: 'revisar', label: 'Precio Raíces · único' },
   { id: 'cfg-precio-fraccionado', c: 'revisar', label: 'Precio Raíces · fraccionado', opcional: true },
@@ -3485,6 +3502,8 @@ function readForm() {
       paginaPagoUrl: $('#cfg-pagina-pago').value.trim(),
       ventaFraccionadoUrl: $('#cfg-venta-fraccionado').value.trim(),
       llamadaUrl: $('#cfg-llamada').value.trim(),
+      llamadaGraciasUrl: $('#cfg-llamada-gracias').value.trim(),
+      llamadaVideoUrl: $('#cfg-llamada-video').value.trim(),
       precioVip: $('#cfg-precio-vip').value,
       precioPrograma: $('#cfg-precio-programa').value,
       precioFraccionado: $('#cfg-precio-fraccionado').value,

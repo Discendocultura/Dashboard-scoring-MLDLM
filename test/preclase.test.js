@@ -331,6 +331,14 @@ test('página de venta: barra fija por tramos (sin GHL) y fin de cada bonus en e
     const l = (await call(`/api/page?l=ven-26&pagina=${pag}&cid=mock00001`)).data.links;
     assert.equal(l.pago, 'https://ghl.com/pago-raices?cid=mock00001');
   }
+  // Gracias por agendar la llamada: el vídeo de confirmación (ligera, sin GHL) y los enlaces
+  const { data: c3 } = await call('/api/config', { cookie: admin });
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...c3.config, _version: c3.version, launches: { ...c3.config.launches, 'ven-26': { ...c3.config.launches['ven-26'], llamadaUrl: 'https://ghl.com/agenda', llamadaGraciasUrl: 'https://ghl.com/gracias-agenda', llamadaVideoUrl: 'https://vimeo.com/123/abc' } } } });
+  const gl = (await call('/api/page?l=ven-26&pagina=llamada')).data;
+  assert.equal(gl.embeds.llamada, 'https://vimeo.com/123/abc');
+  assert.equal(gl.links['whatsapp-dudas'], 'https://wa.me/34600000000?text=Hola');
+  assert.equal(gl.videos, undefined);
+  assert.equal((await call('/api/config', { cookie: admin })).data.config.launches['ven-26'].llamadaGraciasUrl, 'https://ghl.com/gracias-agenda');
   // En la página de pago, los cajetines siguen yendo al checkout
   assert.equal((await call('/api/page?l=ven-26&pagina=pago&cid=mock00001')).data.links.pago, 'https://pay.com/raices?cid=mock00001');
   // Calendario: el BAR 48 h acaba dos días después de abrir el carrito (el bonus de todo el carrito ya lo dice el cierre)
