@@ -2002,7 +2002,8 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 .enlace-directo { margin: 0 0 16px; padding: 14px 16px; border: 2px solid var(--accent); border-radius: 12px; background: var(--accent-soft); display: grid; gap: 8px; }
 .enlace-directo h3 { margin: 0; font-size: 16px; }
 .enlace-directo > p { margin: 0; font-size: 14px; max-width: 75ch; }
-#enlace-directo-box { display: grid; gap: 10px; }
+#enlace-directo-box, .pasos-box { display: grid; gap: 10px; }
+.enlace-directo-fila code.multi { white-space: pre-wrap; }
 .enlace-directo-fila { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
 .enlace-directo-etq { font-weight: 700; font-size: 13px; white-space: nowrap; }
 .enlace-directo-fila code { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }

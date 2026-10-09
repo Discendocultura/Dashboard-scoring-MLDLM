@@ -2661,16 +2661,32 @@ function pintarEnlaceDirecto() {
 }
 $('#cfg-recursos-url').addEventListener('input', pintarEnlaceDirecto);
 
-// Página de venta: el bloque que apunta las visitas y el enlace con ?cid para los emails.
+// Páginas de venta y de replay: qué código va en GHL (y dónde) y el enlace con ?cid para los emails.
+const filaCopiar = (etq, txt, nota) => `<div class="enlace-directo-fila"><span class="enlace-directo-etq">${etq}</span><code${txt.includes('\n') ? ' class="multi"' : ''}>${esc(txt)}</code><button type="button" class="btn primary" data-copy-text="${esc(txt)}">Copiar</button><small>${nota}</small></div>`;
+const enlaceEmail = (url) => `${url}${url.includes('?') ? '&' : '?'}cid={{contact.id}}`;
 function pintarVentaPasos() {
   const url = $('#cfg-raices').value.trim();
   const bloque = `<div data-lsd-venta data-launch="auto"></div>\n<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
-  const fila = (etq, txt, nota) => `<div class="enlace-directo-fila"><span class="enlace-directo-etq">${etq}</span><code>${esc(txt)}</code><button type="button" class="btn primary" data-copy-text="${esc(txt)}">Copiar</button><small>${nota}</small></div>`;
-  $('#venta-pasos-box').innerHTML = fila('1 · Bloque para GHL', bloque, 'Pégalo en la página de venta (un elemento de código personalizado). También está en «Códigos».')
-    + (url ? fila('2 · Enlace para los emails', `${url}${url.includes('?') ? '&' : '?'}cid={{contact.id}}`, 'Úsalo en todos los emails que lleven a la página de venta.')
+  const fila = filaCopiar;
+  $('#venta-pasos-box').innerHTML = fila('1 · Bloque para GHL', bloque, '📍 <strong>Dónde:</strong> al final de la página, en el pie, dentro de un elemento «Código personalizado». No se ve. También está en «Códigos».')
+    + (url ? fila('2 · Enlace para los emails', enlaceEmail(url), 'Úsalo en todos los emails que lleven a la página de venta.')
       : '<p class="enlace-directo-falta"><strong>2 ·</strong> Pon arriba la <strong>URL de la página de venta</strong> y aquí aparecerá el enlace para los emails (con <code>?cid={{contact.id}}</code>).</p>');
 }
 $('#cfg-raices').addEventListener('input', pintarVentaPasos);
+function pintarReplayPasos() {
+  const url = $('#cfg-replay').value.trim();
+  const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
+  $('#replay-pasos-box').innerHTML = filaCopiar('1 · Bloque base', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n${script}`,
+    '📍 <strong>Dónde:</strong> arriba del todo, en la primera sección de la página (antes del titular). Va una sola vez y no se ve: reconoce a la lead (si no sabe quién es, la lleva al login) y activa el resto.')
+    + filaCopiar('2 · Barra de urgencia', '<div class="mi-barra" data-lsd-bar></div>',
+      '📍 <strong>Dónde:</strong> justo debajo del bloque base, encima del titular. Enseña la cuenta atrás del carrito y su botón. Opcional.')
+    + filaCopiar('3 · Vídeo de la grabación', '<div data-lsd-video="replay"></div>',
+      '📍 <strong>Dónde:</strong> en el sitio exacto donde quieres que se vea el vídeo (normalmente debajo del titular, a todo el ancho de la columna). Pinta el vídeo de «Directo y grabación» y mide cuánto ve (25, 50, 75 y 90 %). En vez del elemento de vídeo de GHL.')
+    + (url ? filaCopiar('4 · Enlace para los emails', enlaceEmail(url), 'Úsalo en todos los emails que lleven a la grabación: entra directa, sin pasar por el login. Los mensajes de WhatsApp del dashboard ({link_grabacion}) ya lo llevan.')
+      : '<p class="enlace-directo-falta"><strong>4 ·</strong> Pon arriba la <strong>URL de la página de replay</strong> y aquí aparecerá el enlace para los emails (con <code>?cid={{contact.id}}</code>).</p>')
+    + (videosDe(editingCode ? state.config.launches[editingCode] : null).length > 1 ? '<p class="enlace-directo-falta">Lanzamiento de varios vídeos: cada vídeo tiene su propia página con sus bloques (en «Códigos»).</p>' : '');
+}
+$('#cfg-replay').addEventListener('input', pintarReplayPasos);
 
 function pintarPrelanzamientoCfg(l) {
   const emb = embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo) || {};
@@ -2779,6 +2795,7 @@ function openConfig(code) {
   pintarRecursosCfg(l.recursosPre);
   pintarEnlaceDirecto();
   pintarVentaPasos();
+  pintarReplayPasos();
   $('#cfg-espera-on').checked = l.espera?.activa ?? (embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo)?.espera !== false);
   $('#cfg-espera-video').value = l.espera?.video || '';
   pintarEsperaCfg();
@@ -3604,8 +3621,8 @@ function renderSnippets() {
     ['RECURSOS · etapas (cada caja recibe data-lsd-estado="bloqueada | disponible | hecha" para el diseño)',
       etapasPreclase(state.config.launches[code], nClases(state.config.launches[code])).map((e) => `<div data-lsd-etapa="${e.id}">Etapa <span data-lsd-etapa-n="${e.id}"></span> · ${e.label}</div>`).join('\n')],
     ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
-    ['VENTA · página de venta de Raíces (apunta quién la visita para «Setting hoy»; los enlaces a esta página en los emails, con ?cid={{contact.id}})', `<div data-lsd-venta data-launch="auto"></div>\n${script}`],
-    ['GRABACIÓN · bloques de la página del replay', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
+    ['VENTA · página de venta de Raíces: al final de la página, en el pie (apunta quién la visita para «Setting hoy»; los enlaces a esta página en los emails, con ?cid={{contact.id}})', `<div data-lsd-venta data-launch="auto"></div>\n${script}`],
+    ['GRABACIÓN · bloques de la página del replay (el 1º y la barra arriba del todo; el de vídeo, donde quieras que se vea; el paso a paso, en Páginas → Página de replay)', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
     // El enlace para conectarse al directo es el de la preclase: 59 min antes enseña la pantalla de espera y al llegar a cero entra sola.
     ...(() => {

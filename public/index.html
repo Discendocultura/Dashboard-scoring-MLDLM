@@ -1052,8 +1052,8 @@
             </div>
             <section class="enlace-directo" aria-labelledby="venta-pasos-t">
               <h3 id="venta-pasos-t">🛒 Para saber quién visita la página de venta (y llamarla en «Setting hoy»)</h3>
-              <p><strong>1.</strong> Pega este bloque en la página de venta de GHL (igual que el de la preclase). <strong>2.</strong> En los <strong>emails</strong>, los enlaces a la página de venta deben llevar <code>?cid={{contact.id}}</code> al final: sin eso no se sabe quién la abre. En WhatsApp, igual si usas el enlace con ese campo.</p>
-              <div id="venta-pasos-box"></div>
+              <p><strong>1.</strong> Pega este bloque en la página de venta de GHL, en un elemento <strong>«Código personalizado»</strong> (Custom HTML) al <strong>final de la página</strong>, en el pie (no se ve: solo apunta la visita). <strong>2.</strong> En los <strong>emails</strong>, los enlaces a la página de venta deben llevar <code>?cid={{contact.id}}</code> al final: sin eso no se sabe quién la abre. En WhatsApp, igual si usas el enlace con ese campo.</p>
+              <div id="venta-pasos-box" class="pasos-box"></div>
             </section>
           </section>
           <section class="cfg-sec" data-sec="4">
@@ -1061,6 +1061,11 @@
             <div class="grid2">
               <label class="field"><span>URL de la página de replay</span><input id="cfg-replay" type="url"></label>
             </div>
+            <section class="enlace-directo" aria-labelledby="replay-pasos-t">
+              <h3 id="replay-pasos-t">📼 Qué poner en la página de replay de GHL (y dónde)</h3>
+              <p>Pega cada código en un elemento <strong>«Código personalizado»</strong> (Custom HTML) de GHL, en el sitio que se indica. <strong>No pongas el vídeo de Vimeo con el elemento de vídeo de GHL</strong>: lo pinta el bloque 3 y así se mide cuánto ve cada lead (lo que más pesa en la puntuación y decide su mensaje de WhatsApp). En los <strong>emails</strong>, el enlace a esta página debe llevar <code>?cid={{contact.id}}</code>.</p>
+              <div id="replay-pasos-box" class="pasos-box"></div>
+            </section>
           </section>
         </section>
 
