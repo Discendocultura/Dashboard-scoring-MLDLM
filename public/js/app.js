@@ -407,7 +407,7 @@ $('#btn-reload').addEventListener('click', () => {
   if (state.enInicio) return mostrarInicio({ fresh: true });
   if (enVsl()) return recargarVsl();
   if (enMeteo()) { renderMeteoView({ fresh: true }); if (codigo()) loadTareas(); return; }
-  return selectLaunch(state.launchCode);
+  return selectLaunch(state.launchCode, { forzar: true });
 });
 
 // ---------- Clientes (desplegable de arriba) ----------
@@ -657,7 +657,8 @@ $('#inicio').addEventListener('click', (e) => {
   if (t) irAEmbudoDe(t.dataset.irCode);
 });
 
-async function selectLaunch(code) {
+// `forzar`: vuelve a descargar los leads aunque la copia del navegador sea reciente (Recargar, tras etiquetar).
+async function selectLaunch(code, { forzar = false } = {}) {
   state.launchCode = code;
   if (enVsl() || enMeteo()) return; // se cargará al volver a Lanzamientos
   notice('');
@@ -671,11 +672,13 @@ async function selectLaunch(code) {
   loadTareas();
   loadEventos();
   if (tiene('llamadas')) loadLlamadas();
-  if (tieneDatos()) await loadLeads();
+  if (tieneDatos()) await loadLeads({ forzar });
 }
 
 // ---------- Carga de leads (paginada contra GHL) ----------
-async function loadLeads() {
+// Copia del navegador de hace menos de esto: se usa tal cual, sin volver a pedir los leads a GHL.
+const LEADS_FRESCOS_MS = 10 * 60_000;
+async function loadLeads({ forzar = false } = {}) {
   if (state.compare) delete state.compare.cache[state.launchCode];
   state.allAvatarLeads = null; // se vuelven a cargar con los datos nuevos
   const launch = state.config.launches[state.launchCode];
@@ -697,13 +700,19 @@ async function loadLeads() {
     state.page = 0;
     render();
     aplicarVisitas();
-    cargarVotos(); // los votos no dependen de que se actualicen los leads
-    cargarVisitas();
   } else if (state.leadsDe !== state.launchCode) {
     state.leads = []; // sin copia: no se quedan a la vista los de otro lanzamiento
     state.leadsDe = state.launchCode;
     state.page = 0;
     render();
+  }
+  // Votos y visitas no dependen de los leads: se piden una vez (y se aplican también a los que lleguen).
+  cargarVotos();
+  cargarVisitas();
+  if (!forzar && copia?.contacts.length && Date.now() - copia.at < LEADS_FRESCOS_MS) {
+    loadMeta(token);
+    $('#btn-reload').disabled = false;
+    return;
   }
   try {
     do {
@@ -723,8 +732,6 @@ async function loadLeads() {
     aplicarVisitas();
     render();
     loadMeta(token);
-    cargarVotos();
-    cargarVisitas();
     if (!out.length) notice(`No hay contactos con la etiqueta "${launch.registroTag}".`);
   } catch (e) {
     notice(copia?.contacts.length ? `No se pudieron actualizar los leads (${e.message}): ves los de hace ${haceTxt}.` : `No se pudieron cargar los leads: ${e.message}`, true);
@@ -2954,7 +2961,7 @@ $('#btn-zoom').addEventListener('click', async () => {
       done += chunk.length;
       progress(done, lista.length, `Etiquetando asistentes en GHL… ${done} de ${lista.length}`);
     }
-    await loadLeads();
+    await loadLeads({ forzar: true });
     notice(`Zoom: ${resumen.join(' · ')}${failed ? `. ${failed} no se pudieron etiquetar (vuelve a sincronizar)` : ''}.`, failed > 0);
   } catch (e) {
     notice(`No se pudo sincronizar Zoom: ${e.message}`, true);
@@ -3911,7 +3918,7 @@ $('#cfg-save').addEventListener('click', async () => {
       status.textContent = 'Guardado ✓';
     }
     renderSnapshotBox();
-    await selectLaunch(code);
+    await selectLaunch(code, { forzar: true });
     status.textContent = 'Guardado ✓';
   } catch (e) {
     status.textContent = '';
@@ -4014,7 +4021,7 @@ document.addEventListener('click', async (e) => {
   b.disabled = true;
   await runSnapshot(code);
   if (dlg.open) renderSnapshotBox();
-  await selectLaunch(state.launchCode);
+  await selectLaunch(state.launchCode, { forzar: true });
 });
 
 $('#btn-digest-test').addEventListener('click', async () => {

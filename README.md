@@ -162,6 +162,18 @@ Funciones avanzadas* y activa "Server-to-Server OAuth app".
 
 El plan gratuito incluye 100.000 peticiones al día, de sobra para varios lanzamientos.
 
+#### Ahorro de peticiones (para no salir del plan gratuito)
+- **Caché compartida en D1** (`cache_compartida`): el contador de VIP vendidas, los resultados de las votaciones,
+  los recuentos de GHL del panel En directo, el resumen del Inicio, el del meteórico y el del portal del cliente
+  se calculan una vez y los reutilizan todos los servidores y personas durante 1-15 min (Recargar los recalcula).
+- **tracker.js**: la página de preclase reutiliza la primera respuesta en vez de pedirla dos veces; la espera de la
+  encuesta y del test se comprueba cada vez menos a menudo (15 s → 5 min) y no se repite si ya se comprobó hace 5 s.
+  Las visitas a la página de registro se apuntan una vez al día por navegador, y las de venta y pago una vez cada 10 min.
+- **Apuntar etiquetas** (track y votación) va directo al contacto, sin leerlo antes de GHL.
+- **En directo** cuenta las visitas recientes con una sola consulta en D1.
+- **Leads**: si la copia del navegador tiene menos de 10 min (p. ej. al volver a un lanzamiento), se usa tal cual sin
+  volver a descargarla; **Recargar** siempre la actualiza. Votos y visitas se piden una sola vez por carga.
+
 ## Cada lanzamiento
 
 1. **Configuración → + Nuevo**. Rellena el código (p. ej. `nov26`), las etiquetas (pestaña **Etiquetas GHL**: la de registro y la de encuesta son nuevas; las fijas se revisan),

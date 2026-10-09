@@ -1017,10 +1017,18 @@
     barraFija({ text: tramo.text, fin: tramo.hasta, boton: tramo.boton, color: vb.color }, function () { barraVenta(data); });
   }
 
+  // Primera respuesta de /api/page (la de init): si ya llevaba la identidad de la lead, el primer ciclo
+  // la reutiliza en vez de volver a pedirla (una petición menos por cada carga de página).
+  var primeraRespuesta = null;
   function runManagedPage(kind, launchAttr, who, onVideo) {
     var timer = null;
+    var intentos = 0; // comprobaciones seguidas de la encuesta / el test sin cambios
+    var ultimoRecheck = 0;
     function cycle() {
-      fetchPage(launchAttr, who, kind).then(function (data) {
+      var p = primeraRespuesta;
+      primeraRespuesta = null;
+      var reutilizar = p && who && who.cid && p.cid === who.cid && p.kind === kind && p.code === launchAttr && Date.now() - p.at < 30000;
+      (reutilizar ? Promise.resolve(p.data) : fetchPage(launchAttr, who, kind)).then(function (data) {
         if (!data || data.error || redirigido) return;
         if (kind === 'recursos' && data.redirectTo && data.links[data.redirectTo]) {
           return /^directo\d?$/.test(data.redirectTo) ? irAlDirecto(data, data.redirectTo, who) : goTo(data.links[data.redirectTo], who);
@@ -1035,17 +1043,30 @@
         var next = [data.changesAt, esp && esp.desde].concat(Object.keys(data.videos).map(function (k) { return data.videos[k].unlockAt; }), Object.keys(rec).map(function (k) { return rec[k] && rec[k].unlockAt; }))
           .filter(function (t) { return t && t > data.now; }).sort(function (a, b) { return a - b; })[0];
         clearTimeout(timer);
-        // Encuesta pendiente: se vuelve a comprobar cada 15 s (y al volver a la pestaña).
-        // Encuesta pendiente: cada 15 s. Test abierto sin hacer (puede durar días): cada 60 s.
+        // Encuesta o test pendientes: se comprueba al volver a la pestaña (se rellenan en otra) y, además,
+        // cada vez más espaciado (15 s, 30 s, 1 min, 2 min y luego cada 5 min; el test empieza en 1 min)
+        // para no gastar peticiones con la página abierta y olvidada.
         var encPend = Boolean(data.encuesta && data.encuesta.required && !data.encuesta.done);
         var testPend = Boolean(data.recursos && data.recursos.test && data.recursos.test.unlocked && !data.recursos.test.done);
         waitingEncuesta = Boolean((encPend || testPend) && who && who.cid);
-        if (waitingEncuesta && !document.hidden) next = Math.min(next || Infinity, serverNow() + (encPend ? 15000 : 60000));
+        if (!waitingEncuesta) intentos = 0;
+        if (waitingEncuesta && !document.hidden) {
+          var pasos = encPend ? [15, 30, 60, 120, 300] : [60, 120, 300];
+          next = Math.min(next || Infinity, serverNow() + pasos[Math.min(intentos, pasos.length - 1)] * 1000);
+          intentos++;
+        }
         if (next) timer = setTimeout(cycle, Math.min(next - serverNow() + 1500, 2147483000));
       }).catch(function () { /* sin conexión: se queda como está */ });
     }
     var waitingEncuesta = false;
-    function recheck() { if (waitingEncuesta && !document.hidden) { clearTimeout(timer); cycle(); } }
+    // Al volver a la pestaña (focus y visibilitychange llegan juntos): una sola comprobación.
+    function recheck() {
+      if (!waitingEncuesta || document.hidden || Date.now() - ultimoRecheck < 5000) return;
+      ultimoRecheck = Date.now();
+      intentos = 0;
+      clearTimeout(timer);
+      cycle();
+    }
     window.addEventListener('focus', recheck);
     document.addEventListener('visibilitychange', recheck);
     cycle();
@@ -1128,7 +1149,17 @@
     }).catch(function () { /* sin conexión: sin barra */ });
     // Visitas a la página de venta (para «Setting hoy») y a la de pago (= inició el pago).
     if (pagina === 'llamada' || !who || !who.cid || params.get('lsd_preview')) return;
-    post('/api/visita', { launch: launch, cid: who.cid, pagina: pagina });
+    visitaUnaVez(launch, who.cid, pagina, 10 * 60 * 1000);
+  }
+
+  // Apunta una visita como mucho una vez cada `cadaMs` por navegador, página y lanzamiento: el servidor ya
+  // las deduplica, así que recargar la página no gasta otra petición a Cloudflare.
+  function visitaUnaVez(launch, cid, pagina, cadaMs) {
+    var clave = 'lsd_vis_' + pagina + '_' + launch + '_' + cid;
+    var antes = store(clave);
+    if (antes && Date.now() - antes < cadaMs) return;
+    store(clave, Date.now());
+    post('/api/visita', { launch: launch, cid: cid, pagina: pagina });
   }
 
   function init() {
@@ -1145,7 +1176,7 @@
       var vid = store('lsd_vid');
       if (!vid) { vid = 'v' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36); store('lsd_vid', vid); }
       // El servidor la cuenta una sola vez por navegador y lanzamiento (aunque recargue).
-      post('/api/visita', { launch: launchR, cid: vid, pagina: 'registro' });
+      visitaUnaVez(launchR, vid, 'registro', 24 * 60 * 60 * 1000);
     }
     // Gracias por agendar la llamada: el vídeo de confirmación y los enlaces.
     var llamada = document.querySelector('[data-lsd-llamada]');
@@ -1215,9 +1246,13 @@
     }
     var attrLogin = loginAttrEl ? loginAttrEl.getAttribute('data-login') : '';
     if (!managed && launchAttr !== 'auto') return begin(launchAttr, attrLogin);
-    // Con el dashboard: primero sabemos qué lanzamiento es (y su URL de login).
-    fetchPage(launchAttr, null).then(function (d) {
+    // Con el dashboard: primero sabemos qué lanzamiento es (y su URL de login). Si el navegador ya conoce
+    // a la lead, la petición va con su identidad y la página la reutiliza (no se pide dos veces).
+    var who0 = identity();
+    var con = who0 && who0.cid ? { cid: who0.cid } : null;
+    fetchPage(launchAttr, con, con ? kind : undefined).then(function (d) {
       if (!d || d.error) return begin(launchAttr, attrLogin);
+      if (con) primeraRespuesta = { data: d, cid: con.cid, kind: kind, code: d.code, at: Date.now() };
       // Fechas, cuenta atrás, barra y botones se pintan ya (son públicos), antes de identificarla.
       try { renderPage(d, null, function () {}, true); } catch (e) { /* sigue igual */ }
       begin(d.code, attrLogin || d.links.login);

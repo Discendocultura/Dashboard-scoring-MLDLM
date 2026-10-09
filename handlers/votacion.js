@@ -6,8 +6,9 @@
 //   GET  /api/votacion?l=<código>  (dashboard) → preguntas, resultados y las respuestas de cada contacto.
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
-import { addTags, getContact, findContactByEmail } from '../lib/ghl.js';
-import { votar, votosDe, resultadosVotos } from '../lib/votos.js';
+import { addTags, findContactByEmail } from '../lib/ghl.js';
+import { votar, votosDe, resultadosVotos, claveVotos } from '../lib/votos.js';
+import { cacheCompartida } from '../lib/store.js';
 import { json, readBody, errorResponse, isEmail, CORS_HEADERS } from '../lib/http.js';
 import { tagFor } from '../public/js/scoring.js';
 import { recursosDe, tieneRecurso, preguntasValidas } from '../public/js/recursos.js';
@@ -38,13 +39,23 @@ export async function POST(request) {
       } else return json({ error: 'Elige una opción en cada pregunta' }, 400, CORS_HEADERS);
     }
     if (!Object.keys(respuestas).length) return json({ error: 'Escribe tu respuesta' }, 400, CORS_HEADERS);
-    let contact = null;
-    if (typeof cid === 'string' && /^[A-Za-z0-9]{6,40}$/.test(cid)) contact = await getContact(cid);
-    if (!contact && isEmail(email)) contact = await findContactByEmail(email);
-    if (!contact) return json({ error: 'No te encontramos: entra con el email con el que te registraste' }, 404, CORS_HEADERS);
-    await votar(code, contact.id, respuestas);
-    await addTags(contact.id, [tagFor(code, 'voto')]).catch((e) => console.error('Etiqueta de voto', e.message));
-    return json({ ok: true, misRespuestas: respuestas, resultados: resultadosVotos(await votosDe(code), preguntas) }, 200, CORS_HEADERS);
+    // Con su ID: poner la etiqueta del voto ya comprueba que existe en GHL (una llamada en vez de dos).
+    // Si no se encuentra, se prueba con el email.
+    const etiqueta = [tagFor(code, 'voto')];
+    let contactId = '';
+    if (typeof cid === 'string' && /^[A-Za-z0-9]{6,40}$/.test(cid)) {
+      try { await addTags(cid, etiqueta); contactId = cid; } catch (e) { if (!(e.status === 404 || [400, 404, 422].includes(e.ghlStatus))) throw e; }
+    }
+    if (!contactId) {
+      const contact = isEmail(email) ? await findContactByEmail(email) : null;
+      if (!contact) return json({ error: 'No te encontramos: entra con el email con el que te registraste' }, 404, CORS_HEADERS);
+      contactId = contact.id;
+      await addTags(contactId, etiqueta).catch((e) => console.error('Etiqueta de voto', e.message));
+    }
+    await votar(code, contactId, respuestas);
+    // Resultados al día (con este voto), y se guardan para los demás (la caché de /api/page).
+    const resultados = await cacheCompartida(claveVotos(code, preguntas), 60_000, async () => resultadosVotos(await votosDe(code), preguntas), { fresh: true });
+    return json({ ok: true, misRespuestas: respuestas, resultados }, 200, CORS_HEADERS);
   } catch (e) {
     return errorResponse(e, CORS_HEADERS);
   }

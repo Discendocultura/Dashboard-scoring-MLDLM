@@ -3,6 +3,7 @@
 // Devuelve la fase actual, la barra de urgencia, los vídeos (la URL solo cuando ya están
 // desbloqueados), los enlaces y los textos con fechas. Con `cid` dice además si ya es VIP y si
 // ya ha rellenado la encuesta (si el lanzamiento la exige, las clases 1 y 2 no se ven sin ella).
+import { cacheCompartida } from '../lib/store.js';
 import { getConfig } from '../lib/config-store.js';
 import { clienteActual } from '../lib/cliente.js';
 import { getContact, countByTag } from '../lib/ghl.js';
@@ -16,7 +17,7 @@ import { videosDe, conVip, nClases, esEnDirecto, sigReplay } from '../public/js/
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
 import { recursosDe, tieneRecurso, etapasPreclase, preguntasValidas, UMBRAL_DESBLOQUEO } from '../public/js/recursos.js';
-import { votoDe, votosDe, resultadosVotos } from '../lib/votos.js';
+import { votoDe, votosDe, resultadosVotos, claveVotos } from '../lib/votos.js';
 
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -243,7 +244,11 @@ async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, p
     recursos.votacion = {
       preguntas, tras: k, umbral: UMBRAL_DESBLOQUEO,
       claseDisponible: claseDisponible(k), claseVista: vistaClase(k) || (preview && !contact), misRespuestas, respondida,
-      resultados: respondida || (preview && !contact) ? resultadosVotos(await votosDe(code).catch(() => ({})), preguntas) : null,
+      // Los resultados (todos los votos) se comparten 1 minuto: no se leen todos en cada visita de cada lead.
+      resultados: respondida || (preview && !contact)
+        ? await cacheCompartida(claveVotos(code, preguntas), 60_000,
+          async () => resultadosVotos(await votosDe(code).catch(() => ({})), preguntas)).catch(() => null)
+        : null,
     };
   }
   if (tieneRecurso(launch, 'descargable')) {
@@ -297,8 +302,11 @@ async function vipVendidas(code, launch) {
   const key = `${clienteActual().id}:${code}`;
   const hit = vipCache.get(key);
   if (hit && hit.at > Date.now() - 60_000 && hit.tag === launch.vipTag) return hit.n;
-  const [total, previas] = await Promise.all([countByTag(launch.vipTag), countByTag(tagFor(code, 'vip_previo'))]);
-  const n = Math.max(0, total - previas);
+  // Compartido por todos los servidores 2 minutos: el día de la VIP entran cientos de leads a la vez.
+  const n = await cacheCompartida(`vip|${code}|${launch.vipTag}`, 120_000, async () => {
+    const [total, previas] = await Promise.all([countByTag(launch.vipTag), countByTag(tagFor(code, 'vip_previo'))]);
+    return Math.max(0, total - previas);
+  });
   vipCache.set(key, { at: Date.now(), n, tag: launch.vipTag });
   return n;
 }
