@@ -75,8 +75,8 @@ function cambiarProductoEn(root) {
   if (root.nodeType !== 1) return;
   const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   for (let t = w.nextNode(); t; t = w.nextNode()) if (t.nodeValue.includes(PRODUCTO_MLDLM)) t.nodeValue = t.nodeValue.replace(re, n);
-  for (const el of [root, ...root.querySelectorAll('[placeholder],[title]')]) {
-    for (const a of ['placeholder', 'title']) { const v = el.getAttribute?.(a); if (v && v.includes(PRODUCTO_MLDLM)) el.setAttribute(a, v.replace(re, n)); }
+  for (const el of [root, ...root.querySelectorAll('[placeholder],[title],[aria-label],[data-ayuda]')]) {
+    for (const a of ['placeholder', 'title', 'aria-label', 'data-ayuda']) { const v = el.getAttribute?.(a); if (v && v.includes(PRODUCTO_MLDLM)) el.setAttribute(a, v.replace(re, n)); }
   }
 }
 function aplicarProducto() {
