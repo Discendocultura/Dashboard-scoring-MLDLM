@@ -619,7 +619,7 @@ La página donde se elige pago único o fraccionado. Aquí está todo lo del pag
 
 ### 💳 Inició el pago (página de pago intermedia)
 
-Quien llega a la página de pago con su ID (al pulsar «Quiero inscribirme» en la página de venta o de replay) queda apuntada en D1 (sin GHL) como **inició el pago**. Cuenta en la **puntuación** (+15 y como mínimo «muy caliente», si no ha comprado), sale primero en **Setting hoy** («💳 Iniciaron el pago y no han comprado», por la más reciente), con su chip y en su ficha, y en **Métricas**: el paso «Iniciaron el pago» del embudo (y cuántas de ellas compraron) y en «qué predice la compra».
+Quien llega a la página de pago con su ID (al pulsar «Quiero inscribirme» en la página de venta o de replay) queda apuntada en D1 (sin GHL) como **inició el pago**. Cuenta en la **puntuación** (+15 y como mínimo «muy caliente», si no ha comprado), sale primero en **Setting hoy** («💳 Iniciaron el pago y no han comprado», por la más reciente), con su chip y en su ficha, y en **Métricas**: el paso «Iniciaron el pago» del embudo (y cuántas de ellas compraron) y en «qué predice la compra». Además, la primera vez le pone en GHL la **etiqueta de carrito abandonado** (Páginas → Página de pago; de serie `el-camino-carrito-abandonado`, vacía = ninguna), que dispara el workflow de recuperación; ahí mismo están los enlaces para sus emails (página de pago con `?cid={{contact.id}}`, llamada y WhatsApp).
 
 ### 💬 WhatsApp para dudas (páginas de venta y de replay)
 

@@ -2804,6 +2804,19 @@ const leerPaginaPago = () => ({
   ...Object.fromEntries(CAJAS_PAGO.map((c) => [c.id, Object.fromEntries(['titulo', 'precio', 'texto', 'boton'].map((f) => [f, $(`#cfg-pp-${c.dom}-${f}`).value.trim()]))])),
   barra: leerBarraTramos('pb'),
 });
+// Carrito abandonado: los enlaces para los emails y WhatsApp del workflow (con el ID de la lead de GHL).
+function pintarCarritoAbandonado() {
+  const pago = $('#cfg-pagina-pago').value.trim();
+  const llamada = $('#cfg-llamada').value.trim();
+  const wa = enlaceWhatsApp($('#cfg-wa-numero').value, $('#cfg-wa-mensaje').value.replace(/\{producto\}/g, nombreProducto(state.config) || ''));
+  const conCid = (u) => `${u}${u.includes('?') ? '&' : '?'}cid={{contact.id}}`;
+  const falta = (que, donde) => `<p class="enlace-directo-falta">Pon ${que} (${donde}) y aquí aparecerá su enlace.</p>`;
+  $('#ca-enlaces').innerHTML = (pago ? filaCopiar('Página de pago', conCid(pago), 'Para el botón «Completar mi inscripción» de los emails (lleva el ID de la lead: no vuelve a contar como nueva).') : falta('la URL de la página de pago', 'arriba'))
+    + (llamada ? filaCopiar('Reservar llamada', llamada, 'Para «¿Prefieres hablarlo? Reserva una llamada».') : falta('el enlace de la llamada', 'Venta y seguimiento'))
+    + (wa ? filaCopiar('WhatsApp para dudas', wa, 'Por si quieres un botón de WhatsApp en los emails.') : '');
+}
+['#cfg-pagina-pago', '#cfg-llamada', '#cfg-wa-numero', '#cfg-wa-mensaje'].forEach((sel) => $(sel).addEventListener('input', pintarCarritoAbandonado));
+
 function pintarPagoPasos() {
   const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
   const caja = (c) => `<div data-lsd-caja="${c.id}">\n  <h3 data-lsd-text="pago-${c.id}-titulo">${c.titulo}</h3>\n  <p data-lsd-text="pago-${c.id}-precio"></p>\n  <p data-lsd-text="pago-${c.id}-texto"></p>\n  <a data-lsd-link="${c.link}"><span data-lsd-text="pago-${c.id}-boton">${c.boton}</span></a>\n</div>`;
@@ -2890,6 +2903,7 @@ function openConfig(code) {
       diasCarrito: last.diasCarrito,
       whatsappDudas: last.whatsappDudas, whatsappDudasUrl: last.whatsappDudasUrl,
       paginaPagoUrl: last.paginaPagoUrl,
+      carritoAbandonadoTag: last.carritoAbandonadoTag,
       // La página de pago se hereda con su copy; su barra, sin fechas.
       ...(last.paginaPago ? { paginaPago: { ...last.paginaPago, barra: { ...(last.paginaPago.barra || {}), tramos: (last.paginaPago.barra?.tramos || []).map((t) => ({ ...t, hasta: '' })) } } } : {}),
       // La barra de la página de venta se hereda con sus textos y botones, sin fechas.
@@ -2974,6 +2988,8 @@ function openConfig(code) {
   pintarVentaPasos();
   pintarVentaBarra(l.ventaBarra);
   pintarPaginaPago(l.paginaPago);
+  $('#cfg-ca-tag').value = l.carritoAbandonadoTag ?? '';
+  pintarCarritoAbandonado();
   carritoNotasEdit = { ...(l.carritoNotas || {}) };
   carritoEnviosEdit = JSON.parse(JSON.stringify(l.carritoEnvios || {}));
   $('#carrito-dias').innerHTML = '';
@@ -3394,6 +3410,7 @@ function readForm() {
       espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim() },
       ventaBarra: leerVentaBarra(),
       paginaPago: leerPaginaPago(),
+      carritoAbandonadoTag: $('#cfg-ca-tag').value.trim(),
       carritoNotas: leerCarritoNotas(),
       carritoEnvios: leerCarritoEnvios(),
       replayBarra: {

@@ -410,3 +410,23 @@ test('iniciar el pago (llegar a la página de pago): se apunta aparte y sube la 
   assert.equal(v.visitas.mock00008.veces, 1);
   assert.equal(v.visitas.mock00007, undefined);
 });
+
+test('carrito abandonado: la primera llegada a la página de pago pone la etiqueta en GHL (una vez)', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const { data: c } = await call('/api/config', { cookie: admin });
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...c.config, _version: c.version, launches: { ...c.config.launches, 'ca-26': { name: 'CA', registroTag: 'registro-webinar-demo', inicioCaptacion: local(-5), fechaDirecto: local(-1), horaDirecto: '19:00' } } } });
+  // Sin tocar, la etiqueta de serie
+  assert.equal((await call('/api/config', { cookie: admin })).data.config.launches['ca-26'].carritoAbandonadoTag, 'el-camino-carrito-abandonado');
+  const cid = 'mock00021';
+  assert.ok(!(await ghl.getContact(cid)).tags.includes('el-camino-carrito-abandonado'));
+  await call('/api/visita', { method: 'POST', body: { launch: 'ca-26', cid, pagina: 'pago' } });
+  assert.ok((await ghl.getContact(cid)).tags.includes('el-camino-carrito-abandonado'));
+  // La página de venta no la pone
+  await call('/api/visita', { method: 'POST', body: { launch: 'ca-26', cid: 'mock00022' } });
+  assert.ok(!(await ghl.getContact('mock00022')).tags.includes('el-camino-carrito-abandonado'));
+  // Vacía = no se pone
+  const { data: c2 } = await call('/api/config', { cookie: admin });
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...c2.config, _version: c2.version, launches: { ...c2.config.launches, 'ca-26': { ...c2.config.launches['ca-26'], carritoAbandonadoTag: '' } } } });
+  await call('/api/visita', { method: 'POST', body: { launch: 'ca-26', cid: 'mock00023', pagina: 'pago' } });
+  assert.ok(!(await ghl.getContact('mock00023')).tags.includes('el-camino-carrito-abandonado'));
+});

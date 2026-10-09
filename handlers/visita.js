@@ -7,6 +7,7 @@ import { getConfig } from '../lib/config-store.js';
 import { currentLaunch } from '../lib/digest.js';
 import { marcarVisita, visitasDe } from '../lib/entradas.js';
 import { json, readBody, errorResponse, CORS_HEADERS } from '../lib/http.js';
+import { addTags } from '../lib/ghl.js';
 
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -17,13 +18,22 @@ const lanzamiento = (config, code) => {
   return c && Object.hasOwn(config.launches, c) ? c : null;
 };
 
-export async function POST(request) {
+export async function POST(request, ctx) {
   try {
     const { launch, cid, pagina } = await readBody(request);
     if (typeof cid !== 'string' || !/^[A-Za-z0-9]{6,40}$/.test(cid)) return json({ error: 'Datos no válidos' }, 400, CORS_HEADERS);
-    const code = lanzamiento(await getConfig(), launch);
+    const config = await getConfig();
+    const code = lanzamiento(config, launch);
     if (!code) return json({ error: 'Lanzamiento desconocido' }, 404, CORS_HEADERS);
-    await marcarVisita(code, cid, Date.now(), pagina === 'pago' ? 'pago' : 'venta');
+    const esPago = pagina === 'pago';
+    const veces = await marcarVisita(code, cid, Date.now(), esPago ? 'pago' : 'venta');
+    // La primera vez que llega a la página de pago: la etiqueta de carrito abandonado en GHL (dispara el workflow
+    // de recuperación, que la quita si compra). Solo una llamada a GHL por lead, y sin esperar a que acabe.
+    const tag = config.launches[code].carritoAbandonadoTag;
+    if (esPago && veces === 1 && tag) {
+      const p = addTags(cid, [tag]).catch((e) => console.error('Carrito abandonado', e));
+      if (ctx?.waitUntil) ctx.waitUntil(p); else await p;
+    }
     return json({ ok: true }, 200, CORS_HEADERS);
   } catch (e) {
     return errorResponse(e, CORS_HEADERS);
