@@ -2184,25 +2184,40 @@ async function cargarEnDirecto() {
   }
 }
 function pintarEnDirecto(d) {
-  const num = (n) => Number(n || 0).toLocaleString('es-ES');
+  const num = (n) => Number(n || 0).toLocaleString('es-ES', { useGrouping: 'always' });
+  const pct = (n, total) => (total ? `${(Math.round((n / total) * 1000) / 10).toLocaleString('es-ES')} %` : '–');
   const min = (ms) => Math.round(ms / 60_000);
   const hora = (ms) => new Date(ms).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
-  const estado = d.directo == null ? 'Pon el día y la hora del directo en la configuración.'
-    : d.now < d.directo ? `Empieza a las ${hora(d.directo)} (en ${min(d.directo - d.now) >= 60 ? `${Math.floor(min(d.directo - d.now) / 60)} h ${min(d.directo - d.now) % 60} min` : `${min(d.directo - d.now)} min`})`
-      : d.finDirecto == null || d.now < d.finDirecto ? `En directo desde las ${hora(d.directo)} (hace ${min(d.now - d.directo)} min)` : `El directo empezó a las ${hora(d.directo)}`;
-  $('#ed-titulo').textContent = `🔴 ${d.video} · ${d.nombre}`;
-  $('#ed-estado').textContent = estado;
+  // «en 20 días y 2 h», «en 3 h 15 min», «en 12 min»
+  const falta = (ms) => {
+    const m = min(ms);
+    const dias = Math.floor(m / 1440);
+    const h = Math.floor((m % 1440) / 60);
+    return dias ? `${dias} día${dias > 1 ? 's' : ''}${h ? ` y ${h} h` : ''}` : m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`;
+  };
+  const fecha = (ms) => new Date(ms).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
+  const [tono, estado] = d.directo == null ? ['espera', 'Pon el día y la hora del directo en la configuración']
+    : d.now < d.directo ? ['espera', `Empieza ${min(d.directo - d.now) >= 1440 ? `el ${fecha(d.directo)} ` : ''}a las ${hora(d.directo)} · en ${falta(d.directo - d.now)}`]
+      : d.finDirecto == null || d.now < d.finDirecto ? ['vivo', `En directo desde las ${hora(d.directo)} · hace ${falta(d.now - d.directo)}`] : ['fin', `El directo empezó a las ${hora(d.directo)}`];
+  $('#ed-video').textContent = d.video;
+  $('#ed-titulo').textContent = d.nombre;
+  $('#ed-estado').dataset.tono = tono;
+  $('#ed-estado span').textContent = estado;
   $('#ed-actualizado').textContent = `Actualizado a las ${new Date(d.now).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
   const ghl = d.ghlError ? (d.ghlActualizado ? `GHL no responde: dato de las ${hora(d.ghlActualizado)}` : 'GHL no responde ahora') : 'de GHL, cada minuto';
-  const carrito = d.apertura == null ? '' : d.now < d.apertura ? `el carrito abre a las ${hora(d.apertura)}` : d.cierre && d.now > d.cierre ? 'carrito cerrado' : 'carrito abierto';
-  $('#ed-kpis').innerHTML = [
-    card('Abrieron la pantalla de espera', num(d.esperando), 'en la hora antes del directo', 'eye', 'info'),
-    card('Inscritas en Zoom', num(d.inscritas), 'antes de la hora (entran con un clic)', 'check', 'accent'),
-    card('Entraron al directo', num(d.entraron), d.esperando ? `${pctOf(d.entraron, d.esperando)} de las que esperaban` : 'desde la preclase o el enlace del directo', 'live', 'live'),
-    ...(d.conVip ? [card('Entradas VIP', d.vip == null ? '–' : num(d.vip), ghl, 'crown', 'vip')] : []),
-    card('Ventas del lanzamiento', d.ventas == null ? '–' : num(d.ventas), [carrito, ghl].filter(Boolean).join(' · '), 'cart', 'buy'),
-    card('Visitaron la página de venta', num(d.visitas.total), `${num(d.visitas.recientes)} en los últimos 15 min · ver en Setting hoy`, 'eye', 'warn'),
-  ].join('');
+  const carrito = d.apertura == null ? '' : d.now < d.apertura ? `El carrito abre a las ${hora(d.apertura)}` : d.cierre && d.now > d.cierre ? 'Carrito cerrado' : 'Carrito abierto';
+  const stat = (label, valor, sub, ico, tone) => `<div class="ed-stat"><span class="ed-stat-l"><span class="ed-ico tone-${tone}" aria-hidden="true">${icon(ico)}</span>${esc(label)}</span><strong class="ed-stat-n">${valor}</strong><span class="ed-stat-s">${esc(sub)}</span></div>`;
+  const grupo = (titulo, extra, stats) => `<section class="card ed-card"><h3 class="ed-card-t">${titulo}${extra ? ` <span class="ed-pill">${esc(extra)}</span>` : ''}</h3><div class="ed-stats">${stats.join('')}</div></section>`;
+  $('#ed-kpis').innerHTML = grupo('El directo', '', [
+    stat('Pantalla de espera', num(d.esperando), 'la abrieron en la hora antes', 'eye', 'info'),
+    stat('Inscritas en Zoom', num(d.inscritas), 'antes de la hora: entran con un clic', 'check', 'accent'),
+    stat('Entraron al directo', num(d.entraron), d.esperando ? `${pct(d.entraron, d.esperando)} de las que esperaban` : 'desde la preclase o el enlace del directo', 'live', 'live'),
+    stat('Asistencia', d.leads ? pct(d.entraron, d.leads) : '–', d.leads ? `${num(d.entraron)} de ${num(d.leads)} leads registradas` : d.leads === 0 ? 'todavía no hay leads registradas' : 'sobre el total de leads (de GHL)', 'users', 'accent'),
+  ]) + grupo('Ventas', carrito, [
+    ...(d.conVip ? [stat('Entradas VIP', d.vip == null ? '–' : num(d.vip), ghl, 'crown', 'vip')] : []),
+    stat('Ventas del lanzamiento', d.ventas == null ? '–' : num(d.ventas), ghl, 'cart', 'buy'),
+    stat('Visitas a la página de venta', num(d.visitas.total), `${num(d.visitas.recientes)} en los últimos 15 min · ver en Setting hoy`, 'eye', 'warn'),
+  ]);
   // Entradas por minuto de la última hora (barras).
   const ahora = Math.floor(d.now / 60_000);
   const porMin = new Array(60).fill(0);

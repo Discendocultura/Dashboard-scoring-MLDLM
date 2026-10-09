@@ -1,9 +1,9 @@
 // Panel «En directo» (Comercial → En directo): lo que pasa el día del webinar, minuto a minuto.
 //   GET /api/endirecto?l=<código>  (dashboard) →
 //     { directo, apertura, cierre, esperando, inscritas, entraron, entradas: [ms…], visitas: { total, recientes },
-//       vip, ventas, ghlActualizado, ghlError }
+//       vip, ventas, leads, ghlActualizado, ghlError }
 // Las leads no pasan por aquí: lo miran 3-4 personas del equipo. Lo de la pantalla de espera, el directo y
-// la página de venta sale de D1 (gratis); VIP y ventas, de GHL (4 recuentos), guardados 1 minuto y
+// la página de venta sale de D1 (gratis); VIP, ventas y leads registradas, de GHL (5 recuentos), guardados 1 minuto y
 // compartidos por todos los que tengan el panel abierto. Si GHL falla, se enseña el último dato bueno.
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
@@ -22,16 +22,18 @@ async function ventasGhl(code, launch) {
   if (hit && hit.at > Date.now() - 60_000) return hit;
   try {
     const cuenta = (t) => (t ? countByTag(t) : Promise.resolve(0));
-    const [vip, vipPrev, compra, compraPrev] = await Promise.all([
+    const [vip, vipPrev, compra, compraPrev, leads] = await Promise.all([
       cuenta(launch.vipTag), cuenta(launch.vipTag ? tagFor(code, 'vip_previo') : ''),
       cuenta(launch.compraTag), cuenta(launch.compraTag ? tagFor(code, 'compra_previo') : ''),
+      // Leads registradas (para el % de asistencia sobre el total).
+      cuenta(launch.registroTag),
     ]);
-    const v = { at: Date.now(), vip: Math.max(0, vip - vipPrev), ventas: Math.max(0, compra - compraPrev) };
+    const v = { at: Date.now(), vip: Math.max(0, vip - vipPrev), ventas: Math.max(0, compra - compraPrev), leads };
     cacheGhl.set(key, v);
     return v;
   } catch (e) {
     console.error('En directo', e);
-    return hit ? { ...hit, error: true } : { at: null, vip: null, ventas: null, error: true };
+    return hit ? { ...hit, error: true } : { at: null, vip: null, ventas: null, leads: null, error: true };
   }
 }
 
@@ -56,7 +58,7 @@ export async function GET(request) {
       apertura: madridToEpoch(launch.aperturaCarrito) ?? m.directo ?? null, cierre: m.cierre ?? null,
       ...d1,
       visitas: { total: lista.length, recientes: lista.filter((x) => x.ultima >= now - 15 * 60_000).length },
-      vip: ghl.vip, ventas: ghl.ventas, ghlActualizado: ghl.at, ghlError: Boolean(ghl.error),
+      vip: ghl.vip, ventas: ghl.ventas, leads: ghl.leads ?? null, ghlActualizado: ghl.at, ghlError: Boolean(ghl.error),
       conVip: Boolean(launch.vipTag),
     });
   } catch (e) {

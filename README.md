@@ -605,7 +605,7 @@ npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)
 
 ## 🔴 En directo y visitas a la página de venta
 
-- **En directo** (Comercial → En directo): durante el directo, cuántas están en la pantalla de espera, cuántas tienen ya su enlace de Zoom, cuántas han entrado (y el % sobre la sala), las entradas minuto a minuto de la última hora, VIP y ventas desde que abre el carrito y visitas a la página de venta. Se refresca solo cada minuto. Casi todo sale de D1; a GHL solo se le piden 4 recuentos por minuto (cacheados), así que no se satura aunque haya 1500 leads.
+- **En directo** (Comercial → En directo): durante el directo, cuántas están en la pantalla de espera, cuántas tienen ya su enlace de Zoom, cuántas han entrado (el % sobre las que esperaban y la **asistencia**: % sobre el total de leads registradas), las entradas minuto a minuto de la última hora, VIP y ventas desde que abre el carrito y visitas a la página de venta. Se refresca solo cada minuto. Casi todo sale de D1; a GHL solo se le piden 5 recuentos por minuto (cacheados), así que no se satura aunque haya 1500 leads.
 - **Página de venta**: pega en la página de venta de GHL el bloque «VENTA» de Configuración → Códigos (`<div data-lsd-venta data-launch="auto"></div>` + el script). Cada visita de un lead identificado se guarda en D1. En los emails, los enlaces a la página de venta deben llevar `?cid={{contact.id}}` para saber quién es.
 - **Setting hoy**: el primer grupo es «🛒 Visitaron la página de venta y no han comprado», ordenado por la visita más reciente. En la ficha y en los chips aparece cuándo la visitaron y cuántas veces.
 

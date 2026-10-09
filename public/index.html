@@ -416,14 +416,18 @@
           </div>
         </section>
 
-        <section id="view-endirecto" hidden>
+        <section id="view-endirecto" class="ed-vista" hidden>
           <div class="card ed-head">
-            <div><h2 id="ed-titulo">🔴 En directo</h2><p class="muted" id="ed-estado">Cargando…</p></div>
+            <div class="ed-head-txt">
+              <span class="ed-eyebrow" id="ed-video">En directo</span>
+              <h2 id="ed-titulo">Cargando…</h2>
+              <span class="ed-estado" id="ed-estado" data-tono="espera"><i aria-hidden="true"></i><span>Cargando…</span></span>
+            </div>
             <div class="ed-acciones"><span class="muted small" id="ed-actualizado"></span><button type="button" class="btn" id="ed-recargar">Actualizar</button></div>
           </div>
-          <div id="ed-kpis" class="kpis"></div>
-          <section class="card metric-card"><h2>Entradas al directo, minuto a minuto <span class="muted">· última hora</span></h2><div id="ed-grafica" class="ed-grafica"></div></section>
-          <p class="muted small">Se actualiza solo cada minuto mientras tienes esta pestaña abierta. Las entradas cuentan a quien entra desde la preclase o el enlace del dashboard; quien entra por el enlace genérico de Zoom aparece al sincronizar Zoom después del directo (con sus minutos de asistencia).</p>
+          <div id="ed-kpis" class="ed-grupos"></div>
+          <section class="card ed-card"><h3 class="ed-card-t">Entradas al directo, minuto a minuto <span class="muted">· última hora</span></h3><div id="ed-grafica" class="ed-grafica"></div></section>
+          <p class="muted small ed-nota">Se actualiza solo cada minuto mientras tienes esta pestaña abierta. Las entradas cuentan a quien entra desde la preclase o el enlace del dashboard; quien entra por el enlace genérico de Zoom aparece al sincronizar Zoom después del directo (con sus minutos de asistencia).</p>
         </section>
 
         <section id="view-hoy" hidden>
