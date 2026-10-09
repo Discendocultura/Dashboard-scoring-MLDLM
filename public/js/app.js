@@ -965,6 +965,8 @@ const AYUDA_KPI = {
   'Llamadas agendadas': 'Leads con la etiqueta de llamada agendada o el resultado «Llamada agendada» de la setter.',
   'Ventas en directo': 'Ventas del programa con fecha de compra el día del directo de venta.',
   'Ventas el día del': 'Ventas del programa con fecha de compra el día de ese vídeo.',
+  Facturación: 'Programa + entradas VIP + bump offers, todo sin IVA. Debajo, las ventas totales del programa en este lanzamiento.',
+  'Conversión a venta': 'Ventas del programa ÷ leads totales.',
   'Facturación (sin IVA)': 'Programa + entradas VIP + bump offers, todo sin IVA (según si cada precio lleva IVA incluido, + IVA o es exento).',
   'Facturación del lanzamiento': 'Programa + entradas VIP + bump offers del lanzamiento, sin IVA.',
   'Facturación del meteórico': 'Lo vendido en los meteóricos posteriores de este lanzamiento.',
@@ -1188,31 +1190,42 @@ function renderMetrics() {
     : card('Asistencia al directo', m.live, `${pctOf(m.live, m.total)} de los registros${porTrafico} · ${pctOf(m.vipLive, m.vip)} de las VIP`, 'live', 'live');
   const tr = resumenTrafico(m, state.meta, { visitasRegistro: state.visitas?.code === state.launchCode ? state.visitas.registro : 0 });
   const pct1 = (x) => (x == null ? '–' : `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')}%`);
-  // Primero, en este orden: leads, CPL medio, entradas VIP, inversión y ROAS (con VIP y bumps, sin IVA).
+  // Arriba, en grande: leads, facturación (con las ventas) y ROAS. Debajo, el resto en el orden del embudo:
+  // captación → calentamiento (encuesta, VIP) → directo → carrito (llamadas, ventas, bumps del programa).
   const roasTxt = m.eco.roas != null ? `${m.eco.roas.toFixed(2).replace('.', ',')}x` : '–';
   const inv = fuenteInversion(launch, m);
   const factSub = [`programa ${eur(m.eco.facturacionPrograma)}`, m.conVip ? `VIP ${eur(m.eco.facturacionVip)}` : '', m.eco.facturacionBumps ? `bumps ${eur(m.eco.facturacionBumps)}` : ''].filter(Boolean).join(' + ');
+  const grande = (html) => html.replace('class="kpi static', 'class="kpi static kpi-hero');
+  $('#metric-hero').innerHTML = [
+    grande(card('Leads totales', m.total.toLocaleString('es-ES'), m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'registros del lanzamiento', 'users', 'accent')),
+    grande(card('Facturación', eur(m.eco.facturacion), `<strong class="kpi-hero-ventas">${m.compra.toLocaleString('es-ES')} ${m.compra === 1 ? 'venta' : 'ventas'} totales</strong>Sin IVA: ${factSub}`, 'coins', 'money')),
+    grande(card('ROAS', roasTxt, m.eco.roas != null ? `facturación sin IVA ÷ ${eur(m.eco.inversion)} de inversión` : inv.ok ? 'facturación sin IVA ÷ inversión' : inv.txt, 'trend', 'buy')),
+  ].join('');
+  const bumpCard = (b) => {
+    const t = TIPOS_BUMP.find((x) => x.id === b.tipo);
+    // En grande el % de las VIP (o de las ventas de ese tipo de pago) que lo compran; debajo, cuántos se han vendido.
+    return card(`Bump offer ${b.tipo === 'vip' ? 'de la VIP' : `del ${t.label}`} · ${esc(b.nombre)}`, pctOf(b.n, b.base).replace('.', ','), `<strong>${b.n.toLocaleString('es-ES')} ${b.n === 1 ? 'bump vendido' : 'bumps vendidos'}</strong> de ${b.base} ${b.tipo === 'vip' ? 'VIP' : t.base} · ${eur(b.facturacion)} sin IVA`, 'gift', b.tipo === 'vip' ? 'vip' : 'buy');
+  };
   $('#metric-cards').innerHTML = [
-    card('Leads totales', m.total, m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'registros del lanzamiento', 'users', 'accent'),
-    card('CPL medio', eur(tr.cpl), tr.cpl == null ? inv.txt : `${eur(m.eco.inversion)} / ${m.total.toLocaleString('es-ES')} leads${tr.cplPubli != null ? ` · ${eur(tr.cplPubli)} por lead de publicidad` : ''}`, 'coins', 'money'),
-    ...(m.conVip ? [card('Entradas VIP vendidas', m.vip, `${pctOf(m.vip, m.total)} de los leads${m.eco.facturacionVip ? ` · ${eur(m.eco.facturacionVip)} sin IVA` : ''}`, 'star', 'vip')] : []),
+    // Captación
     card('Inversión en publicidad', m.eco.inversion ? eur(m.eco.inversion) : '–', inv.txt, 'megaphone', 'accent'),
-    card('ROAS', roasTxt, m.eco.roas != null ? `${eur(m.eco.facturacion)} sin IVA (${factSub}) / inversión` : 'facturación sin IVA / inversión', 'trend', 'money'),
-    ...(m.bumps || []).map((b) => {
-      const t = TIPOS_BUMP.find((x) => x.id === b.tipo);
-      // En grande el % de las VIP (o de las ventas de ese tipo de pago) que lo compran; debajo, cuántos se han vendido.
-      return card(`Bump offer ${b.tipo === 'vip' ? 'de la VIP' : `del ${t.label}`} · ${esc(b.nombre)}`, pctOf(b.n, b.base).replace('.', ','), `<strong>${b.n.toLocaleString('es-ES')} ${b.n === 1 ? 'bump vendido' : 'bumps vendidos'}</strong> de ${b.base} ${b.tipo === 'vip' ? 'VIP' : t.base} · ${eur(b.facturacion)} sin IVA`, 'gift', b.tipo === 'vip' ? 'vip' : 'buy');
-    }),
+    card('CPL medio', eur(tr.cpl), tr.cpl == null ? inv.txt : `${eur(m.eco.inversion)} / ${m.total.toLocaleString('es-ES')} leads${tr.cplPubli != null ? ` · ${eur(tr.cplPubli)} por lead de publicidad` : ''}`, 'coins', 'money'),
     card('Conversión de la página de registro', pct1(tr.conversionPagina), tr.conversionFuente === 'registro'
       ? `${m.total.toLocaleString('es-ES')} registros de ${tr.visitasRegistro.toLocaleString('es-ES')} visitas únicas a la página de registro`
       : tr.conversionFuente === 'meta' ? `${tr.registrosPubli} registros${tr.conOrigen ? ' de publicidad' : ''} de ${tr.visitas.toLocaleString('es-ES')} visitas (Meta) · pega el código de la página de registro (Códigos) para contar las visitas únicas`
         : `Pega en la página de registro el código «REGISTRO · visitas únicas».${irA('tab:snippets', 'Ver el código')}`, 'funnel', 'info'),
+    // Calentamiento
     ...(m.encuestaActiva ? [card('Encuesta rellenada', `${m.encuesta} <small class="muted">de ${m.total}</small>`, `${pctOf(m.encuesta, m.total)} de los registros`, 'survey', 'info')] : []),
+    ...(m.conVip ? [card('Entradas VIP vendidas', m.vip, `${pctOf(m.vip, m.total)} de los leads${m.eco.facturacionVip ? ` · ${eur(m.eco.facturacionVip)} sin IVA` : ''}`, 'star', 'vip')] : []),
+    ...(m.bumps || []).filter((b) => b.tipo === 'vip').map(bumpCard),
+    // Directo
     asistenciaCard,
-    card('Compras totales', m.compra, `${pctOf(m.compra, m.total)} de los registros`, 'cart', 'buy'),
-    ...(!m.conVip ? [] : [card('Ventas de Raíces de VIP', `${m.compraVip} <small class="muted">de ${m.compra}</small>`, `${pctOf(m.compraVip, m.compra)} de las ventas · compra el ${pctOf(m.compraVip, m.vip)} de las VIP`, 'crown', 'vip')]),
+    // Carrito
     card('Llamadas agendadas', `${m.llamada} <small class="muted">de ${m.total}</small>`, `${pctOf(m.llamada, m.total)} de los registros · ${pctOf(m.compraLlamada, m.llamada)} compran`, 'phone', 'info'),
+    card('Conversión a venta', pctOf(m.compra, m.total).replace('.', ','), `${m.compra.toLocaleString('es-ES')} ventas de ${m.total.toLocaleString('es-ES')} leads`, 'cart', 'buy'),
     directoCard,
+    ...(!m.conVip ? [] : [card('Ventas de Raíces de VIP', `${m.compraVip} <small class="muted">de ${m.compra}</small>`, `${pctOf(m.compraVip, m.compra)} de las ventas · compra el ${pctOf(m.compraVip, m.vip)} de las VIP`, 'crown', 'vip')]),
+    ...(m.bumps || []).filter((b) => b.tipo !== 'vip').map(bumpCard),
   ].join('');
 
   renderEconomics(m, launch);
