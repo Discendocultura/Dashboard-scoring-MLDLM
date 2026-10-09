@@ -31,6 +31,9 @@ export const TIPOS_ENTREGABLE = [
   { id: 'descargable', label: 'Descargable', icon: '📄' },
   { id: 'audio', label: 'Audio', icon: '🎧' },
   { id: 'chatbot', label: 'Chatbot / Agente', icon: '🤖' },
+  { id: 'comunidad', label: 'Comunidad', icon: '🫂' },
+  { id: 'soporte', label: 'Soporte', icon: '🛟' },
+  { id: 'servicio', label: 'Servicio', icon: '🛠️' },
 ];
 const IDS_BONUS = TIPOS_BONUS.map((t) => t.id);
 const IDS_ENTREGABLE = TIPOS_ENTREGABLE.map((t) => t.id);
@@ -47,6 +50,7 @@ export function sanitizeOferta(o, { tipos = IDS_BONUS } = {}) {
     entregables: ents.slice(0, 40).map((e, i) => ({
       id: idDe(e?.id, i, 'e'), tipo: IDS_ENTREGABLE.includes(e?.tipo) ? e.tipo : 'grabado',
       nombre: str(e?.nombre, 120), detalle: str(e?.detalle, 300), valor: dinero(e?.valor),
+      ...(SUBTIPOS_ENTREGABLE[e?.tipo] ? { subtipo: SUBTIPOS_ENTREGABLE[e.tipo].opciones.some((o) => o.id === e?.subtipo) ? e.subtipo : SUBTIPOS_ENTREGABLE[e.tipo].opciones[0].id } : {}),
     })).filter((e) => e.nombre),
     bonus: bons.slice(0, 30).map((b, i) => ({
       id: idDe(b?.id, i, 'b'), tipo: tipos.includes(b?.tipo) ? b.tipo : 'bonus',
@@ -61,6 +65,26 @@ export const tipoBonus = (id) => TIPOS_BONUS.find((t) => t.id === id) || TIPOS_B
 export const IDS_BONUS_METEO = TIPOS_BONUS_METEO.map((t) => t.id);
 // Tipo de bonus de un meteórico (sus BAR cuentan desde que abre la oferta, con su duración en `min`).
 export const tipoBonusMeteo = (id) => TIPOS_BONUS_METEO.find((t) => t.id === id) || TIPOS_BONUS_METEO.at(-1);
+// Variantes de algunos entregables: dónde está la comunidad y qué tipo de soporte es.
+export const SUBTIPOS_ENTREGABLE = {
+  comunidad: { label: 'Dónde está la comunidad', icon: '📍', opciones: [
+    { id: 'propia', label: 'Plataforma propia' },
+    { id: 'skool', label: 'Skool' },
+    { id: 'telegram', label: 'Telegram' },
+    { id: 'whatsapp', label: 'WhatsApp' },
+  ] },
+  soporte: { label: 'Tipo de soporte', icon: '↳', opciones: [
+    { id: 'chatbot', label: 'Chatbot de soporte' },
+    { id: 'seguimiento', label: 'Seguimiento individual' },
+    { id: 'email-wa', label: 'Soporte por email / WhatsApp' },
+  ] },
+};
+// Nombre del tipo para enseñarlo, con su variante: «Comunidad · Skool», «Soporte · Seguimiento individual».
+export const etiquetaEntregable = (e) => {
+  const t = tipoEntregable(e?.tipo);
+  const sub = SUBTIPOS_ENTREGABLE[e?.tipo]?.opciones.find((o) => o.id === e.subtipo);
+  return sub ? `${t.label} · ${sub.label}` : t.label;
+};
 export const tipoEntregable = (id) => TIPOS_ENTREGABLE.find((t) => t.id === id) || TIPOS_ENTREGABLE[0];
 
 // Momentos del carrito (epoch ms): directo de venta, apertura y cierre.

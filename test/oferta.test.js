@@ -54,3 +54,18 @@ test('oferta: impacto de cada bonus en las ventas de cada día', () => {
   // Sin ventas por día
   assert.ok(analizarOferta(launch, null).bonus.every((x) => x.sinDatos));
 });
+
+test('entregables: chatbot / agente, comunidad (con su plataforma) y soporte (con su tipo)', async () => {
+  const { sanitizeOferta, etiquetaEntregable } = await import('../public/js/oferta.js');
+  const e = sanitizeOferta({ entregables: [
+    { tipo: 'chatbot', nombre: 'Asistente', subtipo: 'skool' },
+    { tipo: 'comunidad', nombre: 'Tribu', subtipo: 'skool' },
+    { tipo: 'comunidad', nombre: 'Otra', subtipo: 'discord' },
+    { tipo: 'soporte', nombre: '1 a 1', subtipo: 'seguimiento' },
+    { tipo: 'soporte', nombre: 'Dudas', subtipo: 'email-wa' },
+    { tipo: 'soporte', nombre: 'Bot' },
+    { tipo: 'servicio', nombre: 'Montaje del embudo' },
+  ] }).entregables;
+  assert.deepEqual(e.map(etiquetaEntregable), ['Chatbot / Agente', 'Comunidad · Skool', 'Comunidad · Plataforma propia', 'Soporte · Seguimiento individual', 'Soporte · Soporte por email / WhatsApp', 'Soporte · Chatbot de soporte', 'Servicio']);
+  assert.equal(e[0].subtipo, undefined);
+});

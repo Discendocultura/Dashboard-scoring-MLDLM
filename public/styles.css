@@ -1882,7 +1882,7 @@ body.is-superadmin .container { padding-bottom: 96px; }
 .of-resumen { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13.5px; }
 .of-resumen:empty { display: none; }
 .of-lista { display: flex; flex-direction: column; gap: 8px; }
-.of-fila { display: grid; grid-template-columns: 210px minmax(140px, 1.2fr) minmax(140px, 1.4fr) 92px auto; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.of-fila { display: grid; grid-template-columns: 240px minmax(140px, 1.2fr) minmax(140px, 1.4fr) 92px auto; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 .of-fila-bonus { grid-template-columns: 170px minmax(140px, 1.2fr) minmax(140px, 1.2fr) 92px 190px auto; }
 .of-fila input, .of-fila select { width: 100%; min-width: 0; }
 .of-hasta { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--muted); font-weight: 600; }
@@ -2088,3 +2088,4 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 .vb-color input { width: 64px; height: 36px; padding: 2px; }
 #cfg-vb-resumen ol { margin: 4px 0 0; padding-left: 20px; }
 @media (max-width: 900px) { .vb-tramo { grid-template-columns: 28px 1fr 1fr; } .vb-tramo .vb-texto { grid-column: 2 / -1; } }
+.of-tipo-box { display: grid; gap: 6px; min-width: 0; }

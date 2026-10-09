@@ -11,7 +11,7 @@ import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
 import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago } from './pago.js';
 import { cicloDeContactos, textoDias } from './ciclo.js';
-import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusMeteo, tipoEntregable, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
+import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusMeteo, tipoEntregable, etiquetaEntregable, SUBTIPOS_ENTREGABLE, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
 import { alertasCarrito } from './alertas.js';
 import { BLOQUES, pesosDe, proponerPesos, pesosEfectivos } from './pesos.js';
@@ -8363,9 +8363,15 @@ document.addEventListener('click', async (e) => {
 // ---------- Oferta del lanzamiento: entregables y bonus (Configuración → Oferta) ----------
 const optsTipo = (lista, sel) => lista.map((t) => `<option value="${t.id}" ${t.id === sel ? 'selected' : ''} title="${esc(t.largo || t.label)}${t.desc ? ` · ${esc(t.desc)}` : ''}">${t.icon} ${esc(t.label)}</option>`).join('');
 const valorTxt = (v) => (v ? String(v).replace('.', ',') : '');
+// Variante del entregable (dónde está la comunidad, tipo de soporte): solo en los tipos que la tienen.
+const opcionesSubtipo = (tipo, sel) => {
+  const st = SUBTIPOS_ENTREGABLE[tipo];
+  return st ? st.opciones.map((o) => `<option value="${o.id}" ${o.id === sel ? 'selected' : ''}>${st.icon} ${esc(o.label)}</option>`).join('') : '';
+};
 function filaEntregable(e = {}) {
   return `<div class="of-fila" data-of="entregable" data-id="${esc(e.id || '')}">
-    <select class="of-tipo" aria-label="Tipo de entregable">${optsTipo(TIPOS_ENTREGABLE, e.tipo || 'grabado')}</select>
+    <div class="of-tipo-box"><select class="of-tipo" aria-label="Tipo de entregable">${optsTipo(TIPOS_ENTREGABLE, e.tipo || 'grabado')}</select>
+      <select class="of-sub" aria-label="${esc(SUBTIPOS_ENTREGABLE[e.tipo]?.label || '')}" ${SUBTIPOS_ENTREGABLE[e.tipo] ? '' : 'hidden'}>${opcionesSubtipo(e.tipo, e.subtipo)}</select></div>
     <input class="of-nombre" maxlength="120" placeholder="Nombre (p. ej. Módulo 1: tu ciclo)" value="${esc(e.nombre || '')}">
     <input class="of-detalle" maxlength="300" placeholder="Detalle (opcional)" value="${esc(e.detalle || '')}">
     <input class="of-valor" inputmode="decimal" placeholder="Valor €" value="${esc(valorTxt(e.valor))}" aria-label="Valor en euros">
@@ -8388,7 +8394,7 @@ function pintarOfertaEditor(oferta = {}) {
 }
 const nuevoId = (p) => `${p}${Date.now().toString(36).slice(-5)}${Math.random().toString(36).slice(2, 4)}`;
 function leerOfertaEditor() {
-  const fila = (el) => ({ id: el.dataset.id || nuevoId(el.dataset.of === 'bonus' ? 'b' : 'e'), tipo: $('.of-tipo', el).value, nombre: $('.of-nombre', el).value.trim(), detalle: $('.of-detalle', el).value.trim(), valor: $('.of-valor', el).value.trim() });
+  const fila = (el) => ({ id: el.dataset.id || nuevoId(el.dataset.of === 'bonus' ? 'b' : 'e'), tipo: $('.of-tipo', el).value, nombre: $('.of-nombre', el).value.trim(), detalle: $('.of-detalle', el).value.trim(), valor: $('.of-valor', el).value.trim(), ...($('.of-sub', el) && SUBTIPOS_ENTREGABLE[$('.of-tipo', el).value] ? { subtipo: $('.of-sub', el).value } : {}) });
   return {
     entregables: $$('#of-entregables .of-fila').map(fila).filter((x) => x.nombre),
     bonus: $$('#of-bonus .of-fila').map((el) => ({ ...fila(el), hasta: $('.of-hasta-in', el).value })).filter((x) => x.nombre),
@@ -8415,6 +8421,18 @@ function refrescarOfertaEditor() {
 }
 $('#of-add-entregable').addEventListener('click', () => { $('#of-entregables').insertAdjacentHTML('beforeend', filaEntregable()); $('#of-entregables .of-fila:last-child .of-nombre').focus(); refrescarOfertaEditor(); });
 $('#of-add-bonus').addEventListener('click', () => { $('#of-bonus').insertAdjacentHTML('beforeend', filaBonus()); $('#of-bonus .of-fila:last-child .of-nombre').focus(); refrescarOfertaEditor(); });
+// Comunidad (dónde está) y soporte (chatbot, seguimiento individual, email / WhatsApp): se elige la variante.
+for (const id of ['#of-entregables', '#mt-of-entregables']) {
+  $(id).addEventListener('change', (e) => {
+    if (!e.target.matches('.of-tipo')) return;
+    const sub = $('.of-sub', e.target.closest('.of-fila'));
+    if (!sub) return;
+    const st = SUBTIPOS_ENTREGABLE[e.target.value];
+    sub.hidden = !st;
+    sub.setAttribute('aria-label', st?.label || '');
+    sub.innerHTML = opcionesSubtipo(e.target.value);
+  });
+}
 for (const id of ['#of-entregables', '#of-bonus']) {
   $(id).addEventListener('click', (e) => { if (e.target.closest('.of-del')) { e.target.closest('.of-fila').remove(); refrescarOfertaEditor(); } });
   $(id).addEventListener('change', refrescarOfertaEditor);
@@ -8431,7 +8449,7 @@ function renderOfertaAnalisis(launch) {
   const valor = valorOferta(oferta, precio);
   const chipB = (b) => { const t = tipoBonus(b.tipo); return `<span class="of-chip b-${b.tipo}" title="${esc(t.largo || t.label)} · ${esc(t.desc)}">${t.icon} ${esc(b.nombre)}</span>`; };
   const resumen = `<div class="of-oferta">
-      <div><h4>📦 Entregables (${oferta.entregables.length})</h4>${oferta.entregables.length ? `<ul>${oferta.entregables.map((e) => `<li>${tipoEntregable(e.tipo).icon} <strong>${esc(e.nombre)}</strong> <span class="muted small">${esc(tipoEntregable(e.tipo).label)}${e.valor ? ` · ${eur(e.valor)}` : ''}</span></li>`).join('')}</ul>` : '<p class="muted small">Sin entregables.</p>'}</div>
+      <div><h4>📦 Entregables (${oferta.entregables.length})</h4>${oferta.entregables.length ? `<ul>${oferta.entregables.map((e) => `<li>${tipoEntregable(e.tipo).icon} <strong>${esc(e.nombre)}</strong> <span class="muted small">${esc(etiquetaEntregable(e))}${e.valor ? ` · ${eur(e.valor)}` : ''}</span></li>`).join('')}</ul>` : '<p class="muted small">Sin entregables.</p>'}</div>
       <div><h4>🎁 Bonus (${oferta.bonus.length})</h4>${oferta.bonus.length ? `<ul>${oferta.bonus.map((b) => `<li>${chipB(b)}${b.valor ? ` <span class="muted small">${eur(b.valor)}</span>` : ''}</li>`).join('')}</ul>` : '<p class="muted small">Sin bonus.</p>'}</div>
       <div class="of-valor-box"><span class="muted small">Precio</span><strong>${precio ? eur(precio) : '–'}</strong>${valor.total ? `<span class="muted small">Valor de la oferta</span><strong>${eur(valor.total)}</strong>` : ''}${valor.ratio ? `<span class="of-ratio">${valor.ratio.toFixed(1).replace('.', ',')}× el precio</span>` : ''}</div>
     </div>`;
@@ -8473,7 +8491,7 @@ function pintarPaqueteMeteo(p = {}) {
   refrescarPaqueteMeteo();
 }
 function leerPaqueteMeteo() {
-  const fila = (el) => ({ id: el.dataset.id || nuevoId(el.dataset.of === 'bonus' ? 'b' : 'e'), tipo: $('.of-tipo', el).value, nombre: $('.of-nombre', el).value.trim(), detalle: $('.of-detalle', el).value.trim(), valor: $('.of-valor', el).value.trim() });
+  const fila = (el) => ({ id: el.dataset.id || nuevoId(el.dataset.of === 'bonus' ? 'b' : 'e'), tipo: $('.of-tipo', el).value, nombre: $('.of-nombre', el).value.trim(), detalle: $('.of-detalle', el).value.trim(), valor: $('.of-valor', el).value.trim(), ...($('.of-sub', el) && SUBTIPOS_ENTREGABLE[$('.of-tipo', el).value] ? { subtipo: $('.of-sub', el).value } : {}) });
   return {
     entregables: $$('#mt-of-entregables .of-fila').map(fila).filter((x) => x.nombre),
     bonus: $$('#mt-of-bonus .of-fila').map((el) => ({ ...fila(el), hasta: $('.of-hasta-in', el).value })).filter((x) => x.nombre),
@@ -8521,7 +8539,7 @@ async function pintarOfertaMeteo(box, code) {
   const valor = valorOferta(p, precio);
   const chipB = (b) => { const t = tipoBonusMeteo(b.tipo); return `<span class="of-chip b-${b.tipo}" title="${esc(t.largo || t.label)} · ${esc(t.desc)}">${t.icon} ${esc(b.nombre)}</span>`; };
   const resumen = `<section class="card metric-card"><h2>🎁 La oferta <span class="muted">· ${esc(m.name)}${m.oferta ? ` · ${esc(m.oferta)}` : ''}</span></h2><div class="of-oferta">
-      <div><h4>📦 Entregables (${p.entregables.length})</h4>${p.entregables.length ? `<ul>${p.entregables.map((e) => `<li>${tipoEntregable(e.tipo).icon} <strong>${esc(e.nombre)}</strong> <span class="muted small">${esc(tipoEntregable(e.tipo).label)}${e.valor ? ` · ${eur(e.valor)}` : ''}</span></li>`).join('')}</ul>` : '<p class="muted small">Sin entregables.</p>'}</div>
+      <div><h4>📦 Entregables (${p.entregables.length})</h4>${p.entregables.length ? `<ul>${p.entregables.map((e) => `<li>${tipoEntregable(e.tipo).icon} <strong>${esc(e.nombre)}</strong> <span class="muted small">${esc(etiquetaEntregable(e))}${e.valor ? ` · ${eur(e.valor)}` : ''}</span></li>`).join('')}</ul>` : '<p class="muted small">Sin entregables.</p>'}</div>
       <div><h4>🎁 Bonus (${p.bonus.length})</h4>${p.bonus.length ? `<ul>${p.bonus.map((b) => { const w = ventanaBonusMeteo(b, m); return `<li>${chipB(b)}${b.valor ? ` <span class="muted small">${eur(b.valor)}</span>` : ''}<br><span class="muted small">${fechaHoraCorta(w.desde)} → ${fechaHoraCorta(w.hasta)}</span></li>`; }).join('')}</ul>` : '<p class="muted small">Sin bonus.</p>'}</div>
       <div class="of-valor-box"><span class="muted small">Precio</span><strong>${precio ? eur(precio) : '–'}</strong>${valor.total ? `<span class="muted small">Valor de la oferta</span><strong>${eur(valor.total)}</strong>` : ''}${valor.ratio ? `<span class="of-ratio">${valor.ratio.toFixed(1).replace('.', ',')}× el precio</span>` : ''}</div>
     </div></section>`;
