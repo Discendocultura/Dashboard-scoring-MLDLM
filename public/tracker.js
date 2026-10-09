@@ -1046,14 +1046,28 @@
   // Página de venta: <div data-lsd-venta data-launch="auto"></div> apunta la visita (sin llamar a GHL)
   // para «Setting hoy» del dashboard: quién la visitó y no ha comprado. Necesita saber quién es: ?cid=
   // en el enlace (los de la preclase y la grabación ya lo llevan) o que el navegador la recuerde.
-  function initVenta(el) {
+  // Páginas de venta (<div data-lsd-venta>) y de pago (<div data-lsd-pago>): respuesta ligera, sin llamar a GHL.
+  // Pintan su barra fija por tramos, los enlaces de los botones y los textos y precios de los cajetines de pago
+  // (<span data-lsd-text="pago-unico-precio">…; <div data-lsd-caja="unico|fraccionado"> se oculta sin enlace).
+  function initVenta(el, pagina) {
     if (el.getAttribute('data-lsd-ready')) return;
     el.setAttribute('data-lsd-ready', '1');
+    pagina = pagina || 'venta';
     var who = identity();
     var launch = params.get('l') || el.getAttribute('data-launch') || 'auto';
-    // Barra fija de la página de venta (si está activa en el dashboard). Respuesta ligera: no llama a GHL.
-    fetchPage(launch, who, 'venta').then(function (data) {
+    fetchPage(launch, who, pagina).then(function (data) {
       if (!data || data.error) return;
+      var texts = data.texts || {};
+      document.querySelectorAll('[data-lsd-text]').forEach(function (t) {
+        var k = t.getAttribute('data-lsd-text');
+        if (!Object.prototype.hasOwnProperty.call(texts, k)) return;
+        t.textContent = texts[k];
+        show(t, Boolean(texts[k]));
+      });
+      document.querySelectorAll('[data-lsd-caja]').forEach(function (c) {
+        var link = (data.links || {})[c.getAttribute('data-lsd-caja') === 'fraccionado' ? 'pago-fraccionado' : 'pago'];
+        show(c, Boolean(link));
+      });
       // Botones de la página de venta: <a data-lsd-link="pago|pago-fraccionado|llamada|whatsapp-dudas">.
       // Sin enlace configurado, el botón se oculta.
       var links = data.links || {};
@@ -1069,7 +1083,8 @@
       injectCss();
       barraVenta(data);
     }).catch(function () { /* sin conexión: sin barra */ });
-    if (!who || !who.cid || params.get('lsd_preview')) return;
+    // Visitas a la página de venta, para «Setting hoy» del dashboard.
+    if (pagina !== 'venta' || !who || !who.cid || params.get('lsd_preview')) return;
     post('/api/visita', { launch: launch, cid: who.cid });
   }
 
@@ -1077,7 +1092,9 @@
     var login = document.querySelector('[data-lsd-login]');
     if (login) initLogin(login);
     var venta = document.querySelector('[data-lsd-venta]');
-    if (venta) initVenta(venta);
+    if (venta) initVenta(venta, 'venta');
+    var pago = document.querySelector('[data-lsd-pago]');
+    if (pago) initVenta(pago, 'pago');
 
     var pageEl = document.querySelector('[data-lsd-page]');
     var containers = Array.prototype.slice.call(document.querySelectorAll('[data-lsd-video]'))

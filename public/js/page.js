@@ -63,6 +63,7 @@ export const LINK_KEYS = {
   grabacion: 'Ver la grabación',
   ...Object.fromEntries(otrosVideos.flatMap((k) => [[`directo${k}`, `Entrar al vídeo ${k} (directo)`], [`grabacion${k}`, `Ver el vídeo ${k}`]])),
   venta: 'Página de venta de Raíces',
+  'pagina-pago': 'Página de pago (único o fraccionado)',
   pago: 'Pago único de Raíces',
   'pago-fraccionado': 'Pago fraccionado de Raíces',
   llamada: 'Reservar llamada',
@@ -246,7 +247,7 @@ export function sanitizeVentaBarra(r) {
     texto: txt(t?.texto, 200),
     hasta: LOCAL_DT_RE.test(String(t?.hasta || '')) ? String(t.hasta) : '',
     conBoton: Boolean(t?.conBoton),
-    destino: Object.hasOwn(LINK_KEYS, t?.destino) && t.destino ? t.destino : 'pago',
+    destino: Object.hasOwn(LINK_KEYS, t?.destino) && t.destino ? t.destino : 'pagina-pago',
     boton: txt(t?.boton, 40),
   })).filter((t) => t.texto || t.hasta).sort((a, b) => (a.hasta || '9').localeCompare(b.hasta || '9'));
   return { activa: Boolean(r?.activa), color: /^#[0-9a-f]{6}$/i.test(String(r?.color || '')) ? String(r.color).toLowerCase() : '', tramos };
@@ -260,6 +261,35 @@ export function ventaBarraDe(launch, links = {}) {
     boton: t.conBoton && links[t.destino] ? { label: t.boton || 'Quiero entrar', href: links[t.destino] } : null,
   })).filter((t) => t.hasta != null).sort((a, b) => a.hasta - b.hasta);
   return tramos.length ? { color: r.color || '', tramos } : null;
+}
+
+// Página de pago (donde se elige pago único o fraccionado): el copy de cada cajetín y su barra por tramos.
+export const CAJAS_PAGO = [
+  { id: 'unico', dom: 'unico', link: 'pago', titulo: 'Pago único', boton: 'Quiero entrar en un solo pago' },
+  { id: 'fraccionado', dom: 'fr', link: 'pago-fraccionado', titulo: 'Pago fraccionado', boton: 'Prefiero pagar a plazos' },
+];
+export function sanitizePaginaPago(r) {
+  const txt = (v, n) => String(v ?? '').replace(/[\u0000-\u0009\u000b-\u001f]/g, ' ').trim().slice(0, n);
+  const out = { barra: sanitizeVentaBarra(r?.barra) };
+  for (const c of CAJAS_PAGO) {
+    const x = r?.[c.id] || {};
+    out[c.id] = { titulo: txt(x.titulo, 80), precio: txt(x.precio, 60), texto: txt(x.texto, 600), boton: txt(x.boton, 50) };
+  }
+  return out;
+}
+// Textos de los cajetines para la página (data-lsd-text="pago-unico-titulo", "pago-fraccionado-precio"…).
+// `precios`: { unico, fraccionado } ya con formato; un precio escrito a mano manda.
+export function textosPago(launch, precios = {}) {
+  const pp = launch?.paginaPago || {};
+  const out = {};
+  for (const c of CAJAS_PAGO) {
+    const x = pp[c.id] || {};
+    out[`pago-${c.id}-titulo`] = x.titulo || c.titulo;
+    out[`pago-${c.id}-precio`] = x.precio || precios[c.id] || '';
+    out[`pago-${c.id}-texto`] = x.texto || '';
+    out[`pago-${c.id}-boton`] = x.boton || c.boton;
+  }
+  return out;
 }
 
 // "lunes 27 de octubre, 19:00" en hora de España.

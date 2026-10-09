@@ -11,7 +11,7 @@ import { verifyToken, signToken, requireRole } from '../lib/auth.js';
 import { marcarActividad } from '../lib/actividad.js';
 import { json, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { signalsFor, withContactId, tagFor } from '../public/js/scoring.js';
-import { phaseAt, barFor, replayBarraDe, ventaBarraDe, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
+import { phaseAt, barFor, replayBarraDe, ventaBarraDe, textosPago, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
 import { videosDe, conVip, nClases, esEnDirecto, sigReplay } from '../public/js/videos.js';
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
@@ -57,6 +57,9 @@ export async function GET(request, ctx) {
       grabacion: withContactId(launch.replayUrl, cid),
       venta: withContactId(launch.raicesUrl, cid),
       pago: withContactId(enlacePago(launch, launch.ventaUrl), cid),
+      // Página de pago (ahí se elige pago único o fraccionado): la de los botones «Quiero inscribirme».
+      // Sin ella, el pago único.
+      'pagina-pago': withContactId(launch.paginaPagoUrl || enlacePago(launch, launch.ventaUrl), cid),
       'pago-fraccionado': withContactId(launch.ventaFraccionadoUrl, cid),
       ...Object.fromEntries(planesActivos(launch).map((p) => [`plan-${p.id}`, withContactId(p.url, cid)])),
       llamada: launch.llamadaUrl || '',
@@ -80,12 +83,16 @@ export async function GET(request, ctx) {
     }
 
     // Página de venta: solo su barra fija (sin llamar a GHL: la visitan muchas a la vez al abrir el carrito).
-    if (url.searchParams.get('pagina') === 'venta') {
-      const vb = ventaBarraDe(launch, links);
+    // La de pago, igual: su barra, los textos y precios de los cajetines y los enlaces.
+    const ligera = url.searchParams.get('pagina');
+    if (ligera === 'venta' || ligera === 'pago') {
+      const vb = ventaBarraDe(ligera === 'pago' ? { ventaBarra: launch.paginaPago?.barra } : launch, links);
       const producto = nombreProducto(config);
       // Enlaces de los botones de la página de venta (pago, llamada, WhatsApp de dudas), con el ID de la lead.
-      const enlacesVenta = Object.fromEntries(['pago', 'pago-fraccionado', 'llamada', 'whatsapp-dudas', 'whatsapp'].map((k) => [k, links[k] || '']));
-      return json({ code, now, preview, links: enlacesVenta, ventaBarra: vb && { ...vb, tramos: vb.tramos.map((t) => ({ ...t, text: conProducto(t.text, producto), boton: t.boton && { ...t.boton, label: conProducto(t.boton.label, producto) } })) } }, 200, CORS_HEADERS);
+      const enlacesVenta = Object.fromEntries(['pagina-pago', 'pago', 'pago-fraccionado', 'llamada', 'whatsapp-dudas', 'whatsapp'].map((k) => [k, links[k] || '']));
+      for (const p of planesActivos(launch)) enlacesVenta[`plan-${p.id}`] = links[`plan-${p.id}`] || '';
+      const texts = Object.fromEntries(Object.entries(textosPago(launch, { unico: euros(launch.precioPrograma), fraccionado: euros(launch.precioFraccionado) })).map(([k, v]) => [k, conProducto(v, producto)]));
+      return json({ code, now, preview, links: enlacesVenta, texts, ventaBarra: vb && { ...vb, tramos: vb.tramos.map((t) => ({ ...t, text: conProducto(t.text, producto), boton: t.boton && { ...t.boton, label: conProducto(t.boton.label, producto) } })) } }, 200, CORS_HEADERS);
     }
 
     // A la hora del directo la preclase solo necesita saber adónde ir: se contesta sin llamar a GHL

@@ -785,13 +785,10 @@
             <div id="cfg-videos"></div>
           </section>
           <section class="cfg-sec" data-sec="4">
-            <header class="cfg-sec-head"><span class="cfg-sec-num">4</span><div><h3>Venta y seguimiento</h3><p>Enlaces de pago y de llamada que reciben las leads después del directo (también en los mensajes de WhatsApp). Las URL de las páginas de venta y de replay están en la pestaña «Páginas».</p></div><span class="cfg-sec-status"></span></header>
+            <header class="cfg-sec-head"><span class="cfg-sec-num">4</span><div><h3>Venta y seguimiento</h3><p>Enlace de llamada que reciben las leads después del directo (también en los mensajes de WhatsApp). La página de pago, sus precios y sus enlaces están en «Páginas → Página de pago»; las páginas de venta y de replay, también en «Páginas».</p></div><span class="cfg-sec-status"></span></header>
             <div class="grid2">
-              <label data-pago="unico" class="field"><span>Enlace de pago único <small>(ThriveCart)</small></span><input id="cfg-venta" type="url" placeholder="https://….thrivecart.com/…"></label>
-              <label data-pago="fr" class="field"><span>Enlace de pago fraccionado <small>(Hotmart)</small></span><input id="cfg-venta-fraccionado" type="url" placeholder="https://pay.hotmart.com/…"></label>
               <label class="field"><span>Enlace para reservar llamada</span><input id="cfg-llamada" type="url"></label>
             </div>
-            <div class="grid2" data-pago-enlaces="cfg"></div>
           </section>
           <section class="cfg-sec" data-sec="4v" data-vip>
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">⭐</span><div><h3>Entrada VIP</h3><p>Se cierra sola a la hora del directo.</p></div><span class="cfg-sec-status"></span></header>
@@ -1059,7 +1056,7 @@
             <fieldset class="rb-cfg">
               <legend>⏳ Barra fija con cuenta atrás (arriba del todo)</legend>
               <label class="chk full"><input type="checkbox" id="cfg-vb-on"> <strong>Activar la barra fija en la página de venta</strong></label>
-              <div data-vb-campo class="vb-cuerpo">
+              <div data-tramos-campo="vb" class="vb-cuerpo">
                 <p class="muted">Pon varios <strong>tramos</strong>: cada uno se ve hasta su fecha y hora, con su texto (<code>{cuenta}</code> = cuenta atrás hasta su fin). Al acabar uno empieza solo el siguiente; tras el último, la barra desaparece. Ej.: «🎁 Último día para llevarte el bonus» hasta que acaba el bonus y luego «⏳ Último día para entrar» hasta el cierre.</p>
                 <div id="cfg-vb-tramos" class="vb-tramos"></div>
                 <div class="vb-acciones">
@@ -1074,6 +1071,57 @@
               <h3 id="venta-pasos-t">🛒 Para saber quién visita la página de venta (y llamarla en «Setting hoy»)</h3>
               <p><strong>1.</strong> Pega este bloque en la página de venta de GHL, en un elemento <strong>«Código personalizado»</strong> (Custom HTML) al <strong>final de la página</strong>, en el pie (no se ve: solo apunta la visita). <strong>2.</strong> En los <strong>emails</strong>, los enlaces a la página de venta deben llevar <code>?cid={{contact.id}}</code> al final: sin eso no se sabe quién la abre. En WhatsApp, igual si usas el enlace con ese campo.</p>
               <div id="venta-pasos-box" class="pasos-box"></div>
+            </section>
+          </section>
+          <section class="cfg-sec" data-sec="pago">
+            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🧾</span><div><h3>Página de pago</h3><p>La página donde se elige pago único o fraccionado: su URL, el tipo de pago y los precios, el copy de cada cajetín con su enlace y su barra de urgencia.</p></div><span class="cfg-sec-status"></span></header>
+            <div class="grid2">
+              <label class="field full"><span>URL de la página de pago <small>(en esta página se elige pago único o fraccionado)</small></span><input id="cfg-pagina-pago" type="url" placeholder="https://…/pago-raices"><small class="muted">Aquí llevan los botones «Quiero inscribirme» de las páginas de replay y de venta (<code>data-lsd-link="pagina-pago"</code>). Vacío = van al enlace de pago único.</small></label>
+            </div>
+            <div class="pago-cfg" data-pago-tipo="cfg"></div>
+            <div class="grid2">
+              <label data-pago="unico" class="field"><span>Precio de Raíces · pago único (€) <small>(ThriveCart)</small></span><input id="cfg-precio-programa" inputmode="decimal" placeholder="997"></label>
+              <label data-pago="fr" class="field"><span>Precio de Raíces · pago fraccionado (€) <small>(Hotmart; total de todos los plazos)</small></span><input id="cfg-precio-fraccionado" inputmode="decimal" placeholder="1.164"></label>
+            </div>
+              <fieldset class="pago-caja" data-pago="unico">
+                <legend>💳 Cajetín · Pago único</legend>
+                <div class="grid2">
+                  <label class="field"><span>Título del cajetín</span><input id="cfg-pp-unico-titulo" maxlength="80" placeholder="Pago único"></label>
+                  <label class="field"><span>Precio a mostrar <small>(vacío = el precio de arriba)</small></span><input id="cfg-pp-unico-precio" maxlength="60" placeholder="997 €"></label>
+                  <label class="field full"><span>Texto del cajetín <small>(lo que incluye, ventajas…)</small></span><textarea id="cfg-pp-unico-texto" rows="3" maxlength="600"></textarea></label>
+                  <label class="field"><span>Texto del botón</span><input id="cfg-pp-unico-boton" maxlength="50" placeholder="Quiero entrar en un solo pago"></label>
+                  <label data-pago="unico" class="field"><span>Enlace de pago único <small>(ThriveCart)</small></span><input id="cfg-venta" type="url" placeholder="https://….thrivecart.com/…"></label>
+                </div>
+              </fieldset>
+              <fieldset class="pago-caja" data-pago="fr">
+                <legend>🗓️ Cajetín · Pago fraccionado</legend>
+                <div class="grid2">
+                  <label class="field"><span>Título del cajetín</span><input id="cfg-pp-fr-titulo" maxlength="80" placeholder="Pago fraccionado"></label>
+                  <label class="field"><span>Precio a mostrar <small>(vacío = el precio de arriba)</small></span><input id="cfg-pp-fr-precio" maxlength="60" placeholder="3 pagos de 388 €"></label>
+                  <label class="field full"><span>Texto del cajetín <small>(lo que incluye, ventajas…)</small></span><textarea id="cfg-pp-fr-texto" rows="3" maxlength="600"></textarea></label>
+                  <label class="field"><span>Texto del botón</span><input id="cfg-pp-fr-boton" maxlength="50" placeholder="Prefiero pagar a plazos"></label>
+                  <label data-pago="fr" class="field"><span>Enlace de pago fraccionado <small>(Hotmart)</small></span><input id="cfg-venta-fraccionado" type="url" placeholder="https://pay.hotmart.com/…"></label>
+                </div>
+              </fieldset>
+            <div class="grid2" data-pago-enlaces="cfg"></div>
+            <fieldset class="rb-cfg">
+              <legend>⏳ Barra fija con cuenta atrás (arriba del todo)</legend>
+              <label class="chk full"><input type="checkbox" id="cfg-pb-on"> <strong>Activar la barra fija en la página de pago</strong></label>
+              <div data-tramos-campo="pb" class="vb-cuerpo">
+                <p class="muted">Igual que la de la página de venta: varios <strong>tramos</strong>, cada uno con su texto (<code>{cuenta}</code> = cuenta atrás hasta su fin) y si lleva botón. Al acabar uno empieza el siguiente.</p>
+                <div id="cfg-pb-tramos" class="vb-tramos"></div>
+                <div class="vb-acciones">
+                  <button type="button" class="btn" id="cfg-pb-add">+ Añadir tramo</button>
+                  <button type="button" class="btn" id="cfg-pb-bonus">✨ Rellenar con los bonus de «Oferta» y el cierre</button>
+                  <label class="field vb-color"><span>Color</span><input id="cfg-pb-color" type="color" value="#860d0e"></label>
+                </div>
+                <div id="cfg-pb-resumen" class="field-note"></div>
+              </div>
+            </fieldset>
+            <section class="enlace-directo" aria-labelledby="pago-pasos-t">
+              <h3 id="pago-pasos-t">🧾 Qué poner en la página de pago de GHL (y dónde)</h3>
+              <p>Cada código en un elemento <strong>«Código personalizado»</strong>. Los textos, precios y enlaces salen de aquí: si los cambias, la página se actualiza sola.</p>
+              <div id="pago-pasos-box" class="pasos-box"></div>
             </section>
           </section>
           <section class="cfg-sec" data-sec="4">
@@ -1106,14 +1154,7 @@
         <section class="tab-panel" data-panel="oferta" hidden>
           <p class="muted">Lo que se vende en este lanzamiento: el precio, lo que incluye el programa (entregables) y los bonus. Se cruza con las ventas de cada día del carrito en <strong>Métricas → Oferta y bonus</strong>, para ver qué bonus empujan la venta.</p>
           <div id="of-resumen" class="of-resumen"></div>
-          <section class="cfg-sec">
-            <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">💶</span><div><h3>Precio</h3><p>Tipo de pago y precios: para la facturación, el ROAS y el valor de la oferta.</p></div></header>
-            <div class="pago-cfg" data-pago-tipo="cfg"></div>
-            <div class="grid2">
-              <label data-pago="unico" class="field"><span>Precio de Raíces · pago único (€) <small>(ThriveCart)</small></span><input id="cfg-precio-programa" inputmode="decimal" placeholder="997"></label>
-              <label data-pago="fr" class="field"><span>Precio de Raíces · pago fraccionado (€) <small>(Hotmart; total de todos los plazos)</small></span><input id="cfg-precio-fraccionado" inputmode="decimal" placeholder="1.164"></label>
-            </div>
-          </section>
+          <p class="muted small">💶 El tipo de pago y los precios están en <strong>Páginas → Página de pago</strong>.</p>
           <section class="cfg-sec">
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico">📦</span><div><h3>Entregables</h3><p>Lo que incluye el programa. El valor (opcional) suma al valor total de la oferta.</p></div></header>
             <div id="of-entregables" class="of-lista"></div>

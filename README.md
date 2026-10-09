@@ -613,6 +613,10 @@ npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)
 
 En todas las barras (las de cada fase en *Configuración → Preclase → Barra de urgencia* y la barra fija de la página de replay) se elige **«¿Lleva botón?»**: *Sí, con botón* (adónde lleva y su texto) o *No, solo texto* (solo informativa, para crear urgencia).
 
+### 🧾 Página de pago (Configuración → Páginas)
+
+La página donde se elige pago único o fraccionado. Aquí está todo lo del pago (salió de «Lanzamiento» y «Oferta»): la **URL de la página de pago** (adonde llevan los botones «Quiero inscribirme» de las páginas de replay y de venta, `data-lsd-link="pagina-pago"`; vacía = el pago único), el **tipo de pago y los precios**, un **cajetín por forma de pago** (título, precio a mostrar, texto, texto del botón y su enlace de pago) y su **barra fija por tramos** (como la de la página de venta). En GHL: el bloque base `<div data-lsd-pago data-launch="auto"></div>` + script en el pie, y en cada cajetín `data-lsd-caja="unico|fraccionado"` con `data-lsd-text="pago-unico-titulo|precio|texto|boton"` y el botón `data-lsd-link="pago"` / `"pago-fraccionado"` (los códigos, en esa misma sección). Sin enlace fraccionado, su cajetín se oculta.
+
 ### 💬 WhatsApp para dudas (páginas de venta y de replay)
 
 En *Configuración → Páginas → Página de venta → WhatsApp para resolver dudas* va el enlace que abre la conversación (`https://wa.me/34600000000?text=…`). Lo usan los botones `<a data-lsd-link="whatsapp-dudas">` de las páginas de venta y de replay (se abren en otra pestaña; sin enlace, se ocultan). En *Códigos* está el **botón flotante** (abajo a la derecha, fijo al hacer scroll; en móvil solo el icono), también en `bloques-ghl/whatsapp-flotante.html`. En la página de venta, el bloque VENTA pone además los enlaces de `pago`, `pago-fraccionado` y `llamada` con el ID de la lead.

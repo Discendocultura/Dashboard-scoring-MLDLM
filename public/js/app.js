@@ -4,7 +4,7 @@ import {
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
-import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch } from './page.js';
+import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch, CAJAS_PAGO } from './page.js';
 import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, escenarios, proyectar, noLlega, resumenLanzamiento, prevision } from './calculadora.js';
 import { rendimientoEquipo } from './rendimiento.js';
@@ -2685,9 +2685,12 @@ function pintarVentaPasos() {
       : '<p class="enlace-directo-falta"><strong>2 ·</strong> Pon arriba la <strong>URL de la página de venta</strong> y aquí aparecerá el enlace para los emails (con <code>?cid={{contact.id}}</code>).</p>');
 }
 $('#cfg-raices').addEventListener('input', pintarVentaPasos);
-// ---------- Barra fija de la página de venta: tramos seguidos (texto, fin, con o sin botón) ----------
-const VB_DESTINOS = ['pago', 'pago-fraccionado', 'llamada', 'whatsapp', 'venta'];
-function vbTramoHtml(t = {}) {
+// ---------- Barras fijas por tramos (páginas de venta y de pago): texto, fin y con o sin botón ----------
+// Cada tramo se ve hasta su fecha y al acabar empieza el siguiente. `pre`: «vb» (venta) o «pb» (pago);
+// sus casillas son #cfg-<pre>-on, -color, -tramos, -add, -bonus y -resumen.
+const VB_DESTINOS = ['pagina-pago', 'pago', 'pago-fraccionado', 'llamada', 'whatsapp-dudas', 'whatsapp', 'venta'];
+const DESTINO_DEF = { vb: 'pagina-pago', pb: 'whatsapp-dudas' };
+function vbTramoHtml(t = {}, pre = 'vb') {
   const con = Boolean(t.conBoton);
   const destinos = [...new Set([...VB_DESTINOS, ...Object.keys(LINK_KEYS).filter((k) => k)])];
   return `<div class="vb-tramo ${con ? '' : 'sin-boton'}">
@@ -2695,49 +2698,46 @@ function vbTramoHtml(t = {}) {
     <label class="field vb-texto"><span>Texto <small>({cuenta} = cuenta atrás)</small></span><input class="vb-t" maxlength="200" value="${esc(t.texto || '')}" placeholder="⏳ Último día para entrar · Cierra en {cuenta}"></label>
     <label class="field"><span>Se ve hasta <small>(y ahí acaba su cuenta)</small></span><input class="vb-hasta" type="datetime-local" value="${esc(t.hasta || '')}"></label>
     <label class="field"><span>¿Lleva botón?</span><select class="vb-con"><option value="no" ${con ? '' : 'selected'}>No, solo texto</option><option value="si" ${con ? 'selected' : ''}>Sí, con botón</option></select></label>
-    <label class="field" data-vb-boton><span>Adónde lleva</span><select class="vb-destino">${destinos.map((k) => `<option value="${k}" ${k === (t.destino || 'pago') ? 'selected' : ''}>${esc(LINK_KEYS[k])}</option>`).join('')}</select></label>
+    <label class="field" data-vb-boton><span>Adónde lleva</span><select class="vb-destino">${destinos.map((k) => `<option value="${k}" ${k === (t.destino || DESTINO_DEF[pre]) ? 'selected' : ''}>${esc(LINK_KEYS[k])}</option>`).join('')}</select></label>
     <label class="field" data-vb-boton><span>Texto del botón</span><input class="vb-boton" maxlength="40" value="${esc(t.boton || '')}" placeholder="Quiero entrar"></label>
     <button type="button" class="btn ghost vb-del" aria-label="Quitar tramo" title="Quitar tramo">✕</button>
   </div>`;
 }
-const leerVentaBarra = () => ({
-  activa: $('#cfg-vb-on').checked, color: $('#cfg-vb-color').value,
-  tramos: $$('#cfg-vb-tramos .vb-tramo').map((r) => ({
+const leerBarraTramos = (pre) => ({
+  activa: $(`#cfg-${pre}-on`).checked, color: $(`#cfg-${pre}-color`).value,
+  tramos: $$(`#cfg-${pre}-tramos .vb-tramo`).map((r) => ({
     texto: $('.vb-t', r).value.trim(), hasta: $('.vb-hasta', r).value, conBoton: $('.vb-con', r).value === 'si',
     destino: $('.vb-destino', r).value, boton: $('.vb-boton', r).value.trim(),
   })).filter((t) => t.texto || t.hasta),
 });
-function pintarVentaBarra(vb = {}) {
-  $('#cfg-vb-on').checked = Boolean(vb.activa);
-  $('#cfg-vb-color').value = vb.color || '#860d0e';
-  $('#cfg-vb-tramos').innerHTML = (vb.tramos?.length ? vb.tramos : [{}]).map(vbTramoHtml).join('');
-  resumenVentaBarra();
+function pintarBarraTramos(pre, vb = {}) {
+  $(`#cfg-${pre}-on`).checked = Boolean(vb.activa);
+  $(`#cfg-${pre}-color`).value = vb.color || '#860d0e';
+  $(`#cfg-${pre}-tramos`).innerHTML = (vb.tramos?.length ? vb.tramos : [{}]).map((t) => vbTramoHtml(t, pre)).join('');
+  resumenBarraTramos(pre);
 }
 // Cómo se verá: cada tramo, de cuándo a cuándo, en orden.
-function resumenVentaBarra() {
-  $$('#config-dialog [data-vb-campo]').forEach((el) => { el.hidden = !$('#cfg-vb-on').checked; });
-  $$('#cfg-vb-tramos .vb-tramo').forEach((r, i) => {
+function resumenBarraTramos(pre) {
+  const on = $(`#cfg-${pre}-on`).checked;
+  $$(`#config-dialog [data-tramos-campo="${pre}"]`).forEach((el) => { el.hidden = !on; });
+  $$(`#cfg-${pre}-tramos .vb-tramo`).forEach((r, i) => {
     $('.vb-n', r).textContent = `${i + 1}`;
     r.classList.toggle('sin-boton', $('.vb-con', r).value !== 'si');
   });
-  const tramos = leerVentaBarra().tramos.filter((t) => t.hasta).sort((a, b) => a.hasta.localeCompare(b.hasta));
-  const sinFecha = leerVentaBarra().tramos.some((t) => !t.hasta);
-  $('#cfg-vb-resumen').innerHTML = !$('#cfg-vb-on').checked ? '' : !tramos.length
+  const todos = leerBarraTramos(pre).tramos;
+  const tramos = todos.filter((t) => t.hasta).sort((a, b) => a.hasta.localeCompare(b.hasta));
+  $(`#cfg-${pre}-resumen`).innerHTML = !on ? '' : !tramos.length
     ? '⚠️ Pon al menos un tramo con su fecha y hora: sin ella la barra no sale.'
-    : `<strong>Así se verá</strong> (los tramos se ordenan solos por fecha):<ol>${tramos.map((t, i) => `<li>${i ? `Desde el ${esc(formatLong(madridToEpoch(tramos[i - 1].hasta)))}` : 'Desde que abres la página'} hasta el <strong>${esc(formatLong(madridToEpoch(t.hasta)))}</strong>: «${esc(t.texto || '⏳ Quedan {cuenta}')}»${t.conBoton ? ` + botón «${esc(t.boton || 'Quiero entrar')}» → ${esc(LINK_KEYS[t.destino] || '')}` : ' · solo texto'}</li>`).join('')}</ol>Después, la barra desaparece.${sinFecha ? '<br>⚠️ Hay tramos sin fecha: no saldrán.' : ''}`;
+    : `<strong>Así se verá</strong> (los tramos se ordenan solos por fecha):<ol>${tramos.map((t, i) => `<li>${i ? `Desde el ${esc(formatLong(madridToEpoch(tramos[i - 1].hasta)))}` : 'Desde que abres la página'} hasta el <strong>${esc(formatLong(madridToEpoch(t.hasta)))}</strong>: «${esc(t.texto || '⏳ Quedan {cuenta}')}»${t.conBoton ? ` + botón «${esc(t.boton || 'Quiero entrar')}» → ${esc(LINK_KEYS[t.destino] || '')}` : ' · solo texto'}</li>`).join('')}</ol>Después, la barra desaparece.${todos.some((t) => !t.hasta) ? '<br>⚠️ Hay tramos sin fecha: no saldrán.' : ''}`;
 }
-$('#cfg-vb-add').addEventListener('click', () => { $('#cfg-vb-tramos').insertAdjacentHTML('beforeend', vbTramoHtml()); resumenVentaBarra(); });
-$('#cfg-vb-tramos').addEventListener('click', (e) => { if (e.target.closest('.vb-del')) { e.target.closest('.vb-tramo').remove(); resumenVentaBarra(); } });
-['input', 'change'].forEach((ev) => $('#cfg-vb-tramos').addEventListener(ev, resumenVentaBarra));
-$('#cfg-vb-on').addEventListener('change', resumenVentaBarra);
-// Rellena los tramos con el fin de cada bonus de «Oferta» y el cierre del carrito (con las fechas del formulario).
+// Tramos con el fin de cada bonus de «Oferta» y el cierre del carrito (con las fechas del formulario).
 const madridLocalFmt = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 const aLocal = (ms) => madridLocalFmt.format(new Date(ms)).replace(' ', 'T');
-$('#cfg-vb-bonus').addEventListener('click', () => {
+function tramosDeBonus(pre) {
   const base = editingCode ? state.config.launches[editingCode] : {};
   const l = { ...base, aperturaCarrito: $('#cfg-apertura-carrito').value, cierreCarrito: $('#cfg-cierre').value, fechaDirecto: $('#cfg-directo-fecha').value, horaDirecto: $('#cfg-directo-hora').value, oferta: leerOfertaEditor() };
   const cierre = madridToEpoch(l.cierreCarrito);
-  if (cierre == null) { window.alert('Pon antes el cierre del carrito (pestaña «Lanzamiento»).'); return; }
+  if (cierre == null) { window.alert('Pon antes los días de carrito o el cierre del carrito.'); return null; }
   // Bonus que acaban antes del cierre, agrupados por su fin.
   const fines = new Map();
   for (const b of l.oferta?.bonus || []) {
@@ -2745,20 +2745,54 @@ $('#cfg-vb-bonus').addEventListener('click', () => {
     if (hasta != null && hasta < cierre && hasta > Date.now() - 86_400_000) fines.set(hasta, [...(fines.get(hasta) || []), b.nombre]);
   }
   const DIA = 86_400_000;
+  const destino = pre === 'pb' ? 'whatsapp-dudas' : 'pagina-pago';
+  const boton = pre === 'pb' ? '¿Dudas? Escríbenos' : 'Quiero entrar';
   let previo = madridToEpoch(l.aperturaCarrito) ?? null;
   const tramos = [...fines.keys()].sort((a, b) => a - b).map((hasta) => {
     const nombres = fines.get(hasta).map((n) => `«${n}»`);
     const lista = nombres.length > 1 ? `los bonus ${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}` : `el bonus ${nombres[0]}`;
     const ultimo = previo != null && hasta - previo <= DIA;
     previo = hasta;
-    return { texto: ultimo ? `🎁 Último día para llevarte ${lista} · Acaba en {cuenta}` : `🎁 Llévate ${lista} · Acaba en {cuenta}`, hasta: aLocal(hasta), conBoton: true, destino: 'pago', boton: 'Quiero entrar' };
+    return { texto: ultimo ? `🎁 Último día para llevarte ${lista} · Acaba en {cuenta}` : `🎁 Llévate ${lista} · Acaba en {cuenta}`, hasta: aLocal(hasta), conBoton: pre !== 'pb', destino, boton };
   });
-  tramos.push({ texto: previo != null && cierre - previo <= DIA ? '⏳ Último día para entrar · Las puertas se cierran en {cuenta}' : '🔒 Las puertas se cierran en {cuenta}', hasta: aLocal(cierre), conBoton: true, destino: 'pago', boton: 'Quiero entrar' });
-  if (leerVentaBarra().tramos.length && !window.confirm('Se cambiarán los tramos que hay ahora por los de los bonus y el cierre. ¿Seguimos?')) return;
-  $('#cfg-vb-on').checked = true;
-  $('#cfg-vb-tramos').innerHTML = tramos.map(vbTramoHtml).join('');
-  resumenVentaBarra();
+  tramos.push({ texto: previo != null && cierre - previo <= DIA ? '⏳ Último día para entrar · Las puertas se cierran en {cuenta}' : '🔒 Las puertas se cierran en {cuenta}', hasta: aLocal(cierre), conBoton: pre !== 'pb', destino, boton });
+  return tramos;
+}
+for (const pre of ['vb', 'pb']) {
+  $(`#cfg-${pre}-add`).addEventListener('click', () => { $(`#cfg-${pre}-tramos`).insertAdjacentHTML('beforeend', vbTramoHtml({}, pre)); resumenBarraTramos(pre); });
+  $(`#cfg-${pre}-tramos`).addEventListener('click', (e) => { if (e.target.closest('.vb-del')) { e.target.closest('.vb-tramo').remove(); resumenBarraTramos(pre); } });
+  ['input', 'change'].forEach((ev) => $(`#cfg-${pre}-tramos`).addEventListener(ev, () => resumenBarraTramos(pre)));
+  $(`#cfg-${pre}-on`).addEventListener('change', () => resumenBarraTramos(pre));
+  $(`#cfg-${pre}-bonus`).addEventListener('click', () => {
+    const tramos = tramosDeBonus(pre);
+    if (!tramos) return;
+    if (leerBarraTramos(pre).tramos.length && !window.confirm('Se cambiarán los tramos que hay ahora por los de los bonus y el cierre. ¿Seguimos?')) return;
+    $(`#cfg-${pre}-on`).checked = true;
+    $(`#cfg-${pre}-tramos`).innerHTML = tramos.map((t) => vbTramoHtml(t, pre)).join('');
+    resumenBarraTramos(pre);
+  });
+}
+// Página de pago: el copy de cada cajetín (pago único y fraccionado) y su barra por tramos.
+function pintarPaginaPago(pp = {}) {
+  for (const c of CAJAS_PAGO) for (const f of ['titulo', 'precio', 'texto', 'boton']) $(`#cfg-pp-${c.dom}-${f}`).value = pp[c.id]?.[f] || '';
+  pintarBarraTramos('pb', pp.barra);
+  pintarPagoPasos();
+}
+const leerPaginaPago = () => ({
+  ...Object.fromEntries(CAJAS_PAGO.map((c) => [c.id, Object.fromEntries(['titulo', 'precio', 'texto', 'boton'].map((f) => [f, $(`#cfg-pp-${c.dom}-${f}`).value.trim()]))])),
+  barra: leerBarraTramos('pb'),
 });
+function pintarPagoPasos() {
+  const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
+  const caja = (c) => `<div data-lsd-caja="${c.id}">\n  <h3 data-lsd-text="pago-${c.id}-titulo">${c.titulo}</h3>\n  <p data-lsd-text="pago-${c.id}-precio"></p>\n  <p data-lsd-text="pago-${c.id}-texto"></p>\n  <a data-lsd-link="${c.link}"><span data-lsd-text="pago-${c.id}-boton">${c.boton}</span></a>\n</div>`;
+  $('#pago-pasos-box').innerHTML = filaCopiar('1 · Bloque base', `<div data-lsd-pago data-launch="auto"></div>\n${script}`,
+    '📍 <strong>Dónde:</strong> en el pie de la página (o en Ajustes → Código de seguimiento → Footer). No se ve: pinta la barra fija, los textos, precios y enlaces de los cajetines.')
+    + CAJAS_PAGO.map((c, i) => filaCopiar(`${i + 2} · Cajetín ${c.titulo.toLowerCase()}`, caja(c),
+      `📍 <strong>Dónde:</strong> donde quieras el cajetín. Dale el diseño que quieras: solo mantén los atributos <code>data-lsd-…</code> (título, precio, texto y botón salen de aquí). ${c.id === 'fraccionado' ? 'Sin enlace de pago fraccionado, el cajetín se oculta solo.' : ''}`)).join('')
+    + filaCopiar('4 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «Página de venta».');
+}
+const leerVentaBarra = () => leerBarraTramos('vb');
+const pintarVentaBarra = (vb) => pintarBarraTramos('vb', vb);
 
 // Barra fija de la página de replay: sus campos solo si está activa; fecha u minutos según el modo.
 function pintarReplayBarraCfg() {
@@ -2833,6 +2867,9 @@ function openConfig(code) {
       ...(last.replayBarra ? { replayBarra: { ...last.replayBarra, at: '' } } : {}),
       diasCarrito: last.diasCarrito,
       whatsappDudasUrl: last.whatsappDudasUrl,
+      paginaPagoUrl: last.paginaPagoUrl,
+      // La página de pago se hereda con su copy; su barra, sin fechas.
+      ...(last.paginaPago ? { paginaPago: { ...last.paginaPago, barra: { ...(last.paginaPago.barra || {}), tramos: (last.paginaPago.barra?.tramos || []).map((t) => ({ ...t, hasta: '' })) } } } : {}),
       // La barra de la página de venta se hereda con sus textos y botones, sin fechas.
       ...(last.ventaBarra?.tramos?.length ? { ventaBarra: { ...last.ventaBarra, tramos: last.ventaBarra.tramos.map((t) => ({ ...t, hasta: '' })) } } : {}),
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
@@ -2884,6 +2921,7 @@ function openConfig(code) {
   $('#cfg-wa-dudas').value = l.whatsappDudasUrl || '';
   pintarWaDudas();
   $('#cfg-venta').value = l.ventaUrl || '';
+  $('#cfg-pagina-pago').value = l.paginaPagoUrl || '';
   $('#cfg-venta-fraccionado').value = l.ventaFraccionadoUrl || '';
   $('#cfg-llamada').value = l.llamadaUrl || '';
   $('#cfg-precio-vip').value = l.precioVip || '';
@@ -2911,6 +2949,7 @@ function openConfig(code) {
   pintarEnlaceDirecto();
   pintarVentaPasos();
   pintarVentaBarra(l.ventaBarra);
+  pintarPaginaPago(l.paginaPago);
   carritoNotasEdit = { ...(l.carritoNotas || {}) };
   carritoEnviosEdit = JSON.parse(JSON.stringify(l.carritoEnvios || {}));
   $('#carrito-dias').innerHTML = '';
@@ -3312,6 +3351,7 @@ function readForm() {
       raicesUrl: $('#cfg-raices').value.trim(),
       whatsappDudasUrl: $('#cfg-wa-dudas').value.trim(),
       ventaUrl: $('#cfg-venta').value.trim(),
+      paginaPagoUrl: $('#cfg-pagina-pago').value.trim(),
       ventaFraccionadoUrl: $('#cfg-venta-fraccionado').value.trim(),
       llamadaUrl: $('#cfg-llamada').value.trim(),
       precioVip: $('#cfg-precio-vip').value,
@@ -3329,6 +3369,7 @@ function readForm() {
       recursosPre: leerRecursosCfg(),
       espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim() },
       ventaBarra: leerVentaBarra(),
+      paginaPago: leerPaginaPago(),
       carritoNotas: leerCarritoNotas(),
       carritoEnvios: leerCarritoEnvios(),
       replayBarra: {
@@ -3769,6 +3810,8 @@ function renderSnippets() {
     ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
     ['VENTA · página de venta de Raíces: al final de la página, en el pie (apunta quién la visita para «Setting hoy» y pinta la barra fija si está activa en Páginas; los enlaces a esta página en los emails, con ?cid={{contact.id}})', `<div data-lsd-venta data-launch="auto"></div>\n${script}`],
     ['WHATSAPP · botón flotante abajo a la derecha (páginas de venta y de replay; abre el WhatsApp de dudas de Páginas → Página de venta)', WA_FLOTANTE],
+    ['PAGO · bloque base de la página de pago (en el pie: barra fija, textos, precios y enlaces de los cajetines; el resto, en Páginas → Página de pago)', `<div data-lsd-pago data-launch="auto"></div>\n${script}`],
+    ['INSCRIBIRME · botón a la página de pago (páginas de venta y de replay; la URL va en Lanzamiento → Página de pago)', '<a data-lsd-link="pagina-pago">Quiero inscribirme en Raíces</a>'],
     ['WHATSAPP · botón para una sección (sin estilo: dale el tuyo)', '<a data-lsd-link="whatsapp-dudas">Escríbenos por WhatsApp</a>'],
     ['GRABACIÓN · bloques de la página del replay (el 1º y la barra arriba del todo; el de vídeo, donde quieras que se vea; el paso a paso, en Páginas → Página de replay)', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],

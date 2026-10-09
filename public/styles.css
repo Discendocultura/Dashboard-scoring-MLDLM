@@ -2119,3 +2119,6 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 /* Calendario: envíos del carrito (emails, WhatsApp): se ven, pero sin el peso de los hitos */
 .cal-chip.k-hito.h-suave, .cal-chip.k-hito.h-suave:not(.other) { background: transparent; color: var(--text-2); font-weight: 500; border: 1px solid var(--border); }
 .cal-chip.k-hito.h-suave .cc-time { color: var(--muted); }
+/* Página de pago: cajetines de pago único y fraccionado */
+.pago-caja { margin: 12px 0 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
+.pago-caja legend { font-weight: 700; padding: 0 6px; }

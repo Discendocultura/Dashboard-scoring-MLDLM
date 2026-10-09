@@ -304,10 +304,16 @@ test('página de venta: barra fija por tramos (sin GHL) y fin de cada bonus en e
   assert.equal(p.videos, undefined); // respuesta ligera
   // Botones de la página de venta: pago con el ID de la lead; el WhatsApp de dudas, tal cual; sin llamada configurada, vacío
   assert.equal(p.links.pago, 'https://pay.com/raices?cid=mock00001');
+  assert.equal(p.links['pagina-pago'], 'https://pay.com/raices?cid=mock00001'); // sin página de pago: el pago único
   assert.equal(p.links['whatsapp-dudas'], 'https://wa.me/34600000000?text=Hola');
   assert.equal(p.links.llamada, '');
   // Y en la página de replay, también
   assert.equal((await call('/api/page?l=ven-26&pagina=grabacion&cid=mock00001')).data.links['whatsapp-dudas'], 'https://wa.me/34600000000?text=Hola');
+  // Con página de pago, los botones «Quiero inscribirme» van ahí (con el ID de la lead)
+  const { data: c2 } = await call('/api/config', { cookie: admin });
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...c2.config, _version: c2.version, launches: { ...c2.config.launches, 'ven-26': { ...c2.config.launches['ven-26'], paginaPagoUrl: 'https://ghl.com/pago-raices' } } } });
+  assert.equal((await call('/api/page?l=ven-26&pagina=venta&cid=mock00001')).data.links['pagina-pago'], 'https://ghl.com/pago-raices?cid=mock00001');
+  assert.equal((await call('/api/page?l=ven-26&pagina=grabacion&cid=mock00001')).data.links['pagina-pago'], 'https://ghl.com/pago-raices?cid=mock00001');
   // Calendario: el BAR 48 h acaba dos días después de abrir el carrito (el bonus de todo el carrito ya lo dice el cierre)
   const { hitosLanzamiento } = await import('../public/js/calendario.js');
   const h = hitosLanzamiento((await call('/api/config', { cookie: admin })).data.config.launches['ven-26']).filter((x) => x.id.startsWith('bonus-'));
@@ -315,4 +321,32 @@ test('página de venta: barra fija por tramos (sin GHL) y fin de cada bonus en e
   assert.equal(h[0].day, local(1));
   assert.equal(h[0].time, '21:00');
   assert.match(h[0].titulo, /^Último día · Bonus de acción rápida 48 h: Guía del ciclo/);
+});
+
+test('página de pago: copy y precios de los cajetines, enlaces y barra por tramos (sin GHL)', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const { data: c } = await call('/api/config', { cookie: admin });
+  const launch = {
+    name: 'Pago', registroTag: 'registro-webinar-demo', inicioCaptacion: local(-10), fechaDirecto: local(-1), horaDirecto: '19:00', cierreCarrito: `${local(4)}T23:59`,
+    ventaUrl: 'https://pay.com/unico', ventaFraccionadoUrl: 'https://pay.com/plazos', precioPrograma: 997, precioFraccionado: 1164,
+    paginaPago: {
+      unico: { titulo: 'Un solo pago', texto: 'Acceso completo a {producto}', boton: '' },
+      fraccionado: { precio: '3 pagos de 388 €' },
+      barra: { activa: true, tramos: [{ texto: 'Último día · {cuenta}', hasta: `${local(4)}T23:59`, conBoton: true, destino: 'whatsapp-dudas', boton: 'Dudas' }] },
+    },
+  };
+  assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { ...c.config, _version: c.version, launches: { ...c.config.launches, 'pag-26': launch } } })).status, 200);
+  const p = (await call('/api/page?l=pag-26&pagina=pago&cid=mock00001')).data;
+  assert.equal(p.texts['pago-unico-titulo'], 'Un solo pago');
+  assert.equal(p.texts['pago-unico-precio'], '997 €');
+  assert.match(p.texts['pago-unico-texto'], /^Acceso completo a /);
+  assert.equal(p.texts['pago-unico-boton'], 'Quiero entrar en un solo pago');
+  assert.equal(p.texts['pago-fraccionado-titulo'], 'Pago fraccionado');
+  assert.equal(p.texts['pago-fraccionado-precio'], '3 pagos de 388 €');
+  assert.equal(p.links.pago, 'https://pay.com/unico?cid=mock00001');
+  assert.equal(p.links['pago-fraccionado'], 'https://pay.com/plazos?cid=mock00001');
+  assert.equal(p.ventaBarra.tramos.length, 1);
+  assert.equal(p.ventaBarra.tramos[0].boton, null); // sin WhatsApp de dudas configurado, el botón no sale
+  // La página de venta sigue con su propia barra (aquí, ninguna)
+  assert.equal((await call('/api/page?l=pag-26&pagina=venta')).data.ventaBarra, null);
 });
