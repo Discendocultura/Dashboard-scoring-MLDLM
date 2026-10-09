@@ -6,6 +6,8 @@
 import { madridToEpoch } from './page.js';
 import { conFraccionado, esSuscripcion, importeVenta, planDeTags, resumenPlanes, pendientesPago, enlacePago, planesActivos } from './pago.js';
 import { addDays } from './tareas.js';
+import { ventanaBonusMeteo } from './oferta-meteo.js';
+import { hitosBonus } from './calendario.js';
 import { dayOfDateField } from './scoring.js';
 
 const DAY = 86_400_000;
@@ -101,6 +103,8 @@ export function hitosMeteorico(m) {
   if (m.calentamiento) out.push({ id: 'calentamiento', icon: '🔥', day: m.calentamiento, time: '', titulo: 'Empieza el calentamiento' });
   if (m.apertura) out.push({ id: 'apertura', icon: '⚡', day: dia(m.apertura), time: String(m.apertura).slice(11, 16), titulo: 'Abre la oferta' });
   if (m.cierre) out.push({ id: 'cierre', icon: '🔒', day: dia(m.cierre), time: String(m.cierre).slice(11, 16), titulo: 'Cierra la oferta' });
+  // Último día de cada bonus (los BAR de 30 min, 1 h, 24 h…), según lo configurado en la oferta.
+  out.push(...hitosBonus((m.paquete?.bonus || []).map((b) => ({ ...b, ...ventanaBonusMeteo(b, m) })), madridToEpoch(m.cierre)));
   return out;
 }
 

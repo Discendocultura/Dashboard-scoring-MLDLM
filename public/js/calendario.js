@@ -3,6 +3,7 @@
 import { madridToEpoch } from './page.js';
 import { addDays } from './tareas.js';
 import { videosDe, esEnDirecto, nClases } from './videos.js';
+import { ventanaBonus, tipoBonus, momentosCarrito } from './oferta.js';
 
 // Tipos de evento propio (los añade la admin a mano).
 export const EVENTO_TIPOS = [
@@ -40,7 +41,28 @@ export function hitosLanzamiento(launch = {}) {
     ...(unico ? [{ id: 'replay', titulo: 'Grabación disponible', icon: '📼', at: replay }] : []),
     { id: 'cierre', titulo: 'Cierre del carrito', icon: '🔒', at: launch.cierreCarrito },
   ];
-  return list.filter((h) => /^\d{4}-\d{2}-\d{2}/.test(h.at || '')).map((h) => ({ ...h, day: day(h.at), time: time(h.at) }));
+  return [...list.filter((h) => /^\d{4}-\d{2}-\d{2}/.test(h.at || '')).map((h) => ({ ...h, day: day(h.at), time: time(h.at) })),
+    ...hitosBonus((launch.oferta?.bonus || []).map((b) => ({ ...b, ...ventanaBonus(b, launch) })), momentosCarrito(launch).cierre)];
+}
+
+// Último día de cada bonus de la oferta (lanzamientos y meteóricos): un hito el día en que acaba, para que
+// el equipo sepa qué pasa ese día. `bonus`: [{ id, tipo, nombre, hasta (epoch ms) }]. El que acaba con el
+// cierre ya lo dice el hito del cierre. Si acaba a las 00:00, su último día es el anterior (hasta las 23:59).
+const madridLocal = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const local = (ms) => madridLocal.format(new Date(ms)).replace(' ', 'T');
+export function hitosBonus(bonus, cierre = null) {
+  return bonus.filter((b) => b.hasta != null && b.hasta !== cierre).map((b) => {
+    const t = local(b.hasta);
+    const medianoche = t.endsWith('T00:00');
+    const ultimo = medianoche ? local(b.hasta - 60_000) : t;
+    const tipo = tipoBonus(b.tipo);
+    // Los de menos de un día (BAR en directo, 1 h…) no tienen «último día»: acaban a una hora.
+    const corto = b.desde != null && b.hasta - b.desde < 24 * 3_600_000;
+    return {
+      id: `bonus-${b.id}`, icon: '⏳', titulo: `${corto ? 'Acaba el' : 'Último día ·'} ${tipo.largo || tipo.label}: ${b.nombre} (acaba a las ${medianoche ? '23:59' : t.slice(11)})`,
+      at: ultimo, day: day(ultimo), time: medianoche ? '' : t.slice(11),
+    };
+  });
 }
 
 // Franjas de fase (de día a día, ambos incluidos) para sombrear el calendario.

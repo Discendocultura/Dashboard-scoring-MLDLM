@@ -918,18 +918,46 @@
     esperaTimer = setInterval(tick, 500);
   }
 
-  // Página de replay: barra fija arriba con su cuenta atrás (configurada en el dashboard). Al llegar a cero
-  // lleva a la página de venta. Va hasta una fecha y hora fija o dura X minutos desde que la lead abrió la
-  // grabación (se recuerda en el navegador: recargar no la reinicia). Sustituye a las barras <div data-lsd-bar>.
-  var rbTimer = null;
+  // Barra fija arriba del todo (páginas de replay y de venta), configurada en el dashboard:
+  // bar = { text (con {cuenta}), fin (ms), boton: { label, href } | null, color }. Al llegar a cero, alCero(el).
+  // Sustituye a las barras <div data-lsd-bar> de la página. Sin bar, se quita.
+  var bfTimer = null;
+  function barraFija(bar, alCero) {
+    var el = document.getElementById('lsd-rb');
+    clearInterval(bfTimer);
+    if (!bar) {
+      if (el) { el.parentNode.removeChild(el); document.body.style.paddingTop = ''; }
+      return null;
+    }
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'lsd-rb';
+      el.className = 'lsd-rb';
+      el.setAttribute('role', 'region');
+      el.setAttribute('aria-label', 'Cuenta atrás');
+      document.body.insertBefore(el, document.body.firstChild);
+    }
+    if (bar.color) el.style.setProperty('--lsd-rb', bar.color); else el.style.removeProperty('--lsd-rb');
+    el.innerHTML = '<span class="lsd-bar-text">' + esc(bar.text).replace('{cuenta}', cdSpan(bar.fin)) + '</span>'
+      + (bar.boton && bar.boton.href ? '<a class="lsd-bar-btn" href="' + esc(bar.boton.href) + '">' + esc(bar.boton.label) + '</a>' : '');
+    document.querySelectorAll('[data-lsd-bar]').forEach(function (b) { show(b, false); });
+    document.body.style.paddingTop = el.offsetHeight + 'px';
+    if (!barraFija.resize) { barraFija.resize = true; window.addEventListener('resize', function () { var b = document.getElementById('lsd-rb'); if (b) document.body.style.paddingTop = b.offsetHeight + 'px'; }); }
+    startCountdowns();
+    bfTimer = setInterval(function () {
+      if (serverNow() < bar.fin) return;
+      clearInterval(bfTimer);
+      alCero(el);
+    }, 500);
+    return el;
+  }
+
+  // Página de replay: cuenta atrás hasta una fecha fija o X minutos desde que la lead abrió la grabación
+  // (se recuerda en el navegador: recargar no la reinicia). Al llegar a cero lleva a la página de venta.
   function barraReplay(data, who) {
     var rb = data.replayBarra;
-    var el = document.getElementById('lsd-rb');
     // Solo en la página de la grabación del vídeo de venta (en los de varios vídeos, el último).
-    if (!rb || !data.links.venta || !document.querySelector('[data-lsd-video="' + rb.video + '"]')) {
-      if (el) { el.parentNode.removeChild(el); document.body.style.paddingTop = ''; clearInterval(rbTimer); rbTimer = null; }
-      return;
-    }
+    if (!rb || !data.links.venta || !document.querySelector('[data-lsd-video="' + rb.video + '"]')) return barraFija(null);
     var fin = rb.at;
     if (!fin && rb.minutos) {
       var key = 'lsd_rb_' + data.code;
@@ -939,36 +967,22 @@
     }
     if (!fin) return;
     var preview = Boolean(params.get('lsd_preview'));
-    var ir = function () {
-      if (preview) { el.querySelector('.lsd-bar-text').textContent = 'Vista previa: aquí iría a la página de venta.'; return; }
-      goTo(data.links.venta, who);
-    };
     // Ya pasó (vuelve otro día o se le acabaron sus minutos): directa a la página de venta.
     if (fin <= serverNow() && !preview) return goTo(data.links.venta, who);
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'lsd-rb';
-      el.className = 'lsd-rb';
-      el.setAttribute('role', 'region');
-      el.setAttribute('aria-label', 'Cuenta atrás');
-      document.body.insertBefore(el, document.body.firstChild);
-    }
-    if (rb.color) el.style.setProperty('--lsd-rb', rb.color);
-    var href = data.links.venta;
-    el.innerHTML = '<span class="lsd-bar-text">' + esc(rb.text).replace('{cuenta}', cdSpan(fin)) + '</span>'
-      + (rb.boton ? '<a class="lsd-bar-btn" href="' + esc(href) + '">' + esc(rb.boton) + '</a>' : '');
-    // Las barras de urgencia de la página se ocultan: manda esta.
-    document.querySelectorAll('[data-lsd-bar]').forEach(function (b) { show(b, false); });
-    var hueco = function () { document.body.style.paddingTop = el.offsetHeight + 'px'; };
-    hueco();
-    if (!barraReplay.resize) { barraReplay.resize = true; window.addEventListener('resize', function () { var b = document.getElementById('lsd-rb'); if (b) document.body.style.paddingTop = b.offsetHeight + 'px'; }); }
-    startCountdowns();
-    clearInterval(rbTimer);
-    rbTimer = setInterval(function () {
-      if (serverNow() < fin) return;
-      clearInterval(rbTimer);
-      ir();
-    }, 500);
+    barraFija({ text: rb.text, fin: fin, boton: rb.boton ? { label: rb.boton, href: data.links.venta } : null, color: rb.color }, function (el) {
+      if (preview) { el.querySelector('.lsd-bar-text').textContent = 'Vista previa: aquí iría a la página de venta.'; return; }
+      goTo(data.links.venta, who);
+    });
+  }
+
+  // Página de venta: varios tramos seguidos, cada uno con su texto y su cuenta atrás hasta su fin
+  // (p. ej. «Último día para llevarte el bonus» y, al día siguiente, «Último día para entrar»).
+  // Al acabar un tramo pasa solo al siguiente; después del último, la barra se quita.
+  function barraVenta(data) {
+    var vb = data.ventaBarra;
+    var tramo = vb && vb.tramos.filter(function (t) { return t.hasta > serverNow(); })[0];
+    if (!tramo) return barraFija(null);
+    barraFija({ text: tramo.text, fin: tramo.hasta, boton: tramo.boton, color: vb.color }, function () { barraVenta(data); });
   }
 
   function runManagedPage(kind, launchAttr, who, onVideo) {
@@ -1036,8 +1050,15 @@
     if (el.getAttribute('data-lsd-ready')) return;
     el.setAttribute('data-lsd-ready', '1');
     var who = identity();
+    var launch = params.get('l') || el.getAttribute('data-launch') || 'auto';
+    // Barra fija de la página de venta (si está activa en el dashboard). Respuesta ligera: no llama a GHL.
+    fetchPage(launch, who, 'venta').then(function (data) {
+      if (!data || data.error || !data.ventaBarra) return;
+      injectCss();
+      barraVenta(data);
+    }).catch(function () { /* sin conexión: sin barra */ });
     if (!who || !who.cid || params.get('lsd_preview')) return;
-    post('/api/visita', { launch: params.get('l') || el.getAttribute('data-launch') || 'auto', cid: who.cid });
+    post('/api/visita', { launch: launch, cid: who.cid });
   }
 
   function init() {

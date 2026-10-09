@@ -2668,11 +2668,86 @@ function pintarVentaPasos() {
   const url = $('#cfg-raices').value.trim();
   const bloque = `<div data-lsd-venta data-launch="auto"></div>\n<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
   const fila = filaCopiar;
-  $('#venta-pasos-box').innerHTML = fila('1 · Bloque para GHL', bloque, '📍 <strong>Dónde:</strong> al final de la página, en el pie, dentro de un elemento «Código personalizado». No se ve. También está en «Códigos».')
+  $('#venta-pasos-box').innerHTML = fila('1 · Bloque para GHL', bloque, '📍 <strong>Dónde:</strong> al final de la página, en el pie, dentro de un elemento «Código personalizado». No se ve: apunta la visita y, si la activas abajo, pinta la barra fija de arriba. También está en «Códigos».')
     + (url ? fila('2 · Enlace para los emails', enlaceEmail(url), 'Úsalo en todos los emails que lleven a la página de venta.')
       : '<p class="enlace-directo-falta"><strong>2 ·</strong> Pon arriba la <strong>URL de la página de venta</strong> y aquí aparecerá el enlace para los emails (con <code>?cid={{contact.id}}</code>).</p>');
 }
 $('#cfg-raices').addEventListener('input', pintarVentaPasos);
+// ---------- Barra fija de la página de venta: tramos seguidos (texto, fin, con o sin botón) ----------
+const VB_DESTINOS = ['pago', 'pago-fraccionado', 'llamada', 'whatsapp', 'venta'];
+function vbTramoHtml(t = {}) {
+  const con = Boolean(t.conBoton);
+  const destinos = [...new Set([...VB_DESTINOS, ...Object.keys(LINK_KEYS).filter((k) => k)])];
+  return `<div class="vb-tramo ${con ? '' : 'sin-boton'}">
+    <span class="vb-n"></span>
+    <label class="field vb-texto"><span>Texto <small>({cuenta} = cuenta atrás)</small></span><input class="vb-t" maxlength="200" value="${esc(t.texto || '')}" placeholder="⏳ Último día para entrar · Cierra en {cuenta}"></label>
+    <label class="field"><span>Se ve hasta <small>(y ahí acaba su cuenta)</small></span><input class="vb-hasta" type="datetime-local" value="${esc(t.hasta || '')}"></label>
+    <label class="field"><span>¿Lleva botón?</span><select class="vb-con"><option value="no" ${con ? '' : 'selected'}>No, solo texto</option><option value="si" ${con ? 'selected' : ''}>Sí, con botón</option></select></label>
+    <label class="field" data-vb-boton><span>Adónde lleva</span><select class="vb-destino">${destinos.map((k) => `<option value="${k}" ${k === (t.destino || 'pago') ? 'selected' : ''}>${esc(LINK_KEYS[k])}</option>`).join('')}</select></label>
+    <label class="field" data-vb-boton><span>Texto del botón</span><input class="vb-boton" maxlength="40" value="${esc(t.boton || '')}" placeholder="Quiero entrar"></label>
+    <button type="button" class="btn ghost vb-del" aria-label="Quitar tramo" title="Quitar tramo">✕</button>
+  </div>`;
+}
+const leerVentaBarra = () => ({
+  activa: $('#cfg-vb-on').checked, color: $('#cfg-vb-color').value,
+  tramos: $$('#cfg-vb-tramos .vb-tramo').map((r) => ({
+    texto: $('.vb-t', r).value.trim(), hasta: $('.vb-hasta', r).value, conBoton: $('.vb-con', r).value === 'si',
+    destino: $('.vb-destino', r).value, boton: $('.vb-boton', r).value.trim(),
+  })).filter((t) => t.texto || t.hasta),
+});
+function pintarVentaBarra(vb = {}) {
+  $('#cfg-vb-on').checked = Boolean(vb.activa);
+  $('#cfg-vb-color').value = vb.color || '#860d0e';
+  $('#cfg-vb-tramos').innerHTML = (vb.tramos?.length ? vb.tramos : [{}]).map(vbTramoHtml).join('');
+  resumenVentaBarra();
+}
+// Cómo se verá: cada tramo, de cuándo a cuándo, en orden.
+function resumenVentaBarra() {
+  $$('#config-dialog [data-vb-campo]').forEach((el) => { el.hidden = !$('#cfg-vb-on').checked; });
+  $$('#cfg-vb-tramos .vb-tramo').forEach((r, i) => {
+    $('.vb-n', r).textContent = `${i + 1}`;
+    r.classList.toggle('sin-boton', $('.vb-con', r).value !== 'si');
+  });
+  const tramos = leerVentaBarra().tramos.filter((t) => t.hasta).sort((a, b) => a.hasta.localeCompare(b.hasta));
+  const sinFecha = leerVentaBarra().tramos.some((t) => !t.hasta);
+  $('#cfg-vb-resumen').innerHTML = !$('#cfg-vb-on').checked ? '' : !tramos.length
+    ? '⚠️ Pon al menos un tramo con su fecha y hora: sin ella la barra no sale.'
+    : `<strong>Así se verá</strong> (los tramos se ordenan solos por fecha):<ol>${tramos.map((t, i) => `<li>${i ? `Desde el ${esc(formatLong(madridToEpoch(tramos[i - 1].hasta)))}` : 'Desde que abres la página'} hasta el <strong>${esc(formatLong(madridToEpoch(t.hasta)))}</strong>: «${esc(t.texto || '⏳ Quedan {cuenta}')}»${t.conBoton ? ` + botón «${esc(t.boton || 'Quiero entrar')}» → ${esc(LINK_KEYS[t.destino] || '')}` : ' · solo texto'}</li>`).join('')}</ol>Después, la barra desaparece.${sinFecha ? '<br>⚠️ Hay tramos sin fecha: no saldrán.' : ''}`;
+}
+$('#cfg-vb-add').addEventListener('click', () => { $('#cfg-vb-tramos').insertAdjacentHTML('beforeend', vbTramoHtml()); resumenVentaBarra(); });
+$('#cfg-vb-tramos').addEventListener('click', (e) => { if (e.target.closest('.vb-del')) { e.target.closest('.vb-tramo').remove(); resumenVentaBarra(); } });
+['input', 'change'].forEach((ev) => $('#cfg-vb-tramos').addEventListener(ev, resumenVentaBarra));
+$('#cfg-vb-on').addEventListener('change', resumenVentaBarra);
+// Rellena los tramos con el fin de cada bonus de «Oferta» y el cierre del carrito (con las fechas del formulario).
+const madridLocalFmt = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const aLocal = (ms) => madridLocalFmt.format(new Date(ms)).replace(' ', 'T');
+$('#cfg-vb-bonus').addEventListener('click', () => {
+  const base = editingCode ? state.config.launches[editingCode] : {};
+  const l = { ...base, aperturaCarrito: $('#cfg-apertura-carrito').value, cierreCarrito: $('#cfg-cierre').value, fechaDirecto: $('#cfg-directo-fecha').value, horaDirecto: $('#cfg-directo-hora').value, oferta: leerOfertaEditor() };
+  const cierre = madridToEpoch(l.cierreCarrito);
+  if (cierre == null) { window.alert('Pon antes el cierre del carrito (pestaña «Lanzamiento»).'); return; }
+  // Bonus que acaban antes del cierre, agrupados por su fin.
+  const fines = new Map();
+  for (const b of l.oferta?.bonus || []) {
+    const { hasta } = ventanaBonus(b, l);
+    if (hasta != null && hasta < cierre && hasta > Date.now() - 86_400_000) fines.set(hasta, [...(fines.get(hasta) || []), b.nombre]);
+  }
+  const DIA = 86_400_000;
+  let previo = madridToEpoch(l.aperturaCarrito) ?? null;
+  const tramos = [...fines.keys()].sort((a, b) => a - b).map((hasta) => {
+    const nombres = fines.get(hasta).map((n) => `«${n}»`);
+    const lista = nombres.length > 1 ? `los bonus ${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}` : `el bonus ${nombres[0]}`;
+    const ultimo = previo != null && hasta - previo <= DIA;
+    previo = hasta;
+    return { texto: ultimo ? `🎁 Último día para llevarte ${lista} · Acaba en {cuenta}` : `🎁 Llévate ${lista} · Acaba en {cuenta}`, hasta: aLocal(hasta), conBoton: true, destino: 'pago', boton: 'Quiero entrar' };
+  });
+  tramos.push({ texto: previo != null && cierre - previo <= DIA ? '⏳ Último día para entrar · Las puertas se cierran en {cuenta}' : '🔒 Las puertas se cierran en {cuenta}', hasta: aLocal(cierre), conBoton: true, destino: 'pago', boton: 'Quiero entrar' });
+  if (leerVentaBarra().tramos.length && !window.confirm('Se cambiarán los tramos que hay ahora por los de los bonus y el cierre. ¿Seguimos?')) return;
+  $('#cfg-vb-on').checked = true;
+  $('#cfg-vb-tramos').innerHTML = tramos.map(vbTramoHtml).join('');
+  resumenVentaBarra();
+});
+
 // Barra fija de la página de replay: sus campos solo si está activa; fecha u minutos según el modo.
 function pintarReplayBarraCfg() {
   const on = $('#cfg-rb-on').checked;
@@ -2744,6 +2819,8 @@ function openConfig(code) {
       espera: { activa: embudoInfo(state.embudo)?.espera !== false, video: last.espera?.video || '' },
       // La barra fija del replay se hereda sin su fecha (cada lanzamiento tiene la suya).
       ...(last.replayBarra ? { replayBarra: { ...last.replayBarra, at: '' } } : {}),
+      // La barra de la página de venta se hereda con sus textos y botones, sin fechas.
+      ...(last.ventaBarra?.tramos?.length ? { ventaBarra: { ...last.ventaBarra, tramos: last.ventaBarra.tramos.map((t) => ({ ...t, hasta: '' })) } } : {}),
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
       inicioCaptacion: new Date().toISOString().slice(0, 10),
     };
@@ -2815,6 +2892,7 @@ function openConfig(code) {
   pintarRecursosCfg(l.recursosPre);
   pintarEnlaceDirecto();
   pintarVentaPasos();
+  pintarVentaBarra(l.ventaBarra);
   const rb = l.replayBarra || {};
   $('#cfg-rb-on').checked = Boolean(rb.activa);
   $('#cfg-rb-texto').value = rb.texto || '';
@@ -3227,6 +3305,7 @@ function readForm() {
       oferta: leerOfertaEditor(),
       recursosPre: leerRecursosCfg(),
       espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim() },
+      ventaBarra: leerVentaBarra(),
       replayBarra: {
         activa: $('#cfg-rb-on').checked, texto: $('#cfg-rb-texto').value.trim(), modo: $('#cfg-rb-modo').value,
         at: $('#cfg-rb-at').value, minutos: Number($('#cfg-rb-min').value) || null, conBoton: $('#cfg-rb-con-boton').value === 'si', boton: $('#cfg-rb-boton').value.trim(), color: $('#cfg-rb-color').value,
@@ -3660,7 +3739,7 @@ function renderSnippets() {
     ['RECURSOS · etapas (cada caja recibe data-lsd-estado="bloqueada | disponible | hecha" para el diseño)',
       etapasPreclase(state.config.launches[code], nClases(state.config.launches[code])).map((e) => `<div data-lsd-etapa="${e.id}">Etapa <span data-lsd-etapa-n="${e.id}"></span> · ${e.label}</div>`).join('\n')],
     ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
-    ['VENTA · página de venta de Raíces: al final de la página, en el pie (apunta quién la visita para «Setting hoy»; los enlaces a esta página en los emails, con ?cid={{contact.id}})', `<div data-lsd-venta data-launch="auto"></div>\n${script}`],
+    ['VENTA · página de venta de Raíces: al final de la página, en el pie (apunta quién la visita para «Setting hoy» y pinta la barra fija si está activa en Páginas; los enlaces a esta página en los emails, con ?cid={{contact.id}})', `<div data-lsd-venta data-launch="auto"></div>\n${script}`],
     ['GRABACIÓN · bloques de la página del replay (el 1º y la barra arriba del todo; el de vídeo, donde quieras que se vea; el paso a paso, en Páginas → Página de replay)', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
     // El enlace para conectarse al directo es el de la preclase: 59 min antes enseña la pantalla de espera y al llegar a cero entra sola.

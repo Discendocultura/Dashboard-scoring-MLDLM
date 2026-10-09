@@ -1050,6 +1050,20 @@
             <div class="grid2">
               <label class="field"><span>URL de la página de venta de Raíces</span><input id="cfg-raices" type="url"></label>
             </div>
+            <fieldset class="rb-cfg">
+              <legend>⏳ Barra fija con cuenta atrás (arriba del todo)</legend>
+              <label class="chk full"><input type="checkbox" id="cfg-vb-on"> <strong>Activar la barra fija en la página de venta</strong></label>
+              <div data-vb-campo class="vb-cuerpo">
+                <p class="muted">Pon varios <strong>tramos</strong>: cada uno se ve hasta su fecha y hora, con su texto (<code>{cuenta}</code> = cuenta atrás hasta su fin). Al acabar uno empieza solo el siguiente; tras el último, la barra desaparece. Ej.: «🎁 Último día para llevarte el bonus» hasta que acaba el bonus y luego «⏳ Último día para entrar» hasta el cierre.</p>
+                <div id="cfg-vb-tramos" class="vb-tramos"></div>
+                <div class="vb-acciones">
+                  <button type="button" class="btn" id="cfg-vb-add">+ Añadir tramo</button>
+                  <button type="button" class="btn" id="cfg-vb-bonus">✨ Rellenar con los bonus de «Oferta» y el cierre</button>
+                  <label class="field vb-color"><span>Color</span><input id="cfg-vb-color" type="color" value="#860d0e"></label>
+                </div>
+                <div id="cfg-vb-resumen" class="field-note"></div>
+              </div>
+            </fieldset>
             <section class="enlace-directo" aria-labelledby="venta-pasos-t">
               <h3 id="venta-pasos-t">🛒 Para saber quién visita la página de venta (y llamarla en «Setting hoy»)</h3>
               <p><strong>1.</strong> Pega este bloque en la página de venta de GHL, en un elemento <strong>«Código personalizado»</strong> (Custom HTML) al <strong>final de la página</strong>, en el pie (no se ve: solo apunta la visita). <strong>2.</strong> En los <strong>emails</strong>, los enlaces a la página de venta deben llevar <code>?cid={{contact.id}}</code> al final: sin eso no se sabe quién la abre. En WhatsApp, igual si usas el enlace con ese campo.</p>

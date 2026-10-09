@@ -11,7 +11,7 @@ import { verifyToken, signToken, requireRole } from '../lib/auth.js';
 import { marcarActividad } from '../lib/actividad.js';
 import { json, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { signalsFor, withContactId, tagFor } from '../public/js/scoring.js';
-import { phaseAt, barFor, replayBarraDe, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
+import { phaseAt, barFor, replayBarraDe, ventaBarraDe, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
 import { videosDe, conVip, nClases, esEnDirecto, sigReplay } from '../public/js/videos.js';
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
@@ -75,6 +75,13 @@ export async function GET(request, ctx) {
       // Solo los vídeos en directo tienen sala de Zoom (un estreno grabado va a su página, no al directo).
       if (esEnDirecto(v)) links[`directo${v.k}`] = `${live}&v=${v.k}${cid ? `&cid=${cid}` : ''}`;
       links[`grabacion${v.k}`] = withContactId(v.replayUrl, cid);
+    }
+
+    // Página de venta: solo su barra fija (sin llamar a GHL: la visitan muchas a la vez al abrir el carrito).
+    if (url.searchParams.get('pagina') === 'venta') {
+      const vb = ventaBarraDe(launch, links);
+      const producto = nombreProducto(config);
+      return json({ code, now, preview, ventaBarra: vb && { ...vb, tramos: vb.tramos.map((t) => ({ ...t, text: conProducto(t.text, producto), boton: t.boton && { ...t.boton, label: conProducto(t.boton.label, producto) } })) } }, 200, CORS_HEADERS);
     }
 
     // A la hora del directo la preclase solo necesita saber adónde ir: se contesta sin llamar a GHL

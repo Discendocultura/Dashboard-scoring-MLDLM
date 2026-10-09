@@ -236,6 +236,31 @@ export function replayBarraDe(launch) {
   return { text: r.texto || REPLAY_BARRA_TEXTO, at, minutos, boton: r.conBoton ? r.boton || REPLAY_BARRA_BOTON : '', color: r.color || '' };
 }
 
+// Barra fija de la página de venta: varios tramos seguidos, cada uno con su texto ({cuenta} = cuenta atrás
+// hasta su fin) y, si se quiere, un botón. Al acabar un tramo empieza el siguiente; tras el último, se quita.
+export const VENTA_BARRA_MAX = 12;
+export function sanitizeVentaBarra(r) {
+  const txt = (v, n) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
+  const tramos = (Array.isArray(r?.tramos) ? r.tramos : []).slice(0, VENTA_BARRA_MAX).map((t) => ({
+    texto: txt(t?.texto, 200),
+    hasta: LOCAL_DT_RE.test(String(t?.hasta || '')) ? String(t.hasta) : '',
+    conBoton: Boolean(t?.conBoton),
+    destino: Object.hasOwn(LINK_KEYS, t?.destino) && t.destino ? t.destino : 'pago',
+    boton: txt(t?.boton, 40),
+  })).filter((t) => t.texto || t.hasta).sort((a, b) => (a.hasta || '9').localeCompare(b.hasta || '9'));
+  return { activa: Boolean(r?.activa), color: /^#[0-9a-f]{6}$/i.test(String(r?.color || '')) ? String(r.color).toLowerCase() : '', tramos };
+}
+// Lo que necesita la página: los tramos con fecha (ms), su texto y su botón ya con el enlace; null si no hay.
+export function ventaBarraDe(launch, links = {}) {
+  const r = launch?.ventaBarra;
+  if (!r?.activa) return null;
+  const tramos = (r.tramos || []).map((t) => ({
+    text: t.texto || '⏳ Quedan {cuenta}', hasta: madridToEpoch(t.hasta),
+    boton: t.conBoton && links[t.destino] ? { label: t.boton || 'Quiero entrar', href: links[t.destino] } : null,
+  })).filter((t) => t.hasta != null).sort((a, b) => a.hasta - b.hasta);
+  return tramos.length ? { color: r.color || '', tramos } : null;
+}
+
 // "lunes 27 de octubre, 19:00" en hora de España.
 const fmtLong = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
 const fmtDate = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', weekday: 'long', day: 'numeric', month: 'long' });

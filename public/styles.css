@@ -2075,3 +2075,16 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 .rb-cfg input[type="color"] { width: 64px; height: 36px; padding: 2px; }
 /* Barra de urgencia por fase: sin botón (solo informativa), no se puede elegir adónde lleva */
 .bar-table tr.sin-boton .bar-button, .bar-table tr.sin-boton .bar-label { visibility: hidden; }
+/* Página de venta: tramos de la barra fija */
+.vb-cuerpo { display: grid; gap: 10px; }
+.vb-cuerpo > p { margin: 0; }
+.vb-tramos { display: grid; gap: 8px; }
+.vb-tramo { display: grid; grid-template-columns: 28px minmax(200px, 2fr) minmax(170px, 1fr) 150px minmax(150px, 1fr) minmax(120px, 1fr) 36px; gap: 8px; align-items: end; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.vb-tramo .field { margin: 0; }
+.vb-n { align-self: center; font-weight: 700; text-align: center; }
+.vb-tramo.sin-boton [data-vb-boton] { visibility: hidden; }
+.vb-acciones { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.vb-color { margin: 0 0 0 auto; }
+.vb-color input { width: 64px; height: 36px; padding: 2px; }
+#cfg-vb-resumen ol { margin: 4px 0 0; padding-left: 20px; }
+@media (max-width: 900px) { .vb-tramo { grid-template-columns: 28px 1fr 1fr; } .vb-tramo .vb-texto { grid-column: 2 / -1; } }

@@ -277,3 +277,36 @@ test('página de replay: barra fija con cuenta atrás que lleva a la página de 
   await guardar({ ...base, raicesUrl: '', replayBarra: { activa: true, modo: 'minutos', minutos: 30 } });
   assert.equal((await call('/api/page?l=rep-26&pagina=grabacion')).data.replayBarra, null);
 });
+
+test('página de venta: barra fija por tramos (sin GHL) y fin de cada bonus en el calendario', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const { data: c } = await call('/api/config', { cookie: admin });
+  const launch = {
+    name: 'Venta', registroTag: 'registro-webinar-demo', inicioCaptacion: local(-10), fechaDirecto: local(-1), horaDirecto: '19:00',
+    aperturaCarrito: `${local(-1)}T21:00`, cierreCarrito: `${local(4)}T23:59`, raicesUrl: 'https://ghl.com/venta', ventaUrl: 'https://pay.com/raices',
+    oferta: { bonus: [{ id: 'b48', tipo: 'bar_48h', nombre: 'Guía del ciclo' }, { id: 'bt', tipo: 'bonus', nombre: 'Comunidad' }] },
+    ventaBarra: { activa: true, color: '#00AA00', tramos: [
+      { texto: '⏳ Último día para entrar · {cuenta}', hasta: `${local(4)}T23:59`, conBoton: true, destino: 'pago', boton: 'Entrar' },
+      { texto: '🎁 Último día para llevarte el bonus · {cuenta}', hasta: `${local(1)}T21:00`, conBoton: false },
+      { texto: 'Ya pasó', hasta: `${local(-3)}T10:00` },
+      { texto: 'Sin fecha' },
+    ] },
+  };
+  assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { ...c.config, _version: c.version, launches: { ...c.config.launches, 'ven-26': launch } } })).status, 200);
+  const antes = ghl.mockStats ? ghl.mockStats().getContact : null;
+  const p = (await call('/api/page?l=ven-26&pagina=venta&cid=mock00001')).data;
+  if (antes != null) assert.equal(ghl.mockStats().getContact, antes); // la página de venta no llama a GHL
+  assert.equal(p.ventaBarra.color, '#00aa00');
+  // Ordenados por fecha; el de sin fecha no sale (el que ya pasó lo salta la página)
+  assert.deepEqual(p.ventaBarra.tramos.map((t) => t.text), ['Ya pasó', '🎁 Último día para llevarte el bonus · {cuenta}', '⏳ Último día para entrar · {cuenta}']);
+  assert.equal(p.ventaBarra.tramos[1].boton, null);
+  assert.deepEqual(p.ventaBarra.tramos[2].boton, { label: 'Entrar', href: 'https://pay.com/raices?cid=mock00001' });
+  assert.equal(p.videos, undefined); // respuesta ligera
+  // Calendario: el BAR 48 h acaba dos días después de abrir el carrito (el bonus de todo el carrito ya lo dice el cierre)
+  const { hitosLanzamiento } = await import('../public/js/calendario.js');
+  const h = hitosLanzamiento((await call('/api/config', { cookie: admin })).data.config.launches['ven-26']).filter((x) => x.id.startsWith('bonus-'));
+  assert.equal(h.length, 1);
+  assert.equal(h[0].day, local(1));
+  assert.equal(h[0].time, '21:00');
+  assert.match(h[0].titulo, /^Último día · Bonus de acción rápida 48 h: Guía del ciclo/);
+});

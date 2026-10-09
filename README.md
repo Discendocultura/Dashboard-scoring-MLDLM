@@ -610,6 +610,14 @@ npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)
 
 En todas las barras (las de cada fase en *Configuración → Preclase → Barra de urgencia* y la barra fija de la página de replay) se elige **«¿Lleva botón?»**: *Sí, con botón* (adónde lleva y su texto) o *No, solo texto* (solo informativa, para crear urgencia).
 
+### Barra fija de la página de venta
+
+En *Configuración → Páginas → Página de venta → Barra fija con cuenta atrás*: varios **tramos** seguidos, cada uno con su texto (`{cuenta}` = cuenta atrás hasta su fin), su fecha y hora de fin y si lleva botón (adónde y con qué texto) o es solo informativo. Al acabar un tramo empieza solo el siguiente y tras el último la barra desaparece (p. ej. «🎁 Último día para llevarte el bonus» hasta que acaba el bonus y luego «⏳ Último día para entrar» hasta el cierre). **«✨ Rellenar con los bonus de Oferta y el cierre»** crea un tramo por cada fin de bonus y otro hasta el cierre del carrito, para retocar los textos. La pinta el mismo bloque «VENTA» que apunta las visitas (no hay que pegar nada más) y no llama a GHL. En cada lanzamiento nuevo se heredan los textos y botones, sin fechas.
+
+### Fin de los bonus en el calendario
+
+Cada bonus de *Oferta* que acaba antes del cierre sale como hito en el calendario (y en el calendario sincronizado, el Inicio y el resumen del cliente) el día en que acaba: «⏳ Último día · Bonus de acción rápida 48 h: Guía… (acaba a las 21:00)». Los de menos de un día (BAR en directo, 1 h…) dicen «Acaba el…». Sale de las fechas del carrito y del tipo de bonus (o de su fin a mano), igual en los meteóricos.
+
 ### Barra fija de la página de replay
 
 En *Configuración → Páginas → Página de replay → Barra fija con cuenta atrás*: con el carrito abierto, la página de la grabación enseña una barra fija arriba del todo con su texto (`{cuenta}` = la cuenta atrás), un botón opcional a la página de venta y su color. Hay que elegir si **lleva botón** (a la página de venta) o es **solo informativa** para crear urgencia. La cuenta atrás va **hasta una fecha y hora fija** (igual para todas) o dura **X minutos desde que cada lead abre la grabación** (se recuerda en su navegador: recargar no la reinicia). Al llegar a cero, la lead va sola a la página de venta, y si vuelve a abrir la grabación después, también. No hace falta pegar ningún código más en GHL: la barra la pone el bloque base de la página de replay. Necesita la URL de la página de venta.
