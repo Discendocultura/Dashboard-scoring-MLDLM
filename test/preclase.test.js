@@ -234,3 +234,38 @@ test('página de venta y panel «En directo»: visitas, espera, entradas y venta
   assert.equal(typeof d.ventas, 'number');
   assert.equal((await call('/api/endirecto?l=viv-26')).status, 401);
 });
+
+test('página de replay: barra fija con cuenta atrás que lleva a la página de venta', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const { data: cur } = await call('/api/config', { cookie: admin });
+  const base = { name: 'Replay', registroTag: 'registro-webinar-demo', inicioCaptacion: local(-10), fechaDirecto: local(-2), horaDirecto: '19:00', cierreCarrito: `${local(3)}T23:59`, raicesUrl: 'https://ghl.com/venta' };
+  const guardar = async (launch) => {
+    const { data: c } = await call('/api/config', { cookie: admin });
+    return call('/api/config', { method: 'POST', cookie: admin, body: { ...c.config, _version: c.version, launches: { ...c.config.launches, 'rep-26': launch } } });
+  };
+  // Sin activar: no hay barra
+  assert.equal((await guardar(base)).status, 200);
+  assert.equal((await call('/api/page?l=rep-26&pagina=grabacion&cid=mock00001')).data.replayBarra, null);
+  // Fecha fija
+  await guardar({ ...base, replayBarra: { activa: true, texto: 'Se retira en {cuenta}', modo: 'fecha', at: `${local(1)}T20:00`, boton: 'Quiero unirme', color: '#123ABC' } });
+  let p = (await call('/api/page?l=rep-26&pagina=grabacion&cid=mock00001')).data;
+  assert.equal(p.phase, 'replay');
+  assert.equal(p.replayBarra.text, 'Se retira en {cuenta}');
+  assert.equal(p.replayBarra.boton, 'Quiero unirme');
+  assert.equal(p.replayBarra.color, '#123abc');
+  assert.equal(p.replayBarra.video, 'replay');
+  assert.equal(p.replayBarra.minutos, null);
+  assert.ok(p.replayBarra.at > Date.now());
+  assert.match(p.links.venta, /^https:\/\/ghl\.com\/venta\?cid=mock00001/);
+  // Minutos por lead (texto por defecto si se deja vacío); fecha mal escrita o minutos sin poner → sin barra
+  await guardar({ ...base, replayBarra: { activa: true, modo: 'minutos', minutos: 90 } });
+  p = (await call('/api/page?l=rep-26&pagina=grabacion')).data;
+  assert.equal(p.replayBarra.minutos, 90);
+  assert.equal(p.replayBarra.at, null);
+  assert.match(p.replayBarra.text, /\{cuenta\}/);
+  await guardar({ ...base, replayBarra: { activa: true, modo: 'fecha', at: 'mañana' } });
+  assert.equal((await call('/api/page?l=rep-26&pagina=grabacion')).data.replayBarra, null);
+  // Sin página de venta, no hay adónde llevarla
+  await guardar({ ...base, raicesUrl: '', replayBarra: { activa: true, modo: 'minutos', minutos: 30 } });
+  assert.equal((await call('/api/page?l=rep-26&pagina=grabacion')).data.replayBarra, null);
+});

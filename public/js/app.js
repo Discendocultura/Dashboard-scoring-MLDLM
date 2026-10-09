@@ -2673,13 +2673,30 @@ function pintarVentaPasos() {
       : '<p class="enlace-directo-falta"><strong>2 ·</strong> Pon arriba la <strong>URL de la página de venta</strong> y aquí aparecerá el enlace para los emails (con <code>?cid={{contact.id}}</code>).</p>');
 }
 $('#cfg-raices').addEventListener('input', pintarVentaPasos);
+// Barra fija de la página de replay: sus campos solo si está activa; fecha u minutos según el modo.
+function pintarReplayBarraCfg() {
+  const on = $('#cfg-rb-on').checked;
+  $$('#config-dialog [data-rb-campo]').forEach((el) => { el.hidden = !on; });
+  const modo = $('#cfg-rb-modo').value;
+  $$('#config-dialog [data-rb-modo]').forEach((el) => { el.hidden = el.dataset.rbModo !== modo; });
+  const falta = modo === 'fecha' ? !$('#cfg-rb-at').value : !(Number($('#cfg-rb-min').value) > 0);
+  const sinVenta = !$('#cfg-raices').value.trim();
+  $('#cfg-rb-aviso').innerHTML = !on ? '' : sinVenta ? '⚠️ Pon la <strong>URL de la página de venta</strong> (más arriba): sin ella la barra no sale.'
+    : falta ? `⚠️ Pon ${modo === 'fecha' ? 'la fecha y hora' : 'los minutos'} de la cuenta atrás: sin ${modo === 'fecha' ? 'ella' : 'ellos'} la barra no sale.`
+    : modo === 'fecha' ? `Al llegar a cero (${esc(formatLong(madridToEpoch($('#cfg-rb-at').value)))}) todas van a la página de venta; quien abra la grabación después, también.`
+    : `Cada lead tiene ${Number($('#cfg-rb-min').value)} minutos desde que abre la grabación; después, la página la lleva a la de venta.`;
+  pintarReplayPasos();
+}
+['#cfg-rb-on', '#cfg-rb-modo', '#cfg-rb-at', '#cfg-rb-min', '#cfg-raices'].forEach((sel) => $(sel).addEventListener('input', pintarReplayBarraCfg));
 function pintarReplayPasos() {
   const url = $('#cfg-replay').value.trim();
   const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
   $('#replay-pasos-box').innerHTML = filaCopiar('1 · Bloque base', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n${script}`,
     '📍 <strong>Dónde:</strong> arriba del todo, en la primera sección de la página (antes del titular). Va una sola vez y no se ve: reconoce a la lead (si no sabe quién es, la lleva al login) y activa el resto.')
-    + filaCopiar('2 · Barra de urgencia', '<div class="mi-barra" data-lsd-bar></div>',
-      '📍 <strong>Dónde:</strong> justo debajo del bloque base, encima del titular. Enseña la cuenta atrás del carrito y su botón. Opcional.')
+    + ($('#cfg-rb-on').checked
+      ? '<p class="enlace-directo-falta"><strong>2 · Barra de urgencia:</strong> no hace falta ningún código. La barra fija de arriba (la de esta configuración) aparece sola arriba del todo.</p>'
+      : filaCopiar('2 · Barra de urgencia', '<div class="mi-barra" data-lsd-bar></div>',
+        '📍 <strong>Dónde:</strong> justo debajo del bloque base, encima del titular. Enseña la cuenta atrás del carrito y su botón. Opcional (o activa arriba la barra fija con cuenta atrás).'))
     + filaCopiar('3 · Vídeo de la grabación', '<div data-lsd-video="replay"></div>',
       '📍 <strong>Dónde:</strong> en el sitio exacto donde quieres que se vea el vídeo (normalmente debajo del titular, a todo el ancho de la columna). Pinta el vídeo de «Directo y grabación» y mide cuánto ve (25, 50, 75 y 90 %). En vez del elemento de vídeo de GHL.')
     + (url ? filaCopiar('4 · Enlace para los emails', enlaceEmail(url), 'Úsalo en todos los emails que lleven a la grabación: entra directa, sin pasar por el login. Los mensajes de WhatsApp del dashboard ({link_grabacion}) ya lo llevan.')
@@ -2724,6 +2741,8 @@ function openConfig(code) {
       recursosPre: heredarRecursos(last.recursosPre, embudoInfo(state.embudo)?.recursos),
       // Pantalla de espera: la que se eligió al crear el embudo; el vídeo, el del último lanzamiento.
       espera: { activa: embudoInfo(state.embudo)?.espera !== false, video: last.espera?.video || '' },
+      // La barra fija del replay se hereda sin su fecha (cada lanzamiento tiene la suya).
+      ...(last.replayBarra ? { replayBarra: { ...last.replayBarra, at: '' } } : {}),
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
       inicioCaptacion: new Date().toISOString().slice(0, 10),
     };
@@ -2795,7 +2814,15 @@ function openConfig(code) {
   pintarRecursosCfg(l.recursosPre);
   pintarEnlaceDirecto();
   pintarVentaPasos();
-  pintarReplayPasos();
+  const rb = l.replayBarra || {};
+  $('#cfg-rb-on').checked = Boolean(rb.activa);
+  $('#cfg-rb-texto').value = rb.texto || '';
+  $('#cfg-rb-modo').value = rb.modo === 'minutos' ? 'minutos' : 'fecha';
+  $('#cfg-rb-at').value = rb.at || '';
+  $('#cfg-rb-min').value = rb.minutos || '';
+  $('#cfg-rb-boton').value = rb.boton ?? 'Ver la oferta';
+  $('#cfg-rb-color').value = rb.color || '#860d0e';
+  pintarReplayBarraCfg();
   $('#cfg-espera-on').checked = l.espera?.activa ?? (embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo)?.espera !== false);
   $('#cfg-espera-video').value = l.espera?.video || '';
   pintarEsperaCfg();
@@ -3198,6 +3225,10 @@ function readForm() {
       oferta: leerOfertaEditor(),
       recursosPre: leerRecursosCfg(),
       espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim() },
+      replayBarra: {
+        activa: $('#cfg-rb-on').checked, texto: $('#cfg-rb-texto').value.trim(), modo: $('#cfg-rb-modo').value,
+        at: $('#cfg-rb-at').value, minutos: Number($('#cfg-rb-min').value) || null, boton: $('#cfg-rb-boton').value.trim(), color: $('#cfg-rb-color').value,
+      },
       imagenes: Object.fromEntries(['clase1', 'clase2', 'clase3', 'test', 'descargable', 'espera'].map((k) => [k, $(`#cfg-img-${k}`).value.trim()]).filter(([, v]) => v)),
     },
   };

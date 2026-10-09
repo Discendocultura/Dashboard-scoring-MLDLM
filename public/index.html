@@ -1061,6 +1061,19 @@
             <div class="grid2">
               <label class="field"><span>URL de la página de replay</span><input id="cfg-replay" type="url"></label>
             </div>
+            <fieldset class="rb-cfg">
+              <legend>⏳ Barra fija con cuenta atrás (arriba del todo)</legend>
+              <label class="chk full"><input type="checkbox" id="cfg-rb-on"> <strong>Activar la barra fija</strong> <small class="muted">(con el carrito abierto; al llegar a cero la lead va sola a la página de venta)</small></label>
+              <div class="grid2" data-rb-campo>
+                <label class="field full"><span>Texto de la barra <small>(<code>{cuenta}</code> = la cuenta atrás)</small></span><input id="cfg-rb-texto" maxlength="200" placeholder="⏳ La grabación se retira en {cuenta}"></label>
+                <label class="field"><span>La cuenta atrás va…</span><select id="cfg-rb-modo"><option value="fecha">Hasta una fecha y hora fija (igual para todas)</option><option value="minutos">X minutos desde que cada lead abre la grabación</option></select></label>
+                <label class="field" data-rb-modo="fecha"><span>Fecha y hora en que llega a cero <small>(hora de España)</small></span><input id="cfg-rb-at" type="datetime-local"></label>
+                <label class="field" data-rb-modo="minutos"><span>Minutos <small>(desde que la abre por primera vez; recargar no lo reinicia)</small></span><input id="cfg-rb-min" type="number" min="1" max="20160" inputmode="numeric" placeholder="90"></label>
+                <label class="field"><span>Texto del botón <small>(lleva a la página de venta; vacío = sin botón)</small></span><input id="cfg-rb-boton" maxlength="40" placeholder="Ver la oferta"></label>
+                <label class="field"><span>Color de la barra</span><input id="cfg-rb-color" type="color" value="#860d0e"></label>
+                <p class="field-note full" id="cfg-rb-aviso"></p>
+              </div>
+            </fieldset>
             <section class="enlace-directo" aria-labelledby="replay-pasos-t">
               <h3 id="replay-pasos-t">📼 Qué poner en la página de replay de GHL (y dónde)</h3>
               <p>Pega cada código en un elemento <strong>«Código personalizado»</strong> (Custom HTML) de GHL, en el sitio que se indica. <strong>No pongas el vídeo de Vimeo con el elemento de vídeo de GHL</strong>: lo pinta el bloque 3 y así se mide cuánto ve cada lead (lo que más pesa en la puntuación y decide su mensaje de WhatsApp). En los <strong>emails</strong>, el enlace a esta página debe llevar <code>?cid={{contact.id}}</code>.</p>

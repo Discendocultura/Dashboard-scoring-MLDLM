@@ -2068,3 +2068,8 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 .ed-barras span { flex: 1; min-height: 2px; border-radius: 3px 3px 0 0; background: var(--accent); opacity: .85; }
 .ed-barras span:hover { opacity: 1; }
 .ed-eje { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Página de replay: barra fija con cuenta atrás */
+.rb-cfg { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; display: grid; gap: 10px; }
+.rb-cfg legend { font-weight: 700; padding: 0 6px; }
+.rb-cfg input[type="color"] { width: 64px; height: 36px; padding: 2px; }

@@ -11,8 +11,8 @@ import { verifyToken, signToken, requireRole } from '../lib/auth.js';
 import { marcarActividad } from '../lib/actividad.js';
 import { json, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { signalsFor, withContactId, tagFor } from '../public/js/scoring.js';
-import { phaseAt, barFor, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
-import { videosDe, conVip, nClases, esEnDirecto } from '../public/js/videos.js';
+import { phaseAt, barFor, replayBarraDe, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
+import { videosDe, conVip, nClases, esEnDirecto, sigReplay } from '../public/js/videos.js';
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
 import { recursosDe, tieneRecurso, etapasPreclase, preguntasValidas, UMBRAL_DESBLOQUEO } from '../public/js/recursos.js';
@@ -135,6 +135,12 @@ export async function GET(request, ctx) {
       countdownTo: phase.countdownTo,
       changesAt: phase.changesAt,
       redirectTo: redirectFor(launch, phase.id),
+      // Página de replay con el carrito abierto: barra fija con cuenta atrás que al llegar a cero lleva a la venta.
+      // `video`: solo la página de la grabación del vídeo de venta (en los de varios vídeos, el último).
+      replayBarra: (() => {
+        const rb = phase.id === 'replay' && links.venta ? replayBarraDe(launch) : null;
+        return rb ? { ...rb, text: conProducto(rb.text, nombreProducto(config)), boton: conProducto(rb.boton, nombreProducto(config)), video: sigReplay(vids.length || 1) } : null;
+      })(),
       bar: { text: conProducto(bar.text, nombreProducto(config)), button: bar.button && links[bar.button] ? { key: bar.button, label: bar.buttonLabel, href: links[bar.button] } : null },
       videos: {
         clase1: video('clase1Url', m.clase1, true),

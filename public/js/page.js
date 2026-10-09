@@ -207,6 +207,33 @@ export function barFor(launch, phaseId) {
   };
 }
 
+// Barra fija de la página de replay: un texto con {cuenta} y, al llegar a cero, lleva a la página de venta.
+// La cuenta atrás va hasta una fecha y hora fija o dura X minutos desde que cada lead abre la grabación.
+export const REPLAY_BARRA_TEXTO = '⏳ La grabación se retira en {cuenta}';
+export const REPLAY_BARRA_BOTON = 'Ver la oferta';
+export function sanitizeReplayBarra(r) {
+  const txt = (v, n) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
+  const min = Math.floor(Number(r?.minutos));
+  return {
+    activa: Boolean(r?.activa),
+    texto: txt(r?.texto, 200),
+    modo: r?.modo === 'minutos' ? 'minutos' : 'fecha',
+    at: LOCAL_DT_RE.test(String(r?.at || '')) ? String(r.at) : '',
+    minutos: Number.isFinite(min) && min > 0 ? Math.min(min, 60 * 24 * 14) : null,
+    boton: r?.boton == null ? REPLAY_BARRA_BOTON : txt(r.boton, 40),
+    color: /^#[0-9a-f]{6}$/i.test(String(r?.color || '')) ? String(r.color).toLowerCase() : '',
+  };
+}
+// Lo que necesita la página: hasta cuándo (`at`, ms) o cuántos minutos por lead; null si no hay barra.
+export function replayBarraDe(launch) {
+  const r = launch?.replayBarra;
+  if (!r?.activa) return null;
+  const at = r.modo === 'fecha' ? madridToEpoch(r.at) : null;
+  const minutos = r.modo === 'minutos' ? r.minutos : null;
+  if (at == null && !minutos) return null;
+  return { text: r.texto || REPLAY_BARRA_TEXTO, at, minutos, boton: r.boton ?? REPLAY_BARRA_BOTON, color: r.color || '' };
+}
+
 // "lunes 27 de octubre, 19:00" en hora de España.
 const fmtLong = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
 const fmtDate = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', weekday: 'long', day: 'numeric', month: 'long' });

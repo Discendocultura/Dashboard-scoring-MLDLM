@@ -102,6 +102,11 @@
     '.lsd-cdb{display:flex;gap:10px;justify-content:center}.lsd-cdb-unit{display:flex;flex-direction:column;align-items:center;min-width:64px;padding:10px 8px;border-radius:10px;background:#f6f3ef}' +
     '.lsd-cdb-num{font-size:2em;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}.lsd-cdb-label{font-size:.75em;text-transform:uppercase;letter-spacing:.05em;margin-top:4px}' +
     '[data-lsd-bar]{display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap}' +
+    // Barra fija de la página de replay (cuenta atrás → página de venta). --lsd-rb: su color (Configuración).
+    '.lsd-rb{position:fixed;top:0;left:0;right:0;z-index:2147482000;display:flex;gap:10px 16px;align-items:center;justify-content:center;flex-wrap:wrap;padding:10px 16px;background:var(--lsd-rb,#860d0e);color:#fff;font-weight:600;font-size:16px;line-height:1.35;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.18);box-sizing:border-box;font-family:inherit}' +
+    '.lsd-rb .lsd-cd{display:inline-block;margin-left:4px;padding:2px 10px;border-radius:8px;background:rgba(255,255,255,.18);font-size:1.1em}' +
+    '.lsd-rb .lsd-bar-btn{background:#fff;color:var(--lsd-rb,#860d0e);font-weight:700;padding:7px 16px}' +
+    '@media (max-width:600px){.lsd-rb{font-size:14px;padding:8px 12px}.lsd-rb .lsd-bar-btn{padding:6px 12px}}' +
     '.lsd-embed{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}.lsd-embed iframe{position:absolute;top:0;left:0;inset:0;width:100%;height:100%;border:0}' +
     '.lsd-bar-btn{display:inline-block;padding:6px 14px;border-radius:999px;background:#b4552d;color:#fff;font-weight:600;text-decoration:none}' +
     // Recursos de la preclase: música, votación (el diseño de la página puede cambiar --lsd-acento)
@@ -913,6 +918,59 @@
     esperaTimer = setInterval(tick, 500);
   }
 
+  // Página de replay: barra fija arriba con su cuenta atrás (configurada en el dashboard). Al llegar a cero
+  // lleva a la página de venta. Va hasta una fecha y hora fija o dura X minutos desde que la lead abrió la
+  // grabación (se recuerda en el navegador: recargar no la reinicia). Sustituye a las barras <div data-lsd-bar>.
+  var rbTimer = null;
+  function barraReplay(data, who) {
+    var rb = data.replayBarra;
+    var el = document.getElementById('lsd-rb');
+    // Solo en la página de la grabación del vídeo de venta (en los de varios vídeos, el último).
+    if (!rb || !data.links.venta || !document.querySelector('[data-lsd-video="' + rb.video + '"]')) {
+      if (el) { el.parentNode.removeChild(el); document.body.style.paddingTop = ''; clearInterval(rbTimer); rbTimer = null; }
+      return;
+    }
+    var fin = rb.at;
+    if (!fin && rb.minutos) {
+      var key = 'lsd_rb_' + data.code;
+      var desde = store(key);
+      if (!desde || !desde.t) { desde = { t: serverNow() }; store(key, desde); }
+      fin = desde.t + rb.minutos * 60000;
+    }
+    if (!fin) return;
+    var preview = Boolean(params.get('lsd_preview'));
+    var ir = function () {
+      if (preview) { el.querySelector('.lsd-bar-text').textContent = 'Vista previa: aquí iría a la página de venta.'; return; }
+      goTo(data.links.venta, who);
+    };
+    // Ya pasó (vuelve otro día o se le acabaron sus minutos): directa a la página de venta.
+    if (fin <= serverNow() && !preview) return goTo(data.links.venta, who);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'lsd-rb';
+      el.className = 'lsd-rb';
+      el.setAttribute('role', 'region');
+      el.setAttribute('aria-label', 'Cuenta atrás');
+      document.body.insertBefore(el, document.body.firstChild);
+    }
+    if (rb.color) el.style.setProperty('--lsd-rb', rb.color);
+    var href = data.links.venta;
+    el.innerHTML = '<span class="lsd-bar-text">' + esc(rb.text).replace('{cuenta}', cdSpan(fin)) + '</span>'
+      + (rb.boton ? '<a class="lsd-bar-btn" href="' + esc(href) + '">' + esc(rb.boton) + '</a>' : '');
+    // Las barras de urgencia de la página se ocultan: manda esta.
+    document.querySelectorAll('[data-lsd-bar]').forEach(function (b) { show(b, false); });
+    var hueco = function () { document.body.style.paddingTop = el.offsetHeight + 'px'; };
+    hueco();
+    if (!barraReplay.resize) { barraReplay.resize = true; window.addEventListener('resize', function () { var b = document.getElementById('lsd-rb'); if (b) document.body.style.paddingTop = b.offsetHeight + 'px'; }); }
+    startCountdowns();
+    clearInterval(rbTimer);
+    rbTimer = setInterval(function () {
+      if (serverNow() < fin) return;
+      clearInterval(rbTimer);
+      ir();
+    }, 500);
+  }
+
   function runManagedPage(kind, launchAttr, who, onVideo) {
     var timer = null;
     function cycle() {
@@ -922,6 +980,7 @@
           return /^directo\d?$/.test(data.redirectTo) ? irAlDirecto(data, data.redirectTo, who) : goTo(data.links[data.redirectTo], who);
         }
         renderPage(data, who, function (el) { onVideo(el, data.code); });
+        if (kind === 'grabacion') barraReplay(data, who);
         // Los 59 minutos antes del directo, la preclase se convierte en la pantalla de espera.
         var esp = kind === 'recursos' ? esperaDirecto(data) : null;
         if (esp && serverNow() >= esp.desde) mostrarEspera(data, esp, who); else quitarEspera();
