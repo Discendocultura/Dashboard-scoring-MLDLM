@@ -313,4 +313,9 @@ test('bump offers del pago único y del fraccionado: % sobre las ventas de cada 
   assert.deepEqual([f.n, f.base, f.pct], [1, 1, 1]);
   assert.ok(Math.abs(m.eco.facturacionBumps - (50 + 25)) < 1e-9); // 30,25 con IVA = 25 sin IVA
   assert.ok(Math.abs(m.eco.facturacion - (2000 + 1200 + 75)) < 1e-9);
+  // Programa exento de IVA (producto sanitario): el precio cuenta tal cual.
+  const ex = computeMetrics(leads, { ...cfg, iva: { pct: 21, programa: 'exento' } });
+  assert.equal(ex.eco.facturacionPrograma, 3200);
+  const { sanitizeIva } = await import('../public/js/pago.js');
+  assert.equal(sanitizeIva({ programa: 'exento' }).programa, 'exento');
 });

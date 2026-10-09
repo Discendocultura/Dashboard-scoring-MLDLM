@@ -104,9 +104,10 @@ export function pendientesPago(cfg, { precioUnico, unicoTag, fraccionadoTag, pre
 
 // IVA de los precios del lanzamiento (Configuración): cada precio se escribe con el IVA incluido o «+ IVA».
 // La facturación y el ROAS se calculan SIN IVA. Sin elegir, se toma como IVA incluido (y se avisa).
-//  launch.iva = { pct: 21, vip: 'incluido' | 'mas' | '', programa: 'incluido' | 'mas' | '' }
+// El programa puede ir «sin IVA» (exento: producto sanitario como Raíces): su precio es el importe tal cual.
+//  launch.iva = { pct: 21, vip: 'incluido' | 'mas' | '', programa: 'incluido' | 'mas' | 'exento' | '' }
 export const IVA_DEF = 21;
-export const MODOS_IVA = ['incluido', 'mas'];
+export const MODOS_IVA = ['incluido', 'mas', 'exento'];
 export function sanitizeIva(v) {
   const modo = (x) => (MODOS_IVA.includes(x) ? x : '');
   const pct = Number(v?.pct);
@@ -114,7 +115,7 @@ export function sanitizeIva(v) {
 }
 export const ivaPct = (launch) => (Number.isFinite(Number(launch?.iva?.pct)) ? Number(launch.iva.pct) : IVA_DEF);
 // Importe sin IVA de un precio según cómo se escribió.
-export const sinIva = (precio, modo, pct = IVA_DEF) => (Number(precio) || 0) / (modo === 'mas' ? 1 : 1 + (Number(pct) || 0) / 100);
+export const sinIva = (precio, modo, pct = IVA_DEF) => (Number(precio) || 0) / (modo === 'mas' || modo === 'exento' ? 1 : 1 + (Number(pct) || 0) / 100);
 // Precio de la VIP sin IVA (para la facturación y el ROAS).
 export const vipSinIva = (launch) => sinIva(launch?.precioVip, launch?.iva?.vip, ivaPct(launch));
 // Precios que aún no dicen si llevan IVA.
