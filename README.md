@@ -600,6 +600,12 @@ npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)
 - **Conversión del downsell** (Métricas → Downsell): de las registradas que no compraron el lanzamiento, cuántas compraron el meteórico; y cuántas compradoras ya eran clientas o venían de fuera.
 - **Leads al momento**: el navegador guarda una copia de los leads de cada lanzamiento (24 h) y la enseña al abrir mientras descarga los de ahora. Se borra al cerrar sesión.
 
+## 🔴 En directo y visitas a la página de venta
+
+- **En directo** (Comercial → En directo): durante el directo, cuántas están en la pantalla de espera, cuántas tienen ya su enlace de Zoom, cuántas han entrado (y el % sobre la sala), las entradas minuto a minuto de la última hora, VIP y ventas desde que abre el carrito y visitas a la página de venta. Se refresca solo cada minuto. Casi todo sale de D1; a GHL solo se le piden 4 recuentos por minuto (cacheados), así que no se satura aunque haya 1500 leads.
+- **Página de venta**: pega en la página de venta de GHL el bloque «VENTA» de Configuración → Códigos (`<div data-lsd-venta data-launch="auto"></div>` + el script). Cada visita de un lead identificado se guarda en D1. En los emails, los enlaces a la página de venta deben llevar `?cid={{contact.id}}` para saber quién es.
+- **Setting hoy**: el primer grupo es «🛒 Visitaron la página de venta y no han comprado», ordenado por la visita más reciente. En la ficha y en los chips aparece cuándo la visitaron y cuántas veces.
+
 ## Aprender de cada lanzamiento
 
 - **Retrospectiva** (Métricas → Resumen, al cerrar el carrito): el lanzamiento frente al anterior del mismo embudo (registros, coste por registro, asistencia, VIP, conversión, ventas, facturación y ROAS) y los aprendizajes, incluidos los bonus que funcionaron o no. Cada aprendizaje propone una tarea; con un botón se pasan a la planificación del siguiente lanzamiento (sin duplicarlas).

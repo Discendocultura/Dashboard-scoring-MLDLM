@@ -2058,3 +2058,12 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 .wiz-card .emb-recursos .chk { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 2px 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 600; }
 .wiz-card .emb-recursos .chk:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 .wiz-card .emb-recursos .chk small { grid-column: 2; font-weight: 400; }
+/* Comercial → En directo */
+.ed-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.ed-head h2 { margin: 0; }
+.ed-head p { margin: 4px 0 0; }
+.ed-acciones { display: flex; gap: 10px; align-items: center; }
+.ed-barras { display: flex; align-items: flex-end; gap: 2px; height: 140px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.ed-barras span { flex: 1; min-height: 2px; border-radius: 3px 3px 0 0; background: var(--accent); opacity: .85; }
+.ed-barras span:hover { opacity: 1; }
+.ed-eje { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }

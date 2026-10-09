@@ -5,6 +5,7 @@ export const PESTANAS = {
   lanzamientos: [
     { id: 'hoy', label: 'Setting hoy', desc: 'A quién escribir hoy por WhatsApp, por prioridad' },
     { id: 'llamadas', label: 'Llamadas', desc: 'Llamadas de valoración: calendario, resultados y pipeline' },
+    { id: 'endirecto', label: 'En directo', desc: 'El día del webinar: quién espera, quién entra, VIP, ventas y visitas a la página de venta, minuto a minuto' },
     { id: 'leads', label: 'Leads', desc: 'Lista de registrados con su puntuación y estado' },
     { id: 'metricas', label: 'Métricas', desc: 'Registros, clases, VIP, directo, ventas, coste por lead…' },
     { id: 'objetivos', label: 'Objetivos y calculadora', desc: 'Objetivos, ritmo necesario y calculadora de inversión y CPL por escenarios' },
@@ -61,7 +62,7 @@ export const SECCIONES_VALIDAS = Object.entries(SECCIONES).flatMap(([v, l]) => l
 // Cómo se agrupan las pestañas en el menú del dashboard (categorías → subcategorías), por tipo de embudo.
 export const CATEGORIAS = {
   lanzamientos: [
-    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'El trabajo diario de setters y closers', vistas: ['hoy', 'llamadas'] },
+    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'El trabajo diario de setters y closers', vistas: ['hoy', 'llamadas', 'endirecto'] },
     { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['leads'] },
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va el lanzamiento, en cifras', vistas: ['metricas'] },
     { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Para decidir: objetivos, avatar y comparativas', vistas: ['objetivos', 'avatar', 'comparar'] },

@@ -200,3 +200,37 @@ test('directo sin atascos: inscripción mientras espera, entrada directa y precl
   // Sin «pagina=recursos» (otras páginas) sigue la respuesta completa.
   assert.ok((await call('/api/page?l=dir-26&cid=mock00032')).data.recursos);
 });
+
+test('página de venta y panel «En directo»: visitas, espera, entradas y ventas', async () => {
+  const madrid = (ms) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(ms)).replace(' ', 'T');
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const t = madrid(Date.now() + 20 * 60_000);
+  const { data: c } = await call('/api/config', { cookie: admin });
+  const launch = { name: 'Vivo', registroTag: 'registro-webinar-demo', vipTag: 'compra-vip-demo', compraTag: 'clienta-raices', inicioCaptacion: local(-10), fechaDirecto: t.slice(0, 10), horaDirecto: t.slice(11), zoomMeetingId: '81234567890' };
+  assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { ...c.config, _version: c.version, launches: { ...c.config.launches, 'viv-26': launch } } })).status, 200);
+  // Página de venta: dos visitas de la misma lead y una de otra (sin llamar a GHL).
+  const visita = (cid) => call('/api/visita', { method: 'POST', body: { launch: 'viv-26', cid } });
+  assert.equal((await visita('mock00041')).status, 200);
+  await visita('mock00041');
+  await visita('mock00042');
+  assert.equal((await visita('x')).status, 400);
+  assert.equal((await call('/api/visita', { method: 'POST', body: { launch: 'no-existe', cid: 'mock00041' } })).status, 404);
+  const v = (await call('/api/visita?l=viv-26', { cookie: admin })).data.visitas;
+  assert.equal(v.mock00041.veces, 2);
+  assert.equal(v.mock00042.veces, 1);
+  assert.equal((await call('/api/visita?l=viv-26')).status, 401);
+  // Pantalla de espera y entradas
+  const z = (op, cid) => call('/api/directo-zoom', { method: 'POST', body: { op, launch: 'viv-26', k: 1, cid } });
+  await z('espera', 'mock00041'); await z('espera', 'mock00041'); await z('espera', 'mock00043');
+  await z('prep', 'mock00041');
+  await z('click', 'mock00041');
+  const d = (await call('/api/endirecto?l=viv-26', { cookie: admin })).data;
+  assert.equal(d.esperando, 2);
+  assert.equal(d.inscritas, 1);
+  assert.equal(d.entraron, 1);
+  assert.equal(d.entradas.length, 1);
+  assert.deepEqual(d.visitas, { total: 2, recientes: 2 });
+  assert.equal(typeof d.vip, 'number');
+  assert.equal(typeof d.ventas, 'number');
+  assert.equal((await call('/api/endirecto?l=viv-26')).status, 401);
+});

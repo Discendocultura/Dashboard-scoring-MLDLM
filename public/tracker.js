@@ -69,7 +69,7 @@
   function post(path, payload) {
     var body = JSON.stringify(payload);
     // text/plain evita la petición previa CORS; el servidor lo interpreta como JSON.
-    if ((path === '/api/track' || payload.op === 'click') && navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) {
+    if ((path === '/api/track' || path === '/api/visita' || payload.op === 'click' || payload.op === 'espera') && navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) {
       return Promise.resolve({ ok: true });
     }
     return fetch(API + conCliente(path), { method: 'POST', body: body, headers: { 'content-type': 'text/plain' }, keepalive: true })
@@ -883,6 +883,8 @@
       document.body.appendChild(el);
       document.documentElement.style.overflow = 'hidden';
       prepararZoom(data, esp, who);
+      // Para el panel «En directo» del dashboard: quién está esperando (solo D1, sin GHL).
+      if (!params.get('lsd_preview') && who && who.cid) post('/api/directo-zoom', { op: 'espera', launch: data.code, k: kDe(esp.key), cid: who.cid });
       // Lectores de pantalla: solo la pantalla de espera (lo de debajo queda oculto mientras tanto).
       Array.prototype.forEach.call(document.body.children, function (c) { if (c !== el && !c.hasAttribute('aria-hidden')) { c.setAttribute('aria-hidden', 'true'); c.setAttribute('data-lsd-oculto', '1'); } });
       el.setAttribute('tabindex', '-1');
@@ -968,9 +970,22 @@
     });
   }
 
+  // Página de venta: <div data-lsd-venta data-launch="auto"></div> apunta la visita (sin llamar a GHL)
+  // para «Setting hoy» del dashboard: quién la visitó y no ha comprado. Necesita saber quién es: ?cid=
+  // en el enlace (los de la preclase y la grabación ya lo llevan) o que el navegador la recuerde.
+  function initVenta(el) {
+    if (el.getAttribute('data-lsd-ready')) return;
+    el.setAttribute('data-lsd-ready', '1');
+    var who = identity();
+    if (!who || !who.cid || params.get('lsd_preview')) return;
+    post('/api/visita', { launch: params.get('l') || el.getAttribute('data-launch') || 'auto', cid: who.cid });
+  }
+
   function init() {
     var login = document.querySelector('[data-lsd-login]');
     if (login) initLogin(login);
+    var venta = document.querySelector('[data-lsd-venta]');
+    if (venta) initVenta(venta);
 
     var pageEl = document.querySelector('[data-lsd-page]');
     var containers = Array.prototype.slice.call(document.querySelectorAll('[data-lsd-video]'))

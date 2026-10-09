@@ -289,7 +289,7 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
 const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico' };
-const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas' };
+const VIEW_PERMISO = { endirecto: 'hoy', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas' };
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
@@ -303,7 +303,9 @@ const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual
   // El calendario es el del cliente (todos sus embudos): está en todos.
   && (!pestanasEmbudo() || pestanasEmbudo().includes(v) || v === 'calendario'
     // «Oferta» es nueva: los embudos de meteóricos con pestañas elegidas antes la ven junto a «Meteóricos».
-    || (v === 'moferta' && pestanasEmbudo().includes('meteoricos')))
+    || (v === 'moferta' && pestanasEmbudo().includes('meteoricos'))
+    // «En directo» es nueva: los embudos con pestañas elegidas antes la ven junto a Setting hoy o Llamadas.
+    || (v === 'endirecto' && (pestanasEmbudo().includes('hoy') || pestanasEmbudo().includes('llamadas'))))
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
@@ -663,7 +665,9 @@ async function loadLeads() {
     state.leadsDe = state.launchCode;
     state.page = 0;
     render();
+    aplicarVisitas();
     cargarVotos(); // los votos no dependen de que se actualicen los leads
+    cargarVisitas();
   } else if (state.leadsDe !== state.launchCode) {
     state.leads = []; // sin copia: no se quedan a la vista los de otro lanzamiento
     state.leadsDe = state.launchCode;
@@ -685,9 +689,11 @@ async function loadLeads() {
     state.leads = out.map((c) => enrich(c));
     state.leadsDe = state.launchCode; // para el auditor: los leads cargados son de este lanzamiento
     state.page = 0;
+    aplicarVisitas();
     render();
     loadMeta(token);
     cargarVotos();
+    cargarVisitas();
     if (!out.length) notice(`No hay contactos con la etiqueta "${launch.registroTag}".`);
   } catch (e) {
     notice(copia?.contacts.length ? `No se pudieron actualizar los leads (${e.message}): ves los de hace ${haceTxt}.` : `No se pudieron cargar los leads: ${e.message}`, true);
@@ -2107,14 +2113,14 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
 // Comparar) y «Planificación» (Calendario, Tareas y Rendimiento del equipo).
-const GRUPOS = { comercial: ['hoy', 'llamadas'], analisis: ['objetivos', 'avatar', 'vanuncios', 'comparar'], planificacion: ['calendario', 'tareas', 'rendimiento'] };
+const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], analisis: ['objetivos', 'avatar', 'vanuncios', 'comparar'], planificacion: ['calendario', 'tareas', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
+const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
@@ -2162,6 +2168,49 @@ document.addEventListener('click', (e) => {
 window.LSD_TEMA?.alCambiar(pintarTema);
 pintarTema();
 $$('[data-icon] > h2').forEach((h) => h.insertAdjacentHTML('afterbegin', `<span class="h-ico">${icon(h.parentElement.dataset.icon)}</span>`));
+// ---------- Comercial → En directo ----------
+let enDirectoTimer = null;
+async function cargarEnDirecto() {
+  const code = state.launchCode;
+  if (!code || enVsl() || enMeteo()) return;
+  try {
+    const d = await api(`/api/endirecto?l=${encodeURIComponent(code)}`);
+    if (state.launchCode === code && !$('#view-endirecto').hidden) pintarEnDirecto(d);
+  } catch (e) {
+    $('#ed-estado').textContent = `No se pudo actualizar: ${e.message}`;
+  }
+}
+function pintarEnDirecto(d) {
+  const num = (n) => Number(n || 0).toLocaleString('es-ES');
+  const min = (ms) => Math.round(ms / 60_000);
+  const hora = (ms) => new Date(ms).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  const estado = d.directo == null ? 'Pon el día y la hora del directo en la configuración.'
+    : d.now < d.directo ? `Empieza a las ${hora(d.directo)} (en ${min(d.directo - d.now) >= 60 ? `${Math.floor(min(d.directo - d.now) / 60)} h ${min(d.directo - d.now) % 60} min` : `${min(d.directo - d.now)} min`})`
+      : d.finDirecto == null || d.now < d.finDirecto ? `En directo desde las ${hora(d.directo)} (hace ${min(d.now - d.directo)} min)` : `El directo empezó a las ${hora(d.directo)}`;
+  $('#ed-titulo').textContent = `🔴 ${d.video} · ${d.nombre}`;
+  $('#ed-estado').textContent = estado;
+  $('#ed-actualizado').textContent = `Actualizado a las ${new Date(d.now).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+  const ghl = d.ghlError ? (d.ghlActualizado ? `GHL no responde: dato de las ${hora(d.ghlActualizado)}` : 'GHL no responde ahora') : 'de GHL, cada minuto';
+  const carrito = d.apertura == null ? '' : d.now < d.apertura ? `el carrito abre a las ${hora(d.apertura)}` : d.cierre && d.now > d.cierre ? 'carrito cerrado' : 'carrito abierto';
+  $('#ed-kpis').innerHTML = [
+    card('Abrieron la pantalla de espera', num(d.esperando), 'en la hora antes del directo', 'eye', 'info'),
+    card('Inscritas en Zoom', num(d.inscritas), 'antes de la hora (entran con un clic)', 'check', 'accent'),
+    card('Entraron al directo', num(d.entraron), d.esperando ? `${pctOf(d.entraron, d.esperando)} de las que esperaban` : 'desde la preclase o el enlace del directo', 'live', 'live'),
+    ...(d.conVip ? [card('Entradas VIP', d.vip == null ? '–' : num(d.vip), ghl, 'crown', 'vip')] : []),
+    card('Ventas del lanzamiento', d.ventas == null ? '–' : num(d.ventas), [carrito, ghl].filter(Boolean).join(' · '), 'cart', 'buy'),
+    card('Visitaron la página de venta', num(d.visitas.total), `${num(d.visitas.recientes)} en los últimos 15 min · ver en Setting hoy`, 'eye', 'warn'),
+  ].join('');
+  // Entradas por minuto de la última hora (barras).
+  const ahora = Math.floor(d.now / 60_000);
+  const porMin = new Array(60).fill(0);
+  for (const t of d.entradas || []) { const i = 59 - (ahora - Math.floor(t / 60_000)); if (i >= 0 && i < 60) porMin[i]++; }
+  const max = Math.max(1, ...porMin);
+  $('#ed-grafica').innerHTML = porMin.some(Boolean)
+    ? `<div class="ed-barras" role="img" aria-label="Entradas por minuto en la última hora">${porMin.map((n, i) => `<span style="height:${Math.round((n / max) * 100)}%" title="${hora((ahora - 59 + i) * 60_000)} · ${n} entrada${n === 1 ? '' : 's'}"></span>`).join('')}</div><div class="ed-eje"><span>hace 60 min</span><span>máx. ${max}/min</span><span>ahora</span></div>`
+    : '<p class="muted">Todavía no ha entrado nadie al directo en la última hora.</p>';
+}
+$('#ed-recargar').addEventListener('click', cargarEnDirecto);
+
 function showView(view) {
   if (state.role && !allowedViews().includes(view)) view = allowedViews()[0];
   const grupo = grupoDe(view);
@@ -2183,6 +2232,9 @@ function showView(view) {
   // Tareas del embudo abierto (en meteóricos, del meteórico elegido).
   if (view === 'tareas' && state.config) { if (codigo() && state.tareas?.code !== codigo()) loadTareas(); else { pintarCabeceraTareas(); renderTareas(); } }
   if (view === 'llamadas' && state.config) { if (state.llamadas?.code !== codigo()) loadLlamadas(); else renderLlamadas(); }
+  // «En directo»: se carga al abrirla y cada minuto mientras está abierta (y la pestaña del navegador visible).
+  clearInterval(enDirectoTimer);
+  if (view === 'endirecto' && state.config) { cargarEnDirecto(); enDirectoTimer = setInterval(() => { if (!document.hidden) cargarEnDirecto(); }, 60_000); }
   requestAnimationFrame(revisarBarras);
 }
 $$('.view-tab').forEach((t) => t.addEventListener('click', () => {
@@ -2308,6 +2360,7 @@ function compraChip(s) {
 function preclaseChips(l) {
   const r = l.s.recursos || {};
   const out = [];
+  if (l.s.venta_visita && !l.s.compra) out.push(`<span class="ll-chip" title="${esc(visitaTxt(l.s.venta_visita))}">🛒${l.s.venta_visita.veces > 1 ? ` ×${l.s.venta_visita.veces}` : ''}</span>`);
   if (r.musica && (l.s.musica_play || l.s.musica_50 || l.s.musica_90)) out.push(`<span class="ll-chip" title="Música: ${l.s.musica_90 ? 'entera' : l.s.musica_50 ? 'más de la mitad' : 'le dio al play'}">🎵${l.s.musica_90 ? ' 90%' : l.s.musica_50 ? ' 50%' : ''}</span>`);
   if (r.test && l.s.test) out.push('<span class="ll-chip" title="Hizo el test">🧭 Test</span>');
   const v = r.votacion && votoTexto(l.id);
@@ -2375,6 +2428,8 @@ function renderHoy() {
   // Dentro de cada lista, primero las que encajan con un avatar comprador.
   const byScore = (a, b) => (b.avatar >= 0) - (a.avatar >= 0) || b.score - a.score;
   const buckets = [
+    // Las más calientes del carrito: abrieron la página de venta y no han comprado (la más reciente primero).
+    { id: 'venta', title: '🛒 Visitaron la página de venta y no han comprado', hint: 'Están decidiendo ahora: escríbeles cuanto antes', rows: state.leads.filter((l) => open(l) && l.s.venta_visita), orden: (a, b) => b.s.venta_visita.ultima - a.s.venta_visita.ultima },
     { id: 'calientes', title: '🔥 Muy calientes sin contactar', hint: 'Máxima prioridad', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.estado.id === 'muy-caliente') },
     { id: 'vip', title: '⭐ VIP que no han comprado', hint: 'Pagaron la entrada: están cerca', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.vip) },
     { id: 'grabacion', title: '🎬 Vieron la grabación y no han comprado', hint: '≥50% de la grabación', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && !l.s.vip && l.estado.id !== 'muy-caliente' && grabVenta(l.s) >= 50) },
@@ -2383,7 +2438,7 @@ function renderHoy() {
   ];
   const seen = new Set();
   $('#hoy-lists').innerHTML = buckets.map((b) => {
-    const rows = b.rows.filter((l) => !seen.has(l.id)).sort(byScore);
+    const rows = b.rows.filter((l) => !seen.has(l.id)).sort(b.orden || byScore);
     rows.forEach((l) => seen.add(l.id));
     const shown = rows.slice(0, 30);
     return `<section class="card hoy-card">
@@ -2397,6 +2452,7 @@ function renderHoy() {
 
 function hoyItem(l) {
   const signals = [
+    l.s.venta_visita ? visitaTxt(l.s.venta_visita) : '',
     l.s.vip ? 'VIP' : '',
     directoVenta(l.s, 'final') ? 'Directo hasta el final' : directoVenta(l.s, 'asistio') ? 'Asistió al directo' : '',
     grabVenta(l.s) ? `Grabación ${grabVenta(l.s)}%` : '',
@@ -3535,6 +3591,7 @@ function renderSnippets() {
     ['RECURSOS · etapas (cada caja recibe data-lsd-estado="bloqueada | disponible | hecha" para el diseño)',
       etapasPreclase(state.config.launches[code], nClases(state.config.launches[code])).map((e) => `<div data-lsd-etapa="${e.id}">Etapa <span data-lsd-etapa-n="${e.id}"></span> · ${e.label}</div>`).join('\n')],
     ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
+    ['VENTA · página de venta de Raíces (apunta quién la visita para «Setting hoy»; los enlaces a esta página en los emails, con ?cid={{contact.id}})', `<div data-lsd-venta data-launch="auto"></div>\n${script}`],
     ['GRABACIÓN · bloques de la página del replay', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
     // El enlace para conectarse al directo es el de la preclase: 59 min antes enseña la pantalla de espera y al llegar a cero entra sola.
@@ -6582,6 +6639,7 @@ function hechosLead(lead) {
     ...(s.recursos?.test ? [s.test ? `🧭 Hizo el test${recursosDe(launch).test.nombre ? ` «${recursosDe(launch).test.nombre}»` : ''}` : '🧭 No ha hecho el test'] : []),
     ...(s.recursos?.votacion ? [votoTexto(lead.id) ? `🗳️ Respondió en la clase: «${votoTexto(lead.id)}»` : s.voto ? '🗳️ Respondió la votación de la clase' : '🗳️ No ha respondido la votación'] : []),
     ...(s.recursos?.descargable ? [s.descarga ? '📄 Abrió el descargable' : ''] : []),
+    s.venta_visita ? `🛒 Abrió la página de venta${s.venta_visita.veces > 1 ? ` ${s.venta_visita.veces} veces` : ''} (la última, ${haceTxt(s.venta_visita.ultima)})` : '',
     s.wa_enviado ? '💬 Ya se le escribió por WhatsApp' : '',
     s.compra ? '✅ Ya compró' : s.clienta_anterior ? '✅ Clienta de una edición anterior' : '',
   ].filter(Boolean);
@@ -6660,6 +6718,26 @@ async function cargarVotos() {
     if (state.launchCode === code) { state.votos = d.activa ? { code, ...d } : null; render(); }
   } catch { if (state.launchCode === code) state.votos = null; }
 }
+// Visitas a la página de venta (apuntadas por el bloque data-lsd-venta, sin GHL): l.s.venta_visita.
+async function cargarVisitas() {
+  const code = state.launchCode;
+  if (enVsl() || !state.config.launches[code]) return;
+  try {
+    const d = await api(`/api/visita?l=${encodeURIComponent(code)}`);
+    if (state.launchCode !== code) return;
+    state.visitas = { code, visitas: d.visitas || {} };
+    aplicarVisitas();
+    render();
+  } catch { /* sin visitas: no pasa nada */ }
+}
+function aplicarVisitas() {
+  const v = state.visitas?.code === state.launchCode ? state.visitas.visitas : null;
+  if (!v) return;
+  for (const l of state.leads) { if (v[l.id]) l.s.venta_visita = v[l.id]; else delete l.s.venta_visita; }
+}
+const haceTxt = (ms) => { const m = Math.max(0, Math.round((Date.now() - ms) / 60_000)); return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
+const visitaTxt = (v) => `🛒 Página de venta${v.veces > 1 ? ` ×${v.veces}` : ''} · ${haceTxt(v.ultima)}`;
+
 // Respuestas de un lead a la votación: [{ q, texto }] (texto de la opción elegida o lo que escribió).
 const respuestasDe = (cid) => {
   const v = state.votos;
