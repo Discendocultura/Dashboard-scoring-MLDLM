@@ -8,7 +8,7 @@ export const PESTANAS = {
     { id: 'endirecto', label: 'En directo', desc: 'El día del webinar: quién espera, quién entra, VIP, ventas y visitas a la página de venta, minuto a minuto' },
     { id: 'leads', label: 'Leads', desc: 'Lista de registrados con su puntuación y estado' },
     { id: 'metricas', label: 'Métricas', desc: 'Registros, clases, VIP, directo, ventas, coste por lead…' },
-    { id: 'objetivos', label: 'Objetivos y calculadora', desc: 'Objetivos, ritmo necesario y calculadora de inversión y CPL por escenarios' },
+    { id: 'objetivos', label: 'Objetivos y calculadora', desc: 'Planificador con el histórico (inversión, leads, CPL máximo, equipo y números) y objetivos que salen de la proyección' },
     { id: 'avatar', label: 'Avatar y anuncios', desc: 'Perfil de compradoras (encuesta) y anuncios ganadores' },
     { id: 'comparar', label: 'Comparar', desc: 'Lanzamientos entre sí, edición actual frente a las anteriores, VSL frente a lanzamiento' },
     { id: 'rendimiento', label: 'Rendimiento del equipo', desc: 'WhatsApps, llamadas, shows, cierres y tiempo de respuesta por persona' },
@@ -238,7 +238,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
       'Las respuestas se guardan en campos personalizados del contacto: el perfil de compradoras sale de esos campos.',
     ] });
     if (on('metricas') || on('avatar') || on('objetivos')) s.push(guiaMeta());
-    if (on('objetivos')) s.push({ titulo: `${s.length + 1} · Objetivos`, pasos: ['En la pestaña <em>Objetivos y calculadora</em> pon los objetivos de registros, VIP, ventas y facturación: calcula el ritmo necesario y, con los lanzamientos anteriores, la inversión, los registros y el CPL máximo y recomendado en tres escenarios.'] });
+    if (on('objetivos')) s.push({ titulo: `${s.length + 1} · Objetivos`, pasos: ['En la pestaña <em>Objetivos y calculadora</em> el planificador usa solo los lanzamientos anteriores: inversión recomendada, leads, CPL máximo, equipo de llamadas y números en tres escenarios. Los objetivos salen de esa proyección (se fijan solos la primera vez) y debajo ves cuánto llevas y a qué ritmo hay que ir.'] });
     s.push({ titulo: `${s.length + 1} · En el dashboard`, pasos: [
       'Crea el primer lanzamiento (se abre al crear el embudo): nombre, código, etiquetas, fechas de captación, clases, directo y cierre, enlaces y precios.',
       ...(on('tareas') ? ['En <em>Tareas</em>, «Cargar tareas habituales» crea la lista de siempre con fechas calculadas.'] : []),

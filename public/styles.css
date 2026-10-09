@@ -2165,3 +2165,9 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 .plan-s { font-size: 12px; line-height: 1.4; color: var(--muted); }
 .plan-rango td.num { white-space: nowrap; }
 .hm-form { margin: 10px 0; padding: 14px; display: grid; gap: 10px; }
+.calc-detalle { margin: 10px 0; }
+.calc-detalle > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.calc-hist-bar { align-items: center; gap: 10px; flex-wrap: wrap; }
+.obj-proy { margin-top: 18px; padding-top: 6px; border-top: 1px solid var(--border); }
+.obj-proy .row { margin-top: 10px; align-items: center; gap: 10px; flex-wrap: wrap; }
+.obj-titulo { display: flex; align-items: center; gap: 8px; margin: 18px 0 10px; }
