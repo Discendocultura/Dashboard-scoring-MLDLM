@@ -2564,14 +2564,27 @@ body.embudo-directa .lanz-only { display: none !important; }
 .lg-seguro { margin: 2px 0 0 !important; text-align: center; font-size: 12px; color: #7d84a8; }
 .login .login-card code.secreto { color: #fff; }
 @media (max-width: 900px) {
-  .lg-contenido { grid-template-columns: 1fr; gap: 26px; align-content: center; padding: 28px 16px 36px; }
-  .lg-hero { align-self: auto; padding: 0; text-align: center; }
-  .lg-titular { font-size: clamp(44px, 14vw, 72px); }
-  .lg-panel { max-width: 440px; width: 100%; margin: 0 auto; }
-  .lg-cohete { left: auto; right: 3%; bottom: auto; top: 1.5%; width: 46px; opacity: .9; }
-  .lg-hero { padding-top: 40px; }
+  /* Móvil: todo el acceso a la vista en la primera carga, con aire a los lados y abajo */
+  .lg-contenido { grid-template-columns: 1fr; gap: 16px; align-content: start; padding: max(18px, env(safe-area-inset-top)) 22px calc(32px + env(safe-area-inset-bottom)); }
+  .lg-hero { align-self: auto; padding: 18px 0 0; text-align: center; }
+  .lg-eyebrow { display: none; }
+  .lg-titular { margin: 0 0 8px; font-size: clamp(36px, 11vw, 52px); }
+  .lg-sub { font-size: 14.5px; max-width: 26em; margin: 0 auto; }
+  .lg-panel { max-width: 420px; width: 100%; margin: 0 auto; }
+  .login .login-card { padding: 22px 20px 18px; gap: 10px; border-radius: 20px; }
+  .login .login-card::before { display: none; }
+  .login .login-card h2 { font-size: 22px; }
+  .login .login-card input { padding: 12px 13px; }
+  .login .login-card .btn.primary { padding: 13px 16px; }
+  .lg-cohete { left: auto; right: 4%; bottom: auto; top: 1%; width: 40px; opacity: .9; }
   .lg-chip { display: none; }
   .lg-grafica { height: 40%; opacity: .35; }
+}
+/* Móviles bajos (iPhone SE…): un poco más compacto para que el acceso quepa con margen */
+@media (max-width: 900px) and (max-height: 620px) {
+  .lg-hero { padding-top: 6px; }
+  .lg-titular { font-size: clamp(32px, 10vw, 42px); }
+  .login .login-card > p.muted:first-of-type { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .login *, .login *::before, .login *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; }
