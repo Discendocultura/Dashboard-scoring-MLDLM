@@ -518,6 +518,15 @@ En la configuración de cada lanzamiento, VSL o meteórico eliges el **tipo de p
 
 En Métricas, con suscripción, verás las **altas por plan**, la facturación (primer cobro de cada alta) y el **MRR** (ingreso mensual recurrente equivalente: un anual de 240 € son 20 €/mes). En los mensajes puedes usar `{link_plan_mensual}`, `{link_plan_anual}`…; `{link_pago}` es el del primer plan. En la página de un meteórico con varios planes sale un botón por plan.
 
+## 💬 SendFlow (grupos de WhatsApp) · conexión
+1. En **SendFlow → API Keys** crea una clave de SendAPI (tu plan debe incluir SendAPI). No la pegues en ningún chat.
+2. En **Cloudflare → Workers & Pages → el proyecto → Settings → Variables and Secrets → Add**: tipo **Secret**,
+   nombre `SENDFLOW_API_KEY` (otros clientes: `SENDFLOW_API_KEY_<CLIENTE>`) y como valor la clave.
+3. **Deployments → ⋯ → Retry deployment** (1-2 min).
+4. En el dashboard: **Cuenta → Conexiones → Probar conexión**. Debe decir «Conectado» con tus campañas y comprobar
+   que la analítica (entradas, salidas y clics) responde.
+API: `GET /api/sendflow?op=probar` (permiso «config»). Base `https://sendflow.pro/sendapi` (cambiable con `SENDFLOW_BASE_URL`).
+
 ## 🛒 Venta directa / producto de entrada (low ticket)
 Embudo sin registro: **anuncio → página de venta → checkout (con bump offers) → upsell → downsell → gracias**.
 Se crea con **＋ Nuevo embudo → Venta directa** y el asistente pregunta **«¿Qué lleva tu embudo?»** con interruptores:

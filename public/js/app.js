@@ -9704,3 +9704,33 @@ function renderDirectaClientes(D) {
 }
 $('#dc-buscar').addEventListener('input', () => renderDirectaClientes(state.directa.datos));
 $('#dc-filtro').addEventListener('change', () => renderDirectaClientes(state.directa.datos));
+
+// ---------- 🔌 Conexiones (SendFlow) ----------
+$('#btn-conexiones').addEventListener('click', () => {
+  $('#tb-menu-cuenta').open = false;
+  $('#conexiones-dialog').showModal();
+  probarSendflow();
+});
+$('#cx-sendflow-probar').addEventListener('click', () => probarSendflow());
+async function probarSendflow() {
+  const box = $('#cx-sendflow');
+  const b = $('#cx-sendflow-probar');
+  b.disabled = true;
+  box.innerHTML = '<p class="muted">Conectando con SendFlow…</p>';
+  try {
+    const d = await api('/api/sendflow?op=probar');
+    if (!d.configurada) {
+      box.innerHTML = `<div class="notice warn"><strong>Aún no está conectado.</strong> Falta la variable <code>${esc(d.variable)}</code> en Cloudflare (tipo <em>Secret</em>) con la clave de SendFlow → «API Keys». Después, <em>Deployments → Retry deployment</em> y vuelve a probar.</div>`;
+      return;
+    }
+    if (!d.ok) { box.innerHTML = `<div class="notice err"><strong>No conecta:</strong> ${esc(d.error)}</div>`; return; }
+    const a = d.analitica;
+    box.innerHTML = `<div class="notice">✅ <strong>Conectado con SendFlow.</strong> ${d.total} campaña${d.total === 1 ? '' : 's'} encontrada${d.total === 1 ? '' : 's'}.</div>
+      ${a ? (a.ok ? `<p class="small">📊 Analítica de «${esc(a.nombre)}»: <strong>${a.entradas}</strong> entradas, <strong>${a.salidas}</strong> salidas y <strong>${a.clics}</strong> clics. La analítica funciona ✓</p>` : `<div class="notice warn"><strong>Las campañas se leen, pero la analítica no:</strong> ${esc(a.error)} Pide a SendFlow que active la analítica para tu clave de SendAPI.</div>`) : '<p class="muted small">No hay campañas todavía: crea una en SendFlow para probar la analítica.</p>'}
+      ${d.campanas.length ? `<details><summary>Ver las campañas</summary><ul class="small">${d.campanas.map((c) => `<li>${esc(c.nombre)}${c.archivada ? ' <span class="muted">(archivada)</span>' : ''} <code class="muted">${esc(c.id)}</code></li>`).join('')}</ul></details>` : ''}`;
+  } catch (e) {
+    box.innerHTML = `<div class="notice err">${esc(e.message)}</div>`;
+  } finally {
+    b.disabled = false;
+  }
+}
