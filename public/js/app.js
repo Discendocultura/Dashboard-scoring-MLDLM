@@ -35,6 +35,7 @@ import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
 import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
+import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS } from './anuncios.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -300,8 +301,8 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', grupowa: 'lanzmeteo', paginas: 'todos' };
-const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', grupowa: 'carrito', paginas: 'config' };
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos' };
+const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', grupowa: 'carrito', paginas: 'config', anuncios: 'config' };
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], lanzmeteo: ['lanz', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
@@ -324,7 +325,7 @@ const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual
     // «Grupo de WhatsApp» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas o Carrito.
     || (v === 'grupowa' && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('carrito')))
     // «Páginas» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas.
-    || (v === 'paginas' && pestanasEmbudo().includes('tareas')))
+    || ((v === 'paginas' || v === 'anuncios') && pestanasEmbudo().includes('tareas')))
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() || enDirecta() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
@@ -2334,20 +2335,27 @@ async function loadLaunchLeads(code, label = 'Cargando') {
 
 // Anuncios de todos los lanzamientos del embudo (Análisis → Avatar y anuncios).
 state.hist = { level: 'ad', datos: null };
+// Leads y Meta de todos los lanzamientos empezados del embudo (para el histórico de anuncios y Crear anuncios).
+const codigosHistorico = () => launchesSorted().filter(([, l]) => embudoDeLanz(l) === state.embudo && l.registroTag && l.inicioCaptacion && l.inicioCaptacion <= today()).map(([c]) => c);
+async function cargarDatosHistorico(codes = codigosHistorico()) {
+  const datos = [];
+  for (const code of codes) {
+    const leads = await loadLaunchLeads(code, 'Anuncios');
+    let meta = null;
+    try { const r = await api(`/api/meta?launch=${encodeURIComponent(code)}`); meta = r.configured && !r.error ? r : null; } catch { /* sin Meta */ }
+    datos.push({ code, nombre: state.config.launches[code].name, leads, meta });
+  }
+  state.hist.datos = datos;
+  state.hist.embudo = state.embudo;
+  return datos;
+}
 async function cargarHistoricoAnuncios() {
   const btn = $('#btn-hist-anuncios');
-  const codes = launchesSorted().filter(([, l]) => embudoDeLanz(l) === state.embudo && l.registroTag && l.inicioCaptacion && l.inicioCaptacion <= today()).map(([c]) => c);
+  const codes = codigosHistorico();
   if (!codes.length) { $('#hist-anuncios').innerHTML = '<p class="muted">Aún no hay lanzamientos empezados en este embudo.</p>'; return; }
   btn.disabled = true;
-  const datos = [];
   try {
-    for (const code of codes) {
-      const leads = await loadLaunchLeads(code, 'Anuncios');
-      let meta = null;
-      try { const r = await api(`/api/meta?launch=${encodeURIComponent(code)}`); meta = r.configured && !r.error ? r : null; } catch { /* sin Meta */ }
-      datos.push({ code, nombre: state.config.launches[code].name, leads, meta });
-    }
-    state.hist.datos = datos;
+    await cargarDatosHistorico(codes);
     pintarHistoricoAnuncios();
   } catch (e) {
     $('#hist-anuncios').innerHTML = `<p class="error">${esc(e.message)}</p>`;
@@ -2431,7 +2439,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'grupowa', 'paginas'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'grupowa', 'paginas', 'anuncios'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -2451,6 +2459,7 @@ const AYUDA_VISTA = {
   calendario: ['🗓️ Calendario', 'Todas las fechas del cliente juntas: hitos de cada lanzamiento, tareas y eventos. Se puede sincronizar con tu calendario.'],
   dmetricas: ['📊 Métricas de la venta directa', 'Ventas, facturación, ticket medio, coste por venta (CPA) y ROAS del periodo elegido arriba. Debajo, el % de compradoras que coge cada bump, upsell y downsell, y la conversión de cada página si pegaste sus códigos.'],
   dclientes: ['🛍️ Compradoras', 'Quién ha comprado en el periodo, qué extras se llevó y su WhatsApp. Filtra por un extra para ver, por ejemplo, quién cogió el upsell.'],
+  anuncios: ['🎯 Crear anuncios', 'Anuncios con IA para cada objetivo del embudo (captación, retargeting de consumo, venta): copia el prompt (lleva los anuncios ganadores, la ficha de marca, avatar y producto y los datos del embudo), pégalo en Claude y él escribe los guiones y los copys y crea las imágenes y los vídeos con Magnific.'],
   paginas: ['🧱 Páginas', 'Las páginas del embudo hechas con IA: copia el prompt de cada página (lleva la marca, el avatar, los datos del embudo y los códigos del dashboard), pégalo en Claude y pega el HTML que te devuelva en un elemento «Código personalizado» de GHL.'],
   grupowa: ['💬 Grupo de WhatsApp', 'Los mensajes del grupo de este lanzamiento: copia el prompt, pégalo en Claude (con tu skill de copy), pega aquí su respuesta, sube los archivos, revisa y programa en SendFlow con un botón.'],
   carrito: ['🛒 Carrito', 'Cada día del carrito: lo que pasa ese día (se calcula solo con las fechas, la oferta y la barra), los emails y WhatsApps previstos y la estrategia.'],
@@ -2484,9 +2493,9 @@ document.addEventListener('click', (e) => {
 });
 
 // Grupos de la barra de arriba, por momento de uso: Hoy (lo del día), Plan y Análisis.
-const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['objetivos', 'calendario', 'carrito', 'grupowa', 'paginas', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
+const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['anuncios', 'paginas', 'grupowa', 'carrito', 'objetivos', 'calendario', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout' };
+const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
@@ -2656,6 +2665,7 @@ function showView(view) {
   if (view === 'carrito' && state.config) renderCarritoVista();
   if (view === 'grupowa' && state.config) renderGrupoWa();
   if (view === 'paginas' && state.config) renderPaginas();
+  if (view === 'anuncios' && state.config) renderAnuncios();
   // Planificador: al abrirla se cargan solos los lanzamientos anteriores que falten.
   if (view === 'objetivos' && state.config?.launches?.[state.launchCode] && !enVsl() && !enMeteo() && state.leads) renderObjetivos(currentMetrics());
   // Tareas del embudo abierto (en meteóricos, del meteórico elegido).
@@ -9799,6 +9809,7 @@ document.addEventListener('click', (e) => { if (e.target.closest('[data-abrir-ma
 $('#marca-dialog').addEventListener('close', () => {
   if (!$('#view-grupowa').hidden && state.config) renderGrupoWa();
   if (!$('#view-paginas').hidden && state.config) renderPaginas();
+  if (!$('#view-anuncios').hidden && state.config) renderAnuncios();
 });
 
 $('#btn-conexiones').addEventListener('click', () => {
@@ -10148,6 +10159,104 @@ function gwPrompt() {
   const emb = embCal();
   return promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado'), directos: gwDirectos(), temario: ($('#gw-temario')?.value ?? ls.get(temarioKey()) ?? '').trim(), contexto: contextoMarca(gwc.marca?.m, gwc.marca?.producto) });
 }
+// ---------- 🎯 Crear anuncios con IA (Plan → Anuncios) ----------
+// Por objetivo del embudo, prompts para Claude (guiones, Magnific, copys de Meta) con los anuncios ganadores
+// (del lanzamiento, de todos los lanzamientos del embudo o de la VSL) y la ficha de marca, avatar y producto.
+const notasAnKey = () => `lsd_an_notas_${state.cliente || ''}_${state.embudo}`;
+const TIPO_TXT = { lanzamientos: 'Lanzamiento (webinar / clases gratuitas y carrito)', vsl: 'Embudo siempre abierto (VSL)', meteorico: 'Meteórico (oferta flash)', directa: 'Venta directa (producto de entrada)' };
+// Filas de anuncios ganadores disponibles ahora mismo: { filas, origen }.
+function ganadoresAnuncios() {
+  const t = tipoActual();
+  if (t === 'lanz') {
+    if (state.hist.datos?.length && state.hist.embudo === state.embudo) {
+      const h = historicoAnuncios(state.hist.datos.map((d) => ({ code: d.code, nombre: d.nombre, filas: rankingGanadores(d.leads, state.config.launches[d.code], 'ad', d.meta?.names || {}, d.meta?.spendBy || {}) })));
+      return { filas: h.filas, origen: `${h.lanzamientos} lanzamiento${h.lanzamientos === 1 ? '' : 's'} de este embudo` };
+    }
+    const launch = state.config.launches[state.launchCode];
+    if (launch && state.leadsDe === state.launchCode && state.leads?.length) return { filas: rankingGanadores(state.leads, launch, 'ad', state.meta?.names || {}, state.meta?.spendBy || {}), origen: `el lanzamiento «${launch.name}»` };
+  }
+  if (t === 'vsl' && state.vsl?.leads?.length) return { filas: rankingGanadores(state.vsl.leads, vslCfg(), 'ad', state.vsl.meta?.names || {}, state.vsl.meta?.spendBy || {}), origen: 'el periodo elegido de la VSL' };
+  return { filas: [], origen: '' };
+}
+function ctxAnuncio(c, objetivo) {
+  const g = ganadoresAnuncios();
+  return { objetivo, tipoTexto: TIPO_TXT[c.tipo] || c.tipo, nombreEmbudo: c.nombre, marca: clienteNombre(), datos: c.datos, urls: c.urls,
+    contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto), diseno: disenoTexto(pgc.marca?.m), ganadores: ganadoresTexto(g.filas), notas: (ls.get(notasAnKey()) || '').trim() };
+}
+async function renderAnuncios() {
+  const box = $('#anuncios-body');
+  const c = contextoPaginas();
+  if (c.falta) { box.innerHTML = `<div class="card empty"><p class="muted">${esc(c.falta)}</p></div>`; return; }
+  const embudo = state.embudo;
+  pgc.marca = await marcaDeEmbudo(api, state.cliente, embudo);
+  if (state.embudo !== embudo) return;
+  const g = ganadoresAnuncios();
+  const top = [...g.filas].sort((a, b) => (b.compras - a.compras) || (b.leads - a.leads)).slice(0, 6);
+  const conHist = tipoActual() === 'lanz' && codigosHistorico().length > 1;
+  box.innerHTML = `<section class="card">
+      <h2>🎯 Anuncios de «${esc(c.nombre)}» con IA</h2>
+      <ol class="small pg-pasos">
+        <li>Elige el <strong>objetivo</strong> y copia el prompt. <strong>⚡ Todo en uno</strong> hace los guiones, los copys y los anuncios en Magnific, paso a paso.</li>
+        <li>Pégalo en <strong>Claude</strong> (con el conector de <strong>Magnific</strong> activo y tu skill de copy). Antes de crear nada te enseñará el plan y el coste en créditos.</li>
+        <li>Sube los creativos a Meta con el <strong>mismo nombre</strong> que les ponga Claude: así, en el próximo lanzamiento, el dashboard sabrá cuáles ganan.</li>
+      </ol>
+      ${avisoMarcaHtml(pgc.marca)}
+    </section>
+    <section class="card">
+      <h3>👑 Anuncios ganadores en los que se basan</h3>
+      ${top.length ? `<p class="muted small">Según ${esc(g.origen)} (por ventas y, si no hay, por leads). Entran en todos los prompts.</p>
+        <div class="table-scroll"><table class="metric-table"><thead><tr><th>Anuncio</th><th class="num">Leads</th><th class="num">Ventas</th><th class="num">Conversión</th><th class="num">ROAS</th></tr></thead><tbody>
+        ${top.map((r) => `<tr><td><strong>${esc(r.label)}</strong></td><td class="num">${r.leads}</td><td class="num">${r.compras}</td><td class="num">${pctE(r.conversion)}</td><td class="num">${r.roas != null ? `${r.roas.toFixed(1).replace('.', ',')}x` : '–'}</td></tr>`).join('')}
+        </tbody></table></div>`
+        : '<p class="muted">Aún no hay datos de anuncios ganadores (hacen falta registros con las UTM de Meta). Los prompts se basan en la <strong>ficha de marca, avatar y producto</strong> y proponen ángulos nuevos para testear.</p>'}
+      ${conHist ? `<p><button type="button" class="btn small" id="an-hist">${state.hist.datos && state.hist.embudo === state.embudo ? '↻ Volver a cargar' : '📚 Usar los ganadores de todos los lanzamientos'}</button> <span class="muted small">Carga los leads de cada lanzamiento del embudo (tarda un poco).</span></p>` : ''}
+      <label class="field"><span>Notas sobre lo que ha funcionado <small>(opcional, entran en los prompts: qué decía el anuncio ganador, formato, gancho, quién sale…)</small></span><textarea id="an-notas" rows="2" placeholder="Ej.: el que más vende es un vídeo de Laura a cámara contando su historia; los carruseles no funcionan…">${esc(ls.get(notasAnKey()) || '')}</textarea></label>
+    </section>
+    ${objetivosDe(c.tipo).map((o) => `<section class="card an-obj">
+      <h3>${o.icono} ${esc(o.titulo)}</h3>
+      <p class="small">${esc(o.meta)}</p>
+      <p class="muted small">Para: ${esc(o.publico)}</p>
+      <div class="an-btns">${PROMPTS_ANUNCIOS.map((p) => `<button type="button" class="btn${p.id === 'todo' ? ' primary' : ''}" data-an-copiar="${o.id}:${p.id}" title="${esc(p.desc)}">${p.icono} ${esc(p.titulo)}</button>`).join('')}</div>
+      <details><summary class="small">Ver el prompt «Todo en uno»</summary><pre class="snippet pg-prompt" data-an-prompt="${o.id}"></pre></details>
+    </section>`).join('')}`;
+}
+$('#anuncios-body').addEventListener('toggle', (e) => {
+  const pre = e.target.querySelector?.('[data-an-prompt]');
+  if (!e.target.open || !pre || !e.target.contains(pre)) return;
+  const c = contextoPaginas();
+  const o = objetivosDe(c.tipo).find((x) => x.id === pre.dataset.anPrompt);
+  if (o) pre.textContent = PROMPTS_ANUNCIOS[0].fn(ctxAnuncio(c, o));
+}, true);
+$('#anuncios-body').addEventListener('input', (e) => { if (e.target.id === 'an-notas') ls.set(notasAnKey(), e.target.value); });
+$('#anuncios-body').addEventListener('click', async (e) => {
+  if (e.target.closest('#an-hist')) {
+    const b = e.target.closest('#an-hist');
+    b.disabled = true; b.textContent = 'Cargando…';
+    try { await cargarDatosHistorico(); } catch (err) { notice(err.message, true); }
+    renderAnuncios();
+    return;
+  }
+  const b = e.target.closest('[data-an-copiar]');
+  if (!b) return;
+  const [oid, pid] = b.dataset.anCopiar.split(':');
+  const c = contextoPaginas();
+  const o = objetivosDe(c.tipo).find((x) => x.id === oid);
+  const p = PROMPTS_ANUNCIOS.find((x) => x.id === pid);
+  if (!o || !p) return;
+  const txt = p.fn(ctxAnuncio(c, o));
+  const txtOriginal = b.textContent;
+  try {
+    await navigator.clipboard.writeText(txt);
+    b.textContent = 'Copiado ✓ · pégalo en Claude';
+  } catch {
+    const pre = b.closest('.an-obj').querySelector('[data-an-prompt]');
+    pre.textContent = txt;
+    pre.closest('details').open = true;
+    b.textContent = 'Cópialo de «Ver el prompt»';
+  }
+  setTimeout(() => { b.textContent = txtOriginal; }, 2500);
+});
+
 // ---------- 🧱 Páginas del embudo con IA (Plan → Páginas) ----------
 // Por cada página, un prompt para Claude con la marca y el avatar, el estilo, los datos del embudo y los
 // códigos del dashboard; el HTML que devuelve se pega en un elemento «Código personalizado» de GHL.

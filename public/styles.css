@@ -2462,3 +2462,9 @@ body.embudo-directa .lanz-only { display: none !important; }
 .mk-as { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
 .mk-as.ok { background: var(--accent-soft); }
 .mk-enlace > .btn { justify-self: start; }
+
+/* ---------- 🎯 Crear anuncios con IA ---------- */
+#anuncios-body > .card { padding: 16px; box-sizing: border-box; }
+.an-obj h3 { margin: 0 0 4px; }
+.an-obj > p { margin: 0 0 6px; }
+.an-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }

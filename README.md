@@ -632,6 +632,24 @@ WhatsApp). Se guarda solo mientras se escribe, por campos (el cliente y el equip
 - El **alta guiada** del cliente (Agencia) incluye el paso «Cuestionario de marca y avatar (con su ficha)».
 - API: `GET/POST /api/marca` (equipo; escribir pide el permiso «config») y con `t=` (el cliente desde su enlace).
 
+## 🎯 Crear anuncios con IA (Plan → Anuncios)
+En todos los embudos. **Plan** va ahora en el orden del embudo: Anuncios → Páginas → Grupo de WhatsApp → Carrito →
+Planificador → Calendario → Tareas. Por cada **objetivo** del tipo de embudo (lanzamientos: captación al directo,
+retargeting de consumo y venta del producto; VSL: captación, consumo y venta; meteórico: calentamiento y venta; venta
+directa: venta en frío y retargeting) hay 4 prompts para Claude:
+- **⚡ Todo en uno:** guiones → copys → creación en Magnific, parando en cada paso.
+- **🎬 Guiones de vídeo:** 5 ángulos, con gancho de 3 s, escenas (lo que se ve, lo que se dice, texto en pantalla) y CTA.
+- **🖼️ Crear en Magnific** (conector MCP de Claude): kit de marca (colores, tipografías, logo), plan y coste en
+  créditos antes de generar, imágenes 1:1, 4:5 y 9:16, vídeos 9:16 con subtítulos y voz en off, en una carpeta con
+  nombres que luego se ponen igual en Meta.
+- **✍️ Copys para Meta:** 3 textos principales con emojis (corto, medio, historia), 5 titulares y 3 descripciones,
+  generales para todo el objetivo.
+Todos llevan los **anuncios ganadores** (del lanzamiento abierto, de todos los lanzamientos del embudo con «Usar los
+ganadores de todos los lanzamientos», o de la VSL; por ventas y, si no hay, por leads; con el conector de Meta, Claude
+puede mirar sus creativos), las notas opcionales sobre lo que ha funcionado, la **ficha de marca, avatar y producto**,
+el estilo visual, los datos del embudo y las reglas de Meta (sin atributos personales, sin antes/después, sin promesas
+de salud). Sin histórico, se basan en la ficha y proponen ángulos nuevos.
+
 ## 🧱 Páginas del embudo con IA (Plan → Páginas)
 En todos los tipos de embudo. Por cada página (lanzamientos: registro, gracias, login, preclase, venta, pago y
 grabación; VSL: registro, contenido, gracias y gracias de la llamada; meteórico: oferta; venta directa: venta,

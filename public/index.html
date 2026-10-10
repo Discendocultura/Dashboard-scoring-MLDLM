@@ -167,13 +167,14 @@
           <button type="button" class="subview-tab" data-view="llamadas">Llamadas</button>
           <button type="button" class="subview-tab" data-view="endirecto">En directo</button>
         </nav>
-        <!-- Plan: Planificador, Calendario, Carrito y Tareas -->
+        <!-- Plan, en el orden del embudo: Anuncios, Páginas, Grupo de WhatsApp, Carrito, Planificador, Calendario y Tareas -->
         <nav class="subviews" id="sub-planificacion" role="tablist" aria-label="Plan" hidden>
+          <button type="button" class="subview-tab" data-view="anuncios">Anuncios</button>
+          <button type="button" class="subview-tab" data-view="paginas">Páginas</button>
+          <button type="button" class="subview-tab" data-view="grupowa">Grupo de WhatsApp</button>
+          <button type="button" class="subview-tab" data-view="carrito">Carrito</button>
           <button type="button" class="subview-tab" data-view="objetivos">Planificador</button>
           <button type="button" class="subview-tab" data-view="calendario">Calendario</button>
-          <button type="button" class="subview-tab" data-view="carrito">Carrito</button>
-          <button type="button" class="subview-tab" data-view="grupowa">Grupo de WhatsApp</button>
-          <button type="button" class="subview-tab" data-view="paginas">Páginas</button>
           <button type="button" class="subview-tab" data-view="tareas">Tareas</button>
         </nav>
         <!-- Análisis: Avatar y anuncios (VSL: Anuncios ganadores), Comparar y Rendimiento del equipo -->
@@ -207,6 +208,7 @@
         <!-- 💬 Calentamiento del grupo de WhatsApp (SendFlow) -->
         <section id="view-grupowa" hidden><div id="grupowa-body"></div></section>
         <section id="view-paginas" hidden><div id="paginas-body"></div></section>
+        <section id="view-anuncios" hidden><div id="anuncios-body"></div></section>
 
         <!-- 🛒 Venta directa (low ticket): periodo, métricas y compradoras -->
         <div id="dir-rango" class="vsl-rango card" hidden>
