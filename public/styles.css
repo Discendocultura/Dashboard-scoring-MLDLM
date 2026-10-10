@@ -2353,3 +2353,5 @@ body.embudo-directa .lanz-only { display: none !important; }
 .gw-directo-info { padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); margin: 10px 0; font-size: 14px; }
 #gw-temario { width: 100%; }
 .gw-falta code { word-break: break-all; }
+.gw-anadir { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0 4px; padding: 10px; border: 1px dashed var(--border); border-radius: 10px; }
+.gw-anadir-t { font-weight: 600; font-size: 13px; margin-right: 4px; }

@@ -10042,10 +10042,11 @@ async function renderGrupoWa() {
     <section class="card">
       <h3>3 · Revisa y programa <span class="muted small">· ${gwc.mensajes.length} mensajes · ${programados.length} programados · ${listos.length} listos para programar</span></h3>
       ${gwc.mensajes.length ? [...porDia.entries()].map(([d, lista]) => `<div class="gw-dia"><h4>${d === 'sin fecha' ? 'Sin fecha' : esc(new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}</h4>${lista.map((m) => gwFila(m, editable)).join('')}</div>`).join('') : '<p class="muted">Aún no hay mensajes. Pega la respuesta de Claude en el paso 2.</p>'}
-      ${editable && gwc.mensajes.length ? `<div class="gw-acciones">${editable ? '<button type="button" class="btn" id="gw-nuevo">+ Añadir un mensaje a mano</button>' : ''}
+      ${editable ? `<div class="gw-anadir"><span class="gw-anadir-t">Añadir a mano:</span>${TIPOS_MSG.map((t) => `<button type="button" class="btn small" data-gw-add="${t.id}">+ ${t.ico} ${esc(t.label)}</button>`).join('')}</div>` : ''}
+      ${editable && gwc.mensajes.length ? `<div class="gw-acciones">
         <button type="button" class="btn" id="gw-guardar"${gwc.cambios ? '' : ' disabled'}>Guardar cambios</button>
         <button type="button" class="btn primary" id="gw-programar"${listos.length && !sinCampana && gwc.conectado ? '' : ' disabled'}>📤 Programar en SendFlow (${listos.length})</button>
-        <span class="muted small" id="gw-st"></span></div>` : editable ? '<p><button type="button" class="btn" id="gw-nuevo">+ Añadir un mensaje a mano</button></p>' : ''}
+        <span class="muted small" id="gw-st"></span></div>` : ''}
     </section>`;
   const pre = $('#gw-prompt');
   if (pre) pre.textContent = gwPrompt();
@@ -10146,10 +10147,19 @@ $('#grupowa-body').addEventListener('click', async (e) => {
       $('#gw-pegar').value = '';
       await renderGrupoWa();
       $('#gw-anadir-st') && ($('#gw-anadir-st').textContent = `${nuevos.length} mensajes añadidos ✓ Revísalos abajo.`);
-    } else if (b.id === 'gw-nuevo') {
-      gwc.mensajes.push({ ...sanitizeMensaje({ id: nuevoIdMsg(), tipo: 'texto', at: '' }), estado: 'borrador' });
+    } else if (b.dataset.gwAdd) {
+      // Mensaje nuevo del tipo elegido, a continuación del último (1 h después) o mañana a las 10:00.
+      const ult = gwc.mensajes.map((m) => madridToEpoch(m.at)).filter((t) => t != null).sort((a, c) => a - c).at(-1);
+      const base = ult && ult > Date.now() ? ult + 3_600_000 : null;
+      const at = base ? new Date(base).toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' }).slice(0, 16).replace(' ', 'T') : `${addDay(hoyLocal(), 1)}T10:00`;
+      const tipo = b.dataset.gwAdd;
+      const id = nuevoIdMsg();
+      gwc.mensajes.push({ ...sanitizeMensaje({ id, tipo, at, ...(tipo === 'encuesta' ? { encuesta: { pregunta: '', opciones: [], multiple: false } } : {}) }), estado: 'borrador' });
       gwc.cambios = true;
       await renderGrupoWa();
+      const fila = $(`[data-gw="${id}"]`);
+      fila?.scrollIntoView({ block: 'center' });
+      $('.gw-preg, .gw-texto, .gw-url', fila)?.focus();
     } else if (b.id === 'gw-guardar') {
       st('Guardando…'); await gwGuardar(); await renderGrupoWa(); st('Guardado ✓');
     } else if (b.id === 'gw-programar') {
