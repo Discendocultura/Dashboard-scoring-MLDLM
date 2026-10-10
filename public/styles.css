@@ -2331,3 +2331,22 @@ body.embudo-directa .lanz-only { display: none !important; }
 .gw-guion pre { white-space: pre-wrap; margin: 6px 0 0; font-size: 13px; background: var(--surface-2); padding: 8px; border-radius: 8px; }
 .gw-falta { color: var(--st-caliente); margin: 0; }
 .gw-acciones { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; position: sticky; bottom: 0; background: var(--surface); padding: 10px 0; }
+
+/* Margen interior de las tarjetas de Grupo de WhatsApp y Venta directa (.card no lo trae de serie) */
+#grupowa-body > .card, #dir-extras > .card, #dir-objetivos > .card, #dir-dias > .card, #view-dclientes > .card { padding: 18px 22px; box-sizing: border-box; min-width: 0; }
+#grupowa-body > .card > :first-child { margin-top: 0; }
+#grupowa-body h2, #grupowa-body h3 { margin: 0 0 10px; }
+#grupowa-body textarea, #grupowa-body input, #grupowa-body select, #grupowa-body pre { box-sizing: border-box; max-width: 100%; }
+#grupowa-body .gw-pasos { padding-left: 22px; }
+.gw-rango .field.inline { flex: 0 1 220px; }
+.gw-rango .field.inline input { width: 100%; }
+.gw-rango .btn { margin-left: auto; }
+.gw-archivos .table-scroll { margin: 10px 0; }
+.gw-msg .gw-at { flex: 0 1 220px; }
+.gw-msg .gw-tipo { flex: 0 1 190px; }
+@media (max-width: 640px) {
+  #grupowa-body > .card { padding: 14px; }
+  .gw-rango .field.inline { flex: 1 1 100%; }
+  .gw-rango .btn { margin-left: 0; width: 100%; }
+  .gw-cab .badge { margin-left: 0; }
+}
