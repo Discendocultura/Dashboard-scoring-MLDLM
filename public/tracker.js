@@ -22,6 +22,8 @@
  * dashboard al llegar al 25%, 50%, 75% y 90%.
  */
 (function () {
+  // El plan B del directo (bloque pegado en GHL) mira esto: si el dashboard cargó, no se enseña nunca.
+  window.lsdCargado = true;
   'use strict';
   var script = document.currentScript;
   var API = script ? new URL(script.src).origin : '';

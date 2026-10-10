@@ -454,12 +454,14 @@ GHL admite unas 100 peticiones cada 10 s, y a la hora exacta entran cientos de p
 - Si algo falla, nadie se queda fuera: entra por el enlace genérico de Zoom del lanzamiento.
 
 ### Plan B del directo (si el dashboard no carga)
-En *Códigos para GHL* hay un bloque «RECURSOS · plan B del directo» con un botón **directo a Zoom** (el «Enlace
-genérico de Zoom» de la configuración, ya escrito en el HTML). Se pega en la página preclase y en la de acceso.
-`tracker.js` lo oculta al cargar, así que normalmente no se ve; si el dashboard no carga (p. ej. un bloqueo de red a
-Cloudflare en España en horario de fútbol), el botón se queda visible y la gente entra al directo igual. Lleva el
-enlace de Zoom de ese lanzamiento: si cambia la reunión, hay que volver a pegarlo. Los prompts de Páginas (preclase y
-acceso) ya lo incluyen.
+En *Códigos para GHL* hay un bloque «RECURSOS · plan B del directo»: un recuadro con un botón **directo a Zoom** (el
+«Enlace genérico de Zoom» de la configuración, ya escrito en el HTML) y un pequeño script con su propio reloj. Está
+**oculto siempre** y solo aparece **el día del directo, desde su hora de inicio y durante 3 horas, y solo si el
+dashboard no ha cargado** (p. ej. un bloqueo de red a Cloudflare en España en horario de fútbol: sin dashboard no hay
+pantalla de espera). `tracker.js` marca `window.lsdCargado`; si cargó, el recuadro no sale nunca. La hora va en
+`data-directo="AAAA-MM-DDTHH:MM"` (hora de España, también en invierno). Se pega arriba de la preclase y bajo el
+formulario de la página de acceso. Lleva la fecha, la hora y el Zoom de ese lanzamiento: si cambian, hay que volver a
+pegarlo. Los prompts de Páginas (preclase y acceso) ya lo incluyen.
 Recordatorios: con la pantalla de espera activa y directo en Zoom, el **Auditor** avisa si falta el «Enlace genérico de
 Zoom» (sin él no se genera el bloque); las **tareas habituales** de los clientes nuevos traen «Plan B del directo» 3 días
 antes del directo; y el campo del enlace en Configuración lo explica.
