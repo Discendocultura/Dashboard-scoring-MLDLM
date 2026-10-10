@@ -2534,10 +2534,10 @@ body.embudo-directa .lanz-only { display: none !important; }
 .lg-eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 99px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--lg-tenue); animation: lgSube .8s .2s ease both; }
 .lg-eyebrow i { width: 8px; height: 8px; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: lgLatido 2s infinite; }
 @keyframes lgLatido { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,.6); } 70%, 100% { box-shadow: 0 0 0 10px rgba(52,211,153,0); } }
-.lg-titular { margin: 18px 0 12px; font-size: clamp(48px, 8.5vw, 112px); line-height: .92; font-weight: 800; letter-spacing: -.045em; color: #fff; text-shadow: 0 10px 40px rgba(0,0,0,.4); animation: lgSube .9s .35s cubic-bezier(.2,.8,.2,1) both; }
-.lg-titular span { display: block; background: linear-gradient(100deg, #22d3ee 0%, #8b5cf6 40%, #f472b6 70%, #22d3ee 100%); background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: lgBrillo 6s linear infinite; }
+.lg-titular { margin: 18px 0 12px; font-size: clamp(48px, 8.5vw, 112px); line-height: 1; font-weight: 800; letter-spacing: -.045em; color: #fff; text-shadow: 0 10px 40px rgba(0,0,0,.4); animation: lgSube .9s .35s cubic-bezier(.2,.8,.2,1) both; }
+.lg-titular span { display: block; padding: 0 .04em .12em 0; margin-bottom: -.1em; background: linear-gradient(100deg, #22d3ee 0%, #8b5cf6 40%, #f472b6 70%, #22d3ee 100%); background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: lgBrillo 6s linear infinite; }
 @keyframes lgBrillo { to { background-position: -220% 0; } }
-.lg-sub { margin: 0; font-size: clamp(16px, 1.6vw, 20px); color: var(--lg-tenue); max-width: 30em; animation: lgSube .9s .5s ease both; }
+.lg-sub { margin: 0; font-size: clamp(16px, 1.6vw, 20px); font-weight: 500; color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,.5); max-width: 36em; animation: lgSube .9s .5s ease both; }
 @keyframes lgSube { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
 .lg-panel { animation: lgSube 1s .6s cubic-bezier(.2,.8,.2,1) both; }
 /* Tarjeta de acceso de cristal */
@@ -2551,9 +2551,10 @@ body.embudo-directa .lanz-only { display: none !important; }
 .login .login-card .muted, .login .login-card .login-hint { color: var(--lg-tenue); }
 .login .login-card input { padding: 13px 14px; border-radius: 12px; background: rgba(5,6,15,.45); border: 1px solid rgba(255,255,255,.16); color: #fff; font-size: 15px; transition: border-color .2s, box-shadow .2s; }
 .login .login-card input::placeholder { color: #8088ad; }
-.login .login-card input:focus { outline: none; border-color: #8b5cf6; box-shadow: 0 0 0 4px rgba(139,92,246,.25); }
-.login .login-card .btn.primary { position: relative; overflow: hidden; padding: 14px 16px; border: 0; border-radius: 12px; font-size: 15.5px; font-weight: 700; color: #fff;
-  background: linear-gradient(110deg, #06b6d4, #7c3aed 55%, #db2777); background-size: 200% 100%; box-shadow: 0 12px 30px -8px rgba(124,58,237,.8); transition: background-position .5s, transform .15s; }
+.login .login-card input:focus { outline: none; border-color: #ff7a18; box-shadow: 0 0 0 4px rgba(255,122,24,.22); }
+.login .login-card .btn.primary { position: relative; overflow: hidden; padding: 14px 16px; border: 0; border-radius: 12px; font-size: 15.5px; font-weight: 800; letter-spacing: .01em; color: #fff !important; text-shadow: 0 1px 2px rgba(120,30,0,.45);
+  background: linear-gradient(110deg, #ffb347 0%, #ff7a18 40%, #ff4d00 75%, #ff7a18 100%); background-size: 200% 100%; box-shadow: 0 0 0 1px rgba(255,170,90,.35), 0 12px 34px -8px rgba(255,100,20,.85), 0 0 40px -10px rgba(255,140,40,.7); transition: background-position .5s, transform .15s, box-shadow .3s; }
+.login .login-card .btn.primary:hover { box-shadow: 0 0 0 1px rgba(255,190,120,.5), 0 14px 40px -8px rgba(255,100,20,.95), 0 0 56px -8px rgba(255,140,40,.85); }
 .login .login-card .btn.primary:hover { background-position: 100% 0; }
 .login .login-card .btn.primary:active { transform: translateY(1px); }
 .login .login-card .btn.primary::after { content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent); transform: skewX(-20deg); animation: lgReflejo 3.6s ease-in-out infinite; }
@@ -2567,7 +2568,8 @@ body.embudo-directa .lanz-only { display: none !important; }
   .lg-hero { align-self: auto; padding: 0; text-align: center; }
   .lg-titular { font-size: clamp(44px, 14vw, 72px); }
   .lg-panel { max-width: 440px; width: 100%; margin: 0 auto; }
-  .lg-cohete { left: auto; right: 6%; bottom: auto; top: 6%; width: 64px; opacity: .85; }
+  .lg-cohete { left: auto; right: 3%; bottom: auto; top: 1.5%; width: 46px; opacity: .9; }
+  .lg-hero { padding-top: 40px; }
   .lg-chip { display: none; }
   .lg-grafica { height: 40%; opacity: .35; }
 }
