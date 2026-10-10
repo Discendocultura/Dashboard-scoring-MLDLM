@@ -3,14 +3,18 @@
 //   GET /api/sendflow?op=campanas            → { campanas } (para elegir la de cada lanzamiento o meteórico)
 //   GET /api/sendflow?op=grupos&l=<código>   → entradas, salidas y clics por día y los grupos de su campaña
 //   GET /api/sendflow?op=miembros&l=<código> → CSV con los participantes actuales (el cruce con GHL lo hace el navegador)
+//   GET /api/sendflow?op=vigilar&key=DIGEST_KEY[&c=<cliente>] → una pasada de la vigilancia (tarea cada 15 min)
+//   GET /api/sendflow?op=cuentas            → cuentas de WhatsApp de SendFlow (para los avisos)
 // Solo quien configura (permiso «config»). Hace como mucho 2 peticiones a SendFlow (campañas y una analítica),
 // guardadas unos minutos, y no llama nada mientras SendFlow tenga la clave bloqueada (su límite es estricto).
 import { requireSession } from '../lib/auth.js';
-import { sendflowConfigurado, variableSendflow, campanasSendflow, analiticaSendflow, gruposSendflow, exportarMiembros, formatoClave, frenoSendflow, quitarFreno } from '../lib/sendflow.js';
+import { sendflowConfigurado, variableSendflow, campanasSendflow, analiticaSendflow, gruposSendflow, exportarMiembros, cuentasSendflow, formatoClave, frenoSendflow, quitarFreno } from '../lib/sendflow.js';
 import { getConfig } from '../lib/config-store.js';
 import { leerCompartida } from '../lib/store.js';
 import { env } from '../lib/env.js';
 import { csvMiembrosMock } from '../lib/mock.js';
+import { safeEqual } from '../lib/auth.js';
+import { vigilarGrupos, estadoVigilancia } from '../lib/vigia-grupos.js';
 import { json, errorResponse } from '../lib/http.js';
 
 // Entradas, salidas y clics por día (AAAA-MM-DD) y los grupos de la campaña de un lanzamiento o meteórico.
@@ -34,6 +38,7 @@ async function gruposDe(code) {
       entradas: a.entradas.total, salidas: a.salidas.total, clics: a.clics.total,
       porDia: dias.map((d) => ({ dia: d, entradas: a.entradas.porDia[d] || 0, salidas: a.salidas.porDia[d] || 0, clics: a.clics.porDia[d] || 0 })),
       grupos,
+      vigilancia: await estadoVigilancia(id),
     });
   } catch (e) {
     return json({ vinculada: true, conectado: true, id, error: e.publicMessage || e.message, freno: e.freno || null });
@@ -66,6 +71,12 @@ export async function GET(request) {
   try {
     const url = new URL(request.url);
     const op = url.searchParams.get('op') || 'probar';
+    if (op === 'vigilar') {
+      const key = url.searchParams.get('key') || '';
+      if (!env.DIGEST_KEY || env.DIGEST_KEY.length < 16 || !safeEqual(key, env.DIGEST_KEY)) return json({ error: 'No autorizado' }, 401);
+      if (!sendflowConfigurado()) return json({ vigiladas: 0, motivo: 'SendFlow no está conectado' });
+      return json(await vigilarGrupos(await getConfig({ fresh: true }), { dashboardUrl: new URL('/', request.url).toString() }));
+    }
     if (op === 'miembros') {
       await requireSession(request, { permiso: ['hoy', 'leads', 'metricas'] });
       try { return await miembrosDe(String(url.searchParams.get('l') || '')); } catch (e) { return json({ error: e.publicMessage || e.message }, e.status || 502); }
@@ -75,6 +86,10 @@ export async function GET(request) {
       return await gruposDe(String(url.searchParams.get('l') || ''));
     }
     await requireSession(request, { permiso: 'config' });
+    if (op === 'cuentas') {
+      if (!sendflowConfigurado()) return json({ conectado: false, cuentas: [] });
+      try { return json({ conectado: true, cuentas: await cuentasSendflow() }); } catch (e) { return json({ conectado: true, cuentas: [], error: e.publicMessage || e.message }); }
+    }
     if (op === 'campanas') {
       if (!sendflowConfigurado()) return json({ conectado: false, campanas: [] });
       try {

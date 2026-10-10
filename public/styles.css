@@ -2304,3 +2304,12 @@ button, a, summary, label, select, input, textarea { touch-action: manipulation;
 .dc-codigos { margin-top: 12px; }
 .dc-codigos summary { cursor: pointer; font-weight: 600; }
 body.embudo-directa .lanz-only { display: none !important; }
+
+/* 🛎️ Vigilancia de los grupos de WhatsApp */
+.vigia { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+.vigia h3 { margin: 0 0 8px; }
+.vigia-estado, .vigia-alertas { list-style: none; padding: 0; margin: 0 0 10px; display: flex; flex-direction: column; gap: 6px; }
+.vigia-alertas li { padding: 8px 12px; border-radius: 8px; background: var(--surface-2); border-left: 3px solid var(--st-caliente); }
+.vigia-alertas li.n-alta { border-left-color: var(--error); }
+.vigia-pico td { background: color-mix(in srgb, var(--error) 8%, transparent); }
+.cx-h { margin: 14px 0 6px; font-size: 14px; }

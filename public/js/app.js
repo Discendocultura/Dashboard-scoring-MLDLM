@@ -9720,7 +9720,50 @@ $('#dc-filtro').addEventListener('change', () => renderDirectaClientes(state.dir
 // ---------- 🔌 Conexiones (SendFlow) ----------
 $('#btn-conexiones').addEventListener('click', () => {
   $('#tb-menu-cuenta').open = false;
+  pintarVigiaConexiones();
   $('#conexiones-dialog').showModal();
+});
+// Vigilancia: la tarea de cron-job.org y dónde avisar (sin pedir nada a SendFlow al abrir).
+function pintarVigiaConexiones() {
+  const url = `${location.origin}/api/sendflow?op=vigilar&key=<DIGEST_KEY>${cParam('&')}`;
+  $('#cx-vigia-tarea').innerHTML = `<ol class="small">
+    <li>En <a href="https://cron-job.org" target="_blank" rel="noopener">cron-job.org</a> (gratis), la misma cuenta del resumen diario → <strong>Create cronjob</strong>.</li>
+    <li>URL (cambia <code>&lt;DIGEST_KEY&gt;</code> por la clave del resumen diario, la de Cloudflare):</li></ol>
+    ${filaCopiar('Tarea de vigilancia', url, 'Ejecución: <strong>cada 15 minutos</strong>. Solo trabaja cuando hay un lanzamiento en captación o carrito, o un meteórico en curso, con su campaña de SendFlow.')}`;
+  const av = state.config.sendflowAvisos || {};
+  $('#cx-av-email').checked = av.email !== false;
+  $('#cx-av-email-a').textContent = state.config.digestEmail ? `(a ${state.config.digestEmail}, el del resumen diario)` : '(falta el email del resumen diario en Configuración)';
+  $('#cx-av-tel').value = av.telefono || '';
+  const sel = $('#cx-av-cuenta');
+  if (av.cuentaId && ![...sel.options].some((o) => o.value === av.cuentaId)) sel.insertAdjacentHTML('beforeend', `<option value="${esc(av.cuentaId)}">Cuenta guardada</option>`);
+  sel.value = av.cuentaId || '';
+  $('#cx-av-status').textContent = '';
+}
+// Las cuentas de WhatsApp se piden a SendFlow solo al abrir el desplegable.
+let sfCuentas = null;
+for (const ev of ['focus', 'mousedown', 'touchstart']) {
+  $('#cx-av-cuenta').addEventListener(ev, async () => {
+    if (sfCuentas) return;
+    sfCuentas = [];
+    const sel = $('#cx-av-cuenta');
+    const actual = sel.value;
+    try {
+      const d = await api('/api/sendflow?op=cuentas');
+      sfCuentas = d.cuentas || [];
+      sel.innerHTML = `<option value="">— Elige la cuenta —</option>${sfCuentas.map((c) => `<option value="${esc(c.id)}">${esc(c.nombre)}${c.estado && c.estado !== 'connected' ? ` (${esc(c.estado)})` : ''}</option>`).join('')}${d.error ? `<option disabled>${esc(d.error)}</option>` : ''}`;
+      sel.value = actual;
+    } catch { /* se queda la guardada */ }
+  }, { passive: true });
+}
+$('#cx-av-guardar').addEventListener('click', async () => {
+  const tel = $('#cx-av-tel').value.replace(/\D/g, '');
+  if (tel && !$('#cx-av-cuenta').value) { $('#cx-av-status').textContent = 'Elige también la cuenta de WhatsApp desde la que se manda.'; return; }
+  $('#cx-av-status').textContent = 'Guardando…';
+  try {
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, sendflowAvisos: { email: $('#cx-av-email').checked, telefono: tel, cuentaId: tel ? $('#cx-av-cuenta').value : '' } } });
+    state.config = config;
+    $('#cx-av-status').textContent = 'Guardado ✓';
+  } catch (e) { $('#cx-av-status').textContent = e.message; }
 });
 $('#cx-sendflow-probar').addEventListener('click', () => probarSendflow());
 $('#cx-sendflow').addEventListener('click', (e) => { if (e.target.closest('[data-sf-reintentar]')) probarSendflow({ reintentar: true }); });
@@ -9833,6 +9876,7 @@ async function cargarGrupos(code, box) {
       const sin = en.filter((l) => !l.s.compra).length;
       return `<div class="notice">🔗 <strong>Cruce exacto con GHL (por teléfono):</strong> ${en.length.toLocaleString('es-ES')} de ${state.leads.length.toLocaleString('es-ES')} leads están en los grupos (${pctOf(en.length, state.leads.length).replace('.', ',')}); ${(en.length - sin).toLocaleString('es-ES')} ya han comprado y <strong>${sin.toLocaleString('es-ES')} siguen sin comprar</strong> (lista en <em>Hoy → Setting hoy</em>). ${state.grupoWa.personas.toLocaleString('es-ES')} personas en los grupos${state.grupoWa.admins ? `, sin contar ${state.grupoWa.admins} administradora${state.grupoWa.admins === 1 ? '' : 's'}` : ''}.</div>`;
     })() : ''}
+    ${vigilanciaHtml(d.vigilancia, code)}
     <p class="muted small">Datos de SendFlow, se actualizan cada 5 minutos (la lista de personas, cada 30).</p>`;
 }
 document.addEventListener('click', async (e) => {
@@ -9890,4 +9934,28 @@ function textoGrupoWa(m) {
     return linea(`≈ ${pctOf(neto, m.total).replace('.', ',')} en grupos de WhatsApp (${neto.toLocaleString('es-ES')})`, g?.error ? `Aproximado (entradas − salidas). No se pudo cruzar por teléfono: ${g.error}` : 'Aproximado (entradas − salidas): calculando el cruce exacto por teléfono…');
   }
   return linea('Grupos de WhatsApp: cargando…', st?.error || g?.error || 'Cargando de SendFlow');
+}
+
+// Vigilancia de los grupos: última comprobación, estado del enlace, entradas y salidas por hora y avisos.
+const TIPO_ALERTA = { enlace: '🔗 Enlace caído', llenos: '🈵 Grupos llenos', clics: '🖱️ Clics sin entradas', fuga: '🚪 Pico de salidas' };
+function vigilanciaHtml(v, code) {
+  const horaCorta = (t) => new Date(t).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const diaHora = (t) => new Date(t).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  if (!v?.ultima) {
+    return `<section class="vigia"><h3>🛎️ Vigilancia</h3><p class="muted small">Aún no se ha comprobado. Se activa con una tarea cada 15 minutos (<strong>Cuenta → Conexiones → Vigilancia de los grupos</strong>) y vigila mientras ${state.config.launches[code] ? 'el lanzamiento está en captación o carrito' : 'el meteórico está en curso'}.</p></section>`;
+  }
+  const e = v.estado || {};
+  const mins = Math.round((Date.now() - v.ultima) / 60_000);
+  const estado = [
+    e.enlace ? (e.enlace.ok ? '✅ El enlace de entrada funciona' : `🚨 El enlace de entrada no funciona (${esc(e.enlace.detalle || '')})`) : '<span class="muted">Sin enlace del grupo para comprobar (pon el enlace de WhatsApp en la configuración)</span>',
+    e.grupos != null ? (e.llenos && e.llenos === e.grupos ? `🚨 Los ${e.grupos} grupos están llenos` : `✅ ${e.grupos - (e.llenos || 0)} de ${e.grupos} grupos con sitio`) : '',
+    (e.activas || []).includes('fuga') ? '⚠️ Pico de salidas ahora mismo' : '',
+  ].filter(Boolean);
+  const ph = v.porHora || [];
+  const maxS = Math.max(1, ...ph.map((x) => x.salidas));
+  const mediaS = ph.length ? ph.reduce((t, x) => t + x.salidas, 0) / ph.length : 0;
+  const tabla = ph.length ? `<details${(e.activas || []).includes('fuga') ? ' open' : ''}><summary class="small">Entradas y salidas por hora (últimas 24 h)</summary><div class="table-scroll"><table class="metric-table vigia-horas"><thead><tr><th>Hora</th><th class="num">Entradas</th><th class="num">Salidas</th><th></th></tr></thead><tbody>${ph.slice().reverse().map((x) => `<tr class="${x.salidas >= Math.max(10, 3 * mediaS) ? 'vigia-pico' : ''}"><td>${horaCorta(x.hasta - 3_600_000)}–${horaCorta(x.hasta)}</td><td class="num">${x.entradas}</td><td class="num"><strong>${x.salidas}</strong></td><td><div class="meter"><span style="width:${(x.salidas / maxS) * 100}%"></span></div></td></tr>`).join('')}</tbody></table></div></details>` : '';
+  const alertas = (v.alertas || []).length ? `<h4 class="cx-h">Avisos recientes</h4><ul class="vigia-alertas">${v.alertas.map((a) => `<li class="n-${a.nivel}"><strong>${TIPO_ALERTA[a.tipo] || a.tipo}</strong> · <span class="muted">${diaHora(a.t)}${a.enviados?.length ? ` · enviado por ${a.enviados.join(' y ')}` : ''}</span><br>${esc(a.texto)}</li>`).join('')}</ul>` : '<p class="muted small">Sin avisos: todo en orden.</p>';
+  return `<section class="vigia"><h3>🛎️ Vigilancia <span class="muted small">· última comprobación ${mins < 1 ? 'ahora mismo' : `hace ${mins} min`}</span></h3>
+    <ul class="vigia-estado">${estado.map((t) => `<li>${t}</li>`).join('')}</ul>${alertas}${tabla}</section>`;
 }

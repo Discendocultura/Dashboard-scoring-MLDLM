@@ -543,7 +543,21 @@ los grupos, con 3 o más). Resultado:
 - **Hoy → Setting hoy → «💬 En el grupo de WhatsApp y sin comprar»:** las que siguen en el grupo, no han comprado y
   aún no se les ha escrito, de más a menos caliente, con su WhatsApp 1:1. En cada lead, la señal «En el grupo de WhatsApp».
 - **Métricas → Grupos de WhatsApp:** cuántos leads están, cuántos compraron y cuántos siguen sin comprar.
-API: `GET /api/sendflow?op=probar` · `?op=campanas` (permiso «config») · `?op=grupos&l=<código>` (permiso «metricas») ·
+**Vigilancia (fase 3):** una tarea de cron-job.org **cada 15 minutos** abre
+`https://<tu-proyecto>.pages.dev/api/sendflow?op=vigilar&key=<DIGEST_KEY>` (otros clientes: `&c=<cliente>`; la URL
+está en Cuenta → Conexiones). Solo trabaja con lanzamientos en captación o carrito y meteóricos en curso que tengan
+campaña de SendFlow (máx. 3; unas 2 peticiones a SendFlow por campaña). Guarda una foto (entradas, salidas y clics) y avisa de:
+- **🔗 Enlace caído:** el «Grupo de WhatsApp · enlace» del lanzamiento (o del meteórico) da error o no responde
+  (mejor poner el enlace de redirección de SendFlow que el de un grupo concreto).
+- **🈵 Grupos llenos:** todos los grupos de la campaña están llenos.
+- **🖱️ Clics sin entradas:** 15 o más clics en la última hora y ninguna entrada.
+- **🚪 Pico de salidas (fuga):** en la última media hora se han salido 10 o más y el triple de lo normal (media de
+  cada media hora de las últimas 24 h). En la fase 4 se cruzará con el mensaje enviado justo antes.
+Avisos: por **email** (al del resumen diario) y, si quieres, por **WhatsApp** a un número desde una cuenta de SendFlow
+(Cuenta → Conexiones → «Dónde te avisa»). El mismo aviso no se repite en 3 h (las fugas, en 1 h). En **Métricas →
+Grupos de WhatsApp → Vigilancia**: última comprobación, estado del enlace y de los grupos, avisos recientes y
+entradas y salidas por hora de las últimas 24 h (la hora con el pico, marcada).
+API: `GET /api/sendflow?op=probar` · `?op=campanas` · `?op=cuentas` (permiso «config») · `?op=grupos&l=<código>` (permiso «metricas») ·
 `?op=miembros&l=<código>` (CSV; permisos hoy, leads o métricas). Base `https://sendflow.pro/sendapi` (cambiable con `SENDFLOW_BASE_URL`).
 
 ## 🛒 Venta directa / producto de entrada (low ticket)
