@@ -788,6 +788,8 @@ npm run test:e2e   # recorrido en un navegador de verdad (Playwright): todos los
 npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)
 ```
 
+**Huellas de los archivos (obligatorio tras cambiar CSS o JS):** `index.html` y `marca.html` piden `styles.css`, `tema.js` y cada módulo de `public/js` con su huella (`?v=<sha1>`; los módulos, con un *import map*). Así ningún navegador ni la caché de Cloudflare sirve un JS o CSS viejo con una página nueva (pasó con el enlace «¿Olvidaste tu contraseña?»: se veía, pero el JS antiguo no sabía abrirlo). Después de cambiar cualquiera de esos archivos ejecuta `npm run huellas`; `npm test` falla si alguna está desactualizada.
+
 ## Inicio, avisos del carrito y carga rápida
 Al iniciar sesión (también tras la verificación en dos pasos) se abre siempre el **Inicio**, que saluda «Hola 👋 Nombre» (el nombre de pila del usuario; con la contraseña general, solo «Hola 👋»). Un enlace directo a una pestaña (`#vista`) sigue abriendo esa pestaña.
 

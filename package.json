@@ -9,6 +9,7 @@
     "dev": "node scripts/dev-server.js",
     "dev:mock": "GHL_MOCK=1 ADMIN_PASSWORD=admin SETTER_PASSWORD=setter SESSION_SECRET=dev-secret-dev-secret node scripts/dev-server.js",
     "test": "node --test test/*.test.js",
-    "test:e2e": "node test/e2e/recorrido.mjs"
+    "test:e2e": "node test/e2e/recorrido.mjs",
+    "huellas": "node scripts/huellas.js"
   }
 }
