@@ -93,3 +93,19 @@ test('SendFlow: grupos de la campaña vinculada a un lanzamiento (y sin vincular
   assert.equal((await call('/api/sendflow?op=grupos&l=nada', admin)).status, 404);
   assert.equal((await call('/api/sendflow?op=campanas', admin)).data.campanas.length, 2);
 });
+
+test('SendFlow: participantes de la campaña (CSV) para el cruce con GHL', async () => {
+  const { setEnv } = await import('../lib/env.js');
+  setEnv(ENV);
+  const admin = await login('admin');
+  const res = await route(new Request('http://localhost/api/sendflow?op=miembros&l=oct', { headers: { cookie: admin } }), ENV);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/csv/);
+  const txt = await res.text();
+  assert.match(txt.split('\n')[0], /Number/);
+  const { leerMiembros } = await import('../public/js/grupos-wa.js');
+  const m = leerMiembros(txt);
+  assert.equal(m.admins, 2);
+  assert.ok(m.personas > 100);
+  assert.equal((await route(new Request('http://localhost/api/sendflow?op=miembros&l=nov', { headers: { cookie: admin } }), ENV)).status, 400);
+});

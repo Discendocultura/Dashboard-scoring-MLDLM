@@ -28,6 +28,7 @@ import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE } from './roles.js';
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaCliente, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
+import { claveTelefono, leerMiembros } from './grupos-wa.js';
 import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientesDirecta } from './directa.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
@@ -777,7 +778,10 @@ async function loadMeta(token) {
 }
 
 function enrich(contact) {
-  return enrichLead(contact, state.launchCode, state.config);
+  const l = enrichLead(contact, state.launchCode, state.config);
+  // ¿Está en el grupo de WhatsApp del lanzamiento? (cruce por teléfono con SendFlow, si ya se ha cargado)
+  if (state.grupoWa?.code === state.launchCode && state.grupoWa.claves) l.s.enGrupo = state.grupoWa.claves.has(claveTelefono(contact.phone));
+  return l;
 }
 
 // ---------- Filtros y orden ----------
@@ -968,7 +972,7 @@ const eur = (n) => (n == null || !Number.isFinite(n) ? '–' : n.toLocaleString(
 // Tarjeta de métrica: icono con su tono (accent, vip, buy, live, info, warn, money), etiqueta, valor y contexto.
 // «?» de cada tarjeta: cómo se calcula y de dónde sale el dato (por el título de la tarjeta, o su comienzo).
 const AYUDA_KPI = {
-  'Leads totales': 'Contactos de GHL con la etiqueta de registro del lanzamiento.',
+  'Leads totales': 'Contactos de GHL con la etiqueta de registro del lanzamiento. Debajo, los que están en los grupos de WhatsApp (cruce por teléfono con SendFlow, sin administradoras; «≈» = aproximado con entradas − salidas mientras se cruza).',
   'CPL medio': 'Inversión ÷ leads totales. La inversión es la de Meta (campañas con el código del lanzamiento en el nombre, desde el inicio de captación) o, si Meta no da nada, la puesta a mano en Configuración.',
   'Coste por lead': 'Inversión ÷ leads totales (CPL medio).',
   'CPL de publicidad': 'Inversión ÷ leads con la etiqueta de publicidad (sin los orgánicos).',
@@ -1223,7 +1227,7 @@ function renderMetrics() {
   const factSub = [`programa ${eur(m.eco.facturacionPrograma)}`, m.conVip ? `VIP ${eur(m.eco.facturacionVip)}` : '', m.eco.facturacionBumps ? `bumps ${eur(m.eco.facturacionBumps)}` : ''].filter(Boolean).join(' + ');
   const grande = (html) => html.replace('class="kpi static', 'class="kpi static kpi-hero');
   $('#metric-hero').innerHTML = [
-    grande(card('Leads totales', m.total.toLocaleString('es-ES'), m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'registros del lanzamiento', 'users', 'accent')),
+    grande(card('Leads totales', m.total.toLocaleString('es-ES'), `${launch.sendflowId ? textoGrupoWa(m) : ''}${m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'registros del lanzamiento'}`, 'users', 'accent')),
     grande(card('Facturación', eur(m.eco.facturacion), `<strong class="kpi-hero-ventas">${m.compra.toLocaleString('es-ES')} ${m.compra === 1 ? 'venta' : 'ventas'} totales</strong>Sin IVA: ${factSub}`, 'coins', 'money')),
     grande(card('ROAS', roasTxt, m.eco.roas != null ? `facturación sin IVA ÷ ${eur(m.eco.inversion)} de inversión` : inv.ok ? 'facturación sin IVA ÷ inversión' : inv.txt, 'trend', 'buy')),
   ].join('');
@@ -2839,6 +2843,7 @@ document.addEventListener('change', (e) => {
 // ---------- Vista "Hoy" para la setter ----------
 // Listas cortas y priorizadas: a quién escribir hoy.
 function renderHoy() {
+  if (state.config.launches[state.launchCode]?.sendflowId && state.grupoWa?.code !== state.launchCode) cargarMiembrosGrupo();
   const open = (l) => !l.s.compra && l.phoneWa;
   // Dentro de cada lista, primero las que encajan con un avatar comprador.
   const byScore = (a, b) => (b.avatar >= 0) - (a.avatar >= 0) || b.score - a.score;
@@ -2848,6 +2853,7 @@ function renderHoy() {
     { id: 'venta', title: '🛒 Visitaron la página de venta y no han comprado', hint: 'Están decidiendo ahora: escríbeles cuanto antes', rows: state.leads.filter((l) => open(l) && l.s.venta_visita), orden: (a, b) => b.s.venta_visita.ultima - a.s.venta_visita.ultima },
     { id: 'calientes', title: '🔥 Muy calientes sin contactar', hint: 'Máxima prioridad', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.estado.id === 'muy-caliente') },
     { id: 'vip', title: '⭐ VIP que no han comprado', hint: 'Pagaron la entrada: están cerca', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.vip) },
+    ...(state.config.launches[state.launchCode]?.sendflowId ? [{ id: 'grupo', title: '💬 En el grupo de WhatsApp y sin comprar', hint: state.grupoWa?.code === state.launchCode && state.grupoWa.claves ? 'Siguen en el grupo del lanzamiento: interesadas. Escríbeles 1:1, primero las más calientes' : state.grupoWa?.error ? `No se pudo cruzar con el grupo: ${state.grupoWa.error}` : 'Cruzando con el grupo de SendFlow… (la primera vez puede tardar 1-2 minutos)', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.enGrupo) }] : []),
     { id: 'grabacion', title: '🎬 Vieron la grabación y no han comprado', hint: '≥50% de la grabación', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && !l.s.vip && l.estado.id !== 'muy-caliente' && grabVenta(l.s) >= 50) },
     { id: 'seguimiento', title: '💬 Seguimiento pendiente', hint: 'Respondieron, interesadas o no contestan', rows: state.leads.filter((l) => open(l) && ['respondio', 'interesada', 'no_contesta'].includes(l.outcome)) },
     { id: 'sinresultado', title: '📝 Contactadas sin resultado anotado', hint: 'Anota qué pasó', rows: state.leads.filter((l) => open(l) && l.s.wa_enviado && !l.outcome) },
@@ -2871,6 +2877,7 @@ function hoyItem(l) {
     l.s.inicio_pago ? pagoTxt(l.s.inicio_pago) : '',
     l.s.venta_visita ? visitaTxt(l.s.venta_visita) : '',
     l.s.vip ? 'VIP' : '',
+    l.s.enGrupo ? 'En el grupo de WhatsApp' : '',
     directoVenta(l.s, 'final') ? 'Directo hasta el final' : directoVenta(l.s, 'asistio') ? 'Asistió al directo' : '',
     grabVenta(l.s) ? `Grabación ${grabVenta(l.s)}%` : '',
     watched(l.s, 'clase1') || watched(l.s, 'clase2') ? `Clases ${watched(l.s, 'clase1')}% / ${watched(l.s, 'clase2')}%` : '',
@@ -9821,7 +9828,12 @@ async function cargarGrupos(code, box) {
     </div>
     ${d.porDia.length ? `<div class="table-scroll"><table class="metric-table"><thead><tr><th>Día</th><th class="num">Entradas</th><th class="num">Salidas</th><th class="num">Neto</th><th class="num">Clics</th>${registros ? '<th class="num">Registros</th>' : ''}</tr></thead><tbody>${d.porDia.slice().reverse().map((x) => `<tr><td>${esc(fechaFicha(`${x.dia}T12:00:00Z`))}</td><td class="num">${x.entradas}</td><td class="num">${x.salidas}</td><td class="num"><strong>${x.entradas - x.salidas}</strong></td><td class="num">${x.clics}</td>${registros ? `<td class="num">${regDia.get(x.dia) || 0}</td>` : ''}</tr>`).join('')}</tbody></table></div>` : '<p class="muted">SendFlow aún no tiene entradas en esta campaña.</p>'}
     ${d.grupos?.length ? `<details><summary class="small">Ver los ${d.grupos.length} grupos</summary><ul class="small">${d.grupos.map((g) => `<li>${esc(g.nombre || g.id)} · ${g.personas} personas${g.lleno ? ' · <strong>lleno</strong>' : ''}</li>`).join('')}</ul></details>` : ''}
-    <p class="muted small">Datos de SendFlow, se actualizan cada 5 minutos.</p>`;
+    ${esLanz && state.grupoWa?.code === code && state.grupoWa.claves && state.leadsDe === code ? (() => {
+      const en = state.leads.filter((l) => l.s.enGrupo);
+      const sin = en.filter((l) => !l.s.compra).length;
+      return `<div class="notice">🔗 <strong>Cruce exacto con GHL (por teléfono):</strong> ${en.length.toLocaleString('es-ES')} de ${state.leads.length.toLocaleString('es-ES')} leads están en los grupos (${pctOf(en.length, state.leads.length).replace('.', ',')}); ${(en.length - sin).toLocaleString('es-ES')} ya han comprado y <strong>${sin.toLocaleString('es-ES')} siguen sin comprar</strong> (lista en <em>Hoy → Setting hoy</em>). ${state.grupoWa.personas.toLocaleString('es-ES')} personas en los grupos${state.grupoWa.admins ? `, sin contar ${state.grupoWa.admins} administradora${state.grupoWa.admins === 1 ? '' : 's'}` : ''}.</div>`;
+    })() : ''}
+    <p class="muted small">Datos de SendFlow, se actualizan cada 5 minutos (la lista de personas, cada 30).</p>`;
 }
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-grupos-vincular]');
@@ -9831,3 +9843,51 @@ document.addEventListener('click', async (e) => {
   await openConfig(code);
   setTimeout(() => goToField('cfg-sendflow'), 150);
 });
+
+// Participantes de los grupos (CSV de SendFlow) cruzados con los leads por teléfono. Se carga una vez por
+// lanzamiento y sesión; el servidor guarda la exportación 30 min (SendFlow tarda y limita las peticiones).
+async function cargarMiembrosGrupo(code = state.launchCode, { forzar = false } = {}) {
+  const l = state.config.launches[code];
+  if (!l?.sendflowId || !tiene(['hoy', 'leads', 'metricas'])) return;
+  if (!forzar && state.grupoWa?.code === code && (state.grupoWa.claves || state.grupoWa.cargando)) return;
+  state.grupoWa = { code, cargando: true };
+  try {
+    const res = await fetch(`/api/sendflow?op=miembros&l=${encodeURIComponent(code)}`, { headers: state.cliente ? { 'x-cliente': state.cliente } : {}, credentials: 'same-origin' });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Error ${res.status}`);
+    const m = leerMiembros(await res.text());
+    if (state.grupoWa?.code !== code) return;
+    state.grupoWa = { code, ...m, at: Number(res.headers.get('x-exportado')) || Date.now() };
+  } catch (e) {
+    if (state.grupoWa?.code === code) state.grupoWa = { code, error: e.message };
+  }
+  if (state.launchCode !== code || !state.leads) return;
+  for (const lead of state.leads) lead.s.enGrupo = Boolean(state.grupoWa.claves?.has(claveTelefono(lead.phone)));
+  render();
+}
+// Estadísticas de SendFlow (entradas − salidas) para el % aproximado mientras no hay cruce exacto.
+const gruposStats = {};
+async function cargarStatsGrupo(code) {
+  if (gruposStats[code]) return;
+  gruposStats[code] = { cargando: true };
+  try { gruposStats[code] = await api(`/api/sendflow?op=grupos&l=${encodeURIComponent(code)}`); } catch (e) { gruposStats[code] = { error: e.message }; }
+  if (state.launchCode === code && state.leads) render();
+}
+// Resumen → dentro de «Leads totales»: % y número de leads en los grupos de WhatsApp. Exacto (cruce por
+// teléfono con SendFlow) o, mientras se cruza, aproximado (entradas − salidas ÷ leads).
+function textoGrupoWa(m) {
+  const code = state.launchCode;
+  const g = state.grupoWa?.code === code ? state.grupoWa : null;
+  const linea = (txt, title) => `<strong class="kpi-hero-ventas" title="${esc(title)}">💬 ${txt}</strong>`;
+  if (g?.claves) {
+    const n = state.leads.filter((l) => l.s.enGrupo).length;
+    return linea(`${pctOf(n, m.total).replace('.', ',')} en grupos de WhatsApp (${n.toLocaleString('es-ES')})`, `Cruce por teléfono con SendFlow: ${g.personas} personas en los grupos, sin contar administradoras`);
+  }
+  if (!g) cargarMiembrosGrupo(code);
+  const st = gruposStats[code];
+  if (!st) cargarStatsGrupo(code);
+  if (st && st.vinculada && !st.error && st.entradas != null) {
+    const neto = Math.max(0, st.entradas - st.salidas);
+    return linea(`≈ ${pctOf(neto, m.total).replace('.', ',')} en grupos de WhatsApp (${neto.toLocaleString('es-ES')})`, g?.error ? `Aproximado (entradas − salidas). No se pudo cruzar por teléfono: ${g.error}` : 'Aproximado (entradas − salidas): calculando el cruce exacto por teléfono…');
+  }
+  return linea('Grupos de WhatsApp: cargando…', st?.error || g?.error || 'Cargando de SendFlow');
+}

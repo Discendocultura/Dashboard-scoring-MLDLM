@@ -534,7 +534,17 @@ o en el meteórico («Campaña de SendFlow») eliges su campaña (la lista se pi
 Después, **Métricas → Grupos de WhatsApp** enseña: personas en los grupos ahora (entradas − salidas), % de los
 registros que está en el grupo, % de salidas, % del clic en el enlace a entrar, grupos llenos y la tabla día a día
 (entradas, salidas, neto, clics y registros de GHL). En el meteórico sale en su vista. Datos guardados 5 min (grupos 10 min).
-API: `GET /api/sendflow?op=probar` · `?op=campanas` (permiso «config») · `?op=grupos&l=<código>` (permiso «metricas»). Base `https://sendflow.pro/sendapi` (cambiable con `SENDFLOW_BASE_URL`).
+**Cruce con GHL (fase 2):** SendFlow exporta los participantes actuales (CSV Position;Group;Name;Number; tarda hasta
+2 min, guardado 30 min en D1). El CSV pasa tal cual al navegador (sin leerlo en Cloudflare: 10 ms de CPU) y allí se
+cruza con los leads por los **últimos 9 dígitos del teléfono**, sin contar a las administradoras (quien está en todos
+los grupos, con 3 o más). Resultado:
+- **Métricas → Resumen → Leads totales:** debajo, «💬 X % en grupos de WhatsApp (n)» (exacto; «≈» aproximado con
+  entradas − salidas mientras se cruza).
+- **Hoy → Setting hoy → «💬 En el grupo de WhatsApp y sin comprar»:** las que siguen en el grupo, no han comprado y
+  aún no se les ha escrito, de más a menos caliente, con su WhatsApp 1:1. En cada lead, la señal «En el grupo de WhatsApp».
+- **Métricas → Grupos de WhatsApp:** cuántos leads están, cuántos compraron y cuántos siguen sin comprar.
+API: `GET /api/sendflow?op=probar` · `?op=campanas` (permiso «config») · `?op=grupos&l=<código>` (permiso «metricas») ·
+`?op=miembros&l=<código>` (CSV; permisos hoy, leads o métricas). Base `https://sendflow.pro/sendapi` (cambiable con `SENDFLOW_BASE_URL`).
 
 ## 🛒 Venta directa / producto de entrada (low ticket)
 Embudo sin registro: **anuncio → página de venta → checkout (con bump offers) → upsell → downsell → gracias**.
