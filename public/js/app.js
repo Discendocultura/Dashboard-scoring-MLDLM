@@ -189,6 +189,7 @@ $('#login-form').addEventListener('submit', async (e) => {
     const d = await api('/api/login', { method: 'POST', body: { email: $('#login-email').value.trim(), password: $('#login-password').value } });
     $('#login-password').value = '';
     if (d.dosPasos) { segundoPaso(d); return; }
+    state.recienEntrado = true; // al entrar, siempre al Inicio
     await start();
   } catch (ex) {
     err.textContent = ex.message;
@@ -253,7 +254,7 @@ function salirSegundoPaso() {
 $('#l2-volver').addEventListener('click', salirSegundoPaso);
 $('#login-2fa').addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (l2.listo) { l2.listo = false; salirSegundoPaso(); await start(); return; }
+  if (l2.listo) { l2.listo = false; salirSegundoPaso(); state.recienEntrado = true; await start(); return; }
   const err = $('#l2-error');
   err.hidden = true;
   try {
@@ -271,6 +272,7 @@ $('#login-2fa').addEventListener('submit', async (e) => {
     }
     if (d.recuperacionQuedan != null) alert(`Has entrado con un código de recuperación. Te quedan ${d.recuperacionQuedan}. Si has perdido el móvil, en Mi cuenta puedes volver a activar la verificación con otro.`);
     salirSegundoPaso();
+    state.recienEntrado = true;
     await start();
   } catch (ex) {
     if (/caducado/.test(ex.message)) salirSegundoPaso();
@@ -386,7 +388,9 @@ async function start() {
   renderLaunchSelect();
   if (puedeConfig()) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
   state.launchCode = pickInitialLaunch();
-  const abrirInicio = ls.get('lsd_inicio') === '1' && !hash;
+  // Recién entrado (login): siempre al Inicio. Si no, el último sitio (si era el Inicio).
+  const abrirInicio = (state.recienEntrado || ls.get('lsd_inicio') === '1') && !hash;
+  state.recienEntrado = false;
   if (hash) ls.set('lsd_inicio', ''); // un enlace directo a una pestaña: lo último ya no es el Inicio
   await setEmbudo(state.embudo, { vista: VIEWS.includes(hash) ? hash : null });
   if (abrirInicio && tiene('metricas') && embudos().length) mostrarInicio();
@@ -550,8 +554,14 @@ function salirInicio() {
   document.body.classList.remove('en-inicio');
   $('#sb-inicio').classList.remove('active');
 }
+// «Hola 👋 Nombre» en el Inicio (sin usuario, con la contraseña general: solo «Hola 👋»).
+function pintarSaludo() {
+  const nombre = String(state.user?.nombre || '').trim().split(/\s+/)[0];
+  $('#inicio-saludo').textContent = `Hola 👋${nombre ? ` ${nombre}` : ''}`;
+}
 async function mostrarInicio({ fresh = false } = {}) {
   state.enInicio = true;
+  pintarSaludo();
   ls.set('lsd_inicio', '1');
   document.body.classList.add('en-inicio');
   pintarSidebar();

@@ -787,6 +787,7 @@ npx wrangler pages dev   # igual que en Cloudflare (variables en .dev.vars)
 ```
 
 ## Inicio, avisos del carrito y carga rápida
+Al iniciar sesión (también tras la verificación en dos pasos) se abre siempre el **Inicio**, que saluda «Hola 👋 Nombre» (el nombre de pila del usuario; con la contraseña general, solo «Hola 👋»). Un enlace directo a una pestaña (`#vista`) sigue abriendo esa pestaña.
 
 - **Inicio** (menú lateral, arriba): todos los embudos del cliente de un vistazo. Facturación, ventas, inversión y ROAS conjuntos; una tarjeta por embudo (último lanzamiento de cada embudo, VSL de los últimos 30 días y meteóricos recientes) que lleva a sus métricas; avisos del carrito, próximos hitos (14 días) y tareas vencidas de todos los embudos. Se actualiza cada 15 minutos (o con «Actualizar datos»).
 - **Avisos del carrito**: con el carrito abierto, arriba en el dashboard y en el resumen diario por email (asunto con 🚨 si es urgente): ritmo de ventas por debajo del necesario para el objetivo, bonus que caducan hoy o mañana y día de cierre.
