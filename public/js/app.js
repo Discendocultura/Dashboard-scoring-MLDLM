@@ -32,6 +32,7 @@ import { claveTelefono, leerMiembros } from './grupos-wa.js';
 import { TIPOS_MSG, ESTADOS_MSG, GUIA_ARCHIVOS, parsearSecuencia, promptCalentamiento, datosEmbudo, faltaMensaje, faltaEnlaceDirecto, sanitizeMensaje, nuevoIdMsg } from './calentamiento.js';
 import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientesDirecta } from './directa.js';
 import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
+import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
@@ -173,6 +174,8 @@ function showLogin() {
   borrarCopias(); // sin sesión, fuera la copia de los leads del navegador
   $('#app').hidden = true;
   $('#portal').hidden = true;
+  $('#asistente-marca').hidden = true;
+  $('#asistente-marca').innerHTML = '';
   $('#login').hidden = false;
   $('#login-password').focus();
 }
@@ -359,7 +362,7 @@ async function start() {
   document.body.classList.toggle('is-superadmin', state.superadmin);
   pintarCliente(me.cliente);
   // El cliente (solo lectura) ve únicamente su portal de resultados.
-  if (role === ROL_CLIENTE) { pintarFotoCuenta(); await mostrarPortal(); return; }
+  if (role === ROL_CLIENTE) { pintarFotoCuenta(); if (!(await asistenteMarcaCliente())) await mostrarPortal(); return; }
   $('#portal').hidden = true;
   $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
   $('#btn-cuenta').hidden = !state.user;
@@ -9739,10 +9742,30 @@ $('#dc-buscar').addEventListener('input', () => renderDirectaClientes(state.dire
 $('#dc-filtro').addEventListener('change', () => renderDirectaClientes(state.directa.datos));
 
 // ---------- 🔌 Conexiones (SendFlow) ----------
+// El cliente (rol «Cliente») que aún no ha terminado su cuestionario de marca solo ve el asistente, en el paso
+// donde lo dejó, hasta terminarlo. Devuelve true si lo está enseñando.
+async function asistenteMarcaCliente() {
+  let d;
+  try { d = await api('/api/marca'); } catch { return false; } // si falla, que pueda ver su portal
+  if (d.asistente?.completado) return false;
+  $('#app').hidden = true;
+  $('#login').hidden = true;
+  $('#portal').hidden = true;
+  const box = $('#asistente-marca');
+  box.hidden = false;
+  await montarAsistente(box, {
+    llamar: async (body) => (body ? api('/api/marca', { method: 'POST', body }) : d),
+    clienteNombre: d.cliente, docsActivos: d.docsActivos,
+    alTerminar: async () => { box.hidden = true; box.innerHTML = ''; await mostrarPortal(); },
+    salir: () => $('#btn-logout').click(),
+  });
+  return true;
+}
+
 // ---------- 🎨 Marca y avatar (cuestionario del cliente: la fuente de los prompts) ----------
 $('#btn-marca').addEventListener('click', () => {
   $('#tb-menu-cuenta').open = false;
-  abrirPanelMarca({ api, cliente: state.cliente, clienteNombre: clienteNombre(), embudos: embudos().map((e) => ({ id: e.id, nombre: e.nombre })), puedeEditar: puedeConfig(), dialog: $('#marca-dialog') });
+  abrirPanelMarca({ api, cliente: state.cliente, clienteNombre: clienteNombre(), clientes: state.superadmin ? state.clientes.map((c) => ({ id: c.id, nombre: c.nombre })) : [], embudos: embudos().map((e) => ({ id: e.id, nombre: e.nombre })), puedeEditar: puedeConfig(), dialog: $('#marca-dialog') });
 });
 $('#mk-cerrar').addEventListener('click', () => $('#marca-dialog').close());
 document.addEventListener('click', (e) => { if (e.target.closest('[data-abrir-marca]')) $('#btn-marca').click(); });

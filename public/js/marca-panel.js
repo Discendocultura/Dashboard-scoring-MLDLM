@@ -1,7 +1,7 @@
 // Panel «🎨 Marca y avatar» del dashboard (Cuenta → Marca y avatar): el cuestionario del cliente, sus
 // productos, documentos, la ficha de cada producto y qué producto vende cada embudo. Además, la caché
 // que usan los prompts (WhatsApp, páginas) para leer la marca.
-import { SECCIONES_MARCA, SECCIONES_PRODUCTO, MAX_PRODUCTOS, MAX_DOCS, nombreDeProducto, progreso, promptFicha, productoDeEmbudo } from './marca.js';
+import { SECCIONES_MARCA, SECCIONES_PRODUCTO, MAX_PRODUCTOS, MAX_DOCS, nombreDeProducto, progreso, promptFicha, productoDeEmbudo, pasosAsistente } from './marca.js';
 import { pintarSecciones, autoguardado, destinoDeBase, extraerTexto, extDe, ACCEPT_DOCS } from './marca-form.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -26,7 +26,9 @@ export async function marcaDeEmbudo(api, cliente, embudoId) {
 }
 
 // ---- Panel ----
-let ctx = null; // { api, cliente, clienteNombre, embudos, puedeEditar, dialog }
+let ctx = null; // { api, cliente, clienteNombre, clientes (superadmin: todos), embudos, puedeEditar, dialog }
+// Todas las llamadas, al cliente elegido en el panel (el superadmin puede cambiarlo sin salir).
+const llamarApi = (path, opts = {}) => ctx.api(path, { ...opts, cliente: ctx.cliente });
 let m = null;
 let prog = null;
 let docsActivos = true;
@@ -37,7 +39,7 @@ const raiz = () => ctx.dialog.querySelector('#mk-body');
 const estado = (txt, error = false) => { const el = ctx.dialog.querySelector('#mk-estado'); el.textContent = txt; el.classList.toggle('error', error); };
 
 async function post(body) {
-  const d = await ctx.api('/api/marca', { method: 'POST', body });
+  const d = await llamarApi('/api/marca', { method: 'POST', body });
   m = d.marca;
   prog = d.progreso;
   cache.set(ctx.cliente, { m, en: Date.now() });
@@ -47,11 +49,29 @@ async function post(body) {
 export async function abrirPanelMarca(opts) {
   ctx = opts;
   const dlg = ctx.dialog;
+  // Superadmin: selector con todos los clientes; el resto, el nombre del suyo.
+  const sel = dlg.querySelector('#mk-cliente-sel');
+  const varios = (ctx.clientes || []).length > 1;
+  sel.hidden = !varios;
+  dlg.querySelector('#mk-cliente').hidden = varios;
+  if (varios) sel.innerHTML = ctx.clientes.map((c) => `<option value="${esc(c.id)}"${c.id === ctx.cliente ? ' selected' : ''}>${esc(c.nombre)}</option>`).join('');
+  if (varios && !sel.dataset.listo) {
+    sel.dataset.listo = '1';
+    sel.addEventListener('change', async () => {
+      await saver?.vaciar();
+      const c = ctx.clientes.find((x) => x.id === sel.value);
+      tab = 'marca';
+      abrirPanelMarca({ ...ctx, cliente: c.id, clienteNombre: c.nombre, embudos: c.id === ctx.clienteInicial ? ctx.embudosInicial : [] });
+    });
+  }
+  ctx.clienteInicial ??= ctx.cliente;
+  ctx.embudosInicial ??= ctx.embudos;
   dlg.querySelector('#mk-cliente').textContent = ctx.clienteNombre ? `· ${ctx.clienteNombre}` : '';
   raiz().innerHTML = '<p class="muted">Cargando…</p>';
+  dlg.querySelector('#mk-enlace').innerHTML = '';
   if (!dlg.open) dlg.showModal();
   try {
-    const d = await ctx.api('/api/marca');
+    const d = await llamarApi('/api/marca');
     m = d.marca; prog = d.progreso; docsActivos = d.docsActivos;
     cache.set(ctx.cliente, { m, en: Date.now() });
   } catch (e) { raiz().innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
@@ -75,10 +95,18 @@ function pintarCabecera() {
   ctx.dialog.querySelector('#mk-prog-txt').textContent = `${prog.pct} % completado`;
 }
 
+function asistenteHtml() {
+  const a = m.asistente || {};
+  if (a.completado) return `<p class="mk-as ok">✅ <strong>Cuestionario terminado</strong> el ${esc(fecha(a.completado))}${a.completadoPor ? ` · ${esc(a.completadoPor)}` : ''}.${ctx.puedeEditar ? ' <button type="button" class="btn small ghost" data-mk="reabrir">Reabrir para el cliente</button>' : ''}</p>`;
+  const pasos = pasosAsistente(m);
+  const n = pasos.findIndex((p) => p.id === a.paso);
+  return `<p class="mk-as">⏳ <strong>El cliente aún no lo ha terminado</strong>: ${n > 0 ? `va por «${esc(pasos[n].titulo)}» (paso ${n + 1} de ${pasos.length})` : 'sin empezar'} · ${prog.pct} % respondido. Hasta terminarlo, al entrar al dashboard con su acceso de cliente solo verá el cuestionario.</p>`;
+}
+
 function enlaceHtml() {
   const url = m.token ? `${location.origin}/marca.html?c=${encodeURIComponent(ctx.cliente)}&t=${m.token}` : '';
-  if (!ctx.puedeEditar) return '';
-  return `<section class="mk-enlace"><div><strong>🔗 Enlace para el cliente</strong><span class="muted small">Lo rellena sin cuenta y se guarda solo. Lo que escribáis vosotros aquí también lo verá.</span></div>
+  if (!ctx.puedeEditar) return asistenteHtml();
+  return `${asistenteHtml()}<section class="mk-enlace"><div><strong>🔗 Enlace para el cliente</strong><span class="muted small">Lo rellena sin cuenta y se guarda solo. Lo que escribáis vosotros aquí también lo verá.</span></div>
     ${url ? `<div class="copy-row"><code>${esc(url)}</code><button type="button" class="btn primary" data-copy-text="${esc(url)}">Copiar</button></div>
       <div class="mk-enlace-acc"><button type="button" class="btn ghost" data-mk="enlace-nuevo">Crear otro (el actual deja de valer)</button><button type="button" class="btn ghost" data-mk="enlace-off">Desactivar</button></div>`
     : '<button type="button" class="btn primary" data-mk="enlace-nuevo">Crear enlace para el cliente</button>'}
@@ -133,6 +161,7 @@ function docsHtml() {
 
 function embudosHtml() {
   if (!m.productos.length) return '<p class="muted">Añade primero un producto (＋ Producto).</p>';
+  if (!ctx.embudos.length) return '<p class="muted">Para elegir el producto de cada embudo, entra en este cliente desde el selector de arriba del dashboard.</p>';
   return `<p class="muted small">Qué producto vende cada embudo: sus prompts usarán la ficha de ese producto. Sin elegir, el primero.</p>
     <div class="mk-embudos">${ctx.embudos.map((e) => `<label class="field inline"><span>${esc(e.nombre)}</span><select data-mk-embudo="${esc(e.id)}">${m.productos.map((p, i) => `<option value="${esc(p.id)}"${productoDeEmbudo(m, e.id)?.id === p.id ? ' selected' : ''}>${esc(nombreDeProducto(p, i))}</option>`).join('')}</select></label>`).join('') || '<p class="muted">Este cliente aún no tiene embudos.</p>'}</div>`;
 }
@@ -160,6 +189,9 @@ async function onClick(e) {
     } else if (acc === 'enlace-off') {
       if (!window.confirm('El cliente ya no podrá entrar con su enlace. ¿Desactivarlo?')) return;
       await post({ op: 'enlace', activar: false }); pintar();
+    } else if (acc === 'reabrir') {
+      if (!window.confirm('El cliente volverá a ver el cuestionario al entrar (con sus respuestas) hasta que lo termine otra vez. ¿Reabrir?')) return;
+      await post({ op: 'reabrir' }); pintar();
     } else if (acc === 'producto-borrar') {
       if (!window.confirm('Se borran sus respuestas y su ficha (los documentos pasan a «General»). ¿Seguro?')) return;
       await saver.vaciar();
@@ -174,7 +206,7 @@ async function onClick(e) {
     } else if (acc === 'ficha-prompt') {
       await saver.vaciar();
       b.textContent = 'Preparando…';
-      const { textos } = m.docs.length ? await ctx.api('/api/marca?textos=1') : { textos: {} };
+      const { textos } = m.docs.length ? await llamarApi('/api/marca?textos=1') : { textos: {} };
       const p = m.productos.find((x) => x.id === b.dataset.id);
       const txt = promptFicha(m, p, textos);
       try {

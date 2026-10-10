@@ -20,8 +20,8 @@ export const SECCIONES_MARCA = [
     { id: 'valores', tipo: 'largo', label: 'Valores y creencias de la marca: lo que defiendes y lo que no' },
     { id: 'enemigo', tipo: 'largo', label: '¿Contra qué luchas? Mitos, malas prácticas del sector, lo que te indigna' },
     { id: 'cifras', tipo: 'largo', label: 'Números que dan confianza', ej: 'Alumnas, seguidoras, años, familias ayudadas, valoraciones…' },
-    { id: 'redes', tipo: 'urls', label: 'Web y redes sociales (un enlace por línea)', ej: 'https://instagram.com/…' },
-    { id: 'referentes', tipo: 'largo', label: 'Referentes y competencia: qué te gusta de ellos y en qué te diferencias' },
+    { id: 'redes', tipo: 'urls', opcional: true, label: 'Web y redes sociales (un enlace por línea)', ej: 'https://instagram.com/…' },
+    { id: 'referentes', tipo: 'largo', opcional: true, label: 'Referentes y competencia: qué te gusta de ellos y en qué te diferencias' },
   ] },
   { id: 'tono', icono: '🗣️', titulo: 'Tono y forma de hablar', intro: 'Cómo suenan tus textos. Los ejemplos reales son lo que más ayuda.', preguntas: [
     { id: 'tono', tipo: 'varias', label: '¿Cómo es tu tono? (elige varios)', opciones: TONOS },
@@ -32,22 +32,22 @@ export const SECCIONES_MARCA = [
     { id: 'expresiones', tipo: 'largo', label: 'Expresiones, muletillas o palabras que usas mucho' },
     { id: 'prohibidas', tipo: 'largo', label: 'Palabras, temas o promesas que NUNCA se deben usar' },
     { id: 'ejemplos', tipo: 'largo', label: 'Pega textos tuyos que te representen (posts, emails, mensajes…)', max: 8000 },
-    { id: 'antiejemplos', tipo: 'largo', label: 'Textos o estilos que NO van contigo (y por qué)' },
+    { id: 'antiejemplos', tipo: 'largo', opcional: true, label: 'Textos o estilos que NO van contigo (y por qué)' },
   ] },
   { id: 'diseno', icono: '🎨', titulo: 'Estilo visual', intro: 'Para que las páginas salgan con tu imagen. Los colores en formato #RRGGBB.', preguntas: [
     { id: 'color1', tipo: 'color', label: 'Color principal' },
     { id: 'color2', tipo: 'color', label: 'Color secundario' },
-    { id: 'color3', tipo: 'color', label: 'Color de los botones (acento)' },
-    { id: 'colorFondo', tipo: 'color', label: 'Color de fondo' },
-    { id: 'colorTexto', tipo: 'color', label: 'Color del texto' },
-    { id: 'fuenteTitulos', tipo: 'texto', label: 'Tipografía de los titulares', ej: 'Playfair Display' },
-    { id: 'fuenteTexto', tipo: 'texto', label: 'Tipografía del texto', ej: 'Lato' },
+    { id: 'color3', tipo: 'color', opcional: true, label: 'Color de los botones (acento)' },
+    { id: 'colorFondo', tipo: 'color', opcional: true, label: 'Color de fondo' },
+    { id: 'colorTexto', tipo: 'color', opcional: true, label: 'Color del texto' },
+    { id: 'fuenteTitulos', tipo: 'texto', opcional: true, label: 'Tipografía de los titulares', ej: 'Playfair Display' },
+    { id: 'fuenteTexto', tipo: 'texto', opcional: true, label: 'Tipografía del texto', ej: 'Lato' },
     { id: 'estilo', tipo: 'varias', label: '¿Cómo es tu estilo? (elige varios)', opciones: ESTILOS },
-    { id: 'logo', tipo: 'url', label: 'Enlace al logo (PNG con fondo transparente)', ej: 'GHL → Sitios → Medios → ⋯ → Copiar enlace' },
-    { id: 'fotos', tipo: 'urls', label: 'Fotos tuyas o de la marca (un enlace por línea)' },
-    { id: 'websRef', tipo: 'largo', label: 'Páginas o webs cuyo diseño te guste (enlace y qué te gusta)' },
-    { id: 'evitar', tipo: 'largo', label: 'Lo que NO quieres ver en el diseño' },
-    { id: 'notas', tipo: 'largo', label: 'Cualquier otra cosa que debamos saber de tu marca' },
+    { id: 'logo', tipo: 'url', opcional: true, label: 'Enlace al logo (PNG con fondo transparente)', ej: 'GHL → Sitios → Medios → ⋯ → Copiar enlace' },
+    { id: 'fotos', tipo: 'urls', opcional: true, label: 'Fotos tuyas o de la marca (un enlace por línea)' },
+    { id: 'websRef', tipo: 'largo', opcional: true, label: 'Páginas o webs cuyo diseño te guste (enlace y qué te gusta)' },
+    { id: 'evitar', tipo: 'largo', opcional: true, label: 'Lo que NO quieres ver en el diseño' },
+    { id: 'notas', tipo: 'largo', opcional: true, label: 'Cualquier otra cosa que debamos saber de tu marca' },
   ] },
 ];
 
@@ -61,12 +61,12 @@ export const SECCIONES_PRODUCTO = [
     { id: 'incluye', tipo: 'largo', label: 'Qué incluye: módulos, sesiones, materiales, comunidad, soporte…' },
     { id: 'formato', tipo: 'largo', label: 'Formato y duración (online, directos, acceso…)' },
     { id: 'precio', tipo: 'texto', label: 'Precio y formas de pago', ej: '497 € o 3 plazos de 175 €' },
-    { id: 'bonus', tipo: 'largo', label: 'Bonus habituales' },
-    { id: 'garantia', tipo: 'largo', label: 'Garantía' },
+    { id: 'bonus', tipo: 'largo', opcional: true, label: 'Bonus habituales' },
+    { id: 'garantia', tipo: 'largo', opcional: true, label: 'Garantía' },
     { id: 'paraQuien', tipo: 'largo', label: 'Para quién SÍ es' },
     { id: 'paraQuienNo', tipo: 'largo', label: 'Para quién NO es' },
-    { id: 'testimonios', tipo: 'largo', label: 'Testimonios y casos de éxito (literal, con nombre y resultado; enlaces a vídeos)', max: 8000 },
-    { id: 'faq', tipo: 'largo', label: 'Preguntas frecuentes antes de comprar, con su respuesta', max: 8000 },
+    { id: 'testimonios', tipo: 'largo', opcional: true, label: 'Testimonios y casos de éxito (literal, con nombre y resultado; enlaces a vídeos)', max: 8000 },
+    { id: 'faq', tipo: 'largo', opcional: true, label: 'Preguntas frecuentes antes de comprar, con su respuesta', max: 8000 },
   ] },
   { id: 'avatar', icono: '👩', titulo: 'El avatar (cliente ideal)', intro: 'Cuanto más con sus palabras, mejor saldrán los textos.', preguntas: [
     { id: 'quien', tipo: 'largo', label: '¿Quién es? Edad, situación, momento vital', ej: 'Mamá primeriza de 30-38 años con bebé de 4 a 12 meses, trabaja fuera…' },
@@ -162,6 +162,12 @@ export function sanitizeMarcaCliente(m) {
     docs: (Array.isArray(m?.docs) ? m.docs : []).slice(0, MAX_DOCS).map(sanitizeDocMeta).filter((d) => d.id),
     embudos,
     token: /^[A-Za-z0-9]{24,48}$/.test(String(m?.token || '')) ? m.token : '',
+    // Asistente del cliente: en qué paso va y cuándo lo terminó.
+    asistente: {
+      paso: String(m?.asistente?.paso || '').replace(/[^A-Za-z0-9:_-]/g, '').slice(0, 40),
+      completado: String(m?.asistente?.completado || '').slice(0, 30),
+      completadoPor: String(m?.asistente?.completadoPor || '').slice(0, 60),
+    },
     actualizado: String(m?.actualizado || '').slice(0, 30),
     actualizadoPor: String(m?.actualizadoPor || '').slice(0, 60),
   };
@@ -243,3 +249,63 @@ CÓMO LA QUIERO:
 - Si falta algo importante, no lo inventes: escribe «[FALTA: …]» para que lo completemos.
 - Solo la ficha, sin explicaciones antes ni después.`.replace(/\n{3,}/g, '\n\n');
 }
+
+// ---- Asistente paso a paso (lo primero que ve el cliente) ----
+// Por orden de importancia y en etapas cortas (que quepan en la pantalla). `campos`: ids de preguntas.
+// Los pasos de producto se repiten por cada producto («p:<id>:<n>»).
+const PASOS_INICIO = [
+  { id: 'bienvenida', tipo: 'bienvenida', titulo: 'Bienvenida' },
+  { id: 'm1', ambito: 'marca', titulo: 'Empecemos por ti', intro: 'Quién está detrás de la marca y por qué confiar en ti.', campos: ['nombre', 'persona', 'credenciales'] },
+  { id: 'm2', ambito: 'marca', titulo: 'Tu historia', intro: 'Las historias venden: cuéntala como se la contarías a una amiga.', campos: ['historia', 'mision'] },
+  { id: 'productos', tipo: 'productos', titulo: '¿Qué vendes?', intro: 'Pon el nombre de cada producto o programa que vendes. Después te preguntaremos por cada uno.' },
+];
+const PASOS_PRODUCTO = [
+  { titulo: 'La oferta', campos: ['nombre', 'tipo', 'precio'] },
+  { titulo: 'La gran promesa', campos: ['promesa', 'resultados'] },
+  { titulo: 'Tu método', campos: ['mecanismo', 'incluye'] },
+  { titulo: 'Formato, bonus y garantía', campos: ['formato', 'bonus', 'garantia'] },
+  { titulo: 'Para quién es', campos: ['paraQuien', 'paraQuienNo'] },
+  { titulo: 'Tu cliente ideal', intro: 'Ahora piensa en la persona que compra este producto.', campos: ['quien', 'diaADia'] },
+  { titulo: 'Lo que le duele y lo que sueña', campos: ['dolores', 'deseos'] },
+  { titulo: 'Sus miedos', campos: ['miedos', 'probado'] },
+  { titulo: 'Lo que le frena', campos: ['objeciones', 'creencias'] },
+  { titulo: 'Sus palabras', intro: 'Copia frases tal cual las dice (comentarios, mensajes, encuestas): es oro para los textos.', campos: ['frases', 'consciencia'] },
+  { titulo: 'Cómo decide y dónde está', campos: ['decide', 'donde'] },
+  { titulo: 'Pruebas y dudas', campos: ['testimonios', 'faq'] },
+];
+const PASOS_FIN = [
+  { id: 't1', ambito: 'marca', titulo: 'Tu tono', intro: 'Cómo suenan tus textos.', campos: ['tono', 'trato', 'genero'] },
+  { id: 't2', ambito: 'marca', titulo: 'Tu forma de escribir', campos: ['voz', 'emojis', 'expresiones'] },
+  { id: 't3', ambito: 'marca', titulo: 'Ejemplos de tu estilo', campos: ['prohibidas', 'ejemplos', 'antiejemplos'] },
+  { id: 'v1', ambito: 'marca', titulo: 'Tus colores', intro: 'Si no los sabes, pon los de tu logo o tu Instagram. Los dos primeros son obligatorios.', campos: ['color1', 'color2', 'color3', 'colorFondo', 'colorTexto'] },
+  { id: 'v2', ambito: 'marca', titulo: 'Tu estilo visual', campos: ['estilo', 'fuenteTitulos', 'fuenteTexto'] },
+  { id: 'v3', ambito: 'marca', titulo: 'Logo y fotos', campos: ['logo', 'fotos'] },
+  { id: 'v4', ambito: 'marca', titulo: 'Referencias de diseño', campos: ['websRef', 'evitar'] },
+  { id: 'm3', ambito: 'marca', titulo: 'Lo que defiendes', campos: ['valores', 'enemigo'] },
+  { id: 'm4', ambito: 'marca', titulo: 'Confianza y redes', campos: ['cifras', 'redes', 'referentes'] },
+  { id: 'docs', tipo: 'docs', titulo: 'Documentos (opcional)', intro: '¿Tienes estudios de tu cliente ideal, encuestas, transcripciones o testimonios? Súbelos aquí.' },
+  { id: 'fin', tipo: 'fin', ambito: 'marca', titulo: 'Último paso', campos: ['notas'] },
+];
+export const PASOS_POR_PRODUCTO = PASOS_PRODUCTO.length;
+export const preguntaDe = (ambito, id) => (ambito === 'producto' ? PREG_PRODUCTO : PREG_MARCA).get(id);
+
+// Los pasos del asistente para estas respuestas (con los de cada producto).
+export function pasosAsistente(m) {
+  const prods = (m?.productos || []).flatMap((p, i) => PASOS_PRODUCTO.map((x, n) => ({
+    ...x, id: `p:${p.id}:${n + 1}`, ambito: 'producto', productoId: p.id,
+    titulo: `${nombreDeProducto(p, i)} · ${x.titulo}`,
+  })));
+  return [...PASOS_INICIO, ...prods, ...PASOS_FIN];
+}
+const respuestasDe = (m, paso) => (paso.ambito === 'producto' ? m?.productos?.find((p) => p.id === paso.productoId)?.respuestas : m?.respuestas) || {};
+// Obligatorias sin responder de un paso: [pregunta].
+export function faltanEnPaso(m, paso) {
+  if (paso.tipo === 'productos') return m?.productos?.length ? [] : [{ id: 'productos', label: 'Al menos un producto' }];
+  const r = respuestasDe(m, paso);
+  return (paso.campos || []).map((id) => preguntaDe(paso.ambito, id)).filter((q) => q && !q.opcional && vacia(r[q.id]));
+}
+// Lo que falta en todo el asistente: [{ paso, pregunta }].
+export function faltanObligatorias(m) {
+  return pasosAsistente(m).flatMap((paso) => faltanEnPaso(m, paso).map((q) => ({ paso: paso.id, titulo: paso.titulo, label: q.label })));
+}
+export const asistenteCompleto = (m) => Boolean(m?.asistente?.completado);

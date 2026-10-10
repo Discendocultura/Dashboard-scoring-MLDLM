@@ -109,3 +109,59 @@ test('páginas: cada página con sus códigos y el prompt con marca, estilo y fo
   assert.match(p, /INDICACIONES PARA ESTA PÁGINA:\nMás corta/);
   assert.match(p, /- Página preclase: https:\/\/a\.com/);
 });
+
+test('asistente: pasos por importancia, obligatorias, terminar solo con todo y reabrir', async () => {
+  const { pasosAsistente, faltanEnPaso, faltanObligatorias, sanitizeMarcaCliente } = await import('../public/js/marca.js');
+  const m0 = sanitizeMarcaCliente({});
+  const ids = pasosAsistente(m0).map((p) => p.id);
+  assert.deepEqual(ids.slice(0, 4), ['bienvenida', 'm1', 'm2', 'productos']);
+  assert.equal(ids.at(-1), 'fin');
+  assert.deepEqual(faltanEnPaso(m0, { tipo: 'productos' }).map((x) => x.id), ['productos']);
+  const m1 = sanitizeMarcaCliente({ productos: [{ id: 'pabc123', respuestas: { nombre: 'Raíces' } }] });
+  assert.ok(pasosAsistente(m1).some((p) => p.id === 'p:pabc123:1'));
+  // Las opcionales no cuentan (bonus, garantía, testimonios…)
+  assert.ok(!faltanObligatorias(m1).some((f) => /Bonus|Garantía/.test(f.label)));
+  const paso4 = pasosAsistente(m1).find((p) => p.id === 'p:pabc123:4');
+  assert.deepEqual(faltanEnPaso(m1, paso4).map((q) => q.id), ['formato']);
+
+  const login = async (password) => (await route(new Request('http://localhost/api/login', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ password }) }), ENV)).headers.get('set-cookie').split(';')[0];
+  const admin = await login('admin');
+  let r = await call('/api/marca', { method: 'POST', cookie: admin, body: { op: 'enlace', activar: true } });
+  const t = r.data.marca.token;
+  r = await call('/api/marca', { method: 'POST', body: { t, op: 'paso', paso: 'm2' } });
+  assert.equal(r.data.asistente.paso, 'm2');
+  r = await call('/api/marca', { method: 'POST', body: { t, op: 'terminar' } });
+  assert.equal(r.status, 400);
+  assert.ok(r.data.faltan.length > 10);
+  // Rellenar todo lo obligatorio y terminar
+  const { SECCIONES_MARCA, SECCIONES_PRODUCTO } = await import('../public/js/marca.js');
+  const llenar = (secs) => Object.fromEntries(secs.flatMap((s) => s.preguntas).filter((q) => !q.opcional).map((q) => [q.id, q.tipo === 'varias' ? [q.opciones[0]] : q.tipo === 'opciones' ? q.opciones[0] : q.tipo === 'color' ? '#123456' : q.tipo === 'url' ? 'https://a.com/x.png' : 'Algo']));
+  await call('/api/marca', { method: 'POST', body: { t, op: 'campos', campos: llenar(SECCIONES_MARCA) } });
+  const pid = (await call('/api/marca', { cookie: admin })).data.marca.productos[0]?.id
+    || (await call('/api/marca', { method: 'POST', body: { t, op: 'producto-nuevo', nombre: 'Raíces' } })).data.productos[0].id;
+  const m = (await call('/api/marca', { cookie: admin })).data.marca;
+  for (const p of m.productos) await call('/api/marca', { method: 'POST', body: { t, op: 'campos', ambito: 'producto', productoId: p.id, campos: llenar(SECCIONES_PRODUCTO) } });
+  r = await call('/api/marca', { method: 'POST', body: { t, op: 'terminar' } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.ok(r.data.asistente.completado);
+  assert.ok(pid);
+  // El cliente no puede reabrir; el equipo sí
+  assert.equal((await call('/api/marca', { method: 'POST', body: { t, op: 'reabrir' } })).status, 400);
+  r = await call('/api/marca', { method: 'POST', cookie: admin, body: { op: 'reabrir' } });
+  assert.equal(r.data.marca.asistente.completado, '');
+  // El cliente con su acceso al dashboard: ve y rellena su cuestionario (sin token ni fichas), nada más
+  const u = await call('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'crear', nombre: 'Cliente', email: 'cli-marca@ejemplo.com', rol: 'cliente', enviar: false } });
+  const lres = await route(new Request('http://localhost/api/login', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ email: 'cli-marca@ejemplo.com', password: u.data.password }) }), ENV);
+  const cli = lres.headers.get('set-cookie').split(';')[0];
+  const v = await call('/api/marca', { cookie: cli });
+  assert.equal(v.status, 200);
+  assert.equal(v.data.token, undefined);
+  assert.equal(v.data.marca, undefined);
+  assert.equal(v.data.asistente.completado, '');
+  r = await call('/api/marca', { method: 'POST', cookie: cli, body: { op: 'paso', paso: 't1' } });
+  assert.equal(r.data.asistente.paso, 't1');
+  assert.equal((await call('/api/marca', { method: 'POST', cookie: cli, body: { op: 'enlace', activar: false } })).status, 400);
+  assert.equal((await call('/api/marca?textos=1', { cookie: cli })).data.textos, undefined);
+  r = await call('/api/marca', { method: 'POST', cookie: cli, body: { op: 'terminar' } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+});

@@ -7,22 +7,24 @@ import { DOC_EXT } from './marca.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function campo(q, v, base) {
+function campo(q, v, base, filas = 0) {
   const name = `${base}:${q.id}`;
+  const label = `${esc(q.label)}${q.opcional ? ' <small class="mq-opc">(opcional)</small>' : ''}`;
   const ej = q.ej ? ` placeholder="${esc(q.ej)}"` : '';
   const attrs = `data-mq="${esc(name)}" data-tipo="${q.tipo}"`;
   if (q.tipo === 'opciones' || q.tipo === 'varias') {
     const sel = new Set([].concat(v || []));
     const tipo = q.tipo === 'opciones' ? 'radio' : 'checkbox';
-    return `<fieldset class="mq-chips" ${attrs}><legend>${esc(q.label)}</legend>${q.opciones.map((o) => `<label class="mq-chip"><input type="${tipo}" name="${esc(name)}" value="${esc(o)}"${sel.has(o) ? ' checked' : ''}><span>${esc(o)}</span></label>`).join('')}</fieldset>`;
+    return `<fieldset class="mq-chips" ${attrs}><legend>${label}</legend>${q.opciones.map((o) => `<label class="mq-chip"><input type="${tipo}" name="${esc(name)}" value="${esc(o)}"${sel.has(o) ? ' checked' : ''}><span>${esc(o)}</span></label>`).join('')}</fieldset>`;
   }
   if (q.tipo === 'color') {
-    return `<label class="field mq-color"><span>${esc(q.label)}</span><span class="mq-color-fila"><input type="color" value="${esc(v || '#ffffff')}" data-mq-color aria-label="Elegir ${esc(q.label)}"><input type="text" ${attrs} value="${esc(v || '')}" placeholder="#RRGGBB" maxlength="7" spellcheck="false"></span></label>`;
+    return `<label class="field mq-color"><span>${label}</span><span class="mq-color-fila"><input type="color" value="${esc(v || '#ffffff')}" data-mq-color aria-label="Elegir ${esc(q.label)}"><input type="text" ${attrs} value="${esc(v || '')}" placeholder="#RRGGBB" maxlength="7" spellcheck="false"></span></label>`;
   }
   if (q.tipo === 'largo' || q.tipo === 'urls') {
-    return `<label class="field"><span>${esc(q.label)}</span><textarea ${attrs} rows="${q.tipo === 'urls' ? 3 : 4}"${ej}>${esc(v || '')}</textarea></label>`;
+    const rows = filas || (q.tipo === 'urls' ? 3 : 4);
+    return `<label class="field"><span>${label}</span><textarea ${attrs} rows="${rows}"${ej}>${esc(v || '')}</textarea></label>`;
   }
-  return `<label class="field"><span>${esc(q.label)}</span><input type="${q.tipo === 'url' ? 'url' : 'text'}" ${attrs} value="${esc(v || '')}"${ej}></label>`;
+  return `<label class="field"><span>${label}</span><input type="${q.tipo === 'url' ? 'url' : 'text'}" ${attrs} value="${esc(v || '')}"${ej}></label>`;
 }
 
 // `base`: «marca» o «producto:<id>» (va en cada campo para saber dónde guardarlo).
@@ -35,6 +37,11 @@ export function pintarSecciones(secciones, respuestas, base, { abiertas = false 
       <div class="mq-campos">${s.preguntas.map((q) => campo(q, respuestas?.[q.id], base)).join('')}</div>
     </details>`;
   }).join('');
+}
+
+// Unas preguntas sueltas (el asistente: unas pocas por paso, sin secciones). `filas`: alto de los párrafos.
+export function pintarCampos(preguntas, respuestas, base, { filas = 3 } = {}) {
+  return `<div class="mq-campos as-campos">${preguntas.map((q) => `<div class="as-campo" data-as-q="${esc(q.id)}">${campo(q, respuestas?.[q.id], base, filas)}</div>`).join('')}</div>`;
 }
 
 export function valorCampo(el) {

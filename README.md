@@ -605,6 +605,17 @@ WhatsApp). Se guarda solo mientras se escribe, por campos (el cliente y el equip
   respuestas tal cual. El estilo visual va siempre aparte en los prompts de páginas.
 - **Enlace para el cliente**: `/marca.html?c=<cliente>&t=<clave>` (sin cuenta). Ve y rellena sus respuestas, añade
   productos y sube documentos; no ve las fichas. «Crear otro» invalida el anterior; «Desactivar» lo cierra.
+- **Asistente para el cliente (lo primero que ve):** por su enlace y al entrar al dashboard con su acceso de
+  **Cliente**, mientras no lo haya terminado, solo ve el asistente (ni portal ni nada más), en el paso donde lo dejó
+  (se guarda en el servidor). Empieza con un aviso (15-20 min, sin prisas) y va por orden de importancia: tú y tu
+  historia → qué vendes → por cada producto: oferta, promesa, método, para quién y su cliente ideal (dolores, deseos,
+  miedos, objeciones, frases…) → tono → colores y estilo visual → valores y redes → documentos (opcional) → enviar.
+  Etapas de 2-3 preguntas que caben en la pantalla, barra de progreso («Paso X de N · Y % respondido») siempre
+  visible, botón **Guardar** (además del guardado automático), Anterior / Siguiente. No deja pasar con obligatorias
+  vacías (las marca en rojo); las opcionales lo dicen. «Enviar y terminar» solo con todo lo obligatorio; después, su
+  portal. El equipo ve en el panel por dónde va o cuándo lo terminó, y puede **reabrirlo**.
+- **Superadmin:** selector de cliente en el panel para ver y editar la marca de cualquier cliente sin cambiar de
+  cliente en el dashboard.
 - El **alta guiada** del cliente (Agencia) incluye el paso «Cuestionario de marca y avatar (con su ficha)».
 - API: `GET/POST /api/marca` (equipo; escribir pide el permiso «config») y con `t=` (el cliente desde su enlace).
 

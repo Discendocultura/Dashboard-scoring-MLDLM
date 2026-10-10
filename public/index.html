@@ -43,6 +43,8 @@
   </section>
 
   <!-- Portal del cliente (rol «Cliente»: solo lectura, solo su resumen) -->
+  <!-- Cliente que aún no ha completado su cuestionario de marca: lo primero que ve (y lo único hasta terminarlo) -->
+  <div id="asistente-marca" class="asistente-pantalla" hidden></div>
   <div id="portal" class="portal" hidden>
     <header class="portal-head">
       <div><h1 id="portal-titulo">Resultados</h1><p class="muted" id="portal-sub"></p></div>
@@ -1387,7 +1389,7 @@
 
   <!-- Configuración de un meteórico -->
   <dialog id="marca-dialog" class="dialog dialog-xl">
-    <header class="dialog-head"><h2>🎨 Marca y avatar <span id="mk-cliente" class="muted"></span></h2><button class="btn ghost" type="button" id="mk-cerrar" aria-label="Cerrar">✕</button></header>
+    <header class="dialog-head"><h2>🎨 Marca y avatar <span id="mk-cliente" class="muted"></span></h2><select id="mk-cliente-sel" class="mk-cliente-sel" aria-label="Cliente" hidden></select><button class="btn ghost" type="button" id="mk-cerrar" aria-label="Cerrar">✕</button></header>
     <div class="dialog-body">
       <p class="muted small">Todo lo que sabemos de la marca, sus productos y su cliente ideal. Es la fuente de <strong>todos los prompts</strong> del dashboard (páginas del embudo, mensajes de WhatsApp…): cuanto más completo, mejor salen. Se guarda solo mientras escribes.</p>
       <div class="mq-prog"><div class="mq-prog-bar"><span id="mk-prog-bar"></span></div><span id="mk-prog-txt" class="small"></span><span id="mk-estado" class="small muted" role="status"></span></div>
