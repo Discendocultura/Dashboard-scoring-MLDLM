@@ -460,6 +460,9 @@ genérico de Zoom» de la configuración, ya escrito en el HTML). Se pega en la 
 Cloudflare en España en horario de fútbol), el botón se queda visible y la gente entra al directo igual. Lleva el
 enlace de Zoom de ese lanzamiento: si cambia la reunión, hay que volver a pegarlo. Los prompts de Páginas (preclase y
 acceso) ya lo incluyen.
+Recordatorios: con la pantalla de espera activa y directo en Zoom, el **Auditor** avisa si falta el «Enlace genérico de
+Zoom» (sin él no se genera el bloque); las **tareas habituales** de los clientes nuevos traen «Plan B del directo» 3 días
+antes del directo; y el campo del enlace en Configuración lo explica.
 
 ### Recursos de la preclase: música, test, votación y descargable
 Al crear el embudo se marca qué recursos tendrá la preclase además de las clases; los lanzamientos nuevos los heredan (sin fechas). En cada lanzamiento, *Configuración → Preclase → Recursos de la preclase*:

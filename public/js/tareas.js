@@ -45,6 +45,7 @@ export const PLANTILLA = [
   { fase: 'clases', titulo: 'Comprobar que la clase 1 se desbloquea y se ve bien en la página preclase', base: 'clase1', dias: 0, rol: 'tecnico' },
   { fase: 'clases', titulo: 'Contactar por WhatsApp a las leads calientes de «Setting hoy»', base: 'clase1', dias: 1, rol: 'setter' },
   { fase: 'clases', titulo: 'Comprobar que la clase 2 se desbloquea y se ve bien', base: 'clase2', dias: 0, rol: 'tecnico' },
+  { fase: 'directo', titulo: 'Plan B del directo: poner el enlace genérico de Zoom y pegar el bloque «RECURSOS · plan B del directo» (Códigos para GHL) arriba de la preclase y bajo el formulario de acceso', base: 'directo', dias: -3, rol: 'tecnico' },
   { fase: 'directo', titulo: 'Probar el enlace del directo y la sala de Zoom', base: 'directo', dias: -1, rol: 'admin' },
   { fase: 'directo', titulo: 'Recordatorio del directo en el grupo de WhatsApp', base: 'directo', dias: 0, rol: 'tecnico' },
   { fase: 'directo', titulo: 'Sincronizar la asistencia de Zoom en el dashboard', base: 'directo', dias: 1, rol: 'admin' },

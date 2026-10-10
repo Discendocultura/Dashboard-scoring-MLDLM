@@ -125,6 +125,11 @@ export function auditarLanzamiento(p) {
     if (yaPaso && ['clase1', 'clase2', 'clase3'].includes(hito)) continue; // ya no tiene arreglo útil
     add(urgencia(n(hito)), 'Enlaces y páginas', `Falta ${t}`, antesDe(hito), campo(id));
   }
+  // Pantalla de espera activa: el plan B del directo (botón directo a Zoom en las páginas de GHL, por si el
+  // dashboard no carga, p. ej. bloqueos de red a Cloudflare en España) necesita el enlace genérico de Zoom.
+  if (l.espera?.activa !== false && l.zoomMeetingId && !videosDe(l).some((v) => v.zoomJoinUrl) && !(H.directo.d && H.directo.d < hoy)) {
+    add(urgencia(n('directo')), 'Enlaces y páginas', 'Falta el enlace genérico de Zoom (plan B del directo)', 'Con la pantalla de espera, si el dashboard no carga (p. ej. un bloqueo de red) nadie entraría al directo. Pon el enlace y pega el bloque «RECURSOS · plan B del directo» de Códigos para GHL en la preclase y en la página de acceso.', campo('cfg-zoom-url'));
+  }
   // Repetidos del lanzamiento anterior (copiados al duplicar y sin cambiar).
   const ultimo = otros.slice().sort((a, b) => String(b[1].createdAt).localeCompare(String(a[1].createdAt)))[0]?.[1];
   if (ultimo) {

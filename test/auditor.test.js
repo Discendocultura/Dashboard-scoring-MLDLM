@@ -5,7 +5,7 @@ import { auditarLanzamiento, auditarVsl, proximoHito } from '../public/js/audito
 const base = {
   name: 'Oct', registroTag: 'reg-oct', compraTag: 'compra', vipTag: 'vip', compraDateField: 'f',
   inicioCaptacion: '2026-10-01', clase1At: '2026-10-20T09:00', clase2At: '2026-10-22T09:00', fechaDirecto: '2026-10-29', horaDirecto: '19:00', cierreCarrito: '2026-11-03T23:59',
-  llamadaUrl: 'https://cal', whatsappUrl: 'https://wa', loginUrl: 'https://l', recursosUrl: 'https://r', clase1Url: 'https://v1', clase2Url: 'https://v2', zoomMeetingId: '123',
+  llamadaUrl: 'https://cal', whatsappUrl: 'https://wa', loginUrl: 'https://l', recursosUrl: 'https://r', clase1Url: 'https://v1', clase2Url: 'https://v2', zoomMeetingId: '123', zoomJoinUrl: 'https://zoom.us/j/123',
   raicesUrl: 'https://p', ventaUrl: 'https://pay', precioPrograma: 900, replayUrl: 'https://g', replayVideoUrl: 'https://gv', vipUrl: 'https://vip', precioVip: 9,
   snapshot: { tags: { vipTag: 'vip', compraTag: 'compra' } },
 };
@@ -51,4 +51,12 @@ test('auditor VSL y próximo hito', () => {
   assert.ok(t.includes('critico:Falta el vídeo de la VSL'));
   assert.ok(t.includes('critico:No hay ningún registro'));
   assert.equal(proximoHito(base, '2026-10-21').label, 'la clase 2');
+});
+
+test('auditor: con pantalla de espera, avisa si falta el enlace genérico de Zoom (plan B del directo)', () => {
+  const sinZoom = { ...base, zoomJoinUrl: '' };
+  const opts = { hoy: '2026-10-05', zoom: true, tagsGhl: ['reg-oct', 'compra', 'vip'] };
+  assert.ok(titulos(auditarLanzamiento({ launch: sinZoom, ...opts })).some((t) => /plan B del directo/.test(t)));
+  // Sin pantalla de espera no hace falta
+  assert.ok(!titulos(auditarLanzamiento({ launch: { ...sinZoom, espera: { activa: false } }, ...opts })).some((t) => /plan B/.test(t)));
 });
