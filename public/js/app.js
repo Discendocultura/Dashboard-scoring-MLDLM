@@ -4337,7 +4337,7 @@ function respaldoDirecto(launch) {
   if (!vids.length) return 'Pon primero el «Enlace genérico de Zoom» del directo en Configuración (Zoom) y aquí saldrá el bloque con el botón.';
   const btn = (v) => `  <a href="${esc(v.zoomJoinUrl)}" target="_blank" rel="noopener" style="display:inline-block;margin:8px 4px 0;padding:12px 20px;background:#2d8cff;color:#fff;border-radius:10px;text-decoration:none;font-weight:700">Entrar ${vids.length > 1 ? `a ${esc(v.nombre)}` : 'al directo'} por Zoom</a>`;
   return `<div data-lsd-respaldo style="margin:16px auto;max-width:560px;padding:16px;border:2px solid #2d8cff;border-radius:14px;text-align:center;line-height:1.5">
-  <strong>¿No te carga el acceso al directo?</strong><br>Entra directamente por Zoom a la hora del directo:<br>
+  <strong>Si no te redirige automáticamente a la sala del directo, pulsa el botón de abajo y te llevamos:</strong><br>
 ${vids.map(btn).join('\n')}
 </div>`;
 }
