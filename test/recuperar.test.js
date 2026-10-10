@@ -41,4 +41,11 @@ test('¿Olvidaste tu contraseña?: email con enlace de un solo uso, contraseña 
   const login = await call({ email: 'laura@ejemplo.com', password: 'nuevaClave123' });
   assert.equal(login.status, 200, JSON.stringify(login.data));
   assert.equal(login.data.user.email, 'laura@ejemplo.com');
+  // Remitente: sin EMAIL_REMITENTE, el de GHL por defecto; con ella, «Equipo Estelabs <dirección>»
+  assert.equal(mail.emailFrom, undefined);
+  ENV.EMAIL_REMITENTE = 'hola@estelabs.com';
+  try {
+    assert.equal((await call({ op: 'recuperar', email: 'laura@ejemplo.com' })).status, 200);
+    assert.equal(sentEmails.at(-1).emailFrom, 'Equipo Estelabs <hola@estelabs.com>');
+  } finally { delete ENV.EMAIL_REMITENTE; }
 });
