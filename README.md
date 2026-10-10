@@ -529,7 +529,12 @@ En Métricas, con suscripción, verás las **altas por plan**, la facturación (
 El dashboard: solo llama al pulsar «Probar conexión» (abrir Conexiones no gasta nada), deja 3 s entre peticiones,
 guarda campañas (10 min) y analítica (5 min) en D1 y, si SendFlow responde 429/403, no vuelve a llamarle hasta que
 pase el bloqueo (el freno va con cada clave: con una clave nueva se empieza de cero).
-API: `GET /api/sendflow?op=probar` (permiso «config»). Base `https://sendflow.pro/sendapi` (cambiable con `SENDFLOW_BASE_URL`).
+**Grupos de cada lanzamiento y meteórico:** en Configuración (② Captación → «Grupos de WhatsApp · campaña de SendFlow»)
+o en el meteórico («Campaña de SendFlow») eliges su campaña (la lista se pide a SendFlow solo al abrir el desplegable).
+Después, **Métricas → Grupos de WhatsApp** enseña: personas en los grupos ahora (entradas − salidas), % de los
+registros que está en el grupo, % de salidas, % del clic en el enlace a entrar, grupos llenos y la tabla día a día
+(entradas, salidas, neto, clics y registros de GHL). En el meteórico sale en su vista. Datos guardados 5 min (grupos 10 min).
+API: `GET /api/sendflow?op=probar` · `?op=campanas` (permiso «config») · `?op=grupos&l=<código>` (permiso «metricas»). Base `https://sendflow.pro/sendapi` (cambiable con `SENDFLOW_BASE_URL`).
 
 ## 🛒 Venta directa / producto de entrada (low ticket)
 Embudo sin registro: **anuncio → página de venta → checkout (con bump offers) → upsell → downsell → gracias**.

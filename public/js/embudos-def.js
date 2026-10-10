@@ -56,6 +56,7 @@ export const SECCIONES = {
     { id: 'captacion', label: 'Captación', desc: 'Registros, tráfico, origen y coste por lead' },
     { id: 'conversion', label: 'Vídeos y conversión', desc: 'Clases, directo, grabación, votación y qué predice la compra' },
     { id: 'emails', label: 'Emails', desc: 'Apertura y clics de los emails del lanzamiento' },
+    { id: 'grupos', label: 'Grupos de WhatsApp', desc: 'Entradas y salidas de los grupos de SendFlow, día a día' },
     { id: 'meteorico', label: 'Meteórico posterior', desc: 'La oferta flash después del lanzamiento' },
   ],
   vmetricas: [

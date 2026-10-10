@@ -74,3 +74,22 @@ test('SendFlow: si bloquea la clave por exceso de peticiones, el dashboard deja 
     setEnv(ENV);
   }
 });
+
+test('SendFlow: grupos de la campaña vinculada a un lanzamiento (y sin vincular)', async () => {
+  const { setEnv } = await import('../lib/env.js');
+  setEnv(ENV);
+  const admin = await login('admin');
+  const cfg = (await route(new Request('http://localhost/api/config', { headers: { cookie: admin } }), ENV).then((r) => r.json())).config;
+  const body = { ...cfg, launches: { oct: { name: 'Octubre', registroTag: 'r', sendflowId: 'rel-demo' }, nov: { name: 'Nov', registroTag: 'r2' } } };
+  const r = await route(new Request('http://localhost/api/config', { method: 'POST', headers: { cookie: admin, 'content-type': 'text/plain' }, body: JSON.stringify(body) }), ENV);
+  assert.equal(r.status, 200);
+  const d = (await call('/api/sendflow?op=grupos&l=oct', admin)).data;
+  assert.equal(d.vinculada, true);
+  assert.ok(d.entradas > 0 && d.salidas > 0);
+  assert.ok(d.porDia.every((x) => /^\d{4}-\d{2}-\d{2}$/.test(x.dia)));
+  assert.equal(d.grupos.length, 4);
+  assert.equal(d.grupos.filter((g) => g.lleno).length, 3);
+  assert.equal((await call('/api/sendflow?op=grupos&l=nov', admin)).data.vinculada, false);
+  assert.equal((await call('/api/sendflow?op=grupos&l=nada', admin)).status, 404);
+  assert.equal((await call('/api/sendflow?op=campanas', admin)).data.campanas.length, 2);
+});

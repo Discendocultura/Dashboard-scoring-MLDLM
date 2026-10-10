@@ -2676,6 +2676,7 @@ function pintarMsub(nav, cat) {
   ls.set(`lsd_${nav.id}`, cat);
   if (nav.id === 'msub-leads' && cat === 'encuesta' && state.config && state.leads) renderEncuestaLeads();
   if (nav.id === 'msub-metricas' && cat === 'meteorico' && state.config) renderMeteoLanz();
+  if (nav.id === 'msub-metricas' && cat === 'grupos' && state.config) cargarGrupos(state.launchCode, $('#grupos-l'));
 }
 $$('.msubs').forEach((nav) => {
   $$('[data-msub-btn]', nav).forEach((b) => {
@@ -3387,6 +3388,7 @@ function openConfig(code) {
   $('#cfg-vip-url').value = l.vipUrl || '';
   $('#cfg-vip-base').value = l.vipContadorBase ?? embudoInfo(embudoDeLanz(l))?.vipContadorBase ?? (esPrincipal() ? 41 : 0);
   $('#cfg-whatsapp-url').value = l.whatsappUrl || '';
+  opcionSendflow($('#cfg-sendflow'), l.sendflowId || '');
   $('#cfg-gracias-video').value = l.graciasVideoUrl || '';
   $('#cfg-gracias-url').value = l.graciasUrl || '';
   $('#cfg-cierre').value = l.cierreCarrito || '';
@@ -3858,6 +3860,7 @@ function readForm() {
       vipUrl: $('#cfg-vip-url').value.trim(),
       vipContadorBase: $('#cfg-vip-base').value.trim(),
       whatsappUrl: $('#cfg-whatsapp-url').value.trim(),
+      sendflowId: $('#cfg-sendflow').value,
       graciasVideoUrl: $('#cfg-gracias-video').value.trim(),
       graciasUrl: $('#cfg-gracias-url').value.trim(),
       cierreCarrito: $('#cfg-cierre').value,
@@ -8623,7 +8626,7 @@ async function pintarMeteo(box, code, { fresh = false } = {}) {
   const snippet = `<div data-lsd-oferta></div>\n<script src="${location.origin}/oferta.js?${qs}" defer></script>`;
   const foto = m.compraDateField ? '' : `<p class="muted small">Sin campo de fecha de compra, las ventas son quienes tienen la etiqueta y no estaban en la «foto».${d.foto ? ` Foto hecha el ${esc(new Date(d.foto.at).toLocaleString('es-ES'))} (${d.foto.n} personas ya la tenían).` : ' <strong>Aún no hay foto: hazla antes de abrir.</strong>'}</p>${puedeConfig() ? `<button type="button" class="btn" data-meteo-foto="${esc(code)}">${d.foto ? 'Rehacer la foto' : 'Hacer la foto ahora'}</button>` : ''}`;
   const planes = d.planes ? `<section class="meteo-sec"><h3>Planes de la suscripción</h3><div class="table-scroll"><table class="metric-table">${tablaPlanes(d.planes)}</table></div></section>` : '';
-  box.innerHTML = `${cab}<div class="kpis meteo-kpis">${kpis}</div>${planes}${porDia}${compradoras}
+  box.innerHTML = `${cab}<div class="kpis meteo-kpis">${kpis}</div>${planes}${porDia}${m.sendflowId ? '<section class="meteo-sec"><h3>💬 Grupo de WhatsApp</h3><div data-meteo-grupos></div></section>' : ''}${compradoras}
     <section class="meteo-sec"><h3>Código para la página de la oferta <span class="muted small">(bloque «Código HTML» en GHL)</span></h3>
       <p class="muted small">Pinta la cuenta atrás («se abre en…», «se cierra en…» con el botón de compra y «ha terminado») y cuenta las visitas. Los textos y horas se cambian en Configurar.</p>
       <pre class="snippet">${esc(snippet)}</pre><button type="button" class="btn" data-copiar-meteo="${esc(snippet)}">Copiar código</button>
@@ -8632,6 +8635,7 @@ async function pintarMeteo(box, code, { fresh = false } = {}) {
     <section class="meteo-sec"><h3>Emails del meteórico <span class="muted small">(apertura, CTR y qué mejorar)</span></h3><div data-em-meteo></div></section>
     ${m.notas ? `<section class="meteo-sec"><h3>Notas</h3><p class="ll-notas">${esc(m.notas)}</p></section>` : ''}`;
   if (tiene('metricas')) mostrarEmails(code, { tabla: box.querySelector('[data-em-meteo]') });
+  if (m.sendflowId && tiene('metricas')) cargarGrupos(code, box.querySelector('[data-meteo-grupos]'));
 }
 function llenarMeteoSelect(sel, lista, code, vacio) {
   sel.innerHTML = lista.length ? lista.map(([c, m]) => `<option value="${esc(c)}" ${c === code ? 'selected' : ''}>${esc(m.name)}${m.apertura ? ` · ${esc(fechaHoraMeteo(m.apertura))}` : ''}</option>`).join('') : `<option value="">${vacio}</option>`;
@@ -8707,12 +8711,13 @@ document.addEventListener('click', async (e) => {
 
 // Configuración de un meteórico (nuevo o existente).
 let meteoEdit = null; // { code | null, embudo, lanzamiento }
-const MT_CAMPOS = ['name', 'producto', 'oferta', 'precio', 'precioFraccionado', 'calentamiento', 'apertura', 'cierre', 'compraTag', 'fraccionadoTag', 'ofertaUrl', 'pagoUrl', 'pagoFraccionadoUrl', 'cerradaUrl', 'whatsappUrl', 'objetivoVentas', 'objetivoFacturacion', 'inversion', 'metaFiltro', 'emailFiltro', 'notas'];
+const MT_CAMPOS = ['name', 'producto', 'oferta', 'precio', 'precioFraccionado', 'calentamiento', 'apertura', 'cierre', 'compraTag', 'fraccionadoTag', 'ofertaUrl', 'pagoUrl', 'pagoFraccionadoUrl', 'cerradaUrl', 'whatsappUrl', 'sendflowId', 'objetivoVentas', 'objetivoFacturacion', 'inversion', 'metaFiltro', 'emailFiltro', 'notas'];
 async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
   const m = code ? state.config.meteoricos?.[code] : null;
   meteoEdit = { code: m ? code : null, embudo: m?.embudo ?? embudo, lanzamiento: m?.lanzamiento ?? lanzamiento };
   $('#meteo-titulo').textContent = m ? `⚡ ${m.name}` : '⚡ Nuevo meteórico';
   $('#meteo-de').textContent = meteoEdit.lanzamiento ? `Meteórico posterior al lanzamiento «${state.config.launches[meteoEdit.lanzamiento]?.name || meteoEdit.lanzamiento}» (downsell u otro producto).` : 'Acción independiente a tu base de datos (Black Friday, rebajas, aniversario…).';
+  opcionSendflow($('#mt-sendflowId'), m?.sendflowId || '');
   for (const k of MT_CAMPOS) {
     const el = $(`#mt-${k}`);
     const v = m?.[k];
@@ -9753,3 +9758,76 @@ async function probarSendflow({ reintentar = false } = {}) {
     setTimeout(() => { b.disabled = false; }, 30_000);
   }
 }
+
+// ---------- 💬 Grupos de WhatsApp (SendFlow) ----------
+// Desplegable de campañas: se piden a SendFlow solo al abrirlo (su límite es estricto) y una vez por sesión.
+let sfCampanas = null;
+function opcionSendflow(sel, actual) {
+  const lista = sfCampanas?.campanas || [];
+  const opts = [['', '— Sin vincular —'], ...lista.filter((c) => !c.archivada || c.id === actual).map((c) => [c.id, c.nombre])];
+  if (actual && !opts.some(([v]) => v === actual)) opts.push([actual, `Campaña ${actual}`]);
+  sel.innerHTML = opts.map(([v, t]) => `<option value="${esc(v)}"${v === actual ? ' selected' : ''}>${esc(t)}</option>`).join('')
+    + (sfCampanas ? '' : '<option value="" disabled>(Ábrelo para cargar tus campañas de SendFlow)</option>');
+  sel.value = actual;
+}
+async function cargarCampanasSendflow(sel) {
+  if (sfCampanas) return;
+  sfCampanas = { campanas: [] };
+  const actual = sel.value;
+  sel.insertAdjacentHTML('beforeend', '<option value="" disabled data-cargando>Cargando campañas de SendFlow…</option>');
+  try {
+    const d = await api('/api/sendflow?op=campanas');
+    sfCampanas = d;
+    if (!d.conectado) sfCampanas.campanas = [];
+  } catch { sfCampanas = { campanas: [], error: true }; }
+  $$('[data-sendflow-select]').forEach((s) => opcionSendflow(s, s === sel ? actual : s.value));
+  if (sfCampanas.error || sfCampanas.conectado === false) sel.insertAdjacentHTML('beforeend', `<option value="" disabled>${sfCampanas.conectado === false ? 'SendFlow no está conectado (Cuenta → Conexiones)' : esc(typeof sfCampanas.error === 'string' ? sfCampanas.error : 'No se pudieron cargar las campañas')}</option>`);
+}
+$$('[data-sendflow-select]').forEach((sel) => {
+  for (const ev of ['focus', 'mousedown', 'touchstart']) sel.addEventListener(ev, () => cargarCampanasSendflow(sel), { passive: true });
+});
+
+// Entradas, salidas y clics de la campaña de un lanzamiento o meteórico (el servidor lo guarda 5 min).
+async function cargarGrupos(code, box) {
+  if (!box || !code) return;
+  box.innerHTML = '<p class="muted">Cargando los grupos de SendFlow…</p>';
+  let d;
+  try { d = await api(`/api/sendflow?op=grupos&l=${encodeURIComponent(code)}`); } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+  const esLanz = Boolean(state.config.launches[code]);
+  if (!d.vinculada) {
+    box.innerHTML = `<div class="notice">Este ${esLanz ? 'lanzamiento' : 'meteórico'} aún no tiene su campaña de SendFlow.${d.conectado ? '' : ' Primero conecta SendFlow en <strong>Cuenta → Conexiones</strong>.'}${puedeConfig() && d.conectado ? ` <button type="button" class="btn small" data-grupos-vincular="${esc(code)}">Elegir la campaña →</button>` : ''}</div>`;
+    return;
+  }
+  if (!d.conectado) { box.innerHTML = '<div class="notice warn">SendFlow no está conectado: <strong>Cuenta → Conexiones</strong>.</div>'; return; }
+  if (d.error) { box.innerHTML = `<div class="notice warn">${esc(d.error)}</div>`; return; }
+  const neto = d.entradas - d.salidas;
+  // Registros por día (GHL) para compararlos con las entradas al grupo.
+  const regDia = new Map();
+  if (esLanz && state.leadsDe === code) for (const l of state.leads || []) { const k = l.dateAdded ? dayInMadrid(l.dateAdded) : ''; if (k) regDia.set(k, (regDia.get(k) || 0) + 1); }
+  const registros = esLanz && state.leadsDe === code ? state.leads.length : null;
+  const llenos = (d.grupos || []).filter((g) => g.lleno).length;
+  const AY = {
+    grupo: 'Entradas menos salidas desde que empezó la campaña de SendFlow (no descuenta a quien entró dos veces).',
+    salidas: 'Quienes se han salido ÷ quienes han entrado.',
+    clics: 'Entradas ÷ clics en el enlace de SendFlow: si baja mucho, el enlace o los grupos pueden fallar.',
+    registros: 'Personas en el grupo ÷ leads registrados del lanzamiento (aproximado).',
+  };
+  box.innerHTML = `<div class="kpis">
+      ${cardD('En los grupos ahora', neto.toLocaleString('es-ES'), `${d.entradas.toLocaleString('es-ES')} entradas − ${d.salidas.toLocaleString('es-ES')} salidas${d.nombre ? ` · «${esc(d.nombre)}»` : ''}`, 'users', 'accent', AY.grupo)}
+      ${registros ? cardD('De los registros, en el grupo', pctOf(neto, registros).replace('.', ','), `${neto.toLocaleString('es-ES')} en el grupo de ${registros.toLocaleString('es-ES')} leads`, 'funnel', 'info', AY.registros) : ''}
+      ${cardD('Salidas', pctOf(d.salidas, d.entradas).replace('.', ','), `${d.salidas.toLocaleString('es-ES')} se han salido`, 'logout', d.entradas && d.salidas / d.entradas > 0.15 ? 'warn' : 'info', AY.salidas)}
+      ${cardD('Del clic a entrar', pctOf(d.entradas, d.clics).replace('.', ','), `${d.clics.toLocaleString('es-ES')} clics en el enlace`, 'link', 'buy', AY.clics)}
+      ${d.grupos ? cardD('Grupos', d.grupos.length, llenos ? `${llenos} llenos${llenos === d.grupos.length ? ' · ⚠️ todos llenos: revisa que SendFlow cree el siguiente' : ''}` : 'ninguno lleno', 'chat', llenos && llenos === d.grupos.length ? 'warn' : 'info', 'Grupos de la campaña en SendFlow y cuántos están llenos.') : ''}
+    </div>
+    ${d.porDia.length ? `<div class="table-scroll"><table class="metric-table"><thead><tr><th>Día</th><th class="num">Entradas</th><th class="num">Salidas</th><th class="num">Neto</th><th class="num">Clics</th>${registros ? '<th class="num">Registros</th>' : ''}</tr></thead><tbody>${d.porDia.slice().reverse().map((x) => `<tr><td>${esc(fechaFicha(`${x.dia}T12:00:00Z`))}</td><td class="num">${x.entradas}</td><td class="num">${x.salidas}</td><td class="num"><strong>${x.entradas - x.salidas}</strong></td><td class="num">${x.clics}</td>${registros ? `<td class="num">${regDia.get(x.dia) || 0}</td>` : ''}</tr>`).join('')}</tbody></table></div>` : '<p class="muted">SendFlow aún no tiene entradas en esta campaña.</p>'}
+    ${d.grupos?.length ? `<details><summary class="small">Ver los ${d.grupos.length} grupos</summary><ul class="small">${d.grupos.map((g) => `<li>${esc(g.nombre || g.id)} · ${g.personas} personas${g.lleno ? ' · <strong>lleno</strong>' : ''}</li>`).join('')}</ul></details>` : ''}
+    <p class="muted small">Datos de SendFlow, se actualizan cada 5 minutos.</p>`;
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-grupos-vincular]');
+  if (!b) return;
+  const code = b.dataset.gruposVincular;
+  if (state.config.meteoricos?.[code]) { await abrirMeteoDialog(code); return; }
+  await openConfig(code);
+  setTimeout(() => goToField('cfg-sendflow'), 150);
+});

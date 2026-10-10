@@ -580,6 +580,7 @@
             <button type="button" class="subview-tab" data-msub-btn="captacion" data-icon-msub="megaphone">Captación</button>
             <button type="button" class="subview-tab" data-msub-btn="conversion" data-icon-msub="cart">Vídeos y conversión</button>
             <button type="button" class="subview-tab" data-msub-btn="emails" data-icon-msub="mail">Emails</button>
+            <button type="button" class="subview-tab" data-msub-btn="grupos" data-icon-msub="chat">Grupos de WhatsApp</button>
             <button type="button" class="subview-tab" data-msub-btn="meteorico" data-icon-msub="zap">Meteórico posterior</button>
           </nav>
           <div id="metric-hero" data-msub="resumen" class="kpis kpis-hero"></div>
@@ -590,6 +591,10 @@
           <section data-msub="emails" class="card metric-card" data-icon="mail">
             <h2>Emails del lanzamiento <span class="muted">· apertura, CTR y qué mejorar en cada uno</span></h2>
             <div id="em-l"></div>
+          </section>
+          <section data-msub="grupos" class="card metric-card" data-icon="chat">
+            <h2>Grupos de WhatsApp <span class="muted">· entradas y salidas de SendFlow, día a día, frente a los registros</span></h2>
+            <div id="grupos-l"></div>
           </section>
           <section data-msub="meteorico" class="card metric-card" data-icon="zap">
             <h2>Meteórico posterior <span class="muted">· oferta flash tras el lanzamiento (downsell u otro producto)</span></h2>
@@ -923,6 +928,7 @@
             <div class="grid2">
               <label class="field"><span>URL de la página de gracias</span><input id="cfg-gracias-url" type="url" placeholder="https://lp.saraguzman.com/…"></label>
               <label class="field"><span>Grupo de WhatsApp · enlace <small>(botón de la página de gracias y barra fija de la preclase)</small></span><input id="cfg-whatsapp-url" type="url" placeholder="https://chat.whatsapp.com/…"></label>
+              <label class="field"><span>Grupos de WhatsApp · campaña de SendFlow <small>(entradas y salidas en Métricas → Grupos de WhatsApp)</small></span><select id="cfg-sendflow" data-sendflow-select><option value="">— Sin vincular —</option></select></label>
               <label class="field"><span>Vídeo de la página de gracias <small>(Vimeo o YouTube; en el HTML: <code>&lt;div data-lsd-embed="gracias"&gt;&lt;/div&gt;</code>)</small></span><input id="cfg-gracias-video" type="url" placeholder="https://vimeo.com/123/abc"></label>
             </div>
           </section>
@@ -1512,6 +1518,7 @@
             <label data-pago="fr" class="field"><span>Enlace de pago a plazos <small>(opcional)</small></span><input id="mt-pagoFraccionadoUrl" type="url"></label>
             <label class="field"><span>Página de «oferta cerrada» <small>(opcional: allí se manda al cerrar)</small></span><input id="mt-cerradaUrl" type="url"></label>
             <label class="field"><span>Grupo de WhatsApp <small>(opcional)</small></span><input id="mt-whatsappUrl" type="url"></label>
+            <label class="field"><span>Campaña de SendFlow <small>(entradas y salidas del grupo)</small></span><select id="mt-sendflowId" data-sendflow-select><option value="">— Sin vincular —</option></select></label>
           </div>
           <div class="grid2" data-pago-enlaces="mt"></div>
           <div class="grid2">
