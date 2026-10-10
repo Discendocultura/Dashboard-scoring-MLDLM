@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="/styles.css?v=57da55ce7f">
+  <link rel="stylesheet" href="/styles.css?v=fb8ee1bc07">
   <script type="module" src="/js/app.js"></script>
 </head>
 <body>
@@ -61,12 +61,31 @@
       <div class="lg-panel">
     <form id="login-form" class="card login-card">
       <h2>Inicia sesión</h2>
-      <input id="login-email" type="email" autocomplete="username" placeholder="Email">
-      <input id="login-password" type="password" autocomplete="current-password" placeholder="Contraseña" required>
-      <p class="muted login-hint">¿Usas la contraseña general? Deja el email vacío.</p>
+      <input id="login-email" class="lg-in lg-in-email" type="email" autocomplete="username" placeholder="Email">
+      <input id="login-password" class="lg-in lg-in-clave" type="password" autocomplete="current-password" placeholder="Contraseña" required>
+      <button type="button" class="lg-olvido" id="lg-olvido">¿Olvidaste tu contraseña?</button>
       <p id="login-error" class="error" hidden></p>
       <button class="btn primary" type="submit">Entrar <span aria-hidden="true">→</span></button>
       <p class="lg-seguro">🔒 Conexión cifrada · verificación en dos pasos</p>
+    </form>
+    <!-- ¿Olvidaste tu contraseña? → email con un enlace (caduca en 1 h) -->
+    <form id="login-recuperar" class="card login-card" hidden>
+      <h2>Recupera tu acceso</h2>
+      <p class="muted lg-centro">Escribe tu email y te enviamos un enlace para crear una contraseña nueva.</p>
+      <input id="lr-email" class="lg-in lg-in-email" type="email" autocomplete="username" placeholder="Email" required>
+      <p id="lr-msg" class="lg-ok" hidden></p>
+      <p id="lr-error" class="error" hidden></p>
+      <button class="btn primary" type="submit" id="lr-btn">Enviar enlace <span aria-hidden="true">→</span></button>
+      <button class="btn ghost" type="button" id="lr-volver">← Volver a iniciar sesión</button>
+    </form>
+    <!-- Enlace del email: crear la contraseña nueva -->
+    <form id="login-restablecer" class="card login-card" hidden>
+      <h2>Contraseña nueva</h2>
+      <p class="muted lg-centro">Mínimo 8 caracteres. Al guardarla se cerrarán tus sesiones abiertas.</p>
+      <input id="ln-clave" class="lg-in lg-in-clave" type="password" autocomplete="new-password" placeholder="Contraseña nueva" minlength="8" required>
+      <input id="ln-clave2" class="lg-in lg-in-clave" type="password" autocomplete="new-password" placeholder="Repite la contraseña" minlength="8" required>
+      <p id="ln-error" class="error" hidden></p>
+      <button class="btn primary" type="submit" id="ln-btn">Guardar y entrar <span aria-hidden="true">→</span></button>
     </form>
     <!-- Segundo paso: código de la app (o activarla, si es obligatoria y aún no la tiene) -->
     <form id="login-2fa" class="card login-card" hidden>

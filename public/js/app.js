@@ -185,6 +185,7 @@ $('#login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const err = $('#login-error');
   err.hidden = true;
+  err.classList.remove('lg-ok');
   try {
     const d = await api('/api/login', { method: 'POST', body: { email: $('#login-email').value.trim(), password: $('#login-password').value } });
     $('#login-password').value = '';
@@ -195,6 +196,51 @@ $('#login-form').addEventListener('submit', async (e) => {
     err.textContent = ex.message;
     err.hidden = false;
   }
+});
+
+// ---------- ¿Olvidaste tu contraseña? (email con enlace) y contraseña nueva desde el enlace ----------
+const formsAcceso = ['#login-form', '#login-recuperar', '#login-restablecer', '#login-2fa'];
+function verFormAcceso(id) { for (const f of formsAcceso) $(f).hidden = f !== id; }
+$('#lg-olvido').addEventListener('click', () => {
+  $('#lr-email').value = $('#login-email').value.trim();
+  $('#lr-msg').hidden = true; $('#lr-error').hidden = true; $('#lr-btn').disabled = false;
+  verFormAcceso('#login-recuperar');
+  $('#lr-email').focus();
+});
+$('#lr-volver').addEventListener('click', () => verFormAcceso('#login-form'));
+$('#login-recuperar').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('#lr-error').hidden = true;
+  $('#lr-btn').disabled = true;
+  try {
+    const d = await api('/api/login', { method: 'POST', body: { op: 'recuperar', email: $('#lr-email').value.trim() } });
+    $('#lr-msg').textContent = `✉️ ${d.mensaje}`;
+    $('#lr-msg').hidden = false;
+  } catch (ex) {
+    $('#lr-error').textContent = ex.message; $('#lr-error').hidden = false; $('#lr-btn').disabled = false;
+  }
+});
+// El enlace del email llega con ?reset=<usuario>.<clave>: se quita de la barra de direcciones y se pide la nueva.
+const tokenReset = new URLSearchParams(location.search).get('reset') || '';
+if (tokenReset) history.replaceState(null, '', location.pathname + location.hash);
+$('#login-restablecer').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = $('#ln-error');
+  err.hidden = true;
+  const nueva = $('#ln-clave').value;
+  if (nueva !== $('#ln-clave2').value) { err.textContent = 'Las dos contraseñas no coinciden.'; err.hidden = false; return; }
+  $('#ln-btn').disabled = true;
+  try {
+    await api('/api/login', { method: 'POST', body: { op: 'restablecer', token: tokenReset, nueva } });
+    $('#ln-clave').value = ''; $('#ln-clave2').value = '';
+    verFormAcceso('#login-form');
+    const ok = $('#login-error');
+    ok.textContent = '✓ Contraseña cambiada. Entra con tu email y la contraseña nueva.';
+    ok.classList.add('lg-ok'); ok.hidden = false;
+    $('#login-email').focus();
+  } catch (ex) {
+    err.textContent = ex.message; err.hidden = false;
+  } finally { $('#ln-btn').disabled = false; }
 });
 
 // ---------- Verificación en dos pasos (al entrar y en Mi cuenta) ----------
@@ -8635,10 +8681,17 @@ $('#aud-lista').addEventListener('click', async (e) => {
 });
 
 // ---------- Inicio ----------
-start().catch((e) => {
-  if (e.message !== 'Sesión caducada') notice(e.message, true);
+if (tokenReset) {
+  // Viene del email de «¿Olvidaste tu contraseña?»: primero la contraseña nueva.
   showLogin();
-});
+  verFormAcceso('#login-restablecer');
+  $('#ln-clave').focus();
+} else {
+  start().catch((e) => {
+    if (e.message !== 'Sesión caducada') notice(e.message, true);
+    showLogin();
+  });
+}
 
 // ---------- ⚡ Meteóricos: ofertas flash (independientes o downsell tras un lanzamiento) ----------
 const meteoricos = () => Object.entries(state.config?.meteoricos || {});

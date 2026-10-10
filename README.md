@@ -369,6 +369,8 @@ Los roles y lo que ve cada uno se configuran en el botón **Equipo → Roles y p
 - **Todos los roles**: Tareas y Calendario (cada uno marca sus tareas y las de su rol).
 - De serie: **Técnico** (configuración, Zoom, Setting hoy, Llamadas, Leads, Métricas, Objetivos, Avatar) y **Setter** (Setting hoy, Llamadas, Leads). Se guardan en `lsd_roles`.
 
+**¿Olvidaste tu contraseña?** (en la pantalla de acceso): la persona escribe su email y le llega, desde el GHL principal de la agencia (el mismo que envía los accesos), un email «Crea tu contraseña nueva» con un enlace a `/?reset=…`. El enlace vale **1 hora y una sola vez** (se guarda solo su hash en el usuario); al abrirlo se pide la contraseña nueva dos veces (mínimo 8 caracteres) y, al guardarla, se cierran sus sesiones abiertas en otros dispositivos y vuelve al formulario para entrar. La respuesta es la misma exista o no el email (no se puede averiguar quién tiene acceso) y las peticiones cuentan para el bloqueo de intentos. Se envía desde GHL y no desde Cloudflare porque Cloudflare no puede mandar emails a direcciones cualquiera (solo a direcciones verificadas) sin otra herramienta.
+
 Las contraseñas generales `ADMIN_PASSWORD` / `SETTER_PASSWORD` siguen funcionando (dejando el email vacío) como acceso de emergencia, salvo que el superadmin las desactive (ver **Seguridad**).
 
 ## Tareas
