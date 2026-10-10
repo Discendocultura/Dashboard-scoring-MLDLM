@@ -2483,7 +2483,7 @@ document.addEventListener('click', (e) => {
 // Grupos de la barra de arriba, por momento de uso: Hoy (lo del día), Plan y Análisis.
 const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['objetivos', 'calendario', 'carrito', 'grupowa', 'paginas', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart' };
+const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
