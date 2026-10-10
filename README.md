@@ -567,6 +567,10 @@ entradas y salidas por hora de las últimas 24 h (la hora con el pico, marcada).
    (y la hora), cuenten lo que se verá en la masterclass y lleven **el enlace de acceso al directo**
    (`/directo?l=<código>[&v=<vídeo>]`, pide el email); nada de venta ese día. Campo opcional «¿Qué verán en la
    masterclass?» que entra en el prompt. En la lista, aviso en los mensajes de ese día que no llevan el enlace.
+   **Estrategia de la preclase:** el prompt lista lo que se desbloquea en la página preclase por orden (clases con su
+   título, test, descargable; la música y la votación con su clase). El día de cada desbloqueo: anunciar que ya está,
+   beneficios y curiosidad, repetido con otro ángulo; los días siguientes, foco en el nuevo y recordar los anteriores.
+   El enlace siempre es el de la página preclase (si falta, deja `[ENLACE DE LA PÁGINA PRECLASE]`).
 2. **Pegar la respuesta:** formato `### AAAA-MM-DD HH:MM | tipo [| mencionar | varias]` y el contenido debajo
    (`Archivo:`, `Guion:`, `Texto:`; opciones de encuesta con `- `). Se convierte en mensajes editables.
 3. **Archivos:** SendFlow necesita un **enlace público al archivo** (GHL → Sitios → Medios → ⋯ → Copiar enlace).

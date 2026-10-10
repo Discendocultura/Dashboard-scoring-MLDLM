@@ -3,6 +3,8 @@
 // skill de copy) → Claude devuelve los mensajes en un formato fijo → se pegan aquí, se revisan y se programan
 // en SendFlow (POST /actions/send-message con `scheduledTo`). Lo usan el navegador, el servidor y los tests.
 import { madridToEpoch } from './page.js';
+import { recursosDe } from './recursos.js';
+import { nClases } from './videos.js';
 
 export const TIPOS_MSG = [
   { id: 'texto', label: 'Texto', ico: '✍️', sf: 'extendedTextMessage' },
@@ -143,6 +145,26 @@ const eur = (n) => (Number(n) ? `${Number(n).toLocaleString('es-ES')} €` : '')
 
 // Días de directo: [{ nombre, at: 'AAAA-MM-DDTHH:MM', url }] (el enlace genérico de acceso, que pide el email).
 // `temario`: lo que se verá en la masterclass (lo escribe quien prepara los mensajes).
+// Lo que se va desbloqueando en la página preclase, por orden de fecha: [{ at, nombre, extra }].
+// La música y la votación van con su clase (se abren al verla).
+export function desbloqueosPreclase(emb) {
+  if (!emb) return [];
+  const r = recursosDe(emb);
+  const out = [];
+  for (let k = 1; k <= nClases(emb); k++) {
+    const at = emb[`clase${k}At`];
+    if (!at) continue;
+    const titulo = emb.textos?.[`clase${k}-titulo`];
+    const extra = [];
+    if (r.musica?.activo && r.musica.tras === `clase${k}`) extra.push(`al verla se abre ${r.musica.nombre ? `«${r.musica.nombre}»` : 'un audio'}`);
+    if (r.votacion?.activo && r.votacion.tras === `clase${k}` && r.votacion.preguntas?.length) extra.push('al verla se abre una votación');
+    out.push({ at, nombre: `Clase ${k}${titulo ? ` «${titulo}»` : ''}`, extra });
+  }
+  if (r.test?.activo && r.test.at) out.push({ at: r.test.at, nombre: `Test${r.test.nombre ? ` «${r.test.nombre}»` : ''}`, extra: [] });
+  if (r.descargable?.activo && r.descargable.at) out.push({ at: r.descargable.at, nombre: `Recurso descargable${r.descargable.nombre ? ` «${r.descargable.nombre}»` : ''}`, extra: [] });
+  return out.sort((a, b) => a.at.localeCompare(b.at));
+}
+
 export function promptCalentamiento(emb, { esMeteo = false, producto = '', marca = '', desde = '', hasta = '', ya = [], directos = [], temario = '' } = {}) {
   const d = [];
   if (esMeteo) {
@@ -155,7 +177,8 @@ export function promptCalentamiento(emb, { esMeteo = false, producto = '', marca
   } else {
     d.push(`- Lanzamiento: «${emb.name || ''}» de ${producto || 'el programa'}${marca ? ` (${marca})` : ''}.`);
     if (emb.inicioCaptacion) d.push(`- Captación desde el ${diaLargo(emb.inicioCaptacion)}${emb.finCaptacion ? ` hasta el ${diaLargo(emb.finCaptacion)}` : ''}.`);
-    for (const k of [1, 2, 3]) if (emb[`clase${k}At`]) d.push(`- Clase ${k} disponible el ${fechaLarga(emb[`clase${k}At`])}.`);
+    const desb = desbloqueosPreclase(emb);
+    if (!desb.length) for (const k of [1, 2, 3]) if (emb[`clase${k}At`]) d.push(`- Clase ${k} disponible el ${fechaLarga(emb[`clase${k}At`])}.`);
     if (emb.fechaDirecto) d.push(`- Webinar / clase en directo: ${fechaLarga(`${emb.fechaDirecto}T${emb.horaDirecto || '19:00'}`)}.`);
     if (emb.precioVip) d.push(`- Entrada VIP: ${eur(emb.precioVip)}${emb.enlaces?.vip || emb.vipUrl ? ` (${emb.enlaces?.vip || emb.vipUrl})` : ''}.`);
     if (emb.aperturaCarrito) d.push(`- Abre el carrito: ${fechaLarga(emb.aperturaCarrito)}.`);
@@ -165,6 +188,16 @@ export function promptCalentamiento(emb, { esMeteo = false, producto = '', marca
     for (const b of emb.oferta?.bonus || []) d.push(`- Bonus: ${b.nombre}${b.detalle ? ` (${b.detalle})` : ''}.`);
     if (emb.recursosUrl) d.push(`- Área de recursos (preclase): ${emb.recursosUrl}`);
   }
+  const desb = esMeteo ? [] : desbloqueosPreclase(emb);
+  const reglaPreclase = desb.length ? `
+ESTRATEGIA DE LA PRECLASE (la columna de la secuencia):
+Los recursos se van desbloqueando en la página preclase en este orden:
+${desb.map((x, i) => `${i + 1}. ${x.nombre}: se desbloquea el ${fechaLarga(x.at)}${x.extra.length ? ` (${x.extra.join('; ')})` : ''}.`).join('\n')}
+- El DÍA que se desbloquea cada recurso: anuncia que YA está disponible, cuenta sus beneficios (qué van a conseguir) y despierta curiosidad por lo que van a ver dentro. Repite el anuncio a lo largo del día con otro ángulo (beneficio, curiosidad, prueba social, «¿ya la has visto?»).
+- Los días siguientes, al desbloquearse uno nuevo: pon el foco en consumir el NUEVO y recuerda los anteriores para quien aún no los ha visto («si te perdiste la clase 1, aún estás a tiempo»). Así hasta el último.
+- Los días sin desbloqueo: empuja a ponerse al día con lo que ya está abierto (encuesta, preguntas, notas de voz con ideas de las clases).
+- El enlace de esos mensajes es SIEMPRE el de la página preclase, donde están todos los recursos: ${emb.recursosUrl || '[ENLACE DE LA PÁGINA PRECLASE] (déjalo así y lo pongo yo)'} (nunca el vídeo suelto ni otra página).
+` : '';
   const dirTxt = directos.filter((x) => x.at).map((x) => `- ${x.nombre} el ${fechaLarga(x.at)}. Enlace de acceso al directo: ${x.url}`).join('\n');
   const reglaDirecto = directos.some((x) => x.at) ? `
 EL DÍA DEL DIRECTO${directos.length > 1 ? ' (CADA UNO DE LOS DÍAS DE DIRECTO)' : ''} ES ESPECIAL:
@@ -181,7 +214,7 @@ DATOS:
 ${d.join('\n')}
 ${temario ? `- Lo que verán en la masterclass:\n${temario.split('\n').map((l) => `  ${l}`).join('\n')}` : ''}
 ${desde || hasta ? `- La secuencia va del ${diaLargo(desde)} al ${diaLargo(hasta)} (hora de España).` : ''}
-${yaTxt}${reglaDirecto}
+${yaTxt}${reglaPreclase}${reglaDirecto}
 QUÉ QUIERO:
 - Mensajes cortos, de grupo (no 1:1), en español de España y en el tono de la marca. Que generen conversación y expectación, y que lleven a la acción en cada fase (clases, directo, VIP, carrito, últimas horas).
 - Mezcla formatos: texto, encuestas para que participen, notas de voz (con su GUION para grabarlas), y algún vídeo o imagen si aporta.

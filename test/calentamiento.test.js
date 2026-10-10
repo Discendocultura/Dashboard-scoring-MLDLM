@@ -127,3 +127,16 @@ test('calentamiento: el día del directo, solo recordatorio, temario y enlace de
   assert.equal(faltaEnlaceDirecto({ at: '2026-11-03T10:00', tipo: 'texto', texto: 'Mañana' }, directos), null);
   assert.equal(faltaEnlaceDirecto({ at: '2026-11-04T10:00', tipo: 'encuesta' }, directos), null);
 });
+
+test('prompt: estrategia de la preclase (desbloqueos en orden y enlace a la preclase)', async () => {
+  const { promptCalentamiento, desbloqueosPreclase } = await import('../public/js/calentamiento.js');
+  const emb = { name: 'Oct', recursosUrl: 'https://x.com/pre', clase1At: '2026-10-12T10:00', clase2At: '2026-10-14T10:00', textos: { 'clase1-titulo': 'El sueño' },
+    recursosPre: { musica: { activo: true, nombre: 'Nana', url: 'https://a.com', tras: 'clase1' }, descargable: { activo: true, nombre: 'Guía', url: 'https://b.com', at: '2026-10-13T09:00' } } };
+  assert.deepEqual(desbloqueosPreclase(emb).map((x) => x.nombre), ['Clase 1 «El sueño»', 'Recurso descargable «Guía»', 'Clase 2']);
+  const p = promptCalentamiento(emb, {});
+  assert.match(p, /ESTRATEGIA DE LA PRECLASE/);
+  assert.match(p, /al verla se abre «Nana»/);
+  assert.match(p, /SIEMPRE el de la página preclase.*https:\/\/x\.com\/pre/);
+  assert.match(promptCalentamiento({ ...emb, recursosUrl: '' }, {}), /\[ENLACE DE LA PÁGINA PRECLASE\]/);
+  assert.doesNotMatch(promptCalentamiento({ name: 'M' }, { esMeteo: true }), /PRECLASE/);
+});
