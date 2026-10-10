@@ -1163,6 +1163,10 @@
   }
 
   function init() {
+    // Plan B del directo (botón directo a Zoom pegado en la página de GHL): solo se ve si este script no carga
+    // (p. ej. un bloqueo de red a Cloudflare). Si carga, se oculta y todo va como siempre.
+    var respaldos = document.querySelectorAll('[data-lsd-respaldo]');
+    for (var r = 0; r < respaldos.length; r++) respaldos[r].style.display = 'none';
     var login = document.querySelector('[data-lsd-login]');
     if (login) initLogin(login);
     var venta = document.querySelector('[data-lsd-venta]');

@@ -4330,6 +4330,17 @@ document.addEventListener('click', async (e) => {
 // Botón flotante de WhatsApp para dudas (el mismo que bloques-ghl/whatsapp-flotante.html).
 const WA_FLOTANTE = "<a class=\"mldlm-wa\" data-lsd-link=\"whatsapp-dudas\" target=\"_blank\" rel=\"noopener\" aria-label=\"¿Dudas? Escríbenos por WhatsApp\">\n  <span class=\"mldlm-wa__txt\">¿Dudas? Escríbenos</span>\n  <span class=\"mldlm-wa__ico\" aria-hidden=\"true\"><svg viewBox=\"0 0 32 32\" width=\"30\" height=\"30\"><path fill=\"#fff\" d=\"M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.9 2 7L3 29l6.4-2c2 1.1 4.3 1.7 6.6 1.7 7.2 0 13-5.7 13-12.8S23.2 3 16 3Zm0 23.4c-2.1 0-4.1-.6-5.9-1.7l-.4-.3-3.8 1.2 1.2-3.7-.3-.4c-1.2-1.8-1.9-3.9-1.9-6.1C4.9 9.8 9.9 5 16 5s11.1 4.8 11.1 10.8S22.1 26.4 16 26.4Zm6.1-8c-.3-.2-2-1-2.3-1.1-.3-.1-.5-.2-.8.2-.2.3-.9 1.1-1.1 1.3-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.7-1.7-1-.9-1.7-2-1.9-2.3-.2-.3 0-.5.1-.7l.5-.6c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.6l-1-2.5c-.3-.7-.5-.6-.8-.6h-.6c-.2 0-.6.1-.9.4-.3.3-1.2 1.2-1.2 2.9s1.2 3.4 1.4 3.6c.2.2 2.4 3.7 5.9 5.1 2.9 1.1 3.5.9 4.1.9.6-.1 2-.8 2.3-1.6.3-.8.3-1.5.2-1.6-.1-.2-.3-.3-.6-.4Z\"/></svg></span>\n</a>\n<style>\n.mldlm-wa{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));z-index:2147481000;display:flex;align-items:center;gap:10px;text-decoration:none!important;font-family:'Lato',Helvetica,Arial,sans-serif}\n.mldlm-wa:not([href]){display:none}\n.mldlm-wa__ico{display:flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:50%;background:#25d366;box-shadow:0 6px 18px rgba(0,0,0,.22);transition:transform .2s ease;animation:mldlm-wa-pulso 2.6s ease-out 1.5s 3}\n.mldlm-wa__txt{background:#fff;color:#3a2a24;font-weight:700;font-size:14px;padding:9px 14px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.14);white-space:nowrap}\n.mldlm-wa:hover .mldlm-wa__ico,.mldlm-wa:focus-visible .mldlm-wa__ico{transform:scale(1.07)}\n.mldlm-wa:focus-visible{outline:none}.mldlm-wa:focus-visible .mldlm-wa__ico{box-shadow:0 0 0 4px rgba(37,211,102,.35),0 6px 18px rgba(0,0,0,.22)}\n@keyframes mldlm-wa-pulso{0%{box-shadow:0 0 0 0 rgba(37,211,102,.55),0 6px 18px rgba(0,0,0,.22)}100%{box-shadow:0 0 0 18px rgba(37,211,102,0),0 6px 18px rgba(0,0,0,.22)}}\n@media (max-width:600px){.mldlm-wa__txt{display:none}.mldlm-wa__ico{width:56px;height:56px}}\n@media (prefers-reduced-motion:reduce){.mldlm-wa__ico{animation:none;transition:none}}\n</style>";
 
+// Plan B del directo para las páginas de GHL: botón con el enlace genérico de Zoom, ya escrito en la página.
+// tracker.js lo oculta al cargar; si no carga (bloqueo de red a Cloudflare), se queda visible y entran igual.
+function respaldoDirecto(launch) {
+  const vids = videosDe(launch).filter((v) => v.zoomJoinUrl);
+  if (!vids.length) return 'Pon primero el «Enlace genérico de Zoom» del directo en Configuración (Zoom) y aquí saldrá el bloque con el botón.';
+  const btn = (v) => `  <a href="${esc(v.zoomJoinUrl)}" target="_blank" rel="noopener" style="display:inline-block;margin:8px 4px 0;padding:12px 20px;background:#2d8cff;color:#fff;border-radius:10px;text-decoration:none;font-weight:700">Entrar ${vids.length > 1 ? `a ${esc(v.nombre)}` : 'al directo'} por Zoom</a>`;
+  return `<div data-lsd-respaldo style="margin:16px auto;max-width:560px;padding:16px;border:2px solid #2d8cff;border-radius:14px;text-align:center;line-height:1.5">
+  <strong>¿No te carga el acceso al directo?</strong><br>Entra directamente por Zoom a la hora del directo:<br>
+${vids.map(btn).join('\n')}
+</div>`;
+}
 // Códigos de las páginas de GHL de un lanzamiento: [[título, código]]. Los usan «Códigos para GHL» y los
 // prompts de Páginas (cada página, los suyos por el prefijo del título: REGISTRO, RECURSOS, VENTA…).
 function snippetsLanzamiento(code) {
@@ -4349,6 +4360,7 @@ function snippetsLanzamiento(code) {
       '<div data-lsd-if="vip-abierta">\n  Entrada VIP por <span data-lsd-text="precioVip"></span> · se cierra en <span data-lsd-countdown="vip"></span>\n  <a data-lsd-link="vip">Quiero mi entrada VIP</a>\n</div>\n<div data-lsd-if="ya-vip">✓ Ya tienes tu entrada VIP</div>']]),
     ['RECURSOS · botón del grupo de WhatsApp', '<a data-lsd-link="whatsapp" target="_blank">Unirme al grupo de WhatsApp</a>'],
     ['RECURSOS · botón del directo', '<a data-lsd-link="directo">Entrar al directo</a>'],
+    ['RECURSOS · plan B del directo: botón directo a Zoom (solo se ve si el dashboard no carga, p. ej. por un bloqueo de red; ponlo también en la página de acceso. Lleva el enlace de Zoom de ESTE lanzamiento: vuelve a pegarlo si cambia)', respaldoDirecto(state.config.launches[code])],
     ['RECURSOS · encuesta (sin ella no se ven las clases 1 y 2)',
       '<div data-lsd-if="encuesta-pendiente">\n  Antes de ver las clases, cuéntanos un poco sobre ti\n  <a data-lsd-link="encuesta">Rellenar la encuesta</a>\n</div>\n<div data-lsd-if="encuesta-hecha">✓ ¡Gracias por rellenar la encuesta!</div>'],
     // Recursos de la preclase (pestaña Preclase): música, test, votación, descargable y etapas.

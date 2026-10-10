@@ -453,6 +453,14 @@ GHL admite unas 100 peticiones cada 10 s, y a la hora exacta entran cientos de p
 - **«Pulsó el enlace»** (`<código>_directo_click`) se apunta en D1 y se pone en GHL al pulsar **Sincronizar Zoom** después del directo, junto con la asistencia.
 - Si algo falla, nadie se queda fuera: entra por el enlace genérico de Zoom del lanzamiento.
 
+### Plan B del directo (si el dashboard no carga)
+En *Códigos para GHL* hay un bloque «RECURSOS · plan B del directo» con un botón **directo a Zoom** (el «Enlace
+genérico de Zoom» de la configuración, ya escrito en el HTML). Se pega en la página preclase y en la de acceso.
+`tracker.js` lo oculta al cargar, así que normalmente no se ve; si el dashboard no carga (p. ej. un bloqueo de red a
+Cloudflare en España en horario de fútbol), el botón se queda visible y la gente entra al directo igual. Lleva el
+enlace de Zoom de ese lanzamiento: si cambia la reunión, hay que volver a pegarlo. Los prompts de Páginas (preclase y
+acceso) ya lo incluyen.
+
 ### Recursos de la preclase: música, test, votación y descargable
 Al crear el embudo se marca qué recursos tendrá la preclase además de las clases; los lanzamientos nuevos los heredan (sin fechas). En cada lanzamiento, *Configuración → Preclase → Recursos de la preclase*:
 - **Música:** enlace del MP3 (súbelo a Medios de GHL) y bajo qué clase va. Se desbloquea al ver el 75 % de esa clase (en el mismo navegador al momento; en cualquier otro, con su etiqueta).

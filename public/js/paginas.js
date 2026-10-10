@@ -13,7 +13,7 @@ export const PAGINAS = {
       extra: ({ script }) => [['GRACIAS · bloque base de la página (pinta fecha, hora, cuentas atrás y enlaces)', `<div data-lsd-page="gracias" data-launch="auto"></div>\n${script}`], ['GRACIAS · vídeo de la página de gracias (se oculta si no hay)', '<div data-lsd-embed="gracias"></div>']],
       objetivo: 'Confirmar la plaza y conseguir 3 acciones por orden: unirse al grupo de WhatsApp, añadir el directo al calendario y (si hay entrada VIP) comprarla.',
       secciones: ['«¡Ya tienes tu plaza!» con fecha y hora', 'Paso 1: unirse al grupo de WhatsApp (botón grande; es donde se avisa de todo)', 'Paso 2: añadir el directo al calendario', 'Vídeo corto de bienvenida (si hay)', 'Entrada VIP: qué incluye, precio y cuenta atrás (si la hay)'] },
-    { id: 'login', nombre: 'Página de acceso a las clases (login)', buscar: ['LOGIN ·'],
+    { id: 'login', nombre: 'Página de acceso a las clases (login)', buscar: ['LOGIN ·', 'plan B del directo'],
       objetivo: 'Que entre a las clases con el email del registro, sin fricción.',
       secciones: ['Titular corto de bienvenida', 'El bloque de acceso (pide el email)', 'Ayuda: «¿no te llega? usa el email con el que te registraste»'] },
     { id: 'preclase', nombre: 'Página preclase (clases y recursos)', buscar: ['RECURSOS ·'],
