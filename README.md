@@ -561,7 +561,7 @@ Avisos: por **email** (al del resumen diario; todos) y, si quieres, por **WhatsA
 Grupos de WhatsApp → Vigilancia**: última comprobación, estado del enlace y de los grupos, avisos recientes y
 entradas y salidas por hora de las últimas 24 h (la hora con el pico, marcada).
 **Calentamiento del grupo (fase 4) · Plan → Grupo de WhatsApp** (lanzamientos y meteóricos):
-1. **Copiar el prompt:** ya lleva el producto, las fechas (captación, clases, directo, carrito / oferta), precios,
+1. **Copiar el prompt:** ya lleva la ficha de marca y avatar del producto del embudo (Marca y avatar), el producto, las fechas (captación, clases, directo, carrito / oferta), precios,
    entregables y bonus, los días elegidos y lo ya programado. Se pega en Claude con la skill de copy.
    **Día del directo (o de cada directo):** el prompt exige que todos los mensajes de ese día solo recuerden que es hoy
    (y la hora), cuenten lo que se verá en la masterclass y lleven **el enlace de acceso al directo**
@@ -586,6 +586,38 @@ Ver: permiso «Carrito»; preparar y programar: permiso «Configuración».
 API: `GET /api/sendflow?op=probar` · `?op=campanas` · `?op=cuentas` (permiso «config») · `?op=calentamiento&l=` ·
 `?op=votos&l=&id=` · `POST {op: calentamiento-guardar | programar | cancelar | marcar-cancelado}` · `?op=grupos&l=<código>` (permiso «metricas») ·
 `?op=miembros&l=<código>` (CSV; permisos hoy, leads o métricas). Base `https://sendflow.pro/sendapi` (cambiable con `SENDFLOW_BASE_URL`).
+
+## 🎨 Marca y avatar (Cuenta → Marca y avatar)
+El cuestionario de cada cliente: la **fuente de todos los prompts** del dashboard (páginas del embudo y mensajes de
+WhatsApp). Se guarda solo mientras se escribe, por campos (el cliente y el equipo pueden escribir a la vez sin pisarse).
+- **Marca** (una por cliente): identidad (quién, autoridad, historia, misión, valores, «enemigo», cifras, redes,
+  referentes), tono (tú/usted, género, emojis, expresiones, palabras prohibidas, ejemplos) y estilo visual (5 colores,
+  tipografías, estilo, logo, fotos, webs de referencia).
+- **Productos** (hasta 8): la oferta (promesa, resultados, método, qué incluye, precio, bonus, garantía, para quién sí/no,
+  testimonios, FAQ) y su **avatar** (quién es, día a día, dolores, deseos, miedos, lo que ya probó, objeciones, frases
+  literales, creencias, quién decide, dónde está, nivel de consciencia). En «🧭 Embudos» se elige qué producto vende cada
+  embudo (sin elegir, el primero).
+- **Documentos** (hasta 15; PDF, Word .docx, TXT, MD o CSV): el texto se saca **en el navegador** (pdf.js y mammoth,
+  copiados en `public/vendor/` con versión fija) y solo se guarda el texto (máx. 300.000 caracteres por documento, en D1
+  aparte: `lsd_marca_doc_<id>`, sin copias). Los PDF escaneados no se pueden leer. Necesita D1.
+- **Ficha de marca y avatar** (por producto): «Copiar el prompt de la ficha» lleva todas las respuestas y el texto de
+  los documentos; se pega en Claude y su respuesta se pega en el dashboard. Los prompts usan la ficha; sin ficha, las
+  respuestas tal cual. El estilo visual va siempre aparte en los prompts de páginas.
+- **Enlace para el cliente**: `/marca.html?c=<cliente>&t=<clave>` (sin cuenta). Ve y rellena sus respuestas, añade
+  productos y sube documentos; no ve las fichas. «Crear otro» invalida el anterior; «Desactivar» lo cierra.
+- El **alta guiada** del cliente (Agencia) incluye el paso «Cuestionario de marca y avatar (con su ficha)».
+- API: `GET/POST /api/marca` (equipo; escribir pide el permiso «config») y con `t=` (el cliente desde su enlace).
+
+## 🧱 Páginas del embudo con IA (Plan → Páginas)
+En todos los tipos de embudo. Por cada página (lanzamientos: registro, gracias, login, preclase, venta, pago y
+grabación; VSL: registro, contenido, gracias y gracias de la llamada; meteórico: oferta; venta directa: venta,
+checkout, upsell, downsell y gracias) hay un **prompt para Claude** con: objetivo y estructura recomendada de la página,
+datos del embudo (fechas, precios, oferta, bonus, enlaces), la **ficha de marca y avatar** del producto del embudo, el
+**estilo visual** de la marca, los **códigos del dashboard** que lleva esa página (los mismos de «Códigos para GHL»,
+que se incluyen tal cual) e indicaciones opcionales (se recuerdan en este navegador). Claude devuelve **un único bloque
+HTML + CSS** (clases con prefijo propio, sin JS, mobile-first) para pegar en un elemento «Código personalizado» de GHL;
+en registro y pago deja el hueco para el formulario de GHL. La API de GHL no permite crear páginas: el último paso
+(pegar) es manual.
 
 ## 🛒 Venta directa / producto de entrada (low ticket)
 Embudo sin registro: **anuncio → página de venta → checkout (con bump offers) → upsell → downsell → gracias**.

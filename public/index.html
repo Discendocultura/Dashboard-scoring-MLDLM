@@ -85,6 +85,7 @@
           <summary class="tb-btn tb-cuenta-menu" data-tb-icon="user" title="Equipo, tu cuenta, modo noche y salir"><span class="tb-txt">Cuenta</span></summary>
           <div class="tb-menu-panel" role="menu" aria-label="Cuenta">
           <button id="btn-equipo" class="tb-btn tb-equipo admin-only" type="button" data-tb-icon="users" title="Miembros del equipo, roles y permisos"><span class="tb-txt">Equipo</span></button>
+          <button id="btn-marca" class="tb-btn config-only" type="button" data-tb-icon="sparkle" title="Cuestionario de marca y avatar del cliente: la fuente de todos los prompts"><span class="tb-txt">Marca y avatar</span></button>
           <button id="btn-conexiones" class="tb-btn config-only" type="button" data-tb-icon="link" title="Conexiones con otras herramientas (SendFlow…)"><span class="tb-txt">Conexiones</span></button>
           <button id="btn-cuenta" class="tb-btn tb-cuenta" type="button" data-tb-icon="user" title="Mi cuenta y contraseña" hidden><span class="tb-txt">Mi cuenta</span></button>
           <button id="btn-tema" class="tb-btn tb-icono tb-tema" type="button" data-tema-toggle aria-label="Cambiar a modo noche"><span class="tb-ico"><span class="tema-ico tema-sol" aria-hidden="true"></span><span class="tema-ico tema-luna" aria-hidden="true"></span></span><span class="tb-txt">Modo día / noche</span></button>
@@ -170,6 +171,7 @@
           <button type="button" class="subview-tab" data-view="calendario">Calendario</button>
           <button type="button" class="subview-tab" data-view="carrito">Carrito</button>
           <button type="button" class="subview-tab" data-view="grupowa">Grupo de WhatsApp</button>
+          <button type="button" class="subview-tab" data-view="paginas">Páginas</button>
           <button type="button" class="subview-tab" data-view="tareas">Tareas</button>
         </nav>
         <!-- Análisis: Avatar y anuncios (VSL: Anuncios ganadores), Comparar y Rendimiento del equipo -->
@@ -202,6 +204,7 @@
 
         <!-- 💬 Calentamiento del grupo de WhatsApp (SendFlow) -->
         <section id="view-grupowa" hidden><div id="grupowa-body"></div></section>
+        <section id="view-paginas" hidden><div id="paginas-body"></div></section>
 
         <!-- 🛒 Venta directa (low ticket): periodo, métricas y compradoras -->
         <div id="dir-rango" class="vsl-rango card" hidden>
@@ -1383,6 +1386,16 @@
   </dialog>
 
   <!-- Configuración de un meteórico -->
+  <dialog id="marca-dialog" class="dialog dialog-xl">
+    <header class="dialog-head"><h2>🎨 Marca y avatar <span id="mk-cliente" class="muted"></span></h2><button class="btn ghost" type="button" id="mk-cerrar" aria-label="Cerrar">✕</button></header>
+    <div class="dialog-body">
+      <p class="muted small">Todo lo que sabemos de la marca, sus productos y su cliente ideal. Es la fuente de <strong>todos los prompts</strong> del dashboard (páginas del embudo, mensajes de WhatsApp…): cuanto más completo, mejor salen. Se guarda solo mientras escribes.</p>
+      <div class="mq-prog"><div class="mq-prog-bar"><span id="mk-prog-bar"></span></div><span id="mk-prog-txt" class="small"></span><span id="mk-estado" class="small muted" role="status"></span></div>
+      <div id="mk-enlace"></div>
+      <div id="mk-body"></div>
+    </div>
+  </dialog>
+
   <dialog id="conexiones-dialog" class="dialog dialog-md">
     <form method="dialog">
       <header class="dialog-head"><h2>🔌 Conexiones</h2><button class="btn ghost" value="cancel" type="submit" formnovalidate aria-label="Cerrar">✕</button></header>

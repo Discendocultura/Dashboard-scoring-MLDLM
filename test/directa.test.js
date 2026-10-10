@@ -93,7 +93,7 @@ test('venta directa: lo que falta, tareas, guía y pestañas', () => {
   assert.equal(t[0].fecha, '2026-10-01');
   assert.equal(guiaDirecta({ bumps: true }).some((s) => /Upsell y downsell/.test(s.titulo)), false);
   assert.equal(guiaEmbudo('directa', undefined, undefined, undefined, { partes: { upsell: true } }).some((s) => /Upsell/.test(s.titulo)), true);
-  assert.deepEqual(pestanaIds('directa'), ['dmetricas', 'dclientes', 'tareas', 'calendario']);
+  assert.deepEqual(pestanaIds('directa'), ['dmetricas', 'dclientes', 'paginas', 'tareas', 'calendario']);
 });
 
 const ENV = { GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret' };

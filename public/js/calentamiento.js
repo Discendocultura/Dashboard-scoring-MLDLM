@@ -165,7 +165,8 @@ export function desbloqueosPreclase(emb) {
   return out.sort((a, b) => a.at.localeCompare(b.at));
 }
 
-export function promptCalentamiento(emb, { esMeteo = false, producto = '', marca = '', desde = '', hasta = '', ya = [], directos = [], temario = '' } = {}) {
+// Los datos de un lanzamiento o un meteórico, en líneas «- …» (los usan los prompts del grupo y de las páginas).
+export function datosEmbudo(emb, { esMeteo = false, producto = '', marca = '' } = {}) {
   const d = [];
   if (esMeteo) {
     d.push(`- Acción: meteórico (oferta flash) «${emb.name || ''}»${emb.oferta ? `: ${emb.oferta}` : ''}.`);
@@ -188,6 +189,11 @@ export function promptCalentamiento(emb, { esMeteo = false, producto = '', marca
     for (const b of emb.oferta?.bonus || []) d.push(`- Bonus: ${b.nombre}${b.detalle ? ` (${b.detalle})` : ''}.`);
     if (emb.recursosUrl) d.push(`- Área de recursos (preclase): ${emb.recursosUrl}`);
   }
+  return d;
+}
+
+export function promptCalentamiento(emb, { esMeteo = false, producto = '', marca = '', desde = '', hasta = '', ya = [], directos = [], temario = '', contexto = '' } = {}) {
+  const d = datosEmbudo(emb, { esMeteo, producto, marca });
   const desb = esMeteo ? [] : desbloqueosPreclase(emb);
   const reglaPreclase = desb.length ? `
 ESTRATEGIA DE LA PRECLASE (la columna de la secuencia):
@@ -214,7 +220,12 @@ DATOS:
 ${d.join('\n')}
 ${temario ? `- Lo que verán en la masterclass:\n${temario.split('\n').map((l) => `  ${l}`).join('\n')}` : ''}
 ${desde || hasta ? `- La secuencia va del ${diaLargo(desde)} al ${diaLargo(hasta)} (hora de España).` : ''}
-${yaTxt}${reglaPreclase}${reglaDirecto}
+${contexto ? `
+MARCA Y AVATAR (la fuente de verdad: escribe con este tono y con las palabras, dolores y deseos del avatar):
+<marca>
+${contexto}
+</marca>
+` : ''}${yaTxt}${reglaPreclase}${reglaDirecto}
 QUÉ QUIERO:
 - Mensajes cortos, de grupo (no 1:1), en español de España y en el tono de la marca. Que generen conversación y expectación, y que lleven a la acción en cada fase (clases, directo, VIP, carrito, últimas horas).
 - Mezcla formatos: texto, encuestas para que participen, notas de voz (con su GUION para grabarlas), y algún vídeo o imagen si aporta.

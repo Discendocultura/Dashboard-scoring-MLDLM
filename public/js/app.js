@@ -29,8 +29,11 @@ import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCo
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaCliente, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { claveTelefono, leerMiembros } from './grupos-wa.js';
-import { TIPOS_MSG, ESTADOS_MSG, GUIA_ARCHIVOS, parsearSecuencia, promptCalentamiento, faltaMensaje, faltaEnlaceDirecto, sanitizeMensaje, nuevoIdMsg } from './calentamiento.js';
+import { TIPOS_MSG, ESTADOS_MSG, GUIA_ARCHIVOS, parsearSecuencia, promptCalentamiento, datosEmbudo, faltaMensaje, faltaEnlaceDirecto, sanitizeMensaje, nuevoIdMsg } from './calentamiento.js';
 import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientesDirecta } from './directa.js';
+import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
+import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
+import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -294,8 +297,8 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', grupowa: 'lanzmeteo' };
-const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', grupowa: 'carrito' };
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', grupowa: 'lanzmeteo', paginas: 'todos' };
+const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', grupowa: 'carrito', paginas: 'config' };
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], lanzmeteo: ['lanz', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
@@ -316,7 +319,9 @@ const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual
     // «Carrito» es nueva: los embudos con pestañas elegidas antes la ven junto a Calendario o Tareas.
     || (v === 'carrito' && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('objetivos')))
     // «Grupo de WhatsApp» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas o Carrito.
-    || (v === 'grupowa' && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('carrito'))))
+    || (v === 'grupowa' && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('carrito')))
+    // «Páginas» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas.
+    || (v === 'paginas' && pestanasEmbudo().includes('tareas')))
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() || enDirecta() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
@@ -2423,7 +2428,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'grupowa'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'grupowa', 'paginas'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -2443,6 +2448,7 @@ const AYUDA_VISTA = {
   calendario: ['🗓️ Calendario', 'Todas las fechas del cliente juntas: hitos de cada lanzamiento, tareas y eventos. Se puede sincronizar con tu calendario.'],
   dmetricas: ['📊 Métricas de la venta directa', 'Ventas, facturación, ticket medio, coste por venta (CPA) y ROAS del periodo elegido arriba. Debajo, el % de compradoras que coge cada bump, upsell y downsell, y la conversión de cada página si pegaste sus códigos.'],
   dclientes: ['🛍️ Compradoras', 'Quién ha comprado en el periodo, qué extras se llevó y su WhatsApp. Filtra por un extra para ver, por ejemplo, quién cogió el upsell.'],
+  paginas: ['🧱 Páginas', 'Las páginas del embudo hechas con IA: copia el prompt de cada página (lleva la marca, el avatar, los datos del embudo y los códigos del dashboard), pégalo en Claude y pega el HTML que te devuelva en un elemento «Código personalizado» de GHL.'],
   grupowa: ['💬 Grupo de WhatsApp', 'Los mensajes del grupo de este lanzamiento: copia el prompt, pégalo en Claude (con tu skill de copy), pega aquí su respuesta, sube los archivos, revisa y programa en SendFlow con un botón.'],
   carrito: ['🛒 Carrito', 'Cada día del carrito: lo que pasa ese día (se calcula solo con las fechas, la oferta y la barra), los emails y WhatsApps previstos y la estrategia.'],
   tareas: ['✅ Tareas', 'Las tareas del equipo para este lanzamiento, con responsable y fecha. «Cargar tareas habituales» crea la lista de siempre con las fechas ya calculadas.'],
@@ -2475,7 +2481,7 @@ document.addEventListener('click', (e) => {
 });
 
 // Grupos de la barra de arriba, por momento de uso: Hoy (lo del día), Plan y Análisis.
-const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['objetivos', 'calendario', 'carrito', 'grupowa', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
+const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['objetivos', 'calendario', 'carrito', 'grupowa', 'paginas', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
 const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
@@ -2646,6 +2652,7 @@ function showView(view) {
   if (view === 'calendario' && state.config) renderCalendario();
   if (view === 'carrito' && state.config) renderCarritoVista();
   if (view === 'grupowa' && state.config) renderGrupoWa();
+  if (view === 'paginas' && state.config) renderPaginas();
   // Planificador: al abrirla se cargan solos los lanzamientos anteriores que falten.
   if (view === 'objetivos' && state.config?.launches?.[state.launchCode] && !enVsl() && !enMeteo() && state.leads) renderObjetivos(currentMetrics());
   // Tareas del embudo abierto (en meteóricos, del meteórico elegido).
@@ -4320,13 +4327,12 @@ document.addEventListener('click', async (e) => {
 // Botón flotante de WhatsApp para dudas (el mismo que bloques-ghl/whatsapp-flotante.html).
 const WA_FLOTANTE = "<a class=\"mldlm-wa\" data-lsd-link=\"whatsapp-dudas\" target=\"_blank\" rel=\"noopener\" aria-label=\"¿Dudas? Escríbenos por WhatsApp\">\n  <span class=\"mldlm-wa__txt\">¿Dudas? Escríbenos</span>\n  <span class=\"mldlm-wa__ico\" aria-hidden=\"true\"><svg viewBox=\"0 0 32 32\" width=\"30\" height=\"30\"><path fill=\"#fff\" d=\"M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.9 2 7L3 29l6.4-2c2 1.1 4.3 1.7 6.6 1.7 7.2 0 13-5.7 13-12.8S23.2 3 16 3Zm0 23.4c-2.1 0-4.1-.6-5.9-1.7l-.4-.3-3.8 1.2 1.2-3.7-.3-.4c-1.2-1.8-1.9-3.9-1.9-6.1C4.9 9.8 9.9 5 16 5s11.1 4.8 11.1 10.8S22.1 26.4 16 26.4Zm6.1-8c-.3-.2-2-1-2.3-1.1-.3-.1-.5-.2-.8.2-.2.3-.9 1.1-1.1 1.3-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.7-1.7-1-.9-1.7-2-1.9-2.3-.2-.3 0-.5.1-.7l.5-.6c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.6l-1-2.5c-.3-.7-.5-.6-.8-.6h-.6c-.2 0-.6.1-.9.4-.3.3-1.2 1.2-1.2 2.9s1.2 3.4 1.4 3.6c.2.2 2.4 3.7 5.9 5.1 2.9 1.1 3.5.9 4.1.9.6-.1 2-.8 2.3-1.6.3-.8.3-1.5.2-1.6-.1-.2-.3-.3-.6-.4Z\"/></svg></span>\n</a>\n<style>\n.mldlm-wa{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));z-index:2147481000;display:flex;align-items:center;gap:10px;text-decoration:none!important;font-family:'Lato',Helvetica,Arial,sans-serif}\n.mldlm-wa:not([href]){display:none}\n.mldlm-wa__ico{display:flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:50%;background:#25d366;box-shadow:0 6px 18px rgba(0,0,0,.22);transition:transform .2s ease;animation:mldlm-wa-pulso 2.6s ease-out 1.5s 3}\n.mldlm-wa__txt{background:#fff;color:#3a2a24;font-weight:700;font-size:14px;padding:9px 14px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.14);white-space:nowrap}\n.mldlm-wa:hover .mldlm-wa__ico,.mldlm-wa:focus-visible .mldlm-wa__ico{transform:scale(1.07)}\n.mldlm-wa:focus-visible{outline:none}.mldlm-wa:focus-visible .mldlm-wa__ico{box-shadow:0 0 0 4px rgba(37,211,102,.35),0 6px 18px rgba(0,0,0,.22)}\n@keyframes mldlm-wa-pulso{0%{box-shadow:0 0 0 0 rgba(37,211,102,.55),0 6px 18px rgba(0,0,0,.22)}100%{box-shadow:0 0 0 18px rgba(37,211,102,0),0 6px 18px rgba(0,0,0,.22)}}\n@media (max-width:600px){.mldlm-wa__txt{display:none}.mldlm-wa__ico{width:56px;height:56px}}\n@media (prefers-reduced-motion:reduce){.mldlm-wa__ico{animation:none;transition:none}}\n</style>";
 
-function renderSnippets() {
-  const code = editingCode;
-  const box = $('#snippets');
-  if (!code) { box.innerHTML = '<p class="muted">Guarda el lanzamiento para ver sus códigos.</p>'; return; }
+// Códigos de las páginas de GHL de un lanzamiento: [[título, código]]. Los usan «Códigos para GHL» y los
+// prompts de Páginas (cada página, los suyos por el prefijo del título: REGISTRO, RECURSOS, VENTA…).
+function snippetsLanzamiento(code) {
   const origin = location.origin;
   const script = `<script src="${origin}/tracker.js${cParam()}" defer></script>`;
-  const items = [
+  return [
     ['REGISTRO · visitas únicas de la página de registro (en el footer; para la conversión de la página en Métricas)',
       `<div data-lsd-registro data-launch="auto"></div>\n${script}`],
     ['LOGIN · bloque del formulario (no cambia entre lanzamientos)',
@@ -4376,6 +4382,12 @@ function renderSnippets() {
       [`${v.nombre} · enlace al directo en emails de GHL (solo si es en directo)`, `${origin}/directo?l=auto&v=${v.k}&cid={{contact.id}}${cParam('&')}`],
     ]),
   ];
+}
+function renderSnippets() {
+  const code = editingCode;
+  const box = $('#snippets');
+  if (!code) { box.innerHTML = '<p class="muted">Guarda el lanzamiento para ver sus códigos.</p>'; return; }
+  const items = snippetsLanzamiento(code);
   box.innerHTML = `<p class="muted">Con <code>data-launch="auto"</code> las páginas usan siempre el <strong>lanzamiento en curso</strong> (el último cuyo inicio de captación ya ha llegado): en el próximo lanzamiento no hay que tocar GHL, solo esta configuración.</p>` + items.map(([title, text], i) => `
     <div class="snippet">
       <h3>${esc(title)}</h3>
@@ -8072,16 +8084,20 @@ async function openVslConfig(id = state.embudo) {
   $('#vc-pipelines').innerHTML = [...new Set(['Leads evergreen', 'Leads Lanzamientos', ...pipes])].map((p) => `<option value="${esc(p)}">`).join('');
 }
 
-function renderVslSnippets() {
-  const qs = [`v=${encodeURIComponent(vcId || state.embudo)}`, cParam('').replace(/^\?/, '')].filter(Boolean).join('&');
+// Códigos de las páginas de GHL de una VSL: [[título, código]] (Códigos para GHL y prompts de Páginas).
+function snippetsVsl(id) {
+  const qs = [`v=${encodeURIComponent(id)}`, cParam('').replace(/^\?/, '')].filter(Boolean).join('&');
   const script = `<script src="${location.origin}/vsl.js?${qs}" defer></script>`;
-  const items = [
+  return [
     ['PÁGINA DE LA VSL · vídeo medido + botones de compra y llamada', `<div data-lsd-vsl></div>\n${script}`],
     ['PÁGINA DE GRACIAS DEL REGISTRO · vídeo (se oculta si no hay)', `<div data-lsd-vsl-embed="gracias"></div>\n${script}`],
     ['PÁGINA DE GRACIAS DE LA LLAMADA · vídeo (se oculta si no hay)', `<div data-lsd-vsl-embed="agenda"></div>\n${script}`],
     ['Al final de la URL a la que redirige el formulario de registro (identifica a la lead para medir el vídeo)', '?cid={{contact.id}}'],
-    ['Enlace a la VSL en emails y WhatsApp de GHL', `${vslCfg(vcId || state.embudo).vslUrl || 'https://tu-pagina-de-la-vsl'}?cid={{contact.id}}`],
+    ['Enlace a la VSL en emails y WhatsApp de GHL', `${vslCfg(id).vslUrl || 'https://tu-pagina-de-la-vsl'}?cid={{contact.id}}`],
   ];
+}
+function renderVslSnippets() {
+  const items = snippetsVsl(vcId || state.embudo);
   $('#vc-snippets').innerHTML = items.map(([title, text], i) => `
     <div class="snippet">
       <h3>${esc(title)}</h3>
@@ -9723,6 +9739,19 @@ $('#dc-buscar').addEventListener('input', () => renderDirectaClientes(state.dire
 $('#dc-filtro').addEventListener('change', () => renderDirectaClientes(state.directa.datos));
 
 // ---------- 🔌 Conexiones (SendFlow) ----------
+// ---------- 🎨 Marca y avatar (cuestionario del cliente: la fuente de los prompts) ----------
+$('#btn-marca').addEventListener('click', () => {
+  $('#tb-menu-cuenta').open = false;
+  abrirPanelMarca({ api, cliente: state.cliente, clienteNombre: clienteNombre(), embudos: embudos().map((e) => ({ id: e.id, nombre: e.nombre })), puedeEditar: puedeConfig(), dialog: $('#marca-dialog') });
+});
+$('#mk-cerrar').addEventListener('click', () => $('#marca-dialog').close());
+document.addEventListener('click', (e) => { if (e.target.closest('[data-abrir-marca]')) $('#btn-marca').click(); });
+// Al cerrar el panel, lo que dependa de la marca se vuelve a pintar (p. ej. el prompt del grupo de WhatsApp).
+$('#marca-dialog').addEventListener('close', () => {
+  if (!$('#view-grupowa').hidden && state.config) renderGrupoWa();
+  if (!$('#view-paginas').hidden && state.config) renderPaginas();
+});
+
 $('#btn-conexiones').addEventListener('click', () => {
   $('#tb-menu-cuenta').open = false;
   pintarVigiaConexiones();
@@ -9997,6 +10026,8 @@ async function renderGrupoWa() {
   const desde = $('#gw-desde')?.value || r.desde;
   const hasta = $('#gw-hasta')?.value || r.hasta;
   const sinCampana = !emb.sendflowId;
+  gwc.marca = await marcaDeEmbudo(api, state.cliente, state.embudo);
+  if (codigo() !== code) return;
   const listos = gwc.mensajes.filter((m) => (m.estado === 'borrador' || m.estado === 'error') && !faltaMensaje(m).length);
   const programados = gwc.mensajes.filter((m) => m.estado === 'programado');
   const porDia = new Map();
@@ -10020,6 +10051,7 @@ async function renderGrupoWa() {
       ${gwDirectos().length ? `<div class="gw-directo-info"><strong>📅 Día${gwDirectos().length > 1 ? 's' : ''} de directo:</strong> ${gwDirectos().map((x) => `${esc(x.nombre)} · ${esc(fechaFicha(madridToEpoch(x.at)))} a las ${esc(x.at.slice(11))}`).join(' · ')}. Ese día todos los mensajes solo recuerdan que es hoy, cuentan lo que verán y llevan el enlace de acceso al directo (ya va en el prompt).</div>
       <label class="field"><span>¿Qué verán en la masterclass? <small>(opcional, entra en el prompt: temas, lo que aprenderán, sorpresas…)</small></span><textarea id="gw-temario" rows="3" placeholder="- Por qué el bebé se despierta cada 2 horas&#10;- Las 3 rutinas que funcionan&#10;- Sorpresa al final para quien se quede">${esc(ls.get(temarioKey()) || '')}</textarea></label>` : ''}
       <p class="muted small">Pégalo en Claude en una conversación con tu skill de copy de venta. Si ya hay mensajes programados, el prompt se los dice para que no los repita.</p>
+      ${avisoMarcaHtml(gwc.marca)}
       <details><summary class="small">Ver el prompt</summary><pre class="snippet gw-prompt" id="gw-prompt"></pre></details>
     </section>
     <section class="card">
@@ -10065,7 +10097,124 @@ function gwDirectos() {
 const temarioKey = () => `lsd_gw_temario_${state.cliente || ''}_${gwc.code}`;
 function gwPrompt() {
   const emb = embCal();
-  return promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado'), directos: gwDirectos(), temario: ($('#gw-temario')?.value ?? ls.get(temarioKey()) ?? '').trim() });
+  return promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado'), directos: gwDirectos(), temario: ($('#gw-temario')?.value ?? ls.get(temarioKey()) ?? '').trim(), contexto: contextoMarca(gwc.marca?.m, gwc.marca?.producto) });
+}
+// ---------- 🧱 Páginas del embudo con IA (Plan → Páginas) ----------
+// Por cada página, un prompt para Claude con la marca y el avatar, el estilo, los datos del embudo y los
+// códigos del dashboard; el HTML que devuelve se pega en un elemento «Código personalizado» de GHL.
+const pgc = { marca: null };
+const notasPagKey = (id) => `lsd_pag_notas_${state.cliente || ''}_${state.embudo}_${id}`;
+const eurTxt = (n) => (Number(n) > 0 ? eur(Number(n)) : '');
+// Lo de cada tipo de embudo: { tipo, nombre, datos, codigos, urls, opts } o { falta: 'texto' }.
+function contextoPaginas() {
+  const t = tipoActual();
+  const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
+  const marca = clienteNombre();
+  const producto = nombreProducto(state.config);
+  if (t === 'lanz') {
+    const emb = state.config.launches[state.launchCode];
+    if (!emb) return { falta: 'Elige o crea un lanzamiento: las páginas usan sus fechas, precios y códigos.' };
+    return { tipo: 'lanzamientos', nombre: emb.name, datos: datosEmbudo(emb, { producto, marca }), codigos: snippetsLanzamiento(state.launchCode), ctx: { script },
+      urls: { 'Página preclase': emb.recursosUrl, 'Página de acceso (login)': emb.loginUrl, 'Página de pago': emb.paginaPagoUrl, 'Grupo de WhatsApp': emb.whatsappUrl } };
+  }
+  if (t === 'meteorico') {
+    const code = state.meteo.code;
+    const m = state.config.meteoricos?.[code];
+    if (!m) return { falta: 'Elige o crea un meteórico.' };
+    const qs = [`m=${encodeURIComponent(code)}`, cParam('').replace(/^\?/, '')].filter(Boolean).join('&');
+    return { tipo: 'meteorico', nombre: m.name, datos: datosEmbudo(m, { esMeteo: true, producto, marca }),
+      codigos: [['OFERTA · bloque de la página (cuenta atrás, botón de compra y visitas)', `<div data-lsd-oferta></div>\n<script src="${location.origin}/oferta.js?${qs}" defer></script>`]],
+      urls: { 'Pago de la oferta': m.pagoUrl, 'Página de la oferta': m.ofertaUrl, 'Grupo de WhatsApp': m.whatsappUrl } };
+  }
+  if (t === 'vsl') {
+    const v = vslCfg();
+    const st = SUBTIPOS_VSL[subtipoValido(v.subtipo)];
+    const datos = [`- Embudo: ${st.label} «${v.name}»${marca ? ` (${marca})` : ''}.`, `- Producto: ${producto}${eurTxt(v.precioPrograma) ? ` · precio ${eurTxt(v.precioPrograma)}` : ''}${eurTxt(v.precioFraccionado) ? ` · a plazos ${eurTxt(v.precioFraccionado)}` : ''}.`,
+      `- Contenido: ${st.contenido}. Botones: «${v.textoCompra}»${st.sinLlamadas ? '' : ` y «${v.textoLlamada}»`}${v.botonSegundos ? ` (aparecen a los ${v.botonSegundos} s del vídeo)` : ''}.`];
+    return { tipo: 'vsl', nombre: v.name, datos, codigos: snippetsVsl(state.embudo), opts: { sinLlamadas: st.sinLlamadas },
+      urls: { [st.pagina]: v.vslUrl, 'Compra': v.ventaUrl, 'Agendar llamada': st.sinLlamadas ? '' : v.llamadaUrl } };
+  }
+  const d = state.config.directas?.[state.embudo];
+  if (!d) return { falta: 'Configura primero el embudo (⚙️).' };
+  const extra = (o, tipo) => `- ${tipo}: ${o.nombre}${eurTxt(o.precio) ? ` · ${eurTxt(o.precio)}` : ''}.`;
+  const datos = [`- Producto de entrada: «${d.name}»${eurTxt(d.precio) ? ` · ${eurTxt(d.precio)}` : ''}${marca ? ` (${marca})` : ''}.`,
+    ...(d.partes?.bumps ? (d.bumps || []).filter((o) => o.activo !== false).map((o) => extra(o, 'Bump offer en el checkout')) : []),
+    ...(d.partes?.upsell ? (d.upsells || []).map((o) => extra(o, 'Upsell')) : []),
+    ...(d.partes?.downsell ? (d.downsells || []).map((o) => extra(o, 'Downsell')) : [])];
+  const codigos = PAGINAS_DIRECTA.filter((x) => !x.parte || d.partes?.[x.parte]).map((x) => [x.label, `<div data-lsd-directa="${x.id}" data-embudo="${state.embudo}"></div>\n${script}`]);
+  return { tipo: 'directa', nombre: d.name, datos, codigos, opts: { partes: d.partes }, urls: { 'Página de venta': d.ventaUrl } };
+}
+function promptDePagina(c, p) {
+  return promptPagina({ pagina: p, nombreEmbudo: c.nombre, marca: clienteNombre(), datos: c.datos, contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto),
+    diseno: disenoTexto(pgc.marca?.m), codigos: codigosDePagina(p, c.codigos, c.ctx), notas: (ls.get(notasPagKey(p.id)) || '').trim(), urls: c.urls || {} });
+}
+async function renderPaginas() {
+  const box = $('#paginas-body');
+  const c = contextoPaginas();
+  if (c.falta) { box.innerHTML = `<div class="card empty"><p class="muted">${esc(c.falta)}</p></div>`; return; }
+  const embudo = state.embudo;
+  pgc.marca = await marcaDeEmbudo(api, state.cliente, embudo);
+  if (state.embudo !== embudo) return;
+  const paginas = paginasDe(c.tipo, c.opts || {});
+  box.innerHTML = `<section class="card">
+      <h2>🧱 Páginas de «${esc(c.nombre)}» con IA</h2>
+      <ol class="small pg-pasos">
+        <li><strong>Copia el prompt</strong> de la página y pégalo en <strong>Claude</strong> (con tu skill de copy si la tienes). Ya lleva la marca, el avatar, los datos del embudo y los códigos del dashboard.</li>
+        <li>Pide los cambios que quieras en la misma conversación hasta que te guste.</li>
+        <li>En <strong>GHL</strong>: crea la página (en blanco, ancho completo) → añade un elemento <strong>«Código personalizado»</strong> (Custom HTML/JS) → pega el código → guarda y publica. Si es de registro o de pago, mete el formulario de GHL donde indica el comentario.</li>
+        <li>Pon la URL de la página publicada en la configuración del embudo (si no estaba) y haz una prueba.</li>
+      </ol>
+      ${avisoMarcaHtml(pgc.marca)}
+    </section>
+    ${paginas.map((p) => `<details class="card pg-pag" data-pag="${esc(p.id)}">
+      <summary><strong>${esc(p.nombre)}</strong><span class="muted small">${esc(p.objetivo)}</span></summary>
+      <div class="pg-cuerpo">
+        <p class="small"><strong>Lleva:</strong> ${esc(p.secciones.join(' · '))}</p>
+        <p class="small muted">${codigosDePagina(p, c.codigos, c.ctx).length} código${codigosDePagina(p, c.codigos, c.ctx).length === 1 ? '' : 's'} del dashboard incluidos en el prompt.</p>
+        <label class="field"><span>Indicaciones para esta página <small>(opcional, entran en el prompt: ángulo, oferta especial, referencia…)</small></span><textarea rows="2" data-pag-notas="${esc(p.id)}" placeholder="Ej.: más corta; empieza con un testimonio; ángulo del cansancio de las noches…">${esc(ls.get(notasPagKey(p.id)) || '')}</textarea></label>
+        <p><button type="button" class="btn primary" data-pag-copiar="${esc(p.id)}">📋 Copiar el prompt</button></p>
+        <details><summary class="small">Ver el prompt</summary><pre class="snippet pg-prompt" data-pag-prompt="${esc(p.id)}"></pre></details>
+      </div>
+    </details>`).join('')}`;
+}
+$('#paginas-body').addEventListener('toggle', (e) => {
+  const pre = e.target.querySelector?.('[data-pag-prompt]');
+  if (!e.target.open || !pre || !e.target.contains(pre)) return;
+  const c = contextoPaginas();
+  const p = paginasDe(c.tipo, c.opts || {}).find((x) => x.id === pre.dataset.pagPrompt);
+  if (p) pre.textContent = promptDePagina(c, p);
+}, true);
+$('#paginas-body').addEventListener('input', (e) => {
+  const t = e.target.closest('[data-pag-notas]');
+  if (t) ls.set(notasPagKey(t.dataset.pagNotas), t.value);
+});
+$('#paginas-body').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-pag-copiar]');
+  if (!b) return;
+  const c = contextoPaginas();
+  const p = paginasDe(c.tipo, c.opts || {}).find((x) => x.id === b.dataset.pagCopiar);
+  if (!p) return;
+  const txt = promptDePagina(c, p);
+  const pre = b.closest('.pg-cuerpo').querySelector('[data-pag-prompt]');
+  pre.textContent = txt;
+  try {
+    await navigator.clipboard.writeText(txt);
+    b.textContent = 'Copiado ✓ · pégalo en Claude';
+  } catch {
+    pre.closest('details').open = true;
+    b.textContent = 'Cópialo de «Ver el prompt»';
+  }
+  setTimeout(() => { b.textContent = '📋 Copiar el prompt'; }, 3000);
+});
+
+// Qué lleva el prompt de la marca del cliente (Cuenta → Marca y avatar).
+function avisoMarcaHtml(mp) {
+  const btn = puedeConfig() ? ' <button type="button" class="btn small" data-abrir-marca>Abrir Marca y avatar</button>' : '';
+  if (!mp?.m || !contextoMarca(mp.m, mp.producto)) return `<div class="notice warn">🎨 Aún no hay cuestionario de marca: rellénalo (o manda el enlace al cliente) para que todo salga con su voz y para su cliente ideal.${btn}</div>`;
+  const nombre = mp.producto ? nombreDeProducto(mp.producto) : '';
+  return mp.producto?.ficha
+    ? `<p class="muted small">🎨 Lleva la <strong>ficha de marca y avatar</strong>${nombre ? ` de «${esc(nombre)}»` : ''}.</p>`
+    : `<p class="muted small">🎨 Lleva las respuestas del cuestionario de marca${nombre ? ` y de «${esc(nombre)}»` : ''}. Saldrá mejor con la ficha hecha (Marca y avatar → el producto → Ficha).${btn}</p>`;
 }
 function gwFila(m, editable) {
   const tp = tipoMsg(m.tipo);

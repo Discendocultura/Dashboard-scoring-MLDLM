@@ -27,3 +27,14 @@
 
 /tema.js
   Cache-Control: no-cache
+
+# Librerías para leer PDF y Word en el navegador (documentos de Marca y avatar): versión fija en la ruta.
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Cuestionario de marca del cliente (enlace privado con su clave en la URL): que no se indexe ni se filtre.
+/marca.html
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  X-Robots-Tag: noindex
+  Cache-Control: no-cache
