@@ -167,12 +167,13 @@ async function procesar(request, body) {
       // Ya tiene usuario (p. ej. alguien de la agencia): solo se le da acceso a este cliente.
       if (existe.rol) throw bad('Ya hay un usuario con ese email en el equipo');
       existe.accesos = { ...(existe.accesos || {}), [cid]: rol };
+      if (typeof body.marcaObligatoria === 'boolean') existe.marcaObligatoria = { ...(existe.marcaObligatoria || {}), [cid]: body.marcaObligatoria };
       await saveUsers(users);
       return json({ user: publicUser({ ...existe, rol }), anadido: true });
     }
     if (users.length >= 200) throw bad('Máximo 200 usuarios');
     const password = generatePassword();
-    const user = { id: newId('u'), nombre, email, accesos: { [cid]: rol }, rol, activo: true, ...(await hashPassword(password)), createdAt: new Date().toISOString(), creadoPor: s.user?.nombre || s.role, _cid: cid };
+    const user = { id: newId('u'), nombre, email, accesos: { [cid]: rol }, rol, activo: true, ...(typeof body.marcaObligatoria === 'boolean' ? { marcaObligatoria: { [cid]: body.marcaObligatoria } } : {}), ...(await hashPassword(password)), createdAt: new Date().toISOString(), creadoPor: s.user?.nombre || s.role, _cid: cid };
     users.push(user);
     await saveUsers(users); // primero se guarda: si el email falla, el usuario ya existe
     const sent = body.enviar === false ? { emailEnviado: false } : await deliver(user, password, request, true);
@@ -200,6 +201,8 @@ async function procesar(request, body) {
       user.accesos = { ...(user.accesos || {}), [cid]: body.rol };
       user.rol = body.rol;
     }
+    // Marca y avatar obligatorio antes de entrar (en este cliente), sea cual sea su rol.
+    if (typeof body.marcaObligatoria === 'boolean') user.marcaObligatoria = { ...(user.marcaObligatoria || {}), [cid]: body.marcaObligatoria };
     if (typeof body.activo === 'boolean') {
       if (user.id === s.uid && !body.activo) throw bad('No puedes desactivar tu propio usuario');
       puedeCuenta(user);

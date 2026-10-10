@@ -165,3 +165,27 @@ test('asistente: pasos por importancia, obligatorias, terminar solo con todo y r
   r = await call('/api/marca', { method: 'POST', cookie: cli, body: { op: 'terminar' } });
   assert.equal(r.status, 200, JSON.stringify(r.data));
 });
+
+test('marca obligatoria al dar de alta: cualquier rol; el rol Cliente por defecto; se puede cambiar', async () => {
+  const login = async (body) => (await route(new Request('http://localhost/api/login', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(body) }), ENV)).headers.get('set-cookie').split(';')[0];
+  const admin = await login({ password: 'admin' });
+  const crear = (email, rol, extra = {}) => call('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'crear', nombre: 'Persona', email, rol, enviar: false, ...extra } });
+  const setter = await crear('setter-marca@ejemplo.com', 'setter', { marcaObligatoria: true });
+  assert.equal(setter.data.user.marcaObligatoria, true);
+  assert.equal((await crear('setter-libre@ejemplo.com', 'setter')).data.user.marcaObligatoria, false);
+  assert.equal((await crear('cli-defecto@ejemplo.com', 'cliente')).data.user.marcaObligatoria, true); // Cliente: sí, de serie
+  assert.equal((await crear('cli-libre@ejemplo.com', 'cliente', { marcaObligatoria: false })).data.user.marcaObligatoria, false);
+  // La setter marcada ve su asistente y puede rellenarlo (sin permiso de configuración)
+  const s = await login({ email: 'setter-marca@ejemplo.com', password: setter.data.password });
+  assert.equal((await call('/api/me', { cookie: s })).data.user.marcaObligatoria, true);
+  const v = await call('/api/marca?asistente=1', { cookie: s });
+  assert.equal(v.status, 200);
+  assert.ok(v.data.asistente);
+  assert.equal(v.data.marca, undefined);
+  assert.equal((await call('/api/marca', { method: 'POST', cookie: s, body: { op: 'paso', paso: 'm2', asistente: true } })).data.asistente.paso, 'm2');
+  assert.equal((await call('/api/marca', { method: 'POST', cookie: s, body: { op: 'enlace', activar: true, asistente: true } })).status, 400); // solo lo del asistente
+  // Quitada la marca: ya no entra al asistente ni puede escribir en la marca
+  const e = await call('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'editar', id: setter.data.user.id, marcaObligatoria: false } });
+  assert.equal(e.data.user.marcaObligatoria, false);
+  assert.equal((await call('/api/marca', { method: 'POST', cookie: s, body: { op: 'paso', paso: 'm1', asistente: true } })).status, 403);
+});

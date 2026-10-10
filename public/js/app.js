@@ -411,7 +411,13 @@ async function start() {
   document.body.classList.toggle('is-superadmin', state.superadmin);
   pintarCliente(me.cliente);
   // El cliente (solo lectura) ve únicamente su portal de resultados.
-  if (role === ROL_CLIENTE) { pintarFotoCuenta(); if (!(await asistenteMarcaCliente())) await mostrarPortal(); return; }
+  if (role === ROL_CLIENTE) {
+    pintarFotoCuenta();
+    if (!((state.user ? state.user.marcaObligatoria : true) && (await asistenteMarcaCliente()))) await mostrarPortal();
+    return;
+  }
+  // Marcado al darle de alta: antes de entrar tiene que rellenar Marca y avatar (sea cual sea su rol).
+  if (state.user?.marcaObligatoria && (await asistenteMarcaCliente({ equipo: true }))) return;
   $('#portal').hidden = true;
   $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
   $('#btn-cuenta').hidden = !state.user;
@@ -5141,8 +5147,8 @@ $('#t-asignado').addEventListener('change', (e) => {
 });
 
 // Crea el usuario y explica qué ha pasado con el email de acceso.
-async function crearUsuario({ nombre, email, rol }) {
-  const r = await api('/api/usuarios', { method: 'POST', body: { op: 'crear', nombre, email, rol } });
+async function crearUsuario({ nombre, email, rol, marcaObligatoria }) {
+  const r = await api('/api/usuarios', { method: 'POST', body: { op: 'crear', nombre, email, rol, ...(typeof marcaObligatoria === 'boolean' ? { marcaObligatoria } : {}) } });
   if (state.tareas) state.tareas.users.push({ id: r.user.id, nombre: r.user.nombre, rol: r.user.rol, email: r.user.email });
   state.equipo.push(r.user);
   return r;
@@ -5207,10 +5213,11 @@ function renderEquipo() {
   const deAgencia = state.equipo.filter((u) => u.agencia);
   const fmt = (d) => (d ? new Date(d).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Nunca');
   $('#equipo-list').innerHTML = users.length ? `<div class="table-scroll"><table class="metric-table equipo-table">
-    <thead><tr><th>Persona</th><th>Rol</th><th>Último acceso</th><th></th></tr></thead>
+    <thead><tr><th>Persona</th><th>Rol</th><th title="Tiene que rellenar Marca y avatar antes de poder entrar">🎨 Marca</th><th>Último acceso</th><th></th></tr></thead>
     <tbody>${users.map((u) => `<tr class="${u.activo ? '' : 'inactivo'}" data-uid="${esc(u.id)}">
       <td><span class="t-who">${avatarHtml(u)}<span><strong>${esc(u.nombre)}</strong>${u.superadmin ? ' <span class="badge sa-badge">Superadmin</span>' : ''}<br><span class="muted">${esc(u.email)}</span>${u.activo ? '' : ' · <em>desactivada</em>'}${otrosClientes(u)}</span></span></td>
       <td><select class="eq-rol" ${u.id === state.user?.id ? 'disabled' : ''}>${[...rolesUI(), ...(rolesUI().includes(u.rol) ? [] : [u.rol])].map((r) => `<option value="${r}" ${r === u.rol ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></td>
+      <td><label class="chk" title="Tiene que rellenar Marca y avatar antes de poder entrar"><input type="checkbox" class="eq-marca"${u.marcaObligatoria ? ' checked' : ''}${u.superadmin ? ' disabled' : ''}><span class="sr-only">Marca y avatar obligatorio</span></label></td>
       <td class="muted">${fmt(u.lastLogin)}</td>
       <td class="eq-actions">
         <button type="button" class="btn" data-eq="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
@@ -5269,9 +5276,10 @@ $('#btn-eq-crear').addEventListener('click', async () => {
   b.disabled = true;
   equipoResult('Creando usuario y enviando su acceso…');
   try {
-    const r = await crearUsuario({ nombre, email, rol: $('#eq-rol').value });
+    const r = await crearUsuario({ nombre, email, rol: $('#eq-rol').value, marcaObligatoria: $('#eq-marca').checked });
     $('#eq-nombre').value = '';
     $('#eq-email').value = '';
+    $('#eq-marca').checked = $('#eq-rol').value === ROL_CLIENTE;
     renderEquipo();
     equipoResult(accesoMsg(r), !r.emailEnviado);
   } catch (e) {
@@ -5281,7 +5289,19 @@ $('#btn-eq-crear').addEventListener('click', async () => {
   }
 });
 
+// La casilla de Marca y avatar se marca sola al elegir el rol Cliente (se puede desmarcar).
+$('#eq-rol').addEventListener('change', (e) => { $('#eq-marca').checked = e.target.value === ROL_CLIENTE; });
 $('#equipo-list').addEventListener('change', async (e) => {
+  const chk = e.target.closest('.eq-marca');
+  if (chk) {
+    const id = chk.closest('tr').dataset.uid;
+    try {
+      const { user } = await api('/api/usuarios', { method: 'POST', body: { op: 'editar', id, marcaObligatoria: chk.checked } });
+      Object.assign(state.equipo.find((u) => u.id === id), { marcaObligatoria: user.marcaObligatoria });
+      equipoResult(chk.checked ? `${user.nombre} tendrá que rellenar Marca y avatar antes de entrar (si aún no está completo).` : `${user.nombre} ya no tiene que rellenar Marca y avatar para entrar.`);
+    } catch (ex) { equipoResult(ex.message, true); loadEquipo(); }
+    return;
+  }
   const sel = e.target.closest('.eq-rol');
   if (!sel) return;
   const id = sel.closest('tr').dataset.uid;
@@ -9843,9 +9863,11 @@ $('#dc-filtro').addEventListener('change', () => renderDirectaClientes(state.dir
 // ---------- 🔌 Conexiones (SendFlow) ----------
 // El cliente (rol «Cliente») que aún no ha terminado su cuestionario de marca solo ve el asistente, en el paso
 // donde lo dejó, hasta terminarlo. Devuelve true si lo está enseñando.
-async function asistenteMarcaCliente() {
+// Asistente de Marca y avatar que bloquea la entrada hasta completarlo: el rol Cliente (al terminar, su portal) y
+// quien se marcó al darle de alta (`equipo`: al terminar, el dashboard normal).
+async function asistenteMarcaCliente({ equipo = false } = {}) {
   let d;
-  try { d = await api('/api/marca'); } catch { return false; } // si falla, que pueda ver su portal
+  try { d = await api(equipo ? '/api/marca?asistente=1' : '/api/marca'); } catch { return false; } // si falla, que pueda entrar
   if (d.asistente?.completado) return false;
   $('#app').hidden = true;
   $('#login').hidden = true;
@@ -9853,9 +9875,9 @@ async function asistenteMarcaCliente() {
   const box = $('#asistente-marca');
   box.hidden = false;
   await montarAsistente(box, {
-    llamar: async (body) => (body ? api('/api/marca', { method: 'POST', body }) : d),
+    llamar: async (body) => (body ? api('/api/marca', { method: 'POST', body: equipo ? { ...body, asistente: true } : body }) : d),
     clienteNombre: d.cliente, docsActivos: d.docsActivos,
-    alTerminar: async () => { box.hidden = true; box.innerHTML = ''; await mostrarPortal(); },
+    alTerminar: async () => { box.hidden = true; box.innerHTML = ''; if (equipo) { if (state.user) state.user.marcaObligatoria = false; await start(); } else await mostrarPortal(); },
     salir: () => $('#btn-logout').click(),
   });
   return true;

@@ -662,6 +662,7 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .equipo-table tr.inactivo td { opacity: .55; }
 .eq-actions { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap; }
 .equipo-add { align-items: flex-end; }
+.eq-marca-chk { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 4px; }
 @media (max-width: 600px) {
   .tarea { padding: 12px; gap: 10px; }
   .tf-bar { display: none; }

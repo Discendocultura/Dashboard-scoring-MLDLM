@@ -624,6 +624,12 @@ WhatsApp). Se guarda solo mientras se escribe, por campos (el cliente y el equip
   respuestas tal cual. El estilo visual va siempre aparte en los prompts de páginas.
 - **Enlace para el cliente**: `/marca.html?c=<cliente>&t=<clave>` (sin cuenta). Ve y rellena sus respuestas, añade
   productos y sube documentos; no ve las fichas. «Crear otro» invalida el anterior; «Desactivar» lo cierra.
+- **Quién tiene que rellenarlo antes de entrar (lo eliges tú):** al dar de alta a una persona en *Equipo → Miembros
+  del equipo* hay una casilla **«Tiene que rellenar Marca y avatar antes de poder entrar»**, sea cual sea su rol (se
+  marca sola al elegir el rol Cliente y se puede desmarcar). Después se cambia en la columna **🎨 Marca** de la lista.
+  Esa persona, hasta que el cuestionario del cliente esté terminado (por ella o por otra persona), solo ve el asistente;
+  al enviarlo entra al dashboard normal con su rol. Se guarda por cliente (`marcaObligatoria` del usuario); sin marcar
+  nada, como antes: solo el rol Cliente. El superadmin nunca se queda bloqueado.
 - **Asistente para el cliente (lo primero que ve):** por su enlace y al entrar al dashboard con su acceso de
   **Cliente**, mientras no lo haya terminado, solo ve el asistente (ni portal ni nada más), en el paso donde lo dejó
   (se guarda en el servidor). Empieza con un aviso (15-20 min, sin prisas) y va por orden de importancia: tú y tu

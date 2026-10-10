@@ -11,6 +11,7 @@ import { requireSession, safeEqual, tienePermiso } from '../lib/auth.js';
 import { ROL_CLIENTE } from '../public/js/roles.js';
 import { clienteActual, setActor, actorActual } from '../lib/cliente.js';
 import { usaD1 } from '../lib/store.js';
+import { debeRellenarMarca } from '../lib/users.js';
 import {
   leerMarca, guardarCampos, crearProducto, borrarProducto, guardarFicha, productoDeEmbudoGuardar,
   enlaceCliente, subirDoc, borrarDoc, textosDocs, vistaPublica, guardarPaso, terminarAsistente, reabrirAsistente,
@@ -37,8 +38,9 @@ export async function GET(request) {
       return json({ cliente: clienteActual().nombre, ...vistaPublica(m), progreso: progresoTotal(m), docsActivos: usaD1() });
     }
     const s = await requireSession(request, { cliente: true });
-    // El cliente con su acceso al dashboard: lo mismo que desde el enlace.
-    if (s.role === ROL_CLIENTE) {
+    // El cliente con su acceso al dashboard (o quien tenga que rellenarlo antes de entrar, `?asistente=1`):
+    // lo mismo que desde el enlace.
+    if (s.role === ROL_CLIENTE || (url.searchParams.get('asistente') === '1' && debeRellenarMarca(s.user))) {
       const m = await leerMarca();
       return json({ cliente: clienteActual().nombre, ...vistaPublica(m), progreso: progresoTotal(m), docsActivos: usaD1() });
     }
@@ -62,7 +64,7 @@ export async function POST(request) {
       setActor(POR_CLIENTE); // en el historial de cambios
     } else {
       const s = await requireSession(request, { cliente: true });
-      if (s.role === ROL_CLIENTE) {
+      if (s.role === ROL_CLIENTE || (body.asistente && debeRellenarMarca(s.user))) {
         if (!OPS_CLIENTE.includes(body.op)) return json({ error: 'Operación no válida' }, 400);
         comoCliente = true;
       } else if (!tienePermiso(s, 'config')) {
