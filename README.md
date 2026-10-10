@@ -553,7 +553,7 @@ campaña de SendFlow (máx. 3; unas 2 peticiones a SendFlow por campaña). Guard
 - **🖱️ Clics sin entradas:** 15 o más clics en la última hora y ninguna entrada.
 - **🚪 Pico de salidas (fuga):** en la última media hora se han salido 10 o más y el triple de lo normal (media de
   cada media hora de las últimas 24 h). En la fase 4 se cruzará con el mensaje enviado justo antes.
-Avisos: por **email** (al del resumen diario) y, si quieres, por **WhatsApp** a un número desde una cuenta de SendFlow
+Avisos: por **email** (al del resumen diario; todos) y, si quieres, por **WhatsApp** (solo los fallos: enlace roto, grupos llenos o clics sin entradas; los picos de salidas no) a un número desde una cuenta de SendFlow
 (Cuenta → Conexiones → «Dónde te avisa»). El mismo aviso no se repite en 3 h (las fugas, en 1 h). En **Métricas →
 Grupos de WhatsApp → Vigilancia**: última comprobación, estado del enlace y de los grupos, avisos recientes y
 entradas y salidas por hora de las últimas 24 h (la hora con el pico, marcada).

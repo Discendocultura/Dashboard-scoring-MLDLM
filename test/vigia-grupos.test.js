@@ -83,3 +83,9 @@ test('vigilancia: la tarea con la clave guarda la foto y el dashboard la enseña
   assert.equal(g.vigilancia.estado.grupos, 4);
   assert.equal((await call('/api/sendflow?op=cuentas', admin)).data.cuentas[0].id, 'acc-1');
 });
+
+test('vigilancia: por WhatsApp solo los fallos (no los picos de salidas)', async () => {
+  const { FALLOS } = await import('../lib/vigia-grupos.js');
+  assert.deepEqual(FALLOS, ['enlace', 'llenos', 'clics']);
+  assert.ok(!FALLOS.includes('fuga'));
+});
