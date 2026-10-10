@@ -2565,8 +2565,8 @@ body.embudo-directa .lanz-only { display: none !important; }
 .login .login-card code.secreto { color: #fff; }
 @media (max-width: 900px) {
   /* Móvil: todo el acceso a la vista en la primera carga, con aire a los lados y abajo */
-  .lg-contenido { grid-template-columns: 1fr; gap: 16px; align-content: start; padding: max(18px, env(safe-area-inset-top)) 22px calc(32px + env(safe-area-inset-bottom)); }
-  .lg-hero { align-self: auto; padding: 18px 0 0; text-align: center; }
+  .lg-contenido { grid-template-columns: 1fr; gap: 30px; align-content: center; padding: max(36px, env(safe-area-inset-top)) 22px calc(36px + env(safe-area-inset-bottom)); }
+  .lg-hero { align-self: auto; padding: 0; text-align: center; }
   .lg-eyebrow { display: none; }
   .lg-titular { margin: 0 0 8px; font-size: clamp(36px, 11vw, 52px); }
   .lg-sub { font-size: 14.5px; max-width: 26em; margin: 0 auto; }
@@ -2582,9 +2582,8 @@ body.embudo-directa .lanz-only { display: none !important; }
 }
 /* Móviles bajos (iPhone SE…): un poco más compacto para que el acceso quepa con margen */
 @media (max-width: 900px) and (max-height: 620px) {
-  .lg-hero { padding-top: 6px; }
+  .lg-contenido { gap: 22px; padding-top: max(24px, env(safe-area-inset-top)); padding-bottom: 24px; }
   .lg-titular { font-size: clamp(32px, 10vw, 42px); }
-  .login .login-card > p.muted:first-of-type { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .login *, .login *::before, .login *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; }
