@@ -9709,21 +9709,39 @@ $('#dc-filtro').addEventListener('change', () => renderDirectaClientes(state.dir
 $('#btn-conexiones').addEventListener('click', () => {
   $('#tb-menu-cuenta').open = false;
   $('#conexiones-dialog').showModal();
-  probarSendflow();
 });
 $('#cx-sendflow-probar').addEventListener('click', () => probarSendflow());
-async function probarSendflow() {
+$('#cx-sendflow').addEventListener('click', (e) => { if (e.target.closest('[data-sf-reintentar]')) probarSendflow({ reintentar: true }); });
+// SendFlow bloquea la clave si se le pide demasiado: el botón descansa 30 s entre pruebas.
+async function probarSendflow({ reintentar = false } = {}) {
   const box = $('#cx-sendflow');
   const b = $('#cx-sendflow-probar');
   b.disabled = true;
   box.innerHTML = '<p class="muted">Conectando con SendFlow…</p>';
   try {
-    const d = await api('/api/sendflow?op=probar');
+    const d = await api(`/api/sendflow?op=probar${reintentar ? '&reintentar=1' : ''}`);
+    const hora = (ms) => new Date(ms).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    if (d.freno) {
+      box.innerHTML = d.freno.bloqueo
+        ? `<div class="notice warn"><strong>⏸️ SendFlow ha bloqueado la clave un rato por exceso de peticiones.</strong> La clave y la conexión están bien. El dashboard no le pedirá nada hasta las <strong>${hora(d.freno.hasta)}</strong> (para no alargar el bloqueo). Vuelve a probar a partir de esa hora.</div>`
+        : `<div class="notice warn"><strong>SendFlow rechazó la clave (${d.freno.status}).</strong> Para no provocar un bloqueo, el dashboard espera hasta las <strong>${hora(d.freno.hasta)}</strong>.${d.formato?.prefijo === false ? ' Ojo: las claves de SendAPI empiezan por <code>send_api-</code> y la guardada no.' : ''} Si ya has cambiado la clave en Cloudflare (y vuelto a desplegar): <button type="button" class="btn small" data-sf-reintentar>Probar la clave nueva</button></div>`;
+      return;
+    }
     if (!d.configurada) {
       box.innerHTML = `<div class="notice warn"><strong>Aún no está conectado.</strong> Falta la variable <code>${esc(d.variable)}</code> en Cloudflare (tipo <em>Secret</em>) con la clave de SendFlow → «API Keys». Después, <em>Deployments → Retry deployment</em> y vuelve a probar.</div>`;
       return;
     }
-    if (!d.ok) { box.innerHTML = `<div class="notice err"><strong>No conecta:</strong> ${esc(d.error)}</div>`; return; }
+    if (!d.ok) {
+      const f = d.formato || {};
+      const avisos = [
+        f.conBearer ? 'La clave se guardó con la palabra «Bearer» delante (se quita sola, pero mejor guárdala sin ella).' : '',
+        f.comillas ? 'La clave se guardó entre comillas: guárdala sin comillas.' : '',
+        f.espacios ? 'La clave tiene espacios o saltos de línea: vuelve a copiarla sin espacios.' : '',
+        f.largo && !f.prefijo ? 'Las claves de SendAPI empiezan por «send_api-» y la guardada no: ¿es la clave correcta?' : '',
+      ].filter(Boolean);
+      box.innerHTML = `<div class="notice err"><strong>No conecta:</strong> ${esc(d.error)}</div>${avisos.length ? `<ul class="small">${avisos.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}`;
+      return;
+    }
     const a = d.analitica;
     box.innerHTML = `<div class="notice">✅ <strong>Conectado con SendFlow.</strong> ${d.total} campaña${d.total === 1 ? '' : 's'} encontrada${d.total === 1 ? '' : 's'}.</div>
       ${a ? (a.ok ? `<p class="small">📊 Analítica de «${esc(a.nombre)}»: <strong>${a.entradas}</strong> entradas, <strong>${a.salidas}</strong> salidas y <strong>${a.clics}</strong> clics. La analítica funciona ✓</p>` : `<div class="notice warn"><strong>Las campañas se leen, pero la analítica no:</strong> ${esc(a.error)} Pide a SendFlow que active la analítica para tu clave de SendAPI.</div>`) : '<p class="muted small">No hay campañas todavía: crea una en SendFlow para probar la analítica.</p>'}
@@ -9731,6 +9749,7 @@ async function probarSendflow() {
   } catch (e) {
     box.innerHTML = `<div class="notice err">${esc(e.message)}</div>`;
   } finally {
-    b.disabled = false;
+    // Descanso de 30 s entre pruebas (el límite de SendFlow es estricto).
+    setTimeout(() => { b.disabled = false; }, 30_000);
   }
 }

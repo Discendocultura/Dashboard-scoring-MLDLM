@@ -525,6 +525,10 @@ En Métricas, con suscripción, verás las **altas por plan**, la facturación (
 3. **Deployments → ⋯ → Retry deployment** (1-2 min).
 4. En el dashboard: **Cuenta → Conexiones → Probar conexión**. Debe decir «Conectado» con tus campañas y comprobar
    que la analítica (entradas, salidas y clics) responde.
+**Límite de SendAPI (estricto):** si se le pide demasiado, SendFlow bloquea la clave 30 min o más (y cada vez más).
+El dashboard: solo llama al pulsar «Probar conexión» (abrir Conexiones no gasta nada), deja 3 s entre peticiones,
+guarda campañas (10 min) y analítica (5 min) en D1 y, si SendFlow responde 429/403, no vuelve a llamarle hasta que
+pase el bloqueo (el freno va con cada clave: con una clave nueva se empieza de cero).
 API: `GET /api/sendflow?op=probar` (permiso «config»). Base `https://sendflow.pro/sendapi` (cambiable con `SENDFLOW_BASE_URL`).
 
 ## 🛒 Venta directa / producto de entrada (low ticket)

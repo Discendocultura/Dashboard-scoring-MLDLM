@@ -40,3 +40,37 @@ test('SendFlow: sin clave (fuera del modo de prueba) avisa de la variable que fa
     setEnv(ENV);
   }
 });
+
+test('SendFlow: si bloquea la clave por exceso de peticiones, el dashboard deja de llamarle', async () => {
+  const { setEnv } = await import('../lib/env.js');
+  setEnv({ ...ENV, GHL_MOCK: '0', SENDFLOW_API_KEY: '  "Bearer send_api-abc123clave456"\n' });
+  const real = globalThis.fetch;
+  const llamadas = [];
+  globalThis.fetch = async (url, opts) => {
+    llamadas.push([url, opts.headers.authorization]);
+    return new Response('{"message":"Chave temporariamente bloqueada: rate limit"}', { status: 403 });
+  };
+  try {
+    const { formatoClave, campanasSendflow, frenoSendflow } = await import('../lib/sendflow.js');
+    const f = formatoClave();
+    assert.deepEqual([f.conBearer, f.comillas, f.prefijo, f.largo], [true, true, true, 23]);
+    await assert.rejects(campanasSendflow(), (e) => /bloqueado/.test(e.publicMessage));
+    assert.equal(llamadas.length, 1);
+    assert.equal(llamadas[0][0], 'https://sendflow.pro/sendapi/releases');
+    assert.equal(llamadas[0][1], 'Bearer send_api-abc123clave456'); // clave limpia, sin comillas ni «Bearer» doble
+    const freno = await frenoSendflow();
+    assert.ok(freno.bloqueo && freno.hasta > Date.now() + 30 * 60_000);
+    // Mientras dure el freno, ni una petición más (aunque se pulse «Probar»)
+    await assert.rejects(campanasSendflow({ fresh: true }), (e) => e.status === 503);
+    assert.equal(llamadas.length, 1);
+    // Con una clave nueva, el freno de la anterior no cuenta
+    setEnv({ ...ENV, GHL_MOCK: '0', SENDFLOW_API_KEY: 'send_api-claveNueva789' });
+    assert.equal(await frenoSendflow(), null);
+    setEnv({ ...ENV, GHL_MOCK: '0', SENDFLOW_API_KEY: '  "Bearer send_api-abc123clave456"\n' });
+  } finally {
+    globalThis.fetch = real;
+    const { quitarFreno } = await import('../lib/sendflow.js');
+    await quitarFreno();
+    setEnv(ENV);
+  }
+});
