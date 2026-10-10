@@ -509,6 +509,10 @@ La encuesta de la Etapa 1 puede ser siempre la misma: misma URL y misma etiqueta
 - ⚠️ **Permisos del token**: la integración privada de GHL necesita **View Email Campaigns** (`emails/campaigns.readonly`) y **View Email Stats** (`emails/stats.readonly`). Si faltan, la pestaña lo dice.
 
 ## 🎨 Aspecto y modo día / noche
+**Pantalla de acceso:** siempre oscura, «Data driven growth» en grande, fondo de espacio con estrellas en movimiento,
+un cohete que despega (llama, humo y estelas), una gráfica de crecimiento que se dibuja y tarjetas de métricas
+flotando; el acceso va en una tarjeta de cristal. En el móvil, solo el titular y el acceso (el cohete, pequeño, arriba).
+Sin animaciones si el sistema pide reducir el movimiento.
 
 - Diseño renovado: tipografía Inter, barra superior translúcida con botones sobrios (el color va solo en el icono; los textos se ocultan en pantallas estrechas y quedan en el aviso al pasar el ratón), menú de embudos con indicador del activo, pestañas y subpestañas más limpias, tarjetas, tablas, campos y ventanas con sombras suaves.
 - **Modo día / noche automático según la hora** del ordenador: claro de 8:00 a 20:00 y oscuro el resto (se revisa cada minuto).

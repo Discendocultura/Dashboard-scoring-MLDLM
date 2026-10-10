@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#f7f6f3">
-  <title>Lanzamientos MLDLM</title>
+  <title>Data driven growth</title>
   <script src="/tema.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,19 +16,62 @@
 <body>
   <!-- Acceso -->
   <section id="login" class="login" hidden>
-    <button type="button" class="tema-toggle tema-flotante" data-tema-toggle aria-label="Cambiar a modo noche"><span class="tema-ico tema-sol" aria-hidden="true"></span><span class="tema-ico tema-luna" aria-hidden="true"></span></button>
+    <!-- Escena: espacio con estrellas en movimiento, gráfica de crecimiento y un cohete despegando -->
+    <div class="lg-cielo" aria-hidden="true">
+      <div class="lg-estrellas lg-e1"></div><div class="lg-estrellas lg-e2"></div><div class="lg-estrellas lg-e3"></div>
+      <div class="lg-nebulosa lg-n1"></div><div class="lg-nebulosa lg-n2"></div>
+      <div class="lg-rayas"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <svg class="lg-grafica" viewBox="0 0 800 400" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="lgLinea" x1="0" x2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset=".6" stop-color="#8b5cf6"/><stop offset="1" stop-color="#f472b6"/></linearGradient>
+          <linearGradient id="lgArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8b5cf6" stop-opacity=".35"/><stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/></linearGradient>
+        </defs>
+        <path class="lg-area" d="M0 360 L90 330 L180 342 L270 290 L360 300 L450 230 L540 240 L630 160 L720 120 L800 40 V400 H0Z" fill="url(#lgArea)"/>
+        <path class="lg-linea" d="M0 360 L90 330 L180 342 L270 290 L360 300 L450 230 L540 240 L630 160 L720 120 L800 40" fill="none" stroke="url(#lgLinea)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <g class="lg-puntos" fill="#fff"><circle cx="270" cy="290" r="4"/><circle cx="450" cy="230" r="4"/><circle cx="630" cy="160" r="4"/><circle cx="800" cy="40" r="5"/></g>
+      </svg>
+      <div class="lg-cohete">
+        <svg viewBox="0 0 120 260" class="lg-cohete-svg">
+          <defs>
+            <linearGradient id="lgCuerpo" x1="0" x2="1"><stop offset="0" stop-color="#c7cbe0"/><stop offset=".45" stop-color="#ffffff"/><stop offset="1" stop-color="#9aa0bf"/></linearGradient>
+            <linearGradient id="lgAleta" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#6d28d9"/></linearGradient>
+            <radialGradient id="lgVentana" cx=".35" cy=".35" r=".8"><stop offset="0" stop-color="#a5f3fc"/><stop offset=".6" stop-color="#0891b2"/><stop offset="1" stop-color="#083344"/></radialGradient>
+          </defs>
+          <path d="M60 6 C88 34 98 78 96 150 L24 150 C22 78 32 34 60 6Z" fill="url(#lgCuerpo)"/>
+          <path d="M60 6 C72 18 80 32 86 48 L34 48 C40 32 48 18 60 6Z" fill="#8b5cf6"/>
+          <circle cx="60" cy="88" r="17" fill="#e0e7ff"/><circle cx="60" cy="88" r="12.5" fill="url(#lgVentana)"/><circle cx="55" cy="83" r="3.5" fill="#fff" opacity=".8"/>
+          <path d="M24 118 L4 168 L26 158Z" fill="url(#lgAleta)"/><path d="M96 118 L116 168 L94 158Z" fill="url(#lgAleta)"/>
+          <path d="M52 140 L60 176 L68 140Z" fill="url(#lgAleta)"/>
+          <rect x="34" y="150" width="52" height="12" rx="4" fill="#4c1d95"/>
+        </svg>
+        <div class="lg-llama"><span class="lg-l1"></span><span class="lg-l2"></span><span class="lg-l3"></span></div>
+        <div class="lg-humo"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="lg-chip lg-c1"><b>ROAS</b><span>▲ 3,4x</span><svg viewBox="0 0 60 18"><path d="M0 16 L12 12 L24 13 L36 7 L48 8 L60 1" fill="none" stroke="#34d399" stroke-width="2"/></svg></div>
+      <div class="lg-chip lg-c2"><b>Leads</b><span>▲ en tiempo real</span><svg viewBox="0 0 60 18"><path d="M0 15 L10 14 L20 10 L30 11 L40 6 L50 5 L60 2" fill="none" stroke="#22d3ee" stroke-width="2"/></svg></div>
+      <div class="lg-chip lg-c3"><b>Ventas</b><span>▲ carrito abierto</span><svg viewBox="0 0 60 18"><path d="M0 17 L12 15 L24 9 L36 10 L48 4 L60 2" fill="none" stroke="#f472b6" stroke-width="2"/></svg></div>
+    </div>
+
+    <div class="lg-contenido">
+      <div class="lg-hero">
+        <span class="lg-eyebrow"><i></i> Acceso privado</span>
+        <h1 class="lg-titular">Data driven <span>growth</span></h1>
+        <p class="lg-sub">Cada lanzamiento, medido. Cada decisión, con datos.</p>
+      </div>
+      <div class="lg-panel">
     <form id="login-form" class="card login-card">
-      <h1>Lanzamientos MLDLM</h1>
+      <h2>Bienvenido</h2>
       <p class="muted">Entra con tu email y tu contraseña.</p>
       <input id="login-email" type="email" autocomplete="username" placeholder="Email">
       <input id="login-password" type="password" autocomplete="current-password" placeholder="Contraseña" required>
-      <p class="muted login-hint">¿Usas la contraseña general del dashboard? Deja el email vacío.</p>
+      <p class="muted login-hint">¿Usas la contraseña general? Deja el email vacío.</p>
       <p id="login-error" class="error" hidden></p>
-      <button class="btn primary" type="submit">Entrar</button>
+      <button class="btn primary" type="submit">Entrar <span aria-hidden="true">→</span></button>
+      <p class="lg-seguro">🔒 Conexión cifrada · verificación en dos pasos</p>
     </form>
     <!-- Segundo paso: código de la app (o activarla, si es obligatoria y aún no la tiene) -->
     <form id="login-2fa" class="card login-card" hidden>
-      <h1>Verificación en dos pasos</h1>
+      <h2>Verificación en dos pasos</h2>
       <p id="l2-texto" class="muted"></p>
       <div id="l2-alta" class="dospasos-alta" hidden>
         <div id="l2-qr" class="qr-box"></div>
@@ -40,6 +83,8 @@
       <button class="btn primary" type="submit" id="l2-btn">Verificar</button>
       <button class="btn ghost" type="button" id="l2-volver">← Volver</button>
     </form>
+      </div>
+    </div>
   </section>
 
   <!-- Portal del cliente (rol «Cliente»: solo lectura, solo su resumen) -->
