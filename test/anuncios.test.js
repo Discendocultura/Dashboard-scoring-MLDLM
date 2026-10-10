@@ -36,3 +36,20 @@ test('anuncios: los prompts llevan objetivo, ficha, estilo, ganadores o su ausen
   assert.match(promptCopys(ctx()), /3 TEXTOS PRINCIPALES con emojis/);
   assert.match(PROMPTS_ANUNCIOS[0].fn(ctx()), /PASO 1[\s\S]*PASO 2[\s\S]*PASO 3/);
 });
+
+test('anuncios: nunca «webinar»; con nombre elegido lo usa y, si no, que Claude lo pregunte', () => {
+  for (const p of PROMPTS_ANUNCIOS) {
+    assert.match(p.fn(ctx()), /NUNCA uses la palabra «webinar»[\s\S]*ANTES DE EMPEZAR, pregúntame cómo quiero llamar al evento/, p.id);
+    assert.match(p.fn(ctx({ evento: 'Masterclass en directo gratuita' })), /el evento se llama «Masterclass en directo gratuita»/, p.id);
+  }
+});
+
+test('anuncios: el nombre del evento se adapta al formato del lanzamiento (PLF, reto…)', async () => {
+  const { nombresEvento } = await import('../public/js/anuncios.js');
+  assert.match(nombresEvento('plf').join(' '), /Semana de/);
+  assert.match(nombresEvento('reto5').join(' '), /Reto gratuito/);
+  assert.match(nombresEvento('webinar').join(' '), /Masterclass en directo gratuita/);
+  const t = PROMPTS_ANUNCIOS[1].fn(ctx({ formato: 'plf', formatoTexto: 'PLF (4 PLCs): Product Launch Formula' }));
+  assert.match(t, /Formato del lanzamiento: PLF \(4 PLCs\)/);
+  assert.match(t, /pregúntame cómo quiero llamar al evento gratuito[^\n]*adaptadas a este formato[^\n]*«semana de/);
+});

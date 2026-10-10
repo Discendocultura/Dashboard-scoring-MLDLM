@@ -54,15 +54,29 @@ export function ganadoresTexto(filas = [], { max = 6 } = {}) {
   ].filter(Boolean).join('\n\n');
 }
 
+// Cómo se llama el evento gratuito en los anuncios (nunca «webinar»), según el formato del lanzamiento.
+const SUGERENCIAS_EVENTO = {
+  webinar: ['Clase gratuita', 'Masterclass en directo gratuita', 'Clase en directo gratuita', 'Taller gratuito en directo'],
+  v2: ['Formación gratuita en 2 clases', 'Mini-curso gratuito', 'Serie de clases gratuitas'],
+  v3: ['Formación gratuita en 3 clases', 'Mini-curso gratuito', 'Serie de 3 clases gratuitas'],
+  plf: ['Semana de… (tu tema)', 'Serie de clases gratuitas', 'Formación gratuita en vídeo'],
+  reto: ['Reto gratuito de N días', 'Desafío gratuito', 'Reto en directo'],
+};
+export const nombresEvento = (formato = 'webinar') => SUGERENCIAS_EVENTO[String(formato).startsWith('reto') ? 'reto' : formato] || SUGERENCIAS_EVENTO.webinar;
+const reglaEvento = (evento, formato) => (evento
+  ? `- NUNCA uses la palabra «webinar» (ni «webinar gratuito»): en los anuncios el evento se llama «${evento}» (puedes variar ligeramente la forma, sin decir webinar).`
+  : `- NUNCA uses la palabra «webinar» (ni «webinar gratuito»). ANTES DE EMPEZAR, pregúntame cómo quiero llamar al evento gratuito en los anuncios, con opciones adaptadas a este formato de lanzamiento (p. ej. ${nombresEvento(formato).map((x) => `«${x.toLowerCase()}»`).join(', ')}), y usa ese nombre.`);
+
 const POLITICAS = `- Cumple las políticas de Meta: nada de aludir a atributos personales de quien lo lee («¿Estás embarazada?», «¿Tienes ansiedad?» → mejor «Para mamás que…», «Muchas mujeres…»), nada de antes/después, ni promesas de resultados de salud o garantizados, ni lenguaje alarmista.`;
 
-function base({ objetivo, tipoTexto, nombreEmbudo, marca, datos, urls, contexto, diseno, ganadores, notas }) {
+function base({ objetivo, tipoTexto, nombreEmbudo, marca, datos, urls, contexto, diseno, ganadores, notas, evento = '', formato = '', formatoTexto = '' }) {
   const enlaces = Object.entries(urls || {}).filter(([, u]) => u).map(([k, u]) => `- ${k}: ${u}`).join('\n');
   return `CONTEXTO
-- Cliente: ${marca || '(sin nombre)'} · Embudo: ${tipoTexto}${nombreEmbudo ? ` «${nombreEmbudo}»` : ''}.
+- Cliente: ${marca || '(sin nombre)'} · Embudo: ${tipoTexto}${nombreEmbudo ? ` «${nombreEmbudo}»` : ''}.${formatoTexto ? `\n- Formato del lanzamiento: ${formatoTexto} (adapta el mensaje y el nombre del evento a este formato).` : ''}
 - OBJETIVO DE ESTOS ANUNCIOS: ${objetivo.titulo}. ${objetivo.meta}
 - A quién van: ${objetivo.publico}
 - Llamada a la acción: «${objetivo.cta}».
+${reglaEvento(evento, formato)}
 
 DATOS DEL EMBUDO:
 ${datos.join('\n') || '(sin datos)'}

@@ -6,7 +6,7 @@ import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch, CAJAS_PAGO, numeroWhatsApp, enlaceWhatsApp, leerEnlaceWhatsApp } from './page.js';
-import { FORMATOS, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
+import { FORMATOS, formatoValido, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, MIN_REGISTROS, resumenLanzamiento, prevision, resumenManual, medias, supuestosEscenario, inversionRecomendada, proyeccion, planificar, PLAN_DEF } from './calculadora.js';
 import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
@@ -35,7 +35,7 @@ import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
 import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
-import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS } from './anuncios.js';
+import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -10163,6 +10163,7 @@ function gwPrompt() {
 // Por objetivo del embudo, prompts para Claude (guiones, Magnific, copys de Meta) con los anuncios ganadores
 // (del lanzamiento, de todos los lanzamientos del embudo o de la VSL) y la ficha de marca, avatar y producto.
 const notasAnKey = () => `lsd_an_notas_${state.cliente || ''}_${state.embudo}`;
+const eventoAnKey = () => `lsd_an_evento_${state.cliente || ''}_${state.embudo}`;
 const TIPO_TXT = { lanzamientos: 'Lanzamiento (webinar / clases gratuitas y carrito)', vsl: 'Embudo siempre abierto (VSL)', meteorico: 'Meteórico (oferta flash)', directa: 'Venta directa (producto de entrada)' };
 // Filas de anuncios ganadores disponibles ahora mismo: { filas, origen }.
 function ganadoresAnuncios() {
@@ -10178,10 +10179,18 @@ function ganadoresAnuncios() {
   if (t === 'vsl' && state.vsl?.leads?.length) return { filas: rankingGanadores(state.vsl.leads, vslCfg(), 'ad', state.vsl.meta?.names || {}, state.vsl.meta?.spendBy || {}), origen: 'el periodo elegido de la VSL' };
   return { filas: [], origen: '' };
 }
+// Formato del lanzamiento abierto (webinar, 2/3 vídeos, PLF, reto) para adaptar el nombre del evento.
+function formatoAnuncios() {
+  if (tipoActual() !== 'lanz') return { id: '', texto: '' };
+  const l = state.config.launches[state.launchCode];
+  const id = formatoValido(l?.formato || embudoInfo()?.formato);
+  return { id, texto: `${FORMATOS[id].label}: ${FORMATOS[id].desc}` };
+}
 function ctxAnuncio(c, objetivo) {
   const g = ganadoresAnuncios();
+  const f = formatoAnuncios();
   return { objetivo, tipoTexto: TIPO_TXT[c.tipo] || c.tipo, nombreEmbudo: c.nombre, marca: clienteNombre(), datos: c.datos, urls: c.urls,
-    contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto), diseno: disenoTexto(pgc.marca?.m), ganadores: ganadoresTexto(g.filas), notas: (ls.get(notasAnKey()) || '').trim() };
+    contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto), diseno: disenoTexto(pgc.marca?.m), ganadores: ganadoresTexto(g.filas), notas: (ls.get(notasAnKey()) || '').trim(), evento: (ls.get(eventoAnKey()) || '').trim(), formato: f.id, formatoTexto: f.texto };
 }
 async function renderAnuncios() {
   const box = $('#anuncios-body');
@@ -10210,6 +10219,9 @@ async function renderAnuncios() {
         </tbody></table></div>`
         : '<p class="muted">Aún no hay datos de anuncios ganadores (hacen falta registros con las UTM de Meta). Los prompts se basan en la <strong>ficha de marca, avatar y producto</strong> y proponen ángulos nuevos para testear.</p>'}
       ${conHist ? `<p><button type="button" class="btn small" id="an-hist">${state.hist.datos && state.hist.embudo === state.embudo ? '↻ Volver a cargar' : '📚 Usar los ganadores de todos los lanzamientos'}</button> <span class="muted small">Carga los leads de cada lanzamiento del embudo (tarda un poco).</span></p>` : ''}
+      ${['lanz', 'vsl'].includes(tipoActual()) ? `<label class="field"><span>¿Cómo llamamos al evento gratuito en los anuncios? <small>(nunca «webinar»${formatoAnuncios().id ? `; formato: ${esc(FORMATOS[formatoAnuncios().id].label)}` : ''}; si lo dejas vacío, Claude te lo preguntará con opciones para este formato)</small></span>
+        <input id="an-evento" list="an-eventos" maxlength="60" placeholder="Ej.: ${esc(nombresEvento(formatoAnuncios().id || 'webinar')[0])}" value="${esc(ls.get(eventoAnKey()) || '')}">
+        <datalist id="an-eventos">${nombresEvento(formatoAnuncios().id || 'webinar').map((x) => `<option value="${esc(x)}">`).join('')}</datalist></label>` : ''}
       <label class="field"><span>Notas sobre lo que ha funcionado <small>(opcional, entran en los prompts: qué decía el anuncio ganador, formato, gancho, quién sale…)</small></span><textarea id="an-notas" rows="2" placeholder="Ej.: el que más vende es un vídeo de Laura a cámara contando su historia; los carruseles no funcionan…">${esc(ls.get(notasAnKey()) || '')}</textarea></label>
     </section>
     ${objetivosDe(c.tipo).map((o) => `<section class="card an-obj">
@@ -10227,7 +10239,10 @@ $('#anuncios-body').addEventListener('toggle', (e) => {
   const o = objetivosDe(c.tipo).find((x) => x.id === pre.dataset.anPrompt);
   if (o) pre.textContent = PROMPTS_ANUNCIOS[0].fn(ctxAnuncio(c, o));
 }, true);
-$('#anuncios-body').addEventListener('input', (e) => { if (e.target.id === 'an-notas') ls.set(notasAnKey(), e.target.value); });
+$('#anuncios-body').addEventListener('input', (e) => {
+  if (e.target.id === 'an-notas') ls.set(notasAnKey(), e.target.value);
+  if (e.target.id === 'an-evento') ls.set(eventoAnKey(), e.target.value);
+});
 $('#anuncios-body').addEventListener('click', async (e) => {
   if (e.target.closest('#an-hist')) {
     const b = e.target.closest('#an-hist');

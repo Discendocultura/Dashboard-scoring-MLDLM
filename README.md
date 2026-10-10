@@ -649,6 +649,11 @@ ganadores de todos los lanzamientos», o de la VSL; por ventas y, si no hay, por
 puede mirar sus creativos), las notas opcionales sobre lo que ha funcionado, la **ficha de marca, avatar y producto**,
 el estilo visual, los datos del embudo y las reglas de Meta (sin atributos personales, sin antes/después, sin promesas
 de salud). Sin histórico, se basan en la ficha y proponen ángulos nuevos.
+**Nunca «webinar»:** en lanzamientos y VSL hay un campo «¿Cómo llamamos al evento gratuito en los anuncios?» con
+sugerencias según el formato (webinar: «clase gratuita», «masterclass en directo gratuita»…; 2-3 vídeos: «formación
+gratuita en 3 clases»…; PLF: «Semana de…», «serie de clases gratuitas»; reto: «reto gratuito de N días»). Se recuerda en
+este navegador. Los prompts prohíben la palabra «webinar», dicen el formato del lanzamiento y, si el campo está vacío,
+Claude pregunta el nombre (con opciones para ese formato) antes de empezar.
 
 ## 🧱 Páginas del embudo con IA (Plan → Páginas)
 En todos los tipos de embudo. Por cada página (lanzamientos: registro, gracias, login, preclase, venta, pago y
