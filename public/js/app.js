@@ -29,7 +29,7 @@ import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCo
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaCliente, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { claveTelefono, leerMiembros } from './grupos-wa.js';
-import { TIPOS_MSG, ESTADOS_MSG, GUIA_ARCHIVOS, parsearSecuencia, promptCalentamiento, faltaMensaje, sanitizeMensaje, nuevoIdMsg } from './calentamiento.js';
+import { TIPOS_MSG, ESTADOS_MSG, GUIA_ARCHIVOS, parsearSecuencia, promptCalentamiento, faltaMensaje, faltaEnlaceDirecto, sanitizeMensaje, nuevoIdMsg } from './calentamiento.js';
 import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientesDirecta } from './directa.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
@@ -10017,6 +10017,8 @@ async function renderGrupoWa() {
       <h3>1 · El prompt para Claude</h3>
       <div class="row gw-rango"><label class="field inline"><span>Desde</span><input type="date" id="gw-desde" value="${esc(desde)}"></label><label class="field inline"><span>Hasta</span><input type="date" id="gw-hasta" value="${esc(hasta)}"></label>
         <button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt</button></div>
+      ${gwDirectos().length ? `<div class="gw-directo-info"><strong>📅 Día${gwDirectos().length > 1 ? 's' : ''} de directo:</strong> ${gwDirectos().map((x) => `${esc(x.nombre)} · ${esc(fechaFicha(madridToEpoch(x.at)))} a las ${esc(x.at.slice(11))}`).join(' · ')}. Ese día todos los mensajes solo recuerdan que es hoy, cuentan lo que verán y llevan el enlace de acceso al directo (ya va en el prompt).</div>
+      <label class="field"><span>¿Qué verán en la masterclass? <small>(opcional, entra en el prompt: temas, lo que aprenderán, sorpresas…)</small></span><textarea id="gw-temario" rows="3" placeholder="- Por qué el bebé se despierta cada 2 horas&#10;- Las 3 rutinas que funcionan&#10;- Sorpresa al final para quien se quede">${esc(ls.get(temarioKey()) || '')}</textarea></label>` : ''}
       <p class="muted small">Pégalo en Claude en una conversación con tu skill de copy de venta. Si ya hay mensajes programados, el prompt se los dice para que no los repita.</p>
       <details><summary class="small">Ver el prompt</summary><pre class="snippet gw-prompt" id="gw-prompt"></pre></details>
     </section>
@@ -10048,9 +10050,21 @@ async function renderGrupoWa() {
   const pre = $('#gw-prompt');
   if (pre) pre.textContent = gwPrompt();
 }
+// Días de directo del lanzamiento con su enlace genérico de acceso (sin datos de cada persona: pide el email).
+function gwDirectos() {
+  if (enMeteo()) return [];
+  const emb = embCal();
+  const vids = videosDe(emb);
+  const dir = vids.filter((v) => esEnDirecto(v) || (v.k === 1 && emb.fechaDirecto));
+  return dir.filter((v) => v.fecha).map((v) => ({
+    nombre: vids.length > 1 ? v.nombre : 'El webinar en directo', at: `${v.fecha}T${v.hora || '19:00'}`,
+    url: `${location.origin}/directo?l=${encodeURIComponent(gwc.code)}${vids.length > 1 ? `&v=${v.k}` : ''}${cParam('&')}`,
+  }));
+}
+const temarioKey = () => `lsd_gw_temario_${state.cliente || ''}_${gwc.code}`;
 function gwPrompt() {
   const emb = embCal();
-  return promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado') });
+  return promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado'), directos: gwDirectos(), temario: ($('#gw-temario')?.value ?? ls.get(temarioKey()) ?? '').trim() });
 }
 function gwFila(m, editable) {
   const tp = tipoMsg(m.tipo);
@@ -10078,6 +10092,7 @@ function gwFila(m, editable) {
       ${m.guion ? `<details class="gw-guion"><summary class="small">🎬 Guion para grabarlo</summary><pre>${esc(m.guion)}</pre></details>` : ''}
       ${m.tipo === 'audio' || m.tipo === 'nota' ? '' : `<label class="field"><span>${m.tipo === 'texto' ? 'Texto' : 'Texto que lo acompaña'}</span><textarea class="gw-texto" rows="${Math.min(8, Math.max(2, (m.texto || '').split('\n').length))}"${dis}>${esc(m.texto)}</textarea></label>`}`}
     ${falta.length ? `<p class="small gw-falta">Falta: ${esc(falta.join(', '))}.</p>` : ''}
+    ${(() => { const d = m.estado !== 'cancelado' ? faltaEnlaceDirecto(m, gwDirectos()) : null; return d ? `<p class="small gw-falta">📅 Es el día del directo: este mensaje debería llevar el enlace de acceso <code>${esc(d.url)}</code>${!fijo ? ` <button type="button" class="btn ghost small" data-copy-text="${esc(d.url)}">Copiar enlace</button>` : ''}</p>` : ''; })()}
     ${m.estado === 'error' && m.error ? `<p class="small error">${esc(m.error)}</p>` : ''}
   </div>`;
 }
@@ -10098,7 +10113,10 @@ function gwLeer(fila) {
   $('#gw-guardar')?.removeAttribute('disabled');
 }
 $('#grupowa-body').addEventListener('change', (e) => {
-  if (e.target.id === 'gw-desde' || e.target.id === 'gw-hasta') { const pre = $('#gw-prompt'); if (pre) pre.textContent = gwPrompt(); return; }
+  if (e.target.id === 'gw-desde' || e.target.id === 'gw-hasta' || e.target.id === 'gw-temario') {
+    if (e.target.id === 'gw-temario') ls.set(temarioKey(), e.target.value);
+    const pre = $('#gw-prompt'); if (pre) pre.textContent = gwPrompt(); return;
+  }
   const fila = e.target.closest('[data-gw]');
   if (!fila) return;
   gwLeer(fila);

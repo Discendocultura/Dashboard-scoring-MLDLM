@@ -49,6 +49,13 @@ export function sanitizeMensaje(m) {
 }
 
 // Lo que falta para poder programarlo ([] = listo).
+// ¿Le falta el enlace de acceso a un mensaje del día de un directo? (todos deben llevarlo)
+export function faltaEnlaceDirecto(m, directos = []) {
+  const d = directos.find((x) => x.at && x.url && String(m.at).slice(0, 10) === x.at.slice(0, 10));
+  if (!d || m.tipo === 'encuesta' || m.tipo === 'audio' || m.tipo === 'nota') return null;
+  return String(m.texto || '').includes(d.url) || String(m.texto || '').includes('/directo') ? null : d;
+}
+
 export function faltaMensaje(m, ahora = Date.now()) {
   const out = [];
   const t = madridToEpoch(m.at);
@@ -134,7 +141,9 @@ const fechaLarga = (local) => {
 const diaLargo = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : '');
 const eur = (n) => (Number(n) ? `${Number(n).toLocaleString('es-ES')} €` : '');
 
-export function promptCalentamiento(emb, { esMeteo = false, producto = '', marca = '', desde = '', hasta = '', ya = [] } = {}) {
+// Días de directo: [{ nombre, at: 'AAAA-MM-DDTHH:MM', url }] (el enlace genérico de acceso, que pide el email).
+// `temario`: lo que se verá en la masterclass (lo escribe quien prepara los mensajes).
+export function promptCalentamiento(emb, { esMeteo = false, producto = '', marca = '', desde = '', hasta = '', ya = [], directos = [], temario = '' } = {}) {
   const d = [];
   if (esMeteo) {
     d.push(`- Acción: meteórico (oferta flash) «${emb.name || ''}»${emb.oferta ? `: ${emb.oferta}` : ''}.`);
@@ -156,13 +165,23 @@ export function promptCalentamiento(emb, { esMeteo = false, producto = '', marca
     for (const b of emb.oferta?.bonus || []) d.push(`- Bonus: ${b.nombre}${b.detalle ? ` (${b.detalle})` : ''}.`);
     if (emb.recursosUrl) d.push(`- Área de recursos (preclase): ${emb.recursosUrl}`);
   }
+  const dirTxt = directos.filter((x) => x.at).map((x) => `- ${x.nombre} el ${fechaLarga(x.at)}. Enlace de acceso al directo: ${x.url}`).join('\n');
+  const reglaDirecto = directos.some((x) => x.at) ? `
+EL DÍA DEL DIRECTO${directos.length > 1 ? ' (CADA UNO DE LOS DÍAS DE DIRECTO)' : ''} ES ESPECIAL:
+${dirTxt}
+- TODOS los mensajes de ese día se centran ÚNICAMENTE en: recordar que HOY es el día (y a qué hora empieza), contar todo lo que van a ver dentro de la masterclass y animar a entrar puntuales.
+- TODOS los mensajes de ese día llevan el enlace de acceso al directo (el de arriba), sin excepción. El enlace pide el email con el que se registraron: dilo.
+- Ese día no se vende ni se habla de otra cosa (ni VIP, ni precio, ni carrito).
+- Propón: buenos días con el recordatorio, un mensaje con lo que verán, el de «queda 1 hora», el de «empezamos en 10 minutos» (mencionando a todo el grupo) y el de «¡estamos en directo, entra ya!» (mencionando a todo el grupo).${temario ? '' : '\n- Si no sabes qué se verá en la masterclass, deja [TEMARIO DE LA MASTERCLASS] donde vaya y lo completo yo.'}
+` : '';
   const yaTxt = ya.length ? `\nYa hay estos mensajes programados (no los repitas ni pongas otro a la misma hora):\n${ya.map((m) => `- ${m.at.replace('T', ' ')} · ${m.tipo}${m.texto ? ` · «${m.texto.slice(0, 60)}…»` : ''}`).join('\n')}\n` : '';
   return `Usa tu skill de copy de venta (copy de calentamiento y carrito para grupos de WhatsApp) para escribir la secuencia de mensajes del GRUPO DE WHATSAPP de este ${esMeteo ? 'meteórico' : 'lanzamiento'}.
 
 DATOS:
 ${d.join('\n')}
+${temario ? `- Lo que verán en la masterclass:\n${temario.split('\n').map((l) => `  ${l}`).join('\n')}` : ''}
 ${desde || hasta ? `- La secuencia va del ${diaLargo(desde)} al ${diaLargo(hasta)} (hora de España).` : ''}
-${yaTxt}
+${yaTxt}${reglaDirecto}
 QUÉ QUIERO:
 - Mensajes cortos, de grupo (no 1:1), en español de España y en el tono de la marca. Que generen conversación y expectación, y que lleven a la acción en cada fase (clases, directo, VIP, carrito, últimas horas).
 - Mezcla formatos: texto, encuestas para que participen, notas de voz (con su GUION para grabarlas), y algún vídeo o imagen si aporta.

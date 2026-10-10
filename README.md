@@ -560,6 +560,10 @@ entradas y salidas por hora de las últimas 24 h (la hora con el pico, marcada).
 **Calentamiento del grupo (fase 4) · Plan → Grupo de WhatsApp** (lanzamientos y meteóricos):
 1. **Copiar el prompt:** ya lleva el producto, las fechas (captación, clases, directo, carrito / oferta), precios,
    entregables y bonus, los días elegidos y lo ya programado. Se pega en Claude con la skill de copy.
+   **Día del directo (o de cada directo):** el prompt exige que todos los mensajes de ese día solo recuerden que es hoy
+   (y la hora), cuenten lo que se verá en la masterclass y lleven **el enlace de acceso al directo**
+   (`/directo?l=<código>[&v=<vídeo>]`, pide el email); nada de venta ese día. Campo opcional «¿Qué verán en la
+   masterclass?» que entra en el prompt. En la lista, aviso en los mensajes de ese día que no llevan el enlace.
 2. **Pegar la respuesta:** formato `### AAAA-MM-DD HH:MM | tipo [| mencionar | varias]` y el contenido debajo
    (`Archivo:`, `Guion:`, `Texto:`; opciones de encuesta con `- `). Se convierte en mensajes editables.
 3. **Archivos:** SendFlow necesita un **enlace público al archivo** (GHL → Sitios → Medios → ⋯ → Copiar enlace).

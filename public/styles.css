@@ -2350,3 +2350,6 @@ body.embudo-directa .lanz-only { display: none !important; }
   .gw-rango .btn { margin-left: 0; width: 100%; }
   .gw-cab .badge { margin-left: 0; }
 }
+.gw-directo-info { padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); margin: 10px 0; font-size: 14px; }
+#gw-temario { width: 100%; }
+.gw-falta code { word-break: break-all; }

@@ -111,3 +111,19 @@ test('calentamiento: guardar, programar en SendFlow (solo lo listo), cancelar y 
   // El setter (permiso carrito) puede verlo
   assert.equal((await call('/api/sendflow?op=calentamiento&l=oct', { cookie: setter })).data.mensajes.length, 4);
 });
+
+test('calentamiento: el día del directo, solo recordatorio, temario y enlace de acceso en todos los mensajes', async () => {
+  const { faltaEnlaceDirecto } = await import('../public/js/calentamiento.js');
+  const directos = [{ nombre: 'El webinar en directo', at: '2026-11-04T19:00', url: 'https://leads-mldlm.pages.dev/directo?l=oct' }];
+  const p = promptCalentamiento({ name: 'Octubre', fechaDirecto: '2026-11-04', horaDirecto: '19:00' }, { producto: 'Raíces', directos, temario: '- Por qué se despierta\n- Las 3 rutinas' });
+  for (const t of ['EL DÍA DEL DIRECTO', 'ÚNICAMENTE', 'HOY es el día', 'TODOS los mensajes de ese día llevan el enlace', 'https://leads-mldlm.pages.dev/directo?l=oct', 'Las 3 rutinas', 'no se vende']) assert.ok(p.includes(t), t);
+  assert.ok(!p.includes('[TEMARIO DE LA MASTERCLASS]'));
+  assert.ok(promptCalentamiento({ name: 'X' }, { directos }).includes('[TEMARIO DE LA MASTERCLASS]'));
+  // Varios directos (lanzamiento de 3 vídeos)
+  assert.ok(promptCalentamiento({ name: 'X' }, { directos: [...directos, { nombre: 'Vídeo 3', at: '2026-11-06T19:00', url: 'https://x/directo?l=oct&v=3' }] }).includes('CADA UNO DE LOS DÍAS DE DIRECTO'));
+  // Aviso en los mensajes de ese día sin el enlace
+  assert.ok(faltaEnlaceDirecto({ at: '2026-11-04T10:00', tipo: 'texto', texto: '¡Hoy es el día!' }, directos));
+  assert.equal(faltaEnlaceDirecto({ at: '2026-11-04T10:00', tipo: 'texto', texto: 'Entra aquí: https://leads-mldlm.pages.dev/directo?l=oct' }, directos), null);
+  assert.equal(faltaEnlaceDirecto({ at: '2026-11-03T10:00', tipo: 'texto', texto: 'Mañana' }, directos), null);
+  assert.equal(faltaEnlaceDirecto({ at: '2026-11-04T10:00', tipo: 'encuesta' }, directos), null);
+});
