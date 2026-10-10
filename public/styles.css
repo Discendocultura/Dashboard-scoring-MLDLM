@@ -2468,6 +2468,10 @@ body.embudo-directa .lanz-only { display: none !important; }
 .an-obj h3 { margin: 0 0 4px; }
 .an-obj > p { margin: 0 0 6px; }
 .an-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.an-logo { margin: 10px 0 4px; }
+.an-logo-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.an-logo-fila input { flex: 1 1 240px; min-width: 0; }
+.an-logo-img { width: 48px; height: 48px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); background: repeating-conic-gradient(#0000 0 25%, #8881 0 50%) 0 0 / 12px 12px; padding: 4px; }
 
 /* ---------- Acceso: «Data driven growth» (espacio, cohete despegando y gráfica de crecimiento) ---------- */
 /* Siempre oscura, en modo día y noche. */

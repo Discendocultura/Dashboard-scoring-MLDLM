@@ -450,3 +450,18 @@ test('carrito abandonado: la primera llegada a la página de pago pone la etique
   await call('/api/visita', { method: 'POST', body: { launch: 'ca-26', cid: 'mock00023', pagina: 'pago' } });
   assert.ok(!(await ghl.getContact('mock00023')).tags.includes('el-camino-carrito-abandonado'));
 });
+
+test('logo del lanzamiento (Plan → Anuncios): se guarda en el lanzamiento, solo https', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const { data: cur } = await call('/api/config', { cookie: admin });
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, _version: cur.version, launches: { ...cur.config.launches, 'logo-26': { name: 'Logo', registroTag: 'registro-logo' } } } });
+  const ok = await call('/api/config', { method: 'POST', cookie: admin, body: { op: 'logoLanzamiento', l: 'logo-26', url: ' https://assets.ghl.com/logo.png ' } });
+  assert.equal(ok.status, 200, JSON.stringify(ok.data));
+  assert.equal(ok.data.config.launches['logo-26'].logoUrl, 'https://assets.ghl.com/logo.png');
+  assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { op: 'logoLanzamiento', l: 'logo-26', url: 'javascript:alert(1)' } })).status, 400);
+  assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { op: 'logoLanzamiento', l: 'no-existe', url: '' } })).status, 404);
+  const quitar = await call('/api/config', { method: 'POST', cookie: admin, body: { op: 'logoLanzamiento', l: 'logo-26', url: '' } });
+  assert.equal(quitar.data.config.launches['logo-26'].logoUrl, '');
+  const setter = (await call('/api/login', { method: 'POST', body: { password: 'setter' } })).res.headers.get('set-cookie').split(';')[0];
+  assert.equal((await call('/api/config', { method: 'POST', cookie: setter, body: { op: 'logoLanzamiento', l: 'logo-26', url: 'https://x.com/a.png' } })).status, 403);
+});

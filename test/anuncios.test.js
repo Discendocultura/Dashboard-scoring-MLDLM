@@ -53,3 +53,15 @@ test('anuncios: el nombre del evento se adapta al formato del lanzamiento (PLF, 
   assert.match(t, /Formato del lanzamiento: PLF \(4 PLCs\)/);
   assert.match(t, /pregúntame cómo quiero llamar al evento gratuito[^\n]*adaptadas a este formato[^\n]*«semana de/);
 });
+
+test('anuncios: el logo del lanzamiento va en los prompts de captación (y en Magnific se sube y se usa)', () => {
+  const logo = 'https://assets.ghl.com/logo-octubre.png';
+  for (const p of PROMPTS_ANUNCIOS) {
+    const t = p.fn(ctx({ logo }));
+    assert.match(t, /LOGO DEL LANZAMIENTO[^\n]*\nhttps:\/\/assets\.ghl\.com\/logo-octubre\.png\n- Es la imagen real del logo/, p.id);
+    assert.doesNotMatch(t, /\n{3,}/, p.id);
+    assert.doesNotMatch(p.fn(ctx()), /LOGO DEL LANZAMIENTO/, p.id); // sin logo, nada
+    assert.doesNotMatch(p.fn(ctx({ logo, objetivo: objetivosDe('lanzamientos')[2] })), /LOGO DEL LANZAMIENTO/, p.id); // solo captación
+  }
+  assert.match(promptMagnific(ctx({ logo })), /súbelo a Magnific desde https:\/\/assets\.ghl\.com\/logo-octubre\.png/);
+});

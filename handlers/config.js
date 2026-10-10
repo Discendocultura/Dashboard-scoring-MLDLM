@@ -59,6 +59,18 @@ export async function POST(request) {
       });
       return json({ config, version: versionDe(config) });
     }
+    // Logo del lanzamiento (Plan → Anuncios): URL de la imagen, para los anuncios de captación.
+    if (body.op === 'logoLanzamiento') {
+      const code = String(body.l || '');
+      const url = String(body.url || '').trim();
+      if (url && !/^https:\/\/\S+$/i.test(url)) return json({ error: 'El enlace del logo debe empezar por https://' }, 400);
+      const config = await reintentando(async () => {
+        const actual = await getConfig({ fresh: true });
+        if (!actual.launches[code]) throw Object.assign(new Error('Lanzamiento no encontrado'), { status: 404, publicMessage: 'Lanzamiento no encontrado' });
+        return saveConfig({ ...actual, launches: { ...actual.launches, [code]: { ...actual.launches[code], logoUrl: url } } }, { version: versionDe(actual), motivo: 'Logo del lanzamiento' });
+      });
+      return json({ config, version: versionDe(config) });
+    }
     // Objetivos y supuestos de la calculadora de un lanzamiento (pestaña Plan → Planificador).
     if (body.op === 'objetivos') {
       const code = String(body.l || '');

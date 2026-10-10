@@ -10253,8 +10253,15 @@ function ctxAnuncio(c, objetivo) {
   const g = ganadoresAnuncios();
   const f = formatoAnuncios();
   return { objetivo, tipoTexto: TIPO_TXT[c.tipo] || c.tipo, nombreEmbudo: c.nombre, marca: clienteNombre(), datos: c.datos, urls: c.urls,
-    contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto), diseno: disenoTexto(pgc.marca?.m), ganadores: ganadoresTexto(g.filas), notas: (ls.get(notasAnKey()) || '').trim(), evento: (ls.get(eventoAnKey()) || '').trim(), formato: f.id, formatoTexto: f.texto };
+    contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto), diseno: disenoTexto(pgc.marca?.m), ganadores: ganadoresTexto(g.filas), notas: (ls.get(notasAnKey()) || '').trim(), evento: (ls.get(eventoAnKey()) || '').trim(), formato: f.id, formatoTexto: f.texto, logo: logoLanzamiento() };
 }
+// Logo del lanzamiento actual (Plan → Anuncios → Captación): se guarda en el lanzamiento, para todo el equipo.
+const logoLanzamiento = () => (tipoActual() === 'lanz' ? state.config.launches[state.launchCode]?.logoUrl || '' : '');
+const campoLogoHtml = () => {
+  const url = logoLanzamiento();
+  return `<div class="field an-logo"><span>🖼️ Logo del lanzamiento <small>(enlace a la imagen, PNG con fondo transparente: GHL → Sitios → Medios → ⋯ → Copiar enlace). Va en el prompt de captación para que salga en los anuncios.</small></span>
+    <div class="an-logo-fila">${url ? `<img src="${esc(url)}" alt="Logo del lanzamiento" class="an-logo-img" loading="lazy">` : ''}<input id="an-logo" type="url" inputmode="url" maxlength="600" placeholder="https://…/logo.png" value="${esc(url)}"><span id="an-logo-status" class="muted small"></span></div></div>`;
+};
 async function renderAnuncios() {
   const box = $('#anuncios-body');
   const c = contextoPaginas();
@@ -10291,6 +10298,7 @@ async function renderAnuncios() {
       <h3>${o.icono} ${esc(o.titulo)}</h3>
       <p class="small">${esc(o.meta)}</p>
       <p class="muted small">Para: ${esc(o.publico)}</p>
+      ${o.id === 'captacion' && tipoActual() === 'lanz' ? campoLogoHtml() : ''}
       <div class="an-btns">${PROMPTS_ANUNCIOS.map((p) => `<button type="button" class="btn${p.id === 'todo' ? ' primary' : ''}" data-an-copiar="${o.id}:${p.id}" title="${esc(p.desc)}">${p.icono} ${esc(p.titulo)}</button>`).join('')}</div>
       <details><summary class="small">Ver el prompt «Todo en uno»</summary><pre class="snippet pg-prompt" data-an-prompt="${o.id}"></pre></details>
     </section>`).join('')}`;
@@ -10305,6 +10313,19 @@ $('#anuncios-body').addEventListener('toggle', (e) => {
 $('#anuncios-body').addEventListener('input', (e) => {
   if (e.target.id === 'an-notas') ls.set(notasAnKey(), e.target.value);
   if (e.target.id === 'an-evento') ls.set(eventoAnKey(), e.target.value);
+});
+$('#anuncios-body').addEventListener('change', async (e) => {
+  if (e.target.id !== 'an-logo') return;
+  const url = e.target.value.trim();
+  const st = $('#an-logo-status');
+  if (url && !/^https:\/\/\S+$/i.test(url)) { st.textContent = 'Pon el enlace completo, empezando por https://'; return; }
+  st.textContent = 'Guardando…';
+  try {
+    const { config } = await api('/api/config', { method: 'POST', body: { op: 'logoLanzamiento', l: state.launchCode, url } });
+    state.config = config;
+    e.target.closest('.an-logo').outerHTML = campoLogoHtml();
+    $('#an-logo-status').textContent = url ? 'Guardado ✓ · ya va en los prompts de captación' : 'Logo quitado';
+  } catch (ex) { st.textContent = ex.message; }
 });
 $('#anuncios-body').addEventListener('click', async (e) => {
   if (e.target.closest('#an-hist')) {

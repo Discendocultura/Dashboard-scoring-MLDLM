@@ -660,6 +660,10 @@ sugerencias según el formato (webinar: «clase gratuita», «masterclass en dir
 gratuita en 3 clases»…; PLF: «Semana de…», «serie de clases gratuitas»; reto: «reto gratuito de N días»). Se recuerda en
 este navegador. Los prompts prohíben la palabra «webinar», dicen el formato del lanzamiento y, si el campo está vacío,
 Claude pregunta el nombre (con opciones para ese formato) antes de empezar.
+**🖼️ Logo del lanzamiento** (lanzamientos, en la tarjeta de Captación): el enlace a la imagen del logo (PNG con fondo
+transparente; GHL → Sitios → Medios → ⋯ → Copiar enlace). Se guarda en el lanzamiento (lo ve todo el equipo; solo
+`https://`) y entra en los 4 prompts de **captación**: Claude debe usar esa imagen tal cual (sin redibujarla) en cada
+formato de imagen y en el cierre de cada vídeo, y en Magnific la sube y la añade al kit de marca.
 
 ## 🧱 Páginas del embudo con IA (Plan → Páginas)
 En todos los tipos de embudo. Por cada página (lanzamientos: registro, gracias, login, preclase, venta, pago y

@@ -67,9 +67,19 @@ const reglaEvento = (evento, formato) => (evento
   ? `- NUNCA uses la palabra «webinar» (ni «webinar gratuito»): en los anuncios el evento se llama «${evento}» (puedes variar ligeramente la forma, sin decir webinar).`
   : `- NUNCA uses la palabra «webinar» (ni «webinar gratuito»). ANTES DE EMPEZAR, pregúntame cómo quiero llamar al evento gratuito en los anuncios, con opciones adaptadas a este formato de lanzamiento (p. ej. ${nombresEvento(formato).map((x) => `«${x.toLowerCase()}»`).join(', ')}), y usa ese nombre.`);
 
+// Logo del lanzamiento: solo en los anuncios de captación (venden el evento, que es lo que lleva ese logo).
+const conLogo = (ctx) => Boolean(ctx.logo) && ctx.objetivo?.id === 'captacion';
+const bloqueLogo = (ctx) => (conLogo(ctx) ? `LOGO DEL LANZAMIENTO (va en TODOS los anuncios de captación):
+${ctx.logo}
+- Es la imagen real del logo: descárgala de ese enlace y úsala tal cual (no la redibujes, no la recrees con IA ni inventes otro logo).
+- Imágenes: el logo visible en cada formato (en una esquina o junto al titular), sin tapar el mensaje, sin deformarlo y con contraste con el fondo.
+- Vídeos: el logo en el cierre, junto a la llamada a la acción (y, si encaja, discreto en una esquina durante todo el vídeo).
+` : '');
+
 const POLITICAS = `- Cumple las políticas de Meta: nada de aludir a atributos personales de quien lo lee («¿Estás embarazada?», «¿Tienes ansiedad?» → mejor «Para mamás que…», «Muchas mujeres…»), nada de antes/después, ni promesas de resultados de salud o garantizados, ni lenguaje alarmista.`;
 
-function base({ objetivo, tipoTexto, nombreEmbudo, marca, datos, urls, contexto, diseno, ganadores, notas, evento = '', formato = '', formatoTexto = '' }) {
+function base(ctx) {
+  const { objetivo, tipoTexto, nombreEmbudo, marca, datos, urls, contexto, diseno, ganadores, notas, evento = '', formato = '', formatoTexto = '' } = ctx;
   const enlaces = Object.entries(urls || {}).filter(([, u]) => u).map(([k, u]) => `- ${k}: ${u}`).join('\n');
   return `CONTEXTO
 - Cliente: ${marca || '(sin nombre)'} · Embudo: ${tipoTexto}${nombreEmbudo ? ` «${nombreEmbudo}»` : ''}.${formatoTexto ? `\n- Formato del lanzamiento: ${formatoTexto} (adapta el mensaje y el nombre del evento a este formato).` : ''}
@@ -81,7 +91,7 @@ ${reglaEvento(evento, formato)}
 DATOS DEL EMBUDO:
 ${datos.join('\n') || '(sin datos)'}
 ${enlaces ? `\nENLACES:\n${enlaces}\n` : ''}
-${contexto ? `MARCA, AVATAR Y PRODUCTO (la fuente de verdad: usa sus palabras, dolores, deseos y objeciones):\n<marca>\n${contexto}\n</marca>\n` : 'MARCA Y AVATAR: aún no hay ficha; pregunta lo imprescindible antes de inventar.\n'}
+${bloqueLogo(ctx)}${contexto ? `MARCA, AVATAR Y PRODUCTO (la fuente de verdad: usa sus palabras, dolores, deseos y objeciones):\n<marca>\n${contexto}\n</marca>\n` : 'MARCA Y AVATAR: aún no hay ficha; pregunta lo imprescindible antes de inventar.\n'}
 ${diseno ? `ESTILO VISUAL DE LA MARCA:\n${diseno}\n` : ''}
 ${ganadores ? `ANUNCIOS GANADORES (de los datos reales del dashboard; replica lo que funciona: ángulo, gancho, formato y mensaje, sin copiarlos literalmente):\n${ganadores}\nSi tienes el conector de Meta, búscalos por su nombre en la cuenta publicitaria y mira su creativo (texto, titular, imagen o vídeo) antes de empezar.\n` : 'ANUNCIOS GANADORES: aún no hay histórico. Basa los ángulos en la ficha (dolores, deseos, objeciones y frases literales del avatar) y propón ángulos distintos para testear.\n'}
 ${notas ? `NOTAS SOBRE LOS ANUNCIOS QUE HAN FUNCIONADO:\n${notas}\n` : ''}`;
@@ -98,7 +108,7 @@ const reqCopys = (ctx) => `Generales (valen para todos los creativos de este obj
 - La llamada a la acción: «${ctx.objetivo.cta}» (y qué botón de Meta elegir).
 - Listo para copiar y pegar.`;
 const carpetaDe = (ctx) => `${ctx.marca || 'Cliente'} · ${ctx.nombreEmbudo || ctx.tipoTexto} · ${ctx.objetivo.titulo}`;
-const reqMagnific = (ctx) => `1. Kit de marca: busca uno de «${ctx.marca || 'la marca'}» (brand_kit_list); si no hay, créalo con los colores, las tipografías y el logo del estilo visual de arriba. Úsalo en todo.
+const reqMagnific = (ctx) => `1. Kit de marca: busca uno de «${ctx.marca || 'la marca'}» (brand_kit_list); si no hay, créalo con los colores, las tipografías y el logo del estilo visual de arriba. Úsalo en todo.${conLogo(ctx) ? `\n   Logo del lanzamiento: súbelo a Magnific desde ${ctx.logo} (creations_upload_image, y añádelo al kit con brand_kit_add_asset) y ponlo en cada imagen y en el cierre de cada vídeo, como se indica arriba.` : ''}
 2. Antes de generar nada, enséñame el PLAN: 6 anuncios de imagen (ángulos distintos, basados en los ganadores o en la ficha) y 3 vídeos cortos (a partir de los mejores ganchos), con el texto que llevará cada uno, y el COSTE ESTIMADO en créditos (simulate_cost). Espera a que te diga «adelante».
 3. Imágenes: cada anuncio en 1:1 (1080×1080, feed), 4:5 (1080×1350) y 9:16 (1080×1920, Stories/Reels; deja libres los 250 px de arriba y de abajo). Texto en pantalla corto y legible (máx. 6-8 palabras), con contraste y en los colores de la marca. Si hay fotos de la marca, úsalas como referencia; si no, fotografía realista que represente al avatar (no ilustraciones genéricas de stock).
 4. Vídeos: 9:16, 15-30 s, gancho visual en el primer segundo, subtítulos grandes y voz en off en español de España (elige una voz acorde a la marca). Cierra con la llamada a la acción: «${ctx.objetivo.cta}».
