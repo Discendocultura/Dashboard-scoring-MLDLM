@@ -4,7 +4,7 @@
 //                                           (críticos del auditor, tareas vencidas, próximos hitos) a los superadmin
 //   POST { op: 'enviar' }                 → enviarlo ahora (prueba)
 import { db } from '../lib/store.js';
-import { requireSuperadmin, safeEqual } from '../lib/auth.js';
+import { requireSuperadmin, fallaClaveTarea } from '../lib/auth.js';
 import { env } from '../lib/env.js';
 import { enPrincipal, clienteActual } from '../lib/cliente.js';
 import { listUsers, ensureContact, emailLayout, guardarContactos } from '../lib/users.js';
@@ -72,7 +72,7 @@ export async function GET(request) {
     const url = new URL(request.url);
     const key = url.searchParams.get('key');
     if (key != null) {
-      if (!env.DIGEST_KEY || env.DIGEST_KEY.length < 16 || !safeEqual(key, env.DIGEST_KEY)) return json({ error: 'No autorizado' }, 401);
+      { const falla = fallaClaveTarea(key, env.DIGEST_KEY); if (falla) return json({ error: 'No autorizado', motivo: falla }, 401); }
       // Una tarea programada por cliente (…&c=<cliente>): sus informes automáticos (lanzamientos recién
       // cerrados y VSL los lunes) y su resumen diario. Así cada llamada es pequeña y no se pasa del
       // límite de peticiones de Cloudflare. Sin c=: solo el resumen de la agencia (auditor).

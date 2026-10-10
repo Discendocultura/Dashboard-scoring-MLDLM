@@ -545,7 +545,9 @@ los grupos, con 3 o más). Resultado:
 - **Métricas → Grupos de WhatsApp:** cuántos leads están, cuántos compraron y cuántos siguen sin comprar.
 **Vigilancia (fase 3):** una tarea de cron-job.org **cada 15 minutos** abre
 `https://<tu-proyecto>.pages.dev/api/sendflow?op=vigilar&key=<DIGEST_KEY>` (otros clientes: `&c=<cliente>`; la URL
-está en Cuenta → Conexiones). Solo trabaja con lanzamientos en captación o carrito y meteóricos en curso que tengan
+está en Cuenta → Conexiones; cambia `<DIGEST_KEY>`, signos `< >` incluidos, por el valor de la variable de Cloudflare). Si
+cron-job.org da «Unauthorized», abre la URL en el navegador: la respuesta trae `motivo` (falta DIGEST_KEY en Cloudflare,
+es corta, la URL aún lleva `<DIGEST_KEY>` o la clave no coincide; nunca muestra la clave). Solo trabaja con lanzamientos en captación o carrito y meteóricos en curso que tengan
 campaña de SendFlow (máx. 3; unas 2 peticiones a SendFlow por campaña). Guarda una foto (entradas, salidas y clics) y avisa de:
 - **🔗 Enlace caído:** el «Grupo de WhatsApp · enlace» del lanzamiento (o del meteórico) da error o no responde
   (mejor poner el enlace de redirección de SendFlow que el de un grupo concreto).

@@ -9733,7 +9733,7 @@ function pintarVigiaConexiones() {
   const url = `${location.origin}/api/sendflow?op=vigilar&key=<DIGEST_KEY>${cParam('&')}`;
   $('#cx-vigia-tarea').innerHTML = `<ol class="small">
     <li>En <a href="https://cron-job.org" target="_blank" rel="noopener">cron-job.org</a> (gratis), la misma cuenta del resumen diario → <strong>Create cronjob</strong>.</li>
-    <li>URL (cambia <code>&lt;DIGEST_KEY&gt;</code> por la clave del resumen diario, la de Cloudflare):</li></ol>
+    <li>URL: cambia <code>&lt;DIGEST_KEY&gt;</code> (signos <code>&lt; &gt;</code> incluidos) por el valor de la variable DIGEST_KEY de Cloudflare. Si cron-job.org da «Unauthorized», abre la URL en el navegador: el motivo sale escrito.</li></ol>
     ${filaCopiar('Tarea de vigilancia', url, 'Ejecución: <strong>cada 15 minutos</strong>. Solo trabaja cuando hay un lanzamiento en captación o carrito, o un meteórico en curso, con su campaña de SendFlow.')}`;
   const av = state.config.sendflowAvisos || {};
   $('#cx-av-email').checked = av.email !== false;

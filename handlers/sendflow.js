@@ -16,7 +16,7 @@ import { getConfig } from '../lib/config-store.js';
 import { leerCompartida } from '../lib/store.js';
 import { env } from '../lib/env.js';
 import { csvMiembrosMock } from '../lib/mock.js';
-import { safeEqual } from '../lib/auth.js';
+import { fallaClaveTarea } from '../lib/auth.js';
 import { vigilarGrupos, estadoVigilancia } from '../lib/vigia-grupos.js';
 import { leerSecuencia, guardarSecuencia, programarSecuencia, cancelarMensaje, marcarCancelado, votosEncuesta } from '../lib/calentamiento.js';
 import { readBody } from '../lib/http.js';
@@ -81,7 +81,7 @@ export async function GET(request) {
     const op = url.searchParams.get('op') || 'probar';
     if (op === 'vigilar') {
       const key = url.searchParams.get('key') || '';
-      if (!env.DIGEST_KEY || env.DIGEST_KEY.length < 16 || !safeEqual(key, env.DIGEST_KEY)) return json({ error: 'No autorizado' }, 401);
+      { const falla = fallaClaveTarea(key, env.DIGEST_KEY); if (falla) return json({ error: 'No autorizado', motivo: falla }, 401); }
       if (!sendflowConfigurado()) return json({ vigiladas: 0, motivo: 'SendFlow no está conectado' });
       return json(await vigilarGrupos(await getConfig({ fresh: true }), { dashboardUrl: new URL('/', request.url).toString() }));
     }

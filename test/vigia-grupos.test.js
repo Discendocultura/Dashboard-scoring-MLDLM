@@ -75,6 +75,9 @@ test('vigilancia: la tarea con la clave guarda la foto y el dashboard la enseña
   assert.equal(saved.status, 200);
   assert.deepEqual((await saved.json()).config.sendflowAvisos, { email: true, telefono: '34600111222', cuentaId: 'acc-1' });
   assert.equal((await call('/api/sendflow?op=vigilar&key=mala')).status, 401);
+  const marcador = await call('/api/sendflow?op=vigilar&key=<DIGEST_KEY>');
+  assert.equal(marcador.status, 401);
+  assert.match(marcador.data.motivo, /sin los signos/);
   const r = (await call(`/api/sendflow?op=vigilar&key=${ENV.DIGEST_KEY}`)).data;
   assert.equal(r.vigiladas, 1);
   assert.deepEqual(r.campanas[0].alertas, []);
