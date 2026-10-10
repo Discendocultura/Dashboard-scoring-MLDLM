@@ -557,7 +557,23 @@ Avisos: por **email** (al del resumen diario; todos) y, si quieres, por **WhatsA
 (Cuenta → Conexiones → «Dónde te avisa»). El mismo aviso no se repite en 3 h (las fugas, en 1 h). En **Métricas →
 Grupos de WhatsApp → Vigilancia**: última comprobación, estado del enlace y de los grupos, avisos recientes y
 entradas y salidas por hora de las últimas 24 h (la hora con el pico, marcada).
-API: `GET /api/sendflow?op=probar` · `?op=campanas` · `?op=cuentas` (permiso «config») · `?op=grupos&l=<código>` (permiso «metricas») ·
+**Calentamiento del grupo (fase 4) · Plan → Grupo de WhatsApp** (lanzamientos y meteóricos):
+1. **Copiar el prompt:** ya lleva el producto, las fechas (captación, clases, directo, carrito / oferta), precios,
+   entregables y bonus, los días elegidos y lo ya programado. Se pega en Claude con la skill de copy.
+2. **Pegar la respuesta:** formato `### AAAA-MM-DD HH:MM | tipo [| mencionar | varias]` y el contenido debajo
+   (`Archivo:`, `Guion:`, `Texto:`; opciones de encuesta con `- `). Se convierte en mensajes editables.
+3. **Archivos:** SendFlow necesita un **enlace público al archivo** (GHL → Sitios → Medios → ⋯ → Copiar enlace).
+   Vimeo/YouTube no sirven. Formatos: imagen .jpg/.png · vídeo .mp4 (H.264, vertical) · audio .mp3/.m4a · nota de voz
+   .ogg (opus) o .mp3 · documento .pdf; máx. 16 MB.
+4. **Programar en SendFlow** (con confirmación): `POST /actions/send-message` con `scheduledTo`, a todos los grupos de
+   la campaña; tipos texto (con mención a todos), imagen, vídeo, audio, nota de voz, encuesta (2-12 opciones) y documento.
+   En tandas de 8 con 3 s entre peticiones. Lo que le falta algo no se programa. Lo programado no se edita: se cancela
+   (si SendFlow no deja cancelarlo por API, se cancela allí y se marca aquí). Las encuestas enviadas enseñan sus votos.
+   Los mensajes se guardan en D1 (`lsd_calentamiento_<código>`).
+El **detector de fuga** (fase 3) dice ahora qué mensaje salió justo antes del pico de salidas.
+Ver: permiso «Carrito»; preparar y programar: permiso «Configuración».
+API: `GET /api/sendflow?op=probar` · `?op=campanas` · `?op=cuentas` (permiso «config») · `?op=calentamiento&l=` ·
+`?op=votos&l=&id=` · `POST {op: calentamiento-guardar | programar | cancelar | marcar-cancelado}` · `?op=grupos&l=<código>` (permiso «metricas») ·
 `?op=miembros&l=<código>` (CSV; permisos hoy, leads o métricas). Base `https://sendflow.pro/sendapi` (cambiable con `SENDFLOW_BASE_URL`).
 
 ## 🛒 Venta directa / producto de entrada (low ticket)

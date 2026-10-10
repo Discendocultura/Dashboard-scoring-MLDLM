@@ -169,6 +169,7 @@
           <button type="button" class="subview-tab" data-view="objetivos">Planificador</button>
           <button type="button" class="subview-tab" data-view="calendario">Calendario</button>
           <button type="button" class="subview-tab" data-view="carrito">Carrito</button>
+          <button type="button" class="subview-tab" data-view="grupowa">Grupo de WhatsApp</button>
           <button type="button" class="subview-tab" data-view="tareas">Tareas</button>
         </nav>
         <!-- Análisis: Avatar y anuncios (VSL: Anuncios ganadores), Comparar y Rendimiento del equipo -->
@@ -198,6 +199,9 @@
           <label class="field inline" id="vr-hasta-f" hidden><span>Hasta</span><input id="vr-hasta" type="date"></label>
           <span id="vr-texto" class="vr-texto"></span>
         </div>
+
+        <!-- 💬 Calentamiento del grupo de WhatsApp (SendFlow) -->
+        <section id="view-grupowa" hidden><div id="grupowa-body"></div></section>
 
         <!-- 🛒 Venta directa (low ticket): periodo, métricas y compradoras -->
         <div id="dir-rango" class="vsl-rango card" hidden>

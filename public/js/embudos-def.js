@@ -11,6 +11,7 @@ export const PESTANAS = {
     { id: 'metricas', label: 'Métricas', desc: 'Registros, clases, VIP, directo, ventas, coste por lead…' },
     { id: 'objetivos', label: 'Planificador', desc: 'Planificador con el histórico (inversión, leads, CPL máximo, equipo y números) y objetivos que salen de la proyección' },
     { id: 'carrito', label: 'Carrito', desc: 'Los días del carrito: hitos automáticos, emails y WhatsApps de cada día y la estrategia' },
+    { id: 'grupowa', label: 'Grupo de WhatsApp', desc: 'Los mensajes del grupo (calentamiento y carrito): el prompt para escribirlos con Claude y programarlos en SendFlow' },
     { id: 'avatar', label: 'Avatar y anuncios', desc: 'Perfil de compradoras (encuesta) y anuncios ganadores' },
     { id: 'comparar', label: 'Comparar', desc: 'Lanzamientos entre sí, edición actual frente a las anteriores, VSL frente a lanzamiento' },
     { id: 'rendimiento', label: 'Rendimiento del equipo', desc: 'WhatsApps, llamadas, shows, cierres y tiempo de respuesta por persona' },
@@ -31,6 +32,7 @@ export const PESTANAS = {
 PESTANAS.meteorico = [
   { id: 'meteoricos', label: 'Meteóricos', desc: 'Cada oferta flash: cuenta atrás, ventas, facturación, visitas a la oferta y compradoras' },
   { id: 'moferta', label: 'Oferta', desc: 'Entregables y bonus (BAR 30 min, 1 h…) frente a las ventas hora a hora' },
+  { id: 'grupowa', label: 'Grupo de WhatsApp', desc: 'Los mensajes del grupo: el prompt para escribirlos con Claude y programarlos en SendFlow' },
   { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para el calentamiento y la oferta' },
   { id: 'calendario', label: 'Calendario', desc: 'El calendario del cliente: hitos, tareas y eventos de todos sus embudos' },
 ];
@@ -75,7 +77,7 @@ export const CATEGORIAS = {
     { id: 'comercial', label: 'Hoy', icon: '📞', desc: 'Lo del día: a quién escribir, las llamadas y el directo', vistas: ['hoy', 'llamadas', 'endirecto'] },
     { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['leads'] },
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va el lanzamiento, en cifras', vistas: ['metricas'] },
-    { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Objetivos, calendario, carrito y tareas', vistas: ['objetivos', 'calendario', 'carrito', 'tareas'] },
+    { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Objetivos, calendario, carrito, grupo de WhatsApp y tareas', vistas: ['objetivos', 'calendario', 'carrito', 'grupowa', 'tareas'] },
     { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Para decidir: avatar, comparativas y rendimiento del equipo', vistas: ['avatar', 'comparar', 'rendimiento'] },
   ],
   vsl: [
@@ -93,7 +95,7 @@ export const CATEGORIAS = {
   meteorico: [
     { id: 'meteoricos', label: 'Meteóricos', icon: '⚡', desc: 'Cada oferta flash', vistas: ['meteoricos'] },
     { id: 'moferta', label: 'Oferta', icon: '🎁', desc: 'Entregables y bonus frente a las ventas', vistas: ['moferta'] },
-    { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Calendario y tareas', vistas: ['calendario', 'tareas'] },
+    { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Calendario y tareas', vistas: ['calendario', 'grupowa', 'tareas'] },
   ],
 };
 

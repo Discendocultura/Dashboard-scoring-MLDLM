@@ -5,6 +5,9 @@
 //   GET /api/sendflow?op=miembros&l=<código> → CSV con los participantes actuales (el cruce con GHL lo hace el navegador)
 //   GET /api/sendflow?op=vigilar&key=DIGEST_KEY[&c=<cliente>] → una pasada de la vigilancia (tarea cada 15 min)
 //   GET /api/sendflow?op=cuentas            → cuentas de WhatsApp de SendFlow (para los avisos)
+//   GET /api/sendflow?op=calentamiento&l=<código> → secuencia de mensajes del grupo (permiso carrito, config o métricas)
+//   GET /api/sendflow?op=votos&l=<código>&id=<mensaje> → votos de una encuesta enviada
+//   POST { op: 'calentamiento-guardar' | 'programar' | 'cancelar' | 'marcar-cancelado', l, … } (permiso config)
 // Solo quien configura (permiso «config»). Hace como mucho 2 peticiones a SendFlow (campañas y una analítica),
 // guardadas unos minutos, y no llama nada mientras SendFlow tenga la clave bloqueada (su límite es estricto).
 import { requireSession } from '../lib/auth.js';
@@ -15,7 +18,12 @@ import { env } from '../lib/env.js';
 import { csvMiembrosMock } from '../lib/mock.js';
 import { safeEqual } from '../lib/auth.js';
 import { vigilarGrupos, estadoVigilancia } from '../lib/vigia-grupos.js';
+import { leerSecuencia, guardarSecuencia, programarSecuencia, cancelarMensaje, marcarCancelado, votosEncuesta } from '../lib/calentamiento.js';
+import { readBody } from '../lib/http.js';
 import { json, errorResponse } from '../lib/http.js';
+
+const embDe = (config, code) => (config.launches && Object.hasOwn(config.launches, code) ? config.launches[code] : null)
+  || (config.meteoricos && Object.hasOwn(config.meteoricos, code) ? config.meteoricos[code] : null);
 
 // Entradas, salidas y clics por día (AAAA-MM-DD) y los grupos de la campaña de un lanzamiento o meteórico.
 async function gruposDe(code) {
@@ -81,6 +89,14 @@ export async function GET(request) {
       await requireSession(request, { permiso: ['hoy', 'leads', 'metricas'] });
       try { return await miembrosDe(String(url.searchParams.get('l') || '')); } catch (e) { return json({ error: e.publicMessage || e.message }, e.status || 502); }
     }
+    if (op === 'calentamiento' || op === 'votos') {
+      await requireSession(request, { permiso: ['carrito', 'config', 'metricas'] });
+      const code = String(url.searchParams.get('l') || '');
+      const emb = embDe(await getConfig(), code);
+      if (!emb) return json({ error: 'No encontrado' }, 404);
+      if (op === 'votos') return json(await votosEncuesta(code, String(url.searchParams.get('id') || '')));
+      return json({ ...(await leerSecuencia(code)), sendflowId: emb.sendflowId || '', conectado: sendflowConfigurado() });
+    }
     if (op === 'grupos') {
       await requireSession(request, { permiso: 'metricas' });
       return await gruposDe(String(url.searchParams.get('l') || ''));
@@ -123,6 +139,25 @@ export async function GET(request) {
       }
     }
     return json({ configurada: true, variable, ok: true, campanas: campanas.slice(0, 100), total: campanas.length, analitica });
+  } catch (e) {
+    return errorResponse(e);
+  }
+}
+
+export async function POST(request) {
+  try {
+    await requireSession(request, { permiso: 'config' });
+    const body = await readBody(request);
+    const code = String(body.l || '');
+    const emb = embDe(await getConfig(), code);
+    if (!emb) return json({ error: 'No encontrado' }, 404);
+    if (body.op === 'calentamiento-guardar') return json(await guardarSecuencia(code, body.mensajes));
+    if (body.op === 'marcar-cancelado') return json(await marcarCancelado(code, String(body.id || '')));
+    if (!emb.sendflowId) return json({ error: 'Primero elige la campaña de SendFlow de este lanzamiento' }, 400);
+    if (!sendflowConfigurado()) return json({ error: 'SendFlow no está conectado (Cuenta → Conexiones)' }, 400);
+    if (body.op === 'programar') return json(await programarSecuencia(code, emb.sendflowId, Array.isArray(body.ids) ? body.ids.map(String) : []));
+    if (body.op === 'cancelar') return json(await cancelarMensaje(code, String(body.id || '')));
+    return json({ error: 'Operación no válida' }, 400);
   } catch (e) {
     return errorResponse(e);
   }

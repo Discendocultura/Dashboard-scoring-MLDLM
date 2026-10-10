@@ -29,6 +29,7 @@ import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCo
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaCliente, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { claveTelefono, leerMiembros } from './grupos-wa.js';
+import { TIPOS_MSG, ESTADOS_MSG, GUIA_ARCHIVOS, parsearSecuencia, promptCalentamiento, faltaMensaje, sanitizeMensaje, nuevoIdMsg } from './calentamiento.js';
 import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientesDirecta } from './directa.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
@@ -293,9 +294,9 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa' };
-const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads' };
-const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', grupowa: 'lanzmeteo' };
+const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', grupowa: 'carrito' };
+const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], lanzmeteo: ['lanz', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
 const embudoInfo = (id = state.embudo) => embudos().find((e) => e.id === id) || null;
@@ -313,7 +314,9 @@ const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual
     // «En directo» es nueva: los embudos con pestañas elegidas antes la ven junto a Setting hoy o Llamadas.
     || (v === 'endirecto' && (pestanasEmbudo().includes('hoy') || pestanasEmbudo().includes('llamadas')))
     // «Carrito» es nueva: los embudos con pestañas elegidas antes la ven junto a Calendario o Tareas.
-    || (v === 'carrito' && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('objetivos'))))
+    || (v === 'carrito' && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('objetivos')))
+    // «Grupo de WhatsApp» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas o Carrito.
+    || (v === 'grupowa' && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('carrito'))))
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() || enDirecta() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
@@ -2420,7 +2423,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'grupowa'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -2440,6 +2443,7 @@ const AYUDA_VISTA = {
   calendario: ['🗓️ Calendario', 'Todas las fechas del cliente juntas: hitos de cada lanzamiento, tareas y eventos. Se puede sincronizar con tu calendario.'],
   dmetricas: ['📊 Métricas de la venta directa', 'Ventas, facturación, ticket medio, coste por venta (CPA) y ROAS del periodo elegido arriba. Debajo, el % de compradoras que coge cada bump, upsell y downsell, y la conversión de cada página si pegaste sus códigos.'],
   dclientes: ['🛍️ Compradoras', 'Quién ha comprado en el periodo, qué extras se llevó y su WhatsApp. Filtra por un extra para ver, por ejemplo, quién cogió el upsell.'],
+  grupowa: ['💬 Grupo de WhatsApp', 'Los mensajes del grupo de este lanzamiento: copia el prompt, pégalo en Claude (con tu skill de copy), pega aquí su respuesta, sube los archivos, revisa y programa en SendFlow con un botón.'],
   carrito: ['🛒 Carrito', 'Cada día del carrito: lo que pasa ese día (se calcula solo con las fechas, la oferta y la barra), los emails y WhatsApps previstos y la estrategia.'],
   tareas: ['✅ Tareas', 'Las tareas del equipo para este lanzamiento, con responsable y fecha. «Cargar tareas habituales» crea la lista de siempre con las fechas ya calculadas.'],
   avatar: ['👑 Avatar y anuncios', 'Qué perfil compra (según la encuesta) y qué anuncios traen ventas. Úsalo para decidir creatividades y públicos.'],
@@ -2471,7 +2475,7 @@ document.addEventListener('click', (e) => {
 });
 
 // Grupos de la barra de arriba, por momento de uso: Hoy (lo del día), Plan y Análisis.
-const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['objetivos', 'calendario', 'carrito', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
+const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['objetivos', 'calendario', 'carrito', 'grupowa', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
 const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
@@ -2641,6 +2645,7 @@ function showView(view) {
   if (view === 'moferta' && state.config && enMeteo()) renderMOfertaView();
   if (view === 'calendario' && state.config) renderCalendario();
   if (view === 'carrito' && state.config) renderCarritoVista();
+  if (view === 'grupowa' && state.config) renderGrupoWa();
   // Planificador: al abrirla se cargan solos los lanzamientos anteriores que falten.
   if (view === 'objetivos' && state.config?.launches?.[state.launchCode] && !enVsl() && !enMeteo() && state.leads) renderObjetivos(currentMetrics());
   // Tareas del embudo abierto (en meteóricos, del meteórico elegido).
@@ -9959,3 +9964,219 @@ function vigilanciaHtml(v, code) {
   return `<section class="vigia"><h3>🛎️ Vigilancia <span class="muted small">· última comprobación ${mins < 1 ? 'ahora mismo' : `hace ${mins} min`}</span></h3>
     <ul class="vigia-estado">${estado.map((t) => `<li>${t}</li>`).join('')}</ul>${alertas}${tabla}</section>`;
 }
+
+// ---------- 💬 Plan → Grupo de WhatsApp: calentamiento escrito con Claude y programado en SendFlow ----------
+const gwc = { code: '', mensajes: [], sendflowId: '', conectado: false, cargando: false, cambios: false, error: '' };
+const embCal = () => (enMeteo() ? state.config.meteoricos?.[state.meteo.code] : state.config.launches[state.launchCode]) || null;
+const tipoMsg = (id) => TIPOS_MSG.find((t) => t.id === id) || TIPOS_MSG[0];
+const hoyLocal = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+async function cargarCal(code, { fresh = false } = {}) {
+  if (!fresh && gwc.code === code && !gwc.error) return;
+  Object.assign(gwc, { code, mensajes: [], cargando: true, cambios: false, error: '' });
+  try {
+    const d = await api(`/api/sendflow?op=calentamiento&l=${encodeURIComponent(code)}`);
+    Object.assign(gwc, { mensajes: d.mensajes || [], sendflowId: d.sendflowId, conectado: d.conectado });
+  } catch (e) { gwc.error = e.message; }
+  gwc.cargando = false;
+}
+// Rango por defecto del prompt: de hoy (o el inicio) al cierre del carrito / de la oferta.
+function rangoCal(emb) {
+  const hoy = hoyLocal();
+  const desde = (enMeteo() ? emb.calentamiento : emb.inicioCaptacion) || hoy;
+  const hasta = String((enMeteo() ? emb.cierre : emb.cierreCarrito) || '').slice(0, 10) || (enMeteo() ? '' : emb.fechaDirecto) || '';
+  return { desde: desde < hoy ? hoy : desde, hasta };
+}
+async function renderGrupoWa() {
+  const box = $('#grupowa-body');
+  const code = codigo();
+  const emb = embCal();
+  if (!code || !emb) { box.innerHTML = `<div class="card empty"><p class="muted">${enMeteo() ? 'Elige o crea un meteórico.' : 'Elige un lanzamiento.'}</p></div>`; return; }
+  if (gwc.code !== code || gwc.cargando) { box.innerHTML = '<p class="muted">Cargando…</p>'; await cargarCal(code); if (codigo() !== code) return; }
+  const editable = puedeConfig();
+  const r = rangoCal(emb);
+  const desde = $('#gw-desde')?.value || r.desde;
+  const hasta = $('#gw-hasta')?.value || r.hasta;
+  const sinCampana = !emb.sendflowId;
+  const listos = gwc.mensajes.filter((m) => (m.estado === 'borrador' || m.estado === 'error') && !faltaMensaje(m).length);
+  const programados = gwc.mensajes.filter((m) => m.estado === 'programado');
+  const porDia = new Map();
+  for (const m of gwc.mensajes) { const d = (m.at || 'sin fecha').slice(0, 10); if (!porDia.has(d)) porDia.set(d, []); porDia.get(d).push(m); }
+  box.innerHTML = `
+    <section class="card gw-intro">
+      <h2>💬 Mensajes del grupo de WhatsApp · ${esc(emb.name || code)}</h2>
+      <ol class="gw-pasos">
+        <li><strong>Copia el prompt</strong> (paso 1) y pégalo en <strong>Claude</strong>, en una conversación con tu <strong>skill de copy</strong>. Ya lleva las fechas, el producto, la oferta y los bonus de este ${enMeteo() ? 'meteórico' : 'lanzamiento'}.</li>
+        <li><strong>Pega aquí su respuesta</strong> (paso 2): se convierte sola en mensajes con su día y hora.</li>
+        <li><strong>Sube los archivos</strong> (vídeos, audios, imágenes) y pega su enlace en cada mensaje: mira «📎 Archivos» abajo.</li>
+        <li><strong>Revisa y programa</strong> (paso 3): con un botón se programan en SendFlow para todos los grupos de la campaña.</li>
+      </ol>
+      ${sinCampana ? `<div class="notice warn">Este ${enMeteo() ? 'meteórico' : 'lanzamiento'} aún no tiene su campaña de SendFlow: puedes preparar los mensajes, pero para programarlos hay que elegirla.${editable ? ` <button type="button" class="btn small" data-grupos-vincular="${esc(code)}">Elegir la campaña →</button>` : ''}</div>` : !gwc.conectado ? '<div class="notice warn">SendFlow no está conectado (Cuenta → Conexiones).</div>' : ''}
+      ${gwc.error ? `<div class="notice err">${esc(gwc.error)}</div>` : ''}
+    </section>
+    ${editable ? `<section class="card">
+      <h3>1 · El prompt para Claude</h3>
+      <div class="row gw-rango"><label class="field inline"><span>Desde</span><input type="date" id="gw-desde" value="${esc(desde)}"></label><label class="field inline"><span>Hasta</span><input type="date" id="gw-hasta" value="${esc(hasta)}"></label>
+        <button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt</button></div>
+      <p class="muted small">Pégalo en Claude en una conversación con tu skill de copy de venta. Si ya hay mensajes programados, el prompt se los dice para que no los repita.</p>
+      <details><summary class="small">Ver el prompt</summary><pre class="snippet gw-prompt" id="gw-prompt"></pre></details>
+    </section>
+    <section class="card">
+      <h3>2 · Pega aquí la respuesta de Claude</h3>
+      <textarea id="gw-pegar" rows="7" placeholder="### 2026-11-03 19:00 | texto&#10;El texto del mensaje…&#10;&#10;### 2026-11-04 10:00 | encuesta&#10;¿La pregunta?&#10;- Opción 1&#10;- Opción 2"></textarea>
+      <p><button type="button" class="btn primary" id="gw-anadir">Convertir en mensajes</button> <span class="muted small" id="gw-anadir-st"></span></p>
+    </section>` : ''}
+    <section class="card gw-archivos">
+      <details${gwc.mensajes.some((m) => tipoMsg(m.tipo).archivo && !m.url && m.estado !== 'programado') ? ' open' : ''}><summary><h3>📎 Archivos: vídeos, audios, imágenes y PDF</h3></summary>
+      <p><strong>SendFlow no recibe el archivo, sino un enlace público al archivo.</strong> Así se consigue:</p>
+      <ol class="small">
+        <li>En GHL → <strong>Sitios → Medios</strong> (o «Media Storage»), sube el archivo.</li>
+        <li>En el archivo, <strong>⋯ → Copiar enlace</strong> (empieza por <code>https://</code> y termina en <code>.mp4</code>, <code>.ogg</code>, <code>.jpg</code>…).</li>
+        <li>Pégalo en el campo <strong>«Enlace del archivo»</strong> del mensaje (abajo).</li>
+      </ol>
+      <p class="small">❌ <strong>No sirven</strong> enlaces de Vimeo, YouTube, Instagram o Drive «para ver»: son páginas, no el archivo (ese contenido, mejor como texto con el enlace).</p>
+      <div class="table-scroll"><table class="metric-table"><thead><tr><th>Tipo</th><th>Formato recomendado</th><th>Consejo</th></tr></thead><tbody>${GUIA_ARCHIVOS.map((g) => `<tr><td>${tipoMsg(g.tipo).ico} ${esc(tipoMsg(g.tipo).label)}</td><td><strong>${esc(g.formato)}</strong></td><td class="small">${esc(g.consejo)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="muted small">Máximo 16 MB por archivo (límite de WhatsApp). Las <strong>notas de voz</strong> son lo que más se escucha en un grupo: grábalas con el guion que te da Claude.</p></details>
+    </section>
+    <section class="card">
+      <h3>3 · Revisa y programa <span class="muted small">· ${gwc.mensajes.length} mensajes · ${programados.length} programados · ${listos.length} listos para programar</span></h3>
+      ${gwc.mensajes.length ? [...porDia.entries()].map(([d, lista]) => `<div class="gw-dia"><h4>${d === 'sin fecha' ? 'Sin fecha' : esc(new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}</h4>${lista.map((m) => gwFila(m, editable)).join('')}</div>`).join('') : '<p class="muted">Aún no hay mensajes. Pega la respuesta de Claude en el paso 2.</p>'}
+      ${editable && gwc.mensajes.length ? `<div class="gw-acciones">${editable ? '<button type="button" class="btn" id="gw-nuevo">+ Añadir un mensaje a mano</button>' : ''}
+        <button type="button" class="btn" id="gw-guardar"${gwc.cambios ? '' : ' disabled'}>Guardar cambios</button>
+        <button type="button" class="btn primary" id="gw-programar"${listos.length && !sinCampana && gwc.conectado ? '' : ' disabled'}>📤 Programar en SendFlow (${listos.length})</button>
+        <span class="muted small" id="gw-st"></span></div>` : editable ? '<p><button type="button" class="btn" id="gw-nuevo">+ Añadir un mensaje a mano</button></p>' : ''}
+    </section>`;
+  const pre = $('#gw-prompt');
+  if (pre) pre.textContent = gwPrompt();
+}
+function gwPrompt() {
+  const emb = embCal();
+  return promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado') });
+}
+function gwFila(m, editable) {
+  const tp = tipoMsg(m.tipo);
+  const fijo = !editable || m.estado === 'programado' || m.estado === 'cancelado';
+  const falta = m.estado === 'borrador' || m.estado === 'error' ? faltaMensaje(m) : [];
+  const t = madridToEpoch(m.at);
+  const enviado = m.estado === 'programado' && t != null && t < Date.now();
+  const badge = m.estado === 'programado' ? (enviado ? '<span class="badge tone-buy">✓ Enviado</span>' : '<span class="badge tone-info">⏰ Programado</span>') : m.estado === 'cancelado' ? '<span class="badge">Cancelado</span>' : m.estado === 'error' ? '<span class="badge tone-warn">Error</span>' : falta.length ? '<span class="badge tone-warn">Falta algo</span>' : '<span class="badge">Listo</span>';
+  const dis = fijo ? ' disabled' : '';
+  return `<div class="gw-msg${fijo ? ' fijo' : ''}" data-gw="${esc(m.id)}">
+    <div class="gw-cab">
+      <input type="datetime-local" class="gw-at" value="${esc(m.at)}"${dis}>
+      <select class="gw-tipo"${dis}>${TIPOS_MSG.map((x) => `<option value="${x.id}"${x.id === m.tipo ? ' selected' : ''}>${x.ico} ${esc(x.label)}</option>`).join('')}</select>
+      ${['texto', 'imagen', 'video'].includes(m.tipo) ? `<label class="chk small"><input type="checkbox" class="gw-menc"${m.mencionar ? ' checked' : ''}${dis}> Mencionar a todo el grupo</label>` : ''}
+      ${badge}
+      ${!fijo ? '<button type="button" class="btn ghost small gw-borrar" aria-label="Quitar">✕</button>' : ''}
+      ${editable && m.estado === 'programado' && !enviado ? '<button type="button" class="btn ghost small gw-cancelar">Cancelar</button>' : ''}
+      ${m.estado === 'programado' && enviado && m.tipo === 'encuesta' ? '<button type="button" class="btn ghost small gw-votos">Ver votos</button>' : ''}
+    </div>
+    ${m.tipo === 'encuesta' ? `<label class="field"><span>Pregunta</span><input class="gw-preg" maxlength="255" value="${esc(m.encuesta?.pregunta || '')}"${dis}></label>
+      <label class="field"><span>Opciones <small>(una por línea; de 2 a 12)</small></span><textarea class="gw-opc" rows="${Math.max(2, (m.encuesta?.opciones || []).length)}"${dis}>${esc((m.encuesta?.opciones || []).join('\n'))}</textarea></label>
+      <label class="chk small"><input type="checkbox" class="gw-multi"${m.encuesta?.multiple ? ' checked' : ''}${dis}> Se puede marcar más de una</label><div class="gw-votos-res"></div>`
+    : `${tp.archivo ? `<label class="field"><span>Enlace del archivo <small>(${esc(GUIA_ARCHIVOS.find((g) => g.tipo === m.tipo)?.formato || '')}, público, menos de 16 MB)</small></span><input type="url" class="gw-url" value="${esc(m.url)}" placeholder="https://…"${dis}></label>` : ''}
+      ${m.tipo === 'documento' ? `<label class="field"><span>Nombre del archivo</span><input class="gw-nombre" value="${esc(m.nombreArchivo)}"${dis}></label>` : ''}
+      ${m.guion ? `<details class="gw-guion"><summary class="small">🎬 Guion para grabarlo</summary><pre>${esc(m.guion)}</pre></details>` : ''}
+      ${m.tipo === 'audio' || m.tipo === 'nota' ? '' : `<label class="field"><span>${m.tipo === 'texto' ? 'Texto' : 'Texto que lo acompaña'}</span><textarea class="gw-texto" rows="${Math.min(8, Math.max(2, (m.texto || '').split('\n').length))}"${dis}>${esc(m.texto)}</textarea></label>`}`}
+    ${falta.length ? `<p class="small gw-falta">Falta: ${esc(falta.join(', '))}.</p>` : ''}
+    ${m.estado === 'error' && m.error ? `<p class="small error">${esc(m.error)}</p>` : ''}
+  </div>`;
+}
+// Lo editado en la lista → gwc.mensajes.
+function gwLeer(fila) {
+  const m = gwc.mensajes.find((x) => x.id === fila.dataset.gw);
+  if (!m || fila.classList.contains('fijo')) return;
+  const v = (sel) => $(sel, fila)?.value ?? '';
+  m.at = v('.gw-at');
+  m.tipo = v('.gw-tipo') || m.tipo;
+  m.mencionar = Boolean($('.gw-menc', fila)?.checked);
+  if ($('.gw-preg', fila)) m.encuesta = { pregunta: v('.gw-preg').trim(), opciones: v('.gw-opc').split('\n').map((x) => x.trim()).filter(Boolean), multiple: Boolean($('.gw-multi', fila)?.checked) };
+  if ($('.gw-url', fila)) m.url = v('.gw-url').trim();
+  if ($('.gw-nombre', fila)) m.nombreArchivo = v('.gw-nombre').trim();
+  if ($('.gw-texto', fila)) m.texto = v('.gw-texto');
+  if (m.estado === 'error') m.estado = 'borrador';
+  gwc.cambios = true;
+  $('#gw-guardar')?.removeAttribute('disabled');
+}
+$('#grupowa-body').addEventListener('change', (e) => {
+  if (e.target.id === 'gw-desde' || e.target.id === 'gw-hasta') { const pre = $('#gw-prompt'); if (pre) pre.textContent = gwPrompt(); return; }
+  const fila = e.target.closest('[data-gw]');
+  if (!fila) return;
+  gwLeer(fila);
+  if (e.target.classList.contains('gw-tipo')) { const m = gwc.mensajes.find((x) => x.id === fila.dataset.gw); if (m?.tipo === 'encuesta' && !m.encuesta) m.encuesta = { pregunta: m.texto || '', opciones: [], multiple: false }; renderGrupoWa(); }
+});
+$('#grupowa-body').addEventListener('input', (e) => { const fila = e.target.closest('[data-gw]'); if (fila && !e.target.classList.contains('gw-tipo')) gwLeer(fila); });
+async function gwGuardar() {
+  const d = await api('/api/sendflow', { method: 'POST', body: { op: 'calentamiento-guardar', l: gwc.code, mensajes: gwc.mensajes.filter((m) => m.estado !== 'programado' && m.estado !== 'cancelado') } });
+  gwc.mensajes = d.mensajes;
+  gwc.cambios = false;
+}
+$('#grupowa-body').addEventListener('click', async (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const fila = b.closest('[data-gw]');
+  const st = (t) => { if ($('#gw-st')) $('#gw-st').textContent = t; };
+  try {
+    if (b.id === 'gw-copiar') {
+      await navigator.clipboard.writeText(gwPrompt());
+      b.textContent = '✓ Copiado: pégalo en Claude';
+      setTimeout(() => { b.textContent = '📋 Copiar el prompt'; }, 2500);
+    } else if (b.id === 'gw-anadir') {
+      const nuevos = parsearSecuencia($('#gw-pegar').value);
+      if (!nuevos.length) { $('#gw-anadir-st').textContent = 'No encuentro mensajes: cada uno empieza por «### AAAA-MM-DD HH:MM | tipo» (como en el prompt).'; return; }
+      gwc.mensajes = [...gwc.mensajes, ...nuevos.map((m) => ({ ...m, estado: 'borrador' }))];
+      await gwGuardar();
+      $('#gw-pegar').value = '';
+      await renderGrupoWa();
+      $('#gw-anadir-st') && ($('#gw-anadir-st').textContent = `${nuevos.length} mensajes añadidos ✓ Revísalos abajo.`);
+    } else if (b.id === 'gw-nuevo') {
+      gwc.mensajes.push({ ...sanitizeMensaje({ id: nuevoIdMsg(), tipo: 'texto', at: '' }), estado: 'borrador' });
+      gwc.cambios = true;
+      await renderGrupoWa();
+    } else if (b.id === 'gw-guardar') {
+      st('Guardando…'); await gwGuardar(); await renderGrupoWa(); st('Guardado ✓');
+    } else if (b.id === 'gw-programar') {
+      if (gwc.cambios) await gwGuardar();
+      const listos = gwc.mensajes.filter((m) => (m.estado === 'borrador' || m.estado === 'error') && !faltaMensaje(m).length);
+      if (!listos.length) return;
+      const ts = listos.map((m) => madridToEpoch(m.at)).sort((a, c) => a - c);
+      const f = (t) => new Date(t).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      const tipos = Object.entries(listos.reduce((o, m) => ({ ...o, [m.tipo]: (o[m.tipo] || 0) + 1 }), {})).map(([k, n]) => `${n} ${tipoMsg(k).label.toLowerCase()}`).join(', ');
+      const faltan = gwc.mensajes.filter((m) => (m.estado === 'borrador' || m.estado === 'error') && faltaMensaje(m).length).length;
+      if (!window.confirm(`¿Programar ${listos.length} mensajes en SendFlow?\n\n${tipos}\nDel ${f(ts[0])} al ${f(ts.at(-1))}, a todos los grupos de la campaña.${faltan ? `\n\n(${faltan} no se programan porque les falta algo.)` : ''}\n\nUna vez programados, solo se pueden cancelar (no editar).`)) return;
+      b.disabled = true;
+      let hechos = 0;
+      for (;;) {
+        st(`Programando… ${hechos} de ${listos.length} (con pausas, para no pasarse del límite de SendFlow)`);
+        const ids = gwc.mensajes.filter((m) => (m.estado === 'borrador' || m.estado === 'error') && !faltaMensaje(m).length && listos.some((x) => x.id === m.id)).map((m) => m.id);
+        if (!ids.length) break;
+        const d = await api('/api/sendflow', { method: 'POST', body: { op: 'programar', l: gwc.code, ids } });
+        gwc.mensajes = d.mensajes;
+        hechos += d.programados;
+        if (d.frenado) { st(d.frenado); break; }
+        if (!d.programados || !d.pendientes) break;
+      }
+      await renderGrupoWa();
+      const errores = gwc.mensajes.filter((m) => m.estado === 'error').length;
+      st(`${hechos} programados en SendFlow ✓${errores ? ` · ${errores} con error (míralos abajo)` : ''}`);
+    } else if (fila && b.classList.contains('gw-borrar')) {
+      gwc.mensajes = gwc.mensajes.filter((m) => m.id !== fila.dataset.gw);
+      gwc.cambios = true;
+      await renderGrupoWa();
+    } else if (fila && b.classList.contains('gw-cancelar')) {
+      if (!window.confirm('¿Cancelar este mensaje en SendFlow? No se enviará.')) return;
+      try {
+        gwc.mensajes = (await api('/api/sendflow', { method: 'POST', body: { op: 'cancelar', l: gwc.code, id: fila.dataset.gw } })).mensajes;
+      } catch (err) {
+        if (window.confirm(`${err.message}\n\n¿Ya lo has cancelado en SendFlow? Pulsa Aceptar para marcarlo como cancelado aquí.`)) gwc.mensajes = (await api('/api/sendflow', { method: 'POST', body: { op: 'marcar-cancelado', l: gwc.code, id: fila.dataset.gw } })).mensajes;
+      }
+      await renderGrupoWa();
+    } else if (fila && b.classList.contains('gw-votos')) {
+      const r = await api(`/api/sendflow?op=votos&l=${encodeURIComponent(gwc.code)}&id=${encodeURIComponent(fila.dataset.gw)}`);
+      $('.gw-votos-res', fila).innerHTML = `<p class="small"><strong>${r.total} votos</strong></p><ul class="small">${r.votos.map((v) => `<li>${esc(v.opcion)}: <strong>${v.n}</strong> (${pctOf(v.n, r.total)})</li>`).join('')}</ul>`;
+    }
+  } catch (err) {
+    st(err.message);
+    if (!$('#gw-st')) notice(err.message, true);
+    b.disabled = false;
+  }
+});
