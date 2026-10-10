@@ -547,7 +547,8 @@ los grupos, con 3 o más). Resultado:
 `https://<tu-proyecto>.pages.dev/api/sendflow?op=vigilar&key=<DIGEST_KEY>` (otros clientes: `&c=<cliente>`; la URL
 está en Cuenta → Conexiones; cambia `<DIGEST_KEY>`, signos `< >` incluidos, por el valor de la variable de Cloudflare). Si
 cron-job.org da «Unauthorized», abre la URL en el navegador: la respuesta trae `motivo` (falta DIGEST_KEY en Cloudflare,
-es corta, la URL aún lleva `<DIGEST_KEY>` o la clave no coincide; nunca muestra la clave). Solo trabaja con lanzamientos en captación o carrito y meteóricos en curso que tengan
+es corta, la URL aún lleva `<DIGEST_KEY>` o la clave no coincide; nunca muestra la clave). Usa una clave de solo letras
+y números: `&`, `#`, `%` o `?` se rompen en la URL. Los espacios del principio o del final no cuentan. Solo trabaja con lanzamientos en captación o carrito y meteóricos en curso que tengan
 campaña de SendFlow (máx. 3; unas 2 peticiones a SendFlow por campaña). Guarda una foto (entradas, salidas y clics) y avisa de:
 - **🔗 Enlace caído:** el «Grupo de WhatsApp · enlace» del lanzamiento (o del meteórico) da error o no responde
   (mejor poner el enlace de redirección de SendFlow que el de un grupo concreto).

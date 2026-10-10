@@ -92,3 +92,12 @@ test('vigilancia: por WhatsApp solo los fallos (no los picos de salidas)', async
   assert.deepEqual(FALLOS, ['enlace', 'llenos', 'clics']);
   assert.ok(!FALLOS.includes('fuga'));
 });
+
+test('clave de las tareas: espacios, «+» y motivos', async () => {
+  const { fallaClaveTarea } = await import('../lib/auth.js');
+  const c = 'abcdefghij+klmnop';
+  assert.equal(fallaClaveTarea(' abcdefghij klmnop ', c + '\n'), null);
+  assert.match(fallaClaveTarea('otra-clave-larga-xx', 'clave&con#simbolos'), /símbolos/);
+  assert.match(fallaClaveTarea('otra-clave-larga-xx', 'clavedesolotextolargo'), /Retry deployment/);
+  assert.match(fallaClaveTarea('x', ''), /Falta DIGEST_KEY/);
+});
