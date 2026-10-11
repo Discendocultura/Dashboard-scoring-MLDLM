@@ -14,6 +14,7 @@ export const PESTANAS = {
     { id: 'anuncios', label: 'Crear anuncios', desc: 'Anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
     { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos del dashboard) para Claude, y el HTML a GHL' },
     { id: 'grupowa', label: 'Grupo de WhatsApp', desc: 'Los mensajes del grupo (calentamiento y carrito): el prompt para escribirlos con Claude y programarlos en SendFlow' },
+    { id: 'emailsia', label: 'Emails', desc: 'La secuencia de emails del lanzamiento con IA: calendario de envíos con las fechas reales, asuntos ganadores, la ficha de marca y la narrativa' },
     { id: 'avatar', label: 'Avatar y anuncios', desc: 'Perfil de compradoras (encuesta) y anuncios ganadores' },
     { id: 'comparar', label: 'Comparar', desc: 'Lanzamientos entre sí, edición actual frente a las anteriores, VSL frente a lanzamiento' },
     { id: 'rendimiento', label: 'Rendimiento del equipo', desc: 'WhatsApps, llamadas, shows, cierres y tiempo de respuesta por persona' },
@@ -85,7 +86,7 @@ export const CATEGORIAS = {
     { id: 'comercial', label: 'Hoy', icon: '📞', desc: 'Lo del día: a quién escribir, las llamadas y el directo', vistas: ['hoy', 'llamadas', 'endirecto'] },
     { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['leads'] },
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va el lanzamiento, en cifras', vistas: ['metricas'] },
-    { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'En el orden del embudo: anuncios, páginas, grupo de WhatsApp, carrito, planificador, calendario y tareas', vistas: ['anuncios', 'paginas', 'grupowa', 'carrito', 'objetivos', 'calendario', 'tareas'] },
+    { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'En el orden del embudo: anuncios, páginas, grupo de WhatsApp, carrito, planificador, calendario y tareas', vistas: ['anuncios', 'paginas', 'grupowa', 'emailsia', 'carrito', 'objetivos', 'calendario', 'tareas'] },
     { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Para decidir: avatar, comparativas y rendimiento del equipo', vistas: ['avatar', 'comparar', 'rendimiento'] },
   ],
   vsl: [

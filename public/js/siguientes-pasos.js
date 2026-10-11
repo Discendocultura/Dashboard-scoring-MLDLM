@@ -18,7 +18,7 @@ export function siguientesPasos({ embudo = {}, launch = null, tagExiste = false 
     add('✅', 'Revisa la configuración', 'Abre Configuración: la barra «Listo para lanzar» te marca en rojo lo que falta (oferta, precios, etiquetas…).');
     if (l.registroTag) add('🏷️', tagExiste ? `Pon la etiqueta «${l.registroTag}» en el formulario` : `Crea la etiqueta «${l.registroTag}» en GHL`, `${tagExiste ? 'Ya existe en GHL. ' : ''}Ponla en el formulario de registro (el de orgánico y el de anuncios) para que cada registro entre en este lanzamiento.`);
     add('🧭', l.narrativa?.titulo ? `Sigue la narrativa «${l.narrativa.titulo}»` : 'Crea la narrativa (opcional)', l.narrativa?.titulo
-      ? 'Ya va en todos los prompts de Plan → Anuncios, Páginas y Grupo de WhatsApp: copy, diseño y mensajes contarán la misma historia.'
+      ? 'Ya va en todos los prompts de Plan → Anuncios, Páginas, Grupo de WhatsApp y Emails: copy, diseño, mensajes y emails contarán la misma historia.'
       : 'En Plan → Anuncios, Páginas o Grupo de WhatsApp pulsa «✨ Crear con IA»: Claude te propone narrativas con tu ficha de marca y la elegida entra en todos los prompts.');
     paginas();
     add('🎥', l.zoomMeetingId ? 'Revisa la sala de Zoom' : 'Crea la sala de Zoom', l.zoomMeetingId
@@ -30,6 +30,7 @@ export function siguientesPasos({ embudo = {}, launch = null, tagExiste = false 
       ? 'Crea la campaña en SendFlow, pega su enlace en Configuración y escribe los mensajes con Plan → Grupo de WhatsApp (ya llevan las URLs de tus páginas).'
       : 'Crea la campaña en SendFlow y pega su enlace en Configuración. Revisa que tus mensajes lleven los enlaces de este lanzamiento.');
     anuncios(l.metaFiltro || '');
+    add('✉️', 'Escribe los emails', 'En Plan → Emails tienes el calendario de envíos con las fechas de este lanzamiento y el prompt para Claude (con la ficha, la narrativa y los asuntos que mejor funcionaron).');
     add('🗓️', 'Reparte las tareas', 'En Plan → Tareas asigna a cada persona lo suyo con fecha. Cada una lo verá en su «Hoy» y en su calendario.');
   } else if (embudo.tipo === 'vsl') {
     add('🏷️', 'Pon las etiquetas de GHL', 'En la configuración de la VSL elige la etiqueta de registro y la de compra (y el calendario si hay llamada).');

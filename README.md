@@ -863,8 +863,22 @@ sellos, las flechas amarillas, la concha…), del que salen el copy, los anuncio
   clave por canal y frase firma + CTA. Al pegarla, el dashboard se queda con lo de dentro de las marcas y saca el título.
 - **Qué hace**: se guarda en el lanzamiento (`narrativa: { titulo, texto }`, `op: 'narrativa'`) y entra sola, como
   bloque OBLIGATORIO con instrucciones de cada canal, en los prompts de **anuncios** (guiones, Magnific, copys), de
-  **cada página** del embudo (diseño, titulares, símbolos) y de los **mensajes del grupo de WhatsApp** (cada mensaje, un
-  momento del viaje). Los lanzamientos nuevos la heredan del anterior si se elige «mantener». Código: `public/js/narrativa.js`.
+  **cada página** del embudo (diseño, titulares, símbolos), de los **mensajes del grupo de WhatsApp** (cada mensaje, un
+  momento del viaje) y de los **emails** (Plan → Emails). Los lanzamientos nuevos la heredan del anterior si se elige «mantener». Código: `public/js/narrativa.js`.
+
+## ✉️ Emails con IA (Plan → Emails)
+La secuencia de emails del lanzamiento para escribirla con Claude y programarla en GHL (lanzamientos):
+- **Calendario de envíos** sacado de las fechas reales: bienvenida al registrarse, un email por cada clase o recurso de
+  la preclase, entrada VIP (si hay), la víspera / la mañana / 1 hora antes / «estamos en directo» de cada vídeo,
+  grabación, apertura del carrito, cada día del carrito (con las horas de emails de Plan → Carrito; si no hay, 10:00 y
+  19:00) con los bonus que caducan ese día, 3 envíos el último día y, si se marca, el de después del cierre. Dos emails
+  nunca coinciden a la misma hora. Se eligen las fases con casillas.
+- **Asuntos ganadores**: «Cargar los emails de <anterior>» trae de GHL los emails del lanzamiento anterior y entran en el
+  prompt los 5 con más apertura y los 5 con más clics (con 100 entregas o más).
+- **El prompt** lleva el calendario, los datos y enlaces del lanzamiento (y el de acceso al directo), las etiquetas de
+  GHL para segmentar (excluir compradores), la ficha de marca, la **narrativa** (bloque obligatorio para emails) y las
+  indicaciones; pide cada email con fecha y hora, segmento, asunto A y B, preheader, cuerpo con `{{contact.first_name}}`,
+  botón con su URL y P. D., y una tabla resumen para programarlos. Código: `public/js/emails-ia.js`.
 
 ## 🎉 Enhorabuena: siguientes pasos al crear un embudo o un lanzamiento
 Al terminar «＋ Nuevo embudo» (en los de lanzamientos, después del asistente de nuevo lanzamiento; si se cierra sin

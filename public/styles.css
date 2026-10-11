@@ -2921,3 +2921,11 @@ body.embudo-directa .lanz-only { display: none !important; }
 .nl-narr-ops .chk input { width: auto; margin-top: 3px; flex-shrink: 0; }
 #nl-narr-nueva .st-aviso { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 #narr-prompt { max-height: 260px; overflow: auto; white-space: pre-wrap; }
+.em-fases { display: grid; gap: 8px; margin-bottom: 12px; }
+.em-fases .chk { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
+.em-fases .chk input { width: auto; margin-top: 3px; flex-shrink: 0; }
+.em-plan { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.em-plan li { display: grid; grid-template-columns: minmax(150px, 190px) 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.em-cuando { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.em-gan { white-space: pre-wrap; }
+@media (max-width: 560px) { .em-plan li { grid-template-columns: 1fr; gap: 2px; } }

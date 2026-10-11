@@ -39,6 +39,7 @@ import { mensajesEnviados, impactoMensajes, horaVenta } from './impacto-wa.js';
 import { nuevoLanzamiento, codigoPropuesto, resumenFechas, diasCarritoDe, diasCaptacionDe, fijarCaptacion, aplicarOferta, objetivosDesdeMeta, comprobarFechas, emailsAReprogramar, desplazamiento } from './lanzamiento-rapido.js';
 import { siguientesPasos } from './siguientes-pasos.js';
 import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa } from './narrativa.js';
+import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, asuntosGanadores, promptEmails } from './emails-ia.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
@@ -355,7 +356,7 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
 const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos' };
-const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', grupowa: 'carrito', paginas: 'config', anuncios: 'config' };
+const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config' };
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], lanzmeteo: ['lanz', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
@@ -380,7 +381,9 @@ const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual
     || (v === 'grupowa' && !embudoInfo()?.waOrigen && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('carrito')))
     // «Páginas» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas (igual: si se respondió, manda eso).
     || (v === 'paginas' && !embudoInfo()?.paginasOrigen && pestanasEmbudo().includes('tareas'))
-    || (v === 'anuncios' && pestanasEmbudo().includes('tareas')))
+    || (v === 'anuncios' && pestanasEmbudo().includes('tareas'))
+    // «Emails» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas.
+    || (v === 'emailsia' && pestanasEmbudo().includes('tareas')))
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() || enDirecta() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
@@ -2521,7 +2524,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'grupowa', 'paginas', 'anuncios'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'grupowa', 'paginas', 'anuncios', 'emailsia'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -2543,6 +2546,7 @@ const AYUDA_VISTA = {
   dclientes: ['🛍️ Compradoras', 'Quién ha comprado en el periodo, qué extras se llevó y su WhatsApp. Filtra por un extra para ver, por ejemplo, quién cogió el upsell.'],
   anuncios: ['🎯 Crear anuncios', 'Anuncios con IA para cada objetivo del embudo (captación, retargeting de consumo, venta): copia el prompt (lleva los anuncios ganadores, la ficha de marca, avatar y producto y los datos del embudo), pégalo en Claude y él escribe los guiones y los copys y crea las imágenes y los vídeos con Magnific.'],
   paginas: ['🧱 Páginas', 'Las páginas del embudo hechas con IA: copia el prompt de cada página (lleva la marca, el avatar, los datos del embudo y los códigos del dashboard), pégalo en Claude y pega el HTML que te devuelva en un elemento «Código personalizado» de GHL.'],
+  emailsia: ['✉️ Emails', 'La secuencia de emails del lanzamiento con IA: el calendario de envíos sale de las fechas reales; copia el prompt (con la ficha de marca, la narrativa y los asuntos que mejor funcionaron), pégalo en Claude y programa los emails en GHL.'],
   grupowa: ['💬 Grupo de WhatsApp', 'Los mensajes del grupo de este lanzamiento: copia el prompt, pégalo en Claude (con tu skill de copy), pega aquí su respuesta, sube los archivos, revisa y programa en SendFlow con un botón.'],
   carrito: ['🛒 Carrito', 'Cada día del carrito: lo que pasa ese día (se calcula solo con las fechas, la oferta y la barra), los emails y WhatsApps previstos y la estrategia.'],
   tareas: ['✅ Tareas', 'Las tareas del equipo para este lanzamiento, con responsable y fecha. «Cargar tareas habituales» crea la lista de siempre con las fechas ya calculadas.'],
@@ -2575,9 +2579,9 @@ document.addEventListener('click', (e) => {
 });
 
 // Grupos de la barra de arriba, por momento de uso: Hoy (lo del día), Plan y Análisis.
-const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['anuncios', 'paginas', 'grupowa', 'carrito', 'objetivos', 'calendario', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
+const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['anuncios', 'paginas', 'grupowa', 'emailsia', 'carrito', 'objetivos', 'calendario', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone' };
+const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
@@ -2763,6 +2767,7 @@ function showView(view) {
   if (view === 'grupowa' && state.config) renderGrupoWa();
   if (view === 'paginas' && state.config) renderPaginas();
   if (view === 'anuncios' && state.config) renderAnuncios();
+  if (view === 'emailsia' && state.config) renderEmailsIa();
   // Planificador: al abrirla se cargan solos los lanzamientos anteriores que falten.
   if (view === 'objetivos' && state.config?.launches?.[state.launchCode] && !enVsl() && !enMeteo() && state.leads) renderObjetivos(currentMetrics());
   // Tareas del embudo abierto (en meteóricos, del meteórico elegido).
@@ -10667,6 +10672,7 @@ $('#marca-dialog').addEventListener('close', () => {
   if (!$('#view-grupowa').hidden && state.config) renderGrupoWa();
   if (!$('#view-paginas').hidden && state.config) renderPaginas();
   if (!$('#view-anuncios').hidden && state.config) renderAnuncios();
+  if (!$('#view-emailsia').hidden && state.config) renderEmailsIa();
 });
 
 $('#btn-conexiones').addEventListener('click', () => {
@@ -11078,6 +11084,86 @@ function gwPrompt() {
   const emb = enMeteo() ? embCal() : conEnlacesPropuestos(embCal(), propuestasEmbudo(embudoDeLanz(embCal() || {})));
   return promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado'), directos: gwDirectos(), temario: ($('#gw-temario')?.value ?? ls.get(temarioKey()) ?? '').trim(), contexto: contextoMarca(gwc.marca?.m, gwc.marca?.producto), narrativa: bloqueNarrativa(state.config.launches[gwc.code]?.narrativa, 'whatsapp') });
 }
+// ---------- ✉️ Emails con IA (Plan → Emails) ----------
+// La secuencia de emails del lanzamiento: calendario de envíos con sus fechas, asuntos ganadores de los anteriores,
+// la ficha de marca y la narrativa. Se escribe con Claude y se programa en GHL.
+const emc = { ganadores: {}, cargando: false }; // ganadores: { <código anterior>: texto }
+const fasesEmKey = () => `lsd_em_fases_${state.cliente || ''}_${state.embudo}`;
+const notasEmKey = () => `lsd_em_notas_${state.cliente || ''}_${state.embudo}`;
+const fasesEm = () => { try { const v = JSON.parse(ls.get(fasesEmKey()) || 'null'); return Array.isArray(v) ? v : FASES_DEFECTO; } catch { return FASES_DEFECTO; } };
+// El lanzamiento anterior del embudo (para sus asuntos ganadores).
+const anteriorEm = (code) => {
+  const l = state.config.launches[code];
+  return nlPreviosDe(embudoDeLanz(l)).find(([c, x]) => c !== code && x.fechaDirecto && String(x.fechaDirecto) < String(l?.fechaDirecto || '9'))?.[0] || '';
+};
+function emPrompt(code, marca) {
+  const l = conEnlacesPropuestos(state.config.launches[code], propuestasEmbudo(embudoDeLanz(state.config.launches[code])));
+  const enlaces = {
+    'Página de gracias': l.graciasUrl, 'Acceso a las clases (login)': l.loginUrl, 'Página preclase (clases y recursos)': l.recursosUrl,
+    'Entrada VIP': Number(l.precioVip) > 0 ? l.vipUrl : '', 'Grupo de WhatsApp': l.whatsappUrl, 'Grabación (replay)': l.replayUrl,
+    'Página de venta': l.raicesUrl, 'Página de pago': l.paginaPagoUrl,
+  };
+  return promptEmails({
+    launch: l, code, marca: clienteNombre(), producto: nombreProducto(state.config), datos: datosEmbudo(l, { producto: nombreProducto(state.config), marca: clienteNombre() }),
+    contexto: contextoMarca(marca?.m, marca?.producto), narrativa: bloqueNarrativa(l.narrativa, 'email'), ganadores: (emc.ganadores[anteriorEm(code)] || '').startsWith('(') ? '' : emc.ganadores[anteriorEm(code)] || '',
+    notas: (ls.get(notasEmKey()) || '').trim(), fases: fasesEm(), enlaces, directoUrl: l.fechaDirecto ? `${location.origin}/directo?l=${encodeURIComponent(code)}${cParam('&')}` : '',
+  });
+}
+async function renderEmailsIa() {
+  const box = $('#emailsia-body');
+  const code = state.launchCode;
+  const l = state.config.launches[code];
+  if (tipoActual() !== 'lanz' || !l) { box.innerHTML = '<div class="card empty"><p class="muted">Elige un lanzamiento para preparar sus emails.</p></div>'; return; }
+  const marca = await marcaDeEmbudo(api, state.cliente, state.embudo);
+  if (state.launchCode !== code) return;
+  const plan = calendarioEmails(l, fasesEm());
+  const prev = anteriorEm(code);
+  const ganadores = emc.ganadores[prev];
+  const FASE_ICO = { registro: '👋', preclase: '🎓', vip: '⭐', directo: '🔴', replay: '📼', carrito: '🛒', cierre: '🙏' };
+  const cuando = (at) => (at ? fechaCorta(at.slice(0, 10), { weekday: 'short', day: 'numeric', month: 'short' }) : 'Al registrarse');
+  box.innerHTML = `${estudioHero({ ico: '✉️', titulo: 'Emails con IA', sub: `«${esc(l.name)}» · la secuencia completa, con las fechas reales del lanzamiento`,
+      pasos: ['Elige qué <strong>fases</strong> quieres', '<strong>Copia el prompt</strong> y pégalo en Claude', 'Programa los emails en <strong>GHL</strong> (con tu skill, si la tienes)'],
+      extra: `${avisoMarcaHtml(marca)}${narrativaCardHtml(code)}` })}
+    <section class="card st-ajustes">
+      <div class="st-sec-cab"><h3>⚙️ Qué emails</h3><span class="muted small">${plan.length} envíos en el calendario</span></div>
+      <div class="em-fases">${FASES_EMAIL.filter((f) => f.id !== 'vip' || Number(l.precioVip) > 0).map((f) => `<label class="chk"><input type="checkbox" data-em-fase="${f.id}" ${fasesEm().includes(f.id) ? 'checked' : ''}><span><strong>${esc(f.label)}</strong> <span class="muted small">${esc(f.desc)}</span></span></label>`).join('')}</div>
+      <label class="field"><span>Indicaciones para Claude <small>(opcional)</small></span><textarea id="em-notas" rows="2" placeholder="Ej.: firma Laura; más cortos; en el carrito, un email con la historia de Marta…">${esc(ls.get(notasEmKey()) || '')}</textarea></label>
+      <details class="st-plegable"${ganadores ? ' open' : ''}><summary>🏆 Asuntos que mejor funcionaron ${ganadores ? '<span class="st-chip">cargados</span>' : ''}</summary>
+        ${prev ? (ganadores ? `<pre class="snippet em-gan">${esc(ganadores)}</pre>` : `<p class="muted small">Del lanzamiento anterior, «${esc(state.config.launches[prev].name)}» (sus emails de GHL con la apertura y los clics). Entran en el prompt para que Claude se inspire en lo que funciona.</p><button type="button" class="btn small" id="em-cargar-gan">Cargar los emails de «${esc(state.config.launches[prev].name)}»</button>`)
+          : '<p class="muted small">Es el primer lanzamiento del embudo: aún no hay emails anteriores con resultados.</p>'}
+      </details>
+    </section>
+    <section class="card st-ajustes">
+      <div class="st-sec-cab"><h3>🗓️ Calendario de envíos</h3><span class="muted small">Sale de las fechas del lanzamiento y de las horas de Plan → Carrito</span></div>
+      ${plan.length ? `<ol class="em-plan">${plan.map((p) => `<li><span class="em-cuando">${FASE_ICO[p.fase] || '✉️'} ${esc(cuando(p.at))}${p.at ? ` · ${esc(p.at.slice(11))}` : ''}</span><span class="em-que">${esc(p.que)}${p.segmento ? ` <span class="muted small">· ${esc(p.segmento)}</span>` : ''}</span></li>`).join('')}</ol>`
+        : '<p class="muted">Faltan las fechas del lanzamiento (directo y carrito) para proponer el calendario.</p>'}
+    </section>
+    <section class="card st-paso">
+      ${pasoCab(1, 'El prompt para Claude', 'Lleva el calendario, los datos, los enlaces, las etiquetas para segmentar, la ficha de marca, la narrativa y los asuntos ganadores.')}
+      <div class="st-acciones"><button type="button" class="btn primary" id="em-copiar">📋 Copiar el prompt</button><details class="st-ver"><summary>Ver el prompt</summary><pre class="snippet" id="em-prompt"></pre></details></div>
+    </section>`;
+  $('#em-prompt').textContent = emPrompt(code, marca);
+  box.onchange = (e) => {
+    const f = e.target.closest('[data-em-fase]');
+    if (f) { ls.set(fasesEmKey(), JSON.stringify($$('[data-em-fase]', box).filter((x) => x.checked).map((x) => x.dataset.emFase))); renderEmailsIa(); }
+  };
+  $('#em-notas').addEventListener('input', () => { ls.set(notasEmKey(), $('#em-notas').value); $('#em-prompt').textContent = emPrompt(code, marca); });
+  $('#em-copiar').addEventListener('click', async (e) => {
+    const ok = await copiarAlPortapapeles(emPrompt(code, marca));
+    e.target.textContent = ok ? 'Copiado ✓ · pégalo en Claude' : 'No se pudo copiar: ábrelo en «Ver el prompt»';
+    setTimeout(() => { e.target.textContent = '📋 Copiar el prompt'; }, 3000);
+  });
+  $('#em-cargar-gan')?.addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    e.target.textContent = 'Cargando de GHL…';
+    try {
+      const d = await api(`/api/emails?l=${encodeURIComponent(prev)}`);
+      emc.ganadores[prev] = asuntosGanadores(d.emails || []) || '(sin emails con 100 entregas o más)';
+    } catch (err) { notice(err.message, true); }
+    renderEmailsIa();
+  });
+}
+
 // ---------- 🎯 Crear anuncios con IA (Plan → Anuncios) ----------
 // Por objetivo del embudo, prompts para Claude (guiones, Magnific, copys de Meta) con los anuncios ganadores
 // (del lanzamiento, de todos los lanzamientos del embudo o de la VSL) y la ficha de marca, avatar y producto.
