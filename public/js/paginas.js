@@ -73,7 +73,7 @@ const FORMULARIO = {
 };
 
 // El prompt de una página.
-export function promptPagina({ pagina, nombreEmbudo = '', marca = '', datos = [], contexto = '', diseno = '', codigos = [], notas = '', urls = {} }) {
+export function promptPagina({ pagina, nombreEmbudo = '', marca = '', datos = [], contexto = '', diseno = '', codigos = [], notas = '', urls = {}, narrativa = '' }) {
   const cods = codigos.map(([t, c]) => `<!-- ${t} -->\n${c}`).join('\n\n');
   const enlaces = Object.entries(urls).filter(([, u]) => u).map(([k, u]) => `- ${k}: ${u}`).join('\n');
   return `Eres diseñador web de conversión y copywriter de respuesta directa (usa tu skill de copy de venta si la tienes). Crea la ${pagina.nombre.toLowerCase()} de ${nombreEmbudo ? `«${nombreEmbudo}»` : 'este embudo'}${marca ? ` de ${marca}` : ''}.
@@ -88,6 +88,7 @@ ${datos.join('\n') || '(sin datos: usa [FALTA: …] donde haga falta)'}
 ${enlaces ? `\nENLACES:\n${enlaces}\n` : ''}
 ${contexto ? `MARCA Y AVATAR (la fuente de verdad: tono, palabras, dolores, deseos y objeciones del avatar):\n<marca>\n${contexto}\n</marca>\n` : ''}
 ${diseno ? `ESTILO VISUAL DE LA MARCA:\n${diseno}\n` : 'ESTILO VISUAL: no hay guía de marca; propón un diseño limpio, cálido y profesional.\n'}
+${narrativa ? `${narrativa}\n` : ''}
 ${codigos.length ? `CÓDIGOS DEL DASHBOARD (OBLIGATORIOS): ponen fechas, cuentas atrás, vídeos, enlaces y miden las visitas. Inclúyelos TAL CUAL en su sitio: no cambies ni quites sus atributos data-lsd-* ni el <script>; puedes envolverlos en tu HTML y darles estilo con CSS (los enlaces data-lsd-link reciben su URL solos: no les pongas href). Los que no se vean (bloques base) ponlos al final.\n${cods}\n` : ''}
 ${pagina.formulario ? `${FORMULARIO[pagina.formulario]}\n` : ''}${notas ? `\nINDICACIONES PARA ESTA PÁGINA:\n${notas}\n` : ''}
 CÓMO LO QUIERO:

@@ -93,7 +93,7 @@ ${datos.join('\n') || '(sin datos)'}
 ${enlaces ? `\nENLACES:\n${enlaces}\n` : ''}
 ${bloqueLogo(ctx)}${contexto ? `MARCA, AVATAR Y PRODUCTO (la fuente de verdad: usa sus palabras, dolores, deseos y objeciones):\n<marca>\n${contexto}\n</marca>\n` : 'MARCA Y AVATAR: aún no hay ficha; pregunta lo imprescindible antes de inventar.\n'}
 ${diseno ? `ESTILO VISUAL DE LA MARCA:\n${diseno}\n` : ''}
-${ganadores ? `ANUNCIOS GANADORES (de los datos reales del dashboard; replica lo que funciona: ángulo, gancho, formato y mensaje, sin copiarlos literalmente):\n${ganadores}\nSi tienes el conector de Meta, búscalos por su nombre en la cuenta publicitaria y mira su creativo (texto, titular, imagen o vídeo) antes de empezar.\n` : 'ANUNCIOS GANADORES: aún no hay histórico. Basa los ángulos en la ficha (dolores, deseos, objeciones y frases literales del avatar) y propón ángulos distintos para testear.\n'}
+${ctx.narrativa ? `${ctx.narrativa}\n` : ''}${ganadores ? `ANUNCIOS GANADORES (de los datos reales del dashboard; replica lo que funciona: ángulo, gancho, formato y mensaje, sin copiarlos literalmente):\n${ganadores}\nSi tienes el conector de Meta, búscalos por su nombre en la cuenta publicitaria y mira su creativo (texto, titular, imagen o vídeo) antes de empezar.\n` : 'ANUNCIOS GANADORES: aún no hay histórico. Basa los ángulos en la ficha (dolores, deseos, objeciones y frases literales del avatar) y propón ángulos distintos para testear.\n'}
 ${notas ? `NOTAS SOBRE LOS ANUNCIOS QUE HAN FUNCIONADO:\n${notas}\n` : ''}`;
 }
 

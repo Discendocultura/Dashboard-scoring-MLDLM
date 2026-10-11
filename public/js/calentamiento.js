@@ -194,7 +194,7 @@ export function datosEmbudo(emb, { esMeteo = false, producto = '', marca = '' } 
   return d;
 }
 
-export function promptCalentamiento(emb, { esMeteo = false, producto = '', marca = '', desde = '', hasta = '', ya = [], directos = [], temario = '', contexto = '' } = {}) {
+export function promptCalentamiento(emb, { esMeteo = false, producto = '', marca = '', desde = '', hasta = '', ya = [], directos = [], temario = '', contexto = '', narrativa = '' } = {}) {
   const d = datosEmbudo(emb, { esMeteo, producto, marca });
   const desb = esMeteo ? [] : desbloqueosPreclase(emb);
   const reglaPreclase = desb.length ? `
@@ -238,7 +238,7 @@ MARCA Y AVATAR (la fuente de verdad: escribe con este tono y con las palabras, d
 <marca>
 ${contexto}
 </marca>
-` : ''}${yaTxt}${reglaPreclase}${reglaDirecto}${reglaEnlaces}
+` : ''}${narrativa ? `\n${narrativa}\n` : ''}${yaTxt}${reglaPreclase}${reglaDirecto}${reglaEnlaces}
 QUÉ QUIERO:
 - Mensajes cortos, de grupo (no 1:1), en español de España y en el tono de la marca. Que generen conversación y expectación, y que lleven a la acción en cada fase (clases, directo, VIP, carrito, últimas horas).
 - Mezcla formatos: texto, encuestas para que participen, notas de voz (con su GUION para grabarlas), y algún vídeo o imagen si aporta.

@@ -2915,3 +2915,9 @@ body.embudo-directa .lanz-only { display: none !important; }
 .tg-lista li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; }
 #tg-box .row { flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 #tg-enlace .st-aviso { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.narr-card { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.nl-narr-ops { display: grid; gap: 6px; }
+.nl-narr-ops .chk { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
+.nl-narr-ops .chk input { width: auto; margin-top: 3px; flex-shrink: 0; }
+#nl-narr-nueva .st-aviso { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+#narr-prompt { max-height: 260px; overflow: auto; white-space: pre-wrap; }

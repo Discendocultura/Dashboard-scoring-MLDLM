@@ -38,6 +38,7 @@ import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
 import { mensajesEnviados, impactoMensajes, horaVenta } from './impacto-wa.js';
 import { nuevoLanzamiento, codigoPropuesto, resumenFechas, diasCarritoDe, diasCaptacionDe, fijarCaptacion, aplicarOferta, objetivosDesdeMeta, comprobarFechas, emailsAReprogramar, desplazamiento } from './lanzamiento-rapido.js';
 import { siguientesPasos } from './siguientes-pasos.js';
+import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa } from './narrativa.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
@@ -3607,12 +3608,14 @@ document.addEventListener('click', (e) => {
 // ---------- ⚡ Nuevo lanzamiento rápido (lanzamiento-rapido.js): copia el anterior moviendo fechas + sala de Zoom ----------
 const nlDlg = $('#nl-dialog');
 // Lanzamientos del embudo, el más reciente (por directo) primero.
-const nlPrevios = () => Object.entries(state.config.launches).filter(([, l]) => embudoDeLanz(l) === state.embudo)
+const nlPreviosDe = (embudo) => Object.entries(state.config.launches).filter(([, l]) => embudoDeLanz(l) === embudo)
   .sort((a, b) => String(b[1].fechaDirecto || '').localeCompare(String(a[1].fechaDirecto || '')));
+const nlPrevios = () => nlPreviosDe(state.embudo);
 let nlCodeEditado = false;
 let nlCarritoEditado = false;
 // Lo ya creado fuera del dashboard en este asistente (salas de Zoom, campaña de SendFlow): si se reintenta, se reutiliza.
 let nlCreados = {};
+let nlNarrativa = null; // narrativa nueva hecha en el asistente (con IA)
 const nlEditado = new Set(); // campos que la persona ha tocado (no se rellenan al cambiar el lanzamiento base)
 // Rellena con el lanzamiento base: días de captación, precios y bonus (lo que no se haya tocado).
 function nlPrefill(prev) {
@@ -3626,6 +3629,13 @@ function nlPrefill(prev) {
     : '<p class="muted small">Sin bonus en la oferta (se añaden en Configuración → Oferta).</p>';
   const tienePrev = Boolean(prev);
   for (const id of ['#nl-tareas', '#nl-wa']) { $(id).disabled = !tienePrev; $(id).checked = tienePrev; }
+  // Narrativa: la del anterior (si tenía) o ninguna; «crear una nueva» abre el prompt para Claude.
+  const nPrev = prev?.narrativa?.titulo || '';
+  $('#nl-narr-op-anterior').hidden = !nPrev;
+  $('#nl-narr-anterior').textContent = nPrev ? `«${nPrev}»` : '';
+  const op = nlNarrativa ? 'nueva' : nPrev ? 'anterior' : 'ninguna';
+  $$('input[name="nl-narr"]').forEach((i) => { i.checked = i.value === op; });
+  pintarNlNarrativa();
 }
 // Lanzamientos del embudo con resultados guardados en este navegador (los del Planificador) + los metidos a mano.
 function nlHistorico() {
@@ -3651,6 +3661,7 @@ function abrirLanzamientoRapido({ desdeEmbudo = false } = {}) {
   $('#nl-carrito').value = diasCarritoDe(previos[0]?.[1]);
   nlEditado.clear();
   nlCreados = {};
+  nlNarrativa = null;
   $('#nl-meta').value = '';
   $('#nl-tag').checked = false;
   $('#nl-sendflow').checked = false;
@@ -3669,8 +3680,25 @@ function abrirLanzamientoRapido({ desdeEmbudo = false } = {}) {
   nlDlg.showModal();
   $('#nl-nombre').focus();
 }
+const nlNarrOp = () => $('input[name="nl-narr"]:checked')?.value || 'ninguna';
+function pintarNlNarrativa() {
+  const box = $('#nl-narr-nueva');
+  box.hidden = nlNarrOp() !== 'nueva';
+  box.innerHTML = nlNarrativa
+    ? `<div class="st-aviso"><span>✓ <strong>«${esc(nlNarrativa.titulo)}»</strong> lista: irá en todos los prompts del lanzamiento.</span><button type="button" class="btn small" id="nl-narr-crear">✏️ Cambiar</button></div>`
+    : `<div class="st-aviso info"><span>Te doy un prompt con la ficha de marca, producto y avatar y los datos de este lanzamiento: Claude te propone 5 narrativas, eliges una y pegas aquí la desarrollada.</span><button type="button" class="btn primary small" id="nl-narr-crear">✨ Crear con IA</button></div>`;
+}
+$('#nl-sec-narr').addEventListener('change', (e) => { if (e.target.name === 'nl-narr') { pintarNlNarrativa(); pintarNl(); } });
+$('#nl-narr-nueva').addEventListener('click', (e) => {
+  if (!e.target.closest('#nl-narr-crear')) return;
+  let r = null;
+  try { r = calcularNl(); } catch { /* sin fechas aún: el prompt va sin ellas */ }
+  const prevCode = $('#nl-base').value;
+  abrirNarrativa({ launch: r?.launch || { name: $('#nl-nombre').value.trim() }, embudo: state.embudo, prev: prevCode ? state.config.launches[prevCode] : null, actual: nlNarrativa,
+    onGuardar: async (n) => { nlNarrativa = n; if (!n) { const x = $('input[name="nl-narr"][value="ninguna"]'); if (x) x.checked = true; } pintarNlNarrativa(); pintarNl(); } });
+});
 // Pasos del asistente: ① fechas ② oferta y objetivo ③ qué dejo hecho ④ revisar y crear.
-const NL_PASOS = ['Fechas', 'Oferta y objetivo', 'Qué te dejo hecho', 'Revisar y crear'];
+const NL_PASOS = ['Fechas', 'Oferta y narrativa', 'Qué te dejo hecho', 'Revisar y crear'];
 let nlPaso = 0;
 function irPasoNl(i) {
   nlPaso = Math.max(0, Math.min(i, NL_PASOS.length - 1));
@@ -3743,6 +3771,10 @@ function calcularNl() {
       r.launch.calculadora = { ...(r.launch.calculadora || {}), diasCaptacion: diasCapt, ...(objetivos.inversion ? { presupuesto: objetivos.inversion } : {}) };
     }
   }
+  // Narrativa: la del anterior (ya viene copiada), la nueva hecha con IA o ninguna.
+  const narrOp = nlNarrOp();
+  if (narrOp === 'nueva' && nlNarrativa) r.launch.narrativa = nlNarrativa;
+  else if (narrOp !== 'anterior') delete r.launch.narrativa;
   const otros = Object.entries(state.config.launches).filter(([c, x]) => c !== code && embudoDeLanz(x) === state.embudo).map(([, x]) => [x.name, x]);
   const checks = comprobarFechas(r.launch, otros, dayInMadrid(new Date().toISOString()));
   return { ...r, code, prev, prevCode, usados, objetivos, escenarios, escala, meta, M, checks };
@@ -3755,6 +3787,7 @@ function pintarNlResumen(r) {
   const items = [
     `💶 ${Number(l.precioVip) > 0 ? `VIP ${eur(Number(l.precioVip))} · ` : ''}programa ${Number(l.precioPrograma) > 0 ? eur(Number(l.precioPrograma)) : 'sin precio'}${nb.length ? ` · ${nb.filter((x) => x.checked).length} de ${nb.length} bonus` : ''}`,
     r.objetivos ? `🎯 Objetivos: ${numTxt(r.objetivos.registros)} registros · ${numTxt(r.objetivos.ventas)} ventas · ${eur(r.objetivos.facturacion)}${r.objetivos.inversion ? ` · ${eur(r.objetivos.inversion)} de inversión` : ''}` : '🎯 Sin objetivos: ponlos después en Plan → Planificador',
+    l.narrativa?.titulo ? `🧭 Narrativa «${l.narrativa.titulo}»: entra en los prompts de anuncios, páginas y mensajes` : nlNarrOp() === 'nueva' ? '🧭 Narrativa nueva: aún sin pegar (podrás crearla después en Plan → Anuncios, Páginas o WhatsApp)' : '🧭 Sin narrativa',
     marcado('#nl-zoom') ? '🎥 Crear la sala de Zoom' : '',
     marcado('#nl-tareas') ? '🗓️ Copiar las tareas del anterior' : '',
     marcado('#nl-wa') ? '💬 Copiar los mensajes del grupo (en borrador)' : '',
@@ -4049,6 +4082,92 @@ fiestaDlg.addEventListener('close', () => {
   const seguir = fiestaSeguir;
   fiestaSeguir = null;
   if (seguir) seguir();
+});
+
+// ---------- 🧭 Narrativa del lanzamiento (la gran idea de la que beben anuncios, páginas y mensajes) ----------
+const narrDlg = $('#narr-dialog');
+let narrCtx = null; // { launch, embudo, prev, onGuardar(n | null) }
+// Datos para el prompt: ficha de marca/producto/avatar, oferta, fechas y formato del lanzamiento.
+async function promptNarrativaDe({ launch, embudo, prev }) {
+  const mp = await marcaDeEmbudo(api, state.cliente, embudo);
+  const e = embudoInfo(embudo) || {};
+  const f = formatoValido(launch.formato || e.formato);
+  const bonus = (launch.oferta?.bonus || []).map((b) => b.nombre).filter(Boolean);
+  let fechas = '';
+  try { fechas = launch.fechaDirecto ? resumenFechas(launch).map(([a, b]) => `${a}: ${b}`).join(' · ') : ''; } catch { /* sin fechas */ }
+  return promptNarrativa({
+    marca: clienteNombre(), producto: mp.producto ? nombreDeProducto(mp.producto) : nombreProducto(state.config), contexto: contextoMarca(mp.m, mp.producto), diseno: disenoTexto(mp.m),
+    lanzamiento: launch.name || '', formato: `${FORMATOS[f].label}: ${FORMATOS[f].desc}`, fechas,
+    oferta: [launch.precioPrograma ? `programa ${launch.precioPrograma} €` : '', Number(launch.precioVip) > 0 ? `entrada VIP ${launch.precioVip} €` : '', bonus.length ? `bonus: ${bonus.join(', ')}` : ''].filter(Boolean).join(' · '),
+    preclase: e.preclase !== false, vip: Number(launch.precioVip) > 0, anterior: prev?.narrativa?.titulo || '', notas: $('#narr-notas').value.trim(),
+  });
+}
+async function abrirNarrativa(ctx) {
+  narrCtx = ctx;
+  const n = ctx.actual || null;
+  $('#narr-titulo').value = n?.titulo || '';
+  $('#narr-texto').value = n?.texto || '';
+  $('#narr-notas').value = '';
+  $('#narr-status').textContent = '';
+  $('#narr-quitar').hidden = !n;
+  $('#narr-prompt').textContent = 'Preparando…';
+  narrDlg.showModal();
+  try { $('#narr-prompt').textContent = await promptNarrativaDe(ctx); } catch (err) { $('#narr-prompt').textContent = err.message; }
+}
+async function copiarAlPortapapeles(txt) {
+  try { await navigator.clipboard.writeText(txt); return true; } catch { return false; }
+}
+$('#narr-notas').addEventListener('change', async () => { if (narrCtx) $('#narr-prompt').textContent = await promptNarrativaDe(narrCtx); });
+$('#narr-copiar').addEventListener('click', async (e) => {
+  const txt = await promptNarrativaDe(narrCtx);
+  $('#narr-prompt').textContent = txt;
+  const ok = await copiarAlPortapapeles(txt);
+  e.target.textContent = ok ? 'Copiado ✓ · pégalo en Claude' : 'No se pudo copiar: ábrelo en «Ver el prompt»';
+  setTimeout(() => { e.target.textContent = '📋 Copiar el prompt'; }, 3000);
+});
+// Al pegar la respuesta de Claude: me quedo con lo de dentro de las marcas y saco el título.
+$('#narr-texto').addEventListener('input', () => {
+  const x = extraerNarrativa($('#narr-texto').value);
+  if (x.titulo && !$('#narr-titulo').value.trim()) $('#narr-titulo').value = x.titulo;
+});
+$('#narr-texto').addEventListener('paste', () => setTimeout(() => {
+  const x = extraerNarrativa($('#narr-texto').value);
+  $('#narr-texto').value = x.texto;
+  if (x.titulo) $('#narr-titulo').value = x.titulo;
+}, 0));
+$('#narr-guardar').addEventListener('click', async () => {
+  const n = sanitizeNarrativa({ titulo: $('#narr-titulo').value, texto: extraerNarrativa($('#narr-texto').value).texto });
+  if (!n?.texto) { $('#narr-status').textContent = 'Pega la narrativa que te ha dado Claude.'; return; }
+  if (!n.titulo) { $('#narr-status').textContent = 'Ponle un título.'; $('#narr-titulo').focus(); return; }
+  try { await narrCtx.onGuardar(n); narrDlg.close(); } catch (err) { $('#narr-status').textContent = err.message; }
+});
+$('#narr-quitar').addEventListener('click', async () => {
+  if (!window.confirm('¿Quitar la narrativa? Los prompts dejarán de llevarla.')) return;
+  try { await narrCtx.onGuardar(null); narrDlg.close(); } catch (err) { $('#narr-status').textContent = err.message; }
+});
+// Tarjeta en Plan → Anuncios, Páginas y Grupo de WhatsApp (lanzamientos): la narrativa que siguen los prompts.
+function narrativaCardHtml(code) {
+  const l = state.config.launches[code];
+  if (!l) return '';
+  const n = l.narrativa;
+  const btn = puedeConfig() ? `<button type="button" class="btn small${n ? '' : ' primary'}" data-narr-editar="${esc(code)}">${n ? '✏️ Cambiar' : '✨ Crear con IA'}</button>` : '';
+  return n?.texto
+    ? `<div class="st-aviso narr-card"><span>🧭 <strong>Narrativa: «${esc(n.titulo)}»</strong>. Va en todos los prompts de esta página (y en los de anuncios, páginas y mensajes del grupo): todo sale de ella.</span>${btn}</div>`
+    : `<div class="st-aviso info narr-card"><span>🧭 <strong>Sin narrativa.</strong> Con una gran idea (p. ej. «El Camino…», inspirado en el Camino de Santiago) todo el lanzamiento —anuncios, páginas y mensajes— cuenta la misma historia.</span>${btn}</div>`;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-narr-editar]');
+  if (!b) return;
+  const code = b.dataset.narrEditar;
+  const l = state.config.launches[code];
+  if (!l) return;
+  const prev = nlPreviosDe(embudoDeLanz(l)).map(([, x]) => x).find((x) => x !== l && x.narrativa && String(x.fechaDirecto || '') < String(l.fechaDirecto || '9'));
+  abrirNarrativa({ launch: l, embudo: embudoDeLanz(l), prev, actual: l.narrativa || null, onGuardar: async (n) => {
+    const { config } = await api('/api/config', { method: 'POST', body: { op: 'narrativa', l: code, narrativa: n } });
+    state.config = config;
+    notice(n ? `🧭 Narrativa «${n.titulo}» guardada: ya va en los prompts.` : 'Narrativa quitada.');
+    render();
+  } });
 });
 
 // Pestañas dentro de cada ventana (Configuración, Equipo): solo afectan a su ventana.
@@ -10911,6 +11030,7 @@ async function renderGrupoWa() {
       </div>
       ${gwDirectos().length ? `<div class="st-aviso info"><span>📅 <strong>${gwDirectos().map((x) => `${esc(x.nombre)} · ${esc(fechaFicha(madridToEpoch(x.at)))} a las ${esc(x.at.slice(11))}`).join(' · ')}</strong>. Ese día los mensajes solo recuerdan que es hoy y llevan el enlace de acceso (ya va en el prompt).</span></div>` : ''}
       ${avisoMarcaHtml(gwc.marca)}
+      ${narrativaCardHtml(code)}
       <div class="st-acciones"><button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt</button><details class="st-ver"><summary>Ver el prompt</summary><pre class="snippet gw-prompt" id="gw-prompt"></pre></details></div>
     </section>
     <section class="card st-paso">
@@ -10956,7 +11076,7 @@ function gwDirectos() {
 const temarioKey = () => `lsd_gw_temario_${state.cliente || ''}_${gwc.code}`;
 function gwPrompt() {
   const emb = enMeteo() ? embCal() : conEnlacesPropuestos(embCal(), propuestasEmbudo(embudoDeLanz(embCal() || {})));
-  return promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado'), directos: gwDirectos(), temario: ($('#gw-temario')?.value ?? ls.get(temarioKey()) ?? '').trim(), contexto: contextoMarca(gwc.marca?.m, gwc.marca?.producto) });
+  return promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado'), directos: gwDirectos(), temario: ($('#gw-temario')?.value ?? ls.get(temarioKey()) ?? '').trim(), contexto: contextoMarca(gwc.marca?.m, gwc.marca?.producto), narrativa: bloqueNarrativa(state.config.launches[gwc.code]?.narrativa, 'whatsapp') });
 }
 // ---------- 🎯 Crear anuncios con IA (Plan → Anuncios) ----------
 // Por objetivo del embudo, prompts para Claude (guiones, Magnific, copys de Meta) con los anuncios ganadores
@@ -10989,7 +11109,7 @@ function ctxAnuncio(c, objetivo) {
   const g = ganadoresAnuncios();
   const f = formatoAnuncios();
   return { objetivo, tipoTexto: TIPO_TXT[c.tipo] || c.tipo, nombreEmbudo: c.nombre, marca: clienteNombre(), datos: c.datos, urls: c.urls,
-    contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto), diseno: disenoTexto(pgc.marca?.m), ganadores: ganadoresTexto(g.filas), notas: (ls.get(notasAnKey()) || '').trim(), evento: (ls.get(eventoAnKey()) || '').trim(), formato: f.id, formatoTexto: f.texto, logo: logoLanzamiento() };
+    contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto), diseno: disenoTexto(pgc.marca?.m), ganadores: ganadoresTexto(g.filas), notas: (ls.get(notasAnKey()) || '').trim(), evento: (ls.get(eventoAnKey()) || '').trim(), formato: f.id, formatoTexto: f.texto, logo: logoLanzamiento(), narrativa: tipoActual() === 'lanz' ? bloqueNarrativa(state.config.launches[state.launchCode]?.narrativa, 'anuncios') : '' };
 }
 // Logo del lanzamiento actual (Plan → Anuncios → Captación): se guarda en el lanzamiento, para todo el equipo.
 const logoLanzamiento = () => (tipoActual() === 'lanz' ? state.config.launches[state.launchCode]?.logoUrl || '' : '');
@@ -11013,7 +11133,7 @@ async function renderAnuncios() {
   const otros = PROMPTS_ANUNCIOS.filter((p) => p.id !== 'todo');
   box.innerHTML = `${estudioHero({ ico: '🎯', titulo: 'Anuncios con IA', sub: `«${esc(c.nombre)}» · guiones, creatividades en Magnific y copys para Meta, por objetivo`,
       pasos: ['Elige el <strong>objetivo</strong> y copia su prompt', 'Pégalo en <strong>Claude</strong> con <strong>Magnific</strong> conectado', 'Sube los creativos a <strong>Meta</strong> con el mismo nombre'],
-      extra: avisoMarcaHtml(pgc.marca) })}
+      extra: `${avisoMarcaHtml(pgc.marca)}${lanz ? narrativaCardHtml(state.launchCode) : ''}` })}
     <section class="card st-ajustes">
       <div class="st-sec-cab"><h3>⚙️ Ajustes de los prompts</h3><span class="muted small">Entran en todos los prompts de esta página</span></div>
       <div class="st-form">
@@ -11146,7 +11266,7 @@ function promptDePagina(c, p) {
   const propias = propuestasEmbudo(state.embudo).filter((x) => x.pagina === p.id);
   const urlsPag = Object.fromEntries(propias.map((x) => [propias.length > 1 ? `URL de esta página (${x.nombre})` : 'URL de esta página', x.url]));
   return promptPagina({ pagina: p, nombreEmbudo: c.nombre, marca: clienteNombre(), datos: c.datos, contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto),
-    diseno: disenoTexto(pgc.marca?.m), codigos: codigosDePagina(p, c.codigos, c.ctx), notas: (ls.get(notasPagKey(p.id)) || '').trim(), urls: { ...urlsPag, ...(c.urls || {}) } });
+    diseno: disenoTexto(pgc.marca?.m), codigos: codigosDePagina(p, c.codigos, c.ctx), notas: (ls.get(notasPagKey(p.id)) || '').trim(), urls: { ...urlsPag, ...(c.urls || {}) }, narrativa: tipoActual() === 'lanz' ? bloqueNarrativa(state.config.launches[state.launchCode]?.narrativa, 'pagina') : '' });
 }
 async function renderPaginas() {
   const box = $('#paginas-body');
@@ -11160,7 +11280,7 @@ async function renderPaginas() {
   const urlsDe = (p) => propuestas.filter((x) => x.pagina === p.id);
   box.innerHTML = `${estudioHero({ ico: '🧱', titulo: 'Páginas con IA', sub: `«${esc(c.nombre)}» · un prompt por página con la marca, el avatar, los datos y los códigos del dashboard`,
       pasos: ['<strong>Copia el prompt</strong> de la página', 'Pégalo en <strong>Claude</strong> y pide los cambios que quieras', 'En <strong>GHL</strong>: elemento «Código personalizado» → pega → publica'],
-      extra: `${avisoMarcaHtml(pgc.marca)}
+      extra: `${avisoMarcaHtml(pgc.marca)}${tipoActual() === 'lanz' ? narrativaCardHtml(state.launchCode) : ''}
       <div class="st-aviso info pg-ghl-nota"><span>📐 <strong>Importante en GHL, en cada página</strong> (si no, se verá estrecha o con bordes blancos):
         <ol>
           <li>Pulsa la <strong>sección</strong> donde has pegado el código y, en el panel de la derecha, activa <strong>«Extender sección»</strong> (en inglés, <em>Full width</em>): así ocupa toda la pantalla.</li>

@@ -847,6 +847,25 @@ Avisos automáticos a los chats vinculados: el **resumen de cada mañana** (la m
 salidas, enlace caído, grupos llenos…), con las mismas esperas que el email para no repetir. «Mandarme una prueba»
 comprueba que llegan. Código: `lib/telegram.js`, `handlers/telegram.js`. Los chats vinculados se guardan en `lsd_telegram` (común).
 
+## 🧭 Narrativa del lanzamiento (con IA)
+La gran idea de la que bebe todo el lanzamiento: una metáfora con un referente reconocible y su estética. Ejemplo:
+«El Camino hacia tu embarazo natural», inspirado en el Camino de Santiago (cada clase es una etapa, la credencial con
+sellos, las flechas amarillas, la concha…), del que salen el copy, los anuncios y el diseño de las páginas.
+- **Dónde**: en el asistente de nuevo lanzamiento (paso ② «Oferta y narrativa»: mantener la del anterior, ✨ crear una
+  nueva con IA o ninguna) y, después, en la tarjeta 🧭 de **Plan → Anuncios, Páginas y Grupo de WhatsApp** («✨ Crear con
+  IA» / «✏️ Cambiar»).
+- **Cómo**: «Copiar el prompt» lleva la ficha de marca, producto y avatar, el estilo visual, la oferta, las fechas, el
+  formato, las etapas del embudo y la narrativa anterior (para no repetirla). Claude propone 5 narrativas (con referente,
+  imágenes clave, por qué conecta y riesgo), recomienda una y espera; la elegida la desarrolla en un formato fijo entre
+  `===NARRATIVA===` y `===FIN NARRATIVA===`: título, idea central, referente, promesa, el viaje etapa a etapa, nombres
+  (evento, clases, grupo de WhatsApp, bonus…), símbolos y rituales, vocabulario, palabras a evitar, tono, dirección
+  visual (paleta con hex, texturas, fotografía, iconos, composición), escenas para anuncios, ganchos, titulares, mensajes
+  clave por canal y frase firma + CTA. Al pegarla, el dashboard se queda con lo de dentro de las marcas y saca el título.
+- **Qué hace**: se guarda en el lanzamiento (`narrativa: { titulo, texto }`, `op: 'narrativa'`) y entra sola, como
+  bloque OBLIGATORIO con instrucciones de cada canal, en los prompts de **anuncios** (guiones, Magnific, copys), de
+  **cada página** del embudo (diseño, titulares, símbolos) y de los **mensajes del grupo de WhatsApp** (cada mensaje, un
+  momento del viaje). Los lanzamientos nuevos la heredan del anterior si se elige «mantener». Código: `public/js/narrativa.js`.
+
 ## 🎉 Enhorabuena: siguientes pasos al crear un embudo o un lanzamiento
 Al terminar «＋ Nuevo embudo» (en los de lanzamientos, después del asistente de nuevo lanzamiento; si se cierra sin
 crearlo, también) o «Nuevo lanzamiento», sale una pantalla con confeti: lo que se ha hecho (copia, sala de Zoom, días de

@@ -3,6 +3,7 @@ import { PERMISOS_DATOS } from '../public/js/roles.js';
 import { getConfig, saveConfig } from '../lib/config-store.js';
 import { zoomConfigured } from '../lib/zoom.js';
 import { sendflowConfigurado } from '../lib/sendflow.js';
+import { sanitizeNarrativa } from '../public/js/narrativa.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { versionDe, reintentando } from '../lib/store.js';
 
@@ -61,6 +62,18 @@ export async function POST(request) {
       return json({ config, version: versionDe(config) });
     }
     // Logo del lanzamiento (Plan → Anuncios): URL de la imagen, para los anuncios de captación.
+    // Narrativa del lanzamiento (Plan → Anuncios, Páginas y WhatsApp, o el asistente de nuevo lanzamiento).
+    if (body.op === 'narrativa') {
+      const code = String(body.l || '');
+      const config = await reintentando(async () => {
+        const actual = await getConfig({ fresh: true });
+        if (!actual.launches[code]) throw Object.assign(new Error('Lanzamiento no encontrado'), { status: 404, publicMessage: 'Lanzamiento no encontrado' });
+        const { narrativa: _, ...resto } = actual.launches[code];
+        const n = sanitizeNarrativa(body.narrativa);
+        return saveConfig({ ...actual, launches: { ...actual.launches, [code]: n ? { ...resto, narrativa: n } : resto } }, { version: versionDe(actual), motivo: 'Narrativa del lanzamiento' });
+      });
+      return json({ config, version: versionDe(config) });
+    }
     if (body.op === 'logoLanzamiento') {
       const code = String(body.l || '');
       const url = String(body.url || '').trim();
