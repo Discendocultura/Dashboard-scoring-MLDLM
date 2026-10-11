@@ -2,7 +2,8 @@
 // enhorabuena y en el email que recibe quien lo ha creado (mismo texto en los dos sitios).
 //   embudo: { tipo, nombre, paginasOrigen, waOrigen, preclase } · launch: el lanzamiento recién creado (o null)
 // → [{ icono, titulo, detalle }]
-export function siguientesPasos({ embudo = {}, launch = null } = {}) {
+//   tagExiste: la etiqueta de registro ya está en GHL (entonces solo hay que ponerla en el formulario)
+export function siguientesPasos({ embudo = {}, launch = null, tagExiste = false } = {}) {
   const pasos = [];
   const add = (icono, titulo, detalle) => pasos.push({ icono, titulo, detalle });
   const paginasCero = embudo.paginasOrigen === 'cero';
@@ -15,12 +16,14 @@ export function siguientesPasos({ embudo = {}, launch = null } = {}) {
   if (embudo.tipo === 'lanzamientos' || launch) {
     const l = launch || {};
     add('✅', 'Revisa la configuración', 'Abre Configuración: la barra «Listo para lanzar» te marca en rojo lo que falta (oferta, precios, etiquetas…).');
-    if (l.registroTag) add('🏷️', `Crea la etiqueta «${l.registroTag}» en GHL`, 'Ponla en el formulario de registro (la de orgánico y la de anuncios) para que cada registro entre en este lanzamiento.');
+    if (l.registroTag) add('🏷️', tagExiste ? `Pon la etiqueta «${l.registroTag}» en el formulario` : `Crea la etiqueta «${l.registroTag}» en GHL`, `${tagExiste ? 'Ya existe en GHL. ' : ''}Ponla en el formulario de registro (el de orgánico y el de anuncios) para que cada registro entre en este lanzamiento.`);
     paginas();
     add('🎥', l.zoomMeetingId ? 'Revisa la sala de Zoom' : 'Crea la sala de Zoom', l.zoomMeetingId
       ? `Ya está creada (ID ${l.zoomMeetingId}) con registro obligatorio. Comprueba en Zoom el anfitrión y la grabación.`
       : 'Crea la reunión con registro obligatorio y pega su ID en Configuración → Directo.');
-    add('💬', 'Monta el grupo de WhatsApp', waCero
+    add('💬', 'Monta el grupo de WhatsApp', l.sendflowId
+      ? `La campaña de SendFlow ya está creada y vinculada: crea sus grupos y pega el enlace de entrada en Configuración.${waCero ? ' Los mensajes, con Plan → Grupo de WhatsApp.' : ' Revisa los mensajes copiados (están en borrador) y prográmalos.'}`
+      : waCero
       ? 'Crea la campaña en SendFlow, pega su enlace en Configuración y escribe los mensajes con Plan → Grupo de WhatsApp (ya llevan las URLs de tus páginas).'
       : 'Crea la campaña en SendFlow y pega su enlace en Configuración. Revisa que tus mensajes lleven los enlaces de este lanzamiento.');
     anuncios(l.metaFiltro || '');

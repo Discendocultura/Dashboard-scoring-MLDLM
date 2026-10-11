@@ -166,3 +166,95 @@ export function resumenFechas(l) {
     ...(l.replayAt ? [['Grabación disponible', fechaBonita(l.replayAt)]] : []),
   ];
 }
+
+// Días de captación de un lanzamiento (del inicio de la captación al directo); sin datos, 14.
+export function diasCaptacionDe(l) {
+  const d = l && DIA_RE.test(l.inicioCaptacion || '') && DIA_RE.test(l.fechaDirecto || '') ? diasEntre(l.inicioCaptacion, l.fechaDirecto) : 0;
+  return d >= 1 && d <= 365 ? d : 14;
+}
+// Fija la captación: empieza N días antes del directo y acaba el día del directo.
+export function fijarCaptacion(launch, dias) {
+  const n = Math.floor(Number(dias));
+  if (!(n >= 1 && n <= 365) || !DIA_RE.test(launch.fechaDirecto || '')) return launch;
+  launch.inicioCaptacion = sumarDias(launch.fechaDirecto, -n);
+  launch.finCaptacion = launch.fechaDirecto;
+  return launch;
+}
+
+// Precios y bonus del asistente: cambia los precios (y el de la oferta si era el mismo que el del programa) y
+// quita los bonus que no se mantienen. precios: { vip, programa } (vacío = sin cambiar) · bonus: ids que se quedan
+export function aplicarOferta(launch, { vip = '', programa = '', bonus = null } = {}) {
+  const num = (v) => (v === '' || v == null || !(Number(v) >= 0) ? null : Number(v));
+  const pv = num(vip);
+  const pp = num(programa);
+  if (pv != null) launch.precioVip = pv;
+  if (pp != null) {
+    if (launch.oferta && Number(launch.oferta.precio) === Number(launch.precioPrograma)) launch.oferta = { ...launch.oferta, precio: pp };
+    launch.precioPrograma = pp;
+  }
+  if (Array.isArray(bonus) && Array.isArray(launch.oferta?.bonus)) {
+    const quedan = new Set(bonus);
+    launch.oferta = { ...launch.oferta, bonus: launch.oferta.bonus.filter((b, i) => quedan.has(b.id || `b${i}`)) };
+  }
+  return launch;
+}
+
+// Objetivos a partir de la facturación que se quiere (con las medias de los lanzamientos anteriores, escenario neutro):
+//   meta: € · M: { cpl, convVip, convVenta, ticket } (valores) · precioVip: € por entrada VIP · diasCaptacion
+// → { registros, vip, ventas, facturacion, inversion, inversionDia, cpl, roas, factLead } o null sin datos.
+export function objetivosDesdeMeta(meta, M, { precioVip = 0, diasCaptacion = 0 } = {}) {
+  const fact = Number(meta);
+  if (!(fact > 0) || !M) return null;
+  const convVenta = Number(M.convVenta) || 0;
+  const ticket = Number(M.ticket) || 0;
+  const convVip = Number(M.convVip) || 0;
+  const factLead = convVip * (Number(precioVip) || 0) + convVenta * ticket;
+  if (!(factLead > 0)) return null;
+  const registros = Math.ceil(fact / factLead);
+  const cpl = Number(M.cpl) || null;
+  const inversion = cpl ? Math.round(registros * cpl) : null;
+  return {
+    registros, vip: Math.round(registros * convVip), ventas: Math.ceil(registros * convVenta), facturacion: Math.round(fact),
+    inversion, inversionDia: inversion && diasCaptacion > 0 ? Math.round(inversion / diasCaptacion) : null,
+    cpl, roas: inversion ? fact / inversion : null, factLead,
+  };
+}
+
+// Tareas del anterior para el nuevo: las mismas (título, notas, fase, persona o rol…) con la fecha movida y sin
+// hacer, sin comentarios ni historial. Las ids las pone el servidor.
+export function copiarTareas(tareas = [], m) {
+  return tareas.filter((t) => t && t.titulo).map((t) => ({
+    titulo: t.titulo, notas: t.notas || '', fase: t.fase, sub: t.sub || '', fecha: t.fecha ? moverValor(t.fecha, m) : '',
+    asignado: t.asignado || null, ...(t.clave ? { clave: t.clave } : {}), ...(t.columna ? { columna: t.columna } : {}), ...(t.habId ? { habId: t.habId, habitual: true } : {}),
+  }));
+}
+
+// Enlaces que cambian del anterior al nuevo: [[viejo, nuevo]] (los campos de URL que no son iguales y el código del
+// lanzamiento en los enlaces del dashboard: …?l=<viejo> → …?l=<nuevo>).
+export function cambiosEnlaces(prev = {}, nuevo = {}, prevCode = '', code = '') {
+  const out = [];
+  for (const [k, v] of Object.entries(prev)) {
+    if (!/(Url|JoinUrl)$/.test(k) || typeof v !== 'string' || !/^https?:\/\//.test(v)) continue;
+    const n = nuevo[k];
+    if (typeof n === 'string' && /^https?:\/\//.test(n) && n !== v) out.push([v, n]);
+  }
+  if (prevCode && code && prevCode !== code) out.push([`l=${prevCode}`, `l=${code}`]);
+  return out;
+}
+const reemplazar = (txt, cambios) => cambios.reduce((t, [a, b]) => (a.startsWith('l=')
+  ? t.replace(new RegExp(`([?&])${a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`, 'g'), `$1${b}`)
+  : t.split(a).join(b)), String(txt || ''));
+
+// Mensajes del grupo de WhatsApp del anterior para el nuevo: en borrador, con la fecha movida y los enlaces cambiados.
+export function copiarMensajes(mensajes = [], m, cambios = []) {
+  return mensajes.filter((x) => x && x.estado !== 'cancelado').map((x) => {
+    const { id, estado, error, actionId, programadoEn, ...resto } = x;
+    return { ...resto, at: x.at ? moverValor(x.at, m) : '', texto: reemplazar(x.texto, cambios), url: reemplazar(x.url, cambios), estado: 'borrador' };
+  });
+}
+
+// Desplazamiento entre el anterior y el nuevo (lo mismo que usa nuevoLanzamiento), para tareas y mensajes.
+export function desplazamiento(prev, fecha, hora) {
+  if (!prev || !DIA_RE.test(prev.fechaDirecto || '') || !DIA_RE.test(fecha || '')) return null;
+  return { dias: diasEntre(prev.fechaDirecto, fecha), diaAnt: prev.fechaDirecto, horaAnt: aMin(prev.horaDirecto || hora), minutos: prev.horaDirecto ? aMin(hora) - aMin(prev.horaDirecto) : 0 };
+}

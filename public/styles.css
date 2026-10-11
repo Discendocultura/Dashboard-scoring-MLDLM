@@ -2847,6 +2847,21 @@ body.embudo-directa .lanz-only { display: none !important; }
 
 /* ⚡ Nuevo lanzamiento rápido */
 #nl-dialog .dialog-body { gap: 16px; }
+.nl-sec { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 0 14px; }
+.nl-sec > summary { cursor: pointer; padding: 12px 0; font-weight: 600; list-style-position: inside; }
+.nl-sec[open] { padding-bottom: 14px; }
+.nl-sec[open] > summary { margin-bottom: 6px; }
+.nl-sec .st-form { margin-bottom: 10px; }
+.nl-bonus { display: grid; gap: 6px; }
+.nl-bonus p { margin: 0; }
+.nl-meta-calc { display: grid; gap: 8px; margin-top: 10px; }
+.nl-meta-calc .plan-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.nl-meta-calc p { margin: 0; }
+.nl-hacer { padding: 12px 14px; display: grid; gap: 8px; background: var(--surface-2); }
+.nl-hacer-t { margin: 0; font-weight: 600; }
+.nl-hacer .chk { display: flex; gap: 10px; align-items: flex-start; }
+.nl-hacer .chk input:disabled + span { opacity: .55; }
+.nl-hacer code { font-size: 12px; }
 .nl-zoom { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
 .nl-res { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
 .nl-res-cab { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -2879,3 +2894,7 @@ body.embudo-directa .lanz-only { display: none !important; }
 @keyframes fiestaIn { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
 @keyframes fiestaSalto { 0%, 100% { transform: none; } 30% { transform: translateY(-10px) rotate(-8deg); } 60% { transform: translateY(0) rotate(6deg); } }
 @media (prefers-reduced-motion: reduce) { .fiesta .fiesta-body, .fiesta-emoji, .dialog.fiesta[open] { animation: none; } }
+.nl-hacer .nl-zoom { padding: 0; border: 0; background: none; }
+.nl-hacer .chk input, .nl-bonus .chk input { width: auto; margin-top: 3px; flex-shrink: 0; }
+.nl-bonus .chk { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
+@media (max-width: 560px) { #nl-dialog .dialog-foot { flex-wrap: wrap; } #nl-dialog .dialog-foot .spacer { display: none; } #nl-dialog #nl-crear { flex: 1 1 100%; } }

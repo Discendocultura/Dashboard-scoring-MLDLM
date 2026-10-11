@@ -36,7 +36,7 @@ import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
 import { mensajesEnviados, impactoMensajes, horaVenta } from './impacto-wa.js';
-import { nuevoLanzamiento, codigoPropuesto, resumenFechas, diasCarritoDe } from './lanzamiento-rapido.js';
+import { nuevoLanzamiento, codigoPropuesto, resumenFechas, diasCarritoDe, diasCaptacionDe, fijarCaptacion, aplicarOferta, objetivosDesdeMeta } from './lanzamiento-rapido.js';
 import { siguientesPasos } from './siguientes-pasos.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
@@ -401,13 +401,14 @@ async function start() {
   }
   state.cliente = me.cliente.id;
   ls.set('lsd_cliente', me.cliente.id);
-  const { role, config, zoomConfigured } = await api('/api/config');
+  const { role, config, zoomConfigured, sendflowConfigured } = await api('/api/config');
   state.role = role;
   state.user = me.user || null;
   state.permisos = me.permisos || [];
   state.roles = me.roles || [];
   state.config = config;
   state.zoomConfigured = zoomConfigured;
+  state.sendflowConfigured = Boolean(sendflowConfigured);
   aplicarProducto();
   document.body.classList.toggle('is-admin', role === 'admin');
   document.body.classList.toggle('can-config', puedeConfig());
@@ -3598,6 +3599,26 @@ const nlPrevios = () => Object.entries(state.config.launches).filter(([, l]) => 
   .sort((a, b) => String(b[1].fechaDirecto || '').localeCompare(String(a[1].fechaDirecto || '')));
 let nlCodeEditado = false;
 let nlCarritoEditado = false;
+const nlEditado = new Set(); // campos que la persona ha tocado (no se rellenan al cambiar el lanzamiento base)
+// Rellena con el lanzamiento base: días de captación, precios y bonus (lo que no se haya tocado).
+function nlPrefill(prev) {
+  const base = prev || embudoInfo()?.base || {};
+  if (!nlEditado.has('captacion')) $('#nl-captacion').value = diasCaptacionDe(prev);
+  if (!nlEditado.has('vip')) $('#nl-precio-vip').value = base.precioVip ?? '';
+  if (!nlEditado.has('prog')) $('#nl-precio-prog').value = base.precioPrograma ?? '';
+  const bonus = Array.isArray(base.oferta?.bonus) ? base.oferta.bonus : [];
+  $('#nl-bonus').innerHTML = bonus.length
+    ? `<p class="muted small">Bonus que se mantienen (sus fechas se mueven con el directo):</p>${bonus.map((b, i) => `<label class="chk"><input type="checkbox" data-nl-bonus="${esc(b.id || `b${i}`)}" checked><span>${esc(b.nombre || `Bonus ${i + 1}`)}${Number(b.valor) > 0 ? ` <span class="muted small">(${eur(Number(b.valor))})</span>` : ''}</span></label>`).join('')}`
+    : '<p class="muted small">Sin bonus en la oferta (se añaden en Configuración → Oferta).</p>';
+  const tienePrev = Boolean(prev);
+  for (const id of ['#nl-tareas', '#nl-wa']) { $(id).disabled = !tienePrev; $(id).checked = tienePrev; }
+}
+// Lanzamientos del embudo con resultados guardados en este navegador (los del Planificador) + los metidos a mano.
+function nlHistorico() {
+  const g = histGuardado();
+  const e = embudoInfo() || {};
+  return [...nlPrevios().map(([c]) => g[c]).filter(Boolean), ...(e.historico || []).map(resumenManual)];
+}
 // desdeEmbudo: se abre al terminar «＋ Nuevo embudo» (al acabar, la enhorabuena es por el embudo).
 let nlDesdeEmbudo = false;
 let nlCreado = false;
@@ -3614,6 +3635,15 @@ function abrirLanzamientoRapido({ desdeEmbudo = false } = {}) {
   nlCodeEditado = false;
   nlCarritoEditado = false;
   $('#nl-carrito').value = diasCarritoDe(previos[0]?.[1]);
+  nlEditado.clear();
+  $('#nl-meta').value = '';
+  $('#nl-tag').checked = false;
+  $('#nl-sendflow').checked = false;
+  $('#nl-sendflow').disabled = !state.sendflowConfigured;
+  $('#nl-sendflow-info').textContent = state.sendflowConfigured ? '(crea la campaña en tu SendFlow; el enlace del grupo lo pegas tú después)' : '(SendFlow no está conectado en este cliente: Cuenta → Conexiones)';
+  $('#nl-sec-oferta').open = false;
+  $('#nl-sec-meta').open = false;
+  nlPrefill(previos[0]?.[1] || null);
   const multi = nVideos(embudoInfo()?.formato || 'webinar') > 1;
   $('#nl-fecha-l').textContent = multi ? 'Día del 1.er vídeo' : 'Día del directo';
   $('#nl-zoom').checked = Boolean(state.zoomConfigured);
@@ -3640,20 +3670,76 @@ function calcularNl() {
   const r = nuevoLanzamiento({ code, nombre: $('#nl-nombre').value, fecha, hora, prev, prevCode, base: prev ? null : e.base || null, embudo: { id: state.embudo, formato: e.formato, clases: e.clases, preclase: e.preclase }, diasCarrito });
   // Embudo con las páginas creadas de cero: sus enlaces, las URLs propuestas (si el anterior no los tenía).
   for (const [k, u] of Object.entries(enlacesLanzamiento(propuestasEmbudo(state.embudo)))) if (!r.launch[k]) r.launch[k] = u;
-  return { ...r, code, prev, prevCode, usados };
+  // Captación, precios y bonus.
+  const diasCapt = Number($('#nl-captacion').value);
+  if (!(diasCapt >= 1 && diasCapt <= 365)) throw new Error('Los días de captación tienen que ser de 1 a 365.');
+  fijarCaptacion(r.launch, diasCapt);
+  const precioAntes = Number(r.launch.precioPrograma) || 0;
+  const bonusBox = $$('[data-nl-bonus]');
+  aplicarOferta(r.launch, { vip: $('#nl-precio-vip').value.trim(), programa: $('#nl-precio-prog').value.trim(), bonus: bonusBox.length ? bonusBox.filter((x) => x.checked).map((x) => x.dataset.nlBonus) : null });
+  // Objetivo de facturación → objetivos y presupuesto (con las medias de los lanzamientos anteriores).
+  let objetivos = null;
+  const meta = Number($('#nl-meta').value);
+  const M = medias(nlHistorico());
+  if (meta > 0 && M.n) {
+    const escala = precioAntes && Number(r.launch.precioPrograma) ? Number(r.launch.precioPrograma) / precioAntes : 1;
+    objetivos = objetivosDesdeMeta(meta, { cpl: M.cpl?.valor, convVip: Number(r.launch.precioVip) > 0 ? M.convVip?.valor : 0, convVenta: M.convVenta?.valor, ticket: (M.ticket?.valor || 0) * escala },
+      { precioVip: vipSinIva(r.launch), diasCaptacion: diasCapt });
+    if (objetivos) {
+      r.launch.objetivos = { registros: objetivos.registros, vip: objetivos.vip, ventas: objetivos.ventas, facturacion: objetivos.facturacion };
+      r.launch.calculadora = { ...(r.launch.calculadora || {}), diasCaptacion: diasCapt, ...(objetivos.inversion ? { presupuesto: objetivos.inversion } : {}) };
+    }
+  }
+  return { ...r, code, prev, prevCode, usados, objetivos, meta, M };
+}
+// Lo de los bloques plegables (resúmenes, objetivo) y las casillas que dependen del lanzamiento.
+function pintarNlExtras(r) {
+  const l = r?.launch || {};
+  const nb = $$('[data-nl-bonus]');
+  $('#nl-oferta-res').textContent = [Number(l.precioVip) > 0 ? `VIP ${eur(Number(l.precioVip))}` : '', Number(l.precioPrograma) > 0 ? `programa ${eur(Number(l.precioPrograma))}` : '', nb.length ? `${nb.filter((x) => x.checked).length}/${nb.length} bonus` : ''].filter(Boolean).join(' · ');
+  const tag = l.registroTag || '';
+  const existe = tag && state.tags.map((t) => t.toLowerCase()).includes(tag.toLowerCase());
+  $('#nl-tag-nombre').textContent = tag;
+  $('#nl-tag').disabled = !tag || existe;
+  if (existe) $('#nl-tag').checked = false;
+  $('#nl-tag-info').textContent = existe ? '(ya existe en GHL ✓)' : '(escribe en tu GHL)';
+  // Objetivo de facturación
+  const box = $('#nl-meta-calc');
+  const meta = Number($('#nl-meta').value);
+  if (!(meta > 0)) { box.innerHTML = '<p class="muted small">Con tus lanzamientos anteriores calculo cuántos registros, ventas e inversión necesitas, y lo dejo como objetivos y presupuesto del Planificador.</p>'; $('#nl-meta-res').textContent = ''; return; }
+  if (!r?.M?.n) {
+    const hay = nlPrevios().some(([, x]) => x.fechaDirecto && x.fechaDirecto < dayInMadrid(new Date().toISOString()));
+    box.innerHTML = hay
+      ? `<div class="st-aviso info"><span>Para calcularlo necesito los resultados de tus lanzamientos anteriores.</span><button type="button" class="btn small" id="nl-cargar-hist">Cargar mis lanzamientos anteriores</button></div>`
+      : '<div class="st-aviso info"><span>Aún no hay lanzamientos anteriores con resultados: añade uno a mano en Plan → Planificador o pon los objetivos allí.</span></div>';
+    $('#nl-meta-res').textContent = '';
+    return;
+  }
+  const o = r.objetivos;
+  if (!o) { box.innerHTML = '<p class="muted small">Faltan datos de ventas en los lanzamientos anteriores para calcularlo.</p>'; return; }
+  const tile = (lbl, v, sub = '') => `<div class="plan-tile"><span class="plan-l">${lbl}</span><strong class="plan-n">${v}</strong>${sub ? `<span class="plan-s">${sub}</span>` : ''}</div>`;
+  box.innerHTML = `<div class="plan-tiles">
+      ${tile('Registros', numTxt(o.registros), o.cpl ? `a ${eur(o.cpl)} por registro` : '')}
+      ${o.vip ? tile('Entradas VIP', numTxt(o.vip)) : ''}
+      ${tile('Ventas', numTxt(o.ventas))}
+      ${tile('Inversión en anuncios', o.inversion ? eur(o.inversion) : '–', o.inversionDia ? `${eur(o.inversionDia)} al día · ROAS ${o.roas ? o.roas.toLocaleString('es-ES', { maximumFractionDigits: 1 }) : '–'}` : '')}
+    </div>
+    <p class="muted small">Con la media de ${r.M.n} ${r.M.n === 1 ? 'lanzamiento anterior' : 'lanzamientos anteriores'} (escenario neutro, fiabilidad ${esc(r.M.fiabilidad)}). Se guardan como objetivos del lanzamiento y presupuesto del Planificador.</p>`;
+  $('#nl-meta-res').textContent = `${numTxt(o.registros)} registros · ${numTxt(o.ventas)} ventas`;
 }
 function pintarNl() {
   const box = $('#nl-preview');
-  if (!$('#nl-fecha').value) { box.innerHTML = '<div class="st-aviso info"><span>📅 Pon el día del directo y verás aquí todas las fechas calculadas.</span></div>'; return; }
+  if (!$('#nl-fecha').value) { box.innerHTML = '<div class="st-aviso info"><span>📅 Pon el día del directo y verás aquí todas las fechas calculadas.</span></div>'; pintarNlExtras(null); return; }
   let r;
   try { r = calcularNl(); } catch (err) { box.innerHTML = `<p class="error">${esc(err.message)}</p>`; return; }
+  pintarNlExtras(r);
   const tagOk = !state.tags.length || state.tags.map((t) => t.toLowerCase()).includes(r.launch.registroTag);
   const copia = r.origen === 'copia';
   box.innerHTML = `<div class="nl-res">
       <div class="nl-res-cab"><strong>${copia ? `📋 Copia de «${esc(r.prev.name)}»` : '🧩 Plantilla estándar'}</strong>${copia && r.dias != null ? `<span class="st-chip">fechas ${r.dias >= 0 ? '+' : ''}${r.dias} días</span>` : ''}</div>
       <ul class="nl-fechas">${resumenFechas(r.launch).map(([a, b]) => `<li><span>${esc(a)}</span><strong>${esc(b)}</strong></li>`).join('')}</ul>
       <ul class="nl-mas">
-        <li>🏷️ Etiqueta de registro: <code>${esc(r.launch.registroTag)}</code> ${tagOk ? '' : '<span class="st-chip">aún no existe en GHL: créala en el formulario de registro</span>'}</li>
+        <li>🏷️ Etiqueta de registro: <code>${esc(r.launch.registroTag)}</code> ${tagOk ? '' : $('#nl-tag').checked ? '<span class="st-chip">se crea en GHL al crear el lanzamiento</span>' : '<span class="st-chip">aún no existe en GHL: márcala abajo para crearla o créala en el formulario de registro</span>'}</li>
         ${copia ? '<li>✅ Se copian la oferta, los bonus, los precios, las etiquetas de VIP y compra, los textos, las barras, los recursos y los envíos del carrito.</li><li>🧹 Se dejan vacíos (son de cada edición): Zoom, grupo de WhatsApp, campaña de SendFlow y vídeo de la grabación.</li>' : ''}
         ${r.avisos.map((a) => `<li>⚠️ ${esc(a)}</li>`).join('')}
       </ul>
@@ -3662,6 +3748,22 @@ function pintarNl() {
 for (const id of ['#nl-nombre', '#nl-fecha', '#nl-hora', '#nl-base']) $(id).addEventListener('input', pintarNl);
 $('#nl-base').addEventListener('change', pintarNl);
 $('#nl-carrito').addEventListener('input', () => { nlCarritoEditado = true; pintarNl(); });
+for (const [id, k] of [['#nl-captacion', 'captacion'], ['#nl-precio-vip', 'vip'], ['#nl-precio-prog', 'prog']]) $(id).addEventListener('input', () => { nlEditado.add(k); pintarNl(); });
+$('#nl-meta').addEventListener('input', pintarNl);
+$('#nl-tag').addEventListener('change', pintarNl);
+$('#nl-bonus').addEventListener('change', pintarNl);
+$('#nl-base').addEventListener('change', () => { const c = $('#nl-base').value; nlPrefill(c ? state.config.launches[c] : null); pintarNl(); });
+$('#nl-meta-calc').addEventListener('click', async (e) => {
+  const b = e.target.closest('#nl-cargar-hist');
+  if (!b) return;
+  b.disabled = true;
+  b.textContent = 'Cargando (puede tardar un poco)…';
+  try {
+    const hoy = dayInMadrid(new Date().toISOString());
+    await cargarHistorico(nlPrevios().filter(([, x]) => x.fechaDirecto && x.fechaDirecto < hoy).slice(0, 4));
+  } catch (err) { notice(`No se pudieron cargar los lanzamientos anteriores: ${err.message}`, true); }
+  pintarNl();
+});
 $('#nl-code').addEventListener('input', () => { nlCodeEditado = Boolean($('#nl-code').value.trim()); pintarNl(); });
 $('#nl-manual').addEventListener('click', () => { nlDesdeEmbudo = false; nlDlg.close(); openConfig(null); });
 // Embudo recién creado y sin lanzamiento (se cierra el asistente): la enhorabuena es por el embudo.
@@ -3697,10 +3799,32 @@ $('#nl-crear').addEventListener('click', async () => {
         }
       }
     }
-    // 2) Guardar el lanzamiento.
+    // 2) Campaña de SendFlow (si se pide): se vincula al lanzamiento.
+    if ($('#nl-sendflow').checked && state.sendflowConfigured) {
+      st.textContent = 'Creando la campaña en SendFlow…';
+      try {
+        const c = await api('/api/nuevo-lanzamiento', { method: 'POST', body: { op: 'sendflow', nombre: `${clienteNombre() ? `${clienteNombre()} · ` : ''}${launch.name}` } });
+        launch.sendflowId = c.id;
+        hecho.push('📲 Campaña de SendFlow creada y vinculada');
+      } catch (err) { hecho.push(`⚠️ No se creó la campaña de SendFlow: ${err.message}`); }
+    }
+    // 3) Guardar el lanzamiento.
     st.textContent = 'Guardando el lanzamiento…';
     const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, launches: { ...state.config.launches, [r.code]: launch } } });
     state.config = config;
+    // 4) Lo demás que se ha pedido: etiqueta en GHL, tareas y mensajes del grupo.
+    const extra = async (marcado, txt, op, body, ok) => {
+      if (!marcado) return;
+      st.textContent = txt;
+      try { hecho.push(ok(await api('/api/nuevo-lanzamiento', { method: 'POST', body: { op, ...body } }))); } catch (err) { hecho.push(`⚠️ ${txt.replace('…', '')}: ${err.message}`); }
+    };
+    await extra($('#nl-tag').checked && !$('#nl-tag').disabled, 'Creando la etiqueta en GHL…', 'etiqueta', { tag: launch.registroTag }, (x) => {
+      if (x.creada) state.tags = [...state.tags, x.tag];
+      return x.creada ? `🏷️ Etiqueta «${x.tag}» creada en GHL` : `🏷️ La etiqueta «${x.tag}» ya existía en GHL`;
+    });
+    await extra(r.prev && $('#nl-tareas').checked, 'Copiando las tareas…', 'tareas', { l: r.code, de: r.prevCode }, (x) => (x.copiadas ? `🗓️ ${x.copiadas} tareas copiadas` : '🗓️ El anterior no tenía tareas'));
+    await extra(r.prev && $('#nl-wa').checked, 'Copiando los mensajes del grupo…', 'whatsapp', { l: r.code, de: r.prevCode }, (x) => (x.copiados ? `💬 ${x.copiados} mensajes del grupo en borrador` : '💬 El anterior no tenía mensajes del grupo'));
+    if (r.objetivos) hecho.push(`🎯 Objetivos: ${numTxt(r.objetivos.registros)} registros · ${numTxt(r.objetivos.ventas)} ventas${r.objetivos.inversion ? ` · ${eur(r.objetivos.inversion)} de inversión` : ''}`);
     renderLaunchSelect();
     await selectLaunch(r.code);
     if (missingSnapshot(config.launches[r.code]).length) await runSnapshot(r.code);
@@ -3765,7 +3889,7 @@ async function celebrar({ embudo, code = '', hecho = [], desdeEmbudo = false, al
     ? `«${esc(e.nombre || '')}» ya está en tu menú de la izquierda${launch ? ` con su primer lanzamiento, «${esc(launch.name)}»` : ''}.`
     : `«${esc(launch.name)}» ya está listo para revisar.`;
   $('#fiesta-hecho').innerHTML = hecho.map((h) => `<li${h.startsWith('⚠️') ? ' class="mal"' : ''}>${esc(h)}</li>`).join('');
-  $('#fiesta-pasos').innerHTML = siguientesPasos({ embudo: e, launch }).map((p) => `<li><strong>${p.icono} ${esc(p.titulo)}</strong><span>${esc(p.detalle)}</span></li>`).join('');
+  $('#fiesta-pasos').innerHTML = siguientesPasos({ embudo: e, launch, tagExiste: Boolean(launch?.registroTag && state.tags.some((t) => t.toLowerCase() === launch.registroTag.toLowerCase())) }).map((p) => `<li><strong>${p.icono} ${esc(p.titulo)}</strong><span>${esc(p.detalle)}</span></li>`).join('');
   $('#fiesta-ok').textContent = launch ? 'Revisar la configuración →' : 'Empezar →';
   fiestaSeguir = alSeguir;
   const em = $('#fiesta-email');

@@ -787,6 +787,24 @@ siguiente al vídeo de venta, el último a las 23:59) y **de qué lanzamiento co
   anfitrión. En formatos de varios vídeos, una por cada vídeo que en el anterior era en directo. Necesita que la app
   de Zoom (Server-to-Server) tenga el permiso `meeting:write` (o `meeting:write:meeting:admin`); si Zoom pide
   anfitrión, variable `ZOOM_HOST_EMAIL` (o `ZOOM_HOST_EMAIL_<CLIENTE>`). Si falla, el lanzamiento se crea igual y lo avisa.
+- **Días de captación**: propone los del anterior (o 14); la captación empieza esos días antes del directo y acaba el día del directo.
+- **💶 Precios y bonus** (plegable): precio de la entrada VIP y del programa (si el de la oferta era el mismo que el del
+  programa, cambia también) y casillas con los bonus que se mantienen (los demás se quitan de la oferta).
+- **🎯 Objetivo de facturación** (plegable): con la media de los lanzamientos anteriores del embudo (los resultados que
+  guarda el Planificador en el navegador, o «Cargar mis lanzamientos anteriores», y los metidos a mano), escenario neutro,
+  calcula registros, VIP, ventas, inversión en anuncios (y al día) y ROAS. El ticket se ajusta si cambias el precio del
+  programa. Se guardan como **objetivos** del lanzamiento y como **presupuesto** y días de captación del Planificador.
+- **⚙️ Además, déjame hecho…** (casillas):
+  - 🗓️ **Copiar las tareas** del anterior: mismas personas o roles, fase y notas; fecha movida; sin hacer y sin comentarios
+    (no duplica si ya están).
+  - 💬 **Copiar los mensajes del grupo de WhatsApp** del anterior: en borrador, con la fecha movida y los enlaces del nuevo
+    (las URL que cambian, como la de Zoom, y `?l=<código>` de los enlaces del dashboard). Solo si el nuevo no tiene mensajes;
+    los cancelados no se copian. Luego se revisan y se programan en Plan → Grupo de WhatsApp.
+  - 🏷️ **Crear la etiqueta de registro en GHL** (desmarcada de serie: escribe en GHL; si ya existe, no se puede marcar).
+  - 📲 **Crear la campaña de grupos en SendFlow** (`POST /releases`, tipo WhatsRelease; desmarcada de serie) y vincularla
+    al lanzamiento. Los grupos y el enlace de entrada se hacen en SendFlow. *Ruta de SendAPI aún sin probar con la real.*
+  Si algo falla, el lanzamiento se crea igual y la pantalla de enhorabuena lo marca con ⚠️.
+  Código: `handlers/nuevo-lanzamiento.js` (`POST /api/nuevo-lanzamiento`, ops `tareas`, `whatsapp`, `etiqueta`, `sendflow`; permiso «config»).
 - Vista previa con las fechas en claro antes de crear; al crear, se guarda, se hace la «foto» de etiquetas y sale la
   **pantalla de enhorabuena** (ver abajo); su botón abre la Configuración para revisar (la barra «Listo para lanzar» marca lo que falte). «Configurar a mano» abre el
   formulario de siempre. Código: `public/js/lanzamiento-rapido.js`, `handlers/zoom-sala.js` (`POST /api/zoom-sala`).

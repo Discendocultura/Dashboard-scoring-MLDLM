@@ -6,7 +6,7 @@ import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { enPrincipal, clienteActual } from '../lib/cliente.js';
 import { listUsers, ensureContact, emailLayout, guardarContactos } from '../lib/users.js';
-import { sendEmail } from '../lib/ghl.js';
+import { sendEmail, listTags } from '../lib/ghl.js';
 import { env } from '../lib/env.js';
 import { siguientesPasos } from '../public/js/siguientes-pasos.js';
 import { json, readBody, errorResponse, escapeHtml } from '../lib/http.js';
@@ -34,7 +34,8 @@ export async function POST(request) {
     const code = String(b.launch || '');
     const launch = code ? config.launches[code] || null : null;
     if (code && !launch) return json({ error: 'Lanzamiento no encontrado' }, 404);
-    const pasos = siguientesPasos({ embudo, launch });
+    const tags = launch?.registroTag ? await listTags().catch(() => []) : [];
+    const pasos = siguientesPasos({ embudo, launch, tagExiste: tags.some((t) => t.toLowerCase() === String(launch?.registroTag || '').toLowerCase()) });
     if (!s.user?.email) return json({ enviado: false, motivo: 'Has entrado con la contraseña general: no hay email al que mandarlo.', pasos });
     const que = launch ? `el lanzamiento «${launch.name}»` : `el embudo «${embudo.nombre}»`;
     const dashboardUrl = `${new URL(request.url).origin}/${clienteActual().principal ? '' : `?c=${encodeURIComponent(clienteActual().id)}`}`;

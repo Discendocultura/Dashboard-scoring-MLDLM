@@ -2,6 +2,7 @@ import { requireRole, requireSession, tienePermiso } from '../lib/auth.js';
 import { PERMISOS_DATOS } from '../public/js/roles.js';
 import { getConfig, saveConfig } from '../lib/config-store.js';
 import { zoomConfigured } from '../lib/zoom.js';
+import { sendflowConfigurado } from '../lib/sendflow.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { versionDe, reintentando } from '../lib/store.js';
 
@@ -21,7 +22,7 @@ export async function GET(request) {
     // `version`: el navegador la devuelve al guardar, para no pisar lo que otra persona guardó entretanto.
     const version = versionDe(config);
     if (!tienePermiso(ses, [...PERMISOS_DATOS, 'config', 'carrito'])) return json({ role, config: equipoConfig(config), zoomConfigured: false, version });
-    return json({ role, config, zoomConfigured: zoomConfigured(), version });
+    return json({ role, config, zoomConfigured: zoomConfigured(), sendflowConfigured: sendflowConfigurado(), version });
   } catch (e) {
     return errorResponse(e);
   }
