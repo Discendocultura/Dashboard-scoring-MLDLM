@@ -17,12 +17,21 @@ test('calendario: registro, clases, VIP, directo, grabación, carrito día a dí
   assert.equal(at('Ya disponible: Clase 1'), '2026-11-12T10:00');
   assert.equal(at('Mañana es el directo'), '2026-11-16T19:00');
   assert.equal(at('Empezamos en 1 hora'), '2026-11-17T18:00');
-  assert.equal(at('Grabación del directo'), '2026-11-18T10:00');
   assert.equal(at('Apertura del carrito'), '2026-11-17T20:30');
-  // Horas de Plan → Carrito si las hay (día 3: solo 08:00)
-  assert.deepEqual(c.filter((x) => x.at.startsWith('2026-11-20')).map((x) => x.at), ['2026-11-20T08:00']);
-  assert.equal(c.filter((x) => x.at.startsWith('2026-11-22')).length, 3); // último día: 3 envíos
-  assert.ok(c.find((x) => x.at === '2026-11-19T10:00').que.includes('Bonus 48 h'));
+  // La grabación del vídeo de venta la cubren los del día 1 del carrito (foco en verla); sin carrito, su propio email.
+  assert.equal(at('Grabación del directo'), undefined);
+  assert.equal(calendarioEmails(l, ['replay']).find((x) => x.fase === 'replay').at, '2026-11-18T10:00');
+  // Carrito: 3 al día (9, 15 y 20) y 4 el último (9, 13, 19 y 22)
+  const horas = (d) => c.filter((x) => x.at.startsWith(d) && x.fase === 'carrito').map((x) => x.at.slice(11));
+  assert.deepEqual(horas('2026-11-20'), ['09:00', '15:00', '20:00']);
+  assert.deepEqual(horas('2026-11-22'), ['09:00', '13:00', '19:00', '22:00']);
+  const car = c.filter((x) => x.fase === 'carrito' && x.que.startsWith('Carrito día'));
+  assert.match(car[0].que, /día 1 · foco: ver la GRABACIÓN/);
+  assert.match(car[0].que, /tono emocional/);
+  assert.match(car.at(-1).que, /tono racional/);
+  assert.match(car.at(-1).que, /últimas horas: el carrito cierra hoy a las 23:59/);
+  assert.match(car[3].que, /día 2 · foco: la VENTA/);
+  assert.match(c.find((x) => x.at === '2026-11-19T09:00').que, /urgencia: hoy acaba «Bonus 48 h» a las 23:59/);
   // Sin VIP ni preclase si no se eligen
   const sin = calendarioEmails(l, FASES_DEFECTO.filter((f) => !['vip', 'preclase'].includes(f)));
   assert.ok(!sin.some((x) => x.fase === 'vip' || x.fase === 'preclase'));
@@ -55,6 +64,9 @@ test('prompt: calendario, enlaces, etiquetas, ficha, narrativa, ganadores y form
   assert.match(p, /Asuntos y textos con el vocabulario de la narrativa/);
   assert.match(p, /ASUNTOS QUE MEJOR HAN FUNCIONADO/);
   assert.match(p, /\d+\. mar 17 nov 18:00 · Empezamos en 1 hora/);
+  assert.match(p, /LOS EMAILS DEL CARRITO \(3 al día/);
+  assert.match(p, /Romper UNA objeción/);
+  assert.match(p, /más EMOCIONALES; a medida que avanza el carrito, más RACIONALES/);
   assert.match(p, /\{\{contact\.first_name\}\}/);
   assert.match(p, /- Asunto B \(para test A\/B\)/);
   assert.match(p, /TABLA RESUMEN/);

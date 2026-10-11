@@ -20,6 +20,8 @@ export const FASES_EMAIL = [
 export const FASES_DEFECTO = FASES_EMAIL.filter((f) => f.id !== 'cierre').map((f) => f.id);
 
 const DIA_RE = /^\d{4}-\d{2}-\d{2}$/;
+export const HORAS_CARRITO = ['09:00', '15:00', '20:00'];
+export const HORAS_ULTIMO_DIA = ['09:00', '13:00', '19:00', '22:00'];
 const sumar = (d, n) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const horaMenos = (h, min) => { const [a, b] = String(h || '19:00').split(':').map(Number); const t = Math.max(0, a * 60 + b - min); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; };
 
@@ -53,17 +55,32 @@ export function calendarioEmails(l = {}, fases = FASES_DEFECTO) {
     add(`${v.fecha}T${horaMenos(h, 60)}`, 'directo', `Empezamos en 1 hora: enlace de acceso`);
     add(`${v.fecha}T${h}`, 'directo', `¡Estamos en directo! Entra ya`, 'quien no ha entrado aún (si se puede segmentar)');
     const rep = v.replayAt || `${sumar(v.fecha, 1)}T10:00`;
-    add(rep, 'replay', `Grabación ${deNom} disponible${v.venta ? ' (y el carrito abierto)' : ''}`, 'sobre todo quien no asistió');
+    // La grabación del vídeo de venta la cubren los emails del día 1 del carrito (si están).
+    if (!(v.venta && on.has('carrito'))) add(rep, 'replay', `Grabación ${deNom} disponible${v.venta ? ' (y el carrito abierto)' : ''}`, 'sobre todo quien no asistió');
   }
+  // Carrito: 3 emails al día (9:00, 15:00 y 20:00) y 4 el último (9:00, 13:00, 19:00 y 22:00). Cada uno rompe una
+  // objeción, genera emoción y da un motivo para comprar ya (el que toque: bonus, fin de un bonus, cierre). Del más
+  // emocional al más racional; el día 1, foco en ver la grabación; desde el día 2, en la venta.
   const C = diasCarrito(l);
+  const slots = [];
   C.dias.forEach((d, i) => {
+    if (i === 0) return; // el día del directo: solo la apertura
     const ultimo = i === C.dias.length - 1;
-    const horas = d.envios?.emails?.length ? d.envios.emails : ultimo ? ['09:00', '18:00', '22:00'] : i === 0 ? [] : ['10:00', '19:00'];
-    const hitos = d.auto.filter((a) => a.icon === '⏳').map((a) => a.texto);
-    if (i === 0) add(l.aperturaCarrito || `${d.day}T21:00`, 'carrito', 'Apertura del carrito: la oferta completa, los bonus y el enlace de compra', 'registrados que no han comprado');
-    horas.forEach((h, j) => add(`${d.day}T${h}`, 'carrito', ultimo
-      ? ['Último día: qué se pierden y resumen de la oferta', 'Quedan pocas horas: objeción principal + testimonio', 'Últimas horas: cierre a las 23:59'][j] || 'Último día del carrito'
-      : `Carrito día ${d.n}: un ángulo distinto (testimonio, objeción, FAQ, historia, bonus…)${hitos.length && j === 0 ? ` · hoy: ${hitos.join(' · ')}` : ''}`, 'registrados que no han comprado'));
+    for (const h of ultimo ? HORAS_ULTIMO_DIA : HORAS_CARRITO) slots.push({ d, h, ultimo });
+  });
+  if (C.dias.length) add(l.aperturaCarrito || `${C.dias[0].day}T21:00`, 'carrito', 'Apertura del carrito: la oferta completa, los bonus y el enlace de compra', 'registrados que no han comprado');
+  slots.forEach(({ d, h, ultimo }, k) => {
+    const p = slots.length > 1 ? k / (slots.length - 1) : 0;
+    const tono = p < 0.4 ? 'emocional' : p < 0.7 ? 'emocional y racional' : 'racional';
+    // Bonus que acaban hoy (y aún no han acabado a esta hora): «nombre» a las HH:MM.
+    const finBonus = d.auto.filter((a) => a.icon === '⏳').map((a) => a.texto.match(/:\s*(.+?) \(acaba a las (\d{2}:\d{2})\)/)).filter((m) => m && h < m[2]).map((m) => `«${m[1]}» a las ${m[2]}`);
+    const yaAcabados = d.auto.filter((a) => a.icon === '⏳').map((a) => a.texto.match(/:\s*(.+?) \(acaba a las (\d{2}:\d{2})\)/)).filter((m) => m && h >= m[2]).map((m) => m[1]);
+    const activos = (d.auto.find((a) => a.icon === '🎁')?.texto.replace(/^Bonus activos: /, '').split(', ') || []).filter((b) => b && !yaAcabados.includes(b)).join(', ');
+    const motivador = ultimo ? (h >= '22:00' ? 'últimas horas: el carrito cierra hoy a las 23:59' : `urgencia: el carrito cierra hoy a las 23:59${finBonus.length ? ` (y hoy acaba ${finBonus.join(' y ')})` : ''}`)
+      : finBonus.length ? `urgencia: hoy acaba ${finBonus.join(' y ')}`
+        : activos ? `bonus: ${activos}` : 'la oferta completa y la garantía';
+    const foco = d.n <= 1 ? 'ver la GRABACIÓN (venta en segundo plano)' : 'la VENTA';
+    add(`${d.day}T${h}`, 'carrito', `Carrito día ${d.n}${ultimo ? ' (último día)' : ''} · foco: ${foco} · tono ${tono} · objeción + emoción + motivo para comprar ya: ${motivador}`, 'registrados que no han comprado');
   });
   if (C.dias.length) add(`${sumar(C.dias.at(-1).day, 1)}T10:00`, 'cierre', 'Gracias por acompañarnos / lista de espera para la próxima edición', 'quien no compró');
   return out.sort((a, b) => (a.at || '0').localeCompare(b.at || '0'));
@@ -121,6 +138,14 @@ export function promptEmails(ctx = {}) {
     '- Cada email con un ángulo distinto (historia, beneficio, prueba social, objeción, urgencia real, FAQ…). Nada de urgencia falsa: solo plazos reales (cierre, bonus que caducan).',
     '- Los del día del directo solo recuerdan que es HOY, la hora y el enlace; no venden.',
     '- Los de venta: a quien no ha comprado (excluye la etiqueta de compra) y con el enlace de la página de venta.',
+    '',
+    'LOS EMAILS DEL CARRITO (3 al día a las 9:00, 15:00 y 20:00; 4 el último día a las 9:00, 13:00, 19:00 y 22:00). CADA UNO tiene que:',
+    '1. Romper UNA objeción (distinta en cada email; sácalas de la ficha del avatar: precio, tiempo, «no es para mí», «ya lo probé», miedo a no conseguirlo, pareja/familia…).',
+    '2. Generar emoción (la vida que desea frente a la que tiene, historias y testimonios reales).',
+    '3. Dar un motivo para comprar YA, el que toque en ese momento (está en el calendario: bonus disponible, fin de un bonus, cierre del carrito).',
+    '- Progresión: los primeros, más EMOCIONALES; a medida que avanza el carrito, más RACIONALES (qué incluye, precio por día, garantía, FAQ, comparativas, cifras).',
+    '- Día 1 del carrito: el foco es que VEAN LA GRABACIÓN (lo que se perdieron o quieren repasar), con la venta en segundo plano. Desde el día 2: foco en la VENTA, manteniendo lo anterior.',
+    '- El último día: urgencia real creciente hasta el cierre a las 23:59; el de las 22:00, corto y directo.',
     '- Cuida la entregabilidad: nada de MAYÚSCULAS ni signos «!!!» en el asunto, pocos enlaces (1, como mucho 2) y sin palabras típicas de spam.',
     '',
     'FORMATO DE CADA EMAIL (igual en todos, para programarlos en GHL):',
