@@ -3589,6 +3589,59 @@ $$('#config-dialog .cfg-nav .tab').forEach((t) => t.addEventListener('click', ()
 }));
 $('#cfg-volver').addEventListener('click', () => { cfgDlg.classList.add('cfg-en-menu'); $('.dialog-body', cfgDlg).scrollTop = 0; });
 
+// ---------- 📨 Informes: email diario de captación / carrito ----------
+let infEmails = [];
+function pintarInformesCfg() {
+  const inf = state.config.informes || {};
+  infEmails = [...(inf.emails || [])];
+  $('#inf-captacion').checked = inf.captacion !== false;
+  $('#inf-carrito').checked = inf.carrito !== false;
+  $('#inf-email').value = '';
+  $('#inf-status').textContent = '';
+  $('#inf-vista').hidden = true;
+  $('#inf-cron').textContent = `${location.origin}/api/informe-diario?key=<DIGEST_KEY>&c=${encodeURIComponent(state.cliente || 'mldlm')}`;
+  pintarInfEmails();
+}
+function pintarInfEmails() {
+  $('#inf-emails').innerHTML = infEmails.length ? infEmails.map((e, i) => `<span class="chip on dc-upp-chip">${esc(e)} <button type="button" data-inf-quitar="${i}" aria-label="Quitar ${esc(e)}">×</button></span>`).join('') : '<small class="muted">Aún no hay ningún email: el informe no se envía.</small>';
+}
+function anadirInfEmail() {
+  const e = $('#inf-email').value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { $('#inf-status').textContent = 'Ese email no es válido.'; return; }
+  if (!infEmails.includes(e) && infEmails.length < 10) infEmails.push(e);
+  $('#inf-email').value = '';
+  $('#inf-status').textContent = 'Recuerda pulsar Guardar.';
+  pintarInfEmails();
+}
+$('#inf-email-add').addEventListener('click', anadirInfEmail);
+$('#inf-email').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); anadirInfEmail(); } });
+$('#inf-emails').addEventListener('click', (e) => { const b = e.target.closest('[data-inf-quitar]'); if (b) { infEmails.splice(Number(b.dataset.infQuitar), 1); pintarInfEmails(); $('#inf-status').textContent = 'Recuerda pulsar Guardar.'; } });
+$('#inf-ver').addEventListener('click', async () => {
+  const code = editingCode;
+  if (!code) { $('#inf-status').textContent = 'Guarda primero el lanzamiento.'; return; }
+  $('#inf-status').textContent = 'Calculando el informe (descarga los leads)…';
+  try {
+    const r = await api(`/api/informe-diario?l=${encodeURIComponent(code)}`);
+    $('#inf-vista').hidden = false;
+    $('#inf-vista').innerHTML = `<p class="inf-asunto"><span class="muted small">Asunto:</span> <strong>${esc(r.asunto)}</strong></p><div class="inf-email">${r.html}</div>`;
+    $('#inf-status').textContent = r.fase === 'carrito' ? 'Así queda el de carrito (datos hasta ayer).' : 'Así queda el de captación (datos hasta ayer).';
+  } catch (e) { $('#inf-status').textContent = e.message; }
+});
+$('#inf-enviar').addEventListener('click', async () => {
+  const code = editingCode;
+  if (!code) { $('#inf-status').textContent = 'Guarda primero el lanzamiento.'; return; }
+  if (!(state.config.informes?.emails || []).length) { $('#inf-status').textContent = 'Añade los emails y pulsa Guardar antes de enviar.'; return; }
+  $('#inf-enviar').disabled = true;
+  $('#inf-status').textContent = 'Enviando…';
+  try {
+    const r = await api('/api/informe-diario', { method: 'POST', body: { l: code } });
+    const ok = r.resultados.filter((x) => x.ok).map((x) => x.email);
+    const mal = r.resultados.filter((x) => !x.ok);
+    $('#inf-status').textContent = `${ok.length ? `✓ Enviado a ${ok.join(', ')}.` : ''}${mal.length ? ` No se pudo a: ${mal.map((x) => `${x.email} (${x.error})`).join(', ')}` : ''}`;
+  } catch (e) { $('#inf-status').textContent = e.message; }
+  $('#inf-enviar').disabled = false;
+});
+
 function openConfig(code) {
   if (!$('#config-dialog').open) { $('.tab[data-tab="launch"]').click(); cfgDlg.classList.add('cfg-en-menu'); } // al abrir, la primera (en el móvil, el menú)
   editingCode = code && state.config.launches[code] ? code : null;
@@ -3701,6 +3754,7 @@ function openConfig(code) {
   $('#cfg-email-filtro').value = l.emailFiltro || '';
   renderMetaNaming();
   $('#cfg-digest-email').value = state.config.digestEmail || '';
+  pintarInformesCfg();
   fillFormAdsFields();
   renderAccesosEditor(state.config.accesos);
   $('#cfg-status').textContent = '';
@@ -4796,6 +4850,7 @@ $('#cfg-save').addEventListener('click', async () => {
     const next = {
       ...state.config,
       digestEmail: $('#cfg-digest-email').value.trim(),
+      informes: { emails: [...infEmails, ...($('#inf-email').value.trim() ? [$('#inf-email').value.trim().toLowerCase()] : [])], captacion: $('#inf-captacion').checked, carrito: $('#inf-carrito').checked },
       accesos: readAccesosEditor(),
       formAds: { campaign: $('#cfg-fa-campaign').value, adset: $('#cfg-fa-adset').value, ad: $('#cfg-fa-ad').value },
       launches: { ...state.config.launches, [code]: { ...launch, embudo: state.config.launches[code]?.embudo || (enVsl() ? undefined : state.embudo) } },
@@ -6749,7 +6804,7 @@ async function loadAgencia(fresh = false) {
 $('#btn-agencia').addEventListener('click', () => {
   $('#agencia-dialog .tab[data-tab="ag-panel"]').click();
   $('#ag-cron').textContent = `${location.origin}/api/agencia?key=<DIGEST_KEY>`;
-  $('#ag-cron-clientes').textContent = state.clientes.map((c) => `${c.nombre}:\n${location.origin}/api/agencia?key=<DIGEST_KEY>&c=${encodeURIComponent(c.id)}`).join('\n\n');
+  $('#ag-cron-clientes').textContent = state.clientes.map((c) => `${c.nombre}:\n${location.origin}/api/agencia?key=<DIGEST_KEY>&c=${encodeURIComponent(c.id)}\n${location.origin}/api/informe-diario?key=<DIGEST_KEY>&c=${encodeURIComponent(c.id)}   (informe diario de captación / carrito, 5 min después)`).join('\n\n');
   $('#agencia-dialog').showModal();
   loadAgencia();
 });

@@ -3291,3 +3291,13 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .dc-upp-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .dc-upp-precio { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
 .dc-upp-precio input { width: 110px; }
+/* 📨 Informes diarios */
+.inf-que { margin: 0 0 14px; padding-left: 18px; font-size: 13.5px; color: var(--text-2); }
+.inf-que li { margin: 4px 0; }
+.inf-emails { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+.inf-fases { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 12px 0; }
+.inf-fases label { display: inline-flex; gap: 6px; align-items: center; font-weight: 600; }
+.inf-acc { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.inf-vista { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fff; color: #241f1c; overflow-x: auto; }
+.inf-vista .muted { color: #6b625d; }
+.inf-asunto { margin: 0 0 10px; }
