@@ -873,7 +873,8 @@ La secuencia de emails del lanzamiento para escribirla con Claude y programarla 
   grabación (la del vídeo de venta la cubren los del día 1 del carrito), apertura del carrito y el **carrito: 3 emails al
   día (9:00, 15:00 y 20:00) y 4 el último (9:00, 13:00, 19:00 y 22:00)**. Cada uno rompe una objeción (distinta),
   genera emoción y da el motivo para comprar ya que toque a esa hora (bonus disponible, fin de un bonus, cierre); van de
-  más emocionales a más racionales; el día 1 con foco en ver la grabación y desde el día 2 en la venta. Y, si se marca,
+  más emocionales a más racionales; el día 1 con foco en ver la grabación y desde el día 2 en la venta; el último día,
+  el primero (9:00) es siempre el de **preguntas frecuentes** sobre el producto. Y, si se marca,
   el de después del cierre. Dos emails nunca coinciden a la misma hora.
 - **Pantalla**: arriba, cuántos emails, días y de carrito y el botón «Copiar el prompt»; las fases como botones
   (encender / apagar); el calendario en tarjetas por día (fecha grande, qué pasa ese día y una tarjeta por email con su

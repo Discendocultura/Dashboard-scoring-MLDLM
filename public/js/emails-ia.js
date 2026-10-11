@@ -27,9 +27,10 @@ const MENSAJES_DIA1 = ['Mira la grabación: lo que no te puedes perder', 'El mom
 const ANGULOS = {
   emocional: ['Imagina tu vida dentro de unos meses', 'La historia de alguien como tú', 'No estás sola: lo que sienten muchas', 'Lo que cuesta seguir igual', 'Por qué creamos este programa'],
   mixto: ['Qué cambia exactamente cuando entras', 'Respuesta a «no tengo tiempo»', 'Respuesta a «no sé si es para mí»', 'Resultados reales de alumnas', 'Respuesta a «es caro»', 'Cómo es el día a día dentro'],
-  racional: ['Todo lo que incluye, punto por punto', 'Precio por día y formas de pago', 'Garantía: entras sin riesgo', 'Las preguntas frecuentes, respondidas', 'Sola o acompañada: la comparativa'],
+  racional: ['Todo lo que incluye, punto por punto', 'Precio por día y formas de pago', 'Garantía: entras sin riesgo', 'Sola o acompañada: la comparativa', 'Último repaso: todo lo que te llevas'],
 };
-const MENSAJES_ULTIMO_DIA = ['Último día: todo lo que te llevas', 'Respuesta a tu última duda', 'Cierra esta noche: decide hoy', 'Últimas horas: cierra a las 23:59'];
+// El primero del último día es SIEMPRE el de preguntas frecuentes sobre el producto.
+const MENSAJES_ULTIMO_DIA = ['Último día: las preguntas frecuentes, respondidas', 'Respuesta a tu última duda', 'Cierra esta noche: decide hoy', 'Últimas horas: cierra a las 23:59'];
 const sumar = (d, n) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const horaMenos = (h, min) => { const [a, b] = String(h || '19:00').split(':').map(Number); const t = Math.max(0, a * 60 + b - min); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; };
 
@@ -173,7 +174,7 @@ export function promptEmails(ctx = {}) {
     '3. Dar un motivo para comprar YA, el que toque en ese momento (está en el calendario: bonus disponible, fin de un bonus, cierre del carrito).',
     '- Progresión: los primeros, más EMOCIONALES; a medida que avanza el carrito, más RACIONALES (qué incluye, precio por día, garantía, FAQ, comparativas, cifras).',
     '- Día 1 del carrito: el foco es que VEAN LA GRABACIÓN (lo que se perdieron o quieren repasar), con la venta en segundo plano. Desde el día 2: foco en la VENTA, manteniendo lo anterior.',
-    '- El último día: urgencia real creciente hasta el cierre a las 23:59; el de las 22:00, corto y directo.',
+    '- El último día: el PRIMER email (9:00) es SIEMPRE el de PREGUNTAS FRECUENTES sobre el producto (formato FAQ: las dudas reales con su respuesta corta, y el enlace de compra). Después, urgencia real creciente hasta el cierre a las 23:59; el de las 22:00, corto y directo.',
     '- Cuida la entregabilidad: nada de MAYÚSCULAS ni signos «!!!» en el asunto, pocos enlaces (1, como mucho 2) y sin palabras típicas de spam.',
     '',
     'FORMATO DE CADA EMAIL (igual en todos, para programarlos en GHL):',

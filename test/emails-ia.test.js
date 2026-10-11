@@ -31,6 +31,9 @@ test('calendario: registro, clases, VIP, directo, grabación, carrito día a dí
   assert.equal(new Set(car.map((x) => x.titulo)).size, car.length); // sin mensajes repetidos
   assert.match(car[0].que, /tono emocional/);
   assert.match(car.at(-1).que, /tono racional/);
+  // El último día, el primero (9:00) siempre es el de preguntas frecuentes.
+  assert.equal(c.find((x) => x.at === '2026-11-22T09:00').titulo, 'Último día: las preguntas frecuentes, respondidas');
+  assert.equal(car.filter((x) => /preguntas frecuentes/i.test(x.titulo)).length, 1);
   assert.match(car.at(-1).que, /últimas horas: el carrito cierra hoy a las 23:59/);
   assert.match(car[3].que, /día 2 · mensaje: .+ · foco: la VENTA/);
   assert.equal(c.find((x) => x.at === '2026-11-19T09:00').titulo, 'Hoy acaba «Bonus 48 h» (23:59): aprovéchalo');
@@ -69,6 +72,7 @@ test('prompt: calendario, enlaces, etiquetas, ficha, narrativa, ganadores y form
   assert.match(p, /\d+\. mar 17 nov 18:00 · Empezamos en 1 hora/);
   assert.match(p, /LOS EMAILS DEL CARRITO \(3 al día/);
   assert.match(p, /Romper UNA objeción/);
+  assert.match(p, /el PRIMER email \(9:00\) es SIEMPRE el de PREGUNTAS FRECUENTES/);
   assert.match(p, /más EMOCIONALES; a medida que avanza el carrito, más RACIONALES/);
   assert.match(p, /\{\{contact\.first_name\}\}/);
   assert.match(p, /- Asunto B \(para test A\/B\)/);
