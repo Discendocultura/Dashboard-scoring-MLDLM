@@ -254,6 +254,7 @@ export function metricasDirecta(contactos, d, rango, { visitas = null, inversion
         extras: suyos.map((o) => o.id),
         // Lo que ha pagado (sin IVA) y de qué campaña / conjunto / anuncio viene (UTM o campos del formulario de Meta).
         importe: precio + suyos.reduce((t, o) => t + precioExtraSinIva(o, d), 0),
+        ...(d.upsellPrincipal?.tags?.some((t) => tiene(c, t)) ? { principal: true } : {}),
         ...(c.src?.campaign || c.src?.term || c.src?.content ? { src: { campaign: c.src.campaign || '', adset: c.src.term || '', ad: c.src.content || '' } } : {}),
       };
     }),

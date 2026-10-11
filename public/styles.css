@@ -3206,3 +3206,82 @@ body.embudo-directa .lanz-only { display: none !important; }
 .seg-acc .btn .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .dc-sinprincipal { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px; cursor: pointer; align-self: flex-end; }
 .dc-sinprincipal:has(input:checked) { border-color: var(--accent); color: var(--accent); }
+
+/* ---------- Desplegables: flecha propia, con aire (la nativa se pegaba al borde) ---------- */
+select:not([multiple]):not([size]) {
+  -webkit-appearance: none; appearance: none; cursor: pointer; text-overflow: ellipsis;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a817b' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 14px 14px;
+}
+select:not([multiple]):not([size]):hover, select:not([multiple]):not([size]):focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d97757' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; background-position: right 8px center; background-size: 12px 12px; }
+
+/* ---------- Barra de periodo (Métricas, Publicidad, VSL, venta directa, Inicio) ---------- */
+.vsl-rango { gap: 10px 16px; padding: 12px 16px; border-radius: 14px; }
+.vsl-rango .field.inline > span, .inicio-cab-acc .field.inline > span { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+#vr-preset, #dr-preset, #pb-preset, #inicio-preset {
+  min-width: 200px; font-weight: 650; border-radius: 999px; padding: 9px 40px 9px 38px;
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  background-color: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d97757' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='5' width='17' height='15' rx='2.5'/%3E%3Cpath d='M3.5 10h17M8 3v4M16 3v4'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d97757' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat; background-position: left 13px center, right 14px center; background-size: 16px 16px, 14px 14px;
+}
+.vsl-rango input[type="date"], .inicio-cab-acc input[type="date"] { border-radius: 999px; padding: 8px 12px; }
+.vr-texto { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--surface-2); font-weight: 650; font-size: 13px; color: var(--text-2); }
+.vr-texto:empty { display: none; }
+@media (max-width: 640px) {
+  #vr-preset, #dr-preset, #pb-preset, #inicio-preset { min-width: 0; width: 100%; }
+  .vsl-rango .field.inline { flex: 1 1 100%; }
+  .vr-texto { width: auto; }
+}
+
+/* ---------- 🛍️ Compradoras de venta directa: tarjetas por día ---------- */
+.dir-cli-bar { align-items: center; gap: 10px 14px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.dc-buscar { flex: 1 1 260px; min-width: 0; }
+.dc-buscar input { width: 100%; border-radius: 999px; padding: 9px 14px 9px 38px; background-repeat: no-repeat; background-position: left 13px center; background-size: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a817b' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='m20 20-4.2-4.2'/%3E%3C/svg%3E"); }
+.dc-mostrar select { border-radius: 999px; min-width: 170px; }
+.dc-n { margin-left: auto; font-size: 13px; color: var(--text-2); }
+.dc-n strong { color: var(--text); }
+.dc-lista { display: flex; flex-direction: column; gap: 22px; }
+.dc-dia h4 { display: flex; align-items: baseline; gap: 10px; margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-2); }
+.dc-dia h4 span::first-letter { text-transform: uppercase; }
+.dc-dia h4 small { font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--muted); font-weight: 600; }
+.dc-dia h4::after { content: ''; flex: 1; height: 1px; background: var(--border); align-self: center; }
+.dc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.dc-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px 14px; align-items: start; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); transition: border-color .15s, transform .15s, box-shadow .15s; }
+.dc-card:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); box-shadow: var(--shadow); transform: translateY(-1px); }
+.dc-card.dc-principal { border-left: 3px solid var(--tone-buy); }
+.dc-av { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px; letter-spacing: .02em;
+  color: hsl(var(--h) 55% 35%); background: hsl(var(--h) 70% 88%); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .dc-av { color: hsl(var(--h) 70% 82%); background: hsl(var(--h) 35% 24%); } }
+:root[data-theme="dark"] .dc-av { color: hsl(var(--h) 70% 82%); background: hsl(var(--h) 35% 24%); }
+.dc-info { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dc-nombre { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.dc-nombre .lead-ficha { font-weight: 750; font-size: 15px; }
+.dc-tag-principal { font-size: 11px; font-weight: 750; padding: 2px 8px; border-radius: 999px; color: var(--tone-buy); background: color-mix(in srgb, var(--tone-buy) 13%, var(--surface)); }
+.dc-sub { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12.5px; color: var(--muted); }
+.dc-sub span { overflow-wrap: anywhere; }
+.dc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.dc-chip { font-size: 11.5px; font-weight: 650; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); }
+.dc-chip-extra { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); }
+.dc-chip-ad { background: color-mix(in srgb, var(--tone-info) 12%, var(--surface)); color: var(--tone-info); }
+.dc-lado { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.dc-importe { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
+.dc-lado .btn.wa { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 6px 12px; white-space: nowrap; }
+.dc-lado .btn.wa .ico { width: 14px; height: 14px; }
+.dc-sintel { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.dc-vacio { text-align: center; padding: 40px 10px; color: var(--muted); }
+.dc-vacio span { font-size: 34px; }
+@media (max-width: 640px) {
+  .dc-grid { grid-template-columns: 1fr; }
+  .dc-card { grid-template-columns: auto minmax(0, 1fr); }
+  .dc-lado { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px dashed var(--border); }
+  .dc-n { margin-left: 0; width: 100%; }
+  .dc-mostrar { flex: 1 1 auto; }
+}

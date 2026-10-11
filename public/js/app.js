@@ -11093,17 +11093,43 @@ function renderDirectaClientes(D) {
   $('#dc-tabla').hidden = enSeg;
   $('#dc-seg').hidden = !enSeg;
   if (enSeg) { cargarSeguimiento(); return; }
-  if (!D || D.error) { $('#dc-body').innerHTML = `<tr><td colspan="4" class="muted">${D?.error ? esc(D.error) : 'Cargando…'}</td></tr>`; $('#dc-n').textContent = ''; return; }
+  if (!D || D.error) { $('#dc-body').innerHTML = `<p class="muted">${D?.error ? esc(D.error) : 'Cargando…'}</p>`; $('#dc-n').textContent = ''; return; }
   const q = $('#dc-buscar').value.trim().toLowerCase();
   const f = sel.value;
   const lista = (D.compradores || []).filter((c) => (!q || `${c.name} ${c.email} ${c.phone}`.toLowerCase().includes(q))
     && (!f || (f === '-' ? !c.extras.length : f === '+' ? c.extras.length > 0 : c.extras.includes(f))));
-  const nombreExtra = (id) => { const o = extras.find((x) => x.id === id); return o ? `${o.t} ${o.nombre || o.tag}` : id; };
-  $('#dc-n').textContent = `${lista.length.toLocaleString('es-ES')} de ${(D.compradores || []).length.toLocaleString('es-ES')} compradoras`;
-  $('#dc-body').innerHTML = lista.slice(0, 500).map((c) => {
-    const wa = waPhone(c.phone, state.config.defaultCountryCode || '34');
-    return `<tr><td>${new Date(`${c.dia}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</td><td><strong>${esc(c.name || '—')}</strong><br><small class="muted">${esc(c.email)}</small></td><td>${c.extras.length ? c.extras.map((x) => `<span class="badge">${esc(nombreExtra(x))}</span>`).join(' ') : '<span class="muted small">Solo el producto</span>'}</td><td>${wa ? `<a class="btn small" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp</a>` : '<span class="muted small">Sin teléfono</span>'}</td></tr>`;
-  }).join('') || '<tr><td colspan="4" class="muted">Nadie con ese filtro en este periodo.</td></tr>';
+  const extraDe = (id) => extras.find((x) => x.id === id) || { t: '•', nombre: id };
+  const total = lista.reduce((t, c) => t + (c.importe || 0), 0);
+  $('#dc-n').innerHTML = `<strong>${lista.length.toLocaleString('es-ES')}</strong> de ${(D.compradores || []).length.toLocaleString('es-ES')} compradoras${lista.length ? ` · <strong>${eur(total)}</strong>` : ''}`;
+  if (!lista.length) { $('#dc-body').innerHTML = '<div class="dc-vacio"><span>🛍️</span><p>Nadie con ese filtro en este periodo.</p></div>'; return; }
+  // Agrupadas por día (de la más reciente a la más antigua), con lo facturado ese día.
+  const hoy = dayInMadrid(new Date().toISOString());
+  const ayer = addDay(hoy, -1);
+  const tituloDia = (d) => (d === hoy ? 'Hoy' : d === ayer ? 'Ayer' : new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }));
+  const iniciales = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join('').toUpperCase() || '?';
+  const tono = (n) => { let h = 0; for (const ch of String(n)) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
+  const cc = state.config.defaultCountryCode || '34';
+  const tarjeta = (c) => {
+    const wa = waPhone(c.phone, cc);
+    return `<article class="dc-card${c.principal ? ' dc-principal' : ''}">
+      <span class="dc-av" style="--h:${tono(c.name || c.email)}">${esc(iniciales(c.name || c.email))}</span>
+      <div class="dc-info">
+        <div class="dc-nombre"><button type="button" class="lead-ficha" data-ficha-lead="${esc(c.id)}" title="Ver la ficha completa">${esc(c.name || '—')}</button>
+          ${c.principal ? `<span class="dc-tag-principal" title="Ya tiene ${esc(d.upsellPrincipal?.nombre || 'el producto principal')}">✓ ${esc(d.upsellPrincipal?.nombre || 'Principal')}</span>` : ''}</div>
+        <div class="dc-sub">${c.email ? `<span>${esc(c.email)}</span>` : ''}${c.phone ? `<span>${esc(c.phone)}</span>` : ''}</div>
+        <div class="dc-chips">${c.extras.length ? c.extras.map((x) => { const o = extraDe(x); return `<span class="dc-chip dc-chip-extra">${o.t} ${esc(o.nombre || o.tag)}</span>`; }).join('') : '<span class="dc-chip">Solo el producto</span>'}${c.src ? '<span class="dc-chip dc-chip-ad" title="Vino de un anuncio de Meta">📣 Anuncio</span>' : ''}</div>
+      </div>
+      <div class="dc-lado">
+        ${c.importe ? `<span class="dc-importe">${eur(c.importe)}</span>` : ''}
+        ${wa ? `<a class="btn small wa" href="https://wa.me/${wa}" target="_blank" rel="noopener">${icon('whatsapp')} WhatsApp</a>` : '<span class="dc-sintel">Sin teléfono</span>'}
+      </div>
+    </article>`;
+  };
+  const dias = [];
+  for (const c of lista.slice(0, 500)) { const g = dias.at(-1); if (g?.dia === c.dia) g.c.push(c); else dias.push({ dia: c.dia, c: [c] }); }
+  $('#dc-body').innerHTML = dias.map((g) => `<section class="dc-dia"><h4><span>${esc(tituloDia(g.dia))}</span><small>${g.c.length} compra${g.c.length === 1 ? '' : 's'} · ${eur(g.c.reduce((t, c) => t + (c.importe || 0), 0))}</small></h4>
+    <div class="dc-grid">${g.c.map(tarjeta).join('')}</div></section>`).join('')
+    + (lista.length > 500 ? `<p class="muted small">…y ${lista.length - 500} más: usa la búsqueda o acorta el periodo.</p>` : '');
 }
 // 👑 Anuncios ganadores de la venta directa: menor CAC y más ventas (ganadoresDirecta en directa.js).
 state.danLevel ??= 'ad';
