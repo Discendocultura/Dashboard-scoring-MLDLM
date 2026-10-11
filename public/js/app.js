@@ -6387,6 +6387,49 @@ $('#ag-enviar').addEventListener('click', async (e) => {
   } catch (err) { $('#ag-info').textContent = err.message; }
   e.target.disabled = false;
 });
+// ---------- Agencia → Bot de Telegram ----------
+async function cargarTelegram() {
+  const st = $('#tg-estado');
+  try {
+    const d = await api('/api/telegram');
+    if (!d.configurado) {
+      st.innerHTML = '⚪️ Falta el token: añade <code>TELEGRAM_BOT_TOKEN</code> en Cloudflare (paso 2).';
+      $('#tg-chats').innerHTML = '';
+      for (const id of ['#tg-conectar', '#tg-vincular', '#tg-prueba']) $(id).disabled = true;
+      return;
+    }
+    for (const id of ['#tg-conectar', '#tg-vincular', '#tg-prueba']) $(id).disabled = false;
+    st.innerHTML = `${d.webhook ? '🟢' : '🟠'} Bot <strong>@${esc(d.bot || '?')}</strong>: ${d.webhook ? 'conectado' : 'sin conectar (pulsa «Conectar el bot»)'}${d.error ? ` · último error de Telegram: ${esc(d.error)}` : ''}`;
+    $('#tg-chats').innerHTML = d.chats.length
+      ? `<p class="muted small">Chats vinculados (reciben los avisos):</p><ul class="tg-lista">${d.chats.map((c) => `<li><span>👤 ${esc(c.nombre || 'Sin nombre')}${c.usuario ? ` <span class="muted">@${esc(c.usuario)}</span>` : ''} <span class="muted small">· vinculado por ${esc(c.por || '—')}</span></span><button type="button" class="btn ghost small" data-tg-quitar="${esc(c.chatId)}">Quitar</button></li>`).join('')}</ul>`
+      : '<p class="muted small">Aún no hay ningún chat vinculado.</p>';
+  } catch (err) { st.textContent = err.message; }
+}
+$('#tg-box').addEventListener('toggle', () => { if ($('#tg-box').open) cargarTelegram(); });
+$('#tg-conectar').addEventListener('click', async (e) => {
+  e.target.disabled = true;
+  try { const r = await api('/api/telegram', { method: 'POST', body: { op: 'conectar' } }); notice(`🟢 Bot @${r.bot} conectado.`); } catch (err) { notice(err.message, true); }
+  e.target.disabled = false;
+  cargarTelegram();
+});
+$('#tg-vincular').addEventListener('click', async (e) => {
+  e.target.disabled = true;
+  try {
+    const r = await api('/api/telegram', { method: 'POST', body: { op: 'vincular' } });
+    $('#tg-enlace').innerHTML = `<div class="st-aviso info"><span>Abre este enlace en el móvil (o con Telegram en el ordenador) y pulsa «Iniciar». Caduca en ${r.caduca} minutos y solo sirve una vez.</span><a class="btn primary small" href="${esc(r.enlace)}" target="_blank" rel="noopener">Abrir en Telegram</a></div>`;
+  } catch (err) { notice(err.message, true); }
+  e.target.disabled = false;
+});
+$('#tg-prueba').addEventListener('click', async (e) => {
+  e.target.disabled = true;
+  try { const r = await api('/api/telegram', { method: 'POST', body: { op: 'prueba' } }); notice(r.enviados ? `Mensaje de prueba enviado a ${r.enviados} ${r.enviados === 1 ? 'chat' : 'chats'}.` : 'No hay chats vinculados todavía.', !r.enviados); } catch (err) { notice(err.message, true); }
+  e.target.disabled = false;
+});
+$('#tg-chats').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-tg-quitar]');
+  if (!b || !window.confirm('¿Quitar este chat? Dejará de recibir avisos y de poder preguntar al bot.')) return;
+  try { await api('/api/telegram', { method: 'POST', body: { op: 'desvincular', chatId: b.dataset.tgQuitar } }); cargarTelegram(); } catch (err) { notice(err.message, true); }
+});
 $('#ag-body').addEventListener('click', (e) => {
   const b = e.target.closest('[data-ag-entrar]');
   if (b) cambiarCliente(b.dataset.agEntrar);

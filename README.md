@@ -826,6 +826,27 @@ siguiente al vídeo de venta, el último a las 23:59) y **de qué lanzamiento co
   **pantalla de enhorabuena** (ver abajo); su botón abre la Configuración para revisar (la barra «Listo para lanzar» marca lo que falte). «Configurar a mano» abre el
   formulario de siempre. Código: `public/js/lanzamiento-rapido.js`, `handlers/zoom-sala.js` (`POST /api/zoom-sala`).
 
+## 📲 Bot de Telegram de la agencia
+Avisos y resúmenes en el móvil, y preguntas cuando quieras. Se configura en **Agencia → Panel → 📲 Bot de Telegram**
+(solo superadmin):
+1. En Telegram, [@BotFather](https://t.me/BotFather) → `/newbot` → nombre (p. ej. «Estelabs») y usuario acabado en `bot`.
+2. El **token** que da va en Cloudflare como `TELEGRAM_BOT_TOKEN` (Secret) + «Retry deployment». Nunca en un chat ni en el código.
+3. **Conectar el bot** (registra el webhook `POST /api/telegram` con una cabecera secreta que sale de `SESSION_SECRET`, y
+   el menú de comandos) y **Vincular mi Telegram** (enlace `t.me/<bot>?start=<código>` de un solo uso, 15 minutos).
+
+El bot **solo responde a chats privados vinculados** por un superadmin (si esa persona deja de ser superadmin o se
+desactiva, su chat deja de valer). Comandos:
+- `/estado`: todos los clientes (registros, ventas, ROAS, próximo hito, críticos y tareas vencidas), primero los que
+  tienen críticos. Usa los resúmenes guardados del panel de agencia y recalcula el más antiguo.
+- `/resumen <cliente>` (por código o nombre, sin tildes): el detalle recién calculado; sin nombre, botones para elegir.
+- `/hoy`: los hitos de hoy y de mañana de cada cliente y lo que hay que resolver.
+- `/ayuda`.
+
+Avisos automáticos a los chats vinculados: el **resumen de cada mañana** (la misma tarea de cron-job.org de
+`/api/agencia?key=…` que manda el email del auditor) y los de la **vigilancia de los grupos de WhatsApp** (picos de
+salidas, enlace caído, grupos llenos…), con las mismas esperas que el email para no repetir. «Mandarme una prueba»
+comprueba que llegan. Código: `lib/telegram.js`, `handlers/telegram.js`. Los chats vinculados se guardan en `lsd_telegram` (común).
+
 ## 🎉 Enhorabuena: siguientes pasos al crear un embudo o un lanzamiento
 Al terminar «＋ Nuevo embudo» (en los de lanzamientos, después del asistente de nuevo lanzamiento; si se cierra sin
 crearlo, también) o «Nuevo lanzamiento», sale una pantalla con confeti: lo que se ha hecho (copia, sala de Zoom, días de

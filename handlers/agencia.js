@@ -15,6 +15,7 @@ import { informesPendientes } from '../lib/informe-envio.js';
 import { getConfig } from '../lib/config-store.js';
 import { sendDigestUnaVez } from '../lib/digest.js';
 import { json, readBody, errorResponse, escapeHtml } from '../lib/http.js';
+import { avisarTelegram, textoEstado } from '../lib/telegram.js';
 
 const eur = (n) => (n == null ? '–' : `${Math.round(n).toLocaleString('es-ES')} €`);
 const fecha = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : '');
@@ -63,7 +64,9 @@ async function enviar(request) {
       }
     }
     if (nuevos) await guardarContactos(users);
-    return { enviados, destinatarios: users.length, criticos: totalCriticos };
+    // Y al Telegram de la agencia (si está conectado y vinculado).
+    const telegram = await avisarTelegram(textoEstado(r, { url: dashboardUrl, titulo: '☀️ <b>Buenos días: así están los clientes</b>' }));
+    return { enviados, destinatarios: users.length, criticos: totalCriticos, telegram };
   });
 }
 
