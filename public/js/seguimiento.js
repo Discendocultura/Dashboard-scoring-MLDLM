@@ -6,7 +6,11 @@ import { dayInMadrid } from './scoring.js';
 
 export const MENSAJE_SEGUIMIENTO_DEF = 'Hola {nombre} 👋 Soy {setter}. Vi que hiciste {producto} y quería saber qué tal te está yendo: ¿has podido empezar? Si te quedan dudas o quieres dar el siguiente paso con {principal}, aquí estoy 😊';
 
-const tiene = (c, t) => Boolean(t) && (c.tags || []).some((x) => String(x).toLowerCase() === String(t).toLowerCase());
+// Etiquetas de cada contacto en minúsculas, calculadas una vez (con miles de compradoras y varias etiquetas
+// que mirar, comparar una a una gastaba demasiada CPU). WeakMap: no se cuela en el JSON.
+const TAGS = new WeakMap();
+const tagsDe = (c) => { let t = TAGS.get(c); if (!t) { t = new Set((c.tags || []).map((x) => String(x).toLowerCase())); TAGS.set(c, t); } return t; };
+const tiene = (c, t) => Boolean(t) && Boolean(c) && tagsDe(c).has(String(t).toLowerCase());
 
 // Mensaje de WhatsApp con sus huecos rellenos.
 export function mensajeSeguimiento(plantilla, { nombre = '', producto = '', principal = '', setter = '' } = {}) {

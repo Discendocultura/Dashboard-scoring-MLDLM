@@ -7,7 +7,7 @@
 import { requireSession } from '../lib/auth.js';
 import { getConfig, saveConfig } from '../lib/config-store.js';
 import { getPipelines, searchOpportunities, createOpportunity, updateOpportunity, addContactNote } from '../lib/ghl.js';
-import { todosLosLeads } from '../lib/resumen.js';
+import { compradorasDe } from '../lib/directa.js';
 import { leerJSON, guardarJSON, reintentando, cacheCompartida } from '../lib/store.js';
 import { pipelineDeCompra } from '../public/js/directa.js';
 import { listaSeguimiento, MENSAJE_SEGUIMIENTO_DEF } from '../public/js/seguimiento.js';
@@ -52,7 +52,7 @@ export async function GET(request) {
     if (!d.compraTag) return json({ configurado: false, motivo: 'Falta la etiqueta de compra del embudo.' });
     // Las compradoras y el pipeline, compartidos 3 minutos por el equipo; los cambios del dashboard se leen siempre.
     const base = await cacheCompartida(`seguimiento|${id}|${d.compraTag}|${d.upsellPrincipal.tags.join(',')}|${d.compraPipeline || ''}`, 3 * 60_000, async () => {
-      const contactos = await todosLosLeads(d.compraTag, [], { conOpps: true });
+      const contactos = await compradorasDe(d, { fresh: url.searchParams.get('fresh') === '1' });
       const { pipeline, etapaInicial } = await pipelineDe(d, contactos).catch((e) => { throw permisos(e); });
       return { contactos, pipeline, etapaInicial };
     }, { fresh: url.searchParams.get('fresh') === '1' });

@@ -3,6 +3,7 @@
 // totales, por día, facturación, ROAS…). Solo lo que el lanzamiento tiene activado: sin entrada VIP no se
 // habla de VIP, sin inversión no hay CPL ni ROAS, etc. Lo usan lib/informe-diario.js (envío) y la vista previa.
 import { conVip, clasesDe } from './videos.js';
+import { dayInMadrid } from './scoring.js';
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const DIA = 86_400_000;
@@ -38,7 +39,15 @@ export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto
   const inv = m.eco.inversion || 0;
   const directo = l.fechaDirecto || '';
   const cierre = String(l.cierreCarrito || '').slice(0, 10) || (directo ? sumarDias(directo, 6) : '');
-  const registrosDia = (d) => leads.filter((x) => String(x.dateAdded || '').slice(0, 10) && diaMadrid(x.dateAdded) === d).length;
+  // Altas y ventas por día, en una sola pasada (antes se recorrían todos los leads por cada día).
+  const porDiaAlta = new Map();
+  const porDiaVenta = new Map();
+  for (const x of leads) {
+    const a = x.dateAdded ? dayInMadrid(String(x.dateAdded)) : '';
+    if (a) porDiaAlta.set(a, (porDiaAlta.get(a) || 0) + 1);
+    if (x.s?.compra && x.s.fecha_compra) porDiaVenta.set(x.s.fecha_compra, (porDiaVenta.get(x.s.fecha_compra) || 0) + 1);
+  }
+  const registrosDia = (d) => porDiaAlta.get(d) || 0;
   const deltaFoto = (k, actual) => (anterior && anterior[k] != null ? Math.max(0, actual - anterior[k]) : null);
   const objetivos = (m.objetivos || []).map((o) => [`🎯 ${o.label}`, `${o.unit === 'eur' ? eur(o.actual) : n0(o.actual)} de ${o.unit === 'eur' ? eur(o.meta) : n0(o.meta)}`, `${Math.round(o.pct * 100)} %`]);
   const secciones = [];
@@ -95,14 +104,14 @@ export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto
     };
   }
   // Carrito.
-  const ventasDia = (d) => leads.filter((x) => x.s?.compra && x.s.fecha_compra === d);
-  const conFecha = leads.some((x) => x.s?.compra && x.s.fecha_compra);
-  const nuevasVentas = conFecha ? ventasDia(dia).length : deltaFoto('ventas', m.compra);
+  const ventasDia = (d) => porDiaVenta.get(d) || 0;
+  const conFecha = porDiaVenta.size > 0;
+  const nuevasVentas = conFecha ? ventasDia(dia) : deltaFoto('ventas', m.compra);
   const diasCarrito = [];
   for (let d = directo; d && d <= dia; d = sumarDias(d, 1)) {
     const f = fotos[d];
     const fAnt = fotos[sumarDias(d, -1)];
-    const n = conFecha ? ventasDia(d).length : f && fAnt ? Math.max(0, f.ventas - fAnt.ventas) : null;
+    const n = conFecha ? ventasDia(d) : f && fAnt ? Math.max(0, f.ventas - fAnt.ventas) : null;
     diasCarrito.push([d, n]);
   }
   const quedan = cierre ? entre(dia, cierre) : null;
@@ -141,7 +150,6 @@ export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto
 const fmtLargo = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 const fmtCorto = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 export const fechaLarga = (d) => fmtLargo.format(new Date(`${d}T12:00:00Z`));
-const diaMadrid = (iso) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
 
 // Cuerpo del email (HTML con estilos en línea, legible en cualquier gestor de correo).
 export function informeHtml(d, { color = '#860d0e', url = '' } = {}) {

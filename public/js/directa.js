@@ -114,7 +114,11 @@ const pctIva = (d) => (Number.isFinite(Number(d?.iva?.pct)) ? Number(d.iva.pct) 
 export const precioProductoSinIva = (d) => sinIva(d?.precio, d?.iva?.producto, pctIva(d));
 export const precioExtraSinIva = (o, d) => sinIva(o?.precio, o?.iva, pctIva(d));
 
-const tiene = (c, t) => Boolean(t) && (c.tags || []).some((x) => String(x).toLowerCase() === String(t).toLowerCase());
+// Etiquetas de cada contacto en minúsculas, calculadas una vez (con miles de compradoras y varias etiquetas
+// que mirar, comparar una a una gastaba demasiada CPU). WeakMap: no se cuela en el JSON.
+const TAGS = new WeakMap();
+const tagsDe = (c) => { let t = TAGS.get(c); if (!t) { t = new Set((c.tags || []).map((x) => String(x).toLowerCase())); TAGS.set(c, t); } return t; };
+const tiene = (c, t) => Boolean(t) && Boolean(c) && tagsDe(c).has(String(t).toLowerCase());
 // Día de la compra: el campo de fecha de compra; si no hay, el que apuntó el servidor al ver la etiqueta de
 // compra por primera vez (c.diaCompra: ver lib/directa.js); y si no, el día en que se creó el contacto.
 // (Con solo el día de alta, quien ya era contacto y compra hoy contaría el día que se dio de alta.)
