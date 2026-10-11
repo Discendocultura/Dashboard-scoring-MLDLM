@@ -10369,34 +10369,28 @@ async function renderGrupoWa() {
   const porDia = new Map();
   for (const m of gwc.mensajes) { const d = (m.at || 'sin fecha').slice(0, 10); if (!porDia.has(d)) porDia.set(d, []); porDia.get(d).push(m); }
   box.innerHTML = `
-    <section class="card gw-intro">
-      <h2>💬 Mensajes del grupo de WhatsApp · ${esc(emb.name || code)}</h2>
-      <ol class="gw-pasos">
-        <li><strong>Copia el prompt</strong> (paso 1) y pégalo en <strong>Claude</strong>, en una conversación con tu <strong>skill de copy</strong>. Ya lleva las fechas, el producto, la oferta y los bonus de este ${enMeteo() ? 'meteórico' : 'lanzamiento'}.</li>
-        <li><strong>Pega aquí su respuesta</strong> (paso 2): se convierte sola en mensajes con su día y hora.</li>
-        <li><strong>Sube los archivos</strong> (vídeos, audios, imágenes) y pega su enlace en cada mensaje: mira «📎 Archivos» abajo.</li>
-        <li><strong>Revisa y programa</strong> (paso 3): con un botón se programan en SendFlow para todos los grupos de la campaña.</li>
-      </ol>
-      ${sinCampana ? `<div class="notice warn">Este ${enMeteo() ? 'meteórico' : 'lanzamiento'} aún no tiene su campaña de SendFlow: puedes preparar los mensajes, pero para programarlos hay que elegirla.${editable ? ` <button type="button" class="btn small" data-grupos-vincular="${esc(code)}">Elegir la campaña →</button>` : ''}</div>` : !gwc.conectado ? '<div class="notice warn">SendFlow no está conectado (Cuenta → Conexiones).</div>' : ''}
-      ${gwc.error ? `<div class="notice err">${esc(gwc.error)}</div>` : ''}
-    </section>
-    ${editable ? `<section class="card">
-      <h3>1 · El prompt para Claude</h3>
-      <div class="row gw-rango"><label class="field inline"><span>Desde</span><input type="date" id="gw-desde" value="${esc(desde)}"></label><label class="field inline"><span>Hasta</span><input type="date" id="gw-hasta" value="${esc(hasta)}"></label>
-        <button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt</button></div>
-      ${gwDirectos().length ? `<div class="gw-directo-info"><strong>📅 Día${gwDirectos().length > 1 ? 's' : ''} de directo:</strong> ${gwDirectos().map((x) => `${esc(x.nombre)} · ${esc(fechaFicha(madridToEpoch(x.at)))} a las ${esc(x.at.slice(11))}`).join(' · ')}. Ese día todos los mensajes solo recuerdan que es hoy, cuentan lo que verán y llevan el enlace de acceso al directo (ya va en el prompt).</div>
-      <label class="field"><span>¿Qué verán en la masterclass? <small>(opcional, entra en el prompt: temas, lo que aprenderán, sorpresas…)</small></span><textarea id="gw-temario" rows="3" placeholder="- Por qué el bebé se despierta cada 2 horas&#10;- Las 3 rutinas que funcionan&#10;- Sorpresa al final para quien se quede">${esc(ls.get(temarioKey()) || '')}</textarea></label>` : ''}
-      <p class="muted small">Pégalo en Claude en una conversación con tu skill de copy de venta. Si ya hay mensajes programados, el prompt se los dice para que no los repita.</p>
+    ${estudioHero({ ico: '💬', titulo: 'Mensajes del grupo de WhatsApp', sub: `«${esc(emb.name || code)}» · se escriben con Claude y se programan en SendFlow`,
+      pasos: ['<strong>Copia el prompt</strong> y pégalo en Claude', '<strong>Pega su respuesta</strong> aquí', 'Añade los <strong>archivos</strong> (audios, vídeos…)', '<strong>Revisa y programa</strong> en SendFlow'],
+      extra: `${sinCampana ? `<div class="st-aviso warn"><span>Aún no tiene su campaña de SendFlow: puedes preparar los mensajes, pero para programarlos hay que elegirla.</span>${editable ? `<button type="button" class="btn small" data-grupos-vincular="${esc(code)}">Elegir la campaña →</button>` : ''}</div>` : !gwc.conectado ? '<div class="st-aviso warn"><span>SendFlow no está conectado (Cuenta → Conexiones).</span></div>' : ''}
+      ${gwc.error ? `<div class="st-aviso err"><span>${esc(gwc.error)}</span></div>` : ''}` })}
+    ${editable ? `<section class="card st-paso">
+      ${pasoCab(1, 'El prompt para Claude', 'Pégalo en una conversación con tu skill de copy. Si ya hay mensajes programados, el prompt se los dice para que no los repita.')}
+      <div class="st-form gw-form">
+        <label class="field"><span>Desde</span><input type="date" id="gw-desde" value="${esc(desde)}"></label>
+        <label class="field"><span>Hasta</span><input type="date" id="gw-hasta" value="${esc(hasta)}"></label>
+        ${gwDirectos().length ? `<label class="field st-ancho"><span>¿Qué verán en la masterclass? <small>(opcional)</small></span><textarea id="gw-temario" rows="3" placeholder="- Por qué el bebé se despierta cada 2 horas&#10;- Las 3 rutinas que funcionan&#10;- Sorpresa al final para quien se quede">${esc(ls.get(temarioKey()) || '')}</textarea></label>` : ''}
+      </div>
+      ${gwDirectos().length ? `<div class="st-aviso info"><span>📅 <strong>${gwDirectos().map((x) => `${esc(x.nombre)} · ${esc(fechaFicha(madridToEpoch(x.at)))} a las ${esc(x.at.slice(11))}`).join(' · ')}</strong>. Ese día los mensajes solo recuerdan que es hoy y llevan el enlace de acceso (ya va en el prompt).</span></div>` : ''}
       ${avisoMarcaHtml(gwc.marca)}
-      <details><summary class="small">Ver el prompt</summary><pre class="snippet gw-prompt" id="gw-prompt"></pre></details>
+      <div class="st-acciones"><button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt</button><details class="st-ver"><summary>Ver el prompt</summary><pre class="snippet gw-prompt" id="gw-prompt"></pre></details></div>
     </section>
-    <section class="card">
-      <h3>2 · Pega aquí la respuesta de Claude</h3>
-      <textarea id="gw-pegar" rows="7" placeholder="### 2026-11-03 19:00 | texto&#10;El texto del mensaje…&#10;&#10;### 2026-11-04 10:00 | encuesta&#10;¿La pregunta?&#10;- Opción 1&#10;- Opción 2"></textarea>
-      <p><button type="button" class="btn primary" id="gw-anadir">Convertir en mensajes</button> <span class="muted small" id="gw-anadir-st"></span></p>
+    <section class="card st-paso">
+      ${pasoCab(2, 'Pega aquí la respuesta de Claude', 'Se convierte sola en mensajes con su día y hora.')}
+      <textarea id="gw-pegar" rows="6" placeholder="### 2026-11-03 19:00 | texto&#10;El texto del mensaje…&#10;&#10;### 2026-11-04 10:00 | encuesta&#10;¿La pregunta?&#10;- Opción 1&#10;- Opción 2"></textarea>
+      <div class="st-acciones"><button type="button" class="btn primary" id="gw-anadir">Convertir en mensajes</button> <span class="muted small" id="gw-anadir-st"></span></div>
     </section>` : ''}
-    <section class="card gw-archivos">
-      <details${gwc.mensajes.some((m) => tipoMsg(m.tipo).archivo && !m.url && m.estado !== 'programado') ? ' open' : ''}><summary><h3>📎 Archivos: vídeos, audios, imágenes y PDF</h3></summary>
+    <section class="card gw-archivos st-paso">
+      <details class="st-plegable"${gwc.mensajes.some((m) => tipoMsg(m.tipo).archivo && !m.url && m.estado !== 'programado') ? ' open' : ''}><summary>📎 Cómo añadir archivos: vídeos, audios, imágenes y PDF</summary>
       <p><strong>SendFlow no recibe el archivo, sino un enlace público al archivo.</strong> Así se consigue:</p>
       <ol class="small">
         <li>En GHL → <strong>Sitios → Medios</strong> (o «Media Storage»), sube el archivo.</li>
@@ -10407,8 +10401,8 @@ async function renderGrupoWa() {
       <div class="table-scroll"><table class="metric-table"><thead><tr><th>Tipo</th><th>Formato recomendado</th><th>Consejo</th></tr></thead><tbody>${GUIA_ARCHIVOS.map((g) => `<tr><td>${tipoMsg(g.tipo).ico} ${esc(tipoMsg(g.tipo).label)}</td><td><strong>${esc(g.formato)}</strong></td><td class="small">${esc(g.consejo)}</td></tr>`).join('')}</tbody></table></div>
       <p class="muted small">Máximo 16 MB por archivo (límite de WhatsApp). Las <strong>notas de voz</strong> son lo que más se escucha en un grupo: grábalas con el guion que te da Claude.</p></details>
     </section>
-    <section class="card">
-      <h3>3 · Revisa y programa <span class="muted small">· ${gwc.mensajes.length} mensajes · ${programados.length} programados · ${listos.length} listos para programar</span></h3>
+    <section class="card st-paso">
+      ${pasoCab(3, 'Revisa y programa', '', `<div class="pg-chips"><span class="st-chip">${gwc.mensajes.length} mensajes</span><span class="st-chip ok">${programados.length} programados</span><span class="st-chip">${listos.length} listos</span></div>`)}
       ${gwc.mensajes.length ? [...porDia.entries()].map(([d, lista]) => `<div class="gw-dia"><h4>${d === 'sin fecha' ? 'Sin fecha' : esc(new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}</h4>${lista.map((m) => gwFila(m, editable)).join('')}</div>`).join('') : '<p class="muted">Aún no hay mensajes. Pega la respuesta de Claude en el paso 2.</p>'}
       ${editable ? `<div class="gw-anadir"><span class="gw-anadir-t">Añadir a mano:</span>${TIPOS_MSG.map((t) => `<button type="button" class="btn small" data-gw-add="${t.id}">+ ${t.ico} ${esc(t.label)}</button>`).join('')}</div>` : ''}
       ${editable && gwc.mensajes.length ? `<div class="gw-acciones">
@@ -10472,8 +10466,9 @@ function ctxAnuncio(c, objetivo) {
 const logoLanzamiento = () => (tipoActual() === 'lanz' ? state.config.launches[state.launchCode]?.logoUrl || '' : '');
 const campoLogoHtml = () => {
   const url = logoLanzamiento();
-  return `<div class="field an-logo"><span>🖼️ Logo del lanzamiento <small>(enlace a la imagen, PNG con fondo transparente: GHL → Sitios → Medios → ⋯ → Copiar enlace). Va en el prompt de captación para que salga en los anuncios.</small></span>
-    <div class="an-logo-fila">${url ? `<img src="${esc(url)}" alt="Logo del lanzamiento" class="an-logo-img" loading="lazy">` : ''}<input id="an-logo" type="url" inputmode="url" maxlength="600" placeholder="https://…/logo.png" value="${esc(url)}"><span id="an-logo-status" class="muted small"></span></div></div>`;
+  return `<div class="field an-logo"><span>🖼️ Logo del lanzamiento <small>(para los anuncios de captación)</small></span>
+    <div class="an-logo-fila">${url ? `<img src="${esc(url)}" alt="Logo del lanzamiento" class="an-logo-img" loading="lazy">` : ''}<input id="an-logo" type="url" inputmode="url" maxlength="600" placeholder="https://…/logo.png" value="${esc(url)}"></div>
+    <small class="st-ayuda" id="an-logo-status">PNG con fondo transparente · GHL → Sitios → Medios → ⋯ → Copiar enlace</small></div>`;
 };
 async function renderAnuncios() {
   const box = $('#anuncios-body');
@@ -10485,36 +10480,39 @@ async function renderAnuncios() {
   const g = ganadoresAnuncios();
   const top = [...g.filas].sort((a, b) => (b.compras - a.compras) || (b.leads - a.leads)).slice(0, 6);
   const conHist = tipoActual() === 'lanz' && codigosHistorico().length > 1;
-  box.innerHTML = `<section class="card">
-      <h2>🎯 Anuncios de «${esc(c.nombre)}» con IA</h2>
-      <ol class="small pg-pasos">
-        <li>Elige el <strong>objetivo</strong> y copia el prompt. <strong>⚡ Todo en uno</strong> hace los guiones, los copys y los anuncios en Magnific, paso a paso.</li>
-        <li>Pégalo en <strong>Claude</strong> (con el conector de <strong>Magnific</strong> activo y tu skill de copy). Antes de crear nada te enseñará el plan y el coste en créditos.</li>
-        <li>Sube los creativos a Meta con el <strong>mismo nombre</strong> que les ponga Claude: así, en el próximo lanzamiento, el dashboard sabrá cuáles ganan.</li>
-      </ol>
-      ${avisoMarcaHtml(pgc.marca)}
+  const lanz = tipoActual() === 'lanz';
+  const otros = PROMPTS_ANUNCIOS.filter((p) => p.id !== 'todo');
+  box.innerHTML = `${estudioHero({ ico: '🎯', titulo: 'Anuncios con IA', sub: `«${esc(c.nombre)}» · guiones, creatividades en Magnific y copys para Meta, por objetivo`,
+      pasos: ['Elige el <strong>objetivo</strong> y copia su prompt', 'Pégalo en <strong>Claude</strong> con <strong>Magnific</strong> conectado', 'Sube los creativos a <strong>Meta</strong> con el mismo nombre'],
+      extra: avisoMarcaHtml(pgc.marca) })}
+    <section class="card st-ajustes">
+      <div class="st-sec-cab"><h3>⚙️ Ajustes de los prompts</h3><span class="muted small">Entran en todos los prompts de esta página</span></div>
+      <div class="st-form">
+        ${['lanz', 'vsl'].includes(tipoActual()) ? `<label class="field"><span>Nombre del evento gratuito en los anuncios</span>
+          <input id="an-evento" list="an-eventos" maxlength="60" placeholder="Ej.: ${esc(nombresEvento(formatoAnuncios().id || 'webinar')[0])}" value="${esc(ls.get(eventoAnKey()) || '')}">
+          <datalist id="an-eventos">${nombresEvento(formatoAnuncios().id || 'webinar').map((x) => `<option value="${esc(x)}">`).join('')}</datalist>
+          <small class="st-ayuda">Nunca «webinar»${formatoAnuncios().id ? ` · formato ${esc(FORMATOS[formatoAnuncios().id].label)}` : ''}. Vacío: Claude te lo preguntará.</small></label>` : ''}
+        ${lanz ? campoLogoHtml() : ''}
+        <label class="field st-ancho"><span>Notas sobre lo que ha funcionado <small>(opcional)</small></span><textarea id="an-notas" rows="2" placeholder="Ej.: el que más vende es un vídeo de Laura a cámara contando su historia; los carruseles no funcionan…">${esc(ls.get(notasAnKey()) || '')}</textarea></label>
+      </div>
+      <details class="st-plegable"${top.length ? ' open' : ''}><summary>👑 Anuncios ganadores en los que se basan <span class="st-chip">${top.length || 'ninguno aún'}</span></summary>
+        ${top.length ? `<p class="muted small">Según ${esc(g.origen)} (por ventas y, si no hay, por leads).</p>
+          <div class="table-scroll"><table class="metric-table"><thead><tr><th>Anuncio</th><th class="num">Leads</th><th class="num">Ventas</th><th class="num">Conversión</th><th class="num">ROAS</th></tr></thead><tbody>
+          ${top.map((r) => `<tr><td><strong>${esc(r.label)}</strong></td><td class="num">${r.leads}</td><td class="num">${r.compras}</td><td class="num">${pctE(r.conversion)}</td><td class="num">${r.roas != null ? `${r.roas.toFixed(1).replace('.', ',')}x` : '–'}</td></tr>`).join('')}
+          </tbody></table></div>`
+          : '<p class="muted small">Aún no hay datos (hacen falta registros con las UTM de Meta). Los prompts se basan en la <strong>ficha de marca, avatar y producto</strong> y proponen ángulos nuevos para testear.</p>'}
+        ${conHist ? `<p><button type="button" class="btn small" id="an-hist">${state.hist.datos && state.hist.embudo === state.embudo ? '↻ Volver a cargar' : '📚 Usar los ganadores de todos los lanzamientos'}</button> <span class="muted small">Tarda un poco.</span></p>` : ''}
+      </details>
     </section>
-    <section class="card">
-      <h3>👑 Anuncios ganadores en los que se basan</h3>
-      ${top.length ? `<p class="muted small">Según ${esc(g.origen)} (por ventas y, si no hay, por leads). Entran en todos los prompts.</p>
-        <div class="table-scroll"><table class="metric-table"><thead><tr><th>Anuncio</th><th class="num">Leads</th><th class="num">Ventas</th><th class="num">Conversión</th><th class="num">ROAS</th></tr></thead><tbody>
-        ${top.map((r) => `<tr><td><strong>${esc(r.label)}</strong></td><td class="num">${r.leads}</td><td class="num">${r.compras}</td><td class="num">${pctE(r.conversion)}</td><td class="num">${r.roas != null ? `${r.roas.toFixed(1).replace('.', ',')}x` : '–'}</td></tr>`).join('')}
-        </tbody></table></div>`
-        : '<p class="muted">Aún no hay datos de anuncios ganadores (hacen falta registros con las UTM de Meta). Los prompts se basan en la <strong>ficha de marca, avatar y producto</strong> y proponen ángulos nuevos para testear.</p>'}
-      ${conHist ? `<p><button type="button" class="btn small" id="an-hist">${state.hist.datos && state.hist.embudo === state.embudo ? '↻ Volver a cargar' : '📚 Usar los ganadores de todos los lanzamientos'}</button> <span class="muted small">Carga los leads de cada lanzamiento del embudo (tarda un poco).</span></p>` : ''}
-      ${['lanz', 'vsl'].includes(tipoActual()) ? `<label class="field"><span>¿Cómo llamamos al evento gratuito en los anuncios? <small>(nunca «webinar»${formatoAnuncios().id ? `; formato: ${esc(FORMATOS[formatoAnuncios().id].label)}` : ''}; si lo dejas vacío, Claude te lo preguntará con opciones para este formato)</small></span>
-        <input id="an-evento" list="an-eventos" maxlength="60" placeholder="Ej.: ${esc(nombresEvento(formatoAnuncios().id || 'webinar')[0])}" value="${esc(ls.get(eventoAnKey()) || '')}">
-        <datalist id="an-eventos">${nombresEvento(formatoAnuncios().id || 'webinar').map((x) => `<option value="${esc(x)}">`).join('')}</datalist></label>` : ''}
-      <label class="field"><span>Notas sobre lo que ha funcionado <small>(opcional, entran en los prompts: qué decía el anuncio ganador, formato, gancho, quién sale…)</small></span><textarea id="an-notas" rows="2" placeholder="Ej.: el que más vende es un vídeo de Laura a cámara contando su historia; los carruseles no funcionan…">${esc(ls.get(notasAnKey()) || '')}</textarea></label>
-    </section>
-    ${objetivosDe(c.tipo).map((o) => `<section class="card an-obj">
-      <h3>${o.icono} ${esc(o.titulo)}</h3>
-      <p class="small">${esc(o.meta)}</p>
-      <p class="muted small">Para: ${esc(o.publico)}</p>
-      ${o.id === 'captacion' && tipoActual() === 'lanz' ? campoLogoHtml() : ''}
-      <div class="an-btns">${PROMPTS_ANUNCIOS.map((p) => `<button type="button" class="btn${p.id === 'todo' ? ' primary' : ''}" data-an-copiar="${o.id}:${p.id}" title="${esc(p.desc)}">${p.icono} ${esc(p.titulo)}</button>`).join('')}</div>
-      <details><summary class="small">Ver el prompt «Todo en uno»</summary><pre class="snippet pg-prompt" data-an-prompt="${o.id}"></pre></details>
-    </section>`).join('')}`;
+    <h3 class="st-titulo">Elige el objetivo</h3>
+    <div class="st-grid an-grid">${objetivosDe(c.tipo).map((o) => `<article class="card an-obj">
+      <div class="an-obj-cab"><span class="an-obj-ico" aria-hidden="true">${o.icono}</span><h3>${esc(o.titulo)}</h3></div>
+      <p class="an-obj-meta">${esc(o.meta)}</p>
+      <p class="an-obj-para"><span class="st-chip">Para</span>${esc(o.publico)}</p>
+      <button type="button" class="btn primary st-bloque" data-an-copiar="${o.id}:todo" title="${esc(PROMPTS_ANUNCIOS[0].desc)}">⚡ Copiar «Todo en uno»</button>
+      <div class="an-mas"><span class="muted small">o copia solo una parte:</span><div class="an-mas-btns">${otros.map((p) => `<button type="button" class="btn small" data-an-copiar="${o.id}:${p.id}" title="${esc(p.titulo)}: ${esc(p.desc)}">${p.icono} ${esc({ guiones: 'Guiones', magnific: 'Magnific', copys: 'Copys' }[p.id] || p.titulo)}</button>`).join('')}</div></div>
+      <details class="st-ver"><summary>Ver el prompt «Todo en uno»</summary><pre class="snippet pg-prompt" data-an-prompt="${o.id}"></pre></details>
+    </article>`).join('')}</div>`;
 }
 $('#anuncios-body').addEventListener('toggle', (e) => {
   const pre = e.target.querySelector?.('[data-an-prompt]');
@@ -10630,33 +10628,32 @@ async function renderPaginas() {
   if (state.embudo !== embudo) return;
   const paginas = paginasDe(c.tipo, c.opts || {});
   const propuestas = propuestasEmbudo(state.embudo);
-  box.innerHTML = `<section class="card">
-      <h2>🧱 Páginas de «${esc(c.nombre)}» con IA</h2>
-      <ol class="small pg-pasos">
-        <li><strong>Copia el prompt</strong> de la página y pégalo en <strong>Claude</strong> (con tu skill de copy si la tienes). Ya lleva la marca, el avatar, los datos del embudo y los códigos del dashboard.</li>
-        <li>Pide los cambios que quieras en la misma conversación hasta que te guste.</li>
-        <li>En <strong>GHL</strong>: crea la página (en blanco, ancho completo) → añade un elemento <strong>«Código personalizado»</strong> (Custom HTML/JS) → pega el código → guarda y publica. Si es de registro o de pago, mete el formulario de GHL donde indica el comentario.</li>
-        <li>Pon la URL de la página publicada en la configuración del embudo (si no estaba) y haz una prueba.</li>
-      </ol>
-      ${avisoMarcaHtml(pgc.marca)}
-    </section>
+  const urlsDe = (p) => propuestas.filter((x) => x.pagina === p.id);
+  box.innerHTML = `${estudioHero({ ico: '🧱', titulo: 'Páginas con IA', sub: `«${esc(c.nombre)}» · un prompt por página con la marca, el avatar, los datos y los códigos del dashboard`,
+      pasos: ['<strong>Copia el prompt</strong> de la página', 'Pégalo en <strong>Claude</strong> y pide los cambios que quieras', 'En <strong>GHL</strong>: elemento «Código personalizado» → pega → publica'],
+      extra: avisoMarcaHtml(pgc.marca) })}
     ${propuestas.length ? `<section class="card">
-      <h3>🔗 URLs de las páginas</h3>
-      <p class="muted small">Las que propusimos al crear el embudo (dominio + nombre + página). Crea cada página en GHL con su URL; ya van en los prompts${tipoActual() === 'lanz' ? ', en los enlaces de los lanzamientos nuevos y en los mensajes del grupo de WhatsApp' : ''}. Para cambiarlas: ⚙️ del embudo → Páginas y WhatsApp.</p>
-      <ul class="pg-urls">${propuestas.map((x) => urlItemHtml(x)).join('')}</ul>
-      <p><button type="button" class="btn small" id="pg-urls-copiar">📋 Copiar todas</button></p>
+      <details class="st-plegable"><summary>🔗 URLs de las páginas <span class="st-chip">${propuestas.length}</span> <button type="button" class="btn small" id="pg-urls-copiar">📋 Copiar todas</button></summary>
+        <p class="muted small">Las que propusimos al crear el embudo. Crea cada página en GHL con su URL${tipoActual() === 'lanz' ? '; ya van en los prompts, en los lanzamientos nuevos y en los mensajes del grupo' : ''}. Para cambiarlas: ⚙️ del embudo → Páginas y WhatsApp.</p>
+        <ul class="pg-urls">${propuestas.map((x) => urlItemHtml(x)).join('')}</ul>
+      </details>
     </section>` : ''}
-    ${paginas.map((p) => `<details class="card pg-pag" data-pag="${esc(p.id)}">
-      <summary><strong>${esc(p.nombre)}</strong><span class="muted small">${esc(p.objetivo)}</span></summary>
-      <div class="pg-cuerpo">
-        ${propuestas.some((x) => x.pagina === p.id) ? `<ul class="pg-urls">${propuestas.filter((x) => x.pagina === p.id).map((x) => urlItemHtml(x, { conNombre: propuestas.filter((y) => y.pagina === p.id).length > 1 })).join('')}</ul>` : ''}
+    <h3 class="st-titulo">Páginas del embudo <span class="st-chip">${paginas.length}</span></h3>
+    <div class="st-grid">${paginas.map((p, i) => {
+      const n = codigosDePagina(p, c.codigos, c.ctx).length;
+      return `<article class="card pg-card" data-pag="${esc(p.id)}">
+      <div class="pg-cab"><span class="st-n grande">${i + 1}</span><h3>${esc(p.nombre)}</h3></div>
+      <p class="pg-obj">${esc(p.objetivo)}</p>
+      ${urlsDe(p).length ? `<ul class="pg-urls">${urlsDe(p).map((x) => urlItemHtml(x, { conNombre: urlsDe(p).length > 1 })).join('')}</ul>` : ''}
+      <div class="pg-chips"><span class="st-chip">${n} código${n === 1 ? '' : 's'} del dashboard</span>${p.formulario ? `<span class="st-chip">formulario de ${p.formulario === 'pago' ? 'pago' : 'registro'} de GHL</span>` : ''}</div>
+      <button type="button" class="btn primary st-bloque" data-pag-copiar="${esc(p.id)}">📋 Copiar el prompt</button>
+      <details class="st-ver pg-cuerpo"><summary>Personalizar y ver el prompt</summary>
         <p class="small"><strong>Lleva:</strong> ${esc(p.secciones.join(' · '))}</p>
-        <p class="small muted">${codigosDePagina(p, c.codigos, c.ctx).length} código${codigosDePagina(p, c.codigos, c.ctx).length === 1 ? '' : 's'} del dashboard incluidos en el prompt.</p>
-        <label class="field"><span>Indicaciones para esta página <small>(opcional, entran en el prompt: ángulo, oferta especial, referencia…)</small></span><textarea rows="2" data-pag-notas="${esc(p.id)}" placeholder="Ej.: más corta; empieza con un testimonio; ángulo del cansancio de las noches…">${esc(ls.get(notasPagKey(p.id)) || '')}</textarea></label>
-        <p><button type="button" class="btn primary" data-pag-copiar="${esc(p.id)}">📋 Copiar el prompt</button></p>
+        <label class="field"><span>Indicaciones para esta página <small>(opcional)</small></span><textarea rows="2" data-pag-notas="${esc(p.id)}" placeholder="Ej.: más corta; empieza con un testimonio…">${esc(ls.get(notasPagKey(p.id)) || '')}</textarea></label>
         <details><summary class="small">Ver el prompt</summary><pre class="snippet pg-prompt" data-pag-prompt="${esc(p.id)}"></pre></details>
-      </div>
-    </details>`).join('')}`;
+      </details>
+    </article>`;
+    }).join('')}</div>`;
 }
 $('#paginas-body').addEventListener('toggle', (e) => {
   const pre = e.target.querySelector?.('[data-pag-prompt]');
@@ -10670,10 +10667,12 @@ $('#paginas-body').addEventListener('input', (e) => {
   if (t) ls.set(notasPagKey(t.dataset.pagNotas), t.value);
 });
 $('#paginas-body').addEventListener('click', async (e) => {
-  if (e.target.closest('#pg-urls-copiar')) {
+  const bu = e.target.closest('#pg-urls-copiar');
+  if (bu) {
+    e.preventDefault(); // está dentro del <summary>: que no pliegue la lista
     const t = urlsTexto(propuestasEmbudo(state.embudo));
-    try { await navigator.clipboard.writeText(t); e.target.textContent = 'Copiadas ✓'; } catch { window.prompt('Copia las URLs:', t); }
-    setTimeout(() => { e.target.textContent = '📋 Copiar todas'; }, 2000);
+    try { await navigator.clipboard.writeText(t); bu.textContent = 'Copiadas ✓'; } catch { window.prompt('Copia las URLs:', t); }
+    setTimeout(() => { bu.textContent = '📋 Copiar todas'; }, 2000);
     return;
   }
   const b = e.target.closest('[data-pag-copiar]');
@@ -10682,27 +10681,36 @@ $('#paginas-body').addEventListener('click', async (e) => {
   const p = paginasDe(c.tipo, c.opts || {}).find((x) => x.id === b.dataset.pagCopiar);
   if (!p) return;
   const txt = promptDePagina(c, p);
-  const pre = b.closest('.pg-cuerpo').querySelector('[data-pag-prompt]');
+  const pre = b.closest('.pg-card').querySelector('[data-pag-prompt]');
   pre.textContent = txt;
   try {
     await navigator.clipboard.writeText(txt);
     b.textContent = 'Copiado ✓ · pégalo en Claude';
   } catch {
     pre.closest('details').open = true;
+    pre.closest('.pg-cuerpo').open = true;
     b.textContent = 'Cópialo de «Ver el prompt»';
   }
   setTimeout(() => { b.textContent = '📋 Copiar el prompt'; }, 3000);
 });
 
-// Qué lleva el prompt de la marca del cliente (Cuenta → Marca y avatar).
+// Qué lleva el prompt de la marca del cliente (Cuenta → Marca y avatar): una línea, con su botón a la derecha.
 function avisoMarcaHtml(mp) {
-  const btn = puedeConfig() ? ' <button type="button" class="btn small" data-abrir-marca>Abrir Marca y avatar</button>' : '';
-  if (!mp?.m || !contextoMarca(mp.m, mp.producto)) return `<div class="notice warn">🎨 Aún no hay cuestionario de marca: rellénalo (o manda el enlace al cliente) para que todo salga con su voz y para su cliente ideal.${btn}</div>`;
+  const btn = puedeConfig() ? '<button type="button" class="btn small" data-abrir-marca>Abrir Marca y avatar</button>' : '';
+  if (!mp?.m || !contextoMarca(mp.m, mp.producto)) return `<div class="st-aviso warn"><span>🎨 <strong>Falta el cuestionario de marca.</strong> Sin él, todo sale más genérico (no con su voz ni para su cliente ideal).</span>${btn}</div>`;
   const nombre = mp.producto ? nombreDeProducto(mp.producto) : '';
   return mp.producto?.ficha
-    ? `<p class="muted small">🎨 Lleva la <strong>ficha de marca y avatar</strong>${nombre ? ` de «${esc(nombre)}»` : ''}.</p>`
-    : `<p class="muted small">🎨 Lleva las respuestas del cuestionario de marca${nombre ? ` y de «${esc(nombre)}»` : ''}. Saldrá mejor con la ficha hecha (Marca y avatar → el producto → Ficha).${btn}</p>`;
+    ? `<div class="st-aviso ok"><span>🎨 Lleva la <strong>ficha de marca y avatar</strong>${nombre ? ` de «${esc(nombre)}»` : ''}.</span></div>`
+    : `<div class="st-aviso"><span>🎨 Lleva el cuestionario de marca${nombre ? ` y de «${esc(nombre)}»` : ''}. Saldrá mejor con la ficha hecha (Marca y avatar → el producto → Ficha).</span>${btn}</div>`;
 }
+// Cabecera común de las vistas «con IA» (Anuncios, Páginas, Grupo de WhatsApp): título, una línea y los pasos en fila.
+const estudioHero = ({ ico, titulo, sub, pasos = [], extra = '' }) => `<section class="card st-hero">
+    <div class="st-hero-cab"><span class="st-hero-ico" aria-hidden="true">${ico}</span><div><h2>${titulo}</h2>${sub ? `<p class="st-sub">${sub}</p>` : ''}</div></div>
+    ${pasos.length ? `<ol class="st-pasos">${pasos.map((x, i) => `<li><span class="st-n">${i + 1}</span><span>${x}</span></li>`).join('')}</ol>` : ''}
+    ${extra}
+  </section>`;
+// Cabecera de un paso numerado dentro de una tarjeta.
+const pasoCab = (n, titulo, sub = '', derecha = '') => `<div class="st-paso-cab"><span class="st-n grande">${n}</span><div class="st-paso-txt"><h3>${titulo}</h3>${sub ? `<p class="muted small">${sub}</p>` : ''}</div>${derecha}</div>`;
 function gwFila(m, editable) {
   const tp = tipoMsg(m.tipo);
   const fijo = !editable || m.estado === 'programado' || m.estado === 'cancelado';

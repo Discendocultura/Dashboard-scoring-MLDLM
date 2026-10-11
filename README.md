@@ -667,6 +667,12 @@ WhatsApp). Se guarda solo mientras se escribe, por campos (el cliente y el equip
 - API: `GET/POST /api/marca` (equipo; escribir pide el permiso «config») y con `t=` (el cliente desde su enlace).
 
 ## 🎯 Crear anuncios con IA (Plan → Anuncios)
+**Diseño (Anuncios, Páginas y Grupo de WhatsApp):** las tres vistas comparten estructura para que no agobien: una
+cabecera con título, una línea y los pasos en fila; avisos de una sola línea con su botón a la derecha (p. ej. «Falta
+el cuestionario de marca»); los ajustes juntos en un bloque (Anuncios: nombre del evento, logo y notas; los ganadores,
+plegados); y el contenido en tarjetas en cuadrícula con una sola acción principal (Anuncios: «⚡ Copiar Todo en uno» y
+debajo Guiones / Magnific / Copys; Páginas: una tarjeta numerada por página con «📋 Copiar el prompt» y lo demás en
+«Personalizar y ver el prompt»; WhatsApp: pasos 1-2-3 numerados, con las fechas y el temario en dos columnas).
 En todos los embudos. **Plan** va ahora en el orden del embudo: Anuncios → Páginas → Grupo de WhatsApp → Carrito →
 Planificador → Calendario → Tareas. Por cada **objetivo** del tipo de embudo (lanzamientos: captación al directo,
 retargeting de consumo y venta del producto; VSL: captación, consumo y venta; meteórico: calentamiento y venta; venta
