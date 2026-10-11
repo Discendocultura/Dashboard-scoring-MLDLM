@@ -56,6 +56,8 @@ export function sanitizeDirecta(d = {}) {
     iva: { pct: Number.isFinite(pct) && d?.iva?.pct !== '' && d?.iva?.pct != null ? Math.min(100, Math.max(0, pct)) : IVA_DEF, producto: MODOS_IVA.includes(d?.iva?.producto) ? d.iva.producto : '' },
     compraTag: tag(d?.compraTag),
     compraDateField: str(d?.compraDateField, 40).replace(/[^A-Za-z0-9]/g, ''),
+    // Asunto (o parte) del email que envía el workflow de compra: fecha la compra de quien ya era contacto.
+    emailCompra: str(d?.emailCompra, 120),
     partes,
     bumps: sanitizeBumps(d?.bumps),
     upsells: sanitizeOfertas(d?.upsells, 'up'),
@@ -106,7 +108,23 @@ export function apuntarCompras(reg, contactos, ahora, dia) {
     const ref = alta && alta >= desde ? alta : c.dateUpdated && c.dateUpdated >= desde ? c.dateUpdated : ahora;
     dias[c.id] = dia(ref);
   }
-  return { reg: { desde: reg?.desde || ahora, ultima: cambios ? ahora : reg?.ultima || ahora, dias }, cambios };
+  return { reg: { ...(reg || {}), desde: reg?.desde || ahora, ultima: cambios ? ahora : reg?.ultima || ahora, dias }, cambios };
+}
+
+// Compras cuyo día es una estimación (el contacto ya existía y no hay campo de fecha): se pueden fechar con el
+// email de compra. Solo las recientes (su contacto se actualizó en los últimos `dias` días) y aún sin comprobar.
+export function comprasDudosas(contactos, reg, ahora, dias = 14) {
+  const limite = new Date(Date.parse(ahora) - dias * 86_400_000).toISOString();
+  return contactos.filter((c) => c?.id && !reg?.email?.[c.id] && c.dateUpdated && c.dateUpdated >= limite
+    && c.dateAdded && Date.parse(c.dateUpdated) - Date.parse(c.dateAdded) > 3600_000);
+}
+
+// El email de compra (el asunto contiene `asunto`, sin mayúsculas, acentos ni emojis): la fecha del primero. → ISO | ''
+const normEmail = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+export function fechaEmailCompra(emails = [], asunto = '') {
+  const a = normEmail(asunto);
+  if (!a) return '';
+  return emails.filter((e) => e.saliente !== false && normEmail(e.asunto).includes(a)).map((e) => e.fecha).filter(Boolean).sort()[0] || '';
 }
 
 // Días del rango, en orden (máx. 400).

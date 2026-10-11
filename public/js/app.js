@@ -10824,7 +10824,7 @@ function abrirDirectaConfig(id = state.embudo) {
   pintarPartes('#dc-partes', d.partes || partesPorDefecto());
   const v = (k, x) => { $(`#dc-${k}`).value = x ?? ''; };
   v('name', d.name); v('producto', d.producto); v('precio', d.precio ? String(d.precio).replace('.', ',') : '');
-  v('iva', d.iva?.producto || ''); v('ivaPct', d.iva?.pct ?? 21); v('compraTag', d.compraTag); v('compraDateField', d.compraDateField);
+  v('iva', d.iva?.producto || ''); v('ivaPct', d.iva?.pct ?? 21); v('compraTag', d.compraTag); v('compraDateField', d.compraDateField); v('emailCompra', d.emailCompra);
   v('ventaUrl', d.ventaUrl); v('checkoutUrl', d.checkoutUrl); v('graciasUrl', d.graciasUrl);
   v('metaFiltro', d.metaFiltro); v('inversionDia', d.inversionDia || ''); v('objetivoCpa', d.objetivoCpa || '');
   pintarCodigoMeta('dc-metaFiltro', 'directa', id, d.name);
@@ -10846,7 +10846,7 @@ $('#dc-guardar').addEventListener('click', async () => {
     ...state.config.directas[id],
     name: val('name') || state.config.directas[id].name, producto: val('producto'), precio: val('precio'),
     iva: { pct: val('ivaPct') === '' ? 21 : Number(val('ivaPct').replace(',', '.')), producto: $('#dc-iva').value },
-    compraTag: val('compraTag').toLowerCase(), compraDateField: val('compraDateField'),
+    compraTag: val('compraTag').toLowerCase(), compraDateField: val('compraDateField'), emailCompra: val('emailCompra'),
     partes: partesElegidas('#dc-partes'),
     bumps: leerOfertas('bumps'), upsells: leerOfertas('upsells'), downsells: leerOfertas('downsells'),
     ventaUrl: val('ventaUrl'), checkoutUrl: val('checkoutUrl'), graciasUrl: val('graciasUrl'),
@@ -10939,6 +10939,7 @@ function renderDirectaMetricas(D) {
   const avisos = [
     ...(D.pendientes || []).map((p) => p.txt),
     ...(D.metaError ? [`Meta: ${D.metaError}`] : []),
+    ...(D.avisoEmail ? [D.avisoEmail] : []),
     ...(conParte(d, 'meta') && !D.metaConectado ? ['Meta no está conectado para este cliente: pon la inversión al día a mano en la configuración (o conecta Meta).'] : []),
   ];
   $('#dir-avisos').innerHTML = avisos.length ? `<div class="notice warn"><strong>Para que las cifras salgan bien:</strong><ul>${avisos.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>${boton}</div>` : '';

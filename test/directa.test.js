@@ -200,3 +200,25 @@ test('día de compra sin campo de fecha: quien ya era contacto cuenta el día en
   const cs = hoy.map((c) => ({ ...c, tags: ['compra'], diaCompra: r2.reg.dias[c.id] }));
   assert.equal(metricasDirecta(cs, d, { desde: '2026-10-11', hasta: '2026-10-11' }).ventas, 3);
 });
+
+test('email de compra: fecha exacta de la venta de quien ya era contacto', async () => {
+  const { comprasDudosas, fechaEmailCompra, sanitizeDirecta } = await import('../public/js/directa.js');
+  const ahora = '2026-10-11T17:00:00Z';
+  const cs = [
+    { id: 'nueva', dateAdded: '2026-10-11T14:08:00Z', dateUpdated: '2026-10-11T14:30:00Z' }, // contacto nuevo: su alta vale
+    { id: 'antigua', dateAdded: '2026-04-16T10:51:00Z', dateUpdated: '2026-10-11T07:18:00Z' }, // ya era contacto: dudosa
+    { id: 'vieja', dateAdded: '2025-01-01T00:00:00Z', dateUpdated: '2026-01-01T00:00:00Z' }, // sin cambios recientes
+  ];
+  assert.deepEqual(comprasDudosas(cs, null, ahora).map((c) => c.id), ['antigua']);
+  assert.deepEqual(comprasDudosas(cs, { email: { antigua: 'si' } }, ahora), []); // ya comprobada
+  const emails = [
+    { asunto: 'Newsletter de octubre', fecha: '2026-10-02T09:00:00Z', saliente: true },
+    { asunto: '⭐ (PRIMEROS PASOS) Reto de ovulación', fecha: '2026-10-11T07:13:56Z', saliente: true },
+    { asunto: 'Acceso - Me lo dijo la Matrona', fecha: '2026-10-11T07:13:59Z', saliente: true },
+  ];
+  assert.equal(fechaEmailCompra(emails, '(primeros pasos) reto de ovulacion'), '2026-10-11T07:13:56Z');
+  assert.equal(fechaEmailCompra(emails, 'Reto de ovulación'), '2026-10-11T07:13:56Z');
+  assert.equal(fechaEmailCompra(emails, 'otro asunto'), '');
+  assert.equal(fechaEmailCompra(emails, ''), '');
+  assert.equal(sanitizeDirecta({ emailCompra: '  ⭐ (PRIMEROS PASOS) Reto de ovulación ' }).emailCompra, '⭐ (PRIMEROS PASOS) Reto de ovulación');
+});
