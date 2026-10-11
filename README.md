@@ -700,6 +700,10 @@ transparente; GHL → Sitios → Medios → ⋯ → Copiar enlace). Se guarda en
 formato de imagen y en el cierre de cada vídeo, y en Magnific la sube y la añade al kit de marca.
 
 ## 🧱 Páginas del embudo con IA (Plan → Páginas)
+**Nota de GHL en la vista (siempre visible):** en cada página, en la sección donde se pega el código, activar
+«Extender sección» (*Full width*) y poner a 0 los márgenes y el relleno; lo mismo en su fila y su columna, con la
+anchura sin píxeles fijos (automático / 100 %). Si no, la página se ve estrecha o con bordes blancos.
+
 **¿De cero o ya hechas? (＋ Nuevo embudo → paso «Páginas y WhatsApp»).** Al crear un embudo se pregunta (obligatorio)
 si las **páginas** ya están creadas o se van a crear de cero y, en lanzamientos y meteóricos, lo mismo con los
 **mensajes del grupo de WhatsApp**. De cero → se activa su sección en Plan (Páginas / Grupo de WhatsApp); ya hechas → no

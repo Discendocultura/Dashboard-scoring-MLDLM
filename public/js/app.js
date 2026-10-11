@@ -10654,7 +10654,14 @@ async function renderPaginas() {
   const urlsDe = (p) => propuestas.filter((x) => x.pagina === p.id);
   box.innerHTML = `${estudioHero({ ico: '🧱', titulo: 'Páginas con IA', sub: `«${esc(c.nombre)}» · un prompt por página con la marca, el avatar, los datos y los códigos del dashboard`,
       pasos: ['<strong>Copia el prompt</strong> de la página', 'Pégalo en <strong>Claude</strong> y pide los cambios que quieras', 'En <strong>GHL</strong>: elemento «Código personalizado» → pega → publica'],
-      extra: avisoMarcaHtml(pgc.marca) })}
+      extra: `${avisoMarcaHtml(pgc.marca)}
+      <div class="st-aviso info pg-ghl-nota"><span>📐 <strong>Importante en GHL, en cada página</strong> (si no, se verá estrecha o con bordes blancos):
+        <ol>
+          <li>Pulsa la <strong>sección</strong> donde has pegado el código y, en el panel de la derecha, activa <strong>«Extender sección»</strong> (en inglés, <em>Full width</em>): así ocupa toda la pantalla.</li>
+          <li>En esa misma sección, en <strong>Márgenes</strong> y <strong>Relleno</strong> (<em>Margin</em> y <em>Padding</em>), pon todo a <strong>0</strong> (arriba, abajo, izquierda y derecha).</li>
+          <li>Haz lo mismo con la <strong>fila</strong> y la <strong>columna</strong> que la contienen: márgenes y relleno a <strong>0</strong> y la <strong>anchura</strong> sin ningún número de píxeles fijo (déjala en automático / 100 %).</li>
+        </ol>
+        Así el diseño de Claude se ve a pantalla completa, igual en el móvil que en el ordenador.</span></div>` })}
     ${propuestas.length ? `<section class="card">
       <details class="st-plegable"><summary>🔗 URLs de las páginas <span class="st-chip">${propuestas.length}</span> <button type="button" class="btn small" id="pg-urls-copiar">📋 Copiar todas</button></summary>
         <p class="muted small">Las que propusimos al crear el embudo. Crea cada página en GHL con su URL${tipoActual() === 'lanz' ? '; ya van en los prompts, en los lanzamientos nuevos y en los mensajes del grupo' : ''}. Para cambiarlas: ⚙️ del embudo → Páginas y WhatsApp.</p>

@@ -2843,3 +2843,4 @@ body.embudo-directa .lanz-only { display: none !important; }
   .car-fecha strong { font-size: 21px; }
   .car-env-l { min-width: 0; flex-basis: 100%; }
 }
+.pg-ghl-nota ol { margin: 6px 0 6px; padding-left: 20px; display: grid; gap: 4px; }
