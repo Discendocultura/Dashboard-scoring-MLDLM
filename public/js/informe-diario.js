@@ -17,7 +17,9 @@ export function faseInforme(l, dia) {
   const directo = l?.fechaDirecto || '';
   const cierre = String(l?.cierreCarrito || '').slice(0, 10) || (directo ? sumarDias(directo, 6) : '');
   if (!ini || ini > dia) return null;
-  if (!directo || dia < directo) return 'captacion';
+  // Sin fecha del directo: captación solo hasta el fin de captación (si no, saldría un informe cada día para siempre).
+  if (!directo) return !l.finCaptacion || dia <= l.finCaptacion ? 'captacion' : null;
+  if (dia < directo) return 'captacion';
   if (dia <= cierre) return 'carrito';
   return null;
 }
@@ -55,7 +57,8 @@ export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto
     const nuevos = deltaFoto('registros', m.total) ?? registrosDia(dia);
     const nuevosVip = vip ? deltaFoto('vip', m.vip) : null;
     const diaN = entre(l.inicioCaptacion, dia) + 1;
-    const faltan = directo ? entre(dia, directo) : null;
+    // El email se lee el día después de `dia` (cuenta lo de ayer): los días que faltan, desde hoy.
+    const faltan = directo ? entre(dia, directo) - 1 : null;
     const destacados = [
       { label: 'Registros', valor: n0(m.total), sub: mas(nuevos) },
       ...(vip ? [{ label: 'Entradas VIP', valor: n0(m.vip), sub: [nuevosVip != null ? mas(nuevosVip) : '', pct(m.vip, m.total)].filter(Boolean).join(' · ') }] : []),
@@ -99,7 +102,7 @@ export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto
       fase, destacados, secciones,
       tabla: { titulo: '📅 Registros por día', cabecera: ['Día', 'Registros'], filas: dias.map(([d, n]) => [d, n0(n)]) },
       titulo: `Captación · ${l.name}`,
-      intro: `Día ${diaN} de captación${faltan != null ? ` · ${faltan === 1 ? 'mañana es el directo' : `faltan ${faltan} días para el directo`}` : ''}. Datos hasta el final del ${fechaLarga(dia)}.`,
+      intro: `Día ${diaN} de captación${faltan != null ? ` · ${faltan <= 0 ? 'hoy es el directo' : faltan === 1 ? 'mañana es el directo' : `faltan ${faltan} días para el directo`}` : ''}. Datos hasta el final del ${fechaLarga(dia)}.`,
       asunto: `📥 ${l.name}: ${n0(m.total)} registros (${mas(nuevos)})${vip ? ` · ${n0(m.vip)} VIP` : ''}${inv ? ` · CPL ${eur(m.eco.cpl)}` : ''}`,
     };
   }
@@ -114,7 +117,7 @@ export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto
     const n = conFecha ? ventasDia(d) : f && fAnt ? Math.max(0, f.ventas - fAnt.ventas) : null;
     diasCarrito.push([d, n]);
   }
-  const quedan = cierre ? entre(dia, cierre) : null;
+  const quedan = cierre ? entre(dia, cierre) - 1 : null; // desde hoy (el email se lee el día después)
   const destacados = [
     { label: 'Ventas ayer', valor: n0(nuevasVentas), sub: '' },
     { label: 'Ventas totales', valor: n0(m.compra), sub: pct(m.compra, m.total) + ' de los registros' },
@@ -142,7 +145,7 @@ export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto
     fase, destacados, secciones,
     tabla: { titulo: '📅 Ventas por día del carrito', cabecera: ['Día', 'Ventas'], filas: diasCarrito.map(([d, n]) => [d, n == null ? '–' : n0(n)]), nota: conFecha ? '' : 'Sin campo de fecha de compra: las ventas de cada día salen de la diferencia con el total del día anterior (desde que se activó el informe).' },
     titulo: `Carrito · ${l.name}`,
-    intro: `${quedan == null ? '' : quedan <= 0 ? 'Hoy cierra el carrito. ' : `Quedan ${quedan + 1} días de carrito. `}Datos hasta el final del ${fechaLarga(dia)}.`,
+    intro: `${quedan == null ? '' : quedan < 0 ? 'El carrito cerró ayer. ' : quedan === 0 ? 'Hoy cierra el carrito. ' : `Quedan ${quedan + 1} días de carrito. `}Datos hasta el final del ${fechaLarga(dia)}.`,
     asunto: `🛒 ${l.name}: ${n0(nuevasVentas)} ventas ayer · ${n0(m.compra)} en total${inv ? ` · ROAS ${x2(m.eco.roas)}` : ` · ${eur(m.eco.facturacion)}`}`,
   };
 }

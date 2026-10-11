@@ -669,14 +669,15 @@ async function mostrarInicio({ fresh = false } = {}) {
   // Las tareas de todos los embudos (para «Te han mencionado»), si aún no están.
   if (!state.tareas) loadTareas().catch(() => {}); else if (!state.tareasOtros) cargarTareasOtro().catch(() => {});
   // Cada embudo y cada meteórico en su propia petición (cada una con su límite de peticiones a GHL).
+  const inicio = state.inicio;
   state.inicio.embudos = lista.embudos.map((e) => ({ ...e, cargando: true }));
   state.inicio.meteoricos = lista.meteoricos.map((m) => ({ ...m, cargando: true }));
   pintarInicio();
   const tareas = [
     ...lista.embudos.map((e, i) => cargarEmbudoInicio(e, i, fresh)),
     ...lista.meteoricos.map((m, i) => cargarMeteoInicio(m, i, fresh)),
-    conLimite(q('parte=agenda')).then((d) => { state.inicio.agenda = d; }, (err) => { state.inicio.agenda = { error: err.message }; }),
-    ...(state.inicio.anuncios ? [] : [conLimite(q('parte=anuncios')).then((d) => { state.inicio.anuncios = d.anuncios; }, (err) => { state.inicio.anuncios = { error: err.message }; })]),
+    conLimite(q('parte=agenda')).then((d) => { inicio.agenda = d; }, (err) => { inicio.agenda = { error: err.message }; }),
+    ...(inicio.anuncios ? [] : [conLimite(q('parte=anuncios')).then((d) => { inicio.anuncios = d.anuncios; }, (err) => { inicio.anuncios = { error: err.message }; })]),
   ].map((p) => p.then(() => { if (token === state.inicioToken) pintarInicio(); }));
   await Promise.all(tareas);
 }
@@ -704,13 +705,16 @@ if (!$('#inicio-preset').value) $('#inicio-preset').value = '30d';
 $('#inicio-preset').addEventListener('change', () => { ls.set('lsd_inicio_preset', $('#inicio-preset').value); pintarInicioPeriodo(); mostrarInicio(); });
 ['#inicio-desde', '#inicio-hasta'].forEach((x) => $(x).addEventListener('change', () => { if ($('#inicio-desde').value && $('#inicio-hasta').value) mostrarInicio(); }));
 const qInicio = (qs, fresh) => api(`/api/inicio?${qs}&${inicioPeriodoQs()}${fresh ? '&fresh=1' : ''}`);
+// Cada respuesta va al Inicio que la pidió: si entretanto se cambió de periodo, la vieja no pisa la nueva.
 function cargarEmbudoInicio(e, i, fresh) {
+  const inicio = state.inicio;
   return conLimite(qInicio(`parte=embudo&id=${encodeURIComponent(e.id)}`, fresh))
-    .then((d) => { state.inicio.embudos[i] = d.embudo; }, (err) => { state.inicio.embudos[i] = { tipo: 'error', tipoOrig: e.tipo, id: e.id, nombre: e.nombre, error: err.message }; });
+    .then((d) => { if (inicio.embudos) inicio.embudos[i] = d.embudo; }, (err) => { if (inicio.embudos) inicio.embudos[i] = { tipo: 'error', tipoOrig: e.tipo, id: e.id, nombre: e.nombre, error: err.message }; });
 }
 function cargarMeteoInicio(m, i, fresh) {
+  const inicio = state.inicio;
   return conLimite(qInicio(`parte=meteorico&id=${encodeURIComponent(m.code)}`, fresh))
-    .then((d) => { state.inicio.meteoricos[i] = d.meteorico; }, (err) => { state.inicio.meteoricos[i] = { code: m.code, nombre: m.nombre, error: err.message }; });
+    .then((d) => { if (inicio.meteoricos) inicio.meteoricos[i] = d.meteorico; }, (err) => { if (inicio.meteoricos) inicio.meteoricos[i] = { code: m.code, nombre: m.nombre, error: err.message }; });
 }
 $('#inicio-embudos').addEventListener('click', (e) => {
   const b = e.target.closest('[data-reintentar]');
@@ -11025,17 +11029,20 @@ async function cargarDirecta({ fresh = false } = {}) {
   if (!enDirecta() || !tiene(['metricas', 'leads'])) { renderDirecta(); return; }
   const r = drRango();
   const qs = new URLSearchParams({ d: id, preset: r.preset, ...(r.preset === 'personalizado' ? { desde: r.desde, hasta: r.hasta } : {}), ...(fresh ? { fresh: '1' } : {}) });
+  // Solo vale la respuesta de la última petición (si se cambia de periodo rápido, la anterior no la pisa).
+  const token = (state.directa.token = (state.directa.token || 0) + 1);
+  const vigente = () => state.embudo === id && token === state.directa.token;
   state.directa.cargando = true;
   renderDirecta();
   try {
     const datos = await api(`/api/directa?${qs}`);
-    if (state.embudo !== id) return;
+    if (!vigente()) return;
     state.directa.datos = datos;
   } catch (e) {
-    if (state.embudo !== id) return;
+    if (!vigente()) return;
     state.directa.datos = { error: e.message };
   } finally {
-    if (state.embudo === id) state.directa.cargando = false;
+    if (vigente()) state.directa.cargando = false;
   }
   renderDirecta();
 }
@@ -11334,6 +11341,7 @@ $('#dc-seg').addEventListener('click', async (e) => {
     try {
       const r = await api('/api/seguimiento', { method: 'POST', body: { d: state.embudo, op: 'mensaje', texto: $('#seg-msg-txt').value } });
       state.seg.datos.mensaje = r.mensaje;
+      if (r.version != null) state.configVersion = r.version; // si no, el siguiente guardado de la configuración daría «conflicto»
       if (state.config.directas?.[state.embudo]) state.config.directas[state.embudo].mensajeSeguimiento = r.mensaje;
       renderSeguimiento();
       $('#dc-seg .seg-msg').open = true;

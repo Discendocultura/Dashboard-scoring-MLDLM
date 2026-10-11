@@ -8,7 +8,7 @@ import { requireSession } from '../lib/auth.js';
 import { getConfig, saveConfig } from '../lib/config-store.js';
 import { getPipelines, searchOpportunities, createOpportunity, updateOpportunity, addContactNote } from '../lib/ghl.js';
 import { compradorasDe } from '../lib/directa.js';
-import { leerJSON, guardarJSON, reintentando, cacheCompartida } from '../lib/store.js';
+import { leerJSON, guardarJSON, reintentando, cacheCompartida, versionDe, conVersion } from '../lib/store.js';
 import { pipelineDeCompra } from '../public/js/directa.js';
 import { listaSeguimiento, MENSAJE_SEGUIMIENTO_DEF } from '../public/js/seguimiento.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
@@ -16,7 +16,8 @@ import { json, readBody, errorResponse } from '../lib/http.js';
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const ID_RE = /^[A-Za-z0-9_-]{2,64}$/;
 const clave = (id) => `lsd_seguimiento_${id}`;
-const leer = async (id) => { const r = await leerJSON(clave(id), () => ({})); return r && typeof r === 'object' ? { cambios: r.cambios || {}, wa: r.wa || {} } : { cambios: {}, wa: {} }; };
+// La copia lleva la versión de lo leído: si otra persona guarda a la vez, `reintentando` lo detecta y repite.
+const leer = async (id) => { const r = await leerJSON(clave(id), () => ({})); return conVersion(r && typeof r === 'object' ? { cambios: r.cambios || {}, wa: r.wa || {} } : { cambios: {}, wa: {} }, r); };
 const cambiar = (id, fn, motivo) => reintentando(async () => { const r = await leer(id); const out = fn(r); await guardarJSON(clave(id), r, { motivo }); return out; });
 
 function permisos(e) {
@@ -51,7 +52,7 @@ export async function GET(request) {
     if (!d.upsellPrincipal?.tags?.length) return json({ configurado: false, motivo: 'Elige en ⚙️ Configurar el embudo → «Producto principal al que llevarlas después» sus etiquetas de compra: la lista son las compradoras que aún no lo tienen.' });
     if (!d.compraTag) return json({ configurado: false, motivo: 'Falta la etiqueta de compra del embudo.' });
     // Las compradoras y el pipeline, compartidos 3 minutos por el equipo; los cambios del dashboard se leen siempre.
-    const base = await cacheCompartida(`seguimiento|${id}|${d.compraTag}|${d.upsellPrincipal.tags.join(',')}|${d.compraPipeline || ''}`, 3 * 60_000, async () => {
+    const base = await cacheCompartida(`seguimiento|${id}|${d.compraTag}|${d.upsellPrincipal.tags.join(',')}|${d.compraPipeline || ''}|${d.compraEtapa || ''}`, 3 * 60_000, async () => {
       const contactos = await compradorasDe(d, { fresh: url.searchParams.get('fresh') === '1' });
       const { pipeline, etapaInicial } = await pipelineDe(d, contactos).catch((e) => { throw permisos(e); });
       return { contactos, pipeline, etapaInicial };
@@ -78,8 +79,14 @@ export async function POST(request) {
     if (body.op === 'mensaje') {
       await requireSession(request, { permiso: 'config' });
       const texto = String(body.texto || '').trim().slice(0, 1000);
-      await saveConfig({ ...config, directas: { ...config.directas, [id]: { ...d, mensajeSeguimiento: texto } } }, { motivo: 'Mensaje de seguimiento (venta directa)' });
-      return json({ mensaje: texto || MENSAJE_SEGUIMIENTO_DEF });
+      // Con la configuración recién leída y su versión (como el resto de guardados parciales): no pisa cambios de otros.
+      const nuevo = await reintentando(async () => {
+        const actual = await getConfig({ fresh: true });
+        const dd = actual.directas?.[id];
+        if (!dd) throw bad('Embudo no encontrado', 404);
+        return saveConfig({ ...actual, directas: { ...actual.directas, [id]: { ...dd, mensajeSeguimiento: texto } } }, { version: versionDe(actual), motivo: 'Mensaje de seguimiento (venta directa)' });
+      });
+      return json({ mensaje: texto || MENSAJE_SEGUIMIENTO_DEF, version: versionDe(nuevo) });
     }
     const contactId = String(body.contactId || '');
     if (!ID_RE.test(contactId)) throw bad('Contacto no válido');
@@ -101,7 +108,15 @@ export async function POST(request) {
     const opp = (await searchOpportunities({ pipelineId, contactId, limit: 5 }).catch((e) => { throw permisos(e); })).opportunities[0];
     const status = /^venta|ganad|won/i.test(st.name) ? 'won' : /perdid|lost/i.test(st.name) ? 'lost' : 'open';
     if (opp) await updateOpportunity(opp.id, { pipelineId, pipelineStageId: etapa, status }).catch((e) => { throw permisos(e); });
-    else await createOpportunity({ pipelineId, pipelineStageId: etapa, contactId, name: String(body.nombre || 'Seguimiento').slice(0, 100), status }).catch((e) => { throw permisos(e); });
+    else {
+      await createOpportunity({ pipelineId, pipelineStageId: etapa, contactId, name: String(body.nombre || 'Seguimiento').slice(0, 100), status }).catch((e) => { throw permisos(e); });
+      // Esta oportunidad la crea el dashboard hoy: no es la de la compra. Se marca para que no cambie el día de su venta.
+      await reintentando(async () => {
+        const r = await leerJSON(`lsd_directa_compras_${id}`, () => null);
+        if (!r?.dias?.[contactId] || r.op?.[contactId]) return;
+        await guardarJSON(`lsd_directa_compras_${id}`, conVersion({ ...r, op: { ...(r.op || {}), [contactId]: 1 } }, r), { motivo: 'Seguimiento: oportunidad creada' });
+      }).catch(() => {});
+    }
     // 2) Nota en su ficha de GHL.
     await addContactNote(contactId, `📞 Seguimiento ${d.upsellPrincipal?.nombre ? `para ${d.upsellPrincipal.nombre} ` : ''}(${d.name}): ${st.name}${nota ? `\n${nota}` : ''}\n— ${quien}, desde el dashboard`)
       .catch((e) => avisos.push(`No se pudo guardar la nota en GHL (${String(e.message).slice(0, 120)}).`));

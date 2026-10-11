@@ -20,6 +20,10 @@ test('fase del informe: captación hasta el día antes del directo, carrito hast
   assert.equal(faseInforme(l, '2026-10-20'), 'carrito');
   assert.equal(faseInforme(l, '2026-10-21'), null);
   assert.equal(faseInforme({ inicioCaptacion: '2026-10-01' }, '2026-10-05'), 'captacion'); // sin directo aún
+  assert.equal(faseInforme({ inicioCaptacion: '2026-10-01', finCaptacion: '2026-10-04' }, '2026-10-05'), null);
+  // El email de la mañana del directo (cuenta el día anterior) dice «hoy es el directo».
+  assert.match(datosInforme({ l: { ...l, vip: false }, m: mBase(), fase: 'captacion', dia: '2026-10-14' }).intro, /hoy es el directo/);
+  assert.match(datosInforme({ l, m: mBase(), fase: 'carrito', dia: '2026-10-20' }).intro, /cerró ayer/);
 });
 
 test('captación: registros (+ayer con la foto del día anterior), VIP solo si el lanzamiento la tiene', () => {
@@ -28,7 +32,7 @@ test('captación: registros (+ayer con la foto del día anterior), VIP solo si e
   assert.match(d.asunto, /1850 registros \(\+150 ayer\) · 146 VIP · CPL 0,81 €/);
   assert.ok(d.destacados.some((x) => x.label === 'Entradas VIP' && /\+16 ayer/.test(x.sub)));
   assert.ok(d.secciones.some((s) => s.titulo.includes('Entrada VIP')));
-  assert.match(d.intro, /Día 10 de captación · faltan 5 días para el directo/);
+  assert.match(d.intro, /Día 10 de captación · faltan 4 días para el directo/);
   // Sin VIP (embudo sin entrada VIP): no se habla de VIP. Sin inversión: ni CPL ni ROAS.
   const sinVip = datosInforme({ l: { ...l, vip: false }, m: mBase({ eco: { ...mBase().eco, inversion: 0, cpl: null, roas: null } }), fase: 'captacion', dia: '2026-10-10', fotos });
   const txt = JSON.stringify(sinVip);
@@ -44,7 +48,7 @@ test('carrito: ventas de ayer, por día del carrito (con fecha de compra) y fact
   const d = datosInforme({ l: { ...l, vip: true }, m, leads, fase: 'carrito', dia: '2026-10-16', producto: 'Raíces' });
   assert.match(d.asunto, /2 ventas ayer · 3 en total · ROAS 5,33x/);
   assert.deepEqual(d.tabla.filas, [['2026-10-15', '1'], ['2026-10-16', '2']]);
-  assert.match(d.intro, /Quedan 5 días de carrito/);
+  assert.match(d.intro, /Quedan 4 días de carrito/);
   assert.ok(d.secciones[0].filas.some(([a]) => a === 'Compraron de las que vieron el directo'));
   const html = informeHtml(d, { url: 'https://x.dev/' });
   assert.match(html, /Ventas por día del carrito/);
