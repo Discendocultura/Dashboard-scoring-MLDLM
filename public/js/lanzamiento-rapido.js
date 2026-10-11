@@ -65,12 +65,12 @@ export function codigoPropuesto(base, fecha, usados = []) {
 
 // Etiqueta de registro: la del anterior con su código cambiado por el nuevo (registro-camino-oct26 →
 // registro-camino-nov26); si no lo llevaba, «registro-<código>».
-// Etiqueta de registro: nomenclatura FIJA de la agencia, «registrado webinar DD-MM-AA» con la fecha del directo
-// (29/10/2026 → «registrado webinar 29-10-26»). Cambia en cada lanzamiento y es la que pone el workflow de registro.
-export const ETIQUETA_REGISTRO_RE = /^registrado webinar \d{2}-\d{2}-\d{2}$/;
+// Etiqueta de registro: nomenclatura FIJA de la agencia, «registrado-webinar-DDMMAA» con la fecha del directo
+// (29/10/2026 → «registrado-webinar-291026»). Cambia en cada lanzamiento y es la que pone el workflow de registro.
+export const ETIQUETA_REGISTRO_RE = /^registrado-webinar-\d{6}$/;
 export function etiquetaRegistro(fechaDirecto) {
   const m = String(fechaDirecto || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `registrado webinar ${m[3]}-${m[2]}-${m[1].slice(2)}` : '';
+  return m ? `registrado-webinar-${m[3]}${m[2]}${m[1].slice(2)}` : '';
 }
 
 // Plantilla estándar (primer lanzamiento del embudo), a partir del día y la hora del primer vídeo:

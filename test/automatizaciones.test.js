@@ -5,7 +5,7 @@ import { autoCtx, automatizacionesDe, promptAutomatizacion, descripcionIaGhl, pr
 import { accesosDePaginas, conAccesos } from '../public/js/urls-paginas.js';
 
 const OCT = {
-  name: 'El Camino Octubre 2026', fechaDirecto: '2026-10-29', horaDirecto: '18:30', replayAt: '2026-10-30T10:00', registroTag: 'registrado webinar 29-10-26',
+  name: 'El Camino Octubre 2026', fechaDirecto: '2026-10-29', horaDirecto: '18:30', replayAt: '2026-10-30T10:00', registroTag: 'registrado-webinar-291026',
   encuestaTag: 'encuesta-camino', compraTag: 'clienta-raices', vipTag: 'compra-vip', precioVip: 9, publiTag: 'publi', organicoTag: 'organico',
   recursosUrl: 'https://lp.ejemplo.com/camino-preclase', replayUrl: 'https://lp.ejemplo.com/camino-replay', paginaPagoUrl: 'https://lp.ejemplo.com/camino-pago',
   compraDateField: 'fechaCompraRaices',
@@ -29,8 +29,8 @@ test('prompt: carpeta, nombre, etiqueta de registro fija, fechas reales, borrado
   const p = promptAutomatizacion(reg, c);
   assert.match(p, /CARPETA: «El Camino Octubre 2026»/);
   assert.match(p, /NOMBRE DEL WORKFLOW: «\[camino-oct26\] 01 · Registro al webinar»/);
-  assert.match(p, /Añadir la etiqueta «registrado webinar 29-10-26»/);
-  assert.match(p, /nomenclatura «registrado webinar DD-MM-AA»/);
+  assert.match(p, /Añadir la etiqueta «registrado-webinar-291026»/);
+  assert.match(p, /nomenclatura «registrado-webinar-DDMMAA»/);
   assert.match(p, /anuncios, añade la etiqueta «publi».*«organico»/);
   assert.match(p, /BORRADOR/);
   assert.match(p, /no puede crear workflows/);
@@ -45,7 +45,7 @@ test('prompt: carpeta, nombre, etiqueta de registro fija, fechas reales, borrado
 test('sin datos: la etiqueta propuesta por la fecha y [FALTA] donde no hay', () => {
   const c = autoCtx('lanzamientos', { name: 'Nov', fechaDirecto: '2026-11-17' }, { code: 'nov' });
   const l = automatizacionesDe(c);
-  assert.match(promptAutomatizacion(l[0], c), /«registrado webinar 17-11-26»/);
+  assert.match(promptAutomatizacion(l[0], c), /«registrado-webinar-171126»/);
   const rec = l.find((a) => a.id === 'recordatorios');
   assert.ok(rec.faltan.includes('la URL de la página preclase'));
   assert.match(promptAutomatizacion(rec, c), /\[FALTA: URL de la página preclase\]/);
@@ -56,9 +56,9 @@ test('preparación y «ya existen»', () => {
   const l = automatizacionesDe(c);
   const p = promptPreparacion(l, c);
   assert.match(p, /crea la carpeta «El Camino Octubre 2026»/);
-  assert.match(p, /- registrado webinar 29-10-26/);
+  assert.match(p, /- registrado-webinar-291026/);
   assert.match(p, /\[camino-oct26\] 07 · Carrito abandonado/);
-  assert.match(revisarExistente(l[0], c), /«registrado webinar 29-10-26»/);
+  assert.match(revisarExistente(l[0], c), /«registrado-webinar-291026»/);
 });
 
 test('otros embudos: VSL, venta directa y meteórico', () => {
@@ -101,7 +101,7 @@ const call = async (path, { method = 'GET', body, cookie } = {}) => {
 test('servidor: guarda el estado en el lanzamiento y la URL del workflow pasa a Accesos', async () => {
   const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
   const cfg = (await call('/api/config', { cookie: admin })).data;
-  await call('/api/config', { method: 'POST', cookie: admin, body: { ...cfg.config, launches: { ...cfg.config.launches, oct: { name: 'Octubre', fechaDirecto: '2026-10-29', registroTag: 'registrado webinar 29-10-26' } }, _version: cfg.version } });
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...cfg.config, launches: { ...cfg.config.launches, oct: { name: 'Octubre', fechaDirecto: '2026-10-29', registroTag: 'registrado-webinar-291026' } }, _version: cfg.version } });
   const r = await call('/api/config', { method: 'POST', cookie: admin, body: { op: 'automatizaciones', tipo: 'lanzamientos', l: 'oct', datos: { origen: 'cero', items: { registro: { estado: 'creada', url: 'https://app.gohighlevel.com/wf/1' } } }, workflow: { nombre: '[oct] 01 · Registro al webinar', url: 'https://app.gohighlevel.com/wf/1' } } });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.deepEqual(r.data.config.launches.oct.automatizaciones, { origen: 'cero', items: { registro: { estado: 'creada', url: 'https://app.gohighlevel.com/wf/1' } } });
@@ -117,8 +117,8 @@ test('servidor: guarda el estado en el lanzamiento y la URL del workflow pasa a 
 
 test('lanzamiento con una etiqueta de registro antigua: los workflows usan la nomenclatura y se avisa', () => {
   const c = autoCtx('lanzamientos', { ...OCT, registroTag: 'registro-camino-oct26' }, { code: 'camino-oct26' });
-  assert.equal(c.registroTag, 'registrado webinar 29-10-26');
+  assert.equal(c.registroTag, 'registrado-webinar-291026');
   assert.equal(c.registroDistinta, 'registro-camino-oct26');
-  assert.match(promptAutomatizacion(automatizacionesDe(c)[0], c), /«registrado webinar 29-10-26»/);
+  assert.match(promptAutomatizacion(automatizacionesDe(c)[0], c), /«registrado-webinar-291026»/);
   assert.equal(autoCtx('lanzamientos', OCT, { code: 'x' }).registroDistinta, '');
 });

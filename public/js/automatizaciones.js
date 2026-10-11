@@ -44,7 +44,7 @@ export function autoCtx(tipo, obj = {}, { code = '', cliente = '', producto = ''
   return {
     tipo, code, cliente, producto, nombre: o.name || code,
     carpeta: o.name || code,
-    // Lanzamientos: la etiqueta de registro es SIEMPRE «registrado webinar DD-MM-AA» (fecha del directo). Si la de
+    // Lanzamientos: la etiqueta de registro es SIEMPRE «registrado-webinar-DDMMAA» (fecha del directo). Si la de
     // Configuración es otra, el prompt usa la buena y registroDistinta avisa de que hay que cambiarla allí.
     ...(() => {
       const propuesta = tipo === 'lanzamientos' ? etiquetaRegistro(o.fechaDirecto) : '';
@@ -88,12 +88,12 @@ const LANZAMIENTO = [
     para: 'Marca a cada persona que se registra con la etiqueta del lanzamiento: es la que usa el dashboard para contar los leads.',
     disparador: () => 'Form Submitted: el formulario de registro del lanzamiento (si hay dos, el orgánico y el de anuncios, pon los dos como disparadores).',
     acciones: (c) => [
-      `Añadir la etiqueta ${t(c.registroTag || c.registroPropuesta, 'registrado webinar DD-MM-AA')} (nomenclatura fija de la agencia: «registrado webinar» + la fecha del directo DD-MM-AA).`,
+      `Añadir la etiqueta ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')} (nomenclatura fija de la agencia: «registrado-webinar-» + la fecha del directo DDMMAA).`,
       ...origenAcciones(c),
       `Email de confirmación: que ya tiene su plaza, cuándo es (${directos(c).join(' · ')}) y un botón a la página preclase ${u(c.recursosUrl, 'URL de la página preclase')}.`,
       ...(c.whatsappUrl ? [`En el email, el enlace al grupo de WhatsApp: ${c.whatsappUrl}.`] : []),
     ],
-    prueba: (c) => `Regístrate con un email de prueba: en el dashboard (Leads) debe aparecer con la etiqueta ${t(c.registroTag || c.registroPropuesta, 'registrado webinar DD-MM-AA')} y te tiene que llegar el email.`,
+    prueba: (c) => `Regístrate con un email de prueba: en el dashboard (Leads) debe aparecer con la etiqueta ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')} y te tiene que llegar el email.`,
   },
   {
     id: 'encuesta', titulo: 'Encuesta rellenada', requiere: ['encuestaTag'], si: (c) => c.encuestaTag || c.encuestaUrl,
@@ -112,7 +112,7 @@ const LANZAMIENTO = [
   {
     id: 'recordatorios', titulo: 'Recordatorios del directo', requiere: ['registroTag', 'fechaDirecto', 'horaDirecto', 'recursosUrl'],
     para: 'Que nadie se pierda el directo: recordatorios el día antes, una hora antes y al empezar, con el enlace para conectarse.',
-    disparador: (c) => `Contact Tag Added: ${t(c.registroTag || c.registroPropuesta, 'registrado webinar DD-MM-AA')}.`,
+    disparador: (c) => `Contact Tag Added: ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')}.`,
     acciones: (c) => [
       `«Wait» hasta el ${fechaTxt(`${menosDias(c.fechaDirecto || '2000-01-02', 1)}T19:00`) || '[día antes] a las 19:00'} → email (y WhatsApp si lo usáis): «Mañana es el directo».`,
       `«Wait» hasta el ${fechaTxt(`${c.fechaDirecto}T${menosHora(c.horaDirecto)}`) || '[día del directo, 1 h antes]'} → «Empezamos en 1 hora».`,
@@ -125,7 +125,7 @@ const LANZAMIENTO = [
   {
     id: 'grabacion', titulo: 'Grabación disponible', requiere: ['registroTag', 'replayUrl', 'replayAt'],
     para: 'Avisa de que ya está la grabación a quien no ha comprado.',
-    disparador: (c) => `Contact Tag Added: ${t(c.registroTag || c.registroPropuesta, 'registrado webinar DD-MM-AA')}.`,
+    disparador: (c) => `Contact Tag Added: ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')}.`,
     acciones: (c) => [
       `«Wait» hasta el ${fechaTxt(c.replayAt) || '[cuándo se desbloquea la grabación]'}.`,
       `Si NO tiene la etiqueta ${t(c.compraTag, 'etiqueta de compra')}: email «Ya tienes la grabación» con el botón a ${u(c.replayUrl, 'URL de la página de replay')}.`,
@@ -239,7 +239,7 @@ export function promptAutomatizacion(a, c) {
     '',
     'REGLAS:',
     '- Usa las etiquetas EXACTAS de arriba, en minúsculas. Si una no existe en GHL, créala con ese nombre exacto.',
-    ...(c.tipo === 'lanzamientos' ? ['- La etiqueta de registro sigue SIEMPRE la nomenclatura «registrado webinar DD-MM-AA» (fecha del directo): no la cambies.'] : []),
+    ...(c.tipo === 'lanzamientos' ? ['- La etiqueta de registro sigue SIEMPRE la nomenclatura «registrado-webinar-DDMMAA» (fecha del directo): no la cambies.'] : []),
     '- No toques ningún otro workflow (tampoco los de lanzamientos anteriores).',
     '- Los textos de emails y WhatsApp: pon uno provisional corto que empiece por [REVISAR] (los definitivos salen de Plan → Emails del dashboard).',
     '- Si un paso no existe tal cual en GHL, usa el equivalente más cercano y avísame.',
@@ -262,7 +262,7 @@ export function promptPreparacion(lista, c) {
     '',
     '1. Con el conector de GHL: lista los workflows que ya existen (para no duplicar ninguno) y comprueba qué etiquetas de esta lista existen; crea las que falten con el nombre exacto, en minúsculas:',
     ...etiquetas.map((e) => `   - ${e}`),
-    ...(c.tipo === 'lanzamientos' ? ['   (La de registro sigue la nomenclatura fija «registrado webinar DD-MM-AA» con la fecha del directo.)'] : []),
+    ...(c.tipo === 'lanzamientos' ? ['   (La de registro sigue la nomenclatura fija «registrado-webinar-DDMMAA» con la fecha del directo.)'] : []),
     `2. Desde el navegador (Automatización → Workflows): crea la carpeta «${c.carpeta}».`,
     '3. Comprueba que existe lo que van a usar los workflows y dime lo que falte: el formulario de registro (y el de anuncios), la encuesta, los productos y enlaces de pago, el calendario de llamadas y los campos personalizados.',
     '',
@@ -275,7 +275,7 @@ export function promptPreparacion(lista, c) {
 
 // Si ya existen: qué revisar en cada uno al empezar un lanzamiento nuevo.
 export function revisarExistente(a, c) {
-  if (a.id === 'registro') return `Cambia la etiqueta de registro a ${t(c.registroTag || c.registroPropuesta, 'registrado webinar DD-MM-AA')} (nomenclatura fija) y revisa la fecha del directo en el email.`;
+  if (a.id === 'registro') return `Cambia la etiqueta de registro a ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')} (nomenclatura fija) y revisa la fecha del directo en el email.`;
   if (a.id === 'recordatorios') return `Cambia el disparador a la etiqueta nueva y las fechas de los «Wait» (${directos(c).join(' · ')}).`;
   if (a.id === 'grabacion') return `Cambia el disparador a la etiqueta nueva y el «Wait» a ${fechaTxt(c.replayAt) || 'la fecha de la grabación'}.`;
   if (a.id === 'encuesta') return 'Si la encuesta es nueva, cambia el disparador a esa encuesta.';

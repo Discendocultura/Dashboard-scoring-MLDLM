@@ -4490,7 +4490,7 @@ function renderGuia() {
   pintarRegistroPropuesto();
 }
 
-// Etiqueta de registro: botón para poner la de la nomenclatura («registrado webinar DD-MM-AA») si no es esa.
+// Etiqueta de registro: botón para poner la de la nomenclatura («registrado-webinar-DDMMAA») si no es esa.
 function pintarRegistroPropuesto() {
   const b = $('#cfg-registro-poner');
   const esperada = etiquetaRegistro($('#cfg-directo-fecha').value);
