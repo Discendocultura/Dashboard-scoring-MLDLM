@@ -511,6 +511,12 @@ La encuesta de la Etapa 1 puede ser siempre la misma: misma URL y misma etiqueta
 - ⚠️ **Permisos del token**: la integración privada de GHL necesita **View Email Campaigns** (`emails/campaigns.readonly`) y **View Email Stats** (`emails/stats.readonly`). Si faltan, la pestaña lo dice.
 
 ## 🎨 Aspecto y modo día / noche
+**Diseño clásico o espacial (Cuenta → Diseño).** «🎨 Clásico» es el de siempre (con modo día / noche). «🚀 Espacial»
+lleva el estilo de la pantalla de acceso a todo el dashboard: siempre oscuro, cielo con estrellas que caen despacio y
+nebulosas, barra de arriba y tarjetas de cristal, botones naranja espacial y el saludo del Inicio con el degradado
+del titular (el botón de día / noche se oculta). Se guarda en el navegador de cada persona (`lsd_estilo`) y se aplica
+antes de pintar la página (`tema.js`, `<html data-estilo>`), así que no parpadea. Con «reducir movimiento» del
+sistema, las estrellas no se mueven.
 **Pantalla de acceso:** siempre oscura, «Data driven growth» en grande, fondo de espacio con estrellas en movimiento,
 un cohete que despega (llama, humo y estelas), una gráfica de crecimiento que se dibuja y tarjetas de métricas
 flotando; el acceso va en una tarjeta de cristal. En el móvil, solo el titular y el acceso (el cohete, pequeño, arriba).

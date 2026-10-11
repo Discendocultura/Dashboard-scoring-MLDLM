@@ -2623,6 +2623,21 @@ document.addEventListener('click', (e) => {
 });
 window.LSD_TEMA?.alCambiar(pintarTema);
 pintarTema();
+// Cuenta → Diseño: clásico (el de siempre, con día / noche) o espacial (el de la pantalla de acceso). Se guarda en el navegador.
+function pintarEstilo() {
+  const e = window.LSD_ESTILO?.actual() || 'clasico';
+  $$('[data-estilo-elegir]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.estiloElegir === e)));
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-estilo-elegir]');
+  if (!b || !window.LSD_ESTILO) return;
+  const nuevo = window.LSD_ESTILO.poner(b.dataset.estiloElegir);
+  pintarEstilo();
+  pintarTema();
+  notice(nuevo === 'espacial' ? '🚀 Diseño espacial activado (siempre oscuro). Puedes volver al clásico en Cuenta → Diseño.' : '🎨 Diseño clásico activado.');
+  setTimeout(() => notice(''), 4000);
+});
+pintarEstilo();
 $$('[data-icon] > h2').forEach((h) => h.insertAdjacentHTML('afterbegin', `<span class="h-ico">${icon(h.parentElement.dataset.icon)}</span>`));
 // ---------- Comercial → En directo ----------
 let enDirectoTimer = null;

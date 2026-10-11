@@ -4,6 +4,9 @@
  * · El botón ☀️/🌙 lo cambia a mano; ese cambio dura hasta el siguiente cambio automático
  *   (las 8:00 o las 20:00) y a partir de ahí vuelve a seguir la hora.
  * API: window.LSD_TEMA = { actual(), alternar(), manual(), siguienteCambio(), alCambiar(fn) }.
+ * Diseño (Cuenta → Diseño): «clásico» (el de siempre, con día / noche) o «espacial» (el de la pantalla de acceso:
+ * siempre oscuro, cielo de estrellas y tarjetas de cristal). Se guarda en este navegador (lsd_estilo).
+ * API: window.LSD_ESTILO = { actual(), poner('clasico' | 'espacial') }.
  */
 (function () {
   'use strict';
@@ -33,10 +36,14 @@
   }
   var enMemoria = null;
   function manual() { return leer() || (enMemoria && enMemoria.hasta > Date.now() ? enMemoria : null); }
-  function deseado() { var m = manual(); return m ? m.tema : automatico(new Date()); }
+  var CLAVE_ESTILO = 'lsd_estilo';
+  function estilo() { try { return localStorage.getItem(CLAVE_ESTILO) === 'espacial' ? 'espacial' : 'clasico'; } catch (e) { return 'clasico'; } }
+  // El espacial es siempre oscuro.
+  function deseado() { if (estilo() === 'espacial') return 'dark'; var m = manual(); return m ? m.tema : automatico(new Date()); }
 
   function aplicar(suave) {
     var root = document.documentElement;
+    if (root.getAttribute('data-estilo') !== estilo()) root.setAttribute('data-estilo', estilo());
     var t = deseado();
     if (root.getAttribute('data-theme') === t) return;
     if (suave) {
@@ -45,7 +52,7 @@
     }
     root.setAttribute('data-theme', t);
     var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', t === 'dark' ? '#121212' : '#f7f6f3');
+    if (meta) meta.setAttribute('content', estilo() === 'espacial' ? '#05060f' : t === 'dark' ? '#121212' : '#f7f6f3');
     for (var i = 0; i < oyentes.length; i++) { try { oyentes[i](t); } catch (e) { /* nada */ } }
   }
 
@@ -69,5 +76,15 @@
     manual: manual,
     siguienteCambio: function () { return siguienteCambio(new Date()); },
     alCambiar: function (fn) { oyentes.push(fn); },
+  };
+  window.LSD_ESTILO = {
+    actual: estilo,
+    poner: function (e) {
+      try { localStorage.setItem(CLAVE_ESTILO, e === 'espacial' ? 'espacial' : 'clasico'); } catch (x) { /* sin almacenamiento */ }
+      document.documentElement.setAttribute('data-estilo', estilo());
+      document.documentElement.removeAttribute('data-theme'); // que se vuelva a aplicar el tema (y avise)
+      aplicar(true);
+      return estilo();
+    },
   };
 }());
