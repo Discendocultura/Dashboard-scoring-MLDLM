@@ -7,11 +7,14 @@
 //   GET /api/sendflow?op=cuentas            → cuentas de WhatsApp de SendFlow (para los avisos)
 //   GET /api/sendflow?op=calentamiento&l=<código> → secuencia de mensajes del grupo (permiso carrito, config o métricas)
 //   GET /api/sendflow?op=votos&l=<código>&id=<mensaje> → votos de una encuesta enviada
+//   GET /api/sendflow?op=impacto&l=<código> → mensajes enviados al grupo (dashboard + SendFlow) y la serie de salidas
+//        (para Métricas → Grupos de WhatsApp → Impacto de los mensajes; solo al pulsar el botón)
 //   POST { op: 'calentamiento-guardar' | 'programar' | 'cancelar' | 'marcar-cancelado', l, … } (permiso config)
 // Solo quien configura (permiso «config»). Hace como mucho 2 peticiones a SendFlow (campañas y una analítica),
 // guardadas unos minutos, y no llama nada mientras SendFlow tenga la clave bloqueada (su límite es estricto).
 import { requireSession } from '../lib/auth.js';
-import { sendflowConfigurado, variableSendflow, campanasSendflow, analiticaSendflow, gruposSendflow, exportarMiembros, cuentasSendflow, formatoClave, frenoSendflow, quitarFreno } from '../lib/sendflow.js';
+import { sendflowConfigurado, variableSendflow, campanasSendflow, analiticaSendflow, gruposSendflow, exportarMiembros, cuentasSendflow, formatoClave, frenoSendflow, quitarFreno, enviadosSendflow } from '../lib/sendflow.js';
+import { madridToEpoch } from '../public/js/page.js';
 import { getConfig } from '../lib/config-store.js';
 import { leerCompartida } from '../lib/store.js';
 import { env } from '../lib/env.js';
@@ -51,6 +54,31 @@ async function gruposDe(code) {
   } catch (e) {
     return json({ vinculada: true, conectado: true, id, error: e.publicMessage || e.message, freno: e.freno || null });
   }
+}
+
+// Mensajes enviados al grupo y la serie de salidas (fotos de la vigilancia cada 15 min). Los mensajes son los
+// programados desde el dashboard (con su texto) y los que salieron desde SendFlow sin pasar por él (solo la hora).
+async function impactoDe(code) {
+  const config = await getConfig();
+  const emb = embDe(config, code);
+  if (!emb) return json({ error: 'No encontrado' }, 404);
+  const ahora = Date.now();
+  const seq = (await leerSecuencia(code).catch(() => ({ mensajes: [] }))).mensajes || [];
+  const mensajes = seq.filter((m) => m.estado === 'programado').map((m) => ({
+    t: madridToEpoch(m.at), actionId: m.actionId || '', tipo: m.tipo, origen: 'dashboard',
+    titulo: m.tipo === 'encuesta' ? `Encuesta «${m.encuesta?.pregunta || ''}»` : String(m.texto || m.guion || '').replace(/\s+/g, ' ').slice(0, 120),
+  })).filter((m) => m.t != null && m.t <= ahora);
+  let aviso = '';
+  if (emb.sendflowId && sendflowConfigurado()) {
+    try {
+      const ya = new Set(mensajes.map((m) => m.actionId).filter(Boolean));
+      for (const e of await enviadosSendflow(emb.sendflowId)) if (!ya.has(e.actionId) && e.t <= ahora) mensajes.push({ t: e.t, actionId: e.actionId, tipo: '', origen: 'sendflow', titulo: '' });
+    } catch (e) {
+      aviso = `No se han podido leer de SendFlow los mensajes enviados fuera del dashboard: ${e.publicMessage || e.message}`;
+    }
+  } else if (!emb.sendflowId) aviso = 'Este lanzamiento no tiene su campaña de SendFlow: solo cuentan los mensajes programados desde el dashboard.';
+  const serie = emb.sendflowId ? ((await leerCompartida(`sf-serie|${emb.sendflowId}`, 45 * 86_400_000)) || []).map((f) => ({ t: f.t, s: f.s })) : [];
+  return json({ mensajes: mensajes.map(({ actionId, ...m }) => m), serie, aviso });
 }
 
 // Participantes de los grupos: el CSV pasa tal cual al navegador (sin leerlo aquí: puede tener decenas de miles
@@ -96,6 +124,10 @@ export async function GET(request) {
       if (!emb) return json({ error: 'No encontrado' }, 404);
       if (op === 'votos') return json(await votosEncuesta(code, String(url.searchParams.get('id') || '')));
       return json({ ...(await leerSecuencia(code)), sendflowId: emb.sendflowId || '', conectado: sendflowConfigurado() });
+    }
+    if (op === 'impacto') {
+      await requireSession(request, { permiso: 'metricas' });
+      return await impactoDe(String(url.searchParams.get('l') || ''));
     }
     if (op === 'grupos') {
       await requireSession(request, { permiso: 'metricas' });

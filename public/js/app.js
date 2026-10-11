@@ -35,6 +35,7 @@ import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
 import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
+import { mensajesEnviados, impactoMensajes, horaVenta } from './impacto-wa.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
@@ -10164,8 +10165,75 @@ async function cargarGrupos(code, box) {
       return `<div class="notice">🔗 <strong>Cruce exacto con GHL (por teléfono):</strong> ${en.length.toLocaleString('es-ES')} de ${state.leads.length.toLocaleString('es-ES')} leads están en los grupos (${pctOf(en.length, state.leads.length).replace('.', ',')}); ${(en.length - sin).toLocaleString('es-ES')} ya han comprado y <strong>${sin.toLocaleString('es-ES')} siguen sin comprar</strong> (lista en <em>Hoy → Setting hoy</em>). ${state.grupoWa.personas.toLocaleString('es-ES')} personas en los grupos${state.grupoWa.admins ? `, sin contar ${state.grupoWa.admins} administradora${state.grupoWa.admins === 1 ? '' : 's'}` : ''}.</div>`;
     })() : ''}
     ${vigilanciaHtml(d.vigilancia, code)}
+    ${esLanz ? `<div class="card wa-impacto" data-impacto="${esc(code)}">
+      <h3>📈 Impacto de cada mensaje en salidas, reservas y ventas</h3>
+      <p class="muted small">Qué pasa después de cada mensaje enviado al grupo (los programados aquí y los que se mandan desde SendFlow). <strong>Regla:</strong> cada venta, reserva de llamada o inicio de pago se atribuye al <strong>último mensaje enviado en las 3 horas anteriores</strong>; las salidas, a la <strong>primera hora</strong> tras el mensaje frente a lo normal.</p>
+      <p><button type="button" class="btn" data-impacto-cargar="${esc(code)}">📈 Ver el impacto de cada mensaje</button></p>
+      <div data-impacto-box></div>
+    </div>` : ''}
     <p class="muted small">Datos de SendFlow, se actualizan cada 5 minutos (la lista de personas, cada 30).</p>`;
 }
+// ---------- 📈 Impacto de los mensajes del grupo (impacto-wa.js) ----------
+// Solo al pulsar el botón: una petición al servidor (que pregunta a SendFlow como mucho una vez cada 30 min).
+async function cargarImpactoWa(code, box) {
+  box.innerHTML = '<p class="muted">Cruzando los mensajes con las salidas, las reservas y las ventas…</p>';
+  try {
+    const d = await api(`/api/sendflow?op=impacto&l=${encodeURIComponent(code)}`);
+    const launch = state.config.launches[code];
+    // Ventas con hora (su llegada a la página de pago ese día) e inicios de pago; reservas de llamada (si se ven).
+    if (state.visitas?.code !== code && state.launchCode === code) await cargarVisitas();
+    const pago = state.visitas?.code === code ? state.visitas.pago || {} : {};
+    const leads = state.leadsDe === code ? state.leads || [] : [];
+    // Si ya se cruzó el grupo por teléfono, solo cuentan las personas que están en el grupo.
+    const soloGrupo = state.grupoWa?.code === code && state.grupoWa.claves;
+    const delGrupo = (l) => !soloGrupo || l.s.enGrupo;
+    const acciones = [];
+    for (const l of leads.filter(delGrupo)) {
+      const p = pago[l.id];
+      if (p?.primera) acciones.push({ tipo: 'pago', t: p.primera });
+      if (l.s.compra) acciones.push({ tipo: 'venta', t: horaVenta(l.s.fecha_compra, p, (t) => dayInMadrid(new Date(t).toISOString())), importe: importeCompra(l, launch) });
+    }
+    let sinLlamadas = '';
+    if (tiene('llamadas') && launch.llamadaUrl && state.launchCode === code) {
+      await loadLlamadas();
+      const ids = soloGrupo ? new Set(leads.filter(delGrupo).map((l) => l.id)) : null;
+      for (const c of state.llamadas?.code === code ? state.llamadas.data?.llamadas || [] : []) {
+        const t = Date.parse(c.creada || '');
+        if (Number.isFinite(t) && (!ids || ids.has(c.contactId))) acciones.push({ tipo: 'reserva', t });
+      }
+    } else sinLlamadas = 'Sin reservas de llamada (no hay calendario de llamadas en este lanzamiento o no tienes acceso a Llamadas).';
+    const r = impactoMensajes(mensajesEnviados(d.mensajes), acciones, d.serie);
+    box.innerHTML = impactoWaHtml(r, { aviso: d.aviso, sinLlamadas, soloGrupo, conLeads: leads.length > 0 });
+  } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+function impactoWaHtml(r, { aviso, sinLlamadas, soloGrupo, conLeads }) {
+  if (!r.filas.length) return `<p class="muted">Aún no se ha enviado ningún mensaje al grupo.${aviso ? ` ${esc(aviso)}` : ''}</p>`;
+  const hora = (t) => new Date(t).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const pctAt = (a, b) => (b ? `${Math.round((a / b) * 100)} %` : '–');
+  const mejor = [...r.filas].sort((a, b) => (b.ventas - a.ventas) || (b.importe - a.importe) || (b.reservas - a.reservas))[0];
+  const peor = r.conSalidas ? [...r.filas].filter((f) => f.extra != null).sort((a, b) => b.extra - a.extra)[0] : null;
+  const fila = (f) => `<tr class="${f.fuga ? 'wa-fuga' : ''}"><td class="nowrap">${esc(hora(f.t))}</td>
+    <td>${f.titulo ? esc(f.titulo) : '<span class="muted">Enviado desde SendFlow</span>'}${f.tipo && f.tipo !== 'texto' ? ` <span class="muted small">(${esc(f.tipo)})</span>` : ''}</td>
+    <td class="num">${f.salidas == null ? '<span class="muted">–</span>' : `${f.salidas}${f.normal != null ? ` <span class="muted small">(normal ${String(f.normal).replace('.', ',')})</span>` : ''}${f.fuga ? ' ⚠️' : ''}`}</td>
+    <td class="num">${f.pagos || ''}</td><td class="num">${f.reservas || ''}</td>
+    <td class="num">${f.ventas ? `<strong>${f.ventas}</strong>${f.importe ? ` <span class="muted small">${eur(f.importe)}</span>` : ''}` : ''}</td></tr>`;
+  return `<div class="kpis">
+      ${cardD('Ventas tras un mensaje', `${r.atribuidas.ventas} de ${r.total.ventas}`, `${pctAt(r.atribuidas.ventas, r.total.ventas)} de las ventas con hora llegaron ≤ 3 h después de un mensaje${r.total.sinHora ? ` · ${r.total.sinHora} sin hora` : ''}`, 'cart', 'buy', 'Ventas cuya hora (llegada a la página de pago ese día) cae en las 3 h siguientes a un mensaje del grupo. Sin hora: compraron sin pasar por la página de pago medida.')}
+      ${sinLlamadas ? '' : cardD('Reservas tras un mensaje', `${r.atribuidas.reservas} de ${r.total.reservas}`, `${pctAt(r.atribuidas.reservas, r.total.reservas)} se reservaron ≤ 3 h después de un mensaje`, 'phone', 'info', 'Citas cuya reserva (no la cita) cae en las 3 h siguientes a un mensaje del grupo.')}
+      ${cardD('Inicios de pago tras un mensaje', `${r.atribuidas.pagos} de ${r.total.pagos}`, `${pctAt(r.atribuidas.pagos, r.total.pagos)} llegaron a la página de pago ≤ 3 h después`, 'euro', 'info', 'Primera llegada a la página de pago en las 3 h siguientes a un mensaje.')}
+      ${mejor && (mejor.ventas || mejor.reservas) ? cardD('El que más vendió', mejor.ventas ? `${mejor.ventas} venta${mejor.ventas === 1 ? '' : 's'}` : `${mejor.reservas} reservas`, `${hora(mejor.t)} · ${esc((mejor.titulo || 'enviado desde SendFlow').slice(0, 60))}`, 'trend', 'buy', 'El mensaje con más ventas (y reservas) atribuidas.') : ''}
+      ${peor?.extra ? cardD('El que más salidas provocó', `+${peor.extra} salidas`, `${hora(peor.t)} · ${esc((peor.titulo || 'enviado desde SendFlow').slice(0, 60))}`, 'logout', 'warn', 'Salidas en la hora siguiente por encima de lo normal (media por hora de las 24 h anteriores).') : ''}
+    </div>
+    <div class="table-scroll"><table class="metric-table wa-impacto-tabla"><thead><tr><th>Enviado</th><th>Mensaje</th><th class="num">Salidas 1.ª hora</th><th class="num">Inicios de pago</th><th class="num">Reservas</th><th class="num">Ventas</th></tr></thead>
+      <tbody>${[...r.filas].reverse().map(fila).join('')}</tbody></table></div>
+    <p class="muted small">Sin mensaje en las 3 h anteriores: ${r.sinMensaje.ventas} ventas, ${r.sinMensaje.reservas} reservas y ${r.sinMensaje.pagos} inicios de pago.${r.conSalidas ? ' ⚠️ = salieron el doble (o más) de lo normal en la hora siguiente.' : ' Las salidas por hora salen de la vigilancia de los grupos (cada 15 min): actívala para verlas.'}${soloGrupo ? ' Solo cuentan las personas que están en el grupo (cruce por teléfono).' : ' Cuentan todas las ventas del lanzamiento (carga el cruce por teléfono del grupo en Hoy → Setting hoy para contar solo a quien está en el grupo).'}${conLeads ? '' : ' Abre el lanzamiento en el dashboard para que carguen sus leads (ventas).'}${sinLlamadas ? ` ${esc(sinLlamadas)}` : ''}${aviso ? ` ${esc(aviso)}` : ''} No demuestra causa: es una señal para ver qué mensajes empujan y cuáles espantan.</p>`;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-impacto-cargar]');
+  if (!b) return;
+  b.disabled = true;
+  cargarImpactoWa(b.dataset.impactoCargar, b.closest('.wa-impacto').querySelector('[data-impacto-box]')).finally(() => { b.disabled = false; b.textContent = '↻ Volver a calcular'; });
+});
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-grupos-vincular]');
   if (!b) return;

@@ -2616,3 +2616,9 @@ body.embudo-directa .lanz-only { display: none !important; }
   .login *, .login *::before, .login *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; }
   .lg-linea { stroke-dashoffset: 0; }
 }
+
+/* Métricas → Grupos de WhatsApp → Impacto de cada mensaje */
+.wa-impacto { margin-top: 16px; }
+.wa-impacto h3 { margin: 0 0 6px; }
+.wa-impacto-tabla td:nth-child(2) { min-width: 220px; }
+.wa-impacto-tabla tr.wa-fuga td { background: color-mix(in srgb, #f59e0b 12%, transparent); }

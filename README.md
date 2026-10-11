@@ -606,6 +606,22 @@ API: `GET /api/sendflow?op=probar` · `?op=campanas` · `?op=cuentas` (permiso �
 `?op=votos&l=&id=` · `POST {op: calentamiento-guardar | programar | cancelar | marcar-cancelado}` · `?op=grupos&l=<código>` (permiso «metricas») ·
 `?op=miembros&l=<código>` (CSV; permisos hoy, leads o métricas). Base `https://sendflow.pro/sendapi` (cambiable con `SENDFLOW_BASE_URL`).
 
+### 📈 Impacto de cada mensaje del grupo (Métricas → Grupos de WhatsApp)
+Al pulsar **«Ver el impacto de cada mensaje»** (nunca solo: SendAPI limita las peticiones) se cruzan los mensajes
+enviados al grupo con lo que pasó después. Mensajes: los programados desde el dashboard (con su texto) **y los que se
+mandaron desde SendFlow** sin pasar por él (solo la hora; `GET /actions` de la campaña, guardado 30 min). Así funciona
+también si al crear el embudo dijiste que los mensajes «ya los tengo» (eso solo quita los prompts de Plan).
+**Regla de atribución:** cada **venta**, **reserva de llamada** e **inicio de pago** se atribuye al **último mensaje
+enviado en las 3 horas anteriores**; si no hubo ninguno, va a «sin mensaje cerca». Horas: venta = su llegada a la
+página de pago ese mismo día (GHL solo guarda el día de la compra; sin esa visita, «sin hora»); reserva = cuándo se
+reservó la cita (`dateAdded` de GHL); inicio de pago = primera llegada a la página de pago. **Salidas:** las de la
+primera hora tras el mensaje frente a lo normal (media por hora de las 24 h anteriores); ⚠️ si son el doble o más (y
+5 o más). Si ya se cruzó el grupo con GHL por teléfono, solo cuentan las personas del grupo. Tabla por mensaje (hora,
+mensaje, salidas, inicios de pago, reservas, ventas e importe) y tarjetas: % de ventas / reservas / inicios de pago
+que llegaron tras un mensaje, el mensaje que más vendió y el que más salidas provocó. Es una señal, no prueba de causa.
+Las salidas por hora salen de la vigilancia (fotos cada 15 min), que ahora se guardan **30 días** (los 3 últimos cada
+15 min y antes una por hora) para poder medir todo el lanzamiento. Código: `public/js/impacto-wa.js`.
+
 ## 🎨 Marca y avatar (Cuenta → Marca y avatar)
 El cuestionario de cada cliente: la **fuente de todos los prompts** del dashboard (páginas del embudo y mensajes de
 WhatsApp). Se guarda solo mientras se escribe, por campos (el cliente y el equipo pueden escribir a la vez sin pisarse).
