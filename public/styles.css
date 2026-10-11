@@ -2920,6 +2920,9 @@ body.embudo-directa .lanz-only { display: none !important; }
 .tg-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .tg-lista li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; }
 #tg-box .row { flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.cl-url { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%; }
+.cl-url code { overflow-wrap: anywhere; }
+#cl-lista .tg-lista li > span { min-width: 0; overflow-wrap: anywhere; }
 #tg-enlace .st-aviso { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .narr-card { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .nl-narr-ops { display: grid; gap: 6px; }

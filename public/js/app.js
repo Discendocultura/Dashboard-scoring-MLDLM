@@ -393,8 +393,21 @@ const embudoActual = () => (enVsl() ? vslCfg() : state.config?.launches[state.la
 // Embudo de lanzamientos al que pertenece un lanzamiento.
 const embudoDeLanz = (l) => l?.embudo || embudos().find((e) => e.tipo === 'lanzamientos')?.id || 'lanz';
 
+// Conectar Claude: la pantalla de permiso manda aquí a quien no ha entrado (?oauth=/api/oauth/authorize?…);
+// después de entrar, vuelve a esa pantalla.
+const OAUTH_RE = /^\/api\/oauth\/authorize\?[^\s]*$/;
+{
+  const q = new URLSearchParams(location.search).get('oauth') || '';
+  if (q) {
+    if (OAUTH_RE.test(q)) try { sessionStorage.setItem('lsd_oauth', q); } catch { /* sin almacenamiento */ }
+    history.replaceState(null, '', location.pathname + location.hash);
+  }
+}
 async function start() {
   const me = await api('/api/me');
+  let oauth = '';
+  try { oauth = sessionStorage.getItem('lsd_oauth') || ''; sessionStorage.removeItem('lsd_oauth'); } catch { /* sin almacenamiento */ }
+  if (OAUTH_RE.test(oauth)) { location.href = oauth; return; }
   state.clientes = me.clientes || [];
   state.superadmin = Boolean(me.superadmin);
   if (!me.role) {
@@ -6547,6 +6560,31 @@ $('#ag-enviar').addEventListener('click', async (e) => {
     $('#ag-info').textContent = `Resumen enviado a ${r.enviados} de ${r.destinatarios} superadmin.`;
   } catch (err) { $('#ag-info').textContent = err.message; }
   e.target.disabled = false;
+});
+// ---------- Agencia → Claude (conector MCP) ----------
+async function cargarClaude() {
+  const box = $('#cl-lista');
+  try {
+    const d = await api('/api/oauth/conexiones');
+    $('#cl-url').textContent = d.url;
+    const fecha = (x) => (x ? new Date(x).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
+    box.innerHTML = d.conexiones.length
+      ? `<p>Conexiones activas${state.superadmin ? ' (de todo el equipo)' : ''}:</p><ul class="tg-lista">${d.conexiones.map((c) => `<li><span>🧠 ${esc(c.app)} · <strong>${esc(c.nombre)}</strong> <span class="muted small">· conectado ${esc(fecha(c.creado))} · último uso ${esc(fecha(c.ultimoUso))}</span></span><button type="button" class="btn ghost small" data-cl-quitar="${esc(c.id)}">Desconectar</button></li>`).join('')}</ul>`
+      : '<p>Aún no hay ninguna conexión.</p>';
+  } catch (err) { box.textContent = err.message; }
+}
+$('#cl-box').addEventListener('toggle', () => { if ($('#cl-box').open) cargarClaude(); });
+$('#cl-copiar').addEventListener('click', async (e) => {
+  const ok = await copiarAlPortapapeles($('#cl-url').textContent);
+  e.target.textContent = ok ? 'Copiada ✓' : 'Cópiala a mano';
+  setTimeout(() => { e.target.textContent = 'Copiar'; }, 2500);
+});
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-cl-quitar]');
+  if (!b || !window.confirm('¿Desconectar Claude? Dejará de poder consultar el dashboard con esta conexión.')) return;
+  b.disabled = true;
+  try { await api('/api/oauth/conexiones', { method: 'POST', body: { op: 'revocar', id: b.dataset.clQuitar } }); notice('Claude desconectado.'); } catch (err) { notice(err.message, true); }
+  cargarClaude();
 });
 // ---------- Agencia → Bot de Telegram ----------
 async function cargarTelegram() {

@@ -828,6 +828,34 @@ siguiente al vídeo de venta, el último a las 23:59) y **de qué lanzamiento co
   **pantalla de enhorabuena** (ver abajo); su botón abre la Configuración para revisar (la barra «Listo para lanzar» marca lo que falte). «Configurar a mano» abre el
   formulario de siempre. Código: `public/js/lanzamiento-rapido.js`, `handlers/zoom-sala.js` (`POST /api/zoom-sala`).
 
+## 🧠 Claude (Cowork y claude.ai): conector del dashboard
+Claude consulta el dashboard por sí mismo, sin copiar y pegar prompts. **Fase 1: solo lectura.** Se explica en
+**Agencia → Panel → 🧠 Claude**, con la URL para copiar y la lista de conexiones (con «Desconectar»).
+
+- **Conectar**: en Claude, Ajustes → Conectores → Añadir conector personalizado, URL `https://<tu-dashboard>/api/mcp`.
+  Al pulsar Conectar se abre el dashboard: si no has entrado, «Entrar en el dashboard» y vuelve solo a la pantalla de
+  permiso; **Permitir** → vuelve a Claude. Claude entra **con tu usuario**: tus permisos, tus clientes y tu rol en cada
+  uno (si te desactivan, te cambian el rol, cambias la contraseña o desconectas, deja de ver lo que tú no ves).
+- **Herramientas** (todas de solo lectura, en el cliente que se le pida, por id o nombre):
+  `ver_embudos` (clientes, embudos y lanzamientos con fechas, estado, precios y narrativa) ·
+  `metricas_embudo` (lo mismo que el resumen: registros, VIP, ventas, facturación, inversión, ROAS, CPL, CAC, embudo, objetivos e hitos; permiso Métricas o Resumen) ·
+  `encuesta_para_copy` (el mismo contenido que «🧠 Analizar con Claude»: respuestas libres anónimas y agrupadas con [COMPRÓ], % de las de opciones, ficha y narrativa y la guía del análisis; cacheada 30 min, sin nombres; permiso Leads, Avatar o Métricas) ·
+  `marca_y_narrativa` (ficha de marca/producto/avatar, estilo visual y narrativa del lanzamiento) ·
+  `tareas_lanzamiento` (pendientes o todas, con fase, fecha, asignada y vencidas) ·
+  `emails_lanzamiento` (calendario de emails propuesto y resultados de los enviados en GHL con los asuntos ganadores; permiso Métricas).
+  Nunca devuelven emails ni teléfonos de los leads. El rol «Cliente» solo ve `ver_embudos` y `metricas_embudo`.
+- **Seguridad**: OAuth 2.1 con PKCE (S256) y registro dinámico; solo redirecciones a `claude.ai` / `claude.com`
+  (y `localhost` para pruebas; `MCP_REDIRECTS` en Cloudflare añade otros dominios, separados por comas). Pantalla de
+  permiso con CSRF y sin iframes. Código de un solo uso (5 min; si se repite, se revoca la conexión), access token de
+  1 h y refresh token que rota en cada uso (caduca a los 60 días sin usarse). Todo firmado con `SESSION_SECRET`
+  (cambiarla desconecta a todos). Las conexiones se guardan en `lsd_mcp` (común, sin historial).
+- **Cloudflare**: `functions/_middleware.js` atiende `/.well-known/oauth-*` (metadatos que Claude busca) y
+  `public/_routes.json` limita las funciones a `/api/*`, `/directo` y `/.well-known/*` (los estáticos no gastan peticiones).
+- Código: `lib/oauth.js`, `handlers/oauth.js` (`/api/oauth/register|authorize|token|conexiones`), `handlers/mcp.js`
+  (`POST /api/mcp`, JSON-RPC sin estado), `lib/mcp-tools.js`. Pruebas: `test/mcp.test.js`.
+- **Fase 2 (pendiente)**: escritura limitada (guardar narrativa, actualizar la ficha, crear tareas, borradores), siempre
+  con confirmación.
+
 ## 📲 Bot de Telegram de la agencia
 Avisos y resúmenes en el móvil, y preguntas cuando quieras. Se configura en **Agencia → Panel → 📲 Bot de Telegram**
 (solo superadmin):

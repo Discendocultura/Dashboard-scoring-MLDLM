@@ -37,7 +37,7 @@ createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'application/json' }).end('{"ok":true}');
       return;
     }
-    if (path === '/directo' || path.startsWith('/api/')) {
+    if (path === '/directo' || path.startsWith('/api/') || path.startsWith('/.well-known/')) {
       const chunks = [];
       for await (const c of req) chunks.push(c);
       const request = new Request(url, {
