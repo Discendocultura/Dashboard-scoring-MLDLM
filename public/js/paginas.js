@@ -28,6 +28,10 @@ export const PAGINAS = {
     { id: 'grabacion', nombre: 'Página de la grabación (replay)', buscar: ['GRABACIÓN ·', 'INSCRIBIRME ·', 'WHATSAPP · botón flotante'],
       objetivo: 'Que vea la grabación antes de que caduque y se inscriba.',
       secciones: ['Barra con la cuenta atrás de la grabación', 'El vídeo', 'Resumen de la oferta con botón de inscripción', 'Testimonios', 'Preguntas frecuentes', 'WhatsApp para dudas'] },
+    { id: 'gracias-llamada', nombre: 'Página de gracias por agendar la llamada', buscar: ['GRACIAS DE LA LLAMADA'], soloLlamadas: true, objetivo: 'Que se presente a la llamada preparada (y no la cancele).',
+      secciones: ['Confirmación de la cita: día y hora (y que le llega por email)', 'Vídeo: qué pasará en la llamada (si hay)', 'Qué preparar antes (2-3 preguntas para pensar)', 'Testimonios de quien ya pasó por la llamada', 'Añadir la cita al calendario y cómo cambiarla si no puede'] },
+    { id: 'gracias-compra', nombre: 'Página de gracias por comprar', buscar: ['GRACIAS POR COMPRAR'], objetivo: 'Confirmar la compra, quitarle cualquier duda y que dé el primer paso dentro del programa hoy mismo.',
+      secciones: ['«¡Bienvenida!» con la confirmación de la compra', 'Vídeo corto de bienvenida (si hay)', 'Cómo acceder: email con los datos de acceso, enlace y qué hacer si no le llega', 'Primeros pasos (3 como mucho) y fecha de la primera sesión o del inicio', 'Unirse a la comunidad / grupo de clientas', 'Contacto para dudas (WhatsApp o email de soporte)'] },
   ],
   vsl: [
     { id: 'registro', nombre: 'Página de registro', formulario: 'registro', objetivo: 'Que deje sus datos para ver el contenido.',
@@ -37,11 +41,15 @@ export const PAGINAS = {
     { id: 'gracias', nombre: 'Página de gracias del registro', buscar: ['GRACIAS DEL REGISTRO'], objetivo: 'Confirmar y llevarla a ver el contenido ya.',
       secciones: ['Confirmación', 'Vídeo corto (si hay)', 'Botón para ver el contenido'] },
     { id: 'gracias-llamada', nombre: 'Página de gracias de la llamada', buscar: ['GRACIAS DE LA LLAMADA'], soloLlamadas: true, objetivo: 'Que se presente a la llamada preparada.',
-      secciones: ['Confirmación de la cita', 'Vídeo: qué pasará en la llamada (si hay)', 'Qué preparar antes', 'Testimonios para llegar convencida'] },
+      secciones: ['Confirmación de la cita', 'Vídeo: qué pasará en la llamada (si hay)', 'Qué preparar antes', 'Testimonios para llegar convencida', 'Añadir la cita al calendario y cómo cambiarla si no puede'] },
+    { id: 'gracias-compra', nombre: 'Página de gracias por comprar', buscar: ['GRACIAS POR COMPRAR'], objetivo: 'Confirmar la compra, quitarle cualquier duda y que dé el primer paso dentro del programa hoy mismo.',
+      secciones: ['«¡Bienvenida!» con la confirmación de la compra', 'Vídeo corto de bienvenida (si hay)', 'Cómo acceder: email con los datos de acceso, enlace y qué hacer si no le llega', 'Primeros pasos (3 como mucho) y fecha de la primera sesión o del inicio', 'Unirse a la comunidad / grupo de clientas', 'Contacto para dudas (WhatsApp o email de soporte)'] },
   ],
   meteorico: [
     { id: 'oferta', nombre: 'Página de la oferta (meteórico)', buscar: ['OFERTA ·'], objetivo: 'Que compre la oferta flash antes de que se cierre.',
       secciones: ['Cuenta atrás y titular de la oferta', 'Qué incluye y su valor', 'Bonus por tiempo', 'Precio y botón de compra', 'Testimonios', 'Preguntas frecuentes', 'Cierre con urgencia'] },
+    { id: 'gracias-compra', nombre: 'Página de gracias por comprar', buscar: ['GRACIAS POR COMPRAR'], objetivo: 'Confirmar la compra, quitarle cualquier duda y que dé el primer paso dentro del programa hoy mismo.',
+      secciones: ['«¡Bienvenida!» con la confirmación de la compra', 'Vídeo corto de bienvenida (si hay)', 'Cómo acceder: email con los datos de acceso, enlace y qué hacer si no le llega', 'Primeros pasos (3 como mucho) y fecha de la primera sesión o del inicio', 'Unirse a la comunidad / grupo de clientas', 'Contacto para dudas (WhatsApp o email de soporte)'] },
   ],
   directa: [
     { id: 'venta', nombre: 'Página de venta', buscar: ['Página de venta'], objetivo: 'Que pulse «Comprar» (anuncio → venta directa de un producto de entrada).',
@@ -52,7 +60,7 @@ export const PAGINAS = {
       secciones: ['«¡Espera! Tu pedido casi está»', 'Por qué el upsell completa lo que ha comprado', 'Qué incluye y precio especial solo ahora', 'Botón «Sí, lo añado» y enlace «No, gracias»'] },
     { id: 'downsell', nombre: 'Página del downsell', buscar: ['downsell'], parte: 'downsell', objetivo: 'Que se lleve la versión reducida si dijo que no al upsell.',
       secciones: ['«Entendido, ¿y si…?»', 'La versión reducida y su precio', 'Botón sí / no'] },
-    { id: 'gracias', nombre: 'Página de gracias / acceso', buscar: ['gracias'], objetivo: 'Confirmar la compra, dar el acceso y abrir la puerta al siguiente paso.',
+    { id: 'gracias', nombre: 'Página de gracias por comprar (acceso)', buscar: ['gracias'], objetivo: 'Confirmar la compra, dar el acceso y abrir la puerta al siguiente paso.',
       secciones: ['Confirmación y cómo acceder', 'Primeros pasos', 'Invitación al siguiente paso (grupo, comunidad o programa principal)'] },
   ],
 };

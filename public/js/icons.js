@@ -1,5 +1,11 @@
 // Iconos de línea (24×24, trazo de 2 px, color del texto) para tarjetas, secciones y pestañas.
+// Logo de Claude (la chispa naranja): rayos que salen del centro, de largos distintos, con su color.
+const RAYOS_CLAUDE = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]
+  .map((g, i) => { const r = (g * Math.PI) / 180; const largo = [10, 7.5, 9, 8, 10, 7, 9.5, 7.5, 8.5, 10, 7, 9][i]; return `<path d="M${(12 + 1.6 * Math.sin(r)).toFixed(2)} ${(12 - 1.6 * Math.cos(r)).toFixed(2)}L${(12 + largo * Math.sin(r)).toFixed(2)} ${(12 - largo * Math.cos(r)).toFixed(2)}"/>`; }).join('');
+const CLAUDE = `<g stroke="#D97757" stroke-width="2.3" stroke-linecap="round">${RAYOS_CLAUDE}</g>`;
+
 const P = {
+  claude: CLAUDE,
   users: '<path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20"/><circle cx="10" cy="8" r="3.5"/><path d="M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35M15.5 4.6a3.5 3.5 0 0 1 0 6.8"/>',
   star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z"/>',
   live: '<circle cx="12" cy="12" r="2.5"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 16.2a6 6 0 0 0 0-8.4M5 5a10 10 0 0 0 0 14M19 19a10 10 0 0 0 0-14"/>',

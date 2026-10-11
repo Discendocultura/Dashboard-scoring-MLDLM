@@ -19,6 +19,7 @@ test('urls: lanzamiento con registro orgánico y de publicidad; sin preclase no 
     'https://midominio.com/el-camino-registro', 'https://midominio.com/el-camino-registro-ads', 'https://midominio.com/el-camino-gracias',
     'https://midominio.com/el-camino-acceso', 'https://midominio.com/el-camino-preclase', 'https://midominio.com/el-camino-replay',
     'https://midominio.com/el-camino-inscripcion', 'https://midominio.com/el-camino-pago',
+    'https://midominio.com/el-camino-bienvenida', 'https://midominio.com/el-camino-cita-confirmada',
   ]);
   assert.equal(u.filter((x) => x.pagina === 'registro').length, 2);
   const sin = urlsPropuestas('lanzamientos', { dominio: 'midominio.com', nombre: 'el-camino' }, { preclase: false });
@@ -70,4 +71,13 @@ test('urls: el embudo guarda el origen de páginas y mensajes y sus URLs (limpia
   const o = r.data.config.embudos.find((x) => x.id === 'otro');
   assert.equal(o.paginasOrigen, undefined);
   assert.equal(o.urls, undefined);
+});
+
+test('páginas con IA: gracias por comprar en todos los embudos y gracias por agendar donde hay llamadas', async () => {
+  const { paginasDe } = await import('../public/js/paginas.js');
+  for (const tipo of ['lanzamientos', 'vsl', 'meteorico']) assert.ok(paginasDe(tipo).some((p) => p.id === 'gracias-compra'), tipo);
+  assert.ok(paginasDe('directa').some((p) => p.id === 'gracias' && /comprar/.test(p.nombre)));
+  assert.ok(paginasDe('lanzamientos').some((p) => p.id === 'gracias-llamada'));
+  assert.ok(!paginasDe('vsl', { sinLlamadas: true }).some((p) => p.id === 'gracias-llamada'));
+  assert.ok(urlsPropuestas('meteorico', { dominio: 'a.com', nombre: 'bf' }).some((x) => x.url === 'https://a.com/bf-bienvenida'));
 });

@@ -35,6 +35,8 @@ const ESQUEMA = {
     { id: 'grabacion', pagina: 'grabacion', nombre: 'Grabación del directo (replay)', fin: 'replay' },
     { id: 'venta', pagina: 'venta', nombre: 'Página de venta', fin: 'inscripcion' },
     { id: 'pago', pagina: 'pago', nombre: 'Página de pago', fin: 'pago' },
+    { id: 'gracias-compra', pagina: 'gracias-compra', nombre: 'Gracias por comprar', fin: 'bienvenida' },
+    { id: 'gracias-llamada', pagina: 'gracias-llamada', nombre: 'Gracias por agendar la llamada', fin: 'cita-confirmada', llamadas: true },
   ],
   vsl: [
     { id: 'registro', pagina: 'registro', nombre: 'Registro · orgánico (redes, bio, emails)', fin: 'registro' },
@@ -42,16 +44,18 @@ const ESQUEMA = {
     { id: 'gracias', pagina: 'gracias', nombre: 'Gracias por registrarte', fin: 'gracias' },
     { id: 'vsl', pagina: 'vsl', nombre: 'Página del contenido (VSL)', fin: 'video' },
     { id: 'gracias-llamada', pagina: 'gracias-llamada', nombre: 'Gracias por agendar la llamada', fin: 'cita-confirmada', llamadas: true },
+    { id: 'gracias-compra', pagina: 'gracias-compra', nombre: 'Gracias por comprar', fin: 'bienvenida' },
   ],
   meteorico: [
     { id: 'oferta', pagina: 'oferta', nombre: 'Página de la oferta', fin: 'oferta' },
+    { id: 'gracias-compra', pagina: 'gracias-compra', nombre: 'Gracias por comprar', fin: 'bienvenida' },
   ],
   directa: [
     { id: 'venta', pagina: 'venta', nombre: 'Página de venta', fin: '' },
     { id: 'checkout', pagina: 'checkout', nombre: 'Checkout (pago con bumps)', fin: 'pago' },
     { id: 'upsell', pagina: 'upsell', nombre: 'Upsell', fin: 'especial', parte: 'upsell' },
     { id: 'downsell', pagina: 'downsell', nombre: 'Downsell', fin: 'alternativa', parte: 'downsell' },
-    { id: 'gracias', pagina: 'gracias', nombre: 'Gracias / acceso', fin: 'gracias' },
+    { id: 'gracias', pagina: 'gracias', nombre: 'Gracias por comprar (acceso)', fin: 'gracias' },
   ],
 };
 
