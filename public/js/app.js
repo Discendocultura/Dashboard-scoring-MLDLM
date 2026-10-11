@@ -9475,29 +9475,52 @@ function pintarCarrito({ leerEnvios = true } = {}) {
 $('.tab[data-tab="carrito"]').addEventListener('click', pintarCarrito);
 
 // Plan → Carrito: los mismos días que en Configuración → ⑦ Carrito, en solo lectura (para todo el equipo).
+// Visual: resumen con cifras, una tira con todos los días y un timeline (fecha grande · hitos con su hora ·
+// envíos en chips · estrategia). Los días pasados se atenúan y el de hoy se resalta.
+function hitoCarritoHtml(a) {
+  const m = String(a.texto).match(/^(.*?)\s*\((?:acaba a las )?(\d{2}:\d{2})\)(.*)$/);
+  const texto = m ? `${m[1]}${m[3]}` : a.texto;
+  if (a.icon === '🎁' && /^Bonus activos: /.test(texto)) {
+    return `<li class="car-hito car-bonus"><span class="car-hito-ico" aria-hidden="true">🎁</span><span class="car-hito-txt"><span class="muted small">Bonus activos</span><span class="car-chips">${texto.replace(/^Bonus activos: /, '').split(', ').map((b) => `<span class="car-chip">${esc(b)}</span>`).join('')}</span></span></li>`;
+  }
+  return `<li class="car-hito"><span class="car-hito-ico" aria-hidden="true">${a.icon}</span><span class="car-hito-txt">${esc(texto)}</span>${m ? `<span class="car-hora-chip">${m[2]}</span>` : ''}</li>`;
+}
 function renderCarritoVista() {
   const box = $('#carrito-vista');
   const launch = state.config?.launches?.[state.launchCode];
   if (!box || !launch) return;
   const r = diasCarrito(launch);
-  const editar = puedeConfig() ? '<button type="button" class="btn" data-config-tab="carrito">Editar en Configuración → ⑦ Carrito</button>' : '';
+  const editar = puedeConfig() ? '<button type="button" class="btn" data-config-tab="carrito">✏️ Editar el carrito</button>' : '';
   if (!r.dias.length) {
     box.innerHTML = `<div class="card empty car-vacio">🛒 <strong>Aquí aparecerán los días del carrito.</strong> Falta ${esc(r.faltan.join(' y '))} (Configuración → ① Datos básicos).${puedeConfig() ? ' <button type="button" class="btn small" data-config-tab="launch">Configurarlo ahora</button>' : ''}</div>`;
     return;
   }
   const hoy = dayInMadrid(new Date().toISOString());
-  const envios = (d) => CANALES_CARRITO.map((c) => {
-    const horas = (d.envios[c.id] || []).filter(Boolean);
-    return horas.length ? `<li>${c.icon} ${horas.length} ${esc(c.label.toLowerCase())}: ${horas.map(esc).join(', ')}</li>` : '';
-  }).join('');
-  box.innerHTML = `<div class="row car-vista-bar"><p class="car-resumen"><strong>${r.dias.length} días de carrito</strong>${r.garantia ? ` · 🛡️ ${esc(r.garantia)}` : ''}</p><span class="spacer"></span>${editar}</div>
-    <div class="car-dias">${r.dias.map((d) => `<article class="car-dia${d.day === hoy ? ' car-hoy' : ''}">
-      <header><span class="car-n">${esc(d.titulo)}</span><strong>${esc(d.fecha)}</strong>${d.etiqueta ? `<span class="car-tag">${esc(d.etiqueta)}</span>` : ''}${d.day === hoy ? '<span class="car-tag car-tag-hoy">Hoy</span>' : ''}</header>
-      <h4>Hitos clave</h4>
-      ${d.auto.length ? `<ul class="car-auto">${d.auto.map((a) => `<li><span aria-hidden="true">${a.icon}</span> ${esc(a.texto)}</li>`).join('')}</ul>` : '<p class="muted small">Sin hitos automáticos este día.</p>'}
-      ${envios(d) ? `<h4>Envíos del día</h4><ul class="car-auto">${envios(d)}</ul>` : ''}
-      ${d.nota ? `<h4>Estrategia</h4><p class="car-nota-txt">${esc(d.nota).replace(/\n/g, '<br>')}</p>` : ''}
-    </article>`).join('')}</div>`;
+  const fechaCorta = (d, o) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { timeZone: 'UTC', ...o });
+  const horasDe = (d, id) => (d.envios[id] || []).filter(Boolean);
+  const total = (id) => r.dias.reduce((n, d) => n + horasDe(d, id).length, 0);
+  const estado = (d) => (d.day < hoy ? 'pasado' : d.day === hoy ? 'hoy' : 'futuro');
+  const corto = (d) => (d.n > 0 ? `Día ${d.n}` : 'Directo');
+  const icoDia = (d) => (d.auto.some((a) => a.icon === '🔒') ? '🔒' : d.auto.some((a) => a.icon === '🛒') ? '🛒' : d.auto.some((a) => a.icon === '⏳') ? '⏳' : d.auto.some((a) => a.icon === '📼') ? '📼' : '');
+  const quedan = r.dias.filter((d) => d.day >= hoy).length;
+  const stat = (v, l) => `<div class="car-stat"><strong>${v}</strong><span>${l}</span></div>`;
+  box.innerHTML = `${estudioHero({ ico: '🛒', titulo: 'Carrito', sub: `Del ${esc(fechaCorta(r.dias[0].day, { weekday: 'long', day: 'numeric', month: 'long' }))} al ${esc(fechaCorta(r.dias.at(-1).day, { weekday: 'long', day: 'numeric', month: 'long' }))}`,
+      extra: `<div class="car-stats">${stat(r.dias.length, 'días')}${stat(total('emails'), '✉️ emails')}${stat(total('whatsapp'), '💬 WhatsApps')}${hoy >= r.dias[0].day && hoy <= r.dias.at(-1).day ? stat(quedan, quedan === 1 ? 'último día' : 'días quedan') : ''}</div>
+        ${r.garantia ? `<div class="st-aviso ok"><span>🛡️ ${esc(r.garantia)}</span></div>` : ''}
+        ${editar ? `<div class="st-acciones">${editar}<span class="muted small">Los hitos salen solos de las fechas, la oferta y la barra de la página de venta.</span></div>` : ''}` })}
+    <nav class="car-tira" aria-label="Días del carrito">${r.dias.map((d) => `<a class="car-tira-dia ${estado(d)}" href="#car-${d.day}"><span class="car-tira-n">${esc(corto(d))}</span><strong>${esc(fechaCorta(d.day, { day: 'numeric' }))}</strong><span class="car-tira-m">${esc(fechaCorta(d.day, { weekday: 'short' }))}</span><span class="car-tira-ico">${icoDia(d) || '·'}</span></a>`).join('')}</nav>
+    <ol class="car-timeline">${r.dias.map((d) => {
+      const em = horasDe(d, 'emails'); const wa = horasDe(d, 'whatsapp');
+      return `<li class="car-t-dia ${estado(d)}" id="car-${d.day}">
+        <div class="car-fecha"><span class="car-fecha-d">${esc(fechaCorta(d.day, { weekday: 'short' }))}</span><strong>${esc(fechaCorta(d.day, { day: 'numeric' }))}</strong><span class="car-fecha-m">${esc(fechaCorta(d.day, { month: 'short' }))}</span></div>
+        <article class="card car-t-card">
+          <header class="car-t-cab"><h3>${esc(d.titulo)}</h3>${d.etiqueta ? `<span class="st-chip">${esc(d.etiqueta)}</span>` : ''}${d.day === hoy ? '<span class="st-chip car-hoy-chip">Hoy</span>' : ''}</header>
+          ${d.auto.length ? `<ul class="car-hitos">${d.auto.map(hitoCarritoHtml).join('')}</ul>` : '<p class="muted small">Sin hitos automáticos este día.</p>'}
+          ${em.length || wa.length ? `<div class="car-envios-v">${em.length ? `<div><span class="car-env-l">✉️ Emails</span>${em.map((h) => `<span class="car-hora-chip">${esc(h)}</span>`).join('')}</div>` : ''}${wa.length ? `<div><span class="car-env-l">💬 WhatsApp</span>${wa.map((h) => `<span class="car-hora-chip wa">${esc(h)}</span>`).join('')}</div>` : ''}</div>` : ''}
+          ${d.nota ? `<blockquote class="car-estrategia"><span class="muted small">Estrategia</span>${esc(d.nota).replace(/\n/g, '<br>')}</blockquote>` : ''}
+        </article>
+      </li>`;
+    }).join('')}</ol>`;
 }
 // Botones «Configurarlo ahora» / «Editar en Configuración → …»: abren la configuración del lanzamiento
 // en el campo exacto (data-ir-campo="cfg-…") o en una pestaña (data-config-tab="…").

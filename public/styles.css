@@ -2794,3 +2794,52 @@ body.embudo-directa .lanz-only { display: none !important; }
 }
 .an-grid { align-items: stretch; }
 .an-grid .an-obj > .btn.primary { margin-top: auto; }
+
+/* ---------- Plan → Carrito: resumen, tira de días y timeline ---------- */
+#carrito-vista { display: flex; flex-direction: column; gap: 18px; }
+#carrito-vista > .card { margin: 0; }
+.car-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.car-stat { display: grid; gap: 2px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
+.car-stat strong { font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.car-stat span { font-size: 13px; color: var(--muted); }
+.car-tira { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: thin; }
+.car-tira-dia { flex: 1 0 84px; display: grid; justify-items: center; gap: 2px; padding: 10px 6px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text); text-decoration: none; box-shadow: var(--shadow-sm); }
+.car-tira-dia:hover { border-color: var(--accent); }
+.car-tira-dia strong { font-size: 22px; line-height: 1.1; }
+.car-tira-n { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); }
+.car-tira-m { font-size: 12px; color: var(--muted); text-transform: capitalize; }
+.car-tira-ico { font-size: 15px; min-height: 20px; }
+.car-tira-dia.pasado { opacity: .5; }
+.car-tira-dia.hoy { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.car-timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; position: relative; }
+.car-timeline::before { content: ""; position: absolute; left: 35px; top: 10px; bottom: 10px; width: 2px; background: var(--border); }
+.car-t-dia { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 14px; align-items: start; position: relative; scroll-margin-top: 90px; }
+.car-fecha { position: relative; z-index: 1; display: grid; justify-items: center; padding: 10px 4px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-sm); text-transform: capitalize; }
+.car-fecha strong { font-size: 26px; line-height: 1.1; }
+.car-fecha-d, .car-fecha-m { font-size: 12px; color: var(--muted); }
+.car-t-dia.hoy .car-fecha { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.car-t-dia.hoy .car-fecha span { color: inherit; opacity: .85; }
+.car-t-dia.pasado { opacity: .55; }
+.car-t-card { margin: 0; padding: 16px 18px; display: grid; gap: 12px; }
+.car-t-dia.hoy .car-t-card { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: 0 10px 30px -14px color-mix(in srgb, var(--accent) 60%, transparent); }
+.car-t-cab { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.car-t-cab h3 { margin: 0; font-size: 17px; }
+.car-hoy-chip { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.car-hitos { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.car-hito { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.car-hito-ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); font-size: 17px; }
+.car-hito-txt { display: grid; gap: 4px; font-size: 14px; }
+.car-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.car-chip { padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: color-mix(in srgb, var(--tone-vip) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--tone-vip) 35%, var(--border)); }
+.car-hora-chip { display: inline-flex; padding: 3px 9px; border-radius: 8px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; background: var(--surface-2); border: 1px solid var(--border); }
+.car-hora-chip.wa { color: var(--wa); border-color: color-mix(in srgb, var(--wa) 35%, var(--border)); }
+.car-envios-v { display: grid; gap: 8px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.car-envios-v > div { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.car-env-l { font-size: 13px; font-weight: 600; color: var(--text-2); min-width: 104px; }
+.car-estrategia { margin: 0; padding: 10px 14px; border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; background: var(--surface-2); font-size: 14px; display: grid; gap: 4px; }
+@media (max-width: 640px) {
+  .car-timeline::before { left: 27px; }
+  .car-t-dia { grid-template-columns: 56px minmax(0, 1fr); gap: 10px; }
+  .car-fecha strong { font-size: 21px; }
+  .car-env-l { min-width: 0; flex-basis: 100%; }
+}
