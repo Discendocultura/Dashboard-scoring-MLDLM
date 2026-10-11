@@ -3175,3 +3175,18 @@ body.embudo-directa .lanz-only { display: none !important; }
 .inicio-anuncios li { margin: 6px 0; }
 .inicio-anuncios li button { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; }
 .inicio-anuncios li button:hover strong { color: var(--accent); }
+/* 🎯 Venta directa: paso al producto principal (upsell posterior) */
+.dir-upsell { margin: 0 0 16px; padding: 16px 18px; border-left: 3px solid var(--tone-buy); }
+.dir-upsell h3 { margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
+.dir-upsell-g { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 24px; }
+.dir-upsell-b { display: flex; flex-direction: column; gap: 2px; }
+.dir-upsell-t { font-size: .8em; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.dir-upsell-pct { font-size: 2.4em; line-height: 1.1; color: var(--tone-buy); }
+.dir-upsell-n b { font-size: 1.1em; }
+.dir-upsell-vacio { margin: 0 0 14px; }
+.dc-upp { display: flex; flex-direction: column; gap: 6px; }
+.dc-upp-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.dc-upp-chip { display: inline-flex; align-items: center; gap: 4px; }
+.dc-upp-chip button { border: 0; background: none; color: inherit; cursor: pointer; font: inherit; padding: 0 2px; }
+.dc-upp-add { display: flex; gap: 6px; }
+.dc-upp-add input { flex: 1; min-width: 0; }

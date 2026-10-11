@@ -752,6 +752,7 @@ function pintarInicio() {
         return `<button type="button" class="card inicio-emb" data-ir-inicio="directa" data-code="${esc(e.code)}">
         <h3>🛒 ${esc(e.nombre)} <span class="badge tone-info">${esc(inicioPeriodoTxt())}</span></h3>
         <div class="ie-cifras">${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${cifra('ROAS', roasIni(e.kpis.roas))}</div>
+        ${e.upsellPrincipal ? `<div class="ie-cifras">${cifra(`Pasan a ${esc(e.upsellPrincipal.nombre || 'el principal')}`, `${e.upsellPrincipal.periodo.pct != null ? `${(Math.round(e.upsellPrincipal.periodo.pct * 1000) / 10).toLocaleString('es-ES')} %` : '–'} <small>(${e.upsellPrincipal.periodo.n})</small>`)}${cifra('Total del embudo', `${e.upsellPrincipal.total.pct != null ? `${(Math.round(e.upsellPrincipal.total.pct * 1000) / 10).toLocaleString('es-ES')} %` : '–'} <small>(${e.upsellPrincipal.total.n} de ${e.upsellPrincipal.total.de})</small>`)}</div>` : ''}
         <div class="ie-cifras ie-sec">${cifra('Coste por venta', eur(e.kpis.cac))}${cifra('Ticket medio', eur(e.kpis.ticket))}${(e.extras || []).map((x) => cifra(`${x.tipo === 'bump' ? 'Bump' : x.tipo === 'upsell' ? 'Upsell' : 'Downsell'} · ${esc(x.nombre)}`, `${x.pct != null ? `${Math.round(x.pct * 1000) / 10}%`.replace('.', ',') : '–'} <small>(${x.n})</small>`)).join('')}</div></button>`;
       }
       if (e.tipo === 'error') return `<div class="card inicio-emb"><h3>${esc(e.nombre)}</h3><p class="error small">${esc(e.error)}</p><button type="button" class="btn small" data-reintentar="embudo:${state.inicio.embudos.indexOf(e)}">Reintentar</button></div>`;
@@ -10876,7 +10877,25 @@ function abrirDirectaConfig(id = state.embudo) {
   dcDlg.showModal();
   pintarSelectFecha($('#dc-compraDateField'), d.compraDateField || '', { vacio: '— Sin campo (día en que se ve la etiqueta) —' });
   pintarSelectOportunidad(d);
+  $('#dc-uppNombre').value = d.upsellPrincipal?.nombre || '';
+  dcUppTags = [...(d.upsellPrincipal?.tags || [])];
+  pintarUppTags();
 }
+// Etiquetas del producto principal (upsell posterior): chips que se quitan con ×.
+let dcUppTags = [];
+function pintarUppTags() {
+  $('#dc-uppTags').innerHTML = dcUppTags.length ? dcUppTags.map((t, i) => `<span class="chip on dc-upp-chip">${esc(t)} <button type="button" data-upp-quitar="${i}" aria-label="Quitar ${esc(t)}">×</button></span>`).join('') : '<small class="muted">Sin etiquetas: no se mide el paso al producto principal.</small>';
+}
+function anadirUppTag() {
+  const t = $('#dc-uppTag').value.trim().toLowerCase();
+  if (t && !dcUppTags.includes(t) && dcUppTags.length < 10) dcUppTags.push(t);
+  $('#dc-uppTag').value = '';
+  pintarUppTags();
+}
+$('#dc-uppAdd').addEventListener('click', anadirUppTag);
+$('#dc-uppTag').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); anadirUppTag(); } });
+$('#dc-uppTag').addEventListener('change', () => { if (state.tags?.includes($('#dc-uppTag').value.trim())) anadirUppTag(); });
+$('#dc-uppTags').addEventListener('click', (e) => { const b = e.target.closest('[data-upp-quitar]'); if (b) { dcUppTags.splice(Number(b.dataset.uppQuitar), 1); pintarUppTags(); } });
 // Pipeline › etapa de la oportunidad que crea el workflow de compra (vacío: se detecta sola; «no»: no se usa).
 async function pintarSelectOportunidad(d) {
   const sel = $('#dc-compraOportunidad');
@@ -10901,6 +10920,7 @@ $('#dc-guardar').addEventListener('click', async () => {
     name: val('name') || state.config.directas[id].name, producto: val('producto'), precio: val('precio'),
     iva: { pct: val('ivaPct') === '' ? 21 : Number(val('ivaPct').replace(',', '.')), producto: $('#dc-iva').value },
     compraTag: val('compraTag').toLowerCase(), compraDateField: val('compraDateField'), emailCompra: val('emailCompra'),
+    upsellPrincipal: { nombre: val('uppNombre'), tags: [...dcUppTags, ...($('#dc-uppTag').value.trim() ? [$('#dc-uppTag').value.trim().toLowerCase()] : [])] },
     compraPipeline: val('compraOportunidad').split(':')[0], compraEtapa: val('compraOportunidad').split(':')[1] || '',
     partes: partesElegidas('#dc-partes'),
     bumps: leerOfertas('bumps'), upsells: leerOfertas('upsells'), downsells: leerOfertas('downsells'),
@@ -10986,6 +11006,19 @@ const AYUDA_DIR = {
 const cardD = (label, value, sub, ico, tone, ayuda = AYUDA_DIR[label] || '') => `<div class="kpi static tone-${tone}"><span class="kpi-label"><span class="kpi-ico">${icon(ico)}</span>${label}${ayudaBtn(ayuda)}</span><span class="kpi-value">${value}</span><span class="kpi-sub">${sub}</span></div>`;
 const x2 = (v) => (v == null ? '–' : `${v.toFixed(2).replace('.', ',')}x`);
 const pct1d = (v) => (v == null ? '–' : `${(Math.round(v * 1000) / 10).toLocaleString('es-ES')}%`);
+// Métrica principal del low ticket: cuántas compradoras pasan después al producto principal (periodo y total).
+function pintarUpsellPrincipal(U, d) {
+  const caja = $('#dir-upsell');
+  if (!U) {
+    caja.innerHTML = puedeConfig() ? `<p class="muted small dir-upsell-vacio">🎯 ¿Este producto sirve para llevar a las compradoras a tu producto principal? Elige sus etiquetas en <button type="button" class="link-btn" data-dir-config>⚙️ Configurar el embudo</button> y verás aquí el % que da el salto.</p>` : '';
+    return;
+  }
+  const nombre = U.nombre || 'el producto principal';
+  const pctTxt = (x) => (x.pct == null ? '–' : `${(Math.round(x.pct * 1000) / 10).toLocaleString('es-ES')} %`);
+  const bloque = (titulo, x, sub) => `<div class="dir-upsell-b"><span class="dir-upsell-t">${titulo}</span><strong class="dir-upsell-pct">${pctTxt(x)}</strong><span class="dir-upsell-n"><b>${x.n.toLocaleString('es-ES')}</b> de ${x.de.toLocaleString('es-ES')} compradoras</span><small class="muted">${sub}</small></div>`;
+  caja.innerHTML = `<section class="card dir-upsell"><h3>🎯 Pasan a ${esc(nombre)} ${ayudaBtn(`Compradoras de este embudo que además tienen la etiqueta de ${nombre} (${U.tags.join(', ')}). «En el periodo»: de las que compraron este producto en las fechas elegidas arriba, cuántas tienen ya el principal. «Total»: de todas las compradoras del embudo. Cuenta a quien ya lo tenía antes de comprar este producto (GHL no guarda cuándo se puso cada etiqueta).`)}</h3>
+    <div class="dir-upsell-g">${bloque('En el periodo', U.periodo, 'de las que compraron en las fechas elegidas')}${bloque('Total', U.total, 'de todas las compradoras del embudo')}</div></section>`;
+}
 function renderDirectaMetricas(D) {
   const d = state.config.directas?.[state.embudo] || {};
   const boton = puedeConfig() ? ' <button type="button" class="btn small" data-dir-config>Configurarlo ahora →</button>' : '';
@@ -11005,6 +11038,7 @@ function renderDirectaMetricas(D) {
     grande(cardD('Facturación', eur(D.facturacion), `<strong class="kpi-hero-ventas">Sin IVA</strong>producto ${eur(D.facturacionProducto)}${D.facturacionExtras ? ` + extras ${eur(D.facturacionExtras)}` : ''}`, 'coins', 'money')),
     grande(cardD('ROAS', x2(D.roas), D.roas != null ? `${eur(D.facturacion)} ÷ ${eur(D.inversion)} de inversión${D.roas >= 1 ? ' · se paga solo ✓' : ' · aún no se paga solo'}` : invTxt, 'trend', D.roas != null && D.roas < 1 ? 'warn' : 'buy')),
   ].join('');
+  pintarUpsellPrincipal(D.upsellPrincipal, d);
   const v = D.visitas || {};
   const conVisitas = conParte(d, 'visitas');
   const sinCodigo = (pag) => `pega el código de la ${pag} (⚙️ Configurar → Páginas)`;

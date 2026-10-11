@@ -44,6 +44,24 @@ export function sanitizeOfertas(lista, prefijo) {
   return base.map((o) => ({ ...o, url: urls.get(o.id) || '' }));
 }
 
+// { nombre, tags: [] } (máx. 10 etiquetas, sin repetir ni la de compra de este embudo) · sin etiquetas: null.
+export function sanitizeUpsellPrincipal(u, compraTag = '') {
+  const propia = tag(compraTag);
+  const tags = [...new Set((Array.isArray(u?.tags) ? u.tags : []).map(tag).filter((t) => t && t !== propia))].slice(0, 10);
+  return tags.length ? { nombre: str(u?.nombre, 80), tags } : null;
+}
+
+// Cuántas compradoras han pasado después al producto principal (tienen alguna de sus etiquetas), en el periodo
+// (las que compraron en él) y en total (todas las compradoras del embudo). → null si no está configurado.
+export function upsellAlPrincipal(contactos, d, ventasPeriodo) {
+  const u = d?.upsellPrincipal;
+  if (!u?.tags?.length) return null;
+  const pasa = (c) => u.tags.some((t) => tiene(c, t));
+  const todas = contactos.filter((c) => tiene(c, d.compraTag));
+  const cuenta = (lista) => { const n = lista.filter(pasa).length; return { n, de: lista.length, pct: div(n, lista.length) }; };
+  return { nombre: u.nombre || '', tags: u.tags, periodo: cuenta(ventasPeriodo.map((v) => v.c)), total: cuenta(todas) };
+}
+
 // Limpia la configuración que llega del navegador.
 export function sanitizeDirecta(d = {}) {
   const partes = {};
@@ -61,6 +79,8 @@ export function sanitizeDirecta(d = {}) {
     // Oportunidad que crea el workflow de compra (vacío: se detecta sola entre las compradoras).
     compraPipeline: str(d?.compraPipeline, 40).replace(/[^A-Za-z0-9_-]/g, ''),
     compraEtapa: str(d?.compraEtapa, 60).replace(/[^A-Za-z0-9_-]/g, ''),
+    // Producto principal al que se quiere llevar a las compradoras más tarde (upsell posterior): sus etiquetas de compra.
+    upsellPrincipal: sanitizeUpsellPrincipal(d?.upsellPrincipal, d?.compraTag),
     partes,
     bumps: sanitizeBumps(d?.bumps),
     upsells: sanitizeOfertas(d?.upsells, 'up'),
@@ -236,6 +256,7 @@ export function metricasDirecta(contactos, d, rango, { visitas = null, inversion
       };
     }),
     sinFechaCompra: !d.compraDateField,
+    upsellPrincipal: upsellAlPrincipal(contactos, d, ventas),
     // Con campo: las ventas del periodo que aún no lo tienen relleno (compraron antes de crearlo) y se fechan por la etiqueta/email.
     sinCampoRelleno: d.compraDateField ? ventas.filter((v) => !dayOfDateField(v.c.cf?.[d.compraDateField])).length : 0,
     objetivos,

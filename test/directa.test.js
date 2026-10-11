@@ -258,3 +258,17 @@ test('oportunidad del workflow de compra: se detecta su etapa y da la hora exact
   assert.equal(s.compraEtapa, '9389a4d0-24ef-43c6-b5a3-aa0db0186df5');
   assert.equal(sanitizeDirecta({ name: 'R', compraPipeline: 'no' }).compraPipeline, 'no');
 });
+
+test('paso al producto principal (upsell posterior): % del periodo y del total de compradoras', async () => {
+  const { sanitizeDirecta, metricasDirecta, sanitizeUpsellPrincipal } = await import('../public/js/directa.js');
+  assert.deepEqual(sanitizeUpsellPrincipal({ nombre: 'Raíces', tags: ['Clienta-Raices', 'clienta-raices', 'compra-reto', ''] }, 'compra-reto'), { nombre: 'Raíces', tags: ['clienta-raices'] });
+  assert.equal(sanitizeUpsellPrincipal({ tags: [] }), null);
+  const d = { ...sanitizeDirecta({ name: 'Reto', compraTag: 'compra-reto', precio: 27, upsellPrincipal: { nombre: 'Raíces', tags: ['clienta-raices', 'raices-vip'] } }) };
+  const c = (id, dia, ...tags) => ({ id, tags: ['compra-reto', ...tags], diaCompra: dia, dateAdded: `${dia}T10:00:00Z` });
+  const contactos = [c('a', '2026-10-01', 'clienta-raices'), c('b', '2026-10-02'), c('c', '2026-10-03', 'raices-vip'), c('d', '2026-09-01', 'clienta-raices'), c('e', '2026-09-02'), { id: 'x', tags: ['clienta-raices'] }];
+  const m = metricasDirecta(contactos, d, { desde: '2026-10-01', hasta: '2026-10-31' });
+  assert.deepEqual(m.upsellPrincipal.periodo, { n: 2, de: 3, pct: 2 / 3 });
+  assert.deepEqual(m.upsellPrincipal.total, { n: 3, de: 5, pct: 0.6 });
+  assert.equal(m.upsellPrincipal.nombre, 'Raíces');
+  assert.equal(metricasDirecta(contactos, { ...d, upsellPrincipal: null }, { desde: '2026-10-01', hasta: '2026-10-31' }).upsellPrincipal, null);
+});
