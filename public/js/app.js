@@ -39,6 +39,7 @@ import { mensajesEnviados, impactoMensajes, horaVenta } from './impacto-wa.js';
 import { nuevoLanzamiento, codigoPropuesto, resumenFechas, diasCarritoDe, diasCaptacionDe, fijarCaptacion, aplicarOferta, objetivosDesdeMeta, comprobarFechas, emailsAReprogramar, desplazamiento } from './lanzamiento-rapido.js';
 import { siguientesPasos } from './siguientes-pasos.js';
 import { promptEncuesta, libresAgrupadas } from './encuesta-ia.js';
+import { lanzamientoAAnalizar, promptAnalisis } from './analisis-ia.js';
 import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa } from './narrativa.js';
 import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, asuntosGanadores, promptEmails } from './emails-ia.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto } from './urls-paginas.js';
@@ -3233,7 +3234,7 @@ function renderVideosCfg(l) {
   if (h3Zoom) { h3Zoom.dataset.def ??= h3Zoom.textContent; h3Zoom.textContent = n1 ? `${n1} en Zoom (solo si es en directo)` : h3Zoom.dataset.def; }
   if (vs.length <= 1) { $('#cfg-videos').innerHTML = ''; return; }
   $('#cfg-videos-titulo').textContent = `${FORMATOS[formato].label}: ${vs.slice(1).map((v) => v.nombre).join(', ')}`;
-  $('#cfg-videos-nota').textContent = `El ${vs[0].nombre} usa las casillas de arriba (fechas y Zoom) y su grabación y su página van en la pestaña «④ Grabación». Si un vídeo es grabado, deja vacío su Zoom. En el ${vs.at(-1).nombre} se hace la venta.`;
+  $('#cfg-videos-nota').textContent = `El ${vs[0].nombre} usa las casillas de arriba (fechas y Zoom) y su grabación y su página van en la pestaña «Grabación». Si un vídeo es grabado, deja vacío su Zoom. En el ${vs.at(-1).nombre} se hace la venta.`;
   $('#cfg-videos').innerHTML = vs.slice(1).map((v) => `<fieldset class="cfg-video" data-k="${v.k}"><legend>${esc(v.nombre)}${v.venta ? ' · vídeo de venta' : ''}</legend><div class="grid2">
     ${V_CAMPOS.map(([c, label, type]) => `<label class="field"><span>${label}</span><input id="cfg-v${v.k}-${c === 'replayUrl' ? 'replay' : c === 'replayVideoUrl' ? 'replay-video' : c === 'replayAt' ? 'replay-at' : c}" data-vc="${c}" type="${type}" value="${esc(v[c] || '')}"${c === 'zoomMeetingId' ? ' inputmode="numeric"' : ''}></label>`).join('')}
   </div></fieldset>`).join('');
@@ -3447,7 +3448,7 @@ function pintarLlamadaPasos() {
     '📍 <strong>Dónde:</strong> en el pie de la página (o en Ajustes → Código de seguimiento → Footer). No se ve: pinta el vídeo y los enlaces.')
     + filaCopiar('2 · Vídeo de confirmación', '<div data-lsd-embed="llamada"></div>',
       `📍 <strong>Dónde:</strong> justo debajo del titular «Mira este vídeo para confirmar tu llamada». ${video ? 'Pinta el vídeo de arriba.' : '⚠️ Pon arriba la URL del vídeo: sin ella el bloque se oculta.'}`)
-    + filaCopiar('3 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «⑥ Venta → Venta y seguimiento».');
+    + filaCopiar('3 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «Venta → Venta y seguimiento».');
 }
 $('#cfg-llamada-video').addEventListener('input', pintarLlamadaPasos);
 
@@ -3458,7 +3459,7 @@ function pintarPagoPasos() {
     '📍 <strong>Dónde:</strong> en el pie de la página (o en Ajustes → Código de seguimiento → Footer). No se ve: pinta la barra fija, los textos, precios y enlaces de los cajetines.')
     + CAJAS_PAGO.map((c, i) => filaCopiar(`${i + 2} · Cajetín ${c.titulo.toLowerCase()}`, caja(c),
       `📍 <strong>Dónde:</strong> donde quieras el cajetín. Dale el diseño que quieras: solo mantén los atributos <code>data-lsd-…</code> (título, precio, texto y botón salen de aquí). ${c.id === 'fraccionado' ? 'Sin enlace de pago fraccionado, el cajetín se oculta solo.' : ''}`)).join('')
-    + filaCopiar('4 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «⑥ Venta → Venta y seguimiento».');
+    + filaCopiar('4 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «Venta → Venta y seguimiento».');
 }
 const leerVentaBarra = () => leerBarraTramos('vb');
 const pintarVentaBarra = (vb) => pintarBarraTramos('vb', vb);
@@ -3503,12 +3504,22 @@ function pintarPrelanzamientoCfg(l) {
   $$('#config-dialog [data-clase]').forEach((el) => { el.hidden = Number(el.dataset.clase) > nc; });
   // Sin área de recursos preclase: fuera sus páginas, la encuesta de la página y las clases.
   $$('#config-dialog [data-preclase]').forEach((el) => { el.hidden = !preclase; });
-  $('#tab-pagina-txt').textContent = preclase ? '③ Preclase' : '③ Página del directo';
+  $('#tab-pagina-txt').textContent = preclase ? 'Preclase' : 'Página del directo';
   $$('#config-dialog [data-vip]').forEach((el) => { el.hidden = !vip; });
 }
 
+// Menú de la configuración: al elegir un apartado, su título arriba y (en el móvil) se abre a pantalla completa.
+const cfgDlg = $('#config-dialog');
+$$('#config-dialog .cfg-nav .tab').forEach((t) => t.addEventListener('click', () => {
+  $('#cfg-titulo').textContent = $('.cfg-nav-t', t)?.firstChild?.textContent?.trim() || $('.cfg-nav-t', t)?.textContent.trim() || '';
+  cfgDlg.classList.remove('cfg-en-menu');
+  $('.cfg-main', cfgDlg).scrollTop = 0;
+  $('.dialog-body', cfgDlg).scrollTop = 0;
+}));
+$('#cfg-volver').addEventListener('click', () => { cfgDlg.classList.add('cfg-en-menu'); $('.dialog-body', cfgDlg).scrollTop = 0; });
+
 function openConfig(code) {
-  if (!$('#config-dialog').open) $('.tab[data-tab="launch"]').click(); // al abrir, siempre en la primera pestaña
+  if (!$('#config-dialog').open) { $('.tab[data-tab="launch"]').click(); cfgDlg.classList.add('cfg-en-menu'); } // al abrir, la primera (en el móvil, el menú)
   editingCode = code && state.config.launches[code] ? code : null;
   const pick = $('#cfg-launch-pick');
   pick.innerHTML = '<option value="">— Nuevo lanzamiento —</option>'
@@ -4434,17 +4445,26 @@ function renderGuia() {
     // En la pestaña, cuántas cosas faltan.
     const tab = $(`#config-dialog .tab[data-tab="${panel}"]`);
     const faltanTab = total.filter((i) => i.st === 'falta').length;
+    // En el menú: cuántas faltan (rojo) o ✓ si el apartado está completo.
     let cnt = tab && $('.tab-falta', tab);
-    if (tab && faltanTab && !cnt) { tab.insertAdjacentHTML('beforeend', '<span class="tab-falta"></span>'); cnt = $('.tab-falta', tab); }
-    if (cnt) { cnt.textContent = faltanTab || ''; cnt.hidden = !faltanTab; cnt.title = `Faltan ${faltanTab} en esta pestaña`; }
+    if (tab && total.length && !cnt) { tab.insertAdjacentHTML('beforeend', '<span class="tab-falta"></span>'); cnt = $('.tab-falta', tab); }
+    if (cnt) {
+      cnt.textContent = faltanTab || '✓';
+      cnt.classList.toggle('ok', !faltanTab);
+      cnt.hidden = !total.length;
+      cnt.title = faltanTab ? `Faltan ${faltanTab} en este apartado` : 'Completo';
+    }
+    const listos = total.filter((i) => i.st === 'ok' || i.st === 'opt').length;
+    // La lista de lo que falta va plegada (el estado ya se ve en el menú y en cada bloque).
     if (!$(box)) {
       if (!total.length) continue;
       const pnl = $(`#config-dialog .tab-panel[data-panel="${panel}"]`);
       const intro = $(':scope > .cfg-intro', pnl);
-      (intro || pnl.firstElementChild).insertAdjacentHTML(intro ? 'afterend' : 'beforebegin', `<div class="guia" role="note"><strong>Qué falta en esta pestaña</strong><div id="guia-check-${panel}" class="guia-check"></div></div>`);
+      (intro || pnl.firstElementChild).insertAdjacentHTML(intro ? 'afterend' : 'beforebegin', `<details class="guia cfg-ayuda" role="note"><summary><strong>Lista de comprobación</strong> <span class="muted small" data-guia-resumen></span></summary><div id="guia-check-${panel}" class="guia-check"></div></details>`);
       box = `#guia-check-${panel}`;
     }
-    const listos = total.filter((i) => i.st === 'ok' || i.st === 'opt').length;
+    const resumen = $(box).closest('details')?.querySelector('[data-guia-resumen], #cfg-ayuda-resumen');
+    if (resumen) resumen.textContent = faltanTab ? `· faltan ${faltanTab} de ${total.length}` : `· ${listos} de ${total.length} listos`;
     const html = `<p class="guia-sub"><strong>${listos} de ${total.length}</strong> listos · pulsa uno para ir a él</p>
       <div class="guia-groups">${groups.map((g) => `<div class="guia-group"><span class="guia-group-t">${esc(g.title)}</span><div class="guia-items">${g.items.map((i) => `<button type="button" class="guia-item guia-${i.st}" data-goto="${i.f.id}">${GUIA_ICON[i.st]} ${esc(i.f.label)} <small>${esc(i.txt)}</small></button>`).join('')}</div></div>`).join('')}</div>`;
     // Solo se repinta si algo cambió: el «change» al salir de un campo no debe borrar el botón que se está pulsando.
@@ -4462,15 +4482,18 @@ function pintarListo(todos) {
   const revisar = todos.filter((i) => i.st === 'warn');
   const pct = todos.length ? Math.round((listos / todos.length) * 100) : 0;
   const sig = faltan[0] || revisar[0];
-  const html = !todos.length ? '' : `<div class="cfg-listo-txt"><strong>${faltan.length ? 'Listo para lanzar' : '✓ Listo para lanzar'}: ${listos} de ${todos.length}</strong>
-      <span class="muted small">${faltan.length ? `Faltan ${faltan.length}` : 'No falta nada'}${revisar.length ? ` · ${revisar.length} por revisar` : ''}</span></div>
-    <div class="cfg-listo-barra" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span class="${faltan.length ? '' : 'ok'}" style="width:${pct}%"></span></div>
-    ${sig ? `<button type="button" class="btn small" data-goto="${sig.f.id}">${faltan.length ? 'Ir a lo que falta' : 'Ir a revisar'}: ${esc(sig.f.label)} →</button>` : ''}`;
+  const html = !todos.length ? '' : `<div class="cfg-listo-fila"><div class="cfg-anillo${faltan.length ? '' : ' ok'}" style="--p:${pct}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span>${pct}%</span></div>
+      <div class="cfg-listo-txt"><strong>${faltan.length ? 'Listo para lanzar' : '✓ Listo para lanzar'}</strong>
+      <span class="muted small">${listos} de ${todos.length}${faltan.length ? ` · faltan ${faltan.length}` : ''}${revisar.length ? ` · ${revisar.length} por revisar` : ''}</span></div></div>
+    ${sig ? `<button type="button" class="btn small cfg-sig" data-goto="${sig.f.id}"><span class="muted small">${faltan.length ? 'Siguiente' : 'Revisar'}</span> ${esc(sig.f.label)} →</button>` : ''}`;
   if (box.dataset.html !== html) { box.innerHTML = html; box.dataset.html = html; }
 }
 $('#config-dialog').addEventListener('click', (e) => {
   const b = e.target.closest('.guia-check [data-goto], #cfg-listo [data-goto]');
   if (b) goToField(b.dataset.goto);
+  // Las explicaciones largas salen en una línea: al pulsarlas se leen enteras.
+  const p = e.target.closest('.cfg-sec-head p, .tab-panel > p.muted');
+  if (p && !e.target.closest('a, button, code')) p.classList.toggle('abierto');
 });
 
 // ---------- Recursos de la preclase (música, test, votación, descargable) ----------
@@ -5118,11 +5141,11 @@ function snippetsLanzamiento(code) {
       etapasPreclase(state.config.launches[code], nClases(state.config.launches[code])).map((e) => `<div data-lsd-etapa="${e.id}">Etapa <span data-lsd-etapa-n="${e.id}"></span> · ${e.label}</div>`).join('\n')],
     ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
     ['VENTA · página de venta de Raíces: al final de la página, en el pie (apunta quién la visita para «Setting hoy» y pinta la barra fija si está activa en Páginas; los enlaces a esta página en los emails, con ?cid={{contact.id}})', `<div data-lsd-venta data-launch="auto"></div>\n${script}`],
-    ['WHATSAPP · botón flotante abajo a la derecha (páginas de venta y de replay; abre el WhatsApp de dudas de ⑥ Venta → Venta y seguimiento)', WA_FLOTANTE],
-    ['PAGO · bloque base de la página de pago (en el pie: barra fija, textos, precios y enlaces de los cajetines; el resto, en ⑥ Venta → Página de pago)', `<div data-lsd-pago data-launch="auto"></div>\n${script}`],
-    ['INSCRIBIRME · botón a la página de pago (páginas de venta y de replay; la URL va en ⑥ Venta → Página de pago)', '<a data-lsd-link="pagina-pago">Quiero inscribirme en Raíces</a>'],
+    ['WHATSAPP · botón flotante abajo a la derecha (páginas de venta y de replay; abre el WhatsApp de dudas de Venta → Venta y seguimiento)', WA_FLOTANTE],
+    ['PAGO · bloque base de la página de pago (en el pie: barra fija, textos, precios y enlaces de los cajetines; el resto, en Venta → Página de pago)', `<div data-lsd-pago data-launch="auto"></div>\n${script}`],
+    ['INSCRIBIRME · botón a la página de pago (páginas de venta y de replay; la URL va en Venta → Página de pago)', '<a data-lsd-link="pagina-pago">Quiero inscribirme en Raíces</a>'],
     ['WHATSAPP · botón para una sección (sin estilo: dale el tuyo)', '<a data-lsd-link="whatsapp-dudas">Escríbenos por WhatsApp</a>'],
-    ['GRABACIÓN · bloques de la página del replay (el 1º y la barra arriba del todo; el de vídeo, donde quieras que se vea; el paso a paso, en ④ Grabación → Página de replay)', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
+    ['GRABACIÓN · bloques de la página del replay (el 1º y la barra arriba del todo; el de vídeo, donde quieras que se vea; el paso a paso, en Grabación → Página de replay)', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
     ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
     // El enlace para conectarse al directo es el de la preclase: 59 min antes enseña la pantalla de espera y al llegar a cero entra sola.
     ...(() => {
@@ -5359,6 +5382,44 @@ function subgruposPreparacion(items, all) {
   }).join('');
 }
 
+// 🧠 Análisis del lanzamiento con Claude (con el conector del dashboard): el último que cerró, comparado con los
+// anteriores, para preparar el siguiente. Es la tarea de preparación «Analizar con Claude el lanzamiento anterior».
+function analisisDatos() {
+  if (enVsl() || enMeteo() || enDirecta() || !state.launchCode) return null;
+  const a = lanzamientoAAnalizar(launchesSorted(), state.launchCode, today());
+  if (!a.objetivo) return null;
+  const actual = state.config.launches[state.launchCode];
+  return { ...a, prompt: promptAnalisis({
+    cliente: { id: state.cliente, nombre: clienteNombre() }, producto: nombreProducto(state.config), objetivo: a.objetivo, anteriores: a.anteriores,
+    siguiente: a.cerrado ? null : { code: state.launchCode, name: actual?.name || state.launchCode },
+  }) };
+}
+function analisisCard() {
+  const a = analisisDatos();
+  if (!a) return '';
+  const [c, l] = a.objetivo;
+  return `<section class="card an-ia">
+    <div class="an-ia-txt"><h3>🧠 Análisis del lanzamiento con Claude</h3>
+      <p class="muted">${a.cerrado ? 'Este lanzamiento ya ha cerrado' : `Antes de preparar este, analiza el anterior: <strong>${esc(l.name || c)}</strong>`}. Claude saca los datos del dashboard (métricas${a.anteriores.length ? ` comparadas con ${esc(a.anteriores.map(([x, y]) => y.name || x).join(' y '))}` : ''}, encuesta, emails y tareas) y te da mejoras concretas, con su dato, su razonamiento y su prioridad.</p>
+      <p class="small muted">Pega el prompt en Claude con el conector <strong>Dashboard Estelabs</strong> activado (Agencia → Claude).</p></div>
+    <div class="an-ia-acc"><button type="button" class="btn primary" id="an-ia-copiar">📋 Copiar el prompt</button><button type="button" class="btn ghost" id="an-ia-ver">Ver el prompt</button></div>
+    <pre class="enc-ia-prompt" id="an-ia-prompt" hidden></pre>
+  </section>`;
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('#an-ia-copiar, #an-ia-ver');
+  if (!b) return;
+  const a = analisisDatos();
+  if (!a) return;
+  const pre = $('#an-ia-prompt');
+  pre.textContent = a.prompt;
+  if (b.id === 'an-ia-ver') { pre.hidden = !pre.hidden; b.textContent = pre.hidden ? 'Ver el prompt' : 'Ocultar el prompt'; return; }
+  const ok = await copiarAlPortapapeles(a.prompt);
+  b.textContent = ok ? 'Copiado ✓ · pégalo en Claude' : 'No se pudo copiar: ábrelo en «Ver el prompt»';
+  if (!ok) pre.hidden = false;
+  setTimeout(() => { b.textContent = '📋 Copiar el prompt'; }, 3500);
+});
+
 function renderTareas() {
   const T = state.tareas;
   pintarCabeceraTareas();
@@ -5410,6 +5471,7 @@ function renderTareas() {
     ? '<p class="muted">Empieza con las tareas habituales (con fechas calculadas a partir de las del lanzamiento) y ajústalas, o crea las tuyas.</p><p><button type="button" class="btn primary" data-action="tareas-plantilla">Cargar tareas habituales</button> <button type="button" class="btn" data-action="tarea-nueva">+ Nueva tarea</button></p>'
     : '<p class="muted">Cuando la administradora asigne tareas aparecerán aquí.</p>'}
     </div>`;
+  if (!T.error) $('#tareas-resumen').insertAdjacentHTML('beforeend', analisisCard());
 
   $$('#tareas-filtro .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.f === state.tFiltro));
   if (state.tSel) for (const id of [...state.tSel]) if (!list.some((t) => t.id === id)) state.tSel.delete(id);
@@ -9419,7 +9481,7 @@ async function eliminarEmbudo(id) {
   const e = embudoInfo(id);
   if (!e) return false;
   if (e.tipo === 'lanzamientos' && Object.values(state.config.launches).some((l) => embudoDeLanz(l) === id)) {
-    window.alert('Este embudo tiene lanzamientos. Bórralos antes (Configuración → ① Datos básicos) o déjalo y desactiva sus pestañas.');
+    window.alert('Este embudo tiene lanzamientos. Bórralos antes (Configuración → Datos básicos) o déjalo y desactiva sus pestañas.');
     return false;
   }
   if (!window.confirm(`¿Eliminar el embudo «${e.nombre}» del dashboard? Se borra su configuración. Sus contactos, etiquetas y páginas de GHL no se tocan.`)) return false;
@@ -10079,7 +10141,7 @@ function refrescarOfertaEditor() {
   };
   for (const el of $$('#of-bonus .of-fila')) {
     const w = ventanaBonus({ tipo: $('.of-tipo', el).value, hasta: $('.of-hasta-in', el).value }, datos);
-    $('.of-ventana', el).textContent = w.desde != null && w.hasta != null ? `Activo: ${fechaHoraCorta(w.desde)} → ${fechaHoraCorta(w.hasta)}` : 'Pon las fechas del directo y del carrito (pestaña «① Datos básicos») para ver cuándo está activo.';
+    $('.of-ventana', el).textContent = w.desde != null && w.hasta != null ? `Activo: ${fechaHoraCorta(w.desde)} → ${fechaHoraCorta(w.hasta)}` : 'Pon las fechas del directo y del carrito (pestaña «Datos básicos») para ver cuándo está activo.';
   }
   const o = leerOfertaEditor();
   const precio = dinero($('#cfg-precio-programa').value);
@@ -10162,7 +10224,7 @@ function pintarCarrito({ leerEnvios = true } = {}) {
   const r = diasCarrito(datos);
   const box = $('#carrito-dias');
   if (!r.dias.length) {
-    box.innerHTML = `<div class="car-vacio">🛒 <strong>Aquí aparecerán los días del carrito.</strong> Se rellenará automáticamente cuando configures ${esc(r.faltan.join(' y '))} en la pestaña «① Datos básicos», y los bonus en «⑤ Oferta».</div>`;
+    box.innerHTML = `<div class="car-vacio">🛒 <strong>Aquí aparecerán los días del carrito.</strong> Se rellenará automáticamente cuando configures ${esc(r.faltan.join(' y '))} en la pestaña «Datos básicos», y los bonus en «Oferta».</div>`;
     return;
   }
   const hoy = dayInMadrid(new Date().toISOString());
@@ -10179,7 +10241,7 @@ function pintarCarrito({ leerEnvios = true } = {}) {
 }
 $('.tab[data-tab="carrito"]').addEventListener('click', pintarCarrito);
 
-// Plan → Carrito: los mismos días que en Configuración → ⑦ Carrito, en solo lectura (para todo el equipo).
+// Plan → Carrito: los mismos días que en Configuración → Carrito, en solo lectura (para todo el equipo).
 // Visual: resumen con cifras, una tira con todos los días y un timeline (fecha grande · hitos con su hora ·
 // envíos en chips · estrategia). Los días pasados se atenúan y el de hoy se resalta.
 function hitoCarritoHtml(a) {
@@ -10197,7 +10259,7 @@ function renderCarritoVista() {
   const r = diasCarrito(launch);
   const editar = puedeConfig() ? '<button type="button" class="btn" data-config-tab="carrito">✏️ Editar el carrito</button>' : '';
   if (!r.dias.length) {
-    box.innerHTML = `<div class="card empty car-vacio">🛒 <strong>Aquí aparecerán los días del carrito.</strong> Falta ${esc(r.faltan.join(' y '))} (Configuración → ① Datos básicos).${puedeConfig() ? ' <button type="button" class="btn small" data-config-tab="launch">Configurarlo ahora</button>' : ''}</div>`;
+    box.innerHTML = `<div class="card empty car-vacio">🛒 <strong>Aquí aparecerán los días del carrito.</strong> Falta ${esc(r.faltan.join(' y '))} (Configuración → Datos básicos).${puedeConfig() ? ' <button type="button" class="btn small" data-config-tab="launch">Configurarlo ahora</button>' : ''}</div>`;
     return;
   }
   const hoy = dayInMadrid(new Date().toISOString());
@@ -10275,7 +10337,7 @@ function renderOfertaAnalisis(launch) {
       <div class="of-valor-box"><span class="muted small">Precio</span><strong>${precio ? eur(precio) : '–'}</strong>${valor.total ? `<span class="muted small">Valor de la oferta</span><strong>${eur(valor.total)}</strong>` : ''}${valor.ratio ? `<span class="of-ratio">${valor.ratio.toFixed(1).replace('.', ',')}× el precio</span>` : ''}</div>
     </div>`;
   if (!oferta.entregables.length && !oferta.bonus.length) {
-    box.innerHTML = `<p class="muted">Añade los entregables y los bonus del lanzamiento (Configuración → ⑤ Oferta) para ver aquí qué bonus empujan la venta cada día del carrito.${irA('tab:oferta')}</p>`;
+    box.innerHTML = `<p class="muted">Añade los entregables y los bonus del lanzamiento (Configuración → Oferta) para ver aquí qué bonus empujan la venta cada día del carrito.${irA('tab:oferta')}</p>`;
     return;
   }
   const vpd = ventasPorDia(state.leads, launch);

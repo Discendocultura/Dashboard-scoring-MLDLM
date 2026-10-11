@@ -2983,3 +2983,89 @@ body.embudo-directa .lanz-only { display: none !important; }
 :root[data-theme="dark"] .em-card.t-emocional .em-tono { color: #f39ac4; }
 :root[data-theme="dark"] .em-card.t-mixto .em-tono { color: #b9a4ff; }
 :root[data-theme="dark"] .em-card.t-racional .em-tono { color: #8cc0f5; }
+
+/* ---------- Configuración del lanzamiento: menú lateral por fases + contenido ----------
+   Escritorio: menú a la izquierda (lanzamiento, «Listo para lanzar» y apartados con su estado) y el apartado a la derecha.
+   Móvil: primero el menú (como unos Ajustes); al elegir un apartado se abre a pantalla completa y «‹ Apartados» vuelve. */
+#config-dialog { width: min(1200px, calc(100vw - 32px)); height: min(900px, calc(100vh - 32px)); }
+#config-dialog > form { height: 100%; max-height: none; }
+#config-dialog .cfg-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 272px minmax(0, 1fr); gap: 0; padding: 0; overflow: hidden; }
+.cfg-side { display: flex; flex-direction: column; gap: 14px; padding: 16px 14px; overflow-y: auto; border-right: 1px solid var(--border); background: var(--surface-2); }
+.cfg-main { display: flex; flex-direction: column; gap: 16px; padding: 20px 26px 28px; overflow-y: auto; min-width: 0; }
+.cfg-main > .tab-panel { gap: 16px; }
+.cfg-main-head { display: flex; align-items: center; gap: 10px; }
+.cfg-main-head h3 { margin: 0; font-size: 21px; letter-spacing: -.01em; }
+.cfg-volver { display: none; }
+.cfg-pick { display: flex; gap: 8px; align-items: flex-end; }
+.cfg-pick .field { flex: 1; min-width: 0; margin: 0; }
+.cfg-pick select { width: 100%; }
+.cfg-pick .btn { flex: none; }
+/* «Listo para lanzar»: anillo + siguiente paso */
+#config-dialog .cfg-listo { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 12px; border-radius: 14px; background: var(--surface); }
+.cfg-listo-fila { display: flex; align-items: center; gap: 12px; }
+.cfg-anillo { --p: 0; flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--st-caliente, #e07a1f) calc(var(--p) * 1%), var(--border) 0); }
+.cfg-anillo.ok { background: conic-gradient(var(--tone-buy, #138a4b) calc(var(--p) * 1%), var(--border) 0); }
+.cfg-anillo span { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); font-size: 12px; font-weight: 700; }
+.cfg-listo-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cfg-sig { width: 100%; justify-content: flex-start; text-align: left; white-space: normal; gap: 6px; }
+/* Menú de apartados */
+.cfg-nav { display: flex; flex-direction: column; gap: 2px; }
+.cfg-nav-g { margin: 12px 8px 4px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.cfg-nav-g:first-child { margin-top: 0; }
+.cfg-nav .tab { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px; text-align: left; white-space: normal; color: var(--text-2); transition: background .15s; }
+.cfg-nav .tab:hover { background: color-mix(in srgb, var(--surface) 70%, transparent); }
+.cfg-nav .tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 0 0 1px var(--border); }
+.cfg-nav .tab .tab-ico { width: 30px; height: 30px; border-radius: 9px; background: var(--surface); }
+.cfg-nav .tab.active .tab-ico { background: var(--accent); color: var(--accent-ink); }
+.cfg-nav-t { display: flex; flex-direction: column; flex: 1; min-width: 0; font-size: 14px; line-height: 1.25; }
+.cfg-nav-t small { font-size: 11.5px; font-weight: 400; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cfg-nav .tab .tab-falta { margin-left: auto; flex: none; }
+.cfg-nav .tab .tab-falta.ok { background: color-mix(in srgb, var(--tone-buy, #138a4b) 16%, transparent); color: var(--tone-buy, #138a4b); }
+/* Bloques más limpios: explicaciones en una línea (al pulsar se leen enteras), ayudas de cada campo al escribir en él */
+.cfg-main .cfg-sec { padding: 18px 20px 20px; gap: 14px; border-radius: 14px; box-shadow: 0 1px 2px rgba(0, 0, 0, .04); }
+.cfg-main .cfg-sec-head h3 { font-size: 16px; }
+.cfg-main .cfg-sec-head p, .cfg-main .tab-panel > p.muted { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
+.cfg-main .cfg-sec-head p.abierto, .cfg-main .tab-panel > p.muted.abierto { display: block; -webkit-line-clamp: unset; }
+.cfg-main .cfg-sec-head p:not(.abierto)::after { content: ""; }
+.cfg-main .field > span small { display: none; }
+.cfg-main .field:focus-within > span small { display: inline; color: var(--muted); font-weight: 400; }
+.cfg-main .field > span:has(small)::after { content: "ⓘ"; margin-left: 4px; font-size: 12px; color: var(--muted); opacity: .7; }
+.cfg-main .field:focus-within > span:has(small)::after { content: none; }
+/* Nuevo / revisar / siempre igual: un punto de color (la leyenda, en «Qué cambiar en cada lanzamiento») */
+.cfg-main .field.ciclo-nuevo, .cfg-main .field.ciclo-revisar, .cfg-main .field.ciclo-fijo { border-left: 0; padding-left: 0; }
+.cfg-main .field > span .badge-cambia, .cfg-main .field > span .badge-revisa, .cfg-main .field > span .badge-fija { font-size: 0; width: 8px; height: 8px; padding: 0; margin-left: 6px; vertical-align: 1px; }
+.cfg-main .field > span .badge-cambia { background: #e0703a; }
+.cfg-main .field > span .badge-revisa { background: #e2b23a; }
+.cfg-main .field > span .badge-fija { background: #6fae80; }
+/* Listas de comprobación plegadas */
+.cfg-ayuda { padding: 10px 14px; gap: 10px; }
+.cfg-ayuda > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.cfg-ayuda > summary::-webkit-details-marker { display: none; }
+.cfg-ayuda > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+.cfg-ayuda[open] > summary::before { transform: rotate(90deg); }
+.cfg-ayuda[open] > summary { margin-bottom: 8px; }
+@media (max-width: 760px) {
+  #config-dialog { width: 100vw; height: 100dvh; }
+  #config-dialog .cfg-body { grid-template-columns: minmax(0, 1fr); }
+  #config-dialog.cfg-en-menu .cfg-main { display: none; }
+  #config-dialog:not(.cfg-en-menu) .cfg-side { display: none; }
+  .cfg-side { border-right: 0; padding: 14px 12px 20px; }
+  .cfg-main { padding: 12px 12px 24px; }
+  .cfg-volver { display: inline-flex; flex: none; }
+  .cfg-main-head h3 { font-size: 18px; }
+  .cfg-nav .tab { padding: 12px 10px; background: var(--surface); margin-bottom: 4px; box-shadow: 0 0 0 1px var(--border); }
+  .cfg-nav .tab::after { content: "›"; font-size: 20px; color: var(--muted); margin-left: 4px; }
+  .cfg-nav .tab .tab-falta { margin-left: auto; }
+  .cfg-main .cfg-sec { padding: 14px; }
+}
+:root[data-estilo="espacial"] .cfg-side { background: rgba(255, 255, 255, .025); border-right-color: rgba(255, 255, 255, .08); }
+:root[data-estilo="espacial"] #config-dialog .cfg-listo, :root[data-estilo="espacial"] .cfg-anillo span { background: #12153a; }
+:root[data-estilo="espacial"] .cfg-nav .tab.active, :root[data-estilo="espacial"] .cfg-nav .tab .tab-ico { background: rgba(255, 255, 255, .07); }
+:root[data-estilo="espacial"] .cfg-nav .tab.active .tab-ico { background: linear-gradient(140deg, #ff9a3c, #ff5e1a); color: #fff; }
+.cfg-main .field > span .badge-cambia, .cfg-main .field > span .badge-revisa, .cfg-main .field > span .badge-fija { vertical-align: middle; }
+/* Plan → Tareas: 🧠 Análisis del lanzamiento con Claude */
+.an-ia { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; padding: 16px 20px; border-left: 4px solid var(--tone-live); }
+.an-ia-txt { flex: 1 1 340px; min-width: 0; }
+.an-ia-txt h3 { margin: 0 0 6px; font-size: 16px; }
+.an-ia-txt p { margin: 0 0 4px; }
+.an-ia-acc { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -36,6 +36,7 @@ export const PLANTILLA = [
   { fase: 'preparacion', titulo: 'Crear la reunión de Zoom y pegar su ID en el dashboard', base: 'captacion', dias: -7, rol: 'admin' },
   { fase: 'preparacion', titulo: 'Revisar precios y enlaces de pago (entrada VIP y programa: pago único y fraccionado)', base: 'captacion', dias: -7, rol: 'admin' },
   { fase: 'preparacion', titulo: 'Crear el grupo de WhatsApp y poner su enlace en el dashboard', base: 'captacion', dias: -7, rol: 'tecnico' },
+  { fase: 'preparacion', titulo: 'Analizar con Claude el lanzamiento anterior (Plan → Tareas → 🧠 Análisis del lanzamiento) y decidir qué cambiar en este', base: 'captacion', dias: -14, rol: 'admin' },
   { fase: 'preparacion', titulo: 'Poner fechas del directo, clases y cierre del carrito y revisar los textos de la página preclase', base: 'captacion', dias: -5, rol: 'admin' },
   { fase: 'preparacion', titulo: 'Programar los emails del lanzamiento con las fechas nuevas', base: 'captacion', dias: -5, rol: 'tecnico' },
   { fase: 'preparacion', titulo: 'Revisar en el móvil las páginas de registro, gracias y preclase', base: 'captacion', dias: -2, rol: 'tecnico' },
