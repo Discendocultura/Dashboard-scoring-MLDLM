@@ -35,6 +35,7 @@ import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
 import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
+import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
@@ -371,9 +372,11 @@ const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual
     // «Carrito» es nueva: los embudos con pestañas elegidas antes la ven junto a Calendario o Tareas.
     || (v === 'carrito' && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('objetivos')))
     // «Grupo de WhatsApp» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas o Carrito.
-    || (v === 'grupowa' && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('carrito')))
-    // «Páginas» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas.
-    || ((v === 'paginas' || v === 'anuncios') && pestanasEmbudo().includes('tareas')))
+    // (no si al crearlo se dijo si los mensajes ya existen o se crean de cero: entonces manda lo elegido).
+    || (v === 'grupowa' && !embudoInfo()?.waOrigen && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('carrito')))
+    // «Páginas» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas (igual: si se respondió, manda eso).
+    || (v === 'paginas' && !embudoInfo()?.paginasOrigen && pestanasEmbudo().includes('tareas'))
+    || (v === 'anuncios' && pestanasEmbudo().includes('tareas')))
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() || enDirecta() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
@@ -3446,6 +3449,8 @@ function openConfig(code) {
       diasCarrito: last.diasCarrito,
       whatsappDudas: last.whatsappDudas, whatsappDudasUrl: last.whatsappDudasUrl,
       paginaPagoUrl: last.paginaPagoUrl,
+      // Embudo con las páginas creadas de cero: sus enlaces son las URLs propuestas al crearlo.
+      ...enlacesLanzamiento(propuestasEmbudo(state.embudo)),
       carritoAbandonadoTag: last.carritoAbandonadoTag,
       // La página de pago se hereda con su copy; su barra, sin fechas.
       ...(last.paginaPago ? { paginaPago: { ...last.paginaPago, barra: { ...(last.paginaPago.barra || {}), tramos: (last.paginaPago.barra?.tramos || []).map((t) => ({ ...t, hasta: '' })) } } } : {}),
@@ -8325,6 +8330,7 @@ function pintarEmbPestanas(activas, ocultas = []) {
   }).join('');
   pintarEmbCats();
   pintarEmbGuia();
+  if (!embEdit) aplicarOrigenEmb();
 }
 // Casilla de cada categoría: marcada si están todas, a medias si algunas; y cuántas van.
 function pintarEmbCats() {
@@ -8344,15 +8350,92 @@ $('#emb-pestanas').addEventListener('change', (e) => {
   pintarEmbCats();
 });
 
+// ---------- Paso «Páginas y WhatsApp»: ¿ya existen o se crean de cero? ----------
+// De cero → se activa su sección en Plan (Páginas / Grupo de WhatsApp); ya hechas → no aparece.
+// Páginas de cero: además, URLs propuestas (dominio + nombre del embudo + página) que se guardan en el embudo.
+const embConWa = () => PESTANAS[embTipo()]?.some((p) => p.id === 'grupowa');
+const embOrigen = () => {
+  const paginas = $('input[name="emb-pag"]:checked')?.value || '';
+  return { paginas, wa: embConWa() ? $('input[name="emb-wa"]:checked')?.value || '' : '', proponer: paginas === 'cero' && $('#emb-urls-si').checked };
+};
+// Dominio sugerido: el de otro embudo del cliente o el de alguna página ya configurada.
+function dominioSugerido() {
+  const de = embudos().find((e) => e.urls?.dominio)?.urls.dominio;
+  if (de) return de.replace(/^https:\/\//, '');
+  const urls = [...Object.values(state.config.launches || {}).flatMap((l) => [l.recursosUrl, l.raicesUrl, l.graciasUrl, l.loginUrl]), ...Object.values(state.config.vsls || {}).map((v) => v.vslUrl)];
+  const u = urls.map(dominioValido).find(Boolean);
+  return u ? u.replace(/^https:\/\//, '') : '';
+}
+function pintarEmbOrigen() {
+  const o = embOrigen();
+  $('#emb-wa-card').hidden = !embConWa();
+  $('#emb-urls-box').hidden = o.paginas !== 'cero';
+  $('#emb-dominio-box').hidden = !o.proponer;
+}
+// Marca o quita las secciones del paso «Dashboard» según lo elegido (solo si se ha respondido).
+function aplicarOrigenEmb() {
+  const o = embOrigen();
+  const marcar = (vista, v) => { const i = $(`#emb-pestanas input[data-vista="${vista}"]`); if (i && v) i.checked = v === 'cero'; };
+  marcar('paginas', o.paginas);
+  marcar('grupowa', o.wa);
+  pintarEmbCats();
+  pintarEmbGuia();
+}
+$('#emb-pag-card').addEventListener('change', () => { pintarEmbOrigen(); aplicarOrigenEmb(); });
+$('#emb-wa-card').addEventListener('change', () => { pintarEmbOrigen(); aplicarOrigenEmb(); });
+// URLs propuestas del embudo que se está creando o editando (paso final).
+function embPropuestas() {
+  if (!embOrigen().proponer) return [];
+  const nombre = $('#emb-url-nombre').value.trim() || slugUrl($('#emb-nombre').value);
+  return urlsPropuestas(embTipo(), { dominio: $('#emb-dominio').value, nombre }, { preclase: embTipo() === 'lanzamientos' ? $('#emb-preclase').value !== 'no' : true, sinLlamadas: embTipo() === 'vsl' && SUBTIPOS_VSL[embSubtipo()]?.sinLlamadas, partes: embTipo() === 'directa' ? (embEdit ? state.config.directas?.[embEdit]?.partes : partesElegidas('#emb-partes')) : null });
+}
+const urlItemHtml = (p, { conNombre = true } = {}) => `<li>${conNombre ? `<small>${esc(p.nombre)}</small>` : ''}<code>${esc(p.url)}</code><button type="button" class="btn small ghost" data-copiar-url="${esc(p.url)}">Copiar</button></li>`;
+function pintarEmbUrls() {
+  const lista = embPropuestas();
+  $('#emb-urls').hidden = !embOrigen().proponer;
+  if (!$('#emb-url-nombre').dataset.editado) $('#emb-url-nombre').value = slugUrl($('#emb-nombre').value);
+  $('#emb-urls-lista').innerHTML = lista.length ? lista.map((p) => urlItemHtml(p)).join('') : '<li class="muted small">Pon el nombre del embudo (o el nombre en las URLs) para verlas.</li>';
+}
+$('#emb-nombre').addEventListener('input', () => { if (!$('#emb-urls').hidden) pintarEmbUrls(); });
+$('#emb-url-nombre').addEventListener('input', (e) => { e.target.dataset.editado = e.target.value.trim() ? '1' : ''; pintarEmbUrls(); });
+$('#emb-url-nombre').addEventListener('change', (e) => { e.target.value = slugUrl(e.target.value); pintarEmbUrls(); });
+$('#emb-urls-copiar').addEventListener('click', async (e) => {
+  const t = urlsTexto(embPropuestas());
+  try { await navigator.clipboard.writeText(t); e.target.textContent = 'Copiadas ✓'; } catch { window.prompt('Copia las URLs:', t); }
+  setTimeout(() => { e.target.textContent = '📋 Copiar todas'; }, 2000);
+});
+// Botón «Copiar» de una URL (asistente y Plan → Páginas).
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-copiar-url]');
+  if (!b) return;
+  try { await navigator.clipboard.writeText(b.dataset.copiarUrl); b.textContent = 'Copiada ✓'; } catch { window.prompt('Copia la URL:', b.dataset.copiarUrl); }
+  setTimeout(() => { b.textContent = 'Copiar'; }, 1800);
+});
+// Lo que se guarda en el embudo.
+function embOrigenGuardar() {
+  const o = embOrigen();
+  const nombre = $('#emb-url-nombre').value.trim() || slugUrl($('#emb-nombre').value);
+  return {
+    paginasOrigen: o.paginas || undefined, waOrigen: o.wa || undefined,
+    urls: o.proponer && dominioValido($('#emb-dominio').value) && slugUrl(nombre) ? { dominio: dominioValido($('#emb-dominio').value), nombre: slugUrl(nombre) } : undefined,
+  };
+}
+// URLs propuestas de un embudo guardado (solo si sus páginas se crean de cero).
+function propuestasEmbudo(id) {
+  const e = embudoInfo(id);
+  if (!e?.urls || e.paginasOrigen !== 'cero') return [];
+  return urlsPropuestas(e.tipo, e.urls, { preclase: e.preclase !== false, sinLlamadas: e.tipo === 'vsl' && SUBTIPOS_VSL[subtipoValido(state.config.vsls?.[id]?.subtipo)]?.sinLlamadas, partes: state.config.directas?.[id]?.partes || null });
+}
+
 // ---------- Asistente por pasos ----------
-const PASO_LABEL = { tipo: 'Tipo de embudo', preclase: 'Prelanzamiento', directa: 'Qué lleva', dashboard: 'Dashboard', final: 'Nombre y resumen' };
+const PASO_LABEL = { tipo: 'Tipo de embudo', preclase: 'Prelanzamiento', directa: 'Qué lleva', contenido: 'Páginas y WhatsApp', dashboard: 'Dashboard', final: 'Nombre y resumen' };
 let embPaso = 0;
 function pasosEmb() {
   const plantilla = !embEdit && $('#emb-plantilla').value;
   const lanz = embTipo() === 'lanzamientos';
   // Editando: el tipo no cambia (solo el formato de los lanzamientos o la variante de la VSL).
   const conTipo = !embEdit || lanz || embTipo() === 'vsl';
-  return [...(conTipo ? ['tipo'] : []), ...(lanz && !plantilla ? ['preclase'] : []), ...(embTipo() === 'directa' && !embEdit && !plantilla ? ['directa'] : []), ...(plantilla ? [] : ['dashboard']), 'final'];
+  return [...(conTipo ? ['tipo'] : []), ...(lanz && !plantilla ? ['preclase'] : []), ...(embTipo() === 'directa' && !embEdit && !plantilla ? ['directa'] : []), ...(plantilla ? [] : ['contenido', 'dashboard']), 'final'];
 }
 function irPasoEmb(i) {
   const pasos = pasosEmb();
@@ -8367,10 +8450,17 @@ function irPasoEmb(i) {
   $('#emb-crear').hidden = !ultimo && !embEdit;
   $('#emb-status').textContent = '';
   if (actual === 'final') pintarEmbResumen();
+  if (actual === 'contenido') pintarEmbOrigen();
   $('#embudo-dialog .dialog-body').scrollTop = 0;
 }
 function validarPasoEmb() {
   if (pasosEmb()[embPaso] === 'dashboard' && !embPestanas().length) { $('#emb-status').textContent = 'Deja al menos una sección marcada.'; return false; }
+  if (pasosEmb()[embPaso] === 'contenido') {
+    const o = embOrigen();
+    if (!embEdit && !o.paginas) { $('#emb-status').textContent = 'Dinos si ya tienes las páginas o las vas a crear de cero.'; return false; }
+    if (!embEdit && embConWa() && !o.wa) { $('#emb-status').textContent = 'Dinos si ya tienes los mensajes del grupo de WhatsApp o los vas a crear de cero.'; return false; }
+    if (o.proponer && !dominioValido($('#emb-dominio').value)) { $('#emb-status').textContent = 'Pon el dominio de las páginas (p. ej. midominio.com) o desmarca «Propónme las URLs».'; $('#emb-dominio').focus(); return false; }
+  }
   return true;
 }
 $('#emb-siguiente').addEventListener('click', () => { if (validarPasoEmb()) irPasoEmb(embPaso + 1); });
@@ -8401,7 +8491,14 @@ function pintarEmbResumen() {
     const cats = $$('#emb-pestanas .emb-cat').map((f) => ({ t: $('.emb-cat-h strong', f).textContent, subs: $$('.emb-subs input:checked', f).map((i) => $('strong', i.closest('label')).textContent) })).filter((c) => c.subs.length);
     filas.push(['Dashboard', cats.map((c) => `<strong>${esc(c.t)}</strong>: ${esc(c.subs.join(', '))}`).join('<br>')]);
   }
+  if (!plantilla) {
+    const o = embOrigen();
+    const txt = { cero: 'De cero (sección activada en Plan)', propias: 'Ya las tengo', propios: 'Ya los tengo' };
+    if (o.paginas) filas.splice(filas.length - 1, 0, ['Páginas', txt[o.paginas]]);
+    if (o.wa) filas.splice(filas.length - 1, 0, ['Mensajes de WhatsApp', o.wa === 'cero' ? 'De cero (sección activada en Plan)' : txt.propios]);
+  }
   $('#emb-resumen').innerHTML = `<dl>${filas.map(([a, b], i) => `<dt>${esc(a)}</dt><dd>${i === filas.length - 1 && !plantilla ? b : esc(b)}</dd>`).join('')}</dl>`;
+  if (plantilla) $('#emb-urls').hidden = true; else pintarEmbUrls();
 }
 $('#emb-plantilla').addEventListener('change', () => irPasoEmb(embPaso));
 
@@ -8475,6 +8572,11 @@ function abrirNuevoEmbudo() {
   pintarEmbClases();
   pintarEmbVipBase();
   $('#emb-nombre').value = '';
+  $$('input[name="emb-pag"], input[name="emb-wa"]').forEach((i) => { i.checked = false; });
+  $('#emb-urls-si').checked = true;
+  $('#emb-dominio').value = dominioSugerido();
+  $('#emb-url-nombre').value = '';
+  $('#emb-url-nombre').dataset.editado = '';
   $('#emb-status').textContent = '';
   $('#emb-nota').hidden = false;
   $('#emb-borrar').hidden = true;
@@ -8504,6 +8606,12 @@ function abrirEditarEmbudo(id) {
   pintarEmbClases();
   pintarEmbVipBase();
   $('#emb-nombre').value = e.nombre;
+  $$('input[name="emb-pag"]').forEach((i) => { i.checked = i.value === e.paginasOrigen; });
+  $$('input[name="emb-wa"]').forEach((i) => { i.checked = i.value === e.waOrigen; });
+  $('#emb-urls-si').checked = Boolean(e.urls) || e.paginasOrigen !== 'cero';
+  $('#emb-dominio').value = (e.urls?.dominio || dominioSugerido()).replace(/^https:\/\//, '');
+  $('#emb-url-nombre').value = e.urls?.nombre || '';
+  $('#emb-url-nombre').dataset.editado = e.urls?.nombre ? '1' : '';
   $('#emb-status').textContent = '';
   $('#emb-nota').hidden = true;
   $('#emb-borrar').hidden = false;
@@ -8538,7 +8646,7 @@ $('#emb-crear').addEventListener('click', async () => {
     if (embEdit) {
       const id = embEdit;
       const nombre = $('#emb-nombre').value.trim() || embudoInfo(id).nombre;
-      const lista = embudos().map((e) => (e.id === id ? { ...e, id: e.id, tipo: e.tipo, nombre, ...(e.tipo === 'lanzamientos' ? { formato: embFormato(), ...embPrelanz() } : {}), pestanas: todas ? undefined : pestanas, ocultas: ocultas.length ? ocultas : undefined } : e));
+      const lista = embudos().map((e) => (e.id === id ? { ...e, id: e.id, tipo: e.tipo, nombre, ...(e.tipo === 'lanzamientos' ? { formato: embFormato(), ...embPrelanz() } : {}), pestanas: todas ? undefined : pestanas, ocultas: ocultas.length ? ocultas : undefined, ...embOrigenGuardar() } : e));
       const vsls = state.config.vsls[id] ? { ...state.config.vsls, [id]: { ...state.config.vsls[id], name: nombre, subtipo: embSubtipo() } } : state.config.vsls;
       const directas = state.config.directas?.[id] ? { ...state.config.directas, [id]: { ...state.config.directas[id], name: nombre } } : state.config.directas;
       const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, vsls, directas } });
@@ -8568,7 +8676,7 @@ $('#emb-crear').addEventListener('click', async () => {
     for (let n = 2; usados.has(id) || id.length < 2; n++) id = `${base.slice(0, 18)}-${n}`;
     const body = {
       ...state.config,
-      embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz() } : {}), ...(todas ? {} : { pestanas }), ...(ocultas.length ? { ocultas } : {}) }],
+      embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz() } : {}), ...(todas ? {} : { pestanas }), ...(ocultas.length ? { ocultas } : {}), ...embOrigenGuardar() }],
       vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre, subtipo } } : state.config.vsls,
       directas: tipo === 'directa' ? { ...(state.config.directas || {}), [id]: { name: nombre, producto: nombre, partes: partesElegidas('#emb-partes') } } : state.config.directas,
     };
@@ -10241,7 +10349,7 @@ function gwDirectos() {
 }
 const temarioKey = () => `lsd_gw_temario_${state.cliente || ''}_${gwc.code}`;
 function gwPrompt() {
-  const emb = embCal();
+  const emb = enMeteo() ? embCal() : conEnlacesPropuestos(embCal(), propuestasEmbudo(embudoDeLanz(embCal() || {})));
   return promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado'), directos: gwDirectos(), temario: ($('#gw-temario')?.value ?? ls.get(temarioKey()) ?? '').trim(), contexto: contextoMarca(gwc.marca?.m, gwc.marca?.producto) });
 }
 // ---------- 🎯 Crear anuncios con IA (Plan → Anuncios) ----------
@@ -10391,10 +10499,11 @@ function contextoPaginas() {
   const marca = clienteNombre();
   const producto = nombreProducto(state.config);
   if (t === 'lanz') {
-    const emb = state.config.launches[state.launchCode];
-    if (!emb) return { falta: 'Elige o crea un lanzamiento: las páginas usan sus fechas, precios y códigos.' };
+    const lanz = state.config.launches[state.launchCode];
+    if (!lanz) return { falta: 'Elige o crea un lanzamiento: las páginas usan sus fechas, precios y códigos.' };
+    const emb = conEnlacesPropuestos(lanz, propuestasEmbudo(state.embudo));
     return { tipo: 'lanzamientos', nombre: emb.name, datos: datosEmbudo(emb, { producto, marca }), codigos: snippetsLanzamiento(state.launchCode), ctx: { script },
-      urls: { 'Página preclase': emb.recursosUrl, 'Página de acceso (login)': emb.loginUrl, 'Página de pago': emb.paginaPagoUrl, 'Grupo de WhatsApp': emb.whatsappUrl } };
+      urls: { 'Página de gracias': emb.graciasUrl, 'Página preclase': emb.recursosUrl, 'Página de acceso (login)': emb.loginUrl, 'Página de venta': emb.raicesUrl, 'Página de pago': emb.paginaPagoUrl, 'Página de la grabación (replay)': emb.replayUrl, 'Grupo de WhatsApp': emb.whatsappUrl } };
   }
   if (t === 'meteorico') {
     const code = state.meteo.code;
@@ -10424,8 +10533,10 @@ function contextoPaginas() {
   return { tipo: 'directa', nombre: d.name, datos, codigos, opts: { partes: d.partes }, urls: { 'Página de venta': d.ventaUrl } };
 }
 function promptDePagina(c, p) {
+  const propias = propuestasEmbudo(state.embudo).filter((x) => x.pagina === p.id);
+  const urlsPag = Object.fromEntries(propias.map((x) => [propias.length > 1 ? `URL de esta página (${x.nombre})` : 'URL de esta página', x.url]));
   return promptPagina({ pagina: p, nombreEmbudo: c.nombre, marca: clienteNombre(), datos: c.datos, contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto),
-    diseno: disenoTexto(pgc.marca?.m), codigos: codigosDePagina(p, c.codigos, c.ctx), notas: (ls.get(notasPagKey(p.id)) || '').trim(), urls: c.urls || {} });
+    diseno: disenoTexto(pgc.marca?.m), codigos: codigosDePagina(p, c.codigos, c.ctx), notas: (ls.get(notasPagKey(p.id)) || '').trim(), urls: { ...urlsPag, ...(c.urls || {}) } });
 }
 async function renderPaginas() {
   const box = $('#paginas-body');
@@ -10435,6 +10546,7 @@ async function renderPaginas() {
   pgc.marca = await marcaDeEmbudo(api, state.cliente, embudo);
   if (state.embudo !== embudo) return;
   const paginas = paginasDe(c.tipo, c.opts || {});
+  const propuestas = propuestasEmbudo(state.embudo);
   box.innerHTML = `<section class="card">
       <h2>🧱 Páginas de «${esc(c.nombre)}» con IA</h2>
       <ol class="small pg-pasos">
@@ -10445,9 +10557,16 @@ async function renderPaginas() {
       </ol>
       ${avisoMarcaHtml(pgc.marca)}
     </section>
+    ${propuestas.length ? `<section class="card">
+      <h3>🔗 URLs de las páginas</h3>
+      <p class="muted small">Las que propusimos al crear el embudo (dominio + nombre + página). Crea cada página en GHL con su URL; ya van en los prompts${tipoActual() === 'lanz' ? ', en los enlaces de los lanzamientos nuevos y en los mensajes del grupo de WhatsApp' : ''}. Para cambiarlas: ⚙️ del embudo → Páginas y WhatsApp.</p>
+      <ul class="pg-urls">${propuestas.map((x) => urlItemHtml(x)).join('')}</ul>
+      <p><button type="button" class="btn small" id="pg-urls-copiar">📋 Copiar todas</button></p>
+    </section>` : ''}
     ${paginas.map((p) => `<details class="card pg-pag" data-pag="${esc(p.id)}">
       <summary><strong>${esc(p.nombre)}</strong><span class="muted small">${esc(p.objetivo)}</span></summary>
       <div class="pg-cuerpo">
+        ${propuestas.some((x) => x.pagina === p.id) ? `<ul class="pg-urls">${propuestas.filter((x) => x.pagina === p.id).map((x) => urlItemHtml(x, { conNombre: propuestas.filter((y) => y.pagina === p.id).length > 1 })).join('')}</ul>` : ''}
         <p class="small"><strong>Lleva:</strong> ${esc(p.secciones.join(' · '))}</p>
         <p class="small muted">${codigosDePagina(p, c.codigos, c.ctx).length} código${codigosDePagina(p, c.codigos, c.ctx).length === 1 ? '' : 's'} del dashboard incluidos en el prompt.</p>
         <label class="field"><span>Indicaciones para esta página <small>(opcional, entran en el prompt: ángulo, oferta especial, referencia…)</small></span><textarea rows="2" data-pag-notas="${esc(p.id)}" placeholder="Ej.: más corta; empieza con un testimonio; ángulo del cansancio de las noches…">${esc(ls.get(notasPagKey(p.id)) || '')}</textarea></label>
@@ -10468,6 +10587,12 @@ $('#paginas-body').addEventListener('input', (e) => {
   if (t) ls.set(notasPagKey(t.dataset.pagNotas), t.value);
 });
 $('#paginas-body').addEventListener('click', async (e) => {
+  if (e.target.closest('#pg-urls-copiar')) {
+    const t = urlsTexto(propuestasEmbudo(state.embudo));
+    try { await navigator.clipboard.writeText(t); e.target.textContent = 'Copiadas ✓'; } catch { window.prompt('Copia las URLs:', t); }
+    setTimeout(() => { e.target.textContent = '📋 Copiar todas'; }, 2000);
+    return;
+  }
   const b = e.target.closest('[data-pag-copiar]');
   if (!b) return;
   const c = contextoPaginas();

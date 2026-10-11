@@ -2052,6 +2052,16 @@ body.en-inicio #btn-config, body.en-inicio #btn-zoom { display: none !important;
 .emb-resumen dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
 .emb-resumen dt { font-weight: 700; color: var(--muted); }
 .emb-resumen dd { margin: 0; }
+.emb-origen { display: grid; gap: 8px; }
+.emb-origen .chk { padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 600; }
+.emb-origen .chk:has(input:checked) { border-color: var(--accent); background: var(--surface-2); }
+.emb-urls { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.emb-urls h4 { margin: 0 0 8px; }
+.emb-urls-lista, .pg-urls { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.emb-urls-lista li, .pg-urls li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.emb-urls-lista small, .pg-urls small { grid-column: 1; color: var(--muted); }
+.emb-urls-lista code, .pg-urls code { grid-column: 1; overflow-wrap: anywhere; font-size: 13px; justify-self: start; }
+.emb-urls-lista li > .btn, .pg-urls li > .btn { grid-column: 2; grid-row: 1 / span 2; }
 @media (max-width: 600px) { .wiz-lbl { display: none; } .wiz-dot.actual .wiz-lbl { display: inline; } .emb-resumen dl { grid-template-columns: 1fr; } }
 #embudo-dialog .emb-tipos { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
 #embudo-dialog .emb-tipos .emb-grupo { grid-column: 1 / -1; margin: 6px 0 0; }

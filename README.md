@@ -672,6 +672,22 @@ transparente; GHL → Sitios → Medios → ⋯ → Copiar enlace). Se guarda en
 formato de imagen y en el cierre de cada vídeo, y en Magnific la sube y la añade al kit de marca.
 
 ## 🧱 Páginas del embudo con IA (Plan → Páginas)
+**¿De cero o ya hechas? (＋ Nuevo embudo → paso «Páginas y WhatsApp»).** Al crear un embudo se pregunta (obligatorio)
+si las **páginas** ya están creadas o se van a crear de cero y, en lanzamientos y meteóricos, lo mismo con los
+**mensajes del grupo de WhatsApp**. De cero → se activa su sección en Plan (Páginas / Grupo de WhatsApp); ya hechas → no
+aparece (manda lo elegido: no se cuela por la regla de compatibilidad de los embudos antiguos). Se puede cambiar con ⚙️.
+Si las páginas son de cero, el asistente ofrece **proponer las URLs** (casilla marcada) con el **dominio** (se sugiere
+el de otro embudo o el de alguna página ya configurada) y el **nombre del embudo** (editable): `dominio/nombre-página`.
+Lanzamiento: `-registro` (orgánico: redes, bio, emails) y `-registro-ads` (publicidad), `-gracias`, `-acceso` (login) y
+`-preclase` (si hay preclase), `-replay`, `-inscripcion` (venta) y `-pago`; VSL: registro ×2, `-gracias`, `-video` y
+`-cita-confirmada`; meteórico: `-oferta`; venta directa: `dominio/nombre` (venta), `-pago`, `-especial` (upsell),
+`-alternativa` (downsell) y `-gracias`. Se ven en el paso final y en **Plan → Páginas** (cada una con «Copiar» y
+«Copiar todas»), van en el prompt de su página («URL de esta página»), **rellenan los enlaces de los lanzamientos
+nuevos** del embudo (gracias, acceso, preclase, replay, venta y pago) y van en el **prompt del grupo de WhatsApp**:
+calentamiento → preclase, directo → acceso al directo, grabación → replay, carrito → venta (bloque «A dónde lleva cada
+mensaje»; lo que se haya puesto a mano en el lanzamiento manda). Se guardan en el embudo (`paginasOrigen`, `waOrigen`,
+`urls: { dominio, nombre }`; `public/js/urls-paginas.js`).
+
 En todos los tipos de embudo. Por cada página (lanzamientos: registro, gracias, login, preclase, venta, pago y
 grabación; VSL: registro, contenido, gracias y gracias de la llamada; meteórico: oferta; venta directa: venta,
 checkout, upsell, downsell y gracias) hay un **prompt para Claude** con: objetivo y estructura recomendada de la página,

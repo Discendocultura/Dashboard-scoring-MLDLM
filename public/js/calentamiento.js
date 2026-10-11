@@ -188,6 +188,8 @@ export function datosEmbudo(emb, { esMeteo = false, producto = '', marca = '' } 
     for (const e of emb.oferta?.entregables || []) d.push(`- Incluye: ${e.nombre}${e.detalle ? ` (${e.detalle})` : ''}.`);
     for (const b of emb.oferta?.bonus || []) d.push(`- Bonus: ${b.nombre}${b.detalle ? ` (${b.detalle})` : ''}.`);
     if (emb.recursosUrl) d.push(`- Área de recursos (preclase): ${emb.recursosUrl}`);
+    if (emb.replayUrl) d.push(`- Página de la grabación (replay): ${emb.replayUrl}`);
+    if (emb.raicesUrl) d.push(`- Página de venta: ${emb.raicesUrl}`);
   }
   return d;
 }
@@ -213,6 +215,17 @@ ${dirTxt}
 - Ese día no se vende ni se habla de otra cosa (ni VIP, ni precio, ni carrito).
 - Propón: buenos días con el recordatorio, un mensaje con lo que verán, el de «queda 1 hora», el de «empezamos en 10 minutos» (mencionando a todo el grupo) y el de «¡estamos en directo, entra ya!» (mencionando a todo el grupo).${temario ? '' : '\n- Si no sabes qué se verá en la masterclass, deja [TEMARIO DE LA MASTERCLASS] donde vaya y lo completo yo.'}
 ` : '';
+  // A dónde lleva cada tipo de mensaje (las páginas del lanzamiento; en embudos creados de cero, las URLs propuestas).
+  const destinos = esMeteo ? [] : [
+    emb.recursosUrl && `- Calentamiento (clases, recursos, encuesta, votación…): la página preclase → ${emb.recursosUrl}`,
+    directos.some((x) => x.at) && '- El día del directo: el enlace de acceso al directo (el de arriba).',
+    emb.replayUrl && `- Grabación del directo: la página de la grabación → ${emb.replayUrl}`,
+    emb.raicesUrl && `- Carrito abierto y venta: la página de venta → ${emb.raicesUrl}`,
+  ].filter(Boolean);
+  const reglaEnlaces = destinos.length > 1 ? `
+A DÓNDE LLEVA CADA MENSAJE (usa SIEMPRE estos enlaces, tal cual; nunca otros):
+${destinos.join('\n')}
+` : '';
   const yaTxt = ya.length ? `\nYa hay estos mensajes programados (no los repitas ni pongas otro a la misma hora):\n${ya.map((m) => `- ${m.at.replace('T', ' ')} · ${m.tipo}${m.texto ? ` · «${m.texto.slice(0, 60)}…»` : ''}`).join('\n')}\n` : '';
   return `Usa tu skill de copy de venta (copy de calentamiento y carrito para grupos de WhatsApp) para escribir la secuencia de mensajes del GRUPO DE WHATSAPP de este ${esMeteo ? 'meteórico' : 'lanzamiento'}.
 
@@ -225,7 +238,7 @@ MARCA Y AVATAR (la fuente de verdad: escribe con este tono y con las palabras, d
 <marca>
 ${contexto}
 </marca>
-` : ''}${yaTxt}${reglaPreclase}${reglaDirecto}
+` : ''}${yaTxt}${reglaPreclase}${reglaDirecto}${reglaEnlaces}
 QUÉ QUIERO:
 - Mensajes cortos, de grupo (no 1:1), en español de España y en el tono de la marca. Que generen conversación y expectación, y que lleven a la acción en cada fase (clases, directo, VIP, carrito, últimas horas).
 - Mezcla formatos: texto, encuestas para que participen, notas de voz (con su GUION para grabarlas), y algún vídeo o imagen si aporta.
