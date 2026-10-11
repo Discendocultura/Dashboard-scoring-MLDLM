@@ -3069,3 +3069,44 @@ body.embudo-directa .lanz-only { display: none !important; }
 .an-ia-txt h3 { margin: 0 0 6px; font-size: 16px; }
 .an-ia-txt p { margin: 0 0 4px; }
 .an-ia-acc { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Plan → 🧠 Claude */
+#claude-body, #automatizaciones-body { display: flex; flex-direction: column; gap: 14px; }
+#claude-body .an-ia { margin-top: 0; }
+.cl-hub h3 { margin: 0 0 4px; font-size: 16px; }
+.cl-atajos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 12px; }
+.cl-atajo { display: flex; gap: 12px; align-items: center; text-align: left; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; transition: border-color .15s, transform .15s; }
+.cl-atajo:hover { border-color: var(--accent); transform: translateY(-1px); }
+.cl-atajo-i { font-size: 22px; flex: none; }
+.cl-atajo span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.cl-atajo small { color: var(--muted); font-size: 12px; }
+/* Plan → ⚙️ Automatizaciones */
+.au-head h3 { margin: 0 0 4px; font-size: 17px; }
+.au-head p { margin: 4px 0; }
+.au-origen { margin: 8px 0 12px; flex-wrap: wrap; }
+.au-progreso { display: grid; gap: 6px; font-size: 14px; max-width: 420px; }
+.au-prep { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; border-left: 4px solid var(--tone-live); }
+.au-prep h4 { margin: 0 0 2px; }
+.au-prep p { margin: 0; }
+.au-item { display: flex; flex-direction: column; gap: 8px; border-left: 4px solid var(--border); }
+.au-item.au-creada { border-left-color: var(--st-caliente, #e07a1f); }
+.au-item.au-probada { border-left-color: var(--tone-buy, #138a4b); }
+.au-top { display: flex; align-items: center; gap: 12px; }
+.au-n { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; background: var(--surface-2); }
+.au-probada .au-n { background: color-mix(in srgb, var(--tone-buy, #138a4b) 16%, transparent); color: var(--tone-buy, #138a4b); }
+.au-tit { flex: 1; min-width: 0; }
+.au-tit h4 { margin: 0; font-size: 15px; }
+.au-tit code { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.au-estado { flex: none; width: auto; }
+.au-item > p { margin: 0; }
+.au-falta { font-size: 13px; padding: 8px 10px; border-radius: 8px; background: #fff1cc; color: #7a5200; }
+:root[data-theme="dark"] .au-falta, :root[data-estilo="espacial"] .au-falta { background: #3f3413; color: #f3d77e; }
+.au-revisar { font-size: 13px; }
+.au-det summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.au-det ol { margin: 6px 0; padding-left: 20px; display: grid; gap: 4px; font-size: 13px; }
+.au-det p { margin: 6px 0 0; font-size: 13px; }
+.au-acc { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.au-url { flex: 1 1 260px; min-width: 0; }
+.cfg-reg-poner { margin-top: 6px; align-self: flex-start; }
+@media (max-width: 640px) { .au-top { flex-wrap: wrap; } .au-estado { width: 100%; } }
+.au-head, .au-prep, .au-item, .cl-hub { padding: 16px 20px; }
+@media (max-width: 640px) { .au-head, .au-prep, .au-item, .cl-hub { padding: 14px; } }

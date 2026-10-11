@@ -4,6 +4,7 @@ import { getConfig, saveConfig } from '../lib/config-store.js';
 import { zoomConfigured } from '../lib/zoom.js';
 import { sendflowConfigurado } from '../lib/sendflow.js';
 import { sanitizeNarrativa } from '../public/js/narrativa.js';
+import { sanitizeAutomatizaciones } from '../public/js/automatizaciones.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { versionDe, reintentando } from '../lib/store.js';
 
@@ -63,6 +64,25 @@ export async function POST(request) {
     }
     // Logo del lanzamiento (Plan → Anuncios): URL de la imagen, para los anuncios de captación.
     // Narrativa del lanzamiento (Plan → Anuncios, Páginas y WhatsApp, o el asistente de nuevo lanzamiento).
+    // Automatizaciones de GHL (Plan → Automatizaciones): { tipo, l, datos: { origen, items }, workflow?: { nombre, url } }.
+    // La URL de un workflow creado pasa también a Configuración → Accesos y enlaces (tipo «workflow»).
+    if (body.op === 'automatizaciones') {
+      const code = String(body.l || '');
+      const grupo = { lanzamientos: 'launches', vsl: 'vsls', directa: 'directas', meteorico: 'meteoricos' }[body.tipo];
+      if (!grupo) return json({ error: 'Tipo de embudo no válido' }, 400);
+      const datos = sanitizeAutomatizaciones(body.datos);
+      const wf = body.workflow && /^https:\/\/\S+$/i.test(String(body.workflow.url || '').trim())
+        ? { tipo: 'workflow', nombre: String(body.workflow.nombre || 'Workflow').trim().slice(0, 60), url: String(body.workflow.url).trim().slice(0, 600) } : null;
+      const config = await reintentando(async () => {
+        const actual = await getConfig({ fresh: true });
+        if (!actual[grupo]?.[code]) throw Object.assign(new Error('Embudo no encontrado'), { status: 404, publicMessage: 'Embudo no encontrado' });
+        const { automatizaciones: _, ...resto } = actual[grupo][code];
+        let accesos = actual.accesos || [];
+        if (wf) accesos = [...accesos.filter((a) => a.url !== wf.url && !(a.tipo === 'workflow' && a.nombre === wf.nombre)), wf];
+        return saveConfig({ ...actual, accesos, [grupo]: { ...actual[grupo], [code]: datos ? { ...resto, automatizaciones: datos } : resto } }, { version: versionDe(actual), motivo: 'Automatizaciones de GHL' });
+      });
+      return json({ config, version: versionDe(config) });
+    }
     if (body.op === 'narrativa') {
       const code = String(body.l || '');
       const config = await reintentando(async () => {

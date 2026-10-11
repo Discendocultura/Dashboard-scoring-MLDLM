@@ -84,3 +84,19 @@ export function conEnlacesPropuestos(launch, propuestas = []) {
 
 // Texto para copiar todas de una vez: «Nombre: URL» por línea.
 export const urlsTexto = (propuestas = []) => propuestas.map((p) => `${p.nombre}: ${p.url}`).join('\n');
+
+// Configuración → Accesos y enlaces: las páginas del lanzamiento (las URLs propuestas y las que ya tenga puestas),
+// como accesos de tipo «página» con el nombre del lanzamiento delante. → [{ tipo: 'pagina', nombre, url }]
+const NOMBRE_CAMPO = { graciasUrl: 'Gracias por registrarte', loginUrl: 'Acceso a las clases (login)', recursosUrl: 'Preclase (clases y recursos)', replayUrl: 'Grabación del directo (replay)', raicesUrl: 'Página de venta', paginaPagoUrl: 'Página de pago' };
+export function accesosDePaginas(launch = {}, propuestas = []) {
+  const pre = String(launch.name || '').trim().slice(0, 24);
+  const nombre = (n) => `${pre ? `${pre} · ` : ''}${n}`.slice(0, 60);
+  const out = propuestas.map((p) => ({ tipo: 'pagina', nombre: nombre(p.nombre), url: p.url }));
+  for (const [k, n] of Object.entries(NOMBRE_CAMPO)) {
+    const u = String(launch[k] || '').trim();
+    if (/^https:\/\//i.test(u) && !out.some((a) => a.url === u)) out.push({ tipo: 'pagina', nombre: nombre(n), url: u });
+  }
+  return out.filter((a) => /^https:\/\//i.test(a.url));
+}
+// Añade los accesos nuevos sin duplicar (misma URL o mismo nombre: manda el nuevo).
+export const conAccesos = (accesos = [], nuevos = []) => [...accesos.filter((a) => !nuevos.some((n) => n.url === a.url || n.nombre === a.nombre)), ...nuevos].slice(-80);

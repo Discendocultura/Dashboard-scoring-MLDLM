@@ -20,7 +20,7 @@ const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers
 const errOauth = (e, status = 400) => (e.oauth ? json({ error: e.oauth, error_description: e.detalle || '' }, status, CORS) : errorResponse(e));
 
 export function metadatosRecurso(request) {
-  return json({ resource: urlMcp(request), authorization_servers: [origen(request)], bearer_methods_supported: ['header'], resource_name: 'Dashboard Estelabs' }, 200, CORS);
+  return json({ resource: urlMcp(request), authorization_servers: [origen(request)], bearer_methods_supported: ['header'], resource_name: 'Dashboard Datos' }, 200, CORS);
 }
 export function metadatosServidor(request) {
   const o = origen(request);

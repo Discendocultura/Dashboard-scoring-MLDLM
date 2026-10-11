@@ -31,7 +31,7 @@ export function promptAnalisis(ctx = {}) {
   return [
     `Eres director de lanzamientos digitales y analista de marketing de respuesta directa. Vamos a analizar a fondo el lanzamiento ${code ? nombre(code, l) : 'más reciente que ya haya cerrado'} de ${cli.nombre || 'la marca'}${ctx.producto ? ` (programa «${ctx.producto}»)` : ''} para decidir qué cambiar en el siguiente${ctx.siguiente ? `, ${nombre(ctx.siguiente.code, ctx.siguiente)}` : ''}. Quiero mejoras concretas, accionables y priorizadas, cada una con el dato que la justifica y tu razonamiento.`,
     '',
-    'PASO 1 · RECOGE LOS DATOS con el conector «Dashboard Estelabs» (no inventes nada: si una herramienta falla o falta un dato, dilo y sigue):',
+    'PASO 1 · RECOGE LOS DATOS con el conector «Dashboard Datos» (no inventes nada: si una herramienta falla o falta un dato, dilo y sigue):',
     `1. ver_embudos${cli.id ? ` (cliente: "${cli.id}")` : ''}: fechas, precios y estado de los lanzamientos.`,
     `2. metricas_embudo del lanzamiento ${code || 'a analizar'}${ant.length ? ` y de ${ant.map(([c, x]) => nombre(c, x)).join(' y ')} para comparar` : ' (y del anterior, si lo hay, para comparar)'}.`,
     `3. encuesta_para_copy (${code || 'el mismo'}): qué dicen las registradas y en qué se diferencian las que compraron.`,

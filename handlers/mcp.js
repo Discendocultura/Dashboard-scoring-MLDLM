@@ -64,7 +64,7 @@ async function atender(msg, ctx) {
     return ok(id, {
       protocolVersion: PROTOCOLOS.includes(pedido) ? pedido : PROTOCOLOS[0],
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: 'dashboard-estelabs', title: 'Dashboard Estelabs', version: VERSION.slice(0, 60) },
+      serverInfo: { name: 'dashboard-estelabs', title: 'Dashboard Datos', version: VERSION.slice(0, 60) },
       instructions: INSTRUCCIONES,
     });
   }

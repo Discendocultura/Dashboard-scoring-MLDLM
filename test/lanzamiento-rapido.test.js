@@ -25,7 +25,7 @@ test('copia: mueve todas las fechas los días del cambio y vacía lo de cada edi
   assert.equal(l.oferta.bonus[0].hasta, '2026-11-17T23:59');
   assert.deepEqual(l.carritoNotas, { '2026-11-19': 'Testimonios' });
   assert.equal(l.ventaBarra.tramos[0].hasta, '2026-11-20T23:59');
-  assert.equal(l.registroTag, 'registro-camino-nov26');
+  assert.equal(l.registroTag, 'registrado webinar 17-11-26');
   assert.equal(l.vipTag, 'vip-camino');
   assert.equal(l.precioPrograma, 497);
   assert.equal(l.recursosUrl, 'https://a.com/preclase');
@@ -57,7 +57,7 @@ test('plantilla estándar (primer lanzamiento): captación, clases, carrito y v�
   const r = nuevoLanzamiento({ code: 'nuevo-nov26', nombre: 'Nov', fecha: '2026-11-17', hora: '19:00', base: { precioPrograma: 297 } });
   assert.equal(r.origen, 'plantilla');
   assert.equal(r.launch.precioPrograma, 297);
-  assert.equal(r.launch.registroTag, 'registro-nuevo-nov26');
+  assert.equal(r.launch.registroTag, 'registrado webinar 17-11-26');
   assert.throws(() => nuevoLanzamiento({ code: 'x', fecha: '', hora: '19:00' }), /día del directo/);
   assert.ok(resumenFechas(r.launch).some(([a]) => a === 'Abre el carrito'));
 });
@@ -65,8 +65,10 @@ test('plantilla estándar (primer lanzamiento): captación, clases, carrito y v�
 test('código y etiqueta de registro propuestos', () => {
   assert.equal(codigoPropuesto('Webinar «El Camino»', '2026-11-17'), 'camino-nov26');
   assert.equal(codigoPropuesto('El Camino', '2026-11-17', ['camino-nov26']), 'camino-nov26-2');
-  assert.equal(etiquetaRegistro('registro-webinar-demo', 'demo', 'demo-nov'), 'registro-webinar-demo-nov');
-  assert.equal(etiquetaRegistro('registro-general', 'oct', 'nov'), 'registro-nov');
+  // Nomenclatura fija: «registrado webinar DD-MM-AA» con la fecha del directo.
+  assert.equal(etiquetaRegistro('2026-10-29'), 'registrado webinar 29-10-26');
+  assert.equal(etiquetaRegistro('2027-07-05'), 'registrado webinar 05-07-27');
+  assert.equal(etiquetaRegistro(''), '');
 });
 
 // Servidor: crear la sala de Zoom (mock) con permiso de configuración.

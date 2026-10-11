@@ -36,13 +36,14 @@ import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
 import { mensajesEnviados, impactoMensajes, horaVenta } from './impacto-wa.js';
-import { nuevoLanzamiento, codigoPropuesto, resumenFechas, diasCarritoDe, diasCaptacionDe, fijarCaptacion, aplicarOferta, objetivosDesdeMeta, comprobarFechas, emailsAReprogramar, desplazamiento } from './lanzamiento-rapido.js';
+import { nuevoLanzamiento, codigoPropuesto, resumenFechas, diasCarritoDe, diasCaptacionDe, fijarCaptacion, aplicarOferta, objetivosDesdeMeta, comprobarFechas, emailsAReprogramar, desplazamiento, etiquetaRegistro } from './lanzamiento-rapido.js';
 import { siguientesPasos } from './siguientes-pasos.js';
 import { promptEncuesta, libresAgrupadas } from './encuesta-ia.js';
 import { lanzamientoAAnalizar, promptAnalisis } from './analisis-ia.js';
+import { ESTADOS_AUTO, autoCtx, automatizacionesDe, promptAutomatizacion, descripcionIaGhl, promptPreparacion, revisarExistente } from './automatizaciones.js';
 import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa } from './narrativa.js';
 import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, asuntosGanadores, promptEmails } from './emails-ia.js';
-import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto } from './urls-paginas.js';
+import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto, accesosDePaginas, conAccesos } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
@@ -357,8 +358,8 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos' };
-const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config' };
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
+const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', automatizaciones: 'config', claude: 'metricas' };
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], lanzmeteo: ['lanz', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
@@ -385,7 +386,9 @@ const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual
     || (v === 'paginas' && !embudoInfo()?.paginasOrigen && pestanasEmbudo().includes('tareas'))
     || (v === 'anuncios' && pestanasEmbudo().includes('tareas'))
     // «Emails» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas.
-    || (v === 'emailsia' && pestanasEmbudo().includes('tareas')))
+    || (v === 'emailsia' && pestanasEmbudo().includes('tareas'))
+    // «Claude» y «Automatizaciones» son nuevas: las ven los embudos con pestañas elegidas antes que tengan Tareas.
+    || ((v === 'claude' || v === 'automatizaciones') && pestanasEmbudo().includes('tareas')))
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() || enDirecta() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
@@ -2575,7 +2578,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'grupowa', 'paginas', 'anuncios', 'emailsia'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'claude', 'automatizaciones'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -2597,6 +2600,8 @@ const AYUDA_VISTA = {
   dclientes: ['🛍️ Compradoras', 'Quién ha comprado en el periodo, qué extras se llevó y su WhatsApp. Filtra por un extra para ver, por ejemplo, quién cogió el upsell.'],
   anuncios: ['🎯 Crear anuncios', 'Anuncios con IA para cada objetivo del embudo (captación, retargeting de consumo, venta): copia el prompt (lleva los anuncios ganadores, la ficha de marca, avatar y producto y los datos del embudo), pégalo en Claude y él escribe los guiones y los copys y crea las imágenes y los vídeos con Magnific.'],
   paginas: ['🧱 Páginas', 'Las páginas del embudo hechas con IA: copia el prompt de cada página (lleva la marca, el avatar, los datos del embudo y los códigos del dashboard), pégalo en Claude y pega el HTML que te devuelva en un elemento «Código personalizado» de GHL.'],
+  claude: ['🧠 Claude', 'Lo que se hace con Claude y el conector «Dashboard Datos» (Agencia → Claude): el análisis del lanzamiento con mejoras concretas para el próximo y los accesos a los demás prompts del dashboard.'],
+  automatizaciones: ['⚙️ Automatizaciones', 'Los workflows de GHL del embudo. Si hay que crearlos de cero, cada uno trae su prompt para que Claude lo monte en GHL (en la carpeta del lanzamiento); marca su estado y pega su enlace al terminar.'],
   emailsia: ['✉️ Emails', 'La secuencia de emails del lanzamiento con IA: el calendario de envíos sale de las fechas reales; copia el prompt (con la ficha de marca, la narrativa y los asuntos que mejor funcionaron), pégalo en Claude y programa los emails en GHL.'],
   grupowa: ['💬 Grupo de WhatsApp', 'Los mensajes del grupo de este lanzamiento: copia el prompt, pégalo en Claude (con tu skill de copy), pega aquí su respuesta, sube los archivos, revisa y programa en SendFlow con un botón.'],
   carrito: ['🛒 Carrito', 'Cada día del carrito: lo que pasa ese día (se calcula solo con las fechas, la oferta y la barra), los emails y WhatsApps previstos y la estrategia.'],
@@ -2630,9 +2635,9 @@ document.addEventListener('click', (e) => {
 });
 
 // Grupos de la barra de arriba, por momento de uso: Hoy (lo del día), Plan y Análisis.
-const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['anuncios', 'paginas', 'grupowa', 'emailsia', 'carrito', 'objetivos', 'calendario', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
+const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['claude', 'anuncios', 'paginas', 'automatizaciones', 'grupowa', 'emailsia', 'carrito', 'objetivos', 'calendario', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail' };
+const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', claude: 'sparkle', automatizaciones: 'gear' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
@@ -2819,6 +2824,8 @@ function showView(view) {
   if (view === 'paginas' && state.config) renderPaginas();
   if (view === 'anuncios' && state.config) renderAnuncios();
   if (view === 'emailsia' && state.config) renderEmailsIa();
+  if (view === 'claude' && state.config) renderClaude();
+  if (view === 'automatizaciones' && state.config) renderAutomatizaciones();
   // Planificador: al abrirla se cargan solos los lanzamientos anteriores que falten.
   if (view === 'objetivos' && state.config?.launches?.[state.launchCode] && !enVsl() && !enMeteo() && state.leads) renderObjetivos(currentMetrics());
   // Tareas del embudo abierto (en meteóricos, del meteórico elegido).
@@ -3731,6 +3738,8 @@ function abrirLanzamientoRapido({ desdeEmbudo = false } = {}) {
   $('#nl-meta').value = '';
   $('#nl-tag').checked = false;
   $('#nl-sendflow').checked = false;
+  // Automatizaciones: lo que se respondió al crear el embudo (o el lanzamiento anterior); si no, sin marcar.
+  { const prevAuto = launchesSorted()[0]?.[1]?.automatizaciones?.origen || embudoInfo()?.autoOrigen || ''; $$('input[name="nl-auto"]').forEach((i) => { i.checked = i.value === prevAuto; }); }
   $('#nl-sendflow').disabled = !state.sendflowConfigured;
   $('#nl-sendflow-info').textContent = state.sendflowConfigured ? '(crea la campaña en tu SendFlow; el enlace del grupo lo pegas tú después)' : '(SendFlow no está conectado en este cliente: Cuenta → Conexiones)';
   nlPrefill(previos[0]?.[1] || null);
@@ -4003,9 +4012,14 @@ $('#nl-crear').addEventListener('click', async () => {
         hecho.push('📲 Campaña de SendFlow creada y vinculada');
       } catch (err) { hecho.push(`⚠️ No se creó la campaña de SendFlow: ${err.message}`); }
     }
-    // 3) Guardar el lanzamiento.
+    // 3) Guardar el lanzamiento: con lo elegido de las automatizaciones de GHL y sus páginas en Accesos y enlaces.
     st.textContent = 'Guardando el lanzamiento…';
-    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, launches: { ...state.config.launches, [r.code]: launch } } });
+    const auto = $('input[name="nl-auto"]:checked')?.value;
+    if (auto) launch.automatizaciones = { origen: auto, items: {} };
+    const paginas = accesosDePaginas(launch, propuestasEmbudo(embudoDeLanz(launch)));
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, accesos: conAccesos(state.config.accesos, paginas), launches: { ...state.config.launches, [r.code]: launch } } });
+    if (paginas.length) hecho.push(`🔗 ${paginas.length} página${paginas.length === 1 ? '' : 's'} en Configuración → Accesos y enlaces`);
+    if (auto === 'cero') hecho.push('⚙️ Automatizaciones: en Plan → Automatizaciones tienes el prompt de cada una para Claude');
     state.config = config;
     // 4) Lo demás que se ha pedido: etiqueta en GHL, tareas y mensajes del grupo.
     const extra = async (marcado, txt, op, body, ok) => {
@@ -4402,7 +4416,9 @@ function goToField(id) {
 function fieldStatus(f, others, tagIssues) {
   const v = document.getElementById(f.id).value.trim();
   let issue = '';
+  const regEsperada = f.id === 'cfg-registro' ? etiquetaRegistro($('#cfg-directo-fecha').value) : '';
   if (f.id === 'cfg-registro' && tagIssues.registro) issue = 'repetida';
+  else if (regEsperada && v && v.toLowerCase() !== regEsperada) issue = `no sigue la nomenclatura: «${regEsperada}»`;
   else if (f.id === 'cfg-encuesta-tag' && tagIssues.encuesta) issue = 'repetida';
   else if (v && f.key) {
     const same = others.find(([, l]) => String(l[f.key] ?? '').trim().toLowerCase() === v.toLowerCase());
@@ -4471,7 +4487,24 @@ function renderGuia() {
     if (html !== guiaHtml[panel]) $(box).innerHTML = guiaHtml[panel] = html;
   }
   pintarListo(todos);
+  pintarRegistroPropuesto();
 }
+
+// Etiqueta de registro: botón para poner la de la nomenclatura («registrado webinar DD-MM-AA») si no es esa.
+function pintarRegistroPropuesto() {
+  const b = $('#cfg-registro-poner');
+  const esperada = etiquetaRegistro($('#cfg-directo-fecha').value);
+  b.hidden = !esperada || $('#cfg-registro').value.trim().toLowerCase() === esperada;
+  b.textContent = `Poner «${esperada}»`;
+  b.dataset.tag = esperada;
+}
+$('#cfg-registro-poner').addEventListener('click', (e) => {
+  e.preventDefault();
+  $('#cfg-registro').value = e.currentTarget.dataset.tag;
+  $('#cfg-registro').dispatchEvent(new Event('input', { bubbles: true }));
+  renderGuia();
+});
+$('#cfg-directo-fecha').addEventListener('change', () => renderGuia());
 
 // Barra «Listo para lanzar»: lo que está listo de todas las pestañas y un botón al primero que falta
 // (por orden de pestañas: lo de «Datos básicos» antes que lo de «Venta»).
@@ -5401,7 +5434,7 @@ function analisisCard() {
   return `<section class="card an-ia">
     <div class="an-ia-txt"><h3>🧠 Análisis del lanzamiento con Claude</h3>
       <p class="muted">${a.cerrado ? 'Este lanzamiento ya ha cerrado' : `Antes de preparar este, analiza el anterior: <strong>${esc(l.name || c)}</strong>`}. Claude saca los datos del dashboard (métricas${a.anteriores.length ? ` comparadas con ${esc(a.anteriores.map(([x, y]) => y.name || x).join(' y '))}` : ''}, encuesta, emails y tareas) y te da mejoras concretas, con su dato, su razonamiento y su prioridad.</p>
-      <p class="small muted">Pega el prompt en Claude con el conector <strong>Dashboard Estelabs</strong> activado (Agencia → Claude).</p></div>
+      <p class="small muted">Pega el prompt en Claude con el conector <strong>Dashboard Datos</strong> activado (Agencia → Claude).</p></div>
     <div class="an-ia-acc"><button type="button" class="btn primary" id="an-ia-copiar">📋 Copiar el prompt</button><button type="button" class="btn ghost" id="an-ia-ver">Ver el prompt</button></div>
     <pre class="enc-ia-prompt" id="an-ia-prompt" hidden></pre>
   </section>`;
@@ -5418,6 +5451,141 @@ document.addEventListener('click', async (e) => {
   b.textContent = ok ? 'Copiado ✓ · pégalo en Claude' : 'No se pudo copiar: ábrelo en «Ver el prompt»';
   if (!ok) pre.hidden = false;
   setTimeout(() => { b.textContent = '📋 Copiar el prompt'; }, 3500);
+});
+
+// ---------- Plan → 🧠 Claude: lo que se hace con Claude y el conector «Dashboard Datos» ----------
+function renderClaude() {
+  const box = $('#claude-body');
+  if (!box) return;
+  const a = analisisDatos();
+  const generico = !a && !enVsl() && !enMeteo() && !enDirecta();
+  const promptGen = generico ? promptAnalisis({ cliente: { id: state.cliente, nombre: clienteNombre() }, producto: nombreProducto(state.config) }) : '';
+  const atajo = (vista, icono, titulo, txt, extra = '') => (allowedViews().includes(vista) ? `<button type="button" class="cl-atajo" data-cl-ir="${vista}"${extra}><span class="cl-atajo-i">${icono}</span><span><strong>${titulo}</strong><small>${txt}</small></span></button>` : '');
+  box.innerHTML = `
+    ${a ? analisisCard() : generico ? `<section class="card an-ia"><div class="an-ia-txt"><h3>🧠 Análisis del lanzamiento con Claude</h3>
+      <p class="muted">Aún no hay ningún lanzamiento cerrado en este embudo con su fecha de cierre del carrito. Este prompt le pide a Claude que busque el último que haya cerrado y lo analice.</p></div>
+      <div class="an-ia-acc"><button type="button" class="btn primary" data-copiar-prompt="gen">📋 Copiar el prompt</button></div></section>` : ''}
+    <section class="card cl-hub">
+      <h3>Más cosas con Claude</h3>
+      <p class="muted small">Con el conector <strong>Dashboard Datos</strong> activado (Agencia → Claude), Claude lee él mismo los datos del dashboard.</p>
+      <div class="cl-atajos">
+        ${atajo('leads', '📝', 'Encuesta para copy', 'Patrones, lenguaje del avatar y ganchos', ' data-cl-msub="encuesta"')}
+        ${atajo('anuncios', '🎯', 'Narrativa y anuncios', 'La gran idea, guiones y copys')}
+        ${atajo('paginas', '🧱', 'Páginas', 'Un prompt por página')}
+        ${atajo('automatizaciones', '⚙️', 'Automatizaciones', 'Workflows de GHL con Claude')}
+        ${atajo('grupowa', '💬', 'Grupo de WhatsApp', 'Mensajes del calentamiento y carrito')}
+        ${atajo('emailsia', '✉️', 'Emails', 'La secuencia con sus fechas')}
+      </div>
+    </section>`;
+  box.dataset.promptGen = promptGen;
+}
+document.addEventListener('click', async (e) => {
+  const ir = e.target.closest('[data-cl-ir]');
+  if (ir) {
+    showView(ir.dataset.clIr);
+    if (ir.dataset.clMsub) setTimeout(() => $(`[data-msub-btn="${ir.dataset.clMsub}"]`)?.click(), 50);
+    return;
+  }
+  const b = e.target.closest('[data-copiar-prompt="gen"]');
+  if (!b) return;
+  const ok = await copiarAlPortapapeles($('#claude-body').dataset.promptGen || '');
+  b.textContent = ok ? 'Copiado ✓ · pégalo en Claude' : 'No se pudo copiar';
+  setTimeout(() => { b.textContent = '📋 Copiar el prompt'; }, 3500);
+});
+
+// ---------- Plan → ⚙️ Automatizaciones de GHL ----------
+// El embudo abierto: { tipo, code, obj } (lanzamiento, VSL, venta directa o meteórico).
+function autoActual() {
+  if (enMeteo()) return { tipo: 'meteorico', code: state.meteo?.code || '', obj: state.config.meteoricos?.[state.meteo?.code] };
+  if (enVsl()) return { tipo: 'vsl', code: state.embudo, obj: state.config.vsls?.[state.embudo] };
+  if (enDirecta()) return { tipo: 'directa', code: state.embudo, obj: state.config.directas?.[state.embudo] };
+  return { tipo: 'lanzamientos', code: state.launchCode, obj: state.config.launches?.[state.launchCode] };
+}
+function renderAutomatizaciones() {
+  const box = $('#automatizaciones-body');
+  if (!box) return;
+  const { tipo, code, obj } = autoActual();
+  if (!obj) { box.innerHTML = `<div class="card empty"><p class="muted">Elige ${tipo === 'meteorico' ? 'un meteórico' : 'un lanzamiento'} para ver sus automatizaciones.</p></div>`; return; }
+  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config) });
+  const lista = automatizacionesDe(c);
+  const datos = obj.automatizaciones || {};
+  const origen = datos.origen || embudoInfo()?.autoOrigen || '';
+  const est = (id) => datos.items?.[id]?.estado || 'pendiente';
+  const n = { creada: lista.filter((x) => est(x.id) !== 'pendiente').length, probada: lista.filter((x) => est(x.id) === 'probada').length };
+  const pct = lista.length ? Math.round((n.creada / lista.length) * 100) : 0;
+  const puede = puedeConfig();
+  const item = (x) => {
+    const e = est(x.id);
+    const url = datos.items?.[x.id]?.url || '';
+    return `<article class="card au-item au-${e}" data-au="${esc(x.id)}">
+      <div class="au-top"><span class="au-n">${x.n}</span>
+        <div class="au-tit"><h4>${esc(x.titulo)}</h4><code>${esc(x.nombre)}</code></div>
+        <select class="au-estado" data-au-estado="${esc(x.id)}" ${puede ? '' : 'disabled'} aria-label="Estado">${ESTADOS_AUTO.map((s) => `<option value="${s.id}"${s.id === e ? ' selected' : ''}>${s.icon} ${s.label}</option>`).join('')}</select></div>
+      <p class="muted">${esc(x.para)}</p>
+      ${x.faltan.length ? `<p class="au-falta">⚠️ Falta en Configuración: ${esc(x.faltan.join(', '))}. El prompt lo marca como [FALTA]; mejor complétalo antes.${irA('tab:launch', 'Abrir Configuración')}</p>` : ''}
+      ${origen === 'existen' ? `<p class="au-revisar">🔁 <strong>Qué revisar:</strong> ${esc(revisarExistente(x, c))}</p>` : ''}
+      <details class="au-det"><summary>Ver cómo es</summary><p><strong>Disparador:</strong> ${esc(x.disparador(c))}</p><ol>${x.acciones(c).map((y) => `<li>${esc(y)}</li>`).join('')}</ol><p class="muted small"><strong>Prueba:</strong> ${esc(x.prueba(c))}</p></details>
+      <div class="au-acc">
+        ${origen === 'cero' ? `<button type="button" class="btn primary small" data-au-prompt="${esc(x.id)}">📋 Prompt para Claude</button><button type="button" class="btn ghost small" data-au-ia="${esc(x.id)}" title="Descripción corta para el asistente de IA de workflows de GHL">Para la IA de GHL</button>` : ''}
+        <input type="url" class="au-url" data-au-url="${esc(x.id)}" value="${esc(url)}" placeholder="URL del workflow en GHL (al crearlo)" ${puede ? '' : 'disabled'}>
+        ${url ? `<a class="btn ghost small" href="${esc(url)}" target="_blank" rel="noopener">Abrir</a>` : ''}
+      </div>
+    </article>`;
+  };
+  box.innerHTML = `
+    <section class="card au-head">
+      <h3>⚙️ Automatizaciones de GoHighLevel · ${esc(c.nombre)}</h3>
+      <p class="muted">¿Ya existen en GHL o hay que crearlas de cero?</p>
+      <div class="seg au-origen" role="radiogroup">
+        <button type="button" class="seg-btn${origen === 'existen' ? ' on' : ''}" data-au-origen="existen" ${puede ? '' : 'disabled'}>Ya existen (solo revisar)</button>
+        <button type="button" class="seg-btn${origen === 'cero' ? ' on' : ''}" data-au-origen="cero" ${puede ? '' : 'disabled'}>Crearlas de cero con Claude</button>
+      </div>
+      <div class="au-progreso"><strong>${n.creada} de ${lista.length}</strong> creadas · ${n.probada} probadas
+        <div class="obj-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div></div>
+      ${c.registroDistinta ? `<p class="au-falta">⚠️ La etiqueta de registro de la Configuración es «${esc(c.registroDistinta)}» y no sigue la nomenclatura: los workflows usarán <strong>«${esc(c.registroPropuesta)}»</strong>. Cámbiala también en Configuración → Etiquetas (botón «Poner…») para que el dashboard cuente los leads.${irA('tab:etiquetas', 'Abrir Etiquetas')}</p>` : ''}
+      ${origen === 'cero' ? `<p class="small muted">ℹ️ El conector de GHL no puede crear workflows (la API solo los lee). Claude los monta desde el navegador (<strong>Claude in Chrome</strong> o <strong>Cowork</strong>), en la carpeta <strong>«${esc(c.carpeta)}»</strong>, y los deja en borrador para que los revises. Si tu GHL tiene el asistente de IA de workflows, usa «Para la IA de GHL». Cuando esté creado, pega su URL: pasa a Configuración → Accesos y enlaces.</p>` : ''}
+    </section>
+    ${origen === 'cero' ? `<section class="card au-prep"><div><h4>0 · Antes de empezar: preparar GHL</h4><p class="muted small">Crea la carpeta «${esc(c.carpeta)}», comprueba y crea las etiquetas (${esc([c.registroTag || c.registroPropuesta, c.compraTag].filter(Boolean).join(', ') || '…')}) y lista lo que falte.</p></div><button type="button" class="btn primary small" data-au-prep>📋 Copiar el prompt</button></section>` : ''}
+    ${origen ? lista.map(item).join('') : '<div class="card empty"><p class="muted">Elige una opción para ver la lista de automatizaciones de este embudo.</p></div>'}`;
+}
+async function guardarAuto(cambio, workflow = null) {
+  const { tipo, code, obj } = autoActual();
+  const actual = obj?.automatizaciones || {};
+  const datos = { origen: actual.origen || embudoInfo()?.autoOrigen || '', items: { ...(actual.items || {}) }, ...cambio.raiz };
+  if (cambio.id) datos.items[cambio.id] = { ...(datos.items[cambio.id] || {}), ...cambio.item };
+  try {
+    const r = await api('/api/config', { method: 'POST', body: { op: 'automatizaciones', tipo, l: code, datos, workflow } });
+    state.config = r.config;
+    if (workflow) notice(`Guardado. «${workflow.nombre}» también está en Configuración → Accesos y enlaces.`);
+  } catch (err) { notice(err.message, true); }
+  renderAutomatizaciones();
+}
+document.addEventListener('click', async (e) => {
+  const o = e.target.closest('[data-au-origen]');
+  if (o) { guardarAuto({ raiz: { origen: o.dataset.auOrigen } }); return; }
+  const b = e.target.closest('[data-au-prompt], [data-au-ia], [data-au-prep]');
+  if (!b) return;
+  const { tipo, code, obj } = autoActual();
+  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config) });
+  const lista = automatizacionesDe(c);
+  const x = lista.find((y) => y.id === (b.dataset.auPrompt || b.dataset.auIa));
+  const txt = b.hasAttribute('data-au-prep') ? promptPreparacion(lista, c) : b.dataset.auIa ? descripcionIaGhl(x, c) : promptAutomatizacion(x, c);
+  const antes = b.textContent;
+  const ok = await copiarAlPortapapeles(txt);
+  b.textContent = ok ? 'Copiado ✓' : 'No se pudo copiar';
+  setTimeout(() => { b.textContent = antes; }, 2500);
+});
+document.addEventListener('change', (e) => {
+  const s = e.target.closest('[data-au-estado]');
+  if (s) { guardarAuto({ id: s.dataset.auEstado, item: { estado: s.value } }); return; }
+  const u = e.target.closest('[data-au-url]');
+  if (!u) return;
+  const url = u.value.trim();
+  if (url && !/^https:\/\/\S+$/i.test(url)) { notice('La URL del workflow debe empezar por https://', true); return; }
+  const { tipo, code, obj } = autoActual();
+  const x = automatizacionesDe(autoCtx(tipo, obj, { code })).find((y) => y.id === u.dataset.auUrl);
+  const est = obj?.automatizaciones?.items?.[u.dataset.auUrl]?.estado || 'pendiente';
+  guardarAuto({ id: u.dataset.auUrl, item: { url, ...(url && est === 'pendiente' ? { estado: 'creada' } : {}) } }, url ? { nombre: x?.nombre || 'Workflow', url } : null);
 });
 
 function renderTareas() {
@@ -9139,7 +9307,7 @@ $('#emb-pestanas').addEventListener('change', (e) => {
 const embConWa = () => PESTANAS[embTipo()]?.some((p) => p.id === 'grupowa');
 const embOrigen = () => {
   const paginas = $('input[name="emb-pag"]:checked')?.value || '';
-  return { paginas, wa: embConWa() ? $('input[name="emb-wa"]:checked')?.value || '' : '', proponer: paginas === 'cero' && $('#emb-urls-si').checked };
+  return { paginas, wa: embConWa() ? $('input[name="emb-wa"]:checked')?.value || '' : '', auto: $('input[name="emb-auto"]:checked')?.value || '', proponer: paginas === 'cero' && $('#emb-urls-si').checked };
 };
 // Dominio sugerido: el de otro embudo del cliente o el de alguna página ya configurada.
 function dominioSugerido() {
@@ -9161,11 +9329,13 @@ function aplicarOrigenEmb() {
   const marcar = (vista, v) => { const i = $(`#emb-pestanas input[data-vista="${vista}"]`); if (i && v) i.checked = v === 'cero'; };
   marcar('paginas', o.paginas);
   marcar('grupowa', o.wa);
+  marcar('automatizaciones', o.auto);
   pintarEmbCats();
   pintarEmbGuia();
 }
 $('#emb-pag-card').addEventListener('change', () => { pintarEmbOrigen(); aplicarOrigenEmb(); });
 $('#emb-wa-card').addEventListener('change', () => { pintarEmbOrigen(); aplicarOrigenEmb(); });
+$('#emb-auto-card').addEventListener('change', () => { pintarEmbOrigen(); aplicarOrigenEmb(); });
 // URLs propuestas del embudo que se está creando o editando (paso final).
 function embPropuestas() {
   if (!embOrigen().proponer) return [];
@@ -9199,7 +9369,7 @@ function embOrigenGuardar() {
   const o = embOrigen();
   const nombre = $('#emb-url-nombre').value.trim() || slugUrl($('#emb-nombre').value);
   return {
-    paginasOrigen: o.paginas || undefined, waOrigen: o.wa || undefined,
+    paginasOrigen: o.paginas || undefined, waOrigen: o.wa || undefined, autoOrigen: o.auto || undefined,
     urls: o.proponer && dominioValido($('#emb-dominio').value) && slugUrl(nombre) ? { dominio: dominioValido($('#emb-dominio').value), nombre: slugUrl(nombre) } : undefined,
   };
 }
@@ -9355,7 +9525,7 @@ function abrirNuevoEmbudo() {
   pintarEmbClases();
   pintarEmbVipBase();
   $('#emb-nombre').value = '';
-  $$('input[name="emb-pag"], input[name="emb-wa"]').forEach((i) => { i.checked = false; });
+  $$('input[name="emb-pag"], input[name="emb-wa"], input[name="emb-auto"]').forEach((i) => { i.checked = false; });
   $('#emb-urls-si').checked = true;
   $('#emb-dominio').value = dominioSugerido();
   $('#emb-url-nombre').value = '';
@@ -9391,6 +9561,7 @@ function abrirEditarEmbudo(id) {
   $('#emb-nombre').value = e.nombre;
   $$('input[name="emb-pag"]').forEach((i) => { i.checked = i.value === e.paginasOrigen; });
   $$('input[name="emb-wa"]').forEach((i) => { i.checked = i.value === e.waOrigen; });
+  $$('input[name="emb-auto"]').forEach((i) => { i.checked = i.value === e.autoOrigen; });
   $('#emb-urls-si').checked = Boolean(e.urls) || e.paginasOrigen !== 'cero';
   $('#emb-dominio').value = (e.urls?.dominio || dominioSugerido()).replace(/^https:\/\//, '');
   $('#emb-url-nombre').value = e.urls?.nombre || '';
@@ -10810,6 +10981,8 @@ $('#marca-dialog').addEventListener('close', () => {
   if (!$('#view-paginas').hidden && state.config) renderPaginas();
   if (!$('#view-anuncios').hidden && state.config) renderAnuncios();
   if (!$('#view-emailsia').hidden && state.config) renderEmailsIa();
+  if (!$('#view-claude').hidden && state.config) renderClaude();
+  if (!$('#view-automatizaciones').hidden && state.config) renderAutomatizaciones();
 });
 
 $('#btn-conexiones').addEventListener('click', () => {
