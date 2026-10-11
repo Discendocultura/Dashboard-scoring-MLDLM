@@ -110,3 +110,64 @@ test('POST /api/nuevo-lanzamiento: tareas, mensajes, etiqueta y SendFlow', async
   const setter = await login('setter');
   assert.equal((await call('/api/nuevo-lanzamiento', { method: 'POST', cookie: setter, body: { op: 'etiqueta', tag: 'x-y' } })).status, 403);
 });
+
+test('copia: filtros de Meta y emails con el código nuevo (o quitados) y sin los objetivos del anterior', async () => {
+  const { nuevoLanzamiento } = await import('../public/js/lanzamiento-rapido.js');
+  const prev = { name: 'Oct', fechaDirecto: '2026-10-20', horaDirecto: '19:00', metaFiltro: 'camino-oct26', emailFiltro: 'webinar octubre', objetivos: { ventas: 50 }, inversion: 3000, calculadora: { presupuesto: 3000, roasObjetivo: 3, diasCaptacion: 14 } };
+  const r = nuevoLanzamiento({ code: 'camino-nov26', fecha: '2026-11-17', hora: '19:00', prev, prevCode: 'camino-oct26' });
+  assert.equal(r.launch.metaFiltro, 'camino-nov26');
+  assert.equal(r.launch.emailFiltro, '');
+  assert.ok(r.avisos.some((a) => /filtro de emails.*webinar octubre/.test(a)));
+  assert.equal(r.launch.objetivos, undefined);
+  assert.equal(r.launch.inversion, undefined);
+  assert.deepEqual(r.launch.calculadora, { roasObjetivo: 3 });
+});
+
+test('fechas escritas en los mensajes, comprobaciones de fechas y emails a reprogramar', async () => {
+  const { moverFechasTexto, comprobarFechas, emailsAReprogramar } = await import('../public/js/lanzamiento-rapido.js');
+  const m = desplazamiento({ fechaDirecto: '2026-10-20', horaDirecto: '19:00' }, '2026-11-17', '18:00');
+  assert.deepEqual(moverFechasTexto('El martes 20 de octubre a las 19:00, cierra el 25/10', m, '2026-10-20'), { texto: 'El martes 17 de noviembre a las 18:00, cierra el 22/11', n: 3 });
+  assert.equal(moverFechasTexto('3 de cada 10 y v2/3', m, '2026-10-20').n, 0);
+  assert.equal(moverFechasTexto('Navidad: 28 de diciembre', m, '2026-10-20').texto, 'Navidad: 25 de enero');
+  const msgs = copiarMensajes([{ at: '2026-10-19T10:00', texto: 'Mañana, martes 20 de octubre', estado: 'borrador' }], m, []);
+  assert.equal(msgs[0].texto, 'Mañana, martes 17 de noviembre');
+  assert.equal(msgs[0].fechasCambiadas, 1);
+  const l = { fechaDirecto: '2026-11-17', inicioCaptacion: '2026-11-03', diasCarrito: 5 };
+  assert.deepEqual(comprobarFechas(l, [], '2026-10-01'), []);
+  assert.equal(comprobarFechas(l, [], '2026-11-20')[0].nivel, 'error');
+  assert.match(comprobarFechas(l, [], '2026-11-10')[0].texto, /ya ha pasado: quedan 7 días/);
+  const sol = comprobarFechas(l, [['Octubre', { inicioCaptacion: '2026-10-01', fechaDirecto: '2026-10-30', diasCarrito: 7 }], ['Sept', { inicioCaptacion: '2026-09-01', fechaDirecto: '2026-09-20', diasCarrito: 5 }]], '2026-10-01');
+  assert.equal(sol.length, 1);
+  assert.match(sol[0].texto, /Se solapa con «Octubre»/);
+  const e = emailsAReprogramar([{ tipo: 'campana', nombre: 'Recordatorio', asunto: 'Hoy a las 19h', fecha: '2026-10-20' }, { tipo: 'campana', nombre: 'Aviso', fecha: '2026-10-18' }, { tipo: 'workflow', nombre: 'Bienvenida' }], m);
+  assert.deepEqual(e.campanas.map((c) => [c.antes, c.despues]), [['2026-10-18', '2026-11-15'], ['2026-10-20', '2026-11-17']]);
+  assert.equal(e.workflows, 1);
+});
+
+test('deshacer (24 h): borra el lanzamiento, su Zoom, tareas y mensajes; resultados guardados en el servidor', async () => {
+  const admin = await login('admin');
+  const cfg = (await call('/api/config', { cookie: admin })).data.config;
+  const nuevo = { name: 'Diciembre', embudo: 'camino', registroTag: 'registro-camino-dic26', fechaDirecto: '2026-12-15', horaDirecto: '19:00', zoomMeetingId: '81111111111', sendflowId: 'rel-dic' };
+  const viejo = { name: 'Viejo', embudo: 'camino', registroTag: 'registro-viejo', fechaDirecto: '2026-06-15', createdAt: '2026-05-01T10:00:00.000Z' };
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...cfg, launches: { ...cfg.launches, 'camino-dic26': nuevo, viejo } } });
+  const { saveTareas, getTareas } = await import('../lib/tareas.js');
+  await saveTareas('camino-dic26', [{ id: 't1', titulo: 'X', fase: 'preparacion' }]);
+  const r = await call('/api/nuevo-lanzamiento', { method: 'POST', cookie: admin, body: { op: 'deshacer', l: 'camino-dic26', sendflow: true } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.ok(r.data.hecho.includes('Lanzamiento borrado') && r.data.hecho.includes('Campaña de SendFlow borrada'));
+  const { zoomBorradas } = await import('../lib/mock.js');
+  assert.ok(zoomBorradas.includes('81111111111'));
+  assert.equal((await getTareas('camino-dic26')).length, 0);
+  assert.equal((await call('/api/config', { cookie: admin })).data.config.launches['camino-dic26'], undefined);
+  assert.match(r.data.avisos.join(' '), /registro-camino-dic26/);
+  // Más de 24 h: no.
+  const v = await call('/api/nuevo-lanzamiento', { method: 'POST', cookie: admin, body: { op: 'deshacer', l: 'viejo' } });
+  assert.equal(v.status, 400);
+  // Resultados del Planificador guardados con el lanzamiento.
+  const res = await call('/api/config', { method: 'POST', cookie: admin, body: { op: 'resultados', l: 'viejo', resultados: { registros: 1500, ventas: 30, inversion: 2000, facturacionPrograma: 29910, hack: 'x', fecha: '2026-06-01' } } });
+  assert.equal(res.status, 200, JSON.stringify(res.data));
+  const g = res.data.config.launches.viejo.resultados;
+  assert.equal(g.registros, 1500);
+  assert.equal(g.hack, undefined);
+  assert.match(g.at, /^\d{4}-/);
+});

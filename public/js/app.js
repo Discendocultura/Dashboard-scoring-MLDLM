@@ -36,7 +36,7 @@ import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
 import { mensajesEnviados, impactoMensajes, horaVenta } from './impacto-wa.js';
-import { nuevoLanzamiento, codigoPropuesto, resumenFechas, diasCarritoDe, diasCaptacionDe, fijarCaptacion, aplicarOferta, objetivosDesdeMeta } from './lanzamiento-rapido.js';
+import { nuevoLanzamiento, codigoPropuesto, resumenFechas, diasCarritoDe, diasCaptacionDe, fijarCaptacion, aplicarOferta, objetivosDesdeMeta, comprobarFechas, emailsAReprogramar, desplazamiento } from './lanzamiento-rapido.js';
 import { siguientesPasos } from './siguientes-pasos.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
@@ -1685,9 +1685,17 @@ function lanzamientosHistorico() {
 }
 // Lanzamientos anteriores metidos a mano antes (se guardan en el embudo).
 const historicoManual = () => embudoInfo(embudoDeLanz(state.config.launches[state.launchCode]))?.historico || [];
+// Resultados de un lanzamiento: los de este navegador o los guardados en el servidor (los más recientes).
+function resultadosDe(c, g = histGuardado()) {
+  const l = state.config.launches[c];
+  const srv = l?.resultados?.registros ? resumenLanzamiento(c, l, { total: l.resultados.registros, vip: l.resultados.vip, compra: l.resultados.ventas, llamada: l.resultados.llamadas, compraLlamada: l.resultados.ventasLlamada, eco: { inversion: l.resultados.inversion, facturacion: l.resultados.facturacion, facturacionPrograma: l.resultados.facturacionPrograma } }) : null;
+  const loc = g[c];
+  if (srv && (!loc || String(l.resultados.at) > String(loc.at || ''))) return { ...srv, at: l.resultados.at };
+  return loc || null;
+}
 function historico() {
   const g = histGuardado();
-  return [...lanzamientosHistorico().map(([c]) => g[c]).filter(Boolean), ...historicoManual().map(resumenManual)];
+  return [...lanzamientosHistorico().map(([c]) => resultadosDe(c, g)).filter(Boolean), ...historicoManual().map(resumenManual)];
 }
 // Se cargan solos al abrir la pestaña: los que faltan o llevan más de 3 días sin actualizar (una vez por sesión).
 let cargandoHist = null;
@@ -1699,7 +1707,7 @@ function autoCargarHistorico({ todo = false } = {}) {
   const g = histGuardado();
   const viejo = (x) => todo || !x || !(Date.now() - Date.parse(x.at || 0) < 3 * 86400_000);
   const clave = (c) => `${state.cliente || 'principal'}|${c}`;
-  const faltan = lanzamientosHistorico().filter(([c]) => viejo(g[c]) && !histIntentados.has(clave(c)));
+  const faltan = lanzamientosHistorico().filter(([c]) => viejo(resultadosDe(c, g)) && !histIntentados.has(clave(c)));
   if (!faltan.length) return;
   for (const [c] of faltan) histIntentados.add(clave(c));
   cargandoHist = cargarHistorico(faltan)
@@ -1712,6 +1720,10 @@ async function cargarHistorico(lista) {
     const m = await loadLaunchMetrics(c);
     g[c] = { ...resumenLanzamiento(c, l, m), at: new Date().toISOString() };
     try { ls.set(CALC_KEY(), JSON.stringify(g)); } catch { /* sin almacenamiento */ }
+    // Y en el servidor, con el lanzamiento: así el asistente de nuevo lanzamiento los tiene en cualquier dispositivo.
+    if (puedeConfig() && g[c].registros) {
+      try { state.config = (await api('/api/config', { method: 'POST', body: { op: 'resultados', l: c, resultados: g[c] } })).config; } catch { /* se queda en el navegador */ }
+    }
   }
 }
 const pctTxt = (x) => (x == null ? '–' : `${(x * 100).toLocaleString('es-ES', { maximumFractionDigits: 1 })}%`);
@@ -3599,6 +3611,8 @@ const nlPrevios = () => Object.entries(state.config.launches).filter(([, l]) => 
   .sort((a, b) => String(b[1].fechaDirecto || '').localeCompare(String(a[1].fechaDirecto || '')));
 let nlCodeEditado = false;
 let nlCarritoEditado = false;
+// Lo ya creado fuera del dashboard en este asistente (salas de Zoom, campaña de SendFlow): si se reintenta, se reutiliza.
+let nlCreados = {};
 const nlEditado = new Set(); // campos que la persona ha tocado (no se rellenan al cambiar el lanzamiento base)
 // Rellena con el lanzamiento base: días de captación, precios y bonus (lo que no se haya tocado).
 function nlPrefill(prev) {
@@ -3617,7 +3631,7 @@ function nlPrefill(prev) {
 function nlHistorico() {
   const g = histGuardado();
   const e = embudoInfo() || {};
-  return [...nlPrevios().map(([c]) => g[c]).filter(Boolean), ...(e.historico || []).map(resumenManual)];
+  return [...nlPrevios().map(([c]) => resultadosDe(c, g)).filter(Boolean), ...(e.historico || []).map(resumenManual)];
 }
 // desdeEmbudo: se abre al terminar «＋ Nuevo embudo» (al acabar, la enhorabuena es por el embudo).
 let nlDesdeEmbudo = false;
@@ -3636,13 +3650,12 @@ function abrirLanzamientoRapido({ desdeEmbudo = false } = {}) {
   nlCarritoEditado = false;
   $('#nl-carrito').value = diasCarritoDe(previos[0]?.[1]);
   nlEditado.clear();
+  nlCreados = {};
   $('#nl-meta').value = '';
   $('#nl-tag').checked = false;
   $('#nl-sendflow').checked = false;
   $('#nl-sendflow').disabled = !state.sendflowConfigured;
   $('#nl-sendflow-info').textContent = state.sendflowConfigured ? '(crea la campaña en tu SendFlow; el enlace del grupo lo pegas tú después)' : '(SendFlow no está conectado en este cliente: Cuenta → Conexiones)';
-  $('#nl-sec-oferta').open = false;
-  $('#nl-sec-meta').open = false;
   nlPrefill(previos[0]?.[1] || null);
   const multi = nVideos(embudoInfo()?.formato || 'webinar') > 1;
   $('#nl-fecha-l').textContent = multi ? 'Día del 1.er vídeo' : 'Día del directo';
@@ -3652,9 +3665,43 @@ function abrirLanzamientoRapido({ desdeEmbudo = false } = {}) {
   $('#nl-status').textContent = '';
   $('#nl-crear').disabled = false;
   pintarNl();
+  irPasoNl(0);
   nlDlg.showModal();
   $('#nl-nombre').focus();
 }
+// Pasos del asistente: ① fechas ② oferta y objetivo ③ qué dejo hecho ④ revisar y crear.
+const NL_PASOS = ['Fechas', 'Oferta y objetivo', 'Qué te dejo hecho', 'Revisar y crear'];
+let nlPaso = 0;
+function irPasoNl(i) {
+  nlPaso = Math.max(0, Math.min(i, NL_PASOS.length - 1));
+  $$('#nl-dialog [data-nl-paso]').forEach((sec) => { sec.hidden = Number(sec.dataset.nlPaso) !== nlPaso; });
+  $('#nl-pasos').innerHTML = NL_PASOS.map((p, n) => `<button type="button" class="wiz-dot ${n === nlPaso ? 'actual' : n < nlPaso ? 'hecho' : ''}" data-nl-ir="${n}" ${n > nlPaso ? 'disabled' : ''}><span class="wiz-num">${n < nlPaso ? '✓' : n + 1}</span><span class="wiz-lbl">${p}</span></button>`).join('<span class="wiz-raya" aria-hidden="true"></span>');
+  const ultimo = nlPaso === NL_PASOS.length - 1;
+  $('#nl-atras').hidden = nlPaso === 0;
+  $('#nl-siguiente').hidden = ultimo;
+  $('#nl-crear').hidden = !ultimo;
+  $('#nl-status').textContent = '';
+  pintarNl();
+  $('#nl-dialog .dialog-body').scrollTop = 0;
+}
+// Antes de pasar del primer paso: nombre, día y lo demás bien.
+function nlPuedeSeguir() {
+  if (nlPaso > 0) return true;
+  const st = $('#nl-status');
+  if (!$('#nl-nombre').value.trim()) { st.textContent = 'Ponle un nombre al lanzamiento.'; $('#nl-nombre').focus(); return false; }
+  if (!$('#nl-fecha').value) { st.textContent = 'Pon el día del directo.'; $('#nl-fecha').focus(); return false; }
+  try { calcularNl(); } catch (err) { st.textContent = err.message; return false; }
+  return true;
+}
+$('#nl-siguiente').addEventListener('click', () => { if (nlPuedeSeguir()) irPasoNl(nlPaso + 1); });
+$('#nl-atras').addEventListener('click', () => irPasoNl(nlPaso - 1));
+$('#nl-pasos').addEventListener('click', (e) => { const b = e.target.closest('[data-nl-ir]'); if (b && !b.disabled) irPasoNl(Number(b.dataset.nlIr)); });
+// Intro en un campo: al paso siguiente (no cierra la ventana).
+$('#nl-dialog').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+  e.preventDefault();
+  if (nlPaso < NL_PASOS.length - 1) { if (nlPuedeSeguir()) irPasoNl(nlPaso + 1); } else $('#nl-crear').click();
+});
 function calcularNl() {
   const fecha = $('#nl-fecha').value;
   const hora = $('#nl-hora').value;
@@ -3681,18 +3728,42 @@ function calcularNl() {
   let objetivos = null;
   const meta = Number($('#nl-meta').value);
   const M = medias(nlHistorico());
+  const escala = precioAntes && Number(r.launch.precioPrograma) ? Number(r.launch.precioPrograma) / precioAntes : 1;
+  let escenarios = null;
   if (meta > 0 && M.n) {
-    const escala = precioAntes && Number(r.launch.precioPrograma) ? Number(r.launch.precioPrograma) / precioAntes : 1;
-    objetivos = objetivosDesdeMeta(meta, { cpl: M.cpl?.valor, convVip: Number(r.launch.precioVip) > 0 ? M.convVip?.valor : 0, convVenta: M.convVenta?.valor, ticket: (M.ticket?.valor || 0) * escala },
-      { precioVip: vipSinIva(r.launch), diasCaptacion: diasCapt });
+    // Los tres escenarios (desfavorable, neutro, favorable); los objetivos que se guardan son los del neutro.
+    escenarios = Object.fromEntries(ESCENARIOS.map((e) => {
+      const sup = supuestosEscenario(M, e.id, {});
+      return [e.id, objetivosDesdeMeta(meta, { cpl: sup.cpl, convVip: Number(r.launch.precioVip) > 0 ? sup.convVip : 0, convVenta: sup.convVenta, ticket: (sup.ticket || 0) * escala },
+        { precioVip: vipSinIva(r.launch), diasCaptacion: diasCapt })];
+    }));
+    objetivos = escenarios.neutro;
     if (objetivos) {
       r.launch.objetivos = { registros: objetivos.registros, vip: objetivos.vip, ventas: objetivos.ventas, facturacion: objetivos.facturacion };
       r.launch.calculadora = { ...(r.launch.calculadora || {}), diasCaptacion: diasCapt, ...(objetivos.inversion ? { presupuesto: objetivos.inversion } : {}) };
     }
   }
-  return { ...r, code, prev, prevCode, usados, objetivos, meta, M };
+  const otros = Object.entries(state.config.launches).filter(([c, x]) => c !== code && embudoDeLanz(x) === state.embudo).map(([, x]) => [x.name, x]);
+  const checks = comprobarFechas(r.launch, otros, dayInMadrid(new Date().toISOString()));
+  return { ...r, code, prev, prevCode, usados, objetivos, escenarios, escala, meta, M, checks };
 }
-// Lo de los bloques plegables (resúmenes, objetivo) y las casillas que dependen del lanzamiento.
+// Paso ④: lo que se va a guardar y a hacer.
+function pintarNlResumen(r) {
+  const l = r.launch;
+  const marcado = (id) => $(id).checked && !$(id).disabled;
+  const nb = $$('[data-nl-bonus]');
+  const items = [
+    `💶 ${Number(l.precioVip) > 0 ? `VIP ${eur(Number(l.precioVip))} · ` : ''}programa ${Number(l.precioPrograma) > 0 ? eur(Number(l.precioPrograma)) : 'sin precio'}${nb.length ? ` · ${nb.filter((x) => x.checked).length} de ${nb.length} bonus` : ''}`,
+    r.objetivos ? `🎯 Objetivos: ${numTxt(r.objetivos.registros)} registros · ${numTxt(r.objetivos.ventas)} ventas · ${eur(r.objetivos.facturacion)}${r.objetivos.inversion ? ` · ${eur(r.objetivos.inversion)} de inversión` : ''}` : '🎯 Sin objetivos: ponlos después en Plan → Planificador',
+    marcado('#nl-zoom') ? '🎥 Crear la sala de Zoom' : '',
+    marcado('#nl-tareas') ? '🗓️ Copiar las tareas del anterior' : '',
+    marcado('#nl-wa') ? '💬 Copiar los mensajes del grupo (en borrador)' : '',
+    marcado('#nl-tag') ? `🏷️ Crear la etiqueta «${l.registroTag}» en GHL` : '',
+    marcado('#nl-sendflow') ? '📲 Crear la campaña de SendFlow' : '',
+  ].filter(Boolean);
+  $('#nl-resumen-hacer').innerHTML = `<div class="nl-res"><strong>Al crear:</strong><ul class="nl-mas">${items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+}
+// Lo de los bloques (resúmenes, objetivo) y las casillas que dependen del lanzamiento.
 function pintarNlExtras(r) {
   const l = r?.launch || {};
   const nb = $$('[data-nl-bonus]');
@@ -3717,22 +3788,36 @@ function pintarNlExtras(r) {
   }
   const o = r.objetivos;
   if (!o) { box.innerHTML = '<p class="muted small">Faltan datos de ventas en los lanzamientos anteriores para calcularlo.</p>'; return; }
-  const tile = (lbl, v, sub = '') => `<div class="plan-tile"><span class="plan-l">${lbl}</span><strong class="plan-n">${v}</strong>${sub ? `<span class="plan-s">${sub}</span>` : ''}</div>`;
-  box.innerHTML = `<div class="plan-tiles">
-      ${tile('Registros', numTxt(o.registros), o.cpl ? `a ${eur(o.cpl)} por registro` : '')}
-      ${o.vip ? tile('Entradas VIP', numTxt(o.vip)) : ''}
-      ${tile('Ventas', numTxt(o.ventas))}
-      ${tile('Inversión en anuncios', o.inversion ? eur(o.inversion) : '–', o.inversionDia ? `${eur(o.inversionDia)} al día · ROAS ${o.roas ? o.roas.toLocaleString('es-ES', { maximumFractionDigits: 1 }) : '–'}` : '')}
-    </div>
-    <p class="muted small">Con la media de ${r.M.n} ${r.M.n === 1 ? 'lanzamiento anterior' : 'lanzamientos anteriores'} (escenario neutro, fiabilidad ${esc(r.M.fiabilidad)}). Se guardan como objetivos del lanzamiento y presupuesto del Planificador.</p>`;
+  const E = r.escenarios || {};
+  const roas1 = (x) => (x ? x.toLocaleString('es-ES', { maximumFractionDigits: 1 }) : '–');
+  const fila = (lbl, f) => `<tr><th scope="row">${lbl}</th>${ESCENARIOS.map((e) => `<td class="num${e.id === 'neutro' ? ' nl-neutro' : ''}">${E[e.id] ? f(E[e.id]) : '–'}</td>`).join('')}</tr>`;
+  const cambioPrecio = Math.round((r.escala - 1) * 100);
+  box.innerHTML = `<div class="tabla-scroll"><table class="nl-esc">
+      <thead><tr><th></th>${ESCENARIOS.map((e) => `<th class="num${e.id === 'neutro' ? ' nl-neutro' : ''}">${esc(e.label)}${e.id === 'neutro' ? ' ✓' : ''}</th>`).join('')}</tr></thead>
+      <tbody>
+        ${fila('Registros', (x) => numTxt(x.registros))}
+        ${o.vip ? fila('Entradas VIP', (x) => numTxt(x.vip)) : ''}
+        ${fila('Ventas', (x) => numTxt(x.ventas))}
+        ${fila('Coste por registro', (x) => (x.cpl ? eur(x.cpl) : '–'))}
+        ${fila('Inversión en anuncios', (x) => (x.inversion ? eur(x.inversion) : '–'))}
+        ${fila('Al día', (x) => (x.inversionDia ? eur(x.inversionDia) : '–'))}
+        ${fila('ROAS', (x) => roas1(x.roas))}
+      </tbody></table></div>
+    ${cambioPrecio ? `<div class="st-aviso"><span>💡 Has ${cambioPrecio > 0 ? 'subido' : 'bajado'} el precio del programa un ${Math.abs(cambioPrecio)} %. El cálculo supone que se convierte igual que antes; ${cambioPrecio > 0 ? 'con un precio más alto suele convertir menos, así que mira también el desfavorable' : 'con un precio más bajo puede convertir algo más'}.</span></div>` : ''}
+    <p class="muted small">Con ${r.M.n} ${r.M.n === 1 ? 'lanzamiento anterior' : 'lanzamientos anteriores'} (fiabilidad ${esc(r.M.fiabilidad)}). Se guardan los del <strong>neutro</strong> como objetivos del lanzamiento y presupuesto del Planificador.</p>`;
   $('#nl-meta-res').textContent = `${numTxt(o.registros)} registros · ${numTxt(o.ventas)} ventas`;
 }
 function pintarNl() {
   const box = $('#nl-preview');
-  if (!$('#nl-fecha').value) { box.innerHTML = '<div class="st-aviso info"><span>📅 Pon el día del directo y verás aquí todas las fechas calculadas.</span></div>'; pintarNlExtras(null); return; }
+  const p1 = $('#nl-fechas-p1');
+  if (!$('#nl-fecha').value) { p1.innerHTML = box.innerHTML = '<div class="st-aviso info"><span>📅 Pon el día del directo y verás aquí todas las fechas calculadas.</span></div>'; $('#nl-resumen-hacer').innerHTML = ''; pintarNlExtras(null); return; }
   let r;
-  try { r = calcularNl(); } catch (err) { box.innerHTML = `<p class="error">${esc(err.message)}</p>`; return; }
+  try { r = calcularNl(); } catch (err) { p1.innerHTML = box.innerHTML = `<p class="error">${esc(err.message)}</p>`; return; }
   pintarNlExtras(r);
+  const checksHtml = r.checks.length ? `<ul class="nl-mas">${r.checks.map((c) => `<li class="${c.nivel === 'error' ? 'nl-error' : 'nl-aviso'}">${c.nivel === 'error' ? '⛔' : '⚠️'} ${esc(c.texto)}</li>`).join('')}</ul>` : '';
+  p1.innerHTML = `<div class="nl-res"><div class="nl-res-cab"><strong>${r.origen === 'copia' ? `📋 Copia de «${esc(r.prev.name)}»` : '🧩 Plantilla estándar'}</strong>${r.origen === 'copia' && r.dias != null ? `<span class="st-chip">fechas ${r.dias >= 0 ? '+' : ''}${r.dias} días</span>` : ''}</div>
+    <ul class="nl-fechas">${resumenFechas(r.launch).map(([a, b]) => `<li><span>${esc(a)}</span><strong>${esc(b)}</strong></li>`).join('')}</ul>${checksHtml}</div>`;
+  pintarNlResumen(r);
   const tagOk = !state.tags.length || state.tags.map((t) => t.toLowerCase()).includes(r.launch.registroTag);
   const copia = r.origen === 'copia';
   box.innerHTML = `<div class="nl-res">
@@ -3741,16 +3826,18 @@ function pintarNl() {
       <ul class="nl-mas">
         <li>🏷️ Etiqueta de registro: <code>${esc(r.launch.registroTag)}</code> ${tagOk ? '' : $('#nl-tag').checked ? '<span class="st-chip">se crea en GHL al crear el lanzamiento</span>' : '<span class="st-chip">aún no existe en GHL: márcala abajo para crearla o créala en el formulario de registro</span>'}</li>
         ${copia ? '<li>✅ Se copian la oferta, los bonus, los precios, las etiquetas de VIP y compra, los textos, las barras, los recursos y los envíos del carrito.</li><li>🧹 Se dejan vacíos (son de cada edición): Zoom, grupo de WhatsApp, campaña de SendFlow y vídeo de la grabación.</li>' : ''}
+        ${r.checks.map((c) => `<li class="${c.nivel === 'error' ? 'nl-error' : 'nl-aviso'}">${c.nivel === 'error' ? '⛔' : '⚠️'} ${esc(c.texto)}</li>`).join('')}
         ${r.avisos.map((a) => `<li>⚠️ ${esc(a)}</li>`).join('')}
       </ul>
     </div>`;
 }
-for (const id of ['#nl-nombre', '#nl-fecha', '#nl-hora', '#nl-base']) $(id).addEventListener('input', pintarNl);
+for (const id of ['#nl-nombre', '#nl-fecha', '#nl-hora', '#nl-base']) $(id).addEventListener('input', () => { $('#nl-status').textContent = ''; pintarNl(); });
 $('#nl-base').addEventListener('change', pintarNl);
 $('#nl-carrito').addEventListener('input', () => { nlCarritoEditado = true; pintarNl(); });
 for (const [id, k] of [['#nl-captacion', 'captacion'], ['#nl-precio-vip', 'vip'], ['#nl-precio-prog', 'prog']]) $(id).addEventListener('input', () => { nlEditado.add(k); pintarNl(); });
 $('#nl-meta').addEventListener('input', pintarNl);
 $('#nl-tag').addEventListener('change', pintarNl);
+for (const id of ['#nl-zoom', '#nl-tareas', '#nl-wa', '#nl-sendflow']) $(id).addEventListener('change', pintarNl);
 $('#nl-bonus').addEventListener('change', pintarNl);
 $('#nl-base').addEventListener('change', () => { const c = $('#nl-base').value; nlPrefill(c ? state.config.launches[c] : null); pintarNl(); });
 $('#nl-meta-calc').addEventListener('click', async (e) => {
@@ -3778,6 +3865,8 @@ $('#nl-crear').addEventListener('click', async () => {
   if (!$('#nl-nombre').value.trim()) { st.textContent = 'Ponle un nombre al lanzamiento.'; $('#nl-nombre').focus(); return; }
   if (!LAUNCH_CODE_RE.test(r.code)) { st.textContent = 'El código solo puede llevar minúsculas, números y guiones (2-24).'; return; }
   if (r.usados.includes(r.code)) { st.textContent = `Ya existe «${r.code}»: cambia el código.`; return; }
+  const errores = r.checks.filter((c) => c.nivel === 'error');
+  if (errores.length && !window.confirm(`${errores.map((c) => c.texto).join('\n')}\n\n¿Crear el lanzamiento igualmente?`)) return;
   const b = $('#nl-crear');
   b.disabled = true;
   const hecho = [];
@@ -3790,7 +3879,13 @@ $('#nl-crear').addEventListener('click', async () => {
       for (const v of vids) {
         st.textContent = `Creando la sala de Zoom${vids.length > 1 ? ` del vídeo ${v.k}` : ''}…`;
         try {
-          const z = await api('/api/zoom-sala', { method: 'POST', body: { topic: `${clienteNombre() ? `${clienteNombre()} · ` : ''}${launch.name}${vids.length > 1 ? ` · ${nombreVideo(launch.formato || embudoInfo()?.formato, v.k)}` : ''}`, fecha: v.fecha, hora: v.hora, copiarDe: v.copiarDe } });
+          // Reintento: la sala ya creada para este vídeo, día y hora se reutiliza (no se crea otra).
+          const clave = `zoom|${v.k}|${v.fecha}|${v.hora}`;
+          const otra = Object.entries(nlCreados).find(([k]) => k.startsWith(`zoom|${v.k}|`) && k !== clave);
+          if (otra) hecho.push(`⚠️ Antes se creó otra sala para otra fecha (ID ${otra[1].id}): bórrala en Zoom`);
+          const z = nlCreados[clave] || await api('/api/zoom-sala', { method: 'POST', body: { topic: `${clienteNombre() ? `${clienteNombre()} · ` : ''}${launch.name}${vids.length > 1 ? ` · ${nombreVideo(launch.formato || embudoInfo()?.formato, v.k)}` : ''}`, fecha: v.fecha, hora: v.hora, copiarDe: v.copiarDe } });
+          nlCreados[clave] = z;
+          if (otra) delete nlCreados[otra[0]];
           if (v.k === 1) Object.assign(launch, { zoomMeetingId: z.id, zoomJoinUrl: z.joinUrl });
           else Object.assign(launch.videos[v.k - 2], { zoomMeetingId: z.id, zoomJoinUrl: z.joinUrl });
           hecho.push(`🎥 Sala de Zoom${vids.length > 1 ? ` del vídeo ${v.k}` : ''} creada (ID ${z.id})`);
@@ -3803,7 +3898,8 @@ $('#nl-crear').addEventListener('click', async () => {
     if ($('#nl-sendflow').checked && state.sendflowConfigured) {
       st.textContent = 'Creando la campaña en SendFlow…';
       try {
-        const c = await api('/api/nuevo-lanzamiento', { method: 'POST', body: { op: 'sendflow', nombre: `${clienteNombre() ? `${clienteNombre()} · ` : ''}${launch.name}` } });
+        const c = nlCreados.sendflow || await api('/api/nuevo-lanzamiento', { method: 'POST', body: { op: 'sendflow', nombre: `${clienteNombre() ? `${clienteNombre()} · ` : ''}${launch.name}` } });
+        nlCreados.sendflow = c;
         launch.sendflowId = c.id;
         hecho.push('📲 Campaña de SendFlow creada y vinculada');
       } catch (err) { hecho.push(`⚠️ No se creó la campaña de SendFlow: ${err.message}`); }
@@ -3823,7 +3919,7 @@ $('#nl-crear').addEventListener('click', async () => {
       return x.creada ? `🏷️ Etiqueta «${x.tag}» creada en GHL` : `🏷️ La etiqueta «${x.tag}» ya existía en GHL`;
     });
     await extra(r.prev && $('#nl-tareas').checked, 'Copiando las tareas…', 'tareas', { l: r.code, de: r.prevCode }, (x) => (x.copiadas ? `🗓️ ${x.copiadas} tareas copiadas` : '🗓️ El anterior no tenía tareas'));
-    await extra(r.prev && $('#nl-wa').checked, 'Copiando los mensajes del grupo…', 'whatsapp', { l: r.code, de: r.prevCode }, (x) => (x.copiados ? `💬 ${x.copiados} mensajes del grupo en borrador` : '💬 El anterior no tenía mensajes del grupo'));
+    await extra(r.prev && $('#nl-wa').checked, 'Copiando los mensajes del grupo…', 'whatsapp', { l: r.code, de: r.prevCode }, (x) => (x.copiados ? `💬 ${x.copiados} mensajes del grupo en borrador${x.fechas ? ` (${x.fechas} fechas u horas del texto movidas: revísalas)` : ''}` : '💬 El anterior no tenía mensajes del grupo'));
     if (r.objetivos) hecho.push(`🎯 Objetivos: ${numTxt(r.objetivos.registros)} registros · ${numTxt(r.objetivos.ventas)} ventas${r.objetivos.inversion ? ` · ${eur(r.objetivos.inversion)} de inversión` : ''}`);
     renderLaunchSelect();
     await selectLaunch(r.code);
@@ -3834,7 +3930,7 @@ $('#nl-crear').addEventListener('click', async () => {
     const desdeEmbudo = nlDesdeEmbudo;
     nlCreado = true;
     nlDlg.close();
-    celebrar({ embudo: state.embudo, code: r.code, hecho, desdeEmbudo, alSeguir: () => openConfig(r.code) });
+    celebrar({ embudo: state.embudo, code: r.code, hecho, desdeEmbudo, copiaDe: r.prev ? r.prevCode : '', alSeguir: () => openConfig(r.code) });
   } catch (err) {
     st.textContent = err.message;
   } finally {
@@ -3880,7 +3976,7 @@ function confeti(canvas) {
   requestAnimationFrame(paso);
 }
 // opts: { embudo: id, code?: lanzamiento creado, hecho?: [texto], desdeEmbudo?, alSeguir?: () => {} }
-async function celebrar({ embudo, code = '', hecho = [], desdeEmbudo = false, alSeguir = null } = {}) {
+async function celebrar({ embudo, code = '', hecho = [], desdeEmbudo = false, copiaDe = '', alSeguir = null } = {}) {
   const e = embudoInfo(embudo) || {};
   const launch = code ? state.config.launches[code] : null;
   const esEmbudo = !launch || desdeEmbudo;
@@ -3892,10 +3988,15 @@ async function celebrar({ embudo, code = '', hecho = [], desdeEmbudo = false, al
   $('#fiesta-pasos').innerHTML = siguientesPasos({ embudo: e, launch, tagExiste: Boolean(launch?.registroTag && state.tags.some((t) => t.toLowerCase() === launch.registroTag.toLowerCase())) }).map((p) => `<li><strong>${p.icono} ${esc(p.titulo)}</strong><span>${esc(p.detalle)}</span></li>`).join('');
   $('#fiesta-ok').textContent = launch ? 'Revisar la configuración →' : 'Empezar →';
   fiestaSeguir = alSeguir;
+  fiestaCode = launch ? code : '';
+  $('#fiesta-deshacer').hidden = !launch;
+  $('#fiesta-deshacer').disabled = false;
   const em = $('#fiesta-email');
   em.textContent = '📧 Te estoy mandando estos pasos a tu email para que los tengas a mano…';
+  $('#fiesta-emails').innerHTML = '';
   fiestaDlg.showModal();
   confeti($('#fiesta-confeti'));
+  if (launch && copiaDe && state.config.launches[copiaDe]) pintarEmailsReprogramar(copiaDe, launch);
   try {
     const r = await api('/api/siguientes-pasos', { method: 'POST', body: { embudo, ...(code ? { launch: code } : {}) } });
     em.textContent = r.enviado ? `📧 Te hemos enviado estos pasos a ${r.email}: así los tienes a mano cuando vuelvas.` : `📧 ${r.motivo || 'No se ha podido enviar el email.'} Los tienes aquí y en la barra «Listo para lanzar».`;
@@ -3903,7 +4004,47 @@ async function celebrar({ embudo, code = '', hecho = [], desdeEmbudo = false, al
     em.textContent = `📧 No se ha podido enviar el email (${err.message}). Los pasos los tienes aquí y en la barra «Listo para lanzar».`;
   }
 }
+let fiestaCode = '';
+// Emails del anterior a volver a programar en GHL con su fecha nueva (los de campañas; los de workflows van solos).
+async function pintarEmailsReprogramar(prevCode, launch) {
+  const box = $('#fiesta-emails');
+  box.innerHTML = '<p class="muted small">📧 Buscando los emails del lanzamiento anterior…</p>';
+  try {
+    const d = await api(`/api/emails?l=${encodeURIComponent(prevCode)}`);
+    const { campanas, workflows } = emailsAReprogramar(d.emails || [], desplazamiento(state.config.launches[prevCode], launch.fechaDirecto, launch.horaDirecto));
+    if (!campanas.length && !workflows) { box.innerHTML = ''; return; }
+    box.innerHTML = `<details class="fiesta-det" open><summary>📧 Emails a reprogramar en GHL (${campanas.length})</summary>
+      ${campanas.length ? `<p class="muted small">Duplica cada campaña del anterior en GHL y prográmala para su día nuevo (a la misma hora):</p>
+      <ul class="fiesta-mails">${campanas.map((c) => `<li><strong>${esc(c.asunto || c.nombre)}</strong><span>${esc(fechaBonitaDia(c.antes))} → <b>${esc(fechaBonitaDia(c.despues))}</b></span></li>`).join('')}</ul>` : ''}
+      ${workflows ? `<p class="muted small">Y ${workflows} ${workflows === 1 ? 'email de workflow, que se envía solo' : 'emails de workflows, que se envían solos'}: revisa que el workflow use la etiqueta nueva «${esc(launch.registroTag || '')}».</p>` : ''}
+    </details>`;
+  } catch {
+    box.innerHTML = '';
+  }
+}
+const fechaBonitaDia = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '').replace(',', '');
 $('#fiesta-ok').addEventListener('click', () => fiestaDlg.close());
+// Deshacer (24 h): borra el lanzamiento, sus salas de Zoom, sus tareas y mensajes y la campaña de SendFlow si la creó el asistente.
+$('#fiesta-deshacer').addEventListener('click', async (e) => {
+  const code = fiestaCode;
+  const l = state.config.launches[code];
+  if (!l || !window.confirm(`¿Deshacer «${l.name}»? Se borran el lanzamiento${l.zoomMeetingId ? ', su sala de Zoom' : ''}, sus tareas y los mensajes del grupo${nlCreados.sendflow ? ' y la campaña de SendFlow' : ''}.`)) return;
+  e.target.disabled = true;
+  try {
+    const r = await api('/api/nuevo-lanzamiento', { method: 'POST', body: { op: 'deshacer', l: code, sendflow: Boolean(nlCreados.sendflow && nlCreados.sendflow.id === l.sendflowId) } });
+    nlCreados = {};
+    fiestaSeguir = null;
+    fiestaDlg.close();
+    state.config = (await api('/api/config')).config;
+    renderLaunchSelect();
+    const otro = nlPrevios()[0]?.[0];
+    if (otro) await selectLaunch(otro); else render();
+    notice(`↩️ Deshecho: ${r.hecho.join(' · ')}.${r.avisos.length ? ` ${r.avisos.join(' ')}` : ''}`);
+  } catch (err) {
+    e.target.disabled = false;
+    notice(err.message, true);
+  }
+});
 fiestaDlg.addEventListener('close', () => {
   const seguir = fiestaSeguir;
   fiestaSeguir = null;

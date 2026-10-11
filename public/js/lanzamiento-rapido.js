@@ -45,7 +45,9 @@ export function moverFechas(obj, m) {
 }
 
 // Lo propio de cada edición, que no se copia del lanzamiento anterior.
-const PROPIOS = ['name', 'createdAt', 'registroTag', 'zoomMeetingId', 'zoomJoinUrl', 'replayVideoUrl', 'whatsappUrl', 'sendflowId', 'snapshot', 'embudo'];
+const PROPIOS = ['name', 'createdAt', 'registroTag', 'zoomMeetingId', 'zoomJoinUrl', 'replayVideoUrl', 'whatsappUrl', 'sendflowId', 'snapshot', 'embudo', 'objetivos', 'inversion', 'resultados'];
+// De los supuestos del Planificador, lo que es de cada edición (el resto, como el ROAS objetivo, se mantiene).
+const PROPIOS_CALC = ['presupuesto', 'diasCaptacion'];
 const PROPIOS_VIDEO = ['zoomMeetingId', 'zoomJoinUrl', 'replayVideoUrl'];
 
 // Código del lanzamiento: nombre del embudo + mes y año del directo (p. ej. «camino-nov26»), sin chocar con otros.
@@ -111,7 +113,19 @@ export function nuevoLanzamiento({ code, nombre, fecha, hora, prev = null, prevC
     const base = structuredClone(prev);
     for (const k of PROPIOS) delete base[k];
     if (Array.isArray(base.videos)) base.videos = base.videos.map((v) => { const x = { ...v }; for (const k of PROPIOS_VIDEO) delete x[k]; return x; });
+    if (base.calculadora) { base.calculadora = { ...base.calculadora }; for (const k of PROPIOS_CALC) delete base.calculadora[k]; }
     launch = moverFechas(base, m);
+    // Filtros de Meta y de emails: con el código nuevo; si no llevaban el código del anterior, se quitan (si no, se
+    // sumarían la inversión y los emails del anterior).
+    for (const [k, que, ahora] of [['metaFiltro', 'El filtro de campañas de Meta', 'cuenta las campañas con el código nuevo en el nombre'], ['emailFiltro', 'El filtro de emails', 'cuenta los emails enviados en las fechas del nuevo']]) {
+      const v = String(launch[k] || '');
+      if (!v) continue;
+      if (prevCode && v.includes(prevCode)) launch[k] = v.split(prevCode).join(code);
+      else {
+        launch[k] = '';
+        avisos.push(`${que} del anterior era «${v}»: lo he quitado para no mezclar sus datos (ahora ${ahora}). Si tus nombres son de otra forma, cámbialo en Configuración.`);
+      }
+    }
     // Los vídeos 2.º y siguientes conservan su hora; el 1.º es el directo que se pide.
     launch.fechaDirecto = fecha;
     launch.horaDirecto = hora;
@@ -245,11 +259,69 @@ const reemplazar = (txt, cambios) => cambios.reduce((t, [a, b]) => (a.startsWith
   ? t.replace(new RegExp(`([?&])${a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`, 'g'), `$1${b}`)
   : t.split(a).join(b)), String(txt || ''));
 
-// Mensajes del grupo de WhatsApp del anterior para el nuevo: en borrador, con la fecha movida y los enlaces cambiados.
+// Fechas escritas en un texto («martes 20 de octubre», «20 de octubre de 2026», «20/10»), movidas los días del cambio,
+// y la hora del directo si cambia («19:00» → «18:00»). anio: el del mensaje (para las fechas sin año).
+const DIAS_SEM = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const MESES_L = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const quitarTilde = (w) => w.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const mayus = (w, como) => (como && como[0] === como[0].toUpperCase() && como[0] !== como[0].toLowerCase() ? w[0].toUpperCase() + w.slice(1) : w);
+const diaSemana = (iso) => DIAS_SEM[new Date(`${iso}T12:00:00Z`).getUTCDay()];
+function isoDe(dia, mes, anio, ref) {
+  let y = anio ? Number(String(anio).length === 2 ? `20${anio}` : anio) : Number(ref.slice(0, 4));
+  if (!anio) { const mRef = Number(ref.slice(5, 7)); if (mes < mRef - 6) y += 1; else if (mes > mRef + 6) y -= 1; }
+  const iso = `${y}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+  return DIA_RE.test(iso) && !Number.isNaN(Date.parse(`${iso}T12:00:00Z`)) && new Date(`${iso}T12:00:00Z`).getUTCDate() === Number(dia) ? iso : null;
+}
+export function moverFechasTexto(texto, m, ref = '2026-01-01') {
+  let n = 0;
+  let t = String(texto || '');
+  if (!m || (!m.dias && !m.minutos)) return { texto: t, n };
+  if (m.dias) {
+    const semRe = '(?:(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo),?\\s+)?';
+    const largo = new RegExp(`${semRe}(\\d{1,2})\\s+de\\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)(?:\\s+(?:de\\s+|del\\s+)?(\\d{4}))?`, 'gi');
+    t = t.replace(largo, (todo, sem, d, mes, anio) => {
+      const mi = MESES_L.indexOf(quitarTilde(mes) === 'setiembre' ? 'septiembre' : quitarTilde(mes));
+      const iso = isoDe(Number(d), mi + 1, anio, ref);
+      if (!iso) return todo;
+      const nuevo = sumarDias(iso, m.dias);
+      n++;
+      const [y, mm, dd] = nuevo.split('-');
+      const mesTxt = mayus(MESES_L[Number(mm) - 1], mes);
+      return `${sem ? `${mayus(diaSemana(nuevo), sem)} ` : ''}${Number(dd)} de ${mesTxt}${anio ? (todo.includes(' del ') ? ` del ${y}` : ` de ${y}`) : ''}`;
+    });
+    // «20/10»: solo si es una fecha cercana a la del mensaje (±90 días), para no tocar «2/3» u otras cifras.
+    t = t.replace(/(?<![\w/.,])(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?(?![\w/])/g, (todo, d, mes, anio) => {
+      const iso = isoDe(Number(d), Number(mes), anio, ref);
+      if (!iso || Math.abs(diasEntre(ref, iso)) > 90) return todo;
+      const [y, mm, dd] = sumarDias(iso, m.dias).split('-');
+      n++;
+      const pad = (v, como) => (como.length === 2 ? v : String(Number(v)));
+      return `${pad(dd, d)}/${pad(mm, mes)}${anio ? `/${anio.length === 2 ? y.slice(2) : y}` : ''}`;
+    });
+  }
+  if (m.minutos && Number.isFinite(m.horaAnt)) {
+    const viejo = deMin(m.horaAnt);
+    const nuevaMin = (m.horaAnt + m.minutos + 1440) % 1440;
+    const re = new RegExp(`(?<!\\d)${viejo.replace(':', '[:.]')}(?!\\d)`, 'g');
+    t = t.replace(re, () => { n++; return deMin(nuevaMin); });
+  }
+  return { texto: t, n };
+}
+
+// Mensajes del grupo de WhatsApp del anterior para el nuevo: en borrador, con la fecha movida, los enlaces cambiados
+// y las fechas escritas en el texto movidas (fechasCambiadas: cuántas, para revisarlas).
 export function copiarMensajes(mensajes = [], m, cambios = []) {
   return mensajes.filter((x) => x && x.estado !== 'cancelado').map((x) => {
     const { id, estado, error, actionId, programadoEn, ...resto } = x;
-    return { ...resto, at: x.at ? moverValor(x.at, m) : '', texto: reemplazar(x.texto, cambios), url: reemplazar(x.url, cambios), estado: 'borrador' };
+    const ref = String(x.at || '').slice(0, 10) || m?.diaAnt || '2026-01-01';
+    const tx = moverFechasTexto(reemplazar(x.texto, cambios), m, ref);
+    const gu = moverFechasTexto(x.guion, m, ref);
+    const en = x.encuesta ? moverFechasTexto(x.encuesta.pregunta, m, ref) : null;
+    return {
+      ...resto, at: x.at ? moverValor(x.at, m) : '', texto: tx.texto, url: reemplazar(x.url, cambios), estado: 'borrador',
+      ...(x.guion ? { guion: gu.texto } : {}), ...(en ? { encuesta: { ...x.encuesta, pregunta: en.texto } } : {}),
+      fechasCambiadas: tx.n + gu.n + (en?.n || 0),
+    };
   });
 }
 
@@ -257,4 +329,33 @@ export function copiarMensajes(mensajes = [], m, cambios = []) {
 export function desplazamiento(prev, fecha, hora) {
   if (!prev || !DIA_RE.test(prev.fechaDirecto || '') || !DIA_RE.test(fecha || '')) return null;
   return { dias: diasEntre(prev.fechaDirecto, fecha), diaAnt: prev.fechaDirecto, horaAnt: aMin(prev.horaDirecto || hora), minutos: prev.horaDirecto ? aMin(hora) - aMin(prev.horaDirecto) : 0 };
+}
+
+// Comprobaciones antes de crear: [{ nivel: 'error' | 'aviso', texto }]
+//   · el directo ya ha pasado (error: hay que confirmarlo) · la captación empieza antes de hoy
+//   · se solapa con otro lanzamiento del mismo embudo (de la captación al cierre del carrito)
+export function comprobarFechas(launch, otros = [], hoy) {
+  const out = [];
+  const cierreDia = (l) => String(cierrePorDias(l) || l.cierreCarrito || '').slice(0, 10) || l.fechaDirecto;
+  if (DIA_RE.test(launch.fechaDirecto || '') && launch.fechaDirecto < hoy) out.push({ nivel: 'error', texto: `El directo (${fechaBonita(launch.fechaDirecto)}) ya ha pasado.` });
+  else if (DIA_RE.test(launch.inicioCaptacion || '') && launch.inicioCaptacion < hoy) out.push({ nivel: 'aviso', texto: `La captación empezaría el ${fechaBonita(launch.inicioCaptacion)}, que ya ha pasado: quedan ${diasEntre(hoy, launch.fechaDirecto)} días hasta el directo.` });
+  const ini = launch.inicioCaptacion || launch.fechaDirecto;
+  const fin = cierreDia(launch);
+  for (const [nombre, l] of otros) {
+    const a = l.inicioCaptacion || l.fechaDirecto;
+    const b = cierreDia(l);
+    if (!DIA_RE.test(a || '') || !DIA_RE.test(b || '') || !ini || !fin) continue;
+    if (a <= fin && ini <= b) out.push({ nivel: 'aviso', texto: `Se solapa con «${nombre}» (${fechaBonita(a)} → ${fechaBonita(b)}): los dos captarían o venderían a la vez.` });
+  }
+  return out;
+}
+
+// Emails del anterior que hay que volver a programar en GHL (las campañas con fecha), con su fecha nueva.
+//   emails: los de Métricas → Emails del anterior ([{ tipo: 'campana' | 'workflow', nombre, asunto, fecha }])
+// → { campanas: [{ nombre, asunto, antes, despues }], workflows: nº de emails de workflows (se envían solos) }
+export function emailsAReprogramar(emails = [], m) {
+  const campanas = emails.filter((e) => e.tipo === 'campana' && DIA_RE.test(String(e.fecha || '').slice(0, 10)))
+    .map((e) => { const antes = String(e.fecha).slice(0, 10); return { nombre: e.nombre, asunto: e.asunto || '', antes, despues: m ? sumarDias(antes, m.dias) : antes }; })
+    .sort((a, b) => a.antes.localeCompare(b.antes));
+  return { campanas, workflows: emails.filter((e) => e.tipo === 'workflow').length };
 }

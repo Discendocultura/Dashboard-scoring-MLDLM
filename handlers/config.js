@@ -73,6 +73,17 @@ export async function POST(request) {
       return json({ config, version: versionDe(config) });
     }
     // Objetivos y supuestos de la calculadora de un lanzamiento (pestaña Plan → Planificador).
+    // Resultados de un lanzamiento ya calculados (Planificador): se guardan con él para cualquier dispositivo.
+    if (body.op === 'resultados') {
+      const code = String(body.l || '');
+      const config = await reintentando(async () => {
+        const actual = await getConfig({ fresh: true });
+        if (!actual.launches[code]) throw Object.assign(new Error('Lanzamiento no encontrado'), { status: 404, publicMessage: 'Lanzamiento no encontrado' });
+        const l = { ...actual.launches[code], resultados: { ...(body.resultados || {}), at: new Date().toISOString() } };
+        return saveConfig({ ...actual, launches: { ...actual.launches, [code]: l } }, { version: versionDe(actual), motivo: 'Resultados del lanzamiento' });
+      });
+      return json({ config, version: versionDe(config) });
+    }
     if (body.op === 'objetivos') {
       const code = String(body.l || '');
       const config = await reintentando(async () => {

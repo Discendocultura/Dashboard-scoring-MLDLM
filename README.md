@@ -769,7 +769,8 @@ Durante el calentamiento muestra «la oferta se abre en…», con la oferta abie
 **Oferta y bonus del meteórico**: en *Configurar → Oferta* van los entregables y los bonus: **BAR 30 min** y **BAR 1 h** (para quien compra en los primeros 30 minutos o en la primera hora tras abrir), BAR 24 h / 48 h y bonus de toda la oferta (o con fin a mano). La pestaña **Oferta** del embudo (y la sección de abajo en *Métricas → Downsell*) cruza los bonus con las ventas **hora a hora**: ventas en la ventana de cada bonus, ritmo de ventas por hora mientras estuvo activo frente al resto de la oferta y el empujón de los últimos minutos antes de que caduque. Para medir por horas hace falta la **hora** de cada compra: un campo de **texto** en GHL que el workflow de compra rellene con la fecha y hora (`{{right_now}}`), elegido como «Campo de fecha de compra» (el desplegable muestra los de fecha y los de texto). Con un campo de solo fecha, la oferta se ve pero el análisis por horas no.
 
 ## ⚡ Nuevo lanzamiento rápido
-«Nuevo lanzamiento» (y al crear un embudo de lanzamientos) abre un asistente: **nombre**, **día y hora del directo**
+«Nuevo lanzamiento» (y al crear un embudo de lanzamientos) abre un asistente **en 4 pasos** (① Fechas ② Oferta y objetivo
+③ Qué te dejo hecho ④ Revisar y crear; Intro pasa al siguiente): **nombre**, **día y hora del directo**
 (en los de varios vídeos, del 1.º), **días de carrito abierto** (propone los del anterior; fijan el cierre: desde el día
 siguiente al vídeo de venta, el último a las 23:59) y **de qué lanzamiento copiar** (el último del embudo, por defecto). Con eso:
 - **Copia el anterior entero** (oferta, bonus, precios, etiquetas de VIP y compra, textos, barras, recursos, envíos y
@@ -803,7 +804,23 @@ siguiente al vídeo de venta, el último a las 23:59) y **de qué lanzamiento co
   - 🏷️ **Crear la etiqueta de registro en GHL** (desmarcada de serie: escribe en GHL; si ya existe, no se puede marcar).
   - 📲 **Crear la campaña de grupos en SendFlow** (`POST /releases`, tipo WhatsRelease; desmarcada de serie) y vincularla
     al lanzamiento. Los grupos y el enlace de entrada se hacen en SendFlow. *Ruta de SendAPI aún sin probar con la real.*
-  Si algo falla, el lanzamiento se crea igual y la pantalla de enhorabuena lo marca con ⚠️.
+  Si algo falla, el lanzamiento se crea igual y la pantalla de enhorabuena lo marca con ⚠️. Si se reintenta tras un
+  fallo, las salas de Zoom y la campaña de SendFlow ya creadas se reutilizan (no se duplican).
+- **Lo que no se copia** (es de cada edición): objetivos, inversión a mano, presupuesto y días de captación del
+  Planificador y sus resultados. Los **filtros de Meta y de emails** pasan al código nuevo si llevaban el del anterior; si
+  no, se quitan (y se avisa) para no sumar la inversión ni los emails del anterior.
+- **Mensajes copiados**: también se mueven las fechas escritas en el texto («martes 20 de octubre», «20/10» si es una
+  fecha cercana) y la hora del directo si cambia («19:00» → «18:00»); la pantalla dice cuántas, para revisarlas.
+- **Comprobaciones**: directo ya pasado (hay que confirmarlo), captación que empezaría antes de hoy y solape con otro
+  lanzamiento del mismo embudo (de la captación al cierre del carrito).
+- **Objetivo**: los tres escenarios (desfavorable, neutro ✓, favorable); se guardan los del neutro. Los resultados de
+  cada lanzamiento que calcula el Planificador se guardan también en el servidor (`op: 'resultados'`), así el cálculo es
+  igual en cualquier dispositivo. Si cambias el precio del programa, avisa de que se supone la misma conversión.
+- **↩️ Deshacer** (pantalla de enhorabuena, hasta 24 h después): borra el lanzamiento, sus salas de Zoom, sus tareas y
+  sus mensajes en borrador y la campaña de SendFlow si la creó el asistente (no si ya hay mensajes programados). La
+  etiqueta de GHL se queda. *Borrar la campaña en SendAPI (`DELETE /releases/<id>`) aún sin probar con la real.*
+- **📧 Emails a reprogramar**: en la pantalla de enhorabuena, las campañas de email del anterior con su fecha nueva
+  (para duplicarlas y programarlas en GHL) y cuántos emails de workflows hay (van solos: revisar la etiqueta nueva).
   Código: `handlers/nuevo-lanzamiento.js` (`POST /api/nuevo-lanzamiento`, ops `tareas`, `whatsapp`, `etiqueta`, `sendflow`; permiso «config»).
 - Vista previa con las fechas en claro antes de crear; al crear, se guarda, se hace la «foto» de etiquetas y sale la
   **pantalla de enhorabuena** (ver abajo); su botón abre la Configuración para revisar (la barra «Listo para lanzar» marca lo que falte). «Configurar a mano» abre el
