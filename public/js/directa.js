@@ -81,6 +81,8 @@ export function sanitizeDirecta(d = {}) {
     compraEtapa: str(d?.compraEtapa, 60).replace(/[^A-Za-z0-9_-]/g, ''),
     // Producto principal al que se quiere llevar a las compradoras más tarde (upsell posterior): sus etiquetas de compra.
     upsellPrincipal: sanitizeUpsellPrincipal(d?.upsellPrincipal, d?.compraTag),
+    // Mensaje de WhatsApp del seguimiento a las que no tienen el producto principal ({nombre}, {producto}, {principal}, {setter}).
+    mensajeSeguimiento: str(d?.mensajeSeguimiento, 1000),
     partes,
     bumps: sanitizeBumps(d?.bumps),
     upsells: sanitizeOfertas(d?.upsells, 'up'),

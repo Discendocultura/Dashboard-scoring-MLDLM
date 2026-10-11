@@ -42,6 +42,7 @@ import { promptEncuesta, libresAgrupadas } from './encuesta-ia.js';
 import { lanzamientoAAnalizar, promptAnalisis } from './analisis-ia.js';
 import { codigoMeta, choquesMeta, ejemploCampana } from './meta-codigo.js';
 import { UMBRALES as UMBRALES_PUBLI } from './publicidad.js';
+import { mensajeSeguimiento, porEtapa as segPorEtapa } from './seguimiento.js';
 import { ESTADOS_AUTO, autoCtx, automatizacionesDe, promptAutomatizacion, descripcionIaGhl, promptPreparacion, revisarExistente } from './automatizaciones.js';
 import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa } from './narrativa.js';
 import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, asuntosGanadores, promptEmails } from './emails-ia.js';
@@ -8620,7 +8621,7 @@ async function abrirFicha(id) {
     if (fichaLlamada === c) pintarFicha(c, null, e.message);
   }
 }
-const fichaUrl = (cid) => `/api/ficha?cid=${encodeURIComponent(cid)}${!enVsl() && state.launchCode ? `&l=${encodeURIComponent(state.launchCode)}` : ''}`;
+const fichaUrl = (cid) => `/api/ficha?cid=${encodeURIComponent(cid)}${!enVsl() && !enDirecta() && !enMeteo() && state.launchCode ? `&l=${encodeURIComponent(state.launchCode)}` : ''}`;
 // Ficha de un lead sin llamada (pestaña Leads): la misma, sin la cita ni el resultado.
 async function abrirFichaLead(id) {
   const c = { id: `lead-${id}`, contactId: id, sinLlamada: true };
@@ -11080,8 +11081,13 @@ function renderDirectaClientes(D) {
   const extras = [...(conParte(d, 'bumps') ? d.bumps || [] : []).map((o) => ({ ...o, t: '➕' })), ...(conParte(d, 'upsell') ? d.upsells || [] : []).map((o) => ({ ...o, t: '⬆️' })), ...(conParte(d, 'downsell') ? d.downsells || [] : []).map((o) => ({ ...o, t: '⬇️' }))].filter((o) => o.tag);
   const sel = $('#dc-filtro');
   const antes = sel.value;
-  sel.innerHTML = `<option value="">Todas</option><option value="-">Sin ningún extra</option><option value="+">Con algún extra</option>${extras.map((o) => `<option value="${esc(o.id)}">${o.t} ${esc(o.nombre || o.tag)}</option>`).join('')}`;
+  const principal = d.upsellPrincipal?.tags?.length ? d.upsellPrincipal.nombre || 'el producto principal' : '';
+  sel.innerHTML = `${principal ? `<option value="seg">📞 Sin ${esc(principal)} · seguimiento</option>` : ''}<option value="">Todas</option><option value="-">Sin ningún extra</option><option value="+">Con algún extra</option>${extras.map((o) => `<option value="${esc(o.id)}">${o.t} ${esc(o.nombre || o.tag)}</option>`).join('')}`;
   sel.value = [...sel.options].some((o) => o.value === antes) ? antes : '';
+  const enSeg = sel.value === 'seg';
+  $('#dc-tabla').hidden = enSeg;
+  $('#dc-seg').hidden = !enSeg;
+  if (enSeg) { cargarSeguimiento(); return; }
   if (!D || D.error) { $('#dc-body').innerHTML = `<tr><td colspan="4" class="muted">${D?.error ? esc(D.error) : 'Cargando…'}</td></tr>`; $('#dc-n').textContent = ''; return; }
   const q = $('#dc-buscar').value.trim().toLowerCase();
   const f = sel.value;
@@ -11127,6 +11133,138 @@ function renderDirectaAnuncios(D) {
 $('#dan-level').addEventListener('click', (e) => { const b = e.target.closest('[data-dl]'); if (!b) return; state.danLevel = b.dataset.dl; renderDirectaAnuncios(state.directa.datos); });
 $('#dan-orden').addEventListener('click', (e) => { const b = e.target.closest('[data-do]'); if (!b) return; state.danOrden = b.dataset.do; renderDirectaAnuncios(state.directa.datos); });
 $('#dc-buscar').addEventListener('input', () => renderDirectaClientes(state.directa.datos));
+
+// ---------- 📞 Seguimiento: compradoras sin el producto principal (p. ej. del Reto a Raíces) ----------
+// Formato de Llamadas: una tarjeta por persona con sus datos, su etapa en el pipeline (el del workflow de compra,
+// p. ej. «Leads evergreen»), WhatsApp con el mensaje escrito, llamar, su ficha y cambiar de etapa (con nota).
+state.seg = { id: '', datos: null, etapa: 'pendientes', soloPeriodo: false, cargando: false };
+async function cargarSeguimiento({ fresh = false } = {}) {
+  const id = state.embudo;
+  if (!fresh && state.seg.id === id && state.seg.datos) { renderSeguimiento(); return; }
+  if (state.seg.cargando === id && !fresh) return;
+  state.seg = { ...state.seg, id, datos: null, cargando: id };
+  renderSeguimiento();
+  let d;
+  try { d = await api(`/api/seguimiento?d=${encodeURIComponent(id)}${fresh ? '&fresh=1' : ''}`); } catch (e) { d = { error: e.message }; }
+  if (state.embudo !== id) return;
+  state.seg = { ...state.seg, datos: d, cargando: false };
+  renderSeguimiento();
+}
+const segEtapaPendiente = (x, S) => !x.etapa || x.etapa === S.etapaInicial;
+function renderSeguimiento() {
+  const caja = $('#dc-seg');
+  const S = state.seg.datos;
+  if (!S) { caja.innerHTML = '<p class="muted">Cargando todas las compradoras y su etapa en el pipeline…</p>'; $('#dc-n').textContent = ''; return; }
+  if (S.error) { caja.innerHTML = `<div class="notice err">${esc(S.error)}</div>`; return; }
+  if (!S.configurado) { caja.innerHTML = `<div class="notice warn">${esc(S.motivo)}${puedeConfig() ? ' <button type="button" class="btn small" data-dir-config-seg>⚙️ Configurar el embudo</button>' : ''}</div>`; return; }
+  const stages = S.pipeline?.stages || [];
+  const nombreEtapa = (sid) => stages.find((x) => x.id === sid)?.name || '';
+  const n = segPorEtapa(S.lista);
+  const pendientes = S.lista.filter((x) => segEtapaPendiente(x, S)).length;
+  const periodo = state.directa.datos?.rango;
+  const enPeriodo = (x) => !periodo || (x.dia >= periodo.desde && x.dia <= periodo.hasta);
+  const q = $('#dc-buscar').value.trim().toLowerCase();
+  const f = state.seg.etapa;
+  const lista = S.lista.filter((x) => (!state.seg.soloPeriodo || enPeriodo(x))
+    && (!q || `${x.name} ${x.email} ${x.phone}`.toLowerCase().includes(q))
+    && (f === 'todas' || (f === 'pendientes' ? segEtapaPendiente(x, S) : x.etapa === f)));
+  $('#dc-n').textContent = `${lista.length.toLocaleString('es-ES')} de ${S.lista.length.toLocaleString('es-ES')} sin ${S.principal || 'el producto principal'} (de ${S.compradoras.toLocaleString('es-ES')} compradoras)`;
+  const chip = (val, txt, num, color = '') => `<button type="button" class="seg-btn${f === val ? ' on' : ''}" data-seg-etapa="${esc(val)}"${color ? ` style="--c:${esc(color)}"` : ''}>${txt} <b>${num}</b></button>`;
+  const chips = [chip('pendientes', '🆕 Sin contactar', pendientes), chip('todas', 'Todas', S.lista.length),
+    ...stages.filter((x) => x.id !== S.etapaInicial && n[x.id]).map((x) => chip(x.id, esc(x.name), n[x.id], x.color))].join('');
+  const cc = state.config.defaultCountryCode || '34';
+  const setter = String(state.user?.nombre || '').split(/\s+/)[0];
+  const fecha = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : '');
+  const cuandoIso = (iso) => new Date(iso).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const tarjeta = (x) => {
+    const wa = waPhone(x.phone, cc);
+    const texto = mensajeSeguimiento(S.mensaje, { nombre: String(x.name).split(/\s+/)[0], producto: S.producto, principal: S.principal, setter });
+    const et = stages.find((s) => s.id === x.etapa);
+    return `<article class="ll-card seg-card ${segEtapaPendiente(x, S) ? 'pendiente' : /venta/i.test(et?.name || '') ? 'res-venta' : /perdid/i.test(et?.name || '') ? 'res-perdido' : 'res-seguimiento'}" data-seg-card="${esc(x.id)}">
+      <div class="ll-when"><span class="ll-dia">${x.diasDesde != null ? (x.diasDesde === 0 ? 'Hoy' : x.diasDesde === 1 ? 'Ayer' : `${x.diasDesde} días`) : '–'}</span><span class="ll-hora" title="${esc(fecha(x.dia))}">${x.dia ? esc(new Date(`${x.dia}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })) : ''}</span></div>
+      <div class="ll-main">
+        <div class="ll-name"><button type="button" class="lead-ficha" data-ficha-lead="${esc(x.id)}" title="Ver la ficha completa (encuesta, formulario y notas de GHL)">${esc(x.name || 'Sin nombre')}</button>
+          ${et ? `<span class="ll-etapa" style="--c:${esc(et.color || '#8a817b')}" title="Etapa en ${esc(S.pipeline.name)}">${esc(et.name)}</span>` : `<span class="ll-etapa none" title="Aún no tiene oportunidad en ${esc(S.pipeline?.name || 'el pipeline')}: se crea al cambiar la etapa">Sin etapa</span>`}</div>
+        <div class="ll-contact">${x.phone ? `<a href="tel:${esc(x.phone)}">${icon('phone')}${esc(x.phone)}</a>` : '<span class="muted">Sin teléfono</span>'}${x.email ? `<span class="muted">${esc(x.email)}</span>` : ''}</div>
+        <div class="ll-chips">
+          <span class="ll-chip" title="Día de compra">🛒 Compró ${x.diasDesde === 0 ? 'hoy' : x.diasDesde === 1 ? 'ayer' : x.diasDesde != null ? `hace ${x.diasDesde} días` : ''}</span>
+          ${x.extras.length ? x.extras.map((e) => `<span class="ll-chip buy">➕ ${esc(e)}</span>`).join('') : '<span class="ll-chip muted">Sin extras</span>'}
+          ${x.src ? `<span class="ll-chip" title="Campaña ${esc(x.src.campaign)} · conjunto ${esc(x.src.adset)} · anuncio ${esc(x.src.ad)}">📣 Vino de un anuncio</span>` : ''}
+          ${x.wa ? `<span class="ll-chip" title="Último WhatsApp de seguimiento">💬 Escrito ${esc(cuandoIso(x.wa.en))}${x.wa.por ? ` · ${esc(x.wa.por)}` : ''}</span>` : ''}
+          ${x.cambio ? `<span class="ll-chip" title="${esc(x.cambio.nota || '')}">✍️ ${esc(nombreEtapa(x.cambio.etapa))} · ${esc(x.cambio.por || '')} · ${esc(cuandoIso(x.cambio.en))}</span>` : ''}
+        </div>
+        ${x.cambio?.nota ? `<p class="ll-notas">${esc(x.cambio.nota)}</p>` : ''}
+        <div class="seg-acc">
+          ${wa ? `<a class="btn small wa" href="https://wa.me/${wa}?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener" data-seg-wa="${esc(x.id)}">${icon('whatsapp')} WhatsApp</a>` : ''}
+          ${x.phone ? `<a class="btn small ghost" href="tel:${esc(x.phone)}">${icon('phone')} Llamar</a>` : ''}
+          ${S.pipeline ? `<select data-seg-sel="${esc(x.id)}" aria-label="Nueva etapa">${stages.map((s) => `<option value="${esc(s.id)}"${s.id === x.etapa ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}${x.etapa ? '' : '<option value="" selected>— Elige la etapa —</option>'}</select>
+          <input data-seg-nota="${esc(x.id)}" maxlength="500" placeholder="Nota (opcional): qué te ha dicho">
+          <button type="button" class="btn small" data-seg-guardar="${esc(x.id)}">Guardar</button>` : ''}
+          <span class="muted small" data-seg-status="${esc(x.id)}"></span>
+        </div>
+      </div>
+    </article>`;
+  };
+  caja.innerHTML = `<div class="seg-cab">
+      <p class="muted small">Compradoras de este embudo que aún <strong>no tienen ${esc(S.principal || 'el producto principal')}</strong>${S.pipeline ? `, con su etapa en el pipeline «${esc(S.pipeline.name)}»` : ' (no se encuentra el pipeline del workflow de compra: elígelo en la configuración)'}. Al cambiar la etapa se mueve su oportunidad en GHL y se guarda la nota en su ficha. De la compra más reciente a la más antigua.</p>
+      <div class="seg seg-etapas" role="group" aria-label="Etapa">${chips}</div>
+      <div class="seg-opc"><label class="pb-solo"><input type="checkbox" id="seg-periodo"${state.seg.soloPeriodo ? ' checked' : ''}> Solo las que compraron en el periodo elegido</label>
+        <button type="button" class="btn small ghost" id="seg-recargar">Actualizar</button></div>
+      <details class="seg-msg"><summary>💬 Mensaje de WhatsApp</summary>
+        <p class="muted small">Huecos: {nombre}, {producto}, {principal}, {setter}. Así sale para la primera de la lista:</p>
+        <p class="ll-notas">${esc(mensajeSeguimiento(S.mensaje, { nombre: String(lista[0]?.name || 'María').split(/\s+/)[0], producto: S.producto, principal: S.principal, setter }))}</p>
+        ${puedeConfig() ? `<textarea id="seg-msg-txt" rows="4" maxlength="1000">${esc(S.mensaje)}</textarea><button type="button" class="btn small" id="seg-msg-guardar">Guardar mensaje</button> <span class="muted small" id="seg-msg-st"></span>` : ''}
+      </details>
+    </div>
+    ${lista.slice(0, 300).map(tarjeta).join('') || `<p class="muted">${f === 'pendientes' ? '🎉 No queda nadie sin contactar.' : 'Nadie con ese filtro.'}</p>`}
+    ${lista.length > 300 ? `<p class="muted small">…y ${lista.length - 300} más: usa la búsqueda o los filtros.</p>` : ''}`;
+}
+$('#dc-seg').addEventListener('click', async (e) => {
+  const et = e.target.closest('[data-seg-etapa]');
+  if (et) { state.seg.etapa = et.dataset.segEtapa; renderSeguimiento(); return; }
+  if (e.target.closest('#seg-recargar')) { cargarSeguimiento({ fresh: true }); return; }
+  if (e.target.closest('[data-dir-config-seg]')) { abrirDirectaConfig(); return; }
+  const w = e.target.closest('[data-seg-wa]');
+  if (w) {
+    // Se apunta que se le ha escrito (sin esperar: el enlace de WhatsApp se abre igual).
+    const cid = w.dataset.segWa;
+    api('/api/seguimiento', { method: 'POST', body: { d: state.embudo, op: 'wa', contactId: cid } }).then((r) => {
+      const x = state.seg.datos?.lista?.find((y) => y.id === cid);
+      if (x) { x.wa = r.wa; renderSeguimiento(); }
+    }).catch(() => {});
+    return;
+  }
+  if (e.target.closest('#seg-msg-guardar')) {
+    const st = $('#seg-msg-st');
+    st.textContent = 'Guardando…';
+    try {
+      const r = await api('/api/seguimiento', { method: 'POST', body: { d: state.embudo, op: 'mensaje', texto: $('#seg-msg-txt').value } });
+      state.seg.datos.mensaje = r.mensaje;
+      if (state.config.directas?.[state.embudo]) state.config.directas[state.embudo].mensajeSeguimiento = r.mensaje;
+      renderSeguimiento();
+      $('#dc-seg .seg-msg').open = true;
+      $('#seg-msg-st').textContent = '✓ Guardado';
+    } catch (err) { st.textContent = err.message; }
+    return;
+  }
+  const g = e.target.closest('[data-seg-guardar]');
+  if (!g) return;
+  const cid = g.dataset.segGuardar;
+  const x = state.seg.datos?.lista?.find((y) => y.id === cid);
+  const etapa = $(`[data-seg-sel="${CSS.escape(cid)}"]`).value;
+  const st = $(`[data-seg-status="${CSS.escape(cid)}"]`);
+  if (!etapa) { st.textContent = 'Elige la etapa.'; return; }
+  g.disabled = true;
+  st.textContent = 'Guardando en GHL…';
+  try {
+    const r = await api('/api/seguimiento', { method: 'POST', body: { d: state.embudo, op: 'etapa', contactId: cid, pipelineId: state.seg.datos.pipeline.id, etapa, nombre: x?.name || '', nota: $(`[data-seg-nota="${CSS.escape(cid)}"]`).value } });
+    if (x) { x.etapa = r.cambio.etapa; x.cambio = r.cambio; }
+    renderSeguimiento();
+    const st2 = $(`[data-seg-status="${CSS.escape(cid)}"]`);
+    if (st2) st2.textContent = r.avisos?.length ? `✓ Etapa cambiada. ${r.avisos.join(' ')}` : '✓ Guardado en GHL';
+  } catch (err) { g.disabled = false; st.textContent = err.message; }
+});
+$('#dc-seg').addEventListener('change', (e) => { if (e.target.id === 'seg-periodo') { state.seg.soloPeriodo = e.target.checked; renderSeguimiento(); } });
 $('#dc-filtro').addEventListener('change', () => renderDirectaClientes(state.directa.datos));
 
 // ---------- 📣 Publicidad (métricas de Meta por campaña → conjunto → anuncio) ----------
