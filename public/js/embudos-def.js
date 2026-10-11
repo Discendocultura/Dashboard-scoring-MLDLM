@@ -9,6 +9,7 @@ export const PESTANAS = {
     { id: 'endirecto', label: 'En directo', desc: 'El día del webinar: quién espera, quién entra, VIP, ventas y visitas a la página de venta, minuto a minuto' },
     { id: 'leads', label: 'Leads', desc: 'Lista de registrados con su puntuación y estado' },
     { id: 'metricas', label: 'Métricas', desc: 'Registros, clases, VIP, directo, ventas, coste por lead…' },
+    { id: 'publicidad', label: 'Publicidad', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
     { id: 'objetivos', label: 'Planificador', desc: 'Planificador con el histórico (inversión, leads, CPL máximo, equipo y números) y objetivos que salen de la proyección' },
     { id: 'carrito', label: 'Carrito', desc: 'Los días del carrito: hitos automáticos, emails y WhatsApps de cada día y la estrategia' },
     { id: 'claude', label: 'Claude', desc: 'Lo que se hace con Claude y el conector «Dashboard Datos»: el análisis del lanzamiento con mejoras para el próximo y accesos a los demás prompts' },
@@ -25,6 +26,7 @@ export const PESTANAS = {
   ],
   vsl: [
     { id: 'vmetricas', label: 'Métricas', desc: 'Registros, visionado, llamadas, ventas y ROAS por fechas y semanas' },
+    { id: 'publicidad', label: 'Publicidad', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
     { id: 'vleads', label: 'Leads', desc: 'Cada persona con lo que ha visto y WhatsApp según su estado' },
     { id: 'llamadas', label: 'Llamadas', desc: 'Llamadas de valoración de la VSL' },
     { id: 'vanuncios', label: 'Anuncios ganadores', desc: 'Qué campañas, conjuntos y anuncios traen ventas' },
@@ -39,6 +41,7 @@ export const PESTANAS = {
 };
 PESTANAS.meteorico = [
   { id: 'meteoricos', label: 'Meteóricos', desc: 'Cada oferta flash: cuenta atrás, ventas, facturación, visitas a la oferta y compradoras' },
+  { id: 'publicidad', label: 'Publicidad', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
   { id: 'moferta', label: 'Oferta', desc: 'Entregables y bonus (BAR 30 min, 1 h…) frente a las ventas hora a hora' },
   { id: 'anuncios', label: 'Crear anuncios', desc: 'Anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
   { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos del dashboard) para Claude, y el HTML a GHL' },
@@ -51,6 +54,7 @@ PESTANAS.meteorico = [
 PESTANAS.directa = [
   { id: 'dmetricas', label: 'Métricas', desc: 'Ventas, facturación, ticket medio, CPA y ROAS por fechas; % de cada bump, upsell y downsell y conversión de cada página' },
   { id: 'dclientes', label: 'Compradoras', desc: 'Quién ha comprado, cuándo y qué extras se llevó (con su WhatsApp)' },
+  { id: 'publicidad', label: 'Publicidad', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
   { id: 'danuncios', label: 'Anuncios ganadores', desc: 'Qué anuncios traen ventas al menor coste por venta (CAC) y cuáles traen más ventas' },
   { id: 'anuncios', label: 'Crear anuncios', desc: 'Anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
   { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos del dashboard) para Claude, y el HTML a GHL' },
@@ -92,6 +96,7 @@ export const CATEGORIAS = {
     { id: 'comercial', label: 'Hoy', icon: '📞', desc: 'Lo del día: a quién escribir, las llamadas y el directo', vistas: ['hoy', 'llamadas', 'endirecto'] },
     { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['leads'] },
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va el lanzamiento, en cifras', vistas: ['metricas'] },
+    { id: 'publicidad', label: 'Publicidad', icon: '📣', desc: 'Métricas de Meta por campaña, conjunto y anuncio, y avisos de anuncios nuevos', vistas: ['publicidad'] },
     { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'En el orden del embudo: Claude, anuncios, páginas, automatizaciones, grupo de WhatsApp, emails, carrito, planificador, calendario y tareas', vistas: ['claude', 'anuncios', 'paginas', 'automatizaciones', 'grupowa', 'emailsia', 'carrito', 'objetivos', 'calendario', 'tareas'] },
     { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Para decidir: avatar, comparativas y rendimiento del equipo', vistas: ['avatar', 'comparar', 'rendimiento'] },
   ],
@@ -99,11 +104,13 @@ export const CATEGORIAS = {
     { id: 'comercial', label: 'Hoy', icon: '📞', desc: 'Las llamadas de valoración', vistas: ['llamadas'] },
     { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['vleads'] },
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va la VSL, por fechas', vistas: ['vmetricas'] },
+    { id: 'publicidad', label: 'Publicidad', icon: '📣', desc: 'Métricas de Meta por campaña, conjunto y anuncio, y avisos de anuncios nuevos', vistas: ['publicidad'] },
     { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Anuncios, páginas, automatizaciones, calendario y tareas', vistas: ['anuncios', 'paginas', 'automatizaciones', 'calendario', 'tareas'] },
     { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Anuncios, comparativas y rendimiento del equipo', vistas: ['vanuncios', 'comparar', 'rendimiento'] },
   ],
   directa: [
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Ventas, ticket medio, CPA, ROAS y extras', vistas: ['dmetricas'] },
+    { id: 'publicidad', label: 'Publicidad', icon: '📣', desc: 'Métricas de Meta por campaña, conjunto y anuncio, y avisos de anuncios nuevos', vistas: ['publicidad'] },
     { id: 'leads', label: 'Compradoras', icon: '🛍️', desc: 'Quién ha comprado y qué extras', vistas: ['dclientes'] },
     { id: 'analisis', label: 'Anuncios ganadores', icon: '👑', desc: 'Menor CAC y más ventas, por anuncio, conjunto o campaña', vistas: ['danuncios'] },
     { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Anuncios, páginas, automatizaciones, calendario y tareas', vistas: ['anuncios', 'paginas', 'automatizaciones', 'calendario', 'tareas'] },
@@ -111,6 +118,7 @@ export const CATEGORIAS = {
   meteorico: [
     { id: 'meteoricos', label: 'Meteóricos', icon: '⚡', desc: 'Cada oferta flash', vistas: ['meteoricos'] },
     { id: 'moferta', label: 'Oferta', icon: '🎁', desc: 'Entregables y bonus frente a las ventas', vistas: ['moferta'] },
+    { id: 'publicidad', label: 'Publicidad', icon: '📣', desc: 'Métricas de Meta por campaña, conjunto y anuncio, y avisos de anuncios nuevos', vistas: ['publicidad'] },
     { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Anuncios, páginas, grupo de WhatsApp, calendario y tareas', vistas: ['anuncios', 'paginas', 'automatizaciones', 'grupowa', 'calendario', 'tareas'] },
   ],
 };

@@ -3135,3 +3135,43 @@ body.embudo-directa .lanz-only { display: none !important; }
 .dan-mal { color: var(--error, #c0362c); }
 .dan-t tr.dan-sin td { opacity: .75; }
 #dan-tabla .card > p { margin: 0; padding: 10px 16px 14px; }
+
+/* 📣 Publicidad: árbol campaña → conjunto → anuncio y avisos de anuncios nuevos */
+.pb-rango { margin-bottom: 14px; }
+.notice.ok { border-left: 3px solid var(--tone-buy); background: color-mix(in srgb, var(--tone-buy) 6%, var(--surface)); }
+.pb-avisos { margin-bottom: 14px; }
+.pb-avisos ul { margin: 6px 0 0; padding-left: 4px; list-style: none; }
+.pb-avisos li { margin: 3px 0; }
+.notice.err.pb-avisos li, .notice.err.pb-avisos .small { color: var(--text); }
+.pb-umbrales { margin-top: 8px; }
+.pb-umbrales summary { cursor: pointer; color: var(--accent); font-size: .9em; }
+.pb-arbol-card { padding: 14px 16px; }
+.pb-barra { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 10px; }
+.pb-solo { display: inline-flex; gap: 6px; align-items: center; font-size: .9em; }
+.pb-acc { display: inline-flex; gap: 6px; margin-left: auto; }
+.pb-t td, .pb-t th { white-space: nowrap; }
+.pb-t .pb-c1 { white-space: normal; min-width: 240px; max-width: 420px; padding-left: calc(8px + var(--pb-prof, 0) * 22px); }
+.pb-c1-in { display: flex; gap: 6px; align-items: flex-start; }
+.pb-nom { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.pb-nom small { font-size: .78em; }
+.pb-tog, .pb-tog-v { flex: 0 0 22px; width: 22px; height: 22px; }
+.pb-tog { border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; line-height: 1; padding: 0; }
+.pb-tog:hover { border-color: var(--accent); color: var(--accent); }
+.pb-meta { margin-left: auto; text-decoration: none; color: var(--muted); padding: 0 4px; }
+.pb-meta:hover { color: var(--accent); }
+.pb-campaign td { background: color-mix(in srgb, var(--accent) 4%, var(--surface)); }
+.pb-ad td { font-size: .95em; }
+.pb-est { display: inline-flex; align-items: center; gap: 5px; font-size: .85em; }
+.pb-est::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.pb-est-on::before { background: var(--tone-buy); }
+.pb-est-rev::before { background: var(--st-caliente); }
+.pb-est-mal::before { background: var(--error); }
+.pb-t tfoot td { border-top: 2px solid var(--border-strong); }
+/* Inicio: periodo y avisos de anuncios */
+.inicio-cab-acc { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.inicio-cab-acc .field { margin: 0; }
+.inicio-anuncios { margin-bottom: 16px; }
+.inicio-anuncios ul { margin: 6px 0 0; padding: 0; list-style: none; }
+.inicio-anuncios li { margin: 6px 0; }
+.inicio-anuncios li button { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.inicio-anuncios li button:hover strong { color: var(--accent); }

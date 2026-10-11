@@ -41,6 +41,7 @@ import { siguientesPasos } from './siguientes-pasos.js';
 import { promptEncuesta, libresAgrupadas } from './encuesta-ia.js';
 import { lanzamientoAAnalizar, promptAnalisis } from './analisis-ia.js';
 import { codigoMeta, choquesMeta, ejemploCampana } from './meta-codigo.js';
+import { UMBRALES as UMBRALES_PUBLI } from './publicidad.js';
 import { ESTADOS_AUTO, autoCtx, automatizacionesDe, promptAutomatizacion, descripcionIaGhl, promptPreparacion, revisarExistente } from './automatizaciones.js';
 import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa } from './narrativa.js';
 import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, asuntosGanadores, promptEmails } from './emails-ia.js';
@@ -359,8 +360,8 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
-const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', automatizaciones: 'config', claude: 'metricas' };
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
+const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', automatizaciones: 'config', claude: 'metricas' };
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], lanzmeteo: ['lanz', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
@@ -372,8 +373,10 @@ const tipoActual = () => (enVsl() ? 'vsl' : enMeteo() ? 'meteorico' : enDirecta(
 // Pestañas que el embudo tiene activadas (⚙️ del menú lateral; sin lista = todas).
 const pestanasEmbudo = () => embudoInfo()?.pestanas || null;
 const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual())
+  // «Publicidad»: sí por defecto en todos los embudos (también los de antes); se quita desde su ⚙️.
+  && (v !== 'publicidad' || embudoInfo()?.publicidad !== false)
   // El calendario es el del cliente (todos sus embudos): está en todos.
-  && (!pestanasEmbudo() || pestanasEmbudo().includes(v) || v === 'calendario'
+  && (!pestanasEmbudo() || pestanasEmbudo().includes(v) || v === 'calendario' || v === 'publicidad'
     // «Oferta» es nueva: los embudos de meteóricos con pestañas elegidas antes la ven junto a «Meteóricos».
     || (v === 'moferta' && pestanasEmbudo().includes('meteoricos'))
     // «En directo» es nueva: los embudos con pestañas elegidas antes la ven junto a Setting hoy o Llamadas.
@@ -651,9 +654,11 @@ async function mostrarInicio({ fresh = false } = {}) {
   pintarSidebar();
   $('#alertas-carrito').hidden = true;
   const token = (state.inicioToken = (state.inicioToken || 0) + 1);
-  const q = (qs) => api(`/api/inicio?${qs}${fresh ? '&fresh=1' : ''}`);
-  if (fresh || !state.inicio || state.inicio.cliente !== state.cliente) {
-    state.inicio = { cliente: state.cliente, embudos: null, meteoricos: null, agenda: null };
+  pintarInicioPeriodo();
+  if ($('#inicio-preset').value === 'personalizado' && !($('#inicio-desde').value && $('#inicio-hasta').value)) return;
+  const q = (qs) => qInicio(qs, fresh);
+  if (fresh || !state.inicio || state.inicio.cliente !== state.cliente || state.inicio.periodo !== inicioPeriodoQs()) {
+    state.inicio = { cliente: state.cliente, periodo: inicioPeriodoQs(), embudos: null, meteoricos: null, agenda: null, anuncios: null };
     $('#inicio-embudos').innerHTML = '<p class="muted">Cargando…</p>';
     $('#inicio-total').innerHTML = '';
   }
@@ -670,12 +675,34 @@ async function mostrarInicio({ fresh = false } = {}) {
     ...lista.embudos.map((e, i) => cargarEmbudoInicio(e, i, fresh)),
     ...lista.meteoricos.map((m, i) => cargarMeteoInicio(m, i, fresh)),
     conLimite(q('parte=agenda')).then((d) => { state.inicio.agenda = d; }, (err) => { state.inicio.agenda = { error: err.message }; }),
+    ...(state.inicio.anuncios ? [] : [conLimite(q('parte=anuncios')).then((d) => { state.inicio.anuncios = d.anuncios; }, (err) => { state.inicio.anuncios = { error: err.message }; })]),
   ].map((p) => p.then(() => { if (token === state.inicioToken) pintarInicio(); }));
   await Promise.all(tareas);
 }
 // Cada tarjeta deja de esperar al minuto (GHL lento o caído) y enseña «Reintentar» en vez de quedarse cargando.
 const conLimite = (p, ms = 60_000) => Promise.race([p, new Promise((_, rej) => { setTimeout(() => rej(new Error('Tarda demasiado en responder (GHL va lento).')), ms); })]);
-const qInicio = (qs, fresh) => api(`/api/inicio?${qs}${fresh ? '&fresh=1' : ''}`);
+// Periodo del Inicio (mismo selector que Métricas): VSL y venta directa en esas fechas; lanzamientos, el último
+// empezado antes de que acabe el periodo; meteóricos, los abiertos algún día del periodo.
+const inicioPeriodoQs = () => {
+  const p = $('#inicio-preset').value || '30d';
+  return `periodo=${p}${p === 'personalizado' ? `&desde=${$('#inicio-desde').value}&hasta=${$('#inicio-hasta').value}` : ''}`;
+};
+function pintarInicioPeriodo() {
+  const p = $('#inicio-preset').value === 'personalizado';
+  $('#inicio-desde-f').hidden = !p;
+  $('#inicio-hasta-f').hidden = !p;
+}
+const inicioPeriodoTxt = () => {
+  const p = $('#inicio-preset').value;
+  if (p !== 'personalizado') return $('#inicio-preset').selectedOptions[0]?.textContent || 'Últimos 30 días';
+  const f = (d) => (d ? dayFmt.format(new Date(`${d}T12:00:00Z`)) : '');
+  return `${f($('#inicio-desde').value)} – ${f($('#inicio-hasta').value)}`;
+};
+$('#inicio-preset').value = ls.get('lsd_inicio_preset') || '30d';
+if (!$('#inicio-preset').value) $('#inicio-preset').value = '30d';
+$('#inicio-preset').addEventListener('change', () => { ls.set('lsd_inicio_preset', $('#inicio-preset').value); pintarInicioPeriodo(); mostrarInicio(); });
+['#inicio-desde', '#inicio-hasta'].forEach((x) => $(x).addEventListener('change', () => { if ($('#inicio-desde').value && $('#inicio-hasta').value) mostrarInicio(); }));
+const qInicio = (qs, fresh) => api(`/api/inicio?${qs}&${inicioPeriodoQs()}${fresh ? '&fresh=1' : ''}`);
 function cargarEmbudoInicio(e, i, fresh) {
   return conLimite(qInicio(`parte=embudo&id=${encodeURIComponent(e.id)}`, fresh))
     .then((d) => { state.inicio.embudos[i] = d.embudo; }, (err) => { state.inicio.embudos[i] = { tipo: 'error', tipoOrig: e.tipo, id: e.id, nombre: e.nombre, error: err.message }; });
@@ -711,7 +738,7 @@ function pintarInicio() {
   const inv = sum('inversion');
   $('#inicio-sub').textContent = listos ? 'Todos los embudos de un vistazo · los datos se actualizan cada 15 min' : 'Cargando los embudos…';
   $('#inicio-total').innerHTML = [
-    card('Facturación total', eur(fact), 'último lanzamiento de cada embudo · VSL y venta directa (30 días) · meteóricos recientes', 'coins', 'money'),
+    card('Facturación total', eur(fact), `último lanzamiento de cada embudo · VSL y venta directa (${inicioPeriodoTxt().toLowerCase()}) · meteóricos ${$('#inicio-preset').value === '30d' ? 'recientes' : 'del periodo'}`, 'coins', 'money'),
     card('Ventas', sum('ventas').toLocaleString('es-ES'), `${lista.length} embudo${lista.length === 1 ? '' : 's'}${metas.length ? ` y ${metas.length} meteórico${metas.length === 1 ? '' : 's'}` : ''}`, 'cart', 'buy'),
     card('Inversión', inv ? eur(inv) : '–', inv ? `ROAS conjunto ${(fact / inv).toFixed(2).replace('.', ',')}x` : 'sin inversión registrada', 'megaphone', 'accent'),
   ].join('');
@@ -723,12 +750,12 @@ function pintarInicio() {
       if (e.cargando) return `<div class="card inicio-emb"><h3>${e.tipo === 'vsl' ? '🎬' : e.tipo === 'directa' ? '🛒' : '🚀'} ${esc(e.nombre)}</h3><p class="muted small">Cargando…</p></div>`;
       if (e.tipo === 'directa') {
         return `<button type="button" class="card inicio-emb" data-ir-inicio="directa" data-code="${esc(e.code)}">
-        <h3>🛒 ${esc(e.nombre)} <span class="badge tone-info">Últimos 30 días</span></h3>
+        <h3>🛒 ${esc(e.nombre)} <span class="badge tone-info">${esc(inicioPeriodoTxt())}</span></h3>
         <div class="ie-cifras">${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${cifra('ROAS', roasIni(e.kpis.roas))}</div>
         <div class="ie-cifras ie-sec">${cifra('Coste por venta', eur(e.kpis.cac))}${cifra('Ticket medio', eur(e.kpis.ticket))}${(e.extras || []).map((x) => cifra(`${x.tipo === 'bump' ? 'Bump' : x.tipo === 'upsell' ? 'Upsell' : 'Downsell'} · ${esc(x.nombre)}`, `${x.pct != null ? `${Math.round(x.pct * 1000) / 10}%`.replace('.', ',') : '–'} <small>(${x.n})</small>`)).join('')}</div></button>`;
       }
       if (e.tipo === 'error') return `<div class="card inicio-emb"><h3>${esc(e.nombre)}</h3><p class="error small">${esc(e.error)}</p><button type="button" class="btn small" data-reintentar="embudo:${state.inicio.embudos.indexOf(e)}">Reintentar</button></div>`;
-      const est = e.tipo === 'vsl' ? ['Últimos 30 días', 'info'] : ESTADO_LANZ[e.estado] || ['', 'muted'];
+      const est = e.tipo === 'vsl' ? [esc(inicioPeriodoTxt()), 'info'] : ESTADO_LANZ[e.estado] || ['', 'muted'];
       return `<button type="button" class="card inicio-emb" data-ir-inicio="${e.tipo === 'vsl' ? 'vsl' : 'lanz'}" data-code="${esc(e.code)}" data-embudo="${esc(e.embudoId || '')}">
         <h3>${e.tipo === 'vsl' ? '🎬' : '🚀'} ${esc(e.nombre)} <span class="badge tone-${est[1]}">${est[0]}</span></h3>
         ${e.embudo ? `<span class="muted small">${esc(e.embudo)}</span>` : ''}
@@ -753,6 +780,7 @@ function pintarInicio() {
   const alertas = lista.filter((e) => e.tipo === 'lanzamiento' && e.estado === 'carrito')
     .flatMap((e) => alertasCarrito(state.config.launches[e.code], e.kpis.ventas).map((a) => ({ ...a, nombre: e.nombre })));
   $('#inicio-alertas').innerHTML = alertas.length ? `<div class="notice err alertas-carrito"><span><strong>🚨 Carrito abierto</strong><ul>${alertas.map((a) => `<li><strong>${esc(a.nombre)}:</strong> ${esc(a.texto)}</li>`).join('')}</ul></span></div>` : '';
+  pintarAnunciosInicio(state.inicio.anuncios);
   if (!A) return;
   const dia = (d) => esc(dayFmt.format(new Date(`${d}T12:00:00Z`)));
   $('#inicio-hitos').innerHTML = A.error ? `<p class="error">${esc(A.error)}</p>` : A.hitos?.length
@@ -762,6 +790,21 @@ function pintarInicio() {
     ? `<ul class="inicio-lista">${A.vencidas.lista.map((t) => `<li><button type="button" data-ir-code="${esc(t.code)}">${esc(t.titulo)} · <strong>${esc(t.nombre)}</strong></button><span class="muted small">${dia(t.fecha)}</span></li>`).join('')}</ul>${A.vencidas.total > A.vencidas.lista.length ? `<p class="muted small">…y ${A.vencidas.total - A.vencidas.lista.length} más.</p>` : ''}`
     : '<p class="muted">Ninguna 🎉</p>';
 }
+// Inicio: qué embudos necesitan anuncios nuevos (los avisos de su pestaña Publicidad, en corto).
+function pintarAnunciosInicio(A) {
+  const caja = $('#inicio-anuncios');
+  if (!A || A.configured === false || (!A.error && !A.embudos?.some((e) => e.error || e.nivel !== 'ok'))) {
+    caja.innerHTML = A?.embudos?.length ? '<p class="muted small inicio-anuncios">✅ Anuncios: ningún embudo da señales de cansancio esta semana.</p>' : '';
+    return;
+  }
+  if (A.error) { caja.innerHTML = `<div class="notice warn inicio-anuncios">No se pudieron revisar los anuncios: ${esc(A.error)}</div>`; return; }
+  const lista = A.embudos.filter((e) => e.error || e.nivel !== 'ok');
+  const urgente = lista.some((e) => e.nivel === 'urgente');
+  caja.innerHTML = `<div class="notice ${urgente ? 'err' : 'warn'} inicio-anuncios"><span><strong>📣 Anuncios: ${urgente ? 'toca preparar anuncios nuevos' : 've preparando anuncios nuevos'}</strong> <small class="muted">· última semana frente a la anterior</small>
+    <ul>${lista.map((e) => `<li><button type="button" data-ir-publi="${esc(e.embudo)}"><strong>${e.nivel === 'urgente' ? '🔴' : e.nivel === 'pronto' ? '🟠' : '⚠️'} ${esc(e.nombre)}:</strong> ${esc(e.error || e.titulo)}${e.avisos?.length ? `<br><small class="muted">${e.avisos.map((x) => `${x.nombre ? `${esc(x.nombre)} — ` : ''}${esc(x.texto)}`).join(' · ')}</small>` : ''}</button></li>`).join('')}</ul></span></div>`;
+}
+$('#inicio-anuncios').addEventListener('click', (e) => { const b = e.target.closest('[data-ir-publi]'); if (b) setEmbudo(b.dataset.irPubli, { vista: 'publicidad' }); });
+
 // Desde el inicio, a cada embudo (sus métricas) o a las tareas de un código.
 $('#inicio').addEventListener('click', (e) => {
   const ir = e.target.closest('[data-ir-inicio]');
@@ -796,6 +839,7 @@ async function selectLaunch(code, { forzar = false } = {}) {
   ls.set('lsd_launch', code);
   $('#launch-select').value = code;
   loadTareas();
+  if (!$('#view-publicidad').hidden) cargarPublicidad();
   loadEventos();
   if (tiene('llamadas')) loadLlamadas();
   if (tieneDatos()) await loadLeads({ forzar });
@@ -2581,7 +2625,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'claude', 'automatizaciones'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'claude', 'automatizaciones'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -2600,6 +2644,7 @@ const AYUDA_VISTA = {
   objetivos: ['🎯 Planificador', 'Proyecta el lanzamiento con tus lanzamientos anteriores: inversión, leads, CPL máximo, equipo de llamadas y números. Los objetivos salen de ahí, y abajo ves cuánto llevas.'],
   calendario: ['🗓️ Calendario', 'Todas las fechas del cliente juntas: hitos de cada lanzamiento, tareas y eventos. Se puede sincronizar con tu calendario.'],
   dmetricas: ['📊 Métricas de la venta directa', 'Ventas, facturación, ticket medio, coste por venta (CPA) y ROAS del periodo elegido arriba. Debajo, el % de compradoras que coge cada bump, upsell y downsell, y la conversión de cada página si pegaste sus códigos.'],
+  publicidad: ['📣 Publicidad', 'Tus campañas de Meta como en el Administrador de anuncios: pulsa una campaña para abrir sus conjuntos y un conjunto para ver sus anuncios. Arriba, si toca preparar anuncios nuevos (frecuencia, caída del CTR, coste por resultado…). Se quita en el ⚙️ del embudo.'],
   danuncios: ['👑 Anuncios ganadores', 'Qué anuncios, conjuntos y campañas traen ventas al menor coste por venta (CAC) y cuáles traen más ventas, en el periodo elegido arriba. Lo que gasta sin vender sale al final: es lo primero que hay que apagar.'],
   dclientes: ['🛍️ Compradoras', 'Quién ha comprado en el periodo, qué extras se llevó y su WhatsApp. Filtra por un extra para ver, por ejemplo, quién cogió el upsell.'],
   anuncios: ['🎯 Crear anuncios', 'Anuncios con IA para cada objetivo del embudo (captación, retargeting de consumo, venta): copia el prompt (lleva los anuncios ganadores, la ficha de marca, avatar y producto y los datos del embudo), pégalo en Claude y él escribe los guiones y los copys y crea las imágenes y los vídeos con Magnific.'],
@@ -2641,7 +2686,7 @@ document.addEventListener('click', (e) => {
 // Grupos de la barra de arriba, por momento de uso: Hoy (lo del día), Plan y Análisis.
 const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['claude', 'anuncios', 'paginas', 'automatizaciones', 'grupowa', 'emailsia', 'carrito', 'objetivos', 'calendario', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', claude: 'sparkle', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown' };
+const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', claude: 'sparkle', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', publicidad: 'megaphone' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
@@ -2830,6 +2875,7 @@ function showView(view) {
   if (view === 'emailsia' && state.config) renderEmailsIa();
   if (view === 'claude' && state.config) renderClaude();
   if (view === 'automatizaciones' && state.config) renderAutomatizaciones();
+  if (view === 'publicidad' && state.config) cargarPublicidad();
   // Planificador: al abrirla se cargan solos los lanzamientos anteriores que falten.
   if (view === 'objetivos' && state.config?.launches?.[state.launchCode] && !enVsl() && !enMeteo() && state.leads) renderObjetivos(currentMetrics());
   // Tareas del embudo abierto (en meteóricos, del meteórico elegido).
@@ -9600,6 +9646,7 @@ function abrirNuevoEmbudo() {
   irPasoEmb(0);
   embDlg.showModal();
 }
+const pestanaIdsSin = (tipo, fuera) => (PESTANAS[tipo] || []).map((p) => p.id).filter((x) => x !== fuera);
 function abrirEditarEmbudo(id) {
   const e = embudoInfo(id);
   if (!e) return;
@@ -9634,7 +9681,8 @@ function abrirEditarEmbudo(id) {
   $('#emb-guia-box').open = false;
   $('#emb-h-tipo').textContent = e.tipo === 'vsl' ? 'Tipo de embudo siempre abierto' : 'Formato de los lanzamientos';
   $('#emb-sub-tipo').textContent = 'El tipo de embudo no se cambia; puedes pulsar cualquier paso de arriba y guardar cuando quieras.';
-  pintarEmbPestanas(e.pestanas || null, e.ocultas || []);
+  // Publicidad: marcada salvo que se quitara (los embudos de antes no la tienen en su lista y la ven).
+  pintarEmbPestanas(e.pestanas ? [...e.pestanas, ...(e.publicidad !== false ? ['publicidad'] : [])] : e.publicidad === false ? pestanaIdsSin(e.tipo, 'publicidad') : null, e.ocultas || []);
   irPasoEmb(0);
   embDlg.showModal();
 }
@@ -9659,7 +9707,7 @@ $('#emb-crear').addEventListener('click', async () => {
     if (embEdit) {
       const id = embEdit;
       const nombre = $('#emb-nombre').value.trim() || embudoInfo(id).nombre;
-      const lista = embudos().map((e) => (e.id === id ? { ...e, id: e.id, tipo: e.tipo, nombre, ...(e.tipo === 'lanzamientos' ? { formato: embFormato(), ...embPrelanz() } : {}), pestanas: todas ? undefined : pestanas, ocultas: ocultas.length ? ocultas : undefined, ...embOrigenGuardar() } : e));
+      const lista = embudos().map((e) => (e.id === id ? { ...e, id: e.id, tipo: e.tipo, nombre, ...(e.tipo === 'lanzamientos' ? { formato: embFormato(), ...embPrelanz() } : {}), pestanas: todas ? undefined : pestanas, publicidad: pestanas.includes('publicidad'), ocultas: ocultas.length ? ocultas : undefined, ...embOrigenGuardar() } : e));
       const vsls = state.config.vsls[id] ? { ...state.config.vsls, [id]: { ...state.config.vsls[id], name: nombre, subtipo: embSubtipo() } } : state.config.vsls;
       const directas = state.config.directas?.[id] ? { ...state.config.directas, [id]: { ...state.config.directas[id], name: nombre } } : state.config.directas;
       const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, vsls, directas } });
@@ -9689,7 +9737,7 @@ $('#emb-crear').addEventListener('click', async () => {
     for (let n = 2; usados.has(id) || id.length < 2; n++) id = `${base.slice(0, 18)}-${n}`;
     const body = {
       ...state.config,
-      embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz() } : {}), ...(todas ? {} : { pestanas }), ...(ocultas.length ? { ocultas } : {}), ...embOrigenGuardar() }],
+      embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz() } : {}), ...(todas ? {} : { pestanas }), publicidad: pestanas.includes('publicidad'), ...(ocultas.length ? { ocultas } : {}), ...embOrigenGuardar() }],
       // VSL y venta directa nacen con su código para el nombre de las campañas de Meta (VSL-id, DIR-id).
       vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre, subtipo, metaFiltro: codigoMeta('vsl', id, nombre) } } : state.config.vsls,
       directas: tipo === 'directa' ? { ...(state.config.directas || {}), [id]: { name: nombre, producto: nombre, partes: partesElegidas('#emb-partes'), metaFiltro: codigoMeta('directa', id, nombre) } } : state.config.directas,
@@ -11029,6 +11077,143 @@ $('#dan-level').addEventListener('click', (e) => { const b = e.target.closest('[
 $('#dan-orden').addEventListener('click', (e) => { const b = e.target.closest('[data-do]'); if (!b) return; state.danOrden = b.dataset.do; renderDirectaAnuncios(state.directa.datos); });
 $('#dc-buscar').addEventListener('input', () => renderDirectaClientes(state.directa.datos));
 $('#dc-filtro').addEventListener('change', () => renderDirectaClientes(state.directa.datos));
+
+// ---------- 📣 Publicidad (métricas de Meta por campaña → conjunto → anuncio) ----------
+// Mismo periodo que Métricas (hoy, 30 y 90 días, mes en curso y pasado, fechas a medida) y, en los
+// lanzamientos, «Todo el lanzamiento». Los avisos comparan siempre la última semana con la anterior.
+state.pb = { datos: null, abiertos: new Set(), cols: 'rendimiento', token: 0 };
+const pbCodigo = () => (enMeteo() ? state.meteo?.code || '' : !enVsl() && !enDirecta() ? state.launchCode || '' : '');
+function pintarPbCampos() {
+  const lanz = tipoActual() === 'lanz';
+  $('#pb-preset option[data-solo-lanz]').hidden = !lanz;
+  if (!lanz && $('#pb-preset').value === 'lanzamiento') $('#pb-preset').value = '30d';
+  const p = $('#pb-preset').value === 'personalizado';
+  $('#pb-desde-f').hidden = !p;
+  $('#pb-hasta-f').hidden = !p;
+}
+async function cargarPublicidad({ fresh = false } = {}) {
+  const guardado = ls.get(`lsd_pb_preset_${state.embudo}`);
+  $('#pb-preset').value = guardado || (tipoActual() === 'lanz' ? 'lanzamiento' : '30d');
+  if (!$('#pb-preset').value) $('#pb-preset').value = '30d';
+  pintarPbCampos();
+  const preset = $('#pb-preset').value;
+  if (preset === 'personalizado' && !($('#pb-desde').value && $('#pb-hasta').value)) return;
+  const token = ++state.pb.token;
+  const clave = `${state.cliente}|${state.embudo}|${pbCodigo()}|${preset}|${$('#pb-desde').value}|${$('#pb-hasta').value}`;
+  if (!fresh && state.pb.datos?.clave === clave) { renderPublicidad(); return; }
+  state.pb.datos = null;
+  renderPublicidad();
+  const qs = new URLSearchParams({ embudo: state.embudo, code: pbCodigo(), preset, ...(preset === 'personalizado' ? { desde: $('#pb-desde').value, hasta: $('#pb-hasta').value } : {}), ...(fresh ? { fresh: '1' } : {}) });
+  let d;
+  try { d = await api(`/api/publicidad?${qs}`); } catch (e) { d = { error: e.message }; }
+  if (token !== state.pb.token) return;
+  state.pb.datos = { ...d, clave };
+  renderPublicidad();
+}
+$('#pb-preset').addEventListener('change', () => { ls.set(`lsd_pb_preset_${state.embudo}`, $('#pb-preset').value); pintarPbCampos(); cargarPublicidad(); });
+['#pb-desde', '#pb-hasta'].forEach((x) => $(x).addEventListener('change', () => { if ($('#pb-desde').value && $('#pb-hasta').value) cargarPublicidad(); }));
+$('#pb-recargar').addEventListener('click', () => cargarPublicidad({ fresh: true }));
+$('#pb-cols').addEventListener('click', (e) => { const b = e.target.closest('[data-pc]'); if (!b) return; state.pb.cols = b.dataset.pc; renderPublicidad(); });
+$('#pb-activos').addEventListener('change', renderPublicidad);
+$('#pb-abrir').addEventListener('click', () => { for (const c of state.pb.datos?.campanas || []) { state.pb.abiertos.add(c.id); for (const x of c.hijos) state.pb.abiertos.add(x.id); } renderPublicidad(); });
+$('#pb-cerrar').addEventListener('click', () => { state.pb.abiertos.clear(); renderPublicidad(); });
+$('#pb-arbol').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pb-abrir]');
+  if (!b) return;
+  const id = b.dataset.pbAbrir;
+  if (state.pb.abiertos.has(id)) state.pb.abiertos.delete(id); else state.pb.abiertos.add(id);
+  renderPublicidad();
+});
+
+const numEs = (n, d = 0) => (n == null || !Number.isFinite(n) ? '–' : n.toLocaleString('es-ES', { maximumFractionDigits: d, minimumFractionDigits: d }));
+const pctEs = (n, d = 2) => (n == null ? '–' : `${numEs(n * 100, d)} %`);
+const roasEs = (n) => (n == null ? '–' : `${numEs(n, 2)}x`);
+// Columnas como en el Administrador de anuncios: Rendimiento, Embudo y conversión, Creatividad.
+function columnasPublicidad(res) {
+  const r = res === 'compras' ? ['Compras', 'compras', 'Coste por compra', 'costeCompra'] : ['Registros', 'registros', 'Coste por registro', 'cpl'];
+  const c = (label, f, ayuda = '') => ({ label, f, ayuda });
+  return {
+    rendimiento: [
+      c('Importe gastado', (m) => eur(m.gasto)), c('Impresiones', (m) => numEs(m.impresiones)), c('Alcance', (m) => numEs(m.alcance), 'Personas distintas que lo han visto'),
+      c('Frecuencia', (m) => numEs(m.frecuencia, 2), 'Impresiones ÷ alcance: veces que lo ha visto cada persona'), c('CPM', (m) => eur(m.cpm), 'Coste por 1.000 impresiones'),
+      c('CTR (enlace)', (m) => pctEs(m.ctrEnlace), 'Clics en el enlace ÷ impresiones'), c('CPC (enlace)', (m) => eur(m.cpcEnlace), 'Gasto ÷ clics en el enlace'),
+      c(r[0], (m) => numEs(m[r[1]]), 'Lo que cuenta Meta (píxel o formulario)'), c(r[2], (m) => eur(m[r[3]])),
+    ],
+    embudo: [
+      c('Importe gastado', (m) => eur(m.gasto)), c('Clics en el enlace', (m) => numEs(m.clicsEnlace)), c('Visitas a la página', (m) => numEs(m.visitas), 'Landing page views: el clic que llega a cargar la página'),
+      c('% de carga', (m) => pctEs(m.carga, 0), 'Visitas ÷ clics en el enlace: si es bajo, la página tarda en cargar'), c('Coste por visita', (m) => eur(m.costeVisita)),
+      c('Registros', (m) => numEs(m.registros)), c('Coste por registro', (m) => eur(m.cpl)), c('Pagos iniciados', (m) => numEs(m.pagos)), c('Coste pago iniciado', (m) => eur(m.costePago)),
+      c('Compras', (m) => numEs(m.compras)), c('Coste por compra', (m) => eur(m.costeCompra)), c('Valor de compras', (m) => eur(m.valor)), c('ROAS (Meta)', (m) => roasEs(m.roas), 'Valor de las compras que cuenta Meta ÷ gasto'),
+    ],
+    creatividad: [
+      c('Importe gastado', (m) => eur(m.gasto)), c('Impresiones', (m) => numEs(m.impresiones)), c('Frecuencia', (m) => numEs(m.frecuencia, 2)),
+      c('Reproducciones 3 s', (m) => numEs(m.repro3s)), c('Hook rate', (m) => pctEs(m.hook, 1), 'Reproducciones de 3 s ÷ impresiones: cuánto engancha el inicio del vídeo (bien: 25 % o más)'),
+      c('CTR (todos)', (m) => pctEs(m.ctr)), c('CTR (enlace)', (m) => pctEs(m.ctrEnlace)), c('CPM', (m) => eur(m.cpm)),
+    ],
+  };
+}
+const ESTADO_META = { ACTIVE: ['Activa', 'on'], PAUSED: ['En pausa', 'off'], CAMPAIGN_PAUSED: ['Campaña en pausa', 'off'], ADSET_PAUSED: ['Conjunto en pausa', 'off'], DELETED: ['Eliminada', 'off'], ARCHIVED: ['Archivada', 'off'], IN_PROCESS: ['En revisión', 'rev'], PENDING_REVIEW: ['En revisión', 'rev'], DISAPPROVED: ['Rechazado', 'mal'], WITH_ISSUES: ['Con problemas', 'mal'] };
+function renderPublicidad() {
+  const D = state.pb.datos;
+  $$('#pb-cols .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.pc === state.pb.cols));
+  if (!D) { $('#pb-avisos').innerHTML = ''; $('#pb-kpis').innerHTML = ''; $('#pb-arbol').innerHTML = '<p class="muted">Cargando las campañas de Meta…</p>'; $('#pb-texto').textContent = ''; return; }
+  const vacio = (html) => { $('#pb-avisos').innerHTML = ''; $('#pb-kpis').innerHTML = ''; $('#pb-arbol').innerHTML = html; };
+  if (D.error) return vacio(`<div class="notice err">${esc(D.error)}</div>`);
+  if (D.configured === false) return vacio('<p class="muted">Meta no está conectado para este cliente: hace falta el token y la cuenta publicitaria (Configuración → Conexiones).</p>');
+  if (D.sinCampanas) return vacio(`<p class="muted">${esc(D.sinCampanas)}</p>`);
+  const fmt = (d) => dayFmt.format(new Date(`${d}T12:00:00Z`));
+  $('#pb-texto').innerHTML = `${esc(D.rango.desde === D.rango.hasta ? fmt(D.rango.desde) : `${fmt(D.rango.desde)} – ${fmt(D.rango.hasta)}`)} · ${D.filtro ? `campañas con «${esc(D.filtro)}» en el nombre${D.nombreCode ? ` (${esc(D.nombreCode)})` : ''}` : '<strong>todas las campañas de la cuenta</strong> (pon el código de Meta en la configuración del embudo)'}`;
+  pintarAvisosPublicidad(D.avisos, $('#pb-avisos'));
+  const res = D.resultado || 'registros';
+  const t = D.total || {};
+  const costeRes = res === 'compras' ? t.costeCompra : t.cpl;
+  $('#pb-kpis').innerHTML = !D.campanas?.length ? '' : [
+    cardD('Importe gastado', eur(t.gasto), `${D.campanas.length} campaña${D.campanas.length === 1 ? '' : 's'}`, 'coins', 'accent', 'Lo gastado en Meta en el periodo, en las campañas del embudo.'),
+    cardD('Impresiones', t.impresiones >= 100_000 ? t.impresiones.toLocaleString('es-ES', { notation: 'compact', maximumFractionDigits: 1 }) : numEs(t.impresiones), `Alcance ${D.alcanceAproximado ? '≈ ' : ''}${numEs(t.alcance)} · frecuencia ${numEs(t.frecuencia, 2)}`, 'users', 'info', D.alcanceAproximado ? 'Con varias campañas, el alcance es la suma de cada una (una persona que vio dos campañas cuenta dos veces).' : ''),
+    cardD('CPM', eur(t.cpm), 'coste por 1.000 impresiones', 'megaphone', 'info', 'Gasto ÷ impresiones × 1.000.'),
+    cardD('CTR (enlace)', pctEs(t.ctrEnlace), `CPC ${eur(t.cpcEnlace)} · ${numEs(t.clicsEnlace)} clics`, 'trend', 'info', 'Clics en el enlace ÷ impresiones. CPC: gasto ÷ clics en el enlace.'),
+    cardD('Visitas a la página', numEs(t.visitas), `${pctEs(t.carga, 0)} de los clics · ${eur(t.costeVisita)} cada una`, 'layout', 'info', 'Landing page views de Meta: clics que llegan a cargar la página.'),
+    cardD(res === 'compras' ? 'Compras (Meta)' : 'Registros (Meta)', numEs(t[res]), `${eur(costeRes)} cada ${res === 'compras' ? 'compra' : 'registro'}`, res === 'compras' ? 'cart' : 'users', 'buy', 'Lo que cuenta Meta con el píxel o el formulario. Las ventas reales (GHL) están en Métricas.'),
+    ...(t.valor ? [cardD('ROAS (Meta)', roasEs(t.roas), `${eur(t.valor)} en compras`, 'coins', 'money', 'Valor de las compras que cuenta Meta ÷ gasto.')] : []),
+  ].join('');
+  if (!D.campanas?.length) { $('#pb-arbol').innerHTML = `<p class="muted">Ninguna campaña con gasto en este periodo${D.filtro ? ` con «${esc(D.filtro)}» en el nombre` : ''}. Comprueba el código de las campañas en la configuración del embudo.</p>`; return; }
+  const cols = columnasPublicidad(res)[state.pb.cols];
+  const soloActivos = $('#pb-activos').checked;
+  const visible = (n) => !soloActivos || !n.estado || n.estado === 'ACTIVE';
+  const nivelTxt = { campaign: 'Campaña', adset: 'Conjunto de anuncios', ad: 'Anuncio' };
+  const enlaceMeta = (n) => (D.cuenta ? `<a class="pb-meta" href="https://adsmanager.facebook.com/adsmanager/manage/${n.nivel === 'campaign' ? 'campaigns' : n.nivel === 'adset' ? 'adsets' : 'ads'}?act=${encodeURIComponent(D.cuenta)}&selected_${n.nivel}_ids=${encodeURIComponent(n.id)}" target="_blank" rel="noopener" title="Abrir en el Administrador de anuncios">↗</a>` : '');
+  const fila = (n, prof) => {
+    const abierto = state.pb.abiertos.has(n.id);
+    const hijos = n.hijos?.filter(visible) || [];
+    const est = ESTADO_META[n.estado] || (n.estado ? [n.estado.toLowerCase().replace(/_/g, ' '), 'off'] : null);
+    const nombre = `${hijos.length ? `<button type="button" class="pb-tog" data-pb-abrir="${esc(n.id)}" aria-expanded="${abierto}" aria-label="${abierto ? 'Cerrar' : 'Abrir'} ${esc(n.nombre)}">${abierto ? '▾' : '▸'}</button>` : '<span class="pb-tog-v"></span>'}<span class="pb-nom"><strong>${esc(n.nombre)}</strong><small class="muted">${nivelTxt[n.nivel]}${hijos.length ? ` · ${hijos.length} ${n.nivel === 'campaign' ? `conjunto${hijos.length === 1 ? '' : 's'}` : `anuncio${hijos.length === 1 ? '' : 's'}`}` : ''}</small></span>${enlaceMeta(n)}`;
+    const propia = `<tr class="pb-${n.nivel}"><td class="pb-c1" style="--pb-prof:${prof}"><div class="pb-c1-in">${nombre}</div></td><td>${est ? `<span class="pb-est pb-est-${est[1]}">${esc(est[0])}</span>` : ''}</td>${cols.map((c) => `<td class="num">${c.f(n.m)}</td>`).join('')}</tr>`;
+    return propia + (abierto ? hijos.map((h) => fila(h, prof + 1)).join('') : '');
+  };
+  const filas = D.campanas.filter(visible).map((c) => fila(c, 0)).join('');
+  $('#pb-arbol').innerHTML = `<div class="table-wrap"><table class="metric-table pb-t"><thead><tr><th>Campaña / conjunto de anuncios / anuncio</th><th>Estado</th>${cols.map((c) => `<th class="num"${c.ayuda ? ` title="${esc(c.ayuda)}"` : ''}>${esc(c.label)}</th>`).join('')}</tr></thead>
+    <tbody>${filas || `<tr><td colspan="${cols.length + 2}" class="muted">Ninguna campaña activa: quita «Solo activos».</td></tr>`}</tbody>
+    <tfoot><tr><td><strong>Total</strong></td><td></td>${cols.map((c) => `<td class="num"><strong>${c.f(t)}</strong></td>`).join('')}</tr></tfoot></table></div>
+    <p class="muted small">Pulsa ▸ para abrir una campaña o un conjunto, y ↗ para abrirlo en Meta. Las cifras son las de Meta en el periodo elegido (pueden tardar unas horas en cuadrar con el Administrador). Las ventas reales por anuncio, cruzadas con GHL, están en «Anuncios ganadores».</p>`;
+}
+// Avisos de anuncios nuevos (también los usa el Inicio con la versión corta).
+function pintarAvisosPublicidad(A, caja) {
+  if (!A) { caja.innerHTML = ''; return; }
+  if (A.error) { caja.innerHTML = `<div class="notice warn">No se pudieron calcular los avisos de anuncios: ${esc(A.error)}</div>`; return; }
+  const tono = { urgente: 'err', pronto: 'warn', ok: 'ok', sindatos: '' }[A.nivel] || '';
+  const ico = { urgente: '🚨', pronto: '⏳', ok: '✅', sindatos: '📭' }[A.nivel] || '';
+  const u = UMBRALES_PUBLI;
+  const marca = { alta: '🔴', media: '🟠', info: '🔵' };
+  caja.innerHTML = `<div class="notice ${tono} pb-avisos"><span><strong>${ico} ${esc(A.titulo)}</strong>${A.semana ? ` <small class="muted">· últimos 7 días frente a los 7 anteriores</small>` : ''}
+    ${A.avisos?.length ? `<ul>${A.avisos.map((x) => `<li>${marca[x.nivel] || ''} ${x.nombre ? `<strong>${esc(x.nombre)}:</strong> ` : ''}${esc(x.texto)}</li>`).join('')}</ul>` : ''}
+    <details class="pb-umbrales"><summary>¿Cómo se calcula?</summary><p class="small">Se mira cada anuncio activo con al menos ${u.minGasto} € o ${numEs(u.minImpresiones)} impresiones en la última semana y se compara con la anterior:</p><ul class="small">
+      <li>🔴 Frecuencia de ${numEs(u.frecuenciaAlta, 1)} o más en 7 días (🟠 desde ${numEs(u.frecuenciaAviso, 1)}): el público ya lo ha visto demasiado.</li>
+      <li>🟠 El CTR del enlace cae un ${u.caidaCtr * 100} % o más (🔴 si cae a la mitad): el anuncio se está quemando.</li>
+      <li>🔴 El coste por resultado sube un ${u.subidaCoste * 100} % o más (con ${u.minResultados} resultados o más en cada semana).</li>
+      <li>🔵 El CPM sube un ${u.subidaCpm * 100} % o más · 🔵 lleva ${u.diasActivo} días o más publicado.</li>
+      <li>🟠 Menos de ${u.minActivos} anuncios con gasto (poco margen para testear) · 🔴 un anuncio con avisos se lleva el ${u.concentracion * 100} % del gasto o más.</li>
+    </ul><p class="small muted">Con algún 🔴: prepara anuncios nuevos ya. Con 🟠: en 1-2 semanas. Un anuncio nuevo tarda unos días en salir del aprendizaje, por eso conviene tenerlo listo antes de que el actual se agote.</p></details></span></div>`;
+}
 
 // ---------- 🔌 Conexiones (SendFlow) ----------
 // El cliente (rol «Cliente») que aún no ha terminado su cuestionario de marca solo ve el asistente, en el paso
