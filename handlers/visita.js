@@ -3,6 +3,7 @@
 //        D1 (sin llamar a GHL: al abrir el carrito entran cientos a la vez). Llegar a la de pago = inició el pago.
 //   GET  /api/visita?l=<código>  (dashboard) → { visitas, pago: { contacto → { primera, ultima, veces } }, registro: nº }.
 // En la de registro `cid` es un id anónimo del navegador (aún no hay lead): cuenta visitantes únicos.
+import { dentroDelLimite } from '../lib/intentos.js';
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { currentLaunch } from '../lib/digest.js';
@@ -23,6 +24,7 @@ export async function POST(request, ctx) {
   try {
     const { launch, cid, pagina } = await readBody(request);
     if (typeof cid !== 'string' || !/^[A-Za-z0-9]{6,40}$/.test(cid)) return json({ error: 'Datos no válidos' }, 400, CORS_HEADERS);
+    if (!(await dentroDelLimite(request, 'visita', 300))) return json({ ok: true }, 200, CORS_HEADERS);
     const config = await getConfig();
     const code = lanzamiento(config, launch);
     if (!code) return json({ error: 'Lanzamiento desconocido' }, 404, CORS_HEADERS);

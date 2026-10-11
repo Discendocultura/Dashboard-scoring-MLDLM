@@ -97,11 +97,15 @@ export async function POST(request) {
     if (body.op !== 'etapa') throw bad('Operación no válida');
     const etapa = String(body.etapa || '');
     const nota = String(body.nota || '').trim().slice(0, 2000);
-    const pipelineId = String(body.pipelineId || '');
-    if (!ID_RE.test(pipelineId) || !/^[A-Za-z0-9_-]{2,64}$/.test(etapa)) throw bad('Etapa no válida');
-    const pipes = await getPipelines().catch((e) => { throw permisos(e); });
-    const p = pipes.find((x) => x.id === pipelineId);
-    const st = p?.stages?.find((x) => x.id === etapa);
+    if (!/^[A-Za-z0-9_-]{2,64}$/.test(etapa)) throw bad('Etapa no válida');
+    // El pipeline lo decide el servidor (el del seguimiento de este embudo, no el que mande el navegador) y solo
+    // se puede mover a compradoras de este embudo.
+    const contactos = await compradorasDe(d);
+    if (!contactos.some((c) => c.id === contactId)) throw bad('Esa persona no es compradora de este embudo', 403);
+    const { pipeline } = await pipelineDe(d, contactos).catch((e) => { throw permisos(e); });
+    if (!pipeline) throw bad('No se encuentra el pipeline del seguimiento');
+    const pipelineId = pipeline.id;
+    const st = pipeline.stages.find((x) => x.id === etapa);
     if (!st) throw bad('Esa etapa no está en el pipeline');
     const avisos = [];
     // 1) La oportunidad de la persona en ese pipeline: se mueve (o se crea si no tiene).

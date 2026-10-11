@@ -18,7 +18,9 @@ export async function GET(request) {
       if (falla) return json({ error: 'No autorizado', motivo: falla }, 401);
       return json(await informesDiariosPendientes(url.origin));
     }
+    // La vista previa lleva todas las cifras: además de configurar, hay que poder ver Métricas.
     await requireSession(request, { permiso: 'config' });
+    await requireSession(request, { permiso: 'metricas' });
     const code = url.searchParams.get('l') || '';
     const config = await getConfig();
     if (!config.launches[code]) return json({ error: 'Lanzamiento no encontrado' }, 404);

@@ -1,6 +1,7 @@
 // Endpoint público del formulario de acceso de la página de recursos (tracker.js).
 // Respuesta: { ok: true } si puede ver las clases, o { ok: false, needs: 'signup' } si no tiene la
 // etiqueta de registro del lanzamiento y hay que pedirle nombre y móvil para registrarla.
+import { dentroDelLimite } from '../lib/intentos.js';
 import { getConfig } from '../lib/config-store.js';
 import { currentLaunch } from '../lib/digest.js';
 import { ensureRegistered } from '../lib/access.js';
@@ -17,6 +18,8 @@ export async function POST(request) {
     // Campo trampa para bots. Antes se llamaba `website` y algunos autorrellenos lo rellenaban
     // dejando fuera a leads de verdad: ese nombre ya no se mira.
     if (hp) return json({ ok: false, error: 'bot' }, 200, CORS_HEADERS);
+    // Límite por conexión: frena altas falsas en bucle (cada una crea un contacto en GHL y dispara sus workflows).
+    if (!(await dentroDelLimite(request, 'acceso', 40))) return json({ ok: false, error: 'rate' }, 429, CORS_HEADERS);
     if (!isEmail(email)) return json({ ok: false, error: 'email' }, 200, CORS_HEADERS);
     const config = await getConfig();
     const code = !asked || asked === 'auto' ? currentLaunch(config) : asked;

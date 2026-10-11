@@ -4,6 +4,7 @@
 //        resultados (el % de cada opción de las preguntas tipo test). Las tipo test son obligatorias; las
 //        libres, opcionales. (Compatibilidad: { opcion } = la respuesta a la pregunta p1.)
 //   GET  /api/votacion?l=<código>  (dashboard) → preguntas, resultados y las respuestas de cada contacto.
+import { dentroDelLimite } from '../lib/intentos.js';
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { addTags, findContactByEmail } from '../lib/ghl.js';
@@ -22,6 +23,7 @@ const lanzamientoDe = (config, code) => (Object.hasOwn(config.launches, code) ? 
 export async function POST(request) {
   try {
     const { launch: code, cid, email, opcion, respuestas: crudas } = await readBody(request);
+    if (!(await dentroDelLimite(request, 'voto', 60))) return json({ error: 'Demasiados votos seguidos' }, 429, CORS_HEADERS);
     const config = await getConfig();
     const launch = lanzamientoDe(config, String(code || ''));
     if (!launch || !tieneRecurso(launch, 'votacion')) return json({ error: 'No hay votación en este lanzamiento' }, 404, CORS_HEADERS);

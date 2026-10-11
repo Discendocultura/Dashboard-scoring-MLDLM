@@ -84,7 +84,7 @@ export async function GET(request) {
         const out = { cliente: c.id, informes: [], resumenDiario: null };
         try { out.informes = await informesPendientes(url.origin); } catch (e) { out.errorInformes = String(e.publicMessage || e.message).slice(0, 200); }
         // Limpieza: las marcas de «visita ya contada» del meteórico de hace más de un día ya no hacen falta.
-        if (db()) await db().prepare("DELETE FROM intentos WHERE clave LIKE 'visita:%' AND desde < ?").bind(Date.now() - 86_400_000).run().catch(() => {});
+        if (db()) await db().prepare("DELETE FROM intentos WHERE (clave LIKE 'visita:%' OR clave LIKE 'pub:%') AND desde < ?").bind(Date.now() - 86_400_000).run().catch(() => {});
         const config = await getConfig({ fresh: true });
         if (config.digestEmail) {
           try { out.resumenDiario = await sendDigestUnaVez(config, new URL('/', request.url).toString()); } catch (e) { out.resumenDiario = { sent: false, error: String(e.publicMessage || e.message).slice(0, 200) }; }

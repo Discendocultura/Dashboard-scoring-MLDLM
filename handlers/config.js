@@ -140,8 +140,9 @@ export async function POST(request) {
     }
     // Si no vienen los embudos (p. ej. un navegador con la versión anterior), se conservan los guardados.
     const actual = !('vsls' in body) || !('embudos' in body) || rol !== 'admin' ? await getConfig({ fresh: true }) : null;
-    // La marca, la encuesta del avatar y el email del resumen diario solo los cambia un admin.
-    if (rol !== 'admin') Object.assign(body, { marca: actual.marca, encuesta: actual.encuesta, digestEmail: actual.digestEmail });
+    // La marca, la encuesta del avatar, el email del resumen diario y los del informe diario (llevan todas las cifras)
+    // solo los cambia un admin.
+    if (rol !== 'admin') Object.assign(body, { marca: actual.marca, encuesta: actual.encuesta, digestEmail: actual.digestEmail, informes: actual.informes });
     // Con `_version` (la que tenía el navegador): si otra persona guardó después, se avisa en vez de pisarlo.
     const version = Number.isInteger(body._version) ? body._version : null;
     const config = await saveConfig(

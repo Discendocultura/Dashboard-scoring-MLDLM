@@ -1,5 +1,6 @@
 // Endpoint público al que llaman las páginas de vídeo (tracker.js) cuando el lead llega
 // al 50% o al 90% de un vídeo. Pone la etiqueta correspondiente al contacto en GHL.
+import { dentroDelLimite } from '../lib/intentos.js';
 import { addTags, findContactByEmail } from '../lib/ghl.js';
 import { getConfig } from '../lib/config-store.js';
 import { marcarActividad } from '../lib/actividad.js';
@@ -13,6 +14,7 @@ export function OPTIONS() {
 export async function POST(request, ctx) {
   try {
     const { launch, video, pct, cid, email } = await readBody(request);
+    if (!(await dentroDelLimite(request, 'track', 400))) return json({ ok: true }, 200, CORS_HEADERS);
     const p = Number(pct);
     // La VSL tiene un único vídeo («vsl»); los lanzamientos, clase 1, clase 2 y grabación.
     const config = await getConfig();

@@ -3,6 +3,7 @@
 //   POST { op: 'visita', d, pagina, v }  (pública: bloque data-lsd-directa de tracker.js) → visitante único
 // Las ventas salen de la etiqueta de compra (y la de cada bump, upsell y downsell); las visitas, de D1;
 // la inversión, de Meta (campañas con el filtro). Se guarda 5 minutos para todo el equipo.
+import { dentroDelLimite } from '../lib/intentos.js';
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { metaConfigured } from '../lib/meta.js';
@@ -42,6 +43,8 @@ export async function POST(request) {
   try {
     const body = await readBody(request);
     if (body.op !== 'visita') return json({ error: 'Operación no válida' }, 400, CORS_HEADERS);
+    // Cada visita nueva es una fila en D1: límite por conexión para que nadie la llene ni falsee las conversiones.
+    if (!(await dentroDelLimite(request, 'visita-directa', 120))) return json({ ok: true }, 200, CORS_HEADERS);
     const id = String(body.d || '');
     const pagina = String(body.pagina || '');
     const v = String(body.v || '');
