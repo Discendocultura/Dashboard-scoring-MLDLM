@@ -44,11 +44,15 @@ export function sanitizeOfertas(lista, prefijo) {
   return base.map((o) => ({ ...o, url: urls.get(o.id) || '' }));
 }
 
-// { nombre, tags: [] } (máx. 10 etiquetas, sin repetir ni la de compra de este embudo) · sin etiquetas: null.
+// { nombre, tags: [], precios: { etiqueta: € } } (máx. 10 etiquetas, sin repetir ni la de compra de este embudo).
+// El precio de cada etiqueta (p. ej. pago único y a plazos) da la facturación que viene del paso. Sin etiquetas: null.
 export function sanitizeUpsellPrincipal(u, compraTag = '') {
   const propia = tag(compraTag);
   const tags = [...new Set((Array.isArray(u?.tags) ? u.tags : []).map(tag).filter((t) => t && t !== propia))].slice(0, 10);
-  return tags.length ? { nombre: str(u?.nombre, 80), tags } : null;
+  if (!tags.length) return null;
+  const entrada = u?.precios && typeof u.precios === 'object' ? Object.fromEntries(Object.entries(u.precios).map(([k, v]) => [tag(k), v])) : {};
+  const precios = Object.fromEntries(tags.map((t) => [t, dinero(entrada[t])]).filter(([, v]) => v > 0));
+  return { nombre: str(u?.nombre, 80), tags, ...(Object.keys(precios).length ? { precios } : {}) };
 }
 
 // Cuántas compradoras han pasado después al producto principal (tienen alguna de sus etiquetas), en el periodo
@@ -57,9 +61,11 @@ export function upsellAlPrincipal(contactos, d, ventasPeriodo) {
   const u = d?.upsellPrincipal;
   if (!u?.tags?.length) return null;
   const pasa = (c) => u.tags.some((t) => tiene(c, t));
+  // Lo que ha pagado por el principal: el precio más alto de sus etiquetas (si tiene pago único y a plazos, no se suma dos veces).
+  const importe = (c) => Math.max(0, ...u.tags.filter((t) => tiene(c, t)).map((t) => u.precios?.[t] || 0));
   const todas = contactos.filter((c) => tiene(c, d.compraTag));
-  const cuenta = (lista) => { const n = lista.filter(pasa).length; return { n, de: lista.length, pct: div(n, lista.length) }; };
-  return { nombre: u.nombre || '', tags: u.tags, periodo: cuenta(ventasPeriodo.map((v) => v.c)), total: cuenta(todas) };
+  const cuenta = (lista) => { const ok = lista.filter(pasa); return { n: ok.length, de: lista.length, pct: div(ok.length, lista.length), facturacion: ok.reduce((t, c) => t + importe(c), 0) }; };
+  return { nombre: u.nombre || '', tags: u.tags, conPrecio: Boolean(u.precios && Object.keys(u.precios).length), periodo: cuenta(ventasPeriodo.map((v) => v.c)), total: cuenta(todas) };
 }
 
 // Limpia la configuración que llega del navegador.

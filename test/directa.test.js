@@ -267,8 +267,16 @@ test('paso al producto principal (upsell posterior): % del periodo y del total d
   const c = (id, dia, ...tags) => ({ id, tags: ['compra-reto', ...tags], diaCompra: dia, dateAdded: `${dia}T10:00:00Z` });
   const contactos = [c('a', '2026-10-01', 'clienta-raices'), c('b', '2026-10-02'), c('c', '2026-10-03', 'raices-vip'), c('d', '2026-09-01', 'clienta-raices'), c('e', '2026-09-02'), { id: 'x', tags: ['clienta-raices'] }];
   const m = metricasDirecta(contactos, d, { desde: '2026-10-01', hasta: '2026-10-31' });
-  assert.deepEqual(m.upsellPrincipal.periodo, { n: 2, de: 3, pct: 2 / 3 });
-  assert.deepEqual(m.upsellPrincipal.total, { n: 3, de: 5, pct: 0.6 });
+  assert.deepEqual(m.upsellPrincipal.periodo, { n: 2, de: 3, pct: 2 / 3, facturacion: 0 });
+  assert.deepEqual(m.upsellPrincipal.total, { n: 3, de: 5, pct: 0.6, facturacion: 0 });
+  assert.equal(m.upsellPrincipal.conPrecio, false);
+  // Con precio por etiqueta: facturación del paso (si tiene dos etiquetas, la más cara, sin sumar dos veces).
+  const dp = sanitizeDirecta({ name: 'Reto', compraTag: 'compra-reto', precio: 27, upsellPrincipal: { nombre: 'Raíces', tags: ['clienta-raices', 'raices-vip'], precios: { 'clienta-raices': '797', 'Raices-VIP': '997,5' } } });
+  assert.deepEqual(dp.upsellPrincipal.precios, { 'clienta-raices': 797, 'raices-vip': 997.5 });
+  const conAmbas = [...contactos, c('z', '2026-10-04', 'clienta-raices', 'raices-vip')];
+  const mp = metricasDirecta(conAmbas, dp, { desde: '2026-10-01', hasta: '2026-10-31' });
+  assert.equal(mp.upsellPrincipal.periodo.facturacion, 797 + 997.5 + 997.5);
+  assert.equal(mp.upsellPrincipal.total.facturacion, 797 * 2 + 997.5 * 2);
   assert.equal(m.upsellPrincipal.nombre, 'Raíces');
   assert.equal(metricasDirecta(contactos, { ...d, upsellPrincipal: null }, { desde: '2026-10-01', hasta: '2026-10-31' }).upsellPrincipal, null);
 });

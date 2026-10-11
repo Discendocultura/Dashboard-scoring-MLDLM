@@ -10880,12 +10880,16 @@ function abrirDirectaConfig(id = state.embudo) {
   pintarSelectOportunidad(d);
   $('#dc-uppNombre').value = d.upsellPrincipal?.nombre || '';
   dcUppTags = [...(d.upsellPrincipal?.tags || [])];
+  dcUppPrecios = { ...(d.upsellPrincipal?.precios || {}) };
   pintarUppTags();
 }
 // Etiquetas del producto principal (upsell posterior): chips que se quitan con ×.
 let dcUppTags = [];
+let dcUppPrecios = {};
 function pintarUppTags() {
-  $('#dc-uppTags').innerHTML = dcUppTags.length ? dcUppTags.map((t, i) => `<span class="chip on dc-upp-chip">${esc(t)} <button type="button" data-upp-quitar="${i}" aria-label="Quitar ${esc(t)}">×</button></span>`).join('') : '<small class="muted">Sin etiquetas: no se mide el paso al producto principal.</small>';
+  $('#dc-uppTags').innerHTML = dcUppTags.length ? dcUppTags.map((t, i) => `<span class="dc-upp-fila"><span class="chip on dc-upp-chip">${esc(t)} <button type="button" data-upp-quitar="${i}" aria-label="Quitar ${esc(t)}">×</button></span>
+      <label class="dc-upp-precio"><span>Precio (€)</span><input data-upp-precio="${esc(t)}" inputmode="decimal" placeholder="797" value="${dcUppPrecios[t] ? esc(String(dcUppPrecios[t]).replace('.', ',')) : ''}"></label></span>`).join('')
+    : '<small class="muted">Sin etiquetas: no se mide el paso al producto principal.</small>';
 }
 function anadirUppTag() {
   const t = $('#dc-uppTag').value.trim().toLowerCase();
@@ -10896,6 +10900,7 @@ function anadirUppTag() {
 $('#dc-uppAdd').addEventListener('click', anadirUppTag);
 $('#dc-uppTag').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); anadirUppTag(); } });
 $('#dc-uppTag').addEventListener('change', () => { if (state.tags?.includes($('#dc-uppTag').value.trim())) anadirUppTag(); });
+$('#dc-uppTags').addEventListener('input', (e) => { const i = e.target.closest('[data-upp-precio]'); if (i) dcUppPrecios[i.dataset.uppPrecio] = i.value.trim(); });
 $('#dc-uppTags').addEventListener('click', (e) => { const b = e.target.closest('[data-upp-quitar]'); if (b) { dcUppTags.splice(Number(b.dataset.uppQuitar), 1); pintarUppTags(); } });
 // Pipeline › etapa de la oportunidad que crea el workflow de compra (vacío: se detecta sola; «no»: no se usa).
 async function pintarSelectOportunidad(d) {
@@ -10921,7 +10926,7 @@ $('#dc-guardar').addEventListener('click', async () => {
     name: val('name') || state.config.directas[id].name, producto: val('producto'), precio: val('precio'),
     iva: { pct: val('ivaPct') === '' ? 21 : Number(val('ivaPct').replace(',', '.')), producto: $('#dc-iva').value },
     compraTag: val('compraTag').toLowerCase(), compraDateField: val('compraDateField'), emailCompra: val('emailCompra'),
-    upsellPrincipal: { nombre: val('uppNombre'), tags: [...dcUppTags, ...($('#dc-uppTag').value.trim() ? [$('#dc-uppTag').value.trim().toLowerCase()] : [])] },
+    upsellPrincipal: { nombre: val('uppNombre'), tags: [...dcUppTags, ...($('#dc-uppTag').value.trim() ? [$('#dc-uppTag').value.trim().toLowerCase()] : [])], precios: dcUppPrecios },
     compraPipeline: val('compraOportunidad').split(':')[0], compraEtapa: val('compraOportunidad').split(':')[1] || '',
     partes: partesElegidas('#dc-partes'),
     bumps: leerOfertas('bumps'), upsells: leerOfertas('upsells'), downsells: leerOfertas('downsells'),
@@ -11016,7 +11021,10 @@ function pintarUpsellPrincipal(U, d) {
   }
   const nombre = U.nombre || 'el producto principal';
   const pctTxt = (x) => (x.pct == null ? '–' : `${(Math.round(x.pct * 1000) / 10).toLocaleString('es-ES')} %`);
-  const bloque = (titulo, x, sub) => `<div class="dir-upsell-b"><span class="dir-upsell-t">${titulo}</span><strong class="dir-upsell-pct">${pctTxt(x)}</strong><span class="dir-upsell-n"><b>${x.n.toLocaleString('es-ES')}</b> de ${x.de.toLocaleString('es-ES')} compradoras</span><small class="muted">${sub}</small></div>`;
+  const fact = (x) => (U.conPrecio
+    ? `<span class="dir-upsell-f" title="Facturación de ${esc(nombre)} que viene de estas compradoras (precio de cada etiqueta en la configuración)">💶 <b>${eur(x.facturacion || 0)}</b> facturados en ${esc(nombre)}</span>`
+    : `<span class="dir-upsell-f muted">💶 Pon el precio de cada etiqueta en ${puedeConfig() ? '<button type="button" class="link-btn" data-dir-config>⚙️ Configurar</button>' : 'la configuración'} para ver lo facturado</span>`);
+  const bloque = (titulo, x, sub) => `<div class="dir-upsell-b"><span class="dir-upsell-t">${titulo}</span><strong class="dir-upsell-pct">${pctTxt(x)}</strong><span class="dir-upsell-n"><b>${x.n.toLocaleString('es-ES')}</b> de ${x.de.toLocaleString('es-ES')} compradoras</span>${fact(x)}<small class="muted">${sub}</small></div>`;
   caja.innerHTML = `<section class="card dir-upsell"><h3>🎯 Pasan a ${esc(nombre)} ${ayudaBtn(`Compradoras de este embudo que además tienen la etiqueta de ${nombre} (${U.tags.join(', ')}). «En el periodo»: de las que compraron este producto en las fechas elegidas arriba, cuántas tienen ya el principal. «Total»: de todas las compradoras del embudo. Cuenta a quien ya lo tenía antes de comprar este producto (GHL no guarda cuándo se puso cada etiqueta).`)}</h3>
     <div class="dir-upsell-g">${bloque('En el periodo', U.periodo, 'de las que compraron en las fechas elegidas')}${bloque('Total', U.total, 'de todas las compradoras del embudo')}</div></section>`;
 }
