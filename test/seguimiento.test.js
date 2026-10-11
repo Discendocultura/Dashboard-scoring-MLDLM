@@ -13,6 +13,7 @@ test('seguimiento: solo compradoras sin el producto principal, con su etapa y de
     c('b', { tags: ['compra reto ovulacion evergreen', 'clienta-raices'] }),
     c('e', { opps: [`${PIPE}:contactado`, 'otro:x'], tags: ['compra reto ovulacion evergreen', 'bump-guia'] }),
     c('f', { opps: [] }),
+    c('g', { phone: '' }), // sin teléfono: fuera
     { id: 'x', tags: ['otra'] },
   ];
   const l = listaSeguimiento(contactos, d, { dias: { a: '2026-10-11', e: '2026-10-05', f: '2026-09-20' }, cambios: { f: { etapa: 'nocontesta1', por: 'Ana', en: '2026-10-11T10:00:00Z' } }, wa: { a: { en: '2026-10-11T09:00:00Z', por: 'Ana' } }, pipelineId: PIPE, hoy: '2026-10-11' });

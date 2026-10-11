@@ -23,14 +23,15 @@ export function etapaDe(c, pipelineId, cambio = null) {
   return par ? par.split(':')[1] : '';
 }
 
-// Lista de seguimiento: compradoras del embudo SIN ninguna etiqueta del producto principal.
+// Lista de seguimiento: compradoras del embudo CON teléfono y SIN ninguna etiqueta del producto principal.
 //   dias: { contactId: día de compra } (lo apuntado por el dashboard) · cambios: { contactId: { etapa, por, en, nota } }
 //   → [{ id, name, email, phone, dia, diasDesde, extras, src, etapa, cambio, wa }], de la compra más reciente a la más antigua
 export function listaSeguimiento(contactos, d, { dias = {}, cambios = {}, wa = {}, pipelineId = '', hoy = dayInMadrid(new Date().toISOString()) } = {}) {
   const principal = d?.upsellPrincipal?.tags || [];
   const extras = [...(d?.bumps || []), ...(d?.upsells || []), ...(d?.downsells || [])].filter((o) => o?.tag);
   return contactos
-    .filter((c) => tiene(c, d.compraTag) && !principal.some((t) => tiene(c, t)))
+    // Solo las que tienen teléfono: la setter las llama o les escribe por WhatsApp.
+    .filter((c) => tiene(c, d.compraTag) && !principal.some((t) => tiene(c, t)) && String(c.phone || '').replace(/\D/g, '').length >= 6)
     .map((c) => {
       const dia = dias[c.id] || (c.dateAdded ? dayInMadrid(c.dateAdded) : '');
       return {

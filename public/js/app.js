@@ -11082,9 +11082,14 @@ function renderDirectaClientes(D) {
   const sel = $('#dc-filtro');
   const antes = sel.value;
   const principal = d.upsellPrincipal?.tags?.length ? d.upsellPrincipal.nombre || 'el producto principal' : '';
-  sel.innerHTML = `${principal ? `<option value="seg">📞 Sin ${esc(principal)} · seguimiento</option>` : ''}<option value="">Todas</option><option value="-">Sin ningún extra</option><option value="+">Con algún extra</option>${extras.map((o) => `<option value="${esc(o.id)}">${o.t} ${esc(o.nombre || o.tag)}</option>`).join('')}`;
+  sel.innerHTML = `<option value="">Todas</option><option value="-">Sin ningún extra</option><option value="+">Con algún extra</option>${extras.map((o) => `<option value="${esc(o.id)}">${o.t} ${esc(o.nombre || o.tag)}</option>`).join('')}`;
   sel.value = [...sel.options].some((o) => o.value === antes) ? antes : '';
-  const enSeg = sel.value === 'seg';
+  // Casilla «Sin <producto principal>»: la lista de seguimiento (solo con teléfono) en vez de la tabla.
+  $('#dc-sinprincipal-l').hidden = !principal;
+  $('#dc-sinprincipal-t').textContent = `📞 Sin ${principal}`;
+  if (!principal) $('#dc-sinprincipal').checked = false;
+  const enSeg = $('#dc-sinprincipal').checked;
+  sel.closest('label').hidden = enSeg;
   $('#dc-tabla').hidden = enSeg;
   $('#dc-seg').hidden = !enSeg;
   if (enSeg) { cargarSeguimiento(); return; }
@@ -11168,7 +11173,7 @@ function renderSeguimiento() {
   const lista = S.lista.filter((x) => (!state.seg.soloPeriodo || enPeriodo(x))
     && (!q || `${x.name} ${x.email} ${x.phone}`.toLowerCase().includes(q))
     && (f === 'todas' || (f === 'pendientes' ? segEtapaPendiente(x, S) : x.etapa === f)));
-  $('#dc-n').textContent = `${lista.length.toLocaleString('es-ES')} de ${S.lista.length.toLocaleString('es-ES')} sin ${S.principal || 'el producto principal'} (de ${S.compradoras.toLocaleString('es-ES')} compradoras)`;
+  $('#dc-n').textContent = `${lista.length.toLocaleString('es-ES')} de ${S.lista.length.toLocaleString('es-ES')} sin ${S.principal || 'el producto principal'} con teléfono (de ${S.compradoras.toLocaleString('es-ES')} compradoras)`;
   const chip = (val, txt, num, color = '') => `<button type="button" class="seg-btn${f === val ? ' on' : ''}" data-seg-etapa="${esc(val)}"${color ? ` style="--c:${esc(color)}"` : ''}>${txt} <b>${num}</b></button>`;
   const chips = [chip('pendientes', '🆕 Sin contactar', pendientes), chip('todas', 'Todas', S.lista.length),
     ...stages.filter((x) => x.id !== S.etapaInicial && n[x.id]).map((x) => chip(x.id, esc(x.name), n[x.id], x.color))].join('');
@@ -11206,7 +11211,7 @@ function renderSeguimiento() {
     </article>`;
   };
   caja.innerHTML = `<div class="seg-cab">
-      <p class="muted small">Compradoras de este embudo que aún <strong>no tienen ${esc(S.principal || 'el producto principal')}</strong>${S.pipeline ? `, con su etapa en el pipeline «${esc(S.pipeline.name)}»` : ' (no se encuentra el pipeline del workflow de compra: elígelo en la configuración)'}. Al cambiar la etapa se mueve su oportunidad en GHL y se guarda la nota en su ficha. De la compra más reciente a la más antigua.</p>
+      <p class="muted small">Compradoras de este embudo <strong>con teléfono</strong> que aún <strong>no tienen ${esc(S.principal || 'el producto principal')}</strong>${S.pipeline ? `, con su etapa en el pipeline «${esc(S.pipeline.name)}»` : ' (no se encuentra el pipeline del workflow de compra: elígelo en la configuración)'}. Al cambiar la etapa se mueve su oportunidad en GHL y se guarda la nota en su ficha. De la compra más reciente a la más antigua.</p>
       <div class="seg seg-etapas" role="group" aria-label="Etapa">${chips}</div>
       <div class="seg-opc"><label class="pb-solo"><input type="checkbox" id="seg-periodo"${state.seg.soloPeriodo ? ' checked' : ''}> Solo las que compraron en el periodo elegido</label>
         <button type="button" class="btn small ghost" id="seg-recargar">Actualizar</button></div>
@@ -11266,6 +11271,7 @@ $('#dc-seg').addEventListener('click', async (e) => {
 });
 $('#dc-seg').addEventListener('change', (e) => { if (e.target.id === 'seg-periodo') { state.seg.soloPeriodo = e.target.checked; renderSeguimiento(); } });
 $('#dc-filtro').addEventListener('change', () => renderDirectaClientes(state.directa.datos));
+$('#dc-sinprincipal').addEventListener('change', () => renderDirectaClientes(state.directa.datos));
 
 // ---------- 📣 Publicidad (métricas de Meta por campaña → conjunto → anuncio) ----------
 // Mismo periodo que Métricas (hoy, 30 y 90 días, mes en curso y pasado, fechas a medida) y, en los
