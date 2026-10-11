@@ -36,7 +36,8 @@ import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
 import { mensajesEnviados, impactoMensajes, horaVenta } from './impacto-wa.js';
-import { nuevoLanzamiento, codigoPropuesto, resumenFechas } from './lanzamiento-rapido.js';
+import { nuevoLanzamiento, codigoPropuesto, resumenFechas, diasCarritoDe } from './lanzamiento-rapido.js';
+import { siguientesPasos } from './siguientes-pasos.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
@@ -3596,8 +3597,14 @@ const nlDlg = $('#nl-dialog');
 const nlPrevios = () => Object.entries(state.config.launches).filter(([, l]) => embudoDeLanz(l) === state.embudo)
   .sort((a, b) => String(b[1].fechaDirecto || '').localeCompare(String(a[1].fechaDirecto || '')));
 let nlCodeEditado = false;
-function abrirLanzamientoRapido() {
+let nlCarritoEditado = false;
+// desdeEmbudo: se abre al terminar «＋ Nuevo embudo» (al acabar, la enhorabuena es por el embudo).
+let nlDesdeEmbudo = false;
+let nlCreado = false;
+function abrirLanzamientoRapido({ desdeEmbudo = false } = {}) {
   if (!puedeConfig() || enVsl() || enMeteo() || enDirecta()) return openConfig(null);
+  nlDesdeEmbudo = desdeEmbudo;
+  nlCreado = false;
   const previos = nlPrevios();
   $('#nl-base').innerHTML = previos.map(([c, l]) => `<option value="${esc(c)}">${esc(l.name)} (${esc(l.fechaDirecto || 'sin fecha')})</option>`).join('') + '<option value="">— Ninguno: plantilla estándar —</option>';
   $('#nl-nombre').value = '';
@@ -3605,6 +3612,8 @@ function abrirLanzamientoRapido() {
   $('#nl-hora').value = previos[0]?.[1].horaDirecto || '19:00';
   $('#nl-code').value = '';
   nlCodeEditado = false;
+  nlCarritoEditado = false;
+  $('#nl-carrito').value = diasCarritoDe(previos[0]?.[1]);
   const multi = nVideos(embudoInfo()?.formato || 'webinar') > 1;
   $('#nl-fecha-l').textContent = multi ? 'Día del 1.er vídeo' : 'Día del directo';
   $('#nl-zoom').checked = Boolean(state.zoomConfigured);
@@ -3625,7 +3634,10 @@ function calcularNl() {
   const prevCode = $('#nl-base').value;
   const prev = prevCode ? state.config.launches[prevCode] : null;
   const e = embudoInfo() || {};
-  const r = nuevoLanzamiento({ code, nombre: $('#nl-nombre').value, fecha, hora, prev, prevCode, base: prev ? null : e.base || null, embudo: { id: state.embudo, formato: e.formato, clases: e.clases, preclase: e.preclase } });
+  if (!nlCarritoEditado) $('#nl-carrito').value = diasCarritoDe(prev);
+  const diasCarrito = Number($('#nl-carrito').value);
+  if (!(diasCarrito >= 1 && diasCarrito <= 30)) throw new Error('Los días de carrito tienen que ser de 1 a 30.');
+  const r = nuevoLanzamiento({ code, nombre: $('#nl-nombre').value, fecha, hora, prev, prevCode, base: prev ? null : e.base || null, embudo: { id: state.embudo, formato: e.formato, clases: e.clases, preclase: e.preclase }, diasCarrito });
   // Embudo con las páginas creadas de cero: sus enlaces, las URLs propuestas (si el anterior no los tenía).
   for (const [k, u] of Object.entries(enlacesLanzamiento(propuestasEmbudo(state.embudo)))) if (!r.launch[k]) r.launch[k] = u;
   return { ...r, code, prev, prevCode, usados };
@@ -3649,8 +3661,14 @@ function pintarNl() {
 }
 for (const id of ['#nl-nombre', '#nl-fecha', '#nl-hora', '#nl-base']) $(id).addEventListener('input', pintarNl);
 $('#nl-base').addEventListener('change', pintarNl);
+$('#nl-carrito').addEventListener('input', () => { nlCarritoEditado = true; pintarNl(); });
 $('#nl-code').addEventListener('input', () => { nlCodeEditado = Boolean($('#nl-code').value.trim()); pintarNl(); });
-$('#nl-manual').addEventListener('click', () => { nlDlg.close(); openConfig(null); });
+$('#nl-manual').addEventListener('click', () => { nlDesdeEmbudo = false; nlDlg.close(); openConfig(null); });
+// Embudo recién creado y sin lanzamiento (se cierra el asistente): la enhorabuena es por el embudo.
+nlDlg.addEventListener('close', () => {
+  if (nlDesdeEmbudo && !nlCreado) celebrar({ embudo: state.embudo });
+  nlDesdeEmbudo = false;
+});
 $('#nl-crear').addEventListener('click', async () => {
   const st = $('#nl-status');
   let r;
@@ -3683,20 +3701,91 @@ $('#nl-crear').addEventListener('click', async () => {
     st.textContent = 'Guardando el lanzamiento…';
     const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, launches: { ...state.config.launches, [r.code]: launch } } });
     state.config = config;
-    nlDlg.close();
     renderLaunchSelect();
     await selectLaunch(r.code);
     if (missingSnapshot(config.launches[r.code]).length) await runSnapshot(r.code);
     hecho.unshift(r.origen === 'copia' ? `📋 Copiado de «${r.prev.name}» con las fechas movidas ${r.dias} días` : '🧩 Fechas de plantilla estándar');
-    // 3) A revisar en Configuración.
-    openConfig(r.code);
-    notice(`⚡ Lanzamiento «${launch.name}» creado. ${hecho.join(' · ')}. Revisa la configuración: lo que falte lo marca la barra «Listo para lanzar».`);
+    hecho.push(`🛒 Carrito: ${launch.diasCarrito} días`);
+    // 3) ¡Enhorabuena! (con los siguientes pasos y el email) y a revisar en Configuración.
+    const desdeEmbudo = nlDesdeEmbudo;
+    nlCreado = true;
+    nlDlg.close();
+    celebrar({ embudo: state.embudo, code: r.code, hecho, desdeEmbudo, alSeguir: () => openConfig(r.code) });
   } catch (err) {
     st.textContent = err.message;
   } finally {
     b.disabled = false;
   }
 });
+// ---------- ¡Enhorabuena! (nuevo embudo o lanzamiento): confeti, siguientes pasos y email ----------
+const fiestaDlg = $('#fiesta-dialog');
+let fiestaSeguir = null;
+function confeti(canvas) {
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = window.innerWidth; const H = window.innerHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+  const colores = ['#ff5a36', '#ffb020', '#2ec27e', '#3d8bfd', '#c061cb', '#ff7eb6', '#ffd23f'];
+  const piezas = Array.from({ length: Math.min(220, Math.round(W / 5)) }, (_, i) => {
+    // Un tercio llueve desde arriba; el resto sale disparado desde los dos lados.
+    const lluvia = i % 3 === 2;
+    const izq = i % 2 === 0;
+    return {
+      x: lluvia ? Math.random() * W : izq ? -10 : W + 10, y: lluvia ? -20 - Math.random() * H * 0.4 : H * (0.55 + Math.random() * 0.3),
+      vx: lluvia ? (Math.random() - 0.5) * 3 : (izq ? 1 : -1) * (4 + Math.random() * 9), vy: lluvia ? 2 + Math.random() * 3 : -(9 + Math.random() * 11),
+      w: 6 + Math.random() * 6, h: 8 + Math.random() * 10, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4,
+      color: colores[i % colores.length], redondo: Math.random() < 0.25,
+    };
+  });
+  const inicio = performance.now();
+  const paso = (t) => {
+    const dt = t - inicio;
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalAlpha = dt > 2800 ? Math.max(0, 1 - (dt - 2800) / 700) : 1;
+    for (const p of piezas) {
+      p.vy += 0.32; p.vx *= 0.985; p.vy *= 0.99; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.color;
+      if (p.redondo) { ctx.beginPath(); ctx.arc(0, 0, p.w / 2, 0, Math.PI * 2); ctx.fill(); } else ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * Math.abs(Math.cos(p.rot * 2)));
+      ctx.restore();
+    }
+    if (dt < 3500 && fiestaDlg.open) requestAnimationFrame(paso); else ctx.clearRect(0, 0, W, H);
+  };
+  requestAnimationFrame(paso);
+}
+// opts: { embudo: id, code?: lanzamiento creado, hecho?: [texto], desdeEmbudo?, alSeguir?: () => {} }
+async function celebrar({ embudo, code = '', hecho = [], desdeEmbudo = false, alSeguir = null } = {}) {
+  const e = embudoInfo(embudo) || {};
+  const launch = code ? state.config.launches[code] : null;
+  const esEmbudo = !launch || desdeEmbudo;
+  $('#fiesta-titulo').textContent = esEmbudo ? '¡Enhorabuena! Nuevo embudo creado' : '¡Enhorabuena! Nuevo lanzamiento creado';
+  $('#fiesta-sub').innerHTML = esEmbudo
+    ? `«${esc(e.nombre || '')}» ya está en tu menú de la izquierda${launch ? ` con su primer lanzamiento, «${esc(launch.name)}»` : ''}.`
+    : `«${esc(launch.name)}» ya está listo para revisar.`;
+  $('#fiesta-hecho').innerHTML = hecho.map((h) => `<li${h.startsWith('⚠️') ? ' class="mal"' : ''}>${esc(h)}</li>`).join('');
+  $('#fiesta-pasos').innerHTML = siguientesPasos({ embudo: e, launch }).map((p) => `<li><strong>${p.icono} ${esc(p.titulo)}</strong><span>${esc(p.detalle)}</span></li>`).join('');
+  $('#fiesta-ok').textContent = launch ? 'Revisar la configuración →' : 'Empezar →';
+  fiestaSeguir = alSeguir;
+  const em = $('#fiesta-email');
+  em.textContent = '📧 Te estoy mandando estos pasos a tu email para que los tengas a mano…';
+  fiestaDlg.showModal();
+  confeti($('#fiesta-confeti'));
+  try {
+    const r = await api('/api/siguientes-pasos', { method: 'POST', body: { embudo, ...(code ? { launch: code } : {}) } });
+    em.textContent = r.enviado ? `📧 Te hemos enviado estos pasos a ${r.email}: así los tienes a mano cuando vuelvas.` : `📧 ${r.motivo || 'No se ha podido enviar el email.'} Los tienes aquí y en la barra «Listo para lanzar».`;
+  } catch (err) {
+    em.textContent = `📧 No se ha podido enviar el email (${err.message}). Los pasos los tienes aquí y en la barra «Listo para lanzar».`;
+  }
+}
+$('#fiesta-ok').addEventListener('click', () => fiestaDlg.close());
+fiestaDlg.addEventListener('close', () => {
+  const seguir = fiestaSeguir;
+  fiestaSeguir = null;
+  if (seguir) seguir();
+});
+
 // Pestañas dentro de cada ventana (Configuración, Equipo): solo afectan a su ventana.
 $$('.tab').forEach((t) => t.addEventListener('click', () => {
   const box = t.closest('dialog');
@@ -8787,7 +8876,7 @@ $('#emb-crear').addEventListener('click', async () => {
       state.config = d.config;
       embDlg.close();
       await setEmbudo(d.embudo);
-      if (embudoInfo(d.embudo)?.tipo === 'vsl') openVslConfig(); else abrirLanzamientoRapido();
+      if (embudoInfo(d.embudo)?.tipo === 'vsl') celebrar({ embudo: d.embudo, alSeguir: openVslConfig }); else abrirLanzamientoRapido({ desdeEmbudo: true });
       return;
     }
     const tipo = embTipo();
@@ -8810,7 +8899,7 @@ $('#emb-crear').addEventListener('click', async () => {
     embDlg.close();
     await setEmbudo(id);
     // Y a configurarlo: etiquetas de GHL (VSL) o el primer lanzamiento.
-    if (tipo === 'vsl') openVslConfig(); else if (tipo === 'meteorico') abrirMeteoDialog(null, { embudo: id }); else if (tipo === 'directa') abrirDirectaConfig(); else abrirLanzamientoRapido();
+    if (tipo === 'vsl') celebrar({ embudo: id, alSeguir: openVslConfig }); else if (tipo === 'meteorico') celebrar({ embudo: id, alSeguir: () => abrirMeteoDialog(null, { embudo: id }) }); else if (tipo === 'directa') celebrar({ embudo: id, alSeguir: abrirDirectaConfig }); else abrirLanzamientoRapido({ desdeEmbudo: true });
   } catch (e) {
     $('#emb-status').textContent = e.message;
   } finally {

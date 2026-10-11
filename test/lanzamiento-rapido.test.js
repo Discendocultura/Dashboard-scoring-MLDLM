@@ -91,3 +91,17 @@ test('zoom-sala: crea la reunión (admin) y la rechaza sin permiso o sin fecha',
   const setter = await login('setter');
   assert.equal((await call('/api/zoom-sala', { method: 'POST', cookie: setter, body: { fecha: '2026-11-17', hora: '19:00' } })).status, 403);
 });
+
+test('días de carrito: fijan el cierre (desde el vídeo de venta) y se proponen los del anterior', async () => {
+  const { diasCarritoDe } = await import('../public/js/lanzamiento-rapido.js');
+  const r = nuevoLanzamiento({ code: 'camino-nov26', nombre: 'Noviembre', fecha: '2026-11-17', hora: '19:00', prev, prevCode: 'camino-oct26', embudo: { id: 'camino' }, diasCarrito: 7 });
+  assert.equal(r.launch.diasCarrito, 7);
+  assert.equal(r.launch.cierreCarrito, '2026-11-24T23:59');
+  assert.deepEqual(resumenFechas(r.launch).find(([k]) => k === 'Cierra el carrito'), ['Cierra el carrito', 'mar 24 nov · 23:59']);
+  // Plantilla con 3 días y sin días: 5 de la plantilla.
+  assert.equal(nuevoLanzamiento({ code: 'x', fecha: '2026-11-17', hora: '19:00', diasCarrito: 3 }).launch.cierreCarrito, '2026-11-20T23:59');
+  assert.equal(nuevoLanzamiento({ code: 'x', fecha: '2026-11-17', hora: '19:00', diasCarrito: 'abc' }).launch.diasCarrito, 5);
+  assert.equal(diasCarritoDe(prev), 5);
+  assert.equal(diasCarritoDe({ fechaDirecto: '2026-10-20', cierreCarrito: '2026-10-27T23:59' }), 7);
+  assert.equal(diasCarritoDe(null), 5);
+});

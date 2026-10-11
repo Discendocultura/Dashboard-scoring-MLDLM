@@ -770,7 +770,8 @@ Durante el calentamiento muestra «la oferta se abre en…», con la oferta abie
 
 ## ⚡ Nuevo lanzamiento rápido
 «Nuevo lanzamiento» (y al crear un embudo de lanzamientos) abre un asistente: **nombre**, **día y hora del directo**
-(en los de varios vídeos, del 1.º) y **de qué lanzamiento copiar** (el último del embudo, por defecto). Con eso:
+(en los de varios vídeos, del 1.º), **días de carrito abierto** (propone los del anterior; fijan el cierre: desde el día
+siguiente al vídeo de venta, el último a las 23:59) y **de qué lanzamiento copiar** (el último del embudo, por defecto). Con eso:
 - **Copia el anterior entero** (oferta, bonus, precios, etiquetas de VIP y compra, textos, barras, recursos, envíos y
   notas del carrito, enlaces de las páginas…) y **mueve todas sus fechas** los mismos días que el directo, así se
   mantienen los intervalos (captación, clases, apertura y cierre del carrito, grabación, tramos de las barras, bonus).
@@ -786,9 +787,18 @@ Durante el calentamiento muestra «la oferta se abre en…», con la oferta abie
   anfitrión. En formatos de varios vídeos, una por cada vídeo que en el anterior era en directo. Necesita que la app
   de Zoom (Server-to-Server) tenga el permiso `meeting:write` (o `meeting:write:meeting:admin`); si Zoom pide
   anfitrión, variable `ZOOM_HOST_EMAIL` (o `ZOOM_HOST_EMAIL_<CLIENTE>`). Si falla, el lanzamiento se crea igual y lo avisa.
-- Vista previa con las fechas en claro antes de crear; al crear, se guarda, se hace la «foto» de etiquetas y se abre
-  la Configuración para revisar (la barra «Listo para lanzar» marca lo que falte). «Configurar a mano» abre el
+- Vista previa con las fechas en claro antes de crear; al crear, se guarda, se hace la «foto» de etiquetas y sale la
+  **pantalla de enhorabuena** (ver abajo); su botón abre la Configuración para revisar (la barra «Listo para lanzar» marca lo que falte). «Configurar a mano» abre el
   formulario de siempre. Código: `public/js/lanzamiento-rapido.js`, `handlers/zoom-sala.js` (`POST /api/zoom-sala`).
+
+## 🎉 Enhorabuena: siguientes pasos al crear un embudo o un lanzamiento
+Al terminar «＋ Nuevo embudo» (en los de lanzamientos, después del asistente de nuevo lanzamiento; si se cierra sin
+crearlo, también) o «Nuevo lanzamiento», sale una pantalla con confeti: lo que se ha hecho (copia, sala de Zoom, días de
+carrito…) y **lo que toca ahora**, numerado y según el tipo de embudo y sus respuestas (etiqueta de registro a crear en
+GHL, páginas de cero con sus prompts o propias con sus códigos, Zoom, grupo de WhatsApp, anuncios, tareas…).
+Los mismos pasos le llegan **por email a quien lo ha creado** (desde el GHL de la agencia y con el remitente «Equipo
+Estelabs» si está `EMAIL_REMITENTE`; con la marca del cliente). Con la contraseña general no hay email al que mandarlo
+y la pantalla lo dice. Código: `public/js/siguientes-pasos.js`, `handlers/siguientes-pasos.js` (`POST /api/siguientes-pasos`).
 
 ## Embudos: Lanzamientos y VSL
 El menú lateral (arriba en el móvil) cambia de embudo. Las pestañas siguen el mismo orden en todos, por momento de uso: **Hoy** (Setting hoy, Llamadas y En directo) · **Leads** · **Métricas** · **Plan** (Planificador, Calendario, Carrito y Tareas) · **Análisis** (Avatar y anuncios / Anuncios ganadores, Comparar y Rendimiento del equipo). En los meteóricos: **Meteóricos** · **Oferta** · **Plan**.

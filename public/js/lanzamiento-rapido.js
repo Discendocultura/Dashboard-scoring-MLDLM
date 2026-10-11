@@ -7,6 +7,7 @@
 //   · Si es el primero: plantilla estándar a partir del directo (ver plantillaEstandar).
 // Lo usan el navegador (vista previa y crear) y los tests.
 import { nVideos, formatoValido, esReto } from './videos.js';
+import { diasCarritoValido, cierrePorDias } from './carrito.js';
 
 const DIA_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DT_RE = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})$/;
@@ -97,7 +98,8 @@ export function plantillaEstandar({ fecha, hora = '19:00', formato = 'webinar', 
 // El lanzamiento nuevo (sin guardar): { launch, origen: 'copia' | 'plantilla', dias, avisos }
 //   prev: el lanzamiento del que copiar (o null) y prevCode su código · embudo: { id, formato, clases, preclase, vip }
 //   base: sin lanzamiento anterior, la base de la plantilla de agencia del embudo (oferta, precios, textos…)
-export function nuevoLanzamiento({ code, nombre, fecha, hora, prev = null, prevCode = '', base = null, embudo = {} }) {
+//   diasCarrito: los días que está abierto el carrito tras el vídeo de venta (fija el cierre); sin él, los del anterior o 5
+export function nuevoLanzamiento({ code, nombre, fecha, hora, prev = null, prevCode = '', base = null, embudo = {}, diasCarrito = null }) {
   if (!DIA_RE.test(fecha || '')) throw new Error('Pon el día del directo');
   if (!/^\d{2}:\d{2}$/.test(hora || '')) throw new Error('Pon la hora del directo');
   const avisos = [];
@@ -121,10 +123,26 @@ export function nuevoLanzamiento({ code, nombre, fecha, hora, prev = null, prevC
       ? 'Primer lanzamiento del embudo: la oferta, los precios y los textos vienen de su plantilla de agencia; las fechas son de plantilla estándar (revísalas).'
       : 'Es el primer lanzamiento de este embudo: fechas de plantilla estándar (revísalas) y faltan las etiquetas de VIP y compra, la oferta y los precios.');
   }
+  const dc = diasCarritoValido(diasCarrito);
+  if (dc) {
+    launch.diasCarrito = dc;
+    launch.cierreCarrito = cierrePorDias(launch) || launch.cierreCarrito;
+  }
   launch.name = String(nombre || '').trim() || code;
   launch.registroTag = etiquetaRegistro(prev?.registroTag, prevCode, code);
   if (embudo.id) launch.embudo = embudo.id;
   return { launch, origen, dias: prev?.fechaDirecto ? diasEntre(prev.fechaDirecto, fecha) : null, avisos };
+}
+
+// Días de carrito de un lanzamiento (para proponerlos en el nuevo): los suyos, o los que salen de su cierre; si no, 5.
+export function diasCarritoDe(l) {
+  if (!l) return 5;
+  const n = diasCarritoValido(l.diasCarrito);
+  if (n) return n;
+  const venta = l.videos?.at(-1)?.fecha || l.fechaDirecto;
+  const cierre = String(l.cierreCarrito || '').slice(0, 10);
+  const d = DIA_RE.test(venta || '') && DIA_RE.test(cierre) ? diasEntre(venta, cierre) : 0;
+  return diasCarritoValido(d) || 5;
 }
 
 // Fecha legible: «lun 24 nov» o «lun 24 nov · 18:00».
@@ -137,7 +155,7 @@ export function fechaBonita(v) {
 
 // Lo que se enseña antes de crear: [[etiqueta, valor]] con las fechas clave.
 export function resumenFechas(l) {
-  const cierre = l.diasCarrito ? `${sumarDias((l.videos?.at(-1)?.fecha) || l.fechaDirecto, Number(l.diasCarrito))}T23:59` : l.cierreCarrito;
+  const cierre = cierrePorDias(l) || l.cierreCarrito;
   return [
     ['Captación', `${fechaBonita(l.inicioCaptacion)} → ${fechaBonita(l.finCaptacion)}`],
     ...[1, 2, 3].filter((k) => l[`clase${k}At`]).map((k) => [`Clase ${k}`, fechaBonita(l[`clase${k}At`])]),
