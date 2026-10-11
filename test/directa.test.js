@@ -199,6 +199,15 @@ test('día de compra sin campo de fecha: quien ya era contacto cuenta el día en
   const d = { compraTag: 'compra', precio: 10, partes: {} };
   const cs = hoy.map((c) => ({ ...c, tags: ['compra'], diaCompra: r2.reg.dias[c.id] }));
   assert.equal(metricasDirecta(cs, d, { desde: '2026-10-11', hasta: '2026-10-11' }).ventas, 3);
+  // Campo de fecha recién creado: quien lo tiene usa su fecha; quien compró antes y no lo tiene sigue con diaCompra.
+  const conCampo = { ...d, compraDateField: 'fc' };
+  const mixtas = cs.map((c) => (c.id === 'b' ? { ...c, cf: { fc: '2026-10-10' } } : c));
+  assert.equal(diaCompra(mixtas.find((c) => c.id === 'c'), conCampo), '2026-10-11');
+  assert.equal(diaCompra(mixtas.find((c) => c.id === 'b'), conCampo), '2026-10-10');
+  const mm = metricasDirecta(mixtas, conCampo, { desde: '2026-10-10', hasta: '2026-10-11' });
+  assert.equal(mm.ventas, 3);
+  assert.equal(mm.sinCampoRelleno, 2);
+  assert.equal(mm.sinFechaCompra, false);
 });
 
 test('email de compra: fecha exacta de la venta de quien ya era contacto', async () => {

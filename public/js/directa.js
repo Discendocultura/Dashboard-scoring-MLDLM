@@ -206,6 +206,8 @@ export function metricasDirecta(contactos, d, rango, { visitas = null, inversion
       };
     }),
     sinFechaCompra: !d.compraDateField,
+    // Con campo: las ventas del periodo que aún no lo tienen relleno (compraron antes de crearlo) y se fechan por la etiqueta/email.
+    sinCampoRelleno: d.compraDateField ? ventas.filter((v) => !dayOfDateField(v.c.cf?.[d.compraDateField])).length : 0,
     objetivos,
   };
 }

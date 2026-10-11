@@ -3195,26 +3195,38 @@ $('#btn-zoom').addEventListener('click', async () => {
 const dlg = $('#config-dialog');
 let editingCode = null; // null = lanzamiento nuevo
 
-async function fillDateFields(selected) {
-  const sel = $('#cfg-compra-fecha');
-  if (!state.dateFields) {
-    // Mientras llegan los campos de GHL, el guardado se queda como opción elegida (si se guarda antes, no se pierde).
-    sel.innerHTML = selected ? `<option value="${esc(selected)}">Cargando campos de GHL…</option>` : '<option value="">Cargando campos de GHL…</option>';
-    sel.value = selected || '';
-    try {
-      state.dateFields = (await api('/api/fields')).fields;
-    } catch (e) {
-      state.dateFields = null;
-      sel.innerHTML = `<option value="${esc(selected || '')}">No se pudieron leer los campos de GHL (${esc(e.message)})</option>`;
-      return;
-    }
-  }
-  // Si no hay uno elegido, proponemos el que se llame "Fecha compra Raíces".
-  const guess = selected || state.dateFields.find((f) => /fecha\s*compra\s*ra[ií]ces/i.test(f.name))?.id || '';
-  sel.innerHTML = '<option value="">— Sin campo de fecha —</option>'
-    + state.dateFields.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('');
-  sel.value = guess;
+// Selector de campo de fecha (compra o registro), igual en todos los embudos: campos de fecha de GHL y,
+// aparte, de texto (fecha y hora, p. ej. {{right_now}}). El campo guardado se mantiene como opción
+// mientras llega la lista o si ya no está en GHL (si se guarda antes, no se pierde). Si la persona
+// cambia la elección mientras carga, se respeta la suya.
+async function pintarSelectFecha(sel, actual = '', { vacio = '— Sin campo de fecha —', adivinar } = {}) {
+  if (!sel) return;
+  let error = '';
+  let primera = true;
+  const pintar = () => {
+    const fields = state.dateFields;
+    const textos = state.textFields || [];
+    let elegido = primera ? actual : sel.value;
+    if (!elegido && fields && adivinar && primera) elegido = fields.find((f) => adivinar.test(f.name))?.id || '';
+    const conocido = [...(fields || []), ...textos].some((f) => f.id === elegido);
+    const aviso = error ? `No se pudieron leer los campos de GHL (${error})` : fields ? 'Campo guardado (no está en GHL)' : 'Cargando campos de GHL…';
+    const extra = elegido && !conocido ? `<option value="${esc(elegido)}">${esc(aviso)}</option>` : '';
+    const cargando = !fields && !elegido ? `<option value="" disabled>${esc(error ? aviso : 'Cargando campos de GHL…')}</option>` : '';
+    const opts = (l) => l.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('');
+    sel.innerHTML = `<option value="">${esc(vacio)}</option>${extra}${cargando}${fields?.length ? `<optgroup label="Campos de fecha (solo el día)">${opts(fields)}</optgroup>` : ''}${textos.length ? `<optgroup label="Campos de texto (fecha y hora, p. ej. {{right_now}})">${opts(textos)}</optgroup>` : ''}`;
+    sel.value = elegido;
+    if (fields) primera = false;
+  };
+  pintar();
+  // Una sola petición aunque se abran varios selectores a la vez (p. ej. los dos de la VSL).
+  const cargar = (k, url) => { camposCargando[k] ||= api(url).then((r) => { state[k] = r.fields; }).finally(() => { camposCargando[k] = null; }); return camposCargando[k]; };
+  if (!state.dateFields) { try { await cargar('dateFields', '/api/fields'); } catch (e) { error = e.message; } pintar(); }
+  if (!state.textFields) { try { await cargar('textFields', '/api/fields?tipo=texto'); pintar(); } catch { /* sin campos de texto */ } }
 }
+const camposCargando = {};
+
+// Si no hay uno elegido, proponemos el que se llame "Fecha compra Raíces".
+const fillDateFields = (selected) => pintarSelectFecha($('#cfg-compra-fecha'), selected, { adivinar: /fecha\s*compra\s*ra[ií]ces/i });
 
 function fillTagList() {
   $('#tag-list').innerHTML = state.tags.map((t) => `<option value="${esc(t)}">`).join('');
@@ -9197,15 +9209,7 @@ async function openVslConfig(id = state.embudo) {
   $('.tab[data-tab="vembudo"]').click();
   vcDlg.showModal();
   // Campos de fecha y pipelines de GHL (para elegir sin escribir IDs).
-  const pintarFechas = (fields) => {
-    for (const k of ['registroDateField', 'compraDateField']) {
-      $(`#vc-${k}`).innerHTML = `<option value="">— Fecha de alta del contacto —</option>${(fields || []).map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('')}`;
-      if (v[k] && !(fields || []).some((f) => f.id === v[k])) $(`#vc-${k}`).insertAdjacentHTML('beforeend', `<option value="${esc(v[k])}">${esc(v[k])}</option>`);
-      $(`#vc-${k}`).value = v[k] || '';
-    }
-  };
-  pintarFechas(state.dateFields);
-  if (!state.dateFields) { try { state.dateFields = (await api('/api/fields')).fields; pintarFechas(state.dateFields); } catch { /* se queda lo guardado */ } }
+  for (const k of ['registroDateField', 'compraDateField']) pintarSelectFecha($(`#vc-${k}`), v[k] || '', { vacio: '— Fecha de alta del contacto —' });
   const pipes = state.llamadas?.data?.pipeline ? [state.llamadas.data.pipeline.name] : [];
   $('#vc-pipelines').innerHTML = [...new Set(['Leads evergreen', 'Leads Lanzamientos', ...pipes])].map((p) => `<option value="${esc(p)}">`).join('');
 }
@@ -10007,23 +10011,8 @@ async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
     if (prev?.pago) pintarPago('mt', prev.pago);
     if (meteoEdit.lanzamiento) $('#mt-name').value = `Downsell ${state.config.launches[meteoEdit.lanzamiento]?.name || ''}`.trim();
   }
-  const sel = $('#mt-compraDateField');
-  // Campos de fecha y, aparte, de texto (con fecha y hora: para medir los bonus de 30 min y 1 h).
-  const pintar = () => {
-    const fields = state.dateFields;
-    const textos = state.textFields || [];
-    const actual = m?.compraDateField || '';
-    // Sin la lista de GHL todavía, el campo guardado se mantiene como opción (si se guarda antes, no se pierde).
-    const conocido = [...(fields || []), ...textos].some((f) => f.id === actual);
-    const extra = actual && !conocido ? `<option value="${esc(actual)}">${fields ? 'Campo guardado (no está en GHL)' : 'Cargando campos de GHL…'}</option>` : '';
-    const opts = (l) => l.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('');
-    sel.innerHTML = `<option value="">— Sin campo de fecha —</option>${extra}${fields?.length ? `<optgroup label="Campos de fecha (solo el día)">${opts(fields)}</optgroup>` : ''}${textos.length ? `<optgroup label="Campos de texto (fecha y hora, p. ej. {{right_now}})">${opts(textos)}</optgroup>` : ''}`;
-    sel.value = actual;
-  };
-  pintar();
   $('#meteo-dialog').showModal();
-  if (!state.dateFields) { try { state.dateFields = (await api('/api/fields')).fields; pintar(); } catch { /* sin campos */ } }
-  if (!state.textFields) { try { state.textFields = (await api('/api/fields?tipo=texto')).fields; pintar(); } catch { /* sin campos */ } }
+  pintarSelectFecha($('#mt-compraDateField'), m?.compraDateField || '');
   if (!state.tags?.length) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch(() => {});
 }
 $('#mt-guardar').addEventListener('click', async () => {
@@ -10824,7 +10813,7 @@ function abrirDirectaConfig(id = state.embudo) {
   pintarPartes('#dc-partes', d.partes || partesPorDefecto());
   const v = (k, x) => { $(`#dc-${k}`).value = x ?? ''; };
   v('name', d.name); v('producto', d.producto); v('precio', d.precio ? String(d.precio).replace('.', ',') : '');
-  v('iva', d.iva?.producto || ''); v('ivaPct', d.iva?.pct ?? 21); v('compraTag', d.compraTag); v('compraDateField', d.compraDateField); v('emailCompra', d.emailCompra);
+  v('iva', d.iva?.producto || ''); v('ivaPct', d.iva?.pct ?? 21); v('compraTag', d.compraTag); v('emailCompra', d.emailCompra);
   v('ventaUrl', d.ventaUrl); v('checkoutUrl', d.checkoutUrl); v('graciasUrl', d.graciasUrl);
   v('metaFiltro', d.metaFiltro); v('inversionDia', d.inversionDia || ''); v('objetivoCpa', d.objetivoCpa || '');
   pintarCodigoMeta('dc-metaFiltro', 'directa', id, d.name);
@@ -10837,6 +10826,7 @@ function abrirDirectaConfig(id = state.embudo) {
   $('#dc-pendientes').innerHTML = pend.length ? `<div class="notice warn"><strong>Falta para que las cifras salgan bien:</strong><ul>${pend.map((x) => `<li>${esc(x.txt)}</li>`).join('')}</ul></div>` : '';
   $('#dc-status').textContent = '';
   dcDlg.showModal();
+  pintarSelectFecha($('#dc-compraDateField'), d.compraDateField || '', { vacio: '— Sin campo (día en que se ve la etiqueta) —' });
 }
 $('#dr-config').addEventListener('click', () => abrirDirectaConfig());
 $('#dc-guardar').addEventListener('click', async () => {
@@ -10982,7 +10972,7 @@ function renderDirectaMetricas(D) {
   // Por días: ventas, facturación y (si se miden) visitas, con una barra.
   const dias = (D.porDia || []).slice().reverse();
   const max = Math.max(1, ...dias.map((x) => x.ventas));
-  $('#dir-dias').innerHTML = dias.length ? `<section class="card"><h3>📅 Día a día</h3><div class="table-wrap"><table class="metric-table dir-dias"><thead><tr><th>Día</th><th>Ventas</th><th class="num">Facturación</th>${conVisitas ? '<th class="num">Visitas</th><th class="num">Checkout</th>' : ''}</tr></thead><tbody>${dias.map((x) => `<tr><td>${new Date(`${x.dia}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</td><td><span class="dir-barra"><i style="width:${Math.round((x.ventas / max) * 100)}%"></i><b>${x.ventas}</b></span></td><td class="num">${eur(x.facturacion)}</td>${conVisitas ? `<td class="num">${x.venta || ''}</td><td class="num">${x.checkout || ''}</td>` : ''}</tr>`).join('')}</tbody></table></div>${D.sinFechaCompra ? '<p class="muted small">Sin campo «Fecha de compra», el día de cada venta es el de alta si el contacto es nuevo y, si ya era contacto, el día en que GHL le puso la etiqueta de compra (lo apunta el dashboard al verla). Para el día exacto del pago, guarda la fecha en un campo con el workflow de compra y elígelo en la configuración.</p>' : ''}</section>` : '';
+  $('#dir-dias').innerHTML = dias.length ? `<section class="card"><h3>📅 Día a día</h3><div class="table-wrap"><table class="metric-table dir-dias"><thead><tr><th>Día</th><th>Ventas</th><th class="num">Facturación</th>${conVisitas ? '<th class="num">Visitas</th><th class="num">Checkout</th>' : ''}</tr></thead><tbody>${dias.map((x) => `<tr><td>${new Date(`${x.dia}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</td><td><span class="dir-barra"><i style="width:${Math.round((x.ventas / max) * 100)}%"></i><b>${x.ventas}</b></span></td><td class="num">${eur(x.facturacion)}</td>${conVisitas ? `<td class="num">${x.venta || ''}</td><td class="num">${x.checkout || ''}</td>` : ''}</tr>`).join('')}</tbody></table></div>${D.sinFechaCompra ? '<p class="muted small">Sin campo «Fecha de compra», el día de cada venta es el de alta si el contacto es nuevo y, si ya era contacto, el día en que GHL le puso la etiqueta de compra (lo apunta el dashboard al verla). Para el día exacto del pago, guarda la fecha en un campo con el workflow de compra y elígelo en la configuración.</p>' : D.sinCampoRelleno ? `<p class="muted small">${D.sinCampoRelleno} venta${D.sinCampoRelleno === 1 ? '' : 's'} del periodo aún sin el campo «Fecha de compra» (compraron antes de crearlo): se fechan por la etiqueta y el email de compra, como antes.</p>` : ''}</section>` : '';
 }
 $('#view-dmetricas').addEventListener('click', (e) => { if (e.target.closest('[data-dir-config]')) abrirDirectaConfig(); });
 
