@@ -11109,6 +11109,19 @@ function emPrompt(code, marca) {
     notas: (ls.get(notasEmKey()) || '').trim(), fases: fasesEm(), enlaces, directoUrl: l.fechaDirecto ? `${location.origin}/directo?l=${encodeURIComponent(code)}${cParam('&')}` : '',
   });
 }
+const EM_FASE = {
+  registro: { ico: '👋', nombre: 'Registro' }, preclase: { ico: '🎓', nombre: 'Preclase' }, vip: { ico: '⭐', nombre: 'VIP' },
+  directo: { ico: '🔴', nombre: 'Directo' }, replay: { ico: '📼', nombre: 'Grabación' }, carrito: { ico: '🛒', nombre: 'Carrito' }, cierre: { ico: '🙏', nombre: 'Cierre' },
+};
+const TONO_TXT = { emocional: 'Emocional', mixto: 'Emocional + racional', racional: 'Racional' };
+// Etiqueta de un día del calendario: qué pasa ese día.
+function etiquetaDiaEm(items) {
+  const c = items.filter((x) => x.fase === 'carrito' && x.dia);
+  if (c.length) return c[0].titulo.startsWith('Último') || c.some((x) => /Últimas|Cierra/.test(x.titulo)) ? `Último día del carrito` : `Carrito · día ${c[0].dia}`;
+  if (items.some((x) => x.titulo === 'Abre el carrito')) return 'Día del directo · abre el carrito';
+  if (items.some((x) => x.fase === 'directo' && /^Hoy/.test(x.titulo))) return 'Día del directo';
+  return [...new Set(items.map((x) => EM_FASE[x.fase]?.nombre || x.fase))].join(' · ');
+}
 async function renderEmailsIa() {
   const box = $('#emailsia-body');
   const code = state.launchCode;
@@ -11116,42 +11129,79 @@ async function renderEmailsIa() {
   if (tipoActual() !== 'lanz' || !l) { box.innerHTML = '<div class="card empty"><p class="muted">Elige un lanzamiento para preparar sus emails.</p></div>'; return; }
   const marca = await marcaDeEmbudo(api, state.cliente, state.embudo);
   if (state.launchCode !== code) return;
-  const plan = calendarioEmails(l, fasesEm());
+  const fases = fasesEm();
+  const plan = calendarioEmails(l, fases);
   const prev = anteriorEm(code);
   const ganadores = emc.ganadores[prev];
-  const FASE_ICO = { registro: '👋', preclase: '🎓', vip: '⭐', directo: '🔴', replay: '📼', carrito: '🛒', cierre: '🙏' };
-  const cuando = (at) => (at ? fechaCorta(at.slice(0, 10), { weekday: 'short', day: 'numeric', month: 'short' }) : 'Al registrarse');
-  box.innerHTML = `${estudioHero({ ico: '✉️', titulo: 'Emails con IA', sub: `«${esc(l.name)}» · la secuencia completa, con las fechas reales del lanzamiento`,
-      pasos: ['Elige qué <strong>fases</strong> quieres', '<strong>Copia el prompt</strong> y pégalo en Claude', 'Programa los emails en <strong>GHL</strong> (con tu skill, si la tienes)'],
+  // Agrupado por día (lo inmediato, primero).
+  const grupos = [];
+  for (const p of plan) {
+    const d = p.at ? p.at.slice(0, 10) : '';
+    let g = grupos.find((x) => x.d === d);
+    if (!g) grupos.push(g = { d, items: [] });
+    g.items.push(p);
+  }
+  const nVenta = plan.filter((p) => p.fase === 'carrito').length;
+  const dias = grupos.filter((g) => g.d).length;
+  const fechaDia = (d) => {
+    const x = new Date(`${d}T12:00:00Z`);
+    return { n: x.getUTCDate(), mes: x.toLocaleDateString('es-ES', { month: 'short', timeZone: 'UTC' }).replace('.', ''), sem: x.toLocaleDateString('es-ES', { weekday: 'long', timeZone: 'UTC' }) };
+  };
+  const tarjeta = (p) => `<div class="em-card f-${p.fase}${p.tono ? ` t-${p.tono}` : ''}" title="${esc(p.que)}">
+      <span class="em-hora">${esc(p.at ? p.at.slice(11) : 'Al momento')}</span>
+      <span class="em-tit">${EM_FASE[p.fase]?.ico || '✉️'} ${esc(p.titulo)}</span>
+      ${p.motivo || p.tono ? `<span class="em-pie">${p.tono ? `<span class="em-tono">${esc(TONO_TXT[p.tono])}</span>` : ''}${p.motivo ? `<span class="em-motivo">${p.motivo.icon} ${esc(p.motivo.texto)}</span>` : ''}</span>` : ''}
+    </div>`;
+  const diaHtml = (g) => {
+    const f = g.d ? fechaDia(g.d) : null;
+    const carrito = g.items.some((x) => x.fase === 'carrito');
+    return `<article class="em-dia${carrito ? ' es-carrito' : ''}${g.items.length > 2 ? ' ancho' : ''}">
+      <header class="em-dia-cab">${f ? `<span class="em-fecha"><b>${f.n}</b><small>${esc(f.mes)}</small></span><span class="em-dia-txt"><strong class="sem">${esc(f.sem)}</strong><span>${esc(etiquetaDiaEm(g.items))}</span></span>`
+        : '<span class="em-fecha em-ya"><b>⚡</b><small>auto</small></span><span class="em-dia-txt"><strong>Al registrarse</strong><span>Automático por etiqueta en GHL</span></span>'}
+        <span class="em-n">${g.items.length}</span></header>
+      <div class="em-cards">${g.items.map(tarjeta).join('')}</div>
+    </article>`;
+  };
+  box.innerHTML = `${estudioHero({ ico: '✉️', titulo: 'Emails con IA', sub: `«${esc(l.name)}» · toda la secuencia con las fechas reales`,
+      pasos: ['Elige las <strong>fases</strong>', '<strong>Copia el prompt</strong> y pégalo en Claude', 'Prográmalos en <strong>GHL</strong>'],
       extra: `${avisoMarcaHtml(marca)}${narrativaCardHtml(code)}` })}
-    <section class="card st-ajustes">
-      <div class="st-sec-cab"><h3>⚙️ Qué emails</h3><span class="muted small">${plan.length} envíos en el calendario</span></div>
-      <div class="em-fases">${FASES_EMAIL.filter((f) => f.id !== 'vip' || Number(l.precioVip) > 0).map((f) => `<label class="chk"><input type="checkbox" data-em-fase="${f.id}" ${fasesEm().includes(f.id) ? 'checked' : ''}><span><strong>${esc(f.label)}</strong> <span class="muted small">${esc(f.desc)}</span></span></label>`).join('')}</div>
+    <section class="card em-top">
+      <div class="em-stats">
+        <div class="em-stat"><b>${plan.length}</b><span>emails</span></div>
+        <div class="em-stat"><b>${dias}</b><span>días</span></div>
+        <div class="em-stat"><b>${nVenta}</b><span>de carrito</span></div>
+      </div>
+      <button type="button" class="btn primary em-copiar" id="em-copiar">📋 Copiar el prompt para Claude</button>
+    </section>
+    <section class="em-fases" aria-label="Qué emails">
+      ${FASES_EMAIL.filter((f) => f.id !== 'vip' || Number(l.precioVip) > 0).map((f) => `<button type="button" class="em-fase${fases.includes(f.id) ? ' on' : ''}" data-em-fase="${f.id}" aria-pressed="${fases.includes(f.id)}" title="${esc(f.desc)}">${EM_FASE[f.id]?.ico || ''} ${esc(EM_FASE[f.id]?.nombre || f.label)}</button>`).join('')}
+    </section>
+    ${nVenta ? '<div class="em-leyenda"><span>Los emails del carrito van de</span><span class="em-grad"><i>emocional</i><i>racional</i></span><span>· cada uno rompe una objeción y da un motivo para comprar</span></div>' : ''}
+    ${plan.length ? `<section class="em-dias">${grupos.map(diaHtml).join('')}</section>`
+      : '<div class="card empty"><p class="muted">Faltan las fechas del lanzamiento (directo y carrito) para proponer el calendario.</p></div>'}
+    <details class="card em-ajustes">
+      <summary>⚙️ Ajustes del prompt <span class="muted small">indicaciones, asuntos ganadores y ver el prompt</span></summary>
       <label class="field"><span>Indicaciones para Claude <small>(opcional)</small></span><textarea id="em-notas" rows="2" placeholder="Ej.: firma Laura; más cortos; en el carrito, un email con la historia de Marta…">${esc(ls.get(notasEmKey()) || '')}</textarea></label>
-      <details class="st-plegable"${ganadores ? ' open' : ''}><summary>🏆 Asuntos que mejor funcionaron ${ganadores ? '<span class="st-chip">cargados</span>' : ''}</summary>
-        ${prev ? (ganadores ? `<pre class="snippet em-gan">${esc(ganadores)}</pre>` : `<p class="muted small">Del lanzamiento anterior, «${esc(state.config.launches[prev].name)}» (sus emails de GHL con la apertura y los clics). Entran en el prompt para que Claude se inspire en lo que funciona.</p><button type="button" class="btn small" id="em-cargar-gan">Cargar los emails de «${esc(state.config.launches[prev].name)}»</button>`)
-          : '<p class="muted small">Es el primer lanzamiento del embudo: aún no hay emails anteriores con resultados.</p>'}
-      </details>
-    </section>
-    <section class="card st-ajustes">
-      <div class="st-sec-cab"><h3>🗓️ Calendario de envíos</h3><span class="muted small">Sale de las fechas del lanzamiento y de las horas de Plan → Carrito</span></div>
-      ${plan.length ? `<ol class="em-plan">${plan.map((p) => `<li><span class="em-cuando">${FASE_ICO[p.fase] || '✉️'} ${esc(cuando(p.at))}${p.at ? ` · ${esc(p.at.slice(11))}` : ''}</span><span class="em-que">${esc(p.que)}${p.segmento ? ` <span class="muted small">· ${esc(p.segmento)}</span>` : ''}</span></li>`).join('')}</ol>`
-        : '<p class="muted">Faltan las fechas del lanzamiento (directo y carrito) para proponer el calendario.</p>'}
-    </section>
-    <section class="card st-paso">
-      ${pasoCab(1, 'El prompt para Claude', 'Lleva el calendario, los datos, los enlaces, las etiquetas para segmentar, la ficha de marca, la narrativa y los asuntos ganadores.')}
-      <div class="st-acciones"><button type="button" class="btn primary" id="em-copiar">📋 Copiar el prompt</button><details class="st-ver"><summary>Ver el prompt</summary><pre class="snippet" id="em-prompt"></pre></details></div>
-    </section>`;
+      <div class="em-gan-box"><strong>🏆 Asuntos que mejor funcionaron</strong>
+        ${prev ? (ganadores ? `<pre class="snippet em-gan">${esc(ganadores)}</pre>` : `<p class="muted small">Los de «${esc(state.config.launches[prev].name)}», con su apertura y sus clics, para que Claude se inspire.</p><button type="button" class="btn small" id="em-cargar-gan">Cargar de GHL</button>`)
+          : '<p class="muted small">Es el primer lanzamiento del embudo: aún no hay emails anteriores.</p>'}
+      </div>
+      <details class="st-ver"><summary>Ver el prompt</summary><pre class="snippet" id="em-prompt"></pre></details>
+    </details>`;
   $('#em-prompt').textContent = emPrompt(code, marca);
-  box.onchange = (e) => {
+  box.onclick = (e) => {
     const f = e.target.closest('[data-em-fase]');
-    if (f) { ls.set(fasesEmKey(), JSON.stringify($$('[data-em-fase]', box).filter((x) => x.checked).map((x) => x.dataset.emFase))); renderEmailsIa(); }
+    if (!f) return;
+    const sel = new Set(fasesEm());
+    if (sel.has(f.dataset.emFase)) sel.delete(f.dataset.emFase); else sel.add(f.dataset.emFase);
+    ls.set(fasesEmKey(), JSON.stringify([...sel]));
+    renderEmailsIa();
   };
   $('#em-notas').addEventListener('input', () => { ls.set(notasEmKey(), $('#em-notas').value); $('#em-prompt').textContent = emPrompt(code, marca); });
   $('#em-copiar').addEventListener('click', async (e) => {
     const ok = await copiarAlPortapapeles(emPrompt(code, marca));
-    e.target.textContent = ok ? 'Copiado ✓ · pégalo en Claude' : 'No se pudo copiar: ábrelo en «Ver el prompt»';
-    setTimeout(() => { e.target.textContent = '📋 Copiar el prompt'; }, 3000);
+    e.target.textContent = ok ? '✓ Copiado · pégalo en Claude' : 'No se pudo copiar: ábrelo en Ajustes → Ver el prompt';
+    setTimeout(() => { e.target.textContent = '📋 Copiar el prompt para Claude'; }, 3000);
   });
   $('#em-cargar-gan')?.addEventListener('click', async (e) => {
     e.target.disabled = true;
@@ -11160,7 +11210,8 @@ async function renderEmailsIa() {
       const d = await api(`/api/emails?l=${encodeURIComponent(prev)}`);
       emc.ganadores[prev] = asuntosGanadores(d.emails || []) || '(sin emails con 100 entregas o más)';
     } catch (err) { notice(err.message, true); }
-    renderEmailsIa();
+    await renderEmailsIa();
+    $('.em-ajustes').open = true;
   });
 }
 

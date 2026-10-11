@@ -25,38 +25,39 @@ export const HORAS_ULTIMO_DIA = ['09:00', '13:00', '19:00', '22:00'];
 const sumar = (d, n) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const horaMenos = (h, min) => { const [a, b] = String(h || '19:00').split(':').map(Number); const t = Math.max(0, a * 60 + b - min); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; };
 
-// [{ at: 'AAAA-MM-DDTHH:MM' | '', fase, que, segmento? }] ordenados (lo «inmediato» va primero, sin fecha).
+// [{ at: 'AAAA-MM-DDTHH:MM' | '', fase, que, segmento, titulo, dia?, tono?, motivo?: { icon, texto } }] ordenados
+// (que: el texto largo para el prompt; titulo, tono y motivo: lo corto para la pantalla) (lo «inmediato» va primero, sin fecha).
 export function calendarioEmails(l = {}, fases = FASES_DEFECTO) {
   const on = new Set(fases);
   const out = [];
   // Dos emails a la misma hora no: el segundo se retrasa 2 horas.
   const masDos = (at) => { const [d, h] = at.split('T'); const [a, b] = h.split(':').map(Number); return `${d}T${String(Math.min(23, a + 2)).padStart(2, '0')}:${String(b).padStart(2, '0')}`; };
-  const add = (at, fase, que, segmento = '') => {
+  const add = (at, fase, que, segmento = '', extra = {}) => {
     if (!on.has(fase)) return;
     let t = at;
     while (t && out.some((x) => x.at === t) && !t.endsWith('23:00')) t = masDos(t);
-    out.push({ at: t, fase, que, segmento });
+    out.push({ at: t, fase, que, segmento, titulo: extra.titulo || que.split(':')[0], ...extra });
   };
-  add('', 'registro', 'Bienvenida: confirmación del registro, cuándo es el directo, qué ganará y los siguientes pasos', 'al registrarse (automático por etiqueta de registro)');
-  for (const x of desbloqueosPreclase(l)) add(x.at, 'preclase', `Ya disponible: ${x.nombre}${x.extra.length ? ` (${x.extra.join('; ')})` : ''}`);
+  add('', 'registro', 'Bienvenida: confirmación del registro, cuándo es el directo, qué ganará y los siguientes pasos', 'al registrarse (automático por etiqueta de registro)', { titulo: 'Bienvenida' });
+  for (const x of desbloqueosPreclase(l)) add(x.at, 'preclase', `Ya disponible: ${x.nombre}${x.extra.length ? ` (${x.extra.join('; ')})` : ''}`, '', { titulo: `${x.nombre.replace(/ «.*»$/, '')} disponible` });
   const vids = videosDe(l).filter((v) => DIA_RE.test(v.fecha || ''));
   const primero = vids[0];
   if (Number(l.precioVip) > 0 && primero) {
-    add('', 'vip', 'Oferta de la entrada VIP (en la página de gracias o justo después de registrarse)', 'al registrarse, a quien no tiene la VIP');
-    add(`${sumar(primero.fecha, -2)}T12:00`, 'vip', 'Recordatorio de la entrada VIP: qué incluye y por qué ahora', 'registrados sin VIP');
+    add('', 'vip', 'Oferta de la entrada VIP (en la página de gracias o justo después de registrarse)', 'al registrarse, a quien no tiene la VIP', { titulo: 'Oferta VIP' });
+    add(`${sumar(primero.fecha, -2)}T12:00`, 'vip', 'Recordatorio de la entrada VIP: qué incluye y por qué ahora', 'registrados sin VIP', { titulo: 'Recordatorio VIP' });
   }
   const multi = nVideos(l) > 1;
   for (const v of vids) {
     const h = v.hora || l.horaDirecto || '19:00';
     const nom = multi ? v.nombre : 'el directo';
     const deNom = multi ? `de ${v.nombre}` : 'del directo';
-    add(`${sumar(v.fecha, -1)}T19:00`, 'directo', `Mañana es ${nom}: hora, qué verán y por qué no perdérselo`);
-    add(`${v.fecha}T09:00`, 'directo', `Hoy es ${nom} a las ${h}: enlace de acceso`);
-    add(`${v.fecha}T${horaMenos(h, 60)}`, 'directo', `Empezamos en 1 hora: enlace de acceso`);
-    add(`${v.fecha}T${h}`, 'directo', `¡Estamos en directo! Entra ya`, 'quien no ha entrado aún (si se puede segmentar)');
+    add(`${sumar(v.fecha, -1)}T19:00`, 'directo', `Mañana es ${nom}: hora, qué verán y por qué no perdérselo`, '', { titulo: `Mañana es ${nom}` });
+    add(`${v.fecha}T09:00`, 'directo', `Hoy es ${nom} a las ${h}: enlace de acceso`, '', { titulo: `Hoy es ${nom}` });
+    add(`${v.fecha}T${horaMenos(h, 60)}`, 'directo', `Empezamos en 1 hora: enlace de acceso`, '', { titulo: 'Empezamos en 1 hora' });
+    add(`${v.fecha}T${h}`, 'directo', `¡Estamos en directo! Entra ya`, 'quien no ha entrado aún (si se puede segmentar)', { titulo: '¡Estamos en directo!' });
     const rep = v.replayAt || `${sumar(v.fecha, 1)}T10:00`;
     // La grabación del vídeo de venta la cubren los emails del día 1 del carrito (si están).
-    if (!(v.venta && on.has('carrito'))) add(rep, 'replay', `Grabación ${deNom} disponible${v.venta ? ' (y el carrito abierto)' : ''}`, 'sobre todo quien no asistió');
+    if (!(v.venta && on.has('carrito'))) add(rep, 'replay', `Grabación ${deNom} disponible${v.venta ? ' (y el carrito abierto)' : ''}`, 'sobre todo quien no asistió', { titulo: 'Grabación disponible' });
   }
   // Carrito: 3 emails al día (9:00, 15:00 y 20:00) y 4 el último (9:00, 13:00, 19:00 y 22:00). Cada uno rompe una
   // objeción, genera emoción y da un motivo para comprar ya (el que toque: bonus, fin de un bonus, cierre). Del más
@@ -68,7 +69,7 @@ export function calendarioEmails(l = {}, fases = FASES_DEFECTO) {
     const ultimo = i === C.dias.length - 1;
     for (const h of ultimo ? HORAS_ULTIMO_DIA : HORAS_CARRITO) slots.push({ d, h, ultimo });
   });
-  if (C.dias.length) add(l.aperturaCarrito || `${C.dias[0].day}T21:00`, 'carrito', 'Apertura del carrito: la oferta completa, los bonus y el enlace de compra', 'registrados que no han comprado');
+  if (C.dias.length) add(l.aperturaCarrito || `${C.dias[0].day}T21:00`, 'carrito', 'Apertura del carrito: la oferta completa, los bonus y el enlace de compra', 'registrados que no han comprado', { titulo: 'Abre el carrito', motivo: { icon: '🛒', texto: 'Oferta y bonus' } });
   slots.forEach(({ d, h, ultimo }, k) => {
     const p = slots.length > 1 ? k / (slots.length - 1) : 0;
     const tono = p < 0.4 ? 'emocional' : p < 0.7 ? 'emocional y racional' : 'racional';
@@ -80,9 +81,16 @@ export function calendarioEmails(l = {}, fases = FASES_DEFECTO) {
       : finBonus.length ? `urgencia: hoy acaba ${finBonus.join(' y ')}`
         : activos ? `bonus: ${activos}` : 'la oferta completa y la garantía';
     const foco = d.n <= 1 ? 'ver la GRABACIÓN (venta en segundo plano)' : 'la VENTA';
-    add(`${d.day}T${h}`, 'carrito', `Carrito día ${d.n}${ultimo ? ' (último día)' : ''} · foco: ${foco} · tono ${tono} · objeción + emoción + motivo para comprar ya: ${motivador}`, 'registrados que no han comprado');
+    // Lo corto para la pantalla: título, tono y motivo.
+    const jUlt = ultimo ? HORAS_ULTIMO_DIA.indexOf(h) : -1;
+    const titulo = d.n <= 1 ? 'Mira la grabación' : ultimo ? ['Último día', 'Quedan pocas horas', 'Cierra esta noche', 'Últimas horas'][jUlt] || 'Último día' : 'Venta';
+    const motivo = ultimo ? { icon: '🔒', texto: h >= '22:00' ? 'Cierra a las 23:59' : 'Cierra hoy' }
+      : finBonus.length ? { icon: '⏳', texto: `Acaba ${finBonus.join(' y ').replace(/«|»/g, '')}` }
+        : activos ? { icon: '🎁', texto: activos } : { icon: '🛡️', texto: 'Oferta y garantía' };
+    add(`${d.day}T${h}`, 'carrito', `Carrito día ${d.n}${ultimo ? ' (último día)' : ''} · foco: ${foco} · tono ${tono} · objeción + emoción + motivo para comprar ya: ${motivador}`, 'registrados que no han comprado',
+      { titulo, dia: d.n, tono: p < 0.4 ? 'emocional' : p < 0.7 ? 'mixto' : 'racional', motivo });
   });
-  if (C.dias.length) add(`${sumar(C.dias.at(-1).day, 1)}T10:00`, 'cierre', 'Gracias por acompañarnos / lista de espera para la próxima edición', 'quien no compró');
+  if (C.dias.length) add(`${sumar(C.dias.at(-1).day, 1)}T10:00`, 'cierre', 'Gracias por acompañarnos / lista de espera para la próxima edición', 'quien no compró', { titulo: 'Gracias y lista de espera' });
   return out.sort((a, b) => (a.at || '0').localeCompare(b.at || '0'));
 }
 
