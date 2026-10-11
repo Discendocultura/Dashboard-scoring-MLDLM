@@ -22,6 +22,14 @@ export const FASES_DEFECTO = FASES_EMAIL.filter((f) => f.id !== 'cierre').map((f
 const DIA_RE = /^\d{4}-\d{2}-\d{2}$/;
 export const HORAS_CARRITO = ['09:00', '15:00', '20:00'];
 export const HORAS_ULTIMO_DIA = ['09:00', '13:00', '19:00', '22:00'];
+// Mensajes a comunicar en el carrito: el día 1 (ver la grabación), del más emocional al más racional, y el último día.
+const MENSAJES_DIA1 = ['Mira la grabación: lo que no te puedes perder', 'El momento del directo que lo cambia todo', '¿Te ves en lo que contamos? Es para ti'];
+const ANGULOS = {
+  emocional: ['Imagina tu vida dentro de unos meses', 'La historia de alguien como tú', 'No estás sola: lo que sienten muchas', 'Lo que cuesta seguir igual', 'Por qué creamos este programa'],
+  mixto: ['Qué cambia exactamente cuando entras', 'Respuesta a «no tengo tiempo»', 'Respuesta a «no sé si es para mí»', 'Resultados reales de alumnas', 'Respuesta a «es caro»', 'Cómo es el día a día dentro'],
+  racional: ['Todo lo que incluye, punto por punto', 'Precio por día y formas de pago', 'Garantía: entras sin riesgo', 'Las preguntas frecuentes, respondidas', 'Sola o acompañada: la comparativa'],
+};
+const MENSAJES_ULTIMO_DIA = ['Último día: todo lo que te llevas', 'Respuesta a tu última duda', 'Cierra esta noche: decide hoy', 'Últimas horas: cierra a las 23:59'];
 const sumar = (d, n) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const horaMenos = (h, min) => { const [a, b] = String(h || '19:00').split(':').map(Number); const t = Math.max(0, a * 60 + b - min); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; };
 
@@ -69,7 +77,17 @@ export function calendarioEmails(l = {}, fases = FASES_DEFECTO) {
     const ultimo = i === C.dias.length - 1;
     for (const h of ultimo ? HORAS_ULTIMO_DIA : HORAS_CARRITO) slots.push({ d, h, ultimo });
   });
-  if (C.dias.length) add(l.aperturaCarrito || `${C.dias[0].day}T21:00`, 'carrito', 'Apertura del carrito: la oferta completa, los bonus y el enlace de compra', 'registrados que no han comprado', { titulo: 'Abre el carrito', motivo: { icon: '🛒', texto: 'Oferta y bonus' } });
+  if (C.dias.length) add(l.aperturaCarrito || `${C.dias[0].day}T21:00`, 'carrito', 'Apertura del carrito: la oferta completa, los bonus y el enlace de compra', 'registrados que no han comprado', { titulo: 'Abre el carrito: la oferta y sus bonus' });
+  // Los ángulos de cada tono van en orden, sin repetirse hasta agotarlos.
+  const usados = { dia1: 0, emocional: 0, mixto: 0, racional: 0 };
+  const siguienteAngulo = (t) => ANGULOS[t][(usados[t]++) % ANGULOS[t].length];
+  // El día que acaba un bonus: el primer email lo anuncia y el último antes de que acabe avisa de sus últimas horas.
+  const mensajeBonus = (d, h, fin) => {
+    const antes = slots.filter((x) => x.d === d && x.h < fin[2]).map((x) => x.h);
+    if (h === antes[0]) return `Hoy acaba «${fin[1]}» (${fin[2]}): aprovéchalo`;
+    if (antes.length > 1 && h === antes.at(-1)) return `Últimas horas para el «${fin[1]}»`;
+    return '';
+  };
   slots.forEach(({ d, h, ultimo }, k) => {
     const p = slots.length > 1 ? k / (slots.length - 1) : 0;
     const tono = p < 0.4 ? 'emocional' : p < 0.7 ? 'emocional y racional' : 'racional';
@@ -83,12 +101,14 @@ export function calendarioEmails(l = {}, fases = FASES_DEFECTO) {
     const foco = d.n <= 1 ? 'ver la GRABACIÓN (venta en segundo plano)' : 'la VENTA';
     // Lo corto para la pantalla: título, tono y motivo.
     const jUlt = ultimo ? HORAS_ULTIMO_DIA.indexOf(h) : -1;
-    const titulo = d.n <= 1 ? 'Mira la grabación' : ultimo ? ['Último día', 'Quedan pocas horas', 'Cierra esta noche', 'Últimas horas'][jUlt] || 'Último día' : 'Venta';
-    const motivo = ultimo ? { icon: '🔒', texto: h >= '22:00' ? 'Cierra a las 23:59' : 'Cierra hoy' }
-      : finBonus.length ? { icon: '⏳', texto: `Acaba ${finBonus.join(' y ').replace(/«|»/g, '')}` }
-        : activos ? { icon: '🎁', texto: activos } : { icon: '🛡️', texto: 'Oferta y garantía' };
-    add(`${d.day}T${h}`, 'carrito', `Carrito día ${d.n}${ultimo ? ' (último día)' : ''} · foco: ${foco} · tono ${tono} · objeción + emoción + motivo para comprar ya: ${motivador}`, 'registrados que no han comprado',
-      { titulo, dia: d.n, tono: p < 0.4 ? 'emocional' : p < 0.7 ? 'mixto' : 'racional', motivo });
+    // El mensaje a comunicar en este email (lo que se ve en la tarjeta y guía a Claude).
+    const fin = d.auto.filter((a) => a.icon === '⏳').map((a) => a.texto.match(/:\s*(.+?) \(acaba a las (\d{2}:\d{2})\)/)).find((m) => m && h < m[2]);
+    const mensaje = ultimo ? MENSAJES_ULTIMO_DIA[jUlt] || MENSAJES_ULTIMO_DIA[0]
+      : d.n <= 1 ? MENSAJES_DIA1[(usados.dia1++) % MENSAJES_DIA1.length]
+        : fin && mensajeBonus(d, h, fin)
+          || siguienteAngulo(p < 0.4 ? 'emocional' : p < 0.7 ? 'mixto' : 'racional');
+    add(`${d.day}T${h}`, 'carrito', `Carrito día ${d.n}${ultimo ? ' (último día)' : ''} · mensaje: «${mensaje}» · foco: ${foco} · tono ${tono} · objeción + emoción + motivo para comprar ya: ${motivador}`, 'registrados que no han comprado',
+      { titulo: mensaje, dia: d.n, tono: p < 0.4 ? 'emocional' : p < 0.7 ? 'mixto' : 'racional' });
   });
   if (C.dias.length) add(`${sumar(C.dias.at(-1).day, 1)}T10:00`, 'cierre', 'Gracias por acompañarnos / lista de espera para la próxima edición', 'quien no compró', { titulo: 'Gracias y lista de espera' });
   return out.sort((a, b) => (a.at || '0').localeCompare(b.at || '0'));

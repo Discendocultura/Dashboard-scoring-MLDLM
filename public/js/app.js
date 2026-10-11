@@ -11117,8 +11117,8 @@ const TONO_TXT = { emocional: 'Emocional', mixto: 'Emocional + racional', racion
 // Etiqueta de un día del calendario: qué pasa ese día.
 function etiquetaDiaEm(items) {
   const c = items.filter((x) => x.fase === 'carrito' && x.dia);
-  if (c.length) return c[0].titulo.startsWith('Último') || c.some((x) => /Últimas|Cierra/.test(x.titulo)) ? `Último día del carrito` : `Carrito · día ${c[0].dia}`;
-  if (items.some((x) => x.titulo === 'Abre el carrito')) return 'Día del directo · abre el carrito';
+  if (c.length) return c.some((x) => /Último día|Últimas horas|Cierra esta noche/.test(x.titulo)) ? 'Último día del carrito' : `Carrito · día ${c[0].dia}`;
+  if (items.some((x) => x.titulo.startsWith('Abre el carrito'))) return 'Día del directo · abre el carrito';
   if (items.some((x) => x.fase === 'directo' && /^Hoy/.test(x.titulo))) return 'Día del directo';
   return [...new Set(items.map((x) => EM_FASE[x.fase]?.nombre || x.fase))].join(' · ');
 }
@@ -11149,8 +11149,8 @@ async function renderEmailsIa() {
   };
   const tarjeta = (p) => `<div class="em-card f-${p.fase}${p.tono ? ` t-${p.tono}` : ''}" title="${esc(p.que)}">
       <span class="em-hora">${esc(p.at ? p.at.slice(11) : 'Al momento')}</span>
-      <span class="em-tit">${EM_FASE[p.fase]?.ico || '✉️'} ${esc(p.titulo)}</span>
-      ${p.motivo || p.tono ? `<span class="em-pie">${p.tono ? `<span class="em-tono">${esc(TONO_TXT[p.tono])}</span>` : ''}${p.motivo ? `<span class="em-motivo">${p.motivo.icon} ${esc(p.motivo.texto)}</span>` : ''}</span>` : ''}
+      <span class="em-tit"><span class="em-ico">${EM_FASE[p.fase]?.ico || '✉️'}</span>${esc(p.titulo)}</span>
+      ${p.tono ? `<span class="em-pie"><span class="em-tono">${esc(TONO_TXT[p.tono])}</span></span>` : ''}
     </div>`;
   const diaHtml = (g) => {
     const f = g.d ? fechaDia(g.d) : null;
@@ -11176,7 +11176,7 @@ async function renderEmailsIa() {
     <section class="em-fases" aria-label="Qué emails">
       ${FASES_EMAIL.filter((f) => f.id !== 'vip' || Number(l.precioVip) > 0).map((f) => `<button type="button" class="em-fase${fases.includes(f.id) ? ' on' : ''}" data-em-fase="${f.id}" aria-pressed="${fases.includes(f.id)}" title="${esc(f.desc)}">${EM_FASE[f.id]?.ico || ''} ${esc(EM_FASE[f.id]?.nombre || f.label)}</button>`).join('')}
     </section>
-    ${nVenta ? '<div class="em-leyenda"><span>Los emails del carrito van de</span><span class="em-grad"><i>emocional</i><i>racional</i></span><span>· cada uno rompe una objeción y da un motivo para comprar</span></div>' : ''}
+    ${nVenta ? '<div class="em-leyenda"><span>Los emails del carrito van de</span><span class="em-grad"><i>emocional</i><i>racional</i></span><span>· en cada tarjeta, el mensaje de ese email</span></div>' : ''}
     ${plan.length ? `<section class="em-dias">${grupos.map(diaHtml).join('')}</section>`
       : '<div class="card empty"><p class="muted">Faltan las fechas del lanzamiento (directo y carrito) para proponer el calendario.</p></div>'}
     <details class="card em-ajustes">

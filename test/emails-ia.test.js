@@ -26,11 +26,14 @@ test('calendario: registro, clases, VIP, directo, grabación, carrito día a dí
   assert.deepEqual(horas('2026-11-20'), ['09:00', '15:00', '20:00']);
   assert.deepEqual(horas('2026-11-22'), ['09:00', '13:00', '19:00', '22:00']);
   const car = c.filter((x) => x.fase === 'carrito' && x.que.startsWith('Carrito día'));
-  assert.match(car[0].que, /día 1 · foco: ver la GRABACIÓN/);
+  assert.match(car[0].que, /día 1 · mensaje: «Mira la grabación[^»]*» · foco: ver la GRABACIÓN/);
+  assert.equal(car[0].titulo, 'Mira la grabación: lo que no te puedes perder');
+  assert.equal(new Set(car.map((x) => x.titulo)).size, car.length); // sin mensajes repetidos
   assert.match(car[0].que, /tono emocional/);
   assert.match(car.at(-1).que, /tono racional/);
   assert.match(car.at(-1).que, /últimas horas: el carrito cierra hoy a las 23:59/);
-  assert.match(car[3].que, /día 2 · foco: la VENTA/);
+  assert.match(car[3].que, /día 2 · mensaje: .+ · foco: la VENTA/);
+  assert.equal(c.find((x) => x.at === '2026-11-19T09:00').titulo, 'Hoy acaba «Bonus 48 h» (23:59): aprovéchalo');
   assert.match(c.find((x) => x.at === '2026-11-19T09:00').que, /urgencia: hoy acaba «Bonus 48 h» a las 23:59/);
   // Sin VIP ni preclase si no se eligen
   const sin = calendarioEmails(l, FASES_DEFECTO.filter((f) => !['vip', 'preclase'].includes(f)));

@@ -877,7 +877,9 @@ La secuencia de emails del lanzamiento para escribirla con Claude y programarla 
   el de después del cierre. Dos emails nunca coinciden a la misma hora.
 - **Pantalla**: arriba, cuántos emails, días y de carrito y el botón «Copiar el prompt»; las fases como botones
   (encender / apagar); el calendario en tarjetas por día (fecha grande, qué pasa ese día y una tarjeta por email con su
-  hora, título corto, tono —emocional, mixto o racional, por color— y su motivo de compra); al pasar el ratón, el detalle.
+  hora, el **mensaje a comunicar** —«Mira la grabación…», «La historia de alguien como tú», «Respuesta a «es caro»», «Hoy
+  acaba el bonus…», «Cierra esta noche»…, sin repetirse— y el tono por color); al pasar el ratón, el detalle. Ese mensaje
+  también va en el prompt para cada email.
   Indicaciones, asuntos ganadores y el prompt completo, plegados en «Ajustes del prompt».
 - **Asuntos ganadores**: «Cargar los emails de <anterior>» trae de GHL los emails del lanzamiento anterior y entran en el
   prompt los 5 con más apertura y los 5 con más clics (con 100 entregas o más).

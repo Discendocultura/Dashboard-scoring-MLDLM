@@ -2952,9 +2952,10 @@ body.embudo-directa .lanz-only { display: none !important; }
 .em-dia-txt span { font-size: 13px; color: var(--muted); }
 .em-n { font-size: 12px; font-weight: 700; color: var(--muted); background: var(--surface-2); border-radius: 999px; padding: 3px 9px; }
 .em-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
-.em-card { display: grid; gap: 6px; align-content: start; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border-left: 4px solid var(--border-strong); cursor: default; }
+.em-card { display: grid; gap: 8px; align-content: start; min-width: 0; overflow: hidden; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border-left: 4px solid var(--border-strong); cursor: default; }
 .em-hora { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--muted); }
-.em-tit { font-weight: 700; font-size: 14px; line-height: 1.3; }
+.em-tit { display: flex; gap: 6px; font-weight: 700; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+.em-ico { flex-shrink: 0; }
 .em-pie { display: flex; flex-wrap: wrap; gap: 6px; }
 .em-tono, .em-motivo { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .em-card.f-registro { border-left-color: #2e9e6a; } .em-card.f-preclase { border-left-color: #1f9bb0; } .em-card.f-vip { border-left-color: #d4a017; }
