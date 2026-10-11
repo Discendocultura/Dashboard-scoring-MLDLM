@@ -82,11 +82,31 @@ export const precioProductoSinIva = (d) => sinIva(d?.precio, d?.iva?.producto, p
 export const precioExtraSinIva = (o, d) => sinIva(o?.precio, o?.iva, pctIva(d));
 
 const tiene = (c, t) => Boolean(t) && (c.tags || []).some((x) => String(x).toLowerCase() === String(t).toLowerCase());
-// Día de la compra: el campo de fecha de compra o, sin él, el día en que se creó el contacto
-// (en un embudo de venta directa el contacto nace en el checkout, al pagar).
+// Día de la compra: el campo de fecha de compra; si no hay, el que apuntó el servidor al ver la etiqueta de
+// compra por primera vez (c.diaCompra: ver lib/directa.js); y si no, el día en que se creó el contacto.
+// (Con solo el día de alta, quien ya era contacto y compra hoy contaría el día que se dio de alta.)
 export function diaCompra(c, d) {
   const f = d?.compraDateField ? dayOfDateField(c.cf?.[d.compraDateField]) : '';
-  return f || (c.dateAdded ? dayInMadrid(c.dateAdded) : '');
+  return f || c.diaCompra || (c.dateAdded ? dayInMadrid(c.dateAdded) : '');
+}
+
+// Días de compra sin campo de fecha. `reg`: { desde, ultima, dias: { contactId: día } } (lo guardado) · ahora: ISO
+// La primera vez, cada compradora con su día de alta (como antes). Después, cada compradora NUEVA: si el contacto
+// es nuevo, su día de alta; si ya existía, el día en que GHL lo actualizó (al ponerle la etiqueta) o, si es
+// anterior a la última vez que miramos, hoy. → { reg, cambios }
+export function apuntarCompras(reg, contactos, ahora, dia) {
+  const dias = { ...(reg?.dias || {}) };
+  const desde = reg?.ultima || '';
+  let cambios = !reg;
+  for (const c of contactos) {
+    if (!c?.id || dias[c.id]) continue;
+    cambios = true;
+    const alta = c.dateAdded || '';
+    if (!reg) { dias[c.id] = dia(alta || ahora); continue; }
+    const ref = alta && alta >= desde ? alta : c.dateUpdated && c.dateUpdated >= desde ? c.dateUpdated : ahora;
+    dias[c.id] = dia(ref);
+  }
+  return { reg: { desde: reg?.desde || ahora, ultima: cambios ? ahora : reg?.ultima || ahora, dias }, cambios };
 }
 
 // Días del rango, en orden (máx. 400).

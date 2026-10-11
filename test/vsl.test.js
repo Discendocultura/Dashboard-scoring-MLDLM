@@ -12,7 +12,9 @@ test('semanas del mes: 1ª a 5ª', () => {
 test('rangos: presets, mes y semana, personalizado', () => {
   const hoy = '2026-10-06';
   assert.deepEqual(rangoDe({ preset: '7d' }, hoy), { desde: '2026-09-30', hasta: hoy });
-  assert.deepEqual(rangoDe({ preset: 'mes-actual' }, hoy), { desde: '2026-10-01', hasta: '2026-10-31' });
+  // El mes en curso acaba hoy (sin días futuros con 0).
+  assert.deepEqual(rangoDe({ preset: 'mes-actual' }, hoy), { desde: '2026-10-01', hasta: hoy });
+  assert.deepEqual(rangoDe({ preset: 'hoy' }, hoy), { desde: hoy, hasta: hoy });
   assert.deepEqual(rangoDe({ preset: 'mes-pasado' }, hoy), { desde: '2026-09-01', hasta: '2026-09-30' });
   assert.deepEqual(rangoDe({ preset: 'mes', mes: '2026-08', semana: 3 }, hoy), { desde: '2026-08-15', hasta: '2026-08-21' });
   assert.deepEqual(rangoDe({ preset: 'personalizado', desde: '2026-10-05', hasta: '2026-10-01' }, hoy), { desde: '2026-10-01', hasta: '2026-10-05' });

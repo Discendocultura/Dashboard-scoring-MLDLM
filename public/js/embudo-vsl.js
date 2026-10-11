@@ -32,12 +32,15 @@ export function semanasDelMes(ym) {
 export function rangoDe({ preset = '30d', mes = '', semana = 0, desde = '', hasta = '' } = {}, hoy) {
   const ymHoy = hoy.slice(0, 7);
   const mesPasado = addDay(`${ymHoy}-01`, -1).slice(0, 7);
+  if (preset === 'hoy') return { desde: hoy, hasta: hoy };
   if (preset === '7d') return { desde: addDay(hoy, -6), hasta: hoy };
   if (preset === '90d') return { desde: addDay(hoy, -89), hasta: hoy };
   if (preset === 'mes-actual' || preset === 'mes-pasado' || preset === 'mes') {
     const ym = preset === 'mes-actual' ? ymHoy : preset === 'mes-pasado' ? mesPasado : (/^\d{4}-\d{2}$/.test(mes) ? mes : ymHoy);
     const s = semana ? semanasDelMes(ym).find((w) => w.n === Number(semana)) : null;
-    return s ? { desde: s.desde, hasta: s.hasta } : { desde: `${ym}-01`, hasta: finDeMes(ym) };
+    // El mes en curso acaba hoy (sin días que aún no han llegado).
+    const fin = ym === ymHoy && finDeMes(ym) > hoy ? hoy : finDeMes(ym);
+    return s ? { desde: s.desde, hasta: s.hasta } : { desde: `${ym}-01`, hasta: fin };
   }
   if (preset === 'personalizado' && isDay(desde) && isDay(hasta)) return desde <= hasta ? { desde, hasta } : { desde: hasta, hasta: desde };
   return { desde: addDay(hoy, -29), hasta: hoy };

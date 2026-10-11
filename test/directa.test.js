@@ -180,3 +180,23 @@ test('anuncios ganadores: menor CAC y más ventas, lo que gasta sin vender al fi
   assert.equal(camp[0].ventas, 6);
   assert.equal(camp[0].cac, 190 / 6);
 });
+
+test('día de compra sin campo de fecha: quien ya era contacto cuenta el día en que se le puso la etiqueta', async () => {
+  const { apuntarCompras, metricasDirecta } = await import('../public/js/directa.js');
+  const dia = (iso) => iso.slice(0, 10);
+  // Primera vez: como antes, el día de alta de cada compradora.
+  const antiguas = [{ id: 'a', dateAdded: '2025-05-23T18:04:00Z', dateUpdated: '2026-10-10T09:00:00Z' }];
+  const r1 = apuntarCompras(null, antiguas, '2026-10-10T12:00:00Z', dia);
+  assert.equal(r1.reg.dias.a, '2025-05-23');
+  // Después: una nueva (alta hoy) y otra que ya era contacto y compra hoy (GHL la actualiza al ponerle la etiqueta).
+  const hoy = [...antiguas, { id: 'b', dateAdded: '2026-10-11T14:08:00Z' }, { id: 'c', dateAdded: '2026-04-16T10:51:00Z', dateUpdated: '2026-10-11T07:18:00Z' }, { id: 'd', dateAdded: '2026-01-01T00:00:00Z', dateUpdated: '2026-01-02T00:00:00Z' }];
+  const r2 = apuntarCompras(r1.reg, hoy, '2026-10-11T17:00:00Z', dia);
+  assert.equal(r2.cambios, true);
+  assert.deepEqual(r2.reg.dias, { a: '2025-05-23', b: '2026-10-11', c: '2026-10-11', d: '2026-10-11' });
+  // Sin novedades: no se reescribe.
+  assert.equal(apuntarCompras(r2.reg, hoy, '2026-10-11T18:00:00Z', dia).cambios, false);
+  // Métricas: con diaCompra cuenta hoy; el campo de fecha (si lo hay) manda.
+  const d = { compraTag: 'compra', precio: 10, partes: {} };
+  const cs = hoy.map((c) => ({ ...c, tags: ['compra'], diaCompra: r2.reg.dias[c.id] }));
+  assert.equal(metricasDirecta(cs, d, { desde: '2026-10-11', hasta: '2026-10-11' }).ventas, 3);
+});

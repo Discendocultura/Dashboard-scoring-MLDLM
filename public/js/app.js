@@ -6501,7 +6501,7 @@ function tarjetaPortal(e) {
 // Cliente cuyo portal se está viendo (el actual o, con «Ver como», otro cliente de la agencia).
 let portalCliente = null;
 // El cliente elige qué embudo ver (o todos), y en cada uno qué lanzamiento o qué periodo (VSL).
-const PERIODOS_PORTAL = { '7d': 'Últimos 7 días', '30d': 'Últimos 30 días', '90d': 'Últimos 90 días', 'mes-actual': 'Este mes', 'mes-pasado': 'El mes pasado' };
+const PERIODOS_PORTAL = { hoy: 'Hoy', '30d': 'Últimos 30 días', '90d': 'Últimos 90 días', 'mes-actual': 'Mes en curso', 'mes-pasado': 'Mes pasado' };
 const portal = { catalogo: [], resumen: null, sel: 'todos', l: '', periodo: '30d', vistaPrevia: false };
 const portalHtml = (html, producto) => (portalCliente !== state.cliente ? conProducto(html, producto) : html);
 function pintarPortalNav() {
@@ -8769,6 +8769,8 @@ $('.tab[data-tab="roles"]').addEventListener('click', () => { rolesResult(''); l
 // Siempre abierta: los leads se cargan una vez y se analizan por el periodo elegido.
 const VR_KEY = 'lsd_vsl_rango';
 state.vsl.sel = (() => { try { return { preset: '30d', ...JSON.parse(ls.get(VR_KEY) || '{}') }; } catch { return { preset: '30d' }; } })();
+// Un periodo guardado que ya no está en la lista (p. ej. «Últimos 7 días»): vuelve a 30 días.
+if (state.vsl.sel.preset === '7d') state.vsl.sel.preset = '30d';
 const vslRango = () => rangoDe(state.vsl.sel, today());
 const fechaLarga = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -10871,6 +10873,7 @@ $('#dc-guardar').addEventListener('click', async () => {
 // Periodo (como en la VSL): últimos 7/30/90 días, este mes, el pasado o fechas a medida.
 const drRango = () => ({ preset: $('#dr-preset').value, desde: $('#dr-desde').value, hasta: $('#dr-hasta').value });
 $('#dr-preset').value = ls.get('lsd_dr_preset') || '30d';
+if (!$('#dr-preset').value) $('#dr-preset').value = '30d'; // un periodo guardado que ya no está (p. ej. 7 días)
 function pintarDrCampos() {
   const p = $('#dr-preset').value === 'personalizado';
   $('#dr-desde-f').hidden = !p;
@@ -10905,7 +10908,7 @@ function renderDirecta() {
   if (!enDirecta()) return;
   const D = state.directa.datos;
   const fecha = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-  $('#dr-texto').textContent = state.directa.cargando ? 'Cargando…' : D?.rango ? `${fecha(D.rango.desde)} – ${fecha(D.rango.hasta)} · ${D.rango.dias} días` : '';
+  $('#dr-texto').textContent = state.directa.cargando ? 'Cargando…' : D?.rango ? (D.rango.dias === 1 ? `${fecha(D.rango.desde)} · hoy o un solo día` : `${fecha(D.rango.desde)} – ${fecha(D.rango.hasta)} · ${D.rango.dias} días`) : '';
   if (!$('#view-dmetricas').hidden) renderDirectaMetricas(D);
   if (!$('#view-dclientes').hidden) renderDirectaClientes(D);
   if (!$('#view-danuncios').hidden) renderDirectaAnuncios(D);
@@ -10978,7 +10981,7 @@ function renderDirectaMetricas(D) {
   // Por días: ventas, facturación y (si se miden) visitas, con una barra.
   const dias = (D.porDia || []).slice().reverse();
   const max = Math.max(1, ...dias.map((x) => x.ventas));
-  $('#dir-dias').innerHTML = dias.length ? `<section class="card"><h3>📅 Día a día</h3><div class="table-wrap"><table class="metric-table dir-dias"><thead><tr><th>Día</th><th>Ventas</th><th class="num">Facturación</th>${conVisitas ? '<th class="num">Visitas</th><th class="num">Checkout</th>' : ''}</tr></thead><tbody>${dias.map((x) => `<tr><td>${new Date(`${x.dia}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</td><td><span class="dir-barra"><i style="width:${Math.round((x.ventas / max) * 100)}%"></i><b>${x.ventas}</b></span></td><td class="num">${eur(x.facturacion)}</td>${conVisitas ? `<td class="num">${x.venta || ''}</td><td class="num">${x.checkout || ''}</td>` : ''}</tr>`).join('')}</tbody></table></div>${D.sinFechaCompra ? '<p class="muted small">El día de cada venta es el día en que se creó el contacto. Si quieres el día exacto del pago (p. ej. de quien ya estaba en tu base de datos), pon el campo «Fecha de compra» en la configuración.</p>' : ''}</section>` : '';
+  $('#dir-dias').innerHTML = dias.length ? `<section class="card"><h3>📅 Día a día</h3><div class="table-wrap"><table class="metric-table dir-dias"><thead><tr><th>Día</th><th>Ventas</th><th class="num">Facturación</th>${conVisitas ? '<th class="num">Visitas</th><th class="num">Checkout</th>' : ''}</tr></thead><tbody>${dias.map((x) => `<tr><td>${new Date(`${x.dia}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</td><td><span class="dir-barra"><i style="width:${Math.round((x.ventas / max) * 100)}%"></i><b>${x.ventas}</b></span></td><td class="num">${eur(x.facturacion)}</td>${conVisitas ? `<td class="num">${x.venta || ''}</td><td class="num">${x.checkout || ''}</td>` : ''}</tr>`).join('')}</tbody></table></div>${D.sinFechaCompra ? '<p class="muted small">Sin campo «Fecha de compra», el día de cada venta es el de alta si el contacto es nuevo y, si ya era contacto, el día en que GHL le puso la etiqueta de compra (lo apunta el dashboard al verla). Para el día exacto del pago, guarda la fecha en un campo con el workflow de compra y elígelo en la configuración.</p>' : ''}</section>` : '';
 }
 $('#view-dmetricas').addEventListener('click', (e) => { if (e.target.closest('[data-dir-config]')) abrirDirectaConfig(); });
 
