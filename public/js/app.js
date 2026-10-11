@@ -10875,6 +10875,22 @@ function abrirDirectaConfig(id = state.embudo) {
   $('#dc-status').textContent = '';
   dcDlg.showModal();
   pintarSelectFecha($('#dc-compraDateField'), d.compraDateField || '', { vacio: '— Sin campo (día en que se ve la etiqueta) —' });
+  pintarSelectOportunidad(d);
+}
+// Pipeline › etapa de la oportunidad que crea el workflow de compra (vacío: se detecta sola; «no»: no se usa).
+async function pintarSelectOportunidad(d) {
+  const sel = $('#dc-compraOportunidad');
+  const actual = d.compraPipeline === 'no' ? 'no' : d.compraPipeline ? `${d.compraPipeline}:${d.compraEtapa || ''}` : '';
+  const pintar = (pipes, error = '') => {
+    const opts = (pipes || []).map((p) => `<optgroup label="${esc(p.name)}"><option value="${esc(p.id)}:">${esc(p.name)} · cualquier etapa</option>${p.stages.map((x) => `<option value="${esc(p.id)}:${esc(x.id)}">${esc(p.name)} › ${esc(x.name)}</option>`).join('')}</optgroup>`).join('');
+    const conocida = !actual || actual === 'no' || (pipes || []).some((p) => actual === `${p.id}:` || p.stages.some((x) => actual === `${p.id}:${x.id}`));
+    sel.innerHTML = `<option value="">🔎 Detectarla sola (la etapa donde caen las compradoras)</option>${conocida ? '' : `<option value="${esc(actual)}">${esc(error ? `Guardada (no se pudieron leer los pipelines: ${error})` : pipes ? 'Guardada (ya no está en GHL)' : 'Cargando pipelines de GHL…')}</option>`}${opts}<option value="no">No usar oportunidades</option>`;
+    sel.value = actual;
+  };
+  pintar(state.pipelinesCompra);
+  if (!state.pipelinesCompra) {
+    try { state.pipelinesCompra = (await api('/api/fields?tipo=pipelines')).pipelines; pintar(state.pipelinesCompra); } catch (e) { pintar(null, e.message); }
+  }
 }
 $('#dr-config').addEventListener('click', () => abrirDirectaConfig());
 $('#dc-guardar').addEventListener('click', async () => {
@@ -10885,6 +10901,7 @@ $('#dc-guardar').addEventListener('click', async () => {
     name: val('name') || state.config.directas[id].name, producto: val('producto'), precio: val('precio'),
     iva: { pct: val('ivaPct') === '' ? 21 : Number(val('ivaPct').replace(',', '.')), producto: $('#dc-iva').value },
     compraTag: val('compraTag').toLowerCase(), compraDateField: val('compraDateField'), emailCompra: val('emailCompra'),
+    compraPipeline: val('compraOportunidad').split(':')[0], compraEtapa: val('compraOportunidad').split(':')[1] || '',
     partes: partesElegidas('#dc-partes'),
     bumps: leerOfertas('bumps'), upsells: leerOfertas('upsells'), downsells: leerOfertas('downsells'),
     ventaUrl: val('ventaUrl'), checkoutUrl: val('checkoutUrl'), graciasUrl: val('graciasUrl'),
@@ -11020,7 +11037,7 @@ function renderDirectaMetricas(D) {
   // Por días: ventas, facturación y (si se miden) visitas, con una barra.
   const dias = (D.porDia || []).slice().reverse();
   const max = Math.max(1, ...dias.map((x) => x.ventas));
-  $('#dir-dias').innerHTML = dias.length ? `<section class="card"><h3>📅 Día a día</h3><div class="table-wrap"><table class="metric-table dir-dias"><thead><tr><th>Día</th><th>Ventas</th><th class="num">Facturación</th>${conVisitas ? '<th class="num">Visitas</th><th class="num">Checkout</th>' : ''}</tr></thead><tbody>${dias.map((x) => `<tr><td>${new Date(`${x.dia}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</td><td><span class="dir-barra"><i style="width:${Math.round((x.ventas / max) * 100)}%"></i><b>${x.ventas}</b></span></td><td class="num">${eur(x.facturacion)}</td>${conVisitas ? `<td class="num">${x.venta || ''}</td><td class="num">${x.checkout || ''}</td>` : ''}</tr>`).join('')}</tbody></table></div>${D.sinFechaCompra ? '<p class="muted small">Sin campo «Fecha de compra», el día de cada venta es el de alta si el contacto es nuevo y, si ya era contacto, el día en que GHL le puso la etiqueta de compra (lo apunta el dashboard al verla). Para el día exacto del pago, guarda la fecha en un campo con el workflow de compra y elígelo en la configuración.</p>' : D.sinCampoRelleno ? `<p class="muted small">${D.sinCampoRelleno} venta${D.sinCampoRelleno === 1 ? '' : 's'} del periodo aún sin el campo «Fecha de compra» (compraron antes de crearlo): se fechan por la etiqueta y el email de compra, como antes.</p>` : ''}</section>` : '';
+  $('#dir-dias').innerHTML = dias.length ? `<section class="card"><h3>📅 Día a día</h3><div class="table-wrap"><table class="metric-table dir-dias"><thead><tr><th>Día</th><th>Ventas</th><th class="num">Facturación</th>${conVisitas ? '<th class="num">Visitas</th><th class="num">Checkout</th>' : ''}</tr></thead><tbody>${dias.map((x) => `<tr><td>${new Date(`${x.dia}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</td><td><span class="dir-barra"><i style="width:${Math.round((x.ventas / max) * 100)}%"></i><b>${x.ventas}</b></span></td><td class="num">${eur(x.facturacion)}</td>${conVisitas ? `<td class="num">${x.venta || ''}</td><td class="num">${x.checkout || ''}</td>` : ''}</tr>`).join('')}</tbody></table></div>${D.oportunidad ? `<p class="muted small">📌 El día de cada venta sale de la <strong>oportunidad que crea el workflow de compra</strong> (${D.oportunidad.elegido ? 'la elegida en la configuración' : 'detectada sola: la etapa donde caen las compradoras'}): es la hora exacta del pago, también para quien ya era contacto. Las que no tienen esa oportunidad se fechan por la etiqueta${state.config.directas?.[state.embudo]?.emailCompra ? ' o el email de compra' : ''}.</p>` : ''}${D.sinFechaCompra && !D.oportunidad ? '<p class="muted small">Sin campo «Fecha de compra», el día de cada venta es el de alta si el contacto es nuevo y, si ya era contacto, el día en que GHL le puso la etiqueta de compra (lo apunta el dashboard al verla). Para el día exacto del pago, guarda la fecha en un campo con el workflow de compra y elígelo en la configuración.</p>' : D.sinCampoRelleno ? `<p class="muted small">${D.sinCampoRelleno} venta${D.sinCampoRelleno === 1 ? '' : 's'} del periodo aún sin el campo «Fecha de compra» (compraron antes de crearlo): se fechan por la etiqueta y el email de compra, como antes.</p>` : ''}</section>` : '';
 }
 $('#view-dmetricas').addEventListener('click', (e) => { if (e.target.closest('[data-dir-config]')) abrirDirectaConfig(); });
 

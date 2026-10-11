@@ -58,6 +58,9 @@ export function sanitizeDirecta(d = {}) {
     compraDateField: str(d?.compraDateField, 40).replace(/[^A-Za-z0-9]/g, ''),
     // Asunto (o parte) del email que envía el workflow de compra: fecha la compra de quien ya era contacto.
     emailCompra: str(d?.emailCompra, 120),
+    // Oportunidad que crea el workflow de compra (vacío: se detecta sola entre las compradoras).
+    compraPipeline: str(d?.compraPipeline, 40).replace(/[^A-Za-z0-9_-]/g, ''),
+    compraEtapa: str(d?.compraEtapa, 60).replace(/[^A-Za-z0-9_-]/g, ''),
     partes,
     bumps: sanitizeBumps(d?.bumps),
     upsells: sanitizeOfertas(d?.upsells, 'up'),
@@ -109,6 +112,33 @@ export function apuntarCompras(reg, contactos, ahora, dia) {
     dias[c.id] = dia(ref);
   }
   return { reg: { ...(reg || {}), desde: reg?.desde || ahora, ultima: cambios ? ahora : reg?.ultima || ahora, dias }, cambios };
+}
+
+// Pipeline y etapa donde el workflow de compra crea una oportunidad (la hora exacta de la compra): la pareja
+// más repetida entre las compradoras, si la tiene al menos el 40 % (y 3 o más). → { pipelineId, stageId } | null
+export function pipelineDeCompra(contactos = []) {
+  const n = new Map();
+  let con = 0;
+  for (const c of contactos) {
+    const pares = [...new Set(c?.opps || [])];
+    if (pares.length) con += 1;
+    for (const p of pares) n.set(p, (n.get(p) || 0) + 1);
+  }
+  const [par, veces] = [...n.entries()].sort((a, b) => b[1] - a[1])[0] || [];
+  if (!par || veces < 3 || veces < contactos.length * 0.4) return null;
+  const [pipelineId, stageId] = par.split(':');
+  return { pipelineId, stageId: stageId || '', cubre: veces, de: contactos.length, conOportunidad: con };
+}
+
+// Hora de compra por contacto con las oportunidades del workflow de compra (la más reciente de cada una).
+// `ids`: Set de compradoras. → { contactId: ISO }
+export function fechasDeOportunidades(opps = [], ids = null) {
+  const out = {};
+  for (const o of opps) {
+    if (!o?.contactId || !o.createdAt || (ids && !ids.has(o.contactId))) continue;
+    if (!out[o.contactId] || o.createdAt > out[o.contactId]) out[o.contactId] = o.createdAt;
+  }
+  return out;
 }
 
 // Compras cuyo día es una estimación (el contacto ya existía y no hay campo de fecha): se pueden fechar con el

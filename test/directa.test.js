@@ -231,3 +231,30 @@ test('email de compra: fecha exacta de la venta de quien ya era contacto', async
   assert.equal(fechaEmailCompra(emails, ''), '');
   assert.equal(sanitizeDirecta({ emailCompra: '  ⭐ (PRIMEROS PASOS) Reto de ovulación ' }).emailCompra, '⭐ (PRIMEROS PASOS) Reto de ovulación');
 });
+
+test('oportunidad del workflow de compra: se detecta su etapa y da la hora exacta de cada compra', async () => {
+  const { pipelineDeCompra, fechasDeOportunidades, sanitizeDirecta, metricasDirecta, diaCompra } = await import('../public/js/directa.js');
+  const reto = 'pipe1:etapaReto';
+  const compradoras = [
+    { id: 'a', opps: [reto] }, { id: 'b', opps: [reto, 'pipe1:etapaVsl'] }, { id: 'c', opps: [reto] }, { id: 'd', opps: [] }, { id: 'e', opps: [reto] },
+  ];
+  assert.deepEqual(pipelineDeCompra(compradoras), { pipelineId: 'pipe1', stageId: 'etapaReto', cubre: 4, de: 5, conOportunidad: 4 });
+  assert.equal(pipelineDeCompra([{ id: 'a', opps: [reto] }, { id: 'b', opps: [] }]), null); // muy pocas
+  assert.equal(pipelineDeCompra(compradoras.map((c) => ({ ...c, opps: [] }))), null);
+  // Hora de compra: la oportunidad más reciente de cada compradora (las de otros contactos no cuentan).
+  const opps = [
+    { contactId: 'a', createdAt: '2026-10-11T07:13:53Z' }, { contactId: 'b', createdAt: '2026-10-11T09:48:11Z' },
+    { contactId: 'b', createdAt: '2026-09-01T09:00:00Z' }, { contactId: 'x', createdAt: '2026-10-11T10:00:00Z' },
+  ];
+  assert.deepEqual(fechasDeOportunidades(opps, new Set(['a', 'b', 'c'])), { a: '2026-10-11T07:13:53Z', b: '2026-10-11T09:48:11Z' });
+  // Con el día de la oportunidad, quien ya era contacto cuenta hoy.
+  const d = { compraTag: 'compra', precio: 27, partes: {} };
+  const cs = [{ id: 'a', tags: ['compra'], dateAdded: '2025-05-23T18:04:37Z', diaCompra: '2026-10-11' }, { id: 'b', tags: ['compra'], dateAdded: '2026-04-16T10:51:37Z', diaCompra: '2026-10-11' }];
+  assert.equal(metricasDirecta(cs, d, { desde: '2026-10-11', hasta: '2026-10-11' }).ventas, 2);
+  assert.equal(diaCompra(cs[0], d), '2026-10-11');
+  // Configuración: pipeline y etapa (o «no»).
+  const s = sanitizeDirecta({ name: 'Reto', compraPipeline: 'e3BgentjbdQn3I0Ofxsd', compraEtapa: '9389a4d0-24ef-43c6-b5a3-aa0db0186df5' });
+  assert.equal(s.compraPipeline, 'e3BgentjbdQn3I0Ofxsd');
+  assert.equal(s.compraEtapa, '9389a4d0-24ef-43c6-b5a3-aa0db0186df5');
+  assert.equal(sanitizeDirecta({ name: 'R', compraPipeline: 'no' }).compraPipeline, 'no');
+});
