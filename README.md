@@ -768,6 +768,28 @@ Durante el calentamiento muestra «la oferta se abre en…», con la oferta abie
 
 **Oferta y bonus del meteórico**: en *Configurar → Oferta* van los entregables y los bonus: **BAR 30 min** y **BAR 1 h** (para quien compra en los primeros 30 minutos o en la primera hora tras abrir), BAR 24 h / 48 h y bonus de toda la oferta (o con fin a mano). La pestaña **Oferta** del embudo (y la sección de abajo en *Métricas → Downsell*) cruza los bonus con las ventas **hora a hora**: ventas en la ventana de cada bonus, ritmo de ventas por hora mientras estuvo activo frente al resto de la oferta y el empujón de los últimos minutos antes de que caduque. Para medir por horas hace falta la **hora** de cada compra: un campo de **texto** en GHL que el workflow de compra rellene con la fecha y hora (`{{right_now}}`), elegido como «Campo de fecha de compra» (el desplegable muestra los de fecha y los de texto). Con un campo de solo fecha, la oferta se ve pero el análisis por horas no.
 
+## ⚡ Nuevo lanzamiento rápido
+«Nuevo lanzamiento» (y al crear un embudo de lanzamientos) abre un asistente: **nombre**, **día y hora del directo**
+(en los de varios vídeos, del 1.º) y **de qué lanzamiento copiar** (el último del embudo, por defecto). Con eso:
+- **Copia el anterior entero** (oferta, bonus, precios, etiquetas de VIP y compra, textos, barras, recursos, envíos y
+  notas del carrito, enlaces de las páginas…) y **mueve todas sus fechas** los mismos días que el directo, así se
+  mantienen los intervalos (captación, clases, apertura y cierre del carrito, grabación, tramos de las barras, bonus).
+  Si cambia la hora del directo, lo de ese día a partir de esa hora se mueve también. Se vacía lo de cada edición:
+  Zoom, grupo de WhatsApp, campaña de SendFlow, vídeo de la grabación y la «foto» de etiquetas.
+- Sin lanzamiento anterior: **plantilla estándar** (captación 14 días antes; clases cada 2 días a las 10:00, la última
+  3 días antes; vídeos seguidos según el formato; carrito desde 1 h 30 min tras el vídeo de venta y 5 días; grabación
+  al día siguiente a las 10:00) y, si el embudo viene de una plantilla de agencia, su oferta y precios.
+- **Código** propuesto (`<embudo>-<mes><año>`, p. ej. `camino-nov26`) y **etiqueta de registro** con el código nuevo
+  (la del anterior cambiando su código; si no lo llevaba, `registro-<código>`); avisa si aún no existe en GHL.
+- **Sala de Zoom** (casilla): la crea con registro obligatorio y aprobación automática (lo que necesita el enlace
+  personal de cada lead) y sin los emails de Zoom; si el anterior tenía sala, con sus mismos ajustes, duración y
+  anfitrión. En formatos de varios vídeos, una por cada vídeo que en el anterior era en directo. Necesita que la app
+  de Zoom (Server-to-Server) tenga el permiso `meeting:write` (o `meeting:write:meeting:admin`); si Zoom pide
+  anfitrión, variable `ZOOM_HOST_EMAIL` (o `ZOOM_HOST_EMAIL_<CLIENTE>`). Si falla, el lanzamiento se crea igual y lo avisa.
+- Vista previa con las fechas en claro antes de crear; al crear, se guarda, se hace la «foto» de etiquetas y se abre
+  la Configuración para revisar (la barra «Listo para lanzar» marca lo que falte). «Configurar a mano» abre el
+  formulario de siempre. Código: `public/js/lanzamiento-rapido.js`, `handlers/zoom-sala.js` (`POST /api/zoom-sala`).
+
 ## Embudos: Lanzamientos y VSL
 El menú lateral (arriba en el móvil) cambia de embudo. Las pestañas siguen el mismo orden en todos, por momento de uso: **Hoy** (Setting hoy, Llamadas y En directo) · **Leads** · **Métricas** · **Plan** (Planificador, Calendario, Carrito y Tareas) · **Análisis** (Avatar y anuncios / Anuncios ganadores, Comparar y Rendimiento del equipo). En los meteóricos: **Meteóricos** · **Oferta** · **Plan**.
 

@@ -6,7 +6,7 @@ import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch, CAJAS_PAGO, numeroWhatsApp, enlaceWhatsApp, leerEnlaceWhatsApp } from './page.js';
-import { FORMATOS, formatoValido, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto } from './videos.js';
+import { FORMATOS, formatoValido, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto, nVideos, nombreVideo } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, MIN_REGISTROS, resumenLanzamiento, prevision, resumenManual, medias, supuestosEscenario, inversionRecomendada, proyeccion, planificar, PLAN_DEF } from './calculadora.js';
 import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
@@ -36,6 +36,7 @@ import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
 import { mensajesEnviados, impactoMensajes, horaVenta } from './impacto-wa.js';
+import { nuevoLanzamiento, codigoPropuesto, resumenFechas } from './lanzamiento-rapido.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
@@ -3586,7 +3587,115 @@ function openConfig(code) {
 $('#cfg-launch-pick').addEventListener('change', (e) => openConfig(e.target.value));
 $('#btn-config').addEventListener('click', () => (enVsl() ? openVslConfig() : enDirecta() ? abrirDirectaConfig() : enMeteo() ? abrirMeteoDialog(state.meteo.code, { embudo: state.embudo }) : openConfig(state.launchCode)));
 document.addEventListener('click', (e) => {
-  if (e.target.closest('[data-action="new-launch"]')) openConfig(null);
+  if (e.target.closest('[data-action="new-launch"]')) abrirLanzamientoRapido();
+});
+
+// ---------- ⚡ Nuevo lanzamiento rápido (lanzamiento-rapido.js): copia el anterior moviendo fechas + sala de Zoom ----------
+const nlDlg = $('#nl-dialog');
+// Lanzamientos del embudo, el más reciente (por directo) primero.
+const nlPrevios = () => Object.entries(state.config.launches).filter(([, l]) => embudoDeLanz(l) === state.embudo)
+  .sort((a, b) => String(b[1].fechaDirecto || '').localeCompare(String(a[1].fechaDirecto || '')));
+let nlCodeEditado = false;
+function abrirLanzamientoRapido() {
+  if (!puedeConfig() || enVsl() || enMeteo() || enDirecta()) return openConfig(null);
+  const previos = nlPrevios();
+  $('#nl-base').innerHTML = previos.map(([c, l]) => `<option value="${esc(c)}">${esc(l.name)} (${esc(l.fechaDirecto || 'sin fecha')})</option>`).join('') + '<option value="">— Ninguno: plantilla estándar —</option>';
+  $('#nl-nombre').value = '';
+  $('#nl-fecha').value = '';
+  $('#nl-hora').value = previos[0]?.[1].horaDirecto || '19:00';
+  $('#nl-code').value = '';
+  nlCodeEditado = false;
+  const multi = nVideos(embudoInfo()?.formato || 'webinar') > 1;
+  $('#nl-fecha-l').textContent = multi ? 'Día del 1.er vídeo' : 'Día del directo';
+  $('#nl-zoom').checked = Boolean(state.zoomConfigured);
+  $('#nl-zoom').disabled = !state.zoomConfigured;
+  $('#nl-zoom-info').textContent = state.zoomConfigured ? '(con registro obligatorio; si el anterior tenía sala, con sus mismos ajustes)' : '(Zoom no está conectado en este cliente)';
+  $('#nl-status').textContent = '';
+  $('#nl-crear').disabled = false;
+  pintarNl();
+  nlDlg.showModal();
+  $('#nl-nombre').focus();
+}
+function calcularNl() {
+  const fecha = $('#nl-fecha').value;
+  const hora = $('#nl-hora').value;
+  const usados = [...Object.keys(state.config.launches), ...embudos().map((e) => e.id), ...Object.keys(state.config.meteoricos || {})];
+  if (!nlCodeEditado) $('#nl-code').value = fecha ? codigoPropuesto(embudoInfo()?.nombre || $('#nl-nombre').value, fecha, usados) : '';
+  const code = $('#nl-code').value.trim().toLowerCase();
+  const prevCode = $('#nl-base').value;
+  const prev = prevCode ? state.config.launches[prevCode] : null;
+  const e = embudoInfo() || {};
+  const r = nuevoLanzamiento({ code, nombre: $('#nl-nombre').value, fecha, hora, prev, prevCode, base: prev ? null : e.base || null, embudo: { id: state.embudo, formato: e.formato, clases: e.clases, preclase: e.preclase } });
+  // Embudo con las páginas creadas de cero: sus enlaces, las URLs propuestas (si el anterior no los tenía).
+  for (const [k, u] of Object.entries(enlacesLanzamiento(propuestasEmbudo(state.embudo)))) if (!r.launch[k]) r.launch[k] = u;
+  return { ...r, code, prev, prevCode, usados };
+}
+function pintarNl() {
+  const box = $('#nl-preview');
+  if (!$('#nl-fecha').value) { box.innerHTML = '<div class="st-aviso info"><span>📅 Pon el día del directo y verás aquí todas las fechas calculadas.</span></div>'; return; }
+  let r;
+  try { r = calcularNl(); } catch (err) { box.innerHTML = `<p class="error">${esc(err.message)}</p>`; return; }
+  const tagOk = !state.tags.length || state.tags.map((t) => t.toLowerCase()).includes(r.launch.registroTag);
+  const copia = r.origen === 'copia';
+  box.innerHTML = `<div class="nl-res">
+      <div class="nl-res-cab"><strong>${copia ? `📋 Copia de «${esc(r.prev.name)}»` : '🧩 Plantilla estándar'}</strong>${copia && r.dias != null ? `<span class="st-chip">fechas ${r.dias >= 0 ? '+' : ''}${r.dias} días</span>` : ''}</div>
+      <ul class="nl-fechas">${resumenFechas(r.launch).map(([a, b]) => `<li><span>${esc(a)}</span><strong>${esc(b)}</strong></li>`).join('')}</ul>
+      <ul class="nl-mas">
+        <li>🏷️ Etiqueta de registro: <code>${esc(r.launch.registroTag)}</code> ${tagOk ? '' : '<span class="st-chip">aún no existe en GHL: créala en el formulario de registro</span>'}</li>
+        ${copia ? '<li>✅ Se copian la oferta, los bonus, los precios, las etiquetas de VIP y compra, los textos, las barras, los recursos y los envíos del carrito.</li><li>🧹 Se dejan vacíos (son de cada edición): Zoom, grupo de WhatsApp, campaña de SendFlow y vídeo de la grabación.</li>' : ''}
+        ${r.avisos.map((a) => `<li>⚠️ ${esc(a)}</li>`).join('')}
+      </ul>
+    </div>`;
+}
+for (const id of ['#nl-nombre', '#nl-fecha', '#nl-hora', '#nl-base']) $(id).addEventListener('input', pintarNl);
+$('#nl-base').addEventListener('change', pintarNl);
+$('#nl-code').addEventListener('input', () => { nlCodeEditado = Boolean($('#nl-code').value.trim()); pintarNl(); });
+$('#nl-manual').addEventListener('click', () => { nlDlg.close(); openConfig(null); });
+$('#nl-crear').addEventListener('click', async () => {
+  const st = $('#nl-status');
+  let r;
+  try { r = calcularNl(); } catch (err) { st.textContent = err.message; return; }
+  if (!$('#nl-nombre').value.trim()) { st.textContent = 'Ponle un nombre al lanzamiento.'; $('#nl-nombre').focus(); return; }
+  if (!LAUNCH_CODE_RE.test(r.code)) { st.textContent = 'El código solo puede llevar minúsculas, números y guiones (2-24).'; return; }
+  if (r.usados.includes(r.code)) { st.textContent = `Ya existe «${r.code}»: cambia el código.`; return; }
+  const b = $('#nl-crear');
+  b.disabled = true;
+  const hecho = [];
+  const launch = r.launch;
+  try {
+    // 1) Salas de Zoom: la del directo (vídeo 1) y la de los demás vídeos que en el anterior eran en directo.
+    if ($('#nl-zoom').checked && state.zoomConfigured) {
+      const vids = [{ k: 1, fecha: launch.fechaDirecto, hora: launch.horaDirecto, copiarDe: r.prev?.zoomMeetingId || '' }];
+      (launch.videos || []).forEach((v, i) => { if (r.prev?.videos?.[i]?.zoomMeetingId) vids.push({ k: i + 2, fecha: v.fecha, hora: v.hora, copiarDe: r.prev.videos[i].zoomMeetingId }); });
+      for (const v of vids) {
+        st.textContent = `Creando la sala de Zoom${vids.length > 1 ? ` del vídeo ${v.k}` : ''}…`;
+        try {
+          const z = await api('/api/zoom-sala', { method: 'POST', body: { topic: `${clienteNombre() ? `${clienteNombre()} · ` : ''}${launch.name}${vids.length > 1 ? ` · ${nombreVideo(launch.formato || embudoInfo()?.formato, v.k)}` : ''}`, fecha: v.fecha, hora: v.hora, copiarDe: v.copiarDe } });
+          if (v.k === 1) Object.assign(launch, { zoomMeetingId: z.id, zoomJoinUrl: z.joinUrl });
+          else Object.assign(launch.videos[v.k - 2], { zoomMeetingId: z.id, zoomJoinUrl: z.joinUrl });
+          hecho.push(`🎥 Sala de Zoom${vids.length > 1 ? ` del vídeo ${v.k}` : ''} creada (ID ${z.id})`);
+        } catch (err) {
+          hecho.push(`⚠️ No se creó la sala de Zoom${vids.length > 1 ? ` del vídeo ${v.k}` : ''}: ${err.message}`);
+        }
+      }
+    }
+    // 2) Guardar el lanzamiento.
+    st.textContent = 'Guardando el lanzamiento…';
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, launches: { ...state.config.launches, [r.code]: launch } } });
+    state.config = config;
+    nlDlg.close();
+    renderLaunchSelect();
+    await selectLaunch(r.code);
+    if (missingSnapshot(config.launches[r.code]).length) await runSnapshot(r.code);
+    hecho.unshift(r.origen === 'copia' ? `📋 Copiado de «${r.prev.name}» con las fechas movidas ${r.dias} días` : '🧩 Fechas de plantilla estándar');
+    // 3) A revisar en Configuración.
+    openConfig(r.code);
+    notice(`⚡ Lanzamiento «${launch.name}» creado. ${hecho.join(' · ')}. Revisa la configuración: lo que falte lo marca la barra «Listo para lanzar».`);
+  } catch (err) {
+    st.textContent = err.message;
+  } finally {
+    b.disabled = false;
+  }
 });
 // Pestañas dentro de cada ventana (Configuración, Equipo): solo afectan a su ventana.
 $$('.tab').forEach((t) => t.addEventListener('click', () => {
@@ -8678,7 +8787,7 @@ $('#emb-crear').addEventListener('click', async () => {
       state.config = d.config;
       embDlg.close();
       await setEmbudo(d.embudo);
-      if (embudoInfo(d.embudo)?.tipo === 'vsl') openVslConfig(); else openConfig(null);
+      if (embudoInfo(d.embudo)?.tipo === 'vsl') openVslConfig(); else abrirLanzamientoRapido();
       return;
     }
     const tipo = embTipo();
@@ -8701,7 +8810,7 @@ $('#emb-crear').addEventListener('click', async () => {
     embDlg.close();
     await setEmbudo(id);
     // Y a configurarlo: etiquetas de GHL (VSL) o el primer lanzamiento.
-    if (tipo === 'vsl') openVslConfig(); else if (tipo === 'meteorico') abrirMeteoDialog(null, { embudo: id }); else if (tipo === 'directa') abrirDirectaConfig(); else openConfig(null);
+    if (tipo === 'vsl') openVslConfig(); else if (tipo === 'meteorico') abrirMeteoDialog(null, { embudo: id }); else if (tipo === 'directa') abrirDirectaConfig(); else abrirLanzamientoRapido();
   } catch (e) {
     $('#emb-status').textContent = e.message;
   } finally {

@@ -2844,3 +2844,14 @@ body.embudo-directa .lanz-only { display: none !important; }
   .car-env-l { min-width: 0; flex-basis: 100%; }
 }
 .pg-ghl-nota ol { margin: 6px 0 6px; padding-left: 20px; display: grid; gap: 4px; }
+
+/* ⚡ Nuevo lanzamiento rápido */
+#nl-dialog .dialog-body { gap: 16px; }
+.nl-zoom { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+.nl-res { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.nl-res-cab { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.nl-fechas { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.nl-fechas li { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+.nl-fechas li span { font-size: 12px; color: var(--muted); }
+.nl-fechas li strong { font-variant-numeric: tabular-nums; }
+.nl-mas { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; }
