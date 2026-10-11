@@ -1511,6 +1511,12 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 /* Leads → Encuesta */
 .enc-cab { margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
 .enc-preg { margin-bottom: 14px; }
+.enc-ia { margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; border-left: 4px solid var(--tone-live); }
+.enc-ia-txt { flex: 1 1 320px; min-width: 0; }
+.enc-ia-txt h3 { margin: 0 0 6px; font-size: 16px; }
+.enc-ia-txt p { margin: 0 0 4px; }
+.enc-ia-acc { display: flex; flex-wrap: wrap; gap: 8px; }
+.enc-ia-prompt { flex: 1 1 100%; max-height: 360px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; background: var(--surface-2); color: var(--text); padding: 12px; border-radius: var(--radius-sm); margin: 0; }
 .enc-preg h3 { margin: 0 0 12px; font-size: 16px; }
 .enc-opciones { display: grid; gap: 8px; }
 .enc-op { display: grid; grid-template-columns: minmax(140px, 30%) 1fr minmax(150px, auto); gap: 12px; align-items: center; }
@@ -1523,7 +1529,7 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 .enc-buscar { margin: 10px 0; width: 100%; max-width: 360px; }
 .enc-lista { margin: 0 0 8px; padding-left: 18px; display: grid; gap: 6px; max-height: 420px; overflow-y: auto; }
 @media (max-width: 640px) { .enc-op { grid-template-columns: 1fr; gap: 4px; } .enc-op-n { text-align: left; } }
-.enc-cab, .enc-preg { padding: 16px 20px; }
+.enc-cab, .enc-preg, .enc-ia { padding: 16px 20px; }
 #enc-leads > .card { padding: 16px 20px; }
 
 /* Botón de Agencia: aparte de los botones del cliente, junto al nombre */

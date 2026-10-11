@@ -38,6 +38,7 @@ import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
 import { mensajesEnviados, impactoMensajes, horaVenta } from './impacto-wa.js';
 import { nuevoLanzamiento, codigoPropuesto, resumenFechas, diasCarritoDe, diasCaptacionDe, fijarCaptacion, aplicarOferta, objetivosDesdeMeta, comprobarFechas, emailsAReprogramar, desplazamiento } from './lanzamiento-rapido.js';
 import { siguientesPasos } from './siguientes-pasos.js';
+import { promptEncuesta, libresAgrupadas } from './encuesta-ia.js';
 import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa } from './narrativa.js';
 import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, asuntosGanadores, promptEmails } from './emails-ia.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto } from './urls-paginas.js';
@@ -987,7 +988,7 @@ function renderEncuestaLeads() {
       <span class="enc-op-lbl">${esc(o.respuesta)}</span>
       <div class="enc-op-bar"><span style="width:${Math.max(1.5, o.pct * 100)}%"></span></div>
       <span class="enc-op-n"><strong>${Math.round(o.pct * 1000) / 10}%</strong> <span class="muted">${o.n}${o.compras ? ` · ${o.compras} compr${o.compras === 1 ? 'ó' : 'aron'}` : ''}</span></span></div>`).join('')}</div>`;
-  box.innerHTML = cab + r.preguntas.map((q, i) => {
+  box.innerHTML = cab + encIaCard(r) + r.preguntas.map((q, i) => {
     const ver = encLibreVer.get(q.p.id) || 30;
     const libres = q.libres.length ? `<details class="enc-libres"${q.opciones.length ? '' : ' open'}><summary>Todas las respuestas (${q.libres.length})</summary>
         <input type="search" class="enc-buscar" data-enc-buscar="${i}" placeholder="Buscar en las respuestas…">
@@ -1000,6 +1001,42 @@ function renderEncuestaLeads() {
     </section>`;
   }).join('');
 }
+// 🧠 Analizar con Claude: prompt con las respuestas libres (anónimas, [COMPRÓ] primero) + ficha + narrativa.
+// Es la tarea de cierre «Analizar con Claude las respuestas abiertas de la encuesta».
+function encIaCard(r) {
+  const libres = r.preguntas.filter((q) => q.p.tipo === 'texto');
+  const distintas = libres.reduce((n, q) => n + libresAgrupadas(q.libres).length, 0);
+  if (!distintas) return '';
+  const compras = libres.reduce((n, q) => n + q.libres.filter((x) => x.compra).length, 0);
+  return `<section class="card enc-ia">
+    <div class="enc-ia-txt"><h3>🧠 Analizar con Claude</h3>
+      <p class="muted">Copia el prompt y pégalo en Claude: te saca los patrones que más se repiten, qué dicen distinto las compradoras, el lenguaje literal del avatar y ganchos listos para anuncios, emails, WhatsApp y páginas.</p>
+      <p class="small muted">${distintas} respuestas abiertas distintas${compras ? ` · ${compras} de compradoras (van primero)` : ''} · sin nombres, emails ni teléfonos · con la ficha de marca${state.config.launches[state.launchCode]?.narrativa?.texto ? ' y la narrativa' : ''}.</p></div>
+    <div class="enc-ia-acc"><button type="button" class="btn" id="enc-ia-copiar">📋 Copiar el prompt</button>
+      <button type="button" class="btn ghost" id="enc-ia-ver">Ver el prompt</button></div>
+    <pre class="enc-ia-prompt" id="enc-ia-prompt" hidden></pre>
+  </section>`;
+}
+async function promptEncuestaActual() {
+  const launch = state.config.launches[state.launchCode];
+  const mp = await marcaDeEmbudo(api, state.cliente, state.embudo).catch(() => ({}));
+  return promptEncuesta(resumenEncuesta(state.leads, preguntasEncuesta()), {
+    marca: clienteNombre(), producto: mp?.producto ? nombreDeProducto(mp.producto) : nombreProducto(state.config), lanzamiento: launch?.name || '',
+    contexto: contextoMarca(mp?.m, mp?.producto), narrativa: bloqueNarrativa(launch?.narrativa, 'anuncios'),
+  });
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('#enc-ia-copiar, #enc-ia-ver');
+  if (!b) return;
+  const pre = $('#enc-ia-prompt');
+  const { prompt, incluidas, total } = await promptEncuestaActual();
+  pre.textContent = prompt;
+  if (b.id === 'enc-ia-ver') { pre.hidden = !pre.hidden; b.textContent = pre.hidden ? 'Ver el prompt' : 'Ocultar el prompt'; return; }
+  const ok = await copiarAlPortapapeles(prompt);
+  b.textContent = ok ? `Copiado ✓ · pégalo en Claude${incluidas < total ? ` (${incluidas} de ${total} respuestas)` : ''}` : 'No se pudo copiar: ábrelo en «Ver el prompt»';
+  if (!ok) pre.hidden = false;
+  setTimeout(() => { b.textContent = '📋 Copiar el prompt'; }, 3500);
+});
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-enc-mas]');
   if (!b) return;

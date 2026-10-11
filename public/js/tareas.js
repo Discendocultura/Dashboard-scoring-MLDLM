@@ -54,6 +54,7 @@ export const PLANTILLA = [
   { fase: 'carrito', titulo: 'Revisar ventas por día del carrito frente al objetivo', base: 'directo', dias: 2, rol: 'admin' },
   { fase: 'cierre', titulo: 'Cerrar el carrito: comprobar que los enlaces de pago ya no están accesibles', base: 'cierre', dias: 0, rol: 'admin' },
   { fase: 'cierre', titulo: 'Revisar los perfiles de compradoras y apuntar conclusiones', base: 'cierre', dias: 2, rol: 'admin' },
+  { fase: 'cierre', titulo: 'Analizar con Claude las respuestas abiertas de la encuesta (Leads → Encuesta → 🧠 Analizar con Claude) y pasar los ganchos y el lenguaje del avatar a la ficha de marca', base: 'cierre', dias: 2, rol: 'admin' },
   { fase: 'cierre', titulo: 'Informe final del lanzamiento (métricas, objetivos y aprendizajes)', base: 'cierre', dias: 3, rol: 'admin' },
 ];
 
