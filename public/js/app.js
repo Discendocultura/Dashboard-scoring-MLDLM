@@ -40,6 +40,7 @@ import { nuevoLanzamiento, codigoPropuesto, resumenFechas, diasCarritoDe, diasCa
 import { siguientesPasos } from './siguientes-pasos.js';
 import { promptEncuesta, libresAgrupadas } from './encuesta-ia.js';
 import { lanzamientoAAnalizar, promptAnalisis } from './analisis-ia.js';
+import { codigoMeta, choquesMeta, ejemploCampana } from './meta-codigo.js';
 import { ESTADOS_AUTO, autoCtx, automatizacionesDe, promptAutomatizacion, descripcionIaGhl, promptPreparacion, revisarExistente } from './automatizaciones.js';
 import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa } from './narrativa.js';
 import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, asuntosGanadores, promptEmails } from './emails-ia.js';
@@ -9119,6 +9120,54 @@ const aSegundos = (t) => {
   return m ? Number(m[1]) * 60 + Number(m[2] || 0) : 0; // «12» = minuto 12; «12:30» = 12 min 30 s
 };
 
+// ---------- Código para el nombre de las campañas de Meta (VSL, venta directa y meteóricos) ----------
+// Junto al campo «Campañas de Meta»: el código propuesto (VSL-id, DIR-id, MET-código), copiar / usar, y avisos
+// (vacío en una VSL = toda la cuenta; choca con el filtro de otro embudo = esas campañas se sumarían en los dos).
+function filtrosMetaOtros(excluir) {
+  const c = state.config;
+  return [
+    ...Object.entries(c.launches || {}).map(([k, l]) => ({ clave: `lanzamientos:${k}`, nombre: l.name || k, filtro: l.metaFiltro || k })),
+    ...Object.entries(c.vsls || {}).map(([k, v]) => ({ clave: `vsl:${k}`, nombre: v.name || k, filtro: v.metaFiltro || '' })),
+    ...Object.entries(c.directas || {}).map(([k, d]) => ({ clave: `directa:${k}`, nombre: d.name || k, filtro: d.metaFiltro || k })),
+    ...Object.entries(c.meteoricos || {}).map(([k, m]) => ({ clave: `meteorico:${k}`, nombre: m.name || k, filtro: m.metaFiltro || k })),
+  ].filter((x) => x.clave !== excluir);
+}
+function pintarCodigoMeta(inputId, tipo, id, nombre = '') {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  let box = $(`[data-meta-cod="${inputId}"]`);
+  if (!box) { inp.closest('.field').insertAdjacentHTML('afterend', `<div class="meta-cod full" data-meta-cod="${inputId}"></div>`); box = $(`[data-meta-cod="${inputId}"]`); }
+  Object.assign(box.dataset, { tipo, id: id || '', nombre: nombre || '' });
+  const cod = codigoMeta(tipo, id, nombre);
+  if (!cod) { box.innerHTML = '<p class="muted small">📣 Pon el código del embudo para ver el de sus campañas de Meta.</p>'; return; }
+  const v = inp.value.trim();
+  const efectivo = v || (tipo === 'vsl' ? '' : id);
+  const choques = choquesMeta(efectivo, filtrosMetaOtros(`${tipo}:${id}`));
+  const enUso = v.toLowerCase() === cod.toLowerCase();
+  box.innerHTML = `<div class="meta-cod-fila">📣 <span>Código para el nombre de sus campañas en Meta:</span> <code>${esc(cod)}</code>
+      <button type="button" class="btn ghost small" data-meta-copiar="${esc(cod)}">Copiar</button>
+      ${enUso ? '<span class="meta-cod-ok">✓ En uso</span>' : `<button type="button" class="btn small" data-meta-usar="${esc(inputId)}">Usar este</button>`}</div>
+    <p class="muted small">Ponlo al principio del nombre de <strong>cada campaña</strong> de este embudo, p. ej. «${esc(ejemploCampana(cod))}». El dashboard suma solo la inversión de las campañas que lo llevan (da igual mayúsculas o acentos).</p>
+    ${!v && tipo === 'vsl' ? '<p class="meta-cod-aviso">⚠️ Está vacío: ahora se suma la inversión de <strong>toda la cuenta</strong> de Meta. Pulsa «Usar este».</p>' : ''}
+    ${choques.length ? `<p class="meta-cod-aviso">⚠️ «${esc(efectivo)}» choca con ${esc(choques.slice(0, 3).join(', '))}: las campañas de uno contarían también en el otro. Usa el código propuesto.</p>` : ''}`;
+}
+document.addEventListener('click', async (e) => {
+  const c = e.target.closest('[data-meta-copiar]');
+  if (c) { const ok = await copiarAlPortapapeles(c.dataset.metaCopiar); c.textContent = ok ? 'Copiado ✓' : 'Cópialo a mano'; setTimeout(() => { c.textContent = 'Copiar'; }, 2000); return; }
+  const u = e.target.closest('[data-meta-usar]');
+  if (!u) return;
+  const box = u.closest('[data-meta-cod]');
+  const inp = document.getElementById(u.dataset.metaUsar);
+  inp.value = codigoMeta(box.dataset.tipo, box.dataset.id, box.dataset.nombre);
+  inp.dispatchEvent(new Event('input', { bubbles: true }));
+  pintarCodigoMeta(inp.id, box.dataset.tipo, box.dataset.id, box.dataset.nombre);
+});
+document.addEventListener('input', (e) => {
+  const id = e.target.id;
+  if (['vc-metaFiltro', 'dc-metaFiltro', 'mt-metaFiltro'].includes(id)) { const box = $(`[data-meta-cod="${id}"]`); if (box) pintarCodigoMeta(id, box.dataset.tipo, box.dataset.id, box.dataset.nombre); }
+  if (id === 'mt-code' || id === 'mt-name') pintarCodigoMeta('mt-metaFiltro', 'meteorico', $('#mt-code').value.trim().toLowerCase(), $('#mt-name').value);
+});
+
 async function openVslConfig(id = state.embudo) {
   vcId = id;
   const v = vslCfg(id);
@@ -9138,6 +9187,7 @@ async function openVslConfig(id = state.embudo) {
   pintarPago('vc', v.pago);
   $('#vc-status').textContent = '';
   renderAccesosEditor(v.accesos, { box: '#vc-accesos', sugeridos: ACCESOS_SUGERIDOS_VSL });
+  pintarCodigoMeta('vc-metaFiltro', 'vsl', id, v.name);
   renderVslSnippets();
   $('.tab[data-tab="vembudo"]').click();
   vcDlg.showModal();
@@ -9631,8 +9681,9 @@ $('#emb-crear').addEventListener('click', async () => {
     const body = {
       ...state.config,
       embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz() } : {}), ...(todas ? {} : { pestanas }), ...(ocultas.length ? { ocultas } : {}), ...embOrigenGuardar() }],
-      vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre, subtipo } } : state.config.vsls,
-      directas: tipo === 'directa' ? { ...(state.config.directas || {}), [id]: { name: nombre, producto: nombre, partes: partesElegidas('#emb-partes') } } : state.config.directas,
+      // VSL y venta directa nacen con su código para el nombre de las campañas de Meta (VSL-id, DIR-id).
+      vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre, subtipo, metaFiltro: codigoMeta('vsl', id, nombre) } } : state.config.vsls,
+      directas: tipo === 'directa' ? { ...(state.config.directas || {}), [id]: { name: nombre, producto: nombre, partes: partesElegidas('#emb-partes'), metaFiltro: codigoMeta('directa', id, nombre) } } : state.config.directas,
     };
     const { config } = await api('/api/config', { method: 'POST', body });
     state.config = config;
@@ -9938,6 +9989,7 @@ async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
   for (const k of ['calentamiento', 'abierta', 'cerrada', 'boton']) $(`#mt-t-${k}`).value = m?.textos?.[k] || '';
   $('#mt-code').value = code || '';
   $('#mt-code').readOnly = Boolean(m);
+  pintarCodigoMeta('mt-metaFiltro', 'meteorico', code || '', m?.name || '');
   pintarPago('mt', m?.pago);
   pintarPaqueteMeteo(m?.paquete);
   $('#meteo-dialog .tab[data-tab="mt-oferta"]').click();
@@ -9985,6 +10037,8 @@ $('#mt-guardar').addEventListener('click', async () => {
   };
   if (errorPago('mt')) { $('#meteo-dialog .tab[data-tab="mt-oferta"]').click(); status.textContent = errorPago('mt'); return; }
   if (!m.name) { $('#meteo-dialog .tab[data-tab="mt-oferta"]').click(); status.textContent = 'Ponle un nombre.'; return; }
+  // Un meteórico nuevo sin filtro de Meta: su código propuesto (MET-código) para el nombre de las campañas.
+  if (!meteoEdit.code && !m.metaFiltro) m.metaFiltro = codigoMeta('meteorico', code, m.name);
   status.textContent = 'Guardando…';
   try {
     const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, meteoricos: { ...(state.config.meteoricos || {}), [code]: m } } });
@@ -10768,6 +10822,7 @@ function abrirDirectaConfig(id = state.embudo) {
   v('iva', d.iva?.producto || ''); v('ivaPct', d.iva?.pct ?? 21); v('compraTag', d.compraTag); v('compraDateField', d.compraDateField);
   v('ventaUrl', d.ventaUrl); v('checkoutUrl', d.checkoutUrl); v('graciasUrl', d.graciasUrl);
   v('metaFiltro', d.metaFiltro); v('inversionDia', d.inversionDia || ''); v('objetivoCpa', d.objetivoCpa || '');
+  pintarCodigoMeta('dc-metaFiltro', 'directa', id, d.name);
   v('objetivoRoas', d.objetivoRoas ? String(d.objetivoRoas).replace('.', ',') : ''); v('objetivoVentasMes', d.objetivoVentasMes || ''); v('notas', d.notas);
   pintarOfertas('bumps', d.bumps);
   pintarOfertas('upsells', d.upsells);

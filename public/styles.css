@@ -3110,3 +3110,11 @@ body.embudo-directa .lanz-only { display: none !important; }
 @media (max-width: 640px) { .au-top { flex-wrap: wrap; } .au-estado { width: 100%; } }
 .au-head, .au-prep, .au-item, .cl-hub { padding: 16px 20px; }
 @media (max-width: 640px) { .au-head, .au-prep, .au-item, .cl-hub { padding: 14px; } }
+/* Código para el nombre de las campañas de Meta (VSL, venta directa y meteóricos) */
+.meta-cod { grid-column: 1 / -1; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); display: grid; gap: 4px; }
+.meta-cod p { margin: 0; }
+.meta-cod-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13.5px; }
+.meta-cod-fila code { font-size: 14px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--surface); }
+.meta-cod-ok { color: var(--tone-buy, #138a4b); font-weight: 600; font-size: 13px; }
+.meta-cod-aviso { font-size: 13px; padding: 6px 8px; border-radius: 8px; background: #fff1cc; color: #7a5200; }
+:root[data-theme="dark"] .meta-cod-aviso, :root[data-estilo="espacial"] .meta-cod-aviso { background: #3f3413; color: #f3d77e; }
