@@ -157,10 +157,16 @@ export function metricasDirecta(contactos, d, rango, { visitas = null, inversion
       ventaCompra: div(n, vt.venta || 0),
     },
     porDia: [...porDia.values()],
-    compradores: ventas.sort((a, b) => b.dia.localeCompare(a.dia)).map(({ c, dia }) => ({
-      id: c.id, name: c.name || [c.firstName, c.lastName].filter(Boolean).join(' '), email: c.email || '', phone: c.phone || '', dia,
-      extras: extras.filter((o) => tiene(c, o.tag)).map((o) => o.id),
-    })),
+    compradores: ventas.sort((a, b) => b.dia.localeCompare(a.dia)).map(({ c, dia }) => {
+      const suyos = extras.filter((o) => tiene(c, o.tag));
+      return {
+        id: c.id, name: c.name || [c.firstName, c.lastName].filter(Boolean).join(' '), email: c.email || '', phone: c.phone || '', dia,
+        extras: suyos.map((o) => o.id),
+        // Lo que ha pagado (sin IVA) y de qué campaña / conjunto / anuncio viene (UTM o campos del formulario de Meta).
+        importe: precio + suyos.reduce((t, o) => t + precioExtraSinIva(o, d), 0),
+        ...(c.src?.campaign || c.src?.term || c.src?.content ? { src: { campaign: c.src.campaign || '', adset: c.src.term || '', ad: c.src.content || '' } } : {}),
+      };
+    }),
     sinFechaCompra: !d.compraDateField,
     objetivos,
   };
@@ -238,4 +244,49 @@ export function guiaDirecta(partes = partesPorDefecto()) {
     'En <em>Métricas</em>: ventas, facturación, ticket medio, CPA y ROAS por días, semanas o meses, y el % de cada extra.',
   ] });
   return s;
+}
+
+// Anuncios ganadores de la venta directa: los que traen ventas al MENOR coste por venta (CAC) y MÁS ventas.
+//   compradores: los de metricasDirecta (con src e importe) · meta: { names, spendBy, estructura } de Meta
+//   level: 'ad' | 'adset' | 'campaign' · orden: 'cac' (menor CAC primero) | 'ventas' (más ventas primero)
+//   minVentas: para entrar en el ranking por CAC (con 1 venta el CAC es suerte)
+// → { filas: [{ id, label, campaign, adset, ventas, facturacion, spend, cac, roas, ganador }], sinAnuncio, conGasto }
+export function ganadoresDirecta(compradores = [], meta = {}, level = 'ad', { orden = 'cac', minVentas = 2 } = {}) {
+  const names = meta?.names || {};
+  const spendBy = meta?.spendBy || {};
+  const est = meta?.estructura || {};
+  const g = new Map();
+  let sinAnuncio = 0;
+  for (const c of compradores) {
+    const id = c.src?.[level];
+    if (!id) { sinAnuncio++; continue; }
+    const x = g.get(id) || { id, ventas: 0, facturacion: 0, campaign: c.src.campaign, adset: c.src.adset };
+    x.ventas++;
+    x.facturacion += Number(c.importe) || 0;
+    g.set(id, x);
+  }
+  // Lo que gasta sin vender también se ve (al final): es lo primero que hay que apagar.
+  for (const [id, e] of Object.entries(est)) {
+    if (e.nivel === level && !g.has(id) && (Number(spendBy[id]) || 0) > 0) g.set(id, { id, ventas: 0, facturacion: 0, campaign: e.campaign || '', adset: e.adset || '' });
+  }
+  const filas = [...g.values()].map((x) => {
+    const spend = Number(spendBy[x.id]) || null;
+    const e = est[x.id] || {};
+    const camp = level === 'campaign' ? '' : e.campaign || x.campaign;
+    const set = level === 'ad' ? e.adset || x.adset : '';
+    return {
+      id: x.id, label: names[x.id] || `${{ ad: 'Anuncio', adset: 'Conjunto', campaign: 'Campaña' }[level] || ''} ${x.id} (no sale en las campañas de este embudo en Meta)`.trim(), campaign: camp ? names[camp] || camp : '', adset: set ? names[set] || set : '',
+      ventas: x.ventas, facturacion: x.facturacion, spend, cac: spend && x.ventas ? spend / x.ventas : null, roas: spend ? x.facturacion / spend : null,
+    };
+  });
+  const enRanking = (f) => f.cac != null && f.ventas >= minVentas;
+  const grupo = (f) => (enRanking(f) ? 0 : f.ventas ? 1 : 2);
+  filas.sort((a, b) => {
+    if (orden === 'ventas') return (b.ventas - a.ventas) || ((a.cac ?? Infinity) - (b.cac ?? Infinity)) || ((b.spend || 0) - (a.spend || 0));
+    return (grupo(a) - grupo(b)) || ((a.cac ?? Infinity) - (b.cac ?? Infinity)) || (b.ventas - a.ventas) || ((b.spend || 0) - (a.spend || 0));
+  });
+  // Ganadores: los 3 mejores con ventas suficientes (por CAC, o por ventas si se ordena así).
+  const top = filas.filter(enRanking).slice().sort((a, b) => (orden === 'ventas' ? (b.ventas - a.ventas) || (a.cac - b.cac) : (a.cac - b.cac) || (b.ventas - a.ventas))).slice(0, 3).map((f) => f.id);
+  for (const f of filas) f.ganador = top.indexOf(f.id) + 1 || 0;
+  return { filas, sinAnuncio, conGasto: Object.keys(spendBy).length > 0 };
 }

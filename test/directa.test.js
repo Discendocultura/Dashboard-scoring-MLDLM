@@ -93,7 +93,7 @@ test('venta directa: lo que falta, tareas, guía y pestañas', () => {
   assert.equal(t[0].fecha, '2026-10-01');
   assert.equal(guiaDirecta({ bumps: true }).some((s) => /Upsell y downsell/.test(s.titulo)), false);
   assert.equal(guiaEmbudo('directa', undefined, undefined, undefined, { partes: { upsell: true } }).some((s) => /Upsell/.test(s.titulo)), true);
-  assert.deepEqual(pestanaIds('directa'), ['dmetricas', 'dclientes', 'anuncios', 'paginas', 'automatizaciones', 'tareas', 'calendario']);
+  assert.deepEqual(pestanaIds('directa'), ['dmetricas', 'dclientes', 'danuncios', 'anuncios', 'paginas', 'automatizaciones', 'tareas', 'calendario']);
 });
 
 const ENV = { GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret' };
@@ -152,4 +152,31 @@ test('venta directa: guardar el embudo, visitas públicas, métricas, tareas y p
   const card = (await call('/api/inicio?parte=embudo&id=guia', { cookie: admin })).data.embudo;
   assert.equal(card.tipo, 'directa');
   assert.ok(card.kpis.ventas > 0);
+});
+
+test('anuncios ganadores: menor CAC y más ventas, lo que gasta sin vender al final', async () => {
+  const { ganadoresDirecta } = await import('../public/js/directa.js');
+  const c = (ad, importe = 30) => ({ importe, src: { campaign: 'c1', adset: 's1', ad } });
+  const compradores = [c('a1'), c('a1'), c('a1'), c('a2'), c('a2'), c('a3'), { importe: 30 }];
+  const meta = {
+    names: { a1: 'Vídeo', a2: 'Carrusel', a3: 'Reel', a4: 'Estático', c1: 'DIR-guia · Frío', s1: 'Intereses' },
+    spendBy: { a1: 90, a2: 40, a3: 10, a4: 50, c1: 190, s1: 190 },
+    estructura: { a1: { nivel: 'ad', campaign: 'c1', adset: 's1' }, a2: { nivel: 'ad', campaign: 'c1', adset: 's1' }, a3: { nivel: 'ad', campaign: 'c1', adset: 's1' }, a4: { nivel: 'ad', campaign: 'c1', adset: 's1' }, c1: { nivel: 'campaign' }, s1: { nivel: 'adset', campaign: 'c1' } },
+  };
+  const r = ganadoresDirecta(compradores, meta, 'ad');
+  // a2: CAC 20 (2 ventas) gana a a1: CAC 30 (3 ventas); a3 (1 venta, CAC 10) no entra en el podio; a4 gasta sin vender: al final.
+  assert.deepEqual(r.filas.map((f) => f.id), ['a2', 'a1', 'a3', 'a4']);
+  assert.deepEqual(r.filas.map((f) => f.ganador), [1, 2, 0, 0]);
+  assert.equal(r.filas[0].cac, 20);
+  assert.equal(r.filas[0].campaign, 'DIR-guia · Frío');
+  assert.equal(r.filas[0].adset, 'Intereses');
+  assert.equal(r.filas[3].ventas, 0);
+  assert.equal(r.sinAnuncio, 1);
+  // Por ventas: a1 primero.
+  assert.equal(ganadoresDirecta(compradores, meta, 'ad', { orden: 'ventas' }).filas[0].id, 'a1');
+  // Por campaña: una fila con todo.
+  const camp = ganadoresDirecta(compradores, meta, 'campaign').filas;
+  assert.equal(camp.length, 1);
+  assert.equal(camp[0].ventas, 6);
+  assert.equal(camp[0].cac, 190 / 6);
 });

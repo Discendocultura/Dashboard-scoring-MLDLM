@@ -3118,3 +3118,20 @@ body.embudo-directa .lanz-only { display: none !important; }
 .meta-cod-ok { color: var(--tone-buy, #138a4b); font-weight: 600; font-size: 13px; }
 .meta-cod-aviso { font-size: 13px; padding: 6px 8px; border-radius: 8px; background: #fff1cc; color: #7a5200; }
 :root[data-theme="dark"] .meta-cod-aviso, :root[data-estilo="espacial"] .meta-cod-aviso { background: #3f3413; color: #f3d77e; }
+/* Venta directa → 👑 Anuncios ganadores */
+.dan-bar { display: flex; flex-wrap: wrap; gap: 10px 16px; justify-content: space-between; padding: 12px 16px; margin-bottom: 14px; }
+.dan-podio { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.dan-top { display: grid; grid-template-columns: auto 1fr; gap: 10px 12px; align-items: center; padding: 16px 18px; border-top: 4px solid var(--border); }
+.dan-top-1 { border-top-color: #e2b23a; } .dan-top-2 { border-top-color: #a8a29e; } .dan-top-3 { border-top-color: #c2784a; }
+.dan-med { font-size: 30px; line-height: 1; }
+.dan-top-t { display: flex; flex-direction: column; min-width: 0; }
+.dan-top-t strong { overflow-wrap: anywhere; }
+.dan-top-t small { overflow-wrap: anywhere; }
+.dan-top-k { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.dan-top-k span { display: flex; flex-direction: column; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); }
+.dan-top-k b { font-size: 18px; }
+.dan-top-k small { color: var(--muted); font-size: 12px; }
+.dan-ok { color: var(--tone-buy, #138a4b); }
+.dan-mal { color: var(--error, #c0362c); }
+.dan-t tr.dan-sin td { opacity: .75; }
+#dan-tabla .card > p { margin: 0; padding: 10px 16px 14px; }

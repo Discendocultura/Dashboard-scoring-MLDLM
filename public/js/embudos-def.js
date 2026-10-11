@@ -51,6 +51,7 @@ PESTANAS.meteorico = [
 PESTANAS.directa = [
   { id: 'dmetricas', label: 'Métricas', desc: 'Ventas, facturación, ticket medio, CPA y ROAS por fechas; % de cada bump, upsell y downsell y conversión de cada página' },
   { id: 'dclientes', label: 'Compradoras', desc: 'Quién ha comprado, cuándo y qué extras se llevó (con su WhatsApp)' },
+  { id: 'danuncios', label: 'Anuncios ganadores', desc: 'Qué anuncios traen ventas al menor coste por venta (CAC) y cuáles traen más ventas' },
   { id: 'anuncios', label: 'Crear anuncios', desc: 'Anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
   { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos del dashboard) para Claude, y el HTML a GHL' },
   { id: 'automatizaciones', label: 'Automatizaciones', desc: 'Los workflows de GHL del embudo: si hay que crearlos de cero, uno a uno con su prompt para Claude (en su carpeta), con su estado y su enlace' },
@@ -104,6 +105,7 @@ export const CATEGORIAS = {
   directa: [
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Ventas, ticket medio, CPA, ROAS y extras', vistas: ['dmetricas'] },
     { id: 'leads', label: 'Compradoras', icon: '🛍️', desc: 'Quién ha comprado y qué extras', vistas: ['dclientes'] },
+    { id: 'analisis', label: 'Anuncios ganadores', icon: '👑', desc: 'Menor CAC y más ventas, por anuncio, conjunto o campaña', vistas: ['danuncios'] },
     { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Anuncios, páginas, automatizaciones, calendario y tareas', vistas: ['anuncios', 'paginas', 'automatizaciones', 'calendario', 'tareas'] },
   ],
   meteorico: [
