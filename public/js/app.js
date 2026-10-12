@@ -51,6 +51,7 @@ import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, asuntosGanadores, promptE
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto, accesosDePaginas, conAccesos } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { iniciarAnimaciones } from './animaciones.js';
+import { saludCliente, ordenSalud, totalesAgencia, urgentesAgencia, agendaAgencia, equipoAgencia } from './agencia-inicio.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -485,7 +486,7 @@ async function start() {
   state.recienEntrado = false;
   if (hash) ls.set('lsd_inicio', ''); // un enlace directo a una pestaña: lo último ya no es el Inicio
   await setEmbudo(state.embudo, { vista: VIEWS.includes(hash) ? hash : null });
-  if (abrirInicio && tiene('metricas') && embudos().length) mostrarInicio();
+  if (abrirInicio && (state.superadmin || (tiene('metricas') && embudos().length))) mostrarInicio();
   if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); }
   if (!$('#view-rendimiento').hidden) loadRendimiento();
 }
@@ -545,7 +546,7 @@ function pintarSidebar() {
     return `<div class="sb-row"><button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${e.tipo === 'meteorico' ? '⚡' : e.tipo === 'directa' ? '🛒' : tv ? tv.ico : esReto(e.formato) ? '🏁' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(e.id)}" title="Pestañas, nombre y guía de «${esc(e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
   }).join('');
   // «Inicio» (todos los embudos): para quien ve las métricas y si hay embudos.
-  $('#sb-inicio').hidden = !tiene('metricas') || !embudos().length;
+  $('#sb-inicio').hidden = !state.superadmin && (!tiene('metricas') || !embudos().length);
   $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio));
   if (state.enInicio) $$('#sb-items .sb-item.active').forEach((b) => b.classList.remove('active'));
 }
@@ -658,6 +659,10 @@ async function mostrarInicio({ fresh = false } = {}) {
   document.body.classList.add('en-inicio');
   pintarSidebar();
   $('#alertas-carrito').hidden = true;
+  // Superadmin: el Inicio de la agencia (todos los clientes) o el de este cliente.
+  pintarModoInicio();
+  if (modoInicio() === 'agencia') return cargarAgenciaInicio({ fresh });
+  if (!embudos().length) { $('#inicio-embudos').innerHTML = '<div class="card empty"><p class="muted">Este cliente aún no tiene embudos.</p></div>'; return; }
   const token = (state.inicioToken = (state.inicioToken || 0) + 1);
   pintarInicioPeriodo();
   if ($('#inicio-preset').value === 'personalizado' && !($('#inicio-desde').value && $('#inicio-hasta').value)) return;
@@ -733,6 +738,165 @@ $('#inicio-embudos').addEventListener('click', (e) => {
 });
 $('#sb-inicio').addEventListener('click', () => mostrarInicio());
 $('#inicio-actualizar').addEventListener('click', () => mostrarInicio({ fresh: true }));
+
+// ---------- Inicio de la agencia (superadmin): todos los clientes de un vistazo ----------
+// Sale del último resumen guardado de cada cliente (el del panel de agencia) y actualiza de uno en uno los que
+// tienen más de 30 min, para no pasar del límite de peticiones de Cloudflare.
+const modoInicio = () => (state.superadmin ? (ls.get('lsd_inicio_modo') || 'agencia') : 'cliente');
+function pintarModoInicio() {
+  const sa = state.superadmin;
+  $('#ini-modo').hidden = !sa;
+  const m = modoInicio();
+  $$('#ini-modo [data-ini-modo]').forEach((b) => { b.classList.toggle('on', b.dataset.iniModo === m); b.setAttribute('aria-selected', String(b.dataset.iniModo === m)); });
+  $('#ini-modo-cli').textContent = state.clientes?.find((c) => c.id === state.cliente)?.nombre || 'Este cliente';
+  $('#inicio').classList.toggle('modo-agencia', m === 'agencia');
+  $('#inicio-agencia').hidden = m !== 'agencia';
+  if (m === 'agencia') { $('#inicio-saludo').textContent = `${saludoHora()}${state.user?.nombre ? `, ${String(state.user.nombre).trim().split(/\s+/)[0]}` : ''}`; $('#inicio-sub').textContent = 'Centro de mando de la agencia · todos los clientes'; }
+}
+const saludoHora = () => { const h = new Date().getHours(); return h < 14 ? 'Buenos días' : h < 21 ? 'Buenas tardes' : 'Buenas noches'; };
+$('#ini-modo').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ini-modo]');
+  if (!b || b.dataset.iniModo === modoInicio()) return;
+  ls.set('lsd_inicio_modo', b.dataset.iniModo);
+  if (b.dataset.iniModo === 'cliente') pintarSaludo();
+  mostrarInicio();
+});
+const agi = { clientes: null, turno: 0, estado: '' };
+async function cargarAgenciaInicio({ fresh = false } = {}) {
+  const turno = ++agi.turno;
+  const box = $('#inicio-agencia');
+  if (!agi.clientes) box.innerHTML = `<div class="ag-cargando"><span class="ag-spinner" aria-hidden="true"></span><p class="muted">Cargando los clientes…</p></div>`;
+  try {
+    const r = await api('/api/agencia');
+    if (turno !== agi.turno) return;
+    agi.clientes = r.clientes;
+    agi.hoy = r.hoy;
+  } catch (e) { box.innerHTML = `<div class="card"><p class="error">${esc(e.message)}</p></div>`; return; }
+  const viejos = agi.clientes.filter((c) => fresh || c.pendiente || c.viejo || !c.actualizado || Date.parse(c.actualizado) < Date.now() - 30 * 60_000 || !c.agenda);
+  agi.estado = viejos.length ? `Actualizando 0 de ${viejos.length}…` : `Al día · ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+  renderAgenciaInicio();
+  for (const [n, c] of viejos.entries()) {
+    try {
+      const nuevo = await api(`/api/agencia?cliente=${encodeURIComponent(c.id)}`);
+      if (turno !== agi.turno) return;
+      agi.clientes[agi.clientes.findIndex((x) => x.id === c.id)] = nuevo;
+    } catch (e) {
+      if (turno !== agi.turno) return;
+      agi.clientes[agi.clientes.findIndex((x) => x.id === c.id)] = { ...c, pendiente: false, error: e.message };
+    }
+    agi.estado = n + 1 < viejos.length ? `Actualizando ${n + 1} de ${viejos.length}…` : `Al día · ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+    renderAgenciaInicio();
+  }
+}
+const SALUD_TXT = { rojo: 'Necesita atención', ambar: 'Vigilar', verde: 'En orden', gris: 'Calculando' };
+const FASE_AG = { captacion: ['🎯', 'Captación'], carrito: ['🛒', 'Carrito abierto'], cerrado: ['✅', 'Cerrado'] };
+const fechaCortaAg = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', timeZone: 'UTC' }).replace('.', '');
+const haceAg = (iso) => { if (!iso) return ''; const m = Math.round((Date.now() - Date.parse(iso)) / 60_000); return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
+function donutSalud(t) {
+  const total = t.clientes || 1;
+  const R = 46; const C = 2 * Math.PI * R;
+  let acc = 0;
+  const seg = (n, cls) => { if (!n) return ''; const len = (n / total) * C; const out = `<circle class="ag-don-seg ${cls}" r="${R}" cx="60" cy="60" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" style="--len:${len.toFixed(2)}"/>`; acc += len; return out; };
+  return `<div class="ag-donut" role="img" aria-label="${t.salud.verde} en orden, ${t.salud.ambar} a vigilar, ${t.salud.rojo} necesitan atención">
+    <svg viewBox="0 0 120 120"><circle class="ag-don-fondo" r="${R}" cx="60" cy="60"/>${seg(t.salud.rojo, 'rojo')}${seg(t.salud.ambar, 'ambar')}${seg(t.salud.verde, 'verde')}${seg(t.salud.gris, 'gris')}</svg>
+    <div class="ag-don-c"><b>${t.sanos}<small>/${t.clientes}</small></b><span>en orden</span></div>
+  </div>
+  <ul class="ag-don-ley"><li class="rojo"><i></i>${t.salud.rojo} necesita${t.salud.rojo === 1 ? '' : 'n'} atención</li><li class="ambar"><i></i>${t.salud.ambar} a vigilar</li><li class="verde"><i></i>${t.salud.verde} en orden</li></ul>`;
+}
+function tarjetaSaludAg(c) {
+  const s = saludCliente(c);
+  const entrar = c.id === state.cliente ? `<button type="button" class="btn small" data-ag-ver-cliente>Ver su Inicio</button>` : `<button type="button" class="btn small primary" data-ag-entrar="${esc(c.id)}">Entrar →</button>`;
+  if (c.pendiente) return `<article class="ag-cli s-gris" style="--cl:${esc(c.color || 'var(--accent)')}"><header><span class="ag-sem"></span><h4>${esc(c.nombre)}</h4></header><p class="muted small">Calculando su resumen…</p></article>`;
+  const l = c.lanzamiento;
+  const obj = Number(l?.objetivos?.facturacion) > 0 && Number(l?.objetivos?.inversion) > 0 ? l.objetivos.facturacion / l.objetivos.inversion : null;
+  const roasMax = Math.max(obj || 0, l?.roas || 0, 1) * 1.15;
+  const fase = l?.fase ? FASE_AG[l.fase] : null;
+  const vsls = (c.vsls || []).length;
+  const con = c.conexiones || {};
+  const chipCon = (k, label) => `<span class="ag-con ${con[k] ? 'on' : 'off'}" title="${label}: ${con[k] ? 'conectado' : 'sin conectar'}">${label}</span>`;
+  return `<article class="ag-cli s-${s.nivel}" style="--cl:${esc(c.color || 'var(--accent)')}">
+    <header><span class="ag-sem" title="${esc(SALUD_TXT[s.nivel])}"></span><h4>${esc(c.nombre)}</h4>${fase ? `<span class="ag-fase f-${l.fase}">${fase[0]} ${fase[1]}</span>` : ''}</header>
+    ${l ? `<p class="ag-cli-lanz"><strong>🚀 ${esc(l.nombre)}</strong>${l.proximoHito ? `<span>Próximo: ${esc(l.proximoHito.label)} · ${esc(fechaCortaAg(l.proximoHito.dia))}</span>` : ''}</p>
+      <div class="ag-cli-kpis"><div><span>Registros</span><b>${(l.registros ?? 0).toLocaleString('es-ES')}</b></div><div><span>Ventas</span><b>${(l.ventas ?? 0).toLocaleString('es-ES')}</b></div><div><span>Inversión</span><b>${eur(l.inversion || 0)}</b></div><div><span>ROAS</span><b>${l.roas != null ? `${l.roas.toFixed(2).replace('.', ',')}x` : '–'}</b></div></div>
+      ${l.roas != null || obj ? `<div class="ag-roas" title="ROAS frente al objetivo"><div class="ag-barra"><span style="width:${Math.min(100, ((l.roas || 0) / roasMax) * 100)}%"></span>${obj ? `<i style="left:${Math.min(100, (obj / roasMax) * 100)}%" title="Objetivo ${obj.toFixed(2).replace('.', ',')}x"></i>` : ''}</div><small>${obj ? `Objetivo ${obj.toFixed(2).replace('.', ',')}x` : 'Sin objetivo de ROAS'}</small></div>` : ''}`
+    : `<p class="ag-cli-lanz muted">${vsls ? `🎬 ${vsls} embudo${vsls === 1 ? '' : 's'} siempre abierto${vsls === 1 ? '' : 's'}` : 'Sin lanzamiento en curso'}</p>`}
+    <ul class="ag-motivos">${s.motivos.slice(0, 3).map((m) => `<li>${esc(m)}</li>`).join('')}</ul>
+    <footer><span class="ag-cons">${chipCon('ghl', 'GHL')}${chipCon('meta', 'Meta')}${chipCon('zoom', 'Zoom')}${chipCon('sendflow', 'SendFlow')}</span><span class="spacer"></span>${entrar}</footer>
+    <small class="ag-act">Actualizado ${esc(haceAg(c.actualizado))}</small>
+  </article>`;
+}
+function renderAgenciaInicio() {
+  const box = $('#inicio-agencia');
+  if (!agi.clientes || modoInicio() !== 'agencia' || !state.enInicio) return;
+  const cl = [...agi.clientes].sort(ordenSalud);
+  const t = totalesAgencia(cl);
+  const urg = urgentesAgencia(cl);
+  const hoy = agi.hoy || today();
+  const ag = agendaAgencia(cl, hoy, 14);
+  const semana = ag.slice(0, 7).reduce((n, d) => n + d.eventos.length, 0);
+  const eq = equipoAgencia(cl);
+  const maxEq = Math.max(1, ...eq.map((x) => x.n));
+  const crit = urg.filter((u) => u.nivel === 'critico').length;
+  const fechaLarga = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  box.innerHTML = `
+    <section class="ag-hero">
+      <div class="ag-hero-txt">
+        <span class="ag-eyebrow">🏢 Centro de mando · ${esc(fechaLarga)}</span>
+        <h3>${t.clientes} cliente${t.clientes === 1 ? '' : 's'}${t.enCurso ? ` · ${t.enCurso} lanzamiento${t.enCurso === 1 ? '' : 's'} en curso` : ''}</h3>
+        <p>${crit ? `<strong class="ag-rojo">${crit} cosa${crit === 1 ? '' : 's'} crítica${crit === 1 ? '' : 's'}</strong> que resolver hoy` : '<strong class="ag-verde">Nada crítico</strong> hoy'} · ${semana} hito${semana === 1 ? '' : 's'} esta semana · <span class="ag-estado">${esc(agi.estado)}</span></p>
+        <div class="ag-hero-acc">
+          <button type="button" class="btn primary" data-ag-accion="panel">🧭 Panel de agencia</button>
+          <button type="button" class="btn" data-ag-accion="nuevo">＋ Añadir cliente</button>
+          <button type="button" class="btn" data-ag-accion="vercomo">👁️ Ver como</button>
+          <button type="button" class="btn" data-ag-accion="equipo">👥 Equipo</button>
+        </div>
+      </div>
+      <div class="ag-hero-salud">${donutSalud(t)}</div>
+    </section>
+    <div class="kpis ag-kpis-top">
+      ${card('Facturación en curso', eur(t.facturacion), `${t.enCurso} lanzamiento${t.enCurso === 1 ? '' : 's'} en curso`, 'coins', 'money')}
+      ${card('Inversión gestionada', eur(t.inversion), 'Meta, lanzamientos en curso', 'megaphone', 'accent')}
+      ${card('ROAS medio', t.roas != null ? `${t.roas.toFixed(2).replace('.', ',')}x` : '–', 'facturación ÷ inversión', 'trend', t.roas == null ? 'info' : t.roas >= 1 ? 'buy' : 'accent')}
+      ${card('Registros', t.registros.toLocaleString('es-ES'), `${t.vip.toLocaleString('es-ES')} VIP`, 'users', 'info')}
+      ${card('Ventas', t.ventas.toLocaleString('es-ES'), 'de los lanzamientos en curso', 'cart', 'buy')}
+    </div>
+    <div class="ag-dos">
+      <section class="card ag-urg">
+        <h3>🔥 Lo urgente de hoy ${urg.length ? `<span class="badge">${urg.length}</span>` : ''}</h3>
+        ${urg.length ? `<ol class="ag-urg-lista">${urg.map((u, i) => `<li class="u-${u.nivel}" style="--i:${i}">
+            <span class="ag-urg-niv" aria-hidden="true"></span>
+            <div class="ag-urg-txt"><span class="ag-chip-cli" style="--cl:${esc(u.color || 'var(--accent)')}">${esc(u.nombreCliente)}</span><strong>${esc(u.texto)}</strong>${u.detalle ? `<small>${esc(u.detalle)}</small>` : ''}</div>
+            ${u.cliente === state.cliente ? '<button type="button" class="btn small" data-ag-ver-cliente>Ver →</button>' : `<button type="button" class="btn small" data-ag-entrar="${esc(u.cliente)}">Ir →</button>`}
+          </li>`).join('')}</ol>` : '<div class="ag-vacio"><span>🎉</span><p>Nada urgente. Todos los clientes están en orden.</p></div>'}
+      </section>
+      <section class="card ag-agenda">
+        <h3>📅 Próximos 14 días</h3>
+        <div class="ag-dias">${ag.map((d, i) => `<div style="--i:${i}" class="ag-dia${i === 0 ? ' hoy' : ''}${d.eventos.length ? '' : ' vacio'}${[0, 6].includes(new Date(`${d.dia}T12:00:00Z`).getUTCDay()) ? ' finde' : ''}">
+            <header><span>${i === 0 ? 'Hoy' : esc(new Date(`${d.dia}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', timeZone: 'UTC' }).replace('.', ''))}</span><b>${new Date(`${d.dia}T12:00:00Z`).getUTCDate()}</b></header>
+            ${d.eventos.map((e) => `<div class="ag-ev" style="--cl:${esc(e.color || 'var(--accent)')}" title="${esc(`${e.nombreCliente} · ${e.nombre} · ${e.titulo}${e.hora ? ` · ${e.hora}` : ''}`)}"><span class="ag-ev-t">${esc(e.icon || '•')} ${esc(e.titulo)}</span><small>${esc(e.nombreCliente)}${e.hora ? ` · ${esc(e.hora)}` : ''}</small></div>`).join('')}
+          </div>`).join('')}</div>
+      </section>
+    </div>
+    <section class="ag-salud">
+      <div class="ag-sec-cab"><h3>🩺 Salud de los clientes</h3><span class="muted small">Primero los que necesitan atención · pulsa «Entrar» para ir a su dashboard</span></div>
+      <div class="ag-cli-grid">${cl.map(tarjetaSaludAg).join('')}</div>
+    </section>
+    <section class="card ag-equipo">
+      <h3>👥 Tareas vencidas por persona</h3>
+      ${eq.length ? `<div class="ag-eq-lista">${eq.map((x, i) => `<div class="ag-eq" style="--i:${i}"><span class="ag-eq-av">${esc(String(x.quien).trim().slice(0, 1).toUpperCase())}</span><div class="ag-eq-txt"><strong>${esc(x.quien)}</strong><small>${esc(x.clientes.join(' · '))}</small><div class="ag-barra eq"><span style="width:${(x.n / maxEq) * 100}%"></span></div></div><b class="ag-eq-n">${x.n}</b></div>`).join('')}</div>`
+        : '<div class="ag-vacio"><span>✅</span><p>Nadie tiene tareas vencidas.</p></div>'}
+    </section>`;
+}
+$('#inicio-agencia').addEventListener('click', (e) => {
+  const entrar = e.target.closest('[data-ag-entrar]');
+  if (entrar) { ls.set('lsd_inicio_modo', 'cliente'); ls.set('lsd_inicio', '1'); return cambiarCliente(entrar.dataset.agEntrar); }
+  if (e.target.closest('[data-ag-ver-cliente]')) { ls.set('lsd_inicio_modo', 'cliente'); pintarSaludo(); return mostrarInicio(); }
+  const a = e.target.closest('[data-ag-accion]')?.dataset.agAccion;
+  if (!a) return;
+  $('#btn-agencia').click();
+  const tab = { nuevo: 'clientes', vercomo: 'ag-vercomo', equipo: 'ag-equipo' }[a];
+  if (tab) $(`#agencia-dialog .tab[data-tab="${tab}"]`)?.click();
+});
 
 const ESTADO_LANZ = { captacion: ['Captación', 'info'], carrito: ['Carrito abierto', 'buy'], cerrado: ['Cerrado', 'muted'] };
 const FASE_METEO_TXT = { calentamiento: ['Calentamiento', 'info'], abierta: ['Oferta abierta', 'buy'], cerrada: ['Cerrada', 'muted'] };

@@ -94,6 +94,17 @@ Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por Wh
 
 **Ficha completa del lead** (Hoy → Llamadas): al pulsar una llamada se abre una ventana con todo lo que ayuda a la setter antes de llamar: cuándo es la cita y su etapa, teléfono / WhatsApp / email, la **temperatura** (estado y puntuación sobre 100) y el siguiente paso, **qué ha hecho** (cada clase, VIP, directo y grabación, encuesta, si ya se le escribió, si compró), origen (publi / orgánico), tráfico frío / templado, avatar y días desde el registro, las **respuestas de la encuesta**, las **respuestas del formulario de reserva de la llamada y el resto de campos de su ficha de GHL**, y las últimas **notas** de GHL. Desde ahí se anota el resultado.
 
+### Inicio de la agencia (superadmin)
+Quien es superadmin ve en el **Inicio** un interruptor **🏢 Agencia / 👤 cliente**. «Agencia» (por defecto) es el centro de mando de todos los clientes a la vez (`public/js/agencia-inicio.js`), hecho con el último resumen guardado de cada cliente (el del panel de agencia) y actualizando de uno en uno los de más de 30 min, sin pasar del límite de peticiones de Cloudflare:
+- **Cabecera**: clientes, lanzamientos en curso, cuántas cosas críticas hay hoy y los hitos de la semana; un **anillo de salud** (cuántos clientes en orden, a vigilar o que necesitan atención) y accesos al panel de agencia, añadir cliente, «Ver como» y el equipo.
+- **Cifras de la agencia**: facturación e inversión de los lanzamientos en curso, ROAS medio, registros (y VIP) y ventas.
+- **🔥 Lo urgente de hoy**: de más a menos grave, con el cliente al lado y un botón para ir: críticos del auditor, GHL caído o sin conectar, ROAS por debajo del objetivo (objetivo de facturación ÷ objetivo de inversión), tareas vencidas (con quién y desde cuándo), avisos importantes y altas sin terminar.
+- **📅 Próximos 14 días**: una tira con cada día y los hitos de todos los clientes (directos, clases, apertura y cierre del carrito, meteóricos), con el color de cada cliente.
+- **🩺 Salud de los clientes**: una ficha por cliente con su semáforo (rojo, ámbar, verde), la fase (captación, carrito, cerrado), el próximo hito, registros, ventas, inversión y ROAS con una barra frente al objetivo, por qué está en ese color, sus conexiones (GHL, Meta, Zoom, SendFlow) y «Entrar →». Primero los que necesitan atención.
+- **👥 Tareas vencidas por persona**, sumando todos los clientes.
+
+El resumen de cada cliente (`lib/agencia.js`) incluye ahora su agenda de 21 días, las tareas vencidas por persona, las conexiones y la fase del lanzamiento (sin peticiones de más a GHL). Los clientes siguen viendo su Inicio de siempre.
+
 ### Movimiento (animaciones)
 Discreto y solo cuando aporta (`public/js/animaciones.js` y el bloque «Movimiento» de `styles.css`): al entrar en una vista, subpestaña o apartado, las tarjetas aparecen escalonadas con un fundido y las de más abajo aparecen al llegar con el scroll; las barras (embudo, objetivos, encuesta, día a día…) crecen desde cero; las cifras grandes (KPI) cuentan hasta su valor y, si cambian al actualizar, cuentan del valor anterior al nuevo con un destello; los botones se hunden un poco al pulsarlos y dejan una onda; las tarjetas se elevan al pasar por encima. Los refrescos automáticos y lo que se repinta al escribir no se animan (no parpadea), y con «reducir movimiento» del sistema operativo no se anima nada.
 

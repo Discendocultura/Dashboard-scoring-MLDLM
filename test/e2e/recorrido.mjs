@@ -90,7 +90,16 @@ async function main() {
       }
       await page.waitForTimeout(1500);
       // Inicio
-      if (await page.isVisible('#sb-inicio')) await paso(`[${rol}] inicio`, async () => { await page.click('#sb-inicio'); await page.waitForSelector('#inicio-embudos .inicio-emb', { timeout: 15000 }); });
+      if (await page.isVisible('#sb-inicio')) await paso(`[${rol}] inicio`, async () => {
+        await page.click('#sb-inicio');
+        // Superadmin: primero el Inicio de la agencia (todos los clientes) y después el de este cliente.
+        if (await page.isVisible('#ini-modo')) {
+          await page.waitForSelector('#inicio-agencia .ag-hero', { timeout: 15000 });
+          await page.click('[data-ini-modo="cliente"]');
+        }
+        await page.waitForSelector('#inicio-embudos .inicio-emb', { timeout: 15000 });
+        if (await page.isVisible('#ini-modo')) await page.click('[data-ini-modo="agencia"]');
+      });
       // Cada embudo, cada pestaña, subpestaña y categoría de métricas
       for (const emb of await page.$$eval('#sb-items [data-embudo]', (e) => e.map((x) => x.dataset.embudo))) {
         await paso(`[${rol}] embudo ${emb}`, async () => {

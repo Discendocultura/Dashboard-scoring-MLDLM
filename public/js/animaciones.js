@@ -7,8 +7,8 @@
 // Con «reducir movimiento» del sistema no se hace nada de esto.
 const REDUCIR = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const VENTANA = 1400; // ms tras entrar en una vista en los que lo nuevo se anima
-const TARJETAS = '.card, .kpi, .notice, .inicio-emb, .hoy-item, .em-dia, .cfg-sec, .tit-var, .gw-dia, .tf-sub, .av-card, .ie-sec, .cfg-pend';
-const BARRAS = '.funnel-bar > span, .obj-bar > span, .enc-op-bar > span, .gan-bar > *, .vm-paso-bar > *, .tf-bar > *, .of-barra > *, .mi-barra > *, .ficha-score-bar > *, .split-bar > *';
+const TARJETAS = '.card, .kpi, .notice, .inicio-emb, .hoy-item, .em-dia, .cfg-sec, .tit-var, .gw-dia, .tf-sub, .av-card, .ie-sec, .cfg-pend, .ag-cli, .ag-hero';
+const BARRAS = '.ag-barra > span, .funnel-bar > span, .obj-bar > span, .enc-op-bar > span, .gan-bar > *, .vm-paso-bar > *, .tf-bar > *, .of-barra > *, .mi-barra > *, .ficha-score-bar > *, .split-bar > *';
 const BARRAS_V = '.dd-bar';
 const MAX_ESCALON = 10;
 
