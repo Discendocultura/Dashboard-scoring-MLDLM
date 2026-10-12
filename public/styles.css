@@ -3369,3 +3369,40 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .notice ul li { margin: 3px 0; }
 /* En escritorio, el botón Agencia va abajo a la izquierda (sobre la barra lateral): no tapa las fichas. */
 @media (min-width: 901px) { .agencia-btn.agencia-flotante { right: auto; left: 24px; } }
+
+/* ---------- Setting hoy: una lista por prioridad con color de temperatura ---------- */
+.hoy-prio { padding: 18px 20px; }
+.hoy-prio-cab { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.hoy-prio-cab h2 { font-size: 16px; margin: 0; display: flex; gap: 8px; align-items: center; }
+.hoy-leyenda { display: flex; flex-wrap: wrap; gap: 6px; }
+.hoy-temp { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--st) 35%, transparent); background: color-mix(in srgb, var(--st) 9%, var(--surface, #fff)); color: var(--text); }
+.hoy-temp .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--st); }
+.hoy-temp b { color: var(--st); font-weight: 800; }
+.hoy-temp.on { background: var(--st); color: #fff; border-color: var(--st); }
+.hoy-temp.on .dot { background: #fff; } .hoy-temp.on b { color: #fff; }
+.hoy-motivos { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.hoy-chip { font: inherit; font-size: 12.5px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface, #fff); color: var(--text-2); cursor: pointer; }
+.hoy-chip b { color: var(--text); margin-left: 2px; }
+.hoy-chip:hover { border-color: var(--text-2); }
+.hoy-chip.on { background: var(--text); color: var(--bg, #fff); border-color: var(--text); }
+.hoy-chip.on b { color: inherit; }
+.hoy-aviso { font-size: 12px; margin: 8px 0 0; }
+.hoy-ranking { counter-reset: none; margin-top: 6px; }
+.hoy-ranking .hoy-item { position: relative; align-items: center; gap: 12px; padding: 11px 12px 11px 14px; margin-top: 6px; border: 1px solid var(--border); border-left: 5px solid var(--st);
+  border-radius: 12px; background: linear-gradient(90deg, color-mix(in srgb, var(--st) 8%, transparent), transparent 55%); }
+.hoy-ranking .hoy-item:hover { box-shadow: 0 6px 16px -10px color-mix(in srgb, var(--st) 70%, transparent); }
+.hoy-n { flex: 0 0 auto; min-width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #fff; background: var(--st); font-variant-numeric: tabular-nums; }
+.hoy-linea { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.hoy-motivo { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-2, #f1efe9); color: var(--text-2); }
+.hoy-ranking .lead-meta { margin-top: 3px; }
+.hoy-mas { display: flex; align-items: center; gap: 12px; justify-content: center; margin-top: 14px; }
+.hoy-vacio { padding: 18px 0 6px; text-align: center; }
+#hoy-lists:has(.hoy-prio) { display: block; }
+@media (max-width: 640px) {
+  .hoy-prio { padding: 14px 12px; }
+  .hoy-ranking .hoy-item { padding: 10px; gap: 10px; }
+  .hoy-n { min-width: 26px; height: 26px; font-size: 12px; }
+  .hoy-actions { width: 100%; padding-left: 36px; }
+}
+.hoy-temp.st-templado.on, .hoy-temp.st-templado.on b { color: #2b2200; } .hoy-temp.st-templado.on .dot { background: #2b2200; }

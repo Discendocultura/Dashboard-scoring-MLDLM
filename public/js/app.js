@@ -55,6 +55,7 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const PAGE_SIZE = 100;
 
 const state = {
+  hoy: { code: '', motivo: '', temp: '', max: 40 }, // ☀️ Setting hoy: filtros de la lista por prioridad
   meteo: { code: '', datos: {} }, // ⚡ meteóricos: el elegido y sus métricas
   directa: { datos: null, id: '', cargando: false, buscar: '', filtro: '' }, // 🛒 venta directa: métricas del rango
   vsl: { leads: null, raw: null, meta: null, ganLevel: 'ad', loadToken: 0, mostrar: 100 },
@@ -2642,7 +2643,7 @@ $('#leyenda-estados').innerHTML = ESTADOS.map((e, i) => `<li><span class="estado
 // Ayuda de la primera visita a cada pestaña: qué hay y para qué sirve. Se cierra con «Entendido» y se
 // recuerda por usuario (Cuenta → «Volver a ver las ayudas» las enseña otra vez).
 const AYUDA_VISTA = {
-  hoy: ['☀️ Setting hoy', 'Las listas de a quién escribir hoy por WhatsApp, de más a menos caliente. Pulsa el botón de WhatsApp de cada lead: el mensaje sale ya escrito (se cambia en «Mensajes de WhatsApp», abajo).'],
+  hoy: ['☀️ Setting hoy', 'Una sola lista de a quién escribir hoy por WhatsApp, ya ordenada por prioridad (el número de la izquierda) y con el color de su temperatura: rojo muy caliente, naranja caliente, amarillo templado, azul frío. Filtra por motivo o por temperatura con los botones de arriba. Pulsa el botón de WhatsApp de cada lead: el mensaje sale ya escrito (se cambia en «Mensajes de WhatsApp», abajo).'],
   llamadas: ['📞 Llamadas', 'Las llamadas de valoración del calendario de GHL. Pulsa una para ver la ficha del lead antes de llamar y anota el resultado al terminar: alimenta el pipeline y el rendimiento del equipo.'],
   endirecto: ['🔴 En directo', 'El día del webinar, minuto a minuto: quién espera, quién entra, la asistencia, las VIP y las ventas desde que abre el carrito. Se actualiza solo cada minuto.'],
   leads: ['👥 Leads', 'Cada persona registrada con su puntuación (0-100) y su estado: muy caliente, caliente, templado o frío. Filtra, ordena y abre su WhatsApp. En «Encuesta», qué ha respondido la gente.'],
@@ -3086,34 +3087,64 @@ document.addEventListener('change', (e) => {
 function renderHoy() {
   if (state.config.launches[state.launchCode]?.sendflowId && state.grupoWa?.code !== state.launchCode) cargarMiembrosGrupo();
   const open = (l) => !l.s.compra && l.phoneWa;
-  // Dentro de cada lista, primero las que encajan con un avatar comprador.
-  const byScore = (a, b) => (b.avatar >= 0) - (a.avatar >= 0) || b.score - a.score;
+  // Dentro de cada motivo, de más a menos puntuación (a igualdad, primero las que encajan con un avatar comprador).
+  const byScore = (a, b) => b.score - a.score || (b.avatar >= 0) - (a.avatar >= 0);
   const buckets = [
     // Las más calientes del carrito: abrieron la página de venta y no han comprado (la más reciente primero).
-    { id: 'pago', title: '💳 Iniciaron el pago y no han comprado', hint: 'Pulsaron «Quiero inscribirme» y llegaron a la página de pago: lo más cerca de comprar. Escríbeles ya', rows: state.leads.filter((l) => open(l) && l.s.inicio_pago), orden: (a, b) => b.s.inicio_pago.ultima - a.s.inicio_pago.ultima },
-    { id: 'venta', title: '🛒 Visitaron la página de venta y no han comprado', hint: 'Están decidiendo ahora: escríbeles cuanto antes', rows: state.leads.filter((l) => open(l) && l.s.venta_visita), orden: (a, b) => b.s.venta_visita.ultima - a.s.venta_visita.ultima },
-    { id: 'calientes', title: '🔥 Muy calientes sin contactar', hint: 'Máxima prioridad', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.estado.id === 'muy-caliente') },
-    { id: 'vip', title: '⭐ VIP que no han comprado', hint: 'Pagaron la entrada: están cerca', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.vip) },
-    ...(state.config.launches[state.launchCode]?.sendflowId ? [{ id: 'grupo', title: '💬 En el grupo de WhatsApp y sin comprar', hint: state.grupoWa?.code === state.launchCode && state.grupoWa.claves ? 'Siguen en el grupo del lanzamiento: interesadas. Escríbeles 1:1, primero las más calientes' : state.grupoWa?.error ? `No se pudo cruzar con el grupo: ${state.grupoWa.error}` : 'Cruzando con el grupo de SendFlow… (la primera vez puede tardar 1-2 minutos)', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.enGrupo) }] : []),
-    { id: 'grabacion', title: '🎬 Vieron la grabación y no han comprado', hint: '≥50% de la grabación', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && !l.s.vip && l.estado.id !== 'muy-caliente' && grabVenta(l.s) >= 50) },
-    { id: 'seguimiento', title: '💬 Seguimiento pendiente', hint: 'Respondieron, interesadas o no contestan', rows: state.leads.filter((l) => open(l) && ['respondio', 'interesada', 'no_contesta'].includes(l.outcome)) },
-    { id: 'sinresultado', title: '📝 Contactadas sin resultado anotado', hint: 'Anota qué pasó', rows: state.leads.filter((l) => open(l) && l.s.wa_enviado && !l.outcome) },
+    { id: 'pago', corto: '💳 Iniciaron el pago', title: '💳 Iniciaron el pago y no han comprado', hint: 'Pulsaron «Quiero inscribirme» y llegaron a la página de pago: lo más cerca de comprar. Escríbeles ya', rows: state.leads.filter((l) => open(l) && l.s.inicio_pago), orden: (a, b) => b.s.inicio_pago.ultima - a.s.inicio_pago.ultima },
+    { id: 'venta', corto: '🛒 Página de venta', title: '🛒 Visitaron la página de venta y no han comprado', hint: 'Están decidiendo ahora: escríbeles cuanto antes', rows: state.leads.filter((l) => open(l) && l.s.venta_visita), orden: (a, b) => b.s.venta_visita.ultima - a.s.venta_visita.ultima },
+    { id: 'calientes', corto: '🔥 Muy caliente', title: '🔥 Muy calientes sin contactar', hint: 'Máxima prioridad', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.estado.id === 'muy-caliente') },
+    { id: 'vip', corto: '⭐ VIP', title: '⭐ VIP que no han comprado', hint: 'Pagaron la entrada: están cerca', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.vip) },
+    ...(state.config.launches[state.launchCode]?.sendflowId ? [{ id: 'grupo', corto: '💬 En el grupo', title: '💬 En el grupo de WhatsApp y sin comprar', hint: state.grupoWa?.code === state.launchCode && state.grupoWa.claves ? 'Siguen en el grupo del lanzamiento: interesadas. Escríbeles 1:1, primero las más calientes' : state.grupoWa?.error ? `No se pudo cruzar con el grupo: ${state.grupoWa.error}` : 'Cruzando con el grupo de SendFlow… (la primera vez puede tardar 1-2 minutos)', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.enGrupo) }] : []),
+    { id: 'grabacion', corto: '🎬 Vio la grabación', title: '🎬 Vieron la grabación y no han comprado', hint: '≥50% de la grabación', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && !l.s.vip && l.estado.id !== 'muy-caliente' && grabVenta(l.s) >= 50) },
+    { id: 'seguimiento', corto: '💬 Seguimiento', title: '💬 Seguimiento pendiente', hint: 'Respondieron, interesadas o no contestan', rows: state.leads.filter((l) => open(l) && ['respondio', 'interesada', 'no_contesta'].includes(l.outcome)) },
+    { id: 'sinresultado', corto: '📝 Anotar resultado', title: '📝 Contactadas sin resultado anotado', hint: 'Anota qué pasó', rows: state.leads.filter((l) => open(l) && l.s.wa_enviado && !l.outcome) },
   ];
+  // Una sola lista por prioridad: primero el motivo más urgente (en este orden) y, dentro, lo más caliente.
+  // Cada lead sale una vez, con el motivo más importante que tenga.
   const seen = new Set();
-  $('#hoy-lists').innerHTML = buckets.map((b) => {
+  const lista = [];
+  for (const [i, b] of buckets.entries()) {
     const rows = b.rows.filter((l) => !seen.has(l.id)).sort(b.orden || byScore);
-    rows.forEach((l) => seen.add(l.id));
-    const shown = rows.slice(0, 30);
-    return `<section class="card hoy-card">
-      <h2>${b.title} <span class="badge">${rows.length}</span></h2>
-      <p class="muted">${b.hint}</p>
-      ${shown.length ? `<ul class="hoy-list">${shown.map(hoyItem).join('')}</ul>` : '<p class="muted">Nada pendiente aquí ✓</p>'}
-      ${rows.length > shown.length ? `<p class="muted">…y ${rows.length - shown.length} más en la pestaña Leads.</p>` : ''}
-    </section>`;
-  }).join('');
+    for (const l of rows) { seen.add(l.id); lista.push({ l, b, prio: i }); }
+  }
+  const h = state.hoy;
+  if (h.code !== state.launchCode) Object.assign(h, { code: state.launchCode, motivo: '', temp: '', max: HOY_PAGINA });
+  const cuentaMotivo = (id) => lista.filter((x) => x.b.id === id && (!h.temp || x.l.estado.id === h.temp)).length;
+  const cuentaTemp = (id) => lista.filter((x) => x.l.estado.id === id && (!h.motivo || x.b.id === h.motivo)).length;
+  const filtrada = lista.filter((x) => (!h.motivo || x.b.id === h.motivo) && (!h.temp || x.l.estado.id === h.temp));
+  const shown = filtrada.slice(0, h.max);
+  const avisos = buckets.filter((b) => b.id === 'grupo').map((b) => `<p class="muted hoy-aviso">💬 ${esc(b.hint)}</p>`).join('');
+  $('#hoy-lists').innerHTML = `<section class="card hoy-prio">
+    <div class="hoy-prio-cab">
+      <h2>Por prioridad <span class="badge">${lista.length}</span></h2>
+      <div class="hoy-leyenda" role="group" aria-label="Filtrar por temperatura">${ESTADOS.map((e) => `<button type="button" class="hoy-temp st-${e.id} ${h.temp === e.id ? 'on' : ''}" data-hoy-temp="${e.id}" aria-pressed="${h.temp === e.id}"><span class="dot"></span>${e.label} <b>${cuentaTemp(e.id)}</b></button>`).join('')}</div>
+    </div>
+    <div class="hoy-motivos" role="group" aria-label="Filtrar por motivo">
+      <button type="button" class="hoy-chip ${h.motivo ? '' : 'on'}" data-hoy-motivo="" aria-pressed="${!h.motivo}">Todas <b>${h.temp ? cuentaTemp(h.temp) : lista.length}</b></button>
+      ${buckets.map((b) => { const n = cuentaMotivo(b.id); return n || h.motivo === b.id ? `<button type="button" class="hoy-chip ${h.motivo === b.id ? 'on' : ''}" data-hoy-motivo="${b.id}" aria-pressed="${h.motivo === b.id}" title="${esc(b.hint)}">${esc(b.corto)} <b>${n}</b></button>` : ''; }).join('')}
+    </div>
+    ${avisos}
+    ${shown.length ? `<ol class="hoy-list hoy-ranking">${shown.map((x, i) => hoyItem(x.l, x.b, i + 1)).join('')}</ol>` : `<p class="muted hoy-vacio">${lista.length ? 'Nadie con este filtro.' : 'Nada pendiente hoy ✓'}</p>`}
+    ${filtrada.length > shown.length ? `<div class="hoy-mas"><button type="button" class="btn ghost" data-hoy-mas>Ver ${Math.min(HOY_PAGINA, filtrada.length - shown.length)} más</button><span class="muted">${shown.length} de ${filtrada.length}</span></div>` : ''}
+  </section>`;
 }
 
-function hoyItem(l) {
+const HOY_PAGINA = 40;
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-hoy-temp], [data-hoy-motivo], [data-hoy-mas]');
+  if (!t) return;
+  const h = state.hoy;
+  if (t.dataset.hoyMas !== undefined) h.max += HOY_PAGINA;
+  else {
+    if (t.dataset.hoyTemp !== undefined) h.temp = h.temp === t.dataset.hoyTemp ? '' : t.dataset.hoyTemp;
+    else h.motivo = t.dataset.hoyMotivo;
+    h.max = HOY_PAGINA;
+  }
+  renderHoy();
+});
+
+function hoyItem(l, b = null, n = 0) {
   const signals = [
     l.s.inicio_pago ? pagoTxt(l.s.inicio_pago) : '',
     l.s.venta_visita ? visitaTxt(l.s.venta_visita) : '',
@@ -3123,9 +3154,10 @@ function hoyItem(l) {
     grabVenta(l.s) ? `Grabación ${grabVenta(l.s)}%` : '',
     watched(l.s, 'clase1') || watched(l.s, 'clase2') ? `Clases ${watched(l.s, 'clase1')}% / ${watched(l.s, 'clase2')}%` : '',
   ].filter(Boolean).join(' · ');
-  return `<li class="hoy-item">
+  return `<li class="hoy-item st-${l.estado.id}">
+    ${n ? `<span class="hoy-n" title="${esc(l.estado.label)} · ${l.score}/100">${n}</span>` : ''}
     <div class="hoy-main">
-      <div><span class="lead-name">${esc(l.name || l.email)}</span> <span class="estado st-${l.estado.id}"><span class="dot"></span>${l.score}</span> ${avatarChip(l)}</div>
+      <div class="hoy-linea"><span class="lead-name">${esc(l.name || l.email)}</span> <span class="estado st-${l.estado.id}" title="${esc(l.estado.label)}"><span class="dot"></span>${esc(l.estado.label)} · ${l.score}</span> ${b && b.id !== 'calientes' ? `<span class="hoy-motivo">${esc(b.corto)}</span>` : ''} ${avatarChip(l)}</div>
       <div class="lead-meta">${esc(signals || 'Sin actividad')} · ${NEXT_STEPS[l.step]}</div>
     </div>
     <div class="hoy-actions">

@@ -90,6 +90,8 @@ también enseña el % de frío y de templado junto al global.
 ### Pestaña Hoy
 Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por WhatsApp, por prioridad), **Llamadas** (calendario, resultados y pipeline) y **En directo** (el día del webinar, minuto a minuto). Al entrar abre la última que usaste en ese embudo; el número rojo de la pestaña son las llamadas pendientes de anotar. Si un embudo o un rol solo tiene una (p. ej. las VSL, que solo tienen Llamadas), entra directamente.
 
+**Setting hoy**: una sola lista ya ordenada por prioridad (el número de la izquierda es su puesto). Primero el motivo más urgente (inició el pago → visitó la página de venta → muy caliente sin contactar → VIP → en el grupo de WhatsApp → vio la grabación → seguimiento → contactada sin resultado) y, dentro de cada motivo, de más a menos puntuación. Cada fila lleva el color de su temperatura (rojo muy caliente, naranja caliente, amarillo templado, azul frío) y su motivo; arriba se filtra por temperatura o por motivo (con el número de leads de cada uno) y se ven de 40 en 40 con «Ver más».
+
 **Ficha completa del lead** (Hoy → Llamadas): al pulsar una llamada se abre una ventana con todo lo que ayuda a la setter antes de llamar: cuándo es la cita y su etapa, teléfono / WhatsApp / email, la **temperatura** (estado y puntuación sobre 100) y el siguiente paso, **qué ha hecho** (cada clase, VIP, directo y grabación, encuesta, si ya se le escribió, si compró), origen (publi / orgánico), tráfico frío / templado, avatar y días desde el registro, las **respuestas de la encuesta**, las **respuestas del formulario de reserva de la llamada y el resto de campos de su ficha de GHL**, y las últimas **notas** de GHL. Desde ahí se anota el resultado.
 
 ### Pestaña Plan
