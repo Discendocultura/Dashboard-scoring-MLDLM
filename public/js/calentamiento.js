@@ -194,7 +194,10 @@ export function datosEmbudo(emb, { esMeteo = false, producto = '', marca = '' } 
   return d;
 }
 
-export function promptCalentamiento(emb, { esMeteo = false, producto = '', marca = '', desde = '', hasta = '', ya = [], directos = [], temario = '', contexto = '', narrativa = '' } = {}) {
+// «dom 26 oct 09:30» (hora de España, tal cual se configuró).
+const diaHora = (at) => { const [d, h] = String(at).split('T'); return `${new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '').replace(',', '')} ${h || ''}`.trim(); };
+
+export function promptCalentamiento(emb, { esMeteo = false, producto = '', marca = '', desde = '', hasta = '', ya = [], directos = [], temario = '', contexto = '', narrativa = '', calendario = [], categorias = '' } = {}) {
   const d = datosEmbudo(emb, { esMeteo, producto, marca });
   const desb = esMeteo ? [] : desbloqueosPreclase(emb);
   const reglaPreclase = desb.length ? `
@@ -213,7 +216,7 @@ ${dirTxt}
 - TODOS los mensajes de ese día se centran ÚNICAMENTE en: recordar que HOY es el día (y a qué hora empieza), contar todo lo que van a ver dentro de la masterclass y animar a entrar puntuales.
 - TODOS los mensajes de ese día llevan el enlace de acceso al directo (el de arriba), sin excepción. El enlace pide el email con el que se registraron: dilo.
 - Ese día no se vende ni se habla de otra cosa (ni VIP, ni precio, ni carrito).
-- Propón: buenos días con el recordatorio, un mensaje con lo que verán, el de «queda 1 hora», el de «empezamos en 10 minutos» (mencionando a todo el grupo) y el de «¡estamos en directo, entra ya!» (mencionando a todo el grupo).${temario ? '' : '\n- Si no sabes qué se verá en la masterclass, deja [TEMARIO DE LA MASTERCLASS] donde vaya y lo completo yo.'}
+${calendario.length ? '- Los de ese día son los del calendario (a sus horas); el de «¡estamos en directo, entra ya!» y el de «empezamos en 1 hora», mencionando a todo el grupo.' : '- Propón: buenos días con el recordatorio, un mensaje con lo que verán, el de «queda 1 hora», el de «empezamos en 10 minutos» (mencionando a todo el grupo) y el de «¡estamos en directo, entra ya!» (mencionando a todo el grupo).'}${temario ? '' : '\n- Si no sabes qué se verá en la masterclass, deja [TEMARIO DE LA MASTERCLASS] donde vaya y lo completo yo.'}
 ` : '';
   // A dónde lleva cada tipo de mensaje (las páginas del lanzamiento; en embudos creados de cero, las URLs propuestas).
   const destinos = esMeteo ? [] : [
@@ -239,10 +242,17 @@ MARCA Y AVATAR (la fuente de verdad: escribe con este tono y con las palabras, d
 ${contexto}
 </marca>
 ` : ''}${narrativa ? `\n${narrativa}\n` : ''}${yaTxt}${reglaPreclase}${reglaDirecto}${reglaEnlaces}
-QUÉ QUIERO:
-- Mensajes cortos, de grupo (no 1:1), en español de España y en el tono de la marca. Que generen conversación y expectación, y que lleven a la acción en cada fase (clases, directo, VIP, carrito, últimas horas).
-- Mezcla formatos: texto, encuestas para que participen, notas de voz (con su GUION para grabarlas), y algún vídeo o imagen si aporta.
-- Como mucho 2-3 mensajes al día (y más en los momentos clave: el día del directo y las últimas horas del carrito). Nada entre las 23:00 y las 8:00.
+${calendario.length ? `CALENDARIO DE MENSAJES${categorias ? ` (${categorias})` : ''} — propuesto por el dashboard con las fechas reales y el número de mensajes de cada día de la configuración (hora de España). Escribe EXACTAMENTE estos, uno por línea, a su hora y en su formato; si ves que falta o sobra alguno, dímelo antes de escribir:
+${calendario.map((p, i) => `${i + 1}. ${diaHora(p.at)} · ${p.formato || 'texto'} · ${p.que}`).join('\n')}
+
+` : ''}QUÉ QUIERO:
+- Mensajes de grupo (no 1:1), en español de España y en el tono de la marca, con el MISMO objetivo que los emails de ese momento (romper una objeción, emocionar y dar un motivo para actuar ya), pero en formato WhatsApp: MÁS AL GRANO.
+- Cada mensaje: una frase gancho en la primera línea, 2-6 líneas en total, párrafos de una línea, una sola idea y UNA llamada a la acción con su enlace.
+- Emojis con medida: 1-3 por mensaje, para guiar la vista y destacar lo importante (no uno en cada frase).
+- Los de formato «imagen» son el mensaje principal de ese día: describe en «Guion» una imagen impactante que destaque el mensaje principal (una frase clave grande y legible, poco texto, coherente con la marca) y escribe en «Texto» el mensaje que la acompaña.
+- Los de formato «encuesta» (en la preclase): una pregunta que invite a participar sobre su situación o lo que están viendo, con 3-5 opciones; generan conversación y engagement.
+- Puedes cambiar un «texto» por una nota de voz (con su GUION para grabarla) si aporta cercanía, sin cambiar el día ni la hora.
+${calendario.length ? '- No añadas mensajes fuera del calendario. Nada entre las 23:00 y las 8:00.' : '- Como mucho 2-3 mensajes al día (y más en los momentos clave: el día del directo y las últimas horas del carrito). Nada entre las 23:00 y las 8:00.'}
 - Usa «mencionar» solo en los avisos importantes (empieza el directo, abre / cierra el carrito): menciona a todo el grupo.
 
 DEVUÉLVEMELO EXACTAMENTE EN ESTE FORMATO (lo pego tal cual en mi dashboard, que lo programa en SendFlow):

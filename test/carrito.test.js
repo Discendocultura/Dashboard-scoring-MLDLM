@@ -66,7 +66,7 @@ test('carrito: emails y mensajes al grupo de WhatsApp de cada día, con su hora'
   assert.deepEqual(sanitizeCarritoEnvios({
     '2026-11-03': { emails: ['10:00', '19:00'], whatsapp: ['12:00'], otro: ['09:00'] },
     '2026-11-04': { emails: ['25:00', 'x'] }, mal: { emails: ['10:00'] }, '2026-11-05': { emails: [] },
-  }), { '2026-11-03': { emails: ['10:00', '19:00'], whatsapp: ['12:00'] }, '2026-11-04': { emails: ['', ''] } });
+  }), { '2026-11-03': { emails: ['10:00', '19:00'], whatsapp: ['12:00'] }, '2026-11-04': { emails: [] }, '2026-11-05': { emails: [] } }); // [] = ninguno ese día
   const cfg = sanitizeConfig({ launches: { e1: { name: 'E', registroTag: 'r', fechaDirecto: '2026-11-02', horaDirecto: '19:00', diasCarrito: 2, carritoEnvios: { '2026-11-03': { emails: ['10:00'], whatsapp: ['12:00', '20:00'] } } } } });
   const r = diasCarrito(cfg.launches.e1);
   assert.deepEqual(r.dias.find((d) => d.day === '2026-11-03').envios, { emails: ['10:00'], whatsapp: ['12:00', '20:00'] });

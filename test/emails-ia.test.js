@@ -14,16 +14,18 @@ test('calendario: registro, clases, VIP, directo, grabación, carrito día a dí
   const c = calendarioEmails(l);
   const at = (que) => c.find((x) => x.que.startsWith(que))?.at;
   assert.equal(c[0].at, ''); // la bienvenida, inmediata
-  assert.equal(at('Ya disponible: Clase 1'), '2026-11-12T10:00');
-  assert.equal(at('Mañana es el directo'), '2026-11-16T19:00');
+  // Cuántos y a qué hora: el plan de envíos (por defecto 1 email al día antes del directo, 3 el día del directo…).
+  assert.equal(at('Ya disponible: Clase 1'), '2026-11-12T12:00');
+  assert.equal(at('Mañana es el directo'), '2026-11-16T12:00');
   assert.equal(at('Empezamos en 1 hora'), '2026-11-17T18:00');
   assert.equal(at('Apertura del carrito'), '2026-11-17T20:30');
   // La grabación del vídeo de venta la cubren los del día 1 del carrito (foco en verla); sin carrito, su propio email.
   assert.equal(at('Grabación del directo'), undefined);
   assert.equal(calendarioEmails(l, ['replay']).find((x) => x.fase === 'replay').at, '2026-11-18T10:00');
-  // Carrito: 3 al día (9, 15 y 20) y 4 el último (9, 13, 19 y 22)
+  // Carrito: 3 al día (9, 15 y 20) y 4 el último (9, 13, 19 y 22); un día cambiado a mano, sus horas.
   const horas = (d) => c.filter((x) => x.at.startsWith(d) && x.fase === 'carrito').map((x) => x.at.slice(11));
-  assert.deepEqual(horas('2026-11-20'), ['09:00', '15:00', '20:00']);
+  assert.deepEqual(horas('2026-11-21'), ['09:00', '15:00', '20:00']);
+  assert.deepEqual(horas('2026-11-20'), ['08:00']);
   assert.deepEqual(horas('2026-11-22'), ['09:00', '13:00', '19:00', '22:00']);
   const car = c.filter((x) => x.fase === 'carrito' && x.que.startsWith('Carrito día'));
   assert.match(car[0].que, /día 1 · mensaje: «Mira la grabación[^»]*» · foco: ver la GRABACIÓN/);
@@ -70,9 +72,9 @@ test('prompt: calendario, enlaces, etiquetas, ficha, narrativa, ganadores y form
   assert.match(p, /Asuntos y textos con el vocabulario de la narrativa/);
   assert.match(p, /ASUNTOS QUE MEJOR HAN FUNCIONADO/);
   assert.match(p, /\d+\. mar 17 nov 18:00 · Empezamos en 1 hora/);
-  assert.match(p, /LOS EMAILS DEL CARRITO \(3 al día/);
+  assert.match(p, /LOS EMAILS DEL CARRITO \(los del calendario, a sus horas: por defecto 3 al día y 4 el último\)/);
   assert.match(p, /Romper UNA objeción/);
-  assert.match(p, /el PRIMER email \(9:00\) es SIEMPRE el de PREGUNTAS FRECUENTES/);
+  assert.match(p, /el PRIMER email es SIEMPRE el de PREGUNTAS FRECUENTES/);
   assert.match(p, /más EMOCIONALES; a medida que avanza el carrito, más RACIONALES/);
   assert.match(p, /\{\{contact\.first_name\}\}/);
   assert.match(p, /- Asunto B \(para test A\/B\)/);
@@ -80,18 +82,31 @@ test('prompt: calendario, enlaces, etiquetas, ficha, narrativa, ganadores y form
   assert.doesNotMatch(p, /\n\n\n/);
 });
 
-test('emails: antes del directo, consciencia → objeciones → expectación (uno al día, como mucho 9)', async () => {
-  const { calendarioEmails, promptEmails, MAX_PREVIOS } = await import('../public/js/emails-ia.js');
-  const l = { name: 'X', fechaDirecto: '2026-11-10', horaDirecto: '19:00', inicioCaptacion: '2026-10-25' };
-  const prev = calendarioEmails(l, ['consciencia']);
-  assert.equal(prev.length, MAX_PREVIOS);
-  assert.ok(prev.every((p) => p.fase === 'consciencia' && p.at > '2026-10-25' && p.at < '2026-11-10'));
+test('emails y WhatsApp: el plan de envíos manda (por defecto y cambiado en Configuración)', async () => {
+  const { calendarioEmails, calendarioWhatsapp, promptEmails } = await import('../public/js/emails-ia.js');
+  const { planEnvios } = await import('../public/js/envios.js');
+  const l2 = { name: 'X', fechaDirecto: '2026-11-10', horaDirecto: '19:00', inicioCaptacion: '2026-10-25', clase1At: '2026-11-05T09:00', aperturaCarrito: '2026-11-10T21:00', cierreCarrito: '2026-11-13T23:59' };
+  const plan = planEnvios(l2);
+  const fase = (d) => plan.find((x) => x.day === d);
+  assert.deepEqual([fase('2026-10-25').fase, fase('2026-11-05').fase, fase('2026-11-10').fase, fase('2026-11-11').fase, fase('2026-11-13').fase], ['captacion', 'preclase', 'directo', 'carrito', 'ultimo']);
+  assert.deepEqual([fase('2026-10-25').emails.length, fase('2026-10-25').whatsapp.length], [1, 1]);
+  assert.deepEqual([fase('2026-11-06').emails.length, fase('2026-11-06').whatsapp.length], [1, 2]);
+  assert.deepEqual([fase('2026-11-10').emails.length, fase('2026-11-10').whatsapp.length], [3, 3]);
+  assert.deepEqual([fase('2026-11-12').emails.length, fase('2026-11-13').emails.length, fase('2026-11-13').whatsapp.length], [3, 4, 4]);
+  // Antes del directo: consciencia → objeciones → expectación, uno al día.
+  const prev = calendarioEmails(l2, ['consciencia']);
+  assert.equal(prev.length, 16);
   assert.deepEqual([...new Set(prev.map((p) => p.angulo))], ['consciencia', 'objecion', 'expectacion']);
-  // Pocos días: uno por día, sin repetir día.
-  const corto = calendarioEmails({ ...l, inicioCaptacion: '2026-11-06' }, ['consciencia']);
-  assert.deepEqual(corto.map((p) => p.at.slice(0, 10)), ['2026-11-07', '2026-11-08', '2026-11-09']);
-  const p = promptEmails({ launch: l, fases: ['consciencia'], temario: 'Clase 1: las 3 causas' });
+  // WhatsApp de la preclase: el de la tarde-noche es una encuesta; el anuncio de la clase, con imagen.
+  const wa = calendarioWhatsapp(l2);
+  assert.equal(wa.find((x) => x.at === '2026-11-06T20:30').formato, 'encuesta');
+  assert.equal(wa.find((x) => x.titulo.startsWith('Clase 1 disponible')).formato, 'imagen');
+  assert.ok(wa.every((x) => x.at)); // en WhatsApp no hay envíos «al registrarse»
+  // Cambiado en Configuración: 2 emails al día en captación.
+  const l3 = { ...l2, envios: { captacion: { emails: ['10:00', '19:00'] } } };
+  assert.equal(calendarioEmails(l3, ['consciencia']).filter((x) => x.at.startsWith('2026-10-26')).length, 2);
+  const p = promptEmails({ launch: l2, fases: ['consciencia'], temario: 'Clase 1: las 3 causas' });
   assert.match(p, /LOS EMAILS ANTES DEL DIRECTO/);
   assert.match(p, /CONTENIDO DEL WEBINAR[^]*las 3 causas/);
-  assert.doesNotMatch(promptEmails({ launch: l, fases: ['directo'] }), /LOS EMAILS ANTES DEL DIRECTO/);
+  assert.doesNotMatch(promptEmails({ launch: l2, fases: ['directo'] }), /LOS EMAILS ANTES DEL DIRECTO/);
 });

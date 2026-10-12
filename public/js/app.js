@@ -47,10 +47,11 @@ import { UMBRALES as UMBRALES_PUBLI } from './publicidad.js';
 import { mensajeSeguimiento, porEtapa as segPorEtapa } from './seguimiento.js';
 import { ESTADOS_AUTO, autoCtx, automatizacionesDe, promptAutomatizacion, descripcionIaGhl, promptPreparacion, revisarExistente } from './automatizaciones.js';
 import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa } from './narrativa.js';
-import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, asuntosGanadores, promptEmails, ANGULOS_PREVIOS } from './emails-ia.js';
+import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, calendarioWhatsapp, FASES_WA, FASES_WA_DEFECTO, asuntosGanadores, promptEmails, ANGULOS_PREVIOS } from './emails-ia.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto, accesosDePaginas, conAccesos } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { iniciarAnimaciones } from './animaciones.js';
+import { FASES_PLAN, enviosPorDefecto, enviosDe, planEnvios, sanitizeEnvios } from './envios.js';
 import { componerEmails } from './emails.js';
 import { saludCliente, ordenSalud, totalesAgencia, urgentesAgencia, agendaAgencia, equipoAgencia } from './agencia-inicio.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
@@ -4094,6 +4095,7 @@ function openConfig(code) {
   pintarCarritoAbandonado();
   carritoNotasEdit = { ...(l.carritoNotas || {}) };
   carritoEnviosEdit = JSON.parse(JSON.stringify(l.carritoEnvios || {}));
+  enviosFasesEdit = JSON.parse(JSON.stringify(sanitizeEnvios(l.envios)));
   $('#carrito-dias').innerHTML = '';
   const rb = l.replayBarra || {};
   $('#cfg-rb-on').checked = Boolean(rb.activa);
@@ -5235,6 +5237,7 @@ function readForm() {
       carritoAbandonadoTag: $('#cfg-ca-tag').value.trim(),
       carritoNotas: leerCarritoNotas(),
       carritoEnvios: leerCarritoEnvios(),
+      envios: leerEnviosFases(),
       replayBarra: {
         activa: $('#cfg-rb-on').checked, texto: $('#cfg-rb-texto').value.trim(), modo: $('#cfg-rb-modo').value,
         at: $('#cfg-rb-at').value, minutos: Number($('#cfg-rb-min').value) || null, conBoton: $('#cfg-rb-con-boton').value === 'si', boton: $('#cfg-rb-boton').value.trim(), color: $('#cfg-rb-color').value,
@@ -6032,7 +6035,7 @@ function renderAutomatizaciones() {
       ${origen === 'existen' ? `<p class="au-revisar">🔁 <strong>Qué revisar:</strong> ${esc(revisarExistente(x, c))}</p>` : ''}
       <details class="au-det"><summary>Ver cómo es</summary><p><strong>Disparador:</strong> ${esc(x.disparador(c))}</p><ol>${x.acciones(c).map((y) => `<li>${esc(y)}</li>`).join('')}</ol><p class="muted small"><strong>Prueba:</strong> ${esc(x.prueba(c))}</p></details>
       <div class="au-acc">
-        ${origen === 'cero' ? `<button type="button" class="btn primary small" data-au-prompt="${esc(x.id)}">📋 Prompt para Claude</button><button type="button" class="btn ghost small" data-au-ia="${esc(x.id)}" title="Descripción corta para el asistente de IA de workflows de GHL">Para la IA de GHL</button>` : ''}
+        ${origen === 'cero' ? `<button type="button" class="btn primary small" data-au-prompt="${esc(x.id)}">📋 Prompt para Claude</button><button type="button" class="btn small au-btn-ghl" data-au-ia="${esc(x.id)}" title="Descripción corta para el asistente de IA de workflows de GHL">🤖 Prompt para la IA de GHL</button>` : ''}
         <input type="url" class="au-url" data-au-url="${esc(x.id)}" value="${esc(url)}" placeholder="URL del workflow en GHL (al crearlo)" ${puede ? '' : 'disabled'}>
         ${url ? `<a class="btn ghost small" href="${esc(url)}" target="_blank" rel="noopener">Abrir</a>` : ''}
       </div>
@@ -10958,12 +10961,46 @@ const HORAS_SUGERIDAS = ['10:00', '19:00', '13:00', '21:00', '08:30', '16:00', '
 function leerCarritoEnvios() {
   for (const box of $$('#carrito-dias .car-canal')) {
     const day = box.dataset.day;
-    carritoEnviosEdit[day] = { ...(carritoEnviosEdit[day] || {}), [box.dataset.canal]: $$('.car-hora', box).map((i) => i.value) };
+    const horas = $$('.car-hora', box).map((i) => i.value).filter(Boolean);
+    const v = { ...(carritoEnviosEdit[day] || {}) };
+    // Igual que lo de por defecto de su fase: no se guarda (así sigue a la fase si se cambia).
+    if (box.dataset.def != null && JSON.stringify(horas) === box.dataset.def) delete v[box.dataset.canal]; else v[box.dataset.canal] = horas;
+    carritoEnviosEdit[day] = v;
   }
-  return Object.fromEntries(Object.entries(carritoEnviosEdit).map(([d, v]) => [d, Object.fromEntries(Object.entries(v).filter(([, h]) => h.length))]).filter(([, v]) => Object.keys(v).length));
+  return Object.fromEntries(Object.entries(carritoEnviosEdit).filter(([, v]) => Object.keys(v).length));
 }
-function canalHtml(day, canal, horas = []) {
-  return `<div class="car-canal" data-day="${day}" data-canal="${canal.id}">
+// Envíos por fase (captación, preclase, día del directo, carrito y último día): solo lo que cambia respecto a lo de por defecto.
+let enviosFasesEdit = {};
+function datosEnvios() {
+  let l = null;
+  try { l = readForm().launch; } catch { l = null; }
+  return l || { ...(state.config.launches[editingCode] || {}), fechaDirecto: $('#cfg-directo-fecha').value, horaDirecto: $('#cfg-directo-hora').value, aperturaCarrito: $('#cfg-apertura-carrito').value, cierreCarrito: $('#cfg-cierre').value };
+}
+function leerEnviosFases() {
+  const box = $('#envios-fases');
+  if (!box) return sanitizeEnvios(enviosFasesEdit);
+  for (const c of $$('.car-canal[data-fase]', box)) {
+    const horas = $$('.car-hora', c).map((i) => i.value).filter(Boolean);
+    const f = { ...(enviosFasesEdit[c.dataset.fase] || {}) };
+    if (JSON.stringify(horas) === c.dataset.def) delete f[c.dataset.canal]; else f[c.dataset.canal] = horas;
+    enviosFasesEdit[c.dataset.fase] = f;
+  }
+  return sanitizeEnvios(enviosFasesEdit);
+}
+function pintarEnviosFases() {
+  const box = $('#envios-fases');
+  if (!box) return;
+  const datos = { ...datosEnvios(), envios: enviosFasesEdit };
+  const def = enviosPorDefecto(datos);
+  const E = enviosDe(datos);
+  box.innerHTML = FASES_PLAN.map((f) => `<div class="env-fase" data-fase-fila="${f.id}">
+      <div class="env-fase-n"><span class="env-fase-ico" aria-hidden="true">${f.icon}</span><div><strong>${esc(f.label)}</strong><small>${esc(f.desc)}</small></div>
+        ${JSON.stringify(E[f.id]) !== JSON.stringify(def[f.id]) ? `<button type="button" class="btn ghost small" data-env-def="${f.id}" title="Volver a lo de por defecto">↺ Por defecto</button>` : '<span class="env-def-chip">Por defecto</span>'}</div>
+      <div class="env-canales">${CANALES_CARRITO.map((c) => canalHtml('', c, E[f.id][c.id], { fase: f.id, def: def[f.id][c.id] })).join('')}</div>
+    </div>`).join('');
+}
+function canalHtml(day, canal, horas = [], { fase = '', def = null } = {}) {
+  return `<div class="car-canal" ${fase ? `data-fase="${fase}"` : `data-day="${day}"`} data-canal="${canal.id}"${def ? ` data-def='${esc(JSON.stringify(def))}'` : ''}>
     <label class="car-canal-n"><span>${canal.icon} ${esc(canal.label)}</span><select class="car-cuantos" aria-label="${esc(canal.label)}: cuántos al día">${Array.from({ length: MAX_ENVIOS_DIA + 1 }, (_, i) => `<option value="${i}" ${i === horas.length ? 'selected' : ''}>${i === 0 ? 'Ninguno' : `${i} al día`}</option>`).join('')}</select></label>
     <div class="car-horas">${horas.map((h, i) => `<label class="car-hora-l"><span>${canal.id === 'emails' ? 'Email' : 'WhatsApp'} ${i + 1}</span><input class="car-hora" type="time" value="${esc(h)}"></label>`).join('')}</div>
   </div>`;
@@ -10971,14 +11008,18 @@ function canalHtml(day, canal, horas = []) {
 function pintarCarrito({ leerEnvios = true } = {}) {
   const notas = leerCarritoNotas();
   // Tras «copiar al resto de días» lo bueno es lo copiado, no lo que había en pantalla.
-  const envios = leerEnvios ? leerCarritoEnvios() : Object.fromEntries(Object.entries(carritoEnviosEdit).filter(([, v]) => Object.values(v).some((h) => h.length)));
+  const envios = leerEnvios ? leerCarritoEnvios() : Object.fromEntries(Object.entries(carritoEnviosEdit).filter(([, v]) => Object.keys(v).length));
+  const enviosFases = leerEnviosFases();
+  pintarEnviosFases();
   let launch = null;
   try { launch = readForm().launch; } catch { launch = null; }
   const datos = {
     ...(launch || { ...(state.config.launches[editingCode] || {}), fechaDirecto: $('#cfg-directo-fecha').value, horaDirecto: $('#cfg-directo-hora').value, aperturaCarrito: $('#cfg-apertura-carrito').value, cierreCarrito: $('#cfg-cierre').value }),
-    oferta: leerOfertaEditor(), ventaBarra: leerVentaBarra(), carritoNotas: notas, carritoEnvios: envios,
+    oferta: leerOfertaEditor(), ventaBarra: leerVentaBarra(), carritoNotas: notas, carritoEnvios: envios, envios: enviosFases,
   };
   const r = diasCarrito(datos);
+  // Lo de por defecto de cada día (su fase), para enseñarlo si no se ha cambiado ese día.
+  const planDef = new Map(planEnvios({ ...datos, carritoEnvios: {} }).map((x) => [x.day, x]));
   const box = $('#carrito-dias');
   if (!r.dias.length) {
     box.innerHTML = `<div class="car-vacio">🛒 <strong>Aquí aparecerán los días del carrito.</strong> Se rellenará automáticamente cuando configures ${esc(r.faltan.join(' y '))} en la pestaña «Datos básicos», y los bonus en «Oferta».</div>`;
@@ -10991,7 +11032,7 @@ function pintarCarrito({ leerEnvios = true } = {}) {
       <h4>Hitos clave</h4>
       ${d.auto.length ? `<ul class="car-auto">${d.auto.map((a) => `<li><span aria-hidden="true">${a.icon}</span> ${esc(a.texto)}</li>`).join('')}</ul>` : '<p class="muted small">Sin hitos automáticos este día: se rellenará solo cuando la oferta o la barra de la página de venta tengan algo este día. Escribe abajo la estrategia.</p>'}
       <h4>Envíos del día</h4>
-      <div class="car-envios">${CANALES_CARRITO.map((c) => canalHtml(d.day, c, d.envios[c.id] || [])).join('')}</div>
+      <div class="car-envios">${CANALES_CARRITO.map((c) => { const def = planDef.get(d.day)?.[c.id] || []; return canalHtml(d.day, c, envios[d.day]?.[c.id] ?? def, { def }); }).join('')}</div>
       ${r.dias.length > 1 ? `<button type="button" class="btn ghost small car-copiar" data-day="${d.day}" title="Pone estos mismos emails y mensajes de WhatsApp (con sus horas) en los demás días de carrito">Copiar estos envíos al resto de días</button>` : ''}
       <label class="field"><span>Estrategia / notas del día <small>(a mano)</small></span><textarea class="car-nota" data-day="${d.day}" rows="3" maxlength="1500" placeholder="Ej.: email de testimonios a las 10:00, directo de dudas en Instagram, WhatsApp a las que vieron la página de venta…">${esc(d.nota)}</textarea></label>
     </article>`).join('')}</div>`;
@@ -11056,21 +11097,31 @@ document.addEventListener('click', (e) => {
   else requestAnimationFrame(() => goToField(b.dataset.irCampo));
 });
 // Cambiar cuántos envíos: aparecen (o se quitan) las horas, con una hora sugerida en las nuevas.
-$('#carrito-dias').addEventListener('change', (e) => {
+function cambiarCuantos(e) {
   if (!e.target.matches('.car-cuantos')) return;
   const box = e.target.closest('.car-canal');
   const actuales = $$('.car-hora', box).map((i) => i.value);
   const n = Number(e.target.value);
   const horas = actuales.slice(0, n);
   while (horas.length < n) horas.push(HORAS_SUGERIDAS.find((h) => !horas.includes(h)) ?? '');
-  box.outerHTML = canalHtml(box.dataset.day, CANALES_CARRITO.find((c) => c.id === box.dataset.canal), horas);
-  leerCarritoEnvios();
+  const def = box.dataset.def ? JSON.parse(box.dataset.def) : null;
+  box.outerHTML = canalHtml(box.dataset.day || '', CANALES_CARRITO.find((c) => c.id === box.dataset.canal), horas, { fase: box.dataset.fase || '', def });
+  if (box.dataset.fase) { leerEnviosFases(); pintarCarrito(); } else leerCarritoEnvios();
+}
+$('#carrito-dias').addEventListener('change', cambiarCuantos);
+$('#envios-fases').addEventListener('change', (e) => { if (e.target.matches('.car-cuantos')) cambiarCuantos(e); else if (e.target.matches('.car-hora')) { leerEnviosFases(); pintarCarrito(); } });
+$('#envios-fases').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-env-def]');
+  if (!b) return;
+  delete enviosFasesEdit[b.dataset.envDef];
+  pintarCarrito();
 });
 $('#carrito-dias').addEventListener('click', (e) => {
   const b = e.target.closest('.car-copiar');
   if (!b) return;
-  const todos = leerCarritoEnvios();
-  const origen = todos[b.dataset.day] || {};
+  leerCarritoEnvios();
+  // Lo que se ve en ese día (también si son las horas de por defecto).
+  const origen = Object.fromEntries($$(`#carrito-dias .car-canal[data-day="${b.dataset.day}"]`).map((x) => [x.dataset.canal, $$('.car-hora', x).map((i) => i.value).filter(Boolean)]));
   // Solo a los días de carrito (no al día del directo).
   for (const box of $$('#carrito-dias .car-dia:not([data-n="0"]) .car-canal')) {
     if (box.dataset.day === b.dataset.day) continue;
@@ -12402,7 +12453,8 @@ async function renderGrupoWa() {
       ${gwDirectos().length ? `<div class="st-aviso info"><span>📅 <strong>${gwDirectos().map((x) => `${esc(x.nombre)} · ${esc(fechaFicha(madridToEpoch(x.at)))} a las ${esc(x.at.slice(11))}`).join(' · ')}</strong>. Ese día los mensajes solo recuerdan que es hoy y llevan el enlace de acceso (ya va en el prompt).</span></div>` : ''}
       ${avisoMarcaHtml(gwc.marca)}
       ${narrativaCardHtml(code)}
-      <div class="st-acciones"><button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt</button><details class="st-ver"><summary>Ver el prompt</summary><pre class="snippet gw-prompt" id="gw-prompt"></pre></details></div>
+      ${enMeteo() ? '<div class="st-acciones"><button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt</button></div>' : `<div id="gw-cats-box">${gwCategoriasHtml()}</div>`}
+      <details class="st-ver"><summary>Ver el prompt</summary><pre class="snippet gw-prompt" id="gw-prompt"></pre></details>
     </section>
     <section class="card st-paso">
       ${pasoCab(2, 'Pega aquí la respuesta de Claude', 'Se convierte sola en mensajes con su día y hora.')}
@@ -12445,9 +12497,42 @@ function gwDirectos() {
   }));
 }
 const temarioKey = () => `lsd_gw_temario_${state.cliente || ''}_${gwc.code}`;
-function gwPrompt() {
+// Categorías de mensajes del grupo (como las fases de los emails): las elegidas se guardan en el navegador.
+const fasesWaKey = () => `lsd_wa_fases_${state.cliente || ''}_${state.embudo}`;
+const fasesWa = () => { try { const v = JSON.parse(ls.get(fasesWaKey()) || 'null'); return Array.isArray(v) ? v : FASES_WA_DEFECTO; } catch { return FASES_WA_DEFECTO; } };
+// Calendario de mensajes del grupo (lanzamientos): del plan de envíos, dentro de «Desde» y «Hasta».
+function gwCalendario(fases = fasesWa()) {
+  if (enMeteo()) return [];
+  // Mientras se pinta la vista aún no están los campos: el rango por defecto (el mismo que ponen).
+  const r = rangoCal(embCal() || {});
+  const desde = $('#gw-desde')?.value || r.desde || ''; const hasta = $('#gw-hasta')?.value || r.hasta || '';
+  return calendarioWhatsapp(embCal() || {}, fases).filter((x) => (!desde || x.at.slice(0, 10) >= desde) && (!hasta || x.at.slice(0, 10) <= hasta));
+}
+// `solo`: una categoría: sus mensajes dentro del plan completo (los mismos huecos que con todas, sin quitar los de las demás).
+function gwPrompt({ solo: soloId = '' } = {}) {
   const emb = enMeteo() ? embCal() : conEnlacesPropuestos(embCal(), propuestasEmbudo(embudoDeLanz(embCal() || {})));
-  return promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado'), directos: gwDirectos(), temario: ($('#gw-temario')?.value ?? ls.get(temarioKey()) ?? '').trim(), contexto: contextoMarca(gwc.marca?.m, gwc.marca?.producto), narrativa: bloqueNarrativa(state.config.launches[gwc.code]?.narrativa, 'whatsapp') });
+  const solo = soloId ? FASES_WA.find((f) => f.id === soloId) : null;
+  return promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado'), directos: gwDirectos(), temario: ($('#gw-temario')?.value ?? ls.get(temarioKey()) ?? '').trim(), contexto: contextoMarca(gwc.marca?.m, gwc.marca?.producto), narrativa: bloqueNarrativa(state.config.launches[gwc.code]?.narrativa, 'whatsapp'),
+    calendario: gwCalendario().filter((x) => !soloId || x.fase === soloId), categorias: solo ? `solo la categoría «${EM_FASE[solo.id]?.nombre || solo.label}»` : '' });
+}
+const FORMATO_ICO = { texto: '✍️', imagen: '🖼️', encuesta: '📊' };
+// Selector de categorías, calendario por días y botones para copiar el prompt de todas o de una sola.
+function gwCategoriasHtml() {
+  if (enMeteo()) return '';
+  const fases = fasesWa();
+  const cal = gwCalendario(fases);
+  const n = (id) => cal.filter((x) => x.fase === id).length;
+  const porDia = new Map();
+  for (const x of cal) { const d = x.at.slice(0, 10); if (!porDia.has(d)) porDia.set(d, []); porDia.get(d).push(x); }
+  return `<div class="gw-cats">
+      <h4>Qué mensajes crear <small>pulsa una categoría para quitarla o ponerla · el número de cada día sale de Configuración → Carrito</small></h4>
+      <div class="em-fases" role="group" aria-label="Categorías de mensajes">${FASES_WA.map((f) => `<button type="button" class="em-fase${fases.includes(f.id) ? ' on' : ''}" data-wa-fase="${f.id}" aria-pressed="${fases.includes(f.id)}" title="${esc(f.desc)}"><span class="em-fase-ico" aria-hidden="true">${EM_FASE[f.id]?.ico || ''}</span>${esc(EM_FASE[f.id]?.nombre || f.label)} ${fases.includes(f.id) ? `<small class="gw-cat-n">${n(f.id)}</small>` : ''}</button>`).join('')}</div>
+      ${cal.length ? `<div class="gw-cal">${[...porDia.entries()].map(([d, xs]) => `<div class="gw-cal-dia"><span class="gw-cal-f"><b>${new Date(`${d}T12:00:00Z`).getUTCDate()}</b><small>${esc(new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', month: 'short', timeZone: 'UTC' }).replace(/\./g, ''))}</small></span>
+          <div class="gw-cal-ms">${xs.map((x) => `<span class="gw-cal-m f-${x.fase}" title="${esc(x.que)}"><i>${esc(x.at.slice(11))}</i> ${FORMATO_ICO[x.formato] || '✍️'} ${esc(x.titulo)}</span>`).join('')}</div></div>`).join('')}</div>`
+        : '<p class="muted small">No hay mensajes en estas categorías y fechas (revisa las fechas del lanzamiento o «Desde» y «Hasta»).</p>'}
+      <div class="gw-cat-btns"><button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt (${cal.length} mensajes)</button>
+        ${fases.filter((id) => n(id)).map((id) => `<button type="button" class="btn small" data-wa-solo="${id}">${EM_FASE[id]?.ico || ''} Solo ${esc(EM_FASE[id]?.nombre || id)} (${n(id)})</button>`).join('')}</div>
+    </div>`;
 }
 // ---------- ✉️ Emails con IA (Plan → Emails) ----------
 // La secuencia de emails del lanzamiento: calendario de envíos con sus fechas, asuntos ganadores de los anteriores,
@@ -12945,6 +13030,7 @@ function gwLeer(fila) {
 $('#grupowa-body').addEventListener('change', (e) => {
   if (e.target.id === 'gw-desde' || e.target.id === 'gw-hasta' || e.target.id === 'gw-temario') {
     if (e.target.id === 'gw-temario') ls.set(temarioKey(), e.target.value);
+    if (e.target.id !== 'gw-temario' && $('#gw-cats-box')) $('#gw-cats-box').innerHTML = gwCategoriasHtml();
     const pre = $('#gw-prompt'); if (pre) pre.textContent = gwPrompt(); return;
   }
   const fila = e.target.closest('[data-gw]');
@@ -12964,10 +13050,17 @@ $('#grupowa-body').addEventListener('click', async (e) => {
   const fila = b.closest('[data-gw]');
   const st = (t) => { if ($('#gw-st')) $('#gw-st').textContent = t; };
   try {
-    if (b.id === 'gw-copiar') {
-      await navigator.clipboard.writeText(gwPrompt());
+    if (b.id === 'gw-copiar' || b.dataset.waSolo) {
+      const antes = b.textContent;
+      await navigator.clipboard.writeText(gwPrompt({ solo: b.dataset.waSolo || '' }));
       b.textContent = '✓ Copiado: pégalo en Claude';
-      setTimeout(() => { b.textContent = '📋 Copiar el prompt'; }, 2500);
+      setTimeout(() => { b.textContent = antes; }, 2500);
+    } else if (b.dataset.waFase) {
+      const sel = new Set(fasesWa());
+      if (sel.has(b.dataset.waFase)) sel.delete(b.dataset.waFase); else sel.add(b.dataset.waFase);
+      ls.set(fasesWaKey(), JSON.stringify([...sel]));
+      $('#gw-cats-box').innerHTML = gwCategoriasHtml();
+      const pre = $('#gw-prompt'); if (pre) pre.textContent = gwPrompt();
     } else if (b.id === 'gw-anadir') {
       const nuevos = parsearSecuencia($('#gw-pegar').value);
       if (!nuevos.length) { $('#gw-anadir-st').textContent = 'No encuentro mensajes: cada uno empieza por «### AAAA-MM-DD HH:MM | tipo» (como en el prompt).'; return; }

@@ -51,8 +51,9 @@ export function sanitizeCarritoEnvios(c) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !v || typeof v !== 'object') continue;
     const dia = {};
     for (const { id } of CANALES_CARRITO) {
-      const horas = (Array.isArray(v[id]) ? v[id] : []).slice(0, MAX_ENVIOS_DIA).map((h) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(h)) ? String(h) : ''));
-      if (horas.length) dia[id] = horas;
+      // Una lista vacía también se guarda: «ninguno ese día» (sin el canal, el día usa lo de por defecto).
+      if (!Array.isArray(v[id])) continue;
+      dia[id] = v[id].slice(0, MAX_ENVIOS_DIA).map((h) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(h)) ? String(h) : '')).filter(Boolean);
     }
     if (Object.keys(dia).length) out[k] = dia;
   }

@@ -3742,3 +3742,42 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .ag-cli-kpis div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 7px 10px; }
 .ag-cli-kpis b { font-size: 15px; }
 .ag-cli h4 { white-space: normal; line-height: 1.2; }
+
+/* Automatizaciones: el botón del prompt para la IA de GHL, un botón de verdad (azul de GHL) junto al de Claude. */
+.btn.au-btn-ghl { background: color-mix(in srgb, #2f6fed 12%, var(--surface)); color: color-mix(in srgb, #2f6fed 80%, var(--text)); border: 1px solid color-mix(in srgb, #2f6fed 45%, var(--border)); font-weight: 700; }
+.btn.au-btn-ghl:hover { background: color-mix(in srgb, #2f6fed 20%, var(--surface)); border-color: #2f6fed; }
+:root[data-estilo="espacial"] .btn.au-btn-ghl { background: rgb(47 111 237 / .18); color: #a9c4ff; border-color: rgb(120 160 255 / .5); }
+
+/* ---------- Configuración → Carrito: emails y WhatsApp de cada fase ---------- */
+.env-fases { display: grid; gap: 12px; }
+.env-fase { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 12px 20px; align-items: start; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); }
+.env-fase-n { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.env-fase-n > div { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.env-fase-n small { color: var(--text-2); font-size: 12px; line-height: 1.35; }
+.env-fase-ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); font-size: 17px; flex: 0 0 auto; }
+.env-def-chip { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); }
+.env-canales { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 16px; }
+@media (max-width: 760px) { .env-fase { grid-template-columns: 1fr; } }
+
+/* ---------- Grupo de WhatsApp: categorías, calendario y prompt por categoría ---------- */
+.gw-cats { display: grid; gap: 14px; margin-top: 10px; padding: 16px 18px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); }
+.gw-cats h4 { margin: 0; font-size: 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.gw-cats h4 small { font-weight: 500; color: var(--text-2); font-size: 12.5px; }
+.gw-cats .em-fases { gap: 8px; margin: 0; }
+.gw-cats .em-fase { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border-radius: 12px; color: var(--text-2); background: var(--surface); }
+.gw-cats .em-fase .em-fase-ico { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; background: var(--surface-2); }
+.gw-cats .em-fase.on { color: var(--text); background: color-mix(in srgb, var(--wa, #25d366) 10%, var(--surface)); border-color: color-mix(in srgb, var(--wa, #25d366) 55%, var(--border)); }
+.gw-cats .em-fase:not(.on) { text-decoration: none; opacity: .55; }
+.gw-cat-n { font-weight: 800; color: var(--text-2); }
+.gw-cal { display: grid; gap: 6px; max-height: 360px; overflow: auto; padding-right: 4px; }
+.gw-cal-dia { display: grid; grid-template-columns: 54px 1fr; gap: 10px; align-items: start; padding: 8px 10px; border-radius: 10px; background: var(--surface); }
+.gw-cal-f { display: grid; justify-items: center; line-height: 1; }
+.gw-cal-f b { font-size: 20px; } .gw-cal-f small { font-size: 10.5px; color: var(--text-2); text-transform: capitalize; margin-top: 3px; }
+.gw-cal-ms { display: flex; flex-wrap: wrap; gap: 6px; }
+.gw-cal-m { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 4px 10px; border-radius: 8px; background: var(--surface-2); border-left: 3px solid var(--wa, #25d366); }
+.gw-cal-m i { font-style: normal; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.gw-cal-m.f-directo { border-left-color: #d93a3a; } .gw-cal-m.f-carrito { border-left-color: var(--accent); } .gw-cal-m.f-preclase { border-left-color: #1f9bb0; }
+.gw-cal-m.f-consciencia { border-left-color: #7c5cd6; } .gw-cal-m.f-vip { border-left-color: #d4a017; }
+.gw-cat-btns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.env-canales { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.env-canales .car-canal-n span { white-space: nowrap; }
