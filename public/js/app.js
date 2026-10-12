@@ -7,6 +7,7 @@ import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { ORDEN_EDAD } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
 import { respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
+import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch, CAJAS_PAGO, numeroWhatsApp, enlaceWhatsApp, leerEnlaceWhatsApp } from './page.js';
 import { FORMATOS, formatoValido, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto, nVideos, nombreVideo } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, MIN_REGISTROS, resumenLanzamiento, prevision, resumenManual, medias, supuestosEscenario, inversionRecomendada, proyeccion, planificar, PLAN_DEF } from './calculadora.js';
@@ -2288,67 +2289,87 @@ function renderEncuestaMetrics() {
   // Antes del carrito aún no hay ventas: por defecto se analizan las VIP.
   const r = state.avatar;
   const { objetivo } = r;
-  const que = objetivo === 'vip' ? 'compran la VIP' : 'compran Raíces';
-  const quien = objetivo === 'vip' ? 'compradoras de VIP' : 'compradoras de Raíces';
-  const toggle = `<div class="seg" role="tablist" aria-label="Qué analizar">
-      <button type="button" class="seg-btn${objetivo === 'compra' ? ' on' : ''}" data-avatar-obj="compra">${icon('cart')} Ventas de Raíces</button>
-      <button type="button" class="seg-btn${objetivo === 'vip' ? ' on' : ''}" data-avatar-obj="vip">${icon('star')} Entradas VIP</button></div>
-    <div class="seg" role="tablist" aria-label="Con qué lanzamientos">
-      <button type="button" class="seg-btn${todos ? '' : ' on'}" data-avatar-scope="este">Este lanzamiento</button>
-      <button type="button" class="seg-btn${todos ? ' on' : ''}" data-avatar-scope="todos">Todos los lanzamientos</button></div>`;
-  const resumen = `<p class="av-resumen">${toggle}<span>${todos ? `<strong>${Object.keys(state.config.launches).length}</strong> lanzamientos · ` : ''}<strong>${r.leads}</strong> de ${total} leads han respondido la encuesta (${pctOf(r.leads, total)}) · <strong>${r.compras}</strong> ${que} · conversión media <strong>${pctOf(r.compras, r.leads)}</strong></span></p>`;
+  const comprador = objetivo === 'vip' ? 'compran la VIP' : 'compran Raíces';
+  const toggle = `<div class="av-filtros">
+      <div class="av-filtro"><span>¿Qué quieres mirar?</span><div class="seg" role="tablist" aria-label="Qué analizar">
+        <button type="button" class="seg-btn${objetivo === 'compra' ? ' on' : ''}" data-avatar-obj="compra">${icon('cart')} Quién compra Raíces</button>
+        <button type="button" class="seg-btn${objetivo === 'vip' ? ' on' : ''}" data-avatar-obj="vip">${icon('star')} Quién compra la VIP</button></div></div>
+      <div class="av-filtro"><span>¿Con qué datos?</span><div class="seg" role="tablist" aria-label="Con qué lanzamientos">
+        <button type="button" class="seg-btn${todos ? '' : ' on'}" data-avatar-scope="este">Este lanzamiento</button>
+        <button type="button" class="seg-btn${todos ? ' on' : ''}" data-avatar-scope="todos">Todos los lanzamientos</button></div></div>
+    </div>`;
+  // Las cifras de partida, en frases cortas.
+  const cifras = `<div class="av-cifras">
+      <div><strong>${total.toLocaleString('es-ES')}</strong><span>personas registradas${todos ? ` en ${Object.keys(state.config.launches).length} lanzamientos` : ''}</span></div>
+      <div><strong>${r.leads.toLocaleString('es-ES')}</strong><span>han respondido la encuesta (${pctOf(r.leads, total)})</span></div>
+      <div><strong>${r.compras.toLocaleString('es-ES')}</strong><span>de ellas ${comprador}</span></div>
+      <div><strong>${deCada(r.conv)}</strong><span>${objetivo === 'vip' ? 'compra la VIP' : 'compra'} (de las que respondieron)</span></div>
+    </div>`;
 
   if (!r.leads) {
-    box.innerHTML = `${resumen}<p class="muted">Aún no hay respuestas de la encuesta en este lanzamiento.</p>`;
+    box.innerHTML = `${toggle}<p class="av-vacio">${icon('sparkle')} Aún no ha respondido nadie la encuesta en este lanzamiento. Cuando haya respuestas, aquí verás qué tipo de persona compra más.</p>`;
     return;
   }
+  // «En pocas palabras»: lo que hay que saber, sin gráficos.
+  const conclusiones = conclusionesAvatares(r, { que: comprador });
+  const resumen = `<div class="av-claves">
+      <h3>${icon('sparkle')} En pocas palabras</h3>
+      ${conclusiones.length
+        ? `<ul>${conclusiones.map((c) => `<li class="${c.tono}"><span aria-hidden="true">${c.tono === 'mas' ? '✅' : '⚠️'}</span>${esc(c.texto)}</li>`).join('')}</ul>`
+        : `<p>Todavía hay muy pocas personas por respuesta para sacar conclusiones fiables. ${r.compras ? '' : `Aún no ${comprador.replace('compran', 'ha comprado')} nadie de las que respondieron. `}Hacen falta al menos ${r.minN} personas con la misma respuesta (y ${r.minK} ${objetivo === 'vip' ? 'VIP' : 'ventas'}) para fiarse.${objetivo === 'compra' && r.compras < 10 ? ' Mientras, prueba con «Quién compra la VIP».' : ''}</p>`}
+    </div>`;
+
   const avatares = r.avatares.length
-    ? `<div class="av-grid">${r.avatares.map((a, i) => `
+    ? `<h3 class="av-h">Los perfiles que más compran</h3><div class="av-grid">${r.avatares.map((a, i) => `
         <article class="av-card tone-${AV_TONES[i]}">
-          <header><span class="av-ico">${icon('users')}</span><div><span class="av-kicker">Avatar ${i + 1}</span><h3>${a.traits.map(([, v]) => esc(v)).join(' · ')}</h3></div></header>
+          <header><span class="av-ico">${icon('users')}</span><div><span class="av-kicker">Perfil ${i + 1}</span><h3>${a.traits.map(([, v]) => esc(v)).join(' · ')}</h3></div></header>
           <p class="av-frase">${esc(describirAvatar(a.traits, preguntasEncuesta()))}</p>
-          <div class="av-stats">
-            <div title="Compra ${veces(a.indice)} veces más que la media"><strong>${veces(a.indice)}</strong><span>vs. la media</span></div>
-            <div title="${a.compras} de tus ${r.compras} ${quien}"><strong>${pct0(a.pesoCompras)}</strong><span>${objetivo === 'vip' ? 'de las VIP' : 'de las ventas'}</span></div>
-            <div title="${a.compras} de ${a.leads} leads con este perfil"><strong>${pctOf(a.compras, a.leads)}</strong><span>conversión</span></div>
-          </div>
-          <div class="av-bar" title="${pct0(a.pesoLeads)} de las leads, ${pct0(a.pesoCompras)} de las compradoras"><span class="l" style="width:${a.pesoLeads * 100}%"></span><span class="c" style="width:${a.pesoCompras * 100}%"></span></div>
-          <p class="av-pie">Son el ${pct0(a.pesoLeads)} de las leads pero el ${pct0(a.pesoCompras)} de las ${quien}.</p>
+          <p class="av-clave">${esc(comparaMedia(a.indice).replace(/^./, (c) => c.toUpperCase()))}.</p>
+          <ul class="av-datos">
+            <li><strong>${deCada(a.compras / a.leads)}</strong> ${objetivo === 'vip' ? 'compra la VIP' : 'compra'}</li>
+            <li>Son el <strong>${pct0(a.pesoLeads)}</strong> de las registradas…</li>
+            <li>…pero el <strong>${pct0(a.pesoCompras)}</strong> de las que ${comprador}</li>
+          </ul>
         </article>`).join('')}
         ${r.anti ? `<article class="av-card av-anti">
           <header><span class="av-ico">${icon('alert')}</span><div><span class="av-kicker">Compra poco</span><h3>${r.anti.traits.map(([, v]) => esc(v)).join(' · ')}</h3></div></header>
           <p class="av-frase">${esc(describirAvatar(r.anti.traits, preguntasEncuesta()))}</p>
-          <div class="av-stats"><div><strong>${veces(r.anti.indice)}</strong><span>vs. la media</span></div><div><strong>${pct0(r.anti.pesoLeads)}</strong><span>de las leads</span></div><div><strong>${pctOf(r.anti.compras, r.anti.leads)}</strong><span>conversión</span></div></div>
-          <p class="av-pie">Mucho volumen y poca compra: revisa si los anuncios atraen a este perfil o si necesita otro mensaje.</p>
+          <p class="av-clave">${esc(comparaMedia(r.anti.indice).replace(/^./, (c) => c.toUpperCase()))}.</p>
+          <ul class="av-datos"><li>Son el <strong>${pct0(r.anti.pesoLeads)}</strong> de las registradas</li><li><strong>${deCada(r.anti.compras / r.anti.leads)}</strong> ${objetivo === 'vip' ? 'compra la VIP' : 'compra'}</li></ul>
+          <p class="av-pie">Muchas personas y pocas compras: revisa si los anuncios atraen a este perfil o si necesita otro mensaje.</p>
         </article>` : ''}</div>`
-    : `<p class="av-vacio">${icon('sparkle')} Todavía no hay datos suficientes para sacar avatares fiables: hace falta que cada perfil tenga al menos ${r.minN} leads y ${r.minK} ${objetivo === 'vip' ? 'VIP' : 'ventas'}. ${objetivo === 'compra' ? 'Mientras, prueba con «Entradas VIP».' : ''}</p>`;
+    : '';
 
+  // Cada pregunta: sus respuestas, de la que más compra a la que menos, con «X de Y compran» y una etiqueta en palabras.
   const preguntas = r.preguntas.map(({ p, rows }) => {
-    // Las barras se escalan a la respuesta más grande de cada pregunta para que se lean bien.
-    const max = Math.max(0.01, ...rows.flatMap((x) => [x.pesoLeads, x.pesoCompras]));
+    const orden = [...rows].sort((x, y) => (x.pocos - y.pocos) || (y.conv - x.conv) || (y.leads - x.leads));
+    const max = Math.max(0.01, ...rows.map((x) => x.conv));
     return `
     <section class="av-q">
       <h4>${esc(p.name)}</h4>
-      ${rows.map((x) => `<div class="av-row${x.pocos ? ' pocos' : ''}" title="${x.leads} leads · ${x.compras} ${que} · conversión ${pctOf(x.compras, x.leads)}${x.pocos ? ' · pocos datos' : ''}">
-        <span class="av-label">${esc(x.respuesta)}</span>
-        <span class="av-bars"><span class="l" style="width:${(x.pesoLeads / max) * 100}%"></span><span class="c" style="width:${(x.pesoCompras / max) * 100}%"></span></span>
-        <span class="av-idx ${x.indice >= 1.15 ? 'up' : x.indice <= 0.85 ? 'down' : ''}">${x.pocos ? 'pocos datos' : `${x.indice >= 1.15 ? '▲' : x.indice <= 0.85 ? '▼' : '•'} ${veces(x.indice || 0)}`}</span>
-      </div>`).join('')}
+      ${orden.map((x) => {
+        const t = etiquetaRespuesta(x);
+        return `<div class="av-row t-${t.tono}">
+        <div class="av-row-top"><span class="av-label">${esc(x.respuesta)}</span><span class="av-tag t-${t.tono}">${t.texto}</span></div>
+        <div class="av-row-bar"><span style="width:${(x.conv / max) * 100}%"></span></div>
+        <div class="av-row-txt"><strong>${x.compras}</strong> de ${x.leads} ${x.leads === 1 ? 'persona' : 'personas'} ${x.compras === 1 ? comprador.replace('compran', 'compra') : comprador} (${pctOf(x.compras, x.leads)})</div>
+      </div>`;
+      }).join('')}
     </section>`;
   }).join('');
 
   const tablas = preguntasEncuesta().map((p) => {
     const rows = porRespuesta(state.leads, p);
     return `<h4 class="cfg-h4">${esc(p.name)}</h4><div class="table-scroll"><table class="metric-table">
-      <thead><tr><th>Respuesta</th><th class="num">Leads</th><th class="num">% de los leads</th><th class="num">VIP</th><th class="num">Ventas</th><th class="num">Conversión</th></tr></thead>
+      <thead><tr><th>Respuesta</th><th class="num">Personas</th><th class="num">% del total</th><th class="num">VIP</th><th class="num">Ventas</th><th class="num">% que compra</th></tr></thead>
       <tbody>${rows.map((x) => `<tr><td>${x.respuesta ? (x.otras ? `<span class="muted">${esc(x.respuesta)}</span>` : esc(x.respuesta)) : '<span class="muted">Sin respuesta</span>'}</td><td class="num">${x.leads}</td><td class="num">${pctOf(x.leads, total)}</td><td class="num">${x.vip} <span class="muted">${pctOf(x.vip, x.leads)}</span></td><td class="num">${x.compras}</td><td class="num big">${pctOf(x.compras, x.leads)}</td></tr>`).join('')}</tbody></table></div>`;
   }).join('');
 
-  box.innerHTML = `${resumen}${avatares}
-    <h3 class="av-h">Qué respuestas compran más</h3>
-    <p class="av-leyenda"><span class="sw l"></span> % de las leads <span class="sw c"></span> % de las ${quien} <span class="av-idx up">▲ ×1,5</span> compra 1,5 veces más que la media <span class="av-idx down">▼ ×0,6</span> compra menos</p>
+  box.innerHTML = `${toggle}${cifras}${resumen}${avatares}
+    <h3 class="av-h">Respuesta a respuesta</h3>
+    <p class="av-leyenda">De todas las que dieron cada respuesta, cuántas ${comprador}. La barra más larga es la que mejor convierte. <span class="av-tag t-mas">Compra más</span> <span class="av-tag t-igual">Como la media</span> <span class="av-tag t-menos">Compra menos</span> <span class="av-tag t-pocos">Aún pocas personas</span> (con tan pocas, aún no es fiable)</p>
     <div class="av-qs">${preguntas}</div>
-    <details class="av-tablas"><summary>Ver las tablas con todos los datos</summary>${tablas}</details>`;
+    <details class="av-tablas"><summary>Ver las tablas con todos los números</summary>${tablas}</details>`;
 }
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-avatar-obj]');

@@ -94,6 +94,10 @@ Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por Wh
 
 **Ficha completa del lead** (Hoy → Llamadas): al pulsar una llamada se abre una ventana con todo lo que ayuda a la setter antes de llamar: cuándo es la cita y su etapa, teléfono / WhatsApp / email, la **temperatura** (estado y puntuación sobre 100) y el siguiente paso, **qué ha hecho** (cada clase, VIP, directo y grabación, encuesta, si ya se le escribió, si compró), origen (publi / orgánico), tráfico frío / templado, avatar y días desde el registro, las **respuestas de la encuesta**, las **respuestas del formulario de reserva de la llamada y el resto de campos de su ficha de GHL**, y las últimas **notas** de GHL. Desde ahí se anota el resultado.
 
+### Avatares de compradoras en lenguaje sencillo
+
+Análisis → Avatar: arriba, las cifras de partida en frases («1850 personas registradas», «8 de cada 100 compra la VIP»); después «En pocas palabras», con las conclusiones escritas («Las que responden X compran casi el doble que la media»); los perfiles que más compran con frases en vez de índices; y, respuesta a respuesta, «X de Y personas compran» con una barra y una etiqueta en palabras (Compra más · Como la media · Compra menos · Aún pocas personas). Los textos salen de `public/js/avatares-texto.js`.
+
 ### Informe diario: CPL del día, CPL general y CAC
 
 - **Captación**: el email trae el **CPL de ayer** (lo gastado ayer en Meta ÷ registros de ayer; sin Meta, la inversión de ayer sale de la diferencia con la foto del día anterior) y el **CPL general** (inversión total ÷ registros totales), en las tarjetas, en «Publicidad» y en el asunto. Las tarjetas van de 3 en 3 (con 4, dos y dos) para que se lean en el móvil.
