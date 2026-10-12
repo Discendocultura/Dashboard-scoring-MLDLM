@@ -2658,7 +2658,7 @@ const AYUDA_VISTA = {
   dclientes: ['🛍️ Compradoras', 'Quién ha comprado en el periodo, qué extras se llevó y su WhatsApp. Filtra por un extra para ver, por ejemplo, quién cogió el upsell.'],
   anuncios: ['🎯 Crear anuncios', 'Anuncios con IA para cada objetivo del embudo (captación, retargeting de consumo, venta): copia el prompt (lleva los anuncios ganadores, la ficha de marca, avatar y producto y los datos del embudo), pégalo en Claude y él escribe los guiones y los copys y crea las imágenes y los vídeos con Magnific.'],
   paginas: ['🧱 Páginas', 'Las páginas del embudo hechas con IA: copia el prompt de cada página (lleva la marca, el avatar, los datos del embudo y los códigos del dashboard), pégalo en Claude y pega el HTML que te devuelva en un elemento «Código personalizado» de GHL.'],
-  claude: ['🧠 Claude', 'Lo que se hace con Claude y el conector «Dashboard Datos» (Agencia → Claude): el análisis del lanzamiento con mejoras concretas para el próximo y los accesos a los demás prompts del dashboard.'],
+  claude: ['🧠 Analizar con Claude', 'El análisis del lanzamiento con Claude y el conector «Dashboard Datos» (Agencia → Claude): copia el prompt, pégalo en Claude y te devuelve qué funcionó, el cuello de botella y mejoras concretas para el próximo.'],
   automatizaciones: ['⚙️ Automatizaciones', 'Los workflows de GHL del embudo. Si hay que crearlos de cero, cada uno trae su prompt para que Claude lo monte en GHL (en la carpeta del lanzamiento); marca su estado y pega su enlace al terminar.'],
   emailsia: ['✉️ Emails', 'La secuencia de emails del lanzamiento con IA: el calendario de envíos sale de las fechas reales; copia el prompt (con la ficha de marca, la narrativa y los asuntos que mejor funcionaron), pégalo en Claude y programa los emails en GHL.'],
   grupowa: ['💬 Grupo de WhatsApp', 'Los mensajes del grupo de este lanzamiento: copia el prompt, pégalo en Claude (con tu skill de copy), pega aquí su respuesta, sube los archivos, revisa y programa en SendFlow con un botón.'],
@@ -2693,7 +2693,7 @@ document.addEventListener('click', (e) => {
 });
 
 // Grupos de la barra de arriba, por momento de uso: Hoy (lo del día), Plan y Análisis.
-const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['claude', 'anuncios', 'paginas', 'automatizaciones', 'grupowa', 'emailsia', 'carrito', 'objetivos', 'calendario', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento'] };
+const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['anuncios', 'paginas', 'automatizaciones', 'grupowa', 'emailsia', 'carrito', 'objetivos', 'calendario', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento', 'claude'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
 const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', publicidad: 'megaphone' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
@@ -5811,39 +5811,19 @@ document.addEventListener('click', async (e) => {
   setTimeout(() => { b.textContent = '📋 Copiar el prompt'; }, 3500);
 });
 
-// ---------- Plan → 🧠 Claude: lo que se hace con Claude y el conector «Dashboard Datos» ----------
+// ---------- Análisis → 🧠 Analizar con Claude (con el conector «Dashboard Datos») ----------
 function renderClaude() {
   const box = $('#claude-body');
   if (!box) return;
   const a = analisisDatos();
   const generico = !a && !enVsl() && !enMeteo() && !enDirecta();
   const promptGen = generico ? promptAnalisis({ cliente: { id: state.cliente, nombre: clienteNombre() }, producto: nombreProducto(state.config) }) : '';
-  const atajo = (vista, icono, titulo, txt, extra = '') => (allowedViews().includes(vista) ? `<button type="button" class="cl-atajo" data-cl-ir="${vista}"${extra}><span class="cl-atajo-i">${icono}</span><span><strong>${titulo}</strong><small>${txt}</small></span></button>` : '');
-  box.innerHTML = `
-    ${a ? analisisCard() : generico ? `<section class="card an-ia"><div class="an-ia-txt"><h3>🧠 Análisis del lanzamiento con Claude</h3>
+  box.innerHTML = a ? analisisCard() : generico ? `<section class="card an-ia"><div class="an-ia-txt"><h3>🧠 Análisis del lanzamiento con Claude</h3>
       <p class="muted">Aún no hay ningún lanzamiento cerrado en este embudo con su fecha de cierre del carrito. Este prompt le pide a Claude que busque el último que haya cerrado y lo analice.</p></div>
-      <div class="an-ia-acc"><button type="button" class="btn primary" data-copiar-prompt="gen">📋 Copiar el prompt</button></div></section>` : ''}
-    <section class="card cl-hub">
-      <h3>Más cosas con Claude</h3>
-      <p class="muted small">Con el conector <strong>Dashboard Datos</strong> activado (Agencia → Claude), Claude lee él mismo los datos del dashboard.</p>
-      <div class="cl-atajos">
-        ${atajo('leads', '📝', 'Encuesta para copy', 'Patrones, lenguaje del avatar y ganchos', ' data-cl-msub="encuesta"')}
-        ${atajo('anuncios', '🎯', 'Narrativa y anuncios', 'La gran idea, guiones y copys')}
-        ${atajo('paginas', '🧱', 'Páginas', 'Un prompt por página')}
-        ${atajo('automatizaciones', '⚙️', 'Automatizaciones', 'Workflows de GHL con Claude')}
-        ${atajo('grupowa', '💬', 'Grupo de WhatsApp', 'Mensajes del calentamiento y carrito')}
-        ${atajo('emailsia', '✉️', 'Emails', 'La secuencia con sus fechas')}
-      </div>
-    </section>`;
+      <div class="an-ia-acc"><button type="button" class="btn primary" data-copiar-prompt="gen">📋 Copiar el prompt</button></div></section>` : '';
   box.dataset.promptGen = promptGen;
 }
 document.addEventListener('click', async (e) => {
-  const ir = e.target.closest('[data-cl-ir]');
-  if (ir) {
-    showView(ir.dataset.clIr);
-    if (ir.dataset.clMsub) setTimeout(() => $(`[data-msub-btn="${ir.dataset.clMsub}"]`)?.click(), 50);
-    return;
-  }
   const b = e.target.closest('[data-copiar-prompt="gen"]');
   if (!b) return;
   const ok = await copiarAlPortapapeles($('#claude-body').dataset.promptGen || '');
