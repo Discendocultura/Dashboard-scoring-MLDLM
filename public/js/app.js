@@ -50,6 +50,7 @@ import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa }
 import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, asuntosGanadores, promptEmails, ANGULOS_PREVIOS } from './emails-ia.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto, accesosDePaginas, conAccesos } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
+import { iniciarAnimaciones } from './animaciones.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -2934,6 +2935,8 @@ $$('.msubs').forEach((nav) => {
   pintarMsub(nav, ls.get(`lsd_${nav.id}`));
 });
 showView(VIEWS.includes(ls.get('lsd_view')) ? ls.get('lsd_view') : 'leads');
+// Movimiento: tarjetas que entran, barras que crecen, cifras que cuentan y onda al pulsar (public/js/animaciones.js).
+iniciarAnimaciones(document.body);
 
 const ESTADO_ICONS = { 'muy-caliente': 'flame', caliente: 'sun', templado: 'thermo', frio: 'snow' };
 

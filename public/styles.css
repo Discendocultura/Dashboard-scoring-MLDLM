@@ -3545,3 +3545,41 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .em-angulo.a-expectacion { background: color-mix(in srgb, #e07a1f 16%, var(--surface)); color: color-mix(in srgb, #e07a1f 70%, var(--text)); }
 .em-card.f-consciencia { border-left-color: #7c5cd6; }
 @media (max-width: 560px) { .em-panel .em-top, .em-bloque, .em-panel .em-leyenda, .em-previos { padding-left: 16px; padding-right: 16px; } .em-panel .em-stat { min-width: 0; flex: 1 1 40%; } }
+
+/* ---------- Movimiento (public/js/animaciones.js): entrada escalonada, barras que crecen, cifras y onda ---------- */
+@keyframes animEntra { from { opacity: 0; transform: translateY(10px) scale(.995); } to { opacity: 1; transform: none; } }
+@keyframes animVista { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes animBarra { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes animBarraV { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes animOnda { from { transform: scale(0); opacity: .35; } to { transform: scale(1); opacity: 0; } }
+@keyframes animCambio { 0% { color: inherit; } 30% { color: var(--accent); text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent); } 100% { color: inherit; } }
+@keyframes animBrillo { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+.con-anim .anim-in { animation: animEntra .5s cubic-bezier(.2, .75, .25, 1) backwards; animation-delay: calc(var(--anim-i, 0) * 45ms); }
+.con-anim .anim-espera { opacity: 0; }
+.con-anim .anim-barra { transform-origin: left center; animation: animBarra .9s cubic-bezier(.25, .8, .25, 1) .15s backwards; }
+.con-anim .anim-barra-v { transform-origin: center bottom; animation: animBarraV .7s cubic-bezier(.25, .8, .25, 1) backwards; animation-delay: calc(var(--anim-i, 0) * 25ms + .1s); }
+.con-anim .anim-cambio { animation: animCambio 1.1s ease; }
+/* Cambiar de vista, de subpestaña o de apartado: un fundido corto. */
+.con-anim main section[id^="view-"]:not([hidden]), .con-anim [data-msub]:not([hidden]), .con-anim dialog .tab-panel:not([hidden]) { animation: animVista .35s cubic-bezier(.2, .75, .25, 1) backwards; }
+
+/* Botones: se hunden un poco al pulsar y dejan una onda. */
+.con-anim .btn, .con-anim .tb-btn, .con-anim .subview-tab, .con-anim .em-fase, .con-anim .hoy-chip, .con-anim .hoy-temp { transition: transform .12s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease, color .2s ease, filter .2s ease; }
+.con-anim .btn:active:not(:disabled), .con-anim .tb-btn:active, .con-anim .subview-tab:active, .con-anim .em-fase:active, .con-anim .hoy-chip:active, .con-anim .hoy-temp:active { transform: scale(.97); }
+.con-anim .btn.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px -10px var(--accent); }
+.anim-con-onda { overflow: hidden; }
+.anim-onda { position: absolute; border-radius: 50%; pointer-events: none; background: currentColor; animation: animOnda .6s ease-out forwards; }
+
+/* Tarjetas que se pueden pulsar: se elevan al pasar por encima. */
+.con-anim .inicio-emb, .con-anim .kpi, .con-anim .em-card, .con-anim .cfg-pend-item, .con-anim .sb-item { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease; }
+.con-anim .kpi:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -20px rgb(0 0 0 / .45); }
+.con-anim .em-card:hover { transform: translateY(-1px); }
+
+/* «Cargando…»: brillo suave mientras llegan los datos. */
+.con-anim p.muted:only-child:is([aria-busy="true"], .cargando) { background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 12%, transparent), transparent) 0 0 / 200% 100%; animation: animBrillo 1.6s linear infinite; border-radius: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .con-anim .anim-in, .con-anim .anim-barra, .con-anim .anim-barra-v, .con-anim .anim-cambio, .con-anim main section[id^="view-"], .con-anim [data-msub], .con-anim dialog .tab-panel { animation: none !important; }
+  .con-anim .anim-espera { opacity: 1; }
+  .anim-onda { display: none; }
+}
