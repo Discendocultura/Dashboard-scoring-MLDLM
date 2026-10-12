@@ -5,6 +5,7 @@
 //     llamar(body | null) → datos (null = leer): { respuestas, productos, docs, asistente, progreso }
 import { pasosAsistente, PASOS_POR_PRODUCTO, faltanEnPaso, faltanObligatorias, preguntaDe, nombreDeProducto, MAX_PRODUCTOS, MAX_DOCS } from './marca.js';
 import { pintarCampos, autoguardado, destinoDeBase, extraerTexto, extDe, ACCEPT_DOCS } from './marca-form.js';
+import { lanzarConfeti } from './confeti.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -53,7 +54,14 @@ export async function montarAsistente(raiz, { llamar, clienteNombre = '', docsAc
     $('.as-foot').hidden = false;
     if (i < 0) {
       $('.as-foot').hidden = true;
-      main.innerHTML = `<section class="as-paso as-centro"><h2>¡Gracias! 🎉</h2><p>Ya tenemos todo lo que necesitamos para que tus páginas, emails y mensajes suenen a ti y hablen a tu cliente ideal.</p><p class="muted">Si quieres cambiar algo más adelante, díselo a tu equipo.</p>${alTerminar ? '<p><button type="button" class="btn primary" data-as="entrar">Continuar →</button></p>' : '<p class="muted">Ya puedes cerrar esta página.</p>'}</section>`;
+      const marca = datos.respuestas?.nombre || clienteNombre;
+      main.innerHTML = `<section class="as-paso as-centro mp-fin as-fin">
+        <div class="mp-fin-emoji" aria-hidden="true">🎉</div>
+        <h2>¡Lo tienes! ${marca ? `«${esc(marca)}» ya tiene su voz` : 'Tu marca ya tiene su voz'}</h2>
+        <p class="mp-fin-sub">Acabas de hacer lo que más se nota en un lanzamiento: contarnos quién eres, qué vendes y a quién. Con esto, <strong>tus páginas, emails, WhatsApp y anuncios</strong> sonarán a ti y le hablarán directamente a tu cliente ideal, desde el primer borrador.</p>
+        <ul class="mp-fin-chips"><li>🏷️ Tu marca y tu tono</li><li>📦 ${datos.productos.length} producto${datos.productos.length === 1 ? '' : 's'}</li><li>👩 Tu cliente ideal</li></ul>
+        <p class="muted">¿Cambia algo más adelante (un precio, un bonus, frases nuevas de tus clientas)? Díselo a tu equipo y lo actualizamos.</p>
+        ${alTerminar ? '<p><button type="button" class="btn primary" data-as="entrar">Entrar al dashboard →</button></p>' : '<p class="muted">Ya puedes cerrar esta página. ¡Gracias!</p>'}</section>`;
       return;
     }
     const p = paso();
@@ -129,6 +137,7 @@ export async function montarAsistente(raiz, { llamar, clienteNombre = '', docsAc
         datos = await llamar({ op: 'terminar' });
         i = -1;
         pintar();
+        fiesta();
       } catch (e) {
         aviso(e.message);
         pintar();
@@ -182,6 +191,16 @@ export async function montarAsistente(raiz, { llamar, clienteNombre = '', docsAc
   raiz.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target.matches('.as-main input[type=text], .as-main input[type=url]') && !e.target.closest('form')) { e.preventDefault(); siguiente(); }
   });
+
+  // Confeti a pantalla completa al terminar.
+  function fiesta() {
+    const c = document.createElement('canvas');
+    c.className = 'fiesta-confeti';
+    c.setAttribute('aria-hidden', 'true');
+    (raiz.closest('dialog') || document.body).appendChild(c);
+    lanzarConfeti(c, { sigue: () => c.isConnected });
+    setTimeout(() => c.remove(), 4000);
+  }
 
   pintar();
   return { guardar: () => saver.vaciar() };

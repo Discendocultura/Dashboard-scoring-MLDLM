@@ -94,6 +94,18 @@ Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por Wh
 
 **Ficha completa del lead** (Hoy → Llamadas): al pulsar una llamada se abre una ventana con todo lo que ayuda a la setter antes de llamar: cuándo es la cita y su etapa, teléfono / WhatsApp / email, la **temperatura** (estado y puntuación sobre 100) y el siguiente paso, **qué ha hecho** (cada clase, VIP, directo y grabación, encuesta, si ya se le escribió, si compró), origen (publi / orgánico), tráfico frío / templado, avatar y días desde el registro, las **respuestas de la encuesta**, las **respuestas del formulario de reserva de la llamada y el resto de campos de su ficha de GHL**, y las últimas **notas** de GHL. Desde ahí se anota el resultado.
 
+### Marca, producto y avatar como proceso (Cuenta → Marca y avatar)
+
+Ya no son pestañas mezcladas: es un proceso por etapas, como la configuración de los embudos (`pasosEquipo` y `estadoProceso` en `public/js/marca.js`, panel en `public/js/marca-panel.js`):
+
+1. **La marca**: identidad, tono y estilo visual.
+2. **Producto y avatar**: por cada producto, su oferta y su cliente ideal (＋ para añadir otro).
+3. **Documentos** (opcional).
+4. **Ficha con Claude** de cada producto.
+5. **Embudos**: qué vende cada uno (con un solo producto, ya está).
+
+A la izquierda (arriba en el móvil), el carril con cada paso: ✓ hecho, cuántas preguntas van respondidas y un anillo con el progreso total. Cada paso se abre con su cabecera (etapa, paso N de M, anillo del paso), entra deslizándose y el paso que se completa hace «pop». Abajo, «Siguiente: …». Al final, si falta algo, la lista de lo que queda (pulsando se va directo); si está todo, **confeti** y un resumen de lo que ya sale con la voz de la marca. El enlace para el cliente queda plegado arriba («Que lo rellene el cliente»). El cuestionario del cliente también termina con confeti. El confeti está en `public/js/confeti.js` (lo usa también «¡Enhorabuena!» al crear un embudo).
+
 ### Avatares de compradoras en lenguaje sencillo
 
 Análisis → Avatar: arriba, las cifras de partida en frases («1850 personas registradas», «8 de cada 100 compra la VIP»); después «En pocas palabras», con las conclusiones escritas («Las que responden X compran casi el doble que la media»); los perfiles que más compran con frases en vez de índices; y, respuesta a respuesta, «X de Y personas compran» con una barra y una etiqueta en palabras (Compra más · Como la media · Compra menos · Aún pocas personas). Los textos salen de `public/js/avatares-texto.js`.

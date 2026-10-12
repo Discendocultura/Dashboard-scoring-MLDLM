@@ -309,3 +309,49 @@ export function faltanObligatorias(m) {
   return pasosAsistente(m).flatMap((paso) => faltanEnPaso(m, paso).map((q) => ({ paso: paso.id, titulo: paso.titulo, label: q.label })));
 }
 export const asistenteCompleto = (m) => Boolean(m?.asistente?.completado);
+
+// ---- Proceso del equipo (Cuenta → Marca y avatar) ----
+// Las etapas, en orden, como en la configuración de los embudos: 1 la marca, 2 cada producto con su avatar,
+// 3 los documentos (opcional), 4 la ficha de cada producto (con Claude) y 5 qué vende cada embudo. Al final, «¡Lista!».
+//   → [{ id, etapa, etapaTitulo, icono, titulo, sub, tipo, seccion?, productoId?, estado, hechas, total, opcional }]
+//   estado: 'hecho' | 'empezado' | 'pendiente' (los opcionales sin nada: 'opcional').
+export const ETAPAS_MARCA = [
+  { n: 1, id: 'marca', titulo: 'La marca', icono: '🏷️' },
+  { n: 2, id: 'productos', titulo: 'Producto y avatar', icono: '📦' },
+  { n: 3, id: 'docs', titulo: 'Documentos', icono: '📄' },
+  { n: 4, id: 'ficha', titulo: 'Ficha con Claude', icono: '✨' },
+  { n: 5, id: 'embudos', titulo: 'Embudos', icono: '🧭' },
+];
+const estadoSeccion = (s, r) => {
+  const hechas = s.preguntas.filter((q) => !vacia(r?.[q.id])).length;
+  const faltan = s.preguntas.filter((q) => !q.opcional && vacia(r?.[q.id])).length;
+  return { hechas, total: s.preguntas.length, estado: !faltan ? 'hecho' : hechas ? 'empezado' : 'pendiente' };
+};
+const SUB_SECCION = { identidad: 'Quién eres, tu historia y lo que defiendes', tono: 'Cómo suenan tus textos', diseno: 'Colores, tipografías, logo y fotos', oferta: 'Qué vendes, la promesa y el método', avatar: 'Quién compra: dolores, deseos y frases' };
+export function pasosEquipo(m, embudos = []) {
+  const out = [];
+  for (const s of SECCIONES_MARCA) out.push({ id: `m:${s.id}`, etapa: 'marca', tipo: 'seccion', ambito: 'marca', seccion: s.id, icono: s.icono, titulo: s.titulo, sub: SUB_SECCION[s.id] || '', ...estadoSeccion(s, m?.respuestas) });
+  const prods = m?.productos || [];
+  prods.forEach((p, i) => {
+    for (const s of SECCIONES_PRODUCTO) {
+      out.push({ id: `p:${p.id}:${s.id}`, etapa: 'productos', tipo: 'seccion', ambito: 'producto', seccion: s.id, productoId: p.id, icono: s.icono,
+        titulo: s.id === 'oferta' ? nombreDeProducto(p, i) : `Avatar de ${nombreDeProducto(p, i)}`, sub: SUB_SECCION[s.id] || '', ...estadoSeccion(s, p.respuestas) });
+    }
+  });
+  if (!prods.length) out.push({ id: 'p:nuevo', etapa: 'productos', tipo: 'producto-nuevo', icono: '📦', titulo: 'Tu primer producto', sub: 'Lo que vendes y a quién', estado: 'pendiente', hechas: 0, total: 1 });
+  const nDocs = m?.docs?.length || 0;
+  out.push({ id: 'docs', etapa: 'docs', tipo: 'docs', icono: '📄', titulo: 'Documentos', sub: 'Estudios, encuestas, testimonios…', opcional: true, estado: nDocs ? 'hecho' : 'opcional', hechas: nDocs, total: nDocs });
+  prods.forEach((p, i) => out.push({ id: `f:${p.id}`, etapa: 'ficha', tipo: 'ficha', productoId: p.id, icono: '✨', titulo: `Ficha de ${nombreDeProducto(p, i)}`, sub: 'El resumen que usan todos los prompts', estado: p.ficha ? 'hecho' : 'pendiente', hechas: p.ficha ? 1 : 0, total: 1 }));
+  if (!prods.length) out.push({ id: 'f:', etapa: 'ficha', tipo: 'ficha', icono: '✨', titulo: 'Ficha de marca y avatar', sub: 'Cuando haya un producto', estado: 'pendiente', hechas: 0, total: 1 });
+  // Embudos: con un solo producto no hay nada que elegir; con varios, cada embudo con el suyo.
+  const sinElegir = prods.length > 1 ? embudos.filter((e) => !m?.embudos?.[e.id]).length : 0;
+  out.push({ id: 'embudos', etapa: 'embudos', tipo: 'embudos', icono: '🧭', titulo: 'Qué vende cada embudo', sub: prods.length > 1 ? 'Elige el producto de cada embudo' : 'Con un producto, todos venden ese', estado: !prods.length ? 'pendiente' : sinElegir ? 'empezado' : 'hecho', hechas: embudos.length - sinElegir, total: embudos.length });
+  const ETAPA = Object.fromEntries(ETAPAS_MARCA.map((e) => [e.id, e]));
+  return out.map((x) => ({ opcional: false, ...x, etapaN: ETAPA[x.etapa].n, etapaTitulo: ETAPA[x.etapa].titulo }));
+}
+// ¿Está todo? → { lista, hechos, total, pct, faltan: [paso] } (los opcionales no cuentan).
+export function estadoProceso(pasos) {
+  const cuentan = pasos.filter((p) => !p.opcional);
+  const hechos = cuentan.filter((p) => p.estado === 'hecho').length;
+  return { lista: hechos === cuentan.length && cuentan.length > 0, hechos, total: cuentan.length, pct: cuentan.length ? Math.round((hechos / cuentan.length) * 100) : 0, faltan: cuentan.filter((p) => p.estado !== 'hecho') };
+}

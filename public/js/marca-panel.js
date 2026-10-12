@@ -1,8 +1,10 @@
-// Panel «🎨 Marca y avatar» del dashboard (Cuenta → Marca y avatar): el cuestionario del cliente, sus
-// productos, documentos, la ficha de cada producto y qué producto vende cada embudo. Además, la caché
-// que usan los prompts (WhatsApp, páginas) para leer la marca.
-import { SECCIONES_MARCA, SECCIONES_PRODUCTO, MAX_PRODUCTOS, MAX_DOCS, nombreDeProducto, progreso, promptFicha, productoDeEmbudo, pasosAsistente } from './marca.js';
-import { pintarSecciones, autoguardado, destinoDeBase, extraerTexto, extDe, ACCEPT_DOCS } from './marca-form.js';
+// Panel «🎨 Marca y avatar» del dashboard (Cuenta → Marca y avatar), como un proceso por etapas (igual que la
+// configuración de los embudos): 1 la marca, 2 cada producto con su avatar, 3 documentos, 4 la ficha de cada
+// producto con Claude y 5 qué vende cada embudo; al terminar, confeti. Además, la caché que usan los prompts
+// (WhatsApp, páginas) para leer la marca.
+import { SECCIONES_MARCA, SECCIONES_PRODUCTO, MAX_PRODUCTOS, MAX_DOCS, nombreDeProducto, progreso, promptFicha, productoDeEmbudo, pasosAsistente, pasosEquipo, estadoProceso, ETAPAS_MARCA } from './marca.js';
+import { pintarCampos, autoguardado, destinoDeBase, extraerTexto, extDe, ACCEPT_DOCS } from './marca-form.js';
+import { lanzarConfeti } from './confeti.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fecha = (iso) => (iso ? new Date(iso).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
@@ -32,8 +34,10 @@ const llamarApi = (path, opts = {}) => ctx.api(path, { ...opts, cliente: ctx.cli
 let m = null;
 let prog = null;
 let docsActivos = true;
-let tab = 'marca';
+let paso = ''; // id del paso abierto ('fin' = el final)
+let dir = 1; // hacia dónde se mueve (para la animación)
 let saver = null;
+let listaAntes = false;
 
 const raiz = () => ctx.dialog.querySelector('#mk-body');
 const estado = (txt, error = false) => { const el = ctx.dialog.querySelector('#mk-estado'); el.textContent = txt; el.classList.toggle('error', error); };
@@ -60,7 +64,7 @@ export async function abrirPanelMarca(opts) {
     sel.addEventListener('change', async () => {
       await saver?.vaciar();
       const c = ctx.clientes.find((x) => x.id === sel.value);
-      tab = 'marca';
+      paso = '';
       abrirPanelMarca({ ...ctx, cliente: c.id, clienteNombre: c.nombre, embudos: c.id === ctx.clienteInicial ? ctx.embudosInicial : [] });
     });
   }
@@ -78,21 +82,28 @@ export async function abrirPanelMarca(opts) {
   if (!saver) {
     saver = autoguardado(raiz(), async ({ base, campos }) => {
       await post({ op: 'campos', ...destinoDeBase(base), campos });
-      pintarCabecera();
-      actualizarContadores();
+      refrescar();
     }, estado);
     dlg.addEventListener('close', () => saver.vaciar());
     dlg.addEventListener('click', onClick);
     dlg.addEventListener('change', onChange);
     dlg.addEventListener('submit', onSubmit);
   }
-  if (tab.startsWith('p:') && !m.productos.some((p) => `p:${p.id}` === tab)) tab = 'marca';
+  // Se abre por el primer paso sin terminar (o en el final si ya está todo).
+  const ps = pasos();
+  const est = estadoProceso(ps);
+  listaAntes = est.lista;
+  if (!paso || (paso !== 'fin' && !ps.some((p) => p.id === paso))) paso = est.lista ? 'fin' : (est.faltan[0] || ps[0]).id;
   pintar();
 }
 
+const pasos = () => pasosEquipo(m, ctx.embudos || []);
+const orden = () => [...pasos().map((p) => p.id), 'fin'];
+
 function pintarCabecera() {
-  ctx.dialog.querySelector('#mk-prog-bar').style.width = `${prog.pct}%`;
-  ctx.dialog.querySelector('#mk-prog-txt').textContent = `${prog.pct} % completado`;
+  const est = estadoProceso(pasos());
+  ctx.dialog.querySelector('#mk-prog-bar').style.width = `${est.pct}%`;
+  ctx.dialog.querySelector('#mk-prog-txt').textContent = est.lista ? '🎉 ¡Todo listo!' : `${est.hechos} de ${est.total} pasos · ${prog.pct} % de las preguntas respondidas`;
 }
 
 function asistenteHtml() {
@@ -106,34 +117,171 @@ function asistenteHtml() {
 function enlaceHtml() {
   const url = m.token ? `${location.origin}/marca.html?c=${encodeURIComponent(ctx.cliente)}&t=${m.token}` : '';
   if (!ctx.puedeEditar) return asistenteHtml();
-  return `${asistenteHtml()}<section class="mk-enlace"><div><strong>🔗 Enlace para el cliente</strong><span class="muted small">Lo rellena sin cuenta y se guarda solo. Lo que escribáis vosotros aquí también lo verá.</span></div>
+  const a = m.asistente || {};
+  return `<details class="mp-cliente"><summary><span>🔗 Que lo rellene el cliente</span><small class="muted">${a.completado ? '✅ Lo terminó' : url ? '⏳ Enlace activo' : 'Sin enlace'}</small></summary>${asistenteHtml()}<section class="mk-enlace"><div><strong>🔗 Enlace para el cliente</strong><span class="muted small">Lo rellena sin cuenta y se guarda solo. Lo que escribáis vosotros aquí también lo verá.</span></div>
     ${url ? `<div class="copy-row"><code>${esc(url)}</code><button type="button" class="btn primary" data-copy-text="${esc(url)}">Copiar</button></div>
       <div class="mk-enlace-acc"><button type="button" class="btn ghost" data-mk="enlace-nuevo">Crear otro (el actual deja de valer)</button><button type="button" class="btn ghost" data-mk="enlace-off">Desactivar</button></div>`
     : '<button type="button" class="btn primary" data-mk="enlace-nuevo">Crear enlace para el cliente</button>'}
+  </section></details>`;
+}
+
+// ---- El proceso ----
+const anillo = (pct, txt = '') => `<span class="mp-anillo" style="--p:${Math.max(0, Math.min(100, pct))}"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15.5" class="f"/><circle cx="18" cy="18" r="15.5" class="v" pathLength="100" style="stroke-dashoffset:${100 - Math.max(0, Math.min(100, pct))}"/></svg><b>${txt}</b></span>`;
+const marcaNombre = () => m.respuestas?.nombre || ctx.clienteNombre || 'tu marca';
+
+function railHtml() {
+  const ps = pasos();
+  const est = estadoProceso(ps);
+  const grupos = ETAPAS_MARCA.map((e) => {
+    const de = ps.filter((p) => p.etapa === e.id);
+    const ok = de.every((p) => p.estado === 'hecho' || p.opcional);
+    return `<li class="mp-etapa${ok ? ' ok' : ''}">
+      <p class="mp-etapa-t"><span class="mp-etapa-n">${ok ? '✓' : e.n}</span>${esc(e.titulo)}${e.id === 'docs' ? ' <small>opcional</small>' : ''}</p>
+      <ol>${de.map((p) => `<li><button type="button" class="mp-paso-btn est-${p.estado}${p.id === paso ? ' on' : ''}" data-mp-ir="${esc(p.id)}">
+        <span class="mp-dot">${p.estado === 'hecho' ? '✓' : p.icono}</span><span class="mp-paso-t">${esc(p.titulo)}<small>${p.estado === 'hecho' ? 'Hecho' : p.estado === 'opcional' ? 'Opcional' : p.tipo === 'seccion' ? `${p.hechas} de ${p.total} respondidas` : 'Pendiente'}</small></span></button></li>`).join('')}
+        ${e.id === 'productos' && ctx.puedeEditar && m.productos.length && m.productos.length < MAX_PRODUCTOS ? `<li><button type="button" class="mp-paso-btn mp-add" data-mp-ir="p:nuevo"><span class="mp-dot">＋</span><span class="mp-paso-t">Añadir otro producto<small>Con su propia oferta y avatar</small></span></button></li>` : ''}
+      </ol></li>`;
+  }).join('');
+  return `<div class="mp-rail-top">${anillo(est.pct, `${est.pct}%`)}<div><strong>${est.lista ? '¡Marca lista!' : 'Tu progreso'}</strong><span>${est.hechos} de ${est.total} pasos</span></div></div>
+    <ol class="mp-etapas">${grupos}
+      <li class="mp-etapa mp-etapa-fin${est.lista ? ' ok' : ''}"><button type="button" class="mp-paso-btn mp-fin-btn${paso === 'fin' ? ' on' : ''}${est.lista ? ' listo' : ''}" data-mp-ir="fin"><span class="mp-dot">🎉</span><span class="mp-paso-t">${est.lista ? '¡Todo listo!' : 'El final'}<small>${est.lista ? 'Ver el resumen' : `Faltan ${est.total - est.hechos}`}</small></span></button></li>
+    </ol>`;
+}
+
+function heroHtml(p, i, n) {
+  const pct = p.tipo === 'seccion' ? Math.round((p.hechas / Math.max(1, p.total)) * 100) : p.estado === 'hecho' ? 100 : 0;
+  const intro = p.tipo === 'seccion' ? (p.ambito === 'marca' ? SECCIONES_MARCA : SECCIONES_PRODUCTO).find((s) => s.id === p.seccion)?.intro : '';
+  return `<header class="mp-hero">
+    <span class="mp-hero-ico" aria-hidden="true">${p.icono}</span>
+    <div class="mp-hero-t"><span class="mp-kicker">Etapa ${p.etapaN} · ${esc(p.etapaTitulo)} — paso ${i + 1} de ${n}</span><h3>${esc(p.titulo)}</h3><p>${esc(intro || p.sub)}</p></div>
+    ${p.tipo === 'seccion' ? anillo(pct, `${p.hechas}/${p.total}`) : `<span class="mp-estado est-${p.estado}">${p.estado === 'hecho' ? '✓ Hecho' : p.estado === 'opcional' ? 'Opcional' : 'Pendiente'}</span>`}
+  </header>`;
+}
+
+function cuerpoPaso(p) {
+  if (p.tipo === 'seccion') {
+    const prod = p.ambito === 'producto' ? m.productos.find((x) => x.id === p.productoId) : null;
+    const sec = (p.ambito === 'marca' ? SECCIONES_MARCA : SECCIONES_PRODUCTO).find((s) => s.id === p.seccion);
+    const base = prod ? `producto:${prod.id}` : 'marca';
+    return `${pintarCampos(sec.preguntas, prod ? prod.respuestas : m.respuestas, base, { filas: 3 })}
+      ${prod && p.seccion === 'oferta' && ctx.puedeEditar ? `<p class="mk-borrar"><button type="button" class="btn ghost danger" data-mk="producto-borrar" data-id="${esc(prod.id)}">Borrar este producto</button></p>` : ''}`;
+  }
+  if (p.tipo === 'producto-nuevo') {
+    return `<form class="mk-nuevo mp-nuevo" data-mk-form="producto"><label class="field"><span>Nombre del producto</span><input name="nombre" required maxlength="120" placeholder="Raíces"></label><button class="btn primary">＋ Añadir producto</button></form>
+      <p class="muted small">Uno por cada producto con su propia oferta o su propio cliente ideal. Después rellenarás su oferta y su avatar.</p>`;
+  }
+  if (p.tipo === 'docs') return docsHtml();
+  if (p.tipo === 'ficha') {
+    const i = m.productos.findIndex((x) => x.id === p.productoId);
+    return i < 0 ? '<p class="muted">Añade primero un producto en la etapa 2.</p>' : fichaHtml(m.productos[i], i);
+  }
+  if (p.tipo === 'embudos') return embudosHtml();
+  return '';
+}
+
+function finHtml() {
+  const ps = pasos();
+  const est = estadoProceso(ps);
+  if (!est.lista) {
+    return `<section class="mp-fin pendiente">
+      <div class="mp-fin-emoji" aria-hidden="true">🧩</div>
+      <h3>Ya casi está: ${est.hechos} de ${est.total} pasos</h3>
+      <p>Te ${est.faltan.length === 1 ? 'queda' : 'quedan'} ${est.faltan.length} para que «${esc(marcaNombre())}» esté lista. Pulsa cada uno para ir directo:</p>
+      <ul class="mp-faltan">${est.faltan.map((p) => `<li><button type="button" data-mp-ir="${esc(p.id)}"><span>${p.icono}</span><span><strong>${esc(p.titulo)}</strong><small>Etapa ${p.etapaN} · ${esc(p.etapaTitulo)}${p.tipo === 'seccion' ? ` · ${p.hechas} de ${p.total} respondidas` : ''}</small></span><span aria-hidden="true">→</span></button></li>`).join('')}</ul>
+    </section>`;
+  }
+  const nP = m.productos.length;
+  return `<section class="mp-fin">
+    <div class="mp-fin-emoji" aria-hidden="true">🎉</div>
+    <p class="mp-kicker">Marca, producto y avatar completos</p>
+    <h3>¡«${esc(marcaNombre())}» ya tiene voz, oferta y cliente ideal!</h3>
+    <p class="mp-fin-sub">Has hecho la parte que más se nota. Desde ahora, <strong>cada página, email, WhatsApp y anuncio</strong> que prepares en el dashboard sonará a ${esc(marcaNombre())} y le hablará directamente a quien de verdad compra. Menos reescribir, más vender.</p>
+    <ul class="mp-fin-chips"><li>🏷️ Marca y tono</li><li>📦 ${nP} producto${nP === 1 ? '' : 's'} con su avatar</li><li>✨ ${nP} ficha${nP === 1 ? '' : 's'} para los prompts</li>${m.docs.length ? `<li>📄 ${m.docs.length} documento${m.docs.length === 1 ? '' : 's'}</li>` : ''}</ul>
+    <h4>Lo que ya sale con tu voz</h4>
+    <div class="mp-fin-usos">
+      <div><span>🧱</span><strong>Páginas del embudo</strong><small>Plan → Páginas</small></div>
+      <div><span>✉️</span><strong>Emails</strong><small>Plan → Emails</small></div>
+      <div><span>💬</span><strong>WhatsApp</strong><small>Plan → Grupo de WhatsApp</small></div>
+      <div><span>🎯</span><strong>Anuncios</strong><small>Plan → Anuncios</small></div>
+    </div>
+    <p class="muted small">¿Cambia algo (un precio, un bonus, frases nuevas de tus clientas)? Vuelve a su paso: se guarda solo. Si cambia algo importante, rehaz la ficha en la etapa 4.</p>
+    <p><button type="button" class="btn primary" data-mp-fiesta>🎊 Celebrarlo otra vez</button></p>
   </section>`;
 }
 
-function tabsHtml() {
-  const t = (id, txt) => `<button type="button" class="mk-tab${tab === id ? ' active' : ''}" data-mk-tab="${esc(id)}">${txt}</button>`;
-  return `<nav class="mk-tabs" role="tablist">${t('marca', '🏷️ Marca')}${m.productos.map((p, i) => t(`p:${p.id}`, `📦 ${esc(nombreDeProducto(p, i))}${p.ficha ? ' <span class="mk-ok" title="Con ficha">✓</span>' : ''}`)).join('')}${ctx.puedeEditar && m.productos.length < MAX_PRODUCTOS ? t('nuevo', '＋ Producto') : ''}${t('docs', `📄 Documentos (${m.docs.length})`)}${t('embudos', '🧭 Embudos')}</nav>`;
+function navHtml(i, ids) {
+  const ps = pasos();
+  const ant = ids[i - 1];
+  const sig = ids[i + 1];
+  const titulo = (id) => (id === 'fin' ? (estadoProceso(ps).lista ? '🎉 ¡Terminar!' : 'Ver lo que falta') : ps.find((p) => p.id === id)?.titulo || '');
+  return `<footer class="mp-nav">
+    ${ant ? `<button type="button" class="btn ghost" data-mp-ir="${esc(ant)}">← ${esc(titulo(ant))}</button>` : '<span></span>'}
+    ${sig ? `<button type="button" class="btn primary${sig === 'fin' && estadoProceso(ps).lista ? ' mp-brilla' : ''}" data-mp-ir="${esc(sig)}">${sig === 'fin' ? esc(titulo(sig)) : `Siguiente: ${esc(titulo(sig))} →`}</button>` : ''}
+  </footer>`;
 }
 
 function pintar() {
   pintarCabecera();
   ctx.dialog.querySelector('#mk-enlace').innerHTML = enlaceHtml();
-  let cuerpo = '';
-  if (tab === 'marca') cuerpo = pintarSecciones(SECCIONES_MARCA, m.respuestas, 'marca', { abiertas: true });
-  else if (tab === 'nuevo') cuerpo = `<form class="mk-nuevo" data-mk-form="producto"><label class="field"><span>Nombre del producto</span><input name="nombre" required maxlength="120" placeholder="Raíces"></label><button class="btn primary">Añadir producto</button><p class="muted small">Uno por cada producto con su propia oferta o su propio cliente ideal. Cada embudo elige el suyo en «🧭 Embudos».</p></form>`;
-  else if (tab === 'docs') cuerpo = docsHtml();
-  else if (tab === 'embudos') cuerpo = embudosHtml();
-  else {
-    const i = m.productos.findIndex((p) => `p:${p.id}` === tab);
-    const p = m.productos[i];
-    cuerpo = `${fichaHtml(p, i)}${pintarSecciones(SECCIONES_PRODUCTO, p.respuestas, `producto:${p.id}`, { abiertas: true })}
-      ${ctx.puedeEditar ? `<p class="mk-borrar"><button type="button" class="btn ghost danger" data-mk="producto-borrar" data-id="${esc(p.id)}">Borrar este producto</button></p>` : ''}`;
+  const ps = pasos();
+  const ids = orden();
+  if (!ids.includes(paso)) paso = ids[0];
+  const i = ids.indexOf(paso);
+  const p = ps.find((x) => x.id === paso);
+  const contenido = paso === 'fin' ? finHtml() : `${heroHtml(p, i, ps.length)}<div class="mp-cuerpo${ctx.puedeEditar ? '' : ' mk-solo-leer'}">${cuerpoPaso(p)}</div>`;
+  raiz().innerHTML = `<div class="mp">
+    <aside class="mp-rail" aria-label="Pasos">${railHtml()}</aside>
+    <section class="mp-main"><div class="mp-paso ${dir < 0 ? 'mp-entra-izq' : 'mp-entra-der'}" data-mp-paso="${esc(paso)}">${contenido}</div>${navHtml(i, ids)}</section>
+  </div>`;
+  if (!ctx.puedeEditar) raiz().querySelectorAll('.mp-cuerpo input, .mp-cuerpo textarea, .mp-cuerpo select').forEach((el) => { el.disabled = true; });
+  centrarPasoActivo();
+  if (paso === 'fin' && estadoProceso(ps).lista) fiesta();
+}
+
+// Tras guardar: el carril, la barra y el anillo del paso (sin repintar lo que se está escribiendo).
+function refrescar() {
+  pintarCabecera();
+  const ps = pasos();
+  const est = estadoProceso(ps);
+  const rail = raiz().querySelector('.mp-rail');
+  if (rail) {
+    const antes = new Map([...rail.querySelectorAll('[data-mp-ir]')].map((b) => [b.dataset.mpIr, b.className]));
+    rail.innerHTML = railHtml();
+    // El paso que se acaba de completar hace «pop».
+    for (const b of rail.querySelectorAll('.est-hecho')) if (antes.has(b.dataset.mpIr) && !antes.get(b.dataset.mpIr).includes('est-hecho')) b.classList.add('mp-pop');
   }
-  raiz().innerHTML = `${tabsHtml()}<div class="mk-panel${ctx.puedeEditar ? '' : ' mk-solo-leer'}">${cuerpo}</div>`;
-  if (!ctx.puedeEditar) raiz().querySelectorAll('input, textarea, select').forEach((el) => { if (!el.closest('.mk-tabs')) el.disabled = true; });
+  const p = ps.find((x) => x.id === paso);
+  const hero = raiz().querySelector('.mp-hero');
+  if (p && hero) hero.outerHTML = heroHtml(p, orden().indexOf(paso), ps.length);
+  const nav = raiz().querySelector('.mp-nav');
+  if (nav) nav.outerHTML = navHtml(orden().indexOf(paso), orden());
+  // Justo se ha completado lo último: aviso con brillo en «Terminar».
+  if (est.lista && !listaAntes) estado('🎉 ¡Todo completo! Pulsa «Terminar»');
+  listaAntes = est.lista;
+}
+
+// El paso abierto, a la vista en el carril (sin mover el resto de la pantalla).
+function centrarPasoActivo() {
+  const rail = raiz().querySelector('.mp-rail');
+  const on = rail?.querySelector('.on');
+  if (!on) return;
+  const tira = rail.querySelector('.mp-etapas');
+  if (tira.scrollWidth > tira.clientWidth + 2) tira.scrollLeft = on.getBoundingClientRect().left - tira.getBoundingClientRect().left + tira.scrollLeft - (tira.clientWidth - on.offsetWidth) / 2;
+  else if (rail.scrollHeight > rail.clientHeight + 2) rail.scrollTop = on.getBoundingClientRect().top - rail.getBoundingClientRect().top + rail.scrollTop - rail.clientHeight / 2;
+}
+
+async function ir(id) {
+  await saver?.vaciar();
+  const ids = orden();
+  dir = ids.indexOf(id) >= ids.indexOf(paso) ? 1 : -1;
+  paso = id;
+  pintar();
+  ctx.dialog.querySelector('.dialog-body')?.scrollTo?.({ top: 0, behavior: 'smooth' });
+}
+
+function fiesta() {
+  const c = ctx.dialog.querySelector('#mk-confeti');
+  if (c) lanzarConfeti(c, { sigue: () => ctx.dialog.open });
 }
 
 function fichaHtml(p, i) {
@@ -166,19 +314,10 @@ function embudosHtml() {
     <div class="mk-embudos">${ctx.embudos.map((e) => `<label class="field inline"><span>${esc(e.nombre)}</span><select data-mk-embudo="${esc(e.id)}">${m.productos.map((p, i) => `<option value="${esc(p.id)}"${productoDeEmbudo(m, e.id)?.id === p.id ? ' selected' : ''}>${esc(nombreDeProducto(p, i))}</option>`).join('')}</select></label>`).join('') || '<p class="muted">Este cliente aún no tiene embudos.</p>'}</div>`;
 }
 
-function actualizarContadores() {
-  for (const det of raiz().querySelectorAll('.mq-sec')) {
-    const campos = [...det.querySelectorAll('[data-mq]')];
-    const hechas = campos.filter((el) => (el.matches('fieldset') ? el.querySelector('input:checked') : el.value.trim())).length;
-    const pr = det.querySelector('.mq-sec-prog');
-    pr.textContent = `${hechas}/${campos.length}`;
-    pr.classList.toggle('ok', hechas === campos.length);
-  }
-}
-
 async function onClick(e) {
-  const tb = e.target.closest('[data-mk-tab]');
-  if (tb) { await saver.vaciar(); tab = tb.dataset.mkTab; pintar(); return; }
+  const irA = e.target.closest('[data-mp-ir]');
+  if (irA) { ir(irA.dataset.mpIr); return; }
+  if (e.target.closest('[data-mp-fiesta]')) { fiesta(); return; }
   const b = e.target.closest('[data-mk]');
   if (!b) return;
   const acc = b.dataset.mk;
@@ -195,14 +334,14 @@ async function onClick(e) {
     } else if (acc === 'producto-borrar') {
       if (!window.confirm('Se borran sus respuestas y su ficha (los documentos pasan a «General»). ¿Seguro?')) return;
       await saver.vaciar();
-      await post({ op: 'producto-borrar', id: b.dataset.id }); tab = 'marca'; pintar();
+      await post({ op: 'producto-borrar', id: b.dataset.id }); paso = ''; paso = estadoProceso(pasos()).faltan[0]?.id || 'fin'; pintar();
     } else if (acc === 'doc-borrar') {
       if (!window.confirm('¿Quitar este documento?')) return;
       await post({ op: 'doc-borrar', id: b.dataset.id }); pintar();
     } else if (acc === 'ficha-guardar') {
       await post({ op: 'ficha', productoId: b.dataset.id, ficha: raiz().querySelector('#mk-ficha-txt').value });
       raiz().querySelector('#mk-ficha-st').textContent = '✓ Guardada';
-      raiz().querySelector('.mk-tabs').outerHTML = tabsHtml();
+      refrescar();
     } else if (acc === 'ficha-prompt') {
       await saver.vaciar();
       b.textContent = 'Preparando…';
@@ -226,7 +365,7 @@ async function onClick(e) {
 async function onChange(e) {
   const sel = e.target.closest('[data-mk-embudo]');
   if (sel) {
-    try { await post({ op: 'embudo', embudo: sel.dataset.mkEmbudo, productoId: sel.value }); estado('✓ Guardado'); } catch (err) { window.alert(err.message); }
+    try { await post({ op: 'embudo', embudo: sel.dataset.mkEmbudo, productoId: sel.value }); estado('✓ Guardado'); refrescar(); } catch (err) { window.alert(err.message); }
     return;
   }
   if (e.target.id !== 'mk-doc-file') return;
@@ -250,7 +389,8 @@ async function onSubmit(e) {
   e.preventDefault();
   try {
     const d = await post({ op: 'producto-nuevo', nombre: f.nombre.value.trim() });
-    tab = `p:${d.producto.id}`;
+    dir = 1;
+    paso = `p:${d.producto.id}:oferta`;
     pintar();
   } catch (err) { window.alert(err.message); }
 }
