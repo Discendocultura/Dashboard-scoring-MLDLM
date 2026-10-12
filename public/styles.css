@@ -3462,3 +3462,35 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .tit-resps .tit-resp { flex: 0 0 auto; width: auto; white-space: nowrap; flex-direction: row; margin: 0; }
 .tit-resps .tit-resp input[type="checkbox"] { width: 15px; height: 15px; min-height: 0; padding: 0; flex: 0 0 auto; }
 .tit-var .field > span:first-child { display: block; }
+
+/* ---------- «Lo que falta» arriba de cada apartado de configuración (todos los embudos) ---------- */
+.cfg-pend {
+  margin: 0 0 18px; padding: 14px 16px 12px; border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--st-muy-caliente) 40%, var(--border));
+  border-left: 5px solid var(--st-muy-caliente);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--st-muy-caliente) 10%, var(--surface)), color-mix(in srgb, #e07a1f 6%, var(--surface)));
+  box-shadow: 0 10px 24px -18px var(--st-muy-caliente);
+}
+.cfg-pend-cab { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
+.cfg-pend-ico { font-size: 20px; line-height: 1.2; }
+.cfg-pend-cab strong { font-size: 15px; color: var(--st-muy-caliente); }
+.cfg-pend-cab small { display: block; color: var(--text-2); font-size: 12.5px; margin-top: 2px; }
+.cfg-pend-rev { font-size: 13px; color: #b5651d; font-weight: 600; }
+.cfg-pend-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: pend; }
+.cfg-pend-item {
+  counter-increment: pend; width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer;
+  font: inherit; font-size: 13.5px; color: var(--text); padding: 8px 12px 8px 8px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface); transition: border-color .15s, transform .15s, box-shadow .15s;
+}
+.cfg-pend-item::before {
+  content: counter(pend); flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 800; font-size: 12px; color: #fff; background: var(--st-muy-caliente);
+}
+.cfg-pend-item.warn::before { background: #e07a1f; content: '!'; }
+.cfg-pend-item:hover, .cfg-pend-item:focus-visible { border-color: var(--st-muy-caliente); transform: translateX(2px); box-shadow: 0 4px 12px -8px rgb(0 0 0 / .4); }
+.cfg-pend-txt { flex: 1; min-width: 0; }
+.cfg-pend-txt span { color: var(--text-2); }
+.cfg-pend-ir { flex: 0 0 auto; font-weight: 700; font-size: 12.5px; color: var(--st-muy-caliente); }
+/* El campo al que se llega desde el recuadro parpadea un momento. */
+@keyframes campoResaltado { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 20%, 60% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent); } }
+.campo-resaltado { animation: campoResaltado 2.4s ease; border-radius: 10px; background: color-mix(in srgb, var(--accent) 7%, transparent); transition: background .6s; }

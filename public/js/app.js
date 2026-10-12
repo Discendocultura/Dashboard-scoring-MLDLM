@@ -4677,13 +4677,94 @@ const CICLO_BADGE = {
   }
 }());
 
-function goToField(id) {
-  const el = document.getElementById(id);
-  const panel = el?.closest('.tab-panel')?.dataset.panel;
-  if (panel) $(`.tab[data-tab="${panel}"]`)?.click();
-  el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  el?.focus({ preventScroll: true });
+function goToField(id) { irACampo(document.getElementById(id)); }
+
+// ---------- «Lo que falta» en cada apartado de las configuraciones (todos los embudos) ----------
+// Recuadro destacado arriba de cada pestaña con lo que falta exactamente; al pulsar uno, lleva a su campo
+// (cambia de pestaña si hace falta) y lo resalta. En la pestaña, el número de lo que falta.
+// items: [{ el, label, txt, st: 'falta' | 'warn' }]
+function irACampo(el) {
+  if (!el) return;
+  const panel = el.closest('.tab-panel');
+  const dlg = el.closest('dialog');
+  if (panel?.hidden) $(`.tab[data-tab="${panel.dataset.panel}"]`, dlg || document)?.click();
+  const sec = el.closest('details:not([open])');
+  if (sec) sec.open = true;
+  requestAnimationFrame(() => {
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (el.matches('input, select, textarea, button')) el.focus({ preventScroll: true });
+    const caja = el.closest('.field, .bump-fila, .cfg-sec') || el;
+    caja.classList.remove('campo-resaltado');
+    void caja.offsetWidth;
+    caja.classList.add('campo-resaltado');
+    setTimeout(() => caja.classList.remove('campo-resaltado'), 2600);
+  });
 }
+function cajaPendientes(cont, items) {
+  let box = $(':scope > .cfg-pend', cont);
+  if (!items.length) { box?.remove(); return; }
+  if (!box) {
+    box = document.createElement('div');
+    box.className = 'cfg-pend';
+    box.setAttribute('role', 'alert');
+  }
+  // Siempre lo primero del apartado.
+  if (cont.firstElementChild !== box) cont.insertBefore(box, cont.firstElementChild);
+  box._items = items;
+  const faltan = items.filter((i) => i.st !== 'warn').length;
+  const revisar = items.length - faltan;
+  const html = `<div class="cfg-pend-cab"><span class="cfg-pend-ico" aria-hidden="true">⚠️</span><div><strong>${faltan ? `Falta${faltan > 1 ? 'n' : ''} ${faltan} cosa${faltan > 1 ? 's' : ''} en este apartado` : 'Revisa esto antes de seguir'}</strong>${faltan && revisar ? ` <span class="cfg-pend-rev">· ${revisar} por revisar</span>` : ''}<small>Pulsa cada una para ir directamente a donde se completa.</small></div></div>
+    <ol class="cfg-pend-lista">${items.map((i, n) => `<li><button type="button" class="cfg-pend-item ${i.st === 'warn' ? 'warn' : ''}" data-pend="${n}"><span class="cfg-pend-txt"><strong>${esc(i.label)}</strong>${i.txt ? ` <span>${esc(i.txt)}</span>` : ''}</span><span class="cfg-pend-ir" aria-hidden="true">Ir →</span></button></li>`).join('')}</ol>`;
+  if (box.dataset.html !== html) { box.innerHTML = html; box.dataset.html = html; }
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.cfg-pend [data-pend]');
+  if (!b) return;
+  e.preventDefault();
+  irACampo(b.closest('.cfg-pend')._items?.[Number(b.dataset.pend)]?.el);
+});
+// Número de lo que falta en la pestaña (el mismo estilo que en la de los lanzamientos).
+function numeroEnPestana(tab, n, hay = true) {
+  if (!tab) return;
+  let cnt = $('.tab-falta', tab);
+  if (!cnt) { tab.insertAdjacentHTML('beforeend', '<span class="tab-falta"></span>'); cnt = $('.tab-falta', tab); }
+  cnt.textContent = n || '✓';
+  cnt.classList.toggle('ok', !n);
+  cnt.hidden = !hay;
+  cnt.title = n ? `Faltan ${n} en este apartado` : 'Completo';
+}
+// Reparte lo que falta de un diálogo por sus pestañas (o arriba del todo si no tiene). `items()` se recalcula
+// al escribir.
+// Visible = no está dentro de algo oculto (salvo la pestaña: lo de otras pestañas también cuenta).
+function visible(el) {
+  if (!el) return false;
+  for (let n = el; n && n.tagName !== 'DIALOG'; n = n.parentElement) if (n.hidden && !n.classList.contains('tab-panel')) return false;
+  return true;
+}
+function vigilarPendientes(dlg, items, { arriba = null } = {}) {
+  const pintar = () => {
+    const todos = items().filter((i) => visible(i.el) || i.siempre);
+    const panels = $$('.tab-panel', dlg);
+    if (!panels.length) { cajaPendientes(arriba || $('.dialog-body', dlg), todos); return; }
+    for (const p of panels) {
+      const suyos = todos.filter((i) => p.contains(i.el));
+      cajaPendientes(p, suyos);
+      numeroEnPestana($(`.tab[data-tab="${p.dataset.panel}"]`, dlg), suyos.filter((i) => i.st !== 'warn').length, true);
+    }
+  };
+  if (!dlg._vigilado) {
+    let pend = 0;
+    const programar = () => { cancelAnimationFrame(pend); pend = requestAnimationFrame(() => dlg._pintarPend?.()); };
+    dlg.addEventListener('input', programar);
+    dlg.addEventListener('change', programar);
+    dlg.addEventListener('click', (e) => { if (e.target.closest('[data-dc-add], .bump-quitar, .chip, [data-parte], .tab')) programar(); });
+    dlg._vigilado = true;
+  }
+  dlg._pintarPend = pintar;
+  pintar();
+}
+const vacio = (sel) => !String($(sel)?.value ?? '').trim();
+const reglaCampo = (sel, label, txt = '', st = 'falta') => (vacio(sel) ? [{ el: $(sel), label, txt, st }] : []);
 
 // Estado de cada campo que cambia o hay que revisar: falta, repetido de otro lanzamiento, o listo.
 function fieldStatus(f, others, tagIssues) {
@@ -4743,6 +4824,8 @@ function renderGuia() {
       cnt.hidden = !total.length;
       cnt.title = faltanTab ? `Faltan ${faltanTab} en este apartado` : 'Completo';
     }
+    const pnlEl = $(`#config-dialog .tab-panel[data-panel="${panel}"]`);
+    if (pnlEl) cajaPendientes(pnlEl, total.filter((i) => i.st === 'falta' || i.st === 'warn').map((i) => ({ el: document.getElementById(i.f.id), label: i.f.label, txt: i.st === 'warn' ? i.txt : '', st: i.st })));
     const listos = total.filter((i) => i.st === 'ok' || i.st === 'opt').length;
     // La lista de lo que falta va plegada (el estado ya se ve en el menú y en cada bloque).
     if (!$(box)) {
@@ -9467,10 +9550,24 @@ async function openVslConfig(id = state.embudo) {
   renderVslSnippets();
   $('.tab[data-tab="vembudo"]').click();
   vcDlg.showModal();
+  vigilarPendientes(vcDlg, () => pendientesVslForm(vslCfg(vcId)));
   // Campos de fecha y pipelines de GHL (para elegir sin escribir IDs).
   for (const k of ['registroDateField', 'compraDateField']) pintarSelectFecha($(`#vc-${k}`), v[k] || '', { vacio: '— Fecha de alta del contacto —' });
   const pipes = state.llamadas?.data?.pipeline ? [state.llamadas.data.pipeline.name] : [];
   $('#vc-pipelines').innerHTML = [...new Set(['Leads evergreen', 'Leads Lanzamientos', ...pipes])].map((p) => `<option value="${esc(p)}">`).join('');
+}
+
+// Lo que falta en la configuración de una VSL (según su variante: las de llamadas no venden en la página).
+function pendientesVslForm(v) {
+  const llamadas = v?.subtipo === 'llamadas';
+  return [
+    ...reglaCampo('#vc-registroTag', 'Etiqueta de registro', 'sin ella no se cuenta ningún lead'),
+    ...(llamadas ? [] : reglaCampo('#vc-compraTag', 'Etiqueta de compra', 'sin ella no se cuenta ninguna venta')),
+    ...reglaCampo('#vc-vslUrl', 'URL de la página', 'para los enlaces y los códigos de medición'),
+    ...(v?.subtipo === 'leadmagnet' ? [] : reglaCampo('#vc-vslVideoUrl', 'Vídeo', 'sin él no se mide cuánto ven')),
+    ...(llamadas ? reglaCampo('#vc-llamadaUrl', 'Enlace para reservar la llamada') : reglaCampo('#vc-precioPrograma', 'Precio del producto', 'para la facturación y el ROAS')),
+    ...reglaCampo('#vc-metaFiltro', 'Campañas de Meta', 'para sumar la inversión y calcular el CPL y el ROAS', 'warn'),
+  ];
 }
 
 // Códigos de las páginas de GHL de una VSL: [[título, código]] (Códigos para GHL y prompts de Páginas).
@@ -10245,6 +10342,22 @@ document.addEventListener('click', async (e) => {
 // Configuración de un meteórico (nuevo o existente).
 let meteoEdit = null; // { code | null, embudo, lanzamiento }
 const MT_CAMPOS = ['name', 'producto', 'oferta', 'precio', 'precioFraccionado', 'calentamiento', 'apertura', 'cierre', 'compraTag', 'fraccionadoTag', 'ofertaUrl', 'pagoUrl', 'pagoFraccionadoUrl', 'cerradaUrl', 'whatsappUrl', 'sendflowId', 'objetivoVentas', 'objetivoFacturacion', 'inversion', 'metaFiltro', 'emailFiltro', 'notas'];
+// Lo que falta en la configuración de un meteórico (lo mismo que pendientesMeteorico, mirando el formulario).
+function pendientesMeteoForm() {
+  const ap = $('#mt-apertura').value; const ci = $('#mt-cierre').value;
+  return [
+    ...reglaCampo('#mt-name', 'Nombre'),
+    ...reglaCampo('#mt-calentamiento', 'Día en que empieza el calentamiento'),
+    ...reglaCampo('#mt-apertura', 'Apertura de la oferta', 'día y hora'),
+    ...reglaCampo('#mt-cierre', 'Cierre de la oferta', 'día y hora'),
+    ...(ap && ci && ci <= ap ? [{ el: $('#mt-cierre'), label: 'Cierre de la oferta', txt: 'es anterior a la apertura', st: 'warn' }] : []),
+    ...reglaCampo('#mt-precio', 'Precio de la oferta', 'para la facturación y el ROAS'),
+    ...reglaCampo('#mt-compraTag', 'Etiqueta de compra', 'la pone el workflow del pago de esta oferta'),
+    ...reglaCampo('#mt-pagoUrl', 'Enlace de pago'),
+    ...reglaCampo('#mt-ofertaUrl', 'URL de la página de la oferta'),
+    ...(!vacio('#mt-compraTag') && vacio('#mt-compraDateField') ? [{ el: $('#mt-compraDateField'), label: 'Campo de fecha de compra', txt: 'sin él, haz la «foto» de quién ya tenía la etiqueta antes de abrir', st: 'warn' }] : []),
+  ];
+}
 async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
   const m = code ? state.config.meteoricos?.[code] : null;
   meteoEdit = { code: m ? code : null, embudo: m?.embudo ?? embudo, lanzamiento: m?.lanzamiento ?? lanzamiento };
@@ -10273,6 +10386,7 @@ async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
     if (meteoEdit.lanzamiento) $('#mt-name').value = `Downsell ${state.config.launches[meteoEdit.lanzamiento]?.name || ''}`.trim();
   }
   $('#meteo-dialog').showModal();
+  vigilarPendientes($('#meteo-dialog'), pendientesMeteoForm);
   pintarSelectFecha($('#mt-compraDateField'), m?.compraDateField || '');
   if (!state.tags?.length) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch(() => {});
 }
@@ -11066,6 +11180,30 @@ function pintarCodigosDirecta() {
     + PAGINAS_DIRECTA.filter((x) => !x.parte || p[x.parte]).map((x) => filaCopiar(x.label, `<div data-lsd-directa="${x.id}" data-embudo="${id}"></div>\n${script}`, x.id === 'checkout' ? 'Llegar aquí = ha pulsado «Comprar» en la página de venta.' : x.id === 'venta' ? 'Base de la conversión de todo el embudo.' : '')).join('');
 }
 
+// Lo que falta en la configuración de una venta directa (lo mismo que pendientesDirecta, mirando el formulario:
+// cada punto lleva a su campo, también a la fila del bump, upsell o downsell que esté a medias).
+function pendientesDirectaForm() {
+  const out = [
+    ...reglaCampo('#dc-compraTag', 'Etiqueta de compra', 'sin ella no se cuenta ninguna venta'),
+    ...reglaCampo('#dc-precio', 'Precio del producto'),
+    ...(!vacio('#dc-precio') ? reglaCampo('#dc-iva', 'IVA del precio', 'di si lleva el IVA incluido, es + IVA o va sin IVA') : []),
+  ];
+  for (const [lista, nombre] of [['bumps', 'Bump offer'], ['upsells', 'Upsell'], ['downsells', 'Downsell']]) {
+    const caja = cajaDir(lista);
+    if (!visible(caja)) continue;
+    const filas = $$('.bump-fila', caja).filter((f) => $('.bump-activo', f)?.checked !== false);
+    if (!filas.length) out.push({ el: caja.closest('.cfg-sec'), label: nombre, txt: 'lo has marcado pero no hay ninguno: añádelo o quítalo de «Qué lleva tu embudo»', st: 'falta' });
+    for (const f of filas) {
+      const n = $('.bump-nombre', f).value.trim() || 'sin nombre';
+      if (!$('.bump-tag', f).value.trim()) out.push({ el: $('.bump-tag', f), label: `${nombre} «${n}»`, txt: 'falta su etiqueta de GHL', st: 'falta' });
+      if (!$('.bump-precio', f).value.trim()) out.push({ el: $('.bump-precio', f), label: `${nombre} «${n}»`, txt: 'falta el precio', st: 'falta' });
+      else if (!$('.bump-iva', f).value) out.push({ el: $('.bump-iva', f), label: `${nombre} «${n}»`, txt: 'di si el precio lleva IVA', st: 'falta' });
+    }
+  }
+  out.push(...reglaCampo('#dc-metaFiltro', 'Campañas de Meta', 'si no, se sumarían todas las campañas de la cuenta'));
+  out.push(...reglaCampo('#dc-ventaUrl', 'URL de la página de venta'));
+  return out;
+}
 function abrirDirectaConfig(id = state.embudo) {
   const d = state.config.directas?.[id];
   if (!d) return;
@@ -11083,10 +11221,9 @@ function abrirDirectaConfig(id = state.embudo) {
   pintarOfertas('upsells', d.upsells);
   pintarOfertas('downsells', d.downsells);
   pintarDirectaPartes();
-  const pend = pendientesDirecta(d);
-  $('#dc-pendientes').innerHTML = pend.length ? `<div class="notice warn"><strong>Falta para que las cifras salgan bien:</strong><ul>${pend.map((x) => `<li>${esc(x.txt)}</li>`).join('')}</ul></div>` : '';
   $('#dc-status').textContent = '';
   dcDlg.showModal();
+  vigilarPendientes(dcDlg, pendientesDirectaForm, { arriba: $('#dc-pendientes') });
   pintarSelectFecha($('#dc-compraDateField'), d.compraDateField || '', { vacio: '— Sin campo (día en que se ve la etiqueta) —' });
   pintarSelectOportunidad(d);
   $('#dc-uppNombre').value = d.upsellPrincipal?.nombre || '';

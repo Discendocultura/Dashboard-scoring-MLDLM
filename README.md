@@ -94,6 +94,9 @@ Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por Wh
 
 **Ficha completa del lead** (Hoy → Llamadas): al pulsar una llamada se abre una ventana con todo lo que ayuda a la setter antes de llamar: cuándo es la cita y su etapa, teléfono / WhatsApp / email, la **temperatura** (estado y puntuación sobre 100) y el siguiente paso, **qué ha hecho** (cada clase, VIP, directo y grabación, encuesta, si ya se le escribió, si compró), origen (publi / orgánico), tráfico frío / templado, avatar y días desde el registro, las **respuestas de la encuesta**, las **respuestas del formulario de reserva de la llamada y el resto de campos de su ficha de GHL**, y las últimas **notas** de GHL. Desde ahí se anota el resultado.
 
+### Lo que falta en la configuración (todos los embudos)
+En la configuración de cada embudo (lanzamientos, VSL, venta directa y meteóricos), cada apartado con algo pendiente lleva en su pestaña el **número de lo que falta** y, al abrirlo, lo primero es un **recuadro destacado** con lo que falta exactamente (y lo que conviene revisar, en naranja). Al pulsar cada punto te lleva al campo donde se completa (cambia de pestaña si hace falta) y lo resalta un momento. Se actualiza mientras escribes: al rellenarlo, desaparece de la lista.
+
 ### Titular de la página de venta según la encuesta
 Configuración → Venta → Página de venta → **🎯 Titular según la encuesta**. Se escribe un **titular y subtitular general** y las **variantes** que quieras: cada una mira una pregunta de la encuesta (de opciones o la edad, por tramos) y una o varias respuestas, con su titular y subtitular (vacío = el general). Cada lead ve la **primera variante que encaja** con lo que contestó (de arriba abajo: las flechas cambian la prioridad); quien no rellenó la encuesta, no encaja con ninguna o llega sin su enlace personal (`?cid=`) ve el general.
 
