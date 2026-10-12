@@ -3406,3 +3406,39 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
   .hoy-actions { width: 100%; padding-left: 36px; }
 }
 .hoy-temp.st-templado.on, .hoy-temp.st-templado.on b { color: #2b2200; } .hoy-temp.st-templado.on .dot { background: #2b2200; }
+
+/* ---------- Subpestañas: con aire, icono en su cuadradito y la activa bien marcada ---------- */
+.subviews:not(.msubs), .subviews.msubs {
+  display: flex; flex-wrap: wrap; gap: 8px; padding: 0; background: none; border: 0; border-radius: 0;
+  margin: 2px 0 22px; overflow: visible;
+}
+.subviews .subview-tab, .msubs .subview-tab {
+  display: inline-flex; align-items: center; gap: 9px; padding: 6px 15px 6px 6px;
+  font-size: 13.5px; font-weight: 600; letter-spacing: .005em; line-height: 1.2; white-space: nowrap;
+  color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / .04); transition: background .15s, color .15s, border-color .15s, box-shadow .15s, transform .15s;
+}
+.subviews .subview-tab .ico, .msubs .subview-tab .ico {
+  display: block; width: 28px; height: 28px; padding: 6px; box-sizing: border-box; flex: 0 0 auto;
+  border-radius: 8px; background: var(--surface-2); color: var(--text-2); opacity: 1; transition: background .15s, color .15s;
+}
+.subviews .subview-tab:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); transform: translateY(-1px); box-shadow: 0 6px 14px -10px rgb(0 0 0 / .35); }
+.subviews .subview-tab:hover .ico { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.subviews .subview-tab.active {
+  color: var(--text); background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent), 0 6px 16px -12px var(--accent);
+}
+.subviews .subview-tab.active .ico { background: var(--accent); color: #fff; }
+.subviews .subview-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Sin icono (p. ej. pestañas pintadas antes de tenerlo): mismo aire a los dos lados */
+.subviews .subview-tab:not(:has(.ico)) { padding: 10px 16px; }
+@media (max-width: 1700px) { .msubs .subview-tab .ico { display: block; } }
+@media (max-width: 1400px) { .msubs .subview-tab { padding: 6px 13px 6px 6px; font-size: 13.5px; } }
+/* Móvil: una fila que se desliza (con el degradado de «hay más») en vez de muchas filas */
+@media (max-width: 640px) {
+  .subviews:not(.msubs), .subviews.msubs { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px 18px; padding: 2px 16px 6px; scroll-padding: 16px; }
+  .subviews .subview-tab { padding: 5px 13px 5px 5px; font-size: 13px; }
+  .subviews .subview-tab .ico { width: 26px; height: 26px; }
+}
+:root[data-estilo="espacial"] .subviews .subview-tab.active .ico { background: #ff7a18; }
