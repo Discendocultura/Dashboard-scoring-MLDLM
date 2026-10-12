@@ -13130,3 +13130,10 @@ $('#grupowa-body').addEventListener('click', async (e) => {
     b.disabled = false;
   }
 });
+
+// Móvil: el menú «Cuenta» sale justo debajo de la barra de arriba (que cambia de alto según lo que quepa).
+$('#tb-menu-cuenta').addEventListener('toggle', (e) => {
+  if (!e.currentTarget.open) return;
+  const alto = Math.round($('.topbar')?.getBoundingClientRect().bottom || 100);
+  document.documentElement.style.setProperty('--tb-menu-top', `${alto + 8}px`);
+});

@@ -3781,3 +3781,31 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .gw-cat-btns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .env-canales { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
 .env-canales .car-canal-n span { white-space: nowrap; }
+
+/* ---------- Menú «Cuenta» en el móvil: hoja fija bajo la barra, opaca, encima de todo y con aire ---------- */
+.tb-menu[open] > .tb-menu-panel { z-index: 1000; }
+:root[data-estilo="espacial"] .tb-menu-panel { background: #17142c; border-color: rgb(255 255 255 / .12); box-shadow: 0 24px 60px -12px rgb(0 0 0 / .8); }
+@media (max-width: 640px) {
+  .tb-menu { position: static; }
+  .tb-menu-panel {
+    position: fixed; top: calc(var(--tb-menu-top, 112px)); left: 12px; right: 12px; min-width: 0;
+    max-height: calc(100dvh - var(--tb-menu-top, 112px) - 16px); overflow-y: auto; overscroll-behavior: contain;
+    gap: 6px; padding: 10px; border-radius: 18px; box-shadow: 0 24px 60px -16px rgb(0 0 0 / .45);
+    animation: tbMenuIn .18s ease-out;
+  }
+  .tb-menu-panel .tb-btn { padding: 11px 12px 11px 10px; border-radius: 12px; font-size: 15px; gap: 12px; background: var(--surface-2); }
+  .tb-menu-panel .tb-btn .tb-ico { width: 34px; height: 34px; }
+  .tb-menu-panel .tb-estilo { padding: 6px 4px 2px; }
+  .tb-menu-panel .tb-estilo > span { display: block; margin: 0 0 8px 4px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); }
+  .tb-menu-panel .tb-estilo-opc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tb-menu-panel .tb-estilo-opc button { padding: 12px 8px; border-radius: 12px; font-size: 14px; }
+  :root[data-estilo="espacial"] .tb-menu-panel .tb-btn { background: rgb(255 255 255 / .05); }
+  /* Fondo que oscurece el resto mientras el menú está abierto. */
+  .tb-menu[open] > summary::before { content: ""; position: fixed; inset: 0; z-index: 999; background: rgb(10 8 20 / .45); backdrop-filter: blur(2px); cursor: default; }
+}
+@keyframes tbMenuIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) {
+  /* El desenfoque de la barra haría que el menú «fijo» se colocara respecto a la barra y no a la pantalla. */
+  .topbar:has(.tb-menu[open]) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; z-index: 1001; }
+  :root[data-estilo="espacial"] .topbar:has(.tb-menu[open]) { background: #0b0a18; }
+}

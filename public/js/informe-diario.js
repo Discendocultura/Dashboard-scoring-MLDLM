@@ -35,7 +35,8 @@ const mas = (n) => (n == null ? '' : `+${n0(n)} ayer`);
 
 // Datos del informe: { fase, titulo, asunto, intro, destacados: [{ label, valor, sub }], secciones: [{ titulo, filas: [[etiqueta, valor, nota]] }], tabla }
 //   m: computeMetrics · leads (enriquecidos) · fotos: { día: totales } (días anteriores) · dia: el día que se cuenta (ayer)
-export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto = 'el programa' }) {
+//   inversionDia: lo gastado en publicidad el día `dia` (de Meta); si no llega, la diferencia con la foto del día anterior.
+export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto = 'el programa', inversionDia = null }) {
   const anterior = fotos[sumarDias(dia, -1)] || null;
   const vip = conVip(l);
   const inv = m.eco.inversion || 0;
@@ -59,10 +60,14 @@ export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto
     const diaN = entre(l.inicioCaptacion, dia) + 1;
     // El email se lee el día después de `dia` (cuenta lo de ayer): los días que faltan, desde hoy.
     const faltan = directo ? entre(dia, directo) - 1 : null;
+    // Coste por lead del día: lo invertido ayer entre los registros de ayer.
+    const invDia = Number.isFinite(inversionDia) ? inversionDia : deltaFoto('inversion', Math.round(inv));
+    const cplDia = invDia != null && nuevos ? invDia / nuevos : null;
     const destacados = [
       { label: 'Registros', valor: n0(m.total), sub: mas(nuevos) },
       ...(vip ? [{ label: 'Entradas VIP', valor: n0(m.vip), sub: [nuevosVip != null ? mas(nuevosVip) : '', pct(m.vip, m.total)].filter(Boolean).join(' · ') }] : []),
-      ...(inv ? [{ label: 'CPL', valor: eur(m.eco.cpl), sub: `${eur(inv)} invertidos` }] : []),
+      ...(inv ? [{ label: 'CPL ayer', valor: eur(cplDia), sub: invDia == null ? 'sin el gasto de ayer' : nuevos ? `${eur(invDia)} invertidos ayer` : `${eur(invDia)} y ningún registro ayer` }] : []),
+      ...(inv ? [{ label: 'CPL general', valor: eur(m.eco.cpl), sub: `${eur(inv)} invertidos` }] : []),
       ...(inv ? [{ label: 'ROAS', valor: x2(m.eco.roas), sub: `${eur(m.eco.facturacion)} facturados` }] : []),
     ];
     secciones.push({ titulo: '📥 Registros', filas: [
@@ -82,7 +87,9 @@ export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto
     if (inv) {
       secciones.push({ titulo: '📣 Publicidad', filas: [
         ['Inversión', eur(inv), m.eco.inversionFuente === 'meta' ? 'Meta' : 'puesta a mano'],
-        ['CPL medio', eur(m.eco.cpl), ''],
+        ...(invDia != null ? [['Inversión de ayer', eur(invDia), '']] : []),
+        ['CPL de ayer', eur(cplDia), nuevos != null ? `${n0(nuevos)} registros ayer` : ''],
+        ['CPL general', eur(m.eco.cpl), 'desde el inicio de la captación'],
         ...(m.eco.cplFrio ? [['CPL de tráfico frío', eur(m.eco.cplFrio), '']] : []),
         ['ROAS hasta ahora', x2(m.eco.roas), `${eur(m.eco.facturacion)} facturados`],
         ...(m.eco.publi ? [['ROAS solo de publicidad', x2(m.eco.publi.roas), '']] : []),
@@ -103,7 +110,7 @@ export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto
       tabla: { titulo: '📅 Registros por día', cabecera: ['Día', 'Registros'], filas: dias.map(([d, n]) => [d, n0(n)]) },
       titulo: `Captación · ${l.name}`,
       intro: `Día ${diaN} de captación${faltan != null ? ` · ${faltan <= 0 ? 'hoy es el directo' : faltan === 1 ? 'mañana es el directo' : `faltan ${faltan} días para el directo`}` : ''}. Datos hasta el final del ${fechaLarga(dia)}.`,
-      asunto: `📥 ${l.name}: ${n0(m.total)} registros (${mas(nuevos)})${vip ? ` · ${n0(m.vip)} VIP` : ''}${inv ? ` · CPL ${eur(m.eco.cpl)}` : ''}`,
+      asunto: `📥 ${l.name}: ${n0(m.total)} registros (${mas(nuevos)})${vip ? ` · ${n0(m.vip)} VIP` : ''}${inv ? ` · CPL ayer ${eur(cplDia)} · general ${eur(m.eco.cpl)}` : ''}`,
     };
   }
   // Carrito.
@@ -122,7 +129,8 @@ export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto
     { label: 'Ventas ayer', valor: n0(nuevasVentas), sub: '' },
     { label: 'Ventas totales', valor: n0(m.compra), sub: pct(m.compra, m.total) + ' de los registros' },
     { label: 'Facturación', valor: eur(m.eco.facturacion), sub: inv ? `${eur(inv)} invertidos` : '' },
-    ...(inv ? [{ label: 'ROAS', valor: x2(m.eco.roas), sub: m.eco.cac ? `CAC ${eur(m.eco.cac)}` : '' }] : []),
+    ...(inv ? [{ label: 'CAC', valor: eur(m.eco.cac), sub: 'coste por venta' }] : []),
+    ...(inv ? [{ label: 'ROAS', valor: x2(m.eco.roas), sub: `${eur(m.eco.beneficio)} de beneficio` }] : []),
   ];
   secciones.push({ titulo: `🛒 Ventas de ${producto}`, filas: [
     ['Ventas ayer', n0(nuevasVentas), ''],
@@ -146,7 +154,7 @@ export function datosInforme({ l, m, leads = [], fase, dia, fotos = {}, producto
     tabla: { titulo: '📅 Ventas por día del carrito', cabecera: ['Día', 'Ventas'], filas: diasCarrito.map(([d, n]) => [d, n == null ? '–' : n0(n)]), nota: conFecha ? '' : 'Sin campo de fecha de compra: las ventas de cada día salen de la diferencia con el total del día anterior (desde que se activó el informe).' },
     titulo: `Carrito · ${l.name}`,
     intro: `${quedan == null ? '' : quedan < 0 ? 'El carrito cerró ayer. ' : quedan === 0 ? 'Hoy cierra el carrito. ' : `Quedan ${quedan + 1} días de carrito. `}Datos hasta el final del ${fechaLarga(dia)}.`,
-    asunto: `🛒 ${l.name}: ${n0(nuevasVentas)} ventas ayer · ${n0(m.compra)} en total${inv ? ` · ROAS ${x2(m.eco.roas)}` : ` · ${eur(m.eco.facturacion)}`}`,
+    asunto: `🛒 ${l.name}: ${n0(nuevasVentas)} ventas ayer · ${n0(m.compra)} en total${inv ? ` · CAC ${eur(m.eco.cac)} · ROAS ${x2(m.eco.roas)}` : ` · ${eur(m.eco.facturacion)}`}`,
   };
 }
 
@@ -156,7 +164,12 @@ export const fechaLarga = (d) => fmtLargo.format(new Date(`${d}T12:00:00Z`));
 
 // Cuerpo del email (HTML con estilos en línea, legible en cualquier gestor de correo).
 export function informeHtml(d, { color = '#860d0e', url = '' } = {}) {
-  const tarjeta = (x) => `<td style="padding:6px;width:${Math.floor(100 / Math.max(1, d.destacados.length))}%;vertical-align:top"><div style="border:1px solid #eadfd8;border-radius:12px;padding:12px 14px;background:#fffaf6">
+  // Tarjetas de 3 en 3 como mucho (con 4, dos y dos), para que se lean también en el móvil.
+  const n = d.destacados.length;
+  const porFila = n === 4 ? 2 : Math.min(3, Math.max(1, n));
+  const filas = [];
+  for (let i = 0; i < n; i += porFila) filas.push(d.destacados.slice(i, i + porFila));
+  const tarjeta = (x) => `<td style="padding:6px;width:${Math.floor(100 / porFila)}%;vertical-align:top"><div style="border:1px solid #eadfd8;border-radius:12px;padding:12px 14px;background:#fffaf6">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8a817b">${esc(x.label)}</div>
     <div style="font-size:24px;font-weight:800;color:${color};margin:2px 0">${esc(x.valor)}</div>
     ${x.sub ? `<div style="font-size:12px;color:#6b625d">${esc(x.sub)}</div>` : ''}</div></td>`;
@@ -169,7 +182,7 @@ export function informeHtml(d, { color = '#860d0e', url = '' } = {}) {
     ${t.nota ? `<p style="font-size:12px;color:#8a817b;margin:6px 0 0">${esc(t.nota)}</p>` : ''}` : '';
   return `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#241f1c;line-height:1.45">
     <p style="margin:0 0 4px;font-size:13px;color:#6b625d">${esc(d.intro)}</p>
-    <table cellpadding="0" cellspacing="0" style="width:100%;margin:10px -6px 0"><tr>${d.destacados.map(tarjeta).join('')}</tr></table>
+    <table cellpadding="0" cellspacing="0" style="width:100%;margin:10px -6px 0">${filas.map((f) => `<tr>${f.map(tarjeta).join('')}</tr>`).join('')}</table>
     ${d.secciones.map(seccion).join('')}
     ${tabla}
     ${url ? `<p style="margin:22px 0 0"><a href="${esc(url)}" style="color:${color};font-weight:700">Abrir el dashboard →</a></p>` : ''}

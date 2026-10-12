@@ -94,6 +94,15 @@ Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por Wh
 
 **Ficha completa del lead** (Hoy → Llamadas): al pulsar una llamada se abre una ventana con todo lo que ayuda a la setter antes de llamar: cuándo es la cita y su etapa, teléfono / WhatsApp / email, la **temperatura** (estado y puntuación sobre 100) y el siguiente paso, **qué ha hecho** (cada clase, VIP, directo y grabación, encuesta, si ya se le escribió, si compró), origen (publi / orgánico), tráfico frío / templado, avatar y días desde el registro, las **respuestas de la encuesta**, las **respuestas del formulario de reserva de la llamada y el resto de campos de su ficha de GHL**, y las últimas **notas** de GHL. Desde ahí se anota el resultado.
 
+### Informe diario: CPL del día, CPL general y CAC
+
+- **Captación**: el email trae el **CPL de ayer** (lo gastado ayer en Meta ÷ registros de ayer; sin Meta, la inversión de ayer sale de la diferencia con la foto del día anterior) y el **CPL general** (inversión total ÷ registros totales), en las tarjetas, en «Publicidad» y en el asunto. Las tarjetas van de 3 en 3 (con 4, dos y dos) para que se lean en el móvil.
+- **Venta (carrito)**: tarjeta propia de **CAC** (inversión ÷ ventas) y también en el asunto.
+
+### Menú «Cuenta» en el móvil
+
+En pantallas estrechas se abre como una hoja opaca debajo de la barra de arriba, con los botones más separados y el fondo oscurecido (no se mezcla con lo de detrás en ningún estilo).
+
 ### Emails y WhatsApp de cada fase (plan de envíos)
 Configuración → Carrito → **Emails y WhatsApp de cada fase** (`public/js/envios.js`): cuántos se envían al día y a qué hora en cada fase. Por defecto, si no se cambia: **captación** 1 email + 1 WhatsApp al día; **preclase** (desde que se abre el primer recurso) 1 email + 2 WhatsApp (mañana y tarde-noche; el de la tarde, una encuesta para generar conversación); **día del directo** 3 + 3; **carrito** 3 + 3 al día; **último día** 4 + 4. Cada día del carrito se puede cambiar a mano debajo (como antes); lo que no se toca sigue a su fase («↺ Por defecto» la devuelve). Los calendarios y los prompts de **Plan → Emails** y **Plan → Grupo de WhatsApp** salen de este plan: el número de envíos de cada día y su hora, con su objetivo (consciencia, objeciones y expectación antes del directo; el recurso que se abre; «mañana es el directo»; recordatorios y apertura del carrito; y en el carrito, objeción + emoción + motivo para comprar ya).
 

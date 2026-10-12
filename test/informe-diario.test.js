@@ -29,7 +29,18 @@ test('fase del informe: captación hasta el día antes del directo, carrito hast
 test('captación: registros (+ayer con la foto del día anterior), VIP solo si el lanzamiento la tiene', () => {
   const fotos = { '2026-10-09': { registros: 1700, vip: 130, ventas: 0 } };
   const d = datosInforme({ l: { ...l, vip: true }, m: mBase(), fase: 'captacion', dia: '2026-10-10', fotos });
-  assert.match(d.asunto, /1850 registros \(\+150 ayer\) · 146 VIP · CPL 0,81 €/);
+  // Sin el gasto de Meta del día: la inversión de ayer sale de la foto del día anterior (1500 − 1200 = 300 → 300 / 150 = 2 €).
+  const fotosInv = { '2026-10-09': { ...fotos['2026-10-09'], inversion: 1200 } };
+  const d0 = datosInforme({ l: { ...l, vip: true }, m: mBase(), fase: 'captacion', dia: '2026-10-10', fotos: fotosInv });
+  assert.match(d0.asunto, /1850 registros \(\+150 ayer\) · 146 VIP · CPL ayer 2 € · general 0,81 €/);
+  assert.equal(d0.destacados.find((x) => x.label === 'CPL ayer').valor, '2 €');
+  assert.equal(d0.destacados.find((x) => x.label === 'CPL general').valor, '0,81 €');
+  // Con el gasto de Meta del día, manda ese (225 / 150 = 1,5 €).
+  const d1 = datosInforme({ l: { ...l, vip: true }, m: mBase(), fase: 'captacion', dia: '2026-10-10', fotos: fotosInv, inversionDia: 225 });
+  assert.equal(d1.destacados.find((x) => x.label === 'CPL ayer').valor, '1,5 €');
+  assert.ok(d1.secciones.find((s) => s.titulo.includes('Publicidad')).filas.some(([a, b]) => a === 'CPL de ayer' && b === '1,5 €'));
+  // Sin foto ni Meta del día: no se inventa.
+  assert.match(d.asunto, /CPL ayer – · general 0,81 €/);
   assert.ok(d.destacados.some((x) => x.label === 'Entradas VIP' && /\+16 ayer/.test(x.sub)));
   assert.ok(d.secciones.some((s) => s.titulo.includes('Entrada VIP')));
   assert.match(d.intro, /Día 10 de captación · faltan 4 días para el directo/);
@@ -46,13 +57,15 @@ test('carrito: ventas de ayer, por día del carrito (con fecha de compra) y fact
   ];
   const m = mBase({ compra: 3, live: 600, compraLive: 2, eco: { ...mBase().eco, facturacion: 8000, facturacionPrograma: 2329, cac: 500, roas: 5.33 } });
   const d = datosInforme({ l: { ...l, vip: true }, m, leads, fase: 'carrito', dia: '2026-10-16', producto: 'Raíces' });
-  assert.match(d.asunto, /2 ventas ayer · 3 en total · ROAS 5,33x/);
+  assert.match(d.asunto, /2 ventas ayer · 3 en total · CAC 500 € · ROAS 5,33x/);
+  assert.equal(d.destacados.find((x) => x.label === 'CAC').valor, '500 €');
   assert.deepEqual(d.tabla.filas, [['2026-10-15', '1'], ['2026-10-16', '2']]);
   assert.match(d.intro, /Quedan 4 días de carrito/);
   assert.ok(d.secciones[0].filas.some(([a]) => a === 'Compraron de las que vieron el directo'));
   const html = informeHtml(d, { url: 'https://x.dev/' });
   assert.match(html, /Ventas por día del carrito/);
   assert.match(html, /Abrir el dashboard/);
+  assert.equal((html.match(/<tr><td style="padding:6px;width/g) || []).length, 2, 'cinco tarjetas: dos filas (3 + 2)');
   assert.deepEqual(fotoTotales(m), { registros: 1850, vip: 146, ventas: 3, facturacion: 8000, inversion: 1500 });
 });
 
