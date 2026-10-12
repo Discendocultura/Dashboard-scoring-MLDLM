@@ -11090,6 +11090,19 @@ function pintarUpsellPrincipal(U, d) {
   caja.innerHTML = `<section class="card dir-upsell"><h3>🎯 Pasan a ${esc(nombre)} ${ayudaBtn(`Compradoras de este embudo que además tienen la etiqueta de ${nombre} (${U.tags.join(', ')}). «En el periodo»: de las que compraron este producto en las fechas elegidas arriba, cuántas tienen ya el principal. «Total»: de todas las compradoras del embudo. Cuenta a quien ya lo tenía antes de comprar este producto (GHL no guarda cuándo se puso cada etiqueta).`)}</h3>
     <div class="dir-upsell-g">${bloque('En el periodo', U.periodo, 'de las que compraron en las fechas elegidas')}${bloque('Total', U.total, 'de todas las compradoras del embudo')}</div></section>`;
 }
+// Compras diarias de un mes concreto (selector de «Día a día»): misma API con preset «mes».
+async function cargarMesDias(mes) {
+  const id = state.embudo;
+  if (!mes) { state.directa.ddMes = null; renderDirectaMetricas(state.directa.datos); return; }
+  state.directa.ddMes = { id, mes, cargando: true };
+  renderDirectaMetricas(state.directa.datos);
+  let datos = null;
+  let error = '';
+  try { datos = await api(`/api/directa?${new URLSearchParams({ d: id, preset: 'mes', mes })}`); } catch (e) { error = e.message; }
+  if (state.embudo !== id || state.directa.ddMes?.mes !== mes) return;
+  state.directa.ddMes = { id, mes, datos, error };
+  renderDirectaMetricas(state.directa.datos);
+}
 function renderDirectaMetricas(D) {
   const d = state.config.directas?.[state.embudo] || {};
   const boton = puedeConfig() ? ' <button type="button" class="btn small" data-dir-config>Configurarlo ahora →</button>' : '';
@@ -11140,9 +11153,37 @@ function renderDirectaMetricas(D) {
     return cardD(o.label, fmt(o.actual), `objetivo ${fmt(o.meta)}${ok == null ? '' : ok ? ' · ✓ lo cumples' : ' · ✗ aún no'}`, 'target', ok === false ? 'warn' : 'buy', '');
   }).join('')}</div></section>` : '';
   // Por días: ventas, facturación y (si se miden) visitas, con una barra.
-  const dias = (D.porDia || []).slice().reverse();
+  // Día a día en columnas (de izquierda a derecha, el más reciente al final): menos scroll que una lista.
+  // Selector de mes propio: las compras diarias de cualquier mes sin cambiar el periodo de arriba.
+  const ddMes = state.directa.ddMes?.id === state.embudo ? state.directa.ddMes : null;
+  const fuenteDias = ddMes?.mes ? ddMes.datos : D;
+  const dias = fuenteDias?.porDia || [];
   const max = Math.max(1, ...dias.map((x) => x.ventas));
-  $('#dir-dias').innerHTML = dias.length ? `<section class="card"><h3>📅 Día a día</h3><div class="table-wrap"><table class="metric-table dir-dias"><thead><tr><th>Día</th><th>Ventas</th><th class="num">Facturación</th>${conVisitas ? '<th class="num">Visitas</th><th class="num">Checkout</th>' : ''}</tr></thead><tbody>${dias.map((x) => `<tr><td>${new Date(`${x.dia}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</td><td><span class="dir-barra"><i style="width:${Math.round((x.ventas / max) * 100)}%"></i><b>${x.ventas}</b></span></td><td class="num">${eur(x.facturacion)}</td>${conVisitas ? `<td class="num">${x.venta || ''}</td><td class="num">${x.checkout || ''}</td>` : ''}</tr>`).join('')}</tbody></table></div>${D.oportunidad ? `<p class="muted small">📌 El día de cada venta sale de la <strong>oportunidad que crea el workflow de compra</strong> (${D.oportunidad.elegido ? 'la elegida en la configuración' : 'detectada sola: la etapa donde caen las compradoras'}): es la hora exacta del pago, también para quien ya era contacto. Las que no tienen esa oportunidad se fechan por la etiqueta${state.config.directas?.[state.embudo]?.emailCompra ? ' o el email de compra' : ''}.</p>` : ''}${D.sinFechaCompra && !D.oportunidad ? '<p class="muted small">Sin campo «Fecha de compra», el día de cada venta es el de alta si el contacto es nuevo y, si ya era contacto, el día en que GHL le puso la etiqueta de compra (lo apunta el dashboard al verla). Para el día exacto del pago, guarda la fecha en un campo con el workflow de compra y elígelo en la configuración.</p>' : D.sinCampoRelleno ? `<p class="muted small">${D.sinCampoRelleno} venta${D.sinCampoRelleno === 1 ? '' : 's'} del periodo aún sin el campo «Fecha de compra» (compraron antes de crearlo): se fechan por la etiqueta y el email de compra, como antes.</p>` : ''}</section>` : '';
+  const ymHoy = dayInMadrid(new Date().toISOString()).slice(0, 7);
+  const meses = Array.from({ length: 13 }, (_, k) => { const f = new Date(`${ymHoy}-15T12:00:00Z`); f.setUTCMonth(f.getUTCMonth() - k); return f.toISOString().slice(0, 7); });
+  const selMes = `<label class="dd-mes"><span class="sr-only">Mes</span><select id="dd-mes"><option value="">Periodo elegido arriba</option>${meses.map((m) => `<option value="${m}"${ddMes?.mes === m ? ' selected' : ''}>${esc(new Date(`${m}-15T12:00:00Z`).toLocaleDateString('es-ES', { month: 'long', year: 'numeric', timeZone: 'UTC' }).replace(/^./, (c) => c.toUpperCase()))}</option>`).join('')}</select></label>`;
+  const hoyD = dayInMadrid(new Date().toISOString());
+  const totV = dias.reduce((t, x) => t + x.ventas, 0);
+  const mejor = dias.reduce((a, x) => (x.ventas > (a?.ventas ?? -1) ? x : a), null);
+  const conVentas = dias.filter((x) => x.ventas).length;
+  const fDia = (d, o) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { timeZone: 'UTC', ...o });
+  const columna = (x, i) => {
+    const mes = i === 0 || x.dia.endsWith('-01');
+    const tip = `${fDia(x.dia, { weekday: 'long', day: 'numeric', month: 'long' })}: ${x.ventas} venta${x.ventas === 1 ? '' : 's'} · ${eur(x.facturacion)}${conVisitas ? ` · ${x.venta || 0} visitas · ${x.checkout || 0} al checkout` : ''}`;
+    return `<div class="dd-col${x.dia === hoyD ? ' dd-hoy' : ''}${x.ventas ? '' : ' dd-cero'}${mejor && x === mejor && x.ventas ? ' dd-top' : ''}" title="${esc(tip)}">
+      <span class="dd-n">${x.ventas || ''}</span>
+      <div class="dd-bar"><i style="height:${x.ventas ? Math.max(4, Math.round((x.ventas / max) * 100)) : 0}%"></i></div>
+      <span class="dd-eur">${x.facturacion ? eur(x.facturacion).replace(/\s?€/, '€') : ''}</span>
+      <span class="dd-dia"><small>${esc(fDia(x.dia, { weekday: 'short' }).replace('.', ''))}</small><b>${Number(x.dia.slice(8))}</b>${mes ? `<small>${esc(fDia(x.dia, { month: 'short' }).replace('.', ''))}</small>` : ''}</span>
+      ${conVisitas ? `<span class="dd-vis" title="Visitas a la página de venta">${x.venta ? `👁 ${x.venta}` : ''}</span>` : ''}
+    </div>`;
+  };
+  $('#dir-dias').innerHTML = dias.length || ddMes ? `<section class="card dd-card"><div class="dd-cab"><h3>📅 Día a día ${selMes}</h3>
+    <div class="dd-res"><span><small>Ventas</small><b>${totV}</b></span><span><small>Media al día</small><b>${(totV / dias.length).toLocaleString('es-ES', { maximumFractionDigits: 1 })}</b></span>${mejor?.ventas ? `<span><small>Mejor día</small><b>${mejor.ventas}</b><em>${esc(fDia(mejor.dia, { weekday: 'short', day: 'numeric', month: 'short' }))}</em></span>` : ''}<span><small>Días con ventas</small><b>${conVentas}</b><em>de ${dias.length}</em></span></div></div>
+    ${ddMes?.cargando ? '<p class="muted">Cargando las compras del mes…</p>' : ddMes?.error ? `<p class="error">${esc(ddMes.error)}</p>` : `<div class="dd-scroll"><div class="dd-chart">${dias.map(columna).join('')}</div></div>`}${D.oportunidad ? `<p class="muted small">📌 El día de cada venta sale de la <strong>oportunidad que crea el workflow de compra</strong> (${D.oportunidad.elegido ? 'la elegida en la configuración' : 'detectada sola: la etapa donde caen las compradoras'}): es la hora exacta del pago, también para quien ya era contacto. Las que no tienen esa oportunidad se fechan por la etiqueta${state.config.directas?.[state.embudo]?.emailCompra ? ' o el email de compra' : ''}.</p>` : ''}${D.sinFechaCompra && !D.oportunidad ? '<p class="muted small">Sin campo «Fecha de compra», el día de cada venta es el de alta si el contacto es nuevo y, si ya era contacto, el día en que GHL le puso la etiqueta de compra (lo apunta el dashboard al verla). Para el día exacto del pago, guarda la fecha en un campo con el workflow de compra y elígelo en la configuración.</p>' : D.sinCampoRelleno ? `<p class="muted small">${D.sinCampoRelleno} venta${D.sinCampoRelleno === 1 ? '' : 's'} del periodo aún sin el campo «Fecha de compra» (compraron antes de crearlo): se fechan por la etiqueta y el email de compra, como antes.</p>` : ''}</section>` : '';
+  $('#dd-mes')?.addEventListener('change', (e) => cargarMesDias(e.target.value));
+  // Que se vea lo más reciente (a la derecha) sin tener que desplazar.
+  { const sc = $('#dir-dias .dd-scroll'); if (sc) sc.scrollLeft = sc.scrollWidth; }
 }
 $('#view-dmetricas').addEventListener('click', (e) => { if (e.target.closest('[data-dir-config]')) abrirDirectaConfig(); });
 

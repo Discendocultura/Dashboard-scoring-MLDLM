@@ -3301,3 +3301,36 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .inf-vista { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fff; color: #241f1c; overflow-x: auto; }
 .inf-vista .muted { color: #6b625d; }
 .inf-asunto { margin: 0 0 10px; }
+
+/* 📅 Venta directa: día a día en columnas */
+.dd-card { padding: 16px 18px; }
+.dd-cab { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; margin-bottom: 14px; }
+.dd-cab h3 { margin: 0; }
+.dd-res { display: flex; flex-wrap: wrap; gap: 8px; }
+.dd-res span { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--surface-2); }
+.dd-res small { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.dd-res b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.dd-res em { font-style: normal; font-size: 12px; color: var(--text-2); }
+.dd-scroll { overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.dd-chart { display: flex; gap: 6px; align-items: stretch; min-width: 100%; width: max-content; }
+.dd-col { flex: 1 0 44px; max-width: 72px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 2px 8px; border-radius: 10px; transition: background .15s; }
+.dd-col:hover { background: var(--surface-2); }
+.dd-n { height: 18px; font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; }
+.dd-bar { position: relative; width: 26px; height: 130px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 7%, var(--surface-2)); overflow: hidden; display: flex; align-items: flex-end; }
+.dd-bar i { display: block; width: 100%; border-radius: 8px 8px 4px 4px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, #fff), var(--accent)); }
+.dd-top .dd-bar i { background: linear-gradient(180deg, color-mix(in srgb, var(--tone-buy) 75%, #fff), var(--tone-buy)); }
+.dd-top .dd-n { color: var(--tone-buy); }
+.dd-eur { height: 15px; font-size: 10.5px; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dd-dia { display: flex; flex-direction: column; align-items: center; line-height: 1.15; padding-top: 4px; border-top: 1px solid var(--border); width: 100%; }
+.dd-dia small { font-size: 10.5px; color: var(--muted); text-transform: capitalize; }
+.dd-dia b { font-size: 14px; }
+.dd-hoy .dd-dia b { color: var(--accent); }
+.dd-hoy { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.dd-cero .dd-dia b { color: var(--muted); font-weight: 600; }
+.dd-vis { height: 14px; font-size: 10px; color: var(--muted); white-space: nowrap; }
+@media (max-width: 640px) {
+  .dd-col { flex-basis: 40px; }
+  .dd-bar { height: 110px; width: 22px; }
+}
+.dd-cab h3 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dd-mes select { font-size: 13px; font-weight: 650; border-radius: 999px; padding: 6px 34px 6px 12px; }
