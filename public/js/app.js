@@ -51,6 +51,7 @@ import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, asuntosGanadores, promptE
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto, accesosDePaginas, conAccesos } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { iniciarAnimaciones } from './animaciones.js';
+import { componerEmails } from './emails.js';
 import { saludCliente, ordenSalud, totalesAgencia, urgentesAgencia, agendaAgencia, equipoAgencia } from './agencia-inicio.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
@@ -4563,7 +4564,7 @@ async function pintarEmailsReprogramar(prevCode, launch) {
   const box = $('#fiesta-emails');
   box.innerHTML = '<p class="muted small">📧 Buscando los emails del lanzamiento anterior…</p>';
   try {
-    const d = await api(`/api/emails?l=${encodeURIComponent(prevCode)}`);
+    const d = await cargarEmails(prevCode);
     const { campanas, workflows } = emailsAReprogramar(d.emails || [], desplazamiento(state.config.launches[prevCode], launch.fechaDirecto, launch.horaDirecto));
     if (!campanas.length && !workflows) { box.innerHTML = ''; return; }
     box.innerHTML = `<details class="fiesta-det" open><summary>📧 Emails a reprogramar en GHL (${campanas.length})</summary>
@@ -10685,10 +10686,25 @@ function nivelChip(niv, dif) {
   const d = dif != null ? ` (${dif > 0 ? '+' : ''}${Math.round(dif * 100)}% vs. el resto)` : '';
   return `<span class="em-niv ${niv}" title="Frente a la media del resto de emails${d}">${NIVEL_TXT[niv]}</span>`;
 }
+// Emails de un embudo: primero la lista (sin estadísticas) y después sus estadísticas en tandas de 8, cada una en su
+// propia petición (todo de golpe pasaba del límite de Cloudflare: «Error 502»). `onAvance(hechos, total)` va pintando.
+const TANDA_EMAILS = 8;
+async function emailsCompletos(code, { fresh = false, onAvance } = {}) {
+  const q = (extra = '') => `/api/emails?l=${encodeURIComponent(code)}${extra}${fresh ? '&fresh=1' : ''}`;
+  const lista = await api(q());
+  const items = lista.items || [];
+  const stats = {};
+  for (let i = 0; i < items.length; i += TANDA_EMAILS) {
+    const claves = items.slice(i, i + TANDA_EMAILS).map((x) => x.key);
+    try { Object.assign(stats, (await api(q(`&stats=${encodeURIComponent(claves.join(','))}`))).stats || {}); } catch (e) { console.error('Estadísticas de emails', e); }
+    onAvance?.(Math.min(i + TANDA_EMAILS, items.length), items.length);
+  }
+  return componerEmails(lista, stats);
+}
 async function cargarEmails(code, { fresh = false } = {}) {
   const c = emailsCache[code];
   if (c && !fresh && (c.datos || c.cargando)) return c.cargando || c.datos;
-  const p = api(`/api/emails?l=${encodeURIComponent(code)}${fresh ? '&fresh=1' : ''}`);
+  const p = emailsCompletos(code, { fresh, onAvance: (h, t) => { $$(`[data-em-code="${CSS.escape(code)}"] .em-cargando`).forEach((x) => { x.textContent = `Leyendo las estadísticas de GHL… ${h} de ${t} emails`; }); } });
   emailsCache[code] = { cargando: p };
   try { const datos = await p; emailsCache[code] = { datos }; return datos; } catch (e) { emailsCache[code] = { error: e.message }; throw e; }
 }
@@ -10704,7 +10720,7 @@ function mostrarEmails(code, { kpis, tabla } = {}) {
   };
   const c = emailsCache[code];
   if (c?.datos || c?.error) { pintar(); return; }
-  if (boxT) boxT.innerHTML = '<p class="muted">Cargando los emails de GHL…</p>';
+  if (boxT) boxT.innerHTML = '<p class="muted em-cargando">Cargando los emails de GHL…</p>';
   cargarEmails(code).catch(() => {}).finally(pintar);
 }
 function pintarEmailsKpis(box, c) {
@@ -12583,7 +12599,7 @@ async function renderEmailsIa() {
     e.target.disabled = true;
     e.target.textContent = 'Cargando de GHL…';
     try {
-      const d = await api(`/api/emails?l=${encodeURIComponent(prev)}`);
+      const d = await cargarEmails(prev);
       emc.ganadores[prev] = asuntosGanadores(d.emails || []) || '(sin emails con 100 entregas o más)';
     } catch (err) { notice(err.message, true); }
     await renderEmailsIa();

@@ -87,3 +87,11 @@ export function ventanaEmails(emb = {}, addDays) {
   if (emb.calentamiento || emb.apertura) return { desde: addDays(emb.calentamiento || dia(emb.apertura), -2), hasta: addDays(dia(emb.cierre) || dia(emb.apertura), 2) };
   return null;
 }
+
+// Lista de emails (GET /api/emails) + sus estadísticas por tandas (…&stats=) → lo que pinta el dashboard.
+export function componerEmails(lista = {}, stats = {}) {
+  const todos = (lista.items || []).map((x) => ({ id: x.key, ...x, ...(stats[x.key] || {}), asunto: stats[x.key]?.asunto || x.asunto || '' }));
+  const emails = conIndicadores(todos.filter((e) => e.enviados || e.entregados));
+  emails.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || String(a.nombre).localeCompare(String(b.nombre), 'es'));
+  return { emails, resumen: resumenEmails(emails.filter((e) => e.entregados)), sinFiltro: Boolean(lista.sinFiltro), criterio: lista.criterio || '', parcial: Boolean(lista.parcial), actualizado: lista.actualizado };
+}

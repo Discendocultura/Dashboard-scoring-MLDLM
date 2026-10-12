@@ -52,6 +52,18 @@ async function call(path, { method = 'GET', body, cookie } = {}) {
   return { status: res.status, data: await res.json().catch(() => null), res };
 }
 
+// Como el navegador: la lista y después las estadísticas en tandas de 8.
+async function emailsApi(code, cookie) {
+  const { componerEmails } = await import('../public/js/emails.js');
+  const lista = (await call(`/api/emails?l=${code}`, { cookie })).data;
+  const stats = {};
+  for (let i = 0; i < lista.items.length; i += 8) {
+    const claves = lista.items.slice(i, i + 8).map((x) => x.key).join(',');
+    Object.assign(stats, (await call(`/api/emails?l=${code}&stats=${encodeURIComponent(claves)}`, { cookie })).data.stats);
+  }
+  return componerEmails(lista, stats);
+}
+
 test('API de emails: por filtro (campañas y workflows) y por fechas del lanzamiento', async () => {
   const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
   const cfg = (await call('/api/config', { cookie: admin })).data.config;
@@ -64,14 +76,14 @@ test('API de emails: por filtro (campañas y workflows) y por fechas del lanzami
   };
   assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body })).status, 200);
   // Sin filtro: las campañas enviadas en las fechas del lanzamiento (no la newsletter de septiembre)
-  const d = (await call('/api/emails?l=oct', { cookie: admin })).data;
+  const d = await emailsApi('oct', admin);
   assert.equal(d.emails.length, 8);
   assert.ok(d.emails.every((e) => e.tipo === 'campana' && e.asunto));
   assert.ok(d.resumen.apertura > 0.3 && d.resumen.apertura < 0.6);
   const rec = d.emails.find((e) => e.asunto === 'Recordatorio');
   assert.equal(rec.niveles.apertura, 'bajo');
   // Con filtro: una campaña y los 3 emails del workflow de la VSL
-  const f = (await call('/api/emails?l=flt', { cookie: admin })).data;
+  const f = await emailsApi('flt', admin);
   assert.equal(f.emails.filter((e) => e.tipo === 'campana').length, 1);
   assert.equal(f.emails.filter((e) => e.tipo === 'workflow').length, 3);
   assert.equal((await call('/api/emails?l=no-existe', { cookie: admin })).status, 404);
