@@ -1120,8 +1120,14 @@
     pagina = pagina || 'venta';
     var who = identity();
     var launch = params.get('l') || el.getAttribute('data-launch') || 'auto';
+    // Titular y subtitular según la encuesta (<h1 data-lsd-text="titular">, <p data-lsd-text="subtitular">):
+    // se ocultan hasta saber cuál le toca (como mucho 2,5 s; si no, se queda el texto escrito en la página).
+    var personalizados = pagina === 'venta' ? Array.prototype.slice.call(document.querySelectorAll('[data-lsd-text="titular"], [data-lsd-text="subtitular"]')) : [];
+    personalizados.forEach(function (t) { t.style.visibility = 'hidden'; });
+    var mostrarTitulares = function () { personalizados.forEach(function (t) { t.style.visibility = ''; }); personalizados = []; };
+    setTimeout(mostrarTitulares, 2500);
     fetchPage(launch, who, pagina).then(function (data) {
-      if (!data || data.error) return;
+      if (!data || data.error) return mostrarTitulares();
       var texts = data.texts || {};
       document.querySelectorAll('[data-lsd-text]').forEach(function (t) {
         var k = t.getAttribute('data-lsd-text');
@@ -1129,6 +1135,7 @@
         t.textContent = texts[k];
         show(t, Boolean(texts[k]));
       });
+      mostrarTitulares();
       document.querySelectorAll('[data-lsd-caja]').forEach(function (c) {
         var link = (data.links || {})[c.getAttribute('data-lsd-caja') === 'fraccionado' ? 'pago-fraccionado' : 'pago'];
         show(c, Boolean(link));
@@ -1148,7 +1155,7 @@
       if (!data.ventaBarra) return;
       injectCss();
       barraVenta(data);
-    }).catch(function () { /* sin conexión: sin barra */ });
+    }).catch(function () { mostrarTitulares(); /* sin conexión: sin barra y con el titular de la página */ });
     // Visitas a la página de venta (para «Setting hoy») y a la de pago (= inició el pago).
     if (pagina === 'llamada' || !who || !who.cid || params.get('lsd_preview')) return;
     visitaUnaVez(launch, who.cid, pagina, 10 * 60 * 1000);

@@ -3442,3 +3442,23 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
   .subviews .subview-tab .ico { width: 26px; height: 26px; }
 }
 :root[data-estilo="espacial"] .subviews .subview-tab.active .ico { background: #ff7a18; }
+
+/* ---------- Titular según la encuesta (Configuración → Embudo → Página de venta) ---------- */
+.tit-variantes { display: grid; gap: 12px; margin: 12px 0; }
+.tit-variantes.apagado { opacity: .55; }
+.tit-var { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 14px 16px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 12px; background: var(--surface); }
+.tit-var > .field { grid-column: 1 / -1; margin: 0; }
+.tit-var > .field:nth-of-type(1) { grid-column: 1 / -1; }
+.tit-var-cab { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
+.tit-n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; font-weight: 800; font-size: 13px; }
+.tit-var-acc { margin-left: auto; display: flex; gap: 4px; }
+.tit-resps { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.tit-resp { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); font-size: 13px; cursor: pointer; }
+.tit-resp input { margin: 0; accent-color: var(--accent); }
+.tit-resp small { color: var(--text-2); font-weight: 700; }
+.tit-resp.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); font-weight: 600; }
+.tit-res { margin: 8px 0 14px; }
+.tit-res h4 { margin: 0 0 8px; font-size: 14px; }
+.tit-resps .tit-resp { flex: 0 0 auto; width: auto; white-space: nowrap; flex-direction: row; margin: 0; }
+.tit-resps .tit-resp input[type="checkbox"] { width: 15px; height: 15px; min-height: 0; padding: 0; flex: 0 0 auto; }
+.tit-var .field > span:first-child { display: block; }

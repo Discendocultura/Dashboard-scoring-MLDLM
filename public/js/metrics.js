@@ -279,7 +279,7 @@ export function porRespuesta(leads, pregunta) {
 }
 
 // Respuestas de una lead a una pregunta, ya normalizadas (como en porRespuesta).
-function respuestasDe(l, p) {
+export function respuestasDe(l, p) {
   const v = l.cf?.[p.id];
   let vals = (Array.isArray(v) ? v : [v]).map((x) => String(x ?? '').trim().replace(/\s+/g, ' ')).filter(Boolean);
   if (p.tipo === 'edad') vals = vals.map(tramoEdad).filter(Boolean);

@@ -4,7 +4,9 @@ import {
 } from './scoring.js';
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
-import { asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
+import { ORDEN_EDAD } from './encuesta.js';
+import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
+import { respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch, CAJAS_PAGO, numeroWhatsApp, enlaceWhatsApp, leerEnlaceWhatsApp } from './page.js';
 import { FORMATOS, formatoValido, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto, nVideos, nombreVideo } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, MIN_REGISTROS, resumenLanzamiento, prevision, resumenManual, medias, supuestosEscenario, inversionRecomendada, proyeccion, planificar, PLAN_DEF } from './calculadora.js';
@@ -3401,6 +3403,120 @@ function pintarVentaPasos() {
   $('#venta-pasos-box').innerHTML = fila('Bloque para GHL', bloque, '📍 <strong>Dónde:</strong> al final de la página, en el pie, dentro de un elemento «Código personalizado». No se ve: apunta la visita y, si la activas arriba, pinta la barra fija. También está en «Códigos». (El enlace para los emails está arriba, bajo la URL de la página.)');
 }
 $('#cfg-raices').addEventListener('input', pintarVentaPasos);
+
+// ---------- Titular de la página de venta según la encuesta ----------
+// Variantes (pregunta + respuestas → titular y subtitular) y el general. Las respuestas que se pueden elegir
+// salen de las leads cargadas (más las ya elegidas); también se puede escribir una a mano.
+const titPreguntas = () => preguntasParaTitular(preguntasEncuesta());
+function opcionesTitular(pregunta, elegidas = []) {
+  const p = titPreguntas().find((x) => x.id === pregunta);
+  if (!p) return [...elegidas];
+  const n = new Map();
+  for (const l of state.leads || []) for (const r of respuestasEncuesta(l, p)) n.set(r, (n.get(r) || 0) + 1);
+  const base = p.tipo === 'edad' ? ORDEN_EDAD : [...n.entries()].sort((a, b) => b[1] - a[1]).map(([r]) => r);
+  return [...new Set([...base, ...elegidas])].map((r) => ({ r, n: n.get(r) || 0 }));
+}
+function titVarianteHtml(v, i, total) {
+  const preguntas = titPreguntas();
+  const pregunta = v.pregunta || preguntas[0]?.id || '';
+  const elegidas = v.respuestas || [];
+  const ops = opcionesTitular(pregunta, elegidas);
+  return `<div class="tit-var" data-id="${esc(v.id || '')}">
+    <div class="tit-var-cab"><span class="tit-n">${i + 1}</span><strong>Variante ${i + 1}</strong>
+      <span class="tit-var-acc"><button type="button" class="btn ghost small" data-tit-mover="-1" ${i ? '' : 'disabled'} title="Subir (más prioridad)">↑</button><button type="button" class="btn ghost small" data-tit-mover="1" ${i < total - 1 ? '' : 'disabled'} title="Bajar">↓</button><button type="button" class="btn ghost small" data-tit-quitar title="Quitar esta variante">✕</button></span></div>
+    <label class="field"><span>Si en esta pregunta…</span><select class="tit-preg">${preguntas.map((p) => `<option value="${esc(p.id)}" ${p.id === pregunta ? 'selected' : ''}>${esc(p.name || p.id)}</option>`).join('')}</select></label>
+    <div class="field"><span>…respondió alguna de estas:</span>
+      <div class="tit-resps">${ops.length ? ops.map((o) => `<label class="tit-resp ${elegidas.includes(o.r) ? 'on' : ''}"><input type="checkbox" value="${esc(o.r)}" ${elegidas.includes(o.r) ? 'checked' : ''}> ${esc(o.r)}${o.n ? ` <small>${o.n}</small>` : ''}</label>`).join('') : '<span class="muted small">Aún no hay respuestas en las leads cargadas: escríbela abajo tal cual sale en la encuesta.</span>'}</div>
+      <input class="tit-otra" maxlength="200" placeholder="Otra respuesta (escrita igual que en la encuesta) y Enter"></div>
+    <label class="field full"><span>Titular</span><input class="tit-titular" maxlength="300" value="${esc(v.titular || '')}"></label>
+    <label class="field full"><span>Subtitular <small>(vacío = el general)</small></span><textarea class="tit-sub" rows="2" maxlength="600">${esc(v.subtitular || '')}</textarea></label>
+  </div>`;
+}
+// Lo que hay en pantalla (sin filtrar: también las variantes a medio hacer).
+function titularesEnPantalla() {
+  return {
+    activo: $('#cfg-tit-on').checked,
+    general: { titular: $('#cfg-tit-g-titular').value.trim(), subtitular: $('#cfg-tit-g-sub').value.trim() },
+    variantes: $$('#tit-variantes .tit-var').map((el, i) => ({
+      id: el.dataset.id || `v${Date.now().toString(36).slice(-5)}${i}`,
+      pregunta: $('.tit-preg', el)?.value || '',
+      respuestas: $$('.tit-resp input:checked', el).map((c) => c.value),
+      titular: $('.tit-titular', el).value.trim(), subtitular: $('.tit-sub', el).value.trim(),
+    })),
+  };
+}
+const leerTitulares = () => sanitizeTitulares(titularesEnPantalla());
+function pintarTitulares(t = {}) {
+  const x = { activo: false, general: {}, variantes: [], ...(t || {}) };
+  $('#cfg-tit-on').checked = Boolean(x.activo);
+  $('#cfg-tit-g-titular').value = x.general?.titular || '';
+  $('#cfg-tit-g-sub').value = x.general?.subtitular || '';
+  pintarTitVariantes(x.variantes || []);
+}
+function pintarTitVariantes(vars) {
+  const box = $('#tit-variantes');
+  if (!titPreguntas().length) {
+    box.innerHTML = '<p class="muted small">Este cliente no tiene preguntas de encuesta de opciones o edad. Se configuran en <strong>Equipo → Marca</strong>.</p>';
+    $('#tit-add').hidden = true;
+  } else {
+    box.innerHTML = vars.map((v, i) => titVarianteHtml(v, i, vars.length)).join('');
+    $('#tit-add').hidden = vars.length >= MAX_VARIANTES;
+  }
+  pintarTitResultados();
+}
+function pintarTitResultados() {
+  const t = titularesEnPantalla();
+  const on = t.activo;
+  $('#tit-variantes').classList.toggle('apagado', !on);
+  const bloque = `<h2 data-lsd-text="titular">${esc(t.general.titular || 'Titular general')}</h2>\n<p data-lsd-text="subtitular">${esc(t.general.subtitular || 'Subtitular general')}</p>`;
+  $('#tit-codigo').innerHTML = filaCopiar('Titular y subtitular para GHL', bloque, '📍 <strong>Dónde:</strong> en lugar del titular y subtitular de la página de venta, dentro de un elemento «Código personalizado» (dale el estilo que quieras). Lo escrito es el general: se ve si la lead no tiene encuesta o si el dashboard no responde. Hace falta también el bloque del pie de la página (abajo, «Para saber quién visita la página de venta»).');
+  const vars = sanitizeTitulares(t).variantes;
+  const mismo = state.launchCode === editingCode && state.leads?.length;
+  if (!vars.length || !mismo) { $('#tit-resultados').innerHTML = vars.length ? '<p class="muted small">Los resultados de cada variante salen al abrir esta configuración desde el lanzamiento que estás viendo.</p>' : ''; return; }
+  const filas = resultadosTitulares({ ...t, variantes: vars }, state.leads, preguntasEncuesta());
+  const nombre = (f) => (f.v ? `${vars.findIndex((v) => v.id === f.id) + 1}. ${f.v.titular || '(subtitular)'}` : 'General (sin encuesta o sin coincidencia)');
+  $('#tit-resultados').innerHTML = `<div class="tit-res"><h4>📊 Cómo convierte cada titular en este lanzamiento</h4>
+    <div class="table-wrap"><table class="metric-table"><thead><tr><th>Variante</th><th class="num">Leads</th><th class="num">Visitaron la venta</th><th class="num">Compraron</th><th class="num">Conversión</th></tr></thead>
+    <tbody>${filas.map((f) => `<tr><td>${esc(nombre(f))}</td><td class="num">${f.leads}</td><td class="num">${f.visitas}</td><td class="num">${f.compras}</td><td class="num"><strong>${f.visitas ? pctOf(f.compras, f.visitas) : '–'}</strong></td></tr>`).join('')}</tbody></table></div>
+    <p class="muted small">Conversión = compraron ÷ visitaron la página de venta (con su enlace personal). Cada lead cuenta en la variante que le tocaría con su encuesta.</p></div>`;
+}
+$('#tit-add').addEventListener('click', () => {
+  const t = titularesEnPantalla();
+  pintarTitVariantes([...t.variantes, { id: `v${Date.now().toString(36).slice(-6)}`, pregunta: titPreguntas()[0]?.id || '', respuestas: [], titular: '', subtitular: '' }]);
+  $('#tit-variantes .tit-var:last-child .tit-titular')?.focus();
+});
+$('#tit-variantes').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tit-mover], [data-tit-quitar]');
+  if (!b) return;
+  const vars = titularesEnPantalla().variantes;
+  const i = $$('#tit-variantes .tit-var').indexOf(b.closest('.tit-var'));
+  if (b.dataset.titQuitar !== undefined) vars.splice(i, 1);
+  else { const j = i + Number(b.dataset.titMover); [vars[i], vars[j]] = [vars[j], vars[i]]; }
+  pintarTitVariantes(vars);
+});
+$('#tit-variantes').addEventListener('change', (e) => {
+  if (e.target.matches('.tit-preg')) {
+    const vars = titularesEnPantalla().variantes;
+    const i = $$('#tit-variantes .tit-var').indexOf(e.target.closest('.tit-var'));
+    vars[i].respuestas = [];
+    pintarTitVariantes(vars);
+  } else if (e.target.matches('.tit-resp input')) {
+    e.target.closest('.tit-resp').classList.toggle('on', e.target.checked);
+    pintarTitResultados();
+  }
+});
+$('#tit-variantes').addEventListener('keydown', (e) => {
+  if (!e.target.matches('.tit-otra') || e.key !== 'Enter') return;
+  e.preventDefault();
+  const r = e.target.value.trim();
+  if (!r) return;
+  const vars = titularesEnPantalla().variantes;
+  const i = $$('#tit-variantes .tit-var').indexOf(e.target.closest('.tit-var'));
+  if (!vars[i].respuestas.includes(r)) vars[i].respuestas.push(r);
+  pintarTitVariantes(vars);
+});
+for (const id of ['#cfg-tit-on', '#cfg-tit-g-titular', '#cfg-tit-g-sub']) $(id).addEventListener('input', pintarTitResultados);
+$('#tit-variantes').addEventListener('input', (e) => { if (e.target.matches('.tit-titular')) pintarTitResultados(); });
 // ---------- Barras fijas por tramos (páginas de venta y de pago): texto, fin y con o sin botón ----------
 // Cada tramo se ve hasta su fecha y al acabar empieza el siguiente. `pre`: «vb» (venta) o «pb» (pago);
 // sus casillas son #cfg-<pre>-on, -color, -tramos, -add, -bonus y -resumen.
@@ -3710,6 +3826,8 @@ function openConfig(code) {
       // Embudo con las páginas creadas de cero: sus enlaces son las URLs propuestas al crearlo.
       ...enlacesLanzamiento(propuestasEmbudo(state.embudo)),
       carritoAbandonadoTag: last.carritoAbandonadoTag,
+      // Titulares de la página de venta según la encuesta: el mismo copy sirve para el siguiente lanzamiento.
+      titulares: last.titulares,
       // La página de pago se hereda con su copy; su barra, sin fechas.
       ...(last.paginaPago ? { paginaPago: { ...last.paginaPago, barra: { ...(last.paginaPago.barra || {}), tramos: (last.paginaPago.barra?.tramos || []).map((t) => ({ ...t, hasta: '' })) } } } : {}),
       // La barra de la página de venta se hereda con sus textos y botones, sin fechas.
@@ -3802,6 +3920,7 @@ function openConfig(code) {
   pintarEnlaceDirecto();
   pintarVentaPasos();
   pintarVentaBarra(l.ventaBarra);
+  pintarTitulares(l.titulares);
   pintarPaginaPago(l.paginaPago);
   $('#cfg-ca-tag').value = l.carritoAbandonadoTag ?? '';
   pintarCarritoAbandonado();
@@ -4860,6 +4979,7 @@ function readForm() {
       recursosPre: leerRecursosCfg(),
       espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim() },
       ventaBarra: leerVentaBarra(),
+      titulares: leerTitulares(),
       paginaPago: leerPaginaPago(),
       carritoAbandonadoTag: $('#cfg-ca-tag').value.trim(),
       carritoNotas: leerCarritoNotas(),

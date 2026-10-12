@@ -94,6 +94,13 @@ Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por Wh
 
 **Ficha completa del lead** (Hoy → Llamadas): al pulsar una llamada se abre una ventana con todo lo que ayuda a la setter antes de llamar: cuándo es la cita y su etapa, teléfono / WhatsApp / email, la **temperatura** (estado y puntuación sobre 100) y el siguiente paso, **qué ha hecho** (cada clase, VIP, directo y grabación, encuesta, si ya se le escribió, si compró), origen (publi / orgánico), tráfico frío / templado, avatar y días desde el registro, las **respuestas de la encuesta**, las **respuestas del formulario de reserva de la llamada y el resto de campos de su ficha de GHL**, y las últimas **notas** de GHL. Desde ahí se anota el resultado.
 
+### Titular de la página de venta según la encuesta
+Configuración → Venta → Página de venta → **🎯 Titular según la encuesta**. Se escribe un **titular y subtitular general** y las **variantes** que quieras: cada una mira una pregunta de la encuesta (de opciones o la edad, por tramos) y una o varias respuestas, con su titular y subtitular (vacío = el general). Cada lead ve la **primera variante que encaja** con lo que contestó (de arriba abajo: las flechas cambian la prioridad); quien no rellenó la encuesta, no encaja con ninguna o llega sin su enlace personal (`?cid=`) ve el general.
+
+En la página de venta de GHL, el titular y el subtitular van en un **«Código personalizado»** con `data-lsd-text="titular"` y `data-lsd-text="subtitular"` (el código está ahí mismo, listo para copiar), además del bloque del pie de siempre. Lo escrito en la página es el general: se ve si el dashboard no responde. Para no dar un salto de texto, el titular se oculta hasta saber cuál toca (como mucho 2,5 s). Las respuestas de cada lead se consultan en GHL una vez y se guardan 2 horas; si GHL tarda más de 1,5 s, sale el general.
+
+Debajo, la tabla **«Cómo convierte cada titular»**: por variante, cuántas leads le tocan, cuántas visitaron la venta y cuántas compraron (conversión = compras ÷ visitas), para quedarte con el que mejor vende.
+
 ### Pestaña Plan
 Para planificar: **Planificador** (objetivos, inversión, equipo y previsión), **Calendario**, **Carrito** y **Tareas**. Como en Hoy, al entrar abre la última que usaste en ese embudo y el número de la pestaña son las tareas pendientes. Si alguien solo puede ver una, entra directo sin subpestañas.
 

@@ -6,7 +6,9 @@
 import { cacheCompartida } from '../lib/store.js';
 import { getConfig } from '../lib/config-store.js';
 import { clienteActual } from '../lib/cliente.js';
-import { getContact, countByTag } from '../lib/ghl.js';
+import { getContact, getContactCompleto, countByTag } from '../lib/ghl.js';
+import { dentroDelLimite } from '../lib/intentos.js';
+import { varianteDe, textosTitular } from '../public/js/titulares.js';
 import { currentLaunch } from '../lib/digest.js';
 import { verifyToken, signToken, requireRole } from '../lib/auth.js';
 import { marcarActividad } from '../lib/actividad.js';
@@ -103,6 +105,11 @@ export async function GET(request, ctx) {
       const enlacesVenta = Object.fromEntries(['pagina-pago', 'pago', 'pago-fraccionado', 'llamada', 'whatsapp-dudas', 'whatsapp'].map((k) => [k, links[k] || '']));
       for (const p of planesActivos(launch)) enlacesVenta[`plan-${p.id}`] = links[`plan-${p.id}`] || '';
       const texts = Object.fromEntries(Object.entries(textosPago(launch, { unico: euros(launch.precioPrograma), fraccionado: euros(launch.precioFraccionado) })).map(([k, v]) => [k, conProducto(v, producto)]));
+      // Titular y subtitular según su respuesta de la encuesta (solo en la de venta; sin cid o sin encuesta, el general).
+      if (ligera === 'venta' && launch.titulares?.activo) {
+        const v = await varianteTitular(launch, config, cid, request).catch((e) => { console.error('titular', e.message); return null; });
+        for (const [k, t] of Object.entries(textosTitular(launch.titulares, v))) texts[k] = conProducto(t, producto);
+      }
       return json({ code, now, preview, links: enlacesVenta, texts, ventaBarra: vb && { ...vb, tramos: vb.tramos.map((t) => ({ ...t, text: conProducto(t.text, producto), boton: t.boton && { ...t.boton, label: conProducto(t.boton.label, producto) } })) } }, 200, CORS_HEADERS);
     }
 
@@ -286,6 +293,25 @@ function encuestaUrl(base, contact) {
   } catch {
     return base;
   }
+}
+
+// Variante de titular de una lead. Sus respuestas de la encuesta se guardan 2 horas (compartido entre servidores):
+// al abrir el carrito entran muchas a la vez y GHL admite ~100 peticiones cada 10 s. Si GHL tarda más de
+// 1,5 s, o hay demasiadas peticiones desde la misma IP, sale el titular general (la página no espera).
+async function varianteTitular(launch, config, cid, request) {
+  if (!cid || !launch.titulares.variantes?.length) return null;
+  const campos = [...new Set(launch.titulares.variantes.map((v) => v.pregunta))];
+  const leer = async () => {
+    // Sin guardar nada: si no, se quedaría el general en caché aunque sí tenga encuesta.
+    if (!(await dentroDelLimite(request, 'titular', 60))) throw new Error('demasiadas peticiones');
+    const c = await getContactCompleto(cid);
+    return { cf: Object.fromEntries(campos.map((id) => [id, c?.cf?.[id] ?? null])) };
+  };
+  const lead = await Promise.race([
+    cacheCompartida(`titular|${cid}|${campos.join(',')}`, 2 * 3_600_000, leer),
+    new Promise((r) => { setTimeout(() => r(null), 1500); }),
+  ]);
+  return lead ? varianteDe(launch.titulares, lead, config.encuesta || []) : null;
 }
 
 // 27 → "27 €", 27.5 → "27,50 €" (formato español).
