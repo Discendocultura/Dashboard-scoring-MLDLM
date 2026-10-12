@@ -807,7 +807,7 @@ function pintarAnunciosInicio(A) {
   const lista = A.embudos.filter((e) => e.error || e.nivel !== 'ok');
   const urgente = lista.some((e) => e.nivel === 'urgente');
   caja.innerHTML = `<div class="notice ${urgente ? 'err' : 'warn'} inicio-anuncios"><span><strong>📣 Anuncios: ${urgente ? 'toca preparar anuncios nuevos' : 've preparando anuncios nuevos'}</strong> <small class="muted">· última semana frente a la anterior</small>
-    <ul>${lista.map((e) => `<li><button type="button" data-ir-publi="${esc(e.embudo)}"><strong>${e.nivel === 'urgente' ? '🔴' : e.nivel === 'pronto' ? '🟠' : '⚠️'} ${esc(e.nombre)}:</strong> ${esc(e.error || e.titulo)}${e.avisos?.length ? `<br><small class="muted">${e.avisos.map((x) => `${x.nombre ? `${esc(x.nombre)} — ` : ''}${esc(x.texto)}`).join(' · ')}</small>` : ''}</button></li>`).join('')}</ul></span></div>`;
+    <ul>${lista.map((e) => `<li><button type="button" data-ir-publi="${esc(e.embudo)}"><strong>${e.nivel === 'urgente' ? '🔴' : e.nivel === 'pronto' ? '🟠' : '⚠️'} ${esc(e.nombre)}:</strong> ${esc(e.error || e.titulo)}</button>${e.avisos?.length ? `<ul class="ia-sub">${e.avisos.map((x) => `<li>${x.nombre ? `<strong>${esc(x.nombre)}</strong> · ` : ''}${esc(x.texto)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ul></span></div>`;
 }
 $('#inicio-anuncios').addEventListener('click', (e) => { const b = e.target.closest('[data-ir-publi]'); if (b) setEmbudo(b.dataset.irPubli, { vista: 'publicidad' }); });
 

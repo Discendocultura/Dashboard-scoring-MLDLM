@@ -3334,3 +3334,38 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 }
 .dd-cab h3 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .dd-mes select { font-size: 13px; font-weight: 650; border-radius: 999px; padding: 6px 34px 6px 12px; }
+
+/* ---------- Repaso visual general ---------- */
+/* Botón «Agencia» flotante: más pequeño y semitransparente hasta pasar el ratón (tapaba cifras y botones). */
+.agencia-btn.agencia-flotante { padding: 8px 14px 8px 8px; font-size: 13px; opacity: .82; }
+.agencia-btn.agencia-flotante:hover, .agencia-btn.agencia-flotante:focus-visible { opacity: 1; }
+.agencia-btn.agencia-flotante .agencia-ico { width: 24px; height: 24px; }
+@media (max-width: 640px) { .agencia-btn.agencia-flotante { font-size: 0; gap: 0; padding: 8px; } .agencia-btn.agencia-flotante .agencia-ico { width: 28px; height: 28px; } }
+
+/* Tarjetas de cifras: más anchas (los títulos ya no se parten en tres líneas) y a la misma altura. */
+.kpis { grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); align-items: stretch; }
+.kpis > .kpi { height: 100%; }
+.kpi-label { line-height: 1.25; }
+
+/* Inicio: tarjetas de cada embudo con las cifras arriba, en rejilla flexible, sin huecos raros. */
+.inicio-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; align-items: stretch; }
+.inicio-emb { align-content: start; gap: 10px; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.inicio-emb:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+.inicio-emb .ie-cifras { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.inicio-emb .ie-cifras span { line-height: 1.3; align-content: start; }
+.inicio-emb .ie-cifras strong { font-size: 18px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.inicio-emb .ie-cifras.ie-sec { border-top: 1px dashed var(--border); }
+.inicio-emb .ie-cifras strong small { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+/* Avisos de anuncios del Inicio: una lista legible en vez de un párrafo apretado. */
+.inicio-anuncios > span > ul > li { padding: 8px 0; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
+.inicio-anuncios > span > ul > li:first-child { border-top: 0; }
+.ia-sub { margin: 6px 0 0; padding-left: 22px; list-style: disc; color: var(--text-2); font-size: 13px; }
+.ia-sub li { margin: 3px 0; }
+.ia-sub strong { color: var(--text); font-weight: 650; }
+
+/* Avisos «para que las cifras salgan bien»: lista y botón más ordenados. */
+.notice ul { margin: 6px 0; padding-left: 20px; }
+.notice ul li { margin: 3px 0; }
+/* En escritorio, el botón Agencia va abajo a la izquierda (sobre la barra lateral): no tapa las fichas. */
+@media (min-width: 901px) { .agencia-btn.agencia-flotante { right: auto; left: 24px; } }

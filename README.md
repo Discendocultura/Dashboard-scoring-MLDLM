@@ -85,6 +85,8 @@ cada grupo), con las diferencias frío − templado y publi − orgánico en pun
 captación; publicidad/orgánico, sus etiquetas. La tarjeta de asistencia
 también enseña el % de frío y de templado junto al global.
 
+**Aspecto general:** las fichas de cifras se reparten solas según el ancho (sin títulos partidos en tres líneas), las tarjetas del Inicio alinean sus datos en rejilla, los avisos de anuncios del Inicio salen en lista por anuncio y el botón «Agencia» va abajo a la izquierda en escritorio (solo icono en móvil) para no tapar nada.
+
 ### Pestaña Hoy
 Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por WhatsApp, por prioridad), **Llamadas** (calendario, resultados y pipeline) y **En directo** (el día del webinar, minuto a minuto). Al entrar abre la última que usaste en ese embudo; el número rojo de la pestaña son las llamadas pendientes de anotar. Si un embudo o un rol solo tiene una (p. ej. las VSL, que solo tienen Llamadas), entra directamente.
 
