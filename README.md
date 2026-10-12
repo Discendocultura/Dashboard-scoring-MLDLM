@@ -98,6 +98,7 @@ Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por Wh
 
 - **Captación**: el email trae el **CPL de ayer** (lo gastado ayer en Meta ÷ registros de ayer; sin Meta, la inversión de ayer sale de la diferencia con la foto del día anterior) y el **CPL general** (inversión total ÷ registros totales), en las tarjetas, en «Publicidad» y en el asunto. Las tarjetas van de 3 en 3 (con 4, dos y dos) para que se lean en el móvil.
 - **Venta (carrito)**: tarjeta propia de **CAC** (inversión ÷ ventas) y también en el asunto.
+- El **resumen diario de leads** (el otro email de cada mañana, `lib/digest.js`) lleva lo mismo: CPL de ayer y CPL general en captación, CAC en carrito.
 
 ### Menú «Cuenta» en el móvil
 
