@@ -11,6 +11,7 @@ import { diasCarrito } from './carrito.js';
 export const FASES_EMAIL = [
   { id: 'registro', label: 'Bienvenida al registrarse', desc: 'Confirmación, qué va a pasar y siguientes pasos (grupo de WhatsApp, preclase).' },
   { id: 'preclase', label: 'Clases y recursos de la preclase', desc: 'Un email cuando se desbloquea cada clase o recurso.' },
+  { id: 'consciencia', label: 'Objeciones, consciencia y expectación', desc: 'Antes del directo, un email al día: elevar la consciencia del problema, romper las objeciones habituales y generar expectación por el directo (con la ficha del avatar, el producto y el contenido del webinar).' },
   { id: 'vip', label: 'Entrada VIP', desc: 'Upsell de la entrada VIP antes del directo.' },
   { id: 'directo', label: 'Recordatorios del directo', desc: 'La víspera, por la mañana, 1 hora antes y «estamos en directo».' },
   { id: 'replay', label: 'Grabación', desc: 'Grabación disponible y aviso de que caduca.' },
@@ -31,6 +32,13 @@ const ANGULOS = {
 };
 // El primero del último día es SIEMPRE el de preguntas frecuentes sobre el producto.
 const MENSAJES_ULTIMO_DIA = ['Último día: las preguntas frecuentes, respondidas', 'Respuesta a tu última duda', 'Cierra esta noche: decide hoy', 'Últimas horas: cierra a las 23:59'];
+// Antes del directo: primero ELEVAR LA CONSCIENCIA, después ROMPER OBJECIONES y, al final, GENERAR EXPECTACIÓN por el directo.
+export const ANGULOS_PREVIOS = {
+  consciencia: { nombre: 'Elevar consciencia', lista: ['El verdadero problema no es el que crees', 'Por qué lo que has probado no ha funcionado', 'El error más común (y cómo evitarlo)', 'Lo que nadie te ha contado', 'Lo que cuesta seguir igual'] },
+  objecion: { nombre: 'Romper objeción', lista: ['«Ya lo he probado todo»', '«No tengo tiempo para esto»', '«No sé si es para mí»', '«Es tarde para mí»', '«Necesito pensarlo / no me lo puedo permitir»'] },
+  expectacion: { nombre: 'Generar expectación', lista: ['Lo que vas a descubrir en el directo', 'La historia de alguien como tú', 'Un adelanto de lo que verás', 'Por qué este directo es diferente', 'Cuenta atrás: lo que te llevarás'] },
+};
+export const MAX_PREVIOS = 9;
 const sumar = (d, n) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const horaMenos = (h, min) => { const [a, b] = String(h || '19:00').split(':').map(Number); const t = Math.max(0, a * 60 + b - min); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; };
 
@@ -54,6 +62,25 @@ export function calendarioEmails(l = {}, fases = FASES_DEFECTO) {
   if (Number(l.precioVip) > 0 && primero) {
     add('', 'vip', 'Oferta de la entrada VIP (en la página de gracias o justo después de registrarse)', 'al registrarse, a quien no tiene la VIP', { titulo: 'Oferta VIP' });
     add(`${sumar(primero.fecha, -2)}T12:00`, 'vip', 'Recordatorio de la entrada VIP: qué incluye y por qué ahora', 'registrados sin VIP', { titulo: 'Recordatorio VIP' });
+  }
+  // Antes del directo: un email al día (12:00) desde el día siguiente al inicio de la captación (o 10 días antes) hasta la
+  // víspera; como mucho MAX_PREVIOS, repartidos. Primero consciencia, luego objeciones y al final expectación.
+  if (primero && on.has('consciencia')) {
+    const fin = sumar(primero.fecha, -1);
+    let ini = DIA_RE.test(l.inicioCaptacion || '') ? sumar(l.inicioCaptacion, 1) : sumar(primero.fecha, -10);
+    if (ini < sumar(primero.fecha, -21)) ini = sumar(primero.fecha, -21);
+    const dias = [];
+    for (let d = ini; d <= fin; d = sumar(d, 1)) dias.push(d);
+    const n = Math.min(MAX_PREVIOS, dias.length);
+    const elegidos = n ? Array.from({ length: n }, (_, i) => dias[Math.round((i * (dias.length - 1)) / Math.max(1, n - 1))]) : [];
+    const usadosP = { consciencia: 0, objecion: 0, expectacion: 0 };
+    [...new Set(elegidos)].forEach((d, i, arr) => {
+      const p = arr.length > 1 ? i / (arr.length - 1) : 1;
+      const tipo = p < 0.34 ? 'consciencia' : p < 0.67 ? 'objecion' : 'expectacion';
+      const A = ANGULOS_PREVIOS[tipo];
+      const titulo = A.lista[(usadosP[tipo]++) % A.lista.length];
+      add(`${d}T12:00`, 'consciencia', `Antes del directo · ${A.nombre}: «${titulo}» · termina llevando al directo (fecha y hora, y añadirlo al calendario)`, 'registrados', { titulo, angulo: tipo });
+    });
   }
   const multi = nVideos(l) > 1;
   for (const v of vids) {
@@ -155,6 +182,7 @@ export function promptEmails(ctx = {}) {
     tags.length ? `\nETIQUETAS DE GHL PARA SEGMENTAR:\n${tags.join('\n')}` : null,
     ctx.contexto ? `\nMARCA, AVATAR Y PRODUCTO (la fuente de verdad: su tono, sus palabras, dolores, deseos y objeciones):\n<marca>\n${ctx.contexto}\n</marca>` : '\nMARCA Y AVATAR: aún no hay ficha; pregunta lo imprescindible antes de inventar.',
     ctx.narrativa ? `\n${ctx.narrativa}` : null,
+    ctx.temario ? `\nCONTENIDO DEL WEBINAR / CLASES (lo que se enseña: úsalo para anticipar sin destripar):\n${ctx.temario}` : null,
     ctx.ganadores ? `\nASUNTOS QUE MEJOR HAN FUNCIONADO EN LANZAMIENTOS ANTERIORES (inspírate en su estilo, sin copiarlos):\n${ctx.ganadores}` : null,
     ctx.notas ? `\nINDICACIONES:\n${ctx.notas}` : null,
     '',
@@ -168,6 +196,14 @@ export function promptEmails(ctx = {}) {
     '- Los del día del directo solo recuerdan que es HOY, la hora y el enlace; no venden.',
     '- Los de venta: a quien no ha comprado (excluye la etiqueta de compra) y con el enlace de la página de venta.',
     '',
+    ...(fases.includes('consciencia') && plan.some((p) => p.fase === 'consciencia') ? [
+      'LOS EMAILS ANTES DEL DIRECTO (fase «Objeciones, consciencia y expectación»; uno al día a las 12:00). Usa TODA la documentación: la ficha del avatar (dolores, deseos, creencias limitantes, lo que ya ha probado, sus objeciones y SUS PALABRAS), el producto, la narrativa (la gran idea) y el contenido del webinar. Van en este orden:',
+      '1. ELEVAR LA CONSCIENCIA: que entienda el problema de verdad (la causa real, por qué lo que ha probado no le ha funcionado, el error común, lo que le cuesta seguir igual). Sin vender el programa todavía.',
+      '2. ROMPER OBJECIONES HABITUALES: cada email, UNA objeción del avatar («ya lo he probado todo», «no tengo tiempo», «no es para mí», «es tarde para mí», el dinero…) desmontada con una historia, un dato o un cambio de creencia. Anticipa la oferta sin hablar de precio.',
+      '3. GENERAR EXPECTACIÓN: lo que va a descubrir en el directo (con ganchos concretos sacados del contenido del webinar, sin destriparlo), una historia de alguien como ella y por qué no puede perdérselo.',
+      '- Todos terminan con UNA llamada a la acción hacia el directo: apuntarse la fecha y la hora, añadirlo al calendario o ver la clase disponible. Nada de enlace de venta en esta fase.',
+      '',
+    ] : []),
     'LOS EMAILS DEL CARRITO (3 al día a las 9:00, 15:00 y 20:00; 4 el último día a las 9:00, 13:00, 19:00 y 22:00). CADA UNO tiene que:',
     '1. Romper UNA objeción (distinta en cada email; sácalas de la ficha del avatar: precio, tiempo, «no es para mí», «ya lo probé», miedo a no conseguirlo, pareja/familia…).',
     '2. Generar emoción (la vida que desea frente a la que tiene, historias y testimonios reales).',

@@ -3494,3 +3494,54 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 /* El campo al que se llega desde el recuadro parpadea un momento. */
 @keyframes campoResaltado { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 20%, 60% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent); } }
 .campo-resaltado { animation: campoResaltado 2.4s ease; border-radius: 10px; background: color-mix(in srgb, var(--accent) 7%, transparent); transition: background .6s; }
+
+/* ---------- Métricas: barra de informes con aire (separada de las categorías) ---------- */
+#view-metricas > .metric-actions {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 18px;
+  margin: 0 0 22px; padding: 12px 14px 12px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+}
+.metric-actions .ma-t { display: inline-flex; align-items: baseline; gap: 6px; font-weight: 700; font-size: 14.5px; }
+.metric-actions .ma-t small { font-weight: 500; color: var(--text-2); font-size: 12.5px; }
+.metric-actions .ma-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+.metric-actions [data-informe-status]:empty { display: none; }
+#view-metricas > .metric-actions + .notice, #view-metricas > .metric-actions ~ .msubs { margin-top: 0; }
+@media (max-width: 640px) { #view-metricas > .metric-actions .ma-btns .btn { flex: 1 1 calc(50% - 10px); justify-content: center; } }
+
+/* ---------- Emails con IA: cabecera con aire, fases legibles y la fase «antes del directo» ---------- */
+#emailsia-body > * + * { margin-top: 20px; }
+.em-panel { padding: 0; overflow: hidden; }
+.em-panel .em-top { border: 0; border-radius: 0; background: none; padding: 22px 24px; gap: 20px 28px; }
+.em-panel .em-stats { gap: 14px; flex-wrap: wrap; }
+.em-panel .em-stat { min-width: 92px; padding: 10px 16px; border-radius: 12px; background: var(--surface-2); gap: 4px; }
+.em-panel .em-stat b { font-size: 28px; }
+.em-panel .em-stat span { font-size: 12.5px; color: var(--text-2); }
+.em-bloque { padding: 18px 24px 20px; border-top: 1px solid var(--border); }
+.em-bloque h4 { margin: 0 0 12px; font-size: 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.em-bloque h4 small { font-weight: 500; color: var(--text-2); font-size: 12.5px; }
+.em-panel .em-fases { gap: 10px; margin: 0; }
+.em-panel .em-fase { display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px 7px 8px; font-size: 14px; border-radius: 12px; color: var(--text-2); }
+.em-panel .em-fase .em-fase-ico { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: var(--surface-2); font-size: 15px; }
+.em-panel .em-fase.on { color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
+.em-panel .em-fase.on .em-fase-ico { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+.em-panel .em-fase:not(.on) { text-decoration: none; opacity: .6; }
+.em-panel .em-fase:not(.on) .em-fase-ico { filter: grayscale(1); }
+.em-panel .em-leyenda { margin: 0; padding: 14px 24px 18px; border-top: 1px dashed var(--border); gap: 10px 12px; font-size: 13.5px; color: var(--text-2); }
+.em-panel .em-grad { gap: 40px; padding: 5px 14px; }
+.em-previos { padding: 20px 24px; border-left: 4px solid #7c5cd6; }
+.em-previos-cab { display: flex; gap: 14px; align-items: flex-start; }
+.em-previos-ico { font-size: 26px; line-height: 1; }
+.em-previos-cab h3 { margin: 0 0 4px; font-size: 16px; }
+.em-previos-cab p { margin: 0; font-size: 13.5px; line-height: 1.5; }
+.em-previos-pasos { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 16px 0; }
+.em-previo { position: relative; display: grid; gap: 4px; padding: 12px 14px 12px 46px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); }
+.em-previo small { color: var(--text-2); font-size: 12.5px; line-height: 1.4; }
+.em-previo-n { position: absolute; left: 12px; top: 12px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 12px; color: #fff; background: #7c5cd6; }
+.em-previo.a-consciencia .em-previo-n { background: #2f7dd1; }
+.em-previo.a-objecion .em-previo-n { background: #d9488f; }
+.em-previo.a-expectacion .em-previo-n { background: #e07a1f; }
+.em-angulo { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); }
+.em-angulo.a-consciencia { background: color-mix(in srgb, #2f7dd1 16%, var(--surface)); color: color-mix(in srgb, #2f7dd1 70%, var(--text)); }
+.em-angulo.a-objecion { background: color-mix(in srgb, #d9488f 16%, var(--surface)); color: color-mix(in srgb, #d9488f 70%, var(--text)); }
+.em-angulo.a-expectacion { background: color-mix(in srgb, #e07a1f 16%, var(--surface)); color: color-mix(in srgb, #e07a1f 70%, var(--text)); }
+.em-card.f-consciencia { border-left-color: #7c5cd6; }
+@media (max-width: 560px) { .em-panel .em-top, .em-bloque, .em-panel .em-leyenda, .em-previos { padding-left: 16px; padding-right: 16px; } .em-panel .em-stat { min-width: 0; flex: 1 1 40%; } }

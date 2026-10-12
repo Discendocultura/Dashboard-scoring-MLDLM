@@ -47,7 +47,7 @@ import { UMBRALES as UMBRALES_PUBLI } from './publicidad.js';
 import { mensajeSeguimiento, porEtapa as segPorEtapa } from './seguimiento.js';
 import { ESTADOS_AUTO, autoCtx, automatizacionesDe, promptAutomatizacion, descripcionIaGhl, promptPreparacion, revisarExistente } from './automatizaciones.js';
 import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa } from './narrativa.js';
-import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, asuntosGanadores, promptEmails } from './emails-ia.js';
+import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, asuntosGanadores, promptEmails, ANGULOS_PREVIOS } from './emails-ia.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto, accesosDePaginas, conAccesos } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
@@ -12272,7 +12272,16 @@ function gwPrompt() {
 const emc = { ganadores: {}, cargando: false }; // ganadores: { <código anterior>: texto }
 const fasesEmKey = () => `lsd_em_fases_${state.cliente || ''}_${state.embudo}`;
 const notasEmKey = () => `lsd_em_notas_${state.cliente || ''}_${state.embudo}`;
-const fasesEm = () => { try { const v = JSON.parse(ls.get(fasesEmKey()) || 'null'); return Array.isArray(v) ? v : FASES_DEFECTO; } catch { return FASES_DEFECTO; } };
+// La fase «Objeciones, consciencia y expectación» es nueva: sale encendida también a quien ya había elegido sus fases.
+const fasesEm = () => {
+  try {
+    const v = JSON.parse(ls.get(fasesEmKey()) || 'null');
+    if (!Array.isArray(v)) return FASES_DEFECTO;
+    return v.includes('consciencia') || ls.get(`${fasesEmKey()}_c`) ? v : [...v, 'consciencia'];
+  } catch { return FASES_DEFECTO; }
+};
+// Contenido del webinar (el mismo que en Plan → Grupo de WhatsApp): se escribe una vez y lo usan los dos prompts.
+const temarioEmKey = (code) => `lsd_gw_temario_${state.cliente || ''}_${code}`;
 // El lanzamiento anterior del embudo (para sus asuntos ganadores).
 const anteriorEm = (code) => {
   const l = state.config.launches[code];
@@ -12288,21 +12297,23 @@ function emPrompt(code, marca) {
   return promptEmails({
     launch: l, code, marca: clienteNombre(), producto: nombreProducto(state.config), datos: datosEmbudo(l, { producto: nombreProducto(state.config), marca: clienteNombre() }),
     contexto: contextoMarca(marca?.m, marca?.producto), narrativa: bloqueNarrativa(l.narrativa, 'email'), ganadores: (emc.ganadores[anteriorEm(code)] || '').startsWith('(') ? '' : emc.ganadores[anteriorEm(code)] || '',
-    notas: (ls.get(notasEmKey()) || '').trim(), fases: fasesEm(), enlaces, directoUrl: l.fechaDirecto ? `${location.origin}/directo?l=${encodeURIComponent(code)}${cParam('&')}` : '',
+    notas: (ls.get(notasEmKey()) || '').trim(), temario: (ls.get(temarioEmKey(code)) || '').trim(), fases: fasesEm(), enlaces, directoUrl: l.fechaDirecto ? `${location.origin}/directo?l=${encodeURIComponent(code)}${cParam('&')}` : '',
   });
 }
 const EM_FASE = {
-  registro: { ico: '👋', nombre: 'Registro' }, preclase: { ico: '🎓', nombre: 'Preclase' }, vip: { ico: '⭐', nombre: 'VIP' },
+  registro: { ico: '👋', nombre: 'Registro' }, preclase: { ico: '🎓', nombre: 'Preclase' }, consciencia: { ico: '🧠', nombre: 'Objeciones y expectación' }, vip: { ico: '⭐', nombre: 'VIP' },
   directo: { ico: '🔴', nombre: 'Directo' }, replay: { ico: '📼', nombre: 'Grabación' }, carrito: { ico: '🛒', nombre: 'Carrito' }, cierre: { ico: '🙏', nombre: 'Cierre' },
 };
 const TONO_TXT = { emocional: 'Emocional', mixto: 'Emocional + racional', racional: 'Racional' };
+const ANGULO_ICO = { consciencia: '💡', objecion: '🛡️', expectacion: '✨' };
 // Etiqueta de un día del calendario: qué pasa ese día.
 function etiquetaDiaEm(items) {
   const c = items.filter((x) => x.fase === 'carrito' && x.dia);
   if (c.length) return c.some((x) => /Último día|Últimas horas|Cierra esta noche/.test(x.titulo)) ? 'Último día del carrito' : `Carrito · día ${c[0].dia}`;
   if (items.some((x) => x.titulo.startsWith('Abre el carrito'))) return 'Día del directo · abre el carrito';
   if (items.some((x) => x.fase === 'directo' && /^Hoy/.test(x.titulo))) return 'Día del directo';
-  return [...new Set(items.map((x) => EM_FASE[x.fase]?.nombre || x.fase))].join(' · ');
+  if (items.every((x) => x.fase === 'consciencia')) return `Antes del directo · ${ANGULOS_PREVIOS[items[0].angulo]?.nombre || ''}`;
+    return [...new Set(items.map((x) => EM_FASE[x.fase]?.nombre || x.fase))].join(' · ');
 }
 async function renderEmailsIa() {
   const box = $('#emailsia-body');
@@ -12324,6 +12335,7 @@ async function renderEmailsIa() {
     g.items.push(p);
   }
   const nVenta = plan.filter((p) => p.fase === 'carrito').length;
+  const nPrevios = plan.filter((p) => p.fase === 'consciencia').length;
   const dias = grupos.filter((g) => g.d).length;
   const fechaDia = (d) => {
     const x = new Date(`${d}T12:00:00Z`);
@@ -12333,6 +12345,7 @@ async function renderEmailsIa() {
       <span class="em-hora">${esc(p.at ? p.at.slice(11) : 'Al momento')}</span>
       <span class="em-tit"><span class="em-ico">${EM_FASE[p.fase]?.ico || '✉️'}</span>${esc(p.titulo)}</span>
       ${p.tono ? `<span class="em-pie"><span class="em-tono">${esc(TONO_TXT[p.tono])}</span></span>` : ''}
+      ${p.angulo ? `<span class="em-pie"><span class="em-angulo a-${p.angulo}">${ANGULO_ICO[p.angulo]} ${esc(ANGULOS_PREVIOS[p.angulo].nombre)}</span></span>` : ''}
     </div>`;
   const diaHtml = (g) => {
     const f = g.d ? fechaDia(g.d) : null;
@@ -12347,18 +12360,30 @@ async function renderEmailsIa() {
   box.innerHTML = `${estudioHero({ ico: '✉️', titulo: 'Emails con IA', sub: `«${esc(l.name)}» · toda la secuencia con las fechas reales`,
       pasos: ['Elige las <strong>fases</strong>', '<strong>Copia el prompt</strong> y pégalo en Claude', 'Prográmalos en <strong>GHL</strong>'],
       extra: `${avisoMarcaHtml(marca)}${narrativaCardHtml(code)}` })}
-    <section class="card em-top">
-      <div class="em-stats">
-        <div class="em-stat"><b>${plan.length}</b><span>emails</span></div>
-        <div class="em-stat"><b>${dias}</b><span>días</span></div>
-        <div class="em-stat"><b>${nVenta}</b><span>de carrito</span></div>
+    <section class="card em-panel">
+      <div class="em-top">
+        <div class="em-stats">
+          <div class="em-stat"><b>${plan.length}</b><span>emails</span></div>
+          <div class="em-stat"><b>${dias}</b><span>días</span></div>
+          <div class="em-stat"><b>${nPrevios}</b><span>antes del directo</span></div>
+          <div class="em-stat"><b>${nVenta}</b><span>de carrito</span></div>
+        </div>
+        <button type="button" class="btn primary em-copiar" id="em-copiar">📋 Copiar el prompt para Claude</button>
       </div>
-      <button type="button" class="btn primary em-copiar" id="em-copiar">📋 Copiar el prompt para Claude</button>
+      <div class="em-bloque">
+        <h4>Qué emails incluir <small>pulsa una fase para quitarla o ponerla</small></h4>
+        <div class="em-fases" role="group" aria-label="Qué emails">
+          ${FASES_EMAIL.filter((f) => f.id !== 'vip' || Number(l.precioVip) > 0).map((f) => `<button type="button" class="em-fase${fases.includes(f.id) ? ' on' : ''}" data-em-fase="${f.id}" aria-pressed="${fases.includes(f.id)}" title="${esc(f.desc)}"><span class="em-fase-ico" aria-hidden="true">${EM_FASE[f.id]?.ico || ''}</span>${esc(EM_FASE[f.id]?.nombre || f.label)}</button>`).join('')}
+        </div>
+      </div>
+      ${nVenta ? '<div class="em-leyenda"><span>Los emails del carrito van de</span><span class="em-grad"><i>emocional</i><i>racional</i></span><span>En cada tarjeta, el mensaje de ese email.</span></div>' : ''}
     </section>
-    <section class="em-fases" aria-label="Qué emails">
-      ${FASES_EMAIL.filter((f) => f.id !== 'vip' || Number(l.precioVip) > 0).map((f) => `<button type="button" class="em-fase${fases.includes(f.id) ? ' on' : ''}" data-em-fase="${f.id}" aria-pressed="${fases.includes(f.id)}" title="${esc(f.desc)}">${EM_FASE[f.id]?.ico || ''} ${esc(EM_FASE[f.id]?.nombre || f.label)}</button>`).join('')}
-    </section>
-    ${nVenta ? '<div class="em-leyenda"><span>Los emails del carrito van de</span><span class="em-grad"><i>emocional</i><i>racional</i></span><span>· en cada tarjeta, el mensaje de ese email</span></div>' : ''}
+    ${fases.includes('consciencia') ? `<section class="card em-previos">
+      <div class="em-previos-cab"><span class="em-previos-ico" aria-hidden="true">🧠</span><div><h3>Antes del directo: objeciones, consciencia y expectación</h3>
+        <p class="muted">${nPrevios ? `${nPrevios} emails, uno al día a las 12:00, ` : 'Un email al día a las 12:00 '}desde el inicio de la captación hasta la víspera del directo. Claude los escribe con la ficha del avatar (dolores, creencias, objeciones y sus palabras), el producto, la narrativa y el contenido del webinar.</p></div></div>
+      <div class="em-previos-pasos">${Object.entries(ANGULOS_PREVIOS).map(([k, a], i) => `<div class="em-previo a-${k}"><span class="em-previo-n">${i + 1}</span><strong>${ANGULO_ICO[k]} ${esc(a.nombre)}</strong><small>${esc(a.lista.slice(0, 3).join(' · '))}…</small></div>`).join('')}</div>
+      <label class="field"><span>Contenido del webinar / clases <small>(qué se enseña: Claude lo usa para anticipar sin destripar; es el mismo de «Grupo de WhatsApp»)</small></span><textarea id="em-temario" rows="3" placeholder="Ej.: Clase 1: por qué no llega el positivo (las 3 causas que nadie mira). Clase 2: el método en 4 pasos. Directo: el plan de 90 días y casos reales…">${esc(ls.get(temarioEmKey(code)) || '')}</textarea></label>
+    </section>` : ''}
     ${plan.length ? `<section class="em-dias">${grupos.map(diaHtml).join('')}</section>`
       : '<div class="card empty"><p class="muted">Faltan las fechas del lanzamiento (directo y carrito) para proponer el calendario.</p></div>'}
     <details class="card em-ajustes">
@@ -12377,8 +12402,10 @@ async function renderEmailsIa() {
     const sel = new Set(fasesEm());
     if (sel.has(f.dataset.emFase)) sel.delete(f.dataset.emFase); else sel.add(f.dataset.emFase);
     ls.set(fasesEmKey(), JSON.stringify([...sel]));
+    ls.set(`${fasesEmKey()}_c`, '1');
     renderEmailsIa();
   };
+  $('#em-temario')?.addEventListener('input', () => { ls.set(temarioEmKey(code), $('#em-temario').value); $('#em-prompt').textContent = emPrompt(code, marca); });
   $('#em-notas').addEventListener('input', () => { ls.set(notasEmKey(), $('#em-notas').value); $('#em-prompt').textContent = emPrompt(code, marca); });
   $('#em-copiar').addEventListener('click', async (e) => {
     const ok = await copiarAlPortapapeles(emPrompt(code, marca));

@@ -79,3 +79,19 @@ test('prompt: calendario, enlaces, etiquetas, ficha, narrativa, ganadores y form
   assert.match(p, /TABLA RESUMEN/);
   assert.doesNotMatch(p, /\n\n\n/);
 });
+
+test('emails: antes del directo, consciencia → objeciones → expectación (uno al día, como mucho 9)', async () => {
+  const { calendarioEmails, promptEmails, MAX_PREVIOS } = await import('../public/js/emails-ia.js');
+  const l = { name: 'X', fechaDirecto: '2026-11-10', horaDirecto: '19:00', inicioCaptacion: '2026-10-25' };
+  const prev = calendarioEmails(l, ['consciencia']);
+  assert.equal(prev.length, MAX_PREVIOS);
+  assert.ok(prev.every((p) => p.fase === 'consciencia' && p.at > '2026-10-25' && p.at < '2026-11-10'));
+  assert.deepEqual([...new Set(prev.map((p) => p.angulo))], ['consciencia', 'objecion', 'expectacion']);
+  // Pocos días: uno por día, sin repetir día.
+  const corto = calendarioEmails({ ...l, inicioCaptacion: '2026-11-06' }, ['consciencia']);
+  assert.deepEqual(corto.map((p) => p.at.slice(0, 10)), ['2026-11-07', '2026-11-08', '2026-11-09']);
+  const p = promptEmails({ launch: l, fases: ['consciencia'], temario: 'Clase 1: las 3 causas' });
+  assert.match(p, /LOS EMAILS ANTES DEL DIRECTO/);
+  assert.match(p, /CONTENIDO DEL WEBINAR[^]*las 3 causas/);
+  assert.doesNotMatch(promptEmails({ launch: l, fases: ['directo'] }), /LOS EMAILS ANTES DEL DIRECTO/);
+});
