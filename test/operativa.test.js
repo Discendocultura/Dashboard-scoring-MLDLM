@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estadoOp, agruparPorFecha, resumenProyecto, cargaPorPersona, asignadaA } from '../public/js/operativa.js';
-import { visiblesPara, ponerEstado, camposAgencia } from '../lib/operativa.js';
+import { estadoOp, estaBloqueada, ESTADOS_OP, agruparPorFecha, resumenProyecto, cargaPorPersona, asignadaA } from '../public/js/operativa.js';
+import { visiblesPara, ponerEstado, ponerBloqueo, camposAgencia } from '../lib/operativa.js';
 
 const hoy = '2026-10-13';
 const T = [
@@ -25,6 +25,12 @@ test('operativa: estados, «Mi día» por fecha, semáforo del proyecto y carga 
   assert.equal(estadoOp({ hecha: true, estado: 'en-curso' }), 'hecha');
   assert.equal(estadoOp({ estado: 'revision' }), 'revision');
   assert.equal(estadoOp({ estado: 'raro' }), 'pendiente');
+  // Tres columnas: los antiguos «en curso» y «bloqueado» van a Pendiente (lo bloqueado sigue marcado).
+  assert.deepEqual(ESTADOS_OP.map((e) => e.id), ['pendiente', 'revision', 'hecha']);
+  assert.equal(estadoOp({ estado: 'en-curso' }), 'pendiente');
+  assert.equal(estadoOp(T[2]), 'pendiente');
+  assert.ok(estaBloqueada(T[2]));
+  assert.equal(estaBloqueada({ hecha: true, bloqueo: 'x' }), false);
   const g = agruparPorFecha(T, hoy);
   assert.deepEqual([g.vencidas.length, g.hoy.length, g.semana.length, g.sinFecha.length], [1, 1, 1, 1]);
   assert.equal(resumenProyecto(T.filter((t) => t.cliente === 'discendo'), hoy).semaforo, 'bloqueado');
@@ -33,14 +39,23 @@ test('operativa: estados, «Mi día» por fecha, semáforo del proyecto y carga 
   assert.deepEqual(cargaPorPersona(T, hoy).map((x) => [x.uid, x.abiertas, x.vencidas]), [['ana', 2, 1], ['luis', 1, 0]]);
 });
 
-test('operativa: «Bloqueado» pide motivo; «Hecho» apunta quién y cuándo; tareas de agencia con título', () => {
+test('operativa: bloquear es una marca con motivo (no mueve de columna); «Hecho» apunta quién y cuándo', () => {
   const t = { titulo: 'x' };
-  assert.throws(() => ponerEstado(t, 'bloqueado', { por: 'Ana' }), /por qué/);
-  ponerEstado(t, 'bloqueado', { por: 'Ana', bloqueo: 'falta el vídeo' });
+  ponerEstado(t, 'revision', { por: 'Ana' });
+  ponerBloqueo(t, 'falta el vídeo');
   assert.equal(t.bloqueo, 'falta el vídeo');
+  assert.equal(estadoOp(t), 'revision');
+  ponerBloqueo(t, '');
+  assert.ok(!estaBloqueada(t));
+  ponerBloqueo(t, 'esperando al cliente');
   ponerEstado(t, 'hecha', { por: 'Ana' });
   assert.ok(t.hecha && t.hechaPor === 'Ana' && t.hechaEn && !t.bloqueo);
-  assert.throws(() => ponerEstado(t, 'otro', { por: 'Ana' }), /no válido/);
+  assert.throws(() => ponerBloqueo(t, 'x'), /hecha/);
+  assert.throws(() => ponerEstado(t, 'bloqueado', { por: 'Ana' }), /no válido/);
+  assert.throws(() => ponerEstado(t, 'en-curso', { por: 'Ana' }), /no válido/);
+  const vieja = { titulo: 'y', estado: 'bloqueado', bloqueo: 'z' };
+  ponerBloqueo(vieja, '');
+  assert.equal(vieja.estado, 'pendiente');
   assert.throws(() => camposAgencia({ titulo: '  ' }), /título/);
   assert.deepEqual(camposAgencia({ titulo: 'Facturas', fecha: 'mal', asignado: { tipo: 'persona', id: 'ana' } }).asignado, { tipo: 'persona', id: 'ana' });
 });

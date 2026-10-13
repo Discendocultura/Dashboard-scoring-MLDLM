@@ -4,19 +4,21 @@
 // que tiene asignado (a ella o a su rol en ese cliente); el superadmin, todo.
 // Lo usan el navegador (panel) y el servidor (lib/operativa.js).
 
+// Tres columnas: por hacer, esperando el visto bueno y hecho. «Bloqueada» no es una columna: es una marca
+// (con su motivo) que se pone o se quita sin moverla de sitio.
 export const ESTADOS_OP = [
   { id: 'pendiente', label: 'Pendiente', icon: '📝' },
-  { id: 'en-curso', label: 'En curso', icon: '⏳' },
-  { id: 'revision', label: 'En revisión', icon: '👀' },
-  { id: 'bloqueado', label: 'Bloqueado', icon: '⛔' },
+  { id: 'revision', label: 'Para revisar', icon: '👀' },
   { id: 'hecha', label: 'Hecho', icon: '✅' },
 ];
 export const ESTADO_IDS = ESTADOS_OP.map((e) => e.id);
 export const PROYECTO_AGENCIA = '_agencia'; // «cliente» de las tareas internas de la agencia
 export const CODIGO_AGENCIA = 'agencia';
 
-// Estado de una tarea (las antiguas solo tienen `hecha`).
-export const estadoOp = (t) => (t?.hecha ? 'hecha' : ESTADO_IDS.includes(t?.estado) && t.estado !== 'hecha' ? t.estado : 'pendiente');
+// Estado de una tarea (las antiguas solo tienen `hecha`; las que estaban «en curso» o «bloqueadas» van a Pendiente).
+export const estadoOp = (t) => (t?.hecha ? 'hecha' : t?.estado === 'revision' ? 'revision' : 'pendiente');
+// ¿Está bloqueada? (marca con motivo; las hechas ya no cuentan).
+export const estaBloqueada = (t) => !t?.hecha && Boolean(String(t?.bloqueo || '').trim());
 
 const sumar = (d, n) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
@@ -49,7 +51,7 @@ export function agruparPorFecha(tareas, hoy) {
 export function resumenProyecto(tareas, hoy) {
   const abiertas = tareas.filter((t) => estadoOp(t) !== 'hecha');
   const vencidas = abiertas.filter((t) => t.fecha && t.fecha < hoy).length;
-  const bloqueadas = abiertas.filter((t) => estadoOp(t) === 'bloqueado').length;
+  const bloqueadas = abiertas.filter(estaBloqueada).length;
   const porEstado = Object.fromEntries(ESTADO_IDS.map((e) => [e, tareas.filter((t) => estadoOp(t) === e).length]));
   const semaforo = !tareas.length ? 'vacio' : bloqueadas ? 'bloqueado' : vencidas ? 'retraso' : 'ok';
   return { total: tareas.length, abiertas: abiertas.length, vencidas, bloqueadas, porEstado, semaforo };

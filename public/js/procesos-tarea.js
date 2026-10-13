@@ -199,7 +199,7 @@ export const PROCESOS_TAREA = [
     'En el dashboard → <strong>Avatar y anuncios</strong> (o <strong>Anuncios ganadores</strong>), mira qué anuncios funcionaron mejor y por qué.',
     'Usa los botones de prompts de guiones (vídeo) e imágenes estáticas: parten de la ficha de marca y de los ganadores.',
     'Escribe al menos <strong>3 guiones de vídeo</strong> y <strong>3 ideas de imagen</strong> con ganchos distintos.',
-    'Pásalos a revisión (estado «En revisión») y, una vez aprobados, a grabación / diseño.',
+    'Pásalos a revisión (estado «Para revisar») y, una vez aprobados, a grabación / diseño.',
   ], 'los guiones e imágenes están aprobados y en producción.') },
 
   { re: /revision oferta .* precios|revisar la oferta/, html: p('confirmar la oferta y los precios antes de abrir la captación.', [
@@ -212,7 +212,7 @@ export const PROCESOS_TAREA = [
   { re: /edicion clases previas/, html: p('tener las clases 1 y 2 editadas y listas para subir.', [
     'Recoge los brutos de la grabación de cada clase.',
     'Edita: corta silencios y errores, añade intro y cierre, subtítulos y la llamada a la acción del final.',
-    'Exporta en 1080p y pásalas a revisión (estado «En revisión») con el enlace de descarga.',
+    'Exporta en 1080p y pásalas a revisión (estado «Para revisar») con el enlace de descarga.',
     'Con el visto bueno, súbelas a Vimeo (ver la tarea «Subir los vídeos de las clases»).',
   ], 'las dos clases están aprobadas y subidas.') },
 

@@ -98,12 +98,13 @@ export const esMia = (tarea, { role, uid }) => {
 };
 
 // Columnas del tablero. Las tareas antiguas no tienen `estado`: se deduce de `hecha`.
+// Los mismos que en la Operativa: por hacer, para revisar (esperando el visto bueno) y completada.
 export const ESTADOS_TAREA = [
   { id: 'pendiente', label: 'Por hacer', icon: '📝' },
-  { id: 'en-curso', label: 'En curso', icon: '⏳' },
+  { id: 'revision', label: 'Para revisar', icon: '👀' },
   { id: 'hecha', label: 'Completada', icon: '✅' },
 ];
-export const estadoDe = (t) => (t.hecha ? 'hecha' : t.estado === 'en-curso' ? 'en-curso' : 'pendiente');
+export const estadoDe = (t) => (t.hecha ? 'hecha' : t.estado === 'revision' ? 'revision' : 'pendiente');
 
 export const vencida = (tarea, today) => !tarea.hecha && Boolean(tarea.fecha) && tarea.fecha < today;
 

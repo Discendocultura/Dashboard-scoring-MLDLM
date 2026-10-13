@@ -89,9 +89,9 @@ export async function POST(request) {
       if (op === 'marcar' || op === 'estado') {
         const t = find();
         if (!puedeMarcar(t, s)) throw bad('Solo puedes cambiar tus tareas o las de tu rol', 403);
-        // marcar: hecha sí/no. estado: columna del tablero (pendiente | en-curso | hecha).
+        // marcar: hecha sí/no. estado: pendiente | revision | hecha (como en la Operativa).
         const estado = op === 'marcar' ? (body.hecha ? 'hecha' : 'pendiente') : String(body.estado || '');
-        if (!['pendiente', 'en-curso', 'hecha'].includes(estado)) throw bad('Estado no válido');
+        if (!['pendiente', 'revision', 'hecha'].includes(estado)) throw bad('Estado no válido');
         const eraHecha = Boolean(t.hecha);
         t.estado = estado;
         t.hecha = estado === 'hecha';
@@ -99,7 +99,7 @@ export async function POST(request) {
           t.hechaPor = t.hecha ? actor(s) : '';
           t.hechaEn = t.hecha ? now : '';
         }
-        if (estado === 'en-curso') { t.enCursoPor = actor(s); t.enCursoEn = now; }
+        if (t.hecha) t.bloqueo = '';
       } else if (op === 'comentar') {
         // Cualquiera que vea las tareas puede comentar y mencionar con @Nombre.
         const t = find();

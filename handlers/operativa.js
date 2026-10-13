@@ -1,7 +1,8 @@
 // Operativa de la agencia («el Asana de operativa»): todas las tareas de todos los proyectos.
 // Solo el equipo de la agencia. El superadmin ve y cambia todo; el resto, solo lo que tiene asignado.
 //   GET  /api/operativa → { tareas, equipo: [{ id, nombre }], proyectos: [{ id, nombre, color }], yo, superadmin }
-//   POST { op: 'estado', cliente, code, id, estado, bloqueo? }  · { op: 'fecha', …, fecha }
+//   POST { op: 'estado', cliente, code, id, estado }  (pendiente | revision | hecha)
+//   POST { op: 'bloqueo', …, motivo }  (marca de bloqueada; motivo vacío = desbloquear)  · { op: 'fecha', …, fecha }
 //   POST { op: 'asignar', …, uid }   (solo superadmin; uid '' = sin asignar; avisa por email)
 //   POST { op: 'comentar', …, texto } · { op: 'borrar-comentario', …, cid }
 //   POST { op: 'descripcion', …, notas }  (texto con formato: negrita, listas, enlaces, vídeos)
@@ -11,7 +12,7 @@ import { getSession } from '../lib/auth.js';
 import { listClientes } from '../lib/clientes.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { listUsersRaw, rolEn, newId } from '../lib/users.js';
-import { todasLasTareas, visiblesPara, cambiarTarea, crearTareaAgencia, camposAgencia, ponerEstado, avisarAsignada, esDeAgencia } from '../lib/operativa.js';
+import { todasLasTareas, visiblesPara, cambiarTarea, crearTareaAgencia, camposAgencia, ponerEstado, ponerBloqueo, avisarAsignada, esDeAgencia } from '../lib/operativa.js';
 import { PROYECTO_AGENCIA, asignadaA } from '../public/js/operativa.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { sanitizeRich } from '../public/js/richtext.js';
@@ -60,7 +61,10 @@ export async function POST(request) {
     }
     let avisar = '';
     const t = await cambiarTarea(ref, async (t) => {
-      if (body.op === 'estado') { comprobar(t); ponerEstado(t, String(body.estado || ''), { por, bloqueo: body.bloqueo }); } else if (body.op === 'fecha') {
+      if (body.op === 'estado' && body.estado === 'bloqueado') { comprobar(t); ponerBloqueo(t, body.bloqueo); } else if (body.op === 'estado') { comprobar(t); ponerEstado(t, String(body.estado || ''), { por }); } else if (body.op === 'bloqueo') {
+        comprobar(t);
+        ponerBloqueo(t, body.motivo);
+      } else if (body.op === 'fecha') {
         comprobar(t);
         const f = String(body.fecha || '');
         if (f && !ISO_DAY.test(f)) throw bad('Fecha no válida');

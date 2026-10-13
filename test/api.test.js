@@ -438,11 +438,11 @@ test('tareas: plantilla, asignación con aviso por email y permisos para marcar'
   const done = m.tareas.find((t) => t.id === mine.id);
   assert.equal(done.hecha, true);
   assert.equal(done.hechaPor, 'Sara Guzmán');
-  const enCurso = (await (await post(setter, { op: 'estado', id: setterTask.id, estado: 'en-curso' })).json()).tareas.find((t) => t.id === setterTask.id);
-  assert.equal(enCurso.estado, 'en-curso');
-  assert.equal(enCurso.hecha, false);
-  assert.equal(enCurso.hechaPor, '');
-  assert.equal((await post(saraCookie, { op: 'estado', id: adminTask.id, estado: 'en-curso' })).status, 403);
+  const enRevision = (await (await post(setter, { op: 'estado', id: setterTask.id, estado: 'revision' })).json()).tareas.find((t) => t.id === setterTask.id);
+  assert.equal(enRevision.estado, 'revision');
+  assert.equal(enRevision.hecha, false);
+  assert.equal(enRevision.hechaPor, '');
+  assert.equal((await post(saraCookie, { op: 'estado', id: adminTask.id, estado: 'revision' })).status, 403);
   assert.equal((await post(admin, { op: 'estado', id: adminTask.id, estado: 'otra' })).status, 400);
 
   // Comentarios: cualquiera comenta; «@Nombre» menciona (con email) y solo su autora o admin lo borra

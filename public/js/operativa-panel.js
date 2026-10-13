@@ -3,7 +3,7 @@
 // (por estado, arrastrando) y 👥 Por persona (solo superadmin). Cada tarea se cambia aquí mismo (estado, fecha,
 // responsable, comentarios) y se guarda en su proyecto. Cada persona ve solo lo que tiene asignado.
 //   abrirOperativa({ api, dialog })
-import { ESTADOS_OP, estadoOp, agruparPorFecha, resumenProyecto, cargaPorPersona, diasDeRetraso, PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from './operativa.js';
+import { ESTADOS_OP, estadoOp, estaBloqueada, agruparPorFecha, resumenProyecto, cargaPorPersona, diasDeRetraso, PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from './operativa.js';
 import { richToHtml, richToText } from './richtext.js';
 import { montarEditor, montarVideos } from './editor-rico.js';
 
@@ -97,7 +97,7 @@ function pintar() {
   const abiertas = d.tareas.filter((t) => estadoOp(t) !== 'hecha');
   const vencT = abiertas.filter((t) => t.fecha && t.fecha < hoy).length;
   const hoyT = abiertas.filter((t) => t.fecha === hoy).length;
-  const bloqT = abiertas.filter((t) => estadoOp(t) === 'bloqueado').length;
+  const bloqT = abiertas.filter(estaBloqueada).length;
   const fechaHoy = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
   ctx.dialog.querySelector('#op-sub').innerHTML = `<span class="op-sub-fecha">${esc(fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1))}</span>`
     + `<span class="op-sub-pill">${abiertas.length} abierta${abiertas.length === 1 ? '' : 's'}</span>`
@@ -133,9 +133,9 @@ function pintarVista() {
 
 function fila(t, hoy) {
   const e = estadoOp(t);
-  return `<li class="op-fila e-${e}" data-op-k="${esc(clave(t))}" draggable="false">
+  return `<li class="op-fila e-${e}${estaBloqueada(t) ? ' is-bloq' : ''}" data-op-k="${esc(clave(t))}" draggable="false">
     <button type="button" class="op-check${e === 'hecha' ? ' on' : ''}" data-op-hecha="${esc(clave(t))}" aria-label="${e === 'hecha' ? 'Reabrir' : 'Marcar como hecha'}">✓</button>
-    <button type="button" class="op-fila-t" data-op-abrir="${esc(clave(t))}"><strong>${esc(t.titulo)}</strong><span class="op-fila-meta">${chipProyecto(t)}${e === 'bloqueado' && t.bloqueo ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}${t.notas ? '<span class="op-com" title="Tiene descripción">📝</span>' : ''}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}</span></button>
+    <button type="button" class="op-fila-t" data-op-abrir="${esc(clave(t))}"><strong>${esc(t.titulo)}</strong><span class="op-fila-meta">${chipProyecto(t)}${estaBloqueada(t) ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}${t.notas ? '<span class="op-com" title="Tiene descripción">📝</span>' : ''}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}</span></button>
     <span class="op-estado e-${e}">${ESTADO[e].icon} ${esc(ESTADO[e].label)}</span>
     ${chipFecha(t, hoy)}
     ${avatar(t)}
@@ -148,7 +148,7 @@ function vistaDia(lista, hoy) {
   const hechas = lista.filter((t) => estadoOp(t) === 'hecha').sort((a, b) => String(b.hechaEn).localeCompare(String(a.hechaEn)));
   const total = g.vencidas.length + g.hoy.length + g.semana.length + g.despues.length + g.sinFecha.length;
   if (!total && !hechas.length) return '<div class="op-vacio"><span>🎉</span><h3>No tienes nada pendiente</h3><p>Cuando te asignen tareas en cualquier proyecto, aparecerán aquí.</p></div>';
-  return `<div class="op-dia-cab">${g.vencidas.length ? `<span class="op-kpi rojo"><b>${g.vencidas.length}</b> vencida${g.vencidas.length === 1 ? '' : 's'}</span>` : '<span class="op-kpi verde">✓ Nada vencido</span>'}<span class="op-kpi"><b>${g.hoy.length}</b> para hoy</span><span class="op-kpi"><b>${g.semana.length}</b> esta semana</span>${lista.filter((t) => estadoOp(t) === 'bloqueado').length ? `<span class="op-kpi ambar"><b>${lista.filter((t) => estadoOp(t) === 'bloqueado').length}</b> bloqueada${lista.filter((t) => estadoOp(t) === 'bloqueado').length === 1 ? '' : 's'}</span>` : ''}</div>
+  return `<div class="op-dia-cab">${g.vencidas.length ? `<span class="op-kpi rojo"><b>${g.vencidas.length}</b> vencida${g.vencidas.length === 1 ? '' : 's'}</span>` : '<span class="op-kpi verde">✓ Nada vencido</span>'}<span class="op-kpi"><b>${g.hoy.length}</b> para hoy</span><span class="op-kpi"><b>${g.semana.length}</b> esta semana</span>${lista.filter(estaBloqueada).length ? `<span class="op-kpi ambar"><b>${lista.filter(estaBloqueada).length}</b> bloqueada${lista.filter(estaBloqueada).length === 1 ? '' : 's'}</span>` : ''}</div>
     ${bloque('vencidas', '⏰ Vencidas', g.vencidas)}${bloque('hoy', '📅 Hoy', g.hoy)}${bloque('semana', '🗓️ Esta semana', g.semana)}${bloque('despues', '➡️ Más adelante', g.despues, false)}${bloque('sin', '📌 Sin fecha', g.sinFecha, false)}${bloque('hechas', '✅ Hechas (últimos días)', hechas, false)}`;
 }
 
@@ -174,11 +174,11 @@ function vistaTablero(lista, hoy) {
   <div class="op-tablero">${ESTADOS_OP.map((e) => {
     const ts = lista.filter((t) => estadoOp(t) === e.id).sort((a, b) => String(a.fecha || '9').localeCompare(String(b.fecha || '9')));
     return `<section class="op-col e-${e.id}" data-op-col="${e.id}"><header><span>${e.icon} ${esc(e.label)}</span><b>${ts.length}</b></header>
-      <div class="op-col-lista">${ts.map((t) => `<article class="op-card" draggable="true" data-op-k="${esc(clave(t))}" data-op-abrir="${esc(clave(t))}">
+      <div class="op-col-lista">${ts.map((t) => `<article class="op-card${estaBloqueada(t) ? ' is-bloq' : ''}" draggable="true" data-op-k="${esc(clave(t))}" data-op-abrir="${esc(clave(t))}">
         <span class="op-card-proy">${chipProyecto(t)}</span>
         <div class="op-card-t"><button type="button" class="op-check${estadoOp(t) === 'hecha' ? ' on' : ''}" data-op-hecha="${esc(clave(t))}" title="${estadoOp(t) === 'hecha' ? 'Reabrir' : 'Marcar como hecha'}" aria-label="${estadoOp(t) === 'hecha' ? 'Reabrir' : 'Marcar como hecha'}">✓</button><strong>${esc(t.titulo)}</strong></div>
         ${t.notas ? `<p class="op-card-desc">${esc(richToText(t.notas).replace(/🎬/g, '🎬 vídeo').replace(/\s*•\s*/g, ' · ').replace(/\s*\n+\s*/g, ' · ').replace(/^ · /, '').slice(0, 140))}</p>` : ''}
-        ${estadoOp(t) === 'bloqueado' && t.bloqueo ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}
+        ${estaBloqueada(t) ? `<span class="op-bloq">⛔ Bloqueada: ${esc(t.bloqueo)}</span>` : ''}
         <footer>${chipFecha(t, hoy)}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}${avatar(t)}</footer>
       </article>`).join('') || '<p class="op-col-vacia">—</p>'}</div></section>`;
   }).join('')}</div>`;
@@ -222,7 +222,7 @@ function pintarFicha() {
     <h3 class="op-ficha-t">${esc(t.titulo)}</h3>
     <div class="pr-campos">
       <div class="pr-campo"><span class="pr-campo-l">Estado</span><div class="pr-campo-v"><div class="op-estados">${ESTADOS_OP.map((x) => `<button type="button" class="op-est e-${x.id}${x.id === e ? ' on' : ''}" data-op-estado="${x.id}">${x.icon} ${esc(x.label)}</button>`).join('')}</div></div></div>
-      ${e === 'bloqueado' ? `<div class="pr-campo"><span class="pr-campo-l">Motivo</span><div class="pr-campo-v"><span class="op-bloq">⛔ ${esc(t.bloqueo || '—')}</span></div></div>` : ''}
+      ${e === 'hecha' ? '' : `<div class="pr-campo"><span class="pr-campo-l">Bloqueo</span><div class="pr-campo-v">${estaBloqueada(t) ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span><button type="button" class="btn ghost small" data-op="desbloquear">Desbloquear</button>` : '<button type="button" class="btn ghost small op-bloquear" data-op="bloquear">⛔ Marcar como bloqueada</button>'}</div></div>`}
       <div class="pr-campo"><span class="pr-campo-l">Fecha</span><div class="pr-campo-v"><input type="date" data-op-campo="fecha" value="${esc(t.fecha)}">${chipFecha(t, hoyMadrid())}</div></div>
       <div class="pr-campo"><span class="pr-campo-l">Responsable</span><div class="pr-campo-v">${d.superadmin ? `<select data-op-campo="uid"><option value="">Sin asignar</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${t.asignado?.tipo === 'persona' && t.asignado.id === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}${t.asignado?.tipo === 'rol' ? `<option selected>Rol ${esc(t.asignado.rol)}</option>` : ''}</select>` : `${avatar(t)} ${esc(quienTxt(t))}`}</div></div>
       ${t.embudo && !deAgencia ? `<div class="pr-campo"><span class="pr-campo-l">Embudo</span><div class="pr-campo-v">${esc(t.embudo)}</div></div>` : ''}
@@ -249,12 +249,19 @@ async function op(t, cuerpo) {
 }
 
 async function cambiarEstado(t, estado) {
-  let bloqueo = '';
-  if (estado === 'bloqueado') {
-    bloqueo = (window.prompt('¿Por qué está bloqueada? (p. ej. «esperando al cliente», «falta el vídeo»)', t.bloqueo || '') || '').trim();
-    if (!bloqueo) return;
+  try { await op(t, { op: 'estado', estado }); } catch (err) { window.alert(err.message); }
+  pintarVista();
+  if (abierta) pintarFicha();
+}
+
+// Marca de bloqueada (con su motivo) sin moverla de columna; sin motivo, la desbloquea.
+async function ponerBloqueo(t, bloquear) {
+  let motivo = '';
+  if (bloquear) {
+    motivo = (window.prompt('¿Por qué está bloqueada? (p. ej. «esperando al cliente», «falta el vídeo»)', t.bloqueo || '') || '').trim();
+    if (!motivo) return;
   }
-  try { await op(t, { op: 'estado', estado, bloqueo }); } catch (err) { window.alert(err.message); }
+  try { await op(t, { op: 'bloqueo', motivo }); } catch (err) { window.alert(err.message); }
   pintarVista();
   if (abierta) pintarFicha();
 }
@@ -289,6 +296,7 @@ async function onClick(e) {
   }
   const b = e.target.closest('[data-op]');
   if (!b) return;
+  if (b.dataset.op === 'bloquear' || b.dataset.op === 'desbloquear') { const t = buscarT(abierta); if (t) ponerBloqueo(t, b.dataset.op === 'bloquear'); return; }
   if (b.dataset.op === 'cerrar-ficha') { abierta = null; creando = false; editandoDesc = false; pintar(); return; }
   if (b.dataset.op === 'editar-desc') { editandoDesc = true; pintarFicha(); editor?.area.focus(); return; }
   if (b.dataset.op === 'cancelar-desc') { editandoDesc = false; pintarFicha(); return; }
