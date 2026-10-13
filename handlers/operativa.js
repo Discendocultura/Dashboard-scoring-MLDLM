@@ -4,6 +4,7 @@
 //   POST { op: 'estado', cliente, code, id, estado, bloqueo? }  · { op: 'fecha', …, fecha }
 //   POST { op: 'asignar', …, uid }   (solo superadmin; uid '' = sin asignar; avisa por email)
 //   POST { op: 'comentar', …, texto } · { op: 'borrar-comentario', …, cid }
+//   POST { op: 'descripcion', …, notas }  (texto con formato: negrita, listas, enlaces, vídeos)
 //   POST { op: 'crear', tarea: { titulo, notas, fecha, asignado } }  → tarea del proyecto «Agencia»
 //   POST { op: 'editar', …, tarea } · { op: 'borrar', … }  (solo las del proyecto «Agencia»)
 import { getSession } from '../lib/auth.js';
@@ -13,6 +14,7 @@ import { listUsersRaw, rolEn, newId } from '../lib/users.js';
 import { todasLasTareas, visiblesPara, cambiarTarea, crearTareaAgencia, camposAgencia, ponerEstado, avisarAsignada, esDeAgencia } from '../lib/operativa.js';
 import { PROYECTO_AGENCIA, asignadaA } from '../public/js/operativa.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
+import { sanitizeRich } from '../public/js/richtext.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -69,6 +71,9 @@ export async function POST(request) {
         const antes = t.asignado?.tipo === 'persona' ? t.asignado.id : '';
         t.asignado = uid ? { tipo: 'persona', id: uid } : null;
         if (uid && uid !== antes && uid !== s.uid) avisar = uid;
+      } else if (body.op === 'descripcion') {
+        comprobar(t);
+        t.notas = sanitizeRich(body.notas);
       } else if (body.op === 'comentar') {
         comprobar(t);
         const texto = String(body.texto ?? '').replace(/\r/g, '').trim().slice(0, 2000);

@@ -4,7 +4,8 @@
 // responsable, comentarios) y se guarda en su proyecto. Cada persona ve solo lo que tiene asignado.
 //   abrirOperativa({ api, dialog })
 import { ESTADOS_OP, estadoOp, agruparPorFecha, resumenProyecto, cargaPorPersona, diasDeRetraso, PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from './operativa.js';
-import { richToHtml, sanitizeRich } from './richtext.js';
+import { richToHtml, richToText } from './richtext.js';
+import { montarEditor, montarVideos } from './editor-rico.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hoyMadrid = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
@@ -24,6 +25,8 @@ let fPersona = '';
 let q = '';
 let abierta = null; // { cliente, code, id }
 let creando = false;
+let editandoDesc = false;
+let editor = null; // el editor abierto (descripción o tarea nueva)
 
 const body = () => ctx.dialog.querySelector('#op-body');
 const clave = (t) => `${t.cliente}|${t.code}|${t.id}`;
@@ -120,7 +123,7 @@ function fila(t, hoy) {
   const e = estadoOp(t);
   return `<li class="op-fila e-${e}" data-op-k="${esc(clave(t))}" draggable="false">
     <button type="button" class="op-check${e === 'hecha' ? ' on' : ''}" data-op-hecha="${esc(clave(t))}" aria-label="${e === 'hecha' ? 'Reabrir' : 'Marcar como hecha'}">✓</button>
-    <button type="button" class="op-fila-t" data-op-abrir="${esc(clave(t))}"><strong>${esc(t.titulo)}</strong><span class="op-fila-meta">${chipProyecto(t)}${e === 'bloqueado' && t.bloqueo ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}</span></button>
+    <button type="button" class="op-fila-t" data-op-abrir="${esc(clave(t))}"><strong>${esc(t.titulo)}</strong><span class="op-fila-meta">${chipProyecto(t)}${e === 'bloqueado' && t.bloqueo ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}${t.notas ? '<span class="op-com" title="Tiene descripción">📝</span>' : ''}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}</span></button>
     <span class="op-estado e-${e}">${ESTADO[e].icon} ${esc(ESTADO[e].label)}</span>
     ${chipFecha(t, hoy)}
     ${avatar(t)}
@@ -162,6 +165,7 @@ function vistaTablero(lista, hoy) {
       <div class="op-col-lista">${ts.map((t) => `<article class="op-card" draggable="true" data-op-k="${esc(clave(t))}" data-op-abrir="${esc(clave(t))}">
         <span class="op-card-proy">${chipProyecto(t)}</span>
         <strong>${esc(t.titulo)}</strong>
+        ${t.notas ? `<p class="op-card-desc">${esc(richToText(t.notas).replace(/🎬/g, '🎬 vídeo').replace(/\s*•\s*/g, ' · ').replace(/\s*\n+\s*/g, ' · ').replace(/^ · /, '').slice(0, 140))}</p>` : ''}
         ${estadoOp(t) === 'bloqueado' && t.bloqueo ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}
         <footer>${chipFecha(t, hoy)}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}${avatar(t)}</footer>
       </article>`).join('') || '<p class="op-col-vacia">—</p>'}</div></section>`;
@@ -191,9 +195,10 @@ function pintarFicha() {
       <label class="field"><span>Qué hay que hacer</span><input name="titulo" required maxlength="200" autocomplete="off"></label>
       <div class="op-form-fila"><label class="field"><span>Para cuándo</span><input type="date" name="fecha"></label>
       <label class="field"><span>Responsable</span><select name="uid"><option value="">Sin asignar</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${u.id === d.yo ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}</select></label></div>
-      <label class="field"><span>Detalles</span><textarea name="notas" rows="5" placeholder="Pasos, enlaces…"></textarea></label>
+      <div class="field"><span>Descripción</span><div class="op-editor" data-op-editor></div></div>
       <footer class="op-form-acc"><button type="button" class="btn ghost" data-op="cerrar-ficha">Cancelar</button><button class="btn primary">Crear tarea</button></footer>
     </form>`;
+    editor = montarEditor(box.querySelector('[data-op-editor]'), '', { placeholder: 'Pasos, enlaces, listas, vídeos…' });
     box.querySelector('input[name=titulo]').focus();
     return;
   }
@@ -210,12 +215,17 @@ function pintarFicha() {
       <div class="pr-campo"><span class="pr-campo-l">Responsable</span><div class="pr-campo-v">${d.superadmin ? `<select data-op-campo="uid"><option value="">Sin asignar</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${t.asignado?.tipo === 'persona' && t.asignado.id === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}${t.asignado?.tipo === 'rol' ? `<option selected>Rol ${esc(t.asignado.rol)}</option>` : ''}</select>` : `${avatar(t)} ${esc(quienTxt(t))}`}</div></div>
       ${t.embudo && !deAgencia ? `<div class="pr-campo"><span class="pr-campo-l">Embudo</span><div class="pr-campo-v">${esc(t.embudo)}</div></div>` : ''}
     </div>
-    ${t.notas ? `<section class="pr-bloque"><h4>Detalles</h4><div class="rich op-notas">${richToHtml(t.notas)}</div></section>` : ''}
+    <section class="pr-bloque op-desc"><header class="pr-bloque-h"><h4>Descripción</h4>${editandoDesc ? '' : `<button type="button" class="btn ghost small" data-op="editar-desc">✏️ ${t.notas ? 'Editar' : 'Añadir'}</button>`}</header>
+      ${editandoDesc ? '<div class="op-editor" data-op-editor></div><footer class="op-form-acc"><button type="button" class="btn ghost small" data-op="cancelar-desc">Cancelar</button><button type="button" class="btn primary small" data-op="guardar-desc">Guardar</button></footer>'
+        : t.notas ? `<div class="rich op-notas">${richToHtml(t.notas)}</div>` : '<button type="button" class="op-desc-vacia" data-op="editar-desc">Añade la descripción: pasos, enlaces, listas, negritas o un vídeo…</button>'}
+    </section>
     <section class="pr-bloque"><h4>Comentarios ${t.comentarios?.length ? `<span class="muted">${t.comentarios.length}</span>` : ''}</h4>
       <ol class="pr-hilo">${(t.comentarios || []).map((c) => `<li class="pr-com"><span class="pr-av">${esc(iniciales(c.nombre))}</span><div class="pr-com-c"><header><strong>${esc(c.nombre)}</strong><span class="muted small">${esc(cuando(c.en))}</span>${d.superadmin || c.uid === d.yo ? `<button type="button" class="pr-x" data-op-com-borrar="${esc(c.id)}" aria-label="Borrar comentario">✕</button>` : ''}</header><div class="pr-com-t">${esc(c.texto).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`).replace(/\n/g, '<br>')}</div></div></li>`).join('') || '<li class="muted small">Sin comentarios.</li>'}</ol>
       <form class="pr-comentar" data-op-form="comentar"><textarea name="texto" rows="2" maxlength="2000" placeholder="Escribe un comentario…"></textarea><button class="btn primary small">Comentar</button></form>
     </section>
-    ${deAgencia ? '<p class="op-ficha-pie"><button type="button" class="btn ghost small danger" data-op="borrar">🗑️ Borrar tarea</button></p>' : '<p class="muted small op-ficha-pie">Esta tarea vive en el proyecto del cliente: lo que cambies aquí se guarda allí.</p>'}`;
+    ${''}${deAgencia ? '<p class="op-ficha-pie"><button type="button" class="btn ghost small danger" data-op="borrar">🗑️ Borrar tarea</button></p>' : '<p class="muted small op-ficha-pie">Esta tarea vive en el proyecto del cliente: lo que cambies aquí se guarda allí.</p>'}`;
+  if (editandoDesc) editor = montarEditor(box.querySelector('[data-op-editor]'), t.notas, { placeholder: 'Pasos, enlaces, listas, vídeos…' });
+  else montarVideos(box.querySelector('.op-notas'));
 }
 
 // ---- Cambios ----
@@ -245,7 +255,7 @@ async function onClick(e) {
   const est = e.target.closest('[data-op-estado]');
   if (est) { const t = buscarT(abierta); if (t && est.dataset.opEstado !== estadoOp(t)) cambiarEstado(t, est.dataset.opEstado); return; }
   const ab = e.target.closest('[data-op-abrir]');
-  if (ab && !e.target.closest('a')) { abierta = ab.dataset.opAbrir; creando = false; pintar(); return; }
+  if (ab && !e.target.closest('a')) { abierta = ab.dataset.opAbrir; creando = false; editandoDesc = false; pintar(); return; }
   const vp = e.target.closest('[data-op-ver-proy]');
   if (vp) { fProy = vp.dataset.opVerProy; vista = 'tablero'; pintar(); return; }
   const vpe = e.target.closest('[data-op-ver-persona]');
@@ -259,7 +269,17 @@ async function onClick(e) {
   }
   const b = e.target.closest('[data-op]');
   if (!b) return;
-  if (b.dataset.op === 'cerrar-ficha') { abierta = null; creando = false; pintar(); } else if (b.dataset.op === 'borrar') {
+  if (b.dataset.op === 'cerrar-ficha') { abierta = null; creando = false; editandoDesc = false; pintar(); return; }
+  if (b.dataset.op === 'editar-desc') { editandoDesc = true; pintarFicha(); editor?.area.focus(); return; }
+  if (b.dataset.op === 'cancelar-desc') { editandoDesc = false; pintarFicha(); return; }
+  if (b.dataset.op === 'guardar-desc') {
+    b.disabled = true;
+    try { await op(buscarT(abierta), { op: 'descripcion', notas: editor.leer() }); editandoDesc = false; } catch (err) { window.alert(err.message); b.disabled = false; return; }
+    pintarFicha();
+    pintarVista();
+    return;
+  }
+  if (b.dataset.op === 'borrar') {
     if (!window.confirm('¿Borrar esta tarea de la agencia?')) return;
     try { await op(buscarT(abierta), { op: 'borrar' }); abierta = null; pintar(); } catch (err) { window.alert(err.message); }
   }
@@ -294,7 +314,7 @@ async function onSubmit(e) {
       pintarFicha();
       pintarVista();
     } else {
-      const notas = sanitizeRich(esc(f.notas.value).replace(/\n/g, '<br>'));
+      const notas = editor ? editor.leer() : '';
       const r = await ctx.api('/api/operativa', { method: 'POST', body: { op: 'crear', tarea: { titulo: f.titulo.value, fecha: f.fecha.value, notas, asignado: f.uid.value ? { tipo: 'persona', id: f.uid.value } : null } } });
       creando = false;
       await cargar();

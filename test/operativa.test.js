@@ -44,3 +44,12 @@ test('operativa: «Bloqueado» pide motivo; «Hecho» apunta quién y cuándo; t
   assert.throws(() => camposAgencia({ titulo: '  ' }), /título/);
   assert.deepEqual(camposAgencia({ titulo: 'Facturas', fecha: 'mal', asignado: { tipo: 'persona', id: 'ana' } }).asignado, { tipo: 'persona', id: 'ana' });
 });
+
+test('operativa: la descripción se guarda con formato limpio (negrita, listas, enlaces) y sin scripts', async () => {
+  const { sanitizeRich } = await import('../public/js/richtext.js');
+  const h = sanitizeRich('Antes del <strong>viernes</strong><ul><li>Titular</li></ul><a href="https://x.com">guía</a><script>alert(1)</script><a href="javascript:alert(1)">mal</a>');
+  assert.match(h, /<strong>viernes<\/strong>/);
+  assert.match(h, /<ul><li>Titular<\/li><\/ul>/);
+  assert.match(h, /href="https:\/\/x.com"/);
+  assert.ok(!/script|javascript/.test(h));
+});

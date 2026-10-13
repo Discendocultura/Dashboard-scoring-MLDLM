@@ -4316,3 +4316,17 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 }
 .op-tablero { grid-template-columns: repeat(5, minmax(230px, 1fr)); }
 .op-dia-cab { margin-bottom: 4px; }
+/* Descripción con formato en las tareas de la Operativa */
+.op-desc .op-notas { font-size: 14.5px; line-height: 1.6; }
+.op-desc .op-notas ul, .op-desc .op-notas ol { padding-left: 22px; }
+.op-desc-vacia { width: 100%; text-align: left; padding: 14px 16px; border-radius: 12px; border: 1.5px dashed var(--border); background: none; color: var(--muted); font: inherit; font-size: 14px; cursor: text; }
+.op-desc-vacia:hover { border-color: var(--accent); color: var(--text-2); }
+.op-editor .er { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.op-editor .er:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+.op-editor .er-toolbar { display: flex; flex-wrap: wrap; gap: 2px; padding: 6px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.op-editor .er-toolbar button { border: 0; background: none; padding: 6px 9px; border-radius: 8px; font: inherit; font-size: 13px; color: var(--text-2); cursor: pointer; }
+.op-editor .er-toolbar button:hover { background: var(--surface); color: var(--text); }
+.op-editor .er-area { min-height: 160px; max-height: 50vh; overflow-y: auto; padding: 12px 14px; border: 0; border-radius: 0; font-size: 14.5px; line-height: 1.6; outline: none; }
+.op-editor .er-area ul, .op-editor .er-area ol { padding-left: 22px; }
+.op-desc .op-form-acc { margin-top: 10px; }
+.op-card-desc { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
