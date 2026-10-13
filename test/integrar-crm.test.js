@@ -32,3 +32,16 @@ test('pistaError: lleva al paso que hay que revisar', () => {
   assert.equal(pistaError('Location not found').paso, 'subcuenta');
   assert.equal(pistaError('algo raro').paso, null);
 });
+
+test('mensaje para el cliente y pasos de Meta', async () => {
+  const { mensajeClienteMeta, pasosMeta } = await import('../public/js/integrar-crm.js');
+  const m = mensajeClienteMeta('Ana');
+  assert.match(m, /^Hola Ana:/);
+  assert.ok(m.includes(META_EMAIL_AGENCIA));
+  assert.match(m, /Control total/);
+  const pasos = pasosMeta({ nombre: 'Sol "&"' });
+  assert.deepEqual(pasos.map((p) => p.id), ['meta-pedir', 'meta-aceptar', 'meta-cuenta']);
+  assert.ok(pasos[0].html.includes('Sol &quot;&amp;&quot;'));
+  assert.equal(pasos[2].campo, true);
+  assert.match(ayudaMetaHtml(), /Copiar mensaje para el cliente/);
+});

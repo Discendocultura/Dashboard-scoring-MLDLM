@@ -37,6 +37,14 @@ test('varios clientes: registro, datos separados, equipo por cliente y accesos d
   const sol = r.data.clientes.find((c) => c.id === 'clinica-sol');
   assert.deepEqual(sol.variables, ['GHL_TOKEN_CLINICA_SOL']);
   assert.equal((await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'probar', id: 'clinica-sol' } })).data.ok, true);
+  // Conectar Meta: sin cuenta, dice que falta el número; con cuenta (en el mock), la ve.
+  let m = (await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'probar-meta', id: 'clinica-sol' } })).data;
+  assert.equal(m.ok, false);
+  assert.match(m.error, /número de su cuenta/);
+  await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'guardar', cliente: { ...sol, metaAdAccount: 'act_555' } } });
+  m = (await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'probar-meta', id: 'clinica-sol' } })).data;
+  assert.equal(m.ok, true);
+  assert.match(m.nombre, /555/);
 
   // Cliente desconocido
   assert.equal((await call('/api/me', { cookie: admin, cliente: 'no-existe' })).status, 404);

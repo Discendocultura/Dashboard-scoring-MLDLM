@@ -1359,6 +1359,14 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 .crm-ok p { max-width: 560px; margin: 0 auto 16px; color: var(--text-2); line-height: 1.55; }
 .crm-ok-ico { width: 64px; height: 64px; margin: 0 auto; border-radius: 50%; background: var(--tone-buy); color: #fff; font-size: 34px; font-weight: 900; display: grid; place-items: center; animation: crm-pop .6s cubic-bezier(.2, 1.6, .4, 1); }
 .crm-ok-acc { justify-content: center; flex-wrap: wrap; }
+.cl-pasos-rail small { font-weight: 600; opacity: .75; }
+.crm-hecho-banner { margin-bottom: 12px; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--tone-buy) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--tone-buy) 35%, var(--border)); color: var(--tone-buy); font-size: 14px; animation: crm-entra .4s ease; }
+.crm-hecho-banner strong { color: var(--text); }
+.crm-campo { gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 8px; }
+.crm-campo input { flex: 1 1 220px; min-width: 0; font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+.crm-resumen { list-style: none; padding: 0; margin: 0 auto 14px; display: flex; flex-direction: column; gap: 6px; align-items: center; font-weight: 700; font-size: 14px; }
+.crm-resumen .ok { color: var(--tone-buy); }
+.crm-resumen .pend { color: var(--text-2); font-weight: 600; }
 @keyframes crm-entra { from { opacity: 0; transform: translateY(8px); } }
 @keyframes crm-pop { from { transform: scale(.3); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .crm-ok, .crm-ok-ico { animation: none; } }

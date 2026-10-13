@@ -2,11 +2,13 @@
 //   GET  /api/clientes → lista con su estado de conexión y las variables de Cloudflare que necesita cada uno
 //   POST { op: 'guardar', cliente: { id, nombre, locationId, metaAdAccount, color } } → crea o edita
 //   POST { op: 'probar', id } → comprueba que su GHL responde
+//   POST { op: 'probar-meta', id } → comprueba que el token de Meta ve su cuenta publicitaria
 //   POST { op: 'borrar', id } → lo quita del dashboard (no borra nada de su GHL)
 import { requireSuperadmin } from '../lib/auth.js';
 import { listClientes, saveClientes, sanitizeCliente } from '../lib/clientes.js';
 import { runCliente, sufijo } from '../lib/cliente.js';
 import { ghlConectado, listTags } from '../lib/ghl.js';
+import { probarCuentaMeta } from '../lib/meta.js';
 import { actualizarUsuarios } from '../lib/users.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 
@@ -55,6 +57,13 @@ export async function POST(request) {
         return json({ ok: true, etiquetas: tags.length });
       } catch (e) {
         return json({ ok: false, error: e.publicMessage || String(e.message || e).slice(0, 300) });
+      }
+    }
+    if (body.op === 'probar-meta') {
+      try {
+        return json(await runCliente(c, () => probarCuentaMeta()));
+      } catch (e) {
+        return json({ ok: false, error: e.publicMessage || 'Meta no responde: prueba otra vez en un minuto.' });
       }
     }
     if (body.op === 'borrar') {
