@@ -854,6 +854,7 @@ function renderAgenciaInicio() {
           <button type="button" class="btn" data-ag-accion="nuevo">＋ Añadir cliente</button>
           <button type="button" class="btn" data-ag-accion="vercomo">👁️ Ver como</button>
           <button type="button" class="btn" data-ag-accion="equipo">👥 Equipo</button>
+          <button type="button" class="btn" data-ag-accion="procesos">📚 Procesos</button>
         </div>
       </div>
       <div class="ag-hero-salud">${donutSalud(t)}</div>
@@ -865,6 +866,11 @@ function renderAgenciaInicio() {
       ${card('Registros', t.registros.toLocaleString('es-ES'), `${t.vip.toLocaleString('es-ES')} VIP`, 'users', 'info')}
       ${card('Ventas', t.ventas.toLocaleString('es-ES'), 'de los lanzamientos en curso', 'cart', 'buy')}
     </div>
+    <button type="button" class="ag-procesos" data-ag-accion="procesos">
+      <span class="ag-procesos-ico" aria-hidden="true">📚</span>
+      <span class="ag-procesos-txt"><strong>Biblioteca de procesos</strong><small>Cómo se hace todo en la agencia: pasos, vídeos y enlaces. Solo para el equipo.</small></span>
+      <span class="ag-procesos-ir" aria-hidden="true">Abrir →</span>
+    </button>
     <div class="ag-dos">
       <section class="card ag-urg">
         <h3>🔥 Lo urgente de hoy ${urg.length ? `<span class="badge">${urg.length}</span>` : ''}</h3>
@@ -898,6 +904,7 @@ $('#inicio-agencia').addEventListener('click', (e) => {
   if (e.target.closest('[data-ag-ver-cliente]')) { ls.set('lsd_inicio_modo', 'cliente'); pintarSaludo(); return mostrarInicio(); }
   const a = e.target.closest('[data-ag-accion]')?.dataset.agAccion;
   if (!a) return;
+  if (a === 'procesos') return abrirProcesos({ api, dialog: $('#procesos-dialog') });
   $('#btn-agencia').click();
   const tab = { nuevo: 'clientes', vercomo: 'ag-vercomo', equipo: 'ag-equipo' }[a];
   if (tab) $(`#agencia-dialog .tab[data-tab="${tab}"]`)?.click();

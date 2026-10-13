@@ -4032,3 +4032,15 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 @media (prefers-reduced-motion: reduce) { .pr-card, .pr-ficha, .pr-vacio-ico { animation: none !important; } }
 .pr-migas .link { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
 .pr-migas .link:hover { text-decoration: underline; }
+/* Acceso a la biblioteca de procesos en el inicio de la agencia */
+.ag-procesos { display: flex; align-items: center; gap: 14px; width: 100%; margin: 4px 0 18px; padding: 14px 18px; border-radius: 16px; cursor: pointer; text-align: left; font: inherit; color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 13%, var(--surface)), var(--surface) 65%);
+  transition: transform .18s, box-shadow .18s; animation: mpSube .45s cubic-bezier(.2, .8, .2, 1) both; }
+.ag-procesos:hover { transform: translateY(-2px); box-shadow: 0 16px 34px -20px rgb(0 0 0 / .5); }
+.ag-procesos-ico { flex: none; width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-size: 24px; background: var(--surface); box-shadow: 0 8px 18px -12px rgb(0 0 0 / .45); }
+.ag-procesos-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ag-procesos-txt strong { font-size: 15.5px; }
+.ag-procesos-txt small { font-size: 13px; color: var(--text-2); }
+.ag-procesos-ir { flex: none; font-weight: 700; font-size: 13.5px; color: var(--accent); }
+:root[data-estilo="espacial"] .ag-procesos { background: linear-gradient(120deg, rgb(255 122 50 / .16), rgb(255 255 255 / .04) 65%); }
+@media (max-width: 640px) { .ag-procesos-ir { display: none; } }
