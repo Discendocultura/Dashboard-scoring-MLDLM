@@ -93,6 +93,18 @@ function pintar() {
   const tab = (id, txt) => `<button type="button" class="op-tab${vista === id ? ' on' : ''}" data-op-vista="${id}">${txt}</button>`;
   const hoy = hoyMadrid();
   const venc = d.tareas.filter((t) => estadoOp(t) !== 'hecha' && t.fecha && t.fecha < hoy && (d.superadmin && d.yo ? asignadaA(t, d.yo, '') : true)).length;
+  // Resumen del día en la cabecera.
+  const abiertas = d.tareas.filter((t) => estadoOp(t) !== 'hecha');
+  const vencT = abiertas.filter((t) => t.fecha && t.fecha < hoy).length;
+  const hoyT = abiertas.filter((t) => t.fecha === hoy).length;
+  const bloqT = abiertas.filter((t) => estadoOp(t) === 'bloqueado').length;
+  const fechaHoy = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
+  ctx.dialog.querySelector('#op-sub').innerHTML = `<span class="op-sub-fecha">${esc(fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1))}</span>`
+    + `<span class="op-sub-pill">${abiertas.length} abierta${abiertas.length === 1 ? '' : 's'}</span>`
+    + (vencT ? `<span class="op-sub-pill rojo">${vencT} vencida${vencT === 1 ? '' : 's'}</span>` : '<span class="op-sub-pill verde">Nada vencido</span>')
+    + (hoyT ? `<span class="op-sub-pill">${hoyT} para hoy</span>` : '')
+    + (bloqT ? `<span class="op-sub-pill ambar">${bloqT} bloqueada${bloqT === 1 ? '' : 's'}</span>` : '')
+    + `<span class="op-sub-txt">${d.superadmin ? 'Todo el equipo y todos los proyectos' : 'Lo que tienes asignado en todos los proyectos'}</span>`;
   body().innerHTML = `<div class="op">
     <nav class="op-tabs">${tab('dia', `☀️ Mi día${venc ? ` <b>${venc}</b>` : ''}`)}${tab('proyectos', '📁 Por proyecto')}${tab('tablero', '🗂️ Tablero')}${d.superadmin ? tab('personas', '👥 Por persona') : ''}</nav>
     <div class="op-filtros">

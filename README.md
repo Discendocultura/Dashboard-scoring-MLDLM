@@ -94,9 +94,13 @@ Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por Wh
 
 **Ficha completa del lead** (Hoy → Llamadas): al pulsar una llamada se abre una ventana con todo lo que ayuda a la setter antes de llamar: cuándo es la cita y su etapa, teléfono / WhatsApp / email, la **temperatura** (estado y puntuación sobre 100) y el siguiente paso, **qué ha hecho** (cada clase, VIP, directo y grabación, encuesta, si ya se le escribió, si compró), origen (publi / orgánico), tráfico frío / templado, avatar y días desde el registro, las **respuestas de la encuesta**, las **respuestas del formulario de reserva de la llamada y el resto de campos de su ficha de GHL**, y las últimas **notas** de GHL. Desde ahí se anota el resultado.
 
+### Inicio de la agencia: el donut lleva a cada cliente
+
+En el resumen de arriba, «N necesita atención», «N a vigilar» y «N en orden» son botones: filtran «Salud de los clientes» a ese grupo y bajan hasta allí (con «Ver todos los clientes» para quitar el filtro). Debajo salen los clientes que necesitan atención o vigilar, con su primer motivo («2 críticos del auditor»…); al pulsar uno, baja a su tarjeta y la resalta.
+
 ### Operativa de la agencia («el Asana de operativa»)
 
-Se abre **a pantalla completa** desde el **Inicio de la agencia** (tarjeta y botón «🗂️ Operativa») y desde Cuenta → **Operativa** (solo el equipo de la agencia: superadmin o usuarios marcados como «de la agencia»). **No es otra lista**: lee las tareas que ya existen en cada embudo de cada cliente (`lsd_tareas_<código>`, una lectura por cliente) y las del **proyecto «Agencia»** (lo interno que no es de ningún cliente: `lsd_operativa_agencia`, común). Lo que se cambia aquí se guarda en su proyecto.
+Se abre **a pantalla completa** (arriba, «← Volver al inicio» y el resumen del día: abiertas, vencidas, para hoy y bloqueadas) desde el **Inicio de la agencia** (tarjeta y botón «🗂️ Operativa») y desde Cuenta → **Operativa** (solo el equipo de la agencia: superadmin o usuarios marcados como «de la agencia»). **No es otra lista**: lee las tareas que ya existen en cada embudo de cada cliente (`lsd_tareas_<código>`, una lectura por cliente) y las del **proyecto «Agencia»** (lo interno que no es de ningún cliente: `lsd_operativa_agencia`, común). Lo que se cambia aquí se guarda en su proyecto.
 
 - **Quién ve qué**: cada persona, solo lo que tiene asignado (a su nombre o a su rol en ese cliente); el superadmin, todo, con filtros por proyecto y por persona. La API (`/api/operativa`) lo aplica también al cambiar: nadie toca tareas que no son suyas.
 - **Estados**: Pendiente · En curso · En revisión · **Bloqueado** (con motivo obligatorio, p. ej. «esperando al cliente») · Hecho.

@@ -800,7 +800,12 @@ const SALUD_TXT = { rojo: 'Necesita atención', ambar: 'Vigilar', verde: 'En ord
 const FASE_AG = { captacion: ['🎯', 'Captación'], carrito: ['🛒', 'Carrito abierto'], cerrado: ['✅', 'Cerrado'] };
 const fechaCortaAg = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', timeZone: 'UTC' }).replace('.', '');
 const haceAg = (iso) => { if (!iso) return ''; const m = Math.round((Date.now() - Date.parse(iso)) / 60_000); return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
-function donutSalud(t) {
+// Filtro de «Salud de los clientes» al pulsar en la leyenda del donut ('' = todos).
+let agFiltroSalud = '';
+function donutSalud(t, cl = []) {
+  // Quién necesita atención o hay que vigilar, con su primer motivo (para que se entienda sin buscar).
+  const quienes = cl.map((c) => ({ c, s: saludCliente(c) })).filter((x) => x.s.nivel === 'rojo' || x.s.nivel === 'ambar')
+    .slice(0, 3).map((x) => ({ id: x.c.id, nombre: x.c.nombre, nivel: x.s.nivel, motivo: x.s.motivos[0] || '' }));
   const total = t.clientes || 1;
   const R = 46; const C = 2 * Math.PI * R;
   let acc = 0;
@@ -809,7 +814,11 @@ function donutSalud(t) {
     <svg viewBox="0 0 120 120"><circle class="ag-don-fondo" r="${R}" cx="60" cy="60"/>${seg(t.salud.rojo, 'rojo')}${seg(t.salud.ambar, 'ambar')}${seg(t.salud.verde, 'verde')}${seg(t.salud.gris, 'gris')}</svg>
     <div class="ag-don-c"><b>${t.sanos}<small>/${t.clientes}</small></b><span>en orden</span></div>
   </div>
-  <ul class="ag-don-ley"><li class="rojo"><i></i>${t.salud.rojo} necesita${t.salud.rojo === 1 ? '' : 'n'} atención</li><li class="ambar"><i></i>${t.salud.ambar} a vigilar</li><li class="verde"><i></i>${t.salud.verde} en orden</li></ul>`;
+  <div class="ag-don-lado">
+    <ul class="ag-don-ley">${[['rojo', `${t.salud.rojo} necesita${t.salud.rojo === 1 ? '' : 'n'} atención`, t.salud.rojo], ['ambar', `${t.salud.ambar} a vigilar`, t.salud.ambar], ['verde', `${t.salud.verde} en orden`, t.salud.verde]]
+    .map(([n, txt, k]) => `<li><button type="button" class="ag-don-btn ${n}${agFiltroSalud === n ? ' on' : ''}" data-ag-salud="${n}"${k ? '' : ' disabled'}><i></i><span>${txt}</span>${k ? '<b aria-hidden="true">Ver →</b>' : ''}</button></li>`).join('')}</ul>
+    ${quienes.length ? `<ul class="ag-don-quien">${quienes.map((x) => `<li class="${x.nivel}"><button type="button" data-ag-salud="${x.nivel}" data-ag-salud-cli="${esc(x.id)}"><strong>${esc(x.nombre)}</strong><span>${esc(x.motivo)}</span></button></li>`).join('')}</ul>` : ''}
+  </div>`;
 }
 function tarjetaSaludAg(c) {
   const s = saludCliente(c);
@@ -822,7 +831,7 @@ function tarjetaSaludAg(c) {
   const vsls = (c.vsls || []).length;
   const con = c.conexiones || {};
   const chipCon = (k, label) => `<span class="ag-con ${con[k] ? 'on' : 'off'}" title="${label}: ${con[k] ? 'conectado' : 'sin conectar'}">${label}</span>`;
-  return `<article class="ag-cli s-${s.nivel}" style="--cl:${esc(c.color || 'var(--accent)')}">
+  return `<article class="ag-cli s-${s.nivel}" data-ag-cli="${esc(c.id)}" style="--cl:${esc(c.color || 'var(--accent)')}">
     <header><span class="ag-sem" title="${esc(SALUD_TXT[s.nivel])}"></span><h4>${esc(c.nombre)}</h4>${fase ? `<span class="ag-fase f-${l.fase}">${fase[0]} ${fase[1]}</span>` : ''}</header>
     ${l ? `<p class="ag-cli-lanz"><strong>🚀 ${esc(l.nombre)}</strong>${l.proximoHito ? `<span>Próximo: ${esc(l.proximoHito.label)} · ${esc(fechaCortaAg(l.proximoHito.dia))}</span>` : ''}</p>
       <div class="ag-cli-kpis"><div><span>Registros</span><b>${(l.registros ?? 0).toLocaleString('es-ES')}</b></div><div><span>Ventas</span><b>${(l.ventas ?? 0).toLocaleString('es-ES')}</b></div><div><span>Inversión</span><b>${eur(l.inversion || 0)}</b></div><div><span>ROAS</span><b>${l.roas != null ? `${l.roas.toFixed(2).replace('.', ',')}x` : '–'}</b></div></div>
@@ -861,7 +870,7 @@ function renderAgenciaInicio() {
           <button type="button" class="btn" data-ag-accion="procesos">📚 Procesos</button>
         </div>
       </div>
-      <div class="ag-hero-salud">${donutSalud(t)}</div>
+      <div class="ag-hero-salud">${donutSalud(t, cl)}</div>
     </section>
     <div class="kpis ag-kpis-top">
       ${card('Facturación en curso', eur(t.facturacion), `${t.enCurso} lanzamiento${t.enCurso === 1 ? '' : 's'} en curso`, 'coins', 'money')}
@@ -901,7 +910,8 @@ function renderAgenciaInicio() {
     </div>
     <section class="ag-salud">
       <div class="ag-sec-cab"><h3>🩺 Salud de los clientes</h3><span class="muted small">Primero los que necesitan atención · pulsa «Entrar» para ir a su dashboard</span></div>
-      <div class="ag-cli-grid">${cl.map(tarjetaSaludAg).join('')}</div>
+      ${agFiltroSalud ? `<p class="ag-filtro-salud">Mostrando solo: <strong>${esc(SALUD_TXT[agFiltroSalud] || '')}</strong> <button type="button" class="link" data-ag-salud="">Ver todos los clientes</button></p>` : ''}
+      <div class="ag-cli-grid">${cl.filter((c) => !agFiltroSalud || saludCliente(c).nivel === agFiltroSalud).map(tarjetaSaludAg).join('')}</div>
     </section>
     <section class="card ag-equipo">
       <h3>👥 Tareas vencidas por persona</h3>
@@ -913,6 +923,15 @@ $('#inicio-agencia').addEventListener('click', (e) => {
   const entrar = e.target.closest('[data-ag-entrar]');
   if (entrar) { ls.set('lsd_inicio_modo', 'cliente'); ls.set('lsd_inicio', '1'); return cambiarCliente(entrar.dataset.agEntrar); }
   if (e.target.closest('[data-ag-ver-cliente]')) { ls.set('lsd_inicio_modo', 'cliente'); pintarSaludo(); return mostrarInicio(); }
+  const fs = e.target.closest('[data-ag-salud]');
+  if (fs) {
+    agFiltroSalud = agFiltroSalud === fs.dataset.agSalud && !fs.dataset.agSaludCli ? '' : fs.dataset.agSalud;
+    renderAgenciaInicio();
+    const destino = fs.dataset.agSaludCli ? $(`#inicio-agencia [data-ag-cli="${CSS.escape(fs.dataset.agSaludCli)}"]`) : $('#inicio-agencia .ag-salud');
+    destino?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (fs.dataset.agSaludCli) { destino?.classList.add('ag-resalta'); setTimeout(() => destino?.classList.remove('ag-resalta'), 2200); }
+    return;
+  }
   const a = e.target.closest('[data-ag-accion]')?.dataset.agAccion;
   if (!a) return;
   if (a === 'procesos') return abrirProcesos({ api, dialog: $('#procesos-dialog') });
