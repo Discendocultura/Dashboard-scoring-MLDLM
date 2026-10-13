@@ -20,7 +20,7 @@ function attr(raw, name) {
 
 export const safeHref = (url) => (/^(https?:\/\/|mailto:)[^\s<>"]+$/i.test(String(url || '').trim()) ? String(url).trim() : '');
 
-// URL de reproductor para Vimeo, YouTube o Loom (o '' si no es un vídeo reconocido).
+// URL de reproductor para Vimeo, YouTube, Loom o Bunny (o '' si no es un vídeo reconocido).
 export function videoEmbed(url) {
   const u = String(url || '').trim();
   let m = /^https?:\/\/(?:www\.)?(?:player\.)?vimeo\.com\/(?:video\/)?(\d+)(?:\/([a-f0-9]+))?(?:[/?#][^\s]*)?$/i.exec(u);
@@ -30,6 +30,9 @@ export function videoEmbed(url) {
   }
   m = /^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^\s]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/i.exec(u);
   if (m) return `https://www.youtube-nocookie.com/embed/${m[1]}`;
+  // Bunny Stream (iframe.mediadelivery.net/play|embed/<biblioteca>/<vídeo>).
+  m = /^https:\/\/iframe\.mediadelivery\.net\/(?:play|embed)\/(\d{1,12})\/([0-9a-f-]{36})(?:[/?#][^\s]*)?$/i.exec(u);
+  if (m) return `https://iframe.mediadelivery.net/embed/${m[1]}/${m[2]}`;
   m = /^https?:\/\/(?:www\.)?loom\.com\/(?:share|embed)\/([a-f0-9]{20,40})/i.exec(u);
   if (m) return `https://www.loom.com/embed/${m[1]}`;
   return '';

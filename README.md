@@ -94,6 +94,12 @@ Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por Wh
 
 **Ficha completa del lead** (Hoy → Llamadas): al pulsar una llamada se abre una ventana con todo lo que ayuda a la setter antes de llamar: cuándo es la cita y su etapa, teléfono / WhatsApp / email, la **temperatura** (estado y puntuación sobre 100) y el siguiente paso, **qué ha hecho** (cada clase, VIP, directo y grabación, encuesta, si ya se le escribió, si compró), origen (publi / orgánico), tráfico frío / templado, avatar y días desde el registro, las **respuestas de la encuesta**, las **respuestas del formulario de reserva de la llamada y el resto de campos de su ficha de GHL**, y las últimas **notas** de GHL. Desde ahí se anota el resultado.
 
+### Biblioteca de procesos (solo la agencia)
+
+Cuenta → **Biblioteca de procesos** (solo superadmin; la API `/api/procesos` responde 403 a cualquier otro). Es el «cómo se hace» de todo, común a todos los clientes (`lsd_procesos` en el cliente `_agencia`): secciones a la izquierda con su número de procesos, buscador (sin tildes), tarjetas con insignias (🎬 vídeo, 🔗 enlaces, ✍️ por documentar) y la ficha de cada proceso con los pasos, los vídeos dentro (Vimeo, **Bunny**, YouTube, Loom) y los enlaces en otra pestaña. Se edita ahí mismo (negrita, títulos, listas, pasos numerados, enlaces y vídeos), se crean secciones y procesos nuevos y se **importa un archivo .json** (por ejemplo, el «Sistema Operativo» de Asana): los procesos con el mismo id se sustituyen y el resto se queda.
+
+**El contenido no está en el código**: el repositorio es público, así que los procesos (enlaces a Drive y Vimeo, nombres del equipo…) solo viven en la base de datos del dashboard. Formato del archivo: `{ origen, secciones: [{ id, titulo }], procesos: [{ id, seccion, titulo, html, asana }] }` (modelo en `public/js/procesos.js`).
+
 ### Marca, producto y avatar como proceso (Cuenta → Marca y avatar)
 
 Ya no son pestañas mezcladas: es un proceso por etapas, como la configuración de los embudos (`pasosEquipo` y `estadoProceso` en `public/js/marca.js`, panel en `public/js/marca-panel.js`):

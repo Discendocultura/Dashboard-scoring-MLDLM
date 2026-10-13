@@ -117,10 +117,12 @@ test('rol Cliente: solo ve su resumen (sin datos personales) y nada más', async
   assert.deepEqual((await call('/api/roles', { cookie: admin })).data.roles.find((x) => x.id === 'cliente').permisos, ['resumen']);
 });
 
+// Días relativos a hoy (el informe automático sale si el carrito cerró hace menos de una semana).
+const dia = (n) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
 test('informe para el cliente: página, enlace firmado, envío y automático al cerrar el carrito', async () => {
   const admin = await login('admin');
   const cfg = (await call('/api/config', { cookie: admin })).data.config;
-  await call('/api/config', { method: 'POST', cookie: admin, body: { ...cfg, launches: { ...cfg.launches, cerr: { name: 'Cerrado', registroTag: 'registro-webinar-demo', vipTag: 'compra-vip-demo', compraTag: 'clienta-raices', precioVip: 27, precioPrograma: 997, inversion: 4000, inicioCaptacion: '2026-09-01', fechaDirecto: '2026-09-20', cierreCarrito: '2026-10-05T23:59', objetivos: { ventas: 80, registros: 3000 } } } } });
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...cfg, launches: { ...cfg.launches, cerr: { name: 'Cerrado', registroTag: 'registro-webinar-demo', vipTag: 'compra-vip-demo', compraTag: 'clienta-raices', precioVip: 27, precioPrograma: 997, inversion: 4000, inicioCaptacion: dia(-40), fechaDirecto: dia(-20), cierreCarrito: `${dia(-5)}T23:59`, objetivos: { ventas: 80, registros: 3000 } } } } });
   // Sin sesión ni firma: no
   assert.equal((await route(new Request('http://localhost/api/informe?l=cerr'), ENV)).status, 401);
   const r = await route(new Request('http://localhost/api/informe?l=cerr', { headers: { cookie: admin } }), ENV);

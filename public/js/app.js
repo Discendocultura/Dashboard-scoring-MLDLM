@@ -36,6 +36,7 @@ import { claveTelefono, leerMiembros } from './grupos-wa.js';
 import { TIPOS_MSG, ESTADOS_MSG, GUIA_ARCHIVOS, parsearSecuencia, promptCalentamiento, datosEmbudo, faltaMensaje, faltaEnlaceDirecto, sanitizeMensaje, nuevoIdMsg } from './calentamiento.js';
 import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientesDirecta, ganadoresDirecta } from './directa.js';
 import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
+import { abrirProcesos } from './procesos-panel.js';
 import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
@@ -12063,6 +12064,7 @@ async function asistenteMarcaCliente({ equipo = false } = {}) {
 }
 
 // ---------- 🎨 Marca y avatar (cuestionario del cliente: la fuente de los prompts) ----------
+$('#btn-procesos').addEventListener('click', () => { $('#tb-menu-cuenta').open = false; abrirProcesos({ api, dialog: $('#procesos-dialog') }); });
 $('#btn-marca').addEventListener('click', () => {
   $('#tb-menu-cuenta').open = false;
   abrirPanelMarca({ api, cliente: state.cliente, clienteNombre: clienteNombre(), clientes: state.superadmin ? state.clientes.map((c) => ({ id: c.id, nombre: c.nombre })) : [], embudos: embudos().map((e) => ({ id: e.id, nombre: e.nombre })), puedeEditar: puedeConfig(), dialog: $('#marca-dialog') });
