@@ -475,6 +475,8 @@ Cada tarea tiene una **descripción con formato** (títulos, negrita, listas con
 
 **Tareas habituales**: al marcar «🔁 Tarea habitual» la tarea se guarda en la plantilla (Custom Value `lsd_tareas_habituales`) con su descripción, fase, persona o rol asignado y fecha relativa a un hito (captación, clase 1, directo o cierre). «Cargar tareas habituales» en el siguiente lanzamiento las crea con esa misma asignación (si la persona ya no está, se asigna a su rol) y sin duplicar. Editar una habitual actualiza la plantilla; desmarcar la casilla la quita.
 
+**Proceso paso a paso en cada tarea**: `public/js/procesos-tarea.js` tiene el proceso (🎯 objetivo, pasos numerados y «✅ Está hecha cuando…») de todas las tareas habituales y de las creadas a mano que se repiten (anuncios nuevos, revisión de oferta y precios, edición de clases, reunión de coordinación). Se reconocen por el título, aunque esté retocado. Al leer las tareas (`getTareas`, la plantilla de habituales y la Operativa), las que **no tienen descripción** reciben su proceso, y queda guardado con el siguiente cambio de la lista. Nunca pisa una descripción que alguien haya escrito. En los emails de aviso se resume en una línea («Tiene el proceso paso a paso en su descripción») para que no pesen.
+
 **Avisos para la admin**: si una tarea asignada a otra persona o a otro rol (no admin) pasa su fecha sin completarse, aparece un aviso rojo arriba del dashboard (solo para admin) con quién va tarde, qué tarea y cuántos días; «Ver vencidas» lleva a la lista y «Entendido» lo oculta hasta mañana o hasta que haya otra. También salen en el resumen diario por email.
 
 Con «Seleccionar» la admin puede **asignar varias tareas a la vez** (p. ej. todas las de «Rol Admin» a una persona) o eliminarlas.
