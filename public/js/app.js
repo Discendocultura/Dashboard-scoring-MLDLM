@@ -37,6 +37,7 @@ import { TIPOS_MSG, ESTADOS_MSG, GUIA_ARCHIVOS, parsearSecuencia, promptCalentam
 import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientesDirecta, ganadoresDirecta } from './directa.js';
 import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
 import { abrirProcesos } from './procesos-panel.js';
+import { abrirOperativa } from './operativa-panel.js';
 import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
@@ -431,6 +432,7 @@ async function start() {
   if (OAUTH_RE.test(oauth)) { location.href = oauth; return; }
   state.clientes = me.clientes || [];
   state.superadmin = Boolean(me.superadmin);
+  state.agencia = Boolean(me.superadmin || me.user?.agencia);
   if (!me.role) {
     // Sin acceso a este cliente: a su primer cliente (o, si no tiene ninguno, a la pantalla de acceso).
     const otro = state.clientes.find((c) => c.id !== me.cliente?.id);
@@ -455,6 +457,7 @@ async function start() {
   document.body.classList.toggle('can-tareas', puedeTareas());
   document.body.classList.toggle('is-equipo', role === 'equipo');
   document.body.classList.toggle('is-superadmin', state.superadmin);
+  document.body.classList.toggle('is-agencia', state.agencia);
   pintarCliente(me.cliente);
   // El cliente (solo lectura) ve únicamente su portal de resultados.
   if (role === ROL_CLIENTE) {
@@ -854,6 +857,7 @@ function renderAgenciaInicio() {
           <button type="button" class="btn" data-ag-accion="nuevo">＋ Añadir cliente</button>
           <button type="button" class="btn" data-ag-accion="vercomo">👁️ Ver como</button>
           <button type="button" class="btn" data-ag-accion="equipo">👥 Equipo</button>
+          <button type="button" class="btn" data-ag-accion="operativa">🗂️ Operativa</button>
           <button type="button" class="btn" data-ag-accion="procesos">📚 Procesos</button>
         </div>
       </div>
@@ -866,11 +870,18 @@ function renderAgenciaInicio() {
       ${card('Registros', t.registros.toLocaleString('es-ES'), `${t.vip.toLocaleString('es-ES')} VIP`, 'users', 'info')}
       ${card('Ventas', t.ventas.toLocaleString('es-ES'), 'de los lanzamientos en curso', 'cart', 'buy')}
     </div>
+    <div class="ag-accesos">
+    <button type="button" class="ag-procesos ag-operativa" data-ag-accion="operativa">
+      <span class="ag-procesos-ico" aria-hidden="true">🗂️</span>
+      <span class="ag-procesos-txt"><strong>Operativa</strong><small>Todas las tareas de todos los proyectos: qué toca hoy, qué va con retraso y qué está bloqueado.</small></span>
+      <span class="ag-procesos-ir" aria-hidden="true">Abrir →</span>
+    </button>
     <button type="button" class="ag-procesos" data-ag-accion="procesos">
       <span class="ag-procesos-ico" aria-hidden="true">📚</span>
       <span class="ag-procesos-txt"><strong>Biblioteca de procesos</strong><small>Cómo se hace todo en la agencia: pasos, vídeos y enlaces. Solo para el equipo.</small></span>
       <span class="ag-procesos-ir" aria-hidden="true">Abrir →</span>
     </button>
+    </div>
     <div class="ag-dos">
       <section class="card ag-urg">
         <h3>🔥 Lo urgente de hoy ${urg.length ? `<span class="badge">${urg.length}</span>` : ''}</h3>
@@ -905,6 +916,7 @@ $('#inicio-agencia').addEventListener('click', (e) => {
   const a = e.target.closest('[data-ag-accion]')?.dataset.agAccion;
   if (!a) return;
   if (a === 'procesos') return abrirProcesos({ api, dialog: $('#procesos-dialog') });
+  if (a === 'operativa') return abrirOperativa({ api, dialog: $('#operativa-dialog') });
   $('#btn-agencia').click();
   const tab = { nuevo: 'clientes', vercomo: 'ag-vercomo', equipo: 'ag-equipo' }[a];
   if (tab) $(`#agencia-dialog .tab[data-tab="${tab}"]`)?.click();
@@ -12071,6 +12083,7 @@ async function asistenteMarcaCliente({ equipo = false } = {}) {
 }
 
 // ---------- 🎨 Marca y avatar (cuestionario del cliente: la fuente de los prompts) ----------
+$('#btn-operativa').addEventListener('click', () => { $('#tb-menu-cuenta').open = false; abrirOperativa({ api, dialog: $('#operativa-dialog') }); });
 $('#btn-procesos').addEventListener('click', () => { $('#tb-menu-cuenta').open = false; abrirProcesos({ api, dialog: $('#procesos-dialog') }); });
 $('#btn-marca').addEventListener('click', () => {
   $('#tb-menu-cuenta').open = false;

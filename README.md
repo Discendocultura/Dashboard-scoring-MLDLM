@@ -94,6 +94,16 @@ Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por Wh
 
 **Ficha completa del lead** (Hoy → Llamadas): al pulsar una llamada se abre una ventana con todo lo que ayuda a la setter antes de llamar: cuándo es la cita y su etapa, teléfono / WhatsApp / email, la **temperatura** (estado y puntuación sobre 100) y el siguiente paso, **qué ha hecho** (cada clase, VIP, directo y grabación, encuesta, si ya se le escribió, si compró), origen (publi / orgánico), tráfico frío / templado, avatar y días desde el registro, las **respuestas de la encuesta**, las **respuestas del formulario de reserva de la llamada y el resto de campos de su ficha de GHL**, y las últimas **notas** de GHL. Desde ahí se anota el resultado.
 
+### Operativa de la agencia («el Asana de operativa»)
+
+Desde el **Inicio de la agencia** (tarjeta y botón «🗂️ Operativa») y desde Cuenta → **Operativa** (solo el equipo de la agencia: superadmin o usuarios marcados como «de la agencia»). **No es otra lista**: lee las tareas que ya existen en cada embudo de cada cliente (`lsd_tareas_<código>`, una lectura por cliente) y las del **proyecto «Agencia»** (lo interno que no es de ningún cliente: `lsd_operativa_agencia`, común). Lo que se cambia aquí se guarda en su proyecto.
+
+- **Quién ve qué**: cada persona, solo lo que tiene asignado (a su nombre o a su rol en ese cliente); el superadmin, todo, con filtros por proyecto y por persona. La API (`/api/operativa`) lo aplica también al cambiar: nadie toca tareas que no son suyas.
+- **Estados**: Pendiente · En curso · En revisión · **Bloqueado** (con motivo obligatorio, p. ej. «esperando al cliente») · Hecho.
+- **Vistas**: ☀️ **Mi día** (vencidas, hoy, esta semana, más adelante, sin fecha y las hechas de los últimos días) · 📁 **Por proyecto** (semáforo: algo bloqueado / con retraso / al día, abiertas, vencidas, bloqueadas y las vencidas más antiguas) · 🗂️ **Tablero** por estado (arrastrando las tarjetas) · 👥 **Por persona** (solo superadmin: carga y vencidas de cada uno).
+- **Ficha** de cada tarea en un panel lateral: estado, fecha, responsable (lo reparte el superadmin), detalles y comentarios. «＋ Tarea de agencia» crea tareas internas.
+- **Avisos por email**: al asignar una tarea a alguien, y **cada mañana** (con la tarea programada de la agencia, una vez al día) a cada persona del equipo de la agencia con sus tareas vencidas, las de hoy y las bloqueadas (`lib/operativa.js`).
+
 ### Biblioteca de procesos (solo la agencia)
 
 Desde el **Inicio de la agencia** (tarjeta «📚 Biblioteca de procesos» y botón «📚 Procesos» arriba) y desde Cuenta → **Biblioteca de procesos** (solo superadmin; la API `/api/procesos` responde 403 a cualquier otro). Es el «cómo se hace» de todo, común a todos los clientes (`lsd_procesos` en el cliente `_agencia`): secciones a la izquierda con su número de procesos, buscador (sin tildes), tarjetas con insignias (🎬 vídeo, 🔗 enlaces, ✍️ por documentar) y la ficha de cada proceso con los pasos, los vídeos dentro (Vimeo, **Bunny**, YouTube, Loom) y los enlaces en otra pestaña. Se edita ahí mismo (negrita, títulos, listas, pasos numerados, enlaces y vídeos), se crean secciones y procesos nuevos y se **importa un archivo .json** (por ejemplo, el «Sistema Operativo» de Asana): los procesos con el mismo id se sustituyen y el resto se queda.

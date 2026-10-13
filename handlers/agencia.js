@@ -14,6 +14,7 @@ import { listClientes } from '../lib/clientes.js';
 import { informesPendientes } from '../lib/informe-envio.js';
 import { getConfig } from '../lib/config-store.js';
 import { sendDigestUnaVez } from '../lib/digest.js';
+import { avisosDiarios } from '../lib/operativa.js';
 import { json, readBody, errorResponse, escapeHtml } from '../lib/http.js';
 import { avisarTelegram, textoEstado } from '../lib/telegram.js';
 
@@ -91,7 +92,10 @@ export async function GET(request) {
         }
         return json(out);
       }
-      return json(await enviar(request));
+      const out = await enviar(request);
+      // Y a cada persona del equipo de la agencia, sus tareas vencidas y las de hoy (una vez al día).
+      try { out.operativa = await avisosDiarios(url.origin + '/'); } catch (e) { out.operativa = { error: String(e.publicMessage || e.message).slice(0, 200) }; }
+      return json(out);
     }
     await requireSuperadmin(request);
     // ?cliente=<id>: recalcula solo ese cliente (el panel los actualiza de uno en uno).
