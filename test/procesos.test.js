@@ -56,3 +56,13 @@ test('procesos como tareas: fechas que se repiten, estado de la fecha e importar
   assert.equal(r.biblioteca.procesos[0].fecha, '2026-11-01');
   assert.equal(r.biblioteca.procesos[0].comentarios.length, 1);
 });
+
+test('procesos por proyecto: los generales se ven en todos; los de un proyecto, solo en el suyo', async () => {
+  const { enProyecto, sanitizeProceso } = await import('../public/js/procesos.js');
+  const general = sanitizeProceso({ id: 'g', titulo: 'g', proyectos: [] });
+  const disc = sanitizeProceso({ id: 'd', titulo: 'd', proyectos: ['discendo', 'discendo', 'MAL ID'] });
+  assert.deepEqual(disc.proyectos, ['discendo']);
+  assert.ok(enProyecto(general, 'mldlm') && enProyecto(general, '') && enProyecto(general, '_general'));
+  assert.ok(enProyecto(disc, 'discendo') && enProyecto(disc, ''));
+  assert.ok(!enProyecto(disc, 'mldlm') && !enProyecto(disc, '_general'));
+});

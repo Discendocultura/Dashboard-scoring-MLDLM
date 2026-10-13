@@ -4125,3 +4125,20 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .pr-comentar textarea, .pr-comentar textarea:focus { border: 0 !important; box-shadow: none !important; background: none !important; padding: 4px 2px; }
 .pr-campo-v .link { background: none; border: 0; padding: 0; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; text-decoration: underline; }
 .pr-campo-v .link:hover { color: var(--st-muy-caliente); }
+/* Procesos por proyecto */
+.pr-proy-sel { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.pr-proy-sel select { font: inherit; font-size: 14px; font-weight: 600; color: var(--text); padding: 8px 10px; border-radius: 11px; border: 1px solid var(--border); background: var(--surface); }
+.pr-proy { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: var(--cl, var(--accent)); background: color-mix(in srgb, var(--cl, var(--accent)) 13%, transparent); }
+.pr-proy::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--cl, var(--accent)); }
+.pr-proy.general { color: var(--text-2); background: var(--surface-2); }
+.pr-proy.general::before { display: none; }
+.pr-card-proys { display: flex; flex-wrap: wrap; gap: 4px; }
+.pr-proy-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pr-pchip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s; }
+.pr-pchip:hover { border-color: var(--cl, var(--accent)); }
+.pr-pchip.on { background: color-mix(in srgb, var(--cl, var(--accent)) 16%, var(--surface)); border-color: var(--cl, var(--accent)); color: var(--text); }
+.pr-pchip-check input { accent-color: var(--cl, var(--accent)); }
+.pr-pchip-check:has(input:checked) { background: color-mix(in srgb, var(--cl, var(--accent)) 16%, var(--surface)); border-color: var(--cl, var(--accent)); color: var(--text); }
+.pr-lote-abrir { margin: -6px 0 12px; }
+.pr-lote { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; margin-bottom: 14px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); animation: mpSube .3s ease both; }
+.pr-lote-acc { display: flex; flex-wrap: wrap; gap: 8px; }

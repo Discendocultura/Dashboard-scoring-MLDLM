@@ -4,7 +4,7 @@
 // Todo se guarda al momento. Se importa desde un archivo .json (por ejemplo, el «Sistema Operativo» de Asana).
 //   abrirProcesos({ api, dialog })
 import { richToHtml, sanitizeRich, safeHref, videoEmbed, richToText } from './richtext.js';
-import { buscarProcesos, documentado, tieneVideo, REPETIR, estadoFecha, proximaTrasHecho } from './procesos.js';
+import { buscarProcesos, documentado, tieneVideo, REPETIR, estadoFecha, proximaTrasHecho, enProyecto } from './procesos.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hoyMadrid = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
@@ -27,7 +27,11 @@ const textoComentario = (t) => esc(t).replace(/https?:\/\/[^\s<]+/g, (u) => `<a 
 const FECHA_TXT = { vencida: 'Vencido', hoy: 'Hoy', manana: 'Mañana' };
 
 let ctx = null;
-let bib = { secciones: [], procesos: [], equipo: [], yo: '' };
+let bib = { secciones: [], procesos: [], equipo: [], yo: '', proyectos: [] };
+// Proyecto elegido arriba a la izquierda ('' = todos · '_general' = solo los generales · id de un cliente). Se recuerda.
+const LS_PROY = 'lsd_pr_proyecto';
+let proy = (() => { try { return localStorage.getItem(LS_PROY) || ''; } catch { return ''; } })();
+let lote = false; // abierto el «asignar estos a un proyecto»
 let sec = ''; // sección elegida ('' = todas)
 let q = '';
 let filtro = ''; // '' | 'mios' | 'fecha' | 'vencidos'
@@ -38,6 +42,9 @@ let pestanaAct = 'comentarios';
 const body = () => ctx.dialog.querySelector('#pr-body');
 const proc = (id = abierto) => bib.procesos.find((x) => x.id === id);
 const nombreDe = (uid) => bib.equipo.find((u) => u.id === uid)?.nombre || '';
+const proyDe = (id) => bib.proyectos.find((x) => x.id === id);
+const chipProy = (id) => { const x = proyDe(id); return `<span class="pr-proy" style="--cl:${esc(x?.color || 'var(--accent)')}">${esc(x?.nombre || id)}</span>`; };
+const proyectosHtml = (p) => (p.proyectos.length ? p.proyectos.map(chipProy).join('') : '<span class="pr-proy general">🌐 General</span>');
 
 async function enviar(cuerpo) {
   const d = await ctx.api('/api/procesos', { method: 'POST', body: cuerpo });
@@ -62,6 +69,9 @@ export async function abrirProcesos(opts) {
   if (!dlg.open) dlg.showModal();
   try {
     bib = await ctx.api('/api/procesos');
+    bib.proyectos ||= [];
+    bib.equipo ||= [];
+    if (proy && proy !== '_general' && !bib.proyectos.some((x) => x.id === proy)) proy = '';
   } catch (e) { body().innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
   pintar();
 }
@@ -70,6 +80,7 @@ export async function abrirProcesos(opts) {
 function pintar() {
   body().innerHTML = `<div class="pr">
     <aside class="pr-side">
+      <label class="pr-proy-sel"><span>Proyecto</span><select id="pr-proyecto"><option value="">Todos los proyectos</option><option value="_general"${proy === '_general' ? ' selected' : ''}>🌐 Solo los generales</option>${bib.proyectos.map((x) => `<option value="${esc(x.id)}"${proy === x.id ? ' selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select></label>
       <label class="pr-buscar"><span aria-hidden="true">🔎</span><input id="pr-buscar" type="search" placeholder="Buscar un proceso…" value="${esc(q)}" autocomplete="off"></label>
       <nav class="pr-secs" aria-label="Secciones">${seccionesHtml()}</nav>
       <button type="button" class="btn ghost small pr-sec-nueva" data-pr="seccion">＋ Sección</button>
@@ -80,7 +91,7 @@ function pintar() {
 }
 
 function seccionesHtml() {
-  const n = (id) => bib.procesos.filter((p) => !id || p.seccion === id).length;
+  const n = (id) => bib.procesos.filter((p) => (!id || p.seccion === id) && enProyecto(p, proy)).length;
   const b = (id, ico, txt) => `<button type="button" class="pr-sec${sec === id ? ' on' : ''}" data-pr-sec="${esc(id)}"><span class="pr-sec-ico">${ico}</span><span class="pr-sec-t">${esc(txt)}</span><span class="pr-sec-n">${n(id)}</span></button>`;
   return b('', '📚', 'Todos') + bib.secciones.map((s) => b(s.id, emojiDe(s.titulo) || '📁', sinEmoji(s.titulo))).join('');
 }
@@ -100,7 +111,7 @@ function pintarLista() {
     return;
   }
   const hoy = hoyMadrid();
-  let lista = buscarProcesos(bib.procesos.filter((p) => !sec || p.seccion === sec), q);
+  let lista = buscarProcesos(bib.procesos.filter((p) => (!sec || p.seccion === sec) && enProyecto(p, proy)), q);
   if (filtro === 'mios') lista = lista.filter((p) => p.responsable && p.responsable === bib.yo);
   if (filtro === 'fecha') lista = lista.filter((p) => p.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
   if (filtro === 'vencidos') lista = lista.filter((p) => estadoFecha(p, hoy) === 'vencida');
@@ -108,8 +119,10 @@ function pintarLista() {
   const porDoc = lista.filter((p) => !documentado(p)).length;
   const vencidos = bib.procesos.filter((p) => estadoFecha(p, hoy) === 'vencida').length;
   const chip = (id, txt) => `<button type="button" class="pr-filtro${filtro === id ? ' on' : ''}" data-pr-filtro="${id}">${txt}</button>`;
-  main.innerHTML = `<header class="pr-main-head"><div><h3>${s ? esc(s.titulo) : '📚 Todos los procesos'}</h3><p class="muted small">${lista.length} proceso${lista.length === 1 ? '' : 's'}${porDoc ? ` · ${porDoc} por documentar` : ''}${q ? ` · buscando «${esc(q)}»` : ''}</p></div>
+  const pNombre = proy === '_general' ? 'generales' : proyDe(proy)?.nombre;
+  main.innerHTML = `<header class="pr-main-head"><div><h3>${s ? esc(s.titulo) : '📚 Todos los procesos'}</h3><p class="muted small">${lista.length} proceso${lista.length === 1 ? '' : 's'}${pNombre ? ` · ${proy === '_general' ? 'solo los generales' : `de ${esc(pNombre)} y los generales`}` : ''}${porDoc ? ` · ${porDoc} por documentar` : ''}${q ? ` · buscando «${esc(q)}»` : ''}</p></div>
       <div class="pr-filtros">${chip('', 'Todos')}${bib.yo ? chip('mios', '👤 Míos') : ''}${chip('fecha', '📅 Con fecha')}${chip('vencidos', `⏰ Vencidos${vencidos ? ` <b>${vencidos}</b>` : ''}`)}</div></header>
+    ${lista.length && bib.proyectos.length ? loteHtml(lista) : ''}
     ${lista.length ? `<div class="pr-grid">${lista.map((p, i) => tarjeta(p, i, hoy)).join('')}</div>` : '<p class="muted">No hay procesos que coincidan.</p>'}`;
 }
 
@@ -125,8 +138,19 @@ function tarjeta(p, i, hoy) {
     <strong>${esc(sinEmoji(p.titulo))}</strong>
     <span class="pr-card-txt">${doc ? esc(txt.slice(0, 140)) || 'Vídeo explicativo' : 'Por documentar'}</span>
     <span class="pr-badges">${p.fecha ? `<span class="pr-badge f-${ef || 'futura'}">${p.repetir.tipo ? '🔁' : '📅'} ${esc(FECHA_TXT[ef] || fechaCorta(p.fecha))}</span>` : ''}${p.subtareas.length ? `<span class="pr-badge">☑️ ${subHechas}/${p.subtareas.length}</span>` : ''}${p.comentarios.length ? `<span class="pr-badge">💬 ${p.comentarios.length}</span>` : ''}${tieneVideo(p) ? '<span class="pr-badge v">🎬 Vídeo</span>' : ''}${!doc ? '<span class="pr-badge pend">✍️ Por documentar</span>' : ''}${!sec && s ? `<span class="pr-badge s">${esc(sinEmoji(s.titulo))}</span>` : ''}</span>
+    ${bib.proyectos.length ? `<span class="pr-card-proys">${proyectosHtml(p)}</span>` : ''}
     ${p.responsable ? `<span class="pr-card-resp">${avatar(nombreDe(p.responsable))}</span>` : ''}
   </button>`;
+}
+
+// «Asignar estos N a un proyecto»: los que se ven ahora (sección, búsqueda y filtros), de una vez.
+function loteHtml(lista) {
+  if (!lote) return `<p class="pr-lote-abrir"><button type="button" class="btn ghost small" data-pr="lote">🏷️ Asignar ${lista.length === 1 ? 'este proceso' : `estos ${lista.length} procesos`} a un proyecto…</button></p>`;
+  return `<div class="pr-lote" data-pr-lote-ids="${esc(lista.map((p) => p.id).join(','))}">
+    <strong>¿De qué proyecto son ${lista.length === 1 ? 'este proceso' : `estos ${lista.length} procesos`}?</strong>
+    <div class="pr-proy-chips">${bib.proyectos.map((x) => `<label class="pr-pchip pr-pchip-check" style="--cl:${esc(x.color || 'var(--accent)')}"><input type="checkbox" value="${esc(x.id)}"> ${esc(x.nombre)}</label>`).join('')}</div>
+    <div class="pr-lote-acc"><button type="button" class="btn primary small" data-pr="lote-aplicar">Asignar</button><button type="button" class="btn ghost small" data-pr="lote-general">🌐 Hacerlos generales</button><button type="button" class="btn ghost small" data-pr="lote-cerrar">Cancelar</button></div>
+  </div>`;
 }
 
 // ---- La ficha (como una tarea de Asana) ----
@@ -153,6 +177,7 @@ function pintarProceso(main) {
       ${fila('Responsable', `<span class="pr-resp">${p.responsable ? avatar(nombreDe(p.responsable)) : '<span class="pr-av vacio">?</span>'}<select data-pr-campo="responsable" aria-label="Responsable"><option value="">Sin asignar</option>${bib.equipo.map((u) => `<option value="${esc(u.id)}"${u.id === p.responsable ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}</select></span>`)}
       ${fila('Fecha', `<span class="pr-fecha"><input type="date" data-pr-campo="fecha" value="${esc(p.fecha)}" aria-label="Fecha">${ef && FECHA_TXT[ef] ? `<span class="pr-badge f-${ef}">${FECHA_TXT[ef]}</span>` : ''}${p.fecha ? '<button type="button" class="link small" data-pr="sin-fecha">Quitar</button>' : ''}</span>`)}
       ${fila('Se repite', `<span class="pr-rep"><select data-pr-campo="repetir" aria-label="Se repite">${REPETIR.map((r) => `<option value="${r.id}"${r.id === p.repetir.tipo ? ' selected' : ''}>${esc(r.label)}</option>`).join('')}</select>${p.repetir.tipo === 'dias' ? `<input type="number" min="1" max="365" data-pr-campo="repetir-n" value="${p.repetir.n}" aria-label="Cada cuántos días"> días` : ''}${p.repetir.tipo && p.fecha ? `<span class="muted small">🔁 Al marcarlo como hecho pasa al ${esc(fechaCorta(proximaTrasHecho(p.fecha, p.repetir, hoy)))}</span>` : p.repetir.tipo ? '<span class="muted small">Pon una fecha para que se repita</span>' : ''}</span>`)}
+      ${bib.proyectos.length ? fila('Proyecto', `<span class="pr-proy-chips"><button type="button" class="pr-pchip${p.proyectos.length ? '' : ' on'}" data-pr-proy="">🌐 General (todos)</button>${bib.proyectos.map((x) => `<button type="button" class="pr-pchip${p.proyectos.includes(x.id) ? ' on' : ''}" data-pr-proy="${esc(x.id)}" style="--cl:${esc(x.color || 'var(--accent)')}">${esc(x.nombre)}</button>`).join('')}</span>`) : ''}
       ${fila('Sección', `<select data-pr-campo="seccion" aria-label="Sección">${bib.secciones.map((x) => `<option value="${esc(x.id)}"${x.id === p.seccion ? ' selected' : ''}>${esc(x.titulo)}</option>`).join('')}</select>`)}
     </div>
     <section class="pr-bloque">
@@ -295,6 +320,13 @@ const arriba = () => { body().scrollTop = 0; ctx.dialog.scrollTop = 0; };
 async function onChange(e) {
   const t = e.target;
   if (t.matches('#pr-importar, [data-pr-importar]')) { importar(e); return; }
+  if (t.id === 'pr-proyecto') {
+    proy = t.value;
+    try { localStorage.setItem(LS_PROY, proy); } catch { /* sin almacenamiento */ }
+    abierto = ''; lote = false;
+    pintar();
+    return;
+  }
   if (t.matches('[data-pr-sub]')) {
     try { await enviar({ op: 'subtarea', id: abierto, sid: t.dataset.prSub, hecha: t.checked }); } catch (err) { window.alert(err.message); }
     pintarLista();
@@ -340,6 +372,13 @@ async function onClick(e) {
   if (fl) { filtro = fl.dataset.prFiltro; pintarLista(); return; }
   const ab = e.target.closest('[data-pr-abrir]');
   if (ab) { abierto = ab.dataset.prAbrir; editandoDesc = false; pestanaAct = 'comentarios'; pintarLista(); arriba(); return; }
+  const pc = e.target.closest('[data-pr-proy]');
+  if (pc) {
+    const p = proc();
+    const id = pc.dataset.prProy;
+    guardarCampos({ proyectos: !id ? [] : p.proyectos.includes(id) ? p.proyectos.filter((x) => x !== id) : [...p.proyectos, id] });
+    return;
+  }
   const tb = e.target.closest('[data-pr-tab]');
   if (tb) { pestanaAct = tb.dataset.prTab; pintarLista(); return; }
   const sbor = e.target.closest('[data-pr-sub-borrar]');
@@ -355,6 +394,20 @@ async function onClick(e) {
   const b = e.target.closest('[data-pr]');
   if (!b) return;
   const a = b.dataset.pr;
+  if (a === 'lote' || a === 'lote-cerrar') { lote = a === 'lote'; pintarLista(); return; }
+  if (a === 'lote-aplicar' || a === 'lote-general') {
+    const box = body().querySelector('.pr-lote');
+    const ids = box.dataset.prLoteIds.split(',').filter(Boolean);
+    const elegidos = a === 'lote-general' ? [] : [...box.querySelectorAll('input:checked')].map((i) => i.value);
+    if (a === 'lote-aplicar' && !elegidos.length) { window.alert('Elige al menos un proyecto (o pulsa «Hacerlos generales»).'); return; }
+    try {
+      const d = await enviar({ op: 'proyectos-lote', ids, proyectos: elegidos });
+      lote = false;
+      pintar();
+      window.alert(elegidos.length ? `✓ ${d.cambiados} de ${ids.length} asignados a ${elegidos.map((x) => proyDe(x)?.nombre || x).join(', ')}.` : `✓ ${d.cambiados} de ${ids.length} ahora son generales (para todos los proyectos).`);
+    } catch (err) { window.alert(err.message); }
+    return;
+  }
   if (a === 'volver') { abierto = ''; editandoDesc = false; pintarLista(); arriba(); } else if (a === 'nuevo') nuevo();
   else if (a === 'editar-desc' || (a === 'editar-desc-click' && !documentado(proc()))) { editandoDesc = true; pintarLista(); } else if (a === 'cancelar-desc') { editandoDesc = false; pintarLista(); } else if (a === 'guardar-desc') {
     const st = body().querySelector('.pr-editor-st');

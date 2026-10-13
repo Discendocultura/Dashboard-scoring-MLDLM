@@ -2,7 +2,7 @@
 // enlaces. Común a todos los clientes (cliente «_agencia», clave lsd_procesos). No son tareas: es la
 // documentación que se consulta (y que más adelante podrán enlazar las tareas de cada embudo).
 //   { secciones: [{ id, titulo }], procesos: [{ id, seccion, titulo, html, asana, actualizado, por,
-//     responsable, fecha, repetir: { tipo, n }, hecho, hechoEn, subtareas: [{ id, texto, hecha }],
+//     proyectos: [cliente…] (vacío = general, para todos), responsable, fecha, repetir: { tipo, n }, hecho, hechoEn, subtareas: [{ id, texto, hecha }],
 //     comentarios: [{ id, porId, por, en, texto }], actividad: [{ en, por, txt }] }] }
 // Como una tarea de Asana: responsable, fecha (que puede repetirse), descripción, subtareas y comentarios.
 // Lo usan el navegador (panel) y el servidor (para limpiar lo que llega). Se importa desde Asana con un
@@ -17,6 +17,9 @@ export const nuevoIdProceso = () => `pr${Date.now().toString(36)}${Math.random()
 export const idSeccion = (titulo) => limpio(titulo, 60).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'general';
 
 const DIA_RE = /^\d{4}-\d{2}-\d{2}$/;
+const PROYECTO_RE = /^[a-z][a-z0-9-]{1,23}$/; // id de un cliente del dashboard
+// ¿Se ve en este proyecto? Los generales (sin proyecto), en todos. proyecto: '' = todos · '_general' = solo los generales.
+export const enProyecto = (p, proyecto) => (!proyecto ? true : proyecto === '_general' ? !p.proyectos?.length : !p.proyectos?.length || p.proyectos.includes(proyecto));
 export const REPETIR = [
   { id: '', label: 'No se repite' },
   { id: 'diaria', label: 'Cada día' },
@@ -78,6 +81,7 @@ export function sanitizeProceso(p, secciones = []) {
     asana: safeHref(p?.asana) && /^https:\/\/app\.asana\.com\//.test(p.asana) ? p.asana : '',
     actualizado: limpio(p?.actualizado, 30),
     por: limpio(p?.por, 60),
+    proyectos: [...new Set((Array.isArray(p?.proyectos) ? p.proyectos : []).map(String).filter((x) => PROYECTO_RE.test(x)))].slice(0, 30),
     responsable: ID_RE.test(String(p?.responsable || '')) ? String(p.responsable) : '',
     fecha: DIA_RE.test(p?.fecha || '') ? p.fecha : '',
     repetir: sanitizeRepetir(p?.repetir),
@@ -113,7 +117,7 @@ export function fusionar(actual, entrante) {
   const nuevos = new Map(e.procesos.map((p) => [p.id, p]));
   // Del archivo se toma el contenido (título, sección, descripción y enlace); lo de trabajo (responsable, fechas,
   // subtareas, comentarios y actividad) se queda como estaba.
-  const contenido = (p, n) => ({ ...p, titulo: n.titulo, seccion: n.seccion, html: n.html, asana: n.asana || p.asana });
+  const contenido = (p, n) => ({ ...p, titulo: n.titulo, seccion: n.seccion, html: n.html, asana: n.asana || p.asana, proyectos: n.proyectos?.length ? n.proyectos : p.proyectos });
   const procesos = [...a.procesos.map((p) => (nuevos.has(p.id) ? contenido(p, nuevos.get(p.id)) : p)), ...e.procesos.filter((p) => !a.procesos.some((x) => x.id === p.id))];
   return { biblioteca: sanitizeBiblioteca({ secciones, procesos }), nuevos: e.procesos.filter((p) => !a.procesos.some((x) => x.id === p.id)).length, actualizados: e.procesos.filter((p) => a.procesos.some((x) => x.id === p.id)).length };
 }
