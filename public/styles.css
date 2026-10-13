@@ -4396,3 +4396,8 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
   .op-head-acc .btn { padding: 8px 12px; font-size: 13px; }
   .ag-hero-salud { flex-wrap: wrap; }
 }
+/* Tablero: «✓» para completar sin abrir la tarjeta */
+.op-card-t { display: flex; align-items: flex-start; gap: 10px; }
+.op-card-t .op-check { flex: none; margin-top: 1px; }
+.op-col.e-hecha .op-card strong { text-decoration: line-through; color: var(--muted); }
+.op-check.hecho-anim { animation: mpPop .5s cubic-bezier(.3, 1.6, .5, 1); }

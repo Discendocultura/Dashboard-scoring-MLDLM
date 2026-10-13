@@ -176,7 +176,7 @@ function vistaTablero(lista, hoy) {
     return `<section class="op-col e-${e.id}" data-op-col="${e.id}"><header><span>${e.icon} ${esc(e.label)}</span><b>${ts.length}</b></header>
       <div class="op-col-lista">${ts.map((t) => `<article class="op-card" draggable="true" data-op-k="${esc(clave(t))}" data-op-abrir="${esc(clave(t))}">
         <span class="op-card-proy">${chipProyecto(t)}</span>
-        <strong>${esc(t.titulo)}</strong>
+        <div class="op-card-t"><button type="button" class="op-check${estadoOp(t) === 'hecha' ? ' on' : ''}" data-op-hecha="${esc(clave(t))}" title="${estadoOp(t) === 'hecha' ? 'Reabrir' : 'Marcar como hecha'}" aria-label="${estadoOp(t) === 'hecha' ? 'Reabrir' : 'Marcar como hecha'}">✓</button><strong>${esc(t.titulo)}</strong></div>
         ${t.notas ? `<p class="op-card-desc">${esc(richToText(t.notas).replace(/🎬/g, '🎬 vídeo').replace(/\s*•\s*/g, ' · ').replace(/\s*\n+\s*/g, ' · ').replace(/^ · /, '').slice(0, 140))}</p>` : ''}
         ${estadoOp(t) === 'bloqueado' && t.bloqueo ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}
         <footer>${chipFecha(t, hoy)}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}${avatar(t)}</footer>
@@ -263,7 +263,15 @@ async function onClick(e) {
   const v = e.target.closest('[data-op-vista]');
   if (v) { vista = v.dataset.opVista; ponerLs(LS_VISTA, vista); pintar(); return; }
   const hecha = e.target.closest('[data-op-hecha]');
-  if (hecha) { const t = buscarT(hecha.dataset.opHecha); if (t) cambiarEstado(t, estadoOp(t) === 'hecha' ? 'pendiente' : 'hecha'); return; }
+  if (hecha) {
+    const t = buscarT(hecha.dataset.opHecha);
+    if (!t) return;
+    const completar = estadoOp(t) !== 'hecha';
+    hecha.classList.toggle('on', completar); // se ve al instante; al guardar, la tarjeta pasa a su columna
+    hecha.classList.add('hecho-anim');
+    cambiarEstado(t, completar ? 'hecha' : 'pendiente');
+    return;
+  }
   const est = e.target.closest('[data-op-estado]');
   if (est) { const t = buscarT(abierta); if (t && est.dataset.opEstado !== estadoOp(t)) cambiarEstado(t, est.dataset.opEstado); return; }
   const ab = e.target.closest('[data-op-abrir]');
