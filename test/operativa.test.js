@@ -68,3 +68,31 @@ test('operativa: la descripción se guarda con formato limpio (negrita, listas, 
   assert.match(h, /href="https:\/\/x.com"/);
   assert.ok(!/script|javascript/.test(h));
 });
+
+test('operativa: embudos de un cliente y calendario del mes (semanas de lunes a domingo)', async () => {
+  const { embudosDe, semanasDelMes, mesMas } = await import('../public/js/operativa.js');
+  const ts = [
+    { cliente: 'mldlm', embudoId: 'lanz', embudoNombre: 'Lanzamientos', embudoTipo: 'lanzamientos' },
+    { cliente: 'mldlm', embudoId: 'lanz', embudoNombre: 'Lanzamientos', embudoTipo: 'lanzamientos', hecha: true },
+    { cliente: 'mldlm', embudoId: 'reto', embudoNombre: 'Reto Ovulación', embudoTipo: 'directa' },
+    { cliente: 'otro', embudoId: 'vsl', embudoNombre: 'VSL' },
+  ];
+  assert.deepEqual(embudosDe(ts, 'mldlm').map((e) => [e.id, e.n]), [['lanz', 1], ['reto', 1]]);
+  const s = semanasDelMes('2026-10');
+  assert.equal(s[0][0].dia, '2026-09-28'); // lunes
+  assert.equal(s[0][3].dia, '2026-10-01');
+  assert.equal(s.at(-1)[6].dia, '2026-11-01');
+  assert.ok(s.flat().filter((x) => x.delMes).length === 31);
+  assert.equal(mesMas('2026-12', 1), '2027-01');
+  assert.equal(mesMas('2026-01', -1), '2025-12');
+});
+
+test('operativa: embudo al que pertenece cada código', async () => {
+  const { embudoDeCodigo } = await import('../lib/operativa.js');
+  const config = { embudos: [{ id: 'lanz', nombre: 'Lanzamientos', tipo: 'lanzamientos' }, { id: 'reto', nombre: 'Reto Ovulación', tipo: 'directa' }, { id: 'vsl', nombre: 'VSL Raíces', tipo: 'vsl' }],
+    launches: { oct: { embudo: 'lanz' } }, directas: { reto: { name: 'Reto' } }, vsls: { vsl: { name: 'VSL' } }, meteoricos: { m1: { lanzamiento: 'oct' } } };
+  assert.deepEqual(embudoDeCodigo(config, 'oct'), { id: 'lanz', nombre: 'Lanzamientos', tipo: 'lanzamientos' });
+  assert.equal(embudoDeCodigo(config, 'reto').nombre, 'Reto Ovulación');
+  assert.equal(embudoDeCodigo(config, 'vsl').tipo, 'vsl');
+  assert.equal(embudoDeCodigo(config, 'm1').id, 'lanz');
+});

@@ -1,9 +1,10 @@
 // Panel «🗂️ Operativa» (Inicio de la agencia y Cuenta; solo el equipo de la agencia): todas las tareas de todos
-// los proyectos. Vistas: ☀️ Mi día (lo mío por cuándo toca), 📁 Por proyecto (semáforo de cada cliente), 🗂️ Tablero
-// (por estado, arrastrando) y 👥 Por persona (solo superadmin). Cada tarea se cambia aquí mismo (estado, fecha,
+// los proyectos. Vistas: 🗂️ Tablero (por estado, arrastrando; la de entrada), 🗓️ Calendario (por fecha, arrastrando
+// a otro día), ☀️ Mi día (lo mío por cuándo toca), 📁 Por proyecto (semáforo de cada cliente) y 👥 Por persona (solo
+// superadmin). Filtros: cliente → embudo (lanzamientos, VSL…), persona y búsqueda. Cada tarea se cambia aquí mismo (estado, fecha,
 // responsable, comentarios) y se guarda en su proyecto. Cada persona ve solo lo que tiene asignado.
 //   abrirOperativa({ api, dialog })
-import { ESTADOS_OP, estadoOp, estaBloqueada, agruparPorFecha, resumenProyecto, cargaPorPersona, diasDeRetraso, PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from './operativa.js';
+import { ESTADOS_OP, estadoOp, estaBloqueada, embudosDe, ICONO_EMBUDO, semanasDelMes, mesMas, agruparPorFecha, resumenProyecto, cargaPorPersona, diasDeRetraso, PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from './operativa.js';
 import { richToHtml, richToText } from './richtext.js';
 import { montarEditor, montarVideos } from './editor-rico.js';
 
@@ -12,15 +13,14 @@ const hoyMadrid = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Mad
 const fechaCorta = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : '');
 const cuando = (iso) => (iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }) : '');
 const iniciales = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join('').toUpperCase() || '?';
-const LS_VISTA = 'lsd_op_vista';
-const leerLs = (k, def) => { try { return localStorage.getItem(k) || def; } catch { return def; } };
-const ponerLs = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } };
 const ESTADO = Object.fromEntries(ESTADOS_OP.map((e) => [e.id, e]));
 
 let ctx = null;
 let d = { tareas: [], equipo: [], proyectos: [], yo: '', superadmin: false };
-let vista = 'dia';
+let vista = 'tablero';
 let fProy = '';
+let fEmb = ''; // embudo dentro del cliente elegido
+let calMes = '';
 let fPersona = '';
 let q = '';
 let abierta = null; // { cliente, code, id }
@@ -55,19 +55,25 @@ export async function abrirOperativa(opts) {
     dlg.addEventListener('submit', onSubmit);
     dlg.addEventListener('input', (e) => { if (e.target.id === 'op-buscar') { q = e.target.value; pintarVista(); } });
     dlg.addEventListener('dragstart', (e) => { const c = e.target.closest?.('[data-op-k]'); if (c) { e.dataTransfer.setData('text/plain', c.dataset.opK); c.classList.add('arrastrando'); } });
+    // Las tareas del calendario se abren también con el teclado (Intro / espacio).
+    dlg.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.op-cal-t')) { e.preventDefault(); e.target.click(); } });
     dlg.addEventListener('dragend', (e) => e.target.closest?.('[data-op-k]')?.classList.remove('arrastrando'));
-    dlg.addEventListener('dragover', (e) => { const col = e.target.closest('[data-op-col]'); if (col) { e.preventDefault(); col.classList.add('sobre'); } });
-    dlg.addEventListener('dragleave', (e) => e.target.closest('[data-op-col]')?.classList.remove('sobre'));
+    // Tablero: soltar en otra columna cambia el estado. Calendario: soltar en otro día cambia la fecha.
+    dlg.addEventListener('dragover', (e) => { const col = e.target.closest('[data-op-col], [data-op-dia]'); if (col) { e.preventDefault(); col.classList.add('sobre'); } });
+    dlg.addEventListener('dragleave', (e) => e.target.closest('[data-op-col], [data-op-dia]')?.classList.remove('sobre'));
     dlg.addEventListener('drop', (e) => {
-      const col = e.target.closest('[data-op-col]');
+      const col = e.target.closest('[data-op-col], [data-op-dia]');
       if (!col) return;
       e.preventDefault();
       col.classList.remove('sobre');
       const t = buscarT(e.dataTransfer.getData('text/plain'));
-      if (t && t.estado !== col.dataset.opCol) cambiarEstado(t, col.dataset.opCol);
+      if (!t) return;
+      if (col.dataset.opCol && t.estado !== col.dataset.opCol) cambiarEstado(t, col.dataset.opCol);
+      if (col.dataset.opDia != null && (t.fecha || '') !== col.dataset.opDia) cambiarFecha(t, col.dataset.opDia);
     });
   }
-  vista = leerLs(LS_VISTA, 'dia');
+  vista = 'tablero'; // siempre se entra por el tablero
+  calMes = hoyMadrid().slice(0, 7);
   body().innerHTML = '<p class="muted">Cargando las tareas de todos los proyectos…</p>';
   if (!dlg.open) dlg.showModal();
   await cargar();
@@ -77,14 +83,15 @@ async function cargar() {
   try {
     d = await ctx.api('/api/operativa');
   } catch (e) { body().innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
-  if (vista === 'personas' && !d.superadmin) vista = 'dia';
+  if (vista === 'personas' && !d.superadmin) vista = 'tablero';
+  if (fProy && !d.proyectos.some((p) => p.id === fProy)) { fProy = ''; fEmb = ''; }
   pintar();
 }
 
 // Lo que se ve con los filtros de arriba.
 function filtradas() {
   const t = q.trim().toLowerCase();
-  return d.tareas.filter((x) => (!fProy || x.cliente === fProy)
+  return d.tareas.filter((x) => (!fProy || x.cliente === fProy) && (!fEmb || x.embudoId === fEmb)
     && (!fPersona || (fPersona === '_sin' ? !x.asignado : x.asignado?.tipo === 'persona' && x.asignado.id === fPersona))
     && (!t || `${x.titulo} ${x.clienteNombre} ${x.embudo}`.toLowerCase().includes(t)));
 }
@@ -106,9 +113,10 @@ function pintar() {
     + (bloqT ? `<span class="op-sub-pill ambar">${bloqT} bloqueada${bloqT === 1 ? '' : 's'}</span>` : '')
     + `<span class="op-sub-txt">${d.superadmin ? 'Todo el equipo y todos los proyectos' : 'Lo que tienes asignado en todos los proyectos'}</span>`;
   body().innerHTML = `<div class="op">
-    <nav class="op-tabs">${tab('dia', `☀️ Mi día${venc ? ` <b>${venc}</b>` : ''}`)}${tab('proyectos', '📁 Por proyecto')}${tab('tablero', '🗂️ Tablero')}${d.superadmin ? tab('personas', '👥 Por persona') : ''}</nav>
+    <nav class="op-tabs">${tab('tablero', '🗂️ Tablero')}${tab('calendario', '🗓️ Calendario')}${tab('dia', `☀️ Mi día${venc ? ` <b>${venc}</b>` : ''}`)}${tab('proyectos', '📁 Por proyecto')}${d.superadmin ? tab('personas', '👥 Por persona') : ''}</nav>
     <div class="op-filtros">
-      <select id="op-proyecto" aria-label="Proyecto"><option value="">Todos los proyectos</option>${d.proyectos.map((p) => `<option value="${esc(p.id)}"${fProy === p.id ? ' selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select>
+      <select id="op-proyecto" aria-label="Cliente"><option value="">Todos los clientes</option>${d.proyectos.map((p) => `<option value="${esc(p.id)}"${fProy === p.id ? ' selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select>
+      ${fProy && fProy !== PROYECTO_AGENCIA ? (() => { const embs = embudosDe(d.tareas, fProy); return embs.length ? `<select id="op-embudo" aria-label="Embudo"><option value="">Todo el cliente</option>${embs.map((e) => `<option value="${esc(e.id)}"${fEmb === e.id ? ' selected' : ''}>${ICONO_EMBUDO[e.tipo] || '📁'} ${esc(e.nombre)}${e.n ? ` (${e.n})` : ''}</option>`).join('')}</select>` : ''; })() : ''}
       ${d.superadmin ? `<select id="op-persona" aria-label="Persona"><option value="">Todo el equipo</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${fPersona === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}<option value="_sin"${fPersona === '_sin' ? ' selected' : ''}>Sin asignar</option></select>` : ''}
       <label class="pr-buscar op-buscar"><span aria-hidden="true">🔎</span><input id="op-buscar" type="search" placeholder="Buscar…" value="${esc(q)}" autocomplete="off"></label>
     </div>
@@ -128,6 +136,7 @@ function pintarVista() {
   if (vista === 'dia') box.innerHTML = vistaDia(d.superadmin && !fPersona && d.yo ? lista.filter((t) => asignadaA(t, d.yo, '')) : lista, hoy);
   else if (vista === 'proyectos') box.innerHTML = vistaProyectos(lista, hoy);
   else if (vista === 'tablero') box.innerHTML = vistaTablero(lista, hoy);
+  else if (vista === 'calendario') box.innerHTML = vistaCalendario(lista, hoy);
   else box.innerHTML = vistaPersonas(lista, hoy);
 }
 
@@ -182,6 +191,33 @@ function vistaTablero(lista, hoy) {
         <footer>${chipFecha(t, hoy)}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}${avatar(t)}</footer>
       </article>`).join('') || '<p class="op-col-vacia">—</p>'}</div></section>`;
   }).join('')}</div>`;
+}
+
+// Calendario del mes: cada tarea en su día (arrastrándola a otro día cambia la fecha). Las sin fecha, abajo,
+// para arrastrarlas a su día. En el móvil se ve como agenda (solo los días con tareas).
+function vistaCalendario(lista, hoy) {
+  const semanas = semanasDelMes(calMes);
+  const porDia = new Map();
+  for (const t of lista) if (t.fecha) porDia.set(t.fecha, [...(porDia.get(t.fecha) || []), t]);
+  const sinFecha = lista.filter((t) => !t.fecha && estadoOp(t) !== 'hecha');
+  const titulo = new Date(`${calMes}-15T12:00:00Z`).toLocaleDateString('es-ES', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const chip = (t) => {
+    const e = estadoOp(t);
+    const cls = [e === 'hecha' ? 'hecha' : '', e !== 'hecha' && t.fecha && t.fecha < hoy ? 'vencida' : '', e === 'revision' ? 'revision' : '', estaBloqueada(t) ? 'is-bloq' : ''].filter(Boolean).join(' ');
+    return `<div role="button" tabindex="0" class="op-cal-t ${cls}" draggable="true" data-op-k="${esc(clave(t))}" data-op-abrir="${esc(clave(t))}" style="--cl:${esc(t.color || 'var(--accent)')}" title="${esc(`${t.titulo} · ${t.clienteNombre}${t.embudo ? ` · ${t.embudo}` : ''}`)}">${e === 'hecha' ? '✓ ' : estaBloqueada(t) ? '⛔ ' : e === 'revision' ? '👀 ' : ''}${esc(t.titulo)}</div>`;
+  };
+  const fechaLarga = (dia) => new Date(`${dia}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+  return `<div class="op-cal-cab"><button type="button" class="btn ghost small" data-op-cal="-1" aria-label="Mes anterior">‹</button><h3>${esc(titulo.charAt(0).toUpperCase() + titulo.slice(1))}</h3><button type="button" class="btn ghost small" data-op-cal="1" aria-label="Mes siguiente">›</button><button type="button" class="btn ghost small" data-op-cal="hoy">Hoy</button><span class="muted small op-cal-ayuda">Arrastra una tarea a otro día para cambiar su fecha.</span></div>
+  <div class="op-cal">
+    ${['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((x) => `<div class="op-cal-dow">${x}</div>`).join('')}
+    ${semanas.flat().map(({ dia, delMes }) => {
+      const ts = (porDia.get(dia) || []).sort((a, b) => (estadoOp(a) === 'hecha') - (estadoOp(b) === 'hecha'));
+      return `<div class="op-cal-dia${delMes ? '' : ' fuera'}${dia === hoy ? ' hoy' : ''}${ts.length ? ' con' : ''}" data-op-dia="${dia}">
+        <span class="op-cal-n"><span class="op-cal-larga">${esc(fechaLarga(dia))}</span><span class="op-cal-corta">${Number(dia.slice(8))}</span></span>
+        <div class="op-cal-ts">${ts.map(chip).join('')}</div></div>`;
+    }).join('')}
+  </div>
+  ${sinFecha.length ? `<section class="op-cal-sin" data-op-dia=""><h4>📌 Sin fecha <span class="muted">${sinFecha.length}</span> <small class="muted">· arrástralas a su día</small></h4><div class="op-cal-ts">${sinFecha.map(chip).join('')}</div></section>` : ''}`;
 }
 
 function vistaPersonas(lista, hoy) {
@@ -248,6 +284,12 @@ async function op(t, cuerpo) {
   Object.assign(t, { titulo: n.titulo, notas: n.notas || '', fecha: n.fecha || '', estado: estadoOp(n), hecha: Boolean(n.hecha), hechaEn: n.hechaEn || '', bloqueo: n.bloqueo || '', asignado: n.asignado || null, comentarios: (n.comentarios || []).map((c) => ({ id: c.id, uid: c.uid || '', nombre: c.nombre, texto: c.texto, en: c.en })) });
 }
 
+async function cambiarFecha(t, fecha) {
+  try { await op(t, { op: 'fecha', fecha }); } catch (err) { window.alert(err.message); }
+  pintarVista();
+  if (abierta) pintarFicha();
+}
+
 async function cambiarEstado(t, estado) {
   try { await op(t, { op: 'estado', estado }); } catch (err) { window.alert(err.message); }
   pintarVista();
@@ -268,7 +310,9 @@ async function ponerBloqueo(t, bloquear) {
 
 async function onClick(e) {
   const v = e.target.closest('[data-op-vista]');
-  if (v) { vista = v.dataset.opVista; ponerLs(LS_VISTA, vista); pintar(); return; }
+  if (v) { vista = v.dataset.opVista; pintar(); return; }
+  const cal = e.target.closest('[data-op-cal]');
+  if (cal) { calMes = cal.dataset.opCal === 'hoy' ? hoyMadrid().slice(0, 7) : mesMas(calMes, Number(cal.dataset.opCal)); pintarVista(); return; }
   const hecha = e.target.closest('[data-op-hecha]');
   if (hecha) {
     const t = buscarT(hecha.dataset.opHecha);
@@ -284,7 +328,7 @@ async function onClick(e) {
   const ab = e.target.closest('[data-op-abrir]');
   if (ab && !e.target.closest('a')) { abierta = ab.dataset.opAbrir; creando = false; editandoDesc = false; pintar(); return; }
   const vp = e.target.closest('[data-op-ver-proy]');
-  if (vp) { fProy = vp.dataset.opVerProy; vista = 'tablero'; pintar(); return; }
+  if (vp) { fProy = vp.dataset.opVerProy; fEmb = ''; vista = 'tablero'; pintar(); return; }
   const vpe = e.target.closest('[data-op-ver-persona]');
   if (vpe) { fPersona = vpe.dataset.opVerPersona; vista = 'tablero'; pintar(); return; }
   const cb = e.target.closest('[data-op-com-borrar]');
@@ -315,7 +359,8 @@ async function onClick(e) {
 
 async function onChange(e) {
   const t0 = e.target;
-  if (t0.id === 'op-proyecto') { fProy = t0.value; pintarVista(); return; }
+  if (t0.id === 'op-proyecto') { fProy = t0.value; fEmb = ''; pintar(); return; }
+  if (t0.id === 'op-embudo') { fEmb = t0.value; pintarVista(); return; }
   if (t0.id === 'op-persona') { fPersona = t0.value; pintarVista(); return; }
   const c = t0.dataset.opCampo;
   if (!c) return;

@@ -4463,3 +4463,40 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .op-card.is-bloq, .op-fila.is-bloq { box-shadow: inset 4px 0 0 #f0a73a; }
 .op-bloquear { color: #a15c00; }
 .op-col.e-revision { border-top-color: #9b59d0; }
+/* Operativa · Calendario del mes (arrastrar una tarea a otro día cambia su fecha) */
+.op-cal-cab { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 12px; }
+.op-cal-cab h3 { margin: 0 6px; font-size: 20px; min-width: 170px; text-align: center; }
+.op-cal-ayuda { margin-left: auto; }
+.op-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.op-cal-dow { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); padding: 0 6px 2px; }
+.op-cal-dia { min-height: 118px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0; transition: background .15s, border-color .15s; }
+.op-cal-dia.fuera { background: var(--surface-2); opacity: .6; }
+.op-cal-dia.hoy { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.op-cal-dia.sobre, .op-cal-sin.sobre { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); border-color: var(--accent); }
+.op-cal-n { font-size: 13px; font-weight: 800; color: var(--text-2); }
+.op-cal-dia.hoy .op-cal-n { color: var(--accent); }
+.op-cal-larga { display: none; }
+.op-cal-ts { display: flex; flex-direction: column; gap: 3px; max-height: 190px; overflow-y: auto; }
+.op-cal-t { box-sizing: border-box; cursor: grab; user-select: none; font-size: 12px; line-height: 1.3; padding: 3px 6px; border-radius: 6px; border-left: 3px solid var(--cl); background: color-mix(in srgb, var(--cl) 10%, var(--surface)); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.op-cal-t:hover, .op-cal-t:focus-visible { background: color-mix(in srgb, var(--cl) 20%, var(--surface)); outline: none; }
+.op-cal-t.hecha { opacity: .55; text-decoration: line-through; }
+.op-cal-t.vencida { box-shadow: inset 0 0 0 1px var(--error); color: var(--error); font-weight: 700; }
+.op-cal-t.is-bloq { box-shadow: inset 0 0 0 1px #f0a73a; }
+.op-cal-sin { margin-top: 14px; border: 1px dashed var(--border); border-radius: 12px; padding: 10px 12px; }
+.op-cal-sin h4 { margin: 0 0 8px; font-size: 14px; }
+.op-cal-sin .op-cal-ts { flex-direction: row; flex-wrap: wrap; max-height: none; }
+.op-cal-sin .op-cal-t { max-width: 280px; }
+#op-embudo { min-width: 0; }
+/* Móvil: agenda (solo los días con tareas, con su fecha larga) */
+@media (max-width: 760px) {
+  .op-cal { grid-template-columns: 1fr; gap: 8px; }
+  .op-cal-dow, .op-cal-dia:not(.con):not(.hoy) { display: none; }
+  .op-cal-dia { min-height: 0; }
+  .op-cal-dia.fuera { opacity: 1; }
+  .op-cal-larga { display: inline-block; }
+  .op-cal-larga::first-letter { text-transform: uppercase; }
+  .op-cal-corta { display: none; }
+  .op-cal-ts { max-height: none; }
+  .op-cal-t { white-space: normal; font-size: 13.5px; padding: 6px 8px; }
+  .op-cal-ayuda { display: none; }
+}

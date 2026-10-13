@@ -71,3 +71,32 @@ export function cargaPorPersona(tareas, hoy) {
 }
 
 export const diasDeRetraso = (fecha, hoy) => Math.round((Date.parse(`${hoy}T12:00:00Z`) - Date.parse(`${fecha}T12:00:00Z`)) / 86_400_000);
+
+// Embudos de un cliente con tareas (para el filtro «Cliente → Embudo»): [{ id, nombre, tipo, n }].
+export function embudosDe(tareas, cliente) {
+  const m = new Map();
+  for (const t of tareas) {
+    if (t.cliente !== cliente || !t.embudoId) continue;
+    const e = m.get(t.embudoId) || { id: t.embudoId, nombre: t.embudoNombre || t.embudoId, tipo: t.embudoTipo || '', n: 0 };
+    if (estadoOp(t) !== 'hecha') e.n += 1;
+    m.set(t.embudoId, e);
+  }
+  return [...m.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+}
+export const ICONO_EMBUDO = { lanzamientos: '🚀', vsl: '🎬', directa: '🛒', meteorico: '⚡' };
+
+// Calendario de un mes ('AAAA-MM'): semanas de lunes a domingo, cada día { dia: 'AAAA-MM-DD', delMes }.
+export function semanasDelMes(mes) {
+  const [y, m] = mes.split('-').map(Number);
+  const primero = new Date(Date.UTC(y, m - 1, 1));
+  const inicio = new Date(primero.getTime() - ((primero.getUTCDay() + 6) % 7) * 86_400_000);
+  const semanas = [];
+  for (let d = inicio; ; ) {
+    const sem = [];
+    for (let i = 0; i < 7; i++) { sem.push({ dia: d.toISOString().slice(0, 10), delMes: d.getUTCMonth() === m - 1 }); d = new Date(d.getTime() + 86_400_000); }
+    semanas.push(sem);
+    if (d.getUTCMonth() !== m - 1) break;
+  }
+  return semanas;
+}
+export const mesMas = (mes, n) => { const [y, m] = mes.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return d.toISOString().slice(0, 7); };
