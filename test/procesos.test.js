@@ -35,3 +35,24 @@ test('vídeos de Bunny: se ven dentro (play → embed) y se guardan en el texto'
   assert.equal(videoEmbed('https://iframe.mediadelivery.net/play/abc/x'), '');
   assert.match(sanitizeRich('<div data-video="https://iframe.mediadelivery.net/play/123456/00000000-1111-2222-3333-444444444444"></div>'), /data-video/);
 });
+
+test('procesos como tareas: fechas que se repiten, estado de la fecha e importar sin perder el trabajo', async () => {
+  const { siguienteFecha, proximaTrasHecho, estadoFecha, sanitizeProceso } = await import('../public/js/procesos.js');
+  assert.equal(siguienteFecha('2026-01-31', { tipo: 'mensual' }), '2026-02-28');
+  assert.equal(siguienteFecha('2026-10-16', { tipo: 'laborables' }), '2026-10-19'); // viernes → lunes
+  assert.equal(siguienteFecha('2026-10-01', { tipo: 'dias', n: 3 }), '2026-10-04');
+  assert.equal(siguienteFecha('2026-10-01', { tipo: '' }), '');
+  assert.equal(proximaTrasHecho('2026-10-01', { tipo: 'semanal' }, '2026-10-13'), '2026-10-15'); // salta las que ya pasaron
+  assert.equal(estadoFecha({ fecha: '2026-10-12', repetir: {} }, '2026-10-13'), 'vencida');
+  assert.equal(estadoFecha({ fecha: '2026-10-13', repetir: {} }, '2026-10-13'), 'hoy');
+  assert.equal(estadoFecha({ fecha: '2026-10-12', hecho: true, repetir: {} }, '2026-10-13'), '');
+  const p = sanitizeProceso({ id: 'a1', titulo: 'x', fecha: 'mal', repetir: { tipo: 'dias', n: 9999 }, subtareas: [{ texto: 'uno', hecha: true }, { texto: '' }], comentarios: [{ por: 'Ana', texto: 'hola' }] });
+  assert.equal(p.fecha, '');
+  assert.equal(p.repetir.n, 365);
+  assert.equal(p.subtareas.length, 1);
+  assert.equal(p.comentarios[0].por, 'Ana');
+  const r = fusionar({ procesos: [{ id: 'a1', titulo: 'Viejo', html: 'a', fecha: '2026-11-01', comentarios: [{ por: 'Ana', texto: 'ojo' }] }] }, { procesos: [{ id: 'a1', titulo: 'Nuevo', html: 'b' }] });
+  assert.equal(r.biblioteca.procesos[0].titulo, 'Nuevo');
+  assert.equal(r.biblioteca.procesos[0].fecha, '2026-11-01');
+  assert.equal(r.biblioteca.procesos[0].comentarios.length, 1);
+});
