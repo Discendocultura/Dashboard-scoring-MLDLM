@@ -96,7 +96,7 @@ Lo del día, en tres subpestañas: **Setting hoy** (a quién escribir hoy por Wh
 
 ### Operativa de la agencia («el Asana de operativa»)
 
-Desde el **Inicio de la agencia** (tarjeta y botón «🗂️ Operativa») y desde Cuenta → **Operativa** (solo el equipo de la agencia: superadmin o usuarios marcados como «de la agencia»). **No es otra lista**: lee las tareas que ya existen en cada embudo de cada cliente (`lsd_tareas_<código>`, una lectura por cliente) y las del **proyecto «Agencia»** (lo interno que no es de ningún cliente: `lsd_operativa_agencia`, común). Lo que se cambia aquí se guarda en su proyecto.
+Se abre **a pantalla completa** desde el **Inicio de la agencia** (tarjeta y botón «🗂️ Operativa») y desde Cuenta → **Operativa** (solo el equipo de la agencia: superadmin o usuarios marcados como «de la agencia»). **No es otra lista**: lee las tareas que ya existen en cada embudo de cada cliente (`lsd_tareas_<código>`, una lectura por cliente) y las del **proyecto «Agencia»** (lo interno que no es de ningún cliente: `lsd_operativa_agencia`, común). Lo que se cambia aquí se guarda en su proyecto.
 
 - **Quién ve qué**: cada persona, solo lo que tiene asignado (a su nombre o a su rol en ese cliente); el superadmin, todo, con filtros por proyecto y por persona. La API (`/api/operativa`) lo aplica también al cambiar: nadie toca tareas que no son suyas.
 - **Estados**: Pendiente · En curso · En revisión · **Bloqueado** (con motivo obligatorio, p. ej. «esperando al cliente») · Hecho.

@@ -160,7 +160,8 @@ function vistaTablero(lista, hoy) {
     const ts = lista.filter((t) => estadoOp(t) === e.id).sort((a, b) => String(a.fecha || '9').localeCompare(String(b.fecha || '9')));
     return `<section class="op-col e-${e.id}" data-op-col="${e.id}"><header><span>${e.icon} ${esc(e.label)}</span><b>${ts.length}</b></header>
       <div class="op-col-lista">${ts.map((t) => `<article class="op-card" draggable="true" data-op-k="${esc(clave(t))}" data-op-abrir="${esc(clave(t))}">
-        <strong>${esc(t.titulo)}</strong><span class="op-fila-meta">${chipProyecto(t)}</span>
+        <span class="op-card-proy">${chipProyecto(t)}</span>
+        <strong>${esc(t.titulo)}</strong>
         ${estadoOp(t) === 'bloqueado' && t.bloqueo ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}
         <footer>${chipFecha(t, hoy)}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}${avatar(t)}</footer>
       </article>`).join('') || '<p class="op-col-vacia">—</p>'}</div></section>`;
