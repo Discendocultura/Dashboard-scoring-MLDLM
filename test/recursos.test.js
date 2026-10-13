@@ -26,7 +26,18 @@ test('recursos de la preclase: señales del lead (música, test y voto)', () => 
   assert.equal(s.musica_50, true);
   assert.equal(s.voto, true);
   assert.equal(s.test, true);
-  assert.deepEqual(s.recursos, { musica: true, test: true, votacion: true, descargable: false });
+  assert.deepEqual(s.recursos, { musica: true, test: true, votacion: true, descargable: false, soloVotacion: true, comentarios: false });
+});
+
+test('comentarios de la preclase: preguntas por clase con ids estables y cuentan como participación', () => {
+  const r = sanitizeRecursos({ comentarios: { activo: true, firma: 'Raquel', clases: { clase1: { preguntas: [{ id: 'q2', texto: '¿Qué te ha removido?' }, { texto: 'Nueva' }, { texto: '' }] }, clase2: { preguntas: ['¿Y tú?'] } } } }, 2);
+  assert.deepEqual(r.comentarios.clases.clase1.preguntas.map((q) => q.id), ['q2', 'q3']);
+  assert.equal(r.comentarios.clases.clase2.preguntas[0].id, 'q1');
+  const l = { ...launch, recursosPre: { ...launch.recursosPre, votacion: { activo: false, preguntas: [] }, comentarios: r.comentarios } };
+  const s = signalsFor(['oct26_comento'], 'oct26', l, {});
+  assert.equal(s.comento, true);
+  assert.equal(s.recursos.votacion, true); // el bloque de participación existe aunque no haya votación
+  assert.equal(s.recursos.comentarios, true);
 });
 
 test('recursos de la preclase: se guardan con el lanzamiento', () => {

@@ -11,7 +11,7 @@ export const BLOQUES = [
   { id: 'clases', label: 'Clases del prelanzamiento', senal: 'vio al menos la mitad de alguna clase' },
   { id: 'musica', label: 'Música de la preclase', senal: 'la escuchó al menos a la mitad' },
   { id: 'test', label: 'Test', senal: 'lo completó' },
-  { id: 'votacion', label: 'Votación', senal: 'votó' },
+  { id: 'votacion', label: 'Participación (votación o comentarios)', senal: 'votó o comentó en la preclase' },
   { id: 'vip', label: 'Entrada VIP', senal: 'compró la entrada VIP' },
   { id: 'video', label: 'Directo o grabación', senal: 'asistió al directo o vio al menos la mitad de la grabación' },
 ];
@@ -39,7 +39,7 @@ const tieneSenal = {
   video: (s) => puntosVideo(s, s.nVideos || 1) >= 20,
   musica: (s) => Boolean(s.musica_50 || s.musica_90),
   test: (s) => Boolean(s.test),
-  votacion: (s) => Boolean(s.voto),
+  votacion: (s) => Boolean(s.voto || s.comento),
 };
 
 // { pesos, detalle: [{ id, label, senal, con, convCon, convSin, diferencia }], ventas } o { motivo } si no hay datos.

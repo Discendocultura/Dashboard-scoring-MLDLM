@@ -226,6 +226,7 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     ...(tieneRecurso(launch, 'musica') ? [['Escuchó la música (≥50%)', (l) => l.s.musica_50 || l.s.musica_90]] : []),
     ...(tieneRecurso(launch, 'test') ? [['Hizo el test', (l) => l.s.test]] : []),
     ...(tieneRecurso(launch, 'votacion') ? [['Votó en la clase', (l) => l.s.voto]] : []),
+    ...(tieneRecurso(launch, 'comentarios') ? [['Comentó en la preclase', (l) => l.s.comento]] : []),
     ...(tieneRecurso(launch, 'descargable') ? [['Abrió el descargable', (l) => l.s.descarga]] : []),
     ['Tráfico templado', (l) => l.s.trafico === 'templado'],
     ['Contactada por WhatsApp', (l) => l.s.wa_enviado],

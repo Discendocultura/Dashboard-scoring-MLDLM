@@ -7,6 +7,9 @@
 //                (opciones; al responder se ven los % de todas) o de respuesta libre. Se desbloquea al ver
 //                el 75 % de esa clase.
 //   · descargable — un recurso (PDF, guía…) con su enlace; opcionalmente desde una fecha.
+//   · comentarios — un muro de comentarios debajo de cada clase con las preguntas que se hacen en ella:
+//                la lead elige a qué pregunta responde y escribe; se publica al momento (el equipo puede
+//                ocultar, destacar y contestar desde el dashboard). Se abre cuando su clase está disponible.
 // Etapas de la página: 1 la encuesta, después cada clase, test o descargable por orden de fecha, y la
 // última el directo. La música y la votación van dentro de la etapa de su clase.
 // Lo usan el navegador, el servidor y la página (vía /api/page).
@@ -18,8 +21,10 @@ export const TIPOS_RECURSO = [
   { id: 'test', label: 'Test (GHL)', icon: '🧭', desc: 'Botón a un test de GHL; se desbloquea en su fecha y se mide con su etiqueta' },
   { id: 'votacion', label: 'Votación', icon: '🗳️', desc: 'Debajo de una clase: una o varias preguntas, tipo test (ven los % al responder) o de respuesta libre' },
   { id: 'descargable', label: 'Recurso descargable', icon: '📄', desc: 'PDF, guía, plantilla… con su enlace' },
+  { id: 'comentarios', label: 'Comentarios', icon: '💬', desc: 'Debajo de cada clase: preguntas de la clase para que las leads respondan (muro público)' },
 ];
-export const RECURSOS_EXTRA = ['musica', 'test', 'votacion', 'descargable'];
+export const RECURSOS_EXTRA = ['musica', 'test', 'votacion', 'descargable', 'comentarios'];
+export const MAX_PREGUNTAS_COMENTARIOS = 5;
 export const UMBRAL_DESBLOQUEO = 75; // % de la clase que hay que ver para la música y la votación
 
 const str = (v, max) => String(v ?? '').trim().slice(0, max);
@@ -33,14 +38,38 @@ export function sanitizeRecursos(r, nClases = 2) {
   const t = r?.test || {};
   const v = r?.votacion || {};
   const d = r?.descargable || {};
+  const co = r?.comentarios || {};
   const preguntas = sanitizePreguntas(v);
   return {
     musica: { activo: Boolean(m.activo), nombre: str(m.nombre, 80), url: url(m.url), tras: clase(m.tras, nClases), texto: str(m.texto, 200) },
     test: { activo: Boolean(t.activo), nombre: str(t.nombre, 120), url: url(t.url), tag: str(t.tag, 120).toLowerCase(), at: localDT(t.at) },
     votacion: { activo: Boolean(v.activo), preguntas, tras: clase(v.tras || 'clase2', nClases) },
     descargable: { activo: Boolean(d.activo), nombre: str(d.nombre, 120), url: url(d.url), at: localDT(d.at) },
+    comentarios: sanitizeComentariosCfg(co, nClases),
   };
 }
+
+// Comentarios: { activo, firma, clases: { clase1: { preguntas: [{ id, texto }] }, … } }. Las preguntas guardan
+// su id (q1, q2…) para que los comentarios sigan siendo de su pregunta aunque cambie el texto. `firma`: con qué
+// nombre salen las respuestas del equipo (vacío = el de la marca).
+function sanitizeComentariosCfg(co, nClases = 2) {
+  const clases = {};
+  for (let i = 1; i <= Math.max(1, Math.min(3, nClases)); i++) {
+    const k = `clase${i}`;
+    const lista = (Array.isArray(co?.clases?.[k]?.preguntas) ? co.clases[k].preguntas : []).slice(0, MAX_PREGUNTAS_COMENTARIOS);
+    const usados = new Set();
+    const ids = lista.map((q) => { const id = str(q?.id, 6); if (/^q[0-9]{1,3}$/.test(id) && !usados.has(id)) { usados.add(id); return id; } return ''; });
+    let n = 1 + Math.max(0, ...[...usados].map((id) => Number(id.slice(1))));
+    clases[k] = { preguntas: lista.map((q, j) => {
+      let id = ids[j];
+      if (!id) { while (usados.has(`q${n}`)) n++; id = `q${n}`; usados.add(id); }
+      return { id, texto: str(typeof q === 'string' ? q : q?.texto, 220) };
+    }).filter((q) => q.texto) };
+  }
+  return { activo: Boolean(co?.activo), firma: str(co?.firma, 60), clases };
+}
+// Clases con preguntas para comentar: ['clase1', 'clase2'].
+export const clasesConComentarios = (r) => Object.entries(r?.comentarios?.clases || {}).filter(([, c]) => c.preguntas?.length).map(([k]) => k);
 
 // Opciones de una pregunta tipo test: de un array o de un texto (una por línea). Ids estables por posición
 // (o1, o2…): los votos guardan ese id.
@@ -77,6 +106,7 @@ export const preguntasValidas = (v) => (v?.preguntas || []).filter((q) => q.tipo
 export const recursosDe = (launch) => {
   const r = launch?.recursosPre;
   if (!r) return sanitizeRecursos(null);
+  if (!r.comentarios) return recursosDe({ recursosPre: { ...r, comentarios: sanitizeComentariosCfg(null, 3) } });
   if (r.votacion && !Array.isArray(r.votacion.preguntas)) return { ...r, votacion: { ...r.votacion, preguntas: sanitizePreguntas(r.votacion) } };
   return r;
 };
@@ -85,6 +115,7 @@ export function tieneRecurso(launch, tipo) {
   const r = recursosDe(launch)[tipo];
   if (!r?.activo) return false;
   if (tipo === 'votacion') return preguntasValidas(r).length > 0;
+  if (tipo === 'comentarios') return clasesConComentarios(recursosDe(launch)).length > 0;
   if (tipo === 'test') return Boolean(r.url);
   return Boolean(r.url);
 }

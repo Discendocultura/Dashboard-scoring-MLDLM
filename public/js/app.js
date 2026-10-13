@@ -21,7 +21,8 @@ import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusM
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
 import { alertasCarrito } from './alertas.js';
 import { BLOQUES, pesosDe, proponerPesos, pesosEfectivos } from './pesos.js';
-import { tieneRecurso, recursosDe, sanitizeRecursos, etapasPreclase, TIPOS_RECURSO, RECURSOS_EXTRA } from './recursos.js';
+import { tieneRecurso, recursosDe, sanitizeRecursos, etapasPreclase, TIPOS_RECURSO, RECURSOS_EXTRA, MAX_PREGUNTAS_COMENTARIOS, clasesConComentarios } from './recursos.js';
+import { pintarComentariosLeads } from './comentarios-panel.js';
 import { retrospectiva } from './retrospectiva.js';
 import { diasCarrito, cierrePorDias, diasCarritoValido, CANALES_CARRITO, MAX_ENVIOS_DIA } from './carrito.js';
 import { leerLeads, guardarLeads, borrarCopias } from './cache-leads.js';
@@ -1257,6 +1258,17 @@ function renderTabla() {
 
 // ---------- Leads → Encuesta: % de cada respuesta y respuestas de texto libre ----------
 const encLibreVer = new Map(); // pregunta → cuántas respuestas libres se enseñan
+// Leads → Comentarios: moderar y contestar los comentarios de la preclase (comentarios-panel.js).
+function renderComentariosLeads() {
+  const code = state.launchCode;
+  if (!code || !state.config.launches[code]) { $('#com-leads').innerHTML = '<p class="muted">Elige un lanzamiento.</p>'; return; }
+  pintarComentariosLeads($('#com-leads'), {
+    api, code, esAdmin: state.role === 'admin',
+    nombreDe: (cid) => state.leads?.find((l) => l.id === cid)?.name || '',
+    botonConfig: irA('cfg-rec-comentarios-on'),
+  });
+}
+
 function renderEncuestaLeads() {
   const box = $('#enc-leads');
   const preguntas = preguntasEncuesta();
@@ -3152,6 +3164,7 @@ function pintarMsub(nav, cat) {
   $$('[data-msub]', view).forEach((el) => { el.hidden = el.dataset.msub !== cat; });
   ls.set(`lsd_${nav.id}`, cat);
   if (nav.id === 'msub-leads' && cat === 'encuesta' && state.config && state.leads) renderEncuestaLeads();
+  if (nav.id === 'msub-leads' && cat === 'comentarios' && state.config) renderComentariosLeads();
   if (nav.id === 'msub-metricas' && cat === 'meteorico' && state.config) renderMeteoLanz();
   if (nav.id === 'msub-metricas' && cat === 'grupos' && state.config) cargarGrupos(state.launchCode, $('#grupos-l'));
 }
@@ -5113,8 +5126,45 @@ function pintarRecursosCfg(recursosPre) {
   $('#cfg-rec-descargable-nombre').value = r.descargable.nombre;
   $('#cfg-rec-descargable-url').value = r.descargable.url;
   $('#cfg-rec-descargable-at').value = r.descargable.at;
+  $('#cfg-rec-com-firma').value = r.comentarios.firma;
+  pintarComentariosCfg(r.comentarios, nc);
   pintarRecursosVis();
 }
+// Comentarios: las preguntas de cada clase (una por fila; cada una guarda su id para que sus comentarios sigan con ella).
+function pintarComentariosCfg(co, nc) {
+  $('#cfg-rec-com-clases').innerHTML = Array.from({ length: nc }, (_, i) => {
+    const k = `clase${i + 1}`;
+    const ps = co?.clases?.[k]?.preguntas || [];
+    return `<fieldset class="com-cfg-clase" data-com-clase="${k}"><legend>🎬 Clase ${i + 1} · preguntas para comentar</legend>
+      <div class="com-cfg-lista">${(ps.length ? ps : [{ id: '', texto: '' }]).map((q, j) => comPregHtml(q, j)).join('')}</div>
+      <button type="button" class="btn ghost small" data-com-add ${ps.length >= MAX_PREGUNTAS_COMENTARIOS ? 'disabled' : ''}>+ Añadir pregunta</button></fieldset>`;
+  }).join('');
+}
+const comPregHtml = (q, j) => `<div class="com-cfg-q" data-qid="${esc(q.id || '')}"><span class="com-cfg-n">${j + 1}</span><input maxlength="220" value="${esc(q.texto || '')}" placeholder="${j ? '¿Qué vas a poner en práctica esta semana?' : '¿Qué es lo que más te ha removido de esta clase?'}" aria-label="Pregunta ${j + 1}"><button type="button" class="btn ghost small" data-com-quitar aria-label="Quitar pregunta">✕</button></div>`;
+function leerComentariosCfg() {
+  const clases = {};
+  for (const fs of $$('#cfg-rec-com-clases [data-com-clase]')) clases[fs.dataset.comClase] = { preguntas: $$('.com-cfg-q', fs).map((el) => ({ id: el.dataset.qid || undefined, texto: $('input', el).value })) };
+  return { activo: $('#cfg-rec-comentarios-on').checked, firma: $('#cfg-rec-com-firma').value, clases };
+}
+$('#cfg-rec-com-clases').addEventListener('click', (e) => {
+  const fs = e.target.closest('[data-com-clase]');
+  if (!fs) return;
+  const lista = $('.com-cfg-lista', fs);
+  if (e.target.closest('[data-com-add]')) {
+    const n = $$('.com-cfg-q', lista).length;
+    if (n >= MAX_PREGUNTAS_COMENTARIOS) return;
+    lista.insertAdjacentHTML('beforeend', comPregHtml({}, n));
+    $$('input', lista).at(-1).focus();
+    e.target.closest('[data-com-add]').disabled = n + 1 >= MAX_PREGUNTAS_COMENTARIOS;
+  } else if (e.target.closest('[data-com-quitar]')) {
+    const q = e.target.closest('.com-cfg-q');
+    if ($$('.com-cfg-q', lista).length === 1) $('input', q).value = '';
+    else q.remove();
+    $$('.com-cfg-n', lista).forEach((x, i) => { x.textContent = i + 1; });
+    $('[data-com-add]', fs).disabled = false;
+  } else return;
+  pintarRecursosVis();
+});
 // Preguntas de la votación: cada una tipo test (opciones, una por línea) o de respuesta libre.
 // Cada pregunta guarda su id (p1, p2…) para que sus respuestas sigan siendo suyas aunque cambie el texto.
 function preguntaCfgHtml(q, i) {
@@ -5168,6 +5218,7 @@ function leerRecursosCfg() {
     test: { activo: $('#cfg-rec-test-on').checked, nombre: $('#cfg-rec-test-nombre').value, url: $('#cfg-rec-test-url').value, tag: $('#cfg-rec-test-tag').value, at: $('#cfg-rec-test-at').value },
     votacion: { activo: $('#cfg-rec-votacion-on').checked, preguntas: leerPreguntasCfg(), tras: $('#cfg-rec-votacion-tras').value },
     descargable: { activo: $('#cfg-rec-descargable-on').checked, nombre: $('#cfg-rec-descargable-nombre').value, url: $('#cfg-rec-descargable-url').value, at: $('#cfg-rec-descargable-at').value },
+    comentarios: leerComentariosCfg(),
   }, Math.max(1, nClasesForm()));
 }
 // Campos de cada recurso solo si está activo, y el orden de las etapas tal y como lo verá la lead.
@@ -5176,10 +5227,11 @@ function pintarRecursosVis() {
   const nc = nClasesForm();
   const rec = leerRecursosCfg();
   const sim = { encuestaTag: $('#cfg-encuesta-tag').value.trim(), clase1At: $('#cfg-clase1-at').value, clase2At: $('#cfg-clase2-at').value, clase3At: $('#cfg-clase3-at').value, recursosPre: rec };
-  const dentro = (id) => ['musica', 'votacion'].filter((t) => tieneRecurso(sim, t) && rec[t].tras === id).map((t) => (t === 'musica' ? '🎵' : '🗳️')).join('');
+  const conCom = tieneRecurso(sim, 'comentarios') ? clasesConComentarios(rec) : [];
+  const dentro = (id) => ['musica', 'votacion'].filter((t) => tieneRecurso(sim, t) && rec[t].tras === id).map((t) => (t === 'musica' ? '🎵' : '🗳️')).join('') + (conCom.includes(id) ? '💬' : '');
   const faltan = RECURSOS_EXTRA.filter((t) => rec[t].activo && !tieneRecurso(sim, t));
   $('#cfg-rec-etapas').innerHTML = `<strong>Etapas de la página:</strong> ${etapasPreclase(sim, nc).map((e) => `<span class="rec-etapa">${e.n} · ${esc(e.label)}${dentro(e.id) ? ` + ${dentro(e.id)}` : ''}</span>`).join('')}`
-    + (faltan.length ? `<p class="muted small">Sin completar (no salen en la página): ${faltan.map((t) => TIPOS_RECURSO.find((x) => x.id === t).label).join(', ')}. ${faltan.includes('votacion') ? 'La votación necesita al menos una pregunta (las tipo test, con 2 opciones o más).' : ''}</p>` : '');
+    + (faltan.length ? `<p class="muted small">Sin completar (no salen en la página): ${faltan.map((t) => TIPOS_RECURSO.find((x) => x.id === t).label).join(', ')}. ${faltan.includes('votacion') ? 'La votación necesita al menos una pregunta (las tipo test, con 2 opciones o más).' : ''}${faltan.includes('comentarios') ? ' Los comentarios necesitan al menos una pregunta en alguna clase.' : ''}</p>` : '');
 }
 $('#cfg-rec-sec').addEventListener('input', pintarRecursosVis);
 $('#cfg-rec-sec').addEventListener('change', () => { pintarRecursosVis(); renderGuia(); });
@@ -5725,6 +5777,7 @@ function snippetsLanzamiento(code) {
     ...(tieneRecurso(state.config.launches[code], 'test') ? [['RECURSOS · test (botón; se desbloquea en su fecha y con la encuesta rellenada)',
       '<div data-lsd-if="test-bloqueado">🔒 El test se abre en <span data-lsd-countdown="test"></span></div>\n<div data-lsd-if="test-falta-encuesta">🔒 Para hacer el test, rellena primero la encuesta (etapa 1)</div>\n<div data-lsd-if="test-disponible">\n  <a data-lsd-link="test">Hacer el test</a>\n</div>\n<div data-lsd-if="test-hecho">✓ ¡Test completado!</div>']] : []),
     ...(tieneRecurso(state.config.launches[code], 'votacion') ? [['RECURSOS · votación (debajo de su clase; se abre al ver el 75 % de la clase; tipo test enseña los % al responder)', '<div data-lsd-votacion></div>']] : []),
+    ...(tieneRecurso(state.config.launches[code], 'comentarios') ? clasesConComentarios(recursosDe(state.config.launches[code])).map((k) => [`RECURSOS · comentarios de la clase ${k.replace('clase', '')} (justo debajo de su vídeo; se abre cuando la clase está disponible)`, `<div data-lsd-comentarios="${k}"></div>`]) : []),
     ...(tieneRecurso(state.config.launches[code], 'descargable') ? [['RECURSOS · recurso descargable (se mide quién lo abre)', '<div data-lsd-if="descargable-bloqueado">🔒 Disponible en <span data-lsd-countdown="descargable"></span></div>\n<a data-lsd-if="descargable-disponible" data-lsd-link="descargable">Descargar</a>']] : []),
     ['RECURSOS · imagen de una etapa (la URL se pone en Configuración → Preclase; sin imagen, se oculta)', '<img data-lsd-img="clase1" alt="">'],
     ['RECURSOS · etapas (cada caja recibe data-lsd-estado="bloqueada | disponible | hecha" para el diseño)',
@@ -9211,7 +9264,8 @@ function hechosLead(lead) {
     s.encuesta ? '📋 Rellenó la encuesta' : '',
     ...(s.recursos?.musica ? [`🎵 Música: ${s.musica_90 ? 'la escuchó entera' : s.musica_50 ? 'escuchó más de la mitad' : s.musica_play ? 'le dio al play' : 'no la ha escuchado'}`] : []),
     ...(s.recursos?.test ? [s.test ? `🧭 Hizo el test${recursosDe(launch).test.nombre ? ` «${recursosDe(launch).test.nombre}»` : ''}` : '🧭 No ha hecho el test'] : []),
-    ...(s.recursos?.votacion ? [votoTexto(lead.id) ? `🗳️ Respondió en la clase: «${votoTexto(lead.id)}»` : s.voto ? '🗳️ Respondió la votación de la clase' : '🗳️ No ha respondido la votación'] : []),
+    ...(s.recursos?.comentarios ? [s.comento ? '💬 Comentó en la preclase' : '💬 No ha comentado en la preclase'] : []),
+    ...(s.recursos?.soloVotacion ?? s.recursos?.votacion ? [votoTexto(lead.id) ? `🗳️ Respondió en la clase: «${votoTexto(lead.id)}»` : s.voto ? '🗳️ Respondió la votación de la clase' : '🗳️ No ha respondido la votación'] : []),
     ...(s.recursos?.descargable ? [s.descarga ? '📄 Abrió el descargable' : ''] : []),
     s.inicio_pago ? `💳 Inició el pago: llegó a la página de pago${s.inicio_pago.veces > 1 ? ` ${s.inicio_pago.veces} veces` : ''} (la última, ${haceTxt(s.inicio_pago.ultima)})${s.compra ? '' : ' y no ha comprado'}` : '',
     s.venta_visita ? `🛒 Abrió la página de venta${s.venta_visita.veces > 1 ? ` ${s.venta_visita.veces} veces` : ''} (la última, ${haceTxt(s.venta_visita.ultima)})` : '',

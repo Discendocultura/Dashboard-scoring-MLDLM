@@ -181,6 +181,33 @@
     '#lsd-espera.lsd-espera--video .lsd-espera-msg{margin-top:clamp(12px,2.2vh,20px);font-size:clamp(14px,1.7vw,16px);padding:10px 36px 10px 14px;gap:12px}' +
     '#lsd-espera.lsd-espera--video .lsd-espera-paisaje{height:clamp(90px,min(13vw,17vh),160px)}' +
     '@media (prefers-reduced-motion:reduce){#lsd-espera,#lsd-espera *{animation:none!important}}';
+  // Comentarios de la preclase (muro debajo de cada clase). Estilos base sobrios: el diseño de la página los
+  // viste (todas las clases empiezan por .lsd-com) y puede cambiar el color con --lsd-acento.
+  CSS += '.lsd-com{--lsd-com-ac:var(--lsd-acento,#b4552d);box-sizing:border-box;margin:18px 0 0;padding:18px;border-radius:16px;background:#fbf8f5;border:1px solid #ece3da;color:#2b2522;font-family:inherit}' +
+    '.lsd-com *{box-sizing:border-box}.lsd-com-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}.lsd-com-ico{font-size:1.6em;line-height:1}' +
+    '.lsd-com-kicker{margin:0;font-size:.78em;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--lsd-com-ac)}.lsd-com-titulo{margin:2px 0 0;font-size:1.15em;line-height:1.3}' +
+    '.lsd-com-n{margin-left:auto;font-size:.85em;opacity:.75;white-space:nowrap}' +
+    '.lsd-com-form{padding:14px;border-radius:12px;background:#fff;border:1px solid #ece3da}.lsd-com-paso{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-weight:700;font-size:.95em}' +
+    '.lsd-com-paso b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--lsd-com-ac);color:#fff;font-size:.8em}' +
+    '.lsd-com-preguntas{display:grid;gap:8px;margin-bottom:14px}.lsd-com-preg{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;padding:11px 12px;border-radius:10px;border:1.5px solid #e2d8cf;background:#fff;font:inherit;color:inherit;cursor:pointer}' +
+    '.lsd-com-preg:hover{border-color:var(--lsd-com-ac)}.lsd-com-preg[aria-checked="true"]{border-color:var(--lsd-com-ac);background:#fff6f1;box-shadow:inset 0 0 0 1px var(--lsd-com-ac)}' +
+    '.lsd-com-preg-n{flex:none;display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;border:1.5px solid currentColor;font-size:.8em;font-weight:700;opacity:.7}.lsd-com-preg[aria-checked="true"] .lsd-com-preg-n{background:var(--lsd-com-ac);border-color:var(--lsd-com-ac);color:#fff;opacity:1}' +
+    '.lsd-com-respondes{display:block;margin:0 0 6px;font-size:.88em;opacity:.8}.lsd-com-respondes b{opacity:1}' +
+    '.lsd-com-txt-in{display:block;width:100%;min-height:96px;padding:12px 14px;border-radius:10px;border:1.5px solid #e2d8cf;background:#fff;font:inherit;color:inherit;resize:vertical}.lsd-com-txt-in:focus{outline:none;border-color:var(--lsd-com-ac)}' +
+    '.lsd-com-pie{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:10px}.lsd-com-aviso{font-size:.82em;opacity:.7}' +
+    '.lsd-com-enviar{padding:12px 18px;border:0;border-radius:10px;background:var(--lsd-com-ac);color:#fff;font:inherit;font-weight:700;cursor:pointer}.lsd-com-enviar:disabled{opacity:.55;cursor:default}' +
+    '.lsd-com-ok{margin:10px 0 0;padding:10px 12px;border-radius:10px;background:#eaf6ee;color:#1f6b3a;font-weight:600}' +
+    '.lsd-com-filtros{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 10px}.lsd-com-filtro{padding:6px 12px;border-radius:999px;border:1px solid #e2d8cf;background:#fff;font:inherit;font-size:.85em;color:inherit;cursor:pointer}.lsd-com-filtro[aria-pressed="true"]{background:var(--lsd-com-ac);border-color:var(--lsd-com-ac);color:#fff}' +
+    '.lsd-com-lista{list-style:none;margin:0;padding:0;display:grid;gap:10px}.lsd-com-item{display:flex;gap:10px;padding:12px;border-radius:12px;background:#fff;border:1px solid #ece3da}' +
+    '.lsd-com-item.destacado{border-color:var(--lsd-com-ac);box-shadow:0 0 0 1px var(--lsd-com-ac)}.lsd-com-item.mio{background:#fffaf6}' +
+    '.lsd-com-av{flex:none;display:inline-grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#efe6dd;font-weight:700}.lsd-com-av.marca{width:30px;height:30px;background:var(--lsd-com-ac);color:#fff;font-size:.85em}' +
+    '.lsd-com-c{flex:1;min-width:0}.lsd-com-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.9em}.lsd-com-meta time{opacity:.6;font-size:.9em}' +
+    '.lsd-com-chip{font-size:.75em;font-weight:700;padding:2px 8px;border-radius:999px;background:#f3ebe3}.lsd-com-chip.dest{background:var(--lsd-com-ac);color:#fff}' +
+    '.lsd-com-q{margin:4px 0 0;font-size:.82em;opacity:.7}.lsd-com-texto{margin:4px 0 0;white-space:pre-line;overflow-wrap:anywhere;line-height:1.5}' +
+    '.lsd-com-resp{display:flex;gap:8px;margin-top:10px;padding:10px;border-radius:10px;background:#faf3ee;border-left:3px solid var(--lsd-com-ac)}.lsd-com-resp p{margin:2px 0 0;white-space:pre-line;overflow-wrap:anywhere}' +
+    '.lsd-com-vacio{margin:6px 0 0;padding:14px;text-align:center;border-radius:12px;border:1px dashed #e2d8cf;opacity:.85}.lsd-com-mas{display:block;margin:12px auto 0;padding:9px 16px;border-radius:999px;border:1px solid #e2d8cf;background:#fff;font:inherit;cursor:pointer}' +
+    '.lsd-com-cerrado{display:flex;gap:10px;align-items:center;opacity:.85}' +
+    '@media (max-width:600px){.lsd-com{padding:14px}.lsd-com-n{display:none}.lsd-com-enviar{width:100%}}';
 
   function injectCss() {
     if (document.getElementById('lsd-css')) return;
@@ -692,6 +719,8 @@
       if (Object.prototype.hasOwnProperty.call(cr, c)) show(el, cr[c]);
     });
 
+    pintarComentarios(data, who);
+
     // Etapas: estado para el diseño y su número (las de vídeo se marcan hechas al ver el 75 % aquí mismo).
     var etapas = data.etapas || [];
     document.querySelectorAll('[data-lsd-etapa]').forEach(function (el) {
@@ -723,6 +752,121 @@
         return '<div class="lsd-vot-res' + (mio ? ' mio' : '') + '"><i style="width:' + p + '%"></i><span><span>' + (mio ? '✓ ' : '') + esc(o.texto) + '</span><strong>' + p + ' %</strong></span></div>';
       }).join('') + '</div></div>';
     }).join('') + '<p class="lsd-vot-total">' + res.total + (res.total === 1 ? ' respuesta' : ' respuestas') + ' · gracias por participar</p></div>';
+  }
+
+  // Comentarios de la preclase: <div data-lsd-comentarios="clase1"></div> debajo de cada clase.
+  // Paso 1: elegir a qué pregunta de la clase responde (si hay una sola, ya está elegida). Paso 2: escribir y
+  // «Publicar». Debajo, el muro de esa clase (destacados primero, filtrable por pregunta) con las respuestas
+  // del equipo. Los datos se piden a /api/comentarios (y se refrescan cada 90 s mientras la página está abierta).
+  var com = { data: null, en: 0, cargando: false, code: '', cid: '' };
+  function cargarComentarios(code, who, despues) {
+    if (com.cargando) return;
+    com.cargando = true;
+    var cid = who && who.cid ? who.cid : '';
+    var q = 'l=' + encodeURIComponent(code) + (cid ? '&cid=' + encodeURIComponent(cid) : '');
+    fetch(API + conCliente('/api/comentarios?' + q)).then(function (r) { return r.json(); }).then(function (d) {
+      com.data = d; com.en = Date.now(); com.code = code; com.cid = cid;
+    }).catch(function () { com.en = Date.now(); }).then(function () { com.cargando = false; if (despues) despues(); });
+  }
+  var haceCuanto = function (iso) {
+    var m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+    if (m < 1) return 'ahora';
+    if (m < 60) return 'hace ' + m + ' min';
+    var h = Math.round(m / 60);
+    if (h < 24) return 'hace ' + h + ' h';
+    var d = Math.round(h / 24);
+    return 'hace ' + d + (d === 1 ? ' día' : ' días');
+  };
+  function pintarComentarios(data, who) {
+    var els = document.querySelectorAll('[data-lsd-comentarios]');
+    if (!els.length) return;
+    // Se piden otra vez si cambia el lanzamiento o la lead (para marcar los suyos) o cada 90 s. Al llegar, se
+    // pintan con lo último que se sabe de la página (la lead puede haberse identificado mientras tanto).
+    var cidAhora = who && who.cid ? who.cid : '';
+    if (!com.data || com.code !== data.code || (cidAhora && com.cid !== cidAhora) || Date.now() - com.en > 90000) {
+      if (!com.cargando) cargarComentarios(data.code, who, function () { var u = ultimaPagina || { data: data, who: who }; pintarComentarios(u.data, u.who); });
+      if (!com.data) return;
+    }
+    var d = com.data;
+    els.forEach(function (el) {
+      var k = el.getAttribute('data-lsd-comentarios') || 'clase1';
+      var c = d && d.activa && d.clases ? d.clases[k] : null;
+      if (!c) return show(el, false);
+      show(el, true);
+      var n = k.replace('clase', '');
+      var st = el._lsdCom || (el._lsdCom = { sel: c.preguntas.length === 1 ? c.preguntas[0].id : '', filtro: '', max: 8, texto: '' });
+      // Clase aún no disponible: un aviso y nada más.
+      if (!c.abierta) {
+        if (el.getAttribute('data-lsd-com-estado') === 'cerrado') return;
+        el.setAttribute('data-lsd-com-estado', 'cerrado');
+        el.innerHTML = '<div class="lsd-com lsd-com-cerrado"><span class="lsd-com-ico">🔒</span><p class="lsd-rec-s">' + esc(el.getAttribute('data-texto-bloqueado') || 'Los comentarios de la clase ' + n + ' se abren cuando esté disponible la clase.') + '</p></div>';
+        return;
+      }
+      // Solo se repinta si cambian los comentarios (sin perder lo que esté escribiendo).
+      var huella = (who ? 'u' : 'a') + c.total + '|' + c.comentarios.map(function (x) { return x.id + (x.respuesta ? 'r' : '') + (x.destacado ? 'd' : ''); }).join(',') + '|' + st.sel + '|' + st.filtro + '|' + st.max;
+      if (el.getAttribute('data-lsd-com-estado') === huella) return;
+      el.setAttribute('data-lsd-com-estado', huella);
+      var ta = el.querySelector('.lsd-com-txt-in');
+      if (ta) st.texto = ta.value;
+      var preg = function (id) { for (var i = 0; i < c.preguntas.length; i++) if (c.preguntas[i].id === id) return { n: i + 1, texto: c.preguntas[i].texto }; return null; };
+      var sel = preg(st.sel);
+      var titulo = el.getAttribute('data-titulo') || (c.preguntas.length === 1 ? c.preguntas[0].texto : 'Cuéntanos qué te ha removido esta clase');
+      var form = !who
+        ? '<p class="lsd-com-vacio">Para comentar, entra en esta página desde el enlace de tu email.</p>'
+        : '<div class="lsd-com-form">' +
+          (c.preguntas.length > 1
+            ? '<p class="lsd-com-paso"><b>1</b> Elige la pregunta que quieres responder</p><div class="lsd-com-preguntas" role="radiogroup" aria-label="Pregunta">' + c.preguntas.map(function (q, i) {
+              return '<button type="button" class="lsd-com-preg" role="radio" aria-checked="' + (q.id === st.sel) + '" data-preg="' + esc(q.id) + '"><span class="lsd-com-preg-n">' + (i + 1) + '</span><span>' + esc(q.texto) + '</span></button>';
+            }).join('') + '</div><p class="lsd-com-paso"><b>2</b> Escribe tu respuesta</p>'
+            : '') +
+          '<p class="lsd-com-respondes">' + (sel ? (c.preguntas.length > 1 ? 'Respondes a la pregunta ' + sel.n + ': <b>' + esc(sel.texto) + '</b>' : '<b>' + esc(sel.texto) + '</b>') : 'Primero elige arriba la pregunta 👆') + '</p>' +
+          '<textarea class="lsd-com-txt-in" maxlength="1500" placeholder="' + esc(el.getAttribute('data-placeholder') || 'Escribe aquí tu respuesta…') + '"' + (sel ? '' : ' disabled') + '>' + esc(st.texto) + '</textarea>' +
+          '<div class="lsd-com-pie"><span class="lsd-com-aviso">Se publica con tu nombre de pila y lo verán las demás alumnas.</span><button type="button" class="lsd-com-enviar"' + (sel ? '' : ' disabled') + '>' + esc(el.getAttribute('data-boton') || 'Publicar mi respuesta') + '</button></div>' +
+          '<p class="lsd-err" hidden></p>' + (st.ok ? '<p class="lsd-com-ok">✓ ¡Publicado! Gracias por compartirlo.</p>' : '') + '</div>';
+      var lista = c.comentarios.filter(function (x) { return !st.filtro || x.pregunta === st.filtro; });
+      var cuenta = function (id) { return c.comentarios.filter(function (x) { return x.pregunta === id; }).length; };
+      var filtros = c.preguntas.length > 1 && c.comentarios.length
+        ? '<div class="lsd-com-filtros" role="group" aria-label="Ver comentarios de">' + '<button type="button" class="lsd-com-filtro" data-filtro="" aria-pressed="' + (!st.filtro) + '">Todas (' + c.comentarios.length + ')</button>' +
+          c.preguntas.map(function (q, i) { return '<button type="button" class="lsd-com-filtro" data-filtro="' + esc(q.id) + '" aria-pressed="' + (st.filtro === q.id) + '">Pregunta ' + (i + 1) + ' (' + cuenta(q.id) + ')</button>'; }).join('') + '</div>'
+        : '';
+      var firma = d.firma || 'El equipo';
+      var item = function (x) {
+        var q = preg(x.pregunta);
+        return '<li class="lsd-com-item' + (x.destacado ? ' destacado' : '') + (x.mio ? ' mio' : '') + '"><span class="lsd-com-av">' + esc((x.nombre || '?').charAt(0).toUpperCase()) + '</span><div class="lsd-com-c">' +
+          '<div class="lsd-com-meta"><b>' + esc(x.nombre) + '</b>' + (x.mio ? '<span class="lsd-com-chip">Tú</span>' : '') + (x.destacado ? '<span class="lsd-com-chip dest">⭐ Destacado</span>' : '') + '<time datetime="' + esc(x.en) + '">' + haceCuanto(x.en) + '</time></div>' +
+          (q && c.preguntas.length > 1 ? '<p class="lsd-com-q">Pregunta ' + q.n + ' · ' + esc(q.texto) + '</p>' : '') +
+          '<p class="lsd-com-texto">' + esc(x.texto) + '</p>' +
+          (x.respuesta ? '<div class="lsd-com-resp"><span class="lsd-com-av marca">' + esc(firma.charAt(0).toUpperCase()) + '</span><div><b>' + esc(firma) + '</b> <span class="lsd-com-chip">Equipo</span><p>' + esc(x.respuesta) + '</p></div></div>' : '') +
+          '</div></li>';
+      };
+      el.innerHTML = '<section class="lsd-com" data-clase="' + esc(k) + '"><header class="lsd-com-head"><span class="lsd-com-ico">💬</span><div><p class="lsd-com-kicker">' + esc(el.getAttribute('data-kicker') || 'Clase ' + n + ' · Comparte tu respuesta') + '</p><h3 class="lsd-com-titulo">' + esc(titulo) + '</h3></div><span class="lsd-com-n">' + c.total + (c.total === 1 ? ' comentario' : ' comentarios') + '</span></header>' +
+        form + filtros +
+        (lista.length ? '<ol class="lsd-com-lista">' + lista.slice(0, st.max).map(item).join('') + '</ol>' + (lista.length > st.max ? '<button type="button" class="lsd-com-mas">Ver más comentarios (' + (lista.length - st.max) + ')</button>' : '') : '<p class="lsd-com-vacio">' + (c.comentarios.length ? 'Aún no hay respuestas a esta pregunta.' : 'Sé la primera en responder ✨') + '</p>') +
+        '</section>';
+      var repinta = function () { el.removeAttribute('data-lsd-com-estado'); pintarComentarios(data, who); };
+      el.querySelectorAll('[data-preg]').forEach(function (b) { b.addEventListener('click', function () { var t = el.querySelector('.lsd-com-txt-in'); if (t) st.texto = t.value; st.sel = b.getAttribute('data-preg'); st.ok = false; repinta(); var t2 = el.querySelector('.lsd-com-txt-in'); if (t2) t2.focus(); }); });
+      el.querySelectorAll('[data-filtro]').forEach(function (b) { b.addEventListener('click', function () { var t = el.querySelector('.lsd-com-txt-in'); if (t) st.texto = t.value; st.filtro = b.getAttribute('data-filtro'); st.max = 8; repinta(); }); });
+      var mas = el.querySelector('.lsd-com-mas');
+      if (mas) mas.addEventListener('click', function () { var t = el.querySelector('.lsd-com-txt-in'); if (t) st.texto = t.value; st.max += 10; repinta(); });
+      var btn = el.querySelector('.lsd-com-enviar');
+      if (btn) btn.addEventListener('click', function () {
+        var t = el.querySelector('.lsd-com-txt-in');
+        var err = el.querySelector('.lsd-err');
+        var texto = t ? t.value.trim() : '';
+        if (!st.sel) { err.textContent = 'Elige primero a qué pregunta respondes.'; err.hidden = false; return; }
+        if (texto.length < 2) { err.textContent = 'Escribe tu respuesta.'; err.hidden = false; return; }
+        err.hidden = true;
+        btn.disabled = true;
+        btn.textContent = 'Publicando…';
+        post('/api/comentarios', { launch: data.code, clase: k, pregunta: st.sel, texto: texto, cid: who.cid, email: who.email }).then(function (res) {
+          if (!res || !res.ok) throw new Error((res && res.error) || 'No se ha podido publicar. Inténtalo de nuevo.');
+          com.data = res; com.en = Date.now(); com.cid = who.cid || com.cid;
+          st.texto = ''; st.ok = true; st.filtro = '';
+          if (c.preguntas.length > 1) st.sel = '';
+          repinta();
+        }).catch(function (e) { btn.disabled = false; btn.textContent = el.getAttribute('data-boton') || 'Publicar mi respuesta'; err.textContent = e.message; err.hidden = false; });
+      });
+    });
   }
 
   // Música: cuenta los segundos realmente escuchados (como los vídeos) y avisa al reproducir, al 50 % y al 90 %.

@@ -28,8 +28,9 @@ export const SIGNALS = [
   // o el siguiente lanzamiento.
   'casi_compra',
   // Recursos de la preclase (recursos.js): la música (la reprodujo, la escuchó al 50 % y al 90 %),
-  // la votación (votó) y el descargable (lo abrió). El test se sabe por su propia etiqueta de GHL.
-  'musica_play', 'musica_50', 'musica_90', 'voto', 'descarga',
+  // la votación (votó), el descargable (lo abrió) y los comentarios (comentó). El test se sabe por su propia
+  // etiqueta de GHL.
+  'musica_play', 'musica_50', 'musica_90', 'voto', 'descarga', 'comento',
 ];
 
 export const OUTCOMES = [
@@ -172,7 +173,8 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   // o el resultado «Llamada agendada» que marca la setter.
   s.llamada = (has(cfg.llamadaTag) && !s.llamada_previo) || s.res_llamada;
   // Recursos de la preclase que tiene este lanzamiento (para la puntuación) y el test hecho (su etiqueta).
-  s.recursos = { musica: tieneRecurso(cfg, 'musica'), test: tieneRecurso(cfg, 'test'), votacion: tieneRecurso(cfg, 'votacion'), descargable: tieneRecurso(cfg, 'descargable') };
+  // «votacion» es el bloque de participación: votó o comentó (la votación o los comentarios de la preclase).
+  s.recursos = { musica: tieneRecurso(cfg, 'musica'), test: tieneRecurso(cfg, 'test'), votacion: tieneRecurso(cfg, 'votacion') || tieneRecurso(cfg, 'comentarios'), descargable: tieneRecurso(cfg, 'descargable'), soloVotacion: tieneRecurso(cfg, 'votacion'), comentarios: tieneRecurso(cfg, 'comentarios') };
   s.test = s.recursos.test && has(recursosDe(cfg).test.tag);
 
   // Compra: si hay "fecha de compra", manda la fecha (dentro del lanzamiento = de este lanzamiento);
@@ -260,7 +262,7 @@ export function score(s, aprendidos = null) {
   const R = s.recursos || {};
   if (R.musica) pts += nivelMusica(s) * pesos.musica;
   if (R.test && s.test) pts += pesos.test;
-  if (R.votacion && s.voto) pts += pesos.votacion;
+  if (R.votacion && (s.voto || s.comento)) pts += pesos.votacion;
   // Vídeos del lanzamiento: con uno (webinar), lo visto de él. Con varios, la mitad por el mejor
   // y la mitad por la media (premia ver todos, sin hundir a quien solo ha podido ver uno).
   const n = s.nVideos || 1;

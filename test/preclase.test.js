@@ -465,3 +465,49 @@ test('logo del lanzamiento (Plan → Anuncios): se guarda en el lanzamiento, sol
   const setter = (await call('/api/login', { method: 'POST', body: { password: 'setter' } })).res.headers.get('set-cookie').split(';')[0];
   assert.equal((await call('/api/config', { method: 'POST', cookie: setter, body: { op: 'logoLanzamiento', l: 'logo-26', url: 'https://x.com/a.png' } })).status, 403);
 });
+
+test('preclase: comentarios por clase (muro público, moderación y respuesta del equipo)', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const { data: cur } = await call('/api/config', { cookie: admin });
+  const launch = {
+    name: 'Comentarios', registroTag: 'registro-webinar-demo', inicioCaptacion: local(-10), fechaDirecto: local(5), horaDirecto: '19:00',
+    clase1Url: 'https://vimeo.com/1', clase1At: `${local(-2)}T10:00`, clase2Url: 'https://vimeo.com/2', clase2At: `${local(1)}T10:00`,
+    recursosPre: { comentarios: { activo: true, firma: 'Raquel', clases: { clase1: { preguntas: [{ texto: '¿Qué te ha sorprendido?' }, { texto: '¿Qué vas a probar?' }] }, clase2: { preguntas: [{ texto: '¿Cómo te sientes?' }] } } } },
+  };
+  assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, _version: cur.version, launches: { ...cur.config.launches, 'com-26': launch } } })).status, 200);
+  let m = (await call('/api/comentarios?l=com-26&cid=mock00001')).data;
+  assert.equal(m.activa, true);
+  assert.equal(m.firma, 'Raquel');
+  assert.equal(m.clases.clase1.abierta, true);
+  assert.equal(m.clases.clase2.abierta, false); // la clase 2 aún no se ha desbloqueado
+  // Errores claros
+  const enviar = (b) => call('/api/comentarios', { method: 'POST', body: { launch: 'com-26', cid: 'mock00001', ...b } });
+  assert.equal((await enviar({ clase: 'clase2', pregunta: 'q1', texto: 'Hola' })).status, 403);
+  assert.equal((await enviar({ clase: 'clase1', pregunta: 'zz', texto: 'Hola' })).status, 400);
+  assert.equal((await enviar({ clase: 'clase1', pregunta: 'q1', texto: ' ' })).status, 400);
+  // Publica: sale en el muro con su nombre de pila, marcado como suyo, y suma la señal «comentó»
+  const r = (await enviar({ clase: 'clase1', pregunta: 'q1', texto: 'Que el ciclo cambie tanto' })).data;
+  assert.equal(r.ok, true);
+  assert.equal(r.clases.clase1.total, 1);
+  const c = r.clases.clase1.comentarios[0];
+  assert.ok(c.mio && c.nombre && !('contacto' in c));
+  assert.ok((await ghl.getContact('mock00001')).tags.includes('com-26_comento'));
+  await call('/api/comentarios', { method: 'POST', body: { launch: 'com-26', cid: 'mock00002', clase: 'clase1', pregunta: 'q2', texto: 'Probaré la temperatura' } });
+  m = (await call('/api/comentarios?l=com-26&cid=mock00002')).data;
+  assert.equal(m.clases.clase1.comentarios.filter((x) => x.mio).length, 1);
+  // Moderación (solo el equipo)
+  assert.equal((await call('/api/comentarios', { method: 'POST', body: { op: 'ocultar', l: 'com-26', id: c.id } })).status, 401);
+  const mod = (b) => call('/api/comentarios', { method: 'POST', cookie: admin, body: { l: 'com-26', id: c.id, ...b } });
+  assert.equal((await mod({ op: 'responder', texto: '¡Gracias por contarlo!' })).data.comentario.respuesta, '¡Gracias por contarlo!');
+  await mod({ op: 'destacar' });
+  m = (await call('/api/comentarios?l=com-26')).data;
+  assert.equal(m.clases.clase1.comentarios[0].id, c.id); // destacado primero
+  assert.equal(m.clases.clase1.comentarios[0].respuesta, '¡Gracias por contarlo!');
+  await mod({ op: 'ocultar' });
+  m = (await call('/api/comentarios?l=com-26')).data;
+  assert.equal(m.clases.clase1.total, 1);
+  const todo = (await call('/api/comentarios?l=com-26&todo=1', { cookie: admin })).data;
+  assert.equal(todo.comentarios.length, 2);
+  assert.ok(todo.comentarios.find((x) => x.id === c.id).oculto);
+  assert.equal((await call('/api/comentarios?l=com-26&todo=1')).status, 401);
+});
