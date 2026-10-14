@@ -93,11 +93,32 @@ async function soltarEnColumna(t, colId, indice) {
   if (indice >= 0 && indice !== pos) colocar(t, indice);
 }
 
+// Diseño propio de la Operativa (clásico o espacial), independiente del del dashboard: se aplica al abrirla y al
+// cerrarla vuelve el de siempre. Sin elegir, el mismo que el dashboard. Se recuerda en este navegador.
+const LS_ESTILO_OP = 'lsd_estilo_op';
+const estiloOp = () => { try { const v = localStorage.getItem(LS_ESTILO_OP); return v === 'espacial' || v === 'clasico' ? v : ''; } catch { return ''; } };
+function aplicarEstiloOp() {
+  const api = window.LSD_ESTILO;
+  const e = estiloOp() || api?.guardado?.() || 'clasico';
+  api?.temporal?.(e);
+  ctx.dialog.querySelectorAll('[data-op-estilo]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.opEstilo === e)));
+  ctx.dialog.querySelector('.op-estilo')?.setAttribute('data-on', e);
+}
+
 export async function abrirOperativa(opts) {
   ctx = opts;
   const dlg = ctx.dialog;
+  aplicarEstiloOp();
   if (!dlg.dataset.listo) {
     dlg.dataset.listo = '1';
+    dlg.addEventListener('close', () => window.LSD_ESTILO?.temporal?.(null));
+    dlg.querySelector('.op-estilo')?.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-op-estilo]');
+      const actual = estiloOp() || window.LSD_ESTILO?.guardado?.() || 'clasico';
+      const nuevo = b ? b.dataset.opEstilo : actual === 'espacial' ? 'clasico' : 'espacial';
+      try { localStorage.setItem(LS_ESTILO_OP, nuevo); } catch { /* sin almacenamiento */ }
+      aplicarEstiloOp();
+    });
     dlg.querySelector('#op-cerrar').addEventListener('click', () => dlg.close());
     dlg.querySelector('#op-nueva').addEventListener('click', () => { creando = true; abierta = null; pintar(); });
     dlg.querySelector('#op-importar-btn')?.addEventListener('click', () => dlg.querySelector('#op-importar').click());

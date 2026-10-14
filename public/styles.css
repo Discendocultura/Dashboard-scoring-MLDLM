@@ -4976,3 +4976,15 @@ a.enlace-int:hover { background: color-mix(in srgb, var(--accent) 20%, transpare
 .op-col.ajustando { user-select: none; }
 
 @media (max-width: 760px) { .op-col-ancho { display: none; } }
+
+/* Operativa: chip para elegir su diseño (clásico o espacial), arriba a la derecha */
+.op-estilo { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; align-items: center; padding: 4px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); isolation: isolate; }
+.op-estilo button { position: relative; z-index: 1; border: 0; background: none; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; padding: 7px 14px; border-radius: 999px; color: var(--muted); white-space: nowrap; transition: color .25s; }
+.op-estilo button[aria-checked="true"] { color: var(--text); }
+.op-estilo-bola { position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 999px; background: var(--surface); box-shadow: 0 2px 8px rgb(0 0 0 / .15); transition: transform .3s cubic-bezier(.3, 1.3, .5, 1), background .3s; }
+.op-estilo[data-on="espacial"] .op-estilo-bola { transform: translateX(100%); background: linear-gradient(135deg, #2b2f6b, #6b3fa0); }
+.op-estilo[data-on="espacial"] button[aria-checked="true"] { color: #fff; }
+.op-estilo button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 760px) { .op-estilo button { padding: 6px 10px; font-size: 12px; } }
+@media (prefers-reduced-motion: reduce) { .op-estilo-bola { transition: none; } }
+.op-head-acc { align-items: center; flex-wrap: wrap; }

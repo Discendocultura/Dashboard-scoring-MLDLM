@@ -6,7 +6,7 @@
  * API: window.LSD_TEMA = { actual(), alternar(), manual(), siguienteCambio(), alCambiar(fn) }.
  * Diseño (Cuenta → Diseño): «clásico» (el de siempre, con día / noche) o «espacial» (el de la pantalla de acceso:
  * siempre oscuro, cielo de estrellas y tarjetas de cristal). Se guarda en este navegador (lsd_estilo).
- * API: window.LSD_ESTILO = { actual(), poner('clasico' | 'espacial') }.
+ * API: window.LSD_ESTILO = { actual(), poner('clasico' | 'espacial'), guardado(), temporal('clasico' | 'espacial' | null) }.
  */
 (function () {
   'use strict';
@@ -37,7 +37,10 @@
   var enMemoria = null;
   function manual() { return leer() || (enMemoria && enMemoria.hasta > Date.now() ? enMemoria : null); }
   var CLAVE_ESTILO = 'lsd_estilo';
-  function estilo() { try { return localStorage.getItem(CLAVE_ESTILO) === 'espacial' ? 'espacial' : 'clasico'; } catch (e) { return 'clasico'; } }
+  // `temporal`: el diseño de una ventana que tiene el suyo propio (la Operativa) mientras está abierta.
+  var temporal = null;
+  function guardado() { try { return localStorage.getItem(CLAVE_ESTILO) === 'espacial' ? 'espacial' : 'clasico'; } catch (e) { return 'clasico'; } }
+  function estilo() { return temporal || guardado(); }
   // El espacial es siempre oscuro.
   function deseado() { if (estilo() === 'espacial') return 'dark'; var m = manual(); return m ? m.tema : automatico(new Date()); }
 
@@ -83,6 +86,17 @@
       try { localStorage.setItem(CLAVE_ESTILO, e === 'espacial' ? 'espacial' : 'clasico'); } catch (x) { /* sin almacenamiento */ }
       document.documentElement.setAttribute('data-estilo', estilo());
       document.documentElement.removeAttribute('data-theme'); // que se vuelva a aplicar el tema (y avise)
+      aplicar(true);
+      return estilo();
+    },
+    guardado: guardado,
+    // Diseño solo mientras está abierta una ventana con el suyo ('clasico' | 'espacial'); null, el de siempre.
+    temporal: function (e) {
+      var nuevo = e === 'espacial' || e === 'clasico' ? e : null;
+      if (nuevo === temporal) return estilo();
+      temporal = nuevo;
+      document.documentElement.setAttribute('data-estilo', estilo());
+      document.documentElement.removeAttribute('data-theme');
       aplicar(true);
       return estilo();
     },
