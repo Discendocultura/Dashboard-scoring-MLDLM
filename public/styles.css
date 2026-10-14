@@ -4742,3 +4742,12 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .inf-dest-dlg textarea { width: 100%; font: inherit; font-size: 14px; }
 .inf-dest-pie { justify-content: flex-end; align-items: center; gap: 8px; flex-wrap: wrap; }
 .inf-dest-pie > span { flex: 1; }
+/* Alta de cliente: los pasos hechos se pueden volver a ver y desmarcar; las etapas, volver a abrir */
+.crm-paso.hecho.abierto { opacity: 1; }
+.crm-paso.hecho.abierto .crm-cuerpo p { display: block; }
+.crm-hecho-acc { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.crm-hecho-acc .btn { padding: 4px 10px; }
+.cl-pasos-rail li { padding: 0; }
+.cl-rail-b { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border: 0; border-radius: 999px; background: none; color: inherit; font: inherit; font-weight: 700; font-size: 13px; }
+button.cl-rail-b { cursor: pointer; transition: background .15s; }
+button.cl-rail-b:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }

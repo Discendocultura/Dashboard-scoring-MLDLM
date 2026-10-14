@@ -7718,12 +7718,13 @@ function pasosCheckHtml(pasos, hechos, it, final) {
   const n = pasos.filter((p) => hechos.includes(p.id)).length;
   return `<ol class="crm-pasos">${pasos.map((p, i) => {
     const hecho = hechos.includes(p.id);
-    const cls = [hecho ? 'hecho' : '', p.id === actual ? 'actual' : '', p.id === it.revisar ? 'revisar' : ''].filter(Boolean).join(' ');
+    const abierto = hecho && it.abiertos?.includes(p.id);
+    const cls = [hecho ? 'hecho' : '', abierto ? 'abierto' : '', p.id === actual ? 'actual' : '', p.id === it.revisar ? 'revisar' : ''].filter(Boolean).join(' ');
     return `<li class="crm-paso ${cls}" data-crm-paso="${p.id}">
       <label class="crm-check" title="${hecho ? 'Desmarcar' : 'Marcar como hecho'}"><input type="checkbox" data-crm-check="${p.id}" ${hecho ? 'checked' : ''}><span class="crm-num">${hecho ? '✓' : i + 1}</span></label>
       <div class="crm-cuerpo"><h4>${p.titulo}${p.id === it.revisar ? ' <span class="crm-tag">Revisa este paso</span>' : ''}</h4><p>${p.html}</p>
         ${p.campo ? final.campo : ''}
-        ${hecho ? '' : `<button type="button" class="btn small" data-crm-hecho="${p.id}">✓ Hecho</button>`}</div></li>`;
+        ${hecho ? `<div class="crm-hecho-acc"><button type="button" class="btn ghost small" data-crm-ver="${p.id}" aria-expanded="${abierto ? 'true' : 'false'}">${abierto ? '▴ Ocultar' : '▾ Ver de nuevo'}</button><button type="button" class="btn ghost small" data-crm-deshacer="${p.id}">↩ Desmarcar</button></div>` : `<button type="button" class="btn small" data-crm-hecho="${p.id}">✓ Hecho</button>`}</div></li>`;
   }).join('')}
     <li class="crm-paso crm-final ${actual ? '' : 'actual'}">
       <span class="crm-check"><span class="crm-num">${pasos.length + 1}</span></span>
@@ -7745,10 +7746,11 @@ function pintarIntegrarCrm() {
   const c = state.clientesAdmin.find((x) => x.id === it.id);
   if (!c) { cerrarIntegrarCrm(); return; }
   const hechos = crmHechos(c.id);
-  const marca = (ok, activo, num) => `class="${ok ? 'hecho' : activo ? 'activo' : ''}"><b>${ok ? '✓' : num}</b`;
-  const rail = `<ol class="cl-pasos-rail"><li class="hecho"><b>✓</b> Datos del cliente</li>
-    <li ${marca(it.crmOk, it.etapa === 'crm', 2)}> Integrar el CRM</li>
-    <li ${marca(Boolean(it.metaNombre), it.etapa === 'meta', 3)}> Conectar Meta <small>(opcional)</small></li></ol>`;
+  // Cada etapa se puede volver a abrir (p. ej. para ver otra vez dónde se pega el token).
+  const etapaRail = (etapa, ok, num, txt) => `<li class="${it.etapa === etapa ? 'activo' : ok ? 'hecho' : ''}">${it.etapa === etapa ? `<span class="cl-rail-b"><b>${ok ? '✓' : num}</b> ${txt}</span>` : `<button type="button" class="cl-rail-b" data-crm-etapa="${etapa}" title="Volver a esta parte"><b>${ok ? '✓' : num}</b> ${txt}</button>`}</li>`;
+  const rail = `<ol class="cl-pasos-rail"><li class="hecho"><span class="cl-rail-b"><b>✓</b> Datos del cliente</span></li>
+    ${etapaRail('crm', it.crmOk, 2, 'Integrar el CRM')}
+    ${etapaRail('meta', Boolean(it.metaNombre), 3, 'Conectar Meta <small>(opcional)</small>')}</ol>`;
   const pie = (txt) => `<div class="row crm-pie"><button type="button" class="btn ghost" data-crm="volver">← Volver a clientes</button><span class="muted small">${txt}</span></div>`;
   if (it.etapa === 'fin') {
     $('#cl-integrar').innerHTML = `${rail}<div class="crm-ok">
@@ -7757,7 +7759,7 @@ function pintarIntegrarCrm() {
       <ul class="crm-resumen"><li class="ok">✓ CRM integrado${it.etiquetas != null ? ` · ${it.etiquetas} etiquetas` : ''}</li>
         <li class="${it.metaNombre ? 'ok' : 'pend'}">${it.metaNombre ? `✓ Meta conectado · ${esc(it.metaNombre)}` : '○ Meta sin conectar (puedes hacerlo luego desde su tarjeta)'}</li></ul>
       <p>Lo siguiente: entra en el cliente, crea su primer embudo con <strong>＋ Nuevo embudo</strong> y da de alta a su equipo en <strong>Equipo → Miembros</strong>.</p>
-      <div class="row crm-ok-acc"><button type="button" class="btn primary" data-crm="entrar">Entrar en ${esc(c.nombre)} →</button><button type="button" class="btn" data-crm="volver">Añadir otro cliente</button></div>
+      <div class="row crm-ok-acc"><button type="button" class="btn primary" data-crm="entrar">Entrar en ${esc(c.nombre)} →</button><button type="button" class="btn" data-crm="volver">Añadir otro cliente</button><button type="button" class="btn ghost" data-crm-etapa="crm">← Ver otra vez los pasos</button></div>
     </div>`;
     return;
   }
@@ -7771,7 +7773,7 @@ function pintarIntegrarCrm() {
         titulo: 'Comprueba Meta', texto: 'El dashboard intenta leer su cuenta publicitaria. Si todo está bien, verás su nombre.', op: 'probar-meta', boton: 'Comprobar Meta',
         campo: `<div class="row crm-campo"><input id="crm-meta" inputmode="numeric" maxlength="200" placeholder="1234567890123456" value="${esc(c.metaAdAccount || '')}" aria-label="Cuenta publicitaria de Meta"><button type="button" class="btn" data-crm="guardar-meta">Guardar</button><span class="muted small" id="crm-meta-res"></span></div>`,
       })}
-      <div class="row crm-pie"><button type="button" class="btn ghost" data-crm="volver">← Volver a clientes</button><button type="button" class="btn" data-crm="saltar-meta">Saltar: no hará anuncios →</button></div>`;
+      <div class="row crm-pie"><button type="button" class="btn ghost" data-crm="volver">← Volver a clientes</button><button type="button" class="btn ghost" data-crm-etapa="crm">← Pasos del CRM</button><button type="button" class="btn" data-crm="saltar-meta">Saltar: no hará anuncios →</button></div>`;
     return;
   }
   const { pasos } = pasosIntegrarCrm(c);
@@ -7779,7 +7781,7 @@ function pintarIntegrarCrm() {
   $('#cl-integrar').innerHTML = `${rail}
     ${heroHtml(c, `🔌 Integrar el CRM de ${esc(c.nombre)}`, 'Conecta su GoHighLevel con el dashboard: <strong>5 pasos, unos 5 minutos</strong>. Ve en orden, marca cada paso al terminarlo y al final pulsa <strong>Comprobar conexión</strong>.', n, pasos.length)}
     ${pasosCheckHtml(pasos, hechos, it, { titulo: 'Comprueba la conexión', texto: 'El dashboard intenta leer su GHL. Si todo está bien, pasas a Meta.', op: 'probar', boton: 'Comprobar conexión' })}
-    ${pie('Puedes dejarlo a medias: lo retomas desde su tarjeta con «Integrar el CRM».')}`;
+    ${it.crmOk ? '<div class="row crm-pie"><button type="button" class="btn ghost" data-crm="volver">← Volver a clientes</button><span class="muted small">El CRM ya está conectado.</span><button type="button" class="btn" data-crm-etapa="meta">Seguir con Meta →</button></div>' : pie('Puedes dejarlo a medias: lo retomas desde su tarjeta con «Integrar el CRM».')}`;
 }
 $('#cl-integrar').addEventListener('change', (e) => {
   const ch = e.target.closest('[data-crm-check]');
@@ -7807,6 +7809,25 @@ async function guardarCuentaMeta(c) {
 $('#cl-integrar').addEventListener('click', async (e) => {
   const h = e.target.closest('[data-crm-hecho]');
   if (h) { marcarPasoCrm(h.dataset.crmHecho, true); return; }
+  const dh = e.target.closest('[data-crm-deshacer]');
+  if (dh) { state.integrando.abiertos = [...(state.integrando.abiertos || []), dh.dataset.crmDeshacer]; marcarPasoCrm(dh.dataset.crmDeshacer, false); return; }
+  const ver = e.target.closest('[data-crm-ver]');
+  if (ver) {
+    const it = state.integrando;
+    const id = ver.dataset.crmVer;
+    it.abiertos = it.abiertos?.includes(id) ? it.abiertos.filter((x) => x !== id) : [...(it.abiertos || []), id];
+    const meta = $('#crm-meta')?.value;
+    pintarIntegrarCrm();
+    if (meta != null && $('#crm-meta')) $('#crm-meta').value = meta;
+    return;
+  }
+  const et = e.target.closest('[data-crm-etapa]');
+  if (et) {
+    Object.assign(state.integrando, { etapa: et.dataset.crmEtapa, error: '', revisar: null });
+    pintarIntegrarCrm();
+    $('#cl-integrar .cl-pasos-rail')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    return;
+  }
   const b = e.target.closest('[data-crm]');
   if (!b) return;
   const it = state.integrando;
