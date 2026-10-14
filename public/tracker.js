@@ -849,9 +849,24 @@
     var w = identity();
     if (w) bien('Lead identificada (' + (w.email ? 'por email' : 'por su enlace') + ').');
     else { lineas.push('ℹ️ Aún no sabe qué lead eres: el panel se ve igual, pero para comentar hay que entrar con el enlace del email o por el login.'); poner(); }
-    fetchPage(launchAttr, null).then(function (d) {
+    fetchPage(launchAttr, w && w.cid ? { cid: w.cid } : null).then(function (d) {
       if (!d || d.error) { mal('No encuentra el lanzamiento de esta página (' + launchAttr + '): revisa data-launch o las URLs del lanzamiento en el dashboard.'); return; }
       bien('Lanzamiento: ' + d.code + '.');
+      // Recursos debajo de cada clase: qué hay activado en el dashboard y si la página tiene sus huecos.
+      var huecos = Array.prototype.map.call(document.querySelectorAll('[data-lsd-recursos]'), function (x) { return x.getAttribute('data-lsd-recursos'); });
+      if (huecos.length) bien('Huecos de recursos en la página: ' + huecos.join(', ').replace(/clase/g, 'Clase ') + '.');
+      else mal('La página no tiene los huecos de recursos debajo de las clases (data-lsd-recursos): pega el código nuevo de las clases.');
+      var rc = d.recursos || {};
+      var nombreClase = function (k) { return k ? k.replace('clase', 'Clase ') : ''; };
+      var lineaRec = function (nom, r, extra) {
+        if (!r) { lineas.push('➖ ' + nom + ': no está activado en el dashboard (o le falta el enlace / las preguntas).'); poner(); return; }
+        if (!r.tras) { lineas.push('ℹ️ ' + nom + ': activado como etapa propia (no va debajo de ninguna clase).'); poner(); return; }
+        var abierta = r.claseDisponible ? 'su clase está disponible' : 'su clase aún no está disponible';
+        (r.claseDisponible ? bien : function (t) { lineas.push('🔒 ' + t); poner(); })(nom + ': debajo de la ' + nombreClase(r.tras) + ' · ' + abierta + (extra ? ' · ' + extra : '') + '.');
+      };
+      lineaRec('Música', rc.musica);
+      lineaRec('Votación', rc.votacion);
+      lineaRec('Test', rc.test, rc.test && !rc.test.fechaOk ? 'se abre el ' + rc.test.unlockText : rc.test && rc.test.faltaEncuesta ? 'falta la encuesta' : '');
       return fetch(API + conCliente('/api/comentarios?l=' + encodeURIComponent(d.code))).then(function (r) { return r.json(); }).then(function (c) {
         if (!c || !c.activa) { mal('Los comentarios NO están activados en el dashboard para este lanzamiento, o ninguna clase tiene preguntas: Configuración → Preclase → Comentarios.'); return; }
         var ks = Object.keys(c.clases || {});
