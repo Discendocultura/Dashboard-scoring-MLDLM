@@ -14,18 +14,21 @@
 //        · { op: 'plantilla-guardar', plantilla } · { op: 'plantilla-borrar', plantillaId }  (solo superadmin)
 //   POST { op: 'etiquetas', …, etiquetas: [id] } · { op: 'prioridad', …, prioridad } · { op: 'checklist', …, checklist }
 //        · { op: 'repetir', …, repetir: { tipo, n } }  (al completarla se crea la siguiente: respuesta `nueva`)
+//   POST { op: 'importar-tablero', proyecto, nombre, archivo }  → tablero nuevo con sus columnas y tareas (solo superadmin;
+//        archivo: el .json propio o el export de Asana, ver public/js/tableros-import.js)
 //   POST { op: 'etiqueta-crear', nombre, color }  (equipo de la agencia) · { op: 'etiqueta-editar', id, nombre, color }
 //        · { op: 'etiqueta-borrar', id }  (solo superadmin)
 import { getSession } from '../lib/auth.js';
 import { listClientes } from '../lib/clientes.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { listUsersRaw, rolEn, newId } from '../lib/users.js';
-import { todasLasTareas, visiblesPara, cambiarTarea, crearTareaAgencia, camposAgencia, ponerEstado, ponerBloqueo, avisarAsignada, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
+import { todasLasTareas, visiblesPara, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, avisarAsignada, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
 import { tablerosDe, sanitizeTablero, sanitizeColumnas, GENERAL, sanitizeChecklist, prioridadValida, MAX_ETIQUETAS_TAREA, COLORES_ETIQUETA } from '../public/js/tableros.js';
 import { sanitizeRepetir } from '../public/js/procesos.js';
 import { PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from '../public/js/operativa.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { sanitizeRich } from '../public/js/richtext.js';
+import { normalizarImportacion, personaDe } from '../public/js/tableros-import.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -86,6 +89,31 @@ export async function POST(request) {
         else throw bad('Operación no válida');
       }, `Operativa: ${body.op}`);
       return json({ ok: true, ...cfg, nueva });
+    }
+    // Importar un tablero entero (columnas + tareas) en un proyecto: solo el superadmin.
+    if (body.op === 'importar-tablero') {
+      if (!s.superadmin) throw bad('Solo el superadmin importa tableros', 403);
+      const proyecto = String(body.proyecto || '');
+      if (proyecto !== PROYECTO_AGENCIA && !(await listClientes()).some((c) => c.id === proyecto)) throw bad('Elige el cliente al que va el tablero');
+      let imp;
+      try { imp = normalizarImportacion(body.archivo, { incluirCompletadas: Boolean(body.incluirCompletadas) }); } catch (e) { throw bad(e.message || 'Archivo no válido'); }
+      const nombre = String(body.nombre || imp.nombre || 'Tablero importado').trim().slice(0, 40);
+      const nuevo = sanitizeTablero({ proyecto, nombre, columnas: imp.columnas });
+      const cfg = await cambiarTableros((c) => { c.tableros.push(nuevo); }, `Operativa: tablero importado «${nombre}»`);
+      const equipo = (await enPrincipal(() => listUsersRaw())).filter((u) => (u.agencia || u.superadmin) && u.activo !== false);
+      const sinAsignar = new Set();
+      const tareas = imp.tareas.map((x) => {
+        const col = nuevo.columnas[x.columna] || nuevo.columnas[0];
+        const u = personaDe(x.asignado, equipo);
+        if (x.asignado && !u) sinAsignar.add(x.asignado);
+        return {
+          ...camposAgencia({ titulo: x.titulo, notas: x.notas, fecha: x.fecha }), ...(proyecto !== PROYECTO_AGENCIA ? { proyecto } : {}),
+          asignado: u ? { tipo: 'persona', id: u.id } : null, opTablero: nuevo.id, opColumna: col.id, checklist: sanitizeChecklist(x.checklist), prioridad: prioridadValida(x.prioridad),
+          estado: col.hecha ? 'hecha' : 'pendiente', hecha: Boolean(col.hecha), hechaEn: col.hecha ? new Date().toISOString() : '', hechaPor: col.hecha ? por : '',
+        };
+      });
+      if (tareas.length) await crearTareasAgencia(tareas, por);
+      return json({ ok: true, ...cfg, tablero: nuevo, tareas: tareas.length, sinAsignar: [...sinAsignar] });
     }
     // Tableros y plantillas: solo el superadmin.
     if (/^(tablero|plantilla)-/.test(String(body.op))) {

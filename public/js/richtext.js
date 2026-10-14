@@ -3,7 +3,7 @@
 // Lo usan el navegador (editor y vista) y el servidor (que limpia SIEMPRE antes de guardar).
 
 const MAX = 20000;
-const TAGS = { p: 'p', div: 'div', br: 'br', strong: 'strong', b: 'strong', em: 'em', i: 'em', u: 'u', s: 's', strike: 's', h2: 'h2', h3: 'h3', ul: 'ul', ol: 'ol', li: 'li', a: 'a', blockquote: 'blockquote' };
+const TAGS = { p: 'p', div: 'div', br: 'br', strong: 'strong', b: 'strong', em: 'em', i: 'em', u: 'u', s: 's', strike: 's', h1: 'h2', h2: 'h2', h3: 'h3', ul: 'ul', ol: 'ol', li: 'li', a: 'a', blockquote: 'blockquote' };
 const VOID = new Set(['br']);
 const BLOCK = new Set(['p', 'div', 'h2', 'h3', 'ul', 'ol', 'blockquote']);
 // Etiquetas cuyo contenido se descarta entero.

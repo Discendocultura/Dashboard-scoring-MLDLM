@@ -156,3 +156,51 @@ test('tableros (API): se repite cada mes el día 5 → la siguiente cae el día 
   assert.equal(r.data.nueva.fecha, '2030-04-05');
   assert.deepEqual(r.data.nueva.repetir, { tipo: 'mensual', n: 0, dia: 5 });
 });
+
+test('tableros: importar desde archivo (formato propio y export de Asana) y a quién se asigna', async () => {
+  const { normalizarImportacion, personaDe } = await import('../public/js/tableros-import.js');
+  const propio = normalizarImportacion({ formato: 'tablero-operativa', nombre: 'Diario', columnas: [{ nombre: 'Ideas' }, { nombre: 'Esta semana' }, { nombre: 'Hecho', hecha: true }],
+    tareas: [{ titulo: 'Uno', columna: 'Esta semana', checklist: ['a', { texto: 'b', hecho: true }, ''] }, { titulo: 'Dos', columna: 7 }, { titulo: '' }] });
+  assert.equal(propio.nombre, 'Diario');
+  assert.deepEqual(propio.tareas.map((t) => [t.titulo, t.columna]), [['Uno', 1], ['Dos', 0]]);
+  assert.deepEqual(propio.tareas[0].checklist, [{ texto: 'a', hecho: false }, { texto: 'b', hecho: true }]);
+  const asana = normalizarImportacion({ data: [
+    { name: 'A', notes: 'línea <1>', due_on: '2030-01-02', assignee: { name: 'Ana Pérez' }, memberships: [{ section: { name: 'Pendiente' } }], subtasks: [{ name: 'sub', completed: true }] },
+    { name: 'B', completed: true, memberships: [{ section: { name: 'Cerrado' } }] },
+    { name: 'sub', parent: { gid: '1' }, memberships: [{ section: { name: 'Pendiente' } }] },
+  ] });
+  assert.deepEqual(asana.columnas, [{ nombre: 'Pendiente', hecha: false }, { nombre: 'Cerrado', hecha: true }]);
+  assert.equal(asana.tareas.length, 1); // sin las completadas ni las subtareas sueltas
+  assert.equal(asana.tareas[0].notas, '<p>línea &lt;1&gt;</p>');
+  assert.equal(normalizarImportacion({ data: [{ name: 'B', completed: true, memberships: [{ section: { name: 'Cerrado' } }] }] }, { incluirCompletadas: true }).tareas[0].columna, 0);
+  assert.throws(() => normalizarImportacion({ tareas: [] }), /columnas/);
+  const equipo = [{ id: 'u1', nombre: 'Ana Pérez', email: 'ana@x.es' }, { id: 'u2', nombre: 'Luis Gómez', email: '' }];
+  assert.equal(personaDe('ana perez', equipo).id, 'u1');
+  assert.equal(personaDe('ANA@x.es', equipo).id, 'u1');
+  assert.equal(personaDe('luisgomez99@gmail.com', equipo).id, 'u2'); // por el nombre de pila del email
+  assert.equal(personaDe('Marta', equipo), null);
+});
+
+test('tableros (API): importar un tablero crea sus columnas y sus tareas en el proyecto', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const post = (body) => call('/api/operativa', { method: 'POST', cookie: admin, body });
+  const archivo = { columnas: [{ nombre: 'Foco' }, { nombre: 'Próximo' }, { nombre: 'Cerrado', hecha: true }],
+    tareas: [{ titulo: 'Tarea foco', columna: 0, notas: '<h1>Paso</h1><script>x</script>', fecha: '2030-02-01', asignado: 'Nadie Conocido', checklist: ['uno', 'dos'] }, { titulo: 'Tarea cerrada', columna: 2 }] };
+  assert.equal((await post({ op: 'importar-tablero', proyecto: 'no-existe', nombre: 'X', archivo })).status, 400);
+  const r = await post({ op: 'importar-tablero', proyecto: 'mldlm', nombre: 'Operativa diaria', archivo });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.tareas, 2);
+  assert.deepEqual(r.data.sinAsignar, ['Nadie Conocido']);
+  assert.deepEqual(r.data.tablero.columnas.map((c) => c.nombre), ['Foco', 'Próximo', 'Cerrado']);
+  const g = (await call('/api/operativa', { cookie: admin })).data;
+  const foco = g.tareas.find((t) => t.titulo === 'Tarea foco');
+  assert.equal(foco.cliente, 'mldlm');
+  assert.equal(foco.opTablero, r.data.tablero.id);
+  assert.equal(foco.opColumna, r.data.tablero.columnas[0].id);
+  assert.equal(foco.checklist.length, 2);
+  assert.match(foco.notas, /<h2>Paso<\/h2>/);
+  assert.doesNotMatch(foco.notas, /script/);
+  assert.equal(g.tareas.find((t) => t.titulo === 'Tarea cerrada').hecha, true);
+  const setter = (await call('/api/login', { method: 'POST', body: { password: 'setter' } })).res.headers.get('set-cookie').split(';')[0];
+  assert.equal((await call('/api/operativa', { method: 'POST', cookie: setter, body: { op: 'importar-tablero', proyecto: 'mldlm', archivo } })).status, 403);
+});
