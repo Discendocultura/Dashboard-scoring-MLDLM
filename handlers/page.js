@@ -241,12 +241,13 @@ async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, p
     const at = madridToEpoch(r.test.at);
     // Debajo de una clase (tras): además, esa clase tiene que estar disponible (y la página pide haberla visto al 75 %).
     const k = r.test.tras || '';
-    const unlocked = (at == null || now >= at) && (!k || claseDisponible(k));
+    const fechaOk = at == null || now >= at;
+    const unlocked = fechaOk && (!k || claseDisponible(k));
     // Además de su fecha, hace falta haber rellenado la encuesta (etapa 1) si el lanzamiento la tiene.
     const faltaEncuesta = !encuestaDone;
     recursos.test = {
       nombre: r.test.nombre, unlockAt: at, unlockText: formatLong(at), unlocked, faltaEncuesta, done: Boolean(sig?.test), url: unlocked && !faltaEncuesta ? encuestaUrl(r.test.url, contact) : '',
-      ...(k ? { tras: k, umbral: UMBRAL_DESBLOQUEO, claseVista: vistaClase(k) || (preview && !contact) } : {}),
+      ...(k ? { tras: k, umbral: UMBRAL_DESBLOQUEO, fechaOk, claseDisponible: claseDisponible(k), claseVista: vistaClase(k) || (preview && !contact) } : {}),
     };
   }
   if (tieneRecurso(launch, 'votacion')) {

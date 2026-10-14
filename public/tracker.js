@@ -657,7 +657,8 @@
     test: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>',
   };
   // <div data-lsd-recursos="clase2"></div>: los recursos que en el dashboard van debajo de esa clase (música,
-  // votación, test), cada uno con su título y solo cuando ya se puede usar. Sin nada que enseñar, se oculta.
+  // votación, test), cada uno con su título. Desde que la clase está disponible se ven con candado; al ver el 75 %
+  // de la clase se abren. Con la clase aún cerrada (o sin recursos), el hueco se oculta.
   // Títulos opcionales: data-titulo-musica, data-titulo-votacion, data-titulo-test; botón: data-boton-test.
   function pintarRecursosClase(rec, vista) {
     document.querySelectorAll('[data-lsd-recursos]').forEach(function (el) {
@@ -665,16 +666,29 @@
       var partes = [];
       var huella = [];
       var bloque = function (id, titulo, html) { return '<div class="lsd-recurso lsd-recurso-' + id + '"><p class="lsd-recurso-t"><span class="lsd-recurso-ico">' + ICONO_REC[id] + '</span>' + esc(titulo) + '</p>' + html + '</div>'; };
+      // Con la clase ya disponible, el recurso se ve con candado hasta haberla visto (así se sabe que está ahí).
+      var candado = function (txt) { return '<p class="lsd-recurso-aviso">🔒 ' + esc(txt) + '</p>'; };
+      var txtVer = el.getAttribute('data-texto-bloqueado') || 'Se desbloquea al ver la clase (al menos el 75 %).';
       var m = rec.musica;
-      if (m && m.tras === k && m.url && vista(m)) { partes.push(bloque('musica', el.getAttribute('data-titulo-musica') || m.nombre || 'Tu música', '<div data-lsd-audio="musica"></div>')); huella.push('m'); }
+      if (m && m.tras === k && m.claseDisponible) {
+        var tm = el.getAttribute('data-titulo-musica') || m.nombre || 'Tu música';
+        if (m.url && vista(m)) { partes.push(bloque('musica', tm, '<div data-lsd-audio="musica"></div>')); huella.push('m'); }
+        else { partes.push(bloque('musica', tm, candado(txtVer))); huella.push('m0'); }
+      }
       var v = rec.votacion;
-      if (v && v.tras === k && ((v.claseDisponible && vista(v)) || v.respondida)) { partes.push(bloque('votacion', el.getAttribute('data-titulo-votacion') || 'Tu voz en el directo', '<div data-lsd-votacion></div>')); huella.push('v'); }
+      if (v && v.tras === k && (v.claseDisponible || v.respondida)) {
+        var tv = el.getAttribute('data-titulo-votacion') || 'Tu voz en el directo';
+        if (v.respondida || vista(v)) { partes.push(bloque('votacion', tv, '<div data-lsd-votacion></div>')); huella.push('v'); }
+        else { partes.push(bloque('votacion', tv, candado(txtVer))); huella.push('v0'); }
+      }
       var t = rec.test;
-      if (t && t.tras === k) {
-        var ct = condsTest(t, vista);
+      if (t && t.tras === k && (t.claseDisponible || t.done)) {
         var tt = el.getAttribute('data-titulo-test') || t.nombre || 'Tu test';
+        var ct = condsTest(t, vista);
         if (ct['test-hecho']) { partes.push(bloque('test', tt, '<p class="lsd-recurso-hecho">✓ ' + esc(el.getAttribute('data-texto-test-hecho') || '¡Test completado!') + '</p>')); huella.push('th'); }
-        else if (ct['test-falta-encuesta']) { partes.push(bloque('test', tt, '<p class="lsd-recurso-aviso">🔒 ' + esc(el.getAttribute('data-texto-test-encuesta') || 'Para hacer el test, rellena primero la encuesta.') + '</p>')); huella.push('te'); }
+        else if (!vista(t)) { partes.push(bloque('test', tt, candado(txtVer))); huella.push('t0'); }
+        else if (!t.fechaOk) { partes.push(bloque('test', tt, candado('Se abre el ' + (t.unlockText || 'día indicado') + '.'))); huella.push('tf'); }
+        else if (ct['test-falta-encuesta']) { partes.push(bloque('test', tt, candado(el.getAttribute('data-texto-test-encuesta') || 'Para hacer el test, rellena primero la encuesta.'))); huella.push('te'); }
         else if (ct['test-disponible'] && t.url) { partes.push(bloque('test', tt, '<a class="lsd-recurso-btn" href="' + esc(t.url) + '" target="_blank" rel="noopener">' + esc(el.getAttribute('data-boton-test') || 'Hacer el test') + '</a>')); huella.push('td'); }
       }
       var h = huella.join(',');
