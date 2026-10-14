@@ -30,6 +30,9 @@ let fProy = '';
 let fEmb = ''; // embudo dentro del cliente elegido
 let fTab = GENERAL; // tablero del cliente elegido (vista Tablero)
 let editTab = null; // borrador del tablero que se está creando o cuyas columnas se editan
+let addCol = '';
+let creandoCol = ''; // la columna desde la que se abrió «Nueva tarea» (vista por estado) // columna con el «＋ Añadir tarea» abierto
+let recienHecha = ''; // la que se acaba de completar: llega a «Hecho» con su animación
 let importando = null; // { archivo, imp, asana, nombre, completadas } mientras se importa un tablero
 let calMes = '';
 let fPersona = '';
@@ -64,6 +67,7 @@ export async function abrirOperativa(opts) {
     dlg.dataset.listo = '1';
     dlg.querySelector('#op-cerrar').addEventListener('click', () => dlg.close());
     dlg.querySelector('#op-nueva').addEventListener('click', () => { creando = true; abierta = null; pintar(); });
+    dlg.querySelector('#op-importar-btn')?.addEventListener('click', () => dlg.querySelector('#op-importar').click());
     dlg.addEventListener('click', onClick);
     dlg.addEventListener('change', onChange);
     dlg.addEventListener('submit', onSubmit);
@@ -71,6 +75,12 @@ export async function abrirOperativa(opts) {
     dlg.addEventListener('dragstart', (e) => { const c = e.target.closest?.('[data-op-k]'); if (c) { e.dataTransfer.setData('text/plain', c.dataset.opK); c.classList.add('arrastrando'); } });
     // Las tareas del calendario se abren también con el teclado (Intro / espacio).
     dlg.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.op-cal-t')) { e.preventDefault(); e.target.click(); } });
+    // «＋ Añadir tarea»: Intro añade (Mayús+Intro, salto de línea) y Esc cierra.
+    dlg.addEventListener('keydown', (e) => {
+      if (!e.target.matches?.('.op-add textarea')) return;
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.form.requestSubmit(); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addCol = ''; pintarVista(); }
+    });
     dlg.addEventListener('dragend', (e) => e.target.closest?.('[data-op-k]')?.classList.remove('arrastrando'));
     // Tablero: soltar en otra columna cambia el estado. Calendario: soltar en otro día cambia la fecha.
     dlg.addEventListener('dragover', (e) => { const col = e.target.closest('[data-op-col], [data-op-dia]'); if (col) { e.preventDefault(); col.classList.add('sobre'); } });
@@ -98,7 +108,9 @@ async function cargar() {
   try {
     d = await ctx.api('/api/operativa');
   } catch (e) { body().innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
-  if (vista === 'personas' && !d.superadmin) vista = 'tablero';
+  if (vista === 'personas' || vista === 'proyectos') vista = 'tablero';
+  const imp = ctx.dialog.querySelector('#op-importar-btn');
+  if (imp) imp.hidden = !d.superadmin; // ya no son pestañas: están en los filtros
   if (fProy && !d.proyectos.some((p) => p.id === fProy)) { fProy = ''; fEmb = ''; }
   if (!tabsDe(fProy).some((b) => b.id === fTab)) fTab = GENERAL;
   pintar();
@@ -112,6 +124,9 @@ function filtradas() {
     && (!fEtq || (fEtq === '_alta' ? x.prioridad === 'alta' : (x.etiquetas || []).includes(fEtq)))
     && (!t || `${x.titulo} ${x.clienteNombre} ${x.embudo} ${etiquetasDeTarea(x, d.etiquetas).map((e) => e.nombre).join(' ')}`.toLowerCase().includes(t)));
 }
+
+// Desplegable con icono, en forma de píldora (resaltado si filtra algo).
+const selector = (id, label, ico, valor, opciones, color) => `<label class="op-sel${valor ? ' activo' : ''}"${color ? ` style="--sel:${esc(color)}"` : ''}><span class="op-sel-ico" aria-hidden="true">${ico}</span><select id="${id}" aria-label="${label}">${opciones}</select><span class="op-sel-chev" aria-hidden="true">▾</span></label>`;
 
 function pintar() {
   const tab = (id, txt) => `<button type="button" class="op-tab${vista === id ? ' on' : ''}" data-op-vista="${id}">${txt}</button>`;
@@ -130,11 +145,11 @@ function pintar() {
     + (bloqT ? `<span class="op-sub-pill ambar">${bloqT} bloqueada${bloqT === 1 ? '' : 's'}</span>` : '')
     + `<span class="op-sub-txt">${d.superadmin ? 'Todo el equipo y todos los proyectos' : 'Lo que tienes asignado en todos los proyectos'}</span>`;
   body().innerHTML = `<div class="op">
-    <nav class="op-tabs">${tab('tablero', '🗂️ Tablero')}${tab('calendario', '🗓️ Calendario')}${tab('dia', `☀️ Mi día${venc ? ` <b>${venc}</b>` : ''}`)}${tab('proyectos', '📁 Por proyecto')}${d.superadmin ? tab('personas', '👥 Por persona') : ''}</nav>
+    <nav class="op-tabs">${tab('tablero', '🗂️ Tablero')}${tab('calendario', '🗓️ Calendario')}${tab('dia', `☀️ Mi día${venc ? ` <b>${venc}</b>` : ''}`)}</nav>
     <div class="op-filtros">
-      <select id="op-proyecto" aria-label="Cliente"><option value="">Todos los clientes</option>${d.proyectos.map((p) => `<option value="${esc(p.id)}"${fProy === p.id ? ' selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select>
-      ${fProy && fProy !== PROYECTO_AGENCIA ? (() => { const embs = embudosDe(d.tareas, fProy); return embs.length ? `<select id="op-embudo" aria-label="Embudo"><option value="">Todos los proyectos</option>${embs.map((e) => `<option value="${esc(e.id)}"${fEmb === e.id ? ' selected' : ''}>${ICONO_EMBUDO[e.tipo] || '📁'} ${esc(e.nombre)}${e.n ? ` (${e.n})` : ''}</option>`).join('')}</select>` : ''; })() : ''}
-      ${d.superadmin ? `<select id="op-persona" aria-label="Persona"><option value="">Todo el equipo</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${fPersona === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}<option value="_sin"${fPersona === '_sin' ? ' selected' : ''}>Sin asignar</option></select>` : ''}
+      ${selector('op-proyecto', 'Cliente', fProy ? '🏷️' : '🌐', fProy, `<option value="">Todos los clientes</option>${d.proyectos.map((p) => `<option value="${esc(p.id)}"${fProy === p.id ? ' selected' : ''}>${esc(p.nombre)}</option>`).join('')}`, d.proyectos.find((p) => p.id === fProy)?.color)}
+      ${fProy && fProy !== PROYECTO_AGENCIA ? (() => { const embs = embudosDe(d.tareas, fProy); return embs.length ? selector('op-embudo', 'Embudo', '🧭', fEmb, `<option value="">Todos los proyectos</option>${embs.map((e) => `<option value="${esc(e.id)}"${fEmb === e.id ? ' selected' : ''}>${ICONO_EMBUDO[e.tipo] || '📁'} ${esc(e.nombre)}${e.n ? ` (${e.n})` : ''}</option>`).join('')}`) : ''; })() : ''}
+      ${d.superadmin ? selector('op-persona', 'Persona', fPersona ? '👤' : '👥', fPersona, `<option value="">Todo el equipo</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${fPersona === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}<option value="_sin"${fPersona === '_sin' ? ' selected' : ''}>Sin asignar</option>`) : ''}
       <label class="pr-buscar op-buscar"><span aria-hidden="true">🔎</span><input id="op-buscar" type="search" placeholder="Buscar…" value="${esc(q)}" autocomplete="off"></label>
     </div>
     ${barraEtiquetas()}
@@ -215,7 +230,7 @@ function tarjetaTablero(t, hoy) {
   const ck = progresoChecklist(t);
   const hecha = estadoOp(t) === 'hecha';
   const portada = etqs[0] ? COLORES_ETIQUETA[etqs[0].color] : pr ? pr.color : '';
-  return `<article class="op-card op-card2${estaBloqueada(t) ? ' is-bloq' : ''}${hecha ? ' es-hecha' : ''}${portada ? ' con-portada' : ''}${recienCreada && t.id === recienCreada ? ' recien' : ''}" style="--i:${nCard++ % 12};${portada ? `--portada:${portada}` : ''}" draggable="true" data-op-k="${esc(clave(t))}" data-op-abrir="${esc(clave(t))}">
+  return `<article class="op-card op-card2${estaBloqueada(t) ? ' is-bloq' : ''}${hecha ? ' es-hecha' : ''}${portada ? ' con-portada' : ''}${recienCreada && t.id === recienCreada ? ' recien' : ''}${recienHecha && t.id === recienHecha ? ' llega' : ''}" style="--i:${nCard++ % 12};${portada ? `--portada:${portada}` : ''}" draggable="true" data-op-k="${esc(clave(t))}" data-op-abrir="${esc(clave(t))}">
         ${etqs.length || pr ? `<div class="op-card-etqs">${pr ? `<span class="op-prio p-${pr.id}" title="Prioridad ${esc(pr.label.toLowerCase())}">${pr.id === 'alta' ? '🔥' : '⚑'} ${esc(pr.label)}</span>` : ''}${etqs.map((e) => pildoraEtq(e)).join('')}</div>` : ''}
         <div class="op-card-t"><button type="button" class="op-check${hecha ? ' on' : ''}" data-op-hecha="${esc(clave(t))}" title="${hecha ? 'Reabrir' : 'Marcar como hecha'}" aria-label="${hecha ? 'Reabrir' : 'Marcar como hecha'}">✓</button><strong>${esc(t.titulo)}</strong></div>
         ${t.notas ? `<p class="op-card-desc">${esc(richToText(t.notas).replace(/🎬/g, '🎬 vídeo').replace(/\s*•\s*/g, ' · ').replace(/\s*\n+\s*/g, ' · ').replace(/^ · /, '').slice(0, 120))}</p>` : ''}
@@ -229,7 +244,12 @@ const porFecha = ordenTarjetas; // prioridad alta primero y después por fecha
 // Tablero: con «Todos los clientes», por estado (Pendiente · Para revisar · Hecho). Con un cliente elegido, sus
 // tableros (General y los creados) con sus propias columnas; el superadmin crea tableros y edita columnas.
 let ultimoTablero = '';
+// Abajo de cada columna: «＋ Añadir tarea» (se escribe el título y Intro; la tarea se crea ya en esa columna).
+const pieColumna = (colId) => (addCol === colId
+  ? `<form class="op-add" data-op-form="rapida" data-col="${esc(colId)}"><textarea name="titulo" rows="2" maxlength="200" placeholder="¿Qué hay que hacer? (Intro para añadir)" aria-label="Nueva tarea"></textarea><div class="op-add-acc"><button class="btn primary small">Añadir</button><button type="button" class="btn ghost small" data-op="add-cerrar" aria-label="Cancelar">✕</button><span class="muted small">${fProy ? '' : 'Se abrirá la ficha para elegir el proyecto'}</span></div></form>`
+  : `<button type="button" class="op-add-b" data-op-add="${esc(colId)}">＋ Añadir tarea</button>`);
 function vistaTablero(lista, hoy) {
+  if (importando) return vistaImportar();
   // Las tarjetas entran con animación al abrir o cambiar de tablero; al repintar tras un cambio, no.
   const k = `${fProy}|${fTab}|${fEmb}|${fEtq}`;
   const quieto = k === ultimoTablero ? ' quieto' : '';
@@ -238,23 +258,22 @@ function vistaTablero(lista, hoy) {
     return `<p class="muted small op-ayuda">Arrastra las tarjetas de una columna a otra para cambiar su estado. <strong>Elige un cliente arriba</strong> para ver sus tableros, cada uno con sus columnas.</p>
   <div class="op-tablero${quieto}">${ESTADOS_OP.map((e) => {
     const ts = lista.filter((t) => estadoOp(t) === e.id).sort(porFecha);
-    return `<section class="op-col e-${e.id}" data-op-col="${e.id}"><header><span class="op-col-dot"></span><span class="op-col-nom">${e.icon} ${esc(e.label)}</span><b>${ts.length}</b></header>
-      <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div></section>`;
+    return `<section class="op-col e-${e.id}" data-op-col="${e.id}"><header><span class="op-col-dot"></span><span class="op-col-nom">${e.icon} ${esc(e.label)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${e.id}" title="Nueva tarea en «${esc(e.label)}»" aria-label="Nueva tarea en ${esc(e.label)}">＋</button></header>
+      <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div>${pieColumna(e.id)}</section>`;
   }).join('')}</div>`;
   }
   const tabs = tabsDe(fProy);
   const tab = tabs.find((b) => b.id === fTab) || tabs[0];
   const abiertasDe = (b) => lista.filter((t) => tabDeT(t).id === b.id && estadoOp(t) !== 'hecha').length;
   const barra = `<nav class="op-tabs-tab" aria-label="Tableros">${tabs.map((b) => `<button type="button" class="op-tab-b${b.id === tab.id ? ' on' : ''}" data-op-tab="${esc(b.id)}">${b.id === GENERAL ? '🗂️' : '📋'} ${esc(b.nombre)} <b>${abiertasDe(b)}</b></button>`).join('')}
-    ${d.superadmin ? `<button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-nuevo">＋ Nuevo tablero</button><button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-importar" title="Desde un archivo .json (también el export de un proyecto de Asana)">⬆️ Importar tablero</button><input type="file" accept=".json,application/json" id="op-importar" hidden><button type="button" class="btn ghost small op-tab-cfg" data-op="tab-editar">⚙️ Columnas de «${esc(tab.nombre)}»</button>` : ''}</nav>`;
-  if (importando) return barra + vistaImportar();
+    ${d.superadmin ? `<button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-nuevo">＋ Nuevo tablero</button><button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-importar" title="Desde un archivo .json (también el export de un proyecto de Asana)">⬆️ Importar tablero</button><button type="button" class="btn ghost small op-tab-cfg" data-op="tab-editar">⚙️ Columnas de «${esc(tab.nombre)}»</button>` : ''}</nav>`;
   if (editTab) return barra + editorTablero();
   const suyas = lista.filter((t) => tabDeT(t).id === tab.id);
   return `${barra}<p class="muted small op-ayuda">Arrastra las tarjetas de una columna a otra. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.</p>
   <div class="op-tablero${quieto}" style="--op-ncol:${tab.columnas.length}">${tab.columnas.map((c, i) => {
     const ts = suyas.filter((t) => columnaDeTarea(t, tab) === c.id).sort(porFecha);
-    return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header><span class="op-col-dot"></span><span class="op-col-nom">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b></header>
-      <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div></section>`;
+    return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header><span class="op-col-dot"></span><span class="op-col-nom">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${esc(c.id)}" title="Nueva tarea en «${esc(c.nombre)}»" aria-label="Nueva tarea en ${esc(c.nombre)}">＋</button></header>
+      <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div>${pieColumna(c.id)}</section>`;
   }).join('')}</div>`;
 }
 
@@ -267,8 +286,9 @@ function vistaImportar() {
   try { n = normalizarImportacion(importando.archivo, { incluirCompletadas: importando.completadas }); } catch { /* ya validado */ }
   const por = n.columnas.map((c, i) => n.tareas.filter((t) => t.columna === i).length);
   return `<section class="op-te op-imp">
-    <header class="op-te-h"><h3>⬆️ Importar tablero</h3><span class="muted small">en ${esc(d.proyectos.find((p) => p.id === fProy)?.nombre || '')}</span></header>
-    <label class="field"><span>Nombre del tablero</span><input data-imp="nombre" maxlength="40" value="${esc(importando.nombre)}" placeholder="Operativa diaria"></label>
+    <header class="op-te-h"><h3>⬆️ Importar tablero</h3></header>
+    <div class="op-te-fila"><label class="field"><span>Cliente (proyecto)</span><select data-imp="proyecto"><option value="">— Elige el cliente —</option>${d.proyectos.map((p) => `<option value="${esc(p.id)}"${(importando.proyecto || fProy) === p.id ? ' selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></label>
+    <label class="field"><span>Nombre del tablero</span><input data-imp="nombre" maxlength="40" value="${esc(importando.nombre)}" placeholder="Operativa diaria"></label></div>
     <div class="op-imp-cols">${n.columnas.map((c, i) => `<div class="op-imp-col${c.hecha ? ' hecha' : ''}"><strong>${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</strong><span>${por[i]} tarea${por[i] === 1 ? '' : 's'}</span></div>`).join('')}</div>
     <p class="muted small">${n.tareas.length} tareas con su descripción, fecha, responsable (si está en el equipo de la agencia) y sus subtareas como checklist.</p>
     ${asana ? `<label class="chk small"><input type="checkbox" data-imp="completadas" ${importando.completadas ? 'checked' : ''}> Incluir también las tareas ya completadas (a la columna de hecho)</label>` : ''}
@@ -464,9 +484,19 @@ function aviso(texto) {
 }
 
 async function moverColumna(t, columna, tablero) {
+  const era = estadoOp(t) === 'hecha';
   try { await op(t, { op: 'columna', columna, ...(tablero ? { tablero } : {}) }); } catch (err) { window.alert(err.message); }
+  if (!era && estadoOp(t) === 'hecha') { llegaAHecho(t); return; }
   pintarVista();
   if (abierta) pintarFicha();
+}
+// La tarea recién completada aparece en «Hecho» con su animación (y se ve aunque la columna sea larga).
+function llegaAHecho(t) {
+  recienHecha = t.id;
+  pintarVista();
+  if (abierta) pintarFicha();
+  body().querySelector('.op-card.llega')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  setTimeout(() => { if (recienHecha === t.id) recienHecha = ''; }, 1600);
 }
 
 async function cambiarFecha(t, fecha) {
@@ -476,7 +506,9 @@ async function cambiarFecha(t, fecha) {
 }
 
 async function cambiarEstado(t, estado) {
+  const era = estadoOp(t) === 'hecha';
   try { await op(t, { op: 'estado', estado }); } catch (err) { window.alert(err.message); }
+  if (!era && estadoOp(t) === 'hecha' && vista === 'tablero') { llegaAHecho(t); return; }
   pintarVista();
   if (abierta) pintarFicha();
 }
@@ -529,6 +561,14 @@ async function onClick(e) {
   if (cs) { const t = buscarT(abierta); if (t && cs.dataset.opColSet !== columnaDeTarea(t, tabDeT(t))) moverColumna(t, cs.dataset.opColSet, tabDeT(t).id); return; }
   const cal = e.target.closest('[data-op-cal]');
   if (cal) { calMes = cal.dataset.opCal === 'hoy' ? hoyMadrid().slice(0, 7) : mesMas(calMes, Number(cal.dataset.opCal)); pintarVista(); return; }
+  const add = e.target.closest('[data-op-add]');
+  if (add) {
+    if (!fProy) { creando = true; abierta = null; creandoCol = add.dataset.opAdd; pintar(); return; } // sin cliente elegido: la ficha pide el proyecto
+    addCol = add.dataset.opAdd;
+    pintarVista();
+    body().querySelector('.op-add textarea')?.focus();
+    return;
+  }
   const hecha = e.target.closest('[data-op-hecha]');
   if (hecha) {
     const t = buscarT(hecha.dataset.opHecha);
@@ -539,9 +579,9 @@ async function onClick(e) {
     const card = hecha.closest('.op-card');
     if (completar && card && vista === 'tablero') {
       card.classList.add('completando');
-      await Promise.all([new Promise((ok) => setTimeout(ok, 420)), op(t, { op: 'estado', estado: 'hecha' }).catch((err) => window.alert(err.message))]);
-      pintarVista();
-      if (abierta) pintarFicha();
+      card.insertAdjacentHTML('beforeend', `<span class="op-burst" aria-hidden="true">${Array.from({ length: 12 }, (_, i) => `<i style="--a:${i * 30}deg;--d:${50 + (i % 3) * 14}px"></i>`).join('')}</span>`);
+      await Promise.all([new Promise((ok) => setTimeout(ok, 700)), op(t, { op: 'estado', estado: 'hecha' }).catch((err) => window.alert(err.message))]);
+      llegaAHecho(t);
       return;
     }
     cambiarEstado(t, completar ? 'hecha' : 'pendiente');
@@ -579,6 +619,7 @@ async function onClick(e) {
     pintarVista(); pintarFicha(); return;
   }
   if (b.dataset.op === 'bloquear' || b.dataset.op === 'desbloquear') { const t = buscarT(abierta); if (t) ponerBloqueo(t, b.dataset.op === 'bloquear'); return; }
+  if (b.dataset.op === 'add-cerrar') { addCol = ''; pintarVista(); return; }
   if (b.dataset.op === 'cerrar-ficha') { abierta = null; creando = false; editandoDesc = false; pickerEtq = false; pintar(); return; }
   if (b.dataset.op === 'editar-desc') { editandoDesc = true; pintarFicha(); editor?.area.focus(); return; }
   if (b.dataset.op === 'cancelar-desc') { editandoDesc = false; pintarFicha(); return; }
@@ -598,18 +639,22 @@ async function onClick(e) {
 // Acciones del editor de tableros (superadmin).
 async function opEditor(b) {
   const a = b.dataset.op;
-  if (a === 'tab-importar') { body().querySelector('#op-importar')?.click(); return; }
+  if (a === 'tab-importar') { ctx.dialog.querySelector('#op-importar')?.click(); return; }
   if (a === 'imp-cancelar') { importando = null; pintarVista(); return; }
   if (a === 'imp-crear' && importando) {
     const nombre = (body().querySelector('[data-imp="nombre"]')?.value || '').trim();
+    const proyecto = body().querySelector('[data-imp="proyecto"]')?.value || '';
+    if (!proyecto) { window.alert('Elige el cliente al que va el tablero.'); return; }
     if (!nombre) { window.alert('Ponle un nombre al tablero.'); return; }
-    if (tabsDe(fProy).some((x) => x.nombre.toLowerCase() === nombre.toLowerCase()) && !window.confirm(`Ya hay un tablero «${nombre}» en este cliente. ¿Crear otro con el mismo nombre?`)) return;
+    if (tabsDe(proyecto).some((x) => x.nombre.toLowerCase() === nombre.toLowerCase()) && !window.confirm(`Ya hay un tablero «${nombre}» en este cliente. ¿Crear otro con el mismo nombre?`)) return;
     b.disabled = true;
     b.textContent = 'Importando…';
     try {
       const n = normalizarImportacion(importando.archivo, { incluirCompletadas: importando.completadas });
-      const r = await guardarTableros({ op: 'importar-tablero', proyecto: fProy, nombre, archivo: n });
+      const r = await guardarTableros({ op: 'importar-tablero', proyecto, nombre, archivo: n });
       importando = null;
+      fProy = proyecto;
+      fEmb = '';
       fTab = r.tablero.id;
       await cargar();
       aviso(`✓ Tablero «${nombre}» creado con ${r.tareas} tareas${r.sinAsignar.length ? `. Sin responsable (no están en el equipo): ${r.sinAsignar.join(', ')}` : ''}`);
@@ -670,12 +715,14 @@ async function onChange(e) {
     try {
       const archivo = JSON.parse(await f.text());
       const imp = normalizarImportacion(archivo);
-      importando = { archivo, imp, asana: Array.isArray(archivo?.data), nombre: imp.nombre || f.name.replace(/\.json$/i, '').slice(0, 40), completadas: false };
+      importando = { archivo, imp, asana: Array.isArray(archivo?.data), nombre: imp.nombre || f.name.replace(/\.json$/i, '').slice(0, 40), completadas: false, proyecto: fProy };
       editTab = null;
-      pintarVista();
+      vista = 'tablero';
+      pintar();
     } catch (err) { window.alert(`No se ha podido leer el archivo: ${err.message}`); }
     return;
   }
+  if (t0.dataset.imp === 'proyecto' && importando) { importando.proyecto = t0.value; return; }
   if (t0.dataset.imp === 'completadas' && importando) { importando.nombre = body().querySelector('[data-imp="nombre"]')?.value || importando.nombre; importando.completadas = t0.checked; pintarVista(); return; }
   if (t0.dataset.rep) { guardarRepetir(t0.closest('[data-rep-ed]')); return; }
   if (t0.id === 'op-proyecto') { fProy = t0.value; fEmb = ''; fTab = GENERAL; editTab = null; importando = null; pintar(); return; }
@@ -729,6 +776,20 @@ async function onSubmit(e) {
       body().querySelector('[data-op-form="ck"] input')?.focus();
       return;
     }
+    if (f.dataset.opForm === 'rapida') {
+      const titulo = f.titulo.value.trim();
+      if (!titulo) { btn?.removeAttribute('disabled'); return; }
+      const tab = tabsDe(fProy).find((x) => x.id === fTab) || tabsDe(fProy)[0];
+      const r = await ctx.api('/api/operativa', { method: 'POST', body: { op: 'crear', tarea: { titulo, proyecto: fProy, opTablero: tab.id } } });
+      await cargar();
+      const t = d.tareas.find((x) => x.id === r.tarea.id);
+      if (t && columnaDeTarea(t, tab) !== f.dataset.col) await op(t, { op: 'columna', columna: f.dataset.col });
+      recienCreada = r.tarea.id;
+      setTimeout(() => { if (recienCreada === r.tarea.id) recienCreada = ''; }, 3000);
+      pintarVista();
+      body().querySelector('.op-add textarea')?.focus(); // para seguir añadiendo
+      return;
+    }
     if (f.dataset.opForm === 'comentar') {
       const texto = f.texto.value.trim();
       if (!texto) { btn?.removeAttribute('disabled'); return; }
@@ -742,6 +803,10 @@ async function onSubmit(e) {
       creando = false;
       await cargar();
       abierta = `${proyecto}|${CODIGO_AGENCIA}|${r.tarea.id}`;
+      // Abierta desde una columna de la vista por estado: a esa columna.
+      const nueva = buscarT(abierta);
+      if (nueva && creandoCol && creandoCol !== 'pendiente') await op(nueva, { op: 'estado', estado: creandoCol }).catch(() => {});
+      creandoCol = '';
       pintar();
     }
   } catch (err) { window.alert(err.message); btn?.removeAttribute('disabled'); }
