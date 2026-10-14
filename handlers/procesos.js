@@ -2,7 +2,9 @@
 // una tarea de Asana: responsable, fecha (que puede repetirse), descripción, subtareas, comentarios y actividad.
 //   GET  /api/procesos                         → { secciones, procesos, equipo: [{ id, nombre, foto }], yo, proyectos: [{ id, nombre, color }] }
 //   Cada proceso es general (para todos los proyectos) o de uno o varios proyectos (clientes del dashboard).
-//   POST { op: 'nuevo', seccion, titulo }      → proceso nuevo
+//   POST { op: 'nuevo', seccion, titulo, html?, subtareas?: [texto], origen? }  → proceso nuevo (desde cero o copiando
+//        una tarea de un tablero: su descripción y su checklist como subtareas)
+//   POST { op: 'vaciar', confirmar: 'VACIAR' } → borra todos los procesos y secciones (queda en el historial)
 //   POST { op: 'campos', id, campos }          → título, sección, descripción (html), proyectos, responsable, fecha, repetir
 //   POST { op: 'proyectos-lote', ids, proyectos } → varios procesos a la vez a esos proyectos ([] = generales)
 //   POST { op: 'hecho', id, hecho }            → si se repite, pasa a la próxima fecha (y las subtareas se reinician)
@@ -57,8 +59,11 @@ export async function POST(request) {
       const anotar = (p, txt) => { p.actividad.push({ en: ahora, por, txt }); p.actualizado = ahora; p.por = por; };
       if (body.op === 'nuevo') {
         if (b.procesos.length >= MAX_PROCESOS) throw bad(`Como mucho ${MAX_PROCESOS} procesos.`);
-        const p = sanitizeProceso({ id: nuevoIdProceso(), seccion: body.seccion, titulo: body.titulo || 'Proceso nuevo', actualizado: ahora, por }, b.secciones);
-        p.actividad.push({ en: ahora, por, txt: 'creó el proceso' });
+        // Desde cero o copiando una tarea de un tablero (título, descripción y checklist → subtareas). Siempre general.
+        const subtareas = (Array.isArray(body.subtareas) ? body.subtareas : []).map((t) => ({ texto: String(t ?? '') }));
+        const p = sanitizeProceso({ id: nuevoIdProceso(), seccion: body.seccion, titulo: body.titulo || 'Proceso nuevo', html: body.html || '', subtareas, actualizado: ahora, por }, b.secciones);
+        const origen = String(body.origen || '').trim().slice(0, 160);
+        p.actividad.push({ en: ahora, por, txt: origen ? `creó el proceso a partir de ${origen}` : 'creó el proceso' });
         b.procesos.push(p);
         extra = { proceso: p };
       } else if (body.op === 'campos') {
@@ -130,6 +135,9 @@ export async function POST(request) {
         extra = { proceso: p };
       } else if (body.op === 'borrar') {
         b.procesos = b.procesos.filter((x) => x.id !== body.id);
+      } else if (body.op === 'vaciar') {
+        if (body.confirmar !== 'VACIAR') throw bad('Escribe VACIAR para confirmar.');
+        b = { secciones: [{ id: 'general', titulo: 'General' }], procesos: [] };
       } else if (body.op === 'seccion') {
         const titulo = String(body.titulo || '').trim().slice(0, 60);
         if (!titulo) throw bad('Pon un nombre a la sección.');

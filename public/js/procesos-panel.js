@@ -2,6 +2,7 @@
 // buscador y filtros, tarjetas y la ficha de cada proceso con el formato de una tarea de Asana: título, responsable,
 // fecha (que puede repetirse), sección, descripción con enlaces y vídeos, subtareas, comentarios y actividad.
 // Todo se guarda al momento. Se importa desde un archivo .json (por ejemplo, el «Sistema Operativo» de Asana).
+// «＋ Nuevo» pregunta si se crea desde cero o copiando una tarea del tablero de algún cliente (siempre general).
 //   abrirProcesos({ api, dialog })
 import { richToHtml, sanitizeRich, safeHref, videoEmbed, richToText } from './richtext.js';
 import { buscarProcesos, documentado, tieneVideo, estadoFecha, proximaTrasHecho, enProyecto, encajaEnRepetir, primeraFechaRepetir } from './procesos.js';
@@ -39,6 +40,10 @@ let filtro = ''; // '' | 'mios' | 'fecha' | 'vencidos'
 let abierto = ''; // id del proceso abierto
 let editandoDesc = false;
 let pestanaAct = 'comentarios';
+// Crear un proceso: '' | 'elegir' (desde cero o desde un tablero) | 'tablero' (elegir la tarea que se copia).
+let creando = '';
+let origen = { proyecto: '', tablero: '', q: '' };
+let operativa = null; // tareas y tableros de la Operativa (para copiar una tarea), se cargan al pedirlos
 
 const body = () => ctx.dialog.querySelector('#pr-body');
 const proc = (id = abierto) => bib.procesos.find((x) => x.id === id);
@@ -63,10 +68,20 @@ export async function abrirProcesos(opts) {
     dlg.addEventListener('change', onChange);
     dlg.addEventListener('click', onClick);
     dlg.addEventListener('submit', onSubmit);
-    dlg.addEventListener('input', (e) => { if (e.target.id === 'pr-buscar') { q = e.target.value; abierto = ''; pintarLista(); } });
+    dlg.addEventListener('input', (e) => {
+      if (e.target.id === 'pr-buscar') { q = e.target.value; abierto = ''; creando = ''; pintarLista(); }
+      if (e.target.dataset.prOrigen === 'q') {
+        origen.q = e.target.value;
+        pintarLista();
+        const i = body().querySelector('[data-pr-origen="q"]');
+        i?.focus(); i?.setSelectionRange(origen.q.length, origen.q.length);
+      }
+    });
     dlg.addEventListener('keydown', onKey);
   }
   body().innerHTML = '<p class="muted">Cargando…</p>';
+  creando = '';
+  operativa = null;
   if (!dlg.open) dlg.showModal();
   try {
     bib = await ctx.api('/api/procesos');
@@ -100,14 +115,15 @@ function seccionesHtml() {
 function pintarLista() {
   const main = body().querySelector('#pr-main');
   if (!main) return;
+  if (creando) { main.innerHTML = crearHtml(); return; }
   if (abierto && proc()) { pintarProceso(main); return; }
   abierto = '';
   if (!bib.procesos.length) {
     main.innerHTML = `<div class="pr-vacio">
       <div class="pr-vacio-ico" aria-hidden="true">📚</div>
       <h3>Tu biblioteca de procesos está vacía</h3>
-      <p>Aquí estará el «cómo se hace» de todo: pasos, vídeos y enlaces, a mano para todo el equipo de la agencia.</p>
-      <p><label class="btn primary">⤓ Importar el archivo de Asana<input type="file" accept=".json,application/json" data-pr-importar hidden></label> <button type="button" class="btn" data-pr="nuevo">＋ Escribir el primero</button></p>
+      <p>Aquí estará el «cómo se hace» de los procesos <strong>generales</strong> de la agencia: pasos, vídeos y enlaces, a mano para todo el equipo. Lo propio de cada cliente vive en sus tableros.</p>
+      <p><button type="button" class="btn primary" data-pr="nuevo">＋ Crear el primero</button></p>
     </div>`;
     return;
   }
@@ -122,7 +138,7 @@ function pintarLista() {
   const chip = (id, txt) => `<button type="button" class="pr-filtro${filtro === id ? ' on' : ''}" data-pr-filtro="${id}">${txt}</button>`;
   const pNombre = proy === '_general' ? 'generales' : proyDe(proy)?.nombre;
   main.innerHTML = `<header class="pr-main-head"><div><h3>${s ? esc(s.titulo) : '📚 Todos los procesos'}</h3><p class="muted small">${lista.length} proceso${lista.length === 1 ? '' : 's'}${pNombre ? ` · ${proy === '_general' ? 'solo los generales' : `de ${esc(pNombre)} y los generales`}` : ''}${porDoc ? ` · ${porDoc} por documentar` : ''}${q ? ` · buscando «${esc(q)}»` : ''}</p></div>
-      <div class="pr-filtros">${chip('', 'Todos')}${bib.yo ? chip('mios', '👤 Míos') : ''}${chip('fecha', '📅 Con fecha')}${chip('vencidos', `⏰ Vencidos${vencidos ? ` <b>${vencidos}</b>` : ''}`)}</div></header>
+      <div class="pr-filtros">${chip('', 'Todos')}${bib.yo ? chip('mios', '👤 Míos') : ''}${chip('fecha', '📅 Con fecha')}${chip('vencidos', `⏰ Vencidos${vencidos ? ` <b>${vencidos}</b>` : ''}`)}<button type="button" class="pr-filtro pr-vaciar" data-pr="vaciar" title="Borrar todos los procesos de la biblioteca">🗑️ Vaciar biblioteca</button></div></header>
     ${lista.length && bib.proyectos.length ? loteHtml(lista) : ''}
     ${lista.length ? `<div class="pr-grid">${lista.map((p, i) => tarjeta(p, i, hoy)).join('')}</div>` : '<p class="muted">No hay procesos que coincidan.</p>'}`;
 }
@@ -286,9 +302,57 @@ async function guardarCampos(campos) {
   pintarLista();
 }
 
-async function nuevo() {
+// «＋ Nuevo»: primero se elige cómo (desde cero o copiando una tarea de un tablero de algún cliente).
+function nuevo() {
+  creando = 'elegir';
+  abierto = '';
+  pintarLista();
+  arriba();
+}
+
+async function cargarOperativa() {
+  if (operativa) return operativa;
+  const d = await ctx.api('/api/operativa');
+  operativa = { tareas: d.tareas || [], tableros: d.tableros || [], proyectos: (d.proyectos || []).filter((x) => x.id !== '_agencia') };
+  return operativa;
+}
+const tablerosDeProy = (id) => [{ id: 'general', nombre: 'General' }, ...operativa.tableros.filter((b) => b.proyecto === id && b.id !== 'general')]
+  .map((b) => ({ ...b, nombre: operativa.tableros.find((x) => x.proyecto === id && x.id === b.id)?.nombre || b.nombre }));
+const tableroDe = (t) => (operativa.tableros.some((b) => b.proyecto === t.cliente && b.id === t.opTablero) ? t.opTablero : 'general');
+
+function crearHtml() {
+  if (creando === 'elegir') {
+    return `<section class="pr-crear">
+      <header class="pr-crear-h"><button type="button" class="btn ghost small" data-pr="crear-cancelar">← Volver</button><h3>Nuevo proceso</h3></header>
+      <p class="muted">Aquí van los procesos <strong>generales</strong> de la agencia (los que sirven para cualquier cliente). ¿Cómo quieres crearlo?</p>
+      <div class="pr-crear-ops">
+        <button type="button" class="pr-crear-op" data-pr="crear-cero"><span class="pr-crear-ico">✍️</span><strong>Desde cero</strong><span class="muted small">Escribe el título, los pasos, los vídeos y las subtareas.</span></button>
+        <button type="button" class="pr-crear-op" data-pr="crear-tablero"><span class="pr-crear-ico">📥</span><strong>Importar de un tablero</strong><span class="muted small">Copia una tarea que ya tengas en el tablero de algún cliente: su descripción y su checklist (como subtareas).</span></button>
+      </div>
+    </section>`;
+  }
+  if (!operativa) return '<p class="muted">Cargando los tableros…</p>';
+  const proys = operativa.proyectos;
+  const tabs = origen.proyecto ? tablerosDeProy(origen.proyecto) : [];
+  const nq = origen.q.trim().toLowerCase();
+  const lista = origen.proyecto ? operativa.tareas.filter((t) => t.cliente === origen.proyecto && (!origen.tablero || tableroDe(t) === origen.tablero) && (!nq || t.titulo.toLowerCase().includes(nq))).slice(0, 80) : [];
+  return `<section class="pr-crear">
+    <header class="pr-crear-h"><button type="button" class="btn ghost small" data-pr="crear-volver">← Volver</button><h3>📥 Importar de un tablero</h3></header>
+    <div class="pr-crear-fila">
+      <label class="field"><span>Cliente</span><select data-pr-origen="proyecto"><option value="">— Elige el cliente —</option>${proys.map((x) => `<option value="${esc(x.id)}"${origen.proyecto === x.id ? ' selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select></label>
+      <label class="field"><span>Tablero</span><select data-pr-origen="tablero" ${origen.proyecto ? '' : 'disabled'}><option value="">Todos los tableros</option>${tabs.map((b) => `<option value="${esc(b.id)}"${origen.tablero === b.id ? ' selected' : ''}>${esc(b.nombre)}</option>`).join('')}</select></label>
+      <label class="field"><span>Buscar</span><input type="search" data-pr-origen="q" value="${esc(origen.q)}" placeholder="Nombre de la tarea…" ${origen.proyecto ? '' : 'disabled'}></label>
+    </div>
+    ${!origen.proyecto ? '<p class="muted">Elige el cliente para ver las tareas de sus tableros.</p>'
+    : lista.length ? `<ul class="pr-crear-lista">${lista.map((t) => `<li><button type="button" class="pr-crear-t" data-pr-copiar="${esc(`${t.cliente}|${t.code}|${t.id}`)}"><strong>${esc(t.titulo)}</strong><span class="muted small">${esc(tabs.find((b) => b.id === tableroDe(t))?.nombre || 'General')}${t.embudo ? ` · ${esc(t.embudo)}` : ''}${t.checklist?.length ? ` · ☑ ${t.checklist.length} pasos` : ''}${richToText(t.notas).trim() ? ' · 📝 con descripción' : ''}</span></button></li>`).join('')}</ul>`
+    : '<p class="muted">No hay tareas que coincidan.</p>'}
+  </section>`;
+}
+
+async function crearProceso(extra = {}) {
   try {
-    const d = await enviar({ op: 'nuevo', seccion: sec || bib.secciones[0]?.id, titulo: 'Proceso nuevo' });
+    const d = await enviar({ op: 'nuevo', seccion: sec || bib.secciones[0]?.id, titulo: 'Proceso nuevo', ...extra });
+    creando = '';
     abierto = d.proceso.id;
     q = ''; filtro = '';
     editandoDesc = false;
@@ -322,6 +386,11 @@ async function onChange(e) {
   const t = e.target;
   if (t.dataset.rep && abierto) { guardarCampos({ repetir: leerRepetir(t.closest('[data-rep-ed]'), proc().fecha) }); return; }
   if (t.matches('#pr-importar, [data-pr-importar]')) { importar(e); return; }
+  if (t.dataset.prOrigen === 'proyecto' || t.dataset.prOrigen === 'tablero') {
+    origen = t.dataset.prOrigen === 'proyecto' ? { proyecto: t.value, tablero: '', q: '' } : { ...origen, tablero: t.value };
+    pintarLista();
+    return;
+  }
   if (t.id === 'pr-proyecto') {
     proy = t.value;
     try { localStorage.setItem(LS_PROY, proy); } catch { /* sin almacenamiento */ }
@@ -366,11 +435,21 @@ async function onSubmit(e) {
 }
 
 async function onClick(e) {
+  const cp = e.target.closest('[data-pr-copiar]');
+  if (cp) {
+    const [cli, code, id] = cp.dataset.prCopiar.split('|');
+    const t = operativa?.tareas.find((x) => x.cliente === cli && x.code === code && x.id === id);
+    if (!t) return;
+    const cliente = operativa.proyectos.find((x) => x.id === cli)?.nombre || cli;
+    cp.disabled = true;
+    await crearProceso({ titulo: t.titulo, html: t.notas || '', subtareas: (t.checklist || []).map((c) => c.texto), origen: `la tarea «${t.titulo}» (${cliente})` });
+    return;
+  }
   const ds = e.target.closest('[data-rep-dsem]');
   if (ds && abierto) { pulsarDsem(ds); guardarCampos({ repetir: leerRepetir(ds.closest('[data-rep-ed]'), proc().fecha) }); return; }
   if (e.target.closest('[data-pr="rep-alinear"]') && abierto) { const p = proc(); const hoy = hoyMadrid(); guardarCampos({ fecha: primeraFechaRepetir(p.fecha < hoy ? hoy : p.fecha, p.repetir) }); return; }
   const sb = e.target.closest('[data-pr-sec]');
-  if (sb) { sec = sb.dataset.prSec; abierto = ''; pintar(); return; }
+  if (sb) { sec = sb.dataset.prSec; abierto = ''; creando = ''; pintar(); return; }
   const fl = e.target.closest('[data-pr-filtro]');
   if (fl) { filtro = fl.dataset.prFiltro; pintarLista(); return; }
   const ab = e.target.closest('[data-pr-abrir]');
@@ -409,6 +488,24 @@ async function onClick(e) {
       pintar();
       window.alert(elegidos.length ? `✓ ${d.cambiados} de ${ids.length} asignados a ${elegidos.map((x) => proyDe(x)?.nombre || x).join(', ')}.` : `✓ ${d.cambiados} de ${ids.length} ahora son generales (para todos los proyectos).`);
     } catch (err) { window.alert(err.message); }
+    return;
+  }
+  if (a === 'crear-cancelar') { creando = ''; pintarLista(); return; }
+  if (a === 'crear-cero') { crearProceso(); return; }
+  if (a === 'crear-volver') { creando = 'elegir'; pintarLista(); return; }
+  if (a === 'crear-tablero') {
+    creando = 'tablero';
+    pintarLista();
+    try { await cargarOperativa(); } catch (err) { window.alert(err.message); creando = 'elegir'; }
+    pintarLista();
+    return;
+  }
+  if (a === 'vaciar') {
+    const n = bib.procesos.length;
+    const r = window.prompt(`Se borrarán los ${n} procesos y las secciones de la biblioteca (quedan en el historial de cambios por si hay que recuperarlos).\n\nEscribe VACIAR para confirmar:`);
+    if (r == null) return;
+    if (r.trim().toUpperCase() !== 'VACIAR') { window.alert('No se ha borrado nada (había que escribir VACIAR).'); return; }
+    try { await enviar({ op: 'vaciar', confirmar: 'VACIAR' }); sec = ''; abierto = ''; pintar(); } catch (err) { window.alert(err.message); }
     return;
   }
   if (a === 'volver') { abierto = ''; editandoDesc = false; pintarLista(); arriba(); } else if (a === 'nuevo') nuevo();
