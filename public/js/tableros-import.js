@@ -32,7 +32,10 @@ export function normalizarImportacion(json, opts = {}) {
   const base = Array.isArray(json?.data) ? desdeAsana(json.data, opts) : json;
   const columnas = (Array.isArray(base?.columnas) ? base.columnas : []).slice(0, 10)
     .map((c) => ({ nombre: str(c?.nombre, 40), hecha: Boolean(c?.hecha) })).filter((c) => c.nombre);
-  if (!columnas.length) throw new Error('El archivo no tiene columnas (secciones).');
+  if (!columnas.length) {
+    if (Array.isArray(json?.procesos) || Array.isArray(json?.secciones)) throw new Error('Este archivo es de la Biblioteca de procesos, no de un tablero: impórtalo en Procesos (o usa el archivo del tablero).');
+    throw new Error('El archivo no tiene columnas (secciones).');
+  }
   if (!columnas.some((c) => c.hecha)) columnas[columnas.length - 1].hecha = true;
   const idxCol = (v) => {
     if (Number.isInteger(v) && v >= 0 && v < columnas.length) return v;

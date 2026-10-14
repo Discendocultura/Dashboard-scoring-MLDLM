@@ -174,6 +174,7 @@ test('tableros: importar desde archivo (formato propio y export de Asana) y a qu
   assert.equal(asana.tareas[0].notas, '<p>línea &lt;1&gt;</p>');
   assert.equal(normalizarImportacion({ data: [{ name: 'B', completed: true, memberships: [{ section: { name: 'Cerrado' } }] }] }, { incluirCompletadas: true }).tareas[0].columna, 0);
   assert.throws(() => normalizarImportacion({ tareas: [] }), /columnas/);
+  assert.throws(() => normalizarImportacion({ secciones: [], procesos: [] }), /Biblioteca de procesos/);
   const equipo = [{ id: 'u1', nombre: 'Ana Pérez', email: 'ana@x.es' }, { id: 'u2', nombre: 'Luis Gómez', email: '' }];
   assert.equal(personaDe('ana perez', equipo).id, 'u1');
   assert.equal(personaDe('ANA@x.es', equipo).id, 'u1');
