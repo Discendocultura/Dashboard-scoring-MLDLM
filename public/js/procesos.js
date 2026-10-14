@@ -34,7 +34,7 @@ export const MAX_COMENTARIOS = 300;
 const MAX_ACTIVIDAD = 150;
 const idCorto = () => Math.random().toString(36).slice(2, 10);
 
-function sanitizeRepetir(r) {
+export function sanitizeRepetir(r) {
   const tipo = REPETIR.some((x) => x.id === r?.tipo) ? r.tipo : '';
   return tipo === 'dias' ? { tipo, n: Math.min(365, Math.max(1, Math.round(Number(r?.n) || 1))) } : { tipo, n: 0 };
 }

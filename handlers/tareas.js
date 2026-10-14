@@ -16,6 +16,7 @@ import { tareasMeteorico } from '../public/js/meteorico.js';
 import { tareasVsl } from '../public/js/embudo-vsl.js';
 import { tareasDirecta } from '../public/js/directa.js';
 import { dayInMadrid } from '../public/js/scoring.js';
+import { repetirSiToca } from '../lib/operativa.js';
 
 // Tareas que faltan de la planificación de un meteórico o una VSL (no repite las que ya tiene, por clave o título).
 function planificacion(emb, existentes, config) {
@@ -100,6 +101,8 @@ export async function POST(request) {
           t.hechaEn = t.hecha ? now : '';
         }
         if (t.hecha) t.bloqueo = '';
+        // Si se repite (se configura en la Operativa), al completarla se crea la siguiente en este lanzamiento.
+        if (t.hecha) repetirSiToca(t, tareas);
       } else if (op === 'comentar') {
         // Cualquiera que vea las tareas puede comentar y mencionar con @Nombre.
         const t = find();

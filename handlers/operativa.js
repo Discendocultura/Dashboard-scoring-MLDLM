@@ -12,12 +12,17 @@
 //   POST { op: 'columna', …, columna, tablero? }  → la lleva a esa columna (y a otro tablero: solo superadmin)
 //   POST { op: 'tablero-guardar', tablero } · { op: 'tablero-borrar', proyecto, tableroId }
 //        · { op: 'plantilla-guardar', plantilla } · { op: 'plantilla-borrar', plantillaId }  (solo superadmin)
+//   POST { op: 'etiquetas', …, etiquetas: [id] } · { op: 'prioridad', …, prioridad } · { op: 'checklist', …, checklist }
+//        · { op: 'repetir', …, repetir: { tipo, n } }  (al completarla se crea la siguiente: respuesta `nueva`)
+//   POST { op: 'etiqueta-crear', nombre, color }  (equipo de la agencia) · { op: 'etiqueta-editar', id, nombre, color }
+//        · { op: 'etiqueta-borrar', id }  (solo superadmin)
 import { getSession } from '../lib/auth.js';
 import { listClientes } from '../lib/clientes.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { listUsersRaw, rolEn, newId } from '../lib/users.js';
-import { todasLasTareas, visiblesPara, cambiarTarea, crearTareaAgencia, camposAgencia, ponerEstado, ponerBloqueo, avisarAsignada, esDeAgencia, getTableros, cambiarTableros, moverATablero } from '../lib/operativa.js';
-import { tablerosDe, sanitizeTablero, sanitizeColumnas, GENERAL } from '../public/js/tableros.js';
+import { todasLasTareas, visiblesPara, cambiarTarea, crearTareaAgencia, camposAgencia, ponerEstado, ponerBloqueo, avisarAsignada, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
+import { tablerosDe, sanitizeTablero, sanitizeColumnas, GENERAL, sanitizeChecklist, prioridadValida, MAX_ETIQUETAS_TAREA, COLORES_ETIQUETA } from '../public/js/tableros.js';
+import { sanitizeRepetir } from '../public/js/procesos.js';
 import { PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from '../public/js/operativa.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { sanitizeRich } from '../public/js/richtext.js';
@@ -59,6 +64,29 @@ export async function POST(request) {
     const suya = (t) => s.superadmin || asignadaA(t, s.uid, ref.cliente === PROYECTO_AGENCIA ? '' : rolEn(s.user || {}, ref.cliente));
     const comprobar = (t) => { if (!suya(t)) throw bad('Solo puedes cambiar las tareas que tienes asignadas', 403); };
 
+    // Etiquetas (comunes a toda la agencia): cualquiera del equipo las crea; editarlas o borrarlas, el superadmin.
+    if (/^etiqueta-/.test(String(body.op))) {
+      if (body.op !== 'etiqueta-crear' && !s.superadmin) throw bad('Solo el superadmin cambia o borra etiquetas', 403);
+      let nueva = '';
+      const cfg = await cambiarTableros((c) => {
+        const nombre = String(body.nombre || '').trim().slice(0, 30);
+        const color = Object.hasOwn(COLORES_ETIQUETA, body.color) ? body.color : 'gris';
+        if (body.op === 'etiqueta-crear') {
+          if (!nombre) throw bad('Ponle un nombre a la etiqueta');
+          const ya = c.etiquetas.find((e) => e.nombre.toLowerCase() === nombre.toLowerCase());
+          if (ya) { nueva = ya.id; return; }
+          nueva = `e${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+          c.etiquetas.push({ id: nueva, nombre, color });
+        } else if (body.op === 'etiqueta-editar') {
+          const e = c.etiquetas.find((x) => x.id === body.id);
+          if (!e) throw bad('Esa etiqueta ya no existe', 404);
+          if (nombre) e.nombre = nombre;
+          e.color = color;
+        } else if (body.op === 'etiqueta-borrar') c.etiquetas = c.etiquetas.filter((x) => x.id !== body.id);
+        else throw bad('Operación no válida');
+      }, `Operativa: ${body.op}`);
+      return json({ ok: true, ...cfg, nueva });
+    }
     // Tableros y plantillas: solo el superadmin.
     if (/^(tablero|plantilla)-/.test(String(body.op))) {
       if (!s.superadmin) throw bad('Solo el superadmin cambia los tableros', 403);
@@ -91,9 +119,10 @@ export async function POST(request) {
       if (t.asignado?.id && t.asignado.id !== s.uid) await avisarAsignada({ ...t, clienteNombre: cli?.nombre || 'Agencia', embudo: cli ? 'Operativa' : 'Interno' }, t.asignado.id, { url, por }).catch((e) => console.error('Aviso', e.message));
       return json({ ok: true, tarea: t });
     }
-    const cfgTableros = body.op === 'columna' ? await getTableros() : null;
+    const cfgTableros = ['columna', 'etiquetas'].includes(body.op) ? await getTableros() : null;
+    let nueva = null; // la siguiente de una tarea que se repite, si al completarla se ha creado
     let avisar = '';
-    const t = await cambiarTarea(ref, async (t) => {
+    const t = await cambiarTarea(ref, async (t, lista) => {
       if (body.op === 'estado' && body.estado === 'bloqueado') { comprobar(t); ponerBloqueo(t, body.bloqueo); } else if (body.op === 'estado') {
         comprobar(t);
         ponerEstado(t, String(body.estado || ''), { por });
@@ -103,6 +132,21 @@ export async function POST(request) {
         const otro = body.tablero && body.tablero !== (t.opTablero || GENERAL);
         if (otro && !s.superadmin) throw bad('Solo el superadmin mueve tareas de un tablero a otro', 403);
         moverATablero(t, cfgTableros, ref.cliente, { tablero: body.tablero, columna: String(body.columna || '') }, por);
+      } else if (body.op === 'etiquetas') {
+        comprobar(t);
+        const ids = (Array.isArray(body.etiquetas) ? body.etiquetas : []).map(String).filter((id) => cfgTableros.etiquetas.some((e) => e.id === id));
+        t.etiquetas = [...new Set(ids)].slice(0, MAX_ETIQUETAS_TAREA);
+      } else if (body.op === 'prioridad') {
+        comprobar(t);
+        t.prioridad = prioridadValida(body.prioridad);
+      } else if (body.op === 'checklist') {
+        comprobar(t);
+        t.checklist = sanitizeChecklist(body.checklist);
+      } else if (body.op === 'repetir') {
+        comprobar(t);
+        const rep = sanitizeRepetir(body.repetir);
+        t.repetir = rep.tipo ? rep : null;
+        if (!rep.tipo) delete t.repeticionCreada;
       } else if (body.op === 'bloqueo') {
         comprobar(t);
         ponerBloqueo(t, body.motivo);
@@ -141,13 +185,15 @@ export async function POST(request) {
           if (c.asignado?.id && c.asignado.id !== antes && c.asignado.id !== s.uid) avisar = c.asignado.id;
         }
       } else throw bad('Operación no válida');
+      // Completada y se repite: se crea la siguiente en su misma lista.
+      if (['estado', 'columna'].includes(body.op)) nueva = repetirSiToca(t, lista);
       return { ...t };
     });
     if (avisar) {
       const proyecto = ref.cliente === PROYECTO_AGENCIA ? 'Agencia' : (await listClientes()).find((c) => c.id === ref.cliente)?.nombre || ref.cliente;
       await avisarAsignada({ ...t, clienteNombre: proyecto, embudo: '' }, avisar, { url, por }).catch((e) => console.error('Aviso', e.message));
     }
-    return json({ ok: true, tarea: t });
+    return json({ ok: true, tarea: t, ...(nueva ? { nueva: resumenTarea(nueva, { cliente: ref.cliente, code: ref.code }) } : {}) });
   } catch (e) {
     return errorResponse(e);
   }

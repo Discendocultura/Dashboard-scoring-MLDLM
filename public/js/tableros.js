@@ -40,7 +40,7 @@ export function sanitizeConfigTableros(cfg) {
     .filter((t) => t.proyecto && !vistos.has(`${t.proyecto}|${t.id}`) && vistos.add(`${t.proyecto}|${t.id}`));
   const plantillas = (Array.isArray(cfg?.plantillas) ? cfg.plantillas : []).slice(0, 30)
     .map((p) => ({ id: ID_RE.test(str(p?.id, 24)) ? str(p.id, 24) : nuevoId('p'), nombre: str(p?.nombre, 40) || 'Plantilla', columnas: sanitizeColumnas(p?.columnas) }));
-  return { tableros, plantillas };
+  return { tableros, plantillas, etiquetas: sanitizeEtiquetas(cfg?.etiquetas) };
 }
 
 // Tableros de un proyecto: el General (el de serie o el que se haya cambiado) y después los demás.
@@ -69,4 +69,54 @@ export function columnaDeTarea(t, tab) {
 export function colocar(t, tab, colId) {
   const col = tab.columnas.find((c) => c.id === colId) || tab.columnas[0];
   return { opTablero: tab.id, opColumna: col.id, hecha: Boolean(col.hecha), estado: col.hecha ? 'hecha' : col.id === 'revision' ? 'revision' : 'pendiente' };
+}
+
+// ---------- Etiquetas (comunes a toda la agencia), prioridad, checklist y tareas que se repiten ----------
+export const COLORES_ETIQUETA = {
+  rojo: '#e5484d', naranja: '#f2783a', amarillo: '#e7b008', verde: '#2fa86b', turquesa: '#14a3a3',
+  azul: '#3d7ef0', morado: '#8e5bd8', rosa: '#e0568f', gris: '#7d7f86',
+};
+export const MAX_ETIQUETAS = 60;
+export const MAX_ETIQUETAS_TAREA = 6;
+export function sanitizeEtiquetas(lista) {
+  const vistos = new Set();
+  return (Array.isArray(lista) ? lista : []).slice(0, MAX_ETIQUETAS).map((e) => {
+    let id = str(e?.id, 24);
+    if (!ID_RE.test(id) || vistos.has(id)) id = nuevoId('e');
+    vistos.add(id);
+    return { id, nombre: str(e?.nombre, 30), color: Object.hasOwn(COLORES_ETIQUETA, e?.color) ? e.color : 'gris' };
+  }).filter((e) => e.nombre);
+}
+export const etiquetasDeTarea = (t, catalogo) => (Array.isArray(t?.etiquetas) ? t.etiquetas : []).map((id) => catalogo.find((e) => e.id === id)).filter(Boolean);
+
+export const PRIORIDADES = [
+  { id: 'alta', label: 'Alta', color: '#e5484d', orden: 0 },
+  { id: 'media', label: 'Media', color: '#f2a23a', orden: 1 },
+  { id: 'baja', label: 'Baja', color: '#3d7ef0', orden: 2 },
+];
+export const prioridadValida = (p) => (PRIORIDADES.some((x) => x.id === p) ? p : '');
+const ordenPrioridad = (t) => PRIORIDADES.find((x) => x.id === t.prioridad)?.orden ?? 3;
+// Orden dentro de una columna: prioridad (alta primero) y después la fecha (sin fecha, al final).
+export const ordenTarjetas = (a, b) => ordenPrioridad(a) - ordenPrioridad(b) || String(a.fecha || '9').localeCompare(String(b.fecha || '9'));
+
+export const MAX_CHECKLIST = 30;
+export function sanitizeChecklist(lista) {
+  return (Array.isArray(lista) ? lista : []).slice(0, MAX_CHECKLIST).map((c) => ({
+    id: ID_RE.test(str(c?.id, 24)) ? str(c.id, 24) : nuevoId('k'), texto: str(c?.texto, 200), hecho: Boolean(c?.hecho),
+  })).filter((c) => c.texto);
+}
+export const progresoChecklist = (t) => { const l = Array.isArray(t?.checklist) ? t.checklist : []; return { hechos: l.filter((c) => c.hecho).length, total: l.length }; };
+
+// La copia que se crea al completar una tarea que se repite: lo mismo (descripción, etiquetas, responsable,
+// prioridad, checklist sin marcar) en la primera columna de su tablero, con la próxima fecha que no haya pasado.
+export function copiaRecurrente(t, { hoy, id, siguiente }) {
+  return {
+    id, titulo: t.titulo, notas: t.notas || '', fase: t.fase || '', sub: t.sub || '', fecha: siguiente,
+    asignado: t.asignado || null, etiquetas: [...(t.etiquetas || [])], prioridad: t.prioridad || '',
+    checklist: (t.checklist || []).map((c) => ({ ...c, hecho: false })), repetir: { ...t.repetir },
+    ...(t.proyecto ? { proyecto: t.proyecto } : {}), ...(t.opTablero ? { opTablero: t.opTablero } : {}),
+    estado: 'pendiente', hecha: false, hechaEn: '', hechaPor: '', comentarios: [],
+    creadaPor: 'Se repite', creadaEn: `${hoy}T00:00:00.000Z`, repiteDe: t.id,
+    ...(t.habitual ? { habitual: false } : {}),
+  };
 }

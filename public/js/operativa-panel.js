@@ -6,7 +6,8 @@
 //   abrirOperativa({ api, dialog })
 import { ESTADOS_OP, estadoOp, estaBloqueada, embudosDe, ICONO_EMBUDO, semanasDelMes, mesMas, agruparPorFecha, resumenProyecto, cargaPorPersona, diasDeRetraso, PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from './operativa.js';
 import { richToHtml, richToText } from './richtext.js';
-import { tablerosDe, tableroDeTarea, columnaDeTarea, columnaHecha, COLUMNAS_SERIE, GENERAL, MAX_COLUMNAS } from './tableros.js';
+import { tablerosDe, tableroDeTarea, columnaDeTarea, columnaHecha, COLUMNAS_SERIE, GENERAL, MAX_COLUMNAS, COLORES_ETIQUETA, etiquetasDeTarea, PRIORIDADES, ordenTarjetas, progresoChecklist, MAX_ETIQUETAS_TAREA } from './tableros.js';
+import { REPETIR, textoRepetir, proximaTrasHecho } from './procesos.js';
 import { montarEditor, montarVideos } from './editor-rico.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -17,7 +18,11 @@ const iniciales = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((x
 const ESTADO = Object.fromEntries(ESTADOS_OP.map((e) => [e.id, e]));
 
 let ctx = null;
-let d = { tareas: [], equipo: [], proyectos: [], yo: '', superadmin: false, tableros: [], plantillas: [] };
+let d = { tareas: [], equipo: [], proyectos: [], yo: '', superadmin: false, tableros: [], plantillas: [], etiquetas: [] };
+let fEtq = ''; // filtro por etiqueta ('' = todas; '_alta' = prioridad alta)
+let pickerEtq = false; // el selector de etiquetas de la ficha, abierto
+let colorNueva = 'azul';
+let recienCreada = ''; // la siguiente de una que se repite (se resalta al aparecer)
 let vista = 'tablero';
 let fProy = '';
 let fEmb = ''; // embudo dentro del cliente elegido
@@ -79,6 +84,7 @@ export async function abrirOperativa(opts) {
     });
   }
   vista = 'tablero'; // siempre se entra por el tablero
+  ultimoTablero = '';
   calMes = hoyMadrid().slice(0, 7);
   body().innerHTML = '<p class="muted">Cargando las tareas de todos los proyectos…</p>';
   if (!dlg.open) dlg.showModal();
@@ -100,7 +106,8 @@ function filtradas() {
   const t = q.trim().toLowerCase();
   return d.tareas.filter((x) => (!fProy || x.cliente === fProy) && (!fEmb || x.embudoId === fEmb)
     && (!fPersona || (fPersona === '_sin' ? !x.asignado : x.asignado?.tipo === 'persona' && x.asignado.id === fPersona))
-    && (!t || `${x.titulo} ${x.clienteNombre} ${x.embudo}`.toLowerCase().includes(t)));
+    && (!fEtq || (fEtq === '_alta' ? x.prioridad === 'alta' : (x.etiquetas || []).includes(fEtq)))
+    && (!t || `${x.titulo} ${x.clienteNombre} ${x.embudo} ${etiquetasDeTarea(x, d.etiquetas).map((e) => e.nombre).join(' ')}`.toLowerCase().includes(t)));
 }
 
 function pintar() {
@@ -127,6 +134,7 @@ function pintar() {
       ${d.superadmin ? `<select id="op-persona" aria-label="Persona"><option value="">Todo el equipo</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${fPersona === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}<option value="_sin"${fPersona === '_sin' ? ' selected' : ''}>Sin asignar</option></select>` : ''}
       <label class="pr-buscar op-buscar"><span aria-hidden="true">🔎</span><input id="op-buscar" type="search" placeholder="Buscar…" value="${esc(q)}" autocomplete="off"></label>
     </div>
+    ${barraEtiquetas()}
     <section id="op-vista"></section>
     ${abierta || creando ? '<div class="op-ficha-fondo" data-op="cerrar-ficha"></div><aside class="op-ficha" id="op-ficha"></aside>' : ''}
   </div>`;
@@ -145,6 +153,7 @@ function pintarVista() {
   else if (vista === 'tablero') box.innerHTML = vistaTablero(lista, hoy);
   else if (vista === 'calendario') box.innerHTML = vistaCalendario(lista, hoy);
   else box.innerHTML = vistaPersonas(lista, hoy);
+  if (vista !== 'tablero') ultimoTablero = '';
 }
 
 function fila(t, hoy) {
@@ -185,26 +194,49 @@ function vistaProyectos(lista, hoy) {
   }).join('')}</div>`;
 }
 
+// Pastilla de una etiqueta (color del catálogo).
+const pildoraEtq = (e, extra = '') => `<span class="op-etq" style="--etq:${COLORES_ETIQUETA[e.color] || COLORES_ETIQUETA.gris}"${extra}>${esc(e.nombre)}</span>`;
+const prioDe = (t) => PRIORIDADES.find((p) => p.id === t.prioridad);
+// Filtro por etiqueta (y «🔥 Prioridad alta») encima de las vistas.
+function barraEtiquetas() {
+  const usadas = d.etiquetas.filter((e) => d.tareas.some((t) => (t.etiquetas || []).includes(e.id) && estadoOp(t) !== 'hecha'));
+  const altas = d.tareas.filter((t) => t.prioridad === 'alta' && estadoOp(t) !== 'hecha').length;
+  if (!usadas.length && !altas) return '';
+  const chip = (id, html, n) => `<button type="button" class="op-fchip${fEtq === id ? ' on' : ''}" data-op-fetq="${esc(id)}">${html}${n != null ? ` <b>${n}</b>` : ''}</button>`;
+  return `<div class="op-fetqs" role="group" aria-label="Filtrar por etiqueta">${chip('', 'Todas')}${altas ? chip('_alta', '🔥 Prioridad alta', altas) : ''}${usadas.map((e) => chip(e.id, pildoraEtq(e), d.tareas.filter((t) => (t.etiquetas || []).includes(e.id) && estadoOp(t) !== 'hecha').length)).join('')}</div>`;
+}
+let nCard = 0;
 function tarjetaTablero(t, hoy) {
-  return `<article class="op-card${estaBloqueada(t) ? ' is-bloq' : ''}" draggable="true" data-op-k="${esc(clave(t))}" data-op-abrir="${esc(clave(t))}">
-        <span class="op-card-proy">${chipProyecto(t)}</span>
-        <div class="op-card-t"><button type="button" class="op-check${estadoOp(t) === 'hecha' ? ' on' : ''}" data-op-hecha="${esc(clave(t))}" title="${estadoOp(t) === 'hecha' ? 'Reabrir' : 'Marcar como hecha'}" aria-label="${estadoOp(t) === 'hecha' ? 'Reabrir' : 'Marcar como hecha'}">✓</button><strong>${esc(t.titulo)}</strong></div>
-        ${t.notas ? `<p class="op-card-desc">${esc(richToText(t.notas).replace(/🎬/g, '🎬 vídeo').replace(/\s*•\s*/g, ' · ').replace(/\s*\n+\s*/g, ' · ').replace(/^ · /, '').slice(0, 140))}</p>` : ''}
-        ${estaBloqueada(t) ? `<span class="op-bloq">⛔ Bloqueada: ${esc(t.bloqueo)}</span>` : ''}
-        <footer>${chipFecha(t, hoy)}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}${avatar(t)}</footer>
+  const etqs = etiquetasDeTarea(t, d.etiquetas);
+  const pr = prioDe(t);
+  const ck = progresoChecklist(t);
+  const hecha = estadoOp(t) === 'hecha';
+  const portada = etqs[0] ? COLORES_ETIQUETA[etqs[0].color] : pr ? pr.color : '';
+  return `<article class="op-card op-card2${estaBloqueada(t) ? ' is-bloq' : ''}${hecha ? ' es-hecha' : ''}${portada ? ' con-portada' : ''}${recienCreada && t.id === recienCreada ? ' recien' : ''}" style="--i:${nCard++ % 12};${portada ? `--portada:${portada}` : ''}" draggable="true" data-op-k="${esc(clave(t))}" data-op-abrir="${esc(clave(t))}">
+        ${etqs.length || pr ? `<div class="op-card-etqs">${pr ? `<span class="op-prio p-${pr.id}" title="Prioridad ${esc(pr.label.toLowerCase())}">${pr.id === 'alta' ? '🔥' : '⚑'} ${esc(pr.label)}</span>` : ''}${etqs.map((e) => pildoraEtq(e)).join('')}</div>` : ''}
+        <div class="op-card-t"><button type="button" class="op-check${hecha ? ' on' : ''}" data-op-hecha="${esc(clave(t))}" title="${hecha ? 'Reabrir' : 'Marcar como hecha'}" aria-label="${hecha ? 'Reabrir' : 'Marcar como hecha'}">✓</button><strong>${esc(t.titulo)}</strong></div>
+        ${t.notas ? `<p class="op-card-desc">${esc(richToText(t.notas).replace(/🎬/g, '🎬 vídeo').replace(/\s*•\s*/g, ' · ').replace(/\s*\n+\s*/g, ' · ').replace(/^ · /, '').slice(0, 120))}</p>` : ''}
+        ${estaBloqueada(t) ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}
+        ${ck.total ? `<div class="op-ck-mini${ck.hechos === ck.total ? ' completa' : ''}" title="Checklist: ${ck.hechos} de ${ck.total}"><span class="op-ck-barra"><i style="width:${Math.round((ck.hechos / ck.total) * 100)}%"></i></span><b>☑ ${ck.hechos}/${ck.total}</b></div>` : ''}
+        <footer>${chipFecha(t, hoy)}${t.repetir?.tipo ? `<span class="op-rep" title="${esc(textoRepetir(t.repetir))}">🔁</span>` : ''}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}<span class="op-card-proy">${fProy ? '' : chipProyecto(t)}</span>${avatar(t)}</footer>
       </article>`;
 }
-const porFecha = (a, b) => String(a.fecha || '9').localeCompare(String(b.fecha || '9'));
+const porFecha = ordenTarjetas; // prioridad alta primero y después por fecha
 
 // Tablero: con «Todos los clientes», por estado (Pendiente · Para revisar · Hecho). Con un cliente elegido, sus
 // tableros (General y los creados) con sus propias columnas; el superadmin crea tableros y edita columnas.
+let ultimoTablero = '';
 function vistaTablero(lista, hoy) {
+  // Las tarjetas entran con animación al abrir o cambiar de tablero; al repintar tras un cambio, no.
+  const k = `${fProy}|${fTab}|${fEmb}|${fEtq}`;
+  const quieto = k === ultimoTablero ? ' quieto' : '';
+  ultimoTablero = k;
   if (!fProy) {
     return `<p class="muted small op-ayuda">Arrastra las tarjetas de una columna a otra para cambiar su estado. <strong>Elige un cliente arriba</strong> para ver sus tableros, cada uno con sus columnas.</p>
-  <div class="op-tablero">${ESTADOS_OP.map((e) => {
+  <div class="op-tablero${quieto}">${ESTADOS_OP.map((e) => {
     const ts = lista.filter((t) => estadoOp(t) === e.id).sort(porFecha);
-    return `<section class="op-col e-${e.id}" data-op-col="${e.id}"><header><span>${e.icon} ${esc(e.label)}</span><b>${ts.length}</b></header>
-      <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">—</p>'}</div></section>`;
+    return `<section class="op-col e-${e.id}" data-op-col="${e.id}"><header><span class="op-col-dot"></span><span class="op-col-nom">${e.icon} ${esc(e.label)}</span><b>${ts.length}</b></header>
+      <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div></section>`;
   }).join('')}</div>`;
   }
   const tabs = tabsDe(fProy);
@@ -215,10 +247,10 @@ function vistaTablero(lista, hoy) {
   if (editTab) return barra + editorTablero();
   const suyas = lista.filter((t) => tabDeT(t).id === tab.id);
   return `${barra}<p class="muted small op-ayuda">Arrastra las tarjetas de una columna a otra. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.</p>
-  <div class="op-tablero" style="--op-ncol:${tab.columnas.length}">${tab.columnas.map((c, i) => {
+  <div class="op-tablero${quieto}" style="--op-ncol:${tab.columnas.length}">${tab.columnas.map((c, i) => {
     const ts = suyas.filter((t) => columnaDeTarea(t, tab) === c.id).sort(porFecha);
-    return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header><span>${c.hecha ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b></header>
-      <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">—</p>'}</div></section>`;
+    return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header><span class="op-col-dot"></span><span class="op-col-nom">${c.hecha ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b></header>
+      <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div></section>`;
   }).join('')}</div>`;
 }
 
@@ -303,6 +335,25 @@ function vistaPersonas(lista, hoy) {
     ${sin ? `<button type="button" class="op-persona sin" data-op-ver-persona="_sin"><span class="pr-av vacio">?</span><span class="op-persona-t"><strong>Sin asignar</strong></span><span class="op-persona-n"><b>${sin}</b> abiertas</span></button>` : ''}</div>`;
 }
 
+// Selector de etiquetas de la ficha: las del catálogo (pulsar = poner o quitar) y crear una nueva con su color.
+function selectorEtiquetas(t) {
+  const mias = t.etiquetas || [];
+  return `<div class="op-etq-picker">
+    <div class="op-etq-lista">${d.etiquetas.map((e) => `<span class="op-etq-opt${mias.includes(e.id) ? ' on' : ''}">${pildoraEtq(e, ` data-op-etq-toggle="${esc(e.id)}" role="button" tabindex="0"`)}${d.superadmin ? `<button type="button" class="op-etq-x" data-op-etq-borrar="${esc(e.id)}" title="Borrar la etiqueta de todas las tareas" aria-label="Borrar etiqueta">✕</button>` : ''}</span>`).join('') || '<span class="muted small">Aún no hay etiquetas: crea la primera.</span>'}</div>
+    <div class="op-etq-nueva"><input data-op-etq-nombre maxlength="30" placeholder="Nueva etiqueta (p. ej. Urgente, Diseño…)"><div class="op-swatches">${Object.entries(COLORES_ETIQUETA).map(([k, v]) => `<button type="button" class="op-sw${k === colorNueva ? ' on' : ''}" style="--sw:${v}" data-op-color="${k}" aria-label="${k}"></button>`).join('')}</div><button type="button" class="btn small primary" data-op="etq-crear">Crear</button></div>
+    ${mias.length >= MAX_ETIQUETAS_TAREA ? `<p class="muted small">Máximo ${MAX_ETIQUETAS_TAREA} etiquetas por tarea.</p>` : ''}
+  </div>`;
+}
+function bloqueChecklist(t) {
+  const l = t.checklist || [];
+  const ck = progresoChecklist(t);
+  return `<section class="pr-bloque op-ck"><header class="pr-bloque-h"><h4>Checklist ${ck.total ? `<span class="muted">${ck.hechos}/${ck.total}</span>` : ''}</h4></header>
+    ${ck.total ? `<div class="op-ck-barra grande"><i style="width:${Math.round((ck.hechos / ck.total) * 100)}%"></i></div>` : ''}
+    <ul class="op-ck-lista">${l.map((c) => `<li class="${c.hecho ? 'hecho' : ''}"><label><input type="checkbox" data-op-ck="${esc(c.id)}" ${c.hecho ? 'checked' : ''}><span>${esc(c.texto)}</span></label><button type="button" class="op-ck-x" data-op-ck-borrar="${esc(c.id)}" aria-label="Quitar">✕</button></li>`).join('')}</ul>
+    <form class="op-ck-add" data-op-form="ck"><input name="texto" maxlength="200" placeholder="＋ Añadir un paso" autocomplete="off"><button class="btn small">Añadir</button></form>
+  </section>`;
+}
+
 // ---- Ficha de una tarea (o nueva del proyecto Agencia) ----
 function pintarFicha() {
   const box = body().querySelector('#op-ficha');
@@ -335,11 +386,17 @@ function pintarFicha() {
     <div class="pr-campos">
       <div class="pr-campo"><span class="pr-campo-l">Columna</span><div class="pr-campo-v"><div class="op-estados">${tabT.columnas.map((c) => `<button type="button" class="op-est ${c.hecha ? 'e-hecha' : c.id === 'revision' ? 'e-revision' : 'e-pendiente'}${c.id === colT ? ' on' : ''}" data-op-col-set="${esc(c.id)}">${c.hecha ? '✅ ' : ''}${esc(c.nombre)}</button>`).join('')}</div></div></div>
       ${d.superadmin && tabsT.length > 1 ? `<div class="pr-campo"><span class="pr-campo-l">Tablero</span><div class="pr-campo-v"><select data-op-campo="tablero">${tabsT.map((b) => `<option value="${esc(b.id)}"${b.id === tabT.id ? ' selected' : ''}>${esc(b.nombre)}</option>`).join('')}</select></div></div>` : ''}
+      <div class="pr-campo"><span class="pr-campo-l">Prioridad</span><div class="pr-campo-v"><div class="op-prios">${[{ id: '', label: 'Sin prioridad' }, ...PRIORIDADES].map((pp) => `<button type="button" class="op-prio-b${pp.id ? ` p-${pp.id}` : ''}${(t.prioridad || '') === pp.id ? ' on' : ''}" data-op-prio="${pp.id}">${pp.id === 'alta' ? '🔥 ' : pp.id ? '⚑ ' : ''}${esc(pp.label)}</button>`).join('')}</div></div></div>
+      <div class="pr-campo"><span class="pr-campo-l">Etiquetas</span><div class="pr-campo-v op-etqs-v">${etiquetasDeTarea(t, d.etiquetas).map((x) => pildoraEtq(x, ` data-op-etq-toggle="${esc(x.id)}" role="button" tabindex="0" title="Quitar"`)).join('')}<button type="button" class="op-etq-add" data-op="etq-abrir">${pickerEtq ? 'Cerrar' : '＋ Etiqueta'}</button>
+        ${pickerEtq ? selectorEtiquetas(t) : ''}</div></div>
+      <div class="pr-campo"><span class="pr-campo-l">Se repite</span><div class="pr-campo-v op-rep-v"><select data-op-campo="repetir">${REPETIR.map((x) => `<option value="${x.id}"${(t.repetir?.tipo || '') === x.id ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select>${t.repetir?.tipo === 'dias' ? `<input type="number" min="1" max="365" data-op-campo="repetir-n" value="${t.repetir.n || 1}" aria-label="Cada cuántos días">` : ''}
+        ${t.repetir?.tipo ? `<small class="op-rep-txt">🔁 Al completarla se crea la siguiente para el <b>${esc(fechaCorta(proximaTrasHecho(t.fecha || hoyMadrid(), t.repetir, hoyMadrid())))}</b>${t.fecha ? '' : ' (desde hoy: ponle fecha para fijar el ritmo)'}.</small>` : ''}</div></div>
       ${e === 'hecha' ? '' : `<div class="pr-campo"><span class="pr-campo-l">Bloqueo</span><div class="pr-campo-v">${estaBloqueada(t) ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span><button type="button" class="btn ghost small" data-op="desbloquear">Desbloquear</button>` : '<button type="button" class="btn ghost small op-bloquear" data-op="bloquear">⛔ Marcar como bloqueada</button>'}</div></div>`}
       <div class="pr-campo"><span class="pr-campo-l">Fecha</span><div class="pr-campo-v"><input type="date" data-op-campo="fecha" value="${esc(t.fecha)}">${chipFecha(t, hoyMadrid())}</div></div>
       <div class="pr-campo"><span class="pr-campo-l">Responsable</span><div class="pr-campo-v">${d.superadmin ? `<select data-op-campo="uid"><option value="">Sin asignar</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${t.asignado?.tipo === 'persona' && t.asignado.id === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}${t.asignado?.tipo === 'rol' ? `<option selected>Rol ${esc(t.asignado.rol)}</option>` : ''}</select>` : `${avatar(t)} ${esc(quienTxt(t))}`}</div></div>
       ${t.embudo && !deAgencia ? `<div class="pr-campo"><span class="pr-campo-l">Embudo</span><div class="pr-campo-v">${esc(t.embudo)}</div></div>` : ''}
     </div>
+    ${bloqueChecklist(t)}
     <section class="pr-bloque op-desc"><header class="pr-bloque-h"><h4>Descripción</h4>${editandoDesc ? '' : `<button type="button" class="btn ghost small" data-op="editar-desc">✏️ ${t.notas ? 'Editar' : 'Añadir'}</button>`}</header>
       ${editandoDesc ? '<div class="op-editor" data-op-editor></div><footer class="op-form-acc"><button type="button" class="btn ghost small" data-op="cancelar-desc">Cancelar</button><button type="button" class="btn primary small" data-op="guardar-desc">Guardar</button></footer>'
         : t.notas ? `<div class="rich op-notas">${richToHtml(t.notas)}</div>` : '<button type="button" class="op-desc-vacia" data-op="editar-desc">Añade la descripción: pasos, enlaces, listas, negritas o un vídeo…</button>'}
@@ -358,7 +415,22 @@ async function op(t, cuerpo) {
   const r = await ctx.api('/api/operativa', { method: 'POST', body: { cliente: t.cliente, code: t.code, id: t.id, ...cuerpo } });
   if (cuerpo.op === 'borrar') { d.tareas = d.tareas.filter((x) => x !== t); return; }
   const n = r.tarea;
-  Object.assign(t, { opTablero: n.opTablero || '', opColumna: n.opColumna || '', titulo: n.titulo, notas: n.notas || '', fecha: n.fecha || '', estado: estadoOp(n), hecha: Boolean(n.hecha), hechaEn: n.hechaEn || '', bloqueo: n.bloqueo || '', asignado: n.asignado || null, comentarios: (n.comentarios || []).map((c) => ({ id: c.id, uid: c.uid || '', nombre: c.nombre, texto: c.texto, en: c.en })) });
+  if (r.nueva && !d.tareas.some((x) => x.id === r.nueva.id)) {
+    d.tareas.push({ ...r.nueva, clienteNombre: t.clienteNombre, color: t.color, embudo: t.embudo, embudoId: t.embudoId, embudoNombre: t.embudoNombre, embudoTipo: t.embudoTipo });
+    recienCreada = r.nueva.id; setTimeout(() => { if (recienCreada === r.nueva.id) recienCreada = ''; }, 3000);
+    aviso(`🔁 Se ha creado la siguiente «${t.titulo}» para el ${fechaCorta(r.nueva.fecha)}`);
+  }
+  Object.assign(t, { etiquetas: n.etiquetas || [], prioridad: n.prioridad || '', checklist: n.checklist || [], repetir: n.repetir?.tipo ? n.repetir : null, opTablero: n.opTablero || '', opColumna: n.opColumna || '', titulo: n.titulo, notas: n.notas || '', fecha: n.fecha || '', estado: estadoOp(n), hecha: Boolean(n.hecha), hechaEn: n.hechaEn || '', bloqueo: n.bloqueo || '', asignado: n.asignado || null, comentarios: (n.comentarios || []).map((c) => ({ id: c.id, uid: c.uid || '', nombre: c.nombre, texto: c.texto, en: c.en })) });
+}
+
+// Aviso flotante (abajo) que se va solo.
+function aviso(texto) {
+  const el = document.createElement('div');
+  el.className = 'op-toast';
+  el.textContent = texto;
+  ctx.dialog.appendChild(el);
+  setTimeout(() => el.classList.add('fuera'), 3200);
+  setTimeout(() => el.remove(), 3800);
 }
 
 async function moverColumna(t, columna, tablero) {
@@ -394,6 +466,29 @@ async function ponerBloqueo(t, bloquear) {
 async function onClick(e) {
   const v = e.target.closest('[data-op-vista]');
   if (v) { vista = v.dataset.opVista; pintar(); return; }
+  const fe = e.target.closest('[data-op-fetq]');
+  if (fe) { fEtq = fe.dataset.opFetq; pintar(); return; }
+  const pr = e.target.closest('[data-op-prio]');
+  if (pr) { const t = buscarT(abierta); if (t) { try { await op(t, { op: 'prioridad', prioridad: pr.dataset.opPrio }); } catch (err) { window.alert(err.message); } pintarVista(); pintarFicha(); } return; }
+  const sw = e.target.closest('[data-op-color]');
+  if (sw) { colorNueva = sw.dataset.opColor; body().querySelectorAll('.op-sw').forEach((x) => x.classList.toggle('on', x === sw)); return; }
+  const eb = e.target.closest('[data-op-etq-borrar]');
+  if (eb) {
+    const et = d.etiquetas.find((x) => x.id === eb.dataset.opEtqBorrar);
+    if (!et || !window.confirm(`¿Borrar la etiqueta «${et.nombre}»? Se quitará de todas las tareas.`)) return;
+    try { const rr = await ctx.api('/api/operativa', { method: 'POST', body: { op: 'etiqueta-borrar', id: et.id } }); d.etiquetas = rr.etiquetas; } catch (err) { window.alert(err.message); }
+    pintarVista(); pintarFicha(); return;
+  }
+  const et = e.target.closest('[data-op-etq-toggle]');
+  if (et && abierta) {
+    const t = buscarT(abierta);
+    const id = et.dataset.opEtqToggle;
+    const lista = (t.etiquetas || []).includes(id) ? t.etiquetas.filter((x) => x !== id) : [...(t.etiquetas || []), id];
+    try { await op(t, { op: 'etiquetas', etiquetas: lista }); } catch (err) { window.alert(err.message); }
+    pintarVista(); pintarFicha(); return;
+  }
+  const ckb = e.target.closest('[data-op-ck-borrar]');
+  if (ckb) { const t = buscarT(abierta); try { await op(t, { op: 'checklist', checklist: (t.checklist || []).filter((c) => c.id !== ckb.dataset.opCkBorrar) }); } catch (err) { window.alert(err.message); } pintarVista(); pintarFicha(); return; }
   const tb = e.target.closest('[data-op-tab]');
   if (tb) { fTab = tb.dataset.opTab; editTab = null; pintarVista(); return; }
   const cs = e.target.closest('[data-op-col-set]');
@@ -407,13 +502,21 @@ async function onClick(e) {
     const completar = estadoOp(t) !== 'hecha';
     hecha.classList.toggle('on', completar); // se ve al instante; al guardar, la tarjeta pasa a su columna
     hecha.classList.add('hecho-anim');
+    const card = hecha.closest('.op-card');
+    if (completar && card && vista === 'tablero') {
+      card.classList.add('completando');
+      await Promise.all([new Promise((ok) => setTimeout(ok, 420)), op(t, { op: 'estado', estado: 'hecha' }).catch((err) => window.alert(err.message))]);
+      pintarVista();
+      if (abierta) pintarFicha();
+      return;
+    }
     cambiarEstado(t, completar ? 'hecha' : 'pendiente');
     return;
   }
   const est = e.target.closest('[data-op-estado]');
   if (est) { const t = buscarT(abierta); if (t && est.dataset.opEstado !== estadoOp(t)) cambiarEstado(t, est.dataset.opEstado); return; }
   const ab = e.target.closest('[data-op-abrir]');
-  if (ab && !e.target.closest('a')) { abierta = ab.dataset.opAbrir; creando = false; editandoDesc = false; pintar(); return; }
+  if (ab && !e.target.closest('a')) { creando = false; editandoDesc = false; if (abierta !== ab.dataset.opAbrir) pickerEtq = false; abierta = ab.dataset.opAbrir; pintar(); return; }
   const vp = e.target.closest('[data-op-ver-proy]');
   if (vp) { fProy = vp.dataset.opVerProy; fEmb = ''; vista = 'tablero'; pintar(); return; }
   const vpe = e.target.closest('[data-op-ver-persona]');
@@ -428,8 +531,21 @@ async function onClick(e) {
   const b = e.target.closest('[data-op]');
   if (!b) return;
   if (b.dataset.op.startsWith('te-') || b.dataset.op.startsWith('tab-')) { await opEditor(b); return; }
+  if (b.dataset.op === 'etq-abrir') { pickerEtq = !pickerEtq; pintarFicha(); body().querySelector('[data-op-etq-nombre]')?.focus(); return; }
+  if (b.dataset.op === 'etq-crear') {
+    const inp = body().querySelector('[data-op-etq-nombre]');
+    const nombre = inp?.value.trim();
+    if (!nombre) { inp?.focus(); return; }
+    const t = buscarT(abierta);
+    try {
+      const rr = await ctx.api('/api/operativa', { method: 'POST', body: { op: 'etiqueta-crear', nombre, color: colorNueva } });
+      d.etiquetas = rr.etiquetas;
+      if (t && rr.nueva && !(t.etiquetas || []).includes(rr.nueva)) await op(t, { op: 'etiquetas', etiquetas: [...(t.etiquetas || []), rr.nueva] });
+    } catch (err) { window.alert(err.message); }
+    pintarVista(); pintarFicha(); return;
+  }
   if (b.dataset.op === 'bloquear' || b.dataset.op === 'desbloquear') { const t = buscarT(abierta); if (t) ponerBloqueo(t, b.dataset.op === 'bloquear'); return; }
-  if (b.dataset.op === 'cerrar-ficha') { abierta = null; creando = false; editandoDesc = false; pintar(); return; }
+  if (b.dataset.op === 'cerrar-ficha') { abierta = null; creando = false; editandoDesc = false; pickerEtq = false; pintar(); return; }
   if (b.dataset.op === 'editar-desc') { editandoDesc = true; pintarFicha(); editor?.area.focus(); return; }
   if (b.dataset.op === 'cancelar-desc') { editandoDesc = false; pintarFicha(); return; }
   if (b.dataset.op === 'guardar-desc') {
@@ -504,11 +620,20 @@ async function onChange(e) {
   }
   if (t0.id === 'op-embudo') { fEmb = t0.value; pintarVista(); return; }
   if (t0.id === 'op-persona') { fPersona = t0.value; pintarVista(); return; }
+  if (t0.dataset.opCk) {
+    const t = buscarT(abierta);
+    const li = t0.closest('li');
+    li?.classList.toggle('hecho', t0.checked);
+    try { await op(t, { op: 'checklist', checklist: (t.checklist || []).map((x) => (x.id === t0.dataset.opCk ? { ...x, hecho: t0.checked } : x)) }); } catch (err) { window.alert(err.message); }
+    pintarVista(); pintarFicha(); return;
+  }
   const c = t0.dataset.opCampo;
   if (!c) return;
   const t = buscarT(abierta);
   try {
     if (c === 'fecha') await op(t, { op: 'fecha', fecha: t0.value });
+    if (c === 'repetir') await op(t, { op: 'repetir', repetir: { tipo: t0.value, n: t.repetir?.n || 7 } });
+    if (c === 'repetir-n') await op(t, { op: 'repetir', repetir: { tipo: 'dias', n: Number(t0.value) || 1 } });
     if (c === 'tablero') { const nt = tabsDe(t.cliente).find((b) => b.id === t0.value); await op(t, { op: 'columna', tablero: t0.value, columna: t.hecha && nt ? columnaHecha(nt).id : '' }); }
     if (c === 'uid') await op(t, { op: 'asignar', uid: t0.value });
   } catch (err) { window.alert(err.message); }
@@ -523,6 +648,15 @@ async function onSubmit(e) {
   const btn = f.querySelector('button.primary');
   btn?.setAttribute('disabled', '');
   try {
+    if (f.dataset.opForm === 'ck') {
+      const texto = f.texto.value.trim();
+      if (!texto) { btn?.removeAttribute('disabled'); return; }
+      const t = buscarT(abierta);
+      await op(t, { op: 'checklist', checklist: [...(t.checklist || []), { texto, hecho: false }] });
+      pintarVista(); pintarFicha();
+      body().querySelector('[data-op-form="ck"] input')?.focus();
+      return;
+    }
     if (f.dataset.opForm === 'comentar') {
       const texto = f.texto.value.trim();
       if (!texto) { btn?.removeAttribute('disabled'); return; }
