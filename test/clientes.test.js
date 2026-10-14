@@ -45,6 +45,7 @@ test('varios clientes: registro, datos separados, equipo por cliente y accesos d
   m = (await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'probar-meta', id: 'clinica-sol' } })).data;
   assert.equal(m.ok, true);
   assert.match(m.nombre, /555/);
+  assert.ok(m.app?.id); // de qué app es el token (para autorizar la cuenta en esa app)
 
   // Cliente desconocido
   assert.equal((await call('/api/me', { cookie: admin, cliente: 'no-existe' })).status, 404);

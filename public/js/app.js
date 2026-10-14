@@ -7757,7 +7757,8 @@ function pintarIntegrarCrm() {
       <div class="crm-ok-ico" aria-hidden="true">✓</div>
       <h3>¡${esc(c.nombre)} está listo!</h3>
       <ul class="crm-resumen"><li class="ok">✓ CRM integrado${it.etiquetas != null ? ` · ${it.etiquetas} etiquetas` : ''}</li>
-        <li class="${it.metaNombre ? 'ok' : 'pend'}">${it.metaNombre ? `✓ Meta conectado · ${esc(it.metaNombre)}` : '○ Meta sin conectar (puedes hacerlo luego desde su tarjeta)'}</li></ul>
+        <li class="${it.metaNombre ? 'ok' : 'pend'}">${it.metaNombre ? `✓ Meta conectado · ${esc(it.metaNombre)}` : '○ Meta sin conectar (puedes hacerlo luego desde su tarjeta)'}</li>
+        ${it.metaApp ? `<li class="muted">Token de la app «${esc(it.metaApp.nombre)}» · ID ${esc(it.metaApp.id)}</li>` : ''}</ul>
       <p>Lo siguiente: entra en el cliente, crea su primer embudo con <strong>＋ Nuevo embudo</strong> y da de alta a su equipo en <strong>Equipo → Miembros</strong>.</p>
       <div class="row crm-ok-acc"><button type="button" class="btn primary" data-crm="entrar">Entrar en ${esc(c.nombre)} →</button><button type="button" class="btn" data-crm="volver">Añadir otro cliente</button><button type="button" class="btn ghost" data-crm-etapa="crm">← Ver otra vez los pasos</button></div>
     </div>`;
@@ -7860,6 +7861,7 @@ $('#cl-integrar').addEventListener('click', async (e) => {
       // Si han escrito el número sin pulsar «Guardar», se guarda antes de comprobar.
       if (limpiarCuentaMeta($('#crm-meta').value) !== (c.metaAdAccount || '') && await guardarCuentaMeta(c)) crmGuardar(it.id, [...new Set([...crmHechos(it.id), 'meta-cuenta'])]);
       const r = await api('/api/clientes', { method: 'POST', body: { op: 'probar-meta', id: it.id } });
+      if (r.app) it.metaApp = r.app;
       if (r.ok) Object.assign(it, { metaNombre: r.nombre, etapa: 'fin', error: '', revisar: null });
       else Object.assign(it, { error: r.error, pista: 'Revisa el paso marcado y vuelve a comprobar.', revisar: /número|encuentra/.test(r.error) ? 'meta-cuenta' : /token/.test(r.error) ? null : 'meta-aceptar' });
     }
