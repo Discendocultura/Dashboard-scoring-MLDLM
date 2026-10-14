@@ -37,7 +37,7 @@ test('preclase: recursos y etapas en la página, votación con resultados y medi
   let p = (await call(`/api/page?l=pre-26&cid=${cid}`)).data;
   assert.deepEqual(p.etapas.map((e) => `${e.n}:${e.id}:${e.estado}`), ['1:clase1:disponible', '2:test:disponible', '3:clase2:bloqueada', '4:directo:bloqueada']);
   assert.equal(p.recursos.musica.url, 'https://ghl.com/musica.mp3'); // la clase 1 está disponible
-  assert.equal(p.recursos.musica.claseVista, false); // aún no ha visto el 75 %
+  assert.equal(p.recursos.musica.claseVista, true); // se abre con la clase disponible, sin tener que verla
   assert.match(p.links.test, /^https:\/\/ghl\.com\/test\?email=/);
   assert.equal(p.recursos.votacion.resultados, null);
   // Ve el 75 % de la clase 1 y reproduce la música

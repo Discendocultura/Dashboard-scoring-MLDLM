@@ -223,19 +223,21 @@ export async function GET(request, ctx) {
 }
 
 // Recursos de la preclase para la página y el estado de cada etapa (bloqueada | disponible | hecha).
-//   música: la URL llega en cuanto su clase está disponible; la página la deja escuchar al ver el 75 %
-//           de la clase (lo sabe la propia página mientras se ve, o por la etiqueta <código>_claseN_75).
+//   música: la URL llega en cuanto su clase está disponible y se puede escuchar ya (igual la votación y el test
+//           que van debajo de una clase: se abren con la clase, sin tener que verla).
 //   test: la URL (con el email ya puesto) desde su fecha y con la encuesta rellenada; hecho = tiene su etiqueta de GHL.
-//         Si va debajo de una clase (tras), además al ver el 75 % de esa clase (como la música y la votación).
+//         Si va debajo de una clase (tras), además con esa clase disponible.
 //   votación: la pregunta, las opciones, el voto de la lead y, si ya votó, los resultados.
 async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, preview, m }) {
   const r = recursosDe(launch);
   const vistaClase = (k) => Boolean(sig?.[`${k}_${UMBRAL_DESBLOQUEO}`] || sig?.[`${k}_90`]);
   const claseDisponible = (k) => Boolean(launch[`${k}Url`]) && encuestaDone && (m[k] == null || now >= m[k]);
+  // Los recursos de una clase (música, votación, test) se abren en cuanto la clase está disponible (no hace falta verla).
+  const abierta = (k) => claseDisponible(k) || vistaClase(k) || (preview && !contact);
   const recursos = {};
   if (tieneRecurso(launch, 'musica')) {
     const k = r.musica.tras;
-    recursos.musica = { nombre: r.musica.nombre, texto: r.musica.texto, tras: k, umbral: UMBRAL_DESBLOQUEO, claseDisponible: claseDisponible(k), claseVista: vistaClase(k) || (preview && !contact), url: claseDisponible(k) ? r.musica.url : '', escuchada: Boolean(sig?.musica_play) };
+    recursos.musica = { nombre: r.musica.nombre, texto: r.musica.texto, tras: k, umbral: UMBRAL_DESBLOQUEO, claseDisponible: claseDisponible(k), claseVista: abierta(k), url: claseDisponible(k) ? r.musica.url : '', escuchada: Boolean(sig?.musica_play) };
   }
   if (tieneRecurso(launch, 'test')) {
     const at = madridToEpoch(r.test.at);
@@ -247,7 +249,7 @@ async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, p
     const faltaEncuesta = !encuestaDone;
     recursos.test = {
       nombre: r.test.nombre, unlockAt: at, unlockText: formatLong(at), unlocked, faltaEncuesta, done: Boolean(sig?.test), url: unlocked && !faltaEncuesta ? encuestaUrl(r.test.url, contact) : '',
-      ...(k ? { tras: k, umbral: UMBRAL_DESBLOQUEO, fechaOk, claseDisponible: claseDisponible(k), claseVista: vistaClase(k) || (preview && !contact) } : {}),
+      ...(k ? { tras: k, umbral: UMBRAL_DESBLOQUEO, fechaOk, claseDisponible: claseDisponible(k), claseVista: abierta(k) } : {}),
     };
   }
   if (tieneRecurso(launch, 'votacion')) {
@@ -257,7 +259,7 @@ async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, p
     const respondida = Object.keys(misRespuestas).length > 0;
     recursos.votacion = {
       preguntas, tras: k, umbral: UMBRAL_DESBLOQUEO,
-      claseDisponible: claseDisponible(k), claseVista: vistaClase(k) || (preview && !contact), misRespuestas, respondida,
+      claseDisponible: claseDisponible(k), claseVista: abierta(k), misRespuestas, respondida,
       // Los resultados (todos los votos) se comparten 1 minuto: no se leen todos en cada visita de cada lead.
       resultados: respondida || (preview && !contact)
         ? await cacheCompartida(claveVotos(code, preguntas), 60_000,

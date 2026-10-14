@@ -1160,7 +1160,7 @@
           <section class="cfg-sec" data-sec="4b" data-preclase id="cfg-rec-sec">
             <header class="cfg-sec-head"><span class="cfg-sec-num cfg-sec-ico" aria-hidden="true">🧩</span><div><h3>Recursos de la preclase</h3><p>Además de las clases: música, test, votación, descargable y comentarios. Activa los que haya en este lanzamiento; la página los coloca y los desbloquea sola.</p></div><span class="cfg-sec-status"></span></header>
             <div class="rec-cfg" data-rec="musica">
-              <label class="chk"><input type="checkbox" id="cfg-rec-musica-on"> <strong>🎵 Música o audio</strong> <small class="muted">debajo de una clase; se desbloquea al ver el 75 % de esa clase</small></label>
+              <label class="chk"><input type="checkbox" id="cfg-rec-musica-on"> <strong>🎵 Música o audio</strong> <small class="muted">debajo de una clase; se abre en cuanto esa clase está disponible</small></label>
               <div class="grid2">
                 <label class="field" data-rec-campo><span>Nombre <small>(p. ej. «Meditación para tu ciclo»)</small></span><input id="cfg-rec-musica-nombre" maxlength="80"></label>
                 <label class="field" data-rec-campo><span>Archivo MP3 · enlace <small>(súbelo a Medios de GHL y copia su enlace)</small></span><input id="cfg-rec-musica-url" type="url" placeholder="https://storage.googleapis.com/…/musica.mp3"></label>
@@ -1174,13 +1174,13 @@
                 <label class="field" data-rec-campo><span>Nombre del test</span><input id="cfg-rec-test-nombre" maxlength="120" placeholder="Autodiagnóstico: ¿por qué no te quedas embarazada?"></label>
                 <label class="field" data-rec-campo><span>Enlace del test <small>(se rellena solo con el email y el nombre)</small></span><input id="cfg-rec-test-url" type="url" placeholder="https://…/survey/…"></label>
                 <label class="field" data-rec-campo><span>Etiqueta al completarlo <small>(la que pone el workflow de GHL al terminar el test)</small></span><input id="cfg-rec-test-tag" list="tag-list" placeholder="Busca la etiqueta…"></label>
-                <label class="field" data-rec-campo><span>Va debajo de <small>(debajo de una clase: aparece al ver el 75 % de esa clase)</small></span><select id="cfg-rec-test-tras"></select></label>
+                <label class="field" data-rec-campo><span>Va debajo de <small>(debajo de una clase: aparece en cuanto esa clase está disponible)</small></span><select id="cfg-rec-test-tras"></select></label>
                 <label class="field" data-rec-campo><span>Test · se abre <small>(opcional; además, tiene que haber rellenado la encuesta)</small></span><input id="cfg-rec-test-at" type="datetime-local"></label>
               <label class="field" data-rec-campo data-test-etapa><span>Test · imagen de la etapa <small>(solo si va como etapa propia; URL de Medios de GHL; <code>&lt;img data-lsd-img="test"&gt;</code>)</small></span><input id="cfg-img-test" type="url" placeholder="https://assets.cdn.filesafe.space/…"></label>
               </div>
             </div>
             <div class="rec-cfg" data-rec="votacion">
-              <label class="chk"><input type="checkbox" id="cfg-rec-votacion-on"> <strong>🗳️ Votación</strong> <small class="muted">debajo de una clase; se abre al ver el 75 %. Una o varias preguntas, tipo test (al responder ven los % de todas) o de respuesta libre</small></label>
+              <label class="chk"><input type="checkbox" id="cfg-rec-votacion-on"> <strong>🗳️ Votación</strong> <small class="muted">debajo de una clase; se abre en cuanto esa clase está disponible. Una o varias preguntas, tipo test (al responder ven los % de todas) o de respuesta libre</small></label>
               <div class="grid2">
                 <label class="field" data-rec-campo><span>Va debajo de</span><select id="cfg-rec-votacion-tras" data-rec-clases></select></label>
               </div>
