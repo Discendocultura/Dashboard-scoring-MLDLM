@@ -102,6 +102,15 @@ export async function abrirOperativa(opts) {
     dlg.querySelector('#op-nueva').addEventListener('click', () => { creando = true; abierta = null; pintar(); });
     dlg.querySelector('#op-importar-btn')?.addEventListener('click', () => dlg.querySelector('#op-importar').click());
     dlg.addEventListener('click', onClick);
+    dlg.addEventListener('pointerdown', (e) => { const a = e.target.closest('[data-op-ancho]'); if (a && e.button === 0) empezarAncho(e, a); });
+    dlg.addEventListener('dblclick', (e) => {
+      const a = e.target.closest('[data-op-ancho]');
+      if (!a) return;
+      const k = claveAnchos();
+      if (anchos[k]) { delete anchos[k][a.dataset.opAncho]; guardarAnchos(); }
+      ultimoTablero = `${fProy}|${fTab}|${fEmb}|${fEtq}`;
+      pintarVista();
+    });
     dlg.addEventListener('change', onChange);
     dlg.addEventListener('submit', onSubmit);
     dlg.addEventListener('input', (e) => { if (e.target.id === 'op-buscar') { q = e.target.value; pintarVista(); } });
@@ -347,6 +356,45 @@ let ultimoTablero = '';
 const pieColumna = (colId) => (addCol === colId
   ? `<form class="op-add" data-op-form="rapida" data-col="${esc(colId)}"><textarea name="titulo" rows="2" maxlength="200" placeholder="¿Qué hay que hacer? (Intro para añadir)" aria-label="Nueva tarea"></textarea><div class="op-add-acc"><button class="btn primary small">Añadir</button><button type="button" class="btn ghost small" data-op="add-cerrar" aria-label="Cancelar">✕</button><span class="muted small">${fProy ? '' : 'Se abrirá la ficha para elegir el proyecto'}</span></div></form>`
   : `<button type="button" class="op-add-b" data-op-add="${esc(colId)}">＋ Añadir tarea</button>`);
+// Ancho de cada columna: se cambia arrastrando su borde derecho (doble clic, vuelve al de serie). Se recuerda en
+// este navegador, por tablero. En el móvil no se usa (las columnas ocupan la pantalla).
+const LS_ANCHOS = 'lsd_op_anchos';
+let anchos = (() => { try { return JSON.parse(localStorage.getItem(LS_ANCHOS) || '{}') || {}; } catch { return {}; } })();
+const guardarAnchos = () => { try { localStorage.setItem(LS_ANCHOS, JSON.stringify(anchos)); } catch { /* sin almacenamiento */ } };
+const claveAnchos = () => (fProy ? `${fProy}|${(tabsDe(fProy).find((b) => b.id === fTab) || tabsDe(fProy)[0]).id}` : '_todos');
+const plantillaAnchos = (k, ids) => ids.map((id) => (anchos[k]?.[id] ? `${anchos[k][id]}px` : 'minmax(260px, 1fr)')).join(' ');
+function estiloAnchos(k, ids, enStyle = false) {
+  if (!anchos[k] || !Object.keys(anchos[k]).length || window.matchMedia?.('(max-width: 760px)').matches) return '';
+  const css = `grid-template-columns:${plantillaAnchos(k, ids)}`;
+  return enStyle ? css : ` style="${css}"`;
+}
+const asaAncho = (colId) => `<span class="op-col-ancho" data-op-ancho="${esc(colId)}" title="Arrastra para cambiar el ancho (doble clic: el de serie)" aria-hidden="true"></span>`;
+function empezarAncho(e, asa) {
+  const col = asa.closest('.op-col');
+  const tablero = asa.closest('.op-tablero');
+  if (!col || !tablero) return;
+  e.preventDefault();
+  const k = claveAnchos();
+  const ids = [...tablero.querySelectorAll(':scope > .op-col')].map((c) => c.dataset.opCol);
+  const x0 = e.clientX;
+  const w0 = col.getBoundingClientRect().width;
+  const id = asa.dataset.opAncho;
+  anchos[k] = { ...(anchos[k] || {}) };
+  col.classList.add('ajustando');
+  const mover = (ev) => {
+    anchos[k][id] = Math.round(Math.max(200, Math.min(900, w0 + ev.clientX - x0)));
+    tablero.style.gridTemplateColumns = plantillaAnchos(k, ids);
+  };
+  const soltar = () => {
+    window.removeEventListener('pointermove', mover);
+    window.removeEventListener('pointerup', soltar);
+    col.classList.remove('ajustando');
+    guardarAnchos();
+  };
+  window.addEventListener('pointermove', mover);
+  window.addEventListener('pointerup', soltar);
+}
+
 function vistaTablero(lista, hoy) {
   if (importando) return vistaImportar();
   // Las tarjetas entran con animación al abrir o cambiar de tablero; al repintar tras un cambio, no.
@@ -355,10 +403,10 @@ function vistaTablero(lista, hoy) {
   ultimoTablero = k;
   if (!fProy) {
     return `<p class="op-ayuda">Arrastra las tarjetas a otra columna para cambiar su estado, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ para completarlas. <strong>Elige un cliente arriba</strong> para ver sus tableros, cada uno con sus columnas.</p>
-  <div class="op-tablero${quieto}">${ESTADOS_OP.map((e) => {
+  <div class="op-tablero${quieto}"${estiloAnchos('_todos', ESTADOS_OP.map((e) => e.id))}>${ESTADOS_OP.map((e) => {
     const ts = lista.filter((t) => estadoOp(t) === e.id).sort(porOrden);
     return `<section class="op-col e-${e.id}" data-op-col="${e.id}"><header><span class="op-col-dot"></span><span class="op-col-nom">${e.icon} ${esc(e.label)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${e.id}" title="Nueva tarea en «${esc(e.label)}»" aria-label="Nueva tarea en ${esc(e.label)}">＋</button></header>
-      <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div>${pieColumna(e.id)}</section>`;
+      <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div>${pieColumna(e.id)}${asaAncho(e.id)}</section>`;
   }).join('')}</div>`;
   }
   const tabs = tabsDe(fProy);
@@ -369,10 +417,10 @@ function vistaTablero(lista, hoy) {
   if (editTab) return barra + editorTablero();
   const suyas = lista.filter((t) => tabDeT(t).id === tab.id);
   return `${barra}<p class="op-ayuda">Arrastra las tarjetas a otra columna, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ de una tarjeta para completarla. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.</p>
-  <div class="op-tablero${quieto}" style="--op-ncol:${tab.columnas.length}">${tab.columnas.map((c, i) => {
+  <div class="op-tablero${quieto}" style="--op-ncol:${tab.columnas.length};${estiloAnchos(`${fProy}|${tab.id}`, tab.columnas.map((c) => c.id), true)}">${tab.columnas.map((c, i) => {
     const ts = suyas.filter((t) => columnaDeTarea(t, tab) === c.id).sort(porOrden);
-    return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header><span class="op-col-dot"></span><span class="op-col-nom">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${esc(c.id)}" title="Nueva tarea en «${esc(c.nombre)}»" aria-label="Nueva tarea en ${esc(c.nombre)}">＋</button></header>
-      <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div>${pieColumna(c.id)}</section>`;
+    return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header><span class="op-col-dot"></span><span class="op-col-nom" title="${esc(c.nombre)}">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${esc(c.id)}" title="Nueva tarea en «${esc(c.nombre)}»" aria-label="Nueva tarea en ${esc(c.nombre)}">＋</button></header>
+      <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div>${pieColumna(c.id)}${asaAncho(c.id)}</section>`;
   }).join('')}</div>`;
 }
 
