@@ -143,3 +143,16 @@ test('tableros (API): etiquetas comunes, prioridad, checklist y al completar una
   const setter = (await call('/api/login', { method: 'POST', body: { password: 'setter' } })).res.headers.get('set-cookie').split(';')[0];
   assert.equal((await call('/api/operativa', { method: 'POST', cookie: setter, body: { op: 'etiqueta-borrar', id: urg } })).status, 403);
 });
+
+test('tableros (API): se repite cada mes el día 5 → la siguiente cae el día 5', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const post = (body) => call('/api/operativa', { method: 'POST', cookie: admin, body });
+  let r = await post({ op: 'crear', tarea: { titulo: 'Facturas del mes', proyecto: 'mldlm', fecha: '2030-03-05' } });
+  const t = (await call('/api/operativa', { cookie: admin })).data.tareas.find((x) => x.id === r.data.tarea.id);
+  const ref = { cliente: t.cliente, code: t.code, id: t.id };
+  r = await post({ ...ref, op: 'repetir', repetir: { tipo: 'mensual', dia: 5, dias: [1] } });
+  assert.deepEqual(r.data.tarea.repetir, { tipo: 'mensual', n: 0, dia: 5 });
+  r = await post({ ...ref, op: 'estado', estado: 'hecha' });
+  assert.equal(r.data.nueva.fecha, '2030-04-05');
+  assert.deepEqual(r.data.nueva.repetir, { tipo: 'mensual', n: 0, dia: 5 });
+});

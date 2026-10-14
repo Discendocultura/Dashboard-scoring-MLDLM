@@ -4,7 +4,8 @@
 // Todo se guarda al momento. Se importa desde un archivo .json (por ejemplo, el «Sistema Operativo» de Asana).
 //   abrirProcesos({ api, dialog })
 import { richToHtml, sanitizeRich, safeHref, videoEmbed, richToText } from './richtext.js';
-import { buscarProcesos, documentado, tieneVideo, REPETIR, estadoFecha, proximaTrasHecho, enProyecto } from './procesos.js';
+import { buscarProcesos, documentado, tieneVideo, estadoFecha, proximaTrasHecho, enProyecto, encajaEnRepetir, primeraFechaRepetir } from './procesos.js';
+import { editorRepetir, leerRepetir, pulsarDsem } from './repetir-ui.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hoyMadrid = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
@@ -176,7 +177,7 @@ function pintarProceso(main) {
     <div class="pr-campos">
       ${fila('Responsable', `<span class="pr-resp">${p.responsable ? avatar(nombreDe(p.responsable)) : '<span class="pr-av vacio">?</span>'}<select data-pr-campo="responsable" aria-label="Responsable"><option value="">Sin asignar</option>${bib.equipo.map((u) => `<option value="${esc(u.id)}"${u.id === p.responsable ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}</select></span>`)}
       ${fila('Fecha', `<span class="pr-fecha"><input type="date" data-pr-campo="fecha" value="${esc(p.fecha)}" aria-label="Fecha">${ef && FECHA_TXT[ef] ? `<span class="pr-badge f-${ef}">${FECHA_TXT[ef]}</span>` : ''}${p.fecha ? '<button type="button" class="link small" data-pr="sin-fecha">Quitar</button>' : ''}</span>`)}
-      ${fila('Se repite', `<span class="pr-rep"><select data-pr-campo="repetir" aria-label="Se repite">${REPETIR.map((r) => `<option value="${r.id}"${r.id === p.repetir.tipo ? ' selected' : ''}>${esc(r.label)}</option>`).join('')}</select>${p.repetir.tipo === 'dias' ? `<input type="number" min="1" max="365" data-pr-campo="repetir-n" value="${p.repetir.n}" aria-label="Cada cuántos días"> días` : ''}${p.repetir.tipo && p.fecha ? `<span class="muted small">🔁 Al marcarlo como hecho pasa al ${esc(fechaCorta(proximaTrasHecho(p.fecha, p.repetir, hoy)))}</span>` : p.repetir.tipo ? '<span class="muted small">Pon una fecha para que se repita</span>' : ''}</span>`)}
+      ${fila('Se repite', `<span class="pr-rep">${editorRepetir(p.repetir)}${p.repetir.tipo && p.fecha && !encajaEnRepetir(p.fecha, p.repetir) ? `<span class="muted small">Su fecha no cae en el día elegido.</span><button type="button" class="btn small" data-pr="rep-alinear">📅 Pasarlo al ${esc(fechaCorta(primeraFechaRepetir(p.fecha < hoy ? hoy : p.fecha, p.repetir)))}</button>` : p.repetir.tipo && p.fecha ? `<span class="muted small">🔁 Al marcarlo como hecho pasa al ${esc(fechaCorta(proximaTrasHecho(p.fecha, p.repetir, hoy)))}</span>` : p.repetir.tipo ? '<span class="muted small">Pon una fecha para que se repita</span>' : ''}</span>`)}
       ${bib.proyectos.length ? fila('Proyecto', `<span class="pr-proy-chips"><button type="button" class="pr-pchip${p.proyectos.length ? '' : ' on'}" data-pr-proy="">🌐 General (todos)</button>${bib.proyectos.map((x) => `<button type="button" class="pr-pchip${p.proyectos.includes(x.id) ? ' on' : ''}" data-pr-proy="${esc(x.id)}" style="--cl:${esc(x.color || 'var(--accent)')}">${esc(x.nombre)}</button>`).join('')}</span>`) : ''}
       ${fila('Sección', `<select data-pr-campo="seccion" aria-label="Sección">${bib.secciones.map((x) => `<option value="${esc(x.id)}"${x.id === p.seccion ? ' selected' : ''}>${esc(x.titulo)}</option>`).join('')}</select>`)}
     </div>
@@ -319,6 +320,7 @@ const arriba = () => { body().scrollTop = 0; ctx.dialog.scrollTop = 0; };
 
 async function onChange(e) {
   const t = e.target;
+  if (t.dataset.rep && abierto) { guardarCampos({ repetir: leerRepetir(t.closest('[data-rep-ed]'), proc().fecha) }); return; }
   if (t.matches('#pr-importar, [data-pr-importar]')) { importar(e); return; }
   if (t.id === 'pr-proyecto') {
     proy = t.value;
@@ -336,8 +338,6 @@ async function onChange(e) {
   if (!c || !abierto) return;
   const p = proc();
   if (c === 'titulo') { if (t.value.trim() && t.value.trim() !== p.titulo) guardarCampos({ titulo: t.value }); return; }
-  if (c === 'repetir') { guardarCampos({ repetir: { tipo: t.value, n: p.repetir.n || 3 } }); return; }
-  if (c === 'repetir-n') { guardarCampos({ repetir: { tipo: 'dias', n: Number(t.value) } }); return; }
   guardarCampos({ [c]: t.value });
 }
 
@@ -366,6 +366,9 @@ async function onSubmit(e) {
 }
 
 async function onClick(e) {
+  const ds = e.target.closest('[data-rep-dsem]');
+  if (ds && abierto) { pulsarDsem(ds); guardarCampos({ repetir: leerRepetir(ds.closest('[data-rep-ed]'), proc().fecha) }); return; }
+  if (e.target.closest('[data-pr="rep-alinear"]') && abierto) { const p = proc(); const hoy = hoyMadrid(); guardarCampos({ fecha: primeraFechaRepetir(p.fecha < hoy ? hoy : p.fecha, p.repetir) }); return; }
   const sb = e.target.closest('[data-pr-sec]');
   if (sb) { sec = sb.dataset.prSec; abierto = ''; pintar(); return; }
   const fl = e.target.closest('[data-pr-filtro]');

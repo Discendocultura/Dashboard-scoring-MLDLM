@@ -7,7 +7,8 @@
 import { ESTADOS_OP, estadoOp, estaBloqueada, embudosDe, ICONO_EMBUDO, semanasDelMes, mesMas, agruparPorFecha, resumenProyecto, cargaPorPersona, diasDeRetraso, PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from './operativa.js';
 import { richToHtml, richToText } from './richtext.js';
 import { tablerosDe, tableroDeTarea, columnaDeTarea, columnaHecha, COLUMNAS_SERIE, GENERAL, MAX_COLUMNAS, COLORES_ETIQUETA, etiquetasDeTarea, PRIORIDADES, ordenTarjetas, progresoChecklist, MAX_ETIQUETAS_TAREA } from './tableros.js';
-import { REPETIR, textoRepetir, proximaTrasHecho } from './procesos.js';
+import { textoRepetir, proximaTrasHecho, encajaEnRepetir, primeraFechaRepetir } from './procesos.js';
+import { editorRepetir, leerRepetir, pulsarDsem } from './repetir-ui.js';
 import { montarEditor, montarVideos } from './editor-rico.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -354,6 +355,17 @@ function bloqueChecklist(t) {
   </section>`;
 }
 
+// Debajo del editor de «Se repite»: cuándo será la siguiente y, si su fecha no cae en el día elegido, moverla.
+function bloqueRepetir(t) {
+  if (!t.repetir?.tipo) return '';
+  const hoy = hoyMadrid();
+  const base = t.fecha || hoy;
+  const fuera = !t.hecha && !encajaEnRepetir(base, t.repetir);
+  const primera = fuera ? primeraFechaRepetir(base < hoy ? hoy : base, t.repetir) : '';
+  return `<small class="op-rep-txt">🔁 <b>${esc(textoRepetir(t.repetir))}</b>. ${fuera ? `Esta tarea está para el ${esc(fechaCorta(base))}, que no es el día elegido.` : `Al completarla se crea la siguiente para el <b>${esc(fechaCorta(proximaTrasHecho(base, t.repetir, hoy)))}</b>${t.fecha ? '' : ' (desde hoy: ponle fecha para fijar el ritmo)'}.`}</small>
+    ${fuera ? `<button type="button" class="btn small op-rep-alinear" data-op="rep-alinear" data-fecha="${esc(primera)}">📅 Pasarla al ${esc(fechaCorta(primera))}</button>` : ''}`;
+}
+
 // ---- Ficha de una tarea (o nueva del proyecto Agencia) ----
 function pintarFicha() {
   const box = body().querySelector('#op-ficha');
@@ -389,8 +401,7 @@ function pintarFicha() {
       <div class="pr-campo"><span class="pr-campo-l">Prioridad</span><div class="pr-campo-v"><div class="op-prios">${[{ id: '', label: 'Sin prioridad' }, ...PRIORIDADES].map((pp) => `<button type="button" class="op-prio-b${pp.id ? ` p-${pp.id}` : ''}${(t.prioridad || '') === pp.id ? ' on' : ''}" data-op-prio="${pp.id}">${pp.id === 'alta' ? '🔥 ' : pp.id ? '⚑ ' : ''}${esc(pp.label)}</button>`).join('')}</div></div></div>
       <div class="pr-campo"><span class="pr-campo-l">Etiquetas</span><div class="pr-campo-v op-etqs-v">${etiquetasDeTarea(t, d.etiquetas).map((x) => pildoraEtq(x, ` data-op-etq-toggle="${esc(x.id)}" role="button" tabindex="0" title="Quitar"`)).join('')}<button type="button" class="op-etq-add" data-op="etq-abrir">${pickerEtq ? 'Cerrar' : '＋ Etiqueta'}</button>
         ${pickerEtq ? selectorEtiquetas(t) : ''}</div></div>
-      <div class="pr-campo"><span class="pr-campo-l">Se repite</span><div class="pr-campo-v op-rep-v"><select data-op-campo="repetir">${REPETIR.map((x) => `<option value="${x.id}"${(t.repetir?.tipo || '') === x.id ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select>${t.repetir?.tipo === 'dias' ? `<input type="number" min="1" max="365" data-op-campo="repetir-n" value="${t.repetir.n || 1}" aria-label="Cada cuántos días">` : ''}
-        ${t.repetir?.tipo ? `<small class="op-rep-txt">🔁 Al completarla se crea la siguiente para el <b>${esc(fechaCorta(proximaTrasHecho(t.fecha || hoyMadrid(), t.repetir, hoyMadrid())))}</b>${t.fecha ? '' : ' (desde hoy: ponle fecha para fijar el ritmo)'}.</small>` : ''}</div></div>
+      <div class="pr-campo"><span class="pr-campo-l">Se repite</span><div class="pr-campo-v op-rep-v">${editorRepetir(t.repetir)}${bloqueRepetir(t)}</div></div>
       ${e === 'hecha' ? '' : `<div class="pr-campo"><span class="pr-campo-l">Bloqueo</span><div class="pr-campo-v">${estaBloqueada(t) ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span><button type="button" class="btn ghost small" data-op="desbloquear">Desbloquear</button>` : '<button type="button" class="btn ghost small op-bloquear" data-op="bloquear">⛔ Marcar como bloqueada</button>'}</div></div>`}
       <div class="pr-campo"><span class="pr-campo-l">Fecha</span><div class="pr-campo-v"><input type="date" data-op-campo="fecha" value="${esc(t.fecha)}">${chipFecha(t, hoyMadrid())}</div></div>
       <div class="pr-campo"><span class="pr-campo-l">Responsable</span><div class="pr-campo-v">${d.superadmin ? `<select data-op-campo="uid"><option value="">Sin asignar</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${t.asignado?.tipo === 'persona' && t.asignado.id === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}${t.asignado?.tipo === 'rol' ? `<option selected>Rol ${esc(t.asignado.rol)}</option>` : ''}</select>` : `${avatar(t)} ${esc(quienTxt(t))}`}</div></div>
@@ -468,6 +479,10 @@ async function onClick(e) {
   if (v) { vista = v.dataset.opVista; pintar(); return; }
   const fe = e.target.closest('[data-op-fetq]');
   if (fe) { fEtq = fe.dataset.opFetq; pintar(); return; }
+  const ds = e.target.closest('[data-rep-dsem]');
+  if (ds) { pulsarDsem(ds); guardarRepetir(ds.closest('[data-rep-ed]')); return; }
+  const al = e.target.closest('[data-op="rep-alinear"]');
+  if (al) { const t = buscarT(abierta); try { await op(t, { op: 'fecha', fecha: al.dataset.fecha }); } catch (err) { window.alert(err.message); } pintarVista(); pintarFicha(); return; }
   const pr = e.target.closest('[data-op-prio]');
   if (pr) { const t = buscarT(abierta); if (t) { try { await op(t, { op: 'prioridad', prioridad: pr.dataset.opPrio }); } catch (err) { window.alert(err.message); } pintarVista(); pintarFicha(); } return; }
   const sw = e.target.closest('[data-op-color]');
@@ -602,8 +617,17 @@ async function opEditor(b) {
   pintarVista();
 }
 
+async function guardarRepetir(box) {
+  const t = buscarT(abierta);
+  if (!t || !box) return;
+  try { await op(t, { op: 'repetir', repetir: leerRepetir(box, t.fecha) }); } catch (err) { window.alert(err.message); }
+  pintarVista();
+  pintarFicha();
+}
+
 async function onChange(e) {
   const t0 = e.target;
+  if (t0.dataset.rep) { guardarRepetir(t0.closest('[data-rep-ed]')); return; }
   if (t0.id === 'op-proyecto') { fProy = t0.value; fEmb = ''; fTab = GENERAL; editTab = null; pintar(); return; }
   if (t0.dataset.te === 'plantilla' && editTab) {
     leerEditor();
@@ -632,8 +656,6 @@ async function onChange(e) {
   const t = buscarT(abierta);
   try {
     if (c === 'fecha') await op(t, { op: 'fecha', fecha: t0.value });
-    if (c === 'repetir') await op(t, { op: 'repetir', repetir: { tipo: t0.value, n: t.repetir?.n || 7 } });
-    if (c === 'repetir-n') await op(t, { op: 'repetir', repetir: { tipo: 'dias', n: Number(t0.value) || 1 } });
     if (c === 'tablero') { const nt = tabsDe(t.cliente).find((b) => b.id === t0.value); await op(t, { op: 'columna', tablero: t0.value, columna: t.hecha && nt ? columnaHecha(nt).id : '' }); }
     if (c === 'uid') await op(t, { op: 'asignar', uid: t0.value });
   } catch (err) { window.alert(err.message); }

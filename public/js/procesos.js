@@ -34,9 +34,25 @@ export const MAX_COMENTARIOS = 300;
 const MAX_ACTIVIDAD = 150;
 const idCorto = () => Math.random().toString(36).slice(2, 10);
 
+// Además del tipo: el día concreto. Semanal → días de la semana (uno o varios: 0 = domingo … 6 = sábado);
+// cada 2 semanas → un día de la semana; mensual → el día del mes (1-31, -1 = el último) o «el primer / segundo /
+// tercer / cuarto / último <día de la semana>» (ord + dsem). Sin día concreto, como hasta ahora (desde la fecha).
+export const DIAS_SEMANA = [1, 2, 3, 4, 5, 6, 0].map((id) => ({ id, nombre: ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][id], corto: 'DLMXJVS'[id] }));
+export const ORDINALES = [{ id: 1, label: 'primer' }, { id: 2, label: 'segundo' }, { id: 3, label: 'tercer' }, { id: 4, label: 'cuarto' }, { id: -1, label: 'último' }];
+const esDsem = (x) => Number.isInteger(x) && x >= 0 && x <= 6;
 export function sanitizeRepetir(r) {
   const tipo = REPETIR.some((x) => x.id === r?.tipo) ? r.tipo : '';
-  return tipo === 'dias' ? { tipo, n: Math.min(365, Math.max(1, Math.round(Number(r?.n) || 1))) } : { tipo, n: 0 };
+  const out = { tipo, n: tipo === 'dias' ? Math.min(365, Math.max(1, Math.round(Number(r?.n) || 1))) : 0 };
+  if ((tipo === 'semanal' || tipo === 'quincenal') && Array.isArray(r?.dias)) {
+    const ds = [...new Set(r.dias.map(Number).filter(esDsem))].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+    if (ds.length) out.dias = tipo === 'quincenal' ? [ds[0]] : ds;
+  }
+  if (tipo === 'mensual') {
+    const ord = Number(r?.ord); const dsem = Number(r?.dsem); const dia = Number(r?.dia);
+    if (ORDINALES.some((o) => o.id === ord) && esDsem(dsem)) Object.assign(out, { ord, dsem });
+    else if (dia === -1 || (Number.isInteger(dia) && dia >= 1 && dia <= 31)) out.dia = dia;
+  }
+  return out;
 }
 export const sumarDias = (d, n) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 function sumarMes(d) {
@@ -44,14 +60,52 @@ function sumarMes(d) {
   const ult = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(); // último día del mes siguiente
   return `${m === 12 ? y + 1 : y}-${String((m % 12) + 1).padStart(2, '0')}-${String(Math.min(dd, ult)).padStart(2, '0')}`;
 }
+const dsemDe = (d) => new Date(`${d}T12:00:00Z`).getUTCDay();
+const dosCifras = (n) => String(n).padStart(2, '0');
+// El día que toca en un mes (m: 1-12) según la regla mensual (día del mes o «primer lunes», «último viernes»…).
+function diaDelMes(y, m, r) {
+  const ult = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  let dia;
+  if (r.ord) {
+    if (r.ord > 0) dia = 1 + ((r.dsem - dsemDe(`${y}-${dosCifras(m)}-01`) + 7) % 7) + (r.ord - 1) * 7;
+    else dia = ult - ((dsemDe(`${y}-${dosCifras(m)}-${ult}`) - r.dsem + 7) % 7);
+  } else dia = r.dia === -1 ? ult : Math.min(r.dia, ult);
+  return `${y}-${dosCifras(m)}-${dosCifras(dia)}`;
+}
+// ¿Esa fecha cae en el día que marca la regla? (sin día concreto, cualquiera vale)
+export function encajaEnRepetir(fecha, repetir) {
+  const r = sanitizeRepetir(repetir);
+  if (!DIA_RE.test(fecha || '')) return false;
+  if (r.dias) return r.dias.includes(dsemDe(fecha));
+  if (r.tipo === 'laborables') return ![0, 6].includes(dsemDe(fecha));
+  if (r.tipo === 'mensual' && (r.ord || r.dia)) { const [y, m] = fecha.split('-').map(Number); return diaDelMes(y, m, r) === fecha; }
+  return true;
+}
+// La primera fecha de la regla desde un día (ese mismo si encaja): para colocar la tarea al elegir el día concreto.
+export function primeraFechaRepetir(desde, repetir) {
+  if (encajaEnRepetir(desde, repetir)) return desde;
+  const r = sanitizeRepetir(repetir);
+  if (r.dias) { let d = sumarDias(desde, 1); while (!r.dias.includes(dsemDe(d))) d = sumarDias(d, 1); return d; } // el próximo de esos días (también cada 2 semanas)
+  return siguienteFecha(desde, repetir);
+}
 // La siguiente fecha de un proceso que se repite (o '' si no se repite).
 export function siguienteFecha(fecha, repetir) {
   const r = sanitizeRepetir(repetir);
   if (!r.tipo || !DIA_RE.test(fecha || '')) return '';
   if (r.tipo === 'diaria') return sumarDias(fecha, 1);
-  if (r.tipo === 'laborables') { let d = sumarDias(fecha, 1); while ([0, 6].includes(new Date(`${d}T12:00:00Z`).getUTCDay())) d = sumarDias(d, 1); return d; }
+  if (r.tipo === 'laborables') { let d = sumarDias(fecha, 1); while ([0, 6].includes(dsemDe(d))) d = sumarDias(d, 1); return d; }
+  if (r.dias) {
+    let d = sumarDias(fecha, 1);
+    while (!r.dias.includes(dsemDe(d))) d = sumarDias(d, 1); // como mucho 7 vueltas
+    return r.tipo === 'quincenal' ? sumarDias(d, 7) : d;
+  }
   if (r.tipo === 'semanal') return sumarDias(fecha, 7);
   if (r.tipo === 'quincenal') return sumarDias(fecha, 14);
+  if (r.tipo === 'mensual' && (r.ord || r.dia)) {
+    const [y, m] = fecha.split('-').map(Number);
+    const este = diaDelMes(y, m, r);
+    return este > fecha ? este : diaDelMes(m === 12 ? y + 1 : y, (m % 12) + 1, r);
+  }
   if (r.tipo === 'mensual') return sumarMes(fecha);
   return sumarDias(fecha, r.n);
 }
@@ -69,7 +123,17 @@ export function estadoFecha(p, hoy) {
   if (p.fecha === sumarDias(hoy, 1)) return 'manana';
   return p.fecha <= sumarDias(hoy, 7) ? 'semana' : 'futura';
 }
-export const textoRepetir = (r) => (r?.tipo === 'dias' ? `Cada ${r.n} día${r.n === 1 ? '' : 's'}` : REPETIR.find((x) => x.id === (r?.tipo || ''))?.label || '');
+const listaY = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}` : xs[0] || '');
+const nombreDsem = (id) => DIAS_SEMANA.find((x) => x.id === id)?.nombre || '';
+export function textoRepetir(rep) {
+  const r = sanitizeRepetir(rep);
+  if (r.tipo === 'dias') return `Cada ${r.n} día${r.n === 1 ? '' : 's'}`;
+  if (r.tipo === 'semanal' && r.dias) return r.dias.length === 7 ? 'Cada día' : `Cada semana: ${listaY(r.dias.map(nombreDsem))}`;
+  if (r.tipo === 'quincenal' && r.dias) return `Cada 2 semanas, el ${nombreDsem(r.dias[0])}`;
+  if (r.tipo === 'mensual' && r.ord) return `Cada mes, el ${ORDINALES.find((o) => o.id === r.ord).label} ${nombreDsem(r.dsem)}`;
+  if (r.tipo === 'mensual' && r.dia) return r.dia === -1 ? 'Cada mes, el último día' : `Cada mes, el día ${r.dia}`;
+  return REPETIR.find((x) => x.id === r.tipo)?.label || '';
+}
 
 export function sanitizeProceso(p, secciones = []) {
   const id = ID_RE.test(String(p?.id || '')) ? String(p.id) : nuevoIdProceso();

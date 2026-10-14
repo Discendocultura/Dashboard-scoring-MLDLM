@@ -66,3 +66,36 @@ test('procesos por proyecto: los generales se ven en todos; los de un proyecto, 
   assert.ok(enProyecto(disc, 'discendo') && enProyecto(disc, ''));
   assert.ok(!enProyecto(disc, 'mldlm') && !enProyecto(disc, '_general'));
 });
+
+test('procesos: repetir un día concreto (días de la semana, día del mes, «el primer lunes», «el último viernes»)', async () => {
+  const { siguienteFecha, proximaTrasHecho, sanitizeRepetir, textoRepetir, encajaEnRepetir, primeraFechaRepetir } = await import('../public/js/procesos.js');
+  // 14-10-2026 es miércoles
+  assert.equal(siguienteFecha('2026-10-14', { tipo: 'semanal', dias: [1] }), '2026-10-19'); // → lunes
+  assert.equal(siguienteFecha('2026-10-19', { tipo: 'semanal', dias: [1, 4] }), '2026-10-22'); // lunes → jueves
+  assert.equal(siguienteFecha('2026-10-22', { tipo: 'semanal', dias: [4, 1] }), '2026-10-26'); // jueves → lunes
+  assert.equal(siguienteFecha('2026-10-19', { tipo: 'quincenal', dias: [1] }), '2026-11-02');
+  assert.equal(siguienteFecha('2026-10-02', { tipo: 'mensual', dia: 5 }), '2026-10-05'); // este mes, si aún no ha llegado
+  assert.equal(siguienteFecha('2026-10-05', { tipo: 'mensual', dia: 5 }), '2026-11-05');
+  assert.equal(siguienteFecha('2026-01-31', { tipo: 'mensual', dia: 31 }), '2026-02-28');
+  assert.equal(siguienteFecha('2026-02-28', { tipo: 'mensual', dia: 31 }), '2026-03-31'); // no se queda en el 28
+  assert.equal(siguienteFecha('2026-10-14', { tipo: 'mensual', dia: -1 }), '2026-10-31');
+  assert.equal(siguienteFecha('2026-10-05', { tipo: 'mensual', ord: 1, dsem: 1 }), '2026-11-02'); // primer lunes
+  assert.equal(siguienteFecha('2026-10-14', { tipo: 'mensual', ord: -1, dsem: 5 }), '2026-10-30'); // último viernes
+  assert.equal(siguienteFecha('2026-10-30', { tipo: 'mensual', ord: -1, dsem: 5 }), '2026-11-27');
+  assert.equal(proximaTrasHecho('2026-08-05', { tipo: 'mensual', dia: 5 }, '2026-10-14'), '2026-11-05');
+  // Limpieza: los días solo donde tienen sentido; cada 2 semanas, uno
+  assert.deepEqual(sanitizeRepetir({ tipo: 'semanal', dias: [4, 1, 1, 9] }), { tipo: 'semanal', n: 0, dias: [1, 4] });
+  assert.deepEqual(sanitizeRepetir({ tipo: 'quincenal', dias: [3, 1] }), { tipo: 'quincenal', n: 0, dias: [1] });
+  assert.deepEqual(sanitizeRepetir({ tipo: 'diaria', dias: [1], dia: 5 }), { tipo: 'diaria', n: 0 });
+  assert.deepEqual(sanitizeRepetir({ tipo: 'mensual', dia: 40 }), { tipo: 'mensual', n: 0 });
+  assert.deepEqual(sanitizeRepetir({ tipo: 'semanal' }), { tipo: 'semanal', n: 0 }); // sin día: como siempre
+  assert.equal(siguienteFecha('2026-10-14', { tipo: 'semanal' }), '2026-10-21');
+  assert.equal(textoRepetir({ tipo: 'semanal', dias: [1, 3, 4] }), 'Cada semana: lunes, miércoles y jueves');
+  assert.equal(textoRepetir({ tipo: 'mensual', dia: 5 }), 'Cada mes, el día 5');
+  assert.equal(textoRepetir({ tipo: 'mensual', ord: 1, dsem: 1 }), 'Cada mes, el primer lunes');
+  assert.equal(textoRepetir({ tipo: 'quincenal', dias: [2] }), 'Cada 2 semanas, el martes');
+  assert.equal(encajaEnRepetir('2026-10-14', { tipo: 'semanal', dias: [1] }), false);
+  assert.equal(primeraFechaRepetir('2026-10-14', { tipo: 'semanal', dias: [1] }), '2026-10-19');
+  assert.equal(primeraFechaRepetir('2026-10-05', { tipo: 'mensual', dia: 5 }), '2026-10-05');
+  assert.equal(primeraFechaRepetir('2026-10-14', { tipo: 'quincenal', dias: [2] }), '2026-10-20'); // el próximo martes, sin saltarse una semana
+});
