@@ -1,0 +1,17 @@
+{
+  "name": "anuncios-claves",
+  "private": true,
+  "description": "Plantilla de anuncios verticales de Claves de la Historia y la Actualidad (Remotion)",
+  "scripts": {
+    "render": "remotion render src/index.jsx Anuncio"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/playfair-display": "^5.3.0",
+    "@remotion/cli": "4.0.535",
+    "@remotion/renderer": "4.0.535",
+    "remotion": "4.0.535",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}
