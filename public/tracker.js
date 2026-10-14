@@ -856,7 +856,11 @@
   function pintarClaseCom(el, k, c, attrs, data, who, d, enBloque) {
       var n = k.replace('clase', '');
       var bag = attrs._lsdComSt || (attrs._lsdComSt = {});
-      var st = bag[k] || (bag[k] = { sel: c.preguntas.length === 1 ? c.preguntas[0].id : '', filtro: '', max: 8, texto: '' });
+      // data-una-respuesta: las preguntas se muestran como lista y se responde a todas en un solo comentario (no
+      // hay que elegir; se guarda con la primera pregunta).
+      var una = attrs.hasAttribute('data-una-respuesta');
+      var st = bag[k] || (bag[k] = { sel: c.preguntas.length === 1 || una ? c.preguntas[0].id : '', filtro: '', max: 8, texto: '' });
+      if (una && !st.sel) st.sel = c.preguntas[0].id;
       // Clase aún no disponible: un aviso y nada más.
       if (!c.abierta) {
         if (el.getAttribute('data-lsd-com-estado') === 'cerrado') return;
@@ -927,7 +931,7 @@
           if (!res || !res.ok) throw new Error((res && res.error) || 'No se ha podido publicar. Inténtalo de nuevo.');
           com.data = res; com.en = Date.now(); com.cid = who.cid || com.cid;
           st.texto = ''; st.ok = true; st.filtro = '';
-          if (c.preguntas.length > 1) st.sel = '';
+          if (c.preguntas.length > 1 && !una) st.sel = '';
           repinta();
         }).catch(function (e) { btn.disabled = false; btn.textContent = attrs.getAttribute('data-boton') || 'Publicar mi respuesta'; err.textContent = e.message; err.hidden = false; });
       });
