@@ -13,7 +13,7 @@ export const ESTADOS_OP = [
 ];
 export const ESTADO_IDS = ESTADOS_OP.map((e) => e.id);
 export const PROYECTO_AGENCIA = '_agencia'; // «cliente» de las tareas internas de la agencia
-export const CODIGO_AGENCIA = 'agencia';
+export const CODIGO_AGENCIA = '_agencia'; // «código» de la lista de tareas de la Operativa (las de la agencia y las creadas aquí para un cliente)
 
 // Estado de una tarea (las antiguas solo tienen `hecha`; las que estaban «en curso» o «bloqueadas» van a Pendiente).
 export const estadoOp = (t) => (t?.hecha ? 'hecha' : t?.estado === 'revision' ? 'revision' : 'pendiente');

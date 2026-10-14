@@ -6,14 +6,19 @@
 //   POST { op: 'asignar', …, uid }   (solo superadmin; uid '' = sin asignar; avisa por email)
 //   POST { op: 'comentar', …, texto } · { op: 'borrar-comentario', …, cid }
 //   POST { op: 'descripcion', …, notas }  (texto con formato: negrita, listas, enlaces, vídeos)
-//   POST { op: 'crear', tarea: { titulo, notas, fecha, asignado } }  → tarea del proyecto «Agencia»
-//   POST { op: 'editar', …, tarea } · { op: 'borrar', … }  (solo las del proyecto «Agencia»)
+//   POST { op: 'crear', tarea: { titulo, notas, fecha, asignado, proyecto?, opTablero? } }  → tarea nueva (de la
+//        agencia o, con `proyecto`, del tablero de ese cliente)
+//   POST { op: 'editar', …, tarea } · { op: 'borrar', … }  (solo las creadas en la Operativa)
+//   POST { op: 'columna', …, columna, tablero? }  → la lleva a esa columna (y a otro tablero: solo superadmin)
+//   POST { op: 'tablero-guardar', tablero } · { op: 'tablero-borrar', proyecto, tableroId }
+//        · { op: 'plantilla-guardar', plantilla } · { op: 'plantilla-borrar', plantillaId }  (solo superadmin)
 import { getSession } from '../lib/auth.js';
 import { listClientes } from '../lib/clientes.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { listUsersRaw, rolEn, newId } from '../lib/users.js';
-import { todasLasTareas, visiblesPara, cambiarTarea, crearTareaAgencia, camposAgencia, ponerEstado, ponerBloqueo, avisarAsignada, esDeAgencia } from '../lib/operativa.js';
-import { PROYECTO_AGENCIA, asignadaA } from '../public/js/operativa.js';
+import { todasLasTareas, visiblesPara, cambiarTarea, crearTareaAgencia, camposAgencia, ponerEstado, ponerBloqueo, avisarAsignada, esDeAgencia, getTableros, cambiarTableros, moverATablero } from '../lib/operativa.js';
+import { tablerosDe, sanitizeTablero, sanitizeColumnas, GENERAL } from '../public/js/tableros.js';
+import { PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from '../public/js/operativa.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { sanitizeRich } from '../public/js/richtext.js';
 
@@ -31,11 +36,11 @@ const equipoAgencia = async () => (await enPrincipal(() => listUsersRaw())).filt
 export async function GET(request) {
   try {
     const s = await sesion(request);
-    const [tareas, equipo, clientes] = await Promise.all([todasLasTareas(), equipoAgencia(), listClientes()]);
+    const [tareas, equipo, clientes, tableros] = await Promise.all([todasLasTareas(), equipoAgencia(), listClientes(), getTableros()]);
     const visibles = visiblesPara(tareas, s);
     const mios = s.superadmin ? clientes : clientes.filter((c) => rolEn(s.user || {}, c.id));
     return json({
-      tareas: visibles, equipo, yo: s.uid || '', superadmin: Boolean(s.superadmin),
+      tareas: visibles, equipo, yo: s.uid || '', superadmin: Boolean(s.superadmin), ...tableros,
       proyectos: [...mios.map((c) => ({ id: c.id, nombre: c.nombre, color: c.color || '' })), { id: PROYECTO_AGENCIA, nombre: 'Agencia', color: '' }],
     });
   } catch (e) {
@@ -54,14 +59,51 @@ export async function POST(request) {
     const suya = (t) => s.superadmin || asignadaA(t, s.uid, ref.cliente === PROYECTO_AGENCIA ? '' : rolEn(s.user || {}, ref.cliente));
     const comprobar = (t) => { if (!suya(t)) throw bad('Solo puedes cambiar las tareas que tienes asignadas', 403); };
 
+    // Tableros y plantillas: solo el superadmin.
+    if (/^(tablero|plantilla)-/.test(String(body.op))) {
+      if (!s.superadmin) throw bad('Solo el superadmin cambia los tableros', 403);
+      const cfg = await cambiarTableros((c) => {
+        if (body.op === 'tablero-guardar') {
+          const t = sanitizeTablero(body.tablero);
+          if (!t.proyecto) throw bad('Falta el proyecto del tablero');
+          const i = c.tableros.findIndex((x) => x.proyecto === t.proyecto && x.id === t.id);
+          if (i >= 0) c.tableros[i] = t; else c.tableros.push(t);
+        } else if (body.op === 'tablero-borrar') {
+          if (body.tableroId === GENERAL) throw bad('El tablero General no se borra (puedes cambiar sus columnas)');
+          c.tableros = c.tableros.filter((x) => !(x.proyecto === body.proyecto && x.id === body.tableroId));
+        } else if (body.op === 'plantilla-guardar') {
+          const p = { id: String(body.plantilla?.id || ''), nombre: String(body.plantilla?.nombre || ''), columnas: sanitizeColumnas(body.plantilla?.columnas) };
+          const i = c.plantillas.findIndex((x) => x.id === p.id);
+          if (i >= 0) c.plantillas[i] = p; else c.plantillas.push(p);
+        } else if (body.op === 'plantilla-borrar') c.plantillas = c.plantillas.filter((x) => x.id !== body.plantillaId);
+        else throw bad('Operación no válida');
+      }, `Operativa: ${body.op}`);
+      return json({ ok: true, ...cfg });
+    }
     if (body.op === 'crear') {
-      const t = await crearTareaAgencia(body.tarea, por);
-      if (t.asignado?.id && t.asignado.id !== s.uid) await avisarAsignada({ ...t, clienteNombre: 'Agencia', embudo: 'Interno' }, t.asignado.id, { url, por }).catch((e) => console.error('Aviso', e.message));
+      const proyecto = String(body.tarea?.proyecto || PROYECTO_AGENCIA);
+      const clientes = await listClientes();
+      const cli = clientes.find((c) => c.id === proyecto);
+      if (proyecto !== PROYECTO_AGENCIA && (!cli || (!s.superadmin && !rolEn(s.user || {}, proyecto)))) throw bad('No tienes acceso a ese proyecto', 403);
+      const tabs = tablerosDe(await getTableros(), proyecto);
+      const opTablero = tabs.some((b) => b.id === body.tarea?.opTablero) ? body.tarea.opTablero : GENERAL;
+      const t = await crearTareaAgencia({ ...body.tarea, proyecto, opTablero }, por);
+      if (t.asignado?.id && t.asignado.id !== s.uid) await avisarAsignada({ ...t, clienteNombre: cli?.nombre || 'Agencia', embudo: cli ? 'Operativa' : 'Interno' }, t.asignado.id, { url, por }).catch((e) => console.error('Aviso', e.message));
       return json({ ok: true, tarea: t });
     }
+    const cfgTableros = body.op === 'columna' ? await getTableros() : null;
     let avisar = '';
     const t = await cambiarTarea(ref, async (t) => {
-      if (body.op === 'estado' && body.estado === 'bloqueado') { comprobar(t); ponerBloqueo(t, body.bloqueo); } else if (body.op === 'estado') { comprobar(t); ponerEstado(t, String(body.estado || ''), { por }); } else if (body.op === 'bloqueo') {
+      if (body.op === 'estado' && body.estado === 'bloqueado') { comprobar(t); ponerBloqueo(t, body.bloqueo); } else if (body.op === 'estado') {
+        comprobar(t);
+        ponerEstado(t, String(body.estado || ''), { por });
+        t.opColumna = ''; // su columna sale del estado (la de hecha / la primera) en el tablero en que esté
+      } else if (body.op === 'columna') {
+        comprobar(t);
+        const otro = body.tablero && body.tablero !== (t.opTablero || GENERAL);
+        if (otro && !s.superadmin) throw bad('Solo el superadmin mueve tareas de un tablero a otro', 403);
+        moverATablero(t, cfgTableros, ref.cliente, { tablero: body.tablero, columna: String(body.columna || '') }, por);
+      } else if (body.op === 'bloqueo') {
         comprobar(t);
         ponerBloqueo(t, body.motivo);
       } else if (body.op === 'fecha') {
@@ -89,7 +131,7 @@ export async function POST(request) {
         if (!s.superadmin && c.uid !== s.uid) throw bad('Solo puedes borrar tus comentarios', 403);
         t.comentarios = t.comentarios.filter((x) => x !== c);
       } else if (body.op === 'editar' || body.op === 'borrar') {
-        if (ref.cliente !== PROYECTO_AGENCIA) throw bad('Las tareas de un cliente se editan en su proyecto', 400);
+        if (ref.code !== CODIGO_AGENCIA) throw bad('Las tareas de un lanzamiento se editan en su proyecto', 400);
         if (!s.superadmin && t.creadaPor !== por && !suya(t)) throw bad('Solo puedes editar tus tareas', 403);
         if (body.op === 'borrar') t._borrar = true;
         else {
