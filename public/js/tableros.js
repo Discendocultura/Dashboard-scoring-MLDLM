@@ -31,7 +31,8 @@ export function sanitizeColumnas(cols) {
 
 export function sanitizeTablero(t) {
   const id = ID_RE.test(str(t?.id, 24)) ? str(t.id, 24) : nuevoId('t');
-  return { id, proyecto: str(t?.proyecto, 40), nombre: id === GENERAL ? 'General' : str(t?.nombre, 40) || 'Tablero', columnas: sanitizeColumnas(t?.columnas) };
+  const orden = Number(t?.orden);
+  return { id, proyecto: str(t?.proyecto, 40), nombre: str(t?.nombre, 40) || (id === GENERAL ? 'General' : 'Tablero'), columnas: sanitizeColumnas(t?.columnas), ...(Number.isFinite(orden) ? { orden } : {}) };
 }
 
 export function sanitizeConfigTableros(cfg) {
@@ -43,11 +44,27 @@ export function sanitizeConfigTableros(cfg) {
   return { tableros, plantillas, etiquetas: sanitizeEtiquetas(cfg?.etiquetas) };
 }
 
-// Tableros de un proyecto: el General (el de serie o el que se haya cambiado) y después los demás.
+// Tableros de un proyecto: el General (el de serie o el que se haya cambiado) y los demás. Sin orden puesto a mano
+// (arrastrando las pestañas), el General primero y los demás en el orden en que se crearon.
 export function tablerosDe(cfg, proyecto) {
   const suyos = (cfg?.tableros || []).filter((t) => t.proyecto === proyecto);
   const general = suyos.find((t) => t.id === GENERAL) || { id: GENERAL, proyecto, nombre: 'General', columnas: COLUMNAS_SERIE.map((c) => ({ ...c })) };
-  return [general, ...suyos.filter((t) => t.id !== GENERAL)];
+  const todos = [general, ...suyos.filter((t) => t.id !== GENERAL)];
+  const clave = (t, i) => (Number.isFinite(t.orden) ? t.orden : t.id === GENERAL ? -1 : 1000 + i);
+  return todos.map((t, i) => ({ t, k: clave(t, i), i })).sort((a, b) => a.k - b.k || a.i - b.i).map((x) => x.t);
+}
+// Tablero nuevo: si las pestañas de su proyecto ya se han ordenado a mano, va al final.
+export function alFinal(tableros, t) {
+  const ords = tableros.filter((x) => x.proyecto === t.proyecto && Number.isFinite(x.orden)).map((x) => x.orden);
+  return ords.length ? { ...t, orden: Math.max(...ords) + 1 } : t;
+}
+// Orden de las pestañas de un proyecto: [id] → cada tablero guarda su posición (el General de serie se guarda si hace falta).
+export function ordenarTableros(cfg, proyecto, ids) {
+  const actuales = tablerosDe(cfg, proyecto);
+  const pos = new Map((Array.isArray(ids) ? ids : []).map(String).filter((id) => actuales.some((t) => t.id === id)).map((id, i) => [id, i]));
+  const orden = [...actuales].sort((a, b) => (pos.get(a.id) ?? 999) - (pos.get(b.id) ?? 999));
+  const otros = cfg.tableros.filter((t) => t.proyecto !== proyecto);
+  return { ...cfg, tableros: [...otros, ...orden.map((t, i) => ({ ...t, orden: i }))] };
 }
 
 // Tablero de una tarea dentro de los de su proyecto (si el suyo ya no existe, el General).

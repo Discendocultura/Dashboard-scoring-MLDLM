@@ -1,6 +1,6 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitizeColumnas, sanitizeConfigTableros, tablerosDe, tableroDeTarea, columnaDeTarea, colocar, GENERAL, sanitizeEtiquetas, etiquetasDeTarea, ordenTarjetas, ordenColumna, recolocar, sanitizeChecklist, progresoChecklist, copiaRecurrente } from '../public/js/tableros.js';
+import { sanitizeColumnas, sanitizeConfigTableros, tablerosDe, tableroDeTarea, columnaDeTarea, colocar, GENERAL, sanitizeEtiquetas, etiquetasDeTarea, ordenTarjetas, ordenColumna, recolocar, ordenarTableros, alFinal, sanitizeTablero, sanitizeChecklist, progresoChecklist, copiaRecurrente } from '../public/js/tableros.js';
 
 test('tableros: columnas (siempre una «hecha»), General de serie y columna de cada tarea', () => {
   const cols = sanitizeColumnas([{ nombre: 'Idea' }, { nombre: 'Guion' }, { nombre: '' }, { nombre: 'Publicado' }]);
@@ -217,4 +217,15 @@ test('recolocar: pone la tarea en la posición pedida (y al final si se pasa)', 
   assert.deepEqual(recolocar([a, b, c], a, 1).map((t) => t.id), ['b', 'a', 'c']);
   assert.deepEqual(recolocar([a, b, c], a, Infinity).map((t) => t.id), ['b', 'c', 'a']);
   assert.deepEqual(recolocar([a, b], c, 1).map((t) => t.id), ['a', 'c', 'b']); // llega de otra columna
+});
+
+test('tableros: el General se puede renombrar y las pestañas se ordenan a mano', () => {
+  assert.equal(sanitizeTablero({ id: GENERAL, proyecto: 'p', nombre: 'Día a día', columnas: [] }).nombre, 'Día a día');
+  let cfg = { tableros: [{ id: 'ta', proyecto: 'p', nombre: 'A', columnas: [] }, { id: 'tb', proyecto: 'p', nombre: 'B', columnas: [] }, { id: 'tx', proyecto: 'q', nombre: 'X', columnas: [] }], plantillas: [] };
+  assert.deepEqual(tablerosDe(cfg, 'p').map((t) => t.id), [GENERAL, 'ta', 'tb']);
+  cfg = ordenarTableros(cfg, 'p', ['tb', GENERAL, 'ta']);
+  assert.deepEqual(tablerosDe(cfg, 'p').map((t) => t.id), ['tb', GENERAL, 'ta']);
+  assert.deepEqual(tablerosDe(cfg, 'q').map((t) => t.id), [GENERAL, 'tx']); // los de otro proyecto, igual
+  const nuevo = alFinal(cfg.tableros, { id: 'tc', proyecto: 'p', nombre: 'C', columnas: [] });
+  assert.deepEqual(tablerosDe({ ...cfg, tableros: [...cfg.tableros, nuevo] }, 'p').map((t) => t.id), ['tb', GENERAL, 'ta', 'tc']);
 });

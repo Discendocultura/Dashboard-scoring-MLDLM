@@ -41,6 +41,8 @@ let q = '';
 let abierta = null; // { cliente, code, id }
 let creando = false;
 let editandoDesc = false;
+let editandoTitulo = false;
+let tabArrastrada = ''; // pestaña de tablero que se está arrastrando
 let editor = null; // el editor abierto (descripción o tarea nueva)
 
 const body = () => ctx.dialog.querySelector('#op-body');
@@ -102,7 +104,36 @@ export async function abrirOperativa(opts) {
     dlg.addEventListener('change', onChange);
     dlg.addEventListener('submit', onSubmit);
     dlg.addEventListener('input', (e) => { if (e.target.id === 'op-buscar') { q = e.target.value; pintarVista(); } });
-    dlg.addEventListener('dragstart', (e) => { const c = e.target.closest?.('[data-op-k]'); if (c) { e.dataTransfer.setData('text/plain', c.dataset.opK); c.classList.add('arrastrando'); } });
+    dlg.addEventListener('dragstart', (e) => {
+      const tb = e.target.closest?.('[data-op-tab][draggable="true"]');
+      if (tb) { tabArrastrada = tb.dataset.opTab; e.dataTransfer.setData('text/x-op-tab', tb.dataset.opTab); e.dataTransfer.effectAllowed = 'move'; tb.classList.add('arrastrando'); return; }
+      const c = e.target.closest?.('[data-op-k]');
+      if (c) { e.dataTransfer.setData('text/plain', c.dataset.opK); c.classList.add('arrastrando'); }
+    });
+    // Pestañas de tableros: arrastrarlas cambia su orden (solo superadmin).
+    dlg.addEventListener('dragover', (e) => {
+      if (!tabArrastrada) return;
+      const tb = e.target.closest('[data-op-tab]');
+      if (!tb) return;
+      e.preventDefault();
+      const r = tb.getBoundingClientRect();
+      const despues = e.clientX > r.left + r.width / 2;
+      dlg.querySelectorAll('.tab-antes, .tab-despues').forEach((x) => x.classList.remove('tab-antes', 'tab-despues'));
+      if (tb.dataset.opTab !== tabArrastrada) tb.classList.add(despues ? 'tab-despues' : 'tab-antes');
+    });
+    dlg.addEventListener('drop', (e) => {
+      if (!tabArrastrada) return;
+      const tb = e.target.closest('[data-op-tab]');
+      const id = tabArrastrada;
+      const despues = tb?.classList.contains('tab-despues');
+      dlg.querySelectorAll('.tab-antes, .tab-despues, .op-tab-b.arrastrando').forEach((x) => x.classList.remove('tab-antes', 'tab-despues', 'arrastrando'));
+      tabArrastrada = '';
+      if (!tb || tb.dataset.opTab === id) return;
+      e.preventDefault();
+      const ids = tabsDe(fProy).map((x) => x.id).filter((x) => x !== id);
+      ids.splice(ids.indexOf(tb.dataset.opTab) + (despues ? 1 : 0), 0, id);
+      moverTableros(ids);
+    });
     // Las tareas del calendario se abren también con el teclado (Intro / espacio).
     dlg.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.op-cal-t')) { e.preventDefault(); e.target.click(); } });
     // «＋ Añadir tarea»: Intro añade (Mayús+Intro, salto de línea) y Esc cierra.
@@ -111,9 +142,10 @@ export async function abrirOperativa(opts) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.form.requestSubmit(); }
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addCol = ''; pintarVista(); }
     });
-    dlg.addEventListener('dragend', (e) => { e.target.closest?.('[data-op-k]')?.classList.remove('arrastrando'); quitarHueco(); });
+    dlg.addEventListener('dragend', (e) => { e.target.closest?.('[data-op-k], [data-op-tab]')?.classList.remove('arrastrando'); quitarHueco(); tabArrastrada = ''; dlg.querySelectorAll('.tab-antes, .tab-despues').forEach((x) => x.classList.remove('tab-antes', 'tab-despues')); });
     // Tablero: soltar en otra columna cambia el estado. Calendario: soltar en otro día cambia la fecha.
     dlg.addEventListener('dragover', (e) => {
+      if (tabArrastrada) return;
       const col = e.target.closest('[data-op-col], [data-op-dia]');
       if (!col) return;
       e.preventDefault();
@@ -215,7 +247,7 @@ function pintarVista() {
 function fila(t, hoy) {
   const e = estadoOp(t);
   return `<li class="op-fila e-${e}${estaBloqueada(t) ? ' is-bloq' : ''}" data-op-k="${esc(clave(t))}" draggable="false">
-    <button type="button" class="op-check${e === 'hecha' ? ' on' : ''}" data-op-hecha="${esc(clave(t))}" aria-label="${e === 'hecha' ? 'Reabrir' : 'Marcar como hecha'}">✓</button>
+    <button type="button" class="op-check${e === 'hecha' ? ' on' : ''}" data-op-hecha="${esc(clave(t))}" title="${e === 'hecha' ? 'Reabrir' : 'Marcar como hecha'}" aria-label="${e === 'hecha' ? 'Reabrir' : 'Marcar como hecha'}">${ICONO_CHECK}</button>
     <button type="button" class="op-fila-t" data-op-abrir="${esc(clave(t))}"><strong>${esc(t.titulo)}</strong><span class="op-fila-meta">${chipProyecto(t)}${estaBloqueada(t) ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}${t.notas ? '<span class="op-com" title="Tiene descripción">📝</span>' : ''}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}</span></button>
     <span class="op-estado e-${e}">${ESTADO[e].icon} ${esc(ESTADO[e].label)}</span>
     ${chipFecha(t, hoy)}
@@ -262,6 +294,8 @@ function barraEtiquetas() {
   return `<div class="op-fetqs" role="group" aria-label="Filtrar por etiqueta">${chip('', 'Todas')}${altas ? chip('_alta', '🔥 Prioridad alta', altas) : ''}${usadas.map((e) => chip(e.id, pildoraEtq(e), d.tareas.filter((t) => (t.etiquetas || []).includes(e.id) && estadoOp(t) !== 'hecha').length)).join('')}</div>`;
 }
 let nCard = 0;
+// Círculo de completar: se ve siempre (apagado) para que se entienda que al pulsarlo se completa.
+const ICONO_CHECK = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M5.5 12.5l4.2 4.2L18.5 7.8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function tarjetaTablero(t, hoy) {
   const etqs = etiquetasDeTarea(t, d.etiquetas);
   const pr = prioDe(t);
@@ -270,7 +304,7 @@ function tarjetaTablero(t, hoy) {
   const portada = etqs[0] ? COLORES_ETIQUETA[etqs[0].color] : pr ? pr.color : '';
   return `<article class="op-card op-card2${estaBloqueada(t) ? ' is-bloq' : ''}${hecha ? ' es-hecha' : ''}${portada ? ' con-portada' : ''}${recienCreada && t.id === recienCreada ? ' recien' : ''}${recienHecha && t.id === recienHecha ? ' llega' : ''}${movida && t.id === movida ? ' movida' : ''}" style="--i:${nCard++ % 12};${portada ? `--portada:${portada}` : ''}" draggable="true" data-op-k="${esc(clave(t))}" data-op-abrir="${esc(clave(t))}">
         ${etqs.length || pr ? `<div class="op-card-etqs">${pr ? `<span class="op-prio p-${pr.id}" title="Prioridad ${esc(pr.label.toLowerCase())}">${pr.id === 'alta' ? '🔥' : '⚑'} ${esc(pr.label)}</span>` : ''}${etqs.map((e) => pildoraEtq(e)).join('')}</div>` : ''}
-        <div class="op-card-t"><button type="button" class="op-check${hecha ? ' on' : ''}" data-op-hecha="${esc(clave(t))}" title="${hecha ? 'Reabrir' : 'Marcar como hecha'}" aria-label="${hecha ? 'Reabrir' : 'Marcar como hecha'}">✓</button><strong>${esc(t.titulo)}</strong></div>
+        <div class="op-card-t"><button type="button" class="op-check${hecha ? ' on' : ''}" data-op-hecha="${esc(clave(t))}" title="${hecha ? 'Reabrir' : 'Marcar como hecha'}" aria-label="${hecha ? 'Reabrir' : 'Marcar como hecha'}">${ICONO_CHECK}</button><strong>${esc(t.titulo)}</strong></div>
         ${t.notas ? `<p class="op-card-desc">${esc(richToText(t.notas).replace(/🎬/g, '🎬 vídeo').replace(/\s*•\s*/g, ' · ').replace(/\s*\n+\s*/g, ' · ').replace(/^ · /, '').slice(0, 120))}</p>` : ''}
         ${estaBloqueada(t) ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}
         ${ck.total ? `<div class="op-ck-mini${ck.hechos === ck.total ? ' completa' : ''}" title="Checklist: ${ck.hechos} de ${ck.total}"><span class="op-ck-barra"><i style="width:${Math.round((ck.hechos / ck.total) * 100)}%"></i></span><b>☑ ${ck.hechos}/${ck.total}</b></div>` : ''}
@@ -318,7 +352,7 @@ function vistaTablero(lista, hoy) {
   const quieto = k === ultimoTablero ? ' quieto' : '';
   ultimoTablero = k;
   if (!fProy) {
-    return `<p class="muted small op-ayuda">Arrastra las tarjetas de una columna a otra para cambiar su estado. <strong>Elige un cliente arriba</strong> para ver sus tableros, cada uno con sus columnas.</p>
+    return `<p class="op-ayuda">Arrastra las tarjetas a otra columna para cambiar su estado, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ para completarlas. <strong>Elige un cliente arriba</strong> para ver sus tableros, cada uno con sus columnas.</p>
   <div class="op-tablero${quieto}">${ESTADOS_OP.map((e) => {
     const ts = lista.filter((t) => estadoOp(t) === e.id).sort(porOrden);
     return `<section class="op-col e-${e.id}" data-op-col="${e.id}"><header><span class="op-col-dot"></span><span class="op-col-nom">${e.icon} ${esc(e.label)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${e.id}" title="Nueva tarea en «${esc(e.label)}»" aria-label="Nueva tarea en ${esc(e.label)}">＋</button></header>
@@ -328,11 +362,11 @@ function vistaTablero(lista, hoy) {
   const tabs = tabsDe(fProy);
   const tab = tabs.find((b) => b.id === fTab) || tabs[0];
   const abiertasDe = (b) => lista.filter((t) => tabDeT(t).id === b.id && estadoOp(t) !== 'hecha').length;
-  const barra = `<nav class="op-tabs-tab" aria-label="Tableros">${tabs.map((b) => `<button type="button" class="op-tab-b${b.id === tab.id ? ' on' : ''}" data-op-tab="${esc(b.id)}">${b.id === GENERAL ? '🗂️' : '📋'} ${esc(b.nombre)} <b>${abiertasDe(b)}</b></button>`).join('')}
-    ${d.superadmin ? `<button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-nuevo">＋ Nuevo tablero</button><button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-importar" title="Desde un archivo .json (también el export de un proyecto de Asana)">⬆️ Importar tablero</button><button type="button" class="btn ghost small op-tab-cfg" data-op="tab-editar">⚙️ Columnas de «${esc(tab.nombre)}»</button>` : ''}</nav>`;
+  const barra = `<nav class="op-tabs-tab" aria-label="Tableros">${tabs.map((b) => `<button type="button" class="op-tab-b${b.id === tab.id ? ' on' : ''}" data-op-tab="${esc(b.id)}"${d.superadmin ? ' draggable="true" title="Arrastra para cambiar el orden"' : ''}>${b.id === GENERAL ? '🗂️' : '📋'} ${esc(b.nombre)} <b>${abiertasDe(b)}</b></button>`).join('')}
+    ${d.superadmin ? `<button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-nuevo">＋ Nuevo tablero</button><button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-importar" title="Desde un archivo .json (también el export de un proyecto de Asana)">⬆️ Importar tablero</button><button type="button" class="btn ghost small op-tab-cfg" data-op="tab-editar" title="Cambiar el nombre del tablero y sus columnas">✏️ Editar «${esc(tab.nombre)}»</button>` : ''}</nav>`;
   if (editTab) return barra + editorTablero();
   const suyas = lista.filter((t) => tabDeT(t).id === tab.id);
-  return `${barra}<p class="muted small op-ayuda">Arrastra las tarjetas de una columna a otra. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.</p>
+  return `${barra}<p class="op-ayuda">Arrastra las tarjetas a otra columna, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ de una tarjeta para completarla. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.</p>
   <div class="op-tablero${quieto}" style="--op-ncol:${tab.columnas.length}">${tab.columnas.map((c, i) => {
     const ts = suyas.filter((t) => columnaDeTarea(t, tab) === c.id).sort(porOrden);
     return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header><span class="op-col-dot"></span><span class="op-col-nom">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${esc(c.id)}" title="Nueva tarea en «${esc(c.nombre)}»" aria-label="Nueva tarea en ${esc(c.nombre)}">＋</button></header>
@@ -362,9 +396,9 @@ function vistaImportar() {
 function editorTablero() {
   const e = editTab;
   return `<section class="op-te">
-    <header class="op-te-h"><h3>${e.nuevo ? '＋ Nuevo tablero' : `⚙️ Columnas de «${esc(e.nombre)}»`}</h3><span class="muted small">${esc(d.proyectos.find((p) => p.id === e.proyecto)?.nombre || '')}</span></header>
+    <header class="op-te-h"><h3>${e.nuevo ? '＋ Nuevo tablero' : `✏️ Editar «${esc(e.nombre)}»`}</h3><span class="muted small">${esc(d.proyectos.find((p) => p.id === e.proyecto)?.nombre || '')}</span></header>
     <div class="op-te-fila">
-      <label class="field"><span>Nombre del tablero</span><input data-te="nombre" maxlength="40" value="${esc(e.nombre)}" placeholder="Contenido, Anuncios, Lanzamiento octubre…" ${e.id === GENERAL ? 'disabled' : ''}></label>
+      <label class="field"><span>Nombre del tablero</span><input data-te="nombre" maxlength="40" value="${esc(e.nombre)}" placeholder="Contenido, Anuncios, Lanzamiento octubre…"></label>
       ${e.nuevo && d.plantillas.length ? `<label class="field"><span>Empezar con</span><select data-te="plantilla"><option value="">Columnas de serie</option>${d.plantillas.map((p) => `<option value="${esc(p.id)}"${e.plantilla === p.id ? ' selected' : ''}>📐 ${esc(p.nombre)}</option>`).join('')}</select></label>` : ''}
     </div>
     <ol class="op-te-cols">${e.columnas.map((c, i) => `<li data-ci="${i}"><span class="op-te-n">${i + 1}</span><input data-tc="nombre" maxlength="40" value="${esc(c.nombre)}" placeholder="Nombre de la columna" aria-label="Columna ${i + 1}">
@@ -377,7 +411,7 @@ function editorTablero() {
       <button type="button" class="btn ghost small" data-op="te-plantilla">📐 Guardar como plantilla</button>
       ${e.nuevo && e.plantilla ? '<button type="button" class="btn ghost small" data-op="te-plantilla-borrar">Borrar esta plantilla</button>' : ''}
       <span class="spacer"></span>
-      <button type="button" class="btn ghost" data-op="te-cancelar">Cancelar</button><button type="button" class="btn primary" data-op="te-guardar">${e.nuevo ? 'Crear tablero' : 'Guardar columnas'}</button>
+      <button type="button" class="btn ghost" data-op="te-cancelar">Cancelar</button><button type="button" class="btn primary" data-op="te-guardar">${e.nuevo ? 'Crear tablero' : 'Guardar cambios'}</button>
     </footer>
   </section>`;
 }
@@ -391,6 +425,18 @@ function leerEditor() {
     c.nombre = li.querySelector('[data-tc="nombre"]').value;
     c.hecha = li.querySelector('[data-tc="hecha"]').checked;
   });
+}
+// Nuevo orden de las pestañas del cliente elegido (se ve al momento; si falla, vuelve el de antes).
+async function moverTableros(ids) {
+  const antes = d.tableros;
+  const pos = new Map(ids.map((id, i) => [id, i]));
+  const general = tabsDe(fProy).find((x) => x.id === GENERAL);
+  const otros = d.tableros.filter((x) => x.proyecto !== fProy);
+  const suyos = [...(d.tableros.some((x) => x.proyecto === fProy && x.id === GENERAL) ? [] : [general]), ...d.tableros.filter((x) => x.proyecto === fProy)];
+  d.tableros = [...otros, ...suyos.map((x) => ({ ...x, orden: pos.get(x.id) ?? 999 }))];
+  ultimoTablero = `${fProy}|${fTab}|${fEmb}|${fEtq}`; // sin la animación de entrada
+  pintarVista();
+  try { await guardarTableros({ op: 'tablero-orden', proyecto: fProy, ids }); } catch (err) { d.tableros = antes; window.alert(err.message); pintarVista(); }
 }
 async function guardarTableros(cuerpo) {
   const r = await ctx.api('/api/operativa', { method: 'POST', body: cuerpo });
@@ -496,7 +542,8 @@ function pintarFicha() {
   const tabT = tabDeT(t);
   const colT = columnaDeTarea(t, tabT);
   box.innerHTML = `<header class="op-ficha-h"><span class="op-fila-meta">${chipProyecto(t)}</span><button type="button" class="btn ghost small" data-op="cerrar-ficha" aria-label="Cerrar">✕</button></header>
-    <h3 class="op-ficha-t">${esc(t.titulo)}</h3>
+    ${editandoTitulo ? `<form class="op-titulo-ed" data-op-form="titulo"><input name="titulo" maxlength="200" value="${esc(t.titulo)}" aria-label="Nombre de la tarea" required><button class="btn primary small">Guardar</button><button type="button" class="btn ghost small" data-op="titulo-cancelar">Cancelar</button></form>`
+    : `<h3 class="op-ficha-t">${esc(t.titulo)}<button type="button" class="op-titulo-b" data-op="titulo-editar" title="Cambiar el nombre" aria-label="Cambiar el nombre de la tarea">✏️</button></h3>`}
     <div class="pr-campos">
       <div class="pr-campo"><span class="pr-campo-l">Columna</span><div class="pr-campo-v"><div class="op-estados">${tabT.columnas.map((c) => `<button type="button" class="op-est ${c.hecha ? 'e-hecha' : c.id === 'revision' ? 'e-revision' : 'e-pendiente'}${c.id === colT ? ' on' : ''}" data-op-col-set="${esc(c.id)}">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</button>`).join('')}</div>${posicionHtml(t)}</div></div>
       ${d.superadmin && tabsT.length > 1 ? `<div class="pr-campo"><span class="pr-campo-l">Tablero</span><div class="pr-campo-v"><select data-op-campo="tablero">${tabsT.map((b) => `<option value="${esc(b.id)}"${b.id === tabT.id ? ' selected' : ''}>${esc(b.nombre)}</option>`).join('')}</select></div></div>` : ''}
@@ -670,7 +717,7 @@ async function onClick(e) {
   const est = e.target.closest('[data-op-estado]');
   if (est) { const t = buscarT(abierta); if (t && est.dataset.opEstado !== estadoOp(t)) cambiarEstado(t, est.dataset.opEstado); return; }
   const ab = e.target.closest('[data-op-abrir]');
-  if (ab && !e.target.closest('a')) { creando = false; editandoDesc = false; if (abierta !== ab.dataset.opAbrir) pickerEtq = false; abierta = ab.dataset.opAbrir; pintar(); return; }
+  if (ab && !e.target.closest('a')) { creando = false; editandoDesc = false; editandoTitulo = false; if (abierta !== ab.dataset.opAbrir) pickerEtq = false; abierta = ab.dataset.opAbrir; pintar(); return; }
   const vp = e.target.closest('[data-op-ver-proy]');
   if (vp) { fProy = vp.dataset.opVerProy; fEmb = ''; vista = 'tablero'; pintar(); return; }
   const vpe = e.target.closest('[data-op-ver-persona]');
@@ -700,7 +747,9 @@ async function onClick(e) {
   }
   if (b.dataset.op === 'bloquear' || b.dataset.op === 'desbloquear') { const t = buscarT(abierta); if (t) ponerBloqueo(t, b.dataset.op === 'bloquear'); return; }
   if (b.dataset.op === 'add-cerrar') { addCol = ''; pintarVista(); return; }
-  if (b.dataset.op === 'cerrar-ficha') { abierta = null; creando = false; editandoDesc = false; pickerEtq = false; pintar(); return; }
+  if (b.dataset.op === 'cerrar-ficha') { abierta = null; creando = false; editandoDesc = false; editandoTitulo = false; pickerEtq = false; pintar(); return; }
+  if (b.dataset.op === 'titulo-editar') { editandoTitulo = true; pintarFicha(); const i = body().querySelector('.op-titulo-ed input'); i?.focus(); i?.select(); return; }
+  if (b.dataset.op === 'titulo-cancelar') { editandoTitulo = false; pintarFicha(); return; }
   if (b.dataset.op === 'editar-desc') { editandoDesc = true; pintarFicha(); editor?.area.focus(); return; }
   if (b.dataset.op === 'cancelar-desc') { editandoDesc = false; pintarFicha(); return; }
   if (b.dataset.op === 'guardar-desc') {
@@ -756,7 +805,7 @@ async function opEditor(b) {
   else if (a === 'te-guardar') {
     const limpias = cols.filter((c) => c.nombre.trim());
     if (!limpias.length) { window.alert('Pon al menos una columna.'); return; }
-    if (editTab.id !== GENERAL && !editTab.nombre.trim()) { window.alert('Ponle un nombre al tablero.'); return; }
+    if (!editTab.nombre.trim()) { window.alert('Ponle un nombre al tablero.'); return; }
     if (!limpias.some((c) => c.hecha) && !window.confirm('Ninguna columna «cuenta como hecha»: se usará la última. ¿Seguir?')) return;
     const antes = new Set(tabsDe(editTab.proyecto).map((x) => x.id));
     try {
@@ -847,6 +896,15 @@ async function onSubmit(e) {
   const btn = f.querySelector('button.primary');
   btn?.setAttribute('disabled', '');
   try {
+    if (f.dataset.opForm === 'titulo') {
+      const t = buscarT(abierta);
+      const titulo = f.titulo.value.trim();
+      if (t && titulo && titulo !== t.titulo) await op(t, { op: 'titulo', titulo });
+      editandoTitulo = false;
+      pintarVista();
+      pintarFicha();
+      return;
+    }
     if (f.dataset.opForm === 'ck') {
       const texto = f.texto.value.trim();
       if (!texto) { btn?.removeAttribute('disabled'); return; }

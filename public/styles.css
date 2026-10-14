@@ -4916,3 +4916,24 @@ span.g-rail-i { cursor: default; }
 .op-pos-b:disabled { opacity: .3; cursor: default; }
 .op-pos-n { font-size: 12px; color: var(--muted); padding: 0 6px; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .op-card.movida { animation: none; } }
+
+/* Operativa: el círculo de completar se ve apagado (borde y check tenues) y se enciende en verde al pasar o al estar hecha */
+.op-check { color: var(--muted); border-color: color-mix(in srgb, var(--muted) 75%, transparent); background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.op-check svg { display: block; opacity: .8; transition: opacity .15s, transform .15s; }
+.op-check:hover, .op-check:focus-visible { color: var(--tone-buy); border-color: var(--tone-buy); background: color-mix(in srgb, var(--tone-buy) 14%, transparent); }
+.op-check:hover svg, .op-check:focus-visible svg { opacity: 1; transform: scale(1.08); }
+.op-check.on, .op-card2.completando .op-check { color: #fff; background: var(--tone-buy); border-color: var(--tone-buy); }
+.op-check.on svg, .op-card2.completando .op-check svg { opacity: 1; }
+/* Texto de ayuda encima del tablero: con aire */
+.op-ayuda { margin: 14px 2px 18px; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--surface-2) 70%, transparent); border: 1px dashed var(--border); color: var(--text-2); font-size: 13px; line-height: 1.55; }
+
+/* Operativa: pestañas de tableros que se arrastran y nombre de la tarea editable */
+.op-tab-b[draggable="true"] { cursor: grab; }
+.op-tab-b.arrastrando { opacity: .45; cursor: grabbing; }
+.op-tab-b.tab-antes { box-shadow: -3px 0 0 0 var(--accent); }
+.op-tab-b.tab-despues { box-shadow: 3px 0 0 0 var(--accent); }
+.op-ficha-t { display: flex; align-items: flex-start; gap: 8px; }
+.op-titulo-b { flex: none; border: 0; background: none; cursor: pointer; font-size: 14px; padding: 4px 6px; border-radius: 8px; opacity: .45; transition: opacity .15s, background .15s; }
+.op-titulo-b:hover, .op-titulo-b:focus-visible { opacity: 1; background: var(--surface-2); }
+.op-titulo-ed { display: flex; gap: 8px; align-items: center; margin: 6px 0 12px; flex-wrap: wrap; }
+.op-titulo-ed input { flex: 1; min-width: 180px; font-size: 17px; font-weight: 700; }

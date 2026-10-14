@@ -5,6 +5,7 @@
 //   POST { op: 'bloqueo', …, motivo }  (marca de bloqueada; motivo vacío = desbloquear)  · { op: 'fecha', …, fecha }
 //   POST { op: 'asignar', …, uid }   (solo superadmin; uid '' = sin asignar; avisa por email)
 //   POST { op: 'comentar', …, texto } · { op: 'borrar-comentario', …, cid }
+//   POST { op: 'titulo', …, titulo }  (cambiar el nombre de la tarea)
 //   POST { op: 'descripcion', …, notas }  (texto con formato: negrita, listas, enlaces, vídeos)
 //   POST { op: 'crear', tarea: { titulo, notas, fecha, asignado, proyecto?, opTablero? } }  → tarea nueva (de la
 //        agencia o, con `proyecto`, del tablero de ese cliente)
@@ -12,6 +13,7 @@
 //   POST { op: 'columna', …, columna, tablero? }  → la lleva a esa columna (y a otro tablero: solo superadmin)
 //   POST { op: 'ordenar', orden: [{ cliente, code, id }] }  → la columna en ese orden (de arriba abajo)
 //   POST { op: 'tablero-guardar', tablero } · { op: 'tablero-borrar', proyecto, tableroId }
+//        · { op: 'tablero-orden', proyecto, ids: [tableroId] }  (orden de las pestañas)
 //        · { op: 'plantilla-guardar', plantilla } · { op: 'plantilla-borrar', plantillaId }  (solo superadmin)
 //   POST { op: 'etiquetas', …, etiquetas: [id] } · { op: 'prioridad', …, prioridad } · { op: 'checklist', …, checklist }
 //        · { op: 'repetir', …, repetir: { tipo, n } }  (al completarla se crea la siguiente: respuesta `nueva`)
@@ -24,7 +26,7 @@ import { listClientes } from '../lib/clientes.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { listUsersRaw, rolEn, newId } from '../lib/users.js';
 import { todasLasTareas, visiblesPara, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, ordenarTareas, avisarAsignada, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
-import { tablerosDe, MAX_ORDENAR, sanitizeTablero, sanitizeColumnas, GENERAL, sanitizeChecklist, prioridadValida, MAX_ETIQUETAS_TAREA, COLORES_ETIQUETA } from '../public/js/tableros.js';
+import { tablerosDe, ordenarTableros, alFinal, MAX_ORDENAR, sanitizeTablero, sanitizeColumnas, GENERAL, sanitizeChecklist, prioridadValida, MAX_ETIQUETAS_TAREA, COLORES_ETIQUETA } from '../public/js/tableros.js';
 import { sanitizeRepetir } from '../public/js/procesos.js';
 import { PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from '../public/js/operativa.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
@@ -100,7 +102,7 @@ export async function POST(request) {
       try { imp = normalizarImportacion(body.archivo, { incluirCompletadas: Boolean(body.incluirCompletadas) }); } catch (e) { throw bad(e.message || 'Archivo no válido'); }
       const nombre = String(body.nombre || imp.nombre || 'Tablero importado').trim().slice(0, 40);
       const nuevo = sanitizeTablero({ proyecto, nombre, columnas: imp.columnas });
-      const cfg = await cambiarTableros((c) => { c.tableros.push(nuevo); }, `Operativa: tablero importado «${nombre}»`);
+      const cfg = await cambiarTableros((c) => { c.tableros.push(alFinal(c.tableros, nuevo)); }, `Operativa: tablero importado «${nombre}»`);
       const equipo = (await enPrincipal(() => listUsersRaw())).filter((u) => (u.agencia || u.superadmin) && u.activo !== false);
       const sinAsignar = new Set();
       const tareas = imp.tareas.map((x) => {
@@ -124,7 +126,11 @@ export async function POST(request) {
           const t = sanitizeTablero(body.tablero);
           if (!t.proyecto) throw bad('Falta el proyecto del tablero');
           const i = c.tableros.findIndex((x) => x.proyecto === t.proyecto && x.id === t.id);
-          if (i >= 0) c.tableros[i] = t; else c.tableros.push(t);
+          if (i >= 0) c.tableros[i] = { ...t, ...(Number.isFinite(c.tableros[i].orden) ? { orden: c.tableros[i].orden } : {}) };
+          else c.tableros.push(alFinal(c.tableros, t));
+        } else if (body.op === 'tablero-orden') {
+          const n = ordenarTableros(c, String(body.proyecto || ''), body.ids);
+          c.tableros = n.tableros;
         } else if (body.op === 'tablero-borrar') {
           if (body.tableroId === GENERAL) throw bad('El tablero General no se borra (puedes cambiar sus columnas)');
           c.tableros = c.tableros.filter((x) => !(x.proyecto === body.proyecto && x.id === body.tableroId));
@@ -201,6 +207,11 @@ export async function POST(request) {
         const antes = t.asignado?.tipo === 'persona' ? t.asignado.id : '';
         t.asignado = uid ? { tipo: 'persona', id: uid } : null;
         if (uid && uid !== antes && uid !== s.uid) avisar = uid;
+      } else if (body.op === 'titulo') {
+        comprobar(t);
+        const titulo = String(body.titulo ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
+        if (!titulo) throw bad('La tarea necesita un título');
+        t.titulo = titulo;
       } else if (body.op === 'descripcion') {
         comprobar(t);
         t.notas = sanitizeRich(body.notas);
