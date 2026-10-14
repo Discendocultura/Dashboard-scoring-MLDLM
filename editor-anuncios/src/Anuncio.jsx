@@ -1,11 +1,7 @@
 import React from 'react';
 import {AbsoluteFill, OffthreadVideo, Sequence, useCurrentFrame, useVideoConfig, spring, interpolate, staticFile} from 'remotion';
 import * as A from './Animaciones';
-import '@fontsource/playfair-display/700.css';
-import '@fontsource/playfair-display/700-italic.css';
-import '@fontsource/playfair-display/800-italic.css';
-import '@fontsource/inter/700.css';
-import '@fontsource/inter/800.css';
+import './fuentes';
 
 // Agrupa palabras en bloques de N sin cruzar el final de frase
 const bloques = (words, n) => {
@@ -26,7 +22,7 @@ const Subtitulos = ({words, grandes, e}) => {
       {b.map((w, i) => {
         const on = w === b.filter((x) => x.start <= t).pop();
         return <span key={i} style={{fontFamily: e.fuenteSubs, fontWeight: 800, fontSize: e.subCuerpo, lineHeight: 1.15, textTransform: 'uppercase',
-          color: on ? e.dorado : e.crema, WebkitTextStroke: `10px ${e.burdeosOscuro}`, paintOrder: 'stroke fill',
+          color: on ? e.acento : e.claro, WebkitTextStroke: `10px ${e.oscuro}`, paintOrder: 'stroke fill',
           textShadow: '0 6px 18px rgba(0,0,0,.45)'}}>{w.text}</span>;
       })}
     </div>
@@ -39,8 +35,8 @@ const Gancho = ({texto, e}) => {
   const sal = interpolate(f, [durationInFrames - 8, durationInFrames], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   return (
     <div style={{position: 'absolute', top: 70, left: 60, right: 60, opacity: sal, transform: `translateY(${(1 - ent) * -60}px)`}}>
-      <div style={{background: e.burdeos, borderTop: `6px solid ${e.dorado}`, borderBottom: `6px solid ${e.dorado}`, padding: '26px 36px', boxShadow: '0 18px 40px rgba(0,0,0,.35)'}}>
-        <div style={{fontFamily: e.fuenteTitulos, fontWeight: 700, fontSize: 60, lineHeight: 1.12, color: e.crema, textAlign: 'center'}}>{texto}</div>
+      <div style={{background: e.primario, borderTop: `6px solid ${e.acento}`, borderBottom: `6px solid ${e.acento}`, padding: '26px 36px', boxShadow: '0 18px 40px rgba(0,0,0,.35)'}}>
+        <div style={{fontFamily: e.fuenteTitulos, fontWeight: 700, fontSize: 60, lineHeight: 1.12, color: e.claro, textAlign: 'center'}}>{texto}</div>
       </div>
     </div>
   );
@@ -53,16 +49,16 @@ const Grande = ({texto, e}) => {
   const o = interpolate(f, [durationInFrames - 6, durationInFrames], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   return (
     <div style={{position: 'absolute', top: e.grandeAltura - e.grandeCuerpo, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: o, transform: `scale(${s})`, padding: '0 60px'}}>
-      <span style={{fontFamily: e.fuenteTitulos, fontStyle: 'italic', fontWeight: 800, fontSize: e.grandeCuerpo, lineHeight: 1.05, textAlign: 'center', color: e.crema,
-        WebkitTextStroke: `10px ${e.burdeosOscuro}`, paintOrder: 'stroke fill', textShadow: '0 10px 30px rgba(0,0,0,.6)'}}>{texto}</span>
-      <div style={{marginTop: 14, height: 10, width: `${raya * 60}%`, background: e.dorado, boxShadow: '0 4px 14px rgba(0,0,0,.5)'}} />
+      <span style={{fontFamily: e.fuenteTitulos, fontStyle: 'italic', fontWeight: 800, fontSize: e.grandeCuerpo, lineHeight: 1.05, textAlign: 'center', color: e.claro,
+        WebkitTextStroke: `10px ${e.oscuro}`, paintOrder: 'stroke fill', textShadow: '0 10px 30px rgba(0,0,0,.6)'}}>{texto}</span>
+      <div style={{marginTop: 14, height: 10, width: `${raya * 60}%`, background: e.acento, boxShadow: '0 4px 14px rgba(0,0,0,.5)'}} />
     </div>
   );
 };
 
 const Barra = ({e}) => {
   const f = useCurrentFrame(); const {durationInFrames} = useVideoConfig();
-  return <div style={{position: 'absolute', bottom: 0, left: 0, height: e.barraAlto, width: `${(f / durationInFrames) * 100}%`, background: e.dorado}} />;
+  return <div style={{position: 'absolute', bottom: 0, left: 0, height: e.barraAlto, width: `${(f / durationInFrames) * 100}%`, background: e.acento}} />;
 };
 
 // Zoom: lento ("zoom") o de golpe ("salto")

@@ -1,0 +1,9 @@
+{
+  "nombre": "Claves de la Historia y la Actualidad",
+  "_que_es": "Burdeos, dorado y crema. Playfair Display en títulos; subtítulos en Inter. Tono histórico y elegante.",
+  "primario": "#7B1E22", "oscuro": "#5C1418", "acento": "#B8913A", "claro": "#F7F3EC",
+  "fuenteTitulos": "Playfair Display", "fuenteSubs": "Inter",
+  "subCuerpo": 74, "subPalabras": 3, "subAltura": 1330,
+  "ganchoDura": 4.5, "grandeCuerpo": 132, "grandeAltura": 1560,
+  "barraAlto": 12
+}

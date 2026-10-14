@@ -1,16 +1,30 @@
-# Anuncios · Claves de la Historia y la Actualidad
+# Editor de anuncios
 
-Plantilla para montar anuncios verticales (1080×1920) de busto parlante con el estilo de Claves:
+Editor para montar anuncios verticales (1080×1920) de busto parlante con la plantilla de cada marca:
 subtítulos palabra a palabra, cartel del gancho, palabras grandes, zooms, animaciones en Remotion
 sincronizadas con lo que se dice, voz sin ruido, música con ducking y efectos de sonido.
 
 Basado en el manual «Reels con Claude Code», con Remotion como motor gráfico en lugar de subtítulos ASS.
 
-## Estilo de marca (`estilos/claves.json`)
+La skill `editar-anuncio` (`.claude/skills/editar-anuncio/SKILL.md` en la raíz del repo) guía todo el proceso.
 
-- Burdeos `#7B1E22` · Burdeos oscuro `#5C1418` · Dorado `#B8913A` · Crema `#F7F3EC`
-- Títulos, gancho y palabras grandes: Playfair Display. Subtítulos: Inter 800 en mayúsculas
-  (se lee mejor en el móvil); la palabra que suena va en dorado.
+## Plantillas de marca (`plantillas/`)
+
+Cada anuncio elige la suya en `props.json → "plantilla"`. Claves: `primario`, `oscuro`, `acento`, `claro`,
+`fuenteTitulos`, `fuenteSubs` y medidas. El código usa solo esas claves, nunca colores fijos.
+
+- `claves`: Claves de la Historia y la Actualidad. Burdeos `#7B1E22`, burdeos oscuro `#5C1418`, dorado `#B8913A`,
+  crema `#F7F3EC`. Playfair Display en títulos; subtítulos en Inter 800 (se leen mejor en el móvil).
+- `discendo`: navy `#062942`, naranja `#FFA500`, blanco. Poppins en todo.
+
+Nueva plantilla: `plantillas/NOMBRE.json` + registrarla en `plantillas/index.js` + fuentes en `src/fuentes.js`.
+`scripts/muestra.sh NOMBRE` genera una imagen de muestra.
+
+## Música y efectos
+
+- `musica/catalogo.json`: músicas ya generadas (estilo, marca, duración, puntos de corte, prompt y dónde se usaron).
+  Reutilizarlas es gratis.
+- `sonidos/catalogo.json`: efectos de sonido reutilizables con su volumen recomendado.
 
 ## Qué hace falta en la sesión
 
@@ -32,7 +46,7 @@ Basado en el manual «Reels con Claude Code», con Remotion como motor gráfico 
    las frases del guion llevan su texto exacto; lo improvisado se subtitula tal cual se dijo;
    los errores de Whisper se corrigen (p. ej. «historias y memorizar» → «Historia sin memorizar»).
 4. Crea `proyectos/NOMBRE/props.json` copiando el de `ad4-la-resistencia` y cambia:
-   `video`, `duracion`, `words`, `gancho`, `grandes`, `zooms`, `animaciones` y `sonido`.
+   `plantilla`, `video`, `duracion`, `words`, `gancho`, `grandes`, `zooms`, `animaciones` y `sonido`.
 5. Revisa fotogramas clave con `npx remotion still ... --frame=N` antes de dar nada por bueno.
 6. `scripts/montar.sh proyectos/NOMBRE` → `salidas/NOMBRE_1080p.mp4` (<30 MB, se puede enviar por el chat)
    y `salidas/NOMBRE_maxima.mp4`.
@@ -69,5 +83,5 @@ Basado en el manual «Reels con Claude Code», con Remotion como motor gráfico 
 - El audio de la Sony sale bajo (−36 dB de media) y con ruido de fondo a −71 dB: la limpieza por puerta
   espectral (`limpiar_voz.py`) lo baja a −89 dB sin tocar la voz.
 - La música de Lyria salió de 59 s aunque se pidieran 45: se recorta y se funde al final.
-- Las palabras grandes a la altura del pecho chocaban con el micro; van en y≈1560, en crema con raya dorada.
-- El dorado sobre la chaqueta oscura se lee mal: en textos grandes usar crema con contorno burdeos.
+- Las palabras grandes a la altura del pecho chocaban con el micro; van en y≈1560, en color claro con raya de acento.
+- El acento (dorado) sobre la chaqueta oscura se lee mal: en textos grandes usar el color claro con contorno oscuro.

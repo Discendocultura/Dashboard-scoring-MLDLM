@@ -1,4 +1,5 @@
 {
+ "plantilla": "claves",
  "video": "ad4-la-resistencia.mp4",
  "duracion": 42.3,
  "words": [
@@ -809,7 +810,7 @@
   }
  ],
  "sonido": {
-  "musica": "sonidos/musica-documental-claves.mp3",
+  "musica": "musica/documental-claves.mp3",
   "musica_db": -9,
   "efectos": [
    {
