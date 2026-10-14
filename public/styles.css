@@ -4733,3 +4733,12 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .rep-dsem.on { background: linear-gradient(135deg, #8e5bd8, #b07ae6); color: #fff; box-shadow: 0 4px 12px -6px #8e5bd8; transform: translateY(-1px); }
 .op-rep-alinear { align-self: flex-start; }
 @media (max-width: 760px) { .rep-dsem { width: 30px; height: 30px; } }
+/* Destinatarios de los informes */
+.inf-dest-dlg { width: min(560px, 96vw); }
+.inf-dest-dlg .dialog-body { display: flex; flex-direction: column; gap: 12px; }
+.inf-dest-h { margin: 4px 0 0; font-size: 15px; }
+.inf-dest-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.inf-dest-lista li { padding: 8px 12px; border-radius: 10px; background: var(--surface-2); display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 14px; }
+.inf-dest-dlg textarea { width: 100%; font: inherit; font-size: 14px; }
+.inf-dest-pie { justify-content: flex-end; align-items: center; gap: 8px; flex-wrap: wrap; }
+.inf-dest-pie > span { flex: 1; }

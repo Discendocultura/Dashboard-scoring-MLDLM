@@ -7037,6 +7037,7 @@ document.addEventListener('click', async (e) => {
   const que = enVsl() ? { v: state.embudo } : { l: state.launchCode };
   const cq = state.cliente && !state.clientes.find((c) => c.id === state.cliente)?.principal ? `&c=${encodeURIComponent(state.cliente)}` : '';
   if (b.dataset.informe === 'ver') { window.open(`/api/informe?${new URLSearchParams(que)}${cq}`, '_blank', 'noopener'); return; }
+  if (b.dataset.informe === 'destinatarios') { abrirDestinatarios(); return; }
   b.disabled = true;
   try {
     if (b.dataset.informe === 'enlace') {
@@ -7044,13 +7045,43 @@ document.addEventListener('click', async (e) => {
       await navigator.clipboard?.writeText(url).catch(() => {});
       st.innerHTML = `Enlace copiado ✓ <a href="${esc(url)}" target="_blank" rel="noopener">abrir</a>`;
     } else {
-      if (!window.confirm('¿Mandar ahora el informe por email a las personas con el rol Cliente?')) return;
+      if (!window.confirm('¿Mandar ahora el informe por email a las personas con el rol Cliente y a los destinatarios añadidos?')) return;
       st.textContent = 'Preparando el informe…';
       const r = await api('/api/informe', { method: 'POST', body: { op: 'enviar', ...que } });
-      st.textContent = r.destinatarios ? `Enviado a ${r.enviados} de ${r.destinatarios} ✓` : 'No hay nadie con el rol Cliente: créale un usuario en Equipo (o copia el enlace).';
+      st.textContent = r.destinatarios ? `Enviado a ${r.enviados} de ${r.destinatarios} ✓` : 'No hay a quién mandarlo: añade destinatarios en «✉️ Destinatarios» o crea un usuario con el rol Cliente en Equipo.';
     }
   } catch (err) { st.textContent = err.message; } finally { b.disabled = false; }
 });
+
+// Destinatarios de los informes: las personas con el rol «Cliente» (Equipo) y los añadidos a mano.
+async function abrirDestinatarios() {
+  const dlg = $('#inf-dest-dialog');
+  const box = $('#inf-dest-body');
+  const pintar = (d, aviso = '') => {
+    box.innerHTML = `<p class="muted small">El informe (el automático al cerrar el carrito, el semanal de las VSL y «Enviárselo ahora») llega a todas estas personas. Claude también los lee con el conector para mandar sus informes.</p>
+      <h3 class="inf-dest-h">Con el rol «Cliente» <small class="muted">(se cambian en Equipo)</small></h3>
+      ${d.clientes.length ? `<ul class="inf-dest-lista">${d.clientes.map((u) => `<li><strong>${esc(u.nombre || u.email)}</strong> <span class="muted">${esc(u.email)}</span></li>`).join('')}</ul>` : '<p class="muted small">Nadie todavía.</p>'}
+      <label class="field"><span>Además, a estas personas <small class="muted">(una por línea: Nombre &lt;email&gt;)</small></span>
+        <textarea id="inf-dest-texto" rows="5" placeholder="Laura García <laura@ejemplo.com>">${esc(d.adicionales.map((x) => (x.nombre ? `${x.nombre} <${x.email}>` : x.email)).join('\n'))}</textarea></label>
+      <footer class="row inf-dest-pie"><span class="muted small" id="inf-dest-st">${esc(aviso)}</span><button type="button" class="btn ghost" data-inf-dest="cerrar">Cerrar</button><button type="button" class="btn primary" data-inf-dest="guardar">Guardar</button></footer>`;
+  };
+  if (!dlg.dataset.listo) {
+    dlg.dataset.listo = '1';
+    dlg.addEventListener('click', async (e) => {
+      const a = e.target.closest('[data-inf-dest]')?.dataset.infDest;
+      if (a === 'cerrar') { dlg.close(); return; }
+      if (a !== 'guardar') return;
+      e.target.disabled = true;
+      try {
+        const d = await api('/api/informe', { method: 'POST', body: { op: 'destinatarios-guardar', texto: $('#inf-dest-texto').value } });
+        pintar(d, `Guardado ✓ (${d.adicionales.length} añadido${d.adicionales.length === 1 ? '' : 's'})`);
+      } catch (err) { $('#inf-dest-st').textContent = err.message; e.target.disabled = false; }
+    });
+  }
+  box.innerHTML = '<p class="muted">Cargando…</p>';
+  if (!dlg.open) dlg.showModal();
+  try { pintar(await api('/api/informe', { method: 'POST', body: { op: 'destinatarios' } })); } catch (err) { box.innerHTML = `<p class="error">${esc(err.message)}</p>`; }
+}
 
 // ---------- Portal del cliente (rol «Cliente»: solo lectura) ----------
 const fechaPortal = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '');

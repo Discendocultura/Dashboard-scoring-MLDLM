@@ -171,7 +171,7 @@ export async function POST(request) {
       .catch((e) => avisos.push(`No se pudo guardar la nota en GHL (${String(e.message).slice(0, 120)}).`));
     // 4) Registro propio para las métricas.
     const resultado = await cambiarResultados(code, (resultados) => {
-      resultados[eventId] = { resultado: r.id, motivo, notas, contactId, por: quien, en: new Date().toISOString(), etapa: etapaNueva };
+      resultados[eventId] = { resultado: r.id, motivo, notas, contactId, por: quien, en: new Date().toISOString(), etapa: etapaNueva, ...(Date.parse(body.startTime) ? { cita: new Date(body.startTime).toISOString() } : {}) };
       return resultados[eventId];
     }, `Resultado de llamada: ${r.label}`);
     return json({ resultado, avisos, motivos: MOTIVOS });

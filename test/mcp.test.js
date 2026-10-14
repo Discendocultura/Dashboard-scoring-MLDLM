@@ -113,7 +113,7 @@ test('flujo completo: código con PKCE, herramientas, renovación, código reusa
   assert.equal(noti.status, 202);
   const lista = await mcp(t.data.access_token, 'tools/list', {});
   const nombres = lista.data.result.tools.map((x) => x.name);
-  for (const n of ['ver_embudos', 'metricas_embudo', 'encuesta_para_copy', 'marca_y_narrativa', 'tareas_lanzamiento', 'emails_lanzamiento']) assert.ok(nombres.includes(n), n);
+  for (const n of ['ver_embudos', 'metricas_embudo', 'encuesta_para_copy', 'marca_y_narrativa', 'datos_informe', 'tareas_lanzamiento', 'emails_lanzamiento']) assert.ok(nombres.includes(n), n);
   assert.ok(lista.data.result.tools.every((x) => x.annotations.readOnlyHint));
 
   const ve = await mcp(t.data.access_token, 'tools/call', { name: 'ver_embudos', arguments: {} });
@@ -138,6 +138,18 @@ test('flujo completo: código con PKCE, herramientas, renovación, código reusa
   const me = await mcp(t.data.access_token, 'tools/call', { name: 'metricas_embudo', arguments: { lanzamiento: 'oct' } });
   assert.ok(!me.data.result.isError, me.text);
   assert.ok('registros' in JSON.parse(me.data.result.content[0].text).kpis);
+  // Datos del informe: destinatarios (los añadidos, sin repetir y con email válido), colores, fases y llamadas.
+  const dg = await call('/api/informe', { method: 'POST', cookie: admin, body: { op: 'destinatarios-guardar', texto: 'Laura García <Laura@Ejemplo.com>\nmal-email\nlaura@ejemplo.com\nGestoría, gestoria@ejemplo.com' } });
+  assert.equal(dg.status, 200, dg.text);
+  assert.deepEqual(dg.data.adicionales, [{ nombre: 'Laura García', email: 'laura@ejemplo.com' }, { nombre: 'Gestoría', email: 'gestoria@ejemplo.com' }]);
+  const di = await mcp(t.data.access_token, 'tools/call', { name: 'datos_informe', arguments: { lanzamiento: 'oct' } });
+  assert.ok(!di.data.result.isError, di.text);
+  const dj = JSON.parse(di.data.result.content[0].text);
+  assert.deepEqual(dj.destinatarios.adicionales.map((x) => x.email), ['laura@ejemplo.com', 'gestoria@ejemplo.com']);
+  assert.match(dj.marca.colores.principal, /^#[0-9a-f]{6}$/i);
+  assert.equal(dj.lanzamiento.fases.directo.dia, d(2));
+  assert.match(dj.lanzamiento.informeWeb.enlace, /^https:\/\/dash\.example\/api\/informe\?l=oct&t=/);
+  assert.equal(typeof dj.llamadas.total, 'number');
   const mal = await mcp(t.data.access_token, 'tools/call', { name: 'tareas_lanzamiento', arguments: { lanzamiento: 'no-existe' } });
   assert.equal(mal.data.result.isError, true);
   const otroCliente = await mcp(t.data.access_token, 'tools/call', { name: 'ver_embudos', arguments: { cliente: 'no-existe' } });
@@ -176,6 +188,8 @@ test('permisos: la setter (contraseña general) no ve métricas ni la encuesta',
   assert.match(m.data.result.content[0].text, /no tiene acceso/);
   const e = await mcp(t.data.access_token, 'tools/call', { name: 'emails_lanzamiento', arguments: {} });
   assert.equal(e.data.result.isError, true);
+  const di = await mcp(t.data.access_token, 'tools/call', { name: 'datos_informe', arguments: {} });
+  assert.equal(di.data.result.isError, true); // los emails de los destinatarios, solo con permiso de configuración
   // Las suyas no las puede revocar otra persona sin ser superadmin; el superadmin sí.
   const con = await call('/api/oauth/conexiones', { cookie: setter });
   assert.equal(con.data.conexiones.length, 0); // contraseña general sin usuario: no tiene «suyas»

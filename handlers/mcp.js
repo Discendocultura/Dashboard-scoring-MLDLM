@@ -12,7 +12,7 @@ import { json } from '../lib/http.js';
 export const PROTOCOLOS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const CORS = { 'access-control-allow-origin': '*', 'access-control-expose-headers': 'www-authenticate', 'access-control-allow-headers': 'authorization, content-type, mcp-protocol-version, mcp-session-id' };
 const INSTRUCCIONES = `Dashboard de lanzamientos de la agencia (Estelabs): embudos, lanzamientos, métricas, encuesta, ficha de marca y avatar, narrativa, tareas y emails de cada cliente. Solo lectura.
-Empieza con «ver_embudos» para saber los clientes y los códigos de los lanzamientos. Antes de escribir copy, lee «marca_y_narrativa». Responde en español de España.`;
+Empieza con «ver_embudos» para saber los clientes y los códigos de los lanzamientos. Antes de escribir copy, lee «marca_y_narrativa». Para preparar o enviar un informe al cliente, «datos_informe» (destinatarios, colores, fases y llamadas) y «metricas_embudo». Responde en español de España.`;
 
 const ok = (id, result) => ({ jsonrpc: '2.0', id, result });
 const err = (id, code, message) => ({ jsonrpc: '2.0', id: id ?? null, error: { code, message } });
