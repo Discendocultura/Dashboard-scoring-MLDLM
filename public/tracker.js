@@ -1534,4 +1534,20 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
+
+  // Constructores como GHL a veces meten los «códigos personalizados» después de cargar la página: si aparece
+  // un bloque del dashboard nuevo (comentarios, votación, música, textos…) y ya tenemos los datos, se pinta también.
+  if (window.MutationObserver) {
+    var pendiente = null;
+    new MutationObserver(function (cambios) {
+      var nuevo = cambios.some(function (c) {
+        return Array.prototype.some.call(c.addedNodes, function (n) {
+          return n.nodeType === 1 && (n.matches('[data-lsd-comentarios],[data-lsd-votacion],[data-lsd-audio],[data-lsd-if],[data-lsd-text],[data-lsd-img]') || n.querySelector('[data-lsd-comentarios],[data-lsd-votacion],[data-lsd-audio],[data-lsd-if],[data-lsd-text],[data-lsd-img]'));
+        });
+      });
+      if (!nuevo || !ultimaPagina) return;
+      clearTimeout(pendiente);
+      pendiente = setTimeout(function () { try { renderRecursos(ultimaPagina.data, ultimaPagina.who); } catch (e) { /* nada */ } }, 300);
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
 })();
