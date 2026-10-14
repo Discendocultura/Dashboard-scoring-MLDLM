@@ -39,6 +39,7 @@ import { TIPOS_MSG, ESTADOS_MSG, GUIA_ARCHIVOS, parsearSecuencia, promptCalentam
 import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientesDirecta, ganadoresDirecta } from './directa.js';
 import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
 import { abrirProcesos } from './procesos-panel.js';
+import { abrirAtajos } from './atajos-panel.js';
 import { abrirOperativa } from './operativa-panel.js';
 import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
@@ -747,6 +748,8 @@ $('#inicio-embudos').addEventListener('click', (e) => {
   (tipo === 'embudo' ? cargarEmbudoInicio({ id: item.id, nombre: item.nombre, tipo: item.tipoOrig }, Number(i), true) : cargarMeteoInicio({ code: item.code, nombre: item.nombre }, Number(i), true)).then(pintarInicio);
 });
 $('#sb-inicio').addEventListener('click', () => mostrarInicio());
+// Accesos rápidos del proyecto (enlaces a mano: Drive, GHL, Canva…): un clic abre el panel y otro, el enlace.
+$('#sb-atajos').addEventListener('click', () => abrirAtajos({ api, dialog: $('#atajos-dialog'), cliente: state.clientes?.find((c) => c.id === state.cliente)?.nombre || '' }));
 $('#inicio-actualizar').addEventListener('click', () => mostrarInicio({ fresh: true }));
 
 // ---------- Inicio de la agencia (superadmin): todos los clientes de un vistazo ----------
