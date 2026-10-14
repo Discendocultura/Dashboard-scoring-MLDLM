@@ -768,6 +768,34 @@
   // Paso 1: elegir a qué pregunta de la clase responde (si hay una sola, ya está elegida). Paso 2: escribir y
   // «Publicar». Debajo, el muro de esa clase (destacados primero, filtrable por pregunta) con las respuestas
   // del equipo. Los datos se piden a /api/comentarios (y se refrescan cada 90 s mientras la página está abierta).
+  // Diagnóstico (?lsd_debug=1 en la URL): una caja abajo que dice qué falta para que se vean los bloques del
+  // dashboard (sobre todo el de comentarios). No cambia nada; solo lee.
+  function diagnostico(launchAttr) {
+    var caja = document.createElement('div');
+    caja.setAttribute('style', 'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483647;max-width:560px;margin:0 auto;padding:14px 16px;border-radius:14px;background:#111;color:#fff;font:14px/1.5 system-ui,sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.4)');
+    var lineas = [];
+    var poner = function () { caja.innerHTML = '<strong style="font-size:15px">🔎 Diagnóstico del dashboard</strong>' + lineas.map(function (l) { return '<div style="margin-top:6px">' + l + '</div>'; }).join('') + '<div style="margin-top:8px;opacity:.6;font-size:12px">Quita ?lsd_debug=1 de la dirección para ocultar esta caja.</div>'; };
+    var bien = function (t) { lineas.push('✅ ' + t); poner(); };
+    var mal = function (t) { lineas.push('❌ ' + t); poner(); };
+    document.body.appendChild(caja);
+    bien('El código del dashboard (tracker.js) está cargado.');
+    var bloques = document.querySelectorAll('[data-lsd-comentarios]').length;
+    if (bloques) bien('Bloque de comentarios encontrado en la página (' + bloques + ').'); else mal('No hay ningún <div data-lsd-comentarios="todas"> en la página: pega el código personalizado.');
+    if (document.querySelector('[data-lsd-page], [data-lsd-video]')) bien('Bloque base de la preclase encontrado.'); else mal('Falta el bloque base de la preclase (<div data-lsd-page="recursos" data-launch="auto">). Cópialo de Configuración → Códigos.');
+    var w = identity();
+    if (w) bien('Lead identificada (' + (w.email ? 'por email' : 'por su enlace') + ').');
+    else mal('No sabe quién eres: los comentarios solo se ven cuando la página sabe qué lead es. Ábrela con el enlace de un email (lleva ?cid=…) o entrando por el login con un email registrado en este lanzamiento.');
+    fetchPage(launchAttr, null).then(function (d) {
+      if (!d || d.error) { mal('No encuentra el lanzamiento de esta página (' + launchAttr + '): revisa data-launch o las URLs del lanzamiento en el dashboard.'); return; }
+      bien('Lanzamiento: ' + d.code + '.');
+      return fetch(API + conCliente('/api/comentarios?l=' + encodeURIComponent(d.code))).then(function (r) { return r.json(); }).then(function (c) {
+        if (!c || !c.activa) { mal('Los comentarios NO están activados en el dashboard para este lanzamiento, o ninguna clase tiene preguntas: Configuración → Preclase → Comentarios.'); return; }
+        var ks = Object.keys(c.clases || {});
+        bien('Comentarios activados: ' + ks.map(function (k) { return k.replace('clase', 'Clase ') + (c.clases[k].abierta ? ' (abierta)' : ' (aún cerrada)'); }).join(', ') + '.');
+      });
+    }).catch(function () { mal('No se puede contactar con el dashboard.'); });
+  }
+
   var com = { data: null, en: 0, cargando: false, code: '', cid: '' };
   function cargarComentarios(code, who, despues) {
     if (com.cargando) return;
@@ -1485,6 +1513,7 @@
       }).catch(function () { /* sin datos: se queda el texto del diseño */ });
       return;
     }
+    if (params.get('lsd_debug')) diagnostico(launchAttr);
     var attrLogin = loginAttrEl ? loginAttrEl.getAttribute('data-login') : '';
     if (!managed && launchAttr !== 'auto') return begin(launchAttr, attrLogin);
     // Con el dashboard: primero sabemos qué lanzamiento es (y su URL de login). Si el navegador ya conoce
