@@ -49,7 +49,8 @@ export function sanitizeRecursos(r, nClases = 2) {
   };
 }
 
-// Comentarios: { activo, firma, clases: { clase1: { preguntas: [{ id, texto }] }, … } }. Las preguntas guardan
+// Comentarios: { activo, firma, titulo, clases: { clase1: { pestana, preguntas: [{ id, texto }] }, … } }. `titulo`: el del
+// bloque único (debajo de las clases, una pestaña por clase); `pestana`: el nombre de cada pestaña. Las preguntas guardan
 // su id (q1, q2…) para que los comentarios sigan siendo de su pregunta aunque cambie el texto. `firma`: con qué
 // nombre salen las respuestas del equipo (vacío = el de la marca).
 function sanitizeComentariosCfg(co, nClases = 2) {
@@ -60,13 +61,13 @@ function sanitizeComentariosCfg(co, nClases = 2) {
     const usados = new Set();
     const ids = lista.map((q) => { const id = str(q?.id, 6); if (/^q[0-9]{1,3}$/.test(id) && !usados.has(id)) { usados.add(id); return id; } return ''; });
     let n = 1 + Math.max(0, ...[...usados].map((id) => Number(id.slice(1))));
-    clases[k] = { preguntas: lista.map((q, j) => {
+    clases[k] = { pestana: str(co?.clases?.[k]?.pestana, 40), preguntas: lista.map((q, j) => {
       let id = ids[j];
       if (!id) { while (usados.has(`q${n}`)) n++; id = `q${n}`; usados.add(id); }
       return { id, texto: str(typeof q === 'string' ? q : q?.texto, 220) };
     }).filter((q) => q.texto) };
   }
-  return { activo: Boolean(co?.activo), firma: str(co?.firma, 60), clases };
+  return { activo: Boolean(co?.activo), firma: str(co?.firma, 60), titulo: str(co?.titulo, 90), clases };
 }
 // Clases con preguntas para comentar: ['clase1', 'clase2'].
 export const clasesConComentarios = (r) => Object.entries(r?.comentarios?.clases || {}).filter(([, c]) => c.preguntas?.length).map(([k]) => k);

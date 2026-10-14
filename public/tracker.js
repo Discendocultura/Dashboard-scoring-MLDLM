@@ -183,6 +183,15 @@
     '@media (prefers-reduced-motion:reduce){#lsd-espera,#lsd-espera *{animation:none!important}}';
   // Comentarios de la preclase (muro debajo de cada clase). Estilos base sobrios: el diseño de la página los
   // viste (todas las clases empiezan por .lsd-com) y puede cambiar el color con --lsd-acento.
+  // Bloque único con pestañas (una por clase): .lsd-com-bloque > .lsd-com-tabs (.lsd-com-tab[aria-selected]) > .lsd-com-panel > .lsd-com-in
+  CSS += '.lsd-com-tabs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;margin:0 0 14px;padding:4px;border-radius:14px;background:#f1e9e1}' +
+    '.lsd-com-tab{display:inline-flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 8px;min-width:0;padding:11px 12px;border:0;border-radius:11px;background:transparent;font:inherit;font-weight:700;line-height:1.25;text-align:center;color:inherit;opacity:.7;cursor:pointer;transition:background .2s,opacity .2s,box-shadow .2s}' +
+    '.lsd-com-tab:hover{opacity:1}.lsd-com-tab[aria-selected="true"]{background:#fff;opacity:1;box-shadow:0 2px 10px -4px rgba(0,0,0,.25);color:var(--lsd-com-ac,#b4552d)}' +
+    '.lsd-com-tab:focus-visible{outline:2px solid var(--lsd-com-ac,#b4552d);outline-offset:2px}.lsd-com-tab.cerrada{opacity:.55}' +
+    '.lsd-com-tab-n{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--lsd-com-ac,#b4552d);color:#fff;font-size:.75em}' +
+    '.lsd-com-in{animation:lsdComIn .3s ease both}.lsd-com-head-in{margin-bottom:12px}.lsd-com-head-in .lsd-com-titulo{font-size:1.05em}' +
+    '.lsd-com-in.lsd-com-cerrado{display:flex;align-items:center;gap:12px;padding:18px;border-radius:12px;background:#fff;border:1px dashed #e2d8cf}' +
+    '@keyframes lsdComIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.lsd-com-in{animation:none}}';
   CSS += '.lsd-com{--lsd-com-ac:var(--lsd-acento,#b4552d);box-sizing:border-box;margin:18px 0 0;padding:18px;border-radius:16px;background:#fbf8f5;border:1px solid #ece3da;color:#2b2522;font-family:inherit}' +
     '.lsd-com *{box-sizing:border-box}.lsd-com-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}.lsd-com-ico{font-size:1.6em;line-height:1}' +
     '.lsd-com-kicker{margin:0;font-size:.78em;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--lsd-com-ac)}.lsd-com-titulo{margin:2px 0 0;font-size:1.15em;line-height:1.3}' +
@@ -754,7 +763,8 @@
     }).join('') + '<p class="lsd-vot-total">' + res.total + (res.total === 1 ? ' respuesta' : ' respuestas') + ' · gracias por participar</p></div>';
   }
 
-  // Comentarios de la preclase: <div data-lsd-comentarios="clase1"></div> debajo de cada clase.
+  // Comentarios de la preclase: un solo bloque <div data-lsd-comentarios="todas"></div> debajo de las clases, con una
+  // pestaña por clase (se abre en la última clase disponible), o el formato antiguo <div data-lsd-comentarios="clase1">.
   // Paso 1: elegir a qué pregunta de la clase responde (si hay una sola, ya está elegida). Paso 2: escribir y
   // «Publicar». Debajo, el muro de esa clase (destacados primero, filtrable por pregunta) con las respuestas
   // del equipo. Los datos se piden a /api/comentarios (y se refrescan cada 90 s mientras la página está abierta).
@@ -790,27 +800,79 @@
     var d = com.data;
     els.forEach(function (el) {
       var k = el.getAttribute('data-lsd-comentarios') || 'clase1';
-      var c = d && d.activa && d.clases ? d.clases[k] : null;
+      if (!d || !d.activa || !d.clases) return show(el, false);
+      if (k === 'todas') return pintarBloqueCom(el, d, data, who);
+      var c = d.clases[k];
       if (!c) return show(el, false);
       show(el, true);
+      pintarClaseCom(el, k, c, el, data, who, d, false);
+    });
+  }
+  // Nombre de la pestaña de una clase (lo que se configure o «Preguntas de la Clase N»).
+  var pestanaDe = function (k, c) { return c.pestana || 'Preguntas de la Clase ' + k.replace('clase', ''); };
+  function pintarBloqueCom(el, d, data, who) {
+    var ks = Object.keys(d.clases).sort();
+    if (!ks.length) return show(el, false);
+    show(el, true);
+    var abiertas = ks.filter(function (k) { return d.clases[k].abierta; });
+    if (!el._lsdTab || ks.indexOf(el._lsdTab) < 0) el._lsdTab = abiertas.length ? abiertas[abiertas.length - 1] : ks[0];
+    var total = ks.reduce(function (a, k) { return a + (d.clases[k].total || 0); }, 0);
+    var huella = ks.map(function (k) { return k + (d.clases[k].abierta ? 'a' : 'c') + d.clases[k].total; }).join(',') + '|' + el._lsdTab;
+    if (el.getAttribute('data-lsd-com-tabs') !== huella) {
+      // Antes de cambiar de pestaña se guarda lo que estuviera escribiendo.
+      var ta = el.querySelector('.lsd-com-txt-in');
+      var bag = el._lsdComSt || {};
+      var previa = el.querySelector('.lsd-com-in');
+      if (ta && previa && bag[previa.getAttribute('data-clase')]) bag[previa.getAttribute('data-clase')].texto = ta.value;
+      el.setAttribute('data-lsd-com-tabs', huella);
+      el.innerHTML = '<section class="lsd-com lsd-com-bloque"><header class="lsd-com-head"><span class="lsd-com-ico">💬</span><div><p class="lsd-com-kicker">' + esc(el.getAttribute('data-kicker') || 'Comparte tu respuesta') + '</p><h3 class="lsd-com-titulo">' + esc(el.getAttribute('data-titulo') || d.titulo || 'Comparte lo que te han removido las clases') + '</h3></div><span class="lsd-com-n">' + total + (total === 1 ? ' comentario' : ' comentarios') + '</span></header>' +
+        '<div class="lsd-com-tabs" role="tablist" aria-label="Preguntas de cada clase">' + ks.map(function (k) {
+          var c = d.clases[k];
+          return '<button type="button" class="lsd-com-tab' + (c.abierta ? '' : ' cerrada') + '" role="tab" id="lsd-com-tab-' + k + '" aria-controls="lsd-com-panel" aria-selected="' + (k === el._lsdTab) + '" data-tab="' + k + '">' + (c.abierta ? '' : '<span aria-hidden="true">🔒</span>') + '<span class="lsd-com-tab-t">' + esc(pestanaDe(k, c)) + '</span>' + (c.total ? '<span class="lsd-com-tab-n">' + c.total + '</span>' : '') + '</button>';
+        }).join('') + '</div><div class="lsd-com-panel" id="lsd-com-panel" role="tabpanel" aria-labelledby="lsd-com-tab-' + el._lsdTab + '"></div></section>';
+      el.querySelectorAll('[data-tab]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var t = el.querySelector('.lsd-com-txt-in');
+          if (t && el._lsdComSt && el._lsdComSt[el._lsdTab]) el._lsdComSt[el._lsdTab].texto = t.value;
+          el._lsdTab = b.getAttribute('data-tab');
+          el.removeAttribute('data-lsd-com-tabs');
+          pintarBloqueCom(el, d, data, who);
+          var nueva = el.querySelector('[data-tab="' + el._lsdTab + '"]');
+          if (nueva) nueva.focus();
+        });
+        // Flechas izquierda / derecha entre pestañas.
+        b.addEventListener('keydown', function (e) {
+          if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+          var i = ks.indexOf(b.getAttribute('data-tab')) + (e.key === 'ArrowRight' ? 1 : -1);
+          var sig = el.querySelector('[data-tab="' + ks[(i + ks.length) % ks.length] + '"]');
+          if (sig) { e.preventDefault(); sig.click(); }
+        });
+      });
+    }
+    pintarClaseCom(el.querySelector('.lsd-com-panel'), el._lsdTab, d.clases[el._lsdTab], el, data, who, d, true);
+  }
+  // Una clase: el formulario (elegir pregunta y escribir) y su muro. `attrs`: el elemento con los data-* de textos;
+  // `enBloque`: dentro del bloque con pestañas (sin su propia caja).
+  function pintarClaseCom(el, k, c, attrs, data, who, d, enBloque) {
       var n = k.replace('clase', '');
-      var st = el._lsdCom || (el._lsdCom = { sel: c.preguntas.length === 1 ? c.preguntas[0].id : '', filtro: '', max: 8, texto: '' });
+      var bag = attrs._lsdComSt || (attrs._lsdComSt = {});
+      var st = bag[k] || (bag[k] = { sel: c.preguntas.length === 1 ? c.preguntas[0].id : '', filtro: '', max: 8, texto: '' });
       // Clase aún no disponible: un aviso y nada más.
       if (!c.abierta) {
         if (el.getAttribute('data-lsd-com-estado') === 'cerrado') return;
         el.setAttribute('data-lsd-com-estado', 'cerrado');
-        el.innerHTML = '<div class="lsd-com lsd-com-cerrado"><span class="lsd-com-ico">🔒</span><p class="lsd-rec-s">' + esc(el.getAttribute('data-texto-bloqueado') || 'Los comentarios de la clase ' + n + ' se abren cuando esté disponible la clase.') + '</p></div>';
+        el.innerHTML = '<div class="' + (enBloque ? 'lsd-com-in' : 'lsd-com') + ' lsd-com-cerrado" data-clase="' + esc(k) + '"><span class="lsd-com-ico">🔒</span><p class="lsd-rec-s">' + esc(attrs.getAttribute('data-texto-bloqueado') || 'Las preguntas de la clase ' + n + ' se abren cuando esté disponible la clase.') + '</p></div>';
         return;
       }
       // Solo se repinta si cambian los comentarios (sin perder lo que esté escribiendo).
-      var huella = (who ? 'u' : 'a') + c.total + '|' + c.comentarios.map(function (x) { return x.id + (x.respuesta ? 'r' : '') + (x.destacado ? 'd' : ''); }).join(',') + '|' + st.sel + '|' + st.filtro + '|' + st.max;
+      var huella = k + (who ? 'u' : 'a') + c.total + '|' + c.comentarios.map(function (x) { return x.id + (x.respuesta ? 'r' : '') + (x.destacado ? 'd' : ''); }).join(',') + '|' + st.sel + '|' + st.filtro + '|' + st.max;
       if (el.getAttribute('data-lsd-com-estado') === huella) return;
       el.setAttribute('data-lsd-com-estado', huella);
       var ta = el.querySelector('.lsd-com-txt-in');
       if (ta) st.texto = ta.value;
       var preg = function (id) { for (var i = 0; i < c.preguntas.length; i++) if (c.preguntas[i].id === id) return { n: i + 1, texto: c.preguntas[i].texto }; return null; };
       var sel = preg(st.sel);
-      var titulo = el.getAttribute('data-titulo') || (c.preguntas.length === 1 ? c.preguntas[0].texto : 'Cuéntanos qué te ha removido esta clase');
+      var titulo = (enBloque ? '' : attrs.getAttribute('data-titulo')) || (c.preguntas.length === 1 ? c.preguntas[0].texto : 'Cuéntanos qué te ha removido esta clase');
       var form = !who
         ? '<p class="lsd-com-vacio">Para comentar, entra en esta página desde el enlace de tu email.</p>'
         : '<div class="lsd-com-form">' +
@@ -820,8 +882,8 @@
             }).join('') + '</div><p class="lsd-com-paso"><b>2</b> Escribe tu respuesta</p>'
             : '') +
           '<p class="lsd-com-respondes">' + (sel ? (c.preguntas.length > 1 ? 'Respondes a la pregunta ' + sel.n + ': <b>' + esc(sel.texto) + '</b>' : '<b>' + esc(sel.texto) + '</b>') : 'Primero elige arriba la pregunta 👆') + '</p>' +
-          '<textarea class="lsd-com-txt-in" maxlength="1500" placeholder="' + esc(el.getAttribute('data-placeholder') || 'Escribe aquí tu respuesta…') + '"' + (sel ? '' : ' disabled') + '>' + esc(st.texto) + '</textarea>' +
-          '<div class="lsd-com-pie"><span class="lsd-com-aviso">Se publica con tu nombre de pila y lo verán las demás alumnas.</span><button type="button" class="lsd-com-enviar"' + (sel ? '' : ' disabled') + '>' + esc(el.getAttribute('data-boton') || 'Publicar mi respuesta') + '</button></div>' +
+          '<textarea class="lsd-com-txt-in" maxlength="1500" placeholder="' + esc(attrs.getAttribute('data-placeholder') || 'Escribe aquí tu respuesta…') + '"' + (sel ? '' : ' disabled') + '>' + esc(st.texto) + '</textarea>' +
+          '<div class="lsd-com-pie"><span class="lsd-com-aviso">Se publica con tu nombre de pila y lo verán las demás alumnas.</span><button type="button" class="lsd-com-enviar"' + (sel ? '' : ' disabled') + '>' + esc(attrs.getAttribute('data-boton') || 'Publicar mi respuesta') + '</button></div>' +
           '<p class="lsd-err" hidden></p>' + (st.ok ? '<p class="lsd-com-ok">✓ ¡Publicado! Gracias por compartirlo.</p>' : '') + '</div>';
       var lista = c.comentarios.filter(function (x) { return !st.filtro || x.pregunta === st.filtro; });
       var cuenta = function (id) { return c.comentarios.filter(function (x) { return x.pregunta === id; }).length; };
@@ -839,10 +901,13 @@
           (x.respuesta ? '<div class="lsd-com-resp"><span class="lsd-com-av marca">' + esc(firma.charAt(0).toUpperCase()) + '</span><div><b>' + esc(firma) + '</b> <span class="lsd-com-chip">Equipo</span><p>' + esc(x.respuesta) + '</p></div></div>' : '') +
           '</div></li>';
       };
-      el.innerHTML = '<section class="lsd-com" data-clase="' + esc(k) + '"><header class="lsd-com-head"><span class="lsd-com-ico">💬</span><div><p class="lsd-com-kicker">' + esc(el.getAttribute('data-kicker') || 'Clase ' + n + ' · Comparte tu respuesta') + '</p><h3 class="lsd-com-titulo">' + esc(titulo) + '</h3></div><span class="lsd-com-n">' + c.total + (c.total === 1 ? ' comentario' : ' comentarios') + '</span></header>' +
+      var cabeza = enBloque
+        ? '<header class="lsd-com-head lsd-com-head-in"><div><h4 class="lsd-com-titulo">' + esc(titulo) + '</h4></div><span class="lsd-com-n">' + c.total + (c.total === 1 ? ' comentario' : ' comentarios') + '</span></header>'
+        : '<header class="lsd-com-head"><span class="lsd-com-ico">💬</span><div><p class="lsd-com-kicker">' + esc(attrs.getAttribute('data-kicker') || 'Clase ' + n + ' · Comparte tu respuesta') + '</p><h3 class="lsd-com-titulo">' + esc(titulo) + '</h3></div><span class="lsd-com-n">' + c.total + (c.total === 1 ? ' comentario' : ' comentarios') + '</span></header>';
+      el.innerHTML = (enBloque ? '<div class="lsd-com-in" data-clase="' + esc(k) + '">' : '<section class="lsd-com" data-clase="' + esc(k) + '">') + cabeza +
         form + filtros +
         (lista.length ? '<ol class="lsd-com-lista">' + lista.slice(0, st.max).map(item).join('') + '</ol>' + (lista.length > st.max ? '<button type="button" class="lsd-com-mas">Ver más comentarios (' + (lista.length - st.max) + ')</button>' : '') : '<p class="lsd-com-vacio">' + (c.comentarios.length ? 'Aún no hay respuestas a esta pregunta.' : 'Sé la primera en responder ✨') + '</p>') +
-        '</section>';
+        (enBloque ? '</div>' : '</section>');
       var repinta = function () { el.removeAttribute('data-lsd-com-estado'); pintarComentarios(data, who); };
       el.querySelectorAll('[data-preg]').forEach(function (b) { b.addEventListener('click', function () { var t = el.querySelector('.lsd-com-txt-in'); if (t) st.texto = t.value; st.sel = b.getAttribute('data-preg'); st.ok = false; repinta(); var t2 = el.querySelector('.lsd-com-txt-in'); if (t2) t2.focus(); }); });
       el.querySelectorAll('[data-filtro]').forEach(function (b) { b.addEventListener('click', function () { var t = el.querySelector('.lsd-com-txt-in'); if (t) st.texto = t.value; st.filtro = b.getAttribute('data-filtro'); st.max = 8; repinta(); }); });
@@ -864,9 +929,8 @@
           st.texto = ''; st.ok = true; st.filtro = '';
           if (c.preguntas.length > 1) st.sel = '';
           repinta();
-        }).catch(function (e) { btn.disabled = false; btn.textContent = el.getAttribute('data-boton') || 'Publicar mi respuesta'; err.textContent = e.message; err.hidden = false; });
+        }).catch(function (e) { btn.disabled = false; btn.textContent = attrs.getAttribute('data-boton') || 'Publicar mi respuesta'; err.textContent = e.message; err.hidden = false; });
       });
-    });
   }
 
   // Música: cuenta los segundos realmente escuchados (como los vídeos) y avisa al reproducir, al 50 % y al 90 %.

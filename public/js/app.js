@@ -5130,6 +5130,7 @@ function pintarRecursosCfg(recursosPre) {
   $('#cfg-rec-descargable-url').value = r.descargable.url;
   $('#cfg-rec-descargable-at').value = r.descargable.at;
   $('#cfg-rec-com-firma').value = r.comentarios.firma;
+  $('#cfg-rec-com-titulo').value = r.comentarios.titulo || '';
   pintarComentariosCfg(r.comentarios, nc);
   pintarRecursosVis();
 }
@@ -5139,6 +5140,7 @@ function pintarComentariosCfg(co, nc) {
     const k = `clase${i + 1}`;
     const ps = co?.clases?.[k]?.preguntas || [];
     return `<fieldset class="com-cfg-clase" data-com-clase="${k}"><legend>🎬 Clase ${i + 1} · preguntas para comentar</legend>
+      <label class="field com-cfg-pestana"><span>Nombre de su pestaña <small>(vacío = «Preguntas de la Clase ${i + 1}»)</small></span><input data-com-pestana maxlength="40" value="${esc(co?.clases?.[k]?.pestana || '')}" placeholder="Preguntas de la Clase ${i + 1}"></label>
       <div class="com-cfg-lista">${(ps.length ? ps : [{ id: '', texto: '' }]).map((q, j) => comPregHtml(q, j)).join('')}</div>
       <button type="button" class="btn ghost small" data-com-add ${ps.length >= MAX_PREGUNTAS_COMENTARIOS ? 'disabled' : ''}>+ Añadir pregunta</button></fieldset>`;
   }).join('');
@@ -5146,8 +5148,8 @@ function pintarComentariosCfg(co, nc) {
 const comPregHtml = (q, j) => `<div class="com-cfg-q" data-qid="${esc(q.id || '')}"><span class="com-cfg-n">${j + 1}</span><input maxlength="220" value="${esc(q.texto || '')}" placeholder="${j ? '¿Qué vas a poner en práctica esta semana?' : '¿Qué es lo que más te ha removido de esta clase?'}" aria-label="Pregunta ${j + 1}"><button type="button" class="btn ghost small" data-com-quitar aria-label="Quitar pregunta">✕</button></div>`;
 function leerComentariosCfg() {
   const clases = {};
-  for (const fs of $$('#cfg-rec-com-clases [data-com-clase]')) clases[fs.dataset.comClase] = { preguntas: $$('.com-cfg-q', fs).map((el) => ({ id: el.dataset.qid || undefined, texto: $('input', el).value })) };
-  return { activo: $('#cfg-rec-comentarios-on').checked, firma: $('#cfg-rec-com-firma').value, clases };
+  for (const fs of $$('#cfg-rec-com-clases [data-com-clase]')) clases[fs.dataset.comClase] = { pestana: $('[data-com-pestana]', fs)?.value || '', preguntas: $$('.com-cfg-q', fs).map((el) => ({ id: el.dataset.qid || undefined, texto: $('input', el).value })) };
+  return { activo: $('#cfg-rec-comentarios-on').checked, firma: $('#cfg-rec-com-firma').value, titulo: $('#cfg-rec-com-titulo').value, clases };
 }
 $('#cfg-rec-com-clases').addEventListener('click', (e) => {
   const fs = e.target.closest('[data-com-clase]');
@@ -5780,7 +5782,7 @@ function snippetsLanzamiento(code) {
     ...(tieneRecurso(state.config.launches[code], 'test') ? [['RECURSOS · test (botón; se desbloquea en su fecha y con la encuesta rellenada)',
       '<div data-lsd-if="test-bloqueado">🔒 El test se abre en <span data-lsd-countdown="test"></span></div>\n<div data-lsd-if="test-falta-encuesta">🔒 Para hacer el test, rellena primero la encuesta (etapa 1)</div>\n<div data-lsd-if="test-disponible">\n  <a data-lsd-link="test">Hacer el test</a>\n</div>\n<div data-lsd-if="test-hecho">✓ ¡Test completado!</div>']] : []),
     ...(tieneRecurso(state.config.launches[code], 'votacion') ? [['RECURSOS · votación (debajo de su clase; se abre al ver el 75 % de la clase; tipo test enseña los % al responder)', '<div data-lsd-votacion></div>']] : []),
-    ...(tieneRecurso(state.config.launches[code], 'comentarios') ? clasesConComentarios(recursosDe(state.config.launches[code])).map((k) => [`RECURSOS · comentarios de la clase ${k.replace('clase', '')} (justo debajo de su vídeo; se abre cuando la clase está disponible)`, `<div data-lsd-comentarios="${k}"></div>`]) : []),
+    ...(tieneRecurso(state.config.launches[code], 'comentarios') ? [['RECURSOS · comentarios de las clases (un solo bloque debajo de la sección de las clases, con una pestaña por clase; cada pestaña se abre cuando su clase está disponible)', '<div data-lsd-comentarios="todas"></div>']] : []),
     ...(tieneRecurso(state.config.launches[code], 'descargable') ? [['RECURSOS · recurso descargable (se mide quién lo abre)', '<div data-lsd-if="descargable-bloqueado">🔒 Disponible en <span data-lsd-countdown="descargable"></span></div>\n<a data-lsd-if="descargable-disponible" data-lsd-link="descargable">Descargar</a>']] : []),
     ['RECURSOS · imagen de una etapa (la URL se pone en Configuración → Preclase; sin imagen, se oculta)', '<img data-lsd-img="clase1" alt="">'],
     ['RECURSOS · etapas (cada caja recibe data-lsd-estado="bloqueada | disponible | hecha" para el diseño)',

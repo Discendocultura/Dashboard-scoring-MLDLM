@@ -59,3 +59,10 @@ test('votación: varias preguntas, tipo test o libres, con ids estables', () => 
   assert.ok(tieneRecurso({ recursosPre: sanitizeRecursos({ votacion: { activo: true, preguntas: [{ tipo: 'libre', pregunta: '¿Qué?' }] } }) }, 'votacion'));
   assert.ok(!tieneRecurso({ recursosPre: sanitizeRecursos({ votacion: { activo: true, preguntas: [{ pregunta: '¿Qué?', opciones: 'Solo una' }] } }) }, 'votacion'));
 });
+
+test('comentarios: título del bloque y nombre de la pestaña de cada clase', async () => {
+  const r = sanitizeRecursos({ comentarios: { activo: true, titulo: '  Tu espacio  ', clases: { clase1: { pestana: 'Preguntas de la Clase 1', preguntas: [{ texto: '¿Qué te ha removido?' }] }, clase2: { preguntas: [{ texto: '¿Y esta?' }] } } } }, 2);
+  assert.equal(r.comentarios.titulo, 'Tu espacio');
+  assert.equal(r.comentarios.clases.clase1.pestana, 'Preguntas de la Clase 1');
+  assert.equal(r.comentarios.clases.clase2.pestana, '');
+});

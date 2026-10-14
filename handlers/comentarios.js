@@ -32,9 +32,9 @@ function muro(launch, lista, contacto) {
   const clases = {};
   for (const k of clasesConComentarios(recursosDe(launch))) {
     const at = madridToEpoch(launch[`${k}At`]);
-    clases[k] = { preguntas: r.clases[k].preguntas, abierta: Boolean(launch[`${k}Url`]) && (at == null || ahora >= at), ...muroDe(lista, k, contacto) };
+    clases[k] = { preguntas: r.clases[k].preguntas, pestana: r.clases[k].pestana || '', abierta: Boolean(launch[`${k}Url`]) && (at == null || ahora >= at), ...muroDe(lista, k, contacto) };
   }
-  return { firma: r.firma || clienteActual().nombre, clases };
+  return { firma: r.firma || clienteActual().nombre, titulo: r.titulo || '', clases };
 }
 
 export async function GET(request) {
