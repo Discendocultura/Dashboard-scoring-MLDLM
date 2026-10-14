@@ -770,7 +770,9 @@
   // del equipo. Los datos se piden a /api/comentarios (y se refrescan cada 90 s mientras la página está abierta).
   // Diagnóstico (?lsd_debug=1 en la URL): una caja abajo que dice qué falta para que se vean los bloques del
   // dashboard (sobre todo el de comentarios). No cambia nada; solo lee.
-  function diagnostico(launchAttr) {
+  function diagnostico() {
+    var baseEl = document.querySelector('[data-lsd-page], [data-lsd-video]');
+    var launchAttr = params.get('l') || (baseEl && baseEl.getAttribute('data-launch')) || 'auto';
     var caja = document.createElement('div');
     caja.setAttribute('style', 'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483647;max-width:560px;margin:0 auto;padding:14px 16px;border-radius:14px;background:#111;color:#fff;font:14px/1.5 system-ui,sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.4)');
     var lineas = [];
@@ -780,11 +782,11 @@
     document.body.appendChild(caja);
     bien('El código del dashboard (tracker.js) está cargado.');
     var bloques = document.querySelectorAll('[data-lsd-comentarios]').length;
-    if (bloques) bien('Bloque de comentarios encontrado en la página (' + bloques + ').'); else mal('No hay ningún <div data-lsd-comentarios="todas"> en la página: pega el código personalizado.');
-    if (document.querySelector('[data-lsd-page], [data-lsd-video]')) bien('Bloque base de la preclase encontrado.'); else mal('Falta el bloque base de la preclase (<div data-lsd-page="recursos" data-launch="auto">). Cópialo de Configuración → Códigos.');
+    if (bloques) bien('Bloque de comentarios encontrado en la página (' + bloques + ').'); else mal('No hay ningún panel de comentarios (&lt;div data-lsd-comentarios="todas"&gt;) en la página: pega el código personalizado.');
+    if (baseEl) bien('Bloque base de la preclase encontrado.'); else mal('Falta el bloque base de la preclase: sin él no se pinta nada del dashboard en esta página (ni comentarios). Pega &lt;div data-lsd-page="recursos" data-launch="auto"&gt;&lt;/div&gt; junto al panel de comentarios (está en Configuración → Códigos).');
     var w = identity();
     if (w) bien('Lead identificada (' + (w.email ? 'por email' : 'por su enlace') + ').');
-    else mal('No sabe quién eres: los comentarios solo se ven cuando la página sabe qué lead es. Ábrela con el enlace de un email (lleva ?cid=…) o entrando por el login con un email registrado en este lanzamiento.');
+    else { lineas.push('ℹ️ Aún no sabe qué lead eres: el panel se ve igual, pero para comentar hay que entrar con el enlace del email o por el login.'); poner(); }
     fetchPage(launchAttr, null).then(function (d) {
       if (!d || d.error) { mal('No encuentra el lanzamiento de esta página (' + launchAttr + '): revisa data-launch o las URLs del lanzamiento en el dashboard.'); return; }
       bien('Lanzamiento: ' + d.code + '.');
@@ -797,6 +799,8 @@
   }
 
   var com = { data: null, en: 0, cargando: false, code: '', cid: '' };
+  // Se lanza siempre que la URL lleve ?lsd_debug=1, haya o no bloques del dashboard en la página.
+  if (params.get('lsd_debug')) setTimeout(diagnostico, 1500);
   function cargarComentarios(code, who, despues) {
     if (com.cargando) return;
     com.cargando = true;
@@ -1513,7 +1517,6 @@
       }).catch(function () { /* sin datos: se queda el texto del diseño */ });
       return;
     }
-    if (params.get('lsd_debug')) diagnostico(launchAttr);
     var attrLogin = loginAttrEl ? loginAttrEl.getAttribute('data-login') : '';
     if (!managed && launchAttr !== 'auto') return begin(launchAttr, attrLogin);
     // Con el dashboard: primero sabemos qué lanzamiento es (y su URL de login). Si el navegador ya conoce
