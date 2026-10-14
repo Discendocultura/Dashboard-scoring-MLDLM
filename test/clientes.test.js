@@ -46,6 +46,20 @@ test('varios clientes: registro, datos separados, equipo por cliente y accesos d
   assert.equal(m.ok, true);
   assert.match(m.nombre, /555/);
   assert.ok(m.app?.id); // de qué app es el token (para autorizar la cuenta en esa app)
+  // Zoom y SendFlow: sin elegir, el de la agencia (no tiene los suyos); con «propio», dice qué variables faltan.
+  let z = (await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'probar-zoom', id: 'clinica-sol' } })).data;
+  assert.equal(z.cual, 'agencia');
+  await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'guardar', cliente: { ...sol, metaAdAccount: 'act_555', zoom: 'propio', sendflow: 'ninguno' } } });
+  z = (await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'probar-zoom', id: 'clinica-sol' } })).data;
+  assert.equal(z.ok, false);
+  assert.match(z.error, /ZOOM_ACCOUNT_ID_CLINICA_SOL/);
+  const sfr = (await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'probar-sendflow', id: 'clinica-sol' } })).data;
+  assert.equal(sfr.cual, 'ninguno');
+  const lista = (await call('/api/clientes', { cookie: admin })).data.clientes;
+  const sol2 = lista.find((x) => x.id === 'clinica-sol');
+  assert.equal(sol2.zoom, 'propio');
+  assert.equal(sol2.zoomUsa, 'propio');
+  assert.equal(sol2.sendflowUsa, 'ninguno');
 
   // Cliente desconocido
   assert.equal((await call('/api/me', { cookie: admin, cliente: 'no-existe' })).status, 404);

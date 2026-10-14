@@ -3,12 +3,17 @@
 //   POST { op: 'guardar', cliente: { id, nombre, locationId, metaAdAccount, color } } → crea o edita
 //   POST { op: 'probar', id } → comprueba que su GHL responde
 //   POST { op: 'probar-meta', id } → comprueba que el token de Meta ve su cuenta publicitaria
+//   POST { op: 'probar-sendflow', id } → comprueba el SendFlow que usa (lee sus campañas)
+//   POST { op: 'probar-zoom', id } → comprueba el Zoom que usa (el de la agencia o el suyo)
 //   POST { op: 'borrar', id } → lo quita del dashboard (no borra nada de su GHL)
 import { requireSuperadmin } from '../lib/auth.js';
 import { listClientes, saveClientes, sanitizeCliente } from '../lib/clientes.js';
 import { runCliente, sufijo } from '../lib/cliente.js';
 import { ghlConectado, listTags } from '../lib/ghl.js';
 import { probarCuentaMeta } from '../lib/meta.js';
+import { probarZoom, zoomDeCliente } from '../lib/zoom.js';
+import { sendflowDeCliente, campanasSendflow } from '../lib/sendflow.js';
+import { env } from '../lib/env.js';
 import { actualizarUsuarios } from '../lib/users.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 
@@ -18,6 +23,11 @@ const conEstado = (c) => ({
   ...c,
   conectado: runCliente(c, () => ghlConectado(c)),
   variables: c.principal ? ['GHL_TOKEN', 'GHL_LOCATION_ID'] : [`GHL_TOKEN_${sufijo(c.id)}`],
+  // Qué Zoom usa ahora y si ya tiene token de Meta propio (sin leer valores: solo si existen).
+  zoomUsa: runCliente(c, () => zoomDeCliente(c).cual),
+  sendflowUsa: runCliente(c, () => sendflowDeCliente(c).cual),
+  sendflowListo: runCliente(c, () => Boolean(sendflowDeCliente(c).clave)),
+  metaTokenPropio: !c.principal && Boolean(env[`META_ACCESS_TOKEN_${sufijo(c.id)}`]),
 });
 
 export async function GET(request) {
@@ -64,6 +74,26 @@ export async function POST(request) {
         return json(await runCliente(c, () => probarCuentaMeta()));
       } catch (e) {
         return json({ ok: false, error: e.publicMessage || 'Meta no responde: prueba otra vez en un minuto.' });
+      }
+    }
+    if (body.op === 'probar-sendflow') {
+      return json(await runCliente(c, async () => {
+        const { cual, clave } = sendflowDeCliente(c);
+        if (cual === 'ninguno') return { ok: true, cual, texto: 'Este cliente no usa SendFlow.' };
+        if (!clave) return { ok: false, cual, error: `Falta en Cloudflare: ${cual === 'propio' ? `SENDFLOW_API_KEY_${sufijo(c.id)}` : 'SENDFLOW_API_KEY'}. Añádela (tipo Secret) y vuelve a desplegar (Deployments → ⋯ → Retry deployment).` };
+        try {
+          const lista = await campanasSendflow();
+          return { ok: true, cual, texto: `${cual === 'propio' ? 'Su SendFlow' : 'El SendFlow de la agencia'} responde (${(lista || []).length} campañas).` };
+        } catch (e) {
+          return { ok: false, cual, error: e.publicMessage || 'SendFlow no acepta la clave: revisa que la copiaste entera, sin espacios, y que su plan incluye SendAPI.' };
+        }
+      }));
+    }
+    if (body.op === 'probar-zoom') {
+      try {
+        return json(await runCliente(c, () => probarZoom(c)));
+      } catch (e) {
+        return json({ ok: false, error: e.publicMessage || 'Zoom no responde: prueba otra vez en un minuto.' });
       }
     }
     if (body.op === 'borrar') {
