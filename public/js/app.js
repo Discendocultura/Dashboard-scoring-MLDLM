@@ -41,6 +41,7 @@ import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
 import { abrirProcesos } from './procesos-panel.js';
 import { abrirAtajos } from './atajos-panel.js';
 import { abrirOperativa } from './operativa-panel.js';
+import { activarArroba, enlacesEnTexto, filtrarEnlaces, leerRef, refTarea, refTablero, tokenComentario } from './enlaces.js';
 import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
@@ -8578,7 +8579,7 @@ function hace(iso) {
 
 // Texto del comentario: escapado, con enlaces y las menciones resaltadas.
 function textoComentario(texto) {
-  let h = esc(texto).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`);
+  let h = enlacesEnTexto(esc(texto).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`));
   const users = [...(state.tareas?.users || [])].filter((u) => u.nombre).sort((a, b) => b.nombre.length - a.nombre.length);
   if (users.length) {
     const re = new RegExp(users.map((u) => reEsc(esc(`@${u.nombre}`))).join('|'), 'gi');
@@ -8656,17 +8657,25 @@ function updateMentionList(ta) {
   const mq = mentionQuery(ta);
   const q = normTxt(mq?.q);
   const cands = mq ? (state.tareas?.users || []).filter((u) => u.nombre && (normTxt(u.nombre).startsWith(q) || normTxt(u.nombre).split(/\s+/).some((w) => w.startsWith(q)))).slice(0, 6) : [];
-  list.hidden = !cands.length;
-  list.innerHTML = cands.map((u, i) => `<button type="button" role="option" class="${i === 0 ? 'active' : ''}" data-mention="${esc(u.id)}">${avatarHtml(u)}<span>${esc(u.nombre)}</span><small class="muted">${esc(ROLE_LABEL[u.rol] || u.rol || '')}</small></button>`).join('');
+  // Además de personas: otras tareas y tableros para enlazar.
+  if (mq && !indiceOp) cargarIndiceOp().then(() => { if (mentionQuery(ta)) updateMentionList(ta); });
+  const enl = mq ? enlacesProyecto(mq.q, ta.closest('.coments')?.dataset.tid).slice(0, 6) : [];
+  list.hidden = !cands.length && !enl.length;
+  list.innerHTML = [...cands.map((u) => `<button type="button" role="option" data-mention="${esc(u.id)}">${avatarHtml(u)}<span>${esc(u.nombre)}</span><small class="muted">${esc(ROLE_LABEL[u.rol] || u.rol || '')}</small></button>`),
+    ...(enl.length ? [`<div class="mention-sep">Enlazar una tarea o un tablero</div>`] : []),
+    ...enl.map((x) => `<button type="button" role="option" data-mention="" data-enlace="${esc(x.ref)}" data-enlace-t="${esc(x.titulo)}"><span class="mention-ico">${esc(x.icono)}</span><span>${esc(x.titulo)}</span><small class="muted">${esc(x.sub || '')}</small></button>`)].join('');
+  list.querySelector('[data-mention]')?.classList.add('active');
 }
-function insertMention(ta, uid) {
-  const u = userDe(uid);
+function insertMention(ta, btn) {
   const mq = mentionQuery(ta);
-  if (!u || !mq) return;
+  if (!mq || !btn) return;
+  const u = btn.dataset.enlace ? null : userDe(btn.dataset.mention);
+  if (!u && !btn.dataset.enlace) return;
+  const tok = u ? `@${u.nombre}` : tokenComentario(btn.dataset.enlaceT, btn.dataset.enlace);
   const before = ta.value.slice(0, mq.start);
   const after = ta.value.slice(ta.selectionStart);
-  ta.value = `${before}@${u.nombre} ${after.replace(/^\s+/, '')}`;
-  const pos = before.length + u.nombre.length + 2;
+  ta.value = `${before}${tok} ${after.replace(/^\s+/, '')}`;
+  const pos = before.length + tok.length + 1;
   ta.focus();
   ta.setSelectionRange(pos, pos);
   updateMentionList(ta);
@@ -8686,7 +8695,7 @@ document.addEventListener('keydown', (e) => {
       opts.forEach((o, k) => o.classList.toggle('active', k === j));
       return;
     }
-    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(ta, opts[Math.max(i, 0)].dataset.mention); return; }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(ta, opts[Math.max(i, 0)]); return; }
     if (e.key === 'Escape') { e.preventDefault(); list.hidden = true; return; }
   }
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); enviarComentario(ta.closest('.coments')); }
@@ -8698,7 +8707,7 @@ $$('dialog').forEach((d) => d.addEventListener('cancel', (e) => {
 }));
 document.addEventListener('click', async (e) => {
   const m = e.target.closest('[data-mention]');
-  if (m) { insertMention(m.closest('.coment-input').querySelector('.coment-new'), m.dataset.mention); return; }
+  if (m) { insertMention(m.closest('.coment-input').querySelector('.coment-new'), m); return; }
   const send = e.target.closest('[data-csend]');
   if (send) { enviarComentario(send.closest('.coments')); return; }
   const del = e.target.closest('[data-cdel]');
@@ -8707,6 +8716,42 @@ document.addEventListener('click', async (e) => {
     const box = del.closest('.coments');
     try { await tareasOp({ op: 'borrar-comentario', id: box.dataset.tid, cid: del.dataset.cdel }); refrescarComentarios(); } catch (ex) { $('.coment-status', box).textContent = ex.message; }
   }
+});
+
+// ---------- Enlaces a otras tareas y tableros con «@» (descripción y comentarios) ----------
+// Las tareas de este proyecto y, para el equipo de la agencia, también las de la Operativa y sus tableros.
+let indiceOp = null;
+async function cargarIndiceOp() {
+  if (!document.body.classList.contains('is-agencia')) { indiceOp = { at: Date.now(), items: [] }; return; }
+  if (indiceOp && Date.now() - indiceOp.at < 60_000) return;
+  indiceOp = { at: Date.now(), items: indiceOp?.items || [] };
+  try {
+    const d = await api('/api/operativa');
+    const general = (p) => [{ id: 'general', nombre: 'General' }, ...(d.tableros || []).filter((b) => b.proyecto === p && b.id !== 'general')];
+    const nombreDe = (b, p) => (d.tableros || []).find((x) => x.proyecto === p && x.id === b.id)?.nombre || b.nombre;
+    indiceOp.items = [
+      ...(d.proyectos || []).flatMap((p) => general(p.id).map((b) => ({ ref: refTablero(p.id, b.id), titulo: nombreDe(b, p.id), sub: `Tablero · ${p.nombre}`, icono: '🗂️' }))),
+      ...(d.tareas || []).map((t) => ({ ref: refTarea(t.cliente, t.code, t.id), titulo: t.titulo, sub: [t.clienteNombre, t.embudo].filter(Boolean).join(' · '), icono: t.hecha ? '✅' : '📝' })),
+    ];
+  } catch { /* sin Operativa: solo las de este proyecto */ }
+}
+function enlacesProyecto(q, sinId = '') {
+  const code = state.tareas?.code;
+  const propias = (state.tareas?.list || []).filter((t) => t.id !== sinId).map((t) => ({ ref: refTarea(state.cliente, code, t.id), titulo: t.titulo, sub: 'Este proyecto', icono: t.hecha ? '✅' : '📝' }));
+  const vistas = new Set(propias.map((x) => x.ref));
+  return filtrarEnlaces([...propias, ...(indiceOp?.items || []).filter((x) => !vistas.has(x.ref))], q);
+}
+activarArroba(editor, async (q) => { await cargarIndiceOp(); return enlacesProyecto(q, editingTarea?.id); });
+// Pulsar un enlace: una tarea de este cliente se abre aquí; lo demás (otro cliente, la Operativa, un tablero), en la Operativa.
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a.enlace-int');
+  if (!a || a.closest('[contenteditable="true"]') || a.closest('#operativa-dialog')) return;
+  e.preventDefault();
+  const r = leerRef(a.getAttribute('href'));
+  if (!r) return;
+  if (r.tipo === 'tarea' && r.cliente === state.cliente && (state.config.launches?.[r.code] || state.config.vsls?.[r.code])) { a.closest('dialog')?.close(); abrirTareaEn(r.code, r.id); return; }
+  if (!document.body.classList.contains('is-agencia')) { notice('Ese enlace lleva a la Operativa de la agencia.', true); return; }
+  abrirOperativa({ api, dialog: $('#operativa-dialog'), ir: r });
 });
 
 // Abrir una tarea al pulsarla: quien puede editar la abre ya en edición; el resto, en vista. Las dos con comentarios.

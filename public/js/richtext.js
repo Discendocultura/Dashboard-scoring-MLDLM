@@ -2,6 +2,8 @@
 // Se guarda como HTML limpio: solo pasan las etiquetas de la lista y nunca atributos peligrosos.
 // Lo usan el navegador (editor y vista) y el servidor (que limpia SIEMPRE antes de guardar).
 
+import { leerRef } from './enlaces.js';
+
 const MAX = 20000;
 const TAGS = { p: 'p', div: 'div', br: 'br', strong: 'strong', b: 'strong', em: 'em', i: 'em', u: 'u', s: 's', strike: 's', h1: 'h2', h2: 'h2', h3: 'h3', ul: 'ul', ol: 'ol', li: 'li', a: 'a', blockquote: 'blockquote' };
 const VOID = new Set(['br']);
@@ -11,7 +13,7 @@ const DROP = new Set(['script', 'style', 'iframe', 'object', 'embed', 'svg', 'ma
 
 const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const escText = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const decode = (s) => String(s).replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+const decode = (s) => String(s).replace(/&nbsp;/g, '\u00a0').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 
 function attr(raw, name) {
   const m = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i').exec(raw);
@@ -82,9 +84,11 @@ export function sanitizeRich(input) {
       if (i !== -1) while (stack.length > i) out.push(`</${stack.pop()}>`);
     }
     if (tag === 'a') {
-      const href = safeHref(attr(m[2], 'href'));
-      if (!href) continue; // enlace no seguro: se queda solo el texto
-      out.push(`<a href="${escAttr(href)}" target="_blank" rel="noopener noreferrer">`);
+      const raw = attr(m[2], 'href');
+      const interno = leerRef(raw); // enlace a otra tarea o tablero (escrito con «@»)
+      const href = interno ? '' : safeHref(raw);
+      if (!href && !interno) continue; // enlace no seguro: se queda solo el texto
+      out.push(interno ? `<a href="${escAttr(raw.trim())}" class="enlace-int e-${interno.tipo}">` : `<a href="${escAttr(href)}" target="_blank" rel="noopener noreferrer">`);
     } else {
       out.push(`<${tag}>`);
     }
@@ -120,5 +124,6 @@ export const richTieneEnlace = (notas) => /<a\s/i.test(String(notas || ''));
 
 // Para emails: los vídeos pasan a ser un enlace.
 export function richToEmail(notas) {
-  return richToHtml(notas).replace(/<div data-video="([^"]*)"><\/div>/g, (_, u) => `<p>🎬 <a href="${u}">Ver el vídeo</a></p>`);
+  return richToHtml(notas).replace(/<div data-video="([^"]*)"><\/div>/g, (_, u) => `<p>🎬 <a href="${u}">Ver el vídeo</a></p>`)
+    .replace(/<a href="#[^"]*" class="enlace-int[^"]*">([\s\S]*?)<\/a>/g, '«$1»'); // los enlaces a tareas solo sirven dentro del dashboard
 }

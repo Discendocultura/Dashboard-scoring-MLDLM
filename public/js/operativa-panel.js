@@ -11,6 +11,7 @@ import { textoRepetir, proximaTrasHecho, encajaEnRepetir, primeraFechaRepetir } 
 import { editorRepetir, leerRepetir, pulsarDsem } from './repetir-ui.js';
 import { normalizarImportacion } from './tableros-import.js';
 import { montarEditor, montarVideos } from './editor-rico.js';
+import { activarArroba, enlacesEnTexto, filtrarEnlaces, leerRef, refTarea, refTablero } from './enlaces.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hoyMadrid = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
@@ -172,6 +173,7 @@ export async function abrirOperativa(opts) {
   body().innerHTML = '<p class="muted">Cargando las tareas de todos los proyectos…</p>';
   if (!dlg.open) dlg.showModal();
   await cargar();
+  if (opts.ir && d) irA(opts.ir); // abierta desde un enlace de otra tarea («@»)
 }
 
 async function cargar() {
@@ -530,7 +532,7 @@ function pintarFicha() {
       <div class="field"><span>Descripción</span><div class="op-editor" data-op-editor></div></div>
       <footer class="op-form-acc"><button type="button" class="btn ghost" data-op="cerrar-ficha">Cancelar</button><button class="btn primary">Crear tarea</button></footer>
     </form>`;
-    editor = montarEditor(box.querySelector('[data-op-editor]'), '', { placeholder: 'Pasos, enlaces, listas, vídeos…' });
+    editor = montarEditor(box.querySelector('[data-op-editor]'), '', { placeholder: 'Pasos, enlaces, listas, vídeos… (@ para enlazar otra tarea o un tablero)', enlaces: buscarEnlaces });
     box.querySelector('input[name=titulo]').focus();
     return;
   }
@@ -562,12 +564,36 @@ function pintarFicha() {
         : t.notas ? `<div class="rich op-notas">${richToHtml(t.notas)}</div>` : '<button type="button" class="op-desc-vacia" data-op="editar-desc">Añade la descripción: pasos, enlaces, listas, negritas o un vídeo…</button>'}
     </section>
     <section class="pr-bloque"><h4>Comentarios ${t.comentarios?.length ? `<span class="muted">${t.comentarios.length}</span>` : ''}</h4>
-      <ol class="pr-hilo">${(t.comentarios || []).map((c) => `<li class="pr-com"><span class="pr-av">${esc(iniciales(c.nombre))}</span><div class="pr-com-c"><header><strong>${esc(c.nombre)}</strong><span class="muted small">${esc(cuando(c.en))}</span>${d.superadmin || c.uid === d.yo ? `<button type="button" class="pr-x" data-op-com-borrar="${esc(c.id)}" aria-label="Borrar comentario">✕</button>` : ''}</header><div class="pr-com-t">${esc(c.texto).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`).replace(/\n/g, '<br>')}</div></div></li>`).join('') || '<li class="muted small">Sin comentarios.</li>'}</ol>
-      <form class="pr-comentar" data-op-form="comentar"><textarea name="texto" rows="2" maxlength="2000" placeholder="Escribe un comentario…"></textarea><button class="btn primary small">Comentar</button></form>
+      <ol class="pr-hilo">${(t.comentarios || []).map((c) => `<li class="pr-com"><span class="pr-av">${esc(iniciales(c.nombre))}</span><div class="pr-com-c"><header><strong>${esc(c.nombre)}</strong><span class="muted small">${esc(cuando(c.en))}</span>${d.superadmin || c.uid === d.yo ? `<button type="button" class="pr-x" data-op-com-borrar="${esc(c.id)}" aria-label="Borrar comentario">✕</button>` : ''}</header><div class="pr-com-t">${enlacesEnTexto(esc(c.texto).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`)).replace(/\n/g, '<br>')}</div></div></li>`).join('') || '<li class="muted small">Sin comentarios.</li>'}</ol>
+      <form class="pr-comentar" data-op-form="comentar"><textarea name="texto" rows="2" maxlength="2000" placeholder="Escribe un comentario… (@ para enlazar otra tarea o un tablero)"></textarea><button class="btn primary small">Comentar</button></form>
     </section>
     ${''}${deAgencia ? '<p class="op-ficha-pie"><button type="button" class="btn ghost small danger" data-op="borrar">🗑️ Borrar tarea</button></p>' : '<p class="muted small op-ficha-pie">Esta tarea vive en el proyecto del cliente: lo que cambies aquí se guarda allí.</p>'}`;
-  if (editandoDesc) editor = montarEditor(box.querySelector('[data-op-editor]'), t.notas, { placeholder: 'Pasos, enlaces, listas, vídeos…' });
+  if (editandoDesc) editor = montarEditor(box.querySelector('[data-op-editor]'), t.notas, { placeholder: 'Pasos, enlaces, listas, vídeos… (@ para enlazar otra tarea o un tablero)', enlaces: buscarEnlaces });
   else montarVideos(box.querySelector('.op-notas'));
+  activarArroba(box.querySelector('.pr-comentar textarea'), buscarEnlaces);
+}
+
+// ---- Enlaces con «@» ----
+// Lo que se puede enlazar: las tareas que ves (de todos los proyectos) y los tableros de cada proyecto.
+function buscarEnlaces(q) {
+  const tableros = d.proyectos.flatMap((p) => tabsDe(p.id).map((b) => ({ ref: refTablero(p.id, b.id), titulo: b.nombre, sub: `Tablero · ${p.nombre}`, icono: '🗂️' })));
+  const tareas = d.tareas.filter((t) => clave(t) !== abierta).map((t) => ({ ref: refTarea(t.cliente, t.code, t.id), titulo: t.titulo, sub: [t.clienteNombre, t.embudo].filter(Boolean).join(' · '), icono: estadoOp(t) === 'hecha' ? '✅' : '📝' }));
+  return filtrarEnlaces([...tableros, ...tareas], q);
+}
+// Ir a lo enlazado: la ficha de la tarea o el tablero (con su cliente elegido).
+function irA(r) {
+  if (!r) return;
+  if (r.tipo === 'tablero') {
+    if (!d.proyectos.some((p) => p.id === r.proyecto)) { aviso('No tienes acceso a ese tablero'); return; }
+    fProy = r.proyecto; fEmb = ''; fTab = tabsDe(r.proyecto).some((b) => b.id === r.id) ? r.id : GENERAL;
+    vista = 'tablero'; abierta = null; creando = false; editTab = null; importando = null;
+    pintar();
+    return;
+  }
+  const k = `${r.cliente}|${r.code}|${r.id}`;
+  if (!buscarT(k)) { aviso('Esa tarea ya no existe o no la tienes asignada'); return; }
+  abierta = k; creando = false; editandoDesc = false; editandoTitulo = false; pickerEtq = false;
+  pintar();
 }
 
 // ---- Cambios ----
@@ -644,6 +670,8 @@ function posicionHtml(t) {
 }
 
 async function onClick(e) {
+  const ei = e.target.closest('a.enlace-int');
+  if (ei && !ei.closest('[contenteditable="true"]')) { e.preventDefault(); irA(leerRef(ei.getAttribute('href'))); return; }
   const v = e.target.closest('[data-op-vista]');
   if (v) { vista = v.dataset.opVista; pintar(); return; }
   const fe = e.target.closest('[data-op-fetq]');

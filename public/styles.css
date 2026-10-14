@@ -4937,3 +4937,17 @@ span.g-rail-i { cursor: default; }
 .op-titulo-b:hover, .op-titulo-b:focus-visible { opacity: 1; background: var(--surface-2); }
 .op-titulo-ed { display: flex; gap: 8px; align-items: center; margin: 6px 0 12px; flex-wrap: wrap; }
 .op-titulo-ed input { flex: 1; min-width: 180px; font-size: 17px; font-weight: 700; }
+
+/* Enlaces a otras tareas y tableros («@») */
+a.enlace-int { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-weight: 600; text-decoration: none; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); line-height: 1.5; cursor: pointer; white-space: normal; }
+a.enlace-int::before { content: '📝'; font-size: .85em; }
+a.enlace-int.e-tablero::before { content: '🗂️'; }
+a.enlace-int:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.arroba-lista { position: absolute; z-index: 30; max-height: 300px; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 18px 40px -16px rgb(0 0 0 / .35); padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+.arroba-lista[hidden] { display: none; }
+.arroba-h, .mention-sep { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 6px 8px 4px; }
+.arroba-lista button { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; text-align: left; border: 0; background: none; border-radius: 10px; padding: 7px 8px; cursor: pointer; color: var(--text); font: inherit; font-size: 14px; }
+.arroba-lista button small { grid-column: 2; color: var(--muted); font-size: 12px; }
+.arroba-lista button.activo, .arroba-lista button:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.arroba-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mention-ico { width: 24px; text-align: center; }

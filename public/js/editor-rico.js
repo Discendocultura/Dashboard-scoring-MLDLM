@@ -1,8 +1,9 @@
 // Editor de texto con formato (negrita, cursiva, títulos, listas, pasos numerados, enlaces y vídeos) para
-// descripciones: Operativa y lo que lo necesite. Guarda HTML limpio (richtext.js).
+// descripciones: Operativa y lo que lo necesite. Guarda HTML limpio (richtext.js). Con `enlaces`, «@» enlaza tareas y tableros.
 //   const ed = montarEditor(contenedor, html, { placeholder })  →  ed.leer() devuelve el HTML limpio
 //   montarVideos(raiz)  →  pone el reproductor a los vídeos y abre los enlaces en otra pestaña (para mostrar)
 import { richToHtml, sanitizeRich, safeHref, videoEmbed } from './richtext.js';
+import { activarArroba } from './enlaces.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -16,10 +17,10 @@ export function montarVideos(root, editable = false) {
     el.innerHTML = `<div class="rt-frame"><iframe src="${esc(src)}" title="Vídeo" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; fullscreen; picture-in-picture"></iframe></div>
       ${editable ? `<div class="rt-video-bar"><span>🎬 ${esc(el.dataset.video)}</span><button type="button" class="btn ghost" data-er-quitar-video>Quitar vídeo</button></div>` : ''}`;
   });
-  if (!editable) root.querySelectorAll('a[href]').forEach((a) => { a.target = '_blank'; a.rel = 'noopener'; });
+  if (!editable) root.querySelectorAll('a[href]:not(.enlace-int)').forEach((a) => { a.target = '_blank'; a.rel = 'noopener'; });
 }
 
-export function montarEditor(cont, html = '', { placeholder = 'Escribe aquí: pasos, enlaces, vídeos…' } = {}) {
+export function montarEditor(cont, html = '', { placeholder = 'Escribe aquí: pasos, enlaces, vídeos…', enlaces = null } = {}) {
   cont.innerHTML = `<div class="er">
     <div class="rt-toolbar er-toolbar" role="toolbar" aria-label="Formato">
       <button type="button" data-er="bold" title="Negrita (Ctrl+B)"><b>B</b></button>
@@ -67,6 +68,7 @@ export function montarEditor(cont, html = '', { placeholder = 'Escribe aquí: pa
       document.execCommand('insertHTML', false, `<a href="${esc(url)}">${esc(url)}</a>&nbsp;`);
     }
   });
+  if (enlaces) activarArroba(area, enlaces); // «@» para enlazar otra tarea o un tablero
   return {
     area,
     leer() {
