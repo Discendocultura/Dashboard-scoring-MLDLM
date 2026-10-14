@@ -42,7 +42,7 @@ export function sanitizeRecursos(r, nClases = 2) {
   const preguntas = sanitizePreguntas(v);
   return {
     musica: { activo: Boolean(m.activo), nombre: str(m.nombre, 80), url: url(m.url), tras: clase(m.tras, nClases), texto: str(m.texto, 200) },
-    test: { activo: Boolean(t.activo), nombre: str(t.nombre, 120), url: url(t.url), tag: str(t.tag, 120).toLowerCase(), at: localDT(t.at) },
+    test: { activo: Boolean(t.activo), nombre: str(t.nombre, 120), url: url(t.url), tag: str(t.tag, 120).toLowerCase(), at: localDT(t.at), tras: /^clase[1-3]$/.test(String(t.tras)) ? clase(t.tras, nClases) : '' },
     votacion: { activo: Boolean(v.activo), preguntas, tras: clase(v.tras || 'clase2', nClases) },
     descargable: { activo: Boolean(d.activo), nombre: str(d.nombre, 120), url: url(d.url), at: localDT(d.at) },
     comentarios: sanitizeComentariosCfg(co, nClases),
@@ -126,7 +126,8 @@ export function etapasPreclase(launch, nClases = 2) {
   const r = recursosDe(launch);
   const items = [];
   for (let i = 1; i <= nClases; i++) items.push({ id: `clase${i}`, tipo: 'clase', label: `Clase ${i}`, at: madridToEpoch(launch?.[`clase${i}At`]) });
-  if (tieneRecurso(launch, 'test')) items.push({ id: 'test', tipo: 'test', label: r.test.nombre || 'Test', at: madridToEpoch(r.test.at) });
+  // El test va como etapa propia, salvo que esté debajo de una clase (entonces es un recurso de esa clase).
+  if (tieneRecurso(launch, 'test') && !r.test.tras) items.push({ id: 'test', tipo: 'test', label: r.test.nombre || 'Test', at: madridToEpoch(r.test.at) });
   if (tieneRecurso(launch, 'descargable')) items.push({ id: 'descargable', tipo: 'descargable', label: r.descargable.nombre || 'Recurso', at: madridToEpoch(r.descargable.at) });
   // Por fecha; sin fecha, en el orden en que están (clases, test, descargable) y al final.
   const orden = items.map((x, i) => ({ ...x, i })).sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity) || a.i - b.i);

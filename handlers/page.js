@@ -226,6 +226,7 @@ export async function GET(request, ctx) {
 //   música: la URL llega en cuanto su clase está disponible; la página la deja escuchar al ver el 75 %
 //           de la clase (lo sabe la propia página mientras se ve, o por la etiqueta <código>_claseN_75).
 //   test: la URL (con el email ya puesto) desde su fecha y con la encuesta rellenada; hecho = tiene su etiqueta de GHL.
+//         Si va debajo de una clase (tras), además al ver el 75 % de esa clase (como la música y la votación).
 //   votación: la pregunta, las opciones, el voto de la lead y, si ya votó, los resultados.
 async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, preview, m }) {
   const r = recursosDe(launch);
@@ -238,10 +239,15 @@ async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, p
   }
   if (tieneRecurso(launch, 'test')) {
     const at = madridToEpoch(r.test.at);
-    const unlocked = at == null || now >= at;
+    // Debajo de una clase (tras): además, esa clase tiene que estar disponible (y la página pide haberla visto al 75 %).
+    const k = r.test.tras || '';
+    const unlocked = (at == null || now >= at) && (!k || claseDisponible(k));
     // Además de su fecha, hace falta haber rellenado la encuesta (etapa 1) si el lanzamiento la tiene.
     const faltaEncuesta = !encuestaDone;
-    recursos.test = { nombre: r.test.nombre, unlockAt: at, unlockText: formatLong(at), unlocked, faltaEncuesta, done: Boolean(sig?.test), url: unlocked && !faltaEncuesta ? encuestaUrl(r.test.url, contact) : '' };
+    recursos.test = {
+      nombre: r.test.nombre, unlockAt: at, unlockText: formatLong(at), unlocked, faltaEncuesta, done: Boolean(sig?.test), url: unlocked && !faltaEncuesta ? encuestaUrl(r.test.url, contact) : '',
+      ...(k ? { tras: k, umbral: UMBRAL_DESBLOQUEO, claseVista: vistaClase(k) || (preview && !contact) } : {}),
+    };
   }
   if (tieneRecurso(launch, 'votacion')) {
     const k = r.votacion.tras;

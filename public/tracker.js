@@ -581,13 +581,14 @@
     // musica-disponible|votacion-bloqueada|votacion-disponible|votacion-hecha|votacion-abierta|descargable-bloqueado|descargable-disponible"
     var rec = data.recursos || {};
     var vista = function (r) { return Boolean(r && (r.claseVista || progresoLocal(data.code, r.tras) >= (r.umbral || 75))); };
-    if (rec.test) { conds['test-bloqueado'] = !rec.test.unlocked && !rec.test.done; conds['test-falta-encuesta'] = Boolean(rec.test.unlocked && rec.test.faltaEncuesta && !rec.test.done); conds['test-disponible'] = Boolean(rec.test.unlocked && !rec.test.done); conds['test-hecho'] = Boolean(rec.test.done); }
+    if (rec.test) { var ctp = condsTest(rec.test, vista); Object.keys(ctp).forEach(function (c) { conds[c] = ctp[c]; }); }
     if (rec.musica) { conds['musica-bloqueada'] = !(rec.musica.url && vista(rec.musica)); conds['musica-disponible'] = Boolean(rec.musica.url && vista(rec.musica)); }
     if (rec.votacion) { conds['votacion-bloqueada'] = !(rec.votacion.claseDisponible && vista(rec.votacion)); conds['votacion-disponible'] = Boolean(rec.votacion.claseDisponible && vista(rec.votacion) && !rec.votacion.respondida); conds['votacion-hecha'] = Boolean(rec.votacion.respondida); conds['votacion-abierta'] = Boolean((rec.votacion.claseDisponible && vista(rec.votacion)) || rec.votacion.respondida); }
     if (rec.descargable) { conds['descargable-bloqueado'] = !rec.descargable.unlocked; conds['descargable-disponible'] = Boolean(rec.descargable.unlocked); }
     document.querySelectorAll('[data-lsd-if]').forEach(function (el) {
       var c = el.getAttribute('data-lsd-if');
-      show(el, Object.prototype.hasOwnProperty.call(conds, c) ? conds[c] : true);
+      // Un recurso que no está activo en el dashboard (test, música, votación, descargable): sus bloques no se ven.
+      show(el, Object.prototype.hasOwnProperty.call(conds, c) ? conds[c] : !/^(test|musica|votacion|descargable)-/.test(c));
     });
 
     renderRecursos(data, who);
@@ -637,12 +638,58 @@
   //   <div data-lsd-etapa="clase1|test|clase2|encuesta|directo|descargable"> → atributo data-lsd-estado
   //       (bloqueada | disponible | hecha) para el diseño; <span data-lsd-etapa-n="test"></span> → su número
   var ultimaPagina = null;
+  // Estado del test: disponible / falta la encuesta / bloqueado / hecho. Si va debajo de una clase (tras), además
+  // hace falta haber visto el 75 % de esa clase, como la música y la votación.
+  function condsTest(t, vista) {
+    var visto = !t.tras || vista(t);
+    var abierto = Boolean(t.unlocked && visto);
+    return {
+      'test-bloqueado': !abierto && !t.done,
+      'test-falta-encuesta': Boolean(abierto && t.faltaEncuesta && !t.done),
+      'test-disponible': Boolean(abierto && !t.faltaEncuesta && !t.done),
+      'test-hecho': Boolean(t.done),
+    };
+  }
+  // Iconos de los recursos debajo de cada clase.
+  var ICONO_REC = {
+    musica: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
+    votacion: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+    test: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>',
+  };
+  // <div data-lsd-recursos="clase2"></div>: los recursos que en el dashboard van debajo de esa clase (música,
+  // votación, test), cada uno con su título y solo cuando ya se puede usar. Sin nada que enseñar, se oculta.
+  // Títulos opcionales: data-titulo-musica, data-titulo-votacion, data-titulo-test; botón: data-boton-test.
+  function pintarRecursosClase(rec, vista) {
+    document.querySelectorAll('[data-lsd-recursos]').forEach(function (el) {
+      var k = el.getAttribute('data-lsd-recursos');
+      var partes = [];
+      var huella = [];
+      var bloque = function (id, titulo, html) { return '<div class="lsd-recurso lsd-recurso-' + id + '"><p class="lsd-recurso-t"><span class="lsd-recurso-ico">' + ICONO_REC[id] + '</span>' + esc(titulo) + '</p>' + html + '</div>'; };
+      var m = rec.musica;
+      if (m && m.tras === k && m.url && vista(m)) { partes.push(bloque('musica', el.getAttribute('data-titulo-musica') || m.nombre || 'Tu música', '<div data-lsd-audio="musica"></div>')); huella.push('m'); }
+      var v = rec.votacion;
+      if (v && v.tras === k && ((v.claseDisponible && vista(v)) || v.respondida)) { partes.push(bloque('votacion', el.getAttribute('data-titulo-votacion') || 'Tu voz en el directo', '<div data-lsd-votacion></div>')); huella.push('v'); }
+      var t = rec.test;
+      if (t && t.tras === k) {
+        var ct = condsTest(t, vista);
+        var tt = el.getAttribute('data-titulo-test') || t.nombre || 'Tu test';
+        if (ct['test-hecho']) { partes.push(bloque('test', tt, '<p class="lsd-recurso-hecho">✓ ' + esc(el.getAttribute('data-texto-test-hecho') || '¡Test completado!') + '</p>')); huella.push('th'); }
+        else if (ct['test-falta-encuesta']) { partes.push(bloque('test', tt, '<p class="lsd-recurso-aviso">🔒 ' + esc(el.getAttribute('data-texto-test-encuesta') || 'Para hacer el test, rellena primero la encuesta.') + '</p>')); huella.push('te'); }
+        else if (ct['test-disponible'] && t.url) { partes.push(bloque('test', tt, '<a class="lsd-recurso-btn" href="' + esc(t.url) + '" target="_blank" rel="noopener">' + esc(el.getAttribute('data-boton-test') || 'Hacer el test') + '</a>')); huella.push('td'); }
+      }
+      var h = huella.join(',');
+      if (el.getAttribute('data-lsd-rec-estado') !== h) { el.setAttribute('data-lsd-rec-estado', h); el.innerHTML = partes.join(''); }
+      show(el, partes.length > 0);
+    });
+  }
+
   function renderRecursos(data, who) {
     ultimaPagina = { data: data, who: who };
     var rec = data.recursos || {};
     var claseTxt = function (k) { return 'la clase ' + String(k || '').replace('clase', ''); };
     var vista = function (r) { return Boolean(r && (r.claseVista || progresoLocal(data.code, r.tras) >= (r.umbral || 75))); };
     var lockHtml = function (texto, sub) { return '<div class="lsd-rec lsd-rec-lock"><span class="lsd-locked-icon">🔒</span><div><p class="lsd-rec-t">' + esc(texto) + '</p>' + (sub ? '<p class="lsd-rec-s">' + esc(sub) + '</p>' : '') + '</div></div>'; };
+    pintarRecursosClase(rec, vista); // antes que la música y la votación: sus huecos los rellenan los bloques de abajo
 
     document.querySelectorAll('[data-lsd-audio]').forEach(function (el) {
       var r = rec.musica;
@@ -723,6 +770,7 @@
     var cr = {};
     if (rec.musica) { cr['musica-bloqueada'] = !(rec.musica.url && vista(rec.musica)); cr['musica-disponible'] = !cr['musica-bloqueada']; }
     if (rec.votacion) { var va = rec.votacion.claseDisponible && vista(rec.votacion); var vr = Boolean(rec.votacion.respondida); cr['votacion-bloqueada'] = !va && !vr; cr['votacion-disponible'] = Boolean(va && !vr); cr['votacion-hecha'] = vr; cr['votacion-abierta'] = Boolean(va || vr); }
+    if (rec.test) { var ctr = condsTest(rec.test, vista); Object.keys(ctr).forEach(function (c) { cr[c] = ctr[c]; }); }
     document.querySelectorAll('[data-lsd-if]').forEach(function (el) {
       var c = el.getAttribute('data-lsd-if');
       if (Object.prototype.hasOwnProperty.call(cr, c)) show(el, cr[c]);
@@ -1542,7 +1590,7 @@
     new MutationObserver(function (cambios) {
       var nuevo = cambios.some(function (c) {
         return Array.prototype.some.call(c.addedNodes, function (n) {
-          return n.nodeType === 1 && (n.matches('[data-lsd-comentarios],[data-lsd-votacion],[data-lsd-audio],[data-lsd-if],[data-lsd-text],[data-lsd-img]') || n.querySelector('[data-lsd-comentarios],[data-lsd-votacion],[data-lsd-audio],[data-lsd-if],[data-lsd-text],[data-lsd-img]'));
+          return n.nodeType === 1 && (n.matches('[data-lsd-comentarios],[data-lsd-recursos],[data-lsd-if],[data-lsd-text],[data-lsd-img]') || n.querySelector('[data-lsd-comentarios],[data-lsd-recursos],[data-lsd-if],[data-lsd-text],[data-lsd-img]'));
         });
       });
       if (!nuevo || !ultimaPagina) return;

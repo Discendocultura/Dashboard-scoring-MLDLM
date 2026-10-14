@@ -3922,6 +3922,7 @@ function pintarLlamadaPasos() {
     + filaCopiar('3 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «Venta → Venta y seguimiento».');
 }
 $('#cfg-llamada-video').addEventListener('input', pintarLlamadaPasos);
+$('#cfg-rec-test-tras').addEventListener('change', (e) => { $('[data-test-etapa]').hidden = Boolean(e.target.value); });
 
 function pintarPagoPasos() {
   const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
@@ -5116,6 +5117,7 @@ function pintarRecursosCfg(recursosPre) {
   const nc = Math.max(1, nClasesForm());
   const r = sanitizeRecursos(recursosPre, nc);
   $$('#cfg-rec-sec [data-rec-clases]').forEach((sel) => { sel.innerHTML = Array.from({ length: nc }, (_, i) => `<option value="clase${i + 1}">Clase ${i + 1}</option>`).join(''); });
+  $('#cfg-rec-test-tras').innerHTML = Array.from({ length: nc }, (_, i) => `<option value="clase${i + 1}">Debajo de la Clase ${i + 1}</option>`).join('') + '<option value="">Como etapa propia (con su fecha)</option>';
   for (const t of RECURSOS_EXTRA) $(`#cfg-rec-${t}-on`).checked = r[t].activo;
   $('#cfg-rec-musica-nombre').value = r.musica.nombre;
   $('#cfg-rec-musica-url').value = r.musica.url;
@@ -5125,6 +5127,8 @@ function pintarRecursosCfg(recursosPre) {
   $('#cfg-rec-test-url').value = r.test.url;
   $('#cfg-rec-test-tag').value = r.test.tag;
   $('#cfg-rec-test-at').value = r.test.at;
+  $('#cfg-rec-test-tras').value = r.test.tras || '';
+  $('[data-test-etapa]').hidden = Boolean(r.test.tras);
   $('#cfg-rec-votacion-tras').value = r.votacion.tras;
   pintarPreguntasCfg(r.votacion.preguntas);
   $('#cfg-rec-descargable-nombre').value = r.descargable.nombre;
@@ -5221,7 +5225,7 @@ $('#cfg-rec-votacion-preguntas').addEventListener('change', (e) => {
 function leerRecursosCfg() {
   return sanitizeRecursos({
     musica: { activo: $('#cfg-rec-musica-on').checked, nombre: $('#cfg-rec-musica-nombre').value, url: $('#cfg-rec-musica-url').value, tras: $('#cfg-rec-musica-tras').value, texto: $('#cfg-rec-musica-texto').value },
-    test: { activo: $('#cfg-rec-test-on').checked, nombre: $('#cfg-rec-test-nombre').value, url: $('#cfg-rec-test-url').value, tag: $('#cfg-rec-test-tag').value, at: $('#cfg-rec-test-at').value },
+    test: { activo: $('#cfg-rec-test-on').checked, nombre: $('#cfg-rec-test-nombre').value, url: $('#cfg-rec-test-url').value, tag: $('#cfg-rec-test-tag').value, at: $('#cfg-rec-test-at').value, tras: $('#cfg-rec-test-tras').value },
     votacion: { activo: $('#cfg-rec-votacion-on').checked, preguntas: leerPreguntasCfg(), tras: $('#cfg-rec-votacion-tras').value },
     descargable: { activo: $('#cfg-rec-descargable-on').checked, nombre: $('#cfg-rec-descargable-nombre').value, url: $('#cfg-rec-descargable-url').value, at: $('#cfg-rec-descargable-at').value },
     comentarios: leerComentariosCfg(),

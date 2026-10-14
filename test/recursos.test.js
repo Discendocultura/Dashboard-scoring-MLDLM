@@ -66,3 +66,15 @@ test('comentarios: título del bloque y nombre de la pestaña de cada clase', as
   assert.equal(r.comentarios.clases.clase1.pestana, 'Preguntas de la Clase 1');
   assert.equal(r.comentarios.clases.clase2.pestana, '');
 });
+
+test('test debajo de una clase: se guarda la clase y deja de ser una etapa propia', () => {
+  const r = sanitizeRecursos({ test: { activo: true, url: 'https://x.com/t', tras: 'clase2' } }, 2);
+  assert.equal(r.test.tras, 'clase2');
+  assert.equal(sanitizeRecursos({ test: { activo: true, url: 'https://x.com/t' } }, 2).test.tras, '');
+  assert.equal(sanitizeRecursos({ test: { activo: true, url: 'https://x.com/t', tras: 'clase9' } }, 2).test.tras, '');
+  const base = { clase1Url: 'https://vimeo.com/1', clase2Url: 'https://vimeo.com/2' };
+  const conEtapa = etapasPreclase({ ...base, recursosPre: sanitizeRecursos({ test: { activo: true, url: 'https://x.com/t' } }, 2) }, 2).map((e) => e.id);
+  const debajo = etapasPreclase({ ...base, recursosPre: sanitizeRecursos({ test: { activo: true, url: 'https://x.com/t', tras: 'clase2' } }, 2) }, 2).map((e) => e.id);
+  assert.ok(conEtapa.includes('test'));
+  assert.ok(!debajo.includes('test'));
+});
