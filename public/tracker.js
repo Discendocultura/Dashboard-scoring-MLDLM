@@ -931,6 +931,7 @@
           if (!res || !res.ok) throw new Error((res && res.error) || 'No se ha podido publicar. Inténtalo de nuevo.');
           com.data = res; com.en = Date.now(); com.cid = who.cid || com.cid;
           st.texto = ''; st.ok = true; st.filtro = '';
+          var tPub = el.querySelector('.lsd-com-txt-in'); if (tPub) tPub.value = ''; // si no, al repintar se recupera lo publicado
           if (c.preguntas.length > 1 && !una) st.sel = '';
           repinta();
         }).catch(function (e) { btn.disabled = false; btn.textContent = attrs.getAttribute('data-boton') || 'Publicar mi respuesta'; err.textContent = e.message; err.hidden = false; });
