@@ -6,7 +6,7 @@
 //   abrirOperativa({ api, dialog })
 import { ESTADOS_OP, estadoOp, estaBloqueada, embudosDe, ICONO_EMBUDO, semanasDelMes, mesMas, agruparPorFecha, resumenProyecto, cargaPorPersona, diasDeRetraso, PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from './operativa.js';
 import { richToHtml, richToText } from './richtext.js';
-import { tablerosDe, tableroDeTarea, columnaDeTarea, columnaHecha, COLUMNAS_SERIE, GENERAL, MAX_COLUMNAS, COLORES_ETIQUETA, etiquetasDeTarea, PRIORIDADES, ordenTarjetas, progresoChecklist, MAX_ETIQUETAS_TAREA } from './tableros.js';
+import { tablerosDe, tableroDeTarea, columnaDeTarea, columnaHecha, COLUMNAS_SERIE, GENERAL, MAX_COLUMNAS, COLORES_ETIQUETA, etiquetasDeTarea, PRIORIDADES, ordenColumna, recolocar, progresoChecklist, MAX_ETIQUETAS_TAREA } from './tableros.js';
 import { textoRepetir, proximaTrasHecho, encajaEnRepetir, primeraFechaRepetir } from './procesos.js';
 import { editorRepetir, leerRepetir, pulsarDsem } from './repetir-ui.js';
 import { normalizarImportacion } from './tableros-import.js';
@@ -33,6 +33,7 @@ let editTab = null; // borrador del tablero que se está creando o cuyas columna
 let addCol = '';
 let creandoCol = ''; // la columna desde la que se abrió «Nueva tarea» (vista por estado) // columna con el «＋ Añadir tarea» abierto
 let recienHecha = ''; // la que se acaba de completar: llega a «Hecho» con su animación
+let movida = ''; // la que se acaba de recolocar en su columna (destello)
 let importando = null; // { archivo, imp, asana, nombre, completadas } mientras se importa un tablero
 let calMes = '';
 let fPersona = '';
@@ -60,6 +61,35 @@ function chipFecha(t, hoy) {
   return `<span class="op-fecha">${esc(fechaCorta(t.fecha))}</span>`;
 }
 
+// Arrastrar dentro de una columna: la raya marca dónde va a quedar (antes de qué tarjeta, o al final).
+function huecoEn(col, y, sin) {
+  const cards = [...col.querySelectorAll('.op-col-lista > .op-card')].filter((c) => !sin || c.dataset.opK !== clave(sin));
+  const i = cards.findIndex((c) => { const r = c.getBoundingClientRect(); return y < r.top + r.height / 2; });
+  return i === -1 ? cards.length : i;
+}
+function quitarHueco() { ctx.dialog.querySelectorAll('.hueco-antes, .hueco-final').forEach((x) => x.classList.remove('hueco-antes', 'hueco-final')); }
+function marcarHueco(col, y) {
+  const arr = ctx.dialog.querySelector('.op-card.arrastrando');
+  const cards = [...col.querySelectorAll('.op-col-lista > .op-card')].filter((c) => c !== arr);
+  const i = huecoEn(col, y, arr ? buscarT(arr.dataset.opK) : null);
+  const el = cards[i] || col.querySelector('.op-col-lista');
+  if (el?.classList.contains(cards[i] ? 'hueco-antes' : 'hueco-final')) return;
+  quitarHueco();
+  el?.classList.add(cards[i] ? 'hueco-antes' : 'hueco-final');
+}
+// Soltar en una columna: si es otra, se mueve allí; y queda en el sitio donde se ha soltado.
+async function soltarEnColumna(t, colId, indice) {
+  const misma = modoTableros() ? columnaDeTarea(t, tabDeT(t)) === colId : estadoOp(t) === colId;
+  if (!misma) {
+    const era = estadoOp(t) === 'hecha';
+    if (modoTableros()) await moverColumna(t, colId); else await cambiarEstado(t, colId);
+    const ahora = modoTableros() ? columnaDeTarea(t, tabDeT(t)) === colId : estadoOp(t) === colId;
+    if (!ahora || (!era && estadoOp(t) === 'hecha')) return; // no se ha podido mover, o se ha completado (va con su animación)
+  }
+  const pos = hermanas(t).indexOf(t);
+  if (indice >= 0 && indice !== pos) colocar(t, indice);
+}
+
 export async function abrirOperativa(opts) {
   ctx = opts;
   const dlg = ctx.dialog;
@@ -81,18 +111,26 @@ export async function abrirOperativa(opts) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.form.requestSubmit(); }
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addCol = ''; pintarVista(); }
     });
-    dlg.addEventListener('dragend', (e) => e.target.closest?.('[data-op-k]')?.classList.remove('arrastrando'));
+    dlg.addEventListener('dragend', (e) => { e.target.closest?.('[data-op-k]')?.classList.remove('arrastrando'); quitarHueco(); });
     // Tablero: soltar en otra columna cambia el estado. Calendario: soltar en otro día cambia la fecha.
-    dlg.addEventListener('dragover', (e) => { const col = e.target.closest('[data-op-col], [data-op-dia]'); if (col) { e.preventDefault(); col.classList.add('sobre'); } });
-    dlg.addEventListener('dragleave', (e) => e.target.closest('[data-op-col], [data-op-dia]')?.classList.remove('sobre'));
+    dlg.addEventListener('dragover', (e) => {
+      const col = e.target.closest('[data-op-col], [data-op-dia]');
+      if (!col) return;
+      e.preventDefault();
+      col.classList.add('sobre');
+      if (col.dataset.opCol) marcarHueco(col, e.clientY);
+    });
+    dlg.addEventListener('dragleave', (e) => { const col = e.target.closest('[data-op-col], [data-op-dia]'); if (col && !col.contains(e.relatedTarget)) { col.classList.remove('sobre'); quitarHueco(); } });
     dlg.addEventListener('drop', (e) => {
       const col = e.target.closest('[data-op-col], [data-op-dia]');
       if (!col) return;
       e.preventDefault();
       col.classList.remove('sobre');
       const t = buscarT(e.dataTransfer.getData('text/plain'));
+      const indice = col.dataset.opCol ? huecoEn(col, e.clientY, t) : -1;
+      quitarHueco();
       if (!t) return;
-      if (col.dataset.opCol && modoTableros()) { if (columnaDeTarea(t, tabDeT(t)) !== col.dataset.opCol) moverColumna(t, col.dataset.opCol); } else if (col.dataset.opCol && t.estado !== col.dataset.opCol) cambiarEstado(t, col.dataset.opCol);
+      if (col.dataset.opCol) soltarEnColumna(t, col.dataset.opCol, indice);
       if (col.dataset.opDia != null && (t.fecha || '') !== col.dataset.opDia) cambiarFecha(t, col.dataset.opDia);
     });
   }
@@ -230,7 +268,7 @@ function tarjetaTablero(t, hoy) {
   const ck = progresoChecklist(t);
   const hecha = estadoOp(t) === 'hecha';
   const portada = etqs[0] ? COLORES_ETIQUETA[etqs[0].color] : pr ? pr.color : '';
-  return `<article class="op-card op-card2${estaBloqueada(t) ? ' is-bloq' : ''}${hecha ? ' es-hecha' : ''}${portada ? ' con-portada' : ''}${recienCreada && t.id === recienCreada ? ' recien' : ''}${recienHecha && t.id === recienHecha ? ' llega' : ''}" style="--i:${nCard++ % 12};${portada ? `--portada:${portada}` : ''}" draggable="true" data-op-k="${esc(clave(t))}" data-op-abrir="${esc(clave(t))}">
+  return `<article class="op-card op-card2${estaBloqueada(t) ? ' is-bloq' : ''}${hecha ? ' es-hecha' : ''}${portada ? ' con-portada' : ''}${recienCreada && t.id === recienCreada ? ' recien' : ''}${recienHecha && t.id === recienHecha ? ' llega' : ''}${movida && t.id === movida ? ' movida' : ''}" style="--i:${nCard++ % 12};${portada ? `--portada:${portada}` : ''}" draggable="true" data-op-k="${esc(clave(t))}" data-op-abrir="${esc(clave(t))}">
         ${etqs.length || pr ? `<div class="op-card-etqs">${pr ? `<span class="op-prio p-${pr.id}" title="Prioridad ${esc(pr.label.toLowerCase())}">${pr.id === 'alta' ? '🔥' : '⚑'} ${esc(pr.label)}</span>` : ''}${etqs.map((e) => pildoraEtq(e)).join('')}</div>` : ''}
         <div class="op-card-t"><button type="button" class="op-check${hecha ? ' on' : ''}" data-op-hecha="${esc(clave(t))}" title="${hecha ? 'Reabrir' : 'Marcar como hecha'}" aria-label="${hecha ? 'Reabrir' : 'Marcar como hecha'}">✓</button><strong>${esc(t.titulo)}</strong></div>
         ${t.notas ? `<p class="op-card-desc">${esc(richToText(t.notas).replace(/🎬/g, '🎬 vídeo').replace(/\s*•\s*/g, ' · ').replace(/\s*\n+\s*/g, ' · ').replace(/^ · /, '').slice(0, 120))}</p>` : ''}
@@ -239,7 +277,32 @@ function tarjetaTablero(t, hoy) {
         <footer>${chipFecha(t, hoy)}${t.repetir?.tipo ? `<span class="op-rep" title="${esc(textoRepetir(t.repetir))}">🔁</span>` : ''}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}<span class="op-card-proy">${fProy ? '' : chipProyecto(t)}</span>${avatar(t)}</footer>
       </article>`;
 }
-const porFecha = ordenTarjetas; // prioridad alta primero y después por fecha
+// Orden de cada columna: el puesto a mano (arrastrando o con ↑/↓); si no, prioridad alta primero y después la fecha.
+const porOrden = ordenColumna;
+// Las tareas que se ven en la misma columna que `t`, de arriba abajo.
+function hermanas(t) {
+  const l = filtradas();
+  if (fProy) { const tab = tabDeT(t); const col = columnaDeTarea(t, tab); return l.filter((x) => tabDeT(x).id === tab.id && columnaDeTarea(x, tab) === col).sort(porOrden); }
+  const e = estadoOp(t);
+  return l.filter((x) => estadoOp(x) === e).sort(porOrden);
+}
+// Pone `t` en la posición `indice` de su columna y guarda el orden de toda la columna (una sola petición).
+async function colocar(t, indice) {
+  const nueva = recolocar(hermanas(t), t, indice);
+  const antes = nueva.map((x) => x.opOrden);
+  nueva.forEach((x, i) => { x.opOrden = i + 1; });
+  movida = t.id;
+  pintarVista();
+  if (abierta) pintarFicha();
+  setTimeout(() => { if (movida === t.id) movida = ''; }, 700);
+  try {
+    await ctx.api('/api/operativa', { method: 'POST', body: { op: 'ordenar', orden: nueva.map((x) => ({ cliente: x.cliente, code: x.code, id: x.id })) } });
+  } catch (err) {
+    nueva.forEach((x, i) => { x.opOrden = antes[i]; });
+    window.alert(err.message);
+    pintarVista();
+  }
+}
 
 // Tablero: con «Todos los clientes», por estado (Pendiente · Para revisar · Hecho). Con un cliente elegido, sus
 // tableros (General y los creados) con sus propias columnas; el superadmin crea tableros y edita columnas.
@@ -257,7 +320,7 @@ function vistaTablero(lista, hoy) {
   if (!fProy) {
     return `<p class="muted small op-ayuda">Arrastra las tarjetas de una columna a otra para cambiar su estado. <strong>Elige un cliente arriba</strong> para ver sus tableros, cada uno con sus columnas.</p>
   <div class="op-tablero${quieto}">${ESTADOS_OP.map((e) => {
-    const ts = lista.filter((t) => estadoOp(t) === e.id).sort(porFecha);
+    const ts = lista.filter((t) => estadoOp(t) === e.id).sort(porOrden);
     return `<section class="op-col e-${e.id}" data-op-col="${e.id}"><header><span class="op-col-dot"></span><span class="op-col-nom">${e.icon} ${esc(e.label)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${e.id}" title="Nueva tarea en «${esc(e.label)}»" aria-label="Nueva tarea en ${esc(e.label)}">＋</button></header>
       <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div>${pieColumna(e.id)}</section>`;
   }).join('')}</div>`;
@@ -271,7 +334,7 @@ function vistaTablero(lista, hoy) {
   const suyas = lista.filter((t) => tabDeT(t).id === tab.id);
   return `${barra}<p class="muted small op-ayuda">Arrastra las tarjetas de una columna a otra. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.</p>
   <div class="op-tablero${quieto}" style="--op-ncol:${tab.columnas.length}">${tab.columnas.map((c, i) => {
-    const ts = suyas.filter((t) => columnaDeTarea(t, tab) === c.id).sort(porFecha);
+    const ts = suyas.filter((t) => columnaDeTarea(t, tab) === c.id).sort(porOrden);
     return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header><span class="op-col-dot"></span><span class="op-col-nom">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${esc(c.id)}" title="Nueva tarea en «${esc(c.nombre)}»" aria-label="Nueva tarea en ${esc(c.nombre)}">＋</button></header>
       <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div>${pieColumna(c.id)}</section>`;
   }).join('')}</div>`;
@@ -435,7 +498,7 @@ function pintarFicha() {
   box.innerHTML = `<header class="op-ficha-h"><span class="op-fila-meta">${chipProyecto(t)}</span><button type="button" class="btn ghost small" data-op="cerrar-ficha" aria-label="Cerrar">✕</button></header>
     <h3 class="op-ficha-t">${esc(t.titulo)}</h3>
     <div class="pr-campos">
-      <div class="pr-campo"><span class="pr-campo-l">Columna</span><div class="pr-campo-v"><div class="op-estados">${tabT.columnas.map((c) => `<button type="button" class="op-est ${c.hecha ? 'e-hecha' : c.id === 'revision' ? 'e-revision' : 'e-pendiente'}${c.id === colT ? ' on' : ''}" data-op-col-set="${esc(c.id)}">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</button>`).join('')}</div></div></div>
+      <div class="pr-campo"><span class="pr-campo-l">Columna</span><div class="pr-campo-v"><div class="op-estados">${tabT.columnas.map((c) => `<button type="button" class="op-est ${c.hecha ? 'e-hecha' : c.id === 'revision' ? 'e-revision' : 'e-pendiente'}${c.id === colT ? ' on' : ''}" data-op-col-set="${esc(c.id)}">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</button>`).join('')}</div>${posicionHtml(t)}</div></div>
       ${d.superadmin && tabsT.length > 1 ? `<div class="pr-campo"><span class="pr-campo-l">Tablero</span><div class="pr-campo-v"><select data-op-campo="tablero">${tabsT.map((b) => `<option value="${esc(b.id)}"${b.id === tabT.id ? ' selected' : ''}>${esc(b.nombre)}</option>`).join('')}</select></div></div>` : ''}
       <div class="pr-campo"><span class="pr-campo-l">Prioridad</span><div class="pr-campo-v"><div class="op-prios">${[{ id: '', label: 'Sin prioridad' }, ...PRIORIDADES].map((pp) => `<button type="button" class="op-prio-b${pp.id ? ` p-${pp.id}` : ''}${(t.prioridad || '') === pp.id ? ' on' : ''}" data-op-prio="${pp.id}">${pp.id === 'alta' ? '🔥 ' : pp.id ? '⚑ ' : ''}${esc(pp.label)}</button>`).join('')}</div></div></div>
       <div class="pr-campo"><span class="pr-campo-l">Etiquetas</span><div class="pr-campo-v op-etqs-v">${etiquetasDeTarea(t, d.etiquetas).map((x) => pildoraEtq(x, ` data-op-etq-toggle="${esc(x.id)}" role="button" tabindex="0" title="Quitar"`)).join('')}<button type="button" class="op-etq-add" data-op="etq-abrir">${pickerEtq ? 'Cerrar' : '＋ Etiqueta'}</button>
@@ -470,7 +533,7 @@ async function op(t, cuerpo) {
     recienCreada = r.nueva.id; setTimeout(() => { if (recienCreada === r.nueva.id) recienCreada = ''; }, 3000);
     aviso(`🔁 Se ha creado la siguiente «${t.titulo}» para el ${fechaCorta(r.nueva.fecha)}`);
   }
-  Object.assign(t, { etiquetas: n.etiquetas || [], prioridad: n.prioridad || '', checklist: n.checklist || [], repetir: n.repetir?.tipo ? n.repetir : null, opTablero: n.opTablero || '', opColumna: n.opColumna || '', titulo: n.titulo, notas: n.notas || '', fecha: n.fecha || '', estado: estadoOp(n), hecha: Boolean(n.hecha), hechaEn: n.hechaEn || '', bloqueo: n.bloqueo || '', asignado: n.asignado || null, comentarios: (n.comentarios || []).map((c) => ({ id: c.id, uid: c.uid || '', nombre: c.nombre, texto: c.texto, en: c.en })) });
+  Object.assign(t, { etiquetas: n.etiquetas || [], prioridad: n.prioridad || '', checklist: n.checklist || [], repetir: n.repetir?.tipo ? n.repetir : null, opTablero: n.opTablero || '', opColumna: n.opColumna || '', opOrden: n.opOrden, titulo: n.titulo, notas: n.notas || '', fecha: n.fecha || '', estado: estadoOp(n), hecha: Boolean(n.hecha), hechaEn: n.hechaEn || '', bloqueo: n.bloqueo || '', asignado: n.asignado || null, comentarios: (n.comentarios || []).map((c) => ({ id: c.id, uid: c.uid || '', nombre: c.nombre, texto: c.texto, en: c.en })) });
 }
 
 // Aviso flotante (abajo) que se va solo.
@@ -525,6 +588,14 @@ async function ponerBloqueo(t, bloquear) {
   if (abierta) pintarFicha();
 }
 
+// En la ficha: subir o bajar la tarea dentro de su columna (también sirve en el móvil, donde no se arrastra).
+function posicionHtml(t) {
+  const h = hermanas(t);
+  const i = h.indexOf(t);
+  if (i === -1 || h.length < 2) return '';
+  return `<div class="op-pos" role="group" aria-label="Posición en la columna"><button type="button" class="op-pos-b" data-op-pos="arriba" ${i === 0 ? 'disabled' : ''} title="Arriba del todo">⤒</button><button type="button" class="op-pos-b" data-op-pos="-1" ${i === 0 ? 'disabled' : ''} title="Subir una">↑</button><span class="op-pos-n">${i + 1} de ${h.length}</span><button type="button" class="op-pos-b" data-op-pos="1" ${i === h.length - 1 ? 'disabled' : ''} title="Bajar una">↓</button><button type="button" class="op-pos-b" data-op-pos="abajo" ${i === h.length - 1 ? 'disabled' : ''} title="Abajo del todo">⤓</button></div>`;
+}
+
 async function onClick(e) {
   const v = e.target.closest('[data-op-vista]');
   if (v) { vista = v.dataset.opVista; pintar(); return; }
@@ -557,6 +628,15 @@ async function onClick(e) {
   if (ckb) { const t = buscarT(abierta); try { await op(t, { op: 'checklist', checklist: (t.checklist || []).filter((c) => c.id !== ckb.dataset.opCkBorrar) }); } catch (err) { window.alert(err.message); } pintarVista(); pintarFicha(); return; }
   const tb = e.target.closest('[data-op-tab]');
   if (tb) { fTab = tb.dataset.opTab; editTab = null; importando = null; pintarVista(); return; }
+  const ps = e.target.closest('[data-op-pos]');
+  if (ps) {
+    const t = buscarT(abierta);
+    if (!t) return;
+    const i = hermanas(t).indexOf(t);
+    const v = ps.dataset.opPos;
+    colocar(t, v === 'arriba' ? 0 : v === 'abajo' ? Infinity : i + Number(v));
+    return;
+  }
   const cs = e.target.closest('[data-op-col-set]');
   if (cs) { const t = buscarT(abierta); if (t && cs.dataset.opColSet !== columnaDeTarea(t, tabDeT(t))) moverColumna(t, cs.dataset.opColSet, tabDeT(t).id); return; }
   const cal = e.target.closest('[data-op-cal]');

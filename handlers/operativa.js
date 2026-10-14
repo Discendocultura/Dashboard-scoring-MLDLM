@@ -10,6 +10,7 @@
 //        agencia o, con `proyecto`, del tablero de ese cliente)
 //   POST { op: 'editar', …, tarea } · { op: 'borrar', … }  (solo las creadas en la Operativa)
 //   POST { op: 'columna', …, columna, tablero? }  → la lleva a esa columna (y a otro tablero: solo superadmin)
+//   POST { op: 'ordenar', orden: [{ cliente, code, id }] }  → la columna en ese orden (de arriba abajo)
 //   POST { op: 'tablero-guardar', tablero } · { op: 'tablero-borrar', proyecto, tableroId }
 //        · { op: 'plantilla-guardar', plantilla } · { op: 'plantilla-borrar', plantillaId }  (solo superadmin)
 //   POST { op: 'etiquetas', …, etiquetas: [id] } · { op: 'prioridad', …, prioridad } · { op: 'checklist', …, checklist }
@@ -22,8 +23,8 @@ import { getSession } from '../lib/auth.js';
 import { listClientes } from '../lib/clientes.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { listUsersRaw, rolEn, newId } from '../lib/users.js';
-import { todasLasTareas, visiblesPara, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, avisarAsignada, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
-import { tablerosDe, sanitizeTablero, sanitizeColumnas, GENERAL, sanitizeChecklist, prioridadValida, MAX_ETIQUETAS_TAREA, COLORES_ETIQUETA } from '../public/js/tableros.js';
+import { todasLasTareas, visiblesPara, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, ordenarTareas, avisarAsignada, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
+import { tablerosDe, MAX_ORDENAR, sanitizeTablero, sanitizeColumnas, GENERAL, sanitizeChecklist, prioridadValida, MAX_ETIQUETAS_TAREA, COLORES_ETIQUETA } from '../public/js/tableros.js';
 import { sanitizeRepetir } from '../public/js/procesos.js';
 import { PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from '../public/js/operativa.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
@@ -136,6 +137,15 @@ export async function POST(request) {
       }, `Operativa: ${body.op}`);
       return json({ ok: true, ...cfg });
     }
+    if (body.op === 'ordenar') {
+      const refs = (Array.isArray(body.orden) ? body.orden : []).slice(0, MAX_ORDENAR)
+        .map((r) => ({ cliente: String(r?.cliente || ''), code: String(r?.code || ''), id: String(r?.id || '') })).filter((r) => r.id && r.code);
+      if (!refs.length) throw bad('No hay tareas que ordenar');
+      const n = await ordenarTareas(refs, (t, r) => {
+        if (!s.superadmin && !asignadaA(t, s.uid, r.cliente === PROYECTO_AGENCIA ? '' : rolEn(s.user || {}, r.cliente))) throw bad('Solo puedes ordenar las tareas que tienes asignadas', 403);
+      });
+      return json({ ok: true, ordenadas: n });
+    }
     if (body.op === 'crear') {
       const proyecto = String(body.tarea?.proyecto || PROYECTO_AGENCIA);
       const clientes = await listClientes();
@@ -155,11 +165,13 @@ export async function POST(request) {
         comprobar(t);
         ponerEstado(t, String(body.estado || ''), { por });
         t.opColumna = ''; // su columna sale del estado (la de hecha / la primera) en el tablero en que esté
+        delete t.opOrden; // en la columna nueva va detrás de las ordenadas a mano (hasta que se coloque)
       } else if (body.op === 'columna') {
         comprobar(t);
         const otro = body.tablero && body.tablero !== (t.opTablero || GENERAL);
         if (otro && !s.superadmin) throw bad('Solo el superadmin mueve tareas de un tablero a otro', 403);
         moverATablero(t, cfgTableros, ref.cliente, { tablero: body.tablero, columna: String(body.columna || '') }, por);
+        delete t.opOrden;
       } else if (body.op === 'etiquetas') {
         comprobar(t);
         const ids = (Array.isArray(body.etiquetas) ? body.etiquetas : []).map(String).filter((id) => cfgTableros.etiquetas.some((e) => e.id === id));

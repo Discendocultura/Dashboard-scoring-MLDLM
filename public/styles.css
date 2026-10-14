@@ -4904,3 +4904,15 @@ span.g-rail-i { cursor: default; }
 }
 .op-tablero.quieto .op-card2.llega { animation: opLlega .9s cubic-bezier(.2, .9, .3, 1.2) both !important; }
 @media (prefers-reduced-motion: reduce) { .op-card2.completando, .op-card2.llega, .op-burst i, .op-add { animation: none !important; } }
+
+/* Operativa: reordenar dentro de una columna (raya donde va a caer, destello al colocarla y ↑/↓ en la ficha) */
+.op-col-lista > .op-card.hueco-antes { box-shadow: 0 -7px 0 -4px var(--colc, var(--accent)); }
+.op-col-lista.hueco-final { box-shadow: inset 0 -3px 0 0 var(--colc, var(--accent)); border-radius: 10px; }
+.op-card.movida { animation: op-movida .7s ease-out; }
+@keyframes op-movida { 0% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--colc, var(--accent)) 55%, transparent); transform: scale(1.02); } 100% { box-shadow: 0 0 0 0 transparent; transform: none; } }
+.op-pos { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); }
+.op-pos-b { width: 28px; height: 28px; border: 0; border-radius: 999px; background: transparent; color: var(--text); font-size: 14px; cursor: pointer; }
+.op-pos-b:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.op-pos-b:disabled { opacity: .3; cursor: default; }
+.op-pos-n { font-size: 12px; color: var(--muted); padding: 0 6px; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .op-card.movida { animation: none; } }

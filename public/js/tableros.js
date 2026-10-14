@@ -98,6 +98,17 @@ export const prioridadValida = (p) => (PRIORIDADES.some((x) => x.id === p) ? p :
 const ordenPrioridad = (t) => PRIORIDADES.find((x) => x.id === t.prioridad)?.orden ?? 3;
 // Orden dentro de una columna: prioridad (alta primero) y después la fecha (sin fecha, al final).
 export const ordenTarjetas = (a, b) => ordenPrioridad(a) - ordenPrioridad(b) || String(a.fecha || '9').localeCompare(String(b.fecha || '9'));
+// Orden a mano (arrastrando o con ↑/↓): las que tienen `opOrden` van primero, en ese orden; las demás, detrás
+// con el orden automático de arriba.
+const tieneOrden = (t) => Number.isFinite(t?.opOrden);
+export const ordenColumna = (a, b) => (tieneOrden(a) && tieneOrden(b) ? a.opOrden - b.opOrden : tieneOrden(a) ? -1 : tieneOrden(b) ? 1 : ordenTarjetas(a, b));
+// La columna con `movida` puesta en la posición `indice` (0 = arriba): la lista nueva, en orden.
+export function recolocar(lista, movida, indice) {
+  const resto = lista.filter((t) => t !== movida);
+  const i = Math.max(0, Math.min(resto.length, Number.isInteger(indice) ? indice : resto.length));
+  return [...resto.slice(0, i), movida, ...resto.slice(i)];
+}
+export const MAX_ORDENAR = 300;
 
 export const MAX_CHECKLIST = 30;
 export function sanitizeChecklist(lista) {

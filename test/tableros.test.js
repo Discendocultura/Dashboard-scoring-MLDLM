@@ -1,6 +1,6 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitizeColumnas, sanitizeConfigTableros, tablerosDe, tableroDeTarea, columnaDeTarea, colocar, GENERAL, sanitizeEtiquetas, etiquetasDeTarea, ordenTarjetas, sanitizeChecklist, progresoChecklist, copiaRecurrente } from '../public/js/tableros.js';
+import { sanitizeColumnas, sanitizeConfigTableros, tablerosDe, tableroDeTarea, columnaDeTarea, colocar, GENERAL, sanitizeEtiquetas, etiquetasDeTarea, ordenTarjetas, ordenColumna, recolocar, sanitizeChecklist, progresoChecklist, copiaRecurrente } from '../public/js/tableros.js';
 
 test('tableros: columnas (siempre una «hecha»), General de serie y columna de cada tarea', () => {
   const cols = sanitizeColumnas([{ nombre: 'Idea' }, { nombre: 'Guion' }, { nombre: '' }, { nombre: 'Publicado' }]);
@@ -204,4 +204,17 @@ test('tableros (API): importar un tablero crea sus columnas y sus tareas en el p
   assert.equal(g.tareas.find((t) => t.titulo === 'Tarea cerrada').hecha, true);
   const setter = (await call('/api/login', { method: 'POST', body: { password: 'setter' } })).res.headers.get('set-cookie').split(';')[0];
   assert.equal((await call('/api/operativa', { method: 'POST', cookie: setter, body: { op: 'importar-tablero', proyecto: 'mldlm', archivo } })).status, 403);
+});
+
+test('orden a mano: las colocadas primero (por opOrden) y las demás con el orden automático', () => {
+  const ts = [{ id: 'a', prioridad: 'alta' }, { id: 'b', opOrden: 2 }, { id: 'c', opOrden: 1 }, { id: 'd', fecha: '2026-01-01' }];
+  assert.deepEqual([...ts].sort(ordenColumna).map((t) => t.id), ['c', 'b', 'a', 'd']);
+});
+
+test('recolocar: pone la tarea en la posición pedida (y al final si se pasa)', () => {
+  const [a, b, c] = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  assert.deepEqual(recolocar([a, b, c], c, 0).map((t) => t.id), ['c', 'a', 'b']);
+  assert.deepEqual(recolocar([a, b, c], a, 1).map((t) => t.id), ['b', 'a', 'c']);
+  assert.deepEqual(recolocar([a, b, c], a, Infinity).map((t) => t.id), ['b', 'c', 'a']);
+  assert.deepEqual(recolocar([a, b], c, 1).map((t) => t.id), ['a', 'c', 'b']); // llega de otra columna
 });
