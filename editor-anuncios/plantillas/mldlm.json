@@ -3,7 +3,7 @@
   "_que_es": "Burdeos, tierra y crema. Lato 900 en todo; destacados en cursiva burdeos. Narrativa del Camino de Santiago (sendero punteado, concha, mojones). Guía completa en plantillas/mldlm-guia.md.",
   "primario": "#860d0e", "oscuro": "#5e0909", "acento": "#c49b79", "claro": "#fbf6f1",
   "fuenteTitulos": "Lato", "fuenteSubs": "Lato",
-  "subCuerpo": 74, "subPalabras": 3, "subAltura": 1330,
+  "subCuerpo": 74, "subRealce": "pildora", "subPalabras": 3, "subAltura": 1330,
   "ganchoDura": 4.5, "grandeCuerpo": 132, "grandeAltura": 1560,
   "barraAlto": 12,
   "extra": {

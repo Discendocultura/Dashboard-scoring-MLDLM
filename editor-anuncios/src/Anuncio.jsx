@@ -21,9 +21,11 @@ const Subtitulos = ({words, grandes, e}) => {
     <div style={{position: 'absolute', top: e.subAltura, width: '100%', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0 22px', padding: '0 90px', transform: `scale(${0.85 + 0.15 * pop})`}}>
       {b.map((w, i) => {
         const on = w === b.filter((x) => x.start <= t).pop();
+        // subRealce "pildora": la palabra que suena va en una píldora clara con letra del color principal (se lee sobre cualquier ropa)
+        const pildora = on && e.subRealce === 'pildora';
         return <span key={i} style={{fontFamily: e.fuenteSubs, fontWeight: 800, fontSize: e.subCuerpo, lineHeight: 1.15, textTransform: 'uppercase',
-          color: on ? e.acento : e.claro, WebkitTextStroke: `10px ${e.oscuro}`, paintOrder: 'stroke fill',
-          textShadow: '0 6px 18px rgba(0,0,0,.45)'}}>{w.text}</span>;
+          color: pildora ? e.primario : on ? e.acento : e.claro, WebkitTextStroke: pildora ? 'none' : `10px ${e.oscuro}`, paintOrder: 'stroke fill',
+          ...(pildora ? {background: e.claro, borderRadius: 14, padding: '0 14px', boxShadow: '0 8px 20px rgba(0,0,0,.45)'} : {textShadow: '0 6px 18px rgba(0,0,0,.45)'})}}>{w.text}</span>;
       })}
     </div>
   );

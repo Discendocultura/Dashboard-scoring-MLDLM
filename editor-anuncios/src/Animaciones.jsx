@@ -149,8 +149,8 @@ export const Cta = ({e, toque, grupo, final, texto = 'Reserva tu plaza gratis', 
   const t = f / fps;
   const pulso = 1 + 0.04 * Math.sin(f / 4);
   const onda = (t - toque) * 1.6;
-  const pG = spring({frame: f - Math.round(grupo * fps), fps, config: {damping: 12}});
-  const pF = spring({frame: f - Math.round(final * fps), fps, config: {damping: 10}});
+  const pG = grupo != null ? spring({frame: f - Math.round(grupo * fps), fps, config: {damping: 12}}) : 0;
+  const pF = final != null ? spring({frame: f - Math.round(final * fps), fps, config: {damping: 10}}) : 0;
   return (
     <div style={{position: 'absolute', top: 70, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
       <div style={{position: 'relative', transform: `scale(${ent() * pulso})`}}>
@@ -165,7 +165,7 @@ export const Cta = ({e, toque, grupo, final, texto = 'Reserva tu plaza gratis', 
         <svg width="46" height="46" viewBox="0 0 24 24"><path fill="#25A244" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z" /><circle cx="8" cy="12" r="1.4" fill="#fff" /><circle cx="12" cy="12" r="1.4" fill="#fff" /><circle cx="16" cy="12" r="1.4" fill="#fff" /></svg>
         <span style={{...caps(e), fontSize: 28, color: e.oscuro}}>{chip}</span>
       </div>}
-      {t >= final && <svg width="90" height="110" viewBox="0 0 90 110" style={{marginTop: 18, transform: `translateY(${Math.sin(f / 3) * 12}px) scale(${pF})`, filter: 'drop-shadow(0 6px 12px rgba(0,0,0,.7))'}}>
+      {final != null && t >= final && <svg width="90" height="110" viewBox="0 0 90 110" style={{marginTop: 18, transform: `translateY(${Math.sin(f / 3) * 12}px) scale(${pF})`, filter: 'drop-shadow(0 6px 12px rgba(0,0,0,.7))'}}>
         <path d="M45 6 V84 M14 58 L45 92 L76 58" stroke={e.acento} strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>}
     </div>
   );
@@ -230,12 +230,13 @@ export const Calendario = ({e, titulo = 'Mes tras mes', tachar = 28, destacar}) 
 };
 
 // Preguntas que flotan alrededor (dudas): chips que entran escalonados
-export const Preguntas = ({e, textos}) => {
+// `en`: segundo (desde el inicio de la animación) en que entra cada frase; si no se da, entran cada 0,45 s
+export const Preguntas = ({e, textos, en}) => {
   const {f, fps, sal} = useVida(10);
   return (
     <AbsoluteFill style={{opacity: sal}}>
       {textos.map((q, i) => {
-        const p = spring({frame: f - i * Math.round(fps * 0.45), fps, config: {damping: 12}});
+        const p = spring({frame: f - Math.round(fps * (en ? en[i] : i * 0.45)), fps, config: {damping: 12}});
         const lado = i % 2 ? 'right' : 'left';
         return (
           <div key={i} style={{position: 'absolute', top: 70 + i * 104, [lado]: 50, maxWidth: 760, opacity: p,
@@ -369,8 +370,11 @@ export const Camino = ({e, hitos = ['1', '2', '3'], meta = 'Tu positivo', titulo
           );
         })}
         <g transform={`translate(960 110) scale(${spring({frame: f - Math.round(fps * 2.3), fps, config: {damping: 9}})})`}>
-          <circle r="44" fill={e.primario} stroke={e.claro} strokeWidth="5" />
-          <path d="M -24 12 Q 0 -40 24 12 Z M -16 10 L 0 -24 M 0 10 L 0 -28 M 16 10 L 0 -24" stroke={e.claro} strokeWidth="4" fill="none" strokeLinejoin="round" />
+          <circle r="46" fill={e.primario} stroke={e.claro} strokeWidth="5" />
+          {/* concha de vieira: abanico con costillas y las dos «orejas» de la base */}
+          <path d="M 0 24 L -30 -4 A 32 32 0 0 1 30 -4 Z" fill={e.claro} />
+          {[-24, -12, 0, 12, 24].map((x) => <line key={x} x1="0" y1="22" x2={x} y2={x === 0 ? -30 : -30 + Math.abs(x) * 0.7} stroke={e.primario} strokeWidth="3" strokeLinecap="round" />)}
+          <path d="M -12 22 L -18 32 L 18 32 L 12 22 Z" fill={e.claro} />
         </g>
       </svg>
       <div style={{position: 'absolute', top: titulo ? 210 : 175, right: 30, ...caps(e), fontSize: 26, color: e.claro, background: e.primario, padding: '8px 18px', borderRadius: 999,

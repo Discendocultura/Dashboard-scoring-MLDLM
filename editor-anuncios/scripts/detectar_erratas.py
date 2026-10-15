@@ -13,7 +13,7 @@
 #   inicio/final silencio antes de la primera palabra o después de la última (se deja un margen)
 # Cada propuesta lleva una confianza: «alta» si la repetición no está en el guion, «revisar» si el guion
 # también repite esas palabras o si es una pausa. Nada se corta sin revisar la lista.
-import json, os, re, subprocess, sys, unicodedata
+import difflib, json, os, re, subprocess, sys, unicodedata
 
 proy = sys.argv[1]
 words = json.load(open(f'{proy}/transcripcion_bruto.json'))['words']
@@ -40,6 +40,13 @@ fin_frase = [bool(re.search(r'[.?!]$', w['text'])) and not re.search(r'(\.\.\.|�
 def veces(seq, ngram):
     k = len(ngram)
     return sum(1 for i in range(len(seq) - k + 1) if seq[i:i + k] == ngram)
+
+
+def repite(i, j):
+    """¿Lo que viene después de j repite lo dicho en i..j-1? (una toma o un reinicio de verdad, no una frase nueva)"""
+    quitado, despues = n[i:j], n[j:j + (j - i) + 3]
+    return difflib.SequenceMatcher(None, quitado, despues).find_longest_match(0, len(quitado), 0, len(despues)).size >= 3 and \
+        difflib.SequenceMatcher(None, quitado, despues[:len(quitado)]).ratio() >= 0.6
 
 
 def contexto(i, j):
@@ -84,7 +91,7 @@ if g:
         # ha vuelto atrás al menos 4 palabras del guion y lo confirman las dos palabras siguientes: nueva toma
         if p < maximo - 3 and i + 2 < len(pos) and pos[i + 1] == p + 1 and pos[i + 2] == p + 2:
             k = next((k for k in range(desde, i) if pos[k] is not None and pos[k] >= p), None)
-            if k is not None:
+            if k is not None and repite(k, i):
                 proponer(k, i, 'toma', 'alta')
             maximo, desde = p, i
         else:
@@ -117,7 +124,8 @@ for i in range(len(words)):
             par = n[i:i + 2]
             # «con más claridad, con más calma» o «como si… o como si…» son enumeraciones, no reinicios
             enumeracion = words[j - 1]['text'].endswith(',') or n[j - 1] in {'o', 'y', 'ni', 'e', 'u'}
-            if n[j:j + 2] == par and all(par) and veces(n, par) > veces(g, par) and not enumeracion:
+            if n[j:j + 2] == par and all(par) and veces(n, par) > veces(g, par) and not enumeracion and \
+                    difflib.SequenceMatcher(None, n[i:j], n[j:j + (j - i)]).ratio() >= 0.6:
                 proponer(i, j, 'reinicio', 'alta' if veces(g, par) == 0 or j - i <= 4 else 'revisar')
                 break
 

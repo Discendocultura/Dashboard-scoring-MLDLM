@@ -1,18 +1,1 @@
-[
- {
-  "inicio": 0.0,
-  "fin": 1.443,
-  "tipo": "inicio",
-  "confianza": "alta",
-  "quitado": "(silencio de 1.4 s)",
-  "contexto": "¿Sientes que la búsqueda"
- },
- {
-  "inicio": 80.988,
-  "fin": 81.543,
-  "tipo": "pausa",
-  "confianza": "revisar",
-  "quitado": "(silencio de 0.6 s)",
-  "contexto": "los dichosos días fértiles y encima tienes"
- }
-]
+[]

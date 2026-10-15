@@ -34,17 +34,21 @@ def al_fotograma(t):
     return round(t * FPS) / FPS
 
 
-cortes = []
+SILENCIOS = {'pausa', 'inicio', 'final'}   # recortes de silencio: no quitan palabras aunque Whisper las sitúe dentro
+cortes, de_silencio = [], []
 for c in sorted(json.load(open(f'{proy}/cortes.json')), key=lambda c: c['inicio']):
     a = al_fotograma(silencioso(c['inicio'], 0.08, 0.04))
     b = al_fotograma(silencioso(c['fin'], 0.04, 0.08))
     a, b = max(0.0, a), min(dur, b)
     if b - a < 1 / FPS:
         continue
+    silencio = c.get('tipo') in SILENCIOS
     if cortes and a <= cortes[-1][1]:
         cortes[-1][1] = max(cortes[-1][1], b)
+        de_silencio[-1] = de_silencio[-1] and silencio
     else:
         cortes.append([a, b])
+        de_silencio.append(silencio)
 
 tramos, t = [], 0.0
 for a, b in cortes:
@@ -72,9 +76,10 @@ def nuevo(t):
 palabras = []
 for w in json.load(open(tr_sc))['words']:
     medio = (w['start'] + w['end']) / 2
-    if any(a <= medio < b for a, b in cortes):
+    if any(a <= medio < b and not sil for (a, b), sil in zip(cortes, de_silencio)):
         continue
-    palabras.append({**w, 'start': round(nuevo(w['start']), 3), 'end': round(nuevo(w['end']), 3)})
+    ini, fin = nuevo(w['start']), nuevo(w['end'])
+    palabras.append({**w, 'start': round(ini, 3), 'end': round(max(fin, ini + 0.08), 3)})
 json.dump({'texto': ' '.join(w['text'] for w in palabras), 'words': palabras}, open(tr, 'w'), ensure_ascii=False, indent=1)
 
 puntos = [round(nuevo(a), 3) for a, _ in cortes if 0 < a < dur]
