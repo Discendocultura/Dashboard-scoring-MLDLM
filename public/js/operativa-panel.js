@@ -50,6 +50,24 @@ let editandoTitulo = false;
 let tabArrastrada = ''; // pestaña de tablero que se está arrastrando
 let colArrastrada = ''; // columna de un tablero que se está arrastrando (a izquierda o derecha)
 let editor = null; // el editor abierto (descripción o tarea nueva)
+// Lo que se está escribiendo en la ficha (descripción sin guardar, comentario, tarea nueva): se guarda antes de
+// repintar para que no se pierda al cambiar otra cosa (fecha, repetición, prioridad…). { k, notas, comentario, campos }
+let borrador = null;
+const claveFicha = () => (creando ? '_nueva' : abierta || '');
+function guardarBorrador() {
+  const box = ctx?.dialog?.querySelector('#op-ficha');
+  if (!box?.dataset.k) return;
+  const k = box.dataset.k; // la tarea que se estaba viendo (no la que se va a abrir)
+  const b = { k };
+  if ((editandoDesc || creando) && editor?.area?.isConnected && box.contains(editor.area)) b.notas = editor.leer();
+  const com = box.querySelector('.pr-comentar textarea');
+  if (com?.value) b.comentario = com.value;
+  const form = box.querySelector('form[data-op-form="crear"]');
+  if (form) b.campos = Object.fromEntries(['titulo', 'fecha', 'proyecto', 'tablero', 'uid'].map((n) => [n, form.elements[n]?.value ?? '']));
+  if (b.notas != null || b.comentario || b.campos) borrador = b;
+  else if (borrador?.k === k) borrador = null;
+}
+const deBorrador = (campo) => (borrador && borrador.k === claveFicha() ? borrador[campo] : undefined);
 
 const body = () => ctx.dialog.querySelector('#op-body');
 const tabsDe = (proyecto) => tablerosDe({ tableros: d.tableros }, proyecto);
@@ -283,6 +301,7 @@ function filtradas() {
 const selector = (id, label, ico, valor, opciones, color) => `<label class="op-sel${valor ? ' activo' : ''}"${color ? ` style="--sel:${esc(color)}"` : ''}><span class="op-sel-ico" aria-hidden="true">${ico}</span><select id="${id}" aria-label="${label}">${opciones}</select><span class="op-sel-chev" aria-hidden="true">▾</span></label>`;
 
 function pintar() {
+  guardarBorrador(); // antes de rehacer la pantalla (y con ella la ficha)
   const tab = (id, txt) => `<button type="button" class="op-tab${vista === id ? ' on' : ''}" data-op-vista="${id}">${txt}</button>`;
   const hoy = hoyMadrid();
   const venc = d.tareas.filter((t) => estadoOp(t) !== 'hecha' && t.fecha && t.fecha < hoy && (d.superadmin && d.yo ? asignadaA(t, d.yo, '') : true)).length;
@@ -654,6 +673,8 @@ function bloqueRepetir(t) {
 function pintarFicha() {
   const box = body().querySelector('#op-ficha');
   if (!box) return;
+  guardarBorrador();
+  box.dataset.k = claveFicha();
   if (creando) {
     box.innerHTML = `<form class="op-form" data-op-form="crear">
       <header class="op-ficha-h"><h3>＋ Nueva tarea</h3><button type="button" class="btn ghost small" data-op="cerrar-ficha" aria-label="Cerrar">✕</button></header>
@@ -666,8 +687,11 @@ function pintarFicha() {
       <div class="field"><span>Descripción</span><div class="op-editor" data-op-editor></div></div>
       <footer class="op-form-acc"><button type="button" class="btn ghost" data-op="cerrar-ficha">Cancelar</button><button class="btn primary">Crear tarea</button></footer>
     </form>`;
-    editor = montarEditor(box.querySelector('[data-op-editor]'), '', { placeholder: 'Pasos, enlaces, listas, vídeos… (@ para enlazar otra tarea o un tablero)', enlaces: buscarEnlaces });
-    box.querySelector('input[name=titulo]').focus();
+    editor = montarEditor(box.querySelector('[data-op-editor]'), deBorrador('notas') || '', { placeholder: 'Pasos, enlaces, listas, vídeos… (@ para enlazar otra tarea o un tablero)', enlaces: buscarEnlaces });
+    const campos = deBorrador('campos');
+    const form = box.querySelector('form');
+    if (campos) for (const [n, v] of Object.entries(campos)) if (form.elements[n] && v && [...(form.elements[n].options || [{ value: v }])].some((o) => o.value === v)) form.elements[n].value = v;
+    if (!campos) box.querySelector('input[name=titulo]').focus();
     return;
   }
   const t = buscarT(abierta);
@@ -702,7 +726,9 @@ function pintarFicha() {
       <form class="pr-comentar" data-op-form="comentar"><textarea name="texto" rows="2" maxlength="2000" placeholder="Escribe un comentario… (@ para enlazar otra tarea o un tablero)"></textarea><button class="btn primary small">Comentar</button></form>
     </section>
     ${''}${deAgencia ? '<p class="op-ficha-pie"><button type="button" class="btn ghost small danger" data-op="borrar">🗑️ Borrar tarea</button></p>' : '<p class="muted small op-ficha-pie">Esta tarea vive en el proyecto del cliente: lo que cambies aquí se guarda allí.</p>'}`;
-  if (editandoDesc) editor = montarEditor(box.querySelector('[data-op-editor]'), t.notas, { placeholder: 'Pasos, enlaces, listas, vídeos… (@ para enlazar otra tarea o un tablero)', enlaces: buscarEnlaces });
+  const com = deBorrador('comentario');
+  if (com) box.querySelector('.pr-comentar textarea').value = com;
+  if (editandoDesc) editor = montarEditor(box.querySelector('[data-op-editor]'), deBorrador('notas') ?? t.notas, { placeholder: 'Pasos, enlaces, listas, vídeos… (@ para enlazar otra tarea o un tablero)', enlaces: buscarEnlaces });
   else montarVideos(box.querySelector('.op-notas'));
   activarArroba(box.querySelector('.pr-comentar textarea'), buscarEnlaces);
 }
@@ -985,15 +1011,22 @@ async function onClick(e) {
   }
   if (b.dataset.op === 'bloquear' || b.dataset.op === 'desbloquear') { const t = buscarT(abierta); if (t) ponerBloqueo(t, b.dataset.op === 'bloquear'); return; }
   if (b.dataset.op === 'add-cerrar') { addCol = ''; pintarVista(); return; }
-  if (b.dataset.op === 'cerrar-ficha') { abierta = null; creando = false; editandoDesc = false; editandoTitulo = false; pickerEtq = false; pintar(); return; }
+  if (b.dataset.op === 'cerrar-ficha') {
+    // Cerrar con la descripción a medias: se guarda sola (no se pierde lo escrito).
+    const t = !creando && editandoDesc && abierta ? buscarT(abierta) : null;
+    const notas = t && editor?.area?.isConnected ? editor.leer() : null;
+    if (t && notas != null && notas !== (t.notas || '')) {
+      try { await op(t, { op: 'descripcion', notas }); aviso('✓ Descripción guardada'); } catch (err) { window.alert(`No se pudo guardar la descripción: ${err.message}`); return; }
+    }
+    borrador = null; editor = null; abierta = null; creando = false; editandoDesc = false; editandoTitulo = false; pickerEtq = false; pintar(); return; }
   if (b.dataset.op === 'titulo-editar') { editandoTitulo = true; pintarFicha(); const i = body().querySelector('.op-titulo-ed input'); i?.focus(); i?.select(); return; }
   if (b.dataset.op === 'titulo-cancelar') { editandoTitulo = false; pintarFicha(); return; }
   if (b.dataset.op === 'editar-desc' && e.target.closest('a')) return; // un enlace de la descripción se abre, no edita
   if (b.dataset.op === 'editar-desc') { editandoDesc = true; pintarFicha(); editor?.area.focus(); return; }
-  if (b.dataset.op === 'cancelar-desc') { editandoDesc = false; pintarFicha(); return; }
+  if (b.dataset.op === 'cancelar-desc') { editandoDesc = false; borrador = null; pintarFicha(); return; }
   if (b.dataset.op === 'guardar-desc') {
     b.disabled = true;
-    try { await op(buscarT(abierta), { op: 'descripcion', notas: editor.leer() }); editandoDesc = false; } catch (err) { window.alert(err.message); b.disabled = false; return; }
+    try { await op(buscarT(abierta), { op: 'descripcion', notas: editor.leer() }); editandoDesc = false; borrador = null; } catch (err) { window.alert(err.message); b.disabled = false; return; }
     pintarFicha();
     pintarVista();
     return;
@@ -1187,6 +1220,8 @@ async function onSubmit(e) {
       const texto = f.texto.value.trim();
       if (!texto) { btn?.removeAttribute('disabled'); return; }
       await op(buscarT(abierta), { op: 'comentar', texto });
+      f.texto.value = '';
+      borrador = null;
       pintarFicha();
       pintarVista();
     } else {
@@ -1194,6 +1229,8 @@ async function onSubmit(e) {
       const proyecto = f.proyecto.value;
       const r = await ctx.api('/api/operativa', { method: 'POST', body: { op: 'crear', tarea: { titulo: f.titulo.value, fecha: f.fecha.value, notas, proyecto, opTablero: f.tablero.value, asignado: f.uid.value ? { tipo: 'persona', id: f.uid.value } : null } } });
       creando = false;
+      borrador = null;
+      editor = null;
       await cargar();
       abierta = `${proyecto}|${CODIGO_AGENCIA}|${r.tarea.id}`;
       // Abierta desde una columna de la vista por estado: a esa columna.
