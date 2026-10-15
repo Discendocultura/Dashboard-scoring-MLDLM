@@ -41,10 +41,14 @@ con `scripts/muestra.sh PLANTILLA`; envíalas con `SendUserFile`.
 **PREGUNTA**: «¿Con qué plantilla de colores monto este anuncio?» — una opción por plantilla existente
 (recomienda la de la marca del guion) y una opción «Crear una plantilla nueva».
 
+Si la plantilla tiene guía (`plantillas/NOMBRE-guia.md`), léela: las animaciones nuevas deben seguir su narrativa visual
+y sus colores secundarios (`e.extra`).
+
 Si elige crear una nueva:
 1. **PREGUNTA** nombre de la marca, colores (principal, oscuro, acento y claro, en hexadecimal) y tipografía de títulos y de subtítulos.
    Si la marca está en el Dashboard de datos (`marca_y_narrativa`), propón sus colores.
-2. Crea `plantillas/NOMBRE.json` copiando `claves.json` y cambiando `nombre`, `_que_es`, colores y fuentes.
+2. Crea `plantillas/NOMBRE.json` copiando `claves.json` y cambiando `nombre`, `_que_es`, colores y fuentes
+   (colores secundarios en `extra`). Si te pasa una guía de estilo, guárdala tal cual en `plantillas/NOMBRE-guia.md`.
 3. Regístrala en `plantillas/index.js`. Instala la fuente con `npm i @fontsource/FUENTE` (nombre en minúsculas y con guiones)
    e impórtala en `src/fuentes.js` (pesos 700, 800 y 800-italic si existen).
 4. Genera su muestra, enséñala y ajusta hasta que le guste.

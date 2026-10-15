@@ -16,6 +16,13 @@ Cada anuncio elige la suya en `props.json → "plantilla"`. Claves: `primario`, 
 - `claves`: Claves de la Historia y la Actualidad. Burdeos `#7B1E22`, burdeos oscuro `#5C1418`, dorado `#B8913A`,
   crema `#F7F3EC`. Playfair Display en títulos; subtítulos en Inter 800 (se leen mejor en el móvil).
 - `discendo`: navy `#062942`, naranja `#FFA500`, blanco. Poppins en todo.
+- `mldlm`: Me lo dijo la matrona · El Camino. Burdeos `#860d0e`, burdeos oscuro `#5e0909`, tierra `#c49b79`,
+  crema `#fbf6f1`; el resto de la paleta en `extra`. Lato 900 en todo. Guía completa (componentes y narrativa
+  del Camino de Santiago: sendero punteado, concha, mojones, catedral) en `plantillas/mldlm-guia.md`:
+  léela antes de diseñar animaciones para esta marca.
+
+Colores secundarios de una marca: en `extra` (`e.extra.pastel`…). Si la marca tiene guía de estilo, guárdala como
+`plantillas/NOMBRE-guia.md`.
 
 Nueva plantilla: `plantillas/NOMBRE.json` + registrarla en `plantillas/index.js` + fuentes en `src/fuentes.js`.
 `scripts/muestra.sh NOMBRE` genera una imagen de muestra.
