@@ -97,7 +97,9 @@ async function main() {
           await page.waitForSelector('#inicio-agencia .ag-hero', { timeout: 15000 });
           await page.click('[data-ini-modo="cliente"]');
         }
-        await page.waitForSelector('#inicio-embudos .inicio-emb', { timeout: 15000 });
+        // Sin permiso de métricas: el Inicio de trabajo (sin cifras); con él, las tarjetas de cada embudo.
+        await page.waitForSelector('#inicio-embudos .inicio-emb, body.inicio-trabajo #inicio-trabajo .card', { timeout: 15000 });
+        if (await page.evaluate(() => document.body.classList.contains('inicio-trabajo')) && await page.isVisible('#inicio-total')) throw new Error('El Inicio de trabajo enseña cifras');
         if (await page.isVisible('#ini-modo')) await page.click('[data-ini-modo="agencia"]');
       });
       // Cada embudo, cada pestaña, subpestaña y categoría de métricas
