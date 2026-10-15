@@ -4406,6 +4406,19 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .op-resp-menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border: 0; border-radius: 10px; background: none; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
 .op-resp-menu button:hover, .op-resp-menu button:focus-visible { background: var(--surface-2); outline: none; }
 .op-resp-menu button.on { background: color-mix(in srgb, var(--accent) 14%, transparent); font-weight: 600; }
+.op-col-arr { cursor: grab; }
+.op-col-arr:active { cursor: grabbing; }
+.op-col.col-arrastrando { opacity: .45; }
+.op-col.col-antes { box-shadow: -4px 0 0 0 var(--accent); }
+.op-col.col-despues { box-shadow: 4px 0 0 0 var(--accent); }
+.op-fecha-b { border: 0; background: none; padding: 0; font: inherit; cursor: pointer; border-radius: 999px; }
+.op-fecha-b:hover .op-fecha, .op-fecha-b:focus-visible .op-fecha { outline: 2px solid var(--accent); outline-offset: 1px; }
+.op-fecha-b.vacia .op-fecha { color: var(--muted); background: none; border: 1px dashed var(--border); opacity: .75; }
+.op-card:hover .op-fecha-b.vacia .op-fecha { opacity: 1; }
+.op-fecha-menu button { justify-content: space-between; }
+.op-fecha-menu button small { color: var(--muted); font-size: 12px; }
+.op-fecha-otra { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; font-size: 14px; border-top: 1px solid var(--border); margin-top: 4px; }
+.op-fecha-otra input { font: inherit; font-size: 13px; padding: 4px 6px; }
 .op-resp-sin { border-top: 1px solid var(--border) !important; margin-top: 4px; border-radius: 0 0 10px 10px !important; }
 .op-editor .er { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
 .op-editor .er:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
@@ -4970,9 +4983,14 @@ span.g-rail-i { cursor: default; }
 
 /* Enlaces a otras tareas y tableros («@») */
 a.enlace-int { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-weight: 600; text-decoration: none; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); line-height: 1.5; cursor: pointer; white-space: normal; }
-a.enlace-int::before { content: '📝'; font-size: .85em; }
-a.enlace-int.e-tablero::before { content: '🗂️'; }
+/* Cada tipo con su color y su etiqueta delante, para que se vea si es una tarea, un tablero o una persona. */
+a.enlace-int::before { content: '📝 Tarea'; font-size: .78em; font-weight: 700; padding-right: 5px; margin-right: 1px; border-right: 1px solid currentColor; opacity: .85; }
+a.enlace-int.e-tablero { --enl: #2f7fd8; color: var(--enl); background: color-mix(in srgb, var(--enl) 12%, transparent); border-color: color-mix(in srgb, var(--enl) 32%, transparent); }
+a.enlace-int.e-tablero::before { content: '🗂️ Tablero'; }
+a.enlace-int.e-persona { --enl: #2e9a62; color: var(--enl); background: color-mix(in srgb, var(--enl) 12%, transparent); border-color: color-mix(in srgb, var(--enl) 32%, transparent); cursor: default; }
+a.enlace-int.e-persona::before { content: '@'; border-right: 0; padding-right: 0; font-size: .95em; }
 a.enlace-int:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+a.enlace-int.e-tablero:hover, a.enlace-int.e-persona:hover { background: color-mix(in srgb, var(--enl) 20%, transparent); }
 .arroba-lista { position: absolute; z-index: 30; max-height: 300px; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 18px 40px -16px rgb(0 0 0 / .35); padding: 6px; display: flex; flex-direction: column; gap: 2px; }
 .arroba-lista[hidden] { display: none; }
 .arroba-h, .mention-sep { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 6px 8px 4px; }

@@ -11,7 +11,7 @@ import { textoRepetir, proximaTrasHecho, encajaEnRepetir, primeraFechaRepetir } 
 import { editorRepetir, leerRepetir, pulsarDsem } from './repetir-ui.js';
 import { normalizarImportacion } from './tableros-import.js';
 import { montarEditor, montarVideos } from './editor-rico.js';
-import { activarArroba, enlacesEnTexto, filtrarEnlaces, leerRef, refTarea, refTablero } from './enlaces.js';
+import { activarArroba, enlacesEnTexto, filtrarEnlaces, leerRef, refTarea, refTablero, refPersona } from './enlaces.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hoyMadrid = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
@@ -48,6 +48,7 @@ let creando = false;
 let editandoDesc = false;
 let editandoTitulo = false;
 let tabArrastrada = ''; // pestaña de tablero que se está arrastrando
+let colArrastrada = ''; // columna de un tablero que se está arrastrando (a izquierda o derecha)
 let editor = null; // el editor abierto (descripción o tarea nueva)
 
 const body = () => ctx.dialog.querySelector('#op-body');
@@ -153,10 +154,40 @@ export async function abrirOperativa(opts) {
     dlg.addEventListener('submit', onSubmit);
     dlg.addEventListener('input', (e) => { if (e.target.id === 'op-buscar') { q = e.target.value; pintarVista(); } });
     dlg.addEventListener('dragstart', (e) => {
+      const ca = e.target.closest?.('[data-op-col-arr]');
+      if (ca) { colArrastrada = ca.dataset.opColArr; e.dataTransfer.setData('text/x-op-col', colArrastrada); e.dataTransfer.effectAllowed = 'move'; ca.closest('.op-col')?.classList.add('col-arrastrando'); return; }
       const tb = e.target.closest?.('[data-op-tab][draggable="true"]');
       if (tb) { tabArrastrada = tb.dataset.opTab; e.dataTransfer.setData('text/x-op-tab', tb.dataset.opTab); e.dataTransfer.effectAllowed = 'move'; tb.classList.add('arrastrando'); return; }
       const c = e.target.closest?.('[data-op-k]');
       if (c) { e.dataTransfer.setData('text/plain', c.dataset.opK); c.classList.add('arrastrando'); }
+    });
+    // Columnas de un tablero: arrastrando su cabecera se mueven a izquierda o derecha (quien gestiona el proyecto).
+    const limpiarCol = () => dlg.querySelectorAll('.col-antes, .col-despues, .col-arrastrando').forEach((x) => x.classList.remove('col-antes', 'col-despues', 'col-arrastrando'));
+    dlg.addEventListener('dragover', (e) => {
+      if (!colArrastrada) return;
+      const col = e.target.closest('.op-col[data-op-col]');
+      if (!col) return;
+      e.preventDefault();
+      const r = col.getBoundingClientRect();
+      const despues = e.clientX > r.left + r.width / 2;
+      dlg.querySelectorAll('.col-antes, .col-despues').forEach((x) => x.classList.remove('col-antes', 'col-despues'));
+      if (col.dataset.opCol !== colArrastrada) col.classList.add(despues ? 'col-despues' : 'col-antes');
+    });
+    dlg.addEventListener('drop', (e) => {
+      if (!colArrastrada) return;
+      const col = e.target.closest('.op-col[data-op-col]');
+      const id = colArrastrada;
+      const despues = col?.classList.contains('col-despues');
+      limpiarCol();
+      colArrastrada = '';
+      e.preventDefault();
+      if (!col || col.dataset.opCol === id) return;
+      const tab = tabsDe(fProy).find((b) => b.id === fTab) || tabsDe(fProy)[0];
+      const resto = tab.columnas.filter((c) => c.id !== id);
+      const i = resto.findIndex((c) => c.id === col.dataset.opCol);
+      if (i < 0) return;
+      resto.splice(i + (despues ? 1 : 0), 0, tab.columnas.find((c) => c.id === id));
+      moverColumnas(tab, resto);
     });
     // Pestañas de tableros: arrastrarlas cambia su orden (solo superadmin).
     dlg.addEventListener('dragover', (e) => {
@@ -190,10 +221,10 @@ export async function abrirOperativa(opts) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.form.requestSubmit(); }
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addCol = ''; pintarVista(); }
     });
-    dlg.addEventListener('dragend', (e) => { e.target.closest?.('[data-op-k], [data-op-tab]')?.classList.remove('arrastrando'); quitarHueco(); tabArrastrada = ''; dlg.querySelectorAll('.tab-antes, .tab-despues').forEach((x) => x.classList.remove('tab-antes', 'tab-despues')); });
+    dlg.addEventListener('dragend', (e) => { e.target.closest?.('[data-op-k], [data-op-tab]')?.classList.remove('arrastrando'); quitarHueco(); tabArrastrada = ''; colArrastrada = ''; limpiarCol(); dlg.querySelectorAll('.tab-antes, .tab-despues').forEach((x) => x.classList.remove('tab-antes', 'tab-despues')); });
     // Tablero: soltar en otra columna cambia el estado. Calendario: soltar en otro día cambia la fecha.
     dlg.addEventListener('dragover', (e) => {
-      if (tabArrastrada) return;
+      if (tabArrastrada || colArrastrada) return;
       const col = e.target.closest('[data-op-col], [data-op-dia]');
       if (!col) return;
       e.preventDefault();
@@ -202,6 +233,7 @@ export async function abrirOperativa(opts) {
     });
     dlg.addEventListener('dragleave', (e) => { const col = e.target.closest('[data-op-col], [data-op-dia]'); if (col && !col.contains(e.relatedTarget)) { col.classList.remove('sobre'); quitarHueco(); } });
     dlg.addEventListener('drop', (e) => {
+      if (colArrastrada || e.dataTransfer.types.includes('text/x-op-col')) return;
       const col = e.target.closest('[data-op-col], [data-op-dia]');
       if (!col) return;
       e.preventDefault();
@@ -360,7 +392,7 @@ function tarjetaTablero(t, hoy) {
         ${t.notas ? `<p class="op-card-desc">${esc(richToText(t.notas).replace(/🎬/g, '🎬 vídeo').replace(/\s*•\s*/g, ' · ').replace(/\s*\n+\s*/g, ' · ').replace(/^ · /, '').slice(0, 120))}</p>` : ''}
         ${estaBloqueada(t) ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}
         ${ck.total ? `<div class="op-ck-mini${ck.hechos === ck.total ? ' completa' : ''}" title="Checklist: ${ck.hechos} de ${ck.total}"><span class="op-ck-barra"><i style="width:${Math.round((ck.hechos / ck.total) * 100)}%"></i></span><b>☑ ${ck.hechos}/${ck.total}</b></div>` : ''}
-        <footer>${chipFecha(t, hoy)}${t.repetir?.tipo ? `<span class="op-rep" title="${esc(textoRepetir(t.repetir))}">🔁</span>` : ''}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}<span class="op-card-proy">${fProy ? '' : chipProyecto(t)}</span>${gestiona(t.cliente) ? `<button type="button" class="op-resp-b" data-op-resp="${esc(clave(t))}" title="Responsable: ${esc(quienTxt(t))} · pulsa para cambiarlo" aria-label="Cambiar responsable">${avatar(t)}</button>` : avatar(t)}</footer>
+        <footer><button type="button" class="op-fecha-b${t.fecha ? '' : ' vacia'}" data-op-fecha-k="${esc(clave(t))}" title="Fecha límite${t.fecha ? `: ${esc(fechaCorta(t.fecha))}` : ''} · pulsa para cambiarla" aria-label="Cambiar la fecha límite">${t.fecha ? chipFecha(t, hoy) : '<span class="op-fecha">📅 Fecha</span>'}</button>${t.repetir?.tipo ? `<span class="op-rep" title="${esc(textoRepetir(t.repetir))}">🔁</span>` : ''}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}<span class="op-card-proy">${fProy ? '' : chipProyecto(t)}</span>${gestiona(t.cliente) ? `<button type="button" class="op-resp-b" data-op-resp="${esc(clave(t))}" title="Responsable: ${esc(quienTxt(t))} · pulsa para cambiarlo" aria-label="Cambiar responsable">${avatar(t)}</button>` : avatar(t)}</footer>
       </article>`;
 }
 // Orden de cada columna: el puesto a mano (arrastrando o con ↑/↓); si no, prioridad alta primero y después la fecha.
@@ -460,7 +492,7 @@ function vistaTablero(lista, hoy) {
   return `${barra}<p class="op-ayuda">Arrastra las tarjetas a otra columna, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ de una tarjeta para completarla. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.</p>
   <div class="op-tablero${quieto}" style="--op-ncol:${tab.columnas.length};${estiloAnchos(`${fProy}|${tab.id}`, tab.columnas.map((c) => c.id), true)}">${tab.columnas.map((c, i) => {
     const ts = suyas.filter((t) => columnaDeTarea(t, tab) === c.id).sort(porOrden);
-    return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header><span class="op-col-dot"></span><span class="op-col-nom" title="${esc(c.nombre)}">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${esc(c.id)}" title="Nueva tarea en «${esc(c.nombre)}»" aria-label="Nueva tarea en ${esc(c.nombre)}">＋</button></header>
+    return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header${gestiona(fProy) ? ` class="op-col-arr" draggable="true" data-op-col-arr="${esc(c.id)}" title="Arrastra para mover la columna a un lado u otro"` : ''}><span class="op-col-dot"></span><span class="op-col-nom" title="${esc(c.nombre)}">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${esc(c.id)}" title="Nueva tarea en «${esc(c.nombre)}»" aria-label="Nueva tarea en ${esc(c.nombre)}">＋</button></header>
       <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div>${pieColumna(c.id)}${asaAncho(c.id)}</section>`;
   }).join('')}</div>`;
 }
@@ -528,6 +560,18 @@ async function moverTableros(ids) {
   ultimoTablero = `${fProy}|${fTab}|${fEmb}|${fEtq}`; // sin la animación de entrada
   pintarVista();
   try { await guardarTableros({ op: 'tablero-orden', proyecto: fProy, ids }); } catch (err) { d.tableros = antes; window.alert(err.message); pintarVista(); }
+}
+// Guarda el nuevo orden de las columnas de un tablero (se ve ya, antes de que conteste el servidor).
+async function moverColumnas(tab, columnas) {
+  const antes = d.tableros;
+  const nuevo = { ...tab, proyecto: fProy, columnas };
+  d.tableros = [...d.tableros.filter((b) => !(b.proyecto === fProy && b.id === tab.id)), nuevo];
+  ultimoTablero = `${fProy}|${fTab}|${fEmb}|${fEtq}`; // sin la animación de entrada
+  pintarVista();
+  try {
+    await guardarTableros({ op: 'tablero-guardar', tablero: { id: tab.id, proyecto: fProy, nombre: tab.nombre, columnas } });
+  } catch (err) { d.tableros = antes; window.alert(err.message); }
+  pintarVista();
 }
 async function guardarTableros(cuerpo) {
   const r = await ctx.api('/api/operativa', { method: 'POST', body: cuerpo });
@@ -664,11 +708,15 @@ function pintarFicha() {
 }
 
 // ---- Enlaces con «@» ----
-// Lo que se puede enlazar: las tareas que ves (de todos los proyectos) y los tableros de cada proyecto.
+// Lo que se puede enlazar: las personas (las que pueden estar en esa tarea), las tareas que ves (de todos los
+// proyectos) y los tableros de cada proyecto.
 function buscarEnlaces(q) {
+  const tAbierta = abierta && buscarT(abierta);
+  const cid = tAbierta ? tAbierta.cliente : creando ? proyectoDef() : '';
+  const personas = (cid ? equipoDe(cid) : d.equipo).map((u) => ({ ref: refPersona(u.id), titulo: u.nombre, sub: u.agencia ? 'Agencia' : 'Del proyecto', icono: '👤' }));
   const tableros = d.proyectos.flatMap((p) => tabsDe(p.id).map((b) => ({ ref: refTablero(p.id, b.id), titulo: b.nombre, sub: `Tablero · ${p.nombre}`, icono: '🗂️' })));
   const tareas = d.tareas.filter((t) => clave(t) !== abierta).map((t) => ({ ref: refTarea(t.cliente, t.code, t.id), titulo: t.titulo, sub: [t.clienteNombre, t.embudo].filter(Boolean).join(' · '), icono: estadoOp(t) === 'hecha' ? '✅' : '📝' }));
-  return filtrarEnlaces([...tableros, ...tareas], q);
+  return filtrarEnlaces([...personas, ...tareas, ...tableros], q);
 }
 // Ir a lo enlazado: la ficha de la tarea o el tablero (con su cliente elegido).
 function irA(r) {
@@ -774,12 +822,34 @@ function abrirMenuResp(b, t) {
   m.dataset.k = clave(t);
   m.innerHTML = `<div class="op-resp-h">Responsable</div>${pr.length && ag.length ? `<div class="op-resp-g">Agencia</div>${ag.map(fila).join('')}<div class="op-resp-g">Del proyecto</div>${pr.map(fila).join('')}` : lista.map(fila).join('')}
     <button type="button" role="menuitem" class="op-resp-sin${actual ? '' : ' on'}" data-op-resp-uid=""><span class="pr-av vacio">?</span>Sin asignar</button>`;
+  colocarMenu(m, b, 'derecha');
+  m.querySelector('.on, button')?.focus();
+}
+// Pone un menú flotante junto al botón que lo abre (debajo; si no cabe, encima).
+function colocarMenu(m, b, lado = 'izquierda') {
   ctx.dialog.appendChild(m);
   const r = b.getBoundingClientRect();
   const alto = m.offsetHeight;
   const ancho = m.offsetWidth;
-  m.style.left = `${Math.max(8, Math.min(window.innerWidth - ancho - 8, r.right - ancho))}px`;
+  const x = lado === 'derecha' ? r.right - ancho : r.left;
+  m.style.left = `${Math.max(8, Math.min(window.innerWidth - ancho - 8, x))}px`;
   m.style.top = `${r.bottom + 6 + alto > window.innerHeight ? Math.max(8, r.top - alto - 6) : r.bottom + 6}px`;
+}
+// Menú rápido de la fecha límite (pulsando la fecha de la tarjeta): atajos y un calendario.
+const masDias = (f, n) => { const x = new Date(`${f}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+function abrirMenuFecha(b, t) {
+  cerrarMenuResp();
+  const hoy = hoyMadrid();
+  const dow = new Date(`${hoy}T12:00:00Z`).getUTCDay(); // 0 domingo
+  const atajos = [['Hoy', hoy], ['Mañana', masDias(hoy, 1)], ['Este viernes', masDias(hoy, (5 - dow + 7) % 7 || 7)], ['Próximo lunes', masDias(hoy, (8 - dow) % 7 || 7)], ['En una semana', masDias(hoy, 7)]];
+  const m = document.createElement('div');
+  m.className = 'op-resp-menu op-fecha-menu';
+  m.setAttribute('role', 'menu');
+  m.dataset.k = clave(t);
+  m.innerHTML = `<div class="op-resp-h">Fecha límite</div>${atajos.map(([l, f]) => `<button type="button" role="menuitem" class="${f === t.fecha ? 'on' : ''}" data-op-fecha-set="${f}"><span>${l}</span><small>${esc(fechaCorta(f))}</small></button>`).join('')}
+    <label class="op-fecha-otra"><span>Otra fecha</span><input type="date" data-op-fecha-input value="${esc(t.fecha || '')}"></label>
+    ${t.fecha ? '<button type="button" role="menuitem" class="op-resp-sin" data-op-fecha-set="">✕ Quitar la fecha</button>' : ''}`;
+  colocarMenu(m, b);
   m.querySelector('.on, button')?.focus();
 }
 
@@ -797,11 +867,21 @@ async function onClick(e) {
     pintar();
     return;
   }
+  const fs = e.target.closest('[data-op-fecha-set]');
+  if (fs) {
+    const t = buscarT(fs.closest('.op-resp-menu').dataset.k);
+    cerrarMenuResp();
+    if (t && fs.dataset.opFechaSet !== (t.fecha || '')) cambiarFecha(t, fs.dataset.opFechaSet);
+    return;
+  }
+  const fb = e.target.closest('[data-op-fecha-k]');
+  if (fb) { e.stopPropagation(); const t = buscarT(fb.dataset.opFechaK); if (t) abrirMenuFecha(fb, t); return; }
+  if (e.target.closest('.op-fecha-menu')) return; // dentro del menú de la fecha (el calendario) no se cierra
   const rb = e.target.closest('[data-op-resp]');
   if (rb) { e.stopPropagation(); const t = buscarT(rb.dataset.opResp); if (t) abrirMenuResp(rb, t); return; }
   if (!e.target.closest('.op-resp-menu')) cerrarMenuResp();
   const ei = e.target.closest('a.enlace-int');
-  if (ei && !ei.closest('[contenteditable="true"]')) { e.preventDefault(); irA(leerRef(ei.getAttribute('href'))); return; }
+  if (ei && !ei.closest('[contenteditable="true"]')) { e.preventDefault(); const r = leerRef(ei.getAttribute('href')); if (r?.tipo !== 'persona') irA(r); return; }
   const v = e.target.closest('[data-op-vista]');
   if (v) { vista = v.dataset.opVista; pintar(); return; }
   const fe = e.target.closest('[data-op-fetq]');
@@ -1006,6 +1086,13 @@ async function guardarRepetir(box) {
 
 async function onChange(e) {
   const t0 = e.target;
+  if (t0.matches?.('[data-op-fecha-input]')) {
+    const t = buscarT(t0.closest('.op-resp-menu')?.dataset.k);
+    if (!t || !t0.value || t0.value === t.fecha) return;
+    cerrarMenuResp();
+    cambiarFecha(t, t0.value);
+    return;
+  }
   if (t0.id === 'op-importar' && t0.files?.[0]) {
     const f = t0.files[0];
     t0.value = '';

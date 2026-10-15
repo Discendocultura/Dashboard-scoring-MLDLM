@@ -1,29 +1,37 @@
-// Enlaces entre tareas y tableros escribiendo «@» (en la descripción y en los comentarios), en la Operativa y en
-// las tareas de cada proyecto.
-//   Referencias: «#tarea:<cliente>|<código>|<id>» y «#tablero:<proyecto>|<id>».
+// Enlaces entre tareas y tableros, y menciones a personas, escribiendo «@» (en la descripción y en los comentarios),
+// en la Operativa y en las tareas de cada proyecto.
+//   Referencias: «#tarea:<cliente>|<código>|<id>», «#tablero:<proyecto>|<id>» y «#persona:<uid>».
 //   Descripción (texto con formato): <a href="#tarea:…">Título</a> (richtext.js las deja pasar).
 //   Comentarios (texto plano): «@[Título](#tarea:…)», que al mostrarse es un enlace.
 //   activarArroba(campo, buscar)  →  lista de sugerencias al escribir «@» en un textarea o un editor (contenteditable).
 
 const PARTE = '[A-Za-z0-9_.-]{1,60}';
-export const RE_REF = new RegExp(`^#(tarea|tablero):(${PARTE}(?:\\|${PARTE}){1,2})$`);
+export const RE_REF = new RegExp(`^#(tarea|tablero|persona):(${PARTE}(?:\\|${PARTE}){0,2})$`);
 export const refTarea = (cliente, code, id) => `#tarea:${cliente}|${code}|${id}`;
 export const refTablero = (proyecto, id) => `#tablero:${proyecto}|${id}`;
+export const refPersona = (uid) => `#persona:${uid}`;
 
-// { tipo: 'tarea', cliente, code, id } · { tipo: 'tablero', proyecto, id } · o null.
+// { tipo: 'tarea', cliente, code, id } · { tipo: 'tablero', proyecto, id } · { tipo: 'persona', id } · o null.
 export function leerRef(href) {
   const m = RE_REF.exec(String(href || '').trim());
   if (!m) return null;
   const p = m[2].split('|');
   if (m[1] === 'tarea') return p.length === 3 ? { tipo: 'tarea', cliente: p[0], code: p[1], id: p[2] } : null;
+  if (m[1] === 'persona') return p.length === 1 ? { tipo: 'persona', id: p[0] } : null;
   return p.length === 2 ? { tipo: 'tablero', proyecto: p[0], id: p[1] } : null;
 }
+// Personas mencionadas en un texto (descripción con formato o comentario): sus ids, sin repetir.
+export function personasEn(texto) {
+  return [...new Set([...String(texto || '').matchAll(/#persona:([A-Za-z0-9_.-]{1,60})(?![A-Za-z0-9_.|-])/g)].map((m) => m[1]))];
+}
+// Comentario en texto plano (para emails): «@[Título](#ref)» → «Título» (y «@Nombre» para una persona).
+export const comentarioPlano = (texto) => String(texto || '').replace(/@\[([^\]\n]{1,200})\]\((#(?:tarea|tablero|persona):[A-Za-z0-9_.|-]{1,200})\)/g, (t, titulo, ref) => (ref.startsWith('#persona:') ? `@${titulo}` : `«${titulo}»`));
 
 const limpiarTitulo = (s) => String(s || '').replace(/[[\]\n\r]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'Sin título';
 export const tokenComentario = (titulo, ref) => `@[${limpiarTitulo(titulo)}](${ref})`;
 
 // En un texto YA escapado (HTML), los «@[Título](#ref)» pasan a ser enlaces.
-const RE_TOKEN = /@\[([^\]\n]{1,200})\]\((#(?:tarea|tablero):[A-Za-z0-9_.|-]{3,200})\)/g;
+const RE_TOKEN = /@\[([^\]\n]{1,200})\]\((#(?:tarea|tablero|persona):[A-Za-z0-9_.|-]{1,200})\)/g;
 export function enlacesEnTexto(html) {
   return String(html || '').replace(RE_TOKEN, (todo, titulo, ref) => {
     const r = leerRef(ref);
@@ -33,11 +41,16 @@ export function enlacesEnTexto(html) {
 
 const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 // Filtra candidatos [{ ref, titulo, sub, icono }] por lo escrito tras la «@» (cada palabra tiene que aparecer).
-export function filtrarEnlaces(items, q, max = 8) {
+// Hasta `max` de cada tipo (personas, tareas, tableros), para que unas no tapen a las otras.
+export function filtrarEnlaces(items, q, max = 6) {
   const ps = norm(q).split(/\s+/).filter(Boolean);
-  return items.filter((x) => { const t = norm(`${x.titulo} ${x.sub || ''}`); return ps.every((p) => t.includes(p)); }).slice(0, max);
+  const n = {};
+  return items.filter((x) => { const t = norm(`${x.titulo} ${x.sub || ''}`); return ps.every((p) => t.includes(p)); })
+    .filter((x) => { const k = leerRef(x.ref)?.tipo || 'tarea'; n[k] = (n[k] || 0) + 1; return n[k] <= max; });
 }
 
+const GRUPO = { persona: '👤 Mencionar a una persona', tarea: '📝 Enlazar una tarea', tablero: '🗂️ Enlazar un tablero' };
+const ORDEN_TIPO = { persona: 0, tarea: 1, tablero: 2 };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const RE_ARROBA = /(^|[\s(])@([^\s@[\]]{0,30})$/;
 
@@ -106,9 +119,17 @@ export function activarArroba(el, buscar) {
   let turno = 0;
   const cerrar = () => { lista.hidden = true; items = []; actual = null; };
   const pintar = () => {
+    // Agrupadas por tipo (personas, tareas, tableros) para que se vea qué es cada cosa.
+    const fila = (x, i) => `<button type="button" role="option" class="${i === activo ? 'activo' : ''}" data-arroba-i="${i}"><span class="arroba-ico" aria-hidden="true">${esc(x.icono || '📝')}</span><span class="arroba-t">${esc(x.titulo)}</span>${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</button>`;
+    let ultimo = '';
     lista.innerHTML = items.length
-      ? `<div class="arroba-h">Enlazar una tarea o un tablero</div>${items.map((x, i) => `<button type="button" role="option" class="${i === activo ? 'activo' : ''}" data-arroba-i="${i}"><span class="arroba-ico" aria-hidden="true">${esc(x.icono || '📝')}</span><span class="arroba-t">${esc(x.titulo)}</span>${x.sub ? `<small>${esc(x.sub)}</small>` : ''}</button>`).join('')}`
-      : '<div class="arroba-h">Ninguna tarea ni tablero con ese nombre</div>';
+      ? items.map((x, i) => {
+        const tipo = leerRef(x.ref)?.tipo || 'tarea';
+        const h = tipo !== ultimo ? `<div class="arroba-h">${GRUPO[tipo]}</div>` : '';
+        ultimo = tipo;
+        return h + fila(x, i);
+      }).join('')
+      : '<div class="arroba-h">Nadie ni nada con ese nombre</div>';
     lista.style.top = `${el.offsetTop + el.offsetHeight + 4}px`;
     lista.style.left = `${el.offsetLeft}px`;
     lista.style.width = `${Math.min(420, Math.max(260, el.offsetWidth))}px`;
@@ -121,7 +142,7 @@ export function activarArroba(el, buscar) {
     const r = await buscar(c.q);
     if (t !== turno) return;
     actual = c;
-    items = Array.isArray(r) ? r : [];
+    items = (Array.isArray(r) ? r : []).map((x, i) => ({ x, i, o: ORDEN_TIPO[leerRef(x.ref)?.tipo] ?? 1 })).sort((a, b) => a.o - b.o || a.i - b.i).map((y) => y.x);
     activo = 0;
     pintar();
   };

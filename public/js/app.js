@@ -41,7 +41,7 @@ import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
 import { abrirProcesos } from './procesos-panel.js';
 import { abrirAtajos } from './atajos-panel.js';
 import { abrirOperativa } from './operativa-panel.js';
-import { activarArroba, enlacesEnTexto, filtrarEnlaces, leerRef, refTarea, refTablero, tokenComentario } from './enlaces.js';
+import { activarArroba, enlacesEnTexto, filtrarEnlaces, leerRef, refTarea, refTablero, refPersona, tokenComentario } from './enlaces.js';
 import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
@@ -8780,14 +8780,19 @@ function enlacesProyecto(q, sinId = '') {
   const vistas = new Set(propias.map((x) => x.ref));
   return filtrarEnlaces([...propias, ...(indiceOp?.items || []).filter((x) => !vistas.has(x.ref))], q);
 }
-activarArroba(editor, async (q) => { await cargarIndiceOp(); return enlacesProyecto(q, editingTarea?.id); });
+// En la descripción también se menciona a las personas del proyecto (en los comentarios ya se hace con «@Nombre»).
+activarArroba(editor, async (q) => {
+  await cargarIndiceOp();
+  const personas = (state.tareas?.users || []).filter((u) => u.nombre && u.activo !== false).map((u) => ({ ref: refPersona(u.id), titulo: u.nombre, sub: ROLE_LABEL[u.rol] || u.rol || '', icono: '👤' }));
+  return [...filtrarEnlaces(personas, q), ...enlacesProyecto(q, editingTarea?.id)];
+});
 // Pulsar un enlace: una tarea de este cliente se abre aquí; lo demás (otro cliente, la Operativa, un tablero), en la Operativa.
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a.enlace-int');
   if (!a || a.closest('[contenteditable="true"]') || a.closest('#operativa-dialog')) return;
   e.preventDefault();
   const r = leerRef(a.getAttribute('href'));
-  if (!r) return;
+  if (!r || r.tipo === 'persona') return; // una mención a una persona no lleva a ningún sitio
   if (r.tipo === 'tarea' && r.cliente === state.cliente && (state.config.launches?.[r.code] || state.config.vsls?.[r.code])) { a.closest('dialog')?.close(); abrirTareaEn(r.code, r.id); return; }
   if (!document.body.classList.contains('can-operativa')) { notice('Ese enlace lleva a la Operativa, y no tienes acceso a ella.', true); return; }
   abrirOperativa({ api, dialog: $('#operativa-dialog'), ir: r });

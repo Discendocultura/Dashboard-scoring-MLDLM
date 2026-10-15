@@ -28,12 +28,13 @@ import { getSession } from '../lib/auth.js';
 import { listClientes } from '../lib/clientes.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { listUsersRaw, rolEn, newId } from '../lib/users.js';
-import { todasLasTareas, visiblesOperativa, proyectosQueGestiona, puedeOperativa, clienteDeTarea, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, ordenarTareas, avisarAsignada, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
+import { todasLasTareas, visiblesOperativa, proyectosQueGestiona, puedeOperativa, clienteDeTarea, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, ordenarTareas, avisarAsignada, avisarMencionOp, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
 import { tablerosDe, ordenarTableros, alFinal, MAX_ORDENAR, sanitizeTablero, sanitizeColumnas, GENERAL, sanitizeChecklist, prioridadValida, MAX_ETIQUETAS_TAREA, COLORES_ETIQUETA } from '../public/js/tableros.js';
 import { sanitizeRepetir } from '../public/js/procesos.js';
 import { PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from '../public/js/operativa.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
-import { sanitizeRich } from '../public/js/richtext.js';
+import { sanitizeRich, richToText } from '../public/js/richtext.js';
+import { personasEn, comentarioPlano } from '../public/js/enlaces.js';
 import { normalizarImportacion, personaDe } from '../public/js/tableros-import.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
@@ -212,6 +213,10 @@ export async function POST(request) {
     const cfgTableros = ['columna', 'etiquetas'].includes(body.op) ? await getTableros() : null;
     let nueva = null; // la siguiente de una tarea que se repite, si al completarla se ha creado
     let avisar = '';
+    let mencionar = null; // { uids, texto, donde }: a quién avisar de que le han mencionado con «@»
+    // Solo se avisa a quien puede estar en la tarea: el equipo de la agencia y la gente con acceso a ese proyecto.
+    const posibles = ['comentar', 'descripcion'].includes(body.op) ? await equipoPara(s) : [];
+    const mencionables = (texto, cid) => personasEn(texto).filter((uid) => uid !== s.uid && asignable(posibles.find((u) => u.id === uid), cid));
     const t = await cambiarTarea(ref, async (t, lista) => {
       if (body.op === 'estado' && body.estado === 'bloqueado') { comprobar(t); ponerBloqueo(t, body.bloqueo); } else if (body.op === 'estado') {
         comprobar(t);
@@ -261,12 +266,17 @@ export async function POST(request) {
         t.titulo = titulo;
       } else if (body.op === 'descripcion') {
         comprobar(t);
+        const antes = new Set(personasEn(t.notas));
         t.notas = sanitizeRich(body.notas);
+        const nuevas = mencionables(t.notas, clienteDeTarea(t, ref)).filter((uid) => !antes.has(uid));
+        if (nuevas.length) mencionar = { uids: nuevas, texto: richToText(t.notas).slice(0, 600), donde: 'la descripción' };
       } else if (body.op === 'comentar') {
         comprobar(t);
         const texto = String(body.texto ?? '').replace(/\r/g, '').trim().slice(0, 2000);
         if (!texto) throw bad('El comentario está vacío');
-        t.comentarios = [...(Array.isArray(t.comentarios) ? t.comentarios : []), { id: newId('c'), uid: s.uid || '', nombre: por, texto, en: new Date().toISOString(), menciones: [] }].slice(-100);
+        const menciones = mencionables(texto, clienteDeTarea(t, ref));
+        t.comentarios = [...(Array.isArray(t.comentarios) ? t.comentarios : []), { id: newId('c'), uid: s.uid || '', nombre: por, texto, en: new Date().toISOString(), menciones }].slice(-100);
+        if (menciones.length) mencionar = { uids: menciones, texto: comentarioPlano(texto), donde: 'un comentario' };
       } else if (body.op === 'borrar-comentario') {
         const c = (t.comentarios || []).find((x) => x.id === body.cid);
         if (!c) throw bad('Ese comentario ya no existe', 404);
@@ -292,7 +302,12 @@ export async function POST(request) {
       const proyecto = ref.cliente === PROYECTO_AGENCIA ? 'Agencia' : (await listClientes()).find((c) => c.id === ref.cliente)?.nombre || ref.cliente;
       await avisarAsignada({ ...t, clienteNombre: proyecto, embudo: '' }, avisar, { url, por }).catch((e) => console.error('Aviso', e.message));
     }
-    return json({ ok: true, tarea: t, ...(nueva ? { nueva: resumenTarea(nueva, { cliente: ref.cliente, code: ref.code }) } : {}) });
+    let mencionados = 0;
+    if (mencionar) {
+      const proyecto = ref.cliente === PROYECTO_AGENCIA ? 'Agencia' : (await listClientes()).find((c) => c.id === ref.cliente)?.nombre || '';
+      mencionados = await avisarMencionOp({ ...t, clienteNombre: proyecto }, mencionar.uids, { url, por, texto: mencionar.texto, donde: mencionar.donde }).catch((e) => { console.error('Mención', e.message); return 0; });
+    }
+    return json({ ok: true, tarea: t, mencionados, ...(nueva ? { nueva: resumenTarea(nueva, { cliente: ref.cliente, code: ref.code }) } : {}) });
   } catch (e) {
     return errorResponse(e);
   }
