@@ -437,6 +437,8 @@ async function start() {
   state.clientes = me.clientes || [];
   state.superadmin = Boolean(me.superadmin);
   state.agencia = Boolean(me.superadmin || me.user?.agencia);
+  // La Operativa: el equipo de la agencia y los admin de algún proyecto (estos, con lo de sus proyectos).
+  state.operativa = Boolean(state.agencia || me.operativa);
   if (!me.role) {
     // Sin acceso a este cliente: a su primer cliente (o, si no tiene ninguno, a la pantalla de acceso).
     const otro = state.clientes.find((c) => c.id !== me.cliente?.id);
@@ -462,6 +464,7 @@ async function start() {
   document.body.classList.toggle('is-equipo', role === 'equipo');
   document.body.classList.toggle('is-superadmin', state.superadmin);
   document.body.classList.toggle('is-agencia', state.agencia);
+  document.body.classList.toggle('can-operativa', state.operativa);
   pintarCliente(me.cliente);
   // El cliente (solo lectura) ve únicamente su portal de resultados.
   if (role === ROL_CLIENTE) {
@@ -872,20 +875,11 @@ function renderAgenciaInicio() {
           <button type="button" class="btn" data-ag-accion="nuevo">＋ Añadir cliente</button>
           <button type="button" class="btn" data-ag-accion="vercomo">👁️ Ver como</button>
           <button type="button" class="btn" data-ag-accion="equipo">👥 Equipo</button>
-          <button type="button" class="btn" data-ag-accion="operativa">🗂️ Operativa</button>
-          <button type="button" class="btn" data-ag-accion="procesos">📚 Procesos</button>
         </div>
       </div>
       <div class="ag-hero-salud">${donutSalud(t, cl)}</div>
     </section>
-    <div class="kpis ag-kpis-top">
-      ${card('Facturación en curso', eur(t.facturacion), `${t.enCurso} lanzamiento${t.enCurso === 1 ? '' : 's'} en curso`, 'coins', 'money')}
-      ${card('Inversión gestionada', eur(t.inversion), 'Meta, lanzamientos en curso', 'megaphone', 'accent')}
-      ${card('ROAS medio', t.roas != null ? `${t.roas.toFixed(2).replace('.', ',')}x` : '–', 'facturación ÷ inversión', 'trend', t.roas == null ? 'info' : t.roas >= 1 ? 'buy' : 'accent')}
-      ${card('Registros', t.registros.toLocaleString('es-ES'), `${t.vip.toLocaleString('es-ES')} VIP`, 'users', 'info')}
-      ${card('Ventas', t.ventas.toLocaleString('es-ES'), 'de los lanzamientos en curso', 'cart', 'buy')}
-    </div>
-    <div class="ag-accesos">
+    <div class="ag-accesos ag-accesos-top">
     <button type="button" class="ag-procesos ag-operativa" data-ag-accion="operativa">
       <span class="ag-procesos-ico" aria-hidden="true">🗂️</span>
       <span class="ag-procesos-txt"><strong>Operativa</strong><small>Todas las tareas de todos los proyectos: qué toca hoy, qué va con retraso y qué está bloqueado.</small></span>
@@ -896,6 +890,13 @@ function renderAgenciaInicio() {
       <span class="ag-procesos-txt"><strong>Biblioteca de procesos</strong><small>Cómo se hace todo en la agencia: pasos, vídeos y enlaces. Solo para el equipo.</small></span>
       <span class="ag-procesos-ir" aria-hidden="true">Abrir →</span>
     </button>
+    </div>
+    <div class="kpis ag-kpis-top">
+      ${card('Facturación en curso', eur(t.facturacion), `${t.enCurso} lanzamiento${t.enCurso === 1 ? '' : 's'} en curso`, 'coins', 'money')}
+      ${card('Inversión gestionada', eur(t.inversion), 'Meta, lanzamientos en curso', 'megaphone', 'accent')}
+      ${card('ROAS medio', t.roas != null ? `${t.roas.toFixed(2).replace('.', ',')}x` : '–', 'facturación ÷ inversión', 'trend', t.roas == null ? 'info' : t.roas >= 1 ? 'buy' : 'accent')}
+      ${card('Registros', t.registros.toLocaleString('es-ES'), `${t.vip.toLocaleString('es-ES')} VIP`, 'users', 'info')}
+      ${card('Ventas', t.ventas.toLocaleString('es-ES'), 'de los lanzamientos en curso', 'cart', 'buy')}
     </div>
     <div class="ag-dos">
       <section class="card ag-urg">
@@ -8726,7 +8727,7 @@ document.addEventListener('click', async (e) => {
 // Las tareas de este proyecto y, para el equipo de la agencia, también las de la Operativa y sus tableros.
 let indiceOp = null;
 async function cargarIndiceOp() {
-  if (!document.body.classList.contains('is-agencia')) { indiceOp = { at: Date.now(), items: [] }; return; }
+  if (!document.body.classList.contains('can-operativa')) { indiceOp = { at: Date.now(), items: [] }; return; }
   if (indiceOp && Date.now() - indiceOp.at < 60_000) return;
   indiceOp = { at: Date.now(), items: indiceOp?.items || [] };
   try {
@@ -8754,7 +8755,7 @@ document.addEventListener('click', (e) => {
   const r = leerRef(a.getAttribute('href'));
   if (!r) return;
   if (r.tipo === 'tarea' && r.cliente === state.cliente && (state.config.launches?.[r.code] || state.config.vsls?.[r.code])) { a.closest('dialog')?.close(); abrirTareaEn(r.code, r.id); return; }
-  if (!document.body.classList.contains('is-agencia')) { notice('Ese enlace lleva a la Operativa de la agencia.', true); return; }
+  if (!document.body.classList.contains('can-operativa')) { notice('Ese enlace lleva a la Operativa, y no tienes acceso a ella.', true); return; }
   abrirOperativa({ api, dialog: $('#operativa-dialog'), ir: r });
 });
 
@@ -12463,6 +12464,7 @@ async function asistenteMarcaCliente({ equipo = false } = {}) {
 }
 
 // ---------- 🎨 Marca y avatar (cuestionario del cliente: la fuente de los prompts) ----------
+$('#inicio-operativa-btn').addEventListener('click', () => abrirOperativa({ api, dialog: $('#operativa-dialog') }));
 $('#btn-operativa').addEventListener('click', () => { $('#tb-menu-cuenta').open = false; abrirOperativa({ api, dialog: $('#operativa-dialog') }); });
 $('#btn-procesos').addEventListener('click', () => { $('#tb-menu-cuenta').open = false; abrirProcesos({ api, dialog: $('#procesos-dialog') }); });
 $('#btn-marca').addEventListener('click', () => {

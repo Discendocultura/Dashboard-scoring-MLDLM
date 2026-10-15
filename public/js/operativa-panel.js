@@ -6,7 +6,7 @@
 //   abrirOperativa({ api, dialog })
 import { ESTADOS_OP, estadoOp, estaBloqueada, embudosDe, ICONO_EMBUDO, semanasDelMes, mesMas, agruparPorFecha, resumenProyecto, cargaPorPersona, diasDeRetraso, PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from './operativa.js';
 import { richToHtml, richToText } from './richtext.js';
-import { tablerosDe, tableroDeTarea, columnaDeTarea, columnaHecha, COLUMNAS_SERIE, GENERAL, MAX_COLUMNAS, COLORES_ETIQUETA, etiquetasDeTarea, PRIORIDADES, ordenColumna, recolocar, progresoChecklist, MAX_ETIQUETAS_TAREA } from './tableros.js';
+import { tablerosDe, tableroDeTarea, columnaDeTarea, columnaHecha, COLUMNAS_SERIE, GENERAL, MAX_COLUMNAS, COLORES_ETIQUETA, etiquetasDeTarea, PRIORIDADES, ordenColumna, recolocar, progresoChecklist, MAX_ETIQUETAS_TAREA, tableroPorDefecto } from './tableros.js';
 import { textoRepetir, proximaTrasHecho, encajaEnRepetir, primeraFechaRepetir } from './procesos.js';
 import { editorRepetir, leerRepetir, pulsarDsem } from './repetir-ui.js';
 import { normalizarImportacion } from './tableros-import.js';
@@ -21,7 +21,11 @@ const iniciales = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((x
 const ESTADO = Object.fromEntries(ESTADOS_OP.map((e) => [e.id, e]));
 
 let ctx = null;
-let d = { tareas: [], equipo: [], proyectos: [], yo: '', superadmin: false, tableros: [], plantillas: [], etiquetas: [] };
+let d = { tareas: [], equipo: [], proyectos: [], yo: '', superadmin: false, agencia: false, gestiona: [], tableros: [], plantillas: [], etiquetas: [] };
+// ¿Gestiona ese proyecto (crea tableros, reparte tareas…)? El superadmin, todos; el admin de un proyecto, los suyos.
+const gestiona = (p) => Boolean(d.superadmin || (p && p !== PROYECTO_AGENCIA && d.gestiona?.includes(p)));
+// Proyecto por defecto de una tarea nueva: el elegido arriba; si no, «Agencia» (o el primero suyo si no es de la agencia).
+const proyectoDef = () => fProy || (d.agencia || d.superadmin ? PROYECTO_AGENCIA : d.proyectos[0]?.id || PROYECTO_AGENCIA);
 let fEtq = ''; // filtro por etiqueta ('' = todas; '_alta' = prioridad alta)
 let pickerEtq = false; // el selector de etiquetas de la ficha, abierto
 let colorNueva = 'azul';
@@ -48,6 +52,8 @@ let editor = null; // el editor abierto (descripción o tarea nueva)
 
 const body = () => ctx.dialog.querySelector('#op-body');
 const tabsDe = (proyecto) => tablerosDe({ tableros: d.tableros }, proyecto);
+// El tablero con el que se abre un proyecto: el marcado «por defecto» (si sigue existiendo) o el General.
+const tabInicial = (proyecto) => { const id = tableroPorDefecto(d, proyecto); return tabsDe(proyecto).some((b) => b.id === id) ? id : GENERAL; };
 const tabDeT = (t) => tableroDeTarea(t, tabsDe(t.cliente));
 const modoTableros = () => vista === 'tablero' && Boolean(fProy);
 const clave = (t) => `${t.cliente}|${t.code}|${t.id}`;
@@ -202,6 +208,7 @@ export async function abrirOperativa(opts) {
   calMes = hoyMadrid().slice(0, 7);
   body().innerHTML = '<p class="muted">Cargando las tareas de todos los proyectos…</p>';
   if (!dlg.open) dlg.showModal();
+  fTab = ''; // al entrar, el tablero por defecto del proyecto (lo pone cargar)
   await cargar();
   if (opts.ir && d) irA(opts.ir); // abierta desde un enlace de otra tarea («@»)
 }
@@ -214,7 +221,9 @@ async function cargar() {
   const imp = ctx.dialog.querySelector('#op-importar-btn');
   if (imp) imp.hidden = !d.superadmin; // ya no son pestañas: están en los filtros
   if (fProy && !d.proyectos.some((p) => p.id === fProy)) { fProy = ''; fEmb = ''; }
-  if (!tabsDe(fProy).some((b) => b.id === fTab)) fTab = GENERAL;
+  // Quien solo lleva un proyecto (y no es de la agencia) entra directamente en él, con su tablero por defecto.
+  if (!fProy && !d.superadmin && !d.agencia && d.proyectos.length === 1) { fProy = d.proyectos[0].id; fTab = tabInicial(fProy); }
+  if (!tabsDe(fProy).some((b) => b.id === fTab)) fTab = tabInicial(fProy);
   pintar();
 }
 
@@ -245,13 +254,13 @@ function pintar() {
     + (vencT ? `<span class="op-sub-pill rojo">${vencT} vencida${vencT === 1 ? '' : 's'}</span>` : '<span class="op-sub-pill verde">Nada vencido</span>')
     + (hoyT ? `<span class="op-sub-pill">${hoyT} para hoy</span>` : '')
     + (bloqT ? `<span class="op-sub-pill ambar">${bloqT} bloqueada${bloqT === 1 ? '' : 's'}</span>` : '')
-    + `<span class="op-sub-txt">${d.superadmin ? 'Todo el equipo y todos los proyectos' : 'Lo que tienes asignado en todos los proyectos'}</span>`;
+    + `<span class="op-sub-txt">${d.superadmin ? 'Todo el equipo y todos los proyectos' : d.gestiona?.length ? (d.agencia ? 'Todo lo de los proyectos que llevas y lo que tienes asignado' : 'Todo lo de tus proyectos') : 'Lo que tienes asignado en todos los proyectos'}</span>`;
   body().innerHTML = `<div class="op">
     <nav class="op-tabs">${tab('tablero', '🗂️ Tablero')}${tab('calendario', '🗓️ Calendario')}${tab('dia', `☀️ Mi día${venc ? ` <b>${venc}</b>` : ''}`)}</nav>
     <div class="op-filtros">
       ${selector('op-proyecto', 'Cliente', fProy ? '🏷️' : '🌐', fProy, `<option value="">Todos los clientes</option>${d.proyectos.map((p) => `<option value="${esc(p.id)}"${fProy === p.id ? ' selected' : ''}>${esc(p.nombre)}</option>`).join('')}`, d.proyectos.find((p) => p.id === fProy)?.color)}
       ${fProy && fProy !== PROYECTO_AGENCIA ? (() => { const embs = embudosDe(d.tareas, fProy); return embs.length ? selector('op-embudo', 'Embudo', '🧭', fEmb, `<option value="">Todos los proyectos</option>${embs.map((e) => `<option value="${esc(e.id)}"${fEmb === e.id ? ' selected' : ''}>${ICONO_EMBUDO[e.tipo] || '📁'} ${esc(e.nombre)}${e.n ? ` (${e.n})` : ''}</option>`).join('')}`) : ''; })() : ''}
-      ${d.superadmin ? selector('op-persona', 'Persona', fPersona ? '👤' : '👥', fPersona, `<option value="">Todo el equipo</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${fPersona === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}<option value="_sin"${fPersona === '_sin' ? ' selected' : ''}>Sin asignar</option>`) : ''}
+      ${d.superadmin || d.gestiona?.length ? selector('op-persona', 'Persona', fPersona ? '👤' : '👥', fPersona, `<option value="">Todo el equipo</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${fPersona === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}<option value="_sin"${fPersona === '_sin' ? ' selected' : ''}>Sin asignar</option>`) : ''}
       <label class="pr-buscar op-buscar"><span aria-hidden="true">🔎</span><input id="op-buscar" type="search" placeholder="Buscar…" value="${esc(q)}" autocomplete="off"></label>
     </div>
     ${barraEtiquetas()}
@@ -433,8 +442,8 @@ function vistaTablero(lista, hoy) {
   const tabs = tabsDe(fProy);
   const tab = tabs.find((b) => b.id === fTab) || tabs[0];
   const abiertasDe = (b) => lista.filter((t) => tabDeT(t).id === b.id && estadoOp(t) !== 'hecha').length;
-  const barra = `<nav class="op-tabs-tab" aria-label="Tableros">${tabs.map((b) => `<button type="button" class="op-tab-b${b.id === tab.id ? ' on' : ''}" data-op-tab="${esc(b.id)}"${d.superadmin ? ' draggable="true" title="Arrastra para cambiar el orden"' : ''}>${b.id === GENERAL ? '🗂️' : '📋'} ${esc(b.nombre)} <b>${abiertasDe(b)}</b></button>`).join('')}
-    ${d.superadmin ? `<button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-nuevo">＋ Nuevo tablero</button><button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-importar" title="Desde un archivo .json (también el export de un proyecto de Asana)">⬆️ Importar tablero</button><button type="button" class="btn ghost small op-tab-cfg" data-op="tab-editar" title="Cambiar el nombre del tablero y sus columnas">✏️ Editar «${esc(tab.nombre)}»</button>` : ''}</nav>`;
+  const barra = `<nav class="op-tabs-tab" aria-label="Tableros">${tabs.map((b) => `<button type="button" class="op-tab-b${b.id === tab.id ? ' on' : ''}" data-op-tab="${esc(b.id)}"${gestiona(fProy) ? ' draggable="true" title="Arrastra para cambiar el orden"' : ''}>${b.id === GENERAL ? '🗂️' : '📋'} ${esc(b.nombre)}${b.id === tabInicial(fProy) && b.id !== GENERAL ? ' <span class="op-tab-def" title="Tablero por defecto: se abre al entrar en este proyecto">⭐</span>' : ''} <b>${abiertasDe(b)}</b></button>`).join('')}
+    ${gestiona(fProy) ? `<button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-nuevo">＋ Nuevo tablero</button>${d.superadmin ? '<button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-importar" title="Desde un archivo .json (también el export de un proyecto de Asana)">⬆️ Importar tablero</button>' : ''}<button type="button" class="btn ghost small op-tab-cfg" data-op="tab-editar" title="Cambiar el nombre del tablero y sus columnas">✏️ Editar «${esc(tab.nombre)}»</button>${tab.id === GENERAL && tabInicial(fProy) === GENERAL ? '' : `<button type="button" class="btn ghost small op-tab-defecto${tabInicial(fProy) === tab.id ? ' on' : ''}" data-op="tab-defecto" title="${tabInicial(fProy) === tab.id ? 'Quitar: al entrar se abrirá el General' : 'Que este tablero se abra siempre primero al entrar en el proyecto'}">${tabInicial(fProy) === tab.id ? '⭐ Por defecto' : '☆ Marcar por defecto'}</button>`}` : ''}</nav>`;
   if (editTab) return barra + editorTablero();
   const suyas = lista.filter((t) => tabDeT(t).id === tab.id);
   return `${barra}<p class="op-ayuda">Arrastra las tarjetas a otra columna, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ de una tarjeta para completarla. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.</p>
@@ -479,7 +488,7 @@ function editorTablero() {
     <p class="muted small">Las tareas de una columna que quites pasan a la primera (o a la de hecha, si estaban hechas). Tiene que haber al menos una columna «cuenta como hecha».</p>
     <footer class="op-te-pie">
       ${!e.nuevo && e.id !== GENERAL ? '<button type="button" class="btn ghost small danger" data-op="te-borrar">🗑️ Borrar tablero</button>' : ''}
-      <button type="button" class="btn ghost small" data-op="te-plantilla">📐 Guardar como plantilla</button>
+      ${d.superadmin ? '<button type="button" class="btn ghost small" data-op="te-plantilla">📐 Guardar como plantilla</button>' : ''}
       ${e.nuevo && e.plantilla ? '<button type="button" class="btn ghost small" data-op="te-plantilla-borrar">Borrar esta plantilla</button>' : ''}
       <span class="spacer"></span>
       <button type="button" class="btn ghost" data-op="te-cancelar">Cancelar</button><button type="button" class="btn primary" data-op="te-guardar">${e.nuevo ? 'Crear tablero' : 'Guardar cambios'}</button>
@@ -513,6 +522,7 @@ async function guardarTableros(cuerpo) {
   const r = await ctx.api('/api/operativa', { method: 'POST', body: cuerpo });
   d.tableros = r.tableros;
   d.plantillas = r.plantillas;
+  if (r.porDefecto) d.porDefecto = r.porDefecto;
   return r;
 }
 
@@ -594,8 +604,8 @@ function pintarFicha() {
       <header class="op-ficha-h"><h3>＋ Nueva tarea</h3><button type="button" class="btn ghost small" data-op="cerrar-ficha" aria-label="Cerrar">✕</button></header>
       <p class="muted small">Elige el proyecto y su tablero. Lo interno que no es de ningún cliente (facturas, equipo…) va a «Agencia».</p>
       <label class="field"><span>Qué hay que hacer</span><input name="titulo" required maxlength="200" autocomplete="off"></label>
-      <div class="op-form-fila"><label class="field"><span>Proyecto</span><select name="proyecto">${d.proyectos.map((p) => `<option value="${esc(p.id)}"${p.id === (fProy || PROYECTO_AGENCIA) ? ' selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></label>
-      <label class="field"><span>Tablero</span><select name="tablero">${tabsDe(fProy || PROYECTO_AGENCIA).map((b) => `<option value="${esc(b.id)}"${b.id === fTab ? ' selected' : ''}>${esc(b.nombre)}</option>`).join('')}</select></label></div>
+      <div class="op-form-fila"><label class="field"><span>Proyecto</span><select name="proyecto">${d.proyectos.map((p) => `<option value="${esc(p.id)}"${p.id === proyectoDef() ? ' selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></label>
+      <label class="field"><span>Tablero</span><select name="tablero">${tabsDe(proyectoDef()).map((b) => `<option value="${esc(b.id)}"${b.id === fTab ? ' selected' : ''}>${esc(b.nombre)}</option>`).join('')}</select></label></div>
       <div class="op-form-fila"><label class="field"><span>Para cuándo</span><input type="date" name="fecha"></label>
       <label class="field"><span>Responsable</span><select name="uid"><option value="">Sin asignar</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${u.id === d.yo ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}</select></label></div>
       <div class="field"><span>Descripción</span><div class="op-editor" data-op-editor></div></div>
@@ -617,14 +627,14 @@ function pintarFicha() {
     : `<h3 class="op-ficha-t">${esc(t.titulo)}<button type="button" class="op-titulo-b" data-op="titulo-editar" title="Cambiar el nombre" aria-label="Cambiar el nombre de la tarea">✏️</button></h3>`}
     <div class="pr-campos">
       <div class="pr-campo"><span class="pr-campo-l">Columna</span><div class="pr-campo-v"><div class="op-estados">${tabT.columnas.map((c) => `<button type="button" class="op-est ${c.hecha ? 'e-hecha' : c.id === 'revision' ? 'e-revision' : 'e-pendiente'}${c.id === colT ? ' on' : ''}" data-op-col-set="${esc(c.id)}">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</button>`).join('')}</div>${posicionHtml(t)}</div></div>
-      ${d.superadmin && tabsT.length > 1 ? `<div class="pr-campo"><span class="pr-campo-l">Tablero</span><div class="pr-campo-v"><select data-op-campo="tablero">${tabsT.map((b) => `<option value="${esc(b.id)}"${b.id === tabT.id ? ' selected' : ''}>${esc(b.nombre)}</option>`).join('')}</select></div></div>` : ''}
+      ${gestiona(t.cliente) && tabsT.length > 1 ? `<div class="pr-campo"><span class="pr-campo-l">Tablero</span><div class="pr-campo-v"><select data-op-campo="tablero">${tabsT.map((b) => `<option value="${esc(b.id)}"${b.id === tabT.id ? ' selected' : ''}>${esc(b.nombre)}</option>`).join('')}</select></div></div>` : ''}
       <div class="pr-campo"><span class="pr-campo-l">Prioridad</span><div class="pr-campo-v"><div class="op-prios">${[{ id: '', label: 'Sin prioridad' }, ...PRIORIDADES].map((pp) => `<button type="button" class="op-prio-b${pp.id ? ` p-${pp.id}` : ''}${(t.prioridad || '') === pp.id ? ' on' : ''}" data-op-prio="${pp.id}">${pp.id === 'alta' ? '🔥 ' : pp.id ? '⚑ ' : ''}${esc(pp.label)}</button>`).join('')}</div></div></div>
       <div class="pr-campo"><span class="pr-campo-l">Etiquetas</span><div class="pr-campo-v op-etqs-v">${etiquetasDeTarea(t, d.etiquetas).map((x) => pildoraEtq(x, ` data-op-etq-toggle="${esc(x.id)}" role="button" tabindex="0" title="Quitar"`)).join('')}<button type="button" class="op-etq-add" data-op="etq-abrir">${pickerEtq ? 'Cerrar' : '＋ Etiqueta'}</button>
         ${pickerEtq ? selectorEtiquetas(t) : ''}</div></div>
       <div class="pr-campo"><span class="pr-campo-l">Se repite</span><div class="pr-campo-v op-rep-v">${editorRepetir(t.repetir)}${bloqueRepetir(t)}</div></div>
       ${e === 'hecha' ? '' : `<div class="pr-campo"><span class="pr-campo-l">Bloqueo</span><div class="pr-campo-v">${estaBloqueada(t) ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span><button type="button" class="btn ghost small" data-op="desbloquear">Desbloquear</button>` : '<button type="button" class="btn ghost small op-bloquear" data-op="bloquear">⛔ Marcar como bloqueada</button>'}</div></div>`}
       <div class="pr-campo"><span class="pr-campo-l">Fecha</span><div class="pr-campo-v"><input type="date" data-op-campo="fecha" value="${esc(t.fecha)}">${chipFecha(t, hoyMadrid())}</div></div>
-      <div class="pr-campo"><span class="pr-campo-l">Responsable</span><div class="pr-campo-v">${d.superadmin ? `<select data-op-campo="uid"><option value="">Sin asignar</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${t.asignado?.tipo === 'persona' && t.asignado.id === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}${t.asignado?.tipo === 'rol' ? `<option selected>Rol ${esc(t.asignado.rol)}</option>` : ''}</select>` : `${avatar(t)} ${esc(quienTxt(t))}`}</div></div>
+      <div class="pr-campo"><span class="pr-campo-l">Responsable</span><div class="pr-campo-v">${gestiona(t.cliente) ? `<select data-op-campo="uid"><option value="">Sin asignar</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${t.asignado?.tipo === 'persona' && t.asignado.id === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}${t.asignado?.tipo === 'rol' ? `<option selected>Rol ${esc(t.asignado.rol)}</option>` : ''}</select>` : `${avatar(t)} ${esc(quienTxt(t))}`}</div></div>
       ${t.embudo && !deAgencia ? `<div class="pr-campo"><span class="pr-campo-l">Embudo</span><div class="pr-campo-v">${esc(t.embudo)}</div></div>` : ''}
     </div>
     ${bloqueChecklist(t)}
@@ -633,7 +643,7 @@ function pintarFicha() {
         : t.notas ? `<div class="rich op-notas">${richToHtml(t.notas)}</div>` : '<button type="button" class="op-desc-vacia" data-op="editar-desc">Añade la descripción: pasos, enlaces, listas, negritas o un vídeo…</button>'}
     </section>
     <section class="pr-bloque"><h4>Comentarios ${t.comentarios?.length ? `<span class="muted">${t.comentarios.length}</span>` : ''}</h4>
-      <ol class="pr-hilo">${(t.comentarios || []).map((c) => `<li class="pr-com"><span class="pr-av">${esc(iniciales(c.nombre))}</span><div class="pr-com-c"><header><strong>${esc(c.nombre)}</strong><span class="muted small">${esc(cuando(c.en))}</span>${d.superadmin || c.uid === d.yo ? `<button type="button" class="pr-x" data-op-com-borrar="${esc(c.id)}" aria-label="Borrar comentario">✕</button>` : ''}</header><div class="pr-com-t">${enlacesEnTexto(esc(c.texto).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`)).replace(/\n/g, '<br>')}</div></div></li>`).join('') || '<li class="muted small">Sin comentarios.</li>'}</ol>
+      <ol class="pr-hilo">${(t.comentarios || []).map((c) => `<li class="pr-com"><span class="pr-av">${esc(iniciales(c.nombre))}</span><div class="pr-com-c"><header><strong>${esc(c.nombre)}</strong><span class="muted small">${esc(cuando(c.en))}</span>${gestiona(t.cliente) || c.uid === d.yo ? `<button type="button" class="pr-x" data-op-com-borrar="${esc(c.id)}" aria-label="Borrar comentario">✕</button>` : ''}</header><div class="pr-com-t">${enlacesEnTexto(esc(c.texto).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`)).replace(/\n/g, '<br>')}</div></div></li>`).join('') || '<li class="muted small">Sin comentarios.</li>'}</ol>
       <form class="pr-comentar" data-op-form="comentar"><textarea name="texto" rows="2" maxlength="2000" placeholder="Escribe un comentario… (@ para enlazar otra tarea o un tablero)"></textarea><button class="btn primary small">Comentar</button></form>
     </section>
     ${''}${deAgencia ? '<p class="op-ficha-pie"><button type="button" class="btn ghost small danger" data-op="borrar">🗑️ Borrar tarea</button></p>' : '<p class="muted small op-ficha-pie">Esta tarea vive en el proyecto del cliente: lo que cambies aquí se guarda allí.</p>'}`;
@@ -654,7 +664,7 @@ function irA(r) {
   if (!r) return;
   if (r.tipo === 'tablero') {
     if (!d.proyectos.some((p) => p.id === r.proyecto)) { aviso('No tienes acceso a ese tablero'); return; }
-    fProy = r.proyecto; fEmb = ''; fTab = tabsDe(r.proyecto).some((b) => b.id === r.id) ? r.id : GENERAL;
+    fProy = r.proyecto; fEmb = ''; fTab = tabsDe(r.proyecto).some((b) => b.id === r.id) ? r.id : tabInicial(r.proyecto);
     vista = 'tablero'; abierta = null; creando = false; editTab = null; importando = null;
     pintar();
     return;
@@ -888,6 +898,15 @@ async function opEditor(b) {
     return;
   }
   if (a === 'tab-nuevo') { editTab = { nuevo: true, proyecto: fProy, nombre: '', plantilla: '', columnas: COLUMNAS_SERIE.map((c) => ({ ...c })) }; pintarVista(); body().querySelector('[data-te="nombre"]')?.focus(); return; }
+  if (a === 'tab-defecto') {
+    const quitar = tabInicial(fProy) === fTab;
+    try {
+      await guardarTableros({ op: 'tablero-defecto', proyecto: fProy, tableroId: quitar ? '' : fTab });
+      aviso(quitar ? 'Listo: al entrar en el proyecto se abrirá el tablero General.' : '⭐ Listo: este tablero se abrirá siempre primero al entrar en el proyecto.');
+    } catch (err) { window.alert(err.message); return; }
+    pintarVista();
+    return;
+  }
   if (a === 'tab-editar') { const tab = tabsDe(fProy).find((x) => x.id === fTab) || tabsDe(fProy)[0]; editTab = { ...tab, columnas: tab.columnas.map((c) => ({ ...c })), proyecto: fProy }; pintarVista(); return; }
   if (!editTab) return;
   leerEditor();
@@ -912,7 +931,7 @@ async function opEditor(b) {
     } catch (err) { window.alert(err.message); return; }
   } else if (a === 'te-borrar') {
     if (!window.confirm(`¿Borrar el tablero «${editTab.nombre}»? Sus tareas no se borran: pasan al tablero General.`)) return;
-    try { await guardarTableros({ op: 'tablero-borrar', proyecto: editTab.proyecto, tableroId: editTab.id }); fTab = GENERAL; editTab = null; } catch (err) { window.alert(err.message); return; }
+    try { await guardarTableros({ op: 'tablero-borrar', proyecto: editTab.proyecto, tableroId: editTab.id }); fTab = tabInicial(editTab.proyecto); editTab = null; } catch (err) { window.alert(err.message); return; }
   } else if (a === 'te-plantilla') {
     const nombre = (window.prompt('Nombre de la plantilla (p. ej. «Producción de contenido»):', editTab.nombre || '') || '').trim();
     if (!nombre) return;
@@ -951,7 +970,7 @@ async function onChange(e) {
   if (t0.dataset.imp === 'proyecto' && importando) { importando.proyecto = t0.value; return; }
   if (t0.dataset.imp === 'completadas' && importando) { importando.nombre = body().querySelector('[data-imp="nombre"]')?.value || importando.nombre; importando.completadas = t0.checked; pintarVista(); return; }
   if (t0.dataset.rep) { guardarRepetir(t0.closest('[data-rep-ed]')); return; }
-  if (t0.id === 'op-proyecto') { fProy = t0.value; fEmb = ''; fTab = GENERAL; editTab = null; importando = null; pintar(); return; }
+  if (t0.id === 'op-proyecto') { fProy = t0.value; fEmb = ''; fTab = tabInicial(fProy); editTab = null; importando = null; pintar(); return; }
   if (t0.dataset.te === 'plantilla' && editTab) {
     leerEditor();
     editTab.plantilla = t0.value;

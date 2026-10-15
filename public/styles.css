@@ -1256,6 +1256,9 @@ body.embudo-vsl .lanz-only { display: none !important; }
 /* ---------- Varios clientes ---------- */
 body:not(.is-superadmin) .superadmin-only { display: none !important; }
 body:not(.is-agencia) .agencia-only { display: none !important; }
+body:not(.can-operativa) .operativa-only { display: none !important; }
+/* Inicio de un admin de proyecto (no de la agencia): acceso directo a la Operativa de sus proyectos. */
+body:not(.can-operativa) .operativa-solo-proyecto, body.is-agencia .operativa-solo-proyecto { display: none !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .cliente-pick select { font: inherit; font-weight: 800; font-size: 15px; padding: 5px 30px 5px 12px; border-radius: 999px; border: 1px solid var(--border); background-color: color-mix(in srgb, var(--cliente, var(--accent)) 10%, var(--surface)); color: var(--text); cursor: pointer; max-width: 260px; }
 .cliente-pick[hidden] { display: none; }
@@ -4312,6 +4315,16 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .op-form-acc { display: flex; justify-content: flex-end; gap: 8px; }
 .ag-accesos { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin: 4px 0 18px; }
 .ag-accesos .ag-procesos { margin: 0; }
+/* Operativa y Biblioteca de procesos, protagonistas en Inicio: arriba del todo, grandes y con el botón a la vista. */
+.ag-accesos-top { margin: 0 0 22px; gap: 14px; }
+.ag-accesos-top .ag-procesos { padding: 20px 22px; border: 1.5px solid color-mix(in srgb, var(--accent) 40%, var(--border)); background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 14%, var(--surface)), var(--surface) 70%); }
+.ag-accesos-top .ag-procesos-ico { width: 58px; height: 58px; border-radius: 16px; font-size: 30px; }
+.ag-accesos-top .ag-procesos-txt strong { font-size: 18px; }
+.ag-accesos-top .ag-procesos-txt small { font-size: 13.5px; }
+.ag-accesos-top .ag-procesos-ir { padding: 9px 16px; border-radius: 999px; background: var(--accent); color: #fff; box-shadow: 0 8px 18px -10px var(--accent); }
+/* El botón de la Operativa, siempre en la barra de arriba (en Inicio y en cualquier embudo), con su nombre a la vista. */
+.topbar .tb-btn.tb-operativa { padding: 6px 12px 6px 6px !important; color: var(--accent); font-weight: 700; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 999px; }
+.topbar .tb-operativa .tb-txt { display: inline !important; position: static; width: auto; height: auto; clip: auto; overflow: visible; }
 :root[data-estilo="espacial"] .op-grupo, :root[data-estilo="espacial"] .op-proy, :root[data-estilo="espacial"] .op-card, :root[data-estilo="espacial"] .op-persona { background: rgb(255 255 255 / .05); }
 :root[data-estilo="espacial"] .op-ficha { background: #17142c; }
 @media (max-width: 760px) {
@@ -4570,6 +4583,8 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .op-tab-b.on b { background: color-mix(in srgb, #fff 25%, transparent); color: #fff; }
 .op-tab-nuevo { border-style: dashed; color: var(--text-2); }
 .op-tab-cfg { margin-left: auto; }
+.op-tab-def { font-size: .8em; margin-left: 2px; }
+.op-tab-defecto.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .op-col.e-c0 { border-top-color: var(--muted); } .op-col.e-c1 { border-top-color: #3d8bfd; } .op-col.e-c2 { border-top-color: #9b59d0; }
 .op-col.e-c3 { border-top-color: #f0a73a; } .op-col.e-c4 { border-top-color: #2ec2b4; } .op-col.e-c5 { border-top-color: #e5568a; }
 .op-te { border: 1px solid var(--border); border-radius: 16px; padding: 16px; background: var(--surface); display: flex; flex-direction: column; gap: 12px; max-width: 760px; }

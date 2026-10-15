@@ -1,6 +1,6 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitizeColumnas, sanitizeConfigTableros, tablerosDe, tableroDeTarea, columnaDeTarea, colocar, GENERAL, sanitizeEtiquetas, etiquetasDeTarea, ordenTarjetas, ordenColumna, recolocar, ordenarTableros, alFinal, sanitizeTablero, sanitizeChecklist, progresoChecklist, copiaRecurrente } from '../public/js/tableros.js';
+import { sanitizeColumnas, sanitizeConfigTableros, tablerosDe, tableroDeTarea, columnaDeTarea, colocar, GENERAL, sanitizeEtiquetas, etiquetasDeTarea, ordenTarjetas, ordenColumna, recolocar, ordenarTableros, alFinal, sanitizeTablero, sanitizeChecklist, progresoChecklist, copiaRecurrente, tableroPorDefecto } from '../public/js/tableros.js';
 
 test('tableros: columnas (siempre una «hecha»), General de serie y columna de cada tarea', () => {
   const cols = sanitizeColumnas([{ nombre: 'Idea' }, { nombre: 'Guion' }, { nombre: '' }, { nombre: 'Publicado' }]);
@@ -228,4 +228,12 @@ test('tableros: el General se puede renombrar y las pestañas se ordenan a mano'
   assert.deepEqual(tablerosDe(cfg, 'q').map((t) => t.id), [GENERAL, 'tx']); // los de otro proyecto, igual
   const nuevo = alFinal(cfg.tableros, { id: 'tc', proyecto: 'p', nombre: 'C', columnas: [] });
   assert.deepEqual(tablerosDe({ ...cfg, tableros: [...cfg.tableros, nuevo] }, 'p').map((t) => t.id), ['tb', GENERAL, 'ta', 'tc']);
+});
+
+test('tableros: uno por defecto por proyecto (si existe); si no, el General', () => {
+  const cfg = sanitizeConfigTableros({ tableros: [{ id: 'tcont', proyecto: 'p1', nombre: 'Contenido' }], porDefecto: { p1: 'tcont', p2: 'noexiste', p3: GENERAL } });
+  assert.deepEqual(cfg.porDefecto, { p1: 'tcont' });
+  assert.equal(tableroPorDefecto(cfg, 'p1'), 'tcont');
+  assert.equal(tableroPorDefecto(cfg, 'p2'), GENERAL);
+  assert.equal(tableroPorDefecto({}, 'p1'), GENERAL);
 });

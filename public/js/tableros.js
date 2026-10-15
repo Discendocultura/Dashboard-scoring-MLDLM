@@ -41,8 +41,15 @@ export function sanitizeConfigTableros(cfg) {
     .filter((t) => t.proyecto && !vistos.has(`${t.proyecto}|${t.id}`) && vistos.add(`${t.proyecto}|${t.id}`));
   const plantillas = (Array.isArray(cfg?.plantillas) ? cfg.plantillas : []).slice(0, 30)
     .map((p) => ({ id: ID_RE.test(str(p?.id, 24)) ? str(p.id, 24) : nuevoId('p'), nombre: str(p?.nombre, 40) || 'Plantilla', columnas: sanitizeColumnas(p?.columnas) }));
-  return { tableros, plantillas, etiquetas: sanitizeEtiquetas(cfg?.etiquetas) };
+  // Tablero por defecto de cada proyecto (el que se abre al entrar en él): { proyecto: tableroId }.
+  const porDefecto = {};
+  for (const [p, id] of Object.entries(cfg?.porDefecto && typeof cfg.porDefecto === 'object' ? cfg.porDefecto : {})) {
+    if (typeof id === 'string' && id !== GENERAL && tableros.some((t) => t.proyecto === p && t.id === id)) porDefecto[p] = id;
+  }
+  return { tableros, plantillas, etiquetas: sanitizeEtiquetas(cfg?.etiquetas), porDefecto };
 }
+// El tablero que se abre al entrar en un proyecto: el marcado por defecto o, si no hay, el General.
+export const tableroPorDefecto = (cfg, proyecto) => cfg?.porDefecto?.[proyecto] || GENERAL;
 
 // Tableros de un proyecto: el General (el de serie o el que se haya cambiado) y los demás. Sin orden puesto a mano
 // (arrastrando las pestañas), el General primero y los demás en el orden en que se crearon.

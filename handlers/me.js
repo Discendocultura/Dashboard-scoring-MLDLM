@@ -4,6 +4,7 @@ import { getRoles } from '../lib/roles.js';
 import { clienteActual } from '../lib/cliente.js';
 import { listClientes, clientePublico } from '../lib/clientes.js';
 import { json, errorResponse } from '../lib/http.js';
+import { puedeOperativa } from '../lib/operativa.js';
 
 // Quién soy en el cliente de la petición y a qué clientes puedo cambiar.
 export async function GET(request) {
@@ -17,7 +18,7 @@ export async function GET(request) {
     const roles = s.role ? (await getRoles()).map((r) => ({ id: r.id, label: r.label })) : [];
     return json({
       role: s.role, user: s.user ? publicUser(s.user) : null, permisos: s.permisos || [], roles,
-      superadmin: Boolean(s.superadmin), cliente: clientePublico(clienteActual()), clientes: mios.map(clientePublico),
+      superadmin: Boolean(s.superadmin), operativa: puedeOperativa(s), cliente: clientePublico(clienteActual()), clientes: mios.map(clientePublico),
     });
   } catch (e) {
     return errorResponse(e);

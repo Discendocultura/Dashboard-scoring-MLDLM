@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { estadoOp, estaBloqueada, ESTADOS_OP, agruparPorFecha, resumenProyecto, cargaPorPersona, asignadaA } from '../public/js/operativa.js';
-import { visiblesPara, ponerEstado, ponerBloqueo, camposAgencia } from '../lib/operativa.js';
+import { visiblesPara, visiblesOperativa, proyectosQueGestiona, puedeOperativa, clienteDeTarea, ponerEstado, ponerBloqueo, camposAgencia } from '../lib/operativa.js';
 
 const hoy = '2026-10-13';
 const T = [
@@ -19,6 +19,23 @@ test('operativa: cada persona ve solo lo suyo (a su nombre o a su rol en ese cli
   assert.deepEqual(visiblesPara(T, luis).map((t) => t.id), ['3']);
   assert.equal(visiblesPara(T, { superadmin: true }).length, 5);
   assert.equal(asignadaA(T[1], 'ana', ''), false); // por rol solo con el rol de ese cliente
+});
+
+test('operativa: el admin de un proyecto entra y ve todo lo de sus proyectos (no lo interno de la agencia)', () => {
+  const marta = { superadmin: false, uid: 'marta', user: { id: 'marta', accesos: { discendo: 'admin', mldlm: 'equipo' } } };
+  assert.deepEqual(proyectosQueGestiona(marta), ['discendo']);
+  assert.equal(puedeOperativa(marta), true);
+  assert.deepEqual(visiblesOperativa(T, marta).map((t) => t.id), ['3']);
+  const pepe = { superadmin: false, user: { id: 'pepe', accesos: { mldlm: 'equipo' } } };
+  assert.equal(puedeOperativa(pepe), false);
+  assert.equal(puedeOperativa({ superadmin: false, user: { id: 'x', agencia: true } }), true);
+  // Del equipo de la agencia y admin de un proyecto: lo suyo, lo interno asignado y todo su proyecto.
+  const ana = { superadmin: false, user: { id: 'ana', agencia: true, accesos: { mldlm: 'tecnico', discendo: 'admin' } } };
+  assert.deepEqual(visiblesOperativa(T, ana).map((t) => t.id), ['1', '2', '3', '4', '5']);
+  // Las de la lista de la agencia llevan su proyecto: la referencia tiene que cuadrar.
+  assert.equal(clienteDeTarea({ proyecto: 'discendo' }, { cliente: 'discendo', code: '_agencia' }), 'discendo');
+  assert.equal(clienteDeTarea({}, { cliente: 'discendo', code: '_agencia' }), '_agencia');
+  assert.equal(clienteDeTarea({}, { cliente: 'discendo', code: 'L1' }), 'discendo');
 });
 
 test('operativa: estados, «Mi día» por fecha, semáforo del proyecto y carga por persona', () => {
