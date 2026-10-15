@@ -2552,5 +2552,72 @@
    "final": 6.0,
    "texto": "Reserva tu plaza gratis"
   }
- ]
+ ],
+ "sonido": {
+  "musica": "musica/mldlm-calida.mp3",
+  "musica_db": -9,
+  "efectos": [
+   {
+    "archivo": "sonidos/whoosh.mp3",
+    "en": 11.8,
+    "db": -16
+   },
+   {
+    "archivo": "sonidos/whoosh.mp3",
+    "en": 18.6,
+    "db": -16
+   },
+   {
+    "archivo": "sonidos/whoosh.mp3",
+    "en": 31.3,
+    "db": -16
+   },
+   {
+    "archivo": "sonidos/whoosh.mp3",
+    "en": 43.0,
+    "db": -16
+   },
+   {
+    "archivo": "sonidos/whoosh.mp3",
+    "en": 56.3,
+    "db": -16
+   },
+   {
+    "archivo": "sonidos/whoosh.mp3",
+    "en": 79.5,
+    "db": -16
+   },
+   {
+    "archivo": "sonidos/whoosh.mp3",
+    "en": 98.0,
+    "db": -16
+   },
+   {
+    "archivo": "sonidos/whoosh.mp3",
+    "en": 113.4,
+    "db": -16
+   },
+   {
+    "archivo": "sonidos/sello.mp3",
+    "en": 116.16,
+    "db": -9
+   },
+   {
+    "archivo": "sonidos/whoosh.mp3",
+    "en": 129.2,
+    "db": -16
+   },
+   {
+    "archivo": "sonidos/whoosh.mp3",
+    "en": 141.5,
+    "db": -16
+   },
+   {
+    "archivo": "sonidos/click.mp3",
+    "en": 144.6,
+    "db": -10
+   }
+  ],
+  "musica_desde": 7.84
+ }
 }

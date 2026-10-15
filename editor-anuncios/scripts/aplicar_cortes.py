@@ -82,7 +82,7 @@ for w in json.load(open(tr_sc))['words']:
     palabras.append({**w, 'start': round(ini, 3), 'end': round(max(fin, ini + 0.08), 3)})
 json.dump({'texto': ' '.join(w['text'] for w in palabras), 'words': palabras}, open(tr, 'w'), ensure_ascii=False, indent=1)
 
-puntos = [round(nuevo(a), 3) for a, _ in cortes if 0 < a < dur]
+puntos = [round(nuevo(a), 3) for a, b in cortes if 0 < a and b < dur - 0.05]   # ni el inicio ni el final son saltos de imagen
 quitado = sum(b - a for a, b in cortes)
 json.dump({'cortes_originales': cortes, 'puntos_corte': puntos, 'segundos_quitados': round(quitado, 2),
            'duracion_nueva': round(dur - quitado, 2)}, open(f'{proy}/cortes_aplicados.json', 'w'), indent=1)

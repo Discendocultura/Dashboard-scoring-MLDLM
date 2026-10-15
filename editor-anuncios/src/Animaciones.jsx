@@ -333,7 +333,7 @@ export const App = ({e, texto = 'Ovulación: día 14', tachaEn = 1.4}) => {
           <div style={{...caps(e), fontSize: 18, color: e.acento}}>Mi ciclo</div>
           <div style={{margin: '18px auto', width: 150, height: 150, borderRadius: '50%', border: `14px solid ${ex(e, 'pastel', '#eee')}`, borderTopColor: e.primario,
             transform: `rotate(${f * 3}deg)`}} />
-          <div style={{position: 'relative', display: 'inline-block', fontFamily: e.fuenteSubs, fontWeight: 900, fontSize: 30, color: ex(e, 'titulos', '#333')}}>
+          <div style={{position: 'relative', display: 'inline-block', whiteSpace: 'nowrap', fontFamily: e.fuenteSubs, fontWeight: 900, fontSize: 25, color: ex(e, 'titulos', '#333')}}>
             {texto}
             <div style={{position: 'absolute', left: -6, top: '52%', height: 6, width: `${tacha * 1.08}%`, background: e.primario}} />
           </div>
