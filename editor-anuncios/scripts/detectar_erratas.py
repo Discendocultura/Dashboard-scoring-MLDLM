@@ -157,7 +157,11 @@ if os.path.exists(wav) and words:
             if b - a > 0.6:
                 recorte_pausa(a + 0.4, b, 0.4, 'final', len(words) - 1)
         elif b - a > PAUSA_MAX:
-            antes = max(k for k in range(len(words)) if words[k]['start'] < a)
+            previas = [k for k in range(len(words)) if words[k]['start'] < a]
+            if not previas:                              # silencio antes de la primera palabra que no empieza en 0
+                recorte_pausa(a, b - 0.15, 0.15, 'inicio', 0)
+                continue
+            antes = previas[-1]
             if not fin_frase[antes]:
                 medio = (a + b) / 2
                 recorte_pausa(medio - (b - a - PAUSA_DEJAR) / 2, medio + (b - a - PAUSA_DEJAR) / 2, PAUSA_DEJAR, 'pausa', antes)
