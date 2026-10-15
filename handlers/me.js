@@ -18,7 +18,7 @@ export async function GET(request) {
     const roles = s.role ? (await getRoles()).map((r) => ({ id: r.id, label: r.label })) : [];
     return json({
       role: s.role, user: s.user ? publicUser(s.user) : null, permisos: s.permisos || [], roles,
-      superadmin: Boolean(s.superadmin), operativa: puedeOperativa(s), cliente: clientePublico(clienteActual()), clientes: mios.map(clientePublico),
+      superadmin: Boolean(s.superadmin), operativa: puedeOperativa(s), ...(s.verComo ? { verComo: s.verComo } : {}), cliente: clientePublico(clienteActual()), clientes: mios.map(clientePublico),
     });
   } catch (e) {
     return errorResponse(e);

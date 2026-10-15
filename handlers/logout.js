@@ -1,6 +1,9 @@
-import { clearCookie } from '../lib/auth.js';
-import { json } from '../lib/http.js';
+import { clearCookie, clearVerComo } from '../lib/auth.js';
 
+// Sale de la cuenta (y de «Ver como», si estaba mirando como otra persona).
 export function POST() {
-  return json({ ok: true }, 200, { 'set-cookie': clearCookie() });
+  const headers = new Headers({ 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+  headers.append('set-cookie', clearCookie());
+  headers.append('set-cookie', clearVerComo());
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
 }

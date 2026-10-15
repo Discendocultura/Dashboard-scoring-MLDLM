@@ -436,6 +436,11 @@ async function start() {
   if (OAUTH_RE.test(oauth)) { location.href = oauth; return; }
   state.clientes = me.clientes || [];
   state.superadmin = Boolean(me.superadmin);
+  // «Ver como»: la barra de arriba para volver a tu cuenta.
+  state.verComo = me.verComo || null;
+  $('#vercomo-barra').hidden = !state.verComo;
+  document.body.classList.toggle('viendo-como', Boolean(state.verComo));
+  if (state.verComo) $('#vercomo-nombre').textContent = me.user?.nombre || 'otra persona';
   state.agencia = Boolean(me.superadmin || me.user?.agencia);
   // La Operativa: el equipo de la agencia y los admin de algún proyecto (estos, con lo de sus proyectos).
   state.operativa = Boolean(state.agencia || me.operativa);
@@ -6754,6 +6759,19 @@ $('#tarea-save').addEventListener('click', async () => {
 });
 
 // ---------- Equipo (Configuración) ----------
+// «Ver como» (superadmin): el dashboard tal y como lo ve esa persona, solo para mirar. Se entra en su primer cliente.
+async function verComo(uid) {
+  try {
+    const r = await api('/api/vercomo', { method: 'POST', body: { op: 'empezar', uid } });
+    ls.set('lsd_inicio', '1');
+    const c = r.clientes.find((x) => x.id === state.cliente) || r.clientes[0];
+    location.href = c ? `/?c=${encodeURIComponent(c.id)}` : '/';
+  } catch (e) { notice(e.message, true); window.alert(e.message); }
+}
+$('#vercomo-salir').addEventListener('click', async () => {
+  try { await api('/api/vercomo', { method: 'POST', body: { op: 'salir' } }); } catch { /* se borra igual al salir */ }
+  location.href = '/';
+});
 // Pasar a alguien de un proyecto al equipo de la agencia (superadmin): mismo usuario y mismos accesos.
 const MSG_PASAR_AGENCIA = (nombre) => `¿Pasar a ${nombre} al equipo de la agencia?\n\nConserva su usuario, su contraseña y sus accesos a cada cliente. Además entrará en la Operativa y en la Biblioteca de procesos, y podrás darle acceso a más clientes desde Agencia → Equipo de la agencia.`;
 async function loadEquipo() {
@@ -6784,6 +6802,7 @@ function renderEquipo() {
       <td class="muted">${fmt(u.lastLogin)}</td>
       <td class="eq-actions">
         <button type="button" class="btn" data-eq="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
+        ${state.superadmin && u.id !== state.user?.id ? '<button type="button" class="btn ghost" data-eq="vercomo" title="Ver el dashboard exactamente como lo ve esta persona (solo para mirar)">👁️ Ver como</button>' : ''}
         ${state.superadmin && u.id !== state.user?.id ? '<button type="button" class="btn ghost" data-eq="agencia" title="Pasa a ser del equipo de la agencia, con los mismos accesos">🏢 Pasar a la agencia</button>' : ''}
         ${u.id === state.user?.id ? '' : `<button type="button" class="btn ghost" data-eq="${u.activo ? 'desactivar' : 'activar'}">${u.activo ? 'Desactivar' : 'Activar'}</button>
         <button type="button" class="btn ghost" data-eq="borrar" aria-label="Borrar">✕</button>`}
@@ -6889,6 +6908,7 @@ $('#equipo-list').addEventListener('click', async (e) => {
     return;
   }
   if (op === 'cerrar-accesos') { b.closest('tr').remove(); return; }
+  if (op === 'vercomo') { verComo(id); return; }
   if (op === 'agencia') {
     if (!window.confirm(MSG_PASAR_AGENCIA(u.nombre))) return;
     b.disabled = true;
@@ -7445,6 +7465,7 @@ function pintarAgenciaEquipo() {
       <td class="muted">${fechaAge(u.lastLogin)}</td>
       <td class="eq-actions"><button type="button" class="btn" data-age="editar">Clientes y rol</button>
         <button type="button" class="btn ghost" data-age="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
+        ${u.id === state.user?.id ? '' : '<button type="button" class="btn ghost" data-age="vercomo" title="Ver el dashboard exactamente como lo ve esta persona (solo para mirar)">👁️ Ver como</button>'}
         ${u.id === state.user?.id ? '' : '<button type="button" class="btn ghost" data-age="quitar" title="Quitar del equipo de la agencia (pierde el acceso a todos los clientes)">✕</button>'}</td></tr>`).join('')}</tbody></table></div>`
     : '<p class="muted">Todavía no hay nadie en el equipo de la agencia.</p>';
   // Gente de los proyectos: con un clic pasa a ser del equipo de la agencia (conserva sus accesos).
@@ -7454,7 +7475,7 @@ function pintarAgenciaEquipo() {
       <div class="table-scroll"><table class="metric-table equipo-table"><tbody>${deProyectos.map((u) => `<tr data-age-uid="${esc(u.id)}" class="${u.activo ? '' : 'inactivo'}">
         <td><span class="t-who">${avatarHtml(u)}<span><strong>${esc(u.nombre)}</strong><br><span class="muted">${esc(u.email)}</span></span></span></td>
         <td>${Object.entries(u.accesos || {}).map(([cid, r]) => `<span class="age-cli"><strong>${esc(nombreCli(cid))}</strong> · ${esc(rolLabel(cid, r))}</span>`).join('') || '<span class="muted">Sin clientes</span>'}</td>
-        <td class="eq-actions"><button type="button" class="btn" data-age="pasar" title="Pasa a ser del equipo de la agencia, con los mismos accesos">🏢 Pasar a la agencia</button></td></tr>`).join('')}</tbody></table></div></details>`);
+        <td class="eq-actions"><button type="button" class="btn" data-age="pasar" title="Pasa a ser del equipo de la agencia, con los mismos accesos">🏢 Pasar a la agencia</button><button type="button" class="btn ghost" data-age="vercomo" title="Ver el dashboard exactamente como lo ve esta persona (solo para mirar)">👁️ Ver como</button></td></tr>`).join('')}</tbody></table></div></details>`);
   }
   $('#age-accesos-nuevo').innerHTML = gridAccesos();
 }
@@ -7488,6 +7509,7 @@ $('#age-lista').addEventListener('click', async (e) => {
   const id = tr.dataset.ageUid || tr.previousElementSibling?.dataset.ageUid;
   const u = ageq.equipo.find((x) => x.id === id) || ageq.proyectos?.find((x) => x.id === id);
   const op = b.dataset.age;
+  if (op === 'vercomo') { verComo(id); return; }
   if (op === 'pasar') {
     if (!window.confirm(MSG_PASAR_AGENCIA(u.nombre))) return;
     b.disabled = true;

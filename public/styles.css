@@ -5075,3 +5075,8 @@ body.inicio-trabajo :is(#inicio .inicio-cab-acc, #inicio-total, #inicio-alertas,
 .it-embudo { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 8px 16px; font: inherit; font-weight: 600; color: var(--text); cursor: pointer; }
 .it-embudo:hover { border-color: var(--accent); color: var(--accent); }
 body.en-inicio .sin-embudos-op { display: none !important; }
+
+/* «Ver como»: barra fija arriba mientras se mira el dashboard como otra persona. */
+.vercomo-barra { position: sticky; top: 0; z-index: 200; display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 9px 16px; background: #5b3fd6; color: #fff; font-size: 14px; box-shadow: 0 6px 20px -10px rgb(0 0 0 / .5); }
+.vercomo-barra em { opacity: .85; }
+.vercomo-barra .btn { background: #fff; color: #3a2a8c; border-color: #fff; font-weight: 700; }
