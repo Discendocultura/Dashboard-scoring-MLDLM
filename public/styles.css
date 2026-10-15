@@ -4390,14 +4390,29 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 /* Descripción con formato en las tareas de la Operativa */
 .op-desc .op-notas { font-size: 14.5px; line-height: 1.6; }
 .op-desc .op-notas ul, .op-desc .op-notas ol { padding-left: 22px; }
-.op-desc-vacia { width: 100%; text-align: left; padding: 14px 16px; border-radius: 12px; border: 1.5px dashed var(--border); background: none; color: var(--muted); font: inherit; font-size: 14px; cursor: text; }
-.op-desc-vacia:hover { border-color: var(--accent); color: var(--text-2); }
+/* La descripción se ve como un campo de texto grande: queda claro que se puede escribir (y poner enlaces). */
+.op-desc-vacia { width: 100%; min-height: 150px; display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; text-align: left; padding: 16px 18px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--muted); font: inherit; font-size: 14.5px; cursor: text; box-shadow: inset 0 1px 3px rgb(0 0 0 / .06); transition: border-color .15s, box-shadow .15s; }
+.op-desc-vacia:hover, .op-desc-vacia:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+.op-desc-vacia-t { font-size: 15px; color: var(--text-2); font-weight: 600; }
+.op-desc-vacia-s { font-size: 13px; }
+.op-notas-caja { min-height: 110px; padding: 14px 16px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); cursor: text; transition: border-color .15s; }
+.op-notas-caja:hover { border-color: var(--accent); }
+/* Responsable desde la tarjeta: el avatar es un botón que abre un menú con las personas. */
+.op-resp-b { border: 0; background: none; padding: 0; margin-left: auto; cursor: pointer; border-radius: 50%; line-height: 0; }
+.op-resp-b:hover .pr-av, .op-resp-b:focus-visible .pr-av { outline: 2px solid var(--accent); outline-offset: 1px; }
+.op-resp-menu { position: fixed; z-index: 60; min-width: 220px; max-width: 280px; max-height: 340px; overflow-y: auto; padding: 6px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); box-shadow: 0 18px 40px -16px rgb(0 0 0 / .5); animation: mpSube .18s ease both; }
+.op-resp-h { padding: 6px 10px 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.op-resp-g { padding: 8px 10px 2px; font-size: 11.5px; color: var(--muted); }
+.op-resp-menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border: 0; border-radius: 10px; background: none; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.op-resp-menu button:hover, .op-resp-menu button:focus-visible { background: var(--surface-2); outline: none; }
+.op-resp-menu button.on { background: color-mix(in srgb, var(--accent) 14%, transparent); font-weight: 600; }
+.op-resp-sin { border-top: 1px solid var(--border) !important; margin-top: 4px; border-radius: 0 0 10px 10px !important; }
 .op-editor .er { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
 .op-editor .er:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
 .op-editor .er-toolbar { display: flex; flex-wrap: wrap; gap: 2px; padding: 6px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
 .op-editor .er-toolbar button { border: 0; background: none; padding: 6px 9px; border-radius: 8px; font: inherit; font-size: 13px; color: var(--text-2); cursor: pointer; }
 .op-editor .er-toolbar button:hover { background: var(--surface); color: var(--text); }
-.op-editor .er-area { min-height: 160px; max-height: 50vh; overflow-y: auto; padding: 12px 14px; border: 0; border-radius: 0; font-size: 14.5px; line-height: 1.6; outline: none; }
+.op-editor .er-area { min-height: 220px; max-height: 50vh; overflow-y: auto; padding: 12px 14px; border: 0; border-radius: 0; font-size: 14.5px; line-height: 1.6; outline: none; }
 .op-editor .er-area ul, .op-editor .er-area ol { padding-left: 22px; }
 .op-desc .op-form-acc { margin-top: 10px; }
 .op-card-desc { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

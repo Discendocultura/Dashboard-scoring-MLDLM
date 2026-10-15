@@ -60,6 +60,17 @@ const clave = (t) => `${t.cliente}|${t.code}|${t.id}`;
 const buscarT = (k) => d.tareas.find((t) => clave(t) === k);
 const nombreDe = (uid) => d.equipo.find((u) => u.id === uid)?.nombre || '';
 const quienTxt = (t) => (!t.asignado ? 'Sin asignar' : t.asignado.tipo === 'persona' ? nombreDe(t.asignado.id) || 'Otra persona' : `Rol ${t.asignado.rol}`);
+// Responsables posibles de una tarea de ese proyecto: el equipo de la agencia y quien tiene acceso a ese proyecto.
+const equipoDe = (cid) => d.equipo.filter((u) => u.agencia || (cid !== PROYECTO_AGENCIA && u.proyectos?.includes(cid)));
+// <option>s del responsable, separando la agencia de la gente del proyecto. `actual`: el id asignado ahora.
+function opcionesResp(cid, actual) {
+  const lista = equipoDe(cid);
+  const opt = (u) => `<option value="${esc(u.id)}"${u.id === actual ? ' selected' : ''}>${esc(u.nombre)}</option>`;
+  const ag = lista.filter((u) => u.agencia);
+  const pr = lista.filter((u) => !u.agencia);
+  const fuera = actual && !lista.some((u) => u.id === actual) ? `<option value="${esc(actual)}" selected>${esc(nombreDe(actual) || 'Otra persona')}</option>` : '';
+  return `<option value="">Sin asignar</option>${fuera}${pr.length && ag.length ? `<optgroup label="Agencia">${ag.map(opt).join('')}</optgroup><optgroup label="Del proyecto">${pr.map(opt).join('')}</optgroup>` : lista.map(opt).join('')}`;
+}
 const avatar = (t) => (t.asignado ? `<span class="pr-av" title="${esc(quienTxt(t))}">${esc(t.asignado.tipo === 'persona' ? iniciales(nombreDe(t.asignado.id)) : '👥')}</span>` : '<span class="pr-av vacio" title="Sin asignar">?</span>');
 const chipProyecto = (t) => `<span class="pr-proy" style="--cl:${esc(t.color || 'var(--accent)')}">${esc(t.clienteNombre)}</span>${t.embudo && t.cliente !== PROYECTO_AGENCIA ? `<span class="op-emb">${esc(t.embudo)}</span>` : ''}`;
 function chipFecha(t, hoy) {
@@ -349,7 +360,7 @@ function tarjetaTablero(t, hoy) {
         ${t.notas ? `<p class="op-card-desc">${esc(richToText(t.notas).replace(/🎬/g, '🎬 vídeo').replace(/\s*•\s*/g, ' · ').replace(/\s*\n+\s*/g, ' · ').replace(/^ · /, '').slice(0, 120))}</p>` : ''}
         ${estaBloqueada(t) ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}
         ${ck.total ? `<div class="op-ck-mini${ck.hechos === ck.total ? ' completa' : ''}" title="Checklist: ${ck.hechos} de ${ck.total}"><span class="op-ck-barra"><i style="width:${Math.round((ck.hechos / ck.total) * 100)}%"></i></span><b>☑ ${ck.hechos}/${ck.total}</b></div>` : ''}
-        <footer>${chipFecha(t, hoy)}${t.repetir?.tipo ? `<span class="op-rep" title="${esc(textoRepetir(t.repetir))}">🔁</span>` : ''}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}<span class="op-card-proy">${fProy ? '' : chipProyecto(t)}</span>${avatar(t)}</footer>
+        <footer>${chipFecha(t, hoy)}${t.repetir?.tipo ? `<span class="op-rep" title="${esc(textoRepetir(t.repetir))}">🔁</span>` : ''}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}<span class="op-card-proy">${fProy ? '' : chipProyecto(t)}</span>${gestiona(t.cliente) ? `<button type="button" class="op-resp-b" data-op-resp="${esc(clave(t))}" title="Responsable: ${esc(quienTxt(t))} · pulsa para cambiarlo" aria-label="Cambiar responsable">${avatar(t)}</button>` : avatar(t)}</footer>
       </article>`;
 }
 // Orden de cada columna: el puesto a mano (arrastrando o con ↑/↓); si no, prioridad alta primero y después la fecha.
@@ -607,7 +618,7 @@ function pintarFicha() {
       <div class="op-form-fila"><label class="field"><span>Proyecto</span><select name="proyecto">${d.proyectos.map((p) => `<option value="${esc(p.id)}"${p.id === proyectoDef() ? ' selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></label>
       <label class="field"><span>Tablero</span><select name="tablero">${tabsDe(proyectoDef()).map((b) => `<option value="${esc(b.id)}"${b.id === fTab ? ' selected' : ''}>${esc(b.nombre)}</option>`).join('')}</select></label></div>
       <div class="op-form-fila"><label class="field"><span>Para cuándo</span><input type="date" name="fecha"></label>
-      <label class="field"><span>Responsable</span><select name="uid"><option value="">Sin asignar</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${u.id === d.yo ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}</select></label></div>
+      <label class="field"><span>Responsable</span><select name="uid">${opcionesResp(proyectoDef(), d.equipo.some((u) => u.id === d.yo) ? d.yo : '')}</select></label></div>
       <div class="field"><span>Descripción</span><div class="op-editor" data-op-editor></div></div>
       <footer class="op-form-acc"><button type="button" class="btn ghost" data-op="cerrar-ficha">Cancelar</button><button class="btn primary">Crear tarea</button></footer>
     </form>`;
@@ -634,14 +645,14 @@ function pintarFicha() {
       <div class="pr-campo"><span class="pr-campo-l">Se repite</span><div class="pr-campo-v op-rep-v">${editorRepetir(t.repetir)}${bloqueRepetir(t)}</div></div>
       ${e === 'hecha' ? '' : `<div class="pr-campo"><span class="pr-campo-l">Bloqueo</span><div class="pr-campo-v">${estaBloqueada(t) ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span><button type="button" class="btn ghost small" data-op="desbloquear">Desbloquear</button>` : '<button type="button" class="btn ghost small op-bloquear" data-op="bloquear">⛔ Marcar como bloqueada</button>'}</div></div>`}
       <div class="pr-campo"><span class="pr-campo-l">Fecha</span><div class="pr-campo-v"><input type="date" data-op-campo="fecha" value="${esc(t.fecha)}">${chipFecha(t, hoyMadrid())}</div></div>
-      <div class="pr-campo"><span class="pr-campo-l">Responsable</span><div class="pr-campo-v">${gestiona(t.cliente) ? `<select data-op-campo="uid"><option value="">Sin asignar</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${t.asignado?.tipo === 'persona' && t.asignado.id === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}${t.asignado?.tipo === 'rol' ? `<option selected>Rol ${esc(t.asignado.rol)}</option>` : ''}</select>` : `${avatar(t)} ${esc(quienTxt(t))}`}</div></div>
+      <div class="pr-campo"><span class="pr-campo-l">Responsable</span><div class="pr-campo-v">${gestiona(t.cliente) ? `<select data-op-campo="uid">${opcionesResp(t.cliente, t.asignado?.tipo === 'persona' ? t.asignado.id : '')}${t.asignado?.tipo === 'rol' ? `<option selected>Rol ${esc(t.asignado.rol)}</option>` : ''}</select>` : `${avatar(t)} ${esc(quienTxt(t))}`}</div></div>
       ${t.embudo && !deAgencia ? `<div class="pr-campo"><span class="pr-campo-l">Embudo</span><div class="pr-campo-v">${esc(t.embudo)}</div></div>` : ''}
     </div>
-    ${bloqueChecklist(t)}
     <section class="pr-bloque op-desc"><header class="pr-bloque-h"><h4>Descripción</h4>${editandoDesc ? '' : `<button type="button" class="btn ghost small" data-op="editar-desc">✏️ ${t.notas ? 'Editar' : 'Añadir'}</button>`}</header>
       ${editandoDesc ? '<div class="op-editor" data-op-editor></div><footer class="op-form-acc"><button type="button" class="btn ghost small" data-op="cancelar-desc">Cancelar</button><button type="button" class="btn primary small" data-op="guardar-desc">Guardar</button></footer>'
-        : t.notas ? `<div class="rich op-notas">${richToHtml(t.notas)}</div>` : '<button type="button" class="op-desc-vacia" data-op="editar-desc">Añade la descripción: pasos, enlaces, listas, negritas o un vídeo…</button>'}
+        : t.notas ? `<div class="rich op-notas op-notas-caja" data-op="editar-desc" title="Pulsa para editar">${richToHtml(t.notas)}</div>` : '<button type="button" class="op-desc-vacia" data-op="editar-desc"><span class="op-desc-vacia-t">✍️ Escribe aquí la descripción…</span><span class="op-desc-vacia-s">Pasos, 🔗 enlaces, listas, negritas o un vídeo. Escribe @ para enlazar otra tarea o un tablero.</span></button>'}
     </section>
+    ${bloqueChecklist(t)}
     <section class="pr-bloque"><h4>Comentarios ${t.comentarios?.length ? `<span class="muted">${t.comentarios.length}</span>` : ''}</h4>
       <ol class="pr-hilo">${(t.comentarios || []).map((c) => `<li class="pr-com"><span class="pr-av">${esc(iniciales(c.nombre))}</span><div class="pr-com-c"><header><strong>${esc(c.nombre)}</strong><span class="muted small">${esc(cuando(c.en))}</span>${gestiona(t.cliente) || c.uid === d.yo ? `<button type="button" class="pr-x" data-op-com-borrar="${esc(c.id)}" aria-label="Borrar comentario">✕</button>` : ''}</header><div class="pr-com-t">${enlacesEnTexto(esc(c.texto).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`)).replace(/\n/g, '<br>')}</div></div></li>`).join('') || '<li class="muted small">Sin comentarios.</li>'}</ol>
       <form class="pr-comentar" data-op-form="comentar"><textarea name="texto" rows="2" maxlength="2000" placeholder="Escribe un comentario… (@ para enlazar otra tarea o un tablero)"></textarea><button class="btn primary small">Comentar</button></form>
@@ -748,7 +759,47 @@ function posicionHtml(t) {
   return `<div class="op-pos" role="group" aria-label="Posición en la columna"><button type="button" class="op-pos-b" data-op-pos="arriba" ${i === 0 ? 'disabled' : ''} title="Arriba del todo">⤒</button><button type="button" class="op-pos-b" data-op-pos="-1" ${i === 0 ? 'disabled' : ''} title="Subir una">↑</button><span class="op-pos-n">${i + 1} de ${h.length}</span><button type="button" class="op-pos-b" data-op-pos="1" ${i === h.length - 1 ? 'disabled' : ''} title="Bajar una">↓</button><button type="button" class="op-pos-b" data-op-pos="abajo" ${i === h.length - 1 ? 'disabled' : ''} title="Abajo del todo">⤓</button></div>`;
 }
 
+// Menú rápido del responsable (pulsando el avatar de la tarjeta, sin abrir la tarea).
+const cerrarMenuResp = () => ctx.dialog.querySelectorAll('.op-resp-menu').forEach((m) => m.remove());
+function abrirMenuResp(b, t) {
+  cerrarMenuResp();
+  const actual = t.asignado?.tipo === 'persona' ? t.asignado.id : '';
+  const lista = equipoDe(t.cliente);
+  const fila = (u) => `<button type="button" role="menuitem" class="${u.id === actual ? 'on' : ''}" data-op-resp-uid="${esc(u.id)}"><span class="pr-av">${esc(iniciales(u.nombre))}</span>${esc(u.nombre)}</button>`;
+  const ag = lista.filter((u) => u.agencia);
+  const pr = lista.filter((u) => !u.agencia);
+  const m = document.createElement('div');
+  m.className = 'op-resp-menu';
+  m.setAttribute('role', 'menu');
+  m.dataset.k = clave(t);
+  m.innerHTML = `<div class="op-resp-h">Responsable</div>${pr.length && ag.length ? `<div class="op-resp-g">Agencia</div>${ag.map(fila).join('')}<div class="op-resp-g">Del proyecto</div>${pr.map(fila).join('')}` : lista.map(fila).join('')}
+    <button type="button" role="menuitem" class="op-resp-sin${actual ? '' : ' on'}" data-op-resp-uid=""><span class="pr-av vacio">?</span>Sin asignar</button>`;
+  ctx.dialog.appendChild(m);
+  const r = b.getBoundingClientRect();
+  const alto = m.offsetHeight;
+  const ancho = m.offsetWidth;
+  m.style.left = `${Math.max(8, Math.min(window.innerWidth - ancho - 8, r.right - ancho))}px`;
+  m.style.top = `${r.bottom + 6 + alto > window.innerHeight ? Math.max(8, r.top - alto - 6) : r.bottom + 6}px`;
+  m.querySelector('.on, button')?.focus();
+}
+
 async function onClick(e) {
+  const ru = e.target.closest('[data-op-resp-uid]');
+  if (ru) {
+    const m = ru.closest('.op-resp-menu');
+    const t = buscarT(m.dataset.k);
+    cerrarMenuResp();
+    if (!t || ru.dataset.opRespUid === (t.asignado?.tipo === 'persona' ? t.asignado.id : '')) return;
+    try {
+      await op(t, { op: 'asignar', uid: ru.dataset.opRespUid });
+      aviso(ru.dataset.opRespUid ? `👤 ${nombreDe(ru.dataset.opRespUid)} es ahora responsable de «${t.titulo}»` : `«${t.titulo}» queda sin asignar`);
+    } catch (err) { window.alert(err.message); }
+    pintar();
+    return;
+  }
+  const rb = e.target.closest('[data-op-resp]');
+  if (rb) { e.stopPropagation(); const t = buscarT(rb.dataset.opResp); if (t) abrirMenuResp(rb, t); return; }
+  if (!e.target.closest('.op-resp-menu')) cerrarMenuResp();
   const ei = e.target.closest('a.enlace-int');
   if (ei && !ei.closest('[contenteditable="true"]')) { e.preventDefault(); irA(leerRef(ei.getAttribute('href'))); return; }
   const v = e.target.closest('[data-op-vista]');
@@ -857,6 +908,7 @@ async function onClick(e) {
   if (b.dataset.op === 'cerrar-ficha') { abierta = null; creando = false; editandoDesc = false; editandoTitulo = false; pickerEtq = false; pintar(); return; }
   if (b.dataset.op === 'titulo-editar') { editandoTitulo = true; pintarFicha(); const i = body().querySelector('.op-titulo-ed input'); i?.focus(); i?.select(); return; }
   if (b.dataset.op === 'titulo-cancelar') { editandoTitulo = false; pintarFicha(); return; }
+  if (b.dataset.op === 'editar-desc' && e.target.closest('a')) return; // un enlace de la descripción se abre, no edita
   if (b.dataset.op === 'editar-desc') { editandoDesc = true; pintarFicha(); editor?.area.focus(); return; }
   if (b.dataset.op === 'cancelar-desc') { editandoDesc = false; pintarFicha(); return; }
   if (b.dataset.op === 'guardar-desc') {

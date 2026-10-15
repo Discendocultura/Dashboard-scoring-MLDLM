@@ -45,14 +45,21 @@ async function sesion(request) {
   if (!puedeOperativa(s)) throw bad('La Operativa es para el equipo de la agencia y los admin de cada proyecto', 403);
   return s;
 }
-// Personas a las que se puede asignar: el equipo de la agencia y, para el admin de un proyecto, también quien tiene
-// acceso a sus proyectos (el superadmin y la agencia ven solo al equipo, como siempre).
+// Personas a las que se puede asignar: el equipo de la agencia (`agencia: true`, valen para cualquier proyecto) y quien
+// tiene acceso a alguno de los proyectos que ve (con `proyectos`: en cuáles, para ofrecerla solo en esas tareas).
 async function equipoPara(s) {
-  const gestiona = proyectosQueGestiona(s);
+  const ve = s.superadmin ? null : new Set([...Object.keys(s.user?.accesos || {})]);
   const todos = (await enPrincipal(() => listUsersRaw())).filter((u) => u.activo !== false);
-  return todos.filter((u) => u.agencia || u.superadmin || (!esDeAgencia(s) && gestiona.some((cid) => u.accesos?.[cid])))
-    .map((u) => ({ id: u.id, nombre: u.nombre }));
+  const out = [];
+  for (const u of todos) {
+    const agencia = Boolean(u.agencia || u.superadmin);
+    const proyectos = Object.keys(u.accesos || {}).filter((cid) => !ve || ve.has(cid));
+    if (agencia || proyectos.length) out.push({ id: u.id, nombre: u.nombre, ...(agencia ? { agencia: true } : { proyectos }) });
+  }
+  return out;
 }
+// ¿Se le puede asignar una tarea de ese proyecto? Si es de la agencia, siempre; si no, si tiene acceso a ese proyecto.
+const asignable = (u, cid) => Boolean(u && (u.agencia || (cid !== PROYECTO_AGENCIA && u.proyectos?.includes(cid))));
 // Tableros que ve: los de sus proyectos (y los de la agencia si es del equipo). Las plantillas, solo el superadmin.
 function tablerosPara(s, cfg, proyectos) {
   if (s.superadmin) return cfg;
@@ -243,7 +250,7 @@ export async function POST(request) {
       } else if (body.op === 'asignar') {
         if (!esAdminDe(ref.cliente) || !puedeTocar(t, ref)) throw bad('Solo el superadmin o el admin del proyecto reparte las tareas', 403);
         const uid = String(body.uid || '');
-        if (uid && !s.superadmin && !(await equipoPara(s)).some((u) => u.id === uid)) throw bad('Esa persona no está en el proyecto', 400);
+        if (uid && !asignable((await equipoPara(s)).find((u) => u.id === uid), clienteDeTarea(t, ref))) throw bad('Esa persona no tiene acceso a este proyecto', 400);
         const antes = t.asignado?.tipo === 'persona' ? t.asignado.id : '';
         t.asignado = uid ? { tipo: 'persona', id: uid } : null;
         if (uid && uid !== antes && uid !== s.uid) avisar = uid;
