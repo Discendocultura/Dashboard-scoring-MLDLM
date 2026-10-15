@@ -29,6 +29,7 @@ const P = {
   survey: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="m8 9 1.5 1.5L12 8M8 15l1.5 1.5L12 14M14 9.5h2M14 15.5h2"/>',
   // Logo de WhatsApp (bocadillo redondo con la cola abajo a la izquierda y el auricular dentro).
   whatsapp: '<path d="M3.5 20.5 4.8 16A8.6 8.6 0 1 1 8 19.3Z"/><path d="M9.2 8.3c.2-.4.6-.5.9-.3l.9 1.6c.1.3 0 .6-.2.8l-.5.5a5.4 5.4 0 0 0 2.8 2.8l.5-.5c.2-.2.5-.3.8-.2l1.6.9c.3.2.4.6.2.9-.5.9-1.4 1.4-2.4 1.1A7.6 7.6 0 0 1 8.1 10.7c-.3-1 .2-1.9 1.1-2.4Z" stroke-width="1.4"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/>',
   layout: '<rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18M9 9v12"/>',
   chat: '<path d="M21 12a8.5 8.5 0 0 1-12.6 7.4L3 21l1.6-5.4A8.5 8.5 0 1 1 21 12Z"/>',
   thermo: '<path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0Z"/>',

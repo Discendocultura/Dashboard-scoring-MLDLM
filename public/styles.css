@@ -5139,3 +5139,23 @@ body.en-inicio .sin-embudos-op { display: none !important; }
 
 /* Tablero de un embudo (Operativa): sus tareas se crean en Plan → Tareas del lanzamiento. */
 .op-tablero.es-embudo .op-add-b, .op-tablero.es-embudo .op-col-mas { display: none; }
+
+/* Plan → Imágenes con IA */
+#imagenes-body { display: grid; gap: 16px; }
+.ia-mini-t .ia-mini-d { display: inline-block; margin: 2px 0; }
+.ia-todo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; font-size: 14px; color: var(--muted); }
+.ia-paso { display: grid; gap: 12px; }
+.ia-lista { display: grid; gap: 8px; }
+.ia-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
+.ia-item strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ia-ico { font-size: 20px; }
+.ia-maestra .ia-mini { flex: 1; }
+.ia-grupo { margin: 6px 0 0; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.ia-piezas { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.ia-pieza { display: grid; gap: 8px; align-content: space-between; padding: 12px; border-radius: 12px; background: var(--surface-2); }
+.ia-pieza .btn { justify-self: start; }
+.ia-mini { display: grid; gap: 4px; padding: 12px; border-radius: 10px; background: #14213d; color: #f4efe3; text-align: center; min-width: 0; }
+.ia-mini-t { font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 16px; line-height: 1.25; overflow-wrap: anywhere; }
+.ia-mini-d { justify-self: center; padding: 2px 10px; border-radius: 4px; background: #b3261e; color: #fff; font-weight: 800; font-size: 15px; transform: rotate(-1.5deg); overflow-wrap: anywhere; }
+.ia-mini-s { font-size: 12px; opacity: .85; }
+.ia-mock { font-size: 12px; color: var(--muted); }

@@ -59,6 +59,7 @@ import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa }
 import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, calendarioWhatsapp, FASES_WA, FASES_WA_DEFECTO, asuntosGanadores, promptEmails, ANGULOS_PREVIOS } from './emails-ia.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto, accesosDePaginas, conAccesos } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
+import { piezasImagenes, mockupsDe, promptMockup, promptMaestra, promptEdicion, promptMagnificImagenes, PROMPT_VERTICAL } from './imagenes-ia.js';
 import { iniciarAnimaciones } from './animaciones.js';
 import { FASES_PLAN, enviosPorDefecto, enviosDe, planEnvios, sanitizeEnvios } from './envios.js';
 import { componerEmails } from './emails.js';
@@ -378,7 +379,7 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
 const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
-const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', automatizaciones: 'config', claude: 'metricas' };
+const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', claude: 'metricas' };
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], lanzmeteo: ['lanz', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
@@ -407,7 +408,7 @@ const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual
     || (v === 'paginas' && !embudoInfo()?.paginasOrigen && pestanasEmbudo().includes('tareas'))
     || (v === 'anuncios' && pestanasEmbudo().includes('tareas'))
     // «Emails» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas.
-    || (v === 'emailsia' && pestanasEmbudo().includes('tareas'))
+    || ((v === 'emailsia' || v === 'imagenes') && pestanasEmbudo().includes('tareas'))
     // «Claude» y «Automatizaciones» son nuevas: las ven los embudos con pestañas elegidas antes que tengan Tareas.
     || ((v === 'claude' || v === 'automatizaciones') && pestanasEmbudo().includes('tareas'))
     // «Anuncios ganadores» de la venta directa es nueva: la ven los que tienen Métricas.
@@ -2941,7 +2942,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'claude', 'automatizaciones'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -2967,6 +2968,7 @@ const AYUDA_VISTA = {
   paginas: ['🧱 Páginas', 'Las páginas del embudo hechas con IA: copia el prompt de cada página (lleva la marca, el avatar, los datos del embudo y los códigos del dashboard), pégalo en Claude y pega el HTML que te devuelva en un elemento «Código personalizado» de GHL.'],
   claude: ['🧠 Analizar con Claude', 'El análisis del lanzamiento con Claude y el conector «Dashboard Datos» (Agencia → Claude): copia el prompt, pégalo en Claude y te devuelve qué funcionó, el cuello de botella y mejoras concretas para el próximo.'],
   automatizaciones: ['⚙️ Automatizaciones', 'Los workflows de GHL del embudo. Si hay que crearlos de cero, cada uno trae su prompt para que Claude lo monte en GHL (en la carpeta del lanzamiento); marca su estado y pega su enlace al terminar.'],
+  imagenes: ['🖼️ Imágenes', 'Las imágenes de cada momento del lanzamiento (grabación, plazas abiertas, bonus que terminan y cierre) con su texto exacto. Primero los mockups, luego una imagen maestra y el resto como ediciones: salen iguales y gastan poco.'],
   emailsia: ['✉️ Emails', 'La secuencia de emails del lanzamiento con IA: el calendario de envíos sale de las fechas reales; copia el prompt (con la ficha de marca, la narrativa y los asuntos que mejor funcionaron), pégalo en Claude y programa los emails en GHL.'],
   grupowa: ['💬 Grupo de WhatsApp', 'Los mensajes del grupo de este lanzamiento: copia el prompt, pégalo en Claude (con tu skill de copy), pega aquí su respuesta, sube los archivos, revisa y programa en SendFlow con un botón.'],
   carrito: ['🛒 Carrito', 'Cada día del carrito: lo que pasa ese día (se calcula solo con las fechas, la oferta y la barra), los emails y WhatsApps previstos y la estrategia.'],
@@ -3000,9 +3002,9 @@ document.addEventListener('click', (e) => {
 });
 
 // Grupos de la barra de arriba, por momento de uso: Hoy (lo del día), Plan y Análisis.
-const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['anuncios', 'paginas', 'automatizaciones', 'grupowa', 'emailsia', 'carrito', 'objetivos', 'calendario', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento', 'claude'] };
+const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['anuncios', 'paginas', 'automatizaciones', 'grupowa', 'emailsia', 'imagenes', 'carrito', 'objetivos', 'calendario', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento', 'claude'] };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', publicidad: 'megaphone' };
+const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', publicidad: 'megaphone' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
@@ -3189,6 +3191,7 @@ function showView(view) {
   if (view === 'paginas' && state.config) renderPaginas();
   if (view === 'anuncios' && state.config) renderAnuncios();
   if (view === 'emailsia' && state.config) renderEmailsIa();
+  if (view === 'imagenes' && state.config) renderImagenesIa();
   if (view === 'claude' && state.config) renderClaude();
   if (view === 'automatizaciones' && state.config) renderAutomatizaciones();
   if (view === 'publicidad' && state.config) cargarPublicidad();
@@ -12695,6 +12698,7 @@ $('#marca-dialog').addEventListener('close', () => {
   if (!$('#view-paginas').hidden && state.config) renderPaginas();
   if (!$('#view-anuncios').hidden && state.config) renderAnuncios();
   if (!$('#view-emailsia').hidden && state.config) renderEmailsIa();
+  if (!$('#view-imagenes').hidden && state.config) renderImagenesIa();
   if (!$('#view-claude').hidden && state.config) renderClaude();
   if (!$('#view-automatizaciones').hidden && state.config) renderAutomatizaciones();
 });
@@ -13419,6 +13423,55 @@ async function renderEmailsIa() {
     await renderEmailsIa();
     $('.em-ajustes').open = true;
   });
+}
+
+// Plan → Imágenes: los prompts de las imágenes del lanzamiento (mockups, una maestra y el resto como ediciones).
+async function renderImagenesIa() {
+  const box = $('#imagenes-body');
+  const code = state.launchCode;
+  const l = state.config.launches[code];
+  if (tipoActual() !== 'lanz' || !l) { box.innerHTML = '<div class="card empty"><p class="muted">Elige un lanzamiento para preparar sus imágenes.</p></div>'; return; }
+  const marca = await marcaDeEmbudo(api, state.cliente, state.embudo);
+  if (state.launchCode !== code) return;
+  const producto = marca?.producto ? nombreDeProducto(marca.producto) : nombreProducto(state.config);
+  const ctx = { marca: clienteNombre(), producto, diseno: disenoTexto(marca?.m), logo: l.logoUrl || '', lanzamiento: l.name };
+  const piezas = piezasImagenes(l, { producto });
+  const mocks = mockupsDe(piezas);
+  const maestra = piezas[0];
+  const prompts = { todo: promptMagnificImagenes(piezas, ctx), maestra: promptMaestra(maestra, ctx), vertical: PROMPT_VERTICAL };
+  for (const m of mocks) prompts[`m:${m.id}`] = promptMockup(m.id, ctx, piezas.find((p) => p.mockup === m.id)?.bonus);
+  for (const p of piezas.slice(1)) prompts[`p:${p.id}`] = promptEdicion(p);
+  const nBar = (l.oferta?.bonus || []).filter((b) => String(b.tipo || '').startsWith('bar_')).length;
+  const btn = (k, txt = '📋 Copiar') => `<button type="button" class="btn small" data-copiar-img="${esc(k)}">${txt}</button>`;
+  // Vista previa: el destacado, en su trazo de color (dentro del titular si forma parte de él).
+  const vista = (p) => {
+    const dentro = p.destacado && p.titular.includes(p.destacado);
+    const t = dentro ? esc(p.titular).replace(esc(p.destacado), `<span class="ia-mini-d">${esc(p.destacado)}</span>`) : esc(p.titular);
+    return `<div class="ia-mini"><span class="ia-mini-t">${t}</span>${p.destacado && !dentro ? `<span class="ia-mini-d">${esc(p.destacado)}</span>` : ''}${p.subtitulo ? `<span class="ia-mini-s">${esc(p.subtitulo)}</span>` : ''}</div>`;
+  };
+  const grupos = [];
+  for (const p of piezas.slice(1)) { let g = grupos.find((x) => x.n === p.grupo); if (!g) grupos.push(g = { n: p.grupo, items: [] }); g.items.push(p); }
+  box.innerHTML = `${estudioHero({ ico: '🖼️', titulo: 'Imágenes con IA', sub: `«${esc(l.name)}» · ${piezas.length} imágenes con el texto exacto y las horas reales`,
+      pasos: ['Genera los <strong>mockups</strong> (una vez)', 'Haz la <strong>imagen maestra</strong> con el estilo de la marca', 'Las demás, <strong>editando la maestra</strong>: solo cambia el texto y el mockup'],
+      extra: `${avisoMarcaHtml(marca)}<div class="st-aviso"><span>💡 Así gastas poco: ${mocks.length} mockups + 1 maestra + ${piezas.length - 1} ediciones rápidas, en lugar de ${piezas.length} imágenes desde cero (y salen todas iguales de estilo). ${nBar ? '' : 'No hay bonus de acción rápida en la oferta de este lanzamiento (Configuración → Oferta).'}</span></div>
+        <div class="ia-todo"><span>¿Usas el conector de Magnific en Claude? Pega esto y lo hace todo (te enseña el plan y el coste antes):</span>${btn('todo', '📋 Copiar «hazlo todo con Magnific»')}</div>` })}
+    <section class="card ia-paso">${pasoCab(1, 'Los mockups', 'Genéralos una vez y guárdalos: se reutilizan en todas las imágenes. Pide fondo liso para recortarlos.')}
+      <div class="ia-lista">${mocks.map((m) => `<div class="ia-item"><span class="ia-ico" aria-hidden="true">${m.id === 'grabacion' ? '📼' : m.id === 'producto' ? '📦' : '🎁'}</span><strong>${esc(m.nombre)}</strong>${btn(`m:${m.id}`)}</div>`).join('')}</div>
+    </section>
+    <section class="card ia-paso">${pasoCab(2, 'La imagen maestra', 'La primera imagen, con todo el diseño. Adjunta el mockup de la grabación y, si quieres, una imagen de referencia del estilo que te guste. Repite hasta que te encante: todo lo demás sale de aquí.')}
+      <div class="ia-item ia-maestra">${vista(maestra)}${btn('maestra', '📋 Copiar el prompt de la maestra')}</div>
+    </section>
+    <section class="card ia-paso">${pasoCab(3, 'Las demás, editando la maestra', 'Adjunta la maestra y el mockup que toque, y pega el prompt. Para stories/estados, pasa la que quieras a vertical.', btn('vertical', '📱 Copiar «pasar a 9:16»'))}
+      ${grupos.map((g) => `<h4 class="ia-grupo">${esc(g.n)}</h4><div class="ia-piezas">${g.items.map((p) => `<div class="ia-pieza">${vista(p)}<span class="ia-mock">+ ${esc(p.mockup === 'grabacion' ? 'mockup de la grabación' : p.mockup === 'producto' ? 'mockup del producto' : 'mockup del bonus')}</span>${btn(`p:${p.id}`)}</div>`).join('')}</div>`).join('')}
+    </section>`;
+  box.onclick = async (e) => {
+    const b = e.target.closest('[data-copiar-img]');
+    if (!b || !prompts[b.dataset.copiarImg]) return;
+    const antes = b.textContent;
+    const ok = await copiarAlPortapapeles(prompts[b.dataset.copiarImg]);
+    b.textContent = ok ? '✓ Copiado' : 'No se pudo copiar';
+    setTimeout(() => { b.textContent = antes; }, 2500);
+  };
 }
 
 // ---------- 🎯 Crear anuncios con IA (Plan → Anuncios) ----------
