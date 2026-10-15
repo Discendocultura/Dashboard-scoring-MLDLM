@@ -594,6 +594,7 @@ async function setEmbudo(e, { vista = null } = {}) {
   // Cliente sin embudos todavía.
   const sin = !embudos().length;
   $('#sin-embudos').hidden = !sin;
+  $('.sin-embudos-op').hidden = !sin;
   if (sin) { $('#dashboard').hidden = true; $('#empty-state').hidden = true; return; }
   // Cada embudo de lanzamientos enseña solo sus lanzamientos.
   if (!enVsl() && !enMeteo() && !enDirecta()) {
@@ -1070,7 +1071,7 @@ async function selectLaunch(code, { forzar = false } = {}) {
   if (enVsl() || enMeteo()) return; // se cargará al volver a Lanzamientos
   notice('');
   const hasLaunch = Boolean(code && state.config.launches[code]);
-  $('#empty-state').hidden = hasLaunch;
+  $('#empty-state').hidden = hasLaunch || !embudos().length; // sin embudos ya lo dice «Este cliente aún no tiene embudos»
   $('#dashboard').hidden = !hasLaunch;
   $('#btn-zoom').disabled = !hasLaunch;
   if (!hasLaunch) return;
@@ -7231,6 +7232,7 @@ function mostrarSoloOperativa() {
   $('#solo-op').hidden = false;
   $('#solo-op-saludo').textContent = `Hola${state.user ? `, ${state.user.nombre.split(' ')[0]}` : ''} 👋`;
 }
+$('#sin-embudos-operativa').addEventListener('click', () => abrirOperativa({ api, dialog: $('#operativa-dialog') }));
 $('#solo-op-operativa').addEventListener('click', () => abrirOperativa({ api, dialog: $('#operativa-dialog') }));
 $('#solo-op-procesos').addEventListener('click', () => abrirProcesos({ api, dialog: $('#procesos-dialog') }));
 
