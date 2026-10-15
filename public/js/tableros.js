@@ -46,7 +46,12 @@ export function sanitizeConfigTableros(cfg) {
   for (const [p, id] of Object.entries(cfg?.porDefecto && typeof cfg.porDefecto === 'object' ? cfg.porDefecto : {})) {
     if (typeof id === 'string' && id !== GENERAL && tableros.some((t) => t.proyecto === p && t.id === id)) porDefecto[p] = id;
   }
-  return { tableros, plantillas, etiquetas: sanitizeEtiquetas(cfg?.etiquetas), porDefecto };
+  // Proyecto con el que se abre la Operativa, el de cada persona: { uid: proyecto }.
+  const proyectoDefecto = {};
+  for (const [k, p] of Object.entries(cfg?.proyectoDefecto && typeof cfg.proyectoDefecto === 'object' ? cfg.proyectoDefecto : {}).slice(0, 500)) {
+    if (/^[A-Za-z0-9_-]{1,40}$/.test(k) && typeof p === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(p)) proyectoDefecto[k] = p;
+  }
+  return { tableros, plantillas, etiquetas: sanitizeEtiquetas(cfg?.etiquetas), porDefecto, proyectoDefecto };
 }
 // El tablero que se abre al entrar en un proyecto: el marcado por defecto o, si no hay, el General.
 export const tableroPorDefecto = (cfg, proyecto) => cfg?.porDefecto?.[proyecto] || GENERAL;

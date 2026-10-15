@@ -28,8 +28,13 @@ export const ROLES_POR_DEFECTO = [
   { id: 'equipo', label: 'Equipo', permisos: [] },
   // El propio cliente: solo ve su resumen (registros, ventas, facturación, ROAS, hitos), sin tocar nada.
   { id: 'cliente', label: 'Cliente (solo lectura)', permisos: ['resumen'] },
+  // Solo la Operativa (tareas y tableros de su proyecto) y la Biblioteca de procesos: ninguna métrica ni dato de ventas.
+  { id: 'operativa', label: 'Solo Operativa', permisos: [] },
 ];
 export const ROL_CLIENTE = 'cliente';
+export const ROL_OPERATIVA = 'operativa';
+// Roles fijos (no se les ponen ni quitan permisos ni se borran).
+export const ROLES_FIJOS = [ROL_CLIENTE, ROL_OPERATIVA];
 
 // Permisos añadidos después de que la admin guardara sus roles: qué roles los reciben de entrada
 // (luego se pueden quitar en la tabla). Cada rol guarda en `vistos` los permisos que ya conocía.
@@ -68,6 +73,10 @@ export function sanitizeRoles(list) {
   const cli = out.find((r) => r.id === ROL_CLIENTE);
   if (cli) cli.permisos = ['resumen'];
   else out.push({ id: ROL_CLIENTE, label: 'Cliente (solo lectura)', permisos: ['resumen'] });
+  // Y el «Solo Operativa», sin ningún permiso de pestañas (lo suyo es la Operativa y los procesos).
+  const op = out.find((r) => r.id === ROL_OPERATIVA);
+  if (op) op.permisos = [];
+  else out.push({ id: ROL_OPERATIVA, label: 'Solo Operativa', permisos: [] });
   return out;
 }
 

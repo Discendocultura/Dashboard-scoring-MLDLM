@@ -4,7 +4,7 @@
 // superadmin). Filtros: cliente → embudo (lanzamientos, VSL…), persona y búsqueda. Cada tarea se cambia aquí mismo (estado, fecha,
 // responsable, comentarios) y se guarda en su proyecto. Cada persona ve solo lo que tiene asignado.
 //   abrirOperativa({ api, dialog })
-import { ESTADOS_OP, estadoOp, estaBloqueada, embudosDe, ICONO_EMBUDO, semanasDelMes, mesMas, agruparPorFecha, resumenProyecto, cargaPorPersona, diasDeRetraso, PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from './operativa.js';
+import { ESTADOS_OP, estadoOp, estaBloqueada, embudosDe, ICONO_EMBUDO, semanasDelMes, mesMas, agruparPorFecha, resumenProyecto, cargaPorPersona, diasDeRetraso, PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA, RANGOS_OP, enRango } from './operativa.js';
 import { richToHtml, richToText } from './richtext.js';
 import { tablerosDe, tableroDeTarea, columnaDeTarea, columnaHecha, COLUMNAS_SERIE, GENERAL, MAX_COLUMNAS, COLORES_ETIQUETA, etiquetasDeTarea, PRIORIDADES, ordenColumna, recolocar, progresoChecklist, MAX_ETIQUETAS_TAREA, tableroPorDefecto } from './tableros.js';
 import { textoRepetir, proximaTrasHecho, encajaEnRepetir, primeraFechaRepetir } from './procesos.js';
@@ -27,6 +27,10 @@ const gestiona = (p) => Boolean(d.superadmin || (p && p !== PROYECTO_AGENCIA && 
 // Proyecto por defecto de una tarea nueva: el elegido arriba; si no, «Agencia» (o el primero suyo si no es de la agencia).
 const proyectoDef = () => fProy || (d.agencia || d.superadmin ? PROYECTO_AGENCIA : d.proyectos[0]?.id || PROYECTO_AGENCIA);
 let fEtq = ''; // filtro por etiqueta ('' = todas; '_alta' = prioridad alta)
+// Filtro de tiempo del tablero ('' todas · hoy · semana · quincena · mes). Se recuerda en este navegador.
+const LS_RANGO = 'lsd_op_rango';
+let fRango = (() => { try { const v = localStorage.getItem(LS_RANGO) || ''; return RANGOS_OP.some((r) => r.id === v) ? v : ''; } catch { return ''; } })();
+let entrando = false; // recién abierta la Operativa: se pone el proyecto por defecto de esta persona
 let pickerEtq = false; // el selector de etiquetas de la ficha, abierto
 let colorNueva = 'azul';
 let recienCreada = ''; // la siguiente de una que se repite (se resalta al aparecer)
@@ -270,6 +274,7 @@ export async function abrirOperativa(opts) {
   body().innerHTML = '<p class="muted">Cargando las tareas de todos los proyectos…</p>';
   if (!dlg.open) dlg.showModal();
   fTab = ''; // al entrar, el tablero por defecto del proyecto (lo pone cargar)
+  entrando = true;
   await cargar();
   if (opts.ir && d) irA(opts.ir); // abierta desde un enlace de otra tarea («@»)
 }
@@ -281,6 +286,10 @@ async function cargar() {
   if (vista === 'personas' || vista === 'proyectos') vista = 'tablero';
   const imp = ctx.dialog.querySelector('#op-importar-btn');
   if (imp) imp.hidden = !d.superadmin; // ya no son pestañas: están en los filtros
+  if (entrando) { // al entrar, su proyecto por defecto (si lo tiene)
+    entrando = false;
+    if (d.proyectoDefecto && d.proyectos.some((p) => p.id === d.proyectoDefecto)) { fProy = d.proyectoDefecto; fEmb = ''; }
+  }
   if (fProy && !d.proyectos.some((p) => p.id === fProy)) { fProy = ''; fEmb = ''; }
   // Quien solo lleva un proyecto (y no es de la agencia) entra directamente en él, con su tablero por defecto.
   if (!fProy && !d.superadmin && !d.agencia && d.proyectos.length === 1) { fProy = d.proyectos[0].id; fTab = tabInicial(fProy); }
@@ -293,6 +302,7 @@ function filtradas() {
   const t = q.trim().toLowerCase();
   return d.tareas.filter((x) => (!fProy || x.cliente === fProy) && (!fEmb || x.embudoId === fEmb)
     && (!fPersona || (fPersona === '_sin' ? !x.asignado : x.asignado?.tipo === 'persona' && x.asignado.id === fPersona))
+    && (vista !== 'tablero' || enRango(x, fRango, hoyMadrid()))
     && (!fEtq || (fEtq === '_alta' ? x.prioridad === 'alta' : (x.etiquetas || []).includes(fEtq)))
     && (!t || `${x.titulo} ${x.clienteNombre} ${x.embudo} ${etiquetasDeTarea(x, d.etiquetas).map((e) => e.nombre).join(' ')}`.toLowerCase().includes(t)));
 }
@@ -321,6 +331,7 @@ function pintar() {
     <nav class="op-tabs">${tab('tablero', '🗂️ Tablero')}${tab('calendario', '🗓️ Calendario')}${tab('dia', `☀️ Mi día${venc ? ` <b>${venc}</b>` : ''}`)}</nav>
     <div class="op-filtros">
       ${selector('op-proyecto', 'Cliente', fProy ? '🏷️' : '🌐', fProy, `<option value="">Todos los clientes</option>${d.proyectos.map((p) => `<option value="${esc(p.id)}"${fProy === p.id ? ' selected' : ''}>${esc(p.nombre)}</option>`).join('')}`, d.proyectos.find((p) => p.id === fProy)?.color)}
+      ${fProy ? `<button type="button" class="op-proy-def${d.proyectoDefecto === fProy ? ' on' : ''}" data-op="proy-defecto" title="${d.proyectoDefecto === fProy ? 'Es tu proyecto por defecto: la Operativa se te abre en él. Pulsa para quitarlo' : 'Que la Operativa se te abra siempre en este proyecto'}">${d.proyectoDefecto === fProy ? '⭐ Por defecto' : '☆ Por defecto'}</button>` : ''}
       ${fProy && fProy !== PROYECTO_AGENCIA ? (() => { const embs = embudosDe(d.tareas, fProy); return embs.length ? selector('op-embudo', 'Embudo', '🧭', fEmb, `<option value="">Todos los proyectos</option>${embs.map((e) => `<option value="${esc(e.id)}"${fEmb === e.id ? ' selected' : ''}>${ICONO_EMBUDO[e.tipo] || '📁'} ${esc(e.nombre)}${e.n ? ` (${e.n})` : ''}</option>`).join('')}`) : ''; })() : ''}
       ${d.superadmin || d.gestiona?.length ? selector('op-persona', 'Persona', fPersona ? '👤' : '👥', fPersona, `<option value="">Todo el equipo</option>${d.equipo.map((u) => `<option value="${esc(u.id)}"${fPersona === u.id ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}<option value="_sin"${fPersona === '_sin' ? ' selected' : ''}>Sin asignar</option>`) : ''}
       <label class="pr-buscar op-buscar"><span aria-hidden="true">🔎</span><input id="op-buscar" type="search" placeholder="Buscar…" value="${esc(q)}" autocomplete="off"></label>
@@ -493,8 +504,9 @@ function vistaTablero(lista, hoy) {
   const k = `${fProy}|${fTab}|${fEmb}|${fEtq}`;
   const quieto = k === ultimoTablero ? ' quieto' : '';
   ultimoTablero = k;
+  const rangos = `<div class="op-rangos" role="group" aria-label="Filtro de tiempo"><span class="op-rangos-l">📅</span>${RANGOS_OP.map((r) => `<button type="button" class="op-rango${fRango === r.id ? ' on' : ''}" data-op-rango="${r.id}">${r.label}</button>`).join('')}${fRango ? '<span class="muted small op-rangos-nota">Con fecha en ese plazo (las vencidas sin hacer, también)</span>' : ''}</div>`;
   if (!fProy) {
-    return `<p class="op-ayuda">Arrastra las tarjetas a otra columna para cambiar su estado, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ para completarlas. <strong>Elige un cliente arriba</strong> para ver sus tableros, cada uno con sus columnas.</p>
+    return `${rangos}<p class="op-ayuda">Arrastra las tarjetas a otra columna para cambiar su estado, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ para completarlas. <strong>Elige un cliente arriba</strong> para ver sus tableros, cada uno con sus columnas.</p>
   <div class="op-tablero${quieto}"${estiloAnchos('_todos', ESTADOS_OP.map((e) => e.id))}>${ESTADOS_OP.map((e) => {
     const ts = lista.filter((t) => estadoOp(t) === e.id).sort(porOrden);
     return `<section class="op-col e-${e.id}" data-op-col="${e.id}"><header><span class="op-col-dot"></span><span class="op-col-nom">${e.icon} ${esc(e.label)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${e.id}" title="Nueva tarea en «${esc(e.label)}»" aria-label="Nueva tarea en ${esc(e.label)}">＋</button></header>
@@ -508,7 +520,7 @@ function vistaTablero(lista, hoy) {
     ${gestiona(fProy) ? `<button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-nuevo">＋ Nuevo tablero</button>${d.superadmin ? '<button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-importar" title="Desde un archivo .json (también el export de un proyecto de Asana)">⬆️ Importar tablero</button>' : ''}<button type="button" class="btn ghost small op-tab-cfg" data-op="tab-editar" title="Cambiar el nombre del tablero y sus columnas">✏️ Editar «${esc(tab.nombre)}»</button>${tab.id === GENERAL && tabInicial(fProy) === GENERAL ? '' : `<button type="button" class="btn ghost small op-tab-defecto${tabInicial(fProy) === tab.id ? ' on' : ''}" data-op="tab-defecto" title="${tabInicial(fProy) === tab.id ? 'Quitar: al entrar se abrirá el General' : 'Que este tablero se abra siempre primero al entrar en el proyecto'}">${tabInicial(fProy) === tab.id ? '⭐ Por defecto' : '☆ Marcar por defecto'}</button>`}` : ''}</nav>`;
   if (editTab) return barra + editorTablero();
   const suyas = lista.filter((t) => tabDeT(t).id === tab.id);
-  return `${barra}<p class="op-ayuda">Arrastra las tarjetas a otra columna, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ de una tarjeta para completarla. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.</p>
+  return `${barra}${rangos}<p class="op-ayuda">Arrastra las tarjetas a otra columna, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ de una tarjeta para completarla. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.</p>
   <div class="op-tablero${quieto}" style="--op-ncol:${tab.columnas.length};${estiloAnchos(`${fProy}|${tab.id}`, tab.columnas.map((c) => c.id), true)}">${tab.columnas.map((c, i) => {
     const ts = suyas.filter((t) => columnaDeTarea(t, tab) === c.id).sort(porOrden);
     return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header${gestiona(fProy) ? ` class="op-col-arr" draggable="true" data-op-col-arr="${esc(c.id)}" title="Arrastra para mover la columna a un lado u otro"` : ''}><span class="op-col-dot"></span><span class="op-col-nom" title="${esc(c.nombre)}">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${esc(c.id)}" title="Nueva tarea en «${esc(c.nombre)}»" aria-label="Nueva tarea en ${esc(c.nombre)}">＋</button></header>
@@ -910,6 +922,8 @@ async function onClick(e) {
   if (ei && !ei.closest('[contenteditable="true"]')) { e.preventDefault(); const r = leerRef(ei.getAttribute('href')); if (r?.tipo !== 'persona') irA(r); return; }
   const v = e.target.closest('[data-op-vista]');
   if (v) { vista = v.dataset.opVista; pintar(); return; }
+  const rg = e.target.closest('[data-op-rango]');
+  if (rg) { fRango = rg.dataset.opRango; try { localStorage.setItem(LS_RANGO, fRango); } catch { /* sin almacenamiento */ } pintarVista(); return; }
   const fe = e.target.closest('[data-op-fetq]');
   if (fe) { fEtq = fe.dataset.opFetq; pintar(); return; }
   const ds = e.target.closest('[data-rep-dsem]');
@@ -1011,6 +1025,16 @@ async function onClick(e) {
   }
   if (b.dataset.op === 'bloquear' || b.dataset.op === 'desbloquear') { const t = buscarT(abierta); if (t) ponerBloqueo(t, b.dataset.op === 'bloquear'); return; }
   if (b.dataset.op === 'add-cerrar') { addCol = ''; pintarVista(); return; }
+  if (b.dataset.op === 'proy-defecto') {
+    const quitar = d.proyectoDefecto === fProy;
+    try {
+      const r = await ctx.api('/api/operativa', { method: 'POST', body: { op: 'mi-proyecto-defecto', proyecto: quitar ? '' : fProy } });
+      d.proyectoDefecto = r.proyectoDefecto;
+      aviso(quitar ? 'Listo: la Operativa se abrirá con todos los clientes.' : `⭐ Listo: la Operativa se te abrirá siempre en «${d.proyectos.find((p) => p.id === fProy)?.nombre || fProy}».`);
+    } catch (err) { window.alert(err.message); }
+    pintar();
+    return;
+  }
   if (b.dataset.op === 'cerrar-ficha') {
     // Cerrar con la descripción a medias: se guarda sola (no se pierde lo escrito).
     const t = !creando && editandoDesc && abierta ? buscarT(abierta) : null;

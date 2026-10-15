@@ -30,7 +30,7 @@ import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, 
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
-import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE } from './roles.js';
+import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE, ROL_OPERATIVA, ROLES_FIJOS } from './roles.js';
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
@@ -448,6 +448,20 @@ async function start() {
   }
   state.cliente = me.cliente.id;
   ls.set('lsd_cliente', me.cliente.id);
+  // «Solo Operativa»: no pide la configuración del cliente (ni ningún dato de ventas); solo su Inicio de trabajo.
+  if (me.role === ROL_OPERATIVA) {
+    state.role = me.role;
+    state.user = me.user || null;
+    state.permisos = [];
+    state.roles = me.roles || [];
+    for (const c of ['is-admin', 'can-config', 'can-zoom', 'can-tareas', 'is-equipo', 'is-superadmin', 'is-agencia']) document.body.classList.remove(c);
+    document.body.classList.toggle('can-operativa', state.operativa);
+    document.body.classList.add('solo-operativa');
+    pintarCliente(me.cliente);
+    mostrarSoloOperativa();
+    return;
+  }
+  document.body.classList.remove('solo-operativa');
   const { role, config, zoomConfigured, sendflowConfigured } = await api('/api/config');
   state.role = role;
   state.user = me.user || null;
@@ -6628,13 +6642,32 @@ function openTarea(t) {
   cb.dataset.tid = '';
   if (t) renderComentarios(cb, t);
   tdlg.showModal();
+  tdlg.dataset.cambios = '';
   $('#t-titulo').focus();
 }
+// Pulsar fuera de la ventana de la tarea la cierra (sin la ✕). Si se había cambiado algo, antes se guarda.
+tdlg.addEventListener('input', () => { tdlg.dataset.cambios = '1'; });
+tdlg.addEventListener('change', () => { tdlg.dataset.cambios = '1'; });
+cerrarAlPulsarFuera(tdlg, () => {
+  if (tdlg.dataset.cambios && $('#t-titulo').value.trim() && !$('#tarea-save').disabled) $('#tarea-save').click();
+  else tdlg.close();
+});
 $('#t-asignado').addEventListener('change', (e) => {
   $('#t-nueva-persona').hidden = e.target.value !== 'nueva';
   if (e.target.value === 'nueva') $('#t-np-nombre').focus();
 });
 
+// Al pulsar en el fondo oscuro, fuera del recuadro de la ventana (y no al soltar ahí un arrastre que empezó dentro).
+function cerrarAlPulsarFuera(dlg, cerrar) {
+  let empezoFuera = false;
+  const fuera = (e) => {
+    if (e.target !== dlg) return false;
+    const r = dlg.getBoundingClientRect();
+    return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  };
+  dlg.addEventListener('pointerdown', (e) => { empezoFuera = fuera(e); });
+  dlg.addEventListener('click', (e) => { if (empezoFuera && fuera(e)) cerrar(); empezoFuera = false; });
+}
 // Crea el usuario y explica qué ha pasado con el email de acceso.
 async function crearUsuario({ nombre, email, rol, marcaObligatoria }) {
   const r = await api('/api/usuarios', { method: 'POST', body: { op: 'crear', nombre, email, rol, ...(typeof marcaObligatoria === 'boolean' ? { marcaObligatoria } : {}) } });
@@ -7188,6 +7221,19 @@ $('#portal-nav').addEventListener('change', (e) => {
   else return;
   pintarPortalCuerpo();
 });
+function mostrarSoloOperativa() {
+  $('#portal').hidden = true;
+  $('#login').hidden = true;
+  $('#app').hidden = false;
+  $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · Solo Operativa` : 'Solo Operativa';
+  $('#btn-cuenta').hidden = !state.user;
+  pintarFotoCuenta();
+  $('#solo-op').hidden = false;
+  $('#solo-op-saludo').textContent = `Hola${state.user ? `, ${state.user.nombre.split(' ')[0]}` : ''} 👋`;
+}
+$('#solo-op-operativa').addEventListener('click', () => abrirOperativa({ api, dialog: $('#operativa-dialog') }));
+$('#solo-op-procesos').addEventListener('click', () => abrirProcesos({ api, dialog: $('#procesos-dialog') }));
+
 async function mostrarPortal({ vistaPrevia = false, cliente = state.cliente } = {}) {
   portalCliente = cliente;
   $('#app').hidden = true;
@@ -8550,6 +8596,7 @@ editor.addEventListener('paste', (e) => {
 
 // Vista de una tarea (descripción completa con vídeos reproducibles).
 const tvDlg = $('#tarea-ver');
+cerrarAlPulsarFuera(tvDlg, () => tvDlg.close());
 let tvId = null;
 function openTareaVer(id) {
   const t = state.tareas?.list.find((x) => x.id === id);
@@ -9646,9 +9693,9 @@ function renderRoles() {
       <tr class="roles-admin"><td><strong>Admin</strong><br><small class="muted">todo, siempre</small></td>${PERMISOS.map(() => '<td class="roles-cell"><input type="checkbox" checked disabled></td>').join('')}<td class="num">${adminPersonas ?? ''}</td><td></td></tr>
       ${roles.map((r, i) => `<tr data-ri="${i}">
         <td><input class="rol-label" value="${esc(r.label)}" maxlength="30" aria-label="Nombre del rol"><br><small class="muted">${esc(r.id)}</small></td>
-        ${PERMISOS.map((p) => `<td class="roles-cell"><input type="checkbox" data-perm="${p.id}" ${r.permisos.includes(p.id) ? 'checked' : ''} ${r.id === ROL_CLIENTE ? 'disabled title="El rol Cliente solo ve su resumen"' : ''} aria-label="${esc(`${r.label}: ${p.label}`)}"></td>`).join('')}
+        ${PERMISOS.map((p) => `<td class="roles-cell"><input type="checkbox" data-perm="${p.id}" ${r.permisos.includes(p.id) ? 'checked' : ''} ${r.id === ROL_CLIENTE ? 'disabled title="El rol Cliente solo ve su resumen"' : r.id === ROL_OPERATIVA ? 'disabled title="«Solo Operativa» solo entra en la Operativa y en los procesos: ninguna pestaña del embudo"' : ''} aria-label="${esc(`${r.label}: ${p.label}`)}"></td>`).join('')}
         <td class="num">${r.personas ?? 0}</td>
-        <td><button type="button" class="btn ghost" data-rol-del="${i}" ${r.id === ROL_CLIENTE ? 'disabled title="El rol Cliente no se puede borrar"' : r.personas ? `disabled title="Lo tienen ${r.personas} persona(s): cámbiales antes el rol en Equipo"` : 'title="Borrar el rol"'} aria-label="Borrar rol">✕</button></td>
+        <td><button type="button" class="btn ghost" data-rol-del="${i}" ${ROLES_FIJOS.includes(r.id) ? 'disabled title="Este rol viene de serie y no se puede borrar"' : r.personas ? `disabled title="Lo tienen ${r.personas} persona(s): cámbiales antes el rol en Equipo"` : 'title="Borrar el rol"'} aria-label="Borrar rol">✕</button></td>
       </tr>`).join('')}
     </tbody>`;
 }

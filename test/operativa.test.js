@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estadoOp, estaBloqueada, ESTADOS_OP, agruparPorFecha, resumenProyecto, cargaPorPersona, asignadaA } from '../public/js/operativa.js';
-import { visiblesPara, visiblesOperativa, proyectosQueGestiona, puedeOperativa, clienteDeTarea, ponerEstado, ponerBloqueo, camposAgencia } from '../lib/operativa.js';
+import { estadoOp, estaBloqueada, ESTADOS_OP, agruparPorFecha, resumenProyecto, cargaPorPersona, asignadaA, enRango, limitesRango } from '../public/js/operativa.js';
+import { visiblesPara, visiblesOperativa, proyectosQueGestiona, proyectosSoloOperativa, puedeOperativa, clienteDeTarea, ponerEstado, ponerBloqueo, camposAgencia } from '../lib/operativa.js';
 
 const hoy = '2026-10-13';
 const T = [
@@ -112,4 +112,31 @@ test('operativa: embudo al que pertenece cada código', async () => {
   assert.equal(embudoDeCodigo(config, 'reto').nombre, 'Reto Ovulación');
   assert.equal(embudoDeCodigo(config, 'vsl').tipo, 'vsl');
   assert.equal(embudoDeCodigo(config, 'm1').id, 'lanz');
+});
+
+test('operativa: filtro de tiempo (hoy, semana, quincena, mes)', () => {
+  const hoy = '2026-10-15'; // jueves
+  assert.deepEqual(limitesRango('semana', hoy), { desde: '2026-10-12', hasta: '2026-10-18' });
+  assert.deepEqual(limitesRango('mes', hoy), { desde: '2026-10-01', hasta: '2026-10-31' });
+  assert.deepEqual(limitesRango('quincena', hoy), { desde: hoy, hasta: '2026-10-29' });
+  assert.equal(limitesRango('', hoy), null);
+  const t = (fecha, hecha = false) => ({ fecha, hecha, estado: hecha ? 'hecha' : 'pendiente' });
+  assert.equal(enRango(t('2026-10-15'), 'hoy', hoy), true);
+  assert.equal(enRango(t('2026-10-10'), 'hoy', hoy), true); // vencida: sigue pendiente, sale hoy
+  assert.equal(enRango(t('2026-10-10', true), 'hoy', hoy), false); // hecha otro día: no
+  assert.equal(enRango(t('2026-10-16'), 'hoy', hoy), false);
+  assert.equal(enRango(t('2026-10-18'), 'semana', hoy), true);
+  assert.equal(enRango(t('2026-10-19'), 'semana', hoy), false);
+  assert.equal(enRango(t('2026-10-29'), 'quincena', hoy), true);
+  assert.equal(enRango(t('2026-11-01'), 'mes', hoy), false);
+  assert.equal(enRango(t(''), 'mes', hoy), false);
+  assert.equal(enRango(t(''), '', hoy), true);
+});
+
+test('operativa: el perfil «Solo Operativa» entra y ve todas las tareas de su proyecto', () => {
+  const olga = { superadmin: false, uid: 'olga', user: { id: 'olga', accesos: { discendo: 'operativa' } } };
+  assert.deepEqual(proyectosSoloOperativa(olga), ['discendo']);
+  assert.equal(puedeOperativa(olga), true);
+  assert.deepEqual(proyectosQueGestiona(olga), []); // no gestiona tableros ni reparte
+  assert.deepEqual(visiblesOperativa(T, olga).map((t) => t.id), ['3']);
 });

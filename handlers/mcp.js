@@ -2,6 +2,7 @@
 // estado ni SSE). Pide un token OAuth (ver handlers/oauth.js); sin él responde 401 con dónde conseguirlo.
 // Cada herramienta corre en el cliente elegido con la sesión de quien conectó (lib/mcp-tools.js).
 import { sesionDeToken, sesionDeGrant } from '../lib/oauth.js';
+import { ROL_OPERATIVA } from '../public/js/roles.js';
 import { TOOLS, toolPublica, textoSalida } from '../lib/mcp-tools.js';
 import { runCliente, principal } from '../lib/cliente.js';
 import { listClientes } from '../lib/clientes.js';
@@ -45,6 +46,7 @@ async function llamarTool(params, ctx) {
       // La sesión en ESE cliente (su rol y permisos allí).
       const s = await sesionDeGrant(ctx.grant, ctx.origin);
       if (!s?.role) return fallo(`No tienes acceso a «${cliente.nombre}».`);
+      if (s.role === ROL_OPERATIVA) return fallo(`En «${cliente.nombre}» tu acceso es solo a la Operativa y a la Biblioteca de procesos: el conector no da datos de este cliente.`);
       const v = await t.run(args, { s, clientes, origin: ctx.origin });
       return { result: { content: [{ type: 'text', text: textoSalida(v) }] } };
     });

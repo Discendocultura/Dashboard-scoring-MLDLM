@@ -100,3 +100,29 @@ export function semanasDelMes(mes) {
   return semanas;
 }
 export const mesMas = (mes, n) => { const [y, m] = mes.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return d.toISOString().slice(0, 7); };
+
+// Filtro de tiempo de los tableros: las tareas que tocan en ese rango. Las abiertas con fecha hasta el final del rango
+// (también las vencidas: siguen pendientes); las hechas, solo si su fecha cae dentro. Sin fecha, fuera.
+export const RANGOS_OP = [
+  { id: '', label: 'Todas' },
+  { id: 'hoy', label: 'Hoy' },
+  { id: 'semana', label: 'Esta semana' },
+  { id: 'quincena', label: 'Quincena' },
+  { id: 'mes', label: 'Mes' },
+];
+const diaMas = (f, n) => { const d = new Date(`${f}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+// { desde, hasta } del rango (días AAAA-MM-DD, ambos incluidos), o null para «Todas».
+export function limitesRango(rango, hoy) {
+  const dow = (new Date(`${hoy}T12:00:00Z`).getUTCDay() + 6) % 7; // 0 lunes … 6 domingo
+  if (rango === 'hoy') return { desde: hoy, hasta: hoy };
+  if (rango === 'semana') return { desde: diaMas(hoy, -dow), hasta: diaMas(hoy, 6 - dow) };
+  if (rango === 'quincena') return { desde: hoy, hasta: diaMas(hoy, 14) };
+  if (rango === 'mes') { const [y, m] = hoy.split('-').map(Number); return { desde: `${hoy.slice(0, 7)}-01`, hasta: new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10) }; }
+  return null;
+}
+export function enRango(t, rango, hoy) {
+  const l = limitesRango(rango, hoy);
+  if (!l) return true;
+  if (!t.fecha || t.fecha > l.hasta) return false;
+  return estadoOp(t) !== 'hecha' || t.fecha >= l.desde;
+}

@@ -11,7 +11,8 @@
 //   POST { op: 'subtarea', id, sid?, texto?, hecha?, borrar? }
 //   POST { op: 'comentar', id, texto } · { op: 'comentario-borrar', id, cid }
 //   POST { op: 'borrar', id } · { op: 'seccion', titulo } · { op: 'importar', biblioteca }
-import { requireSuperadmin } from '../lib/auth.js';
+import { requireSuperadmin, getSession } from '../lib/auth.js';
+import { proyectosSoloOperativa } from '../lib/operativa.js';
 import { leerJSON, guardarJSON, reintentando, conVersion } from '../lib/store.js';
 import { listUsersRaw } from '../lib/users.js';
 import { listClientes } from '../lib/clientes.js';
@@ -28,6 +29,14 @@ const fechaTxt = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-E
 
 export async function GET(request) {
   try {
+    // Quien tiene el perfil «Solo Operativa» la consulta (solo lectura): los procesos generales y los de sus proyectos.
+    const ses = await getSession(request);
+    const suyos = ses && !ses.superadmin ? proyectosSoloOperativa(ses) : [];
+    if (suyos.length) {
+      const [b, pr] = await Promise.all([leer(), proyectos()]);
+      const procesos = b.procesos.filter((p) => !p.proyectos.length || p.proyectos.some((id) => suyos.includes(id)));
+      return json({ secciones: b.secciones, procesos, equipo: [], yo: ses.uid || '', proyectos: pr.filter((x) => suyos.includes(x.id)), lectura: true });
+    }
     const s = await requireSuperadmin(request);
     const [b, eq, pr] = await Promise.all([leer(), equipo(), proyectos()]);
     return json({ ...b, equipo: eq, yo: s.uid || '', proyectos: pr });

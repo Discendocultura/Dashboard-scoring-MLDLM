@@ -5036,3 +5036,27 @@ a.enlace-int.e-tablero:hover, a.enlace-int.e-persona:hover { background: color-m
 @media (max-width: 760px) { .op-estilo button { padding: 6px 10px; font-size: 12px; } }
 @media (prefers-reduced-motion: reduce) { .op-estilo-bola { transition: none; } }
 .op-head-acc { align-items: center; flex-wrap: wrap; }
+
+/* Biblioteca de procesos en solo lectura (perfil «Solo Operativa»): se consulta, sin controles para cambiar nada. */
+.pr-lectura #pr-nuevo, .pr-lectura label:has(#pr-importar), .pr-lectura [data-pr="nuevo"], .pr-lectura [data-pr="seccion"], .pr-lectura [data-pr="vaciar"],
+.pr-lectura [data-pr="lote"], .pr-lectura .pr-lote-abrir, .pr-lectura [data-pr="borrar"], .pr-lectura [data-pr="hecho"], .pr-lectura [data-pr="editar-desc"],
+.pr-lectura [data-pr="sin-fecha"], .pr-lectura [data-pr="rep-alinear"], .pr-lectura .pr-sub-nueva, .pr-lectura .pr-x, .pr-lectura .pr-comentar { display: none !important; }
+.pr-lectura .pr-tarea :is(input, select, textarea, .pr-pchip, [data-rep-ed]) { pointer-events: none; }
+.pr-lectura .pr-tarea :is(select, input[type="date"]) { appearance: none; border-color: transparent; background: none; }
+.pr-lectura [data-pr="editar-desc-click"] { cursor: default; }
+
+/* Perfil «Solo Operativa»: fuera los embudos, el lanzamiento y sus datos; solo su Inicio, la Operativa y su cuenta. */
+body.solo-operativa :is(#sidebar, .topbar .lanz-only, .tb-lanz, .notif-wrap, #inicio, #dashboard, #sin-embudos, #empty-state, #aviso-2fa, .config-only, .admin-only) { display: none !important; }
+body:not(.solo-operativa) #solo-op { display: none !important; }
+body.solo-operativa .app-body { display: block; }
+
+/* Operativa: proyecto por defecto (estrella junto al cliente) y filtro de tiempo del tablero. */
+.op-proy-def { border: 1px dashed var(--border); background: none; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-2); cursor: pointer; }
+.op-proy-def:hover { border-color: var(--accent); color: var(--accent); }
+.op-proy-def.on { border-style: solid; border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.op-rangos { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 12px; }
+.op-rangos-l { font-size: 15px; margin-right: 2px; }
+.op-rango { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 13px; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-2); cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+.op-rango:hover { border-color: var(--accent); color: var(--text); }
+.op-rango.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.op-rangos-nota { margin-left: 4px; }

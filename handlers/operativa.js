@@ -28,7 +28,7 @@ import { getSession } from '../lib/auth.js';
 import { listClientes } from '../lib/clientes.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { listUsersRaw, rolEn, newId } from '../lib/users.js';
-import { todasLasTareas, visiblesOperativa, proyectosQueGestiona, puedeOperativa, clienteDeTarea, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, ordenarTareas, avisarAsignada, avisarMencionOp, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
+import { todasLasTareas, visiblesOperativa, proyectosQueGestiona, proyectosSoloOperativa, puedeOperativa, clienteDeTarea, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, ordenarTareas, avisarAsignada, avisarMencionOp, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
 import { tablerosDe, ordenarTableros, alFinal, MAX_ORDENAR, sanitizeTablero, sanitizeColumnas, GENERAL, sanitizeChecklist, prioridadValida, MAX_ETIQUETAS_TAREA, COLORES_ETIQUETA } from '../public/js/tableros.js';
 import { sanitizeRepetir } from '../public/js/procesos.js';
 import { PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from '../public/js/operativa.js';
@@ -43,7 +43,7 @@ const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 async function sesion(request) {
   const s = await getSession(request);
   if (!s) throw bad('No autorizado', 401);
-  if (!puedeOperativa(s)) throw bad('La Operativa es para el equipo de la agencia y los admin de cada proyecto', 403);
+  if (!puedeOperativa(s)) throw bad('La Operativa es para el equipo de la agencia, los admin de cada proyecto y quien tiene el perfil «Solo Operativa»', 403);
   return s;
 }
 // Personas a las que se puede asignar: el equipo de la agencia (`agencia: true`, valen para cualquier proyecto) y quien
@@ -62,7 +62,10 @@ async function equipoPara(s) {
 // ¿Se le puede asignar una tarea de ese proyecto? Si es de la agencia, siempre; si no, si tiene acceso a ese proyecto.
 const asignable = (u, cid) => Boolean(u && (u.agencia || (cid !== PROYECTO_AGENCIA && u.proyectos?.includes(cid))));
 // Tableros que ve: los de sus proyectos (y los de la agencia si es del equipo). Las plantillas, solo el superadmin.
+const claveDefecto = (s) => s.uid || '_general'; // con la contraseña general (sin usuario), uno común
 function tablerosPara(s, cfg, proyectos) {
+  // Del proyecto por defecto, solo el suyo (el de los demás no le importa).
+  cfg = { ...cfg, proyectoDefecto: cfg.proyectoDefecto?.[claveDefecto(s)] || '' };
   if (s.superadmin) return cfg;
   const ids = new Set(proyectos.map((p) => p.id));
   const porDefecto = Object.fromEntries(Object.entries(cfg.porDefecto || {}).filter(([p]) => ids.has(p)));
@@ -105,7 +108,7 @@ export async function POST(request) {
       const cid = clienteDeTarea(t, r);
       if (cid !== r.cliente) return false; // la referencia no cuadra con la tarea
       if (!agencia && cid === PROYECTO_AGENCIA) return false;
-      return esAdminDe(cid) || asignadaA(t, s.uid, cid === PROYECTO_AGENCIA ? '' : rolEn(s.user || {}, cid));
+      return esAdminDe(cid) || proyectosSoloOperativa(s).includes(cid) || asignadaA(t, s.uid, cid === PROYECTO_AGENCIA ? '' : rolEn(s.user || {}, cid));
     };
     const suya = (t) => puedeTocar(t, ref);
     const comprobar = (t) => { if (!suya(t)) throw bad('Solo puedes cambiar las tareas que tienes asignadas', 403); };
@@ -132,6 +135,13 @@ export async function POST(request) {
         else throw bad('Operación no válida');
       }, `Operativa: ${body.op}`);
       return json({ ok: true, ...tablerosPara(s, cfg, await proyectosPara(s)), nueva });
+    }
+    // Su proyecto por defecto (con el que se le abre la Operativa); '' = ninguno.
+    if (body.op === 'mi-proyecto-defecto') {
+      const p = String(body.proyecto || '');
+      if (p && !(await proyectosPara(s)).some((x) => x.id === p)) throw bad('No tienes acceso a ese proyecto', 403);
+      const cfg = await cambiarTableros((c) => { if (p) c.proyectoDefecto[claveDefecto(s)] = p; else delete c.proyectoDefecto[claveDefecto(s)]; }, 'Operativa: proyecto por defecto');
+      return json({ ok: true, proyectoDefecto: cfg.proyectoDefecto[claveDefecto(s)] || '' });
     }
     // Importar un tablero entero (columnas + tareas) en un proyecto: solo el superadmin.
     if (body.op === 'importar-tablero') {

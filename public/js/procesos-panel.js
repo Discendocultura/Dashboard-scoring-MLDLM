@@ -89,6 +89,10 @@ export async function abrirProcesos(opts) {
     bib.equipo ||= [];
     if (proy && proy !== '_general' && !bib.proyectos.some((x) => x.id === proy)) proy = '';
   } catch (e) { body().innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+  // Solo lectura (perfil «Solo Operativa»): se consulta, no se cambia nada.
+  dlg.classList.toggle('pr-lectura', Boolean(bib.lectura));
+  const sub = dlg.querySelector('.pr-sub');
+  if (sub) sub.textContent = bib.lectura ? '· solo consulta' : '· solo la agencia';
   pintar();
 }
 
@@ -382,8 +386,11 @@ async function importar(e) {
 // ---- Eventos ----
 const arriba = () => { body().scrollTop = 0; ctx.dialog.scrollTop = 0; };
 
+// En solo lectura no se envía ningún cambio (los controles de edición están ocultos o desactivados).
+const soloLeer = (el) => bib.lectura && el?.closest?.('.pr-tarea, [data-pr-form], #pr-importar, [data-pr-importar]');
 async function onChange(e) {
   const t = e.target;
+  if (soloLeer(t)) return;
   if (t.dataset.rep && abierto) { guardarCampos({ repetir: leerRepetir(t.closest('[data-rep-ed]'), proc().fecha) }); return; }
   if (t.matches('#pr-importar, [data-pr-importar]')) { importar(e); return; }
   if (t.dataset.prOrigen === 'proyecto' || t.dataset.prOrigen === 'tablero') {
@@ -421,6 +428,7 @@ async function onSubmit(e) {
   const f = e.target.closest('[data-pr-form]');
   if (!f) return;
   e.preventDefault();
+  if (bib.lectura) return;
   const texto = f.texto.value.trim();
   if (!texto) return;
   const sub = f.dataset.prForm === 'sub';
@@ -435,6 +443,10 @@ async function onSubmit(e) {
 }
 
 async function onClick(e) {
+  if (bib.lectura) {
+    const a = e.target.closest('[data-pr], [data-pr-proy], [data-pr-sub-borrar], [data-pr-copiar]');
+    if (a && !['volver'].includes(a.dataset.pr)) return;
+  }
   const cp = e.target.closest('[data-pr-copiar]');
   if (cp) {
     const [cli, code, id] = cp.dataset.prCopiar.split('|');
