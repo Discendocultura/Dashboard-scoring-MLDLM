@@ -441,6 +441,8 @@ async function start() {
   $('#vercomo-barra').hidden = !state.verComo;
   document.body.classList.toggle('viendo-como', Boolean(state.verComo));
   if (state.verComo) $('#vercomo-nombre').textContent = me.user?.nombre || 'otra persona';
+  // Primer acceso con la contraseña que le dimos: la bienvenida, para que elija la suya (después, lo demás).
+  if (me.user?.claveTemporal && !me.verComo) await bienvenida(me);
   state.agencia = Boolean(me.superadmin || me.user?.agencia);
   // La Operativa: el equipo de la agencia y los admin de algún proyecto (estos, con lo de sus proyectos).
   state.operativa = Boolean(state.agencia || me.operativa);
@@ -7293,6 +7295,71 @@ function mostrarSoloOperativa() {
 $('#sin-embudos-operativa').addEventListener('click', () => abrirOperativa({ api, dialog: $('#operativa-dialog') }));
 $('#solo-op-operativa').addEventListener('click', () => abrirOperativa({ api, dialog: $('#operativa-dialog') }));
 $('#solo-op-procesos').addEventListener('click', () => abrirProcesos({ api, dialog: $('#procesos-dialog') }));
+
+// Bienvenida del primer acceso: elegir una contraseña propia. Resuelve cuando la ha guardado.
+function bienvenida(me) {
+  const u = me.user;
+  const nombre = String(u.nombre || '').trim().split(/\s+/)[0];
+  const marca = Boolean(u.marcaObligatoria);
+  const pasos = ['Tu contraseña', ...(marca ? ['Tu marca'] : []), 'Tu dashboard'];
+  for (const id of ['#app', '#login', '#portal']) $(id).hidden = true;
+  $('#bienvenida').hidden = false;
+  $('#bv-pasos').innerHTML = pasos.map((p, i) => `<li class="${i === 0 ? 'on' : ''}"><b>${i + 1}</b><span>${esc(p)}</span></li>`).join('');
+  $('#bv-titulo').textContent = `¡Hola${nombre ? `, ${nombre}` : ''}!`;
+  $('#bv-usuario').value = u.email || '';
+  const c1 = $('#bv-clave');
+  const c2 = $('#bv-clave2');
+  const reglas = () => {
+    const v = c1.value;
+    const r = { largo: v.length >= 8, letra: /[A-Za-zÀ-ÿ]/.test(v), numero: /\d/.test(v), iguales: Boolean(v) && v === c2.value };
+    $$('#bienvenida [data-regla]').forEach((li) => li.classList.toggle('ok', r[li.dataset.regla]));
+    // Fuerza: largo, variedad de tipos de carácter.
+    const tipos = [/[a-zà-ÿ]/, /[A-ZÀ-Þ]/, /\d/, /[^A-Za-zÀ-ÿ\d]/].filter((re) => re.test(v)).length;
+    const p = !v ? 0 : Math.min(4, (v.length >= 8 ? 1 : 0) + (v.length >= 12 ? 1 : 0) + Math.max(0, tipos - 1));
+    const txt = ['', 'Floja', 'Aceptable', 'Buena', 'Muy buena'][p] || '';
+    $('#bv-barra').style.width = `${v ? Math.max(12, p * 25) : 0}%`;
+    $('#bv-barra').dataset.nivel = String(p);
+    $('#bv-fuerza-txt').textContent = v ? `Seguridad: ${txt}` : '\u00a0';
+    const valida = r.largo && r.letra && r.numero && r.iguales;
+    $('#bv-guardar').disabled = !valida;
+    return valida;
+  };
+  c1.value = '';
+  c2.value = '';
+  reglas();
+  setTimeout(() => c1.focus(), 50);
+  return new Promise((resolver) => {
+    const form = $('#bv-form');
+    form.oninput = reglas;
+    form.onclick = (e) => {
+      const b = e.target.closest('[data-bv-ver]');
+      if (!b) return;
+      const i = $(`#${b.dataset.bvVer}`);
+      i.type = i.type === 'password' ? 'text' : 'password';
+      b.textContent = i.type === 'password' ? '👁️' : '🙈';
+    };
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      if (!reglas()) return;
+      const btn = $('#bv-guardar');
+      btn.disabled = true;
+      btn.textContent = 'Guardando…';
+      $('#bv-error').hidden = true;
+      try {
+        await api('/api/usuarios', { method: 'POST', body: { op: 'mi-clave-inicial', nueva: c1.value } });
+        // ¡Listo!: el primer paso, hecho; si le toca la ficha de marca, es lo siguiente.
+        $$('#bv-pasos li').forEach((li, i) => { li.classList.toggle('hecho', i === 0); li.classList.toggle('on', i === 1); });
+        $('#bv-cuerpo').innerHTML = `<div class="bv-ok" aria-live="polite"><div class="bv-ok-ico">✓</div><h1>¡Contraseña guardada!</h1><p class="bv-sub">${marca ? 'Ahora vamos con tu marca: unas preguntas para conocerte bien.' : 'Ya está todo. Entrando en tu dashboard…'}</p></div>`;
+        setTimeout(() => { $('#bienvenida').hidden = true; resolver(); }, 1600);
+      } catch (err) {
+        $('#bv-error').textContent = err.message;
+        $('#bv-error').hidden = false;
+        btn.disabled = false;
+        btn.innerHTML = 'Guardar y entrar <span aria-hidden="true">→</span>';
+      }
+    };
+  });
+}
 
 async function mostrarPortal({ vistaPrevia = false, cliente = state.cliente } = {}) {
   portalCliente = cliente;

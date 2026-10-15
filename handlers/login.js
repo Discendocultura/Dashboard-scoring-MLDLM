@@ -158,6 +158,7 @@ async function restablecer(request, body) {
     if (!u?.reset || u.activo === false || u.reset.exp < Date.now() || !safeEqual(u.reset.hash, hash)) return false;
     Object.assign(u, await hashPassword(nueva)); // también cierra las sesiones abiertas
     delete u.reset;
+    delete u.claveTemporal; // la ha elegido ella
     return true;
   }, 'contraseña nueva (recuperación)');
   if (!ok) {

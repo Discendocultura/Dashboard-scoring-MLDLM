@@ -97,8 +97,27 @@ async function procesar(request, body) {
     const me = users.find((u) => u.id === s.uid);
     if (!me || !(await checkPassword(me, String(body.actual || '').trim()))) throw bad('La contraseña actual no es correcta', 403);
     Object.assign(me, await hashPassword(nueva));
+    delete me.claveTemporal;
     await saveUsers(users);
     // Las demás sesiones se cierran; esta sigue abierta con una cookie nueva.
+    return json({ ok: true }, 200, { 'set-cookie': await sessionCookie(me.rol || 'usuario', me.id) });
+  }
+
+  // Primer acceso (bienvenida): con la contraseña que le dimos ya ha entrado, así que elige la suya sin repetirla.
+  // Solo mientras siga con la contraseña temporal (la del alta o la reenviada).
+  if (op === 'mi-clave-inicial') {
+    const s = await requireSession(request, { cliente: true, operativa: true });
+    if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
+    const nueva = String(body.nueva || '');
+    if (nueva.trim().length < 8) throw bad('La contraseña debe tener al menos 8 caracteres');
+    if (!/[A-Za-zÀ-ÿ]/.test(nueva) || !/\d/.test(nueva)) throw bad('Pon al menos una letra y un número');
+    const users = await listUsers({ fresh: true });
+    const me = users.find((u) => u.id === s.uid);
+    if (!me?.claveTemporal) throw bad('Tu contraseña ya es la tuya: cámbiala desde «Mi cuenta»', 403);
+    if (await checkPassword(me, nueva.trim())) throw bad('Elige una distinta a la que te enviamos');
+    Object.assign(me, await hashPassword(nueva.trim()));
+    delete me.claveTemporal;
+    await saveUsers(users, { motivo: 'contraseña propia (primer acceso)' });
     return json({ ok: true }, 200, { 'set-cookie': await sessionCookie(me.rol || 'usuario', me.id) });
   }
 
@@ -175,7 +194,7 @@ async function procesar(request, body) {
     }
     if (users.length >= 200) throw bad('Máximo 200 usuarios');
     const password = generatePassword();
-    const user = { id: newId('u'), nombre, email, accesos: { [cid]: rol }, rol, activo: true, ...(typeof body.marcaObligatoria === 'boolean' ? { marcaObligatoria: { [cid]: body.marcaObligatoria } } : {}), ...(await hashPassword(password)), createdAt: new Date().toISOString(), creadoPor: s.user?.nombre || s.role, _cid: cid };
+    const user = { id: newId('u'), nombre, email, accesos: { [cid]: rol }, rol, activo: true, ...(typeof body.marcaObligatoria === 'boolean' ? { marcaObligatoria: { [cid]: body.marcaObligatoria } } : {}), ...(await hashPassword(password)), claveTemporal: true, createdAt: new Date().toISOString(), creadoPor: s.user?.nombre || s.role, _cid: cid };
     users.push(user);
     await saveUsers(users); // primero se guarda: si el email falla, el usuario ya existe
     const sent = body.enviar === false ? { emailEnviado: false } : await deliver(user, password, request, true);
@@ -187,7 +206,7 @@ async function procesar(request, body) {
     const user = find();
     puedeCuenta(user);
     const password = generatePassword();
-    Object.assign(user, await hashPassword(password));
+    Object.assign(user, await hashPassword(password), { claveTemporal: true }); // al entrar, elegirá la suya
     await saveUsers(users);
     const sent = await deliver(user, password, request, false);
     await anotarEnvio(user);
@@ -272,7 +291,7 @@ async function procesar(request, body) {
     }
     if (users.length >= 200) throw bad('Máximo 200 usuarios');
     const password = generatePassword();
-    const user = { id: newId('u'), nombre, email, agencia: true, superadmin, accesos, activo: true, ...(await hashPassword(password)), createdAt: new Date().toISOString(), creadoPor: s.user?.nombre || s.role, _cid: cid };
+    const user = { id: newId('u'), nombre, email, agencia: true, superadmin, accesos, activo: true, ...(await hashPassword(password)), claveTemporal: true, createdAt: new Date().toISOString(), creadoPor: s.user?.nombre || s.role, _cid: cid };
     users.push(user);
     await saveUsers(users, { motivo: `equipo de la agencia: alta de ${nombre}` });
     // El email de acceso sale desde el cliente principal (la agencia) y con el rol que tenga allí.
