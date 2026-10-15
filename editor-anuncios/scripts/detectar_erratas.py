@@ -6,7 +6,7 @@
 #   toma         frase o párrafo repetido para hacerlo mejor (se queda la última toma), según el guion
 #   repeticion   palabras o trozos de frase dichos dos veces seguidas («de de», «por eso hemos por eso hemos»)
 #   reinicio     frase empezada, cortada y vuelta a empezar («por eso hem… por eso hemos creado»)
-#   trabada      palabra a medias antes de la buena («pens… pensamiento»)
+#   trabada      palabra a medias (3 letras o más) antes de la buena («pens… pensamiento»)
 #   muletilla    «eh», «mmm», «em»…
 #   pausa        silencio largo a mitad de frase (se acorta, no se elimina). Se mide en el audio, porque
 #                Whisper alarga las palabras y se come los silencios.
@@ -81,7 +81,8 @@ if g:
     for i, p in enumerate(pos):
         if p is None:
             continue
-        if p < maximo - 3:   # ha vuelto atrás al menos 4 palabras del guion: nueva toma
+        # ha vuelto atrás al menos 4 palabras del guion y lo confirman las dos palabras siguientes: nueva toma
+        if p < maximo - 3 and i + 2 < len(pos) and pos[i + 1] == p + 1 and pos[i + 2] == p + 2:
             k = next((k for k in range(desde, i) if pos[k] is not None and pos[k] >= p), None)
             if k is not None:
                 proponer(k, i, 'toma', 'alta')
@@ -105,7 +106,7 @@ for i in range(len(words)):
             break
     else:
         # palabra a medias: es el principio de la siguiente
-        if i + 1 < len(words) and 1 <= len(n[i]) < len(n[i + 1]) and n[i + 1].startswith(n[i]):
+        if i + 1 < len(words) and 3 <= len(n[i]) < len(n[i + 1]) and n[i + 1].startswith(n[i]):
             proponer(i, i + 1, 'trabada', 'alta')
             continue
         # reinicio: las 2 palabras siguientes vuelven a aparecer pronto, sin fin de frase en medio,
@@ -114,7 +115,9 @@ for i in range(len(words)):
             if any(fin_frase[i:j]):
                 break
             par = n[i:i + 2]
-            if n[j:j + 2] == par and all(par) and veces(n, par) > veces(g, par):
+            # «con más claridad, con más calma» o «como si… o como si…» son enumeraciones, no reinicios
+            enumeracion = words[j - 1]['text'].endswith(',') or n[j - 1] in {'o', 'y', 'ni', 'e', 'u'}
+            if n[j:j + 2] == par and all(par) and veces(n, par) > veces(g, par) and not enumeracion:
                 proponer(i, j, 'reinicio', 'alta' if veces(g, par) == 0 or j - i <= 4 else 'revisar')
                 break
 
