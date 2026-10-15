@@ -99,3 +99,18 @@ Nueva plantilla: `plantillas/NOMBRE.json` + registrarla en `plantillas/index.js`
 - La música de Lyria salió de 59 s aunque se pidieran 45: se recorta y se funde al final.
 - Las palabras grandes a la altura del pecho chocaban con el micro; van en y≈1560, en color claro con raya de acento.
 - El acento (dorado) sobre la chaqueta oscura se lee mal: en textos grandes usar el color claro con contorno oscuro.
+- MLDLM (octubre 2026, 5 anuncios de El Camino): la locutora lleva ropa roja o de colores; la palabra que suena va en
+  píldora clara (`subRealce: "pildora"`), porque en color tierra no se leía sobre la chaqueta roja.
+- Los brutos de 2–2,5 min en 4K tardan ~15 min en prepararse y otros ~20 en montarse. Una tarea en segundo plano dura como
+  mucho 2 h: lanza la cola con `setsid nohup scripts/cola.sh … &` y espera por tramos.
+- Nunca montes con Remotion mientras Whisper transcribe otro vídeo: se queda sin memoria (SIGKILL). Usa `scripts/cola.sh`.
+- Una espera con `pgrep -f "texto"` se encuentra a sí misma (el texto va en su propia línea de órdenes): espera por PID.
+- La mezcla salía más corta que el vídeo porque voz (192 kHz tras loudnorm), música (44,1 kHz) y efectos iban a
+  frecuencias distintas: todo se pasa a 48 kHz. Comprueba siempre que vídeo y audio duran lo mismo.
+- Si la mezcla sale corta y se une con -shortest, el vídeo también se recorta: no reutilices ese _maxima con SOLO_AUDIO.
+- La música de MLDLM sale más fuerte que la de Claves: musica_db -14. El nivel final se ajusta solo a -14,5 LUFS.
+- Los anuncios de más de 1 min no caben en 30 MB en H.264: la entrega va en HEVC con el bitrate justo (`_entrega.mp4`).
+- Whisper repitió cuatro veces «sentirte feliz por ti» donde el guion dice «triste»: era una errata real de la locutora
+  (cambiaba el sentido) y se cortó. Si Whisper insiste en una palabra distinta del guion, es que se dijo así.
+- Erratas que el detector no ve y hay que buscar a mano: comentarios antes de empezar («Tú dime»), coletillas al final
+  («Vale.») y reinicios separados por coma («tus probabilidades, las probabilidades»).

@@ -21,7 +21,13 @@
   "duracion": 175.8,
   "puntos": "Final natural hacia el 160 (se apaga del 165 al 170). Para un anuncio de D segundos, empieza en musica_desde = 160 − D para que acabe con ese final. Sale más fuerte que la de Claves: usa musica_db -14 para dejarla unos 13 dB bajo la voz.",
   "generada_con": "Magnific · Google Lyria 3 Pro · 160 créditos",
-  "usada_en": [],
+  "usada_en": [
+   "camino1",
+   "camino2",
+   "camino3",
+   "camino4",
+   "camino5"
+  ],
   "prompt": "Instrumental, no vocals. Warm, intimate and emotional underscore for a women's fertility education ad narrated by a midwife, meant to sit softly under a voice-over. Soft felt piano, gentle warm strings, subtle light pads, very light acoustic guitar touches. 0-40s: tender, intimate, slightly melancholic and empathetic (the frustration of waiting each month), sparse and calm. 40-90s: gently building warmth and understanding, a soft pulse appears, still delicate. 90-150s: hopeful and uplifting, fuller strings, a sense of clarity, calm confidence and a path forward (like walking the Camino de Santiago at sunrise). 150-180s: warm, resolved, peaceful ending with a clean final chord. Around 75 BPM, consistent mood without sudden drops or loud hits, elegant, not cheesy, no drums except very soft percussion in the hopeful part.",
   "musica_db": -14
  }
