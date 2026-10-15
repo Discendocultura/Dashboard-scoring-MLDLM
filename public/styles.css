@@ -5136,3 +5136,6 @@ body.en-inicio .sin-embudos-op { display: none !important; }
 .qf-campos textarea { width: 100%; min-height: 76px; }
 .qf-no span { color: var(--danger, #c0392b); }
 .qf-acc { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* Tablero de un embudo (Operativa): sus tareas se crean en Plan → Tareas del lanzamiento. */
+.op-tablero.es-embudo .op-add-b, .op-tablero.es-embudo .op-col-mas { display: none; }

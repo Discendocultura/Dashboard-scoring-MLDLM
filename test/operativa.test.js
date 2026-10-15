@@ -140,3 +140,17 @@ test('operativa: el perfil «Solo Operativa» entra y ve todas las tareas de su 
   assert.deepEqual(proyectosQueGestiona(olga), []); // no gestiona tableros ni reparte
   assert.deepEqual(visiblesOperativa(T, olga).map((t) => t.id), ['3']);
 });
+
+test('operativa: el tablero de cada embudo es el del lanzamiento en curso', async () => {
+  const { codigoVigente, idTableroEmbudo, esTableroEmbudo } = await import('../lib/operativa.js');
+  const config = {
+    launches: { sept: { fechaDirecto: '2026-09-10' }, oct: { fechaDirecto: '2026-10-20' }, nov: { inicioCaptacion: '2026-11-01' } },
+    meteoricos: { flash: { lanzamiento: 'oct' } },
+  };
+  const { vigente, raiz } = codigoVigente(config, ['sept', 'oct', 'flash']);
+  assert.equal(vigente, 'oct');
+  assert.equal(raiz('flash'), 'oct'); // el meteórico va con su lanzamiento
+  assert.equal(codigoVigente(config, ['sept', 'oct', 'nov']).vigente, 'nov');
+  assert.equal(idTableroEmbudo('Lanzamientos Curso 2'), 'e-lanzamientos-curso-2');
+  assert.ok(esTableroEmbudo('e-lanz') && !esTableroEmbudo('general'));
+});

@@ -44,7 +44,8 @@ export function sanitizeConfigTableros(cfg) {
   // Tablero por defecto de cada proyecto (el que se abre al entrar en él): { proyecto: tableroId }.
   const porDefecto = {};
   for (const [p, id] of Object.entries(cfg?.porDefecto && typeof cfg.porDefecto === 'object' ? cfg.porDefecto : {})) {
-    if (typeof id === 'string' && id !== GENERAL && tableros.some((t) => t.proyecto === p && t.id === id)) porDefecto[p] = id;
+    // También el tablero de un embudo (empieza por «e-»: no se guarda, sale de sus tareas).
+    if (typeof id === 'string' && id !== GENERAL && (/^e-[a-z0-9_-]{1,22}$/.test(id) || tableros.some((t) => t.proyecto === p && t.id === id))) porDefecto[p] = id;
   }
   // Proyecto con el que se abre la Operativa, el de cada persona: { uid: proyecto }.
   const proyectoDefecto = {};

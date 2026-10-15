@@ -49,3 +49,14 @@ test('qué funcionó: se guarda limpio y entra en el prompt del canal', () => {
   const p = afilar('PROMPT BASE', { canal: 'whatsapp', voz: 'VOZ', aprendizajes: b });
   assert.ok(p.indexOf('VOZ') < p.indexOf('LO QUE FUNCIONÓ') && p.indexOf('LO QUE FUNCIONÓ') < p.indexOf('ANTES DE ENTREGAR'));
 });
+
+test('preclase: el prompt solo cuenta lo que el lanzamiento tiene activado', async () => {
+  const { preclaseIncluye, datosEmbudo } = await import('../public/js/calentamiento.js');
+  const base = { name: 'Oct', clase1At: '2026-10-01T10:00', clase2At: '2026-10-03T10:00' };
+  const sin = preclaseIncluye(base);
+  assert.deepEqual(sin, ['2 clases']);
+  assert.ok(!sin.some((x) => /comentario|test|votación/.test(x)));
+  const con = preclaseIncluye({ ...base, recursosPre: { comentarios: { activo: true, clases: { clase1: { preguntas: [{ id: 'q1', texto: '¿Qué te llevas?' }] } } }, test: { activo: true, nombre: 'Tu tipo' } } });
+  assert.ok(con.some((x) => /comentarios/.test(x)) && con.some((x) => /test/.test(x)), JSON.stringify(con));
+  assert.ok(datosEmbudo({ ...base, recursosUrl: 'https://x.com/pre' }).some((l) => /SOLO esto: 2 clases/.test(l)));
+});

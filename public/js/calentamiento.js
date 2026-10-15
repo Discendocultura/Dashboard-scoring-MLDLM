@@ -3,7 +3,7 @@
 // skill de copy) → Claude devuelve los mensajes en un formato fijo → se pegan aquí, se revisan y se programan
 // en SendFlow (POST /actions/send-message con `scheduledTo`). Lo usan el navegador, el servidor y los tests.
 import { madridToEpoch } from './page.js';
-import { recursosDe } from './recursos.js';
+import { recursosDe, tieneRecurso, clasesConComentarios } from './recursos.js';
 import { nClases } from './videos.js';
 
 export const TIPOS_MSG = [
@@ -165,6 +165,22 @@ export function desbloqueosPreclase(emb) {
   return out.sort((a, b) => a.at.localeCompare(b.at));
 }
 
+// Lo que hay de verdad en la página preclase, según la Configuración del lanzamiento (solo lo activado): para que los
+// prompts no inviten a un test, una votación o a comentar si ese lanzamiento no lo tiene.
+export function preclaseIncluye(emb) {
+  if (!emb) return [];
+  const r = recursosDe(emb);
+  const out = [];
+  const clases = Array.from({ length: nClases(emb) }, (_, i) => i + 1).filter((k) => emb[`clase${k}At`]).length;
+  if (clases) out.push(clases === 1 ? 'la clase' : `${clases} clases`);
+  if (r.test?.activo) out.push(`un test${r.test.nombre ? ` («${r.test.nombre}»)` : ''}`);
+  if (r.votacion?.activo && r.votacion.preguntas?.length) out.push('una votación');
+  if (r.musica?.activo) out.push(r.musica.nombre ? `el audio «${r.musica.nombre}»` : 'un audio');
+  if (r.descargable?.activo) out.push(`un descargable${r.descargable.nombre ? ` («${r.descargable.nombre}»)` : ''}`);
+  if (tieneRecurso(emb, 'comentarios') && clasesConComentarios(r).length) out.push('comentarios debajo de las clases (con preguntas para que respondan)');
+  return out;
+}
+
 // Los datos de un lanzamiento o un meteórico, en líneas «- …» (los usan los prompts del grupo y de las páginas).
 export function datosEmbudo(emb, { esMeteo = false, producto = '', marca = '' } = {}) {
   const d = [];
@@ -188,6 +204,8 @@ export function datosEmbudo(emb, { esMeteo = false, producto = '', marca = '' } 
     for (const e of emb.oferta?.entregables || []) d.push(`- Incluye: ${e.nombre}${e.detalle ? ` (${e.detalle})` : ''}.`);
     for (const b of emb.oferta?.bonus || []) d.push(`- Bonus: ${b.nombre}${b.detalle ? ` (${b.detalle})` : ''}.`);
     if (emb.recursosUrl) d.push(`- Área de recursos (preclase): ${emb.recursosUrl}`);
+    const hay = preclaseIncluye(emb);
+    if (hay.length) d.push(`- En la preclase hay SOLO esto: ${hay.join(', ')}. No menciones ni invites a nada que no esté en esta lista (ni test, ni votación, ni comentarios, ni descargables si no aparecen).`);
     if (emb.replayUrl) d.push(`- Página de la grabación (replay): ${emb.replayUrl}`);
     if (emb.raicesUrl) d.push(`- Página de venta: ${emb.raicesUrl}`);
   }
@@ -220,7 +238,7 @@ ${calendario.length ? '- Los de ese día son los del calendario (a sus horas); e
 ` : '';
   // A dónde lleva cada tipo de mensaje (las páginas del lanzamiento; en embudos creados de cero, las URLs propuestas).
   const destinos = esMeteo ? [] : [
-    emb.recursosUrl && `- Calentamiento (clases, recursos, encuesta, votación…): la página preclase → ${emb.recursosUrl}`,
+    emb.recursosUrl && `- Calentamiento (${preclaseIncluye(emb).join(', ') || 'las clases'}): la página preclase → ${emb.recursosUrl}`,
     directos.some((x) => x.at) && '- El día del directo: el enlace de acceso al directo (el de arriba).',
     emb.replayUrl && `- Grabación del directo: la página de la grabación → ${emb.replayUrl}`,
     emb.raicesUrl && `- Carrito abierto y venta: la página de venta → ${emb.raicesUrl}`,

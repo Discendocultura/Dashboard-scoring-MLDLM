@@ -28,8 +28,8 @@ import { getSession } from '../lib/auth.js';
 import { listClientes } from '../lib/clientes.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { listUsersRaw, rolEn, newId } from '../lib/users.js';
-import { todasLasTareas, visiblesOperativa, proyectosQueGestiona, proyectosSoloOperativa, puedeOperativa, clienteDeTarea, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, ordenarTareas, avisarAsignada, avisarMencionOp, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
-import { tablerosDe, ordenarTableros, alFinal, MAX_ORDENAR, sanitizeTablero, sanitizeColumnas, GENERAL, sanitizeChecklist, prioridadValida, MAX_ETIQUETAS_TAREA, COLORES_ETIQUETA } from '../public/js/tableros.js';
+import { todasLasTareas, visiblesOperativa, proyectosQueGestiona, proyectosSoloOperativa, puedeOperativa, clienteDeTarea, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, ordenarTareas, avisarAsignada, avisarMencionOp, esTableroEmbudo, tableroEmbudoDeCodigo, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
+import { COLUMNAS_SERIE, tablerosDe, ordenarTableros, alFinal, MAX_ORDENAR, sanitizeTablero, sanitizeColumnas, GENERAL, sanitizeChecklist, prioridadValida, MAX_ETIQUETAS_TAREA, COLORES_ETIQUETA } from '../public/js/tableros.js';
 import { sanitizeRepetir } from '../public/js/procesos.js';
 import { PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from '../public/js/operativa.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
@@ -81,8 +81,15 @@ export async function GET(request) {
   try {
     const s = await sesion(request);
     const [tareas, equipo, proyectos, tableros] = await Promise.all([todasLasTareas(), equipoPara(s), proyectosPara(s), getTableros()]);
+    const visibles = visiblesOperativa(tareas, s);
+    // El tablero de cada embudo (con el nombre de su lanzamiento en curso), de los proyectos que ve.
+    const tablerosEmbudo = [];
+    for (const t of visibles) {
+      if (!t.tableroEmbudo || tablerosEmbudo.some((b) => b.proyecto === t.cliente && b.id === t.tableroEmbudo.id)) continue;
+      tablerosEmbudo.push({ proyecto: t.cliente, id: t.tableroEmbudo.id, nombre: t.tableroEmbudo.nombre, columnas: COLUMNAS_SERIE.map((c) => ({ ...c })), virtual: true });
+    }
     return json({
-      tareas: visiblesOperativa(tareas, s), equipo, yo: s.uid || '', superadmin: Boolean(s.superadmin), agencia: esDeAgencia(s),
+      tareas: visibles, tablerosEmbudo, equipo, yo: s.uid || '', superadmin: Boolean(s.superadmin), agencia: esDeAgencia(s),
       gestiona: proyectosQueGestiona(s), ...tablerosPara(s, tableros, proyectos), proyectos,
     });
   } catch (e) {
@@ -185,7 +192,7 @@ export async function POST(request) {
         } else if (body.op === 'tablero-defecto') {
           const p = String(body.proyecto || '');
           const id = String(body.tableroId || '');
-          if (id && id !== GENERAL && !c.tableros.some((x) => x.proyecto === p && x.id === id)) throw bad('Ese tablero ya no existe', 404);
+          if (id && id !== GENERAL && !esTableroEmbudo(id) && !c.tableros.some((x) => x.proyecto === p && x.id === id)) throw bad('Ese tablero ya no existe', 404);
           if (id && id !== GENERAL) c.porDefecto[p] = id; else delete c.porDefecto[p];
         } else if (body.op === 'tablero-borrar') {
           if (body.tableroId === GENERAL) throw bad('El tablero General no se borra (puedes cambiar sus columnas)');
@@ -235,9 +242,13 @@ export async function POST(request) {
         delete t.opOrden; // en la columna nueva va detrás de las ordenadas a mano (hasta que se coloque)
       } else if (body.op === 'columna') {
         comprobar(t);
-        const otro = body.tablero && body.tablero !== (t.opTablero || GENERAL);
+        // El tablero de un embudo es «el suyo» para sus tareas aunque no lo tengan guardado.
+        const deEmbudo = ref.code !== CODIGO_AGENCIA && (!t.opTablero || t.opTablero === GENERAL || esTableroEmbudo(t.opTablero));
+        const otro = body.tablero && body.tablero !== (t.opTablero || GENERAL) && !(esTableroEmbudo(body.tablero) && deEmbudo);
         if (otro && !esAdminDe(ref.cliente)) throw bad('Solo el superadmin o el admin del proyecto mueve tareas de un tablero a otro', 403);
-        moverATablero(t, cfgTableros, ref.cliente, { tablero: body.tablero, columna: String(body.columna || '') }, por);
+        // Una tarea del lanzamiento, sin tablero indicado: se mueve dentro del tablero de su embudo.
+        const tablero = body.tablero || (deEmbudo ? await tableroEmbudoDeCodigo(ref.code) : '');
+        moverATablero(t, cfgTableros, ref.cliente, { tablero, columna: String(body.columna || '') }, por);
         delete t.opOrden;
       } else if (body.op === 'etiquetas') {
         comprobar(t);

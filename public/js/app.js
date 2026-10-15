@@ -13233,7 +13233,8 @@ async function prepararVoz(code) {
       const copia = await leerLeads(`${state.cliente || ''}:${x.registroTag}`).catch(() => null);
       leads = copia?.contacts?.map((ct) => enrich(ct)) || null;
     }
-    const comentarios = await api(`/api/comentarios?l=${encodeURIComponent(c)}&todo=1`).then((d) => d.comentarios || []).catch(() => []);
+    // Solo lo que ese lanzamiento tiene activado en Configuración (sin comentarios en la preclase, no se piden).
+    const comentarios = tieneRecurso(x, 'comentarios') ? await api(`/api/comentarios?l=${encodeURIComponent(c)}&todo=1`).then((d) => d.comentarios || []).catch(() => []) : [];
     const ll = state.llamadas?.code === c ? state.llamadas?.data?.llamadas : null;
     const motivos = ll?.length ? metricasLlamadas(ll.map((x) => ({ start: llStart(x), resultado: x.resultado, cancelada: llCancelada(x) }))).motivos || [] : [];
     const v = recogerVoz({ encuesta: leads?.length ? resumenEncuesta(leads, preguntasEncuesta()) : null, comentarios, motivos });
