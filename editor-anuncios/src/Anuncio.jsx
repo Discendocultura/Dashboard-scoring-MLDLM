@@ -72,7 +72,8 @@ const escala = (t, zooms) => {
   return s;
 };
 
-const RENDER = {titulares: A.Titulares, apagon: A.Apagon, cinta: A.Cinta, linea: A.LineaTiempo, evento: A.Evento, contador: A.Contador, multitud: A.Multitud, cta: A.Cta};
+const RENDER = {titulares: A.Titulares, apagon: A.Apagon, cinta: A.Cinta, linea: A.LineaTiempo, evento: A.Evento, contador: A.Contador, multitud: A.Multitud, cta: A.Cta,
+  test: A.Test, calendario: A.Calendario, preguntas: A.Preguntas, lista: A.Lista, montana: A.Montana, semilla: A.Semilla, app: A.App, camino: A.Camino};
 
 export const Anuncio = ({video, fondo, words, gancho, grandes, zooms, animaciones = [], estilo: e}) => {
   const f = useCurrentFrame(); const {fps} = useVideoConfig(); const t = f / fps;

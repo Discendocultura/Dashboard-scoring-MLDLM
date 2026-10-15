@@ -3,6 +3,7 @@
 # Lee transcripcion_bruto.json, guion.txt y voz_limpia.wav; escribe cortes_propuestos.json.
 #
 # Detecta:
+#   toma         frase o párrafo repetido para hacerlo mejor (se queda la última toma), según el guion
 #   repeticion   palabras o trozos de frase dichos dos veces seguidas («de de», «por eso hemos por eso hemos»)
 #   reinicio     frase empezada, cortada y vuelta a empezar («por eso hem… por eso hemos creado»)
 #   trabada      palabra a medias antes de la buena («pens… pensamiento»)
@@ -59,6 +60,34 @@ def proponer(i, j, tipo, confianza, inicio=None, fin=None):
                    'quitado': ' '.join(w['text'] for w in words[i:j]) if j > i else '(silencio)',
                    'contexto': contexto(i, j)})
 
+
+# tomas repetidas: se sigue la posición de cada trío de palabras en el guion; si la locutora vuelve atrás
+# (repite una frase o un párrafo para hacerlo mejor), se quita el intento anterior y se queda la última toma.
+def posiciones():
+    sitios = {}
+    for j in range(len(g) - 2):
+        sitios.setdefault(tuple(g[j:j + 3]), []).append(j)
+    pos, ultima = [None] * len(n), -1
+    for i in range(len(n) - 2):
+        cand = sitios.get(tuple(n[i:i + 3]))
+        if cand:
+            pos[i] = min(cand, key=lambda j: (abs(j - (ultima + 1)), j))
+            ultima = pos[i]
+    return pos
+
+
+if g:
+    pos, maximo, desde = posiciones(), -1, 0
+    for i, p in enumerate(pos):
+        if p is None:
+            continue
+        if p < maximo - 3:   # ha vuelto atrás al menos 4 palabras del guion: nueva toma
+            k = next((k for k in range(desde, i) if pos[k] is not None and pos[k] >= p), None)
+            if k is not None:
+                proponer(k, i, 'toma', 'alta')
+            maximo, desde = p, i
+        else:
+            maximo = max(maximo, p)
 
 for i in range(len(words)):
     if not n[i]:

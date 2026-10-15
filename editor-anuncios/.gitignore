@@ -8,3 +8,4 @@ tmp*/
 !salidas/.gitkeep
 !public/.gitkeep
 proyectos/*/*.wav
+proyectos/*.log
