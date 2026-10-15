@@ -44,6 +44,7 @@ import { abrirOperativa } from './operativa-panel.js';
 import { activarArroba, enlacesEnTexto, filtrarEnlaces, leerRef, refTarea, refTablero, refPersona, tokenComentario } from './enlaces.js';
 import { montarAsistente } from './marca-asistente.js';
 import { contextoMarca, nombreDeProducto, disenoTexto } from './marca.js';
+import { recogerVoz, bloqueVoz, bloqueAprendizajes, afilar, CAMPOS_APRENDIZAJE } from './voz.js';
 import { paginasDe, codigosDePagina, promptPagina } from './paginas.js';
 import { mensajesEnviados, impactoMensajes, horaVenta } from './impacto-wa.js';
 import { nuevoLanzamiento, codigoPropuesto, resumenFechas, diasCarritoDe, diasCaptacionDe, fijarCaptacion, aplicarOferta, objetivosDesdeMeta, comprobarFechas, emailsAReprogramar, desplazamiento, etiquetaRegistro } from './lanzamiento-rapido.js';
@@ -523,7 +524,7 @@ async function start() {
   if (hash) ls.set('lsd_inicio', ''); // un enlace directo a una pestaña: lo último ya no es el Inicio
   await setEmbudo(state.embudo, { vista: VIEWS.includes(hash) ? hash : null });
   if (abrirInicio) mostrarInicio();
-  if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); }
+  if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); pintarQueFunciono(); }
   if (!$('#view-rendimiento').hidden) loadRendimiento();
 }
 
@@ -3178,7 +3179,7 @@ function showView(view) {
   $('#dir-rango').hidden = !['dmetricas', 'dclientes', 'danuncios'].includes(view);
   if (['dmetricas', 'dclientes', 'danuncios'].includes(view) && state.config && enDirecta()) renderDirecta();
   if (enVsl() && state.vsl.leads) renderVsl();
-  if (view === 'comparar' && state.config) { renderCompareSelector(); renderComparativas(); }
+  if (view === 'comparar' && state.config) { renderCompareSelector(); renderComparativas(); pintarQueFunciono(); }
   if (view === 'rendimiento' && state.config) loadRendimiento();
   if (view === 'meteoricos' && state.config && enMeteo()) renderMeteoView();
   if (view === 'moferta' && state.config && enMeteo()) renderMOfertaView();
@@ -13144,6 +13145,7 @@ async function renderGrupoWa() {
     </section>`;
   const pre = $('#gw-prompt');
   if (pre) pre.textContent = gwPrompt();
+  if (gwc.code && !enMeteo()) prepararVoz(gwc.code).then(() => { if (pre?.isConnected) pre.textContent = gwPrompt(); }).catch(() => {});
 }
 // Días de directo del lanzamiento con su enlace genérico de acceso (sin datos de cada persona: pide el email).
 function gwDirectos() {
@@ -13172,8 +13174,8 @@ function gwCalendario(fases = fasesWa()) {
 function gwPrompt({ solo: soloId = '' } = {}) {
   const emb = enMeteo() ? embCal() : conEnlacesPropuestos(embCal(), propuestasEmbudo(embudoDeLanz(embCal() || {})));
   const solo = soloId ? FASES_WA.find((f) => f.id === soloId) : null;
-  return promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado'), directos: gwDirectos(), temario: ($('#gw-temario')?.value ?? ls.get(temarioKey()) ?? '').trim(), contexto: contextoMarca(gwc.marca?.m, gwc.marca?.producto), narrativa: bloqueNarrativa(state.config.launches[gwc.code]?.narrativa, 'whatsapp'),
-    calendario: gwCalendario().filter((x) => !soloId || x.fase === soloId), categorias: solo ? `solo la categoría «${EM_FASE[solo.id]?.nombre || solo.label}»` : '' });
+  return afilarPrompt(promptCalentamiento(emb, { esMeteo: enMeteo(), producto: nombreProducto(state.config), marca: clienteNombre(), desde: $('#gw-desde')?.value || '', hasta: $('#gw-hasta')?.value || '', ya: gwc.mensajes.filter((m) => m.estado === 'programado'), directos: gwDirectos(), temario: ($('#gw-temario')?.value ?? ls.get(temarioKey()) ?? '').trim(), contexto: contextoMarca(gwc.marca?.m, gwc.marca?.producto), narrativa: bloqueNarrativa(state.config.launches[gwc.code]?.narrativa, 'whatsapp'),
+    calendario: gwCalendario().filter((x) => !soloId || x.fase === soloId), categorias: solo ? `solo la categoría «${EM_FASE[solo.id]?.nombre || solo.label}»` : '' }), 'whatsapp', enMeteo() ? '' : gwc.code);
 }
 const FORMATO_ICO = { texto: '✍️', imagen: '🖼️', encuesta: '📊' };
 // Selector de categorías, calendario por días y botones para copiar el prompt de todas o de una sola.
@@ -13215,6 +13217,71 @@ const anteriorEm = (code) => {
   const l = state.config.launches[code];
   return nlPreviosDe(embudoDeLanz(l)).find(([c, x]) => c !== code && x.fechaDirecto && String(x.fechaDirecto) < String(l?.fechaDirecto || '9'))?.[0] || '';
 };
+// ---------- Prompts más afilados: la voz real del público, lo que funcionó y la revisión final (public/js/voz.js) ----------
+// La voz se saca de los leads ya descargados en este navegador (los de este lanzamiento o, si aún no hay respuestas, los
+// del anterior del mismo embudo), de los comentarios de la preclase y de los motivos de las llamadas perdidas.
+const vozCache = new Map(); // código → { texto, origen }
+async function prepararVoz(code) {
+  const l = state.config?.launches?.[code];
+  if (!l || vozCache.get(code)?.listo) return;
+  vozCache.set(code, { texto: '', listo: true });
+  const candidatos = [code, ...nlPreviosDe(embudoDeLanz(l)).map(([c]) => c).filter((c) => c !== code && String(state.config.launches[c]?.fechaDirecto || '') < String(l.fechaDirecto || '9'))].slice(0, 3);
+  for (const c of candidatos) {
+    const x = state.config.launches[c];
+    let leads = state.leadsDe === c ? state.leads : null;
+    if (!leads?.length && x?.registroTag) {
+      const copia = await leerLeads(`${state.cliente || ''}:${x.registroTag}`).catch(() => null);
+      leads = copia?.contacts?.map((ct) => enrich(ct)) || null;
+    }
+    const comentarios = await api(`/api/comentarios?l=${encodeURIComponent(c)}&todo=1`).then((d) => d.comentarios || []).catch(() => []);
+    const ll = state.llamadas?.code === c ? state.llamadas?.data?.llamadas : null;
+    const motivos = ll?.length ? metricasLlamadas(ll.map((x) => ({ start: llStart(x), resultado: x.resultado, cancelada: llCancelada(x) }))).motivos || [] : [];
+    const v = recogerVoz({ encuesta: leads?.length ? resumenEncuesta(leads, preguntasEncuesta()) : null, comentarios, motivos });
+    if (v.total) { vozCache.set(code, { texto: bloqueVoz(v, { origen: c === code ? `de «${x.name}»` : `del lanzamiento anterior, «${x.name}»` }), listo: true, origen: x.name }); return; }
+  }
+}
+const vozDe = (code) => vozCache.get(code)?.texto || '';
+// Lo que funcionó en los lanzamientos anteriores del mismo embudo (los 3 últimos con algo apuntado).
+function aprendizajesDe(code, canal) {
+  const l = state.config?.launches?.[code];
+  if (!l) return '';
+  const lista = nlPreviosDe(embudoDeLanz(l)).filter(([c, x]) => c !== code && x.aprendizajes && String(x.fechaDirecto || '') <= String(l.fechaDirecto || '9')).map(([, x]) => ({ nombre: x.name, aprendizajes: x.aprendizajes }));
+  return bloqueAprendizajes(lista, canal);
+}
+// 🏆 Qué funcionó (Análisis → Comparar): al cerrar el lanzamiento, el equipo apunta lo que mejor funcionó y lo que no.
+function pintarQueFunciono() {
+  const box = $('#qf-card');
+  const code = state.launchCode;
+  const l = state.config?.launches?.[code];
+  if (!box) return;
+  if (!l || enVsl() || enMeteo() || enDirecta()) { box.hidden = true; return; }
+  box.hidden = false;
+  const a = l.aprendizajes || {};
+  const edita = puedeConfig();
+  const siguiente = nlPreviosDe(embudoDeLanz(l)).some(([c, x]) => c !== code && String(x.fechaDirecto || '') > String(l.fechaDirecto || ''));
+  box.innerHTML = `<h2>🏆 Qué funcionó en «${esc(l.name)}»</h2>
+    <p class="muted">Apúntalo al cerrar el lanzamiento. Lo que escribas aquí entra en los prompts de <strong>emails, WhatsApp, anuncios y páginas</strong> de los próximos lanzamientos de este embudo, para partir de lo que ya funcionó${siguiente ? ' (ya lo usan los posteriores)' : ''}.</p>
+    <div class="qf-campos">${CAMPOS_APRENDIZAJE.map((c) => `<label class="field${c.id === 'nofunciono' ? ' qf-no' : ''}"><span>${esc(c.label)}</span><textarea rows="3" data-qf="${c.id}" placeholder="${esc(c.ph)}"${edita ? '' : ' readonly'}>${esc(a[c.id] || '')}</textarea></label>`).join('')}</div>
+    ${edita ? `<div class="qf-acc"><button type="button" class="btn primary" id="qf-guardar">Guardar</button><span class="muted small" id="qf-estado">${a.en ? `Última vez: ${esc(dayFmt.format(new Date(`${a.en}T12:00:00Z`)))}${a.por ? ` · ${esc(a.por)}` : ''}` : ''}</span></div>` : ''}`;
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('#qf-guardar');
+  if (!b) return;
+  const code = state.launchCode;
+  const l = state.config.launches[code];
+  if (!l) return;
+  const aprendizajes = Object.fromEntries($$('#qf-card [data-qf]').map((t) => [t.dataset.qf, t.value.trim()]).filter(([, v]) => v));
+  if (Object.keys(aprendizajes).length) Object.assign(aprendizajes, { en: today(), por: state.user?.nombre || 'Admin' });
+  b.disabled = true;
+  $('#qf-estado').textContent = 'Guardando…';
+  try {
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, launches: { ...state.config.launches, [code]: { ...l, aprendizajes } } } });
+    state.config = config;
+    $('#qf-estado').textContent = '✓ Guardado: lo tendrán en cuenta los prompts de los próximos lanzamientos.';
+  } catch (err) { $('#qf-estado').textContent = err.message; }
+  b.disabled = false;
+});
+const afilarPrompt = (prompt, canal, code) => afilar(prompt, { canal, voz: code ? vozDe(code) : '', aprendizajes: code ? aprendizajesDe(code, canal) : '' });
 function emPrompt(code, marca) {
   const l = conEnlacesPropuestos(state.config.launches[code], propuestasEmbudo(embudoDeLanz(state.config.launches[code])));
   const enlaces = {
@@ -13222,11 +13289,11 @@ function emPrompt(code, marca) {
     'Entrada VIP': Number(l.precioVip) > 0 ? l.vipUrl : '', 'Grupo de WhatsApp': l.whatsappUrl, 'Grabación (replay)': l.replayUrl,
     'Página de venta': l.raicesUrl, 'Página de pago': l.paginaPagoUrl,
   };
-  return promptEmails({
+  return afilarPrompt(promptEmails({
     launch: l, code, marca: clienteNombre(), producto: nombreProducto(state.config), datos: datosEmbudo(l, { producto: nombreProducto(state.config), marca: clienteNombre() }),
     contexto: contextoMarca(marca?.m, marca?.producto), narrativa: bloqueNarrativa(l.narrativa, 'email'), ganadores: (emc.ganadores[anteriorEm(code)] || '').startsWith('(') ? '' : emc.ganadores[anteriorEm(code)] || '',
     notas: (ls.get(notasEmKey()) || '').trim(), temario: (ls.get(temarioEmKey(code)) || '').trim(), fases: fasesEm(), enlaces, directoUrl: l.fechaDirecto ? `${location.origin}/directo?l=${encodeURIComponent(code)}${cParam('&')}` : '',
-  });
+  }), 'email', code);
 }
 const EM_FASE = {
   registro: { ico: '👋', nombre: 'Registro' }, preclase: { ico: '🎓', nombre: 'Preclase' }, consciencia: { ico: '🧠', nombre: 'Objeciones y expectación' }, vip: { ico: '⭐', nombre: 'VIP' },
@@ -13324,6 +13391,7 @@ async function renderEmailsIa() {
       <details class="st-ver"><summary>Ver el prompt</summary><pre class="snippet" id="em-prompt"></pre></details>
     </details>`;
   $('#em-prompt').textContent = emPrompt(code, marca);
+  prepararVoz(code).then(() => { if ($('#em-prompt')) $('#em-prompt').textContent = emPrompt(code, marca); }).catch(() => {});
   box.onclick = (e) => {
     const f = e.target.closest('[data-em-fase]');
     if (!f) return;
@@ -13379,6 +13447,8 @@ function formatoAnuncios() {
   const id = formatoValido(l?.formato || embudoInfo()?.formato);
   return { id, texto: `${FORMATOS[id].label}: ${FORMATOS[id].desc}` };
 }
+// Los de copy (todo en uno, guiones, copys) van afilados; el de Magnific (imágenes) no.
+const promptAnuncioAfilado = (p, ctx) => (p.id === 'magnific' ? p.fn(ctx) : afilarPrompt(p.fn(ctx), 'anuncios', tipoActual() === 'lanz' ? state.launchCode : ''));
 function ctxAnuncio(c, objetivo) {
   const g = ganadoresAnuncios();
   const f = formatoAnuncios();
@@ -13394,6 +13464,7 @@ const campoLogoHtml = () => {
     <small class="st-ayuda" id="an-logo-status">PNG con fondo transparente · GHL → Sitios → Medios → ⋯ → Copiar enlace</small></div>`;
 };
 async function renderAnuncios() {
+  if (tipoActual() === 'lanz' && state.launchCode) prepararVoz(state.launchCode).catch(() => {});
   const box = $('#anuncios-body');
   const c = contextoPaginas();
   if (c.falta) { box.innerHTML = `<div class="card empty"><p class="muted">${esc(c.falta)}</p></div>`; return; }
@@ -13442,7 +13513,7 @@ $('#anuncios-body').addEventListener('toggle', (e) => {
   if (!e.target.open || !pre || !e.target.contains(pre)) return;
   const c = contextoPaginas();
   const o = objetivosDe(c.tipo).find((x) => x.id === pre.dataset.anPrompt);
-  if (o) pre.textContent = PROMPTS_ANUNCIOS[0].fn(ctxAnuncio(c, o));
+  if (o) pre.textContent = promptAnuncioAfilado(PROMPTS_ANUNCIOS[0], ctxAnuncio(c, o));
 }, true);
 $('#anuncios-body').addEventListener('input', (e) => {
   if (e.target.id === 'an-notas') ls.set(notasAnKey(), e.target.value);
@@ -13476,7 +13547,7 @@ $('#anuncios-body').addEventListener('click', async (e) => {
   const o = objetivosDe(c.tipo).find((x) => x.id === oid);
   const p = PROMPTS_ANUNCIOS.find((x) => x.id === pid);
   if (!o || !p) return;
-  const txt = p.fn(ctxAnuncio(c, o));
+  const txt = promptAnuncioAfilado(p, ctxAnuncio(c, o));
   const txtOriginal = b.textContent;
   try {
     await navigator.clipboard.writeText(txt);
@@ -13539,10 +13610,11 @@ function contextoPaginas() {
 function promptDePagina(c, p) {
   const propias = propuestasEmbudo(state.embudo).filter((x) => x.pagina === p.id);
   const urlsPag = Object.fromEntries(propias.map((x) => [propias.length > 1 ? `URL de esta página (${x.nombre})` : 'URL de esta página', x.url]));
-  return promptPagina({ pagina: p, nombreEmbudo: c.nombre, marca: clienteNombre(), datos: c.datos, contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto),
-    diseno: disenoTexto(pgc.marca?.m), codigos: codigosDePagina(p, c.codigos, c.ctx), notas: (ls.get(notasPagKey(p.id)) || '').trim(), urls: { ...urlsPag, ...(c.urls || {}) }, narrativa: tipoActual() === 'lanz' ? bloqueNarrativa(state.config.launches[state.launchCode]?.narrativa, 'pagina') : '' });
+  return afilarPrompt(promptPagina({ pagina: p, nombreEmbudo: c.nombre, marca: clienteNombre(), datos: c.datos, contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto),
+    diseno: disenoTexto(pgc.marca?.m), codigos: codigosDePagina(p, c.codigos, c.ctx), notas: (ls.get(notasPagKey(p.id)) || '').trim(), urls: { ...urlsPag, ...(c.urls || {}) }, narrativa: tipoActual() === 'lanz' ? bloqueNarrativa(state.config.launches[state.launchCode]?.narrativa, 'pagina') : '' }), 'pagina', tipoActual() === 'lanz' ? state.launchCode : '');
 }
 async function renderPaginas() {
+  if (tipoActual() === 'lanz' && state.launchCode) prepararVoz(state.launchCode).catch(() => {});
   const box = $('#paginas-body');
   const c = contextoPaginas();
   if (c.falta) { box.innerHTML = `<div class="card empty"><p class="muted">${esc(c.falta)}</p></div>`; return; }
