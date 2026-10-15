@@ -2555,7 +2555,7 @@
  ],
  "sonido": {
   "musica": "musica/mldlm-calida.mp3",
-  "musica_db": -9,
+  "musica_db": -14,
   "efectos": [
    {
     "archivo": "sonidos/whoosh.mp3",

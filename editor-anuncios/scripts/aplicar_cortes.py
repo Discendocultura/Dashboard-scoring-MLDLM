@@ -7,7 +7,7 @@
 # - Cada borde se ajusta al punto más silencioso cercano y al fotograma, y el audio lleva un fundido de 10 ms
 #   para que no haya chasquidos.
 # - Escribe cortes_aplicados.json con los puntos de corte en la nueva línea de tiempo (para taparlos con un salto de zoom).
-import json, os, shutil, subprocess, sys
+import json, math, os, shutil, subprocess, sys
 import numpy as np, soundfile as sf
 
 proy = sys.argv[1].rstrip('/'); nombre = os.path.basename(proy)
@@ -37,12 +37,14 @@ def al_fotograma(t):
 SILENCIOS = {'pausa', 'inicio', 'final'}   # recortes de silencio: no quitan palabras aunque Whisper las sitúe dentro
 cortes, de_silencio = [], []
 for c in sorted(json.load(open(f'{proy}/cortes.json')), key=lambda c: c['inicio']):
+    silencio = c.get('tipo') in SILENCIOS
     a = al_fotograma(silencioso(c['inicio'], 0.08, 0.04))
-    b = al_fotograma(silencioso(c['fin'], 0.04, 0.08))
+    # si el corte quita palabras, 'fin' es el inicio de la palabra que se queda: el borde solo puede ir hacia atrás
+    b = silencioso(c['fin'], 0.04, 0.08) if silencio else silencioso(c['fin'], 0.1, 0.0)
+    b = al_fotograma(b) if silencio else math.floor(b * FPS) / FPS
     a, b = max(0.0, a), min(dur, b)
     if b - a < 1 / FPS:
         continue
-    silencio = c.get('tipo') in SILENCIOS
     if cortes and a <= cortes[-1][1]:
         cortes[-1][1] = max(cortes[-1][1], b)
         de_silencio[-1] = de_silencio[-1] and silencio
