@@ -16,7 +16,9 @@
 import difflib, json, os, re, subprocess, sys, unicodedata
 
 proy = sys.argv[1]
-words = json.load(open(f'{proy}/transcripcion_bruto.json'))['words']
+# Si ya se aplicaron cortes, se detecta siempre sobre la versión sin cortar (los tiempos de cortes.json son de esa versión)
+sin_cortes = os.path.exists(f'{proy}/transcripcion_sin_cortes.json')
+words = json.load(open(f'{proy}/transcripcion_sin_cortes.json' if sin_cortes else f'{proy}/transcripcion_bruto.json'))['words']
 try:
     guion = open(f'{proy}/guion.txt').read()
 except FileNotFoundError:
@@ -143,7 +145,7 @@ def recorte_pausa(a, b, dejar, tipo, i):
                    'quitado': f'(silencio de {b - a:.1f} s)', 'contexto': contexto(i, i)})
 
 
-wav = f'{proy}/voz_limpia.wav'
+wav = f'{proy}/voz_limpia_sin_cortes.wav' if sin_cortes else f'{proy}/voz_limpia.wav'
 if os.path.exists(wav) and words:
     primera, ultima = words[0]['start'], words[-1]['end']
     for a, b in silencios(wav):
