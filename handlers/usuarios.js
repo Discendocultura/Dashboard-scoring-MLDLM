@@ -35,6 +35,8 @@ export async function GET(request) {
       }
       return json({
         equipo: users.filter((u) => u.agencia || u.superadmin).map(publicUser),
+        // La gente de los proyectos (no de la agencia), para pasarla a la agencia cuando haga falta.
+        proyectos: users.filter((u) => !u.agencia && !u.superadmin).map(publicUser),
         clientes: clientes.map((c) => ({ id: c.id, nombre: c.nombre })), roles,
       });
     }

@@ -6682,6 +6682,8 @@ $('#tarea-save').addEventListener('click', async () => {
 });
 
 // ---------- Equipo (Configuración) ----------
+// Pasar a alguien de un proyecto al equipo de la agencia (superadmin): mismo usuario y mismos accesos.
+const MSG_PASAR_AGENCIA = (nombre) => `¿Pasar a ${nombre} al equipo de la agencia?\n\nConserva su usuario, su contraseña y sus accesos a cada cliente. Además entrará en la Operativa y en la Biblioteca de procesos, y podrás darle acceso a más clientes desde Agencia → Equipo de la agencia.`;
 async function loadEquipo() {
   const box = $('#equipo-list');
   box.innerHTML = '<p class="muted">Cargando…</p>';
@@ -6710,6 +6712,7 @@ function renderEquipo() {
       <td class="muted">${fmt(u.lastLogin)}</td>
       <td class="eq-actions">
         <button type="button" class="btn" data-eq="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
+        ${state.superadmin && u.id !== state.user?.id ? '<button type="button" class="btn ghost" data-eq="agencia" title="Pasa a ser del equipo de la agencia, con los mismos accesos">🏢 Pasar a la agencia</button>' : ''}
         ${u.id === state.user?.id ? '' : `<button type="button" class="btn ghost" data-eq="${u.activo ? 'desactivar' : 'activar'}">${u.activo ? 'Desactivar' : 'Activar'}</button>
         <button type="button" class="btn ghost" data-eq="borrar" aria-label="Borrar">✕</button>`}
       </td></tr>`).join('')}</tbody></table></div>`
@@ -6814,6 +6817,17 @@ $('#equipo-list').addEventListener('click', async (e) => {
     return;
   }
   if (op === 'cerrar-accesos') { b.closest('tr').remove(); return; }
+  if (op === 'agencia') {
+    if (!window.confirm(MSG_PASAR_AGENCIA(u.nombre))) return;
+    b.disabled = true;
+    try {
+      const todo = state.equipoTodos?.find((x) => x.id === id) || u;
+      await api('/api/usuarios', { method: 'POST', body: { op: 'agencia-guardar', id, accesos: todo.accesos || {}, superadmin: Boolean(todo.superadmin) } });
+      equipoResult(`${u.nombre} ya es del equipo de la agencia (conserva sus accesos). Se gestiona en Agencia → Equipo de la agencia.`);
+      await loadEquipo();
+    } catch (ex) { equipoResult(ex.message, true); b.disabled = false; }
+    return;
+  }
   if (op === 'guardar-accesos') {
     const row = b.closest('tr');
     const accesos = Object.fromEntries($$('[data-acc-cli]', row).map((s) => [s.dataset.accCli, s.value]).filter(([, v]) => v));
@@ -7325,7 +7339,7 @@ $('#ag-actualizar').addEventListener('click', () => loadAgencia(true));
 $('#btn-agencia .agencia-ico').innerHTML = icon('compass');
 
 // ---------- Agencia → Equipo de la agencia: equipo interno y sus accesos a uno o más clientes ----------
-let ageq = null; // { equipo, clientes, roles: { cliente: [{ id, label }] } }
+let ageq = null; // { equipo, proyectos, clientes, roles: { cliente: [{ id, label }] } }
 const fechaAge = (d) => (d ? new Date(d).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Nunca');
 function opcionesRol(cid, actual) {
   const roles = [{ id: 'admin', label: 'Admin' }, ...((ageq.roles[cid] || []).filter((r) => r.id !== 'admin'))];
@@ -7347,6 +7361,15 @@ function pintarAgenciaEquipo() {
         <button type="button" class="btn ghost" data-age="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
         ${u.id === state.user?.id ? '' : '<button type="button" class="btn ghost" data-age="quitar" title="Quitar del equipo de la agencia (pierde el acceso a todos los clientes)">✕</button>'}</td></tr>`).join('')}</tbody></table></div>`
     : '<p class="muted">Todavía no hay nadie en el equipo de la agencia.</p>';
+  // Gente de los proyectos: con un clic pasa a ser del equipo de la agencia (conserva sus accesos).
+  const deProyectos = ageq.proyectos || [];
+  if (deProyectos.length) {
+    $('#age-lista').insertAdjacentHTML('beforeend', `<details class="eq-fuera age-proyectos"><summary>Personas de los proyectos (${deProyectos.length}) · pásalas a la agencia</summary>
+      <div class="table-scroll"><table class="metric-table equipo-table"><tbody>${deProyectos.map((u) => `<tr data-age-uid="${esc(u.id)}" class="${u.activo ? '' : 'inactivo'}">
+        <td><span class="t-who">${avatarHtml(u)}<span><strong>${esc(u.nombre)}</strong><br><span class="muted">${esc(u.email)}</span></span></span></td>
+        <td>${Object.entries(u.accesos || {}).map(([cid, r]) => `<span class="age-cli"><strong>${esc(nombreCli(cid))}</strong> · ${esc(rolLabel(cid, r))}</span>`).join('') || '<span class="muted">Sin clientes</span>'}</td>
+        <td class="eq-actions"><button type="button" class="btn" data-age="pasar" title="Pasa a ser del equipo de la agencia, con los mismos accesos">🏢 Pasar a la agencia</button></td></tr>`).join('')}</tbody></table></div></details>`);
+  }
   $('#age-accesos-nuevo').innerHTML = gridAccesos();
 }
 async function loadAgenciaEquipo() {
@@ -7377,8 +7400,19 @@ $('#age-lista').addEventListener('click', async (e) => {
   if (!b) return;
   const tr = b.closest('tr');
   const id = tr.dataset.ageUid || tr.previousElementSibling?.dataset.ageUid;
-  const u = ageq.equipo.find((x) => x.id === id);
+  const u = ageq.equipo.find((x) => x.id === id) || ageq.proyectos?.find((x) => x.id === id);
   const op = b.dataset.age;
+  if (op === 'pasar') {
+    if (!window.confirm(MSG_PASAR_AGENCIA(u.nombre))) return;
+    b.disabled = true;
+    try {
+      await api('/api/usuarios', { method: 'POST', body: { op: 'agencia-guardar', id, accesos: u.accesos || {}, superadmin: false } });
+      ageResult(`${u.nombre} ya es del equipo de la agencia. Cambia sus clientes y su rol con «Clientes y rol».`);
+      await loadAgenciaEquipo();
+      if (state.equipo) loadEquipo();
+    } catch (ex) { ageResult(ex.message, true); b.disabled = false; }
+    return;
+  }
   if (op === 'editar') {
     $$('.age-editor').forEach((r) => r.remove());
     tr.insertAdjacentHTML('afterend', `<tr class="age-editor"><td colspan="4"><strong>Clientes de ${esc(u.nombre)} y su rol en cada uno</strong>
