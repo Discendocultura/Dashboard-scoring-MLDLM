@@ -251,14 +251,16 @@ export const Preguntas = ({e, textos, en}) => {
 };
 
 // Lista que se va marcando (p. ej. pruebas «normales»); la última línea opcional queda como pregunta final
-export const Lista = ({e, items, final}) => {
+// `en`: segundo de entrada de cada elemento y `finalEn` el de la frase final (si no, cada 0,55 s)
+export const Lista = ({e, items, final, en, finalEn}) => {
   const {f, fps, ent, sal} = useVida(10);
   const t = f / fps;
   return (
     <div style={{position: 'absolute', top: 60, left: 120, right: 120, opacity: sal, transform: `translateY(${(1 - ent()) * -380}px)`}}>
       <div style={{background: ex(e, 'blanco', '#fff'), borderRadius: 20, border: `1px solid ${ex(e, 'linea', '#ddd')}`, padding: '22px 30px', boxShadow: '0 16px 40px rgba(0,0,0,.45)'}}>
         {items.map((it, i) => {
-          const on = interpolate(t, [0.4 + i * 0.55, 0.6 + i * 0.55], [0, 1], clamp);
+          const t0 = en ? en[i] : 0.4 + i * 0.55;
+          const on = interpolate(t, [t0, t0 + 0.2], [0, 1], clamp);
           return (
             <div key={i} style={{display: 'flex', alignItems: 'center', gap: 18, padding: '8px 0', opacity: 0.35 + 0.65 * on}}>
               <div style={{width: 46, height: 46, borderRadius: '50%', background: on > 0.5 ? e.acento : ex(e, 'pastel', '#eee'), display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -268,7 +270,7 @@ export const Lista = ({e, items, final}) => {
           );
         })}
         {final && <div style={{marginTop: 10, fontFamily: e.fuenteTitulos, fontStyle: 'italic', fontWeight: 900, fontSize: 44, color: e.primario,
-          opacity: interpolate(t, [0.6 + items.length * 0.55, 0.9 + items.length * 0.55], [0, 1], clamp)}}>{final}</div>}
+          opacity: interpolate(t, finalEn != null ? [finalEn, finalEn + 0.3] : [0.6 + items.length * 0.55, 0.9 + items.length * 0.55], [0, 1], clamp)}}>{final}</div>}
       </div>
     </div>
   );

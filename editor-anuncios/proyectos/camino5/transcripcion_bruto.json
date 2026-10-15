@@ -1,1600 +1,1595 @@
 {
- "texto": " ¿Sabías que puedes detectar tu ovulación sin test, sin apps y sin depender de absolutamente nadie? Como lo oyes, puede que ahora estés pensando, vale, Sara, ¿y cómo puedo yo saber todo esto? Bueno, pues porque tu propio cuerpo te está avisando con señales de que ya estás entrando en esos días fértiles y de que se está acercando la ovulación. Por ejemplo, ¿alguna vez te has fijado de que hay días en los que tienes un flujo que es como más transparente, más elástico, más resbaladizo, que recuerda mucho a la clara de huevo cruda? Pues este flujo no aparece porque sí. Este flujo es una de las señales que pueden ayudar a reconocerte cuando te estás acercando a tus días más fértiles. Pero ojo, porque aprender a reconocer tus días fértiles es solo una pequeñita pieza de todo el puzzle que compone tu fertilidad. Tú puedes identificar perfectamente cuáles son tus días fértiles pero que el embarazo siga sin llegar. Y es que hay muchos otros factores que también pueden estar influyendo y que lógicamente deberías de tener en cuenta si estás buscando embarazo. Por eso he preparado una formación online y gratuita en la que vamos a hablar de cuáles son los obstáculos más habituales que pueden dificultar la llegada del embarazo y de qué cosas puedes empezar a hacer para aumentar las probabilidades de conseguirlo de manera natural. Además, durante esta formación vamos a hacer una clase en directo en la que te voy a explicar cuáles son estos tres pilares clave que ninguna mujer debe de olvidarse si está buscando un embarazo y que te van a ayudar a empezar a tomar decisiones que lógicamente tengan sentido para ti y que puedan ayudarte a mejorar la fertilidad. Haz clic en el enlace que aparecerá aquí abajo para reservar ahora tu plaza de forma gratuita. Te mando un abrazo enorme y nos vemos dentro. Vale.",
+ "texto": "¿Sabías que puedes detectar tu ovulación sin test, sin apps y sin depender de absolutamente nadie? Como lo oyes, puede que ahora estés pensando, vale, Sara, ¿y cómo puedo yo saber todo esto? Bueno, pues porque tu propio cuerpo te está avisando con señales de que ya estás entrando en esos días fértiles y de que se está acercando la ovulación. Por ejemplo, ¿alguna vez te has fijado de que hay días en los que tienes un flujo que es como más transparente, más elástico, más resbaladizo, que recuerda mucho a la clara de huevo cruda? Pues este flujo no aparece porque sí. Este flujo es una de las señales que pueden ayudar a reconocerte cuando te estás acercando a tus días más fértiles. Pero ojo, porque aprender a reconocer tus días fértiles es solo una pequeñita pieza de todo el puzzle que compone tu fertilidad. Tú puedes identificar perfectamente cuáles son tus días fértiles pero que el embarazo siga sin llegar. Y es que hay muchos otros factores que también pueden estar influyendo y que lógicamente deberías de tener en cuenta si estás buscando embarazo. Por eso he preparado una formación online y gratuita en la que vamos a hablar de cuáles son los obstáculos más habituales que pueden dificultar la llegada del embarazo y de qué cosas puedes empezar a hacer para aumentar las probabilidades de conseguirlo de manera natural. Además, durante esta formación vamos a hacer una clase en directo en la que te voy a explicar cuáles son estos tres pilares clave que ninguna mujer debe de olvidarse si está buscando un embarazo y que te van a ayudar a empezar a tomar decisiones que lógicamente tengan sentido para ti y que puedan ayudarte a mejorar la fertilidad. Haz clic en el enlace que aparecerá aquí abajo para reservar ahora tu plaza de forma gratuita. Te mando un abrazo enorme y nos vemos dentro.",
  "words": [
   {
    "text": "¿Sabías",
-   "start": 1.46,
-   "end": 1.98
+   "start": 0.3,
+   "end": 0.82
   },
   {
    "text": "que",
-   "start": 1.98,
-   "end": 2.1
+   "start": 0.82,
+   "end": 0.94
   },
   {
    "text": "puedes",
-   "start": 2.1,
-   "end": 2.3
+   "start": 0.94,
+   "end": 1.14
   },
   {
    "text": "detectar",
-   "start": 2.3,
-   "end": 2.76
+   "start": 1.14,
+   "end": 1.6
   },
   {
    "text": "tu",
-   "start": 2.76,
-   "end": 2.88
+   "start": 1.6,
+   "end": 1.72
   },
   {
    "text": "ovulación",
-   "start": 2.88,
-   "end": 3.7
+   "start": 1.72,
+   "end": 2.54
   },
   {
    "text": "sin",
-   "start": 3.7,
-   "end": 4.14
+   "start": 2.54,
+   "end": 2.98
   },
   {
    "text": "test,",
-   "start": 4.14,
-   "end": 4.56
+   "start": 2.98,
+   "end": 3.4
   },
   {
    "text": "sin",
-   "start": 4.94,
-   "end": 5.2
+   "start": 3.78,
+   "end": 4.04
   },
   {
    "text": "apps",
-   "start": 5.2,
-   "end": 5.56
+   "start": 4.04,
+   "end": 4.4
   },
   {
    "text": "y",
-   "start": 5.56,
-   "end": 5.84
+   "start": 4.4,
+   "end": 4.68
   },
   {
    "text": "sin",
-   "start": 5.84,
-   "end": 6.02
+   "start": 4.68,
+   "end": 4.86
   },
   {
    "text": "depender",
-   "start": 6.02,
-   "end": 6.48
+   "start": 4.86,
+   "end": 5.32
   },
   {
    "text": "de",
-   "start": 6.48,
-   "end": 6.7
+   "start": 5.32,
+   "end": 5.54
   },
   {
    "text": "absolutamente",
-   "start": 6.7,
-   "end": 7.3
+   "start": 5.54,
+   "end": 6.14
   },
   {
    "text": "nadie?",
-   "start": 7.3,
-   "end": 7.88
+   "start": 6.14,
+   "end": 6.72
   },
   {
    "text": "Como",
-   "start": 8.58,
-   "end": 8.7
+   "start": 7.42,
+   "end": 7.54
   },
   {
    "text": "lo",
-   "start": 8.7,
-   "end": 8.88
+   "start": 7.54,
+   "end": 7.72
   },
   {
    "text": "oyes,",
-   "start": 8.88,
-   "end": 9.18
+   "start": 7.72,
+   "end": 8.02
   },
   {
    "text": "puede",
-   "start": 9.36,
-   "end": 9.46
+   "start": 8.2,
+   "end": 8.3
   },
   {
    "text": "que",
-   "start": 9.46,
-   "end": 9.66
+   "start": 8.3,
+   "end": 8.5
   },
   {
    "text": "ahora",
-   "start": 9.66,
-   "end": 10.04
+   "start": 8.5,
+   "end": 8.88
   },
   {
    "text": "estés",
-   "start": 10.04,
-   "end": 10.28
+   "start": 8.88,
+   "end": 9.12
   },
   {
    "text": "pensando,",
-   "start": 10.28,
-   "end": 10.64
+   "start": 9.12,
+   "end": 9.48
   },
   {
    "text": "vale,",
-   "start": 10.86,
-   "end": 10.96
+   "start": 9.7,
+   "end": 9.8
   },
   {
    "text": "Sara,",
-   "start": 11.2,
-   "end": 11.28
+   "start": 10.04,
+   "end": 10.12
   },
   {
    "text": "¿y",
-   "start": 11.42,
-   "end": 11.54
+   "start": 10.26,
+   "end": 10.38
   },
   {
    "text": "cómo",
-   "start": 11.54,
-   "end": 11.74
+   "start": 10.38,
+   "end": 10.58
   },
   {
    "text": "puedo",
-   "start": 11.74,
-   "end": 12.02
+   "start": 10.58,
+   "end": 10.86
   },
   {
    "text": "yo",
-   "start": 12.02,
-   "end": 12.36
+   "start": 10.86,
+   "end": 11.2
   },
   {
    "text": "saber",
-   "start": 12.36,
-   "end": 12.62
+   "start": 11.2,
+   "end": 11.46
   },
   {
    "text": "todo",
-   "start": 12.62,
-   "end": 12.96
+   "start": 11.46,
+   "end": 11.8
   },
   {
    "text": "esto?",
-   "start": 12.96,
-   "end": 13.3
+   "start": 11.8,
+   "end": 12.14
   },
   {
    "text": "Bueno,",
-   "start": 13.72,
-   "end": 13.98
+   "start": 12.56,
+   "end": 12.82
   },
   {
    "text": "pues",
-   "start": 14.06,
-   "end": 14.24
+   "start": 12.9,
+   "end": 13.08
   },
   {
    "text": "porque",
-   "start": 14.24,
-   "end": 14.4
+   "start": 13.08,
+   "end": 13.24
   },
   {
    "text": "tu",
-   "start": 14.4,
-   "end": 14.64
+   "start": 13.24,
+   "end": 13.48
   },
   {
    "text": "propio",
-   "start": 14.64,
-   "end": 14.98
+   "start": 13.48,
+   "end": 13.82
   },
   {
    "text": "cuerpo",
-   "start": 14.98,
-   "end": 15.34
+   "start": 13.82,
+   "end": 14.18
   },
   {
    "text": "te",
-   "start": 15.34,
-   "end": 15.54
+   "start": 14.18,
+   "end": 14.38
   },
   {
    "text": "está",
-   "start": 15.54,
-   "end": 15.7
+   "start": 14.38,
+   "end": 14.54
   },
   {
    "text": "avisando",
-   "start": 15.7,
-   "end": 16.4
+   "start": 14.54,
+   "end": 15.24
   },
   {
    "text": "con",
-   "start": 16.4,
-   "end": 16.72
+   "start": 15.24,
+   "end": 15.56
   },
   {
    "text": "señales",
-   "start": 16.72,
-   "end": 17.34
+   "start": 15.56,
+   "end": 16.18
   },
   {
    "text": "de",
-   "start": 17.34,
-   "end": 17.62
+   "start": 16.18,
+   "end": 16.46
   },
   {
    "text": "que",
-   "start": 17.62,
-   "end": 17.94
+   "start": 16.46,
+   "end": 16.78
   },
   {
    "text": "ya",
-   "start": 17.94,
-   "end": 18.36
+   "start": 16.78,
+   "end": 17.2
   },
   {
    "text": "estás",
-   "start": 18.36,
-   "end": 18.58
+   "start": 17.2,
+   "end": 17.42
   },
   {
    "text": "entrando",
-   "start": 18.58,
-   "end": 18.96
+   "start": 17.42,
+   "end": 17.8
   },
   {
    "text": "en",
-   "start": 18.96,
-   "end": 19.24
+   "start": 17.8,
+   "end": 18.08
   },
   {
    "text": "esos",
-   "start": 19.24,
-   "end": 19.38
+   "start": 18.08,
+   "end": 18.22
   },
   {
    "text": "días",
-   "start": 19.38,
-   "end": 19.6
+   "start": 18.22,
+   "end": 18.44
   },
   {
    "text": "fértiles",
-   "start": 19.6,
-   "end": 20.16
+   "start": 18.44,
+   "end": 19.0
   },
   {
    "text": "y",
-   "start": 20.16,
-   "end": 20.52
+   "start": 19.0,
+   "end": 19.36
   },
   {
    "text": "de",
-   "start": 20.52,
-   "end": 20.64
+   "start": 19.36,
+   "end": 19.48
   },
   {
    "text": "que",
-   "start": 20.64,
-   "end": 20.74
+   "start": 19.48,
+   "end": 19.58
   },
   {
    "text": "se",
-   "start": 20.74,
-   "end": 20.92
+   "start": 19.58,
+   "end": 19.76
   },
   {
    "text": "está",
-   "start": 20.92,
-   "end": 21.02
+   "start": 19.76,
+   "end": 19.86
   },
   {
    "text": "acercando",
-   "start": 21.02,
-   "end": 21.56
+   "start": 19.86,
+   "end": 20.4
   },
   {
    "text": "la",
-   "start": 21.56,
-   "end": 21.8
+   "start": 20.4,
+   "end": 20.64
   },
   {
    "text": "ovulación.",
-   "start": 21.8,
-   "end": 22.38
+   "start": 20.64,
+   "end": 21.22
   },
   {
    "text": "Por",
-   "start": 22.82,
-   "end": 22.98
+   "start": 21.66,
+   "end": 21.82
   },
   {
    "text": "ejemplo,",
-   "start": 22.98,
-   "end": 23.38
+   "start": 21.82,
+   "end": 22.22
   },
   {
    "text": "¿alguna",
-   "start": 23.8,
-   "end": 23.94
+   "start": 22.64,
+   "end": 22.78
   },
   {
    "text": "vez",
-   "start": 23.94,
-   "end": 24.02
+   "start": 22.78,
+   "end": 22.86
   },
   {
    "text": "te",
-   "start": 24.02,
-   "end": 24.1
+   "start": 22.86,
+   "end": 22.94
   },
   {
    "text": "has",
-   "start": 24.1,
-   "end": 24.26
+   "start": 22.94,
+   "end": 23.1
   },
   {
    "text": "fijado",
-   "start": 24.26,
-   "end": 24.66
+   "start": 23.1,
+   "end": 23.5
   },
   {
    "text": "de",
-   "start": 24.66,
-   "end": 24.86
+   "start": 23.5,
+   "end": 23.7
   },
   {
    "text": "que",
-   "start": 24.86,
-   "end": 25.04
+   "start": 23.7,
+   "end": 23.88
   },
   {
    "text": "hay",
-   "start": 25.04,
-   "end": 25.26
+   "start": 23.88,
+   "end": 24.1
   },
   {
    "text": "días",
-   "start": 25.26,
-   "end": 25.66
+   "start": 24.1,
+   "end": 24.5
   },
   {
    "text": "en",
-   "start": 25.66,
-   "end": 25.94
+   "start": 24.5,
+   "end": 24.78
   },
   {
    "text": "los",
-   "start": 25.94,
-   "end": 26.12
+   "start": 24.78,
+   "end": 24.96
   },
   {
    "text": "que",
-   "start": 26.12,
-   "end": 26.26
+   "start": 24.96,
+   "end": 25.1
   },
   {
    "text": "tienes",
-   "start": 26.26,
-   "end": 26.64
+   "start": 25.1,
+   "end": 25.48
   },
   {
    "text": "un",
-   "start": 26.64,
-   "end": 27.3
+   "start": 25.48,
+   "end": 26.14
   },
   {
    "text": "flujo",
-   "start": 27.3,
-   "end": 27.76
+   "start": 26.14,
+   "end": 26.6
   },
   {
    "text": "que",
-   "start": 27.76,
-   "end": 27.86
+   "start": 26.6,
+   "end": 26.7
   },
   {
    "text": "es",
-   "start": 27.86,
-   "end": 28.08
+   "start": 26.7,
+   "end": 26.92
   },
   {
    "text": "como",
-   "start": 28.08,
-   "end": 28.3
+   "start": 26.92,
+   "end": 27.14
+  },
+  {
+   "text": "más",
+   "start": 27.14,
+   "end": 27.42
+  },
+  {
+   "text": "transparente,",
+   "start": 27.42,
+   "end": 28.14
   },
   {
    "text": "más",
    "start": 28.3,
-   "end": 28.58
-  },
-  {
-   "text": "transparente,",
-   "start": 28.58,
-   "end": 29.3
-  },
-  {
-   "text": "más",
-   "start": 29.46,
-   "end": 29.66
+   "end": 28.5
   },
   {
    "text": "elástico,",
-   "start": 29.66,
-   "end": 30.32
+   "start": 28.5,
+   "end": 29.16
   },
   {
    "text": "más",
-   "start": 30.68,
-   "end": 30.88
+   "start": 29.52,
+   "end": 29.72
   },
   {
    "text": "resbaladizo,",
-   "start": 30.88,
-   "end": 31.44
+   "start": 29.72,
+   "end": 30.28
   },
   {
    "text": "que",
-   "start": 31.52,
-   "end": 31.68
+   "start": 30.36,
+   "end": 30.52
   },
   {
    "text": "recuerda",
-   "start": 31.68,
-   "end": 31.94
+   "start": 30.52,
+   "end": 30.78
   },
   {
    "text": "mucho",
-   "start": 31.94,
-   "end": 32.36
+   "start": 30.78,
+   "end": 31.2
   },
   {
    "text": "a",
-   "start": 32.36,
-   "end": 33.44
+   "start": 31.2,
+   "end": 32.28
   },
   {
    "text": "la",
-   "start": 33.44,
-   "end": 33.62
+   "start": 32.28,
+   "end": 32.46
   },
   {
    "text": "clara",
-   "start": 33.62,
-   "end": 33.84
+   "start": 32.46,
+   "end": 32.68
   },
   {
    "text": "de",
-   "start": 33.84,
-   "end": 34.02
+   "start": 32.68,
+   "end": 32.86
   },
   {
    "text": "huevo",
-   "start": 34.02,
-   "end": 34.3
+   "start": 32.86,
+   "end": 33.14
   },
   {
    "text": "cruda?",
-   "start": 34.3,
-   "end": 35.18
+   "start": 33.14,
+   "end": 34.02
   },
   {
    "text": "Pues",
-   "start": 35.38,
-   "end": 35.62
+   "start": 34.22,
+   "end": 34.46
   },
   {
    "text": "este",
-   "start": 35.62,
-   "end": 35.9
+   "start": 34.46,
+   "end": 34.74
   },
   {
    "text": "flujo",
-   "start": 35.9,
-   "end": 36.58
+   "start": 34.74,
+   "end": 35.42
   },
   {
    "text": "no",
-   "start": 36.58,
-   "end": 36.78
+   "start": 35.42,
+   "end": 35.62
   },
   {
    "text": "aparece",
-   "start": 36.78,
-   "end": 37.04
+   "start": 35.62,
+   "end": 35.88
   },
   {
    "text": "porque",
-   "start": 37.04,
-   "end": 37.44
+   "start": 35.88,
+   "end": 36.28
   },
   {
    "text": "sí.",
-   "start": 37.44,
-   "end": 37.8
+   "start": 36.28,
+   "end": 36.64
   },
   {
    "text": "Este",
-   "start": 38.18,
-   "end": 38.38
+   "start": 37.02,
+   "end": 37.22
   },
   {
    "text": "flujo",
-   "start": 38.38,
-   "end": 38.56
+   "start": 37.22,
+   "end": 37.4
   },
   {
    "text": "es",
-   "start": 38.56,
-   "end": 38.66
+   "start": 37.4,
+   "end": 37.5
   },
   {
    "text": "una",
-   "start": 38.66,
-   "end": 38.8
+   "start": 37.5,
+   "end": 37.64
   },
   {
    "text": "de",
-   "start": 38.8,
-   "end": 38.92
+   "start": 37.64,
+   "end": 37.76
   },
   {
    "text": "las",
-   "start": 38.92,
-   "end": 39.12
+   "start": 37.76,
+   "end": 37.96
   },
   {
    "text": "señales",
-   "start": 39.12,
-   "end": 39.44
+   "start": 37.96,
+   "end": 38.28
   },
   {
    "text": "que",
-   "start": 39.44,
-   "end": 39.6
+   "start": 38.28,
+   "end": 38.44
   },
   {
    "text": "pueden",
-   "start": 39.6,
-   "end": 39.8
+   "start": 38.44,
+   "end": 38.64
   },
   {
    "text": "ayudar",
-   "start": 39.8,
-   "end": 40.18
+   "start": 38.64,
+   "end": 39.02
   },
   {
    "text": "a",
-   "start": 40.18,
-   "end": 40.64
+   "start": 39.02,
+   "end": 39.48
   },
   {
    "text": "reconocerte",
-   "start": 40.64,
-   "end": 41.28
+   "start": 39.48,
+   "end": 40.12
   },
   {
    "text": "cuando",
-   "start": 41.28,
-   "end": 41.74
+   "start": 40.12,
+   "end": 40.58
   },
   {
    "text": "te",
-   "start": 41.74,
-   "end": 41.9
+   "start": 40.58,
+   "end": 40.74
   },
   {
    "text": "estás",
-   "start": 41.9,
-   "end": 42.04
+   "start": 40.74,
+   "end": 40.88
   },
   {
    "text": "acercando",
-   "start": 42.04,
-   "end": 42.6
+   "start": 40.88,
+   "end": 41.44
   },
   {
    "text": "a",
-   "start": 42.6,
-   "end": 42.78
+   "start": 41.44,
+   "end": 41.62
   },
   {
    "text": "tus",
-   "start": 42.78,
-   "end": 42.94
+   "start": 41.62,
+   "end": 41.78
   },
   {
    "text": "días",
-   "start": 42.94,
-   "end": 43.24
+   "start": 41.78,
+   "end": 42.08
   },
   {
    "text": "más",
-   "start": 43.24,
-   "end": 43.68
+   "start": 42.08,
+   "end": 42.52
   },
   {
    "text": "fértiles.",
-   "start": 43.68,
-   "end": 44.14
+   "start": 42.52,
+   "end": 42.98
   },
   {
    "text": "Pero",
-   "start": 44.56,
-   "end": 44.82
+   "start": 43.4,
+   "end": 43.66
   },
   {
    "text": "ojo,",
-   "start": 44.82,
-   "end": 45.4
+   "start": 43.66,
+   "end": 44.24
   },
   {
    "text": "porque",
-   "start": 45.78,
-   "end": 45.9
+   "start": 44.62,
+   "end": 44.74
   },
   {
    "text": "aprender",
-   "start": 45.9,
-   "end": 46.2
+   "start": 44.74,
+   "end": 45.04
   },
   {
    "text": "a",
-   "start": 46.2,
-   "end": 46.36
+   "start": 45.04,
+   "end": 45.2
   },
   {
    "text": "reconocer",
-   "start": 46.36,
-   "end": 46.68
+   "start": 45.2,
+   "end": 45.52
   },
   {
    "text": "tus",
-   "start": 46.68,
-   "end": 46.82
+   "start": 45.52,
+   "end": 45.66
   },
   {
    "text": "días",
-   "start": 46.82,
-   "end": 47.06
+   "start": 45.66,
+   "end": 45.9
   },
   {
    "text": "fértiles",
-   "start": 47.06,
-   "end": 47.42
+   "start": 45.9,
+   "end": 46.26
   },
   {
    "text": "es",
-   "start": 47.42,
-   "end": 47.6
+   "start": 46.26,
+   "end": 46.44
   },
   {
    "text": "solo",
-   "start": 47.6,
-   "end": 47.78
+   "start": 46.44,
+   "end": 46.62
   },
   {
    "text": "una",
-   "start": 47.78,
-   "end": 48.14
+   "start": 46.62,
+   "end": 46.98
   },
   {
    "text": "pequeñita",
-   "start": 48.14,
-   "end": 49.18
+   "start": 46.98,
+   "end": 48.02
   },
   {
    "text": "pieza",
-   "start": 49.18,
-   "end": 49.6
+   "start": 48.02,
+   "end": 48.44
   },
   {
    "text": "de",
-   "start": 49.6,
-   "end": 49.86
+   "start": 48.44,
+   "end": 48.7
   },
   {
    "text": "todo",
-   "start": 49.86,
-   "end": 50.12
+   "start": 48.7,
+   "end": 48.96
   },
   {
    "text": "el",
-   "start": 50.12,
-   "end": 50.36
+   "start": 48.96,
+   "end": 49.2
   },
   {
    "text": "puzzle",
-   "start": 50.36,
-   "end": 50.6
+   "start": 49.2,
+   "end": 49.44
   },
   {
    "text": "que",
-   "start": 50.6,
-   "end": 51.02
+   "start": 49.44,
+   "end": 49.86
   },
   {
    "text": "compone",
-   "start": 51.02,
-   "end": 51.34
+   "start": 49.86,
+   "end": 50.18
   },
   {
    "text": "tu",
-   "start": 51.34,
-   "end": 51.66
+   "start": 50.18,
+   "end": 50.5
   },
   {
    "text": "fertilidad.",
-   "start": 51.66,
-   "end": 51.92
+   "start": 50.5,
+   "end": 50.76
   },
   {
    "text": "Tú",
-   "start": 51.92,
-   "end": 52.84
+   "start": 50.76,
+   "end": 51.68
   },
   {
    "text": "puedes",
-   "start": 52.84,
-   "end": 53.32
+   "start": 51.68,
+   "end": 52.16
   },
   {
    "text": "identificar",
-   "start": 53.32,
-   "end": 54.12
+   "start": 52.16,
+   "end": 52.96
   },
   {
    "text": "perfectamente",
-   "start": 54.12,
-   "end": 54.76
+   "start": 52.96,
+   "end": 53.6
   },
   {
    "text": "cuáles",
-   "start": 54.76,
-   "end": 55.14
+   "start": 53.6,
+   "end": 53.98
   },
   {
    "text": "son",
-   "start": 55.14,
-   "end": 55.32
+   "start": 53.98,
+   "end": 54.16
   },
   {
    "text": "tus",
-   "start": 55.32,
-   "end": 55.5
+   "start": 54.16,
+   "end": 54.34
   },
   {
    "text": "días",
-   "start": 55.5,
-   "end": 55.82
+   "start": 54.34,
+   "end": 54.66
   },
   {
    "text": "fértiles",
-   "start": 55.82,
-   "end": 56.42
+   "start": 54.66,
+   "end": 55.26
   },
   {
    "text": "pero",
-   "start": 56.42,
-   "end": 56.78
+   "start": 55.26,
+   "end": 55.62
   },
   {
    "text": "que",
-   "start": 56.78,
-   "end": 56.88
+   "start": 55.62,
+   "end": 55.72
   },
   {
    "text": "el",
-   "start": 56.88,
-   "end": 57.02
+   "start": 55.72,
+   "end": 55.86
   },
   {
    "text": "embarazo",
-   "start": 57.02,
-   "end": 57.62
+   "start": 55.86,
+   "end": 56.46
   },
   {
    "text": "siga",
-   "start": 57.62,
-   "end": 58.02
+   "start": 56.46,
+   "end": 56.86
   },
   {
    "text": "sin",
-   "start": 58.02,
-   "end": 58.18
+   "start": 56.86,
+   "end": 57.02
   },
   {
    "text": "llegar.",
-   "start": 58.18,
-   "end": 58.52
+   "start": 57.02,
+   "end": 57.36
   },
   {
    "text": "Y",
-   "start": 58.76,
-   "end": 58.78
+   "start": 57.6,
+   "end": 57.68
   },
   {
    "text": "es",
-   "start": 58.78,
-   "end": 58.9
+   "start": 57.62,
+   "end": 57.74
   },
   {
    "text": "que",
-   "start": 58.9,
-   "end": 58.94
+   "start": 57.74,
+   "end": 57.82
   },
   {
    "text": "hay",
-   "start": 58.94,
-   "end": 59.28
+   "start": 57.78,
+   "end": 58.12
   },
   {
    "text": "muchos",
-   "start": 59.28,
-   "end": 59.62
+   "start": 58.12,
+   "end": 58.46
   },
   {
    "text": "otros",
-   "start": 59.62,
-   "end": 59.92
+   "start": 58.46,
+   "end": 58.76
   },
   {
    "text": "factores",
-   "start": 59.92,
-   "end": 60.44
+   "start": 58.76,
+   "end": 59.28
   },
   {
    "text": "que",
-   "start": 60.44,
-   "end": 60.62
+   "start": 59.28,
+   "end": 59.46
   },
   {
    "text": "también",
-   "start": 60.62,
-   "end": 60.94
+   "start": 59.46,
+   "end": 59.78
   },
   {
    "text": "pueden",
-   "start": 60.94,
-   "end": 61.3
+   "start": 59.78,
+   "end": 60.14
   },
   {
    "text": "estar",
-   "start": 61.3,
-   "end": 61.62
+   "start": 60.14,
+   "end": 60.46
   },
   {
    "text": "influyendo",
-   "start": 61.62,
-   "end": 62.42
+   "start": 60.46,
+   "end": 61.26
   },
   {
    "text": "y",
-   "start": 62.42,
-   "end": 62.64
+   "start": 61.26,
+   "end": 61.48
   },
   {
    "text": "que",
-   "start": 62.64,
-   "end": 62.76
+   "start": 61.48,
+   "end": 61.6
   },
   {
    "text": "lógicamente",
-   "start": 62.76,
-   "end": 63.22
+   "start": 61.6,
+   "end": 62.06
   },
   {
    "text": "deberías",
-   "start": 63.22,
-   "end": 63.62
+   "start": 62.06,
+   "end": 62.46
   },
   {
    "text": "de",
-   "start": 63.62,
-   "end": 63.76
+   "start": 62.46,
+   "end": 62.6
   },
   {
    "text": "tener",
-   "start": 63.76,
-   "end": 63.9
+   "start": 62.6,
+   "end": 62.74
   },
   {
    "text": "en",
-   "start": 63.9,
-   "end": 64.08
+   "start": 62.74,
+   "end": 62.92
   },
   {
    "text": "cuenta",
-   "start": 64.08,
-   "end": 64.26
+   "start": 62.92,
+   "end": 63.1
   },
   {
    "text": "si",
-   "start": 64.26,
-   "end": 64.4
+   "start": 63.1,
+   "end": 63.24
   },
   {
    "text": "estás",
-   "start": 64.4,
-   "end": 64.56
+   "start": 63.24,
+   "end": 63.4
   },
   {
    "text": "buscando",
-   "start": 64.56,
-   "end": 65.0
+   "start": 63.4,
+   "end": 63.84
   },
   {
    "text": "embarazo.",
-   "start": 65.0,
-   "end": 65.58
+   "start": 63.84,
+   "end": 64.42
   },
   {
    "text": "Por",
-   "start": 66.06,
-   "end": 66.16
+   "start": 64.9,
+   "end": 65.0
   },
   {
    "text": "eso",
-   "start": 66.16,
-   "end": 66.28
+   "start": 65.0,
+   "end": 65.12
   },
   {
    "text": "he",
-   "start": 66.28,
-   "end": 66.38
+   "start": 65.12,
+   "end": 65.22
   },
   {
    "text": "preparado",
-   "start": 66.38,
-   "end": 66.62
+   "start": 65.22,
+   "end": 65.46
   },
   {
    "text": "una",
-   "start": 66.62,
-   "end": 66.78
+   "start": 65.46,
+   "end": 65.62
   },
   {
    "text": "formación",
-   "start": 66.78,
-   "end": 67.48
+   "start": 65.62,
+   "end": 66.32
   },
   {
    "text": "online",
-   "start": 67.48,
-   "end": 68.06
+   "start": 66.32,
+   "end": 66.9
   },
   {
    "text": "y",
-   "start": 68.06,
-   "end": 68.38
+   "start": 66.9,
+   "end": 67.22
   },
   {
    "text": "gratuita",
-   "start": 68.38,
-   "end": 69.0
+   "start": 67.22,
+   "end": 67.84
   },
   {
    "text": "en",
-   "start": 69.0,
-   "end": 69.16
+   "start": 67.84,
+   "end": 68.0
   },
   {
    "text": "la",
-   "start": 69.16,
-   "end": 69.26
+   "start": 68.0,
+   "end": 68.1
   },
   {
    "text": "que",
-   "start": 69.26,
-   "end": 69.32
+   "start": 68.1,
+   "end": 68.18
   },
   {
    "text": "vamos",
-   "start": 69.32,
-   "end": 69.6
+   "start": 68.16,
+   "end": 68.44
   },
   {
    "text": "a",
-   "start": 69.6,
-   "end": 69.8
+   "start": 68.44,
+   "end": 68.64
   },
   {
    "text": "hablar",
-   "start": 69.8,
-   "end": 70.06
+   "start": 68.64,
+   "end": 68.9
   },
   {
    "text": "de",
-   "start": 70.06,
-   "end": 70.38
+   "start": 68.9,
+   "end": 69.22
   },
   {
    "text": "cuáles",
-   "start": 70.38,
-   "end": 70.62
+   "start": 69.22,
+   "end": 69.46
   },
   {
    "text": "son",
-   "start": 70.62,
-   "end": 70.84
+   "start": 69.46,
+   "end": 69.68
   },
   {
    "text": "los",
-   "start": 70.84,
-   "end": 71.08
+   "start": 69.68,
+   "end": 69.92
   },
   {
    "text": "obstáculos",
-   "start": 71.08,
-   "end": 71.64
+   "start": 69.92,
+   "end": 70.48
   },
   {
    "text": "más",
-   "start": 71.64,
-   "end": 72.18
+   "start": 70.48,
+   "end": 71.02
   },
   {
    "text": "habituales",
-   "start": 72.18,
-   "end": 73.04
+   "start": 71.02,
+   "end": 71.88
   },
   {
    "text": "que",
-   "start": 73.04,
-   "end": 73.22
+   "start": 71.88,
+   "end": 72.06
   },
   {
    "text": "pueden",
-   "start": 73.22,
-   "end": 73.6
+   "start": 72.06,
+   "end": 72.44
   },
   {
    "text": "dificultar",
-   "start": 73.6,
-   "end": 74.74
+   "start": 72.44,
+   "end": 73.58
   },
   {
    "text": "la",
-   "start": 74.74,
-   "end": 74.94
+   "start": 73.58,
+   "end": 73.78
   },
   {
    "text": "llegada",
-   "start": 74.94,
-   "end": 75.24
+   "start": 73.78,
+   "end": 74.08
   },
   {
    "text": "del",
-   "start": 75.24,
-   "end": 75.46
+   "start": 74.08,
+   "end": 74.3
   },
   {
    "text": "embarazo",
-   "start": 75.46,
-   "end": 75.98
+   "start": 74.3,
+   "end": 74.82
   },
   {
    "text": "y",
-   "start": 75.98,
-   "end": 76.32
+   "start": 74.82,
+   "end": 75.16
   },
   {
    "text": "de",
-   "start": 76.32,
-   "end": 78.28
+   "start": 75.16,
+   "end": 77.12
   },
   {
    "text": "qué",
-   "start": 78.28,
-   "end": 78.4
+   "start": 77.12,
+   "end": 77.24
   },
   {
    "text": "cosas",
-   "start": 78.4,
-   "end": 78.66
+   "start": 77.24,
+   "end": 77.5
   },
   {
    "text": "puedes",
-   "start": 78.66,
-   "end": 78.92
+   "start": 77.5,
+   "end": 77.76
   },
   {
    "text": "empezar",
-   "start": 78.92,
-   "end": 79.44
+   "start": 77.76,
+   "end": 78.28
   },
   {
    "text": "a",
-   "start": 79.44,
-   "end": 79.98
+   "start": 78.28,
+   "end": 78.82
   },
   {
    "text": "hacer",
-   "start": 79.98,
-   "end": 80.4
+   "start": 78.82,
+   "end": 79.24
   },
   {
    "text": "para",
-   "start": 80.4,
-   "end": 80.96
+   "start": 79.24,
+   "end": 79.8
   },
   {
    "text": "aumentar",
-   "start": 80.96,
-   "end": 81.28
+   "start": 79.8,
+   "end": 80.12
   },
   {
    "text": "las",
-   "start": 81.28,
-   "end": 81.46
+   "start": 80.12,
+   "end": 80.3
   },
   {
    "text": "probabilidades",
-   "start": 81.46,
-   "end": 81.94
+   "start": 80.3,
+   "end": 80.78
   },
   {
    "text": "de",
-   "start": 81.94,
-   "end": 82.14
+   "start": 80.78,
+   "end": 80.98
   },
   {
    "text": "conseguirlo",
-   "start": 82.14,
-   "end": 82.78
+   "start": 80.98,
+   "end": 81.62
   },
   {
    "text": "de",
-   "start": 82.78,
-   "end": 82.86
+   "start": 81.62,
+   "end": 81.7
   },
   {
    "text": "manera",
-   "start": 82.86,
-   "end": 83.4
+   "start": 81.7,
+   "end": 82.24
   },
   {
    "text": "natural.",
-   "start": 83.4,
-   "end": 83.92
+   "start": 82.24,
+   "end": 82.76
   },
   {
    "text": "Además,",
-   "start": 84.58,
-   "end": 84.68
+   "start": 83.42,
+   "end": 83.52
   },
   {
    "text": "durante",
-   "start": 84.82,
-   "end": 84.88
+   "start": 83.66,
+   "end": 83.74
   },
   {
    "text": "esta",
-   "start": 84.88,
-   "end": 85.06
+   "start": 83.72,
+   "end": 83.9
   },
   {
    "text": "formación",
-   "start": 85.06,
-   "end": 85.62
+   "start": 83.9,
+   "end": 84.46
   },
   {
    "text": "vamos",
-   "start": 85.62,
-   "end": 85.86
+   "start": 84.46,
+   "end": 84.7
   },
   {
    "text": "a",
-   "start": 85.86,
-   "end": 86.08
+   "start": 84.7,
+   "end": 84.92
   },
   {
    "text": "hacer",
-   "start": 86.08,
-   "end": 86.1
+   "start": 84.92,
+   "end": 85.0
   },
   {
    "text": "una",
-   "start": 86.1,
-   "end": 86.26
+   "start": 84.94,
+   "end": 85.1
   },
   {
    "text": "clase",
-   "start": 86.26,
-   "end": 86.6
+   "start": 85.1,
+   "end": 85.44
   },
   {
    "text": "en",
-   "start": 86.6,
-   "end": 86.98
+   "start": 85.44,
+   "end": 85.82
   },
   {
    "text": "directo",
-   "start": 86.98,
-   "end": 87.4
+   "start": 85.82,
+   "end": 86.24
   },
   {
    "text": "en",
-   "start": 87.4,
-   "end": 87.56
+   "start": 86.24,
+   "end": 86.4
   },
   {
    "text": "la",
-   "start": 87.56,
-   "end": 87.74
+   "start": 86.4,
+   "end": 86.58
   },
   {
    "text": "que",
-   "start": 87.74,
-   "end": 87.86
+   "start": 86.58,
+   "end": 86.7
   },
   {
    "text": "te",
-   "start": 87.86,
-   "end": 87.96
+   "start": 86.7,
+   "end": 86.8
   },
   {
    "text": "voy",
-   "start": 87.96,
-   "end": 88.1
+   "start": 86.8,
+   "end": 86.94
   },
   {
    "text": "a",
-   "start": 88.1,
-   "end": 88.34
+   "start": 86.94,
+   "end": 87.18
   },
   {
    "text": "explicar",
-   "start": 88.34,
-   "end": 88.62
+   "start": 87.18,
+   "end": 87.46
   },
   {
    "text": "cuáles",
-   "start": 88.62,
-   "end": 88.88
+   "start": 87.46,
+   "end": 87.72
   },
   {
    "text": "son",
-   "start": 88.88,
-   "end": 89.1
+   "start": 87.72,
+   "end": 87.94
   },
   {
    "text": "estos",
-   "start": 89.1,
-   "end": 89.48
+   "start": 87.94,
+   "end": 88.32
   },
   {
    "text": "tres",
-   "start": 89.48,
-   "end": 89.7
+   "start": 88.32,
+   "end": 88.54
   },
   {
    "text": "pilares",
-   "start": 89.7,
-   "end": 90.08
+   "start": 88.54,
+   "end": 88.92
   },
   {
    "text": "clave",
-   "start": 90.08,
-   "end": 90.62
+   "start": 88.92,
+   "end": 89.46
   },
   {
    "text": "que",
-   "start": 90.62,
-   "end": 91.1
+   "start": 89.46,
+   "end": 89.94
   },
   {
    "text": "ninguna",
-   "start": 91.1,
-   "end": 91.38
+   "start": 89.94,
+   "end": 90.22
   },
   {
    "text": "mujer",
-   "start": 91.38,
-   "end": 91.78
+   "start": 90.22,
+   "end": 90.62
   },
   {
    "text": "debe",
-   "start": 91.78,
-   "end": 92.12
+   "start": 90.62,
+   "end": 90.96
   },
   {
    "text": "de",
-   "start": 92.12,
-   "end": 92.48
+   "start": 90.96,
+   "end": 91.32
   },
   {
    "text": "olvidarse",
-   "start": 92.48,
-   "end": 92.8
+   "start": 91.32,
+   "end": 91.64
   },
   {
    "text": "si",
-   "start": 92.8,
-   "end": 93.02
+   "start": 91.64,
+   "end": 91.86
   },
   {
    "text": "está",
-   "start": 93.02,
-   "end": 93.48
+   "start": 91.86,
+   "end": 92.32
   },
   {
    "text": "buscando",
-   "start": 93.48,
-   "end": 94.0
+   "start": 92.32,
+   "end": 92.84
   },
   {
    "text": "un",
-   "start": 94.0,
-   "end": 94.36
+   "start": 92.84,
+   "end": 93.2
   },
   {
    "text": "embarazo",
-   "start": 94.36,
-   "end": 94.86
+   "start": 93.2,
+   "end": 93.7
   },
   {
    "text": "y",
-   "start": 94.86,
-   "end": 95.28
+   "start": 93.7,
+   "end": 94.12
   },
   {
    "text": "que",
-   "start": 95.28,
-   "end": 95.42
+   "start": 94.12,
+   "end": 94.26
   },
   {
    "text": "te",
-   "start": 95.42,
-   "end": 95.5
+   "start": 94.26,
+   "end": 94.34
   },
   {
    "text": "van",
-   "start": 95.5,
-   "end": 95.62
+   "start": 94.34,
+   "end": 94.46
   },
   {
    "text": "a",
-   "start": 95.62,
-   "end": 95.62
+   "start": 94.46,
+   "end": 94.54
   },
   {
    "text": "ayudar",
-   "start": 95.62,
-   "end": 95.98
+   "start": 94.46,
+   "end": 94.82
   },
   {
    "text": "a",
-   "start": 95.98,
-   "end": 96.4
+   "start": 94.82,
+   "end": 95.24
   },
   {
    "text": "empezar",
-   "start": 96.4,
-   "end": 96.58
+   "start": 95.24,
+   "end": 95.42
   },
   {
    "text": "a",
-   "start": 96.58,
-   "end": 96.7
+   "start": 95.42,
+   "end": 95.54
   },
   {
    "text": "tomar",
-   "start": 96.7,
-   "end": 96.9
+   "start": 95.54,
+   "end": 95.74
   },
   {
    "text": "decisiones",
-   "start": 96.9,
-   "end": 97.68
+   "start": 95.74,
+   "end": 96.52
   },
   {
    "text": "que",
-   "start": 97.68,
-   "end": 97.92
+   "start": 96.52,
+   "end": 96.76
   },
   {
    "text": "lógicamente",
-   "start": 97.92,
-   "end": 98.34
+   "start": 96.76,
+   "end": 97.18
   },
   {
    "text": "tengan",
-   "start": 98.34,
-   "end": 98.72
+   "start": 97.18,
+   "end": 97.56
   },
   {
    "text": "sentido",
-   "start": 98.72,
-   "end": 99.14
+   "start": 97.56,
+   "end": 97.98
   },
   {
    "text": "para",
-   "start": 99.14,
-   "end": 99.52
+   "start": 97.98,
+   "end": 98.36
   },
   {
    "text": "ti",
-   "start": 99.52,
-   "end": 99.7
+   "start": 98.36,
+   "end": 98.54
   },
   {
    "text": "y",
-   "start": 99.7,
-   "end": 99.84
+   "start": 98.54,
+   "end": 98.68
   },
   {
    "text": "que",
-   "start": 99.84,
-   "end": 99.94
+   "start": 98.68,
+   "end": 98.78
   },
   {
    "text": "puedan",
-   "start": 99.94,
-   "end": 100.06
+   "start": 98.78,
+   "end": 98.9
   },
   {
    "text": "ayudarte",
-   "start": 100.06,
-   "end": 100.36
+   "start": 98.9,
+   "end": 99.2
   },
   {
    "text": "a",
-   "start": 100.36,
-   "end": 100.52
+   "start": 99.2,
+   "end": 99.36
   },
   {
    "text": "mejorar",
-   "start": 100.52,
-   "end": 100.78
+   "start": 99.36,
+   "end": 99.62
   },
   {
    "text": "la",
-   "start": 100.78,
-   "end": 101.06
+   "start": 99.62,
+   "end": 99.9
   },
   {
    "text": "fertilidad.",
-   "start": 101.06,
-   "end": 101.58
+   "start": 99.9,
+   "end": 100.42
   },
   {
    "text": "Haz",
-   "start": 101.96,
-   "end": 102.1
+   "start": 100.8,
+   "end": 100.94
   },
   {
    "text": "clic",
-   "start": 102.1,
-   "end": 102.24
+   "start": 100.94,
+   "end": 101.08
   },
   {
    "text": "en",
-   "start": 102.24,
-   "end": 102.38
+   "start": 101.08,
+   "end": 101.22
   },
   {
    "text": "el",
-   "start": 102.38,
-   "end": 102.5
+   "start": 101.22,
+   "end": 101.34
   },
   {
    "text": "enlace",
-   "start": 102.5,
-   "end": 102.68
+   "start": 101.34,
+   "end": 101.52
   },
   {
    "text": "que",
-   "start": 102.68,
-   "end": 102.82
+   "start": 101.52,
+   "end": 101.66
   },
   {
    "text": "aparecerá",
-   "start": 102.82,
-   "end": 103.36
+   "start": 101.66,
+   "end": 102.2
   },
   {
    "text": "aquí",
-   "start": 103.36,
-   "end": 103.62
+   "start": 102.2,
+   "end": 102.46
   },
   {
    "text": "abajo",
-   "start": 103.62,
-   "end": 104.16
+   "start": 102.46,
+   "end": 103.0
   },
   {
    "text": "para",
-   "start": 104.16,
-   "end": 104.58
+   "start": 103.0,
+   "end": 103.42
   },
   {
    "text": "reservar",
-   "start": 104.58,
-   "end": 105.06
+   "start": 103.42,
+   "end": 103.9
   },
   {
    "text": "ahora",
-   "start": 105.06,
-   "end": 105.4
+   "start": 103.9,
+   "end": 104.24
   },
   {
    "text": "tu",
-   "start": 105.4,
-   "end": 105.6
+   "start": 104.24,
+   "end": 104.44
   },
   {
    "text": "plaza",
-   "start": 105.6,
-   "end": 105.84
+   "start": 104.44,
+   "end": 104.68
   },
   {
    "text": "de",
-   "start": 105.84,
-   "end": 106.02
+   "start": 104.68,
+   "end": 104.86
   },
   {
    "text": "forma",
-   "start": 106.02,
-   "end": 106.34
+   "start": 104.86,
+   "end": 105.18
   },
   {
    "text": "gratuita.",
-   "start": 106.34,
-   "end": 106.84
+   "start": 105.18,
+   "end": 105.68
   },
   {
    "text": "Te",
-   "start": 106.96,
-   "end": 107.04
+   "start": 105.8,
+   "end": 105.88
   },
   {
    "text": "mando",
-   "start": 107.04,
-   "end": 107.3
+   "start": 105.88,
+   "end": 106.14
   },
   {
    "text": "un",
-   "start": 107.3,
-   "end": 107.46
+   "start": 106.14,
+   "end": 106.3
   },
   {
    "text": "abrazo",
-   "start": 107.46,
-   "end": 107.72
+   "start": 106.3,
+   "end": 106.56
   },
   {
    "text": "enorme",
-   "start": 107.72,
-   "end": 108.04
+   "start": 106.56,
+   "end": 106.88
   },
   {
    "text": "y",
-   "start": 108.04,
-   "end": 108.32
+   "start": 106.88,
+   "end": 107.16
   },
   {
    "text": "nos",
-   "start": 108.32,
-   "end": 108.46
+   "start": 107.16,
+   "end": 107.3
   },
   {
    "text": "vemos",
-   "start": 108.46,
-   "end": 108.6
+   "start": 107.3,
+   "end": 107.44
   },
   {
    "text": "dentro.",
-   "start": 108.6,
-   "end": 108.92
-  },
-  {
-   "text": "Vale.",
-   "start": 110.4,
-   "end": 110.78
+   "start": 107.44,
+   "end": 107.76
   }
  ]
 }
