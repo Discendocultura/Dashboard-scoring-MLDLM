@@ -1,6 +1,6 @@
 ---
 name: editar-anuncio
-description: Edita un anuncio vertical (Reels, Meta Ads) de busto parlante a partir de un vídeo en bruto y su guion, con el editor de editor-anuncios/ (Remotion + Whisper + ffmpeg) - cortes de trabas y erratas, subtítulos palabra a palabra, gancho, palabras grandes, zooms, animaciones sincronizadas con lo que se dice, limpieza de ruido, música y efectos de sonido. Pregunta qué plantilla de marca usar (o crea una nueva) y si reutilizar una música del catálogo o generar otra. Úsala cuando pidan "editar un anuncio", "montar un reel", "edita el AD 2", "haz un anuncio con este vídeo" o similar.
+description: Edita un anuncio vertical (Reels, Meta Ads) de busto parlante a partir de un vídeo en bruto y su guion, con el editor de editor-anuncios/ (Remotion + Whisper + ffmpeg) - cortes de trabas y erratas, subtítulos palabra a palabra, gancho, palabras grandes, zooms, animaciones sincronizadas con lo que se dice, limpieza de ruido, música y efectos de sonido. Lo primero, pregunta qué paleta de colores (plantilla de marca) usar o crea una nueva y si reutilizar una música del catálogo o generar otra. Úsala cuando pidan "editar un anuncio", "montar un reel", "edita el AD 2", "haz un anuncio con este vídeo" o similar.
 ---
 
 # Editar un anuncio
@@ -15,31 +15,22 @@ Reglas que no se saltan nunca:
 - Revisa fotogramas con `Read` antes de enseñar o entregar nada: que nada tape la cara ni se salga.
 - Pregunta con `AskUserQuestion` en los puntos marcados con **PREGUNTA**; pon tu recomendación la primera.
 
-## 0. Entorno
+## 1. Paleta de colores (lo primero, siempre)
 
-1. Si falta `editor-anuncios/node_modules`, ejecuta `npm i` dentro de `editor-anuncios/`. Si `python3 -c "import whisper, noisereduce"`
-   falla, ejecuta `pip3 install --break-system-packages openai-whisper noisereduce soundfile`.
-2. Comprueba la red con `curl -sS -o /dev/null -w "%{http_code}"` contra `https://openaipublic.azureedge.net`,
-   `https://drive.usercontent.google.com` y `https://pikaso.cdnpk.net`. Un `000` o un 403 significa que está bloqueado:
-   dile al usuario que añada esos dominios (y `drive.google.com`) en **Allowed domains** del entorno
-   (menú del entorno en la barra de título → Edit → Network access) y espera a que lo confirme.
+Antes de cualquier otra cosa (comprobar el entorno, descargar el vídeo, transcribir…) pregunta qué paleta usar.
+Pregúntalo **en cada anuncio**, aunque la marca parezca obvia por el guion o se haya usado otra en el anuncio anterior.
+Si el usuario ya la nombró en su mensaje, ponla la primera como recomendada, pero confírmala igualmente.
+No sigas con el resto de pasos hasta tener la respuesta.
 
-## 1. Material
+Lee las plantillas de `editor-anuncios/plantillas/*.json` (campos `nombre`, `_que_es`, colores y fuentes) y pregunta ya,
+sin esperar a nada más:
 
-**PREGUNTA** (si no lo ha dicho ya): dónde está el vídeo y cuál es el guion (texto pegado, o doc y número de AD).
-- Drive: busca el archivo con el conector de Google Drive. El vídeo se descarga con
-  `curl -L -o brutos/NOMBRE.MP4 "https://drive.usercontent.google.com/download?id=ID&export=download&confirm=t"`;
-  si devuelve una página HTML de inicio de sesión, pide que lo compartan como «Cualquier persona con el enlace · Lector».
-- Guarda el guion en `proyectos/NOMBRE/guion.txt`. Si el guion del doc está cortado, pregunta cómo acaba.
-- `ffprobe` el bruto: resolución, fps, HDR (`color_transfer` arib-std-b67/smpte2084 = HDR) y audio.
+**PREGUNTA**: «¿Qué paleta de colores uso para este anuncio?» — una opción por plantilla existente, con sus colores
+y tipografía en la descripción (recomienda la de la marca del guion si se sabe), y una opción «Crear una paleta nueva».
+Si hay más de 3 plantillas, pon las 3 más probables y la de crear nueva; el usuario puede escribir otra en «Otro».
 
-## 2. Plantilla de marca
-
-Lista las plantillas de `editor-anuncios/plantillas/*.json` (campo `nombre` y `_que_es`) y genera una muestra de cada una
-con `scripts/muestra.sh PLANTILLA`; envíalas con `SendUserFile`.
-
-**PREGUNTA**: «¿Con qué plantilla de colores monto este anuncio?» — una opción por plantilla existente
-(recomienda la de la marca del guion) y una opción «Crear una plantilla nueva».
+Cuando elija, genera la muestra de esa paleta (`scripts/muestra.sh PLANTILLA`, antes `npm i` en `editor-anuncios/` si falta
+`node_modules`) y envíala con `SendUserFile` para que la confirme.
 
 Si la plantilla tiene guía (`plantillas/NOMBRE-guia.md`), léela: las animaciones nuevas deben seguir su narrativa visual
 y sus colores secundarios (`e.extra`).
@@ -53,7 +44,25 @@ Si elige crear una nueva:
    e impórtala en `src/fuentes.js` (pesos 700, 800 y 800-italic si existen).
 4. Genera su muestra, enséñala y ajusta hasta que le guste.
 
-## 3. Copia de trabajo, cortes y transcripción
+## 2. Entorno
+
+1. Si falta `editor-anuncios/node_modules`, ejecuta `npm i` dentro de `editor-anuncios/`. Si `python3 -c "import whisper, noisereduce"`
+   falla, ejecuta `pip3 install --break-system-packages openai-whisper noisereduce soundfile`.
+2. Comprueba la red con `curl -sS -o /dev/null -w "%{http_code}"` contra `https://openaipublic.azureedge.net`,
+   `https://drive.usercontent.google.com` y `https://pikaso.cdnpk.net`. Un `000` o un 403 significa que está bloqueado:
+   dile al usuario que añada esos dominios (y `drive.google.com`) en **Allowed domains** del entorno
+   (menú del entorno en la barra de título → Edit → Network access) y espera a que lo confirme.
+
+## 3. Material
+
+**PREGUNTA** (si no lo ha dicho ya): dónde está el vídeo y cuál es el guion (texto pegado, o doc y número de AD).
+- Drive: busca el archivo con el conector de Google Drive. El vídeo se descarga con
+  `curl -L -o brutos/NOMBRE.MP4 "https://drive.usercontent.google.com/download?id=ID&export=download&confirm=t"`;
+  si devuelve una página HTML de inicio de sesión, pide que lo compartan como «Cualquier persona con el enlace · Lector».
+- Guarda el guion en `proyectos/NOMBRE/guion.txt`. Si el guion del doc está cortado, pregunta cómo acaba.
+- `ffprobe` el bruto: resolución, fps, HDR (`color_transfer` arib-std-b67/smpte2084 = HDR) y audio.
+
+## 4. Copia de trabajo, cortes y transcripción
 
 1. Extrae un fotograma del bruto y elige `x_recorte` para centrar la cara en el recorte 9:16 (1272 para el set actual en 4K).
 2. `scripts/preparar.sh brutos/NOMBRE.MP4 proyectos/NOMBRE X [duracion]` (la duración corta los silencios muertos del final).
@@ -76,7 +85,7 @@ Si elige crear una nueva:
    Crea `proyectos/NOMBRE/words.json`: frases del guion con su texto exacto, lo improvisado tal cual se dijo,
    errores de Whisper corregidos, cifras unidas (`60` + `.000` → `60.000`) y sin muletillas.
 
-## 4. Propuesta de montaje
+## 5. Propuesta de montaje
 
 **PREGUNTA**: el gancho. Propón 3 opciones a partir del guion (recomendada la primera).
 
@@ -86,7 +95,7 @@ lo pide: escríbelas en ese archivo con los colores de la plantilla `e.primario/
 Escribe `proyectos/NOMBRE/props.json` (con `"plantilla"`), renderiza 4–5 fotogramas clave con `npx remotion still`,
 revísalos y envíalos en una sola hoja (`ffmpeg ... hstack`).
 
-## 5. Música
+## 6. Música
 
 Lee `musica/catalogo.json`.
 
@@ -104,7 +113,7 @@ Si reutiliza, añade el proyecto a su `usada_en`.
 **PREGUNTA**: efectos de sonido. Reutilizar los de `sonidos/catalogo.json` (gratis) o generar alguno nuevo (con su coste).
 Colócalos en `props.json → sonido.efectos` en el segundo de cada animación (el golpe del sello llega a los 0,24 s: adelántalo).
 
-## 6. Montaje y entrega
+## 7. Montaje y entrega
 
 1. `scripts/montar.sh proyectos/NOMBRE` (unos 5 minutos).
 2. Comprueba el volumen (`ebur128`, objetivo −14/−15 LUFS) y revisa 4 fotogramas del resultado.
@@ -112,7 +121,7 @@ Colócalos en `props.json → sonido.efectos` en el segundo de cada animación (
 4. Aplica los cambios que pida. Los de sonido solo necesitan `python3 scripts/mezclar.py` y volver a unir audio y vídeo,
    sin volver a renderizar.
 
-## 7. Guardar
+## 8. Guardar
 
 1. Añade a `editor-anuncios/CLAUDE.md` → «Lo aprendido» lo nuevo de este anuncio.
 2. Haz commit de `proyectos/NOMBRE/` (sin WAV), las plantillas, músicas, efectos y animaciones nuevas, y súbelo a la rama de trabajo.
