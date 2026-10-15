@@ -515,7 +515,7 @@ async function start() {
   state.recienEntrado = false;
   if (hash) ls.set('lsd_inicio', ''); // un enlace directo a una pestaña: lo último ya no es el Inicio
   await setEmbudo(state.embudo, { vista: VIEWS.includes(hash) ? hash : null });
-  if (abrirInicio && (state.superadmin || (tiene('metricas') && embudos().length))) mostrarInicio();
+  if (abrirInicio) mostrarInicio();
   if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); }
   if (!$('#view-rendimiento').hidden) loadRendimiento();
 }
@@ -574,8 +574,8 @@ function pintarSidebar() {
       : (() => { const n = Object.values(state.config.launches).filter((l) => embudoDeLanz(l) === e.id).length; return `${n} lanzamiento${n === 1 ? '' : 's'}`; })();
     return `<div class="sb-row"><button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${e.tipo === 'meteorico' ? '⚡' : e.tipo === 'directa' ? '🛒' : tv ? tv.ico : esReto(e.formato) ? '🏁' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(e.id)}" title="Pestañas, nombre y guía de «${esc(e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
   }).join('');
-  // «Inicio» (todos los embudos): para quien ve las métricas y si hay embudos.
-  $('#sb-inicio').hidden = !state.superadmin && (!tiene('metricas') || !embudos().length);
+  // «Inicio»: para todo el equipo. Quien ve las métricas (y hay embudos), con las cifras; el resto, el de trabajo.
+  $('#sb-inicio').hidden = false;
   $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio));
   if (state.enInicio) $$('#sb-items .sb-item.active').forEach((b) => b.classList.remove('active'));
 }
@@ -692,6 +692,10 @@ async function mostrarInicio({ fresh = false } = {}) {
   // Superadmin: el Inicio de la agencia (todos los clientes) o el de este cliente.
   pintarModoInicio();
   if (modoInicio() === 'agencia') return cargarAgenciaInicio({ fresh });
+  // Sin permiso de métricas (o sin embudos): el Inicio de trabajo, sin cifras de ventas.
+  const trabajo = !state.superadmin && !(tiene('metricas') && embudos().length);
+  document.body.classList.toggle('inicio-trabajo', trabajo);
+  if (trabajo) return pintarInicioTrabajo();
   if (!embudos().length) { $('#inicio-embudos').innerHTML = '<div class="card empty"><p class="muted">Este cliente aún no tiene embudos.</p></div>'; return; }
   const token = (state.inicioToken = (state.inicioToken || 0) + 1);
   pintarInicioPeriodo();
@@ -720,6 +724,40 @@ async function mostrarInicio({ fresh = false } = {}) {
   ].map((p) => p.then(() => { if (token === state.inicioToken) pintarInicio(); }));
   await Promise.all(tareas);
 }
+// Inicio de trabajo: accesos grandes (Operativa), sus tareas para hoy y las vencidas, sus embudos y las menciones.
+async function pintarInicioTrabajo() {
+  const box = $('#inicio-trabajo');
+  const tarjeta = (id, ico, tit, txt) => `<button type="button" class="ag-procesos${id === 'operativa' ? ' ag-operativa' : ''}" data-it="${id}"><span class="ag-procesos-ico" aria-hidden="true">${ico}</span><span class="ag-procesos-txt"><strong>${tit}</strong><small>${txt}</small></span><span class="ag-procesos-ir" aria-hidden="true">Abrir →</span></button>`;
+  const ico = (e) => (e.tipo === 'meteorico' ? '⚡' : e.tipo === 'directa' ? '🛒' : e.tipo === 'vsl' ? '🎬' : '🚀');
+  $('#inicio-sub').textContent = 'Tu trabajo de hoy';
+  box.innerHTML = `${state.operativa ? `<div class="ag-accesos ag-accesos-top">${tarjeta('operativa', '🗂️', 'Operativa', 'Las tareas y los tableros de tus proyectos: qué toca hoy, qué va con retraso y qué está bloqueado.')}</div>` : ''}
+    ${state.operativa ? '<section class="card metric-card it-tareas-card"><h2>✅ Tus tareas de hoy <span class="muted">· y las que van con retraso</span></h2><div id="it-tareas"><p class="muted">Cargando…</p></div></section>' : ''}
+    ${embudos().length ? `<section class="card metric-card"><h2>🧭 Tus embudos</h2><div class="it-embudos">${embudos().map((e) => `<button type="button" class="it-embudo" data-it-embudo="${esc(e.id)}"><span aria-hidden="true">${ico(e)}</span> ${esc(e.nombre)}</button>`).join('')}</div></section>`
+    : `<section class="card empty"><h2>Este cliente aún no tiene embudos</h2>${puedeConfig() ? '<button class="btn primary" type="button" data-action="nuevo-embudo">＋ Nuevo embudo</button>' : '<p class="muted">Cuando haya embudos, los verás aquí.</p>'}</section>`}`;
+  // Menciones y comentarios en sus tareas (de los embudos de este cliente).
+  if (embudos().length && !state.tareas) loadTareas().catch(() => {}).finally(() => pintarMencionesInicio());
+  else pintarMencionesInicio();
+  if (!state.operativa) return;
+  try {
+    const d = await api('/api/operativa');
+    const hoy = today();
+    const mias = d.tareas.filter((t) => !t.hecha && t.estado !== 'hecha' && t.fecha && t.fecha <= hoy && t.asignado?.tipo === 'persona' && t.asignado.id === d.yo)
+      .sort((a, b) => a.fecha.localeCompare(b.fecha));
+    const fechaTxt = (f) => (f === hoy ? '<span class="op-fecha hoy">Hoy</span>' : `<span class="op-fecha vencida">⏰ ${esc(dayFmt.format(new Date(`${f}T12:00:00Z`)))}</span>`);
+    const caja = $('#it-tareas');
+    if (!caja) return;
+    caja.innerHTML = !d.yo ? '<p class="muted">Entra con tu usuario para ver tus tareas.</p>' : mias.length
+      ? `<ul class="it-lista">${mias.slice(0, 20).map((t) => `<li><button type="button" class="it-tarea" data-it-tarea="${esc(`${t.cliente}|${t.code}|${t.id}`)}"><strong>${esc(t.titulo)}</strong><span class="muted small">${esc(t.clienteNombre)}${t.embudo && t.code !== '_agencia' ? ` · ${esc(t.embudo)}` : ''}</span>${fechaTxt(t.fecha)}</button></li>`).join('')}</ul>${mias.length > 20 ? `<p class="muted small">Y ${mias.length - 20} más en la Operativa.</p>` : ''}`
+      : '<p class="muted">🎉 Nada pendiente para hoy.</p>';
+  } catch (e) { const caja = $('#it-tareas'); if (caja) caja.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+$('#inicio-trabajo').addEventListener('click', (e) => {
+  if (e.target.closest('[data-it="operativa"]')) { abrirOperativa({ api, dialog: $('#operativa-dialog') }); return; }
+  const t = e.target.closest('[data-it-tarea]');
+  if (t) { const [cliente, code, id] = t.dataset.itTarea.split('|'); abrirOperativa({ api, dialog: $('#operativa-dialog'), ir: { tipo: 'tarea', cliente, code, id } }); return; }
+  const em = e.target.closest('[data-it-embudo]');
+  if (em) $(`#sb-items [data-embudo="${CSS.escape(em.dataset.itEmbudo)}"]`)?.click();
+});
 // Cada tarjeta deja de esperar al minuto (GHL lento o caído) y enseña «Reintentar» en vez de quedarse cargando.
 const conLimite = (p, ms = 60_000) => Promise.race([p, new Promise((_, rej) => { setTimeout(() => rej(new Error('Tarda demasiado en responder (GHL va lento).')), ms); })]);
 // Periodo del Inicio (mismo selector que Métricas): VSL y venta directa en esas fechas; lanzamientos, el último
