@@ -1,6 +1,6 @@
 ---
 name: editar-anuncio
-description: Edita un anuncio vertical (Reels, Meta Ads) de busto parlante a partir de un vídeo en bruto y su guion, con el editor de editor-anuncios/ (Remotion + Whisper + ffmpeg) - subtítulos palabra a palabra, gancho, palabras grandes, zooms, animaciones sincronizadas con lo que se dice, limpieza de ruido, música y efectos de sonido. Pregunta qué plantilla de marca usar (o crea una nueva) y si reutilizar una música del catálogo o generar otra. Úsala cuando pidan "editar un anuncio", "montar un reel", "edita el AD 2", "haz un anuncio con este vídeo" o similar.
+description: Edita un anuncio vertical (Reels, Meta Ads) de busto parlante a partir de un vídeo en bruto y su guion, con el editor de editor-anuncios/ (Remotion + Whisper + ffmpeg) - cortes de trabas y erratas, subtítulos palabra a palabra, gancho, palabras grandes, zooms, animaciones sincronizadas con lo que se dice, limpieza de ruido, música y efectos de sonido. Pregunta qué plantilla de marca usar (o crea una nueva) y si reutilizar una música del catálogo o generar otra. Úsala cuando pidan "editar un anuncio", "montar un reel", "edita el AD 2", "haz un anuncio con este vídeo" o similar.
 ---
 
 # Editar un anuncio
@@ -49,14 +49,28 @@ Si elige crear una nueva:
    e impórtala en `src/fuentes.js` (pesos 700, 800 y 800-italic si existen).
 4. Genera su muestra, enséñala y ajusta hasta que le guste.
 
-## 3. Copia de trabajo y transcripción
+## 3. Copia de trabajo, cortes y transcripción
 
 1. Extrae un fotograma del bruto y elige `x_recorte` para centrar la cara en el recorte 9:16 (1272 para el set actual en 4K).
 2. `scripts/preparar.sh brutos/NOMBRE.MP4 proyectos/NOMBRE X [duracion]` (la duración corta los silencios muertos del final).
    Comprueba un fotograma de `public/NOMBRE.mp4`.
-3. Compara la transcripción con el guion y enseña una tabla con lo que cambia (frases improvisadas, errores de Whisper).
+3. **Cortes de erratas** (trabas, palabras repetidas, frases reempezadas, muletillas, pausas largas a mitad de frase
+   y silencios al principio y al final):
+   - `python3 -I scripts/detectar_erratas.py proyectos/NOMBRE` → `cortes_propuestos.json`.
+   - Revisa cada propuesta escuchando el contexto con la transcripción y el guion: descarta las repeticiones que son
+     intencionadas (énfasis, anáforas del guion) y añade a mano cualquier errata que se le haya escapado
+     (Whisper a veces «limpia» una traba; si el texto no cuadra con el guion en un punto, mira ahí).
+   - Enseña una tabla: segundo, tipo, qué se quita y el contexto.
+   **PREGUNTA**: «¿Aplico estos cortes?» — opciones: todos los propuestos (recomendado), solo los de confianza alta,
+   elegir uno a uno, ninguno.
+   - Guarda la lista aprobada en `proyectos/NOMBRE/cortes.json` y ejecuta `python3 -I scripts/aplicar_cortes.py proyectos/NOMBRE`.
+     Corta vídeo, voz y transcripción a la vez (las versiones sin cortar quedan como `*_sin_cortes`; se puede relanzar con otra lista).
+   - Verifica: duración de vídeo y voz iguales, y transcribe de nuevo la voz cortada para comprobar que la errata ya no está.
+   - Cada punto de `cortes_aplicados.json → puntos_corte` es un salto de imagen: tápalo con un zoom
+     `{"tipo": "salto", "start": punto, "dur": 1.5}` (alterna con tramos sin zoom para que no quede siempre ampliado).
+4. Compara la transcripción (ya cortada) con el guion y enseña una tabla con lo que cambia (frases improvisadas, errores de Whisper).
    Crea `proyectos/NOMBRE/words.json`: frases del guion con su texto exacto, lo improvisado tal cual se dijo,
-   errores de Whisper corregidos, cifras unidas (`60` + `.000` → `60.000`).
+   errores de Whisper corregidos, cifras unidas (`60` + `.000` → `60.000`) y sin muletillas.
 
 ## 4. Propuesta de montaje
 

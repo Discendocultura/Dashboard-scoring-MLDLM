@@ -42,13 +42,17 @@ Nueva plantilla: `plantillas/NOMBRE.json` + registrarla en `plantillas/index.js`
    → copia de trabajo vertical en `public/NOMBRE.mp4`, voz limpia y transcripción.
    `x_recorte` es el borde izquierdo del recorte 9:16 sobre el 4K horizontal (1272 centra la cara en los
    vídeos del set actual). Comprueba un fotograma antes de seguir.
-3. **Primera pasada:** enseña la transcripción comparada con el guion. Corrige `words.json`:
+3. **Cortes de erratas:** `scripts/detectar_erratas.py` propone qué quitar (trabas, repeticiones, reinicios de frase,
+   muletillas, pausas largas a mitad de frase, silencios al principio y al final); se revisa con el usuario, la lista
+   aprobada va a `cortes.json` y `scripts/aplicar_cortes.py` corta vídeo, voz y transcripción a la vez. Los puntos de corte
+   (`cortes_aplicados.json`) se tapan con un salto de zoom.
+4. **Primera pasada de subtítulos:** enseña la transcripción comparada con el guion. Corrige `words.json`:
    las frases del guion llevan su texto exacto; lo improvisado se subtitula tal cual se dijo;
    los errores de Whisper se corrigen (p. ej. «historias y memorizar» → «Historia sin memorizar»).
-4. Crea `proyectos/NOMBRE/props.json` copiando el de `ad4-la-resistencia` y cambia:
+5. Crea `proyectos/NOMBRE/props.json` copiando el de `ad4-la-resistencia` y cambia:
    `plantilla`, `video`, `duracion`, `words`, `gancho`, `grandes`, `zooms`, `animaciones` y `sonido`.
-5. Revisa fotogramas clave con `npx remotion still ... --frame=N` antes de dar nada por bueno.
-6. `scripts/montar.sh proyectos/NOMBRE` → `salidas/NOMBRE_1080p.mp4` (<30 MB, se puede enviar por el chat)
+6. Revisa fotogramas clave con `npx remotion still ... --frame=N` antes de dar nada por bueno.
+7. `scripts/montar.sh proyectos/NOMBRE` → `salidas/NOMBRE_1080p.mp4` (<30 MB, se puede enviar por el chat)
    y `salidas/NOMBRE_maxima.mp4`.
 
 ## Piezas de `props.json`
@@ -79,7 +83,10 @@ Nueva plantilla: `plantillas/NOMBRE.json` + registrarla en `plantillas/index.js`
 
 ## Lo aprendido
 
-- Whisper con `initial_prompt` del guion alucinó el principio del AD 4: transcribir sin prompt y con el audio normalizado.
+- Whisper con `initial_prompt` del guion alucinó el principio del AD 4. El prompt corto de muletillas de `transcribir.py`
+  no alucina y hace que Whisper escriba las trabas y repeticiones en vez de limpiarlas.
+- Whisper alarga las palabras y se come los silencios: las pausas se miden en el audio (silencedetect), no en la transcripción.
+- Whisper marca las dudas con puntos suspensivos («menos...»): no son final de frase.
 - El audio de la Sony sale bajo (−36 dB de media) y con ruido de fondo a −71 dB: la limpieza por puerta
   espectral (`limpiar_voz.py`) lo baja a −89 dB sin tocar la voz.
 - La música de Lyria salió de 59 s aunque se pidieran 45: se recorta y se funde al final.
