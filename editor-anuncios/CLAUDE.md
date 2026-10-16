@@ -42,6 +42,28 @@ Independientes de la paleta: `props.json → "edicion"`.
   Mientras hay una escena de texto (`frase`, `cifra`, `cronologia`, `cartel`) no se ponen subtítulos encima.
   Ritmo: no más de ~6 s seguidos sin volver a la cara.
 
+Estilos de `src/Estilos.jsx` (cada `ediciones/*.json` elige `subtitulos`, `gancho`, `marco`, `filtro`, `layout`, `saltosAuto`, `zoomLento`):
+- `nativo`: parece subido por una persona, no un anuncio. Subtítulos de 2–3 palabras blancos con contorno negro (la que suena
+  en acento, con salto), gancho en caja blanca tipo texto de TikTok, saltos de zoom automáticos frase sí, frase no.
+  Escenas (arriba, sobre la frente; cortas): `nota` `{titulo, lineas[{texto, tachar?, marca?}], cada}` (app de Notas),
+  `chat` `{mensajes[{de: "yo"|otro, texto}], cada}` (burbujas), `pov` `{texto}`.
+- `documental`: franjas de cine, viñeta, grano y color envejecido; subtítulos en serif cursiva escritos a máquina; gancho
+  como título de capítulo. Escenas: `rotulo` `{lugar, fecha}` (abajo a la izquierda), `mapa` `{titulo, puntos[{x, y, nombre}]}`
+  (pergamino a pantalla completa con ruta que se dibuja; coordenadas en 1080×1920, y entre 450 y 1500),
+  `archivo` `{imagen, fecha}` (imagen envejecida con zoom lento; sirve un fotograma de un B-roll: `ffmpeg -ss 1 -i broll/X.mp4 -frames:v 1 broll/X.jpg`).
+- `noticiero`: avance informativo. Mosca EN DIRECTO, canal y reloj arriba; gancho «ÚLTIMA HORA» bajo la mosca; rótulo con
+  `locutor` `{nombre, cargo}` los primeros 6 s; cinta de `ticker` (lista de titulares) abajo; subtítulos de tele sobre banda
+  oscura. Props de nivel superior en `props.json`: `canal` (si falta, el nombre de la plantilla), `locutor`, `ticker`.
+  Escena: `dato` `{cifra, texto, fuente?}` (tarjeta arriba a la derecha). La cinta y la onda se ocultan mientras está `boton`.
+- `explicador`: pantalla dividida: el vídeo arriba (hasta y = 1120, recortado a la cara) y una pizarra clara abajo; subtítulos
+  blancos en la línea de corte y gancho escrito en la pizarra. Escenas en la pizarra: `flechas` `{pasos[], cada}`
+  (causa → efecto), `apuntes` `{titulo, puntos[], cada}`, `grafica` `{titulo, valores[], marca, etiqueta}`,
+  `ciclo` `{dias, fertilDesde, fertilHasta, ovulacion, titulo}` (MLDLM). Que la pizarra nunca se quede vacía mucho rato:
+  encadena escenas o deja `apuntes` con lo dicho.
+- `intimo`: cercano, como un podcast: color cálido, viñeta, zoom lento continuo, onda de voz abajo y la frase entera en
+  serif grande (las palabras dichas se encienden). Pocas escenas: como mucho `broll` suaves o una `frase`.
+- `boton` (de Impacto) sirve como llamada a la acción en todos los estilos menos el clásico.
+
 B-rolls: los clips van en `broll/` (en el repo, para reutilizarlos gratis) con su ficha en `broll/catalogo.json`;
 `public/broll` es un enlace a esa carpeta (`ln -s ../broll public/broll` si falta).
 
@@ -101,6 +123,7 @@ B-rolls: los clips van en `broll/` (en el repo, para reutilizarlos gratis) con s
 2. Subtítulos siempre en dos pasadas (transcripción revisada contra el guion).
 3. En estilo clásico nada tapa la cara: animaciones en la franja superior (y < 380) o a la altura del pecho; el gancho arriba.
    En estilo impacto las escenas tapan la pantalla a propósito, pero cortas (2–4 s) y alternando con la cara.
+   En nativo, documental, noticiero e íntimo, como en el clásico, salvo `mapa` y `archivo` (pantalla completa, 3–5 s).
 4. Revisar fotogramas antes de entregar.
 5. Nada de pago sin ver el coste: con Magnific, `simulate_cost` antes de generar y pedir el sí.
    Referencia (oct 2026): música Google Lyria 3 Pro 45 s = 160 créditos; efecto de 2 s = 10; de 1 s = 5.

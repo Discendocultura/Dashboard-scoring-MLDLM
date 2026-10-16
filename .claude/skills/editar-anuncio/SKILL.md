@@ -1,6 +1,6 @@
 ---
 name: editar-anuncio
-description: Edita un anuncio vertical (Reels, Meta Ads) de busto parlante a partir de un vídeo en bruto y su guion, con el editor de editor-anuncios/ (Remotion + Whisper + ffmpeg) - cortes de trabas y erratas, subtítulos palabra a palabra, gancho, palabras grandes, zooms, animaciones sincronizadas con lo que se dice, limpieza de ruido, música y efectos de sonido. Lo primero, pregunta qué paleta de colores (plantilla de marca) y qué estilo de edición (clásico o impacto, con B-rolls) usar y si reutilizar una música del catálogo o generar otra. Úsala cuando pidan "editar un anuncio", "montar un reel", "edita el AD 2", "haz un anuncio con este vídeo" o similar.
+description: Edita un anuncio vertical (Reels, Meta Ads) de busto parlante a partir de un vídeo en bruto y su guion, con el editor de editor-anuncios/ (Remotion + Whisper + ffmpeg) - cortes de trabas y erratas, subtítulos palabra a palabra, gancho, palabras grandes, zooms, animaciones sincronizadas con lo que se dice, limpieza de ruido, música y efectos de sonido. Lo primero, pregunta qué paleta de colores (plantilla de marca) y qué estilo de edición usar (Clásico, Impacto, Nativo, Documental, Noticiero, Explicador o Íntimo) y si reutilizar una música del catálogo o generar otra. Úsala cuando pidan "editar un anuncio", "montar un reel", "edita el AD 2", "haz un anuncio con este vídeo" o similar.
 ---
 
 # Editar un anuncio
@@ -46,13 +46,32 @@ Si elige crear una nueva:
 
 ## 1b. Estilo de edición (justo después de la paleta, siempre)
 
-Lee `editor-anuncios/ediciones/*.json` (`nombre`, `_que_es`).
+Pregúntalo **en cada anuncio**, igual que la paleta. Lee `editor-anuncios/ediciones/*.json` (`nombre`, `_que_es`)
+y `editor-anuncios/CLAUDE.md → Estilos de edición` (escenas de cada uno). Hay siete:
 
-**PREGUNTA**: «¿Qué estilo de edición quieres para este anuncio?» — una opción por estilo, con su descripción corta:
-- **Clásico**: subtítulos con los colores de la marca, gancho arriba, animaciones en la franja de arriba sin tapar la cara.
-- **Impacto**: subtítulos blancos con sombra, escenas a pantalla completa (B-rolls con IA o stock, frases animadas, cifras,
-  línea del tiempo, cartel del evento) y gancho y botón de registro abajo del todo. Implica B-rolls de pago (ver paso 5b).
-Guarda la respuesta en `props.json → "edicion"`.
+| Estilo | Cómo se ve | Para qué |
+|---|---|---|
+| **Clásico** | Subtítulos con los colores de la marca, gancho arriba, animaciones en la franja de arriba sin tapar la cara | El de siempre; seguro |
+| **Impacto** | Subtítulos blancos con sombra, escenas a pantalla completa (B-rolls con IA o stock, frases, cifras, línea del tiempo, cartel), gancho y botón abajo | Captar y guiar la atención; implica B-rolls de pago (paso 5b) |
+| **Nativo** | Parece un vídeo de TikTok/Reels: subtítulos de 2–3 palabras con contorno, caja blanca de texto, saltos de zoom, nota del móvil, chat, POV | Público frío, que no parezca anuncio |
+| **Documental** | Franjas de cine, grano, color envejecido, subtítulos a máquina, capítulo, rótulo de lugar, mapa con ruta, imagen de archivo | Historia (Claves) |
+| **Noticiero** | EN DIRECTO, reloj, rótulo con nombre, cinta de titulares, «ÚLTIMA HORA», tarjeta de dato, subtítulos de tele | Actualidad, eventos con fecha |
+| **Explicador** | Pantalla dividida: tú arriba y una pizarra abajo con flechas, apuntes, gráfica o el ciclo | Anuncios didácticos (MLDLM: ciclo, señales, método) |
+| **Íntimo** | Cálido, zoom lento, onda de voz, la frase entera en serif grande como una cita | Historias personales, testimonios |
+
+Enseña esta tabla al usuario y después **PREGUNTA**: «¿Qué estilo de edición quieres para este anuncio?».
+`AskUserQuestion` admite 4 opciones: pon los 3 que mejor encajan con la marca y el guion (tu recomendación la primera,
+con el porqué en la descripción) y una cuarta «Ver otro de la tabla»; el usuario puede escribir cualquiera en «Otro».
+Si responde «Ver otro», pregunta de nuevo con los restantes. Si dudan, ofrece renderizar un fotograma de prueba de dos
+estilos sobre su vídeo (en cuanto esté en `public/`) para comparar.
+
+Guarda la respuesta en `props.json → "edicion"` (`clasico`, `impacto`, `nativo`, `documental`, `noticiero`, `explicador`, `intimo`).
+Según el estilo:
+- **Noticiero**: **PREGUNTA** el nombre y el cargo del rótulo (`locutor`), el nombre del canal (por defecto el de la marca)
+  y propón 3–5 titulares para la cinta (`ticker`) sacados del guion.
+- **Impacto**: B-rolls en el paso 5b.
+- **Documental**: el mapa y el archivo pueden usar fotogramas de B-rolls del catálogo (gratis) o imágenes nuevas con
+  Seedream (~100 créditos cada una, con permiso).
 
 ## 2. Entorno
 
@@ -97,11 +116,16 @@ Guarda la respuesta en `props.json → "edicion"`.
 
 ## 5. Propuesta de montaje
 
-**PREGUNTA**: el gancho. Propón 3 opciones a partir del guion (recomendada la primera).
-En estilo Impacto el gancho va abajo del todo y la llamada a la acción es la escena `boton` (botón ancho abajo).
+**PREGUNTA**: el gancho. Propón 3 opciones a partir del guion (recomendada la primera), escritas para el estilo:
+Nativo, en primera persona o «POV: …»; Documental, como título de capítulo; Noticiero, como titular; Íntimo, como confesión.
+En todos los estilos menos el Clásico, la llamada a la acción es la escena `boton` (botón ancho abajo).
+
+Las escenas se eligen del estilo (ver `editor-anuncios/CLAUDE.md → Estilos de edición`): Clásico, `src/Animaciones.jsx`;
+Impacto, `src/Impacto.jsx`; los otros cinco, `src/Estilos.jsx` (más `boton`, y `broll`/`frase` si encajan). No mezcles
+piezas de estilos distintos salvo que el usuario lo pida. Nativo pide algo cada 4–6 s (nota, chat, POV, saltos); Íntimo, casi nada.
 
 Propón en una tabla, con segundos, lo que vas a poner y por qué encaja con lo que se dice en ese momento:
-2–4 palabras grandes, 2–4 zooms lentos y 2–3 saltos, y las animaciones (las de `src/Animaciones.jsx`, o nuevas si el guion
+2–4 palabras grandes (no en Noticiero ni Íntimo), 2–4 zooms lentos y 2–3 saltos (Nativo ya los pone solo; en Íntimo, ninguno), y las animaciones (las de `src/Animaciones.jsx`, o nuevas si el guion
 lo pide: escríbelas en ese archivo con los colores de la plantilla `e.primario/e.oscuro/e.acento/e.claro`, nunca colores fijos).
 Escribe `proyectos/NOMBRE/props.json` (con `"plantilla"`), renderiza 4–5 fotogramas clave con `npx remotion still`,
 revísalos y envíalos en una sola hoja (`ffmpeg ... hstack`).
@@ -146,7 +170,8 @@ espera con `creations_wait`, descarga el WAV con `creations_deliver` (perfil `wa
 Si reutiliza, añade el proyecto a su `usada_en`.
 
 **PREGUNTA**: efectos de sonido. Reutilizar los de `sonidos/catalogo.json` (gratis) o generar alguno nuevo (con su coste).
-Colócalos en `props.json → sonido.efectos` en el segundo de cada animación (el golpe del sello llega a los 0,24 s: adelántalo).
+Colócalos con `python3 -I scripts/efectos_auto.py proyectos/NOMBRE musica/ARCHIVO.mp3` (whoosh por escena, clics en chat y nota,
+sello, contador, clic del botón; en Íntimo, más bajos) y retoca a mano en `props.json → sonido.efectos` si hace falta.
 
 ## 7. Montaje y entrega
 

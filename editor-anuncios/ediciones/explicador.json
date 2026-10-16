@@ -1,0 +1,11 @@
+{
+  "nombre": "Explicador",
+  "_que_es": "Pantalla dividida: arriba tú hablando, abajo una pizarra clara donde se dibuja lo que explicas (ciclo, gráfica, causa → efecto, apuntes). Subtítulos en la línea de corte. Ideal para anuncios didácticos (MLDLM: ciclo, señales, método).",
+  "subtitulos": "blanco",
+  "subAltura": 930,
+  "layout": "dividido",
+  "corte": 1120,
+  "gancho": "cita",
+  "ganchoAltura": 1400,
+  "cta": "abajo"
+}

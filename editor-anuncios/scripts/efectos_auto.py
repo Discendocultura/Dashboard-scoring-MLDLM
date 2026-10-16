@@ -1,16 +1,23 @@
 # Pone los efectos de sonido del catálogo en props.json según las animaciones: whoosh al entrar cada tarjeta,
-# sello en el «GRATIS», tictac en contadores y clic en el botón de la llamada a la acción.
+# sello en el «GRATIS», tictac en contadores, clic en el botón de la llamada a la acción y en cada burbuja/línea
+# de chat y nota (Nativo). El rótulo de lugar (Documental) entra en silencio; en «intimo» los whoosh van más bajos.
 # Uso: python3 scripts/efectos_auto.py proyectos/NOMBRE musica/ARCHIVO.mp3
 import json, sys
 proy, musica = sys.argv[1], sys.argv[2]
 p = json.load(open(f'{proy}/props.json'))
 ef = []
+suave = p.get('edicion') == 'intimo'
 for a in p.get('animaciones', []):
     s = a['start']
     if a['tipo'] == 'apagon':
         ef.append({'archivo': 'sonidos/apagon.mp3', 'en': round(s - 0.1, 2), 'db': -10})
         continue
-    ef.append({'archivo': 'sonidos/whoosh.mp3', 'en': round(max(0, s - 0.1), 2), 'db': -16})
+    if a['tipo'] != 'rotulo':
+        ef.append({'archivo': 'sonidos/whoosh.mp3', 'en': round(max(0, s - 0.1), 2), 'db': -22 if suave else -16})
+    if a['tipo'] == 'chat':
+        ef += [{'archivo': 'sonidos/click.mp3', 'en': round(s + 0.2 + i * a.get('cada', 0.9), 2), 'db': -18} for i in range(len(a.get('mensajes', [])))]
+    if a['tipo'] == 'nota':
+        ef += [{'archivo': 'sonidos/click.mp3', 'en': round(s + 0.4 + i * a.get('cada', 0.6), 2), 'db': -20} for i in range(len(a.get('lineas', [])))]
     for fase in a.get('fases', []):
         if 'sello' in fase:
             ef.append({'archivo': 'sonidos/sello.mp3', 'en': round(s + fase['sello'] - 0.24, 2), 'db': -9})

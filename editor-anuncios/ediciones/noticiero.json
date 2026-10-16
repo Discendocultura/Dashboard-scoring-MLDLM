@@ -1,0 +1,9 @@
+{
+  "nombre": "Noticiero",
+  "_que_es": "Como un avance informativo: mosca EN DIRECTO con reloj, nombre del canal, rótulo con tu nombre y cargo al empezar, cinta de titulares abajo y subtítulos de televisión sobre banda oscura. Gancho como «ÚLTIMA HORA». Escenas: tarjeta de dato con fuente. Ideal para actualidad y anuncios de evento con fecha.",
+  "subtitulos": "tv",
+  "subAltura": 1240,
+  "gancho": "titular",
+  "marco": "noticiero",
+  "cta": "abajo"
+}
