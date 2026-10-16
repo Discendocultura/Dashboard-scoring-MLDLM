@@ -32,7 +32,7 @@ export async function POST(request) {
     const url = new URL(request.url);
     if ((await verifyToken(url.searchParams.get('k'))) !== valor()) return json({ error: 'Enlace no válido' }, 403);
     const body = await readBody(request);
-    const cid = String(body.contact_id || body.contactId || body.contact?.id || body.id || url.searchParams.get('cid') || request.headers.get('cid') || request.headers.get('contact_id') || '').trim();
+    const cid = String(body.contact_id || body.contactId || body.contact?.id || body.customData?.cid || body.customData?.contact_id || body.cid || body.id || url.searchParams.get('cid') || request.headers.get('cid') || request.headers.get('contact_id') || '').trim();
     if (!/^[A-Za-z0-9]{6,40}$/.test(cid)) return json({ ok: false, motivo: 'falta contact_id' }, 400);
     const [config, contact] = await Promise.all([getConfig(), getContact(cid)]);
     if (!contact) return json({ ok: false, motivo: 'contacto no encontrado' }, 404);
