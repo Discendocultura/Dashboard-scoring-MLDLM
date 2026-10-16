@@ -6166,12 +6166,24 @@ function autoActual() {
   if (enDirecta()) return { tipo: 'directa', code: state.embudo, obj: state.config.directas?.[state.embudo] };
   return { tipo: 'lanzamientos', code: state.launchCode, obj: state.config.launches?.[state.launchCode] };
 }
+// URL del webhook de GHL que inscribe en Zoom al registrarse (solo lanzamientos con la reunión de Zoom puesta). Se
+// pide una vez por cliente; mientras llega, la lista sale sin ella y se repinta al llegar.
+const zoomWh = {};
+function webhookZoomDe(tipo, obj) {
+  if (tipo !== 'lanzamientos' || !obj || !videosDe(obj).some((v) => v.zoomMeetingId)) return '';
+  const k = state.cliente || '_';
+  if (zoomWh[k] === undefined) {
+    zoomWh[k] = '';
+    api('/api/zoom-registro').then((r) => { zoomWh[k] = r.url || ''; if (zoomWh[k] && !$('#view-automatizaciones')?.hidden) renderAutomatizaciones(); }).catch(() => {});
+  }
+  return zoomWh[k];
+}
 function renderAutomatizaciones() {
   const box = $('#automatizaciones-body');
   if (!box) return;
   const { tipo, code, obj } = autoActual();
   if (!obj) { box.innerHTML = `<div class="card empty"><p class="muted">Elige ${tipo === 'meteorico' ? 'un meteórico' : 'un lanzamiento'} para ver sus automatizaciones.</p></div>`; return; }
-  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config) });
+  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj) });
   const lista = automatizacionesDe(c);
   const datos = obj.automatizaciones || {};
   const origen = datos.origen || embudoInfo()?.autoOrigen || '';
@@ -6231,7 +6243,7 @@ document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-au-prompt], [data-au-ia], [data-au-prep]');
   if (!b) return;
   const { tipo, code, obj } = autoActual();
-  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config) });
+  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj) });
   const lista = automatizacionesDe(c);
   const x = lista.find((y) => y.id === (b.dataset.auPrompt || b.dataset.auIa));
   const txt = b.hasAttribute('data-au-prep') ? promptPreparacion(lista, c) : b.dataset.auIa ? descripcionIaGhl(x, c) : promptAutomatizacion(x, c);

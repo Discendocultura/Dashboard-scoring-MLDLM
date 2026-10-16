@@ -39,10 +39,10 @@ const menosHora = (hora) => { const [h, mi] = String(hora || '19:00').split(':')
 
 // Contexto: los datos del embudo que van en los workflows.
 //   tipo: 'lanzamientos' | 'vsl' | 'directa' | 'meteorico' · obj: el lanzamiento / VSL / venta directa / meteórico
-export function autoCtx(tipo, obj = {}, { code = '', cliente = '', producto = '' } = {}) {
+export function autoCtx(tipo, obj = {}, { code = '', cliente = '', producto = '', zoomWebhook = '' } = {}) {
   const o = obj || {};
   return {
-    tipo, code, cliente, producto, nombre: o.name || code,
+    tipo, code, cliente, producto, nombre: o.name || code, zoomWebhook,
     carpeta: o.name || code,
     // Lanzamientos: la etiqueta de registro es SIEMPRE «registrado-webinar-DDMMAA» (fecha del directo). Si la de
     // Configuración es otra, el prompt usa la buena y registroDistinta avisa de que hay que cambiarla allí.
@@ -92,8 +92,9 @@ const LANZAMIENTO = [
       ...origenAcciones(c),
       `Email de confirmación: que ya tiene su plaza, cuándo es (${directos(c).join(' · ')}) y un botón a la página preclase ${u(c.recursosUrl, 'URL de la página preclase')}.`,
       ...(c.whatsappUrl ? [`En el email, el enlace al grupo de WhatsApp: ${c.whatsappUrl}.`] : []),
+      ...(c.zoomWebhook ? [`Después de añadir la etiqueta: acción «Webhook» (método POST) a ${c.zoomWebhook} — inscribe a la persona en la reunión de Zoom del directo con su enlace personal (no hace falta mapear campos: basta el contact_id que GHL manda siempre).`] : []),
     ],
-    prueba: (c) => `Regístrate con un email de prueba: en el dashboard (Leads) debe aparecer con la etiqueta ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')} y te tiene que llegar el email.`,
+    prueba: (c) => `Regístrate con un email de prueba: en el dashboard (Leads) debe aparecer con la etiqueta ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')} y te tiene que llegar el email.${c.zoomWebhook ? ' En Zoom → la reunión → Registrantes, debe aparecer su email.' : ''}`,
   },
   {
     id: 'encuesta', titulo: 'Encuesta rellenada', requiere: ['encuestaTag'], si: (c) => c.encuestaTag || c.encuestaUrl,

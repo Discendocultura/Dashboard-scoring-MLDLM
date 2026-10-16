@@ -7,19 +7,13 @@
 //   POST /api/directo-zoom { op: 'click', launch, k, cid } → apunta que entró (sin llamar a GHL: la
 //        etiqueta <código>_directo_click se pone al sincronizar Zoom en el dashboard).
 import { getConfig } from '../lib/config-store.js';
-import { getContact } from '../lib/ghl.js';
-import { hasTag } from '../lib/access.js';
-import { addRegistrant, zoomConfigured } from '../lib/zoom.js';
-import { entradaDe, guardarInscripcion, marcarEntrada, marcarEspera } from '../lib/entradas.js';
+import { inscribirEnDirecto } from '../lib/zoom-inscripcion.js';
+import { marcarEntrada, marcarEspera } from '../lib/entradas.js';
 import { json, readBody, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { videosDe, esEnDirecto } from '../public/js/videos.js';
 import { milestones } from '../public/js/page.js';
 
-// ¿El enlace personal de Zoom (…/w/<id>?tk=…) es de esta reunión? Si no se ve el número, se da por bueno.
-export const deLaReunion = (url, meetingId) => {
-  const id = /\/w\/(\d+)/.exec(String(url || ''))?.[1];
-  return !id || !meetingId || id === String(meetingId).replace(/\D/g, '');
-};
+export { deLaReunion } from '../lib/zoom-inscripcion.js';
 
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -52,19 +46,9 @@ export async function POST(request) {
       await marcarEntrada(code, k, cid);
       return json({ ok: true }, 200, CORS_HEADERS);
     }
-    // op: 'prep'
-    // Ya inscrita: su enlace, si es de la reunión configurada ahora (si se cambió la reunión, se reinscribe).
-    const ya = await entradaDe(code, k, cid);
-    if (ya?.join_url && deLaReunion(ya.join_url, vid.zoomMeetingId)) return json({ ok: true, joinUrl: ya.join_url }, 200, CORS_HEADERS);
-    if (!vid.zoomMeetingId || !zoomConfigured()) return json({ ok: false, motivo: 'sin zoom' }, 200, CORS_HEADERS);
-    const contact = await getContact(cid);
-    if (!contact?.email) return json({ ok: false, motivo: 'contacto no encontrado' }, 200, CORS_HEADERS);
-    if (launch.registroTag && !hasTag(contact, launch.registroTag)) return json({ ok: false, motivo: 'sin registro' }, 200, CORS_HEADERS);
-    const [firstName, ...rest] = (contact.name || '').split(' ');
-    const joinUrl = await addRegistrant(vid.zoomMeetingId, { email: contact.email, firstName, lastName: rest.join(' ') });
-    if (!joinUrl) return json({ ok: false, motivo: 'zoom' }, 200, CORS_HEADERS);
-    await guardarInscripcion(code, k, cid, joinUrl);
-    return json({ ok: true, joinUrl }, 200, CORS_HEADERS);
+    // op: 'prep' (si ya estaba inscrita, su enlace sin llamar a Zoom; si se cambió la reunión, se reinscribe)
+    const r = await inscribirEnDirecto(code, launch, k, { cid });
+    return json(r.ok ? { ok: true, joinUrl: r.joinUrl } : { ok: false, motivo: r.motivo }, 200, CORS_HEADERS);
   } catch (e) {
     return errorResponse(e, CORS_HEADERS);
   }
