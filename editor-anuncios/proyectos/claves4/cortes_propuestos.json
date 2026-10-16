@@ -8,19 +8,35 @@
   "contexto": "El 37 % de"
  },
  {
-  "inicio": 16.68,
-  "fin": 16.84,
-  "tipo": "muletilla",
+  "inicio": 2.54,
+  "fin": 21.171,
+  "tipo": "toma",
   "confianza": "alta",
-  "quitado": "Ah,",
-  "contexto": "vez, es estafadal. Ah, no, no están bien,"
+  "quitado": "de los españoles evita las noticias a menudo o a veces. Y uno de cada tres de ellos lo hace por lo mismo. Les afectan al estado de ánimo. No es... a ver, empieza otra vez, es estafadal. Ah, no, no están bien, joder. Vale, empiezo. tre... el 37 %",
+  "contexto": "El 37 % de los españoles evita las noticias a menudo o a veces. Y uno de cada tres de ellos lo hace por lo mismo. Les afectan al estado de ánimo. No es... a ver, empieza otra vez, es estafadal. Ah, no, no están bien, joder. Vale, empiezo. tre... el 37 % de los españoles evita"
  },
  {
-  "inicio": 16.84,
-  "fin": 17.0,
+  "inicio": 67.205,
+  "fin": 68.145,
   "tipo": "repeticion",
   "confianza": "alta",
-  "quitado": "no,",
-  "contexto": "es estafadal. Ah, no, no están bien, joder."
+  "quitado": "más de",
+  "contexto": "ya han pasado más de más de más de"
+ },
+ {
+  "inicio": 68.145,
+  "fin": 69.285,
+  "tipo": "repeticion",
+  "confianza": "alta",
+  "quitado": "más de",
+  "contexto": "pasado más de más de más de 60 .000"
+ },
+ {
+  "inicio": 70.945,
+  "fin": 72.885,
+  "tipo": "repeticion",
+  "confianza": "alta",
+  "quitado": "y que ahora vas a poder...",
+  "contexto": "60 .000 personas y que ahora vas a poder... y que ahora vas"
  }
 ]

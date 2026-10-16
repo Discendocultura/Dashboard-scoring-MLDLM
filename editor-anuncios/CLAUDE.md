@@ -90,7 +90,9 @@ B-rolls: los clips van en `broll/` (en el repo, para reutilizarlos gratis) con s
    → copia de trabajo vertical en `public/NOMBRE.mp4`, voz limpia y transcripción.
    `x_recorte` es el borde izquierdo del recorte 9:16 sobre el 4K horizontal (1272 centra la cara en los
    vídeos del set actual). Comprueba un fotograma antes de seguir.
-3. **Cortes de erratas:** `scripts/detectar_erratas.py` propone qué quitar (trabas, repeticiones, reinicios de frase,
+3. **Cortes de erratas:** `scripts/repasar_trabas.py` destapa las repeticiones que Whisper escribe una sola vez
+   (palabras demasiado largas o huecos con voz: vuelve a transcribir ese trozo suelto); `preparar.sh` ya lo lanza.
+   Después `scripts/detectar_erratas.py` propone qué quitar (trabas, repeticiones, reinicios de frase,
    muletillas, pausas largas a mitad de frase, silencios al principio y al final); se revisa con el usuario, la lista
    aprobada va a `cortes.json` y `scripts/aplicar_cortes.py` corta vídeo, voz y transcripción a la vez. Los puntos de corte
    (`cortes_aplicados.json`) se tapan con un salto de zoom.
@@ -176,4 +178,7 @@ B-rolls: los clips van en `broll/` (en el repo, para reutilizarlos gratis) con s
 - Los subtítulos a máquina del Documental no se leen sobre el micro: van en y = 1440 y el rótulo de lugar arriba.
 - `aplicar_cortes.py` con un vídeo de 86 s tarda varios minutos si Remotion está montando a la vez: no lo cortes con `timeout`.
 - Las flechas «↑ ↓» no existen en Playfair cursiva (salen diminutas): no las uses en `apuntes`.
-
+- Whisper con el audio entero «limpia» repeticiones: en Claves 4 «más de 60… más de 60… más de 60.000» salió como
+  «más (1,2 s) de (1 s) 60.000» y «y que ahora vas a poder viv… y que ahora vas a poder vivir» como «vas a (1,7 s) poder
+  vivir», y el anuncio se entregó con las dos trabas. La señal es una palabra que dura mucho más que sus letras:
+  `repasar_trabas.py` transcribe esos trozos sueltos (de silencio a silencio), donde Whisper sí las escribe.

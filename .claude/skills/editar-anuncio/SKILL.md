@@ -97,17 +97,26 @@ Según el estilo:
 2. `scripts/preparar.sh brutos/NOMBRE.MP4 proyectos/NOMBRE X [duracion]` (la duración corta los silencios muertos del final).
    Comprueba un fotograma de `public/NOMBRE.mp4`.
 3. **Cortes de erratas** (trabas, palabras repetidas, frases reempezadas, muletillas, pausas largas a mitad de frase
-   y silencios al principio y al final):
+   y silencios al principio y al final). **Toda frase o trozo de frase dicho dos veces por una traba se corta: se queda
+   solo la última versión, la buena.** Solo se respetan las repeticiones que están en el guion (énfasis, anáforas).
+   - Primero, **repaso de repeticiones escondidas** (obligatorio, `preparar.sh` ya lo lanza; si el proyecto es anterior,
+     ejecútalo a mano): `python3 -I scripts/repasar_trabas.py proyectos/NOMBRE`. Whisper, al transcribir el audio entero,
+     a veces escribe una repetición una sola vez y alarga la palabra («más de 60… más de 60… más de 60.000» salió como
+     «más (1,2 s) de 60.000»). El repaso busca palabras demasiado largas para sus letras y huecos con voz, vuelve a
+     transcribir ese trozo suelto y, si salen más palabras, las cambia en la transcripción. Enseña su salida (antes/después).
    - `python3 -I scripts/detectar_erratas.py proyectos/NOMBRE` → `cortes_propuestos.json`.
-   - Revisa cada propuesta escuchando el contexto con la transcripción y el guion: descarta las repeticiones que son
-     intencionadas (énfasis, anáforas del guion) y añade a mano cualquier errata que se le haya escapado
-     (Whisper a veces «limpia» una traba; si el texto no cuadra con el guion en un punto, mira ahí).
+   - Revisa cada propuesta con la transcripción y el guion: descarta las repeticiones que son intencionadas (están así
+     en el guion) y añade a mano cualquier errata que se le haya escapado. Busca en especial:
+     palabras que aún duren mucho más de lo normal, frases que en la transcripción salen una vez pero tardan el doble
+     que en una lectura normal, y puntos suspensivos («60...», «viv...»), que marcan una frase cortada y vuelta a empezar.
+     Ante la duda, transcribe ese trozo suelto (ventana de 4–8 s de silencio a silencio) para oír qué se dijo de verdad.
    - Enseña una tabla: segundo, tipo, qué se quita y el contexto.
    **PREGUNTA**: «¿Aplico estos cortes?» — opciones: todos los propuestos (recomendado), solo los de confianza alta,
    elegir uno a uno, ninguno.
    - Guarda la lista aprobada en `proyectos/NOMBRE/cortes.json` y ejecuta `python3 -I scripts/aplicar_cortes.py proyectos/NOMBRE`.
      Corta vídeo, voz y transcripción a la vez (las versiones sin cortar quedan como `*_sin_cortes`; se puede relanzar con otra lista).
-   - Verifica: duración de vídeo y voz iguales, y transcribe de nuevo la voz cortada para comprobar que la errata ya no está.
+   - Verifica: duración de vídeo y voz iguales, y transcribe de nuevo la voz cortada (con el repaso incluido) para
+     comprobar que no queda ninguna repetición. Si queda alguna, corta también esa antes de seguir.
    - Cada punto de `cortes_aplicados.json → puntos_corte` es un salto de imagen: tápalo con un zoom
      `{"tipo": "salto", "start": punto, "dur": 1.5}` (alterna con tramos sin zoom para que no quede siempre ampliado).
 4. Compara la transcripción (ya cortada) con el guion y enseña una tabla con lo que cambia (frases improvisadas, errores de Whisper).

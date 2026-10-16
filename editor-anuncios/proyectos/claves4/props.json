@@ -2,62 +2,62 @@
  "plantilla": "claves",
  "edicion": "noticiero",
  "video": "claves4.mp4",
- "duracion": 64.6,
+ "duracion": 61.02,
  "words": [
   {
-   "text": "El",
-   "start": 0.14,
-   "end": 0.62
+   "text": "el",
+   "start": 0.0,
+   "end": 0.631
   },
   {
    "text": "37%",
-   "start": 0.62,
-   "end": 1.56
+   "start": 0.631,
+   "end": 1.571
   },
   {
    "text": "de",
-   "start": 1.56,
-   "end": 1.72
+   "start": 1.571,
+   "end": 1.731
   },
   {
    "text": "los",
-   "start": 1.72,
-   "end": 2.0
+   "start": 1.731,
+   "end": 1.971
   },
   {
    "text": "españoles",
-   "start": 2.0,
-   "end": 2.38
+   "start": 1.971,
+   "end": 2.371
   },
   {
    "text": "evita",
-   "start": 2.38,
-   "end": 2.68
+   "start": 2.371,
+   "end": 2.711
   },
   {
    "text": "las",
-   "start": 2.68,
-   "end": 2.9
+   "start": 2.711,
+   "end": 2.911
   },
   {
    "text": "noticias",
-   "start": 2.9,
-   "end": 3.24
+   "start": 2.911,
+   "end": 3.251
   },
   {
    "text": "a",
-   "start": 3.24,
-   "end": 3.44
+   "start": 3.251,
+   "end": 3.391
   },
   {
    "text": "menudo",
-   "start": 3.44,
-   "end": 3.8
+   "start": 3.391,
+   "end": 3.751
   },
   {
    "text": "o",
-   "start": 3.8,
-   "end": 4.06
+   "start": 3.751,
+   "end": 4.051
   },
   {
    "text": "a",
@@ -656,68 +656,68 @@
   },
   {
    "text": "tu",
-   "start": 40.62,
-   "end": 40.72
+   "start": 40.585,
+   "end": 40.705
   },
   {
    "text": "ritmo",
-   "start": 40.72,
-   "end": 41.38
+   "start": 40.705,
+   "end": 41.445
   },
   {
    "text": "sin",
-   "start": 41.38,
-   "end": 41.66
+   "start": 41.585,
+   "end": 41.665
   },
   {
    "text": "memorizar",
-   "start": 41.66,
-   "end": 42.08
+   "start": 41.665,
+   "end": 42.085
   },
   {
    "text": "durante",
-   "start": 42.08,
-   "end": 42.38
+   "start": 42.085,
+   "end": 42.405
   },
   {
    "text": "horas",
-   "start": 42.38,
-   "end": 42.58
+   "start": 42.405,
+   "end": 42.565
   },
   {
    "text": "y",
-   "start": 42.58,
-   "end": 42.8
+   "start": 42.565,
+   "end": 42.825
   },
   {
    "text": "disfrutando",
-   "start": 43.42,
-   "end": 43.9
+   "start": 42.825,
+   "end": 43.885
   },
   {
    "text": "del",
-   "start": 43.9,
-   "end": 44.1
+   "start": 43.885,
+   "end": 44.065
   },
   {
    "text": "proceso.",
-   "start": 44.1,
-   "end": 44.48
+   "start": 44.065,
+   "end": 44.465
   },
   {
    "text": "Como",
-   "start": 44.6,
-   "end": 44.72
+   "start": 44.645,
+   "end": 44.725
   },
   {
    "text": "te",
-   "start": 44.72,
-   "end": 44.88
+   "start": 44.725,
+   "end": 44.885
   },
   {
    "text": "digo,",
-   "start": 44.88,
-   "end": 44.98
+   "start": 44.885,
+   "end": 44.985
   },
   {
    "text": "un",
@@ -726,273 +726,273 @@
   },
   {
    "text": "evento",
-   "start": 45.08,
-   "end": 45.28
+   "start": 45.065,
+   "end": 45.285
   },
   {
    "text": "totalmente",
-   "start": 45.28,
-   "end": 45.7
+   "start": 45.285,
+   "end": 45.685
   },
   {
    "text": "online",
-   "start": 45.7,
-   "end": 46.02
+   "start": 45.685,
+   "end": 46.025
   },
   {
    "text": "por",
-   "start": 46.02,
-   "end": 46.2
+   "start": 46.025,
+   "end": 46.185
   },
   {
    "text": "el",
-   "start": 46.2,
-   "end": 46.28
+   "start": 46.185,
+   "end": 46.285
   },
   {
    "text": "que",
-   "start": 46.28,
-   "end": 46.38
+   "start": 46.285,
+   "end": 46.385
   },
   {
    "text": "ya",
-   "start": 46.38,
-   "end": 46.46
+   "start": 46.385,
+   "end": 46.465
   },
   {
    "text": "han",
-   "start": 46.46,
-   "end": 46.72
+   "start": 46.445,
+   "end": 46.705
   },
   {
    "text": "pasado",
-   "start": 46.72,
+   "start": 46.705,
    "end": 47.08
   },
   {
    "text": "más",
-   "start": 47.08,
-   "end": 48.26
+   "start": 47.085,
+   "end": 47.545
   },
   {
    "text": "de",
-   "start": 48.26,
-   "end": 49.34
+   "start": 47.545,
+   "end": 47.805
   },
   {
    "text": "60.000",
-   "start": 49.34,
-   "end": 49.86
+   "start": 47.805,
+   "end": 48.245
   },
   {
    "text": "personas",
-   "start": 49.86,
-   "end": 50.4
+   "start": 48.245,
+   "end": 48.745
   },
   {
    "text": "y",
-   "start": 50.4,
-   "end": 50.74
+   "start": 48.845,
+   "end": 49.405
   },
   {
    "text": "que",
-   "start": 50.74,
-   "end": 50.88
+   "start": 49.405,
+   "end": 49.545
   },
   {
    "text": "ahora",
-   "start": 50.88,
-   "end": 51.34
+   "start": 49.545,
+   "end": 49.645
   },
   {
    "text": "vas",
-   "start": 51.34,
-   "end": 51.68
+   "start": 49.645,
+   "end": 49.825
   },
   {
    "text": "a",
-   "start": 51.68,
-   "end": 53.38
+   "start": 49.825,
+   "end": 49.945
   },
   {
    "text": "poder",
-   "start": 53.38,
-   "end": 53.54
+   "start": 49.945,
+   "end": 50.065
   },
   {
    "text": "vivir",
-   "start": 53.54,
-   "end": 53.72
+   "start": 50.065,
+   "end": 50.285
   },
   {
    "text": "en",
-   "start": 53.72,
-   "end": 53.98
+   "start": 50.285,
+   "end": 50.505
   },
   {
    "text": "primera",
-   "start": 53.98,
-   "end": 54.14
+   "start": 50.505,
+   "end": 50.665
   },
   {
    "text": "persona.",
-   "start": 54.14,
-   "end": 54.58
+   "start": 50.665,
+   "end": 51.085
   },
   {
    "text": "Pulse",
-   "start": 54.94,
-   "end": 55.1
+   "start": 51.505,
+   "end": 51.625
   },
   {
    "text": "el",
-   "start": 55.1,
-   "end": 55.28
+   "start": 51.625,
+   "end": 51.785
   },
   {
    "text": "enlace",
-   "start": 55.28,
-   "end": 55.66
+   "start": 51.785,
+   "end": 52.145
   },
   {
    "text": "y",
-   "start": 55.66,
-   "end": 56.02
+   "start": 52.145,
+   "end": 52.545
   },
   {
    "text": "reserva",
-   "start": 56.02,
-   "end": 56.32
+   "start": 52.545,
+   "end": 52.845
   },
   {
    "text": "tu",
-   "start": 56.32,
-   "end": 56.44
+   "start": 52.845,
+   "end": 52.965
   },
   {
    "text": "plaza",
-   "start": 56.44,
-   "end": 56.62
+   "start": 52.965,
+   "end": 53.145
   },
   {
    "text": "gratis",
-   "start": 56.62,
-   "end": 56.94
+   "start": 53.145,
+   "end": 53.505
   },
   {
    "text": "y",
-   "start": 56.94,
-   "end": 57.16
+   "start": 53.505,
+   "end": 53.685
   },
   {
    "text": "después",
-   "start": 57.16,
-   "end": 57.42
+   "start": 53.685,
+   "end": 53.865
   },
   {
    "text": "únete",
-   "start": 57.42,
-   "end": 58.1
+   "start": 53.94,
+   "end": 54.62
   },
   {
    "text": "al",
-   "start": 58.1,
-   "end": 58.32
+   "start": 54.62,
+   "end": 54.84
   },
   {
    "text": "grupo",
-   "start": 58.32,
-   "end": 58.48
+   "start": 54.84,
+   "end": 55.0
   },
   {
    "text": "de",
-   "start": 58.48,
-   "end": 58.66
+   "start": 55.0,
+   "end": 55.18
   },
   {
    "text": "WhatsApp",
-   "start": 58.66,
-   "end": 58.9
+   "start": 55.18,
+   "end": 55.42
   },
   {
    "text": "donde",
-   "start": 58.9,
-   "end": 59.1
+   "start": 55.42,
+   "end": 55.62
   },
   {
    "text": "mandaremos",
-   "start": 59.1,
-   "end": 59.54
+   "start": 55.62,
+   "end": 56.06
   },
   {
    "text": "el",
-   "start": 59.54,
-   "end": 59.78
+   "start": 56.06,
+   "end": 56.3
   },
   {
    "text": "enlace",
-   "start": 59.78,
-   "end": 60.32
+   "start": 56.3,
+   "end": 56.84
   },
   {
    "text": "para",
-   "start": 60.32,
-   "end": 60.56
+   "start": 56.84,
+   "end": 57.08
   },
   {
    "text": "que",
-   "start": 60.56,
-   "end": 61.26
+   "start": 57.08,
+   "end": 57.78
   },
   {
    "text": "te",
-   "start": 61.26,
-   "end": 61.34
+   "start": 57.78,
+   "end": 57.86
   },
   {
    "text": "conectes.",
-   "start": 61.34,
-   "end": 61.9
+   "start": 57.86,
+   "end": 58.42
   },
   {
    "text": "Pulse",
-   "start": 62.22,
-   "end": 62.36
+   "start": 58.74,
+   "end": 58.88
   },
   {
    "text": "el",
-   "start": 62.36,
-   "end": 62.52
+   "start": 58.88,
+   "end": 59.04
   },
   {
    "text": "enlace",
-   "start": 62.52,
-   "end": 62.66
+   "start": 59.04,
+   "end": 59.18
   },
   {
    "text": "y",
-   "start": 62.66,
-   "end": 62.8
+   "start": 59.18,
+   "end": 59.32
   },
   {
    "text": "reserva",
-   "start": 62.8,
-   "end": 63.04
+   "start": 59.32,
+   "end": 59.56
   },
   {
    "text": "tu",
-   "start": 63.04,
-   "end": 63.18
+   "start": 59.56,
+   "end": 59.7
   },
   {
    "text": "plaza",
-   "start": 63.18,
-   "end": 63.36
+   "start": 59.7,
+   "end": 59.88
   },
   {
    "text": "gratuita.",
-   "start": 63.36,
-   "end": 63.9
+   "start": 59.88,
+   "end": 60.42
   }
  ],
  "gancho": "El 37% de los españoles evita las noticias",
@@ -1012,18 +1012,23 @@
    "dur": 4.6
   },
   {
-   "tipo": "salto",
-   "start": 35.84,
-   "dur": 1.5
-  },
-  {
    "tipo": "zoom",
    "start": 38.0,
    "dur": 4.5
   },
   {
    "tipo": "salto",
-   "start": 48.8,
+   "start": 35.84,
+   "dur": 1.5
+  },
+  {
+   "tipo": "salto",
+   "start": 47.08,
+   "dur": 1.5
+  },
+  {
+   "tipo": "salto",
+   "start": 48.76,
    "dur": 1.5
   }
  ],
@@ -1079,14 +1084,14 @@
   {
    "tipo": "dato",
    "start": 47.0,
-   "dur": 5.4,
+   "dur": 4.3,
    "cifra": "+60.000",
    "texto": "personas ya han pasado por el evento"
   },
   {
    "tipo": "boton",
-   "start": 54.9,
-   "dur": 9.7,
+   "start": 51.42,
+   "dur": 9.6,
    "texto": "Reserva tu plaza gratis",
    "toque": 1.3,
    "subtexto": "Y únete al grupo de WhatsApp"
@@ -1138,12 +1143,12 @@
    },
    {
     "archivo": "sonidos/whoosh.mp3",
-    "en": 54.8,
+    "en": 51.32,
     "db": -16
    },
    {
     "archivo": "sonidos/click.mp3",
-    "en": 56.2,
+    "en": 52.72,
     "db": -10
    }
   ]

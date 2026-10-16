@@ -15,4 +15,6 @@ LEN=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$BRUTO")
 python3 -I scripts/limpiar_voz.py "$PROY/voz_original.wav" "$PROY/voz_limpia.wav" $(python3 -c "print($LEN-1.6, $LEN-0.1)")
 ffmpeg -loglevel error -y -i "$PROY/voz_limpia.wav" -af "highpass=f=80,loudnorm=I=-16:TP=-1.5:LRA=11" -ac 1 -ar 16000 "$PROY/audio16k.wav"
 python3 -I scripts/transcribir.py "$PROY/audio16k.wav" "$PROY/transcripcion_bruto.json"
+# segunda pasada: destapa las repeticiones que Whisper escribe una sola vez (palabras demasiado largas)
+python3 -I scripts/repasar_trabas.py "$PROY"
 echo "Listo: public/$NOMBRE.mp4 y $PROY/transcripcion_bruto.json"

@@ -9,14 +9,19 @@
    55.96
   ],
   [
-   68.92,
-   69.36
+   67.2,
+   69.28
+  ],
+  [
+   70.96,
+   72.8
   ]
  ],
  "puntos_corte": [
   35.84,
-  48.8
+  47.08,
+  48.76
  ],
- "segundos_quitados": 20.56,
- "duracion_nueva": 65.84
+ "segundos_quitados": 24.04,
+ "duracion_nueva": 62.36
 }

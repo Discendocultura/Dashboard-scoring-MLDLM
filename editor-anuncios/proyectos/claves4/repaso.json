@@ -1,0 +1,35 @@
+[
+ {
+  "inicio": 2.08,
+  "fin": 8.26,
+  "motivos": [
+   "hueco con voz de 0.6 s tras «veces.»"
+  ],
+  "antes": "de los españoles evita las noticias a menudo o a veces. Y uno de cada tres",
+  "despues": "por ciento de los españoles evita las noticias a menudo o a veces. Y uno de cada tres...",
+  "aplicado": false
+ },
+ {
+  "inicio": 16.23,
+  "fin": 23.74,
+  "motivos": [
+   "hueco con voz de 1.4 s tras «empiezo.»"
+  ],
+  "antes": "Ah, no, no están bien, joder. Vale, empiezo. El 37 % de los españoles evita las noticias a menudo o",
+  "despues": "Ah, no, no están bien, joder. Vale, empiezo. tre... el 37 % de los españoles evita las noticias a menudo o",
+  "aplicado": true
+ },
+ {
+  "inicio": 60.46,
+  "fin": 77.94,
+  "motivos": [
+   "hueco con voz de 0.6 s tras «y»",
+   "«más» dura 1.2 s",
+   "«de» dura 1.5 s",
+   "«a» dura 1.7 s"
+  ],
+  "antes": "tu ritmo sin memorizar durante horas y disfrutando del proceso. Como te digo, un evento totalmente online por el que ya han pasado más de 60 .000 personas y que ahora vas a poder vivir en primera persona. Pulse el enlace y reserva tu plaza gratis y después",
+  "despues": "tu ritmo, sin memorizar durante horas y disfrutando del proceso. Como te digo, un evento totalmente online por el que ya han pasado más de más de más de 60 .000 personas y que ahora vas a poder... y que ahora vas a poder vivir en primera persona. Pulse el enlace y reserva tu plaza gratis y después...",
+  "aplicado": true
+ }
+]
