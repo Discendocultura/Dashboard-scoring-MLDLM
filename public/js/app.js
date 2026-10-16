@@ -59,7 +59,7 @@ import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa }
 import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, calendarioWhatsapp, FASES_WA, FASES_WA_DEFECTO, asuntosGanadores, promptEmails, ANGULOS_PREVIOS } from './emails-ia.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto, accesosDePaginas, conAccesos } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
-import { piezasImagenes, mockupsDe, promptMockup, promptMaestra, promptEdicion, promptMagnificImagenes, PROMPT_VERTICAL } from './imagenes-ia.js';
+import { piezasImagenes, mockupsDe, promptMockup, promptMaestra, promptEdicion, promptMagnificImagenes, PROMPT_VERTICAL, paletaMarca } from './imagenes-ia.js';
 import { iniciarAnimaciones } from './animaciones.js';
 import { FASES_PLAN, enviosPorDefecto, enviosDe, planEnvios, sanitizeEnvios } from './envios.js';
 import { componerEmails } from './emails.js';
@@ -13434,7 +13434,8 @@ async function renderImagenesIa() {
   const marca = await marcaDeEmbudo(api, state.cliente, state.embudo);
   if (state.launchCode !== code) return;
   const producto = marca?.producto ? nombreDeProducto(marca.producto) : nombreProducto(state.config);
-  const ctx = { marca: clienteNombre(), producto, diseno: disenoTexto(marca?.m), logo: l.logoUrl || '', lanzamiento: l.name };
+  const paleta = paletaMarca(marca?.m?.respuestas);
+  const ctx = { marca: clienteNombre(), producto, diseno: disenoTexto(marca?.m), paleta, logo: l.logoUrl || marca?.m?.respuestas?.logo || '', logoDeMarca: !l.logoUrl && Boolean(marca?.m?.respuestas?.logo), lanzamiento: l.name };
   const piezas = piezasImagenes(l, { producto });
   const mocks = mockupsDe(piezas);
   const maestra = piezas[0];
@@ -13443,17 +13444,25 @@ async function renderImagenesIa() {
   for (const p of piezas.slice(1)) prompts[`p:${p.id}`] = promptEdicion(p);
   const nBar = (l.oferta?.bonus || []).filter((b) => String(b.tipo || '').startsWith('bar_')).length;
   const btn = (k, txt = '📋 Copiar') => `<button type="button" class="btn small" data-copiar-img="${esc(k)}">${txt}</button>`;
+  // La vista previa, con los colores y la tipografía de la marca (si están en Marca y avatar).
+  const textoSobre = (hex) => { const n = parseInt(String(hex || '#14213d').slice(1), 16); return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 > 150 ? '#1a1a1a' : '#ffffff'; };
+  const css = (v) => String(v).replace(/[^#0-9a-z ,'-]/gi, '');
+  const estiloMini = paleta ? ` style="${[paleta.fondo || paleta.principal ? `--ia-fondo:${css(paleta.fondo || paleta.principal)}` : '', `--ia-texto:${css(paleta.texto || textoSobre(paleta.fondo || paleta.principal))}`, paleta.acento || paleta.secundario ? `--ia-acento:${css(paleta.acento || paleta.secundario)}` : '', paleta.fuenteTitulos ? `--ia-fuente:'${css(paleta.fuenteTitulos)}', Georgia, serif` : ''].filter(Boolean).join(';')}"` : '';
   // Vista previa: el destacado, en su trazo de color (dentro del titular si forma parte de él).
   const vista = (p) => {
     const dentro = p.destacado && p.titular.includes(p.destacado);
     const t = dentro ? esc(p.titular).replace(esc(p.destacado), `<span class="ia-mini-d">${esc(p.destacado)}</span>`) : esc(p.titular);
-    return `<div class="ia-mini"><span class="ia-mini-t">${t}</span>${p.destacado && !dentro ? `<span class="ia-mini-d">${esc(p.destacado)}</span>` : ''}${p.subtitulo ? `<span class="ia-mini-s">${esc(p.subtitulo)}</span>` : ''}</div>`;
+    return `<div class="ia-mini"${estiloMini}><span class="ia-mini-t">${t}</span>${p.destacado && !dentro ? `<span class="ia-mini-d">${esc(p.destacado)}</span>` : ''}${p.subtitulo ? `<span class="ia-mini-s">${esc(p.subtitulo)}</span>` : ''}</div>`;
   };
   const grupos = [];
   for (const p of piezas.slice(1)) { let g = grupos.find((x) => x.n === p.grupo); if (!g) grupos.push(g = { n: p.grupo, items: [] }); g.items.push(p); }
   box.innerHTML = `${estudioHero({ ico: '🖼️', titulo: 'Imágenes con IA', sub: `«${esc(l.name)}» · ${piezas.length} imágenes con el texto exacto y las horas reales`,
       pasos: ['Genera los <strong>mockups</strong> (una vez)', 'Haz la <strong>imagen maestra</strong> con el estilo de la marca', 'Las demás, <strong>editando la maestra</strong>: solo cambia el texto y el mockup'],
-      extra: `${avisoMarcaHtml(marca)}<div class="st-aviso"><span>💡 Así gastas poco: ${mocks.length} mockups + 1 maestra + ${piezas.length - 1} ediciones rápidas, en lugar de ${piezas.length} imágenes desde cero (y salen todas iguales de estilo). ${nBar ? '' : 'No hay bonus de acción rápida en la oferta de este lanzamiento (Configuración → Oferta).'}</span></div>
+      extra: `${avisoMarcaHtml(marca)}
+        <div class="field an-logo"><span>🖼️ Logo del lanzamiento <small>(va en todas las imágenes${ctx.logoDeMarca ? '; mientras no lo pongas, se usa el de Marca y avatar' : ''})</small></span>
+          <div class="an-logo-fila">${l.logoUrl ? `<img src="${esc(l.logoUrl)}" alt="Logo del lanzamiento" class="an-logo-img" loading="lazy">` : ''}<input id="img-logo" type="url" inputmode="url" maxlength="600" placeholder="https://…/logo.png" value="${esc(l.logoUrl || '')}"></div>
+          <small class="st-ayuda" id="img-logo-status">${l.logoUrl ? 'Ya va en los prompts' : '⚠️ Este lanzamiento aún no tiene logo. PNG con fondo transparente · GHL → Sitios → Medios → ⋯ → Copiar enlace'}</small></div>
+        <div class="st-aviso"><span>💡 Así gastas poco: ${mocks.length} mockups + 1 maestra + ${piezas.length - 1} ediciones rápidas, en lugar de ${piezas.length} imágenes desde cero (y salen todas iguales de estilo). ${nBar ? '' : 'No hay bonus de acción rápida en la oferta de este lanzamiento (Configuración → Oferta).'}</span></div>
         <div class="ia-todo"><span>¿Usas el conector de Magnific en Claude? Pega esto y lo hace todo (te enseña el plan y el coste antes):</span>${btn('todo', '📋 Copiar «hazlo todo con Magnific»')}</div>` })}
     <section class="card ia-paso">${pasoCab(1, 'Los mockups', 'Genéralos una vez y guárdalos: se reutilizan en todas las imágenes. Pide fondo liso para recortarlos.')}
       <div class="ia-lista">${mocks.map((m) => `<div class="ia-item"><span class="ia-ico" aria-hidden="true">${m.id === 'grabacion' ? '📼' : m.id === 'producto' ? '📦' : '🎁'}</span><strong>${esc(m.nombre)}</strong>${btn(`m:${m.id}`)}</div>`).join('')}</div>
@@ -13464,6 +13473,18 @@ async function renderImagenesIa() {
     <section class="card ia-paso">${pasoCab(3, 'Las demás, editando la maestra', 'Adjunta la maestra y el mockup que toque, y pega el prompt. Para stories/estados, pasa la que quieras a vertical.', btn('vertical', '📱 Copiar «pasar a 9:16»'))}
       ${grupos.map((g) => `<h4 class="ia-grupo">${esc(g.n)}</h4><div class="ia-piezas">${g.items.map((p) => `<div class="ia-pieza">${vista(p)}<span class="ia-mock">+ ${esc(p.mockup === 'grabacion' ? 'mockup de la grabación' : p.mockup === 'producto' ? 'mockup del producto' : 'mockup del bonus')}</span>${btn(`p:${p.id}`)}</div>`).join('')}</div>`).join('')}
     </section>`;
+  $('#img-logo').addEventListener('change', async (e) => {
+    const url = e.target.value.trim();
+    const st = $('#img-logo-status');
+    if (url && !/^https:\/\/\S+$/i.test(url)) { st.textContent = 'Pon el enlace completo, empezando por https://'; return; }
+    st.textContent = 'Guardando…';
+    try {
+      const { config } = await api('/api/config', { method: 'POST', body: { op: 'logoLanzamiento', l: code, url } });
+      state.config = config;
+      await renderImagenesIa();
+      $('#img-logo-status').textContent = url ? 'Guardado ✓ · ya va en todos los prompts de imágenes (y en los de anuncios)' : 'Logo quitado';
+    } catch (ex) { st.textContent = ex.message; }
+  });
   box.onclick = async (e) => {
     const b = e.target.closest('[data-copiar-img]');
     if (!b || !prompts[b.dataset.copiarImg]) return;

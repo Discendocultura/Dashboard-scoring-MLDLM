@@ -77,11 +77,37 @@ const textoExacto = (p) => [
   p.subtitulo ? `- Subtítulo pequeño abajo: «${p.subtitulo}»` : '',
 ].filter(Boolean).join('\n');
 
+// Colores y tipografías del panel de Marca (Estilo visual), con su papel en la imagen. r: respuestas de la marca.
+const HEX = /^#[0-9a-f]{6}$/i;
+export function paletaMarca(r = {}) {
+  const c = (k) => (HEX.test(String(r?.[k] || '')) ? r[k] : '');
+  const p = { principal: c('color1'), secundario: c('color2'), acento: c('color3'), fondo: c('colorFondo'), texto: c('colorTexto'),
+    fuenteTitulos: String(r?.fuenteTitulos || '').trim(), fuenteTexto: String(r?.fuenteTexto || '').trim() };
+  return Object.values(p).some(Boolean) ? p : null;
+}
+export function bloqueVisual(p) {
+  if (!p) return '';
+  const l = ['COLORES Y TIPOGRAFÍAS DE LA MARCA (obligatorios: usa estos códigos exactos, no otros):'];
+  if (p.fondo || p.principal) l.push(`- Fondo: ${p.fondo || p.principal}${p.fondo && p.principal ? ` (con toques del color principal ${p.principal})` : ''}.`);
+  if (p.texto) l.push(`- Titular y textos: ${p.texto}.`);
+  if (p.acento || p.secundario) l.push(`- Trazo de pincel / bloque del destacado y detalles de urgencia: ${p.acento || p.secundario}.`);
+  if (p.secundario && p.acento) l.push(`- Líneas finas y adornos: ${p.secundario}.`);
+  if (p.fuenteTitulos) l.push(`- Tipografía del titular: ${p.fuenteTitulos} (o la más parecida si no la tienes).`);
+  if (p.fuenteTexto) l.push(`- Tipografía del subtítulo: ${p.fuenteTexto}.`);
+  l.push('- Garantiza buen contraste entre el texto y el fondo.');
+  return l.join('\n');
+}
+
+// Del «Estilo visual», lo que no está ya arriba (colores, tipografías y logo van aparte).
+const restoDiseno = (ctx) => String(ctx.diseno || '').split('\n')
+  .filter((l) => !/^ESTILO VISUAL$/i.test(l.trim()) && !(ctx.paleta && /^- (Color |Tipografía )/.test(l)) && !(ctx.logo && /^- Enlace al logo/.test(l)))
+  .join('\n').trim();
 const estilo = (ctx) => [
   ctx.marca ? `Marca: ${ctx.marca}.` : '',
   ctx.producto ? `Producto: ${ctx.producto}.` : '',
-  ctx.diseno ? `ESTILO VISUAL DE LA MARCA (respétalo: colores, tipografías y ambiente):\n${ctx.diseno}` : 'Estilo visual: elegante y sobrio, fondo oscuro con un color de acento cálido (si tienes el kit de marca, úsalo).',
-  ctx.logo ? `Logo del lanzamiento: ${ctx.logo} (ponlo pequeño arriba, centrado).` : '',
+  bloqueVisual(ctx.paleta),
+  restoDiseno(ctx) ? `ESTILO VISUAL DE LA MARCA (respétalo: ambiente y lo que no quiere ver):\n${restoDiseno(ctx)}` : (ctx.paleta ? '' : 'Estilo visual: elegante y sobrio, fondo oscuro con un color de acento cálido (si tienes el kit de marca, úsalo).'),
+  ctx.logo ? `${ctx.logoDeMarca ? 'Logo de la marca' : 'LOGO DEL LANZAMIENTO'}: ${ctx.logo} (descárgalo o te lo adjunto; va en todas las imágenes, pequeño arriba y centrado, tal cual: sin redibujarlo, deformarlo ni cambiarle los colores).` : '',
 ].filter(Boolean).join('\n');
 
 const REGLAS = `REGLAS DEL TEXTO:
@@ -94,7 +120,7 @@ export function promptMockup(id, ctx = {}, bonus = null) {
   const qué = id === 'grabacion'
     ? `un portátil y un móvil que muestran la GRABACIÓN de una clase en vídeo: reproductor con el botón de play, la barra de progreso y en pantalla ${ctx.persona ? `a ${ctx.persona}` : 'a la persona que imparte la clase'} hablando a cámara en un espacio cuidado. Etiqueta pequeña «GRABACIÓN» en el reproductor.`
     : id === 'producto'
-      ? `el programa «${ctx.producto || 'el producto'}»: un portátil, una tablet y un móvil con el área de alumnos (portada con el nombre «${ctx.producto || 'el producto'}», módulos en miniatura), como un pack premium.`
+      ? `el programa «${ctx.producto || 'el producto'}»: un portátil, una tablet y un móvil con el área de alumnos (portada con el nombre «${ctx.producto || 'el producto'}»${ctx.logo ? ' y el logo del enlace de arriba' : ''}, módulos en miniatura), como un pack premium.`
       : `el bonus «${bonus?.nombre || ''}»${bonus?.detalle ? ` (${bonus.detalle})` : ''}: preséntalo como un objeto tangible y valioso (cuaderno, guía, tarjeta de acceso o pantalla según lo que sea), con su nombre «${bonus?.nombre || ''}» bien legible.`;
   return `Crea un MOCKUP realista en 3D de ${qué}
 
@@ -112,7 +138,7 @@ export function promptMaestra(p, ctx = {}) {
 ${estilo(ctx)}
 
 COMPOSICIÓN (como un cartel editorial):
-- Arriba: el logo o el nombre del lanzamiento, pequeño, con líneas finas decorativas.
+- Arriba: ${ctx.logo ? `el ${ctx.logoDeMarca ? 'logo de la marca' : 'logo del lanzamiento'} (el enlace de arriba), pequeño y centrado, con líneas finas decorativas` : `el nombre del lanzamiento${ctx.lanzamiento ? ` («${ctx.lanzamiento}»)` : ''}, pequeño, con líneas finas decorativas`}.
 - Centro: el titular grande en una tipografía con carácter; la palabra destacada sobre un trazo de pincel del color de acento.
 - Un lado: el mockup adjunto (${mockupCorto(p.mockup, p.bonus)}), grande y con sombra; no lo redibujes, intégralo.
 - Un elemento de urgencia sutil coherente con el estilo (un reloj de arena, un reloj o una cuenta atrás), sin recargar.
@@ -129,6 +155,7 @@ ${REGLAS}`;
 export function promptEdicion(p) {
   return `Edita la imagen maestra adjunta. Mantén TODO igual (fondo, colores, tipografías, logo, composición y tamaño). Cambia SOLO esto:
 ${textoExacto(p)}
+- El logo se queda igual, en su sitio.
 - Mockup: sustitúyelo por el adjunto (${mockupCorto(p.mockup, p.bonus)}), en el mismo sitio y tamaño.${p.subtitulo ? '' : '\n- Si la maestra tenía subtítulo, quítalo.'}
 
 ${REGLAS}`;

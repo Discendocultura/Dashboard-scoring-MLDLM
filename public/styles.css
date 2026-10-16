@@ -5154,8 +5154,8 @@ body.en-inicio .sin-embudos-op { display: none !important; }
 .ia-piezas { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
 .ia-pieza { display: grid; gap: 8px; align-content: space-between; padding: 12px; border-radius: 12px; background: var(--surface-2); }
 .ia-pieza .btn { justify-self: start; }
-.ia-mini { display: grid; gap: 4px; padding: 12px; border-radius: 10px; background: #14213d; color: #f4efe3; text-align: center; min-width: 0; }
-.ia-mini-t { font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 16px; line-height: 1.25; overflow-wrap: anywhere; }
-.ia-mini-d { justify-self: center; padding: 2px 10px; border-radius: 4px; background: #b3261e; color: #fff; font-weight: 800; font-size: 15px; transform: rotate(-1.5deg); overflow-wrap: anywhere; }
+.ia-mini { display: grid; gap: 4px; padding: 12px; border-radius: 10px; background: var(--ia-fondo, #14213d); color: var(--ia-texto, #f4efe3); text-align: center; min-width: 0; }
+.ia-mini-t { font-family: var(--ia-fuente, Georgia, 'Times New Roman', serif); font-weight: 700; font-size: 16px; line-height: 1.25; overflow-wrap: anywhere; }
+.ia-mini-d { justify-self: center; padding: 2px 10px; border-radius: 4px; background: var(--ia-acento, #b3261e); color: #fff; font-weight: 800; font-size: 15px; transform: rotate(-1.5deg); overflow-wrap: anywhere; }
 .ia-mini-s { font-size: 12px; opacity: .85; }
 .ia-mock { font-size: 12px; color: var(--muted); }
