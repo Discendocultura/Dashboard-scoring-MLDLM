@@ -13426,6 +13426,8 @@ async function renderEmailsIa() {
 }
 
 // Plan → Imágenes: los prompts de las imágenes del lanzamiento (mockups, una maestra y el resto como ediciones).
+const imgHechasKey = (code) => `imgHechas_${state.cliente}_${code}`;
+const ICO_MOCKUP = (id) => (id === 'grabacion' ? '📼' : id === 'producto' ? '📦' : '🎁');
 async function renderImagenesIa() {
   const box = $('#imagenes-body');
   const code = state.launchCode;
@@ -13439,40 +13441,82 @@ async function renderImagenesIa() {
   const piezas = piezasImagenes(l, { producto });
   const mocks = mockupsDe(piezas);
   const maestra = piezas[0];
+  const resto = piezas.slice(1);
   const prompts = { todo: promptMagnificImagenes(piezas, ctx), maestra: promptMaestra(maestra, ctx), vertical: PROMPT_VERTICAL };
   for (const m of mocks) prompts[`m:${m.id}`] = promptMockup(m.id, ctx, piezas.find((p) => p.mockup === m.id)?.bonus);
-  for (const p of piezas.slice(1)) prompts[`p:${p.id}`] = promptEdicion(p);
+  for (const p of resto) prompts[`p:${p.id}`] = promptEdicion(p);
+  let hechas;
+  try { hechas = new Set(JSON.parse(ls.get(imgHechasKey(code)) || '[]')); } catch { hechas = new Set(); }
+  const claves = [...mocks.map((m) => `m:${m.id}`), 'maestra', ...resto.map((p) => `p:${p.id}`)];
+  const nHechas = claves.filter((k) => hechas.has(k)).length;
   const nBar = (l.oferta?.bonus || []).filter((b) => String(b.tipo || '').startsWith('bar_')).length;
-  const btn = (k, txt = '📋 Copiar') => `<button type="button" class="btn small" data-copiar-img="${esc(k)}">${txt}</button>`;
-  // La vista previa, con los colores y la tipografía de la marca (si están en Marca y avatar).
+
+  // Colores y tipografía de la marca para pintar las vistas previas (si están en Marca y avatar).
   const textoSobre = (hex) => { const n = parseInt(String(hex || '#14213d').slice(1), 16); return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 > 150 ? '#1a1a1a' : '#ffffff'; };
   const css = (v) => String(v).replace(/[^#0-9a-z ,'-]/gi, '');
-  const estiloMini = paleta ? ` style="${[paleta.fondo || paleta.principal ? `--ia-fondo:${css(paleta.fondo || paleta.principal)}` : '', `--ia-texto:${css(paleta.texto || textoSobre(paleta.fondo || paleta.principal))}`, paleta.acento || paleta.secundario ? `--ia-acento:${css(paleta.acento || paleta.secundario)}` : '', paleta.fuenteTitulos ? `--ia-fuente:'${css(paleta.fuenteTitulos)}', Georgia, serif` : ''].filter(Boolean).join(';')}"` : '';
-  // Vista previa: el destacado, en su trazo de color (dentro del titular si forma parte de él).
-  const vista = (p) => {
+  const fondo = paleta?.fondo || paleta?.principal || '';
+  const vars = paleta ? ` style="${[fondo ? `--ia-fondo:${css(fondo)}` : '', `--ia-texto:${css(paleta.texto || textoSobre(fondo))}`, paleta.acento || paleta.secundario ? `--ia-acento:${css(paleta.acento || paleta.secundario)}` : '', paleta.secundario && paleta.acento ? `--ia-linea:${css(paleta.secundario)}` : '', paleta.fuenteTitulos ? `--ia-fuente:'${css(paleta.fuenteTitulos)}', Georgia, serif` : ''].filter(Boolean).join(';')}"` : '';
+  const cabLogo = ctx.logo ? `<img src="${esc(ctx.logo)}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('LOGO'))">` : `<span>${esc(l.name)}</span>`;
+  const tituloHtml = (p) => {
     const dentro = p.destacado && p.titular.includes(p.destacado);
-    const t = dentro ? esc(p.titular).replace(esc(p.destacado), `<span class="ia-mini-d">${esc(p.destacado)}</span>`) : esc(p.titular);
-    return `<div class="ia-mini"${estiloMini}><span class="ia-mini-t">${t}</span>${p.destacado && !dentro ? `<span class="ia-mini-d">${esc(p.destacado)}</span>` : ''}${p.subtitulo ? `<span class="ia-mini-s">${esc(p.subtitulo)}</span>` : ''}</div>`;
+    const t = dentro ? esc(p.titular).replace(esc(p.destacado), `<mark>${esc(p.destacado)}</mark>`) : esc(p.titular);
+    return `<span class="ia-l-tit">${t}</span>${p.destacado && !dentro ? `<mark class="ia-l-dest">${esc(p.destacado)}</mark>` : ''}`;
   };
+  // Vista previa cuadrada: como quedará la imagen (logo, titular, destacado, mockup y subtítulo).
+  const lienzo = (p, grande = false) => `<div class="ia-lienzo${grande ? ' grande' : ''}"${vars} aria-hidden="true"><div class="ia-l-in">
+      <div class="ia-l-logo">${cabLogo}</div>
+      <div class="ia-l-centro">${tituloHtml(p)}</div>
+      <div class="ia-l-mock"><span>${ICO_MOCKUP(p.mockup === 'grabacion' || p.mockup === 'producto' ? p.mockup : 'bonus')}</span><small>${esc(p.mockup === 'grabacion' ? 'mockup grabación' : p.mockup === 'producto' ? 'mockup producto' : `mockup ${p.bonus?.nombre || 'bonus'}`)}</small></div>
+      ${p.subtitulo ? `<div class="ia-l-sub">${esc(p.subtitulo)}</div>` : ''}
+    </div></div>`;
+  const hecho = (k) => `<button type="button" class="ia-hecho${hechas.has(k) ? ' on' : ''}" data-hecho-img="${esc(k)}" aria-pressed="${hechas.has(k)}" title="Marcar como hecha">${hechas.has(k) ? '✓ Hecha' : 'Marcar hecha'}</button>`;
+  const copiar = (k, txt = '📋 Copiar prompt', cls = '') => `<button type="button" class="btn small${cls ? ` ${cls}` : ''}" data-copiar-img="${esc(k)}">${txt}</button>`;
   const grupos = [];
-  for (const p of piezas.slice(1)) { let g = grupos.find((x) => x.n === p.grupo); if (!g) grupos.push(g = { n: p.grupo, items: [] }); g.items.push(p); }
-  box.innerHTML = `${estudioHero({ ico: '🖼️', titulo: 'Imágenes con IA', sub: `«${esc(l.name)}» · ${piezas.length} imágenes con el texto exacto y las horas reales`,
-      pasos: ['Genera los <strong>mockups</strong> (una vez)', 'Haz la <strong>imagen maestra</strong> con el estilo de la marca', 'Las demás, <strong>editando la maestra</strong>: solo cambia el texto y el mockup'],
-      extra: `${avisoMarcaHtml(marca)}
-        <div class="field an-logo"><span>🖼️ Logo del lanzamiento <small>(va en todas las imágenes${ctx.logoDeMarca ? '; mientras no lo pongas, se usa el de Marca y avatar' : ''})</small></span>
-          <div class="an-logo-fila">${l.logoUrl ? `<img src="${esc(l.logoUrl)}" alt="Logo del lanzamiento" class="an-logo-img" loading="lazy">` : ''}<input id="img-logo" type="url" inputmode="url" maxlength="600" placeholder="https://…/logo.png" value="${esc(l.logoUrl || '')}"></div>
-          <small class="st-ayuda" id="img-logo-status">${l.logoUrl ? 'Ya va en los prompts' : '⚠️ Este lanzamiento aún no tiene logo. PNG con fondo transparente · GHL → Sitios → Medios → ⋯ → Copiar enlace'}</small></div>
-        <div class="st-aviso"><span>💡 Así gastas poco: ${mocks.length} mockups + 1 maestra + ${piezas.length - 1} ediciones rápidas, en lugar de ${piezas.length} imágenes desde cero (y salen todas iguales de estilo). ${nBar ? '' : 'No hay bonus de acción rápida en la oferta de este lanzamiento (Configuración → Oferta).'}</span></div>
-        <div class="ia-todo"><span>¿Usas el conector de Magnific en Claude? Pega esto y lo hace todo (te enseña el plan y el coste antes):</span>${btn('todo', '📋 Copiar «hazlo todo con Magnific»')}</div>` })}
-    <section class="card ia-paso">${pasoCab(1, 'Los mockups', 'Genéralos una vez y guárdalos: se reutilizan en todas las imágenes. Pide fondo liso para recortarlos.')}
-      <div class="ia-lista">${mocks.map((m) => `<div class="ia-item"><span class="ia-ico" aria-hidden="true">${m.id === 'grabacion' ? '📼' : m.id === 'producto' ? '📦' : '🎁'}</span><strong>${esc(m.nombre)}</strong>${btn(`m:${m.id}`)}</div>`).join('')}</div>
-    </section>
-    <section class="card ia-paso">${pasoCab(2, 'La imagen maestra', 'La primera imagen, con todo el diseño. Adjunta el mockup de la grabación y, si quieres, una imagen de referencia del estilo que te guste. Repite hasta que te encante: todo lo demás sale de aquí.')}
-      <div class="ia-item ia-maestra">${vista(maestra)}${btn('maestra', '📋 Copiar el prompt de la maestra')}</div>
-    </section>
-    <section class="card ia-paso">${pasoCab(3, 'Las demás, editando la maestra', 'Adjunta la maestra y el mockup que toque, y pega el prompt. Para stories/estados, pasa la que quieras a vertical.', btn('vertical', '📱 Copiar «pasar a 9:16»'))}
-      ${grupos.map((g) => `<h4 class="ia-grupo">${esc(g.n)}</h4><div class="ia-piezas">${g.items.map((p) => `<div class="ia-pieza">${vista(p)}<span class="ia-mock">+ ${esc(p.mockup === 'grabacion' ? 'mockup de la grabación' : p.mockup === 'producto' ? 'mockup del producto' : 'mockup del bonus')}</span>${btn(`p:${p.id}`)}</div>`).join('')}</div>`).join('')}
+  for (const p of resto) { let g = grupos.find((x) => x.n === p.grupo); if (!g) grupos.push(g = { n: p.grupo, items: [] }); g.items.push(p); }
+  const ICO_GRUPO = (n) => (n === 'Grabación' ? '📼' : n === 'Carrito' ? '🛒' : n === 'Cierre' ? '⏳' : '🎁');
+  const swatches = paleta ? [['Fondo', fondo], ['Texto', paleta.texto], ['Destacado', paleta.acento || paleta.secundario], ['Adornos', paleta.acento ? paleta.secundario : '']].filter(([, c]) => c) : [];
+  const paso = (n, titulo, sub, cuerpo, extra = '') => `<section class="card ia-paso">
+      <header class="ia-paso-cab"><span class="ia-paso-n">${n}</span><div><h3>${titulo}</h3><p>${sub}</p></div>${extra}</header>
+      ${cuerpo}
     </section>`;
+
+  box.innerHTML = `<section class="card ia-hero">
+      <div class="ia-hero-txt">
+        <span class="ia-hero-eti">🖼️ Imágenes con IA · «${esc(l.name)}»</span>
+        <h2>${piezas.length} imágenes listas para pedir a la IA</h2>
+        <p>Con el texto exacto, las horas reales y el estilo de la marca. Copias el prompt, lo pegas en tu IA de imágenes y listo.</p>
+        <div class="ia-progreso" role="progressbar" aria-valuemin="0" aria-valuemax="${claves.length}" aria-valuenow="${nHechas}"><span style="width:${Math.round((nHechas / claves.length) * 100)}%"></span></div>
+        <small class="muted">${nHechas} de ${claves.length} hechas</small>
+      </div>
+      <ol class="ia-flujo" aria-label="Cómo se hacen">
+        <li><b>${mocks.length}</b><span>mockups</span><small>una vez</small></li>
+        <li class="ia-flecha" aria-hidden="true">→</li>
+        <li class="dest"><b>1</b><span>maestra</span><small>con todo el diseño</small></li>
+        <li class="ia-flecha" aria-hidden="true">→</li>
+        <li><b>${resto.length}</b><span>ediciones</span><small>rápidas y baratas</small></li>
+      </ol>
+    </section>
+    <section class="card ia-marca">
+      <div class="ia-marca-col">
+        <h4>🎨 Lo que usará la IA</h4>
+        ${swatches.length ? `<div class="ia-swatches">${swatches.map(([n, c]) => `<span class="ia-sw"><i style="background:${css(c)}"></i><b>${esc(n)}</b><small>${esc(c)}</small></span>`).join('')}</div>` : '<p class="muted small">Sin colores en Marca y avatar → Estilo visual: la IA usará un estilo sobrio.</p>'}
+        ${paleta?.fuenteTitulos || paleta?.fuenteTexto ? `<p class="ia-fuentes">${paleta.fuenteTitulos ? `<span><small>Titular</small><b style="font-family:'${css(paleta.fuenteTitulos)}',Georgia,serif">${esc(paleta.fuenteTitulos)}</b></span>` : ''}${paleta.fuenteTexto ? `<span><small>Subtítulo</small><b>${esc(paleta.fuenteTexto)}</b></span>` : ''}</p>` : ''}
+        ${avisoMarcaHtml(marca)}
+      </div>
+      <div class="ia-marca-col ia-logo">
+        <h4>🏷️ Logo del lanzamiento</h4>
+        <div class="ia-logo-fila"><span class="ia-logo-img">${l.logoUrl ? `<img src="${esc(l.logoUrl)}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('No se ve'))">` : '<span>Sin logo</span>'}</span>
+          <input id="img-logo" type="url" inputmode="url" maxlength="600" placeholder="Pega el enlace del logo (https://…/logo.png)" value="${esc(l.logoUrl || '')}"></div>
+        <small class="st-ayuda" id="img-logo-status">${l.logoUrl ? '✓ Va arriba en todas las imágenes' : ctx.logoDeMarca ? '⚠️ Sin logo del lanzamiento: mientras tanto se usa el de la marca' : '⚠️ Aún no hay logo. PNG con fondo transparente · GHL → Sitios → Medios → ⋯ → Copiar enlace'}</small>
+      </div>
+    </section>
+    <div class="ia-atajo"><span>⚡ ¿Usas Magnific desde Claude? Un solo prompt lo hace todo (y te enseña el coste antes).</span>${copiar('todo', '📋 Copiar «hazlo todo»', 'primary')}</div>
+    ${paso(1, 'Los mockups', 'Genéralos una vez y guárdalos: se reutilizan en todas las imágenes.', `<div class="ia-mocks">${mocks.map((m) => `<article class="ia-mock-card${hechas.has(`m:${m.id}`) ? ' hecha' : ''}"><div class="ia-mock-vis"${vars}><span>${ICO_MOCKUP(m.id === 'grabacion' || m.id === 'producto' ? m.id : 'bonus')}</span></div><strong>${esc(m.nombre)}</strong><div class="ia-acciones">${copiar(`m:${m.id}`)}${hecho(`m:${m.id}`)}</div></article>`).join('')}</div>`)}
+    ${paso(2, 'La imagen maestra', 'La primera, con todo el diseño. Adjunta el mockup de la grabación (y si quieres, una imagen de referencia que te guste). Repite hasta que te encante: todo lo demás sale de aquí.', `<div class="ia-maestra${hechas.has('maestra') ? ' hecha' : ''}">${lienzo(maestra, true)}<div class="ia-maestra-txt"><ul class="ia-checks"><li>Colores y tipografía de la marca</li><li>Logo arriba, sin redibujar</li><li>Texto exacto, con tildes</li><li>Formato cuadrado 1:1</li></ul><div class="ia-acciones">${copiar('maestra', '📋 Copiar prompt de la maestra', 'primary')}${hecho('maestra')}</div></div></div>`)}
+    ${paso(3, 'Las demás, editando la maestra', 'Adjunta la maestra y el mockup que toque y pega el prompt: solo cambian el texto y el mockup.', grupos.map((g) => `<h4 class="ia-grupo"><span>${ICO_GRUPO(g.n)}</span>${esc(g.n)}</h4><div class="ia-galeria">${g.items.map((p) => `<article class="ia-pieza${hechas.has(`p:${p.id}`) ? ' hecha' : ''}">${lienzo(p)}<div class="ia-acciones">${copiar(`p:${p.id}`)}${hecho(`p:${p.id}`)}</div></article>`).join('')}</div>`).join('')
+      + (nBar ? '' : '<p class="muted small">No hay bonus de acción rápida en la oferta de este lanzamiento (Configuración → Oferta): por eso no salen imágenes de bonus.</p>'),
+      copiar('vertical', '📱 Pasar a vertical 9:16'))}`;
+
   $('#img-logo').addEventListener('change', async (e) => {
     const url = e.target.value.trim();
     const st = $('#img-logo-status');
@@ -13482,10 +13526,18 @@ async function renderImagenesIa() {
       const { config } = await api('/api/config', { method: 'POST', body: { op: 'logoLanzamiento', l: code, url } });
       state.config = config;
       await renderImagenesIa();
-      $('#img-logo-status').textContent = url ? 'Guardado ✓ · ya va en todos los prompts de imágenes (y en los de anuncios)' : 'Logo quitado';
+      $('#img-logo-status').textContent = url ? 'Guardado ✓ · ya va en todas las imágenes (y en los anuncios)' : 'Logo quitado';
     } catch (ex) { st.textContent = ex.message; }
   });
   box.onclick = async (e) => {
+    const h = e.target.closest('[data-hecho-img]');
+    if (h) {
+      const k = h.dataset.hechoImg;
+      if (hechas.has(k)) hechas.delete(k); else hechas.add(k);
+      ls.set(imgHechasKey(code), JSON.stringify([...hechas]));
+      renderImagenesIa();
+      return;
+    }
     const b = e.target.closest('[data-copiar-img]');
     if (!b || !prompts[b.dataset.copiarImg]) return;
     const antes = b.textContent;
