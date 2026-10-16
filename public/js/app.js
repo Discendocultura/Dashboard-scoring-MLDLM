@@ -59,7 +59,7 @@ import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa }
 import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, calendarioWhatsapp, FASES_WA, FASES_WA_DEFECTO, asuntosGanadores, promptEmails, ANGULOS_PREVIOS } from './emails-ia.js';
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto, accesosDePaginas, conAccesos } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
-import { piezasImagenes, mockupsDe, promptMockup, promptMaestra, promptEdicion, promptMagnificImagenes, PROMPT_VERTICAL, paletaMarca } from './imagenes-ia.js';
+import { piezasImagenes, promptImagen, promptMagnificImagenes, PROMPT_VERTICAL, paletaMarca } from './imagenes-ia.js';
 import { iniciarAnimaciones } from './animaciones.js';
 import { FASES_PLAN, enviosPorDefecto, enviosDe, planEnvios, sanitizeEnvios } from './envios.js';
 import { componerEmails } from './emails.js';
@@ -2968,7 +2968,7 @@ const AYUDA_VISTA = {
   paginas: ['🧱 Páginas', 'Las páginas del embudo hechas con IA: copia el prompt de cada página (lleva la marca, el avatar, los datos del embudo y los códigos del dashboard), pégalo en Claude y pega el HTML que te devuelva en un elemento «Código personalizado» de GHL.'],
   claude: ['🧠 Analizar con Claude', 'El análisis del lanzamiento con Claude y el conector «Dashboard Datos» (Agencia → Claude): copia el prompt, pégalo en Claude y te devuelve qué funcionó, el cuello de botella y mejoras concretas para el próximo.'],
   automatizaciones: ['⚙️ Automatizaciones', 'Los workflows de GHL del embudo. Si hay que crearlos de cero, cada uno trae su prompt para que Claude lo monte en GHL (en la carpeta del lanzamiento); marca su estado y pega su enlace al terminar.'],
-  imagenes: ['🖼️ Imágenes', 'Las imágenes de cada momento del lanzamiento (grabación, plazas abiertas, bonus que terminan y cierre) con su texto exacto. Primero los mockups, luego una imagen maestra y el resto como ediciones: salen iguales y gastan poco.'],
+  imagenes: ['🖼️ Imágenes', 'Las imágenes de cada momento del lanzamiento (grabación, plazas abiertas, bonus que terminan y cierre) con su texto exacto. Cada una tiene su prompt completo, con su mockup y el estilo de la marca: copias, pegas en tu IA de imágenes y listo.'],
   emailsia: ['✉️ Emails', 'La secuencia de emails del lanzamiento con IA: el calendario de envíos sale de las fechas reales; copia el prompt (con la ficha de marca, la narrativa y los asuntos que mejor funcionaron), pégalo en Claude y programa los emails en GHL.'],
   grupowa: ['💬 Grupo de WhatsApp', 'Los mensajes del grupo de este lanzamiento: copia el prompt, pégalo en Claude (con tu skill de copy), pega aquí su respuesta, sube los archivos, revisa y programa en SendFlow con un botón.'],
   carrito: ['🛒 Carrito', 'Cada día del carrito: lo que pasa ese día (se calcula solo con las fechas, la oferta y la barra), los emails y WhatsApps previstos y la estrategia.'],
@@ -13425,7 +13425,7 @@ async function renderEmailsIa() {
   });
 }
 
-// Plan → Imágenes: los prompts de las imágenes del lanzamiento (mockups, una maestra y el resto como ediciones).
+// Plan → Imágenes: un prompt completo por imagen del lanzamiento (estilo, logo, su mockup y el texto exacto).
 const imgHechasKey = (code) => `imgHechas_${state.cliente}_${code}`;
 const ICO_MOCKUP = (id) => (id === 'grabacion' ? '📼' : id === 'producto' ? '📦' : '🎁');
 async function renderImagenesIa() {
@@ -13439,15 +13439,11 @@ async function renderImagenesIa() {
   const paleta = paletaMarca(marca?.m?.respuestas);
   const ctx = { marca: clienteNombre(), producto, diseno: disenoTexto(marca?.m), paleta, logo: l.logoUrl || marca?.m?.respuestas?.logo || '', logoDeMarca: !l.logoUrl && Boolean(marca?.m?.respuestas?.logo), lanzamiento: l.name };
   const piezas = piezasImagenes(l, { producto });
-  const mocks = mockupsDe(piezas);
-  const maestra = piezas[0];
-  const resto = piezas.slice(1);
-  const prompts = { todo: promptMagnificImagenes(piezas, ctx), maestra: promptMaestra(maestra, ctx), vertical: PROMPT_VERTICAL };
-  for (const m of mocks) prompts[`m:${m.id}`] = promptMockup(m.id, ctx, piezas.find((p) => p.mockup === m.id)?.bonus);
-  for (const p of resto) prompts[`p:${p.id}`] = promptEdicion(p);
+  const prompts = { todo: promptMagnificImagenes(piezas, ctx), vertical: PROMPT_VERTICAL };
+  for (const p of piezas) prompts[`p:${p.id}`] = promptImagen(p, ctx);
   let hechas;
   try { hechas = new Set(JSON.parse(ls.get(imgHechasKey(code)) || '[]')); } catch { hechas = new Set(); }
-  const claves = [...mocks.map((m) => `m:${m.id}`), 'maestra', ...resto.map((p) => `p:${p.id}`)];
+  const claves = piezas.map((p) => `p:${p.id}`);
   const nHechas = claves.filter((k) => hechas.has(k)).length;
   const nBar = (l.oferta?.bonus || []).filter((b) => String(b.tipo || '').startsWith('bar_')).length;
 
@@ -13472,28 +13468,24 @@ async function renderImagenesIa() {
   const hecho = (k) => `<button type="button" class="ia-hecho${hechas.has(k) ? ' on' : ''}" data-hecho-img="${esc(k)}" aria-pressed="${hechas.has(k)}" title="Marcar como hecha">${hechas.has(k) ? '✓ Hecha' : 'Marcar hecha'}</button>`;
   const copiar = (k, txt = '📋 Copiar prompt', cls = '') => `<button type="button" class="btn small${cls ? ` ${cls}` : ''}" data-copiar-img="${esc(k)}">${txt}</button>`;
   const grupos = [];
-  for (const p of resto) { let g = grupos.find((x) => x.n === p.grupo); if (!g) grupos.push(g = { n: p.grupo, items: [] }); g.items.push(p); }
+  for (const p of piezas) { let g = grupos.find((x) => x.n === p.grupo); if (!g) grupos.push(g = { n: p.grupo, items: [] }); g.items.push(p); }
   const ICO_GRUPO = (n) => (n === 'Grabación' ? '📼' : n === 'Carrito' ? '🛒' : n === 'Cierre' ? '⏳' : '🎁');
   const swatches = paleta ? [['Fondo', fondo], ['Texto', paleta.texto], ['Destacado', paleta.acento || paleta.secundario], ['Adornos', paleta.acento ? paleta.secundario : '']].filter(([, c]) => c) : [];
-  const paso = (n, titulo, sub, cuerpo, extra = '') => `<section class="card ia-paso">
-      <header class="ia-paso-cab"><span class="ia-paso-n">${n}</span><div><h3>${titulo}</h3><p>${sub}</p></div>${extra}</header>
-      ${cuerpo}
-    </section>`;
 
   box.innerHTML = `<section class="card ia-hero">
       <div class="ia-hero-txt">
         <span class="ia-hero-eti">🖼️ Imágenes con IA · «${esc(l.name)}»</span>
-        <h2>${piezas.length} imágenes listas para pedir a la IA</h2>
-        <p>Con el texto exacto, las horas reales y el estilo de la marca. Copias el prompt, lo pegas en tu IA de imágenes y listo.</p>
+        <h2>${piezas.length} imágenes, un prompt cada una</h2>
+        <p>Cada imagen tiene su prompt completo: el texto exacto, las horas reales, los colores y el logo de la marca y su mockup. Sin pasos aparte.</p>
         <div class="ia-progreso" role="progressbar" aria-valuemin="0" aria-valuemax="${claves.length}" aria-valuenow="${nHechas}"><span style="width:${Math.round((nHechas / claves.length) * 100)}%"></span></div>
         <small class="muted">${nHechas} de ${claves.length} hechas</small>
       </div>
-      <ol class="ia-flujo" aria-label="Cómo se hacen">
-        <li><b>${mocks.length}</b><span>mockups</span><small>una vez</small></li>
+      <ol class="ia-flujo" aria-label="Cómo se hace">
+        <li><b>📋</b><span>Copia</span><small>el prompt de la imagen</small></li>
         <li class="ia-flecha" aria-hidden="true">→</li>
-        <li class="dest"><b>1</b><span>maestra</span><small>con todo el diseño</small></li>
+        <li><b>🤖</b><span>Pega</span><small>en tu IA de imágenes</small></li>
         <li class="ia-flecha" aria-hidden="true">→</li>
-        <li><b>${resto.length}</b><span>ediciones</span><small>rápidas y baratas</small></li>
+        <li class="dest"><b>✨</b><span>Lista</span><small>con su mockup</small></li>
       </ol>
     </section>
     <section class="card ia-marca">
@@ -13510,12 +13502,12 @@ async function renderImagenesIa() {
         <small class="st-ayuda" id="img-logo-status">${l.logoUrl ? '✓ Va arriba en todas las imágenes' : ctx.logoDeMarca ? '⚠️ Sin logo del lanzamiento: mientras tanto se usa el de la marca' : '⚠️ Aún no hay logo. PNG con fondo transparente · GHL → Sitios → Medios → ⋯ → Copiar enlace'}</small>
       </div>
     </section>
-    <div class="ia-atajo"><span>⚡ ¿Usas Magnific desde Claude? Un solo prompt lo hace todo (y te enseña el coste antes).</span>${copiar('todo', '📋 Copiar «hazlo todo»', 'primary')}</div>
-    ${paso(1, 'Los mockups', 'Genéralos una vez y guárdalos: se reutilizan en todas las imágenes.', `<div class="ia-mocks">${mocks.map((m) => `<article class="ia-mock-card${hechas.has(`m:${m.id}`) ? ' hecha' : ''}"><div class="ia-mock-vis"${vars}><span>${ICO_MOCKUP(m.id === 'grabacion' || m.id === 'producto' ? m.id : 'bonus')}</span></div><strong>${esc(m.nombre)}</strong><div class="ia-acciones">${copiar(`m:${m.id}`)}${hecho(`m:${m.id}`)}</div></article>`).join('')}</div>`)}
-    ${paso(2, 'La imagen maestra', 'La primera, con todo el diseño. Adjunta el mockup de la grabación (y si quieres, una imagen de referencia que te guste). Repite hasta que te encante: todo lo demás sale de aquí.', `<div class="ia-maestra${hechas.has('maestra') ? ' hecha' : ''}">${lienzo(maestra, true)}<div class="ia-maestra-txt"><ul class="ia-checks"><li>Colores y tipografía de la marca</li><li>Logo arriba, sin redibujar</li><li>Texto exacto, con tildes</li><li>Formato cuadrado 1:1</li></ul><div class="ia-acciones">${copiar('maestra', '📋 Copiar prompt de la maestra', 'primary')}${hecho('maestra')}</div></div></div>`)}
-    ${paso(3, 'Las demás, editando la maestra', 'Adjunta la maestra y el mockup que toque y pega el prompt: solo cambian el texto y el mockup.', grupos.map((g) => `<h4 class="ia-grupo"><span>${ICO_GRUPO(g.n)}</span>${esc(g.n)}</h4><div class="ia-galeria">${g.items.map((p) => `<article class="ia-pieza${hechas.has(`p:${p.id}`) ? ' hecha' : ''}">${lienzo(p)}<div class="ia-acciones">${copiar(`p:${p.id}`)}${hecho(`p:${p.id}`)}</div></article>`).join('')}</div>`).join('')
-      + (nBar ? '' : '<p class="muted small">No hay bonus de acción rápida en la oferta de este lanzamiento (Configuración → Oferta): por eso no salen imágenes de bonus.</p>'),
-      copiar('vertical', '📱 Pasar a vertical 9:16'))}`;
+    <div class="ia-atajo"><span>⚡ ¿Usas Magnific desde Claude? Un solo prompt hace todas las imágenes de golpe (y te enseña el coste antes).</span>${copiar('todo', '📋 Copiar «hazlas todas»')}</div>
+    <section class="card ia-paso">
+      <header class="ia-paso-cab"><div><h3>Las imágenes</h3><p>Pulsa «Copiar prompt», pégalo en tu IA de imágenes (ChatGPT, Gemini, Magnific…) y sale la imagen terminada. ¿Para stories? Pídele a la misma IA que la pase a vertical.</p></div>${copiar('vertical', '📱 Pasar a vertical 9:16')}</header>
+      ${grupos.map((g) => `<h4 class="ia-grupo"><span>${ICO_GRUPO(g.n)}</span>${esc(g.n)}</h4><div class="ia-galeria">${g.items.map((p) => `<article class="ia-pieza${hechas.has(`p:${p.id}`) ? ' hecha' : ''}">${lienzo(p)}<div class="ia-acciones">${copiar(`p:${p.id}`, '📋 Copiar prompt', 'primary')}${hecho(`p:${p.id}`)}</div></article>`).join('')}</div>`).join('')}
+      ${nBar ? '' : '<p class="muted small">No hay bonus de acción rápida en la oferta de este lanzamiento (Configuración → Oferta): por eso no salen imágenes de bonus.</p>'}
+    </section>`;
 
   $('#img-logo').addEventListener('change', async (e) => {
     const url = e.target.value.trim();

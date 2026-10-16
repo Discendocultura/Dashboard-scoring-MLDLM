@@ -1,8 +1,5 @@
 // Imágenes con IA para un lanzamiento (WhatsApp, stories, emails): las piezas de cada momento con su texto exacto y
-// los prompts para generarlas gastando poco. El método:
-//   1. Los MOCKUPS, una vez (la grabación, el producto y cada bonus que caduca).
-//   2. UNA imagen maestra con el estilo de la marca.
-//   3. El resto, como EDICIONES de la maestra: solo cambia el titular, el subtítulo y el mockup.
+// un prompt completo por imagen (estilo de la marca, logo, su mockup y el texto): se copia, se pega y sale la imagen.
 import { milestones } from './page.js';
 import { momentosCarrito, ventanaBonus, tipoBonus } from './oferta.js';
 
@@ -57,20 +54,6 @@ export function piezasImagenes(launch = {}, { producto = '' } = {}) {
   return out;
 }
 
-// Los mockups que hacen falta (sin repetir), en orden.
-export function mockupsDe(piezas) {
-  const vistos = new Map();
-  for (const p of piezas) if (!vistos.has(p.mockup)) vistos.set(p.mockup, p);
-  return [...vistos.values()].map((p) => ({ id: p.mockup, nombre: nombreMockup(p.mockup, p.bonus) }));
-}
-const minus = (s) => s.charAt(0).toLowerCase() + s.slice(1);
-export const mockupCorto = (id, bonus) => minus(nombreMockup(id, bonus));
-export function nombreMockup(id, bonus) {
-  if (id === 'grabacion') return 'Mockup de la grabación';
-  if (id === 'producto') return 'Mockup del producto';
-  return `Mockup del bonus «${bonus?.nombre || ''}»`;
-}
-
 const textoExacto = (p) => [
   `- Titular: «${p.titular}»`,
   p.destacado && !p.titular.includes(p.destacado) ? `- Destacado (sobre un trazo de pincel o bloque de color de acento, en grande): «${p.destacado}»` : p.destacado ? `- Resalta «${p.destacado}» dentro del titular (más grande, sobre un trazo de pincel o bloque de color de acento).` : '',
@@ -107,7 +90,7 @@ const estilo = (ctx) => [
   ctx.producto ? `Producto: ${ctx.producto}.` : '',
   bloqueVisual(ctx.paleta),
   restoDiseno(ctx) ? `ESTILO VISUAL DE LA MARCA (respétalo: ambiente y lo que no quiere ver):\n${restoDiseno(ctx)}` : (ctx.paleta ? '' : 'Estilo visual: elegante y sobrio, fondo oscuro con un color de acento cálido (si tienes el kit de marca, úsalo).'),
-  ctx.logo ? `${ctx.logoDeMarca ? 'Logo de la marca' : 'LOGO DEL LANZAMIENTO'}: ${ctx.logo} (descárgalo o te lo adjunto; va en todas las imágenes, pequeño arriba y centrado, tal cual: sin redibujarlo, deformarlo ni cambiarle los colores).` : '',
+  ctx.logo ? `${ctx.logoDeMarca ? 'Logo de la marca' : 'LOGO DEL LANZAMIENTO'}: ${ctx.logo} (descárgalo de ese enlace; va en todas las imágenes, pequeño arriba y centrado, tal cual: sin redibujarlo, deformarlo ni cambiarle los colores).` : '',
 ].filter(Boolean).join('\n');
 
 const REGLAS = `REGLAS DEL TEXTO:
@@ -115,73 +98,52 @@ const REGLAS = `REGLAS DEL TEXTO:
 - Nada más de texto en la imagen (ni precios, ni fechas inventadas, ni marcas de terceros).
 - Que se lea en el móvil: titular grande, máximo 3 tamaños de letra, buen contraste.`;
 
-// Prompt de un mockup (se genera UNA vez y se reutiliza en todas sus piezas).
-export function promptMockup(id, ctx = {}, bonus = null) {
-  const qué = id === 'grabacion'
-    ? `un portátil y un móvil que muestran la GRABACIÓN de una clase en vídeo: reproductor con el botón de play, la barra de progreso y en pantalla ${ctx.persona ? `a ${ctx.persona}` : 'a la persona que imparte la clase'} hablando a cámara en un espacio cuidado. Etiqueta pequeña «GRABACIÓN» en el reproductor.`
-    : id === 'producto'
-      ? `el programa «${ctx.producto || 'el producto'}»: un portátil, una tablet y un móvil con el área de alumnos (portada con el nombre «${ctx.producto || 'el producto'}»${ctx.logo ? ' y el logo del enlace de arriba' : ''}, módulos en miniatura), como un pack premium.`
-      : `el bonus «${bonus?.nombre || ''}»${bonus?.detalle ? ` (${bonus.detalle})` : ''}: preséntalo como un objeto tangible y valioso (cuaderno, guía, tarjeta de acceso o pantalla según lo que sea), con su nombre «${bonus?.nombre || ''}» bien legible.`;
-  return `Crea un MOCKUP realista en 3D de ${qué}
-
-${estilo(ctx)}
-
-- Fondo transparente o liso de un solo color (lo voy a recortar y colocar en otras imágenes).
-- Iluminación de estudio suave, sombras realistas, alta resolución, formato 1:1.
-- Solo el texto indicado; nada de marcas de terceros (sin logos de Apple ni similares).`;
+// Qué mockup lleva cada imagen (descrito dentro de su prompt: se genera junto con la imagen, sin pasos aparte).
+export function describirMockup(id, ctx = {}, bonus = null) {
+  if (id === 'grabacion') return `un portátil y un móvil que muestran la GRABACIÓN de la clase en vídeo: reproductor con el botón de play y la barra de progreso, y en pantalla ${ctx.persona ? `a ${ctx.persona}` : 'a la persona que imparte la clase'} hablando a cámara. Etiqueta pequeña «GRABACIÓN» en el reproductor`;
+  if (id === 'producto') return `el programa «${ctx.producto || 'el producto'}» como un pack premium: un portátil, una tablet y un móvil con el área de alumnos (portada con el nombre «${ctx.producto || 'el producto'}»${ctx.logo ? ' y el logo' : ''}, módulos en miniatura)`;
+  return `el bonus «${bonus?.nombre || ''}»${bonus?.detalle ? ` (${bonus.detalle})` : ''} como un objeto tangible y valioso (cuaderno, guía, tarjeta de acceso o pantalla, según lo que sea), con su nombre «${bonus?.nombre || ''}» bien legible`;
 }
 
-// La pieza maestra: la primera, con todo el diseño.
-export function promptMaestra(p, ctx = {}) {
-  return `Diseña una imagen para WhatsApp y redes (formato 1:1, 1080×1080) para un lanzamiento. Va a ser la PLANTILLA de toda la serie, así que cuida la composición: después solo cambiaré el texto y el mockup.
+// El prompt de UNA imagen, completo: estilo de la marca, logo, mockup y texto exacto. Se copia, se pega y sale la imagen.
+// Todas comparten el mismo estilo y la misma composición, así que la serie sale coherente.
+export function promptImagen(p, ctx = {}) {
+  return `Crea una imagen para WhatsApp y redes sociales (formato cuadrado 1:1, 1080×1080) para un lanzamiento.
 
 ${estilo(ctx)}
 
-COMPOSICIÓN (como un cartel editorial):
-- Arriba: ${ctx.logo ? `el ${ctx.logoDeMarca ? 'logo de la marca' : 'logo del lanzamiento'} (el enlace de arriba), pequeño y centrado, con líneas finas decorativas` : `el nombre del lanzamiento${ctx.lanzamiento ? ` («${ctx.lanzamiento}»)` : ''}, pequeño, con líneas finas decorativas`}.
-- Centro: el titular grande en una tipografía con carácter; la palabra destacada sobre un trazo de pincel del color de acento.
-- Un lado: el mockup adjunto (${mockupCorto(p.mockup, p.bonus)}), grande y con sombra; no lo redibujes, intégralo.
-- Un elemento de urgencia sutil coherente con el estilo (un reloj de arena, un reloj o una cuenta atrás), sin recargar.
+COMPOSICIÓN (como un cartel editorial, limpio y elegante):
+- Arriba: ${ctx.logo ? `el ${ctx.logoDeMarca ? 'logo de la marca' : 'logo del lanzamiento'} (el enlace de arriba), pequeño y centrado, con líneas finas decorativas a los lados` : `el nombre del lanzamiento${ctx.lanzamiento ? ` («${ctx.lanzamiento}»)` : ''}, pequeño, con líneas finas decorativas a los lados`}.
+- Centro: el titular grande, en una tipografía con carácter; la parte destacada sobre un trazo de pincel del color de acento.
+- Un lado o abajo: un MOCKUP realista en 3D: ${describirMockup(p.mockup, ctx, p.bonus)}. Grande, con sombra suave e iluminación de estudio.
+- Un detalle de urgencia sutil y coherente con el estilo (un reloj de arena, un reloj o una cuenta atrás), sin recargar.
 - Abajo: el subtítulo pequeño.
 - Deja aire alrededor; que se entienda en 2 segundos en el móvil.
 
 TEXTO:
 ${textoExacto(p)}
 
-${REGLAS}`;
+${REGLAS}
+- Nada de logos ni marcas de terceros (ni la manzana de Apple ni similares).`;
 }
 
-// Las demás: edición de la maestra (gasta mucho menos y la serie queda igual).
-export function promptEdicion(p) {
-  return `Edita la imagen maestra adjunta. Mantén TODO igual (fondo, colores, tipografías, logo, composición y tamaño). Cambia SOLO esto:
-${textoExacto(p)}
-- El logo se queda igual, en su sitio.
-- Mockup: sustitúyelo por el adjunto (${mockupCorto(p.mockup, p.bonus)}), en el mismo sitio y tamaño.${p.subtitulo ? '' : '\n- Si la maestra tenía subtítulo, quítalo.'}
-
-${REGLAS}`;
-}
-
-// Versión vertical (stories/estados) a partir de la cuadrada: una edición barata.
+// Versión vertical (stories/estados) de una imagen ya hecha.
 export const PROMPT_VERTICAL = 'Adapta esta imagen a formato vertical 9:16 (1080×1920) para stories y estados: amplía el fondo arriba y abajo con el mismo estilo, sin deformar nada, y deja libres los 250 px de arriba y de abajo. Mismo texto, exactamente igual.';
 
-// Todo de una vez con el conector de Magnific (para Claude): plan y coste antes de generar.
+// Todas de una vez con el conector de Magnific (para Claude): plan y coste antes de generar.
 export function promptMagnificImagenes(piezas, ctx = {}) {
-  const mocks = mockupsDe(piezas);
-  return `Crea las IMÁGENES del lanzamiento${ctx.lanzamiento ? ` «${ctx.lanzamiento}»` : ''} con el conector de MAGNIFIC, gastando lo mínimo.
+  return `Crea las ${piezas.length} IMÁGENES del lanzamiento${ctx.lanzamiento ? ` «${ctx.lanzamiento}»` : ''} con el conector de MAGNIFIC.
 
 ${estilo(ctx)}
 
 CÓMO HACERLO:
 1. Kit de marca: busca uno de «${ctx.marca || 'la marca'}» (brand_kit_list); si no hay, créalo con el estilo de arriba.${ctx.logo ? ` Sube el logo desde ${ctx.logo} (creations_upload_image).` : ''}
 2. Antes de generar nada, enséñame el PLAN y el COSTE ESTIMADO en créditos (simulate_cost). Espera a que te diga «adelante».
-3. Genera primero los ${mocks.length} mockups, una sola vez cada uno (fondo liso, para recortarlos):
-${mocks.map((m) => `   - ${m.nombre}`).join('\n')}
-4. Haz UNA imagen maestra (1:1) con la primera pieza y enséñamela. Cuando la apruebe, haz las demás EDITANDO la maestra (solo el texto y el mockup), no desde cero.
-5. Si te lo pido, adapta las que quiera a 9:16 ampliando el fondo (no regenerando).
-6. Guárdalo todo en una carpeta «Imágenes ${ctx.lanzamiento || 'lanzamiento'}» y dame la lista con el enlace de cada una.
+3. Todas con el mismo estilo y la misma composición: cuadradas 1:1, logo arriba, titular en el centro con el destacado sobre un trazo de pincel del color de acento, el mockup de cada una y el subtítulo abajo.
+4. Guárdalas en una carpeta «Imágenes ${ctx.lanzamiento || 'lanzamiento'}» y dame la lista con el enlace de cada una.
 
-LAS PIEZAS (texto exacto, con tildes):
-${piezas.map((p, i) => `${i + 1}. ${[p.titular, p.destacado && !p.titular.includes(p.destacado) ? p.destacado : '', p.subtitulo].filter(Boolean).join(' · ')}  →  ${mockupCorto(p.mockup, p.bonus)}`).join('\n')}
+LAS IMÁGENES (texto exacto, con tildes, y su mockup):
+${piezas.map((p, i) => `${i + 1}. ${[p.titular, p.destacado && !p.titular.includes(p.destacado) ? p.destacado : '', p.subtitulo].filter(Boolean).join(' · ')}\n   Mockup: ${describirMockup(p.mockup, ctx, p.bonus)}.`).join('\n')}
 
 ${REGLAS}`;
 }
