@@ -2,7 +2,7 @@
   "nombre": "Documental",
   "_que_es": "Tono de documental de historia: franjas de cine, viñeta, grano y color envejecido. Subtítulos en serif cursiva que se escriben como a máquina. Gancho como título de capítulo. Escenas: rótulo de lugar y fecha, mapa con ruta que se dibuja, imagen de archivo envejecida. Ideal para Claves (historia y actualidad).",
   "subtitulos": "maquina",
-  "subAltura": 1330,
+  "subAltura": 1440,
   "gancho": "cita",
   "marco": "documental",
   "filtro": "sepia(.25) contrast(1.06) saturate(.85)",

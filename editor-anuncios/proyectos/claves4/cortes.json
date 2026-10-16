@@ -1,0 +1,5 @@
+[
+ {"inicio": 0.0, "fin": 19.7, "tipo": "toma", "confianza": "alta", "quitado": "Primera toma fallida y comentarios de rodaje", "contexto": "Vale, empiezo. El 37 % de"},
+ {"inicio": 55.45, "fin": 56.0, "tipo": "pausa", "confianza": "alta", "quitado": "(pausa de 0.7 s)", "contexto": "el segundo día tendrás … una masterclass"},
+ {"inicio": 68.88, "fin": 69.35, "tipo": "pausa", "confianza": "alta", "quitado": "(pausa de 0.6 s)", "contexto": "más de … 60.000 personas"}
+]

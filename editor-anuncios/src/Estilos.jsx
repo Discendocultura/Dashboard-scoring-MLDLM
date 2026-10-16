@@ -35,7 +35,7 @@ export const SubMaquina = ({frase, t, e, top}) => {
   const n = Math.ceil(interpolate(t, [t0, Math.max(t0 + 0.2, t1 - 0.1)], [0, texto.length], clamp));
   return (
     <div style={{position: 'absolute', top, left: 90, right: 90, textAlign: 'center', fontFamily: e.fuenteTitulos, fontStyle: 'italic', fontWeight: 700, fontSize: 60,
-      lineHeight: 1.25, color: e.claro, textShadow: '0 3px 12px rgba(0,0,0,.9)'}}>
+      lineHeight: 1.25, color: e.claro, textShadow: '0 2px 4px #000, 0 3px 16px rgba(0,0,0,.95)'}}>
       {texto.slice(0, n)}<span style={{opacity: Math.floor(t * 3) % 2 ? 0 : 1, color: e.acento}}>|</span>
     </div>
   );
@@ -113,12 +113,12 @@ const Grano = ({opacidad = 0.07}) => {
 };
 
 // Documental: franjas de cine, viñeta y grano
-export const MarcoDocumental = () => (
+export const MarcoDocumental = ({tapado}) => (
   <AbsoluteFill style={{pointerEvents: 'none'}}>
     <AbsoluteFill style={{background: 'radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 50%, rgba(0,0,0,.6) 100%)'}} />
     <Grano opacidad={0.1} />
     <div style={{position: 'absolute', top: 0, left: 0, right: 0, height: 170, background: '#000'}} />
-    <div style={{position: 'absolute', bottom: 0, left: 0, right: 0, height: 170, background: '#000'}} />
+    <div style={{position: 'absolute', bottom: 0, left: 0, right: 0, height: tapado ? 0 : 170, background: '#000'}} />
   </AbsoluteFill>
 );
 
@@ -183,12 +183,12 @@ export const FondoPizarra = ({e, desde}) => (
 
 // ───────────────────────── Escenas ─────────────────────────
 
-// Documental: rótulo de lugar y fecha abajo a la izquierda, con raya que se dibuja
+// Documental: rótulo de lugar y fecha arriba a la izquierda (bajo la franja de cine), con raya que se dibuja
 export const Rotulo = ({e, lugar, fecha}) => {
   const f = useCurrentFrame(); const {fps, durationInFrames} = useVideoConfig();
   const p = interpolate(f, [0, fps * 0.5], [0, 1], clamp);
   return (
-    <div style={{position: 'absolute', left: 70, bottom: 250, opacity: sal(f, durationInFrames, 10)}}>
+    <div style={{position: 'absolute', left: 70, top: 215, opacity: sal(f, durationInFrames, 10)}}>
       <div style={{height: 4, width: 220 * p, background: e.acento, marginBottom: 14}} />
       <div style={{fontFamily: e.fuenteTitulos, fontWeight: 700, fontSize: 52, color: e.claro, letterSpacing: 1, opacity: p, textShadow: '0 3px 10px rgba(0,0,0,.8)'}}>{lugar}</div>
       {fecha && <div style={{fontFamily: e.fuenteSubs, fontWeight: 700, fontSize: 30, color: e.acento, letterSpacing: 6, textTransform: 'uppercase', opacity: p}}>{fecha}</div>}
@@ -254,16 +254,16 @@ export const DatoTV = ({e, cifra, texto, fuente}) => {
 };
 
 // Nativo: nota del móvil (estilo app de Notas) que sube con los puntos tachándose o marcándose
-export const Nota = ({e, titulo, lineas = [], cada = 0.6}) => {
+export const Nota = ({e, titulo, lineas = [], cada = 0.6, top = 230}) => {
   const f = useCurrentFrame(); const {fps, durationInFrames} = useVideoConfig();
   const p = spring({frame: f, fps, config: {damping: 13}});
   return (
-    <div style={{position: 'absolute', top: 230, left: 110, right: 110, opacity: sal(f, durationInFrames), transform: `translateY(${(1 - p) * 500}px) rotate(-2deg)`}}>
+    <div style={{position: 'absolute', top, left: 110, right: 110, opacity: sal(f, durationInFrames), transform: `translateY(${(1 - p) * 500}px) rotate(-2deg)`}}>
       <div style={{background: '#fffdf4', borderRadius: 28, padding: '30px 36px', boxShadow: '0 20px 50px rgba(0,0,0,.45)'}}>
         <div style={{fontFamily: 'Inter', fontWeight: 800, fontSize: 26, color: '#c9a227', marginBottom: 6}}>‹ Notas</div>
         <div style={{fontFamily: 'Inter', fontWeight: 800, fontSize: 46, color: '#111', marginBottom: 14}}>{titulo}</div>
         {lineas.map((l, i) => {
-          const on = f / fps >= 0.4 + i * cada;
+          const on = f / fps >= (l.en ?? 0.4 + i * cada);   // `en`: segundo (desde el inicio de la escena) en que aparece la línea
           return <div key={i} style={{fontFamily: 'Inter', fontWeight: 600, fontSize: 38, color: '#222', lineHeight: 1.5, opacity: on ? 1 : 0,
             textDecoration: l.tachar ? 'line-through' : 'none', textDecorationColor: e.primario}}>{l.marca ?? '•'} {l.texto}</div>;
         })}
@@ -278,7 +278,7 @@ export const Chat = ({e, mensajes = [], cada = 0.9}) => {
   return (
     <div style={{position: 'absolute', top: 230, left: 60, right: 60, opacity: sal(f, durationInFrames)}}>
       {mensajes.map((m, i) => {
-        const p = spring({frame: f - Math.round((0.2 + i * cada) * fps), fps, config: {damping: 12}});
+        const p = spring({frame: f - Math.round((m.en ?? 0.2 + i * cada) * fps), fps, config: {damping: 12}});
         const mio = m.de === 'yo';
         return (
           <div key={i} style={{display: 'flex', justifyContent: mio ? 'flex-end' : 'flex-start', marginBottom: 18, opacity: p, transform: `scale(${0.7 + 0.3 * p})`, transformOrigin: mio ? 'right' : 'left'}}>
@@ -375,17 +375,39 @@ export const PizarraFlechas = ({e, pasos = [], cada = 0.8}) => {
 };
 
 // Apuntes: palabras clave que se escriben en la pizarra con un subrayado
-export const PizarraApuntes = ({e, titulo, puntos = [], cada = 0.7}) => {
+export const PizarraApuntes = ({e, titulo, puntos = [], cada = 0.7, en = []}) => {
   const f = useCurrentFrame(); const {fps, durationInFrames} = useVideoConfig();
   const t = f / fps;
   return (
     <div style={{position: 'absolute', top: ZONA.top + 60, left: 100, right: 100, opacity: sal(f, durationInFrames)}}>
       {titulo && <div style={{fontFamily: e.fuenteTitulos, fontWeight: 800, fontSize: 60, color: e.primario, marginBottom: 20}}>{titulo}</div>}
       {puntos.map((p, i) => {
-        const on = interpolate(t, [0.3 + i * cada, 0.6 + i * cada], [0, 1], clamp);
+        const t0 = en[i] ?? 0.3 + i * cada;
+        const on = interpolate(t, [t0, t0 + 0.3], [0, 1], clamp);
         return <div key={i} style={{fontFamily: e.fuenteTitulos, fontStyle: 'italic', fontWeight: 700, fontSize: 52, color: e.oscuro, opacity: on, marginBottom: 14,
           borderBottom: `6px solid ${e.acento}`, display: 'table', paddingBottom: 4, clipPath: `inset(0 ${100 - on * 100}% 0 0)`}}>{i + 1}. {p}</div>;
       })}
     </div>
+  );
+};
+
+// Cifra grande escrita en la pizarra, con un círculo que se dibuja alrededor y la etiqueta debajo
+export const PizarraNumero = ({e, cifra, texto, titulo}) => {
+  const f = useCurrentFrame(); const {fps, durationInFrames} = useVideoConfig();
+  const p = spring({frame: f, fps, config: {damping: 12}});
+  const circ = interpolate(f, [8, fps * 1.2], [0, 1], clamp);
+  const lab = interpolate(f, [fps * 0.9, fps * 1.4], [0, 1], clamp);
+  return (
+    <AbsoluteFill style={{opacity: sal(f, durationInFrames)}}>
+      {titulo && <div style={{position: 'absolute', top: ZONA.top + 50, width: '100%', textAlign: 'center', fontFamily: e.fuenteTitulos, fontWeight: 800, fontSize: 50, color: e.oscuro}}>{titulo}</div>}
+      <svg width="1080" height="1920" viewBox="0 0 1080 1920" style={{position: 'absolute', inset: 0}}>
+        <ellipse cx="540" cy={ZONA.top + 360} rx="300" ry="170" fill="none" stroke={e.acento} strokeWidth="10" pathLength="1" strokeDasharray="1 1"
+          strokeDashoffset={1 - circ} transform={`rotate(-6 540 ${ZONA.top + 360})`} strokeLinecap="round" />
+      </svg>
+      <div style={{position: 'absolute', top: ZONA.top + 260, width: '100%', textAlign: 'center', fontFamily: e.fuenteTitulos, fontWeight: 800, fontSize: 200, lineHeight: 1,
+        color: e.primario, transform: `scale(${p})`}}>{cifra}</div>
+      <div style={{position: 'absolute', top: ZONA.top + 570, left: 110, right: 110, textAlign: 'center', fontFamily: e.fuenteTitulos, fontStyle: 'italic', fontWeight: 700, fontSize: 48,
+        lineHeight: 1.2, color: e.oscuro, opacity: lab}}>{texto}</div>
+    </AbsoluteFill>
   );
 };

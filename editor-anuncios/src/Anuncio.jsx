@@ -13,10 +13,11 @@ const bloques = (words, n) => {
   return out;
 };
 
-const Subtitulos = ({words, grandes, e, ed}) => {
+const Subtitulos = ({words, grandes, e, ed, enCta}) => {
   const f = useCurrentFrame(); const {fps} = useVideoConfig(); const t = f / fps;
   if (grandes.some((g) => t >= g.start && t < g.start + g.dur)) return null; // la palabra grande manda
-  const top = ed.subAltura ?? e.subAltura;
+  // con el botón de registro abajo, los subtítulos bajos suben para no pisarlo
+  const top = (ed.subAltura ?? e.subAltura) - (enCta && (ed.subAltura ?? e.subAltura) > 1300 ? 160 : 0);
   // estilos de frase completa (Documental, Noticiero, Íntimo)
   if (['maquina', 'tv', 'cita'].includes(ed.subtitulos)) {
     const fr = S.frases(words, ed.subtitulos === 'tv' ? 8 : 7).find((x) => t >= x[0].start && t < x[x.length - 1].end + 0.3);
@@ -116,7 +117,7 @@ const RENDER = {titulares: A.Titulares, apagon: A.Apagon, cinta: A.Cinta, linea:
   // Noticiero
   dato: S.DatoTV,
   // Explicador (pizarra de la mitad de abajo)
-  ciclo: S.PizarraCiclo, grafica: S.PizarraGrafica, flechas: S.PizarraFlechas, apuntes: S.PizarraApuntes};
+  ciclo: S.PizarraCiclo, numero: S.PizarraNumero, grafica: S.PizarraGrafica, flechas: S.PizarraFlechas, apuntes: S.PizarraApuntes};
 // Escenas de texto a pantalla completa: mientras están, no se ponen subtítulos encima
 const TAPAN_SUBTITULOS = ['contador', 'frase', 'cifra', 'cronologia', 'cartel', 'mapa'];
 
@@ -137,10 +138,10 @@ export const Anuncio = ({video, fondo, words, gancho, grandes, zooms, animacione
       {animaciones.filter((a) => a.tipo === 'apagon').map((a, i) => <Sequence key={'d' + i} from={Math.round(a.start * fps)} durationInFrames={Math.round(a.dur * fps)}><A.Apagon /></Sequence>)}
       {animaciones.filter((a) => a.tipo !== 'apagon').map((a, i) => { const C = RENDER[a.tipo];
         return <Sequence key={'a' + i} from={Math.round(a.start * fps)} durationInFrames={Math.round(a.dur * fps)}><C e={e} {...a} /></Sequence>; })}
-      {ed.marco === 'documental' && <S.MarcoDocumental />}
+      {ed.marco === 'documental' && <S.MarcoDocumental tapado={enCta} />}
       {ed.marco === 'noticiero' && <S.MarcoNoticiero e={e} canal={canal ?? e.nombre} ticker={ticker} locutor={locutor} tapado={enCta} />}
       {ed.marco === 'intimo' && <S.MarcoIntimo e={e} words={words} tapado={enCta} />}
-      <Subtitulos words={words} grandes={[...grandes, ...animaciones.filter((a) => TAPAN_SUBTITULOS.includes(a.tipo))]} e={e} ed={ed} />
+      <Subtitulos words={words} grandes={[...grandes, ...animaciones.filter((a) => TAPAN_SUBTITULOS.includes(a.tipo))]} e={e} ed={ed} enCta={enCta} />
       {grandes.map((g, i) => <Sequence key={i} from={Math.round(g.start * fps)} durationInFrames={Math.round(g.dur * fps)}><Grande texto={g.text} e={e} /></Sequence>)}
       {gancho && <Sequence durationInFrames={Math.round(e.ganchoDura * fps)}><Gancho texto={gancho} e={e} ed={ed} /></Sequence>}
       <Barra e={e} />

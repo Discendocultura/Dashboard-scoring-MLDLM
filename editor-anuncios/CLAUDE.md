@@ -45,10 +45,11 @@ Independientes de la paleta: `props.json → "edicion"`.
 Estilos de `src/Estilos.jsx` (cada `ediciones/*.json` elige `subtitulos`, `gancho`, `marco`, `filtro`, `layout`, `saltosAuto`, `zoomLento`):
 - `nativo`: parece subido por una persona, no un anuncio. Subtítulos de 2–3 palabras blancos con contorno negro (la que suena
   en acento, con salto), gancho en caja blanca tipo texto de TikTok, saltos de zoom automáticos frase sí, frase no.
-  Escenas (arriba, sobre la frente; cortas): `nota` `{titulo, lineas[{texto, tachar?, marca?}], cada}` (app de Notas),
-  `chat` `{mensajes[{de: "yo"|otro, texto}], cada}` (burbujas), `pov` `{texto}`.
+  Escenas (arriba, sobre la frente; cortas): `nota` `{titulo, lineas[{texto, tachar?, marca?, en?}], cada, top?}` (app de Notas),
+  `chat` `{mensajes[{de: "yo"|otro, texto, en?}], cada}` (burbujas), `pov` `{texto}`. `en` = segundo desde el inicio de la
+  escena en que aparece esa línea (para sincronizarla con la palabra); si falta, van cada `cada` segundos.
 - `documental`: franjas de cine, viñeta, grano y color envejecido; subtítulos en serif cursiva escritos a máquina; gancho
-  como título de capítulo. Escenas: `rotulo` `{lugar, fecha}` (abajo a la izquierda), `mapa` `{titulo, puntos[{x, y, nombre}]}`
+  como título de capítulo. Escenas: `rotulo` `{lugar, fecha}` (arriba a la izquierda), `mapa` `{titulo, puntos[{x, y, nombre}]}`
   (pergamino a pantalla completa con ruta que se dibuja; coordenadas en 1080×1920, y entre 450 y 1500),
   `archivo` `{imagen, fecha}` (imagen envejecida con zoom lento; sirve un fotograma de un B-roll: `ffmpeg -ss 1 -i broll/X.mp4 -frames:v 1 broll/X.jpg`).
 - `noticiero`: avance informativo. Mosca EN DIRECTO, canal y reloj arriba; gancho «ÚLTIMA HORA» bajo la mosca; rótulo con
@@ -57,7 +58,7 @@ Estilos de `src/Estilos.jsx` (cada `ediciones/*.json` elige `subtitulos`, `ganch
   Escena: `dato` `{cifra, texto, fuente?}` (tarjeta arriba a la derecha). La cinta y la onda se ocultan mientras está `boton`.
 - `explicador`: pantalla dividida: el vídeo arriba (hasta y = 1120, recortado a la cara) y una pizarra clara abajo; subtítulos
   blancos en la línea de corte y gancho escrito en la pizarra. Escenas en la pizarra: `flechas` `{pasos[], cada}`
-  (causa → efecto), `apuntes` `{titulo, puntos[], cada}`, `grafica` `{titulo, valores[], marca, etiqueta}`,
+  (causa → efecto), `apuntes` `{titulo, puntos[], cada, en[]?}`, `numero` `{cifra, texto, titulo?}` (cifra con círculo), `grafica` `{titulo, valores[], marca, etiqueta}`,
   `ciclo` `{dias, fertilDesde, fertilHasta, ovulacion, titulo}` (MLDLM). Que la pizarra nunca se quede vacía mucho rato:
   encadena escenas o deja `apuntes` con lo dicho.
 - `intimo`: cercano, como un podcast: color cálido, viñeta, zoom lento continuo, onda de voz abajo y la frase entera en
@@ -166,4 +167,13 @@ B-rolls: los clips van en `broll/` (en el repo, para reutilizarlos gratis) con s
   el anuncio y suma ese desfase a los tiempos.
 - En subtítulos blancos, agrandar la palabra con `scale` la monta sobre la de al lado: se agranda con el tamaño de letra.
 - En Claves 3 el plató baja las luces justo en «apagón cultural»: en esos momentos se deja la cara a la vista, sin B-roll.
+- Estilos nuevos (Claves 1–4, octubre 2026): Claves 1 = AD 4 Documental, Claves 2 = AD 3 Nativo, Claves 3 = AD 2 Explicador,
+  Claves 4 = AD 1 Noticiero. Un mismo vídeo ya cortado se reutiliza en otro estilo creando `proyectos/NOMBRE-estilo/`
+  con su `props.json` y una copia de `voz_limpia.wav` (no hace falta volver a cortar ni transcribir).
+- Claves 4 empieza con una toma fallida y charla de rodaje (0–19,7 s): se quita entera como corte de tipo `toma`.
+- En todos los estilos con `boton`, los subtítulos bajos suben 160 px mientras está el botón, y en Documental la franja de
+  cine de abajo desaparece para dejarlo ver. En Explicador los subtítulos van de 2 en 2: de 3 en 3 se salían a la pizarra.
+- Los subtítulos a máquina del Documental no se leen sobre el micro: van en y = 1440 y el rótulo de lugar arriba.
+- `aplicar_cortes.py` con un vídeo de 86 s tarda varios minutos si Remotion está montando a la vez: no lo cortes con `timeout`.
+- Las flechas «↑ ↓» no existen en Playfair cursiva (salen diminutas): no las uses en `apuntes`.
 

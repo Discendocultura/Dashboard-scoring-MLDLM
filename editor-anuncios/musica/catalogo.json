@@ -10,7 +10,8 @@
   "usada_en": [
    "ad4-la-resistencia",
    "claves2",
-   "claves3"
+   "claves3",
+   "claves1-documental"
   ],
   "prompt": "Instrumental cinematic documentary underscore for a 45-second history education ad, no vocals. 0-7s: sparse, introspective solo piano with a low cello drone, slightly uneasy, sense of information overload. Around 7-10s: a brief darker, tense moment (muted low strings, subtle pulse). From 15s: warm and hopeful, building — strings swell, soft orchestral percussion, a confident, noble, slightly epic feel evoking Spanish history and resistance. 34-45s: uplifting, resolute climax, then a clean ending on the final second. Tempo around 90 BPM, elegant, sober, not cheesy, mixed to sit under a voice-over.",
   "musica_db": -9
@@ -32,5 +33,47 @@
   ],
   "prompt": "Instrumental, no vocals. Warm, intimate and emotional underscore for a women's fertility education ad narrated by a midwife, meant to sit softly under a voice-over. Soft felt piano, gentle warm strings, subtle light pads, very light acoustic guitar touches. 0-40s: tender, intimate, slightly melancholic and empathetic (the frustration of waiting each month), sparse and calm. 40-90s: gently building warmth and understanding, a soft pulse appears, still delicate. 90-150s: hopeful and uplifting, fuller strings, a sense of clarity, calm confidence and a path forward (like walking the Camino de Santiago at sunrise). 150-180s: warm, resolved, peaceful ending with a clean final chord. Around 75 BPM, consistent mood without sudden drops or loud hits, elegant, not cheesy, no drums except very soft percussion in the hopeful part.",
   "musica_db": -14
+ },
+ {
+  "archivo": "musica/noticiero-claves.mp3",
+  "titulo": "Sintonía de informativo",
+  "marca": "claves",
+  "estilo": "Sintonía de telediario: golpe de entrada, cama tensa con bajo sintetizado, cuerdas en staccato y tictac a 110 BPM; se abre a un final seguro y esperanzador con timbales.",
+  "duracion": 57.0,
+  "puntos": "Golpe de entrada en el 0; respiro corto hacia el 12.",
+  "generada_con": "Magnific · Google Lyria 3 Pro · 160 créditos",
+  "usada_en": [
+   "claves4-noticiero"
+  ],
+  "prompt": "Instrumental TV news broadcast theme for a 50-second ad, no vocals. 0-3s: urgent news-intro sting with bold synth brass hits and ticking clock percussion. 3-30s: tense, driving news-bed underscore: pulsing synth bass, staccato strings, subtle ticking hi-hats, steady 110 BPM, serious and modern, leaving room for a voice-over. 30-50s: lifts into a confident, hopeful build with wider strings and timpani, like a special report announcing an event. 50-60s: clean, decisive ending sting, then silence. Polished broadcast style, not cheesy, mixed to sit under speech.",
+  "musica_db": -10
+ },
+ {
+  "archivo": "musica/nativo-lofi.mp3",
+  "titulo": "Lo-fi de redes",
+  "marca": "claves",
+  "estilo": "Lo-fi pop ligero de TikTok/Reels: piano eléctrico, sintetizador punteado, chasquidos y batería suave a 95 BPM; algo melancólico al principio y más luminoso desde el 20.",
+  "duracion": 58.8,
+  "puntos": "Se aviva hacia el 35.",
+  "generada_con": "Magnific · Google Lyria 3 Pro · 160 créditos",
+  "usada_en": [
+   "claves2-nativo"
+  ],
+  "prompt": "Instrumental social-media background beat for a 50-second TikTok/Reels style talking video, no vocals. Light, modern lo-fi pop: soft plucky synth, warm electric piano chords, gentle snappy drums and finger snaps, around 95 BPM, relatable and casual, slightly melancholic at first (0-15s), then brighter and more optimistic from 20s, with a small uplifting lift at 35s and a clean button ending around 55-60s. Minimal, never busy, made to sit quietly under a voice talking to camera.",
+  "musica_db": -10
+ },
+ {
+  "archivo": "musica/explicador-curioso.mp3",
+  "titulo": "Curiosa de pizarra",
+  "marca": "claves",
+  "estilo": "Música de vídeo explicativo: pizzicato, marimba y celesta a 100 BPM; intrigante al principio, va sumando capas como ideas que encajan y acaba cálida con cuerdas.",
+  "duracion": 57.2,
+  "puntos": "Se apaga sola hacia el 56.",
+  "generada_con": "Magnific · Google Lyria 3 Pro · 160 créditos",
+  "usada_en": [
+   "claves3-explicador"
+  ],
+  "prompt": "Instrumental explainer-video underscore for a 50-second educational ad about history and critical thinking, no vocals. Curious and clever: pizzicato strings, light marimba and celesta, soft upright bass, brushed percussion, around 100 BPM. 0-12s: inquisitive, slightly puzzled, like posing a question. 12-30s: building understanding, playful patterns adding layers, like ideas connecting on a whiteboard. 30-50s: warm, confident and inspiring with gentle strings joining. 50-60s: neat resolved ending. Light, elegant, not childish, mixed to sit under a voice-over.",
+  "musica_db": -10
  }
 ]
