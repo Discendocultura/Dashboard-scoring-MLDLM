@@ -3,7 +3,8 @@
 // la vez a la hora del directo). La preclase y el enlace del directo siguen inscribiendo a quien falte; nadie se
 // inscribe dos veces (si ya lo está, no se llama a Zoom).
 //   GET  /api/zoom-registro            → (equipo, permiso «config») { url } la URL para el webhook de GHL
-//   POST /api/zoom-registro?c=…&k=…    → (GHL) cuerpo del webhook (contact_id); &l=<código> opcional: si no, los
+//   POST /api/zoom-registro?c=…&k=…    → (GHL) el contacto: contact_id en el cuerpo, o «cid» como parámetro o como
+//        encabezado (webhook personalizado: cid = {{contact.id}}); &l=<código> opcional: si no, los
 //        lanzamientos cuya etiqueta de registro tiene y cuyo directo no ha pasado.
 import { requireSession, signToken, verifyToken } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
@@ -31,7 +32,7 @@ export async function POST(request) {
     const url = new URL(request.url);
     if ((await verifyToken(url.searchParams.get('k'))) !== valor()) return json({ error: 'Enlace no válido' }, 403);
     const body = await readBody(request);
-    const cid = String(body.contact_id || body.contactId || body.contact?.id || body.id || url.searchParams.get('cid') || '');
+    const cid = String(body.contact_id || body.contactId || body.contact?.id || body.id || url.searchParams.get('cid') || request.headers.get('cid') || request.headers.get('contact_id') || '').trim();
     if (!/^[A-Za-z0-9]{6,40}$/.test(cid)) return json({ ok: false, motivo: 'falta contact_id' }, 400);
     const [config, contact] = await Promise.all([getConfig(), getContact(cid)]);
     if (!contact) return json({ ok: false, motivo: 'contacto no encontrado' }, 404);
