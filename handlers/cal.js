@@ -1,19 +1,23 @@
 // Calendario de suscripción (Google Calendar, iPhone…).
 //   GET /api/cal            → (con sesión) { url, webcal } enlace privado de esta persona
 //   GET /api/cal?t=<token>  → archivo .ics con hitos, eventos y tareas; se actualiza solo
+//   GET /api/cal?op=1       → (con sesión de la Operativa) { url, webcal } enlace privado con SUS tareas de la Operativa
+//        (las de todos los proyectos que tiene asignadas, con fecha); con ?t=… (token «calop:») → el .ics
 import { contrasenaGeneralActiva } from '../lib/seguridad.js';
 import { requireSession, signToken, verifyToken } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
 import { getEventos } from '../lib/eventos.js';
 import { getTareas } from '../lib/tareas.js';
-import { findUser } from '../lib/users.js';
+import { findUser, rolEn } from '../lib/users.js';
 import { clienteActual } from '../lib/cliente.js';
 import { hitosLanzamiento, icsCalendar, EVENTO_TIPOS } from '../public/js/calendario.js';
 import { esMia, addDays } from '../public/js/tareas.js';
 import { dayInMadrid } from '../public/js/scoring.js';
 import { json, errorResponse } from '../lib/http.js';
 import { richToText } from '../public/js/richtext.js';
+import { todasLasTareas, puedeOperativa, visiblesOperativa } from '../lib/operativa.js';
+import { asignadaA, PROYECTO_AGENCIA } from '../public/js/operativa.js';
 
 // Lanzamientos que interesan: los que tienen alguna fecha en los últimos 90 días o en el futuro (máx. 4).
 function relevantes(config) {
@@ -29,6 +33,7 @@ export async function GET(request) {
   try {
     const url = new URL(request.url);
     const token = url.searchParams.get('t');
+    if (url.searchParams.get('op') === '1') return feedOperativa(request, url, token);
     if (!token) {
       const s = await requireSession(request);
       const t = await signToken(`cal:${s.uid || s.role}`);
@@ -70,4 +75,28 @@ export async function GET(request) {
   } catch (e) {
     return errorResponse(e);
   }
+}
+
+// Sus tareas de la Operativa (todos los proyectos), como calendario al que suscribirse.
+async function feedOperativa(request, url, token) {
+  if (!token) {
+    const s = await requireSession(request);
+    if (!s.uid || !puedeOperativa(s)) return json({ error: 'Solo para quien usa la Operativa con su usuario' }, 403);
+    const t = await signToken(`calop:${s.uid}`);
+    const feed = `${url.origin}/api/cal?op=1&t=${encodeURIComponent(t)}`;
+    return json({ url: feed, webcal: feed.replace(/^https?:/, 'webcal:') });
+  }
+  const uid = (await verifyToken(token))?.match(/^calop:(.+)$/)?.[1];
+  if (!uid) return new Response('Enlace no válido', { status: 403 });
+  const user = await findUser(uid);
+  if (!user || user.activo === false) return new Response('Usuario desactivado', { status: 403 });
+  const s = { uid, user, superadmin: Boolean(user.superadmin) };
+  if (!puedeOperativa(s)) return new Response('Sin acceso a la Operativa', { status: 403 });
+  const desde = addDays(dayInMadrid(new Date().toISOString()), -30);
+  const items = visiblesOperativa(await todasLasTareas(), s)
+    .filter((t) => t.fecha && t.fecha >= desde && asignadaA(t, uid, t.cliente === PROYECTO_AGENCIA ? '' : rolEn(user, t.cliente)))
+    .map((t) => ({ uid: `op-${t.cliente}-${t.code}-${t.id}@lanzamientos`, titulo: `${t.hecha ? '✅' : '☐'} ${t.titulo} · ${t.clienteNombre || t.cliente}`, day: t.fecha, notas: [richToText(t.notas || ''), `Ábrela en ${url.origin}/#operativa`].filter(Boolean).join('\n\n') }));
+  return new Response(icsCalendar('Mis tareas · Operativa', items), {
+    headers: { 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'no-store', 'content-disposition': 'inline; filename="mis-tareas.ics"' },
+  });
 }

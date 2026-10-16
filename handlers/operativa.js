@@ -20,11 +20,13 @@
 //        (superadmin o admin del proyecto) · { op: 'plantilla-guardar', plantilla } · { op: 'plantilla-borrar', plantillaId }  (solo superadmin)
 //   POST { op: 'etiquetas', …, etiquetas: [id] } · { op: 'prioridad', …, prioridad } · { op: 'checklist', …, checklist }
 //        · { op: 'repetir', …, repetir: { tipo, n } }  (al completarla se crea la siguiente: respuesta `nueva`)
+//   POST { op: 'mi-calendario', calendario }  (google | outlook | apple | '' : el suyo, para «Añadir a mi calendario»)
 //   POST { op: 'importar-tablero', proyecto, nombre, archivo }  → tablero nuevo con sus columnas y tareas (solo superadmin;
 //        archivo: el .json propio o el export de Asana, ver public/js/tableros-import.js)
 //   POST { op: 'etiqueta-crear', nombre, color }  (equipo de la agencia) · { op: 'etiqueta-editar', id, nombre, color }
 //        · { op: 'etiqueta-borrar', id }  (solo superadmin)
 import { getSession } from '../lib/auth.js';
+import { calendarioValido } from '../public/js/mi-calendario.js';
 import { listClientes } from '../lib/clientes.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { listUsersRaw, rolEn, newId } from '../lib/users.js';
@@ -65,7 +67,7 @@ const asignable = (u, cid) => Boolean(u && (u.agencia || (cid !== PROYECTO_AGENC
 const claveDefecto = (s) => s.uid || '_general'; // con la contraseña general (sin usuario), uno común
 function tablerosPara(s, cfg, proyectos) {
   // Del proyecto por defecto, solo el suyo (el de los demás no le importa).
-  cfg = { ...cfg, proyectoDefecto: cfg.proyectoDefecto?.[claveDefecto(s)] || '' };
+  cfg = { ...cfg, proyectoDefecto: cfg.proyectoDefecto?.[claveDefecto(s)] || '', calendario: undefined, miCalendario: cfg.calendario?.[claveDefecto(s)] || '' };
   if (s.superadmin) return cfg;
   const ids = new Set(proyectos.map((p) => p.id));
   const porDefecto = Object.fromEntries(Object.entries(cfg.porDefecto || {}).filter(([p]) => ids.has(p)));
@@ -144,6 +146,13 @@ export async function POST(request) {
       return json({ ok: true, ...tablerosPara(s, cfg, await proyectosPara(s)), nueva });
     }
     // Su proyecto por defecto (con el que se le abre la Operativa); '' = ninguno.
+    // Su calendario para «Añadir a mi calendario» ('' = preguntar cada vez).
+    if (body.op === 'mi-calendario') {
+      const c = String(body.calendario || '');
+      if (c && !calendarioValido(c)) throw bad('Calendario no válido');
+      const cfg = await cambiarTableros((x) => { x.calendario ||= {}; if (c) x.calendario[claveDefecto(s)] = c; else delete x.calendario[claveDefecto(s)]; }, 'Operativa: mi calendario');
+      return json({ ok: true, miCalendario: cfg.calendario?.[claveDefecto(s)] || '' });
+    }
     if (body.op === 'mi-proyecto-defecto') {
       const p = String(body.proyecto || '');
       if (p && !(await proyectosPara(s)).some((x) => x.id === p)) throw bad('No tienes acceso a ese proyecto', 403);

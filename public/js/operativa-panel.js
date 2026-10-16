@@ -12,6 +12,7 @@ import { editorRepetir, leerRepetir, pulsarDsem } from './repetir-ui.js';
 import { normalizarImportacion } from './tableros-import.js';
 import { montarEditor, montarVideos } from './editor-rico.js';
 import { activarArroba, enlacesEnTexto, filtrarEnlaces, leerRef, refTarea, refTablero, refPersona } from './enlaces.js';
+import { CALENDARIOS, eventoDeTarea, enlaceCalendario, icsDeEvento } from './mi-calendario.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hoyMadrid = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
@@ -45,6 +46,7 @@ let recienHecha = ''; // la que se acaba de completar: llega a «Hecho» con su 
 let movida = ''; // la que se acaba de recolocar en su columna (destello)
 let importando = null; // { archivo, imp, asana, nombre, completadas } mientras se importa un tablero
 let calMes = '';
+let calPanel = null; // el panel «📅 Mi calendario» abierto: { url, webcal } cuando ya se ha pedido el enlace
 let fPersona = '';
 let q = '';
 let abierta = null; // { cliente, code, id }
@@ -150,6 +152,7 @@ export async function abrirOperativa(opts) {
   ctx = opts;
   const dlg = ctx.dialog;
   aplicarEstiloOp();
+  calPanel = null;
   if (!dlg.dataset.listo) {
     dlg.dataset.listo = '1';
     dlg.addEventListener('close', () => window.LSD_ESTILO?.temporal?.(null));
@@ -329,7 +332,7 @@ function pintar() {
     + (bloqT ? `<span class="op-sub-pill ambar">${bloqT} bloqueada${bloqT === 1 ? '' : 's'}</span>` : '')
     + `<span class="op-sub-txt">${d.superadmin ? 'Todo el equipo y todos los proyectos' : d.gestiona?.length ? (d.agencia ? 'Todo lo de los proyectos que llevas y lo que tienes asignado' : 'Todo lo de tus proyectos') : 'Lo que tienes asignado en todos los proyectos'}</span>`;
   body().innerHTML = `<div class="op">
-    <nav class="op-tabs">${tab('tablero', '🗂️ Tablero')}${tab('calendario', '🗓️ Calendario')}${tab('dia', `☀️ Mi día${venc ? ` <b>${venc}</b>` : ''}`)}</nav>
+    <nav class="op-tabs">${tab('tablero', '🗂️ Tablero')}${tab('calendario', '🗓️ Calendario')}${tab('dia', `☀️ Mi día${venc ? ` <b>${venc}</b>` : ''}`)}<button type="button" class="op-tab op-tab-cal${d.miCalendario ? ' conectado' : ''}" data-op="cal-panel" title="Conecta tu calendario (Google, Outlook o Apple) para añadir tareas con un clic">📅 Mi calendario${d.miCalendario ? ' <span class="op-cal-ok">✓</span>' : ''}</button></nav>
     <div class="op-filtros">
       ${selector('op-proyecto', 'Cliente', fProy ? '🏷️' : '🌐', fProy, `<option value="">Todos los clientes</option>${d.proyectos.map((p) => `<option value="${esc(p.id)}"${fProy === p.id ? ' selected' : ''}>${esc(p.nombre)}</option>`).join('')}`, d.proyectos.find((p) => p.id === fProy)?.color)}
       ${fProy ? `<button type="button" class="op-proy-def${d.proyectoDefecto === fProy ? ' on' : ''}" data-op="proy-defecto" title="${d.proyectoDefecto === fProy ? 'Es tu proyecto por defecto: la Operativa se te abre en él. Pulsa para quitarlo' : 'Que la Operativa se te abra siempre en este proyecto'}">${d.proyectoDefecto === fProy ? '⭐ Por defecto' : '☆ Por defecto'}</button>` : ''}
@@ -340,6 +343,7 @@ function pintar() {
     ${barraEtiquetas()}
     <section id="op-vista"></section>
     ${abierta || creando ? '<div class="op-ficha-fondo" data-op="cerrar-ficha"></div><aside class="op-ficha" id="op-ficha"></aside>' : ''}
+    ${calPanel ? `<div class="op-ficha-fondo" data-op="cal-cerrar"></div><aside class="op-ficha op-cal-panel">${panelCalendario()}</aside>` : ''}
   </div>`;
   pintarVista();
   if (abierta || creando) pintarFicha();
@@ -423,7 +427,7 @@ function tarjetaTablero(t, hoy) {
         ${t.notas ? `<p class="op-card-desc">${esc(richToText(t.notas).replace(/🎬/g, '🎬 vídeo').replace(/\s*•\s*/g, ' · ').replace(/\s*\n+\s*/g, ' · ').replace(/^ · /, '').slice(0, 120))}</p>` : ''}
         ${estaBloqueada(t) ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span>` : ''}
         ${ck.total ? `<div class="op-ck-mini${ck.hechos === ck.total ? ' completa' : ''}" title="Checklist: ${ck.hechos} de ${ck.total}"><span class="op-ck-barra"><i style="width:${Math.round((ck.hechos / ck.total) * 100)}%"></i></span><b>☑ ${ck.hechos}/${ck.total}</b></div>` : ''}
-        <footer><button type="button" class="op-fecha-b${t.fecha ? '' : ' vacia'}" data-op-fecha-k="${esc(clave(t))}" title="Fecha límite${t.fecha ? `: ${esc(fechaCorta(t.fecha))}` : ''} · pulsa para cambiarla" aria-label="Cambiar la fecha límite">${t.fecha ? chipFecha(t, hoy) : '<span class="op-fecha">📅 Fecha</span>'}</button>${t.repetir?.tipo ? `<span class="op-rep" title="${esc(textoRepetir(t.repetir))}">🔁</span>` : ''}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}<span class="op-card-proy">${fProy ? '' : chipProyecto(t)}</span>${gestiona(t.cliente) ? `<button type="button" class="op-resp-b" data-op-resp="${esc(clave(t))}" title="Responsable: ${esc(quienTxt(t))} · pulsa para cambiarlo" aria-label="Cambiar responsable">${avatar(t)}</button>` : avatar(t)}</footer>
+        <footer><button type="button" class="op-fecha-b${t.fecha ? '' : ' vacia'}" data-op-fecha-k="${esc(clave(t))}" title="Fecha límite${t.fecha ? `: ${esc(fechaCorta(t.fecha))}` : ''} · pulsa para cambiarla" aria-label="Cambiar la fecha límite">${t.fecha ? chipFecha(t, hoy) : '<span class="op-fecha">📅 Fecha</span>'}</button>${t.repetir?.tipo ? `<span class="op-rep" title="${esc(textoRepetir(t.repetir))}">🔁</span>` : ''}${t.comentarios?.length ? `<span class="op-com">💬 ${t.comentarios.length}</span>` : ''}<button type="button" class="op-cal-b" data-op-cal="${esc(clave(t))}" title="Añadir a mi calendario" aria-label="Añadir a mi calendario">📆</button><span class="op-card-proy">${fProy ? '' : chipProyecto(t)}</span>${gestiona(t.cliente) ? `<button type="button" class="op-resp-b" data-op-resp="${esc(clave(t))}" title="Responsable: ${esc(quienTxt(t))} · pulsa para cambiarlo" aria-label="Cambiar responsable">${avatar(t)}</button>` : avatar(t)}</footer>
       </article>`;
 }
 // Orden de cada columna: el puesto a mano (arrastrando o con ↑/↓); si no, prioridad alta primero y después la fecha.
@@ -729,6 +733,7 @@ function pintarFicha() {
       <div class="pr-campo"><span class="pr-campo-l">Se repite</span><div class="pr-campo-v op-rep-v">${editorRepetir(t.repetir)}${bloqueRepetir(t)}</div></div>
       ${e === 'hecha' ? '' : `<div class="pr-campo"><span class="pr-campo-l">Bloqueo</span><div class="pr-campo-v">${estaBloqueada(t) ? `<span class="op-bloq">⛔ ${esc(t.bloqueo)}</span><button type="button" class="btn ghost small" data-op="desbloquear">Desbloquear</button>` : '<button type="button" class="btn ghost small op-bloquear" data-op="bloquear">⛔ Marcar como bloqueada</button>'}</div></div>`}
       <div class="pr-campo"><span class="pr-campo-l">Fecha</span><div class="pr-campo-v"><input type="date" data-op-campo="fecha" value="${esc(t.fecha)}">${chipFecha(t, hoyMadrid())}</div></div>
+      <div class="pr-campo"><span class="pr-campo-l">Calendario</span><div class="pr-campo-v op-cal-v"><button type="button" class="btn small primary op-cal-add" data-op-cal="${esc(clave(t))}">📅 Añadir a ${esc(nombreCal(d.miCalendario) || 'mi calendario')}</button><label class="op-cal-hora" title="Opcional: sin hora, va como evento de todo el día"><span>a las</span><input type="time" data-op-cal-hora step="900"></label><button type="button" class="op-cal-cambiar" data-op="cal-panel">${d.miCalendario ? 'Cambiar' : 'Conectar'}</button></div></div>
       <div class="pr-campo"><span class="pr-campo-l">Responsable</span><div class="pr-campo-v">${gestiona(t.cliente) ? `<select data-op-campo="uid">${opcionesResp(t.cliente, t.asignado?.tipo === 'persona' ? t.asignado.id : '')}${t.asignado?.tipo === 'rol' ? `<option selected>Rol ${esc(t.asignado.rol)}</option>` : ''}</select>` : `${avatar(t)} ${esc(quienTxt(t))}`}</div></div>
       ${t.embudo && !deAgencia ? `<div class="pr-campo"><span class="pr-campo-l">Embudo</span><div class="pr-campo-v">${esc(t.embudo)}</div></div>` : ''}
     </div>
@@ -895,7 +900,83 @@ function abrirMenuFecha(b, t) {
   m.querySelector('.on, button')?.focus();
 }
 
+// ---- «Añadir a mi calendario» ----
+const nombreCal = (id) => CALENDARIOS.find((c) => c.id === id)?.nombre || '';
+// Añade la tarea al calendario elegido: Google y Outlook abren el evento ya relleno; Apple/otro descarga un .ics.
+function anadirACalendario(t, tipo, hora = '') {
+  const hoy = hoyMadrid();
+  const ev = eventoDeTarea({ ...t, notasTexto: richToText(t.notas || '') }, { hora, hoy, url: `${location.origin}/#operativa` });
+  if (tipo === 'apple') {
+    const blob = new Blob([icsDeEvento(ev, `op-${t.cliente}-${t.id}@lanzamientos`)], { type: 'text/calendar;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${String(t.titulo).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'tarea'}.ics`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  } else window.open(enlaceCalendario(tipo, ev), '_blank', 'noopener');
+  aviso(t.fecha ? `📅 «${t.titulo}» → ${nombreCal(tipo)}${tipo === 'apple' ? ': abre el archivo descargado' : ': pulsa «Guardar» en la pestaña nueva'}` : '📅 La tarea no tiene fecha: la he puesto para hoy');
+}
+// Sin calendario elegido: un menú para elegirlo (se recuerda) y se añade.
+function abrirMenuCal(b, t) {
+  cerrarMenuResp();
+  const m = document.createElement('div');
+  m.className = 'op-resp-menu op-cal-menu';
+  m.setAttribute('role', 'menu');
+  m.dataset.k = clave(t);
+  m.innerHTML = `<div class="op-resp-h">¿Qué calendario usas?</div>${CALENDARIOS.map((c) => `<button type="button" role="menuitem" data-op-cal-elegir="${c.id}"><span class="op-cal-ico">${c.ico}</span>${esc(c.nombre)}</button>`).join('')}<p class="op-cal-nota">Lo recordamos para la próxima vez (cámbialo en «📅 Mi calendario»).</p>`;
+  colocarMenu(m, b, 'derecha');
+  m.querySelector('button')?.focus();
+}
+async function guardarMiCalendario(tipo) {
+  const r = await ctx.api('/api/operativa', { method: 'POST', body: { op: 'mi-calendario', calendario: tipo } });
+  d.miCalendario = r.miCalendario;
+}
+// Panel «📅 Mi calendario»: elegir el calendario y la sincronización automática (suscripción).
+const AYUDA_SUSCRIBIR = {
+  google: { pasos: ['Copia tu enlace (botón de arriba).', 'Abre Google Calendar en el ordenador → «Otros calendarios» ＋ → «Desde URL».', 'Pega el enlace y pulsa «Añadir calendario».'], abrir: 'https://calendar.google.com/calendar/r/settings/addbyurl', abrirTxt: 'Abrir Google Calendar' },
+  outlook: { pasos: ['Copia tu enlace (botón de arriba).', 'En Outlook (web) → «Añadir calendario» → «Suscribirse desde la web».', 'Pega el enlace, ponle nombre y pulsa «Importar».'], abrir: 'https://outlook.office.com/calendar/addcalendar', abrirTxt: 'Abrir Outlook' },
+  apple: { pasos: ['Pulsa «Abrir en mi calendario» (en el iPhone o el Mac).', 'Confirma «Suscribirse».', 'Si no se abre: Calendario → Archivo → Nueva suscripción y pega el enlace.'], abrir: 'webcal', abrirTxt: 'Abrir en mi calendario' },
+};
+function panelCalendario() {
+  const elegido = d.miCalendario;
+  const ay = AYUDA_SUSCRIBIR[elegido];
+  return `<header class="op-ficha-h"><h3>📅 Mi calendario</h3><button type="button" class="btn ghost small" data-op="cal-cerrar" aria-label="Cerrar">✕</button></header>
+    <section class="op-cal-sec"><h4><span class="op-cal-n">1</span>¿Qué calendario usas?</h4>
+      <div class="op-cal-opc">${CALENDARIOS.map((c) => `<button type="button" class="op-cal-opcion${c.id === elegido ? ' on' : ''}" data-op-cal-tipo="${c.id}"><span class="op-cal-ico">${c.ico}</span><b>${esc(c.nombre)}</b>${c.id === elegido ? '<small>✓ Conectado</small>' : ''}</button>`).join('')}</div>
+      <p class="muted small">Con él, cada tarea tiene su botón «📅 Añadir a…»: se abre el evento ya relleno y solo hay que guardarlo.</p></section>
+    <section class="op-cal-sec"><h4><span class="op-cal-n">2</span>Que tus tareas aparezcan solas <small>(opcional, recomendado)</small></h4>
+      <p class="muted small">Todas las tareas con fecha que tienes asignadas, de todos los proyectos, en tu calendario. Se actualiza sola cada pocas horas. El enlace es personal: no lo compartas.</p>
+      ${calPanel?.url ? `<div class="op-cal-enlace"><input readonly value="${esc(calPanel.url)}" aria-label="Tu enlace de calendario"><button type="button" class="btn small" data-op="cal-copiar">📋 Copiar</button></div>
+        ${ay ? `<ol class="op-cal-pasos">${ay.pasos.map((x) => `<li>${esc(x)}</li>`).join('')}</ol><a class="btn small" href="${esc(ay.abrir === 'webcal' ? calPanel.webcal : ay.abrir)}" target="_blank" rel="noopener">${esc(ay.abrirTxt)}</a>` : '<p class="muted small">Elige arriba tu calendario y te digo dónde pegarlo.</p>'}`
+      : d.yo ? '<button type="button" class="btn primary small" data-op="cal-enlace">🔗 Crear mi enlace</button>' : '<p class="op-cal-aviso">Para esto hay que entrar con tu usuario (no con la contraseña general): el enlace lleva solo tus tareas.</p>'}
+    </section>`;
+}
+
 async function onClick(e) {
+  const ce = e.target.closest('[data-op-cal-elegir]');
+  if (ce) {
+    const t = buscarT(ce.closest('.op-resp-menu').dataset.k);
+    cerrarMenuResp();
+    if (t) anadirACalendario(t, ce.dataset.opCalElegir, body().querySelector('[data-op-cal-hora]')?.value || '');
+    try { await guardarMiCalendario(ce.dataset.opCalElegir); } catch { /* se pregunta otra vez la próxima */ }
+    pintar();
+    return;
+  }
+  const calB = e.target.closest('[data-op-cal]');
+  if (calB) {
+    e.stopPropagation();
+    const t = buscarT(calB.dataset.opCal);
+    if (!t) return;
+    if (d.miCalendario) anadirACalendario(t, d.miCalendario, calB.closest('.op-cal-v')?.querySelector('[data-op-cal-hora]')?.value || '');
+    else abrirMenuCal(calB, t);
+    return;
+  }
+  const ct = e.target.closest('[data-op-cal-tipo]');
+  if (ct) {
+    try { await guardarMiCalendario(ct.dataset.opCalTipo); aviso(`✓ Calendario conectado: ${nombreCal(d.miCalendario)}`); } catch (err) { window.alert(err.message); }
+    pintar();
+    return;
+  }
   const ru = e.target.closest('[data-op-resp-uid]');
   if (ru) {
     const m = ru.closest('.op-resp-menu');
@@ -1029,6 +1110,18 @@ async function onClick(e) {
   }
   if (b.dataset.op === 'bloquear' || b.dataset.op === 'desbloquear') { const t = buscarT(abierta); if (t) ponerBloqueo(t, b.dataset.op === 'bloquear'); return; }
   if (b.dataset.op === 'add-cerrar') { addCol = ''; pintarVista(); return; }
+  if (b.dataset.op === 'cal-panel') { calPanel = calPanel || {}; cerrarMenuResp(); pintar(); return; }
+  if (b.dataset.op === 'cal-cerrar') { calPanel = null; pintar(); return; }
+  if (b.dataset.op === 'cal-enlace') {
+    b.disabled = true; b.textContent = 'Creando…';
+    try { calPanel = await ctx.api('/api/cal?op=1'); } catch (err) { window.alert(err.message); }
+    pintar();
+    return;
+  }
+  if (b.dataset.op === 'cal-copiar') {
+    try { await navigator.clipboard.writeText(calPanel.url); b.textContent = '✓ Copiado'; } catch { body().querySelector('.op-cal-enlace input')?.select(); }
+    return;
+  }
   if (b.dataset.op === 'proy-defecto') {
     const quitar = d.proyectoDefecto === fProy;
     try {
