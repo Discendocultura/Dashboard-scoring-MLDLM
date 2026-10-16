@@ -14,10 +14,13 @@ for a in p.get('animaciones', []):
     for fase in a.get('fases', []):
         if 'sello' in fase:
             ef.append({'archivo': 'sonidos/sello.mp3', 'en': round(s + fase['sello'] - 0.24, 2), 'db': -9})
-    if a['tipo'] == 'contador':
+    if a['tipo'] == 'cartel' and a.get('sello'):
+        ef.append({'archivo': 'sonidos/sello.mp3', 'en': round(s + a.get('selloEn', 1.2) - 0.24, 2), 'db': -9})
+    if a['tipo'] in ('contador', 'cifra'):
         ef.append({'archivo': 'sonidos/contador.mp3', 'en': round(s, 2), 'db': -14})
-    if a['tipo'] == 'cta' and a.get('toque') is not None:
+    if a['tipo'] in ('cta', 'boton') and a.get('toque') is not None:
         ef.append({'archivo': 'sonidos/click.mp3', 'en': round(s + a['toque'], 2), 'db': -10})
-p['sonido'] = {'musica': musica, 'musica_db': -9, 'efectos': sorted(ef, key=lambda x: x['en'])}
+cat = {m['archivo']: m for m in json.load(open('musica/catalogo.json'))}
+p['sonido'] = {'musica': musica, 'musica_db': cat.get(musica, {}).get('musica_db', -9), 'efectos': sorted(ef, key=lambda x: x['en'])}
 json.dump(p, open(f'{proy}/props.json', 'w'), ensure_ascii=False, indent=1)
 print(f"{len(ef)} efectos en {proy}")

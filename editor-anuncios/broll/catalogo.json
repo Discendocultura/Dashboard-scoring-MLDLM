@@ -1,1 +1,117 @@
-[]
+[
+ {
+  "archivo": "broll/claves2_tv.mp4",
+  "se_ve": "Televisor antiguo con el telediario en un salón a oscuras que se apaga (hacia el segundo 1,5–3)",
+  "temas": [
+   "noticias",
+   "apagar",
+   "apagón"
+  ],
+  "marca": "claves",
+  "usado_en": [
+   "claves2"
+  ],
+  "generado_con": "Magnific · Seedream 5 Pro (imagen, 100) + Kling 2.5 720p 5 s (140)",
+  "coste": 240,
+  "formato": "720x1280, 5 s"
+ },
+ {
+  "archivo": "broll/claves2_angustia.mp4",
+  "se_ve": "Persona de espaldas en el sofá con las manos en la cabeza, iluminada por la tele",
+  "temas": [
+   "angustia",
+   "ánimo",
+   "noticias"
+  ],
+  "marca": "claves",
+  "usado_en": [
+   "claves2"
+  ],
+  "generado_con": "Magnific · Seedream 5 Pro (imagen, 100) + Kling 2.5 720p 5 s (140)",
+  "coste": 240,
+  "formato": "720x1280, 5 s"
+ },
+ {
+  "archivo": "broll/claves2_archivo.mp4",
+  "se_ve": "Biblioteca-archivo antiguo, travelling entre estanterías con polvo dorado y un libro que pasa páginas",
+  "temas": [
+   "historia",
+   "contexto",
+   "raíz histórica"
+  ],
+  "marca": "claves",
+  "usado_en": [
+   "claves2",
+   "claves3"
+  ],
+  "generado_con": "Magnific · Seedream 5 Pro (imagen, 100) + Kling 2.5 720p 5 s (140)",
+  "coste": 240,
+  "formato": "720x1280, 5 s"
+ },
+ {
+  "archivo": "broll/claves2_galeones.mp4",
+  "se_ve": "Galeones españoles del siglo XVI en una tormenta, estilo óleo",
+  "temas": [
+   "Leyenda Negra",
+   "Imperio español",
+   "historia"
+  ],
+  "marca": "claves",
+  "usado_en": [
+   "claves2",
+   "claves3"
+  ],
+  "generado_con": "Magnific · Seedream 5 Pro (imagen, 100) + Kling 2.5 720p 5 s (140)",
+  "coste": 240,
+  "formato": "720x1280, 5 s"
+ },
+ {
+  "archivo": "broll/claves2_mapa.mp4",
+  "se_ve": "Manos recorriendo un mapa antiguo de Europa y América con una lupa",
+  "temas": [
+   "método",
+   "ejemplos prácticos",
+   "estudio"
+  ],
+  "marca": "claves",
+  "usado_en": [
+   "claves2",
+   "claves3"
+  ],
+  "generado_con": "Magnific · Seedream 5 Pro (imagen, 100) + Kling 2.5 720p 5 s (140)",
+  "coste": 240,
+  "formato": "720x1280, 5 s"
+ },
+ {
+  "archivo": "broll/claves3_mundo.mp4",
+  "se_ve": "Globo terráqueo antiguo girando ante una pared de pantallas de noticias",
+  "temas": [
+   "mundo",
+   "actualidad",
+   "noticias"
+  ],
+  "marca": "claves",
+  "usado_en": [
+   "claves3"
+  ],
+  "generado_con": "Magnific · Seedream 5 Pro (imagen, 100) + Kling 2.5 720p 5 s (140)",
+  "coste": 240,
+  "formato": "720x1280, 5 s"
+ },
+ {
+  "archivo": "broll/claves3_avalancha.mp4",
+  "se_ve": "Silueta rodeada de una tormenta de periódicos, móviles y notificaciones",
+  "temas": [
+   "exceso de información",
+   "infoxicación",
+   "redes"
+  ],
+  "marca": "claves",
+  "usado_en": [
+   "claves3"
+  ],
+  "generado_con": "Magnific · Seedream 5 Pro (imagen, 100) + Kling 2.5 720p 5 s (140)",
+  "coste": 240,
+  "formato": "720x1280, 5 s"
+ }
+]

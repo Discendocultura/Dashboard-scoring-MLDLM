@@ -24,8 +24,9 @@ const Subtitulos = ({words, grandes, e, ed}) => {
         const on = w === b.filter((x) => x.start <= t).pop();
         // edición «blanco»: todo en blanco con sombra suave; la palabra que suena, un poco más grande
         if (ed.subtitulos === 'blanco') {
-          return <span key={i} style={{fontFamily: e.fuenteSubs, fontWeight: 800, fontSize: e.subCuerpo, lineHeight: 1.15, textTransform: 'uppercase', color: '#fff',
-            display: 'inline-block', transform: `scale(${on ? 1.12 : 1})`, margin: on ? '0 10px' : 0, opacity: on ? 1 : 0.92,
+          // se agranda con el tamaño de letra (no con scale) para que nunca pise a la palabra de al lado
+          return <span key={i} style={{fontFamily: e.fuenteSubs, fontWeight: 800, fontSize: e.subCuerpo * (on ? 1.1 : 1), lineHeight: 1.15, textTransform: 'uppercase', color: '#fff',
+            opacity: on ? 1 : 0.92,
             textShadow: '0 4px 14px rgba(0,0,0,.55), 0 1px 3px rgba(0,0,0,.6)'}}>{w.text}</span>;
         }
         // subRealce "pildora": la palabra que suena va en una píldora clara con letra del color principal (se lee sobre cualquier ropa)

@@ -29,14 +29,15 @@ const FondoMarca = ({e}) => {
 };
 
 // B-roll a pantalla completa: vídeo (IA o stock) o imagen, con zoom lento y viñeta; rótulo opcional arriba
-export const BRoll = ({e, src, imagen, rotulo, zoom = [1.04, 1.16]}) => {
+// `desde`: segundo del clip en el que empieza (para enseñar justo el momento bueno)
+export const BRoll = ({e, src, imagen, rotulo, desde = 0, zoom = [1.04, 1.16]}) => {
   const f = useCurrentFrame(); const {durationInFrames, fps} = useVideoConfig();
   const s = interpolate(f, [0, durationInFrames], zoom, clamp);
   const pR = spring({frame: f - 6, fps, config: {damping: 14}});
   return (
     <Escena>
       <AbsoluteFill style={{transform: `scale(${s})`}}>
-        {src ? <OffthreadVideo src={staticFile(src)} muted style={{width: '100%', height: '100%', objectFit: 'cover'}} />
+        {src ? <OffthreadVideo src={staticFile(src)} startFrom={Math.round(desde * fps)} muted style={{width: '100%', height: '100%', objectFit: 'cover'}} />
           : <Img src={staticFile(imagen)} style={{width: '100%', height: '100%', objectFit: 'cover'}} />}
       </AbsoluteFill>
       <AbsoluteFill style={{background: 'radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 45%, rgba(0,0,0,.55) 100%)'}} />
@@ -64,7 +65,7 @@ export const Frase = ({e, texto, destacar = [], antetitulo, cada = 0.18}) => {
           {palabras.map((w, i) => {
             const p = spring({frame: f - 5 - Math.round(i * cada * fps), fps, config: {damping: 12, stiffness: 170}});
             const d = dest.includes(norm(w));
-            return <span key={i} style={{fontFamily: e.fuenteTitulos, fontWeight: 800, fontStyle: d ? 'italic' : 'normal', fontSize: d ? 132 : 112, lineHeight: 1.08,
+            return <span key={i} style={{fontFamily: e.fuenteTitulos, fontWeight: 800, fontStyle: d ? 'italic' : 'normal', fontSize: (d ? 1.18 : 1) * (palabras.length <= 4 ? 150 : 112), lineHeight: 1.08,
               color: d ? e.acento : e.claro, opacity: p, transform: `translateY(${(1 - p) * 60}px) scale(${0.8 + 0.2 * p})`, textShadow: '0 10px 30px rgba(0,0,0,.5)'}}>{w}</span>;
           })}
         </div>
@@ -86,7 +87,7 @@ export const Cifra = ({e, hasta, prefijo = '+', sufijo = '', etiqueta, antetitul
         {antetitulo && <div style={{fontFamily: e.fuenteSubs, fontWeight: 800, fontSize: 34, letterSpacing: 8, textTransform: 'uppercase', color: e.acento, marginBottom: 20}}>{antetitulo}</div>}
         <div style={{fontFamily: e.fuenteTitulos, fontWeight: 800, fontSize: 250, lineHeight: 1, color: e.claro, transform: `scale(${pulso})`, textShadow: `0 0 60px ${e.acento}66`}}>
           {prefijo}{n.toLocaleString('es-ES')}{sufijo}</div>
-        {etiqueta && <div style={{fontFamily: e.fuenteSubs, fontWeight: 800, fontSize: 52, letterSpacing: 4, textTransform: 'uppercase', color: e.acento, marginTop: 24,
+        {etiqueta && <div style={{fontFamily: e.fuenteSubs, fontWeight: 800, fontSize: 48, letterSpacing: 3, textTransform: 'uppercase', color: e.acento, marginTop: 24, textAlign: 'center', maxWidth: 900, padding: '0 40px', lineHeight: 1.2,
           opacity: interpolate(f, [fps * 0.9, fps * 1.3], [0, 1], clamp)}}>{etiqueta}</div>}
       </AbsoluteFill>
     </Escena>
