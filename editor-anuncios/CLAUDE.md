@@ -133,3 +133,14 @@ B-rolls: los clips van en `broll/` (en el repo, para reutilizarlos gratis) con s
   (cambiaba el sentido) y se cortó. Si Whisper insiste en una palabra distinta del guion, es que se dijo así.
 - Erratas que el detector no ve y hay que buscar a mano: comentarios antes de empezar («Tú dime»), coletillas al final
   («Vale.») y reinicios separados por coma («tus probabilidades, las probabilidades»).
+- Estilo Impacto (Claves 2 y 3, octubre 2026): ~5 B-rolls nuevos por anuncio y reutilizar los del catálogo cuando encajan
+  (Claves 3 reutilizó 3 de Claves 2). Coste real: 240 créditos por clip nuevo (Seedream 5 Pro 100 + Kling 2.5 720p 140).
+  Los vídeos de stock premium cuestan 600 y su CDN (`videocdn.cdnpk.net`) está bloqueado por defecto.
+- Revisa la imagen antes de animarla, y el clip animado antes de usarlo: el momento bueno puede estar a mitad del clip
+  (la tele se apaga entre los segundos 1,5 y 3): usa `desde` en `broll`.
+- Si el rodaje empieza con charla («no grabes esto», «es cuando yo diga…»), Whisper puede perderse y dejar de transcribir
+  el resto. `transcribir.py` ya va sin condition_on_previous_text; si aun así falta texto, transcribe desde donde empieza
+  el anuncio y suma ese desfase a los tiempos.
+- En subtítulos blancos, agrandar la palabra con `scale` la monta sobre la de al lado: se agranda con el tamaño de letra.
+- En Claves 3 el plató baja las luces justo en «apagón cultural»: en esos momentos se deja la cara a la vista, sin B-roll.
+
