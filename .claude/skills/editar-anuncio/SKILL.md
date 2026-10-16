@@ -1,6 +1,6 @@
 ---
 name: editar-anuncio
-description: Edita un anuncio vertical (Reels, Meta Ads) de busto parlante a partir de un vídeo en bruto y su guion, con el editor de editor-anuncios/ (Remotion + Whisper + ffmpeg) - cortes de trabas y erratas, subtítulos palabra a palabra, gancho, palabras grandes, zooms, animaciones sincronizadas con lo que se dice, limpieza de ruido, música y efectos de sonido. Lo primero, pregunta qué paleta de colores (plantilla de marca) usar o crea una nueva y si reutilizar una música del catálogo o generar otra. Úsala cuando pidan "editar un anuncio", "montar un reel", "edita el AD 2", "haz un anuncio con este vídeo" o similar.
+description: Edita un anuncio vertical (Reels, Meta Ads) de busto parlante a partir de un vídeo en bruto y su guion, con el editor de editor-anuncios/ (Remotion + Whisper + ffmpeg) - cortes de trabas y erratas, subtítulos palabra a palabra, gancho, palabras grandes, zooms, animaciones sincronizadas con lo que se dice, limpieza de ruido, música y efectos de sonido. Lo primero, pregunta qué paleta de colores (plantilla de marca) y qué estilo de edición (clásico o impacto, con B-rolls) usar y si reutilizar una música del catálogo o generar otra. Úsala cuando pidan "editar un anuncio", "montar un reel", "edita el AD 2", "haz un anuncio con este vídeo" o similar.
 ---
 
 # Editar un anuncio
@@ -43,6 +43,16 @@ Si elige crear una nueva:
 3. Regístrala en `plantillas/index.js`. Instala la fuente con `npm i @fontsource/FUENTE` (nombre en minúsculas y con guiones)
    e impórtala en `src/fuentes.js` (pesos 700, 800 y 800-italic si existen).
 4. Genera su muestra, enséñala y ajusta hasta que le guste.
+
+## 1b. Estilo de edición (justo después de la paleta, siempre)
+
+Lee `editor-anuncios/ediciones/*.json` (`nombre`, `_que_es`).
+
+**PREGUNTA**: «¿Qué estilo de edición quieres para este anuncio?» — una opción por estilo, con su descripción corta:
+- **Clásico**: subtítulos con los colores de la marca, gancho arriba, animaciones en la franja de arriba sin tapar la cara.
+- **Impacto**: subtítulos blancos con sombra, escenas a pantalla completa (B-rolls con IA o stock, frases animadas, cifras,
+  línea del tiempo, cartel del evento) y gancho y botón de registro abajo del todo. Implica B-rolls de pago (ver paso 5b).
+Guarda la respuesta en `props.json → "edicion"`.
 
 ## 2. Entorno
 
@@ -88,12 +98,37 @@ Si elige crear una nueva:
 ## 5. Propuesta de montaje
 
 **PREGUNTA**: el gancho. Propón 3 opciones a partir del guion (recomendada la primera).
+En estilo Impacto el gancho va abajo del todo y la llamada a la acción es la escena `boton` (botón ancho abajo).
 
 Propón en una tabla, con segundos, lo que vas a poner y por qué encaja con lo que se dice en ese momento:
 2–4 palabras grandes, 2–4 zooms lentos y 2–3 saltos, y las animaciones (las de `src/Animaciones.jsx`, o nuevas si el guion
 lo pide: escríbelas en ese archivo con los colores de la plantilla `e.primario/e.oscuro/e.acento/e.claro`, nunca colores fijos).
 Escribe `proyectos/NOMBRE/props.json` (con `"plantilla"`), renderiza 4–5 fotogramas clave con `npx remotion still`,
 revísalos y envíalos en una sola hoja (`ffmpeg ... hstack`).
+
+## 5b. B-rolls (solo estilo Impacto)
+
+Propón 5–6 B-rolls en los momentos clave (lo que se dice que se pueda ver: «apagón», «titulares», «Leyenda Negra»…),
+en una tabla con segundo, duración (2–4 s), qué se ve y por qué capta la atención en ese punto.
+Alterna B-rolls con escenas tipográficas (`frase`, `cifra`, `cronologia`, `cartel`) y con la cara: no más de ~6 s seguidos
+sin volver a la persona.
+
+**PREGUNTA** con el coste exacto (`simulate_cost`) y el saldo (`account_balance`):
+- IA con movimiento real (recomendado): imagen con Seedream 5 Pro 9:16 (~100) + Kling 2.5 720p 5 s con la imagen como
+  fotograma inicial (~140) ≈ 240 por clip.
+- IA animada en Remotion: solo la imagen (~100); el movimiento (zoom, paneo) lo pone `broll` con `imagen`.
+- Vídeo de stock (`stock_search` con `content_type: video`, `orientation: portrait`): ~600 por clip y requiere permitir
+  `videocdn.cdnpk.net` en la red.
+
+Generación (IA con movimiento):
+1. `images_generate` (mode `seedream-5-pro`, aspectRatio `9:16`, count 1) con un prompt en inglés: escena concreta,
+   cinematográfica, sin texto legible, sin logos, sin personas reconocibles. Todas en paralelo.
+2. `creations_wait` y revisa cada imagen (descárgala y míralas en una hoja); repite la que no sirva antes de animarla.
+3. `video_generate` (slug `kling-25`, duration 5, aspectRatio `9:16`, resolution `720p`, `keyframes.start` = la imagen)
+   con un prompt de movimiento (cámara lenta, humo, luz, partículas…). Todas en paralelo; tardan ~10 min.
+4. Descarga el MP4 (`creations_wait` → url) a `public/broll/NOMBRE_n.mp4` y úsalo en `props.json`:
+   `{"tipo": "broll", "start", "dur", "src": "broll/NOMBRE_n.mp4", "rotulo": "opcional"}`.
+5. Apunta en `broll/catalogo.json` cada clip (archivo, qué se ve, prompt, coste, anuncio) para reutilizarlo gratis.
 
 ## 6. Música
 

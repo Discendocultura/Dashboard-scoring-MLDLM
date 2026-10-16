@@ -27,6 +27,24 @@ Colores secundarios de una marca: en `extra` (`e.extra.pastel`…). Si la marca 
 Nueva plantilla: `plantillas/NOMBRE.json` + registrarla en `plantillas/index.js` + fuentes en `src/fuentes.js`.
 `scripts/muestra.sh NOMBRE` genera una imagen de muestra.
 
+## Estilos de edición (`ediciones/`)
+
+Independientes de la paleta: `props.json → "edicion"`.
+
+- `clasico`: subtítulos con los colores de la marca, gancho arriba, animaciones de `src/Animaciones.jsx` en la franja de
+  arriba o a la altura del pecho (nunca tapan la cara).
+- `impacto`: subtítulos blancos con sombra suave (la palabra que suena, algo más grande), gancho y botón de registro
+  abajo del todo, y escenas a pantalla completa de `src/Impacto.jsx` que tapan la imagen mientras la voz sigue:
+  - `broll` `{src | imagen, rotulo?}`: vídeo o imagen a pantalla completa con zoom lento.
+  - `frase` `{texto, destacar[], antetitulo?}`: palabras que entran una a una; las destacadas en acento y cursiva.
+  - `cifra` `{hasta, prefijo, sufijo, etiqueta}`, `cronologia` `{titulo, hitos[{anio, texto}]}`,
+    `cartel` `{antetitulo, titulo, lineas[{texto, en}], sello, selloEn}`, `boton` `{texto, toque, subtexto}`.
+  Mientras hay una escena de texto (`frase`, `cifra`, `cronologia`, `cartel`) no se ponen subtítulos encima.
+  Ritmo: no más de ~6 s seguidos sin volver a la cara.
+
+B-rolls: los clips van en `broll/` (en el repo, para reutilizarlos gratis) con su ficha en `broll/catalogo.json`;
+`public/broll` es un enlace a esa carpeta (`ln -s ../broll public/broll` si falta).
+
 ## Música y efectos
 
 - `musica/catalogo.json`: músicas ya generadas (estilo, marca, duración, puntos de corte, prompt y dónde se usaron).
@@ -81,7 +99,8 @@ Nueva plantilla: `plantillas/NOMBRE.json` + registrarla en `plantillas/index.js`
 
 1. El original no se toca nunca: se trabaja sobre copias y carpetas nuevas por anuncio.
 2. Subtítulos siempre en dos pasadas (transcripción revisada contra el guion).
-3. Nada tapa la cara: animaciones en la franja superior (y < 380) o a la altura del pecho; el gancho arriba.
+3. En estilo clásico nada tapa la cara: animaciones en la franja superior (y < 380) o a la altura del pecho; el gancho arriba.
+   En estilo impacto las escenas tapan la pantalla a propósito, pero cortas (2–4 s) y alternando con la cara.
 4. Revisar fotogramas antes de entregar.
 5. Nada de pago sin ver el coste: con Magnific, `simulate_cost` antes de generar y pedir el sí.
    Referencia (oct 2026): música Google Lyria 3 Pro 45 s = 160 créditos; efecto de 2 s = 10; de 1 s = 5.
