@@ -264,7 +264,8 @@ export const Nota = ({e, titulo, lineas = [], cada = 0.6, top = 230}) => {
         <div style={{fontFamily: 'Inter', fontWeight: 800, fontSize: 46, color: '#111', marginBottom: 14}}>{titulo}</div>
         {lineas.map((l, i) => {
           const on = f / fps >= (l.en ?? 0.4 + i * cada);   // `en`: segundo (desde el inicio de la escena) en que aparece la línea
-          return <div key={i} style={{fontFamily: 'Inter', fontWeight: 600, fontSize: 38, color: '#222', lineHeight: 1.5, opacity: on ? 1 : 0,
+          if (!on) return null;   // la nota crece al aparecer cada línea, como si se escribiera
+          return <div key={i} style={{fontFamily: 'Inter', fontWeight: 600, fontSize: 38, color: '#222', lineHeight: 1.5,
             textDecoration: l.tachar ? 'line-through' : 'none', textDecorationColor: e.primario}}>{l.marca ?? '•'} {l.texto}</div>;
         })}
       </div>
