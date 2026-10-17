@@ -5247,3 +5247,22 @@ body.en-inicio .sin-embudos-op { display: none !important; }
 .op-cal-pasos { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 14px; }
 .op-cal-sec .btn { justify-self: start; }
 .op-cal-aviso { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font-size: 13px; color: var(--muted); }
+
+/* Dos formas de escribir a un lead: 💬 WhatsApp (gratis) y 📨 Plantilla (de pago, la envía GHL) */
+.envio-btns { display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.btn .envio-precio { font-size: 10.5px; font-weight: 600; opacity: .85; margin-left: 2px; }
+.btn.plantilla { background: var(--accent, #4f46e5); border-color: var(--accent, #4f46e5); color: #fff; padding: 6px 10px; }
+.btn.plantilla.sent { background: transparent; color: var(--accent, #4f46e5); }
+.btn.plantilla:disabled { background: var(--surface-2); border-color: var(--border); color: var(--text-2); }
+.nota-envios { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; margin: 0 0 12px; }
+.nota-envios:empty { display: none; }
+.envio-op { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); font-size: 13px; line-height: 1.45; }
+.envio-op strong { font-size: 13.5px; }
+.envio-gratis { color: var(--wa); }
+.envio-pago { color: var(--accent, #4f46e5); }
+.pl-lista { border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; margin: 0 0 12px; }
+.pl-op { display: flex; gap: 8px; align-items: center; padding: 4px 0; cursor: pointer; }
+.pl-avisos { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 6px; }
+.cx-pl { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; margin-bottom: 6px; }
+.cx-pl code { font-size: 11.5px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+@media (max-width: 640px) { .cx-pl { grid-template-columns: 1fr auto; } .cx-pl code { grid-column: 1 / -1; grid-row: 2; max-width: none; } }

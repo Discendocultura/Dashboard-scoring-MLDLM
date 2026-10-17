@@ -52,8 +52,8 @@ test('setter IA: la dirección se guarda limpia en la configuración', () => {
 test('setter IA: workflows de la plantilla y de la respuesta solo con el setter conectado', () => {
   const L = { name: 'Octubre', fechaDirecto: '2026-10-20', registroTag: 'registrado-webinar-201026' };
   const sin = automatizacionesDe(autoCtx('lanzamientos', L, { code: 'oct' }));
-  assert.ok(!sin.some((a) => a.id.startsWith('setter')));
-  const c = autoCtx('lanzamientos', L, { code: 'oct', setterUrl: 'https://setter.x.dev', clienteId: 'mldlm' });
+  assert.ok(!sin.some((a) => a.id.startsWith('setter')), 'sin plantillas ni setter, nada');
+  const c = autoCtx('lanzamientos', L, { code: 'oct', setterUrl: 'https://setter.x.dev', clienteId: 'mldlm', plantillasWa: [{ nombre: 'Plantilla del setter IA', tag: 'setter-ia-enviar-plantilla' }] });
   const con = automatizacionesDe(c);
   const resp = con.find((a) => a.id === 'setter-respuesta');
   assert.ok(con.find((a) => a.id === 'setter-plantilla'));
@@ -82,4 +82,43 @@ test('setter IA: API con ETag (304 si no ha cambiado)', async () => {
   assert.equal(r2.status, 304);
   const r3 = await route(new Request('http://localhost/api/setter/marca', { headers: { ...auth, 'if-none-match': '"otra"' } }), env);
   assert.equal(r3.status, 200);
+});
+
+test('plantillas de WhatsApp: una de serie, códigos limpios y sin repetir', async () => {
+  const { sanitizePlantillasWa } = await import('../lib/config-store.js');
+  assert.deepEqual(sanitizePlantillasWa(undefined), [{ id: 'p1', nombre: 'Plantilla del setter IA', tag: 'setter-ia-enviar-plantilla' }]);
+  assert.deepEqual(sanitizePlantillasWa([]), [], 'si se quitan todas, no hay botón de plantilla');
+  const l = sanitizePlantillasWa([
+    { nombre: 'Bienvenida', tag: 'setter-ia-enviar-bienvenida' },
+    { nombre: 'Repetida', tag: 'setter-ia-enviar-bienvenida' },
+    { nombre: 'Mala', tag: 'setter-ia-baja' },
+    { nombre: 'Otra', tag: 'compra-raices' },
+  ]);
+  assert.deepEqual(l.map((p) => p.tag), ['setter-ia-enviar-bienvenida']);
+});
+
+test('plantillas de WhatsApp: el dashboard solo puede poner las etiquetas configuradas', async () => {
+  const { setEnv } = await import('../lib/env.js');
+  const { crearD1Local } = await import('../lib/d1-local.js');
+  setEnv({ GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret', DB: crearD1Local() });
+  const { POST: login } = await import('../handlers/login.js');
+  const r = await login(new Request('http://localhost/api/login', { method: 'POST', body: JSON.stringify({ password: 'setter' }) }));
+  const cookie = r.headers.get('set-cookie').split(';')[0];
+  const { POST } = await import('../handlers/apply-tags.js');
+  const pedir = (tags) => POST(new Request('http://localhost/api/apply-tags', { method: 'POST', headers: { cookie }, body: JSON.stringify({ items: [{ id: 'mock00004', tags }] }) }));
+  assert.equal((await pedir(['setter-ia-enviar-plantilla', 'demo_wa_enviado'])).status, 200, 'la de serie vale');
+  assert.equal((await pedir(['setter-ia-enviar-otra'])).status, 400, 'una que no está configurada, no');
+  assert.equal((await pedir(['setter-ia-baja'])).status, 400, 'las de estado del setter, no');
+});
+
+test('plantillas de WhatsApp: workflow por etiqueta, que se quita al enviar', () => {
+  const c = autoCtx('lanzamientos', { name: 'Octubre', fechaDirecto: '2026-10-20' }, { code: 'oct', plantillasWa: [{ nombre: 'Bienvenida', tag: 'setter-ia-enviar-bienvenida' }] });
+  const lista = automatizacionesDe(c);
+  const a = lista.find((x) => x.id === 'setter-plantilla');
+  assert.ok(a);
+  assert.ok(!lista.some((x) => x.id === 'setter-respuesta'), 'sin dirección del setter no hay workflow de respuesta');
+  const p = promptAutomatizacion(a, c);
+  assert.match(p, /Contact Tag Added.*«setter-ia-enviar-bienvenida»/);
+  assert.match(p, /Quitar la etiqueta que lo disparó/);
+  assert.match(p, /NO incluye «setter-ia-baja»/);
 });

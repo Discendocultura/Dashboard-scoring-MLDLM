@@ -1333,6 +1333,7 @@ function renderTabla() {
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   state.page = Math.min(Math.max(0, state.page), pages - 1);
   const slice = rows.slice(state.page * PAGE_SIZE, (state.page + 1) * PAGE_SIZE);
+  pintarNotaEnvios();
   $('#leads-body').innerHTML = slice.map(rowHtml).join('')
     || '<tr><td colspan="14" class="muted">No hay leads con estos filtros.</td></tr>';
   $('#page-info').textContent = rows.length
@@ -3381,12 +3382,29 @@ function preclaseChips(l) {
   if (v) out.push(`<span class="ll-chip" title="${esc(`Sus respuestas en la clase: ${v}`)}">🗳️ ${esc(v.length > 22 ? `${v.slice(0, 21)}…` : v)}</span>`);
   return out.join(' ');
 }
+// Dos formas de escribir a un lead: 💬 WhatsApp (gratis, desde tu móvil, con riesgo de bloqueo si se abusa) y
+// 📨 Plantilla (de pago, la envía GHL desde el número oficial y, si responde, contesta el setter IA).
+const plantillasWa = () => state.config?.setterIa?.plantillas || [];
+function envioBtns(l, { corto = false } = {}) {
+  const e = l.s.setter || {};
+  const wa = `<button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}" title="${esc(`GRATIS · Se abre tu WhatsApp con este mensaje ya escrito:\n\n${messageFor(l)}\n\n⚠️ Si escribes a mucha gente que no te tiene guardada, WhatsApp puede bloquear tu número.`)}">💬 ${l.s.wa_enviado ? (corto ? 'Reenviar' : 'Enviado ✓') : 'WhatsApp'} <small class="envio-precio">gratis</small></button>`;
+  if (!plantillasWa().length) return wa;
+  const pl = e.baja
+    ? '<button type="button" class="btn plantilla" disabled title="Pidió no recibir más mensajes">📨 Baja</button>'
+    : `<button type="button" class="btn plantilla ${e.plantilla ? 'sent' : ''}" data-plantilla="${esc(l.id)}" title="DE PAGO · Plantilla aprobada por Meta, la envía GHL desde el número oficial. Sin riesgo de bloqueo. Si responde, le contesta el setter IA.">📨 ${e.plantilla ? 'Plantilla ✓' : 'Plantilla'} <small class="envio-precio">de pago</small></button>`;
+  return `<span class="envio-btns">${wa}${pl}</span>`;
+}
+// Nota fija encima de Leads y de Setting hoy: qué es cada botón, en una línea cada uno.
+function pintarNotaEnvios() {
+  const html = `<div class="envio-op"><strong>💬 WhatsApp · <span class="envio-gratis">gratis</span></strong><span>Se abre tu WhatsApp con el mensaje ya escrito y lo envías tú. <b>⚠️ Riesgo de bloqueo:</b> si escribes a mucha gente que no te tiene guardada, WhatsApp puede bloquear tu número. Úsalo con pocas personas al día.</span></div>
+    ${plantillasWa().length ? `<div class="envio-op"><strong>📨 Plantilla · <span class="envio-pago">de pago</span></strong><span>La envía GHL desde el número oficial con una plantilla aprobada por Meta (cada una cuesta unos céntimos). <b>Sin riesgo de bloqueo</b> y, si contesta, <b>le responde el setter IA</b>.</span></div>` : ''}`;
+  for (const el of $$('[data-nota-envios]')) if (el.innerHTML !== html) el.innerHTML = html;
+}
 function rowHtml(l) {
-  const msgPreview = messageFor(l);
   const waBtn = l.step === 'comprado'
     ? '<span class="chip on">Ya compró ✓</span>'
     : l.phoneWa
-    ? `<button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}" title="${esc(msgPreview)}">${l.s.wa_enviado ? 'Enviado ✓ · reenviar' : 'Enviar WhatsApp'}</button>`
+    ? envioBtns(l)
     : '<span class="muted">Sin teléfono</span>';
   return `<tr>
     <td><div class="lead-name"><button type="button" class="lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || '(sin nombre)')}</button> ${avatarChip(l)} ${faseChip(l.id)} ${preclaseChips(l)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
@@ -3471,6 +3489,7 @@ function renderHoy() {
   const cuentaTemp = (id) => lista.filter((x) => x.l.estado.id === id && (!h.motivo || x.b.id === h.motivo)).length;
   const filtrada = lista.filter((x) => (!h.motivo || x.b.id === h.motivo) && (!h.temp || x.l.estado.id === h.temp));
   const shown = filtrada.slice(0, h.max);
+  pintarNotaEnvios();
   const nIa = state.leads.filter((l) => !l.s.compra && conIa(l)).length;
   const avisos = buckets.filter((b) => b.id === 'grupo').map((b) => `<p class="muted hoy-aviso">💬 ${esc(b.hint)}</p>`).join('')
     + (nIa ? `<p class="muted hoy-aviso">🤖 ${nIa} ${nIa === 1 ? 'persona la lleva' : 'personas las lleva'} ahora el setter IA: no salen aquí para no escribirles a la vez. Si te pide ayuda, aparecen arriba en «🙋 Pide persona».</p>` : '');
@@ -3522,7 +3541,7 @@ function hoyItem(l, b = null, n = 0) {
     </div>
     <div class="hoy-actions">
       ${l.s.setter?.respondio && enlaceSetter(l.id) ? `<a class="btn ghost small" href="${esc(enlaceSetter(l.id))}" target="_blank" rel="noopener" title="Leer la conversación en el setter IA">🤖 Ver chat</a>` : ''}
-      <button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}">${l.s.wa_enviado ? 'Reenviar' : 'WhatsApp'}</button>
+      ${envioBtns(l, { corto: true })}
       ${outcomeSelect(l)}
     </div>
   </li>`;
@@ -3557,6 +3576,58 @@ document.addEventListener('click', async (e) => {
     await api('/api/apply-tags', { method: 'POST', body: { items: [{ id: lead.id, tags: [tagFor(state.launchCode, 'wa_enviado')] }] } });
   } catch (ex) {
     notice(`No se pudo marcar como contactado en GHL: ${ex.message}`, true);
+  }
+});
+
+// ---------- Plantilla de WhatsApp (de pago) ----------
+// El dashboard pone a la persona la etiqueta de la plantilla elegida (setter-ia-enviar-…) y la de «contactada»; el
+// workflow de GHL de esa etiqueta envía la plantilla, le pone setter-ia-plantilla y quita la etiqueta (para poder repetir).
+let plLead = null;
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-plantilla]');
+  if (!b) return;
+  const lead = state.leads.find((l) => l.id === b.dataset.plantilla);
+  if (lead) abrirPlantilla(lead);
+});
+function abrirPlantilla(lead) {
+  plLead = lead;
+  const pls = plantillasWa();
+  const e = lead.s.setter || {};
+  const nombre = lead.firstName || lead.name || 'esta persona';
+  $('#pl-titulo').textContent = `📨 Enviar plantilla a ${nombre}`;
+  $('#pl-body').innerHTML = `
+    ${pls.length > 1 ? `<fieldset class="pl-lista"><legend>¿Qué plantilla?</legend>${pls.map((p, i) => `<label class="pl-op"><input type="radio" name="pl-elegida" value="${esc(p.tag)}" ${i === 0 ? 'checked' : ''}> ${esc(p.nombre)}</label>`).join('')}</fieldset>`
+      : `<p>Se enviará la plantilla <strong>«${esc(pls[0]?.nombre || '')}»</strong>.</p><input type="hidden" name="pl-elegida" value="${esc(pls[0]?.tag || '')}">`}
+    <ul class="pl-avisos">
+      <li>💶 <strong>Es de pago:</strong> Meta cobra cada plantilla (unos céntimos).</li>
+      <li>✅ <strong>Sin riesgo de bloqueo:</strong> sale del número oficial de WhatsApp de GHL, no del tuyo.</li>
+      <li>🤖 <strong>Si responde, le contesta el setter IA</strong> y la conversación sigue allí.</li>
+      <li>⏱️ GHL la envía en unos segundos (hace falta su workflow en Plan → Automatizaciones).</li>
+    </ul>
+    ${e.plantilla ? '<p class="notice warn">Ya se le envió una plantilla. Si la mandas otra vez, se cobra otra vez.</p>' : ''}
+    ${e.activo ? '<p class="notice warn">El setter IA está conversando ahora con ella: normalmente no hace falta otra plantilla.</p>' : ''}
+    <p class="muted small" id="pl-status"></p>`;
+  $('#pl-enviar').disabled = false;
+  $('#plantilla-dialog').showModal();
+}
+$('#pl-enviar').addEventListener('click', async () => {
+  const lead = plLead;
+  const tag = $('#pl-body input[name="pl-elegida"]:checked, #pl-body input[type="hidden"][name="pl-elegida"]')?.value;
+  if (!lead || !tag) return;
+  const b = $('#pl-enviar');
+  b.disabled = true;
+  $('#pl-status').textContent = 'Enviando…';
+  try {
+    const r = await api('/api/apply-tags', { method: 'POST', body: { items: [{ id: lead.id, tags: [tag, tagFor(state.launchCode, 'wa_enviado')] }] } });
+    if (!r.results?.[0]?.ok) throw new Error('GHL no aceptó el cambio. Prueba otra vez en un momento.');
+    lead.s.wa_enviado = true;
+    lead.s.setter = { ...(lead.s.setter || {}), plantilla: true, alguna: true };
+    $('#plantilla-dialog').close();
+    render();
+    notice(`📨 Plantilla en camino a ${lead.firstName || lead.name || 'la lead'}: GHL la envía en unos segundos. Si responde, le contesta el setter IA.`);
+  } catch (ex) {
+    $('#pl-status').textContent = ex.message;
+    b.disabled = false;
   }
 });
 
@@ -6249,7 +6320,7 @@ function renderAutomatizaciones() {
   if (!box) return;
   const { tipo, code, obj } = autoActual();
   if (!obj) { box.innerHTML = `<div class="card empty"><p class="muted">Elige ${tipo === 'meteorico' ? 'un meteórico' : 'un lanzamiento'} para ver sus automatizaciones.</p></div>`; return; }
-  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente });
+  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente, plantillasWa: state.config.setterIa?.plantillas || [] });
   const lista = automatizacionesDe(c);
   const datos = obj.automatizaciones || {};
   const origen = datos.origen || embudoInfo()?.autoOrigen || '';
@@ -6309,7 +6380,7 @@ document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-au-prompt], [data-au-ia], [data-au-prep]');
   if (!b) return;
   const { tipo, code, obj } = autoActual();
-  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente });
+  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente, plantillasWa: state.config.setterIa?.plantillas || [] });
   const lista = automatizacionesDe(c);
   const x = lista.find((y) => y.id === (b.dataset.auPrompt || b.dataset.auIa));
   const txt = b.hasAttribute('data-au-prep') ? promptPreparacion(lista, c) : b.dataset.auIa ? descripcionIaGhl(x, c) : promptAutomatizacion(x, c);
@@ -12962,8 +13033,37 @@ $('#cx-av-guardar').addEventListener('click', async () => {
 });
 $('#cx-sendflow-probar').addEventListener('click', () => probarSendflow());
 // Setter IA: su dirección (para «Abrir en el setter») y si la clave de las cifras está puesta en Cloudflare.
+// Código de la etiqueta de una plantilla a partir de su nombre: «Bienvenida webinar» → setter-ia-enviar-bienvenida-webinar.
+const tagPlantilla = (nombre) => `setter-ia-enviar-${String(nombre || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'plantilla'}`;
+let cxPlantillas = [];
+function pintarPlantillasCx() {
+  $('#cx-setter-plantillas').innerHTML = cxPlantillas.length ? cxPlantillas.map((p, i) => `<div class="cx-pl" data-cx-pl="${i}">
+      <input data-cx-pl-nombre value="${esc(p.nombre)}" maxlength="60" placeholder="Nombre de la plantilla (como en WhatsApp)" aria-label="Nombre de la plantilla">
+      <code title="Código que pone el dashboard y que dispara el workflow de GHL">${esc(p.tag)}</code>
+      <button type="button" class="btn ghost small" data-cx-pl-quitar aria-label="Quitar">✕</button></div>`).join('')
+    : '<p class="muted small">Sin plantillas: en Leads y Setting hoy solo saldrá el botón de WhatsApp gratis.</p>';
+}
+$('#cx-setter-plantillas').addEventListener('input', (e) => {
+  const i = Number(e.target.closest('[data-cx-pl]')?.dataset.cxPl);
+  if (!e.target.matches('[data-cx-pl-nombre]') || !cxPlantillas[i]) return;
+  cxPlantillas[i].nombre = e.target.value;
+  if (!cxPlantillas[i].fija) { cxPlantillas[i].tag = tagPlantilla(e.target.value); e.target.nextElementSibling.textContent = cxPlantillas[i].tag; }
+});
+$('#cx-setter-plantillas').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-cx-pl-quitar]')) return;
+  cxPlantillas.splice(Number(e.target.closest('[data-cx-pl]').dataset.cxPl), 1);
+  pintarPlantillasCx();
+});
+$('#cx-pl-add').addEventListener('click', () => {
+  cxPlantillas.push({ id: `p${Date.now().toString(36)}`, nombre: '', tag: tagPlantilla('') });
+  pintarPlantillasCx();
+  $$('#cx-setter-plantillas [data-cx-pl-nombre]').at(-1)?.focus();
+});
 function pintarSetterConexiones() {
   $('#cx-setter-url').value = state.config.setterIa?.url || '';
+  // Las ya guardadas conservan su código (su workflow de GHL ya lo usa); las nuevas lo sacan del nombre.
+  cxPlantillas = (state.config.setterIa?.plantillas || []).map((p) => ({ ...p, fija: true }));
+  pintarPlantillasCx();
   $('#cx-setter-status').textContent = '';
   $('#cx-setter-clave').innerHTML = state.setterResumen
     ? '✓ Clave de las cifras puesta en Cloudflare.'
@@ -12974,9 +13074,16 @@ $('#cx-setter-guardar').addEventListener('click', async () => {
   if (url && !/^https:\/\/[^\s/]+(\/\S*)?$/i.test(url)) { $('#cx-setter-status').textContent = 'Pega la dirección completa, empezando por https://'; return; }
   $('#cx-setter-status').textContent = 'Guardando…';
   try {
-    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, setterIa: { url } } });
+    const vistos = new Set();
+    const plantillas = cxPlantillas.filter((p) => p.nombre.trim()).map((p) => {
+      let tag = p.tag;
+      for (let n = 2; vistos.has(tag); n++) tag = `${p.tag}-${n}`;
+      vistos.add(tag);
+      return { id: p.id, nombre: p.nombre.trim(), tag };
+    });
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, setterIa: { url, plantillas } } });
     state.config = config;
-    $('#cx-setter-url').value = config.setterIa?.url || '';
+    pintarSetterConexiones();
     $('#cx-setter-status').textContent = 'Guardado ✓';
   } catch (e) { $('#cx-setter-status').textContent = e.message; }
 });

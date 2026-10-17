@@ -1,11 +1,14 @@
 // Añade etiquetas de señales (p. ej. `nov26_directo_asistio`, `nov26_wa_enviado`) a varios
 // contactos. Solo admite etiquetas con el formato del dashboard, nunca etiquetas arbitrarias.
 // `remove` solo puede quitar etiquetas de resultado de la setter (`<código>_res_…`).
+// También las etiquetas de las plantillas de WhatsApp de Conexiones → Setter IA (`setter-ia-enviar-…`): las pone el
+// botón «📨 Plantilla» y su workflow de GHL envía la plantilla.
 import { requireSession } from '../lib/auth.js';
 import { registrarActividadEquipo, eventosDeEtiquetas } from '../lib/actividad-equipo.js';
 import { addTags, removeTags } from '../lib/ghl.js';
 import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
 import { isValidSignalTag } from '../public/js/scoring.js';
+import { getConfig } from '../lib/config-store.js';
 
 export async function POST(request) {
   try {
@@ -15,7 +18,9 @@ export async function POST(request) {
       // 25 como mucho: cada uno puede ser quitar + poner etiquetas (2 llamadas) y el plan gratuito corta a las 50.
       return json({ error: 'Envía entre 1 y 25 contactos por petición' }, 400);
     }
-    const okTag = (t) => typeof t === 'string' && isValidSignalTag(t);
+    const pide = items.some((it) => Array.isArray(it?.tags) && it.tags.some((t) => typeof t === 'string' && t.startsWith('setter-ia-enviar')));
+    const plantillas = new Set(pide ? ((await getConfig()).setterIa?.plantillas || []).map((p) => p.tag) : []);
+    const okTag = (t) => typeof t === 'string' && (isValidSignalTag(t) || plantillas.has(t));
     for (const it of items) {
       const tags = it?.tags || [];
       const remove = it?.remove || [];

@@ -39,10 +39,10 @@ const menosHora = (hora) => { const [h, mi] = String(hora || '19:00').split(':')
 
 // Contexto: los datos del embudo que van en los workflows.
 //   tipo: 'lanzamientos' | 'vsl' | 'directa' | 'meteorico' · obj: el lanzamiento / VSL / venta directa / meteórico
-export function autoCtx(tipo, obj = {}, { code = '', cliente = '', producto = '', zoomWebhook = '', setterUrl = '', clienteId = '' } = {}) {
+export function autoCtx(tipo, obj = {}, { code = '', cliente = '', producto = '', zoomWebhook = '', setterUrl = '', clienteId = '', plantillasWa = [] } = {}) {
   const o = obj || {};
   return {
-    tipo, code, cliente, producto, nombre: o.name || code, zoomWebhook, setterUrl, clienteId,
+    tipo, code, cliente, producto, nombre: o.name || code, zoomWebhook, setterUrl, clienteId, plantillasWa: Array.isArray(plantillasWa) ? plantillasWa : [],
     carpeta: o.name || code,
     // Lanzamientos: la etiqueta de registro es SIEMPRE «registrado-webinar-DDMMAA» (fecha del directo). Si la de
     // Configuración es otra, el prompt usa la buena y registroDistinta avisa de que hay que cambiarla allí.
@@ -216,23 +216,25 @@ const METEORICO = [
   },
 ];
 
-// Setter IA (si está su dirección en Cuenta → Conexiones): la plantilla que abre la conversación y el aviso al setter
-// cuando la lead responde. Las etiquetas setter-ia-… son fijas (las lee el dashboard).
+// Setter IA: el envío de cada plantilla de WhatsApp (botón «📨 Plantilla» de Leads y Setting hoy, Cuenta → Conexiones)
+// y, si está la dirección del setter, el aviso al setter cuando la lead responde. Las etiquetas setter-ia-… son fijas.
+const listaPlantillas = (c) => c.plantillasWa.map((p) => `«${p.nombre}» → disparador Contact Tag Added «${p.tag}»`).join(' · ');
 const SETTER = [
   {
-    id: 'setter-plantilla', titulo: 'Setter IA · plantilla de WhatsApp', requiere: [],
-    para: 'Abre la conversación con la plantilla de WhatsApp aprobada. Si la lead responde, contesta el setter IA (workflow siguiente).',
-    disparador: () => 'El momento de la plantilla que tengas en el setter IA (paso Plantillas → «Cuándo»): p. ej. Contact Tag Added con la etiqueta de registro, o una fecha del lanzamiento.',
-    acciones: () => [
+    id: 'setter-plantilla', titulo: 'Plantillas de WhatsApp (botón 📨 del dashboard)', requiere: [], si: (c) => c.plantillasWa.length,
+    para: 'Cuando alguien del equipo pulsa «📨 Plantilla» en el dashboard, se pone a la persona una etiqueta y este workflow le envía la plantilla aprobada. Si responde, contesta el setter IA. Son para todo el cliente: UN workflow por plantilla (si ya existen de otro lanzamiento, no los dupliques).',
+    disparador: (c) => `Contact Tag Added. Uno por plantilla: ${listaPlantillas(c)}.`,
+    acciones: (c) => [
       'Filtro al principio: la etiqueta NO incluye «setter-ia-baja» (quien pidió la baja no vuelve a recibir plantillas).',
-      'Enviar la plantilla de WhatsApp (la aprobada por Meta).',
+      `Enviar la plantilla de WhatsApp aprobada por Meta con ese nombre (${c.plantillasWa.map((p) => `«${p.nombre}»`).join(', ')}).`,
       'Añadir la etiqueta «setter-ia-plantilla» (sin ella el setter no responde y el dashboard no la cuenta).',
+      'Quitar la etiqueta que lo disparó (la de «setter-ia-enviar-…»), para poder volver a enviarla otro día.',
       'Crear o actualizar la oportunidad en el pipeline del lanzamiento, etapa «Contactado».',
     ],
-    prueba: () => 'Con tu propio número como contacto de prueba: debe llegarte la plantilla y en el dashboard (Leads) salir 🤖📨.',
+    prueba: () => 'Ponte como contacto de prueba con tu propio número y pulsa «📨 Plantilla» en el dashboard: en unos segundos te llega la plantilla y en Leads sale «📨 Plantilla ✓».',
   },
   {
-    id: 'setter-respuesta', titulo: 'Setter IA · respuesta de la lead', requiere: [],
+    id: 'setter-respuesta', titulo: 'Setter IA · respuesta de la lead', requiere: [], si: (c) => c.setterUrl,
     para: 'Cuando la lead contesta a la plantilla, avisa al setter IA para que responda. Es UNO para todo el cliente: si ya existe de otro lanzamiento, no lo dupliques (márcalo como creado).',
     disparador: () => 'Customer Replied, canal WhatsApp.',
     acciones: (c) => [
@@ -247,7 +249,7 @@ const LISTAS = { lanzamientos: LANZAMIENTO, vsl: VSL, directa: DIRECTA, meteoric
 
 // Las automatizaciones de este embudo, numeradas: [{ ...def, n, nombre, faltan }]
 export function automatizacionesDe(c) {
-  return [...(LISTAS[c.tipo] || []), ...(c.setterUrl ? SETTER : [])].filter((a) => a && (!a.si || a.si(c))).map((a, i) => {
+  return [...(LISTAS[c.tipo] || []), ...SETTER].filter((a) => a && (!a.si || a.si(c))).map((a, i) => {
     const n = String(i + 1).padStart(2, '0');
     return { ...a, n, nombre: `[${c.code || 'código'}] ${n} · ${a.titulo}`, faltan: faltanDatos(a, c) };
   });
@@ -284,7 +286,7 @@ export function descripcionIaGhl(a, c) {
 
 // Primer prompt: preparar GHL (carpeta, etiquetas y lo que necesitan los workflows) antes de crearlos.
 export function promptPreparacion(lista, c) {
-  const etiquetas = [...new Set([c.registroTag || c.registroPropuesta, c.encuestaTag, c.vipTag, c.compraTag, c.unicoTag, c.fraccionadoTag, c.publiTag, c.organicoTag, c.llamadaTag, c.carritoAbandonadoTag, ...(c.setterUrl ? ['setter-ia-plantilla', 'setter-ia-activo', 'setter-ia-pausa', 'setter-ia-humano', 'setter-ia-cita', 'setter-ia-baja'] : [])].filter(Boolean))];
+  const etiquetas = [...new Set([c.registroTag || c.registroPropuesta, c.encuestaTag, c.vipTag, c.compraTag, c.unicoTag, c.fraccionadoTag, c.publiTag, c.organicoTag, c.llamadaTag, c.carritoAbandonadoTag, ...(c.setterUrl || c.plantillasWa.length ? ['setter-ia-plantilla', 'setter-ia-activo', 'setter-ia-pausa', 'setter-ia-humano', 'setter-ia-cita', 'setter-ia-baja', ...c.plantillasWa.map((p) => p.tag)] : [])].filter(Boolean))];
   return [
     `Vamos a preparar GoHighLevel (subcuenta de ${c.cliente || 'la marca'}) para crear las automatizaciones de «${c.nombre}». Todavía no crees ningún workflow.`,
     '',
