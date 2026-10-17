@@ -1491,38 +1491,58 @@ document.addEventListener('input', (e) => {
   lista.innerHTML = items.map((x) => `<li><span>${esc(x.texto)}</span> <span class="muted small">— ${esc(x.nombre)}${x.compra ? ' · ✅ compró' : ''}</span></li>`).join('') || '<li class="muted">Ninguna respuesta coincide.</li>';
 });
 
+// Barras de «Vídeos y conversión»: cada fila con su etiqueta, la barra (relativa a la mayor) y la cifra grande.
+//  filas: [{ label, sub, v (0–1 o número), txt, tono }], max: valor que llena la barra
+function barrasCv(filas, { max } = {}) {
+  const tope = max ?? Math.max(0, ...filas.map((f) => f.v || 0));
+  if (!filas.length) return '<p class="muted">Sin datos todavía.</p>';
+  return filas.map((f) => `<div class="cv-fila${f.tono ? ` cv-${f.tono}` : ''}">
+      <div class="cv-et"><span>${f.label}</span>${f.sub ? `<small>${f.sub}</small>` : ''}</div>
+      <div class="cv-barra"><span style="width:${tope && f.v ? Math.max(2, (f.v / tope) * 100) : 0}%"></span></div>
+      <strong class="cv-val">${f.txt}</strong>
+    </div>`).join('');
+}
+
 function renderConsumo() {
   const L = state.leads;
   const launch = state.config.launches[state.launchCode] || {};
   const pct = (n) => (L.length ? Math.round((n / L.length) * 100) : 0);
-  const celda = (n, title = '') => `<td><div class="meter" title="${title || `${n} leads (${pct(n)}%)`}"><span style="width:${pct(n)}%"></span></div>
-      <span class="meter-num">${n}</span> <span class="muted">${pct(n)}%</span></td>`;
   // Vídeos grabados: clases del prelanzamiento y grabación de cada vídeo del lanzamiento.
   const vids = videosDe(launch);
   const grabados = [
-    ...clasesDe(launch).map((c, i) => [c, `Clase ${i + 1}`]),
-    ...vids.map((v) => [v.replay, vids.length > 1 ? `${v.nombre} (grabado)` : 'Grabación']),
+    ...clasesDe(launch).map((c, i) => [c, `Clase ${i + 1}`, '🎓']),
+    ...vids.map((v) => [v.replay, vids.length > 1 ? `${v.nombre} (grabado)` : 'Grabación', '🎬']),
   ];
-  const rows = grabados.map(([v, label]) => `<tr><th scope="row">${esc(label)}</th>${THRESHOLDS.map((t) => celda(L.filter((l) => watched(l.s, v) >= t).length)).join('')}</tr>`).join('');
+  // Una tarjeta por vídeo: cuántos llegan a cada punto (25 %, 50 %, 75 % y completo) como columnas que bajan.
+  const tarjetas = grabados.map(([v, label, ico]) => {
+    const n = THRESHOLDS.map((t) => L.filter((l) => watched(l.s, v) >= t).length);
+    const caida = n[0] ? Math.round((1 - n[3] / n[0]) * 100) : null;
+    return `<article class="cv-video">
+      <header><span class="cv-video-ico" aria-hidden="true">${ico}</span><strong>${esc(label)}</strong></header>
+      <div class="cv-video-big"><strong>${pct(n[0])}%</strong><span>la empezaron · ${n[0].toLocaleString('es-ES')} leads</span></div>
+      <div class="cv-cols" role="img" aria-label="${esc(`${label}: ${THRESHOLDS.map((t, i) => `${t}% visto ${n[i]}`).join(', ')}`)}">
+        ${THRESHOLDS.map((t, i) => `<div class="cv-col" title="${n[i]} leads (${pct(n[i])}%) vieron al menos el ${t}%"><span class="cv-col-n">${pct(n[i])}%</span><div class="cv-col-bar"><span style="height:${pct(n[i])}%"></span></div><small>${t === 90 ? 'Entero' : `${t}%`}</small></div>`).join('')}
+      </div>
+      <p class="cv-video-pie">${n[0] ? `<strong>${pct(n[3])}%</strong> lo vio entero${caida != null ? ` · se pierde el ${caida}% por el camino` : ''}` : '<span class="muted">Aún nadie lo ha visto.</span>'}</p>
+    </article>`;
+  }).join('');
   // Directo: cada paso incluye a quien llegó más lejos (quien estuvo hasta el final también entró).
   const pasoDirecto = (l, d) => (l.s[`${d}_final`] ? 4 : l.s[`${d}_60`] ? 3 : l.s[`${d}_asistio`] ? 2 : l.s[`${d}_click`] ? 1 : 0);
   const directos = vids.filter((v) => esEnDirecto(v) || L.some((l) => pasoDirecto(l, v.directo)));
-  const rowsDirecto = directos.map((v) => {
+  const PASOS_DIR = [['👆', 'Pulsaron el enlace'], ['🎥', 'Entraron'], ['⏱️', 'Más de 60 min'], ['🏁', 'Hasta el final']];
+  const htmlDirectos = directos.map((v) => {
     const n = [1, 2, 3, 4].map((k) => L.filter((l) => pasoDirecto(l, v.directo) >= k).length);
     const ret = n[1] ? `${Math.round((n[3] / n[1]) * 100)}%` : '–';
-    return `<tr><th scope="row">${esc(vids.length > 1 ? v.nombre : 'Directo')}</th>${n.map((x) => celda(x)).join('')}<td class="num"><strong>${ret}</strong><br><span class="muted small">de los que entraron siguen al final</span></td></tr>`;
+    return `<div class="cv-directo">
+      <div class="cv-directo-cab"><strong>🔴 ${esc(vids.length > 1 ? v.nombre : 'Directo')}</strong><span class="cv-pill">Retención <b>${ret}</b> <small>de los que entraron siguen al final</small></span></div>
+      <div class="cv-pasos">${n.map((x, i) => `${i ? `<span class="cv-flecha" aria-hidden="true">${n[i - 1] ? `${Math.round((x / n[i - 1]) * 100)}%` : ''}<b>→</b></span>` : ''}<div class="cv-paso"><span aria-hidden="true">${PASOS_DIR[i][0]}</span><strong>${x.toLocaleString('es-ES')}</strong><small>${PASOS_DIR[i][1]} · ${pct(x)}%</small></div>`).join('')}</div>
+    </div>`;
   }).join('');
   $('#consumo').innerHTML = `
-    <h2>Consumo de vídeos <span class="muted">· leads que han visto al menos…</span></h2>
-    <div class="table-scroll"><table class="consumo">
-      <thead><tr><th></th>${THRESHOLDS.map((t) => `<th>${t === 90 ? '90% (completo)' : `${t}%`}</th>`).join('')}</tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>
-    <h3 class="cfg-h3">En directo <span class="muted">· sobre el total de registros (Zoom: sincroniza la asistencia con «Sincronizar Zoom»)</span></h3>
-    ${rowsDirecto ? `<div class="table-scroll"><table class="consumo">
-      <thead><tr><th></th><th>Pulsaron el enlace</th><th>Entraron</th><th>Más de 60 min</th><th>Hasta el final</th><th>Retención</th></tr></thead>
-      <tbody>${rowsDirecto}</tbody>
-    </table></div>` : '<p class="muted">Este lanzamiento no tiene vídeos en directo (sin Zoom configurado) o aún no hay datos del directo.</p>'}`;
+    <h2>Consumo de vídeos <span class="muted">· qué parte de los registros llega a cada punto de cada vídeo</span></h2>
+    <div class="cv-videos">${tarjetas || '<p class="muted">Este lanzamiento no tiene clases ni grabaciones configuradas.</p>'}</div>
+    <h3 class="cv-h3">En directo <span class="muted">· sobre el total de registros (Zoom: sincroniza la asistencia con «Sincronizar Zoom»)</span></h3>
+    ${htmlDirectos || '<p class="muted">Este lanzamiento no tiene vídeos en directo (sin Zoom configurado) o aún no hay datos del directo.</p>'}`;
 }
 
 // ---------- Métricas del embudo ----------
@@ -1870,6 +1890,20 @@ function renderMetrics() {
     return `<td class="num ${!d ? '' : d > 0 ? 'dif-mas' : 'dif-menos'}">${d > 0 ? '+' : ''}${String(d).replace('.', ',')} pp</td>`;
   };
   const difs = [...(atG('frio') ? [['frio', 'templado', 'Frío vs templado']] : []), ...(atG('publi') ? [['publi', 'organico', 'Publi vs orgánico']] : [])];
+  $('#asistencia-resumen').innerHTML = !at ? '' : difs.map(([a, b, t]) => {
+    const ga = atG(a); const gb = atG(b);
+    return `<div class="cv-comp"><h4>${esc(t)}</h4>
+      <div class="cv-leyenda"><span class="cv-l-a">${esc(ga.label)} <small>${ga.total}</small></span><span class="cv-l-b">${esc(gb.label)} <small>${gb.total}</small></span></div>
+      ${at.pasos.map((p) => {
+        const pa = ga.total ? p.n[a] / ga.total : 0; const pb = gb.total ? p.n[b] / gb.total : 0;
+        const d = Math.round((pa - pb) * 1000) / 10;
+        return `<div class="cv-par"><span class="cv-par-et">${esc(p.label)}</span>
+          <div class="cv-par-barras"><div class="cv-barra cv-a"><span style="width:${pa * 100}%"></span></div><div class="cv-barra cv-b"><span style="width:${pb * 100}%"></span></div></div>
+          <span class="cv-par-n">${pctOf(p.n[a], ga.total)}<br>${pctOf(p.n[b], gb.total)}</span>
+          <span class="cv-dif ${!d ? '' : d > 0 ? 'dif-mas' : 'dif-menos'}">${d > 0 ? '+' : ''}${String(d).replace('.', ',')}</span></div>`;
+      }).join('')}</div>`;
+  }).join('') || '<p class="muted small">Solo hay un grupo con datos: abre la tabla para ver el detalle.</p>';
+  if (!at) $('#asistencia-resumen').innerHTML = `<p class="muted">Configura el <strong>inicio de captación</strong> (frío / templado) o las <strong>etiquetas de publicidad y orgánico</strong> del lanzamiento para comparar el consumo por tipo de tráfico.${irA('cfg-inicio')}</p>`;
   $('#asistencia-trafico').innerHTML = !at ? `<tbody><tr><td class="muted">Configura el <strong>inicio de captación</strong> (frío / templado) o las <strong>etiquetas de publicidad y orgánico</strong> del lanzamiento para separar el consumo por tipo de tráfico.${irA('cfg-inicio')}</td></tr></tbody>` : `
     <thead><tr><th>Paso</th>${at.grupos.map((g) => `<th class="num">${g.label} <small class="muted">(${g.total})</small></th>`).join('')}${difs.map(([, , t]) => `<th class="num">${t}</th>`).join('')}</tr></thead>
     <tbody>${at.pasos.map((p) => `<tr><td>${esc(p.label)}</td>${at.grupos.map((g) => `<td class="num${g.id === 'global' ? ' big' : ''}">${pctOf(p.n[g.id], g.total)} <span class="muted">${p.n[g.id]}</span></td>`).join('')}${difs.map(([a, b]) => dif(p, a, b)).join('')}</tr>`).join('')}</tbody>`;
@@ -1887,13 +1921,9 @@ function renderMetrics() {
   ];
   if (!vVenta && launch.fechaDirecto && launch.compraDateField) rows.splice(4, 0, ['Asistieron al directo y compraron ese mismo día', m.live, m.compraDirectoAsist]);
   renderTraffic(m);
-  $('#conversion-table').innerHTML = `
-    <thead><tr><th>Segmento</th><th class="num">Leads</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
-    <tbody>${rows.map(([label, n, buy]) => `<tr><td>${label}</td><td class="num">${n}</td><td class="num">${buy}</td><td class="num big">${pctOf(buy, n)}</td></tr>`).join('')}</tbody>`;
-
-  $('#estado-table').innerHTML = `
-    <thead><tr><th>Estado</th><th class="num">Leads</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
-    <tbody>${m.estados.map((e) => `<tr><td><span class="estado st-${e.id}"><span class="dot"></span>${e.label}</span></td><td class="num">${e.leads}</td><td class="num">${e.compras}</td><td class="num big">${pctOf(e.compras, e.leads)}</td></tr>`).join('')}</tbody>`;
+  $('#conversion-table').innerHTML = barrasCv(rows.filter(([, n], i) => !i || n).map(([label, n, buy], i) => ({ label, sub: `${buy} de ${n} compraron`, v: n ? buy / n : 0, txt: pctOf(buy, n), tono: i ? '' : 'base' })));
+  $('#estado-table').innerHTML = barrasCv(m.estados.map((e) => ({ label: `<span class="estado st-${e.id}"><span class="dot"></span>${e.label}</span>`, sub: `${e.compras} de ${e.leads} compraron`, v: e.leads ? e.compras / e.leads : 0, txt: pctOf(e.compras, e.leads), tono: `st-${e.id}` })));
+  renderConvHero(m, rows);
 
   renderSources();
   renderSetterMetrics(m);
@@ -1901,12 +1931,30 @@ function renderMetrics() {
   renderLift(m);
 }
 
+// Lo más importante de «Vídeos y conversión» en cuatro tarjetas grandes, en lenguaje claro.
+function renderConvHero(m, filas) {
+  const conv = (n, b) => (n ? b / n : 0);
+  const mejor = filas.slice(1).filter(([, n]) => n >= 10).sort((a, b) => conv(b[1], b[2]) - conv(a[1], a[2]))[0];
+  const st = m.setter;
+  const cc = st.contactadas ? st.compraContactadas / st.contactadas : null;
+  const cn = st.noContactadas ? st.compraNoContactadas / st.noContactadas : null;
+  const top = [...m.lift].filter((r) => r.veces != null && r.con >= 10).sort((a, b) => b.veces - a.veces)[0];
+  const t = (ico, tono, et, v, sub) => `<div class="cv-hero-card cv-t-${tono}"><span class="cv-hero-ico" aria-hidden="true">${ico}</span><span class="cv-hero-et">${et}</span><strong>${v}</strong><small>${sub}</small></div>`;
+  $('#conv-hero').innerHTML = [
+    t('🛒', 'buy', 'Compran', pctOf(m.compra, m.total), `${m.compra.toLocaleString('es-ES')} de ${m.total.toLocaleString('es-ES')} registros`),
+    mejor ? t('🏆', 'vip', 'El grupo que más compra', pctOf(mejor[2], mejor[1]), esc(String(mejor[0]).replace(/<[^>]+>/g, ''))) : '',
+    cc && cn && st.contactadas >= 10 ? t('💬', 'live', 'Escribir por WhatsApp', `×${(cc / cn).toLocaleString('es-ES', { maximumFractionDigits: 1 })}`, `las contactadas compran ${pctOf(st.compraContactadas, st.contactadas)} frente a ${pctOf(st.compraNoContactadas, st.noContactadas)}`) : '',
+    top ? t('✨', 'accent', 'La señal que más predice', `×${top.veces.toLocaleString('es-ES', { maximumFractionDigits: 1 })}`, esc(top.label)) : '',
+  ].join('');
+}
+
 // Votación de la preclase: por pregunta, el % de cada opción y la conversión a compra de quienes la eligieron;
 // de las preguntas libres, todas las respuestas con el nombre de quien la escribió.
 function renderVotacionMetric() {
   const v = state.votos;
   const launch = state.config.launches[state.launchCode];
-  $('#votacion-card').hidden = !launch || !tieneRecurso(launch, 'votacion');
+  $('#votacion-card').dataset.off = !launch || !tieneRecurso(launch, 'votacion') ? '1' : '';
+  if ($('#votacion-card').dataset.off) $('#votacion-card').hidden = true;
   if ($('#votacion-card').hidden) return;
   if (!v || v.code !== state.launchCode) { $('#votacion-metric').innerHTML = '<p class="muted">Cargando las respuestas…</p>'; return; }
   const porId = new Map(state.leads.map((l) => [l.id, l]));
@@ -2731,21 +2779,22 @@ function renderSources() {
 // Trabajo de la setter: contactadas y resultado.
 function renderSetterMetrics(m) {
   const st = m.setter;
-  $('#setter-table').innerHTML = `
-    <thead><tr><th>Grupo</th><th class="num">Leads</th><th class="num">Compras</th><th class="num">Conversión</th></tr></thead>
-    <tbody>
-      <tr><td><strong>Contactadas por WhatsApp</strong></td><td class="num">${st.contactadas}</td><td class="num">${st.compraContactadas}</td><td class="num big">${pctOf(st.compraContactadas, st.contactadas)}</td></tr>
-      <tr><td>No contactadas</td><td class="num">${st.noContactadas}</td><td class="num">${st.compraNoContactadas}</td><td class="num big">${pctOf(st.compraNoContactadas, st.noContactadas)}</td></tr>
-      ${st.resultados.map((r) => `<tr><td>· ${r.label}</td><td class="num">${r.leads}</td><td class="num">${r.compras}</td><td class="num big">${pctOf(r.compras, r.leads)}</td></tr>`).join('')}
-    </tbody>`;
+  const cc = st.contactadas ? st.compraContactadas / st.contactadas : null;
+  const cn = st.noContactadas ? st.compraNoContactadas / st.noContactadas : null;
+  const veces = cc != null && cn ? cc / cn : null;
+  $('#setter-table').innerHTML = `<div class="cv-vs">
+      <div class="cv-vs-a"><span>💬 Contactadas</span><strong>${pctOf(st.compraContactadas, st.contactadas)}</strong><small>${st.compraContactadas} de ${st.contactadas} compraron</small></div>
+      <div class="cv-vs-x">${veces ? `<b>×${veces.toLocaleString('es-ES', { maximumFractionDigits: 1 })}</b><small>más ventas</small>` : '<b>vs</b>'}</div>
+      <div class="cv-vs-b"><span>🔕 Sin contactar</span><strong>${pctOf(st.compraNoContactadas, st.noContactadas)}</strong><small>${st.compraNoContactadas} de ${st.noContactadas} compraron</small></div>
+    </div>
+    ${st.resultados.some((r) => r.leads) ? `<h4 class="cv-h4">Según el resultado anotado</h4><div class="cv-barras">${barrasCv(st.resultados.filter((r) => r.leads).map((r) => ({ label: esc(r.label), sub: `${r.compras} de ${r.leads}`, v: r.leads ? r.compras / r.leads : 0, txt: pctOf(r.compras, r.leads) })))}</div>` : ''}`;
 }
 
 // Qué señales predicen la compra (para afinar la puntuación con datos reales).
 function renderLift(m) {
-  const rows = [...m.lift].sort((a, b) => (b.veces ?? 0) - (a.veces ?? 0));
-  $('#lift-table').innerHTML = `
-    <thead><tr><th>Señal</th><th class="num">Conversión con la señal</th><th class="num">Sin la señal</th><th class="num">Multiplica por</th></tr></thead>
-    <tbody>${rows.map((r) => `<tr><td>${r.label} <span class="muted">(${r.con})</span></td><td class="num">${pctOf(r.convCon * r.con, r.con)}</td><td class="num">${pctOf(r.convSin * r.sin, r.sin)}</td><td class="num big">${r.veces == null ? '–' : `${r.veces.toFixed(1)}x`}</td></tr>`).join('')}</tbody>`;
+  const rows = [...m.lift].filter((r) => r.con).sort((a, b) => (b.veces ?? -1) - (a.veces ?? -1));
+  const sinDatos = m.lift.filter((r) => !r.con).map((r) => r.label);
+  $('#lift-table').innerHTML = barrasCv(rows.map((r) => ({ label: esc(r.label), sub: `compran ${pctOf(r.convCon * r.con, r.con)} con ella (${r.con}) · ${pctOf(r.convSin * r.sin, r.sin)} sin ella`, v: r.veces || 0, txt: r.veces == null ? '–' : `×${r.veces.toLocaleString('es-ES', { maximumFractionDigits: 1 })}`, tono: r.veces >= 2 ? 'fuerte' : r.veces != null && r.veces < 1 ? 'flojo' : '' }))) + (sinDatos.length ? `<p class="muted small">Aún sin datos: ${sinDatos.map(esc).join(' · ')}.</p>` : '');
   renderPesos(m.launch);
 }
 
@@ -3329,7 +3378,7 @@ function pintarMsub(nav, cat) {
   if (nav.id === 'msub-metricas') cat = { trafico: 'captacion', origen: 'captacion', consumo: 'conversion', oferta: 'ventas' }[cat] || cat;
   if (!cats.includes(cat)) cat = cats[0];
   $$('[data-msub-btn]', nav).forEach((b) => b.classList.toggle('active', b.dataset.msubBtn === cat));
-  $$('[data-msub]', view).forEach((el) => { el.hidden = el.dataset.msub !== cat; });
+  $$('[data-msub]', view).forEach((el) => { el.hidden = el.dataset.msub !== cat || el.dataset.off === '1'; });
   ls.set(`lsd_${nav.id}`, cat);
   if (nav.id === 'msub-leads' && cat === 'encuesta' && state.config && state.leads) renderEncuestaLeads();
   if (nav.id === 'msub-leads' && cat === 'comentarios' && state.config && !$('#view-leads').hidden) renderComentariosLeads();
