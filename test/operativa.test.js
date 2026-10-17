@@ -150,7 +150,12 @@ test('operativa: el tablero de cada embudo es el del lanzamiento en curso', asyn
   const { vigente, raiz } = codigoVigente(config, ['sept', 'oct', 'flash']);
   assert.equal(vigente, 'oct');
   assert.equal(raiz('flash'), 'oct'); // el meteórico va con su lanzamiento
-  assert.equal(codigoVigente(config, ['sept', 'oct', 'nov']).vigente, 'nov');
+  // Noviembre aún no ha empezado: manda octubre mientras esté en marcha; cuando empieza noviembre, pasa a noviembre.
+  assert.equal(codigoVigente(config, ['sept', 'oct', 'nov'], '2026-10-25').vigente, 'oct');
+  assert.equal(codigoVigente(config, ['sept', 'oct', 'nov'], '2026-11-02').vigente, 'nov');
+  const conCierre = { launches: { oct: { inicioCaptacion: '2026-10-01', fechaDirecto: '2026-10-20', cierreCarrito: '2026-10-27T23:59' }, nov: { inicioCaptacion: '2026-11-10', fechaDirecto: '2026-11-25' } } };
+  assert.equal(codigoVigente(conCierre, ['oct', 'nov'], '2026-10-26').vigente, 'oct', 'carrito de octubre abierto');
+  assert.equal(codigoVigente(conCierre, ['oct', 'nov'], '2026-10-30').vigente, 'nov', 'octubre cerrado: se prepara noviembre');
   assert.equal(idTableroEmbudo('Lanzamientos Curso 2'), 'e-lanzamientos-curso-2');
   assert.ok(esTableroEmbudo('e-lanz') && !esTableroEmbudo('general'));
 });

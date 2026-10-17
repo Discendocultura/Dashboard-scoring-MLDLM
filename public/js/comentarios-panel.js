@@ -27,12 +27,18 @@ let st = { clase: '', filtro: 'sin', q: '', respondiendo: '' };
 let datos = null;
 let opts = null;
 
+let turno = 0;
 export async function pintarComentariosLeads(box, o) {
   opts = o;
+  const mio = ++turno;
   box.innerHTML = '<p class="muted">Cargando comentarios…</p>';
+  let d;
   try {
-    datos = await o.api(`/api/comentarios?l=${encodeURIComponent(o.code)}&todo=1`);
-  } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+    d = await o.api(`/api/comentarios?l=${encodeURIComponent(o.code)}&todo=1`);
+  } catch (e) { if (mio === turno) box.innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+  // Si mientras tanto se pidió otro lanzamiento, esta respuesta llega tarde y no se pinta.
+  if (mio !== turno) return;
+  datos = d;
   if (!box.dataset.listo) {
     box.dataset.listo = '1';
     box.addEventListener('click', (e) => onClick(e, box));

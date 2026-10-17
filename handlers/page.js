@@ -296,8 +296,7 @@ function encuestaUrl(base, contact) {
     const set = (k, v) => { if (v && !u.searchParams.has(k)) u.searchParams.set(k, v); };
     set('email', contact.email);
     set('first_name', contact.firstName);
-    set('last_name', contact.lastName);
-    // Sin el teléfono: cualquiera con el enlace (lleva el ID de la persona) lo vería. El email basta para que GHL la reconozca.
+    // Sin el teléfono ni el apellido: cualquiera con el enlace (lleva el ID de la persona) los vería. El email basta para que GHL la reconozca.
     return u.toString();
   } catch {
     return base;

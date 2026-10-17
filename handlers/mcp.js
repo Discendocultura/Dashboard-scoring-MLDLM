@@ -92,7 +92,10 @@ export async function POST(request) {
   try { body = await request.json(); } catch { return json(err(null, -32700, 'JSON no válido'), 400, CORS); }
   const ctx = { grant: ses.grant, s: ses.s, origin };
   const lista = Array.isArray(body) ? body : [body];
-  const respuestas = (await Promise.all(lista.map((m) => atender(m, ctx)))).filter(Boolean);
+  if (lista.length > 8) return json(err(null, -32600, 'Como mucho 8 mensajes por lote'), 400, CORS);
+  const todas = [];
+  for (let i = 0; i < lista.length; i += 2) todas.push(...await Promise.all(lista.slice(i, i + 2).map((m) => atender(m, ctx))));
+  const respuestas = todas.filter(Boolean);
   if (!respuestas.length) return new Response(null, { status: 202, headers: CORS });
   return json(Array.isArray(body) ? respuestas : respuestas[0], 200, CORS);
 }

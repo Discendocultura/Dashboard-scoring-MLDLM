@@ -10,6 +10,7 @@ import { getConfig } from '../lib/config-store.js';
 import { inscribirEnDirecto } from '../lib/zoom-inscripcion.js';
 import { marcarEntrada, marcarEspera } from '../lib/entradas.js';
 import { json, readBody, errorResponse, CORS_HEADERS } from '../lib/http.js';
+import { dentroDelLimite } from '../lib/intentos.js';
 import { videosDe, esEnDirecto } from '../public/js/videos.js';
 import { milestones } from '../public/js/page.js';
 
@@ -28,6 +29,7 @@ export async function POST(request) {
   try {
     const { op, launch: code, k: kRaw, cid } = await readBody(request);
     if (!['prep', 'click', 'espera'].includes(op) || typeof cid !== 'string' || !/^[A-Za-z0-9]{6,40}$/.test(cid)) return json({ error: 'Datos no válidos' }, 400, CORS_HEADERS);
+    if (!(await dentroDelLimite(request, 'directo-zoom', 120))) return json({ ok: false, motivo: 'demasiadas peticiones' }, 200, CORS_HEADERS);
     const config = await getConfig();
     const launch = Object.hasOwn(config.launches, String(code || '')) ? config.launches[code] : null;
     if (!launch) return json({ error: 'Lanzamiento desconocido' }, 404, CORS_HEADERS);

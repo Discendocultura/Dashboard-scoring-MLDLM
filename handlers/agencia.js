@@ -83,11 +83,19 @@ export async function GET(request) {
       if (url.searchParams.has('c')) {
         const c = clienteActual();
         const out = { cliente: c.id, informes: [], resumenDiario: null };
-        try { out.informes = await informesPendientes(url.origin); } catch (e) { out.errorInformes = String(e.publicMessage || e.message).slice(0, 200); }
+        // &tarea=informes | digest: solo una de las dos (para repartirlas en dos tareas programadas). Sin ella, las dos;
+        // pero si hoy sale un informe (descarga todos los leads), el resumen diario espera a la siguiente ejecución
+        // (juntos pasarían del límite de llamadas de Cloudflare; el resumen solo se envía una vez al día).
+        const tarea = url.searchParams.get('tarea') || '';
+        if (tarea !== 'digest') {
+          try { out.informes = await informesPendientes(url.origin); } catch (e) { out.errorInformes = String(e.publicMessage || e.message).slice(0, 200); }
+        }
         // Limpieza: las marcas de «visita ya contada» del meteórico de hace más de un día ya no hacen falta.
         if (db()) await db().prepare("DELETE FROM intentos WHERE (clave LIKE 'visita:%' OR clave LIKE 'pub:%') AND desde < ?").bind(Date.now() - 86_400_000).run().catch(() => {});
         const config = await getConfig({ fresh: true });
-        if (config.digestEmail) {
+        if (tarea === 'informes') { /* solo los informes */ } else if (tarea !== 'digest' && out.informes.length) {
+          out.resumenDiario = { sent: false, reason: 'Hoy ha salido un informe: el resumen diario se envía en la siguiente ejecución (&tarea=digest)' };
+        } else if (config.digestEmail) {
           try { out.resumenDiario = await sendDigestUnaVez(config, new URL('/', request.url).toString()); } catch (e) { out.resumenDiario = { sent: false, error: String(e.publicMessage || e.message).slice(0, 200) }; }
         }
         return json(out);

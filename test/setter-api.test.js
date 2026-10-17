@@ -60,3 +60,11 @@ test('setter: lead con la MISMA puntuación que el dashboard, sin email ni telé
   assert.match(t, /anuncio «Vídeo matrona»/);
   assert.match(t, /Entrada VIP: sí/);
 });
+
+test('setter: el directo «en marcha» acaba a las 3 h y el carrito abierto manda; la captación empieza a medianoche de Madrid', () => {
+  // Directo 20/10 19:00 (Madrid, UTC+2), carrito 20:30. A las 22:30 ya no es «en directo».
+  assert.equal(faseActual(L, Date.parse('2026-10-20T17:30:00Z')).id, 'en_directo');
+  assert.equal(faseActual(L, Date.parse('2026-10-20T20:30:00Z')).id, 'carrito');
+  // 1/10 a las 00:30 en Madrid = 30/9 22:30 UTC: ya es captación.
+  assert.notEqual(faseActual(L, Date.parse('2026-09-30T22:30:00Z')).id, 'preparacion');
+});

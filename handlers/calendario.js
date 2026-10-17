@@ -19,7 +19,8 @@ export async function GET(request) {
     // Todas las tareas y todos los eventos del cliente en dos consultas (no dos por embudo).
     const [tareas, eventos] = await Promise.all([storeGetPrefijo('lsd_tareas_'), storeGetPrefijo('lsd_eventos_')]);
     const porCodigo = codes.map((code) => ({
-      tareas: lista(tareas[`lsd_tareas_${code}`]).filter((t) => t.fecha).map((t) => ({ ...t, code })),
+      // Sin los comentarios (el calendario no los usa y eran lo que más pesaba).
+      tareas: lista(tareas[`lsd_tareas_${code}`]).filter((t) => t.fecha).map(({ comentarios: _c, ...t }) => ({ ...t, code })),
       eventos: lista(eventos[`lsd_eventos_${code}`]).map((e) => ({ ...e, code })),
     }));
     return json({ tareas: porCodigo.flatMap((x) => x.tareas), eventos: porCodigo.flatMap((x) => x.eventos) });

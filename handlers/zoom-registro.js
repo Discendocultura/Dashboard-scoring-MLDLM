@@ -13,6 +13,7 @@ import { hasTag } from '../lib/access.js';
 import { clienteActual } from '../lib/cliente.js';
 import { directosAbiertos, inscribirEnDirecto } from '../lib/zoom-inscripcion.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
+import { dentroDelLimite } from '../lib/intentos.js';
 
 const valor = () => `zoomreg:${clienteActual().id}`;
 
@@ -31,6 +32,7 @@ export async function POST(request) {
   try {
     const url = new URL(request.url);
     if ((await verifyToken(url.searchParams.get('k'))) !== valor()) return json({ error: 'Enlace no válido' }, 403);
+    if (!(await dentroDelLimite(request, 'zoomreg', 600))) return json({ ok: false, motivo: 'demasiadas peticiones' }, 429);
     const body = await readBody(request);
     const cid = String(body.contact_id || body.contactId || body.contact?.id || body.customData?.cid || body.customData?.contact_id || body.cid || body.id || url.searchParams.get('cid') || request.headers.get('cid') || request.headers.get('contact_id') || '').trim();
     if (!/^[A-Za-z0-9]{6,40}$/.test(cid)) return json({ ok: false, motivo: 'falta contact_id' }, 400);
@@ -41,10 +43,12 @@ export async function POST(request) {
       ? (Object.hasOwn(config.launches, pedido) ? [pedido] : [])
       : Object.keys(config.launches).filter((c) => config.launches[c].registroTag && hasTag(contact, config.launches[c].registroTag));
     const hechas = [];
+    // Como mucho 4 inscripciones por aviso (cabe de sobra en el límite de llamadas de Cloudflare).
     for (const code of codes.slice(0, 3)) {
       const launch = config.launches[code];
       for (const { k } of directosAbiertos(launch)) {
-        const r = await inscribirEnDirecto(code, launch, k, { cid, contact });
+        if (hechas.length >= 4) break;
+        const r = await inscribirEnDirecto(code, launch, k, { cid, contact, confiarRegistro: Boolean(pedido) });
         hechas.push({ l: code, k, ok: r.ok, ...(r.ya ? { ya: true } : {}), ...(r.motivo ? { motivo: r.motivo } : {}) });
       }
     }

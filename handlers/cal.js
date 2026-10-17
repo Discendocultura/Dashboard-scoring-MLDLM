@@ -4,7 +4,7 @@
 //   GET /api/cal?op=1       → (con sesión de la Operativa) { url, webcal } enlace privado con SUS tareas de la Operativa
 //        (las de todos los proyectos que tiene asignadas, con fecha); con ?t=… (token «calop:») → el .ics
 import { contrasenaGeneralActiva } from '../lib/seguridad.js';
-import { requireSession, signToken, verifyToken } from '../lib/auth.js';
+import { requireSession, getSession, signToken, verifyToken } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
 import { getEventos } from '../lib/eventos.js';
@@ -17,7 +17,9 @@ import { dayInMadrid } from '../public/js/scoring.js';
 import { json, errorResponse } from '../lib/http.js';
 import { richToText } from '../public/js/richtext.js';
 import { todasLasTareas, puedeOperativa, visiblesOperativa } from '../lib/operativa.js';
+import { cacheCompartida } from '../lib/store.js';
 import { asignadaA, PROYECTO_AGENCIA } from '../public/js/operativa.js';
+import { ROL_CLIENTE, ROL_OPERATIVA } from '../public/js/roles.js';
 
 // Lanzamientos que interesan: los que tienen alguna fecha en los últimos 90 días o en el futuro (máx. 4).
 function relevantes(config) {
@@ -52,6 +54,7 @@ export async function GET(request) {
     else {
       const u = await findUser(who);
       if (!u || u.activo === false || !u.rol) return new Response('Usuario desactivado o sin acceso a este cliente', { status: 403 });
+      if (u.rol === ROL_CLIENTE || u.rol === ROL_OPERATIVA) return new Response('Sin acceso al calendario del equipo', { status: 403 });
       sess = { role: u.rol, uid: u.id };
     }
     const config = await getConfig();
@@ -80,20 +83,24 @@ export async function GET(request) {
 // Sus tareas de la Operativa (todos los proyectos), como calendario al que suscribirse.
 async function feedOperativa(request, url, token) {
   if (!token) {
-    const s = await requireSession(request);
+    // Como el resto de la Operativa: vale también el perfil «Solo Operativa» (requireSession lo rechazaría).
+    const s = await getSession(request);
+    if (!s) return json({ error: 'No autorizado' }, 401);
     if (!s.uid || !puedeOperativa(s)) return json({ error: 'Solo para quien usa la Operativa con su usuario' }, 403);
-    const t = await signToken(`calop:${s.uid}`);
+    // Con la marca de su último cambio de contraseña: al cambiarla, los enlaces anteriores dejan de valer.
+    const t = await signToken(`calop:${s.uid}:${s.user?.sesionesDesde || 0}`);
     const feed = `${url.origin}/api/cal?op=1&t=${encodeURIComponent(t)}`;
     return json({ url: feed, webcal: feed.replace(/^https?:/, 'webcal:') });
   }
-  const uid = (await verifyToken(token))?.match(/^calop:(.+)$/)?.[1];
+  const [, uid, marca] = (await verifyToken(token))?.match(/^calop:([^:]+):(\d+)$/) || [];
   if (!uid) return new Response('Enlace no válido', { status: 403 });
   const user = await findUser(uid);
   if (!user || user.activo === false) return new Response('Usuario desactivado', { status: 403 });
+  if (String(user.sesionesDesde || 0) !== marca) return new Response('Enlace caducado: crea uno nuevo en la Operativa → 📅 Mi calendario', { status: 403 });
   const s = { uid, user, superadmin: Boolean(user.superadmin) };
   if (!puedeOperativa(s)) return new Response('Sin acceso a la Operativa', { status: 403 });
   const desde = addDays(dayInMadrid(new Date().toISOString()), -30);
-  const items = visiblesOperativa(await todasLasTareas(), s)
+  const items = visiblesOperativa(await cacheCompartida('op-tareas-feed', 5 * 60_000, todasLasTareas), s)
     .filter((t) => t.fecha && t.fecha >= desde && asignadaA(t, uid, t.cliente === PROYECTO_AGENCIA ? '' : rolEn(user, t.cliente)))
     .map((t) => ({ uid: `op-${t.cliente}-${t.code}-${t.id}@lanzamientos`, titulo: `${t.hecha ? '✅' : '☐'} ${t.titulo} · ${t.clienteNombre || t.cliente}`, day: t.fecha, notas: [richToText(t.notas || ''), `Ábrela en ${url.origin}/#operativa`].filter(Boolean).join('\n\n') }));
   return new Response(icsCalendar('Mis tareas · Operativa', items), {

@@ -199,6 +199,13 @@ function progress(done, total, label) {
   if (dialog?.open && state.fotoEnCurso) $('#cfg-status').textContent = label; // solo el progreso de la foto, no el de recargar leads
 }
 
+// Un fallo sin capturar no deja la pantalla a medias en silencio: se avisa si no hay otro aviso (y va a la consola).
+window.addEventListener('unhandledrejection', (e) => {
+  const msg = e.reason?.message || String(e.reason || '');
+  console.error('Error sin capturar:', e.reason);
+  if (msg && msg !== 'Sesión caducada' && e.reason?.name !== 'AbortError' && !$('#app').hidden && $('#notice').hidden) notice(`Algo no ha ido bien: ${msg}`, true);
+});
+
 // ---------- Login ----------
 function showLogin() {
   borrarCopias(); // sin sesión, fuera la copia de los leads del navegador
@@ -557,7 +564,7 @@ function fillStaticSelects() {
 $('#launch-select').addEventListener('change', (e) => selectLaunch(e.target.value));
 $('#btn-reload').addEventListener('click', () => {
   if (state.enInicio) return mostrarInicio({ fresh: true });
-  if (enVsl()) return recargarVsl();
+  if (enVsl()) return recargarVsl({ forzar: true });
   if (enMeteo()) { renderMeteoView({ fresh: true }); if (codigo()) loadTareas(); return; }
   if (enDirecta()) { cargarDirecta({ fresh: true }); if (codigo()) loadTareas(); return; }
   return selectLaunch(state.launchCode, { forzar: true });
@@ -710,6 +717,8 @@ async function mostrarInicio({ fresh = false } = {}) {
   pintarInicioPeriodo();
   if ($('#inicio-preset').value === 'personalizado' && !($('#inicio-desde').value && $('#inicio-hasta').value)) return;
   const q = (qs) => qInicio(qs, fresh);
+  // Volver al Inicio en menos de 5 min: se repinta lo que ya hay, sin pedir de nuevo al servidor.
+  if (!fresh && state.inicio?.at && state.inicio.cliente === state.cliente && state.inicio.periodo === inicioPeriodoQs() && Date.now() - state.inicio.at < 5 * 60_000) { pintarInicio(); return; }
   if (fresh || !state.inicio || state.inicio.cliente !== state.cliente || state.inicio.periodo !== inicioPeriodoQs()) {
     state.inicio = { cliente: state.cliente, periodo: inicioPeriodoQs(), embudos: null, meteoricos: null, agenda: null, anuncios: null };
     $('#inicio-embudos').innerHTML = '<p class="muted">Cargando…</p>';
@@ -732,6 +741,7 @@ async function mostrarInicio({ fresh = false } = {}) {
     ...(inicio.anuncios ? [] : [conLimite(q('parte=anuncios')).then((d) => { inicio.anuncios = d.anuncios; }, (err) => { inicio.anuncios = { error: err.message }; })]),
   ].map((p) => p.then(() => { if (token === state.inicioToken) pintarInicio(); }));
   await Promise.all(tareas);
+  if (token === state.inicioToken && inicio.embudos?.every((e) => !e.cargando && !e.error)) inicio.at = Date.now();
 }
 // Inicio de trabajo: accesos grandes (Operativa), sus tareas para hoy y las vencidas, sus embudos y las menciones.
 async function pintarInicioTrabajo() {
@@ -854,7 +864,10 @@ async function cargarAgenciaInicio({ fresh = false } = {}) {
   const viejos = agi.clientes.filter((c) => fresh || c.pendiente || c.viejo || !c.actualizado || Date.parse(c.actualizado) < Date.now() - 30 * 60_000 || !c.agenda);
   agi.estado = viejos.length ? `Actualizando 0 de ${viejos.length}…` : `Al día · ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
   renderAgenciaInicio();
-  for (const [n, c] of viejos.entries()) {
+  // De 3 en 3 clientes a la vez (antes, uno detrás de otro): con muchos clientes tarda bastante menos.
+  let hechos = 0;
+  const cola = [...viejos];
+  const uno = async (c) => {
     try {
       const nuevo = await api(`/api/agencia?cliente=${encodeURIComponent(c.id)}`);
       if (turno !== agi.turno) return;
@@ -863,9 +876,12 @@ async function cargarAgenciaInicio({ fresh = false } = {}) {
       if (turno !== agi.turno) return;
       agi.clientes[agi.clientes.findIndex((x) => x.id === c.id)] = { ...c, pendiente: false, error: e.message };
     }
-    agi.estado = n + 1 < viejos.length ? `Actualizando ${n + 1} de ${viejos.length}…` : `Al día · ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+    hechos += 1;
+    agi.estado = hechos < viejos.length ? `Actualizando ${hechos} de ${viejos.length}…` : `Al día · ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
     renderAgenciaInicio();
-  }
+  };
+  const trabajador = async () => { while (cola.length && turno === agi.turno) await uno(cola.shift()); };
+  await Promise.all(Array.from({ length: Math.min(3, cola.length) }, trabajador));
 }
 const SALUD_TXT = { rojo: 'Necesita atención', ambar: 'Vigilar', verde: 'En orden', gris: 'Calculando' };
 const FASE_AG = { captacion: ['🎯', 'Captación'], carrito: ['🛒', 'Carrito abierto'], cerrado: ['✅', 'Cerrado'] };
@@ -1127,7 +1143,7 @@ async function selectLaunch(code, { forzar = false } = {}) {
   loadTareas();
   if (!$('#view-publicidad').hidden) cargarPublicidad();
   loadEventos();
-  if (tiene('llamadas')) loadLlamadas();
+  if (tiene('llamadas')) loadLlamadas({ forzar });
   if (tieneDatos()) await loadLeads({ forzar });
 }
 
@@ -1210,7 +1226,7 @@ async function loadMeta(token) {
     if (token !== state.loadToken) return;
     state.meta = { configured: true, error: e.message };
   }
-  render();
+  programarRender();
 }
 
 function enrich(contact) {
@@ -1290,6 +1306,12 @@ function pintarCabeceraVideos() {
   $('#th-vip').hidden = !conVip(launch);
 }
 
+// Varias respuestas que llegan casi a la vez (votos, visitas, Meta, llamadas) se pintan juntas en un solo render().
+let renderPendiente = 0;
+function programarRender() {
+  if (renderPendiente) return;
+  renderPendiente = requestAnimationFrame(() => { renderPendiente = 0; render(); });
+}
 function render() {
   pintarCabeceraVideos();
   actualizarAuditor();
@@ -3169,8 +3191,9 @@ window.addEventListener('popstate', (e) => {
 function showView(view) {
   if (state.role && !allowedViews().includes(view)) view = allowedViews()[0];
   const grupo = grupoDe(view);
-  $$('.view-tab').forEach((x) => x.classList.toggle('active', x.dataset.viewGrupo ? x.dataset.viewGrupo === grupo : x.dataset.view === view));
-  $$('.subview-tab[data-view]').forEach((x) => x.classList.toggle('active', x.dataset.view === view));
+  // Pestañas accesibles: el lector de pantalla anuncia cuál está elegida.
+  $$('.view-tab').forEach((x) => { const on = x.dataset.viewGrupo ? x.dataset.viewGrupo === grupo : x.dataset.view === view; x.classList.toggle('active', on); x.setAttribute('role', 'tab'); x.setAttribute('aria-selected', String(on)); });
+  $$('.subview-tab[data-view]').forEach((x) => { const on = x.dataset.view === view; x.classList.toggle('active', on); x.setAttribute('role', 'tab'); x.setAttribute('aria-selected', String(on)); });
   // Las subpestañas de un grupo solo se enseñan si se puede ver más de una.
   for (const g of Object.keys(GRUPOS)) $(`#sub-${g}`).hidden = g !== grupo || !state.role || GRUPOS[g].filter((v) => allowedViews().includes(v)).length < 2;
   if (grupo) ls.set(`lsd_${grupo}_${state.embudo}`, view);
@@ -3183,6 +3206,8 @@ function showView(view) {
   if (enVsl() && state.vsl.leads) renderVsl();
   if (view === 'comparar' && state.config) { renderCompareSelector(); renderComparativas(); pintarQueFunciono(); }
   if (view === 'rendimiento' && state.config) loadRendimiento();
+  if (view === 'leads' && state.config && $('[data-msub-btn="comentarios"].active', $('#msub-leads'))) renderComentariosLeads();
+  if (view === 'metricas' && state.config && !enVsl() && !enDirecta() && !enMeteo() && $('[data-msub-btn="grupos"].active', $('#msub-metricas'))) cargarGrupos(state.launchCode, $('#grupos-l'));
   if (view === 'meteoricos' && state.config && enMeteo()) renderMeteoView();
   if (view === 'moferta' && state.config && enMeteo()) renderMOfertaView();
   if (view === 'calendario' && state.config) renderCalendario();
@@ -3233,9 +3258,10 @@ function pintarMsub(nav, cat) {
   $$('[data-msub]', view).forEach((el) => { el.hidden = el.dataset.msub !== cat; });
   ls.set(`lsd_${nav.id}`, cat);
   if (nav.id === 'msub-leads' && cat === 'encuesta' && state.config && state.leads) renderEncuestaLeads();
-  if (nav.id === 'msub-leads' && cat === 'comentarios' && state.config) renderComentariosLeads();
+  if (nav.id === 'msub-leads' && cat === 'comentarios' && state.config && !$('#view-leads').hidden) renderComentariosLeads();
   if (nav.id === 'msub-metricas' && cat === 'meteorico' && state.config) renderMeteoLanz();
-  if (nav.id === 'msub-metricas' && cat === 'grupos' && state.config) cargarGrupos(state.launchCode, $('#grupos-l'));
+  // Solo si la pestaña está a la vista (pintarMsub también se llama al repintar otras pantallas).
+  if (nav.id === 'msub-metricas' && cat === 'grupos' && state.config && !$('#view-metricas').hidden && !enVsl() && !enDirecta() && !enMeteo()) cargarGrupos(state.launchCode, $('#grupos-l'));
 }
 $$('.msubs').forEach((nav) => {
   $$('[data-msub-btn]', nav).forEach((b) => {
@@ -5941,13 +5967,17 @@ function loadTareas() {
   if (!code) return Promise.resolve();
   return unaVez('tareas', code, () => cargarTareas(code));
 }
-async function cargarTareas(code) {
+// periodico: el refresco de cada 2 min. Si nada ha cambiado no se repinta (no se pierde el scroll ni el foco).
+async function cargarTareas(code, { periodico = false } = {}) {
   try {
     const d = await api(`/api/tareas?l=${encodeURIComponent(code)}`);
     if (code !== codigo()) return;
+    const firma = JSON.stringify([d.tareas, d.columnas]);
+    if (periodico && state.tareas?.code === code && state.tareas.firma === firma) { cargarTareasOtro(); return; }
     if (state.tareas?.code !== code) state.tSel = null;
-    state.tareas = { code, list: d.tareas, users: d.users, columnas: d.columnas || [] };
+    state.tareas = { code, list: d.tareas, users: d.users, columnas: d.columnas || [], firma };
   } catch (e) {
+    if (periodico && state.tareas?.code === code && !state.tareas.error) return; // un fallo puntual no borra la lista
     state.tareas = { code, list: [], users: [], error: e.message };
   }
   renderTareas();
@@ -5968,9 +5998,21 @@ function otrosCodigos() {
   }
   return [...new Set(out)].filter((c) => c && c !== codigo()).slice(0, 8);
 }
-async function cargarTareasOtro() {
+// Las de los demás embudos (solo para la campanita) se piden como mucho cada 10 minutos (forzar: siempre).
+const TAREAS_OTROS_MS = 10 * 60_000;
+const tareasOtrosCache = new Map(); // `${cliente}|${code}` → { at, d }
+async function cargarTareasOtro({ forzar = false } = {}) {
   const codes = otrosCodigos();
-  const res = await Promise.all(codes.map((code) => api(`/api/tareas?l=${encodeURIComponent(code)}`).then((d) => ({ code, list: d.tareas, users: d.users })).catch(() => null)));
+  const k = (code) => `${state.cliente}|${code}`;
+  const res = await Promise.all(codes.map((code) => {
+    const c = tareasOtrosCache.get(k(code));
+    if (!forzar && c && Date.now() - c.at < TAREAS_OTROS_MS) return c.d;
+    return api(`/api/tareas?l=${encodeURIComponent(code)}`).then((d) => {
+      const x = { code, list: d.tareas, users: d.users };
+      tareasOtrosCache.set(k(code), { at: Date.now(), d: x });
+      return x;
+    }).catch(() => c?.d || null);
+  }));
   state.tareasOtros = res.filter(Boolean);
   renderNotif();
 }
@@ -6649,7 +6691,7 @@ async function crearPlanificacion({ silencioso = false } = {}) {
   try {
     const d = await tareasOp({ op: 'plantilla' });
     if (!silencioso || d.creadas) notice(d.creadas ? `Creadas ${d.creadas} tareas de ${enMeteo() ? 'este meteórico' : 'la VSL'} (las urgentes, para hoy). Revísalas y asígnalas a quien corresponda.` : 'Ya estaban todas las tareas de la planificación.');
-    loadEventos();
+    loadEventos({ forzar: true });
   } catch (ex) { notice(ex.message, true); }
 }
 $('#btn-tareas-plantilla').addEventListener('click', cargarPlantilla);
@@ -7136,7 +7178,10 @@ async function loadRendimiento() {
     // Los datos del servidor se reutilizan unos segundos (render() se llama a menudo).
     if (!(state.rend?.code === code && state.rend.at > Date.now() - 15_000)) {
       box.innerHTML = '<p class="muted">Cargando…</p>';
-      state.rend = { code, at: Date.now(), d: await api(`/api/rendimiento?l=${encodeURIComponent(code)}`) };
+      const d = await api(`/api/rendimiento?l=${encodeURIComponent(code)}`);
+      // Si mientras tanto se cambió de lanzamiento, esta respuesta ya no vale.
+      if (code !== codigo()) return;
+      state.rend = { code, at: Date.now(), d };
     }
     const { d } = state.rend;
     const vsl = enVsl();
@@ -8365,12 +8410,17 @@ const addMonths = (d, n) => {
 };
 const fmtDay = (d, opts) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { timeZone: 'UTC', ...opts });
 
-async function loadEventos() {
+// Son del cliente (no del lanzamiento): al cambiar de lanzamiento no se piden otra vez si son de hace menos de 5 min.
+async function loadEventos({ forzar = false } = {}) {
   const cliente = state.cliente;
+  if (!forzar && cal.datos?.cliente === cliente && cal.datos.at && !cal.datos.error && Date.now() - cal.datos.at < 5 * 60_000) {
+    if (!$('#view-calendario').hidden) renderCalendario();
+    return;
+  }
   try {
     const d = await api('/api/calendario');
     if (cliente !== state.cliente) return;
-    cal.datos = { cliente, tareas: d.tareas, eventos: d.eventos };
+    cal.datos = { cliente, tareas: d.tareas, eventos: d.eventos, at: Date.now() };
   } catch (e) {
     cal.datos = { cliente, tareas: [], eventos: [], error: e.message };
   }
@@ -8440,7 +8490,7 @@ function calChip(it, hoy) {
 
 function renderCalendario() {
   if (!state.config) return;
-  if (cal.datos.cliente !== state.cliente) { cal.datos.cliente = state.cliente; loadEventos(); }
+  if (cal.datos.cliente !== state.cliente) { cal.datos.cliente = state.cliente; loadEventos({ forzar: true }); }
   const code = calCodigo();
   if (cal.refCode !== code || !cal.ref) { cal.ref = calInitialRef(); cal.refCode = code; cal.sel = null; }
   const hoy = today();
@@ -9151,7 +9201,8 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarNoti
 // Comentarios y avisos al día sin recargar: cada 2 minutos, si la pestaña está a la vista y no hay nada abierto.
 setInterval(() => {
   if (document.hidden || !codigo() || $$('dialog').some((d) => d.open)) return;
-  loadTareas();
+  const code = codigo();
+  unaVez('tareas', code, () => cargarTareas(code, { periodico: true }));
 }, 120_000);
 
 // Reasignar las seleccionadas
@@ -9181,9 +9232,11 @@ $('#btn-sel-asignar').addEventListener('click', async () => {
 });
 
 // ---------- Llamadas de valoración ----------
-function loadLlamadas() {
+// Las llamadas de hace menos de 2 min se reutilizan (cambiar de lanzamiento y volver); `forzar` las pide siempre.
+function loadLlamadas({ forzar = false } = {}) {
   const code = codigo();
   if (!code) return Promise.resolve();
+  if (!forzar && state.llamadas?.code === code && state.llamadas.data && state.llamadas.at > Date.now() - 2 * 60_000) return Promise.resolve();
   return unaVez('llamadas', code, () => cargarLlamadas(code));
 }
 async function cargarLlamadas(code) {
@@ -9192,9 +9245,9 @@ async function cargarLlamadas(code) {
   try {
     const d = await api(`/api/llamadas?l=${encodeURIComponent(code)}`);
     if (code !== codigo()) return;
-    state.llamadas = { code, data: d };
+    state.llamadas = { code, data: d, at: Date.now() };
     calcularFases();
-    if (state.config.vsls?.[code]) { if (state.vsl.raw && state.vsl.code === code) { enriquecerVsl(); renderVsl(); } } else if (state.leads.length) render();
+    if (state.config.vsls?.[code]) { if (state.vsl.raw && state.vsl.code === code) { enriquecerVsl(); renderVsl(); } } else if (state.leads.length) programarRender();
   } catch (e) {
     if (code !== codigo()) return;
     state.llamadas = { code, error: e.message };
@@ -9712,7 +9765,7 @@ async function cargarVotos() {
   if (enVsl() || !launch || !tieneRecurso(launch, 'votacion')) { state.votos = null; return; }
   try {
     const d = await api(`/api/votacion?l=${encodeURIComponent(code)}`);
-    if (state.launchCode === code) { state.votos = d.activa ? { code, ...d } : null; render(); }
+    if (state.launchCode === code) { state.votos = d.activa ? { code, ...d } : null; programarRender(); }
   } catch { if (state.launchCode === code) state.votos = null; }
 }
 // Visitas a la página de venta (apuntadas por el bloque data-lsd-venta, sin GHL): l.s.venta_visita.
@@ -9724,7 +9777,7 @@ async function cargarVisitas() {
     if (state.launchCode !== code) return;
     state.visitas = { code, visitas: d.visitas || {}, pago: d.pago || {}, registro: d.registro || 0 };
     aplicarVisitas();
-    render();
+    programarRender();
   } catch { /* sin visitas: no pasa nada */ }
 }
 function aplicarVisitas() {
@@ -9771,7 +9824,7 @@ $('#ll-save').addEventListener('click', async () => {
     const r = await api('/api/llamadas', { method: 'POST', body: { l: state.llamadas.code, op: 'resultado', eventId: c.id, contactId: c.contactId, nombre: leadDe(c.contactId)?.name || c.title, startTime: c.startTime, resultado, motivo: resultado === 'perdido' ? $('#ll-motivo').value : '', notas: $('#ll-notas').value } });
     lldlg.close();
     notice(r.avisos?.length ? `Resultado guardado, pero: ${r.avisos.join(' ')}` : 'Resultado guardado: pipeline, cita y nota actualizados en GHL.', Boolean(r.avisos?.length));
-    await loadLlamadas();
+    await loadLlamadas({ forzar: true });
   } catch (ex) {
     $('#ll-status').textContent = ex.message;
   } finally {
@@ -9946,12 +9999,21 @@ for (const id of ['#vr-desde', '#vr-hasta']) {
 }
 
 // Carga: leads de la etiqueta de registro (paginado), tareas, llamadas e inversión de Meta.
-async function recargarVsl() {
+// Volver a la VSL al rato no vuelve a descargar todos sus leads: si son de hace menos de 10 min (los mismos que
+// en los lanzamientos), se reutilizan. «Actualizar» (forzar) los pide siempre.
+const claveVslLeads = () => `${state.cliente}|${state.embudo}|${vslCfg()?.registroTag || ''}`;
+async function recargarVsl({ forzar = false } = {}) {
   loadTareas();
-  if (tiene('llamadas')) loadLlamadas();
+  if (tiene('llamadas')) loadLlamadas({ forzar });
   pintarRango();
-  if (tieneDatos()) await loadVslLeads();
-  else renderVsl();
+  if (!tieneDatos()) return renderVsl();
+  if (!forzar && state.vsl.raw && state.vsl.rawClave === claveVslLeads() && Date.now() - (state.vsl.rawAt || 0) < LEADS_FRESCOS_MS) {
+    enriquecerVsl();
+    renderVsl();
+    loadVslMeta();
+    return;
+  }
+  await loadVslLeads();
 }
 
 async function loadVslLeads() {
@@ -9976,11 +10038,14 @@ async function loadVslLeads() {
       progress(out.length, total, `Cargando leads de la VSL… ${out.length}${total ? ` de ${total}` : ''}`);
     } while (cursor);
     state.vsl.raw = out;
+    state.vsl.rawClave = claveVslLeads();
+    state.vsl.rawAt = Date.now();
     enriquecerVsl();
     loadVslMeta();
     if (!out.length) notice(`No hay contactos con la etiqueta "${v.registroTag}".`);
   } catch (e) {
     state.vsl.raw = [];
+    state.vsl.rawClave = '';
     enriquecerVsl();
     notice(`No se pudieron cargar los leads de la VSL: ${e.message}`, true);
   } finally {
@@ -11191,7 +11256,7 @@ $('#mt-guardar').addEventListener('click', async () => {
         if (state.tareas?.code === code) { state.tareas.list = d.tareas; renderTareas(); }
       } catch (ex) { notice(`El meteórico se ha guardado, pero no se pudieron crear sus tareas: ${ex.message}`, true); }
     }
-    loadEventos();
+    loadEventos({ forzar: true });
     delete state.meteo.datos[code];
     $('#meteo-dialog').close();
     pintarSidebar();
@@ -12888,11 +12953,16 @@ $$('[data-sendflow-select]').forEach((sel) => {
 });
 
 // Entradas, salidas y clics de la campaña de un lanzamiento o meteórico (el servidor lo guarda 5 min).
-async function cargarGrupos(code, box) {
+// Los grupos de cada código se reutilizan 5 min (cambiar de pestaña y volver no vuelve a pedirlos a SendFlow).
+const gruposCache = {};
+async function cargarGrupos(code, box, { forzar = false } = {}) {
   if (!box || !code) return;
-  box.innerHTML = '<p class="muted">Cargando los grupos de SendFlow…</p>';
-  let d;
-  try { d = await api(`/api/sendflow?op=grupos&l=${encodeURIComponent(code)}`); } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+  let d = !forzar && gruposCache[code]?.at > Date.now() - 5 * 60_000 ? gruposCache[code].d : null;
+  if (!d) {
+    box.innerHTML = '<p class="muted">Cargando los grupos de SendFlow…</p>';
+    try { d = await api(`/api/sendflow?op=grupos&l=${encodeURIComponent(code)}`); } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+    if (d.vinculada && d.conectado && !d.error) gruposCache[code] = { d, at: Date.now() };
+  }
   const esLanz = Boolean(state.config.launches[code]);
   if (!d.vinculada) {
     box.innerHTML = `<div class="notice">Este ${esLanz ? 'lanzamiento' : 'meteórico'} aún no tiene su campaña de SendFlow.${d.conectado ? '' : ' Primero conecta SendFlow en <strong>Cuenta → Conexiones</strong>.'}${puedeConfig() && d.conectado ? ` <button type="button" class="btn small" data-grupos-vincular="${esc(code)}">Elegir la campaña →</button>` : ''}</div>`;
@@ -13014,6 +13084,7 @@ async function cargarMiembrosGrupo(code = state.launchCode, { forzar = false } =
   state.grupoWa = { code, cargando: true };
   try {
     const res = await fetch(`/api/sendflow?op=miembros&l=${encodeURIComponent(code)}`, { headers: state.cliente ? { 'x-cliente': state.cliente } : {}, credentials: 'same-origin' });
+    if (res.status === 401) { showLogin(); throw new Error('Sesión caducada'); }
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Error ${res.status}`);
     const m = leerMiembros(await res.text());
     if (state.grupoWa?.code !== code) return;

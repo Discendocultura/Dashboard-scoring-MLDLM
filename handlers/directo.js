@@ -10,6 +10,7 @@ import { ensureRegistered, hasTag } from '../lib/access.js';
 import { turnstileSiteKey, verifyTurnstile } from '../lib/turnstile.js';
 import { getConfig } from '../lib/config-store.js';
 import { addRegistrant, zoomConfigured } from '../lib/zoom.js';
+import { deLaReunion } from '../lib/zoom-inscripcion.js';
 import { entradaDe, guardarInscripcion, marcarEntrada } from '../lib/entradas.js';
 import { html, escapeHtml, isEmail } from '../lib/http.js';
 import { clienteActual } from '../lib/cliente.js';
@@ -107,7 +108,7 @@ export async function GET(request, ctx) {
   // llamar a GHL ni a Zoom. Lo que importa a la hora exacta, cuando entran cientos a la vez.
   if (cid) {
     const ya = await entradaDe(code, k, cid).catch(() => null);
-    if (ya?.join_url) {
+    if (ya?.join_url && deLaReunion(ya.join_url, vid?.zoomMeetingId)) {
       const apunte = marcarEntrada(code, k, cid).catch((e) => console.error(e));
       if (ctx?.waitUntil) ctx.waitUntil(apunte);
       return new Response(null, { status: 302, headers: new Headers({ location: ya.join_url, 'cache-control': 'no-store', 'set-cookie': cookieWho(`cid:${cid}`) }) });

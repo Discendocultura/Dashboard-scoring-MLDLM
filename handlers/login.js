@@ -7,7 +7,7 @@
 //                                     de un solo uso que caduca en 1 hora. Responde igual exista o no el email.
 //   POST { op: 'restablecer', token, nueva } → pone la contraseña nueva (y cierra las sesiones abiertas)
 // Tras 5 fallos seguidos con un email (o 20 desde una misma conexión) se bloquea 15 minutos.
-import { roleForPassword, sessionCookie, signToken, verifyToken } from '../lib/auth.js';
+import { roleForPassword, sessionCookie, signToken, verifyToken, clearVerComo } from '../lib/auth.js';
 import { listUsers, actualizarUsuarios, checkPassword, normEmail, publicUser, hashPassword, ensureContact } from '../lib/users.js';
 import { sendEmail } from '../lib/ghl.js';
 import { enPrincipal } from '../lib/cliente.js';
@@ -42,9 +42,10 @@ async function entrar(user, extra = {}) {
   user.lastLogin = lastLogin;
   const { yaGuardado: _y, ...resto } = extra;
   // El rol de la cookie no cuenta para los usuarios con email (se lee del usuario en cada petición).
-  return json({ role: user.rol, user: publicUser(user), ...resto }, 200, {
-    'set-cookie': await sessionCookie(user.rol || 'usuario', user.id),
-  });
+  // Además se borra la cookie de «Ver como» que pudiera quedar de otra persona en este navegador.
+  const res = json({ role: user.rol, user: publicUser(user), ...resto }, 200, { 'set-cookie': await sessionCookie(user.rol || 'usuario', user.id) });
+  res.headers.append('set-cookie', clearVerComo());
+  return res;
 }
 
 async function segundoPaso(request, body) {

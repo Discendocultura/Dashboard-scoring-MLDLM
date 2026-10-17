@@ -943,7 +943,8 @@ function panelCalendario() {
   return `<header class="op-ficha-h"><h3>📅 Mi calendario</h3><button type="button" class="btn ghost small" data-op="cal-cerrar" aria-label="Cerrar">✕</button></header>
     <section class="op-cal-sec"><h4><span class="op-cal-n">1</span>¿Qué calendario usas?</h4>
       <div class="op-cal-opc">${CALENDARIOS.map((c) => `<button type="button" class="op-cal-opcion${c.id === elegido ? ' on' : ''}" data-op-cal-tipo="${c.id}"><span class="op-cal-ico">${c.ico}</span><b>${esc(c.nombre)}</b>${c.id === elegido ? '<small>✓ Conectado</small>' : ''}</button>`).join('')}</div>
-      <p class="muted small">Con él, cada tarea tiene su botón «📅 Añadir a…»: se abre el evento ya relleno y solo hay que guardarlo.</p></section>
+      <p class="muted small">Con él, cada tarea tiene su botón «📅 Añadir a…»: se abre el evento ya relleno y solo hay que guardarlo.</p>
+      ${d.yo ? '' : '<p class="op-cal-aviso">Has entrado con la contraseña general: este calendario lo comparten todas las personas que entran con ella. Para tener el tuyo, entra con tu usuario.</p>'}</section>
     <section class="op-cal-sec"><h4><span class="op-cal-n">2</span>Que tus tareas aparezcan solas <small>(opcional, recomendado)</small></h4>
       <p class="muted small">Todas las tareas con fecha que tienes asignadas, de todos los proyectos, en tu calendario. Se actualiza sola cada pocas horas. El enlace es personal: no lo compartas.</p>
       ${calPanel?.url ? `<div class="op-cal-enlace"><input readonly value="${esc(calPanel.url)}" aria-label="Tu enlace de calendario"><button type="button" class="btn small" data-op="cal-copiar">📋 Copiar</button></div>

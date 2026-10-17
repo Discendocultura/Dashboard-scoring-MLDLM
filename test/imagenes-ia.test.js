@@ -65,3 +65,11 @@ test('imágenes: sin oferta ni producto no falla', () => {
   assert.ok(p.some((x) => x.titular === 'Último día para entrar en el programa'));
   assert.ok(!p.some((x) => x.id.startsWith('bonus-')));
 });
+
+test('imágenes: la grabación no dura más que el carrito (y sin carrito largo no sale «solo 48 horas»)', () => {
+  const corto = { ...L, cierreCarrito: '2026-10-21T21:00' };
+  const g = ventanaGrabacion(corto);
+  assert.ok(g.hasta - g.desde < 48 * 3_600_000 && !g.horas48);
+  assert.ok(!piezasImagenes(corto).some((p) => p.id === 'grabacion-48'));
+  assert.ok(ventanaGrabacion(L).horas48);
+});

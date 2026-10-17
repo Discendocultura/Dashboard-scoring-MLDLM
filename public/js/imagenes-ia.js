@@ -23,10 +23,14 @@ export function cuandoTxt(ms) {
   return `el ${d.replace(',', '')} a las ${horaTxt(ms)}`;
 }
 
-// Cuándo se abre la grabación y cuándo deja de verse (48 h después).
+// Cuándo se abre la grabación y cuándo deja de verse: 48 h después, o al cerrar el carrito si es antes.
+// horas48: si la ventana es de 48 h de verdad (si no, no sale la pieza «solo 48 horas»).
 export function ventanaGrabacion(launch = {}) {
   const desde = milestones(launch).videos?.at(-1)?.replay ?? null;
-  return { desde, hasta: desde != null ? desde + 48 * HORA : null };
+  if (desde == null) return { desde, hasta: null, horas48: false };
+  const cierre = momentosCarrito(launch).cierre;
+  const hasta = cierre != null && cierre > desde ? Math.min(desde + 48 * HORA, cierre) : desde + 48 * HORA;
+  return { desde, hasta, horas48: hasta === desde + 48 * HORA };
 }
 
 // Las piezas del lanzamiento: { id, grupo, titular, destacado, subtitulo, mockup: 'grabacion' | 'producto' | 'bonus:<id>' }.
@@ -36,7 +40,7 @@ export function piezasImagenes(launch = {}, { producto = '' } = {}) {
   const out = [];
   const g = ventanaGrabacion(launch);
   out.push({ id: 'grabacion', grupo: 'Grabación', titular: 'Grabación', destacado: 'disponible', subtitulo: g.hasta ? `Hasta ${cuandoTxt(g.hasta)}` : '', mockup: 'grabacion' });
-  out.push({ id: 'grabacion-48', grupo: 'Grabación', titular: 'Grabación disponible', destacado: 'solo 48 horas', subtitulo: g.hasta ? `Hasta ${cuandoTxt(g.hasta)}` : '', mockup: 'grabacion' });
+  if (g.horas48) out.push({ id: 'grabacion-48', grupo: 'Grabación', titular: 'Grabación disponible', destacado: 'solo 48 horas', subtitulo: g.hasta ? `Hasta ${cuandoTxt(g.hasta)}` : '', mockup: 'grabacion' });
   out.push({ id: 'grabacion-ultimo', grupo: 'Grabación', titular: 'Último día para ver', destacado: 'la grabación', subtitulo: g.hasta ? `Solo hasta las ${horaTxt(g.hasta)}` : '', mockup: 'grabacion' });
   out.push({ id: 'abiertas', grupo: 'Carrito', titular: 'Plazas abiertas', destacado: prod, subtitulo: '', mockup: 'producto' });
   for (const b of launch.oferta?.bonus || []) {

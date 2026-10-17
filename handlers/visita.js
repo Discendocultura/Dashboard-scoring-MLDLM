@@ -4,12 +4,13 @@
 //   GET  /api/visita?l=<código>  (dashboard) → { visitas, pago: { contacto → { primera, ultima, veces } }, registro: nº }.
 // En la de registro `cid` es un id anónimo del navegador (aún no hay lead): cuenta visitantes únicos.
 import { dentroDelLimite } from '../lib/intentos.js';
+import { hasTag } from '../lib/access.js';
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { currentLaunch } from '../lib/digest.js';
 import { marcarVisita, visitasDe, contarVisitas } from '../lib/entradas.js';
 import { json, readBody, errorResponse, CORS_HEADERS } from '../lib/http.js';
-import { addTags } from '../lib/ghl.js';
+import { addTags, getContact } from '../lib/ghl.js';
 
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -34,7 +35,11 @@ export async function POST(request, ctx) {
     // de recuperación, que la quita si compra). Solo una llamada a GHL por lead, y sin esperar a que acabe.
     const tag = config.launches[code].carritoAbandonadoTag;
     if (esPago && veces === 1 && tag) {
-      const p = addTags(cid, [tag]).catch((e) => console.error('Carrito abandonado', e));
+      const reg = config.launches[code].registroTag;
+      const p = (async () => {
+        if (reg && !hasTag(await getContact(cid), reg)) return; // id que no es de una registrada: nada
+        await addTags(cid, [tag]);
+      })().catch((e) => console.error('Carrito abandonado', e));
       if (ctx?.waitUntil) ctx.waitUntil(p); else await p;
     }
     return json({ ok: true }, 200, CORS_HEADERS);

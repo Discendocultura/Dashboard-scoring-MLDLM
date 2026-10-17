@@ -8,7 +8,7 @@ import {
   getPipelines, searchOpportunities, getContact, createOpportunity, updateOpportunity, calendarEvents, getCalendar,
   updateAppointmentStatus, addContactNote,
 } from '../lib/ghl.js';
-import { leerJSON, guardarJSON, reintentando } from '../lib/store.js';
+import { leerJSON, guardarJSON, reintentando, cacheCompartida, leerCompartida, guardarCompartida } from '../lib/store.js';
 import { RESULTADOS, MOTIVOS, PIPELINE_POR_DEFECTO, etapasPipeline, etapaDestino, calendarioDeUrl } from '../public/js/llamadas.js';
 import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
 import { embudoDe } from '../lib/embudos.js';
@@ -70,7 +70,8 @@ export async function GET(request) {
     const hasta = now + 30 * DAY;
     const [eventos, calendario, resultados] = await Promise.all([
       calendarEvents({ calendarId, startTime: desde, endTime: hasta }).catch((e) => { throw permisos(e); }),
-      getCalendar(calendarId).catch(() => null),
+      // El nombre del calendario casi nunca cambia: un día en caché.
+      cacheCompartida(`cal-nombre|${calendarId}`, 86_400_000, () => getCalendar(calendarId).then((c) => ({ name: c?.name || '' })).catch(() => ({ name: '' }))),
       getResultados(code),
     ]);
     const citas = eventos.filter((e) => !e.deleted).sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
@@ -101,10 +102,16 @@ export async function GET(request) {
       }
     }
     // Teléfono y email de quien no está en el pipeline (para poder escribirle por WhatsApp).
+    // Las fichas ya leídas en los últimos 10 min se reutilizan (cada carga pedía otra vez las mismas a GHL).
+    const claveContactos = `llamadas-contactos|${code}`;
+    const previos = (await leerCompartida(claveContactos, 10 * 60_000)) || {};
     const contactos = {};
     // Pipeline muy grande (no cabe entero): menos fichas aparte para no pasar del límite de peticiones.
-    const sinOpp = [...new Set(citas.map((c) => c.contactId).filter((id) => id && !opps[id]?.phone))].slice(0, completo || !pipeline ? MAX_CONTACTOS : 10);
-    await mapLimit(sinOpp, 4, async (id) => { const c = await getContact(id).catch(() => null); if (c) contactos[id] = { phone: c.phone || '', email: c.email || '', tags: c.tags || [], src: c.src || {} }; });
+    const sinOpp = [...new Set(citas.map((c) => c.contactId).filter((id) => id && !opps[id]?.phone))];
+    for (const id of sinOpp) if (previos[id]) contactos[id] = previos[id];
+    const pedir = sinOpp.filter((id) => !contactos[id]).slice(0, completo || !pipeline ? MAX_CONTACTOS : 10);
+    await mapLimit(pedir, 4, async (id) => { const c = await getContact(id).catch(() => null); if (c) contactos[id] = { phone: c.phone || '', email: c.email || '', tags: c.tags || [], src: c.src || {} }; });
+    if (pedir.length) await guardarCompartida(claveContactos, contactos);
     if (pipeline) {
       etapas = await mapLimit([...pipeline.stages].sort((a, b) => a.position - b.position), 3, async (s) => ({
         id: s.id, name: s.name, color: s.color || '', total: completo ? porEtapa[s.id] || 0 : (await searchOpportunities({ pipelineId: pipeline.id, pipelineStageId: s.id, limit: 1 })).total ?? null,
