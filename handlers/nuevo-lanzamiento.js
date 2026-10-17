@@ -99,7 +99,7 @@ export async function POST(request) {
       if (!l) throw bad('Ese lanzamiento ya no existe', 404);
       if (!(Date.now() - Date.parse(l.createdAt || 0) < DESHACER_MS)) throw bad('Solo se puede deshacer en las 24 horas siguientes a crearlo. Bórralo desde Configuración.');
       const sec = await leerSecuencia(code);
-      if (sec.mensajes.some((x) => x.estado === 'programado')) throw bad('Ya hay mensajes del grupo programados en SendFlow: cancélalos antes en Plan → Grupo de WhatsApp.');
+      if (sec.mensajes.some((x) => x.estado === 'programado')) throw bad('Ya hay mensajes del grupo programados en SendFlow: cancélalos antes en Crear → Grupo de WhatsApp.');
       const hecho = [];
       const avisos = [];
       const salas = [l.zoomMeetingId, ...(l.videos || []).map((v) => v.zoomMeetingId)].filter(Boolean);

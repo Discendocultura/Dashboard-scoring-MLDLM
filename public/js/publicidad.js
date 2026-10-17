@@ -1,6 +1,6 @@
 // Métricas publicitarias de Meta como en el Administrador de anuncios (Campaña → Conjunto de anuncios →
 // Anuncio) y avisos de cuándo conviene ir preparando anuncios nuevos. Lo usan el servidor
-// (/api/publicidad e Inicio) y la pestaña «Publicidad» de cada embudo.
+// (/api/publicidad e Inicio) y la pestaña «Anuncios → Cómo van» de cada embudo.
 
 // Acciones de Meta: el mismo evento llega repetido con varios nombres (omni_purchase, purchase,
 // offsite_conversion.fb_pixel_purchase…), así que de cada grupo se coge el primero que haya, no la suma.

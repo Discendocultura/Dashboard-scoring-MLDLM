@@ -451,7 +451,7 @@ test('carrito abandonado: la primera llegada a la página de pago pone la etique
   assert.ok(!(await ghl.getContact('mock00023')).tags.includes('el-camino-carrito-abandonado'));
 });
 
-test('logo del lanzamiento (Plan → Anuncios): se guarda en el lanzamiento, solo https', async () => {
+test('logo del lanzamiento (Anuncios → Crear con IA): se guarda en el lanzamiento, solo https', async () => {
   const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
   const { data: cur } = await call('/api/config', { cookie: admin });
   await call('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, _version: cur.version, launches: { ...cur.config.launches, 'logo-26': { name: 'Logo', registroTag: 'registro-logo' } } } });

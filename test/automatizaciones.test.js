@@ -1,4 +1,4 @@
-// Plan → Automatizaciones (workflows de GHL con Claude), la etiqueta de registro fija y las páginas en Accesos y enlaces.
+// Crear → Automatizaciones (workflows de GHL con Claude), la etiqueta de registro fija y las páginas en Accesos y enlaces.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { autoCtx, automatizacionesDe, promptAutomatizacion, descripcionIaGhl, promptPreparacion, revisarExistente, sanitizeAutomatizaciones, fechaTxt } from '../public/js/automatizaciones.js';

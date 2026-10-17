@@ -1,6 +1,6 @@
 // URLs propuestas para las páginas de un embudo nuevo que se crea de cero («＋ Nuevo embudo» → Páginas y WhatsApp):
 // dominio + nombre del embudo + qué página es, p. ej. https://midominio.com/el-camino-registro-ads.
-// Se guardan en el embudo (`urls: { dominio, nombre }`) y se usan en Plan → Páginas, en los lanzamientos
+// Se guardan en el embudo (`urls: { dominio, nombre }`) y se usan en Crear → Páginas, en los lanzamientos
 // nuevos (rellenan sus enlaces) y en el prompt del grupo de WhatsApp.
 
 // «Webinar «El Camino»» → «el-camino» (sin tildes, eñes ni símbolos).
@@ -23,7 +23,7 @@ export function dominioValido(d) {
   }
 }
 
-// Páginas de cada tipo de embudo: id, página de Plan → Páginas a la que corresponde, nombre y final de la URL.
+// Páginas de cada tipo de embudo: id, página de Crear → Páginas a la que corresponde, nombre y final de la URL.
 // El registro va en dos páginas: una para el tráfico orgánico y otra para la publicidad (así se distinguen).
 const ESQUEMA = {
   lanzamientos: [

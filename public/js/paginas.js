@@ -1,4 +1,4 @@
-// Páginas del embudo con IA (pestaña Plan → Páginas): por cada página, un prompt para Claude con la marca
+// Páginas del embudo con IA (pestaña Crear → Páginas): por cada página, un prompt para Claude con la marca
 // y el avatar (Marca y avatar), el estilo visual, los datos del embudo y los códigos del dashboard que
 // tiene que llevar. Claude devuelve un único bloque HTML que se pega en un elemento «Código personalizado» de GHL.
 //   buscar: textos del título de los códigos de «Códigos para GHL» que van en esa página (lanzamientos)

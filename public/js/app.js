@@ -389,7 +389,7 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
 const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'todos', calendario: 'todos', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
-const VIEW_PERMISO = { vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', claude: 'metricas' };
+const VIEW_PERMISO = { avatarc: 'avatar', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', claude: 'metricas' };
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], lanzmeteo: ['lanz', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
@@ -417,6 +417,8 @@ const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual
     // «Páginas» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas (igual: si se respondió, manda eso).
     || (v === 'paginas' && !embudoInfo()?.paginasOrigen && pestanasEmbudo().includes('tareas'))
     || (v === 'anuncios' && pestanasEmbudo().includes('tareas'))
+    // «Avatar comprador» salió de «Avatar y anuncios»: la ven quienes tenían esa.
+    || (v === 'avatarc' && pestanasEmbudo().includes('avatar'))
     // «Emails» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas.
     || ((v === 'emailsia' || v === 'imagenes') && pestanasEmbudo().includes('tareas'))
     // «Claude» y «Automatizaciones» son nuevas: las ven los embudos con pestañas elegidas antes que tengan Tareas.
@@ -489,6 +491,10 @@ async function start() {
   state.config = config;
   state.zoomConfigured = zoomConfigured;
   state.sendflowConfigured = Boolean(sendflowConfigured);
+  // «Ajustes del cliente»: lo que cada rol puede tocar (las setters, al menos ver los mensajes de WhatsApp).
+  $('#tb-menu-ajustes').hidden = !tiene(['hoy', 'llamadas', 'leads', 'config', 'mensajes']);
+  $('#tb-ajustes-cli').textContent = state.clientes?.find((c) => c.id === state.cliente)?.nombre || 'Este cliente';
+  $('#tb-cuenta-yo').textContent = state.user?.nombre ? String(state.user.nombre) : 'Tu cuenta';
   state.setterResumen = Boolean(setterResumen);
   aplicarProducto();
   document.body.classList.toggle('is-admin', role === 'admin');
@@ -595,8 +601,13 @@ function pintarSidebar() {
     return `<div class="sb-row"><button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${e.tipo === 'meteorico' ? '⚡' : e.tipo === 'directa' ? '🛒' : tv ? tv.ico : esReto(e.formato) ? '🏁' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(e.id)}" title="Pestañas, nombre y guía de «${esc(e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
   }).join('');
   // «Inicio»: para todo el equipo. Quien ve las métricas (y hay embudos), con las cifras; el resto, el de trabajo.
+  // El superadmin tiene además «Agencia» encima (todos los clientes); «Inicio» es el del cliente en el que está.
+  const agencia = Boolean(state.enInicio) && modoInicio() === 'agencia';
+  $('#sb-agencia').hidden = !state.superadmin;
+  $('#sb-agencia').classList.toggle('active', agencia);
   $('#sb-inicio').hidden = false;
-  $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio));
+  $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio) && !agencia);
+  $('#sb-inicio small').textContent = state.superadmin ? `${state.clientes?.find((c) => c.id === state.cliente)?.nombre || 'Este cliente'} · sus embudos` : 'Todos los embudos';
   if (state.enInicio) $$('#sb-items .sb-item.active').forEach((b) => b.classList.remove('active'));
 }
 
@@ -707,6 +718,7 @@ async function mostrarInicio({ fresh = false } = {}) {
   pintarSaludo();
   ls.set('lsd_inicio', '1');
   document.body.classList.add('en-inicio');
+  pintarNavMovil();
   pintarSidebar();
   $('#alertas-carrito').hidden = true;
   // Superadmin: el Inicio de la agencia (todos los clientes) o el de este cliente.
@@ -827,7 +839,8 @@ $('#inicio-embudos').addEventListener('click', (e) => {
   pintarInicio();
   (tipo === 'embudo' ? cargarEmbudoInicio({ id: item.id, nombre: item.nombre, tipo: item.tipoOrig }, Number(i), true) : cargarMeteoInicio({ code: item.code, nombre: item.nombre }, Number(i), true)).then(pintarInicio);
 });
-$('#sb-inicio').addEventListener('click', () => mostrarInicio());
+$('#sb-inicio').addEventListener('click', () => { if (state.superadmin) ls.set('lsd_inicio_modo', 'cliente'); pintarSaludo(); mostrarInicio(); });
+$('#sb-agencia').addEventListener('click', () => { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); });
 // Accesos rápidos del proyecto (enlaces a mano: Drive, GHL, Canva…): un clic abre el panel y otro, el enlace.
 $('#sb-atajos').addEventListener('click', () => abrirAtajos({ api, dialog: $('#atajos-dialog'), cliente: state.clientes?.find((c) => c.id === state.cliente)?.nombre || '' }));
 $('#inicio-actualizar').addEventListener('click', () => mostrarInicio({ fresh: true }));
@@ -837,8 +850,7 @@ $('#inicio-actualizar').addEventListener('click', () => mostrarInicio({ fresh: t
 // tienen más de 30 min, para no pasar del límite de peticiones de Cloudflare.
 const modoInicio = () => (state.superadmin ? (ls.get('lsd_inicio_modo') || 'agencia') : 'cliente');
 function pintarModoInicio() {
-  const sa = state.superadmin;
-  $('#ini-modo').hidden = !sa;
+  $('#ini-modo').hidden = true; // Agencia o cliente se elige en el menú lateral
   const m = modoInicio();
   $$('#ini-modo [data-ini-modo]').forEach((b) => { b.classList.toggle('on', b.dataset.iniModo === m); b.setAttribute('aria-selected', String(b.dataset.iniModo === m)); });
   $('#ini-modo-cli').textContent = state.clientes?.find((c) => c.id === state.cliente)?.nombre || 'Este cliente';
@@ -2059,7 +2071,9 @@ function renderAvisos(m, launch) {
   const avisos = avisosLanzamiento(state.leads, launch, m);
   const el = $('#avisos');
   el.hidden = !avisos.length;
+  el.dataset.n = avisos.length;
   el.innerHTML = avisos.length ? `<strong>Revisa ${avisos.length === 1 ? 'esto' : `estas ${avisos.length} cosas`}:</strong><ul>${avisos.map((a) => `<li>${conBotones(a)}</li>`).join('')}</ul>` : '';
+  pintarCabecera();
 }
 // En cada aviso, lo que falta lleva su botón al campo de la configuración.
 const AVISO_CAMPOS = [
@@ -2900,7 +2914,7 @@ async function loadLaunchLeads(code, label = 'Cargando') {
   return state.launchLeads[code];
 }
 
-// Anuncios de todos los lanzamientos del embudo (Análisis → Avatar y anuncios).
+// Anuncios de todos los lanzamientos del embudo (Anuncios → Ganadores).
 state.hist = { level: 'ad', datos: null };
 // Leads y Meta de todos los lanzamientos empezados del embudo (para el histórico de anuncios y Crear anuncios).
 const codigosHistorico = () => launchesSorted().filter(([, l]) => embudoDeLanz(l) === state.embudo && l.registroTag && l.inicioCaptacion && l.inicioCaptacion <= today()).map(([c]) => c);
@@ -3006,7 +3020,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -3017,7 +3031,7 @@ $('#leyenda-estados').innerHTML = ESTADOS.map((e, i) => `<li><span class="estado
 // Ayuda de la primera visita a cada pestaña: qué hay y para qué sirve. Se cierra con «Entendido» y se
 // recuerda por usuario (Cuenta → «Volver a ver las ayudas» las enseña otra vez).
 const AYUDA_VISTA = {
-  hoy: ['☀️ Setting hoy', 'Una sola lista de a quién escribir hoy por WhatsApp, ya ordenada por prioridad (el número de la izquierda) y con el color de su temperatura: rojo muy caliente, naranja caliente, amarillo templado, azul frío. Filtra por motivo o por temperatura con los botones de arriba. Pulsa el botón de WhatsApp de cada lead: el mensaje sale ya escrito (se cambia en «Mensajes de WhatsApp», abajo).'],
+  hoy: ['☀️ Setting hoy', 'Una sola lista de a quién escribir hoy por WhatsApp, ya ordenada por prioridad (el número de la izquierda) y con el color de su temperatura: rojo muy caliente, naranja caliente, amarillo templado, azul frío. Filtra por motivo o por temperatura con los botones de arriba. Pulsa el botón de WhatsApp de cada lead: el mensaje sale ya escrito (se cambia en Ajustes del cliente → Mensajes de WhatsApp, o en el enlace de abajo). Al lado, «📨 Plantilla» manda una plantilla de pago y, si responde, contesta el setter IA.'],
   llamadas: ['📞 Llamadas', 'Las llamadas de valoración del calendario de GHL. Pulsa una para ver la ficha del lead antes de llamar y anota el resultado al terminar: alimenta el pipeline y el rendimiento del equipo.'],
   endirecto: ['🔴 En directo', 'El día del webinar, minuto a minuto: quién espera, quién entra, la asistencia, las VIP y las ventas desde que abre el carrito. Se actualiza solo cada minuto.'],
   leads: ['👥 Leads', 'Cada persona registrada con su puntuación (0-100) y su estado: muy caliente, caliente, templado o frío. Filtra, ordena y abre su WhatsApp. En «Encuesta», qué ha respondido la gente.'],
@@ -3025,7 +3039,7 @@ const AYUDA_VISTA = {
   objetivos: ['🎯 Planificador', 'Proyecta el lanzamiento con tus lanzamientos anteriores: inversión, leads, CPL máximo, equipo de llamadas y números. Los objetivos salen de ahí, y abajo ves cuánto llevas.'],
   calendario: ['🗓️ Calendario', 'Todas las fechas del cliente juntas: hitos de cada lanzamiento, tareas y eventos. Se puede sincronizar con tu calendario.'],
   dmetricas: ['📊 Métricas de la venta directa', 'Ventas, facturación, ticket medio, coste por venta (CPA) y ROAS del periodo elegido arriba. Debajo, el % de compradoras que coge cada bump, upsell y downsell, y la conversión de cada página si pegaste sus códigos.'],
-  publicidad: ['📣 Publicidad', 'Tus campañas de Meta como en el Administrador de anuncios: pulsa una campaña para abrir sus conjuntos y un conjunto para ver sus anuncios. Arriba, si toca preparar anuncios nuevos (frecuencia, caída del CTR, coste por resultado…). Se quita en el ⚙️ del embudo.'],
+  publicidad: ['📣 Anuncios · Cómo van', 'Tus campañas de Meta como en el Administrador de anuncios: pulsa una campaña para abrir sus conjuntos y un conjunto para ver sus anuncios. Arriba, si toca preparar anuncios nuevos (frecuencia, caída del CTR, coste por resultado…). Se quita en el ⚙️ del embudo.'],
   danuncios: ['👑 Anuncios ganadores', 'Qué anuncios, conjuntos y campañas traen ventas al menor coste por venta (CAC) y cuáles traen más ventas, en el periodo elegido arriba. Lo que gasta sin vender sale al final: es lo primero que hay que apagar.'],
   dclientes: ['🛍️ Compradoras', 'Quién ha comprado en el periodo, qué extras se llevó y su WhatsApp. Filtra por un extra para ver, por ejemplo, quién cogió el upsell.'],
   anuncios: ['🎯 Crear anuncios', 'Anuncios con IA para cada objetivo del embudo (captación, retargeting de consumo, venta): copia el prompt (lleva los anuncios ganadores, la ficha de marca, avatar y producto y los datos del embudo), pégalo en Claude y él escribe los guiones y los copys y crea las imágenes y los vídeos con Magnific.'],
@@ -3037,7 +3051,8 @@ const AYUDA_VISTA = {
   grupowa: ['💬 Grupo de WhatsApp', 'Los mensajes del grupo de este lanzamiento: copia el prompt, pégalo en Claude (con tu skill de copy), pega aquí su respuesta, sube los archivos, revisa y programa en SendFlow con un botón.'],
   carrito: ['🛒 Carrito', 'Cada día del carrito: lo que pasa ese día (se calcula solo con las fechas, la oferta y la barra), los emails y WhatsApps previstos y la estrategia.'],
   tareas: ['✅ Tareas', 'Las tareas del equipo para este lanzamiento, con responsable y fecha. «Cargar tareas habituales» crea la lista de siempre con las fechas ya calculadas.'],
-  avatar: ['👑 Avatar y anuncios', 'Qué perfil compra (según la encuesta) y qué anuncios traen ventas. Úsalo para decidir creatividades y públicos.'],
+  avatar: ['👑 Anuncios ganadores', 'Qué anuncios, conjuntos y campañas traen ventas en este lanzamiento, cuáles funcionaron en los anteriores y las ventas por canal. Úsalo para decidir qué creatividades repetir.'],
+  avatarc: ['🧬 Avatar comprador', 'Qué perfil compra, sacado de la encuesta y de quién compra: edad, tiempo buscando, qué le bloquea… Úsalo para los anuncios, las páginas y los mensajes.'],
   comparar: ['⚖️ Comparar', 'Este lanzamiento frente a los anteriores (o la VSL frente a los lanzamientos): qué mejora y qué empeora.'],
   rendimiento: ['📈 Rendimiento del equipo', 'Por persona: WhatsApps enviados, llamadas, shows, cierres y tiempo de respuesta.'],
   vmetricas: ['📊 Métricas', 'Cómo va el embudo por fechas: registros, consumo, llamadas, ventas y ROAS. Elige el periodo arriba.'],
@@ -3047,18 +3062,24 @@ const AYUDA_VISTA = {
   moferta: ['🎁 Oferta', 'Los entregables y bonus de la oferta frente a las ventas hora a hora.'],
 };
 const claveAyuda = (v) => `lsd_ayuda_${state.user?.email || state.user?.id || state.role || 'x'}_${v}`;
+// La primera vez se ve abierta; tras «Entendido» queda como una línea fina «ⓘ … · qué es esto» que se despliega al pulsarla.
 function pintarAyudaVista(view) {
   const sec = $(`#view-${view}`);
   const a = AYUDA_VISTA[view];
   $$('.ayuda-vista').forEach((x) => { if (!sec?.contains(x)) x.remove(); });
-  if (!state.role || !sec || !a || ls.get(claveAyuda(view)) || $('.ayuda-vista', sec)) return; // hasta saber quién es, nada
-  sec.insertAdjacentHTML('afterbegin', `<div class="ayuda-vista" role="note" data-vista="${view}"><div><strong>${esc(a[0])}</strong><p>${esc(a[1])}</p></div><button type="button" class="btn small" data-ayuda-ok>Entendido</button></div>`);
+  if (!state.role || !sec || !a || $('.ayuda-vista', sec)) return; // hasta saber quién es, nada
+  const vista = Boolean(ls.get(claveAyuda(view)));
+  const [ico, ...tit] = a[0].split(' ');
+  sec.insertAdjacentHTML('afterbegin', `<details class="ayuda-vista${vista ? ' plegada' : ''}" data-vista="${view}" ${vista ? '' : 'open'}>
+    <summary><span class="ayuda-ico" aria-hidden="true">${esc(ico)}</span> <strong>${esc(tit.join(' '))}</strong> <span class="ayuda-que">ⓘ qué es esto</span></summary>
+    <div class="ayuda-cuerpo"><p>${esc(a[1])}</p><button type="button" class="btn small" data-ayuda-ok>Entendido</button></div></details>`);
 }
 document.addEventListener('click', (e) => {
   const ok = e.target.closest('[data-ayuda-ok]');
-  if (ok) { const box = ok.closest('.ayuda-vista'); ls.set(claveAyuda(box.dataset.vista), '1'); box.remove(); return; }
+  if (ok) { const box = ok.closest('.ayuda-vista'); ls.set(claveAyuda(box.dataset.vista), '1'); box.open = false; box.classList.add('plegada'); return; }
   if (e.target.closest('#btn-ayudas')) {
     for (const v of Object.keys(AYUDA_VISTA)) { try { localStorage.removeItem(claveAyuda(v)); } catch { /* sin almacenamiento */ } }
+    $$('.ayuda-vista').forEach((x) => x.remove());
     const actual = VIEWS.find((v) => !$(`#view-${v}`)?.hidden);
     if (actual) pintarAyudaVista(actual);
     notice('Las ayudas de cada pestaña vuelven a salir la próxima vez que entres en ella.');
@@ -3066,9 +3087,17 @@ document.addEventListener('click', (e) => {
 });
 
 // Grupos de la barra de arriba, por momento de uso: Hoy (lo del día), Plan y Análisis.
-const GRUPOS = { comercial: ['hoy', 'llamadas', 'endirecto'], planificacion: ['anuncios', 'paginas', 'automatizaciones', 'grupowa', 'emailsia', 'imagenes', 'carrito', 'objetivos', 'calendario', 'tareas'], analisis: ['avatar', 'vanuncios', 'comparar', 'rendimiento', 'claude'] };
+// Pestañas de arriba que agrupan varias vistas (subpestañas): Hoy, Anuncios (cómo van, ganadores y crear con IA), Crear (con IA),
+// Plan (organizar el lanzamiento) y Análisis (para decidir). El orden de cada lista es el de sus subpestañas.
+const GRUPOS = {
+  comercial: ['hoy', 'llamadas', 'endirecto'],
+  anunciosg: ['publicidad', 'avatar', 'vanuncios', 'danuncios', 'anuncios'],
+  crear: ['paginas', 'emailsia', 'imagenes', 'grupowa', 'automatizaciones'],
+  planificacion: ['objetivos', 'calendario', 'tareas', 'carrito'],
+  analisis: ['avatarc', 'comparar', 'rendimiento', 'claude'],
+};
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', publicidad: 'megaphone' };
+const VIEW_ICONS = { anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', publicidad: 'megaphone' };
 $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
@@ -3081,12 +3110,14 @@ $$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('af
 }
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
-// Menú «Cuenta» de arriba: se cierra al elegir algo o al pulsar fuera.
+// Menús de arriba («Ajustes del cliente» y «Tu cuenta»): se cierran al elegir algo o al pulsar fuera, y solo uno abierto.
 document.addEventListener('click', (e) => {
-  const menu = $('#tb-menu-cuenta');
-  if (!menu?.open) return;
-  if (!menu.contains(e.target) || e.target.closest('.tb-menu-panel button')) menu.open = false;
+  for (const menu of $$('.topbar .tb-menu')) {
+    if (!menu.open) continue;
+    if (!menu.contains(e.target) || e.target.closest('.tb-menu-panel button')) menu.open = false;
+  }
 });
+$$('.topbar .tb-menu').forEach((m) => m.addEventListener('toggle', () => { if (m.open) $$('.topbar .tb-menu').forEach((o) => { if (o !== m) o.open = false; }); }));
 
 // ---------- Barras de pestañas que no caben (móvil): avisa de que hay más deslizando ----------
 function marcarDesborde(el) {
@@ -3224,8 +3255,8 @@ window.addEventListener('popstate', (e) => {
   const abiertas = [...document.querySelectorAll('dialog[open]')];
   if (abiertas.length) { nav.restaurando = true; abiertas.at(-1).close(); nav.restaurando = false; return; }
   if (!$('#notif-panel').hidden) { cerrarNotif(); return; }
-  const menu = $('#tb-menu-cuenta');
-  if (menu?.open) { menu.open = false; return; }
+  const menu = $$('.topbar .tb-menu').find((m) => m.open);
+  if (menu) { menu.open = false; return; }
   const v = e.state?.view;
   if (v && VIEWS.includes(v) && allowedViews().includes(v)) { nav.restaurando = true; showView(v); nav.restaurando = false; }
 });
@@ -3274,6 +3305,7 @@ function showView(view) {
     try { history[history.state?.view ? 'pushState' : 'replaceState']({ view }, ''); } catch { /* sin historial */ }
   }
   pintarAyudaVista(view);
+  pintarNavMovil();
   requestAnimationFrame(revisarBarras);
 }
 $$('.view-tab').forEach((t) => t.addEventListener('click', () => {
@@ -3436,8 +3468,8 @@ function envioBtns(l, { corto = false } = {}) {
 }
 // Nota fija encima de Leads y de Setting hoy: qué es cada botón, en una línea cada uno.
 function pintarNotaEnvios() {
-  const html = `<div class="envio-op"><strong>💬 WhatsApp · <span class="envio-gratis">gratis</span></strong><span>Se abre tu WhatsApp con el mensaje ya escrito y lo envías tú. <b>⚠️ Riesgo de bloqueo:</b> si escribes a mucha gente que no te tiene guardada, WhatsApp puede bloquear tu número. Úsalo con pocas personas al día.</span></div>
-    ${plantillasWa().length ? `<div class="envio-op"><strong>📨 Plantilla · <span class="envio-pago">de pago</span></strong><span>La envía GHL desde el número oficial con una plantilla aprobada por Meta (cada una cuesta unos céntimos). <b>Sin riesgo de bloqueo</b> y, si contesta, <b>le responde el setter IA</b>.</span></div>` : ''}`;
+  const html = `<div class="envio-op" title="Se abre tu WhatsApp con el mensaje ya escrito y lo envías tú. Si escribes a mucha gente que no te tiene guardada, WhatsApp puede bloquear tu número: úsalo con pocas personas al día."><strong>💬 WhatsApp · <span class="envio-gratis">gratis</span></strong> <span>desde tu móvil · <b>⚠️ riesgo de bloqueo</b> si escribes a mucha gente</span></div>
+    ${plantillasWa().length ? `<div class="envio-op" title="La envía GHL desde el número oficial con una plantilla aprobada por Meta (cada una cuesta unos céntimos). Sin riesgo de bloqueo y, si contesta, le responde el setter IA."><strong>📨 Plantilla · <span class="envio-pago">de pago</span></strong> <span>la envía GHL · <b>sin riesgo de bloqueo</b> · si responde, contesta el setter IA</span></div>` : ''}`;
   for (const el of $$('[data-nota-envios]')) if (el.innerHTML !== html) el.innerHTML = html;
 }
 function rowHtml(l) {
@@ -4742,7 +4774,7 @@ function pintarNlResumen(r) {
   const items = [
     `💶 ${Number(l.precioVip) > 0 ? `VIP ${eur(Number(l.precioVip))} · ` : ''}programa ${Number(l.precioPrograma) > 0 ? eur(Number(l.precioPrograma)) : 'sin precio'}${nb.length ? ` · ${nb.filter((x) => x.checked).length} de ${nb.length} bonus` : ''}`,
     r.objetivos ? `🎯 Objetivos: ${numTxt(r.objetivos.registros)} registros · ${numTxt(r.objetivos.ventas)} ventas · ${eur(r.objetivos.facturacion)}${r.objetivos.inversion ? ` · ${eur(r.objetivos.inversion)} de inversión` : ''}` : '🎯 Sin objetivos: ponlos después en Plan → Planificador',
-    l.narrativa?.titulo ? `🧭 Narrativa «${l.narrativa.titulo}»: entra en los prompts de anuncios, páginas y mensajes` : nlNarrOp() === 'nueva' ? '🧭 Narrativa nueva: aún sin pegar (podrás crearla después en Plan → Anuncios, Páginas o WhatsApp)' : '🧭 Sin narrativa',
+    l.narrativa?.titulo ? `🧭 Narrativa «${l.narrativa.titulo}»: entra en los prompts de anuncios, páginas y mensajes` : nlNarrOp() === 'nueva' ? '🧭 Narrativa nueva: aún sin pegar (podrás crearla después en Anuncios → Crear con IA, Páginas o WhatsApp)' : '🧭 Sin narrativa',
     marcado('#nl-zoom') ? '🎥 Crear la sala de Zoom' : '',
     marcado('#nl-tareas') ? '🗓️ Copiar las tareas del anterior' : '',
     marcado('#nl-wa') ? '💬 Copiar los mensajes del grupo (en borrador)' : '',
@@ -4899,7 +4931,7 @@ $('#nl-crear').addEventListener('click', async () => {
     const paginas = accesosDePaginas(launch, propuestasEmbudo(embudoDeLanz(launch)));
     const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, accesos: conAccesos(state.config.accesos, paginas), launches: { ...state.config.launches, [r.code]: launch } } });
     if (paginas.length) hecho.push(`🔗 ${paginas.length} página${paginas.length === 1 ? '' : 's'} en Configuración → Accesos y enlaces`);
-    if (auto === 'cero') hecho.push('⚙️ Automatizaciones: en Plan → Automatizaciones tienes el prompt de cada una para Claude');
+    if (auto === 'cero') hecho.push('⚙️ Automatizaciones: en Crear → Automatizaciones tienes el prompt de cada una para Claude');
     state.config = config;
     // 4) Lo demás que se ha pedido: etiqueta en GHL, tareas y mensajes del grupo.
     const extra = async (marcado, txt, op, body, ok) => {
@@ -5071,7 +5103,7 @@ $('#narr-quitar').addEventListener('click', async () => {
   if (!window.confirm('¿Quitar la narrativa? Los prompts dejarán de llevarla.')) return;
   try { await narrCtx.onGuardar(null); narrDlg.close(); } catch (err) { $('#narr-status').textContent = err.message; }
 });
-// Tarjeta en Plan → Anuncios, Páginas y Grupo de WhatsApp (lanzamientos): la narrativa que siguen los prompts.
+// Tarjeta en Anuncios → Crear con IA, Páginas y Grupo de WhatsApp (lanzamientos): la narrativa que siguen los prompts.
 function narrativaCardHtml(code) {
   const l = state.config.launches[code];
   if (!l) return '';
@@ -5816,12 +5848,91 @@ function renderSnapshotBox() {
 function renderSnapshotWarning() {
   const el = $('#snapshot-warning');
   const launch = state.config.launches[state.launchCode];
-  const missing = puedeConfig() && launch && !enVsl() && !enMeteo() ? missingSnapshot(launch) : []; // solo en los lanzamientos
+  const missing = puedeConfig() && launch && !enVsl() && !enMeteo() && !enDirecta() ? missingSnapshot(launch) : []; // solo en los lanzamientos
   el.hidden = !missing.length;
+  queueMicrotask(pintarCabecera);
   if (!missing.length) return;
   el.innerHTML = `<p><strong>Falta la foto de lanzamientos anteriores</strong> (${missing.map((f) => `«${esc(launch[f.field])}»`).join(', ')}). Mientras tanto, quien la tenía de lanzamientos anteriores cuenta como de este. Hazla antes de abrir la venta.</p>
     <button type="button" class="btn" data-action="snapshot">Hacer la foto ahora</button>`;
 }
+
+// ---------- Móvil: menú ☰ (embudos y herramientas) y pestañas fijas abajo ----------
+const esMovil = () => window.matchMedia('(max-width: 900px)').matches;
+function abrirMenuMovil(abrir) {
+  document.body.classList.toggle('menu-movil', abrir);
+  $('#sb-fondo').hidden = !abrir;
+  $('#btn-menu-movil').setAttribute('aria-expanded', String(abrir));
+}
+$('#btn-menu-movil').addEventListener('click', () => abrirMenuMovil(!document.body.classList.contains('menu-movil')));
+$('#sb-fondo').addEventListener('click', () => abrirMenuMovil(false));
+$('#sidebar').addEventListener('click', (e) => {
+  const p = e.target.closest('[data-proxy]');
+  if (p) $(p.dataset.proxy)?.click();
+  if (esMovil() && e.target.closest('.sb-item, .sb-add, .sb-edit, [data-proxy], [data-abrir-mensajes]')) abrirMenuMovil(false);
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('menu-movil')) abrirMenuMovil(false); });
+const textoPestana = (t) => [...t.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim();
+function pintarNavMovil() {
+  const nav = $('#nav-movil');
+  const tabs = $$('.views .view-tab').filter((t) => !t.hidden);
+  nav.hidden = state.enInicio || $('#dashboard').hidden || !tabs.length;
+  $('#nav-mas').hidden = true;
+  if (nav.hidden) return;
+  const prim = tabs.slice(0, tabs.length > 4 ? 3 : 4);
+  const resto = tabs.slice(prim.length);
+  const boton = (t) => `<button type="button" class="nm-item ${t.classList.contains('active') ? 'on' : ''}" data-nm="${tabs.indexOf(t)}" ${t.classList.contains('active') ? 'aria-current="page"' : ''}>${t.querySelector('svg')?.outerHTML || ''}<span>${esc(textoPestana(t))}</span></button>`;
+  nav.innerHTML = prim.map(boton).join('') + (resto.length ? `<button type="button" class="nm-item ${resto.some((t) => t.classList.contains('active')) ? 'on' : ''}" data-nm-mas aria-expanded="false"><span class="nm-mas-ico" aria-hidden="true">⋯</span><span>Más</span></button>` : '');
+  $('#nav-mas').innerHTML = resto.map((t) => `<button type="button" class="nm-mas-item ${t.classList.contains('active') ? 'on' : ''}" data-nm="${tabs.indexOf(t)}">${t.querySelector('svg')?.outerHTML || ''}<span>${esc(textoPestana(t))}</span>${t.title ? `<small>${esc(t.title)}</small>` : ''}</button>`).join('');
+}
+document.addEventListener('click', (e) => {
+  const mas = e.target.closest('[data-nm-mas]');
+  if (mas) { const p = $('#nav-mas'); p.hidden = !p.hidden; mas.setAttribute('aria-expanded', String(!p.hidden)); return; }
+  const b = e.target.closest('[data-nm]');
+  if (b) { $$('.views .view-tab').filter((t) => !t.hidden)[Number(b.dataset.nm)]?.click(); window.scrollTo({ top: 0 }); return; }
+  if (!$('#nav-mas').hidden && !e.target.closest('#nav-mas')) $('#nav-mas').hidden = true;
+});
+
+// ---------- Cabecera del embudo: dónde estás (embudo › lanzamiento · fase) y qué puedes hacer ----------
+const ICONO_TIPO = { vsl: '🎬', meteorico: '⚡', directa: '🛒', lanz: '🚀' };
+const CONFIG_TXT = { vsl: 'esta VSL', meteorico: 'este meteórico', directa: 'esta venta', lanz: 'este lanzamiento' };
+function faseLanzamiento(launch, ahora = Date.now()) {
+  if (!launch) return null;
+  const { apertura, cierre } = momentosCarrito(launch);
+  if (apertura != null && ahora < apertura) return ['Captación', 'info'];
+  if (cierre != null && ahora < cierre) return ['Carrito abierto', 'buy'];
+  if (cierre != null) return ['Cerrado', 'muted'];
+  return null;
+}
+function pintarCabecera() {
+  if (!state.config) return;
+  const tipo = tipoActual();
+  const emb = embudoInfo();
+  $('#ctx-emb').textContent = `${ICONO_TIPO[tipo]} ${emb?.nombre || 'Lanzamientos'}`;
+  $('#ctx-config-txt').textContent = CONFIG_TXT[tipo];
+  const f = tipo === 'lanz' ? faseLanzamiento(state.config.launches[state.launchCode]) : null;
+  $('#ctx-fase').hidden = !f;
+  if (f) { $('#ctx-fase').textContent = f[0]; $('#ctx-fase').className = `ctx-fase tone-${f[1]}`; }
+  // Los informes: solo en lanzamientos y VSL.
+  $('#ctx-mas .ctx-informes').hidden = !(tipo === 'lanz' || tipo === 'vsl');
+  if (tipo !== 'lanz') $('#avisos').hidden = true; // los avisos son de los lanzamientos
+  // Pendientes: la foto y lo que falta configurar o no cuadra (antes, avisos grandes encima de cada pestaña).
+  const n = (!$('#snapshot-warning').hidden ? 1 : 0) + (!$('#avisos').hidden ? Number($('#avisos').dataset.n || 0) : 0);
+  const chip = $('#ctx-pend');
+  chip.hidden = !n;
+  chip.innerHTML = `⚠️ <b>${n}</b> pendiente${n === 1 ? '' : 's'}`;
+  if (!n) { $('#ctx-pend-panel').hidden = true; chip.setAttribute('aria-expanded', 'false'); }
+}
+$('#ctx-pend').addEventListener('click', () => {
+  const p = $('#ctx-pend-panel');
+  p.hidden = !p.hidden;
+  $('#ctx-pend').setAttribute('aria-expanded', String(!p.hidden));
+});
+// El menú «⋯» se cierra al elegir algo o al pulsar fuera.
+document.addEventListener('click', (e) => {
+  const m = $('#ctx-mas');
+  if (!m.open) return;
+  if (!m.contains(e.target) || e.target.closest('.ctx-mas-item:not([data-informe="enlace"]):not([data-informe="enviar"])')) m.open = false;
+});
 
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-action="snapshot"]');
@@ -7532,7 +7643,7 @@ async function cargarSetterRend(code, leads, { desde, hasta }) {
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-informe]');
   if (!b) return;
-  const st = b.parentElement.querySelector('[data-informe-status]');
+  const st = b.closest('[data-informes]')?.querySelector('[data-informe-status]') || { set textContent(v) { notice(v); }, set innerHTML(v) { notice(v.replace(/<[^>]+>/g, '')); } };
   const que = enVsl() ? { v: state.embudo } : { l: state.launchCode };
   const cq = state.cliente && !state.clientes.find((c) => c.id === state.cliente)?.principal ? `&c=${encodeURIComponent(state.cliente)}` : '';
   if (b.dataset.informe === 'ver') { window.open(`/api/informe?${new URLSearchParams(que)}${cq}`, '_blank', 'noopener'); return; }
@@ -9916,6 +10027,14 @@ function pintarPlantillas() {
   waSucio = false;
 }
 waBox.addEventListener('toggle', () => { if (waBox.open && !waSucio) pintarPlantillas(); });
+// Se abren desde Ajustes del cliente → Mensajes de WhatsApp o desde el enlace de Setting hoy.
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('[data-abrir-mensajes]')) return;
+  $$('.topbar .tb-menu').forEach((m) => { m.open = false; });
+  if (!waSucio) pintarPlantillas();
+  waBox.open = true;
+  $('#mensajes-dialog').showModal();
+});
 waBox.addEventListener('input', () => { waSucio = true; $('#wa-pl-status').textContent = 'Cambios sin guardar.'; });
 $('#wa-pl-guardar').addEventListener('click', async () => {
   const b = $('#wa-pl-guardar');
@@ -10931,7 +11050,7 @@ $('#emb-urls-copiar').addEventListener('click', async (e) => {
   try { await navigator.clipboard.writeText(t); e.target.textContent = 'Copiadas ✓'; } catch { window.prompt('Copia las URLs:', t); }
   setTimeout(() => { e.target.textContent = '📋 Copiar todas'; }, 2000);
 });
-// Botón «Copiar» de una URL (asistente y Plan → Páginas).
+// Botón «Copiar» de una URL (asistente y Crear → Páginas).
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-copiar-url]');
   if (!b) return;
@@ -13530,7 +13649,7 @@ function vigilanciaHtml(v, code) {
     <ul class="vigia-estado">${estado.map((t) => `<li>${t}</li>`).join('')}</ul>${alertas}${tabla}</section>`;
 }
 
-// ---------- 💬 Plan → Grupo de WhatsApp: calentamiento escrito con Claude y programado en SendFlow ----------
+// ---------- 💬 Crear → Grupo de WhatsApp: calentamiento escrito con Claude y programado en SendFlow ----------
 const gwc = { code: '', mensajes: [], sendflowId: '', conectado: false, cargando: false, cambios: false, error: '' };
 const embCal = () => (enMeteo() ? state.config.meteoricos?.[state.meteo.code] : state.config.launches[state.launchCode]) || null;
 const tipoMsg = (id) => TIPOS_MSG.find((t) => t.id === id) || TIPOS_MSG[0];
@@ -13665,7 +13784,7 @@ function gwCategoriasHtml() {
         ${fases.filter((id) => n(id)).map((id) => `<button type="button" class="btn small" data-wa-solo="${id}">${EM_FASE[id]?.ico || ''} Solo ${esc(EM_FASE[id]?.nombre || id)} (${n(id)})</button>`).join('')}</div>
     </div>`;
 }
-// ---------- ✉️ Emails con IA (Plan → Emails) ----------
+// ---------- ✉️ Emails con IA (Crear → Emails) ----------
 // La secuencia de emails del lanzamiento: calendario de envíos con sus fechas, asuntos ganadores de los anteriores,
 // la ficha de marca y la narrativa. Se escribe con Claude y se programa en GHL.
 const emc = { ganadores: {}, cargando: false }; // ganadores: { <código anterior>: texto }
@@ -13679,7 +13798,7 @@ const fasesEm = () => {
     return v.includes('consciencia') || ls.get(`${fasesEmKey()}_c`) ? v : [...v, 'consciencia'];
   } catch { return FASES_DEFECTO; }
 };
-// Contenido del webinar (el mismo que en Plan → Grupo de WhatsApp): se escribe una vez y lo usan los dos prompts.
+// Contenido del webinar (el mismo que en Crear → Grupo de WhatsApp): se escribe una vez y lo usan los dos prompts.
 const temarioEmKey = (code) => `lsd_gw_temario_${state.cliente || ''}_${code}`;
 // El lanzamiento anterior del embudo (para sus asuntos ganadores).
 const anteriorEm = (code) => {
@@ -13890,7 +14009,7 @@ async function renderEmailsIa() {
   });
 }
 
-// Plan → Imágenes: un prompt completo por imagen del lanzamiento (estilo, logo, su mockup y el texto exacto).
+// Crear → Imágenes: un prompt completo por imagen del lanzamiento (estilo, logo, su mockup y el texto exacto).
 const imgHechasKey = (code) => `imgHechas_${state.cliente}_${code}`;
 const ICO_MOCKUP = (id) => (id === 'grabacion' ? '📼' : id === 'producto' ? '📦' : '🎁');
 async function renderImagenesIa() {
@@ -14004,7 +14123,7 @@ async function renderImagenesIa() {
   };
 }
 
-// ---------- 🎯 Crear anuncios con IA (Plan → Anuncios) ----------
+// ---------- 🎯 Crear anuncios con IA (Anuncios → Crear con IA) ----------
 // Por objetivo del embudo, prompts para Claude (guiones, Magnific, copys de Meta) con los anuncios ganadores
 // (del lanzamiento, de todos los lanzamientos del embudo o de la VSL) y la ficha de marca, avatar y producto.
 const notasAnKey = () => `lsd_an_notas_${state.cliente || ''}_${state.embudo}`;
@@ -14039,7 +14158,7 @@ function ctxAnuncio(c, objetivo) {
   return { objetivo, tipoTexto: TIPO_TXT[c.tipo] || c.tipo, nombreEmbudo: c.nombre, marca: clienteNombre(), datos: c.datos, urls: c.urls,
     contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto), diseno: disenoTexto(pgc.marca?.m), ganadores: ganadoresTexto(g.filas), notas: (ls.get(notasAnKey()) || '').trim(), evento: (ls.get(eventoAnKey()) || '').trim(), formato: f.id, formatoTexto: f.texto, logo: logoLanzamiento(), narrativa: tipoActual() === 'lanz' ? bloqueNarrativa(state.config.launches[state.launchCode]?.narrativa, 'anuncios') : '' };
 }
-// Logo del lanzamiento actual (Plan → Anuncios → Captación): se guarda en el lanzamiento, para todo el equipo.
+// Logo del lanzamiento actual (Anuncios → Crear con IA → Captación): se guarda en el lanzamiento, para todo el equipo.
 const logoLanzamiento = () => (tipoActual() === 'lanz' ? state.config.launches[state.launchCode]?.logoUrl || '' : '');
 const campoLogoHtml = () => {
   const url = logoLanzamiento();
@@ -14145,7 +14264,7 @@ $('#anuncios-body').addEventListener('click', async (e) => {
   setTimeout(() => { b.textContent = txtOriginal; }, 2500);
 });
 
-// ---------- 🧱 Páginas del embudo con IA (Plan → Páginas) ----------
+// ---------- 🧱 Páginas del embudo con IA (Crear → Páginas) ----------
 // Por cada página, un prompt para Claude con la marca y el avatar, el estilo, los datos del embudo y los
 // códigos del dashboard; el HTML que devuelve se pega en un elemento «Código personalizado» de GHL.
 const pgc = { marca: null };
@@ -14447,9 +14566,9 @@ $('#grupowa-body').addEventListener('click', async (e) => {
   }
 });
 
-// Móvil: el menú «Cuenta» sale justo debajo de la barra de arriba (que cambia de alto según lo que quepa).
-$('#tb-menu-cuenta').addEventListener('toggle', (e) => {
+// Móvil: los menús de arriba salen justo debajo de la barra (que cambia de alto según lo que quepa).
+$$('.topbar .tb-menu').forEach((m) => m.addEventListener('toggle', (e) => {
   if (!e.currentTarget.open) return;
   const alto = Math.round($('.topbar')?.getBoundingClientRect().bottom || 100);
   document.documentElement.style.setProperty('--tb-menu-top', `${alto + 8}px`);
-});
+}));

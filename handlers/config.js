@@ -63,9 +63,9 @@ export async function POST(request) {
       });
       return json({ config, version: versionDe(config) });
     }
-    // Logo del lanzamiento (Plan → Anuncios): URL de la imagen, para los anuncios de captación.
-    // Narrativa del lanzamiento (Plan → Anuncios, Páginas y WhatsApp, o el asistente de nuevo lanzamiento).
-    // Automatizaciones de GHL (Plan → Automatizaciones): { tipo, l, datos: { origen, items }, workflow?: { nombre, url } }.
+    // Logo del lanzamiento (Anuncios → Crear con IA): URL de la imagen, para los anuncios de captación.
+    // Narrativa del lanzamiento (Anuncios → Crear con IA, Páginas y WhatsApp, o el asistente de nuevo lanzamiento).
+    // Automatizaciones de GHL (Crear → Automatizaciones): { tipo, l, datos: { origen, items }, workflow?: { nombre, url } }.
     // La URL de un workflow creado pasa también a Configuración → Accesos y enlaces (tipo «workflow»).
     if (body.op === 'automatizaciones') {
       const code = String(body.l || '');

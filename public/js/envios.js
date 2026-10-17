@@ -5,7 +5,7 @@
 //   · Día del directo: 3 emails y 3 WhatsApp.
 //   · Carrito: 3 emails y 3 WhatsApp al día; el último día, 4 y 4.
 // Cada fase se guarda en `launch.envios[fase] = { emails: ['HH:MM'…], whatsapp: [...] }` y cada día del carrito, si se
-// cambia a mano, en `launch.carritoEnvios[día]` (como antes). Lo usan Configuración, Plan → Emails y Plan → Grupo de WhatsApp.
+// cambia a mano, en `launch.carritoEnvios[día]` (como antes). Lo usan Configuración, Crear → Emails y Crear → Grupo de WhatsApp.
 import { videosDe } from './videos.js';
 import { desbloqueosPreclase } from './calentamiento.js';
 import { diasCarrito } from './carrito.js';

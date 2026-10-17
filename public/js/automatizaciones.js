@@ -1,4 +1,4 @@
-// Automatizaciones de GoHighLevel (Plan → Automatizaciones): los workflows que necesita cada tipo de embudo, con
+// Automatizaciones de GoHighLevel (Crear → Automatizaciones): los workflows que necesita cada tipo de embudo, con
 // los datos reales del lanzamiento (etiquetas, URLs, fechas) y el prompt para crearlos con Claude.
 // El conector de GHL NO puede crear workflows (la API pública solo los lee): Claude los monta desde el navegador
 // (Claude in Chrome o Cowork) o se pega la descripción corta en el asistente de IA de workflows de GHL.
@@ -271,7 +271,7 @@ export function promptAutomatizacion(a, c) {
     '- Usa las etiquetas EXACTAS de arriba, en minúsculas. Si una no existe en GHL, créala con ese nombre exacto.',
     ...(c.tipo === 'lanzamientos' ? ['- La etiqueta de registro sigue SIEMPRE la nomenclatura «registrado-webinar-DDMMAA» (fecha del directo): no la cambies.'] : []),
     '- No toques ningún otro workflow (tampoco los de lanzamientos anteriores).',
-    '- Los textos de emails y WhatsApp: pon uno provisional corto que empiece por [REVISAR] (los definitivos salen de Plan → Emails del dashboard).',
+    '- Los textos de emails y WhatsApp: pon uno provisional corto que empiece por [REVISAR] (los definitivos salen de Crear → Emails del dashboard).',
     '- Si un paso no existe tal cual en GHL, usa el equivalente más cercano y avísame.',
     '- Déjalo en BORRADOR (sin publicar). Al terminar dime: qué has creado, qué no has podido hacer y la URL del workflow (la pegaré en el dashboard).',
     '',

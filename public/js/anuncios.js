@@ -1,4 +1,4 @@
-// Anuncios con IA (pestaña Plan → Anuncios): por cada objetivo del embudo (captación, retargeting de
+// Anuncios con IA (pestaña Anuncios → Crear con IA): por cada objetivo del embudo (captación, retargeting de
 // consumo, venta), prompts para Claude basados en los anuncios ganadores (si hay histórico) y en la ficha
 // de marca, avatar y producto:
 //   · guiones de vídeo

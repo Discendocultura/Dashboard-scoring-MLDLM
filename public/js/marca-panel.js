@@ -199,10 +199,10 @@ function finHtml() {
     <ul class="mp-fin-chips"><li>🏷️ Marca y tono</li><li>📦 ${nP} producto${nP === 1 ? '' : 's'} con su avatar</li><li>✨ ${nP} ficha${nP === 1 ? '' : 's'} para los prompts</li>${m.docs.length ? `<li>📄 ${m.docs.length} documento${m.docs.length === 1 ? '' : 's'}</li>` : ''}</ul>
     <h4>Lo que ya sale con tu voz</h4>
     <div class="mp-fin-usos">
-      <div><span>🧱</span><strong>Páginas del embudo</strong><small>Plan → Páginas</small></div>
-      <div><span>✉️</span><strong>Emails</strong><small>Plan → Emails</small></div>
-      <div><span>💬</span><strong>WhatsApp</strong><small>Plan → Grupo de WhatsApp</small></div>
-      <div><span>🎯</span><strong>Anuncios</strong><small>Plan → Anuncios</small></div>
+      <div><span>🧱</span><strong>Páginas del embudo</strong><small>Crear → Páginas</small></div>
+      <div><span>✉️</span><strong>Emails</strong><small>Crear → Emails</small></div>
+      <div><span>💬</span><strong>WhatsApp</strong><small>Crear → Grupo de WhatsApp</small></div>
+      <div><span>🎯</span><strong>Anuncios</strong><small>Anuncios → Crear con IA</small></div>
     </div>
     <p class="muted small">¿Cambia algo (un precio, un bonus, frases nuevas de tus clientas)? Vuelve a su paso: se guarda solo. Si cambia algo importante, rehaz la ficha en la etapa 4.</p>
     <p><button type="button" class="btn primary" data-mp-fiesta>🎊 Celebrarlo otra vez</button></p>

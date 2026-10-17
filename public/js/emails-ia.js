@@ -1,4 +1,4 @@
-// Emails con IA (Plan → Emails): la secuencia de emails del lanzamiento para escribirla con Claude.
+// Emails con IA (Crear → Emails): la secuencia de emails del lanzamiento para escribirla con Claude.
 //   · calendarioEmails(): los envíos propuestos, sacados de las fechas del lanzamiento (registro, clases de la preclase,
 //     directo, grabación, cada día del carrito con sus horas de Plan → Carrito, bonus que caducan y cierre).
 //   · asuntosGanadores(): los asuntos que más abrieron y más clics tuvieron en lanzamientos anteriores (GHL).
