@@ -1,0 +1,2155 @@
+{
+ "texto": " Hoy te quiero hablar del cuerpo lúteo, que es esta estructura que ves aquí que tiene un color como amarillo, naranja y es una de las estructuras más fascinantes que produce el cuerpo de la mujer durante el ciclo menstrual. Se produce después de ovular. El folículo, ¿vale?, que es como una pequeña estructura redondeada que en el interior contiene el ovulo, pues cuando iniciamos un nuevo ciclo esos folículos, digamos que son como reclutados, seleccionados por el ovario y empiezan a crecer dentro de nuestro ovario gracias a la hormona FSH. ¿Qué es lo que pasa durante la ovulación? Digamos que esto sería un folículo, ¿vale? Dentro tenemos un regalito que es el futuro ovulo. Entonces, durante la, cuando se produce la ovulación, en nuestro cuerpo hay como un pico muy brusco de la hormona LH, ¿vale? Que es la hormona responsable lo que va a hacer que, digamos, la pared de ese folículo se rompa, permitiendo que el óvulo salga a la cavidad y esto va a ser captado por la trompa de falopio. Esta estructura que antes contenía el óvulo no va a desaparecer, ahora se va a transformar en una estructura que es el cuerpo lúteo y es una de las estructuras como te digo más importantes que entre otras cosas va a permitir que se pueda desarrollar el embarazo y que Una de las principales hormonas que va a producir el cuerpo lúteo es la hormona progesterona, que es vital para que se pueda producir el embarazo. De hecho, si te fijas en su propio nombre, ya te lo dice, progesterona, progestar, proembarazo. Es una hormona que está a favor del embarazo y que entre otras cosas va a hacer que el endometrio, que es la capa digamos más superficial del útero, se pueda volver como más gordita, más mullidita para recibir al bebé si se produce pues al final la fecundación para que se pueda implantar. y este cuerpo lúteo va, digamos, durante las primeras semanas de embarazo, en el caso de producirse el embarazo, producir hormonas hasta que la placenta es, digamos, capaz de estar como completamente desarrollada, que esto no pasa hasta prácticamente final del primer trimestre. Por lo tanto, es fundamental que nuestro cuerpo lúteo sea saludable, que pueda producir estas hormonas para que el bebé se pueda implantar, para que no aparezcan en el final, pues, estos manchados premenstruales que aparecen muchas veces y que lógicamente el embarazo se pueda dar y se desarrolle bien durante estas 12, 13 primeras semanas hasta que un poco la placenta coja el control.",
+ "words": [
+  {
+   "text": "Hoy",
+   "start": 0.0,
+   "end": 0.12
+  },
+  {
+   "text": "te",
+   "start": 0.12,
+   "end": 0.3
+  },
+  {
+   "text": "quiero",
+   "start": 0.3,
+   "end": 0.42
+  },
+  {
+   "text": "hablar",
+   "start": 0.42,
+   "end": 0.7
+  },
+  {
+   "text": "del",
+   "start": 0.7,
+   "end": 0.9
+  },
+  {
+   "text": "cuerpo",
+   "start": 0.9,
+   "end": 1.3
+  },
+  {
+   "text": "lúteo,",
+   "start": 1.3,
+   "end": 1.74
+  },
+  {
+   "text": "que",
+   "start": 1.86,
+   "end": 1.9
+  },
+  {
+   "text": "es",
+   "start": 1.9,
+   "end": 2.04
+  },
+  {
+   "text": "esta",
+   "start": 2.04,
+   "end": 2.38
+  },
+  {
+   "text": "estructura",
+   "start": 2.38,
+   "end": 3.1
+  },
+  {
+   "text": "que",
+   "start": 3.1,
+   "end": 3.24
+  },
+  {
+   "text": "ves",
+   "start": 3.24,
+   "end": 3.4
+  },
+  {
+   "text": "aquí",
+   "start": 3.4,
+   "end": 3.6
+  },
+  {
+   "text": "que",
+   "start": 3.6,
+   "end": 3.76
+  },
+  {
+   "text": "tiene",
+   "start": 3.76,
+   "end": 3.92
+  },
+  {
+   "text": "un",
+   "start": 3.92,
+   "end": 4.1
+  },
+  {
+   "text": "color",
+   "start": 4.1,
+   "end": 4.32
+  },
+  {
+   "text": "como",
+   "start": 4.32,
+   "end": 4.96
+  },
+  {
+   "text": "amarillo,",
+   "start": 4.96,
+   "end": 5.6
+  },
+  {
+   "text": "naranja",
+   "start": 5.8,
+   "end": 6.2
+  },
+  {
+   "text": "y",
+   "start": 6.2,
+   "end": 6.74
+  },
+  {
+   "text": "es",
+   "start": 6.74,
+   "end": 6.96
+  },
+  {
+   "text": "una",
+   "start": 6.96,
+   "end": 7.2
+  },
+  {
+   "text": "de",
+   "start": 7.2,
+   "end": 7.32
+  },
+  {
+   "text": "las",
+   "start": 7.32,
+   "end": 7.52
+  },
+  {
+   "text": "estructuras",
+   "start": 7.52,
+   "end": 8.0
+  },
+  {
+   "text": "más",
+   "start": 8.0,
+   "end": 8.4
+  },
+  {
+   "text": "fascinantes",
+   "start": 8.4,
+   "end": 9.0
+  },
+  {
+   "text": "que",
+   "start": 9.0,
+   "end": 9.28
+  },
+  {
+   "text": "produce",
+   "start": 9.28,
+   "end": 9.48
+  },
+  {
+   "text": "el",
+   "start": 9.48,
+   "end": 9.78
+  },
+  {
+   "text": "cuerpo",
+   "start": 9.78,
+   "end": 10.16
+  },
+  {
+   "text": "de",
+   "start": 10.16,
+   "end": 10.5
+  },
+  {
+   "text": "la",
+   "start": 10.5,
+   "end": 10.62
+  },
+  {
+   "text": "mujer",
+   "start": 10.62,
+   "end": 10.88
+  },
+  {
+   "text": "durante",
+   "start": 10.88,
+   "end": 11.24
+  },
+  {
+   "text": "el",
+   "start": 11.24,
+   "end": 11.42
+  },
+  {
+   "text": "ciclo",
+   "start": 11.42,
+   "end": 11.88
+  },
+  {
+   "text": "menstrual.",
+   "start": 11.88,
+   "end": 12.56
+  },
+  {
+   "text": "Se",
+   "start": 12.74,
+   "end": 12.86
+  },
+  {
+   "text": "produce",
+   "start": 12.86,
+   "end": 13.14
+  },
+  {
+   "text": "después",
+   "start": 13.14,
+   "end": 13.82
+  },
+  {
+   "text": "de",
+   "start": 13.82,
+   "end": 14.02
+  },
+  {
+   "text": "ovular.",
+   "start": 14.02,
+   "end": 14.62
+  },
+  {
+   "text": "El",
+   "start": 14.82,
+   "end": 15.08
+  },
+  {
+   "text": "folículo,",
+   "start": 15.08,
+   "end": 15.66
+  },
+  {
+   "text": "¿vale?,",
+   "start": 15.9,
+   "end": 15.96
+  },
+  {
+   "text": "que",
+   "start": 15.96,
+   "end": 16.14
+  },
+  {
+   "text": "es",
+   "start": 16.14,
+   "end": 16.36
+  },
+  {
+   "text": "como",
+   "start": 16.36,
+   "end": 16.64
+  },
+  {
+   "text": "una",
+   "start": 16.64,
+   "end": 16.82
+  },
+  {
+   "text": "pequeña",
+   "start": 16.82,
+   "end": 17.14
+  },
+  {
+   "text": "estructura",
+   "start": 17.14,
+   "end": 17.78
+  },
+  {
+   "text": "redondeada",
+   "start": 17.78,
+   "end": 18.42
+  },
+  {
+   "text": "que",
+   "start": 18.42,
+   "end": 18.66
+  },
+  {
+   "text": "en",
+   "start": 18.66,
+   "end": 18.86
+  },
+  {
+   "text": "el",
+   "start": 18.86,
+   "end": 19.12
+  },
+  {
+   "text": "interior",
+   "start": 19.12,
+   "end": 19.48
+  },
+  {
+   "text": "contiene",
+   "start": 19.48,
+   "end": 20.22
+  },
+  {
+   "text": "el",
+   "start": 20.22,
+   "end": 20.48
+  },
+  {
+   "text": "ovulo,",
+   "start": 20.48,
+   "end": 20.92
+  },
+  {
+   "text": "pues",
+   "start": 21.14,
+   "end": 21.36
+  },
+  {
+   "text": "cuando",
+   "start": 21.36,
+   "end": 21.82
+  },
+  {
+   "text": "iniciamos",
+   "start": 21.82,
+   "end": 22.24
+  },
+  {
+   "text": "un",
+   "start": 22.24,
+   "end": 22.54
+  },
+  {
+   "text": "nuevo",
+   "start": 22.54,
+   "end": 22.78
+  },
+  {
+   "text": "ciclo",
+   "start": 22.78,
+   "end": 23.18
+  },
+  {
+   "text": "esos",
+   "start": 23.18,
+   "end": 23.44
+  },
+  {
+   "text": "folículos,",
+   "start": 23.44,
+   "end": 23.94
+  },
+  {
+   "text": "digamos",
+   "start": 23.96,
+   "end": 24.2
+  },
+  {
+   "text": "que",
+   "start": 24.2,
+   "end": 24.42
+  },
+  {
+   "text": "son",
+   "start": 24.42,
+   "end": 24.6
+  },
+  {
+   "text": "como",
+   "start": 24.6,
+   "end": 25.28
+  },
+  {
+   "text": "reclutados,",
+   "start": 25.28,
+   "end": 26.0
+  },
+  {
+   "text": "seleccionados",
+   "start": 26.0,
+   "end": 26.78
+  },
+  {
+   "text": "por",
+   "start": 26.78,
+   "end": 27.58
+  },
+  {
+   "text": "el",
+   "start": 27.58,
+   "end": 27.72
+  },
+  {
+   "text": "ovario",
+   "start": 27.72,
+   "end": 28.04
+  },
+  {
+   "text": "y",
+   "start": 28.04,
+   "end": 28.22
+  },
+  {
+   "text": "empiezan",
+   "start": 28.22,
+   "end": 28.5
+  },
+  {
+   "text": "a",
+   "start": 28.5,
+   "end": 28.64
+  },
+  {
+   "text": "crecer",
+   "start": 28.64,
+   "end": 29.4
+  },
+  {
+   "text": "dentro",
+   "start": 29.4,
+   "end": 29.72
+  },
+  {
+   "text": "de",
+   "start": 29.72,
+   "end": 29.9
+  },
+  {
+   "text": "nuestro",
+   "start": 29.9,
+   "end": 30.12
+  },
+  {
+   "text": "ovario",
+   "start": 30.12,
+   "end": 30.38
+  },
+  {
+   "text": "gracias",
+   "start": 30.38,
+   "end": 30.72
+  },
+  {
+   "text": "a",
+   "start": 30.72,
+   "end": 31.06
+  },
+  {
+   "text": "la",
+   "start": 31.06,
+   "end": 31.2
+  },
+  {
+   "text": "hormona",
+   "start": 31.2,
+   "end": 31.62
+  },
+  {
+   "text": "FSH.",
+   "start": 31.62,
+   "end": 32.26
+  },
+  {
+   "text": "¿Qué",
+   "start": 33.02,
+   "end": 33.14
+  },
+  {
+   "text": "es",
+   "start": 33.14,
+   "end": 33.2
+  },
+  {
+   "text": "lo",
+   "start": 33.2,
+   "end": 33.32
+  },
+  {
+   "text": "que",
+   "start": 33.32,
+   "end": 33.44
+  },
+  {
+   "text": "pasa",
+   "start": 33.44,
+   "end": 33.58
+  },
+  {
+   "text": "durante",
+   "start": 33.58,
+   "end": 33.92
+  },
+  {
+   "text": "la",
+   "start": 33.92,
+   "end": 34.12
+  },
+  {
+   "text": "ovulación?",
+   "start": 34.12,
+   "end": 34.64
+  },
+  {
+   "text": "Digamos",
+   "start": 34.86,
+   "end": 35.08
+  },
+  {
+   "text": "que",
+   "start": 35.08,
+   "end": 35.22
+  },
+  {
+   "text": "esto",
+   "start": 35.22,
+   "end": 35.36
+  },
+  {
+   "text": "sería",
+   "start": 35.36,
+   "end": 35.58
+  },
+  {
+   "text": "un",
+   "start": 35.58,
+   "end": 35.88
+  },
+  {
+   "text": "folículo,",
+   "start": 35.88,
+   "end": 36.4
+  },
+  {
+   "text": "¿vale?",
+   "start": 36.4,
+   "end": 36.76
+  },
+  {
+   "text": "Dentro",
+   "start": 36.96,
+   "end": 37.44
+  },
+  {
+   "text": "tenemos",
+   "start": 37.44,
+   "end": 37.9
+  },
+  {
+   "text": "un",
+   "start": 37.9,
+   "end": 38.6
+  },
+  {
+   "text": "regalito",
+   "start": 38.6,
+   "end": 39.1
+  },
+  {
+   "text": "que",
+   "start": 39.1,
+   "end": 39.38
+  },
+  {
+   "text": "es",
+   "start": 39.38,
+   "end": 39.64
+  },
+  {
+   "text": "el",
+   "start": 39.64,
+   "end": 40.16
+  },
+  {
+   "text": "futuro",
+   "start": 40.16,
+   "end": 40.62
+  },
+  {
+   "text": "ovulo.",
+   "start": 40.62,
+   "end": 41.34
+  },
+  {
+   "text": "Entonces,",
+   "start": 41.68,
+   "end": 41.68
+  },
+  {
+   "text": "durante",
+   "start": 42.06,
+   "end": 42.14
+  },
+  {
+   "text": "la,",
+   "start": 42.14,
+   "end": 42.86
+  },
+  {
+   "text": "cuando",
+   "start": 42.86,
+   "end": 43.02
+  },
+  {
+   "text": "se",
+   "start": 43.02,
+   "end": 43.26
+  },
+  {
+   "text": "produce",
+   "start": 43.26,
+   "end": 43.44
+  },
+  {
+   "text": "la",
+   "start": 43.44,
+   "end": 43.62
+  },
+  {
+   "text": "ovulación,",
+   "start": 43.62,
+   "end": 44.3
+  },
+  {
+   "text": "en",
+   "start": 44.7,
+   "end": 44.78
+  },
+  {
+   "text": "nuestro",
+   "start": 44.78,
+   "end": 45.0
+  },
+  {
+   "text": "cuerpo",
+   "start": 45.0,
+   "end": 45.28
+  },
+  {
+   "text": "hay",
+   "start": 45.28,
+   "end": 45.4
+  },
+  {
+   "text": "como",
+   "start": 45.4,
+   "end": 45.78
+  },
+  {
+   "text": "un",
+   "start": 45.78,
+   "end": 46.02
+  },
+  {
+   "text": "pico",
+   "start": 46.02,
+   "end": 46.28
+  },
+  {
+   "text": "muy",
+   "start": 46.28,
+   "end": 46.58
+  },
+  {
+   "text": "brusco",
+   "start": 46.58,
+   "end": 47.36
+  },
+  {
+   "text": "de",
+   "start": 47.36,
+   "end": 47.84
+  },
+  {
+   "text": "la",
+   "start": 47.84,
+   "end": 48.04
+  },
+  {
+   "text": "hormona",
+   "start": 48.04,
+   "end": 48.42
+  },
+  {
+   "text": "LH,",
+   "start": 48.42,
+   "end": 48.98
+  },
+  {
+   "text": "¿vale?",
+   "start": 49.02,
+   "end": 49.18
+  },
+  {
+   "text": "Que",
+   "start": 49.18,
+   "end": 49.3
+  },
+  {
+   "text": "es",
+   "start": 49.3,
+   "end": 49.4
+  },
+  {
+   "text": "la",
+   "start": 49.4,
+   "end": 49.52
+  },
+  {
+   "text": "hormona",
+   "start": 49.52,
+   "end": 49.84
+  },
+  {
+   "text": "responsable",
+   "start": 49.84,
+   "end": 50.64
+  },
+  {
+   "text": "lo",
+   "start": 50.64,
+   "end": 50.76
+  },
+  {
+   "text": "que",
+   "start": 50.76,
+   "end": 50.86
+  },
+  {
+   "text": "va",
+   "start": 50.86,
+   "end": 51.04
+  },
+  {
+   "text": "a",
+   "start": 51.04,
+   "end": 51.18
+  },
+  {
+   "text": "hacer",
+   "start": 51.18,
+   "end": 51.24
+  },
+  {
+   "text": "que,",
+   "start": 51.24,
+   "end": 51.46
+  },
+  {
+   "text": "digamos,",
+   "start": 51.46,
+   "end": 51.76
+  },
+  {
+   "text": "la",
+   "start": 51.92,
+   "end": 51.98
+  },
+  {
+   "text": "pared",
+   "start": 51.98,
+   "end": 52.22
+  },
+  {
+   "text": "de",
+   "start": 52.22,
+   "end": 52.36
+  },
+  {
+   "text": "ese",
+   "start": 52.36,
+   "end": 52.46
+  },
+  {
+   "text": "folículo",
+   "start": 52.46,
+   "end": 52.98
+  },
+  {
+   "text": "se",
+   "start": 52.98,
+   "end": 53.4
+  },
+  {
+   "text": "rompa,",
+   "start": 53.4,
+   "end": 54.2
+  },
+  {
+   "text": "permitiendo",
+   "start": 54.56,
+   "end": 55.08
+  },
+  {
+   "text": "que",
+   "start": 55.08,
+   "end": 55.5
+  },
+  {
+   "text": "el",
+   "start": 55.5,
+   "end": 55.88
+  },
+  {
+   "text": "óvulo",
+   "start": 55.88,
+   "end": 57.62
+  },
+  {
+   "text": "salga",
+   "start": 57.62,
+   "end": 59.1
+  },
+  {
+   "text": "a",
+   "start": 59.1,
+   "end": 59.42
+  },
+  {
+   "text": "la",
+   "start": 59.42,
+   "end": 59.58
+  },
+  {
+   "text": "cavidad",
+   "start": 59.58,
+   "end": 59.94
+  },
+  {
+   "text": "y",
+   "start": 59.94,
+   "end": 60.2
+  },
+  {
+   "text": "esto",
+   "start": 60.2,
+   "end": 60.36
+  },
+  {
+   "text": "va",
+   "start": 60.36,
+   "end": 60.58
+  },
+  {
+   "text": "a",
+   "start": 60.58,
+   "end": 60.64
+  },
+  {
+   "text": "ser",
+   "start": 60.64,
+   "end": 60.74
+  },
+  {
+   "text": "captado",
+   "start": 60.74,
+   "end": 61.16
+  },
+  {
+   "text": "por",
+   "start": 61.16,
+   "end": 61.58
+  },
+  {
+   "text": "la",
+   "start": 61.58,
+   "end": 61.76
+  },
+  {
+   "text": "trompa",
+   "start": 61.76,
+   "end": 62.02
+  },
+  {
+   "text": "de",
+   "start": 62.02,
+   "end": 62.2
+  },
+  {
+   "text": "falopio.",
+   "start": 62.2,
+   "end": 62.92
+  },
+  {
+   "text": "Esta",
+   "start": 63.28,
+   "end": 63.34
+  },
+  {
+   "text": "estructura",
+   "start": 63.34,
+   "end": 64.0
+  },
+  {
+   "text": "que",
+   "start": 64.0,
+   "end": 64.14
+  },
+  {
+   "text": "antes",
+   "start": 64.14,
+   "end": 64.36
+  },
+  {
+   "text": "contenía",
+   "start": 64.36,
+   "end": 64.78
+  },
+  {
+   "text": "el",
+   "start": 64.78,
+   "end": 64.92
+  },
+  {
+   "text": "óvulo",
+   "start": 64.92,
+   "end": 65.38
+  },
+  {
+   "text": "no",
+   "start": 65.38,
+   "end": 65.66
+  },
+  {
+   "text": "va",
+   "start": 65.66,
+   "end": 66.1
+  },
+  {
+   "text": "a",
+   "start": 66.1,
+   "end": 66.34
+  },
+  {
+   "text": "desaparecer,",
+   "start": 66.34,
+   "end": 66.98
+  },
+  {
+   "text": "ahora",
+   "start": 67.18,
+   "end": 67.68
+  },
+  {
+   "text": "se",
+   "start": 67.68,
+   "end": 67.94
+  },
+  {
+   "text": "va",
+   "start": 67.94,
+   "end": 68.14
+  },
+  {
+   "text": "a",
+   "start": 68.14,
+   "end": 68.38
+  },
+  {
+   "text": "transformar",
+   "start": 68.38,
+   "end": 69.36
+  },
+  {
+   "text": "en",
+   "start": 69.36,
+   "end": 69.78
+  },
+  {
+   "text": "una",
+   "start": 69.78,
+   "end": 69.98
+  },
+  {
+   "text": "estructura",
+   "start": 69.98,
+   "end": 70.4
+  },
+  {
+   "text": "que",
+   "start": 70.4,
+   "end": 70.7
+  },
+  {
+   "text": "es",
+   "start": 70.7,
+   "end": 70.96
+  },
+  {
+   "text": "el",
+   "start": 70.96,
+   "end": 71.14
+  },
+  {
+   "text": "cuerpo",
+   "start": 71.14,
+   "end": 71.48
+  },
+  {
+   "text": "lúteo",
+   "start": 71.48,
+   "end": 72.22
+  },
+  {
+   "text": "y",
+   "start": 72.22,
+   "end": 72.46
+  },
+  {
+   "text": "es",
+   "start": 72.46,
+   "end": 72.62
+  },
+  {
+   "text": "una",
+   "start": 72.62,
+   "end": 72.74
+  },
+  {
+   "text": "de",
+   "start": 72.74,
+   "end": 72.88
+  },
+  {
+   "text": "las",
+   "start": 72.88,
+   "end": 73.04
+  },
+  {
+   "text": "estructuras",
+   "start": 73.04,
+   "end": 73.38
+  },
+  {
+   "text": "como",
+   "start": 73.38,
+   "end": 73.52
+  },
+  {
+   "text": "te",
+   "start": 73.52,
+   "end": 73.68
+  },
+  {
+   "text": "digo",
+   "start": 73.68,
+   "end": 73.82
+  },
+  {
+   "text": "más",
+   "start": 73.82,
+   "end": 74.2
+  },
+  {
+   "text": "importantes",
+   "start": 74.2,
+   "end": 74.96
+  },
+  {
+   "text": "que",
+   "start": 74.96,
+   "end": 75.54
+  },
+  {
+   "text": "entre",
+   "start": 75.54,
+   "end": 75.66
+  },
+  {
+   "text": "otras",
+   "start": 75.66,
+   "end": 75.9
+  },
+  {
+   "text": "cosas",
+   "start": 75.9,
+   "end": 76.08
+  },
+  {
+   "text": "va",
+   "start": 76.08,
+   "end": 76.28
+  },
+  {
+   "text": "a",
+   "start": 76.28,
+   "end": 76.52
+  },
+  {
+   "text": "permitir",
+   "start": 76.52,
+   "end": 76.92
+  },
+  {
+   "text": "que",
+   "start": 76.92,
+   "end": 77.32
+  },
+  {
+   "text": "se",
+   "start": 77.32,
+   "end": 77.82
+  },
+  {
+   "text": "pueda",
+   "start": 77.82,
+   "end": 78.02
+  },
+  {
+   "text": "desarrollar",
+   "start": 78.02,
+   "end": 78.78
+  },
+  {
+   "text": "el",
+   "start": 78.78,
+   "end": 78.94
+  },
+  {
+   "text": "embarazo",
+   "start": 78.94,
+   "end": 79.24
+  },
+  {
+   "text": "y",
+   "start": 79.24,
+   "end": 82.96
+  },
+  {
+   "text": "que",
+   "start": 82.96,
+   "end": 82.96
+  },
+  {
+   "text": "Una",
+   "start": 82.96,
+   "end": 83.34
+  },
+  {
+   "text": "de",
+   "start": 83.34,
+   "end": 83.44
+  },
+  {
+   "text": "las",
+   "start": 83.44,
+   "end": 83.7
+  },
+  {
+   "text": "principales",
+   "start": 83.7,
+   "end": 84.26
+  },
+  {
+   "text": "hormonas",
+   "start": 84.26,
+   "end": 84.58
+  },
+  {
+   "text": "que",
+   "start": 84.58,
+   "end": 84.7
+  },
+  {
+   "text": "va",
+   "start": 84.7,
+   "end": 84.84
+  },
+  {
+   "text": "a",
+   "start": 84.84,
+   "end": 85.0
+  },
+  {
+   "text": "producir",
+   "start": 85.0,
+   "end": 85.16
+  },
+  {
+   "text": "el",
+   "start": 85.16,
+   "end": 85.3
+  },
+  {
+   "text": "cuerpo",
+   "start": 85.3,
+   "end": 85.66
+  },
+  {
+   "text": "lúteo",
+   "start": 85.66,
+   "end": 86.3
+  },
+  {
+   "text": "es",
+   "start": 86.3,
+   "end": 86.58
+  },
+  {
+   "text": "la",
+   "start": 86.58,
+   "end": 86.74
+  },
+  {
+   "text": "hormona",
+   "start": 86.74,
+   "end": 87.08
+  },
+  {
+   "text": "progesterona,",
+   "start": 87.08,
+   "end": 87.98
+  },
+  {
+   "text": "que",
+   "start": 88.12,
+   "end": 88.14
+  },
+  {
+   "text": "es",
+   "start": 88.14,
+   "end": 88.4
+  },
+  {
+   "text": "vital",
+   "start": 88.4,
+   "end": 88.82
+  },
+  {
+   "text": "para",
+   "start": 88.82,
+   "end": 89.04
+  },
+  {
+   "text": "que",
+   "start": 89.04,
+   "end": 89.12
+  },
+  {
+   "text": "se",
+   "start": 89.12,
+   "end": 89.28
+  },
+  {
+   "text": "pueda",
+   "start": 89.28,
+   "end": 89.42
+  },
+  {
+   "text": "producir",
+   "start": 89.42,
+   "end": 89.84
+  },
+  {
+   "text": "el",
+   "start": 89.84,
+   "end": 90.1
+  },
+  {
+   "text": "embarazo.",
+   "start": 90.1,
+   "end": 90.48
+  },
+  {
+   "text": "De",
+   "start": 90.54,
+   "end": 90.58
+  },
+  {
+   "text": "hecho,",
+   "start": 90.58,
+   "end": 90.74
+  },
+  {
+   "text": "si",
+   "start": 90.8,
+   "end": 90.9
+  },
+  {
+   "text": "te",
+   "start": 90.9,
+   "end": 91.04
+  },
+  {
+   "text": "fijas",
+   "start": 91.04,
+   "end": 91.26
+  },
+  {
+   "text": "en",
+   "start": 91.26,
+   "end": 91.48
+  },
+  {
+   "text": "su",
+   "start": 91.48,
+   "end": 91.64
+  },
+  {
+   "text": "propio",
+   "start": 91.64,
+   "end": 91.82
+  },
+  {
+   "text": "nombre,",
+   "start": 91.82,
+   "end": 92.1
+  },
+  {
+   "text": "ya",
+   "start": 92.22,
+   "end": 92.34
+  },
+  {
+   "text": "te",
+   "start": 92.34,
+   "end": 92.42
+  },
+  {
+   "text": "lo",
+   "start": 92.42,
+   "end": 92.58
+  },
+  {
+   "text": "dice,",
+   "start": 92.58,
+   "end": 92.94
+  },
+  {
+   "text": "progesterona,",
+   "start": 93.28,
+   "end": 94.04
+  },
+  {
+   "text": "progestar,",
+   "start": 94.14,
+   "end": 94.96
+  },
+  {
+   "text": "proembarazo.",
+   "start": 95.08,
+   "end": 95.44
+  },
+  {
+   "text": "Es",
+   "start": 95.48,
+   "end": 95.6
+  },
+  {
+   "text": "una",
+   "start": 95.6,
+   "end": 95.74
+  },
+  {
+   "text": "hormona",
+   "start": 95.74,
+   "end": 96.22
+  },
+  {
+   "text": "que",
+   "start": 96.22,
+   "end": 96.34
+  },
+  {
+   "text": "está",
+   "start": 96.34,
+   "end": 96.62
+  },
+  {
+   "text": "a",
+   "start": 96.62,
+   "end": 96.7
+  },
+  {
+   "text": "favor",
+   "start": 96.7,
+   "end": 97.04
+  },
+  {
+   "text": "del",
+   "start": 97.04,
+   "end": 97.28
+  },
+  {
+   "text": "embarazo",
+   "start": 97.28,
+   "end": 97.8
+  },
+  {
+   "text": "y",
+   "start": 97.8,
+   "end": 97.96
+  },
+  {
+   "text": "que",
+   "start": 97.96,
+   "end": 98.12
+  },
+  {
+   "text": "entre",
+   "start": 98.12,
+   "end": 98.22
+  },
+  {
+   "text": "otras",
+   "start": 98.22,
+   "end": 98.46
+  },
+  {
+   "text": "cosas",
+   "start": 98.46,
+   "end": 98.68
+  },
+  {
+   "text": "va",
+   "start": 98.68,
+   "end": 98.86
+  },
+  {
+   "text": "a",
+   "start": 98.86,
+   "end": 99.02
+  },
+  {
+   "text": "hacer",
+   "start": 99.02,
+   "end": 99.12
+  },
+  {
+   "text": "que",
+   "start": 99.12,
+   "end": 99.52
+  },
+  {
+   "text": "el",
+   "start": 99.52,
+   "end": 99.66
+  },
+  {
+   "text": "endometrio,",
+   "start": 99.66,
+   "end": 100.16
+  },
+  {
+   "text": "que",
+   "start": 100.16,
+   "end": 100.26
+  },
+  {
+   "text": "es",
+   "start": 100.26,
+   "end": 100.42
+  },
+  {
+   "text": "la",
+   "start": 100.42,
+   "end": 100.54
+  },
+  {
+   "text": "capa",
+   "start": 100.54,
+   "end": 100.96
+  },
+  {
+   "text": "digamos",
+   "start": 100.96,
+   "end": 101.26
+  },
+  {
+   "text": "más",
+   "start": 101.26,
+   "end": 101.48
+  },
+  {
+   "text": "superficial",
+   "start": 101.48,
+   "end": 102.02
+  },
+  {
+   "text": "del",
+   "start": 102.02,
+   "end": 102.24
+  },
+  {
+   "text": "útero,",
+   "start": 102.24,
+   "end": 102.54
+  },
+  {
+   "text": "se",
+   "start": 102.64,
+   "end": 102.72
+  },
+  {
+   "text": "pueda",
+   "start": 102.72,
+   "end": 102.86
+  },
+  {
+   "text": "volver",
+   "start": 102.86,
+   "end": 103.46
+  },
+  {
+   "text": "como",
+   "start": 103.46,
+   "end": 103.76
+  },
+  {
+   "text": "más",
+   "start": 103.76,
+   "end": 104.06
+  },
+  {
+   "text": "gordita,",
+   "start": 104.06,
+   "end": 104.76
+  },
+  {
+   "text": "más",
+   "start": 104.84,
+   "end": 105.1
+  },
+  {
+   "text": "mullidita",
+   "start": 105.1,
+   "end": 105.74
+  },
+  {
+   "text": "para",
+   "start": 105.74,
+   "end": 106.32
+  },
+  {
+   "text": "recibir",
+   "start": 106.32,
+   "end": 106.8
+  },
+  {
+   "text": "al",
+   "start": 106.8,
+   "end": 106.98
+  },
+  {
+   "text": "bebé",
+   "start": 106.98,
+   "end": 107.28
+  },
+  {
+   "text": "si",
+   "start": 107.28,
+   "end": 107.44
+  },
+  {
+   "text": "se",
+   "start": 107.44,
+   "end": 107.64
+  },
+  {
+   "text": "produce",
+   "start": 107.64,
+   "end": 107.92
+  },
+  {
+   "text": "pues",
+   "start": 107.92,
+   "end": 108.16
+  },
+  {
+   "text": "al",
+   "start": 108.16,
+   "end": 108.32
+  },
+  {
+   "text": "final",
+   "start": 108.32,
+   "end": 108.5
+  },
+  {
+   "text": "la",
+   "start": 108.5,
+   "end": 109.2
+  },
+  {
+   "text": "fecundación",
+   "start": 109.2,
+   "end": 109.76
+  },
+  {
+   "text": "para",
+   "start": 109.76,
+   "end": 109.98
+  },
+  {
+   "text": "que",
+   "start": 109.98,
+   "end": 110.06
+  },
+  {
+   "text": "se",
+   "start": 110.06,
+   "end": 110.28
+  },
+  {
+   "text": "pueda",
+   "start": 110.28,
+   "end": 110.54
+  },
+  {
+   "text": "implantar.",
+   "start": 110.54,
+   "end": 111.16
+  },
+  {
+   "text": "y",
+   "start": 111.16,
+   "end": 111.5
+  },
+  {
+   "text": "este",
+   "start": 111.5,
+   "end": 111.56
+  },
+  {
+   "text": "cuerpo",
+   "start": 111.56,
+   "end": 111.96
+  },
+  {
+   "text": "lúteo",
+   "start": 111.96,
+   "end": 112.94
+  },
+  {
+   "text": "va,",
+   "start": 112.94,
+   "end": 113.24
+  },
+  {
+   "text": "digamos,",
+   "start": 113.28,
+   "end": 113.68
+  },
+  {
+   "text": "durante",
+   "start": 114.14,
+   "end": 114.14
+  },
+  {
+   "text": "las",
+   "start": 114.14,
+   "end": 114.44
+  },
+  {
+   "text": "primeras",
+   "start": 114.44,
+   "end": 114.78
+  },
+  {
+   "text": "semanas",
+   "start": 114.78,
+   "end": 115.1
+  },
+  {
+   "text": "de",
+   "start": 115.1,
+   "end": 115.28
+  },
+  {
+   "text": "embarazo,",
+   "start": 115.28,
+   "end": 115.6
+  },
+  {
+   "text": "en",
+   "start": 115.62,
+   "end": 115.74
+  },
+  {
+   "text": "el",
+   "start": 115.74,
+   "end": 115.82
+  },
+  {
+   "text": "caso",
+   "start": 115.82,
+   "end": 116.0
+  },
+  {
+   "text": "de",
+   "start": 116.0,
+   "end": 116.18
+  },
+  {
+   "text": "producirse",
+   "start": 116.18,
+   "end": 116.58
+  },
+  {
+   "text": "el",
+   "start": 116.58,
+   "end": 116.72
+  },
+  {
+   "text": "embarazo,",
+   "start": 116.72,
+   "end": 117.34
+  },
+  {
+   "text": "producir",
+   "start": 117.56,
+   "end": 118.02
+  },
+  {
+   "text": "hormonas",
+   "start": 118.02,
+   "end": 118.98
+  },
+  {
+   "text": "hasta",
+   "start": 118.98,
+   "end": 119.32
+  },
+  {
+   "text": "que",
+   "start": 119.32,
+   "end": 119.46
+  },
+  {
+   "text": "la",
+   "start": 119.46,
+   "end": 119.72
+  },
+  {
+   "text": "placenta",
+   "start": 119.72,
+   "end": 120.38
+  },
+  {
+   "text": "es,",
+   "start": 120.38,
+   "end": 120.92
+  },
+  {
+   "text": "digamos,",
+   "start": 120.92,
+   "end": 121.32
+  },
+  {
+   "text": "capaz",
+   "start": 121.62,
+   "end": 121.82
+  },
+  {
+   "text": "de",
+   "start": 121.82,
+   "end": 121.98
+  },
+  {
+   "text": "estar",
+   "start": 121.98,
+   "end": 122.12
+  },
+  {
+   "text": "como",
+   "start": 122.12,
+   "end": 122.64
+  },
+  {
+   "text": "completamente",
+   "start": 122.64,
+   "end": 122.98
+  },
+  {
+   "text": "desarrollada,",
+   "start": 122.98,
+   "end": 123.58
+  },
+  {
+   "text": "que",
+   "start": 123.58,
+   "end": 123.74
+  },
+  {
+   "text": "esto",
+   "start": 123.74,
+   "end": 123.84
+  },
+  {
+   "text": "no",
+   "start": 123.84,
+   "end": 124.02
+  },
+  {
+   "text": "pasa",
+   "start": 124.02,
+   "end": 124.18
+  },
+  {
+   "text": "hasta",
+   "start": 124.18,
+   "end": 124.48
+  },
+  {
+   "text": "prácticamente",
+   "start": 124.48,
+   "end": 125.0
+  },
+  {
+   "text": "final",
+   "start": 125.0,
+   "end": 125.28
+  },
+  {
+   "text": "del",
+   "start": 125.28,
+   "end": 125.5
+  },
+  {
+   "text": "primer",
+   "start": 125.5,
+   "end": 125.76
+  },
+  {
+   "text": "trimestre.",
+   "start": 125.76,
+   "end": 126.16
+  },
+  {
+   "text": "Por",
+   "start": 126.22,
+   "end": 126.38
+  },
+  {
+   "text": "lo",
+   "start": 126.38,
+   "end": 126.56
+  },
+  {
+   "text": "tanto,",
+   "start": 126.56,
+   "end": 126.82
+  },
+  {
+   "text": "es",
+   "start": 127.38,
+   "end": 127.54
+  },
+  {
+   "text": "fundamental",
+   "start": 127.54,
+   "end": 128.12
+  },
+  {
+   "text": "que",
+   "start": 128.12,
+   "end": 128.38
+  },
+  {
+   "text": "nuestro",
+   "start": 128.38,
+   "end": 128.6
+  },
+  {
+   "text": "cuerpo",
+   "start": 128.6,
+   "end": 128.9
+  },
+  {
+   "text": "lúteo",
+   "start": 128.9,
+   "end": 129.3
+  },
+  {
+   "text": "sea",
+   "start": 129.3,
+   "end": 129.64
+  },
+  {
+   "text": "saludable,",
+   "start": 129.64,
+   "end": 130.3
+  },
+  {
+   "text": "que",
+   "start": 130.6,
+   "end": 130.7
+  },
+  {
+   "text": "pueda",
+   "start": 130.7,
+   "end": 130.86
+  },
+  {
+   "text": "producir",
+   "start": 130.86,
+   "end": 131.36
+  },
+  {
+   "text": "estas",
+   "start": 131.36,
+   "end": 131.78
+  },
+  {
+   "text": "hormonas",
+   "start": 131.78,
+   "end": 132.42
+  },
+  {
+   "text": "para",
+   "start": 132.42,
+   "end": 132.68
+  },
+  {
+   "text": "que",
+   "start": 132.68,
+   "end": 133.02
+  },
+  {
+   "text": "el",
+   "start": 133.02,
+   "end": 133.22
+  },
+  {
+   "text": "bebé",
+   "start": 133.22,
+   "end": 133.46
+  },
+  {
+   "text": "se",
+   "start": 133.46,
+   "end": 133.62
+  },
+  {
+   "text": "pueda",
+   "start": 133.62,
+   "end": 133.76
+  },
+  {
+   "text": "implantar,",
+   "start": 133.76,
+   "end": 134.54
+  },
+  {
+   "text": "para",
+   "start": 134.6,
+   "end": 134.76
+  },
+  {
+   "text": "que",
+   "start": 134.76,
+   "end": 134.88
+  },
+  {
+   "text": "no",
+   "start": 134.88,
+   "end": 135.02
+  },
+  {
+   "text": "aparezcan",
+   "start": 135.02,
+   "end": 135.3
+  },
+  {
+   "text": "en",
+   "start": 135.3,
+   "end": 135.38
+  },
+  {
+   "text": "el",
+   "start": 135.38,
+   "end": 135.48
+  },
+  {
+   "text": "final,",
+   "start": 135.48,
+   "end": 135.74
+  },
+  {
+   "text": "pues,",
+   "start": 135.78,
+   "end": 136.04
+  },
+  {
+   "text": "estos",
+   "start": 137.12,
+   "end": 137.16
+  },
+  {
+   "text": "manchados",
+   "start": 137.16,
+   "end": 137.84
+  },
+  {
+   "text": "premenstruales",
+   "start": 137.84,
+   "end": 138.52
+  },
+  {
+   "text": "que",
+   "start": 138.52,
+   "end": 138.7
+  },
+  {
+   "text": "aparecen",
+   "start": 138.7,
+   "end": 139.02
+  },
+  {
+   "text": "muchas",
+   "start": 139.02,
+   "end": 139.34
+  },
+  {
+   "text": "veces",
+   "start": 139.34,
+   "end": 139.74
+  },
+  {
+   "text": "y",
+   "start": 139.74,
+   "end": 140.14
+  },
+  {
+   "text": "que",
+   "start": 140.14,
+   "end": 140.32
+  },
+  {
+   "text": "lógicamente",
+   "start": 140.32,
+   "end": 140.68
+  },
+  {
+   "text": "el",
+   "start": 140.68,
+   "end": 140.84
+  },
+  {
+   "text": "embarazo",
+   "start": 140.84,
+   "end": 141.06
+  },
+  {
+   "text": "se",
+   "start": 141.06,
+   "end": 141.2
+  },
+  {
+   "text": "pueda",
+   "start": 141.2,
+   "end": 141.32
+  },
+  {
+   "text": "dar",
+   "start": 141.32,
+   "end": 141.58
+  },
+  {
+   "text": "y",
+   "start": 141.58,
+   "end": 142.02
+  },
+  {
+   "text": "se",
+   "start": 142.02,
+   "end": 142.26
+  },
+  {
+   "text": "desarrolle",
+   "start": 142.26,
+   "end": 142.56
+  },
+  {
+   "text": "bien",
+   "start": 142.56,
+   "end": 142.88
+  },
+  {
+   "text": "durante",
+   "start": 142.88,
+   "end": 143.28
+  },
+  {
+   "text": "estas",
+   "start": 143.28,
+   "end": 143.86
+  },
+  {
+   "text": "12,",
+   "start": 143.86,
+   "end": 144.64
+  },
+  {
+   "text": "13",
+   "start": 144.64,
+   "end": 145.1
+  },
+  {
+   "text": "primeras",
+   "start": 145.1,
+   "end": 145.38
+  },
+  {
+   "text": "semanas",
+   "start": 145.38,
+   "end": 145.74
+  },
+  {
+   "text": "hasta",
+   "start": 145.74,
+   "end": 146.04
+  },
+  {
+   "text": "que",
+   "start": 146.04,
+   "end": 146.28
+  },
+  {
+   "text": "un",
+   "start": 146.28,
+   "end": 146.36
+  },
+  {
+   "text": "poco",
+   "start": 146.36,
+   "end": 146.58
+  },
+  {
+   "text": "la",
+   "start": 146.58,
+   "end": 146.86
+  },
+  {
+   "text": "placenta",
+   "start": 146.86,
+   "end": 147.56
+  },
+  {
+   "text": "coja",
+   "start": 147.56,
+   "end": 148.02
+  },
+  {
+   "text": "el",
+   "start": 148.02,
+   "end": 148.46
+  },
+  {
+   "text": "control.",
+   "start": 148.46,
+   "end": 148.64
+  }
+ ]
+}
