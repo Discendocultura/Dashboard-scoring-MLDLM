@@ -86,7 +86,7 @@ test('setter IA: API con ETag (304 si no ha cambiado)', async () => {
 
 test('plantillas de WhatsApp: una de serie, códigos limpios y sin repetir', async () => {
   const { sanitizePlantillasWa } = await import('../lib/config-store.js');
-  assert.deepEqual(sanitizePlantillasWa(undefined), [{ id: 'p1', nombre: 'Plantilla del setter IA', tag: 'setter-ia-enviar-plantilla' }]);
+  assert.deepEqual(sanitizePlantillasWa(undefined), [{ id: 'p1', nombre: 'Plantilla del setter IA', tag: 'setter-ia-enviar-plantilla', precio: 0.06 }]);
   assert.deepEqual(sanitizePlantillasWa([]), [], 'si se quitan todas, no hay botón de plantilla');
   const l = sanitizePlantillasWa([
     { nombre: 'Bienvenida', tag: 'setter-ia-enviar-bienvenida' },
@@ -97,18 +97,64 @@ test('plantillas de WhatsApp: una de serie, códigos limpios y sin repetir', asy
   assert.deepEqual(l.map((p) => p.tag), ['setter-ia-enviar-bienvenida']);
 });
 
-test('plantillas de WhatsApp: el dashboard solo puede poner las etiquetas configuradas', async () => {
+test('plantillas de WhatsApp: envío por lotes, solo las configuradas, y queda apuntado el gasto', async () => {
   const { setEnv } = await import('../lib/env.js');
   const { crearD1Local } = await import('../lib/d1-local.js');
   setEnv({ GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret', DB: crearD1Local() });
   const { POST: login } = await import('../handlers/login.js');
-  const r = await login(new Request('http://localhost/api/login', { method: 'POST', body: JSON.stringify({ password: 'setter' }) }));
-  const cookie = r.headers.get('set-cookie').split(';')[0];
-  const { POST } = await import('../handlers/apply-tags.js');
-  const pedir = (tags) => POST(new Request('http://localhost/api/apply-tags', { method: 'POST', headers: { cookie }, body: JSON.stringify({ items: [{ id: 'mock00004', tags }] }) }));
-  assert.equal((await pedir(['setter-ia-enviar-plantilla', 'demo_wa_enviado'])).status, 200, 'la de serie vale');
-  assert.equal((await pedir(['setter-ia-enviar-otra'])).status, 400, 'una que no está configurada, no');
-  assert.equal((await pedir(['setter-ia-baja'])).status, 400, 'las de estado del setter, no');
+  const cookieDe = async (password) => (await login(new Request('http://localhost/api/login', { method: 'POST', body: JSON.stringify({ password }) }))).headers.get('set-cookie').split(';')[0];
+  const admin = await cookieDe('admin');
+  const setter = await cookieDe('setter');
+  // Un lanzamiento con dos plantillas (una a 0,08 €).
+  const config = await import('../handlers/config.js');
+  const actual = await (await config.GET(new Request('http://localhost/api/config', { headers: { cookie: admin } }))).json();
+  const cfg = { ...actual.config, _version: actual.version, launches: { demo: { name: 'Demo', registroTag: 'registro-webinar-demo', compraTag: 'clienta-raices' } }, setterIa: { url: '', plantillas: [{ nombre: 'Bienvenida', tag: 'setter-ia-enviar-bienvenida', precio: '0,08' }, { nombre: 'Grabación', tag: 'setter-ia-enviar-grabacion', precio: 0.05 }] } };
+  assert.equal((await config.POST(new Request('http://localhost/api/config', { method: 'POST', headers: { cookie: admin }, body: JSON.stringify(cfg) }))).status, 200);
+  const { POST, GET } = await import('../handlers/plantillas-wa.js');
+  const enviar = (body) => POST(new Request('http://localhost/api/plantillas-wa', { method: 'POST', headers: { cookie: setter }, body: JSON.stringify(body) }));
+  const ids = Array.from({ length: 3 }, (_, i) => `mock0000${i + 4}`);
+  const r = await enviar({ l: 'demo', tag: 'setter-ia-enviar-bienvenida', ids });
+  assert.equal(r.status, 200);
+  const d = await r.json();
+  assert.equal(d.enviadas, 3);
+  assert.equal(d.coste, 0.24);
+  assert.equal((await enviar({ l: 'demo', tag: 'setter-ia-enviar-otra', ids })).status, 400, 'una que no está configurada, no');
+  assert.equal((await enviar({ l: 'demo', tag: 'setter-ia-baja', ids })).status, 400, 'las de estado del setter, no');
+  assert.equal((await enviar({ l: 'demo', tag: 'setter-ia-enviar-bienvenida', ids: Array.from({ length: 21 }, (_, i) => `mock${String(i).padStart(5, '0')}`) })).status, 400, 'de 20 en 20');
+  assert.equal((await enviar({ l: 'nada', tag: 'setter-ia-enviar-bienvenida', ids })).status, 404);
+  const { addTags } = await import('../lib/ghl.js');
+  assert.ok(addTags);
+  const g = await (await GET(new Request('http://localhost/api/plantillas-wa?l=demo', { headers: { cookie: setter } }))).json();
+  assert.equal(g.envios.length, 1);
+  assert.deepEqual(g.envios[0].ids, ids);
+  assert.equal(g.envios[0].precio, 0.08);
+  // apply-tags ya no pone etiquetas de plantilla (así ningún envío se queda sin apuntar su coste).
+  const { POST: aplicar } = await import('../handlers/apply-tags.js');
+  assert.equal((await aplicar(new Request('http://localhost/api/apply-tags', { method: 'POST', headers: { cookie: setter }, body: JSON.stringify({ items: [{ id: 'mock00004', tags: ['setter-ia-enviar-bienvenida'] }] }) }))).status, 400);
+});
+
+test('plantillas de WhatsApp: gasto, respuestas y retorno (solo compras después de la plantilla)', async () => {
+  const { retornoPlantillas, costeEstimado } = await import('../public/js/plantillas-wa.js');
+  assert.equal(costeEstimado(312, 0.06), 18.72);
+  const lista = [
+    { at: '2026-10-10T10:00:00Z', tag: 'a', nombre: 'A', ids: ['l1', 'l2', 'l3'], precio: 0.06 },
+    { at: '2026-10-12T10:00:00Z', tag: 'b', nombre: 'B', ids: ['l1', 'l4'], precio: 0.1 },
+  ];
+  const leads = [
+    { id: 'l1', s: { setter: { respondio: true }, compra: true, fecha_compra: '2026-10-11' } },
+    { id: 'l2', s: { compra: true, fecha_compra: '2026-10-01' } }, // compró antes de la plantilla: no cuenta
+    { id: 'l3', s: {} },
+    { id: 'l4', s: { setter: { respondio: true }, compra: true } }, // sin fecha: cuenta
+  ];
+  const r = retornoPlantillas(lista, leads, { importe: () => 997 });
+  assert.equal(r.enviadas, 5);
+  assert.equal(r.personas, 4);
+  assert.equal(r.coste, 0.38);
+  assert.equal(r.respondieron, 2);
+  assert.equal(r.compraron, 2);
+  assert.equal(r.ingresos, 1994);
+  assert.equal(Math.round(r.retorno), 5247);
+  assert.equal(r.porPlantilla.b.enviadas, 2);
 });
 
 test('plantillas de WhatsApp: workflow por etiqueta, que se quita al enviar', () => {

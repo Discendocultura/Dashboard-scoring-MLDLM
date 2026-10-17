@@ -5266,3 +5266,35 @@ body.en-inicio .sin-embudos-op { display: none !important; }
 .cx-pl { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; margin-bottom: 6px; }
 .cx-pl code { font-size: 11.5px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
 @media (max-width: 640px) { .cx-pl { grid-template-columns: 1fr auto; } .cx-pl code { grid-column: 1 / -1; grid-row: 2; max-width: none; } }
+
+/* Envío masivo de plantillas: casillas, barra, coste y gasto/retorno */
+.sin-pl .sel-col { display: none; }
+.sel-col { width: 34px; text-align: center; }
+.sel-col input { width: 17px; height: 17px; cursor: pointer; accent-color: var(--accent); }
+table.leads tr.sel td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.f-conds { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: -4px 0 12px; }
+.f-cond { border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--text); border-radius: 999px; padding: 4px 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.f-cond span { opacity: .6; margin-left: 3px; }
+.pl-masivo { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 14px; margin: 0 0 12px; border: 1px dashed var(--accent); border-radius: 12px; background: color-mix(in srgb, var(--accent) 5%, var(--surface)); font-size: 13.5px; }
+.pl-masivo .spacer { flex: 1; }
+.pl-coste { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); margin: 4px 0 12px; }
+.pl-coste span { font-size: 12.5px; color: var(--text-2); }
+.pl-coste strong { font-size: 26px; line-height: 1.1; }
+.pl-coste small { color: var(--text-2); }
+.pl-progreso { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.pl-barra { flex: 1; height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.pl-barra i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.pl-gasto { margin: 0 0 12px; }
+.pl-gasto-in { padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.pl-gasto-in.compacto { margin-top: 12px; }
+.pl-g-t { font-weight: 700; margin-bottom: 8px; }
+.pl-g-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.pl-g-kpis > div { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); }
+.pl-g-kpis span { font-size: 12px; color: var(--text-2); }
+.pl-g-kpis strong { font-size: 19px; }
+.pl-g-kpis small { font-size: 11.5px; color: var(--text-2); }
+.hoy-pl-masivo { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: 4px 0 10px; }
+.cx-pl { grid-template-columns: 1fr 92px auto auto; }
+.cx-pl-precio { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+.cx-pl-precio input { width: 60px; }
+@media (max-width: 640px) { .cx-pl { grid-template-columns: 1fr 92px auto; } }

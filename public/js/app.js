@@ -17,6 +17,7 @@ import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
 import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago, vipSinIva, TIPOS_BUMP } from './pago.js';
 import { cicloDeContactos, textoDias } from './ciclo.js';
+import { retornoPlantillas, costeEstimado } from './plantillas-wa.js';
 import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusMeteo, tipoEntregable, etiquetaEntregable, SUBTIPOS_ENTREGABLE, OBJETIVOS_BONUS, objetivoBonus, textoGarantia, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero, momentosCarrito } from './oferta.js';
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
 import { alertasCarrito } from './alertas.js';
@@ -91,7 +92,9 @@ const state = {
   launchCode: null,
   embudo: '', // id del embudo activo (menú lateral)
   leads: [],
-  filters: { search: '', estado: '', step: '', signal: '', pending: false },
+  filters: { search: '', estado: '', step: '', signals: [], pending: false },
+  plSel: new Set(), // leads marcados para el envío masivo de plantilla
+  plEnvios: null, // { code, lista } registro de plantillas enviadas (gasto y retorno)
   sort: { key: 'score', dir: 'desc' },
   page: 0,
   loadToken: 0,
@@ -1131,6 +1134,7 @@ $('#inicio').addEventListener('click', (e) => {
 
 // `forzar`: vuelve a descargar los leads aunque la copia del navegador sea reciente (Recargar, tras etiquetar).
 async function selectLaunch(code, { forzar = false } = {}) {
+  if (state.launchCode !== code) state.plSel.clear();
   state.launchCode = code;
   if (enVsl() || enMeteo()) return; // se cargará al volver a Lanzamientos
   notice('');
@@ -1238,6 +1242,39 @@ function enrich(contact) {
 }
 
 // ---------- Filtros y orden ----------
+// Una condición del filtro de actividad (desplegable «＋ Condición»).
+const CONTRARIA = { no_compra: 'compra', sin_encuesta: 'encuesta', no_directo: 'directo_asistio', no_venta_visita: 'venta_visita' };
+function cumple(l, sig) {
+  if (CONTRARIA[sig]) return !l.s[CONTRARIA[sig]];
+  if (sig === 'sin_actividad') return l.score === 0 && !l.s.directo_click;
+  if (sig.startsWith('res_')) return l.outcome === sig.slice(4);
+  if (sig === 'sin_resultado') return Boolean(l.s.wa_enviado && !l.outcome);
+  if (sig === 'vip_no_compra') return Boolean(l.s.vip && !l.s.compra);
+  if (sig === 'trafico_frio') return l.s.trafico === 'frio';
+  if (sig === 'trafico_templado') return l.s.trafico === 'templado';
+  if (sig === 'sin_clases') return !watched(l.s, 'clase1') && !watched(l.s, 'clase2');
+  if (sig === 'replay_50') return grabVenta(l.s) >= 50;
+  if (sig === 'setter_plantilla') return Boolean(l.s.setter?.plantilla);
+  if (sig === 'sin_plantilla') return !l.s.setter?.plantilla;
+  if (sig === 'setter_respondio') return Boolean(l.s.setter?.respondio);
+  return Boolean(l.s[sig]);
+}
+// Las condiciones elegidas, como fichas con ✕ (debajo de los filtros).
+function pintarCondiciones() {
+  const box = $('#f-conds');
+  const sigs = state.filters.signals;
+  box.hidden = !sigs.length;
+  const txt = (v) => $(`#f-signal option[value="${v}"]`)?.textContent || v;
+  box.innerHTML = sigs.length ? `<span class="muted small">Cumplen todo esto:</span> ${sigs.map((v) => `<button type="button" class="f-cond" data-quitar-cond="${esc(v)}" title="Quitar esta condición">${esc(txt(v))} <span aria-hidden="true">✕</span></button>`).join(' ')} <button type="button" class="btn ghost small" data-quitar-cond="*">Quitar todas</button>` : '';
+}
+$('#f-conds').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-quitar-cond]');
+  if (!b) return;
+  state.filters.signals = b.dataset.quitarCond === '*' ? [] : state.filters.signals.filter((x) => x !== b.dataset.quitarCond);
+  state.page = 0;
+  pintarCondiciones();
+  renderTabla();
+});
 function filtered() {
   const f = state.filters;
   const q = f.search.trim().toLowerCase();
@@ -1248,18 +1285,8 @@ function filtered() {
     if (f.step && l.step !== f.step) return false;
     if (f.pending && l.s.wa_enviado) return false;
     if (f.llamada && state.llFases.get(l.id)?.fase !== f.llamada) return false;
-    if (f.signal === 'sin_actividad') return l.score === 0 && !l.s.directo_click;
-    if (f.signal === 'no_compra') return !l.s.compra;
-    if (f.signal === 'sin_encuesta') return !l.s.encuesta;
-    if (f.signal.startsWith('res_')) return l.outcome === f.signal.slice(4);
-    if (f.signal === 'sin_resultado') return l.s.wa_enviado && !l.outcome;
-    if (f.signal === 'vip_no_compra') return l.s.vip && !l.s.compra;
-    if (f.signal === 'trafico_frio') return l.s.trafico === 'frio';
-    if (f.signal === 'trafico_templado') return l.s.trafico === 'templado';
-    if (f.signal === 'sin_clases') return !watched(l.s, 'clase1') && !watched(l.s, 'clase2');
-    if (f.signal === 'replay_50') return grabVenta(l.s) >= 50;
-    if (f.signal && !l.s[f.signal]) return false;
-    return true;
+    // Condiciones de actividad: se suman (tiene que cumplir todas).
+    return f.signals.every((sig) => cumple(l, sig));
   });
   const { key, dir } = state.sort;
   const mult = dir === 'asc' ? 1 : -1;
@@ -1274,7 +1301,17 @@ let buscarTimer = null;
 $('#f-search').addEventListener('input', (e) => { state.filters.search = e.target.value; state.page = 0; clearTimeout(buscarTimer); buscarTimer = setTimeout(renderTabla, 120); });
 $('#f-estado').addEventListener('change', (e) => { state.filters.estado = e.target.value; state.page = 0; renderTabla(); });
 $('#f-step').addEventListener('change', (e) => { state.filters.step = e.target.value; state.page = 0; renderTabla(); });
-$('#f-signal').addEventListener('change', (e) => { state.filters.signal = e.target.value; state.page = 0; renderTabla(); });
+$('#f-signal').addEventListener('change', (e) => {
+  const v = e.target.value;
+  e.target.value = '';
+  if (!v || state.filters.signals.includes(v)) return;
+  // «Compró» y «No ha comprado» (y parecidas) no pueden ir juntas: la nueva sustituye a su contraria.
+  const contraria = CONTRARIA[v] || Object.keys(CONTRARIA).find((k) => CONTRARIA[k] === v);
+  state.filters.signals = [...state.filters.signals.filter((x) => x !== contraria), v];
+  state.page = 0;
+  pintarCondiciones();
+  renderTabla();
+});
 $('#f-pending').addEventListener('change', (e) => { state.filters.pending = e.target.checked; state.page = 0; renderTabla(); });
 $('#f-avatar').addEventListener('change', (e) => { state.filters.avatar = e.target.checked; state.page = 0; renderTabla(); });
 $('#page-prev').addEventListener('click', () => { state.page--; renderTabla(); window.scrollTo({ top: 0 }); });
@@ -1334,8 +1371,11 @@ function renderTabla() {
   state.page = Math.min(Math.max(0, state.page), pages - 1);
   const slice = rows.slice(state.page * PAGE_SIZE, (state.page + 1) * PAGE_SIZE);
   pintarNotaEnvios();
+  $('#view-leads').classList.toggle('sin-pl', !plantillasWa().length);
   $('#leads-body').innerHTML = slice.map(rowHtml).join('')
-    || '<tr><td colspan="14" class="muted">No hay leads con estos filtros.</td></tr>';
+    || '<tr><td colspan="15" class="muted">No hay leads con estos filtros.</td></tr>';
+  pintarMasivo(rows);
+  pintarGastoPl();
   $('#page-info').textContent = rows.length
     ? `${state.page * PAGE_SIZE + 1}–${state.page * PAGE_SIZE + slice.length} de ${rows.length} leads`
     : '0 leads';
@@ -3406,7 +3446,9 @@ function rowHtml(l) {
     : l.phoneWa
     ? envioBtns(l)
     : '<span class="muted">Sin teléfono</span>';
-  return `<tr>
+  const elegible = plElegible(l);
+  return `<tr class="${state.plSel.has(l.id) ? 'sel' : ''}">
+    <td class="sel-col">${elegible ? `<input type="checkbox" data-sel="${esc(l.id)}" ${state.plSel.has(l.id) ? 'checked' : ''} aria-label="Marcar a ${esc(l.name || 'este lead')}">` : ''}</td>
     <td><div class="lead-name"><button type="button" class="lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || '(sin nombre)')}</button> ${avatarChip(l)} ${faseChip(l.id)} ${preclaseChips(l)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
     ${state.config.launches[state.launchCode]?.encuestaTag ? `<td>${l.s.encuesta ? '<span class="enc-si" title="Ha rellenado la encuesta">✓</span>' : l.s.encuesta_anterior ? '<span class="enc-ant" title="La rellenó en un lanzamiento anterior (ve las clases sin repetirla)">↺</span>' : '<span class="enc-no" title="No ha rellenado la encuesta">✗</span>'}</td>` : ''}
     ${(l.s.clases || ['clase1', 'clase2']).map((c, i) => `<td>${videoChip(l.s, c)}</td>${i === 0 && l.s.recursos?.test ? `<td>${l.s.test ? '<span class="enc-si" title="Ha hecho el test">✓</span>' : '<span class="enc-no" title="No ha hecho el test">✗</span>'}</td>` : ''}`).join('')}
@@ -3490,6 +3532,7 @@ function renderHoy() {
   const filtrada = lista.filter((x) => (!h.motivo || x.b.id === h.motivo) && (!h.temp || x.l.estado.id === h.temp));
   const shown = filtrada.slice(0, h.max);
   pintarNotaEnvios();
+  pintarGastoPl();
   const nIa = state.leads.filter((l) => !l.s.compra && conIa(l)).length;
   const avisos = buckets.filter((b) => b.id === 'grupo').map((b) => `<p class="muted hoy-aviso">💬 ${esc(b.hint)}</p>`).join('')
     + (nIa ? `<p class="muted hoy-aviso">🤖 ${nIa} ${nIa === 1 ? 'persona la lleva' : 'personas las lleva'} ahora el setter IA: no salen aquí para no escribirles a la vez. Si te pide ayuda, aparecen arriba en «🙋 Pide persona».</p>` : '');
@@ -3502,6 +3545,12 @@ function renderHoy() {
       <button type="button" class="hoy-chip ${h.motivo ? '' : 'on'}" data-hoy-motivo="" aria-pressed="${!h.motivo}">Todas <b>${h.temp ? cuentaTemp(h.temp) : lista.length}</b></button>
       ${buckets.map((b) => { const n = cuentaMotivo(b.id); return n || h.motivo === b.id ? `<button type="button" class="hoy-chip ${h.motivo === b.id ? 'on' : ''}" data-hoy-motivo="${b.id}" aria-pressed="${h.motivo === b.id}" title="${esc(b.hint)}">${esc(b.corto)} <b>${n}</b></button>` : ''; }).join('')}
     </div>
+    ${(() => {
+      // Envío masivo: la plantilla a todas las de esta lista (con el filtro de motivo y temperatura que haya).
+      h.plLista = filtrada.map((x) => x.l).filter(plElegible);
+      const pl = plantillasWa()[0];
+      return pl && h.plLista.length > 1 ? `<div class="hoy-pl-masivo"><button type="button" class="btn plantilla small" data-hoy-pl>📨 Plantilla a las ${h.plLista.length} de esta lista · ≈ ${euros(costeEstimado(h.plLista.length, pl.precio))}</button><span class="muted small">Elige antes el motivo o la temperatura para afinar a quién.</span></div>` : '';
+    })()}
     ${avisos}
     ${shown.length ? `<ol class="hoy-list hoy-ranking">${shown.map((x, i) => hoyItem(x.l, x.b, i + 1)).join('')}</ol>` : `<p class="muted hoy-vacio">${lista.length ? 'Nadie con este filtro.' : 'Nada pendiente hoy ✓'}</p>`}
     ${filtrada.length > shown.length ? `<div class="hoy-mas"><button type="button" class="btn ghost" data-hoy-mas>Ver ${Math.min(HOY_PAGINA, filtrada.length - shown.length)} más</button><span class="muted">${shown.length} de ${filtrada.length}</span></div>` : ''}
@@ -3510,6 +3559,7 @@ function renderHoy() {
 
 const HOY_PAGINA = 40;
 document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-hoy-pl]')) { abrirPlantilla(state.hoy.plLista || []); return; }
   const t = e.target.closest('[data-hoy-temp], [data-hoy-motivo], [data-hoy-mas]');
   if (!t) return;
   const h = state.hoy;
@@ -3579,57 +3629,178 @@ document.addEventListener('click', async (e) => {
   }
 });
 
-// ---------- Plantilla de WhatsApp (de pago) ----------
-// El dashboard pone a la persona la etiqueta de la plantilla elegida (setter-ia-enviar-…) y la de «contactada»; el
-// workflow de GHL de esa etiqueta envía la plantilla, le pone setter-ia-plantilla y quita la etiqueta (para poder repetir).
-let plLead = null;
+// ---------- Plantillas de WhatsApp (de pago): a una persona o a muchas a la vez ----------
+// El dashboard pone a cada persona la etiqueta de la plantilla elegida (setter-ia-enviar-…) y la de «contactada» y apunta
+// el envío con su precio (/api/plantillas-wa). El workflow de GHL de esa etiqueta envía la plantilla, le pone
+// setter-ia-plantilla y quita la etiqueta (para poder repetir). Se manda de 20 en 20.
+const euros = (n) => (n == null ? '–' : `${Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`);
+// Precio de una plantilla: con 3 decimales si los tiene (0,045 €).
+const eurosUd = (n) => `${Number(n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} €`;
+// A quién se le puede mandar: con teléfono, sin baja y sin haber comprado.
+const plElegible = (l) => Boolean(l.phoneWa && !l.s.setter?.baja && !l.s.compra);
+let plLeads = [];
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-plantilla]');
   if (!b) return;
   const lead = state.leads.find((l) => l.id === b.dataset.plantilla);
-  if (lead) abrirPlantilla(lead);
+  if (lead) abrirPlantilla([lead]);
 });
-function abrirPlantilla(lead) {
-  plLead = lead;
+function abrirPlantilla(leads) {
   const pls = plantillasWa();
-  const e = lead.s.setter || {};
-  const nombre = lead.firstName || lead.name || 'esta persona';
-  $('#pl-titulo').textContent = `📨 Enviar plantilla a ${nombre}`;
+  if (!pls.length) return;
+  plLeads = leads.filter(plElegible);
+  const fuera = leads.length - plLeads.length;
+  const uno = leads.length === 1;
+  const nombre = uno ? (leads[0].firstName || leads[0].name || 'esta persona') : '';
+  const ya = plLeads.filter((l) => l.s.setter?.plantilla).length;
+  const conIa = plLeads.filter((l) => l.s.setter?.activo).length;
+  $('#pl-titulo').textContent = uno ? `📨 Enviar plantilla a ${nombre}` : `📨 Enviar plantilla a ${plLeads.length} personas`;
   $('#pl-body').innerHTML = `
-    ${pls.length > 1 ? `<fieldset class="pl-lista"><legend>¿Qué plantilla?</legend>${pls.map((p, i) => `<label class="pl-op"><input type="radio" name="pl-elegida" value="${esc(p.tag)}" ${i === 0 ? 'checked' : ''}> ${esc(p.nombre)}</label>`).join('')}</fieldset>`
-      : `<p>Se enviará la plantilla <strong>«${esc(pls[0]?.nombre || '')}»</strong>.</p><input type="hidden" name="pl-elegida" value="${esc(pls[0]?.tag || '')}">`}
+    <label class="field"><span>¿Qué plantilla? <small>(las aprobadas: Cuenta → Conexiones → Setter IA)</small></span>
+      <select id="pl-elegida">${pls.map((p) => `<option value="${esc(p.tag)}">${esc(p.nombre)} · ${eurosUd(p.precio)} cada una</option>`).join('')}</select></label>
+    <div class="pl-coste" id="pl-coste"></div>
+    ${!uno && fuera ? `<p class="muted small">Se quedan fuera ${fuera}: sin teléfono, ya compraron o pidieron la baja.</p>` : ''}
+    ${ya ? `<p class="notice warn">${uno ? 'Ya se le envió una plantilla.' : `${ya} ya recibieron una plantilla.`} Si se la mandas otra vez, se cobra otra vez.${uno ? '' : ' Para no repetir, añade el filtro «Sin plantilla enviada».'}</p>` : ''}
+    ${conIa ? `<p class="notice warn">${uno ? 'El setter IA está conversando ahora con ella' : `El setter IA está conversando ahora con ${conIa}`}: normalmente no hace falta otra plantilla.</p>` : ''}
     <ul class="pl-avisos">
-      <li>💶 <strong>Es de pago:</strong> Meta cobra cada plantilla (unos céntimos).</li>
+      <li>💶 <strong>Es de pago:</strong> Meta cobra cada plantilla (el precio de arriba es aproximado: mira tu factura).</li>
       <li>✅ <strong>Sin riesgo de bloqueo:</strong> sale del número oficial de WhatsApp de GHL, no del tuyo.</li>
       <li>🤖 <strong>Si responde, le contesta el setter IA</strong> y la conversación sigue allí.</li>
-      <li>⏱️ GHL la envía en unos segundos (hace falta su workflow en Plan → Automatizaciones).</li>
     </ul>
-    ${e.plantilla ? '<p class="notice warn">Ya se le envió una plantilla. Si la mandas otra vez, se cobra otra vez.</p>' : ''}
-    ${e.activo ? '<p class="notice warn">El setter IA está conversando ahora con ella: normalmente no hace falta otra plantilla.</p>' : ''}
+    <div class="pl-progreso" id="pl-progreso" hidden><div class="pl-barra"><i></i></div><span></span></div>
     <p class="muted small" id="pl-status"></p>`;
-  $('#pl-enviar').disabled = false;
+  const pintarCoste = () => {
+    const p = pls.find((x) => x.tag === $('#pl-elegida').value) || pls[0];
+    $('#pl-coste').innerHTML = `<span>Coste estimado</span><strong>${euros(costeEstimado(plLeads.length, p.precio))}</strong><small>${plLeads.length} plantilla${plLeads.length === 1 ? '' : 's'} × ${eurosUd(p.precio)}</small>`;
+    $('#pl-enviar').textContent = plLeads.length ? `📨 Enviar ${plLeads.length === 1 ? 'plantilla' : `a ${plLeads.length}`} · ${euros(costeEstimado(plLeads.length, p.precio))}` : 'Nadie a quien enviar';
+  };
+  $('#pl-elegida').addEventListener('change', pintarCoste);
+  pintarCoste();
+  $('#pl-enviar').disabled = !plLeads.length;
   $('#plantilla-dialog').showModal();
 }
 $('#pl-enviar').addEventListener('click', async () => {
-  const lead = plLead;
-  const tag = $('#pl-body input[name="pl-elegida"]:checked, #pl-body input[type="hidden"][name="pl-elegida"]')?.value;
-  if (!lead || !tag) return;
+  const leads = plLeads;
+  const tag = $('#pl-elegida')?.value;
+  const pl = plantillasWa().find((p) => p.tag === tag);
+  if (!leads.length || !pl) return;
+  if (leads.length > 1 && !window.confirm(`Vas a enviar «${pl.nombre}» a ${leads.length} personas.\nCoste estimado: ${euros(costeEstimado(leads.length, pl.precio))}.\n\n¿Enviar?`)) return;
   const b = $('#pl-enviar');
   b.disabled = true;
-  $('#pl-status').textContent = 'Enviando…';
+  $('#pl-elegida').disabled = true;
+  const prog = $('#pl-progreso');
+  prog.hidden = leads.length <= 20;
+  const code = state.launchCode;
+  let enviadas = 0; let fallos = 0; let coste = 0;
   try {
-    const r = await api('/api/apply-tags', { method: 'POST', body: { items: [{ id: lead.id, tags: [tag, tagFor(state.launchCode, 'wa_enviado')] }] } });
-    if (!r.results?.[0]?.ok) throw new Error('GHL no aceptó el cambio. Prueba otra vez en un momento.');
-    lead.s.wa_enviado = true;
-    lead.s.setter = { ...(lead.s.setter || {}), plantilla: true, alguna: true };
+    for (let i = 0; i < leads.length; i += 20) {
+      const lote = leads.slice(i, i + 20);
+      $('#pl-status').textContent = leads.length > 20 ? `Enviando ${Math.min(i + 20, leads.length)} de ${leads.length}…` : 'Enviando…';
+      const r = await api('/api/plantillas-wa', { method: 'POST', body: { l: code, tag, ids: lote.map((l) => l.id) } });
+      const ok = new Set(r.results.filter((x) => x.ok).map((x) => x.id));
+      for (const l of lote) {
+        if (!ok.has(l.id)) { fallos++; continue; }
+        l.s.wa_enviado = true;
+        l.s.setter = { ...(l.s.setter || {}), plantilla: true, alguna: true };
+        state.plSel.delete(l.id);
+      }
+      enviadas += r.enviadas;
+      coste += r.coste;
+      if (state.plEnvios?.code === code) state.plEnvios.lista.push({ at: new Date().toISOString(), tag, nombre: pl.nombre, ids: [...ok], precio: pl.precio });
+      $('.pl-barra i', prog).style.width = `${Math.round(((i + lote.length) / leads.length) * 100)}%`;
+    }
     $('#plantilla-dialog').close();
-    render();
-    notice(`📨 Plantilla en camino a ${lead.firstName || lead.name || 'la lead'}: GHL la envía en unos segundos. Si responde, le contesta el setter IA.`);
+    notice(`📨 ${enviadas === 1 ? `Plantilla en camino a ${leads[0].firstName || leads[0].name || 'la lead'}` : `${enviadas} plantillas en camino`} (${euros(coste)}): GHL las envía en unos segundos. Si responden, contesta el setter IA.${fallos ? ` ${fallos} no se pudieron marcar: vuelve a probar con ellas.` : ''}`, Boolean(fallos));
   } catch (ex) {
-    $('#pl-status').textContent = ex.message;
+    $('#pl-status').textContent = `${enviadas ? `Se enviaron ${enviadas}. ` : ''}${ex.message}`;
     b.disabled = false;
+    $('#pl-elegida').disabled = false;
   }
+  render();
 });
+
+// Envío masivo en Leads: casillas en cada fila y una barra con el número de marcados y su coste.
+function pintarMasivo(rows = filtered()) {
+  const bar = $('#pl-masivo');
+  const pls = plantillasWa();
+  bar.hidden = !pls.length || !state.leads.length;
+  if (bar.hidden) return;
+  const elegibles = rows.filter(plElegible);
+  const marcados = state.leads.filter((l) => state.plSel.has(l.id));
+  const todos = elegibles.length && elegibles.every((l) => state.plSel.has(l.id));
+  const chk = $('#sel-todos');
+  chk.checked = Boolean(todos);
+  chk.indeterminate = !todos && elegibles.some((l) => state.plSel.has(l.id));
+  const precio = pls[0].precio;
+  bar.innerHTML = marcados.length
+    ? `<span class="pl-m-n"><strong>${marcados.length}</strong> marcad${marcados.length === 1 ? 'o' : 'os'}</span>
+      <span class="muted">≈ ${euros(costeEstimado(marcados.length, precio))}${pls.length > 1 ? ' (según la plantilla)' : ''}</span>
+      <span class="spacer"></span>
+      ${!todos && elegibles.length > marcados.length ? `<button type="button" class="btn ghost small" data-pl-todos>Marcar los ${elegibles.length} del filtro</button>` : ''}
+      <button type="button" class="btn ghost small" data-pl-limpiar>Quitar marcas</button>
+      <button type="button" class="btn plantilla" data-pl-masivo>📨 Enviar plantilla a ${marcados.length}</button>`
+    : `<span>📨 <strong>Envío masivo de plantilla:</strong> filtra (p. ej. «Visitó la página de venta» + «Asistió al directo» + «No ha comprado») y marca a quién enviar.</span>
+      <span class="spacer"></span>
+      ${elegibles.length ? `<button type="button" class="btn small" data-pl-todos>☑ Marcar los ${elegibles.length} de este filtro · ≈ ${euros(costeEstimado(elegibles.length, precio))}</button>` : '<span class="muted small">Nadie en este filtro a quien enviar.</span>'}`;
+}
+$('#pl-masivo').addEventListener('click', (e) => {
+  if (e.target.closest('[data-pl-todos]')) { for (const l of filtered()) if (plElegible(l)) state.plSel.add(l.id); renderTabla(); }
+  else if (e.target.closest('[data-pl-limpiar]')) { state.plSel.clear(); renderTabla(); }
+  else if (e.target.closest('[data-pl-masivo]')) abrirPlantilla(state.leads.filter((l) => state.plSel.has(l.id)));
+});
+$('#sel-todos').addEventListener('change', (e) => {
+  const rows = filtered().filter(plElegible);
+  for (const l of rows) { if (e.target.checked) state.plSel.add(l.id); else state.plSel.delete(l.id); }
+  renderTabla();
+});
+$('#leads-body').addEventListener('change', (e) => {
+  const c = e.target.closest('[data-sel]');
+  if (!c) return;
+  if (c.checked) state.plSel.add(c.dataset.sel); else state.plSel.delete(c.dataset.sel);
+  c.closest('tr')?.classList.toggle('sel', c.checked);
+  pintarMasivo();
+});
+
+// Gasto y retorno de las plantillas del lanzamiento (Leads, Setting hoy y Rendimiento): lo enviado, lo gastado y lo que
+// facturaron quienes compraron después de recibirla.
+async function cargarEnviosPl(code = state.launchCode, { forzar = false } = {}) {
+  if (!code || (!forzar && state.plEnvios?.code === code)) return;
+  state.plEnvios = { code, lista: [], cargando: true };
+  try {
+    const d = await api(`/api/plantillas-wa?l=${encodeURIComponent(code)}`);
+    if (state.plEnvios?.code !== code) return;
+    state.plEnvios = { code, lista: d.envios || [] };
+  } catch { if (state.plEnvios?.code === code) state.plEnvios = { code, lista: [], error: true }; }
+  pintarGastoPl();
+}
+function retornoPl() {
+  const code = state.launchCode;
+  if (state.plEnvios?.code !== code || state.plEnvios.cargando) return null;
+  const launch = state.config.launches[code];
+  return retornoPlantillas(state.plEnvios.lista, state.leads, { importe: (l) => importeCompra(l, launch), dia: (t) => dayInMadrid(new Date(t).toISOString()) });
+}
+function htmlGastoPl(r, { compacto = false } = {}) {
+  if (!r?.enviadas) return '';
+  const x = (v) => (v == null ? '–' : `×${v >= 10 ? Math.round(v) : v.toFixed(1).replace('.', ',')}`);
+  return `<div class="pl-gasto-in${compacto ? ' compacto' : ''}">
+    <div class="pl-g-t">📨 Plantillas de este lanzamiento <small class="muted">· gasto y retorno</small></div>
+    <div class="pl-g-kpis">
+      <div><span>Enviadas</span><strong>${r.enviadas}</strong><small>a ${r.personas} persona${r.personas === 1 ? '' : 's'}</small></div>
+      <div><span>Gasto</span><strong>${euros(r.coste)}</strong><small>precio aproximado</small></div>
+      <div><span>Respondieron</span><strong>${r.respondieron}</strong><small>${r.personas ? Math.round((r.respondieron / r.personas) * 100) : 0} % · con el setter IA</small></div>
+      <div><span>Compraron después</span><strong>${r.compraron}</strong><small>${r.costeVenta != null ? `${euros(r.costeVenta)} por venta` : 'aún ninguna'}</small></div>
+      <div><span>Facturado</span><strong>${euros(r.ingresos)}</strong><small>retorno ${x(r.retorno)} lo gastado</small></div>
+    </div>
+    ${Object.keys(r.porPlantilla).length > 1 ? `<p class="muted small">${Object.values(r.porPlantilla).map((p) => `${esc(p.nombre)}: ${p.enviadas} · ${euros(p.coste)}`).join(' · ')}</p>` : ''}
+  </div>`;
+}
+function pintarGastoPl() {
+  const cajas = $$('[data-pl-gasto]');
+  if (!plantillasWa().length || enVsl() || enMeteo() || enDirecta()) { cajas.forEach((c) => { c.hidden = true; }); return; }
+  if (state.plEnvios?.code !== state.launchCode) { cargarEnviosPl(); return; }
+  const html = htmlGastoPl(retornoPl());
+  for (const c of cajas) { c.hidden = !html; if (c.innerHTML !== html) c.innerHTML = html; }
+}
 
 // ---------- CSV ----------
 $('#btn-csv').addEventListener('click', () => {
@@ -7345,9 +7516,11 @@ async function cargarSetterRend(code, leads, { desde, hasta }) {
         ${d?.cifras ? `<div><span>Tiempo de respuesta (mediana)</span><strong>${seg(c.tiempo_respuesta_mediana_seg)}</strong><small>${num(c.mensajes_ia)} mensajes de la IA · ${num(c.conversaciones_activas)} conversaciones activas · ${num(c.bajas)} bajas</small></div>` : ''}
       </div>
       ${estado}
+      ${enVsl() ? '' : htmlGastoPl(retornoPl(), { compacto: true })}
       <p class="muted small">Las cifras de conversaciones, citas y tiempo de respuesta las da el setter (de todo el cliente en esas fechas). Las de plantillas, respuestas y ventas salen de las etiquetas <code>setter-ia-…</code> de los leads de este embudo.${d?.cifras?.actualizado ? ` Actualizado ${esc(haceTxt(Date.parse(d.cifras.actualizado)))}.` : ''}</p>
     </section>`;
   };
+  if (!enVsl() && state.plEnvios?.code !== state.launchCode) cargarEnviosPl().then(() => { if ($('#rend-setter')) pintar(); });
   pintar();
   if (d || !state.config.setterIa?.url) { if (!d) { d = { configurado: false, falta: 'url' }; pintar(); } return; }
   try { d = await api(`/api/setter-ia?desde=${desde}&hasta=${hasta}`); setterRendCache[clave] = { d, at: Date.now() }; } catch (e) { d = { configurado: true, error: e.message }; }
@@ -13039,15 +13212,18 @@ let cxPlantillas = [];
 function pintarPlantillasCx() {
   $('#cx-setter-plantillas').innerHTML = cxPlantillas.length ? cxPlantillas.map((p, i) => `<div class="cx-pl" data-cx-pl="${i}">
       <input data-cx-pl-nombre value="${esc(p.nombre)}" maxlength="60" placeholder="Nombre de la plantilla (como en WhatsApp)" aria-label="Nombre de la plantilla">
+      <label class="cx-pl-precio" title="Lo que cobra Meta por cada una (aprox.; míralo en tu factura). Sirve para el coste estimado y el gasto."><input data-cx-pl-precio inputmode="decimal" value="${esc(String(p.precio ?? 0.06).replace('.', ','))}" aria-label="Precio por plantilla en euros"> €</label>
       <code title="Código que pone el dashboard y que dispara el workflow de GHL">${esc(p.tag)}</code>
       <button type="button" class="btn ghost small" data-cx-pl-quitar aria-label="Quitar">✕</button></div>`).join('')
     : '<p class="muted small">Sin plantillas: en Leads y Setting hoy solo saldrá el botón de WhatsApp gratis.</p>';
 }
 $('#cx-setter-plantillas').addEventListener('input', (e) => {
   const i = Number(e.target.closest('[data-cx-pl]')?.dataset.cxPl);
-  if (!e.target.matches('[data-cx-pl-nombre]') || !cxPlantillas[i]) return;
+  if (!cxPlantillas[i]) return;
+  if (e.target.matches('[data-cx-pl-precio]')) { cxPlantillas[i].precio = e.target.value.replace(',', '.'); return; }
+  if (!e.target.matches('[data-cx-pl-nombre]')) return;
   cxPlantillas[i].nombre = e.target.value;
-  if (!cxPlantillas[i].fija) { cxPlantillas[i].tag = tagPlantilla(e.target.value); e.target.nextElementSibling.textContent = cxPlantillas[i].tag; }
+  if (!cxPlantillas[i].fija) { cxPlantillas[i].tag = tagPlantilla(e.target.value); e.target.closest('[data-cx-pl]').querySelector('code').textContent = cxPlantillas[i].tag; }
 });
 $('#cx-setter-plantillas').addEventListener('click', (e) => {
   if (!e.target.closest('[data-cx-pl-quitar]')) return;
@@ -13055,7 +13231,7 @@ $('#cx-setter-plantillas').addEventListener('click', (e) => {
   pintarPlantillasCx();
 });
 $('#cx-pl-add').addEventListener('click', () => {
-  cxPlantillas.push({ id: `p${Date.now().toString(36)}`, nombre: '', tag: tagPlantilla('') });
+  cxPlantillas.push({ id: `p${Date.now().toString(36)}`, nombre: '', tag: tagPlantilla(''), precio: 0.06 });
   pintarPlantillasCx();
   $$('#cx-setter-plantillas [data-cx-pl-nombre]').at(-1)?.focus();
 });
@@ -13079,7 +13255,7 @@ $('#cx-setter-guardar').addEventListener('click', async () => {
       let tag = p.tag;
       for (let n = 2; vistos.has(tag); n++) tag = `${p.tag}-${n}`;
       vistos.add(tag);
-      return { id: p.id, nombre: p.nombre.trim(), tag };
+      return { id: p.id, nombre: p.nombre.trim(), tag, precio: p.precio };
     });
     const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, setterIa: { url, plantillas } } });
     state.config = config;
