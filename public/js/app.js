@@ -6597,6 +6597,14 @@ function webhookZoomDe(tipo, obj) {
   }
   return zoomWh[k];
 }
+// Adónde lleva «Abrir Configuración» de una automatización: en la venta directa, al campo que falta de SU configuración
+// (no a la de los lanzamientos); en los lanzamientos, a Datos básicos.
+const CAMPO_DIRECTA = { paginaPagoUrl: 'dc-checkoutUrl', compraTag: 'dc-compraTag' };
+function campoAuto(tipo, x, c) {
+  if (tipo !== 'directa') return 'tab:launch';
+  const k = (x.requiere || []).find((r) => !c[r]);
+  return CAMPO_DIRECTA[k] || 'tab:directa';
+}
 function renderAutomatizaciones() {
   const box = $('#automatizaciones-body');
   if (!box) return;
@@ -6618,7 +6626,7 @@ function renderAutomatizaciones() {
         <div class="au-tit"><h4>${esc(x.titulo)}</h4><code>${esc(x.nombre)}</code></div>
         <select class="au-estado" data-au-estado="${esc(x.id)}" ${puede ? '' : 'disabled'} aria-label="Estado">${ESTADOS_AUTO.map((s) => `<option value="${s.id}"${s.id === e ? ' selected' : ''}>${s.icon} ${s.label}</option>`).join('')}</select></div>
       <p class="muted">${esc(x.para)}</p>
-      ${x.faltan.length ? `<p class="au-falta">⚠️ Falta en Configuración: ${esc(x.faltan.join(', '))}. El prompt lo marca como [FALTA]; mejor complétalo antes.${irA('tab:launch', 'Abrir Configuración')}</p>` : ''}
+      ${x.faltan.length ? `<p class="au-falta">⚠️ Falta en Configuración: ${esc(x.faltan.join(', '))}. El prompt lo marca como [FALTA]; mejor complétalo antes.${irA(campoAuto(tipo, x, c), 'Abrir Configuración')}</p>` : ''}
       ${origen === 'existen' ? `<p class="au-revisar">🔁 <strong>Qué revisar:</strong> ${esc(revisarExistente(x, c))}</p>` : ''}
       <details class="au-det"><summary>Ver cómo es</summary><p><strong>Disparador:</strong> ${esc(x.disparador(c))}</p><ol>${x.acciones(c).map((y) => `<li>${esc(y)}</li>`).join('')}</ol><p class="muted small"><strong>Prueba:</strong> ${esc(x.prueba(c))}</p></details>
       <div class="au-acc">
@@ -12219,6 +12227,12 @@ function renderCarritoVista() {
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-config-tab], [data-ir-campo]');
   if (!b || !puedeConfig() || enVsl() || enMeteo()) return;
+  // Venta directa: su propia configuración (antes abría la de los lanzamientos, en «Nuevo lanzamiento»).
+  if (enDirecta()) {
+    abrirDirectaConfig();
+    if (b.dataset.irCampo) requestAnimationFrame(() => goToField(b.dataset.irCampo));
+    return;
+  }
   openConfig(state.launchCode);
   if (b.dataset.configTab) $(`#config-dialog .tab[data-tab="${b.dataset.configTab}"]`)?.click();
   else requestAnimationFrame(() => goToField(b.dataset.irCampo));

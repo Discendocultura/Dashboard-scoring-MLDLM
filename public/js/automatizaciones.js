@@ -57,7 +57,7 @@ export function autoCtx(tipo, obj = {}, { code = '', cliente = '', producto = ''
     fechaDirecto: o.fechaDirecto || '', horaDirecto: o.horaDirecto || '', replayAt: o.replayAt || '', aperturaCarrito: o.aperturaCarrito || '', cierreCarrito: o.cierreCarrito || '',
     videos: Array.isArray(o.videos) ? o.videos.filter((v) => v?.fecha) : [],
     precioVip: Number(o.precioVip) || 0,
-    graciasUrl: o.graciasUrl || '', recursosUrl: o.recursosUrl || '', replayUrl: o.replayUrl || '', raicesUrl: o.raicesUrl || '', paginaPagoUrl: o.paginaPagoUrl || '',
+    graciasUrl: o.graciasUrl || '', recursosUrl: o.recursosUrl || '', replayUrl: o.replayUrl || '', raicesUrl: o.raicesUrl || '', paginaPagoUrl: o.paginaPagoUrl || o.checkoutUrl || '', // venta directa: su checkout
     vipUrl: o.vipUrl || '', ventaUrl: o.ventaUrl || o.pagoUrl || '', ventaFraccionadoUrl: o.ventaFraccionadoUrl || o.pagoFraccionadoUrl || '',
     whatsappUrl: o.whatsappUrl || '', whatsappDudasUrl: o.whatsappDudasUrl || '', encuestaUrl: o.encuestaUrl || '',
     llamadaUrl: o.llamadaUrl || '', llamadaGraciasUrl: o.llamadaGraciasUrl || '', vslUrl: o.vslUrl || '', ofertaUrl: o.ofertaUrl || '',
@@ -72,7 +72,9 @@ const NOMBRES = {
   replayAt: 'cuándo se desbloquea la grabación', paginaPagoUrl: 'la URL de la página de pago', llamadaUrl: 'el enlace del calendario de llamadas',
   llamadaTag: 'la etiqueta de llamada', vslUrl: 'la URL de la VSL', ofertaUrl: 'la URL de la oferta', cierre: 'el cierre de la oferta',
 };
-export const faltanDatos = (a, c) => (a.requiere || []).filter((k) => !c[k]).map((k) => NOMBRES[k] || k);
+// En la venta directa la «página de pago» es su checkout (Configuración de la venta directa → Páginas).
+const NOMBRES_DIRECTA = { paginaPagoUrl: 'la URL del checkout' };
+export const faltanDatos = (a, c) => (a.requiere || []).filter((k) => !c[k]).map((k) => (c.tipo === 'directa' && NOMBRES_DIRECTA[k]) || NOMBRES[k] || k);
 
 const t = (v, alt) => (v ? `«${v}»` : `«${alt}» [FALTA: ponlo en Configuración]`);
 const u = (v, alt) => v || `[FALTA: ${alt}]`;

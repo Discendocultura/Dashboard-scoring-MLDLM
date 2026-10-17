@@ -122,3 +122,14 @@ test('lanzamiento con una etiqueta de registro antigua: los workflows usan la no
   assert.match(promptAutomatizacion(automatizacionesDe(c)[0], c), /«registrado-webinar-291026»/);
   assert.equal(autoCtx('lanzamientos', OCT, { code: 'x' }).registroDistinta, '');
 });
+
+test('venta directa: el carrito abandonado usa la URL del checkout (no la «página de pago» de los lanzamientos)', async () => {
+  const { autoCtx, automatizacionesDe } = await import('../public/js/automatizaciones.js');
+  const sin = automatizacionesDe(autoCtx('directa', { name: 'Reto', compraTag: 'compra-reto' }, { code: 'reto-ovulacion' })).find((a) => a.id === 'carrito-abandonado');
+  assert.deepEqual(sin.faltan, ['la URL del checkout']);
+  const con = automatizacionesDe(autoCtx('directa', { name: 'Reto', compraTag: 'compra-reto', checkoutUrl: 'https://reto.thrivecart.com/x/' }, { code: 'reto-ovulacion' })).find((a) => a.id === 'carrito-abandonado');
+  assert.deepEqual(con.faltan, []);
+  // En los lanzamientos sigue siendo la página de pago.
+  const lz = automatizacionesDe(autoCtx('lanzamientos', { name: 'Oct', fechaDirecto: '2026-10-20' }, { code: 'oct' })).find((a) => a.id === 'carrito-abandonado');
+  assert.ok(lz.faltan.includes('la URL de la página de pago'));
+});
