@@ -2496,7 +2496,7 @@
   }
  ],
  "sonido": {
-  "musica": "musica/explicador-curioso-largo.mp3",
+  "musica": null,
   "musica_db": -10,
   "efectos": [
    {

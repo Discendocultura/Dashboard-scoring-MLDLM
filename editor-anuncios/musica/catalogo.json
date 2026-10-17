@@ -85,9 +85,7 @@
   "duracion": 165.7,
   "puntos": "Empalmes hacia el 54 y el 108.",
   "generada_con": "ffmpeg acrossfade (gratis)",
-  "usada_en": [
-   "luteo"
-  ],
+  "usada_en": [],
   "prompt": "",
   "musica_db": -10
  }

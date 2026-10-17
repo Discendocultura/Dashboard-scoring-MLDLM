@@ -4,7 +4,9 @@ import json, os, re, subprocess, sys
 proy = sys.argv[1]
 p = json.load(open(f'{proy}/props.json')); s = p['sonido']; dur = p['duracion']
 desde = s.get('musica_desde', 0)   # segundo de la música en el que empieza (para que acabe con su final natural)
-ff = ['ffmpeg', '-loglevel', 'error', '-y', '-i', f'{proy}/voz_limpia.wav', '-i', s['musica']]
+ff = ['ffmpeg', '-loglevel', 'error', '-y', '-i', f'{proy}/voz_limpia.wav']
+# sin música ("musica": null): se usa silencio en su lugar y el resto de la mezcla no cambia
+ff += ['-i', s['musica']] if s.get('musica') else ['-f', 'lavfi', '-t', str(dur + desde + 1), '-i', 'anullsrc=r=48000:cl=mono']
 for e in s['efectos']: ff += ['-i', e['archivo']]
 # todo a 48 kHz: con frecuencias distintas (voz 192k tras loudnorm, música 44,1k) la mezcla salía más corta
 fx = ''.join(f"[{i + 2}:a]aresample=48000,volume={e['db']}dB,adelay={int(e['en'] * 1000)}|{int(e['en'] * 1000)}[e{i}];" for i, e in enumerate(s['efectos']))
