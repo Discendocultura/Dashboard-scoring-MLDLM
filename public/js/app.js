@@ -1503,46 +1503,90 @@ function barrasCv(filas, { max } = {}) {
     </div>`).join('');
 }
 
+// Curva de retención de un vídeo (SVG): cuántos registros llegan al 25 %, 50 %, 75 % y al final.
+function curvaRetencion(pcts, id) {
+  const W = 300; const H = 120; const top = 18; const base = 96;
+  const xs = [24, 108, 192, 276];
+  // La altura, relativa a quien la empezó: así se ve bien dónde se cae (las cifras siguen siendo % de los registros).
+  const tope = Math.max(1, pcts[0]);
+  const y = (p) => base - ((base - top) * p) / tope;
+  const pts = pcts.map((p, i) => [xs[i], y(p)]);
+  const linea = pts.map(([x, yy], i) => `${i ? 'L' : 'M'}${x},${yy.toFixed(1)}`).join(' ');
+  const area = `${linea} L${xs[3]},${base} L${xs[0]},${base} Z`;
+  return `<svg class="cv-curva" viewBox="0 0 ${W} ${H}" role="img" aria-label="Retención: ${pcts.map((p, i) => `${THRESHOLDS[i]}% visto ${p}%`).join(', ')}">
+    <defs><linearGradient id="cvg-${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".35"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    <line x1="10" x2="290" y1="${base}" y2="${base}" class="cv-curva-eje"/>
+    <path d="${area}" fill="url(#cvg-${id})"/>
+    <path d="${linea}" class="cv-curva-linea"/>
+    ${pts.map(([x, yy], i) => `<circle cx="${x}" cy="${yy.toFixed(1)}" r="4.5" class="cv-curva-punto"/><text x="${x}" y="${(yy - 9).toFixed(1)}" class="cv-curva-n">${pcts[i]}%</text><text x="${x}" y="${H - 6}" class="cv-curva-x">${THRESHOLDS[i] === 90 ? 'Entero' : `${THRESHOLDS[i]}%`}</text>`).join('')}
+  </svg>`;
+}
+
 function renderConsumo() {
   const L = state.leads;
   const launch = state.config.launches[state.launchCode] || {};
   const pct = (n) => (L.length ? Math.round((n / L.length) * 100) : 0);
   // Vídeos grabados: clases del prelanzamiento y grabación de cada vídeo del lanzamiento.
   const vids = videosDe(launch);
+  const clases = clasesDe(launch);
   const grabados = [
-    ...clasesDe(launch).map((c, i) => [c, `Clase ${i + 1}`, '🎓']),
+    ...clases.map((c, i) => [c, `Clase ${i + 1}`, '🎓']),
     ...vids.map((v) => [v.replay, vids.length > 1 ? `${v.nombre} (grabado)` : 'Grabación', '🎬']),
   ];
-  // Una tarjeta por vídeo: cuántos llegan a cada punto (25 %, 50 %, 75 % y completo) como columnas que bajan.
-  const tarjetas = grabados.map(([v, label, ico]) => {
-    const n = THRESHOLDS.map((t) => L.filter((l) => watched(l.s, v) >= t).length);
+  const datos = grabados.map(([v, label, ico]) => ({ label, ico, n: THRESHOLDS.map((t) => L.filter((l) => watched(l.s, v) >= t).length) }));
+  // Una tarjeta por vídeo con su curva: cuántos llegan a cada punto del vídeo.
+  const tarjetas = datos.map(({ label, ico, n }, k) => {
     const caida = n[0] ? Math.round((1 - n[3] / n[0]) * 100) : null;
     return `<article class="cv-video">
-      <header><span class="cv-video-ico" aria-hidden="true">${ico}</span><strong>${esc(label)}</strong></header>
-      <div class="cv-video-big"><strong>${pct(n[0])}%</strong><span>la empezaron · ${n[0].toLocaleString('es-ES')} leads</span></div>
-      <div class="cv-cols" role="img" aria-label="${esc(`${label}: ${THRESHOLDS.map((t, i) => `${t}% visto ${n[i]}`).join(', ')}`)}">
-        ${THRESHOLDS.map((t, i) => `<div class="cv-col" title="${n[i]} leads (${pct(n[i])}%) vieron al menos el ${t}%"><span class="cv-col-n">${pct(n[i])}%</span><div class="cv-col-bar"><span style="height:${pct(n[i])}%"></span></div><small>${t === 90 ? 'Entero' : `${t}%`}</small></div>`).join('')}
-      </div>
-      <p class="cv-video-pie">${n[0] ? `<strong>${pct(n[3])}%</strong> lo vio entero${caida != null ? ` · se pierde el ${caida}% por el camino` : ''}` : '<span class="muted">Aún nadie lo ha visto.</span>'}</p>
+      <header><span class="cv-video-ico" aria-hidden="true">${ico}</span><div><strong>${esc(label)}</strong><small>${n[0].toLocaleString('es-ES')} leads la empezaron</small></div>
+        <span class="cv-anillo" style="--p:${pct(n[0])}" title="${pct(n[0])}% de los registros la empezaron"><b>${pct(n[0])}%</b></span></header>
+      ${curvaRetencion(n.map(pct), k)}
+      <div class="cv-video-pie">${n[0] ? `<span class="cv-chip cv-chip-ok">🏁 ${pct(n[3])}% la vio entera</span>${caida != null ? `<span class="cv-chip cv-chip-mal">📉 se pierde el ${caida}%</span>` : ''}` : '<span class="muted">Aún nadie lo ha visto.</span>'}</div>
     </article>`;
   }).join('');
   // Directo: cada paso incluye a quien llegó más lejos (quien estuvo hasta el final también entró).
   const pasoDirecto = (l, d) => (l.s[`${d}_final`] ? 4 : l.s[`${d}_60`] ? 3 : l.s[`${d}_asistio`] ? 2 : l.s[`${d}_click`] ? 1 : 0);
   const directos = vids.filter((v) => esEnDirecto(v) || L.some((l) => pasoDirecto(l, v.directo)));
   const PASOS_DIR = [['👆', 'Pulsaron el enlace'], ['🎥', 'Entraron'], ['⏱️', 'Más de 60 min'], ['🏁', 'Hasta el final']];
-  const htmlDirectos = directos.map((v) => {
-    const n = [1, 2, 3, 4].map((k) => L.filter((l) => pasoDirecto(l, v.directo) >= k).length);
+  const nDir = directos.map((v) => [1, 2, 3, 4].map((k) => L.filter((l) => pasoDirecto(l, v.directo) >= k).length));
+  const htmlDirectos = directos.map((v, j) => {
+    const n = nDir[j];
     const ret = n[1] ? `${Math.round((n[3] / n[1]) * 100)}%` : '–';
     return `<div class="cv-directo">
-      <div class="cv-directo-cab"><strong>🔴 ${esc(vids.length > 1 ? v.nombre : 'Directo')}</strong><span class="cv-pill">Retención <b>${ret}</b> <small>de los que entraron siguen al final</small></span></div>
-      <div class="cv-pasos">${n.map((x, i) => `${i ? `<span class="cv-flecha" aria-hidden="true">${n[i - 1] ? `${Math.round((x / n[i - 1]) * 100)}%` : ''}<b>→</b></span>` : ''}<div class="cv-paso"><span aria-hidden="true">${PASOS_DIR[i][0]}</span><strong>${x.toLocaleString('es-ES')}</strong><small>${PASOS_DIR[i][1]} · ${pct(x)}%</small></div>`).join('')}</div>
+      <div class="cv-directo-cab"><strong><span class="cv-vivo"></span>${esc(vids.length > 1 ? v.nombre : 'Directo')}</strong><span class="cv-pill">Retención <b>${ret}</b> <small>de los que entraron siguen al final</small></span></div>
+      ${embudoCv(n.map((x, i) => ({ ico: PASOS_DIR[i][0], label: PASOS_DIR[i][1], n: x, sub: `${pct(x)}% de los registros` })))}
     </div>`;
   }).join('');
+  // Lo importante arriba, en cuatro tarjetas.
+  const algunaClase = clases.length ? L.filter((l) => clases.some((c) => watched(l.s, c) >= 25)).length : null;
+  const algunaEntera = clases.length ? L.filter((l) => clases.some((c) => watched(l.s, c) >= 90)).length : null;
+  const peor = datos.filter((d) => d.n[0] >= 10).map((d) => ({ ...d, caida: 1 - d.n[3] / d.n[0] })).sort((a, b) => b.caida - a.caida)[0];
+  const t = (ico, tono, et, v, sub) => `<div class="cv-hero-card cv-t-${tono}"><span class="cv-hero-ico" aria-hidden="true">${ico}</span><span class="cv-hero-et">${et}</span><strong>${v}</strong><small>${sub}</small></div>`;
+  $('#vid-hero').innerHTML = [
+    algunaClase != null ? t('🎓', 'accent', 'Empezaron las clases', `${pct(algunaClase)}%`, `${algunaClase.toLocaleString('es-ES')} vieron al menos el 25 % de alguna`) : '',
+    algunaEntera != null ? t('🏁', 'buy', 'Vieron alguna entera', `${pct(algunaEntera)}%`, `${algunaEntera.toLocaleString('es-ES')} leads llegaron al final`) : '',
+    nDir.length ? t('🔴', 'live', 'Entraron al directo', nDir[0][1].toLocaleString('es-ES'), `de ${nDir[0][0].toLocaleString('es-ES')} que pulsaron el enlace${nDir[0][0] ? ` · ${Math.round((nDir[0][1] / nDir[0][0]) * 100)}%` : ''}`) : '',
+    peor ? t('📉', 'vip', 'Donde más se pierden', esc(peor.label), `se va el ${Math.round(peor.caida * 100)}% antes del final`) : '',
+  ].join('');
   $('#consumo').innerHTML = `
     <h2>Consumo de vídeos <span class="muted">· qué parte de los registros llega a cada punto de cada vídeo</span></h2>
     <div class="cv-videos">${tarjetas || '<p class="muted">Este lanzamiento no tiene clases ni grabaciones configuradas.</p>'}</div>
     <h3 class="cv-h3">En directo <span class="muted">· sobre el total de registros (Zoom: sincroniza la asistencia con «Sincronizar Zoom»)</span></h3>
     ${htmlDirectos || '<p class="muted">Este lanzamiento no tiene vídeos en directo (sin Zoom configurado) o aún no hay datos del directo.</p>'}`;
+}
+
+// Embudo visual (barras centradas que se estrechan) con el % que pasa de un paso al siguiente.
+//  pasos: [{ ico, label, n, sub, tono }]
+function embudoCv(pasos) {
+  const max = Math.max(1, ...pasos.map((p) => p.n || 0));
+  return `<div class="cv-funnel">${pasos.map((p, i) => {
+    const ant = i ? pasos[i - 1].n : null;
+    return `${i ? `<div class="cv-funnel-paso" aria-hidden="true"><span>↓ ${ant ? `${Math.round((p.n / ant) * 100)}% pasa` : '–'}</span></div>` : ''}
+    <div class="cv-funnel-fila${p.tono ? ` cv-${p.tono}` : ''}">
+      <div class="cv-funnel-bar" style="width:${Math.max(16, (p.n / max) * 100)}%"><span aria-hidden="true">${p.ico || ''}</span><strong>${(p.n || 0).toLocaleString('es-ES')}</strong></div>
+      <div class="cv-funnel-et"><span>${p.label}</span>${p.sub ? `<small>${p.sub}</small>` : ''}</div>
+    </div>`;
+  }).join('')}</div>`;
 }
 
 // ---------- Métricas del embudo ----------
@@ -1940,6 +1984,15 @@ function renderConvHero(m, filas) {
   const cn = st.noContactadas ? st.compraNoContactadas / st.noContactadas : null;
   const top = [...m.lift].filter((r) => r.veces != null && r.con >= 10).sort((a, b) => b.veces - a.veces)[0];
   const t = (ico, tono, et, v, sub) => `<div class="cv-hero-card cv-t-${tono}"><span class="cv-hero-ico" aria-hidden="true">${ico}</span><span class="cv-hero-et">${et}</span><strong>${v}</strong><small>${sub}</small></div>`;
+  const pasos = [
+    { ico: '📝', label: 'Se registraron', n: m.total },
+    ...(m.clases.length ? [{ ico: '🎓', label: 'Empezaron la clase 1', n: m[m.clases[0]] }] : []),
+    ...(m.videos?.length && filas.some(([l]) => String(l).startsWith('Vieron el')) ? [] : [{ ico: '🎥', label: 'Vieron el directo o la grabación', n: m.live + m.soloReplay }]),
+    ...(m.llamada ? [{ ico: '📞', label: 'Agendaron llamada', n: m.llamada }] : []),
+    ...(m.inicioPago ? [{ ico: '💳', label: 'Iniciaron el pago', n: m.inicioPago }] : []),
+    { ico: '🛒', label: 'Compraron', n: m.compra, tono: 'compra' },
+  ];
+  $('#conv-embudo').innerHTML = embudoCv(pasos.map((p) => ({ ...p, sub: `${pctOf(p.n, m.total)} de los registros` })));
   $('#conv-hero').innerHTML = [
     t('🛒', 'buy', 'Compran', pctOf(m.compra, m.total), `${m.compra.toLocaleString('es-ES')} de ${m.total.toLocaleString('es-ES')} registros`),
     mejor ? t('🏆', 'vip', 'El grupo que más compra', pctOf(mejor[2], mejor[1]), esc(String(mejor[0]).replace(/<[^>]+>/g, ''))) : '',
@@ -2782,6 +2835,7 @@ function renderSetterMetrics(m) {
   const cc = st.contactadas ? st.compraContactadas / st.contactadas : null;
   const cn = st.noContactadas ? st.compraNoContactadas / st.noContactadas : null;
   const veces = cc != null && cn ? cc / cn : null;
+  if (!st.contactadas) { $('#setter-table').innerHTML = '<div class="cv-vacio"><span aria-hidden="true">💬</span><p>Aún no hay leads contactadas por WhatsApp desde el dashboard. En cuanto la setter escriba con el botón de WhatsApp, aquí verás si las contactadas compran más.</p></div>'; return; }
   $('#setter-table').innerHTML = `<div class="cv-vs">
       <div class="cv-vs-a"><span>💬 Contactadas</span><strong>${pctOf(st.compraContactadas, st.contactadas)}</strong><small>${st.compraContactadas} de ${st.contactadas} compraron</small></div>
       <div class="cv-vs-x">${veces ? `<b>×${veces.toLocaleString('es-ES', { maximumFractionDigits: 1 })}</b><small>más ventas</small>` : '<b>vs</b>'}</div>
@@ -3372,10 +3426,11 @@ function pintarMsub(nav, cat) {
   // Secciones quitadas en este embudo («＋ Nuevo embudo» o su ⚙️): fuera su botón.
   const vistaNav = nav.id.replace('msub-', '');
   const ocultas = embudoInfo()?.ocultas || [];
-  $$('[data-msub-btn]', nav).forEach((b) => { b.hidden = ocultas.includes(`${vistaNav}.${b.dataset.msubBtn}`); });
+  // «Consumo de vídeos» salió de «Vídeos y conversión»: si se quitó aquella, se quitan las dos.
+  $$('[data-msub-btn]', nav).forEach((b) => { b.hidden = ocultas.includes(`${vistaNav}.${b.dataset.msubBtn}`) || (b.dataset.msubBtn === 'videos' && ocultas.includes(`${vistaNav}.conversion`)); });
   const cats = $$('[data-msub-btn]', nav).filter((b) => !b.hidden).map((b) => b.dataset.msubBtn);
   // Subpestañas que se juntaron (la última elegida puede ser una de antes).
-  if (nav.id === 'msub-metricas') cat = { trafico: 'captacion', origen: 'captacion', consumo: 'conversion', oferta: 'ventas' }[cat] || cat;
+  if (nav.id === 'msub-metricas') cat = { trafico: 'captacion', origen: 'captacion', consumo: 'videos', oferta: 'ventas' }[cat] || cat;
   if (!cats.includes(cat)) cat = cats[0];
   $$('[data-msub-btn]', nav).forEach((b) => b.classList.toggle('active', b.dataset.msubBtn === cat));
   $$('[data-msub]', view).forEach((el) => { el.hidden = el.dataset.msub !== cat || el.dataset.off === '1'; });
