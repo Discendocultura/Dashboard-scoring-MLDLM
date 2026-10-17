@@ -168,3 +168,17 @@ test('plantillas de WhatsApp: workflow por etiqueta, que se quita al enviar', ()
   assert.match(p, /Quitar la etiqueta que lo disparó/);
   assert.match(p, /NO incluye «setter-ia-baja»/);
 });
+
+test('setter IA: clave de las cifras global para todos los clientes; la de un cliente manda', async () => {
+  const { setEnv } = await import('../lib/env.js');
+  const { runCliente } = await import('../lib/cliente.js');
+  const { claveResumenSetter } = await import('../lib/setter-ia.js');
+  const otro = { id: 'shadra', nombre: 'Shadra' };
+  setEnv({ SETTER_RESUMEN_KEY: 'global-global-global-global' });
+  assert.equal(runCliente(otro, () => claveResumenSetter()), 'global-global-global-global');
+  assert.equal(claveResumenSetter(), 'global-global-global-global', 'también el principal');
+  setEnv({ SETTER_RESUMEN_KEY: 'global-global-global-global', SETTER_RESUMEN_KEY_SHADRA: 'propia-propia-propia-propia' });
+  assert.equal(runCliente(otro, () => claveResumenSetter()), 'propia-propia-propia-propia');
+  setEnv({ SETTER_RESUMEN_KEY: '', SETTER_RESUMEN_KEY_SHADRA: '' });
+  assert.equal(runCliente(otro, () => claveResumenSetter()), '');
+});

@@ -13376,7 +13376,7 @@ function pintarSetterConexiones() {
   $('#cx-setter-status').textContent = '';
   $('#cx-setter-clave').innerHTML = state.setterResumen
     ? '✓ Clave de las cifras puesta en Cloudflare.'
-    : `Para ver sus cifras en <strong>Rendimiento</strong>, añade en Cloudflare (Workers y Pages → este dashboard → Configuración → Variables y secretos) el secreto <code>SETTER_RESUMEN_KEY_${esc(String(state.cliente || '').toUpperCase().replace(/-/g, '_'))}</code> con el mismo valor que <code>RESUMEN_KEY_…</code> del setter.`;
+    : 'Para ver sus cifras en <strong>Rendimiento</strong>, añade en Cloudflare (Workers y Pages → este dashboard → Configuración → Variables y secretos) el secreto <code>SETTER_RESUMEN_KEY</code> (vale para todos los clientes) con el mismo valor que <code>RESUMEN_KEY</code> del setter, y vuelve a desplegar.';
 }
 $('#cx-setter-guardar').addEventListener('click', async () => {
   const url = $('#cx-setter-url').value.trim().replace(/\/+$/, '').replace(/\/#.*$/, '');
