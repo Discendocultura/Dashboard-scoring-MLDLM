@@ -33,6 +33,30 @@ export const SIGNALS = [
   'musica_play', 'musica_50', 'musica_90', 'voto', 'descarga', 'comento',
 ];
 
+// Setter IA (proyecto aparte): pone estas etiquetas fijas en GHL (sin código de lanzamiento: dicen cómo está la
+// conversación ahora). plantilla = se le mandó la plantilla de WhatsApp; activo = la IA está conversando;
+// pausa = la lleva una persona; humano = la IA pide que la atienda una persona; cita = agendó la llamada;
+// baja = pidió no recibir más mensajes.
+export const SETTER_IA_TAGS = { plantilla: 'setter-ia-plantilla', activo: 'setter-ia-activo', pausa: 'setter-ia-pausa', humano: 'setter-ia-humano', cita: 'setter-ia-cita', baja: 'setter-ia-baja' };
+export function estadoSetterIa(tags) {
+  const t = new Set((tags || []).map((x) => String(x).toLowerCase()));
+  const e = Object.fromEntries(Object.entries(SETTER_IA_TAGS).map(([k, v]) => [k, t.has(v)]));
+  // Respondió a la plantilla: la IA conversa o conversó con ella.
+  e.respondio = e.activo || e.pausa || e.humano || e.cita;
+  e.alguna = e.plantilla || e.respondio || e.baja;
+  return e;
+}
+// Una línea para la ficha, la fila del lead y Setting hoy ('' si el setter no la ha tocado).
+export function textoSetterIa(e) {
+  if (!e?.alguna) return '';
+  if (e.baja) return 'Pidió no recibir más mensajes';
+  if (e.humano) return 'Pide que la atienda una persona';
+  if (e.cita) return 'Agendó la llamada con el setter IA';
+  if (e.activo) return 'El setter IA está conversando con ella';
+  if (e.pausa) return 'Conversación del setter en pausa (la lleva una persona)';
+  return 'Se le mandó la plantilla y aún no ha respondido';
+}
+
 export const OUTCOMES = [
   { id: 'respondio', label: 'Respondió' },
   { id: 'interesada', label: 'Interesada' },
@@ -172,6 +196,7 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   // Llamada agendada: la etiqueta fija (sin contar a quien ya la tenía al crear el lanzamiento)
   // o el resultado «Llamada agendada» que marca la setter.
   s.llamada = (has(cfg.llamadaTag) && !s.llamada_previo) || s.res_llamada;
+  s.setter = estadoSetterIa(contactTags);
   // Recursos de la preclase que tiene este lanzamiento (para la puntuación) y el test hecho (su etiqueta).
   // «votacion» es el bloque de participación: votó o comentó (la votación o los comentarios de la preclase).
   s.recursos = { musica: tieneRecurso(cfg, 'musica'), test: tieneRecurso(cfg, 'test'), votacion: tieneRecurso(cfg, 'votacion') || tieneRecurso(cfg, 'comentarios'), descargable: tieneRecurso(cfg, 'descargable'), soloVotacion: tieneRecurso(cfg, 'votacion'), comentarios: tieneRecurso(cfg, 'comentarios') };
@@ -278,6 +303,9 @@ export function score(s, aprendidos = null) {
   // Inició el pago (llegó a la página de pago con «Quiero inscribirme») y no ha comprado: es lo más cerca de
   // comprar que hay. Suma 15 y como mínimo queda «muy caliente».
   if (s.inicio_pago && !s.compra) pts = Math.max(pts + 15, ESTADOS[0].min);
+  // Setter IA: contestó a la plantilla (+5) o agendó la llamada con él (+10, y como mínimo «caliente»).
+  if (s.setter?.cita && !s.compra) pts = Math.max(pts + 10, ESTADOS[1].min);
+  else if (s.setter?.respondio && !s.compra) pts += 5;
   return Math.min(Math.round(pts), 100);
 }
 

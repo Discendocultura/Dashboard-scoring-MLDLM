@@ -7,7 +7,8 @@
 //       fechas, fase actual, oferta, enlaces de pago y la encuesta (preguntas y opciones)
 //   GET /api/setter/lead?c=&l=&cid=<id del contacto en GHL>
 //       encuesta, preclase, directo, VIP, inicio de pago, compra, origen y puntuación con su temperatura
-// Respuesta: { texto, … } (JSON) o, con &formato=texto, solo el texto. Sin emails ni teléfonos.
+// Respuesta: { texto, version, … } (JSON) o, con &formato=texto, solo el texto. Sin emails ni teléfonos.
+// Lleva ETag (= version): si el setter manda If-None-Match con la que ya tiene y nada ha cambiado, 304 sin cuerpo.
 import { env } from '../lib/env.js';
 import { safeEqual } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
@@ -37,9 +38,24 @@ function autorizado(request) {
   const dada = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
   return clave.length >= 24 && dada && safeEqual(dada, clave);
 }
-const responder = (url, texto, extra = {}) => (url.searchParams.get('formato') === 'texto'
-  ? new Response(texto, { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } })
-  : json({ cliente: clienteActual().id, ...extra, texto }));
+// Huella corta del contenido (FNV-1a de 32 bits): cambia si cambia cualquier cosa de la respuesta.
+export function huella(txt) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < txt.length; i++) { h ^= txt.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36);
+}
+function responder(request, url, texto, extra = {}) {
+  const comoTexto = url.searchParams.get('formato') === 'texto';
+  const version = huella(JSON.stringify([comoTexto, extra, texto]));
+  const etag = `"${version}"`;
+  const headers = { etag, 'cache-control': 'no-store' };
+  const pedida = (request.headers.get('if-none-match') || '').split(',').map((x) => x.trim().replace(/^W\//, ''));
+  if (pedida.includes(etag)) return new Response(null, { status: 304, headers });
+  if (comoTexto) return new Response(texto, { headers: { ...headers, 'content-type': 'text/plain; charset=utf-8' } });
+  const res = json({ cliente: clienteActual().id, ...extra, version, texto });
+  res.headers.set('etag', etag);
+  return res;
+}
 
 // Las preguntas de la encuesta del cliente con sus opciones (las de GHL; si no, las del mock/configuración).
 async function preguntasEncuesta(config) {
@@ -69,7 +85,7 @@ export async function GET(request) {
       const m = await leerMarca();
       const producto = elegirProducto(m, { pedido: url.searchParams.get('producto') || '', embudo: url.searchParams.get('e') || '' });
       const nombre = producto ? nombreDeProducto(producto, m.productos.indexOf(producto)) : nombreProducto(config);
-      return responder(url, textoMarca({ cliente: clienteActual().nombre, m, producto, config }), { producto: { id: producto?.id || '', nombre }, productos: listaProductos(m) });
+      return responder(request, url, textoMarca({ cliente: clienteActual().nombre, m, producto, config }), { producto: { id: producto?.id || '', nombre }, productos: listaProductos(m) });
     }
 
     const code = lanzamientoPedido(config, url.searchParams.get('l'), url.searchParams.get('e') || '');
@@ -81,7 +97,7 @@ export async function GET(request) {
       const producto = elegirProducto(m, { pedido: url.searchParams.get('producto') || '', embudo: l.embudo || '' });
       const nombre = producto ? nombreDeProducto(producto, m.productos.indexOf(producto)) : nombreProducto(config);
       const fase = faseActual(l);
-      return responder(url, textoLanzamiento({ code, l, preguntas, nombre }), { lanzamiento: code, fase: fase.id, producto: nombre });
+      return responder(request, url, textoLanzamiento({ code, l, preguntas, nombre }), { lanzamiento: code, fase: fase.id, producto: nombre });
     }
 
     if (ruta === 'lead') {
@@ -94,7 +110,7 @@ export async function GET(request) {
       aplicarCamposFormulario(contact, config.formAds);
       const extra = { inicioPago, ventaVisita };
       const d = datosLead({ contact, code, config, extra });
-      return responder(url, textoLead({ contact, code, config, extra, preguntas, datos: d }), {
+      return responder(request, url, textoLead({ contact, code, config, extra, preguntas, datos: d }), {
         lanzamiento: code, cid, puntos: d.puntos, temperatura: d.temperatura.id, compro: Boolean(d.s.compra), inicioPago: Boolean(d.s.inicio_pago && !d.s.compra),
       });
     }

@@ -1,6 +1,6 @@
 import {
   ESTADOS, NEXT_STEPS, buildMessage, waPhone, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, fotosPendientes, OUTCOMES, dayInMadrid,
-  score as puntuar, estadoFor,
+  score as puntuar, estadoFor, textoSetterIa,
 } from './scoring.js';
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
@@ -17,7 +17,7 @@ import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
 import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago, vipSinIva, TIPOS_BUMP } from './pago.js';
 import { cicloDeContactos, textoDias } from './ciclo.js';
-import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusMeteo, tipoEntregable, etiquetaEntregable, SUBTIPOS_ENTREGABLE, OBJETIVOS_BONUS, objetivoBonus, textoGarantia, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero } from './oferta.js';
+import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusMeteo, tipoEntregable, etiquetaEntregable, SUBTIPOS_ENTREGABLE, OBJETIVOS_BONUS, objetivoBonus, textoGarantia, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero, momentosCarrito } from './oferta.js';
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
 import { alertasCarrito } from './alertas.js';
 import { BLOQUES, pesosDe, proponerPesos, pesosEfectivos } from './pesos.js';
@@ -478,7 +478,7 @@ async function start() {
     return;
   }
   document.body.classList.remove('solo-operativa');
-  const { role, config, zoomConfigured, sendflowConfigured } = await api('/api/config');
+  const { role, config, zoomConfigured, sendflowConfigured, setterResumen } = await api('/api/config');
   state.role = role;
   state.user = me.user || null;
   state.permisos = me.permisos || [];
@@ -486,6 +486,7 @@ async function start() {
   state.config = config;
   state.zoomConfigured = zoomConfigured;
   state.sendflowConfigured = Boolean(sendflowConfigured);
+  state.setterResumen = Boolean(setterResumen);
   aplicarProducto();
   document.body.classList.toggle('is-admin', role === 'admin');
   document.body.classList.toggle('can-config', puedeConfig());
@@ -3359,9 +3360,20 @@ function compraChip(s) {
 }
 
 // Recursos de la preclase en la fila del lead: música, test y su voto.
+// Setter IA: cómo va su conversación de WhatsApp (por las etiquetas setter-ia-* que pone en GHL).
+const SETTER_ICO = (e) => (e.baja ? '🚫' : e.humano ? '🙋' : e.cita ? '📅' : e.activo ? '💬' : e.pausa ? '⏸️' : '📨');
+function setterChip(l) {
+  const e = l.s?.setter;
+  if (!e?.alguna) return '';
+  return `<span class="ll-chip setter-chip${e.baja ? ' baja' : e.humano ? ' humano' : ''}" title="${esc(`Setter IA: ${textoSetterIa(e)}`)}">🤖${SETTER_ICO(e)}</span>`;
+}
+// Enlace a la conversación en el setter IA (Conexiones → Setter IA), si está configurado.
+const enlaceSetter = (cid) => (state.config?.setterIa?.url && cid ? `${state.config.setterIa.url}/#/lead/${encodeURIComponent(state.cliente)}/${encodeURIComponent(cid)}` : '');
 function preclaseChips(l) {
   const r = l.s.recursos || {};
   const out = [];
+  const sc = setterChip(l);
+  if (sc) out.push(sc);
   if (l.s.inicio_pago && !l.s.compra) out.push(`<span class="ll-chip" title="${esc(pagoTxt(l.s.inicio_pago))}">💳${l.s.inicio_pago.veces > 1 ? ` ×${l.s.inicio_pago.veces}` : ''}</span>`);
   if (l.s.venta_visita && !l.s.compra) out.push(`<span class="ll-chip" title="${esc(visitaTxt(l.s.venta_visita))}">🛒${l.s.venta_visita.veces > 1 ? ` ×${l.s.venta_visita.veces}` : ''}</span>`);
   if (r.musica && (l.s.musica_play || l.s.musica_50 || l.s.musica_90)) out.push(`<span class="ll-chip" title="Música: ${l.s.musica_90 ? 'entera' : l.s.musica_50 ? 'más de la mitad' : 'le dio al play'}">🎵${l.s.musica_90 ? ' 90%' : l.s.musica_50 ? ' 50%' : ''}</span>`);
@@ -3427,10 +3439,14 @@ document.addEventListener('change', (e) => {
 // Listas cortas y priorizadas: a quién escribir hoy.
 function renderHoy() {
   if (state.config.launches[state.launchCode]?.sendflowId && state.grupoWa?.code !== state.launchCode) cargarMiembrosGrupo();
-  const open = (l) => !l.s.compra && l.phoneWa;
+  // Fuera las que pidieron la baja al setter IA y las que el setter IA está atendiendo ahora (para no escribirles a la vez).
+  const conIa = (l) => l.s.setter?.activo && !l.s.setter.baja;
+  const open = (l) => !l.s.compra && l.phoneWa && !l.s.setter?.baja && !conIa(l);
   // Dentro de cada motivo, de más a menos puntuación (a igualdad, primero las que encajan con un avatar comprador).
   const byScore = (a, b) => b.score - a.score || (b.avatar >= 0) - (a.avatar >= 0);
   const buckets = [
+    // El setter IA pide que las atienda una persona: lo primero.
+    { id: 'persona', corto: '🙋 Pide persona', title: '🙋 El setter IA pide que la atienda una persona', hint: 'La IA ha pausado la conversación y te la pasa: escríbele tú (lee antes la conversación en el setter)', rows: state.leads.filter((l) => open(l) && l.s.setter?.humano) },
     // Las más calientes del carrito: abrieron la página de venta y no han comprado (la más reciente primero).
     { id: 'pago', corto: '💳 Iniciaron el pago', title: '💳 Iniciaron el pago y no han comprado', hint: 'Pulsaron «Quiero inscribirme» y llegaron a la página de pago: lo más cerca de comprar. Escríbeles ya', rows: state.leads.filter((l) => open(l) && l.s.inicio_pago), orden: (a, b) => b.s.inicio_pago.ultima - a.s.inicio_pago.ultima },
     { id: 'venta', corto: '🛒 Página de venta', title: '🛒 Visitaron la página de venta y no han comprado', hint: 'Están decidiendo ahora: escríbeles cuanto antes', rows: state.leads.filter((l) => open(l) && l.s.venta_visita), orden: (a, b) => b.s.venta_visita.ultima - a.s.venta_visita.ultima },
@@ -3455,7 +3471,9 @@ function renderHoy() {
   const cuentaTemp = (id) => lista.filter((x) => x.l.estado.id === id && (!h.motivo || x.b.id === h.motivo)).length;
   const filtrada = lista.filter((x) => (!h.motivo || x.b.id === h.motivo) && (!h.temp || x.l.estado.id === h.temp));
   const shown = filtrada.slice(0, h.max);
-  const avisos = buckets.filter((b) => b.id === 'grupo').map((b) => `<p class="muted hoy-aviso">💬 ${esc(b.hint)}</p>`).join('');
+  const nIa = state.leads.filter((l) => !l.s.compra && conIa(l)).length;
+  const avisos = buckets.filter((b) => b.id === 'grupo').map((b) => `<p class="muted hoy-aviso">💬 ${esc(b.hint)}</p>`).join('')
+    + (nIa ? `<p class="muted hoy-aviso">🤖 ${nIa} ${nIa === 1 ? 'persona la lleva' : 'personas las lleva'} ahora el setter IA: no salen aquí para no escribirles a la vez. Si te pide ayuda, aparecen arriba en «🙋 Pide persona».</p>` : '');
   $('#hoy-lists').innerHTML = `<section class="card hoy-prio">
     <div class="hoy-prio-cab">
       <h2>Por prioridad <span class="badge">${lista.length}</span></h2>
@@ -3487,6 +3505,7 @@ document.addEventListener('click', (e) => {
 
 function hoyItem(l, b = null, n = 0) {
   const signals = [
+    l.s.setter?.alguna ? `🤖 ${textoSetterIa(l.s.setter)}` : '',
     l.s.inicio_pago ? pagoTxt(l.s.inicio_pago) : '',
     l.s.venta_visita ? visitaTxt(l.s.venta_visita) : '',
     l.s.vip ? 'VIP' : '',
@@ -3502,6 +3521,7 @@ function hoyItem(l, b = null, n = 0) {
       <div class="lead-meta">${esc(signals || 'Sin actividad')} · ${NEXT_STEPS[l.step]}</div>
     </div>
     <div class="hoy-actions">
+      ${l.s.setter?.respondio && enlaceSetter(l.id) ? `<a class="btn ghost small" href="${esc(enlaceSetter(l.id))}" target="_blank" rel="noopener" title="Leer la conversación en el setter IA">🤖 Ver chat</a>` : ''}
       <button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}">${l.s.wa_enviado ? 'Reenviar' : 'WhatsApp'}</button>
       ${outcomeSelect(l)}
     </div>
@@ -3525,6 +3545,10 @@ document.addEventListener('click', async (e) => {
   if (!btn) return;
   const lead = state.leads.find((l) => l.id === btn.dataset.wa);
   if (!lead) return;
+  // Que la IA y el equipo no escriban a la vez: aviso si el setter IA está conversando o si pidió la baja.
+  const st = lead.s.setter;
+  if (st?.baja && !window.confirm(`${lead.firstName || lead.name || 'Esta persona'} pidió no recibir más mensajes (setter IA). ¿Escribirle igualmente?`)) return;
+  if (st?.activo && !st.baja && !window.confirm(`El setter IA está conversando ahora con ${lead.firstName || lead.name || 'esta persona'}. Si le escribes tú, el setter se pondrá en pausa solo. ¿Escribirle igualmente?`)) return;
   window.open(`https://wa.me/${lead.phoneWa}?text=${encodeURIComponent(messageFor(lead))}`, '_blank', 'noopener');
   if (lead.s.wa_enviado) return;
   lead.s.wa_enviado = true;
@@ -4091,7 +4115,7 @@ function pintarInformesCfg() {
   $('#inf-email').value = '';
   $('#inf-status').textContent = '';
   $('#inf-vista').hidden = true;
-  $('#inf-cron').textContent = `${location.origin}/api/informe-diario?key=<DIGEST_KEY>&c=${encodeURIComponent(state.cliente || 'mldlm')}`;
+  $('#inf-cron').textContent = `${location.origin}/api/informe-diario?key=<DIGEST_KEY>&c=${encodeURIComponent(state.cliente)}`;
   pintarInfEmails();
 }
 function pintarInfEmails() {
@@ -6225,7 +6249,7 @@ function renderAutomatizaciones() {
   if (!box) return;
   const { tipo, code, obj } = autoActual();
   if (!obj) { box.innerHTML = `<div class="card empty"><p class="muted">Elige ${tipo === 'meteorico' ? 'un meteórico' : 'un lanzamiento'} para ver sus automatizaciones.</p></div>`; return; }
-  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj) });
+  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente });
   const lista = automatizacionesDe(c);
   const datos = obj.automatizaciones || {};
   const origen = datos.origen || embudoInfo()?.autoOrigen || '';
@@ -6285,7 +6309,7 @@ document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-au-prompt], [data-au-ia], [data-au-prep]');
   if (!b) return;
   const { tipo, code, obj } = autoActual();
-  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj) });
+  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente });
   const lista = automatizacionesDe(c);
   const x = lista.find((y) => y.id === (b.dataset.auPrompt || b.dataset.auIa));
   const txt = b.hasAttribute('data-au-prep') ? promptPreparacion(lista, c) : b.dataset.auIa ? descripcionIaGhl(x, c) : promptAutomatizacion(x, c);
@@ -7202,8 +7226,62 @@ async function loadRendimiento() {
       <tbody>${r.personas.map((x) => `<tr><td><strong>${esc(x.nombre)}</strong></td><td class="num">${x.wa}</td><td class="num">${x.contactados}</td><td class="num">${horasTxt(x.respuestaMediana)}</td><td class="num">${pc(x.en24h)}</td>
         <td class="num" title="${esc(Object.entries(x.resultados).map(([k, n]) => `${k}: ${n}`).join(' · '))}">${Object.values(x.resultados).reduce((a, b) => a + b, 0)}</td>
         <td class="num">${x.shows}</td><td class="num">${x.noshows}</td><td class="num">${x.cierres}</td><td class="num">${pc(x.cierreRate)}</td><td class="num">${x.ventas} <small class="muted">${pc(x.conversion)}</small></td><td class="num">${eur(x.importe || null)}</td></tr>`).join('')}</tbody></table></div>
-      <p class="muted small">«Ventas de sus contactados»: compras de los leads a los que esa persona escribió primero (para comisiones). Los cierres son las llamadas con resultado «Venta».${rango ? ' Periodo: el elegido en Métricas de la VSL.' : ''}</p>` : '<p class="muted">Aún no hay actividad registrada: aparecerá en cuanto el equipo envíe WhatsApps o anote resultados desde el dashboard.</p>'}`;
+      <p class="muted small">«Ventas de sus contactados»: compras de los leads a los que esa persona escribió primero (para comisiones). Los cierres son las llamadas con resultado «Venta».${rango ? ' Periodo: el elegido en Métricas de la VSL.' : ''}</p>` : '<p class="muted">Aún no hay actividad registrada: aparecerá en cuanto el equipo envíe WhatsApps o anote resultados desde el dashboard.</p>'}
+      <div id="rend-setter"></div>`;
+    cargarSetterRend(code, fuente, rango || rangoLanzamiento(launch, fuente));
   } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+// Periodo de un lanzamiento para las cifras del setter IA: desde la captación hasta hoy (o el cierre del carrito).
+function rangoLanzamiento(launch, leads) {
+  const hoy = today();
+  const primero = (leads || []).reduce((m, l) => { const d = l.dateAdded ? dayInMadrid(l.dateAdded) : ''; return d && (!m || d < m) ? d : m; }, '');
+  const cierre = momentosCarrito(launch || {}).cierre;
+  const fin = cierre != null ? dayInMadrid(new Date(cierre).toISOString()) : hoy;
+  let desde = launch?.inicioCaptacion || primero || hoy;
+  const hasta = fin < hoy ? fin : hoy;
+  if (desde > hasta) desde = hasta;
+  return { desde, hasta };
+}
+// Setter IA como un miembro más del equipo: sus cifras (las da el setter; se guardan 10 min en el servidor) y,
+// de los leads de este embudo, a cuántas se mandó la plantilla, cuántas respondieron y cuántas compraron.
+const setterRendCache = {};
+async function cargarSetterRend(code, leads, { desde, hasta }) {
+  const box = $('#rend-setter');
+  if (!box) return;
+  const conTags = (leads || []).filter((l) => l.s?.setter);
+  const n = (f) => conTags.filter((l) => f(l.s.setter, l.s)).length;
+  const plantilla = n((e) => e.plantilla);
+  const respondio = n((e) => e.respondio);
+  const compraron = n((e, s) => e.respondio && s.compra);
+  if (!state.config.setterIa?.url && !plantilla && !respondio) { box.innerHTML = ''; return; }
+  const clave = `${state.cliente}|${desde}|${hasta}`;
+  let d = setterRendCache[clave]?.at > Date.now() - 5 * 60_000 ? setterRendCache[clave].d : null;
+  const pintar = () => {
+    const c = d?.cifras || {};
+    const num = (v) => (v == null ? '–' : v);
+    const seg = (v) => (v == null ? '–' : v < 90 ? `${v} s` : v < 5400 ? `${Math.round(v / 60)} min` : `${(v / 3600).toFixed(1)} h`);
+    const pc = (a, b) => (b ? ` <small class="muted">${Math.round((a / b) * 100)} %</small>` : '');
+    const estado = !d ? '<p class="muted small">Cargando las cifras del setter IA…</p>'
+      : d.error ? `<p class="error small">No se pudieron leer las cifras del setter IA: ${esc(d.error)}</p>`
+      : !d.configurado ? `<p class="muted small">${d.falta === 'url' ? 'Para ver aquí sus cifras (conversaciones, citas, tiempo de respuesta), pon la dirección del setter en <strong>Cuenta → Conexiones → Setter IA</strong>.' : 'Para ver aquí sus cifras falta la clave <code>SETTER_RESUMEN_KEY_…</code> en Cloudflare (Cuenta → Conexiones → Setter IA lo explica).'}</p>` : '';
+    box.innerHTML = `<section class="rend-setter card">
+      <h3>🤖 Setter IA <small class="muted">· ${esc(fechaCorta(desde))} – ${esc(fechaCorta(hasta))}</small></h3>
+      <div class="prev-kpis">
+        <div><span>Plantillas enviadas</span><strong>${plantilla}</strong><small>leads de este embudo con setter-ia-plantilla</small></div>
+        <div><span>Respondieron</span><strong>${respondio}${pc(respondio, plantilla)}</strong><small>de este embudo${d?.cifras ? ` · ${num(c.respondieron)} en el periodo (todo el cliente)` : ''}</small></div>
+        <div><span>Citas agendadas</span><strong>${n((e) => e.cita)}${pc(n((e) => e.cita), respondio)}</strong><small>de este embudo${d?.cifras ? ` · ${num(c.citas)} en el periodo · ${num(c.pasadas_a_persona)} pasadas a una persona` : ''}</small></div>
+        <div><span>Ventas de sus conversaciones</span><strong>${compraron}${pc(compraron, respondio)}</strong><small>leads que hablaron con el setter y compraron</small></div>
+        ${d?.cifras ? `<div><span>Tiempo de respuesta (mediana)</span><strong>${seg(c.tiempo_respuesta_mediana_seg)}</strong><small>${num(c.mensajes_ia)} mensajes de la IA · ${num(c.conversaciones_activas)} conversaciones activas · ${num(c.bajas)} bajas</small></div>` : ''}
+      </div>
+      ${estado}
+      <p class="muted small">Las cifras de conversaciones, citas y tiempo de respuesta las da el setter (de todo el cliente en esas fechas). Las de plantillas, respuestas y ventas salen de las etiquetas <code>setter-ia-…</code> de los leads de este embudo.${d?.cifras?.actualizado ? ` Actualizado ${esc(haceTxt(Date.parse(d.cifras.actualizado)))}.` : ''}</p>
+    </section>`;
+  };
+  pintar();
+  if (d || !state.config.setterIa?.url) { if (!d) { d = { configurado: false, falta: 'url' }; pintar(); } return; }
+  try { d = await api(`/api/setter-ia?desde=${desde}&hasta=${hasta}`); setterRendCache[clave] = { d, at: Date.now() }; } catch (e) { d = { configurado: true, error: e.message }; }
+  if (codigo() !== code || !$('#rend-setter')) return;
+  pintar();
 }
 
 // ---------- Informe para el cliente (lanzamiento o VSL semanal) ----------
@@ -9691,6 +9769,7 @@ function hechosLead(lead) {
     s.inicio_pago ? `💳 Inició el pago: llegó a la página de pago${s.inicio_pago.veces > 1 ? ` ${s.inicio_pago.veces} veces` : ''} (la última, ${haceTxt(s.inicio_pago.ultima)})${s.compra ? '' : ' y no ha comprado'}` : '',
     s.venta_visita ? `🛒 Abrió la página de venta${s.venta_visita.veces > 1 ? ` ${s.venta_visita.veces} veces` : ''} (la última, ${haceTxt(s.venta_visita.ultima)})` : '',
     s.wa_enviado ? '💬 Ya se le escribió por WhatsApp' : '',
+    s.setter?.alguna ? `🤖 Setter IA: ${textoSetterIa(s.setter)}` : '',
     s.compra ? '✅ Ya compró' : s.clienta_anterior ? '✅ Clienta de una edición anterior' : '',
   ].filter(Boolean);
 }
@@ -9711,7 +9790,7 @@ function pintarFicha(c, f, error = '') {
   $('#ficha-titulo').textContent = lead?.name || f?.contacto?.name || c.title || 'Ficha del lead';
   $('#ficha-body').innerHTML = `
     ${c.sinLlamada ? '' : `<p class="ficha-cita">📅 Llamada el <strong>${esc(cita)}</strong>${etapa ? ` · etapa <strong>${esc(etapa.name)}</strong>` : ''}${llCancelada(c) ? ' · <strong>cancelada</strong>' : ''}</p>`}
-    <div class="ll-contact ficha-contacto">${k.phone ? `<a href="tel:${esc(k.phone)}">${icon('phone')}${esc(k.phone)}</a>` : '<span class="muted">Sin teléfono</span>'}${k.phoneWa ? `<a href="https://wa.me/${esc(k.phoneWa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}</div>
+    <div class="ll-contact ficha-contacto">${k.phone ? `<a href="tel:${esc(k.phone)}">${icon('phone')}${esc(k.phone)}</a>` : '<span class="muted">Sin teléfono</span>'}${k.phoneWa ? `<a href="https://wa.me/${esc(k.phoneWa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${enlaceSetter(c.contactId) ? `<a href="${esc(enlaceSetter(c.contactId))}" target="_blank" rel="noopener" title="${esc(lead?.s?.setter?.respondio ? 'Abrir su conversación en el setter IA' : 'Aún no ha hablado con el setter IA: el setter dirá «No encontramos esta conversación»')}">🤖 Abrir en el setter</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}</div>
     <section class="ficha-sec"><h3>🌡️ Temperatura (lead scoring)</h3>${temp}</section>
     ${lead ? `<section class="ficha-sec"><h3>🧭 Qué ha hecho</h3><ul class="ficha-hechos">${hechosLead(lead).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
       <p class="ficha-meta">${[c.sinLlamada ? '' : origenChip(c), lead.s.trafico ? `<span class="ll-chip">${lead.s.trafico === 'frio' ? '❄️ Tráfico frío (nueva en GHL)' : '🔥 Tráfico templado (ya estaba en GHL)'}</span>` : '', avatarChip(lead), dias != null ? `<span class="ll-chip">Registrada hace ${dias} día${dias === 1 ? '' : 's'} (${esc(fechaFicha(reg))})</span>` : ''].filter(Boolean).join(' ')}</p></section>` : ''}
@@ -12783,6 +12862,7 @@ $('#marca-dialog').addEventListener('close', () => {
 $('#btn-conexiones').addEventListener('click', () => {
   $('#tb-menu-cuenta').open = false;
   pintarVigiaConexiones();
+  pintarSetterConexiones();
   $('#conexiones-dialog').showModal();
   pintarFuentesConexiones();
 });
@@ -12881,6 +12961,25 @@ $('#cx-av-guardar').addEventListener('click', async () => {
   } catch (e) { $('#cx-av-status').textContent = e.message; }
 });
 $('#cx-sendflow-probar').addEventListener('click', () => probarSendflow());
+// Setter IA: su dirección (para «Abrir en el setter») y si la clave de las cifras está puesta en Cloudflare.
+function pintarSetterConexiones() {
+  $('#cx-setter-url').value = state.config.setterIa?.url || '';
+  $('#cx-setter-status').textContent = '';
+  $('#cx-setter-clave').innerHTML = state.setterResumen
+    ? '✓ Clave de las cifras puesta en Cloudflare.'
+    : `Para ver sus cifras en <strong>Rendimiento</strong>, añade en Cloudflare (Workers y Pages → este dashboard → Configuración → Variables y secretos) el secreto <code>SETTER_RESUMEN_KEY_${esc(String(state.cliente || '').toUpperCase().replace(/-/g, '_'))}</code> con el mismo valor que <code>RESUMEN_KEY_…</code> del setter.`;
+}
+$('#cx-setter-guardar').addEventListener('click', async () => {
+  const url = $('#cx-setter-url').value.trim().replace(/\/+$/, '').replace(/\/#.*$/, '');
+  if (url && !/^https:\/\/[^\s/]+(\/\S*)?$/i.test(url)) { $('#cx-setter-status').textContent = 'Pega la dirección completa, empezando por https://'; return; }
+  $('#cx-setter-status').textContent = 'Guardando…';
+  try {
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, setterIa: { url } } });
+    state.config = config;
+    $('#cx-setter-url').value = config.setterIa?.url || '';
+    $('#cx-setter-status').textContent = 'Guardado ✓';
+  } catch (e) { $('#cx-setter-status').textContent = e.message; }
+});
 $('#cx-sendflow').addEventListener('click', (e) => { if (e.target.closest('[data-sf-reintentar]')) probarSendflow({ reintentar: true }); });
 // SendFlow bloquea la clave si se le pide demasiado: el botón descansa 30 s entre pruebas.
 async function probarSendflow({ reintentar = false } = {}) {

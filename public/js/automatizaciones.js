@@ -39,10 +39,10 @@ const menosHora = (hora) => { const [h, mi] = String(hora || '19:00').split(':')
 
 // Contexto: los datos del embudo que van en los workflows.
 //   tipo: 'lanzamientos' | 'vsl' | 'directa' | 'meteorico' · obj: el lanzamiento / VSL / venta directa / meteórico
-export function autoCtx(tipo, obj = {}, { code = '', cliente = '', producto = '', zoomWebhook = '' } = {}) {
+export function autoCtx(tipo, obj = {}, { code = '', cliente = '', producto = '', zoomWebhook = '', setterUrl = '', clienteId = '' } = {}) {
   const o = obj || {};
   return {
-    tipo, code, cliente, producto, nombre: o.name || code, zoomWebhook,
+    tipo, code, cliente, producto, nombre: o.name || code, zoomWebhook, setterUrl, clienteId,
     carpeta: o.name || code,
     // Lanzamientos: la etiqueta de registro es SIEMPRE «registrado-webinar-DDMMAA» (fecha del directo). Si la de
     // Configuración es otra, el prompt usa la buena y registroDistinta avisa de que hay que cambiarla allí.
@@ -216,11 +216,38 @@ const METEORICO = [
   },
 ];
 
+// Setter IA (si está su dirección en Cuenta → Conexiones): la plantilla que abre la conversación y el aviso al setter
+// cuando la lead responde. Las etiquetas setter-ia-… son fijas (las lee el dashboard).
+const SETTER = [
+  {
+    id: 'setter-plantilla', titulo: 'Setter IA · plantilla de WhatsApp', requiere: [],
+    para: 'Abre la conversación con la plantilla de WhatsApp aprobada. Si la lead responde, contesta el setter IA (workflow siguiente).',
+    disparador: () => 'El momento de la plantilla que tengas en el setter IA (paso Plantillas → «Cuándo»): p. ej. Contact Tag Added con la etiqueta de registro, o una fecha del lanzamiento.',
+    acciones: () => [
+      'Filtro al principio: la etiqueta NO incluye «setter-ia-baja» (quien pidió la baja no vuelve a recibir plantillas).',
+      'Enviar la plantilla de WhatsApp (la aprobada por Meta).',
+      'Añadir la etiqueta «setter-ia-plantilla» (sin ella el setter no responde y el dashboard no la cuenta).',
+      'Crear o actualizar la oportunidad en el pipeline del lanzamiento, etapa «Contactado».',
+    ],
+    prueba: () => 'Con tu propio número como contacto de prueba: debe llegarte la plantilla y en el dashboard (Leads) salir 🤖📨.',
+  },
+  {
+    id: 'setter-respuesta', titulo: 'Setter IA · respuesta de la lead', requiere: [],
+    para: 'Cuando la lead contesta a la plantilla, avisa al setter IA para que responda. Es UNO para todo el cliente: si ya existe de otro lanzamiento, no lo dupliques (márcalo como creado).',
+    disparador: () => 'Customer Replied, canal WhatsApp.',
+    acciones: (c) => [
+      'Filtros: la etiqueta incluye «setter-ia-plantilla» y NO incluye «setter-ia-pausa» ni «setter-ia-baja».',
+      `Acción «Webhook», método POST, a ${c.setterUrl}/api/webhook/ghl?c=${c.clienteId || '[cliente]'}&k=[FIRMA: cópiala del paso Plantillas del setter IA]. Sin encabezados ni campos: GHL ya envía el contact_id y el setter lee la conversación entera.`,
+    ],
+    prueba: () => 'Contesta desde tu número a la plantilla de prueba: el setter debe responder y en el dashboard salir 🤖💬 (y desaparecer de Setting hoy mientras la IA conversa).',
+  },
+];
+
 const LISTAS = { lanzamientos: LANZAMIENTO, vsl: VSL, directa: DIRECTA, meteorico: METEORICO };
 
 // Las automatizaciones de este embudo, numeradas: [{ ...def, n, nombre, faltan }]
 export function automatizacionesDe(c) {
-  return (LISTAS[c.tipo] || []).filter((a) => a && (!a.si || a.si(c))).map((a, i) => {
+  return [...(LISTAS[c.tipo] || []), ...(c.setterUrl ? SETTER : [])].filter((a) => a && (!a.si || a.si(c))).map((a, i) => {
     const n = String(i + 1).padStart(2, '0');
     return { ...a, n, nombre: `[${c.code || 'código'}] ${n} · ${a.titulo}`, faltan: faltanDatos(a, c) };
   });
@@ -257,7 +284,7 @@ export function descripcionIaGhl(a, c) {
 
 // Primer prompt: preparar GHL (carpeta, etiquetas y lo que necesitan los workflows) antes de crearlos.
 export function promptPreparacion(lista, c) {
-  const etiquetas = [...new Set([c.registroTag || c.registroPropuesta, c.encuestaTag, c.vipTag, c.compraTag, c.unicoTag, c.fraccionadoTag, c.publiTag, c.organicoTag, c.llamadaTag, c.carritoAbandonadoTag].filter(Boolean))];
+  const etiquetas = [...new Set([c.registroTag || c.registroPropuesta, c.encuestaTag, c.vipTag, c.compraTag, c.unicoTag, c.fraccionadoTag, c.publiTag, c.organicoTag, c.llamadaTag, c.carritoAbandonadoTag, ...(c.setterUrl ? ['setter-ia-plantilla', 'setter-ia-activo', 'setter-ia-pausa', 'setter-ia-humano', 'setter-ia-cita', 'setter-ia-baja'] : [])].filter(Boolean))];
   return [
     `Vamos a preparar GoHighLevel (subcuenta de ${c.cliente || 'la marca'}) para crear las automatizaciones de «${c.nombre}». Todavía no crees ningún workflow.`,
     '',

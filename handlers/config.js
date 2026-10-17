@@ -5,6 +5,7 @@ import { zoomConfigured } from '../lib/zoom.js';
 import { sendflowConfigurado } from '../lib/sendflow.js';
 import { sanitizeNarrativa } from '../public/js/narrativa.js';
 import { sanitizeAutomatizaciones } from '../public/js/automatizaciones.js';
+import { claveResumenSetter } from '../lib/setter-ia.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { versionDe, reintentando } from '../lib/store.js';
 
@@ -12,7 +13,7 @@ const EQUIPO_FIELDS = ['name', 'inicioCaptacion', 'finCaptacion', 'fechaDirecto'
 function equipoConfig(config) {
   const launches = {};
   for (const [code, l] of Object.entries(config.launches)) launches[code] = Object.fromEntries(EQUIPO_FIELDS.map((k) => [k, l[k] ?? '']));
-  return { launches, templates: {}, accesos: [], digestEmail: '', marca: { producto: config.marca?.producto || '' }, defaultCountryCode: config.defaultCountryCode, vsls: Object.fromEntries(Object.entries(config.vsls || {}).map(([id, v]) => [id, { name: v.name }])), embudos: config.embudos };
+  return { launches, templates: {}, accesos: [], digestEmail: '', marca: { producto: config.marca?.producto || '' }, defaultCountryCode: config.defaultCountryCode, setterIa: config.setterIa, vsls: Object.fromEntries(Object.entries(config.vsls || {}).map(([id, v]) => [id, { name: v.name }])), embudos: config.embudos };
 }
 
 export async function GET(request) {
@@ -24,7 +25,7 @@ export async function GET(request) {
     // `version`: el navegador la devuelve al guardar, para no pisar lo que otra persona guardó entretanto.
     const version = versionDe(config);
     if (!tienePermiso(ses, [...PERMISOS_DATOS, 'config', 'carrito'])) return json({ role, config: equipoConfig(config), zoomConfigured: false, version });
-    return json({ role, config, zoomConfigured: zoomConfigured(), sendflowConfigured: sendflowConfigurado(), version });
+    return json({ role, config, zoomConfigured: zoomConfigured(), sendflowConfigured: sendflowConfigurado(), setterResumen: Boolean(claveResumenSetter()), version });
   } catch (e) {
     return errorResponse(e);
   }
