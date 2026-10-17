@@ -38,3 +38,14 @@ test('rendimiento: WhatsApps, primer contacto, tiempo de respuesta, ventas y lla
   // Por fechas
   assert.equal(rendimientoEquipo({ eventos, llamadas, leads, rango: { desde: '2026-10-04', hasta: '2026-10-31' } }).personas.find((x) => x.nombre === 'Andrea'), undefined);
 });
+
+test('rendimiento: sale todo el equipo, también quien aún no tiene actividad', () => {
+  const eventos = [{ t: 'wa', cid: 'c1', por: 'Quique', uid: 'u0', en: '2026-10-02T10:00:00Z' }];
+  const r = rendimientoEquipo({ eventos, leads: [{ id: 'c1', regAt: '2026-10-02T08:00:00Z' }], equipo: [{ nombre: 'Sara', rol: 'setter' }, { nombre: 'Andrea', rol: 'setter' }, { nombre: 'quique', rol: 'admin' }] });
+  assert.deepEqual(r.personas.map((x) => x.nombre), ['Quique', 'Andrea', 'Sara']);
+  assert.equal(r.personas[0].sinActividad, false);
+  assert.equal(r.personas[0].rol, 'admin'); // mismo nombre sin distinguir mayúsculas
+  assert.equal(r.personas[1].sinActividad, true);
+  assert.equal(r.personas[1].wa, 0);
+  assert.equal(r.total.wa, 1);
+});

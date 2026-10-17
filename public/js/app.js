@@ -7574,21 +7574,34 @@ async function loadRendimiento() {
     const launch = embudoActual();
     const leads = fuente.map((l) => ({ id: l.id, regAt: l.dateAdded, compra: l.s.compra, importe: vsl ? importeVsl(l, launch) : importeCompra(l, launch) }));
     const rango = vsl ? vslRango() : null;
-    const r = rendimientoEquipo({ eventos: d.eventos, llamadas: d.llamadas, leads, rango });
+    const r = rendimientoEquipo({ eventos: d.eventos, llamadas: d.llamadas, leads, rango, equipo: d.equipo || [] });
     const pc = (x) => (x == null ? '–' : `${Math.round(x * 100)}%`);
     const t = r.total;
-    box.innerHTML = `<div class="prev-kpis">
-        <div><span>WhatsApps enviados</span><strong>${t.wa}</strong><small>${t.contactados} leads contactados</small></div>
-        <div><span>Sin contactar (y sin comprar)</span><strong>${t.sinContactar}</strong><small>de ${leads.length} leads${rango ? ' (todas las fechas)' : ''}</small></div>
-        <div><span>Llamadas hechas</span><strong>${t.llamadas}</strong><small>${t.cierres} cierres</small></div>
-        <div><span>Tiempo de respuesta (mediana)</span><strong>${horasTxt(t.respuestaMediana)}</strong><small>desde el registro hasta el primer WhatsApp</small></div>
+    const kpi = (ico, et, v, sub) => `<div class="rp-kpi"><span class="rp-kpi-ico" aria-hidden="true">${ico}</span><div><span>${et}</span><strong>${v}</strong><small>${sub}</small></div></div>`;
+    const dato = (et, v, tit = '') => `<div class="rp-dato"${tit ? ` title="${esc(tit)}"` : ''}><strong>${v}</strong><span>${et}</span></div>`;
+    const tarjeta = (x) => {
+      const res = Object.values(x.resultados).reduce((a, b) => a + b, 0);
+      const resTit = Object.entries(x.resultados).map(([k, n]) => `${k}: ${n}`).join(' · ');
+      const setting = x.wa || res || x.contactados;
+      const cierre = x.llamadas || x.noshows || x.cierres;
+      return `<article class="rp-card${x.sinActividad ? ' rp-vacia' : ''}">
+        <header><span class="rp-av" aria-hidden="true">${esc(iniciales(x.nombre.replace(/[^\p{L}\s]/gu, ' ')))}</span><div><strong>${esc(x.nombre)}</strong>${x.rol ? `<small>${esc(roleLabel(x.rol))}</small>` : ''}</div></header>
+        ${x.sinActividad ? '<p class="rp-nada">Sin actividad registrada desde el dashboard. Cuenta lo que envía con el botón de WhatsApp y los resultados que anota.</p>' : `
+        ${setting || !cierre ? `<div class="rp-bloque"><h4>💬 Setting</h4><div class="rp-datos">${dato('WhatsApps', x.wa)}${dato('Contactados', x.contactados)}${dato('Respuesta', horasTxt(x.respuestaMediana), 'Mediana desde el registro hasta su primer WhatsApp')}${dato('En <24 h', pc(x.en24h))}${dato('Resultados', res, resTit)}</div></div>` : ''}
+        ${cierre ? `<div class="rp-bloque"><h4>📞 Llamadas</h4><div class="rp-datos">${dato('Shows', x.shows)}${dato('No shows', x.noshows)}${dato('Cierres', x.cierres)}${dato('% cierre', pc(x.cierreRate))}</div></div>` : ''}
+        <footer><span>Ventas de sus contactados</span><strong>${x.ventas} <small>${pc(x.conversion)}</small></strong><b>${eur(x.importe || null)}</b></footer>`}
+      </article>`;
+    };
+    box.innerHTML = `<div class="rp-kpis">
+        ${kpi('💬', 'WhatsApps enviados', t.wa, `${t.contactados} leads contactados`)}
+        ${kpi('⏳', 'Sin contactar', t.sinContactar, `y sin comprar · de ${leads.length} leads${rango ? ' (todas las fechas)' : ''}`)}
+        ${kpi('📞', 'Llamadas hechas', t.llamadas, `${t.cierres} cierres`)}
+        ${kpi('⚡', 'Tiempo de respuesta', horasTxt(t.respuestaMediana), 'mediana, del registro al primer WhatsApp')}
       </div>
-      ${r.personas.length ? `<div class="table-scroll"><table class="metric-table"><thead><tr><th>Persona</th><th class="num">WhatsApps</th><th class="num">Contactados</th><th class="num">Respuesta (mediana)</th><th class="num">En &lt;24 h</th><th class="num">Resultados</th><th class="num">Llamadas (shows)</th><th class="num">No shows</th><th class="num">Cierres</th><th class="num">% cierre</th><th class="num">Ventas de sus contactados</th><th class="num">Importe</th></tr></thead>
-      <tbody>${r.personas.map((x) => `<tr><td><strong>${esc(x.nombre)}</strong></td><td class="num">${x.wa}</td><td class="num">${x.contactados}</td><td class="num">${horasTxt(x.respuestaMediana)}</td><td class="num">${pc(x.en24h)}</td>
-        <td class="num" title="${esc(Object.entries(x.resultados).map(([k, n]) => `${k}: ${n}`).join(' · '))}">${Object.values(x.resultados).reduce((a, b) => a + b, 0)}</td>
-        <td class="num">${x.shows}</td><td class="num">${x.noshows}</td><td class="num">${x.cierres}</td><td class="num">${pc(x.cierreRate)}</td><td class="num">${x.ventas} <small class="muted">${pc(x.conversion)}</small></td><td class="num">${eur(x.importe || null)}</td></tr>`).join('')}</tbody></table></div>
-      <p class="muted small">«Ventas de sus contactados»: compras de los leads a los que esa persona escribió primero (para comisiones). Los cierres son las llamadas con resultado «Venta».${rango ? ' Periodo: el elegido en Métricas de la VSL.' : ''}</p>` : '<p class="muted">Aún no hay actividad registrada: aparecerá en cuanto el equipo envíe WhatsApps o anote resultados desde el dashboard.</p>'}
-      <div id="rend-setter"></div>`;
+      <div id="rend-setter"></div>
+      <h3 class="rp-titulo">👥 Personas del equipo</h3>
+      ${r.personas.length ? `<div class="rp-grid">${r.personas.map(tarjeta).join('')}</div>
+      <p class="muted small">«Ventas de sus contactados»: compras de los leads a los que esa persona escribió primero (para comisiones). Los cierres son las llamadas con resultado «Venta».${rango ? ' Periodo: el elegido en Métricas de la VSL.' : ''}</p>` : '<p class="muted">Aún no hay nadie en el equipo de este cliente con actividad: aparecerá en cuanto se envíen WhatsApps o se anoten resultados desde el dashboard.</p>'}`;
     cargarSetterRend(code, fuente, rango || rangoLanzamiento(launch, fuente));
   } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
@@ -7614,7 +7627,6 @@ async function cargarSetterRend(code, leads, { desde, hasta }) {
   const plantilla = n((e) => e.plantilla);
   const respondio = n((e) => e.respondio);
   const compraron = n((e, s) => e.respondio && s.compra);
-  if (!state.config.setterIa?.url && !plantilla && !respondio) { box.innerHTML = ''; return; }
   const clave = `${state.cliente}|${desde}|${hasta}`;
   let d = setterRendCache[clave]?.at > Date.now() - 5 * 60_000 ? setterRendCache[clave].d : null;
   const pintar = () => {
@@ -7624,10 +7636,11 @@ async function cargarSetterRend(code, leads, { desde, hasta }) {
     const pc = (a, b) => (b ? ` <small class="muted">${Math.round((a / b) * 100)} %</small>` : '');
     const estado = !d ? '<p class="muted small">Cargando las cifras del setter IA…</p>'
       : d.error ? `<p class="error small">No se pudieron leer las cifras del setter IA: ${esc(d.error)}</p>`
-      : !d.configurado ? `<p class="muted small">${d.falta === 'url' ? 'Para ver aquí sus cifras (conversaciones, citas, tiempo de respuesta), pon la dirección del setter en <strong>Cuenta → Conexiones → Setter IA</strong>.' : 'Para ver aquí sus cifras falta la clave <code>SETTER_RESUMEN_KEY_…</code> en Cloudflare (Cuenta → Conexiones → Setter IA lo explica).'}</p>` : '';
-    box.innerHTML = `<section class="rend-setter card">
-      <h3>🤖 Setter IA <small class="muted">· ${esc(fechaCorta(desde))} – ${esc(fechaCorta(hasta))}</small></h3>
-      <div class="prev-kpis">
+      : !d.configurado ? `<p class="muted small">${d.falta === 'url' ? 'Para ver aquí sus cifras (conversaciones, citas, tiempo de respuesta), pon la dirección del setter en <strong>Ajustes del cliente → Conexiones → Setter IA</strong>.' : 'Para ver aquí sus cifras falta la clave <code>SETTER_RESUMEN_KEY</code> en Cloudflare (Ajustes del cliente → Conexiones → Setter IA lo explica).'}</p>` : '';
+    box.innerHTML = `<section class="rend-setter">
+      <header class="rs-cab"><span class="rp-av rs-av" aria-hidden="true">🤖</span><div><strong>Setter IA</strong><small>Un miembro más del equipo · ${esc(fechaCorta(desde))} – ${esc(fechaCorta(hasta))}</small></div>
+        <span class="rs-estado ${d?.cifras ? 'on' : ''}">${d?.cifras ? '● Conectado' : state.config.setterIa?.url ? '● Sin cifras' : '○ Sin conectar'}</span></header>
+      <div class="rs-kpis">
         <div><span>Plantillas enviadas</span><strong>${plantilla}</strong><small>leads de este embudo con setter-ia-plantilla</small></div>
         <div><span>Respondieron</span><strong>${respondio}${pc(respondio, plantilla)}</strong><small>de este embudo${d?.cifras ? ` · ${num(c.respondieron)} en el periodo (todo el cliente)` : ''}</small></div>
         <div><span>Citas agendadas</span><strong>${n((e) => e.cita)}${pc(n((e) => e.cita), respondio)}</strong><small>de este embudo${d?.cifras ? ` · ${num(c.citas)} en el periodo · ${num(c.pasadas_a_persona)} pasadas a una persona` : ''}</small></div>

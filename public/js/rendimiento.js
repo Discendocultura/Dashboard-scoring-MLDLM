@@ -15,7 +15,8 @@ const mediana = (xs) => {
 //  llamadas: { <eventId>: { resultado, contactId, por, en }, _wa: { <cid>: { por, en } } }
 //  leads: [{ id, regAt (ISO), compra, importe }]
 //  rango (opcional): { desde, hasta } (AAAA-MM-DD) para contar solo lo hecho en esas fechas
-export function rendimientoEquipo({ eventos = [], llamadas = {}, leads = [], rango = null }) {
+//  equipo (opcional): [{ nombre, rol }] — salen todos, también quien aún no tiene actividad (sinActividad: true)
+export function rendimientoEquipo({ eventos = [], llamadas = {}, leads = [], rango = null, equipo = [] }) {
   const enRango = (iso) => !rango || (iso && iso.slice(0, 10) >= rango.desde && iso.slice(0, 10) <= rango.hasta);
   const lead = new Map(leads.map((l) => [l.id, l]));
   const personas = new Map();
@@ -60,6 +61,7 @@ export function rendimientoEquipo({ eventos = [], llamadas = {}, leads = [], ran
     if (SHOW.has(r.resultado)) { x.llamadas++; x.shows++; }
     if (r.resultado === 'venta') x.cierres++;
   }
+  for (const m of equipo) { if (m?.nombre) { const x = p(m.nombre); x.rol = x.rol || m.rol || ''; } }
   const out = [...personas.values()].map((x) => ({
     ...x, contactados: x.contactados.size,
     showRate: x.shows + x.noshows ? x.shows / (x.shows + x.noshows) : null,
@@ -67,7 +69,8 @@ export function rendimientoEquipo({ eventos = [], llamadas = {}, leads = [], ran
     conversion: x.contactados.size ? x.ventas / x.contactados.size : null,
     respuestaMediana: mediana(x.tiempos),
     en24h: x.tiempos.length ? x.tiempos.filter((h) => h <= 24).length / x.tiempos.length : null,
-  })).sort((a, b) => (b.wa + b.llamadas) - (a.wa + a.llamadas));
+    sinActividad: !x.wa && !x.llamadas && !x.noshows && !x.cierres && !Object.keys(x.resultados).length,
+  })).sort((a, b) => (b.wa + b.llamadas + b.noshows) - (a.wa + a.llamadas + a.noshows) || a.nombre.localeCompare(b.nombre, 'es'));
   const todos = out.flatMap((x) => x.tiempos);
   return {
     personas: out,
