@@ -39,7 +39,12 @@ Independientes de la paleta: `props.json → "edicion"`.
   - `frase` `{texto, destacar[], antetitulo?}`: palabras que entran una a una; las destacadas en acento y cursiva.
   - `cifra` `{hasta, prefijo, sufijo, etiqueta}`, `cronologia` `{titulo, hitos[{anio, texto}]}`,
     `cartel` `{antetitulo, titulo, lineas[{texto, en}], sello, selloEn}`, `boton` `{texto, toque, subtexto}`.
-  Mientras hay una escena de texto (`frase`, `cifra`, `cronologia`, `cartel`) no se ponen subtítulos encima.
+  - `ilustracion` `{imagen, titulo?, antetitulo?, fondo: "oscuro"|"claro", marco?, ancho?, etiquetas[{texto, x, y, en}]}`: imagen propia
+    (ilustraciones con transparencia o fotos con `marco`) que entra con «pop» sobre el burdeos de la marca, flota y señala partes con
+    etiquetas (x, y en % de la imagen). Queda por encima de y = 1120: los subtítulos siguen debajo. `efectos_auto.py` le pone `pop.mp3`.
+  - `curva` `{titulo, antetitulo?, valores[0–1], ejeX[], marca, etiqueta}`: curva que se dibuja (calidad de óvulos con la edad, pico de LH…).
+  - `checklist` `{titulo, items[{texto, en}]}`: tarjetas blancas con check que entran en el segundo `en` (estilo MLDLM).
+  Mientras hay una escena de texto (`frase`, `cifra`, `cronologia`, `cartel`, `curva`, `checklist`) no se ponen subtítulos encima.
   Ritmo: no más de ~6 s seguidos sin volver a la cara.
 
 Estilos de `src/Estilos.jsx` (cada `ediciones/*.json` elige `subtitulos`, `gancho`, `marco`, `filtro`, `layout`, `saltosAuto`, `zoomLento`):
@@ -182,3 +187,12 @@ B-rolls: los clips van en `broll/` (en el repo, para reutilizarlos gratis) con s
   «más (1,2 s) de (1 s) 60.000» y «y que ahora vas a poder viv… y que ahora vas a poder vivir» como «vas a (1,7 s) poder
   vivir», y el anuncio se entregó con las dos trabas. La señal es una palabra que dura mucho más que sus letras:
   `repasar_trabas.py` transcribe esos trozos sueltos (de silencio a silencio), donde Whisper sí las escribe.
+- MLDLM edad y cuerpo lúteo (octubre 2026): vídeos grabados con el móvil en vertical (1080×1920, 30 fps): `preparar.sh … 0`
+  (x_recorte 0). «Anuncio edad 1» y «2» eran el mismo archivo (md5 igual): compruébalo antes de editar dos veces lo mismo.
+- Las instrucciones de un doc de Google con imágenes no se pueden exportar (docs.google.com bloqueado): se leen con el conector
+  de Drive (solo texto) y las imágenes se deducen por nombre de la carpeta. Confirmar con el usuario si hay dudas.
+- En el vídeo del cuerpo lúteo Sara explica con objetos (una cápsula de huevo sorpresa como folículo, un minion como óvulo):
+  en esos tramos no se pone nada a pantalla completa; las ilustraciones van antes o justo después del gesto.
+- Kling rechazó animar una silueta femenina translúcida (filtro de contenido, sin coste): se usa la imagen con `broll` + `imagen`.
+- Magnific deja 8 vídeos a la vez; el 9.º y 10.º devuelven «parallel limit» sin cobrar: relanzar a los 10 min.
+- Subtítulos blancos de Impacto sobre fondo crema no se leen: las escenas que conviven con subtítulos van sobre burdeos.

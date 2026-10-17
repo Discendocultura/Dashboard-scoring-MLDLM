@@ -173,3 +173,126 @@ export const BotonAbajo = ({e, texto = 'Regístrate gratis', toque = 1.5, subtex
     </div>
   );
 };
+
+// Fondo claro de marca (crema y pastel) con anillos que se expanden desde el centro: para ilustraciones y listas
+const FondoClaro = ({e, ondas = true}) => {
+  const f = useCurrentFrame();
+  const pastel = e.extra?.pastel ?? e.claro;
+  return (
+    <AbsoluteFill style={{background: `radial-gradient(circle at 50% 45%, #fff 0%, ${e.claro} 45%, ${pastel} 100%)`}}>
+      {ondas && [0, 1, 2].map((k) => {
+        const t = ((f + k * 20) % 60) / 60;
+        return <div key={k} style={{position: 'absolute', left: '50%', top: '45%', width: 1400 * t, height: 1400 * t, marginLeft: -700 * t, marginTop: -700 * t,
+          borderRadius: '50%', border: `3px solid ${e.acento}`, opacity: 0.35 * (1 - t)}} />;
+      })}
+    </AbsoluteFill>
+  );
+};
+
+// Ilustración o foto propia a pantalla completa: entra con «pop» (escala con rebote), flota un poco y lleva rótulo.
+// `fondo`: "oscuro" (burdeos de marca; los subtítulos blancos se leen encima) o "claro" (crema; tapa los subtítulos).
+// La imagen queda por encima de y = 1120 para dejar sitio a los subtítulos. `marco`: foto en tarjeta redondeada.
+// `etiquetas`: [{texto, x, y, en}] flechas que señalan partes de la imagen (x, y en % de la imagen).
+export const Ilustracion = ({e, imagen, titulo, antetitulo, fondo = 'oscuro', marco = false, ancho = 820, etiquetas = []}) => {
+  const f = useCurrentFrame(); const {fps} = useVideoConfig();
+  const pop = spring({frame: f, fps, config: {damping: 9, stiffness: 170, mass: 0.8}});
+  const flota = Math.sin(f / 14) * 10;
+  const pT = spring({frame: f - 8, fps, config: {damping: 14}});
+  const oscuro = fondo === 'oscuro';
+  return (
+    <Escena fondo={oscuro ? '#000' : e.claro}>
+      {oscuro ? <FondoMarca e={e} /> : <FondoClaro e={e} />}
+      {antetitulo && <div style={{position: 'absolute', top: 200, width: '100%', textAlign: 'center', opacity: pT, fontFamily: e.fuenteTitulos, fontWeight: 900,
+        fontSize: 34, letterSpacing: 8, textTransform: 'uppercase', color: oscuro ? e.acento : e.primario}}>{antetitulo}</div>}
+      {titulo && <div style={{position: 'absolute', top: 250, left: 60, right: 60, textAlign: 'center', opacity: pT, transform: `translateY(${(1 - pT) * 30}px)`,
+        fontFamily: e.fuenteTitulos, fontWeight: 900, fontStyle: 'italic', fontSize: 92, lineHeight: 1.05, color: oscuro ? e.claro : e.primario}}>{titulo}</div>}
+      <div style={{position: 'absolute', left: (1080 - ancho) / 2, width: ancho, top: titulo ? 400 : 300, height: titulo ? 700 : 800, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transform: `translateY(${flota}px) scale(${pop})`}}>
+        <div style={{position: 'relative', display: 'inline-block', maxWidth: '100%', maxHeight: '100%'}}>
+          <Img src={staticFile(imagen)} style={{display: 'block', maxWidth: ancho, maxHeight: titulo ? 700 : 800, objectFit: 'contain',
+            ...(marco ? {borderRadius: 28, border: `8px solid ${e.claro}`, boxShadow: '0 30px 80px rgba(0,0,0,.55)'} : {filter: 'drop-shadow(0 24px 40px rgba(94,9,9,.28))'})}} />
+          {etiquetas.map((t, i) => {
+            const p = spring({frame: f - Math.round((t.en ?? 0.6) * fps), fps, config: {damping: 13}});
+            const izq = t.x > 50;
+            return <div key={i} style={{position: 'absolute', left: `${t.x}%`, top: `${t.y}%`, opacity: p}}>
+              <div style={{width: 22, height: 22, borderRadius: '50%', background: e.primario, border: '4px solid #fff', marginLeft: -11, marginTop: -11,
+                boxShadow: '0 0 0 8px rgba(134,13,14,.25)', transform: `scale(${p})`}} />
+              <div style={{position: 'absolute', top: -30, [izq ? 'right' : 'left']: 24, whiteSpace: 'nowrap', background: e.primario, color: '#fff',
+                fontFamily: e.fuenteTitulos, fontWeight: 900, fontSize: 38, padding: '10px 22px', borderRadius: 40, boxShadow: '0 10px 24px rgba(0,0,0,.3)',
+                transform: `translateX(${(1 - p) * (izq ? 40 : -40)}px)`}}>{t.texto}</div>
+            </div>;
+          })}
+        </div>
+      </div>
+    </Escena>
+  );
+};
+
+// Curva que se dibuja a pantalla completa (p. ej. calidad de los óvulos con la edad, o el pico de una hormona).
+// `valores`: puntos de 0 a 1; `ejeX`: rótulos bajo el eje; `marca`: índice del punto que se señala con `etiqueta`.
+export const Curva = ({e, titulo, antetitulo, valores = [], ejeX = [], marca, etiqueta, relleno = true}) => {
+  const f = useCurrentFrame(); const {fps} = useVideoConfig();
+  const prog = interpolate(f, [6, fps * 2.2], [0, 1], {...clamp, easing: (x) => 1 - Math.pow(1 - x, 2)});
+  const x0 = 120, x1 = 960, y0 = 1420, y1 = 760;
+  const pts = valores.map((v, i) => [x0 + ((x1 - x0) * i) / (valores.length - 1), y0 - v * (y0 - y1)]);
+  const d = pts.map((p, i) => (i ? `L${p[0]},${p[1]}` : `M${p[0]},${p[1]}`)).join(' ');
+  const pT = spring({frame: f, fps, config: {damping: 14}});
+  const verMarca = marca != null && prog >= marca / (valores.length - 1);
+  const pM = spring({frame: f - Math.round(fps * 2.2 * (marca ?? 0) / Math.max(1, valores.length - 1)), fps, config: {damping: 10}});
+  return (
+    <Escena>
+      <FondoMarca e={e} />
+      {antetitulo && <div style={{position: 'absolute', top: 360, width: '100%', textAlign: 'center', opacity: pT, fontFamily: e.fuenteTitulos, fontWeight: 900,
+        fontSize: 34, letterSpacing: 8, textTransform: 'uppercase', color: e.acento}}>{antetitulo}</div>}
+      <div style={{position: 'absolute', top: 410, left: 60, right: 60, textAlign: 'center', opacity: pT, fontFamily: e.fuenteTitulos, fontWeight: 900,
+        fontStyle: 'italic', fontSize: 80, lineHeight: 1.05, color: e.claro}}>{titulo}</div>
+      <svg width="1080" height="1920" viewBox="0 0 1080 1920" style={{position: 'absolute', inset: 0}}>
+        <defs>
+          <linearGradient id="relleno" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={e.acento} stopOpacity=".55" /><stop offset="1" stopColor={e.acento} stopOpacity="0" /></linearGradient>
+          <clipPath id="avance"><rect x="0" y="0" width={x0 + (x1 - x0) * prog + 4} height="1920" /></clipPath>
+        </defs>
+        <line x1={x0} y1={y0} x2={x1} y2={y0} stroke={e.claro} strokeOpacity=".5" strokeWidth="4" />
+        {ejeX.map((t, i) => <text key={i} x={x0 + ((x1 - x0) * i) / Math.max(1, ejeX.length - 1)} y={y0 + 60} textAnchor="middle" fontFamily={e.fuenteSubs}
+          fontWeight="900" fontSize="38" fill={e.claro} fillOpacity=".8">{t}</text>)}
+        <g clipPath="url(#avance)">
+          {relleno && <path d={`${d} L${x1},${y0} L${x0},${y0} Z`} fill="url(#relleno)" />}
+          <path d={d} stroke={e.claro} strokeWidth="12" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+        </g>
+        {verMarca && <g transform={`translate(${pts[marca][0]},${pts[marca][1]}) scale(${pM})`}>
+          <circle r="34" fill={e.acento} fillOpacity=".35" />
+          <circle r="18" fill={e.claro} stroke={e.primario} strokeWidth="6" />
+        </g>}
+      </svg>
+      {verMarca && etiqueta && <div style={{position: 'absolute', left: Math.min(700, Math.max(80, pts[marca][0] - 200)), top: pts[marca][1] - 150, width: 400, textAlign: 'center',
+        opacity: pM, transform: `scale(${0.7 + 0.3 * pM})`}}>
+        <span style={{background: e.claro, color: e.primario, fontFamily: e.fuenteTitulos, fontWeight: 900, fontSize: 40, padding: '12px 24px', borderRadius: 40,
+          boxShadow: '0 12px 30px rgba(0,0,0,.4)'}}>{etiqueta}</span>
+      </div>}
+    </Escena>
+  );
+};
+
+// Lista de comprobación en tarjetas blancas (estilo MLDLM): cada punto entra con su check en el segundo `en`
+export const Checklist = ({e, titulo, items = []}) => {
+  const f = useCurrentFrame(); const {fps} = useVideoConfig();
+  const pT = spring({frame: f, fps, config: {damping: 14}});
+  return (
+    <Escena fondo={e.claro}>
+      <FondoClaro e={e} ondas={false} />
+      <div style={{position: 'absolute', top: 420, left: 70, right: 70, textAlign: 'center', opacity: pT, fontFamily: e.fuenteTitulos, fontWeight: 900,
+        fontStyle: 'italic', fontSize: 86, lineHeight: 1.05, color: e.primario}}>{titulo}</div>
+      <div style={{position: 'absolute', top: 700, left: 70, right: 70}}>
+        {items.map((it, i) => {
+          const p = spring({frame: f - Math.round((it.en ?? 0.4 + i * 0.6) * fps), fps, config: {damping: 13}});
+          const c = spring({frame: f - Math.round((it.en ?? 0.4 + i * 0.6) * fps) - 6, fps, config: {damping: 8, stiffness: 200}});
+          return <div key={i} style={{display: 'flex', alignItems: 'center', gap: 28, background: '#fff', borderRadius: 20, border: `1px solid ${e.extra?.linea ?? e.acento}`,
+            boxShadow: '0 14px 40px rgba(134,13,14,.12)', padding: '34px 34px', marginBottom: 32, opacity: p, transform: `translateX(${(1 - p) * 120}px)`}}>
+            <div style={{flexShrink: 0, width: 70, height: 70, borderRadius: '50%', background: e.primario, color: '#fff', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', fontSize: 44, fontWeight: 900, transform: `scale(${c})`}}>✓</div>
+            <div style={{fontFamily: e.fuenteTitulos, fontWeight: 900, fontSize: 54, lineHeight: 1.15, color: e.extra?.titulos ?? e.oscuro}}>{it.texto}</div>
+          </div>;
+        })}
+      </div>
+    </Escena>
+  );
+};

@@ -1,7 +1,32 @@
 [
- {"archivo": "sonidos/whoosh.mp3", "para": "entrada de tarjetas y textos", "db": -14},
- {"archivo": "sonidos/apagon.mp3", "para": "parpadeo y apagón de luz", "db": -10},
- {"archivo": "sonidos/sello.mp3", "para": "sello o golpe seco (p. ej. GRATIS); el golpe llega a los 0,24 s", "db": -9},
- {"archivo": "sonidos/contador.mp3", "para": "cifra que sube con tintineo final", "db": -14},
- {"archivo": "sonidos/click.mp3", "para": "toque de botón", "db": -10}
+ {
+  "archivo": "sonidos/whoosh.mp3",
+  "para": "entrada de tarjetas y textos",
+  "db": -14
+ },
+ {
+  "archivo": "sonidos/apagon.mp3",
+  "para": "parpadeo y apagón de luz",
+  "db": -10
+ },
+ {
+  "archivo": "sonidos/sello.mp3",
+  "para": "sello o golpe seco (p. ej. GRATIS); el golpe llega a los 0,24 s",
+  "db": -9
+ },
+ {
+  "archivo": "sonidos/contador.mp3",
+  "para": "cifra que sube con tintineo final",
+  "db": -14
+ },
+ {
+  "archivo": "sonidos/click.mp3",
+  "para": "toque de botón",
+  "db": -10
+ },
+ {
+  "archivo": "sonidos/pop.mp3",
+  "para": "aparición de una ilustración o burbuja (pop); sintetizado con ffmpeg, gratis",
+  "db": -12
+ }
 ]

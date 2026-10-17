@@ -113,5 +113,157 @@
   "generado_con": "Magnific · Seedream 5 Pro (imagen, 100) + Kling 2.5 720p 5 s (140)",
   "coste": 240,
   "formato": "720x1280, 5 s"
+ },
+ {
+  "archivo": "broll/edad_consulta.mp4",
+  "se_ve": "Mujer de unos 38 años de espaldas en la consulta de ginecología; la doctora le acerca un informe",
+  "temas": [
+   "consulta",
+   "diagnóstico",
+   "edad"
+  ],
+  "marca": "mldlm",
+  "usado_en": [
+   "edad"
+  ],
+  "coste": "240 (Seedream 5 Pro 100 + Kling 2.5 720p 140)"
+ },
+ {
+  "archivo": "broll/edad_reloj.mp4",
+  "se_ve": "Reloj de arena dorado con la arena cayendo sobre fondo burdeos",
+  "temas": [
+   "tiempo",
+   "contrarreloj",
+   "edad"
+  ],
+  "marca": "mldlm",
+  "usado_en": [
+   "edad"
+  ],
+  "coste": "240 (Seedream 5 Pro 100 + Kling 2.5 720p 140)"
+ },
+ {
+  "archivo": "broll/edad_pareja.mp4",
+  "se_ve": "Pareja cogida de la mano en el sofá, luz cálida",
+  "temas": [
+   "pareja",
+   "apoyo",
+   "fertilidad masculina"
+  ],
+  "marca": "mldlm",
+  "usado_en": [
+   "edad"
+  ],
+  "coste": "240 (Seedream 5 Pro 100 + Kling 2.5 720p 140)"
+ },
+ {
+  "archivo": "broll/edad_libreta.mp4",
+  "se_ve": "Manos escribiendo en una libreta con café, vista cenital",
+  "temas": [
+   "planificar",
+   "decisiones",
+   "claridad"
+  ],
+  "marca": "mldlm",
+  "usado_en": [
+   "edad"
+  ],
+  "coste": "240 (Seedream 5 Pro 100 + Kling 2.5 720p 140)"
+ },
+ {
+  "archivo": "broll/edad_clase.mp4",
+  "se_ve": "Mujer de espaldas viendo una clase online en el portátil, salón acogedor",
+  "temas": [
+   "formación online",
+   "clase gratuita"
+  ],
+  "marca": "mldlm",
+  "usado_en": [
+   "edad"
+  ],
+  "coste": "240 (Seedream 5 Pro 100 + Kling 2.5 720p 140)"
+ },
+ {
+  "archivo": "broll/luteo_fecundacion.mp4",
+  "se_ve": "Espermatozoides llegando a un óvulo luminoso (3D microscópico)",
+  "temas": [
+   "fecundación",
+   "óvulo"
+  ],
+  "marca": "mldlm",
+  "usado_en": [
+   "luteo"
+  ],
+  "coste": "240 (Seedream 5 Pro 100 + Kling 2.5 720p 140)"
+ },
+ {
+  "archivo": "broll/luteo_implantacion.mp4",
+  "se_ve": "Embrión que se implanta en el endometrio mullido (3D microscópico)",
+  "temas": [
+   "implantación",
+   "endometrio"
+  ],
+  "marca": "mldlm",
+  "usado_en": [
+   "luteo"
+  ],
+  "coste": "240 (Seedream 5 Pro 100 + Kling 2.5 720p 140)"
+ },
+ {
+  "archivo": "broll/luteo_embarazo.mp4",
+  "se_ve": "Mujer embarazada junto a la ventana acariciándose la tripa, sin cara",
+  "temas": [
+   "embarazo"
+  ],
+  "marca": "mldlm",
+  "usado_en": [
+   "luteo"
+  ],
+  "coste": "240 (Seedream 5 Pro 100 + Kling 2.5 720p 140)"
+ },
+ {
+  "archivo": "broll/luteo_ecografia.mp4",
+  "se_ve": "Manos sosteniendo una ecografía de embarazo",
+  "temas": [
+   "ecografía",
+   "embarazo",
+   "primer trimestre"
+  ],
+  "marca": "mldlm",
+  "usado_en": [
+   "luteo"
+  ],
+  "coste": "240 (Seedream 5 Pro 100 + Kling 2.5 720p 140)"
+ },
+ {
+  "archivo": "broll/luteo_cuerpo.png",
+  "se_ve": "IMAGEN (Kling la rechazó por el filtro): silueta femenina translúcida con útero y ovarios que brillan; usar con `imagen`",
+  "temas": [
+   "cuerpo de la mujer",
+   "ciclo",
+   "aparato reproductor"
+  ],
+  "marca": "mldlm",
+  "usado_en": [
+   "luteo"
+  ],
+  "coste": "100 (Seedream 5 Pro)"
+ },
+ {
+  "archivo": "broll/mldlm/",
+  "se_ve": "Ilustraciones de la clienta (MLDLM) recortadas y con fondo transparente: foliculo, foliculo_pequeno, foliculo_rompe, foliculos_crecen, ovulacion, liberacion, utero, endometrio, cuerpo_luteo (foto real)",
+  "temas": [
+   "folículo",
+   "ovulación",
+   "útero",
+   "endometrio",
+   "cuerpo lúteo"
+  ],
+  "marca": "mldlm",
+  "usado_en": [
+   "edad",
+   "luteo"
+  ],
+  "coste": "0 (de la clienta)"
  }
 ]

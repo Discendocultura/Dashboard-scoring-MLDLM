@@ -12,6 +12,11 @@ for a in p.get('animaciones', []):
     if a['tipo'] == 'apagon':
         ef.append({'archivo': 'sonidos/apagon.mp3', 'en': round(s - 0.1, 2), 'db': -10})
         continue
+    if a['tipo'] == 'ilustracion':                      # las ilustraciones aparecen con «pop»
+        ef.append({'archivo': 'sonidos/pop.mp3', 'en': round(s, 2), 'db': -10})
+        continue
+    if a['tipo'] == 'checklist':
+        ef += [{'archivo': 'sonidos/pop.mp3', 'en': round(s + it.get('en', 0.4 + i * 0.6) + 0.2, 2), 'db': -16} for i, it in enumerate(a.get('items', []))]
     if a['tipo'] != 'rotulo':
         ef.append({'archivo': 'sonidos/whoosh.mp3', 'en': round(max(0, s - 0.1), 2), 'db': -22 if suave else -16})
     if a['tipo'] == 'chat':

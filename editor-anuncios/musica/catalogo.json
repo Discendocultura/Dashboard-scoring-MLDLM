@@ -29,7 +29,8 @@
    "camino2",
    "camino3",
    "camino4",
-   "camino5"
+   "camino5",
+   "edad"
   ],
   "prompt": "Instrumental, no vocals. Warm, intimate and emotional underscore for a women's fertility education ad narrated by a midwife, meant to sit softly under a voice-over. Soft felt piano, gentle warm strings, subtle light pads, very light acoustic guitar touches. 0-40s: tender, intimate, slightly melancholic and empathetic (the frustration of waiting each month), sparse and calm. 40-90s: gently building warmth and understanding, a soft pulse appears, still delicate. 90-150s: hopeful and uplifting, fuller strings, a sense of clarity, calm confidence and a path forward (like walking the Camino de Santiago at sunrise). 150-180s: warm, resolved, peaceful ending with a clean final chord. Around 75 BPM, consistent mood without sudden drops or loud hits, elegant, not cheesy, no drums except very soft percussion in the hopeful part.",
   "musica_db": -14
@@ -74,6 +75,20 @@
    "claves3-explicador"
   ],
   "prompt": "Instrumental explainer-video underscore for a 50-second educational ad about history and critical thinking, no vocals. Curious and clever: pizzicato strings, light marimba and celesta, soft upright bass, brushed percussion, around 100 BPM. 0-12s: inquisitive, slightly puzzled, like posing a question. 12-30s: building understanding, playful patterns adding layers, like ideas connecting on a whiteboard. 30-50s: warm, confident and inspiring with gentle strings joining. 50-60s: neat resolved ending. Light, elegant, not childish, mixed to sit under a voice-over.",
+  "musica_db": -10
+ },
+ {
+  "archivo": "musica/explicador-curioso-largo.mp3",
+  "titulo": "Curiosa de pizarra (versión larga)",
+  "marca": "claves/mldlm",
+  "estilo": "La «Curiosa de pizarra» empalmada tres veces con fundidos de 3 s para vídeos de hasta 2 min 45 s.",
+  "duracion": 165.7,
+  "puntos": "Empalmes hacia el 54 y el 108.",
+  "generada_con": "ffmpeg acrossfade (gratis)",
+  "usada_en": [
+   "luteo"
+  ],
+  "prompt": "",
   "musica_db": -10
  }
 ]

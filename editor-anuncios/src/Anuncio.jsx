@@ -110,6 +110,7 @@ const RENDER = {titulares: A.Titulares, apagon: A.Apagon, cinta: A.Cinta, linea:
   test: A.Test, calendario: A.Calendario, preguntas: A.Preguntas, lista: A.Lista, montana: A.Montana, semilla: A.Semilla, app: A.App, camino: A.Camino,
   // estilo «Impacto» (pantalla completa)
   broll: I.BRoll, frase: I.Frase, cifra: I.Cifra, cronologia: I.Linea, cartel: I.Cartel, boton: I.BotonAbajo,
+  ilustracion: I.Ilustracion, curva: I.Curva, checklist: I.Checklist,
   // Nativo
   nota: S.Nota, chat: S.Chat, pov: S.Pov,
   // Documental
@@ -119,7 +120,7 @@ const RENDER = {titulares: A.Titulares, apagon: A.Apagon, cinta: A.Cinta, linea:
   // Explicador (pizarra de la mitad de abajo)
   ciclo: S.PizarraCiclo, numero: S.PizarraNumero, grafica: S.PizarraGrafica, flechas: S.PizarraFlechas, apuntes: S.PizarraApuntes};
 // Escenas de texto a pantalla completa: mientras están, no se ponen subtítulos encima
-const TAPAN_SUBTITULOS = ['contador', 'frase', 'cifra', 'cronologia', 'cartel', 'mapa'];
+const TAPAN_SUBTITULOS = ['contador', 'frase', 'cifra', 'cronologia', 'cartel', 'mapa', 'curva', 'checklist'];
 
 export const Anuncio = ({video, fondo, words, gancho, grandes, zooms, animaciones = [], estilo: e, ed = {}, canal, ticker, locutor}) => {
   const f = useCurrentFrame(); const {fps, durationInFrames} = useVideoConfig(); const t = f / fps;
