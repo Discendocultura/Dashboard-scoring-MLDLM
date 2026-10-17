@@ -47,6 +47,8 @@ test('setter IA: la dirección se guarda limpia en la configuración', () => {
   assert.equal(sanitizeConfig({ setterIa: { url: 'http://inseguro.com' } }).setterIa.url, '');
   assert.equal(sanitizeConfig({ setterIa: { url: 'javascript:alert(1)' } }).setterIa.url, '');
   assert.equal(sanitizeConfig({}).setterIa.url, '');
+  assert.equal(sanitizeConfig({ setterIa: { url: 'https://setter-ia.x.workers.dev/login' } }).setterIa.url, 'https://setter-ia.x.workers.dev', 'la de entrar vale');
+  assert.equal(sanitizeConfig({ setterIa: { url: 'https://setter-ia.x.workers.dev/#/conversaciones?f=1' } }).setterIa.url, 'https://setter-ia.x.workers.dev');
 });
 
 test('setter IA: workflows de la plantilla y de la respuesta solo con el setter conectado', () => {

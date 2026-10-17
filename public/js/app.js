@@ -13379,8 +13379,9 @@ function pintarSetterConexiones() {
     : 'Para ver sus cifras en <strong>Rendimiento</strong>, añade en Cloudflare (Workers y Pages → este dashboard → Configuración → Variables y secretos) el secreto <code>SETTER_RESUMEN_KEY</code> (vale para todos los clientes) con el mismo valor que <code>RESUMEN_KEY</code> del setter, y vuelve a desplegar.';
 }
 $('#cx-setter-guardar').addEventListener('click', async () => {
-  const url = $('#cx-setter-url').value.trim().replace(/\/+$/, '').replace(/\/#.*$/, '');
-  if (url && !/^https:\/\/[^\s/]+(\/\S*)?$/i.test(url)) { $('#cx-setter-status').textContent = 'Pega la dirección completa, empezando por https://'; return; }
+  // Vale la de entrar (…/login) o cualquier página del setter: se guarda solo el principio (https://dominio).
+  let url = $('#cx-setter-url').value.trim();
+  if (url) { try { const u = new URL(url); if (u.protocol !== 'https:') throw new Error(); url = u.origin; } catch { $('#cx-setter-status').textContent = 'Pega la dirección completa, empezando por https://'; return; } }
   $('#cx-setter-status').textContent = 'Guardando…';
   try {
     const vistos = new Set();
