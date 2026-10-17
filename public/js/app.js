@@ -1986,7 +1986,7 @@ function renderConvHero(m, filas) {
   const t = (ico, tono, et, v, sub) => `<div class="cv-hero-card cv-t-${tono}"><span class="cv-hero-ico" aria-hidden="true">${ico}</span><span class="cv-hero-et">${et}</span><strong>${v}</strong><small>${sub}</small></div>`;
   const pasos = [
     { ico: '📝', label: 'Se registraron', n: m.total },
-    ...(m.clases.length ? [{ ico: '🎓', label: 'Empezaron la clase 1', n: m[m.clases[0]] }] : []),
+    ...m.clases.map((c, i) => ({ ico: '🎓', label: `Empezaron la clase ${i + 1}`, n: m[c] })),
     ...(m.videos?.length && filas.some(([l]) => String(l).startsWith('Vieron el')) ? [] : [{ ico: '🎥', label: 'Vieron el directo o la grabación', n: m.live + m.soloReplay }]),
     ...(m.llamada ? [{ ico: '📞', label: 'Agendaron llamada', n: m.llamada }] : []),
     ...(m.inicioPago ? [{ ico: '💳', label: 'Iniciaron el pago', n: m.inicioPago }] : []),
