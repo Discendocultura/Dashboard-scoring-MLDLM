@@ -5495,6 +5495,15 @@ details.ayuda-vista.plegada .ayuda-cuerpo .btn { display: none; }
 
 .cv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 14px; margin-bottom: 14px; }
 .cv-grid > .metric-card { margin-bottom: 0; }
+/* Setter y «Qué predice la compra»: todo el ancho, con las filas repartidas en dos columnas */
+.cv-grid > .cv-ancho { grid-column: 1 / -1; }
+@media (min-width: 900px) {
+  .cv-lift #lift-table { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 40px; }
+  .cv-lift #lift-table > p, .cv-lift #lift-table > .cv-vacio { grid-column: 1 / -1; }
+  .cv-setter #setter-table { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 40px; align-items: start; }
+  .cv-setter #setter-table > .cv-vacio { grid-column: 1 / -1; }
+  .cv-setter .cv-h4 { margin-top: 0; }
+}
 .cv-barras { display: flex; flex-direction: column; gap: 10px; }
 .cv-fila { --b: var(--accent); display: grid; grid-template-columns: minmax(120px, 1.1fr) 1.4fr auto; align-items: center; gap: 12px; }
 .cv-et { display: flex; flex-direction: column; min-width: 0; font-size: 13px; }

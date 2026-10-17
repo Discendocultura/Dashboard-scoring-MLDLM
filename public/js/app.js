@@ -2841,13 +2841,14 @@ function renderSetterMetrics(m) {
       <div class="cv-vs-x">${veces ? `<b>×${veces.toLocaleString('es-ES', { maximumFractionDigits: 1 })}</b><small>más ventas</small>` : '<b>vs</b>'}</div>
       <div class="cv-vs-b"><span>🔕 Sin contactar</span><strong>${pctOf(st.compraNoContactadas, st.noContactadas)}</strong><small>${st.compraNoContactadas} de ${st.noContactadas} compraron</small></div>
     </div>
-    ${st.resultados.some((r) => r.leads) ? `<h4 class="cv-h4">Según el resultado anotado</h4><div class="cv-barras">${barrasCv(st.resultados.filter((r) => r.leads).map((r) => ({ label: esc(r.label), sub: `${r.compras} de ${r.leads}`, v: r.leads ? r.compras / r.leads : 0, txt: pctOf(r.compras, r.leads) })))}</div>` : ''}`;
+    ${st.resultados.some((r) => r.leads) ? `<div><h4 class="cv-h4">Según el resultado anotado</h4><div class="cv-barras">${barrasCv(st.resultados.filter((r) => r.leads).map((r) => ({ label: esc(r.label), sub: `${r.compras} de ${r.leads}`, v: r.leads ? r.compras / r.leads : 0, txt: pctOf(r.compras, r.leads) })))}</div></div>` : ''}`;
 }
 
 // Qué señales predicen la compra (para afinar la puntuación con datos reales).
 function renderLift(m) {
   const rows = [...m.lift].filter((r) => r.con).sort((a, b) => (b.veces ?? -1) - (a.veces ?? -1));
   const sinDatos = m.lift.filter((r) => !r.con).map((r) => r.label);
+  if (!m.compra) { $('#lift-table').innerHTML = '<div class="cv-vacio"><span aria-hidden="true">✨</span><p>Aún no hay ventas en este lanzamiento. En cuanto las haya, aquí verás qué señales (ver las clases, ir al directo, la VIP…) multiplican la compra.</p></div>'; renderPesos(m.launch); return; }
   $('#lift-table').innerHTML = barrasCv(rows.map((r) => ({ label: esc(r.label), sub: `compran ${pctOf(r.convCon * r.con, r.con)} con ella (${r.con}) · ${pctOf(r.convSin * r.sin, r.sin)} sin ella`, v: r.veces || 0, txt: r.veces == null ? '–' : `×${r.veces.toLocaleString('es-ES', { maximumFractionDigits: 1 })}`, tono: r.veces >= 2 ? 'fuerte' : r.veces != null && r.veces < 1 ? 'flojo' : '' }))) + (sinDatos.length ? `<p class="muted small">Aún sin datos: ${sinDatos.map(esc).join(' · ')}.</p>` : '');
   renderPesos(m.launch);
 }
