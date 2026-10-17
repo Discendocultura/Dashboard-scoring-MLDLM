@@ -5415,3 +5415,7 @@ details.ayuda-vista.plegada .ayuda-cuerpo .btn { display: none; }
   .topbar .tb-menu:not([open]) .tb-menu-panel { display: none !important; } /* cerrado no ocupa (sin desplazamiento lateral) */
   .ctx-sep { display: none; }
 }
+/* Operativa: el título de la columna se cambia pulsándolo */
+.op-col-ren { cursor: text; border-radius: 6px; padding: 1px 4px; margin: -1px -4px; }
+.op-col-ren:hover, .op-col-ren:focus-visible { background: color-mix(in srgb, var(--accent) 10%, transparent); outline: none; box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--accent) 50%, transparent); }
+.op-col-input { width: 100%; font: inherit; font-weight: 700; padding: 2px 6px; border: 1px solid var(--accent); border-radius: 6px; background: var(--surface); color: var(--text); }

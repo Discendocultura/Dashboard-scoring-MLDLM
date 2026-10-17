@@ -548,6 +548,9 @@ Los roles y lo que ve cada uno se configuran en el botón **Equipo → Roles y p
 
 Las contraseñas generales `ADMIN_PASSWORD` / `SETTER_PASSWORD` siguen funcionando (dejando el email vacío) como acceso de emergencia, salvo que el superadmin las desactive (ver **Seguridad**).
 
+## Operativa: nombre de las columnas
+En un tablero (no en los de embudo, que son automáticos), quien gestiona el proyecto cambia el nombre de una columna **pulsando su título**: sale un campo en su sitio; **Intro** o pulsar fuera guarda y **Esc** lo deja como estaba (`editarNombreColumna` en `public/js/operativa-panel.js`, guarda con `tablero-guardar`). También sigue en «✏️ Editar tablero».
+
 ## Tareas
 Cada lanzamiento tiene su pestaña **Tareas**, agrupadas por fase (preparación → cierre) con barra de progreso, vencidas y filtros (pendientes, mías, vencidas, hechas, por persona). La admin crea, edita y borra (también varias a la vez con «Seleccionar», o todas con «Eliminar todas»); cada tarea se asigna a una persona o a todo un rol y, si se marca «Avisar», le llega un email. El resto marca como hechas las suyas o las de su rol. Se ven en **Lista** (por fases) o en **Tablero** kanban: una columna por fase (Preparación agrupada por subcategorías), las columnas extra que cree la admin (comunes a todos los lanzamientos; se renombran, mueven, colorean y borran con «⋯») y **✅ Completadas** al final: al marcar la casilla la tarjeta salta ahí tachada. La admin arrastra tarjetas entre columnas (o elige la columna al abrir la tarea); el resto marca las suyas como completadas. La fase **Preparación** se divide en subcategorías (Dashboard y herramientas, Oferta y pagos, Contenido y creatividades, Comunicación, Revisión y pruebas, Equipo y reuniones, Otras): se deducen del título y se pueden elegir al crear o editar la tarea.
 

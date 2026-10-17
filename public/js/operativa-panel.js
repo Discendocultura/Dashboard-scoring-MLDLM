@@ -167,6 +167,8 @@ export async function abrirOperativa(opts) {
     dlg.querySelector('#op-nueva').addEventListener('click', () => { creando = true; abierta = null; pintar(); });
     dlg.querySelector('#op-importar-btn')?.addEventListener('click', () => dlg.querySelector('#op-importar').click());
     dlg.addEventListener('click', onClick);
+    // Cambiar el nombre de una columna pulsando su título (Intro o al salir guarda; Esc lo deja como estaba).
+    dlg.addEventListener('click', (e) => { const n = e.target.closest('[data-op-col-ren]'); if (n && !n.querySelector('input')) editarNombreColumna(n); });
     dlg.addEventListener('pointerdown', (e) => { const a = e.target.closest('[data-op-ancho]'); if (a && e.button === 0) empezarAncho(e, a); });
     dlg.addEventListener('dblclick', (e) => {
       const a = e.target.closest('[data-op-ancho]');
@@ -240,7 +242,7 @@ export async function abrirOperativa(opts) {
       moverTableros(ids);
     });
     // Las tareas del calendario se abren también con el teclado (Intro / espacio).
-    dlg.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.op-cal-t')) { e.preventDefault(); e.target.click(); } });
+    dlg.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.op-cal-t, [data-op-col-ren]')) { e.preventDefault(); e.target.click(); } });
     // «＋ Añadir tarea»: Intro añade (Mayús+Intro, salto de línea) y Esc cierra.
     dlg.addEventListener('keydown', (e) => {
       if (!e.target.matches?.('.op-add textarea')) return;
@@ -527,11 +529,11 @@ function vistaTablero(lista, hoy) {
   const suyas = lista.filter((t) => tabDeT(t).id === tab.id);
   const ayuda = tab.virtual
     ? `🚀 <strong>Tablero de «${esc(tab.nombre)}»</strong>: son las tareas de ese lanzamiento (las de Plan → Tareas), con lo que hagas aquí guardado allí. Cuando crees otro lanzamiento en este mismo embudo, este tablero pasará a ser el del nuevo, con sus tareas.`
-    : `Arrastra las tarjetas a otra columna, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ de una tarjeta para completarla. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.`;
+    : `Arrastra las tarjetas a otra columna, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ de una tarjeta para completarla. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.${gestiona(fProy) ? ' Pulsa el título de una columna para cambiarle el nombre.' : ''}`;
   return `${barra}${rangos}<p class="op-ayuda">${ayuda}</p>
   <div class="op-tablero${quieto}${tab.virtual ? ' es-embudo' : ''}" style="--op-ncol:${tab.columnas.length};${estiloAnchos(`${fProy}|${tab.id}`, tab.columnas.map((c) => c.id), true)}">${tab.columnas.map((c, i) => {
     const ts = suyas.filter((t) => columnaDeTarea(t, tab) === c.id).sort(porOrden);
-    return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header${gestiona(fProy) && !tab.virtual ? ` class="op-col-arr" draggable="true" data-op-col-arr="${esc(c.id)}" title="Arrastra para mover la columna a un lado u otro"` : ''}><span class="op-col-dot"></span><span class="op-col-nom" title="${esc(c.nombre)}">${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${esc(c.id)}" title="Nueva tarea en «${esc(c.nombre)}»" aria-label="Nueva tarea en ${esc(c.nombre)}">＋</button></header>
+    return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header${gestiona(fProy) && !tab.virtual ? ` class="op-col-arr" draggable="true" data-op-col-arr="${esc(c.id)}" title="Arrastra para mover la columna a un lado u otro"` : ''}><span class="op-col-dot"></span><span class="op-col-nom${gestiona(fProy) && !tab.virtual ? ' op-col-ren' : ''}" ${gestiona(fProy) && !tab.virtual ? `data-op-col-ren="${esc(c.id)}" role="button" tabindex="0" title="«${esc(c.nombre)}» · pulsa para cambiar el nombre"` : `title="${esc(c.nombre)}"`}>${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${esc(c.id)}" title="Nueva tarea en «${esc(c.nombre)}»" aria-label="Nueva tarea en ${esc(c.nombre)}">＋</button></header>
       <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div>${pieColumna(c.id)}${asaAncho(c.id)}</section>`;
   }).join('')}</div>`;
 }
@@ -599,6 +601,32 @@ async function moverTableros(ids) {
   ultimoTablero = `${fProy}|${fTab}|${fEmb}|${fEtq}`; // sin la animación de entrada
   pintarVista();
   try { await guardarTableros({ op: 'tablero-orden', proyecto: fProy, ids }); } catch (err) { d.tableros = antes; window.alert(err.message); pintarVista(); }
+}
+// Título de columna editable en el sitio: un campo en lugar del nombre, sin poder arrastrar la columna mientras.
+function editarNombreColumna(span) {
+  const tab = tabsDe(fProy).find((b) => b.id === fTab) || tabsDe(fProy)[0];
+  const id = span.dataset.opColRen;
+  const col = tab?.columnas.find((c) => c.id === id);
+  if (!col || tab.virtual || !gestiona(fProy)) return;
+  span.closest('header')?.setAttribute('draggable', 'false');
+  span.innerHTML = `<input class="op-col-input" maxlength="40" value="${esc(col.nombre)}" aria-label="Nombre de la columna">`;
+  const inp = span.querySelector('input');
+  inp.focus();
+  inp.select();
+  let hecho = false;
+  const fin = (guardar) => {
+    if (hecho) return;
+    hecho = true;
+    const nombre = inp.value.trim().slice(0, 40);
+    if (!guardar || !nombre || nombre === col.nombre) { pintarVista(); return; }
+    moverColumnas(tab, tab.columnas.map((c) => (c.id === id ? { ...c, nombre } : c)));
+  };
+  inp.addEventListener('keydown', (ev) => {
+    ev.stopPropagation();
+    if (ev.key === 'Enter') { ev.preventDefault(); fin(true); } else if (ev.key === 'Escape') { ev.preventDefault(); fin(false); }
+  });
+  inp.addEventListener('blur', () => fin(true));
+  ['click', 'mousedown', 'dragstart'].forEach((t) => inp.addEventListener(t, (ev) => ev.stopPropagation()));
 }
 // Guarda el nuevo orden de las columnas de un tablero (se ve ya, antes de que conteste el servidor).
 async function moverColumnas(tab, columnas) {
