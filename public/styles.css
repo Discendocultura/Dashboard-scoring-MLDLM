@@ -5389,7 +5389,7 @@ details.ayuda-vista.plegada .ayuda-cuerpo .btn { display: none; }
 .nota-envios .envio-op { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 6px; padding: 7px 12px; font-size: 12.5px; cursor: help; }
 .nota-envios .envio-op strong { font-size: 13px; }
 /* Subpestañas en una sola fila que se desliza */
-.subviews { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
+.subviews, .subviews:not(.msubs), .subviews.msubs { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: thin; padding-top: 3px; padding-bottom: 6px; }
 .subviews > * { flex: 0 0 auto; }
 /* La barra de arriba ya solo tiene lo general: con texto visible */
 @media (min-width: 900px) {
