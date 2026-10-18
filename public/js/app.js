@@ -13584,15 +13584,18 @@ function pintarSetterConexiones() {
   cxPlantillas = (state.config.setterIa?.plantillas || []).map((p) => ({ ...p, fija: true }));
   pintarPlantillasCx();
   $('#cx-setter-status').textContent = '';
+  $('#cx-setter-status-url').textContent = '';
   $('#cx-setter-clave').innerHTML = state.setterResumen
     ? '✓ Clave de las cifras puesta en Cloudflare.'
     : 'Para ver sus cifras en <strong>Rendimiento</strong>, añade en Cloudflare (Workers y Pages → este dashboard → Configuración → Variables y secretos) el secreto <code>SETTER_RESUMEN_KEY</code> (vale para todos los clientes) con el mismo valor que <code>RESUMEN_KEY</code> del setter, y vuelve a desplegar.';
 }
-$('#cx-setter-guardar').addEventListener('click', async () => {
+// Se guarda con el botón de al lado de la dirección, con Enter en ella o con el de abajo (dirección y plantillas).
+async function guardarSetter(st) {
   // Vale la de entrar (…/login) o cualquier página del setter: se guarda solo el principio (https://dominio).
   let url = $('#cx-setter-url').value.trim();
-  if (url) { try { const u = new URL(url); if (u.protocol !== 'https:') throw new Error(); url = u.origin; } catch { $('#cx-setter-status').textContent = 'Pega la dirección completa, empezando por https://'; return; } }
-  $('#cx-setter-status').textContent = 'Guardando…';
+  if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
+  if (url) { try { const u = new URL(url); if (u.protocol !== 'https:') throw new Error(); url = u.origin; } catch { st.textContent = 'Pega la dirección completa, empezando por https://'; return; } }
+  st.textContent = 'Guardando…';
   try {
     const vistos = new Set();
     const plantillas = cxPlantillas.filter((p) => p.nombre.trim()).map((p) => {
@@ -13604,9 +13607,13 @@ $('#cx-setter-guardar').addEventListener('click', async () => {
     const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, setterIa: { url, plantillas } } });
     state.config = config;
     pintarSetterConexiones();
-    $('#cx-setter-status').textContent = 'Guardado ✓';
-  } catch (e) { $('#cx-setter-status').textContent = e.message; }
-});
+    pintarLabia();
+    st.textContent = url ? `Guardado ✓ · ${url}` : 'Guardado ✓';
+  } catch (e) { st.textContent = e.message; }
+}
+$('#cx-setter-guardar').addEventListener('click', () => guardarSetter($('#cx-setter-status')));
+$('#cx-setter-guardar-url').addEventListener('click', () => guardarSetter($('#cx-setter-status-url')));
+$('#cx-setter-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); guardarSetter($('#cx-setter-status-url')); } });
 $('#cx-sendflow').addEventListener('click', (e) => { if (e.target.closest('[data-sf-reintentar]')) probarSendflow({ reintentar: true }); });
 // SendFlow bloquea la clave si se le pide demasiado: el botón descansa 30 s entre pruebas.
 async function probarSendflow({ reintentar = false } = {}) {

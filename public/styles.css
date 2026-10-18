@@ -5702,3 +5702,6 @@ details.ayuda-vista.plegada .ayuda-cuerpo .btn { display: none; }
   .topbar .aq-flask { width: 26px; height: 26px; }
   .topbar .brand-sep, .topbar .brand #brand-nombre { display: none; }
 }
+.cx-url-fila { display: flex; gap: 8px; align-items: center; }
+.cx-url-fila input { flex: 1 1 auto; min-width: 0; }
+.cx-url-fila .btn { flex: none; }
