@@ -5648,3 +5648,39 @@ details.ayuda-vista.plegada .ayuda-cuerpo .btn { display: none; }
 .an-gpt .an-mas-btns { display: flex; flex-wrap: wrap; gap: 6px; }
 .ia-vert { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .ia-acciones .btn-gpt { white-space: nowrap; }
+
+/* ---------- Procesos del cliente: «Nuevo proceso» paso a paso ---------- */
+.pr-asis { max-width: 760px; }
+.pr-asis-pasos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; counter-reset: none; }
+.pr-asis-pasos li { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; font-size: 12px; color: var(--muted); position: relative; }
+.pr-asis-pasos li::before { content: ''; position: absolute; top: 14px; left: calc(-50% + 18px); right: calc(50% + 18px); height: 2px; background: var(--border); }
+.pr-asis-pasos li:first-child::before { display: none; }
+.pr-asis-pasos li.hecho::before, .pr-asis-pasos li.on::before { background: var(--accent); }
+.pr-asis-n { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; background: var(--surface-2); border: 2px solid var(--border); color: var(--muted); position: relative; z-index: 1; }
+.pr-asis-pasos li.on .pr-asis-n { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 18%, transparent); }
+.pr-asis-pasos li.hecho .pr-asis-n { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border-color: var(--accent); color: var(--accent); }
+.pr-asis-pasos li.on .pr-asis-t { color: var(--text); font-weight: 700; }
+.pr-asis-caja { padding: 22px; border-radius: 18px; border: 1px solid var(--border); background: var(--surface); box-shadow: 0 18px 40px -30px rgba(0,0,0,.35); animation: prAsisEntra .25s ease both; }
+@keyframes prAsisEntra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.pr-asis-paso { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.pr-asis-tit { margin: 4px 0 4px; font-size: 22px; }
+.pr-asis-campo { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.pr-asis-campo .field { display: flex; flex-direction: column; gap: 6px; }
+.pr-asis-campo :is(input, textarea, select) { width: 100%; box-sizing: border-box; }
+.pr-asis-campo .rep-ed { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pr-asis-campo .rep-ed select, .pr-asis-campo .rep-ed input { width: auto; }
+.pr-asis-personas { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.pr-asis-persona { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; text-align: left; transition: border-color .15s, background .15s; }
+.pr-asis-persona:hover { border-color: var(--accent); }
+.pr-asis-persona.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+.pr-asis-acc { display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; }
+.pr-asis-resumen { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.pr-asis-resumen > li { display: grid; grid-template-columns: 28px 110px minmax(0, 1fr); gap: 8px; align-items: start; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
+.pr-asis-r-k { font-weight: 700; color: var(--muted); font-size: 13px; padding-top: 2px; }
+.pr-asis-r-v ol { margin: 0; padding-left: 18px; }
+@media (max-width: 640px) {
+  .pr-asis-t { display: none; }
+  .pr-asis-resumen > li { grid-template-columns: 28px minmax(0, 1fr); }
+  .pr-asis-r-k { grid-column: 2; }
+  .pr-asis-r-v { grid-column: 2; }
+}

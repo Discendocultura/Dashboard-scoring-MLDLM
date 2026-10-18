@@ -7,7 +7,7 @@
 // comparte con ellos, en solo consulta) y «📁 De <cliente>» (los procesos internos de ese cliente, que lleva su equipo).
 //   abrirProcesos({ api, dialog })
 import { richToHtml, sanitizeRich, safeHref, videoEmbed, richToText } from './richtext.js';
-import { buscarProcesos, documentado, tieneVideo, estadoFecha, proximaTrasHecho, enProyecto, encajaEnRepetir, primeraFechaRepetir } from './procesos.js';
+import { buscarProcesos, documentado, tieneVideo, estadoFecha, proximaTrasHecho, enProyecto, encajaEnRepetir, primeraFechaRepetir, textoRepetir as REPETIR_TXT } from './procesos.js';
 import { editorRepetir, leerRepetir, pulsarDsem } from './repetir-ui.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -46,8 +46,10 @@ let filtro = ''; // '' | 'mios' | 'fecha' | 'vencidos'
 let abierto = ''; // id del proceso abierto
 let editandoDesc = false;
 let pestanaAct = 'comentarios';
-// Crear un proceso: '' | 'elegir' (desde cero o desde un tablero) | 'tablero' (elegir la tarea que se copia).
+// Crear un proceso: '' | 'elegir' (desde cero o desde un tablero) | 'tablero' (elegir la tarea que se copia) |
+// 'asistente' (en los del cliente: paso a paso, ver ASIS_PASOS).
 let creando = '';
+let asis = null; // lo que se va rellenando en el asistente
 let origen = { proyecto: '', tablero: '', q: '' };
 let operativa = null; // tareas y tableros de la Operativa (para copiar una tarea), se cargan al pedirlos
 
@@ -355,8 +357,16 @@ async function guardarCampos(campos) {
 
 // «＋ Nuevo»: primero se elige cómo (desde cero o copiando una tarea de un tablero de algún cliente).
 function nuevo() {
-  // En la del cliente se crea directamente (no hay tableros de otros clientes de donde copiar).
-  if (delCliente()) { crearProceso(); return; }
+  // En la del cliente, paso a paso (no hay tableros de otros clientes de donde copiar).
+  if (delCliente()) {
+    creando = 'asistente';
+    abierto = '';
+    asis = { paso: 0, titulo: '', seccion: sec || bib.secciones[0]?.id || 'general', responsable: '', pasos: '', notas: '', video: '', fecha: '', repetir: { tipo: '' } };
+    pintarLista();
+    arriba();
+    body().querySelector('[data-asis="titulo"]')?.focus();
+    return;
+  }
   creando = 'elegir';
   abierto = '';
   pintarLista();
@@ -373,7 +383,133 @@ const tablerosDeProy = (id) => [{ id: 'general', nombre: 'General' }, ...operati
   .map((b) => ({ ...b, nombre: operativa.tableros.find((x) => x.proyecto === id && x.id === b.id)?.nombre || b.nombre }));
 const tableroDe = (t) => (operativa.tableros.some((b) => b.proyecto === t.cliente && b.id === t.opTablero) ? t.opTablero : 'general');
 
+// ---- Asistente «Nuevo proceso» (los del cliente): un paso cada vez, para que nadie se pierda ----
+const ASIS_PASOS = [
+  { ico: '📝', t: 'Ponle nombre', sub: '¿Qué proceso es? Un nombre que cualquiera del equipo entienda, por ejemplo «Cómo enviamos los pedidos» o «Alta de una alumna nueva».' },
+  { ico: '👤', t: 'Elige el responsable', sub: '¿Quién se encarga de que este proceso se haga? Puedes cambiarlo cuando quieras.' },
+  { ico: '🪜', t: 'Escribe los pasos', sub: '¿Cómo se hace? Un paso por línea, en orden. Saldrán como una lista para ir marcando.' },
+  { ico: '🔗', t: 'Añade el material', sub: 'Opcional: una explicación, enlaces (Drive, plantillas…) o un vídeo explicativo (Loom, YouTube, Vimeo).' },
+  { ico: '📅', t: '¿Cuándo se hace?', sub: 'Opcional: si tiene fecha o se repite (cada semana, cada mes…), el dashboard lo pasará solo a la siguiente fecha al marcarlo como hecho.' },
+  { ico: '✅', t: 'Revisa y crea', sub: 'Así quedará. Si algo no está bien, vuelve atrás; luego también se puede cambiar todo.' },
+];
+const pasosLista = () => asis.pasos.split('\n').map((x) => x.replace(/^\s*(?:\d+[.)-]|[-•*])\s*/, '').trim()).filter(Boolean);
+
+function leerAsis() {
+  const v = (k) => body().querySelector(`[data-asis="${k}"]`);
+  for (const k of ['titulo', 'seccion', 'pasos', 'notas', 'video', 'fecha']) if (v(k)) asis[k] = v(k).value;
+  const ed = body().querySelector('.pr-asis [data-rep-ed]');
+  if (ed) asis.repetir = leerRepetir(ed, asis.fecha);
+}
+
+function asistenteHtml() {
+  const n = asis.paso;
+  const P = ASIS_PASOS[n];
+  const ultimo = n === ASIS_PASOS.length - 1;
+  const campo = () => {
+    if (n === 0) {
+      return `<label class="field"><span>Nombre del proceso</span><input data-asis="titulo" maxlength="160" value="${esc(asis.titulo)}" placeholder="Ej.: 📦 Cómo enviamos los pedidos" autocomplete="off"></label>
+        <label class="field"><span>Sección <small>(dónde se guarda)</small></span><select data-asis="seccion">${bib.secciones.map((x) => `<option value="${esc(x.id)}"${x.id === asis.seccion ? ' selected' : ''}>${esc(x.titulo)}</option>`).join('')}</select></label>
+        <p class="muted small">💡 Empieza con un emoji y saldrá como icono en la tarjeta.</p>`;
+    }
+    if (n === 1) {
+      const b = (id, nombre, txt) => `<button type="button" class="pr-asis-persona${asis.responsable === id ? ' on' : ''}" data-asis-resp="${esc(id)}" aria-pressed="${asis.responsable === id}">${id ? avatar(nombre) : '<span class="pr-av vacio">?</span>'}<span>${esc(txt)}</span></button>`;
+      return `<div class="pr-asis-personas">${bib.equipo.map((u) => b(u.id, u.nombre, u.nombre)).join('')}${b('', '', 'Nadie todavía')}</div>
+        ${bib.equipo.length ? '' : '<p class="muted small">Aún no hay nadie más en el equipo. Puedes añadir personas en Cuenta → Equipo.</p>'}`;
+    }
+    if (n === 2) {
+      return `<label class="field"><span>Los pasos, uno por línea</span><textarea data-asis="pasos" rows="8" placeholder="Revisar los pedidos nuevos en la tienda&#10;Preparar el paquete con la nota de agradecimiento&#10;Imprimir la etiqueta de envío&#10;Avisar a la clienta con el número de seguimiento">${esc(asis.pasos)}</textarea></label>
+        <p class="muted small">No hace falta numerarlos: el orden es el de las líneas. Si aún no los tienes claros, sigue y los añades después.</p>`;
+    }
+    if (n === 3) {
+      return `<label class="field"><span>Explicación <small>(opcional)</small></span><textarea data-asis="notas" rows="5" placeholder="Lo que conviene saber: para qué sirve, trucos, errores típicos… Pega aquí los enlaces (Drive, plantillas, accesos)">${esc(asis.notas)}</textarea></label>
+        <label class="field"><span>Vídeo explicativo <small>(opcional: Loom, YouTube, Vimeo o Bunny)</small></span><input data-asis="video" type="url" inputmode="url" value="${esc(asis.video)}" placeholder="https://www.loom.com/share/…"></label>`;
+    }
+    if (n === 4) {
+      return `<label class="field"><span>Fecha <small>(opcional)</small></span><input data-asis="fecha" type="date" value="${esc(asis.fecha)}"></label>
+        <div class="field"><span>¿Se repite?</span>${editorRepetir(asis.repetir)}</div>
+        ${asis.repetir.tipo && !asis.fecha ? '<p class="muted small">Si no pones fecha, empezará en el próximo día que toque.</p>' : ''}`;
+    }
+    const pasos = pasosLista();
+    const fila = (ico, k, v) => `<li><span class="pr-asis-r-ico">${ico}</span><span class="pr-asis-r-k">${k}</span><span class="pr-asis-r-v">${v}</span></li>`;
+    return `<ul class="pr-asis-resumen">
+      ${fila('📝', 'Nombre', `<strong>${esc(asis.titulo.trim())}</strong> · ${esc(bib.secciones.find((x) => x.id === asis.seccion)?.titulo || '')}`)}
+      ${fila('👤', 'Responsable', esc(nombreDe(asis.responsable) || 'Sin asignar'))}
+      ${fila('🪜', 'Pasos', pasos.length ? `<ol>${pasos.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : '<span class="muted">Ninguno todavía</span>')}
+      ${fila('🔗', 'Material', [asis.notas.trim() && 'explicación', asis.video.trim() && 'vídeo'].filter(Boolean).join(' y ') || '<span class="muted">Nada</span>')}
+      ${fila('📅', 'Cuándo', asis.repetir.tipo ? esc(textoRepetirUi(asis.repetir)) + (asis.fecha ? ` · desde el ${esc(fechaCorta(asis.fecha))}` : '') : asis.fecha ? esc(fechaCorta(asis.fecha)) : '<span class="muted">Sin fecha</span>')}
+    </ul>`;
+  };
+  return `<section class="pr-crear pr-asis">
+    <header class="pr-crear-h"><button type="button" class="btn ghost small" data-pr="crear-cancelar">✕ Cancelar</button><h3>Nuevo proceso</h3></header>
+    <ol class="pr-asis-pasos" aria-label="Pasos">${ASIS_PASOS.map((x, i) => `<li class="${i < n ? 'hecho' : i === n ? 'on' : ''}"><span class="pr-asis-n">${i < n ? '✓' : i + 1}</span><span class="pr-asis-t">${esc(x.t)}</span></li>`).join('')}</ol>
+    <div class="pr-asis-caja">
+      <p class="pr-asis-paso">Paso ${n + 1} de ${ASIS_PASOS.length}</p>
+      <h3 class="pr-asis-tit"><span aria-hidden="true">${P.ico}</span> ${esc(P.t)}</h3>
+      <p class="muted">${esc(P.sub)}</p>
+      <div class="pr-asis-campo">${campo()}</div>
+      <p class="pr-asis-error error" hidden></p>
+      <footer class="pr-asis-acc">${n ? '<button type="button" class="btn ghost" data-pr="asis-atras">← Atrás</button>' : '<span></span>'}${ultimo ? '<button type="button" class="btn primary" data-pr="asis-crear">✓ Crear el proceso</button>' : `<button type="button" class="btn primary" data-pr="asis-sig">${n === 3 || n === 4 ? 'Siguiente (o sáltalo) →' : 'Siguiente →'}</button>`}</footer>
+    </div>
+  </section>`;
+}
+const textoRepetirUi = (r) => REPETIR_TXT(r);
+
+// La descripción a partir del paso 4: la explicación (con sus enlaces) y el vídeo.
+function htmlAsis() {
+  const parrafos = asis.notas.trim().split(/\n{2,}/).map((p) => `<p>${esc(p.trim()).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}">${u}</a>`).replace(/\n/g, '<br>')}</p>`);
+  const video = asis.video.trim() && videoEmbed(asis.video.trim()) ? `<div data-video="${esc(asis.video.trim())}"></div>` : '';
+  return sanitizeRich((asis.notas.trim() ? parrafos.join('') : '') + video);
+}
+
+async function asisCrear(b) {
+  b.disabled = true;
+  b.textContent = 'Creando…';
+  try {
+    const hoy = hoyMadrid();
+    let fecha = asis.fecha;
+    if (asis.repetir.tipo && !fecha) fecha = primeraFechaRepetir(hoy, asis.repetir);
+    const d = await enviar({ op: 'nuevo', seccion: asis.seccion, titulo: asis.titulo.trim(), html: htmlAsis(), subtareas: pasosLista() });
+    const campos = {};
+    if (asis.responsable) campos.responsable = asis.responsable;
+    if (fecha) campos.fecha = fecha;
+    if (asis.repetir.tipo) campos.repetir = asis.repetir;
+    if (Object.keys(campos).length) await enviar({ op: 'campos', id: d.proceso.id, campos });
+    creando = ''; asis = null;
+    abierto = d.proceso.id;
+    q = ''; filtro = ''; editandoDesc = false;
+    pintar();
+    arriba();
+  } catch (err) {
+    b.disabled = false;
+    b.textContent = '✓ Crear el proceso';
+    const e = body().querySelector('.pr-asis-error');
+    if (e) { e.textContent = err.message; e.hidden = false; }
+  }
+}
+
+function asisMover(delta) {
+  leerAsis();
+  if (delta > 0 && asis.paso === 0 && !asis.titulo.trim()) {
+    const e = body().querySelector('.pr-asis-error');
+    e.textContent = 'Ponle un nombre para seguir.';
+    e.hidden = false;
+    body().querySelector('[data-asis="titulo"]')?.focus();
+    return;
+  }
+  if (delta > 0 && asis.paso === 3 && asis.video.trim() && !videoEmbed(asis.video.trim())) {
+    const e = body().querySelector('.pr-asis-error');
+    e.textContent = 'Ese enlace de vídeo no lo reconozco. Prueba con el de Loom, YouTube, Vimeo o Bunny, o déjalo vacío.';
+    e.hidden = false;
+    return;
+  }
+  asis.paso = Math.max(0, Math.min(ASIS_PASOS.length - 1, asis.paso + delta));
+  pintarLista();
+  arriba();
+  body().querySelector('.pr-asis-campo :is(input, textarea)')?.focus();
+}
+
 function crearHtml() {
+  if (creando === 'asistente') return asistenteHtml();
   if (creando === 'elegir') {
     return `<section class="pr-crear">
       <header class="pr-crear-h"><button type="button" class="btn ghost small" data-pr="crear-cancelar">← Volver</button><h3>Nuevo proceso</h3></header>
@@ -440,6 +576,7 @@ const soloLeer = (el) => bib.lectura && el?.closest?.('.pr-tarea, [data-pr-form]
 async function onChange(e) {
   const t = e.target;
   if (soloLeer(t)) return;
+  if (t.dataset.rep && creando === 'asistente') { leerAsis(); pintarLista(); return; }
   if (t.dataset.rep && abierto) { guardarCampos({ repetir: leerRepetir(t.closest('[data-rep-ed]'), proc().fecha) }); return; }
   if (t.matches('#pr-importar, [data-pr-importar]')) { importar(e); return; }
   if (t.dataset.prOrigen === 'proyecto' || t.dataset.prOrigen === 'tablero') {
@@ -467,6 +604,8 @@ async function onChange(e) {
 }
 
 function onKey(e) {
+  // En el asistente, Enter en un campo de una línea pasa al paso siguiente.
+  if (creando === 'asistente' && e.key === 'Enter' && e.target.matches('input[data-asis]')) { e.preventDefault(); asisMover(1); return; }
   if (e.target.matches('.pr-titulo')) {
     if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } else requestAnimationFrame(ajustarTitulo);
   }
@@ -507,6 +646,9 @@ async function onClick(e) {
     return;
   }
   const ds = e.target.closest('[data-rep-dsem]');
+  if (ds && creando === 'asistente') { pulsarDsem(ds); leerAsis(); return; }
+  const rp = e.target.closest('[data-asis-resp]');
+  if (rp) { leerAsis(); asis.responsable = rp.dataset.asisResp; pintarLista(); return; }
   if (ds && abierto) { pulsarDsem(ds); guardarCampos({ repetir: leerRepetir(ds.closest('[data-rep-ed]'), proc().fecha) }); return; }
   if (e.target.closest('[data-pr="rep-alinear"]') && abierto) { const p = proc(); const hoy = hoyMadrid(); guardarCampos({ fecha: primeraFechaRepetir(p.fecha < hoy ? hoy : p.fecha, p.repetir) }); return; }
   const sb = e.target.closest('[data-pr-sec]');
@@ -551,7 +693,9 @@ async function onClick(e) {
     } catch (err) { window.alert(err.message); }
     return;
   }
-  if (a === 'crear-cancelar') { creando = ''; pintarLista(); return; }
+  if (a === 'crear-cancelar') { creando = ''; asis = null; pintarLista(); return; }
+  if (a === 'asis-sig' || a === 'asis-atras') { asisMover(a === 'asis-sig' ? 1 : -1); return; }
+  if (a === 'asis-crear') { asisCrear(b); return; }
   if (a === 'crear-cero') { crearProceso(); return; }
   if (a === 'crear-volver') { creando = 'elegir'; pintarLista(); return; }
   if (a === 'crear-tablero') {
