@@ -33,7 +33,7 @@ export function negocioVacio(d = {}) {
 }
 
 // Icono del producto: ⚡ meteórico, 📦 producto de Marca y avatar; si es un embudo sin producto, el de su tipo (🚀, 🎬…).
-const icoProd = (p) => (p.tipo === 'meteorico' ? '⚡' : p.tipo === 'embudo' ? TIPO_ICO[p.embudos?.[0]?.tipo] || '🧩' : '📦');
+const icoProd = (p) => (p.tipo === 'meteorico' ? '⚡' : p.tipo === 'directa' ? '🛒' : p.tipo === 'embudo' ? TIPO_ICO[p.embudos?.[0]?.tipo] || '🧩' : '📦');
 const nomProd = (p) => (p.tipo === 'meteorico' ? p.nombre.replace(/^⚡\s*/, '') : p.nombre);
 const prodIco = (p) => `${icoProd(p)} `;
 const recosHtml = (lista, titulo) => (lista?.length ? `<section class="ng-sec"><h3>${titulo}</h3><div class="ng-recos">${lista.map((r) => `<div class="ng-reco"><span class="ng-reco-ico" aria-hidden="true">${esc(r.ico)}</span><div><strong>${esc(r.titulo)}</strong><p>${esc(r.texto)}</p></div></div>`).join('')}</div></section>` : '');
@@ -78,12 +78,23 @@ function productoHtml(d, p) {
     ${tarjeta('🎯', 'Coste por lead', eur(p.cpl), p.cpl == null ? '<small>Sin anuncios o sin registros</small>' : delta(p.cpl, prev.cpl, { menosEsMejor: true }) || '<small>Inversión ÷ registros</small>', 'La inversión en anuncios dividida entre sus registros')}
     ${tarjeta('🛒', 'Conversión', p.conversion == null ? '–' : pct(p.conversion), p.conversion == null ? '<small>Se vende sin registro previo</small>' : delta(p.conversion, prev.conversion) || `<small>De ${num(p.registros)} registros</small>`, 'Ventas ÷ registros')}
   </div>`;
-  const camino = (lista, vacio) => (lista.length ? `<ul class="ng-flujo-l">${lista.map((x) => `<li><span>${esc(x.nombre)}</span><b>${num(x.n)}</b></li>`).join('')}</ul>` : `<p class="muted small">${vacio}</p>`);
+  const camino = (lista, ico, vacio) => (lista.length
+    ? `<ul class="ng-flujo-l">${lista.map((x) => `<li><span>${esc(x.nombre)}</span><b>${num(x.n)}</b></li>`).join('')}</ul>`
+    : `<div class="ng-flujo-vacio"><span aria-hidden="true">${ico}</span>${vacio}</div>`);
+  const o = p.objetivo;
+  const objetivo = o ? `<div class="ng-objetivo">
+      <div class="ng-objetivo-t"><span aria-hidden="true">🎯</span><div><small>El producto al que quiere llevar</small><strong>${esc(o.nombre)}</strong></div></div>
+      <div class="ng-objetivo-d"><strong>${pct(o.pct)}</strong><span>${num(o.n)} de ${num(p.compradores)} compradores lo compran después${o.dias != null ? ` · a los ${num(o.dias)} días de media` : ''}</span>
+        <span class="ng-barra"><i style="width:${Math.round((o.pct || 0) * 100)}%"></i></span></div>
+    </div>` : '';
   const viaje = `<section class="ng-sec card"><h3>🧭 El viaje de sus clientes ${pocos(p.compradores < MIN_VIAJE)}</h3>
+    ${objetivo}
     <div class="ng-flujo">
-      <div class="ng-flujo-c"><h4>Antes compraron</h4>${camino(p.antes.top, 'Nadie había comprado otra cosa antes: es una puerta de entrada.')}</div>
-      <div class="ng-flujo-yo"><span>${icoProd(p)}</span><strong>${esc(nomProd(p))}</strong><small>${num(p.compradores)} compradores</small></div>
-      <div class="ng-flujo-c"><h4>Después compran</h4>${camino(p.despues.top, 'Aún nadie ha comprado otra cosa después.')}</div>
+      <div class="ng-flujo-c"><h4>Antes compraron</h4>${camino(p.antes.top, '🚪', 'Es su primera compra contigo: una puerta de entrada.')}</div>
+      <span class="ng-flujo-f" aria-hidden="true">→</span>
+      <div class="ng-flujo-yo"><span aria-hidden="true">${icoProd(p)}</span><strong>${esc(nomProd(p))}</strong><small>${num(p.compradores)} compradores</small></div>
+      <span class="ng-flujo-f" aria-hidden="true">→</span>
+      <div class="ng-flujo-c"><h4>Después compran</h4>${camino(p.despues.top, '🌱', 'Aún nadie ha comprado otra cosa después.')}</div>
     </div>
     <div class="ng-mini">
       <div><strong>${pct(p.despues.pct)}</strong><span>compra otra cosa después</span></div>
@@ -102,7 +113,7 @@ function productoHtml(d, p) {
     </section>
     ${p.sinPrecios ? '<p class="ng-aviso">💶 Este producto tiene ventas sin precio: ponlo en la configuración de su embudo para ver lo que factura.</p>' : ''}
     ${kpis}${recosHtml(p.recomendaciones, `💡 Qué haría con ${esc(nomProd(p))}`) || '<p class="ng-aviso suave">✅ Nada urgente con este producto. Las recomendaciones aparecen cuando los datos lo justifican.</p>'}
-    <div class="ng-dos">${viaje}${serie}</div>${tabla}`;
+    ${viaje}${serie}${tabla}`;
 }
 const MIN_VIAJE = 10;
 

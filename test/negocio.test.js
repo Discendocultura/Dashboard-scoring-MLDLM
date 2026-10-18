@@ -85,6 +85,25 @@ test('inteligencia de negocio: por producto (de Marca y avatar), con de dónde v
   for (const p of a.productos) assert.ok(p.recomendaciones.length <= 3 && p.recomendaciones.every((r) => r.titulo && r.texto && r.ico));
 });
 
+test('inteligencia de negocio: la venta directa es su propio producto y mide el paso al producto al que lleva', () => {
+  const hoy = '2026-10-18';
+  const P = (o) => ({ cerrada: true, registros: 0, ventas: 0, facturacion: 0, inversion: null, compras: [], ...o });
+  const piezas = [
+    P({ id: 'd-reto-2026-03', tipo: 'directa', embudo: 'reto', embudoNombre: 'Reto Ovulación', nombre: 'Reto · 2026-03', desde: '2026-03-01', hasta: '2026-03-31', ventas: 20, facturacion: 540,
+      compras: Array.from({ length: 20 }, (_, i) => [`c${i}`, 27, '2026-03-10', 0, null]) }),
+    P({ id: 'l-may', tipo: 'lanzamiento', embudo: 'lanz', embudoNombre: 'Lanzamientos', nombre: 'Mayo', desde: '2026-05-01', hasta: '2026-05-20', registros: 500, ventas: 10, facturacion: 9970,
+      compras: Array.from({ length: 10 }, (_, i) => [`c${i < 5 ? i : i + 50}`, 997, '2026-05-18', 2, null]) }),
+  ];
+  const productos = { lanz: { id: 'p1', nombre: 'Raíces' }, reto: { id: 'dir-reto', nombre: 'Reto Ovulación', tipo: 'directa', objetivo: { id: 'p1', nombre: 'Raíces' } } };
+  const a = agregar(piezas, { hoy, embudos: [{ id: 'lanz', tipo: 'lanzamientos', nombre: 'Lanzamientos' }, { id: 'reto', tipo: 'directa', nombre: 'Reto Ovulación' }], productos });
+  assert.deepEqual(a.productos.map((p) => p.nombre), ['Raíces', 'Reto Ovulación']);
+  const reto = a.productos.find((p) => p.nombre === 'Reto Ovulación');
+  assert.equal(reto.tipo, 'directa');
+  assert.deepEqual({ n: reto.objetivo.n, pct: reto.objetivo.pct, nombre: reto.objetivo.nombre }, { n: 5, pct: 0.25, nombre: 'Raíces' });
+  assert.ok(reto.recomendaciones.some((r) => /El 25 % acaba comprando «Raíces»/.test(r.titulo)));
+  assert.deepEqual(a.productos.find((p) => p.nombre === 'Raíces').antes.top[0], { nombre: 'Reto Ovulación', n: 5 });
+});
+
 test('inteligencia de negocio: la API calcula pieza a pieza hasta completar el histórico', async () => {
   const admin = cookieDe(await call('/api/login', { method: 'POST', body: { password: 'admin' } }));
   const c = (await call('/api/config', { cookie: admin })).data;
