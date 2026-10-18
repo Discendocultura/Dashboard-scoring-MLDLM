@@ -13018,7 +13018,7 @@ $('#view-dmetricas').addEventListener('click', (e) => { if (e.target.closest('[d
 
 function renderDirectaClientes(D) {
   const d = state.config.directas?.[state.embudo] || {};
-  const extras = [...(conParte(d, 'bumps') ? d.bumps || [] : []).map((o) => ({ ...o, t: '➕' })), ...(conParte(d, 'upsell') ? d.upsells || [] : []).map((o) => ({ ...o, t: '⬆️' })), ...(conParte(d, 'downsell') ? d.downsells || [] : []).map((o) => ({ ...o, t: '⬇️' }))].filter((o) => o.tag);
+  const extras = [...(conParte(d, 'bumps') ? d.bumps || [] : []).map((o) => ({ ...o, t: '➕', corto: 'Compra bump' })), ...(conParte(d, 'upsell') ? d.upsells || [] : []).map((o) => ({ ...o, t: '⬆️', corto: 'Compra upsell' })), ...(conParte(d, 'downsell') ? d.downsells || [] : []).map((o) => ({ ...o, t: '⬇️', corto: 'Compra downsell' }))].filter((o) => o.tag);
   const sel = $('#dc-filtro');
   const antes = sel.value;
   const principal = d.upsellPrincipal?.tags?.length ? d.upsellPrincipal.nombre || 'el producto principal' : '';
@@ -13057,7 +13057,7 @@ function renderDirectaClientes(D) {
         <div class="dc-nombre"><button type="button" class="lead-ficha" data-ficha-lead="${esc(c.id)}" title="Ver la ficha completa">${esc(c.name || '—')}</button>
           ${c.principal ? `<span class="dc-tag-principal" title="Ya tiene ${esc(d.upsellPrincipal?.nombre || 'el producto principal')}">✓ ${esc(d.upsellPrincipal?.nombre || 'Principal')}</span>` : ''}</div>
         <div class="dc-sub">${c.email ? `<span>${esc(c.email)}</span>` : ''}${c.phone ? `<span>${esc(c.phone)}</span>` : ''}</div>
-        <div class="dc-chips">${c.extras.length ? c.extras.map((x) => { const o = extraDe(x); return `<span class="dc-chip dc-chip-extra">${o.t} ${esc(o.nombre || o.tag)}</span>`; }).join('') : '<span class="dc-chip">Solo el producto</span>'}${c.src ? '<span class="dc-chip dc-chip-ad" title="Vino de un anuncio de Meta">📣 Anuncio</span>' : ''}</div>
+        <div class="dc-chips">${c.extras.length ? c.extras.map((x) => { const o = extraDe(x); return `<span class="dc-chip dc-chip-extra" title="${esc(o.nombre || o.tag)}">${o.t} ${esc(o.corto || o.nombre || o.tag)}</span>`; }).join('') : '<span class="dc-chip">Solo el producto</span>'}${c.src ? '<span class="dc-chip dc-chip-ad" title="Vino de un anuncio de Meta">📣 Anuncio</span>' : ''}</div>
       </div>
       <div class="dc-lado">
         ${c.importe ? `<span class="dc-importe">${eur(c.importe)}</span>` : ''}
