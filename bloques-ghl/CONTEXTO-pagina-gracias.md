@@ -1,4 +1,4 @@
-Ahora vamos a hacer la PÁGINA DE GRACIAS: la que ven justo después de registrarse gratis al webinar "El Camino" (Me lo dijo la matrona). URL: https://lp.saraguzman.com/el-camino-gracias-entrada-vip
+Ahora vamos a hacer la PÁGINA DE GRACIAS: la que ven justo después de registrarse gratis al webinar "El Camino" (Me lo dijo la matrona). URL: https://eventosraices.com/el-camino-gracias-entrada-vip
 
 Te paso pantallazos de mi página de gracias actual: úsalos para el COPY (textos, qué incluye cada entrada…), pero el diseño tiene que seguir la narrativa visual del camino que ya tienen la página de registro y la preclase.
 
