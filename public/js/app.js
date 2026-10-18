@@ -4568,6 +4568,8 @@ function pintarPrelanzamientoCfg(l) {
 // Menú de la configuración: al elegir un apartado, su título arriba y (en el móvil) se abre a pantalla completa.
 const cfgDlg = $('#config-dialog');
 $$('#config-dialog .cfg-nav .tab').forEach((t) => t.addEventListener('click', () => {
+  cfgDlg.classList.toggle('cfg-en-resumen', t.dataset.tab === 'resumen');
+  if (t.dataset.tab === 'resumen') { $('#cfg-hub').dataset.html = ''; pintarHub(); }
   $('#cfg-titulo').textContent = $('.cfg-nav-t', t)?.firstChild?.textContent?.trim() || $('.cfg-nav-t', t)?.textContent.trim() || '';
   cfgDlg.classList.remove('cfg-en-menu');
   $('.cfg-main', cfgDlg).scrollTop = 0;
@@ -4629,8 +4631,11 @@ $('#inf-enviar').addEventListener('click', async () => {
 });
 
 function openConfig(code) {
-  if (!$('#config-dialog').open) { $('.tab[data-tab="launch"]').click(); cfgDlg.classList.add('cfg-en-menu'); } // al abrir, la primera (en el móvil, el menú)
+  const yaAbierta = $('#config-dialog').open;
   editingCode = code && state.config.launches[code] ? code : null;
+  hubVerCategorias = false;
+  // Al abrir: un lanzamiento que ya existe, en su resumen; uno nuevo, en «Datos básicos» (en el móvil, el menú).
+  if (!yaAbierta) { $(`.tab[data-tab="${editingCode ? 'resumen' : 'launch'}"]`).click(); if (!editingCode) cfgDlg.classList.add('cfg-en-menu'); }
   const pick = $('#cfg-launch-pick');
   pick.innerHTML = '<option value="">— Nuevo lanzamiento —</option>'
     + launchesSorted().map(([c, l]) => `<option value="${esc(c)}">${esc(l.name)} (${esc(c)})</option>`).join('');
@@ -5715,9 +5720,137 @@ function pintarListo(todos) {
       <span class="muted small">${listos} de ${todos.length}${faltan.length ? ` · faltan ${faltan.length}` : ''}${revisar.length ? ` · ${revisar.length} por revisar` : ''}</span></div></div>
     ${sig ? `<button type="button" class="btn small cfg-sig" data-goto="${sig.f.id}"><span class="muted small">${faltan.length ? 'Siguiente' : 'Revisar'}</span> ${esc(sig.f.label)} →</button>` : ''}`;
   if (box.dataset.html !== html) { box.innerHTML = html; box.dataset.html = html; }
+  pintarHub(todos);
 }
+
+// ---------- Resumen de la configuración ----------
+// Lo primero al abrir un lanzamiento: cada categoría en una tarjeta grande con su icono y lo que le falta (al pulsarla,
+// se abre). Al 100 %, «¡Enhorabuena!»: los enlaces para emails y WhatsApp, las fechas, la preclase, los precios, las
+// etiquetas y el directo, cada bloque con su botón a su apartado, y «Volver a la configuración».
+const HUB_ICO = { launch: '🚀', oferta: '🎁', precios: '💶', captacion: '📣', pagina: '🎓', grabacion: '🔴', embudo: '🛒', carrito: '🧺', etiquetas: '🏷️', snippets: '🧩', accesos: '🔗', informes: '📨' };
+let hubTodos = [];
+let hubVerCategorias = false; // al 100 %, «Volver a la configuración» enseña las tarjetas en vez de la enhorabuena
+let hubFiesta = '';
+// El valor de un campo (vacío si el embudo no lo usa: clase de más, sin VIP, sin preclase…; no por estar en otra pestaña).
+const valCfg = (id) => { const el = document.getElementById(id); return el && !el.closest('[data-clase][hidden], [data-vip][hidden], [data-preclase][hidden], .field[hidden], .cfg-sec[hidden]') ? String(el.value || '').trim() : ''; };
+function fechaCfg(v) {
+  if (!v) return '';
+  const d = new Date(/T/.test(v) ? v : `${v}T12:00`);
+  if (Number.isNaN(d.getTime())) return v;
+  return d.toLocaleString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', ...(/T/.test(v) ? { hour: '2-digit', minute: '2-digit' } : {}) });
+}
+const irCfg = (tab) => $(`#config-dialog .tab[data-tab="${tab}"]`)?.click();
+function pintarHub(todos = hubTodos) {
+  hubTodos = todos;
+  const box = $('#cfg-hub');
+  if (!box) return;
+  const faltan = todos.filter((i) => i.st === 'falta').length;
+  const revisar = todos.filter((i) => i.st === 'warn').length;
+  const listos = todos.length - faltan - revisar;
+  const pct = todos.length ? Math.round((listos / todos.length) * 100) : 0;
+  const completo = Boolean(editingCode) && todos.length > 0 && !faltan && !revisar;
+  const nombre = $('#cfg-name').value.trim() || 'este lanzamiento';
+  const html = completo && !hubVerCategorias ? hubEnhorabuena(nombre) : hubCategorias(todos, { pct, faltan, revisar, nombre, completo });
+  if (box.dataset.html === html) return;
+  box.innerHTML = html;
+  box.dataset.html = html;
+  // Confeti la primera vez que se ve completo (una vez por lanzamiento y sesión).
+  if (completo && !hubVerCategorias && hubFiesta !== editingCode && !$('#config-dialog .tab-panel[data-panel="resumen"]').hidden) {
+    hubFiesta = editingCode;
+    const c = $('.cfg-hub-confeti', box);
+    if (c) lanzarConfeti(c, { sigue: () => cfgDlg.open && box.contains(c) });
+  }
+}
+function hubCategorias(todos, { pct, faltan, revisar, nombre, completo }) {
+  const tabs = $$('#config-dialog .cfg-nav .tab').filter((t) => t.dataset.tab !== 'resumen' && !t.hidden);
+  const sig = todos.find((i) => i.st === 'falta') || todos.find((i) => i.st === 'warn');
+  const tarjeta = (t) => {
+    const id = t.dataset.tab;
+    const items = todos.filter((i) => i.panel === id);
+    const f = items.filter((i) => i.st === 'falta').length;
+    const w = items.filter((i) => i.st === 'warn').length;
+    const ok = items.length - f - w;
+    const est = !items.length ? ['', 'Para consultar'] : f ? ['falta', `Faltan ${f}`] : w ? ['warn', `Revisa ${w}`] : ['ok', '✓ Completo'];
+    const titulo = $('.cfg-nav-t', t)?.firstChild?.textContent?.trim() || '';
+    const sub = $('.cfg-nav-t small', t)?.textContent || '';
+    return `<button type="button" class="hub-cat ${est[0]}" data-hub-ir="${esc(id)}">
+      <span class="hub-cat-ico" aria-hidden="true">${HUB_ICO[id] || '⚙️'}</span>
+      <span class="hub-cat-txt"><strong>${esc(titulo)}</strong><small>${esc(sub)}</small></span>
+      <span class="hub-cat-est">${esc(est[1])}</span>
+      ${items.length ? `<span class="hub-cat-bar"><i style="width:${Math.round((ok / items.length) * 100)}%"></i></span>` : ''}</button>`;
+  };
+  const grupos = [];
+  let g = null;
+  for (const el of $$('#config-dialog .cfg-nav > *')) {
+    if (el.matches('.cfg-nav-g')) { g = { titulo: el.textContent, tabs: [] }; grupos.push(g); } else if (g && el.matches('.tab') && !el.hidden) g.tabs.push(el);
+  }
+  return `<div class="hub-hero${completo ? ' ok' : ''}">
+      <div class="cfg-anillo hub-anillo${faltan ? '' : ' ok'}" style="--p:${pct}"><span>${pct}%</span></div>
+      <div class="hub-hero-txt"><h3>${completo ? '✓ Todo listo' : `Configura ${esc(nombre)}`}</h3>
+        <p class="muted">${completo ? 'Está todo configurado. Cambia lo que quieras: pulsa una categoría.' : `${faltan ? `Te faltan <strong>${faltan}</strong> cosas` : 'No falta nada'}${revisar ? ` y hay ${revisar} por revisar` : ''}. Pulsa una categoría para completarla.`}</p>
+        <div class="hub-hero-acc">${sig ? `<button type="button" class="btn primary" data-goto="${esc(sig.f.id)}">${faltan ? 'Seguir por' : 'Revisar'}: ${esc(sig.f.label)} →</button>` : ''}${completo ? '<button type="button" class="btn primary" data-hub-fiesta>🎉 Ver el resumen final</button>' : ''}</div></div>
+    </div>
+    ${grupos.filter((x) => x.tabs.length).map((x) => `<p class="hub-grupo">${esc(x.titulo)}</p><div class="hub-cats">${x.tabs.map(tarjeta).join('')}</div>`).join('')}`;
+}
+function hubEnhorabuena(nombre) {
+  const fila = (label, v, { copiar = true, enlace = false } = {}) => (v ? `<li class="hub-fila"><span class="hub-fila-l">${esc(label)}</span><span class="hub-fila-v">${enlace ? `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a>` : esc(v)}</span>${copiar ? `<button type="button" class="btn small" data-copiar="${esc(v)}" data-copiar-txt="Copiar">Copiar</button>` : ''}</li>` : '');
+  const bloque = (ico, titulo, tab, filas, extra = '') => (filas.trim() || extra ? `<section class="hub-bloque">
+    <button type="button" class="hub-bloque-cab" data-hub-ir="${tab}"><span class="hub-cat-ico">${ico}</span><strong>${titulo}</strong><span class="hub-ir">Ir a su apartado →</span></button>
+    ${extra}${filas.trim() ? `<ul class="hub-filas">${filas}</ul>` : ''}</section>` : '');
+  const enlaces = [
+    ['📝 Registro (login)', 'cfg-login-url'], ['🎓 Página preclase · y para conectarse al directo', 'cfg-recursos-url'], ['🎉 Página de gracias', 'cfg-gracias-url'],
+    ['💬 Grupo de WhatsApp', 'cfg-whatsapp-url'], ['📋 Encuesta', 'cfg-encuesta-url'], ['⭐ Entrada VIP (pago)', 'cfg-vip-url'], ['📼 Página de replay', 'cfg-replay'],
+    ['🛒 Página de venta', 'cfg-raices'], ['🧾 Página de pago', 'cfg-pagina-pago'], ['☎️ Reservar llamada', 'cfg-llamada'],
+  ].map(([l, id]) => [l, valCfg(id)]).filter(([, v]) => v);
+  const todosTxt = enlaces.map(([l, v]) => `${l.replace(/^\S+\s/, '')}: ${v}`).join('\n');
+  const nc = nClasesForm();
+  const clases = Array.from({ length: nc }, (_, i) => fila(`Clase ${i + 1} · se desbloquea`, fechaCfg(valCfg(`cfg-clase${i + 1}-at`)), { copiar: false })).join('');
+  const recursos = [['🎵 Música', 'musica'], ['🧪 Test', 'test'], ['🗳️ Votación', 'votacion'], ['📥 Descargable', 'descargable'], ['💬 Comentarios', 'comentarios']]
+    .filter(([, k]) => document.getElementById(`cfg-rec-${k}-on`)?.checked).map(([l]) => l);
+  const directo = [valCfg('cfg-directo-fecha'), valCfg('cfg-directo-hora')].filter(Boolean);
+  const eur = (v) => (v ? `${v} €` : '');
+  return `<div class="hub-fiesta"><canvas class="cfg-hub-confeti" aria-hidden="true"></canvas>
+      <span class="hub-fiesta-ico" aria-hidden="true">🎉</span>
+      <h3>¡Enhorabuena! Has terminado la configuración</h3>
+      <p class="muted">${esc(nombre)} está listo para lanzar. Aquí tienes lo importante a mano; pulsa cada bloque para ir a su apartado.</p>
+      <button type="button" class="btn primary hub-volver" data-hub-volver>⚙️ Volver a la configuración</button>
+    </div>
+    <div class="hub-bloques">
+      ${bloque('🔗', '1 · Enlaces para emails y WhatsApp', 'captacion', enlaces.map(([l, v]) => fila(l, v, { enlace: true })).join(''), enlaces.length > 1 ? `<button type="button" class="btn small hub-copiar-todo" data-copiar="${esc(todosTxt)}" data-copiar-txt="📋 Copiar todos">📋 Copiar todos</button>` : '')}
+      ${bloque('📅', '2 · Fechas clave', 'launch', [
+        fila('🚀 Empieza la captación', fechaCfg(valCfg('cfg-inicio')), { copiar: false }),
+        fila('🔴 Directo', directo.length ? `${fechaCfg(directo[0])}${directo[1] ? `, ${directo[1]} h` : ''}` : '', { copiar: false }),
+        fila('🛒 Abre el carrito', fechaCfg(valCfg('cfg-apertura-carrito')), { copiar: false }),
+        fila('🔒 Cierra el carrito', fechaCfg(valCfg('cfg-cierre')), { copiar: false }),
+        fila('📼 Grabación disponible', fechaCfg(valCfg('cfg-replay-at')), { copiar: false }),
+      ].join(''))}
+      ${nc ? bloque('🎓', `3 · Preclase · ${nc} ${nc === 1 ? 'clase' : 'clases'}`, 'pagina', clases + fila('🧩 Recursos', recursos.join(' · '), { copiar: false })) : ''}
+      ${bloque('💶', '4 · Precios', 'precios', [
+        fila('⭐ Entrada VIP', eur(valCfg('cfg-precio-vip')), { copiar: false }),
+        fila('💳 Programa · pago único', eur(valCfg('cfg-precio-programa')), { copiar: false }),
+        fila('🧩 Programa · fraccionado', valCfg('cfg-precio-fraccionado') ? `${valCfg('cfg-precio-fraccionado')} €` : '', { copiar: false }),
+      ].join(''))}
+      ${bloque('🏷️', '5 · Etiquetas de GHL', 'etiquetas', [
+        fila('📝 Registro', valCfg('cfg-registro')), fila('📋 Encuesta', valCfg('cfg-encuesta-tag')), fila('⭐ VIP', valCfg('cfg-vip')), fila('✅ Compra', valCfg('cfg-compra')), fila('☎️ Llamada', valCfg('cfg-llamada-tag')),
+      ].join(''))}
+      ${bloque('🎥', '6 · El directo en Zoom', 'launch', [fila('🆔 ID de la reunión', valCfg('cfg-zoom-id')), fila('🔗 Enlace de Zoom', valCfg('cfg-zoom-url'))].join(''))}
+    </div>
+    <p class="hub-pie"><button type="button" class="btn" data-hub-volver>⚙️ Volver a la configuración</button></p>`;
+}
+$('#cfg-hub').addEventListener('click', async (e) => {
+  const ir = e.target.closest('[data-hub-ir]');
+  if (ir) { irCfg(ir.dataset.hubIr); return; }
+  if (e.target.closest('[data-hub-volver]')) { hubVerCategorias = true; pintarHub(); $('.cfg-main', cfgDlg).scrollTop = 0; return; }
+  if (e.target.closest('[data-hub-fiesta]')) { hubVerCategorias = false; hubFiesta = ''; pintarHub(); return; }
+  const b = e.target.closest('[data-copiar]');
+  if (b) {
+    try { await navigator.clipboard.writeText(b.dataset.copiar); b.textContent = 'Copiado ✓'; } catch { b.textContent = 'No se ha podido copiar'; }
+    setTimeout(() => { b.textContent = b.dataset.copiarTxt || 'Copiar'; }, 1500);
+  }
+});
+$('#cfg-a-resumen').addEventListener('click', () => irCfg('resumen'));
 $('#config-dialog').addEventListener('click', (e) => {
-  const b = e.target.closest('.guia-check [data-goto], #cfg-listo [data-goto]');
+  const b = e.target.closest('.guia-check [data-goto], #cfg-listo [data-goto], #cfg-hub [data-goto]');
   if (b) goToField(b.dataset.goto);
   // Las explicaciones largas salen en una línea: al pulsarlas se leen enteras.
   const p = e.target.closest('.cfg-sec-head p, .tab-panel > p.muted');
