@@ -593,6 +593,7 @@ $('#cliente-select').addEventListener('change', (e) => cambiarCliente(e.target.v
 
 // ---------- Embudos (menú lateral) ----------
 function pintarSidebar() {
+  pintarLabia();
   $('#sb-items').innerHTML = embudos().map((e) => {
     const tv = e.tipo === 'vsl' ? textosVsl(state.config.vsls[e.id]) : null;
     const nMeteo = e.tipo === 'meteorico' ? Object.values(state.config.meteoricos || {}).filter((m) => m.embudo === e.id).length : 0;
@@ -6008,6 +6009,27 @@ function faseLanzamiento(launch, ahora = Date.now()) {
   if (cierre != null) return ['Cerrado', 'muted'];
   return null;
 }
+// LabIA (el setter IA de WhatsApp): su logo, en el lateral y en las tarjetas del setter. «Lab» toma el color
+// del texto (se lee en claro y en oscuro) e «IA» y el bocadillo llevan sus degradados.
+const LABIA_LOGO = `<svg class="labia-logo" viewBox="0 0 128 40" role="img" aria-label="LabIA"><defs>
+  <linearGradient id="labia-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffa53a"/><stop offset="1" stop-color="#ff4d1f"/></linearGradient>
+  <linearGradient id="labia-s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
+  <path d="M7 4h25a4.5 4.5 0 0 1 4.5 4.5v16A4.5 4.5 0 0 1 32 29H17l-8.5 6.5 2.3-6.5H7a4.5 4.5 0 0 1-4.5-4.5v-16A4.5 4.5 0 0 1 7 4z" fill="none" stroke="url(#labia-g)" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M12.5 14.5q7 8 14 0" fill="none" stroke="url(#labia-s)" stroke-width="3" stroke-linecap="round"/>
+  <text x="44" y="28" font-family="inherit" font-weight="800" font-size="23" letter-spacing="-.3" fill="currentColor">Lab<tspan fill="url(#labia-g)">IA</tspan></text></svg>`;
+// Enlace del lateral: con la dirección del setter guardada (Conexiones), abre LabIA; sin ella, a quien puede
+// configurar le lleva a Conexiones para ponerla.
+function pintarLabia() {
+  const a = $('#sb-labia');
+  if (!a) return;
+  const url = state.config?.setterIa?.url || '';
+  a.hidden = !url && !puedeConfig();
+  if (url) { a.href = url; a.target = '_blank'; a.title = 'Abrir LabIA, tu setter IA de WhatsApp'; } else { a.removeAttribute('href'); a.title = 'Conecta LabIA en Ajustes del cliente → Conexiones'; }
+  a.querySelector('.sb-labia-sub').textContent = url ? 'Tu setter IA de WhatsApp ↗' : 'Conéctalo en Conexiones';
+}
+$$('[data-labia-logo]').forEach((el) => { el.innerHTML = LABIA_LOGO; });
+$('#sb-labia')?.addEventListener('click', (e) => { if (!state.config?.setterIa?.url) { e.preventDefault(); $('#btn-conexiones')?.click(); } });
+
 function pintarCabecera() {
   if (!state.config) return;
   const tipo = tipoActual();
@@ -7743,8 +7765,9 @@ async function cargarSetterRend(code, leads, { desde, hasta }) {
       : d.error ? `<p class="error small">No se pudieron leer las cifras del setter IA: ${esc(d.error)}</p>`
       : !d.configurado ? `<p class="muted small">${d.falta === 'url' ? 'Para ver aquí sus cifras (conversaciones, citas, tiempo de respuesta), pon la dirección del setter en <strong>Ajustes del cliente → Conexiones → Setter IA</strong>.' : 'Para ver aquí sus cifras falta la clave <code>SETTER_RESUMEN_KEY</code> en Cloudflare (Ajustes del cliente → Conexiones → Setter IA lo explica).'}</p>` : '';
     box.innerHTML = `<section class="rend-setter">
-      <header class="rs-cab"><span class="rp-av rs-av" aria-hidden="true">🤖</span><div><strong>Setter IA</strong><small>Un miembro más del equipo · ${esc(fechaCorta(desde))} – ${esc(fechaCorta(hasta))}</small></div>
-        <span class="rs-estado ${d?.cifras ? 'on' : ''}">${d?.cifras ? '● Conectado' : state.config.setterIa?.url ? '● Sin cifras' : '○ Sin conectar'}</span></header>
+      <header class="rs-cab"><span class="rp-av rs-av" aria-hidden="true">🤖</span><div><strong>Setter IA ${LABIA_LOGO}</strong><small>Un miembro más del equipo · ${esc(fechaCorta(desde))} – ${esc(fechaCorta(hasta))}</small></div>
+        <span class="rs-estado ${d?.cifras ? 'on' : ''}">${d?.cifras ? '● Conectado' : state.config.setterIa?.url ? '● Sin cifras' : '○ Sin conectar'}</span>
+        ${state.config.setterIa?.url ? `<a class="btn small rs-abrir" href="${esc(state.config.setterIa.url)}" target="_blank" rel="noopener">Abrir LabIA ↗</a>` : ''}</header>
       <div class="rs-kpis">
         <div><span>Plantillas enviadas</span><strong>${plantilla}</strong><small>leads de este embudo con setter-ia-plantilla</small></div>
         <div><span>Respondieron</span><strong>${respondio}${pc(respondio, plantilla)}</strong><small>de este embudo${d?.cifras ? ` · ${num(c.respondieron)} en el periodo (todo el cliente)` : ''}</small></div>

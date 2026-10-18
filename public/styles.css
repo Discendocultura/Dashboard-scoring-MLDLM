@@ -5590,3 +5590,13 @@ details.ayuda-vista.plegada .ayuda-cuerpo .btn { display: none; }
   .cv-par { grid-template-columns: 1fr 1fr auto; }
   .cv-dif { display: none; }
 }
+
+/* LabIA: logo (SVG en línea; «Lab» con el color del texto) y su enlace del lateral */
+.labia-logo { display: inline-block; height: 1.25em; width: auto; vertical-align: -0.28em; overflow: visible; }
+.sb-labia { flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 4px; text-decoration: none; border: 1px solid var(--border); background: linear-gradient(135deg, color-mix(in srgb, #ff6a2a 8%, var(--surface)), color-mix(in srgb, #a855f7 6%, var(--surface))); }
+.sb-labia:hover { border-color: color-mix(in srgb, #ff6a2a 45%, var(--border)); }
+.sb-labia .labia-logo { height: 26px; }
+.sb-labia-sub { font-size: 12px; color: var(--muted); padding-left: 2px; }
+.cx-labia .labia-logo { height: 20px; margin-left: 6px; }
+.rs-cab strong .labia-logo { height: 18px; margin-left: 6px; vertical-align: -4px; }
+.rs-abrir { white-space: nowrap; }
