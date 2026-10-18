@@ -403,8 +403,8 @@ const enDirecta = () => embudoInfo()?.tipo === 'directa';
 const tipoActual = () => (enVsl() ? 'vsl' : enMeteo() ? 'meteorico' : enDirecta() ? 'directa' : 'lanz');
 // Pestañas que el embudo tiene activadas (⚙️ del menú lateral; sin lista = todas).
 const pestanasEmbudo = () => embudoInfo()?.pestanas || null;
-// Hoy → LabIA: en cualquier embudo de un cliente con LabIA, para quien ve Setting hoy o Llamadas.
-const allowedViews = () => VIEWS.filter((v) => (v === 'labia' ? state.labia && (tiene('hoy') || tiene('llamadas')) : tiposVista(v).includes(tipoActual())
+// Hoy → LabIA: en cualquier embudo, para quien ve Setting hoy o Llamadas (sin LabIA contratado, lo que ganaría con él).
+const allowedViews = () => VIEWS.filter((v) => (v === 'labia' ? tiene('hoy') || tiene('llamadas') : tiposVista(v).includes(tipoActual())
   // «Publicidad»: sí por defecto en todos los embudos (también los de antes); se quita desde su ⚙️.
   && (v !== 'publicidad' || embudoInfo()?.publicidad !== false)
   // El calendario es el del cliente (todos sus embudos): está en todos.
@@ -499,7 +499,7 @@ async function start() {
   state.config = config;
   state.zoomConfigured = zoomConfigured;
   state.sendflowConfigured = Boolean(sendflowConfigured);
-  // «Ajustes del cliente»: lo que cada rol puede tocar (las setters, al menos ver los mensajes de WhatsApp).
+  // «Mi negocio»: lo que cada rol puede tocar (las setters, al menos ver los mensajes de WhatsApp).
   $('#tb-menu-ajustes').hidden = !tiene(['hoy', 'llamadas', 'leads', 'config', 'mensajes']);
   $('#tb-ajustes-cli').textContent = state.clientes?.find((c) => c.id === state.cliente)?.nombre || 'Este cliente';
   $('#tb-cuenta-yo').textContent = state.user?.nombre ? String(state.user.nombre) : 'Tu cuenta';
@@ -3270,7 +3270,7 @@ $('#leyenda-estados').innerHTML = ESTADOS.map((e, i) => `<li><span class="estado
 // Ayuda de la primera visita a cada pestaña: qué hay y para qué sirve. Se cierra con «Entendido» y se
 // recuerda por usuario (Cuenta → «Volver a ver las ayudas» las enseña otra vez).
 const AYUDA_VISTA = {
-  hoy: ['☀️ Setting hoy', 'Una sola lista de a quién escribir hoy por WhatsApp, ya ordenada por prioridad (el número de la izquierda) y con el color de su temperatura: rojo muy caliente, naranja caliente, amarillo templado, azul frío. Filtra por motivo o por temperatura con los botones de arriba. Pulsa el botón de WhatsApp de cada lead: el mensaje sale ya escrito (se cambia en Ajustes del cliente → Mensajes de WhatsApp, o en el enlace de abajo). Al lado, «📨 Plantilla» manda una plantilla de pago y, si responde, contesta el setter IA.'],
+  hoy: ['☀️ Setting hoy', 'Una sola lista de a quién escribir hoy por WhatsApp, ya ordenada por prioridad (el número de la izquierda) y con el color de su temperatura: rojo muy caliente, naranja caliente, amarillo templado, azul frío. Filtra por motivo o por temperatura con los botones de arriba. Pulsa el botón de WhatsApp de cada lead: el mensaje sale ya escrito (se cambia en Mi negocio → Mensajes de WhatsApp, o en el enlace de abajo). Al lado, «📨 Plantilla» manda una plantilla de pago y, si responde, contesta el setter IA.'],
   llamadas: ['📞 Llamadas', 'Las llamadas de valoración del calendario de GHL. Pulsa una para ver la ficha del lead antes de llamar y anota el resultado al terminar: alimenta el pipeline y el rendimiento del equipo.'],
   endirecto: ['🔴 En directo', 'El día del webinar, minuto a minuto: quién espera, quién entra, la asistencia, las VIP y las ventas desde que abre el carrito. Se actualiza solo cada minuto.'],
   leads: ['👥 Leads', 'Cada persona registrada con su puntuación (0-100) y su estado: muy caliente, caliente, templado o frío. Filtra, ordena y abre su WhatsApp. En «Encuesta», qué ha respondido la gente.'],
@@ -3350,7 +3350,7 @@ $$('.view-tab, .subview-tab[data-view]:not(.subview-labia)').forEach((t) => t.in
 }
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
-// Menús de arriba («Ajustes del cliente» y «Tu cuenta»): se cierran al elegir algo o al pulsar fuera, y solo uno abierto.
+// Menús de arriba («Mi negocio» y «Tu cuenta»): se cierran al elegir algo o al pulsar fuera, y solo uno abierto.
 document.addEventListener('click', (e) => {
   for (const menu of $$('.topbar .tb-menu')) {
     if (!menu.open) continue;
@@ -6340,7 +6340,7 @@ function pintarNavMovil() {
   const seccion = (t) => {
     const subs = subDe(t);
     const cab = `<button type="button" class="nm-sec-cab ${activa(t) ? 'on' : ''}" data-nm="${tabs.indexOf(t)}">${t.querySelector('svg')?.outerHTML || ''}<span>${esc(textoPestana(t))}</span>${t.title ? `<small>${esc(t.title)}</small>` : ''}</button>`;
-    const pags = subs.length > 1 ? `<div class="nm-pags">${subs.map((x) => `<button type="button" class="nm-pag ${x.dataset.view === vistaActual ? 'on' : ''}" data-nm-vista="${esc(x.dataset.view)}">${x.classList.contains('subview-labia') ? x.innerHTML : esc(x.textContent.trim())}</button>`).join('')}</div>` : '';
+    const pags = subs.length > 1 ? `<div class="nm-pags">${subs.map((x) => `<button type="button" class="nm-pag ${x.dataset.view === vistaActual ? 'on' : ''}" data-nm-vista="${esc(x.dataset.view)}">${x.classList.contains('subview-labia') ? `<span class="sv-labia-logo">${labiaLogo()}</span>` : esc(x.textContent.trim())}</button>`).join('')}</div>` : '';
     return `<div class="nm-sec">${cab}${pags}</div>`;
   };
   $('#nav-mas').innerHTML = `<p class="nm-mas-t">Todas las secciones</p>${tabs.map(seccion).join('')}${document.body.classList.contains('vista-sencilla') ? '<button type="button" class="btn small nm-ver-todas" data-nm-todas>＋ Ver todas las pestañas</button>' : ''}`;
@@ -6369,12 +6369,14 @@ function faseLanzamiento(launch, ahora = Date.now()) {
 }
 // LabIA (el setter IA de WhatsApp): su logo, en el lateral y en las tarjetas del setter. «Lab» toma el color
 // del texto (se lee en claro y en oscuro) e «IA» y el bocadillo llevan sus degradados.
-const LABIA_LOGO = `<svg class="labia-logo" viewBox="0 0 128 40" role="img" aria-label="LabIA"><defs>
-  <linearGradient id="labia-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffa53a"/><stop offset="1" stop-color="#ff4d1f"/></linearGradient>
-  <linearGradient id="labia-s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
-  <path d="M7 4h25a4.5 4.5 0 0 1 4.5 4.5v16A4.5 4.5 0 0 1 32 29H17l-8.5 6.5 2.3-6.5H7a4.5 4.5 0 0 1-4.5-4.5v-16A4.5 4.5 0 0 1 7 4z" fill="none" stroke="url(#labia-g)" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M12.5 14.5q7 8 14 0" fill="none" stroke="url(#labia-s)" stroke-width="3" stroke-linecap="round"/>
-  <text x="44" y="28" font-family="inherit" font-weight="800" font-size="23" letter-spacing="-.3" fill="currentColor">Lab<tspan fill="url(#labia-g)">IA</tspan></text></svg>`;
+// Cada copia con sus propios ids: si la primera está oculta, Chrome no pinta los degradados de las demás.
+var labiaLogoN;
+function labiaLogo() { const n = labiaLogoN = (labiaLogoN || 0) + 1; return `<svg class="labia-logo" viewBox="0 0 128 40" role="img" aria-label="LabIA"><defs>
+  <linearGradient id="labia-g${n}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffa53a"/><stop offset="1" stop-color="#ff4d1f"/></linearGradient>
+  <linearGradient id="labia-s${n}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
+  <path d="M7 4h25a4.5 4.5 0 0 1 4.5 4.5v16A4.5 4.5 0 0 1 32 29H17l-8.5 6.5 2.3-6.5H7a4.5 4.5 0 0 1-4.5-4.5v-16A4.5 4.5 0 0 1 7 4z" fill="none" stroke="url(#labia-g${n})" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M12.5 14.5q7 8 14 0" fill="none" stroke="url(#labia-s${n})" stroke-width="3" stroke-linecap="round"/>
+  <text x="44" y="28" font-family="inherit" font-weight="800" font-size="23" letter-spacing="-.3" fill="currentColor">Lab<tspan fill="url(#labia-g${n})">IA</tspan></text></svg>`; }
 // Enlace del lateral: con la dirección del setter guardada (Conexiones), abre LabIA; sin ella, a quien puede
 // configurar le lleva a Conexiones para ponerla.
 function pintarLabia() {
@@ -6383,18 +6385,36 @@ function pintarLabia() {
   const url = state.config?.setterIa?.url || '';
   // Sin LabIA contratado, ni el enlace.
   a.hidden = !state.labia || (!url && !puedeConfig());
-  if (url) { a.href = url; a.target = '_blank'; a.title = 'Abrir LabIA, tu setter IA de WhatsApp'; } else { a.removeAttribute('href'); a.title = 'Conecta LabIA en Ajustes del cliente → Conexiones'; }
+  if (url) { a.href = url; a.target = '_blank'; a.title = 'Abrir LabIA, tu setter IA de WhatsApp'; } else { a.removeAttribute('href'); a.title = 'Conecta LabIA en Mi negocio → Conexiones'; }
   a.querySelector('.sb-labia-sub').textContent = url ? 'Tu setter IA de WhatsApp ↗' : 'Conéctalo en Conexiones';
 }
-$$('[data-labia-logo]').forEach((el) => { el.innerHTML = LABIA_LOGO; });
+$$('[data-labia-logo]').forEach((el) => { el.innerHTML = labiaLogo(); });
 
 // Hoy → LabIA: el pipeline del setter IA (de GHL) con los leads de cada etapa, a quién te toca escribir a ti
 // (la IA te los ha pasado o están en una etapa 👩) y cómo va el setter esta semana.
 const LB_ICO = { ia: '🤖', equipo: '🙋', otra: '' };
 let labiaDatos = null;
+// Sin LabIA contratado: la misma pestaña, sin datos, con lo que ganaría (para que lo quiera).
+function labiaVentajas() { return [
+  ['⚡', 'Contesta a cada lead al momento, 24/7', 'Por WhatsApp, en segundos y también de noche: ningún lead se enfría esperando a que alguien le escriba.'],
+  ['🎯', 'Cualifica, agenda y cobra solo', 'Hace las preguntas, agenda la llamada o envía el enlace de pago, y a tu equipo solo le pasa los que necesitan una persona.'],
+  ['🧠', 'Sabe quién es cada lead antes de escribirle', 'Con AlquimIA conoce su encuesta, las clases que vio y lo caliente que está: escribe lo justo en el momento justo y vende más.'],
+]; }
+function pintarLabiaSinContratar() {
+  $('#lb-abrir').hidden = true;
+  $('#lb-actualizar').hidden = true;
+  $('#lb-sub').textContent = 'Tu setter de IA por WhatsApp: contesta, cualifica y agenda por ti.';
+  $('#lb-cuerpo').innerHTML = `<div class="lb-promo">
+    <div class="lb-promo-cab"><h3>Aún no tienes LabIA activado</h3><p class="muted">Aquí verías su pipeline en directo: quién está hablando con la IA y a quién te toca escribir a ti.</p></div>
+    <ul class="lb-ventajas">${labiaVentajas().map(([ico, t, d]) => `<li><span class="lb-ventaja-ico" aria-hidden="true">${ico}</span><div><strong>${esc(t)}</strong><p>${esc(d)}</p></div></li>`).join('')}</ul>
+    <div class="lb-promo-acc"><a class="btn primary" href="mailto:hola@discendocultura.com?subject=${encodeURIComponent(`Quiero LabIA para ${state.clientes.find((c) => c.id === state.cliente)?.nombre || 'mi negocio'}`)}">🚀 Quiero LabIA</a>
+    ${state.superadmin ? '<span class="muted small">Si ya lo tiene, actívalo en <strong>Agencia → 🏢 Clientes → «LabIA contratado»</strong>.</span>' : ''}</div></div>`;
+}
 async function cargarLabia({ fresh = false } = {}) {
   const box = $('#lb-cuerpo');
   if (!box) return;
+  if (!state.labia) { pintarLabiaSinContratar(); return; }
+  $('#lb-actualizar').hidden = false;
   if (!labiaDatos || fresh) box.innerHTML = '<p class="muted">Cargando el pipeline de LabIA…</p>';
   try {
     labiaDatos = await api(`/api/labia${fresh ? '?fresh=1' : ''}`);
@@ -6409,7 +6429,7 @@ function pintarLabiaVista() {
   if (url) $('#lb-abrir').href = url;
   if (d.motivo === 'sin_labia') { box.innerHTML = '<div class="card empty"><p>Este cliente no tiene LabIA contratado.</p></div>'; return; }
   if (d.motivo === 'sin_pipeline') {
-    box.innerHTML = `<div class="card empty"><h3>No encuentro el pipeline de LabIA</h3><p class="muted">Buscamos en GHL un pipeline con etapas marcadas con 🤖 (las que lleva la IA). ${puedeConfig() ? 'Elige cuál es en <strong>Ajustes del cliente → Conexiones → Setter IA</strong>.' : 'Pide a quien configura el dashboard que lo elija en Conexiones.'}</p></div>`;
+    box.innerHTML = `<div class="card empty"><h3>No encuentro el pipeline de LabIA</h3><p class="muted">Buscamos en GHL un pipeline con etapas marcadas con 🤖 (las que lleva la IA). ${puedeConfig() ? 'Elige cuál es en <strong>Mi negocio → Conexiones → Setter IA</strong>.' : 'Pide a quien configura el dashboard que lo elija en Conexiones.'}</p></div>`;
     return;
   }
   if (d.motivo === 'error') { box.innerHTML = `<p class="error">${esc(d.error)}</p>`; return; }
@@ -6453,7 +6473,7 @@ function pintarLabiaVista() {
         <div><strong>${num(c.citas)}</strong><span>citas</span></div>
         <div><strong>${num(c.bajas)}</strong><span>bajas</span></div>
         <div><strong>${num(c.mensajes_ia)}</strong><span>mensajes de la IA</span></div></div>`
-        : `<p class="muted small">${d.setter?.error ? esc(d.setter.error) : 'Sus cifras salen cuando el setter IA está conectado (Ajustes del cliente → Conexiones → Setter IA).'}</p>`}
+        : `<p class="muted small">${d.setter?.error ? esc(d.setter.error) : 'Sus cifras salen cuando el setter IA está conectado (Mi negocio → Conexiones → Setter IA).'}</p>`}
     </div>`;
 }
 document.addEventListener('click', (e) => { if (e.target.closest('[data-ver-labia]')) showView('labia'); });
@@ -8284,9 +8304,9 @@ async function cargarSetterRend(code, leads, { desde, hasta }) {
     const pc = (a, b) => (b ? ` <small class="muted">${Math.round((a / b) * 100)} %</small>` : '');
     const estado = !d ? '<p class="muted small">Cargando las cifras del setter IA…</p>'
       : d.error ? `<p class="error small">No se pudieron leer las cifras del setter IA: ${esc(d.error)}</p>`
-      : !d.configurado ? `<p class="muted small">${d.falta === 'url' ? 'Para ver aquí sus cifras (conversaciones, citas, tiempo de respuesta), pon la dirección del setter en <strong>Ajustes del cliente → Conexiones → Setter IA</strong>.' : 'Para ver aquí sus cifras falta la clave <code>SETTER_RESUMEN_KEY</code> en Cloudflare (Ajustes del cliente → Conexiones → Setter IA lo explica).'}</p>` : '';
+      : !d.configurado ? `<p class="muted small">${d.falta === 'url' ? 'Para ver aquí sus cifras (conversaciones, citas, tiempo de respuesta), pon la dirección del setter en <strong>Mi negocio → Conexiones → Setter IA</strong>.' : 'Para ver aquí sus cifras falta la clave <code>SETTER_RESUMEN_KEY</code> en Cloudflare (Mi negocio → Conexiones → Setter IA lo explica).'}</p>` : '';
     box.innerHTML = `<section class="rend-setter">
-      <header class="rs-cab"><span class="rp-av rs-av" aria-hidden="true">🤖</span><div><strong>Setter IA ${LABIA_LOGO}</strong><small>Un miembro más del equipo · ${esc(fechaCorta(desde))} – ${esc(fechaCorta(hasta))}</small></div>
+      <header class="rs-cab"><span class="rp-av rs-av" aria-hidden="true">🤖</span><div><strong>Setter IA ${labiaLogo()}</strong><small>Un miembro más del equipo · ${esc(fechaCorta(desde))} – ${esc(fechaCorta(hasta))}</small></div>
         <span class="rs-estado ${d?.cifras ? 'on' : ''}">${d?.cifras ? '● Conectado' : state.config.setterIa?.url ? '● Sin cifras' : '○ Sin conectar'}</span>
         ${state.config.setterIa?.url ? `<a class="btn small rs-abrir" href="${esc(state.config.setterIa.url)}" target="_blank" rel="noopener">Abrir LabIA ↗</a>` : ''}</header>
       <div class="rs-kpis">
@@ -9060,7 +9080,7 @@ function pintarClientes(lista) {
       <div class="field cl-meta-campo"><span>Cuenta publicitaria de Meta <small>(identificador, solo números)</small></span><input class="cl-meta" value="${esc(c.metaAdAccount || '')}" maxlength="200" inputmode="numeric" aria-label="Cuenta publicitaria de Meta">
         <details class="cl-meta-ayuda"><summary>¿Qué número es? <small>Antes hay que darnos acceso</small></summary>${ayudaMetaHtml()}</details></div>`}
       <label class="field narrow"><span>Color</span><input class="cl-color" type="color" value="${esc(c.color || '#b4552d')}"></label>
-      <label class="chk cl-labia-chk" title="El setter IA de WhatsApp: su enlace en el menú lateral, la pestaña «LabIA» en Hoy y sus cifras en Rendimiento"><input type="checkbox" class="cl-labia"${c.labiaActiva ? ' checked' : ''}><span><span class="cl-labia-logo">${LABIA_LOGO}</span> contratado</span></label>
+      <label class="chk cl-labia-chk" title="El setter IA de WhatsApp: su enlace en el menú lateral, la pestaña «LabIA» en Hoy y sus cifras en Rendimiento"><input type="checkbox" class="cl-labia"${c.labiaActiva ? ' checked' : ''}><span><span class="cl-labia-logo">${labiaLogo()}</span> contratado</span></label>
     </div>
     ${c.principal ? '' : `<div class="cl-cx">${ETAPAS_CX.map((sv) => { const e = estadoServicio(c, sv); return `<button type="button" class="cl-cx-i e-${e.cls}" data-cl-op="cx-${sv}" title="Abrir ${SERVICIOS[sv].titulo}">${SERVICIOS[sv].icono} ${SERVICIOS[sv].corto}<small>${e.txt}</small></button>`; }).join('')}</div>`}
     <div class="row cl-acciones">
@@ -10725,7 +10745,7 @@ function pintarPlantillas() {
   waSucio = false;
 }
 waBox.addEventListener('toggle', () => { if (waBox.open && !waSucio) pintarPlantillas(); });
-// Se abren desde Ajustes del cliente → Mensajes de WhatsApp o desde el enlace de Setting hoy.
+// Se abren desde Mi negocio → Mensajes de WhatsApp o desde el enlace de Setting hoy.
 document.addEventListener('click', (e) => {
   if (!e.target.closest('[data-abrir-mensajes]')) return;
   $$('.topbar .tb-menu').forEach((m) => { m.open = false; });

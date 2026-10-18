@@ -5625,7 +5625,7 @@ details.ayuda-vista.plegada .ayuda-cuerpo .btn { display: none; }
 
 /* LabIA: logo (SVG en línea; «Lab» con el color del texto) y su enlace del lateral */
 .labia-logo { display: inline-block; height: 1.25em; width: auto; vertical-align: -0.28em; overflow: visible; }
-.sb-labia { flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 4px; text-decoration: none; border: 1px solid var(--border); background: linear-gradient(135deg, color-mix(in srgb, #ff6a2a 8%, var(--surface)), color-mix(in srgb, #a855f7 6%, var(--surface))); }
+.sb-labia { flex-direction: column; align-items: flex-start; gap: 2px; margin: 10px 0 18px; padding-top: 12px; padding-bottom: 12px; text-decoration: none; border: 1px solid var(--border); background: linear-gradient(135deg, color-mix(in srgb, #ff6a2a 8%, var(--surface)), color-mix(in srgb, #a855f7 6%, var(--surface))); }
 .sb-labia:hover { border-color: color-mix(in srgb, #ff6a2a 45%, var(--border)); }
 .sb-labia .labia-logo { height: 26px; }
 .sb-labia-sub { font-size: 12px; color: var(--muted); padding-left: 2px; }
@@ -5833,10 +5833,23 @@ body:has(.onb) .onb-preview { display: none; } /* durante una burbuja, el aviso 
 .sv-labia-logo .labia-logo { height: 20px; width: auto; display: block; }
 .cl-labia-logo .labia-logo { height: 18px; width: auto; vertical-align: -4px; }
 .cl-labia-chk { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 4px; }
-.lb-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.lb-head-txt { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.lb-head-txt p { margin: 0; }
-.lb-logo .labia-logo { height: 34px; width: auto; display: block; }
+/* Cabecera con el logo de LabIA, como su imagen: fondo de noche azul-violeta y el logo grande con brillo. */
+.lb-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; padding: 26px 28px !important; border-radius: 20px; color: #f4f2ff;
+  background: radial-gradient(ellipse 60% 120% at 62% 30%, rgb(76 40 160 / .55), transparent 70%), radial-gradient(ellipse 50% 90% at 20% 90%, rgb(40 30 120 / .45), transparent 70%), #070a1f; box-shadow: 0 18px 40px -20px rgb(20 10 60 / .8); }
+.lb-head-txt { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.lb-head-txt p { margin: 0; color: #c9c6e6; max-width: 420px; }
+.lb-logo .labia-logo { height: 54px; width: auto; display: block; color: #f4f2ff; filter: drop-shadow(0 0 14px rgb(255 120 40 / .35)); }
+.lb-head .btn { background: rgb(255 255 255 / .1); color: #fff; border-color: rgb(255 255 255 / .22); }
+.lb-promo { display: flex; flex-direction: column; gap: 16px; padding: 22px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow); }
+.lb-promo-cab h3 { margin: 0 0 4px; font-size: 20px; }
+.lb-promo-cab p { margin: 0; }
+.lb-ventajas { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.lb-ventajas li { display: flex; gap: 12px; padding: 16px; border-radius: 16px; background: linear-gradient(135deg, color-mix(in srgb, #ff7a2f 9%, var(--surface)), color-mix(in srgb, #a855f7 8%, var(--surface))); border: 1px solid var(--border); }
+.lb-ventaja-ico { font-size: 26px; line-height: 1; }
+.lb-ventajas strong { display: block; margin-bottom: 4px; }
+.lb-ventajas p { margin: 0; font-size: 13.5px; color: var(--muted); }
+.lb-promo-acc { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+@media (max-width: 600px) { .lb-head { padding: 20px !important; } .lb-logo .labia-logo { height: 42px; } }
 .lb-head-acc { display: flex; gap: 8px; }
 .lb-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 14px 0; }
 .lb-kpi { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--card, var(--bg)); }
@@ -5868,7 +5881,6 @@ body:has(.onb) .onb-preview { display: none; } /* durante una burbuja, el aviso 
 .lb-mini strong { font-size: 22px; }
 .lb-mini span { font-size: 12px; color: var(--muted); }
 .lb-vista > .card, #lb-cuerpo > .card { margin-bottom: 14px; padding: 18px 20px; }
-.lb-head { padding: 14px 20px; }
 @media (max-width: 700px) {
   .lb-etapa { grid-template-columns: 24px 1fr 60px 34px; }
   .lb-lead { grid-template-columns: 1fr auto; }

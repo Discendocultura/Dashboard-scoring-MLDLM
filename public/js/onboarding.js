@@ -27,7 +27,7 @@ export const TOURS = {
     { sel: '#ctx-bar', titulo: 'Dónde estás', texto: 'El embudo y el lanzamiento que estás viendo. Cámbialo en el desplegable; con «Configurar» pones fechas, precios y enlaces.' },
     { sel: 'nav.views, #nav-movil', titulo: 'Las pestañas van por momentos', texto: '«Hoy» es lo del día, «Leads» y «Métricas» cómo va, «Anuncios» y «Crear» lo que preparas con IA, y «Plan» la organización.' },
     { sel: '.views [data-view-grupo="crear"]', titulo: 'Crear con IA', texto: 'Páginas, emails, imágenes y mensajes del grupo: copias un prompt que ya lleva todo y lo pegas en Claude o en ChatGPT.' },
-    { sel: '#tb-menu-ajustes', titulo: 'Ajustes del cliente', texto: 'El equipo, la marca y el avatar (la base de todo lo que escribe la IA) y las conexiones.' },
+    { sel: '#tb-menu-ajustes', titulo: 'Mi negocio', texto: 'El equipo, la marca y el avatar (la base de todo lo que escribe la IA) y las conexiones.' },
     AYUDA,
   ],
   setter: [
