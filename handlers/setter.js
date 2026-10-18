@@ -7,6 +7,8 @@
 //       fechas, fase actual, oferta, enlaces de pago y la encuesta (preguntas y opciones)
 //   GET /api/setter/lead?c=&l=&cid=<id del contacto en GHL>
 //       encuesta, preclase, directo, VIP, inicio de pago, compra, origen y puntuación con su temperatura
+//   GET /api/setter/estado?c=   → { ok, cliente }: para que LabIA sepa que está conectado (y con qué cliente)
+// Solo para los clientes con LabIA contratado en AlquimIA (Agencia → Clientes): al resto, 403 { sinLabia: true }.
 // Respuesta: { texto, version, … } (JSON) o, con &formato=texto, solo el texto. Sin emails ni teléfonos.
 // Lleva ETag (= version): si el setter manda If-None-Match con la que ya tiene y nada ha cambiado, 304 sin cuerpo.
 import { env } from '../lib/env.js';
@@ -18,6 +20,7 @@ import { currentLaunch } from '../lib/digest.js';
 import { getContactCompleto, aplicarCamposFormulario, listAllFields } from '../lib/ghl.js';
 import { visitaDe } from '../lib/entradas.js';
 import { json, errorResponse } from '../lib/http.js';
+import { labiaAqui } from '../lib/clientes.js';
 import { elegirProducto, listaProductos, textoMarca, textoLanzamiento, textoLead, datosLead, faseActual } from '../lib/setter-api.js';
 import { nombreDeProducto } from '../public/js/marca.js';
 import { nombreProducto } from '../public/js/producto.js';
@@ -80,6 +83,9 @@ export async function GET(request) {
     const url = new URL(request.url);
     const ruta = url.pathname.replace(/\/$/, '').split('/').pop();
     const config = await getConfig();
+    // La información extra de AlquimIA es solo para quien tiene LabIA contratado en este cliente.
+    if (!(await labiaAqui(config))) return json({ error: `«${clienteActual().nombre}» no tiene LabIA activado en AlquimIA (Agencia → Clientes → «LabIA contratado»)`, sinLabia: true }, 403);
+    if (ruta === 'estado') return json({ ok: true, cliente: clienteActual().nombre });
 
     if (ruta === 'marca') {
       const m = await leerMarca();

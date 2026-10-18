@@ -75,6 +75,17 @@ test('setter IA: API con ETag (304 si no ha cambiado)', async () => {
   assert.equal(huella('a'), huella('a'));
   assert.notEqual(huella('a'), huella('b'));
   const auth = { authorization: 'Bearer clave-de-prueba-larga-1234567890' };
+  // Sin LabIA contratado en AlquimIA: no da la información extra (y lo dice).
+  const r0 = await route(new Request('http://localhost/api/setter/estado', { headers: auth }), env);
+  assert.equal(r0.status, 403);
+  assert.equal((await r0.json()).sinLabia, true);
+  const login = await route(new Request('http://localhost/api/login', { method: 'POST', body: JSON.stringify({ password: 'admin' }) }), env);
+  const cookie = login.headers.get('set-cookie').split(';')[0];
+  const cls = await (await route(new Request('http://localhost/api/clientes', { headers: { cookie } }), env)).json();
+  await route(new Request('http://localhost/api/clientes', { method: 'POST', headers: { cookie }, body: JSON.stringify({ op: 'guardar', cliente: { ...cls.clientes.find((c) => c.principal), labia: true } }) }), env);
+  const est = await route(new Request('http://localhost/api/setter/estado', { headers: auth }), env);
+  assert.equal(est.status, 200);
+  assert.equal((await est.json()).ok, true);
   const r1 = await route(new Request('http://localhost/api/setter/marca', { headers: auth }), env);
   assert.equal(r1.status, 200);
   const etag = r1.headers.get('etag');
