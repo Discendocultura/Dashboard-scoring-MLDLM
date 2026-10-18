@@ -9067,30 +9067,55 @@ async function loadClientes() {
     pintarClientes((await api('/api/clientes')).clientes);
   } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
+// Una fila por cliente: su color e iniciales, cómo van sus conexiones (iconos), LabIA (interruptor) y «Entrar».
+// Lo técnico (nombre, color, Location ID, cuenta de Meta, probar, quitar) va plegado en «Ajustes».
+const inicialesCliente = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((x) => x[0] || '').join('').toUpperCase() || '?';
 function pintarClientes(lista) {
   state.clientesAdmin = lista;
-  $('#clientes-list').innerHTML = `<div class="cl-cards">${lista.map((c) => `<article class="cl-card ${c.id === state.cliente ? 'actual' : ''}" data-cl="${esc(c.id)}" style="--cl:${esc(c.color || 'var(--accent)')}">
-    <header><span class="cl-dot"></span><input class="cl-nombre" value="${esc(c.nombre)}" maxlength="60" aria-label="Nombre">
-      ${c.principal ? '<span class="badge">Principal</span>' : ''}${c.id === state.cliente ? '<span class="badge">Estás aquí</span>' : ''}</header>
-    <div class="cl-datos">
-      <span>Código <code>${esc(c.id)}</code></span>
-      <span class="cl-estado ${c.conectado ? 'ok' : 'ko'}">${c.conectado ? '● GHL conectado' : `● Falta el token: añade <code>${esc(c.variables[0])}</code> en Cloudflare`}</span>
-      ${c.principal ? '<span class="muted">Usa GHL_TOKEN y GHL_LOCATION_ID de Cloudflare</span>' : `
-      <label class="field"><span>Location ID</span><input class="cl-location" value="${esc(c.locationId || '')}" maxlength="40"></label>
-      <div class="field cl-meta-campo"><span>Cuenta publicitaria de Meta <small>(identificador, solo números)</small></span><input class="cl-meta" value="${esc(c.metaAdAccount || '')}" maxlength="200" inputmode="numeric" aria-label="Cuenta publicitaria de Meta">
-        <details class="cl-meta-ayuda"><summary>¿Qué número es? <small>Antes hay que darnos acceso</small></summary>${ayudaMetaHtml()}</details></div>`}
-      <label class="field narrow"><span>Color</span><input class="cl-color" type="color" value="${esc(c.color || '#b4552d')}"></label>
-      <label class="chk cl-labia-chk" title="El setter IA de WhatsApp: su enlace en el menú lateral, la pestaña «LabIA» en Hoy y sus cifras en Rendimiento"><input type="checkbox" class="cl-labia"${c.labiaActiva ? ' checked' : ''}><span><span class="cl-labia-logo">${labiaLogo()}</span> contratado</span></label>
+  const abiertos = state.clAbiertos || (state.clAbiertos = new Set());
+  const ordenados = [...lista].sort((x, y) => (y.id === state.cliente) - (x.id === state.cliente) || (y.principal ? 1 : 0) - (x.principal ? 1 : 0));
+  const fila = (c) => {
+    const aqui = c.id === state.cliente;
+    const chips = c.principal
+      ? `<span class="cl-chip e-${c.conectado ? 'ok' : 'ko'}" title="Usa GHL_TOKEN y GHL_LOCATION_ID de Cloudflare">🔌 CRM <b>${c.conectado ? '✓' : '!'}</b></span>`
+      : ETAPAS_CX.map((sv) => { const e = estadoServicio(c, sv); return `<button type="button" class="cl-chip e-${e.cls || 'pend'}" data-cl-op="cx-${sv}" title="${SERVICIOS[sv].titulo}: ${e.txt} · pulsa para abrirlo">${SERVICIOS[sv].icono} ${SERVICIOS[sv].corto} <b>${e.cls === 'ok' ? '✓' : e.cls === 'ko' ? '!' : e.cls === 'nada' ? '–' : e.cls === 'elegido' ? '•' : '…'}</b></button>`; }).join('');
+    const abierto = abiertos.has(c.id);
+    return `<article class="cl-fila${aqui ? ' actual' : ''}${abierto ? ' abierta' : ''}" data-cl="${esc(c.id)}" style="--cl:${esc(c.color || 'var(--accent)')}">
+    <div class="cl-main">
+      <span class="cl-av" aria-hidden="true">${esc(inicialesCliente(c.nombre))}</span>
+      <div class="cl-quien"><strong>${esc(c.nombre)}</strong>
+        <small>${aqui ? '<span class="cl-aqui">● Estás aquí</span>' : ''}${c.principal ? '<span class="cl-tag">Principal</span>' : ''}${c.conectado ? '' : '<span class="cl-falta">Falta conectar su GHL</span>'}<span class="muted cl-res" aria-live="polite"></span></small></div>
+      <div class="cl-chips">${chips}</div>
+      <label class="cl-sw" title="LabIA contratado: su enlace en el menú lateral, la pestaña «LabIA» con su pipeline en Hoy y sus cifras en Rendimiento. Se guarda al pulsar">
+        <input type="checkbox" class="cl-labia"${c.labiaActiva ? ' checked' : ''}><span class="cl-sw-pista" aria-hidden="true"></span><span class="cl-labia-logo">${labiaLogo()}</span></label>
+      <div class="cl-btns">
+        <button type="button" class="btn ghost cl-aj-btn" data-cl-abrir aria-expanded="${abierto}">⚙️ Ajustes <span class="cl-chev" aria-hidden="true">▾</span></button>
+        ${aqui ? '' : '<button type="button" class="btn primary" data-cl-op="entrar">Entrar →</button>'}
+      </div>
     </div>
-    ${c.principal ? '' : `<div class="cl-cx">${ETAPAS_CX.map((sv) => { const e = estadoServicio(c, sv); return `<button type="button" class="cl-cx-i e-${e.cls}" data-cl-op="cx-${sv}" title="Abrir ${SERVICIOS[sv].titulo}">${SERVICIOS[sv].icono} ${SERVICIOS[sv].corto}<small>${e.txt}</small></button>`; }).join('')}</div>`}
-    <div class="row cl-acciones">
-      ${c.principal ? '' : `<button type="button" class="btn ${c.conectado ? '' : 'primary '}cl-integrar-btn" data-cl-op="integrar">⚙️ Conexiones →</button>`}
-      <button type="button" class="btn" data-cl-op="probar">Probar conexión</button>
-      <button type="button" class="btn" data-cl-op="guardar">Guardar</button>
-      ${c.id === state.cliente ? '' : '<button type="button" class="btn primary" data-cl-op="entrar">Entrar →</button>'}
-      ${c.principal ? '' : '<button type="button" class="btn ghost" data-cl-op="borrar" title="Quitar del dashboard (no borra nada de su GHL)">Quitar</button>'}
-      <span class="muted cl-res" aria-live="polite"></span>
-    </div></article>`).join('')}</div>`;
+    <div class="cl-ajustes"${abierto ? '' : ' hidden'}>
+      <div class="cl-aj-grid">
+        <label class="field"><span>Nombre</span><input class="cl-nombre" value="${esc(c.nombre)}" maxlength="60"></label>
+        <label class="field narrow"><span>Color</span><input class="cl-color" type="color" value="${esc(c.color || '#b4552d')}"></label>
+        <div class="field"><span>Código</span><code class="cl-codigo">${esc(c.id)}</code></div>
+        ${c.principal ? '<p class="muted small cl-aj-nota">Es la cuenta principal: usa GHL_TOKEN y GHL_LOCATION_ID de Cloudflare.</p>' : `
+        <label class="field"><span>Location ID de GHL</span><input class="cl-location" value="${esc(c.locationId || '')}" maxlength="40"></label>
+        <div class="field cl-meta-campo"><span>Cuenta publicitaria de Meta <small>(solo números)</small></span><input class="cl-meta" value="${esc(c.metaAdAccount || '')}" maxlength="200" inputmode="numeric" aria-label="Cuenta publicitaria de Meta">
+          <details class="cl-meta-ayuda"><summary>¿Qué número es? <small>Antes hay que darnos acceso</small></summary>${ayudaMetaHtml()}</details></div>`}
+      </div>
+      ${c.conectado || c.principal ? '' : `<p class="cl-aviso">Para conectar su GHL falta la clave <code>${esc(c.variables?.[0] || '')}</code> en Cloudflare: «Conexiones» te lleva paso a paso.</p>`}
+      <div class="row cl-acciones">
+        <button type="button" class="btn primary" data-cl-op="guardar">Guardar cambios</button>
+        ${c.principal ? '' : `<button type="button" class="btn" data-cl-op="integrar">🔌 Conexiones</button>`}
+        <button type="button" class="btn ghost" data-cl-op="probar">Probar conexión</button>
+        <span class="spacer"></span>
+        ${c.principal ? '' : '<button type="button" class="btn ghost danger" data-cl-op="borrar" title="Quitar del dashboard (no borra nada de su GHL)">Quitar cliente</button>'}
+      </div>
+    </div></article>`;
+  };
+  $('#clientes-list').innerHTML = `<div class="cl-cab"><div><h3>${lista.length} cliente${lista.length === 1 ? '' : 's'}</h3><p class="muted small">Pulsa un icono para ver o arreglar esa conexión · ✓ conectado · • elegido · – no lo usa · … sin elegir</p></div>
+    <button type="button" class="btn primary" id="btn-cl-nuevo">＋ Añadir cliente</button></div>
+    <div class="cl-filas">${ordenados.map(fila).join('')}</div>`;
 }
 $('.tab[data-tab="clientes"]').addEventListener('click', () => {
   $('.cl-meta-ayuda-txt').innerHTML = ayudaMetaHtml();
@@ -9133,7 +9158,7 @@ function cerrarIntegrarCrm() {
   state.integrando = null;
   $('section[data-panel="clientes"]').classList.remove('cl-integrando');
   $('#cl-integrar').hidden = true;
-  $('#cl-paso-datos').hidden = false;
+  $('#cl-paso-datos').hidden = true; // el alta, plegada: se abre con «＋ Añadir cliente»
 }
 // Los pasos como acordeón: solo el actual (y los que se abran) enseña sus instrucciones.
 function guiaConexionHtml(pasos, hechos, it, c) {
@@ -9314,6 +9339,7 @@ $('section[data-panel="clientes"]').addEventListener('click', async (e) => {
 $('section[data-panel="clientes"]').addEventListener('change', (e) => {
   if (e.target.matches('#cl-meta, .cl-meta')) e.target.value = limpiarCuentaMeta(e.target.value);
 });
+$('#btn-cl-cancelar').addEventListener('click', () => { $('#cl-paso-datos').hidden = true; });
 $('#cl-nombre').addEventListener('input', () => { if (!$('#cl-id').dataset.tocado) $('#cl-id').value = slugCliente($('#cl-nombre').value); });
 $('#cl-id').addEventListener('input', () => { $('#cl-id').dataset.tocado = '1'; });
 $('#btn-cl-crear').addEventListener('click', async () => {
@@ -9346,6 +9372,18 @@ $('#clientes-list').addEventListener('change', async (e) => {
     const res = $('.cl-res', $(`[data-cl="${CSS.escape(c.id)}"]`));
     if (res) res.textContent = chk.checked ? 'LabIA activado ✓' : 'LabIA quitado ✓';
   } catch (ex) { window.alert(ex.message); chk.checked = !chk.checked; } finally { chk.disabled = false; }
+});
+$('#clientes-list').addEventListener('click', (e) => {
+  if (e.target.closest('#btn-cl-nuevo')) { $('#cl-paso-datos').hidden = false; $('#cl-paso-datos').scrollIntoView({ block: 'start', behavior: 'smooth' }); $('#cl-nombre').focus({ preventScroll: true }); return; }
+  const t = e.target.closest('[data-cl-abrir]');
+  if (!t) return;
+  const fila = t.closest('[data-cl]');
+  const abrir = !fila.classList.contains('abierta');
+  const ab = state.clAbiertos || (state.clAbiertos = new Set());
+  abrir ? ab.add(fila.dataset.cl) : ab.delete(fila.dataset.cl);
+  fila.classList.toggle('abierta', abrir);
+  $('.cl-ajustes', fila).hidden = !abrir;
+  t.setAttribute('aria-expanded', abrir);
 });
 $('#clientes-list').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-cl-op]');

@@ -1329,10 +1329,6 @@ body:not(.can-operativa) .operativa-solo-proyecto, body.is-agencia .operativa-so
 .acc-cli { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); }
 .eq-fuera { margin-top: 12px; }
 .eq-fuera summary { cursor: pointer; font-weight: 700; color: var(--text-2); }
-.cl-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
-.cl-card { border: 1px solid var(--border); border-top: 4px solid var(--cl); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; background: var(--surface); }
-.cl-card.actual { box-shadow: 0 0 0 2px color-mix(in srgb, var(--cl) 40%, transparent); }
-.cl-card header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cl-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--cl); flex: none; }
 .cl-nombre { font: inherit; font-weight: 800; font-size: 16px; border: 1px solid transparent; border-radius: 6px; padding: 2px 6px; background: transparent; color: var(--text); flex: 1; min-width: 120px; }
 .cl-nombre:hover, .cl-nombre:focus { border-color: var(--border); background: var(--surface); }
@@ -1358,7 +1354,6 @@ body:not(.can-operativa) .operativa-solo-proyecto, body.is-agencia .operativa-so
 .emb-tipo small { color: var(--text-2); line-height: 1.4; }
 .emb-ico { font-size: 22px; line-height: 1; }
 input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; }
-.cl-card header .cl-nombre { flex: 1 1 100%; order: -1; }
 
 /* Guías (nuevo embudo, nuevo cliente) y pestañas del embudo */
 .emb-pestanas { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
@@ -6070,4 +6065,65 @@ body.en-negocio #inicio, body.en-negocio #solo-op { display: none !important; }
   .subviews .subview-tab { padding: 6px 10px; font-size: 12.5px; flex: none; }
   /* El aviso de la configuración: el botón grande ya dice cuánto falta. */
   .ctx-config-aviso { display: none !important; }
+}
+
+/* Agencia → Clientes: una fila por cliente (color e iniciales, conexiones en iconos, LabIA, Entrar) y Ajustes plegados */
+.cl-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 14px; flex-wrap: wrap; }
+.cl-cab h3 { margin: 0; font-size: 20px; }
+.cl-cab p { margin: 2px 0 0; }
+.cl-filas { display: flex; flex-direction: column; gap: 10px; }
+.cl-fila { position: relative; border: 1px solid var(--border); border-radius: 16px; background: linear-gradient(90deg, color-mix(in srgb, var(--cl) 9%, var(--surface)), var(--surface) 45%); overflow: hidden; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.cl-fila::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--cl); }
+.cl-fila:hover { border-color: color-mix(in srgb, var(--cl) 45%, var(--border)); box-shadow: 0 6px 22px -12px color-mix(in srgb, var(--cl) 70%, transparent); }
+.cl-fila.actual { border-color: color-mix(in srgb, var(--cl) 60%, var(--border)); }
+.cl-main { display: flex; align-items: center; gap: 14px; padding: 14px 16px 14px 20px; flex-wrap: wrap; }
+.cl-av { width: 46px; height: 46px; border-radius: 14px; flex: none; display: grid; place-items: center; font-weight: 800; font-size: 16px; letter-spacing: .5px; color: #fff; background: linear-gradient(135deg, var(--cl), color-mix(in srgb, var(--cl) 60%, #000)); box-shadow: 0 4px 14px -6px var(--cl); }
+.cl-quien { display: flex; flex-direction: column; gap: 3px; min-width: 150px; flex: 1 1 180px; }
+.cl-quien strong { font-size: 16.5px; line-height: 1.2; }
+.cl-quien small { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+.cl-aqui { color: var(--tone-buy); font-weight: 700; }
+.cl-tag { padding: 1px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); font-weight: 700; }
+.cl-falta { color: var(--st-muy-caliente); font-weight: 700; }
+.cl-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.cl-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+button.cl-chip:hover { border-color: var(--accent); color: var(--text); }
+.cl-chip b { font-size: 12px; }
+.cl-chip.e-ok { background: color-mix(in srgb, var(--tone-buy) 13%, var(--surface)); border-color: color-mix(in srgb, var(--tone-buy) 40%, var(--border)); color: var(--text); }
+.cl-chip.e-ok b { color: var(--tone-buy); }
+.cl-chip.e-elegido b { color: var(--accent); }
+.cl-chip.e-ko { background: color-mix(in srgb, var(--st-muy-caliente) 12%, var(--surface)); border-color: color-mix(in srgb, var(--st-muy-caliente) 45%, var(--border)); }
+.cl-chip.e-ko b { color: var(--st-muy-caliente); }
+.cl-chip.e-nada { opacity: .55; }
+.cl-chip.e-pend { border-style: dashed; }
+.cl-sw { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; flex: none; transition: background .15s, border-color .15s; }
+.cl-sw input { position: absolute; opacity: 0; pointer-events: none; }
+.cl-sw-pista { width: 34px; height: 20px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 45%, transparent); position: relative; transition: background .15s; flex: none; }
+.cl-sw-pista::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .18s; box-shadow: 0 1px 3px rgb(0 0 0 / .3); }
+.cl-sw:has(input:checked) { border-color: color-mix(in srgb, #ff6a2a 50%, var(--border)); background: color-mix(in srgb, #ff6a2a 10%, var(--surface)); }
+.cl-sw input:checked + .cl-sw-pista { background: linear-gradient(90deg, #ffa53a, #ff4d1f); }
+.cl-sw input:checked + .cl-sw-pista::after { transform: translateX(14px); }
+.cl-sw input:focus-visible + .cl-sw-pista { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cl-sw:not(:has(input:checked)) .cl-labia-logo { opacity: .5; filter: grayscale(.7); }
+.cl-sw .labia-logo { height: 20px; width: auto; display: block; }
+.cl-btns { display: flex; gap: 8px; margin-left: auto; flex: none; }
+.cl-chev { display: inline-block; transition: transform .18s; }
+.cl-fila.abierta .cl-chev { transform: rotate(180deg); }
+.cl-ajustes { border-top: 1px dashed var(--border); padding: 14px 16px 16px 20px; background: color-mix(in srgb, var(--surface-2) 55%, var(--surface)); animation: cl-abre .18s ease-out; }
+@keyframes cl-abre { from { opacity: 0; transform: translateY(-4px); } }
+.cl-aj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px 14px; align-items: start; }
+.cl-ajustes .cl-nombre { font-weight: 700; font-size: 14px; border: 1px solid var(--border); background: var(--surface); padding: 8px 10px; }
+.cl-codigo { display: inline-block; padding: 8px 10px; }
+.cl-aj-nota { grid-column: 1 / -1; margin: 0; }
+.cl-aviso { margin: 12px 0 0; padding: 8px 12px; border-radius: 10px; background: color-mix(in srgb, var(--st-muy-caliente) 10%, var(--surface)); font-size: 13px; }
+.cl-ajustes .cl-acciones { margin-top: 14px; }
+.cl-ajustes .btn.danger { background: transparent; color: var(--st-muy-caliente); border: 1px solid color-mix(in srgb, var(--st-muy-caliente) 45%, var(--border)); box-shadow: none; }
+.cl-nuevo { margin-top: 18px; padding: 16px 18px; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 16px; background: color-mix(in srgb, var(--accent) 5%, var(--surface)); animation: cl-abre .18s ease-out; }
+.cl-nuevo-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.cl-nuevo-cab h3 { margin: 0; }
+@media (max-width: 700px) {
+  .cl-main { gap: 10px 12px; padding: 12px 12px 12px 16px; }
+  .cl-quien { flex-basis: calc(100% - 60px); }
+  .cl-chips { order: 3; width: 100%; }
+  .cl-sw { order: 4; }
+  .cl-btns { order: 5; margin-left: auto; }
 }
