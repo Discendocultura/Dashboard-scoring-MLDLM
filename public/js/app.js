@@ -1545,16 +1545,39 @@ function renderConsumo() {
       <div class="cv-video-pie">${n[0] ? `<span class="cv-chip cv-chip-ok">🏁 ${pct(n[3])}% la vio entera</span>${caida != null ? `<span class="cv-chip cv-chip-mal">📉 se pierde el ${caida}%</span>` : ''}` : '<span class="muted">Aún nadie lo ha visto.</span>'}</div>
     </article>`;
   }).join('');
-  // Directo: cada paso incluye a quien llegó más lejos (quien estuvo hasta el final también entró).
-  const pasoDirecto = (l, d) => (l.s[`${d}_final`] ? 4 : l.s[`${d}_60`] ? 3 : l.s[`${d}_asistio`] ? 2 : l.s[`${d}_click`] ? 1 : 0);
-  const directos = vids.filter((v) => esEnDirecto(v) || L.some((l) => pasoDirecto(l, v.directo)));
-  const PASOS_DIR = [['👆', 'Pulsaron el enlace'], ['🎥', 'Entraron'], ['⏱️', 'Más de 60 min'], ['🏁', 'Hasta el final']];
-  const nDir = directos.map((v) => [1, 2, 3, 4].map((k) => L.filter((l) => pasoDirecto(l, v.directo) >= k).length));
-  const htmlDirectos = directos.map((v, j) => {
-    const n = nDir[j];
-    const ret = n[1] ? `${Math.round((n[3] / n[1]) * 100)}%` : '–';
+  // Directo: pulsó el enlace → entró → más de 1 h → más de 2 h; aparte, % que llegó al final y la duración media
+  // (los minutos de cada asistente se guardan al «Sincronizar Zoom»).
+  const directos = vids.filter((v) => esEnDirecto(v) || L.some((l) => l.s[`${v.directo}_click`] || l.s[`${v.directo}_asistio`]));
+  const fmtMin = (m) => (m == null ? '–' : m < 60 ? `${Math.round(m)} min` : `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, '0')} min`);
+  const datosDir = directos.map((v) => {
+    const d = v.directo;
+    const entro = L.filter((l) => l.s[`${d}_asistio`] || l.s[`${d}_60`] || l.s[`${d}_120`] || l.s[`${d}_final`]);
+    const clic = L.filter((l) => l.s[`${d}_click`] || entro.includes(l)).length;
+    const h1 = L.filter((l) => l.s[`${d}_60`] || l.s[`${d}_120`]).length;
+    const h2 = L.filter((l) => l.s[`${d}_120`]).length;
+    const fin = L.filter((l) => l.s[`${d}_final`]).length;
+    const guard = state.zoomMin?.[state.launchCode]?.[v.k];
+    const mins = guard?.minutos ? L.map((l) => guard.minutos[String(l.email || '').toLowerCase()]).filter((m) => m > 0) : [];
+    const media = mins.length ? mins.reduce((x, y) => x + y, 0) / mins.length : null;
+    return { v, entro: entro.length, clic, h1, h2, fin, media, conMinutos: Boolean(guard) };
+  });
+  if (directos.length && !state.zoomMinCargando?.[state.launchCode]) cargarMinutosZoom(state.launchCode, directos.map((v) => v.k));
+  const pctDe = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+  const tarjetasDir = datosDir.map(({ v, entro, fin, media, conMinutos }) => `<article class="cv-video cv-video-vivo">
+      <header><span class="cv-video-ico" aria-hidden="true">🔴</span><div><strong>${esc(vids.length > 1 ? v.nombre : 'Directo')}</strong><small>${entro.toLocaleString('es-ES')} leads entraron</small></div>
+        <span class="cv-anillo" style="--p:${pct(entro)}" title="${pct(entro)}% de los registros entraron al directo"><b>${pct(entro)}%</b></span></header>
+      <div class="cv-dir-stats">
+        <div class="cv-dir-stat"><span>⏱️ Duración media</span><strong>${fmtMin(media)}</strong><small>${media != null ? 'de quienes entraron' : !entro ? 'aún nadie ha entrado' : conMinutos ? 'vuelve a pulsar «Sincronizar Zoom»' : 'pulsa «Sincronizar Zoom»'}</small></div>
+        <div class="cv-dir-stat"><span>🏁 Hasta el final</span><strong>${entro ? `${pctDe(fin, entro)}%` : '–'}</strong><small>${fin.toLocaleString('es-ES')} de ${entro.toLocaleString('es-ES')} que entraron</small></div>
+      </div>
+    </article>`).join('');
+  const PASOS_DIR = [['👆', 'Pulsaron el enlace'], ['🎥', 'Entraron'], ['⏱️', 'Más de 1 h'], ['⏳', 'Más de 2 h']];
+  const htmlDirectos = datosDir.map(({ v, clic, entro, h1, h2, fin, media }) => {
+    const n = [clic, entro, h1, h2];
     return `<div class="cv-directo">
-      <div class="cv-directo-cab"><strong><span class="cv-vivo"></span>${esc(vids.length > 1 ? v.nombre : 'Directo')}</strong><span class="cv-pill">Retención <b>${ret}</b> <small>de los que entraron siguen al final</small></span></div>
+      <div class="cv-directo-cab"><strong><span class="cv-vivo"></span>${esc(vids.length > 1 ? v.nombre : 'Directo')}</strong>
+        <span class="cv-pill">⏱️ Media <b>${fmtMin(media)}</b></span>
+        <span class="cv-pill">🏁 Hasta el final <b>${entro ? `${pctDe(fin, entro)}%` : '–'}</b> <small>de los que entraron</small></span></div>
       ${embudoCv(n.map((x, i) => ({ ico: PASOS_DIR[i][0], label: PASOS_DIR[i][1], n: x, sub: `${pct(x)}% de los registros` })))}
     </div>`;
   }).join('');
@@ -1566,14 +1589,24 @@ function renderConsumo() {
   $('#vid-hero').innerHTML = [
     algunaClase != null ? t('🎓', 'accent', 'Empezaron las clases', `${pct(algunaClase)}%`, `${algunaClase.toLocaleString('es-ES')} vieron al menos el 25 % de alguna`) : '',
     algunaEntera != null ? t('🏁', 'buy', 'Vieron alguna entera', `${pct(algunaEntera)}%`, `${algunaEntera.toLocaleString('es-ES')} leads llegaron al final`) : '',
-    nDir.length ? t('🔴', 'live', 'Entraron al directo', nDir[0][1].toLocaleString('es-ES'), `de ${nDir[0][0].toLocaleString('es-ES')} que pulsaron el enlace${nDir[0][0] ? ` · ${Math.round((nDir[0][1] / nDir[0][0]) * 100)}%` : ''}`) : '',
+    datosDir.length ? t('⏱️', 'live', 'Duración media en el directo', fmtMin(datosDir[0].media), datosDir[0].media != null ? `${datosDir[0].entro.toLocaleString('es-ES')} entraron · ${datosDir[0].entro ? pctDe(datosDir[0].fin, datosDir[0].entro) : 0}% hasta el final` : 'pulsa «Sincronizar Zoom» para calcularla') : '',
     peor ? t('📉', 'vip', 'Donde más se pierden', esc(peor.label), `se va el ${Math.round(peor.caida * 100)}% antes del final`) : '',
   ].join('');
   $('#consumo').innerHTML = `
     <h2>Consumo de vídeos <span class="muted">· qué parte de los registros llega a cada punto de cada vídeo</span></h2>
-    <div class="cv-videos">${tarjetas || '<p class="muted">Este lanzamiento no tiene clases ni grabaciones configuradas.</p>'}</div>
+    <div class="cv-videos">${tarjetas + tarjetasDir || '<p class="muted">Este lanzamiento no tiene clases ni grabaciones configuradas.</p>'}</div>
     <h3 class="cv-h3">En directo <span class="muted">· sobre el total de registros (Zoom: sincroniza la asistencia con «Sincronizar Zoom»)</span></h3>
     ${htmlDirectos || '<p class="muted">Este lanzamiento no tiene vídeos en directo (sin Zoom configurado) o aún no hay datos del directo.</p>'}`;
+}
+
+// Minutos de cada asistente al directo (guardados en la última «Sincronizar Zoom»): para la duración media.
+async function cargarMinutosZoom(code, ks) {
+  state.zoomMinCargando = { ...(state.zoomMinCargando || {}), [code]: true };
+  state.zoomMin = state.zoomMin || {};
+  const res = {};
+  await Promise.all(ks.map(async (k) => { try { res[k] = await api(`/api/zoom-report?launch=${encodeURIComponent(code)}&v=${k}&guardado=1`); } catch { res[k] = null; } }));
+  state.zoomMin[code] = res;
+  if (state.launchCode === code && !$('#view-metricas').hidden) renderConsumo();
 }
 
 // Embudo visual (barras centradas que se estrechan) con el % que pasa de un paso al siguiente.
@@ -3986,6 +4019,7 @@ $('#btn-zoom').addEventListener('click', async () => {
         if (!lead) { unmatched++; continue; }
         const sigs = [`${v.directo}_asistio`];
         if (a.minutes >= 60) sigs.push(`${v.directo}_60`);
+        if (a.minutes >= 120) sigs.push(`${v.directo}_120`);
         if (a.final) sigs.push(`${v.directo}_final`);
         const missing = sigs.filter((t) => !lead.s[t]).map((t) => tagFor(state.launchCode, t));
         if (missing.length) { items.set(lead.id, [...(items.get(lead.id) || []), ...missing]); n++; }
@@ -4010,6 +4044,8 @@ $('#btn-zoom').addEventListener('click', async () => {
       done += chunk.length;
       progress(done, lista.length, `Etiquetando asistentes en GHL… ${done} de ${lista.length}`);
     }
+    delete state.zoomMin?.[state.launchCode];
+    if (state.zoomMinCargando) delete state.zoomMinCargando[state.launchCode];
     await loadLeads({ forzar: true });
     notice(`Zoom: ${resumen.join(' · ')}${failed ? `. ${failed} no se pudieron etiquetar (vuelve a sincronizar)` : ''}.`, failed > 0);
   } catch (e) {

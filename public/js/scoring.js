@@ -12,10 +12,10 @@ export const SIGNALS = [
   'clase2_25', 'clase2_50', 'clase2_75', 'clase2_90',
   'clase3_25', 'clase3_50', 'clase3_75', 'clase3_90', // prelanzamientos de 3 clases
   'replay_25', 'replay_50', 'replay_75', 'replay_90',
-  'directo_click', 'directo_asistio', 'directo_60', 'directo_final',
+  'directo_click', 'directo_asistio', 'directo_60', 'directo_120', 'directo_final',
   // Lanzamientos de 2, 3 o 4 vídeos (PLF): las mismas señales de cada vídeo con su número.
   ...Array.from({ length: MAX_VIDEOS - 1 }, (_, i) => i + 2).flatMap((k) => [
-    `directo${k}_click`, `directo${k}_asistio`, `directo${k}_60`, `directo${k}_final`,
+    `directo${k}_click`, `directo${k}_asistio`, `directo${k}_60`, `directo${k}_120`, `directo${k}_final`,
     `replay${k}_25`, `replay${k}_50`, `replay${k}_75`, `replay${k}_90`,
   ]),
   'wa_enviado',

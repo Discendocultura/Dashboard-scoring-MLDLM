@@ -5600,3 +5600,13 @@ details.ayuda-vista.plegada .ayuda-cuerpo .btn { display: none; }
 .cx-labia .labia-logo { height: 20px; margin-left: 6px; }
 .rs-cab strong .labia-logo { height: 18px; margin-left: 6px; vertical-align: -4px; }
 .rs-abrir { white-space: nowrap; }
+
+/* Directo en «Consumo de vídeos»: duración media y % hasta el final, en grande */
+.cv-video-vivo .cv-anillo { background: conic-gradient(#e0362c calc(var(--p) * 1%), var(--surface-3, var(--border)) 0); }
+.cv-dir-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: auto; }
+.cv-dir-stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.cv-dir-stat span { font-size: 12px; color: var(--muted); font-weight: 600; }
+.cv-dir-stat strong { font-size: 24px; line-height: 1.15; }
+.cv-dir-stat small { font-size: 11.5px; color: var(--muted); }
+.cv-directo-cab { gap: 8px; }
+.cv-directo-cab strong { margin-right: auto; }
