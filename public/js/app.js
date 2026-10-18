@@ -62,6 +62,7 @@ import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesP
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { piezasImagenes, promptImagen, promptMagnificImagenes, PROMPT_VERTICAL, paletaMarca } from './imagenes-ia.js';
 import { paraChatGPT } from './chatgpt.js';
+import { iniciarOnboarding, onbVista, abrirAyuda, verTodas, leerPreview, progresoDe, onbReiniciarAyudas } from './onboarding.js';
 import { iniciarAnimaciones } from './animaciones.js';
 import { FASES_PLAN, enviosPorDefecto, enviosDe, planEnvios, sanitizeEnvios } from './envios.js';
 import { componerEmails } from './emails.js';
@@ -481,6 +482,7 @@ async function start() {
     document.body.classList.add('solo-operativa');
     pintarCliente(me.cliente);
     mostrarSoloOperativa();
+    arrancarOnboarding();
     return;
   }
   document.body.classList.remove('solo-operativa');
@@ -510,7 +512,7 @@ async function start() {
   // El cliente (solo lectura) ve únicamente su portal de resultados.
   if (role === ROL_CLIENTE) {
     pintarFotoCuenta();
-    if (!((state.user ? state.user.marcaObligatoria : true) && (await asistenteMarcaCliente()))) await mostrarPortal();
+    if (!((state.user ? state.user.marcaObligatoria : true) && (await asistenteMarcaCliente()))) { await mostrarPortal(); arrancarOnboarding(); }
     return;
   }
   // Marcado al darle de alta: antes de entrar tiene que rellenar Marca y avatar (sea cual sea su rol).
@@ -545,7 +547,49 @@ async function start() {
   if (abrirInicio) mostrarInicio();
   if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); pintarQueFunciono(); }
   if (!$('#view-rendimiento').hidden) loadRendimiento();
+  await arrancarOnboarding();
 }
+
+// ---------- Onboarding (burbujas, primeros pasos y vista sencilla; ver public/js/onboarding.js) ----------
+// Rol del onboarding: el de verdad, o el elegido en «🎓 Ver como usuario nuevo» (solo superadmin; no guarda nada).
+async function arrancarOnboarding() {
+  const preview = state.superadmin ? leerPreview() : '';
+  const rol = preview || (state.role === ROL_CLIENTE ? 'cliente' : state.role === ROL_OPERATIVA ? 'operativa' : state.role === 'admin' || puedeConfig() ? 'admin' : 'setter');
+  if (preview === 'cliente' && $('#portal').hidden) {
+    await mostrarPortal({ vistaPrevia: true });
+    $('#portal-aviso').hidden = true;
+    $('#portal-procesos').hidden = false;
+    $('#portal-cuenta').hidden = false;
+  }
+  if (preview === 'operativa' && $('#solo-op').hidden) { document.body.classList.add('solo-operativa'); mostrarSoloOperativa(); }
+  const clic = (sel) => { const b = $$(sel).find((x) => x.getClientRects().length) || $(sel); b?.click(); };
+  iniciarOnboarding({
+    api,
+    rol,
+    nombre: state.user?.nombre || '',
+    estado: preview ? { inicio: new Date().toISOString(), tours: {}, pasos: {} } : state.user?.onboarding || { hecho: true },
+    preview: Boolean(preview),
+    superadmin: state.superadmin,
+    acciones: {
+      // Si está en el Inicio (o en el de la agencia), abre su embudo para que se vea de qué habla cada burbuja.
+      antesDelTour: async () => {
+        if (rol === 'cliente' || rol === 'operativa' || !state.enInicio || !state.embudo) return;
+        salirInicio();
+        await setEmbudo(state.embudo);
+      },
+      irVista: (v) => { if (state.enInicio) salirInicio(); showView(allowedViews().includes(v) ? v : enVsl() ? 'vleads' : v); },
+      marca: () => clic('#btn-marca'),
+      conexiones: () => clic('#btn-conexiones'),
+      crear: () => { if (state.enInicio) salirInicio(); clic('[data-view-grupo="crear"]'); },
+      procesos: () => clic('#portal-procesos, #solo-op-procesos, #btn-procesos'),
+      cuenta: () => clic('#portal-cuenta, #btn-cuenta'),
+      operativa: () => clic('#solo-op-operativa, #btn-operativa'),
+    },
+  });
+}
+$('#btn-onb-ayuda').addEventListener('click', (e) => abrirAyuda(e.currentTarget));
+$('#portal-ayuda').addEventListener('click', (e) => abrirAyuda(e.currentTarget));
+$('#vs-mas').addEventListener('click', () => verTodas());
 
 function launchesSorted() {
   return Object.entries(state.config.launches)
@@ -3220,6 +3264,7 @@ document.addEventListener('click', (e) => {
   if (ok) { const box = ok.closest('.ayuda-vista'); ls.set(claveAyuda(box.dataset.vista), '1'); box.open = false; box.classList.add('plegada'); return; }
   if (e.target.closest('#btn-ayudas')) {
     for (const v of Object.keys(AYUDA_VISTA)) { try { localStorage.removeItem(claveAyuda(v)); } catch { /* sin almacenamiento */ } }
+    onbReiniciarAyudas();
     $$('.ayuda-vista').forEach((x) => x.remove());
     const actual = VIEWS.find((v) => !$(`#view-${v}`)?.hidden);
     if (actual) pintarAyudaVista(actual);
@@ -3445,7 +3490,8 @@ function showView(view) {
   if (!nav.restaurando && state.role && history.state?.view !== view) {
     try { history[history.state?.view ? 'pushState' : 'replaceState']({ view }, ''); } catch { /* sin historial */ }
   }
-  pintarAyudaVista(view);
+  // Con onboarding, la ayuda de la pestaña son sus burbujas (la primera vez); si no, el aviso «Entendido».
+  if (onbVista(view)) $$('.ayuda-vista').forEach((x) => x.remove()); else pintarAyudaVista(view);
   pintarNavMovil();
   requestAnimationFrame(revisarBarras);
 }
@@ -7443,11 +7489,12 @@ function renderEquipo() {
   const deAgencia = state.equipo.filter((u) => u.agencia);
   const fmt = (d) => (d ? new Date(d).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Nunca');
   $('#equipo-list').innerHTML = users.length ? `<div class="table-scroll"><table class="metric-table equipo-table">
-    <thead><tr><th>Persona</th><th>Rol</th><th title="Tiene que rellenar Marca y avatar antes de poder entrar">🎨 Marca</th><th>Último acceso</th><th></th></tr></thead>
+    <thead><tr><th>Persona</th><th>Rol</th><th title="Tiene que rellenar Marca y avatar antes de poder entrar">🎨 Marca</th><th title="Su onboarding: los primeros pasos que lleva hechos">🚀 Primeros pasos</th><th>Último acceso</th><th></th></tr></thead>
     <tbody>${users.map((u) => `<tr class="${u.activo ? '' : 'inactivo'}" data-uid="${esc(u.id)}">
       <td><span class="t-who">${avatarHtml(u)}<span><strong>${esc(u.nombre)}</strong>${u.superadmin ? ' <span class="badge sa-badge">Superadmin</span>' : ''}<br><span class="muted">${esc(u.email)}</span>${u.activo ? '' : ' · <em>desactivada</em>'}${otrosClientes(u)}</span></span></td>
       <td><select class="eq-rol" ${u.id === state.user?.id ? 'disabled' : ''}>${[...rolesUI(), ...(rolesUI().includes(u.rol) ? [] : [u.rol])].map((r) => `<option value="${r}" ${r === u.rol ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></td>
       <td><label class="chk" title="Tiene que rellenar Marca y avatar antes de poder entrar"><input type="checkbox" class="eq-marca"${u.marcaObligatoria ? ' checked' : ''}${u.superadmin ? ' disabled' : ''}><span class="sr-only">Marca y avatar obligatorio</span></label></td>
+      <td>${onbCelda(u)}</td>
       <td class="muted">${fmt(u.lastLogin)}</td>
       <td class="eq-actions">
         <button type="button" class="btn" data-eq="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
@@ -7467,6 +7514,16 @@ function renderEquipo() {
         <td><span class="t-who">${avatarHtml(u)}<span><strong>${esc(u.nombre)}</strong><br><span class="muted">${esc(u.email)}</span>${otrosClientes(u)}</span></span></td>
         <td class="eq-actions"><button type="button" class="btn" data-eq="accesos">Dar acceso…</button></td></tr>`).join('')}</tbody></table></div></details>`);
   }
+}
+
+// Onboarding de cada persona en el Equipo: cuántos primeros pasos lleva y «Repetir» (vuelve a empezar desde la bienvenida).
+const rolOnbDe = (r) => (r === ROL_CLIENTE ? 'cliente' : r === ROL_OPERATIVA ? 'operativa' : r === 'admin' || (state.roles || []).find((x) => x.id === r)?.permisos?.includes('config') ? 'admin' : 'setter');
+function onbCelda(u) {
+  const o = u.onboarding || { hecho: true };
+  const repetir = u.id === state.user?.id ? '' : '<button type="button" class="link small" data-eq="onb-reiniciar" title="Le vuelve a salir la bienvenida, el recorrido y los primeros pasos la próxima vez que entre">↺ Repetir</button>';
+  if (o.hecho) return `<span class="muted small" title="Ya usaba el dashboard antes del onboarding">—</span> ${repetir}`;
+  const p = progresoDe(o, rolOnbDe(u.rol));
+  return `<span class="eq-onb${p.hecho ? ' ok' : ''}" title="${p.hechos} de ${p.total} primeros pasos"><span class="eq-onb-barra"><i style="width:${Math.round((p.hechos / p.total) * 100)}%"></i></span>${p.hecho ? '✓ Todo' : `${p.hechos}/${p.total}`}</span> ${repetir}`;
 }
 
 // Clientes en los que trabaja una persona (además de este), para el superadmin.
@@ -7557,6 +7614,11 @@ $('#equipo-list').addEventListener('click', async (e) => {
     return;
   }
   if (op === 'cerrar-accesos') { b.closest('tr').remove(); return; }
+  if (op === 'onb-reiniciar') {
+    if (!window.confirm(`¿Repetir el onboarding de ${u.nombre}? La próxima vez que entre verá otra vez la bienvenida, el recorrido y sus primeros pasos.`)) return;
+    try { await api('/api/usuarios', { method: 'POST', body: { op: 'onboarding-reiniciar', id } }); notice(`Listo: ${u.nombre} verá el onboarding la próxima vez que entre.`); loadEquipo(); } catch (err) { notice(err.message, true); }
+    return;
+  }
   if (op === 'vercomo') { verComo(id); return; }
   if (op === 'agencia') {
     if (!window.confirm(MSG_PASAR_AGENCIA(u.nombre))) return;

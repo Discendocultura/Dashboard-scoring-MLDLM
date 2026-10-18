@@ -1,7 +1,7 @@
 // Gestión de usuarios del equipo (solo admin) y cambio de la propia contraseña (cualquiera con usuario).
 import { requireSession, sessionCookie } from '../lib/auth.js';
 import {
-  listUsers, saveUsers, actualizarUsuarios, hashPassword, checkPassword, generatePassword, newId, normEmail, publicUser, sendAccessEmail, FOTO_RE, FOTO_MAX, fotoKey,
+  listUsers, saveUsers, actualizarUsuarios, cambiarOnboarding, hashPassword, checkPassword, generatePassword, newId, normEmail, publicUser, sendAccessEmail, FOTO_RE, FOTO_MAX, fotoKey,
 } from '../lib/users.js';
 import { storeSet, reintentando } from '../lib/store.js';
 import { clienteActual, runCliente, enPrincipal } from '../lib/cliente.js';
@@ -127,6 +127,27 @@ async function procesar(request, body) {
     const s = await requireSession(request, { cliente: true, operativa: true });
     if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
     await actualizarUsuarios((us) => { const u = us.find((x) => x.id === s.uid); if (u) u.aviso2faOculto = true; }, 'ocultar aviso 2FA');
+    return json({ ok: true });
+  }
+
+  // Onboarding: lo que ha visto y hecho (vale en todos sus dispositivos). Un admin se lo puede reiniciar a otra persona.
+  if (op === 'onboarding') {
+    const s = await requireSession(request, { cliente: true, operativa: true });
+    if (!s.uid) return json({ ok: true, onboarding: { hecho: true } }); // contraseña general: sin onboarding
+    let o = null;
+    await actualizarUsuarios((us) => { const u = us.find((x) => x.id === s.uid); if (u) o = cambiarOnboarding(u, body.cambio || {}); }, 'onboarding');
+    return json({ ok: true, onboarding: o });
+  }
+  if (op === 'onboarding-reiniciar') {
+    const s = await requireSession(request, { admin: true });
+    const uid = String(body.id || '');
+    let ok = false;
+    await actualizarUsuarios((us) => {
+      const u = us.find((x) => x.id === uid);
+      // Solo a quien tiene acceso a este cliente (o cualquiera, si es superadmin).
+      if (u && (s.superadmin || u.rol)) { u.onboarding = { inicio: new Date().toISOString(), tours: {}, pasos: {} }; ok = true; }
+    }, 'reiniciar onboarding');
+    if (!ok) throw bad('Usuario no encontrado', 404);
     return json({ ok: true });
   }
 
