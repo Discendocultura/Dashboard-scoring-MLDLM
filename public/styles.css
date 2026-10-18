@@ -5684,3 +5684,21 @@ details.ayuda-vista.plegada .ayuda-cuerpo .btn { display: none; }
   .pr-asis-r-k { grid-column: 2; }
   .pr-asis-r-v { grid-column: 2; }
 }
+
+/* ---------- Logo AlquimIA (barra de arriba y login) ---------- */
+.aq-logo { display: inline-flex; align-items: center; gap: 7px; flex: none; line-height: 1; }
+.aq-flask { width: 30px; height: 30px; flex: none; }
+.aq-txt { font-weight: 800; font-size: 21px; letter-spacing: -.02em; color: var(--text); }
+.aq-txt b { font-weight: 800; background: linear-gradient(180deg, #ffab00, #ff4b00); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand-sep { width: 1px; height: 22px; background: var(--border); flex: none; }
+.brand-sep:has(+ #brand-nombre:empty) { display: none; }
+.topbar .brand #brand-nombre { color: var(--muted); font-weight: 600; }
+.login-card::before { display: none; }
+.aq-logo-login { align-self: center; gap: 10px; margin-bottom: 6px; }
+.aq-logo-login .aq-flask { width: 46px; height: 46px; }
+.aq-logo-login .aq-txt { font-size: 34px; color: #fff; }
+@media (max-width: 640px) {
+  .topbar .aq-txt { font-size: 18px; }
+  .topbar .aq-flask { width: 26px; height: 26px; }
+  .topbar .brand-sep, .topbar .brand #brand-nombre { display: none; }
+}

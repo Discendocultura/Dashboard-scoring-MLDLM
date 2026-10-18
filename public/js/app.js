@@ -583,8 +583,8 @@ $('#btn-reload').addEventListener('click', () => {
 
 // ---------- Clientes (desplegable de arriba) ----------
 function pintarCliente(c) {
-  $('#brand-nombre').textContent = state.clientes.length > 1 ? 'Dashboard' : `Dashboard ${c.nombre}`;
-  document.title = `Dashboard · ${c.nombre}`;
+  $('#brand-nombre').textContent = state.clientes.length > 1 ? '' : c.nombre;
+  document.title = `AlquimIA · ${c.nombre}`;
   const pick = $('#cliente-pick');
   pick.hidden = state.clientes.length < 2;
   $('#cliente-select').innerHTML = state.clientes.map((x) => `<option value="${esc(x.id)}" ${x.id === c.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('');

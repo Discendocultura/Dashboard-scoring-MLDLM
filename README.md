@@ -738,6 +738,8 @@ nebulosas, barra de arriba y tarjetas de cristal, botones naranja espacial y el 
 del titular (el botón de día / noche se oculta). Se guarda en el navegador de cada persona (`lsd_estilo`) y se aplica
 antes de pintar la página (`tema.js`, `<html data-estilo>`), así que no parpadea. Con «reducir movimiento» del
 sistema, las estrellas no se mueven.
+**Marca: AlquimIA.** El logo (matraz con la gráfica y «Alquim» + «IA» en degradado naranja) está hecho en SVG dentro de `index.html`, así se adapta al tema claro y oscuro: arriba a la izquierda (seguido del nombre del cliente) y en la tarjeta del login; el matraz es también el icono de la pestaña. La pestaña del navegador se llama «AlquimIA · <cliente>».
+
 **Pantalla de acceso:** siempre oscura, «Inteligencia de Negocio para escalar» en grande (debajo: «Factura más aprovechando los datos que ya tienes»), fondo de espacio con estrellas en movimiento,
 un cohete que despega (llama, humo y estelas), una gráfica de crecimiento que se dibuja y tarjetas de métricas
 flotando; el acceso va en una tarjeta de cristal. En el móvil, solo el titular y el acceso (el cohete, pequeño, arriba).
