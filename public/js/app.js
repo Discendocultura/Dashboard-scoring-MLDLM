@@ -61,6 +61,7 @@ import { FASES_EMAIL, FASES_DEFECTO, calendarioEmails, calendarioWhatsapp, FASES
 import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesPropuestos, urlsTexto, accesosDePaginas, conAccesos } from './urls-paginas.js';
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { piezasImagenes, promptImagen, promptMagnificImagenes, PROMPT_VERTICAL, paletaMarca } from './imagenes-ia.js';
+import { paraChatGPT } from './chatgpt.js';
 import { iniciarAnimaciones } from './animaciones.js';
 import { FASES_PLAN, enviosPorDefecto, enviosDe, planEnvios, sanitizeEnvios } from './envios.js';
 import { componerEmails } from './emails.js';
@@ -1452,6 +1453,7 @@ function encIaCard(r) {
       <p class="small muted">${distintas} respuestas abiertas distintas${compras ? ` · ${compras} de compradoras (van primero)` : ''} · sin nombres, emails ni teléfonos · con la ficha de marca${state.config.launches[state.launchCode]?.narrativa?.texto ? ' y la narrativa' : ''}.</p></div>
     <div class="enc-ia-acc"><button type="button" class="btn" id="enc-ia-copiar">📋 Copiar el prompt</button>
       <button type="button" class="btn ghost" id="enc-ia-ver">Ver el prompt</button></div>
+    ${filaChatGPT('id="enc-ia-copiar-gpt"')}
     <pre class="enc-ia-prompt" id="enc-ia-prompt" hidden></pre>
   </section>`;
 }
@@ -1464,16 +1466,17 @@ async function promptEncuestaActual() {
   });
 }
 document.addEventListener('click', async (e) => {
-  const b = e.target.closest('#enc-ia-copiar, #enc-ia-ver');
+  const b = e.target.closest('#enc-ia-copiar, #enc-ia-copiar-gpt, #enc-ia-ver');
   if (!b) return;
   const pre = $('#enc-ia-prompt');
   const { prompt, incluidas, total } = await promptEncuestaActual();
   pre.textContent = prompt;
   if (b.id === 'enc-ia-ver') { pre.hidden = !pre.hidden; b.textContent = pre.hidden ? 'Ver el prompt' : 'Ocultar el prompt'; return; }
-  const ok = await copiarAlPortapapeles(prompt);
-  b.textContent = ok ? `Copiado ✓ · pégalo en Claude${incluidas < total ? ` (${incluidas} de ${total} respuestas)` : ''}` : 'No se pudo copiar: ábrelo en «Ver el prompt»';
+  const antes = b.textContent;
+  const ok = await copiarPrompt(prompt);
+  b.textContent = ok ? `Copiado ✓ · pégalo en ${iaNombre()}${incluidas < total ? ` (${incluidas} de ${total} respuestas)` : ''}` : 'No se pudo copiar: ábrelo en «Ver el prompt»';
   if (!ok) pre.hidden = false;
-  setTimeout(() => { b.textContent = '📋 Copiar el prompt'; }, 3500);
+  setTimeout(() => { b.textContent = antes; }, 3500);
 });
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-enc-mas]');
@@ -5217,13 +5220,33 @@ async function abrirNarrativa(ctx) {
 async function copiarAlPortapapeles(txt) {
   try { await navigator.clipboard.writeText(txt); return true; } catch { return false; }
 }
+// ---------- Claude o ChatGPT ----------
+// Debajo de cada «Copiar el prompt» (para Claude) va su gemelo para ChatGPT: un botón con los mismos data-* más
+// data-ia="chatgpt" (y data-ia-tipo: 'texto' | 'codigo' | 'imagen'). Al pulsarlo se apunta aquí (en captura, antes
+// que su manejador) y paraIa() adapta el prompt con paraChatGPT (public/js/chatgpt.js).
+let iaDestino = { ia: 'claude', tipo: 'texto' };
+document.addEventListener('click', (e) => {
+  const b = e.target.closest?.('button');
+  if (b) iaDestino = b.dataset.ia === 'chatgpt' ? { ia: 'chatgpt', tipo: b.dataset.iaTipo || 'texto' } : { ia: 'claude', tipo: 'texto' };
+}, true);
+function iaEsGpt() { return iaDestino.ia === 'chatgpt'; }
+function iaNombre() { return iaEsGpt() ? 'ChatGPT' : 'Claude'; }
+function paraIa(txt) { return iaEsGpt() ? paraChatGPT(txt, { tipo: iaDestino.tipo }) : txt; }
+function copiarPrompt(txt) { return copiarAlPortapapeles(paraIa(txt)); }
+// La fila de ChatGPT, debajo de la de Claude. `attrs`: lo que identifica al botón para su manejador.
+function filaChatGPT(attrs, { tipo = 'texto', txt = '📋 Copiar el prompt para ChatGPT', abrir = true } = {}) {
+  return `<div class="ia-gpt"><span class="ia-gpt-q">💬 ¿Usas ChatGPT?</span><button type="button" class="btn small btn-gpt" data-ia="chatgpt" data-ia-tipo="${tipo}" ${attrs}>${txt}</button>${abrir ? '<a class="btn small ghost" href="https://chatgpt.com/" target="_blank" rel="noopener">Abrir ChatGPT ↗</a>' : ''}</div>`;
+}
 $('#narr-notas').addEventListener('change', async () => { if (narrCtx) $('#narr-prompt').textContent = await promptNarrativaDe(narrCtx); });
-$('#narr-copiar').addEventListener('click', async (e) => {
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('#narr-copiar, #narr-copiar-gpt');
+  if (!b) return;
+  const antes = b.textContent;
   const txt = await promptNarrativaDe(narrCtx);
   $('#narr-prompt').textContent = txt;
-  const ok = await copiarAlPortapapeles(txt);
-  e.target.textContent = ok ? 'Copiado ✓ · pégalo en Claude' : 'No se pudo copiar: ábrelo en «Ver el prompt»';
-  setTimeout(() => { e.target.textContent = '📋 Copiar el prompt'; }, 3000);
+  const ok = await copiarPrompt(txt);
+  b.textContent = ok ? `Copiado ✓ · pégalo en ${iaNombre()}` : 'No se pudo copiar: ábrelo en «Ver el prompt»';
+  setTimeout(() => { b.textContent = antes; }, 3000);
 });
 // Al pegar la respuesta de Claude: me quedo con lo de dentro de las marcas y saco el título.
 $('#narr-texto').addEventListener('input', () => {
@@ -13897,14 +13920,14 @@ async function renderGrupoWa() {
       extra: `${sinCampana ? `<div class="st-aviso warn"><span>Aún no tiene su campaña de SendFlow: puedes preparar los mensajes, pero para programarlos hay que elegirla.</span>${editable ? `<button type="button" class="btn small" data-grupos-vincular="${esc(code)}">Elegir la campaña →</button>` : ''}</div>` : !gwc.conectado ? '<div class="st-aviso warn"><span>SendFlow no está conectado (Cuenta → Conexiones).</span></div>' : ''}
       ${gwc.error ? `<div class="st-aviso err"><span>${esc(gwc.error)}</span></div>` : ''}` })}
     ${editable ? `<section class="card st-paso">
-      ${pasoCab(1, 'Copia el prompt para Claude', 'Ya vienen elegidas las fechas y los mensajes de cada día: normalmente solo tienes que pulsar «Copiar el prompt». Si ya hay mensajes programados, Claude no los repetirá.')}
+      ${pasoCab(1, 'Copia el prompt para Claude (o para ChatGPT)', 'Ya vienen elegidas las fechas y los mensajes de cada día: normalmente solo tienes que pulsar «Copiar el prompt». Si ya hay mensajes programados, Claude no los repetirá.')}
       <div class="st-form gw-form">
         <label class="field"><span>Desde</span><input type="date" id="gw-desde" value="${esc(desde)}"></label>
         <label class="field"><span>Hasta</span><input type="date" id="gw-hasta" value="${esc(hasta)}"></label>
         ${gwDirectos().length ? `<label class="field st-ancho"><span>¿Qué verán en la masterclass? <small>(opcional)</small></span><textarea id="gw-temario" rows="3" placeholder="- Por qué el bebé se despierta cada 2 horas&#10;- Las 3 rutinas que funcionan&#10;- Sorpresa al final para quien se quede">${esc(ls.get(temarioKey()) || '')}</textarea></label>` : ''}
       </div>
       ${gwDirectos().length ? `<div class="st-aviso info"><span>📅 <strong>${gwDirectos().map((x) => `${esc(x.nombre)} · ${esc(fechaFicha(madridToEpoch(x.at)))} a las ${esc(x.at.slice(11))}`).join(' · ')}</strong>. Ese día los mensajes solo recuerdan que es hoy y llevan el enlace de acceso (ya va en el prompt).</span></div>` : ''}
-      ${enMeteo() ? '<div class="st-acciones"><button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">🤖 Abrir Claude ↗</a></div>' : `<div id="gw-cats-box">${gwCategoriasHtml()}</div>`}
+      ${enMeteo() ? `<div class="st-acciones"><button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">🤖 Abrir Claude ↗</a></div>${filaChatGPT('data-gw-gpt="1"')}` : `<div id="gw-cats-box">${gwCategoriasHtml()}</div>`}
       <details class="st-ver"><summary>Ver el prompt</summary><pre class="snippet gw-prompt" id="gw-prompt"></pre></details>
     </section>
     <section class="card st-paso">
@@ -13984,6 +14007,7 @@ function gwCategoriasHtml() {
         : '<p class="muted small">No hay mensajes en estas categorías y fechas (revisa las fechas del lanzamiento o «Desde» y «Hasta»).</p>'}
       <div class="gw-cat-btns"><button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt (${cal.length} mensajes)</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">🤖 Abrir Claude ↗</a>
         ${fases.filter((id) => n(id)).map((id) => `<button type="button" class="btn small" data-wa-solo="${id}">${EM_FASE[id]?.ico || ''} Solo ${esc(EM_FASE[id]?.nombre || id)} (${n(id)})</button>`).join('')}</div>
+      ${cal.length ? filaChatGPT('data-gw-gpt="1"', { txt: `📋 Copiar para ChatGPT (${cal.length} mensajes)` }) : ''}
     </div>`;
 }
 // ---------- ✉️ Emails con IA (Crear → Emails) ----------
@@ -14155,9 +14179,10 @@ async function renderEmailsIa() {
         </div>
       </div>
       <div class="em-top">
-        ${pasoCab(2, 'Copia el prompt y pégalo en Claude', `${plan.length} emails en ${dias} días: ${nPrevios} antes del directo y ${nVenta} de carrito.`)}
+        ${pasoCab(2, 'Copia el prompt y pégalo en Claude (o en ChatGPT)', `${plan.length} emails en ${dias} días: ${nPrevios} antes del directo y ${nVenta} de carrito.`)}
         <div class="st-acciones"><button type="button" class="btn primary em-copiar" id="em-copiar">📋 Copiar el prompt</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">🤖 Abrir Claude ↗</a></div>
-        <p class="muted small st-luego">${pasoN(3)} Cuando Claude te los dé, copia cada uno y prográmalo en GHL (Marketing → Emails) el día y la hora del calendario de abajo.</p>
+        ${filaChatGPT('data-em-gpt="1"')}
+        <p class="muted small st-luego">${pasoN(3)} Cuando Claude (o ChatGPT) te los dé, copia cada uno y prográmalo en GHL (Marketing → Emails) el día y la hora del calendario de abajo.</p>
       </div>
       ${nVenta ? '<div class="em-leyenda"><span>Los emails del carrito van de</span><span class="em-grad"><i>emocional</i><i>racional</i></span><span>En cada tarjeta, el mensaje de ese email.</span></div>' : ''}
     </section>
@@ -14191,11 +14216,12 @@ async function renderEmailsIa() {
   };
   $('#em-temario')?.addEventListener('input', () => { ls.set(temarioEmKey(code), $('#em-temario').value); $('#em-prompt').textContent = emPrompt(code, marca); });
   $('#em-notas').addEventListener('input', () => { ls.set(notasEmKey(), $('#em-notas').value); $('#em-prompt').textContent = emPrompt(code, marca); });
-  $('#em-copiar').addEventListener('click', async (e) => {
-    const ok = await copiarAlPortapapeles(emPrompt(code, marca));
-    e.target.textContent = ok ? '✓ Copiado · ahora pulsa «Abrir Claude» y pégalo' : 'No se pudo copiar: ábrelo en Ajustes → Ver el prompt';
-    setTimeout(() => { e.target.textContent = '📋 Copiar el prompt'; }, 4000);
-  });
+  box.querySelectorAll('#em-copiar, [data-em-gpt]').forEach((bt) => bt.addEventListener('click', async () => {
+    const antes = bt.textContent;
+    const ok = await copiarPrompt(emPrompt(code, marca));
+    bt.textContent = ok ? `✓ Copiado · ahora pulsa «Abrir ${iaNombre()}» y pégalo` : 'No se pudo copiar: ábrelo en Ajustes → Ver el prompt';
+    setTimeout(() => { bt.textContent = antes; }, 4000);
+  }));
   $('#em-cargar-gan')?.addEventListener('click', async (e) => {
     e.target.disabled = true;
     e.target.textContent = 'Cargando de GHL…';
@@ -14250,6 +14276,7 @@ async function renderImagenesIa() {
     </div></div>`;
   const hecho = (k) => `<button type="button" class="ia-hecho${hechas.has(k) ? ' on' : ''}" data-hecho-img="${esc(k)}" aria-pressed="${hechas.has(k)}" title="Marcar como hecha">${hechas.has(k) ? '✓ Hecha' : 'Marcar hecha'}</button>`;
   const copiar = (k, txt = '📋 Copiar prompt', cls = '') => `<button type="button" class="btn small${cls ? ` ${cls}` : ''}" data-copiar-img="${esc(k)}">${txt}</button>`;
+  const copiarGpt = (k, txt = '💬 Para ChatGPT') => `<button type="button" class="btn small btn-gpt" data-ia="chatgpt" data-ia-tipo="imagen" data-copiar-img="${esc(k)}" title="El mismo prompt, adaptado a ChatGPT: genera la imagen directamente">${txt}</button>`;
   const grupos = [];
   for (const p of piezas) { let g = grupos.find((x) => x.n === p.grupo); if (!g) grupos.push(g = { n: p.grupo, items: [] }); g.items.push(p); }
   const ICO_GRUPO = (n) => (n === 'Grabación' ? '📼' : n === 'Carrito' ? '🛒' : n === 'Cierre' ? '⏳' : '🎁');
@@ -14287,8 +14314,8 @@ async function renderImagenesIa() {
     </section>
     <div class="ia-atajo"><span>⚡ ¿Usas Magnific desde Claude? Un solo prompt hace todas las imágenes de golpe (y te enseña el coste antes).</span>${copiar('todo', '📋 Copiar «hazlas todas»')}</div>
     <section class="card ia-paso">
-      <header class="ia-paso-cab"><div><h3>Las imágenes</h3><p>Pulsa «Copiar prompt», pégalo en tu IA de imágenes (ChatGPT, Gemini, Magnific…) y sale la imagen terminada. ¿Para stories? Pídele a la misma IA que la pase a vertical.</p></div>${copiar('vertical', '📱 Pasar a vertical 9:16')}</header>
-      ${grupos.map((g) => `<h4 class="ia-grupo"><span>${ICO_GRUPO(g.n)}</span>${esc(g.n)}</h4><div class="ia-galeria">${g.items.map((p) => `<article class="ia-pieza${hechas.has(`p:${p.id}`) ? ' hecha' : ''}">${lienzo(p)}<div class="ia-acciones">${copiar(`p:${p.id}`, '📋 Copiar prompt', 'primary')}${hecho(`p:${p.id}`)}</div></article>`).join('')}</div>`).join('')}
+      <header class="ia-paso-cab"><div><h3>Las imágenes</h3><p>Pulsa «Copiar prompt» (Claude con Magnific, Gemini…) o «Para ChatGPT» (adaptado para que la genere ChatGPT), pégalo y sale la imagen terminada. ¿Para stories? Pídele a la misma IA que la pase a vertical.</p></div><span class="ia-vert">${copiar('vertical', '📱 Pasar a vertical 9:16')}${copiarGpt('vertical', '💬 Vertical en ChatGPT')}</span></header>
+      ${grupos.map((g) => `<h4 class="ia-grupo"><span>${ICO_GRUPO(g.n)}</span>${esc(g.n)}</h4><div class="ia-galeria">${g.items.map((p) => `<article class="ia-pieza${hechas.has(`p:${p.id}`) ? ' hecha' : ''}">${lienzo(p)}<div class="ia-acciones">${copiar(`p:${p.id}`, '📋 Copiar prompt', 'primary')}${copiarGpt(`p:${p.id}`)}${hecho(`p:${p.id}`)}</div></article>`).join('')}</div>`).join('')}
       ${nBar ? '' : '<p class="muted small">No hay bonus de acción rápida en la oferta de este lanzamiento (Configuración → Oferta): por eso no salen imágenes de bonus.</p>'}
     </section>`;
 
@@ -14316,8 +14343,8 @@ async function renderImagenesIa() {
     const b = e.target.closest('[data-copiar-img]');
     if (!b || !prompts[b.dataset.copiarImg]) return;
     const antes = b.textContent;
-    const ok = await copiarAlPortapapeles(prompts[b.dataset.copiarImg]);
-    b.textContent = ok ? '✓ Copiado' : 'No se pudo copiar';
+    const ok = await copiarPrompt(prompts[b.dataset.copiarImg]);
+    b.textContent = ok ? `✓ Copiado · pégalo en ${iaNombre()}` : 'No se pudo copiar';
     setTimeout(() => { b.textContent = antes; }, 2500);
   };
 }
@@ -14379,7 +14406,7 @@ async function renderAnuncios() {
   const lanz = tipoActual() === 'lanz';
   const otros = PROMPTS_ANUNCIOS.filter((p) => p.id !== 'todo');
   box.innerHTML = `${estudioHero({ ico: '🎯', titulo: 'Anuncios con IA', sub: `«${esc(c.nombre)}» · guiones, creatividades en Magnific y copys para Meta, por objetivo`,
-      pasos: ['Elige el <strong>objetivo</strong> y copia su prompt', 'Pégalo en <strong>Claude</strong> con <strong>Magnific</strong> conectado', 'Sube los creativos a <strong>Meta</strong> con el mismo nombre'],
+      pasos: ['Elige el <strong>objetivo</strong> y copia su prompt', 'Pégalo en <strong>Claude</strong> con <strong>Magnific</strong> conectado (o en <strong>ChatGPT</strong>, con su prompt)', 'Sube los creativos a <strong>Meta</strong> con el mismo nombre'],
       primeraVez: PRIMERA_VEZ_CLAUDE,
       antes: `${avisoMarcaHtml(pgc.marca)}${lanz ? narrativaCardHtml(state.launchCode) : ''}` })}
     <section class="card st-ajustes">
@@ -14408,6 +14435,7 @@ async function renderAnuncios() {
       <p class="an-obj-para"><span class="st-chip">Para</span>${esc(o.publico)}</p>
       <button type="button" class="btn primary st-bloque" data-an-copiar="${o.id}:todo" title="${esc(PROMPTS_ANUNCIOS[0].desc)}">⚡ Copiar «Todo en uno»</button>
       <div class="an-mas"><span class="muted small">o copia solo una parte:</span><div class="an-mas-btns">${otros.map((p) => `<button type="button" class="btn small" data-an-copiar="${o.id}:${p.id}" title="${esc(p.titulo)}: ${esc(p.desc)}">${p.icono} ${esc({ guiones: 'Guiones', magnific: 'Magnific', copys: 'Copys' }[p.id] || p.titulo)}</button>`).join('')}</div></div>
+      <div class="ia-gpt an-gpt"><span class="ia-gpt-q">💬 ¿Usas ChatGPT?</span><div class="an-mas-btns">${PROMPTS_ANUNCIOS.map((p) => `<button type="button" class="btn small btn-gpt" data-ia="chatgpt" data-an-copiar="${o.id}:${p.id}" title="${esc(p.id === 'magnific' ? 'Imágenes: las genera ChatGPT, una a una' : p.id === 'todo' ? 'Guiones → textos → imágenes generadas por ChatGPT' : `${p.titulo}: ${p.desc}`)}">${p.icono} ${esc({ todo: 'Todo en uno', guiones: 'Guiones', magnific: 'Imágenes', copys: 'Copys' }[p.id] || p.titulo)}</button>`).join('')}<a class="btn small ghost" href="https://chatgpt.com/" target="_blank" rel="noopener">Abrir ChatGPT ↗</a></div></div>
       <details class="st-ver"><summary>Ver el prompt «Todo en uno»</summary><pre class="snippet pg-prompt" data-an-prompt="${o.id}"></pre></details>
     </article>`).join('')}</div>`;
 }
@@ -14448,13 +14476,15 @@ $('#anuncios-body').addEventListener('click', async (e) => {
   const [oid, pid] = b.dataset.anCopiar.split(':');
   const c = contextoPaginas();
   const o = objetivosDe(c.tipo).find((x) => x.id === oid);
-  const p = PROMPTS_ANUNCIOS.find((x) => x.id === pid);
-  if (!o || !p) return;
-  const txt = promptAnuncioAfilado(p, ctxAnuncio(c, o));
+  const p0 = PROMPTS_ANUNCIOS.find((x) => x.id === pid);
+  if (!o || !p0) return;
+  // Para ChatGPT, su versión (sin Magnific: las imágenes las genera él), adaptada.
+  const p = iaEsGpt() && p0.gpt ? { ...p0, fn: p0.gpt } : p0;
+  const txt = paraIa(promptAnuncioAfilado(p, ctxAnuncio(c, o)));
   const txtOriginal = b.textContent;
   try {
     await navigator.clipboard.writeText(txt);
-    b.textContent = 'Copiado ✓ · pégalo en Claude';
+    b.textContent = `Copiado ✓ · pégalo en ${iaNombre()}`;
   } catch {
     const pre = b.closest('.an-obj').querySelector('[data-an-prompt]');
     pre.textContent = txt;
@@ -14528,7 +14558,7 @@ async function renderPaginas() {
   const propuestas = propuestasEmbudo(state.embudo);
   const urlsDe = (p) => propuestas.filter((x) => x.pagina === p.id);
   box.innerHTML = `${estudioHero({ ico: '🧱', titulo: 'Páginas con IA', sub: `«${esc(c.nombre)}» · un prompt por página con la marca, el avatar, los datos y los códigos del dashboard`,
-      pasos: ['Elige la página de abajo y pulsa <strong>«Copiar el prompt»</strong>', 'Pulsa <strong>«Abrir Claude»</strong>, pégalo y pide los cambios que quieras', 'En <strong>GHL</strong>: añade un elemento «Código personalizado», pega lo que te dio Claude y publica'],
+      pasos: ['Elige la página de abajo y pulsa <strong>«Copiar el prompt»</strong>', 'Pulsa <strong>«Abrir Claude»</strong> (o usa el de ChatGPT), pégalo y pide los cambios que quieras', 'En <strong>GHL</strong>: añade un elemento «Código personalizado», pega lo que te dio Claude y publica'],
       primeraVez: PRIMERA_VEZ_CLAUDE + '<p>Claude te devuelve la página hecha en código (HTML). No tienes que entenderlo: solo copiarlo entero y pegarlo en GHL como se explica en el paso 3.</p>',
       antes: `${avisoMarcaHtml(pgc.marca)}${tipoActual() === 'lanz' ? narrativaCardHtml(state.launchCode) : ''}`,
       extra: `<details class="st-plegable pg-ghl-nota"><summary>📐 <strong>Paso 3 · Cómo pegarla en GHL</strong> para que se vea a pantalla completa</summary><div class="st-aviso info"><span>En cada página (si no, se verá estrecha o con bordes blancos):
@@ -14553,6 +14583,7 @@ async function renderPaginas() {
       ${urlsDe(p).length ? `<ul class="pg-urls">${urlsDe(p).map((x) => urlItemHtml(x, { conNombre: urlsDe(p).length > 1 })).join('')}</ul>` : ''}
       <div class="pg-chips"><span class="st-chip">${n} código${n === 1 ? '' : 's'} del dashboard</span>${p.formulario ? `<span class="st-chip">formulario de ${p.formulario === 'pago' ? 'pago' : 'registro'} de GHL</span>` : ''}</div>
       <div class="pg-acciones"><button type="button" class="btn primary" data-pag-copiar="${esc(p.id)}">📋 Copiar el prompt</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener" title="Abrir Claude en una pestaña nueva">🤖 Claude ↗</a></div>
+      ${filaChatGPT(`data-pag-copiar="${esc(p.id)}"`, { tipo: 'codigo', txt: '📋 Copiar para ChatGPT' })}
       <details class="st-ver pg-cuerpo"><summary>Personalizar y ver el prompt</summary>
         <p class="small"><strong>Lleva:</strong> ${esc(p.secciones.join(' · '))}</p>
         <label class="field"><span>Indicaciones para esta página <small>(opcional)</small></span><textarea rows="2" data-pag-notas="${esc(p.id)}" placeholder="Ej.: más corta; empieza con un testimonio…">${esc(ls.get(notasPagKey(p.id)) || '')}</textarea></label>
@@ -14589,15 +14620,16 @@ $('#paginas-body').addEventListener('click', async (e) => {
   const txt = promptDePagina(c, p);
   const pre = b.closest('.pg-card').querySelector('[data-pag-prompt]');
   pre.textContent = txt;
+  const antes = b.textContent;
   try {
-    await navigator.clipboard.writeText(txt);
-    b.textContent = 'Copiado ✓ · pégalo en Claude';
+    await navigator.clipboard.writeText(paraIa(txt));
+    b.textContent = `Copiado ✓ · pégalo en ${iaNombre()}`;
   } catch {
     pre.closest('details').open = true;
     pre.closest('.pg-cuerpo').open = true;
     b.textContent = 'Cópialo de «Ver el prompt»';
   }
-  setTimeout(() => { b.textContent = '📋 Copiar el prompt'; }, 3000);
+  setTimeout(() => { b.textContent = antes; }, 3000);
 });
 
 // Qué lleva el prompt de la marca del cliente (Cuenta → Marca y avatar): una línea, con su botón a la derecha.
@@ -14618,14 +14650,14 @@ const estudioHero = ({ ico, titulo, sub, pasos = [], extra = '', antes = '', pri
     <div class="st-hero-cab"><span class="st-hero-ico" aria-hidden="true">${ico}</span><div><h2>${titulo}</h2>${sub ? `<p class="st-sub">${sub}</p>` : ''}</div></div>
     ${pasos.length ? `<ol class="st-pasos">${pasos.map((x, i) => `<li><span class="st-n">${i + 1}</span><span>${x}</span></li>`).join('')}</ol>` : ''}
     <div class="st-empieza"><span>👇 <strong>Empieza por el paso 1</strong>, justo aquí debajo.</span>
-      <a class="btn small st-claude" href="https://claude.ai/new" target="_blank" rel="noopener">🤖 Abrir Claude ↗</a></div>
+      <a class="btn small st-claude" href="https://claude.ai/new" target="_blank" rel="noopener">🤖 Abrir Claude ↗</a><a class="btn small ghost st-gpt" href="https://chatgpt.com/" target="_blank" rel="noopener">💬 Abrir ChatGPT ↗</a></div>
     ${primeraVez ? `<details class="st-primera"><summary>🙋 ¿Primera vez? Así funciona</summary><div class="st-primera-txt">${primeraVez}</div></details>` : ''}
     ${extra}
     ${antes ? `<details class="st-antes"${faltan ? '' : ''}><summary>${faltan ? `💡 <strong>Para que salga mejor</strong> <span class="muted">(opcional) · ${faltan} ${faltan === 1 ? 'cosa' : 'cosas'} por completar</span>` : '✅ <strong>Lleva tu marca y tu narrativa</strong> <span class="muted">· ver</span>'}</summary><div class="st-antes-in">${antes}</div></details>` : ''}
   </section>`;
 };
 // Lo que significa «pegar el prompt en Claude», igual en todas las vistas con IA.
-const PRIMERA_VEZ_CLAUDE = '<p>El dashboard ya sabe todo lo de este lanzamiento (fechas, precios, enlaces, tu marca y tu cliente ideal) y lo junta en un texto largo: <strong>el prompt</strong>. Tú solo tienes que:</p><ol><li>Pulsar <strong>«Copiar el prompt»</strong>.</li><li>Pulsar <strong>«Abrir Claude»</strong>, pegarlo (Ctrl+V o ⌘+V) y enviarlo.</li><li>Claude te devuelve el resultado listo. Si algo no te gusta, pídeselo con tus palabras: «más corto», «más cercano», «cambia el titular»…</li></ol><p>No hace falta escribir nada más ni saber de IA.</p>';
+const PRIMERA_VEZ_CLAUDE = '<p>El dashboard ya sabe todo lo de este lanzamiento (fechas, precios, enlaces, tu marca y tu cliente ideal) y lo junta en un texto largo: <strong>el prompt</strong>. Tú solo tienes que:</p><ol><li>Pulsar <strong>«Copiar el prompt»</strong>.</li><li>Pulsar <strong>«Abrir Claude»</strong>, pegarlo (Ctrl+V o ⌘+V) y enviarlo.</li><li>Claude te devuelve el resultado listo. Si algo no te gusta, pídeselo con tus palabras: «más corto», «más cercano», «cambia el titular»…</li></ol><p>No hace falta escribir nada más ni saber de IA.</p><p>💬 <strong>¿Usas ChatGPT?</strong> Debajo de cada botón tienes «Copiar el prompt para ChatGPT»: es el mismo, ajustado a cómo lo entiende ChatGPT. Elige el que vayas a usar.</p>';
 // Número de paso pequeño, dentro de un texto.
 const pasoN = (n) => `<span class="st-n">${n}</span>`;
 // Cabecera de un paso numerado dentro de una tarjeta.
@@ -14699,10 +14731,10 @@ $('#grupowa-body').addEventListener('click', async (e) => {
   const fila = b.closest('[data-gw]');
   const st = (t) => { if ($('#gw-st')) $('#gw-st').textContent = t; };
   try {
-    if (b.id === 'gw-copiar' || b.dataset.waSolo) {
+    if (b.id === 'gw-copiar' || b.dataset.gwGpt || b.dataset.waSolo) {
       const antes = b.textContent;
-      await navigator.clipboard.writeText(gwPrompt({ solo: b.dataset.waSolo || '' }));
-      b.textContent = '✓ Copiado: pégalo en Claude';
+      await navigator.clipboard.writeText(paraIa(gwPrompt({ solo: b.dataset.waSolo || '' })));
+      b.textContent = `✓ Copiado: pégalo en ${iaNombre()}`;
       setTimeout(() => { b.textContent = antes; }, 2500);
     } else if (b.dataset.waFase) {
       const sel = new Set(fasesWa());

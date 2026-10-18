@@ -2,6 +2,7 @@
 // configuración de los embudos): 1 la marca, 2 cada producto con su avatar, 3 documentos, 4 la ficha de cada
 // producto con Claude y 5 qué vende cada embudo; al terminar, confeti. Además, la caché que usan los prompts
 // (WhatsApp, páginas) para leer la marca.
+import { paraChatGPT } from './chatgpt.js';
 import { SECCIONES_MARCA, SECCIONES_PRODUCTO, MAX_PRODUCTOS, MAX_DOCS, nombreDeProducto, progreso, promptFicha, productoDeEmbudo, pasosAsistente, pasosEquipo, estadoProceso, ETAPAS_MARCA } from './marca.js';
 import { pintarCampos, autoguardado, destinoDeBase, extraerTexto, extDe, ACCEPT_DOCS } from './marca-form.js';
 import { lanzarConfeti } from './confeti.js';
@@ -290,7 +291,8 @@ function fichaHtml(p, i) {
     <h3>✨ Ficha de marca y avatar de «${esc(nombreDeProducto(p, i))}»</h3>
     <p class="muted small">Es el resumen que usan <strong>todos los prompts</strong> (páginas, WhatsApp…). Mientras no exista, los prompts llevan las respuestas tal cual. Hazla cuando el cuestionario esté bastante completo (este producto: ${pr.pct} %) y rehazla si cambia algo importante.</p>
     <ol class="small">
-      <li><button type="button" class="btn primary" data-mk="ficha-prompt" data-id="${esc(p.id)}">📋 Copiar el prompt de la ficha</button> y pégalo en Claude (lleva las respuestas de la marca, de este producto y el texto de sus documentos).</li>
+      <li><button type="button" class="btn primary" data-mk="ficha-prompt" data-id="${esc(p.id)}">📋 Copiar el prompt de la ficha</button> y pégalo en Claude (lleva las respuestas de la marca, de este producto y el texto de sus documentos).
+        <div class="ia-gpt"><span class="ia-gpt-q">💬 ¿Usas ChatGPT?</span><button type="button" class="btn small btn-gpt" data-mk="ficha-prompt" data-ia="chatgpt" data-id="${esc(p.id)}">📋 Copiar el prompt para ChatGPT</button><a class="btn small ghost" href="https://chatgpt.com/" target="_blank" rel="noopener">Abrir ChatGPT ↗</a></div></li>
       <li>Pega aquí lo que te devuelva y guarda:</li>
     </ol>
     <textarea id="mk-ficha-txt" rows="${p.ficha ? 12 : 5}" placeholder="# Ficha de marca y avatar…">${esc(p.ficha)}</textarea>
@@ -347,17 +349,19 @@ async function onClick(e) {
       b.textContent = 'Preparando…';
       const { textos } = m.docs.length ? await llamarApi('/api/marca?textos=1') : { textos: {} };
       const p = m.productos.find((x) => x.id === b.dataset.id);
-      const txt = promptFicha(m, p, textos);
+      const gpt = b.dataset.ia === 'chatgpt';
+      const antes = gpt ? '📋 Copiar el prompt para ChatGPT' : '📋 Copiar el prompt de la ficha';
+      const txt = gpt ? paraChatGPT(promptFicha(m, p, textos)) : promptFicha(m, p, textos);
       try {
         await navigator.clipboard.writeText(txt);
       } catch {
         // Sin permiso para copiar (p. ej. el navegador lo bloquea tras esperar a los documentos): a la vista.
         b.insertAdjacentHTML('afterend', `<textarea class="mk-prompt-a-mano" rows="6" readonly>${esc(txt)}</textarea><span class="small muted">Selecciónalo todo y cópialo.</span>`);
-        b.textContent = '📋 Copiar el prompt de la ficha';
+        b.textContent = antes;
         return;
       }
-      b.textContent = 'Copiado ✓ · pégalo en Claude';
-      setTimeout(() => { b.textContent = '📋 Copiar el prompt de la ficha'; }, 3000);
+      b.textContent = `Copiado ✓ · pégalo en ${gpt ? 'ChatGPT' : 'Claude'}`;
+      setTimeout(() => { b.textContent = antes; }, 3000);
     }
   } catch (err) { window.alert(err.message); }
 }

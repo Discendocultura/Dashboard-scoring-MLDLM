@@ -159,9 +159,40 @@ EN TODO:
 ${POLITICAS}
 - Español de España. Si falta un dato, pon [FALTA: …].`);
 
+// Para ChatGPT (no tiene el conector de Magnific): las imágenes las genera él, una a una; los vídeos, no.
+const reqImagenesGpt = (ctx) => `- 6 anuncios de IMAGEN, cada uno con un ángulo distinto (basados en los ganadores o en la ficha). Primero enséñame la lista (ángulo y texto en pantalla de cada uno) y espera mi «adelante».
+- Después genéralos con tu generador de imágenes, DE UNO EN UNO (espera mi OK entre uno y otro), en cuadrado 1:1 (1080×1080). Cuando te lo pida, pásalos a 4:5 (1080×1350) y a 9:16 (1080×1920; deja libres arriba y abajo para Stories y Reels).
+- Texto en pantalla corto y legible (máx. 6-8 palabras), exacto y con sus tildes, con contraste y en los colores de la marca. Fotografía realista que represente al avatar (no ilustraciones genéricas de stock).${conLogo(ctx) ? '\n- El logo: no lo dibujes ni lo inventes. Deja un hueco limpio en una esquina para ponerlo después (o, si te subo el logo al chat, usa esa imagen tal cual).' : ''}
+- Ponle a cada uno un nombre corto (el mismo que pondrás en Meta: así el dashboard sabrá cuál gana).
+- Nada de logos ni marcas de terceros, ni personas famosas.`;
+
+export const promptImagenesGpt = (ctx) => fin(`Crea las IMÁGENES de los anuncios de Meta (feed, Stories y Reels).
+
+${base(ctx)}
+QUÉ QUIERO:
+${reqImagenesGpt(ctx)}
+${POLITICAS}`);
+
+export const promptTodoGpt = (ctx) => fin(`Vamos a preparar la tanda completa de anuncios de Meta para este objetivo, en 3 pasos. Al terminar cada paso, para y espera mi OK.
+
+${base(ctx)}
+PASO 1 · GUIONES DE VÍDEO:
+${reqGuiones(ctx)}
+
+PASO 2 · TEXTOS PARA META:
+${reqCopys(ctx)}
+
+PASO 3 · LAS IMÁGENES (con los mejores ángulos y textos de los pasos 1 y 2):
+${reqImagenesGpt(ctx)}
+
+EN TODO:
+${POLITICAS}
+- Español de España. Si falta un dato, pon [FALTA: …].`);
+
+// `gpt`: la versión para ChatGPT (si no hay, vale la misma).
 export const PROMPTS_ANUNCIOS = [
-  { id: 'todo', icono: '⚡', titulo: 'Todo en uno', desc: 'Guiones → textos → creación en Magnific, paso a paso', fn: promptTodo },
+  { id: 'todo', icono: '⚡', titulo: 'Todo en uno', desc: 'Guiones → textos → creación en Magnific, paso a paso', fn: promptTodo, gpt: promptTodoGpt },
   { id: 'guiones', icono: '🎬', titulo: 'Guiones de vídeo', desc: '5 guiones con gancho, escenas y texto en pantalla', fn: promptGuiones },
-  { id: 'magnific', icono: '🖼️', titulo: 'Crear en Magnific', desc: 'Imágenes 1:1, 4:5, 9:16 y vídeos con el kit de marca', fn: promptMagnific },
+  { id: 'magnific', icono: '🖼️', titulo: 'Crear en Magnific', desc: 'Imágenes 1:1, 4:5, 9:16 y vídeos con el kit de marca', fn: promptMagnific, gpt: promptImagenesGpt },
   { id: 'copys', icono: '✍️', titulo: 'Copys para Meta', desc: '3 textos con emojis, titulares y descripciones', fn: promptCopys },
 ];
