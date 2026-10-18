@@ -5217,6 +5217,24 @@ async function abrirNarrativa(ctx) {
   narrDlg.showModal();
   try { $('#narr-prompt').textContent = await promptNarrativaDe(ctx); } catch (err) { $('#narr-prompt').textContent = err.message; }
 }
+// Login: «Convierte tus datos en …» con la palabra cambiando cada 2,4 s (solo mientras se ve la pantalla de entrar).
+(function rotarPalabraLogin() {
+  const el = document.getElementById('lg-rota');
+  if (!el) return;
+  const PALABRAS = ['negocio', 'ventas', 'cash', 'libertad', 'impacto'];
+  let i = 0;
+  setInterval(() => {
+    if (document.hidden || document.getElementById('login')?.hidden) return;
+    i = (i + 1) % PALABRAS.length;
+    el.classList.add('sale');
+    setTimeout(() => {
+      el.textContent = PALABRAS[i];
+      el.classList.remove('sale');
+      el.classList.add('entra');
+      requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('entra')));
+    }, 350);
+  }, 2400);
+})();
 async function copiarAlPortapapeles(txt) {
   try { await navigator.clipboard.writeText(txt); return true; } catch { return false; }
 }
