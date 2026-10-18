@@ -6320,24 +6320,40 @@ $('#sidebar').addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('menu-movil')) abrirMenuMovil(false); });
 const textoPestana = (t) => [...t.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim();
+// Móvil: abajo, las 3 primeras pestañas y «Todo», un panel con TODAS las secciones y, dentro de cada una, sus
+// páginas (Hoy → Setting hoy · Llamadas · En directo…): así nada queda escondido en una barra que no se ve.
+function visibleEl(el) { return Boolean(el) && !el.hidden && getComputedStyle(el).display !== 'none'; }
 function pintarNavMovil() {
   const nav = $('#nav-movil');
-  const tabs = $$('.views .view-tab').filter((t) => !t.hidden);
+  const tabs = $$('.views .view-tab').filter(visibleEl);
   nav.hidden = state.enInicio || $('#dashboard').hidden || !tabs.length;
   $('#nav-mas').hidden = true;
   if (nav.hidden) return;
-  const prim = tabs.slice(0, tabs.length > 4 ? 3 : 4);
-  const resto = tabs.slice(prim.length);
-  const boton = (t) => `<button type="button" class="nm-item ${t.classList.contains('active') ? 'on' : ''}" data-nm="${tabs.indexOf(t)}" ${t.classList.contains('active') ? 'aria-current="page"' : ''}>${t.querySelector('svg')?.outerHTML || ''}<span>${esc(textoPestana(t))}</span></button>`;
-  nav.innerHTML = prim.map(boton).join('') + (resto.length ? `<button type="button" class="nm-item ${resto.some((t) => t.classList.contains('active')) ? 'on' : ''}" data-nm-mas aria-expanded="false"><span class="nm-mas-ico" aria-hidden="true">⋯</span><span>Más</span></button>` : '');
-  $('#nav-mas').innerHTML = resto.map((t) => `<button type="button" class="nm-mas-item ${t.classList.contains('active') ? 'on' : ''}" data-nm="${tabs.indexOf(t)}">${t.querySelector('svg')?.outerHTML || ''}<span>${esc(textoPestana(t))}</span>${t.title ? `<small>${esc(t.title)}</small>` : ''}</button>`).join('');
+  const prim = tabs.slice(0, 3);
+  const activa = (t) => t.classList.contains('active');
+  const boton = (t) => `<button type="button" class="nm-item ${activa(t) ? 'on' : ''}" data-nm="${tabs.indexOf(t)}" ${activa(t) ? 'aria-current="page"' : ''}>${t.querySelector('svg')?.outerHTML || ''}<span>${esc(textoPestana(t))}</span></button>`;
+  const enResto = tabs.slice(3).some(activa);
+  nav.innerHTML = prim.map(boton).join('') + `<button type="button" class="nm-item ${enResto ? 'on' : ''}" data-nm-mas aria-expanded="false"><span class="nm-mas-ico" aria-hidden="true">☰</span><span>Todo</span></button>`;
+  // Cada sección con sus páginas (las subpestañas que se pueden ver aquí).
+  const vistaActual = VIEWS.find((v) => !$(`#view-${v}`)?.hidden);
+  const subDe = (t) => (t.dataset.viewGrupo ? GRUPOS[t.dataset.viewGrupo] : []).map((v) => $(`.subview-tab[data-view="${v}"]`)).filter(visibleEl);
+  const seccion = (t) => {
+    const subs = subDe(t);
+    const cab = `<button type="button" class="nm-sec-cab ${activa(t) ? 'on' : ''}" data-nm="${tabs.indexOf(t)}">${t.querySelector('svg')?.outerHTML || ''}<span>${esc(textoPestana(t))}</span>${t.title ? `<small>${esc(t.title)}</small>` : ''}</button>`;
+    const pags = subs.length > 1 ? `<div class="nm-pags">${subs.map((x) => `<button type="button" class="nm-pag ${x.dataset.view === vistaActual ? 'on' : ''}" data-nm-vista="${esc(x.dataset.view)}">${x.classList.contains('subview-labia') ? x.innerHTML : esc(x.textContent.trim())}</button>`).join('')}</div>` : '';
+    return `<div class="nm-sec">${cab}${pags}</div>`;
+  };
+  $('#nav-mas').innerHTML = `<p class="nm-mas-t">Todas las secciones</p>${tabs.map(seccion).join('')}${document.body.classList.contains('vista-sencilla') ? '<button type="button" class="btn small nm-ver-todas" data-nm-todas>＋ Ver todas las pestañas</button>' : ''}`;
 }
 document.addEventListener('click', (e) => {
   const mas = e.target.closest('[data-nm-mas]');
-  if (mas) { const p = $('#nav-mas'); p.hidden = !p.hidden; mas.setAttribute('aria-expanded', String(!p.hidden)); return; }
+  if (mas) { const p = $('#nav-mas'); p.hidden = !p.hidden; mas.setAttribute('aria-expanded', String(!p.hidden)); document.body.classList.toggle('nm-abierto', !p.hidden); return; }
+  const pag = e.target.closest('[data-nm-vista]');
+  if (pag) { showView(pag.dataset.nmVista); $('#nav-mas').hidden = true; document.body.classList.remove('nm-abierto'); window.scrollTo({ top: 0 }); return; }
+  if (e.target.closest('[data-nm-todas]')) { $('#vs-mas')?.click(); $('#nav-mas').hidden = true; document.body.classList.remove('nm-abierto'); return; }
   const b = e.target.closest('[data-nm]');
-  if (b) { $$('.views .view-tab').filter((t) => !t.hidden)[Number(b.dataset.nm)]?.click(); window.scrollTo({ top: 0 }); return; }
-  if (!$('#nav-mas').hidden && !e.target.closest('#nav-mas')) $('#nav-mas').hidden = true;
+  if (b) { $$('.views .view-tab').filter(visibleEl)[Number(b.dataset.nm)]?.click(); $('#nav-mas').hidden = true; document.body.classList.remove('nm-abierto'); window.scrollTo({ top: 0 }); return; }
+  if (!$('#nav-mas').hidden && !e.target.closest('#nav-mas')) { $('#nav-mas').hidden = true; document.body.classList.remove('nm-abierto'); }
 });
 
 // ---------- Cabecera del embudo: dónde estás (embudo › lanzamiento · fase) y qué puedes hacer ----------

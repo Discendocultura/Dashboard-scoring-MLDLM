@@ -6037,3 +6037,25 @@ body.en-negocio #inicio, body.en-negocio #solo-op { display: none !important; }
   .ng-dos { grid-template-columns: 1fr; }
   .ng-barra-f { grid-template-columns: 90px 1fr 32px; }
 }
+
+/* ---------- Móvil: «Todo» con todas las secciones y sus páginas; subpestañas sin esconder ---------- */
+@media (max-width: 900px) {
+  .nav-mas:not([hidden]) { display: flex !important; flex-direction: column; gap: 6px; left: 8px !important; right: 8px !important; max-height: 72vh !important; padding: 12px !important; border-radius: 20px !important; }
+  body.nm-abierto::after { content: ''; position: fixed; inset: 0; z-index: 59; background: rgb(0 0 0 / .32); }
+  .nm-mas-t { margin: 2px 4px 4px; font-size: 12px; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  .nm-sec { display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 14px; background: var(--surface-2, color-mix(in srgb, var(--text) 4%, transparent)); }
+  .nm-sec-cab { display: grid; grid-template-columns: 24px 1fr; align-items: center; column-gap: 10px; text-align: left; padding: 8px; border: 0; border-radius: 10px; background: none; color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+  .nm-sec-cab svg { width: 20px; height: 20px; }
+  .nm-sec-cab small { grid-column: 2; font-weight: 400; font-size: 12px; color: var(--text-2); }
+  .nm-sec-cab.on { color: var(--accent); }
+  .nm-pags { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 6px 4px 40px; }
+  .nm-pag { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  .nm-pag.on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+  .nm-pag .labia-logo { height: 16px; vertical-align: -3px; }
+  .nm-ver-todas { align-self: center; margin-top: 4px; }
+  /* Las subpestañas de cada sección, todas a la vista (en varias líneas si hace falta), no en una fila cortada. */
+  .subviews, .subviews:not(.msubs), .subviews.msubs { flex-wrap: wrap !important; overflow: visible !important; -webkit-mask-image: none !important; mask-image: none !important; margin: 0 0 14px !important; padding: 0 !important; }
+  .subviews .subview-tab { padding: 6px 10px; font-size: 12.5px; flex: none; }
+  /* El aviso de la configuración: el botón grande ya dice cuánto falta. */
+  .ctx-config-aviso { display: none !important; }
+}
