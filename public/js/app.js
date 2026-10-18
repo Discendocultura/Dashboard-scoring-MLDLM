@@ -6342,7 +6342,7 @@ function snippetsLanzamiento(code) {
     ['REGISTRO · visitas únicas de la página de registro (en el footer; para la conversión de la página en Métricas)',
       `<div data-lsd-registro data-launch="auto"></div>\n${script}`],
     ['LOGIN · bloque del formulario (no cambia entre lanzamientos)',
-      `<div data-lsd-login data-launch="auto"\n     data-title="Accede a las clases con el email con el que te registraste"\n     data-button="Acceder a las clases"></div>\n${script}`],
+      `<div data-lsd-login data-launch="auto"\n     data-title="Accede a las clases con tu email y tu WhatsApp"\n     data-movil="si"\n     data-button="Acceder a las clases"></div>\n<!-- data-movil: «si» (obligatorio), «opcional» o «no». El WhatsApp se guarda en su ficha de GHL si no tenía teléfono. -->\n${script}`],
     ['RECURSOS · bloque base (una vez por página, en cualquier sitio)', `<div data-lsd-page="recursos" data-launch="auto"></div>\n${script}`],
     ['RECURSOS · barra de urgencia (dale estilo de barra fija arriba)', '<div class="mi-barra" data-lsd-bar></div>'],
     ['RECURSOS · vídeo de la clase 1 (bloqueado con cuenta atrás hasta su hora)', '<div data-lsd-video="clase1"></div>'],

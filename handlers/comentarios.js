@@ -3,13 +3,15 @@
 //        si está abierta (la clase ya se puede ver) y los comentarios visibles; `mio` marca los de la lead.
 //   POST /api/comentarios { launch, clase, pregunta, texto, cid | email }  (pública) → publica el comentario
 //        (con el nombre de pila de la lead) y le pone la etiqueta <código>_comento (suma en su puntuación).
+//        Si en GHL no tiene nombre → { needsName: true }: el panel se lo pide y lo reenvía como `nombre` (se guarda en su ficha).
 //   GET  /api/comentarios?l=<código>&todo=1          (dashboard) → todos, también los ocultos, con su contacto.
 //   POST /api/comentarios { op: 'ocultar' | 'mostrar' | 'destacar' | 'quitar-destacado' | 'responder' | 'borrar',
 //        l, id, texto? }  (dashboard; permiso de Leads) → moderación y respuesta del equipo.
 import { dentroDelLimite } from '../lib/intentos.js';
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
-import { addTags, findContactByEmail, getContact } from '../lib/ghl.js';
+import { addTags, findContactByEmail, getContact, upsertContact } from '../lib/ghl.js';
+import { nombrePila } from '../lib/access.js';
 import { comentar, comentariosDe, moderar, muroDe, MAX_TEXTO } from '../lib/comentarios.js';
 import { clienteActual } from '../lib/cliente.js';
 import { json, readBody, errorResponse, isEmail, CORS_HEADERS } from '../lib/http.js';
@@ -78,7 +80,14 @@ export async function POST(request) {
     let contacto = typeof cid === 'string' && CID_RE.test(cid) ? await getContact(cid) : null;
     if (!contacto && isEmail(email)) contacto = await findContactByEmail(email);
     if (!contacto) return json({ error: 'No te encontramos: entra con el email con el que te registraste' }, 404, CORS_HEADERS);
-    const nombre = String(contacto.firstName || contacto.name || '').trim().split(/\s+/)[0] || 'Anónima';
+    // Firma con su nombre de pila de GHL. Si no lo tiene (se registró solo con el email), se le pide una vez
+    // y se guarda en su ficha (solo si está vacío: no se pisa el de nadie desde este formulario público).
+    let nombre = nombrePila(contacto.firstName);
+    if (!nombre) {
+      nombre = nombrePila(body.nombre);
+      if (!nombre) return json({ ok: false, needsName: true, error: 'Escribe tu nombre para firmar tu respuesta.' }, 200, CORS_HEADERS);
+      if (contacto.email) await upsertContact({ email: contacto.email, firstName: nombre }).catch((e) => console.error('Nombre del comentario', e.message));
+    }
     const c = await comentar(code, { clase: k, pregunta, contacto: contacto.id, nombre, texto });
     // Cuenta en su puntuación (señal «comentó»). Si falla, el comentario ya está publicado.
     await addTags(contacto.id, [tagFor(code, 'comento')]).catch((e) => console.error('Etiqueta de comentario', e.message));

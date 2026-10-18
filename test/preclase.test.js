@@ -492,6 +492,17 @@ test('preclase: comentarios por clase (muro público, moderación y respuesta de
   const c = r.clases.clase1.comentarios[0];
   assert.ok(c.mio && c.nombre && !('contacto' in c));
   assert.ok((await ghl.getContact('mock00001')).tags.includes('com-26_comento'));
+  // Sin nombre en GHL (se registró solo con el email): se le pide una vez, firma con él y se guarda en su ficha
+  const ghlMod = await import('../lib/ghl.js');
+  const sinNombre = await ghlMod.upsertContact({ email: 'solo-email@example.com' });
+  const pide = (await call('/api/comentarios', { method: 'POST', body: { launch: 'com-26', cid: sinNombre.id, clase: 'clase1', pregunta: 'q1', texto: 'Me ha encantado' } })).data;
+  assert.equal(pide.needsName, true);
+  assert.ok(!JSON.stringify(pide).includes('solo-email@example.com'));
+  const conNombre = (await call('/api/comentarios', { method: 'POST', body: { launch: 'com-26', cid: sinNombre.id, clase: 'clase1', pregunta: 'q1', texto: 'Me ha encantado', nombre: 'lucía' } })).data;
+  assert.equal(conNombre.ok, true);
+  assert.ok(conNombre.clases.clase1.comentarios.some((x) => x.mio && x.nombre === 'Lucía'));
+  assert.equal((await ghlMod.getContact(sinNombre.id)).firstName, 'Lucía');
+  await call('/api/comentarios', { method: 'POST', body: { op: 'borrar', l: 'com-26', id: conNombre.nuevo }, cookie: admin });
   await call('/api/comentarios', { method: 'POST', body: { launch: 'com-26', cid: 'mock00002', clase: 'clase1', pregunta: 'q2', texto: 'Probaré la temperatura' } });
   m = (await call('/api/comentarios?l=com-26&cid=mock00002')).data;
   assert.equal(m.clases.clase1.comentarios.filter((x) => x.mio).length, 1);

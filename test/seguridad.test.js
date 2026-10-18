@@ -172,3 +172,28 @@ test('errores de GHL en endpoints públicos: mensaje genérico, sin hablar de to
   const priv = await errorResponse(new GhlError(401, 'token caducado')).json();
   assert.match(priv.error, /GHL_TOKEN/);
 });
+
+test('login con WhatsApp: se guarda el móvil si la ficha no tiene, nunca se pisa el que ya hay', async () => {
+  const ghl = await import('../lib/ghl.js');
+  const { ensureRegistered } = await import('../lib/access.js');
+  await ghl.upsertContact({ email: 'sinmovil@example.com', firstName: 'Lucía' });
+  const c0 = await ghl.findContactByEmail('sinmovil@example.com');
+  await ghl.addTags(c0.id, ['reg-movil']);
+  const r = await ensureRegistered({ registroTag: 'reg-movil' }, { email: 'sinmovil@example.com', phone: '612 345 678' });
+  assert.equal(r.status, 'registered');
+  assert.equal((await ghl.findContactByEmail('sinmovil@example.com')).phone, '+34612345678');
+  // Otro número para la misma persona: no se cambia
+  await ensureRegistered({ registroTag: 'reg-movil' }, { email: 'sinmovil@example.com', phone: '699 999 999' });
+  assert.equal((await ghl.findContactByEmail('sinmovil@example.com')).phone, '+34612345678');
+  // Sin móvil (o uno inválido) entra igual
+  assert.equal((await ensureRegistered({ registroTag: 'reg-movil' }, { email: 'sinmovil@example.com', phone: '12' })).status, 'registered');
+});
+
+test('nombre de pila público: nunca un email, un enlace ni números', async () => {
+  const { nombrePila } = await import('../lib/access.js');
+  assert.equal(nombrePila('maría josé'), 'María');
+  assert.equal(nombrePila('ana@gmail.com'), '');
+  assert.equal(nombrePila('https://spam.com'), '');
+  assert.equal(nombrePila('Ana123'), '');
+  assert.equal(nombrePila(' '), '');
+});

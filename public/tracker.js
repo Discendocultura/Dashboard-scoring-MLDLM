@@ -97,6 +97,7 @@
     '.lsd-gate input{flex:1 1 100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #d8d0c9;font:inherit}' +
     '.lsd-gate button{padding:12px 18px;border:0;border-radius:8px;background:#b4552d;color:#fff;font:inherit;font-weight:600;cursor:pointer}' +
     '.lsd-gate .lsd-err{color:#b3261e;font-size:.9em}' +
+    '.lsd-gate .lsd-movil-nota{flex:1 1 100%;margin:-2px 0 2px;font-size:.82em;opacity:.75}' +
     '.lsd-gate.lsd-gate-login,.lsd-gate-page .lsd-gate,.lsd-gate-page.lsd-gate{aspect-ratio:auto;padding:28px 20px}' +
     '.lsd-locked{aspect-ratio:16/9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:20px;border-radius:12px;background:#f6f3ef;color:#2b2522;box-sizing:border-box}' +
     '.lsd-locked-btn{display:inline-block;margin-top:8px;padding:10px 18px;border-radius:999px;background:#b4552d;color:#fff;font-weight:600;text-decoration:none}' +
@@ -202,6 +203,7 @@
     '.lsd-com-preg:hover{border-color:var(--lsd-com-ac)}.lsd-com-preg[aria-checked="true"]{border-color:var(--lsd-com-ac);background:#fff6f1;box-shadow:inset 0 0 0 1px var(--lsd-com-ac)}' +
     '.lsd-com-preg-n{flex:none;display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;border:1.5px solid currentColor;font-size:.8em;font-weight:700;opacity:.7}.lsd-com-preg[aria-checked="true"] .lsd-com-preg-n{background:var(--lsd-com-ac);border-color:var(--lsd-com-ac);color:#fff;opacity:1}' +
     '.lsd-com-respondes{display:block;margin:0 0 6px;font-size:.88em;opacity:.8}.lsd-com-respondes b{opacity:1}' +
+    '.lsd-com-nombre{display:block;width:100%;margin:0 0 8px;padding:10px 14px;border-radius:10px;border:1.5px solid #e2d8cf;background:#fff;font:inherit;color:inherit}.lsd-com-nombre:focus{outline:none;border-color:var(--lsd-com-ac)}' +
     '.lsd-com-txt-in{display:block;width:100%;min-height:96px;padding:12px 14px;border-radius:10px;border:1.5px solid #e2d8cf;background:#fff;font:inherit;color:inherit;resize:vertical}.lsd-com-txt-in:focus{outline:none;border-color:var(--lsd-com-ac)}' +
     '.lsd-com-pie{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:10px}.lsd-com-aviso{font-size:.82em;opacity:.7}' +
     '.lsd-com-enviar{padding:12px 18px;border:0;border-radius:10px;background:var(--lsd-com-ac);color:#fff;font:inherit;font-weight:700;cursor:pointer}.lsd-com-enviar:disabled{opacity:.55;cursor:default}' +
@@ -251,6 +253,20 @@
     var btn = form.querySelector('button');
     var f = function (n) { return form.querySelector('[name="' + n + '"]'); };
     var signup = false;
+    // Login con móvil (data-movil en el bloque; por defecto «si»): se pide el WhatsApp desde el principio y,
+    // si su ficha de GHL no tiene teléfono, se guarda (para el setting y las plantillas).
+    var conMovil = opts.movil && opts.movil !== 'no';
+    if (conMovil) {
+      f('phone').hidden = false;
+      f('phone').required = opts.movil !== 'opcional';
+      f('phone').placeholder = 'Tu WhatsApp (p. ej. 612 345 678)';
+      if (opts.movilNota) {
+        var nota = document.createElement('p');
+        nota.className = 'lsd-movil-nota';
+        nota.textContent = opts.movilNota;
+        form.insertBefore(nota, btn);
+      }
+    }
     var turnstileToken = '';
     var turnstileShown = false;
 
@@ -295,7 +311,15 @@
       btn.disabled = true;
       err.hidden = true;
       var payload = { email: email, launch: launch, hp: f('lsd_hp_zq').value };
-      if (signup) { payload.name = f('name').value.trim(); payload.phone = f('phone').value.trim(); payload.turnstile = turnstileToken; }
+      var movil = f('phone').value.trim();
+      if (conMovil && movil && movil.replace(/\D/g, '').length < 8) {
+        btn.disabled = false;
+        err.textContent = 'Revisa tu número de WhatsApp (con el prefijo del país si no es de España).';
+        err.hidden = false;
+        return f('phone').focus();
+      }
+      if (conMovil && movil) payload.phone = movil;
+      if (signup) { payload.name = f('name').value.trim(); payload.phone = movil; payload.turnstile = turnstileToken; }
       post('/api/access', payload).then(function (r) {
         btn.disabled = false;
         if (r && r.ok) {
@@ -896,6 +920,8 @@
     var d = Math.round(h / 24);
     return 'hace ' + d + (d === 1 ? ' día' : ' días');
   };
+  // Nombre para firmar los comentarios cuando GHL no lo tiene (común a todos los paneles de la página).
+  var comNombre = { pide: false, valor: '' };
   function pintarComentarios(data, who) {
     var els = document.querySelectorAll('[data-lsd-comentarios]');
     if (!els.length) return;
@@ -995,6 +1021,7 @@
             }).join('') + '</div><p class="lsd-com-paso"><b>2</b> Escribe tu respuesta</p>'
             : '') +
           '<p class="lsd-com-respondes">' + (sel ? (c.preguntas.length > 1 ? 'Respondes a la pregunta ' + sel.n + ': <b>' + esc(sel.texto) + '</b>' : '<b>' + esc(sel.texto) + '</b>') : 'Primero elige arriba la pregunta 👆') + '</p>' +
+          (comNombre.pide ? '<input class="lsd-com-nombre" maxlength="30" autocomplete="given-name" placeholder="Tu nombre (así firmarás tu respuesta)" value="' + esc(comNombre.valor) + '">' : '') +
           '<textarea class="lsd-com-txt-in" maxlength="1500" placeholder="' + esc(attrs.getAttribute('data-placeholder') || 'Escribe aquí tu respuesta…') + '"' + (sel ? '' : ' disabled') + '>' + esc(st.texto) + '</textarea>' +
           '<div class="lsd-com-pie"><span class="lsd-com-aviso">Se publica con tu nombre de pila y lo verán las demás alumnas.</span><button type="button" class="lsd-com-enviar"' + (sel ? '' : ' disabled') + '>' + esc(attrs.getAttribute('data-boton') || 'Publicar mi respuesta') + '</button></div>' +
           '<p class="lsd-err" hidden></p>' + (st.ok ? '<p class="lsd-com-ok">✓ ¡Publicado! Gracias por compartirlo.</p>' : '') + '</div>';
@@ -1031,13 +1058,25 @@
         var t = el.querySelector('.lsd-com-txt-in');
         var err = el.querySelector('.lsd-err');
         var texto = t ? t.value.trim() : '';
+        var nIn = el.querySelector('.lsd-com-nombre');
+        if (nIn) comNombre.valor = nIn.value.trim();
         if (!st.sel) { err.textContent = 'Elige primero a qué pregunta respondes.'; err.hidden = false; return; }
         if (texto.length < 2) { err.textContent = 'Escribe tu respuesta.'; err.hidden = false; return; }
+        if (comNombre.pide && comNombre.valor.length < 2) { err.textContent = 'Escribe tu nombre para firmar tu respuesta.'; err.hidden = false; if (nIn) nIn.focus(); return; }
         err.hidden = true;
         btn.disabled = true;
         btn.textContent = 'Publicando…';
-        post('/api/comentarios', { launch: data.code, clase: k, pregunta: st.sel, texto: texto, cid: who.cid, email: who.email }).then(function (res) {
+        post('/api/comentarios', { launch: data.code, clase: k, pregunta: st.sel, texto: texto, cid: who.cid, email: who.email, nombre: comNombre.pide ? comNombre.valor : undefined }).then(function (res) {
+          if (res && res.needsName) {
+            // No sabemos su nombre (se registró solo con el email): se lo pedimos una vez y se guarda en su ficha.
+            comNombre.pide = true; st.texto = texto; repinta();
+            var e2 = el.querySelector('.lsd-err'); var n2 = el.querySelector('.lsd-com-nombre');
+            if (e2) { e2.textContent = res.error || 'Escribe tu nombre para firmar tu respuesta.'; e2.hidden = false; }
+            if (n2) n2.focus();
+            return;
+          }
           if (!res || !res.ok) throw new Error((res && res.error) || 'No se ha podido publicar. Inténtalo de nuevo.');
+          comNombre.pide = false;
           com.data = res; com.en = Date.now(); com.cid = who.cid || com.cid;
           st.texto = ''; st.ok = true; st.filtro = '';
           var tPub = el.querySelector('.lsd-com-txt-in'); if (tPub) tPub.value = ''; // si no, al repintar se recupera lo publicado
@@ -1422,7 +1461,9 @@
       var preset = params.get('email') || '';
       gate(el, cfg.code, ir, preset || '', {
         login: true,
-        title: el.getAttribute('data-title') || 'Accede a las clases con el email con el que te registraste',
+        movil: el.getAttribute('data-movil') || 'si',
+        movilNota: el.getAttribute('data-movil-nota') || 'Te avisaremos por WhatsApp cuando se abra cada clase y antes del directo.',
+        title: el.getAttribute('data-title') || 'Accede a las clases con tu email y tu WhatsApp',
         button: el.getAttribute('data-button') || 'Acceder',
       });
       // Si este navegador ya la conoce, dejamos su email escrito (pero puede cambiarlo).
