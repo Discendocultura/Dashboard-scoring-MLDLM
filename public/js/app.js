@@ -7974,6 +7974,7 @@ function mostrarSoloOperativa() {
 $('#sin-embudos-operativa').addEventListener('click', () => abrirOperativa({ api, dialog: $('#operativa-dialog') }));
 $('#solo-op-operativa').addEventListener('click', () => abrirOperativa({ api, dialog: $('#operativa-dialog') }));
 $('#solo-op-procesos').addEventListener('click', () => abrirProcesos({ api, dialog: $('#procesos-dialog') }));
+$('#portal-procesos').addEventListener('click', () => abrirProcesos({ api, dialog: $('#procesos-dialog') }));
 
 // Bienvenida del primer acceso: elegir una contraseña propia. Resuelve cuando la ha guardado.
 function bienvenida(me) {
@@ -8047,6 +8048,7 @@ async function mostrarPortal({ vistaPrevia = false, cliente = state.cliente } = 
   $('#portal').hidden = false;
   $('#portal-volver').hidden = !vistaPrevia;
   $('#portal-cuenta').hidden = !state.user || vistaPrevia;
+  $('#portal-procesos').hidden = vistaPrevia;
   $('#portal-salir').hidden = vistaPrevia;
   const cli = state.clientes.find((c) => c.id === cliente);
   $('#portal-titulo').textContent = `Resultados · ${cli?.nombre || ''}`;

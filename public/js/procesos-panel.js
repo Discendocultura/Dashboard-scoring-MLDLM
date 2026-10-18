@@ -3,6 +3,8 @@
 // fecha (que puede repetirse), sección, descripción con enlaces y vídeos, subtareas, comentarios y actividad.
 // Todo se guarda al momento. Se importa desde un archivo .json (por ejemplo, el «Sistema Operativo» de Asana).
 // «＋ Nuevo» pregunta si se crea desde cero o copiando una tarea del tablero de algún cliente (siempre general).
+// Dos pestañas arriba: «🏢 De la agencia» (la biblioteca de la agencia; los clientes ven solo los que la agencia
+// comparte con ellos, en solo consulta) y «📁 De <cliente>» (los procesos internos de ese cliente, que lleva su equipo).
 //   abrirProcesos({ api, dialog })
 import { richToHtml, sanitizeRich, safeHref, videoEmbed, richToText } from './richtext.js';
 import { buscarProcesos, documentado, tieneVideo, estadoFecha, proximaTrasHecho, enProyecto, encajaEnRepetir, primeraFechaRepetir } from './procesos.js';
@@ -30,6 +32,10 @@ const FECHA_TXT = { vencida: 'Vencido', hoy: 'Hoy', manana: 'Mañana' };
 
 let ctx = null;
 let bib = { secciones: [], procesos: [], equipo: [], yo: '', proyectos: [] };
+// Biblioteca abierta: 'agencia' | 'cliente'. Se recuerda.
+const LS_AMB = 'lsd_pr_ambito';
+let ambito = (() => { try { return localStorage.getItem(LS_AMB) || ''; } catch { return ''; } })();
+const delCliente = () => ambito === 'cliente';
 // Proyecto elegido arriba a la izquierda ('' = todos · '_general' = solo los generales · id de un cliente). Se recuerda.
 const LS_PROY = 'lsd_pr_proyecto';
 let proy = (() => { try { return localStorage.getItem(LS_PROY) || ''; } catch { return ''; } })();
@@ -53,7 +59,7 @@ const chipProy = (id) => { const x = proyDe(id); return `<span class="pr-proy" s
 const proyectosHtml = (p) => (p.proyectos.length ? p.proyectos.map(chipProy).join('') : '<span class="pr-proy general">🌐 General</span>');
 
 async function enviar(cuerpo) {
-  const d = await ctx.api('/api/procesos', { method: 'POST', body: cuerpo });
+  const d = await ctx.api('/api/procesos', { method: 'POST', body: { ...cuerpo, ambito } });
   bib = { ...bib, secciones: d.secciones, procesos: d.procesos };
   return d;
 }
@@ -65,6 +71,14 @@ export async function abrirProcesos(opts) {
     dlg.dataset.listo = '1';
     dlg.querySelector('#pr-cerrar').addEventListener('click', () => dlg.close());
     dlg.querySelector('#pr-nuevo').addEventListener('click', nuevo);
+    dlg.querySelector('#pr-ambitos')?.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-pr-ambito]');
+      if (!b || b.dataset.prAmbito === ambito) return;
+      ambito = b.dataset.prAmbito;
+      try { localStorage.setItem(LS_AMB, ambito); } catch { /* sin almacenamiento */ }
+      sec = ''; abierto = ''; filtro = ''; q = ''; lote = false;
+      cargar();
+    });
     dlg.addEventListener('change', onChange);
     dlg.addEventListener('click', onClick);
     dlg.addEventListener('submit', onSubmit);
@@ -79,28 +93,45 @@ export async function abrirProcesos(opts) {
     });
     dlg.addEventListener('keydown', onKey);
   }
+  // Por defecto: el superadmin, la de la agencia; el resto, la de su cliente.
+  if (ambito !== 'agencia' && ambito !== 'cliente') ambito = document.body.classList.contains('is-superadmin') ? 'agencia' : 'cliente';
+  if (!dlg.open) dlg.showModal();
+  await cargar();
+}
+
+async function cargar() {
+  const dlg = ctx.dialog;
   body().innerHTML = '<p class="muted">Cargando…</p>';
   creando = '';
   operativa = null;
-  if (!dlg.open) dlg.showModal();
   try {
-    bib = await ctx.api('/api/procesos');
+    bib = await ctx.api(`/api/procesos?ambito=${ambito}`);
     bib.proyectos ||= [];
     bib.equipo ||= [];
     if (proy && proy !== '_general' && !bib.proyectos.some((x) => x.id === proy)) proy = '';
-  } catch (e) { body().innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
-  // Solo lectura (perfil «Solo Operativa»): se consulta, no se cambia nada.
+    if (!bib.proyectos.length && proy) proy = '';
+  } catch (e) { body().innerHTML = `<p class="error">${esc(e.message)}</p>`; pintarAmbitos(); return; }
+  // Solo lectura (los clientes en la de la agencia y el perfil «Solo Operativa»): se consulta, no se cambia nada.
   dlg.classList.toggle('pr-lectura', Boolean(bib.lectura));
+  dlg.classList.toggle('pr-amb-cliente', delCliente());
   const sub = dlg.querySelector('.pr-sub');
-  if (sub) sub.textContent = bib.lectura ? '· solo consulta' : '· solo la agencia';
+  if (sub) sub.textContent = delCliente() ? `· los procesos internos de ${bib.cliente || 'tu negocio'}` : bib.lectura ? '· los que la agencia comparte contigo (solo consulta)' : '· de la agencia';
+  pintarAmbitos();
   pintar();
+}
+
+function pintarAmbitos() {
+  const nav = ctx.dialog.querySelector('#pr-ambitos');
+  if (!nav) return;
+  const b = (id, txt) => `<button type="button" class="pr-ambito${ambito === id ? ' on' : ''}" data-pr-ambito="${id}" aria-pressed="${ambito === id}">${txt}</button>`;
+  nav.innerHTML = b('agencia', '🏢 De la agencia') + b('cliente', `📁 De ${esc(bib.cliente || 'tu negocio')}`);
 }
 
 // ---- Estructura ----
 function pintar() {
   body().innerHTML = `<div class="pr">
     <aside class="pr-side">
-      <label class="pr-proy-sel"><span>Proyecto</span><select id="pr-proyecto"><option value="">Todos los proyectos</option><option value="_general"${proy === '_general' ? ' selected' : ''}>🌐 Solo los generales</option>${bib.proyectos.map((x) => `<option value="${esc(x.id)}"${proy === x.id ? ' selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select></label>
+      ${bib.proyectos.length ? `<label class="pr-proy-sel"><span>Proyecto</span><select id="pr-proyecto"><option value="">Todos los proyectos</option><option value="_general"${proy === '_general' ? ' selected' : ''}>🌐 Solo los generales</option>${bib.proyectos.map((x) => `<option value="${esc(x.id)}"${proy === x.id ? ' selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select></label>` : ''}
       <label class="pr-buscar"><span aria-hidden="true">🔎</span><input id="pr-buscar" type="search" placeholder="Buscar un proceso…" value="${esc(q)}" autocomplete="off"></label>
       <nav class="pr-secs" aria-label="Secciones">${seccionesHtml()}</nav>
       <button type="button" class="btn ghost small pr-sec-nueva" data-pr="seccion">＋ Sección</button>
@@ -122,6 +153,19 @@ function pintarLista() {
   if (creando) { main.innerHTML = crearHtml(); return; }
   if (abierto && proc()) { pintarProceso(main); return; }
   abierto = '';
+  if (!bib.procesos.length && (delCliente() || bib.lectura)) {
+    main.innerHTML = delCliente() ? `<div class="pr-vacio">
+      <div class="pr-vacio-ico" aria-hidden="true">📁</div>
+      <h3>Aún no hay procesos de ${esc(bib.cliente || 'tu negocio')}</h3>
+      <p>Apunta aquí el «cómo se hace» de lo vuestro: los pasos, los vídeos y los enlaces de cada proceso interno. Así lo tenéis todo en un sitio y cualquiera del equipo lo encuentra. Solo lo ve tu equipo (y la agencia).</p>
+      <p><button type="button" class="btn primary" data-pr="nuevo">＋ Añadir el primero</button></p>
+    </div>` : `<div class="pr-vacio">
+      <div class="pr-vacio-ico" aria-hidden="true">🏢</div>
+      <h3>La agencia aún no ha compartido procesos</h3>
+      <p>Cuando la agencia comparta contigo sus procesos (cómo se hace cada cosa, paso a paso), aparecerán aquí. Mientras, puedes apuntar los tuyos en la pestaña «📁 De ${esc(bib.cliente || 'tu negocio')}».</p>
+    </div>`;
+    return;
+  }
   if (!bib.procesos.length) {
     main.innerHTML = `<div class="pr-vacio">
       <div class="pr-vacio-ico" aria-hidden="true">📚</div>
@@ -142,7 +186,7 @@ function pintarLista() {
   const chip = (id, txt) => `<button type="button" class="pr-filtro${filtro === id ? ' on' : ''}" data-pr-filtro="${id}">${txt}</button>`;
   const pNombre = proy === '_general' ? 'generales' : proyDe(proy)?.nombre;
   main.innerHTML = `<header class="pr-main-head"><div><h3>${s ? esc(s.titulo) : '📚 Todos los procesos'}</h3><p class="muted small">${lista.length} proceso${lista.length === 1 ? '' : 's'}${pNombre ? ` · ${proy === '_general' ? 'solo los generales' : `de ${esc(pNombre)} y los generales`}` : ''}${porDoc ? ` · ${porDoc} por documentar` : ''}${q ? ` · buscando «${esc(q)}»` : ''}</p></div>
-      <div class="pr-filtros">${chip('', 'Todos')}${bib.yo ? chip('mios', '👤 Míos') : ''}${chip('fecha', '📅 Con fecha')}${chip('vencidos', `⏰ Vencidos${vencidos ? ` <b>${vencidos}</b>` : ''}`)}<button type="button" class="pr-filtro pr-vaciar" data-pr="vaciar" title="Borrar todos los procesos de la biblioteca">🗑️ Vaciar biblioteca</button></div></header>
+      <div class="pr-filtros">${chip('', 'Todos')}${bib.yo ? chip('mios', '👤 Míos') : ''}${chip('fecha', '📅 Con fecha')}${chip('vencidos', `⏰ Vencidos${vencidos ? ` <b>${vencidos}</b>` : ''}`)}${delCliente() ? '' : '<button type="button" class="pr-filtro pr-vaciar" data-pr="vaciar" title="Borrar todos los procesos de la biblioteca">🗑️ Vaciar biblioteca</button>'}</div></header>
     ${lista.length && bib.proyectos.length ? loteHtml(lista) : ''}
     ${lista.length ? `<div class="pr-grid">${lista.map((p, i) => tarjeta(p, i, hoy)).join('')}</div>` : '<p class="muted">No hay procesos que coincidan.</p>'}`;
 }
@@ -158,7 +202,7 @@ function tarjeta(p, i, hoy) {
     <span class="pr-card-ico" aria-hidden="true">${hecho ? '✅' : emojiDe(p.titulo) || emojiDe(s?.titulo) || '📄'}</span>
     <strong>${esc(sinEmoji(p.titulo))}</strong>
     <span class="pr-card-txt">${doc ? esc(txt.slice(0, 140)) || 'Vídeo explicativo' : 'Por documentar'}</span>
-    <span class="pr-badges">${p.fecha ? `<span class="pr-badge f-${ef || 'futura'}">${p.repetir.tipo ? '🔁' : '📅'} ${esc(FECHA_TXT[ef] || fechaCorta(p.fecha))}</span>` : ''}${p.subtareas.length ? `<span class="pr-badge">☑️ ${subHechas}/${p.subtareas.length}</span>` : ''}${p.comentarios.length ? `<span class="pr-badge">💬 ${p.comentarios.length}</span>` : ''}${tieneVideo(p) ? '<span class="pr-badge v">🎬 Vídeo</span>' : ''}${!doc ? '<span class="pr-badge pend">✍️ Por documentar</span>' : ''}${!sec && s ? `<span class="pr-badge s">${esc(sinEmoji(s.titulo))}</span>` : ''}</span>
+    <span class="pr-badges">${p.fecha ? `<span class="pr-badge f-${ef || 'futura'}">${p.repetir.tipo ? '🔁' : '📅'} ${esc(FECHA_TXT[ef] || fechaCorta(p.fecha))}</span>` : ''}${p.subtareas.length ? `<span class="pr-badge">☑️ ${subHechas}/${p.subtareas.length}</span>` : ''}${p.comentarios.length ? `<span class="pr-badge">💬 ${p.comentarios.length}</span>` : ''}${tieneVideo(p) ? '<span class="pr-badge v">🎬 Vídeo</span>' : ''}${!doc ? '<span class="pr-badge pend">✍️ Por documentar</span>' : ''}${!sec && s ? `<span class="pr-badge s">${esc(sinEmoji(s.titulo))}</span>` : ''}${p.compartido && !bib.lectura ? '<span class="pr-badge comp">🤝 Compartido</span>' : ''}</span>
     ${bib.proyectos.length ? `<span class="pr-card-proys">${proyectosHtml(p)}</span>` : ''}
     ${p.responsable ? `<span class="pr-card-resp">${avatar(nombreDe(p.responsable))}</span>` : ''}
   </button>`;
@@ -183,6 +227,8 @@ function pintarProceso(main) {
   const hecho = p.hecho && !p.repetir.tipo;
   const subHechas = p.subtareas.filter((x) => x.hecha).length;
   const fila = (label, html) => `<div class="pr-campo"><span class="pr-campo-l">${label}</span><div class="pr-campo-v">${html}</div></div>`;
+  // En solo lectura no se enseñan los campos vacíos (los clientes no ven el trabajo interno de la agencia).
+  const ver = (lleno) => !bib.lectura || lleno;
   main.innerHTML = `<article class="pr-tarea">
     <div class="pr-tarea-barra">
       <button type="button" class="link pr-volver" data-pr="volver">← ${s ? esc(sinEmoji(s.titulo)) : 'Procesos'}</button>
@@ -195,9 +241,10 @@ function pintarProceso(main) {
     ${hecho ? `<p class="pr-hecho-aviso">✅ Hecho ${esc(cuando(p.hechoEn))}</p>` : ''}
     <textarea class="pr-titulo" data-pr-campo="titulo" rows="1" maxlength="160" aria-label="Título">${esc(p.titulo)}</textarea>
     <div class="pr-campos">
-      ${fila('Responsable', `<span class="pr-resp">${p.responsable ? avatar(nombreDe(p.responsable)) : '<span class="pr-av vacio">?</span>'}<select data-pr-campo="responsable" aria-label="Responsable"><option value="">Sin asignar</option>${bib.equipo.map((u) => `<option value="${esc(u.id)}"${u.id === p.responsable ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}</select></span>`)}
-      ${fila('Fecha', `<span class="pr-fecha"><input type="date" data-pr-campo="fecha" value="${esc(p.fecha)}" aria-label="Fecha">${ef && FECHA_TXT[ef] ? `<span class="pr-badge f-${ef}">${FECHA_TXT[ef]}</span>` : ''}${p.fecha ? '<button type="button" class="link small" data-pr="sin-fecha">Quitar</button>' : ''}</span>`)}
-      ${fila('Se repite', `<span class="pr-rep">${editorRepetir(p.repetir)}${p.repetir.tipo && p.fecha && !encajaEnRepetir(p.fecha, p.repetir) ? `<span class="muted small">Su fecha no cae en el día elegido.</span><button type="button" class="btn small" data-pr="rep-alinear">📅 Pasarlo al ${esc(fechaCorta(primeraFechaRepetir(p.fecha < hoy ? hoy : p.fecha, p.repetir)))}</button>` : p.repetir.tipo && p.fecha ? `<span class="muted small">🔁 Al marcarlo como hecho pasa al ${esc(fechaCorta(proximaTrasHecho(p.fecha, p.repetir, hoy)))}</span>` : p.repetir.tipo ? '<span class="muted small">Pon una fecha para que se repita</span>' : ''}</span>`)}
+      ${!delCliente() && !bib.lectura ? fila('Clientes', `<button type="button" class="pr-compartir${p.compartido ? ' on' : ''}" data-pr="compartir" aria-pressed="${p.compartido}"><span class="pr-sw" aria-hidden="true"></span>${p.compartido ? '🤝 Compartido con todos los clientes' : 'Compartir con todos los clientes'}</button><span class="muted small">${p.compartido ? 'Lo ven en «🏢 De la agencia», solo para consultar (sin responsable, fechas ni comentarios).' : 'Si lo activas, todos los clientes podrán consultarlo.'}</span>`) : ''}
+      ${!ver(p.responsable) ? '' : fila('Responsable', `<span class="pr-resp">${p.responsable ? avatar(nombreDe(p.responsable)) : '<span class="pr-av vacio">?</span>'}<select data-pr-campo="responsable" aria-label="Responsable"><option value="">Sin asignar</option>${bib.equipo.map((u) => `<option value="${esc(u.id)}"${u.id === p.responsable ? ' selected' : ''}>${esc(u.nombre)}</option>`).join('')}</select></span>`)}
+      ${!ver(p.fecha) ? '' : fila('Fecha', `<span class="pr-fecha"><input type="date" data-pr-campo="fecha" value="${esc(p.fecha)}" aria-label="Fecha">${ef && FECHA_TXT[ef] ? `<span class="pr-badge f-${ef}">${FECHA_TXT[ef]}</span>` : ''}${p.fecha ? '<button type="button" class="link small" data-pr="sin-fecha">Quitar</button>' : ''}</span>`)}
+      ${!ver(p.repetir.tipo) ? '' : fila('Se repite', `<span class="pr-rep">${editorRepetir(p.repetir)}${p.repetir.tipo && p.fecha && !encajaEnRepetir(p.fecha, p.repetir) ? `<span class="muted small">Su fecha no cae en el día elegido.</span><button type="button" class="btn small" data-pr="rep-alinear">📅 Pasarlo al ${esc(fechaCorta(primeraFechaRepetir(p.fecha < hoy ? hoy : p.fecha, p.repetir)))}</button>` : p.repetir.tipo && p.fecha ? `<span class="muted small">🔁 Al marcarlo como hecho pasa al ${esc(fechaCorta(proximaTrasHecho(p.fecha, p.repetir, hoy)))}</span>` : p.repetir.tipo ? '<span class="muted small">Pon una fecha para que se repita</span>' : ''}</span>`)}
       ${bib.proyectos.length ? fila('Proyecto', `<span class="pr-proy-chips"><button type="button" class="pr-pchip${p.proyectos.length ? '' : ' on'}" data-pr-proy="">🌐 General (todos)</button>${bib.proyectos.map((x) => `<button type="button" class="pr-pchip${p.proyectos.includes(x.id) ? ' on' : ''}" data-pr-proy="${esc(x.id)}" style="--cl:${esc(x.color || 'var(--accent)')}">${esc(x.nombre)}</button>`).join('')}</span>`) : ''}
       ${fila('Sección', `<select data-pr-campo="seccion" aria-label="Sección">${bib.secciones.map((x) => `<option value="${esc(x.id)}"${x.id === p.seccion ? ' selected' : ''}>${esc(x.titulo)}</option>`).join('')}</select>`)}
     </div>
@@ -205,17 +252,17 @@ function pintarProceso(main) {
       <header class="pr-bloque-h"><h4>Descripción</h4>${editandoDesc ? '' : '<button type="button" class="btn ghost small" data-pr="editar-desc">✏️ Editar</button>'}</header>
       ${editandoDesc ? editorHtml() : `<div class="pr-contenido rich" data-pr="editar-desc-click">${documentado(p) ? richToHtml(p.html) : '<p class="muted">Sin descripción. Pulsa «Editar» para escribir los pasos, pegar enlaces o añadir un vídeo.</p>'}</div>`}
     </section>
-    <section class="pr-bloque">
+    ${bib.lectura && !p.subtareas.length ? '' : `<section class="pr-bloque">
       <header class="pr-bloque-h"><h4>Subtareas ${p.subtareas.length ? `<span class="muted">${subHechas}/${p.subtareas.length}</span>` : ''}</h4></header>
       ${p.subtareas.length ? `<div class="pr-sub-barra"><span style="width:${(subHechas / p.subtareas.length) * 100}%"></span></div>` : ''}
       <ul class="pr-subs">${p.subtareas.map((x) => `<li class="${x.hecha ? 'ok' : ''}"><label><input type="checkbox" data-pr-sub="${esc(x.id)}"${x.hecha ? ' checked' : ''}><span>${esc(x.texto)}</span></label><button type="button" class="pr-x" data-pr-sub-borrar="${esc(x.id)}" aria-label="Quitar subtarea">✕</button></li>`).join('')}</ul>
       <form class="pr-sub-nueva" data-pr-form="sub"><input name="texto" maxlength="300" placeholder="＋ Añadir subtarea (Enter)" autocomplete="off"></form>
-    </section>
-    <section class="pr-bloque pr-conv">
+    </section>`}
+    ${bib.lectura && !p.comentarios.length ? '' : `<section class="pr-bloque pr-conv">
       <nav class="pr-tabs"><button type="button" class="${pestanaAct === 'comentarios' ? 'on' : ''}" data-pr-tab="comentarios">Comentarios ${p.comentarios.length ? `<b>${p.comentarios.length}</b>` : ''}</button><button type="button" class="${pestanaAct === 'actividad' ? 'on' : ''}" data-pr-tab="actividad">Toda la actividad</button></nav>
       <ol class="pr-hilo">${hiloHtml(p)}</ol>
       <form class="pr-comentar" data-pr-form="comentar">${avatar(nombreDe(bib.yo) || 'Yo', 'yo')}<textarea name="texto" rows="2" maxlength="4000" placeholder="Escribe un comentario… (Ctrl + Enter para enviar)"></textarea><button class="btn primary small">Comentar</button></form>
-    </section>
+    </section>`}
   </article>`;
   ajustarTitulo();
   if (editandoDesc) prepararEditor();
@@ -228,7 +275,7 @@ function hiloHtml(p) {
   if (!items.length) return `<li class="pr-hilo-vacio muted">${pestanaAct === 'actividad' ? 'Aún no hay actividad.' : 'Sin comentarios todavía. Escribe el primero abajo.'}</li>`;
   return items.map((x) => (x.tipo === 'a'
     ? `<li class="pr-act"><span class="pr-act-dot"></span><span><strong>${esc(x.por)}</strong> ${esc(x.txt)} · <span class="muted">${esc(cuando(x.en))}</span></span></li>`
-    : `<li class="pr-com">${avatar(x.por)}<div class="pr-com-c"><header><strong>${esc(x.por)}</strong><span class="muted small">${esc(cuando(x.en))}</span><button type="button" class="pr-x" data-pr-com-borrar="${esc(x.id)}" aria-label="Borrar comentario">✕</button></header><div class="pr-com-t">${textoComentario(x.texto)}</div></div></li>`)).join('');
+    : `<li class="pr-com">${avatar(x.por)}<div class="pr-com-c"><header><strong>${esc(x.por)}</strong><span class="muted small">${esc(cuando(x.en))}</span>${!delCliente() || bib.moderar || (x.porId && x.porId === bib.yo) ? `<button type="button" class="pr-x" data-pr-com-borrar="${esc(x.id)}" aria-label="Borrar comentario">✕</button>` : ''}</header><div class="pr-com-t">${textoComentario(x.texto)}</div></div></li>`)).join('');
 }
 
 function ajustarTitulo() {
@@ -308,6 +355,8 @@ async function guardarCampos(campos) {
 
 // «＋ Nuevo»: primero se elige cómo (desde cero o copiando una tarea de un tablero de algún cliente).
 function nuevo() {
+  // En la del cliente se crea directamente (no hay tableros de otros clientes de donde copiar).
+  if (delCliente()) { crearProceso(); return; }
   creando = 'elegir';
   abierto = '';
   pintarLista();
@@ -526,6 +575,7 @@ async function onClick(e) {
     st.textContent = 'Guardando…';
     try { await enviar({ op: 'campos', id: abierto, campos: { html: leerEditor() } }); editandoDesc = false; pintarLista(); } catch (err) { st.textContent = err.message; }
   } else if (a === 'sin-fecha') guardarCampos({ fecha: '' });
+  else if (a === 'compartir') guardarCampos({ compartido: !proc().compartido });
   else if (a === 'hecho') {
     const p = proc();
     try {

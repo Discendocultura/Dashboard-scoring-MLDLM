@@ -149,6 +149,8 @@ export function sanitizeProceso(p, secciones = []) {
     responsable: ID_RE.test(String(p?.responsable || '')) ? String(p.responsable) : '',
     fecha: DIA_RE.test(p?.fecha || '') ? p.fecha : '',
     repetir: sanitizeRepetir(p?.repetir),
+    // De la agencia: lo ven también todos los clientes (en solo consulta).
+    compartido: Boolean(p?.compartido),
     hecho: Boolean(p?.hecho),
     hechoEn: limpio(p?.hechoEn, 30),
     subtareas: (Array.isArray(p?.subtareas) ? p.subtareas : []).slice(0, MAX_SUBTAREAS)

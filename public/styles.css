@@ -4069,10 +4069,24 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
   .mp-nav .btn { flex: 1 1 140px; }
 }
 
-/* ---------- Biblioteca de procesos (solo la agencia) ---------- */
+/* ---------- Procesos (de la agencia y de cada cliente) ---------- */
 .pr-dlg { width: min(1180px, 96vw); }
 .pr-head { flex-wrap: wrap; gap: 10px; }
 .pr-head h2 { flex: 1 1 auto; }
+.pr-head-t { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-width: 0; }
+.pr-head-t h2 { flex: 0 1 auto; margin: 0; }
+.pr-ambitos { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); max-width: 100%; overflow-x: auto; }
+.pr-ambito { border: 0; background: none; padding: 7px 14px; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s; }
+.pr-ambito:hover { color: var(--text); }
+.pr-ambito.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.pr-amb-cliente label:has(#pr-importar) { display: none !important; }
+.pr-badge.comp { background: color-mix(in srgb, #10b981 16%, transparent); color: #047857; }
+.pr-compartir { display: inline-flex; align-items: center; gap: 10px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 14px 6px 8px; font: inherit; font-weight: 600; cursor: pointer; margin-right: 10px; }
+.pr-compartir .pr-sw { width: 34px; height: 20px; border-radius: 999px; background: var(--border); position: relative; transition: background .2s; flex: none; }
+.pr-compartir .pr-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .2s; }
+.pr-compartir.on { border-color: #10b981; background: color-mix(in srgb, #10b981 10%, var(--surface)); }
+.pr-compartir.on .pr-sw { background: #10b981; }
+.pr-compartir.on .pr-sw::after { transform: translateX(14px); }
 .pr-sub { font-size: 14px; font-weight: 500; }
 .pr-head-acc { display: flex; gap: 8px; align-items: center; }
 .pr-body { padding-top: 6px; }
