@@ -7,10 +7,10 @@ import { json, errorResponse } from '../lib/http.js';
 
 export async function GET(request) {
   try {
-    await requireSession(request, { permiso: 'metricas' });
+    const ses = await requireSession(request, { permiso: 'metricas' });
     const url = new URL(request.url);
     const parte = url.searchParams.get('parte') || 'lista';
-    return json({ cliente: clienteActual().nombre, parte, ...(await inicioCliente({ parte, id: url.searchParams.get('id') || '', fresh: url.searchParams.has('fresh'), periodo: url.searchParams.get('periodo') || '30d', desde: url.searchParams.get('desde') || '', hasta: url.searchParams.get('hasta') || '' })) });
+    return json({ cliente: clienteActual().nombre, parte, ...(await inicioCliente({ parte, id: url.searchParams.get('id') || '', fresh: url.searchParams.has('fresh'), periodo: url.searchParams.get('periodo') || '30d', desde: url.searchParams.get('desde') || '', hasta: url.searchParams.get('hasta') || '', embudos: ses.embudos })) });
   } catch (e) {
     return errorResponse(e);
   }

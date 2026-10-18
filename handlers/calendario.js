@@ -3,6 +3,7 @@
 // calcula el navegador con la configuración.
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
+import { configDeEmbudos } from '../lib/embudos.js';
 import { storeGetPrefijo } from '../lib/store.js';
 import { json, errorResponse } from '../lib/http.js';
 
@@ -13,8 +14,8 @@ const lista = (txt) => {
 
 export async function GET(request) {
   try {
-    await requireSession(request);
-    const config = await getConfig();
+    const ses = await requireSession(request);
+    const config = configDeEmbudos(await getConfig(), ses.embudos);
     const codes = [...Object.keys(config.launches || {}), ...Object.keys(config.vsls || {}), ...Object.keys(config.meteoricos || {}), ...Object.keys(config.directas || {})].slice(0, MAX_EMBUDOS);
     // Todas las tareas y todos los eventos del cliente en dos consultas (no dos por embudo).
     const [tareas, eventos] = await Promise.all([storeGetPrefijo('lsd_tareas_'), storeGetPrefijo('lsd_eventos_')]);

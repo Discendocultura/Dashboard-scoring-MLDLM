@@ -18,6 +18,7 @@ import { json, errorResponse } from '../lib/http.js';
 import { richToText } from '../public/js/richtext.js';
 import { todasLasTareas, puedeOperativa, visiblesOperativa } from '../lib/operativa.js';
 import { cacheCompartida } from '../lib/store.js';
+import { configDeEmbudos, embudosPermitidos } from '../lib/embudos.js';
 import { asignadaA, PROYECTO_AGENCIA } from '../public/js/operativa.js';
 import { ROL_CLIENTE, ROL_OPERATIVA } from '../public/js/roles.js';
 
@@ -55,9 +56,9 @@ export async function GET(request) {
       const u = await findUser(who);
       if (!u || u.activo === false || !u.rol) return new Response('Usuario desactivado o sin acceso a este cliente', { status: 403 });
       if (u.rol === ROL_CLIENTE || u.rol === ROL_OPERATIVA) return new Response('Sin acceso al calendario del equipo', { status: 403 });
-      sess = { role: u.rol, uid: u.id };
+      sess = { role: u.rol, uid: u.id, embudos: embudosPermitidos(u, clienteActual().id, u.rol) };
     }
-    const config = await getConfig();
+    const config = configDeEmbudos(await getConfig(), sess.embudos);
     const items = [];
     for (const { code, l } of relevantes(config)) {
       const [eventos, tareas] = await Promise.all([getEventos(code), getTareas(code)]);

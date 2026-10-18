@@ -8,6 +8,7 @@ import { sanitizeAutomatizaciones } from '../public/js/automatizaciones.js';
 import { claveResumenSetter } from '../lib/setter-ia.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { versionDe, reintentando } from '../lib/store.js';
+import { configDeEmbudos } from '../lib/embudos.js';
 
 const EQUIPO_FIELDS = ['name', 'inicioCaptacion', 'finCaptacion', 'fechaDirecto', 'horaDirecto', 'clase1At', 'clase2At', 'replayAt', 'aperturaCarrito', 'cierreCarrito', 'createdAt', 'formato', 'videos', 'embudo', 'clase3At', 'nClases', 'vip'];
 function equipoConfig(config) {
@@ -20,10 +21,12 @@ export async function GET(request) {
   try {
     const ses = await requireSession(request, { cliente: true });
     const role = ses.role;
-    const config = await getConfig({ fresh: new URL(request.url).searchParams.has('fresh') });
+    const completa = await getConfig({ fresh: new URL(request.url).searchParams.has('fresh') });
+    // Con embudos asignados, solo los suyos (el menú lateral, Inicio y los selectores salen ya filtrados).
+    const config = configDeEmbudos(completa, ses.embudos);
     // El equipo solo ve las tareas: le basta con el nombre y las fechas de cada lanzamiento.
     // `version`: el navegador la devuelve al guardar, para no pisar lo que otra persona guardó entretanto.
-    const version = versionDe(config);
+    const version = versionDe(completa);
     if (!tienePermiso(ses, [...PERMISOS_DATOS, 'config', 'carrito'])) return json({ role, config: equipoConfig(config), zoomConfigured: false, version });
     return json({ role, config, zoomConfigured: zoomConfigured(), sendflowConfigured: sendflowConfigurado(), setterResumen: Boolean(claveResumenSetter()), version });
   } catch (e) {
@@ -54,14 +57,17 @@ export async function POST(request) {
       });
       return json({ config, version: versionDe(config) });
     }
-    const rol = await requireRole(request, { permiso: 'config' });
+    const ses = await requireSession(request, { permiso: 'config' });
+    const rol = ses.role;
+    // Quien solo ve algunos embudos tiene una configuración recortada: guardarla entera borraría los demás.
+    if (ses.embudos && !body.op) return json({ error: 'Solo tienes asignados algunos embudos: la configuración general la guarda el admin.' }, 403);
     // Pesos de la puntuación (Métricas → Vídeos y conversión → «Qué predice la compra»). null = de serie.
     if (body.op === 'pesos') {
       const config = await reintentando(async () => {
         const actual = await getConfig({ fresh: true });
         return saveConfig({ ...actual, pesosScore: body.pesos ?? null }, { version: versionDe(actual), motivo: body.pesos ? 'Pesos de la puntuación' : 'Pesos de la puntuación de serie' });
       });
-      return json({ config, version: versionDe(config) });
+      return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
     }
     // Logo del lanzamiento (Anuncios → Crear con IA): URL de la imagen, para los anuncios de captación.
     // Narrativa del lanzamiento (Anuncios → Crear con IA, Páginas y WhatsApp, o el asistente de nuevo lanzamiento).
@@ -82,7 +88,7 @@ export async function POST(request) {
         if (wf) accesos = [...accesos.filter((a) => a.url !== wf.url && !(a.tipo === 'workflow' && a.nombre === wf.nombre)), wf];
         return saveConfig({ ...actual, accesos, [grupo]: { ...actual[grupo], [code]: datos ? { ...resto, automatizaciones: datos } : resto } }, { version: versionDe(actual), motivo: 'Automatizaciones de GHL' });
       });
-      return json({ config, version: versionDe(config) });
+      return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
     }
     if (body.op === 'narrativa') {
       const code = String(body.l || '');
@@ -93,7 +99,7 @@ export async function POST(request) {
         const n = sanitizeNarrativa(body.narrativa);
         return saveConfig({ ...actual, launches: { ...actual.launches, [code]: n ? { ...resto, narrativa: n } : resto } }, { version: versionDe(actual), motivo: 'Narrativa del lanzamiento' });
       });
-      return json({ config, version: versionDe(config) });
+      return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
     }
     if (body.op === 'logoLanzamiento') {
       const code = String(body.l || '');
@@ -104,7 +110,7 @@ export async function POST(request) {
         if (!actual.launches[code]) throw Object.assign(new Error('Lanzamiento no encontrado'), { status: 404, publicMessage: 'Lanzamiento no encontrado' });
         return saveConfig({ ...actual, launches: { ...actual.launches, [code]: { ...actual.launches[code], logoUrl: url } } }, { version: versionDe(actual), motivo: 'Logo del lanzamiento' });
       });
-      return json({ config, version: versionDe(config) });
+      return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
     }
     // Objetivos y supuestos de la calculadora de un lanzamiento (pestaña Plan → Planificador).
     // Resultados de un lanzamiento ya calculados (Planificador): se guardan con él para cualquier dispositivo.
@@ -116,7 +122,7 @@ export async function POST(request) {
         const l = { ...actual.launches[code], resultados: { ...(body.resultados || {}), at: new Date().toISOString() } };
         return saveConfig({ ...actual, launches: { ...actual.launches, [code]: l } }, { version: versionDe(actual), motivo: 'Resultados del lanzamiento' });
       });
-      return json({ config, version: versionDe(config) });
+      return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
     }
     if (body.op === 'objetivos') {
       const code = String(body.l || '');
@@ -126,7 +132,7 @@ export async function POST(request) {
         const l = { ...actual.launches[code], objetivos: body.objetivos ?? actual.launches[code].objetivos, calculadora: body.calculadora ?? actual.launches[code].calculadora };
         return saveConfig({ ...actual, launches: { ...actual.launches, [code]: l } }, { version: versionDe(actual), motivo: 'Objetivos' });
       });
-      return json({ config, version: versionDe(config) });
+      return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
     }
     // Calculadora: los lanzamientos anteriores metidos a mano, guardados en su embudo.
     if (body.op === 'historico') {
@@ -137,7 +143,7 @@ export async function POST(request) {
         const embudos = actual.embudos.map((e) => (e.id === id ? { ...e, historico: Array.isArray(body.historico) ? body.historico : [] } : e));
         return saveConfig({ ...actual, embudos }, { version: versionDe(actual), motivo: 'Histórico de la calculadora' });
       });
-      return json({ config, version: versionDe(config) });
+      return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
     }
     // Si no vienen los embudos (p. ej. un navegador con la versión anterior), se conservan los guardados.
     const actual = await getConfig({ fresh: true });
@@ -150,7 +156,7 @@ export async function POST(request) {
       { ...actual, ...body, ...('vsl' in body && !('vsls' in body) ? { vsls: { ...actual.vsls, vsl: body.vsl } } : {}) },
       { version },
     );
-    return json({ config, version: versionDe(config) });
+    return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
   } catch (e) {
     return errorResponse(e);
   }

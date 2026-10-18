@@ -1,7 +1,7 @@
 // Gestión de usuarios del equipo (solo admin) y cambio de la propia contraseña (cualquiera con usuario).
 import { requireSession, sessionCookie } from '../lib/auth.js';
 import {
-  listUsers, saveUsers, actualizarUsuarios, cambiarOnboarding, hashPassword, checkPassword, generatePassword, newId, normEmail, publicUser, sendAccessEmail, FOTO_RE, FOTO_MAX, fotoKey,
+  listUsers, saveUsers, actualizarUsuarios, cambiarOnboarding, hashPassword, checkPassword, generatePassword, newId, normEmail, publicUser, sendAccessEmail, FOTO_RE, FOTO_MAX, fotoKey, fijarEmbudos,
 } from '../lib/users.js';
 import { storeSet, reintentando } from '../lib/store.js';
 import { clienteActual, runCliente, enPrincipal } from '../lib/cliente.js';
@@ -11,6 +11,9 @@ import { json, readBody, errorResponse, isEmail } from '../lib/http.js';
 import { rolExiste } from '../lib/roles.js';
 import { iniciarAlta, confirmarAlta, comprobarCodigo, quitarDosPasos, esAdminEnAlguno } from '../lib/dos-pasos.js';
 import { getSeguridad } from '../lib/seguridad.js';
+import { getConfig } from '../lib/config-store.js';
+
+const idsEmbudos = async () => (await getConfig()).embudos.map((e) => e.id);
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 // Enlace al dashboard ya en este cliente (los que no son el principal llevan ?c=).
@@ -218,12 +221,14 @@ async function procesar(request, body) {
       if (existe.rol) throw bad('Ya hay un usuario con ese email en el equipo');
       existe.accesos = { ...(existe.accesos || {}), [cid]: rol };
       if (typeof body.marcaObligatoria === 'boolean') existe.marcaObligatoria = { ...(existe.marcaObligatoria || {}), [cid]: body.marcaObligatoria };
+      if (Array.isArray(body.embudos)) fijarEmbudos(existe, body.embudos, await idsEmbudos());
       await saveUsers(users);
       return json({ user: publicUser({ ...existe, rol }), anadido: true });
     }
     if (users.length >= 200) throw bad('Máximo 200 usuarios');
     const password = generatePassword();
     const user = { id: newId('u'), nombre, email, accesos: { [cid]: rol }, rol, activo: true, ...(typeof body.marcaObligatoria === 'boolean' ? { marcaObligatoria: { [cid]: body.marcaObligatoria } } : {}), ...(await hashPassword(password)), claveTemporal: true, createdAt: new Date().toISOString(), creadoPor: s.user?.nombre || s.role, _cid: cid };
+    if (Array.isArray(body.embudos)) fijarEmbudos(user, body.embudos, await idsEmbudos());
     users.push(user);
     await saveUsers(users); // primero se guarda: si el email falla, el usuario ya existe
     const sent = body.enviar === false ? { emailEnviado: false } : await deliver(user, password, request, true);
@@ -253,6 +258,8 @@ async function procesar(request, body) {
     }
     // Marca y avatar obligatorio antes de entrar (en este cliente), sea cual sea su rol.
     if (typeof body.marcaObligatoria === 'boolean') user.marcaObligatoria = { ...(user.marcaObligatoria || {}), [cid]: body.marcaObligatoria };
+    // Embudos que ve en este cliente ([] o todos marcados = todos).
+    if (Array.isArray(body.embudos)) fijarEmbudos(user, body.embudos, await idsEmbudos());
     if (typeof body.activo === 'boolean') {
       if (user.id === s.uid && !body.activo) throw bad('No puedes desactivar tu propio usuario');
       puedeCuenta(user);

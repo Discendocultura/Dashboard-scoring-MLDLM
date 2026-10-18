@@ -7408,8 +7408,8 @@ function cerrarAlPulsarFuera(dlg, cerrar) {
   dlg.addEventListener('click', (e) => { if (empezoFuera && fuera(e)) cerrar(); empezoFuera = false; });
 }
 // Crea el usuario y explica qué ha pasado con el email de acceso.
-async function crearUsuario({ nombre, email, rol, marcaObligatoria }) {
-  const r = await api('/api/usuarios', { method: 'POST', body: { op: 'crear', nombre, email, rol, ...(typeof marcaObligatoria === 'boolean' ? { marcaObligatoria } : {}) } });
+async function crearUsuario({ nombre, email, rol, marcaObligatoria, embudos }) {
+  const r = await api('/api/usuarios', { method: 'POST', body: { op: 'crear', nombre, email, rol, ...(typeof marcaObligatoria === 'boolean' ? { marcaObligatoria } : {}), ...(Array.isArray(embudos) ? { embudos } : {}) } });
   if (state.tareas) state.tareas.users.push({ id: r.user.id, nombre: r.user.nombre, rol: r.user.rol, email: r.user.email });
   state.equipo.push(r.user);
   return r;
@@ -7478,6 +7478,7 @@ async function loadEquipo() {
     state.equipoTodos = d.todos || null; // solo superadmin: todo el mundo, para dar accesos a varios clientes
     state.clientesLista = d.clientes || [];
     renderEquipo();
+    pintarEmbudosNuevo();
   } catch (e) {
     box.innerHTML = `<p class="error">${esc(e.message)}</p>`;
   }
@@ -7489,10 +7490,11 @@ function renderEquipo() {
   const deAgencia = state.equipo.filter((u) => u.agencia);
   const fmt = (d) => (d ? new Date(d).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Nunca');
   $('#equipo-list').innerHTML = users.length ? `<div class="table-scroll"><table class="metric-table equipo-table">
-    <thead><tr><th>Persona</th><th>Rol</th><th title="Tiene que rellenar Marca y avatar antes de poder entrar">🎨 Marca</th><th title="Su onboarding: los primeros pasos que lleva hechos">🚀 Primeros pasos</th><th>Último acceso</th><th></th></tr></thead>
+    <thead><tr><th>Persona</th><th>Rol</th><th title="Qué embudos ve en el menú lateral (el admin los ve siempre todos)">🧭 Embudos</th><th title="Tiene que rellenar Marca y avatar antes de poder entrar">🎨 Marca</th><th title="Su onboarding: los primeros pasos que lleva hechos">🚀 Primeros pasos</th><th>Último acceso</th><th></th></tr></thead>
     <tbody>${users.map((u) => `<tr class="${u.activo ? '' : 'inactivo'}" data-uid="${esc(u.id)}">
       <td><span class="t-who">${avatarHtml(u)}<span><strong>${esc(u.nombre)}</strong>${u.superadmin ? ' <span class="badge sa-badge">Superadmin</span>' : ''}<br><span class="muted">${esc(u.email)}</span>${u.activo ? '' : ' · <em>desactivada</em>'}${otrosClientes(u)}</span></span></td>
       <td><select class="eq-rol" ${u.id === state.user?.id ? 'disabled' : ''}>${[...rolesUI(), ...(rolesUI().includes(u.rol) ? [] : [u.rol])].map((r) => `<option value="${r}" ${r === u.rol ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></td>
+      <td>${embudosCelda(u)}</td>
       <td><label class="chk" title="Tiene que rellenar Marca y avatar antes de poder entrar"><input type="checkbox" class="eq-marca"${u.marcaObligatoria ? ' checked' : ''}${u.superadmin ? ' disabled' : ''}><span class="sr-only">Marca y avatar obligatorio</span></label></td>
       <td>${onbCelda(u)}</td>
       <td class="muted">${fmt(u.lastLogin)}</td>
@@ -7514,6 +7516,48 @@ function renderEquipo() {
         <td><span class="t-who">${avatarHtml(u)}<span><strong>${esc(u.nombre)}</strong><br><span class="muted">${esc(u.email)}</span>${otrosClientes(u)}</span></span></td>
         <td class="eq-actions"><button type="button" class="btn" data-eq="accesos">Dar acceso…</button></td></tr>`).join('')}</tbody></table></div></details>`);
   }
+}
+
+// Embudos de cada persona: quien no los tiene todos solo ve esos en el menú lateral (y sus datos). El admin, todos.
+const ICONO_EMBUDO = { lanzamientos: '🚀', vsl: '🎬', meteorico: '⚡', directa: '🛒' };
+const embudosCliente = () => state.config?.embudos || [];
+const esAdminRol = (r) => r === 'admin';
+function embudosCelda(u) {
+  const todos = embudosCliente();
+  if (!todos.length) return '<span class="muted small">—</span>';
+  if (u.superadmin || esAdminRol(u.rol)) return '<span class="muted small" title="El admin ve siempre todos los embudos">Todos</span>';
+  const suyos = (u.embudos || []).filter((id) => todos.some((e) => e.id === id));
+  const txt = suyos.length ? suyos.map((id) => { const e = todos.find((x) => x.id === id); return `${ICONO_EMBUDO[e.tipo] || '•'} ${esc(e.nombre)}`; }).join(', ') : 'Todos';
+  return `<button type="button" class="link small eq-emb-btn" data-eq="embudos" title="Elegir qué embudos ve">${txt} ✏️</button>`;
+}
+// Casillas de embudos (todas marcadas = todos, también los que se creen después).
+function casillasEmbudos(marcados) {
+  const todos = embudosCliente();
+  const ok = (id) => !marcados?.length || marcados.includes(id);
+  return `<div class="eq-embs">${todos.map((e) => `<label class="eq-emb"><input type="checkbox" value="${esc(e.id)}"${ok(e.id) ? ' checked' : ''}><span>${ICONO_EMBUDO[e.tipo] || '•'} ${esc(e.nombre)}</span></label>`).join('')}</div>`;
+}
+// [] si están todos marcados (= todos, también los futuros); null si no hay ninguno marcado.
+function leerCasillasEmbudos(box) {
+  const chks = [...box.querySelectorAll('.eq-emb input')];
+  const ids = chks.filter((c) => c.checked).map((c) => c.value);
+  if (!ids.length) return null;
+  return ids.length === chks.length ? [] : ids;
+}
+function pintarEmbudosNuevo() {
+  const box = $('#eq-embudos-nuevo');
+  if (!box) return;
+  const todos = embudosCliente();
+  box.hidden = todos.length < 2 || esAdminRol($('#eq-rol').value);
+  if (box.hidden) { box.innerHTML = ''; return; }
+  box.innerHTML = `<p class="eq-embs-tit"><strong>🧭 ¿En qué embudos va a trabajar?</strong> <span class="muted small">Solo verá estos en el menú lateral, con sus leads, tareas y métricas. Déjalos todos marcados para que los vea todos (también los que crees después).</span></p>${casillasEmbudos([])}`;
+}
+function editorEmbudos(u) {
+  return `<tr class="eq-embudos-row" data-uid="${esc(u.id)}"><td colspan="7"><div class="eq-accesos">
+    <strong>🧭 Embudos de ${esc(u.nombre)}</strong>
+    <p class="muted small">Solo verá los marcados en el menú lateral, con sus leads, tareas y métricas. Todos marcados = todos (también los que se creen después).</p>
+    ${casillasEmbudos(u.embudos)}
+    <div class="row"><button type="button" class="btn primary" data-eq="guardar-embudos">Guardar embudos</button><button type="button" class="btn ghost" data-eq="cerrar-embudos">Cancelar</button></div>
+  </div></td></tr>`;
 }
 
 // Onboarding de cada persona en el Equipo: cuántos primeros pasos lleva y «Repetir» (vuelve a empezar desde la bienvenida).
@@ -7565,10 +7609,14 @@ $('#btn-eq-crear').addEventListener('click', async () => {
   b.disabled = true;
   equipoResult('Creando usuario y enviando su acceso…');
   try {
-    const r = await crearUsuario({ nombre, email, rol: $('#eq-rol').value, marcaObligatoria: $('#eq-marca').checked });
+    const boxEmb = $('#eq-embudos-nuevo');
+    const embudos = boxEmb && !boxEmb.hidden ? leerCasillasEmbudos(boxEmb) : [];
+    if (embudos === null) { equipoResult('Marca al menos un embudo (o todos).', true); return; }
+    const r = await crearUsuario({ nombre, email, rol: $('#eq-rol').value, marcaObligatoria: $('#eq-marca').checked, embudos });
     $('#eq-nombre').value = '';
     $('#eq-email').value = '';
     $('#eq-marca').checked = $('#eq-rol').value === ROL_CLIENTE;
+    pintarEmbudosNuevo();
     renderEquipo();
     equipoResult(accesoMsg(r), !r.emailEnviado);
   } catch (e) {
@@ -7579,7 +7627,7 @@ $('#btn-eq-crear').addEventListener('click', async () => {
 });
 
 // La casilla de Marca y avatar se marca sola al elegir el rol Cliente (se puede desmarcar).
-$('#eq-rol').addEventListener('change', (e) => { $('#eq-marca').checked = e.target.value === ROL_CLIENTE; });
+$('#eq-rol').addEventListener('change', (e) => { $('#eq-marca').checked = e.target.value === ROL_CLIENTE; pintarEmbudosNuevo(); });
 $('#equipo-list').addEventListener('change', async (e) => {
   const chk = e.target.closest('.eq-marca');
   if (chk) {
@@ -7597,6 +7645,7 @@ $('#equipo-list').addEventListener('change', async (e) => {
   try {
     await api('/api/usuarios', { method: 'POST', body: { op: 'editar', id, rol: sel.value } });
     state.equipo.find((u) => u.id === id).rol = sel.value;
+    renderEquipo();
     equipoResult('Rol cambiado. Se aplica en su próxima acción.');
     if (state.tareas) loadTareas();
   } catch (ex) { equipoResult(ex.message, true); loadEquipo(); }
@@ -7614,6 +7663,24 @@ $('#equipo-list').addEventListener('click', async (e) => {
     return;
   }
   if (op === 'cerrar-accesos') { b.closest('tr').remove(); return; }
+  if (op === 'embudos') {
+    document.querySelector('.eq-embudos-row')?.remove();
+    b.closest('tr').insertAdjacentHTML('afterend', editorEmbudos(u));
+    return;
+  }
+  if (op === 'cerrar-embudos') { b.closest('tr').remove(); return; }
+  if (op === 'guardar-embudos') {
+    const embudos = leerCasillasEmbudos(b.closest('tr'));
+    if (embudos === null) { equipoResult('Marca al menos un embudo (o todos).', true); return; }
+    b.disabled = true;
+    try {
+      const { user } = await api('/api/usuarios', { method: 'POST', body: { op: 'editar', id, embudos } });
+      Object.assign(u, { embudos: user.embudos });
+      renderEquipo();
+      equipoResult(user.embudos.length ? `${user.nombre} solo verá ${user.embudos.length === 1 ? 'ese embudo' : `esos ${user.embudos.length} embudos`} (al recargar el dashboard).` : `${user.nombre} verá todos los embudos.`);
+    } catch (err) { equipoResult(err.message, true); b.disabled = false; }
+    return;
+  }
   if (op === 'onb-reiniciar') {
     if (!window.confirm(`¿Repetir el onboarding de ${u.nombre}? La próxima vez que entre verá otra vez la bienvenida, el recorrido y sus primeros pasos.`)) return;
     try { await api('/api/usuarios', { method: 'POST', body: { op: 'onboarding-reiniciar', id } }); notice(`Listo: ${u.nombre} verá el onboarding la próxima vez que entre.`); loadEquipo(); } catch (err) { notice(err.message, true); }

@@ -686,6 +686,12 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .eq-actions { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap; }
 .equipo-add { align-items: flex-end; }
 .eq-marca-chk { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 4px; }
+.eq-embudos-nuevo { margin: 10px 0 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--card, transparent); }
+.eq-embs-tit { margin: 0 0 8px; }
+.eq-embs { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 6px 0 8px; }
+.eq-emb { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; cursor: pointer; font-size: 13px; }
+.eq-emb:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.eq-emb-btn { text-align: left; max-width: 220px; white-space: normal; background: none; border: 0; padding: 0; color: var(--accent); font: inherit; font-size: 13px; cursor: pointer; }
 @media (max-width: 600px) {
   .tarea { padding: 12px; gap: 10px; }
   .tf-bar { display: none; }
