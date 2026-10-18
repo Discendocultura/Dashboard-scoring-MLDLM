@@ -1066,7 +1066,7 @@ function renderAgenciaInicio() {
         <p>${crit ? `<strong class="ag-rojo">${crit} cosa${crit === 1 ? '' : 's'} crítica${crit === 1 ? '' : 's'}</strong> que resolver hoy` : '<strong class="ag-verde">Nada crítico</strong> hoy'} · ${semana} hito${semana === 1 ? '' : 's'} esta semana · <span class="ag-estado">${esc(agi.estado)}</span></p>
         <div class="ag-hero-acc">
           <button type="button" class="btn primary" data-ag-accion="panel">🧭 Panel de agencia</button>
-          <button type="button" class="btn" data-ag-accion="nuevo">＋ Añadir cliente</button>
+          <button type="button" class="btn" data-ag-accion="nuevo">🏢 Clientes</button>
           <button type="button" class="btn" data-ag-accion="vercomo">👁️ Ver como</button>
           <button type="button" class="btn" data-ag-accion="equipo">👥 Equipo</button>
         </div>

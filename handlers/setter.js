@@ -84,7 +84,7 @@ export async function GET(request) {
     const ruta = url.pathname.replace(/\/$/, '').split('/').pop();
     const config = await getConfig();
     // La información extra de AlquimIA es solo para quien tiene LabIA contratado en este cliente.
-    if (!(await labiaAqui(config))) return json({ error: `«${clienteActual().nombre}» no tiene LabIA activado en AlquimIA (Agencia → Clientes → «LabIA contratado»)`, sinLabia: true }, 403);
+    if (!(await labiaAqui(config))) return json({ error: `«${clienteActual().nombre}» no tiene LabIA activado en AlquimIA (Agencia → 🏢 Clientes → «LabIA contratado»)`, sinLabia: true }, 403);
     if (ruta === 'estado') return json({ ok: true, cliente: clienteActual().nombre });
 
     if (ruta === 'marca') {
