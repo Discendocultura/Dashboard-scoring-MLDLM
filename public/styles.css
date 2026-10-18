@@ -5929,3 +5929,35 @@ body:has(.onb) .onb-preview { display: none; } /* durante una burbuja, el aviso 
   .hub-bloques { grid-template-columns: 1fr; }
 }
 #config-dialog.cfg-en-resumen #cfg-listo { display: none; }
+
+/* ---------- Botón «Configuración» de la cabecera del embudo (grande, con el % listo) ---------- */
+.ctx-config { display: inline-flex; align-items: center; gap: 10px; padding: 7px 16px 7px 8px; border: 0; border-radius: 14px; cursor: pointer; font: inherit; color: #fff; text-align: left;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #ff9f43)); box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--accent) 70%, transparent); transition: transform .15s ease, box-shadow .15s ease; }
+.ctx-config:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -8px color-mix(in srgb, var(--accent) 80%, transparent); }
+.ctx-config-ico { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: rgb(255 255 255 / .2); font-size: 18px; }
+.ctx-config-t { display: flex; flex-direction: column; line-height: 1.15; }
+.ctx-config-t strong { font-size: 15px; }
+.ctx-config-t small { font-size: 12px; opacity: .9; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-config-anillo { --p: 0; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: conic-gradient(#fff calc(var(--p) * 1%), rgb(255 255 255 / .28) 0); }
+.ctx-config-anillo[hidden] { display: none; }
+.ctx-config-anillo span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 85%, #000); font-size: 10.5px; font-weight: 800; }
+.ctx-config-anillo:not([hidden]) + .ctx-config-ico { display: none; }
+.ctx-config.lista { background: linear-gradient(135deg, #0f9f6e, #34c38f); box-shadow: 0 6px 18px -8px rgb(16 185 129 / .7); }
+.ctx-config.lista .ctx-config-anillo span { background: #0b7a55; }
+.ctx-config.incompleta { animation: ctx-config-pulso 2.4s ease-in-out 3; }
+@keyframes ctx-config-pulso { 0%, 100% { box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--accent) 70%, transparent); } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent), 0 6px 18px -6px color-mix(in srgb, var(--accent) 70%, transparent); } }
+.ctx-config-aviso { display: flex; align-items: center; gap: 12px; width: 100%; margin: 0 0 12px; padding: 12px 16px; border-radius: 14px; cursor: pointer; font: inherit; color: inherit; text-align: left;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--surface)), var(--surface)); }
+.ctx-config-aviso[hidden] { display: none; }
+.ctx-config-aviso:hover { border-color: var(--accent); }
+.cca-ico { font-size: 24px; }
+.cca-txt { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.cca-txt small { color: var(--muted); }
+.cca-btn { flex: none; padding: 8px 14px; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 700; font-size: 13.5px; }
+@media (prefers-reduced-motion: reduce) { .ctx-config.incompleta { animation: none; } }
+@media (max-width: 700px) {
+  .ctx-config { width: 100%; justify-content: center; }
+  .ctx-config-t small { max-width: none; }
+  .ctx-config-aviso { flex-wrap: wrap; }
+  .cca-btn { width: 100%; text-align: center; }
+}

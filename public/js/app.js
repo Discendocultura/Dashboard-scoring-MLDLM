@@ -4630,8 +4630,9 @@ $('#inf-enviar').addEventListener('click', async () => {
   $('#inf-enviar').disabled = false;
 });
 
-function openConfig(code) {
-  const yaAbierta = $('#config-dialog').open;
+// `silencioso`: rellena el formulario sin abrir la ventana, solo para saber cuánto falta (el botón y el aviso de la cabecera).
+function openConfig(code, { silencioso = false } = {}) {
+  const yaAbierta = $('#config-dialog').open || silencioso;
   editingCode = code && state.config.launches[code] ? code : null;
   hubVerCategorias = false;
   // Al abrir: un lanzamiento que ya existe, en su resumen; uno nuevo, en «Datos básicos» (en el móvil, el menú).
@@ -4782,7 +4783,7 @@ function openConfig(code) {
   pintarEsperaCfg();
   checkLaunchTags();
   renderGuia();
-  if (!dlg.open) dlg.showModal();
+  if (!dlg.open && !silencioso) dlg.showModal();
 }
 
 $('#cfg-launch-pick').addEventListener('change', (e) => openConfig(e.target.value));
@@ -5720,8 +5721,38 @@ function pintarListo(todos) {
       <span class="muted small">${listos} de ${todos.length}${faltan.length ? ` · faltan ${faltan.length}` : ''}${revisar.length ? ` · ${revisar.length} por revisar` : ''}</span></div></div>
     ${sig ? `<button type="button" class="btn small cfg-sig" data-goto="${sig.f.id}"><span class="muted small">${faltan.length ? 'Siguiente' : 'Revisar'}</span> ${esc(sig.f.label)} →</button>` : ''}`;
   if (box.dataset.html !== html) { box.innerHTML = html; box.dataset.html = html; }
+  if (editingCode && todos.length) {
+    state.cfgPct = { ...(state.cfgPct || {}), [editingCode]: { pct, faltan: faltan.length, revisar: revisar.length, sig: sig?.f.label || '' } };
+    pintarBotonConfig();
+  }
   pintarHub(todos);
 }
+
+// El botón de la configuración en la cabecera del embudo: grande, con el % listo del lanzamiento; y, si falta algo,
+// un aviso debajo de la cabecera (el embudo depende de la configuración).
+function pintarBotonConfig() {
+  const b = $('#btn-config');
+  if (!b || !state.config) return;
+  const lanz = tipoActual() === 'lanz' && state.config.launches[state.launchCode];
+  const p = lanz ? state.cfgPct?.[state.launchCode] : null;
+  const anillo = $('#ctx-config-anillo');
+  anillo.hidden = !p;
+  const aviso = $('#ctx-config-aviso');
+  const incompleto = Boolean(p && (p.faltan || p.revisar));
+  b.classList.toggle('incompleta', incompleto);
+  b.classList.toggle('lista', Boolean(p && !incompleto));
+  if (p) {
+    anillo.style.setProperty('--p', p.pct);
+    anillo.classList.toggle('ok', !incompleto);
+    $('span', anillo).textContent = `${p.pct}%`;
+    $('#ctx-config-txt').textContent = incompleto ? `${p.faltan ? `Faltan ${p.faltan}` : `Revisa ${p.revisar}`} · ${lanz.name || 'este lanzamiento'}` : `✓ Lista · ${lanz.name || 'este lanzamiento'}`;
+  }
+  aviso.hidden = !incompleto;
+  if (incompleto) {
+    aviso.innerHTML = `<span class="cca-ico" aria-hidden="true">⚙️</span><span class="cca-txt"><strong>La configuración de «${esc(lanz.name || state.launchCode)}» está al ${p.pct} %</strong><small>El embudo funciona con ella: fechas, páginas, precios y etiquetas. ${p.faltan ? `Faltan ${p.faltan}${p.sig ? `, empezando por «${esc(p.sig)}»` : ''}.` : `Hay ${p.revisar} por revisar.`}</small></span><span class="cca-btn">Completar la configuración →</span>`;
+  }
+}
+$('#ctx-config-aviso').addEventListener('click', () => $('#btn-config').click());
 
 // ---------- Resumen de la configuración ----------
 // Lo primero al abrir un lanzamiento: cada categoría en una tarjeta grande con su icono y lo que le falta (al pulsarla,
@@ -5755,7 +5786,7 @@ function pintarHub(todos = hubTodos) {
   box.innerHTML = html;
   box.dataset.html = html;
   // Confeti la primera vez que se ve completo (una vez por lanzamiento y sesión).
-  if (completo && !hubVerCategorias && hubFiesta !== editingCode && !$('#config-dialog .tab-panel[data-panel="resumen"]').hidden) {
+  if (completo && !hubVerCategorias && cfgDlg.open && hubFiesta !== editingCode && !$('#config-dialog .tab-panel[data-panel="resumen"]').hidden) {
     hubFiesta = editingCode;
     const c = $('.cfg-hub-confeti', box);
     if (c) lanzarConfeti(c, { sigue: () => cfgDlg.open && box.contains(c) });
@@ -6369,7 +6400,13 @@ function pintarCabecera() {
   const tipo = tipoActual();
   const emb = embudoInfo();
   $('#ctx-emb').textContent = `${ICONO_TIPO[tipo]} ${emb?.nombre || 'Lanzamientos'}`;
-  $('#ctx-config-txt').textContent = CONFIG_TXT[tipo];
+  $('#ctx-config-txt').textContent = `de ${CONFIG_TXT[tipo]}`;
+  pintarBotonConfig();
+  // Cuánto le falta a la configuración de este lanzamiento: se calcula sin abrir la ventana (la primera vez).
+  if (tipo === 'lanz' && state.launchCode && state.config.launches[state.launchCode] && puedeConfig() && !cfgDlg.open && !state.cfgPct?.[state.launchCode]) {
+    const code = state.launchCode;
+    setTimeout(() => { if (!cfgDlg.open && state.launchCode === code) openConfig(code, { silencioso: true }); }, 0);
+  }
   const f = tipo === 'lanz' ? faseLanzamiento(state.config.launches[state.launchCode]) : null;
   $('#ctx-fase').hidden = !f;
   if (f) { $('#ctx-fase').textContent = f[0]; $('#ctx-fase').className = `ctx-fase tone-${f[1]}`; }
