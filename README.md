@@ -738,6 +738,8 @@ nebulosas, barra de arriba y tarjetas de cristal, botones naranja espacial y el 
 del titular (el botón de día / noche se oculta). Se guarda en el navegador de cada persona (`lsd_estilo`) y se aplica
 antes de pintar la página (`tema.js`, `<html data-estilo>`), así que no parpadea. Con «reducir movimiento» del
 sistema, las estrellas no se mueven.
+**Dirección principal (login): `alquimia.tenaxdigital.com`.** Quien abre la pantalla de entrar (`/` o `/index.html`) por cualquier otra dirección (`data.discendocultura.com`, `leads-mldlm.pages.dev`…) va ahí con un 302, conservando los parámetros (`?reset=…`, `?oauth=…`). Todo lo demás (la API, `tracker.js`, `oferta.js`, `vsl.js`, `/directo`, `marca.html`, el conector de Claude) sigue respondiendo en todas las direcciones, porque las páginas de GHL, LabIA, las tareas programadas y los webhooks usan la antigua: **no quites `data.discendocultura.com` del proyecto**. Se cambia con la variable `DOMINIO_LOGIN` en Cloudflare (`-` para no redirigir); en local no redirige. Código: `lib/dominio.js` y `functions/_middleware.js` (por eso `/` e `/index.html` están en `public/_routes.json`).
+
 **Marca: AlquimIA.** El logo (matraz con la gráfica y «Alquim» + «IA» en degradado naranja) está hecho en SVG dentro de `index.html`, así se adapta al tema claro y oscuro: arriba a la izquierda (seguido del nombre del cliente) y en la tarjeta del login; el matraz es también el icono de la pestaña. La pestaña del navegador se llama «AlquimIA · <cliente>».
 
 **Pantalla de acceso:** siempre oscura, «Inteligencia de Negocio para escalar» en grande (debajo: «Factura más aprovechando los datos que ya tienes»), fondo de espacio con estrellas en movimiento,
