@@ -5961,3 +5961,79 @@ body:has(.onb) .onb-preview { display: none; } /* durante una burbuja, el aviso 
   .ctx-config-aviso { flex-wrap: wrap; }
   .cca-btn { width: 100%; text-align: center; }
 }
+
+/* ---------- 📈 Inteligencia de negocio ---------- */
+body:not(.en-negocio) #negocio { display: none; }
+body.en-negocio #inicio, body.en-negocio #solo-op { display: none !important; }
+.negocio { display: flex; flex-direction: column; gap: 16px; }
+.ng-cab { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ng-cab h2 { margin: 0 0 2px; font-size: 24px; }
+.ng-cab p { margin: 0; }
+.ng-periodo select { padding: 9px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-weight: 650; }
+.ng-cuerpo { display: flex; flex-direction: column; gap: 16px; }
+.ng-vacio { text-align: center; padding: 40px 24px; }
+.ng-vacio-ico { font-size: 52px; display: block; }
+.ng-vacio h3 { margin: 10px 0 6px; font-size: 20px; }
+.ng-vacio p { max-width: 560px; margin: 0 auto; }
+.ng-calc { margin-top: 12px !important; font-weight: 650; }
+.ng-progreso { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: 1px solid var(--border); font-size: 13.5px; }
+.ng-barra { display: block; height: 8px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.ng-barra i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), #ffb020); transition: width .4s ease; }
+.ng-aviso { margin: 0; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, #f59e0b 14%, var(--surface)); border: 1px solid color-mix(in srgb, #d97706 40%, var(--border)); }
+.ng-aviso.suave { background: color-mix(in srgb, #10b981 8%, var(--surface)); border-color: var(--border); }
+.ng-pocos { font-size: 11.5px; font-weight: 650; color: #b45309; background: color-mix(in srgb, #f59e0b 16%, transparent); padding: 2px 8px; border-radius: 999px; vertical-align: middle; }
+.ng-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (min-width: 1500px) { .ng-kpis { grid-template-columns: repeat(6, 1fr); } }
+@media (max-width: 700px) { .ng-kpis { grid-template-columns: repeat(2, 1fr); } }
+.ng-kpi { display: flex; flex-direction: column; gap: 3px; padding: 16px; border-radius: 18px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.ng-kpi-ico { font-size: 22px; }
+.ng-kpi-t { font-size: 13px; font-weight: 650; color: var(--muted); }
+.ng-kpi strong { font-size: 28px; line-height: 1.15; letter-spacing: -.02em; }
+.ng-kpi small { font-size: 12px; color: var(--muted); }
+.ng-delta.up { color: #059669; font-weight: 700; }
+.ng-delta.down { color: #dc2626; font-weight: 700; }
+.ng-delta span { font-weight: 450; color: var(--muted); }
+.ng-bien { color: #059669 !important; font-weight: 650; }
+.ng-mal { color: #dc2626 !important; font-weight: 650; }
+.ng-sec h3 { margin: 0 0 12px; font-size: 17px; }
+.ng-sec h4 { margin: 16px 0 8px; font-size: 14px; }
+.ng-sec.card { padding: 18px 20px; }
+.ng-recos { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.ng-reco { display: flex; gap: 12px; padding: 14px 16px; border-radius: 16px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--surface)), var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); }
+.ng-reco-ico { font-size: 26px; }
+.ng-reco p { margin: 4px 0 0; font-size: 13.5px; color: var(--muted); }
+.ng-dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; }
+.ng-grande { margin: 0 0 12px; }
+.ng-grande strong { font-size: 26px; margin-right: 6px; }
+.ng-barras { display: flex; flex-direction: column; gap: 6px; }
+.ng-barra-f { display: grid; grid-template-columns: 110px 1fr 40px; gap: 10px; align-items: center; font-size: 13px; }
+.ng-barra-f b { text-align: right; }
+.ng-momentos, .ng-mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.ng-momentos div, .ng-mini div { display: flex; flex-direction: column; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.ng-momentos strong, .ng-mini strong { font-size: 20px; }
+.ng-momentos span, .ng-mini span { font-size: 12px; color: var(--muted); }
+.ng-caminos { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.ng-caminos li span { font-weight: 650; }
+.ng-caminos li b { margin-left: 8px; font-weight: 500; color: var(--muted); font-size: 13px; }
+.ng-serie { display: flex; align-items: flex-end; gap: 6px; height: 190px; padding-top: 18px; overflow-x: auto; }
+.ng-mes { flex: 1 0 34px; display: flex; flex-direction: column; align-items: center; height: 100%; }
+.ng-roas { font-size: 10.5px; font-weight: 700; color: var(--muted); height: 16px; }
+.ng-cols { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 3px; }
+.ng-cols i { width: 40%; min-height: 2px; border-radius: 5px 5px 0 0; }
+.ng-cols i.f, .ng-leyenda i.f { background: linear-gradient(180deg, #34c38f, #0f9f6e); }
+.ng-cols i.v, .ng-leyenda i.v { background: color-mix(in srgb, var(--accent) 70%, #fff); }
+.ng-mes-t { font-size: 10.5px; color: var(--muted); margin-top: 4px; white-space: nowrap; }
+.ng-leyenda { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+.ng-leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.ng-tabla tbody tr { cursor: pointer; }
+.sin-enlaces .ng-tabla tbody tr { cursor: default; }
+.ng-tabla tr.mejor td { background: color-mix(in srgb, #10b981 7%, transparent); }
+.ng-tabla tr.pierde td { background: color-mix(in srgb, #dc2626 6%, transparent); }
+.ng-emb { display: block; }
+.ng-tend.up { color: #059669; font-weight: 700; }
+.ng-tend.down { color: #dc2626; font-weight: 700; }
+@media (max-width: 600px) {
+  .ng-kpi strong { font-size: 24px; }
+  .ng-dos { grid-template-columns: 1fr; }
+  .ng-barra-f { grid-template-columns: 90px 1fr 32px; }
+}

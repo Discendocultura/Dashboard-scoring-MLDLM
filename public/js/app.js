@@ -9,6 +9,7 @@ import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIA
 import { respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
+import { negocioHtml, PERIODOS_TXT } from './negocio-vista.js';
 import { ayudaMetaHtml, limpiarCuentaMeta, pistaError, pasosDe, SERVICIOS, ETAPAS as ETAPAS_CX } from './integrar-crm.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch, CAJAS_PAGO, numeroWhatsApp, enlaceWhatsApp, leerEnlaceWhatsApp } from './page.js';
 import { FORMATOS, formatoValido, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto, nVideos, nombreVideo } from './videos.js';
@@ -652,11 +653,14 @@ function pintarSidebar() {
   }).join('');
   // «Inicio»: para todo el equipo. Quien ve las métricas (y hay embudos), con las cifras; el resto, el de trabajo.
   // El superadmin tiene además «Agencia» encima (todos los clientes); «Inicio» es el del cliente en el que está.
-  const agencia = Boolean(state.enInicio) && modoInicio() === 'agencia';
+  const agencia = Boolean(state.enInicio) && !state.enNegocio && modoInicio() === 'agencia';
   $('#sb-agencia').hidden = !state.superadmin;
   $('#sb-agencia').classList.toggle('active', agencia);
   $('#sb-inicio').hidden = false;
-  $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio) && !agencia);
+  $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio) && !agencia && !state.enNegocio);
+  // «Inteligencia de negocio»: para quien ve las métricas (el rol Cliente la tiene en su portal).
+  $('#sb-negocio').hidden = !(tiene('metricas') && embudos().length);
+  $('#sb-negocio').classList.toggle('active', Boolean(state.enNegocio));
   $('#sb-inicio small').textContent = state.superadmin ? `${state.clientes?.find((c) => c.id === state.cliente)?.nombre || 'Este cliente'} · sus embudos` : 'Todos los embudos';
   if (state.enInicio) $$('#sb-items .sb-item.active').forEach((b) => b.classList.remove('active'));
 }
@@ -754,8 +758,10 @@ $('#sidebar').addEventListener('click', (ev) => {
 function salirInicio() {
   if (!state.enInicio) return;
   state.enInicio = false;
+  state.enNegocio = false;
   ls.set('lsd_inicio', '');
-  document.body.classList.remove('en-inicio');
+  document.body.classList.remove('en-inicio', 'en-negocio');
+  $('#sb-negocio').classList.remove('active');
   $('#sb-inicio').classList.remove('active');
 }
 // «Hola 👋 Nombre» en el Inicio (sin usuario, con la contraseña general: solo «Hola 👋»).
@@ -765,6 +771,8 @@ function pintarSaludo() {
 }
 async function mostrarInicio({ fresh = false } = {}) {
   state.enInicio = true;
+  state.enNegocio = false;
+  document.body.classList.remove('en-negocio');
   pintarSaludo();
   ls.set('lsd_inicio', '1');
   document.body.classList.add('en-inicio');
@@ -888,6 +896,48 @@ $('#inicio-embudos').addEventListener('click', (e) => {
   lista[Number(i)] = tipo === 'embudo' ? { id: item.id, nombre: item.nombre, tipo: item.tipoOrig, cargando: true } : { code: item.code, nombre: item.nombre, cargando: true };
   pintarInicio();
   (tipo === 'embudo' ? cargarEmbudoInicio({ id: item.id, nombre: item.nombre, tipo: item.tipoOrig }, Number(i), true) : cargarMeteoInicio({ code: item.code, nombre: item.nombre }, Number(i), true)).then(pintarInicio);
+});
+// ---------- 📈 Inteligencia de negocio: el histórico de todos los embudos (negocio-vista.js pinta los bloques) ----------
+// Ocupa el sitio del Inicio. Cada petición completa una pieza del histórico: mientras falten, se vuelve a pedir.
+const ngEstado = { periodo: ['12m', 'ano', 'todo'].includes(ls.get('lsd_negocio_periodo')) ? ls.get('lsd_negocio_periodo') : '12m', token: 0 };
+async function cargarNegocioEn(caja, { cliente = state.cliente, enlaces = true } = {}) {
+  const token = ++ngEstado.token;
+  caja.innerHTML = `<div class="ng-cab"><div><h2>📈 Inteligencia de negocio</h2><p class="muted">El histórico de todos tus embudos: qué funciona y qué hacer para facturar más.</p></div>
+    <label class="ng-periodo"><span class="sr-only">Periodo</span><select data-ng-periodo>${Object.entries(PERIODOS_TXT).map(([k, v]) => `<option value="${k}"${k === ngEstado.periodo ? ' selected' : ''}>${v}</option>`).join('')}</select></label></div>
+    <div class="ng-cuerpo${enlaces ? '' : ' sin-enlaces'}"><p class="muted">Cargando…</p></div>`;
+  const cuerpo = $('.ng-cuerpo', caja);
+  for (let i = 0; i < 80; i++) {
+    let d;
+    try { d = await api(`/api/negocio?periodo=${ngEstado.periodo}`, { cliente }); } catch (e) { if (token === ngEstado.token) cuerpo.innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+    if (token !== ngEstado.token) return;
+    cuerpo.innerHTML = negocioHtml(d);
+    if (!d.pendientes) return;
+  }
+}
+function mostrarNegocio() {
+  state.enInicio = true;
+  state.enNegocio = true;
+  ls.set('lsd_inicio', '');
+  document.body.classList.add('en-inicio', 'en-negocio');
+  $('#alertas-carrito').hidden = true;
+  pintarNavMovil();
+  pintarSidebar();
+  window.scrollTo(0, 0);
+  cargarNegocioEn($('#negocio'));
+}
+$('#sb-negocio').addEventListener('click', () => mostrarNegocio());
+document.addEventListener('change', (e) => {
+  const sel = e.target.closest('[data-ng-periodo]');
+  if (!sel) return;
+  ngEstado.periodo = sel.value;
+  ls.set('lsd_negocio_periodo', sel.value);
+  const caja = sel.closest('[data-ng-caja]');
+  cargarNegocioEn(caja, caja.id === 'negocio' ? {} : { cliente: portalCliente, enlaces: false });
+});
+// En la tabla de embudos, una fila abre ese embudo (en el dashboard; en el portal del cliente, no).
+$('#negocio').addEventListener('click', (e) => {
+  const f = e.target.closest('[data-ng-embudo]');
+  if (f && embudos().some((x) => x.id === f.dataset.ngEmbudo)) setEmbudo(f.dataset.ngEmbudo);
 });
 $('#sb-inicio').addEventListener('click', () => { if (state.superadmin) ls.set('lsd_inicio_modo', 'cliente'); pintarSaludo(); mostrarInicio(); });
 $('#sb-agencia').addEventListener('click', () => { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); });
@@ -8345,11 +8395,13 @@ function pintarPortalNav() {
     ? (e.lanzamientos.length > 1 ? `<label class="portal-pick"><span>Lanzamiento</span><select id="portal-lanz">${e.lanzamientos.map((x) => `<option value="${esc(x.code)}" ${x.code === portal.l ? 'selected' : ''}>${esc(x.nombre)}${x.inicio ? ` · ${esc(fechaPortal(x.inicio))}` : ''}</option>`).join('')}</select></label>` : '')
     : `<label class="portal-pick"><span>Periodo</span><select id="portal-periodo">${Object.entries(PERIODOS_PORTAL).map(([k, v]) => `<option value="${k}" ${k === portal.periodo ? 'selected' : ''}>${v}</option>`).join('')}</select></label>`;
   $('#portal-nav').innerHTML = portal.catalogo.length > 1 || extra
-    ? `<div class="portal-chips">${portal.catalogo.length > 1 ? chip('todos', 'Todos los embudos') : ''}${portal.catalogo.map((x) => chip(x.id, `${x.tipo === 'vsl' ? '🎬' : x.tipo === 'directa' ? '🛒' : '🚀'} ${esc(x.nombre)}`)).join('')}</div>${extra}`
-    : '';
+    ? `<div class="portal-chips">${portal.catalogo.length > 1 ? chip('todos', 'Todos los embudos') : ''}${portal.catalogo.map((x) => chip(x.id, `${x.tipo === 'vsl' ? '🎬' : x.tipo === 'directa' ? '🛒' : '🚀'} ${esc(x.nombre)}`)).join('')}${chip('negocio', '📈 Inteligencia de negocio')}</div>${extra}`
+    : `<div class="portal-chips">${chip('todos', 'Resultados')}${chip('negocio', '📈 Inteligencia de negocio')}</div>`;
 }
 async function pintarPortalCuerpo() {
   const body = $('#portal-body');
+  delete body.dataset.ngCaja;
+  if (portal.sel === 'negocio') { body.dataset.ngCaja = ''; cargarNegocioEn(body, { cliente: portalCliente, enlaces: false }); return; }
   if (portal.sel === 'todos' || !portal.catalogo.some((x) => x.id === portal.sel)) {
     const r = portal.resumen;
     body.innerHTML = portalHtml(r.embudos.length ? r.embudos.map(tarjetaPortal).join('') : '<p class="muted">Todavía no hay ningún lanzamiento en marcha.</p>', r.producto);
@@ -8483,7 +8535,7 @@ async function mostrarPortal({ vistaPrevia = false, cliente = state.cliente } = 
     $('#portal-sub').textContent = `Datos actualizados a las ${new Date(r.generado).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} · ${r.producto}`;
     Object.assign(portal, { resumen: r, catalogo: r.catalogo || [], vistaPrevia, periodo: '30d' });
     const guardado = ls.get(`lsd_portal_${cliente}`);
-    portal.sel = portal.catalogo.length === 1 ? portal.catalogo[0].id : portal.catalogo.some((x) => x.id === guardado) ? guardado : 'todos';
+    portal.sel = portal.catalogo.length === 1 ? portal.catalogo[0].id : portal.catalogo.some((x) => x.id === guardado) || guardado === 'negocio' ? guardado : 'todos';
     portal.l = portal.catalogo.find((x) => x.id === portal.sel)?.lanzamientos?.[0]?.code || '';
     pintarPortalNav();
     await pintarPortalCuerpo();
