@@ -1,13 +1,14 @@
 // Clientes del dashboard (solo superadmin).
 //   GET  /api/clientes → lista con su estado de conexión y las variables de Cloudflare que necesita cada uno
-//   POST { op: 'guardar', cliente: { id, nombre, locationId, metaAdAccount, color } } → crea o edita
+//   POST { op: 'guardar', cliente: { id, nombre, locationId, metaAdAccount, color, labia } } → crea o edita (labia: LabIA contratado)
 //   POST { op: 'probar', id } → comprueba que su GHL responde
 //   POST { op: 'probar-meta', id } → comprueba que el token de Meta ve su cuenta publicitaria
 //   POST { op: 'probar-sendflow', id } → comprueba el SendFlow que usa (lee sus campañas)
 //   POST { op: 'probar-zoom', id } → comprueba el Zoom que usa (el de la agencia o el suyo)
 //   POST { op: 'borrar', id } → lo quita del dashboard (no borra nada de su GHL)
 import { requireSuperadmin } from '../lib/auth.js';
-import { listClientes, saveClientes, sanitizeCliente } from '../lib/clientes.js';
+import { listClientes, saveClientes, sanitizeCliente, labiaActivo } from '../lib/clientes.js';
+import { getConfig } from '../lib/config-store.js';
 import { runCliente, sufijo } from '../lib/cliente.js';
 import { ghlConectado, listTags } from '../lib/ghl.js';
 import { probarCuentaMeta } from '../lib/meta.js';
@@ -17,6 +18,8 @@ import { env } from '../lib/env.js';
 import { actualizarUsuarios } from '../lib/users.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 
+// Con LabIA o no (lo marcado o, en los de antes, si su setter IA está conectado): la casilla de su tarjeta.
+const conEstados = (lista) => Promise.all(lista.map(async (c) => ({ ...conEstado(c), labiaActiva: typeof c.labia === 'boolean' ? c.labia : await runCliente(c, async () => labiaActivo(c, await getConfig().catch(() => null))) })));
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 
 const conEstado = (c) => ({
@@ -33,7 +36,7 @@ const conEstado = (c) => ({
 export async function GET(request) {
   try {
     await requireSuperadmin(request);
-    return json({ clientes: (await listClientes({ fresh: true })).map(conEstado) });
+    return json({ clientes: await conEstados(await listClientes({ fresh: true })) });
   } catch (e) {
     return errorResponse(e);
   }
@@ -48,7 +51,7 @@ export async function POST(request) {
       const c = body.cliente || {};
       const i = lista.findIndex((x) => x.id === String(c.id || '').trim().toLowerCase());
       if (i >= 0 && lista[i].principal) {
-        lista[i] = { ...lista[i], nombre: String(c.nombre || '').trim().slice(0, 60) || lista[i].nombre, color: /^#[0-9a-f]{6}$/i.test(c.color || '') ? c.color : lista[i].color };
+        lista[i] = { ...lista[i], nombre: String(c.nombre || '').trim().slice(0, 60) || lista[i].nombre, color: /^#[0-9a-f]{6}$/i.test(c.color || '') ? c.color : lista[i].color, ...(typeof c.labia === 'boolean' ? { labia: c.labia } : {}) };
       } else if (i >= 0) {
         lista[i] = sanitizeCliente({ ...lista[i], ...c, id: lista[i].id, creado: lista[i].creado });
       } else {
@@ -57,7 +60,7 @@ export async function POST(request) {
         if (!nuevo.locationId) throw bad('Falta el ID de la subcuenta de GHL (Location ID)');
         lista.push(nuevo);
       }
-      return json({ clientes: (await saveClientes(lista)).map(conEstado) });
+      return json({ clientes: await conEstados(await saveClientes(lista)) });
     }
     const c = lista.find((x) => x.id === body.id);
     if (!c) throw bad('Cliente no encontrado', 404);
@@ -99,7 +102,7 @@ export async function POST(request) {
     if (body.op === 'borrar') {
       if (c.principal) throw bad('El cliente principal no se puede quitar');
       await actualizarUsuarios((users) => { for (const u of users) if (u.accesos?.[c.id]) delete u.accesos[c.id]; }, `Quitar el cliente ${c.id}`);
-      return json({ clientes: (await saveClientes(lista.filter((x) => x.id !== c.id))).map(conEstado) });
+      return json({ clientes: await conEstados(await saveClientes(lista.filter((x) => x.id !== c.id))) });
     }
     throw bad('Operación no válida');
   } catch (e) {

@@ -4,6 +4,7 @@ import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { resumenSetterIa, rangoValido } from '../lib/setter-ia.js';
 import { json, errorResponse } from '../lib/http.js';
+import { labiaAqui } from '../lib/clientes.js';
 
 export async function GET(request) {
   try {
@@ -12,7 +13,10 @@ export async function GET(request) {
     const desde = q.get('desde') || '';
     const hasta = q.get('hasta') || '';
     if (!rangoValido(desde, hasta)) return json({ error: 'Fechas no válidas' }, 400);
-    return json(await resumenSetterIa(await getConfig(), desde, hasta, { fresh: q.has('fresh') }));
+    const config = await getConfig();
+    // Sin LabIA contratado, ni sus cifras.
+    if (!(await labiaAqui(config))) return json({ configurado: false, sinLabia: true });
+    return json(await resumenSetterIa(config, desde, hasta, { fresh: q.has('fresh') }));
   } catch (e) {
     return errorResponse(e);
   }

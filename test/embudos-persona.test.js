@@ -25,10 +25,12 @@ test('embudos por persona: el setter solo ve (y solo puede pedir) los embudos qu
   // Al crearla se le asigna solo la VSL (un id que no existe se ignora)
   const u = (await call('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'crear', nombre: 'Sara Setter', email: 'sara@ejemplo.com', rol: 'setter', enviar: false, embudos: ['vsl', 'no-existe'] } })).data;
   assert.deepEqual(u.user.embudos, ['vsl']);
-  const sara = cookieDe(await call('/api/login', { method: 'POST', body: { email: 'sara@ejemplo.com', password: u.password } }));
+  let sara = cookieDe(await call('/api/login', { method: 'POST', body: { email: 'sara@ejemplo.com', password: u.password } }));
 
   // Lo que lee el cuerpo antes de comprobar la sesión sigue funcionando (p. ej. elegir su contraseña)
-  assert.equal((await call('/api/usuarios', { method: 'POST', cookie: sara, body: { op: 'mi-clave-inicial', nueva: 'MiClave1234' } })).status, 200);
+  const clave = await call('/api/usuarios', { method: 'POST', cookie: sara, body: { op: 'mi-clave-inicial', nueva: 'MiClave1234' } });
+  assert.equal(clave.status, 200);
+  sara = cookieDe(clave); // al poner su contraseña se cierran las sesiones de antes: entra con la nueva
   const suya = (await call('/api/config', { cookie: sara })).data.config;
   assert.deepEqual(suya.embudos.map((e) => e.id), ['vsl']);
   assert.deepEqual(Object.keys(suya.launches), []);

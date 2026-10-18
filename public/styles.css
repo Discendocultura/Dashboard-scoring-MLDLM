@@ -5827,3 +5827,50 @@ body:has(.onb) .onb-preview { display: none; } /* durante una burbuja, el aviso 
 .pr-asis-ej summary { cursor: pointer; font-weight: 650; font-size: 13.5px; }
 .pr-asis-ej p { margin: 8px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--text-2, var(--text)); }
 @media (max-width: 640px) { .pr-asis-cats { grid-template-columns: 1fr 1fr; } }
+
+/* ---------- LabIA (Hoy → LabIA): pipeline del setter IA ---------- */
+.subview-labia { display: inline-flex; align-items: center; }
+.sv-labia-logo .labia-logo { height: 20px; width: auto; display: block; }
+.cl-labia-logo .labia-logo { height: 18px; width: auto; vertical-align: -4px; }
+.cl-labia-chk { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 4px; }
+.lb-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.lb-head-txt { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.lb-head-txt p { margin: 0; }
+.lb-logo .labia-logo { height: 34px; width: auto; display: block; }
+.lb-head-acc { display: flex; gap: 8px; }
+.lb-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 14px 0; }
+.lb-kpi { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--card, var(--bg)); }
+.lb-kpi strong { font-size: 30px; line-height: 1.1; }
+.lb-kpi span { font-weight: 650; }
+.lb-kpi small { color: var(--muted); font-size: 12px; }
+.lb-kpi-ico { font-size: 22px; }
+.lb-kpi.ia { background: linear-gradient(135deg, color-mix(in srgb, #22d3ee 14%, transparent), color-mix(in srgb, #a855f7 14%, transparent)); }
+.lb-kpi.equipo { background: color-mix(in srgb, #ff7a2f 14%, transparent); border-color: color-mix(in srgb, #ff7a2f 45%, transparent); }
+.lb-pipe h3, .lb-tocan h3, .lb-setter h3 { margin: 0 0 12px; }
+.lb-etapas { display: flex; flex-direction: column; gap: 8px; }
+.lb-etapa { display: grid; grid-template-columns: 28px minmax(120px, 230px) 1fr 44px; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 12px; }
+.lb-etapa.t-ia { background: color-mix(in srgb, #22d3ee 8%, transparent); }
+.lb-etapa.t-equipo { background: color-mix(in srgb, #ff7a2f 9%, transparent); }
+.lb-et-ico { font-size: 18px; text-align: center; }
+.lb-et-nom { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-et-bar { height: 10px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.lb-et-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #ffa53a, #ff4d1f); transition: width .5s ease; }
+.lb-etapa.t-ia .lb-et-bar i { background: linear-gradient(90deg, #22d3ee, #a855f7); }
+.lb-etapa strong { text-align: right; font-size: 18px; }
+.lb-leads { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.lb-lead { display: grid; grid-template-columns: minmax(120px, 1.2fr) 1.5fr auto auto auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; }
+.lb-lead-nom { background: none; border: 0; padding: 0; font: inherit; font-weight: 650; text-align: left; color: inherit; cursor: pointer; }
+.lb-lead-nom:hover { color: var(--accent); text-decoration: underline; }
+.lb-lead-et { font-size: 13px; color: var(--muted); }
+.lb-lead-et b { color: #c2410c; }
+.lb-mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.lb-mini div { display: flex; flex-direction: column; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.lb-mini strong { font-size: 22px; }
+.lb-mini span { font-size: 12px; color: var(--muted); }
+.lb-vista > .card, #lb-cuerpo > .card { margin-bottom: 14px; padding: 18px 20px; }
+.lb-head { padding: 14px 20px; }
+@media (max-width: 700px) {
+  .lb-etapa { grid-template-columns: 24px 1fr 60px 34px; }
+  .lb-lead { grid-template-columns: 1fr auto; }
+  .lb-lead-et, .lb-lead > .muted { grid-column: 1 / -1; }
+}

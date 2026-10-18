@@ -402,7 +402,8 @@ const enDirecta = () => embudoInfo()?.tipo === 'directa';
 const tipoActual = () => (enVsl() ? 'vsl' : enMeteo() ? 'meteorico' : enDirecta() ? 'directa' : 'lanz');
 // Pestañas que el embudo tiene activadas (⚙️ del menú lateral; sin lista = todas).
 const pestanasEmbudo = () => embudoInfo()?.pestanas || null;
-const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual())
+// Hoy → LabIA: en cualquier embudo de un cliente con LabIA, para quien ve Setting hoy o Llamadas.
+const allowedViews = () => VIEWS.filter((v) => (v === 'labia' ? state.labia && (tiene('hoy') || tiene('llamadas')) : tiposVista(v).includes(tipoActual())
   // «Publicidad»: sí por defecto en todos los embudos (también los de antes); se quita desde su ⚙️.
   && (v !== 'publicidad' || embudoInfo()?.publicidad !== false)
   // El calendario es el del cliente (todos sus embudos): está en todos.
@@ -427,7 +428,7 @@ const allowedViews = () => VIEWS.filter((v) => tiposVista(v).includes(tipoActual
     || ((v === 'claude' || v === 'automatizaciones') && pestanasEmbudo().includes('tareas'))
     // «Anuncios ganadores» de la venta directa es nueva: la ven los que tienen Métricas.
     || (v === 'danuncios' && pestanasEmbudo().includes('dmetricas')))
-  && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v)));
+  && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v))));
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() || enDirecta() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
 const vslCfg = (id = state.embudo) => ({ ...(state.config?.vsls?.[id] || {}), name: state.config?.vsls?.[id]?.name || 'VSL', id, esVsl: true });
@@ -460,6 +461,9 @@ async function start() {
   // Primer acceso con la contraseña que le dimos: la bienvenida, para que elija la suya (después, lo demás).
   if (me.user?.claveTemporal && !me.verComo) await bienvenida(me);
   state.agencia = Boolean(me.superadmin || me.user?.agencia);
+  // LabIA contratado en este cliente (Agencia → Clientes): su enlace del lateral, Hoy → LabIA y sus cifras.
+  state.labia = Boolean(me.labia);
+  document.body.classList.toggle('con-labia', state.labia);
   // La Operativa: el equipo de la agencia y los admin de algún proyecto (estos, con lo de sus proyectos).
   state.operativa = Boolean(state.agencia || me.operativa);
   if (!me.role) {
@@ -3205,7 +3209,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'labia', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -3276,15 +3280,15 @@ document.addEventListener('click', (e) => {
 // Pestañas de arriba que agrupan varias vistas (subpestañas): Hoy, Anuncios (cómo van, ganadores y crear con IA), Crear (con IA),
 // Plan (organizar el lanzamiento) y Análisis (para decidir). El orden de cada lista es el de sus subpestañas.
 const GRUPOS = {
-  comercial: ['hoy', 'llamadas', 'endirecto'],
+  comercial: ['hoy', 'llamadas', 'endirecto', 'labia'],
   anunciosg: ['publicidad', 'avatar', 'vanuncios', 'danuncios', 'anuncios'],
   crear: ['paginas', 'emailsia', 'imagenes', 'grupowa', 'automatizaciones'],
   planificacion: ['objetivos', 'calendario', 'tareas', 'carrito'],
   analisis: ['avatarc', 'comparar', 'rendimiento', 'claude'],
 };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', publicidad: 'megaphone' };
-$$('.view-tab, .subview-tab[data-view]').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
+const VIEW_ICONS = { labia: 'whatsapp', anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', publicidad: 'megaphone' };
+$$('.view-tab, .subview-tab[data-view]:not(.subview-labia)').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
   const descVista = {};
@@ -3476,6 +3480,7 @@ function showView(view) {
   if (view === 'anuncios' && state.config) renderAnuncios();
   if (view === 'emailsia' && state.config) renderEmailsIa();
   if (view === 'imagenes' && state.config) renderImagenesIa();
+  if (view === 'labia') cargarLabia();
   if (view === 'claude' && state.config) renderClaude();
   if (view === 'automatizaciones' && state.config) renderAutomatizaciones();
   if (view === 'publicidad' && state.config) cargarPublicidad();
@@ -3755,7 +3760,7 @@ function renderHoy() {
   pintarGastoPl();
   const nIa = state.leads.filter((l) => !l.s.compra && conIa(l)).length;
   const avisos = buckets.filter((b) => b.id === 'grupo').map((b) => `<p class="muted hoy-aviso">💬 ${esc(b.hint)}</p>`).join('')
-    + (nIa ? `<p class="muted hoy-aviso">🤖 ${nIa} ${nIa === 1 ? 'persona la lleva' : 'personas las lleva'} ahora el setter IA: no salen aquí para no escribirles a la vez. Si te pide ayuda, aparecen arriba en «🙋 Pide persona».</p>` : '');
+    + (nIa ? `<p class="muted hoy-aviso">🤖 ${nIa} ${nIa === 1 ? 'persona la lleva' : 'personas las lleva'} ahora el setter IA: no salen aquí para no escribirles a la vez. Si te pide ayuda, aparecen arriba en «🙋 Pide persona».${allowedViews().includes('labia') ? ' <button type="button" class="link-btn" data-ver-labia>Ver el pipeline de LabIA →</button>' : ''}</p>` : '');
   $('#hoy-lists').innerHTML = `<section class="card hoy-prio">
     <div class="hoy-prio-cab">
       <h2>Por prioridad <span class="badge">${lista.length}</span></h2>
@@ -6146,11 +6151,84 @@ function pintarLabia() {
   const a = $('#sb-labia');
   if (!a) return;
   const url = state.config?.setterIa?.url || '';
-  a.hidden = !url && !puedeConfig();
+  // Sin LabIA contratado, ni el enlace.
+  a.hidden = !state.labia || (!url && !puedeConfig());
   if (url) { a.href = url; a.target = '_blank'; a.title = 'Abrir LabIA, tu setter IA de WhatsApp'; } else { a.removeAttribute('href'); a.title = 'Conecta LabIA en Ajustes del cliente → Conexiones'; }
   a.querySelector('.sb-labia-sub').textContent = url ? 'Tu setter IA de WhatsApp ↗' : 'Conéctalo en Conexiones';
 }
 $$('[data-labia-logo]').forEach((el) => { el.innerHTML = LABIA_LOGO; });
+
+// Hoy → LabIA: el pipeline del setter IA (de GHL) con los leads de cada etapa, a quién te toca escribir a ti
+// (la IA te los ha pasado o están en una etapa 👩) y cómo va el setter esta semana.
+const LB_ICO = { ia: '🤖', equipo: '🙋', otra: '' };
+let labiaDatos = null;
+async function cargarLabia({ fresh = false } = {}) {
+  const box = $('#lb-cuerpo');
+  if (!box) return;
+  if (!labiaDatos || fresh) box.innerHTML = '<p class="muted">Cargando el pipeline de LabIA…</p>';
+  try {
+    labiaDatos = await api(`/api/labia${fresh ? '?fresh=1' : ''}`);
+  } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+  pintarLabiaVista();
+}
+function pintarLabiaVista() {
+  const d = labiaDatos;
+  const box = $('#lb-cuerpo');
+  const url = d?.url || state.config?.setterIa?.url || '';
+  $('#lb-abrir').hidden = !url;
+  if (url) $('#lb-abrir').href = url;
+  if (d.motivo === 'sin_labia') { box.innerHTML = '<div class="card empty"><p>Este cliente no tiene LabIA contratado.</p></div>'; return; }
+  if (d.motivo === 'sin_pipeline') {
+    box.innerHTML = `<div class="card empty"><h3>No encuentro el pipeline de LabIA</h3><p class="muted">Buscamos en GHL un pipeline con etapas marcadas con 🤖 (las que lleva la IA). ${puedeConfig() ? 'Elige cuál es en <strong>Ajustes del cliente → Conexiones → Setter IA</strong>.' : 'Pide a quien configura el dashboard que lo elija en Conexiones.'}</p></div>`;
+    return;
+  }
+  if (d.motivo === 'error') { box.innerHTML = `<p class="error">${esc(d.error)}</p>`; return; }
+  const max = Math.max(1, ...d.etapas.map((e) => e.n));
+  const c = d.setter?.cifras || {};
+  const seg = (v) => (v == null ? '–' : v < 90 ? `${v} s` : v < 5400 ? `${Math.round(v / 60)} min` : `${(v / 3600).toFixed(1)} h`);
+  const num = (v) => (v == null ? '–' : v);
+  const cc = state.config?.defaultCountryCode || '34';
+  const fila = (l) => {
+    const wa = waPhone(l.telefono, cc);
+    return `<li class="lb-lead"><button type="button" class="lb-lead-nom" data-lb-ficha="${esc(l.contactId)}" title="Ver su ficha">${esc(l.nombre || 'Sin nombre')}</button>
+      <span class="lb-lead-et">${l.pide ? '<b>🙋 La IA te lo pasa</b> · ' : ''}${esc(l.etapa)}</span>
+      <span class="muted small">${l.desde ? esc(haceTxt(Date.parse(l.desde))) : ''}</span>
+      ${wa ? `<a class="btn wa small" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">💬 WhatsApp</a>` : '<span class="muted small">Sin móvil</span>'}
+      ${url && l.contactId ? `<a class="btn ghost small" href="${esc(enlaceSetter(l.contactId))}" target="_blank" rel="noopener" title="Ver lo que ha hablado con la IA">Ver chat ↗</a>` : ''}</li>`;
+  };
+  box.innerHTML = `
+    <div class="lb-kpis">
+      <div class="lb-kpi ia"><span class="lb-kpi-ico">🤖</span><strong>${d.ahora.ia}</strong><span>Con la IA ahora</span><small>No hace falta que les escribas: está hablando con ellos</small></div>
+      <div class="lb-kpi equipo"><span class="lb-kpi-ico">🙋</span><strong>${d.ahora.equipo}</strong><span>Te tocan a ti</span><small>La IA te los ha pasado o están en una etapa del equipo</small></div>
+      <div class="lb-kpi"><span class="lb-kpi-ico">📅</span><strong>${num(c.citas)}</strong><span>Citas esta semana</span><small>Agendadas por la IA</small></div>
+      <div class="lb-kpi"><span class="lb-kpi-ico">⚡</span><strong>${seg(c.tiempo_respuesta_mediana_seg)}</strong><span>Tarda en responder</span><small>La mitad de las veces, menos</small></div>
+    </div>
+    <div class="card lb-pipe">
+      <h3>${esc(d.pipeline.nombre)} <small class="muted">· ${d.totales.abiertas} abiertas · ✅ ${d.totales.ganadas} ventas · ❌ ${d.totales.perdidas} perdidas</small></h3>
+      <div class="lb-etapas">${d.etapas.map((e) => `<div class="lb-etapa t-${e.tipo}" title="${esc(e.tipo === 'ia' ? 'La lleva la IA' : e.tipo === 'equipo' ? 'La lleva una persona del equipo' : '')}">
+        <span class="lb-et-ico">${LB_ICO[e.tipo]}</span><span class="lb-et-nom">${esc(e.nombre.replace(/[🤖👩🧑👨]\uFE0F?\s*/gu, ''))}</span>
+        <span class="lb-et-bar"><i style="width:${Math.round((e.n / max) * 100)}%"></i></span><strong>${e.n}</strong></div>`).join('')}</div>
+      <p class="muted small">🤖 la lleva la IA · 🙋 la lleva una persona del equipo (por el icono de cada etapa en GHL).${d.totales.completo ? '' : ' Hay muchísimas oportunidades: se cuentan las 1.500 más recientes.'} Actualizado ${esc(haceTxt(Date.parse(d.actualizado)))}.</p>
+    </div>
+    <div class="card lb-tocan">
+      <h3>🙋 Te tocan a ti <small class="muted">${d.teTocan.length ? `· los ${d.teTocan.length} más recientes` : ''}</small></h3>
+      ${d.teTocan.length ? `<ul class="lb-leads">${d.teTocan.map(fila).join('')}</ul>` : '<p class="muted">Nadie esperando: la IA lo tiene todo controlado. 🎉</p>'}
+    </div>
+    <div class="card lb-setter">
+      <h3>📈 El setter esta semana</h3>
+      ${d.setter?.cifras ? `<div class="lb-mini">
+        <div><strong>${num(c.respondieron)}</strong><span>respondieron</span></div>
+        <div><strong>${num(c.conversaciones_activas)}</strong><span>conversaciones activas</span></div>
+        <div><strong>${num(c.pasadas_a_persona)}</strong><span>pasadas a una persona</span></div>
+        <div><strong>${num(c.citas)}</strong><span>citas</span></div>
+        <div><strong>${num(c.bajas)}</strong><span>bajas</span></div>
+        <div><strong>${num(c.mensajes_ia)}</strong><span>mensajes de la IA</span></div></div>`
+        : `<p class="muted small">${d.setter?.error ? esc(d.setter.error) : 'Sus cifras salen cuando el setter IA está conectado (Ajustes del cliente → Conexiones → Setter IA).'}</p>`}
+    </div>`;
+}
+document.addEventListener('click', (e) => { if (e.target.closest('[data-ver-labia]')) showView('labia'); });
+$('#lb-actualizar')?.addEventListener('click', () => cargarLabia({ fresh: true }));
+$('#lb-cuerpo')?.addEventListener('click', (e) => { const f = e.target.closest('[data-lb-ficha]'); if (f) abrirFichaLead(f.dataset.lbFicha); });
 $('#sb-labia')?.addEventListener('click', (e) => { if (!state.config?.setterIa?.url) { e.preventDefault(); $('#btn-conexiones')?.click(); } });
 
 function pintarCabecera() {
@@ -7955,6 +8033,7 @@ const setterRendCache = {};
 async function cargarSetterRend(code, leads, { desde, hasta }) {
   const box = $('#rend-setter');
   if (!box) return;
+  if (!state.labia) { box.innerHTML = ''; return; } // sin LabIA contratado, ni sus cifras
   const conTags = (leads || []).filter((l) => l.s?.setter);
   const n = (f) => conTags.filter((l) => f(l.s.setter, l.s)).length;
   const plantilla = n((e) => e.plantilla);
@@ -8743,6 +8822,7 @@ function pintarClientes(lista) {
       <div class="field cl-meta-campo"><span>Cuenta publicitaria de Meta <small>(identificador, solo números)</small></span><input class="cl-meta" value="${esc(c.metaAdAccount || '')}" maxlength="200" inputmode="numeric" aria-label="Cuenta publicitaria de Meta">
         <details class="cl-meta-ayuda"><summary>¿Qué número es? <small>Antes hay que darnos acceso</small></summary>${ayudaMetaHtml()}</details></div>`}
       <label class="field narrow"><span>Color</span><input class="cl-color" type="color" value="${esc(c.color || '#b4552d')}"></label>
+      <label class="chk cl-labia-chk" title="El setter IA de WhatsApp: su enlace en el menú lateral, la pestaña «LabIA» en Hoy y sus cifras en Rendimiento"><input type="checkbox" class="cl-labia"${c.labiaActiva ? ' checked' : ''}><span><span class="cl-labia-logo">${LABIA_LOGO}</span> contratado</span></label>
     </div>
     ${c.principal ? '' : `<div class="cl-cx">${ETAPAS_CX.map((sv) => { const e = estadoServicio(c, sv); return `<button type="button" class="cl-cx-i e-${e.cls}" data-cl-op="cx-${sv}" title="Abrir ${SERVICIOS[sv].titulo}">${SERVICIOS[sv].icono} ${SERVICIOS[sv].corto}<small>${e.txt}</small></button>`; }).join('')}</div>`}
     <div class="row cl-acciones">
@@ -8979,7 +9059,7 @@ $('section[data-panel="clientes"]').addEventListener('change', (e) => {
 $('#cl-nombre').addEventListener('input', () => { if (!$('#cl-id').dataset.tocado) $('#cl-id').value = slugCliente($('#cl-nombre').value); });
 $('#cl-id').addEventListener('input', () => { $('#cl-id').dataset.tocado = '1'; });
 $('#btn-cl-crear').addEventListener('click', async () => {
-  const cliente = { nombre: $('#cl-nombre').value.trim(), id: slugCliente($('#cl-id').value), locationId: $('#cl-location').value.trim(), metaAdAccount: limpiarCuentaMeta($('#cl-meta').value), color: $('#cl-color').value };
+  const cliente = { nombre: $('#cl-nombre').value.trim(), id: slugCliente($('#cl-id').value), locationId: $('#cl-location').value.trim(), metaAdAccount: limpiarCuentaMeta($('#cl-meta').value), color: $('#cl-color').value, labia: $('#cl-labia').checked };
   if (!cliente.nombre || !cliente.id || !cliente.locationId) { $('#cl-status').textContent = 'Pon el nombre, el código y el ID de la subcuenta de GHL.'; return; }
   const b = $('#btn-cl-crear');
   b.disabled = true;
@@ -8989,10 +9069,25 @@ $('#btn-cl-crear').addEventListener('click', async () => {
     state.clientes = d.clientes.map(({ id, nombre, color, principal: p }) => ({ id, nombre, color, principal: p }));
     pintarCliente(state.clientes.find((c) => c.id === state.cliente) || state.clientes[0]);
     for (const id of ['#cl-nombre', '#cl-id', '#cl-location', '#cl-meta']) $(id).value = '';
+    $('#cl-labia').checked = false;
     delete $('#cl-id').dataset.tocado;
     $('#cl-status').textContent = '';
     abrirIntegrarCrm(cliente.id);
   } catch (e) { $('#cl-status').textContent = e.message; } finally { b.disabled = false; }
+});
+// LabIA contratado: se guarda al marcar o desmarcar (y, si es este cliente, aparece o desaparece al momento).
+$('#clientes-list').addEventListener('change', async (e) => {
+  const chk = e.target.closest('.cl-labia');
+  if (!chk) return;
+  const card = chk.closest('[data-cl]');
+  const c = state.clientesAdmin.find((x) => x.id === card.dataset.cl);
+  chk.disabled = true;
+  try {
+    await guardarCliente(c, { labia: chk.checked });
+    if (c.id === state.cliente) { state.labia = chk.checked; document.body.classList.toggle('con-labia', state.labia); pintarLabia(); const t = $('.subview-tab[data-view="labia"]'); if (t) t.hidden = !allowedViews().includes('labia'); }
+    const res = $('.cl-res', $(`[data-cl="${CSS.escape(c.id)}"]`));
+    if (res) res.textContent = chk.checked ? 'LabIA activado ✓' : 'LabIA quitado ✓';
+  } catch (ex) { window.alert(ex.message); chk.checked = !chk.checked; } finally { chk.disabled = false; }
 });
 $('#clientes-list').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-cl-op]');
@@ -9012,7 +9107,7 @@ $('#clientes-list').addEventListener('click', async (e) => {
       const r = await api('/api/clientes', { method: 'POST', body: { op, id } });
       res.textContent = r.ok ? `✓ Conectado (${r.etiquetas} etiquetas en su GHL)` : `✗ ${r.error}`;
     } else {
-      const body = op === 'borrar' ? { op, id } : { op: 'guardar', cliente: { ...c, nombre: $('.cl-nombre', card).value.trim(), color: $('.cl-color', card).value, ...(c.principal ? {} : { locationId: $('.cl-location', card).value.trim(), metaAdAccount: limpiarCuentaMeta($('.cl-meta', card).value) }) } };
+      const body = op === 'borrar' ? { op, id } : { op: 'guardar', cliente: { ...c, nombre: $('.cl-nombre', card).value.trim(), color: $('.cl-color', card).value, labia: $('.cl-labia', card).checked, ...(c.principal ? {} : { locationId: $('.cl-location', card).value.trim(), metaAdAccount: limpiarCuentaMeta($('.cl-meta', card).value) }) } };
       const d = await api('/api/clientes', { method: 'POST', body });
       pintarClientes(d.clientes);
       state.clientes = d.clientes.map(({ id: i, nombre, color, principal: p }) => ({ id: i, nombre, color, principal: p }));
@@ -13732,6 +13827,15 @@ function pintarSetterConexiones() {
   pintarPlantillasCx();
   $('#cx-setter-status').textContent = '';
   $('#cx-setter-status-url').textContent = '';
+  // Pipeline de LabIA: la lista de pipelines del GHL de este cliente.
+  $('#cx-setter-pipe-campo').hidden = !state.labia;
+  if (state.labia) {
+    const sel = $('#cx-setter-pipeline');
+    const actual = state.config.setterIa?.pipelineId || '';
+    api('/api/labia?parte=pipelines').then(({ pipelines }) => {
+      sel.innerHTML = `<option value="">Automático (el que tenga etapas 🤖)</option>${pipelines.map((p) => `<option value="${esc(p.id)}"${p.id === actual ? ' selected' : ''}>${esc(p.nombre)}</option>`).join('')}`;
+    }).catch(() => {});
+  }
   $('#cx-setter-clave').innerHTML = state.setterResumen
     ? '✓ Clave de las cifras puesta en Cloudflare.'
     : 'Para ver sus cifras en <strong>Rendimiento</strong>, añade en Cloudflare (Workers y Pages → este dashboard → Configuración → Variables y secretos) el secreto <code>SETTER_RESUMEN_KEY</code> (vale para todos los clientes) con el mismo valor que <code>RESUMEN_KEY</code> del setter, y vuelve a desplegar.';
@@ -13751,7 +13855,7 @@ async function guardarSetter(st) {
       vistos.add(tag);
       return { id: p.id, nombre: p.nombre.trim(), tag, precio: p.precio };
     });
-    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, setterIa: { url, plantillas } } });
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, setterIa: { url, plantillas, pipelineId: state.labia ? $('#cx-setter-pipeline').value : state.config.setterIa?.pipelineId || '' } } });
     state.config = config;
     pintarSetterConexiones();
     pintarLabia();
@@ -13759,6 +13863,7 @@ async function guardarSetter(st) {
   } catch (e) { st.textContent = e.message; }
 }
 $('#cx-setter-guardar').addEventListener('click', () => guardarSetter($('#cx-setter-status')));
+$('#cx-setter-pipeline').addEventListener('change', () => { labiaDatos = null; guardarSetter($('#cx-setter-status-url')); });
 $('#cx-setter-guardar-url').addEventListener('click', () => guardarSetter($('#cx-setter-status-url')));
 $('#cx-setter-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); guardarSetter($('#cx-setter-status-url')); } });
 $('#cx-sendflow').addEventListener('click', (e) => { if (e.target.closest('[data-sf-reintentar]')) probarSendflow({ reintentar: true }); });
