@@ -899,7 +899,8 @@ $('#inicio-embudos').addEventListener('click', (e) => {
 });
 // ---------- 📈 Inteligencia de negocio: el histórico de todos los embudos (negocio-vista.js pinta los bloques) ----------
 // Ocupa el sitio del Inicio. Cada petición completa una pieza del histórico: mientras falten, se vuelve a pedir.
-const ngEstado = { periodo: ['12m', 'ano', 'todo'].includes(ls.get('lsd_negocio_periodo')) ? ls.get('lsd_negocio_periodo') : '12m', token: 0 };
+// Con un producto elegido arriba (ngEstado.producto), su ficha; se repinta con los datos ya cargados (caja._ngDatos).
+const ngEstado = { periodo: ['12m', 'ano', 'todo'].includes(ls.get('lsd_negocio_periodo')) ? ls.get('lsd_negocio_periodo') : '12m', token: 0, producto: '' };
 async function cargarNegocioEn(caja, { cliente = state.cliente, enlaces = true } = {}) {
   const token = ++ngEstado.token;
   caja.innerHTML = `<div class="ng-cab"><div><h2>📈 Inteligencia de negocio</h2><p class="muted">El histórico de todos tus embudos: qué funciona y qué hacer para facturar más.</p></div>
@@ -910,7 +911,8 @@ async function cargarNegocioEn(caja, { cliente = state.cliente, enlaces = true }
     let d;
     try { d = await api(`/api/negocio?periodo=${ngEstado.periodo}`, { cliente }); } catch (e) { if (token === ngEstado.token) cuerpo.innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
     if (token !== ngEstado.token) return;
-    cuerpo.innerHTML = negocioHtml(d);
+    caja._ngDatos = d;
+    cuerpo.innerHTML = negocioHtml(d, { producto: ngEstado.producto });
     if (!d.pendientes) return;
   }
 }
@@ -933,6 +935,16 @@ document.addEventListener('change', (e) => {
   ls.set('lsd_negocio_periodo', sel.value);
   const caja = sel.closest('[data-ng-caja]');
   cargarNegocioEn(caja, caja.id === 'negocio' ? {} : { cliente: portalCliente, enlaces: false });
+});
+// «🌐 Todo el negocio» o un producto (arriba o en sus tarjetas): se pinta con lo ya cargado.
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ng-producto]');
+  const caja = b?.closest('[data-ng-caja]');
+  if (!caja?._ngDatos) return;
+  ngEstado.producto = b.dataset.ngProducto;
+  $('.ng-cuerpo', caja).innerHTML = negocioHtml(caja._ngDatos, { producto: ngEstado.producto });
+  const top = caja.getBoundingClientRect().top + window.scrollY - 80;
+  if (window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' });
 });
 // En la tabla de embudos, una fila abre ese embudo (en el dashboard; en el portal del cliente, no).
 $('#negocio').addEventListener('click', (e) => {

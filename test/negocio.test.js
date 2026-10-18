@@ -52,6 +52,39 @@ test('inteligencia de negocio: LTV, CAC, ciclo, recompra, camino y recomendacion
   assert.equal(recomendaciones({ ...a, embudos: [] }, []).every((r) => r.titulo && r.texto), true);
 });
 
+test('inteligencia de negocio: por producto (de Marca y avatar), con de dónde vienen, adónde van y sus recomendaciones', () => {
+  const hoy = '2026-10-18';
+  const P = (o) => ({ cerrada: true, registros: 0, ventas: 0, facturacion: 0, inversion: null, compras: [], ...o });
+  const piezas = [
+    P({ id: 'l-may', tipo: 'lanzamiento', embudo: 'lanz', embudoNombre: 'Lanzamientos', nombre: 'Mayo', desde: '2026-05-01', hasta: '2026-05-20', registros: 1000, ventas: 20, facturacion: 20000, inversion: 4000,
+      compras: Array.from({ length: 20 }, (_, i) => [`c${i}`, 1000, '2026-05-18', 3, null]) }),
+    P({ id: 'v-vsl-2026-09', tipo: 'vsl', embudo: 'vsl', embudoNombre: 'VSL', nombre: 'VSL · 2026-09', desde: '2026-09-01', hasta: '2026-09-30', registros: 200, ventas: 6, facturacion: 3000, inversion: 4000,
+      compras: [['c1', 500, '2026-09-10', 40, null], ['c2', 500, '2026-09-11', 2, null], ['c3', 500, '2026-09-12', 1, null], ['c4', 500, '2026-09-12', 1, null], ['x3', 500, '2026-09-13', 0, null], ['x4', 500, '2026-09-14', 0, null]] }),
+    P({ id: 'm-flash', tipo: 'meteorico', embudo: 'lanz', embudoNombre: 'Lanzamientos', nombre: 'Flash', desde: '2026-06-01', hasta: '2026-06-03', ventas: 2, facturacion: 200, compras: [['c5', 100, '2026-06-02', null, null], ['c6', 100, '2026-06-02', null, null]] }),
+  ];
+  const embudos = [{ id: 'lanz', tipo: 'lanzamientos', nombre: 'Lanzamientos' }, { id: 'vsl', tipo: 'vsl', nombre: 'VSL' }];
+  const a = agregar(piezas, { hoy, embudos, productos: { lanz: { id: 'p1', nombre: 'Raíces' } } });
+  assert.deepEqual(a.productos.map((p) => p.nombre), ['Raíces', 'VSL', '⚡ Flash']);
+  const raices = a.productos[0];
+  assert.equal(raices.facturacion, 20000);
+  assert.equal(raices.ticket, 1000);
+  assert.equal(Math.round(raices.cuota * 100), Math.round((20000 / 23200) * 100));
+  assert.equal(raices.roas, 5);
+  assert.deepEqual(raices.embudos.map((e) => e.id), ['lanz']);
+  // 6 de 20 compran después otra cosa: 4 la VSL y 2 el meteórico
+  assert.equal(raices.despues.n, 6);
+  assert.deepEqual(raices.despues.top[0], { nombre: 'VSL', n: 4 });
+  assert.ok(raices.recomendaciones.some((r) => /Escala/.test(r.titulo)));
+  assert.ok(raices.recomendaciones.some((r) => /Ofrece «VSL» justo después/.test(r.titulo)));
+  assert.ok(raices.recomendaciones.some((r) => /depende/.test(r.titulo)));
+  const vsl = a.productos.find((p) => p.nombre === 'VSL');
+  assert.deepEqual(vsl.antes.top[0], { nombre: 'Raíces', n: 4 });
+  assert.ok(vsl.recomendaciones.some((r) => /Pierde dinero/.test(r.titulo)));
+  // El camino entre productos usa el nombre del producto
+  assert.deepEqual(a.recompra.caminos[0], { camino: 'Raíces → VSL', n: 4 });
+  for (const p of a.productos) assert.ok(p.recomendaciones.length <= 3 && p.recomendaciones.every((r) => r.titulo && r.texto && r.ico));
+});
+
 test('inteligencia de negocio: la API calcula pieza a pieza hasta completar el histórico', async () => {
   const admin = cookieDe(await call('/api/login', { method: 'POST', body: { password: 'admin' } }));
   const c = (await call('/api/config', { cookie: admin })).data;
