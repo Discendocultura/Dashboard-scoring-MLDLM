@@ -6398,7 +6398,7 @@ function pintarLabia() {
   // Sin LabIA contratado, ni el enlace.
   a.hidden = !state.labia || (!url && !puedeConfig());
   if (url) { a.href = url; a.target = '_blank'; a.title = 'Abrir LabIA, tu setter IA de WhatsApp'; } else { a.removeAttribute('href'); a.title = 'Conecta LabIA en Mi negocio → Conexiones'; }
-  a.querySelector('.sb-labia-sub').textContent = url ? 'Tu setter IA de WhatsApp ↗' : 'Conéctalo en Conexiones';
+  a.querySelector('.sb-labia-sub').textContent = url ? 'Tu setter IA ↗' : 'Conéctalo en Conexiones';
 }
 $$('[data-labia-logo]').forEach((el) => { el.innerHTML = labiaLogo(); });
 
