@@ -468,6 +468,9 @@ test('tareas: plantilla, asignación con aviso por email y permisos para marcar'
   assert.equal(ed.tareas.find((t) => t.id === adminTask.id).comentarios.length, 1);
   const nv = await (await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: saraCookie, body: { op: 'notif-visto' } }))).json();
   assert.ok(nv.notifVisto);
+  // «No volver a mostrar» el aviso de la verificación en dos pasos: queda guardado en el usuario
+  assert.equal((await usuarios.POST(req('/api/usuarios', { method: 'POST', cookie: saraCookie, body: { op: 'aviso-2fa-ocultar' } }))).status, 200);
+  assert.equal((await (await (await import('../handlers/me.js')).GET(req('/api/me', { cookie: saraCookie }))).json()).user.aviso2faOculto, true);
 
   const list = await (await tareas.GET(req('/api/tareas?l=demo', { cookie: saraCookie }))).json();
   assert.equal(list.me.uid, sara.user.id);

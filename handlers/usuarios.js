@@ -122,6 +122,14 @@ async function procesar(request, body) {
   }
 
   // Campanita: hasta cuándo ha visto las notificaciones (para contar solo las nuevas en todos sus dispositivos).
+  // «No volver a mostrar» el aviso de la verificación en dos pasos (se guarda en el usuario: vale en todos sus dispositivos).
+  if (op === 'aviso-2fa-ocultar') {
+    const s = await requireSession(request, { cliente: true, operativa: true });
+    if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
+    await actualizarUsuarios((us) => { const u = us.find((x) => x.id === s.uid); if (u) u.aviso2faOculto = true; }, 'ocultar aviso 2FA');
+    return json({ ok: true });
+  }
+
   if (op === 'notif-visto') {
     const s = await requireSession(request, { cliente: true, operativa: true });
     if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');

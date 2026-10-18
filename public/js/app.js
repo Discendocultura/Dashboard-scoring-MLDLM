@@ -8911,12 +8911,20 @@ $('#c2-btn').addEventListener('click', async () => {
 function pintarAviso2fa() {
   const esAdmin = state.role === 'admin' || state.superadmin;
   let pospuesto = false;
-  try { pospuesto = sessionStorage.getItem('lsd_aviso2fa') === '1'; } catch { /* sin almacenamiento */ }
-  $('#aviso-2fa').hidden = !(state.user && esAdmin && !state.user.dosPasos && !pospuesto);
+  try { pospuesto = sessionStorage.getItem('lsd_aviso2fa') === '1' || localStorage.getItem('lsd_aviso2fa_nunca') === '1'; } catch { /* sin almacenamiento */ }
+  $('#aviso-2fa').hidden = !(state.user && esAdmin && !state.user.dosPasos && !state.user.aviso2faOculto && !pospuesto);
 }
 $('#aviso-2fa-cerrar').addEventListener('click', () => {
   try { sessionStorage.setItem('lsd_aviso2fa', '1'); } catch { /* sin almacenamiento */ }
   $('#aviso-2fa').hidden = true;
+});
+$('#aviso-2fa-nunca').addEventListener('click', async () => {
+  $('#aviso-2fa').hidden = true;
+  if (state.user) state.user.aviso2faOculto = true;
+  try { localStorage.setItem('lsd_aviso2fa_nunca', '1'); } catch { /* sin almacenamiento */ }
+  // En el usuario, para que tampoco salga en sus otros dispositivos (con la contraseña general basta con este navegador).
+  api('/api/usuarios', { method: 'POST', body: { op: 'aviso-2fa-ocultar' } }).catch(() => {});
+  notice('Vale, no te lo volveremos a mostrar. Puedes activarla cuando quieras en «Tu cuenta».');
 });
 $('#aviso-2fa-ir').addEventListener('click', () => $('#btn-cuenta').click());
 
