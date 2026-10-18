@@ -42,6 +42,7 @@ import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientes
 import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
 import { abrirProcesos } from './procesos-panel.js';
 import { abrirAtajos } from './atajos-panel.js';
+import { abrirProductos } from './productos-panel.js';
 import { abrirOperativa } from './operativa-panel.js';
 import { activarArroba, enlacesEnTexto, filtrarEnlaces, leerRef, refTarea, refTablero, refPersona, tokenComentario } from './enlaces.js';
 import { montarAsistente } from './marca-asistente.js';
@@ -13979,6 +13980,19 @@ async function asistenteMarcaCliente({ equipo = false } = {}) {
 $('#inicio-operativa-btn').addEventListener('click', () => abrirOperativa({ api, dialog: $('#operativa-dialog') }));
 $('#btn-operativa').addEventListener('click', () => { $('#tb-menu-cuenta').open = false; abrirOperativa({ api, dialog: $('#operativa-dialog') }); });
 $('#btn-procesos').addEventListener('click', () => { $('#tb-menu-cuenta').open = false; abrirProcesos({ api, dialog: $('#procesos-dialog') }); });
+// Mi negocio → 📦 Productos (también desde la Inteligencia de negocio): al guardar, la Inteligencia se recalcula.
+function abrirProductosDlg() {
+  $('#tb-menu-ajustes')?.removeAttribute('open');
+  if (!state.tags?.length) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch(() => {});
+  abrirProductos({
+    api, dialog: $('#productos-dialog'), cliente: state.clientes?.find((c) => c.id === state.cliente)?.nombre || '',
+    embudos: embudos().filter((e) => e.tipo !== 'meteorico').map((e) => ({ id: e.id, nombre: e.nombre, tipo: e.tipo })),
+    tags: () => state.tags || null, pintarSelectFecha,
+    onGuardado: () => { if (state.enNegocio) cargarNegocioEn($('#negocio')); },
+  });
+}
+$('#btn-productos').addEventListener('click', abrirProductosDlg);
+document.addEventListener('click', (e) => { if (e.target.closest('[data-abrir-productos]')) abrirProductosDlg(); });
 $('#btn-marca').addEventListener('click', () => {
   $('#tb-menu-cuenta').open = false;
   abrirPanelMarca({ api, cliente: state.cliente, clienteNombre: clienteNombre(), clientes: state.superadmin ? state.clientes.map((c) => ({ id: c.id, nombre: c.nombre })) : [], embudos: embudos().map((e) => ({ id: e.id, nombre: e.nombre })), puedeEditar: puedeConfig(), dialog: $('#marca-dialog') });

@@ -1,6 +1,7 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { agregar, recomendaciones, rangosNegocio } from '../lib/negocio-calc.js';
+import { sanitizeCatalogo, sinIva, compraDe, faltasProducto } from '../public/js/productos.js';
 
 const ENV = { GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret' };
 let route;
@@ -104,6 +105,60 @@ test('inteligencia de negocio: la venta directa es su propio producto y mide el 
   assert.deepEqual(a.productos.find((p) => p.nombre === 'Raíces').antes.top[0], { nombre: 'Reto Ovulación', n: 5 });
 });
 
+test('inteligencia de negocio: con catálogo de productos, compras por etiqueta, ofertas y paso al siguiente producto', () => {
+  const hoy = '2026-10-18';
+  const productos = [
+    { id: 'reto', nombre: 'Reto Ovulación', tipo: 'entrada', precio: 27, iva: 'sin', etiqueta: 'compra-reto', fechaCampo: 'f1', embudos: ['reto'], siguiente: 'raices', ofertas: [] },
+    { id: 'raices', nombre: 'Raíces', tipo: 'principal', precio: 997, iva: 'sin', etiqueta: 'clienta-raices', fechaCampo: '', embudos: ['lanz'], siguiente: '', ofertas: [{ id: 'o-bf', nombre: 'Black Friday', precio: 697, etiqueta: 'raices-bf' }] },
+  ];
+  const fotos = [
+    { id: 'c-reto-x', tipo: 'catalogo', producto: 'reto', hasta: hoy, ventas: 20, compras: Array.from({ length: 20 }, (_, i) => [`c${i}`, 27, '2026-03-10', null, '']) },
+    // Raíces sin campo de fecha: la fecha sale de su compra en el lanzamiento
+    { id: 'c-raices-x', tipo: 'catalogo', producto: 'raices', hasta: hoy, ventas: 12, compras: Array.from({ length: 12 }, (_, i) => [`c${i < 5 ? i : i + 50}`, i < 8 ? 697 : 997, '', null, i < 8 ? 'o-bf' : '']) },
+  ];
+  const piezas = [{ id: 'l-may', tipo: 'lanzamiento', embudo: 'lanz', embudoNombre: 'Lanzamientos', nombre: 'Mayo', desde: '2026-05-01', hasta: '2026-05-20', cerrada: true, registros: 600, ventas: 12, facturacion: 9576, inversion: 3000,
+    compras: Array.from({ length: 12 }, (_, i) => [`c${i < 5 ? i : i + 50}`, 798, '2026-05-18', 2, null]) }];
+  const embudos = [{ id: 'lanz', tipo: 'lanzamientos', nombre: 'Lanzamientos' }, { id: 'reto', tipo: 'directa', nombre: 'Reto Ovulación' }];
+  const a = agregar(piezas, { hoy, embudos, catalogo: { ivaPct: 21, productos, fotos } });
+  assert.equal(a.fuenteProductos, 'catalogo');
+  // Todo el negocio sale del catálogo: facturación de las compras por etiqueta; ROAS con la inversión de los embudos
+  assert.equal(a.numeros.facturacion, 8 * 697 + 4 * 997 + 20 * 27);
+  assert.equal(a.numeros.clientes, 27);
+  assert.equal(a.numeros.roas, (8 * 697 + 4 * 997 + 20 * 27) / 3000);
+  assert.equal(a.recompra.repiten, 5);
+  assert.deepEqual(a.recompra.caminos[0], { camino: 'Reto Ovulación → Raíces', n: 5 });
+  assert.deepEqual(a.productos.map((p) => p.nombre), ['Raíces', 'Reto Ovulación']);
+  const raices = a.productos[0];
+  assert.equal(raices.ventas, 12);
+  assert.equal(raices.facturacion, 8 * 697 + 4 * 997);
+  assert.equal(raices.ofertas.find((o) => o.id === 'o-bf').ventas, 8);
+  assert.equal(raices.roas, (8 * 697 + 4 * 997) / 3000);
+  assert.equal(raices.conversion, 12 / 600);
+  assert.ok(raices.recomendaciones.some((r) => /La mayoría lo compra con oferta/.test(r.titulo)));
+  assert.deepEqual(raices.antes.top[0], { nombre: 'Reto Ovulación', n: 5 });
+  const reto = a.productos[1];
+  assert.equal(reto.ventas, 20);
+  assert.deepEqual({ n: reto.objetivo.n, pct: reto.objetivo.pct, nombre: reto.objetivo.nombre }, { n: 5, pct: 0.25, nombre: 'Raíces' });
+  assert.equal(reto.objetivo.dias, 69);
+  assert.ok(reto.recomendaciones.some((r) => /acaba comprando «Raíces»/.test(r.titulo)));
+  // Sin «siguiente» en un producto de entrada, se le pide
+  const b = agregar(piezas, { hoy, embudos, catalogo: { ivaPct: 21, productos: productos.map((p) => ({ ...p, siguiente: '' })), fotos } });
+  assert.ok(b.productos.find((p) => p.nombre === 'Reto Ovulación').recomendaciones.some((r) => /A qué producto quieres llevarles/.test(r.titulo)));
+});
+
+test('productos: limpieza del catálogo, precio sin IVA y oferta de cada compra', () => {
+  const c = sanitizeCatalogo({ productos: [{ nombre: 'Raíces', precio: '997', iva: 'incluido', etiqueta: ' Clienta-Raices ', ofertas: [{ nombre: 'BF', precio: 697, etiqueta: 'raices-bf' }, { nombre: '' }] }, { nombre: '' }] });
+  assert.equal(c.productos.length, 1);
+  const p = c.productos[0];
+  assert.equal(p.etiqueta, 'clienta-raices');
+  assert.equal(p.ofertas.length, 1);
+  assert.equal(sinIva(121, 'incluido', 21), 100);
+  assert.deepEqual(compraDe(['clienta-raices', 'raices-bf'], p, 21), { oferta: p.ofertas[0].id, importe: sinIva(697, 'incluido', 21) });
+  assert.deepEqual(compraDe(['clienta-raices'], p, 21), { oferta: '', importe: sinIva(997, 'incluido', 21) });
+  assert.equal(compraDe(['otra'], p, 21), null);
+  assert.deepEqual(faltasProducto({ ...p, ofertas: [{ nombre: 'X', precio: 1, etiqueta: '' }] }), ['la etiqueta de la oferta «X»']);
+});
+
 test('inteligencia de negocio: la API calcula pieza a pieza hasta completar el histórico', async () => {
   const admin = cookieDe(await call('/api/login', { method: 'POST', body: { password: 'admin' } }));
   const c = (await call('/api/config', { cookie: admin })).data;
@@ -119,6 +174,17 @@ test('inteligencia de negocio: la API calcula pieza a pieza hasta completar el h
   // La siguiente visita ya no recalcula nada
   const otra = (await call('/api/negocio?periodo=todo', { cookie: admin })).data;
   assert.equal(otra.pendientes, 0);
+  assert.equal(otra.fuenteProductos, 'embudos');
+  // Con productos en Mi negocio → Productos, salen de ahí (compras por su etiqueta)
+  const g = await call('/api/productos', { method: 'POST', cookie: admin, body: { catalogo: { productos: [{ nombre: 'Raíces', precio: 997, iva: 'sin', etiqueta: 'clienta-raices', embudos: ['lanz'] }] } } });
+  assert.equal(g.status, 200);
+  assert.equal((await call('/api/productos', { cookie: admin })).data.catalogo.productos[0].nombre, 'Raíces');
+  let e;
+  vueltas = 0;
+  do { e = (await call('/api/negocio?periodo=todo', { cookie: admin })).data; vueltas++; } while (e.pendientes > 0 && vueltas < 5);
+  assert.equal(e.fuenteProductos, 'catalogo');
+  const raices = e.productos.find((p) => p.nombre === 'Raíces');
+  assert.ok(raices.ventas > 0 && raices.facturacion === raices.ventas * 997, JSON.stringify(raices).slice(0, 200));
   // Sin sesión, no; el rol Cliente sí (solo mirar); un setter (sin Métricas), no
   assert.equal((await call('/api/negocio')).status, 401);
   const entra = async (email, rol) => {
@@ -126,5 +192,7 @@ test('inteligencia de negocio: la API calcula pieza a pieza hasta completar el h
     return cookieDe(await call('/api/login', { method: 'POST', body: { email, password: u.password } }));
   };
   assert.equal((await call('/api/negocio', { cookie: await entra('cli@ejemplo.com', 'cliente') })).status, 200);
-  assert.equal((await call('/api/negocio', { cookie: await entra('set@ejemplo.com', 'setter') })).status, 403);
+  const setter = await entra('set@ejemplo.com', 'setter');
+  assert.equal((await call('/api/negocio', { cookie: setter })).status, 403);
+  assert.equal((await call('/api/productos', { method: 'POST', cookie: setter, body: { catalogo: { productos: [] } } })).status, 403);
 });
