@@ -47,7 +47,7 @@ let abierto = ''; // id del proceso abierto
 let editandoDesc = false;
 let pestanaAct = 'comentarios';
 // Crear un proceso: '' | 'elegir' (desde cero o desde un tablero) | 'tablero' (elegir la tarea que se copia) |
-// 'asistente' (en los del cliente: paso a paso, ver ASIS_PASOS).
+// 'asistente' (paso a paso, ver ASIS_PASOS: en los del cliente siempre; en los de la agencia, «desde cero»).
 let creando = '';
 let asis = null; // lo que se va rellenando en el asistente
 let origen = { proyecto: '', tablero: '', q: '' };
@@ -358,17 +358,17 @@ async function guardarCampos(campos) {
 // «＋ Nuevo»: primero se elige cómo (desde cero o copiando una tarea de un tablero de algún cliente).
 function nuevo() {
   // En la del cliente, paso a paso (no hay tableros de otros clientes de donde copiar).
-  if (delCliente()) {
-    creando = 'asistente';
-    abierto = '';
-    asis = { paso: 0, titulo: '', seccion: sec || bib.secciones[0]?.id || 'general', responsable: '', pasos: '', notas: '', video: '', fecha: '', repetir: { tipo: '' } };
-    pintarLista();
-    arriba();
-    body().querySelector('[data-asis="titulo"]')?.focus();
-    return;
-  }
+  if (delCliente()) { abrirAsistente(); return; }
   creando = 'elegir';
   abierto = '';
+  pintarLista();
+  arriba();
+}
+
+function abrirAsistente() {
+  creando = 'asistente';
+  abierto = '';
+  asisNuevo();
   pintarLista();
   arriba();
 }
@@ -383,20 +383,34 @@ const tablerosDeProy = (id) => [{ id: 'general', nombre: 'General' }, ...operati
   .map((b) => ({ ...b, nombre: operativa.tableros.find((x) => x.proyecto === id && x.id === b.id)?.nombre || b.nombre }));
 const tableroDe = (t) => (operativa.tableros.some((b) => b.proyecto === t.cliente && b.id === t.opTablero) ? t.opTablero : 'general');
 
-// ---- Asistente «Nuevo proceso» (los del cliente): un paso cada vez, para que nadie se pierda ----
+// ---- Asistente «Nuevo proceso»: un paso cada vez, con ejemplos, para que nadie se pierda ----
+// 1 categoría (sección: las que hay, sugeridas o una nueva) · 2 responsable · 3 en qué consiste (nombre, para qué
+// sirve y cuándo se hace) · 4 el paso a paso (uno por casilla) · 5 material · 6 cuándo (fecha y repetición) · 7 revisar.
 const ASIS_PASOS = [
-  { ico: '📝', t: 'Ponle nombre', sub: '¿Qué proceso es? Un nombre que cualquiera del equipo entienda, por ejemplo «Cómo enviamos los pedidos» o «Alta de una alumna nueva».' },
-  { ico: '👤', t: 'Elige el responsable', sub: '¿Quién se encarga de que este proceso se haga? Puedes cambiarlo cuando quieras.' },
-  { ico: '🪜', t: 'Escribe los pasos', sub: '¿Cómo se hace? Un paso por línea, en orden. Saldrán como una lista para ir marcando.' },
-  { ico: '🔗', t: 'Añade el material', sub: 'Opcional: una explicación, enlaces (Drive, plantillas…) o un vídeo explicativo (Loom, YouTube, Vimeo).' },
-  { ico: '📅', t: '¿Cuándo se hace?', sub: 'Opcional: si tiene fecha o se repite (cada semana, cada mes…), el dashboard lo pasará solo a la siguiente fecha al marcarlo como hecho.' },
-  { ico: '✅', t: 'Revisa y crea', sub: 'Así quedará. Si algo no está bien, vuelve atrás; luego también se puede cambiar todo.' },
+  { ico: '📁', t: 'Categoría', tit: '¿De qué área es este proceso?', sub: 'Elige la categoría donde guardarlo. Así, cuando haya muchos, cualquiera los encuentra en un segundo.', ej: 'Un proceso de cómo responder a una alumna va en «Atención al cliente»; cómo publicar un reel, en «Marketing».' },
+  { ico: '👤', t: 'Responsable', tit: '¿Quién se encarga?', sub: 'La persona que se ocupa de que este proceso se haga (y a quien preguntar si hay dudas). Puedes cambiarla cuando quieras.', ej: 'Si lo hace siempre Andrea, elige a Andrea. Si aún no está claro, «Nadie todavía».' },
+  { ico: '📝', t: 'En qué consiste', tit: '¿En qué consiste?', sub: 'Ponle un nombre claro y cuenta en una frase para qué sirve y cuándo hay que hacerlo.', ej: 'Nombre: «📦 Cómo enviamos los pedidos» · Para qué sirve: «Que cada pedido salga en 24 h y la clienta sepa cuándo le llega» · Cuándo: «Cada mañana, con los pedidos del día anterior».' },
+  { ico: '🪜', t: 'Paso a paso', tit: '¿Cómo se hace, paso a paso?', sub: 'Escribe cada paso en su casilla, en orden. Empieza cada uno con lo que hay que hacer («Revisar…», «Enviar…»). Pulsa Enter para añadir el siguiente.', ej: '1. Revisar los pedidos nuevos en la tienda · 2. Preparar el paquete con la nota · 3. Imprimir la etiqueta · 4. Avisar a la clienta con el seguimiento.' },
+  { ico: '🔗', t: 'Material', tit: 'Material de apoyo', sub: 'Opcional: trucos, errores típicos, enlaces (Drive, plantillas, accesos) y un vídeo explicativo. Lo que te habría gustado que te contaran la primera vez.', ej: '«La plantilla de la nota está en Drive: https://… · Ojo: los pedidos internacionales llevan aduanas.» + un Loom de 3 minutos haciéndolo.' },
+  { ico: '📅', t: 'Cuándo', tit: '¿Tiene fecha o se repite?', sub: 'Opcional. Si se hace cada semana o cada mes, al marcarlo como hecho pasa solo a la siguiente fecha (y te avisa cuando toca).', ej: 'Envío de pedidos: «Cada día laborable». Cierre de mes: «Cada mes, el último día».' },
+  { ico: '✅', t: 'Revisar', tit: 'Revisa y crea', sub: 'Así quedará. Si algo no está bien, vuelve atrás; luego también se puede cambiar todo desde su ficha.', ej: '' },
 ];
-const pasosLista = () => asis.pasos.split('\n').map((x) => x.replace(/^\s*(?:\d+[.)-]|[-•*])\s*/, '').trim()).filter(Boolean);
+// Categorías sugeridas (se crean al elegirlas si aún no existen).
+const CAT_SUGERIDAS = ['📣 Marketing', '💰 Ventas', '📦 Entrega', '💬 Atención al cliente', '🧾 Administración', '👥 Equipo'];
+const normCat = (t) => sinEmoji(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+const pasosLista = () => asis.pasos.map((x) => String(x || '').replace(/^\s*(?:\d+[.)-]|[-•*])\s*/, '').trim()).filter(Boolean);
+const nombreCat = () => (asis.categoria.startsWith('id:') ? bib.secciones.find((x) => x.id === asis.categoria.slice(3))?.titulo || '' : asis.categoria.startsWith('sug:') ? asis.categoria.slice(4) : asis.catNueva.trim());
+
+function asisNuevo() {
+  const cat = sec && bib.secciones.some((x) => x.id === sec) ? `id:${sec}` : '';
+  asis = { paso: 0, categoria: cat, catNueva: '', responsable: '', titulo: '', objetivo: '', disparador: '', pasos: [''], notas: '', video: '', fecha: '', repetir: { tipo: '' } };
+}
 
 function leerAsis() {
   const v = (k) => body().querySelector(`[data-asis="${k}"]`);
-  for (const k of ['titulo', 'seccion', 'pasos', 'notas', 'video', 'fecha']) if (v(k)) asis[k] = v(k).value;
+  for (const k of ['catNueva', 'titulo', 'objetivo', 'disparador', 'notas', 'video', 'fecha']) if (v(k)) asis[k] = v(k).value;
+  const ps = [...body().querySelectorAll('[data-asis-paso]')];
+  if (ps.length) asis.pasos = ps.map((i) => i.value);
   const ed = body().querySelector('.pr-asis [data-rep-ed]');
   if (ed) asis.repetir = leerRepetir(ed, asis.fecha);
 }
@@ -407,58 +421,82 @@ function asistenteHtml() {
   const ultimo = n === ASIS_PASOS.length - 1;
   const campo = () => {
     if (n === 0) {
-      return `<label class="field"><span>Nombre del proceso</span><input data-asis="titulo" maxlength="160" value="${esc(asis.titulo)}" placeholder="Ej.: 📦 Cómo enviamos los pedidos" autocomplete="off"></label>
-        <label class="field"><span>Sección <small>(dónde se guarda)</small></span><select data-asis="seccion">${bib.secciones.map((x) => `<option value="${esc(x.id)}"${x.id === asis.seccion ? ' selected' : ''}>${esc(x.titulo)}</option>`).join('')}</select></label>
-        <p class="muted small">💡 Empieza con un emoji y saldrá como icono en la tarjeta.</p>`;
+      const n0 = (id) => bib.procesos.filter((p) => p.seccion === id).length;
+      const existen = bib.secciones.filter((x) => x.id !== 'general' || n0('general') || bib.secciones.length === 1);
+      const sugeridas = CAT_SUGERIDAS.filter((t) => !bib.secciones.some((x) => normCat(x.titulo) === normCat(t)));
+      const card = (val, ico, txt, sub) => `<button type="button" class="pr-asis-cat${asis.categoria === val ? ' on' : ''}" data-asis-cat="${esc(val)}" aria-pressed="${asis.categoria === val}"><span class="pr-asis-cat-ico" aria-hidden="true">${ico}</span><strong>${esc(txt)}</strong>${sub ? `<small>${esc(sub)}</small>` : ''}</button>`;
+      return `<div class="pr-asis-cats">
+          ${existen.map((x) => card(`id:${x.id}`, emojiDe(x.titulo) || '📁', sinEmoji(x.titulo), `${n0(x.id)} proceso${n0(x.id) === 1 ? '' : 's'}`)).join('')}
+          ${sugeridas.map((t) => card(`sug:${t}`, emojiDe(t), sinEmoji(t), 'Nueva')).join('')}
+          ${card('nueva', '＋', 'Otra categoría', 'Ponle tú el nombre')}
+        </div>
+        ${asis.categoria === 'nueva' ? `<label class="field"><span>Nombre de la categoría <small>(puedes empezar con un emoji)</small></span><input data-asis="catNueva" maxlength="60" value="${esc(asis.catNueva)}" placeholder="Ej.: 🎓 Formación" autocomplete="off"></label>` : ''}`;
     }
     if (n === 1) {
       const b = (id, nombre, txt) => `<button type="button" class="pr-asis-persona${asis.responsable === id ? ' on' : ''}" data-asis-resp="${esc(id)}" aria-pressed="${asis.responsable === id}">${id ? avatar(nombre) : '<span class="pr-av vacio">?</span>'}<span>${esc(txt)}</span></button>`;
       return `<div class="pr-asis-personas">${bib.equipo.map((u) => b(u.id, u.nombre, u.nombre)).join('')}${b('', '', 'Nadie todavía')}</div>
-        ${bib.equipo.length ? '' : '<p class="muted small">Aún no hay nadie más en el equipo. Puedes añadir personas en Cuenta → Equipo.</p>'}`;
+        ${bib.equipo.length ? '' : '<p class="muted small">Aún no hay nadie más en el equipo. Puedes añadir personas en Ajustes del cliente → Equipo.</p>'}`;
     }
     if (n === 2) {
-      return `<label class="field"><span>Los pasos, uno por línea</span><textarea data-asis="pasos" rows="8" placeholder="Revisar los pedidos nuevos en la tienda&#10;Preparar el paquete con la nota de agradecimiento&#10;Imprimir la etiqueta de envío&#10;Avisar a la clienta con el número de seguimiento">${esc(asis.pasos)}</textarea></label>
-        <p class="muted small">No hace falta numerarlos: el orden es el de las líneas. Si aún no los tienes claros, sigue y los añades después.</p>`;
+      return `<label class="field"><span>Nombre del proceso <b class="pr-asis-oblig">obligatorio</b></span><input data-asis="titulo" maxlength="160" value="${esc(asis.titulo)}" placeholder="Ej.: 📦 Cómo enviamos los pedidos" autocomplete="off"></label>
+        <label class="field"><span>¿Para qué sirve? <small>(en una frase)</small></span><input data-asis="objetivo" maxlength="300" value="${esc(asis.objetivo)}" placeholder="Ej.: Que cada pedido salga en 24 h y la clienta sepa cuándo le llega" autocomplete="off"></label>
+        <label class="field"><span>¿Cuándo hay que hacerlo? <small>(qué lo pone en marcha)</small></span><input data-asis="disparador" maxlength="300" value="${esc(asis.disparador)}" placeholder="Ej.: Cada mañana, con los pedidos del día anterior" autocomplete="off"></label>
+        <p class="muted small">💡 Si empiezas el nombre con un emoji, saldrá como icono en la tarjeta.</p>`;
     }
     if (n === 3) {
-      return `<label class="field"><span>Explicación <small>(opcional)</small></span><textarea data-asis="notas" rows="5" placeholder="Lo que conviene saber: para qué sirve, trucos, errores típicos… Pega aquí los enlaces (Drive, plantillas, accesos)">${esc(asis.notas)}</textarea></label>
-        <label class="field"><span>Vídeo explicativo <small>(opcional: Loom, YouTube, Vimeo o Bunny)</small></span><input data-asis="video" type="url" inputmode="url" value="${esc(asis.video)}" placeholder="https://www.loom.com/share/…"></label>`;
+      return `<ol class="pr-asis-lista">${asis.pasos.map((x, i) => `<li><span class="pr-asis-num">${i + 1}</span><input data-asis-paso="${i}" maxlength="300" value="${esc(x)}" placeholder="${i === 0 ? 'Ej.: Revisar los pedidos nuevos en la tienda' : 'Siguiente paso…'}" autocomplete="off" aria-label="Paso ${i + 1}">${asis.pasos.length > 1 ? `<button type="button" class="pr-x" data-asis-paso-quitar="${i}" aria-label="Quitar el paso ${i + 1}">✕</button>` : ''}</li>`).join('')}</ol>
+        <button type="button" class="btn small" data-asis-paso-add>＋ Añadir otro paso</button>
+        <p class="muted small">Saldrán en la descripción y como una lista para ir marcando cada vez que se haga. Si aún no los tienes claros, sigue y los añades después.</p>`;
     }
     if (n === 4) {
+      return `<label class="field"><span>Trucos, errores típicos y enlaces <small>(opcional)</small></span><textarea data-asis="notas" rows="5" placeholder="Lo que conviene saber… Pega aquí los enlaces (Drive, plantillas, accesos)">${esc(asis.notas)}</textarea></label>
+        <label class="field"><span>Vídeo explicativo <small>(opcional: Loom, YouTube, Vimeo o Bunny)</small></span><input data-asis="video" type="url" inputmode="url" value="${esc(asis.video)}" placeholder="https://www.loom.com/share/…"></label>`;
+    }
+    if (n === 5) {
       return `<label class="field"><span>Fecha <small>(opcional)</small></span><input data-asis="fecha" type="date" value="${esc(asis.fecha)}"></label>
         <div class="field"><span>¿Se repite?</span>${editorRepetir(asis.repetir)}</div>
-        ${asis.repetir.tipo && !asis.fecha ? '<p class="muted small">Si no pones fecha, empezará en el próximo día que toque.</p>' : ''}`;
+        ${asis.repetir.tipo && !asis.fecha ? '<p class="muted small">Si no pones fecha, empezará el próximo día que toque.</p>' : ''}`;
     }
     const pasos = pasosLista();
     const fila = (ico, k, v) => `<li><span class="pr-asis-r-ico">${ico}</span><span class="pr-asis-r-k">${k}</span><span class="pr-asis-r-v">${v}</span></li>`;
     return `<ul class="pr-asis-resumen">
-      ${fila('📝', 'Nombre', `<strong>${esc(asis.titulo.trim())}</strong> · ${esc(bib.secciones.find((x) => x.id === asis.seccion)?.titulo || '')}`)}
+      ${fila('📁', 'Categoría', esc(nombreCat()) + (asis.categoria.startsWith('id:') ? '' : ' <span class="muted small">(nueva)</span>'))}
       ${fila('👤', 'Responsable', esc(nombreDe(asis.responsable) || 'Sin asignar'))}
-      ${fila('🪜', 'Pasos', pasos.length ? `<ol>${pasos.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : '<span class="muted">Ninguno todavía</span>')}
-      ${fila('🔗', 'Material', [asis.notas.trim() && 'explicación', asis.video.trim() && 'vídeo'].filter(Boolean).join(' y ') || '<span class="muted">Nada</span>')}
+      ${fila('📝', 'En qué consiste', `<strong>${esc(asis.titulo.trim())}</strong>${asis.objetivo.trim() ? `<br><span class="muted">🎯 ${esc(asis.objetivo.trim())}</span>` : ''}${asis.disparador.trim() ? `<br><span class="muted">⏰ ${esc(asis.disparador.trim())}</span>` : ''}`)}
+      ${fila('🪜', 'Paso a paso', pasos.length ? `<ol>${pasos.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : '<span class="muted">Ninguno todavía</span>')}
+      ${fila('🔗', 'Material', [asis.notas.trim() && 'trucos y enlaces', asis.video.trim() && 'vídeo'].filter(Boolean).join(' y ') || '<span class="muted">Nada</span>')}
       ${fila('📅', 'Cuándo', asis.repetir.tipo ? esc(textoRepetirUi(asis.repetir)) + (asis.fecha ? ` · desde el ${esc(fechaCorta(asis.fecha))}` : '') : asis.fecha ? esc(fechaCorta(asis.fecha)) : '<span class="muted">Sin fecha</span>')}
     </ul>`;
   };
+  const opcional = n === 4 || n === 5;
   return `<section class="pr-crear pr-asis">
     <header class="pr-crear-h"><button type="button" class="btn ghost small" data-pr="crear-cancelar">✕ Cancelar</button><h3>Nuevo proceso</h3></header>
     <ol class="pr-asis-pasos" aria-label="Pasos">${ASIS_PASOS.map((x, i) => `<li class="${i < n ? 'hecho' : i === n ? 'on' : ''}"><span class="pr-asis-n">${i < n ? '✓' : i + 1}</span><span class="pr-asis-t">${esc(x.t)}</span></li>`).join('')}</ol>
     <div class="pr-asis-caja">
-      <p class="pr-asis-paso">Paso ${n + 1} de ${ASIS_PASOS.length}</p>
-      <h3 class="pr-asis-tit"><span aria-hidden="true">${P.ico}</span> ${esc(P.t)}</h3>
+      <p class="pr-asis-paso">Paso ${n + 1} de ${ASIS_PASOS.length}${opcional ? ' · opcional' : ''}</p>
+      <h3 class="pr-asis-tit"><span aria-hidden="true">${P.ico}</span> ${esc(P.tit)}</h3>
       <p class="muted">${esc(P.sub)}</p>
       <div class="pr-asis-campo">${campo()}</div>
+      ${P.ej ? `<details class="pr-asis-ej"><summary>💡 Ver un ejemplo</summary><p>${esc(P.ej)}</p></details>` : ''}
       <p class="pr-asis-error error" hidden></p>
-      <footer class="pr-asis-acc">${n ? '<button type="button" class="btn ghost" data-pr="asis-atras">← Atrás</button>' : '<span></span>'}${ultimo ? '<button type="button" class="btn primary" data-pr="asis-crear">✓ Crear el proceso</button>' : `<button type="button" class="btn primary" data-pr="asis-sig">${n === 3 || n === 4 ? 'Siguiente (o sáltalo) →' : 'Siguiente →'}</button>`}</footer>
+      <footer class="pr-asis-acc">${n ? '<button type="button" class="btn ghost" data-pr="asis-atras">← Atrás</button>' : '<span></span>'}${ultimo ? '<button type="button" class="btn primary" data-pr="asis-crear">✓ Crear el proceso</button>' : `<button type="button" class="btn primary" data-pr="asis-sig">${opcional ? 'Siguiente (o sáltalo) →' : 'Siguiente →'}</button>`}</footer>
     </div>
   </section>`;
 }
 const textoRepetirUi = (r) => REPETIR_TXT(r);
 
-// La descripción a partir del paso 4: la explicación (con sus enlaces) y el vídeo.
+// La descripción: para qué sirve, cuándo se hace, el paso a paso, los trucos (con sus enlaces) y el vídeo.
 function htmlAsis() {
-  const parrafos = asis.notas.trim().split(/\n{2,}/).map((p) => `<p>${esc(p.trim()).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}">${u}</a>`).replace(/\n/g, '<br>')}</p>`);
-  const video = asis.video.trim() && videoEmbed(asis.video.trim()) ? `<div data-video="${esc(asis.video.trim())}"></div>` : '';
-  return sanitizeRich((asis.notas.trim() ? parrafos.join('') : '') + video);
+  const parrafo = (t) => `<p>${esc(t.trim()).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}">${u}</a>`).replace(/\n/g, '<br>')}</p>`;
+  const pasos = pasosLista();
+  const partes = [
+    asis.objetivo.trim() && `<h2>🎯 Para qué sirve</h2>${parrafo(asis.objetivo)}`,
+    asis.disparador.trim() && `<h2>⏰ Cuándo se hace</h2>${parrafo(asis.disparador)}`,
+    pasos.length && `<h2>🪜 Paso a paso</h2><ol>${pasos.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>`,
+    asis.notas.trim() && `<h2>💡 Trucos y enlaces</h2>${asis.notas.trim().split(/\n{2,}/).map(parrafo).join('')}`,
+    asis.video.trim() && videoEmbed(asis.video.trim()) && `<div data-video="${esc(asis.video.trim())}"></div>`,
+  ];
+  return sanitizeRich(partes.filter(Boolean).join(''));
 }
 
 async function asisCrear(b) {
@@ -468,7 +506,13 @@ async function asisCrear(b) {
     const hoy = hoyMadrid();
     let fecha = asis.fecha;
     if (asis.repetir.tipo && !fecha) fecha = primeraFechaRepetir(hoy, asis.repetir);
-    const d = await enviar({ op: 'nuevo', seccion: asis.seccion, titulo: asis.titulo.trim(), html: htmlAsis(), subtareas: pasosLista() });
+    // La categoría: la que hay o, si es nueva (sugerida o escrita), se crea antes.
+    let seccion = asis.categoria.startsWith('id:') ? asis.categoria.slice(3) : '';
+    if (!seccion) {
+      const titulo = nombreCat();
+      seccion = bib.secciones.find((x) => normCat(x.titulo) === normCat(titulo))?.id || (await enviar({ op: 'seccion', titulo })).seccion;
+    }
+    const d = await enviar({ op: 'nuevo', seccion, titulo: asis.titulo.trim(), html: htmlAsis(), subtareas: pasosLista() });
     const campos = {};
     if (asis.responsable) campos.responsable = asis.responsable;
     if (fecha) campos.fecha = fecha;
@@ -476,6 +520,7 @@ async function asisCrear(b) {
     if (Object.keys(campos).length) await enviar({ op: 'campos', id: d.proceso.id, campos });
     creando = ''; asis = null;
     abierto = d.proceso.id;
+    sec = seccion;
     q = ''; filtro = ''; editandoDesc = false;
     pintar();
     arriba();
@@ -487,25 +532,29 @@ async function asisCrear(b) {
   }
 }
 
+function asisError(txt, foco) {
+  const e = body().querySelector('.pr-asis-error');
+  e.textContent = txt;
+  e.hidden = false;
+  if (foco) body().querySelector(foco)?.focus();
+}
 function asisMover(delta) {
   leerAsis();
-  if (delta > 0 && asis.paso === 0 && !asis.titulo.trim()) {
-    const e = body().querySelector('.pr-asis-error');
-    e.textContent = 'Ponle un nombre para seguir.';
-    e.hidden = false;
-    body().querySelector('[data-asis="titulo"]')?.focus();
-    return;
-  }
-  if (delta > 0 && asis.paso === 3 && asis.video.trim() && !videoEmbed(asis.video.trim())) {
-    const e = body().querySelector('.pr-asis-error');
-    e.textContent = 'Ese enlace de vídeo no lo reconozco. Prueba con el de Loom, YouTube, Vimeo o Bunny, o déjalo vacío.';
-    e.hidden = false;
-    return;
-  }
+  if (delta > 0 && asis.paso === 0 && !asis.categoria) { asisError('Elige una categoría para seguir (o crea una nueva).'); return; }
+  if (delta > 0 && asis.paso === 0 && asis.categoria === 'nueva' && !asis.catNueva.trim()) { asisError('Escribe el nombre de la categoría nueva.', '[data-asis="catNueva"]'); return; }
+  if (delta > 0 && asis.paso === 2 && !asis.titulo.trim()) { asisError('Ponle un nombre al proceso para seguir.', '[data-asis="titulo"]'); return; }
+  if (delta > 0 && asis.paso === 4 && asis.video.trim() && !videoEmbed(asis.video.trim())) { asisError('Ese enlace de vídeo no lo reconozco. Prueba con el de Loom, YouTube, Vimeo o Bunny, o déjalo vacío.', '[data-asis="video"]'); return; }
   asis.paso = Math.max(0, Math.min(ASIS_PASOS.length - 1, asis.paso + delta));
   pintarLista();
   arriba();
-  body().querySelector('.pr-asis-campo :is(input, textarea)')?.focus();
+  body().querySelector('.pr-asis-campo :is(input:not([type="checkbox"]), textarea)')?.focus();
+}
+// Paso a paso: añadir (también con Enter en el último) y quitar casillas.
+function asisPasoAnadir(tras = asis.pasos.length - 1) {
+  leerAsis();
+  asis.pasos.splice(tras + 1, 0, '');
+  pintarLista();
+  body().querySelector(`[data-asis-paso="${tras + 1}"]`)?.focus();
 }
 
 function crearHtml() {
@@ -605,6 +654,7 @@ async function onChange(e) {
 
 function onKey(e) {
   // En el asistente, Enter en un campo de una línea pasa al paso siguiente.
+  if (creando === 'asistente' && e.key === 'Enter' && e.target.matches('input[data-asis-paso]')) { e.preventDefault(); asisPasoAnadir(Number(e.target.dataset.asisPaso)); return; }
   if (creando === 'asistente' && e.key === 'Enter' && e.target.matches('input[data-asis]')) { e.preventDefault(); asisMover(1); return; }
   if (e.target.matches('.pr-titulo')) {
     if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } else requestAnimationFrame(ajustarTitulo);
@@ -647,6 +697,11 @@ async function onClick(e) {
   }
   const ds = e.target.closest('[data-rep-dsem]');
   if (ds && creando === 'asistente') { pulsarDsem(ds); leerAsis(); return; }
+  const ct = e.target.closest('[data-asis-cat]');
+  if (ct) { leerAsis(); asis.categoria = ct.dataset.asisCat; pintarLista(); if (asis.categoria === 'nueva') body().querySelector('[data-asis="catNueva"]')?.focus(); return; }
+  if (e.target.closest('[data-asis-paso-add]')) { asisPasoAnadir(); return; }
+  const pq = e.target.closest('[data-asis-paso-quitar]');
+  if (pq) { leerAsis(); asis.pasos.splice(Number(pq.dataset.asisPasoQuitar), 1); pintarLista(); return; }
   const rp = e.target.closest('[data-asis-resp]');
   if (rp) { leerAsis(); asis.responsable = rp.dataset.asisResp; pintarLista(); return; }
   if (ds && abierto) { pulsarDsem(ds); guardarCampos({ repetir: leerRepetir(ds.closest('[data-rep-ed]'), proc().fecha) }); return; }
@@ -696,7 +751,7 @@ async function onClick(e) {
   if (a === 'crear-cancelar') { creando = ''; asis = null; pintarLista(); return; }
   if (a === 'asis-sig' || a === 'asis-atras') { asisMover(a === 'asis-sig' ? 1 : -1); return; }
   if (a === 'asis-crear') { asisCrear(b); return; }
-  if (a === 'crear-cero') { crearProceso(); return; }
+  if (a === 'crear-cero') { abrirAsistente(); return; }
   if (a === 'crear-volver') { creando = 'elegir'; pintarLista(); return; }
   if (a === 'crear-tablero') {
     creando = 'tablero';
