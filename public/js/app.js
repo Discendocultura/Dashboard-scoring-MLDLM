@@ -13889,20 +13889,20 @@ async function renderGrupoWa() {
   for (const m of gwc.mensajes) { const d = (m.at || 'sin fecha').slice(0, 10); if (!porDia.has(d)) porDia.set(d, []); porDia.get(d).push(m); }
   box.innerHTML = `
     ${estudioHero({ ico: '💬', titulo: 'Mensajes del grupo de WhatsApp', sub: `«${esc(emb.name || code)}» · se escriben con Claude y se programan en SendFlow`,
-      pasos: ['<strong>Copia el prompt</strong> y pégalo en Claude', '<strong>Pega su respuesta</strong> aquí', 'Añade los <strong>archivos</strong> (audios, vídeos…)', '<strong>Revisa y programa</strong> en SendFlow'],
+      pasos: ['Elige qué mensajes quieres, <strong>copia el prompt</strong>, abre Claude y pégalo', 'Copia lo que te responda Claude y <strong>pégalo aquí</strong>', '<strong>Revísalos</strong> (sube el audio o vídeo si alguno lo lleva) y pulsa <strong>«Programar»</strong>: se envían solos'],
+      primeraVez: PRIMERA_VEZ_CLAUDE + '<p>Después pegas aquí la respuesta de Claude tal cual: el dashboard separa cada mensaje con su día y hora, y al pulsar «Programar» se envían solos al grupo (SendFlow) en su momento.</p>',
+      antes: `${avisoMarcaHtml(gwc.marca)}${tipoActual() === 'lanz' ? narrativaCardHtml(code) : ''}`,
       extra: `${sinCampana ? `<div class="st-aviso warn"><span>Aún no tiene su campaña de SendFlow: puedes preparar los mensajes, pero para programarlos hay que elegirla.</span>${editable ? `<button type="button" class="btn small" data-grupos-vincular="${esc(code)}">Elegir la campaña →</button>` : ''}</div>` : !gwc.conectado ? '<div class="st-aviso warn"><span>SendFlow no está conectado (Cuenta → Conexiones).</span></div>' : ''}
       ${gwc.error ? `<div class="st-aviso err"><span>${esc(gwc.error)}</span></div>` : ''}` })}
     ${editable ? `<section class="card st-paso">
-      ${pasoCab(1, 'El prompt para Claude', 'Pégalo en una conversación con tu skill de copy. Si ya hay mensajes programados, el prompt se los dice para que no los repita.')}
+      ${pasoCab(1, 'Copia el prompt para Claude', 'Ya vienen elegidas las fechas y los mensajes de cada día: normalmente solo tienes que pulsar «Copiar el prompt». Si ya hay mensajes programados, Claude no los repetirá.')}
       <div class="st-form gw-form">
         <label class="field"><span>Desde</span><input type="date" id="gw-desde" value="${esc(desde)}"></label>
         <label class="field"><span>Hasta</span><input type="date" id="gw-hasta" value="${esc(hasta)}"></label>
         ${gwDirectos().length ? `<label class="field st-ancho"><span>¿Qué verán en la masterclass? <small>(opcional)</small></span><textarea id="gw-temario" rows="3" placeholder="- Por qué el bebé se despierta cada 2 horas&#10;- Las 3 rutinas que funcionan&#10;- Sorpresa al final para quien se quede">${esc(ls.get(temarioKey()) || '')}</textarea></label>` : ''}
       </div>
       ${gwDirectos().length ? `<div class="st-aviso info"><span>📅 <strong>${gwDirectos().map((x) => `${esc(x.nombre)} · ${esc(fechaFicha(madridToEpoch(x.at)))} a las ${esc(x.at.slice(11))}`).join(' · ')}</strong>. Ese día los mensajes solo recuerdan que es hoy y llevan el enlace de acceso (ya va en el prompt).</span></div>` : ''}
-      ${avisoMarcaHtml(gwc.marca)}
-      ${narrativaCardHtml(code)}
-      ${enMeteo() ? '<div class="st-acciones"><button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt</button></div>' : `<div id="gw-cats-box">${gwCategoriasHtml()}</div>`}
+      ${enMeteo() ? '<div class="st-acciones"><button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">🤖 Abrir Claude ↗</a></div>' : `<div id="gw-cats-box">${gwCategoriasHtml()}</div>`}
       <details class="st-ver"><summary>Ver el prompt</summary><pre class="snippet gw-prompt" id="gw-prompt"></pre></details>
     </section>
     <section class="card st-paso">
@@ -13980,7 +13980,7 @@ function gwCategoriasHtml() {
       ${cal.length ? `<div class="gw-cal">${[...porDia.entries()].map(([d, xs]) => `<div class="gw-cal-dia"><span class="gw-cal-f"><b>${new Date(`${d}T12:00:00Z`).getUTCDate()}</b><small>${esc(new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', month: 'short', timeZone: 'UTC' }).replace(/\./g, ''))}</small></span>
           <div class="gw-cal-ms">${xs.map((x) => `<span class="gw-cal-m f-${x.fase}" title="${esc(x.que)}"><i>${esc(x.at.slice(11))}</i> ${FORMATO_ICO[x.formato] || '✍️'} ${esc(x.titulo)}</span>`).join('')}</div></div>`).join('')}</div>`
         : '<p class="muted small">No hay mensajes en estas categorías y fechas (revisa las fechas del lanzamiento o «Desde» y «Hasta»).</p>'}
-      <div class="gw-cat-btns"><button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt (${cal.length} mensajes)</button>
+      <div class="gw-cat-btns"><button type="button" class="btn primary" id="gw-copiar">📋 Copiar el prompt (${cal.length} mensajes)</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">🤖 Abrir Claude ↗</a>
         ${fases.filter((id) => n(id)).map((id) => `<button type="button" class="btn small" data-wa-solo="${id}">${EM_FASE[id]?.ico || ''} Solo ${esc(EM_FASE[id]?.nombre || id)} (${n(id)})</button>`).join('')}</div>
     </div>`;
 }
@@ -14142,23 +14142,20 @@ async function renderEmailsIa() {
     </article>`;
   };
   box.innerHTML = `${estudioHero({ ico: '✉️', titulo: 'Emails con IA', sub: `«${esc(l.name)}» · toda la secuencia con las fechas reales`,
-      pasos: ['Elige las <strong>fases</strong>', '<strong>Copia el prompt</strong> y pégalo en Claude', 'Prográmalos en <strong>GHL</strong>'],
-      extra: `${avisoMarcaHtml(marca)}${narrativaCardHtml(code)}` })}
+      pasos: ['Elige <strong>qué emails</strong> quieres (ya vienen todos marcados)', '<strong>Copia el prompt</strong>, abre Claude y pégalo', 'Copia cada email que te dé y <strong>prográmalo en GHL</strong> en su día y hora'],
+      primeraVez: PRIMERA_VEZ_CLAUDE + '<p>Aquí debajo ves el <strong>calendario</strong>: qué email sale cada día y a qué hora. Claude te los escribe todos de una vez, con esas fechas.</p>',
+      antes: `${avisoMarcaHtml(marca)}${narrativaCardHtml(code)}` })}
     <section class="card em-panel">
-      <div class="em-top">
-        <div class="em-stats">
-          <div class="em-stat"><b>${plan.length}</b><span>emails</span></div>
-          <div class="em-stat"><b>${dias}</b><span>días</span></div>
-          <div class="em-stat"><b>${nPrevios}</b><span>antes del directo</span></div>
-          <div class="em-stat"><b>${nVenta}</b><span>de carrito</span></div>
-        </div>
-        <button type="button" class="btn primary em-copiar" id="em-copiar">📋 Copiar el prompt para Claude</button>
-      </div>
       <div class="em-bloque">
-        <h4>Qué emails incluir <small>pulsa una fase para quitarla o ponerla</small></h4>
+        ${pasoCab(1, 'Qué emails quieres', 'Ya vienen todos marcados. Pulsa una fase solo si quieres quitarla.')}
         <div class="em-fases" role="group" aria-label="Qué emails">
           ${FASES_EMAIL.filter((f) => f.id !== 'vip' || Number(l.precioVip) > 0).map((f) => `<button type="button" class="em-fase${fases.includes(f.id) ? ' on' : ''}" data-em-fase="${f.id}" aria-pressed="${fases.includes(f.id)}" title="${esc(f.desc)}"><span class="em-fase-ico" aria-hidden="true">${EM_FASE[f.id]?.ico || ''}</span>${esc(EM_FASE[f.id]?.nombre || f.label)}</button>`).join('')}
         </div>
+      </div>
+      <div class="em-top">
+        ${pasoCab(2, 'Copia el prompt y pégalo en Claude', `${plan.length} emails en ${dias} días: ${nPrevios} antes del directo y ${nVenta} de carrito.`)}
+        <div class="st-acciones"><button type="button" class="btn primary em-copiar" id="em-copiar">📋 Copiar el prompt</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">🤖 Abrir Claude ↗</a></div>
+        <p class="muted small st-luego">${pasoN(3)} Cuando Claude te los dé, copia cada uno y prográmalo en GHL (Marketing → Emails) el día y la hora del calendario de abajo.</p>
       </div>
       ${nVenta ? '<div class="em-leyenda"><span>Los emails del carrito van de</span><span class="em-grad"><i>emocional</i><i>racional</i></span><span>En cada tarjeta, el mensaje de ese email.</span></div>' : ''}
     </section>
@@ -14194,8 +14191,8 @@ async function renderEmailsIa() {
   $('#em-notas').addEventListener('input', () => { ls.set(notasEmKey(), $('#em-notas').value); $('#em-prompt').textContent = emPrompt(code, marca); });
   $('#em-copiar').addEventListener('click', async (e) => {
     const ok = await copiarAlPortapapeles(emPrompt(code, marca));
-    e.target.textContent = ok ? '✓ Copiado · pégalo en Claude' : 'No se pudo copiar: ábrelo en Ajustes → Ver el prompt';
-    setTimeout(() => { e.target.textContent = '📋 Copiar el prompt para Claude'; }, 3000);
+    e.target.textContent = ok ? '✓ Copiado · ahora pulsa «Abrir Claude» y pégalo' : 'No se pudo copiar: ábrelo en Ajustes → Ver el prompt';
+    setTimeout(() => { e.target.textContent = '📋 Copiar el prompt'; }, 4000);
   });
   $('#em-cargar-gan')?.addEventListener('click', async (e) => {
     e.target.disabled = true;
@@ -14381,7 +14378,8 @@ async function renderAnuncios() {
   const otros = PROMPTS_ANUNCIOS.filter((p) => p.id !== 'todo');
   box.innerHTML = `${estudioHero({ ico: '🎯', titulo: 'Anuncios con IA', sub: `«${esc(c.nombre)}» · guiones, creatividades en Magnific y copys para Meta, por objetivo`,
       pasos: ['Elige el <strong>objetivo</strong> y copia su prompt', 'Pégalo en <strong>Claude</strong> con <strong>Magnific</strong> conectado', 'Sube los creativos a <strong>Meta</strong> con el mismo nombre'],
-      extra: `${avisoMarcaHtml(pgc.marca)}${lanz ? narrativaCardHtml(state.launchCode) : ''}` })}
+      primeraVez: PRIMERA_VEZ_CLAUDE,
+      antes: `${avisoMarcaHtml(pgc.marca)}${lanz ? narrativaCardHtml(state.launchCode) : ''}` })}
     <section class="card st-ajustes">
       <div class="st-sec-cab"><h3>⚙️ Ajustes de los prompts</h3><span class="muted small">Entran en todos los prompts de esta página</span></div>
       <div class="st-form">
@@ -14528,15 +14526,16 @@ async function renderPaginas() {
   const propuestas = propuestasEmbudo(state.embudo);
   const urlsDe = (p) => propuestas.filter((x) => x.pagina === p.id);
   box.innerHTML = `${estudioHero({ ico: '🧱', titulo: 'Páginas con IA', sub: `«${esc(c.nombre)}» · un prompt por página con la marca, el avatar, los datos y los códigos del dashboard`,
-      pasos: ['<strong>Copia el prompt</strong> de la página', 'Pégalo en <strong>Claude</strong> y pide los cambios que quieras', 'En <strong>GHL</strong>: elemento «Código personalizado» → pega → publica'],
-      extra: `${avisoMarcaHtml(pgc.marca)}${tipoActual() === 'lanz' ? narrativaCardHtml(state.launchCode) : ''}
-      <div class="st-aviso info pg-ghl-nota"><span>📐 <strong>Importante en GHL, en cada página</strong> (si no, se verá estrecha o con bordes blancos):
+      pasos: ['Elige la página de abajo y pulsa <strong>«Copiar el prompt»</strong>', 'Pulsa <strong>«Abrir Claude»</strong>, pégalo y pide los cambios que quieras', 'En <strong>GHL</strong>: añade un elemento «Código personalizado», pega lo que te dio Claude y publica'],
+      primeraVez: PRIMERA_VEZ_CLAUDE + '<p>Claude te devuelve la página hecha en código (HTML). No tienes que entenderlo: solo copiarlo entero y pegarlo en GHL como se explica en el paso 3.</p>',
+      antes: `${avisoMarcaHtml(pgc.marca)}${tipoActual() === 'lanz' ? narrativaCardHtml(state.launchCode) : ''}`,
+      extra: `<details class="st-plegable pg-ghl-nota"><summary>📐 <strong>Paso 3 · Cómo pegarla en GHL</strong> para que se vea a pantalla completa</summary><div class="st-aviso info"><span>En cada página (si no, se verá estrecha o con bordes blancos):
         <ol>
           <li>Pulsa la <strong>sección</strong> donde has pegado el código y, en el panel de la derecha, activa <strong>«Extender sección»</strong> (en inglés, <em>Full width</em>): así ocupa toda la pantalla.</li>
           <li>En esa misma sección, en <strong>Márgenes</strong> y <strong>Relleno</strong> (<em>Margin</em> y <em>Padding</em>), pon todo a <strong>0</strong> (arriba, abajo, izquierda y derecha).</li>
           <li>Haz lo mismo con la <strong>fila</strong> y la <strong>columna</strong> que la contienen: márgenes y relleno a <strong>0</strong> y la <strong>anchura</strong> sin ningún número de píxeles fijo (déjala en automático / 100 %).</li>
         </ol>
-        Así el diseño de Claude se ve a pantalla completa, igual en el móvil que en el ordenador.</span></div>` })}
+        Así el diseño de Claude se ve a pantalla completa, igual en el móvil que en el ordenador.</span></div></details>` })}
     ${propuestas.length ? `<section class="card">
       <details class="st-plegable"><summary>🔗 URLs de las páginas <span class="st-chip">${propuestas.length}</span> <button type="button" class="btn small" id="pg-urls-copiar">📋 Copiar todas</button></summary>
         <p class="muted small">Las que propusimos al crear el embudo. Crea cada página en GHL con su URL${tipoActual() === 'lanz' ? '; ya van en los prompts, en los lanzamientos nuevos y en los mensajes del grupo' : ''}. Para cambiarlas: ⚙️ del embudo → Páginas y WhatsApp.</p>
@@ -14551,7 +14550,7 @@ async function renderPaginas() {
       <p class="pg-obj">${esc(p.objetivo)}</p>
       ${urlsDe(p).length ? `<ul class="pg-urls">${urlsDe(p).map((x) => urlItemHtml(x, { conNombre: urlsDe(p).length > 1 })).join('')}</ul>` : ''}
       <div class="pg-chips"><span class="st-chip">${n} código${n === 1 ? '' : 's'} del dashboard</span>${p.formulario ? `<span class="st-chip">formulario de ${p.formulario === 'pago' ? 'pago' : 'registro'} de GHL</span>` : ''}</div>
-      <button type="button" class="btn primary st-bloque" data-pag-copiar="${esc(p.id)}">📋 Copiar el prompt</button>
+      <div class="pg-acciones"><button type="button" class="btn primary" data-pag-copiar="${esc(p.id)}">📋 Copiar el prompt</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener" title="Abrir Claude en una pestaña nueva">🤖 Claude ↗</a></div>
       <details class="st-ver pg-cuerpo"><summary>Personalizar y ver el prompt</summary>
         <p class="small"><strong>Lleva:</strong> ${esc(p.secciones.join(' · '))}</p>
         <label class="field"><span>Indicaciones para esta página <small>(opcional)</small></span><textarea rows="2" data-pag-notas="${esc(p.id)}" placeholder="Ej.: más corta; empieza con un testimonio…">${esc(ls.get(notasPagKey(p.id)) || '')}</textarea></label>
@@ -14609,11 +14608,24 @@ function avisoMarcaHtml(mp) {
     : `<div class="st-aviso"><span>🎨 Lleva el cuestionario de marca${nombre ? ` y de «${esc(nombre)}»` : ''}. Saldrá mejor con la ficha hecha (Marca y avatar → el producto → Ficha).</span>${btn}</div>`;
 }
 // Cabecera común de las vistas «con IA» (Anuncios, Páginas, Grupo de WhatsApp): título, una línea y los pasos en fila.
-const estudioHero = ({ ico, titulo, sub, pasos = [], extra = '' }) => `<section class="card st-hero">
+//   antes: recomendaciones (marca, narrativa) que mejoran el resultado pero no impiden empezar: van plegadas.
+//   primeraVez: explicación en lenguaje llano para quien llega por primera vez (plegada).
+const estudioHero = ({ ico, titulo, sub, pasos = [], extra = '', antes = '', primeraVez = '' }) => {
+  const faltan = (antes.match(/st-aviso warn|info narr-card/g) || []).length;
+  return `<section class="card st-hero">
     <div class="st-hero-cab"><span class="st-hero-ico" aria-hidden="true">${ico}</span><div><h2>${titulo}</h2>${sub ? `<p class="st-sub">${sub}</p>` : ''}</div></div>
     ${pasos.length ? `<ol class="st-pasos">${pasos.map((x, i) => `<li><span class="st-n">${i + 1}</span><span>${x}</span></li>`).join('')}</ol>` : ''}
+    <div class="st-empieza"><span>👇 <strong>Empieza por el paso 1</strong>, justo aquí debajo.</span>
+      <a class="btn small st-claude" href="https://claude.ai/new" target="_blank" rel="noopener">🤖 Abrir Claude ↗</a></div>
+    ${primeraVez ? `<details class="st-primera"><summary>🙋 ¿Primera vez? Así funciona</summary><div class="st-primera-txt">${primeraVez}</div></details>` : ''}
     ${extra}
+    ${antes ? `<details class="st-antes"${faltan ? '' : ''}><summary>${faltan ? `💡 <strong>Para que salga mejor</strong> <span class="muted">(opcional) · ${faltan} ${faltan === 1 ? 'cosa' : 'cosas'} por completar</span>` : '✅ <strong>Lleva tu marca y tu narrativa</strong> <span class="muted">· ver</span>'}</summary><div class="st-antes-in">${antes}</div></details>` : ''}
   </section>`;
+};
+// Lo que significa «pegar el prompt en Claude», igual en todas las vistas con IA.
+const PRIMERA_VEZ_CLAUDE = '<p>El dashboard ya sabe todo lo de este lanzamiento (fechas, precios, enlaces, tu marca y tu cliente ideal) y lo junta en un texto largo: <strong>el prompt</strong>. Tú solo tienes que:</p><ol><li>Pulsar <strong>«Copiar el prompt»</strong>.</li><li>Pulsar <strong>«Abrir Claude»</strong>, pegarlo (Ctrl+V o ⌘+V) y enviarlo.</li><li>Claude te devuelve el resultado listo. Si algo no te gusta, pídeselo con tus palabras: «más corto», «más cercano», «cambia el titular»…</li></ol><p>No hace falta escribir nada más ni saber de IA.</p>';
+// Número de paso pequeño, dentro de un texto.
+const pasoN = (n) => `<span class="st-n">${n}</span>`;
 // Cabecera de un paso numerado dentro de una tarjeta.
 const pasoCab = (n, titulo, sub = '', derecha = '') => `<div class="st-paso-cab"><span class="st-n grande">${n}</span><div class="st-paso-txt"><h3>${titulo}</h3>${sub ? `<p class="muted small">${sub}</p>` : ''}</div>${derecha}</div>`;
 function gwFila(m, editable) {
