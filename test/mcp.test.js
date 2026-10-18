@@ -1,6 +1,7 @@
 // Conector de Claude: OAuth (registro, permiso, PKCE, código de un solo uso, renovación, revocar) y servidor MCP.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
+import { dayInMadrid } from '../public/js/scoring.js';
 
 const ENV = { GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret' };
 const CB = 'https://claude.ai/api/mcp/auth_callback';
@@ -90,7 +91,7 @@ test('flujo completo: código con PKCE, herramientas, renovación, código reusa
   const admin = await login('admin');
   // Lanzamiento con fechas para el resto de herramientas.
   const cfg = await call('/api/config', { cookie: admin });
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = dayInMadrid(new Date().toISOString()) // el día en Madrid, como la herramienta;
   const d = (n) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
   const launches = { ...cfg.data.config.launches, oct: { name: 'Octubre', registroTag: 'registro-webinar-demo', compraTag: 'clienta-raices', inicioCaptacion: d(-10), finCaptacion: d(2), fechaDirecto: d(2), horaDirecto: '18:00', aperturaCarrito: `${d(2)}T19:30`, cierreCarrito: `${d(7)}T23:59`, precioPrograma: 997, narrativa: { titulo: 'El Camino', texto: 'TÍTULO: «El Camino»\nIDEA CENTRAL: etapas.' } } };
   const g = await call('/api/config', { method: 'POST', cookie: admin, body: { ...cfg.data.config, launches, _version: cfg.data.version } });
