@@ -14,6 +14,8 @@ import {
 import { waPhone } from './scoring.js';
 
 const POR_PAGINA = 40;
+const POR_COLUMNA = 60; // tarjetas que se pintan en cada fase de «Hoy» (las demás, con «Y N más»)
+const TANDA = 20; // alumnos por visita al servidor al meterlos en «Por contactar» (igual que en handlers/cruzadas.js)
 const FRESCOS_MS = 10 * 60 * 1000;
 // Un solo color (el azul «de datos» del logo) más grises: los productos se distinguen por su nombre, no por
 // su color, para que la pantalla no tenga ruido visual.
@@ -346,7 +348,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
       <li>En GHL: <b>Oportunidades → Pipelines → «＋ Crear pipeline»</b>.</li>
       <li>Ponle de nombre <b>${esc(PIPELINE_CRUZADAS)}</b> (o el que quieras, y elígelo aquí).</li>
       <li>Crea estas <b>${ETAPAS_CRUZADAS.length} fases en este orden</b> <button type="button" class="btn small ghost" data-xp-copiar>📋 Copiar los nombres</button></li>
-      <li>Mete a los alumnos a los que vais a llamar en <b>«Por contactar»</b> (desde GHL o con un workflow por etiqueta). Al anotar el resultado en <b>Llamadas</b>, AlquimIA los mueve de fase solo.</li>
+      <li>Vuelve aquí y pulsa <b>«📥 Meter a los alumnos en "Por contactar"»</b>: AlquimIA los mete a todos de una vez. Al anotar el resultado en <b>Llamadas</b>, los mueve de fase solo.</li>
     </ol></div>`;
 
   function pintarHoy() {
@@ -394,10 +396,59 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     };
     const columna = (e, i) => `<section class="xp-col ${cerrada(e.nombre) ? 'cerr' : ''}" style="--c:${COLORES[0]};--i:${i}">
       <header><span class="xp-col-ico" aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><strong>${esc(e.nombre)}</strong><span class="xp-col-n">${num(nDe(e))}</span></header>
-      ${suyos(e).length ? `<ol>${suyos(e).map(tarjeta).join('')}</ol>${!vista.com && e.n > e.items.length ? `<p class="muted small xp-col-mas">Y ${num(e.n - e.items.length)} más en GHL</p>` : ''}` : '<p class="xp-col-vacia">Nadie en esta fase</p>'}</section>`;
-    caja.innerHTML = `${cab}${resumen}<div class="xp-tablero">${abiertas.map(columna).join('')}${hoy.cerradas ? cerradas.map((e) => columna(e, d.etapas.indexOf(e))).join('') : ''}</div>
+      ${suyos(e).length ? `<ol>${suyos(e).slice(0, POR_COLUMNA).map(tarjeta).join('')}</ol>${nDe(e) > Math.min(POR_COLUMNA, suyos(e).length) ? `<p class="muted small xp-col-mas">Y ${num(nDe(e) - Math.min(POR_COLUMNA, suyos(e).length))} más${vista.com ? '' : ' (filtra por comercial para ver los tuyos)'}</p>` : ''}` : '<p class="xp-col-vacia">Nadie en esta fase</p>'}</section>`;
+    // Alumnos que aún no están en el pipeline (por su id de contacto, con lo leído de GHL).
+    const enPipe = new Set(d.etapas.flatMap((e) => e.items.map((it) => it.contactId)));
+    const fuera = datos.alumnos ? datos.alumnos.filter((a) => !enPipe.has(a.id)).length : null;
+    const volcar = puedeConfig() && fuera ? `<div class="xp-volcar">
+        <span class="xp-volcar-ico" aria-hidden="true">📥</span>
+        <div><strong>${num(fuera)} alumnos aún no están en el pipeline</strong><small>Mételos en la fase «${esc(etapaInicial(d))}» para que tus closers los vayan moviendo cuando empiecen a llamar.${cfg.comerciales.length ? ' Cada oportunidad lleva en el nombre el comercial que le toca.' : ''}</small></div>
+        <button type="button" class="btn primary" data-xp-volcar ${hoy.volcando ? 'disabled' : ''}>${hoy.volcando ? `Metiendo… ${num(hoy.volcando.hechos)} de ${num(hoy.volcando.total)}` : `📥 Meter a los ${num(fuera)} en «${esc(etapaInicial(d))}»`}</button></div>` : '';
+    caja.innerHTML = `${cab}${volcar}${resumen}<div class="xp-tablero">${abiertas.map(columna).join('')}${hoy.cerradas ? cerradas.map((e) => columna(e, d.etapas.indexOf(e))).join('') : ''}</div>
       ${cerradas.length ? `<div class="xa-mas"><button type="button" class="btn ghost" data-x-cerradas>${hoy.cerradas ? 'Ocultar las cerradas' : `Ver las cerradas (${cerradas.map((e) => `${ICO_ETAPA(e.nombre)} ${num(e.n)}`).join(' · ')})`}</button></div>` : ''}`;
   }
+
+  // La fase donde entran (la misma regla que el servidor): «Por contactar» o, si no, la primera.
+  const etapaInicial = (d) => (d.etapas.find((e) => /por contactar/i.test(e.nombre)) || d.etapas[0])?.nombre || 'Por contactar';
+  // Mete en «Por contactar» a todos los alumnos que aún no están en el pipeline, por tandas, con el avance a la vista.
+  async function volcarPorContactar() {
+    const id = hoy.id;
+    const d = hoy.datos;
+    if (!d?.pipeline || !datos.alumnos || hoy.volcando) return;
+    const enPipe = new Set(d.etapas.flatMap((e) => e.items.map((it) => it.contactId)));
+    const lista = datos.alumnos.filter((a) => !enPipe.has(a.id));
+    if (!lista.length) return;
+    if (!window.confirm(`Se van a crear ${lista.length} oportunidades en GHL, en el pipeline «${d.pipeline.nombre}», fase «${etapaInicial(d)}».\n\nLos que ya estén en ese pipeline no se tocan. ¿Seguimos?`)) return;
+    hoy.volcando = { hechos: 0, total: lista.length };
+    let creados = 0;
+    let ya = 0;
+    let fallidos = 0;
+    let error = '';
+    pintarHoy();
+    try {
+      for (let i = 0; i < lista.length; i += TANDA) {
+        const tanda = lista.slice(i, i + TANDA).map((a) => ({ id: a.id, nombre: a.name }));
+        const r = await api('/api/cruzadas', { method: 'POST', body: { op: 'por-contactar', x: id, contactos: tanda } });
+        creados += r.creados;
+        ya += r.yaEstaban;
+        fallidos += r.fallidos;
+        if (r.errores?.length) error = r.errores[0];
+        hoy.volcando.hechos = Math.min(lista.length, i + TANDA);
+        progress(hoy.volcando.hechos, lista.length, `Metiendo alumnos en «${etapaInicial(d)}»… ${hoy.volcando.hechos} de ${lista.length}`);
+        const btn = $('[data-xp-volcar]');
+        if (btn) btn.textContent = `Metiendo… ${num(hoy.volcando.hechos)} de ${num(lista.length)}`;
+        if (fallidos && !creados && !ya) break; // nada sale bien (p. ej. sin permiso en GHL): se para
+      }
+    } catch (e) {
+      error = e.message;
+    } finally {
+      hoy.volcando = null;
+      progress(null);
+    }
+    notice(`${creados ? `✓ ${num(creados)} alumnos metidos en «${etapaInicial(d)}»` : 'No se ha metido ningún alumno'}${ya ? ` · ${num(ya)} ya estaban en el pipeline` : ''}${fallidos ? ` · ${num(fallidos)} con error${error ? ` (${error})` : ''}` : ''}.`, Boolean(fallidos && !creados));
+    if (hoy.id === id) cargarHoy(id, { fresh: true });
+  }
+  document.addEventListener('click', (e) => { if (e.target.closest('#xhoy-body [data-xp-volcar]')) volcarPorContactar(); });
 
   // ---------- Ofertas: qué ofrecer a cada tipo de alumno ----------
   function pintarOfertas(id = state.embudo) {

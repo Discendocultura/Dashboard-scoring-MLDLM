@@ -144,11 +144,11 @@ test('ventas cruzadas (API): pipelines para elegir y el tablero de «Hoy» por f
   assert.equal((await call('/api/cruzadas?x=no-existe', { cookie: admin })).status, 404);
   // Sin pipeline «Ventas cruzadas» en GHL: lo dice (para recomendar crearlo)
   const c = (await call('/api/config', { cookie: admin })).data;
-  const base = { name: 'Ventas cruzadas', productos: [{ nombre: 'Raíces', tag: 'clienta-raices' }, { nombre: 'Sueño', tag: 'upsell-curso-sueno' }], llamadas: true };
+  const base = { name: 'Ventas cruzadas', productos: [{ nombre: 'Raíces', tag: 'clienta-raices' }, { nombre: 'Sueño', tag: 'upsell-curso-sueno' }], llamadas: true, llamadasPipeline: 'Cruzadas 2027' };
   await call('/api/config', { method: 'POST', cookie: admin, body: { ...c.config, _version: c.version,
     embudos: [...c.config.embudos.filter((e) => e.id !== 'xh'), { id: 'xh', tipo: 'cruzadas', nombre: 'X Hoy' }], cruzadas: { ...c.config.cruzadas, xh: base } } });
   const sin = await call('/api/cruzadas?x=xh', { cookie: admin });
-  assert.deepEqual(sin.data, { motivo: 'sin_pipeline', buscado: 'Ventas cruzadas' });
+  assert.deepEqual(sin.data, { motivo: 'sin_pipeline', buscado: 'Cruzadas 2027' });
   // Con un pipeline elegido: sus fases con los alumnos de cada una
   const c2 = (await call('/api/config', { cookie: admin })).data;
   await call('/api/config', { method: 'POST', cookie: admin, body: { ...c2.config, _version: c2.version, cruzadas: { ...c2.config.cruzadas, xh: { ...base, llamadasPipeline: 'Leads Lanzamientos' } } } });
@@ -181,4 +181,29 @@ test('ventas cruzadas (API): sus productos entran solos en Mi negocio → Produc
   const r2 = await call('/api/config', { method: 'POST', cookie: admin, body: { ...c2.config, _version: c2.version } });
   assert.equal(r2.data.catalogoNuevos, 0);
   assert.equal((await call('/api/productos', { cookie: admin })).data.catalogo.productos.length, cat.length);
+});
+
+test('ventas cruzadas (API): meter a los alumnos en «Por contactar» (sin repetir a los que ya están)', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const c = (await call('/api/config', { cookie: admin })).data;
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...c.config, _version: c.version,
+    embudos: [...c.config.embudos.filter((e) => e.id !== 'xpc'), { id: 'xpc', tipo: 'cruzadas', nombre: 'X PC' }],
+    cruzadas: { ...c.config.cruzadas, xpc: { name: 'X PC', productos: [{ nombre: 'A', tag: 'clienta-raices' }, { nombre: 'B', tag: 'upsell-curso-sueno' }], llamadas: true, comerciales: [{ nombre: 'Vicky', pct: 100 }] } } } });
+  const contactos = [{ id: 'cx1', nombre: 'Ana Díaz' }, { id: 'cx2', nombre: 'Eva Ruiz' }];
+  const r = await call('/api/cruzadas', { method: 'POST', cookie: admin, body: { op: 'por-contactar', x: 'xpc', contactos } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual([r.data.creados, r.data.yaEstaban, r.data.etapa, r.data.pipeline], [2, 0, 'Por contactar', 'Ventas cruzadas']);
+  // Otra vez: ya estaban, no se duplican
+  const r2 = await call('/api/cruzadas', { method: 'POST', cookie: admin, body: { op: 'por-contactar', x: 'xpc', contactos } });
+  assert.deepEqual([r2.data.creados, r2.data.yaEstaban], [0, 2]);
+  // Salen en «Hoy», en «Por contactar», con el comercial en el nombre
+  const hoy = await call('/api/cruzadas?x=xpc&fresh=1', { cookie: admin });
+  const pc = hoy.data.etapas.find((e) => e.nombre === 'Por contactar');
+  assert.equal(pc.n, 2);
+  assert.ok(pc.items.some((it) => it.nombre === 'Ana Díaz · Vicky'));
+  // Como mucho 20 por tanda, y solo quien configura
+  const muchos = Array.from({ length: 30 }, (_, i) => ({ id: `cy${i}`, nombre: `P${i}` }));
+  assert.equal((await call('/api/cruzadas', { method: 'POST', cookie: admin, body: { op: 'por-contactar', x: 'xpc', contactos: muchos } })).data.creados, 20);
+  const setter = (await call('/api/login', { method: 'POST', body: { password: 'setter' } })).res.headers.get('set-cookie').split(';')[0];
+  assert.equal((await call('/api/cruzadas', { method: 'POST', cookie: setter, body: { op: 'por-contactar', x: 'xpc', contactos } })).status, 403);
 });

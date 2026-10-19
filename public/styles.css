@@ -7177,3 +7177,9 @@ body.embudo-cruzadas .lanz-only { display: none !important; }
 .pd-per-tag { display: grid; gap: 2px; }
 .pd-per-tag .pd-in { font-size: 13px; padding: 6px 9px; }
 @media (max-width: 640px) { .pd-cobros { grid-template-columns: 1fr; } }
+
+/* Ventas cruzadas · Hoy: meter a todos los alumnos en «Por contactar» */
+.xp-volcar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); }
+.xp-volcar > div { flex: 1 1 280px; display: grid; gap: 2px; }
+.xp-volcar small { color: var(--text-2); font-size: 13px; line-height: 1.45; }
+.xp-volcar-ico { font-size: 28px; }
