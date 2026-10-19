@@ -15,9 +15,9 @@ import { waPhone } from './scoring.js';
 
 const POR_PAGINA = 40;
 const FRESCOS_MS = 10 * 60 * 1000;
-// Un solo color (el de contraste, el naranja del logo) más grises: los productos se distinguen por su nombre, no por
+// Un solo color (el azul «de datos» del logo) más grises: los productos se distinguen por su nombre, no por
 // su color, para que la pantalla no tenga ruido visual.
-const COLORES = ['var(--accent)'];
+const COLORES = ['var(--dato)'];
 // (si el nombre de la fase en GHL ya empieza por un emoji, no se pone otro)
 const ICO_ETAPA = (nombre) => (/^\s*\p{Extended_Pictographic}/u.test(nombre || '') ? '' : ETAPAS_CRUZADAS.find((e) => e.nombre.toLowerCase() === String(nombre || '').trim().toLowerCase())?.ico
   || (/venta|ganad/i.test(nombre) ? '✅' : /perdid/i.test(nombre) ? '❌' : /no contesta/i.test(nombre) ? '📵' : /agenda/i.test(nombre) ? '📅' : /seguim/i.test(nombre) ? '🔁' : /contact/i.test(nombre) ? '💬' : '📌'));
