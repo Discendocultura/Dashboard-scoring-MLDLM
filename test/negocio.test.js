@@ -2,6 +2,7 @@ import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { agregar, recomendaciones, rangosNegocio } from '../lib/negocio-calc.js';
 import { sanitizeCatalogo, sinIva, compraDe, faltasProducto } from '../public/js/productos.js';
+import { catalogoDesdeConfig } from '../lib/productos.js';
 
 const ENV = { GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret' };
 let route;
@@ -146,6 +147,28 @@ test('inteligencia de negocio: con catálogo de productos, compras por etiqueta,
   assert.ok(b.productos.find((p) => p.nombre === 'Reto Ovulación').recomendaciones.some((r) => /A qué producto quieres llevarles/.test(r.titulo)));
 });
 
+test('productos: se rellenan solos desde los embudos (lanzamiento, venta directa que lleva al principal y meteórico)', () => {
+  const config = {
+    marca: { producto: 'Raíces' },
+    embudos: [{ id: 'lanz', tipo: 'lanzamientos', nombre: 'Lanzamientos' }, { id: 'reto', tipo: 'directa', nombre: 'Reto Ovulación' }, { id: 'vsl', tipo: 'vsl', nombre: 'VSL' }],
+    launches: {
+      oct: { name: 'Octubre', embudo: 'lanz', inicioCaptacion: '2026-10-01', compraTag: 'clienta-raices', precioPrograma: 997, iva: { programa: 'incluido' }, compraDateField: 'fc' },
+      may: { name: 'Mayo', embudo: 'lanz', inicioCaptacion: '2026-05-01', compraTag: 'raices-mayo', precioPrograma: 897 },
+    },
+    vsls: { vsl: { name: 'VSL Raíces', compraTag: 'et-compra-raices-vsl', precioPrograma: 797 } },
+    directas: { reto: { producto: 'Reto Ovulación', precio: 27, iva: { producto: 'exento' }, compraTag: 'compra-reto', upsellPrincipal: { tags: ['clienta-raices'] } } },
+    meteoricos: { m1: { name: 'Flash', producto: 'Masterclass', precio: 47, compraTag: 'compra-flash', embudo: 'lanz' } },
+  };
+  const c = catalogoDesdeConfig(config);
+  assert.deepEqual(c.productos.map((p) => p.nombre), ['Raíces', 'Reto Ovulación', 'Masterclass']);
+  const raices = c.productos[0];
+  assert.deepEqual({ precio: raices.precio, etiqueta: raices.etiqueta, fecha: raices.fechaCampo, emb: raices.embudos }, { precio: 997, etiqueta: 'clienta-raices', fecha: 'fc', emb: ['lanz', 'vsl'] });
+  assert.deepEqual(raices.ofertas.map((o) => [o.nombre, o.precio, o.etiqueta]), [['Mayo', 897, 'raices-mayo'], ['VSL Raíces', 797, 'et-compra-raices-vsl']]);
+  const reto = c.productos[1];
+  assert.deepEqual({ tipo: reto.tipo, iva: reto.iva, siguiente: reto.siguiente }, { tipo: 'entrada', iva: 'sin', siguiente: raices.id });
+  assert.equal(catalogoDesdeConfig({ embudos: [] }).productos.length, 0);
+});
+
 test('productos: limpieza del catálogo, precio sin IVA y oferta de cada compra', () => {
   const c = sanitizeCatalogo({ productos: [{ nombre: 'Raíces', precio: '997', iva: 'incluido', etiqueta: ' Clienta-Raices ', ofertas: [{ nombre: 'BF', precio: 697, etiqueta: 'raices-bf' }, { nombre: '' }] }, { nombre: '' }] });
   assert.equal(c.productos.length, 1);
@@ -174,7 +197,9 @@ test('inteligencia de negocio: la API calcula pieza a pieza hasta completar el h
   // La siguiente visita ya no recalcula nada
   const otra = (await call('/api/negocio?periodo=todo', { cookie: admin })).data;
   assert.equal(otra.pendientes, 0);
-  assert.equal(otra.fuenteProductos, 'embudos');
+  // Sin productos guardados, se ponen solos los de sus embudos (el del lanzamiento, con su etiqueta de compra)
+  const sembrado = (await call('/api/productos', { cookie: admin })).data.catalogo;
+  assert.ok(sembrado.productos.some((p) => p.etiqueta === 'clienta-raices' && p.tipo === 'principal' && p.precio === 997), JSON.stringify(sembrado).slice(0, 300));
   // Con productos en Mi negocio → Productos, salen de ahí (compras por su etiqueta)
   const g = await call('/api/productos', { method: 'POST', cookie: admin, body: { catalogo: { productos: [{ nombre: 'Raíces', precio: 997, iva: 'sin', etiqueta: 'clienta-raices', embudos: ['lanz'] }] } } });
   assert.equal(g.status, 200);

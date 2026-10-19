@@ -1,20 +1,21 @@
 // Mi negocio → 📦 Productos: el catálogo del cliente (precio, etiqueta de compra y ofertas de cada producto).
 //   GET  /api/productos → { catalogo, puedeEditar }
 //   POST /api/productos { catalogo } (quien puede configurar) → guarda el catálogo entero
-// De aquí bebe la Inteligencia de negocio (lib/negocio.js): al cambiar precios o etiquetas, se recalcula sola.
+// La primera vez se rellena solo con los productos de sus embudos (lib/productos.js). De aquí bebe la Inteligencia
+// de negocio (lib/negocio.js): al cambiar precios o etiquetas, se recalcula sola.
 import { requireSession, tienePermiso } from '../lib/auth.js';
-import { leerJSON, guardarJSON } from '../lib/store.js';
+import { guardarJSON } from '../lib/store.js';
+import { cargarCatalogo, CLAVE_PRODUCTOS } from '../lib/productos.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { sanitizeCatalogo } from '../public/js/productos.js';
 
-export const CLAVE_PRODUCTOS = 'lsd_productos';
 const puedeEditar = (s) => s.role === 'admin' || tienePermiso(s, 'config');
 
 export async function GET(request) {
   try {
     const s = await requireSession(request);
     if (!puedeEditar(s) && !tienePermiso(s, 'metricas')) return json({ error: 'Tu rol no tiene acceso a los productos.' }, 403);
-    return json({ catalogo: sanitizeCatalogo(await leerJSON(CLAVE_PRODUCTOS, () => ({}))), puedeEditar: puedeEditar(s) });
+    return json({ catalogo: await cargarCatalogo(), puedeEditar: puedeEditar(s) });
   } catch (e) {
     return errorResponse(e);
   }

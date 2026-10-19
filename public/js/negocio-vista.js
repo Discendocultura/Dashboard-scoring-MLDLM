@@ -88,7 +88,7 @@ function productoHtml(d, p) {
   const o = p.objetivo;
   const objetivo = o ? `<div class="ng-objetivo">
       <div class="ng-objetivo-t"><span aria-hidden="true">🎯</span><div><small>El producto al que quiere llevar</small><strong>${esc(o.nombre)}</strong></div></div>
-      <div class="ng-objetivo-d"><strong>${pct(o.pct)}</strong><span>${num(o.n)} de ${num(p.compradores)} compradores lo compran después${o.dias != null ? ` · a los ${num(o.dias)} días de media` : ''}</span>
+      <div class="ng-objetivo-d"><strong>${pct(o.pct)}</strong><span>${num(o.n)} de ${num(p.compradores)} compradores también lo han comprado${o.dias != null ? ` · a los ${num(o.dias)} días de media` : ''}</span>
         <span class="ng-barra"><i style="width:${Math.round((o.pct || 0) * 100)}%"></i></span></div>
     </div>` : '';
   const viaje = `<section class="ng-sec card"><h3>🧭 El viaje de sus clientes ${pocos(p.compradores < MIN_VIAJE)}</h3>
