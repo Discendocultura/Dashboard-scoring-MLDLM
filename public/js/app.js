@@ -6534,7 +6534,7 @@ function renderSnapshotWarning() {
 }
 
 // ---------- Móvil: menú ☰ (embudos y herramientas) y pestañas fijas abajo ----------
-const esMovil = () => window.matchMedia('(max-width: 900px)').matches;
+function esMovil() { return window.matchMedia('(max-width: 900px)').matches; } // función: se usa antes de llegar aquí
 function abrirMenuMovil(abrir) {
   document.body.classList.toggle('menu-movil', abrir);
   $('#sb-fondo').hidden = !abrir;
@@ -6548,37 +6548,18 @@ $('#sidebar').addEventListener('click', (e) => {
   if (esMovil() && e.target.closest('.sb-item, .sb-add, .sb-edit, [data-proxy], [data-abrir-mensajes]')) abrirMenuMovil(false);
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('menu-movil')) abrirMenuMovil(false); });
-const textoPestana = (t) => [...t.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim();
+function textoPestana(t) { return [...t.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim(); }
 // Móvil: abajo, las 3 primeras pestañas y «Todo», un panel con TODAS las secciones y, dentro de cada una, sus
 // páginas (Hoy → Setting hoy · Llamadas · En directo…): así nada queda escondido en una barra que no se ve.
 function visibleEl(el) { return Boolean(el) && !el.hidden && getComputedStyle(el).display !== 'none'; }
-// Abajo, fuera de un embudo: Agencia / Inicio / Inteligencia de negocio / el embudo en el que estabas y «☰ Menú»
-// (abre el menú lateral con todo: embudos, atajos, Operativa, Procesos…).
-var navGeneral = [];
-function pintarNavGeneral(nav) {
-  const dentro = !$('#app').hidden && esMovil();
-  const emb = $('#sb-items .sb-item.active[data-embudo]') || $('#sb-items .sb-item[data-embudo="' + (state.embudo || '') + '"]') || $('#sb-items .sb-item[data-embudo]');
-  navGeneral = [$('#sb-agencia'), $('#sb-inicio'), $('#sb-negocio'), emb].filter((b) => b && !b.hidden).slice(0, 3);
-  nav.hidden = !dentro || !navGeneral.length;
-  document.body.classList.toggle('con-nav-movil', !nav.hidden);
-  if (nav.hidden) return;
-  const activa = (b) => b.classList.contains('active');
-  nav.innerHTML = navGeneral.map((b, i) => `<button type="button" class="nm-item ${activa(b) ? 'on' : ''}" data-nm-sb="${i}" ${activa(b) ? 'aria-current="page"' : ''}><span class="nm-emoji" aria-hidden="true">${esc($('.sb-ico', b)?.textContent || '•')}</span><span>${esc(($('.sb-txt strong', b)?.textContent || '').replace('Inteligencia de negocio', 'Negocio'))}</span></button>`).join('')
-    + '<button type="button" class="nm-item" data-nm-menu><span class="nm-mas-ico" aria-hidden="true">☰</span><span>Menú</span></button>';
-}
-document.addEventListener('click', (e) => {
-  const sb = e.target.closest('[data-nm-sb]');
-  if (sb) { navGeneral[Number(sb.dataset.nmSb)]?.click(); window.scrollTo({ top: 0 }); setTimeout(pintarNavMovil, 0); return; }
-  if (e.target.closest('[data-nm-menu]')) abrirMenuMovil(true);
-});
 function pintarNavMovil() {
   const nav = $('#nav-movil');
   const tabs = $$('.views .view-tab').filter(visibleEl);
   $('#nav-mas').hidden = true;
-  // Fuera de un embudo (Agencia, Inicio, Inteligencia de negocio…): las mismas barras, con los destinos del menú.
-  if (state.enInicio || $('#dashboard').hidden || !tabs.length) { pintarNavGeneral(nav); programarBarrasMovil(); return; }
-  nav.hidden = false;
-  document.body.classList.add('con-nav-movil');
+  // Solo dentro de un embudo: sus pestañas (Agencia, Inicio, Negocio… ya están en el menú ☰ de arriba).
+  nav.hidden = !esMovil() || state.enInicio || $('#app').hidden || $('#dashboard').hidden || !tabs.length;
+  claseBody('con-nav-movil', !nav.hidden);
+  if (nav.hidden) { programarBarrasMovil(); return; }
   const prim = tabs.slice(0, 3);
   const activa = (t) => t.classList.contains('active');
   const boton = (t) => `<button type="button" class="nm-item ${activa(t) ? 'on' : ''}" data-nm="${tabs.indexOf(t)}" ${activa(t) ? 'aria-current="page"' : ''}>${t.querySelector('svg')?.outerHTML || ''}<span>${esc(textoPestana(t))}</span></button>`;
@@ -6631,7 +6612,8 @@ function pintarSubMovil() {
     sm.hidden = true;
     $('#sub-mas').hidden = true;
     subMovil = [];
-    document.body.classList.remove('con-sub-movil', 'sm-abierto');
+    claseBody('con-sub-movil', false);
+    claseBody('sm-abierto', false);
     return;
   }
   bar.classList.add('sub-oculta');
@@ -6646,8 +6628,9 @@ function pintarSubMovil() {
   sm.setAttribute('aria-label', bar.getAttribute('aria-label') || 'Apartados');
   $('#sub-mas').innerHTML = `<p class="nm-mas-t">${esc(bar.getAttribute('aria-label') || 'Apartados')}</p><div class="sm-grid">${btns.map((_, i) => item(i, 'sm-op')).join('')}</div>`;
   sm.hidden = false;
-  document.body.classList.add('con-sub-movil');
+  claseBody('con-sub-movil', true);
 }
+function claseBody(c, on) { if (document.body.classList.contains(c) !== on) document.body.classList.toggle(c, on); }
 function medirBarrasMovil() {
   const raiz = document.documentElement.style;
   const tb = $('.topbar');
@@ -6661,8 +6644,13 @@ function medirBarrasMovil() {
 var barrasMovilPend = 0; // var: se puede llamar antes de llegar aquí
 function programarBarrasMovil() {
   if (barrasMovilPend) return;
-  barrasMovilPend = requestAnimationFrame(() => { barrasMovilPend = 0; pintarSubMovil(); medirBarrasMovil(); });
+  barrasMovilPend = requestAnimationFrame(() => { pintarNavMovil(); pintarSubMovil(); medirBarrasMovil(); barrasMovilPend = 0; });
 }
+// Las pestañas de cada embudo se muestran u ocultan al cargar sus datos (a veces después de cambiar de vista): si
+// cambian, se vuelven a pintar las barras del móvil (antes, con datos lentos, la de abajo se quedaba sin pintar).
+new MutationObserver(programarBarrasMovil).observe($('#dashboard'), { attributes: true, attributeFilter: ['hidden'] });
+new MutationObserver(programarBarrasMovil).observe($('.views'), { attributes: true, subtree: true, childList: true, attributeFilter: ['hidden', 'class', 'style'] });
+new MutationObserver(programarBarrasMovil).observe($('#app'), { attributes: true, attributeFilter: ['hidden'] });
 if (window.ResizeObserver) {
   const ro = new ResizeObserver(() => medirBarrasMovil());
   ['.topbar', '#ctx-bar', '#nav-movil', '#sub-movil'].forEach((sel) => { const el = $(sel); if (el) ro.observe(el); });
