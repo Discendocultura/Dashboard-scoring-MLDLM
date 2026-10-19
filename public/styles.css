@@ -6450,3 +6450,43 @@ button.cl-chip:hover { border-color: var(--accent); color: var(--text); }
 .cfg-guiado > .cfg-pend .cfg-pend-item { width: auto; padding: 5px 12px 5px 5px; border-radius: 99px; font-size: 13px; }
 .cfg-guiado > .cfg-pend .cfg-pend-item::before { width: 20px; height: 20px; font-size: 11px; background: #f59e0b; }
 .cfg-guiado > .cfg-pend .cfg-pend-ir { display: none; }
+
+/* Inteligencia de negocio: «Mejora tus datos» y «Añadir producto» bien visible */
+.ng-cal-cab { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.ng-cal-cab h3 { margin: 0 0 4px; }
+.ng-cal-cab p { margin: 0; font-size: 13.5px; }
+.ng-cal-anillo { width: 92px; height: 92px; --c: #10b981; background: conic-gradient(#10b981 calc(var(--p) * 1%), color-mix(in srgb, var(--muted) 22%, transparent) 0); }
+.ng-cal-anillo > div { width: 70px; height: 70px; }
+.ng-cal-anillo strong { font-size: 19px; }
+.ng-cal-lista { display: flex; flex-direction: column; gap: 8px; }
+.ng-cal-item { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); }
+.ng-cal-ico { width: 40px; height: 40px; display: grid; place-items: center; font-size: 20px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.ng-cal-item strong { font-size: 14px; }
+.ng-cal-item p { margin: 2px 0; font-size: 12.5px; color: var(--muted); }
+.ng-cal-item small { font-size: 12px; color: #059669; font-weight: 650; }
+.ng-cal-item > small.muted { color: var(--muted); font-weight: 500; max-width: 180px; text-align: right; }
+.ng-cal-ok { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
+.ng-cal-ok span { font-size: 12px; padding: 3px 10px; border-radius: 99px; background: color-mix(in srgb, #10b981 12%, var(--surface)); color: #059669; font-weight: 650; }
+.ng-prod-nuevo { border-style: dashed; border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); color: var(--accent); }
+.ng-prod-nuevo .ng-pt-ico { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 10px; background: color-mix(in srgb, var(--accent) 16%, transparent); font-size: 18px; font-weight: 800; }
+.ng-prod-nuevo strong { color: var(--accent); }
+.ng-pcard-nuevo { border: 2px dashed color-mix(in srgb, var(--accent) 50%, var(--border)); background: color-mix(in srgb, var(--accent) 5%, var(--surface)); align-items: flex-start; justify-content: center; }
+.ng-pcard-nuevo:hover { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.ng-pcard-mas { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 16px; font-size: 28px; font-weight: 800; color: #fff; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #ffb020)); box-shadow: 0 8px 20px -10px var(--accent); }
+.ng-pcard-nuevo strong { font-size: 16px; }
+.ng-pcard-nuevo small { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+@media (max-width: 700px) { .ng-cal-item { grid-template-columns: 36px 1fr; } .ng-cal-item > :last-child { grid-column: 1 / -1; justify-self: start; } }
+/* Ciclo de compra y segunda compra con cifras grandes, % por tramo y «Cómo acortarlo» */
+.ng-cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.ng-cifra { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); }
+.ng-cifra strong { font-size: 22px; letter-spacing: -.02em; line-height: 1.15; }
+.ng-cifra span { font-size: 12px; color: var(--muted); }
+.ng-cifra.destaca { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--surface)), var(--surface)); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.ng-cifra.destaca strong { font-size: 26px; color: var(--accent); }
+.ng-barra-f b small { font-weight: 500; color: var(--muted); font-size: 11px; margin-left: 4px; }
+.ng-ciclo .ng-barra-f, .ng-segunda .ng-barra-f { grid-template-columns: 110px 1fr 70px; }
+.ng-sugs { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.ng-sug { display: flex; gap: 10px; padding: 12px 14px; border-radius: 14px; border: 1px solid color-mix(in srgb, #10b981 30%, var(--border)); background: color-mix(in srgb, #10b981 7%, var(--surface)); }
+.ng-sug > span { font-size: 22px; }
+.ng-sug strong { font-size: 13.5px; }
+.ng-sug p { margin: 3px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.45; }

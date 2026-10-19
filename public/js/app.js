@@ -947,6 +947,13 @@ document.addEventListener('click', (e) => {
   const top = caja.getBoundingClientRect().top + window.scrollY - 80;
   if (window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' });
 });
+// «Mejora tus datos»: un botón abre la configuración del embudo donde falta el dato.
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ng-config]');
+  if (!b || !embudos().some((x) => x.id === b.dataset.ngConfig)) return;
+  setEmbudo(b.dataset.ngConfig);
+  setTimeout(() => $('#btn-config')?.click(), 500);
+});
 // En la tabla de embudos, una fila abre ese embudo (en el dashboard; en el portal del cliente, no).
 $('#negocio').addEventListener('click', (e) => {
   const f = e.target.closest('[data-ng-embudo]');

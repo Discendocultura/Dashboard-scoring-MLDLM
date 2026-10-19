@@ -128,6 +128,13 @@ test('inteligencia de negocio: con catálogo de productos, compras por etiqueta,
   assert.equal(a.numeros.roas, (8 * 697 + 4 * 997 + 20 * 27) / 3000);
   assert.equal(a.recompra.repiten, 5);
   assert.deepEqual(a.recompra.caminos[0], { camino: 'Reto Ovulación → Raíces', n: 5 });
+  // Hasta la segunda compra: 69 días (del reto en marzo al lanzamiento de mayo), en el tramo «1-3 meses»
+  assert.equal(a.recompra.diasSegunda, 69);
+  assert.equal(a.recompra.tramosSegunda.find((t) => t.id === 's90').n, 5);
+  // Más cifras y «Mejora tus datos»
+  assert.equal(a.numeros.ticket, a.numeros.facturacion / a.numeros.ventas);
+  assert.equal(a.numeros.conversion, 12 / 600);
+  assert.ok(a.calidad.total >= 5 && a.calidad.items.some((x) => x.id === 'prod-fecha' && !x.ok));
   assert.deepEqual(a.productos.map((p) => p.nombre), ['Raíces', 'Reto Ovulación']);
   const raices = a.productos[0];
   assert.equal(raices.ventas, 12);

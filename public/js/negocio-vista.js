@@ -37,6 +37,21 @@ const ICO_CATALOGO = { principal: '⭐', entrada: '🚪', continuidad: '🔁', o
 const icoProd = (p) => (p.tipo === 'catalogo' ? ICO_CATALOGO[p.tipoProducto] || '📦' : p.tipo === 'meteorico' ? '⚡' : p.tipo === 'directa' ? '🛒' : p.tipo === 'embudo' ? TIPO_ICO[p.embudos?.[0]?.tipo] || '🧩' : '📦');
 const nomProd = (p) => (p.tipo === 'meteorico' ? p.nombre.replace(/^⚡\s*/, '') : p.nombre);
 const prodIco = (p) => `${icoProd(p)} `;
+// «Mejora tus datos»: la nota de calidad y lo que falta, cada cosa con lo que ganas y un botón a donde se pone.
+function calidadHtml(c) {
+  if (!c?.total) return '';
+  const pend = c.items.filter((x) => !x.ok);
+  const boton = (x) => (x.accion === 'productos' ? `<button type="button" class="btn small primary" data-abrir-productos>${esc(x.boton)} →</button>`
+    : x.accion.startsWith('config:') ? `<button type="button" class="btn small" data-ng-config="${esc(x.accion.slice(7))}">${esc(x.boton)} →</button>`
+      : `<small class="muted">${esc(x.boton)}</small>`);
+  return `<section class="ng-sec ng-calidad card config-only">
+    <div class="ng-cal-cab"><div class="ng-anillo ng-cal-anillo" style="--p:${c.pct}"><div><strong>${c.pct}%</strong><span>datos completos</span></div></div>
+      <div><h3>🧪 Mejora tus datos</h3><p class="muted">${pend.length ? `Cuanto más completos, más exactas las cifras y mejores las recomendaciones. Te faltan <b>${pend.length}</b> ${pend.length === 1 ? 'cosa' : 'cosas'}:` : '✓ Tus datos están completos: las cifras y las recomendaciones son tan buenas como pueden ser.'}</p></div></div>
+    ${pend.length ? `<div class="ng-cal-lista">${pend.map((x) => `<div class="ng-cal-item"><span class="ng-cal-ico" aria-hidden="true">${x.ico}</span><div><strong>${esc(x.titulo)}</strong><p>${esc(x.texto)}</p><small>✨ Verás: ${esc(x.gana)}</small></div>${boton(x)}</div>`).join('')}</div>` : ''}
+    ${c.hechos ? `<p class="ng-cal-ok">${c.items.filter((x) => x.ok).map((x) => `<span>✓ ${esc(x.titulo)}</span>`).join('')}</p>` : ''}
+  </section>`;
+}
+
 const recosHtml = (lista, titulo) => (lista?.length ? `<section class="ng-sec"><h3>${titulo}</h3><div class="ng-recos">${lista.map((r) => `<div class="ng-reco"><span class="ng-reco-ico" aria-hidden="true">${esc(r.ico)}</span><div><strong>${esc(r.titulo)}</strong><p>${esc(r.texto)}</p></div></div>`).join('')}</div></section>` : '');
 // Anillo con el % de la facturación.
 const anillo = (x, txt = 'de tu facturación') => `<div class="ng-anillo" style="--p:${Math.round(Math.max(0, Math.min(1, x || 0)) * 100)}"><div><strong>${pct(x)}</strong><span>${txt}</span></div></div>`;
@@ -53,6 +68,7 @@ function selectorProductos(d, sel) {
   return `<nav class="ng-prods" aria-label="Ver el negocio entero o un producto">
     <button type="button" class="ng-prod-tab${sel ? '' : ' on'}" data-ng-producto=""><span class="ng-pt-ico">🌐</span><span><strong>Todo el negocio</strong><small>${eur(d.numeros.facturacion)}</small></span></button>
     ${d.productos.map((p) => `<button type="button" class="ng-prod-tab${sel === p.id ? ' on' : ''}" data-ng-producto="${esc(p.id)}"><span class="ng-pt-ico">${icoProd(p)}</span><span><strong>${esc(nomProd(p))}</strong><small>${p.sinPrecios ? 'sin precio' : eur(p.facturacion)}${p.cuota != null ? ` · ${pct(p.cuota)}` : ''}</small></span><i class="ng-pt-barra" style="width:${Math.round((p.cuota || 0) * 100)}%"></i></button>`).join('')}
+    <button type="button" class="ng-prod-tab ng-prod-nuevo config-only" data-abrir-productos><span class="ng-pt-ico">＋</span><span><strong>Añadir producto</strong><small>Mi negocio → Productos</small></span></button>
   </nav>`;
 }
 
@@ -68,7 +84,8 @@ function tarjetasProductos(d) {
       <span class="ng-pcard-cuota"><span class="ng-barra"><i style="width:${Math.round((p.cuota || 0) * 100)}%"></i></span><small>${pct(p.cuota)} de lo que facturas</small></span>
       <span class="ng-pcard-datos"><span><b>${num(p.ventas)}</b> ventas</span><span><b>${p.roas == null ? '–' : x1(p.roas)}</b> ROAS</span><span><b>${eur(p.ticket)}</b> ticket</span>${p.ciclo?.n ? `<span title="Del registro a la compra (mediana)">⏱️ <b>${p.ciclo.mediana === 0 ? 'mismo día' : `${num(p.ciclo.mediana)} d`}</b></span>` : ''}</span>
       ${mini(p.serie)}
-      <span class="ng-pcard-ver">Ver ficha →</span></button>`).join('')}</div></section>`;
+      <span class="ng-pcard-ver">Ver ficha →</span></button>`).join('')}
+      <button type="button" class="ng-pcard ng-pcard-nuevo config-only" data-abrir-productos><span class="ng-pcard-mas" aria-hidden="true">＋</span><strong>Añadir un producto</strong><small>Con su precio, la etiqueta de quien lo compra y sus ofertas. Así ves lo que factura cada uno y qué compran después.</small><span class="ng-pcard-ver">Añadir producto →</span></button></div></section>`;
 }
 
 // La ficha de un producto.
@@ -125,7 +142,7 @@ function productoHtml(d, p) {
     ${p.calculando ? '<p class="ng-aviso suave">⏳ Contando sus compras en GHL (por su etiqueta)… Se completa solo en unos segundos.</p>' : ''}
     ${p.tipo === 'catalogo' && p.sinFecha && d.periodo !== 'todo' ? `<p class="ng-aviso suave">📅 ${num(p.sinFecha)} de sus compras no tienen fecha: solo cuentan en «Todo el histórico». ${p.conFechaCampo ? 'Revisa que el workflow de compra rellene su campo de fecha.' : 'Elige su campo de fecha de compra en Mi negocio → Productos.'}</p>` : ''}
     ${kpis}${recosHtml(p.recomendaciones, `💡 Qué haría con ${esc(nomProd(p))}`) || '<p class="ng-aviso suave">✅ Nada urgente con este producto. Las recomendaciones aparecen cuando los datos lo justifican.</p>'}
-    ${ofertas}${viaje}${cicloHtml(p.ciclo, `⏱️ Ciclo de compra · ${esc(nomProd(p))}`)}${serie}${tabla}`;
+    ${ofertas}${viaje}${cicloHtml(p.ciclo, `⏱️ Ciclo de compra · ${esc(nomProd(p))}`)}${segundaHtml({ diasSegunda: p.objetivo?.dias ?? p.despues.dias, mediaSegunda: null, pct: p.objetivo?.pct ?? p.despues.pct, nSegunda: p.objetivo?.n ?? p.despues.n, tramosSegunda: null }, { titulo: `⏩ De ${esc(nomProd(p))} a ${p.objetivo ? `«${esc(p.objetivo.nombre)}»` : 'su siguiente compra'}`, siguiente: p.objetivo?.nombre || p.despues.top[0]?.nombre || '' })}${serie}${tabla}`;
 }
 const MIN_VIAJE = 10;
 
@@ -147,6 +164,9 @@ export function negocioHtml(d, { producto = '' } = {}) {
     ${tarjeta('🎯', 'Coste por lead medio', eur(n.cpl), delta(n.cpl, p.cpl, { menosEsMejor: true }) || '<small>Inversión ÷ registros</small>', 'La inversión en anuncios dividida entre los registros de los embudos con inversión')}
     ${tarjeta('📈', 'ROAS medio', x1(n.roas), delta(n.roas, p.roas) || '<small>Lo que vuelve por cada euro</small>', 'Facturación ÷ inversión en anuncios, en los embudos con inversión')}
     ${tarjeta('🧲', 'Coste por cliente (CAC)', eur(n.cac), delta(n.cac, p.cac, { menosEsMejor: true }) || `<small>${num(n.nuevos)} clientes nuevos</small>`, 'La inversión en anuncios dividida entre los clientes nuevos (su primera compra es de este periodo)')}
+    ${tarjeta('🎟️', 'Ticket medio', eur(n.ticket), '<small>Lo que paga de media cada compra</small>', 'Facturación ÷ ventas')}
+    ${tarjeta('🛒', 'Conversión', n.conversion == null ? '–' : pct(n.conversion), '<small>De registro a venta</small>', 'Ventas ÷ registros, en los embudos con registros')}
+    ${tarjeta('💡', 'Lo que vale cada lead', eur(n.valorLead), '<small>Facturación ÷ registros: lo máximo que puedes pagar por lead sin perder</small>', 'Lo que facturas de media por cada persona que se registra')}
     ${tarjeta('⚖️', 'LTV ÷ CAC', n.ltvCac == null ? '–' : x1(n.ltvCac), `<small class="${n.ltvCac >= 3 ? 'ng-bien' : n.ltvCac != null && n.ltvCac < 1.5 ? 'ng-mal' : ''}">${n.ltvCac == null ? 'Hace falta inversión y precios' : n.ltvCac >= 3 ? 'Sano: puedes invertir más' : n.ltvCac < 1.5 ? 'Ajustado: sube el valor o baja el coste' : 'Bien: vigila el coste por cliente'}</small>`, 'Cuántas veces recuperas lo que cuesta conseguir un cliente. A partir de 3 es sano')}
   </div>`;
 
@@ -182,7 +202,7 @@ export function negocioHtml(d, { producto = '' } = {}) {
 
   const embudos = d.embudos.length ? tablaEmbudos(d.embudos, '🧩 Cada embudo') : '';
 
-  return `${selectorProductos(d, '')}${calc}${aviso}${d.pocos ? '<p class="ng-aviso suave">🌱 Aún hay pocas ventas: tómate estas cifras como orientativas hasta que haya más histórico.</p>' : ''}${kpis}${recos}${tarjetasProductos(d)}<div class="ng-dos">${ciclo}${recompra}</div>${actividad}${embudos}`;
+  return `${selectorProductos(d, '')}${calc}${aviso}${d.pocos ? '<p class="ng-aviso suave">🌱 Aún hay pocas ventas: tómate estas cifras como orientativas hasta que haya más histórico.</p>' : ''}${kpis}${recos}${calidadHtml(d.calidad)}${tarjetasProductos(d)}${ciclo}${recompra}${segundaHtml(d.recompra)}${actividad}${embudos}`;
 }
 
 // La tabla de embudos (general y en la ficha de un producto).
@@ -201,13 +221,49 @@ function tablaEmbudos(lista, titulo) {
 // y, en los lanzamientos, en qué momento del carrito se compra.
 function cicloHtml(c, titulo) {
   if (!c) return '';
+  const totT = c.tramos.reduce((t, x) => t + x.n, 0) || 1;
   const maxT = Math.max(1, ...c.tramos.map((t) => t.n));
   const totM = c.momentos.reduce((t, m) => t + m.n, 0);
-  return `<section class="ng-sec card"><h3>${titulo} ${pocos(c.pocos)}</h3>
-    ${c.n ? `<p class="ng-grande"><strong>${c.mediana === 0 ? 'El mismo día' : `${num(c.mediana)} ${c.mediana === 1 ? 'día' : 'días'}`}</strong> <span class="muted">pasan normalmente desde que alguien se registra hasta que compra</span></p>
-    <div class="ng-barras">${c.tramos.map((t) => `<div class="ng-barra-f"><span>${esc(t.label)}</span><span class="ng-barra"><i style="width:${Math.round((t.n / maxT) * 100)}%"></i></span><b>${num(t.n)}</b></div>`).join('')}</div>
-    ${c.cobertura != null && c.cobertura < 0.9 ? `<p class="muted small">Con ${pct(c.cobertura)} de las compras (las que tienen fecha de compra). Para que sea exacto, guarda la fecha de compra en un campo de GHL desde el workflow de compra.</p>` : ''}`
+  const dias = (x) => (x == null ? '–' : x === 0 ? 'El mismo día' : `${num(x)} ${Math.round(x) === 1 ? 'día' : 'días'}`);
+  return `<section class="ng-sec card ng-ciclo"><h3>${titulo} ${pocos(c.pocos)}</h3>
+    ${c.n ? `<div class="ng-cifras">
+        <div class="ng-cifra destaca"><strong>${dias(c.mediana)}</strong><span>lo normal, del registro a la compra</span></div>
+        <div class="ng-cifra"><strong>${c.media == null ? '–' : c.media < 0.5 ? 'Menos de 1 día' : `${c.media.toFixed(1).replace('.', ',').replace(',0', '')} días`}</strong><span>de media</span></div>
+        <div class="ng-cifra"><strong>${pct(c.semana)}</strong><span>compra en la primera semana</span></div>
+        <div class="ng-cifra"><strong>${pct(c.mismoDia)}</strong><span>compra el mismo día</span></div>
+      </div>
+    <div class="ng-barras">${c.tramos.map((t) => `<div class="ng-barra-f"><span>${esc(t.label)}</span><span class="ng-barra"><i style="width:${Math.round((t.n / maxT) * 100)}%"></i></span><b>${num(t.n)} <small>${pct(t.n / totT)}</small></b></div>`).join('')}</div>
+    <p class="muted small">Con ${num(c.n)} compras${c.cobertura != null && c.cobertura < 0.9 ? ` (el ${pct(c.cobertura)}, las que tienen fecha de compra). Para que sea exacto, guarda la fecha de compra en un campo de GHL desde el workflow de compra` : ''}.</p>`
     : '<p class="muted">Aparece cuando las compras tengan fecha (un campo de fecha de compra en GHL, puesto por el workflow de compra).</p>'}
     ${totM ? `<h4>¿Cuándo compran en tus lanzamientos?</h4><div class="ng-momentos">${c.momentos.map((m) => `<div><strong>${pct(m.n / totM)}</strong><span>${esc(m.label)}</span></div>`).join('')}</div>` : ''}
+  </section>`;
+}
+
+// Del primer producto al siguiente: cuánto tardan (lo normal, la media y por tramos) y cómo acortarlo.
+function sugerenciasSegunda(dias, pctRepite, siguiente = '') {
+  const s = [];
+  const p = siguiente ? `«${esc(siguiente)}»` : 'el siguiente producto';
+  if (dias != null && dias > 90) s.push(['🪜', 'Pon un paso intermedio', `Tardan ${num(dias)} días: entre medias, ofrece algo pequeño (un taller, la comunidad, un reto) para que no se enfríen.`]);
+  s.push(['🎁', 'Oferta solo para compradores, con fecha límite', `En los primeros 7 días tras comprar, ${p} con un precio o un bonus que solo tienen ellos.`]);
+  s.push(['📄', 'Ofrécelo en la página de gracias y en el email de bienvenida', 'Es cuando más ganas tienen: un botón «Siguiente paso» en la página de gracias y en el primer email.']);
+  s.push(['💬', 'WhatsApp a mitad de camino', `${dias ? `Hacia el día ${Math.max(3, Math.round(dias / 2))}` : 'A la semana'}, pregunta qué tal le va y cuéntale cómo seguir con ${p}.`]);
+  if (pctRepite != null && pctRepite < 0.1) s.push(['🎟️', 'Acceso anticipado al próximo lanzamiento', 'Invita a tus compradores antes que a nadie (con un precio de cliente): vuelven más.']);
+  return s.slice(0, 4);
+}
+function segundaHtml(r, { titulo = '⏩ De la primera compra a la siguiente', siguiente = '' } = {}) {
+  if (!r) return '';
+  const maxT = Math.max(1, ...(r.tramosSegunda || []).map((t) => t.n));
+  const dias = (x) => (x == null ? '–' : `${num(x)} ${Math.round(x) === 1 ? 'día' : 'días'}`);
+  return `<section class="ng-sec card ng-segunda"><h3>${titulo}</h3>
+    ${r.nSegunda ? `<div class="ng-cifras">
+        <div class="ng-cifra destaca"><strong>${dias(r.diasSegunda)}</strong><span>tardan normalmente en comprar otro producto</span></div>
+        ${r.mediaSegunda != null ? `<div class="ng-cifra"><strong>${dias(r.mediaSegunda)}</strong><span>de media</span></div>` : ''}
+        <div class="ng-cifra"><strong>${pct(r.pct)}</strong><span>compra un segundo producto</span></div>
+        <div class="ng-cifra"><strong>${num(r.nSegunda)}</strong><span>clientes que lo han hecho</span></div>
+      </div>
+      <div class="ng-barras">${(r.tramosSegunda || []).map((t) => `<div class="ng-barra-f"><span>${esc(t.label)}</span><span class="ng-barra"><i style="width:${Math.round((t.n / maxT) * 100)}%"></i></span><b>${num(t.n)}</b></div>`).join('')}</div>`
+      : '<p class="muted">Aún no hay clientes con dos compras de productos distintos (con fecha). Mientras, esto ayuda a que llegue la segunda:</p>'}
+    <h4>🚀 Cómo acortarlo</h4>
+    <div class="ng-sugs">${sugerenciasSegunda(r.diasSegunda, r.pct, siguiente).map(([i, t, x]) => `<div class="ng-sug"><span aria-hidden="true">${i}</span><div><strong>${esc(t)}</strong><p>${x}</p></div></div>`).join('')}</div>
   </section>`;
 }
