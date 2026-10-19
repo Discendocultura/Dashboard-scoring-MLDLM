@@ -183,6 +183,146 @@ async function api(path, { method = 'GET', body, cliente = state.cliente } = {})
   return data;
 }
 
+// ---------- Quién está editando la configuración ----------
+// La configuración se guarda entera: si dos personas la editan a la vez, la segunda que guarda choca. Al abrir
+// cualquiera de sus ventanas se pide el turno (/api/editando); si lo tiene otra persona, sale un aviso con
+// «Tomar el control», que la echa (a ella le sale «X ha tomado el control» y se le cierra la ventana).
+const ED_DLGS = ['config-dialog', 'vsl-config-dialog', 'directa-dialog', 'meteo-dialog'];
+const ED_SESION = `t-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`; // una por pestaña
+const ED_LATIDO_MS = 15_000;
+const edReabrir = new Map(); // id de la ventana → cómo volver a rellenarla (al tomar el control, con lo último guardado)
+const ed = { dlg: null, cliente: null, timer: 0 };
+
+function edQue(d) {
+  const emb = state.config?.embudos?.find((e) => e.id === state.embudo)?.nombre;
+  if (d?.id === 'config-dialog') return editingCode ? `el lanzamiento «${state.config.launches[editingCode]?.name || editingCode}»` : 'un lanzamiento nuevo';
+  if (d?.id === 'meteo-dialog') return meteoEdit?.code ? `el meteórico «${state.config.meteoricos?.[meteoEdit.code]?.name || meteoEdit.code}»` : 'un meteórico nuevo';
+  return emb ? `el embudo «${emb}»` : 'la configuración';
+}
+
+const edApi = (op) => api('/api/editando', { method: 'POST', body: { op, sesion: ED_SESION, que: edQue(ed.dlg) }, cliente: ed.cliente });
+
+function edParar() {
+  clearInterval(ed.timer);
+  ed.timer = 0;
+}
+
+function edLatir() {
+  edParar();
+  ed.timer = setInterval(async () => {
+    if (!ed.dlg?.open) return edParar();
+    try {
+      const r = await edApi('latido');
+      if (r.expulsado) edExpulsado(r.expulsado.nombre);
+    } catch { /* sin conexión: se reintenta en el siguiente latido */ }
+  }, ED_LATIDO_MS);
+}
+
+// Si otra persona guardó desde que se cargó la página, se trae lo último y se vuelve a rellenar la ventana.
+async function edAlDia(d, version) {
+  if (version == null || state.configVersion == null || version === state.configVersion) return;
+  const r = await api('/api/config');
+  state.config = r.config;
+  const show = d.showModal;
+  d.showModal = () => {}; // ya está abierta: solo se rellena
+  try { await edReabrir.get(d.id)?.(); } finally { d.showModal = show; }
+}
+
+async function edEntrar(d) {
+  if (state.verComo) return; // «Ver como» es solo mirar
+  ed.dlg = d;
+  ed.cliente = state.cliente;
+  try {
+    const r = await edApi('entrar');
+    if (ed.dlg !== d || !d.open) return;
+    if (r.ocupado) return edOcupado(d, r.ocupado);
+    edLatir();
+    await edAlDia(d, r.version);
+  } catch { /* sin permiso o sin conexión: se edita como siempre */ }
+}
+
+function edSalir(d) {
+  if (ed.dlg !== d) return;
+  edParar();
+  ed.dlg = null;
+  if ($('#editando-dialog').open) $('#editando-dialog').close();
+  api('/api/editando', { method: 'POST', body: { op: 'salir', sesion: ED_SESION }, cliente: ed.cliente }).catch(() => {});
+}
+
+function edAviso({ fuera = false, ini, titulo, texto, nota = '', botones }) {
+  const dlg = $('#editando-dialog');
+  dlg.classList.toggle('tc-fuera', fuera);
+  $('#tc-avatar').textContent = ini;
+  $('#tc-titulo').textContent = titulo;
+  $('#tc-texto').innerHTML = texto;
+  $('#tc-nota').textContent = nota;
+  $('#tc-acciones').innerHTML = botones.map((b, i) => `<button type="button" class="btn ${b.primario ? 'primary' : 'ghost'}" data-tc="${i}">${b.texto}</button>`).join('');
+  $$('#tc-acciones [data-tc]').forEach((el) => el.addEventListener('click', () => botones[Number(el.dataset.tc)].fn(el)));
+  if (!dlg.open) dlg.showModal();
+  $('#tc-acciones .btn')?.focus();
+}
+
+const edInicial = (nombre) => (String(nombre || '?').trim()[0] || '?').toUpperCase();
+
+function edOcupado(d, o) {
+  const desde = o.desde ? hace(new Date(o.desde).toISOString()) : '';
+  edAviso({
+    ini: o.yo ? '🗂️' : edInicial(o.nombre),
+    titulo: o.yo ? 'Ya tienes esto abierto en otro sitio' : `${o.nombre} está editando esto`,
+    texto: o.yo
+      ? `Estás editando <b>${esc(o.que || 'la configuración')}</b> en otra pestaña o en otro dispositivo${desde ? ` (${esc(desde)})` : ''}.`
+      : `Está editando <b>${esc(o.que || 'la configuración')}</b>${desde ? ` (empezó ${esc(desde)})` : ''}. Si lo editáis a la vez, unos cambios pisarían a otros.`,
+    nota: o.yo ? 'Si sigues aquí, la otra se cerrará.' : `Si tomas el control, ${o.nombre} saldrá de la configuración y perderá lo que no haya guardado.`,
+    botones: [
+      { texto: '✋ Tomar el control', primario: true, fn: (b) => edTomar(d, b) },
+      { texto: 'Ahora no', fn: () => { $('#editando-dialog').close(); d.close(); } },
+    ],
+  });
+}
+
+async function edTomar(d, boton) {
+  boton.disabled = true;
+  try {
+    const r = await edApi('tomar');
+    $('#editando-dialog').close();
+    edLatir();
+    await edAlDia(d, r.version);
+    notice('✋ Ahora tienes tú el control de la configuración.');
+  } catch (err) {
+    boton.disabled = false;
+    notice(err.message, true);
+  }
+}
+
+function edExpulsado(nombre) {
+  const d = ed.dlg;
+  edParar();
+  ed.dlg = null;
+  d?.close();
+  edAviso({
+    fuera: true,
+    ini: edInicial(nombre),
+    titulo: `${nombre} ha tomado el control`,
+    texto: `${esc(nombre)} está editando ahora esta configuración, así que se te ha cerrado para que no se pisen los cambios.`,
+    nota: 'Lo que no hubieras guardado no se ha guardado. Cuando termine, puedes volver a abrirla.',
+    botones: [{ texto: 'Entendido', primario: true, fn: () => $('#editando-dialog').close() }],
+  });
+}
+
+for (const id of ED_DLGS) {
+  const d = document.getElementById(id);
+  if (!d) continue;
+  new MutationObserver(() => { if (d.open && ed.dlg !== d) edEntrar(d); }).observe(d, { attributes: true, attributeFilter: ['open'] });
+  d.addEventListener('close', () => edSalir(d));
+}
+// Al cerrar o recargar la pestaña, el turno queda libre al momento (si no, caduca solo en minuto y medio).
+window.addEventListener('pagehide', () => {
+  if (!ed.dlg) return;
+  try {
+    fetch('/api/editando', { method: 'POST', keepalive: true, credentials: 'same-origin', headers: { 'content-type': 'application/json', ...(ed.cliente ? { 'x-cliente': ed.cliente } : {}) }, body: JSON.stringify({ op: 'salir', sesion: ED_SESION }) });
+  } catch { /* nada */ }
+});
+
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -4704,6 +4844,7 @@ $('#inf-enviar').addEventListener('click', async () => {
 function openConfig(code, { silencioso = false } = {}) {
   const yaAbierta = $('#config-dialog').open || silencioso;
   editingCode = code && state.config.launches[code] ? code : null;
+  if (!silencioso) { const c = editingCode; edReabrir.set('config-dialog', () => openConfig(c)); }
   hubVerCategorias = false;
   // Al abrir: un lanzamiento que ya existe, en su resumen; uno nuevo, en «Datos básicos» (en el móvil, el menú).
   if (!yaAbierta) { $(`.tab[data-tab="${editingCode ? 'resumen' : 'launch'}"]`).click(); if (!editingCode) cfgDlg.classList.add('cfg-en-menu'); }
@@ -11643,6 +11784,7 @@ document.addEventListener('input', (e) => {
 
 async function openVslConfig(id = state.embudo) {
   vcId = id;
+  edReabrir.set('vsl-config-dialog', () => openVslConfig(id));
   const v = vslCfg(id);
   const tv = textosVsl(v);
   $('#vsl-config-dialog h2').textContent = `${tv.ico} Configuración · ${v.name}`;
@@ -12475,6 +12617,7 @@ function pendientesMeteoForm() {
 async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
   const m = code ? state.config.meteoricos?.[code] : null;
   meteoEdit = { code: m ? code : null, embudo: m?.embudo ?? embudo, lanzamiento: m?.lanzamiento ?? lanzamiento };
+  edReabrir.set('meteo-dialog', () => abrirMeteoDialog(code, { embudo, lanzamiento }));
   $('#meteo-titulo').textContent = m ? `⚡ ${m.name}` : '⚡ Nuevo meteórico';
   $('#meteo-de').textContent = meteoEdit.lanzamiento ? `Meteórico posterior al lanzamiento «${state.config.launches[meteoEdit.lanzamiento]?.name || meteoEdit.lanzamiento}» (downsell u otro producto).` : 'Acción independiente a tu base de datos (Black Friday, rebajas, aniversario…).';
   opcionSendflow($('#mt-sendflowId'), m?.sendflowId || '');
@@ -13482,6 +13625,7 @@ function abrirDirectaConfig(id = state.embudo) {
   const d = state.config.directas?.[id];
   if (!d) return;
   dcDlg.dataset.id = id;
+  edReabrir.set('directa-dialog', () => abrirDirectaConfig(id));
   $('#dc-titulo').textContent = `🛒 ${d.name}`;
   pintarPartes('#dc-partes', d.partes || partesPorDefecto());
   const v = (k, x) => { $(`#dc-${k}`).value = x ?? ''; };
