@@ -35,6 +35,7 @@ import { COLUMNAS_SERIE, tablerosDe, ordenarTableros, alFinal, MAX_ORDENAR, sani
 import { sanitizeRepetir } from '../public/js/procesos.js';
 import { PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from '../public/js/operativa.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
+import { leerJSON, guardarJSON } from '../lib/store.js';
 import { sanitizeRich, richToText } from '../public/js/richtext.js';
 import { personasEn, comentarioPlano } from '../public/js/enlaces.js';
 import { normalizarImportacion, personaDe } from '../public/js/tableros-import.js';
@@ -65,6 +66,17 @@ async function equipoPara(s) {
 const asignable = (u, cid) => Boolean(u && (u.agencia || (cid !== PROYECTO_AGENCIA && u.proyectos?.includes(cid))));
 // Tableros que ve: los de sus proyectos (y los de la agencia si es del equipo). Las plantillas, solo el superadmin.
 const claveDefecto = (s) => s.uid || '_general'; // con la contraseña general (sin usuario), uno común
+// El ancho de las columnas de los tableros de cada persona: { 'proyecto|tablero': { columna: px } }.
+const claveAnchos = (s) => `lsd_op_anchos_${claveDefecto(s).replace(/[^A-Za-z0-9_-]/g, '_')}`;
+export function sanitizeAnchos(a) {
+  const out = {};
+  for (const [k, cols] of Object.entries(a && typeof a === 'object' ? a : {}).slice(0, 300)) {
+    if (!cols || typeof cols !== 'object' || String(k).length > 120) continue;
+    const limpias = Object.fromEntries(Object.entries(cols).slice(0, 40).map(([id, px]) => [String(id).slice(0, 60), Math.round(Number(px))]).filter(([, px]) => px >= 200 && px <= 900));
+    if (Object.keys(limpias).length) out[String(k)] = limpias;
+  }
+  return out;
+}
 function tablerosPara(s, cfg, proyectos) {
   // Del proyecto por defecto, solo el suyo (el de los demás no le importa).
   cfg = { ...cfg, proyectoDefecto: cfg.proyectoDefecto?.[claveDefecto(s)] || '', calendario: undefined, miCalendario: cfg.calendario?.[claveDefecto(s)] || '' };
@@ -82,7 +94,7 @@ async function proyectosPara(s) {
 export async function GET(request) {
   try {
     const s = await sesion(request);
-    const [tareas, equipo, proyectos, tableros] = await Promise.all([todasLasTareas(), equipoPara(s), proyectosPara(s), getTableros()]);
+    const [tareas, equipo, proyectos, tableros, misAnchos] = await Promise.all([todasLasTareas(), equipoPara(s), proyectosPara(s), getTableros(), enPrincipal(() => leerJSON(claveAnchos(s), () => ({})))]);
     const visibles = visiblesOperativa(tareas, s);
     // El tablero de cada embudo (con el nombre de su lanzamiento en curso), de los proyectos que ve.
     const tablerosEmbudo = [];
@@ -92,7 +104,7 @@ export async function GET(request) {
     }
     return json({
       tareas: visibles, tablerosEmbudo, equipo, yo: s.uid || '', superadmin: Boolean(s.superadmin), agencia: esDeAgencia(s),
-      gestiona: proyectosQueGestiona(s), ...tablerosPara(s, tableros, proyectos), proyectos,
+      gestiona: proyectosQueGestiona(s), ...tablerosPara(s, tableros, proyectos), proyectos, misAnchos: sanitizeAnchos(misAnchos),
     });
   } catch (e) {
     return errorResponse(e);
@@ -152,6 +164,11 @@ export async function POST(request) {
       if (c && !calendarioValido(c)) throw bad('Calendario no válido');
       const cfg = await cambiarTableros((x) => { x.calendario ||= {}; if (c) x.calendario[claveDefecto(s)] = c; else delete x.calendario[claveDefecto(s)]; }, 'Operativa: mi calendario');
       return json({ ok: true, miCalendario: cfg.calendario?.[claveDefecto(s)] || '' });
+    }
+    if (body.op === 'mis-anchos') {
+      const anchos = sanitizeAnchos(body.anchos);
+      await enPrincipal(() => guardarJSON(claveAnchos(s), anchos, { version: null, motivo: 'Operativa: ancho de columnas' }));
+      return json({ ok: true, misAnchos: anchos });
     }
     if (body.op === 'mi-proyecto-defecto') {
       const p = String(body.proyecto || '');

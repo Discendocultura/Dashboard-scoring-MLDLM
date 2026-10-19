@@ -291,6 +291,8 @@ async function cargar() {
   try {
     d = await ctx.api('/api/operativa');
   } catch (e) { body().innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+  // Los anchos guardados en la cuenta mandan; si aún no hay y este navegador tenía, se suben.
+  if (d.misAnchos && Object.keys(d.misAnchos).length) { anchos = d.misAnchos; try { localStorage.setItem(LS_ANCHOS, JSON.stringify(anchos)); } catch { /* sin almacenamiento */ } } else if (Object.keys(anchos).length) guardarAnchos();
   if (vista === 'personas' || vista === 'proyectos') vista = 'tablero';
   const imp = ctx.dialog.querySelector('#op-importar-btn');
   if (imp) imp.hidden = !d.superadmin; // ya no son pestañas: están en los filtros
@@ -468,11 +470,17 @@ let ultimoTablero = '';
 const pieColumna = (colId) => (addCol === colId
   ? `<form class="op-add" data-op-form="rapida" data-col="${esc(colId)}"><textarea name="titulo" rows="2" maxlength="200" placeholder="¿Qué hay que hacer? (Intro para añadir)" aria-label="Nueva tarea"></textarea><div class="op-add-acc"><button class="btn primary small">Añadir</button><button type="button" class="btn ghost small" data-op="add-cerrar" aria-label="Cancelar">✕</button><span class="muted small">${fProy ? '' : 'Se abrirá la ficha para elegir el proyecto'}</span></div></form>`
   : `<button type="button" class="op-add-b" data-op-add="${esc(colId)}">＋ Añadir tarea</button>`);
-// Ancho de cada columna: se cambia arrastrando su borde derecho (doble clic, vuelve al de serie). Se recuerda en
-// este navegador, por tablero. En el móvil no se usa (las columnas ocupan la pantalla).
+// Ancho de cada columna: se cambia arrastrando su borde derecho (doble clic, vuelve al de serie). Se guarda en la
+// cuenta de cada persona (sale igual en todas sus sesiones y aparatos), por tablero; en este navegador, una copia
+// para pintarlo al momento. En el móvil no se usa (las columnas ocupan la pantalla).
 const LS_ANCHOS = 'lsd_op_anchos';
 let anchos = (() => { try { return JSON.parse(localStorage.getItem(LS_ANCHOS) || '{}') || {}; } catch { return {}; } })();
-const guardarAnchos = () => { try { localStorage.setItem(LS_ANCHOS, JSON.stringify(anchos)); } catch { /* sin almacenamiento */ } };
+let anchosEnvio = null;
+const guardarAnchos = () => {
+  try { localStorage.setItem(LS_ANCHOS, JSON.stringify(anchos)); } catch { /* sin almacenamiento */ }
+  clearTimeout(anchosEnvio);
+  anchosEnvio = setTimeout(() => ctx.api('/api/operativa', { method: 'POST', body: { op: 'mis-anchos', anchos } }).catch(() => {}), 400);
+};
 const claveAnchos = () => (fProy ? `${fProy}|${(tabsDe(fProy).find((b) => b.id === fTab) || tabsDe(fProy)[0]).id}` : '_todos');
 const plantillaAnchos = (k, ids) => ids.map((id) => (anchos[k]?.[id] ? `${anchos[k][id]}px` : 'minmax(260px, 1fr)')).join(' ');
 function estiloAnchos(k, ids, enStyle = false) {

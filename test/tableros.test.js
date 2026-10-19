@@ -72,6 +72,15 @@ test('tableros (API): el superadmin crea un tablero con plantilla, crea tareas e
   assert.equal((await call('/api/operativa', { method: 'POST', cookie: setter, body: { op: 'tablero-guardar', tablero: { proyecto: 'mldlm', nombre: 'X' } } })).status, 403);
 });
 
+test('tableros (API): el ancho de las columnas se guarda en la cuenta de cada persona', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const r = await call('/api/operativa', { method: 'POST', cookie: admin, body: { op: 'mis-anchos', anchos: { 'mldlm|general': { pendiente: 420, hecha: 99999, mal: 'x' } } } });
+  assert.deepEqual(r.data.misAnchos, { 'mldlm|general': { pendiente: 420 } });
+  // Otra sesión de la misma persona los recibe
+  const otra = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  assert.deepEqual((await call('/api/operativa', { cookie: otra })).data.misAnchos, { 'mldlm|general': { pendiente: 420 } });
+});
+
 test('tableros: etiquetas, orden por prioridad, checklist y copia de una tarea que se repite', () => {
   const cat = sanitizeEtiquetas([{ id: 'urg', nombre: 'Urgente', color: 'rojo' }, { nombre: 'Diseño', color: 'fucsia' }, { nombre: '' }]);
   assert.equal(cat.length, 2);
