@@ -223,9 +223,11 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
           return `<button type="button" class="${vista.tel === v ? 'on' : ''}" data-x-tel="${v}" aria-pressed="${vista.tel === v}">${t}${n == null ? '' : ` <small>${num(n)}</small>`}</button>`;
         }).join('')}</div>
         ${comerciales.length ? `<div class="xa-seg" role="group" aria-label="Comercial"><span class="xa-seg-t">👤 Comercial</span><button type="button" class="${vista.com ? '' : 'on'}" data-x-com="" aria-pressed="${!vista.com}">Todos</button>${comerciales.map((x) => {
-          const n = todos.filter((a) => pasaFiltro(a, vista.filtro, vista.texto) && pasaExtra(a, 'com') && comDe.get(a.id)?.id === x.id).length;
+          // Cuántos tiene en total (su reparto) y, si hay otros filtros, cuántos de ellos los cumplen: «17 de 170».
+          const suyos = todos.filter((a) => comDe.get(a.id)?.id === x.id);
+          const n = suyos.filter((a) => pasaFiltro(a, vista.filtro, vista.texto) && pasaExtra(a, 'com')).length;
           const yo = x.uid && x.uid === state.user?.id;
-          return `<button type="button" class="${vista.com === x.id ? 'on' : ''}" data-x-com="${esc(x.id)}" aria-pressed="${vista.com === x.id}" title="${x.pct} % de los alumnos">${yo ? '⭐ Los míos' : esc(x.nombre)} <small>${num(n)}</small></button>`;
+          return `<button type="button" class="${vista.com === x.id ? 'on' : ''}" data-x-com="${esc(x.id)}" aria-pressed="${vista.com === x.id}" title="${esc(x.nombre)} tiene ${num(suyos.length)} alumnos asignados (el ${x.pct} %)${n !== suyos.length ? `; ${num(n)} cumplen los demás filtros` : ''}">${yo ? '⭐ Los míos' : esc(x.nombre)} <small>${n === suyos.length ? num(n) : `${num(n)} de ${num(suyos.length)}`}</small></button>`;
         }).join('')}</div>` : ''}
       </div></div>`;
     const tarjeta = (a, i) => {

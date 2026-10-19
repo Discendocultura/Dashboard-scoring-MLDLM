@@ -1,7 +1,7 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { agregar, recomendaciones, rangosNegocio } from '../lib/negocio-calc.js';
-import { sanitizeCatalogo, sinIva, compraDe, faltasProducto } from '../public/js/productos.js';
+import { sanitizeCatalogo, sinIva, compraDe, faltasProducto, variantesDe, etiquetasDe, alMes } from '../public/js/productos.js';
 import { catalogoDesdeConfig } from '../lib/productos.js';
 
 const ENV = { GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret' };
@@ -243,4 +243,30 @@ test('inteligencia de negocio: la API calcula pieza a pieza hasta completar el h
   const setter = await entra('set@ejemplo.com', 'setter');
   assert.equal((await call('/api/negocio', { cookie: setter })).status, 403);
   assert.equal((await call('/api/productos', { method: 'POST', cookie: setter, body: { catalogo: { productos: [] } } })).status, 403);
+});
+
+test('productos: membresías con hasta 3 planes y precio por periodo (mensual, trimestral, semestral, anual)', () => {
+  const cat = sanitizeCatalogo({ ivaPct: 21, productos: [{ nombre: 'Club', cobro: 'recurrente', iva: 'sin', precio: 999, planes: [
+    { id: 'basico', nombre: 'Básico', precios: { mes: { precio: 29, etiqueta: 'Club-Basico-Mes' }, anio: { precio: 290, etiqueta: 'club-basico-anual' }, trimestre: { precio: 0, etiqueta: '' } } },
+    { id: 'vip', nombre: 'VIP', precios: { semestre: { precio: 540, etiqueta: 'club-vip-semestral' } } },
+    { nombre: 'Pro', precios: { trimestre: { precio: 120, etiqueta: 'club-pro-trim' } } },
+    { nombre: 'Cuarto', precios: { mes: { precio: 5 } } },
+  ] }, { nombre: 'Curso', precio: 100, planes: [{ nombre: 'X', precios: { mes: { precio: 9 } } }] }] });
+  const [club, curso] = cat.productos;
+  assert.equal(club.cobro, 'recurrente');
+  assert.equal(club.planes.length, 3); // máximo 3 planes
+  assert.deepEqual(Object.keys(club.planes[0].precios), ['mes', 'anio']); // los periodos vacíos fuera
+  assert.equal(club.planes[0].precios.mes.etiqueta, 'club-basico-mes');
+  assert.equal(club.precio, 29); // su precio «normal»: el primero que haya
+  assert.deepEqual(curso.planes, []); // pago único: sin planes
+  assert.equal(curso.cobro, 'unico');
+  assert.deepEqual(variantesDe(club).map((v) => [v.id, v.nombre, v.precio]), [['basico.mes', 'Básico · mensual', 29], ['basico.anio', 'Básico · anual', 290], ['vip.semestre', 'VIP · semestral', 540], [`${club.planes[2].id}.trimestre`, 'Pro · trimestral', 120]]);
+  assert.ok(etiquetasDe(club).includes('club-vip-semestral'));
+  // Quien lleva la etiqueta del plan anual: un cobro de 290 €
+  assert.deepEqual(compraDe(['club-basico-anual'], club, 21), { oferta: 'basico.anio', importe: 290 });
+  assert.equal(compraDe(['otra'], club, 21), null);
+  assert.equal(alMes(290, 'anio'), 24.17);
+  assert.equal(alMes(540, 'semestre'), 90);
+  assert.deepEqual(faltasProducto(club), []);
+  assert.ok(faltasProducto(sanitizeCatalogo({ productos: [{ nombre: 'Vacío', cobro: 'recurrente' }] }).productos[0]).includes('los planes de la membresía'));
 });

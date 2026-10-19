@@ -1,8 +1,12 @@
 // Mi negocio → 📦 Productos: la ventana para poner cada producto con su precio, la etiqueta de GHL de quien lo
-// compra y sus ofertas (el mismo producto a otro precio, con su propia etiqueta). Todo paso a paso y explicado.
+// compra y sus ofertas (el mismo producto a otro precio, con su propia etiqueta). Si es una membresía (cobro
+// recurrente), hasta 3 planes con su precio y su etiqueta en cada periodo (mensual, trimestral, semestral, anual).
+// Todo paso a paso y explicado.
 // De aquí bebe la Inteligencia de negocio (cuánto factura cada producto y oferta, y qué compran después).
 //   abrirProductos({ api, dialog, cliente, embudos, tags, pintarSelectFecha, onGuardado })
-import { TIPOS_PRODUCTO, MODOS_IVA, IVA_DEF, MAX_OFERTAS, sanitizeCatalogo, sanitizeProducto, nuevoId, sinIva, faltasProducto } from './productos.js';
+import {
+  TIPOS_PRODUCTO, MODOS_IVA, IVA_DEF, MAX_OFERTAS, MAX_PLANES, PERIODOS, MODOS_COBRO, sanitizeCatalogo, sanitizeProducto, nuevoId, sinIva, faltasProducto, alMes,
+} from './productos.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const eur = (n) => (Number(n) || 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: Number(n) % 1 ? 2 : 0 });
@@ -43,7 +47,7 @@ function pintarLista(aviso = '') {
     return `<article class="pd-card${faltan.length ? ' falta' : ''}">
       <span class="pd-card-ico" aria-hidden="true">${icoTipo(p.tipo)}</span>
       <div class="pd-card-t"><strong>${esc(p.nombre)}</strong>
-        <span class="pd-card-precio">${p.precio ? `${eur(p.precio)} <small>${esc(MODOS_IVA.find((m) => m.id === p.iva)?.nombre || '')}</small>` : '<small class="pd-falta">Sin precio</small>'}</span>
+        <span class="pd-card-precio">${p.cobro === 'recurrente' ? precioMembresia(p) : p.precio ? `${eur(p.precio)} <small>${esc(MODOS_IVA.find((m) => m.id === p.iva)?.nombre || '')}</small>` : '<small class="pd-falta">Sin precio</small>'}</span>
         <span class="pd-chips">${p.etiqueta ? `<span class="pd-tag" title="Etiqueta de quien lo compra">🏷️ ${esc(p.etiqueta)}</span>` : ''}${p.ofertas.length ? `<span class="pd-chip">🎟️ ${p.ofertas.length} ${p.ofertas.length === 1 ? 'oferta' : 'ofertas'}</span>` : ''}${p.siguiente && nombreDe(p.siguiente) ? `<span class="pd-chip">🎯 Lleva a ${esc(nombreDe(p.siguiente))}</span>` : ''}</span>
         ${faltan.length ? `<small class="pd-falta">⚠️ Falta ${esc(faltan.join(', '))}</small>` : '<small class="pd-ok">✓ Listo: ya cuenta en la Inteligencia de negocio</small>'}</div>
       ${puedeEditar ? `<button type="button" class="btn" data-pd-editar="${esc(p.id)}">✏️ Editar</button>` : ''}
@@ -64,6 +68,33 @@ function pintarLista(aviso = '') {
     ${puedeEditar ? `<button type="button" class="pd-nuevo" data-pd-nuevo><span aria-hidden="true">＋</span> Añadir ${ps.length ? 'otro producto' : 'tu primer producto'}</button>` : '<p class="muted small">Solo quien configura AlquimIA puede cambiar los productos.</p>'}`;
 }
 
+// «🔁 Membresía · 3 planes · desde 29 €/mes» (lo más barato al mes de todos sus planes y periodos).
+function precioMembresia(p) {
+  const alMesTodos = p.planes.flatMap((pl) => PERIODOS.filter((per) => pl.precios[per.id]?.precio).map((per) => alMes(pl.precios[per.id].precio, per.id)));
+  const desde = alMesTodos.length ? Math.min(...alMesTodos) : 0;
+  return `🔁 Membresía · ${p.planes.length} plan${p.planes.length === 1 ? '' : 'es'}${desde ? ` · desde ${eur(desde)}/mes` : ' · <small class="pd-falta">sin precios</small>'}`;
+}
+
+// Los planes de una membresía: cada uno con su nombre y, en cada periodo que use, su precio y su etiqueta de GHL.
+function planesHtml(p) {
+  const estadoTag = (t) => `<span class="pd-tag-estado">${textoTag(t)}</span>`;
+  const plan = (pl, i) => `<div class="pd-plan" data-plan="${i}">
+      <div class="pd-plan-cab"><span class="pd-plan-n" aria-hidden="true">${i + 1}</span>
+        <label><small>Nombre del plan</small><input class="pd-in" data-pl-f="nombre" maxlength="40" placeholder="${['Básico', 'Pro', 'VIP'][i] || 'Plan'}" value="${esc(pl.nombre)}"></label>
+        <button type="button" class="btn ghost small" data-pd-quitar-plan="${i}" aria-label="Quitar este plan">✕</button></div>
+      <div class="pd-periodos">${PERIODOS.map((per) => {
+        const x = pl.precios[per.id] || {};
+        return `<div class="pd-periodo${x.precio ? ' on' : ''}" data-per="${per.id}">
+          <span class="pd-per-t">${per.nombre}</span>
+          <label class="pd-eur"><input class="pd-in" data-per-f="precio" inputmode="decimal" placeholder="—" value="${x.precio || ''}" aria-label="Precio ${per.nombre.toLowerCase()} de ${esc(pl.nombre || 'este plan')}"><span>€${per.corto}</span></label>
+          <small class="pd-per-mes">${x.precio && per.meses > 1 ? `= ${eur(alMes(x.precio, per.id))}/mes` : ''}</small>
+          <label class="pd-per-tag"><input class="pd-in" data-per-f="etiqueta" list="tag-list" maxlength="100" placeholder="etiqueta de GHL" value="${esc(x.etiqueta || '')}" autocomplete="off" aria-label="Etiqueta ${per.nombre.toLowerCase()}">${estadoTag(x.etiqueta || '')}</label></div>`;
+      }).join('')}</div></div>`;
+  return `<div class="pd-planes">${p.planes.map(plan).join('')}</div>
+    ${p.planes.length < MAX_PLANES ? `<button type="button" class="btn" data-pd-plan>＋ Añadir ${p.planes.length ? 'otro plan' : 'el primer plan'}</button>` : `<p class="pd-nota">Máximo ${MAX_PLANES} planes.</p>`}
+    <p class="pd-nota">💡 Rellena solo los periodos que vendas (p. ej. mensual y anual). Si cada periodo pone su propia etiqueta en GHL, ponla: así se sabe cuánto se cobra a cada persona. Cada alta cuenta como <b>un cobro de su periodo</b> en la Inteligencia de negocio.</p>`;
+}
+
 // ---------- El editor, paso a paso ----------
 function pintarEditor(error = '') {
   const p = borrador;
@@ -78,11 +109,12 @@ function pintarEditor(error = '') {
     ${paso(1, '¿Cómo se llama?', 'El nombre con el que lo conoces (así saldrá en la Inteligencia de negocio).', `
       <input class="pd-in" data-f="nombre" maxlength="60" placeholder="Raíces, Reto Ovulación, Mentoría…" value="${esc(p.nombre)}">
       <div class="pd-tipos" role="radiogroup" aria-label="Qué tipo de producto es">${TIPOS_PRODUCTO.map((t) => `<button type="button" role="radio" aria-checked="${p.tipo === t.id}" class="pd-tipo${p.tipo === t.id ? ' on' : ''}" data-pd-tipo="${t.id}"><span>${t.ico}</span><strong>${t.nombre}</strong><small>${t.texto}</small></button>`).join('')}</div>`)}
-    ${paso(2, '¿Cuánto cuesta?', 'El precio normal, sin descuentos. Si se paga a plazos, el total.', `
-      <div class="pd-precio"><label class="pd-eur"><input class="pd-in" data-f="precio" inputmode="decimal" placeholder="997" value="${p.precio || ''}"><span>€</span></label>
-        <div class="pd-seg" role="radiogroup" aria-label="IVA">${MODOS_IVA.map((m) => `<button type="button" role="radio" aria-checked="${p.iva === m.id}" class="${p.iva === m.id ? 'on' : ''}" data-pd-iva="${m.id}" title="${esc(m.texto)}">${m.nombre}</button>`).join('')}</div></div>
+    ${paso(2, '¿Cuánto cuesta?', p.cobro === 'recurrente' ? 'Una membresía: hasta 3 planes (p. ej. Básico, Pro y VIP) y, en cada uno, el precio de cada periodo que vendas.' : 'El precio normal, sin descuentos. Si se paga a plazos, el total.', `
+      <div class="pd-cobros" role="radiogroup" aria-label="Cómo se cobra">${MODOS_COBRO.map((m) => `<button type="button" role="radio" aria-checked="${p.cobro === m.id}" class="pd-cobro${p.cobro === m.id ? ' on' : ''}" data-pd-cobro="${m.id}"><span aria-hidden="true">${m.ico}</span><strong>${m.nombre}</strong><small>${m.texto}</small></button>`).join('')}</div>
+      ${p.cobro === 'recurrente' ? planesHtml(p) : `<div class="pd-precio"><label class="pd-eur"><input class="pd-in" data-f="precio" inputmode="decimal" placeholder="997" value="${p.precio || ''}"><span>€</span></label></div>`}
+      <div class="pd-precio"><div class="pd-seg" role="radiogroup" aria-label="IVA">${MODOS_IVA.map((m) => `<button type="button" role="radio" aria-checked="${p.iva === m.id}" class="${p.iva === m.id ? 'on' : ''}" data-pd-iva="${m.id}" title="${esc(m.texto)}">${m.nombre}</button>`).join('')}</div></div>
       <p class="pd-nota pd-nota-precio">${notaPrecio(p)}</p>`)}
-    ${paso(3, '¿Qué etiqueta pone GHL a quien lo compra?', 'La que añade tu workflow de compra al pagar (en GHL: Automatización → el workflow que salta con el pago → acción «Añadir etiqueta»). Así sabemos quién lo ha comprado.', `
+    ${paso(3, p.cobro === 'recurrente' ? '¿Qué etiqueta pone GHL a todos los socios?' : '¿Qué etiqueta pone GHL a quien lo compra?', p.cobro === 'recurrente' ? 'Opcional si cada plan y periodo ya tiene la suya (paso 2). Si todos los socios llevan una etiqueta común (p. ej. «socia-membresia»), ponla aquí.' : 'La que añade tu workflow de compra al pagar (en GHL: Automatización → el workflow que salta con el pago → acción «Añadir etiqueta»). Así sabemos quién lo ha comprado.', `
       <input class="pd-in" data-f="etiqueta" list="tag-list" maxlength="100" placeholder="p. ej. clienta-raices" value="${esc(p.etiqueta)}" autocomplete="off">
       ${estadoTag(p.etiqueta)}
       <p class="pd-nota">💡 Escribe y elige de la lista: salen las etiquetas que ya tienes en GHL. Si quien compra con oferta recibe otra etiqueta, va en el paso 4.</p>`)}
@@ -112,13 +144,18 @@ function pintarEditor(error = '') {
   ctx.pintarSelectFecha?.(body().querySelector('#pd-fecha'), p.fechaCampo, { vacio: '— Sin campo de fecha —' });
 }
 
-const hechos = (p) => ({ 1: Boolean(p.nombre), 2: p.precio > 0, 3: Boolean(p.etiqueta), 4: true, 5: p.embudos.length > 0, 6: true, 7: Boolean(p.fechaCampo) });
+const conPrecioPlan = (p) => p.planes.some((pl) => Object.values(pl.precios).some((x) => x.precio > 0));
+const conTagPlan = (p) => p.planes.some((pl) => Object.values(pl.precios).some((x) => x.etiqueta));
+const hechos = (p) => ({
+  1: Boolean(p.nombre), 2: p.cobro === 'recurrente' ? conPrecioPlan(p) : p.precio > 0, 3: Boolean(p.etiqueta) || (p.cobro === 'recurrente' && conTagPlan(p)),
+  4: true, 5: p.embudos.length > 0, 6: true, 7: Boolean(p.fechaCampo),
+});
 // Si la etiqueta existe en GHL (con la lista de etiquetas cargada).
 function textoTag(t) {
   const tags = ctx.tags?.() || null;
   return !t || !tags?.length ? '' : tags.includes(t) ? '<small class="pd-ok">✓ Existe en GHL</small>' : '<small class="pd-aviso">⚠️ No la encuentro en GHL: revisa que esté bien escrita</small>';
 }
-const notaPrecio = (p) => (p.precio ? `💶 Cuenta como <b>${eur(sinIva(p.precio, p.iva, cat.ivaPct || IVA_DEF))}</b> facturados por venta (sin IVA${p.iva === 'incluido' ? `, al ${cat.ivaPct || IVA_DEF} %` : ''}).` : '');
+const notaPrecio = (p) => (p.cobro === 'recurrente' ? (conPrecioPlan(p) ? `💶 Cada alta cuenta como un cobro de su plan y periodo (sin IVA${p.iva === 'incluido' ? `, al ${cat.ivaPct || IVA_DEF} %` : ''}).` : '') : p.precio ? `💶 Cuenta como <b>${eur(sinIva(p.precio, p.iva, cat.ivaPct || IVA_DEF))}</b> facturados por venta (sin IVA${p.iva === 'incluido' ? `, al ${cat.ivaPct || IVA_DEF} %` : ''}).` : '');
 
 // Lo que se escribe va al borrador y se actualiza solo lo que cambia (sin repintar: no se pierde el foco ni el clic).
 function onInput(e) {
@@ -127,6 +164,23 @@ function onInput(e) {
   const f = t.dataset.f;
   const ofi = t.closest('[data-of]');
   const valor = (k) => (k === 'precio' ? Number(String(t.value).replace(',', '.')) || 0 : k === 'etiqueta' ? t.value.trim().toLowerCase() : t.value);
+  const pli = t.closest('[data-plan]');
+  if (pli && (t.dataset.plF || t.dataset.perF)) {
+    const pl = borrador.planes[Number(pli.dataset.plan)];
+    if (t.dataset.plF) { pl.nombre = t.value; refrescarHechos(); return; }
+    const per = t.closest('[data-per]').dataset.per;
+    const x = pl.precios[per] || (pl.precios[per] = { precio: 0, etiqueta: '' });
+    x[t.dataset.perF] = valor(t.dataset.perF);
+    const caja = t.closest('[data-per]');
+    if (t.dataset.perF === 'precio') {
+      caja.classList.toggle('on', x.precio > 0);
+      const meses = PERIODOS.find((y) => y.id === per).meses;
+      caja.querySelector('.pd-per-mes').textContent = x.precio && meses > 1 ? `= ${eur(alMes(x.precio, per))}/mes` : '';
+      body().querySelector('.pd-nota-precio').innerHTML = notaPrecio(borrador);
+    } else caja.querySelector('.pd-tag-estado').innerHTML = textoTag(x.etiqueta);
+    refrescarHechos();
+    return;
+  }
   if (ofi && t.dataset.ofF) {
     borrador.ofertas[Number(ofi.dataset.of)][t.dataset.ofF] = valor(t.dataset.ofF);
     if (t.dataset.ofF === 'etiqueta') t.closest('label').querySelector('.pd-tag-estado').innerHTML = textoTag(borrador.ofertas[Number(ofi.dataset.of)].etiqueta);
@@ -160,7 +214,7 @@ async function onClick(e) {
   const b = e.target.closest('button');
   if (!b) return;
   if (b.dataset.pdNuevo != null) { esNuevo = true; borrador = { ...sanitizeProducto({ nombre: 'x' }), nombre: '', tipo: cat.productos.length ? 'otro' : 'principal' }; pintarEditor(); body().scrollTop = 0; return; }
-  if (b.dataset.pdEditar) { esNuevo = false; borrador = structuredClone(cat.productos.find((p) => p.id === b.dataset.pdEditar)); pintarEditor(); body().scrollTop = 0; return; }
+  if (b.dataset.pdEditar) { esNuevo = false; borrador = structuredClone(cat.productos.find((p) => p.id === b.dataset.pdEditar)); borrador.planes ||= []; borrador.cobro ||= 'unico'; pintarEditor(); body().scrollTop = 0; return; }
   if (b.dataset.pdVolver != null) { borrador = null; pintarLista(); return; }
   if (!borrador) return;
   if (b.dataset.pdTipo) {
@@ -168,6 +222,14 @@ async function onClick(e) {
     for (const x of b.parentElement.children) { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); }
     return;
   }
+  if (b.dataset.pdCobro) {
+    borrador.cobro = b.dataset.pdCobro;
+    if (borrador.cobro === 'recurrente' && !borrador.planes.length) borrador.planes.push({ id: nuevoId('pl'), nombre: '', precios: {} });
+    repintar();
+    return;
+  }
+  if (b.dataset.pdPlan != null) { borrador.planes.push({ id: nuevoId('pl'), nombre: '', precios: {} }); repintar(); body().querySelector('.pd-plan:last-child input')?.focus(); return; }
+  if (b.dataset.pdQuitarPlan) { borrador.planes.splice(Number(b.dataset.pdQuitarPlan), 1); repintar(); return; }
   if (b.dataset.pdIva) {
     borrador.iva = b.dataset.pdIva;
     for (const x of b.parentElement.children) { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); }
@@ -194,7 +256,8 @@ async function onClick(e) {
   if (b.dataset.pdGuardar != null) {
     const p = sanitizeProducto({ ...borrador, ofertas: borrador.ofertas.filter((o) => o.nombre || o.precio || o.etiqueta) });
     if (!p.nombre) { repintar('Ponle un nombre (paso 1).'); return; }
-    if (!p.etiqueta && !p.ofertas.some((o) => o.etiqueta)) { repintar('Falta la etiqueta de quien lo compra (paso 3): sin ella no sabemos quién lo ha comprado.'); return; }
+    if (p.cobro === 'recurrente' && !p.planes.some((pl) => Object.values(pl.precios).some((x) => x.precio))) { repintar('Pon el precio de al menos un plan en algún periodo (paso 2).'); return; }
+    if (!p.etiqueta && !p.ofertas.some((o) => o.etiqueta) && !p.planes.some((pl) => Object.values(pl.precios).some((x) => x.etiqueta))) { repintar(`Falta la etiqueta de quien lo compra (paso ${p.cobro === 'recurrente' ? '2 o 3' : '3'}): sin ella no sabemos quién lo ha comprado.`); return; }
     const lista = esNuevo ? [...cat.productos, p] : cat.productos.map((x) => (x.id === p.id ? p : x));
     b.disabled = true;
     await guardar(lista, `✓ «${esc(p.nombre)}» guardado. La Inteligencia de negocio lo cuenta en unos segundos.`);
