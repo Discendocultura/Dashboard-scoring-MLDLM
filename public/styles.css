@@ -7334,3 +7334,11 @@ body.pp-activo .vs-mas { display: inline-flex; }
 /* Avisos: quien se ha atascado (para la agencia). */
 .notif-item.t-atascado { text-decoration: none; }
 .notif-item.t-atascado .notif-ico { background: color-mix(in srgb, var(--dato) 15%, var(--surface)); }
+
+/* Ventas cruzadas → Hoy: las tarjetas funcionan como las de Llamadas (pulsar = ficha; «Mover de etapa»). */
+.xp-card.clic { cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.xp-card.clic:hover { border-color: color-mix(in srgb, var(--dato) 45%, var(--border)); box-shadow: 0 8px 20px -14px rgb(0 0 0 / .45); transform: translateY(-1px); }
+.xp-card-pie { flex-wrap: wrap; }
+.xp-card .xa-acts { align-items: center; }
+.xp-mover { padding: 5px 10px; font-size: 12.5px; white-space: nowrap; }
+.seg-card { cursor: pointer; }

@@ -207,3 +207,30 @@ test('ventas cruzadas (API): meter a los alumnos en «Por contactar» (sin repet
   const setter = (await call('/api/login', { method: 'POST', body: { password: 'setter' } })).res.headers.get('set-cookie').split(';')[0];
   assert.equal((await call('/api/cruzadas', { method: 'POST', cookie: setter, body: { op: 'por-contactar', x: 'xpc', contactos } })).status, 403);
 });
+
+test('ventas cruzadas (API): «Mover de etapa» con las mismas opciones que una llamada (y nota en GHL)', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const c = (await call('/api/config', { cookie: admin })).data;
+  await call('/api/config', { method: 'POST', cookie: admin, body: { ...c.config, _version: c.version,
+    embudos: [...c.config.embudos.filter((e) => e.id !== 'xmv'), { id: 'xmv', tipo: 'cruzadas', nombre: 'X MV' }],
+    cruzadas: { ...c.config.cruzadas, xmv: { name: 'X MV', productos: [{ nombre: 'A', tag: 'clienta-raices' }], llamadas: true } } } });
+  const mover = (body, cookie = admin) => call('/api/cruzadas', { method: 'POST', cookie, body: { op: 'mover', x: 'xmv', ...body } });
+  // Sin oportunidad: se crea en la fase del resultado
+  const r = await mover({ contactId: 'cmv1', nombre: 'Luz Mar', resultado: 'seguimiento', notas: 'Llamar el lunes' });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.etapa.nombre, 'Seguimiento');
+  // Con oportunidad: se mueve; «No contesta» avanza 1 → 2
+  assert.equal((await mover({ contactId: 'cmv1', resultado: 'noshow' })).data.etapa.nombre, 'No contesta 1');
+  assert.equal((await mover({ contactId: 'cmv1', resultado: 'noshow' })).data.etapa.nombre, 'No contesta 2');
+  assert.equal((await mover({ contactId: 'cmv1', resultado: 'venta' })).data.etapa.nombre, 'Venta');
+  const hoy = await call('/api/cruzadas?x=xmv&fresh=1', { cookie: admin });
+  assert.equal(hoy.data.etapas.find((e) => e.nombre === 'Venta').items.filter((it) => it.contactId === 'cmv1').length, 1);
+  // «No compra» pide motivo; resultado o contacto no válidos, fuera
+  assert.equal((await mover({ contactId: 'cmv1', resultado: 'perdido' })).status, 400);
+  assert.equal((await mover({ contactId: 'cmv1', resultado: 'perdido', motivo: 'Precio' })).data.etapa.nombre, 'Perdido');
+  assert.equal((await mover({ contactId: 'cmv1', resultado: 'otro' })).status, 400);
+  assert.equal((await mover({ contactId: '../x', resultado: 'venta' })).status, 400);
+  // La setter (con Hoy/Llamadas) también puede moverlos
+  const setter = (await call('/api/login', { method: 'POST', body: { password: 'setter' } })).res.headers.get('set-cookie').split(';')[0];
+  assert.equal((await mover({ contactId: 'cmv2', resultado: 'seguimiento' }, setter)).status, 200);
+});

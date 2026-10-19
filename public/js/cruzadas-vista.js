@@ -386,7 +386,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     // Cada fase es también un filtro: al pulsarla se ven solo las personas de esa fase (otra vez, todas).
     if (hoy.etapa && !d.etapas.some((e) => e.id === hoy.etapa)) hoy.etapa = '';
     const resumen = `${filtroCom}<div class="xp-resumen" role="group" aria-label="Filtrar por fase">${d.etapas.map((e, i) => `<button type="button" class="xp-res ${cerrada(e.nombre) ? 'cerr' : ''} ${hoy.etapa === e.id ? 'on' : ''}" data-xp-etapa="${esc(e.id)}" aria-pressed="${hoy.etapa === e.id}" title="${hoy.etapa === e.id ? 'Ver todas las fases' : `Ver solo «${esc(e.nombre)}»`}" style="--c:${COLORES[0]};--i:${i}"><span aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><b>${num(nDe(e))}</b><small>${esc(e.nombre)}</small></button>`).join('')}${hoy.etapa ? '<button type="button" class="xp-res-todas" data-xp-etapa="">✕ Todas las fases</button>' : ''}</div>`;
-    const tarjeta = (it, i) => {
+    const tarjeta = (e) => (it, i) => {
       const a = alumnoDe(it.contactId);
       const falta = a ? productos.filter((p) => !a.tiene.includes(p.id)) : [];
       const of = a ? ofertaPara(a, cfg.ofertas, prio) : null;
@@ -394,16 +394,18 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
       const tel = it.telefono || a?.phone || '';
       const wa = a?.phoneWa || waPhone(tel, state.config?.defaultCountryCode || '34');
       const dias = it.desde ? Math.max(0, Math.round((Date.now() - Date.parse(it.desde)) / 86_400_000)) : null;
-      return `<li class="xp-card" style="--i:${Math.min(i, 10)}">
-        <div class="xp-card-q"><span class="xa-av peq" style="--c:${tonoDe(it.nombre)}" aria-hidden="true">${esc(ini(it.nombre))}</span><button type="button" class="lead-ficha" ${it.contactId ? `data-ficha-lead="${esc(it.contactId)}"` : 'disabled'}>${esc(it.nombre || '(sin nombre)')}</button></div>
+      // Como las tarjetas de Llamadas: pulsarla abre la ficha y «Mover de etapa» abre las mismas opciones.
+      const datosCard = it.contactId ? ` data-xp-card="${esc(it.contactId)}" data-xp-nombre="${esc(it.nombre || a?.name || '')}" data-xp-fase="${esc(e.nombre)}" title="Pulsa para ver la ficha completa"` : '';
+      return `<li class="xp-card${it.contactId ? ' clic' : ''}" style="--i:${Math.min(i, 10)}"${datosCard}>
+        <div class="xp-card-q"><span class="xa-av peq" style="--c:${tonoDe(it.nombre)}" aria-hidden="true">${esc(ini(it.nombre))}</span><button type="button" class="lead-ficha" data-xp-ficha ${it.contactId ? '' : 'disabled'}>${esc(it.nombre || '(sin nombre)')}</button></div>
         ${a ? `<div class="xa-chips mini">${productos.filter((p) => a.tiene.includes(p.id)).map((p) => `<span class="xa-chip si" style="--c:${colorDe(productos, p.id)}">✓ ${esc(p.nombre)}</span>`).join('')}</div>` : ''}
         ${pOf ? `<span class="xa-oferta" style="--c:${colorDe(productos, pOf.id)}"><span aria-hidden="true">🎁</span> <b>${esc(pOf.nombre)}</b>${of.precio ? `<small>${esc(of.precio)}</small>` : ''}</span>` : falta.length ? `<span class="xa-ofrece"><span aria-hidden="true">🎁</span> ${falta.slice(0, 2).map((p) => esc(p.nombre)).join(' · ')}</span>` : ''}
-        <div class="xp-card-pie"><span class="muted small">${dias == null ? '' : dias === 0 ? 'hoy en esta fase' : `${dias} día${dias === 1 ? '' : 's'} en esta fase`}</span><span class="xa-acts">${tel ? `<a class="xa-act tel" href="tel:${esc(tel.replace(/[^\d+]/g, ''))}" title="Llamar">📞</a>` : ''}${wa ? `<a class="xa-act wa" href="https://wa.me/${esc(wa)}${of?.mensaje ? `?text=${encodeURIComponent(mensajeDe(of, it.nombre, pOf?.nombre))}` : ''}" target="_blank" rel="noopener" title="WhatsApp">${ICO_WA}</a>` : ''}</span></div></li>`;
+        <div class="xp-card-pie"><span class="muted small">${dias == null ? '' : dias === 0 ? 'hoy en esta fase' : `${dias} día${dias === 1 ? '' : 's'} en esta fase`}</span><span class="xa-acts">${it.contactId ? '<button type="button" class="btn small xp-mover" data-xp-mover>Mover de etapa</button>' : ''}${tel ? `<a class="xa-act tel" href="tel:${esc(tel.replace(/[^\d+]/g, ''))}" title="Llamar">📞</a>` : ''}${wa ? `<a class="xa-act wa" href="https://wa.me/${esc(wa)}${of?.mensaje ? `?text=${encodeURIComponent(mensajeDe(of, it.nombre, pOf?.nombre))}` : ''}" target="_blank" rel="noopener" title="WhatsApp">${ICO_WA}</a>` : ''}</span></div></li>`;
     };
     const maxCol = hoy.etapa ? POR_COLUMNA * 5 : POR_COLUMNA; // una sola fase: caben más
     const columna = (e, i) => `<section class="xp-col ${cerrada(e.nombre) ? 'cerr' : ''}" style="--c:${COLORES[0]};--i:${i}">
       <header><span class="xp-col-ico" aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><strong>${esc(e.nombre)}</strong><span class="xp-col-n">${num(nDe(e))}</span></header>
-      ${suyos(e).length ? `<ol>${suyos(e).slice(0, maxCol).map(tarjeta).join('')}</ol>${nDe(e) > Math.min(maxCol, suyos(e).length) ? `<p class="muted small xp-col-mas">Y ${num(nDe(e) - Math.min(maxCol, suyos(e).length))} más${vista.com ? '' : ' (filtra por comercial para ver los tuyos)'}</p>` : ''}` : '<p class="xp-col-vacia">Nadie en esta fase</p>'}</section>`;
+      ${suyos(e).length ? `<ol>${suyos(e).slice(0, maxCol).map(tarjeta(e)).join('')}</ol>${nDe(e) > Math.min(maxCol, suyos(e).length) ? `<p class="muted small xp-col-mas">Y ${num(nDe(e) - Math.min(maxCol, suyos(e).length))} más${vista.com ? '' : ' (filtra por comercial para ver los tuyos)'}</p>` : ''}` : '<p class="xp-col-vacia">Nadie en esta fase</p>'}</section>`;
     // Alumnos que aún no están en el pipeline (por su id de contacto, con lo leído de GHL).
     const enPipe = new Set(d.etapas.flatMap((e) => e.items.map((it) => it.contactId)));
     const fuera = datos.alumnos ? datos.alumnos.filter((a) => !enPipe.has(a.id)).length : null;

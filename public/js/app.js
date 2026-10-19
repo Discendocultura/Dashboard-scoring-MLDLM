@@ -44,6 +44,7 @@ import { abrirProcesos } from './procesos-panel.js';
 import { abrirAtajos } from './atajos-panel.js';
 import { abrirProductos } from './productos-panel.js';
 import { montarCruzadas } from './cruzadas-vista.js';
+import { productosListos as productosListosX, sanitizeCruzada as sanitizeCruzadaX } from './cruzadas.js';
 import { abrirOperativa } from './operativa-panel.js';
 import { activarArroba, enlacesEnTexto, filtrarEnlaces, leerRef, refTarea, refTablero, refPersona, tokenComentario } from './enlaces.js';
 import { montarAsistente } from './marca-asistente.js';
@@ -11236,6 +11237,14 @@ async function cargarLlamadas(code) {
 const llCancelada = (c) => ['cancelled', 'invalid'].includes(c.status) && c.resultado?.resultado !== 'reagendar';
 const llStart = (c) => Date.parse(c.startTime);
 const leadDe = (contactId) => (enCruzadas() ? cruz.alumnoDe(contactId) : (enVsl() ? state.vsl.leads || [] : state.leads).find((l) => l.id === contactId) || null);
+// Ventas cruzadas: el alumno no tiene puntuación; lo que se enseña es qué productos tiene y cuál le falta.
+function chipsAlumno(a) {
+  if (!a) return '<span class="ll-chip muted">No está entre los alumnos de este embudo</span>';
+  const productos = productosListosX(sanitizeCruzadaX(state.config.cruzadas?.[state.embudo] || {}));
+  const falta = productos.filter((p) => !a.tiene.includes(p.id));
+  return [...productos.filter((p) => a.tiene.includes(p.id)).map((p) => `<span class="ll-chip buy">✓ ${esc(p.nombre)}</span>`),
+    falta.length ? `<span class="ll-chip">🎁 Le falta: ${falta.slice(0, 2).map((p) => esc(p.nombre)).join(' · ')}</span>` : ''].join('');
+}
 
 function llamadaCard(c) {
   const ahora = Date.now();
@@ -11248,7 +11257,7 @@ function llamadaCard(c) {
   const pasada = llStart(c) < ahora;
   const cuando = dia === hoyD ? 'Hoy' : dia === addDays(hoyD, 1) ? 'Mañana' : dia === addDays(hoyD, -1) ? 'Ayer' : d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' });
   const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
-  const chips = lead ? [
+  const chips = enCruzadas() ? chipsAlumno(lead) : lead ? [
     `<span class="ll-chip st-${lead.estado.id}" title="Puntuación del lead">${esc(lead.estado.label)} · ${lead.score} pts</span>`,
     lead.s.vip ? '<span class="ll-chip vip">⭐ VIP</span>' : '',
     directoVenta(lead.s, 'asistio') ? '<span class="ll-chip">🔴 Vio el directo</span>' : '',
@@ -11439,7 +11448,7 @@ function origenLlamada(c) {
   const launch = embudoActual() || {};
   const tags = (lead?.tags || c.opp?.tags || c.contacto?.tags || []).map((t) => String(t).toLowerCase());
   const src = lead?.src || c.opp?.src || c.contacto?.src || {};
-  let tipo = lead?.s.origen || '';
+  let tipo = lead?.s?.origen || '';
   if (!tipo && launch.publiTag && tags.includes(launch.publiTag)) tipo = 'publi';
   if (!tipo && launch.organicoTag && tags.includes(launch.organicoTag)) tipo = 'organico';
   if (!tipo && (/^(paid|cpc|ppc|ads?)$/i.test(src.medium || '') || src.content || /^(fb|ig|facebook|instagram)$/i.test(src.source || '') && src.campaign)) tipo = 'publi';
@@ -11612,15 +11621,37 @@ const LL_EXPLICA = {
   noshow: 'La cita se marca como «no se presentó» y la oportunidad avanza a «No contesta 1» (o al siguiente).',
   reagendar: 'La cita se cancela y la oportunidad vuelve a «Agenda llamada» para que reserve otra vez.',
 };
+// Ventas cruzadas («Hoy»): las mismas opciones, pero sin cita que marcar.
+const LL_EXPLICA_X = {
+  venta: 'Pasa a «Venta» (ganada) en el pipeline de ventas cruzadas.',
+  pendiente_pago: 'Pasa a «Pendiente de pago» (o a «Seguimiento» si esa fase no existe en el pipeline).',
+  seguimiento: 'Pasa a «Seguimiento»: le interesa pero aún no decide.',
+  perdido: 'Pasa a «Perdido» con el motivo.',
+  noshow: 'No contesta: avanza a «No contesta 1» (o al siguiente).',
+  reagendar: 'Vuelve a «Agenda llamada» para que reserve otra vez.',
+};
 function syncLlDialog() {
   const v = $('#ll-resultados input:checked')?.value;
   $('#ll-motivo-field').hidden = v !== 'perdido';
-  $('#ll-explica').textContent = LL_EXPLICA[v] || '';
+  $('#ll-explica').textContent = (llActual?.cruzada ? LL_EXPLICA_X : LL_EXPLICA)[v] || '';
+}
+function abrirMoverCruzada({ contactId, nombre, fase }) {
+  llActual = { cruzada: true, contactId, nombre };
+  $('#ll-titulo').textContent = nombre || 'Mover de etapa';
+  $('#ll-sub').innerHTML = fase ? `Ahora en <strong>«${esc(fase)}»</strong>. ¿A qué etapa pasa?` : '¿A qué etapa pasa?';
+  $('#ll-resultados').innerHTML = RESULTADOS.map((r) => `<label class="ll-opt ll-${r.id}"><input type="radio" name="ll-res" value="${r.id}"><span>${r.icon} ${esc(r.id === 'noshow' ? 'No contesta' : r.label)}</span></label>`).join('');
+  $('#ll-motivo').value = MOTIVOS[0];
+  $('#ll-notas').value = '';
+  $('#ll-status').textContent = '';
+  $('#ll-save').textContent = 'Mover de etapa';
+  syncLlDialog();
+  lldlg.showModal();
 }
 function openLlamada(id) {
   const c = state.llamadas.data.llamadas.find((x) => x.id === id);
   if (!c) return;
   llActual = c;
+  $('#ll-save').textContent = 'Guardar resultado';
   const lead = leadDe(c.contactId);
   $('#ll-titulo').textContent = lead?.name || c.title || 'Llamada';
   const kk = contactoDe(c);
@@ -11634,6 +11665,15 @@ function openLlamada(id) {
   lldlg.showModal();
 }
 $('#ll-resultados').addEventListener('change', syncLlDialog);
+// Ventas cruzadas → Hoy: como en Llamadas, la tarjeta abre la ficha y «Mover de etapa» abre las mismas opciones.
+$('#xhoy-body').addEventListener('click', (e) => {
+  const card = e.target.closest('[data-xp-card]');
+  if (!card) return;
+  const x = { contactId: card.dataset.xpCard, nombre: card.dataset.xpNombre || '', fase: card.dataset.xpFase || '' };
+  if (e.target.closest('[data-xp-mover]')) { abrirMoverCruzada(x); return; }
+  if (e.target.closest('a, select, input, textarea') || (e.target.closest('button') && !e.target.closest('[data-xp-ficha]'))) return;
+  abrirFichaLead(x.contactId, { xMover: x });
+});
 $('#llamadas-list').addEventListener('click', (e) => {
   const b = e.target.closest('[data-ll]');
   if (b) { openLlamada(b.dataset.ll); return; }
@@ -11682,7 +11722,8 @@ function hechosLead(lead) {
   ].filter(Boolean);
 }
 function pintarFicha(c, f, error = '') {
-  const lead = leadDe(c.contactId);
+  const alumno = enCruzadas() ? leadDe(c.contactId) : null; // ventas cruzadas: sin puntuación, con sus productos
+  const lead = alumno ? null : leadDe(c.contactId);
   const k = contactoDe(c);
   const d = new Date(c.startTime);
   const cita = c.sinLlamada ? '' : `${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' })} a las ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })}`;
@@ -11695,11 +11736,11 @@ function pintarFicha(c, f, error = '') {
   const temp = lead ? `<div class="ficha-temp st-${lead.estado.id}"><span class="estado st-${lead.estado.id}"><span class="dot"></span>${esc(lead.estado.label)}</span>
       <div class="ficha-score"><div class="ficha-score-bar"><span style="width:${Math.min(100, lead.score)}%"></span></div><strong>${lead.score}</strong> <span class="muted">/ 100 puntos</span></div>
       ${!enVsl() && lead.step !== 'comprado' ? `<span class="muted">Siguiente paso: <strong>${esc(NEXT_STEPS[lead.step])}</strong></span>` : ''}</div>` : '<p class="muted">No está entre los registros de este embudo: no tiene puntuación.</p>';
-  $('#ficha-titulo').textContent = lead?.name || f?.contacto?.name || c.title || 'Ficha del lead';
+  $('#ficha-titulo').textContent = lead?.name || alumno?.name || f?.contacto?.name || c.title || 'Ficha del lead';
   $('#ficha-body').innerHTML = `
     ${c.sinLlamada ? '' : `<p class="ficha-cita">📅 Llamada el <strong>${esc(cita)}</strong>${etapa ? ` · etapa <strong>${esc(etapa.name)}</strong>` : ''}${llCancelada(c) ? ' · <strong>cancelada</strong>' : ''}</p>`}
     <div class="ll-contact ficha-contacto">${k.phone ? `<a href="tel:${esc(k.phone)}">${icon('phone')}${esc(k.phone)}</a>` : '<span class="muted">Sin teléfono</span>'}${k.phoneWa ? `<a href="https://wa.me/${esc(k.phoneWa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${enlaceSetter(c.contactId) ? `<a href="${esc(enlaceSetter(c.contactId))}" target="_blank" rel="noopener" title="${esc(lead?.s?.setter?.respondio ? 'Abrir su conversación en el setter IA' : 'Aún no ha hablado con el setter IA: el setter dirá «No encontramos esta conversación»')}">🤖 Abrir en el setter</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}</div>
-    <section class="ficha-sec"><h3>🌡️ Temperatura (lead scoring)</h3>${temp}</section>
+    ${enCruzadas() ? `<section class="ficha-sec"><h3>🎓 Sus productos</h3><p class="ficha-meta">${chipsAlumno(alumno)}</p>${c.xMover?.fase ? `<p class="muted small">Ahora en la fase <strong>«${esc(c.xMover.fase)}»</strong> del pipeline de ventas cruzadas.</p>` : ''}</section>` : `<section class="ficha-sec"><h3>🌡️ Temperatura (lead scoring)</h3>${temp}</section>`}
     ${lead ? `<section class="ficha-sec"><h3>🧭 Qué ha hecho</h3><ul class="ficha-hechos">${hechosLead(lead).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
       <p class="ficha-meta">${[c.sinLlamada ? '' : origenChip(c), lead.s.trafico ? `<span class="ll-chip">${lead.s.trafico === 'frio' ? '❄️ Tráfico frío (nueva en GHL)' : '🔥 Tráfico templado (ya estaba en GHL)'}</span>` : '', avatarChip(lead), dias != null ? `<span class="ll-chip">Registrada hace ${dias} día${dias === 1 ? '' : 's'} (${esc(fechaFicha(reg))})</span>` : ''].filter(Boolean).join(' ')}</p></section>` : ''}
     ${r ? `<section class="ficha-sec"><h3>📝 Resultado anotado</h3><p>${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span></p>${c.resultado.notas ? `<p class="ll-notas">${esc(c.resultado.notas)}</p>` : ''}</section>` : ''}
@@ -11710,8 +11751,8 @@ function pintarFicha(c, f, error = '') {
     <section class="ficha-sec"><h3>📋 Encuesta</h3>${encuestaRespondida ? filas(f.encuesta.map((x) => [x.pregunta, x.respuesta])) : `<p class="muted">${f.encuesta.length ? 'No ha rellenado la encuesta.' : 'Este cliente no tiene preguntas de encuesta configuradas (Equipo → Marca).'}</p>`}</section>
     <section class="ficha-sec"><h3>📞 Formulario de la llamada y otros datos de GHL</h3>${filas(f.otros.map((x) => [x.campo, x.fecha ? fechaFicha(x.valor) : x.valor]), 'No hay más datos en su ficha de GHL.')}</section>
     ${f.notas.length ? `<section class="ficha-sec"><h3>🗒️ Notas en GHL</h3><ul class="ficha-notas">${f.notas.map((n) => `<li><span class="muted small">${esc(fechaFicha(n.dateAdded))}</span><div>${esc(n.body)}</div></li>`).join('')}</ul></section>` : ''}`}`;
-  $('#ficha-anotar').hidden = c.sinLlamada || llCancelada(c);
-  $('#ficha-anotar').textContent = r ? 'Cambiar resultado' : 'Anotar resultado';
+  $('#ficha-anotar').hidden = c.xMover ? false : c.sinLlamada || llCancelada(c);
+  $('#ficha-anotar').textContent = c.xMover ? 'Mover de etapa' : r ? 'Cambiar resultado' : 'Anotar resultado';
 }
 async function abrirFicha(id) {
   const c = state.llamadas?.data?.llamadas?.find((x) => x.id === id);
@@ -11728,8 +11769,8 @@ async function abrirFicha(id) {
 }
 const fichaUrl = (cid) => `/api/ficha?cid=${encodeURIComponent(cid)}${enLanzamientos() && state.launchCode ? `&l=${encodeURIComponent(state.launchCode)}` : ''}`;
 // Ficha de un lead sin llamada (pestaña Leads): la misma, sin la cita ni el resultado.
-async function abrirFichaLead(id) {
-  const c = { id: `lead-${id}`, contactId: id, sinLlamada: true };
+async function abrirFichaLead(id, { xMover = null } = {}) {
+  const c = { id: `lead-${id}`, contactId: id, sinLlamada: true, ...(xMover ? { xMover } : {}) };
   fichaLlamada = c;
   pintarFicha(c, null);
   $('#ficha-dialog').showModal();
@@ -11794,7 +11835,8 @@ const votoTexto = (cid) => respuestasDe(cid).map((x) => x.texto).join(' · ');
 $('#ficha-anotar').addEventListener('click', () => {
   if (!fichaLlamada) return;
   $('#ficha-dialog').close();
-  openLlamada(fichaLlamada.id);
+  if (fichaLlamada.xMover) abrirMoverCruzada(fichaLlamada.xMover);
+  else openLlamada(fichaLlamada.id);
 });
 $('#btn-ll-reload').addEventListener('click', loadLlamadas);
 // La ayuda se ve abierta hasta que la cierras (se recuerda en este navegador).
@@ -11808,6 +11850,14 @@ $('#ll-save').addEventListener('click', async () => {
   $('#ll-status').textContent = 'Guardando en GHL…';
   try {
     const c = llActual;
+    if (c.cruzada) {
+      const x = state.embudo;
+      const r = await api('/api/cruzadas', { method: 'POST', body: { op: 'mover', x, contactId: c.contactId, nombre: c.nombre, resultado, motivo: resultado === 'perdido' ? $('#ll-motivo').value : '', notas: $('#ll-notas').value } });
+      lldlg.close();
+      notice(`${c.nombre || 'Alumno'} → «${r.etapa.nombre}» ✓${r.avisos?.length ? ` (${r.avisos.join(' ')})` : ' · nota guardada en GHL'}`, Boolean(r.avisos?.length));
+      cruz.cargarHoy(x, { fresh: true });
+      return;
+    }
     const r = await api('/api/llamadas', { method: 'POST', body: { l: state.llamadas.code, op: 'resultado', eventId: c.id, contactId: c.contactId, nombre: leadDe(c.contactId)?.name || c.title, startTime: c.startTime, resultado, motivo: resultado === 'perdido' ? $('#ll-motivo').value : '', notas: $('#ll-notas').value } });
     lldlg.close();
     notice(r.avisos?.length ? `Resultado guardado, pero: ${r.avisos.join(' ')}` : 'Resultado guardado: pipeline, cita y nota actualizados en GHL.', Boolean(r.avisos?.length));
@@ -14698,6 +14748,9 @@ function renderSeguimiento() {
     ${lista.length > 300 ? `<p class="muted small">…y ${lista.length - 300} más: usa la búsqueda o los filtros.</p>` : ''}`;
 }
 $('#dc-seg').addEventListener('click', async (e) => {
+  // Como en Llamadas: pulsar la tarjeta (fuera de botones y campos) abre la ficha completa.
+  const card = e.target.closest('[data-seg-card]');
+  if (card && !e.target.closest('a, button, select, input, textarea, label')) { abrirFichaLead(card.dataset.segCard); return; }
   const et = e.target.closest('[data-seg-etapa]');
   if (et) { state.seg.etapa = et.dataset.segEtapa; renderSeguimiento(); return; }
   if (e.target.closest('#seg-recargar')) { cargarSeguimiento({ fresh: true }); return; }

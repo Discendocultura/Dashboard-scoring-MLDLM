@@ -7,7 +7,8 @@
 // El pipeline se busca por su nombre (el elegido en la configuración; si no, «Ventas cruzadas»).
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
-import { getPipelines, searchOpportunities, createOpportunity } from '../lib/ghl.js';
+import { getPipelines, searchOpportunities, createOpportunity, updateOpportunity, addContactNote } from '../lib/ghl.js';
+import { RESULTADOS, etapasPipeline, etapaDestino } from '../public/js/llamadas.js';
 import { cacheCompartida } from '../lib/store.js';
 import { PIPELINE_CRUZADAS, sanitizeCruzada, comercialDe } from '../public/js/cruzadas.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
@@ -65,8 +66,9 @@ export const etapaPorContactar = (pipe) => {
 
 export async function POST(request) {
   try {
-    await requireSession(request, { permiso: 'config' });
     const body = await readBody(request);
+    if (body.op === 'mover') return await mover(request, body);
+    await requireSession(request, { permiso: 'config' });
     if (body.op !== 'por-contactar') return json({ error: 'Operación no válida' }, 400);
     const config = await getConfig();
     const id = String(body.x || '');
@@ -100,4 +102,40 @@ export async function POST(request) {
   } catch (e) {
     return errorResponse(e);
   }
+}
+
+// «Mover de etapa» desde «Hoy» (las mismas opciones que al anotar una llamada de un lanzamiento: Venta, Pendiente de
+// pago, Seguimiento, No compra, No contesta, Reagendar): mueve (o crea) su oportunidad en el pipeline de ventas cruzadas
+// y deja la nota en su ficha de GHL. No hay cita que marcar.
+async function mover(request, body) {
+  const s = await requireSession(request, { permiso: ['hoy', 'llamadas'] });
+  const r = RESULTADOS.find((x) => x.id === body.resultado);
+  if (!r) return json({ error: 'Resultado no válido' }, 400);
+  const contactId = String(body.contactId || '');
+  if (!/^[A-Za-z0-9_-]{2,64}$/.test(contactId)) return json({ error: 'Contacto no válido' }, 400);
+  const motivo = r.id === 'perdido' ? String(body.motivo || '').trim().slice(0, 60) : '';
+  if (r.id === 'perdido' && !motivo) return json({ error: 'Indica el motivo por el que no compra' }, 400);
+  const notas = String(body.notas || '').trim().slice(0, 2000);
+  const config = await getConfig();
+  const id = String(body.x || '');
+  const raw = config.cruzadas && Object.hasOwn(config.cruzadas, id) ? config.cruzadas[id] : null;
+  if (!raw) return json({ error: 'Embudo no encontrado' }, 404);
+  const c = sanitizeCruzada(raw);
+  const nombre = c.llamadasPipeline || PIPELINE_CRUZADAS;
+  const pipe = (await getPipelines()).find((p) => norm(p.name) === norm(nombre));
+  if (!pipe) return json({ error: `No encuentro el pipeline «${nombre}» en GHL.` }, 400);
+  const opp = (await searchOpportunities({ pipelineId: pipe.id, contactId, limit: 1 })).opportunities[0];
+  const etapa = etapaDestino(r.id, etapasPipeline(pipe), opp?.pipelineStageId);
+  if (!etapa) return json({ error: `El pipeline «${pipe.name}» no tiene una fase para «${r.label}».` }, 400);
+  if (opp) await updateOpportunity(opp.id, { pipelineId: pipe.id, pipelineStageId: etapa, status: r.status });
+  else {
+    const com = comercialDe(contactId, c.comerciales);
+    await createOpportunity({ pipelineId: pipe.id, pipelineStageId: etapa, contactId, name: `${String(body.nombre || 'Alumno').trim().slice(0, 80)}${com ? ` · ${com.nombre}` : ''}`.slice(0, 100), status: r.status });
+  }
+  const quien = s.user?.nombre || (s.role === 'admin' ? 'Admin' : 'Setter');
+  const avisos = [];
+  await addContactNote(contactId, `🔁 Ventas cruzadas: ${r.icon} ${r.label}${motivo ? ` · Motivo: ${motivo}` : ''}${notas ? `\n${notas}` : ''}\n— ${quien}, desde AlquimIA`)
+    .catch((e) => avisos.push(`No se pudo guardar la nota en GHL (${String(e.message).slice(0, 120)}).`));
+  const fase = (pipe.stages || []).find((x) => x.id === etapa);
+  return json({ etapa: { id: etapa, nombre: fase?.name || '' }, avisos });
 }
