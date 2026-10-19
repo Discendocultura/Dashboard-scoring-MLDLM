@@ -136,6 +136,14 @@ test('inteligencia de negocio: con catálogo de productos, compras por etiqueta,
   assert.deepEqual(a.cruzadas.combinaciones.map((c) => [c.nombres.join(' + '), c.n]), [['Reto Ovulación', 15], ['Raíces', 7], ['Reto Ovulación + Raíces', 5]]);
   assert.equal(a.cruzadas.combinaciones[2].pct, 5 / 27);
   assert.deepEqual(a.cruzadas.cruces[0], { de: 'reto', a: 'raices', base: 20, tienen: 5, pct: 0.25, faltan: 15, pctFaltan: 0.75, deNombre: 'Reto Ovulación', aNombre: 'Raíces' });
+  // % por cuántos productos (22 de 27 tienen uno; 5 los dos) y qué hacer con eso
+  assert.deepEqual(a.cruzadas.cantidades.map((c) => [c.n, c.alumnos, c.todos]), [[1, 22, false], [2, 5, true]]);
+  assert.ok(a.cruzadas.acciones.some((x) => x.titulo.includes('Ofrece «Raíces» a quien tiene «Reto Ovulación»')));
+  assert.ok(a.cruzadas.acciones.some((x) => x.titulo.includes('solo tiene un producto')));
+  // Con producto prioritario, su acción va la primera
+  const conPrio = agregar(piezas, { hoy, embudos, catalogo: { ivaPct: 21, productos, fotos, prioritario: 'raices' } });
+  assert.equal(conPrio.cruzadas.prioritario, 'raices');
+  assert.match(conPrio.cruzadas.acciones[0].titulo, /aún no tienen tu producto prioritario/);
   // Más cifras y «Mejora tus datos»
   assert.equal(a.numeros.ticket, a.numeros.facturacion / a.numeros.ventas);
   assert.equal(a.numeros.conversion, 12 / 600);

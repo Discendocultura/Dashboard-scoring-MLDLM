@@ -2,6 +2,7 @@ import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   sanitizeCruzada, productosDe, pasaFiltro, oportunidades, pendientesCruzada, productosListos, etiquetasX, ofertaPara, ofertasPropuestas, combinaciones, cruces,
+  prioritarioDe, comercialDe, totalReparto, repartoIgual, porCantidad,
 } from '../public/js/cruzadas.js';
 
 test('ventas cruzadas: productos con su etiqueta, qué tiene cada alumno, filtros y a quién ofrecer qué', () => {
@@ -64,6 +65,40 @@ test('ventas cruzadas: ofertas por tipo de alumno, Hoy/Llamadas y porcentajes (c
   assert.ok(!ofertasPropuestas(alumnos, prods, prop).length);
 });
 
+test('ventas cruzadas: producto prioritario, reparto entre comerciales y % por cuántos productos', () => {
+  const c = sanitizeCruzada({ productos: [{ id: 'reto', nombre: 'Reto', tag: 'r', prioritario: true }, { id: 'raices', nombre: 'Raíces', tag: 'ra', prioritario: true }, { id: 'sueno', nombre: 'Sueño', tag: 's' }],
+    ofertas: [{ tiene: 'reto', ofrece: 'sueno', precio: '50 €' }, { tiene: 'sueno', ofrece: 'raices', precio: '797 €' }],
+    comerciales: [{ nombre: 'Ana', uid: 'u1', pct: 60 }, { nombre: 'Luis', pct: 40.4 }, { nombre: '', pct: 10 }, { nombre: 'Eva', pct: 300 }] });
+  // Solo un prioritario (el primero marcado)
+  assert.deepEqual(c.productos.map((p) => p.prioritario), [true, false, false]);
+  assert.equal(prioritarioDe(c), 'reto');
+  // Comerciales: sin nombre fuera, % entre 0 y 100
+  assert.deepEqual(c.comerciales.map((x) => [x.nombre, x.uid, x.pct]), [['Ana', 'u1', 60], ['Luis', '', 40], ['Eva', '', 100]]);
+  assert.equal(totalReparto(c.comerciales), 200);
+  // Con prioritario: a quien no lo tiene, SIEMPRE ese primero (aunque haya otra oferta que le encaje)
+  const of = ofertaPara({ tiene: ['sueno'] }, c.ofertas, 'reto');
+  assert.equal(of.ofrece, 'reto');
+  assert.equal(of.prioritaria, true);
+  assert.equal(ofertaPara({ tiene: ['reto'] }, c.ofertas, 'reto').ofrece, 'sueno'); // ya lo tiene: la oferta normal
+  // Si una oferta lleva al prioritario, se usa esa (con su precio)
+  assert.equal(ofertaPara({ tiene: ['sueno'] }, c.ofertas, 'raices').precio, '797 €');
+  // Reparto: siempre el mismo comercial para el mismo alumno, y en proporción a su %
+  const cs = [{ id: 'a', pct: 70 }, { id: 'b', pct: 30 }];
+  assert.equal(comercialDe('abc123', cs).id, comercialDe('abc123', cs).id);
+  const n = { a: 0, b: 0 };
+  for (let i = 0; i < 5000; i++) n[comercialDe(`c${i}x`, cs).id]++;
+  assert.ok(Math.abs(n.a / 5000 - 0.7) < 0.03, JSON.stringify(n));
+  assert.equal(comercialDe('x', []), null);
+  assert.deepEqual(repartoIgual(3), [34, 33, 33]);
+  assert.equal(repartoIgual(7).reduce((t, x) => t + x, 0), 100);
+  // % de alumnos con 1, 2… y todos los productos
+  const prods = productosListos(c);
+  const cant = porCantidad([{ tiene: ['reto'] }, { tiene: ['reto'] }, { tiene: ['reto', 'sueno'] }, { tiene: ['reto', 'raices', 'sueno'] }], prods);
+  assert.deepEqual(cant.map((x) => [x.n, x.alumnos, x.pct, x.todos]), [[1, 2, 0.5, false], [2, 1, 0.25, false], [3, 1, 0.25, true]]);
+  // Propuestas de oferta: con prioritario, primero hacia él
+  assert.equal(ofertasPropuestas([{ tiene: ['sueno'] }, { tiene: ['raices'] }], prods, [], 'reto')[0].ofrece, 'reto');
+});
+
 const ENV = { GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret' };
 let route;
 before(async () => {
@@ -124,4 +159,26 @@ test('ventas cruzadas (API): pipelines para elegir y el tablero de «Hoy» por f
   assert.equal(hoy.data.total, hoy.data.etapas.reduce((t, e) => t + e.n, 0));
   // Sin sesión, nada
   assert.equal((await call('/api/cruzadas?x=xh')).status, 401);
+});
+
+test('ventas cruzadas (API): sus productos entran solos en Mi negocio → Productos', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const antes = (await call('/api/productos', { cookie: admin })).data.catalogo.productos;
+  const c = (await call('/api/config', { cookie: admin })).data;
+  const r = await call('/api/config', { method: 'POST', cookie: admin, body: { ...c.config, _version: c.version,
+    embudos: [...c.config.embudos.filter((e) => e.id !== 'xcat'), { id: 'xcat', tipo: 'cruzadas', nombre: 'X Cat' }],
+    cruzadas: { ...c.config.cruzadas, xcat: { name: 'X Cat', productos: [{ nombre: 'Mentoría VIP', tag: 'compra-mentoria', otras: [{ tag: 'mentoria-bf' }] }, { nombre: 'Taller', tag: 'compra-taller-x' }] } } } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.catalogoNuevos, 2);
+  const cat = (await call('/api/productos', { cookie: admin })).data.catalogo.productos;
+  assert.equal(cat.length, antes.length + 2);
+  const m = cat.find((p) => p.nombre === 'Mentoría VIP');
+  assert.equal(m.etiqueta, 'compra-mentoria');
+  assert.deepEqual(m.ofertas.map((o) => o.etiqueta), ['mentoria-bf']);
+  assert.deepEqual(m.embudos, ['xcat']);
+  // Volver a guardar no los duplica
+  const c2 = (await call('/api/config', { cookie: admin })).data;
+  const r2 = await call('/api/config', { method: 'POST', cookie: admin, body: { ...c2.config, _version: c2.version } });
+  assert.equal(r2.data.catalogoNuevos, 0);
+  assert.equal((await call('/api/productos', { cookie: admin })).data.catalogo.productos.length, cat.length);
 });

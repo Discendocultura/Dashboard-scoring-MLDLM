@@ -1,12 +1,15 @@
 // Embudo de ventas cruzadas en el navegador:
 //  · Configuración: los productos con su etiqueta, «Hoy y Llamadas» (sí / no, calendario y pipeline de GHL con las
-//    fases recomendadas) y notas para el equipo. Al guardar, los productos nuevos se vuelcan en Mi negocio → Productos.
+//    fases recomendadas) y notas para el equipo. Al guardar, el servidor añade sus productos a Mi negocio → Productos.
 //  · Alumnos: quién tiene qué. Se elige a quién llamar con un «puente»: lo que YA TIENE → lo que quieres OFRECERLE.
 //  · Hoy: el pipeline de GHL del embudo en columnas (con lo que tiene cada alumno y qué ofrecerle).
+//  · Comerciales: los alumnos se reparten entre ellos por % (siempre el mismo alumno al mismo comercial) y cada
+//    uno, al entrar, ve los suyos. Producto prioritario: a quien no lo tiene se le recomienda siempre ese.
 // Los contactos salen de GHL por la etiqueta de cada producto (/api/leads, de 100 en 100).
 import {
   sanitizeCruzada, productosListos, etiquetasX, pendientesCruzada, productosDe, pasaFiltro, nuevoIdX, cruces, combinaciones,
-  MAX_PRODUCTOS_X, MAX_OFERTAS_X, ETAPAS_CRUZADAS, PIPELINE_CRUZADAS, ofertaPara, ofertasPropuestas,
+  MAX_PRODUCTOS_X, MAX_OFERTAS_X, MAX_COMERCIALES_X, ETAPAS_CRUZADAS, PIPELINE_CRUZADAS, ofertaPara, ofertasPropuestas,
+  prioritarioDe, comercialDe, totalReparto, repartoIgual, porCantidad,
 } from './cruzadas.js';
 import { waPhone } from './scoring.js';
 
@@ -21,14 +24,18 @@ const cerrada = (nombre) => /venta|ganad|perdid/i.test(nombre || '');
 // El mensaje de la oferta con su nombre de pila ({nombre}) y el producto ({producto}).
 const mensajeDe = (o, nombre, producto) => String(o?.mensaje || '').replace(/\{nombre\}/g, String(nombre || '').trim().split(/\s+/)[0] || '').replace(/\{producto\}/g, producto || '');
 
-export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar, eliminar, abrirCatalogo, sincronizarCatalogo, irAlumnos }) {
+export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar, eliminar, abrirCatalogo, irAlumnos }) {
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const datos = { id: '', clave: '', at: 0, alumnos: null, error: '', cargando: false };
-  const vista = { filtro: {}, texto: '', max: POR_PAGINA, ultimo: 0 };
+  // tel: '' | 'si' | 'no' (con o sin teléfono) · com: id del comercial ('' = todos) · nprod: cuántos productos (0 = da igual)
+  const vista = { filtro: {}, texto: '', max: POR_PAGINA, ultimo: 0, tel: '', com: '', nprod: 0 };
   const hoy = { id: '', datos: null, error: '', cargando: false, cerradas: false };
   const cfgDe = (id) => sanitizeCruzada(state.config?.cruzadas?.[id] || {});
   const lsFiltro = (id) => `lsd_xfiltro_${id}`;
+  const lsExtra = (id) => `lsd_xextra_${id}`;
+  // El comercial que eres tú (si estás en el reparto de este embudo).
+  const yoComercial = (cfg) => (state.user?.id ? cfg.comerciales.find((x) => x.uid && x.uid === state.user.id) : null) || null;
   const puedeConfig = () => state.role === 'admin' || state.permisos?.includes('config');
   const colorDe = (productos, pid) => COLORES[Math.max(0, productos.findIndex((p) => p.id === pid)) % COLORES.length];
   const ini = (nombre) => String(nombre || '?').trim().split(/\s+/).slice(0, 2).map((x) => x[0] || '').join('').toUpperCase() || '?';
@@ -43,6 +50,12 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     const clave = `${id}|${tags.join(',')}`;
     if (datos.id !== id) {
       try { vista.filtro = JSON.parse(ls.get(lsFiltro(id)) || '{}') || {}; } catch { vista.filtro = {}; }
+      let extra = null;
+      try { extra = JSON.parse(ls.get(lsExtra(id)) || 'null'); } catch { /* sin almacenamiento */ }
+      vista.tel = extra?.tel || '';
+      // Si eres uno de los comerciales, entras viendo los tuyos.
+      vista.com = extra ? extra.com || '' : yoComercial(cfg)?.id || '';
+      vista.nprod = 0;
       vista.texto = '';
       vista.max = POR_PAGINA;
     }
@@ -82,7 +95,9 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     }
   }
   const alumnoDe = (contactId) => datos.alumnos?.find((a) => a.id === contactId) || null;
-  const guardarFiltro = (id) => { try { ls.set(lsFiltro(id), JSON.stringify(vista.filtro)); } catch { /* sin almacenamiento */ } };
+  const guardarFiltro = (id) => {
+    try { ls.set(lsFiltro(id), JSON.stringify(vista.filtro)); ls.set(lsExtra(id), JSON.stringify({ tel: vista.tel, com: vista.com })); } catch { /* sin almacenamiento */ }
+  };
 
   // Frase del filtro: «tienen Reto y no tienen Raíces».
   function frase(productos) {
@@ -90,8 +105,14 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     const si = Object.keys(vista.filtro).filter((k) => vista.filtro[k] === 'si');
     const no = Object.keys(vista.filtro).filter((k) => vista.filtro[k] === 'no');
     const lista = (ids) => ids.map(n).join(ids.length > 1 ? ' y ' : '');
-    if (!si.length && !no.length) return 'todos los alumnos';
-    return [si.length ? `tienen ${lista(si)}` : '', no.length ? `aún no tienen ${lista(no)}` : ''].filter(Boolean).join(' · ');
+    const com = vista.com && cfgDe(datos.id).comerciales.find((x) => x.id === vista.com);
+    const extra = [
+      vista.nprod ? (vista.nprod === productos.length ? 'tienen todos los productos' : `tienen ${vista.nprod} producto${vista.nprod === 1 ? '' : 's'}`) : '',
+      vista.tel === 'si' ? 'con teléfono' : vista.tel === 'no' ? 'sin teléfono' : '',
+      com ? `de <b>${esc(com.nombre)}</b>` : '',
+    ];
+    const partes = [si.length ? `tienen ${lista(si)}` : '', no.length ? `aún no tienen ${lista(no)}` : '', ...extra].filter(Boolean);
+    return partes.length ? partes.join(' · ') : 'todos los alumnos';
   }
 
   // Porcentaje redondeado («37 %»; «<1 %» si hay alguno pero no llega al 1 %).
@@ -136,16 +157,32 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     if (!datos.alumnos) { caja.innerHTML = `${hero}<div class="xa-cargando"><span class="xa-pulso" aria-hidden="true"></span><p>Leyendo tus alumnos de GHL…</p></div>`; return; }
     const todos = datos.alumnos;
     for (const k of Object.keys(vista.filtro)) if (!productos.some((p) => p.id === k)) delete vista.filtro[k];
-    const filtrados = todos.filter((a) => pasaFiltro(a, vista.filtro, vista.texto));
-    // Rutas: de quien tiene A, cuántos aún no tienen B (y qué % ya dio el salto).
-    const rutas = cruces(todos, productos).filter((r) => r.faltan).slice(0, 8);
+    const prio = prioritarioDe(cfg);
+    const comerciales = cfg.comerciales;
+    if (vista.com && !comerciales.some((x) => x.id === vista.com)) vista.com = '';
+    const comDe = new Map(todos.map((a) => [a.id, comercialDe(a.id, comerciales)]));
+    const pasaExtra = (a, sin = '') => (sin === 'tel' || !vista.tel || (vista.tel === 'si') === Boolean(a.phone))
+      && (sin === 'com' || !vista.com || comDe.get(a.id)?.id === vista.com)
+      && (sin === 'nprod' || !vista.nprod || a.tiene.length === vista.nprod);
+    const filtrados = todos.filter((a) => pasaFiltro(a, vista.filtro, vista.texto) && pasaExtra(a));
+    // Cuántos productos tiene cada alumno: tarjetas grandes con el % (pulsar = ver a esas personas).
+    const cantidades = porCantidad(todos, productos);
+    const cantHtml = `<section class="xa-cant"><h3><span aria-hidden="true">📦</span> Cuántos productos tiene cada alumno <small>% de tus ${num(total)} alumnos · pulsa para verlos</small></h3>
+      <div class="xa-cant-l">${cantidades.map((c, i) => `<button type="button" class="xa-cant-c ${c.todos ? 'todos' : ''} ${vista.nprod === c.n ? 'on' : ''}" data-x-nprod="${c.n}" style="--i:${i}" aria-pressed="${vista.nprod === c.n}">
+        <span class="xa-cant-ico" aria-hidden="true">${c.todos ? '⭐' : '📦'.repeat(Math.min(c.n, 3))}</span>
+        <span class="xa-cant-pct">${pctTxt(c.alumnos, total)}</span>
+        <span class="xa-cant-t">${c.todos ? `Tienen <b>todos</b> (${c.n})` : `Tienen <b>${c.n} producto${c.n === 1 ? '' : 's'}</b>`}</span>
+        <span class="xa-cant-n">${num(c.alumnos)} alumnos</span>
+        <span class="xa-cant-b"><i style="--w:${Math.round(c.pct * 100)}%"></i></span></button>`).join('')}</div></section>`;
+    // Rutas: de quien tiene A, cuántos aún no tienen B (y qué % ya dio el salto). Las que llevan al prioritario, primero.
+    const rutas = cruces(todos, productos).filter((r) => r.faltan).sort((x, y) => (y.a === prio) - (x.a === prio)).slice(0, 8);
     const esRuta = (r) => vista.filtro[r.de] === 'si' && vista.filtro[r.a] === 'no' && Object.keys(vista.filtro).length === 2;
     const rutasHtml = rutas.length ? `<section class="xa-rutas"><h3><span aria-hidden="true">💡</span> Tus mejores oportunidades <small>tienen uno y les falta el otro · pulsa para verlos</small></h3>
       <div class="xa-rutas-fila">${rutas.map((r, i) => {
         const a = productos.find((p) => p.id === r.de);
         const b = productos.find((p) => p.id === r.a);
-        return `<button type="button" class="xa-ruta ${esRuta(r) ? 'on' : ''}" data-x-ruta="${esc(r.de)}|${esc(r.a)}" style="--i:${i};--a:${colorDe(productos, a.id)};--b:${colorDe(productos, b.id)}">
-          <span class="xa-ruta-n">${num(r.faltan)} <small>${pctTxt(r.faltan, r.base)}</small></span>
+        return `<button type="button" class="xa-ruta ${esRuta(r) ? 'on' : ''} ${r.a === prio ? 'prio' : ''}" data-x-ruta="${esc(r.de)}|${esc(r.a)}" style="--i:${i};--a:${colorDe(productos, a.id)};--b:${colorDe(productos, b.id)}">
+          ${r.a === prio ? '<em class="xa-prio-tag" title="Tu producto prioritario">⭐ Prioritario</em>' : ''}<span class="xa-ruta-n">${num(r.faltan)} <small>${pctTxt(r.faltan, r.base)}</small></span>
           <span class="xa-ruta-camino"><span class="xa-ruta-p a">${esc(a.nombre)}</span><span class="xa-ruta-flecha" aria-hidden="true"><i></i></span><span class="xa-ruta-p b">${esc(b.nombre)}</span></span>
           <span class="xa-ruta-txt">de quien tiene <b>${esc(a.nombre)}</b> aún no tiene <b>${esc(b.nombre)}</b></span>
           <span class="xa-ruta-paso" title="${pctTxt(r.tienen, r.base)} ya ha dado el salto"><i style="--w:${Math.round(r.pct * 100)}%"></i></span>
@@ -166,7 +203,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
       return `<button type="button" class="xa-pill ${on ? 'on' : ''} ${bloqueado ? 'otro' : ''}" data-x-lado="${lado}" data-x-p="${esc(p.id)}" aria-pressed="${on}" style="--c:${colorDe(productos, p.id)}">
         <span class="xa-pill-ini" aria-hidden="true">${on ? (lado === 'si' ? '✓' : '🎁') : esc(ini(p.nombre))}</span><span class="xa-pill-t">${esc(p.nombre)}</span><span class="xa-pill-n">${num(lado === 'si' ? cuenta(p.id) : total - cuenta(p.id))}<small>${pctTxt(lado === 'si' ? cuenta(p.id) : total - cuenta(p.id), total)}</small></span></button>`;
     };
-    const hay = Object.keys(vista.filtro).length || vista.texto;
+    const hay = Object.keys(vista.filtro).length || vista.texto || vista.tel || vista.com || vista.nprod;
     const puente = `<section class="xa-puente">
       <div class="xa-puente-cab"><h3><span aria-hidden="true">🎯</span> ¿A quién quieres llamar?</h3><p>Toca lo que <b>ya tienen</b> y lo que les quieres <b>ofrecer</b>.</p></div>
       <div class="xa-puente-cols">
@@ -178,27 +215,39 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
       <span class="xa-barra-n" data-x-num>${num(vista.ultimo)}</span>
       <span class="xa-barra-t"><span>personas <em class="xa-barra-pct">${pctTxt(filtrados.length, total)} del total</em></span><small>${frase(productos)}</small></span>
       <label class="xa-buscar"><span aria-hidden="true">🔎</span><input type="search" data-x-buscar placeholder="Buscar nombre, email o teléfono" value="${esc(vista.texto)}" aria-label="Buscar"></label>
-      ${hay ? '<button type="button" class="xa-limpiar" data-x-limpiar title="Quitar los filtros"><span aria-hidden="true">✕</span> Ver todos</button>' : ''}</div>`;
+      ${hay ? '<button type="button" class="xa-limpiar" data-x-limpiar title="Quitar los filtros"><span aria-hidden="true">✕</span> Ver todos</button>' : ''}
+      <div class="xa-filtros2">
+        <div class="xa-seg" role="group" aria-label="Teléfono"><span class="xa-seg-t">📞 Teléfono</span>${[['', 'Todos'], ['si', 'Con teléfono'], ['no', 'Sin teléfono']].map(([v, t]) => {
+          const n = v ? todos.filter((a) => pasaFiltro(a, vista.filtro, vista.texto) && pasaExtra(a, 'tel') && (v === 'si') === Boolean(a.phone)).length : null;
+          return `<button type="button" class="${vista.tel === v ? 'on' : ''}" data-x-tel="${v}" aria-pressed="${vista.tel === v}">${t}${n == null ? '' : ` <small>${num(n)}</small>`}</button>`;
+        }).join('')}</div>
+        ${comerciales.length ? `<div class="xa-seg" role="group" aria-label="Comercial"><span class="xa-seg-t">👤 Comercial</span><button type="button" class="${vista.com ? '' : 'on'}" data-x-com="" aria-pressed="${!vista.com}">Todos</button>${comerciales.map((x) => {
+          const n = todos.filter((a) => pasaFiltro(a, vista.filtro, vista.texto) && pasaExtra(a, 'com') && comDe.get(a.id)?.id === x.id).length;
+          const yo = x.uid && x.uid === state.user?.id;
+          return `<button type="button" class="${vista.com === x.id ? 'on' : ''}" data-x-com="${esc(x.id)}" aria-pressed="${vista.com === x.id}" title="${x.pct} % de los alumnos">${yo ? '⭐ Los míos' : esc(x.nombre)} <small>${num(n)}</small></button>`;
+        }).join('')}</div>` : ''}
+      </div></div>`;
     const tarjeta = (a, i) => {
       const falta = productos.filter((p) => !a.tiene.includes(p.id));
-      const of = ofertaPara(a, cfg.ofertas);
+      const of = ofertaPara(a, cfg.ofertas, prio);
       const pOf = of && productos.find((p) => p.id === of.ofrece);
+      const com = comDe.get(a.id);
       const tel = a.phone ? `<a class="xa-act tel" href="tel:${esc(a.phone.replace(/[^\d+]/g, ''))}" title="Llamar" aria-label="Llamar a ${esc(a.name)}">📞</a>` : '';
       const txt = of ? mensajeDe(of, a.name, pOf?.nombre) : '';
       const wa = a.phoneWa ? `<a class="xa-act wa" href="https://wa.me/${esc(a.phoneWa)}${txt ? `?text=${encodeURIComponent(txt)}` : ''}" target="_blank" rel="noopener" title="${txt ? 'WhatsApp con el mensaje de su oferta' : 'WhatsApp'}" aria-label="WhatsApp de ${esc(a.name)}">💬</a>` : '';
       return `<li class="xa-al" style="--i:${Math.min(i, 14)}">
         <span class="xa-av" style="--c:${tonoDe(a.name)}" aria-hidden="true">${esc(ini(a.name))}</span>
         <div class="xa-al-c">
-          <div class="xa-al-q"><button type="button" class="lead-ficha" data-ficha-lead="${esc(a.id)}" title="Ver la ficha completa">${esc(a.name)}</button><span class="xa-al-m">${esc(a.phone || a.email)}</span></div>
+          <div class="xa-al-q"><button type="button" class="lead-ficha" data-ficha-lead="${esc(a.id)}" title="Ver la ficha completa">${esc(a.name)}</button><span class="xa-al-m">${esc(a.phone || a.email)}${a.phone ? '' : ' <span class="xa-sintel">sin teléfono</span>'}</span>${com ? `<span class="xa-al-com" title="Comercial asignado">👤 ${esc(com.nombre)}</span>` : ''}</div>
           <div class="xa-chips">${productos.map((p) => { const lo = a.tiene.includes(p.id); return `<span class="xa-chip ${lo ? 'si' : 'no'}" style="--c:${colorDe(productos, p.id)}" title="${lo ? 'Lo tiene' : 'No lo tiene'}">${lo ? '✓' : '+'} ${esc(p.nombre)}</span>`; }).join('')}</div>
         </div>
-        <div class="xa-al-d">${pOf ? `<span class="xa-oferta" style="--c:${colorDe(productos, pOf.id)}" title="${esc(of.mensaje || '')}"><span aria-hidden="true">🎁</span> <b>${esc(pOf.nombre)}</b>${of.precio ? `<small>${esc(of.precio)}</small>` : ''}</span>` : falta.length ? `<span class="xa-ofrece"><span aria-hidden="true">🎁</span> ${falta.slice(0, 2).map((p) => esc(p.nombre)).join(' · ')}${falta.length > 2 ? ` +${falta.length - 2}` : ''}</span>` : '<span class="xa-ofrece todo">⭐ Lo tiene todo</span>'}<span class="xa-acts">${tel}${wa}</span></div></li>`;
+        <div class="xa-al-d">${pOf ? `<span class="xa-oferta" style="--c:${colorDe(productos, pOf.id)}" title="${esc(of.mensaje || (pOf.id === prio ? 'Tu producto prioritario' : ''))}"><span aria-hidden="true">${pOf.id === prio ? '⭐' : '🎁'}</span> <b>${esc(pOf.nombre)}</b>${of.precio ? `<small>${esc(of.precio)}</small>` : ''}</span>` : falta.length ? `<span class="xa-ofrece"><span aria-hidden="true">🎁</span> ${falta.slice(0, 2).map((p) => esc(p.nombre)).join(' · ')}${falta.length > 2 ? ` +${falta.length - 2}` : ''}</span>` : '<span class="xa-ofrece todo">⭐ Lo tiene todo</span>'}<span class="xa-acts">${tel}${wa}</span></div></li>`;
     };
     const lista = filtrados.length
       ? `<ol class="xa-lista">${filtrados.slice(0, vista.max).map(tarjeta).join('')}</ol>${filtrados.length > vista.max ? `<div class="xa-mas"><button type="button" class="btn" data-x-mas>Ver ${num(Math.min(POR_PAGINA, filtrados.length - vista.max))} más</button></div>` : ''}`
       : '<div class="xa-vacio pequeno"><div class="xa-vacio-ico" aria-hidden="true">🫥</div><p class="muted">Nadie cumple esto. Prueba a quitar algún producto.</p></div>';
     const enfocado = document.activeElement?.matches?.('[data-x-buscar]') ? document.activeElement.selectionStart : null;
-    caja.innerHTML = `${hero}${rutasHtml}${combHtml}${puente}${barra}${lista}`;
+    caja.innerHTML = `${hero}${cantHtml}${rutasHtml}${combHtml}${puente}${barra}${lista}`;
     animarNumero($('[data-x-num]', caja), filtrados.length);
     if (enfocado != null) { const inp = $('[data-x-buscar]', caja); inp.focus(); inp.setSelectionRange(enfocado, enfocado); }
   }
@@ -209,11 +258,24 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     if (cf) { abrirConfig(state.embudo); if (cf.dataset.xIr) setTimeout(() => $(`#xc-${cf.dataset.xIr}`, dlg)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120); return; }
     if (e.target.closest('#xhoy-body [data-x-recargar]')) return cargarHoy(state.embudo, { fresh: true });
     if (e.target.closest('[data-x-cerradas]')) { hoy.cerradas = !hoy.cerradas; return pintarHoy(); }
+    const xpc = e.target.closest('[data-xp-com]');
+    if (xpc) { vista.com = xpc.dataset.xpCom; guardarFiltro(state.embudo); return pintarHoy(); }
     if (!e.target.closest('#xalumnos-body')) return;
     const id = datos.id;
     if (e.target.closest('[data-x-recargar]')) return cargar(id, { fresh: true });
     if (e.target.closest('[data-x-mas]')) { vista.max += POR_PAGINA; return pintar(); }
-    if (e.target.closest('[data-x-limpiar]')) { vista.filtro = {}; vista.texto = ''; vista.max = POR_PAGINA; guardarFiltro(id); return pintar(); }
+    if (e.target.closest('[data-x-limpiar]')) { Object.assign(vista, { filtro: {}, texto: '', tel: '', com: '', nprod: 0, max: POR_PAGINA }); guardarFiltro(id); return pintar(); }
+    const extra = e.target.closest('[data-x-tel], [data-x-com], [data-x-nprod]');
+    if (extra) {
+      if (extra.dataset.xTel != null) vista.tel = extra.dataset.xTel;
+      if (extra.dataset.xCom != null) vista.com = extra.dataset.xCom;
+      if (extra.dataset.xNprod != null) { const n = Number(extra.dataset.xNprod); vista.nprod = vista.nprod === n ? 0 : n; }
+      vista.max = POR_PAGINA;
+      guardarFiltro(id);
+      pintar();
+      if (extra.dataset.xNprod != null && vista.nprod) $('.xa-barra')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     const ruta = e.target.closest('[data-x-ruta]');
     if (ruta) {
       const [tiene, falta] = ruta.dataset.xRuta.split('|');
@@ -258,7 +320,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
 
   // ---------- Hoy: el pipeline de GHL en columnas ----------
   async function cargarHoy(id, { fresh = false } = {}) {
-    if (!datos.alumnos && !datos.cargando) cargar(id); // para saber qué tiene cada uno
+    if (datos.id !== id || (!datos.alumnos && !datos.cargando)) cargar(id); // qué tiene cada uno (y los filtros de este embudo)
     if (!fresh && hoy.id === id && hoy.datos && Date.now() - hoy.at < 2 * 60_000) { pintarHoy(); return; }
     Object.assign(hoy, { id, datos: null, error: '', cargando: true });
     pintarHoy();
@@ -303,13 +365,20 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
         ${puedeConfig() ? '<button type="button" class="btn primary" data-x-config>⚙️ Elegir el pipeline</button>' : ''}</div>`;
       return;
     }
+    // Con comerciales: cada uno ve los suyos (el mismo reparto que en Alumnos).
+    const prio = prioritarioDe(cfg);
+    const comerciales = cfg.comerciales;
+    if (vista.com && !comerciales.some((x) => x.id === vista.com)) vista.com = '';
+    const suyos = (e) => (vista.com ? e.items.filter((it) => comercialDe(it.contactId, comerciales)?.id === vista.com) : e.items);
+    const nDe = (e) => (vista.com ? suyos(e).length : e.n);
     const abiertas = d.etapas.filter((e) => !cerrada(e.nombre));
     const cerradas = d.etapas.filter((e) => cerrada(e.nombre));
-    const resumen = `<div class="xp-resumen">${d.etapas.map((e, i) => `<span class="xp-res ${cerrada(e.nombre) ? 'cerr' : ''}" style="--c:${e.color || COLORES[i % COLORES.length]};--i:${i}"><span aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><b>${num(e.n)}</b><small>${esc(e.nombre)}</small></span>`).join('')}</div>`;
+    const filtroCom = comerciales.length ? `<div class="xa-seg xp-com" role="group" aria-label="Comercial"><span class="xa-seg-t">👤 Comercial</span><button type="button" class="${vista.com ? '' : 'on'}" data-xp-com="">Todos</button>${comerciales.map((x) => `<button type="button" class="${vista.com === x.id ? 'on' : ''}" data-xp-com="${esc(x.id)}">${x.uid && x.uid === state.user?.id ? '⭐ Los míos' : esc(x.nombre)} <small>${x.pct} %</small></button>`).join('')}</div>` : '';
+    const resumen = `${filtroCom}<div class="xp-resumen">${d.etapas.map((e, i) => `<span class="xp-res ${cerrada(e.nombre) ? 'cerr' : ''}" style="--c:${e.color || COLORES[i % COLORES.length]};--i:${i}"><span aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><b>${num(nDe(e))}</b><small>${esc(e.nombre)}</small></span>`).join('')}</div>`;
     const tarjeta = (it, i) => {
       const a = alumnoDe(it.contactId);
       const falta = a ? productos.filter((p) => !a.tiene.includes(p.id)) : [];
-      const of = a ? ofertaPara(a, cfg.ofertas) : null;
+      const of = a ? ofertaPara(a, cfg.ofertas, prio) : null;
       const pOf = of && productos.find((p) => p.id === of.ofrece);
       const tel = it.telefono || a?.phone || '';
       const wa = a?.phoneWa || waPhone(tel, state.config?.defaultCountryCode || '34');
@@ -321,8 +390,8 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
         <div class="xp-card-pie"><span class="muted small">${dias == null ? '' : dias === 0 ? 'hoy en esta fase' : `${dias} día${dias === 1 ? '' : 's'} en esta fase`}</span><span class="xa-acts">${tel ? `<a class="xa-act tel" href="tel:${esc(tel.replace(/[^\d+]/g, ''))}" title="Llamar">📞</a>` : ''}${wa ? `<a class="xa-act wa" href="https://wa.me/${esc(wa)}${of?.mensaje ? `?text=${encodeURIComponent(mensajeDe(of, it.nombre, pOf?.nombre))}` : ''}" target="_blank" rel="noopener" title="WhatsApp">💬</a>` : ''}</span></div></li>`;
     };
     const columna = (e, i) => `<section class="xp-col ${cerrada(e.nombre) ? 'cerr' : ''}" style="--c:${e.color || COLORES[i % COLORES.length]};--i:${i}">
-      <header><span class="xp-col-ico" aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><strong>${esc(e.nombre)}</strong><span class="xp-col-n">${num(e.n)}</span></header>
-      ${e.items.length ? `<ol>${e.items.map(tarjeta).join('')}</ol>${e.n > e.items.length ? `<p class="muted small xp-col-mas">Y ${num(e.n - e.items.length)} más en GHL</p>` : ''}` : '<p class="xp-col-vacia">Nadie en esta fase</p>'}</section>`;
+      <header><span class="xp-col-ico" aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><strong>${esc(e.nombre)}</strong><span class="xp-col-n">${num(nDe(e))}</span></header>
+      ${suyos(e).length ? `<ol>${suyos(e).map(tarjeta).join('')}</ol>${!vista.com && e.n > e.items.length ? `<p class="muted small xp-col-mas">Y ${num(e.n - e.items.length)} más en GHL</p>` : ''}` : '<p class="xp-col-vacia">Nadie en esta fase</p>'}</section>`;
     caja.innerHTML = `${cab}${resumen}<div class="xp-tablero">${abiertas.map(columna).join('')}${hoy.cerradas ? cerradas.map((e) => columna(e, d.etapas.indexOf(e))).join('') : ''}</div>
       ${cerradas.length ? `<div class="xa-mas"><button type="button" class="btn ghost" data-x-cerradas>${hoy.cerradas ? 'Ocultar las cerradas' : `Ver las cerradas (${cerradas.map((e) => `${ICO_ETAPA(e.nombre)} ${num(e.n)}`).join(' · ')})`}</button></div>` : ''}`;
   }
@@ -339,14 +408,20 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
       <div class="xa-hero-ico" aria-hidden="true">🎁</div>
       <div class="xa-hero-txt"><h2>Ofertas</h2><p>Qué ofrecer a cada tipo de alumno según lo que ya tiene.</p></div>
       <div class="xa-hero-acc">${puedeConfig() ? '<button type="button" class="xa-ibtn" data-x-config data-x-ir="ofertas"><span aria-hidden="true">✏️</span><span>Editar ofertas</span></button>' : ''}</div></header>`;
+    const prio = prioritarioDe(cfg);
+    const pPrio = productos.find((p) => p.id === prio);
+    const sinPrio = datos.alumnos && prio ? datos.alumnos.filter((a) => !a.tiene.includes(prio)).length : null;
+    const prioHtml = pPrio ? `<article class="xo-prio"><span class="xo-prio-ico" aria-hidden="true">⭐</span><div><strong>Producto prioritario: ${esc(pPrio.nombre)}</strong>
+      <p>A <b>todo alumno que aún no lo tiene</b> se le recomienda primero «${esc(pPrio.nombre)}», antes que cualquier otra oferta${sinPrio == null ? '' : ` (<b>${num(sinPrio)}</b> alumnos)`}. Si una oferta de abajo lleva a «${esc(pPrio.nombre)}», se usan su precio y su mensaje.</p></div>
+      <button type="button" class="btn small" data-x-verprio="${esc(prio)}">Ver a quién →</button></article>` : '';
     if (!cfg.ofertas.length) {
-      caja.innerHTML = `${cab}<div class="xa-vacio"><div class="xa-vacio-ico" aria-hidden="true">🎁</div><h3>Aún no hay ofertas</h3>
+      caja.innerHTML = `${cab}${prioHtml}<div class="xa-vacio"><div class="xa-vacio-ico" aria-hidden="true">🎁</div><h3>Aún no hay ofertas</h3>
         <p class="muted">Decide qué ofrecer a quien tiene cada producto (y a qué precio, con qué mensaje). Saldrá en la tarjeta de cada alumno y en su WhatsApp.</p>
         ${puedeConfig() ? '<button type="button" class="btn primary" data-x-config data-x-ir="ofertas">✨ Crear las ofertas</button>' : '<p class="muted small">Pídeselo a quien configura AlquimIA.</p>'}</div>`;
       return;
     }
-    const cuantos = (o) => (datos.alumnos ? datos.alumnos.filter((a) => ofertaPara(a, cfg.ofertas) === o).length : null);
-    caja.innerHTML = `${cab}<div class="xo-lista">${cfg.ofertas.map((o, i) => {
+    const cuantos = (o) => (datos.alumnos ? datos.alumnos.filter((a) => ofertaPara(a, cfg.ofertas, prio) === o).length : null);
+    caja.innerHTML = `${cab}${prioHtml}<div class="xo-lista">${cfg.ofertas.map((o, i) => {
       const n = cuantos(o);
       return `<article class="xo-card" style="--i:${i};--a:${colorDe(productos, o.tiene)};--b:${colorDe(productos, o.ofrece)}">
         <div class="xo-tipo"><span class="xo-lbl">Si ya tiene</span><span class="xo-prod a">${esc(nombre(o.tiene))}</span></div>
@@ -358,6 +433,8 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     }).join('')}</div>`;
   }
   document.addEventListener('click', (e) => {
+    const bp = e.target.closest('#xofertas-body [data-x-verprio]');
+    if (bp) { vista.filtro = { [bp.dataset.xVerprio]: 'no' }; vista.max = POR_PAGINA; guardarFiltro(state.embudo); irAlumnos?.(); return; }
     const b = e.target.closest('#xofertas-body [data-x-verofer]');
     if (!b) return;
     const [tiene, ofrece] = b.dataset.xVerofer.split('|');
@@ -381,8 +458,10 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     $('#xc-catalogo', dlg).hidden = true;
     pintarConfig();
     pintarOfertasCfg();
+    pintarComerciales();
     pintarLlamadas();
     if (!dlg.open) dlg.showModal();
+    if (!equipo) cargarEquipo(id);
     if (borrador.llamadas && !pipelines) cargarPipelines();
   }
 
@@ -392,6 +471,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     $('#xc-notas', dlg).value = borrador.notas || '';
     const tarjeta = (p, i) => `<li class="xc-prod" data-xc-prod="${esc(p.id)}" style="--c:${COLORES[i % COLORES.length]}">
       <div class="xc-prod-cab"><span class="xc-num">${i + 1}</span><input class="xc-in-nombre" data-xc-campo="nombre" value="${esc(p.nombre)}" maxlength="60" placeholder="Nombre del producto (p. ej. Reto ovulación)" aria-label="Nombre del producto">
+        <button type="button" class="xc-prio ${p.prioritario ? 'on' : ''}" data-xc-prio aria-pressed="${Boolean(p.prioritario)}" title="${p.prioritario ? 'Es tu producto prioritario: se recomienda siempre primero a quien no lo tiene. Pulsa para quitarlo.' : 'Recomendar siempre este producto primero a quien no lo tiene'}">${p.prioritario ? '⭐ Prioritario' : '☆ Marcar como prioritario'}</button>
         <button type="button" class="btn ghost small xc-quitar" data-xc-quitar title="Quitar este producto" aria-label="Quitar este producto">✕</button></div>
       <label class="field"><span>🏷️ Etiqueta de compra <small>(la que pone GHL a quien lo compra)</small></span><input data-xc-campo="tag" list="tag-list" value="${esc(p.tag)}" maxlength="100" placeholder="Busca la etiqueta…"></label>
       <div class="xc-otras"><span class="xc-otras-t">Otras etiquetas que también cuentan <small>(ofertas, ediciones…)</small></span>
@@ -432,6 +512,52 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
       <div class="xc-barra"><button type="button" class="btn" data-xc-of-nueva ${(borrador.ofertas || []).length >= MAX_OFERTAS_X ? 'disabled' : ''}>＋ Añadir oferta</button>${datos.alumnos && datos.id === editId ? '<button type="button" class="btn ghost" data-xc-of-proponer>✨ Propónmelas según mis alumnos</button>' : ''}</div>`}`;
   }
 
+  // ---- Comerciales: cuántos, quiénes y qué % de alumnos se lleva cada uno ----
+  let equipo = null; // las personas del equipo (para elegir el nombre y saber su usuario)
+  async function cargarEquipo(id) {
+    try { equipo = (await api(`/api/tareas?l=${encodeURIComponent(id)}`)).users || []; } catch { equipo = []; }
+    if (dlg.open) pintarComerciales();
+  }
+  const uidDe = (nombre) => (equipo || []).find((u) => u.nombre.trim().toLowerCase() === String(nombre || '').trim().toLowerCase())?.id || '';
+  function pintarComerciales() {
+    const box = $('#xc-comerciales', dlg);
+    const cs = borrador.comerciales || (borrador.comerciales = []);
+    const total = totalReparto(cs);
+    const ok = !cs.length || total === 100;
+    const alumnos = datos.id === editId ? datos.alumnos : null;
+    const cuantos = (x) => (alumnos ? alumnos.filter((a) => comercialDe(a.id, cs.filter((c) => c.nombre.trim()))?.id === x.id).length : null);
+    const fila = (x, i) => {
+      const uid = uidDe(x.nombre);
+      const n = ok && x.nombre.trim() ? cuantos(x) : null;
+      return `<li class="xc-com" data-xc-com="${esc(x.id)}" style="--c:${COLORES[i % COLORES.length]}">
+        <span class="xa-av" style="--c:${COLORES[i % COLORES.length]}" aria-hidden="true">${esc(ini(x.nombre || String(i + 1)))}</span>
+        <label class="xc-com-nom"><span>Nombre</span><input data-xc-comc="nombre" list="xc-equipo" maxlength="60" value="${esc(x.nombre)}" placeholder="Elige del equipo o escribe"></label>
+        <label class="xc-com-pct"><span>% de alumnos</span><span class="xc-com-pct-in"><input type="number" data-xc-comc="pct" min="0" max="100" step="1" value="${x.pct}"><b>%</b></span></label>
+        <span class="xc-com-info">${!x.nombre.trim() ? '' : uid ? '<span class="xc-com-ok">✓ Tiene usuario: al entrar verá <b>los suyos</b></span>' : '<span class="xc-com-no">Sin usuario en AlquimIA: sus alumnos se ven filtrando por su nombre</span>'}${n == null ? '' : ` · <b>${num(n)}</b> alumnos ahora`}</span>
+        <span class="xc-com-barra"><i style="--w:${Math.min(100, x.pct)}%"></i></span></li>`;
+    };
+    box.innerHTML = `<h3 class="cfg-h3">3 · Comerciales y reparto de alumnos <small class="muted">(opcional)</small></h3>
+      <p class="muted small">Si varias personas llaman a los alumnos, dinos <b>cuántas son, sus nombres y qué % de alumnos se lleva cada una</b>. Al guardar, AlquimIA reparte <b>todos los alumnos</b> entre ellas según ese %, y cada alumno es siempre del mismo comercial. Cada comercial, al entrar con su usuario, ve directamente <b>«⭐ Los míos»</b> en Alumnos y en Hoy, para saber a quién llamar (y puede ver los de todos con «Todos»).</p>
+      <div class="xc-com-cab">
+        <span class="xc-com-n-t">¿Cuántos comerciales?</span>
+        <span class="xc-stepper"><button type="button" data-xc-ncom="-1" aria-label="Uno menos" ${cs.length ? '' : 'disabled'}>−</button><b>${cs.length}</b><button type="button" data-xc-ncom="1" aria-label="Uno más" ${cs.length >= MAX_COMERCIALES_X ? 'disabled' : ''}>＋</button></span>
+        ${cs.length > 1 ? '<button type="button" class="btn small ghost" data-xc-igual>⚖️ Repartir a partes iguales</button>' : ''}
+      </div>
+      ${cs.length ? `<ol class="xc-coms">${cs.map(fila).join('')}</ol>
+        <p class="xc-com-total ${ok ? 'ok' : 'mal'}">${ok ? `✓ Reparto completo: <b>100 %</b> de los alumnos` : `⚠️ Los % suman <b>${total} %</b>: ${total < 100 ? `faltan ${100 - total}` : `sobran ${total - 100}`} para llegar a 100 %`}</p>
+        <datalist id="xc-equipo">${(equipo || []).map((u) => `<option value="${esc(u.nombre)}"></option>`).join('')}</datalist>
+        <p class="muted small">💡 Si cambias los %, solo pasan de un comercial a otro los alumnos necesarios para cuadrar; el resto sigue con el mismo.</p>`
+      : '<p class="xc-com-vacio">Sin reparto: todo el equipo ve a todos los alumnos. Pulsa <b>＋</b> para añadir comerciales.</p>'}`;
+  }
+  function cambiarNumComerciales(d) {
+    const cs = borrador.comerciales || (borrador.comerciales = []);
+    if (d > 0 && cs.length < MAX_COMERCIALES_X) cs.push({ id: nuevoIdX(), nombre: '', uid: '', pct: 0 });
+    if (d < 0) cs.pop();
+    repartoIgual(cs.length).forEach((v, i) => { cs[i].pct = v; }); // al cambiar cuántos son, a partes iguales
+    pintarComerciales();
+    if (d > 0) $$('[data-xc-comc="nombre"]', dlg).at(-1)?.focus();
+  }
+
   async function cargarPipelines() {
     try {
       pipelines = (await api('/api/cruzadas?parte=pipelines')).pipelines;
@@ -448,7 +574,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     const existe = pipelines?.find((p) => p.nombre.trim().toLowerCase() === elegido.trim().toLowerCase());
     const opciones = pipelines ? [...pipelines] : [];
     if (!existe) opciones.unshift({ nombre: elegido, falta: true });
-    box.innerHTML = `<h3 class="cfg-h3">3 · Hoy y Llamadas</h3>
+    box.innerHTML = `<h3 class="cfg-h3">4 · Hoy y Llamadas</h3>
       <p class="muted small">¿Vais a llamar a los alumnos desde AlquimIA? Con «Sí» salen las pestañas <b>Hoy</b> (el pipeline de GHL, fase a fase) y <b>Llamadas</b> (las reservas del calendario y su resultado), como en los lanzamientos.</p>
       <div class="xc-sino" role="radiogroup" aria-label="Hoy y Llamadas">
         <button type="button" class="xc-opcion ${si ? '' : 'on'}" data-xc-llamadas="no" role="radio" aria-checked="${!si}"><span class="xc-opcion-ico" aria-hidden="true">📋</span><strong>No, solo la lista</strong><small>Alumnos con sus filtros</small></button>
@@ -467,6 +593,24 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     if (e.target.id === 'xc-nombre') { borrador.name = e.target.value; $('#xc-titulo', dlg).textContent = `🔁 ${borrador.name || 'Ventas cruzadas'}`; return; }
     if (e.target.id === 'xc-notas') { borrador.notas = e.target.value; return; }
     if (e.target.id === 'xc-cal') { borrador.llamadaUrl = e.target.value.trim(); return; }
+    const comc = e.target.dataset.xcComc;
+    if (comc) {
+      const x = (borrador.comerciales || []).find((c) => c.id === e.target.closest('[data-xc-com]')?.dataset.xcCom);
+      if (!x) return;
+      if (comc === 'pct') x.pct = Math.max(0, Math.min(100, Math.round(Number(e.target.value) || 0)));
+      else { x.nombre = e.target.value; return; } // el nombre se repinta al salir del campo (para no cerrar la lista)
+      clearTimeout(pintarComerciales.t);
+      // Se repinta al dejar de escribir (sin perder el cursor del campo).
+      pintarComerciales.t = setTimeout(() => {
+        const campo = e.target.dataset.xcComc;
+        const cid = x.id;
+        const pos = e.target.selectionStart;
+        pintarComerciales();
+        const inp = $(`[data-xc-com="${cid}"] [data-xc-comc="${campo}"]`, dlg);
+        if (inp) { inp.focus(); try { if (pos != null) inp.setSelectionRange(pos, pos); } catch { /* number */ } }
+      }, 450);
+      return;
+    }
     const ofc = e.target.dataset.xcOfc;
     if (ofc) { const o = ofDe(e.target); if (o) o[ofc] = e.target.value; return; }
     const campo = e.target.dataset.xcCampo;
@@ -476,6 +620,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
   const ofDe = (el) => (borrador.ofertas || []).find((o) => o.id === el.closest('[data-xc-of]')?.dataset.xcOf);
   // Al cambiar los productos (nombres, quitar…), las ofertas se vuelven a pintar con la lista nueva.
   dlg.addEventListener('focusout', (e) => { if (e.target.matches('.xc-in-nombre')) pintarOfertasCfg(); });
+  dlg.addEventListener('change', (e) => { if (e.target.matches('[data-xc-comc="nombre"]')) pintarComerciales(); });
   dlg.addEventListener('change', (e) => {
     if (e.target.id === 'xc-pipe') { borrador.llamadasPipeline = e.target.value; pintarLlamadas(); }
   });
@@ -490,6 +635,17 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
   }
   dlg.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('[data-xc-otra]')) { e.preventDefault(); anadirOtra(e.target); } });
   dlg.addEventListener('click', async (e) => {
+    const nc = e.target.closest('[data-xc-ncom]');
+    if (nc) return cambiarNumComerciales(Number(nc.dataset.xcNcom));
+    if (e.target.closest('[data-xc-igual]')) { repartoIgual(borrador.comerciales.length).forEach((v, i) => { borrador.comerciales[i].pct = v; }); return pintarComerciales(); }
+    const pr = e.target.closest('[data-xc-prio]');
+    if (pr) {
+      const p = prodDe(pr);
+      const era = p.prioritario;
+      for (const x of borrador.productos) x.prioritario = false; // solo uno
+      p.prioritario = !era;
+      return pintarConfig();
+    }
     const ll = e.target.closest('[data-xc-llamadas]');
     if (ll) { borrador.llamadas = ll.dataset.xcLlamadas === 'si'; pintarLlamadas(); if (borrador.llamadas && !pipelines) cargarPipelines(); return; }
     if (e.target.closest('[data-xp-copiar]')) return copiarFases(e.target.closest('[data-xp-copiar]'));
@@ -500,7 +656,8 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     }
     if (e.target.closest('[data-xc-of-quitar]')) { const o = ofDe(e.target); borrador.ofertas = borrador.ofertas.filter((x) => x !== o); return pintarOfertasCfg(); }
     if (e.target.closest('[data-xc-of-proponer]')) {
-      const nuevas = ofertasPropuestas(datos.alumnos || [], productosListos(sanitizeCruzada(borrador)), borrador.ofertas || []);
+      const lim = sanitizeCruzada(borrador);
+      const nuevas = ofertasPropuestas(datos.alumnos || [], productosListos(lim), borrador.ofertas || [], prioritarioDe(lim));
       borrador.ofertas = [...(borrador.ofertas || []), ...nuevas].slice(0, MAX_OFERTAS_X);
       pintarOfertasCfg();
       if (!nuevas.length) notice('Ya tienes una oferta para cada producto.');
@@ -566,18 +723,23 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
   }
 
   async function guardarConfig() {
-    const limpio = sanitizeCruzada({ ...borrador, productos: borrador.productos.filter((p) => p.nombre.trim() || p.tag || p.otras.length) });
+    const coms = (borrador.comerciales || []).filter((x) => x.nombre.trim());
+    if (coms.length && totalReparto(coms) !== 100) {
+      $('#xc-status', dlg).textContent = `Los % de los comerciales suman ${totalReparto(coms)} %: tienen que sumar 100 %.`;
+      $('#xc-comerciales', dlg).scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    const limpio = sanitizeCruzada({ ...borrador, productos: borrador.productos.filter((p) => p.nombre.trim() || p.tag || p.otras.length),
+      comerciales: coms.map((x) => ({ ...x, uid: uidDe(x.nombre) || (equipo ? '' : x.uid) })) });
     if (limpio.llamadas && !limpio.llamadasPipeline) limpio.llamadasPipeline = PIPELINE_CRUZADAS;
     const b = $('#xc-guardar', dlg);
     b.disabled = true;
     $('#xc-status', dlg).textContent = 'Guardando…';
     try {
-      await guardar(editId, limpio);
-      // Los productos nuevos (o sus etiquetas) también van a Mi negocio → Productos.
-      let volcados = 0;
-      try { volcados = await sincronizarCatalogo(limpio, editId); } catch (err) { notice(`Guardado, pero no se pudo añadir a Mi negocio → Productos: ${err.message}`, true); }
+      // Al guardar, sus productos se añaden solos a Mi negocio → Productos (en el servidor).
+      const volcados = await guardar(editId, limpio);
       dlg.close();
-      notice(`✓ «${limpio.name}» guardado: ${productosListos(limpio).length} productos${volcados ? ` · ${volcados} cambio${volcados === 1 ? '' : 's'} en Mi negocio → Productos (pon allí su precio)` : ''}${limpio.llamadas ? ' · con Hoy y Llamadas' : ''}.`);
+      notice(`✓ «${limpio.name}» guardado: ${productosListos(limpio).length} productos, todos en Mi negocio → Productos${volcados ? ` (${volcados} nuevo${volcados === 1 ? '' : 's'} allí: ponles el precio)` : ''}${limpio.comerciales.length ? ` · alumnos repartidos entre ${limpio.comerciales.length} comerciales` : ''}${limpio.llamadas ? ' · con Hoy y Llamadas' : ''}.`);
       if (state.embudo === editId) { cargar(editId, { fresh: true }); hoy.datos = null; }
     } catch (err) {
       $('#xc-status', dlg).textContent = err.message;

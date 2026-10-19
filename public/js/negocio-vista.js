@@ -205,19 +205,24 @@ export function negocioHtml(d, { producto = '' } = {}) {
   return `${selectorProductos(d, '')}${calc}${aviso}${d.pocos ? '<p class="ng-aviso suave">🌱 Aún hay pocas ventas: tómate estas cifras como orientativas hasta que haya más histórico.</p>' : ''}${kpis}${recos}${calidadHtml(d.calidad)}${tarjetasProductos(d)}${ciclo}${recompra}${segundaHtml(d.recompra)}${cruzadasHtml(d.cruzadas)}${actividad}${embudos}`;
 }
 
-// Ventas cruzadas: qué % de clientes tiene cada combinación exacta de productos y, de quien tiene uno, qué % ya
-// tiene el otro y a cuántos falta ofrecérselo (lo accionable). Con un enlace a crear el embudo de ventas cruzadas.
+// Ventas cruzadas: qué % de clientes tiene 1, 2, 3… o todos los productos (tarjetas grandes), qué hacer con eso
+// (acciones sugeridas, con el producto prioritario primero), cada combinación exacta y el paso de un producto a otro.
 function cruzadasHtml(x) {
   if (!x || (!x.combinaciones.length && !x.cruces.length)) return '';
-  const top = x.cruces[0];
+  const cant = (x.cantidades || []).map((c, i) => `<div class="ng-xc-cant ${c.todos ? 'todos' : ''}" style="--i:${i}">
+    <span class="ng-xc-cant-ico" aria-hidden="true">${c.todos ? '⭐' : '📦'.repeat(Math.min(c.n, 3))}</span>
+    <strong>${pct(c.pct)}</strong><span>${c.todos ? `tiene <b>todos</b> (${c.n})` : `tiene <b>${c.n} producto${c.n === 1 ? '' : 's'}</b>`}</span><small>${num(c.alumnos)} clientes</small></div>`).join('');
+  const acc = (x.acciones || []).map((a, i) => `<li style="--i:${i}"><span class="ng-xc-acc-ico" aria-hidden="true">${a.ico}</span><div><strong>${esc(a.titulo)}</strong><p>${esc(a.texto)}</p></div></li>`).join('');
   const comb = x.combinaciones.map((c) => `<div class="ng-xc-fila"><span class="ng-xc-nom">${c.nombres.map((n) => `<b>${esc(n || '?')}</b>`).join('<i>+</i>')}${c.ids.length === 1 ? ' <small>solo</small>' : ''}</span>
     <span class="ng-barra"><i style="width:${Math.max(2, Math.round(c.pct * 100))}%"></i></span><strong>${pct(c.pct)}</strong><small class="muted">${num(c.n)}</small></div>`).join('');
-  const cru = x.cruces.map((c) => `<div class="ng-xc-cruce">
-    <div class="ng-xc-ruta"><b>${esc(c.deNombre || '?')}</b><span class="ng-xc-flecha">➜</span><b>${esc(c.aNombre || '?')}</b></div>
+  const cru = x.cruces.map((c) => `<div class="ng-xc-cruce ${c.a === x.prioritario ? 'prio' : ''}">
+    <div class="ng-xc-ruta"><b>${esc(c.deNombre || '?')}</b><span class="ng-xc-flecha">➜</span><b>${esc(c.aNombre || '?')}</b>${c.a === x.prioritario ? '<em class="ng-xc-prio">⭐ Prioritario</em>' : ''}</div>
     <div class="ng-xc-paso" title="${pct(c.pct)} de quien tiene «${esc(c.deNombre || '')}» ya tiene «${esc(c.aNombre || '')}»"><i style="width:${Math.round(c.pct * 100)}%"></i></div>
     <div class="ng-xc-datos"><span>✅ <strong>${pct(c.pct)}</strong> ya lo tiene</span><span>🎯 <strong>${num(c.faltan)}</strong> por ofrecer (${pct(c.pctFaltan)})</span></div></div>`).join('');
-  return `<section class="ng-sec card ng-xc"><h3>🔀 Ventas cruzadas · qué tiene cada cliente</h3>
-    ${top ? `<p class="ng-xc-reco">💡 Tu mayor oportunidad: <strong>${num(top.faltan)} clientes</strong> de «${esc(top.deNombre || '')}» (el ${pct(top.pctFaltan)}) aún no tienen «${esc(top.aNombre || '')}». Crea un embudo de <strong>Ventas cruzadas</strong> (Embudos → ＋ Nuevo embudo → Otros) para que tu equipo les llame con contexto.</p>` : ''}
+  return `<section class="ng-sec card ng-xc"><h3>🔀 Ventas cruzadas · qué tiene cada cliente <small class="muted">${num(x.clientes)} clientes</small></h3>
+    ${cant ? `<div class="ng-xc-cants">${cant}</div>` : ''}
+    ${acc ? `<h4>🧭 Qué haría con esto</h4><ol class="ng-xc-acc">${acc}</ol>
+      <p class="muted small">Para llamarles con contexto (quién tiene qué y qué ofrecerle), crea un embudo de <b>Ventas cruzadas</b>: Embudos → ＋ Nuevo embudo → Otros.${x.prioritarioNombre ? '' : ' Allí puedes marcar tu <b>producto prioritario</b> para que se recomiende siempre primero.'}</p>` : ''}
     <div class="ng-xc-grid">
       ${comb ? `<div><h4>🧩 Combinaciones de productos <small class="muted">· % de ${num(x.clientes)} clientes</small></h4>${comb}</div>` : ''}
       ${cru ? `<div><h4>🚀 Paso de un producto a otro</h4>${cru}</div>` : ''}

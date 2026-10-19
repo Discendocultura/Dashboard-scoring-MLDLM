@@ -7,7 +7,8 @@ import { sanitizeNarrativa } from '../public/js/narrativa.js';
 import { sanitizeAutomatizaciones } from '../public/js/automatizaciones.js';
 import { claveResumenSetter } from '../lib/setter-ia.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
-import { versionDe, reintentando } from '../lib/store.js';
+import { versionDe, reintentando, leerJSON } from '../lib/store.js';
+import { cargarCatalogo, CLAVE_PRODUCTOS } from '../lib/productos.js';
 import { configDeEmbudos } from '../lib/embudos.js';
 
 const EQUIPO_FIELDS = ['name', 'inicioCaptacion', 'finCaptacion', 'fechaDirecto', 'horaDirecto', 'clase1At', 'clase2At', 'replayAt', 'aperturaCarrito', 'cierreCarrito', 'createdAt', 'formato', 'videos', 'embudo', 'clase3At', 'nClases', 'vip'];
@@ -156,7 +157,15 @@ export async function POST(request) {
       { ...actual, ...body, ...('vsl' in body && !('vsls' in body) ? { vsls: { ...actual.vsls, vsl: body.vsl } } : {}) },
       { version },
     );
-    return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
+    // Los productos de las ventas cruzadas entran solos en Mi negocio → Productos (si falla, se reintenta al leerlo).
+    let catalogoNuevos = 0;
+    if (Object.keys(config.cruzadas || {}).length) {
+      try {
+        const antes = (await leerJSON(CLAVE_PRODUCTOS, () => null))?.productos?.length ?? 0;
+        catalogoNuevos = Math.max(0, (await cargarCatalogo()).productos.length - antes);
+      } catch (err) { console.error('Productos de ventas cruzadas', err.message); }
+    }
+    return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config), catalogoNuevos });
   } catch (e) {
     return errorResponse(e);
   }

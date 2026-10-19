@@ -12486,41 +12486,19 @@ async function eliminarEmbudo(id) {
 // ---------- Ventas cruzadas: configuración (productos y etiquetas) y pestaña Alumnos (cruzadas-vista.js) ----------
 // Los productos del embudo también van a Mi negocio → Productos: los que no están (por etiqueta o por nombre) se
 // añaden; a los que están les faltan sus otras etiquetas, que entran como ofertas (con su mismo precio). → nº de cambios.
-async function volcarAlCatalogo(c, embudoId) {
-  if (!puedeConfig()) return 0;
-  const { catalogo } = await api('/api/productos');
-  const prods = catalogo.productos.map((p) => ({ ...p, ofertas: [...(p.ofertas || [])], embudos: [...(p.embudos || [])] }));
-  const tagsDe = (p) => [p.etiqueta, ...p.ofertas.map((o) => o.etiqueta)].filter(Boolean);
-  const nuevoIdCat = (pre) => `${pre}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-  let cambios = 0;
-  for (const x of c.productos.filter((p) => p.nombre && (p.tag || p.otras.length))) {
-    const tags = [x.tag, ...x.otras.map((o) => o.tag)].filter(Boolean);
-    const p = prods.find((y) => tagsDe(y).some((t) => tags.includes(t))) || prods.find((y) => y.nombre.trim().toLowerCase() === x.nombre.trim().toLowerCase());
-    if (!p) {
-      prods.push({ id: nuevoIdCat('p'), nombre: x.nombre, tipo: 'otro', precio: 0, iva: 'incluido', etiqueta: tags[0], fechaCampo: '', embudos: [embudoId], siguiente: '', ofertas: tags.slice(1).map((t) => ({ id: nuevoIdCat('o'), nombre: `Etiqueta ${t}`, precio: 0, etiqueta: t })) });
-      cambios++;
-      continue;
-    }
-    const faltan = tags.filter((t) => !tagsDe(p).includes(t));
-    if (!p.etiqueta && faltan.length) { p.etiqueta = faltan.shift(); cambios++; }
-    for (const t of faltan) { p.ofertas.push({ id: nuevoIdCat('o'), nombre: `Etiqueta ${t}`, precio: 0, etiqueta: t }); cambios++; }
-    if (!p.embudos.includes(embudoId)) p.embudos.push(embudoId);
-  }
-  if (cambios) await api('/api/productos', { method: 'POST', body: { catalogo: { ...catalogo, productos: prods } } });
-  return cambios;
-}
 const cruz = montarCruzadas({
   api, state, esc, notice, progress, ls,
   eliminar: eliminarEmbudo,
   abrirCatalogo: async () => (await api('/api/productos')).catalogo.productos,
   irAlumnos: () => showView('xalumnos'),
-  sincronizarCatalogo: volcarAlCatalogo,
+  // Al guardar, el servidor añade sus productos a Mi negocio → Productos (devuelve cuántos son nuevos allí).
   guardar: async (id, c) => {
     const lista = embudos().map((e) => (e.id === id ? { ...e, nombre: c.name } : e));
-    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, cruzadas: { ...(state.config.cruzadas || {}), [id]: c } } });
+    const { config, catalogoNuevos } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, cruzadas: { ...(state.config.cruzadas || {}), [id]: c } } });
     state.config = config;
     pintarSidebar();
     pintarCabecera();
+    return catalogoNuevos || 0;
   },
 });
 $('#emb-borrar').addEventListener('click', async () => {
