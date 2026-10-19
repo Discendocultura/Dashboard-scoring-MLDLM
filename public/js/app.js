@@ -6552,12 +6552,33 @@ const textoPestana = (t) => [...t.childNodes].filter((n) => n.nodeType === 3).ma
 // Móvil: abajo, las 3 primeras pestañas y «Todo», un panel con TODAS las secciones y, dentro de cada una, sus
 // páginas (Hoy → Setting hoy · Llamadas · En directo…): así nada queda escondido en una barra que no se ve.
 function visibleEl(el) { return Boolean(el) && !el.hidden && getComputedStyle(el).display !== 'none'; }
+// Abajo, fuera de un embudo: Agencia / Inicio / Inteligencia de negocio / el embudo en el que estabas y «☰ Menú»
+// (abre el menú lateral con todo: embudos, atajos, Operativa, Procesos…).
+var navGeneral = [];
+function pintarNavGeneral(nav) {
+  const dentro = !$('#app').hidden && esMovil();
+  const emb = $('#sb-items .sb-item.active[data-embudo]') || $('#sb-items .sb-item[data-embudo="' + (state.embudo || '') + '"]') || $('#sb-items .sb-item[data-embudo]');
+  navGeneral = [$('#sb-agencia'), $('#sb-inicio'), $('#sb-negocio'), emb].filter((b) => b && !b.hidden).slice(0, 3);
+  nav.hidden = !dentro || !navGeneral.length;
+  document.body.classList.toggle('con-nav-movil', !nav.hidden);
+  if (nav.hidden) return;
+  const activa = (b) => b.classList.contains('active');
+  nav.innerHTML = navGeneral.map((b, i) => `<button type="button" class="nm-item ${activa(b) ? 'on' : ''}" data-nm-sb="${i}" ${activa(b) ? 'aria-current="page"' : ''}><span class="nm-emoji" aria-hidden="true">${esc($('.sb-ico', b)?.textContent || '•')}</span><span>${esc(($('.sb-txt strong', b)?.textContent || '').replace('Inteligencia de negocio', 'Negocio'))}</span></button>`).join('')
+    + '<button type="button" class="nm-item" data-nm-menu><span class="nm-mas-ico" aria-hidden="true">☰</span><span>Menú</span></button>';
+}
+document.addEventListener('click', (e) => {
+  const sb = e.target.closest('[data-nm-sb]');
+  if (sb) { navGeneral[Number(sb.dataset.nmSb)]?.click(); window.scrollTo({ top: 0 }); setTimeout(pintarNavMovil, 0); return; }
+  if (e.target.closest('[data-nm-menu]')) abrirMenuMovil(true);
+});
 function pintarNavMovil() {
   const nav = $('#nav-movil');
   const tabs = $$('.views .view-tab').filter(visibleEl);
-  nav.hidden = state.enInicio || $('#dashboard').hidden || !tabs.length;
   $('#nav-mas').hidden = true;
-  if (nav.hidden) return;
+  // Fuera de un embudo (Agencia, Inicio, Inteligencia de negocio…): las mismas barras, con los destinos del menú.
+  if (state.enInicio || $('#dashboard').hidden || !tabs.length) { pintarNavGeneral(nav); programarBarrasMovil(); return; }
+  nav.hidden = false;
+  document.body.classList.add('con-nav-movil');
   const prim = tabs.slice(0, 3);
   const activa = (t) => t.classList.contains('active');
   const boton = (t) => `<button type="button" class="nm-item ${activa(t) ? 'on' : ''}" data-nm="${tabs.indexOf(t)}" ${activa(t) ? 'aria-current="page"' : ''}>${t.querySelector('svg')?.outerHTML || ''}<span>${esc(textoPestana(t))}</span></button>`;

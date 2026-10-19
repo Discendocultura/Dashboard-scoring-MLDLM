@@ -6598,3 +6598,11 @@ button.cl-chip:hover { border-color: var(--accent); color: var(--text); }
   .sm-op.on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
   body.con-sub-movil:not(.en-inicio) .container { padding-bottom: calc(86px + var(--sm-h, 52px) + 10px + env(safe-area-inset-bottom)); }
 }
+
+/* ---------- Móvil: la cabecera de AlquimIA, fija arriba en todas las pantallas; la barra de abajo, siempre ---------- */
+@media (max-width: 900px) {
+  .topbar { position: sticky !important; top: 0; z-index: 40; min-height: 0; padding-top: 8px; padding-bottom: 8px; }
+  .nm-emoji { font-size: 19px; line-height: 20px; }
+  body.con-nav-movil .container { padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
+  body.con-nav-movil.con-sub-movil .container { padding-bottom: calc(86px + var(--sm-h, 52px) + 10px + env(safe-area-inset-bottom)); }
+}

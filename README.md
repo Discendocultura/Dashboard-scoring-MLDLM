@@ -194,6 +194,7 @@ Análisis → Avatar: arriba, las cifras de partida en frases («1850 personas r
 
 ### Móvil: barra fija arriba y subpestañas abajo
 - **Arriba, fija al hacer scroll**: la cabecera del embudo en una fila (qué lanzamiento, ⚠️ pendientes, ⚙️ si la configuración ya está completa, ↻ actualizar y ⋯) y, debajo, lo importante de cada pestaña: el **periodo** (VSL, ventas directas, Cómo van los anuncios, Inicio e Inteligencia de negocio), el **buscador y los filtros** de Leads, la vista de **Llamadas**, de **Tareas** y del **Calendario**, y los filtros por motivo de **Setting hoy**.
+- **En todas las pantallas**: la cabecera de AlquimIA (☰, avisos y cuenta) se queda fija arriba y la barra de abajo está siempre. Fuera de un embudo (Agencia, Inicio, Inteligencia de negocio) la barra de abajo lleva Agencia · Inicio · Negocio (o el embudo en el que estabas) y **☰ Menú**, que abre el menú con todo.
 - **Abajo, encima de las pestañas**: las **subpestañas** de la pestaña en la que estás (Hoy → Setting hoy · Llamadas · En directo · LabIA; Métricas → Resumen · Ventas · Captación…; Leads → Lista · Encuesta · Comentarios; Anuncios, Crear, Plan, Análisis). Si son más de 4, se ven las 3 primeras (o la que tienes abierta) y **☰ Todas** abre un panel con todas.
 
 ### Configuración: una sola tarjeta con el %
