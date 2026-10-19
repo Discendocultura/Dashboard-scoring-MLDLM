@@ -6626,3 +6626,18 @@ button.cl-chip:hover { border-color: var(--accent); color: var(--text); }
 }
 :root:not([data-estilo="espacial"]) .topbar .tb-menu-panel { background: #17142c; border-color: rgb(255 255 255 / .12); box-shadow: 0 24px 60px -12px rgb(0 0 0 / .8); }
 :root:not([data-estilo="espacial"]) .topbar .badge { background: rgb(255 255 255 / .08); border-color: rgb(255 255 255 / .14); color: var(--text-2); }
+
+/* ---------- LabIA en el menú lateral: tarjeta con fondo espacial (como su cabecera) ---------- */
+.sb-item.sb-labia {
+  color: #eef0ff; border: 1px solid rgb(255 255 255 / .08); border-radius: 14px; box-shadow: 0 10px 24px -14px rgb(8 11 24 / .8);
+  background:
+    radial-gradient(1px 1px at 18% 30%, rgb(255 255 255 / .9) 50%, transparent 52%),
+    radial-gradient(1px 1px at 72% 22%, rgb(224 231 255 / .75) 50%, transparent 52%),
+    radial-gradient(1px 1px at 58% 78%, rgb(255 255 255 / .6) 50%, transparent 52%),
+    radial-gradient(1px 1px at 90% 64%, rgb(199 210 254 / .7) 50%, transparent 52%),
+    radial-gradient(1px 1px at 35% 88%, rgb(255 255 255 / .5) 50%, transparent 52%),
+    radial-gradient(160px 90px at 0% 0%, #163055 0%, transparent 75%),
+    linear-gradient(135deg, #0a0e1f 0%, #070914 60%, #120b2a 100%);
+}
+.sb-item.sb-labia:hover { border-color: rgb(255 154 60 / .55); box-shadow: 0 12px 28px -12px rgb(255 122 24 / .35); }
+.sb-item.sb-labia .sb-labia-sub { color: #a3a8c9; }

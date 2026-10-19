@@ -195,6 +195,8 @@ Análisis → Avatar: arriba, las cifras de partida en frases («1850 personas r
 ### Cabecera de AlquimIA: siempre «espacial»
 En el diseño **clásico** la cabecera de arriba (logo, cliente, Auditor, Operativa, Procesos, Mi negocio, avisos y cuenta) va siempre **oscura, con un brillo azul a la izquierda y estrellas**, como la de LabIA; el resto de la página sigue clara. Con el diseño espacial no cambia nada. Solo CSS: `.topbar` con los colores del espacial (`public/styles.css`, al final).
 
+La tarjeta de **LabIA** del menú lateral también lleva ese fondo espacial (oscuro, brillo azul y estrellas), en los dos diseños.
+
 ### Móvil: barra fija arriba y subpestañas abajo
 - **Arriba, fija al hacer scroll**: la cabecera del embudo en una fila (qué lanzamiento, ⚠️ pendientes, ⚙️ si la configuración ya está completa, ↻ actualizar y ⋯) y, debajo, lo importante de cada pestaña: el **periodo** (VSL, ventas directas, Cómo van los anuncios, Inicio e Inteligencia de negocio), el **buscador y los filtros** de Leads, la vista de **Llamadas**, de **Tareas** y del **Calendario**, y los filtros por motivo de **Setting hoy**.
 - **La cabecera de AlquimIA** (☰ con el menú lateral, avisos y cuenta) se queda fija arriba en todas las pantallas. **La barra de abajo es solo de los embudos**: sus pestañas (Hoy · Leads · Métricas · ☰ Todo); fuera de un embudo no sale, porque Agencia, Inicio, Inteligencia de negocio y los embudos ya están en el menú ☰ de arriba. Las barras se vuelven a pintar solas cuando las pestañas del embudo cambian (p. ej. al terminar de cargar sus datos).
