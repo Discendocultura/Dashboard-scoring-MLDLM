@@ -7183,3 +7183,8 @@ body.embudo-cruzadas .lanz-only { display: none !important; }
 .xp-volcar > div { flex: 1 1 280px; display: grid; gap: 2px; }
 .xp-volcar small { color: var(--text-2); font-size: 13px; line-height: 1.45; }
 .xp-volcar-ico { font-size: 28px; }
+
+/* Botón de WhatsApp con su logo (verde de WhatsApp), en Ventas cruzadas */
+.xa-act.wa { color: #25d366; }
+.xa-act.wa:hover { background: color-mix(in srgb, #25d366 14%, var(--surface)); }
+.xa-act .ico-wa { display: block; }

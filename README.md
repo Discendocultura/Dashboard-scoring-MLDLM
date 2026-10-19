@@ -217,7 +217,7 @@ Nuevo tipo en **＋ Nuevo embudo → 3 · Otros → Ventas cruzadas**. Pestañas
 - **💡 Tus mejores oportunidades**: para cada salto A ➜ B, cuántos tienen A y aún no B (y qué % de los de A son), con una barra de **cuántos ya dieron el salto** («✅ 5 % ya lo tiene, 7 de 146»). Al pulsar, se filtra la lista.
 - **🧩 Qué combinación tiene cada alumno**: el **% de alumnos con cada combinación exacta** («solo Reto», «Reto + Raíces», «⭐ todos»), con barras. Al pulsar, se ven justo esas personas.
 - **🎯 ¿A quién quieres llamar?**: toca lo que **ya tienen** y lo que les quieres **ofrecer** (cada botón con su número y %). Debajo, una barra fija y sobria (blanca, sin colores que cambian) con **cuántas personas son, qué % del total** y la frase del filtro («tienen Entrada VIP · aún no tienen Raíces · con teléfono · de Ana»), el buscador, «✕ Ver todos» y dos filtros más: **📞 Teléfono** (Todos / Con teléfono / Sin teléfono) y **👤 Comercial** (Todos / cada comercial / ⭐ Los míos), cada uno con su número; si hay otros filtros puestos, cada comercial dice cuántos de los suyos los cumplen y cuántos tiene en total («17 de 170»). Los filtros se recuerdan.
-- Tarjeta de cada alumno: sus productos, **la oferta que le toca** (con precio), **📞** y **💬 WhatsApp con el mensaje de su oferta ya escrito**, y su ficha al pulsar el nombre.
+- Tarjeta de cada alumno: sus productos, **la oferta que le toca** (con precio), **📞** y el botón de **WhatsApp (con su logo, en verde) con el mensaje de su oferta ya escrito**, y su ficha al pulsar el nombre.
 
 **Ofertas**: una tarjeta por oferta («Si ya tiene» ➜ «Ofrécele»), con precio, mensaje, a cuántos alumnos les toca y **Ver a quién →** (abre Alumnos con ese filtro).
 

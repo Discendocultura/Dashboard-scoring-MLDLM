@@ -23,6 +23,8 @@ const COLORES = ['var(--dato)'];
 // (si el nombre de la fase en GHL ya empieza por un emoji, no se pone otro)
 const ICO_ETAPA = (nombre) => (/^\s*\p{Extended_Pictographic}/u.test(nombre || '') ? '' : ETAPAS_CRUZADAS.find((e) => e.nombre.toLowerCase() === String(nombre || '').trim().toLowerCase())?.ico
   || (/venta|ganad/i.test(nombre) ? '✅' : /perdid/i.test(nombre) ? '❌' : /no contesta/i.test(nombre) ? '📵' : /agenda/i.test(nombre) ? '📅' : /seguim/i.test(nombre) ? '🔁' : /contact/i.test(nombre) ? '💬' : '📌'));
+// El logo de WhatsApp (el de verdad, no un bocadillo) para los botones de escribir por WhatsApp.
+const ICO_WA = '<svg class="ico-wa" viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.9 2 7L3 29l6.4-2c2 1.1 4.3 1.7 6.6 1.7 7.2 0 13-5.7 13-12.8S23.2 3 16 3Zm0 23.4c-2.1 0-4.1-.6-5.9-1.7l-.4-.3-3.8 1.2 1.2-3.7-.3-.4c-1.2-1.8-1.9-3.9-1.9-6.1C4.9 9.8 9.9 5 16 5s11.1 4.8 11.1 10.8S22.1 26.4 16 26.4Zm6.1-8c-.3-.2-2-1-2.3-1.1-.3-.1-.5-.2-.8.2-.2.3-.9 1.1-1.1 1.3-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.7-1.7-1-.9-1.7-2-1.9-2.3-.2-.3 0-.5.1-.7l.5-.6c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.6l-1-2.5c-.3-.7-.5-.6-.8-.6h-.6c-.2 0-.6.1-.9.4-.3.3-1.2 1.2-1.2 2.9s1.2 3.4 1.4 3.6c.2.2 2.4 3.7 5.9 5.1 2.9 1.1 3.5.9 4.1.9.6-.1 2-.8 2.3-1.6.3-.8.3-1.5.2-1.6-.1-.2-.3-.3-.6-.4Z"/></svg>';
 const cerrada = (nombre) => /venta|ganad|perdid/i.test(nombre || '');
 // El mensaje de la oferta con su nombre de pila ({nombre}) y el producto ({producto}).
 const mensajeDe = (o, nombre, producto) => String(o?.mensaje || '').replace(/\{nombre\}/g, String(nombre || '').trim().split(/\s+/)[0] || '').replace(/\{producto\}/g, producto || '');
@@ -239,7 +241,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
       const com = comDe.get(a.id);
       const tel = a.phone ? `<a class="xa-act tel" href="tel:${esc(a.phone.replace(/[^\d+]/g, ''))}" title="Llamar" aria-label="Llamar a ${esc(a.name)}">📞</a>` : '';
       const txt = of ? mensajeDe(of, a.name, pOf?.nombre) : '';
-      const wa = a.phoneWa ? `<a class="xa-act wa" href="https://wa.me/${esc(a.phoneWa)}${txt ? `?text=${encodeURIComponent(txt)}` : ''}" target="_blank" rel="noopener" title="${txt ? 'WhatsApp con el mensaje de su oferta' : 'WhatsApp'}" aria-label="WhatsApp de ${esc(a.name)}">💬</a>` : '';
+      const wa = a.phoneWa ? `<a class="xa-act wa" href="https://wa.me/${esc(a.phoneWa)}${txt ? `?text=${encodeURIComponent(txt)}` : ''}" target="_blank" rel="noopener" title="${txt ? 'WhatsApp con el mensaje de su oferta' : 'WhatsApp'}" aria-label="WhatsApp de ${esc(a.name)}">${ICO_WA}</a>` : '';
       return `<li class="xa-al" style="--i:${Math.min(i, 14)}">
         <span class="xa-av" style="--c:${tonoDe(a.name)}" aria-hidden="true">${esc(ini(a.name))}</span>
         <div class="xa-al-c">
@@ -392,7 +394,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
         <div class="xp-card-q"><span class="xa-av peq" style="--c:${tonoDe(it.nombre)}" aria-hidden="true">${esc(ini(it.nombre))}</span><button type="button" class="lead-ficha" ${it.contactId ? `data-ficha-lead="${esc(it.contactId)}"` : 'disabled'}>${esc(it.nombre || '(sin nombre)')}</button></div>
         ${a ? `<div class="xa-chips mini">${productos.filter((p) => a.tiene.includes(p.id)).map((p) => `<span class="xa-chip si" style="--c:${colorDe(productos, p.id)}">✓ ${esc(p.nombre)}</span>`).join('')}</div>` : ''}
         ${pOf ? `<span class="xa-oferta" style="--c:${colorDe(productos, pOf.id)}"><span aria-hidden="true">🎁</span> <b>${esc(pOf.nombre)}</b>${of.precio ? `<small>${esc(of.precio)}</small>` : ''}</span>` : falta.length ? `<span class="xa-ofrece"><span aria-hidden="true">🎁</span> ${falta.slice(0, 2).map((p) => esc(p.nombre)).join(' · ')}</span>` : ''}
-        <div class="xp-card-pie"><span class="muted small">${dias == null ? '' : dias === 0 ? 'hoy en esta fase' : `${dias} día${dias === 1 ? '' : 's'} en esta fase`}</span><span class="xa-acts">${tel ? `<a class="xa-act tel" href="tel:${esc(tel.replace(/[^\d+]/g, ''))}" title="Llamar">📞</a>` : ''}${wa ? `<a class="xa-act wa" href="https://wa.me/${esc(wa)}${of?.mensaje ? `?text=${encodeURIComponent(mensajeDe(of, it.nombre, pOf?.nombre))}` : ''}" target="_blank" rel="noopener" title="WhatsApp">💬</a>` : ''}</span></div></li>`;
+        <div class="xp-card-pie"><span class="muted small">${dias == null ? '' : dias === 0 ? 'hoy en esta fase' : `${dias} día${dias === 1 ? '' : 's'} en esta fase`}</span><span class="xa-acts">${tel ? `<a class="xa-act tel" href="tel:${esc(tel.replace(/[^\d+]/g, ''))}" title="Llamar">📞</a>` : ''}${wa ? `<a class="xa-act wa" href="https://wa.me/${esc(wa)}${of?.mensaje ? `?text=${encodeURIComponent(mensajeDe(of, it.nombre, pOf?.nombre))}` : ''}" target="_blank" rel="noopener" title="WhatsApp">${ICO_WA}</a>` : ''}</span></div></li>`;
     };
     const columna = (e, i) => `<section class="xp-col ${cerrada(e.nombre) ? 'cerr' : ''}" style="--c:${COLORES[0]};--i:${i}">
       <header><span class="xp-col-ico" aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><strong>${esc(e.nombre)}</strong><span class="xp-col-n">${num(nDe(e))}</span></header>

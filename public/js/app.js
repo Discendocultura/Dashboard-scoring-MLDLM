@@ -6782,7 +6782,7 @@ function pintarLabiaVista() {
     return `<li class="lb-lead"><button type="button" class="lb-lead-nom" data-lb-ficha="${esc(l.contactId)}" title="Ver su ficha">${esc(l.nombre || 'Sin nombre')}</button>
       <span class="lb-lead-et">${l.pide ? '<b>🙋 La IA te lo pasa</b> · ' : ''}${esc(l.etapa)}</span>
       <span class="muted small">${l.desde ? esc(haceTxt(Date.parse(l.desde))) : ''}</span>
-      ${wa ? `<a class="btn wa small" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">💬 WhatsApp</a>` : '<span class="muted small">Sin móvil</span>'}
+      ${wa ? `<a class="btn wa small" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">${icon('whatsapp')} WhatsApp</a>` : '<span class="muted small">Sin móvil</span>'}
       ${url && l.contactId ? `<a class="btn ghost small" href="${esc(enlaceSetter(l.contactId))}" target="_blank" rel="noopener" title="Ver lo que ha hablado con la IA">Ver chat ↗</a>` : ''}</li>`;
   };
   box.innerHTML = `
