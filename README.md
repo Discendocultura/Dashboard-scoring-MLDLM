@@ -197,6 +197,14 @@ En el diseño **clásico** la cabecera de arriba (logo, cliente, Auditor, Operat
 
 La tarjeta de **LabIA** del menú lateral también lleva ese fondo espacial (oscuro, brillo azul y estrellas), en los dos diseños.
 
+### 🔁 Embudo de ventas cruzadas (a los alumnos de un producto, venderles otro)
+Nuevo tipo en **＋ Nuevo embudo → «A quien ya es tu cliente» → Ventas cruzadas**. Pestañas: **Alumnos** y **Plan** (Tareas y Calendario).
+- **⚙️ Configuración**: se eligen los **productos** y la **etiqueta de GHL** que lleva quien compra cada uno, más **otras etiquetas que también cuentan** (ofertas, ediciones, el mismo producto en otro embudo). Con **📦 Traer de Mi negocio → Productos** se añaden de un clic (con la etiqueta y las de sus ofertas). Al menos 2 productos con etiqueta. **Notas para el equipo** (opcional): el guion o lo que deben saber antes de llamar, que sale arriba en Alumnos.
+- **Alumnos**: todos los contactos de GHL con alguna de esas etiquetas, con cuántos tienen cada producto y **«💡 A quién ofrecer qué»**: para cada pareja, cuántos tienen uno y no el otro (al pulsarla, se filtra la lista). **Filtros por producto** (Da igual / ✓ Lo tiene / ✗ No lo tiene, se pueden combinar) y buscador por nombre, email o teléfono; los filtros se recuerdan. Cada alumno con sus productos (✓ los que tiene, ○ los que no), **«Ofrécele: …»** con lo que le falta, su **ficha** (al pulsar el nombre), **📞 Llamar** y **💬 WhatsApp**. En el móvil, los filtros se quedan fijos arriba.
+- **Tareas de partida** («Crear las tareas del embudo»): revisar las etiquetas, preparar el guion de cada salto, elegir a quién llamar esta semana, llamar y anotar, y revisar resultados.
+- Código: `public/js/cruzadas.js` (datos, filtros y oportunidades; también lo usa el servidor), `public/js/cruzadas-vista.js` (configuración y Alumnos), `config.cruzadas[id]` en `lib/config-store.js`. Las etiquetas de sus productos cuentan como del embudo para `/api/leads`.
+- De paso: «Crear las tareas del embudo» de la **venta directa** buscaba un lanzamiento; ahora crea su planificación.
+
 ### Tu cuenta: cambiar la contraseña
 En el menú de tu cuenta (el icono de la persona, arriba a la derecha) está **🔑 Cambiar contraseña**: abre «Mi cuenta» directamente en ese apartado. Se escribe la actual y la nueva dos veces (con «Ver las contraseñas»); avisa si no coinciden o si es igual que la actual, y al cambiarla se cierran tus sesiones en los demás dispositivos. Solo para quien entra con su usuario (no con la contraseña general).
 

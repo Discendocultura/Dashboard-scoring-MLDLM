@@ -15,13 +15,14 @@ import { dashboardUrl as urlDashboard } from './usuarios.js';
 import { tareasMeteorico } from '../public/js/meteorico.js';
 import { tareasVsl } from '../public/js/embudo-vsl.js';
 import { tareasDirecta } from '../public/js/directa.js';
+import { tareasCruzada } from '../public/js/cruzadas.js';
 import { dayInMadrid } from '../public/js/scoring.js';
 import { repetirSiToca } from '../lib/operativa.js';
 
 // Tareas que faltan de la planificación de un meteórico o una VSL (no repite las que ya tiene, por clave o título).
 function planificacion(emb, existentes, config) {
   const hoy = dayInMadrid(new Date().toISOString());
-  const lista = emb.esMeteorico ? tareasMeteorico(emb, { hoy, lanzamiento: config.launches?.[emb.lanzamiento]?.name || '' }) : emb.esDirecta ? tareasDirecta(emb, { hoy }) : tareasVsl(emb, { hoy });
+  const lista = emb.esMeteorico ? tareasMeteorico(emb, { hoy, lanzamiento: config.launches?.[emb.lanzamiento]?.name || '' }) : emb.esDirecta ? tareasDirecta(emb, { hoy }) : emb.esCruzada ? tareasCruzada(emb, { hoy }) : tareasVsl(emb, { hoy });
   const claves = new Set(existentes.map((t) => t.clave).filter(Boolean));
   const titulos = new Set(existentes.map((t) => t.titulo));
   return lista.filter((t) => !claves.has(t.clave) && !titulos.has(t.titulo)).map((t) => ({
@@ -63,7 +64,7 @@ export async function POST(request) {
     const launch = await launchOf(code);
     const op = String(body.op || '');
     // La VSL no tiene hitos: sus tareas no se guardan como habituales (van atadas a fechas del lanzamiento).
-    if ((launch.esVsl || launch.esDirecta) && body.tarea) body.tarea.habitual = false;
+    if ((launch.esVsl || launch.esDirecta || launch.esCruzada) && body.tarea) body.tarea.habitual = false;
     const dashboardUrl = urlDashboard(request, '#tareas');
     let tareas = [];
     let nuevasAsignadas = [];
@@ -172,7 +173,7 @@ export async function POST(request) {
           tareas.splice(0, tareas.length);
         } else if (op === 'plantilla') {
           // Lanzamientos: tareas habituales. Meteóricos y VSL: su planificación propia, según su configuración.
-          const nuevas = launch.esMeteorico || launch.esVsl || launch.esDirecta ? planificacion(launch, tareas, await getConfig()) : tareasDesdePlantilla(habituales, launch, tareas, users);
+          const nuevas = launch.esMeteorico || launch.esVsl || launch.esDirecta || launch.esCruzada ? planificacion(launch, tareas, await getConfig()) : tareasDesdePlantilla(habituales, launch, tareas, users);
           creadas = nuevas.length;
           if (tareas.length + nuevas.length > MAX_TAREAS) throw bad(`Máximo ${MAX_TAREAS} tareas por lanzamiento`);
           for (const t of nuevas) tareas.push({ id: newId('t'), ...t, hecha: false, hechaPor: '', hechaEn: '', creadaPor: actor(s), creadaEn: now });

@@ -1,6 +1,7 @@
 // Tipos de embudo: qué pestañas pueden tener y la guía de lo que hay que preparar en GHL.
 // Lo usan el navegador («＋ Nuevo embudo» y su ⚙️) y el servidor (para validar las pestañas).
 import { guiaDirecta } from './directa.js';
+import { guiaCruzadas } from './cruzadas.js';
 
 export const PESTANAS = {
   lanzamientos: [
@@ -63,6 +64,12 @@ PESTANAS.directa = [
   { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para montar y mejorar el embudo' },
   { id: 'calendario', label: 'Calendario', desc: 'El calendario del cliente: hitos, tareas y eventos de todos sus embudos' },
 ];
+// Ventas cruzadas: a los alumnos de un producto, venderles otro (quién tiene qué y a quién llamar).
+PESTANAS.cruzadas = [
+  { id: 'xalumnos', label: 'Alumnos', desc: 'Quién tiene cada producto y qué le falta, con filtros (tiene / no tiene) para llamar con contexto' },
+  { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo: guion, a quién llamar esta semana y revisión' },
+  { id: 'calendario', label: 'Calendario', desc: 'El calendario del cliente: hitos, tareas y eventos de todos sus embudos' },
+];
 export const pestanaIds = (tipo) => (PESTANAS[tipo] || []).map((p) => p.id);
 
 // Secciones (subpestañas) dentro de algunas pestañas: se pueden quitar una a una al crear el embudo.
@@ -119,6 +126,10 @@ export const CATEGORIAS = {
     { id: 'crear', label: 'Crear', icon: '✨', desc: 'Con IA: páginas y automatizaciones', vistas: ['paginas', 'automatizaciones'] },
     { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Calendario y tareas', vistas: ['calendario', 'tareas'] },
   ],
+  cruzadas: [
+    { id: 'leads', label: 'Alumnos', icon: '🎓', desc: 'Qué tiene cada alumno y qué le falta, para llamar con contexto', vistas: ['xalumnos'] },
+    { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Calendario y tareas', vistas: ['calendario', 'tareas'] },
+  ],
   meteorico: [
     { id: 'meteoricos', label: 'Meteóricos', icon: '⚡', desc: 'Cada oferta flash', vistas: ['meteoricos'] },
     { id: 'moferta', label: 'Oferta', icon: '🎁', desc: 'Entregables y bonus frente a las ventas', vistas: ['moferta'] },
@@ -168,6 +179,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
   const on = (id) => pestanas.includes(id);
   const s = [];
   if (tipo === 'directa') return guiaDirecta(opciones.partes);
+  if (tipo === 'cruzadas') return guiaCruzadas();
   if (tipo === 'meteorico') {
     return [
       { titulo: '1 · La oferta en GHL', pasos: [

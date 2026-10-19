@@ -75,7 +75,7 @@ export async function POST(request) {
     // La URL de un workflow creado pasa también a Configuración → Accesos y enlaces (tipo «workflow»).
     if (body.op === 'automatizaciones') {
       const code = String(body.l || '');
-      const grupo = { lanzamientos: 'launches', vsl: 'vsls', directa: 'directas', meteorico: 'meteoricos' }[body.tipo];
+      const grupo = { lanzamientos: 'launches', vsl: 'vsls', directa: 'directas', meteorico: 'meteoricos', cruzadas: 'cruzadas' }[body.tipo];
       if (!grupo) return json({ error: 'Tipo de embudo no válido' }, 400);
       const datos = sanitizeAutomatizaciones(body.datos);
       const wf = body.workflow && /^https:\/\/\S+$/i.test(String(body.workflow.url || '').trim())

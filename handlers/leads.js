@@ -15,7 +15,7 @@ function etiquetasDeEmbudos(config) {
       else if (v && typeof v === 'object') recorrer(v, prof + 1);
     }
   };
-  for (const grupo of [config.launches, config.vsls, config.meteoricos, config.directas]) recorrer(grupo);
+  for (const grupo of [config.launches, config.vsls, config.meteoricos, config.directas, config.cruzadas]) recorrer(grupo);
   return out;
 }
 
