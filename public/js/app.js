@@ -12720,7 +12720,9 @@ const opcionesSubtipo = (tipo, sel) => {
   return st ? st.opciones.map((o) => `<option value="${o.id}" ${o.id === sel ? 'selected' : ''}>${st.icon} ${esc(o.label)}</option>`).join('') : '';
 };
 function filaEntregable(e = {}) {
+  const t = TIPOS_ENTREGABLE.find((x) => x.id === (e.tipo || 'grabado'));
   return `<div class="of-fila" data-of="entregable" data-id="${esc(e.id || '')}">
+    <span class="of-ico" aria-hidden="true">${t?.icon || '📦'}</span>
     <div class="of-tipo-box"><select class="of-tipo" aria-label="Tipo de entregable">${optsTipo(TIPOS_ENTREGABLE, e.tipo || 'grabado')}</select>
       <select class="of-sub" aria-label="${esc(SUBTIPOS_ENTREGABLE[e.tipo]?.label || '')}" ${SUBTIPOS_ENTREGABLE[e.tipo] ? '' : 'hidden'}>${opcionesSubtipo(e.tipo, e.subtipo)}</select></div>
     <input class="of-nombre" maxlength="120" placeholder="Nombre (p. ej. Módulo 1: tu ciclo)" value="${esc(e.nombre || '')}">
@@ -12729,7 +12731,9 @@ function filaEntregable(e = {}) {
     <button type="button" class="btn ghost of-del" aria-label="Quitar">✕</button></div>`;
 }
 function filaBonus(b = {}, tipos = TIPOS_BONUS) {
+  const t = tipos.find((x) => x.id === (b.tipo || 'bonus'));
   return `<div class="of-fila of-fila-bonus" data-of="bonus" data-id="${esc(b.id || '')}">
+    <span class="of-ico" aria-hidden="true">${t?.icon || '🎁'}</span>
     <select class="of-tipo" aria-label="Tipo de bonus">${optsTipo(tipos, b.tipo || 'bonus')}</select>
     <input class="of-nombre" maxlength="120" placeholder="Nombre del bonus" value="${esc(b.nombre || '')}">
     <input class="of-detalle" maxlength="300" placeholder="Detalle (opcional)" value="${esc(b.detalle || '')}">
@@ -12757,7 +12761,23 @@ function pintarGarantia(pre, g = {}) {
   $(`#${pre}-gar-otra`).value = triVal(g.otra);
   $(`#${pre}-gar-otra-txt`).value = g.otraTexto || '';
   $(`[data-gar="${pre}"] [data-gar-otra]`).hidden = $(`#${pre}-gar-otra`).value !== 'si';
+  sincronizarSegs($(`[data-gar="${pre}"]`));
 }
+// Botones Sí / No que eligen el valor de un <select> oculto (la garantía de la oferta).
+function sincronizarSegs(box) {
+  for (const seg of $$('[data-seg-for]', box || document)) {
+    const v = document.getElementById(seg.dataset.segFor)?.value || '';
+    for (const b of $$('button', seg)) { b.classList.toggle('on', b.dataset.v === v); b.setAttribute('aria-pressed', b.dataset.v === v); }
+  }
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-seg-for] button');
+  if (!b) return;
+  const sel = document.getElementById(b.closest('[data-seg-for]').dataset.segFor);
+  sel.value = sel.value === b.dataset.v ? '' : b.dataset.v;
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+  sincronizarSegs(b.closest('[data-gar]') || document);
+});
 const leerGarantia = (pre) => {
   const tri = (v) => (v === 'si' ? true : v === 'no' ? false : null);
   const otra = tri($(`#${pre}-gar-otra`).value);
@@ -12774,7 +12794,45 @@ function pintarOfertaEditor(oferta = {}) {
   $('#of-entregables').innerHTML = (oferta.entregables || []).map((e) => filaEntregable(e)).join('') || '';
   $('#of-bonus').innerHTML = (oferta.bonus || []).map((b) => filaBonus(b)).join('') || '';
   pintarGarantia('of', oferta.garantia);
+  ordenarOferta();
   refrescarOfertaEditor();
+}
+// Las cosas de la oferta, agrupadas por su tipo (en el orden de los tipos) con un encabezado por grupo.
+function ordenarOferta() {
+  for (const [id, tipos, vacio] of [['#of-entregables', TIPOS_ENTREGABLE, 'Aún no has añadido nada: pulsa arriba el tipo de lo primero que incluye el programa.'], ['#of-bonus', TIPOS_BONUS, 'Sin bonus todavía: pulsa arriba cuándo vale el primero.']]) {
+    const box = $(id);
+    $$('.of-grupo, .of-vacio', box).forEach((x) => x.remove());
+    const filas = $$('.of-fila', box);
+    const pos = (el) => { const i = tipos.findIndex((t) => t.id === $('.of-tipo', el).value); return i < 0 ? 99 : i; };
+    filas.sort((a, b) => pos(a) - pos(b)).forEach((el) => box.appendChild(el));
+    let previo = null;
+    for (const el of filas) {
+      const tipo = $('.of-tipo', el).value;
+      if (tipo === previo) continue;
+      previo = tipo;
+      const t = tipos.find((x) => x.id === tipo);
+      el.insertAdjacentHTML('beforebegin', `<div class="of-grupo" data-grupo="${esc(tipo)}"><span>${t?.icon || '•'}</span><strong>${esc(t?.label || tipo)}</strong>${t?.desc ? `<small>${esc(t.desc)}</small>` : ''}<b></b></div>`);
+    }
+    if (!filas.length) box.insertAdjacentHTML('afterbegin', `<p class="of-vacio">${vacio}</p>`);
+  }
+}
+// Los botones grandes para añadir: uno por tipo de entregable y de bonus.
+$('[data-of-picker="entregable"]').innerHTML = TIPOS_ENTREGABLE.map((t) => `<button type="button" class="of-pick" data-of-pick="${t.id}"><span>${t.icon}</span><strong>${esc(t.label)}</strong></button>`).join('');
+$('[data-of-picker="bonus"]').innerHTML = TIPOS_BONUS.map((t) => `<button type="button" class="of-pick of-pick-bonus b-${t.id}" data-of-pick="${t.id}"><span>${t.icon}</span><strong>${esc(t.label)}</strong><small>${esc(t.desc)}</small></button>`).join('');
+for (const picker of $$('[data-of-picker]')) {
+  picker.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-of-pick]');
+    if (!b) return;
+    const esBonus = picker.dataset.ofPicker === 'bonus';
+    const box = $(esBonus ? '#of-bonus' : '#of-entregables');
+    box.insertAdjacentHTML('beforeend', esBonus ? filaBonus({ tipo: b.dataset.ofPick }) : filaEntregable({ tipo: b.dataset.ofPick }));
+    const nueva = $$('.of-fila', box).at(-1);
+    nueva.classList.add('nueva');
+    ordenarOferta();
+    refrescarOfertaEditor();
+    nueva.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    $('.of-nombre', nueva).focus({ preventScroll: true });
+  });
 }
 const nuevoId = (p) => `${p}${Date.now().toString(36).slice(-5)}${Math.random().toString(36).slice(2, 4)}`;
 function leerOfertaEditor() {
@@ -12802,7 +12860,30 @@ function refrescarOfertaEditor() {
   const o = leerOfertaEditor();
   const precio = dinero($('#cfg-precio-programa').value);
   const v = valorOferta({ entregables: o.entregables.map((e) => ({ valor: dinero(e.valor) })), bonus: o.bonus.map((b) => ({ valor: dinero(b.valor) })) }, precio);
-  $('#of-resumen').innerHTML = `<span><strong>${o.entregables.length}</strong> entregables</span><span><strong>${o.bonus.length}</strong> bonus</span>${v.total ? `<span>Valor total <strong>${eur(v.total)}</strong></span>` : ''}${v.ratio ? `<span>= <strong>${v.ratio.toFixed(1).replace('.', ',')}×</strong> el precio</span>` : ''}`;
+  const pctDe = (x) => (v.total ? Math.round((x / Math.max(v.total, precio || 0)) * 100) : 0);
+  $('#of-resumen').innerHTML = `<div class="of-res-cifras">
+      <div><span>📦</span><strong>${o.entregables.length}</strong><small>${o.entregables.length === 1 ? 'cosa incluida' : 'cosas incluidas'}</small></div>
+      <div><span>🎁</span><strong>${o.bonus.length}</strong><small>bonus</small></div>
+      <div class="of-res-valor"><span>💎</span><strong>${v.total ? eur(v.total) : '–'}</strong><small>valor total${v.ratio ? ` · <b>${v.ratio.toFixed(1).replace('.', ',')}×</b> el precio` : ''}</small></div>
+    </div>
+    ${v.total || precio ? `<div class="of-res-barra" title="Valor de lo incluido, de los bonus y el precio"><i class="e" style="width:${pctDe(v.entregables)}%"></i><i class="b" style="width:${pctDe(v.bonus)}%"></i></div>
+    <div class="of-res-ley"><span><i class="e"></i> Incluido ${eur(v.entregables)}</span><span><i class="b"></i> Bonus ${eur(v.bonus)}</span>${precio ? `<span>💶 Precio ${eur(precio)}</span>` : ''}</div>` : ''}`;
+  // Cuántos hay y cuánto suman en cada grupo.
+  for (const g of $$('.of-grupo')) {
+    const filas = $$('.of-fila', g.parentElement).filter((el) => $('.of-tipo', el).value === g.dataset.grupo);
+    const val = filas.reduce((t, el) => t + dinero($('.of-valor', el).value), 0);
+    $('b', g).textContent = `${filas.length}${val ? ` · ${eur(val)}` : ''}`;
+  }
+  // «Así queda tu oferta»: todo, ordenado por categorías.
+  const grupo = (lista, tipos) => tipos.map((t) => ({ t, xs: lista.filter((x) => x.tipo === t.id) })).filter((g) => g.xs.length);
+  const item = (x) => `<li><span>${esc(x.nombre)}${x.detalle ? `<small>${esc(x.detalle)}</small>` : ''}</span>${dinero(x.valor) ? `<b>${eur(dinero(x.valor))}</b>` : ''}</li>`;
+  const g15 = o.garantia?.dias15;
+  $('#of-stack').innerHTML = o.entregables.length || o.bonus.length ? `
+    ${grupo(o.entregables, TIPOS_ENTREGABLE).map((g) => `<div class="of-st-g"><h4><span>${g.t.icon}</span>${esc(g.t.label)}</h4><ul>${g.xs.map(item).join('')}</ul></div>`).join('')}
+    ${o.bonus.length ? `<div class="of-st-sep">🎁 Y además, los bonus</div>${grupo(o.bonus, TIPOS_BONUS).map((g) => `<div class="of-st-g bonus b-${g.t.id}"><h4><span>${g.t.icon}</span>${esc(g.t.label)}<small>${esc(g.t.desc)}</small></h4><ul>${g.xs.map(item).join('')}</ul></div>`).join('')}` : ''}
+    ${g15 || o.garantia?.otra ? `<div class="of-st-gar">🛡️ ${[g15 ? 'Garantía de 15 días' : '', o.garantia.otra && o.garantia.otraTexto ? esc(o.garantia.otraTexto) : ''].filter(Boolean).join(' · ')}</div>` : ''}
+    ${v.total ? `<div class="of-st-total${precio ? ' con-precio' : ''}"><span>Valor total</span><strong>${eur(v.total)}</strong>${precio ? `<span>Precio</span><strong class="precio">${eur(precio)}</strong>` : ''}</div>` : ''}`
+    : '<p class="muted">Cuando añadas lo que incluye y los bonus, aquí verás la oferta completa, ordenada por categorías, tal y como la vería quien compra.</p>';
 }
 $('#of-add-entregable').addEventListener('click', () => { $('#of-entregables').insertAdjacentHTML('beforeend', filaEntregable()); $('#of-entregables .of-fila:last-child .of-nombre').focus(); refrescarOfertaEditor(); });
 $('#of-add-bonus').addEventListener('click', () => { $('#of-bonus').insertAdjacentHTML('beforeend', filaBonus()); $('#of-bonus .of-fila:last-child .of-nombre').focus(); refrescarOfertaEditor(); });
@@ -12819,11 +12900,21 @@ for (const id of ['#of-entregables', '#mt-of-entregables']) {
   });
 }
 for (const id of ['#of-entregables', '#of-bonus']) {
-  $(id).addEventListener('click', (e) => { if (e.target.closest('.of-del')) { e.target.closest('.of-fila').remove(); refrescarOfertaEditor(); } });
+  $(id).addEventListener('click', (e) => { if (e.target.closest('.of-del')) { e.target.closest('.of-fila').remove(); ordenarOferta(); refrescarOfertaEditor(); } });
+  $(id).addEventListener('change', (e) => {
+    if (!e.target.matches('.of-tipo')) return;
+    const t = [...TIPOS_ENTREGABLE, ...TIPOS_BONUS].find((x) => x.id === e.target.value && (id === '#of-bonus' ? TIPOS_BONUS.includes(x) : TIPOS_ENTREGABLE.includes(x)));
+    $('.of-ico', e.target.closest('.of-fila')).textContent = t?.icon || '•';
+    ordenarOferta();
+    e.target.focus();
+  });
+  $(id).addEventListener('input', (e) => { if (e.target.matches('.of-nombre, .of-detalle')) refrescarOfertaEditor(); });
   $(id).addEventListener('change', refrescarOfertaEditor);
   $(id).addEventListener('input', (e) => { if (e.target.matches('.of-valor')) refrescarOfertaEditor(); });
 }
 $('.tab[data-tab="oferta"]').addEventListener('click', refrescarOfertaEditor);
+$('[data-gar="of"]').addEventListener('change', refrescarOfertaEditor);
+$('[data-gar="of"]').addEventListener('input', refrescarOfertaEditor);
 
 // Días de carrito: cuentan desde el día siguiente al vídeo de venta; el cierre se calcula solo (último día, 23:59).
 function pintarDiasCarrito() {
