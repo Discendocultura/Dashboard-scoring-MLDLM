@@ -6406,3 +6406,47 @@ button.cl-chip:hover { border-color: var(--accent); color: var(--text); }
   #config-dialog .of-fila .of-del { grid-column: 3; grid-row: 1; }
   #config-dialog .of-ventana, #config-dialog .of-obj { grid-column: 1 / -1; }
 }
+
+/* Configuración guiada: «Paso N de M» arriba de cada apartado, bloques numerados y anterior / siguiente abajo */
+.cfg-guia { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 16px; margin-bottom: 14px; border-radius: 18px; border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); background: radial-gradient(90% 160% at 0% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%), var(--surface); }
+.cfg-guia-ico { width: 52px; height: 52px; flex: none; display: grid; place-items: center; font-size: 26px; border-radius: 16px; background: color-mix(in srgb, var(--accent) 16%, var(--surface-2)); }
+.cfg-guia-t { flex: 1 1 260px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cfg-guia-t > small:first-child { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.cfg-guia-t strong { font-size: 18px; line-height: 1.2; }
+.cfg-guia-t > span:not(.cfg-guia-barra) { font-size: 13px; color: var(--muted); }
+.cfg-guia-t > small:last-child { font-size: 12px; color: var(--muted); }
+.cfg-guia-barra { display: block; height: 7px; margin-top: 4px; border-radius: 99px; background: var(--border); overflow: hidden; max-width: 360px; }
+.cfg-guia-barra i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), #10b981); transition: width .4s ease; }
+.cfg-guia-ahora { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 10px 16px; text-align: left; max-width: 280px; animation: cfg-latido 2.6s ease-in-out 2; }
+.cfg-guia-ahora small { font-size: 11px; font-weight: 700; opacity: .85; }
+@keyframes cfg-latido { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent); } }
+.tab-panel.cfg-guiado { counter-reset: none; }
+.cfg-paso { position: relative; transition: border-color .2s, box-shadow .2s; }
+.cfg-paso-n { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 50%; font-size: 13px; font-weight: 800; background: var(--surface-2); color: var(--text-2); border: 2px solid var(--border); order: -1; }
+.cfg-paso.paso-ok .cfg-paso-n { background: #10b981; border-color: #10b981; color: #fff; }
+.cfg-paso.paso-actual { border-color: var(--accent) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+.cfg-paso.paso-actual .cfg-paso-n { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cfg-paso.paso-actual .cfg-sec-head h3::after { content: '👉 Estás aquí'; margin-left: 8px; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); vertical-align: middle; }
+.cfg-guia-pie { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--border); }
+.cfg-guia-pie > :first-child { justify-self: start; }
+.cfg-guia-pie > :last-child { justify-self: end; }
+.cfg-guia-pie-n { display: flex; gap: 5px; }
+.cfg-guia-pie-n i { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+.cfg-guia-pie-n i.hecho { background: color-mix(in srgb, var(--accent) 50%, var(--border)); }
+.cfg-guia-pie-n i.aqui { width: 22px; border-radius: 99px; background: var(--accent); }
+@media (max-width: 700px) {
+  .cfg-guia-ahora { max-width: none; width: 100%; }
+  .cfg-guia-pie { grid-template-columns: 1fr 1fr; }
+  .cfg-guia-pie-n { display: none; }
+}
+/* En la configuración guiada: sin número duplicado, sin la lista repetida y «lo que falta» más tranquilo (en chips) */
+.cfg-guiado .cfg-sec-num:not(.cfg-sec-ico) { display: none; }
+.cfg-guiado > details.guia.cfg-ayuda { display: none; }
+.cfg-guiado > .cfg-pend { padding: 12px 14px; border: 1px solid color-mix(in srgb, #f59e0b 35%, var(--border)); border-left: 4px solid #f59e0b; background: color-mix(in srgb, #f59e0b 7%, var(--surface)); box-shadow: none; }
+.cfg-guiado > .cfg-pend .cfg-pend-cab { margin-bottom: 8px; }
+.cfg-guiado > .cfg-pend .cfg-pend-cab strong { color: var(--text); font-size: 14px; }
+.cfg-guiado > .cfg-pend .cfg-pend-ico { font-size: 17px; }
+.cfg-guiado > .cfg-pend .cfg-pend-lista { display: flex; flex-wrap: wrap; gap: 6px; }
+.cfg-guiado > .cfg-pend .cfg-pend-item { width: auto; padding: 5px 12px 5px 5px; border-radius: 99px; font-size: 13px; }
+.cfg-guiado > .cfg-pend .cfg-pend-item::before { width: 20px; height: 20px; font-size: 11px; background: #f59e0b; }
+.cfg-guiado > .cfg-pend .cfg-pend-ir { display: none; }

@@ -5616,12 +5616,14 @@ function cajaPendientes(cont, items) {
     box.className = 'cfg-pend';
     box.setAttribute('role', 'alert');
   }
-  // Siempre lo primero del apartado.
-  if (cont.firstElementChild !== box) cont.insertBefore(box, cont.firstElementChild);
+  // Siempre lo primero del apartado (debajo de la guía del paso, si la hay).
+  const guia = $(':scope > .cfg-guia', cont);
+  const antes = guia ? guia.nextElementSibling : cont.firstElementChild;
+  if (antes !== box) cont.insertBefore(box, antes);
   box._items = items;
   const faltan = items.filter((i) => i.st !== 'warn').length;
   const revisar = items.length - faltan;
-  const html = `<div class="cfg-pend-cab"><span class="cfg-pend-ico" aria-hidden="true">⚠️</span><div><strong>${faltan ? `Falta${faltan > 1 ? 'n' : ''} ${faltan} cosa${faltan > 1 ? 's' : ''} en este apartado` : 'Revisa esto antes de seguir'}</strong>${faltan && revisar ? ` <span class="cfg-pend-rev">· ${revisar} por revisar</span>` : ''}<small>Pulsa cada una para ir directamente a donde se completa.</small></div></div>
+  const html = `<div class="cfg-pend-cab"><span class="cfg-pend-ico" aria-hidden="true">${cont.closest('#config-dialog') ? '📝' : '⚠️'}</span><div><strong>${faltan ? `Falta${faltan > 1 ? 'n' : ''} ${faltan} cosa${faltan > 1 ? 's' : ''} en este apartado` : 'Revisa esto antes de seguir'}</strong>${faltan && revisar ? ` <span class="cfg-pend-rev">· ${revisar} por revisar</span>` : ''}<small>Pulsa cada una para ir directamente a donde se completa.</small></div></div>
     <ol class="cfg-pend-lista">${items.map((i, n) => `<li><button type="button" class="cfg-pend-item ${i.st === 'warn' ? 'warn' : ''}" data-pend="${n}"><span class="cfg-pend-txt"><strong>${esc(i.label)}</strong>${i.txt ? ` <span>${esc(i.txt)}</span>` : ''}</span><span class="cfg-pend-ir" aria-hidden="true">Ir →</span></button></li>`).join('')}</ol>`;
   if (box.dataset.html !== html) { box.innerHTML = html; box.dataset.html = html; }
 }
@@ -5734,6 +5736,7 @@ function renderGuia() {
     }
     const pnlEl = $(`#config-dialog .tab-panel[data-panel="${panel}"]`);
     if (pnlEl) cajaPendientes(pnlEl, total.filter((i) => i.st === 'falta' || i.st === 'warn').map((i) => ({ el: document.getElementById(i.f.id), label: i.f.label, txt: i.st === 'warn' ? i.txt : '', st: i.st })));
+    if (pnlEl) pintarGuiaPaso(pnlEl, total);
     const listos = total.filter((i) => i.st === 'ok' || i.st === 'opt').length;
     // La lista de lo que falta va plegada (el estado ya se ve en el menú y en cada bloque).
     if (!$(box)) {
@@ -5753,6 +5756,63 @@ function renderGuia() {
   pintarListo(todos);
   pintarRegistroPropuesto();
 }
+
+// Cada apartado de la configuración, guiado: arriba «Paso N de M» con para qué sirve, cuánto lleva y «👉 Ahora: …»
+// (lleva al primer campo que falta y lo resalta); sus bloques numerados (✓ al completarlos, «Estás aquí» en el
+// primero que falta); y abajo, «← Anterior» y «Siguiente: … →».
+const pasosCfg = () => $$('#config-dialog .cfg-nav .tab').filter((t) => !t.hidden && t.dataset.tab !== 'resumen');
+function pintarGuiaPaso(pnl, total) {
+  const panel = pnl.dataset.panel;
+  const pasos = pasosCfg();
+  const i = pasos.findIndex((t) => t.dataset.tab === panel);
+  if (i < 0) return;
+  const tab = pasos[i];
+  const titulo = $('.cfg-nav-t', tab)?.childNodes[0]?.textContent?.trim() || $('.cfg-nav-t', tab)?.textContent || '';
+  const sub = $('.cfg-nav-t small', tab)?.textContent || '';
+  const listos = total.filter((x) => x.st === 'ok' || x.st === 'opt').length;
+  const falta = total.find((x) => x.st === 'falta') || total.find((x) => x.st === 'warn');
+  const pct = total.length ? Math.round((listos / total.length) * 100) : 100;
+  // Los bloques del apartado, numerados; el primero que falta, resaltado.
+  const secs = $$(':scope > .cfg-sec, :scope > details > .cfg-sec, :scope > .of-sec', pnl).filter((x) => !x.hidden);
+  const actual = falta ? document.getElementById(falta.f.id)?.closest('.cfg-sec') : null;
+  secs.forEach((sec, n) => {
+    const cab = $('.cfg-sec-head', sec);
+    if (!cab) return;
+    let num = $('.cfg-paso-n', cab);
+    if (!num) { cab.insertAdjacentHTML('afterbegin', '<span class="cfg-paso-n" aria-hidden="true"></span>'); num = $('.cfg-paso-n', cab); }
+    const ok = $('.cfg-sec-status', sec)?.classList.contains('guia-ok');
+    num.textContent = ok ? '✓' : n + 1;
+    sec.classList.add('cfg-paso');
+    sec.classList.toggle('paso-ok', Boolean(ok));
+    sec.classList.toggle('paso-actual', sec === actual);
+  });
+  pnl.classList.add('cfg-guiado');
+  let g = $(':scope > .cfg-guia', pnl);
+  if (!g) { pnl.insertAdjacentHTML('afterbegin', '<div class="cfg-guia"></div>'); g = $(':scope > .cfg-guia', pnl); }
+  const ICO = { launch: '🚀', oferta: '🎁', precios: '💶', captacion: '📣', pagina: '🎓', grabacion: '🔴', embudo: '🛒', carrito: '🧺', etiquetas: '🏷️', snippets: '🧩', accesos: '🔗', informes: '📨' };
+  const html = `<span class="cfg-guia-ico" aria-hidden="true">${ICO[panel] || '⚙️'}</span>
+    <div class="cfg-guia-t"><small>Paso ${i + 1} de ${pasos.length}</small><strong>${esc(titulo)}</strong><span>${esc(sub)}</span>
+      ${total.length ? `<span class="cfg-guia-barra"><i style="width:${pct}%"></i></span><small>${listos} de ${total.length} listo${total.length === 1 ? '' : 's'}${falta ? '' : ' · ✓ apartado completo'}</small>` : ''}</div>
+    ${falta ? `<button type="button" class="btn primary cfg-guia-ahora" data-goto="${falta.f.id}"><small>👉 Ahora</small>${esc(falta.f.label)}</button>`
+      : pasos[i + 1] ? `<button type="button" class="btn primary cfg-guia-ahora" data-ir-paso="${pasos[i + 1].dataset.tab}"><small>✓ Hecho · sigue con</small>${esc($('.cfg-nav-t', pasos[i + 1])?.childNodes[0]?.textContent?.trim() || '')} →</button>` : ''}`;
+  if (g.dataset.html !== html) { g.innerHTML = html; g.dataset.html = html; }
+  // Abajo: anterior y siguiente.
+  let pie = $(':scope > .cfg-guia-pie', pnl);
+  if (!pie) { pnl.insertAdjacentHTML('beforeend', '<nav class="cfg-guia-pie" aria-label="Pasos de la configuración"></nav>'); pie = $(':scope > .cfg-guia-pie', pnl); }
+  if (pie !== pnl.lastElementChild) pnl.appendChild(pie);
+  const nom = (t) => esc($('.cfg-nav-t', t)?.childNodes[0]?.textContent?.trim() || '');
+  const pieHtml = `${pasos[i - 1] ? `<button type="button" class="btn ghost" data-ir-paso="${pasos[i - 1].dataset.tab}">← ${nom(pasos[i - 1])}</button>` : '<span></span>'}
+    <span class="cfg-guia-pie-n">${pasos.map((t, k) => `<i class="${k < i ? 'hecho' : k === i ? 'aqui' : ''}" title="${nom(t)}"></i>`).join('')}</span>
+    ${pasos[i + 1] ? `<button type="button" class="btn primary" data-ir-paso="${pasos[i + 1].dataset.tab}">Siguiente: ${nom(pasos[i + 1])} →</button>` : '<button type="button" class="btn primary" data-ir-paso="resumen">🏁 Ver el resumen</button>'}`;
+  if (pie.dataset.html !== pieHtml) { pie.innerHTML = pieHtml; pie.dataset.html = pieHtml; }
+}
+$('#config-dialog').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ir-paso]');
+  if (!b) return;
+  $(`#config-dialog .tab[data-tab="${b.dataset.irPaso}"]`)?.click();
+  $('#config-dialog .cfg-main')?.scrollTo({ top: 0, behavior: 'smooth' });
+  $(`#config-dialog .tab-panel[data-panel="${b.dataset.irPaso}"]`)?.scrollIntoView({ block: 'start' });
+});
 
 // Etiqueta de registro: botón para poner la de la nomenclatura («registrado-webinar-DDMMAA») si no es esa.
 function pintarRegistroPropuesto() {
@@ -5944,7 +6004,7 @@ $('#cfg-hub').addEventListener('click', async (e) => {
 });
 $('#cfg-a-resumen').addEventListener('click', () => irCfg('resumen'));
 $('#config-dialog').addEventListener('click', (e) => {
-  const b = e.target.closest('.guia-check [data-goto], #cfg-listo [data-goto], #cfg-hub [data-goto]');
+  const b = e.target.closest('.guia-check [data-goto], #cfg-listo [data-goto], #cfg-hub [data-goto], .cfg-guia [data-goto]');
   if (b) goToField(b.dataset.goto);
   // Las explicaciones largas salen en una línea: al pulsarlas se leen enteras.
   const p = e.target.closest('.cfg-sec-head p, .tab-panel > p.muted');
