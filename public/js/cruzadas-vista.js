@@ -15,8 +15,9 @@ import { waPhone } from './scoring.js';
 
 const POR_PAGINA = 40;
 const FRESCOS_MS = 10 * 60 * 1000;
-// Un color por producto (los del logo de AlquimIA): pastillas, rutas y tarjetas.
-const COLORES = ['#ff7a00', '#06b6d4', '#7c3aed', '#3b6ff5', '#ec4899', '#10b981', '#f59e0b', '#a540f5', '#0ea5e9', '#ef4444', '#84cc16', '#14b8a6'];
+// Un solo color (el de contraste, el naranja del logo) más grises: los productos se distinguen por su nombre, no por
+// su color, para que la pantalla no tenga ruido visual.
+const COLORES = ['var(--accent)'];
 // (si el nombre de la fase en GHL ya empieza por un emoji, no se pone otro)
 const ICO_ETAPA = (nombre) => (/^\s*\p{Extended_Pictographic}/u.test(nombre || '') ? '' : ETAPAS_CRUZADAS.find((e) => e.nombre.toLowerCase() === String(nombre || '').trim().toLowerCase())?.ico
   || (/venta|ganad/i.test(nombre) ? '✅' : /perdid/i.test(nombre) ? '❌' : /no contesta/i.test(nombre) ? '📵' : /agenda/i.test(nombre) ? '📅' : /seguim/i.test(nombre) ? '🔁' : /contact/i.test(nombre) ? '💬' : '📌'));
@@ -374,7 +375,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     const abiertas = d.etapas.filter((e) => !cerrada(e.nombre));
     const cerradas = d.etapas.filter((e) => cerrada(e.nombre));
     const filtroCom = comerciales.length ? `<div class="xa-seg xp-com" role="group" aria-label="Comercial"><span class="xa-seg-t">👤 Comercial</span><button type="button" class="${vista.com ? '' : 'on'}" data-xp-com="">Todos</button>${comerciales.map((x) => `<button type="button" class="${vista.com === x.id ? 'on' : ''}" data-xp-com="${esc(x.id)}">${x.uid && x.uid === state.user?.id ? '⭐ Los míos' : esc(x.nombre)} <small>${x.pct} %</small></button>`).join('')}</div>` : '';
-    const resumen = `${filtroCom}<div class="xp-resumen">${d.etapas.map((e, i) => `<span class="xp-res ${cerrada(e.nombre) ? 'cerr' : ''}" style="--c:${e.color || COLORES[i % COLORES.length]};--i:${i}"><span aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><b>${num(nDe(e))}</b><small>${esc(e.nombre)}</small></span>`).join('')}</div>`;
+    const resumen = `${filtroCom}<div class="xp-resumen">${d.etapas.map((e, i) => `<span class="xp-res ${cerrada(e.nombre) ? 'cerr' : ''}" style="--c:${COLORES[0]};--i:${i}"><span aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><b>${num(nDe(e))}</b><small>${esc(e.nombre)}</small></span>`).join('')}</div>`;
     const tarjeta = (it, i) => {
       const a = alumnoDe(it.contactId);
       const falta = a ? productos.filter((p) => !a.tiene.includes(p.id)) : [];
@@ -389,7 +390,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
         ${pOf ? `<span class="xa-oferta" style="--c:${colorDe(productos, pOf.id)}"><span aria-hidden="true">🎁</span> <b>${esc(pOf.nombre)}</b>${of.precio ? `<small>${esc(of.precio)}</small>` : ''}</span>` : falta.length ? `<span class="xa-ofrece"><span aria-hidden="true">🎁</span> ${falta.slice(0, 2).map((p) => esc(p.nombre)).join(' · ')}</span>` : ''}
         <div class="xp-card-pie"><span class="muted small">${dias == null ? '' : dias === 0 ? 'hoy en esta fase' : `${dias} día${dias === 1 ? '' : 's'} en esta fase`}</span><span class="xa-acts">${tel ? `<a class="xa-act tel" href="tel:${esc(tel.replace(/[^\d+]/g, ''))}" title="Llamar">📞</a>` : ''}${wa ? `<a class="xa-act wa" href="https://wa.me/${esc(wa)}${of?.mensaje ? `?text=${encodeURIComponent(mensajeDe(of, it.nombre, pOf?.nombre))}` : ''}" target="_blank" rel="noopener" title="WhatsApp">💬</a>` : ''}</span></div></li>`;
     };
-    const columna = (e, i) => `<section class="xp-col ${cerrada(e.nombre) ? 'cerr' : ''}" style="--c:${e.color || COLORES[i % COLORES.length]};--i:${i}">
+    const columna = (e, i) => `<section class="xp-col ${cerrada(e.nombre) ? 'cerr' : ''}" style="--c:${COLORES[0]};--i:${i}">
       <header><span class="xp-col-ico" aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><strong>${esc(e.nombre)}</strong><span class="xp-col-n">${num(nDe(e))}</span></header>
       ${suyos(e).length ? `<ol>${suyos(e).map(tarjeta).join('')}</ol>${!vista.com && e.n > e.items.length ? `<p class="muted small xp-col-mas">Y ${num(e.n - e.items.length)} más en GHL</p>` : ''}` : '<p class="xp-col-vacia">Nadie en esta fase</p>'}</section>`;
     caja.innerHTML = `${cab}${resumen}<div class="xp-tablero">${abiertas.map(columna).join('')}${hoy.cerradas ? cerradas.map((e) => columna(e, d.etapas.indexOf(e))).join('') : ''}</div>

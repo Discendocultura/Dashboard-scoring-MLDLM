@@ -7058,3 +7058,54 @@ body.embudo-cruzadas .lanz-only { display: none !important; }
 .ng-xc-prio { margin-left: auto; padding: 2px 8px; border-radius: 999px; font-style: normal; font-size: 11px; font-weight: 750; color: #92400e; background: #fef3c7; }
 @media (max-width: 640px) { .ng-xc-cants { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ng-xc-cant strong { font-size: 28px; } }
 @media (prefers-reduced-motion: reduce) { .ng-xc-cant, .ng-xc-acc li { animation: none; } }
+
+/* Ventas cruzadas · paleta sobria: un solo color (--accent) y grises. Sustituye los degradados y colores por
+   producto de arriba (las reglas de aquí, al ir después, mandan). */
+.xa-hero, .xa-hero.hoy, .xa-hero.ofertas { background: radial-gradient(480px 240px at 0% 0%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 70%), linear-gradient(120deg, #1b1a1f, #232129); box-shadow: 0 14px 32px -24px rgb(0 0 0 / .7); }
+.xa-hero::after { display: none; }
+.xa-hp i { background: var(--accent); box-shadow: none; }
+.xa-guion { background: var(--surface); border-color: var(--border); }
+.xa-ruta::before { background: var(--accent); height: 3px; }
+.xa-ruta-n { background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--text); -webkit-text-fill-color: currentColor; }
+.xa-ruta-n small { color: var(--muted); }
+.xa-ruta-p.a, .xa-ruta-p.b { background: var(--surface-2); color: var(--text); }
+.xa-ruta-flecha { background: repeating-linear-gradient(90deg, var(--border-strong, var(--border)) 0 6px, transparent 6px 12px); }
+.xa-ruta-flecha::after { color: var(--accent); }
+.xa-ruta:hover { box-shadow: 0 14px 30px -22px rgb(0 0 0 / .45); }
+.xa-ruta.on { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.xa-ruta-paso, .xa-comb-b, .xa-cant-b, .ng-xc-paso { background: var(--surface-2); }
+.xa-ruta-paso i, .xa-comb-b i, .xa-cant-b i, .ng-xc-paso i, .ng-xc .ng-barra i { background: var(--accent); }
+.xa-lado.si, .xa-lado.no { background: var(--surface-2); border: 1px solid var(--border); }
+.xa-pill { border-color: var(--border); }
+.xa-pill-ini { background: var(--surface-2); color: var(--text-2); }
+.xa-pill.on { box-shadow: none; }
+.xa-puente-flecha span { background: var(--accent); box-shadow: none; }
+.xa-av { background: var(--surface-2); color: var(--text-2); }
+.xa-hero .xa-av { background: rgb(255 255 255 / .12); color: #fff; }
+.xa-chip.si { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+.xa-oferta { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 25%, var(--border)); }
+.xa-oferta b { color: var(--text); }
+.xa-ofrece.todo { color: var(--text-2); }
+.xa-act.tel, .xa-act.wa { background: var(--surface-2); }
+.xa-pulso { background: var(--accent); }
+.xo-card::before { background: var(--accent); height: 3px; }
+.xo-prod.a { background: var(--surface-2); color: var(--text); }
+.xo-prod.b { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--text); }
+.xp-res { background: var(--surface); border-color: var(--border); }
+.xp-col > header { border-top: 3px solid var(--border-strong, var(--border)); }
+.xp-col-n { background: var(--surface-2); color: var(--text-2); }
+.xp-guia { background: var(--surface-2); border-color: var(--border); }
+.xc-prod, .xc-com { border-left: 1px solid var(--border); }
+.xc-num { background: var(--surface); color: var(--text-2); border: 1px solid var(--border); }
+.xc-com-barra i { background: var(--accent); }
+.xc-pipe-ok { background: var(--surface-2); border-color: var(--border); }
+.xc-com-ok { color: var(--text-2); }
+.xc-com-total.ok { color: var(--text-2); background: var(--surface-2); }
+.xa-cant-c.todos, .ng-xc-cant.todos { background: var(--surface); border-color: var(--border); }
+.xa-cant-c.todos .xa-cant-pct, .ng-xc-cant.todos strong { color: var(--accent); }
+.xa-cant-c.todos .xa-cant-b i { background: var(--accent); }
+.xa-prio-tag, .ng-xc-prio, .xc-prio.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.xc-prio:hover { border-color: var(--accent); color: var(--accent); }
+.xa-ruta.prio, .ng-xc-cruce.prio { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.xc-ayuda, .xo-prio { background: var(--surface-2); border-color: var(--border); }
+.ng-xc-nom b { background: var(--surface-2); }
