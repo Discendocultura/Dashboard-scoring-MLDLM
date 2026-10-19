@@ -57,7 +57,7 @@ async function autorizarGet(request) {
     if (e.redirect) return Response.redirect(urlVuelta(e.redirect, { error: e.oauth, error_description: e.detalle, state: url.searchParams.get('state') }), 302);
     return paginaError(e.detalle || 'Petición no válida.');
   }
-  const s = await getSession(request);
+  const s = await getSession(request, { real: true }); // con «Ver como», Claude se conecta a nombre de quien de verdad está (no de la persona observada)
   if (!s?.role) {
     const volver = `/?oauth=${encodeURIComponent(url.pathname + url.search)}`;
     return pagina('Entra en AlquimIA', `<h1>Conectar ${escapeHtml(a.cliente.n)} con AlquimIA</h1>
@@ -82,7 +82,7 @@ async function autorizarPost(request) {
   const p = new URLSearchParams(Object.entries(body).map(([k, v]) => [k, String(v)]));
   let a;
   try { a = await validarAutorizacion(p); } catch (e) { return paginaError(e.detalle || 'Petición no válida.'); }
-  const s = await getSession(request);
+  const s = await getSession(request, { real: true });
   if (!s?.role) return paginaError('Tu sesión de AlquimIA ha caducado. Entra de nuevo y vuelve a conectar.');
   const v = await verifyToken(p.get('csrf') || '');
   const m = v && v.match(/^oauthcsrf:(.+):(\d+)$/);

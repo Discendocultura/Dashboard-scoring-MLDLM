@@ -118,7 +118,7 @@ function remitenteRecuperar() {
 async function recuperar(request, body) {
   const email = normEmail(body.email);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: 'Escribe tu email' }, 400);
-  const claves = [`rec:${email}`, `ip:${ipDe(request)}`];
+  const claves = [`rec:${email}`, `recip:${ipDe(request)}`]; // su propio contador por IP: pedir recuperar no bloquea el login de la oficina
   const seg = await bloqueado(claves);
   if (seg) return json({ error: mensajeBloqueo(seg), bloqueado: seg }, 429);
   await fallo(claves); // cuenta las peticiones: como mucho 5 seguidas por email

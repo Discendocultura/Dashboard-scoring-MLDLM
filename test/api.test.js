@@ -103,7 +103,12 @@ test('login ignora espacios y health no revela valores', async () => {
   assert.ok(await login(' admin'));
   setEnv({ ADMIN_PASSWORD: 'admin' });
   const { GET } = await import('../handlers/health.js');
-  const body = await (await GET()).json();
+  // Sin sesión: solo si funciona y la versión (no qué integraciones hay)
+  const publico = await (await GET(req('/api/health'))).json();
+  assert.equal(publico.vars, undefined);
+  assert.ok('version' in publico);
+  const admin = await login('admin');
+  const body = await (await GET(req('/api/health', { cookie: admin }))).json();
   assert.equal(body.vars.ADMIN_PASSWORD, true);
   assert.ok(!JSON.stringify(body).includes(env.SESSION_SECRET));
 });

@@ -8,6 +8,7 @@
 import { getContact, findContactByEmail } from '../lib/ghl.js';
 import { ensureRegistered, hasTag } from '../lib/access.js';
 import { turnstileSiteKey, verifyTurnstile } from '../lib/turnstile.js';
+import { dentroDelLimite } from '../lib/intentos.js';
 import { getConfig } from '../lib/config-store.js';
 import { addRegistrant, zoomConfigured } from '../lib/zoom.js';
 import { deLaReunion } from '../lib/zoom-inscripcion.js';
@@ -124,6 +125,10 @@ export async function GET(request, ctx) {
     if (contact && launch.registroTag && !hasTag(contact, launch.registroTag)) {
       emailParam = contact.email;
       contact = null;
+    }
+    // Sin cid, por email: con límite por IP (crea contactos en GHL y dispara sus workflows; que no se pueda abusar).
+    if (!contact && emailParam && !(await dentroDelLimite(request, url.searchParams.has('nombre') ? 'acceso' : 'identificar', url.searchParams.has('nombre') ? 40 : 60))) {
+      return emailForm(code, 'Demasiados intentos seguidos: espera unos minutos y vuelve a probar.', k);
     }
     if (!contact && emailParam && url.searchParams.has('nombre')
       && !(await verifyTurnstile(url.searchParams.get('cf-turnstile-response'), request.headers.get('cf-connecting-ip')))) {

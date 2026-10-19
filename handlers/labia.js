@@ -9,8 +9,9 @@ import { labiaAqui } from '../lib/clientes.js';
 import { pipelineLabia } from '../lib/labia.js';
 import { resumenSetterIa } from '../lib/setter-ia.js';
 import { json, errorResponse } from '../lib/http.js';
+import { dayInMadrid } from '../public/js/scoring.js';
 
-const dia = (ms) => new Date(ms).toISOString().slice(0, 10);
+const dia = (ms) => dayInMadrid(new Date(ms).toISOString()); // el día en España (de madrugada, UTC aún es ayer)
 
 export async function GET(request) {
   try {

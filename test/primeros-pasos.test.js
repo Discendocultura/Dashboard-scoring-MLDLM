@@ -39,6 +39,12 @@ test('embudo de ejemplo: datos inventados para mirar, como admin, sin poder guar
   // …y el equipo de verdad no se ve desde el ejemplo
   const eq = await call('/api/usuarios', { cookie: admin, cliente: 'ejemplo' });
   assert.deepEqual(eq.data.users || [], []);
+  assert.equal(eq.data.todos, undefined); // ni siquiera el superadmin ve a nadie desde aquí
+  // Nada de lo común de la agencia ni de credenciales reales desde el ejemplo (todos entran como admin)
+  assert.equal((await call('/api/usuarios?agencia', { cookie: admin, cliente: 'ejemplo' })).data.equipo, undefined);
+  for (const ruta of ['/api/seguridad', '/api/sendflow?op=probar', '/api/historial', '/api/clientes', '/api/roles']) {
+    assert.equal((await call(ruta, { cookie: admin, cliente: 'ejemplo' })).status, 403, ruta);
+  }
   // Fuera del ejemplo, el cliente de siempre sin GHL conectado lo dice
   const me2 = (await call('/api/me', { cookie: admin })).data;
   assert.equal(me2.crm, false);

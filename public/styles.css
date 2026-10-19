@@ -7342,3 +7342,6 @@ body.pp-activo .vs-mas { display: inline-flex; }
 .xp-card .xa-acts { align-items: center; }
 .xp-mover { padding: 5px 10px; font-size: 12.5px; white-space: nowrap; }
 .seg-card { cursor: pointer; }
+
+/* Ejemplo con datos inventados: es para mirar; sin botones de editar que luego no pueden guardar. */
+body.en-ejemplo .config-only, body.en-ejemplo #sb-add, body.en-ejemplo .sb-edit, body.en-ejemplo #sb-ejemplo-fila { display: none !important; }

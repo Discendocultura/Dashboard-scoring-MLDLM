@@ -706,7 +706,7 @@ async function start() {
   else state.embudo = embudoInfo(guardado) ? guardado : embudos()[0]?.id || '';
   fillStaticSelects();
   renderLaunchSelect();
-  if (puedeConfig()) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
+  if (puedeConfig() && state.crm !== false) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch((e) => notice(e.message, true));
   state.launchCode = pickInitialLaunch();
   // Recién entrado (login): siempre al Inicio. Si no, el último sitio (si era el Inicio).
   const abrirInicio = (state.recienEntrado || ls.get('lsd_inicio') === '1') && !hash;
@@ -716,13 +716,14 @@ async function start() {
   if (abrirInicio) mostrarInicio();
   if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); pintarQueFunciono(); }
   if (!$('#view-rendimiento').hidden) loadRendimiento();
-  if (state.ejemplo) return; // en el ejemplo, ni onboarding ni primeros pasos: es para curiosear
+  // En el ejemplo, ni recorrido ni primeros pasos (es para curiosear), pero el botón de Ayuda sí funciona.
+  if (state.ejemplo) { iniciarOnboarding({ api, rol: 'admin', nombre: state.user?.nombre || '', estado: { hecho: true }, superadmin: state.superadmin, acciones: {} }); return; }
   // Admin nuevo: primero el CRM y «¿Qué quieres hacer primero?» (una pregunta por pantalla); después, lo demás.
   const eleccion = await primerAcceso();
-  if (String(eleccion || '').startsWith('crear')) {
-    // Primero crea su embudo; el recorrido de burbujas, cuando cierre la ventana.
+  if (/^(crear|configurar)/.test(String(eleccion || ''))) {
+    // Primero crea (o revisa) su embudo; el recorrido de burbujas, cuando cierre la ventana.
     await seguirEleccion(eleccion);
-    await new Promise((ok) => (embDlg.open ? embDlg.addEventListener('close', ok, { once: true }) : ok()));
+    await new Promise((ok) => { const d = [embDlg, $('#config-dialog')].find((x) => x?.open); if (d) d.addEventListener('close', ok, { once: true }); else ok(); });
     await arrancarOnboarding();
   } else {
     await arrancarOnboarding();
@@ -778,6 +779,7 @@ const diasOnb = () => diasDesde(onbEstado().inicio || state.user?.createdAt || '
 const ppActivo = () => !state.ejemplo && onbRol() === 'admin' && !onbEstado().hecho && !onbEstado().todo;
 let ppAbiertos = new Set(DESBLOQUEOS.map((d) => d.id));
 let ppBurbuja = false; // como mucho una burbuja de «Nuevo ✨» por visita (el resto, solo la etiqueta)
+let ppPendiente = ''; // la que no se pudo enseñar aún (p. ej. antes del recorrido principal): se reintenta
 let ppRevisando = false;
 function condicionesPp() {
   const c = state.config || {};
@@ -812,7 +814,8 @@ function revisarPp() {
     if (state.config && state.embudo && !state.enInicio && !state.enNegocio) refrescarPestanas();
     pintarSiguientePaso();
     pintarEjemploLateral();
-    if (nuevos.length && !ppBurbuja) { ppBurbuja = true; setTimeout(() => avisarNuevo(nuevos[0]), 900); }
+    if (nuevos.length && !ppPendiente) ppPendiente = nuevos[0];
+    if (ppPendiente && !ppBurbuja) setTimeout(() => avisarNuevo(ppPendiente), 900);
   } finally { ppRevisando = false; }
 }
 // Lo nuevo lleva «Nuevo ✨» hasta que se abre.
@@ -846,7 +849,9 @@ function refrescarPestanas() {
 // Burbuja «✨ Nuevo» sobre lo que acaba de aparecer (si no hay otra cosa explicándose).
 function avisarNuevo(id) {
   const d = DESBLOQUEOS.find((x) => x.id === id);
-  if (!d || document.querySelector('.onb') || !onbEstado().tours?.principal) return;
+  if (!d || ppBurbuja || document.querySelector('.onb') || !onbEstado().tours?.principal) return; // ya se reintentará
+  ppBurbuja = true;
+  ppPendiente = '';
   const grupo = Object.keys(GRUPOS).find((g) => GRUPOS[g].some((v) => desbloqueoDeVista(v) === id));
   const sel = grupo ? `.view-tab[data-view-grupo="${grupo}"]:not([hidden]), .subview-tab.pp-nuevo:not([hidden])` : id === 'negocio' ? '#sb-negocio:not([hidden]), #tb-menu-ajustes' : '#tb-menu-ajustes';
   onbTour([{ sel, titulo: `✨ Nuevo: ${d.nombre}`, texto: d.texto }]);
@@ -878,6 +883,7 @@ function embudoConfigurado(e) {
   if (e.tipo === 'vsl') return Boolean(c.vsls?.[e.id]?.registroTag);
   if (e.tipo === 'directa') return Boolean(c.directas?.[e.id]?.compraTag);
   if (e.tipo === 'cruzadas') return (c.cruzadas?.[e.id]?.productos || []).length >= 2;
+  if (e.tipo === 'meteorico') return Object.values(c.meteoricos || {}).some((m) => m.embudo === e.id && m.compraTag);
   return true;
 }
 const clicVisible = (sel) => { const b = $$(sel).find((x) => x.getClientRects().length) || $(sel); b?.click(); };
@@ -947,6 +953,9 @@ async function primerAcceso() {
     marcar(i);
     cuerpo.innerHTML = html;
     cuerpo.onclick = (e) => { const b = e.target.closest('[data-pa]'); if (b) res(b.dataset.pa); };
+    // Esc = «Lo haré luego» (siempre hay una salida).
+    const esc = (e) => { if (e.key === 'Escape') { document.removeEventListener('keydown', esc); res('luego'); } };
+    document.addEventListener('keydown', esc);
     cuerpo.querySelector('.btn.primary, [data-pa]')?.focus();
   });
   try {
@@ -1126,9 +1135,10 @@ $('#tb-buscar-in').addEventListener('blur', () => setTimeout(cerrarBuscar, 120))
 $('#btn-buscar-movil').addEventListener('click', () => { $('#tb-buscar').classList.add('abierto'); $('#tb-buscar-in').focus(); });
 // «/» (o Ctrl/⌘ + K) para buscar desde cualquier sitio.
 document.addEventListener('keydown', (e) => {
-  const escribiendo = e.target.closest?.('input, textarea, select, [contenteditable="true"]');
+  const escribiendo = e.target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
   if ((e.key === '/' && !escribiendo) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) {
-    if ($('#app').hidden) return;
+    // Con una ventana abierta, el primer acceso o una burbuja delante, la tecla es de lo que se ve.
+    if ($('#app').hidden || document.querySelector('dialog[open], .bv:not([hidden]), .onb')) return;
     e.preventDefault();
     if (getComputedStyle($('#tb-buscar')).display === 'none') $('#tb-buscar').classList.add('abierto');
     $('#tb-buscar-in').focus();
@@ -1190,7 +1200,9 @@ function pintarCliente(c) {
   document.title = `AlquimIA · ${c.nombre}`;
   const pick = $('#cliente-pick');
   pick.hidden = state.clientes.length < 2;
-  $('#cliente-select').innerHTML = state.clientes.map((x) => `<option value="${esc(x.id)}" ${x.id === c.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('');
+  // En el ejemplo, el desplegable lo dice (no aparece otro cliente como elegido).
+  const lista = state.ejemplo ? [...state.clientes, { id: 'ejemplo', nombre: '🧪 Ejemplo (datos inventados)' }] : state.clientes;
+  $('#cliente-select').innerHTML = lista.map((x) => `<option value="${esc(x.id)}" ${x.id === c.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('');
   if (c.color) document.documentElement.style.setProperty('--cliente', c.color); else document.documentElement.style.removeProperty('--cliente');
 }
 $('#cliente-select').addEventListener('change', (e) => cambiarCliente(e.target.value));
@@ -1325,6 +1337,8 @@ function salirInicio() {
   document.body.classList.remove('en-inicio', 'en-negocio');
   $('#sb-negocio').classList.remove('active');
   $('#sb-inicio').classList.remove('active');
+  // Mostrar poco a poco: al salir del Inicio por un atajo (buscador, «Tu siguiente paso»…), solo las pestañas que tocan.
+  if (state.config && state.embudo && document.body.classList.contains('pp-activo')) refrescarPestanas();
 }
 // «Hola 👋 Nombre» en el Inicio (sin usuario, con la contraseña general: solo «Hola 👋»).
 function pintarSaludo() {
@@ -1849,7 +1863,14 @@ async function selectLaunch(code, { forzar = false } = {}) {
 // ---------- Carga de leads (paginada contra GHL) ----------
 // Copia del navegador de hace menos de esto: se usa tal cual, sin volver a pedir los leads a GHL.
 const LEADS_FRESCOS_MS = 10 * 60_000;
+// Sin CRM conectado aún: un aviso amable en vez del error técnico de GHL (la conexión la hace la agencia).
+const sinCrm = () => {
+  if (state.crm !== false) return false;
+  notice('Tu CRM (GHL) aún no está conectado: lo está haciendo la agencia. Mientras, puedes mirar el ejemplo con datos inventados (menú ❓).');
+  return true;
+};
 async function loadLeads({ forzar = false } = {}) {
+  if (sinCrm()) return;
   if (state.compare) delete state.compare.cache[state.launchCode];
   state.allAvatarLeads = null; // se vuelven a cargar con los datos nuevos
   const launch = state.config.launches[state.launchCode];
@@ -4683,7 +4704,7 @@ $('#btn-csv').addEventListener('click', () => {
 $('#btn-zoom').addEventListener('click', async () => {
   const launch = state.config.launches[state.launchCode];
   if (!state.zoomConfigured) return notice('Zoom no está conectado todavía (faltan las variables ZOOM_* en Cloudflare).', true);
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = dayInMadrid(new Date().toISOString());
   const vids = videosDe(launch).filter((v) => v.zoomMeetingId && (!v.fecha || v.fecha <= hoy || v.k === 1));
   if (!vids.length) return notice('Añade el ID de la reunión de Zoom en la configuración del lanzamiento.', true);
   const btn = $('#btn-zoom');
@@ -5311,7 +5332,7 @@ function openConfig(code, { silencioso = false } = {}) {
       // La barra de la página de venta se hereda con sus textos y botones, sin fechas.
       ...(last.ventaBarra?.tramos?.length ? { ventaBarra: { ...last.ventaBarra, tramos: last.ventaBarra.tramos.map((t) => ({ ...t, hasta: '' })) } } : {}),
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
-      inicioCaptacion: new Date().toISOString().slice(0, 10),
+      inicioCaptacion: dayInMadrid(new Date().toISOString()), // el día en España (de madrugada, UTC aún es ayer)
     };
   $('#cfg-code').value = editingCode || '';
   $('#cfg-code').readOnly = Boolean(editingCode);
@@ -11069,7 +11090,8 @@ function notifItems() {
   const vistas = notifVistas();
   for (const n of out) n.nueva = n.c ? n.c.en > visto : !vistas.has(n.key);
   // La primera semana de un admin nuevo, solo lo urgente (como mucho 2): que no le abrume.
-  return dosificar(out, { nuevo: ppActivo(), dias: diasOnb() });
+  // (Los avisos de personas atascadas son para la agencia: no se dosifican.)
+  return [...dosificar(out.filter((n) => n.tipo !== 'atascado'), { nuevo: ppActivo(), dias: diasOnb() }), ...out.filter((n) => n.tipo === 'atascado')];
 }
 
 const cuandoVence = (f) => {
@@ -11182,6 +11204,8 @@ setInterval(() => {
   const code = codigo();
   unaVez('tareas', code, () => cargarTareas(code, { periodico: true }));
 }, 120_000);
+// Quién se ha atascado (agencia): cada hora, por si la pestaña sigue abierta todo el día.
+setInterval(() => { if (!document.hidden) cargarAtascados(); }, 60 * 60_000);
 
 // Reasignar las seleccionadas
 function fillSelAsignar() {
@@ -12053,6 +12077,7 @@ async function recargarVsl({ forzar = false } = {}) {
 }
 
 async function loadVslLeads() {
+  if (sinCrm()) return;
   const v = vslCfg();
   const token = ++state.vsl.loadToken;
   const out = [];
@@ -12695,6 +12720,11 @@ function irPasoEmb(i) {
   $('#embudo-dialog .dialog-body').scrollTop = 0;
 }
 function validarPasoEmb() {
+  // Nuevo embudo con la lista de tipos plegada: hay que contestar las 2 preguntas (o abrir la lista y elegir).
+  if (pasosEmb()[embPaso] === 'tipo' && !embEdit && !embDlg.classList.contains('ver-tipos') && !(embReco.fecha && embReco.venta)) {
+    $('#emb-status').textContent = 'Contesta las dos preguntas (o pulsa «Ver todos los tipos» y elige uno).';
+    return false;
+  }
   if (pasosEmb()[embPaso] === 'dashboard' && !embPestanas().length) { $('#emb-status').textContent = 'Deja al menos una sección marcada.'; return false; }
   if (pasosEmb()[embPaso] === 'contenido') {
     const o = embOrigen();
@@ -12810,7 +12840,7 @@ function pintarEmbReco() {
   const nombre = radio?.closest('.emb-tipo')?.querySelector('strong')?.textContent || r.tipo;
   const ico = radio?.closest('.emb-tipo')?.querySelector('.emb-ico')?.textContent || '✨';
   res.innerHTML = `<strong>${ico} Te encaja: ${esc(nombre)}</strong><small>${esc(r.porque)} Pulsa «Siguiente» o mira los demás tipos.</small>`;
-  if (radio && !radio.checked) { radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); }
+  if (radio && !radio.checked) { radio.checked = true; pintarEmbPestanas(null); pintarEmbVipBase(); }
 }
 function verTiposEmb(ver) {
   embDlg.classList.toggle('ver-tipos', ver);
@@ -14410,6 +14440,7 @@ $('#dr-preset').addEventListener('change', () => { ls.set('lsd_dr_preset', $('#d
 $('#dr-recargar').addEventListener('click', () => cargarDirecta({ fresh: true }));
 
 async function cargarDirecta({ fresh = false } = {}) {
+  if (sinCrm()) { renderDirecta(); return; }
   const id = state.embudo;
   if (!enDirecta() || !tiene(['metricas', 'leads'])) { renderDirecta(); return; }
   const r = drRango();
