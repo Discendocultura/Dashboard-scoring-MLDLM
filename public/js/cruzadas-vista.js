@@ -418,7 +418,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     const enPipe = new Set(d.etapas.flatMap((e) => e.items.map((it) => it.contactId)));
     const lista = datos.alumnos.filter((a) => !enPipe.has(a.id));
     if (!lista.length) return;
-    if (!window.confirm(`Se van a crear ${lista.length} oportunidades en GHL, en el pipeline «${d.pipeline.nombre}», fase «${etapaInicial(d)}».\n\nLos que ya estén en ese pipeline no se tocan. ¿Seguimos?`)) return;
+    if (!window.confirm(`Se van a crear ${lista.length} oportunidades en GHL, en el pipeline «${d.pipeline.nombre}», fase «${etapaInicial(d)}».\n\nLos que ya estén en ese pipeline no se tocan.${lista.length > 100 ? ` Con tantos tarda unos minutos (van de ${TANDA} en ${TANDA}): no cierres esta pestaña hasta que termine.` : ''} ¿Seguimos?`)) return;
     hoy.volcando = { hechos: 0, total: lista.length };
     let creados = 0;
     let ya = 0;
