@@ -28,7 +28,7 @@ export function libresAgrupadas(libres = []) {
 // r: resumenEncuesta() · ctx: { marca, producto, lanzamiento, contexto (ficha), narrativa (bloque), max (caracteres) }
 // → { prompt, incluidas, total }
 export function promptEncuesta(r, ctx = {}) {
-  const max = ctx.max || 60000;
+  const max = ctx.max || 30000; // las respuestas más repetidas y las de quien compró van primero: con 30.000 caracteres basta
   const lineas = [];
   let usados = 0;
   let incluidas = 0;

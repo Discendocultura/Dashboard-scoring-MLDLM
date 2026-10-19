@@ -44,7 +44,7 @@ export async function GET(request) {
       const m = await leerMarca();
       return json({ cliente: clienteActual().nombre, ...vistaPublica(m), progreso: progresoTotal(m), docsActivos: usaD1() });
     }
-    if (url.searchParams.get('textos') === '1') return json({ textos: await textosDocs() });
+    if (url.searchParams.get('textos') === '1') return json({ textos: await textosDocs(url.searchParams.get('ids')?.split(',').filter(Boolean).slice(0, 20) || null) });
     const m = await leerMarca();
     return json({ marca: m, progreso: progresoTotal(m), docsActivos: usaD1() });
   } catch (e) {

@@ -13,7 +13,7 @@ import { json, readBody, errorResponse } from '../lib/http.js';
 
 export const CLAVE_EDITANDO = 'lsd_editando_config';
 export const CADUCA_MS = 90 * 1000; // sin latido en este tiempo, el turno queda libre
-const LATIDO_MIN_MS = 10 * 1000; // no se escribe en cada latido si el anterior es muy reciente
+const LATIDO_MIN_MS = 30 * 1000; // no se escribe en cada latido si el anterior es muy reciente
 
 const activo = (t, ahora) => Boolean(t?.sesion) && ahora - (Number(t.latido) || 0) < CADUCA_MS;
 const limpio = (v, max) => String(v ?? '').trim().slice(0, max).replace(/[<>]/g, '');

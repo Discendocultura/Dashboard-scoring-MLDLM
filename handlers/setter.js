@@ -49,7 +49,9 @@ export function huella(txt) {
 }
 function responder(request, url, texto, extra = {}) {
   const comoTexto = url.searchParams.get('formato') === 'texto';
-  const version = huella(JSON.stringify([comoTexto, extra, texto]));
+  // La línea «(Datos a <hora>.)» cambia cada minuto: fuera de la huella, para que el 304 funcione si nada más ha cambiado
+  // (así el setter no vuelve a descargar ni a meter en su prompt la misma ficha en cada turno).
+  const version = huella(JSON.stringify([comoTexto, extra, String(texto).replace(/\(Datos a [^)]*\.\)\s*$/, '')]));
   const etag = `"${version}"`;
   const headers = { etag, 'cache-control': 'no-store' };
   const pedida = (request.headers.get('if-none-match') || '').split(',').map((x) => x.trim().replace(/^W\//, ''));

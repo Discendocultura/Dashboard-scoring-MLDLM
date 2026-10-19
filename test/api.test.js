@@ -474,6 +474,11 @@ test('tareas: plantilla, asignación con aviso por email y permisos para marcar'
 
   const list = await (await tareas.GET(req('/api/tareas?l=demo', { cookie: saraCookie }))).json();
   assert.equal(list.me.uid, sara.user.id);
+  // Campanita: varios embudos en una sola petición (los que no existen, fuera)
+  const varios = await (await tareas.GET(req('/api/tareas?varios=demo,no-existe', { cookie: saraCookie }))).json();
+  assert.deepEqual(varios.otros.map((o) => o.code), ['demo']);
+  assert.equal(varios.otros[0].tareas.length, list.tareas.length);
+  assert.ok(varios.users.every((u) => !u.email));
   assert.ok(list.users.every((u) => !u.email));
   assert.equal((await post(admin, { op: 'borrar', id: mine.id })).status, 200);
   const dos = list.tareas.filter((t) => t.id !== mine.id).slice(0, 2).map((t) => t.id);

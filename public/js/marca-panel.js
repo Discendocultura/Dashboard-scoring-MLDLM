@@ -3,7 +3,7 @@
 // producto con Claude y 5 qué vende cada embudo; al terminar, confeti. Además, la caché que usan los prompts
 // (WhatsApp, páginas) para leer la marca.
 import { paraChatGPT } from './chatgpt.js';
-import { SECCIONES_MARCA, SECCIONES_PRODUCTO, MAX_PRODUCTOS, MAX_DOCS, nombreDeProducto, progreso, promptFicha, productoDeEmbudo, pasosAsistente, pasosEquipo, estadoProceso, ETAPAS_MARCA } from './marca.js';
+import { SECCIONES_MARCA, SECCIONES_PRODUCTO, MAX_PRODUCTOS, MAX_DOCS, nombreDeProducto, progreso, promptFicha, docsDeProducto, productoDeEmbudo, pasosAsistente, pasosEquipo, estadoProceso, ETAPAS_MARCA } from './marca.js';
 import { pintarCampos, autoguardado, destinoDeBase, extraerTexto, extDe, ACCEPT_DOCS } from './marca-form.js';
 import { lanzarConfeti } from './confeti.js';
 
@@ -347,8 +347,9 @@ async function onClick(e) {
     } else if (acc === 'ficha-prompt') {
       await saver.vaciar();
       b.textContent = 'Preparando…';
-      const { textos } = m.docs.length ? await llamarApi('/api/marca?textos=1') : { textos: {} };
       const p = m.productos.find((x) => x.id === b.dataset.id);
+      const ids = docsDeProducto(m, p).map((d) => d.id); // solo los de la marca y los de este producto
+      const { textos } = ids.length ? await llamarApi(`/api/marca?textos=1&ids=${encodeURIComponent(ids.join(','))}`) : { textos: {} };
       const gpt = b.dataset.ia === 'chatgpt';
       const antes = gpt ? '📋 Copiar el prompt para ChatGPT' : '📋 Copiar el prompt de la ficha';
       const txt = gpt ? paraChatGPT(promptFicha(m, p, textos)) : promptFicha(m, p, textos);

@@ -224,9 +224,19 @@ export function contextoMarca(m, producto) {
 
 // Prompt para que Claude haga la ficha de marca y avatar de un producto, con todas las respuestas y
 // el texto de los documentos (los de la marca y los de ese producto).
+// Para no disparar los tokens: como mucho 40.000 caracteres por documento y 160.000 entre todos (primero los del producto).
+export const MAX_DOC_PROMPT = 40_000;
+export const MAX_DOCS_PROMPT = 160_000;
+export const docsDeProducto = (m, producto) => (m?.docs || []).filter((d) => !d.productoId || d.productoId === producto?.id);
 export function promptFicha(m, producto, textos = {}) {
-  const docs = (m?.docs || []).filter((d) => !d.productoId || d.productoId === producto?.id).filter((d) => textos[d.id]);
-  const docsTxt = docs.map((d) => `<documento nombre="${d.nombre}">\n${textos[d.id]}\n</documento>`).join('\n\n');
+  const docs = docsDeProducto(m, producto).filter((d) => textos[d.id])
+    .sort((a, b) => Number(Boolean(b.productoId)) - Number(Boolean(a.productoId)));
+  let usados = 0;
+  const docsTxt = docs.map((d) => {
+    const t = textos[d.id].slice(0, Math.max(0, Math.min(MAX_DOC_PROMPT, MAX_DOCS_PROMPT - usados)));
+    usados += t.length;
+    return t ? `<documento nombre="${d.nombre}"${t.length < textos[d.id].length ? ' recortado="sí"' : ''}>\n${t}\n</documento>` : '';
+  }).filter(Boolean).join('\n\n');
   return `Eres estratega de marca y copywriter de respuesta directa. Con todo lo de abajo, escribe la FICHA DE MARCA Y AVATAR de «${nombreDeProducto(producto)}», que usaremos como fuente de verdad para escribir páginas de venta, emails y mensajes de WhatsApp.
 
 RESPUESTAS DEL CUESTIONARIO:

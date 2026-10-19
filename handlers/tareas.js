@@ -10,7 +10,7 @@ import { getColumnas, saveColumnas, sanitizeColumnas } from '../lib/columnas.js'
 import { getHabituales, saveHabituales, enlazar, guardarDesdeTarea, quitar, tareasDesdePlantilla } from '../lib/habituales.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { reintentando } from '../lib/store.js';
-import { embudoDe, VSL } from '../lib/embudos.js';
+import { embudoDe, VSL, puedeVerCodigo } from '../lib/embudos.js';
 import { dashboardUrl as urlDashboard } from './usuarios.js';
 import { tareasMeteorico } from '../public/js/meteorico.js';
 import { tareasVsl } from '../public/js/embudo-vsl.js';
@@ -47,7 +47,16 @@ const team = (users, s) => users.filter((u) => u.activo !== false && u.rol).map(
 export async function GET(request) {
   try {
     const s = await requireSession(request);
-    const code = new URL(request.url).searchParams.get('l') || '';
+    const url = new URL(request.url);
+    // Campanita: las tareas de varios embudos en una sola petición (antes, una por embudo).
+    if (url.searchParams.has('varios')) {
+      const config = await getConfig();
+      const codes = [...new Set(url.searchParams.get('varios').split(','))].filter((c) => c && embudoDe(config, c)
+        && (!s.embudos || puedeVerCodigo(config, c, s.embudos))).slice(0, 12);
+      const [listas, users, habituales] = await Promise.all([Promise.all(codes.map((c) => getTareas(c))), listUsers(), getHabituales()]);
+      return json({ otros: codes.map((code, i) => ({ code, tareas: enlazar(listas[i], habituales) })), users: team(users, s) });
+    }
+    const code = url.searchParams.get('l') || '';
     await launchOf(code);
     const [tareas, users, habituales, columnas] = await Promise.all([getTareas(code), listUsers(), getHabituales(), getColumnas()]);
     return json({ tareas: enlazar(tareas, habituales), users: team(users, s), columnas, me: { role: s.role, uid: s.uid } });

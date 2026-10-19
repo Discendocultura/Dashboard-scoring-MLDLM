@@ -192,7 +192,7 @@ async function api(path, { method = 'GET', body, cliente = state.cliente } = {})
 // «Tomar el control», que la echa (a ella le sale «X ha tomado el control» y se le cierra la ventana).
 const ED_DLGS = ['config-dialog', 'vsl-config-dialog', 'directa-dialog', 'meteo-dialog', 'cruzadas-dialog'];
 const ED_SESION = `t-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`; // una por pestaña
-const ED_LATIDO_MS = 15_000;
+const ED_LATIDO_MS = 35_000; // caduca a los 90 s en el servidor: dos latidos de margen y menos escrituras
 const edReabrir = new Map(); // id de la ventana → cómo volver a rellenarla (al tomar el control, con lo último guardado)
 const ed = { dlg: null, cliente: null, timer: 0 };
 
@@ -7708,16 +7708,15 @@ const tareasOtrosCache = new Map(); // `${cliente}|${code}` → { at, d }
 async function cargarTareasOtro({ forzar = false } = {}) {
   const codes = otrosCodigos();
   const k = (code) => `${state.cliente}|${code}`;
-  const res = await Promise.all(codes.map((code) => {
-    const c = tareasOtrosCache.get(k(code));
-    if (!forzar && c && Date.now() - c.at < TAREAS_OTROS_MS) return c.d;
-    return api(`/api/tareas?l=${encodeURIComponent(code)}`).then((d) => {
-      const x = { code, list: d.tareas, users: d.users };
-      tareasOtrosCache.set(k(code), { at: Date.now(), d: x });
-      return x;
-    }).catch(() => c?.d || null);
-  }));
-  state.tareasOtros = res.filter(Boolean);
+  // Los que no están en caché, en una sola petición (antes, una por embudo).
+  const faltan = codes.filter((code) => { const c = tareasOtrosCache.get(k(code)); return forzar || !c || Date.now() - c.at >= TAREAS_OTROS_MS; });
+  if (faltan.length) {
+    try {
+      const d = await api(`/api/tareas?varios=${encodeURIComponent(faltan.join(','))}`);
+      for (const o of d.otros || []) tareasOtrosCache.set(k(o.code), { at: Date.now(), d: { code: o.code, list: o.tareas, users: d.users } });
+    } catch { /* se queda con lo que hubiera */ }
+  }
+  state.tareasOtros = codes.map((code) => tareasOtrosCache.get(k(code))?.d).filter(Boolean);
   renderNotif();
 }
 const nombreEmbudo = (code) => state.config?.vsls?.[code]?.name || state.config?.launches[code]?.name || state.config?.meteoricos?.[code]?.name || code;
