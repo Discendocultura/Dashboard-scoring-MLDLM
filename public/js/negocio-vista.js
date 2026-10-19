@@ -202,7 +202,27 @@ export function negocioHtml(d, { producto = '' } = {}) {
 
   const embudos = d.embudos.length ? tablaEmbudos(d.embudos, '🧩 Cada embudo') : '';
 
-  return `${selectorProductos(d, '')}${calc}${aviso}${d.pocos ? '<p class="ng-aviso suave">🌱 Aún hay pocas ventas: tómate estas cifras como orientativas hasta que haya más histórico.</p>' : ''}${kpis}${recos}${calidadHtml(d.calidad)}${tarjetasProductos(d)}${ciclo}${recompra}${segundaHtml(d.recompra)}${actividad}${embudos}`;
+  return `${selectorProductos(d, '')}${calc}${aviso}${d.pocos ? '<p class="ng-aviso suave">🌱 Aún hay pocas ventas: tómate estas cifras como orientativas hasta que haya más histórico.</p>' : ''}${kpis}${recos}${calidadHtml(d.calidad)}${tarjetasProductos(d)}${ciclo}${recompra}${segundaHtml(d.recompra)}${cruzadasHtml(d.cruzadas)}${actividad}${embudos}`;
+}
+
+// Ventas cruzadas: qué % de clientes tiene cada combinación exacta de productos y, de quien tiene uno, qué % ya
+// tiene el otro y a cuántos falta ofrecérselo (lo accionable). Con un enlace a crear el embudo de ventas cruzadas.
+function cruzadasHtml(x) {
+  if (!x || (!x.combinaciones.length && !x.cruces.length)) return '';
+  const top = x.cruces[0];
+  const comb = x.combinaciones.map((c) => `<div class="ng-xc-fila"><span class="ng-xc-nom">${c.nombres.map((n) => `<b>${esc(n || '?')}</b>`).join('<i>+</i>')}${c.ids.length === 1 ? ' <small>solo</small>' : ''}</span>
+    <span class="ng-barra"><i style="width:${Math.max(2, Math.round(c.pct * 100))}%"></i></span><strong>${pct(c.pct)}</strong><small class="muted">${num(c.n)}</small></div>`).join('');
+  const cru = x.cruces.map((c) => `<div class="ng-xc-cruce">
+    <div class="ng-xc-ruta"><b>${esc(c.deNombre || '?')}</b><span class="ng-xc-flecha">➜</span><b>${esc(c.aNombre || '?')}</b></div>
+    <div class="ng-xc-paso" title="${pct(c.pct)} de quien tiene «${esc(c.deNombre || '')}» ya tiene «${esc(c.aNombre || '')}»"><i style="width:${Math.round(c.pct * 100)}%"></i></div>
+    <div class="ng-xc-datos"><span>✅ <strong>${pct(c.pct)}</strong> ya lo tiene</span><span>🎯 <strong>${num(c.faltan)}</strong> por ofrecer (${pct(c.pctFaltan)})</span></div></div>`).join('');
+  return `<section class="ng-sec card ng-xc"><h3>🔀 Ventas cruzadas · qué tiene cada cliente</h3>
+    ${top ? `<p class="ng-xc-reco">💡 Tu mayor oportunidad: <strong>${num(top.faltan)} clientes</strong> de «${esc(top.deNombre || '')}» (el ${pct(top.pctFaltan)}) aún no tienen «${esc(top.aNombre || '')}». Crea un embudo de <strong>Ventas cruzadas</strong> (Embudos → ＋ Nuevo embudo → Otros) para que tu equipo les llame con contexto.</p>` : ''}
+    <div class="ng-xc-grid">
+      ${comb ? `<div><h4>🧩 Combinaciones de productos <small class="muted">· % de ${num(x.clientes)} clientes</small></h4>${comb}</div>` : ''}
+      ${cru ? `<div><h4>🚀 Paso de un producto a otro</h4>${cru}</div>` : ''}
+    </div>
+  </section>`;
 }
 
 // La tabla de embudos (general y en la ficha de un producto).

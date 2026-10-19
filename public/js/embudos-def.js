@@ -67,6 +67,7 @@ PESTANAS.directa = [
 // Ventas cruzadas: a los alumnos de un producto, venderles otro (quién tiene qué y a quién llamar).
 PESTANAS.cruzadas = [
   { id: 'xalumnos', label: 'Alumnos', desc: 'Quién tiene cada producto y qué le falta, con filtros (tiene / no tiene) para llamar con contexto' },
+  { id: 'xofertas', label: 'Ofertas', desc: 'Qué ofrecer a cada tipo de alumno según el producto que tiene (precio y mensaje)' },
   { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo: guion, a quién llamar esta semana y revisión' },
   { id: 'calendario', label: 'Calendario', desc: 'El calendario del cliente: hitos, tareas y eventos de todos sus embudos' },
 ];
@@ -128,6 +129,7 @@ export const CATEGORIAS = {
   ],
   cruzadas: [
     { id: 'leads', label: 'Alumnos', icon: '🎓', desc: 'Qué tiene cada alumno y qué le falta, para llamar con contexto', vistas: ['xalumnos'] },
+    { id: 'ofertasx', label: 'Ofertas', icon: '🎁', desc: 'Qué ofrecer a cada tipo de alumno', vistas: ['xofertas'] },
     { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Calendario y tareas', vistas: ['calendario', 'tareas'] },
   ],
   meteorico: [

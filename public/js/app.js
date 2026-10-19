@@ -533,10 +533,10 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'ambos', tareas: 'siempre', calendario: 'siempre', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', xalumnos: 'cruzadas', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
-const VIEW_PERMISO = { avatarc: 'avatar', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', xalumnos: 'leads', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', claude: 'metricas' };
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'llam', xofertas: 'cruzadas', xhoy: 'cruzadas', tareas: 'siempre', calendario: 'siempre', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', xalumnos: 'cruzadas', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
+const VIEW_PERMISO = { avatarc: 'avatar', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', xalumnos: 'leads', xofertas: 'leads', xhoy: 'hoy', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', claude: 'metricas' };
 // 'siempre': también en ventas cruzadas (Tareas y Calendario).
-const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], siempre: ['lanz', 'vsl', 'meteorico', 'directa', 'cruzadas'], lanzmeteo: ['lanz', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
+const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], siempre: ['lanz', 'vsl', 'meteorico', 'directa', 'cruzadas'], llam: ['lanz', 'vsl', 'cruzadas'], lanzmeteo: ['lanz', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
 const embudoInfo = (id = state.embudo) => embudos().find((e) => e.id === id) || null;
@@ -550,7 +550,11 @@ function enLanzamientos() { return tipoActual() === 'lanz'; }
 // Pestañas que el embudo tiene activadas (⚙️ del menú lateral; sin lista = todas).
 const pestanasEmbudo = () => embudoInfo()?.pestanas || null;
 // Hoy → LabIA: en cualquier embudo (menos ventas cruzadas), para quien ve Setting hoy o Llamadas (sin LabIA contratado, lo que ganaría con él).
-const allowedViews = () => VIEWS.filter((v) => (v === 'labia' ? tipoActual() !== 'cruzadas' && (tiene('hoy') || tiene('llamadas')) : tiposVista(v).includes(tipoActual())
+// Ventas cruzadas: «Hoy» (su pipeline) y «Llamadas» solo si en su configuración se dijo que sí se llama.
+const llamaCruzadas = () => Boolean(state.config?.cruzadas?.[state.embudo]?.llamadas);
+const allowedViews = () => VIEWS.filter((v) => (v === 'labia' ? tipoActual() !== 'cruzadas' && (tiene('hoy') || tiene('llamadas'))
+  : enCruzadas() && (v === 'xhoy' || v === 'llamadas') ? llamaCruzadas() && tiene(VIEW_PERMISO[v] || v)
+  : enCruzadas() && v === 'xofertas' ? tiene('leads') && (!pestanasEmbudo() || pestanasEmbudo().includes('xofertas') || pestanasEmbudo().includes('xalumnos')) : tiposVista(v).includes(tipoActual())
   // «Publicidad»: sí por defecto en todos los embudos (también los de antes); se quita desde su ⚙️.
   && (v !== 'publicidad' || embudoInfo()?.publicidad !== false)
   // El calendario es el del cliente (todos sus embudos): está en todos.
@@ -3435,7 +3439,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'labia', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones', 'xalumnos'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'labia', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones', 'xalumnos', 'xofertas', 'xhoy'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -3506,14 +3510,14 @@ document.addEventListener('click', (e) => {
 // Pestañas de arriba que agrupan varias vistas (subpestañas): Hoy, Anuncios (cómo van, ganadores y crear con IA), Crear (con IA),
 // Plan (organizar el lanzamiento) y Análisis (para decidir). El orden de cada lista es el de sus subpestañas.
 const GRUPOS = {
-  comercial: ['hoy', 'llamadas', 'endirecto', 'labia'],
+  comercial: ['hoy', 'xhoy', 'llamadas', 'endirecto', 'labia'],
   anunciosg: ['publicidad', 'avatar', 'vanuncios', 'danuncios', 'anuncios'],
   crear: ['paginas', 'emailsia', 'imagenes', 'grupowa', 'automatizaciones'],
   planificacion: ['objetivos', 'calendario', 'tareas', 'carrito'],
   analisis: ['avatarc', 'comparar', 'rendimiento', 'claude'],
 };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { labia: 'whatsapp', anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', publicidad: 'megaphone', xalumnos: 'users' };
+const VIEW_ICONS = { labia: 'whatsapp', anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', publicidad: 'megaphone', xalumnos: 'users', xofertas: 'gift', xhoy: 'target' };
 $$('.view-tab, .subview-tab[data-view]:not(.subview-labia)').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
@@ -3693,6 +3697,8 @@ function showView(view) {
   $('#dir-rango').hidden = !['dmetricas', 'dclientes', 'danuncios'].includes(view);
   if (['dmetricas', 'dclientes', 'danuncios'].includes(view) && state.config && enDirecta()) renderDirecta();
   if (view === 'xalumnos' && state.config && enCruzadas()) cruz.cargar(state.embudo);
+  if (view === 'xofertas' && state.config && enCruzadas()) cruz.pintarOfertas(state.embudo);
+  if (view === 'xhoy' && state.config && enCruzadas()) cruz.cargarHoy(state.embudo);
   if (enVsl() && state.vsl.leads) renderVsl();
   if (view === 'comparar' && state.config) { renderCompareSelector(); renderComparativas(); pintarQueFunciono(); }
   if (view === 'rendimiento' && state.config) loadRendimiento();
@@ -10802,7 +10808,7 @@ async function cargarLlamadas(code) {
 
 const llCancelada = (c) => ['cancelled', 'invalid'].includes(c.status) && c.resultado?.resultado !== 'reagendar';
 const llStart = (c) => Date.parse(c.startTime);
-const leadDe = (contactId) => (enVsl() ? state.vsl.leads || [] : state.leads).find((l) => l.id === contactId) || null;
+const leadDe = (contactId) => (enCruzadas() ? cruz.alumnoDe(contactId) : (enVsl() ? state.vsl.leads || [] : state.leads).find((l) => l.id === contactId) || null);
 
 function llamadaCard(c) {
   const ahora = Date.now();
@@ -12478,10 +12484,37 @@ async function eliminarEmbudo(id) {
   return true;
 }
 // ---------- Ventas cruzadas: configuración (productos y etiquetas) y pestaña Alumnos (cruzadas-vista.js) ----------
+// Los productos del embudo también van a Mi negocio → Productos: los que no están (por etiqueta o por nombre) se
+// añaden; a los que están les faltan sus otras etiquetas, que entran como ofertas (con su mismo precio). → nº de cambios.
+async function volcarAlCatalogo(c, embudoId) {
+  if (!puedeConfig()) return 0;
+  const { catalogo } = await api('/api/productos');
+  const prods = catalogo.productos.map((p) => ({ ...p, ofertas: [...(p.ofertas || [])], embudos: [...(p.embudos || [])] }));
+  const tagsDe = (p) => [p.etiqueta, ...p.ofertas.map((o) => o.etiqueta)].filter(Boolean);
+  const nuevoIdCat = (pre) => `${pre}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  let cambios = 0;
+  for (const x of c.productos.filter((p) => p.nombre && (p.tag || p.otras.length))) {
+    const tags = [x.tag, ...x.otras.map((o) => o.tag)].filter(Boolean);
+    const p = prods.find((y) => tagsDe(y).some((t) => tags.includes(t))) || prods.find((y) => y.nombre.trim().toLowerCase() === x.nombre.trim().toLowerCase());
+    if (!p) {
+      prods.push({ id: nuevoIdCat('p'), nombre: x.nombre, tipo: 'otro', precio: 0, iva: 'incluido', etiqueta: tags[0], fechaCampo: '', embudos: [embudoId], siguiente: '', ofertas: tags.slice(1).map((t) => ({ id: nuevoIdCat('o'), nombre: `Etiqueta ${t}`, precio: 0, etiqueta: t })) });
+      cambios++;
+      continue;
+    }
+    const faltan = tags.filter((t) => !tagsDe(p).includes(t));
+    if (!p.etiqueta && faltan.length) { p.etiqueta = faltan.shift(); cambios++; }
+    for (const t of faltan) { p.ofertas.push({ id: nuevoIdCat('o'), nombre: `Etiqueta ${t}`, precio: 0, etiqueta: t }); cambios++; }
+    if (!p.embudos.includes(embudoId)) p.embudos.push(embudoId);
+  }
+  if (cambios) await api('/api/productos', { method: 'POST', body: { catalogo: { ...catalogo, productos: prods } } });
+  return cambios;
+}
 const cruz = montarCruzadas({
   api, state, esc, notice, progress, ls,
   eliminar: eliminarEmbudo,
   abrirCatalogo: async () => (await api('/api/productos')).catalogo.productos,
+  irAlumnos: () => showView('xalumnos'),
+  sincronizarCatalogo: volcarAlCatalogo,
   guardar: async (id, c) => {
     const lista = embudos().map((e) => (e.id === id ? { ...e, nombre: c.name } : e));
     const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, cruzadas: { ...(state.config.cruzadas || {}), [id]: c } } });

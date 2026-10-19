@@ -7,6 +7,7 @@
 // (las etiquetas van en campos «tag» para que /api/leads las reconozca como del embudo).
 export const MAX_PRODUCTOS_X = 12;
 export const MAX_OTRAS_X = 8;
+export const MAX_OFERTAS_X = 20;
 
 const str = (v, max) => String(v ?? '').trim().slice(0, max);
 const limpio = (v, max) => str(v, max).replace(/[<>]/g, '');
@@ -21,12 +22,37 @@ export function sanitizeProductoX(p) {
   return { id: idValido(p?.id) ? p.id : nuevoIdX(), nombre: limpio(p?.nombre, 60), tag, otras };
 }
 
+// «Hoy» y «Llamadas»: el pipeline de GHL que se recomienda crear para las ventas cruzadas, con sus fases.
+// Los nombres encajan con los que usa la pestaña Llamadas para mover a cada alumno al anotar el resultado.
+export const PIPELINE_CRUZADAS = 'Ventas cruzadas';
+export const ETAPAS_CRUZADAS = [
+  { nombre: 'Por contactar', ico: '🆕', desc: 'Alumnos a los que toca escribir o llamar' },
+  { nombre: 'Contactado', ico: '💬', desc: 'Ya le has escrito o llamado' },
+  { nombre: 'Agenda llamada', ico: '📅', desc: 'Tiene una llamada reservada' },
+  { nombre: 'No contesta 1', ico: '📵', desc: 'No cogió la llamada (1.º intento)' },
+  { nombre: 'No contesta 2', ico: '📵', desc: 'Segundo intento sin respuesta' },
+  { nombre: 'Seguimiento', ico: '🔁', desc: 'Le interesa pero aún no decide' },
+  { nombre: 'Venta', ico: '✅', desc: 'Compró el siguiente producto' },
+  { nombre: 'Perdido', ico: '❌', desc: 'No le interesa ahora' },
+];
+const urlHttps = (v) => { try { const u = new URL(str(v, 500)); return u.protocol === 'https:' ? u.href : ''; } catch { return ''; } };
+
 export function sanitizeCruzada(c) {
   const productos = (Array.isArray(c?.productos) ? c.productos : []).slice(0, MAX_PRODUCTOS_X).map(sanitizeProductoX)
     .filter((p) => p.nombre || p.tag || p.otras.length);
   const ids = new Set();
   for (const p of productos) { if (ids.has(p.id)) p.id = nuevoIdX(); ids.add(p.id); }
-  return { name: limpio(c?.name, 60) || 'Ventas cruzadas', productos, notas: limpio(c?.notas, 1000) };
+  // Ofertas por tipo de alumno: «si tiene X (y no tiene Y) → ofrécele Y, a este precio, con este mensaje».
+  const pids = new Set(productos.map((p) => p.id));
+  const ofertas = (Array.isArray(c?.ofertas) ? c.ofertas : []).slice(0, MAX_OFERTAS_X).map((o) => ({
+    id: idValido(o?.id) ? o.id : nuevoIdX(), tiene: str(o?.tiene, 40), ofrece: str(o?.ofrece, 40),
+    precio: limpio(o?.precio, 80), mensaje: limpio(o?.mensaje, 600),
+  })).filter((o) => pids.has(o.tiene) && pids.has(o.ofrece) && o.tiene !== o.ofrece);
+  return {
+    name: limpio(c?.name, 60) || 'Ventas cruzadas', productos, notas: limpio(c?.notas, 1000), ofertas,
+    // Hoy (el pipeline) y Llamadas (el calendario de reservas de GHL): solo si se usan.
+    llamadas: c?.llamadas === true, llamadaUrl: urlHttps(c?.llamadaUrl), llamadasPipeline: limpio(c?.llamadasPipeline, 80),
+  };
 }
 
 // Las etiquetas de un producto (la principal y las otras).
@@ -109,4 +135,49 @@ export function guiaCruzadas() {
       'En <strong>Alumnos</strong> verás a todos los que tienen alguno, qué tiene cada uno y qué le falta. Filtra por «tiene esto» y «no tiene esto» para saber a quién llamar y qué ofrecerle.',
     ] },
   ];
+}
+
+// La oferta que toca a un alumno: la primera (por orden) cuyo producto tiene y cuyo producto ofrecido aún no tiene.
+export function ofertaPara(alumno, ofertas = []) {
+  return ofertas.find((o) => alumno.tiene.includes(o.tiene) && !alumno.tiene.includes(o.ofrece)) || null;
+}
+// Ofertas propuestas a partir de las oportunidades más grandes (para empezar con un clic).
+export function ofertasPropuestas(alumnos, productos, ya = []) {
+  const hay = new Set(ya.map((o) => `${o.tiene}|${o.ofrece}`));
+  const usados = new Set(ya.map((o) => o.tiene));
+  const out = [];
+  for (const r of oportunidades(alumnos, productos)) {
+    if (hay.has(`${r.tiene}|${r.falta}`) || usados.has(r.tiene)) continue;
+    usados.add(r.tiene);
+    out.push({ id: nuevoIdX(), tiene: r.tiene, ofrece: r.falta, precio: '', mensaje: '' });
+  }
+  return out;
+}
+
+// Combinaciones exactas de productos: qué % de alumnos tiene justo esos (p. ej. «Reto + Raíces», «solo Reto»).
+// alumnos: [{ tiene: [ids] }] → [{ ids, n, pct }] de más a menos.
+export function combinaciones(alumnos, productos, max = 8) {
+  const m = new Map();
+  for (const a of alumnos) {
+    const k = productos.filter((p) => a.tiene.includes(p.id)).map((p) => p.id).join('+');
+    if (k) m.set(k, (m.get(k) || 0) + 1);
+  }
+  const total = alumnos.filter((a) => a.tiene.length).length;
+  return [...m].map(([k, n]) => ({ ids: k.split('+'), n, pct: total ? n / total : 0 })).sort((a, b) => b.n - a.n).slice(0, max);
+}
+
+// Tasa de paso entre productos: de quien tiene A, cuántos (y qué %) tienen ya B y cuántos aún no (la oportunidad).
+// → [{ de, a, base, tienen, pct, faltan, pctFaltan }] ordenado por la oportunidad (los que faltan).
+export function cruces(alumnos, productos) {
+  const out = [];
+  for (const a of productos) {
+    const conA = alumnos.filter((x) => x.tiene.includes(a.id));
+    if (!conA.length) continue;
+    for (const b of productos) {
+      if (a.id === b.id) continue;
+      const tienen = conA.filter((x) => x.tiene.includes(b.id)).length;
+      out.push({ de: a.id, a: b.id, base: conA.length, tienen, pct: tienen / conA.length, faltan: conA.length - tienen, pctFaltan: (conA.length - tienen) / conA.length });
+    }
+  }
+  return out.sort((x, y) => y.faltan - x.faltan || y.base - x.base);
 }

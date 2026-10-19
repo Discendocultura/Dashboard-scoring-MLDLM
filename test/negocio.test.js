@@ -131,6 +131,11 @@ test('inteligencia de negocio: con catálogo de productos, compras por etiqueta,
   // Hasta la segunda compra: 69 días (del reto en marzo al lanzamiento de mayo), en el tramo «1-3 meses»
   assert.equal(a.recompra.diasSegunda, 69);
   assert.equal(a.recompra.tramosSegunda.find((t) => t.id === 's90').n, 5);
+  // Ventas cruzadas en %: 15 de 27 solo el reto, 7 solo Raíces, 5 los dos; de las 20 del reto, 15 (75 %) aún sin Raíces
+  assert.equal(a.cruzadas.clientes, 27);
+  assert.deepEqual(a.cruzadas.combinaciones.map((c) => [c.nombres.join(' + '), c.n]), [['Reto Ovulación', 15], ['Raíces', 7], ['Reto Ovulación + Raíces', 5]]);
+  assert.equal(a.cruzadas.combinaciones[2].pct, 5 / 27);
+  assert.deepEqual(a.cruzadas.cruces[0], { de: 'reto', a: 'raices', base: 20, tienen: 5, pct: 0.25, faltan: 15, pctFaltan: 0.75, deNombre: 'Reto Ovulación', aNombre: 'Raíces' });
   // Más cifras y «Mejora tus datos»
   assert.equal(a.numeros.ticket, a.numeros.facturacion / a.numeros.ventas);
   assert.equal(a.numeros.conversion, 12 / 600);

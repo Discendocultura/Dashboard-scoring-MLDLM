@@ -201,12 +201,33 @@ En el diseño **clásico** la cabecera de arriba (logo, cliente, Auditor, Operat
 La tarjeta de **LabIA** del menú lateral también lleva ese fondo espacial (oscuro, brillo azul y estrellas), en los dos diseños.
 
 ### 🔁 Embudo de ventas cruzadas (a los alumnos de un producto, venderles otro)
-Nuevo tipo en **＋ Nuevo embudo → «A quien ya es tu cliente» → Ventas cruzadas**. Pestañas: **Alumnos** y **Plan** (Tareas y Calendario).
-- **⚙️ Configuración**: se eligen los **productos** y la **etiqueta de GHL** que lleva quien compra cada uno, más **otras etiquetas que también cuentan** (ofertas, ediciones, el mismo producto en otro embudo). Con **📦 Traer de Mi negocio → Productos** se añaden de un clic (con la etiqueta y las de sus ofertas). Al menos 2 productos con etiqueta. **Notas para el equipo** (opcional): el guion o lo que deben saber antes de llamar, que sale arriba en Alumnos.
-- **Alumnos**: todos los contactos de GHL con alguna de esas etiquetas, con cuántos tienen cada producto y **«💡 A quién ofrecer qué»**: para cada pareja, cuántos tienen uno y no el otro (al pulsarla, se filtra la lista). **Filtros por producto** (Da igual / ✓ Lo tiene / ✗ No lo tiene, se pueden combinar) y buscador por nombre, email o teléfono; los filtros se recuerdan. Cada alumno con sus productos (✓ los que tiene, ○ los que no), **«Ofrécele: …»** con lo que le falta, su **ficha** (al pulsar el nombre), **📞 Llamar** y **💬 WhatsApp**. En el móvil, los filtros se quedan fijos arriba.
-- **Tareas de partida** («Crear las tareas del embudo»): revisar las etiquetas, preparar el guion de cada salto, elegir a quién llamar esta semana, llamar y anotar, y revisar resultados.
-- Código: `public/js/cruzadas.js` (datos, filtros y oportunidades; también lo usa el servidor), `public/js/cruzadas-vista.js` (configuración y Alumnos), `config.cruzadas[id]` en `lib/config-store.js`. Las etiquetas de sus productos cuentan como del embudo para `/api/leads`.
-- De paso: «Crear las tareas del embudo» de la **venta directa** buscaba un lanzamiento; ahora crea su planificación.
+Nuevo tipo en **＋ Nuevo embudo → 3 · Otros → Ventas cruzadas**. Pestañas: **Alumnos**, **Ofertas**, **Hoy** (solo si se usan llamadas: *A quién llamar* y *Llamadas*) y **Plan** (Tareas y Calendario). Todo muy visual: cabeceras con degradado, iconos, números que cuentan solos, flechas animadas y tarjetas que entran escalonadas (sin movimiento si el sistema pide «reducir movimiento»).
+
+**⚙️ Configuración** (4 pasos):
+1. **Productos**: cada producto con la **etiqueta de GHL** que lleva quien lo compra y **otras etiquetas que también cuentan** (ofertas, ediciones, el mismo producto en otro embudo). **📦 Traer de Mi negocio → Productos** los añade de un clic. Al menos 2. **Al guardar se vuelcan en Mi negocio → Productos**: los que no estaban se crean (con su etiqueta; las otras etiquetas, como ofertas), los que ya estaban (por etiqueta o nombre) se enlazan a este embudo (`volcarAlCatalogo` en `public/js/app.js`).
+2. **Ofertas por tipo de alumno**: «✅ si ya tiene X ➜ 🎁 ofrécele Y», con precio o condición y un **mensaje de WhatsApp** (`{nombre}` y `{producto}` se cambian solos). **✨ Propónmelas según mis alumnos** crea una por producto con la oportunidad más grande. Si un alumno encaja en varias, cuenta la primera que aún no tenga.
+3. **Hoy y Llamadas**: «No, solo la lista» o «Sí, vamos a llamarles» (como en los lanzamientos). Con «Sí»: el **calendario de reservas** de GHL (para *Llamadas*) y el **pipeline** de GHL (desplegable con los que tienes). Si aún no existe, se recomienda **crear en GHL un pipeline «Ventas cruzadas»** con sus fases: 🆕 Por contactar · 💬 Contactado · 📅 Agenda llamada · 📵 No contesta 1 · 📵 No contesta 2 · 🔁 Seguimiento · ✅ Venta · ❌ Perdido (con botón para copiar los nombres). Esas fases encajan con las que usa *Llamadas* para mover a cada alumno al anotar el resultado.
+4. **Notas para el equipo** (opcional): el guion, que sale arriba en Alumnos.
+
+**Alumnos**:
+- Cabecera con cuántos tienen cada producto, **en número y en %**.
+- **💡 Tus mejores oportunidades**: para cada salto A ➜ B, cuántos tienen A y aún no B (y qué % de los de A son), con una barra de **cuántos ya dieron el salto** («✅ 5 % ya lo tiene, 7 de 146»). Al pulsar, se filtra la lista.
+- **🧩 Qué combinación tiene cada alumno**: el **% de alumnos con cada combinación exacta** («solo Reto», «Reto + Raíces», «⭐ todos»), con barras. Al pulsar, se ven justo esas personas.
+- **🎯 ¿A quién quieres llamar?**: toca lo que **ya tienen** y lo que les quieres **ofrecer** (cada botón con su número y %). Debajo, una barra fija de color con **cuántas personas son, qué % del total** y la frase del filtro («tienen Entrada VIP · aún no tienen Raíces»), el buscador y «✕ Ver todos».
+- Tarjeta de cada alumno: sus productos, **la oferta que le toca** (con precio), **📞** y **💬 WhatsApp con el mensaje de su oferta ya escrito**, y su ficha al pulsar el nombre.
+
+**Ofertas**: una tarjeta por oferta («Si ya tiene» ➜ «Ofrécele»), con precio, mensaje, a cuántos alumnos les toca y **Ver a quién →** (abre Alumnos con ese filtro).
+
+**Hoy → A quién llamar**: el pipeline de GHL **fase a fase** (tablero), cada alumno con sus productos y su oferta, 📞 y 💬; las fases cerradas (Venta, Perdido) se ven con «Ver las cerradas». Sin pipeline, la guía para crearlo. **Hoy → Llamadas**: como en los lanzamientos, con el calendario elegido (60 días hacia atrás).
+
+**Inteligencia de negocio → 🔀 Ventas cruzadas** (con 2 productos o más en Mi negocio → Productos): **% de clientes con cada combinación de productos** y el **paso de un producto a otro** («✅ 25 % ya lo tiene · 🎯 15 por ofrecer, el 75 %»), con la mayor oportunidad destacada y la recomendación de crear un embudo de ventas cruzadas.
+
+**Tareas de partida** («Crear las tareas del embudo»): revisar las etiquetas, preparar el guion de cada salto, elegir a quién llamar esta semana, llamar y anotar, y revisar resultados.
+
+Código: `public/js/cruzadas.js` (datos, filtros, ofertas, `combinaciones`, `cruces`; también lo usa el servidor), `public/js/cruzadas-vista.js` (configuración, Alumnos, Ofertas y Hoy), `handlers/cruzadas.js` (`/api/cruzadas?parte=pipelines` y `/api/cruzadas?x=<embudo>`: el pipeline por fases, hasta 1.000 oportunidades, 3 minutos en caché), `config.cruzadas[id]` en `lib/config-store.js`, `cruzadas` en `lib/negocio-calc.js`. Las etiquetas de sus productos cuentan como del embudo para `/api/leads`.
+
+### ＋ Nuevo embudo: tipos agrupados
+Los tipos salen en tres bloques: **1 🚀 Lanzamientos** (webinar, 2 vídeos, 3 vídeos, PLF, reto), **2 ♾️ Evergreen** (VSL, lead magnet, webinar evergreen, embudo de llamadas, venta directa) y **3 ✨ Otros** (meteórico y ventas cruzadas).
 
 ### Tu cuenta: cambiar la contraseña
 En el menú de tu cuenta (el icono de la persona, arriba a la derecha) está **🔑 Cambiar contraseña**: abre «Mi cuenta» directamente en ese apartado. Se escribe la actual y la nueva dos veces (con «Ver las contraseñas»); avisa si no coinciden o si es igual que la actual, y al cambiarla se cierran tus sesiones en los demás dispositivos. Solo para quien entra con su usuario (no con la contraseña general).

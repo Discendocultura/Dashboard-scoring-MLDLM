@@ -12,6 +12,7 @@ import { leerJSON, guardarJSON, reintentando, cacheCompartida, leerCompartida, g
 import { RESULTADOS, MOTIVOS, PIPELINE_POR_DEFECTO, etapasPipeline, etapaDestino, calendarioDeUrl } from '../public/js/llamadas.js';
 import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
 import { embudoDe } from '../lib/embudos.js';
+import { PIPELINE_CRUZADAS } from '../public/js/cruzadas.js';
 import { cachePorCliente } from '../lib/cliente.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
@@ -21,7 +22,7 @@ const MAX_CONTACTOS = 20; // fichas que se piden aparte (teléfono de quien no e
 const pipeCache = cachePorCliente();
 
 // Pipeline de llamadas: el de los lanzamientos o el que tenga configurado la VSL.
-const nombrePipeline = (config, launch) => (launch?.esVsl ? launch.llamadasPipeline : config.llamadasPipeline) || PIPELINE_POR_DEFECTO;
+const nombrePipeline = (config, launch) => (launch?.esVsl || launch?.esCruzada ? launch.llamadasPipeline || (launch.esCruzada ? PIPELINE_CRUZADAS : '') : config.llamadasPipeline) || PIPELINE_POR_DEFECTO;
 async function pipelineLanzamientos(config, launch) {
   if (!pipeCache.get() || pipeCache.get().at < Date.now() - 10 * 60_000) pipeCache.set({ at: Date.now(), list: await getPipelines() });
   const want = String(nombrePipeline(config, launch)).trim().toLowerCase();
@@ -62,11 +63,11 @@ export async function GET(request) {
     await requireSession(request, { permiso: 'llamadas' });
     const code = new URL(request.url).searchParams.get('l') || '';
     const { config, launch, calendarId } = await contexto(code);
-    if (!calendarId) return json({ configurado: false, motivo: launch.esVsl ? 'Pon en Configuración de la VSL → Embudo el «Enlace para reservar llamada» (el del calendario de GHL).' : 'Pon en Configuración → Lanzamiento el «Enlace para reservar llamada» (el del calendario de GHL).' });
+    if (!calendarId) return json({ configurado: false, motivo: launch.esCruzada ? 'Pon en la ⚙️ Configuración del embudo → «Hoy y Llamadas» el enlace del calendario de reservas de GHL.' : launch.esVsl ? 'Pon en Configuración de la VSL → Embudo el «Enlace para reservar llamada» (el del calendario de GHL).' : 'Pon en Configuración → Lanzamiento el «Enlace para reservar llamada» (el del calendario de GHL).' });
     const pipeline = await pipelineLanzamientos(config, launch).catch((e) => { throw permisos(e); });
     const now = Date.now();
     // La VSL está siempre abierta: sus últimos 60 días.
-    const desde = launch.esVsl ? now - 60 * DAY : launch.inicioCaptacion ? Math.min(Date.parse(`${launch.inicioCaptacion}T00:00:00Z`) - 7 * DAY, now - 7 * DAY) : now - 45 * DAY;
+    const desde = launch.esVsl || launch.esCruzada ? now - 60 * DAY : launch.inicioCaptacion ? Math.min(Date.parse(`${launch.inicioCaptacion}T00:00:00Z`) - 7 * DAY, now - 7 * DAY) : now - 45 * DAY;
     const hasta = now + 30 * DAY;
     const [eventos, calendario, resultados] = await Promise.all([
       calendarEvents({ calendarId, startTime: desde, endTime: hasta }).catch((e) => { throw permisos(e); }),
