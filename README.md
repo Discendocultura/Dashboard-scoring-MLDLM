@@ -192,6 +192,9 @@ Análisis → Avatar: arriba, las cifras de partida en frases («1850 personas r
 - **Venta (carrito)**: tarjeta propia de **CAC** (inversión ÷ ventas) y también en el asunto.
 - El **resumen diario de leads** (el otro email de cada mañana, `lib/digest.js`) lleva lo mismo: CPL de ayer y CPL general en captación, CAC en carrito.
 
+### Color de contraste del diseño clásico: el del logo
+Botones, pestañas activas, anillos de progreso, enlaces y resaltados usan el **naranja del matraz del logo de AlquimIA** (de `#ffab00` a `#ff4b00`): `--accent: #f05200` y `--accent-2: #ff9500` en modo día; `#ff6a10` y `#ffab00` en modo noche (`public/styles.css`, al principio). Antes era marrón (`#b4552d`). El color de cada cliente (Agencia → Clientes) no cambia.
+
 ### Cabecera de AlquimIA: siempre «espacial»
 En el diseño **clásico** la cabecera de arriba (logo, cliente, Auditor, Operativa, Procesos, Mi negocio, avisos y cuenta) va siempre **oscura, con un brillo azul a la izquierda y estrellas**, como la de LabIA; el resto de la página sigue clara. Con el diseño espacial no cambia nada. Solo CSS: `.topbar` con los colores del espacial (`public/styles.css`, al final).
 
