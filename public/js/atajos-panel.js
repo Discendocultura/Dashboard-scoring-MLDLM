@@ -25,7 +25,7 @@ export async function abrirAtajos(opts) {
       if (e.key === 'Enter' && e.target.closest('#at-rapido')) { e.preventDefault(); anadirRapido(); }
     });
   }
-  dlg.querySelector('#at-titulo').innerHTML = `🔗 Accesos rápidos <span class="muted">· ${esc(ctx.cliente || '')}</span>`;
+  dlg.querySelector('#at-titulo').innerHTML = `🔗 Tus atajos <span class="muted">· ${esc(ctx.cliente || '')}</span>`;
   editando = null;
   q = '';
   body().innerHTML = '<p class="muted">Cargando…</p>';

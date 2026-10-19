@@ -224,7 +224,9 @@ export async function abrirOperativa(opts) {
       if (!tb) return;
       e.preventDefault();
       const r = tb.getBoundingClientRect();
-      const despues = e.clientX > r.left + r.width / 2;
+      // En la columna de la izquierda, arriba o abajo; en la fila del móvil, a un lado u otro.
+      const vertical = tb.closest('.op-lat-lista') && getComputedStyle(tb.closest('.op-lat-lista')).flexDirection === 'column';
+      const despues = vertical ? e.clientY > r.top + r.height / 2 : e.clientX > r.left + r.width / 2;
       dlg.querySelectorAll('.tab-antes, .tab-despues').forEach((x) => x.classList.remove('tab-antes', 'tab-despues'));
       if (tb.dataset.opTab !== tabArrastrada) tb.classList.add(despues ? 'tab-despues' : 'tab-antes');
     });
@@ -523,19 +525,28 @@ function vistaTablero(lista, hoy) {
   const tabs = tabsDe(fProy);
   const tab = tabs.find((b) => b.id === fTab) || tabs[0];
   const abiertasDe = (b) => lista.filter((t) => tabDeT(t).id === b.id && estadoOp(t) !== 'hecha').length;
-  const barra = `<nav class="op-tabs-tab" aria-label="Tableros">${tabs.map((b) => `<button type="button" class="op-tab-b${b.id === tab.id ? ' on' : ''}" data-op-tab="${esc(b.id)}"${gestiona(fProy) && !b.virtual ? ' draggable="true" title="Arrastra para cambiar el orden"' : b.virtual ? ' title="Las tareas del lanzamiento en curso de este embudo (Plan → Tareas)"' : ''}>${b.id === GENERAL ? '🗂️' : b.virtual ? '🚀' : '📋'} ${esc(b.nombre)}${b.id === tabInicial(fProy) && b.id !== GENERAL ? ' <span class="op-tab-def" title="Tablero por defecto: se abre al entrar en este proyecto">⭐</span>' : ''} <b>${abiertasDe(b)}</b></button>`).join('')}
-    ${gestiona(fProy) ? `<button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-nuevo">＋ Nuevo tablero</button>${d.superadmin ? '<button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-importar" title="Desde un archivo .json (también el export de un proyecto de Asana)">⬆️ Importar tablero</button>' : ''}${tab.virtual ? '' : `<button type="button" class="btn ghost small op-tab-cfg" data-op="tab-editar" title="Cambiar el nombre del tablero y sus columnas">✏️ Editar «${esc(tab.nombre)}»</button>`}${tab.id === GENERAL && tabInicial(fProy) === GENERAL ? '' : `<button type="button" class="btn ghost small op-tab-defecto${tabInicial(fProy) === tab.id ? ' on' : ''}" data-op="tab-defecto" title="${tabInicial(fProy) === tab.id ? 'Quitar: al entrar se abrirá el General' : 'Que este tablero se abra siempre primero al entrar en el proyecto'}">${tabInicial(fProy) === tab.id ? '⭐ Por defecto' : '☆ Marcar por defecto'}</button>`}` : ''}</nav>`;
-  if (editTab) return barra + editorTablero();
+  // Los tableros, en una columna a la izquierda (en el móvil, una fila arriba); a la derecha, el abierto con su cabecera.
+  const icoTab = (b) => (b.id === GENERAL ? '🗂️' : b.virtual ? '🚀' : '📋');
+  const lateral = `<aside class="op-lat" aria-label="Tableros">
+    <h4 class="op-lat-t">Tableros <span>${tabs.length}</span></h4>
+    <nav class="op-lat-lista">${tabs.map((b) => `<button type="button" class="op-tab-b${b.id === tab.id ? ' on' : ''}" data-op-tab="${esc(b.id)}"${gestiona(fProy) && !b.virtual ? ' draggable="true" title="Arrastra para cambiar el orden"' : b.virtual ? ' title="Las tareas del lanzamiento en curso de este embudo (Plan → Tareas)"' : ''}>
+      <span class="op-lat-ico" aria-hidden="true">${icoTab(b)}</span><span class="op-lat-nom">${esc(b.nombre)}${b.id === tabInicial(fProy) && b.id !== GENERAL ? ' <span class="op-tab-def" title="Tablero por defecto: se abre al entrar en este proyecto">⭐</span>' : ''}</span><b>${abiertasDe(b)}</b></button>`).join('')}</nav>
+    ${gestiona(fProy) ? `<div class="op-lat-acc"><button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-nuevo"><span class="op-lat-ico" aria-hidden="true">＋</span><span class="op-lat-nom">Nuevo tablero</span></button>${d.superadmin ? '<button type="button" class="op-tab-b op-tab-nuevo" data-op="tab-importar" title="Desde un archivo .json (también el export de un proyecto de Asana)"><span class="op-lat-ico" aria-hidden="true">⬆️</span><span class="op-lat-nom">Importar tablero</span></button>' : ''}</div>` : ''}
+  </aside>`;
+  const cabecera = `<header class="op-tab-cab"><span class="op-tab-cab-ico" aria-hidden="true">${icoTab(tab)}</span><h3>${esc(tab.nombre)}</h3><span class="op-tab-cab-n">${abiertasDe(tab)} abiertas</span>
+    ${gestiona(fProy) ? `<span class="spacer"></span>${tab.virtual ? '' : `<button type="button" class="btn ghost small op-tab-cfg" data-op="tab-editar" title="Cambiar el nombre del tablero y sus columnas">✏️ Editar</button>`}${tab.id === GENERAL && tabInicial(fProy) === GENERAL ? '' : `<button type="button" class="btn ghost small op-tab-defecto${tabInicial(fProy) === tab.id ? ' on' : ''}" data-op="tab-defecto" title="${tabInicial(fProy) === tab.id ? 'Quitar: al entrar se abrirá el General' : 'Que este tablero se abra siempre primero al entrar en el proyecto'}">${tabInicial(fProy) === tab.id ? '⭐ Por defecto' : '☆ Por defecto'}</button>`}` : ''}</header>`;
+  const conLateral = (contenido) => `<div class="op-con-lat">${lateral}<div class="op-lat-main">${contenido}</div></div>`;
+  if (editTab) return conLateral(editorTablero());
   const suyas = lista.filter((t) => tabDeT(t).id === tab.id);
   const ayuda = tab.virtual
     ? `🚀 <strong>Tablero de «${esc(tab.nombre)}»</strong>: son las tareas de ese lanzamiento (las de Plan → Tareas), con lo que hagas aquí guardado allí. Cuando crees otro lanzamiento en este mismo embudo, este tablero pasará a ser el del nuevo, con sus tareas.`
     : `Arrastra las tarjetas a otra columna, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ de una tarjeta para completarla. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.${gestiona(fProy) ? ' Pulsa el título de una columna para cambiarle el nombre.' : ''}`;
-  return `${barra}${rangos}<p class="op-ayuda">${ayuda}</p>
+  return conLateral(`${cabecera}${rangos}<p class="op-ayuda">${ayuda}</p>
   <div class="op-tablero${quieto}${tab.virtual ? ' es-embudo' : ''}" style="--op-ncol:${tab.columnas.length};${estiloAnchos(`${fProy}|${tab.id}`, tab.columnas.map((c) => c.id), true)}">${tab.columnas.map((c, i) => {
     const ts = suyas.filter((t) => columnaDeTarea(t, tab) === c.id).sort(porOrden);
     return `<section class="op-col${c.hecha ? ' e-hecha' : ` e-c${i % 6}`}" data-op-col="${esc(c.id)}"><header${gestiona(fProy) && !tab.virtual ? ` class="op-col-arr" draggable="true" data-op-col-arr="${esc(c.id)}" title="Arrastra para mover la columna a un lado u otro"` : ''}><span class="op-col-dot"></span><span class="op-col-nom${gestiona(fProy) && !tab.virtual ? ' op-col-ren' : ''}" ${gestiona(fProy) && !tab.virtual ? `data-op-col-ren="${esc(c.id)}" role="button" tabindex="0" title="«${esc(c.nombre)}» · pulsa para cambiar el nombre"` : `title="${esc(c.nombre)}"`}>${c.hecha && !c.nombre.startsWith('✅') ? '✅ ' : ''}${esc(c.nombre)}</span><b>${ts.length}</b><button type="button" class="op-col-mas" data-op-add="${esc(c.id)}" title="Nueva tarea en «${esc(c.nombre)}»" aria-label="Nueva tarea en ${esc(c.nombre)}">＋</button></header>
       <div class="op-col-lista">${ts.map((t) => tarjetaTablero(t, hoy)).join('') || '<p class="op-col-vacia">Suelta aquí una tarea</p>'}</div>${pieColumna(c.id)}${asaAncho(c.id)}</section>`;
-  }).join('')}</div>`;
+  }).join('')}</div>`);
 }
 
 // Crear un tablero o editar sus columnas (solo superadmin). Plantillas: empezar con unas columnas guardadas o
