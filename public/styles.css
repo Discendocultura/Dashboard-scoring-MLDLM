@@ -6641,3 +6641,11 @@ button.cl-chip:hover { border-color: var(--accent); color: var(--text); }
 }
 .sb-item.sb-labia:hover { border-color: rgb(255 154 60 / .55); box-shadow: 0 12px 28px -12px rgb(255 122 24 / .35); }
 .sb-item.sb-labia .sb-labia-sub { color: #a3a8c9; }
+
+/* ---------- Mi cuenta → Cambiar contraseña ---------- */
+.cuenta-clave { margin-top: 16px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); scroll-margin-top: 12px; }
+.cuenta-clave .cfg-h3 { margin-top: 0; }
+.cuenta-clave.resaltar { animation: cuenta-clave-luz 1.6s ease; }
+@keyframes cuenta-clave-luz { 0%, 60% { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); } }
+.cuenta-st-ok { color: #0f9f6e; font-weight: 650; }
+.cuenta-st-mal { color: var(--error); font-weight: 600; }

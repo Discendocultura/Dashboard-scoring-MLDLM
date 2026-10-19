@@ -666,6 +666,7 @@ async function start() {
   $('#portal').hidden = true;
   $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
   $('#btn-cuenta').hidden = !state.user;
+  $('#btn-clave').hidden = !state.user;
   pintarFotoCuenta();
   pintarAviso2fa();
   pintarPlantillas();
@@ -8791,6 +8792,7 @@ function mostrarSoloOperativa() {
   $('#app').hidden = false;
   $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · Solo Operativa` : 'Solo Operativa';
   $('#btn-cuenta').hidden = !state.user;
+  $('#btn-clave').hidden = !state.user;
   pintarFotoCuenta();
   $('#solo-op').hidden = false;
   $('#solo-op-saludo').textContent = `Hola${state.user ? `, ${state.user.nombre.split(' ')[0]}` : ''} 👋`;
@@ -9876,22 +9878,41 @@ $('#btn-cuenta').addEventListener('click', () => {
   $('#cuenta-info').textContent = `${u.nombre} · ${u.email} · Rol ${ROLE_LABEL[state.role]}`;
   $('#cuenta-foto-status').textContent = '';
   pintarFotoCuenta();
-  $('#c-actual').value = '';
-  $('#c-nueva').value = '';
+  for (const id of ['#c-actual', '#c-nueva', '#c-nueva2']) { $(id).value = ''; $(id).type = 'password'; }
+  $('#c-ver').checked = false;
   $('#cuenta-status').textContent = '';
+  $('#cuenta-status').className = 'muted';
   $('#cuenta-dialog').showModal();
 });
+// «Cambiar contraseña» (menú de tu cuenta): la misma ventana, directamente en ese apartado.
+$('#btn-clave').addEventListener('click', () => {
+  $('#btn-cuenta').click();
+  const sec = $('#cuenta-clave');
+  sec.scrollIntoView({ block: 'start' });
+  sec.classList.remove('resaltar'); void sec.offsetWidth; sec.classList.add('resaltar');
+  $('#c-actual').focus();
+});
+$('#c-ver').addEventListener('change', (e) => { for (const id of ['#c-actual', '#c-nueva', '#c-nueva2']) $(id).type = e.target.checked ? 'text' : 'password'; });
+$('#cuenta-clave').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#cuenta-save').click(); } });
 $('#cuenta-save').addEventListener('click', async () => {
   const status = $('#cuenta-status');
   const nueva = $('#c-nueva').value.trim();
-  if (nueva.length < 8) { status.textContent = 'La contraseña nueva debe tener al menos 8 caracteres.'; return; }
+  const mal = (t) => { status.textContent = t; status.className = 'cuenta-st-mal'; };
+  if (!$('#c-actual').value) return mal('Escribe tu contraseña actual.');
+  if (nueva.length < 8) return mal('La contraseña nueva debe tener al menos 8 caracteres.');
+  if (nueva !== $('#c-nueva2').value.trim()) return mal('Las dos contraseñas nuevas no coinciden.');
+  if (nueva === $('#c-actual').value.trim()) return mal('La nueva es igual que la actual: elige otra.');
+  const btn = $('#cuenta-save');
+  btn.disabled = true;
   try {
     await api('/api/usuarios', { method: 'POST', body: { op: 'mi-clave', actual: $('#c-actual').value, nueva } });
-    status.textContent = 'Contraseña cambiada ✓';
-    $('#c-actual').value = '';
-    $('#c-nueva').value = '';
+    status.textContent = '✓ Contraseña cambiada. La próxima vez entra con la nueva.';
+    status.className = 'cuenta-st-ok';
+    for (const id of ['#c-actual', '#c-nueva', '#c-nueva2']) $(id).value = '';
   } catch (e) {
-    status.textContent = e.message;
+    mal(e.message);
+  } finally {
+    btn.disabled = false;
   }
 });
 

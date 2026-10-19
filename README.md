@@ -197,6 +197,11 @@ En el diseño **clásico** la cabecera de arriba (logo, cliente, Auditor, Operat
 
 La tarjeta de **LabIA** del menú lateral también lleva ese fondo espacial (oscuro, brillo azul y estrellas), en los dos diseños.
 
+### Tu cuenta: cambiar la contraseña
+En el menú de tu cuenta (el icono de la persona, arriba a la derecha) está **🔑 Cambiar contraseña**: abre «Mi cuenta» directamente en ese apartado. Se escribe la actual y la nueva dos veces (con «Ver las contraseñas»); avisa si no coinciden o si es igual que la actual, y al cambiarla se cierran tus sesiones en los demás dispositivos. Solo para quien entra con su usuario (no con la contraseña general).
+
+**Lo de tu propia cuenta no depende del cliente que se esté viendo** (`sesionPropia` en `handlers/usuarios.js`): contraseña (también la del primer acceso), verificación en dos pasos, foto, avisos y notificaciones. Antes, alguien del equipo de la agencia con acceso solo a otro cliente (p. ej. solo Discendo) no podía guardar su contraseña al entrar la primera vez: salía «No tienes acceso a «Me lo dijo la matrona»», porque la app abre primero el cliente principal. Ahora la guarda y la app le lleva a su cliente.
+
 ### Móvil: barra fija arriba y subpestañas abajo
 - **Arriba, fija al hacer scroll**: la cabecera del embudo en una fila (qué lanzamiento, ⚠️ pendientes, ⚙️ si la configuración ya está completa, ↻ actualizar y ⋯) y, debajo, lo importante de cada pestaña: el **periodo** (VSL, ventas directas, Cómo van los anuncios, Inicio e Inteligencia de negocio), el **buscador y los filtros** de Leads, la vista de **Llamadas**, de **Tareas** y del **Calendario**, y los filtros por motivo de **Setting hoy**.
 - **La cabecera de AlquimIA** (☰ con el menú lateral, avisos y cuenta) se queda fija arriba en todas las pantallas. **La barra de abajo es solo de los embudos**: sus pestañas (Hoy · Leads · Métricas · ☰ Todo); fuera de un embudo no sale, porque Agencia, Inicio, Inteligencia de negocio y los embudos ya están en el menú ☰ de arriba. Las barras se vuelven a pintar solas cuando las pestañas del embudo cambian (p. ej. al terminar de cargar sus datos).

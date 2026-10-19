@@ -49,3 +49,21 @@ test('equipo de la agencia: alta con acceso a varios clientes, separado del equi
   assert.equal((await call('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'agencia-quitar', id } })).status, 200);
   assert.ok(!(await call('/api/usuarios?agencia=1', { cookie: admin })).data.equipo.some((u) => u.id === id));
 });
+
+test('equipo de la agencia: quien solo tiene acceso a otro cliente puede elegir su contraseña al entrar la primera vez', async () => {
+  const admin = await login({ password: 'admin' });
+  await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'guardar', cliente: { id: 'discendo-x', nombre: 'Discendo X', locationId: 'LOC999abc' } } });
+  const r = await call('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'agencia-guardar', nombre: 'Vicky Prueba', email: 'vicky@agencia.es', accesos: { 'discendo-x': 'admin' }, enviar: false } });
+  assert.equal(r.status, 200);
+  let vicky = await login({ email: 'vicky@agencia.es', password: r.data.password });
+  // La app abre primero el cliente principal, al que no tiene acceso: aun así guarda su contraseña
+  assert.equal((await call('/api/me', { cookie: vicky })).data.role, null);
+  const clave = await call('/api/usuarios', { method: 'POST', cookie: vicky, body: { op: 'mi-clave-inicial', nueva: 'Campamontes222' } });
+  assert.equal(clave.status, 200, JSON.stringify(clave.data));
+  vicky = clave.res.headers.get('set-cookie').split(';')[0];
+  assert.equal((await call('/api/me', { cookie: vicky, cliente: 'discendo-x' })).data.role, 'admin');
+  // Y después, cambiarla desde «Mi cuenta», esté en el cliente que esté
+  assert.equal((await call('/api/usuarios', { method: 'POST', cookie: vicky, body: { op: 'mi-clave', actual: 'Campamontes222', nueva: 'OtraClave333' } })).status, 200);
+  // Sin sesión, nada
+  assert.equal((await call('/api/usuarios', { method: 'POST', body: { op: 'mi-clave-inicial', nueva: 'Campamontes222' } })).status, 401);
+});

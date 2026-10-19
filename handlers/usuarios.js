@@ -1,5 +1,5 @@
 // Gestión de usuarios del equipo (solo admin) y cambio de la propia contraseña (cualquiera con usuario).
-import { requireSession, sessionCookie } from '../lib/auth.js';
+import { requireSession, sessionCookie, getSession } from '../lib/auth.js';
 import {
   listUsers, saveUsers, actualizarUsuarios, cambiarOnboarding, hashPassword, checkPassword, generatePassword, newId, normEmail, publicUser, sendAccessEmail, FOTO_RE, FOTO_MAX, fotoKey, fijarEmbudos,
 } from '../lib/users.js';
@@ -87,12 +87,21 @@ const anotarEnvio = (user) => actualizarUsuarios((us) => {
   if (user.contactId && !u.contactId) u.contactId = user.contactId;
 }, 'email de acceso').catch((e) => console.error('Anotar envío', e.message));
 
+// Lo de tu propia cuenta (contraseña, verificación en dos pasos, foto, avisos…) no depende del cliente que se esté
+// viendo: vale aunque no tengas acceso a ese cliente (p. ej. del equipo de la agencia que solo lleva otro cliente y
+// entra por primera vez: tiene que poder elegir su contraseña antes de ir a su cliente).
+async function sesionPropia(request) {
+  const s = await getSession(request);
+  if (!s) throw json({ error: 'No autorizado' }, 401);
+  return s;
+}
+
 async function procesar(request, body) {
   const op = String(body.op || '');
 
   // Cambiar mi contraseña (cualquier usuario con email, también del rol equipo).
   if (op === 'mi-clave') {
-    const s = await requireSession(request, { cliente: true, operativa: true });
+    const s = await sesionPropia(request);
     if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
     const nueva = String(body.nueva || '').trim();
     if (nueva.length < 8) throw bad('La contraseña nueva debe tener al menos 8 caracteres');
@@ -109,7 +118,7 @@ async function procesar(request, body) {
   // Primer acceso (bienvenida): con la contraseña que le dimos ya ha entrado, así que elige la suya sin repetirla.
   // Solo mientras siga con la contraseña temporal (la del alta o la reenviada).
   if (op === 'mi-clave-inicial') {
-    const s = await requireSession(request, { cliente: true, operativa: true });
+    const s = await sesionPropia(request);
     if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
     const nueva = String(body.nueva || '');
     if (nueva.trim().length < 8) throw bad('La contraseña debe tener al menos 8 caracteres');
@@ -127,7 +136,7 @@ async function procesar(request, body) {
   // Campanita: hasta cuándo ha visto las notificaciones (para contar solo las nuevas en todos sus dispositivos).
   // «No volver a mostrar» el aviso de la verificación en dos pasos (se guarda en el usuario: vale en todos sus dispositivos).
   if (op === 'aviso-2fa-ocultar') {
-    const s = await requireSession(request, { cliente: true, operativa: true });
+    const s = await sesionPropia(request);
     if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
     await actualizarUsuarios((us) => { const u = us.find((x) => x.id === s.uid); if (u) u.aviso2faOculto = true; }, 'ocultar aviso 2FA');
     return json({ ok: true });
@@ -135,7 +144,7 @@ async function procesar(request, body) {
 
   // Onboarding: lo que ha visto y hecho (vale en todos sus dispositivos). Un admin se lo puede reiniciar a otra persona.
   if (op === 'onboarding') {
-    const s = await requireSession(request, { cliente: true, operativa: true });
+    const s = await sesionPropia(request);
     if (!s.uid) return json({ ok: true, onboarding: { hecho: true } }); // contraseña general: sin onboarding
     let o = null;
     await actualizarUsuarios((us) => { const u = us.find((x) => x.id === s.uid); if (u) o = cambiarOnboarding(u, body.cambio || {}); }, 'onboarding');
@@ -155,7 +164,7 @@ async function procesar(request, body) {
   }
 
   if (op === 'notif-visto') {
-    const s = await requireSession(request, { cliente: true, operativa: true });
+    const s = await sesionPropia(request);
     if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
     const users = await listUsers({ fresh: true });
     const me = users.find((u) => u.id === s.uid);
@@ -167,7 +176,7 @@ async function procesar(request, body) {
 
   // Verificación en dos pasos (Mi cuenta): iniciar → activar con el primer código; quitar pide contraseña y código.
   if (op === 'mi-2fa-iniciar' || op === 'mi-2fa-activar' || op === 'mi-2fa-quitar') {
-    const s = await requireSession(request, { cliente: true, operativa: true });
+    const s = await sesionPropia(request);
     if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
     if (op === 'mi-2fa-iniciar') return json(await iniciarAlta(s.uid));
     if (op === 'mi-2fa-activar') return json({ ok: true, codigosRecuperacion: await confirmarAlta(s.uid, body.codigo) });
@@ -180,7 +189,7 @@ async function procesar(request, body) {
   }
 
   if (op === 'mi-foto') {
-    const s = await requireSession(request, { cliente: true, operativa: true });
+    const s = await sesionPropia(request);
     if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
     const foto = String(body.foto || '');
     if (foto && (!FOTO_RE.test(foto) || foto.length > FOTO_MAX)) throw bad('La foto no es válida o es demasiado grande');
