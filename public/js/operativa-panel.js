@@ -136,32 +136,24 @@ async function soltarEnColumna(t, colId, indice) {
   if (indice >= 0 && indice !== pos) colocar(t, indice);
 }
 
-// Diseño propio de la Operativa (clásico o espacial), independiente del del dashboard: se aplica al abrirla y al
-// cerrarla vuelve el de siempre. Sin elegir, el mismo que el dashboard. Se recuerda en este navegador.
-const LS_ESTILO_OP = 'lsd_estilo_op';
-const estiloOp = () => { try { const v = localStorage.getItem(LS_ESTILO_OP); return v === 'espacial' || v === 'clasico' ? v : ''; } catch { return ''; } };
-function aplicarEstiloOp() {
-  const api = window.LSD_ESTILO;
-  const e = estiloOp() || api?.guardado?.() || 'clasico';
-  api?.temporal?.(e);
-  ctx.dialog.querySelectorAll('[data-op-estilo]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.opEstilo === e)));
-  ctx.dialog.querySelector('.op-estilo')?.setAttribute('data-on', e);
+// La Operativa se abre debajo de la cabecera de AlquimIA (que sigue a la vista y se puede usar) y con el mismo diseño
+// que el resto de la app: no parece otra aplicación.
+function colocarBajoCabecera(dlg) {
+  const alto = document.querySelector('.topbar')?.getBoundingClientRect().bottom || 0;
+  dlg.style.setProperty('--op-top', `${Math.max(0, Math.round(alto))}px`);
 }
 
 export async function abrirOperativa(opts) {
   ctx = opts;
   const dlg = ctx.dialog;
-  aplicarEstiloOp();
+  colocarBajoCabecera(dlg);
   calPanel = null;
   if (!dlg.dataset.listo) {
     dlg.dataset.listo = '1';
-    dlg.addEventListener('close', () => window.LSD_ESTILO?.temporal?.(null));
-    dlg.querySelector('.op-estilo')?.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-op-estilo]');
-      const actual = estiloOp() || window.LSD_ESTILO?.guardado?.() || 'clasico';
-      const nuevo = b ? b.dataset.opEstilo : actual === 'espacial' ? 'clasico' : 'espacial';
-      try { localStorage.setItem(LS_ESTILO_OP, nuevo); } catch { /* sin almacenamiento */ }
-      aplicarEstiloOp();
+    window.addEventListener('resize', () => { if (dlg.open) colocarBajoCabecera(dlg); });
+    // Sin ventana modal: Esc la cierra (si no hay otra ventana abierta encima).
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && dlg.open && !document.querySelector('dialog[open]:modal')) dlg.close();
     });
     dlg.querySelector('#op-cerrar').addEventListener('click', () => dlg.close());
     dlg.querySelector('#op-nueva').addEventListener('click', () => { creando = true; abierta = null; pintar(); });
@@ -280,7 +272,9 @@ export async function abrirOperativa(opts) {
   ultimoTablero = '';
   calMes = hoyMadrid().slice(0, 7);
   body().innerHTML = '<p class="muted">Cargando las tareas de todos los proyectos…</p>';
-  if (!dlg.open) dlg.showModal();
+  if (!dlg.open) dlg.show(); // no modal: la cabecera de AlquimIA queda por encima y se puede usar
+  document.body.classList.add('con-operativa');
+  dlg.addEventListener('close', () => document.body.classList.remove('con-operativa'), { once: true });
   fTab = ''; // al entrar, el tablero por defecto del proyecto (lo pone cargar)
   entrando = true;
   await cargar();

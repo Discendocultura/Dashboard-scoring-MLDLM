@@ -116,8 +116,8 @@ export const PASOS = {
   ],
   operativa: [
     RECORRIDO,
-    { id: 'operativa', txt: 'Abre tus tareas', sel: '#solo-op-operativa, #btn-operativa', ir: 'operativa' },
-    { id: 'procesos', txt: 'Consulta un proceso', sel: '#solo-op-procesos, #btn-procesos, [data-proxy="#btn-procesos"]', ir: 'procesos' },
+    { id: 'operativa', txt: 'Abre tus tareas', sel: '#solo-op-operativa, #btn-operativa', ver: '#solo-op-operativa, #tb-menu-ajustes', ir: 'operativa' },
+    { id: 'procesos', txt: 'Consulta un proceso', sel: '#solo-op-procesos, #btn-procesos, [data-proxy="#btn-procesos"]', ver: '#solo-op-procesos, #tb-menu-ajustes', ir: 'procesos' },
   ],
 };
 
@@ -221,7 +221,7 @@ function visible(sel) {
 }
 
 export function tour(pasos, { id = '' } = {}) {
-  const lista = pasos.filter((p) => !p.sel || visible(p.sel));
+  const lista = pasos.filter((p) => !p.sel || visible(p.ver || p.sel)); // `ver`: si el botón vive en un menú cerrado
   if (!lista.length) return Promise.resolve();
   cerrarBurbuja();
   document.getElementById('onb-pasos')?.classList.remove('abierto'); // que la lista no tape lo que se explica

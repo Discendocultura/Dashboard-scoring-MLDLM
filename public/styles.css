@@ -7197,3 +7197,20 @@ button.xp-res.cerr.on { opacity: 1; }
 .xp-res-todas { border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; background: var(--surface); color: var(--text-2); font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer; }
 .xp-tablero.una { grid-auto-flow: row; grid-auto-columns: auto; overflow: visible; }
 .xp-tablero.una .xp-col ol { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); max-height: none; }
+
+/* Operativa: se abre DEBAJO de la cabecera de AlquimIA (que sigue a la vista y se puede usar), sin velo, y con el
+   mismo diseño que el resto (sin selector de diseño propio): así no parece otra aplicación. */
+.dialog.op-dlg[open] { position: fixed; inset: var(--op-top, 64px) 0 0 0; top: var(--op-top, 64px); height: auto; max-height: none; width: 100vw; max-width: 100vw; margin: 0; z-index: 70; box-shadow: none; }
+body.con-operativa .topbar { z-index: 80; }
+body.con-operativa { overflow: hidden; }
+body.con-operativa :is(.nav-movil, .sub-movil, .agencia-flotante) { display: none !important; }
+.op-dlg .op-head { background: var(--surface); }
+:root[data-estilo="espacial"] .op-dlg .op-head { background: transparent; }
+
+/* Cabecera limpia: «Mi negocio», ayuda, avisos y «Mi cuenta» (con su texto, como «Mi negocio») */
+@media (min-width: 900px) {
+  .topbar .tb-cuenta-menu .tb-txt { display: inline !important; position: static; width: auto; height: auto; clip: auto; overflow: visible; }
+  .topbar .tb-cuenta-menu { padding: 6px 10px 6px 6px; }
+}
+.tb-ajustes { position: relative; }
+.tb-ajustes > .notif-count { position: absolute; top: -4px; left: 24px; }

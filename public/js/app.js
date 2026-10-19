@@ -649,8 +649,9 @@ async function start() {
   state.config = config;
   state.zoomConfigured = zoomConfigured;
   state.sendflowConfigured = Boolean(sendflowConfigured);
-  // «Mi negocio»: lo que cada rol puede tocar (las setters, al menos ver los mensajes de WhatsApp).
-  $('#tb-menu-ajustes').hidden = !tiene(['hoy', 'llamadas', 'leads', 'config', 'mensajes']);
+  // «Mi negocio» sale siempre (Operativa y Procesos son de todos); dentro, cada uno ve lo que su rol puede tocar
+  // (las setters, al menos los mensajes de WhatsApp).
+  $('#btn-mensajes').hidden = !tiene(['hoy', 'llamadas', 'leads', 'config', 'mensajes']);
   $('#tb-ajustes-cli').textContent = state.clientes?.find((c) => c.id === state.cliente)?.nombre || 'Este cliente';
   $('#tb-cuenta-yo').textContent = state.user?.nombre ? String(state.user.nombre) : 'Tu cuenta';
   state.setterResumen = Boolean(setterResumen);
@@ -12548,6 +12549,10 @@ function actualizarAuditor() {
   c.hidden = !crit;
   c.textContent = String(crit);
   $('#btn-auditor').classList.toggle('has-crit', crit > 0);
+  // El Auditor está dentro de «Mi negocio»: el aviso de críticos se ve también en el botón del menú.
+  const mn = $('#mn-count');
+  mn.hidden = !crit;
+  mn.textContent = String(crit);
   if ($('#auditor-dialog').open) pintarAuditor();
 }
 
@@ -14442,8 +14447,10 @@ async function asistenteMarcaCliente({ equipo = false } = {}) {
 
 // ---------- 🎨 Marca y avatar (cuestionario del cliente: la fuente de los prompts) ----------
 $('#inicio-operativa-btn').addEventListener('click', () => abrirOperativa({ api, dialog: $('#operativa-dialog') }));
-$('#btn-operativa').addEventListener('click', () => { $('#tb-menu-cuenta').open = false; abrirOperativa({ api, dialog: $('#operativa-dialog') }); });
-$('#btn-procesos').addEventListener('click', () => { $('#tb-menu-cuenta').open = false; abrirProcesos({ api, dialog: $('#procesos-dialog') }); });
+$('#btn-operativa').addEventListener('click', () => { $('#tb-menu-cuenta').open = false; $('#tb-menu-ajustes').open = false; abrirOperativa({ api, dialog: $('#operativa-dialog') }); });
+$('#btn-procesos').addEventListener('click', () => { $('#tb-menu-cuenta').open = false; $('#tb-menu-ajustes').open = false; abrirProcesos({ api, dialog: $('#procesos-dialog') }); });
+// La Operativa ocupa todo debajo de la cabecera: al abrir el menú ☰ (móvil) se cierra para ver el menú.
+$('#btn-menu-movil').addEventListener('click', () => { if ($('#operativa-dialog').open) $('#operativa-dialog').close(); }, true);
 // Mi negocio → 📦 Productos (también desde la Inteligencia de negocio): al guardar, la Inteligencia se recalcula.
 function abrirProductosDlg() {
   $('#tb-menu-ajustes')?.removeAttribute('open');

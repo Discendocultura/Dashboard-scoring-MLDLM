@@ -136,12 +136,14 @@ function nextDay(isoDay) {
 
 // Momentos clave del lanzamiento (ms UTC). Los que falten quedan a null.
 //  - directo: a esa hora la página de recursos manda al directo.
-//  - postDirecto: 00:00 del día siguiente al directo → la página de recursos manda al replay.
+//  - postDirecto: 00:00 del día siguiente al directo → la página de recursos manda al replay (si el directo empieza
+//    muy tarde, como pronto 3 horas después de empezar: uno a las 23:30 no «acaba» a las 00:00).
 //  - replay: cuando se desbloquea la grabación (por defecto, también a las 00:00 del día siguiente).
 //  - videos: lo mismo para cada vídeo del lanzamiento (el [0] es el webinar / vídeo 1).
 function momentosVideo(v) {
   const inicio = v.fecha && v.hora ? madridToEpoch(`${v.fecha}T${v.hora}`) : null;
-  const post = v.fecha ? madridToEpoch(`${nextDay(v.fecha)}T00:00`) : null;
+  const medianoche = v.fecha ? madridToEpoch(`${nextDay(v.fecha)}T00:00`) : null;
+  const post = medianoche != null && inicio != null ? Math.max(medianoche, inicio + 3 * 3600_000) : medianoche;
   return { k: v.k, dia: v.fecha ? madridToEpoch(`${v.fecha}T00:00`) : null, inicio, post, replay: madridToEpoch(v.replayAt) ?? post };
 }
 export function milestones(launch) {
