@@ -53,13 +53,13 @@ async function atender(update, request) {
       v.chats.push({ chatId, nombre: String(desde.first_name || '').slice(0, 60), usuario: String(desde.username || '').slice(0, 60), uid: c.uid, por: c.por, en: new Date().toISOString() });
       return c;
     }, 'vincular Telegram');
-    await enviarMensaje(chatId, v ? `✅ Listo, ${v.por ? `${v.por}` : ''}: este chat ya está vinculado al dashboard.\n\n${AYUDA}` : '⛔ Ese enlace no vale o ha caducado (dura 15 minutos). Pide otro en el dashboard: Agencia → Telegram.');
+    await enviarMensaje(chatId, v ? `✅ Listo, ${v.por ? `${v.por}` : ''}: este chat ya está vinculado a AlquimIA.\n\n${AYUDA}` : '⛔ Ese enlace no vale o ha caducado (dura 15 minutos). Pide otro en AlquimIA: Agencia → Telegram.');
     return;
   }
   const autorizado = await chatAutorizado(chatId);
   if (!autorizado) {
     if (cb) await tg('answerCallbackQuery', { callback_query_id: cb.id }).catch(() => {});
-    await enviarMensaje(chatId, '🔒 Este chat no está vinculado. Vincúlalo desde el dashboard: Agencia → Telegram → «Vincular mi Telegram».');
+    await enviarMensaje(chatId, '🔒 Este chat no está vinculado. Vincúlalo desde AlquimIA: Agencia → Telegram → «Vincular mi Telegram».');
     return;
   }
   const url = urlDashboard(request);
@@ -138,7 +138,7 @@ export async function POST(request, ctx) {
       return json({ ok: true });
     }
     if (body.op === 'prueba') {
-      const n = await avisarTelegram(`✅ Prueba del dashboard: los avisos llegan bien.\n\n${AYUDA}`);
+      const n = await avisarTelegram(`✅ Prueba de AlquimIA: los avisos llegan bien.\n\n${AYUDA}`);
       return json({ enviados: n, chats: (await leerVinculos()).chats.length });
     }
     return json({ error: 'Operación no válida' }, 400);

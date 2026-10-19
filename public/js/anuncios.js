@@ -93,7 +93,7 @@ ${datos.join('\n') || '(sin datos)'}
 ${enlaces ? `\nENLACES:\n${enlaces}\n` : ''}
 ${bloqueLogo(ctx)}${contexto ? `MARCA, AVATAR Y PRODUCTO (la fuente de verdad: usa sus palabras, dolores, deseos y objeciones):\n<marca>\n${contexto}\n</marca>\n` : 'MARCA Y AVATAR: aún no hay ficha; pregunta lo imprescindible antes de inventar.\n'}
 ${diseno ? `ESTILO VISUAL DE LA MARCA:\n${diseno}\n` : ''}
-${ctx.narrativa ? `${ctx.narrativa}\n` : ''}${ganadores ? `ANUNCIOS GANADORES (de los datos reales del dashboard; replica lo que funciona: ángulo, gancho, formato y mensaje, sin copiarlos literalmente):\n${ganadores}\nSi tienes el conector de Meta, búscalos por su nombre en la cuenta publicitaria y mira su creativo (texto, titular, imagen o vídeo) antes de empezar.\n` : 'ANUNCIOS GANADORES: aún no hay histórico. Basa los ángulos en la ficha (dolores, deseos, objeciones y frases literales del avatar) y propón ángulos distintos para testear.\n'}
+${ctx.narrativa ? `${ctx.narrativa}\n` : ''}${ganadores ? `ANUNCIOS GANADORES (de los datos reales de AlquimIA; replica lo que funciona: ángulo, gancho, formato y mensaje, sin copiarlos literalmente):\n${ganadores}\nSi tienes el conector de Meta, búscalos por su nombre en la cuenta publicitaria y mira su creativo (texto, titular, imagen o vídeo) antes de empezar.\n` : 'ANUNCIOS GANADORES: aún no hay histórico. Basa los ángulos en la ficha (dolores, deseos, objeciones y frases literales del avatar) y propón ángulos distintos para testear.\n'}
 ${notas ? `NOTAS SOBRE LOS ANUNCIOS QUE HAN FUNCIONADO:\n${notas}\n` : ''}`;
 }
 
@@ -112,7 +112,7 @@ const reqMagnific = (ctx) => `1. Kit de marca: busca uno de «${ctx.marca || 'la
 2. Antes de generar nada, enséñame el PLAN: 6 anuncios de imagen (ángulos distintos, basados en los ganadores o en la ficha) y 3 vídeos cortos (a partir de los mejores ganchos), con el texto que llevará cada uno, y el COSTE ESTIMADO en créditos (simulate_cost). Espera a que te diga «adelante».
 3. Imágenes: cada anuncio en 1:1 (1080×1080, feed), 4:5 (1080×1350) y 9:16 (1080×1920, Stories/Reels; deja libres los 250 px de arriba y de abajo). Texto en pantalla corto y legible (máx. 6-8 palabras), con contraste y en los colores de la marca. Si hay fotos de la marca, úsalas como referencia; si no, fotografía realista que represente al avatar (no ilustraciones genéricas de stock).
 4. Vídeos: 9:16, 15-30 s, gancho visual en el primer segundo, subtítulos grandes y voz en off en español de España (elige una voz acorde a la marca). Cierra con la llamada a la acción: «${ctx.objetivo.cta}».
-5. Guárdalo todo en una carpeta «${carpetaDe(ctx)}» y al terminar dame la lista: nombre de cada anuncio (ponlo igual en Meta: así el dashboard sabrá cuál gana), formato y enlace.
+5. Guárdalo todo en una carpeta «${carpetaDe(ctx)}» y al terminar dame la lista: nombre de cada anuncio (ponlo igual en Meta: así AlquimIA sabrá cuál gana), formato y enlace.
 - Nada de logos ni marcas de terceros, ni personas famosas.`;
 const fin = (s) => s.replace(/\n{3,}/g, '\n\n');
 
@@ -163,7 +163,7 @@ ${POLITICAS}
 const reqImagenesGpt = (ctx) => `- 6 anuncios de IMAGEN, cada uno con un ángulo distinto (basados en los ganadores o en la ficha). Primero enséñame la lista (ángulo y texto en pantalla de cada uno) y espera mi «adelante».
 - Después genéralos con tu generador de imágenes, DE UNO EN UNO (espera mi OK entre uno y otro), en cuadrado 1:1 (1080×1080). Cuando te lo pida, pásalos a 4:5 (1080×1350) y a 9:16 (1080×1920; deja libres arriba y abajo para Stories y Reels).
 - Texto en pantalla corto y legible (máx. 6-8 palabras), exacto y con sus tildes, con contraste y en los colores de la marca. Fotografía realista que represente al avatar (no ilustraciones genéricas de stock).${conLogo(ctx) ? '\n- El logo: no lo dibujes ni lo inventes. Deja un hueco limpio en una esquina para ponerlo después (o, si te subo el logo al chat, usa esa imagen tal cual).' : ''}
-- Ponle a cada uno un nombre corto (el mismo que pondrás en Meta: así el dashboard sabrá cuál gana).
+- Ponle a cada uno un nombre corto (el mismo que pondrás en Meta: así AlquimIA sabrá cuál gana).
 - Nada de logos ni marcas de terceros, ni personas famosas.`;
 
 export const promptImagenesGpt = (ctx) => fin(`Crea las IMÁGENES de los anuncios de Meta (feed, Stories y Reels).

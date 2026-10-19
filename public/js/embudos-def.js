@@ -14,7 +14,7 @@ export const PESTANAS = {
     { id: 'carrito', label: 'Carrito', desc: 'Los días del carrito: hitos automáticos, emails y WhatsApps de cada día y la estrategia' },
     { id: 'claude', label: 'Analizar con Claude', desc: 'El análisis del lanzamiento con Claude y el conector «Dashboard Datos»: qué funcionó, el cuello de botella y mejoras concretas para el próximo' },
     { id: 'anuncios', label: 'Crear anuncios', desc: 'Anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
-    { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos del dashboard) para Claude, y el HTML a GHL' },
+    { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos de AlquimIA) para Claude, y el HTML a GHL' },
     { id: 'automatizaciones', label: 'Automatizaciones', desc: 'Los workflows de GHL del embudo: si hay que crearlos de cero, uno a uno con su prompt para Claude (en su carpeta), con su estado y su enlace' },
     { id: 'grupowa', label: 'Grupo de WhatsApp', desc: 'Los mensajes del grupo (calentamiento y carrito): el prompt para escribirlos con Claude y programarlos en SendFlow' },
     { id: 'emailsia', label: 'Emails', desc: 'La secuencia de emails del lanzamiento con IA: calendario de envíos con las fechas reales, asuntos ganadores, la ficha de marca y la narrativa' },
@@ -34,7 +34,7 @@ export const PESTANAS = {
     { id: 'comparar', label: 'Comparar', desc: 'Mes a mes y frente a los lanzamientos, con alertas' },
     { id: 'rendimiento', label: 'Rendimiento del equipo', desc: 'WhatsApps, llamadas, shows, cierres y tiempo de respuesta por persona' },
     { id: 'anuncios', label: 'Crear anuncios', desc: 'Anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
-    { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos del dashboard) para Claude, y el HTML a GHL' },
+    { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos de AlquimIA) para Claude, y el HTML a GHL' },
     { id: 'automatizaciones', label: 'Automatizaciones', desc: 'Los workflows de GHL del embudo: si hay que crearlos de cero, uno a uno con su prompt para Claude (en su carpeta), con su estado y su enlace' },
     { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para esta VSL' },
     { id: 'calendario', label: 'Calendario', desc: 'El calendario del cliente: hitos, tareas y eventos de todos sus embudos' },
@@ -45,7 +45,7 @@ PESTANAS.meteorico = [
   { id: 'publicidad', label: 'Publicidad', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
   { id: 'moferta', label: 'Oferta', desc: 'Entregables y bonus (BAR 30 min, 1 h…) frente a las ventas hora a hora' },
   { id: 'anuncios', label: 'Crear anuncios', desc: 'Anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
-  { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos del dashboard) para Claude, y el HTML a GHL' },
+  { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos de AlquimIA) para Claude, y el HTML a GHL' },
   { id: 'automatizaciones', label: 'Automatizaciones', desc: 'Los workflows de GHL del embudo: si hay que crearlos de cero, uno a uno con su prompt para Claude (en su carpeta), con su estado y su enlace' },
   { id: 'grupowa', label: 'Grupo de WhatsApp', desc: 'Los mensajes del grupo: el prompt para escribirlos con Claude y programarlos en SendFlow' },
   { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para el calentamiento y la oferta' },
@@ -58,7 +58,7 @@ PESTANAS.directa = [
   { id: 'publicidad', label: 'Publicidad', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
   { id: 'danuncios', label: 'Anuncios ganadores', desc: 'Qué anuncios traen ventas al menor coste por venta (CAC) y cuáles traen más ventas' },
   { id: 'anuncios', label: 'Crear anuncios', desc: 'Anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
-  { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos del dashboard) para Claude, y el HTML a GHL' },
+  { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos de AlquimIA) para Claude, y el HTML a GHL' },
   { id: 'automatizaciones', label: 'Automatizaciones', desc: 'Los workflows de GHL del embudo: si hay que crearlos de cero, uno a uno con su prompt para Claude (en su carpeta), con su estado y su enlace' },
   { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para montar y mejorar el embudo' },
   { id: 'calendario', label: 'Calendario', desc: 'El calendario del cliente: hitos, tareas y eventos de todos sus embudos' },
@@ -182,7 +182,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
         'En la página de la oferta pega el <strong>código de la cuenta atrás</strong> (te lo da el meteórico): muestra «se abre en…», el botón de compra con «se cierra en…» mientras está abierta y «ha terminado» al cerrar (o manda a la página de «oferta cerrada»). También cuenta las visitas.',
         'En los emails y WhatsApp enlaza siempre a esa página.',
       ] },
-      { titulo: '4 · En el dashboard', pasos: [
+      { titulo: '4 · En AlquimIA', pasos: [
         'Crea cada meteórico (Black Friday, rebajas…) con sus días y horas, producto, precio, etiquetas y objetivos. El de después de un lanzamiento (downsell) se crea dentro del lanzamiento: Métricas → Downsell.',
         'Durante la oferta, la pestaña Meteóricos te enseña la cuenta atrás, las ventas, la facturación, las visitas y la conversión.',
       ] },
@@ -201,7 +201,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
     ] });
     if (on('llamadas')) s.push(guiaLlamadas('este embudo'));
     if (on('vmetricas') || on('vanuncios')) s.push(guiaMeta());
-    s.push({ titulo: `${s.length + 1} · En el dashboard`, pasos: [
+    s.push({ titulo: `${s.length + 1} · En AlquimIA`, pasos: [
       'Al crearlo se abre su configuración: etiquetas, enlaces (página de entrega, página de venta, pagos), precio y filtro de campañas de Meta.',
       'Métricas te dice cuántas descargas, cuántas compran y en cuántos días (por semanas y meses), y lo que cuesta cada descarga.',
     ] });
@@ -219,7 +219,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
     ] });
     s.push(guiaLlamadas('este embudo'));
     if (on('vmetricas') || on('vanuncios')) s.push(guiaMeta());
-    s.push({ titulo: `${s.length + 1} · En el dashboard`, pasos: [
+    s.push({ titulo: `${s.length + 1} · En AlquimIA`, pasos: [
       'Pon el <strong>enlace de reserva</strong> y el <strong>pipeline</strong> en la configuración: aquí lo importante son las llamadas (agendadas, shows, cierres) y el coste por llamada.',
       'Anota el resultado de cada llamada en la pestaña <em>Llamadas</em>; <em>Rendimiento del equipo</em> te da el % de show y de cierre por persona.',
     ] });
@@ -241,14 +241,14 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
     ] });
     if (on('llamadas')) s.push(guiaLlamadas('la VSL'));
     if (on('vmetricas') || on('vanuncios')) s.push(guiaMeta());
-    s.push({ titulo: `${s.length + 1} · En el dashboard`, pasos: [
+    s.push({ titulo: `${s.length + 1} · En AlquimIA`, pasos: [
       'Al crear el embudo se abre su configuración: pon las etiquetas, los enlaces (página de la VSL, página de venta, pagos, calendario), los precios y el filtro de campañas de Meta.',
       'Revisa los mensajes de WhatsApp en <em>Leads → Mensajes de WhatsApp de la VSL</em>.',
     ] });
   } else {
     s.push({ titulo: '1 · Etiquetas en GHL (por lanzamiento)', pasos: [
       'Cada lanzamiento usa su etiqueta de <strong>registro</strong> (nueva en cada edición, p. ej. <code>registro-webinar-nov26</code>) que pone el formulario de registro o su workflow.',
-      'Etiquetas de <strong>compra</strong> del programa y, si vendes entrada, de <strong>VIP</strong> (pueden ser siempre las mismas: el dashboard hace una «foto» de quién ya las tenía al crear el lanzamiento).',
+      'Etiquetas de <strong>compra</strong> del programa y, si vendes entrada, de <strong>VIP</strong> (pueden ser siempre las mismas: AlquimIA hace una «foto» de quién ya las tenía al crear el lanzamiento).',
       'Opcionales: <strong>pago fraccionado</strong> / <strong>pago único</strong>, <strong>publicidad</strong> / <strong>orgánico</strong> (una en cada formulario de registro) y <strong>encuesta rellenada</strong>.',
       'Guarda la fecha de compra en un <strong>campo personalizado de tipo fecha</strong> («Fecha compra …») para ver las ventas por día.',
     ] });
@@ -286,7 +286,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
     ] });
     if (on('metricas') || on('avatar') || on('objetivos')) s.push(guiaMeta());
     if (on('objetivos')) s.push({ titulo: `${s.length + 1} · Objetivos`, pasos: ['En <em>Plan → Planificador</em> el planificador usa solo los lanzamientos anteriores: inversión recomendada, leads, CPL máximo, equipo de llamadas y números en tres escenarios. Los objetivos salen de esa proyección (se fijan solos la primera vez) y debajo ves cuánto llevas y a qué ritmo hay que ir.'] });
-    s.push({ titulo: `${s.length + 1} · En el dashboard`, pasos: [
+    s.push({ titulo: `${s.length + 1} · En AlquimIA`, pasos: [
       'Crea el primer lanzamiento (se abre al crear el embudo): nombre, código, etiquetas, fechas de captación, clases, directo y cierre, enlaces y precios.',
       ...(on('tareas') ? ['En <em>Tareas</em>, «Cargar tareas habituales» crea la lista de siempre con fechas calculadas.'] : []),
     ] });
@@ -297,7 +297,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
 function guiaLlamadas(donde) {
   return { titulo: `· Llamadas de valoración (${donde})`, pasos: [
     'En GHL → <strong>Calendarios</strong> crea el calendario de la llamada (y asígnalo a quien llama). Copia su <strong>enlace de reserva</strong> (<code>…/widget/booking/…</code>) y pégalo en la configuración del embudo.',
-    'En GHL → <strong>Oportunidades → Pipelines</strong> crea un pipeline (su nombre se pone en la configuración) con estas etapas, en este orden y con estos nombres (el dashboard las reconoce por el nombre): <strong>Llamada agendada</strong> (o «Agenda llamada»), <strong>Contactado</strong>, <strong>❌ No contesta 1</strong>, <strong>❌ No contesta 2</strong>, <strong>❌ No contesta 3</strong>, <strong>Seguimiento</strong>, <strong>Pendiente de pago</strong>, <strong>Venta</strong> y <strong>Perdido</strong>.',
+    'En GHL → <strong>Oportunidades → Pipelines</strong> crea un pipeline (su nombre se pone en la configuración) con estas etapas, en este orden y con estos nombres (AlquimIA las reconoce por el nombre): <strong>Llamada agendada</strong> (o «Agenda llamada»), <strong>Contactado</strong>, <strong>❌ No contesta 1</strong>, <strong>❌ No contesta 2</strong>, <strong>❌ No contesta 3</strong>, <strong>Seguimiento</strong>, <strong>Pendiente de pago</strong>, <strong>Venta</strong> y <strong>Perdido</strong>.',
     'Opcional: un workflow con disparador «Cita reservada» en ese calendario que cree la oportunidad en «Llamada agendada» y ponga una etiqueta de «llamada agendada».',
     'El token de GHL del cliente necesita permisos de <strong>calendarios, eventos de calendario y oportunidades</strong> (lectura y escritura).',
   ] };
@@ -321,13 +321,13 @@ export function guiaCliente(variable = 'GHL_TOKEN_<CÓDIGO>', sufijo = '<CÓDIGO
       'Entra en su subcuenta → <strong>Ajustes (Settings) → Información del negocio (Business Profile)</strong>. Copia el <strong>Location ID</strong> (también sale en la URL: <code>/location/<strong>XXXX</strong>/…</code>).',
     ] },
     { titulo: '2 · En el GHL del cliente: el token (integración privada)', pasos: [
-      'En su subcuenta → <strong>Ajustes → Integraciones privadas (Private Integrations) → Crear nueva integración</strong>. Nombre: «Dashboard».',
+      'En su subcuenta → <strong>Ajustes → Integraciones privadas (Private Integrations) → Crear nueva integración</strong>. Nombre: «AlquimIA».',
       'Marca estos permisos: <strong>Contactos</strong> (ver y editar), <strong>Custom Values</strong> (ver y editar), <strong>Campos personalizados</strong> (ver), <strong>Etiquetas</strong> (ver), <strong>Conversaciones / mensajes</strong> (enviar, para los emails al equipo), <strong>Calendarios y eventos</strong> y <strong>Oportunidades</strong> (ver y editar, si usará Llamadas).',
       'Crea y <strong>copia el token</strong> (empieza por <code>pit-</code>). No lo pegues en ningún chat: va directo a Cloudflare.',
     ] },
     { titulo: '3 · En Cloudflare (el de la agencia, no el del cliente): guardar el token', pasos: [
-      `Es el <strong>Cloudflare donde ya está montado este dashboard</strong> (cuenta <strong>${CLOUDFLARE_EMAIL}</strong>), no uno del cliente: el cliente no necesita Cloudflare. Todos los clientes comparten el mismo proyecto y cada uno tiene su variable.`,
-      'Entra en <strong>dash.cloudflare.com</strong> con esa cuenta <strong>→ Workers &amp; Pages →</strong> el proyecto del dashboard <strong>→ Settings → Variables and Secrets → Add</strong>.',
+      `Es el <strong>Cloudflare donde ya está montado AlquimIA</strong> (cuenta <strong>${CLOUDFLARE_EMAIL}</strong>), no uno del cliente: el cliente no necesita Cloudflare. Todos los clientes comparten el mismo proyecto y cada uno tiene su variable.`,
+      'Entra en <strong>dash.cloudflare.com</strong> con esa cuenta <strong>→ Workers &amp; Pages →</strong> el proyecto de AlquimIA <strong>→ Settings → Variables and Secrets → Add</strong>.',
       `Tipo <strong>Secret</strong>, nombre <code>${variable}</code> (exactamente así) y como valor el token. Guarda.`,
       'Ve a <strong>Deployments</strong> y en el último despliegue pulsa <strong>⋯ → Retry deployment</strong> para que coja la variable (tarda 1-2 minutos).',
     ] },

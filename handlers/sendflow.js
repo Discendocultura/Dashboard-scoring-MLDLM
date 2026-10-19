@@ -74,9 +74,9 @@ async function impactoDe(code) {
       const ya = new Set(mensajes.map((m) => m.actionId).filter(Boolean));
       for (const e of await enviadosSendflow(emb.sendflowId)) if (!ya.has(e.actionId) && e.t <= ahora) mensajes.push({ t: e.t, actionId: e.actionId, tipo: '', origen: 'sendflow', titulo: '' });
     } catch (e) {
-      aviso = `No se han podido leer de SendFlow los mensajes enviados fuera del dashboard: ${e.publicMessage || e.message}`;
+      aviso = `No se han podido leer de SendFlow los mensajes enviados fuera de AlquimIA: ${e.publicMessage || e.message}`;
     }
-  } else if (!emb.sendflowId) aviso = 'Este lanzamiento no tiene su campaña de SendFlow: solo cuentan los mensajes programados desde el dashboard.';
+  } else if (!emb.sendflowId) aviso = 'Este lanzamiento no tiene su campaña de SendFlow: solo cuentan los mensajes programados desde AlquimIA.';
   const serie = emb.sendflowId ? ((await leerCompartida(`sf-serie|${emb.sendflowId}`, 45 * 86_400_000)) || []).map((f) => ({ t: f.t, s: f.s })) : [];
   return json({ mensajes: mensajes.map(({ actionId, ...m }) => m), serie, aviso });
 }

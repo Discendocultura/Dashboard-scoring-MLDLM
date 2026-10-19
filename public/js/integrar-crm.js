@@ -33,7 +33,7 @@ function pasosCloudflare(prefijo, variables, extra = '') {
     { id: `${prefijo}cloudflare`, titulo: variables.length > 1 ? 'Guárdalos en Cloudflare' : 'Guárdalo en Cloudflare', donde: 'Cloudflare',
       html: lista([
         `Entra en <a href="https://dash.cloudflare.com" target="_blank" rel="noopener">dash.cloudflare.com</a> con la cuenta de la agencia (<b>${CLOUDFLARE_EMAIL}</b>). El cliente no necesita Cloudflare.`,
-        `Ve a ${ruta('Workers &amp; Pages', 'el proyecto del dashboard', 'Settings', 'Variables and Secrets')} y pulsa <b>Add</b>.`,
+        `Ve a ${ruta('Workers &amp; Pages', 'el proyecto de AlquimIA', 'Settings', 'Variables and Secrets')} y pulsa <b>Add</b>.`,
         `Tipo: <b>Secret</b>. ${variables.length > 1 ? 'Añade una por una, con estos nombres <b>exactos</b>:' : 'Nombre <b>exacto</b>:'}${variables.map((v) => valor(v)).join('')}`,
         'Como valor, pega lo que copiaste (sin espacios delante ni detrás) y pulsa <b>Save</b>.',
       ]) + extra },
@@ -41,7 +41,7 @@ function pasosCloudflare(prefijo, variables, extra = '') {
       html: lista([
         `En el mismo proyecto: ${ruta('Deployments')}.`,
         'En el último despliegue pulsa <b>⋯</b> → <b>Retry deployment</b>.',
-        'Espera 1-2 minutos a que termine. Sin esto el dashboard no ve lo nuevo.',
+        'Espera 1-2 minutos a que termine. Sin esto AlquimIA no ve lo nuevo.',
       ]) },
   ];
 }
@@ -60,7 +60,7 @@ export function pasosIntegrarCrm(c) {
     { id: 'integracion', titulo: 'Crea la integración privada', donde: 'GoHighLevel',
       html: lista([
         `En esa subcuenta: ${ruta('Ajustes', 'Integraciones privadas', 'Crear nueva integración')}.`,
-        'Nombre: <b>Dashboard</b>.',
+        'Nombre: <b>AlquimIA</b>.',
         `Marca estos permisos:<span class="g-chips">${permisos.map((p) => `<span>${p}</span>`).join('')}</span>`,
         'Pulsa <b>Crear</b>.',
       ]) },
@@ -76,16 +76,16 @@ export function pasosIntegrarCrm(c) {
 // Ante un error de «Comprobar conexión» del CRM, a qué paso volver (id) y qué revisar.
 export function pistaError(error) {
   const e = String(error || '');
-  if (/Falta conectar|Faltan GHL_TOKEN/i.test(e)) return { paso: 'desplegar', texto: 'El dashboard todavía no ve el token. Revisa que el nombre de la variable en Cloudflare sea exactamente el del paso 4 y que hiciste «Retry deployment» (paso 5); si acabas de hacerlo, espera un par de minutos y vuelve a comprobar.' };
+  if (/Falta conectar|Faltan GHL_TOKEN/i.test(e)) return { paso: 'desplegar', texto: 'AlquimIA todavía no ve el token. Revisa que el nombre de la variable en Cloudflare sea exactamente el del paso 4 y que hiciste «Retry deployment» (paso 5); si acabas de hacerlo, espera un par de minutos y vuelve a comprobar.' };
   if (/rechazado el token|401|403|permis/i.test(e)) return { paso: 'integracion', texto: 'GHL no acepta el token. Suele ser porque se copió mal o faltan permisos: revisa los pasos 2 y 3 (crea otra integración si hace falta), pon el token nuevo en Cloudflare y repite el paso 5.' };
   if (/location|subcuenta|404|not found/i.test(e)) return { paso: 'subcuenta', texto: 'GHL no encuentra la subcuenta: revisa el Location ID del paso 1 (y que el token se creó en esa misma subcuenta).' };
-  return { paso: null, texto: 'Revisa los pasos de arriba y vuelve a comprobar. Si sigue fallando, copia este mensaje y pásaselo a quien mantiene el dashboard.' };
+  return { paso: null, texto: 'Revisa los pasos de arriba y vuelve a comprobar. Si sigue fallando, copia este mensaje y pásaselo a quien mantiene AlquimIA.' };
 }
 
 // ---------- Meta ----------
 // Mensaje para el cliente (WhatsApp o email): que comparta su cuenta publicitaria con la agencia.
 export function mensajeClienteMeta(nombre = '', email = META_EMAIL_AGENCIA) {
-  return `Hola${nombre ? ` ${nombre}` : ''}: para llevar tus anuncios y ver sus resultados en el dashboard necesitamos acceso a tu cuenta publicitaria de Meta. Son 2 minutos:
+  return `Hola${nombre ? ` ${nombre}` : ''}: para llevar tus anuncios y ver sus resultados en AlquimIA necesitamos acceso a tu cuenta publicitaria de Meta. Son 2 minutos:
 
 1. Entra en business.facebook.com → Configuración del negocio.
 2. Ve a Usuarios → Personas → Añadir y escribe: ${email}
@@ -100,7 +100,7 @@ Después, pásanos el identificador de tu cuenta publicitaria: es el número que
 // Ayuda corta del número de la cuenta (tarjeta del cliente).
 export function ayudaMetaHtml(email = META_EMAIL_AGENCIA) {
   return `<p><strong>Qué poner:</strong> el <strong>identificador de la cuenta publicitaria</strong> del cliente, solo los números (p. ej. <code>1234567890123456</code>, sin <code>act_</code>). Si no hará anuncios, déjalo vacío.</p>
-  <p><strong>⚠️ Antes, el cliente tiene que darnos acceso</strong> o el dashboard no podrá leer su inversión:</p>
+  <p><strong>⚠️ Antes, el cliente tiene que darnos acceso</strong> o AlquimIA no podrá leer su inversión:</p>
   <ol>
     <li>El cliente entra en <strong>business.facebook.com → Configuración del negocio → Usuarios → Personas → Añadir</strong>.</li>
     <li>Invita a <strong>${email}</strong> <button type="button" class="btn ghost small" data-copiar="${email}">Copiar</button>.</li>
@@ -126,13 +126,13 @@ export function pasosMeta(c, modo = 'agencia', email = META_EMAIL_AGENCIA) {
         html: lista([
           `En <a href="https://business.facebook.com" target="_blank" rel="noopener">business.facebook.com</a> cambia (arriba a la izquierda) al portfolio de <b>${esc(c.nombre)}</b> y abre ${ruta('Configuración del negocio', 'Cuentas', 'Apps')}.`,
           '<b>Si ya hay una app</b>, usa esa: pasa al paso siguiente.',
-          `<b>Si no hay ninguna</b>: <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com</a> → ${ruta('Mis apps', 'Crear app')} → caso de uso <b>Otro</b> → tipo <b>Empresa</b> → nombre «Dashboard ${esc(c.nombre)}» → en <b>Portfolio empresarial</b> elige el del cliente → <b>Crear app</b>.`,
+          `<b>Si no hay ninguna</b>: <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com</a> → ${ruta('Mis apps', 'Crear app')} → caso de uso <b>Otro</b> → tipo <b>Empresa</b> → nombre «AlquimIA ${esc(c.nombre)}» → en <b>Portfolio empresarial</b> elige el del cliente → <b>Crear app</b>.`,
           'Dentro de la app: <b>Añadir productos</b> → <b>Marketing API</b>.',
         ]) },
       { id: 'meta-usuario', titulo: 'Un usuario del sistema en su portfolio', donde: 'Meta',
         html: lista([
           `En el portfolio del cliente: ${ruta('Configuración del negocio', 'Usuarios', 'Usuarios del sistema')}.`,
-          'Si no hay ninguno: <b>Añadir</b> → nombre «Dashboard» → rol <b>Administrador</b> → Crear.',
+          'Si no hay ninguno: <b>Añadir</b> → nombre «AlquimIA» → rol <b>Administrador</b> → Crear.',
         ]) },
       { id: 'meta-activos', titulo: 'Dale la app y la cuenta publicitaria', donde: 'Meta',
         html: lista([
@@ -160,7 +160,7 @@ export function pasosMeta(c, modo = 'agencia', email = META_EMAIL_AGENCIA) {
     { id: 'meta-asignar', titulo: 'Asígnala al usuario del sistema de la agencia', donde: 'Meta',
       html: lista([
         `En <a href="https://business.facebook.com" target="_blank" rel="noopener">business.facebook.com</a>, en el portfolio <b>de la agencia</b>: ${ruta('Configuración del negocio', 'Usuarios', 'Usuarios del sistema')}.`,
-        'Abre el usuario del sistema del dashboard → <b>Asignar activos</b>.',
+        'Abre el usuario del sistema de AlquimIA → <b>Asignar activos</b>.',
         `${ruta('Cuentas publicitarias')} → la cuenta del cliente → <b>Ver rendimiento</b> → Guardar.`,
       ]) + aviso('Si la cuenta no aparece en la lista, es que está en otro portfolio: elige arriba «Portfolio propio del cliente».') },
     pasoCuentaMeta,
@@ -181,7 +181,7 @@ export function pasosZoom(c) {
       html: lista([
         `Arriba a la derecha: ${ruta('Develop', 'Build App')}.`,
         'Elige <b>Server-to-Server OAuth App</b> → <b>Create</b>.',
-        `Nombre: <b>Dashboard ${esc(c.nombre)}</b> → <b>Create</b>.`,
+        `Nombre: <b>AlquimIA ${esc(c.nombre)}</b> → <b>Create</b>.`,
       ]) },
     { id: 'zoom-credenciales', titulo: 'Localiza las 3 credenciales', donde: 'Zoom',
       html: lista([
@@ -222,7 +222,7 @@ export function pasosSendflow(c) {
     { id: 'sf-clave', titulo: 'Crea la clave de la API', donde: 'SendFlow',
       html: lista([
         `En el menú: ${ruta('API Keys')} → <b>Crear nueva clave</b>.`,
-        'Nombre: <b>Dashboard</b> → crear.',
+        'Nombre: <b>AlquimIA</b> → crear.',
         'Copia la clave <b>entera</b>: empieza por <code>send_api-</code>.',
       ]) + aviso('Sin espacios ni comillas, y no la pegues en ningún chat.') },
     ...pasosCloudflare('sf-', [`SENDFLOW_API_KEY_${sufijo(c.id)}`]),
@@ -245,7 +245,7 @@ export const SERVICIOS = {
   sendflow: { icono: '💬', titulo: 'SendFlow (grupos de WhatsApp)', corto: 'SendFlow', opciones: [
     { id: 'agencia', icono: '🏢', titulo: 'El SendFlow de la agencia', texto: 'Sus grupos van en la cuenta de SendFlow de la agencia. No hay que crear nada.' },
     { id: 'propio', icono: '💬', titulo: 'SendFlow propio del cliente', texto: 'Su propia cuenta de SendFlow (con SendAPI): una clave en 4 pasos.' },
-    { id: 'ninguno', icono: '🚫', titulo: 'No usa SendFlow', texto: 'Sin grupos de WhatsApp en el dashboard.' },
+    { id: 'ninguno', icono: '🚫', titulo: 'No usa SendFlow', texto: 'Sin grupos de WhatsApp en AlquimIA.' },
   ] },
 };
 export const ETAPAS = ['crm', 'meta', 'zoom', 'sendflow'];

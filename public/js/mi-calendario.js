@@ -22,7 +22,7 @@ const compact = (d) => d.replace(/-/g, '');
 export function eventoDeTarea(t, { hora = '', minutos = 60, url = '', hoy = '' } = {}) {
   const dia = ISO_DAY.test(t?.fecha || '') ? t.fecha : hoy;
   const proyecto = t?.clienteNombre ? ` · ${t.clienteNombre}` : '';
-  const notas = [t?.notasTexto ? corto(t.notasTexto, 1500) : '', url ? `Ábrela en el dashboard: ${url}` : ''].filter(Boolean).join('\n\n');
+  const notas = [t?.notasTexto ? corto(t.notasTexto, 1500) : '', url ? `Ábrela en AlquimIA: ${url}` : ''].filter(Boolean).join('\n\n');
   return { titulo: `${t?.titulo || 'Tarea'}${proyecto}`, dia, hora: HORA.test(hora) ? hora : '', minutos, notas, url };
 }
 

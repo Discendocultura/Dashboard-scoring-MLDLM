@@ -20,7 +20,7 @@ const err = (id, code, message) => ({ jsonrpc: '2.0', id: id ?? null, error: { c
 
 function sinToken(request) {
   const o = new URL(request.url).origin;
-  return json({ error: 'invalid_token', error_description: 'Conecta el dashboard desde Claude (Ajustes → Conectores).' }, 401, {
+  return json({ error: 'invalid_token', error_description: 'Conecta AlquimIA desde Claude (Ajustes → Conectores).' }, 401, {
     ...CORS, 'www-authenticate': `Bearer resource_metadata="${o}/.well-known/oauth-protected-resource/api/mcp"`,
   });
 }

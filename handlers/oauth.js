@@ -60,19 +60,19 @@ async function autorizarGet(request) {
   const s = await getSession(request);
   if (!s?.role) {
     const volver = `/?oauth=${encodeURIComponent(url.pathname + url.search)}`;
-    return pagina('Entra en el dashboard', `<h1>Conectar ${escapeHtml(a.cliente.n)} con el dashboard</h1>
-      <p>${s ? `Tu usuario no tiene acceso a «${escapeHtml(clienteActual().nombre)}».` : 'Primero entra en el dashboard con tu usuario. Después volverás aquí para dar permiso.'}</p>
-      <div class="acc"><a class="btn prim" href="${escapeHtml(volver)}">Entrar en el dashboard</a></div>`);
+    return pagina('Entra en AlquimIA', `<h1>Conectar ${escapeHtml(a.cliente.n)} con AlquimIA</h1>
+      <p>${s ? `Tu usuario no tiene acceso a «${escapeHtml(clienteActual().nombre)}».` : 'Primero entra en AlquimIA con tu usuario. Después volverás aquí para dar permiso.'}</p>
+      <div class="acc"><a class="btn prim" href="${escapeHtml(volver)}">Entrar en AlquimIA</a></div>`);
   }
   const csrf = await signToken(`oauthcsrf:${s.uid || s.role}:${Date.now() + 15 * 60_000}`);
   const ocultos = ['client_id', 'redirect_uri', 'response_type', 'code_challenge', 'code_challenge_method', 'state', 'scope', 'resource']
     .map((k) => (url.searchParams.has(k) ? `<input type="hidden" name="${k}" value="${escapeHtml(url.searchParams.get(k))}">` : '')).join('');
   const quien = s.user?.nombre || (s.role === 'admin' ? 'la contraseña general de admin' : 'la contraseña general');
-  return pagina('Conectar Claude', `<h1>¿Conectar ${escapeHtml(a.cliente.n)} con tu dashboard?</h1>
+  return pagina('Conectar Claude', `<h1>¿Conectar ${escapeHtml(a.cliente.n)} con tu AlquimIA?</h1>
     <p>Claude entrará como <strong>${escapeHtml(quien)}</strong>, con tus mismos permisos y clientes.</p>
     <p>Podrá <strong>consultar</strong> (sin cambiar nada):</p>
     <ul><li>Embudos, lanzamientos y sus fechas</li><li>Métricas (registros, ventas, ROAS…)</li><li>La encuesta, anónima (sin nombres, emails ni teléfonos)</li><li>La ficha de marca y avatar y la narrativa</li><li>Tareas y el calendario y resultados de los emails</li></ul>
-    <p class="muted">Lo puedes desconectar cuando quieras en el dashboard (Agencia → Claude) o en los ajustes de conectores de Claude. Volverás a <code>${escapeHtml(new URL(a.redirect).host)}</code>.</p>
+    <p class="muted">Lo puedes desconectar cuando quieras en AlquimIA (Agencia → Claude) o en los ajustes de conectores de Claude. Volverás a <code>${escapeHtml(new URL(a.redirect).host)}</code>.</p>
     <form method="post" action="/api/oauth/authorize">${ocultos}<input type="hidden" name="csrf" value="${escapeHtml(csrf)}">
       <div class="acc"><button class="prim" name="decision" value="permitir">Permitir</button><button name="decision" value="cancelar">Cancelar</button></div></form>`);
 }
@@ -83,7 +83,7 @@ async function autorizarPost(request) {
   let a;
   try { a = await validarAutorizacion(p); } catch (e) { return paginaError(e.detalle || 'Petición no válida.'); }
   const s = await getSession(request);
-  if (!s?.role) return paginaError('Tu sesión del dashboard ha caducado. Entra de nuevo y vuelve a conectar.');
+  if (!s?.role) return paginaError('Tu sesión de AlquimIA ha caducado. Entra de nuevo y vuelve a conectar.');
   const v = await verifyToken(p.get('csrf') || '');
   const m = v && v.match(/^oauthcsrf:(.+):(\d+)$/);
   if (!m || m[1] !== (s.uid || s.role) || Number(m[2]) < Date.now()) return paginaError('El formulario ha caducado. Vuelve a conectar desde Claude.');

@@ -86,7 +86,7 @@ export function promptNarrativa(ctx = {}) {
     '- Riesgo o punto débil.',
     'Termina recomendando una y explicando por qué, y ESPERA a que yo elija (o mezcle).',
     '',
-    `PASO 2 · Cuando elija, desarrolla la narrativa completa EXACTAMENTE con este formato, entre las líneas ${INICIO} y ${FIN} (las copiaré tal cual al dashboard, que la meterá en todos los prompts del embudo):`,
+    `PASO 2 · Cuando elija, desarrolla la narrativa completa EXACTAMENTE con este formato, entre las líneas ${INICIO} y ${FIN} (las copiaré tal cual a AlquimIA, que la meterá en todos los prompts del embudo):`,
     '',
     INICIO,
     'TÍTULO: «…»',

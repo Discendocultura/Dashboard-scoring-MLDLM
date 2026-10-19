@@ -174,7 +174,7 @@ export async function POST(request) {
     await updateAppointmentStatus(eventId, r.cita).catch((e) => avisos.push(`No se pudo marcar la cita en el calendario (${String(e.message).slice(0, 120)}).`));
     // 3) Nota en el contacto para que quede en su ficha de GHL.
     const cuando = body.startTime ? new Date(body.startTime).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
-    await addContactNote(contactId, `📞 Llamada de valoración${cuando ? ` (${cuando})` : ''}: ${r.icon} ${r.label}${motivo ? ` · Motivo: ${motivo}` : ''}${notas ? `\n${notas}` : ''}\n— ${quien}, desde el dashboard`)
+    await addContactNote(contactId, `📞 Llamada de valoración${cuando ? ` (${cuando})` : ''}: ${r.icon} ${r.label}${motivo ? ` · Motivo: ${motivo}` : ''}${notas ? `\n${notas}` : ''}\n— ${quien}, desde AlquimIA`)
       .catch((e) => avisos.push(`No se pudo guardar la nota en GHL (${String(e.message).slice(0, 120)}).`));
     // 4) Registro propio para las métricas.
     const resultado = await cambiarResultados(code, (resultados) => {

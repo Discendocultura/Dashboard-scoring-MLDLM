@@ -10,8 +10,8 @@ export function siguientesPasos({ embudo = {}, launch = null, tagExiste = false 
   const waCero = embudo.waOrigen === 'cero';
   const paginas = () => (paginasCero
     ? add('🧱', 'Crea las páginas en GHL', 'En Crear → Páginas tienes el prompt de cada página y su URL. Al pegarlas en GHL, en cada sección pulsa «Extender sección» y pon a 0 los márgenes y el relleno.')
-    : add('🔗', 'Conecta tus páginas', 'Pega en cada página de GHL su código del dashboard (Configuración → Códigos). Así se miden las visitas, los vídeos y las compras.'));
-  const anuncios = (filtro) => add('📣', 'Prepara los anuncios', `En Anuncios → Crear con IA tienes los guiones, los prompts de imagen y los copys. En Meta, pon ${filtro ? `«${filtro}»` : 'el código'} en el nombre de la campaña para que el dashboard cuente la inversión.`);
+    : add('🔗', 'Conecta tus páginas', 'Pega en cada página de GHL su código de AlquimIA (Configuración → Códigos). Así se miden las visitas, los vídeos y las compras.'));
+  const anuncios = (filtro) => add('📣', 'Prepara los anuncios', `En Anuncios → Crear con IA tienes los guiones, los prompts de imagen y los copys. En Meta, pon ${filtro ? `«${filtro}»` : 'el código'} en el nombre de la campaña para que AlquimIA cuente la inversión.`);
 
   if (embudo.tipo === 'lanzamientos' || launch) {
     const l = launch || {};
@@ -38,8 +38,8 @@ export function siguientesPasos({ embudo = {}, launch = null, tagExiste = false 
     anuncios('');
     add('🧪', 'Haz un registro de prueba', 'Regístrate tú en el formulario: si aparece en Leads, todo está conectado.');
   } else if (embudo.tipo === 'meteorico') {
-    add('⚡', 'Configura la oferta', 'Precio, cuenta atrás y bonus: el dashboard genera la página de la oferta con sus tiempos.');
-    add('🔗', 'Pega el código en GHL', 'En la página de la oferta, el código del dashboard (Configuración → Códigos).');
+    add('⚡', 'Configura la oferta', 'Precio, cuenta atrás y bonus: AlquimIA genera la página de la oferta con sus tiempos.');
+    add('🔗', 'Pega el código en GHL', 'En la página de la oferta, el código de AlquimIA (Configuración → Códigos).');
     add('📨', 'Avisa a tu lista', 'Programa los emails y mensajes que llevan a la oferta mientras está abierta.');
   } else if (embudo.tipo === 'directa') {
     add('🛒', 'Pon el producto y los precios', 'En la configuración: producto, precio, bumps y, si los hay, upsell y downsell.');

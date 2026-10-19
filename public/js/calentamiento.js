@@ -260,7 +260,7 @@ MARCA Y AVATAR (la fuente de verdad: escribe con este tono y con las palabras, d
 ${contexto}
 </marca>
 ` : ''}${narrativa ? `\n${narrativa}\n` : ''}${yaTxt}${reglaPreclase}${reglaDirecto}${reglaEnlaces}
-${calendario.length ? `CALENDARIO DE MENSAJES${categorias ? ` (${categorias})` : ''} — propuesto por el dashboard con las fechas reales y el número de mensajes de cada día de la configuración (hora de España). Escribe EXACTAMENTE estos, uno por línea, a su hora y en su formato; si ves que falta o sobra alguno, dímelo antes de escribir:
+${calendario.length ? `CALENDARIO DE MENSAJES${categorias ? ` (${categorias})` : ''} — propuesto por AlquimIA con las fechas reales y el número de mensajes de cada día de la configuración (hora de España). Escribe EXACTAMENTE estos, uno por línea, a su hora y en su formato; si ves que falta o sobra alguno, dímelo antes de escribir:
 ${calendario.map((p, i) => `${i + 1}. ${diaHora(p.at)} · ${p.formato || 'texto'} · ${p.que}`).join('\n')}
 
 ` : ''}QUÉ QUIERO:
@@ -273,7 +273,7 @@ ${calendario.map((p, i) => `${i + 1}. ${diaHora(p.at)} · ${p.formato || 'texto'
 ${calendario.length ? '- No añadas mensajes fuera del calendario. Nada entre las 23:00 y las 8:00.' : '- Como mucho 2-3 mensajes al día (y más en los momentos clave: el día del directo y las últimas horas del carrito). Nada entre las 23:00 y las 8:00.'}
 - Usa «mencionar» solo en los avisos importantes (empieza el directo, abre / cierra el carrito): menciona a todo el grupo.
 
-DEVUÉLVEMELO EXACTAMENTE EN ESTE FORMATO (lo pego tal cual en mi dashboard, que lo programa en SendFlow):
+DEVUÉLVEMELO EXACTAMENTE EN ESTE FORMATO (lo pego tal cual en mi AlquimIA, que lo programa en SendFlow):
 
 ### AAAA-MM-DD HH:MM | texto
 El texto del mensaje (puede tener varias líneas y emojis).

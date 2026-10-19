@@ -69,7 +69,7 @@ test('permiso: sin sesión pide entrar; con otra redirección no vuelve; cancela
   const reg = await call('/api/oauth/register', { method: 'POST', body: { redirect_uris: [CB] } });
   const q = (extra = {}) => new URLSearchParams({ response_type: 'code', client_id: reg.data.client_id, redirect_uri: CB, code_challenge: 'a'.repeat(43), code_challenge_method: 'S256', state: 's', ...extra });
   const sin = await call(`/api/oauth/authorize?${q()}`);
-  assert.match(sin.text, /Entrar en el dashboard/);
+  assert.match(sin.text, /Entrar en AlquimIA/);
   assert.match(sin.text, /href="\/\?oauth=%2Fapi%2Foauth%2Fauthorize%3F/);
   assert.equal(sin.res.headers.get('x-frame-options'), 'DENY');
   const admin = await login('admin');

@@ -64,7 +64,7 @@ test('carrito: ventas de ayer, por día del carrito (con fecha de compra) y fact
   assert.ok(d.secciones[0].filas.some(([a]) => a === 'Compraron de las que vieron el directo'));
   const html = informeHtml(d, { url: 'https://x.dev/' });
   assert.match(html, /Ventas por día del carrito/);
-  assert.match(html, /Abrir el dashboard/);
+  assert.match(html, /Abrir AlquimIA/);
   assert.equal((html.match(/<tr><td style="padding:6px;width/g) || []).length, 2, 'cinco tarjetas: dos filas (3 + 2)');
   assert.deepEqual(fotoTotales(m), { registros: 1850, vip: 146, ventas: 3, facturacion: 8000, inversion: 1500 });
 });

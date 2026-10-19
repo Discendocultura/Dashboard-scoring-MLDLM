@@ -112,7 +112,7 @@ function asistenteHtml() {
   if (a.completado) return `<p class="mk-as ok">✅ <strong>Cuestionario terminado</strong> el ${esc(fecha(a.completado))}${a.completadoPor ? ` · ${esc(a.completadoPor)}` : ''}.${ctx.puedeEditar ? ' <button type="button" class="btn small ghost" data-mk="reabrir">Reabrir para el cliente</button>' : ''}</p>`;
   const pasos = pasosAsistente(m);
   const n = pasos.findIndex((p) => p.id === a.paso);
-  return `<p class="mk-as">⏳ <strong>El cliente aún no lo ha terminado</strong>: ${n > 0 ? `va por «${esc(pasos[n].titulo)}» (paso ${n + 1} de ${pasos.length})` : 'sin empezar'} · ${prog.pct} % respondido. Hasta terminarlo, al entrar al dashboard con su acceso de cliente solo verá el cuestionario.</p>`;
+  return `<p class="mk-as">⏳ <strong>El cliente aún no lo ha terminado</strong>: ${n > 0 ? `va por «${esc(pasos[n].titulo)}» (paso ${n + 1} de ${pasos.length})` : 'sin empezar'} · ${prog.pct} % respondido. Hasta terminarlo, al entrar a AlquimIA con su acceso de cliente solo verá el cuestionario.</p>`;
 }
 
 function enlaceHtml() {
@@ -196,7 +196,7 @@ function finHtml() {
     <div class="mp-fin-emoji" aria-hidden="true">🎉</div>
     <p class="mp-kicker">Marca, producto y avatar completos</p>
     <h3>¡«${esc(marcaNombre())}» ya tiene voz, oferta y cliente ideal!</h3>
-    <p class="mp-fin-sub">Has hecho la parte que más se nota. Desde ahora, <strong>cada página, email, WhatsApp y anuncio</strong> que prepares en el dashboard sonará a ${esc(marcaNombre())} y le hablará directamente a quien de verdad compra. Menos reescribir, más vender.</p>
+    <p class="mp-fin-sub">Has hecho la parte que más se nota. Desde ahora, <strong>cada página, email, WhatsApp y anuncio</strong> que prepares en AlquimIA sonará a ${esc(marcaNombre())} y le hablará directamente a quien de verdad compra. Menos reescribir, más vender.</p>
     <ul class="mp-fin-chips"><li>🏷️ Marca y tono</li><li>📦 ${nP} producto${nP === 1 ? '' : 's'} con su avatar</li><li>✨ ${nP} ficha${nP === 1 ? '' : 's'} para los prompts</li>${m.docs.length ? `<li>📄 ${m.docs.length} documento${m.docs.length === 1 ? '' : 's'}</li>` : ''}</ul>
     <h4>Lo que ya sale con tu voz</h4>
     <div class="mp-fin-usos">
@@ -311,7 +311,7 @@ function docsHtml() {
 
 function embudosHtml() {
   if (!m.productos.length) return '<p class="muted">Añade primero un producto (＋ Producto).</p>';
-  if (!ctx.embudos.length) return '<p class="muted">Para elegir el producto de cada embudo, entra en este cliente desde el selector de arriba del dashboard.</p>';
+  if (!ctx.embudos.length) return '<p class="muted">Para elegir el producto de cada embudo, entra en este cliente desde el selector de arriba de AlquimIA.</p>';
   return `<p class="muted small">Qué producto vende cada embudo: sus prompts usarán la ficha de ese producto. Sin elegir, el primero.</p>
     <div class="mk-embudos">${ctx.embudos.map((e) => `<label class="field inline"><span>${esc(e.nombre)}</span><select data-mk-embudo="${esc(e.id)}">${m.productos.map((p, i) => `<option value="${esc(p.id)}"${productoDeEmbudo(m, e.id)?.id === p.id ? ' selected' : ''}>${esc(nombreDeProducto(p, i))}</option>`).join('')}</select></label>`).join('') || '<p class="muted">Este cliente aún no tiene embudos.</p>'}</div>`;
 }

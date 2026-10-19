@@ -332,7 +332,7 @@ export function guiaDirecta(partes = partesPorDefecto()) {
   ] });
   if (on('upsell') || on('downsell')) s.push({ titulo: '2 · Upsell y downsell', pasos: [
     ...(on('upsell') ? ['Después del checkout, un paso de <strong>upsell</strong> (compra en un clic). Su workflow pone la etiqueta del upsell (p. ej. <code>upsell-curso</code>).'] : []),
-    ...(on('downsell') ? ['Si dice «no, gracias» al upsell, va al paso de <strong>downsell</strong> con su etiqueta (p. ej. <code>downsell-minicurso</code>). El dashboard calcula su % sobre quien no cogió el upsell.'] : []),
+    ...(on('downsell') ? ['Si dice «no, gracias» al upsell, va al paso de <strong>downsell</strong> con su etiqueta (p. ej. <code>downsell-minicurso</code>). AlquimIA calcula su % sobre quien no cogió el upsell.'] : []),
     'Al final, la página de <strong>gracias / acceso</strong> con lo comprado.',
   ] });
   if (on('visitas')) s.push({ titulo: `${s.length + 1} · Medir las visitas`, pasos: [
@@ -343,7 +343,7 @@ export function guiaDirecta(partes = partesPorDefecto()) {
     'Pon en el nombre de todas las campañas de este producto un texto común (p. ej. <code>LT-guia</code>) y escríbelo como «filtro de campañas»: la inversión, el CPA y el ROAS salen solos.',
     'Parámetros de URL de los anuncios: <code>utm_source={{site_source_name}}&amp;utm_medium=paid&amp;utm_campaign={{campaign.id}}&amp;utm_term={{adset.id}}&amp;utm_content={{ad.id}}</code>.',
   ] });
-  s.push({ titulo: `${s.length + 1} · En el dashboard`, pasos: [
+  s.push({ titulo: `${s.length + 1} · En AlquimIA`, pasos: [
     'Al crearlo se abre su configuración: producto y precio (con o sin IVA), etiqueta de compra, ' + [on('bumps') && 'bumps', on('upsell') && 'upsell', on('downsell') && 'downsell'].filter(Boolean).join(', ') + (on('bumps') || on('upsell') || on('downsell') ? ' (cada uno con su precio y su etiqueta), ' : '') + 'páginas y objetivos (CPA máximo, ROAS).',
     'En <em>Métricas</em>: ventas, facturación, ticket medio, CPA y ROAS por días, semanas o meses, y el % de cada extra.',
   ] });

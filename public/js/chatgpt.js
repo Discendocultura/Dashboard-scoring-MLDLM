@@ -36,12 +36,12 @@ const COMUNES = [
   'Escribe en español de España (tú/vosotros, nunca «ustedes»; nada de expresiones latinoamericanas) y sin anglicismos innecesarios.',
   'No me hagas preguntas antes de empezar, salvo que el prompt te pida expresamente parar o preguntar: si falta un dato, pon [FALTA: …] y sigue.',
   'Entrégalo COMPLETO: no resumas, no acortes, no pongas «…», «etc.» ni «(resto igual)». Si no te cabe en una respuesta, para en un punto limpio y escribe «Sigo en el siguiente mensaje».',
-  'Respeta al pie de la letra el FORMATO de salida que se pide (marcas, títulos, orden); el dashboard lo lee tal cual.',
+  'Respeta al pie de la letra el FORMATO de salida que se pide (marcas, títulos, orden); AlquimIA lo lee tal cual.',
   'Nada de muletillas de IA: ni rayas largas (—) para enlazar frases, ni «No es X, es Y», ni «En el mundo actual», ni emojis de más.',
 ];
 const FINAL = {
   texto: 'RECUERDA: español de España, el tono de la marca, el formato exacto que se pide, todo completo y [FALTA: …] donde falte un dato.',
-  codigo: 'RECUERDA: un único bloque ```html``` completo, con los códigos del dashboard tal cual y [FALTA: …] donde falte un dato.',
+  codigo: 'RECUERDA: un único bloque ```html``` completo, con los códigos de AlquimIA tal cual y [FALTA: …] donde falte un dato.',
   imagen: 'RECUERDA: genera la imagen directamente, con el texto exacto y en el formato pedido.',
 };
 

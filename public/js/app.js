@@ -1123,7 +1123,7 @@ function renderAgenciaInicio() {
       </section>
     </div>
     <section class="ag-salud">
-      <div class="ag-sec-cab"><h3>🩺 Salud de los clientes</h3><span class="muted small">Primero los que necesitan atención · pulsa «Entrar» para ir a su dashboard</span></div>
+      <div class="ag-sec-cab"><h3>🩺 Salud de los clientes</h3><span class="muted small">Primero los que necesitan atención · pulsa «Entrar» para ir a su AlquimIA</span></div>
       ${agFiltroSalud ? `<p class="ag-filtro-salud">Mostrando solo: <strong>${esc(SALUD_TXT[agFiltroSalud] || '')}</strong> <button type="button" class="link" data-ag-salud="">Ver todos los clientes</button></p>` : ''}
       <div class="ag-cli-grid">${cl.filter((c) => !agFiltroSalud || saludCliente(c).nivel === agFiltroSalud).map(tarjetaSaludAg).join('')}</div>
     </section>
@@ -1759,7 +1759,7 @@ const AYUDA_KPI = {
   'Conversión de la página de registro': 'Leads ÷ visitas únicas a la página de registro (las cuenta el código «REGISTRO · visitas únicas»). Sin ese código, registros de publicidad ÷ visitas de Meta.',
   'Conversión de la página': 'Leads ÷ visitas únicas a la página de registro (o, sin el código, ÷ visitas de Meta).',
   'Encuesta rellenada': 'Leads con la etiqueta de encuesta rellenada en este lanzamiento.',
-  'Asistencia al directo': 'Leads que entraron al directo (Zoom o el enlace del dashboard) ÷ leads totales.',
+  'Asistencia al directo': 'Leads que entraron al directo (Zoom o el enlace de AlquimIA) ÷ leads totales.',
   'Vieron el': 'Leads que vieron ese vídeo en directo o grabado ÷ leads totales.',
   'Compras totales': 'Leads con la etiqueta de compra del programa en este lanzamiento (con la fecha de compra dentro del lanzamiento, si hay campo de fecha).',
   'Ventas de Raíces de VIP': 'Compras del programa de leads que compraron la VIP.',
@@ -2983,7 +2983,7 @@ function renderSetterMetrics(m) {
   const cc = st.contactadas ? st.compraContactadas / st.contactadas : null;
   const cn = st.noContactadas ? st.compraNoContactadas / st.noContactadas : null;
   const veces = cc != null && cn ? cc / cn : null;
-  if (!st.contactadas) { $('#setter-table').innerHTML = '<div class="cv-vacio"><span aria-hidden="true">💬</span><p>Aún no hay leads contactadas por WhatsApp desde el dashboard. En cuanto la setter escriba con el botón de WhatsApp, aquí verás si las contactadas compran más.</p></div>'; return; }
+  if (!st.contactadas) { $('#setter-table').innerHTML = '<div class="cv-vacio"><span aria-hidden="true">💬</span><p>Aún no hay leads contactadas por WhatsApp desde AlquimIA. En cuanto la setter escriba con el botón de WhatsApp, aquí verás si las contactadas compran más.</p></div>'; return; }
   $('#setter-table').innerHTML = `<div class="cv-vs">
       <div class="cv-vs-a"><span>💬 Contactadas</span><strong>${pctOf(st.compraContactadas, st.contactadas)}</strong><small>${st.compraContactadas} de ${st.contactadas} compraron</small></div>
       <div class="cv-vs-x">${veces ? `<b>×${veces.toLocaleString('es-ES', { maximumFractionDigits: 1 })}</b><small>más ventas</small>` : '<b>vs</b>'}</div>
@@ -3295,7 +3295,7 @@ const AYUDA_VISTA = {
   danuncios: ['👑 Anuncios ganadores', 'Qué anuncios, conjuntos y campañas traen ventas al menor coste por venta (CAC) y cuáles traen más ventas, en el periodo elegido arriba. Lo que gasta sin vender sale al final: es lo primero que hay que apagar.'],
   dclientes: ['🛍️ Compradoras', 'Quién ha comprado en el periodo, qué extras se llevó y su WhatsApp. Filtra por un extra para ver, por ejemplo, quién cogió el upsell.'],
   anuncios: ['🎯 Crear anuncios', 'Anuncios con IA para cada objetivo del embudo (captación, retargeting de consumo, venta): copia el prompt (lleva los anuncios ganadores, la ficha de marca, avatar y producto y los datos del embudo), pégalo en Claude y él escribe los guiones y los copys y crea las imágenes y los vídeos con Magnific.'],
-  paginas: ['🧱 Páginas', 'Las páginas del embudo hechas con IA: copia el prompt de cada página (lleva la marca, el avatar, los datos del embudo y los códigos del dashboard), pégalo en Claude y pega el HTML que te devuelva en un elemento «Código personalizado» de GHL.'],
+  paginas: ['🧱 Páginas', 'Las páginas del embudo hechas con IA: copia el prompt de cada página (lleva la marca, el avatar, los datos del embudo y los códigos de AlquimIA), pégalo en Claude y pega el HTML que te devuelva en un elemento «Código personalizado» de GHL.'],
   claude: ['🧠 Analizar con Claude', 'El análisis del lanzamiento con Claude y el conector «Dashboard Datos» (Agencia → Claude): copia el prompt, pégalo en Claude y te devuelve qué funcionó, el cuello de botella y mejoras concretas para el próximo.'],
   automatizaciones: ['⚙️ Automatizaciones', 'Los workflows de GHL del embudo. Si hay que crearlos de cero, cada uno trae su prompt para que Claude lo monte en GHL (en la carpeta del lanzamiento); marca su estado y pega su enlace al terminar.'],
   imagenes: ['🖼️ Imágenes', 'Las imágenes de cada momento del lanzamiento (grabación, plazas abiertas, bonus que terminan y cierre) con su texto exacto. Cada una tiene su prompt completo, con su mockup y el estilo de la marca: copias, pegas en tu IA de imágenes y listo.'],
@@ -4286,7 +4286,7 @@ const enlaceEmail = (url) => `${url}${url.includes('?') ? '&' : '?'}cid={{contac
 // Enlace para los emails (con el ID de la lead), bien visible bajo la URL de su página.
 function pintarEnlaceEmail(box, url, pagina) {
   $(box).innerHTML = url
-    ? `<div class="ee-head"><span class="ee-ico" aria-hidden="true">✉️</span><div><strong>Enlace para tus emails a la ${pagina}</strong><span>Cópialo <strong>tal cual</strong> en los botones y enlaces de los emails de GHL. Lleva <code>?cid={{contact.id}}</code> al final: así el dashboard sabe quién la abre (y la lead entra sin login). No lo cambies.</span></div></div>
+    ? `<div class="ee-head"><span class="ee-ico" aria-hidden="true">✉️</span><div><strong>Enlace para tus emails a la ${pagina}</strong><span>Cópialo <strong>tal cual</strong> en los botones y enlaces de los emails de GHL. Lleva <code>?cid={{contact.id}}</code> al final: así AlquimIA sabe quién la abre (y la lead entra sin login). No lo cambies.</span></div></div>
       <div class="ee-fila"><code>${esc(enlaceEmail(url))}</code><button type="button" class="btn primary" data-copy-text="${esc(enlaceEmail(url))}">Copiar enlace</button></div>`
     : `<div class="ee-head ee-falta"><span class="ee-ico" aria-hidden="true">✉️</span><div><strong>Enlace para tus emails a la ${pagina}</strong><span>Pon arriba la URL de la ${pagina} y aquí aparecerá el enlace que hay que copiar en los emails.</span></div></div>`;
 }
@@ -4365,7 +4365,7 @@ function pintarTitResultados() {
   const on = t.activo;
   $('#tit-variantes').classList.toggle('apagado', !on);
   const bloque = `<h2 data-lsd-text="titular">${esc(t.general.titular || 'Titular general')}</h2>\n<p data-lsd-text="subtitular">${esc(t.general.subtitular || 'Subtitular general')}</p>`;
-  $('#tit-codigo').innerHTML = filaCopiar('Titular y subtitular para GHL', bloque, '📍 <strong>Dónde:</strong> en lugar del titular y subtitular de la página de venta, dentro de un elemento «Código personalizado» (dale el estilo que quieras). Lo escrito es el general: se ve si la lead no tiene encuesta o si el dashboard no responde. Hace falta también el bloque del pie de la página (abajo, «Para saber quién visita la página de venta»).');
+  $('#tit-codigo').innerHTML = filaCopiar('Titular y subtitular para GHL', bloque, '📍 <strong>Dónde:</strong> en lugar del titular y subtitular de la página de venta, dentro de un elemento «Código personalizado» (dale el estilo que quieras). Lo escrito es el general: se ve si la lead no tiene encuesta o si AlquimIA no responde. Hace falta también el bloque del pie de la página (abajo, «Para saber quién visita la página de venta»).');
   const vars = sanitizeTitulares(t).variantes;
   const mismo = state.launchCode === editingCode && state.leads?.length;
   if (!vars.length || !mismo) { $('#tit-resultados').innerHTML = vars.length ? '<p class="muted small">Los resultados de cada variante salen al abrir esta configuración desde el lanzamiento que estás viendo.</p>' : ''; return; }
@@ -6442,7 +6442,7 @@ function pintarLabiaVista() {
   if (url) $('#lb-abrir').href = url;
   if (d.motivo === 'sin_labia') { box.innerHTML = '<div class="card empty"><p>Este cliente no tiene LabIA contratado.</p></div>'; return; }
   if (d.motivo === 'sin_pipeline') {
-    box.innerHTML = `<div class="card empty"><h3>No encuentro el pipeline de LabIA</h3><p class="muted">Buscamos en GHL un pipeline con etapas marcadas con 🤖 (las que lleva la IA). ${puedeConfig() ? 'Elige cuál es en <strong>Mi negocio → Conexiones → Setter IA</strong>.' : 'Pide a quien configura el dashboard que lo elija en Conexiones.'}</p></div>`;
+    box.innerHTML = `<div class="card empty"><h3>No encuentro el pipeline de LabIA</h3><p class="muted">Buscamos en GHL un pipeline con etapas marcadas con 🤖 (las que lleva la IA). ${puedeConfig() ? 'Elige cuál es en <strong>Mi negocio → Conexiones → Setter IA</strong>.' : 'Pide a quien configura AlquimIA que lo elija en Conexiones.'}</p></div>`;
     return;
   }
   if (d.motivo === 'error') { box.innerHTML = `<p class="error">${esc(d.error)}</p>`; return; }
@@ -6780,7 +6780,7 @@ function renderMetaNaming() {
   const campaign = `Captación webinar ${code}`;
   $('#meta-naming').innerHTML = `
     <strong>📣 Antes de lanzar los anuncios en Meta</strong>
-    <p>1. Nombra la campaña de captación de este lanzamiento con su código. El dashboard solo suma la inversión de las campañas cuyo nombre contiene <code>${esc(filtro)}</code>:</p>
+    <p>1. Nombra la campaña de captación de este lanzamiento con su código. AlquimIA solo suma la inversión de las campañas cuyo nombre contiene <code>${esc(filtro)}</code>:</p>
     <div class="copy-row"><code>${esc(campaign)}</code><button type="button" class="btn" data-copy-text="${esc(campaign)}">Copiar</button></div>
     <p>2. En cada anuncio, en <em>Parámetros de URL</em>, pega esto (así cada lead llega con su campaña, conjunto y anuncio):</p>
     <div class="copy-row"><code>${esc(UTM_PARAMS)}</code><button type="button" class="btn" data-copy-text="${esc(UTM_PARAMS)}">Copiar</button></div>
@@ -6844,7 +6844,7 @@ function snippetsLanzamiento(code) {
       '<div data-lsd-if="vip-abierta">\n  Entrada VIP por <span data-lsd-text="precioVip"></span> · se cierra en <span data-lsd-countdown="vip"></span>\n  <a data-lsd-link="vip">Quiero mi entrada VIP</a>\n</div>\n<div data-lsd-if="ya-vip">✓ Ya tienes tu entrada VIP</div>']]),
     ['RECURSOS · botón del grupo de WhatsApp', '<a data-lsd-link="whatsapp" target="_blank">Unirme al grupo de WhatsApp</a>'],
     ['RECURSOS · botón del directo', '<a data-lsd-link="directo">Entrar al directo</a>'],
-    ['RECURSOS · plan B del directo: botón directo a Zoom (solo aparece el día del directo, desde su hora y durante 3 h, y solo si el dashboard no carga; ponlo arriba de la preclase y bajo el acceso. Lleva la fecha, la hora y el Zoom de ESTE lanzamiento: vuelve a pegarlo si cambian)', respaldoDirecto(state.config.launches[code])],
+    ['RECURSOS · plan B del directo: botón directo a Zoom (solo aparece el día del directo, desde su hora y durante 3 h, y solo si AlquimIA no carga; ponlo arriba de la preclase y bajo el acceso. Lleva la fecha, la hora y el Zoom de ESTE lanzamiento: vuelve a pegarlo si cambian)', respaldoDirecto(state.config.launches[code])],
     ['RECURSOS · encuesta (sin ella no se ven las clases 1 y 2)',
       '<div data-lsd-if="encuesta-pendiente">\n  Antes de ver las clases, cuéntanos un poco sobre ti\n  <a data-lsd-link="encuesta">Rellenar la encuesta</a>\n</div>\n<div data-lsd-if="encuesta-hecha">✓ ¡Gracias por rellenar la encuesta!</div>'],
     // Recursos de la preclase (pestaña Preclase): música, test, votación, descargable y etapas.
@@ -7134,7 +7134,7 @@ function analisisCard() {
   const [c, l] = a.objetivo;
   return `<section class="card an-ia">
     <div class="an-ia-txt"><h3>🧠 Análisis del lanzamiento con Claude</h3>
-      <p class="muted">${a.cerrado ? 'Este lanzamiento ya ha cerrado' : `Antes de preparar este, analiza el anterior: <strong>${esc(l.name || c)}</strong>`}. Claude saca los datos del dashboard (métricas${a.anteriores.length ? ` comparadas con ${esc(a.anteriores.map(([x, y]) => y.name || x).join(' y '))}` : ''}, encuesta, emails y tareas) y te da mejoras concretas, con su dato, su razonamiento y su prioridad.</p>
+      <p class="muted">${a.cerrado ? 'Este lanzamiento ya ha cerrado' : `Antes de preparar este, analiza el anterior: <strong>${esc(l.name || c)}</strong>`}. Claude saca los datos de AlquimIA (métricas${a.anteriores.length ? ` comparadas con ${esc(a.anteriores.map(([x, y]) => y.name || x).join(' y '))}` : ''}, encuesta, emails y tareas) y te da mejoras concretas, con su dato, su razonamiento y su prioridad.</p>
       <p class="small muted">Pega el prompt en Claude con el conector <strong>Dashboard Datos</strong> activado (Agencia → Claude).</p></div>
     <div class="an-ia-acc"><button type="button" class="btn primary" id="an-ia-copiar">📋 Copiar el prompt</button><button type="button" class="btn ghost" id="an-ia-ver">Ver el prompt</button></div>
     <pre class="enc-ia-prompt" id="an-ia-prompt" hidden></pre>
@@ -7243,7 +7243,7 @@ function renderAutomatizaciones() {
       </div>
       <div class="au-progreso"><strong>${n.creada} de ${lista.length}</strong> creadas · ${n.probada} probadas
         <div class="obj-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div></div>
-      ${c.registroDistinta ? `<p class="au-falta">⚠️ La etiqueta de registro de la Configuración es «${esc(c.registroDistinta)}» y no sigue la nomenclatura: los workflows usarán <strong>«${esc(c.registroPropuesta)}»</strong>. Cámbiala también en Configuración → Etiquetas (botón «Poner…») para que el dashboard cuente los leads.${irA('tab:etiquetas', 'Abrir Etiquetas')}</p>` : ''}
+      ${c.registroDistinta ? `<p class="au-falta">⚠️ La etiqueta de registro de la Configuración es «${esc(c.registroDistinta)}» y no sigue la nomenclatura: los workflows usarán <strong>«${esc(c.registroPropuesta)}»</strong>. Cámbiala también en Configuración → Etiquetas (botón «Poner…») para que AlquimIA cuente los leads.${irA('tab:etiquetas', 'Abrir Etiquetas')}</p>` : ''}
       ${origen === 'cero' ? `<p class="small muted">ℹ️ El conector de GHL no puede crear workflows (la API solo los lee). Claude los monta desde el navegador (<strong>Claude in Chrome</strong> o <strong>Cowork</strong>), en la carpeta <strong>«${esc(c.carpeta)}»</strong>, y los deja en borrador para que los revises. Si tu GHL tiene el asistente de IA de workflows, usa «Para la IA de GHL». Cuando esté creado, pega su URL: pasa a Configuración → Accesos y enlaces.</p>` : ''}
     </section>
     ${origen === 'cero' ? `<section class="card au-prep"><div><h4>0 · Antes de empezar: preparar GHL</h4><p class="muted small">Crea la carpeta «${esc(c.carpeta)}», comprueba y crea las etiquetas (${esc([c.registroTag || c.registroPropuesta, c.compraTag].filter(Boolean).join(', ') || '…')}) y lista lo que falte.</p></div><button type="button" class="btn primary small" data-au-prep>📋 Copiar el prompt</button></section>` : ''}
@@ -7847,7 +7847,7 @@ function renderEquipo() {
       <td class="muted">${fmt(u.lastLogin)}</td>
       <td class="eq-actions">
         <button type="button" class="btn" data-eq="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
-        ${state.superadmin && u.id !== state.user?.id ? '<button type="button" class="btn ghost" data-eq="vercomo" title="Ver el dashboard exactamente como lo ve esta persona (solo para mirar)">👁️ Ver como</button>' : ''}
+        ${state.superadmin && u.id !== state.user?.id ? '<button type="button" class="btn ghost" data-eq="vercomo" title="Ver AlquimIA exactamente como lo ve esta persona (solo para mirar)">👁️ Ver como</button>' : ''}
         ${state.superadmin && u.id !== state.user?.id ? '<button type="button" class="btn ghost" data-eq="agencia" title="Pasa a ser del equipo de la agencia, con los mismos accesos">🏢 Pasar a la agencia</button>' : ''}
         ${u.id === state.user?.id ? '' : `<button type="button" class="btn ghost" data-eq="${u.activo ? 'desactivar' : 'activar'}">${u.activo ? 'Desactivar' : 'Activar'}</button>
         <button type="button" class="btn ghost" data-eq="borrar" aria-label="Borrar">✕</button>`}
@@ -7912,7 +7912,7 @@ const rolOnbDe = (r) => (r === ROL_CLIENTE ? 'cliente' : r === ROL_OPERATIVA ? '
 function onbCelda(u) {
   const o = u.onboarding || { hecho: true };
   const repetir = u.id === state.user?.id ? '' : '<button type="button" class="link small" data-eq="onb-reiniciar" title="Le vuelve a salir la bienvenida, el recorrido y los primeros pasos la próxima vez que entre">↺ Repetir</button>';
-  if (o.hecho) return `<span class="muted small" title="Ya usaba el dashboard antes del onboarding">—</span> ${repetir}`;
+  if (o.hecho) return `<span class="muted small" title="Ya usaba AlquimIA antes del onboarding">—</span> ${repetir}`;
   const p = progresoDe(o, rolOnbDe(u.rol));
   return `<span class="eq-onb${p.hecho ? ' ok' : ''}" title="${p.hechos} de ${p.total} primeros pasos"><span class="eq-onb-barra"><i style="width:${Math.round((p.hechos / p.total) * 100)}%"></i></span>${p.hecho ? '✓ Todo' : `${p.hechos}/${p.total}`}</span> ${repetir}`;
 }
@@ -8024,7 +8024,7 @@ $('#equipo-list').addEventListener('click', async (e) => {
       const { user } = await api('/api/usuarios', { method: 'POST', body: { op: 'editar', id, embudos } });
       Object.assign(u, { embudos: user.embudos });
       renderEquipo();
-      equipoResult(user.embudos.length ? `${user.nombre} solo verá ${user.embudos.length === 1 ? 'ese embudo' : `esos ${user.embudos.length} embudos`} (al recargar el dashboard).` : `${user.nombre} verá todos los embudos.`);
+      equipoResult(user.embudos.length ? `${user.nombre} solo verá ${user.embudos.length === 1 ? 'ese embudo' : `esos ${user.embudos.length} embudos`} (al recargar AlquimIA).` : `${user.nombre} verá todos los embudos.`);
     } catch (err) { equipoResult(err.message, true); b.disabled = false; }
     return;
   }
@@ -8266,7 +8266,7 @@ async function loadRendimiento() {
       const cierre = x.llamadas || x.noshows || x.cierres;
       return `<article class="rp-card${x.sinActividad ? ' rp-vacia' : ''}">
         <header><span class="rp-av" aria-hidden="true">${esc(iniciales(x.nombre.replace(/[^\p{L}\s]/gu, ' ')))}</span><div><strong>${esc(x.nombre)}</strong>${x.rol ? `<small>${esc(roleLabel(x.rol))}</small>` : ''}</div></header>
-        ${x.sinActividad ? '<p class="rp-nada">Sin actividad registrada desde el dashboard. Cuenta lo que envía con el botón de WhatsApp y los resultados que anota.</p>' : `
+        ${x.sinActividad ? '<p class="rp-nada">Sin actividad registrada desde AlquimIA. Cuenta lo que envía con el botón de WhatsApp y los resultados que anota.</p>' : `
         ${setting || !cierre ? `<div class="rp-bloque"><h4>💬 Setting</h4><div class="rp-datos">${dato('WhatsApps', x.wa)}${dato('Contactados', x.contactados)}${dato('Respuesta', horasTxt(x.respuestaMediana), 'Mediana desde el registro hasta su primer WhatsApp')}${dato('En <24 h', pc(x.en24h))}${dato('Resultados', res, resTit)}</div></div>` : ''}
         ${cierre ? `<div class="rp-bloque"><h4>📞 Llamadas</h4><div class="rp-datos">${dato('Shows', x.shows)}${dato('No shows', x.noshows)}${dato('Cierres', x.cierres)}${dato('% cierre', pc(x.cierreRate))}</div></div>` : ''}
         <footer><span>Ventas de sus contactados</span><strong>${x.ventas} <small>${pc(x.conversion)}</small></strong><b>${eur(x.importe || null)}</b></footer>`}
@@ -8281,7 +8281,7 @@ async function loadRendimiento() {
       <div id="rend-setter"></div>
       <h3 class="rp-titulo">👥 Personas del equipo</h3>
       ${r.personas.length ? `<div class="rp-grid">${r.personas.map(tarjeta).join('')}</div>
-      <p class="muted small">«Ventas de sus contactados»: compras de los leads a los que esa persona escribió primero (para comisiones). Los cierres son las llamadas con resultado «Venta».${rango ? ' Periodo: el elegido en Métricas de la VSL.' : ''}</p>` : '<p class="muted">Aún no hay nadie en el equipo de este cliente con actividad: aparecerá en cuanto se envíen WhatsApps o se anoten resultados desde el dashboard.</p>'}`;
+      <p class="muted small">«Ventas de sus contactados»: compras de los leads a los que esa persona escribió primero (para comisiones). Los cierres son las llamadas con resultado «Venta».${rango ? ' Periodo: el elegido en Métricas de la VSL.' : ''}</p>` : '<p class="muted">Aún no hay nadie en el equipo de este cliente con actividad: aparecerá en cuanto se envíen WhatsApps o se anoten resultados desde AlquimIA.</p>'}`;
     cargarSetterRend(code, fuente, rango || rangoLanzamiento(launch, fuente));
   } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
@@ -8501,7 +8501,7 @@ function bienvenida(me) {
   const u = me.user;
   const nombre = String(u.nombre || '').trim().split(/\s+/)[0];
   const marca = Boolean(u.marcaObligatoria);
-  const pasos = ['Tu contraseña', ...(marca ? ['Tu marca'] : []), 'Tu dashboard'];
+  const pasos = ['Tu contraseña', ...(marca ? ['Tu marca'] : []), 'Tu AlquimIA'];
   for (const id of ['#app', '#login', '#portal']) $(id).hidden = true;
   $('#bienvenida').hidden = false;
   $('#bv-pasos').innerHTML = pasos.map((p, i) => `<li class="${i === 0 ? 'on' : ''}"><b>${i + 1}</b><span>${esc(p)}</span></li>`).join('');
@@ -8549,7 +8549,7 @@ function bienvenida(me) {
         await api('/api/usuarios', { method: 'POST', body: { op: 'mi-clave-inicial', nueva: c1.value } });
         // ¡Listo!: el primer paso, hecho; si le toca la ficha de marca, es lo siguiente.
         $$('#bv-pasos li').forEach((li, i) => { li.classList.toggle('hecho', i === 0); li.classList.toggle('on', i === 1); });
-        $('#bv-cuerpo').innerHTML = `<div class="bv-ok" aria-live="polite"><div class="bv-ok-ico">✓</div><h1>¡Contraseña guardada!</h1><p class="bv-sub">${marca ? 'Ahora vamos con tu marca: unas preguntas para conocerte bien.' : 'Ya está todo. Entrando en tu dashboard…'}</p></div>`;
+        $('#bv-cuerpo').innerHTML = `<div class="bv-ok" aria-live="polite"><div class="bv-ok-ico">✓</div><h1>¡Contraseña guardada!</h1><p class="bv-sub">${marca ? 'Ahora vamos con tu marca: unas preguntas para conocerte bien.' : 'Ya está todo. Entrando en tu AlquimIA…'}</p></div>`;
         setTimeout(() => { $('#bienvenida').hidden = true; resolver(); }, 1600);
       } catch (err) {
         $('#bv-error').textContent = err.message;
@@ -8733,7 +8733,7 @@ function pintarAgenciaEquipo() {
       <td class="muted">${fechaAge(u.lastLogin)}</td>
       <td class="eq-actions"><button type="button" class="btn" data-age="editar">Clientes y rol</button>
         <button type="button" class="btn ghost" data-age="regenerar" title="Genera una contraseña nueva y se la envía por email">Reenviar acceso</button>
-        ${u.id === state.user?.id ? '' : '<button type="button" class="btn ghost" data-age="vercomo" title="Ver el dashboard exactamente como lo ve esta persona (solo para mirar)">👁️ Ver como</button>'}
+        ${u.id === state.user?.id ? '' : '<button type="button" class="btn ghost" data-age="vercomo" title="Ver AlquimIA exactamente como lo ve esta persona (solo para mirar)">👁️ Ver como</button>'}
         ${u.id === state.user?.id ? '' : '<button type="button" class="btn ghost" data-age="quitar" title="Quitar del equipo de la agencia (pierde el acceso a todos los clientes)">✕</button>'}</td></tr>`).join('')}</tbody></table></div>`
     : '<p class="muted">Todavía no hay nadie en el equipo de la agencia.</p>';
   // Gente de los proyectos: con un clic pasa a ser del equipo de la agencia (conserva sus accesos).
@@ -8743,7 +8743,7 @@ function pintarAgenciaEquipo() {
       <div class="table-scroll"><table class="metric-table equipo-table"><tbody>${deProyectos.map((u) => `<tr data-age-uid="${esc(u.id)}" class="${u.activo ? '' : 'inactivo'}">
         <td><span class="t-who">${avatarHtml(u)}<span><strong>${esc(u.nombre)}</strong><br><span class="muted">${esc(u.email)}</span></span></span></td>
         <td>${Object.entries(u.accesos || {}).map(([cid, r]) => `<span class="age-cli"><strong>${esc(nombreCli(cid))}</strong> · ${esc(rolLabel(cid, r))}</span>`).join('') || '<span class="muted">Sin clientes</span>'}</td>
-        <td class="eq-actions"><button type="button" class="btn" data-age="pasar" title="Pasa a ser del equipo de la agencia, con los mismos accesos">🏢 Pasar a la agencia</button><button type="button" class="btn ghost" data-age="vercomo" title="Ver el dashboard exactamente como lo ve esta persona (solo para mirar)">👁️ Ver como</button></td></tr>`).join('')}</tbody></table></div></details>`);
+        <td class="eq-actions"><button type="button" class="btn" data-age="pasar" title="Pasa a ser del equipo de la agencia, con los mismos accesos">🏢 Pasar a la agencia</button><button type="button" class="btn ghost" data-age="vercomo" title="Ver AlquimIA exactamente como lo ve esta persona (solo para mirar)">👁️ Ver como</button></td></tr>`).join('')}</tbody></table></div></details>`);
   }
   $('#age-accesos-nuevo').innerHTML = gridAccesos();
 }
@@ -8853,7 +8853,7 @@ $('#cl-copiar').addEventListener('click', async (e) => {
 });
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-cl-quitar]');
-  if (!b || !window.confirm('¿Desconectar Claude? Dejará de poder consultar el dashboard con esta conexión.')) return;
+  if (!b || !window.confirm('¿Desconectar Claude? Dejará de poder consultar AlquimIA con esta conexión.')) return;
   b.disabled = true;
   try { await api('/api/oauth/conexiones', { method: 'POST', body: { op: 'revocar', id: b.dataset.clQuitar } }); notice('Claude desconectado.'); } catch (err) { notice(err.message, true); }
   cargarClaude();
@@ -8928,7 +8928,7 @@ async function loadMarca() {
     </div>
     <h3 class="cfg-h3">Encuesta del avatar</h3>
     <p class="muted">Las preguntas de la encuesta de GHL (cada una guarda su respuesta en un campo personalizado del contacto). Se cruzan con las ventas en «Avatar y anuncios». Elige el campo de la lista de GHL: el tipo (opciones o texto) se pone solo; para la edad, elige «Edad».</p>
-    <p class="muted small">ⓘ Si en GHL creas una pregunta nueva o duplicas una, GHL crea un campo nuevo: añádelo aquí (y quita el antiguo) para que el dashboard lea las respuestas nuevas. Si solo cambias el texto o las opciones de una pregunta, el campo es el mismo y no hay que tocar nada.</p>
+    <p class="muted small">ⓘ Si en GHL creas una pregunta nueva o duplicas una, GHL crea un campo nuevo: añádelo aquí (y quita el antiguo) para que AlquimIA lea las respuestas nuevas. Si solo cambias el texto o las opciones de una pregunta, el campo es el mismo y no hay que tocar nada.</p>
     <div id="mc-preguntas">${preguntas.map(fila).join('')}</div>
     <button type="button" class="btn" id="mc-add">+ Añadir pregunta</button>
     <p class="muted small">Los mensajes de WhatsApp se cambian en <em>Setting hoy → Mensajes de WhatsApp</em> (pueden usar <code>{producto}</code>) y las tareas habituales, en <em>Tareas</em>.</p>
@@ -8952,7 +8952,7 @@ async function loadMarca() {
     try {
       const { config } = await api('/api/config', { method: 'POST', body: { op: 'marca', marca: { producto: $('#mc-producto').value.trim(), color: $('#mc-color').value, color2: $('#mc-color2').value }, encuesta } });
       state.config = config;
-      st.textContent = 'Guardado ✓ Recarga el dashboard para ver el nombre nuevo en todos los textos.';
+      st.textContent = 'Guardado ✓ Recarga AlquimIA para ver el nombre nuevo en todos los textos.';
     } catch (err) { st.textContent = err.message; }
   };
 }
@@ -8972,7 +8972,7 @@ async function loadHistorial() {
     const d = await api(`/api/historial?ambito=${ambito}`);
     $('#hist-exportar').hidden = !d.disponible;
     if (!d.disponible) {
-      box.innerHTML = `<div class="notice">El historial y las copias necesitan la base de datos propia del dashboard (Cloudflare D1), que aún no está conectada. Mientras tanto, los datos siguen guardándose en GHL como siempre.${state.superadmin ? ' <br><small>Cómo conectarla: README → «Base de datos (D1)».</small>' : ''}</div>`;
+      box.innerHTML = `<div class="notice">El historial y las copias necesitan la base de datos propia de AlquimIA (Cloudflare D1), que aún no está conectada. Mientras tanto, los datos siguen guardándose en GHL como siempre.${state.superadmin ? ' <br><small>Cómo conectarla: README → «Base de datos (D1)».</small>' : ''}</div>`;
       return;
     }
     const cambios = d.cambios.length
@@ -9001,7 +9001,7 @@ $('#hist-body').addEventListener('click', async (ev) => {
   b.disabled = true;
   try {
     await api('/api/historial', { method: 'POST', body: { op: 'restaurar', id: Number(b.dataset.restaurar), ambito: histAmbito() } });
-    alert('Restaurado ✓ Recarga el dashboard para ver los datos como estaban.');
+    alert('Restaurado ✓ Recarga AlquimIA para ver los datos como estaban.');
     loadHistorial();
   } catch (e) { alert(e.message); b.disabled = false; }
 });
@@ -9031,7 +9031,7 @@ async function loadSeguridad() {
       <h3 class="cfg-h3">Intentos de entrar</h3>
       <p class="muted">Tras ${d.limites.fallos} intentos fallidos con un mismo email (o ${d.limites.fallosIp} desde una misma conexión) se bloquea ${d.limites.minutos} minutos. ${d.limites.compartido ? '' : 'Sin la base de datos D1, cada servidor de Cloudflare cuenta por su lado (protege menos).'}</p>
       <h3 class="cfg-h3">Permisos del token de GHL de este cliente</h3>
-      <p class="muted">Comprueba, solo leyendo (no cambia nada), a qué partes de GHL llega el token. Lo que salga en rojo hay que marcarlo en GHL → Ajustes → Integraciones privadas → la del dashboard → permisos.</p>
+      <p class="muted">Comprueba, solo leyendo (no cambia nada), a qué partes de GHL llega el token. Lo que salga en rojo hay que marcarlo en GHL → Ajustes → Integraciones privadas → la de AlquimIA → permisos.</p>
       <div class="row"><button type="button" class="btn" id="seg-token">Comprobar permisos</button></div>
       <div id="seg-token-res"></div>`;
   } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
@@ -9055,7 +9055,7 @@ $('#seg-body').addEventListener('click', async (ev) => {
     try {
       const { permisos } = await api('/api/seguridad', { method: 'POST', body: { op: 'probar-token' } });
       const mal = permisos.filter((p) => !p.ok).length;
-      res.innerHTML = `<p class="${mal ? 'error' : 'ok-txt'}">${mal ? `Faltan ${mal} permiso${mal === 1 ? '' : 's'}` : 'El token llega a todo lo que usa el dashboard ✓'}</p>
+      res.innerHTML = `<p class="${mal ? 'error' : 'ok-txt'}">${mal ? `Faltan ${mal} permiso${mal === 1 ? '' : 's'}` : 'El token llega a todo lo que usa AlquimIA ✓'}</p>
         <ul class="perm-lista">${permisos.map((p) => `<li><span>${p.ok ? '✅' : '❌'}</span><span><strong>${esc(p.nombre)}</strong> <code class="small">${esc(p.scope)}</code></span>
           <small class="${p.ok ? 'muted' : 'error'}">${esc(p.ok ? `${p.para}${p.nota ? ` · ${p.nota}` : ''}` : `${p.error} · Se usa para: ${p.para}`)}</small></li>`).join('')}</ul>
         <p class="muted small">Los permisos de escritura (.write) no se pueden probar sin cambiar nada: márcalos también en la integración.</p>`;
@@ -9122,7 +9122,7 @@ function pintarClientes(lista) {
         ${c.principal ? '' : `<button type="button" class="btn" data-cl-op="integrar">🔌 Conexiones</button>`}
         <button type="button" class="btn ghost" data-cl-op="probar">Probar conexión</button>
         <span class="spacer"></span>
-        ${c.principal ? '' : '<button type="button" class="btn ghost danger" data-cl-op="borrar" title="Quitar del dashboard (no borra nada de su GHL)">Quitar cliente</button>'}
+        ${c.principal ? '' : '<button type="button" class="btn ghost danger" data-cl-op="borrar" title="Quitar de AlquimIA (no borra nada de su GHL)">Quitar cliente</button>'}
       </div>
     </div></article>`;
   };
@@ -9228,7 +9228,7 @@ function pintarIntegrarCrm() {
   const pasos = pasosDe(s, modo, c);
   const n = pasos.filter((p) => hechos.includes(p.id)).length;
   const intro = {
-    crm: 'Conecta su GoHighLevel con el dashboard: <strong>5 pasos, unos 5 minutos</strong>. Ve en orden: cada paso se abre al terminar el anterior.',
+    crm: 'Conecta su GoHighLevel con AlquimIA: <strong>5 pasos, unos 5 minutos</strong>. Ve en orden: cada paso se abre al terminar el anterior.',
     meta: `Para ver su <strong>inversión, coste por lead y anuncios ganadores</strong>. ¿Dónde está su cuenta publicitaria?`,
     zoom: `Los directos de sus lanzamientos se crean e inscriben en Zoom. ¿Qué cuenta de Zoom usa ${esc(c.nombre)}?`,
     sendflow: `Para ver las entradas y salidas de sus grupos de WhatsApp. ¿Qué cuenta de SendFlow usa ${esc(c.nombre)}?`,
@@ -9238,10 +9238,10 @@ function pintarIntegrarCrm() {
   const sinPasos = sv.opciones && modo && !pasos.length
     ? `<div class="g-sinpasos">${modo === 'ninguno' ? `<p>🚫 ${esc(c.nombre)} no usa ${sv.corto}. Si cambia, vuelve aquí y elige otra opción.</p>` : `<p>🎉 <strong>No hay que crear nada.</strong> Usará ${s === 'zoom' ? 'la cuenta de Zoom' : 'la cuenta de SendFlow'} de la agencia (las mismas claves que ya están en Cloudflare).</p>`}</div>` : '';
   const probar = !modo || modo === 'ninguno' ? '' : comprobarHtml(s, {
-    crm: { titulo: 'Comprueba la conexión', texto: 'El dashboard intenta leer su GHL.', boton: 'Comprobar conexión' },
-    meta: { titulo: 'Comprueba Meta', texto: 'El dashboard intenta leer su cuenta publicitaria. Si todo está bien, verás su nombre.', boton: 'Comprobar Meta' },
-    zoom: { titulo: 'Comprueba Zoom', texto: 'El dashboard pide acceso a la cuenta de Zoom con sus credenciales.', boton: 'Comprobar Zoom' },
-    sendflow: { titulo: 'Comprueba SendFlow', texto: 'El dashboard lee sus campañas (una sola petición).', boton: 'Comprobar SendFlow' },
+    crm: { titulo: 'Comprueba la conexión', texto: 'AlquimIA intenta leer su GHL.', boton: 'Comprobar conexión' },
+    meta: { titulo: 'Comprueba Meta', texto: 'AlquimIA intenta leer su cuenta publicitaria. Si todo está bien, verás su nombre.', boton: 'Comprobar Meta' },
+    zoom: { titulo: 'Comprueba Zoom', texto: 'AlquimIA pide acceso a la cuenta de Zoom con sus credenciales.', boton: 'Comprobar Zoom' },
+    sendflow: { titulo: 'Comprueba SendFlow', texto: 'AlquimIA lee sus campañas (una sola petición).', boton: 'Comprobar SendFlow' },
   }[s]);
   const entra = it.pintada !== s; // la animación de entrada, solo al cambiar de etapa
   it.pintada = s;
@@ -9409,7 +9409,7 @@ $('#clientes-list').addEventListener('click', async (e) => {
   if (op === 'entrar') { cambiarCliente(id); return; }
   if (op === 'integrar' || op === 'meta') { abrirIntegrarCrm(id, op === 'meta' ? 'meta' : undefined); return; }
   if (op.startsWith('cx-')) { abrirIntegrarCrm(id, op.slice(3)); return; }
-  if (op === 'borrar' && !window.confirm(`¿Quitar a «${c.nombre}» del dashboard? Su equipo perderá el acceso. No se borra nada de su GHL y puedes volver a añadirlo.`)) return;
+  if (op === 'borrar' && !window.confirm(`¿Quitar a «${c.nombre}» de AlquimIA? Su equipo perderá el acceso. No se borra nada de su GHL y puedes volver a añadirlo.`)) return;
   b.disabled = true;
   try {
     if (op === 'probar') {
@@ -11145,7 +11145,7 @@ $('#btn-roles-save').addEventListener('click', async () => {
     state.roles = d.roles.map(({ id, label }) => ({ id, label }));
     fillRolSelects();
     renderRoles();
-    rolesResult('Roles y permisos guardados ✓ Cada persona verá los cambios al recargar el dashboard.');
+    rolesResult('Roles y permisos guardados ✓ Cada persona verá los cambios al recargar AlquimIA.');
   } catch (e) {
     rolesResult(e.message, true);
   } finally {
@@ -11553,7 +11553,7 @@ function pintarCodigoMeta(inputId, tipo, id, nombre = '') {
   box.innerHTML = `<div class="meta-cod-fila">📣 <span>Código para el nombre de sus campañas en Meta:</span> <code>${esc(cod)}</code>
       <button type="button" class="btn ghost small" data-meta-copiar="${esc(cod)}">Copiar</button>
       ${enUso ? '<span class="meta-cod-ok">✓ En uso</span>' : `<button type="button" class="btn small" data-meta-usar="${esc(inputId)}">Usar este</button>`}</div>
-    <p class="muted small">Ponlo al principio del nombre de <strong>cada campaña</strong> de este embudo, p. ej. «${esc(ejemploCampana(cod))}». El dashboard suma solo la inversión de las campañas que lo llevan (da igual mayúsculas o acentos).</p>
+    <p class="muted small">Ponlo al principio del nombre de <strong>cada campaña</strong> de este embudo, p. ej. «${esc(ejemploCampana(cod))}». AlquimIA suma solo la inversión de las campañas que lo llevan (da igual mayúsculas o acentos).</p>
     ${!v && tipo === 'vsl' ? '<p class="meta-cod-aviso">⚠️ Está vacío: ahora se suma la inversión de <strong>toda la cuenta</strong> de Meta. Pulsa «Usar este».</p>' : ''}
     ${choques.length ? `<p class="meta-cod-aviso">⚠️ «${esc(efectivo)}» choca con ${esc(choques.slice(0, 3).join(', '))}: las campañas de uno contarían también en el otro. Usa el código propuesto.</p>` : ''}`;
 }
@@ -11843,7 +11843,7 @@ function propuestasEmbudo(id) {
 }
 
 // ---------- Asistente por pasos ----------
-const PASO_LABEL = { tipo: 'Tipo de embudo', preclase: 'Prelanzamiento', directa: 'Qué lleva', contenido: 'Páginas y WhatsApp', dashboard: 'Dashboard', final: 'Nombre y resumen' };
+const PASO_LABEL = { tipo: 'Tipo de embudo', preclase: 'Prelanzamiento', directa: 'Qué lleva', contenido: 'Páginas y WhatsApp', dashboard: 'AlquimIA', final: 'Nombre y resumen' };
 let embPaso = 0;
 function pasosEmb() {
   const plantilla = !embEdit && $('#emb-plantilla').value;
@@ -11924,7 +11924,7 @@ function pintarEmbGuia() {
     pasos.push({ titulo: `${pasos.length + 1} · Recursos de la preclase`, pasos: [
       ...(rec.includes('musica') ? ['<strong>Música:</strong> sube el MP3 a GHL → <em>Medios</em> y copia su enlace (va en Configuración → Preclase).'] : []),
       ...(rec.includes('test') ? ['<strong>Test:</strong> crea el test en GHL y un <strong>workflow</strong> que, al enviarlo, ponga una etiqueta (p. ej. <code>autodiagnostico-hecho</code>). Esa etiqueta y la fecha de desbloqueo van en Configuración → Preclase.'] : []),
-      ...(rec.includes('votacion') ? ['<strong>Votación:</strong> la hace el dashboard, no hace falta nada en GHL; escribe las preguntas (tipo test o de respuesta libre) en Configuración → Preclase.'] : []),
+      ...(rec.includes('votacion') ? ['<strong>Votación:</strong> la hace AlquimIA, no hace falta nada en GHL; escribe las preguntas (tipo test o de respuesta libre) en Configuración → Preclase.'] : []),
       ...(rec.includes('descargable') ? ['<strong>Descargable:</strong> sube el PDF a GHL → <em>Medios</em> (o a Drive) y copia su enlace.'] : []),
       'En la página preclase pega los bloques de <em>Configuración → Códigos</em> (música, test, votación y etapas).',
     ] });
@@ -12055,7 +12055,7 @@ $('#emb-subtipo').addEventListener('change', pintarEmbGuia);
 $('#emb-crear').addEventListener('click', async () => {
   const pestanas = embPestanas();
   const ocultas = embOcultas();
-  if (!pestanas.length && !(!embEdit && $('#emb-plantilla').value)) { $('#emb-status').textContent = 'Deja al menos una sección marcada en el paso «Dashboard».'; return; }
+  if (!pestanas.length && !(!embEdit && $('#emb-plantilla').value)) { $('#emb-status').textContent = 'Deja al menos una sección marcada en el paso «AlquimIA».'; return; }
   const todas = pestanas.length === PESTANAS[embTipo()].length;
   const b = $('#emb-crear');
   b.disabled = true;
@@ -12120,7 +12120,7 @@ async function eliminarEmbudo(id) {
     window.alert('Este embudo tiene lanzamientos. Bórralos antes (Configuración → Datos básicos) o déjalo y desactiva sus pestañas.');
     return false;
   }
-  if (!window.confirm(`¿Eliminar el embudo «${e.nombre}» del dashboard? Se borra su configuración. Sus contactos, etiquetas y páginas de GHL no se tocan.`)) return false;
+  if (!window.confirm(`¿Eliminar el embudo «${e.nombre}» de AlquimIA? Se borra su configuración. Sus contactos, etiquetas y páginas de GHL no se tocan.`)) return false;
   const vsls = { ...state.config.vsls };
   delete vsls[id];
   const directas = { ...(state.config.directas || {}) };
@@ -12478,7 +12478,7 @@ $('#mt-guardar').addEventListener('click', async () => {
 });
 $('#mt-borrar').addEventListener('click', async () => {
   const code = meteoEdit?.code;
-  if (!code || !window.confirm(`¿Eliminar el meteórico «${state.config.meteoricos[code].name}» del dashboard? Las etiquetas y páginas de GHL no se tocan.`)) return;
+  if (!code || !window.confirm(`¿Eliminar el meteórico «${state.config.meteoricos[code].name}» de AlquimIA? Las etiquetas y páginas de GHL no se tocan.`)) return;
   const resto = { ...state.config.meteoricos };
   delete resto[code];
   try {
@@ -13676,7 +13676,7 @@ function renderDirectaMetricas(D) {
   };
   $('#dir-dias').innerHTML = dias.length || ddMes ? `<section class="card dd-card"><div class="dd-cab"><h3>📅 Día a día ${selMes}</h3>
     <div class="dd-res"><span><small>Ventas</small><b>${totV}</b></span><span><small>Media al día</small><b>${(totV / dias.length).toLocaleString('es-ES', { maximumFractionDigits: 1 })}</b></span>${mejor?.ventas ? `<span><small>Mejor día</small><b>${mejor.ventas}</b><em>${esc(fDia(mejor.dia, { weekday: 'short', day: 'numeric', month: 'short' }))}</em></span>` : ''}<span><small>Días con ventas</small><b>${conVentas}</b><em>de ${dias.length}</em></span></div></div>
-    ${ddMes?.cargando ? '<p class="muted">Cargando las compras del mes…</p>' : ddMes?.error ? `<p class="error">${esc(ddMes.error)}</p>` : `<div class="dd-scroll"><div class="dd-chart">${dias.map(columna).join('')}</div></div>`}${D.oportunidad ? `<p class="muted small">📌 El día de cada venta sale de la <strong>oportunidad que crea el workflow de compra</strong> (${D.oportunidad.elegido ? 'la elegida en la configuración' : 'detectada sola: la etapa donde caen las compradoras'}): es la hora exacta del pago, también para quien ya era contacto. Las que no tienen esa oportunidad se fechan por la etiqueta${state.config.directas?.[state.embudo]?.emailCompra ? ' o el email de compra' : ''}.</p>` : ''}${D.sinFechaCompra && !D.oportunidad ? '<p class="muted small">Sin campo «Fecha de compra», el día de cada venta es el de alta si el contacto es nuevo y, si ya era contacto, el día en que GHL le puso la etiqueta de compra (lo apunta el dashboard al verla). Para el día exacto del pago, guarda la fecha en un campo con el workflow de compra y elígelo en la configuración.</p>' : D.sinCampoRelleno ? `<p class="muted small">${D.sinCampoRelleno} venta${D.sinCampoRelleno === 1 ? '' : 's'} del periodo aún sin el campo «Fecha de compra» (compraron antes de crearlo): se fechan por la etiqueta y el email de compra, como antes.</p>` : ''}</section>` : '';
+    ${ddMes?.cargando ? '<p class="muted">Cargando las compras del mes…</p>' : ddMes?.error ? `<p class="error">${esc(ddMes.error)}</p>` : `<div class="dd-scroll"><div class="dd-chart">${dias.map(columna).join('')}</div></div>`}${D.oportunidad ? `<p class="muted small">📌 El día de cada venta sale de la <strong>oportunidad que crea el workflow de compra</strong> (${D.oportunidad.elegido ? 'la elegida en la configuración' : 'detectada sola: la etapa donde caen las compradoras'}): es la hora exacta del pago, también para quien ya era contacto. Las que no tienen esa oportunidad se fechan por la etiqueta${state.config.directas?.[state.embudo]?.emailCompra ? ' o el email de compra' : ''}.</p>` : ''}${D.sinFechaCompra && !D.oportunidad ? '<p class="muted small">Sin campo «Fecha de compra», el día de cada venta es el de alta si el contacto es nuevo y, si ya era contacto, el día en que GHL le puso la etiqueta de compra (lo apunta AlquimIA al verla). Para el día exacto del pago, guarda la fecha en un campo con el workflow de compra y elígelo en la configuración.</p>' : D.sinCampoRelleno ? `<p class="muted small">${D.sinCampoRelleno} venta${D.sinCampoRelleno === 1 ? '' : 's'} del periodo aún sin el campo «Fecha de compra» (compraron antes de crearlo): se fechan por la etiqueta y el email de compra, como antes.</p>` : ''}</section>` : '';
   $('#dd-mes')?.addEventListener('change', (e) => cargarMesDias(e.target.value));
   // Que se vea lo más reciente (a la derecha) sin tener que desplazar.
   { const sc = $('#dir-dias .dd-scroll'); if (sc) sc.scrollLeft = sc.scrollWidth; }
@@ -14211,7 +14211,7 @@ function pintarPlantillasCx() {
   $('#cx-setter-plantillas').innerHTML = cxPlantillas.length ? cxPlantillas.map((p, i) => `<div class="cx-pl" data-cx-pl="${i}">
       <input data-cx-pl-nombre value="${esc(p.nombre)}" maxlength="60" placeholder="Nombre de la plantilla (como en WhatsApp)" aria-label="Nombre de la plantilla">
       <label class="cx-pl-precio" title="Lo que cobra Meta por cada una (aprox.; míralo en tu factura). Sirve para el coste estimado y el gasto."><input data-cx-pl-precio inputmode="decimal" value="${esc(String(p.precio ?? 0.06).replace('.', ','))}" aria-label="Precio por plantilla en euros"> €</label>
-      <code title="Código que pone el dashboard y que dispara el workflow de GHL">${esc(p.tag)}</code>
+      <code title="Código que pone AlquimIA y que dispara el workflow de GHL">${esc(p.tag)}</code>
       <button type="button" class="btn ghost small" data-cx-pl-quitar aria-label="Quitar">✕</button></div>`).join('')
     : '<p class="muted small">Sin plantillas: en Leads y Setting hoy solo saldrá el botón de WhatsApp gratis.</p>';
 }
@@ -14251,7 +14251,7 @@ function pintarSetterConexiones() {
   }
   $('#cx-setter-clave').innerHTML = state.setterResumen
     ? '✓ Clave de las cifras puesta en Cloudflare.'
-    : 'Para ver sus cifras en <strong>Rendimiento</strong>, añade en Cloudflare (Workers y Pages → este dashboard → Configuración → Variables y secretos) el secreto <code>SETTER_RESUMEN_KEY</code> (vale para todos los clientes) con el mismo valor que <code>RESUMEN_KEY</code> del setter, y vuelve a desplegar.';
+    : 'Para ver sus cifras en <strong>Rendimiento</strong>, añade en Cloudflare (Workers y Pages → AlquimIA → Configuración → Variables y secretos) el secreto <code>SETTER_RESUMEN_KEY</code> (vale para todos los clientes) con el mismo valor que <code>RESUMEN_KEY</code> del setter, y vuelve a desplegar.';
 }
 // Se guarda con el botón de al lado de la dirección, con Enter en ella o con el de abajo (dirección y plantillas).
 async function guardarSetter(st) {
@@ -14291,8 +14291,8 @@ async function probarSendflow({ reintentar = false } = {}) {
     const hora = (ms) => new Date(ms).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
     if (d.freno) {
       box.innerHTML = d.freno.bloqueo
-        ? `<div class="notice warn"><strong>⏸️ SendFlow ha bloqueado la clave un rato por exceso de peticiones.</strong> La clave y la conexión están bien. El dashboard no le pedirá nada hasta las <strong>${hora(d.freno.hasta)}</strong> (para no alargar el bloqueo). Vuelve a probar a partir de esa hora.</div>`
-        : `<div class="notice warn"><strong>SendFlow rechazó la clave (${d.freno.status}).</strong> Para no provocar un bloqueo, el dashboard espera hasta las <strong>${hora(d.freno.hasta)}</strong>.${d.formato?.prefijo === false ? ' Ojo: las claves de SendAPI empiezan por <code>send_api-</code> y la guardada no.' : ''} Si ya has cambiado la clave en Cloudflare (y vuelto a desplegar): <button type="button" class="btn small" data-sf-reintentar>Probar la clave nueva</button></div>`;
+        ? `<div class="notice warn"><strong>⏸️ SendFlow ha bloqueado la clave un rato por exceso de peticiones.</strong> La clave y la conexión están bien. AlquimIA no le pedirá nada hasta las <strong>${hora(d.freno.hasta)}</strong> (para no alargar el bloqueo). Vuelve a probar a partir de esa hora.</div>`
+        : `<div class="notice warn"><strong>SendFlow rechazó la clave (${d.freno.status}).</strong> Para no provocar un bloqueo, AlquimIA espera hasta las <strong>${hora(d.freno.hasta)}</strong>.${d.formato?.prefijo === false ? ' Ojo: las claves de SendAPI empiezan por <code>send_api-</code> y la guardada no.' : ''} Si ya has cambiado la clave en Cloudflare (y vuelto a desplegar): <button type="button" class="btn small" data-sf-reintentar>Probar la clave nueva</button></div>`;
       return;
     }
     if (!d.configurada) {
@@ -14456,7 +14456,7 @@ function impactoWaHtml(r, { aviso, sinLlamadas, soloGrupo, conLeads }) {
     </div>
     <div class="table-scroll"><table class="metric-table wa-impacto-tabla"><thead><tr><th>Enviado</th><th>Mensaje</th><th class="num">Salidas 1.ª hora</th><th class="num">Inicios de pago</th><th class="num">Reservas</th><th class="num">Ventas</th></tr></thead>
       <tbody>${[...r.filas].reverse().map(fila).join('')}</tbody></table></div>
-    <p class="muted small">Sin mensaje en las 3 h anteriores: ${r.sinMensaje.ventas} ventas, ${r.sinMensaje.reservas} reservas y ${r.sinMensaje.pagos} inicios de pago.${r.conSalidas ? ' ⚠️ = salieron el doble (o más) de lo normal en la hora siguiente.' : ' Las salidas por hora salen de la vigilancia de los grupos (cada 15 min): actívala para verlas.'}${soloGrupo ? ' Solo cuentan las personas que están en el grupo (cruce por teléfono).' : ' Cuentan todas las ventas del lanzamiento (carga el cruce por teléfono del grupo en Hoy → Setting hoy para contar solo a quien está en el grupo).'}${conLeads ? '' : ' Abre el lanzamiento en el dashboard para que carguen sus leads (ventas).'}${sinLlamadas ? ` ${esc(sinLlamadas)}` : ''}${aviso ? ` ${esc(aviso)}` : ''} No demuestra causa: es una señal para ver qué mensajes empujan y cuáles espantan.</p>`;
+    <p class="muted small">Sin mensaje en las 3 h anteriores: ${r.sinMensaje.ventas} ventas, ${r.sinMensaje.reservas} reservas y ${r.sinMensaje.pagos} inicios de pago.${r.conSalidas ? ' ⚠️ = salieron el doble (o más) de lo normal en la hora siguiente.' : ' Las salidas por hora salen de la vigilancia de los grupos (cada 15 min): actívala para verlas.'}${soloGrupo ? ' Solo cuentan las personas que están en el grupo (cruce por teléfono).' : ' Cuentan todas las ventas del lanzamiento (carga el cruce por teléfono del grupo en Hoy → Setting hoy para contar solo a quien está en el grupo).'}${conLeads ? '' : ' Abre el lanzamiento en AlquimIA para que carguen sus leads (ventas).'}${sinLlamadas ? ` ${esc(sinLlamadas)}` : ''}${aviso ? ` ${esc(aviso)}` : ''} No demuestra causa: es una señal para ver qué mensajes empujan y cuáles espantan.</p>`;
 }
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-impacto-cargar]');
@@ -14587,7 +14587,7 @@ async function renderGrupoWa() {
   box.innerHTML = `
     ${estudioHero({ ico: '💬', titulo: 'Mensajes del grupo de WhatsApp', sub: `«${esc(emb.name || code)}» · se escriben con Claude y se programan en SendFlow`,
       pasos: ['Elige qué mensajes quieres, <strong>copia el prompt</strong>, abre Claude y pégalo', 'Copia lo que te responda Claude y <strong>pégalo aquí</strong>', '<strong>Revísalos</strong> (sube el audio o vídeo si alguno lo lleva) y pulsa <strong>«Programar»</strong>: se envían solos'],
-      primeraVez: PRIMERA_VEZ_CLAUDE + '<p>Después pegas aquí la respuesta de Claude tal cual: el dashboard separa cada mensaje con su día y hora, y al pulsar «Programar» se envían solos al grupo (SendFlow) en su momento.</p>',
+      primeraVez: PRIMERA_VEZ_CLAUDE + '<p>Después pegas aquí la respuesta de Claude tal cual: AlquimIA separa cada mensaje con su día y hora, y al pulsar «Programar» se envían solos al grupo (SendFlow) en su momento.</p>',
       antes: `${avisoMarcaHtml(gwc.marca)}${tipoActual() === 'lanz' ? narrativaCardHtml(code) : ''}`,
       extra: `${sinCampana ? `<div class="st-aviso warn"><span>Aún no tiene su campaña de SendFlow: puedes preparar los mensajes, pero para programarlos hay que elegirla.</span>${editable ? `<button type="button" class="btn small" data-grupos-vincular="${esc(code)}">Elegir la campaña →</button>` : ''}</div>` : !gwc.conectado ? '<div class="st-aviso warn"><span>SendFlow no está conectado (Cuenta → Conexiones).</span></div>' : ''}
       ${gwc.error ? `<div class="st-aviso err"><span>${esc(gwc.error)}</span></div>` : ''}` })}
@@ -15229,7 +15229,7 @@ async function renderPaginas() {
   const paginas = paginasDe(c.tipo, c.opts || {});
   const propuestas = propuestasEmbudo(state.embudo);
   const urlsDe = (p) => propuestas.filter((x) => x.pagina === p.id);
-  box.innerHTML = `${estudioHero({ ico: '🧱', titulo: 'Páginas con IA', sub: `«${esc(c.nombre)}» · un prompt por página con la marca, el avatar, los datos y los códigos del dashboard`,
+  box.innerHTML = `${estudioHero({ ico: '🧱', titulo: 'Páginas con IA', sub: `«${esc(c.nombre)}» · un prompt por página con la marca, el avatar, los datos y los códigos de AlquimIA`,
       pasos: ['Elige la página de abajo y pulsa <strong>«Copiar el prompt»</strong>', 'Pulsa <strong>«Abrir Claude»</strong> (o usa el de ChatGPT), pégalo y pide los cambios que quieras', 'En <strong>GHL</strong>: añade un elemento «Código personalizado», pega lo que te dio Claude y publica'],
       primeraVez: PRIMERA_VEZ_CLAUDE + '<p>Claude te devuelve la página hecha en código (HTML). No tienes que entenderlo: solo copiarlo entero y pegarlo en GHL como se explica en el paso 3.</p>',
       antes: `${avisoMarcaHtml(pgc.marca)}${tipoActual() === 'lanz' ? narrativaCardHtml(state.launchCode) : ''}`,
@@ -15253,7 +15253,7 @@ async function renderPaginas() {
       <div class="pg-cab"><span class="st-n grande">${i + 1}</span><h3>${esc(p.nombre)}</h3></div>
       <p class="pg-obj">${esc(p.objetivo)}</p>
       ${urlsDe(p).length ? `<ul class="pg-urls">${urlsDe(p).map((x) => urlItemHtml(x, { conNombre: urlsDe(p).length > 1 })).join('')}</ul>` : ''}
-      <div class="pg-chips"><span class="st-chip">${n} código${n === 1 ? '' : 's'} del dashboard</span>${p.formulario ? `<span class="st-chip">formulario de ${p.formulario === 'pago' ? 'pago' : 'registro'} de GHL</span>` : ''}</div>
+      <div class="pg-chips"><span class="st-chip">${n} código${n === 1 ? '' : 's'} de AlquimIA</span>${p.formulario ? `<span class="st-chip">formulario de ${p.formulario === 'pago' ? 'pago' : 'registro'} de GHL</span>` : ''}</div>
       <div class="pg-acciones"><button type="button" class="btn primary" data-pag-copiar="${esc(p.id)}">📋 Copiar el prompt</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener" title="Abrir Claude en una pestaña nueva">🤖 Claude ↗</a></div>
       ${filaChatGPT(`data-pag-copiar="${esc(p.id)}"`, { tipo: 'codigo', txt: '📋 Copiar para ChatGPT' })}
       <details class="st-ver pg-cuerpo"><summary>Personalizar y ver el prompt</summary>
@@ -15329,7 +15329,7 @@ const estudioHero = ({ ico, titulo, sub, pasos = [], extra = '', antes = '', pri
   </section>`;
 };
 // Lo que significa «pegar el prompt en Claude», igual en todas las vistas con IA.
-const PRIMERA_VEZ_CLAUDE = '<p>El dashboard ya sabe todo lo de este lanzamiento (fechas, precios, enlaces, tu marca y tu cliente ideal) y lo junta en un texto largo: <strong>el prompt</strong>. Tú solo tienes que:</p><ol><li>Pulsar <strong>«Copiar el prompt»</strong>.</li><li>Pulsar <strong>«Abrir Claude»</strong>, pegarlo (Ctrl+V o ⌘+V) y enviarlo.</li><li>Claude te devuelve el resultado listo. Si algo no te gusta, pídeselo con tus palabras: «más corto», «más cercano», «cambia el titular»…</li></ol><p>No hace falta escribir nada más ni saber de IA.</p><p>💬 <strong>¿Usas ChatGPT?</strong> Debajo de cada botón tienes «Copiar el prompt para ChatGPT»: es el mismo, ajustado a cómo lo entiende ChatGPT. Elige el que vayas a usar.</p>';
+const PRIMERA_VEZ_CLAUDE = '<p>AlquimIA ya sabe todo lo de este lanzamiento (fechas, precios, enlaces, tu marca y tu cliente ideal) y lo junta en un texto largo: <strong>el prompt</strong>. Tú solo tienes que:</p><ol><li>Pulsar <strong>«Copiar el prompt»</strong>.</li><li>Pulsar <strong>«Abrir Claude»</strong>, pegarlo (Ctrl+V o ⌘+V) y enviarlo.</li><li>Claude te devuelve el resultado listo. Si algo no te gusta, pídeselo con tus palabras: «más corto», «más cercano», «cambia el titular»…</li></ol><p>No hace falta escribir nada más ni saber de IA.</p><p>💬 <strong>¿Usas ChatGPT?</strong> Debajo de cada botón tienes «Copiar el prompt para ChatGPT»: es el mismo, ajustado a cómo lo entiende ChatGPT. Elige el que vayas a usar.</p>';
 // Número de paso pequeño, dentro de un texto.
 const pasoN = (n) => `<span class="st-n">${n}</span>`;
 // Cabecera de un paso numerado dentro de una tarjeta.

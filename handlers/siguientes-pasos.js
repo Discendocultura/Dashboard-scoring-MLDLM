@@ -19,9 +19,9 @@ const remitente = () => {
 export function emailPasos({ nombre, que, cliente, pasos }) {
   const hola = String(nombre || '').trim().split(/\s+/)[0];
   return `<p>${hola ? `¡Enhorabuena, ${escapeHtml(hola)}!` : '¡Enhorabuena!'} 🎉</p>
-    <p>Ya está creado ${escapeHtml(que)} en el dashboard de <strong>${escapeHtml(cliente)}</strong>. Esto es lo que toca ahora, en este orden:</p>
+    <p>Ya está creado ${escapeHtml(que)} en AlquimIA de <strong>${escapeHtml(cliente)}</strong>. Esto es lo que toca ahora, en este orden:</p>
     <ol style="padding-left:20px;margin:0">${pasos.map((p) => `<li style="margin:0 0 12px"><strong>${p.icono} ${escapeHtml(p.titulo)}</strong><br><span style="color:#5a4a42">${escapeHtml(p.detalle)}</span></li>`).join('')}</ol>
-    <p style="font-size:13px;color:#7a6458">Vas a ver lo mismo en el dashboard: lo que falte te lo marca la barra «Listo para lanzar» de Configuración.</p>`;
+    <p style="font-size:13px;color:#7a6458">Vas a ver lo mismo en AlquimIA: lo que falte te lo marca la barra «Listo para lanzar» de Configuración.</p>`;
 }
 
 export async function POST(request) {
@@ -40,7 +40,7 @@ export async function POST(request) {
     const que = launch ? `el lanzamiento «${launch.name}»` : `el embudo «${embudo.nombre}»`;
     const dashboardUrl = `${new URL(request.url).origin}/${clienteActual().principal ? '' : `?c=${encodeURIComponent(clienteActual().id)}`}`;
     // El email con la marca del cliente; el envío, desde el GHL de la agencia.
-    const html = await emailLayout(launch ? '¡Nuevo lanzamiento creado!' : '¡Nuevo embudo creado!', emailPasos({ nombre: s.user.nombre, que, cliente: clienteActual().nombre, pasos }), { url: dashboardUrl, button: 'Abrir el dashboard' });
+    const html = await emailLayout(launch ? '¡Nuevo lanzamiento creado!' : '¡Nuevo embudo creado!', emailPasos({ nombre: s.user.nombre, que, cliente: clienteActual().nombre, pasos }), { url: dashboardUrl, button: 'Abrir AlquimIA' });
     const subject = `🎉 ${launch ? 'Lanzamiento' : 'Embudo'} creado: tus siguientes pasos`;
     try {
       await enPrincipal(async () => {

@@ -17,7 +17,7 @@ export async function POST(request) {
     if (body.op !== 'empezar') throw bad('Operación no válida');
     const s = await getSession(request, { real: true });
     if (!s) throw bad('No autorizado', 401);
-    if (!s.superadmin) throw bad('Solo el superadmin puede ver el dashboard como otra persona', 403);
+    if (!s.superadmin) throw bad('Solo el superadmin puede ver AlquimIA como otra persona', 403);
     const uid = String(body.uid || '');
     const u = (await enPrincipal(() => listUsersRaw({ fresh: true }))).find((x) => x.id === uid);
     if (!u || u.activo === false) throw bad('Esa persona no existe o está desactivada', 404);

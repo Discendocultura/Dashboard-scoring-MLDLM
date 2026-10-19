@@ -61,7 +61,7 @@ function pintarLista(aviso = '') {
     </section>
     ${aviso ? `<p class="pd-aviso-ok" role="status">${aviso}</p>` : ''}
     ${ps.length ? `<div class="pd-lista">${ps.map(tarjeta).join('')}</div>` : `<div class="pd-vacio"><span aria-hidden="true">📦</span><h3>Aún no has puesto ningún producto</h3><p class="muted">Empieza por el que más vendes. En 1 minuto está.</p></div>`}
-    ${puedeEditar ? `<button type="button" class="pd-nuevo" data-pd-nuevo><span aria-hidden="true">＋</span> Añadir ${ps.length ? 'otro producto' : 'tu primer producto'}</button>` : '<p class="muted small">Solo quien configura el dashboard puede cambiar los productos.</p>'}`;
+    ${puedeEditar ? `<button type="button" class="pd-nuevo" data-pd-nuevo><span aria-hidden="true">＋</span> Añadir ${ps.length ? 'otro producto' : 'tu primer producto'}</button>` : '<p class="muted small">Solo quien configura AlquimIA puede cambiar los productos.</p>'}`;
 }
 
 // ---------- El editor, paso a paso ----------

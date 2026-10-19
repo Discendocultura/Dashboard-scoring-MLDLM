@@ -79,7 +79,7 @@ export const faltanDatos = (a, c) => (a.requiere || []).filter((k) => !c[k]).map
 const t = (v, alt) => (v ? `«${v}»` : `«${alt}» [FALTA: ponlo en Configuración]`);
 const u = (v, alt) => v || `[FALTA: ${alt}]`;
 const origenAcciones = (c) => (c.publiTag || c.organicoTag
-  ? [`Rama «If/Else» por formulario: si es el de anuncios, añade la etiqueta ${t(c.publiTag, 'etiqueta de publicidad')}; si es el orgánico, ${t(c.organicoTag, 'etiqueta de orgánico')} (así el dashboard separa publicidad y orgánico).`]
+  ? [`Rama «If/Else» por formulario: si es el de anuncios, añade la etiqueta ${t(c.publiTag, 'etiqueta de publicidad')}; si es el orgánico, ${t(c.organicoTag, 'etiqueta de orgánico')} (así AlquimIA separa publicidad y orgánico).`]
   : []);
 const directos = (c) => (c.videos.length > 1 ? c.videos.map((v, i) => `${v.nombre || `Vídeo ${i + 1}`}: ${fechaTxt(`${v.fecha}T${v.hora || c.horaDirecto || '19:00'}`)}`) : [`Directo: ${fechaTxt(`${c.fechaDirecto}T${c.horaDirecto || '19:00'}`) || '[FALTA: día y hora del directo]'}`]);
 
@@ -87,7 +87,7 @@ const directos = (c) => (c.videos.length > 1 ? c.videos.map((v, i) => `${v.nombr
 const LANZAMIENTO = [
   {
     id: 'registro', titulo: 'Registro al webinar', requiere: ['registroTag', 'fechaDirecto'],
-    para: 'Marca a cada persona que se registra con la etiqueta del lanzamiento: es la que usa el dashboard para contar los leads.',
+    para: 'Marca a cada persona que se registra con la etiqueta del lanzamiento: es la que usa AlquimIA para contar los leads.',
     disparador: () => 'Form Submitted: el formulario de registro del lanzamiento (si hay dos, el orgánico y el de anuncios, pon los dos como disparadores).',
     acciones: (c) => [
       `Añadir la etiqueta ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')} (nomenclatura fija de la agencia: «registrado-webinar-» + la fecha del directo DDMMAA).`,
@@ -96,7 +96,7 @@ const LANZAMIENTO = [
       ...(c.whatsappUrl ? [`En el email, el enlace al grupo de WhatsApp: ${c.whatsappUrl}.`] : []),
       ...(c.zoomWebhook ? [`Después de añadir la etiqueta: acción «Webhook» (método POST) a ${c.zoomWebhook} — inscribe a la persona en la reunión de Zoom del directo con su enlace personal (no hace falta mapear campos: basta el contact_id que GHL manda siempre).`] : []),
     ],
-    prueba: (c) => `Regístrate con un email de prueba: en el dashboard (Leads) debe aparecer con la etiqueta ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')} y te tiene que llegar el email.${c.zoomWebhook ? ' En Zoom → la reunión → Registrantes, debe aparecer su email.' : ''}`,
+    prueba: (c) => `Regístrate con un email de prueba: en AlquimIA (Leads) debe aparecer con la etiqueta ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')} y te tiene que llegar el email.${c.zoomWebhook ? ' En Zoom → la reunión → Registrantes, debe aparecer su email.' : ''}`,
   },
   {
     id: 'encuesta', titulo: 'Encuesta rellenada', requiere: ['encuestaTag'], si: (c) => c.encuestaTag || c.encuestaUrl,
@@ -142,7 +142,7 @@ const LANZAMIENTO = [
     acciones: (c) => [
       `Añadir la etiqueta ${t(c.compraTag, 'etiqueta de compra')}.`,
       ...(c.unicoTag || c.fraccionadoTag ? [`Según el pago: pago único → ${t(c.unicoTag, 'etiqueta de pago único')}; fraccionado → ${t(c.fraccionadoTag, 'etiqueta de fraccionado')}.`] : []),
-      ...(c.compraDateField ? [`Actualizar el campo de fecha «${c.compraDateField}» con la fecha de hoy (así el dashboard cuenta la venta en este lanzamiento).`] : []),
+      ...(c.compraDateField ? [`Actualizar el campo de fecha «${c.compraDateField}» con la fecha de hoy (así AlquimIA cuenta la venta en este lanzamiento).`] : []),
       `Quitarla de los workflows «[${c.code || 'código'}] Grabación disponible» y «[${c.code || 'código'}] Carrito abandonado» (Remove from workflow).`,
       'Email de bienvenida al programa con el acceso [texto provisional: REVISAR].',
     ],
@@ -166,7 +166,7 @@ const LANZAMIENTO = [
       ...(c.llamadaTag ? [`Añadir la etiqueta «${c.llamadaTag}».`] : []),
       `Email de confirmación${c.llamadaGraciasUrl ? ` con la página ${c.llamadaGraciasUrl}` : ''}; recordatorio 24 h y 1 h antes de la cita.`,
     ],
-    prueba: () => 'Reserva una llamada de prueba: debe salir en la pestaña Llamadas del dashboard.',
+    prueba: () => 'Reserva una llamada de prueba: debe salir en la pestaña Llamadas de AlquimIA.',
   },
 ];
 
@@ -223,17 +223,17 @@ const METEORICO = [
 const listaPlantillas = (c) => c.plantillasWa.map((p) => `«${p.nombre}» → disparador Contact Tag Added «${p.tag}»`).join(' · ');
 const SETTER = [
   {
-    id: 'setter-plantilla', titulo: 'Plantillas de WhatsApp (botón 📨 del dashboard)', requiere: [], si: (c) => c.plantillasWa.length,
-    para: 'Cuando alguien del equipo pulsa «📨 Plantilla» en el dashboard, se pone a la persona una etiqueta y este workflow le envía la plantilla aprobada. Si responde, contesta el setter IA. Son para todo el cliente: UN workflow por plantilla (si ya existen de otro lanzamiento, no los dupliques).',
+    id: 'setter-plantilla', titulo: 'Plantillas de WhatsApp (botón 📨 de AlquimIA)', requiere: [], si: (c) => c.plantillasWa.length,
+    para: 'Cuando alguien del equipo pulsa «📨 Plantilla» en AlquimIA, se pone a la persona una etiqueta y este workflow le envía la plantilla aprobada. Si responde, contesta el setter IA. Son para todo el cliente: UN workflow por plantilla (si ya existen de otro lanzamiento, no los dupliques).',
     disparador: (c) => `Contact Tag Added. Uno por plantilla: ${listaPlantillas(c)}.`,
     acciones: (c) => [
       'Filtro al principio: la etiqueta NO incluye «setter-ia-baja» (quien pidió la baja no vuelve a recibir plantillas).',
       `Enviar la plantilla de WhatsApp aprobada por Meta con ese nombre (${c.plantillasWa.map((p) => `«${p.nombre}»`).join(', ')}).`,
-      'Añadir la etiqueta «setter-ia-plantilla» (sin ella el setter no responde y el dashboard no la cuenta).',
+      'Añadir la etiqueta «setter-ia-plantilla» (sin ella el setter no responde y AlquimIA no la cuenta).',
       'Quitar la etiqueta que lo disparó (la de «setter-ia-enviar-…»), para poder volver a enviarla otro día.',
       'Crear o actualizar la oportunidad en el pipeline del lanzamiento, etapa «Contactado».',
     ],
-    prueba: () => 'Ponte como contacto de prueba con tu propio número y pulsa «📨 Plantilla» en el dashboard: en unos segundos te llega la plantilla y en Leads sale «📨 Plantilla ✓».',
+    prueba: () => 'Ponte como contacto de prueba con tu propio número y pulsa «📨 Plantilla» en AlquimIA: en unos segundos te llega la plantilla y en Leads sale «📨 Plantilla ✓».',
   },
   {
     id: 'setter-respuesta', titulo: 'Setter IA · respuesta de la lead', requiere: [], si: (c) => c.setterUrl,
@@ -243,7 +243,7 @@ const SETTER = [
       'Filtros: la etiqueta incluye «setter-ia-plantilla» y NO incluye «setter-ia-pausa» ni «setter-ia-baja».',
       `Acción «Webhook», método POST, a ${c.setterUrl}/api/webhook/ghl?c=${c.clienteId || '[cliente]'}&k=[FIRMA: cópiala del paso Plantillas del setter IA]. Sin encabezados ni campos: GHL ya envía el contact_id y el setter lee la conversación entera.`,
     ],
-    prueba: () => 'Contesta desde tu número a la plantilla de prueba: el setter debe responder y en el dashboard salir 🤖💬 (y desaparecer de Setting hoy mientras la IA conversa).',
+    prueba: () => 'Contesta desde tu número a la plantilla de prueba: el setter debe responder y en AlquimIA salir 🤖💬 (y desaparecer de Setting hoy mientras la IA conversa).',
   },
 ];
 
@@ -273,9 +273,9 @@ export function promptAutomatizacion(a, c) {
     '- Usa las etiquetas EXACTAS de arriba, en minúsculas. Si una no existe en GHL, créala con ese nombre exacto.',
     ...(c.tipo === 'lanzamientos' ? ['- La etiqueta de registro sigue SIEMPRE la nomenclatura «registrado-webinar-DDMMAA» (fecha del directo): no la cambies.'] : []),
     '- No toques ningún otro workflow (tampoco los de lanzamientos anteriores).',
-    '- Los textos de emails y WhatsApp: pon uno provisional corto que empiece por [REVISAR] (los definitivos salen de Crear → Emails del dashboard).',
+    '- Los textos de emails y WhatsApp: pon uno provisional corto que empiece por [REVISAR] (los definitivos salen de Crear → Emails de AlquimIA).',
     '- Si un paso no existe tal cual en GHL, usa el equivalente más cercano y avísame.',
-    '- Déjalo en BORRADOR (sin publicar). Al terminar dime: qué has creado, qué no has podido hacer y la URL del workflow (la pegaré en el dashboard).',
+    '- Déjalo en BORRADOR (sin publicar). Al terminar dime: qué has creado, qué no has podido hacer y la URL del workflow (la pegaré en AlquimIA).',
     '',
     `CÓMO PROBARLO después: ${a.prueba(c)}`,
   ].join('\n');
@@ -299,7 +299,7 @@ export function promptPreparacion(lista, c) {
     '3. Comprueba que existe lo que van a usar los workflows y dime lo que falte: el formulario de registro (y el de anuncios), la encuesta, los productos y enlaces de pago, el calendario de llamadas y los campos personalizados.',
     '',
     'Después los crearemos uno a uno, en este orden:',
-    ...lista.map((a) => `   ${a.nombre}${a.faltan.length ? ` (aún falta en el dashboard: ${a.faltan.join(', ')})` : ''}`),
+    ...lista.map((a) => `   ${a.nombre}${a.faltan.length ? ` (aún falta en AlquimIA: ${a.faltan.join(', ')})` : ''}`),
     '',
     'Termina con un resumen: etiquetas creadas, carpeta creada y lo que falta antes de empezar.',
   ].join('\n');

@@ -213,7 +213,7 @@ export function promptEmails(ctx = {}) {
     ctx.ganadores ? `\nASUNTOS QUE MEJOR HAN FUNCIONADO EN LANZAMIENTOS ANTERIORES (inspírate en su estilo, sin copiarlos):\n${ctx.ganadores}` : null,
     ctx.notas ? `\nINDICACIONES:\n${ctx.notas}` : null,
     '',
-    'CALENDARIO DE ENVÍOS (propuesto por el dashboard con las fechas reales; hora de España). Respeta fechas y horas; si ves que falta o sobra alguno, dímelo antes de escribir:',
+    'CALENDARIO DE ENVÍOS (propuesto por AlquimIA con las fechas reales; hora de España). Respeta fechas y horas; si ves que falta o sobra alguno, dímelo antes de escribir:',
     ...plan.map((p, i) => `${i + 1}. ${fechaTxt(p.at)} · ${p.que}${p.segmento ? ` · A: ${p.segmento}` : ''}`),
     '',
     'CÓMO LOS QUIERO:',

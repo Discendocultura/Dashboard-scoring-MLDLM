@@ -185,7 +185,7 @@ export function informeHtml(d, { color = '#860d0e', url = '' } = {}) {
     <table cellpadding="0" cellspacing="0" style="width:100%;margin:10px -6px 0">${filas.map((f) => `<tr>${f.map(tarjeta).join('')}</tr>`).join('')}</table>
     ${d.secciones.map(seccion).join('')}
     ${tabla}
-    ${url ? `<p style="margin:22px 0 0"><a href="${esc(url)}" style="color:${color};font-weight:700">Abrir el dashboard →</a></p>` : ''}
+    ${url ? `<p style="margin:22px 0 0"><a href="${esc(url)}" style="color:${color};font-weight:700">Abrir AlquimIA →</a></p>` : ''}
   </div>`;
 }
 

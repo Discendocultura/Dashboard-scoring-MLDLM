@@ -122,7 +122,7 @@ export async function POST(request) {
       }).catch(() => {});
     }
     // 2) Nota en su ficha de GHL.
-    await addContactNote(contactId, `📞 Seguimiento ${d.upsellPrincipal?.nombre ? `para ${d.upsellPrincipal.nombre} ` : ''}(${d.name}): ${st.name}${nota ? `\n${nota}` : ''}\n— ${quien}, desde el dashboard`)
+    await addContactNote(contactId, `📞 Seguimiento ${d.upsellPrincipal?.nombre ? `para ${d.upsellPrincipal.nombre} ` : ''}(${d.name}): ${st.name}${nota ? `\n${nota}` : ''}\n— ${quien}, desde AlquimIA`)
       .catch((e) => avisos.push(`No se pudo guardar la nota en GHL (${String(e.message).slice(0, 120)}).`));
     // 3) Registro propio (la lista lo enseña al momento, sin esperar a que GHL lo devuelva en la búsqueda).
     const cambio = await cambiar(id, (r) => { r.cambios[contactId] = { etapa, por: quien, en: new Date().toISOString(), ...(nota ? { nota } : {}) }; return r.cambios[contactId]; }, `Seguimiento: ${st.name}`);

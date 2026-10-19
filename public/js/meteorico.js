@@ -132,7 +132,7 @@ export function tareasMeteorico(m, { hoy, lanzamiento = '' } = {}) {
   const add = (clave, fase, titulo, base, dias, rol, notas = '') => T.push({ clave, fase, titulo, base, dias, rol, notas });
   // --- Preparación (lo antes posible: el calentamiento dura pocos días)
   add('oferta', 'preparacion', `Cerrar la oferta: ${m.oferta || 'qué se ofrece'}${m.producto ? ` de ${m.producto}` : ''}, precio y condiciones`, 'calentamiento', -4, 'admin');
-  if (!H.calentamiento || !H.apertura || !m.cierre) add('fechas', 'preparacion', 'Poner en el dashboard el día del calentamiento y la hora de apertura y cierre', 'calentamiento', -4, 'admin');
+  if (!H.calentamiento || !H.apertura || !m.cierre) add('fechas', 'preparacion', 'Poner en AlquimIA el día del calentamiento y la hora de apertura y cierre', 'calentamiento', -4, 'admin');
   if (lanzamiento) add('segmento', 'preparacion', `Segmentar el público: quien estuvo en «${lanzamiento}» y no compró (excluir a las compradoras)`, 'calentamiento', -3, 'tecnico');
   else add('segmento', 'preparacion', 'Elegir a quién va (listas y etiquetas de la base de datos, grupos de WhatsApp) y segmentarlo en GHL', 'calentamiento', -3, 'admin');
   if (sus) add('pago', 'preparacion', `Crear los planes de la suscripción${planes.length ? ` (${planes.join(', ')})` : ''} con su precio y enlace de pago`, 'calentamiento', -3, 'tecnico');
@@ -141,8 +141,8 @@ export function tareasMeteorico(m, { hoy, lanzamiento = '' } = {}) {
     if (conFraccionado(m) && (m.fraccionadoTag || num(m.precioFraccionado) || m.pagoFraccionadoUrl)) add('pago-plazos', 'preparacion', 'Crear el enlace de pago a plazos de la oferta', 'calentamiento', -3, 'tecnico');
   }
   add('workflow', 'preparacion', `Workflow de compra: que ponga la etiqueta ${tag}${sus ? ' y la de cada plan' : ''}${m.compraDateField ? ' y guarde la fecha de compra' : ''}`, 'calentamiento', -2, 'tecnico');
-  add('pagina', 'preparacion', 'Crear la página de la oferta y pegar el código de la cuenta atrás del dashboard', 'calentamiento', -2, 'tecnico');
-  if (!m.cerradaUrl) add('pagina-cerrada', 'preparacion', 'Crear la página de «oferta cerrada» y ponerla en el dashboard', 'apertura', -1, 'tecnico');
+  add('pagina', 'preparacion', 'Crear la página de la oferta y pegar el código de la cuenta atrás de AlquimIA', 'calentamiento', -2, 'tecnico');
+  if (!m.cerradaUrl) add('pagina-cerrada', 'preparacion', 'Crear la página de «oferta cerrada» y ponerla en AlquimIA', 'apertura', -1, 'tecnico');
   add('emails', 'preparacion', 'Escribir y programar los emails del calentamiento, la apertura y el último aviso', 'calentamiento', -2, 'tecnico');
   add('whatsapp', 'preparacion', m.whatsappUrl ? 'Preparar los mensajes y vídeos del grupo de WhatsApp' : 'Crear el grupo de WhatsApp (o elegir los grupos) y preparar los mensajes y vídeos', 'calentamiento', -2, 'admin');
   if (num(m.inversion) || m.metaFiltro) add('anuncios', 'preparacion', `Preparar los anuncios del meteórico${m.metaFiltro ? ` (campañas con «${m.metaFiltro}» en el nombre)` : ''}`, 'calentamiento', -1, 'admin');
@@ -151,11 +151,11 @@ export function tareasMeteorico(m, { hoy, lanzamiento = '' } = {}) {
   // --- Calentamiento
   add('cal-inicio', 'calentamiento', 'Empieza el calentamiento: primer email y mensaje de WhatsApp', 'calentamiento', 0, 'tecnico');
   add('cal-contenido', 'calentamiento', 'Contenido de calentamiento cada día (WhatsApp, emails, stories)', 'calentamiento', 1, 'admin');
-  if (num(m.inversion) || m.metaFiltro) add('anuncios-on', 'calentamiento', 'Activar los anuncios y revisar el coste en el dashboard', 'calentamiento', 0, 'admin');
+  if (num(m.inversion) || m.metaFiltro) add('anuncios-on', 'calentamiento', 'Activar los anuncios y revisar el coste en AlquimIA', 'calentamiento', 0, 'admin');
   add('cal-manana', 'calentamiento', 'Aviso: «mañana se abre la oferta» (email + WhatsApp)', 'apertura', -1, 'tecnico');
   // --- Oferta abierta
   add('apertura', 'oferta', 'Abrir la oferta: comprobar el botón de compra y enviar el email y el WhatsApp de apertura', 'apertura', 0, 'tecnico');
-  add('seguimiento', 'oferta', 'Revisar ventas y visitas en el dashboard a mitad de la oferta y reforzar si hace falta', 'apertura', 0, 'admin');
+  add('seguimiento', 'oferta', 'Revisar ventas y visitas en AlquimIA a mitad de la oferta y reforzar si hace falta', 'apertura', 0, 'admin');
   add('ultimo-aviso', 'oferta', 'Último aviso: quedan pocas horas (email + WhatsApp)', 'cierre', 0, 'tecnico');
   // --- Cierre
   add('cierre', 'cierre', 'Cerrar: comprobar que la página manda a «oferta cerrada» y que el pago ya no está accesible', 'cierre', 0, 'admin');

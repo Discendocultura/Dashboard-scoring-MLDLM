@@ -4,6 +4,8 @@ Muestra todos los leads de un lanzamiento (por etiqueta de GHL), lo que ha hecho
 (clases pre-webinar, VIP, directo, grabación), su **puntuación y estado** y un botón para
 **abrir WhatsApp con el mensaje adecuado**. Todo con planes gratuitos (Cloudflare Pages): no usa webhooks de GHL.
 
+
+**Nombre en pantalla**: en todo lo que ve el usuario (botones, avisos, emails, Telegram, el conector de Claude y las tareas de serie) se habla de **AlquimIA**, nunca de «dashboard» (con su logo donde ya hay marca: acceso y barra de arriba). Por dentro siguen los nombres técnicos (`dashboardUrl`, la etiqueta `equipo-dashboard`, el scope `dashboard` del conector y `/api/dashboard/resumen` de LabIA) para no romper nada; las tareas antiguas con «en el dashboard» siguen reconociéndose.
 ## Cómo funciona
 
 GHL es la única base de datos. Cada cosa que hace un lead se guarda como **etiqueta** en su

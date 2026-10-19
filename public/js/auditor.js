@@ -82,7 +82,7 @@ export function auditarLanzamiento(p) {
 
   // ---- Etiquetas ----
   const existe = (t) => !p.tagsGhl || p.tagsGhl.map((x) => String(x).toLowerCase()).includes(String(t).toLowerCase());
-  if (!l.registroTag) add('critico', 'Etiquetas', 'Falta la etiqueta de registro', 'Sin ella no hay leads en el dashboard.', campo('cfg-registro'));
+  if (!l.registroTag) add('critico', 'Etiquetas', 'Falta la etiqueta de registro', 'Sin ella no hay leads en AlquimIA.', campo('cfg-registro'));
   else {
     const repetida = otros.find(([, o]) => o.registroTag && o.registroTag === l.registroTag);
     if (repetida) add('critico', 'Etiquetas', `La etiqueta de registro es la misma que la de «${repetida[1].name}»`, 'Cada lanzamiento necesita su propia etiqueta de registro, si no se mezclan los leads.', campo('cfg-registro'));
@@ -92,7 +92,7 @@ export function auditarLanzamiento(p) {
   else if (!existe(l.compraTag)) add('importante', 'Etiquetas', `La etiqueta de compra «${l.compraTag}» no existe en GHL`, 'Revisa que el workflow de compra la pone.', campo('cfg-compra'));
   if (conVip(l) && l.vipTag && !existe(l.vipTag)) add('importante', 'Etiquetas', `La etiqueta VIP «${l.vipTag}» no existe en GHL`, '', campo('cfg-vip'));
   const sinFoto = [['vipTag', 'VIP'], ['compraTag', 'compra'], ['llamadaTag', 'llamada']].filter(([f]) => l[f] && (f !== 'vipTag' || conVip(l)) && l.snapshot?.tags?.[f] !== l[f]);
-  if (sinFoto.length) add('importante', 'Etiquetas', `Falta la «foto» de ${sinFoto.map(([, t]) => t).join(', ')}`, 'Quien ya tenía esas etiquetas de lanzamientos anteriores cuenta como de este (aviso arriba del dashboard: «Hacer la foto ahora»).', null);
+  if (sinFoto.length) add('importante', 'Etiquetas', `Falta la «foto» de ${sinFoto.map(([, t]) => t).join(', ')}`, 'Quien ya tenía esas etiquetas de lanzamientos anteriores cuenta como de este (aviso arriba de AlquimIA: «Hacer la foto ahora»).', null);
   if (!l.compraDateField) add('importante', 'Etiquetas', 'Falta el campo de fecha de compra', 'Sin él no salen las ventas por día del carrito.', campo('cfg-compra-fecha'));
 
   // ---- Enlaces y páginas, según el hito para el que hacen falta ----
@@ -128,7 +128,7 @@ export function auditarLanzamiento(p) {
   // Pantalla de espera activa: el plan B del directo (botón directo a Zoom en las páginas de GHL, por si el
   // dashboard no carga, p. ej. bloqueos de red a Cloudflare en España) necesita el enlace genérico de Zoom.
   if (l.espera?.activa !== false && l.zoomMeetingId && !videosDe(l).some((v) => v.zoomJoinUrl) && !(H.directo.d && H.directo.d < hoy)) {
-    add(urgencia(n('directo')), 'Enlaces y páginas', 'Falta el enlace genérico de Zoom (plan B del directo)', 'Con la pantalla de espera, si el dashboard no carga (p. ej. un bloqueo de red) nadie entraría al directo. Pon el enlace y pega el bloque «RECURSOS · plan B del directo» de Códigos para GHL en la preclase y en la página de acceso.', campo('cfg-zoom-url'));
+    add(urgencia(n('directo')), 'Enlaces y páginas', 'Falta el enlace genérico de Zoom (plan B del directo)', 'Con la pantalla de espera, si AlquimIA no carga (p. ej. un bloqueo de red) nadie entraría al directo. Pon el enlace y pega el bloque «RECURSOS · plan B del directo» de Códigos para GHL en la preclase y en la página de acceso.', campo('cfg-zoom-url'));
   }
   // Repetidos del lanzamiento anterior (copiados al duplicar y sin cambiar).
   const ultimo = otros.slice().sort((a, b) => String(b[1].createdAt).localeCompare(String(a[1].createdAt)))[0]?.[1];
@@ -180,7 +180,7 @@ export function auditarLanzamiento(p) {
       const sinNuevos = ult ? -diasHasta(ult, hoy) : null;
       if (sinNuevos != null && sinNuevos >= 2) add('importante', 'Datos', `Ningún registro nuevo en ${sinNuevos} días`, '¿Se han parado los anuncios o el formulario?', { tipo: 'vista', v: 'metricas' });
     }
-    if (ya('clase1') && n('clase1') <= -1 && L.length >= 20 && !L.some((x) => watched(x.s, 'clase1') >= 25)) add('critico', 'Datos', 'Nadie ha visto la clase 1 según el dashboard', 'Revisa el código de la página preclase y que el vídeo de Vimeo sea el correcto.', campo('cfg-clase1-url'));
+    if (ya('clase1') && n('clase1') <= -1 && L.length >= 20 && !L.some((x) => watched(x.s, 'clase1') >= 25)) add('critico', 'Datos', 'Nadie ha visto la clase 1 según AlquimIA', 'Revisa el código de la página preclase y que el vídeo de Vimeo sea el correcto.', campo('cfg-clase1-url'));
     if (n('directo') != null && n('directo') <= -1 && L.length && !L.some((x) => x.s.directo_asistio || x.s.directo_click)) add('importante', 'Datos', 'No consta nadie en el directo', 'Pulsa «Sincronizar Zoom» para traer la asistencia.', null);
     const sinFechaCompra = l.compraDateField ? L.filter((x) => x.s.compra && !x.s.fecha_compra).length : 0;
     if (sinFechaCompra) add('importante', 'Datos', `${sinFechaCompra} venta${sinFechaCompra === 1 ? '' : 's'} sin fecha de compra`, 'No salen en las ventas por día: revisa el workflow de compra.', null);
