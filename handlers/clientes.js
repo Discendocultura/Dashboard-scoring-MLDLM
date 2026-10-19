@@ -51,7 +51,7 @@ export async function POST(request) {
       const c = body.cliente || {};
       const i = lista.findIndex((x) => x.id === String(c.id || '').trim().toLowerCase());
       if (i >= 0 && lista[i].principal) {
-        lista[i] = { ...lista[i], nombre: String(c.nombre || '').trim().slice(0, 60) || lista[i].nombre, color: /^#[0-9a-f]{6}$/i.test(c.color || '') ? c.color : lista[i].color, ...(typeof c.labia === 'boolean' ? { labia: c.labia } : {}) };
+        lista[i] = { ...lista[i], nombre: String(c.nombre || '').trim().slice(0, 60) || lista[i].nombre, color: /^#[0-9a-f]{6}$/i.test(c.color || '') ? c.color : lista[i].color, ...(typeof c.labia === 'boolean' ? { labia: c.labia } : {}), ...(typeof c.implementa === 'boolean' ? { implementa: c.implementa } : {}) };
       } else if (i >= 0) {
         lista[i] = sanitizeCliente({ ...lista[i], ...c, id: lista[i].id, creado: lista[i].creado });
       } else {

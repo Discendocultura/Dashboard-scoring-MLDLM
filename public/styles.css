@@ -7214,3 +7214,123 @@ body.con-operativa :is(.nav-movil, .sub-movil, .agencia-flotante) { display: non
 }
 .tb-ajustes { position: relative; }
 .tb-ajustes > .notif-count { position: absolute; top: -4px; left: 24px; }
+
+/* ---------- Que no abrume a quien empieza (public/js/primeros-pasos.js) ---------- */
+/* Ejemplo con datos inventados: barra arriba, como la de «Ver como». */
+.ejemplo-barra { position: sticky; top: 0; z-index: 200; display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 9px 16px; background: linear-gradient(90deg, #163055, #2f62e8); color: #fff; font-size: 14px; box-shadow: 0 6px 20px -10px rgb(0 0 0 / .5); }
+.ejemplo-barra .btn { background: #fff; color: #163055; border-color: #fff; font-weight: 700; }
+.sb-ejemplo-fila { position: relative; display: flex; align-items: center; margin-top: 4px; }
+.sb-ejemplo-fila[hidden] { display: none; }
+.sb-ejemplo { border: 1px dashed color-mix(in srgb, var(--dato) 45%, var(--border)) !important; }
+.sb-ejemplo .sb-txt small { display: block; color: var(--muted); font-size: 11.5px; font-weight: 500; }
+.sb-ejemplo-x { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--muted); font-size: 12px; padding: 4px 6px; border-radius: 8px; cursor: pointer; opacity: .6; }
+.sb-ejemplo-x:hover { opacity: 1; background: var(--surface-2); }
+
+/* Botones con aspecto de enlace (class="link"): sin el fondo gris del botón. */
+button.link { background: none; border: 0; padding: 2px 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+button.link.small { font-size: 12.5px; }
+
+/* Primer acceso: una pregunta por pantalla. */
+.pa .pa-card { width: min(560px, 100%); }
+.pa-opciones { display: grid; gap: 10px; margin: 0 0 14px; }
+.pa-opcion { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center; text-align: left; width: 100%; padding: 14px 16px; border-radius: 16px; border: 1.5px solid #e6e0ee; background: #faf8fc; color: #241c33; font: inherit; cursor: pointer; transition: border-color .15s, transform .15s, box-shadow .15s; }
+.pa-opcion:hover, .pa-opcion:focus-visible { border-color: #3b6ff5; transform: translateY(-1px); box-shadow: 0 12px 26px -16px rgb(47 98 232 / .7); outline: none; }
+.pa-op-ico { grid-row: 1 / 3; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #e6efff, #f1e9ff); font-size: 22px; }
+.pa-opcion strong { font-size: 15.5px; }
+.pa-opcion small { color: #6c6380; font-size: 13px; line-height: 1.4; }
+.pa-acc { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.pa-acc .link { color: #5d5470; font-size: 14px; }
+.pa-lista { list-style: none; padding: 0; margin: 0 0 20px; display: grid; gap: 8px; }
+.pa-lista li { padding: 10px 12px; border-radius: 12px; background: #f3eff8; font-size: 14px; color: #5d5470; }
+.pa-lista li.ok { background: #e9f7ef; color: #2e8a57; font-weight: 600; }
+.pa-lista li.espera { background: #eef3ff; color: #2f62e8; font-weight: 600; }
+.pa-revs { display: grid; gap: 8px; margin: 0 0 16px; }
+.pa-rev { padding: 12px 14px; border-radius: 14px; border: 1px solid #e6e0ee; background: #faf8fc; font-size: 13.5px; color: #5d5470; }
+.pa-rev header { display: flex; gap: 8px; align-items: center; color: #241c33; margin-bottom: 4px; }
+.pa-rev .link { font-size: 13px; }
+
+/* Mostrar poco a poco: lo que aún no toca no se ve; «Nuevo ✨» en lo que acaba de aparecer. */
+body.pp-activo [data-pp]:not(.pp-ok) { display: none !important; }
+body.pp-activo #onb-pasos { display: none; }
+body.pp-activo .vs-mas { display: inline-flex; }
+.pp-nuevo { position: relative; }
+.sb-item.pp-nuevo::after { position: absolute; top: -7px; right: 8px; margin: 0; }
+.tb-menu > summary.pp-nuevo::after { content: 'Nuevo ✨'; color: #fff; font-size: 10.5px; margin-left: 6px; }
+.pp-nuevo::after { content: 'Nuevo ✨'; display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: linear-gradient(90deg, #06c8e0, #3b6ff5); color: #fff; font-size: 10.5px; font-weight: 750; letter-spacing: .01em; vertical-align: middle; white-space: nowrap; animation: ppBrilla 2.4s ease-in-out 3; }
+@keyframes ppBrilla { 50% { box-shadow: 0 0 0 4px rgb(59 111 245 / .2); } }
+
+/* Inicio: «Tu siguiente paso», una sola tarjeta (fondo espacial, como las demás destacadas). */
+.ini-siguiente { margin: 0 0 18px; }
+.ini-siguiente[hidden] { display: none; }
+.sig-card { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; padding: 20px 22px; border-radius: 20px; color: #eef0ff; border: 1px solid rgb(255 255 255 / .08); box-shadow: 0 16px 36px -24px rgb(8 11 24 / .9);
+  background:
+    radial-gradient(1px 1px at 22% 24%, rgb(255 255 255 / .9) 50%, transparent 52%),
+    radial-gradient(1px 1px at 68% 70%, rgb(255 255 255 / .75) 50%, transparent 52%),
+    radial-gradient(1px 1px at 86% 18%, rgb(224 231 255 / .7) 50%, transparent 52%),
+    radial-gradient(1px 1px at 47% 82%, rgb(199 210 254 / .6) 50%, transparent 52%),
+    radial-gradient(560px 240px at 0% 0%, #1d3f78 0%, transparent 72%),
+    linear-gradient(120deg, #0d1430 0%, #070914 60%, #0d0f24 100%); }
+.sig-ico { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: rgb(255 255 255 / .08); font-size: 28px; }
+.sig-txt small { display: block; color: #9fb6ff; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.sig-txt h3 { margin: 2px 0 4px; font-size: 19px; color: #fff; }
+.sig-txt p { margin: 0; color: #c9cfe8; font-size: 14px; line-height: 1.5; }
+.sig-acc { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.sig-acc .link { color: #c9cfe8; }
+.sig-card .btn:not(.primary) { background: rgb(255 255 255 / .1); color: #fff; border-color: rgb(255 255 255 / .2); }
+@media (max-width: 700px) {
+  .sig-card { grid-template-columns: auto 1fr; padding: 16px; }
+  .sig-acc { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; }
+}
+
+/* Buscador «¿Qué quieres hacer?» de la cabecera. */
+.tb-buscar { position: relative; flex: 0 1 320px; min-width: 160px; display: flex; align-items: center; gap: 8px; padding: 0 10px; height: 38px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); transition: border-color .15s, box-shadow .15s; }
+.tb-buscar:focus-within { border-color: var(--dato); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dato) 18%, transparent); background: var(--surface); }
+.tb-buscar-ico { font-size: 14px; opacity: .7; }
+.tb-buscar input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; font-size: 14px; color: var(--text); outline: none; }
+.tb-buscar input::-webkit-search-cancel-button { display: none; }
+.tb-buscar kbd { font: inherit; font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; }
+.tb-buscar:focus-within kbd { display: none; }
+.tb-buscar-res { position: absolute; top: calc(100% + 6px); left: 0; right: 0; min-width: 300px; z-index: 60; padding: 6px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); box-shadow: 0 20px 40px -18px rgb(0 0 0 / .45); max-height: 70vh; overflow-y: auto; }
+.tb-buscar-res[hidden] { display: none; }
+.tbb-op { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 10px; border: 0; border-radius: 10px; background: none; color: var(--text); font: inherit; cursor: pointer; }
+.tbb-op.on, .tbb-op:hover { background: color-mix(in srgb, var(--dato) 10%, var(--surface)); }
+.tbb-ico { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--surface-2); font-size: 16px; flex: none; }
+.tbb-txt { flex: 1; min-width: 0; }
+.tbb-txt strong { display: block; font-size: 14px; }
+.tbb-txt small { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tbb-ir { color: var(--muted); font-size: 12px; opacity: 0; }
+.tbb-op.on .tbb-ir { opacity: 1; }
+.tbb-nada { margin: 0; padding: 10px; color: var(--muted); font-size: 13.5px; }
+.tb-buscar-movil { display: none !important; }
+@media (max-width: 900px) {
+  .tb-buscar { display: none; }
+  .tb-buscar-movil { display: inline-flex !important; }
+  .tb-buscar.abierto { display: flex; position: fixed; top: 8px; left: 12px; right: 12px; z-index: 400; height: 46px; background: var(--surface); box-shadow: 0 20px 50px -10px rgb(0 0 0 / .5); }
+  .tb-buscar.abierto .tb-buscar-res { min-width: 0; }
+}
+
+/* Nuevo embudo: 2 preguntas y el tipo que te encaja. */
+.emb-reco { display: grid; gap: 12px; padding: 16px; margin: 0 0 14px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--dato) 30%, var(--border)); background: color-mix(in srgb, var(--dato) 5%, var(--surface)); }
+.emb-reco[hidden] { display: none; }
+.emb-reco-t { margin: 0; font-weight: 750; }
+.emb-preg { display: grid; gap: 6px; }
+.emb-preg > span { font-size: 13.5px; font-weight: 650; color: var(--text-2); }
+.emb-sn { display: flex; flex-wrap: wrap; gap: 8px; }
+.emb-sn button { flex: 1 1 180px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; transition: border-color .15s, background .15s; }
+.emb-sn button:hover { border-color: color-mix(in srgb, var(--dato) 55%, var(--border)); }
+.emb-sn button.on { border-color: var(--dato); background: color-mix(in srgb, var(--dato) 12%, var(--surface)); font-weight: 700; }
+.emb-reco-res { display: grid; gap: 4px; padding: 12px 14px; border-radius: 12px; background: var(--surface); border-left: 4px solid var(--dato); animation: bvEntra .3s ease both; }
+.emb-reco-res[hidden] { display: none; }
+.emb-reco-res small { color: var(--text-2); font-size: 13px; line-height: 1.5; }
+.emb-ver-tipos { justify-self: start; font-size: 13.5px; }
+#embudo-dialog:not(.ver-tipos) .emb-tipos { display: none; }
+
+/* Agencia → Clientes: «Implementa la agencia» (extra de pago). */
+.cl-sw-impl .cl-impl-txt { font-size: 13px; font-weight: 650; white-space: nowrap; }
+.cl-sw-impl:not(:has(input:checked)) .cl-impl-txt { opacity: .6; }
+.cl-sw-impl:has(input:checked) { border-color: color-mix(in srgb, var(--dato) 50%, var(--border)); background: color-mix(in srgb, var(--dato) 10%, var(--surface)); }
+.cl-sw-impl input:checked + .cl-sw-pista { background: linear-gradient(90deg, #06c8e0, #3b6ff5); }
+
+/* Avisos: quien se ha atascado (para la agencia). */
+.notif-item.t-atascado { text-decoration: none; }
+.notif-item.t-atascado .notif-ico { background: color-mix(in srgb, var(--dato) 15%, var(--surface)); }

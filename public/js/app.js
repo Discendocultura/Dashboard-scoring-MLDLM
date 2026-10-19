@@ -65,7 +65,8 @@ import { urlsPropuestas, slugUrl, dominioValido, enlacesLanzamiento, conEnlacesP
 import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './anuncios.js';
 import { piezasImagenes, promptImagen, promptMagnificImagenes, PROMPT_VERTICAL, paletaMarca } from './imagenes-ia.js';
 import { paraChatGPT } from './chatgpt.js';
-import { iniciarOnboarding, onbVista, abrirAyuda, verTodas, leerPreview, progresoDe, onbReiniciarAyudas } from './onboarding.js';
+import { iniciarOnboarding, onbVista, abrirAyuda, verTodas, leerPreview, progresoDe, onbReiniciarAyudas, onbEstado, onbGuardar, onbRol, tour as onbTour } from './onboarding.js';
+import { DESBLOQUEOS, desbloqueos, filtrarVistas, desbloqueoDeVista, siguientePaso, recomendarTipo, buscar as buscarAcciones, dosificar, atascados, diasDesde } from './primeros-pasos.js';
 import { iniciarAnimaciones } from './animaciones.js';
 import { FASES_PLAN, enviosPorDefecto, enviosDe, planEnvios, sanitizeEnvios } from './envios.js';
 import { componerEmails } from './emails.js';
@@ -552,7 +553,9 @@ const pestanasEmbudo = () => embudoInfo()?.pestanas || null;
 // Hoy → LabIA: en cualquier embudo (menos ventas cruzadas), para quien ve Setting hoy o Llamadas (sin LabIA contratado, lo que ganaría con él).
 // Ventas cruzadas: «Hoy» (su pipeline) y «Llamadas» solo si en su configuración se dijo que sí se llama.
 const llamaCruzadas = () => Boolean(state.config?.cruzadas?.[state.embudo]?.llamadas);
-const allowedViews = () => VIEWS.filter((v) => (v === 'labia' ? tipoActual() !== 'cruzadas' && (tiene('hoy') || tiene('llamadas'))
+// Las pestañas que el rol y el embudo permiten; allowedViews() además esconde las que aún no toca enseñar a un admin
+// nuevo («mostrar poco a poco», más abajo).
+const vistasPermitidas = () => VIEWS.filter((v) => (v === 'labia' ? tipoActual() !== 'cruzadas' && (tiene('hoy') || tiene('llamadas'))
   : enCruzadas() && (v === 'xhoy' || v === 'llamadas') ? llamaCruzadas() && tiene(VIEW_PERMISO[v] || v)
   : enCruzadas() && v === 'xofertas' ? tiene('leads') && (!pestanasEmbudo() || pestanasEmbudo().includes('xofertas') || pestanasEmbudo().includes('xalumnos')) : tiposVista(v).includes(tipoActual())
   // «Publicidad»: sí por defecto en todos los embudos (también los de antes); se quita desde su ⚙️.
@@ -580,6 +583,7 @@ const allowedViews = () => VIEWS.filter((v) => (v === 'labia' ? tipoActual() !==
     // «Anuncios ganadores» de la venta directa es nueva: la ven los que tienen Métricas.
     || (v === 'danuncios' && pestanasEmbudo().includes('dmetricas')))
   && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v))));
+const allowedViews = () => (document.body.classList.contains('pp-activo') ? filtrarVistas(vistasPermitidas(), ppAbiertos) : vistasPermitidas());
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() || enDirecta() || enCruzadas() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
 const vslCfg = (id = state.embudo) => ({ ...(state.config?.vsls?.[id] || {}), name: state.config?.vsls?.[id]?.name || 'VSL', id, esVsl: true });
@@ -609,8 +613,14 @@ async function start() {
   $('#vercomo-barra').hidden = !state.verComo;
   document.body.classList.toggle('viendo-como', Boolean(state.verComo));
   if (state.verComo) $('#vercomo-nombre').textContent = me.user?.nombre || 'otra persona';
+  // El ejemplo (datos inventados): barra arriba para volver a lo suyo; no se recuerda como cliente elegido.
+  state.ejemplo = Boolean(me.ejemplo);
+  state.crm = me.crm !== false;
+  state.implementa = Boolean(me.implementa);
+  $('#ejemplo-barra').hidden = !state.ejemplo;
+  document.body.classList.toggle('en-ejemplo', state.ejemplo);
   // Primer acceso con la contraseña que le dimos: la bienvenida, para que elija la suya (después, lo demás).
-  if (me.user?.claveTemporal && !me.verComo) await bienvenida(me);
+  if (me.user?.claveTemporal && !me.verComo && !state.ejemplo) await bienvenida(me);
   state.agencia = Boolean(me.superadmin || me.user?.agencia);
   // LabIA contratado en este cliente (Agencia → Clientes): su enlace del lateral, Hoy → LabIA y sus cifras.
   state.labia = Boolean(me.labia);
@@ -625,7 +635,7 @@ async function start() {
     throw new Error('Tu usuario no tiene acceso a ningún cliente: habla con el superadmin');
   }
   state.cliente = me.cliente.id;
-  ls.set('lsd_cliente', me.cliente.id);
+  if (!state.ejemplo) ls.set('lsd_cliente', me.cliente.id);
   // «Solo Operativa»: no pide la configuración del cliente (ni ningún dato de ventas); solo su Inicio de trabajo.
   if (me.role === ROL_OPERATIVA) {
     state.role = me.role;
@@ -705,7 +715,19 @@ async function start() {
   if (abrirInicio) mostrarInicio();
   if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); pintarQueFunciono(); }
   if (!$('#view-rendimiento').hidden) loadRendimiento();
-  await arrancarOnboarding();
+  if (state.ejemplo) return; // en el ejemplo, ni onboarding ni primeros pasos: es para curiosear
+  // Admin nuevo: primero el CRM y «¿Qué quieres hacer primero?» (una pregunta por pantalla); después, lo demás.
+  const eleccion = await primerAcceso();
+  if (String(eleccion || '').startsWith('crear')) {
+    // Primero crea su embudo; el recorrido de burbujas, cuando cierre la ventana.
+    await seguirEleccion(eleccion);
+    await new Promise((ok) => (embDlg.open ? embDlg.addEventListener('close', ok, { once: true }) : ok()));
+    await arrancarOnboarding();
+  } else {
+    await arrancarOnboarding();
+    if (eleccion) await seguirEleccion(eleccion);
+  }
+  cargarAtascados();
 }
 
 // ---------- Onboarding (burbujas, primeros pasos y vista sencilla; ver public/js/onboarding.js) ----------
@@ -742,8 +764,385 @@ async function arrancarOnboarding() {
       procesos: () => clic('#portal-procesos, #solo-op-procesos, #btn-procesos'),
       cuenta: () => clic('#portal-cuenta, #btn-cuenta'),
       operativa: () => clic('#solo-op-operativa, #btn-operativa'),
+      ejemplo: () => irEjemplo(),
+      alCambiar: () => revisarPp(),
     },
   });
+  revisarPp();
+}
+// ---------- Que no abrume: mostrar poco a poco, primer acceso, tu siguiente paso, ejemplo y buscador ----------
+// (la lógica está en public/js/primeros-pasos.js; aquí, la pantalla)
+const diasOnb = () => diasDesde(onbEstado().inicio || state.user?.createdAt || '');
+// «Mostrar poco a poco»: solo a un admin nuevo (sin terminar sus primeros pasos), hasta que pulse «Ver todo».
+const ppActivo = () => !state.ejemplo && onbRol() === 'admin' && !onbEstado().hecho && !onbEstado().todo;
+let ppAbiertos = new Set(DESBLOQUEOS.map((d) => d.id));
+let ppBurbuja = false; // como mucho una burbuja de «Nuevo ✨» por visita (el resto, solo la etiqueta)
+let ppRevisando = false;
+function condicionesPp() {
+  const c = state.config || {};
+  const L = Object.values(c.launches || {});
+  const V = Object.values(c.vsls || {}).filter((v) => embudos().some((e) => e.tipo === 'vsl'));
+  const D = Object.values(c.directas || {});
+  const configurado = L.some((l) => l.registroTag) || V.some((v) => v.registroTag) || D.some((d) => d.compraTag)
+    || Object.values(c.cruzadas || {}).some((x) => (x.productos || []).length >= 2) || Object.values(c.meteoricos || {}).some((m) => m.compraTag);
+  return {
+    dias: diasOnb(), configurado,
+    leads: Boolean(state.leads?.length || state.vsl?.leads?.length),
+    calendario: L.some((l) => l.llamadaUrl) || V.some((v) => v.llamadaUrl) || Object.values(c.cruzadas || {}).some((x) => x.llamadaUrl),
+    lanzamientos: L.length,
+    ventas: L.some((l) => l.compraTag) || V.some((v) => v.compraTag) || D.some((d) => d.compraTag),
+  };
+}
+// Mira qué toca enseñar ya (y lo guarda), y lo aplica: pestañas, botones de «Mi negocio» y del lateral, «Nuevo ✨».
+function revisarPp() {
+  if (ppRevisando) return;
+  ppRevisando = true;
+  try {
+    const activo = ppActivo();
+    document.body.classList.toggle('pp-activo', activo);
+    let nuevos = [];
+    if (activo) {
+      const r = desbloqueos(onbEstado().pasos, condicionesPp());
+      ppAbiertos = r.todos;
+      nuevos = r.nuevos;
+      for (const id of nuevos) onbGuardar({ paso: `u-${id}` });
+    } else ppAbiertos = new Set(DESBLOQUEOS.map((d) => d.id));
+    aplicarPpDom();
+    if (state.config && state.embudo && !state.enInicio && !state.enNegocio) refrescarPestanas();
+    pintarSiguientePaso();
+    pintarEjemploLateral();
+    if (nuevos.length && !ppBurbuja) { ppBurbuja = true; setTimeout(() => avisarNuevo(nuevos[0]), 900); }
+  } finally { ppRevisando = false; }
+}
+// Lo nuevo lleva «Nuevo ✨» hasta que se abre.
+const ppEsNuevo = (id) => Boolean(id && document.body.classList.contains('pp-activo') && onbEstado().pasos?.[`u-${id}`] && !onbEstado().tours?.[`vn-${id}`]);
+function aplicarPpDom() {
+  const activo = document.body.classList.contains('pp-activo');
+  $$('[data-pp]').forEach((el) => {
+    el.classList.toggle('pp-ok', !activo || ppAbiertos.has(el.dataset.pp));
+    el.classList.toggle('pp-nuevo', ppEsNuevo(el.dataset.pp));
+  });
+  $$('.view-tab, .subview-tab[data-view]').forEach((t) => {
+    const ids = t.dataset.viewGrupo ? [...new Set((GRUPOS[t.dataset.viewGrupo] || []).map(desbloqueoDeVista))] : [desbloqueoDeVista(t.dataset.view)];
+    t.classList.toggle('pp-nuevo', ids.some(ppEsNuevo));
+  });
+  // «Mi negocio» avisa si dentro hay algo nuevo.
+  $('#tb-menu-ajustes > summary')?.classList.toggle('pp-nuevo', ['herramientas', 'negocio'].some(ppEsNuevo));
+}
+function ppVisto(id) {
+  if (!ppEsNuevo(id)) return;
+  onbGuardar({ tour: `vn-${id}` });
+}
+document.addEventListener('click', (e) => { const el = e.target.closest('[data-pp]'); if (el) ppVisto(el.dataset.pp); }, true);
+// Vuelve a pintar las pestañas del embudo (si la que se ve ya no toca, a la primera que sí).
+function refrescarPestanas() {
+  $$('.view-tab').forEach((t) => { t.hidden = t.dataset.viewGrupo ? !GRUPOS[t.dataset.viewGrupo].some((v) => allowedViews().includes(v)) : !allowedViews().includes(t.dataset.view); });
+  $$('.subview-tab[data-view]').forEach((t) => { t.hidden = !allowedViews().includes(t.dataset.view); });
+  const actual = VIEWS.find((v) => !$(`#view-${v}`)?.hidden);
+  if (actual && !allowedViews().includes(actual)) showView(allowedViews()[0]);
+  pintarNavMovil();
+}
+// Burbuja «✨ Nuevo» sobre lo que acaba de aparecer (si no hay otra cosa explicándose).
+function avisarNuevo(id) {
+  const d = DESBLOQUEOS.find((x) => x.id === id);
+  if (!d || document.querySelector('.onb') || !onbEstado().tours?.principal) return;
+  const grupo = Object.keys(GRUPOS).find((g) => GRUPOS[g].some((v) => desbloqueoDeVista(v) === id));
+  const sel = grupo ? `.view-tab[data-view-grupo="${grupo}"]:not([hidden]), .subview-tab.pp-nuevo:not([hidden])` : id === 'negocio' ? '#sb-negocio:not([hidden]), #tb-menu-ajustes' : '#tb-menu-ajustes';
+  onbTour([{ sel, titulo: `✨ Nuevo: ${d.nombre}`, texto: d.texto }]);
+}
+
+// «Tu siguiente paso»: una sola tarjeta grande en el Inicio (sustituye a la lista de «Primeros pasos»).
+function pintarSiguientePaso() {
+  const box = $('#ini-siguiente');
+  if (!box) return;
+  if (!ppActivo() || !state.enInicio || modoInicio() === 'agencia') { box.hidden = true; return; }
+  const est = onbEstado();
+  const c = condicionesPp();
+  const sinConfigurar = embudos().find((e) => !embudoConfigurado(e)) || embudos()[0];
+  const paso = siguientePaso({
+    crm: state.crm, implementa: state.implementa, embudos: embudos().length, configurado: c.configurado, nombreEmbudo: sinConfigurar?.nombre || '',
+    marca: Boolean(est.pasos?.marca), leads: Boolean(est.pasos?.leads), crear: Boolean(est.pasos?.crear),
+  });
+  box.hidden = false;
+  box.innerHTML = paso
+    ? `<div class="sig-card"><span class="sig-ico" aria-hidden="true">${paso.ico}</span><div class="sig-txt"><small>Tu siguiente paso</small><h3>${esc(paso.titulo)}</h3><p>${esc(paso.texto)}</p></div>
+        <div class="sig-acc"><button type="button" class="btn primary" data-sig="${esc(paso.accion)}" data-sig-emb="${esc(sinConfigurar?.id || '')}">${esc(paso.boton)} →</button><button type="button" class="link small" data-sig="todo">👀 Ver todo</button></div></div>`
+    : `<div class="sig-card fin"><span class="sig-ico" aria-hidden="true">🎉</span><div class="sig-txt"><small>Tus primeros pasos</small><h3>¡Ya lo tienes todo en marcha!</h3><p>Lo demás irá apareciendo cuando lo necesites, o enséñalo todo ya.</p></div>
+        <div class="sig-acc"><button type="button" class="btn" data-sig="todo">👀 Ver todo</button></div></div>`;
+}
+// ¿Tiene ya lo básico? (la etiqueta de registro o de compra, o los productos).
+function embudoConfigurado(e) {
+  const c = state.config || {};
+  if (e.tipo === 'lanzamientos') return Object.values(c.launches || {}).some((l) => embudoDeLanz(l) === e.id && l.registroTag);
+  if (e.tipo === 'vsl') return Boolean(c.vsls?.[e.id]?.registroTag);
+  if (e.tipo === 'directa') return Boolean(c.directas?.[e.id]?.compraTag);
+  if (e.tipo === 'cruzadas') return (c.cruzadas?.[e.id]?.productos || []).length >= 2;
+  return true;
+}
+const clicVisible = (sel) => { const b = $$(sel).find((x) => x.getClientRects().length) || $(sel); b?.click(); };
+async function abrirConfigDe(id) {
+  if (id && id !== state.embudo) await setEmbudo(id);
+  if (state.enInicio) salirInicio();
+  clicVisible('#btn-config, #ctx-config-aviso');
+}
+async function irALeads() {
+  if (state.enInicio) salirInicio();
+  showView(enVsl() ? 'vleads' : enDirecta() ? 'dclientes' : enCruzadas() ? 'xalumnos' : 'leads');
+}
+$('#ini-siguiente').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-sig]');
+  if (!b) return;
+  const a = b.dataset.sig;
+  if (a === 'todo') return verTodas();
+  if (a === 'ejemplo') return irEjemplo();
+  if (a === 'crear') return abrirNuevoEmbudo();
+  if (a === 'configurar') return abrirConfigDe(b.dataset.sigEmb);
+  if (a === 'marca') return clicVisible('#btn-marca');
+  if (a === 'leads') return irALeads();
+  if (a === 'crear-ia') { if (state.enInicio) salirInicio(); clicVisible('[data-view-grupo="crear"]'); }
+});
+
+// ---------- El ejemplo (datos inventados) ----------
+function irEjemplo() {
+  if (!state.ejemplo) ls.set('lsd_cliente_antes', state.cliente);
+  const u = new URL(location.href);
+  u.searchParams.set('c', 'ejemplo');
+  u.hash = '';
+  location.href = u.toString();
+}
+$('#ejemplo-volver').addEventListener('click', () => {
+  const id = ls.get('lsd_cliente_antes') || ls.get('lsd_cliente') || '';
+  const c = state.clientes.find((x) => x.id === id);
+  const u = new URL(location.href);
+  if (!id || !c || c.principal) u.searchParams.delete('c'); else u.searchParams.set('c', id);
+  u.hash = '';
+  location.href = u.toString();
+});
+// En el lateral, mientras empieza y no tenga su embudo configurado (o lo oculte).
+function pintarEjemploLateral() {
+  const f = $('#sb-ejemplo-fila');
+  if (f) f.hidden = !(ppActivo() && !onbEstado().pasos?.['ejemplo-fuera'] && !condicionesPp().configurado);
+}
+$('#sb-ejemplo').addEventListener('click', irEjemplo);
+$('#sb-ejemplo-x').addEventListener('click', () => onbGuardar({ paso: 'ejemplo-fuera' }));
+
+// ---------- Primer acceso: una pregunta por pantalla ----------
+// Admin nuevo, la primera vez: si falta, el CRM; después «¿Qué quieres hacer primero?» (o, si ya tiene embudos, ir
+// a ellos; y si los implementa la agencia, revisarlos). Devuelve lo elegido (o null).
+async function primerAcceso() {
+  const preview = state.superadmin ? leerPreview() : '';
+  const o = state.user?.onboarding;
+  const esAdmin = state.role === 'admin' || puedeConfig();
+  if (state.verComo || !esAdmin || state.role === ROL_CLIENTE) return null;
+  if (preview) { if (preview !== 'admin') return null; } else if (!o || o.hecho || o.pasos?.['primer-acceso']) return null;
+  const pasos = ['Tu contraseña', ...(state.crm ? [] : ['Tu CRM']), 'Tu primer embudo'];
+  const sec = $('#primer');
+  const cuerpo = $('#pa-cuerpo');
+  const nombre = String(state.user?.nombre || '').trim().split(/\s+/)[0];
+  const marcar = (i) => { $('#pa-pasos').innerHTML = pasos.map((p, j) => `<li class="${j < i ? 'hecho' : j === i ? 'on' : ''}"><b>${j < i ? '✓' : j + 1}</b><span>${esc(p)}</span></li>`).join(''); };
+  sec.hidden = false;
+  document.body.classList.add('con-primer');
+  const pantalla = (i, html) => new Promise((res) => {
+    marcar(i);
+    cuerpo.innerHTML = html;
+    cuerpo.onclick = (e) => { const b = e.target.closest('[data-pa]'); if (b) res(b.dataset.pa); };
+    cuerpo.querySelector('.btn.primary, [data-pa]')?.focus();
+  });
+  try {
+    if (!state.crm) {
+      await pantalla(1, `<div class="bv-ico" aria-hidden="true">🔌</div><h1 id="pa-titulo">Conectamos tu CRM</h1>
+        <p class="bv-sub">AlquimIA lee tus leads, tus ventas y tus llamadas de tu <strong>GoHighLevel (GHL)</strong>. La conexión la hace la agencia: <strong>no tienes que tocar nada técnico</strong>.</p>
+        <ul class="pa-lista"><li class="ok">✓ Tu contraseña, lista</li><li class="espera">⏳ Tu CRM: la agencia lo está conectando</li></ul>
+        <div class="pa-acc"><button type="button" class="btn primary bv-boton" data-pa="seguir">Entendido, seguir <span aria-hidden="true">→</span></button></div>`);
+    }
+    const i = pasos.length - 1;
+    const lista = embudos().filter((e) => e.tipo !== 'meteorico' || embudos().length === 1);
+    let elegido;
+    if (state.implementa && lista.length) {
+      const tarjeta = (e) => `<article class="pa-rev"><header><span aria-hidden="true">${icoEmbudo(e)}</span><strong>${esc(e.nombre)}</strong></header>
+        <dl>${resumenEmbudo(e).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('') || '<div><dt>Estado</dt><dd>La agencia lo está terminando</dd></div>'}</dl>
+        <button type="button" class="btn small ghost" data-pa="configurar:${esc(e.id)}">✏️ Corregir algo</button></article>`;
+      elegido = await pantalla(i, `<div class="bv-ico" aria-hidden="true">🛠️</div><h1 id="pa-titulo">${nombre ? `${esc(nombre)}, la` : 'La'} agencia ya ha montado tu AlquimIA</h1>
+        <p class="bv-sub">Solo te queda <strong>revisar que esto está bien</strong>: las fechas y los precios de cada embudo.</p>
+        <div class="pa-revs">${lista.slice(0, 4).map(tarjeta).join('')}</div>
+        <div class="pa-acc"><button type="button" class="btn primary bv-boton" data-pa="embudo:${esc(lista[0].id)}">✓ Todo bien, entrar <span aria-hidden="true">→</span></button></div>`);
+    } else if (state.implementa) {
+      elegido = await pantalla(i, `<div class="bv-ico" aria-hidden="true">🛠️</div><h1 id="pa-titulo">La agencia está montando tus embudos</h1>
+        <p class="bv-sub">En cuanto estén, los verás listos para revisar. Mientras tanto, mira cómo será con un <strong>ejemplo con datos inventados</strong>.</p>
+        <div class="pa-acc"><button type="button" class="btn primary bv-boton" data-pa="ejemplo">👀 Ver el ejemplo</button><button type="button" class="link" data-pa="luego">Entrar sin más</button></div>`);
+    } else if (lista.length) {
+      elegido = await pantalla(i, `<div class="bv-ico" aria-hidden="true">🚀</div><h1 id="pa-titulo">${lista.length === 1 ? 'Este es tu embudo' : 'Estos son tus embudos'}</h1>
+        <p class="bv-sub">Entra y empieza por aquí. Lo demás irá apareciendo poco a poco, cuando lo necesites.</p>
+        <div class="pa-opciones">${lista.slice(0, 4).map((e) => `<button type="button" class="pa-opcion" data-pa="embudo:${esc(e.id)}"><span class="pa-op-ico" aria-hidden="true">${icoEmbudo(e)}</span><strong>${esc(e.nombre)}</strong><small>Entrar →</small></button>`).join('')}</div>
+        <div class="pa-acc"><button type="button" class="link" data-pa="ejemplo">👀 Antes, ver un ejemplo con datos inventados</button></div>`);
+    } else {
+      elegido = await pantalla(i, `<div class="bv-ico" aria-hidden="true">✨</div><h1 id="pa-titulo">¿Qué quieres hacer primero?</h1>
+        <p class="bv-sub">Elige y te llevamos directo. Podrás hacer lo demás cuando quieras.</p>
+        <div class="pa-opciones">
+          <button type="button" class="pa-opcion" data-pa="crear:lanz"><span class="pa-op-ico" aria-hidden="true">🚀</span><strong>Un lanzamiento</strong><small>Con fechas: captación, directo o clases y carrito</small></button>
+          <button type="button" class="pa-opcion" data-pa="crear:siempre"><span class="pa-op-ico" aria-hidden="true">♾️</span><strong>Un embudo siempre abierto</strong><small>VSL, lead magnet, llamadas, venta directa…</small></button>
+          <button type="button" class="pa-opcion" data-pa="crear:cruzadas"><span class="pa-op-ico" aria-hidden="true">🔁</span><strong>Vender a mis alumnos</strong><small>Ventas cruzadas: a quien ya te compró, el siguiente producto</small></button>
+        </div>
+        <div class="pa-acc"><button type="button" class="link" data-pa="ejemplo">👀 Primero quiero ver un ejemplo</button><button type="button" class="link" data-pa="luego">Lo haré luego</button></div>`);
+    }
+    if (!preview) {
+      if (o && !o.hecho) { o.pasos ||= {}; o.pasos['primer-acceso'] = new Date().toISOString(); }
+      api('/api/usuarios', { method: 'POST', body: { op: 'onboarding', cambio: { paso: 'primer-acceso' } } }).catch(() => {});
+    }
+    return elegido;
+  } finally {
+    sec.hidden = true;
+    document.body.classList.remove('con-primer');
+  }
+}
+const icoEmbudo = (e) => (e.tipo === 'meteorico' ? '⚡' : e.tipo === 'directa' ? '🛒' : e.tipo === 'cruzadas' ? '🔁' : e.tipo === 'vsl' ? '🎬' : '🚀');
+// Lo que hay que revisar de cada embudo que deja montado la agencia: fechas y precios.
+function resumenEmbudo(e) {
+  const c = state.config || {};
+  const out = [];
+  if (e.tipo === 'lanzamientos') {
+    const l = Object.values(c.launches || {}).filter((x) => embudoDeLanz(x) === e.id).sort((a, b) => String(b.inicioCaptacion || '').localeCompare(String(a.inicioCaptacion || '')))[0];
+    if (l) {
+      out.push(['Lanzamiento', l.name || '—']);
+      if (l.inicioCaptacion) out.push(['Empieza la captación', fechaCorta(l.inicioCaptacion.slice(0, 10))]);
+      if (l.fechaDirecto) out.push(['Directo', `${fechaCorta(l.fechaDirecto)}${l.horaDirecto ? ` · ${l.horaDirecto}` : ''}`]);
+      if (l.cierreCarrito) out.push(['Cierra el carrito', fechaCorta(l.cierreCarrito.slice(0, 10))]);
+      if (l.precioPrograma) out.push(['Precio', eur(Number(l.precioPrograma))]);
+    }
+  } else if (e.tipo === 'vsl') {
+    const v = c.vsls?.[e.id];
+    if (v?.precioPrograma) out.push(['Precio', eur(Number(v.precioPrograma))]);
+    out.push(['Abierto', 'Siempre']);
+  } else if (e.tipo === 'directa') {
+    const d = c.directas?.[e.id];
+    if (d?.producto) out.push(['Producto', d.producto]);
+    if (d?.precio) out.push(['Precio', eur(Number(d.precio))]);
+  } else if (e.tipo === 'cruzadas') {
+    out.push(['Productos', String((c.cruzadas?.[e.id]?.productos || []).length)]);
+  }
+  return out;
+}
+// Lo elegido en el primer acceso.
+async function seguirEleccion(eleccion) {
+  const [que, arg] = String(eleccion).split(':');
+  if (que === 'ejemplo') return irEjemplo();
+  if (que === 'embudo' && arg) { if (state.enInicio) salirInicio(); await setEmbudo(arg); return; }
+  if (que === 'configurar' && arg) return abrirConfigDe(arg);
+  if (que === 'crear') abrirNuevoEmbudo({ preset: arg });
+}
+
+// ---------- Buscador «¿Qué quieres hacer?» ----------
+const CLAVES_VISTA = {
+  hoy: 'a quien llamar escribir whatsapp contactar setting hoy', llamadas: 'llamar llamada llamadas calendario cita citas agenda reservas', endirecto: 'directo en vivo webinar zoom',
+  leads: 'registrados personas contactos lista ficha', metricas: 'ventas facturacion roas cpl resultados como va numeros', vmetricas: 'ventas facturacion roas resultados como va numeros',
+  vleads: 'registrados personas contactos lista', dmetricas: 'ventas facturacion roas ticket', dclientes: 'compradores clientes ventas', publicidad: 'anuncios meta facebook instagram campanas cpm ctr cpl',
+  anuncios: 'anuncios guiones copys creatividades meta', avatar: 'anuncios ganadores mejores', paginas: 'pagina paginas landing web venta', emailsia: 'emails correos email secuencia',
+  imagenes: 'imagenes creatividades diseno banners', grupowa: 'grupo whatsapp sendflow mensajes', automatizaciones: 'automatizaciones workflows ghl', tareas: 'tareas pendientes equipo hacer',
+  calendario: 'fechas calendario hitos', carrito: 'carrito dias apertura cierre', objetivos: 'planificador objetivos prevision inversion', comparar: 'comparar lanzamientos anteriores',
+  avatarc: 'avatar comprador quien compra perfil', rendimiento: 'rendimiento equipo setters closers', claude: 'analizar claude ia', xalumnos: 'alumnos ventas cruzadas productos',
+  xofertas: 'ofertas alumnos', xhoy: 'llamar alumnos pipeline', meteoricos: 'meteorico oferta flash', moferta: 'oferta meteorico', labia: 'labia setter ia whatsapp',
+};
+const ACCIONES_BUSCAR = [
+  ['nuevo-embudo', '➕', 'Crear un embudo nuevo', 'nuevo embudo crear lanzamiento vsl', '#sb-add'],
+  ['config', '⚙️', 'Configuración de este embudo', 'cambiar el precio precios fechas etiquetas configurar ajustes enlaces oferta', () => abrirConfigDe(state.embudo)],
+  ['inicio', '🏠', 'Inicio', 'inicio resumen todos los embudos', '#sb-inicio'],
+  ['negocio', '📈', 'Inteligencia de negocio', 'ltv roas negocio historico productos facturacion cac', '#sb-negocio'],
+  ['equipo', '👥', 'Equipo', 'equipo usuarios invitar personas roles permisos', '#btn-equipo'],
+  ['marca', '🎨', 'Marca y avatar', 'marca avatar cliente ideal tono voz', '#btn-marca'],
+  ['productos', '📦', 'Productos', 'productos precio catalogo membresia planes ofertas', '#btn-productos'],
+  ['conexiones', '🔌', 'Conexiones', 'conexiones sendflow setter ia integraciones', '#btn-conexiones'],
+  ['mensajes', '💬', 'Mensajes de WhatsApp', 'mensajes whatsapp textos plantillas', '#btn-mensajes'],
+  ['operativa', '🗂️', 'Operativa', 'tareas tableros operativa pendientes', '#btn-operativa'],
+  ['procesos', '📚', 'Procesos', 'procesos como se hace sop guias', '#btn-procesos'],
+  ['auditor', '🛡️', 'Auditor', 'auditor errores que falta revisar', '#btn-auditor'],
+  ['atajos', '🔗', 'Tus atajos', 'atajos enlaces drive canva', '#sb-atajos'],
+  ['clave', '🔑', 'Cambiar contraseña', 'contrasena clave password cuenta', '#btn-clave'],
+  ['tema', '🌙', 'Modo día / noche', 'modo noche oscuro dia tema', '#btn-tema'],
+  ['ayuda', '❓', 'Ayuda y recorrido', 'ayuda recorrido tutorial', '#btn-onb-ayuda'],
+  ['ejemplo', '🧪', 'Ver un ejemplo', 'ejemplo demo datos inventados', () => irEjemplo()],
+];
+// Visible de verdad (su rol lo ve y, en «poco a poco», ya ha aparecido); vale aunque esté en un menú cerrado.
+const accesible = (el) => Boolean(el && !el.hidden && !el.closest('[hidden]') && getComputedStyle(el).display !== 'none');
+function indiceBuscar() {
+  const out = [];
+  const nombreEmb = embudoInfo()?.nombre || '';
+  if (state.config && state.embudo) {
+    for (const v of allowedViews()) {
+      const t = $(`.subview-tab[data-view="${v}"]`) || $(`.view-tab[data-view="${v}"]`);
+      const txt = t?.textContent.replace(/\s+/g, ' ').trim();
+      if (!txt) continue;
+      const g = grupoDe(v);
+      const tg = g ? $(`.view-tab[data-view-grupo="${g}"]`)?.textContent.replace(/\s+/g, ' ').trim() : '';
+      out.push({ id: `v:${v}`, ico: '📍', titulo: txt, sub: [nombreEmb, tg && tg !== txt ? tg : ''].filter(Boolean).join(' · '), claves: CLAVES_VISTA[v] || '', fn: () => { if (state.enInicio || state.enNegocio) salirInicio(); showView(v); } });
+    }
+  }
+  for (const e of embudos()) out.push({ id: `e:${e.id}`, ico: icoEmbudo(e), titulo: e.nombre, sub: 'Abrir el embudo', claves: `embudo ${e.tipo}`, fn: () => clicVisible(`.sb-item[data-embudo="${CSS.escape(e.id)}"]`) });
+  for (const [id, ico, titulo, claves, destino] of ACCIONES_BUSCAR) {
+    if (typeof destino === 'string' && !accesible($(destino))) continue;
+    if (id === 'config' && !(state.embudo && puedeConfig())) continue;
+    out.push({ id: `a:${id}`, ico, titulo, sub: '', claves, fn: typeof destino === 'string' ? () => clicVisible(destino) : destino });
+  }
+  return out;
+}
+const bus = { res: [], i: 0 };
+function pintarBuscar() {
+  const q = $('#tb-buscar-in').value;
+  const box = $('#tb-buscar-res');
+  bus.res = q.trim() ? buscarAcciones(indiceBuscar(), q) : [];
+  bus.i = 0;
+  box.hidden = !q.trim();
+  $('#tb-buscar-in').setAttribute('aria-expanded', String(!box.hidden));
+  box.innerHTML = bus.res.length
+    ? bus.res.map((r, i) => `<button type="button" role="option" class="tbb-op${i === 0 ? ' on' : ''}" data-tbb="${i}" aria-selected="${i === 0}"><span class="tbb-ico" aria-hidden="true">${r.ico}</span><span class="tbb-txt"><strong>${esc(r.titulo)}</strong>${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</span><span class="tbb-ir" aria-hidden="true">↵</span></button>`).join('')
+    : '<p class="tbb-nada">No encuentro nada con eso. Prueba con otras palabras («ventas», «llamar», «precio»…).</p>';
+}
+function cerrarBuscar() {
+  $('#tb-buscar-res').hidden = true;
+  $('#tb-buscar-in').setAttribute('aria-expanded', 'false');
+  $('#tb-buscar').classList.remove('abierto');
+}
+function elegirBuscar(i) {
+  const r = bus.res[i];
+  if (!r) return;
+  $('#tb-buscar-in').value = '';
+  cerrarBuscar();
+  $('#tb-buscar-in').blur();
+  r.fn();
+}
+$('#tb-buscar-in').addEventListener('input', pintarBuscar);
+$('#tb-buscar-in').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { $('#tb-buscar-in').value = ''; cerrarBuscar(); $('#tb-buscar-in').blur(); return; }
+  if (e.key === 'Enter') { e.preventDefault(); elegirBuscar(bus.i); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!bus.res.length) return;
+    bus.i = (bus.i + (e.key === 'ArrowDown' ? 1 : -1) + bus.res.length) % bus.res.length;
+    $$('#tb-buscar-res .tbb-op').forEach((b, i) => { b.classList.toggle('on', i === bus.i); b.setAttribute('aria-selected', String(i === bus.i)); });
+  }
+});
+$('#tb-buscar-res').addEventListener('mousedown', (e) => { const b = e.target.closest('[data-tbb]'); if (b) { e.preventDefault(); elegirBuscar(Number(b.dataset.tbb)); } });
+$('#tb-buscar-in').addEventListener('blur', () => setTimeout(cerrarBuscar, 120));
+$('#btn-buscar-movil').addEventListener('click', () => { $('#tb-buscar').classList.add('abierto'); $('#tb-buscar-in').focus(); });
+// «/» (o Ctrl/⌘ + K) para buscar desde cualquier sitio.
+document.addEventListener('keydown', (e) => {
+  const escribiendo = e.target.closest?.('input, textarea, select, [contenteditable="true"]');
+  if ((e.key === '/' && !escribiendo) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) {
+    if ($('#app').hidden) return;
+    e.preventDefault();
+    if (getComputedStyle($('#tb-buscar')).display === 'none') $('#tb-buscar').classList.add('abierto');
+    $('#tb-buscar-in').focus();
+  }
+});
+
+// ---------- Quién se ha atascado (para la agencia) ----------
+async function cargarAtascados() {
+  if (!state.superadmin || state.verComo) return;
+  try {
+    const d = await api('/api/usuarios?agencia');
+    const nombreCli = (u) => { const ids = Object.keys(u.accesos || {}); const c = state.clientes.find((x) => ids.includes(x.id)); return c?.nombre || ''; };
+    state.atascados = atascados(d.proyectos || []).map((x) => ({ ...x, cliente: nombreCli((d.proyectos || []).find((u) => u.id === x.id) || {}) }));
+    renderNotif();
+  } catch { /* sin permiso o sin conexión: sin este aviso */ }
 }
 $('#btn-onb-ayuda').addEventListener('click', (e) => abrirAyuda(e.currentTarget));
 $('#portal-ayuda').addEventListener('click', (e) => abrirAyuda(e.currentTarget));
@@ -943,6 +1342,7 @@ async function mostrarInicio({ fresh = false } = {}) {
   $('#alertas-carrito').hidden = true;
   // Superadmin: el Inicio de la agencia (todos los clientes) o el de este cliente.
   pintarModoInicio();
+  pintarSiguientePaso();
   if (modoInicio() === 'agencia') return cargarAgenciaInicio({ fresh });
   // Sin permiso de métricas (o sin embudos): el Inicio de trabajo, sin cifras de ventas.
   const trabajo = !state.superadmin && !(tiene('metricas') && embudos().length);
@@ -3684,6 +4084,7 @@ window.addEventListener('popstate', (e) => {
 
 function showView(view) {
   if (state.role && !allowedViews().includes(view)) view = allowedViews()[0];
+  ppVisto(desbloqueoDeVista(view));
   const grupo = grupoDe(view);
   // Pestañas accesibles: el lector de pantalla anuncia cuál está elegida.
   $$('.view-tab').forEach((x) => { const on = x.dataset.viewGrupo ? x.dataset.viewGrupo === grupo : x.dataset.view === view; x.classList.toggle('active', on); x.setAttribute('role', 'tab'); x.setAttribute('aria-selected', String(on)); });
@@ -9432,6 +9833,8 @@ function pintarClientes(lista) {
       <div class="cl-chips">${chips}</div>
       <label class="cl-sw" title="LabIA contratado: su enlace en el menú lateral, la pestaña «LabIA» con su pipeline en Hoy y sus cifras en Rendimiento. Se guarda al pulsar">
         <input type="checkbox" class="cl-labia"${c.labiaActiva ? ' checked' : ''}><span class="cl-sw-pista" aria-hidden="true"></span><span class="cl-labia-logo">${labiaLogo()}</span></label>
+      <label class="cl-sw cl-sw-impl" title="Implementa la agencia (servicio con coste extra): le montamos y configuramos sus embudos; en sus primeros pasos verá «La agencia está montando tus embudos» y luego «Revisa que esto está bien». Se guarda al pulsar">
+        <input type="checkbox" class="cl-implementa"${c.implementa ? ' checked' : ''}><span class="cl-sw-pista" aria-hidden="true"></span><span class="cl-impl-txt">🛠️ Implementa la agencia</span></label>
       <div class="cl-btns">
         <button type="button" class="btn ghost cl-aj-btn" data-cl-abrir aria-expanded="${abierto}">⚙️ Ajustes <span class="cl-chev" aria-hidden="true">▾</span></button>
         ${aqui ? '' : '<button type="button" class="btn primary" data-cl-op="entrar">Entrar →</button>'}
@@ -9705,6 +10108,19 @@ $('#btn-cl-crear').addEventListener('click', async () => {
 });
 // LabIA contratado: se guarda al marcar o desmarcar (y, si es este cliente, aparece o desaparece al momento).
 $('#clientes-list').addEventListener('change', async (e) => {
+  const impl = e.target.closest('.cl-implementa');
+  if (impl) {
+    // «Implementa la agencia» (coste extra): cambia lo que ve el cliente en sus primeros pasos.
+    const c = state.clientesAdmin.find((x) => x.id === impl.closest('[data-cl]').dataset.cl);
+    impl.disabled = true;
+    try {
+      await guardarCliente(c, { implementa: impl.checked });
+      if (c.id === state.cliente) { state.implementa = impl.checked; pintarSiguientePaso(); }
+      const res = $('.cl-res', $(`[data-cl="${CSS.escape(c.id)}"]`));
+      if (res) res.textContent = impl.checked ? 'Implementa la agencia ✓' : 'Lo configura el cliente ✓';
+    } catch (ex) { window.alert(ex.message); impl.checked = !impl.checked; } finally { impl.disabled = false; }
+    return;
+  }
   const chk = e.target.closest('.cl-labia');
   if (!chk) return;
   const card = chk.closest('[data-cl]');
@@ -10647,10 +11063,13 @@ function notifItems() {
   }
   for (const n of out.slice(desde)) n.code = T.code;
   }
+  // Agencia: quien se ha atascado en sus primeros pasos («Marta lleva 4 días sin avanzar»).
+  for (const a of state.atascados || []) out.push({ tipo: 'atascado', a, key: `a:${a.id}:${a.desde}` });
   const visto = notifVistoEn();
   const vistas = notifVistas();
   for (const n of out) n.nueva = n.c ? n.c.en > visto : !vistas.has(n.key);
-  return out;
+  // La primera semana de un admin nuevo, solo lo urgente (como mucho 2): que no le abrume.
+  return dosificar(out, { nuevo: ppActivo(), dias: diasOnb() });
 }
 
 const cuandoVence = (f) => {
@@ -10660,6 +11079,12 @@ const cuandoVence = (f) => {
   return `vence el ${fechaCorta(f)}`;
 };
 function notifHtml(n) {
+  if (n.tipo === 'atascado') {
+    const a = n.a;
+    const txt = a.sinEntrar ? `no ha entrado todavía (le diste acceso hace ${a.dias} días)` : `lleva ${a.dias} días sin avanzar en sus primeros pasos${a.hechos ? ` (lleva ${a.hechos} hecho${a.hechos === 1 ? '' : 's'})` : ''}`;
+    return `<a class="notif-item t-atascado ${n.nueva ? 'nueva' : ''}" href="mailto:${esc(a.email || '')}?subject=${encodeURIComponent('¿Te echamos una mano con AlquimIA?')}">
+    <span class="notif-ico" aria-hidden="true">🧗</span><span class="notif-txt"><strong>${esc(a.nombre || a.email || 'Alguien')}</strong>${a.cliente ? ` (${esc(a.cliente)})` : ''} ${txt}. Escríbele para echarle una mano.</span>${n.nueva ? '<span class="notif-dot" aria-label="Nueva"></span>' : ''}</a>`;
+  }
   const tit = `«${esc(n.t.titulo)}»`;
   const ico = { mencion: '@', comentario: '💬', vencida: '⏰', pronto: '📅', equipo: '👥' }[n.tipo];
   let txt = '';
@@ -10703,6 +11128,7 @@ function renderNotif() {
     ['Tus tareas vencidas', items.filter((n) => n.tipo === 'vencida').sort((a, b) => a.t.fecha.localeCompare(b.t.fecha))],
     [`Vencen en los próximos ${NOTIF_DIAS} días`, items.filter((n) => n.tipo === 'pronto').sort((a, b) => a.t.fecha.localeCompare(b.t.fecha))],
     ['Vencidas del equipo', items.filter((n) => n.tipo === 'equipo')],
+    ['Personas atascadas', items.filter((n) => n.tipo === 'atascado')],
   ].filter(([, l]) => l.length);
   panel.innerHTML = `<div class="notif-head"><strong>Notificaciones</strong><button type="button" class="btn ghost notif-cerrar" aria-label="Cerrar" data-notif-cerrar>✕</button><span class="muted">${esc(nombreEmbudo(codigo()))}${state.tareasOtros?.length ? ` y ${state.tareasOtros.length} embudo${state.tareasOtros.length === 1 ? '' : 's'} más` : ''}</span></div>
     ${grupos.length ? grupos.map(([g, l]) => `<div class="notif-grupo"><h4>${esc(g)}</h4>${l.map(notifHtml).join('')}</div>`).join('')
@@ -12319,8 +12745,40 @@ $('#emb-plantilla-guardar').addEventListener('click', async () => {
 });
 const clienteNombre = () => state.clientes.find((c) => c.id === state.cliente)?.nombre || '';
 
-function abrirNuevoEmbudo() {
+// «＋ Nuevo embudo» con 2 preguntas: ¿tiene fecha? ¿por llamada o directa? → el tipo que le encaja. «Ver todos los tipos» enseña la lista entera.
+let embReco = {};
+function pintarEmbReco() {
+  $$('#emb-reco [data-emb-preg]').forEach((g) => $$('button', g).forEach((b) => {
+    const on = embReco[g.dataset.embPreg] === b.dataset.v;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', String(on));
+  }));
+  const r = embReco.fecha && embReco.venta ? recomendarTipo(embReco) : null;
+  const res = $('#emb-reco-res');
+  res.hidden = !r;
+  if (!r) return;
+  const radio = $(`input[name="emb-tipo"][value="${r.tipo}"]`);
+  const nombre = radio?.closest('.emb-tipo')?.querySelector('strong')?.textContent || r.tipo;
+  const ico = radio?.closest('.emb-tipo')?.querySelector('.emb-ico')?.textContent || '✨';
+  res.innerHTML = `<strong>${ico} Te encaja: ${esc(nombre)}</strong><small>${esc(r.porque)} Pulsa «Siguiente» o mira los demás tipos.</small>`;
+  if (radio && !radio.checked) { radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); }
+}
+function verTiposEmb(ver) {
+  embDlg.classList.toggle('ver-tipos', ver);
+  $('#emb-ver-tipos').setAttribute('aria-expanded', String(ver));
+  $('#emb-ver-tipos').textContent = ver ? 'Ocultar la lista de tipos ▴' : 'Ver todos los tipos ▾';
+}
+$('#emb-reco').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-emb-preg] button');
+  if (b) { embReco[b.closest('[data-emb-preg]').dataset.embPreg] = b.dataset.v; pintarEmbReco(); return; }
+  if (e.target.closest('#emb-ver-tipos')) verTiposEmb(!embDlg.classList.contains('ver-tipos'));
+});
+
+function abrirNuevoEmbudo({ preset } = {}) {
   embEdit = null;
+  embReco = preset === 'lanz' ? { fecha: 'si' } : preset === 'siempre' ? { fecha: 'no' } : {};
+  $('#emb-reco').hidden = false;
+  verTiposEmb(preset === 'cruzadas');
   $('#emb-plantilla').value = '';
   $('#emb-plantilla-guardar').hidden = true;
   cargarPlantillas();
@@ -12350,6 +12808,8 @@ function abrirNuevoEmbudo() {
   $('#emb-guia-box').open = false;
   $('#emb-h-tipo').textContent = '¿Qué tipo de embudo es?';
   $('#emb-sub-tipo').textContent = 'Elige el que más se parezca. En los siguientes pasos lo terminas de ajustar.';
+  if (preset === 'cruzadas') $('input[name="emb-tipo"][value="cruzadas"]').checked = true;
+  pintarEmbReco();
   pintarEmbPestanas(null);
   irPasoEmb(0);
   embDlg.showModal();
@@ -12359,6 +12819,8 @@ function abrirEditarEmbudo(id) {
   const e = embudoInfo(id);
   if (!e) return;
   embEdit = id;
+  $('#emb-reco').hidden = true;
+  verTiposEmb(true);
   $('#emb-titulo').textContent = `${e.tipo === 'vsl' ? textosVsl(state.config.vsls[id]).ico : e.tipo === 'directa' ? '🛒' : e.tipo === 'cruzadas' ? '🔁' : e.tipo === 'meteorico' ? '⚡' : '🚀'} ${e.nombre}`;
   $('#emb-subtipo').value = subtipoValido(state.config.vsls[id]?.subtipo);
   $('.emb-tipos').hidden = true;
@@ -12394,7 +12856,7 @@ function abrirEditarEmbudo(id) {
   irPasoEmb(0);
   embDlg.showModal();
 }
-$('#sb-add').addEventListener('click', abrirNuevoEmbudo);
+$('#sb-add').addEventListener('click', () => abrirNuevoEmbudo());
 $('#sidebar').addEventListener('click', (e) => { const b = e.target.closest('[data-emb-edit]'); if (b) abrirEditarEmbudo(b.dataset.embEdit); });
 document.addEventListener('click', (e) => { if (e.target.closest('[data-action="nuevo-embudo"]')) abrirNuevoEmbudo(); });
 $$('input[name="emb-tipo"]').forEach((r) => r.addEventListener('change', () => { pintarEmbPestanas(null); pintarEmbVipBase(); irPasoEmb(embPaso); }));
@@ -12551,7 +13013,7 @@ function actualizarAuditor() {
   $('#btn-auditor').classList.toggle('has-crit', crit > 0);
   // El Auditor está dentro de «Mi negocio»: el aviso de críticos se ve también en el botón del menú.
   const mn = $('#mn-count');
-  mn.hidden = !crit;
+  mn.hidden = !crit || (ppActivo() && diasOnb() < 7); // la primera semana de un admin nuevo, sin este aviso
   mn.textContent = String(crit);
   if ($('#auditor-dialog').open) pintarAuditor();
 }

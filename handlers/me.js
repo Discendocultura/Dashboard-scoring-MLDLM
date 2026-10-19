@@ -3,6 +3,7 @@ import { publicUser, rolEn } from '../lib/users.js';
 import { getRoles } from '../lib/roles.js';
 import { clienteActual } from '../lib/cliente.js';
 import { listClientes, clientePublico, labiaActivo } from '../lib/clientes.js';
+import { ghlConectado } from '../lib/ghl.js';
 import { getConfig } from '../lib/config-store.js';
 import { json, errorResponse } from '../lib/http.js';
 import { puedeOperativa } from '../lib/operativa.js';
@@ -23,6 +24,8 @@ export async function GET(request) {
     return json({
       role: s.role, user: s.user ? publicUser(s.user) : null, permisos: s.permisos || [], roles,
       superadmin: Boolean(s.superadmin), operativa: puedeOperativa(s), ...(s.verComo ? { verComo: s.verComo } : {}), cliente: clientePublico(reg), labia, clientes: mios.map(clientePublico),
+      // Para el primer acceso: si el CRM de este cliente ya está conectado, si lo implementa la agencia y si es el ejemplo.
+      crm: ghlConectado(reg), implementa: Boolean(reg.implementa), ...(reg.ejemplo ? { ejemplo: true } : {}),
     });
   } catch (e) {
     return errorResponse(e);

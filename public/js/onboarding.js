@@ -147,7 +147,12 @@ function guardar(cambio) {
   if (!ctx.preview) ctx.api('/api/usuarios', { method: 'POST', body: { op: 'onboarding', cambio } }).catch(() => { /* sin conexión: se vuelve a intentar con el siguiente cambio */ });
   pintarPastilla();
   aplicarSencilla();
+  ctx.acciones?.alCambiar?.(); // «mostrar poco a poco» (app.js) se vuelve a aplicar
 }
+// Para app.js: el estado del onboarding, guardar un cambio y si un paso ya está hecho.
+export const onbEstado = () => ctx?.estado || { hecho: true };
+export const onbGuardar = (cambio) => { if (onbActivo()) guardar(cambio); };
+export const onbRol = () => ctx?.rol || '';
 
 // ---------- Arranque ----------
 // opts: { api, rol, nombre, estado, preview, acciones: { marca, conexiones, irVista(v), crear, procesos, cuenta, operativa } }
@@ -374,7 +379,8 @@ export function abrirAyuda(boton) {
     ['recorrido', '🧭', 'Repetir el recorrido', 'Lo básico en 1 minuto'],
     ...(vista ? [['pantalla', '💡', 'Ayuda de esta pantalla', 'Qué hay aquí y para qué sirve']] : []),
     ...(onbActivo() ? [['pasos', '🚀', 'Mis primeros pasos', `${progresoDe(ctx.estado, ctx.rol).hechos} de ${progresoDe(ctx.estado, ctx.rol).total} hechos`]] : []),
-    ...(sencillaActiva() ? [['todo', '👀', 'Ver todas las pestañas', 'Ahora estás en la vista sencilla']] : []),
+    ...(sencillaActiva() || document.body.classList.contains('pp-activo') ? [['todo', '👀', 'Ver todo', 'Ahora ves solo lo básico: enséñamelo todo ya']] : []),
+    ...(ctx.acciones?.ejemplo && ['admin', 'setter'].includes(ctx.rol) ? [['ejemplo', '🧪', 'Ver un ejemplo', 'Un embudo con datos inventados, para curiosear']] : []),
     ...(ctx.superadmin ? [['preview', '🎓', ctx.preview ? 'Cambiar de rol en la vista previa' : 'Ver como usuario nuevo', 'El onboarding como lo ve alguien nuevo']] : []),
   ];
   m.innerHTML = `<p class="onb-menu-t">¿En qué te ayudo?</p>${opc.map(([id, ico, t, s]) => `<button type="button" data-onb-menu="${id}"><span aria-hidden="true">${ico}</span><span><strong>${t}</strong><small>${s}</small></span></button>`).join('')}`;
@@ -391,6 +397,7 @@ export function abrirAyuda(boton) {
     if (id === 'pantalla') tour(TOURS_VISTA[ctx.vista]);
     if (id === 'pasos') { if (ctx.estado.cerrado) guardar({ cerrado: false }); pintarPastilla(); abrirPastilla(); }
     if (id === 'todo') verTodas();
+    if (id === 'ejemplo') ctx.acciones.ejemplo();
     if (id === 'preview') elegirPreview();
   });
   setTimeout(() => document.addEventListener('click', cerrarMenuFuera, { once: true }), 0);
