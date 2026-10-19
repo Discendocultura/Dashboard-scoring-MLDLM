@@ -66,7 +66,7 @@ function tarjetasProductos(d) {
       <span class="ng-pcard-cab"><strong>${prodIco(p)}${esc(nomProd(p))}</strong>${p.recomendaciones?.length ? `<span class="ng-pcard-recos" title="Recomendaciones para este producto">💡 ${p.recomendaciones.length}</span>` : ''}</span>
       <span class="ng-pcard-cifra">${p.calculando ? '<small class="muted">⏳ Calculando…</small>' : p.sinPrecios ? '💶 sin precio' : eur(p.facturacion)}${delta(p.facturacion, p.previo?.facturacion)}</span>
       <span class="ng-pcard-cuota"><span class="ng-barra"><i style="width:${Math.round((p.cuota || 0) * 100)}%"></i></span><small>${pct(p.cuota)} de lo que facturas</small></span>
-      <span class="ng-pcard-datos"><span><b>${num(p.ventas)}</b> ventas</span><span><b>${p.roas == null ? '–' : x1(p.roas)}</b> ROAS</span><span><b>${eur(p.ticket)}</b> ticket</span></span>
+      <span class="ng-pcard-datos"><span><b>${num(p.ventas)}</b> ventas</span><span><b>${p.roas == null ? '–' : x1(p.roas)}</b> ROAS</span><span><b>${eur(p.ticket)}</b> ticket</span>${p.ciclo?.n ? `<span title="Del registro a la compra (mediana)">⏱️ <b>${p.ciclo.mediana === 0 ? 'mismo día' : `${num(p.ciclo.mediana)} d`}</b></span>` : ''}</span>
       ${mini(p.serie)}
       <span class="ng-pcard-ver">Ver ficha →</span></button>`).join('')}</div></section>`;
 }
@@ -125,7 +125,7 @@ function productoHtml(d, p) {
     ${p.calculando ? '<p class="ng-aviso suave">⏳ Contando sus compras en GHL (por su etiqueta)… Se completa solo en unos segundos.</p>' : ''}
     ${p.tipo === 'catalogo' && p.sinFecha && d.periodo !== 'todo' ? `<p class="ng-aviso suave">📅 ${num(p.sinFecha)} de sus compras no tienen fecha: solo cuentan en «Todo el histórico». ${p.conFechaCampo ? 'Revisa que el workflow de compra rellene su campo de fecha.' : 'Elige su campo de fecha de compra en Mi negocio → Productos.'}</p>` : ''}
     ${kpis}${recosHtml(p.recomendaciones, `💡 Qué haría con ${esc(nomProd(p))}`) || '<p class="ng-aviso suave">✅ Nada urgente con este producto. Las recomendaciones aparecen cuando los datos lo justifican.</p>'}
-    ${ofertas}${viaje}${serie}${tabla}`;
+    ${ofertas}${viaje}${cicloHtml(p.ciclo, `⏱️ Ciclo de compra · ${esc(nomProd(p))}`)}${serie}${tabla}`;
 }
 const MIN_VIAJE = 10;
 
@@ -152,16 +152,7 @@ export function negocioHtml(d, { producto = '' } = {}) {
 
   const recos = recosHtml(d.recomendaciones, '🧭 Qué haría ahora para facturar más');
 
-  const c = d.ciclo;
-  const maxT = Math.max(1, ...c.tramos.map((t) => t.n));
-  const totM = c.momentos.reduce((t, m) => t + m.n, 0);
-  const ciclo = `<section class="ng-sec card"><h3>⏱️ Ciclo de compra ${pocos(c.pocos)}</h3>
-    ${c.n ? `<p class="ng-grande"><strong>${c.mediana === 0 ? 'El mismo día' : `${num(c.mediana)} ${c.mediana === 1 ? 'día' : 'días'}`}</strong> <span class="muted">pasan normalmente desde que alguien se registra hasta que compra</span></p>
-    <div class="ng-barras">${c.tramos.map((t) => `<div class="ng-barra-f"><span>${esc(t.label)}</span><span class="ng-barra"><i style="width:${Math.round((t.n / maxT) * 100)}%"></i></span><b>${num(t.n)}</b></div>`).join('')}</div>
-    ${c.cobertura != null && c.cobertura < 0.9 ? `<p class="muted small">Con ${pct(c.cobertura)} de las compras (las que tienen fecha de compra). Para que sea exacto, guarda la fecha de compra en un campo de GHL desde el workflow de compra.</p>` : ''}`
-    : '<p class="muted">Aparece cuando las compras tengan fecha (un campo de fecha de compra en GHL, puesto por el workflow de compra).</p>'}
-    ${totM ? `<h4>¿Cuándo compran en tus lanzamientos?</h4><div class="ng-momentos">${c.momentos.map((m) => `<div><strong>${pct(m.n / totM)}</strong><span>${esc(m.label)}</span></div>`).join('')}</div>` : ''}
-  </section>`;
+  const ciclo = cicloHtml(d.ciclo, '⏱️ Ciclo de compra · todo el negocio');
 
   const r = d.recompra;
   const recompra = `<section class="ng-sec card"><h3>🔁 El cliente a lo largo del tiempo ${pocos(r.pocos)}</h3>
@@ -204,4 +195,19 @@ function tablaEmbudos(lista, titulo) {
   return `<section class="ng-sec card"><h3>${titulo}</h3><div class="table-scroll"><table class="metric-table ng-tabla">
     <thead><tr><th>Embudo</th><th class="num">Registros</th><th class="num">Ventas</th><th class="num">Facturación</th><th class="num">Coste por lead</th><th class="num">ROAS</th><th class="num">Conversión</th><th class="num">Tendencia</th></tr></thead>
     <tbody>${lista.map(fila).join('')}</tbody></table></div><p class="muted small">Pulsa un embudo para abrirlo. 🏆 el que mejor ROAS da · ⚠️ vuelve menos de lo que se invierte.</p></section>`;
+}
+
+// El ciclo de compra (de todo el negocio o de un producto): cuántos días pasan del registro a la compra, por tramos,
+// y, en los lanzamientos, en qué momento del carrito se compra.
+function cicloHtml(c, titulo) {
+  if (!c) return '';
+  const maxT = Math.max(1, ...c.tramos.map((t) => t.n));
+  const totM = c.momentos.reduce((t, m) => t + m.n, 0);
+  return `<section class="ng-sec card"><h3>${titulo} ${pocos(c.pocos)}</h3>
+    ${c.n ? `<p class="ng-grande"><strong>${c.mediana === 0 ? 'El mismo día' : `${num(c.mediana)} ${c.mediana === 1 ? 'día' : 'días'}`}</strong> <span class="muted">pasan normalmente desde que alguien se registra hasta que compra</span></p>
+    <div class="ng-barras">${c.tramos.map((t) => `<div class="ng-barra-f"><span>${esc(t.label)}</span><span class="ng-barra"><i style="width:${Math.round((t.n / maxT) * 100)}%"></i></span><b>${num(t.n)}</b></div>`).join('')}</div>
+    ${c.cobertura != null && c.cobertura < 0.9 ? `<p class="muted small">Con ${pct(c.cobertura)} de las compras (las que tienen fecha de compra). Para que sea exacto, guarda la fecha de compra en un campo de GHL desde el workflow de compra.</p>` : ''}`
+    : '<p class="muted">Aparece cuando las compras tengan fecha (un campo de fecha de compra en GHL, puesto por el workflow de compra).</p>'}
+    ${totM ? `<h4>¿Cuándo compran en tus lanzamientos?</h4><div class="ng-momentos">${c.momentos.map((m) => `<div><strong>${pct(m.n / totM)}</strong><span>${esc(m.label)}</span></div>`).join('')}</div>` : ''}
+  </section>`;
 }

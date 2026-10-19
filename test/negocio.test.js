@@ -137,6 +137,9 @@ test('inteligencia de negocio: con catálogo de productos, compras por etiqueta,
   assert.equal(raices.conversion, 12 / 600);
   assert.ok(raices.recomendaciones.some((r) => /La mayoría lo compra con oferta/.test(r.titulo)));
   assert.deepEqual(raices.antes.top[0], { nombre: 'Reto Ovulación', n: 5 });
+  // Su propio ciclo de compra (de su embudo: 2 días del registro a la compra)
+  assert.deepEqual({ n: raices.ciclo.n, mediana: raices.ciclo.mediana }, { n: 12, mediana: 2 });
+  assert.equal(raices.ciclo.tramos.find((t) => t.id === 'd3').n, 12);
   const reto = a.productos[1];
   assert.equal(reto.ventas, 20);
   assert.deepEqual({ n: reto.objetivo.n, pct: reto.objetivo.pct, nombre: reto.objetivo.nombre }, { n: 5, pct: 0.25, nombre: 'Raíces' });
