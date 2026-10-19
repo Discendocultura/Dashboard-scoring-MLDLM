@@ -129,7 +129,7 @@ async function main() {
         await paso('[admin] configuración del lanzamiento', async () => {
           await page.click('#sb-items [data-embudo="lanz"]');
           await page.waitForTimeout(1200);
-          await page.click('#btn-config');
+          await page.click('#btn-config:visible, #ctx-config-aviso:visible'); // a medias, solo la tarjeta grande
           await page.waitForSelector('#config-dialog[open]');
           for (const t of await page.$$eval('#config-dialog .tab', (e) => e.map((x) => x.dataset.tab))) await page.click(`#config-dialog .tab[data-tab="${t}"]`);
           await page.evaluate(() => document.querySelector('#config-dialog').close());

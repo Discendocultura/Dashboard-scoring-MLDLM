@@ -192,6 +192,13 @@ Análisis → Avatar: arriba, las cifras de partida en frases («1850 personas r
 - **Venta (carrito)**: tarjeta propia de **CAC** (inversión ÷ ventas) y también en el asunto.
 - El **resumen diario de leads** (el otro email de cada mañana, `lib/digest.js`) lleva lo mismo: CPL de ayer y CPL general en captación, CAC en carrito.
 
+### Móvil: barra fija arriba y subpestañas abajo
+- **Arriba, fija al hacer scroll**: la cabecera del embudo en una fila (qué lanzamiento, ⚠️ pendientes, ⚙️ si la configuración ya está completa, ↻ actualizar y ⋯) y, debajo, lo importante de cada pestaña: el **periodo** (VSL, ventas directas, Cómo van los anuncios, Inicio e Inteligencia de negocio), el **buscador y los filtros** de Leads, la vista de **Llamadas**, de **Tareas** y del **Calendario**, y los filtros por motivo de **Setting hoy**.
+- **Abajo, encima de las pestañas**: las **subpestañas** de la pestaña en la que estás (Hoy → Setting hoy · Llamadas · En directo · LabIA; Métricas → Resumen · Ventas · Captación…; Leads → Lista · Encuesta · Comentarios; Anuncios, Crear, Plan, Análisis). Si son más de 4, se ven las 3 primeras (o la que tienes abierta) y **☰ Todas** abre un panel con todas.
+
+### Configuración: una sola tarjeta con el %
+Mientras a la configuración del lanzamiento le falte algo, sale **una sola tarjeta grande** (en el ordenador y en el móvil) con el anillo del %, cuántos datos faltan, la barra de progreso, por cuál empezar y «Completar →». El botón pequeño de «Configuración» de la cabecera no se repite mientras tanto: vuelve cuando está al 100 % (o en VSL, ventas directas y meteóricos).
+
 ### Menú «Cuenta» en el móvil
 
 En pantallas estrechas se abre como una hoja opaca debajo de la barra de arriba, con los botones más separados y el fondo oscurecido (no se mezcla con lo de detrás en ningún estilo).

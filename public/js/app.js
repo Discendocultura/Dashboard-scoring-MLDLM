@@ -3734,6 +3734,7 @@ function pintarMsub(nav, cat) {
   $$('[data-msub-btn]', nav).forEach((b) => b.classList.toggle('active', b.dataset.msubBtn === cat));
   $$('[data-msub]', view).forEach((el) => { el.hidden = el.dataset.msub !== cat || el.dataset.off === '1'; });
   ls.set(`lsd_${nav.id}`, cat);
+  programarBarrasMovil();
   if (nav.id === 'msub-leads' && cat === 'encuesta' && state.config && state.leads) renderEncuestaLeads();
   if (nav.id === 'msub-leads' && cat === 'comentarios' && state.config && !$('#view-leads').hidden) renderComentariosLeads();
   if (nav.id === 'msub-metricas' && cat === 'meteorico' && state.config) renderMeteoLanz();
@@ -6012,6 +6013,7 @@ function pintarBotonConfig() {
   const incompleto = Boolean(p && (p.faltan || p.revisar));
   b.classList.toggle('incompleta', incompleto);
   b.classList.toggle('lista', Boolean(p && !incompleto));
+  b.classList.toggle('en-aviso', incompleto); // a medias: solo la tarjeta grande (sin el botón repetido arriba)
   if (p) {
     anillo.style.setProperty('--p', p.pct);
     anillo.classList.toggle('ok', !incompleto);
@@ -6020,7 +6022,13 @@ function pintarBotonConfig() {
   }
   aviso.hidden = !incompleto;
   if (incompleto) {
-    aviso.innerHTML = `<span class="cca-ico" aria-hidden="true">⚙️</span><span class="cca-txt"><strong>La configuración de «${esc(lanz.name || state.launchCode)}» está al ${p.pct} %</strong><small>El embudo funciona con ella: fechas, páginas, precios y etiquetas. ${p.faltan ? `Faltan ${p.faltan}${p.sig ? `, empezando por «${esc(p.sig)}»` : ''}.` : `Hay ${p.revisar} por revisar.`}</small></span><span class="cca-btn">Completar la configuración →</span>`;
+    aviso.innerHTML = `<span class="cca-anillo" style="--p:${p.pct}" aria-hidden="true"><span><b>${p.pct}</b>%</span></span>
+      <span class="cca-txt"><span class="cca-eyebrow">⚙️ Configuración · ${esc(lanz.name || state.launchCode)}</span>
+        <strong>${p.faltan ? `Te faltan ${p.faltan} ${p.faltan === 1 ? 'dato' : 'datos'} para completarla` : `Revisa ${p.revisar} ${p.revisar === 1 ? 'dato' : 'datos'} para completarla`}</strong>
+        <span class="cca-barra" aria-hidden="true"><i style="width:${p.pct}%"></i></span>
+        <small>${p.faltan && p.sig ? `Empieza por «${esc(p.sig)}». ` : ''}El embudo funciona con ella: fechas, páginas, precios y etiquetas.</small></span>
+      <span class="cca-btn">Completar →</span>`;
+    aviso.setAttribute('aria-label', `Configuración al ${p.pct} %. Completarla`);
   }
 }
 $('#ctx-config-aviso').addEventListener('click', () => $('#btn-config').click());
@@ -6565,6 +6573,7 @@ function pintarNavMovil() {
     return `<div class="nm-sec">${cab}${pags}</div>`;
   };
   $('#nav-mas').innerHTML = `<p class="nm-mas-t">Todas las secciones</p>${tabs.map(seccion).join('')}${document.body.classList.contains('vista-sencilla') ? '<button type="button" class="btn small nm-ver-todas" data-nm-todas>＋ Ver todas las pestañas</button>' : ''}`;
+  programarBarrasMovil();
 }
 document.addEventListener('click', (e) => {
   const mas = e.target.closest('[data-nm-mas]');
@@ -6575,6 +6584,83 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-nm]');
   if (b) { $$('.views .view-tab').filter(visibleEl)[Number(b.dataset.nm)]?.click(); $('#nav-mas').hidden = true; document.body.classList.remove('nm-abierto'); window.scrollTo({ top: 0 }); return; }
   if (!$('#nav-mas').hidden && !e.target.closest('#nav-mas')) { $('#nav-mas').hidden = true; document.body.classList.remove('nm-abierto'); }
+});
+
+// ---------- Móvil: arriba, fija, la barra con lo importante de la pestaña; abajo, sus subpestañas ----------
+// Arriba se queda fija (al hacer scroll) la cabecera del embudo (qué lanzamiento, pendientes, actualizar) y, debajo,
+// el control clave de cada pestaña: el periodo, el buscador y los filtros, la vista de llamadas o de tareas… (CSS).
+// Abajo, encima de las pestañas, las subpestañas de la pestaña (Setting hoy · Llamadas…, Resumen · Ventas…): las
+// principales a la vista y «☰ Todas» con todas; la fila de subpestañas de la página se esconde (sigue funcionando).
+var subMovil = []; // los botones de verdad de la barra de subpestañas que se ve abajo
+function barraSubActual() {
+  if (!esMovil() || state.enInicio || $('#dashboard').hidden) return null;
+  const grupo = $$('#dashboard .subviews:not(.msubs)').find(visibleEl);
+  if (grupo) return grupo;
+  const vista = VIEWS.find((v) => !$(`#view-${v}`)?.hidden);
+  const ms = vista ? $(`#view-${vista} .msubs`) : null;
+  return ms && visibleEl(ms) ? ms : null;
+}
+function pintarSubMovil() {
+  const sm = $('#sub-movil');
+  const bar = barraSubActual();
+  $$('.sub-oculta').forEach((x) => { if (x !== bar) x.classList.remove('sub-oculta'); });
+  if (bar) bar.classList.remove('sub-oculta'); // para ver qué botones se ven de verdad
+  const btns = bar ? $$('.subview-tab', bar).filter(visibleEl) : [];
+  if (btns.length < 2) {
+    sm.hidden = true;
+    $('#sub-mas').hidden = true;
+    subMovil = [];
+    document.body.classList.remove('con-sub-movil', 'sm-abierto');
+    return;
+  }
+  bar.classList.add('sub-oculta');
+  subMovil = btns;
+  const act = btns.findIndex((b) => b.classList.contains('active'));
+  const muchas = btns.length > 4;
+  const vis = !muchas ? btns.map((_, i) => i) : act > 2 ? [0, 1, act] : [0, 1, 2];
+  const cara = (b) => (b.classList.contains('subview-labia') ? `<span class="sv-labia-logo">${labiaLogo()}</span>` : `${b.querySelector('svg')?.outerHTML || ''}<span>${esc(textoPestana(b))}</span>`);
+  const item = (i, cls) => `<button type="button" class="${cls} ${i === act ? 'on' : ''}" data-sm="${i}" ${i === act ? 'aria-current="page"' : ''}>${cara(btns[i])}</button>`;
+  sm.innerHTML = vis.map((i) => item(i, 'sm-item')).join('')
+    + (muchas ? `<button type="button" class="sm-item sm-todas" data-sm-mas aria-expanded="${!$('#sub-mas').hidden}"><span class="sm-ham" aria-hidden="true">☰</span><span>Todas</span><b>${btns.length}</b></button>` : '');
+  sm.setAttribute('aria-label', bar.getAttribute('aria-label') || 'Apartados');
+  $('#sub-mas').innerHTML = `<p class="nm-mas-t">${esc(bar.getAttribute('aria-label') || 'Apartados')}</p><div class="sm-grid">${btns.map((_, i) => item(i, 'sm-op')).join('')}</div>`;
+  sm.hidden = false;
+  document.body.classList.add('con-sub-movil');
+}
+function medirBarrasMovil() {
+  const raiz = document.documentElement.style;
+  const tb = $('.topbar');
+  const f1 = tb && getComputedStyle(tb).position === 'sticky' ? tb.offsetHeight : 0;
+  const ctx = $('#ctx-bar');
+  raiz.setProperty('--fija-1', `${f1}px`);
+  raiz.setProperty('--fija-2', `${f1 + (esMovil() && visibleEl(ctx) ? ctx.offsetHeight : 0)}px`);
+  raiz.setProperty('--nm-h', `${$('#nav-movil').hidden ? 0 : $('#nav-movil').offsetHeight}px`);
+  raiz.setProperty('--sm-h', `${$('#sub-movil').hidden ? 0 : $('#sub-movil').offsetHeight}px`);
+}
+var barrasMovilPend = 0; // var: se puede llamar antes de llegar aquí
+function programarBarrasMovil() {
+  if (barrasMovilPend) return;
+  barrasMovilPend = requestAnimationFrame(() => { barrasMovilPend = 0; pintarSubMovil(); medirBarrasMovil(); });
+}
+if (window.ResizeObserver) {
+  const ro = new ResizeObserver(() => medirBarrasMovil());
+  ['.topbar', '#ctx-bar', '#nav-movil', '#sub-movil'].forEach((sel) => { const el = $(sel); if (el) ro.observe(el); });
+}
+window.addEventListener('resize', programarBarrasMovil);
+const cerrarSubMas = () => { $('#sub-mas').hidden = true; document.body.classList.remove('sm-abierto'); $('[data-sm-mas]')?.setAttribute('aria-expanded', 'false'); };
+document.addEventListener('click', (e) => {
+  const mas = e.target.closest('[data-sm-mas]');
+  if (mas) { const p = $('#sub-mas'); p.hidden = !p.hidden; mas.setAttribute('aria-expanded', String(!p.hidden)); document.body.classList.toggle('sm-abierto', !p.hidden); return; }
+  const b = e.target.closest('[data-sm]');
+  if (b) {
+    const real = subMovil[Number(b.dataset.sm)];
+    cerrarSubMas();
+    if (real) { real.click(); window.scrollTo({ top: 0 }); }
+    programarBarrasMovil();
+    return;
+  }
+  if (!$('#sub-mas').hidden && !e.target.closest('#sub-mas')) cerrarSubMas();
+  programarBarrasMovil(); // cualquier clic puede cambiar de pestaña, de embudo o de categoría
 });
 
 // ---------- Cabecera del embudo: dónde estás (embudo › lanzamiento · fase) y qué puedes hacer ----------
@@ -6724,7 +6810,8 @@ function pintarCabecera() {
   const n = (!$('#snapshot-warning').hidden ? 1 : 0) + (!$('#avisos').hidden ? Number($('#avisos').dataset.n || 0) : 0);
   const chip = $('#ctx-pend');
   chip.hidden = !n;
-  chip.innerHTML = `⚠️ <b>${n}</b> pendiente${n === 1 ? '' : 's'}`;
+  chip.innerHTML = `<span aria-hidden="true">⚠️</span> <b>${n}</b><span class="cp-txt"> pendiente${n === 1 ? '' : 's'}</span>`;
+  chip.setAttribute('aria-label', `${n} pendiente${n === 1 ? '' : 's'}`);
   if (!n) { $('#ctx-pend-panel').hidden = true; chip.setAttribute('aria-expanded', 'false'); }
 }
 $('#ctx-pend').addEventListener('click', () => {
