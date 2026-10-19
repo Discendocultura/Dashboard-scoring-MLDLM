@@ -7188,3 +7188,12 @@ body.embudo-cruzadas .lanz-only { display: none !important; }
 .xa-act.wa { color: #25d366; }
 .xa-act.wa:hover { background: color-mix(in srgb, #25d366 14%, var(--surface)); }
 .xa-act .ico-wa { display: block; }
+
+/* Ventas cruzadas · Hoy: cada fase es un filtro */
+button.xp-res { font: inherit; color: var(--text); cursor: pointer; transition: border-color .15s, background .15s, transform .15s; }
+button.xp-res:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+button.xp-res.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent); }
+button.xp-res.cerr.on { opacity: 1; }
+.xp-res-todas { border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; background: var(--surface); color: var(--text-2); font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer; }
+.xp-tablero.una { grid-auto-flow: row; grid-auto-columns: auto; overflow: visible; }
+.xp-tablero.una .xp-col ol { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); max-height: none; }

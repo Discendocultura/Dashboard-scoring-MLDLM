@@ -265,6 +265,8 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     if (cf) { abrirConfig(state.embudo); if (cf.dataset.xIr) setTimeout(() => $(`#xc-${cf.dataset.xIr}`, dlg)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120); return; }
     if (e.target.closest('#xhoy-body [data-x-recargar]')) return cargarHoy(state.embudo, { fresh: true });
     if (e.target.closest('[data-x-cerradas]')) { hoy.cerradas = !hoy.cerradas; return pintarHoy(); }
+    const xpe = e.target.closest('[data-xp-etapa]');
+    if (xpe) { hoy.etapa = hoy.etapa === xpe.dataset.xpEtapa ? '' : xpe.dataset.xpEtapa; return pintarHoy(); }
     const xpc = e.target.closest('[data-xp-com]');
     if (xpc) { vista.com = xpc.dataset.xpCom; guardarFiltro(state.embudo); return pintarHoy(); }
     if (!e.target.closest('#xalumnos-body')) return;
@@ -381,7 +383,9 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     const abiertas = d.etapas.filter((e) => !cerrada(e.nombre));
     const cerradas = d.etapas.filter((e) => cerrada(e.nombre));
     const filtroCom = comerciales.length ? `<div class="xa-seg xp-com" role="group" aria-label="Comercial"><span class="xa-seg-t">👤 Comercial</span><button type="button" class="${vista.com ? '' : 'on'}" data-xp-com="">Todos</button>${comerciales.map((x) => `<button type="button" class="${vista.com === x.id ? 'on' : ''}" data-xp-com="${esc(x.id)}">${x.uid && x.uid === state.user?.id ? '⭐ Los míos' : esc(x.nombre)} <small>${x.pct} %</small></button>`).join('')}</div>` : '';
-    const resumen = `${filtroCom}<div class="xp-resumen">${d.etapas.map((e, i) => `<span class="xp-res ${cerrada(e.nombre) ? 'cerr' : ''}" style="--c:${COLORES[0]};--i:${i}"><span aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><b>${num(nDe(e))}</b><small>${esc(e.nombre)}</small></span>`).join('')}</div>`;
+    // Cada fase es también un filtro: al pulsarla se ven solo las personas de esa fase (otra vez, todas).
+    if (hoy.etapa && !d.etapas.some((e) => e.id === hoy.etapa)) hoy.etapa = '';
+    const resumen = `${filtroCom}<div class="xp-resumen" role="group" aria-label="Filtrar por fase">${d.etapas.map((e, i) => `<button type="button" class="xp-res ${cerrada(e.nombre) ? 'cerr' : ''} ${hoy.etapa === e.id ? 'on' : ''}" data-xp-etapa="${esc(e.id)}" aria-pressed="${hoy.etapa === e.id}" title="${hoy.etapa === e.id ? 'Ver todas las fases' : `Ver solo «${esc(e.nombre)}»`}" style="--c:${COLORES[0]};--i:${i}"><span aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><b>${num(nDe(e))}</b><small>${esc(e.nombre)}</small></button>`).join('')}${hoy.etapa ? '<button type="button" class="xp-res-todas" data-xp-etapa="">✕ Todas las fases</button>' : ''}</div>`;
     const tarjeta = (it, i) => {
       const a = alumnoDe(it.contactId);
       const falta = a ? productos.filter((p) => !a.tiene.includes(p.id)) : [];
@@ -396,9 +400,10 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
         ${pOf ? `<span class="xa-oferta" style="--c:${colorDe(productos, pOf.id)}"><span aria-hidden="true">🎁</span> <b>${esc(pOf.nombre)}</b>${of.precio ? `<small>${esc(of.precio)}</small>` : ''}</span>` : falta.length ? `<span class="xa-ofrece"><span aria-hidden="true">🎁</span> ${falta.slice(0, 2).map((p) => esc(p.nombre)).join(' · ')}</span>` : ''}
         <div class="xp-card-pie"><span class="muted small">${dias == null ? '' : dias === 0 ? 'hoy en esta fase' : `${dias} día${dias === 1 ? '' : 's'} en esta fase`}</span><span class="xa-acts">${tel ? `<a class="xa-act tel" href="tel:${esc(tel.replace(/[^\d+]/g, ''))}" title="Llamar">📞</a>` : ''}${wa ? `<a class="xa-act wa" href="https://wa.me/${esc(wa)}${of?.mensaje ? `?text=${encodeURIComponent(mensajeDe(of, it.nombre, pOf?.nombre))}` : ''}" target="_blank" rel="noopener" title="WhatsApp">${ICO_WA}</a>` : ''}</span></div></li>`;
     };
+    const maxCol = hoy.etapa ? POR_COLUMNA * 5 : POR_COLUMNA; // una sola fase: caben más
     const columna = (e, i) => `<section class="xp-col ${cerrada(e.nombre) ? 'cerr' : ''}" style="--c:${COLORES[0]};--i:${i}">
       <header><span class="xp-col-ico" aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><strong>${esc(e.nombre)}</strong><span class="xp-col-n">${num(nDe(e))}</span></header>
-      ${suyos(e).length ? `<ol>${suyos(e).slice(0, POR_COLUMNA).map(tarjeta).join('')}</ol>${nDe(e) > Math.min(POR_COLUMNA, suyos(e).length) ? `<p class="muted small xp-col-mas">Y ${num(nDe(e) - Math.min(POR_COLUMNA, suyos(e).length))} más${vista.com ? '' : ' (filtra por comercial para ver los tuyos)'}</p>` : ''}` : '<p class="xp-col-vacia">Nadie en esta fase</p>'}</section>`;
+      ${suyos(e).length ? `<ol>${suyos(e).slice(0, maxCol).map(tarjeta).join('')}</ol>${nDe(e) > Math.min(maxCol, suyos(e).length) ? `<p class="muted small xp-col-mas">Y ${num(nDe(e) - Math.min(maxCol, suyos(e).length))} más${vista.com ? '' : ' (filtra por comercial para ver los tuyos)'}</p>` : ''}` : '<p class="xp-col-vacia">Nadie en esta fase</p>'}</section>`;
     // Alumnos que aún no están en el pipeline (por su id de contacto, con lo leído de GHL).
     const enPipe = new Set(d.etapas.flatMap((e) => e.items.map((it) => it.contactId)));
     const fuera = datos.alumnos ? datos.alumnos.filter((a) => !enPipe.has(a.id)).length : null;
@@ -406,8 +411,11 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
         <span class="xp-volcar-ico" aria-hidden="true">📥</span>
         <div><strong>${num(fuera)} alumnos aún no están en el pipeline</strong><small>Mételos en la fase «${esc(etapaInicial(d))}» para que tus closers los vayan moviendo cuando empiecen a llamar.${cfg.comerciales.length ? ' Cada oportunidad lleva en el nombre el comercial que le toca.' : ''}</small></div>
         <button type="button" class="btn primary" data-xp-volcar ${hoy.volcando ? 'disabled' : ''}>${hoy.volcando ? `Metiendo… ${num(hoy.volcando.hechos)} de ${num(hoy.volcando.total)}` : `📥 Meter a los ${num(fuera)} en «${esc(etapaInicial(d))}»`}</button></div>` : '';
-    caja.innerHTML = `${cab}${volcar}${resumen}<div class="xp-tablero">${abiertas.map(columna).join('')}${hoy.cerradas ? cerradas.map((e) => columna(e, d.etapas.indexOf(e))).join('') : ''}</div>
-      ${cerradas.length ? `<div class="xa-mas"><button type="button" class="btn ghost" data-x-cerradas>${hoy.cerradas ? 'Ocultar las cerradas' : `Ver las cerradas (${cerradas.map((e) => `${ICO_ETAPA(e.nombre)} ${num(e.n)}`).join(' · ')})`}</button></div>` : ''}`;
+    const sola = hoy.etapa && d.etapas.find((e) => e.id === hoy.etapa);
+    caja.innerHTML = `${cab}${volcar}${resumen}${sola
+      ? `<div class="xp-tablero una">${columna(sola, d.etapas.indexOf(sola))}</div>`
+      : `<div class="xp-tablero">${abiertas.map(columna).join('')}${hoy.cerradas ? cerradas.map((e) => columna(e, d.etapas.indexOf(e))).join('') : ''}</div>`}
+      ${cerradas.length && !sola ? `<div class="xa-mas"><button type="button" class="btn ghost" data-x-cerradas>${hoy.cerradas ? 'Ocultar las cerradas' : `Ver las cerradas (${cerradas.map((e) => `${ICO_ETAPA(e.nombre)} ${num(e.n)}`).join(' · ')})`}</button></div>` : ''}`;
   }
 
   // La fase donde entran (la misma regla que el servidor): «Por contactar» o, si no, la primera.
