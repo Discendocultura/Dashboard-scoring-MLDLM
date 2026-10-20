@@ -1,4 +1,4 @@
-// Mi negocio → 📦 Productos: la ventana para poner cada producto con su precio, la etiqueta de GHL de quien lo
+// Configuración → 📦 Productos: la ventana para poner cada producto con su precio, la etiqueta de GHL de quien lo
 // compra y sus ofertas (el mismo producto a otro precio, con su propia etiqueta). Si es una membresía (cobro
 // recurrente), hasta 3 planes con su precio y su etiqueta en cada periodo (mensual, trimestral, semestral, anual).
 // Todo paso a paso y explicado.

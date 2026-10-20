@@ -27,14 +27,15 @@ export const TOURS = {
     { sel: '#ctx-bar', titulo: 'Dónde estás', texto: 'El embudo y el lanzamiento que estás viendo. Cámbialo en el desplegable; con «Configurar» pones fechas, precios y enlaces.' },
     { sel: 'nav.views, #nav-movil', titulo: 'Las pestañas van por momentos', texto: '«Comercial» es lo del día, «Leads» y «Métricas» cómo va, «Anuncios» qué tal funcionan y qué lead trae cada uno, «Crear» lo que preparas con IA y «Plan» la organización.' },
     { sel: '.views [data-view-grupo="crear"]', titulo: 'Crear con IA', texto: 'Páginas, emails, imágenes, anuncios y mensajes del grupo: copias un prompt que ya lleva todo y lo pegas en Claude o en ChatGPT.' },
-    { sel: '#tb-menu-ajustes', titulo: 'Mi negocio', texto: 'El equipo, la marca y el avatar (la base de todo lo que escribe la IA) y las conexiones.' },
+    { sel: '#sb-operativa, #sb-procesos', titulo: 'Tu día a día', texto: 'En el lateral tienes la Operativa (las tareas), la Inteligencia de negocio y los Procesos, siempre del cliente en el que estás.' },
+    { sel: '#tb-menu-ajustes', titulo: 'Configuración', texto: 'Tus productos, la marca y el avatar (la base de todo lo que escribe la IA), el equipo, las conexiones y atajos y las plantillas de WhatsApp.' },
     AYUDA,
   ],
   setter: [
     { sel: '[data-view-grupo="comercial"]', titulo: 'Empieza siempre por «Comercial»', texto: 'A quién escribir hoy, ya ordenado por prioridad y con su temperatura. Pulsa WhatsApp y el mensaje sale escrito.' },
     { sel: '.view-tab[data-view="leads"]:not([hidden]), .view-tab[data-view="vleads"]:not([hidden])', titulo: 'Todos tus leads', texto: 'Cada persona registrada con su puntuación. Pulsa su nombre para ver su ficha completa.' },
     { sel: '#ctx-bar', titulo: 'Qué lanzamiento ves', texto: 'Si hay varios, cámbialo en este desplegable.' },
-    { sel: '#tb-menu-ajustes', titulo: 'Tus mensajes', texto: 'En «Mensajes de WhatsApp» están los textos de cada botón. Puedes ajustarlos a tu manera de escribir.' },
+    { sel: '#tb-menu-ajustes', titulo: 'Tus mensajes', texto: 'En ⚙️ Configuración → «Plantillas de WhatsApp» están los textos de cada botón. Puedes ajustarlos a tu manera de escribir.' },
     AYUDA,
   ],
   cliente: [
@@ -124,8 +125,8 @@ export const PASOS = {
   ],
   operativa: [
     RECORRIDO,
-    { id: 'operativa', txt: 'Abre tus tareas', sel: '#solo-op-operativa, #btn-operativa', ver: '#solo-op-operativa, #tb-menu-ajustes', ir: 'operativa' },
-    { id: 'procesos', txt: 'Consulta un proceso', sel: '#solo-op-procesos, #btn-procesos, [data-proxy="#btn-procesos"]', ver: '#solo-op-procesos, #tb-menu-ajustes', ir: 'procesos' },
+    { id: 'operativa', txt: 'Abre tus tareas', sel: '#solo-op-operativa, #btn-operativa, #sb-operativa', ver: '#solo-op-operativa, #sb-operativa', ir: 'operativa' },
+    { id: 'procesos', txt: 'Consulta un proceso', sel: '#solo-op-procesos, #btn-procesos, #sb-procesos', ver: '#solo-op-procesos, #sb-procesos', ir: 'procesos' },
   ],
 };
 
@@ -390,6 +391,7 @@ export function abrirAyuda(boton) {
     ...(onbActivo() ? [['pasos', '🚀', 'Mis primeros pasos', `${progresoDe(ctx.estado, ctx.rol).hechos} de ${progresoDe(ctx.estado, ctx.rol).total} hechos`]] : []),
     ...(sencillaActiva() || document.body.classList.contains('pp-activo') ? [['todo', '👀', 'Ver todo', 'Ahora ves solo lo básico: enséñamelo todo ya']] : []),
     ...(ctx.acciones?.ejemplo && ['admin', 'setter'].includes(ctx.rol) ? [['ejemplo', '🧪', 'Ver un ejemplo', 'Un embudo con datos inventados, para curiosear']] : []),
+    ['ayudas', '🔁', 'Volver a ver las ayudas', 'La explicación de cada pestaña, otra vez'],
     ...(ctx.superadmin ? [['preview', '🎓', ctx.preview ? 'Cambiar de rol en la vista previa' : 'Ver como usuario nuevo', 'El onboarding como lo ve alguien nuevo']] : []),
   ];
   m.innerHTML = `<p class="onb-menu-t">¿En qué te ayudo?</p>${opc.map(([id, ico, t, s]) => `<button type="button" data-onb-menu="${id}"><span aria-hidden="true">${ico}</span><span><strong>${t}</strong><small>${s}</small></span></button>`).join('')}`;
@@ -408,6 +410,7 @@ export function abrirAyuda(boton) {
     if (id === 'todo') verTodas();
     if (id === 'ejemplo') ctx.acciones.ejemplo();
     if (id === 'preview') elegirPreview();
+    if (id === 'ayudas') document.getElementById('btn-ayudas')?.click();
   });
   setTimeout(() => document.addEventListener('click', cerrarMenuFuera, { once: true }), 0);
 }

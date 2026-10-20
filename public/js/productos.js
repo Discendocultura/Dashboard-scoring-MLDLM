@@ -1,4 +1,4 @@
-// Productos de cada cliente (Mi negocio → 📦 Productos): lo que vende, a qué precio y qué etiqueta de GHL lleva quien
+// Productos de cada cliente (Configuración → 📦 Productos): lo que vende, a qué precio y qué etiqueta de GHL lleva quien
 // lo compra; y, si lo vende a otros precios, sus ofertas (cada una con su precio y su etiqueta). De aquí bebe la
 // Inteligencia de negocio: cuánto factura cada producto y cada oferta, y qué compran después sus clientes.
 // Lo usan el navegador (la ventana) y el servidor (handlers/productos.js y lib/negocio.js).

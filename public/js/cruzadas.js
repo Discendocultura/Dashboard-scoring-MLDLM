@@ -142,7 +142,7 @@ export function guiaCruzadas() {
       'Si lo vendes con varias etiquetas (ofertas, ediciones, el mismo producto en otro embudo), apúntalas todas: cuentan como el mismo producto.',
     ] },
     { titulo: '2 · En AlquimIA', pasos: [
-      'En la <strong>⚙️ Configuración</strong> del embudo elige los productos y su etiqueta (o tráelos de <em>Mi negocio → Productos</em>).',
+      'En la <strong>⚙️ Configuración</strong> del embudo elige los productos y su etiqueta (o tráelos de <em>Configuración → Productos</em>).',
       'En <strong>Alumnos</strong> verás a todos los que tienen alguno, qué tiene cada uno y qué le falta. Filtra por «tiene esto» y «no tiene esto» para saber a quién llamar y qué ofrecerle.',
     ] },
   ];

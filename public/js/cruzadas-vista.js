@@ -1,6 +1,6 @@
 // Embudo de ventas cruzadas en el navegador:
 //  · Configuración: los productos con su etiqueta, «Hoy y Llamadas» (sí / no, calendario y pipeline de GHL con las
-//    fases recomendadas) y notas para el equipo. Al guardar, el servidor añade sus productos a Mi negocio → Productos.
+//    fases recomendadas) y notas para el equipo. Al guardar, el servidor añade sus productos a Configuración → Productos.
 //  · Alumnos: quién tiene qué. Se elige a quién llamar con un «puente»: lo que YA TIENE → lo que quieres OFRECERLE.
 //  · Hoy: el pipeline de GHL del embudo en columnas (con lo que tiene cada alumno y qué ofrecerle).
 //  · Comerciales: los alumnos se reparten entre ellos por % (siempre el mismo alumno al mismo comercial) y cada
@@ -782,10 +782,10 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     const ya = new Set(borrador.productos.flatMap((p) => [p.tag, ...p.otras.map((o) => o.tag)]).filter(Boolean));
     const conTag = catalogo.filter((p) => p.etiqueta || p.ofertas?.some((o) => o.etiqueta));
     box.innerHTML = conTag.length
-      ? `<p class="xc-cat-t"><strong>📦 Tus productos</strong> <span class="muted small">(Mi negocio → Productos). Marca los que quieras usar:</span></p>
+      ? `<p class="xc-cat-t"><strong>📦 Tus productos</strong> <span class="muted small">(Configuración → Productos). Marca los que quieras usar:</span></p>
         <div class="xc-cat-lista">${conTag.map((p) => { const tags = [p.etiqueta, ...(p.ofertas || []).map((o) => o.etiqueta)].filter(Boolean); const esta = tags.some((t) => ya.has(t)); return `<label class="xc-cat-op ${esta ? 'ya' : ''}"><input type="checkbox" data-cat="${esc(p.id)}" ${esta ? 'disabled' : ''}><span><strong>${esc(p.nombre)}</strong><small>${esc(tags.join(' · '))}${esta ? ' · ya está' : ''}</small></span></label>`; }).join('')}</div>
         <div class="row"><button type="button" class="btn primary small" id="xc-cat-anadir">Añadir los marcados</button><button type="button" class="btn ghost small" id="xc-cat-cerrar">Cerrar</button></div>`
-      : '<p class="muted">Aún no tienes productos con etiqueta en <strong>Mi negocio → Productos</strong>. Escríbelos aquí abajo con su etiqueta: al guardar se añaden allí también.</p><div class="row"><button type="button" class="btn ghost small" id="xc-cat-cerrar">Cerrar</button></div>';
+      : '<p class="muted">Aún no tienes productos con etiqueta en <strong>Configuración → Productos</strong>. Escríbelos aquí abajo con su etiqueta: al guardar se añaden allí también.</p><div class="row"><button type="button" class="btn ghost small" id="xc-cat-cerrar">Cerrar</button></div>';
   }
 
   async function guardarConfig() {
@@ -802,10 +802,10 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     b.disabled = true;
     $('#xc-status', dlg).textContent = 'Guardando…';
     try {
-      // Al guardar, sus productos se añaden solos a Mi negocio → Productos (en el servidor).
+      // Al guardar, sus productos se añaden solos a Configuración → Productos (en el servidor).
       const volcados = await guardar(editId, limpio);
       dlg.close();
-      notice(`✓ «${limpio.name}» guardado: ${productosListos(limpio).length} productos, todos en Mi negocio → Productos${volcados ? ` (${volcados} nuevo${volcados === 1 ? '' : 's'} allí: ponles el precio)` : ''}${limpio.comerciales.length ? ` · alumnos repartidos entre ${limpio.comerciales.length} comerciales` : ''}${limpio.llamadas ? ' · con Hoy y Llamadas' : ''}.`);
+      notice(`✓ «${limpio.name}» guardado: ${productosListos(limpio).length} productos, todos en Configuración → Productos${volcados ? ` (${volcados} nuevo${volcados === 1 ? '' : 's'} allí: ponles el precio)` : ''}${limpio.comerciales.length ? ` · alumnos repartidos entre ${limpio.comerciales.length} comerciales` : ''}${limpio.llamadas ? ' · con Hoy y Llamadas' : ''}.`);
       if (state.embudo === editId) { cargar(editId, { fresh: true }); hoy.datos = null; }
     } catch (err) {
       $('#xc-status', dlg).textContent = err.message;

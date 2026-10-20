@@ -1,6 +1,6 @@
 // Que AlquimIA no abrume a quien empieza con acceso completo (admin nuevo). Aquí va la lógica (sin pantalla), para
 // el navegador (public/js/app.js) y las pruebas:
-//   · Mostrar poco a poco: el primer día, su embudo con Comercial · Leads · Métricas y, en «Mi negocio», Equipo y Marca.
+//   · Mostrar poco a poco: el primer día, su embudo con Comercial · Leads · Métricas y, en ⚙️ Configuración, Equipo y Marca.
 //     El resto aparece cuando tiene sentido (DESBLOQUEOS), con «Nuevo ✨» y una burbuja. «Ver todo» lo enseña ya.
 //   · «Tu siguiente paso»: una sola tarjeta en el Inicio con lo siguiente que le toca hacer.
 //   · Nuevo embudo con 2 preguntas: ¿tiene fecha? ¿por llamada o directa? → el tipo que le encaja.
@@ -13,7 +13,7 @@ const DIA = 86_400_000;
 export const diasDesde = (iso, ahora = Date.now()) => (iso ? Math.max(0, Math.floor((ahora - Date.parse(iso)) / DIA)) : 0);
 
 // ---------- Mostrar poco a poco ----------
-// vistas: las pestañas que aparecen · pp: los botones de «Mi negocio» y del menú lateral (atributo data-pp).
+// vistas: las pestañas que aparecen · pp: los botones de ⚙️ Configuración y del menú lateral (atributo data-pp).
 // cuando(c): con lo que ya tiene (c: { dias, configurado, leads, calendario, lanzamientos, ventas }).
 export const DESBLOQUEOS = [
   { id: 'plan', ico: '🗓️', nombre: 'Plan', texto: 'Organiza tu embudo: las tareas del equipo, el calendario con todas las fechas y cada día del carrito.',
@@ -26,9 +26,9 @@ export const DESBLOQUEOS = [
     vistas: ['llamadas'], cuando: (c) => c.calendario || c.dias >= 5 },
   { id: 'analisis', ico: '🔎', nombre: 'Análisis', texto: 'Compara tus lanzamientos, mira quién te compra y el rendimiento del equipo.',
     vistas: ['avatarc', 'comparar', 'rendimiento', 'claude'], cuando: (c) => c.lanzamientos >= 2 || c.dias >= 7 },
-  { id: 'negocio', ico: '📈', nombre: 'Inteligencia de negocio y Productos', texto: 'Ya vendes: en «Inteligencia de negocio» ves tu LTV, tu ROAS y qué producto lleva al siguiente; en «Mi negocio → Productos», tus precios.',
+  { id: 'negocio', ico: '📈', nombre: 'Inteligencia de negocio y Productos', texto: 'Ya vendes: en «Inteligencia de negocio» ves tu LTV, tu ROAS y qué producto lleva al siguiente; en «Configuración → Productos», tus precios.',
     vistas: [], cuando: (c) => c.ventas || c.dias >= 3 },
-  { id: 'herramientas', ico: '🧰', nombre: 'Más herramientas en «Mi negocio»', texto: 'Operativa (las tareas), Procesos, el Auditor, las Conexiones y tus mensajes de WhatsApp ya están en «Mi negocio».',
+  { id: 'herramientas', ico: '🧰', nombre: 'Más herramientas', texto: 'En el lateral ya tienes la Operativa (las tareas) y los Procesos; en ⚙️ Configuración, las Conexiones y atajos y tus plantillas de WhatsApp.',
     vistas: [], cuando: (c) => c.dias >= 2 || (c.configurado && c.leads) },
 ];
 const VISTA_DE = Object.fromEntries(DESBLOQUEOS.flatMap((d) => d.vistas.map((v) => [v, d.id])));

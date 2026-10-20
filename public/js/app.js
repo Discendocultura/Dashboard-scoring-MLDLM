@@ -668,7 +668,7 @@ async function start() {
   // «Mi negocio» sale siempre (Operativa y Procesos son de todos); dentro, cada uno ve lo que su rol puede tocar
   // (las setters, al menos los mensajes de WhatsApp).
   $('#btn-mensajes').hidden = !tiene(['hoy', 'llamadas', 'leads', 'config', 'mensajes']);
-  $('#tb-ajustes-cli').textContent = state.clientes?.find((c) => c.id === state.cliente)?.nombre || 'Este cliente';
+  $('#tb-ajustes-cli').textContent = `Configuración · ${state.clientes?.find((c) => c.id === state.cliente)?.nombre || 'este cliente'}`;
   $('#tb-cuenta-yo').textContent = state.user?.nombre ? String(state.user.nombre) : 'Tu cuenta';
   state.setterResumen = Boolean(setterResumen);
   aplicarProducto();
@@ -690,7 +690,10 @@ async function start() {
   // Marcado al darle de alta: antes de entrar tiene que rellenar Marca y avatar (sea cual sea su rol).
   if (state.user?.marcaObligatoria && (await asistenteMarcaCliente({ equipo: true }))) return;
   $('#portal').hidden = true;
-  $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
+  // «ADMIN» solo para la agencia; en el menú de cuenta, «Nombre · Rol».
+  $('#role-badge').textContent = state.superadmin ? 'ADMIN' : 'AGENCIA';
+  $('#role-badge').hidden = !state.agencia;
+  $('#tb-cuenta-rol').textContent = state.superadmin ? 'Admin agencia' : state.agencia ? `Agencia · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
   $('#btn-cuenta').hidden = !state.user;
   $('#btn-clave').hidden = !state.user;
   pintarFotoCuenta();
@@ -719,6 +722,7 @@ async function start() {
   if (hash) ls.set('lsd_inicio', ''); // un enlace directo a una pestaña: lo último ya no es el Inicio
   await setEmbudo(state.embudo, { vista: VIEWS.includes(hash) ? hash : null });
   if (abrirInicio) mostrarInicio();
+  irAliasNavegacion(hash);
   if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); pintarQueFunciono(); }
   if (!$('#view-rendimiento').hidden) loadRendimiento();
   // En el ejemplo, ni recorrido ni primeros pasos (es para curiosear), pero el botón de Ayuda sí funciona.
@@ -1096,19 +1100,22 @@ const ACCIONES_BUSCAR = [
   ['nuevo-embudo', '➕', 'Crear un embudo nuevo', 'nuevo embudo crear lanzamiento vsl', '#sb-add'],
   ['config', '⚙️', 'Configuración de este embudo', 'cambiar el precio precios fechas etiquetas configurar ajustes enlaces oferta', () => abrirConfigDe(state.embudo)],
   ['inicio', '🏠', 'Inicio', 'inicio resumen todos los embudos', '#sb-inicio'],
+  ['agencia', '🏢', 'Agencia · todos los clientes', 'agencia todos los clientes centro de mando panel', () => { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); }],
   ['negocio', '📈', 'Inteligencia de negocio', 'ltv roas negocio historico productos facturacion cac', '#sb-negocio'],
-  ['equipo', '👥', 'Equipo', 'equipo usuarios invitar personas roles permisos', '#btn-equipo'],
-  ['marca', '🎨', 'Marca y avatar', 'marca avatar cliente ideal tono voz', '#btn-marca'],
-  ['productos', '📦', 'Productos', 'productos precio catalogo membresia planes ofertas', '#btn-productos'],
-  ['conexiones', '🔌', 'Conexiones', 'conexiones sendflow setter ia integraciones', '#btn-conexiones'],
-  ['mensajes', '💬', 'Mensajes de WhatsApp', 'mensajes whatsapp textos plantillas', '#btn-mensajes'],
-  ['operativa', '🗂️', 'Operativa', 'tareas tableros operativa pendientes', '#btn-operativa'],
-  ['procesos', '📚', 'Procesos', 'procesos como se hace sop guias', '#btn-procesos'],
-  ['auditor', '🛡️', 'Auditor', 'auditor errores que falta revisar', '#btn-auditor'],
-  ['atajos', '🔗', 'Tus atajos', 'atajos enlaces drive canva', '#sb-atajos'],
+  ['ajustes', '⚙️', 'Configuración', 'configuracion ajustes mi negocio', () => { $('#tb-menu-ajustes').open = true; }],
+  ['productos', '📦', 'Configuración → Productos', 'productos precio catalogo membresia planes ofertas mi negocio', '#btn-productos'],
+  ['marca', '🎨', 'Configuración → Marca y avatar', 'marca avatar cliente ideal tono voz mi negocio', '#btn-marca'],
+  ['equipo', '👥', 'Configuración → Equipo', 'equipo usuarios invitar personas roles permisos mi negocio', '#btn-equipo'],
+  ['conexiones', '🔌', 'Configuración → Conexiones', 'conexiones sendflow setter ia integraciones mi negocio', '#btn-conexiones'],
+  ['atajos', '🔗', 'Configuración → Atajos (Drive, GHL y enlaces)', 'atajos tus atajos enlaces drive canva ghl', '#btn-atajos'],
+  ['mensajes', '💬', 'Configuración → Plantillas de WhatsApp', 'plantillas mensajes de whatsapp textos botones', '#btn-mensajes'],
+  ['operativa', '🗂️', 'Operativa', 'tareas tableros operativa pendientes', '#sb-operativa'],
+  ['procesos', '📚', 'Procesos', 'procesos como se hace sop guias', '#sb-procesos'],
   ['clave', '🔑', 'Cambiar contraseña', 'contrasena clave password cuenta', '#btn-clave'],
-  ['tema', '🌙', 'Modo día / noche', 'modo noche oscuro dia tema', '#btn-tema'],
+  ['tema', '🌙', 'Apariencia: modo día / noche', 'modo noche oscuro dia tema apariencia', '#btn-tema'],
+  ['estilo', '🎨', 'Apariencia: Clásico o Espacial', 'diseño apariencia clasico espacial estilo', () => { $('#tb-menu-cuenta').open = true; }],
   ['ayuda', '❓', 'Ayuda y recorrido', 'ayuda recorrido tutorial', '#btn-onb-ayuda'],
+  ['ayudas', '🔁', 'Volver a ver las ayudas', 'volver a ver las ayudas explicaciones pestañas', () => $('#btn-ayudas').click()],
   ['ejemplo', '🧪', 'Ver un ejemplo', 'ejemplo demo datos inventados', () => irEjemplo()],
 ];
 // Visible de verdad (su rol lo ve y, en «poco a poco», ya ha aparecido); vale aunque esté en un menú cerrado.
@@ -1130,6 +1137,7 @@ function indiceBuscar() {
   for (const [id, ico, titulo, claves, destino] of ACCIONES_BUSCAR) {
     if (typeof destino === 'string' && !accesible($(destino))) continue;
     if (id === 'config' && !(state.embudo && puedeConfig())) continue;
+    if (id === 'agencia' && !state.superadmin) continue;
     out.push({ id: `a:${id}`, ico, titulo, sub: '', claves, fn: typeof destino === 'string' ? () => clicVisible(destino) : destino });
   }
   return out;
@@ -1234,42 +1242,122 @@ $('#btn-reload').addEventListener('click', () => {
   return selectLaunch(state.launchCode, { forzar: true });
 });
 
+// Enlaces y marcadores de antes de la navegación nueva (y atajos con nombre): #mi-negocio y #configuracion abren
+// Configuración; #productos, #marca, #equipo, #conexiones, #atajos / #tus-atajos y #mensajes-whatsapp, su apartado;
+// #agencia, la vista de agencia; #inteligencia-negocio, #operativa y #procesos, lo suyo.
+const ALIAS_NAV = {
+  'mi-negocio': () => { $('#tb-menu-ajustes').open = true; }, configuracion: () => { $('#tb-menu-ajustes').open = true; },
+  productos: '#btn-productos', marca: '#btn-marca', 'marca-y-avatar': '#btn-marca', equipo: '#btn-equipo', conexiones: '#btn-conexiones',
+  atajos: '#btn-atajos', 'tus-atajos': '#btn-atajos', mensajes: '#btn-mensajes', 'mensajes-whatsapp': '#btn-mensajes', 'plantillas-whatsapp': '#btn-mensajes',
+  agencia: () => { if (state.superadmin) { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); } },
+  'inteligencia-negocio': '#sb-negocio', negocio: '#sb-negocio', operativa: '#sb-operativa', procesos: '#sb-procesos',
+};
+function irAliasNavegacion(hash) {
+  const a = ALIAS_NAV[hash];
+  if (!a || embudoInfo(hash) || VIEWS.includes(hash)) return;
+  history.replaceState(history.state, '', location.pathname + location.search);
+  setTimeout(() => { if (typeof a === 'function') a(); else { const el = $(a); if (el && !el.hidden && !el.closest('[hidden]:not(.tb-ocultos)')) el.click(); } }, 300);
+}
+window.addEventListener('hashchange', () => irAliasNavegacion(location.hash.slice(1)));
+
 // ---------- Clientes (desplegable de arriba) ----------
 function pintarCliente(c) {
-  $('#brand-nombre').textContent = state.clientes.length > 1 ? '' : c.nombre;
+  // El nombre del cliente va en el selector (agencia o varios negocios); al cliente con uno solo no le hace falta.
+  $('#brand-nombre').textContent = '';
   document.title = `AlquimIA · ${c.nombre}`;
-  const pick = $('#cliente-pick');
-  pick.hidden = state.clientes.length < 2;
   // En el ejemplo, el desplegable lo dice (no aparece otro cliente como elegido).
   const lista = state.ejemplo ? [...state.clientes, { id: 'ejemplo', nombre: '🧪 Ejemplo (datos inventados)' }] : state.clientes;
   $('#cliente-select').innerHTML = lista.map((x) => `<option value="${esc(x.id)}" ${x.id === c.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('');
+  state.clienteActual = c;
+  pintarSelectorCliente();
   if (c.color) document.documentElement.style.setProperty('--cliente', c.color); else document.documentElement.style.removeProperty('--cliente');
 }
+// Selector de arriba: la agencia lo ve siempre («🏢 Agencia · todos los clientes» arriba, separado de los clientes);
+// quien no es de la agencia, solo si tiene más de un negocio (los suyos, sin la opción Agencia).
+function pintarSelectorCliente() {
+  const c = state.clienteActual;
+  if (!c) return;
+  const pick = $('#cliente-pick');
+  pick.hidden = !(state.agencia || state.clientes.length > 1) || state.role === ROL_CLIENTE && state.clientes.length < 2;
+  const enAgencia = Boolean(state.superadmin && state.enInicio && !state.enNegocio && modoInicio() === 'agencia');
+  $('#cp-ico').textContent = enAgencia ? '🏢' : '';
+  $('#cp-ico').hidden = !enAgencia;
+  $('#cp-txt').textContent = enAgencia ? 'Agencia' : c.nombre;
+  pick.style.setProperty('--cp-color', c.color || 'var(--accent)');
+  pick.classList.toggle('en-agencia', enAgencia);
+  const lista = state.ejemplo ? [...state.clientes, { id: 'ejemplo', nombre: '🧪 Ejemplo (datos inventados)' }] : state.clientes;
+  $('#cp-panel').innerHTML = `${state.superadmin ? `<button type="button" class="cp-op cp-agencia${enAgencia ? ' on' : ''}" data-cp="__agencia" role="menuitem"><span aria-hidden="true">🏢</span><span><strong>Agencia</strong><small>todos los clientes</small></span></button><hr class="cp-sep">` : ''}
+    ${lista.map((x) => `<button type="button" class="cp-op${!enAgencia && x.id === c.id ? ' on' : ''}" data-cp="${esc(x.id)}" role="menuitem"><span class="cp-dot" style="--d:${esc(x.color || 'var(--accent)')}" aria-hidden="true"></span><span><strong>${esc(x.nombre)}</strong></span></button>`).join('')}`;
+}
+$('#cp-panel').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-cp]');
+  if (!b) return;
+  $('#cliente-pick').open = false;
+  const id = b.dataset.cp;
+  if (id === '__agencia') { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); return; }
+  if (state.superadmin) ls.set('lsd_inicio_modo', 'cliente');
+  if (id === state.cliente && !state.ejemplo) { pintarSaludo(); mostrarInicio(); return; }
+  if (id === 'ejemplo') { irEjemplo(); return; }
+  ls.set('lsd_inicio', '1');
+  cambiarCliente(id);
+});
+document.addEventListener('click', (e) => { const d = $('#cliente-pick'); if (d.open && !e.target.closest('#cliente-pick')) d.open = false; });
 $('#cliente-select').addEventListener('change', (e) => cambiarCliente(e.target.value));
 
 // ---------- Embudos (menú lateral) ----------
+// Lateral: Inicio, Operativa, Inteligencia de negocio y Procesos; después, cada embudo concreto (cada lanzamiento y
+// cada meteórico por separado, nunca la categoría), con su estado y, en cuanto se sabe, lo que ha facturado.
+const fechaCortaSb = (d) => (d ? new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${String(d).slice(0, 10)}T12:00:00Z`)) : '');
+function estadoLanzSb(l) {
+  const hoy = today();
+  const ini = String(l.inicioCaptacion || '').slice(0, 10);
+  if (ini && hoy < ini) return `Captación · empieza el ${fechaCortaSb(ini)}`;
+  const f = faseLanzamiento(l);
+  if (!f) return ini ? 'Captación' : 'Sin fechas todavía';
+  if (f[0] === 'Captación') { const { apertura } = momentosCarrito(l); return apertura ? `Captación · carrito el ${fechaCortaSb(new Date(apertura).toISOString())}` : 'Captación'; }
+  return f[0];
+}
+function itemsSidebar() {
+  const fact = new Map();
+  for (const e of state.inicio?.cliente === state.cliente ? state.inicio?.embudos || [] : []) if (e?.code && Number.isFinite(e.kpis?.facturacion)) fact.set(e.code, e.kpis.facturacion);
+  for (const m of state.inicio?.cliente === state.cliente ? state.inicio?.meteoricos || [] : []) if (m?.code && Number.isFinite(m.facturacion)) fact.set(m.code, m.facturacion);
+  const conFact = (code, estado) => (fact.get(code) > 0 ? `${estado} · ${eur(fact.get(code))}` : estado);
+  const out = [];
+  for (const e of embudos()) {
+    const tv = e.tipo === 'vsl' ? textosVsl(state.config.vsls[e.id]) : null;
+    const ico = e.tipo === 'meteorico' ? '⚡' : e.tipo === 'directa' ? '🛒' : e.tipo === 'cruzadas' ? '🔁' : tv ? tv.ico : esReto(e.formato) ? '🏁' : '🚀';
+    if (e.tipo === 'lanzamientos') {
+      const ls = Object.entries(state.config.launches).filter(([, l]) => embudoDeLanz(l) === e.id)
+        .sort(([, a], [, b]) => String(b.inicioCaptacion || b.cierreCarrito || '').localeCompare(String(a.inicioCaptacion || a.cierreCarrito || '')));
+      if (!ls.length) out.push({ e, ico, nombre: e.nombre, sub: 'Sin lanzamientos todavía' });
+      for (const [code, l] of ls) out.push({ e, ico, code, nombre: l.name || code, sub: conFact(code, estadoLanzSb(l)) });
+    } else if (e.tipo === 'meteorico') {
+      const ms = Object.entries(state.config.meteoricos || {}).filter(([, m]) => m.embudo === e.id);
+      if (!ms.length) out.push({ e, ico, nombre: e.nombre, sub: 'Sin meteóricos todavía' });
+      for (const [code, m] of ms) out.push({ e, ico, meteo: code, nombre: m.name || code, sub: conFact(code, (FASE_METEO_TXT[faseMeteorico(m).id] || ['Preparación'])[0]) });
+    } else {
+      const nX = e.tipo === 'cruzadas' ? (state.config.cruzadas?.[e.id]?.productos || []).length : 0;
+      const sub = e.tipo === 'directa' ? 'Venta directa · siempre abierto' : e.tipo === 'cruzadas' ? `Ventas cruzadas · ${nX} producto${nX === 1 ? '' : 's'}` : `${tv?.corto || 'VSL'} · siempre abierto`;
+      out.push({ e, ico, nombre: e.nombre, sub: conFact(e.id, sub) });
+    }
+  }
+  return out;
+}
 function pintarSidebar() {
   pintarLabia();
-  $('#sb-items').innerHTML = embudos().map((e) => {
-    const tv = e.tipo === 'vsl' ? textosVsl(state.config.vsls[e.id]) : null;
-    const nMeteo = e.tipo === 'meteorico' ? Object.values(state.config.meteoricos || {}).filter((m) => m.embudo === e.id).length : 0;
-    const nX = e.tipo === 'cruzadas' ? (state.config.cruzadas?.[e.id]?.productos || []).length : 0;
-    const sub = e.tipo === 'meteorico' ? `${nMeteo} meteórico${nMeteo === 1 ? '' : 's'}` : e.tipo === 'directa' ? 'Venta directa · siempre abierto' : e.tipo === 'cruzadas' ? `Ventas cruzadas · ${nX} producto${nX === 1 ? '' : 's'}` : tv ? `${tv.corto} · siempre abierto`
-      : (() => { const n = Object.values(state.config.launches).filter((l) => embudoDeLanz(l) === e.id).length; return `${n} lanzamiento${n === 1 ? '' : 's'}`; })();
-    return `<div class="sb-row"><button type="button" class="sb-item ${e.id === state.embudo ? 'active' : ''}" data-embudo="${esc(e.id)}"><span class="sb-ico" aria-hidden="true">${e.tipo === 'meteorico' ? '⚡' : e.tipo === 'directa' ? '🛒' : e.tipo === 'cruzadas' ? '🔁' : tv ? tv.ico : esReto(e.formato) ? '🏁' : '🚀'}</span><span class="sb-txt"><strong>${esc(e.nombre)}</strong><small>${esc(sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(e.id)}" title="Pestañas, nombre y guía de «${esc(e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
+  const enEmbudo = !state.enInicio;
+  $('#sb-items').innerHTML = itemsSidebar().map((x) => {
+    const activo = enEmbudo && x.e.id === state.embudo && (x.code ? state.launchCode === x.code : x.meteo ? state.meteo?.code === x.meteo : true);
+    return `<div class="sb-row"><button type="button" class="sb-item${activo ? ' active' : ''}" data-embudo="${esc(x.e.id)}"${x.code ? ` data-lanz="${esc(x.code)}"` : ''}${x.meteo ? ` data-meteo="${esc(x.meteo)}"` : ''}><span class="sb-ico" aria-hidden="true">${x.ico}</span><span class="sb-txt"><strong>${esc(x.nombre)}</strong><small>${esc(x.sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(x.e.id)}" title="Pestañas, nombre y guía de «${esc(x.e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
   }).join('');
-  // «Inicio»: para todo el equipo. Quien ve las métricas (y hay embudos), con las cifras; el resto, el de trabajo.
-  // El superadmin tiene además «Agencia» encima (todos los clientes); «Inicio» es el del cliente en el que está.
+  // «Inicio» es el del cliente en el que está (la vista de agencia se elige en el selector de arriba).
   const agencia = Boolean(state.enInicio) && !state.enNegocio && modoInicio() === 'agencia';
-  $('#sb-agencia').hidden = !state.superadmin;
-  $('#sb-agencia').classList.toggle('active', agencia);
   $('#sb-inicio').hidden = false;
   $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio) && !agencia && !state.enNegocio);
   // «Inteligencia de negocio»: para quien ve las métricas (el rol Cliente la tiene en su portal).
   $('#sb-negocio').hidden = !(tiene('metricas') && embudos().length);
   $('#sb-negocio').classList.toggle('active', Boolean(state.enNegocio));
-  $('#sb-inicio small').textContent = state.superadmin ? `${state.clientes?.find((c) => c.id === state.cliente)?.nombre || 'Este cliente'} · sus embudos` : 'Todos los embudos';
-  if (state.enInicio) $$('#sb-items .sb-item.active').forEach((b) => b.classList.remove('active'));
+  pintarSelectorCliente();
 }
 
 async function setEmbudo(e, { vista = null } = {}) {
@@ -1365,7 +1453,24 @@ function irAEmbudoDe(code) {
 }
 $('#sidebar').addEventListener('click', (ev) => {
   const b = ev.target.closest('[data-embudo]');
-  if (b && (b.dataset.embudo !== state.embudo || state.enInicio)) setEmbudo(b.dataset.embudo);
+  if (!b) return;
+  const { embudo, lanz, meteo } = b.dataset;
+  // Un lanzamiento concreto: ese lanzamiento dentro de su embudo.
+  if (lanz && state.config.launches[lanz]) {
+    if (embudo === state.embudo && !state.enInicio) { if (lanz !== state.launchCode) selectLaunch(lanz).then(pintarSidebar); return; }
+    state.launchCode = lanz;
+    ls.set('lsd_launch', lanz);
+    setEmbudo(embudo);
+    return;
+  }
+  // Un meteórico concreto: su vista, con ese meteórico elegido.
+  if (meteo && state.config.meteoricos?.[meteo]) {
+    state.meteo.code = meteo;
+    ls.set(`lsd_meteo_${embudo}`, meteo);
+    setEmbudo(embudo, { vista: 'meteoricos' });
+    return;
+  }
+  if (embudo !== state.embudo || state.enInicio) setEmbudo(embudo);
 });
 
 // ---------- Inicio: todos los embudos del cliente de un vistazo ----------
@@ -1590,9 +1695,19 @@ $('#negocio').addEventListener('click', (e) => {
   if (f && embudos().some((x) => x.id === f.dataset.ngEmbudo)) setEmbudo(f.dataset.ngEmbudo);
 });
 $('#sb-inicio').addEventListener('click', () => { if (state.superadmin) ls.set('lsd_inicio_modo', 'cliente'); pintarSaludo(); mostrarInicio(); });
-$('#sb-agencia').addEventListener('click', () => { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); });
 // Accesos rápidos del proyecto (enlaces a mano: Drive, GHL, Canva…): un clic abre el panel y otro, el enlace.
-$('#sb-atajos').addEventListener('click', () => abrirAtajos({ api, dialog: $('#atajos-dialog'), cliente: state.clientes?.find((c) => c.id === state.cliente)?.nombre || '' }));
+// Atajos del proyecto (Drive, GHL, Canva…): ahora en Configuración → Conexiones y atajos.
+$('#btn-atajos').addEventListener('click', () => { $('#tb-menu-ajustes').open = false; abrirAtajos({ api, dialog: $('#atajos-dialog'), cliente: state.clientes?.find((c) => c.id === state.cliente)?.nombre || '' }); });
+// Lateral: Operativa y Procesos (los mismos botones que antes estaban en «Mi negocio») y Configuración, que despliega
+// sus apartados (los mismos que el ⚙️ de arriba).
+$('#sb-operativa').addEventListener('click', () => $('#btn-operativa').click());
+$('#sb-procesos').addEventListener('click', () => $('#btn-procesos').click());
+$('#sb-config').addEventListener('click', () => {
+  const sub = $('#sb-config-sub');
+  sub.hidden = !sub.hidden;
+  $('#sb-config').setAttribute('aria-expanded', String(!sub.hidden));
+  $('#sb-config').classList.toggle('abierto', !sub.hidden);
+});
 $('#inicio-actualizar').addEventListener('click', () => mostrarInicio({ fresh: true }));
 
 // ---------- Inicio de la agencia (superadmin): todos los clientes de un vistazo ----------
@@ -1600,7 +1715,8 @@ $('#inicio-actualizar').addEventListener('click', () => mostrarInicio({ fresh: t
 // tienen más de 30 min, para no pasar del límite de peticiones de Cloudflare.
 const modoInicio = () => (state.superadmin ? (ls.get('lsd_inicio_modo') || 'agencia') : 'cliente');
 function pintarModoInicio() {
-  $('#ini-modo').hidden = true; // Agencia o cliente se elige en el menú lateral
+  $('#ini-modo').hidden = true; // Agencia o cliente se elige en el selector de arriba
+  pintarSelectorCliente();
   const m = modoInicio();
   $$('#ini-modo [data-ini-modo]').forEach((b) => { b.classList.toggle('on', b.dataset.iniModo === m); b.setAttribute('aria-selected', String(b.dataset.iniModo === m)); });
   $('#ini-modo-cli').textContent = state.clientes?.find((c) => c.id === state.cliente)?.nombre || 'Este cliente';
@@ -1840,6 +1956,7 @@ function pintarInicio() {
     }),
   ];
   $('#inicio-embudos').innerHTML = tarjetas.join('') || '<p class="muted">Aún no hay lanzamientos empezados, VSL ni meteóricos recientes.</p>';
+  if (listos) pintarSidebar(); // el lateral añade lo facturado por cada embudo
   pintarMencionesInicio();
   // Avisos del carrito de los lanzamientos con el carrito abierto (con sus ventas).
   const alertas = lista.filter((e) => e.tipo === 'lanzamiento' && e.estado === 'carrito')
@@ -1972,7 +2089,7 @@ $('#inicio').addEventListener('click', (e) => {
 
 // `forzar`: vuelve a descargar los leads aunque la copia del navegador sea reciente (Recargar, tras etiquetar).
 async function selectLaunch(code, { forzar = false } = {}) {
-  if (state.launchCode !== code) state.plSel.clear();
+  if (state.launchCode !== code) { state.plSel.clear(); queueMicrotask(pintarSidebar); } // el lateral marca el elegido
   state.launchCode = code;
   if (enVsl() || enMeteo()) return; // se cargará al volver a Lanzamientos
   notice('');
@@ -4144,7 +4261,7 @@ $('#leyenda-estados').innerHTML = ESTADOS.map((e, i) => `<li><span class="estado
 // Ayuda de la primera visita a cada pestaña: qué hay y para qué sirve. Se cierra con «Entendido» y se
 // recuerda por usuario (Cuenta → «Volver a ver las ayudas» las enseña otra vez).
 const AYUDA_VISTA = {
-  hoy: ['☀️ Setting hoy', 'Una sola lista de a quién escribir hoy por WhatsApp, ya ordenada por prioridad (el número de la izquierda) y con el color de su temperatura: rojo muy caliente, naranja caliente, amarillo templado, azul frío. Filtra por motivo o por temperatura con los botones de arriba. Pulsa el botón de WhatsApp de cada lead: el mensaje sale ya escrito (se cambia en Mi negocio → Mensajes de WhatsApp, o en el enlace de abajo). Al lado, «📨 Plantilla» manda una plantilla de pago y, si responde, contesta el setter IA.'],
+  hoy: ['☀️ Setting hoy', 'Una sola lista de a quién escribir hoy por WhatsApp, ya ordenada por prioridad (el número de la izquierda) y con el color de su temperatura: rojo muy caliente, naranja caliente, amarillo templado, azul frío. Filtra por motivo o por temperatura con los botones de arriba. Pulsa el botón de WhatsApp de cada lead: el mensaje sale ya escrito (se cambia en Configuración → Plantillas de WhatsApp, o en el enlace de abajo). Al lado, «📨 Plantilla» manda una plantilla de pago y, si responde, contesta el setter IA.'],
   llamadas: ['📞 Llamadas', 'Las llamadas de valoración del calendario de GHL. Pulsa una para ver la ficha del lead antes de llamar y anota el resultado al terminar: alimenta el pipeline y el rendimiento del equipo.'],
   endirecto: ['🔴 En directo', 'El día del webinar, minuto a minuto: quién espera, quién entra, la asistencia, las VIP y las ventas desde que abre el carrito. Se actualiza solo cada minuto.'],
   leads: ['👥 Leads', 'Cada persona registrada con su puntuación (0-100) y su estado: muy caliente, caliente, templado o frío. Filtra, ordena y abre su WhatsApp. En «Encuesta», qué ha respondido la gente.'],
@@ -7271,7 +7388,7 @@ $('#sb-fondo').addEventListener('click', () => abrirMenuMovil(false));
 $('#sidebar').addEventListener('click', (e) => {
   const p = e.target.closest('[data-proxy]');
   if (p) $(p.dataset.proxy)?.click();
-  if (esMovil() && e.target.closest('.sb-item, .sb-add, .sb-edit, [data-proxy], [data-abrir-mensajes]')) abrirMenuMovil(false);
+  if (esMovil() && !e.target.closest('#sb-config') && e.target.closest('.sb-item, .sb-add, .sb-edit, [data-proxy], [data-abrir-mensajes]')) abrirMenuMovil(false);
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('menu-movil')) abrirMenuMovil(false); });
 function textoPestana(t) { return [...t.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim(); }
@@ -7427,8 +7544,8 @@ function pintarLabia() {
   const url = state.config?.setterIa?.url || '';
   // Sin LabIA contratado, ni el enlace.
   a.hidden = !state.labia || (!url && !puedeConfig());
-  if (url) { a.href = url; a.target = '_blank'; a.title = 'Abrir LabIA, tu setter IA de WhatsApp'; } else { a.removeAttribute('href'); a.title = 'Conecta LabIA en Mi negocio → Conexiones'; }
-  a.querySelector('.sb-labia-sub').textContent = url ? 'Tu setter IA ↗' : 'Conéctalo en Conexiones';
+  if (url) { a.href = url; a.target = '_blank'; a.title = 'Abrir LabIA, tu setter IA de WhatsApp'; } else { a.removeAttribute('href'); a.title = 'Conecta LabIA en Configuración → Conexiones'; }
+  a.querySelector('.sb-labia-ir').textContent = url ? '↗' : '· conéctalo';
 }
 $$('[data-labia-logo]').forEach((el) => { el.innerHTML = labiaLogo(); });
 
@@ -7471,7 +7588,7 @@ function pintarLabiaVista() {
   if (url) $('#lb-abrir').href = url;
   if (d.motivo === 'sin_labia') { box.innerHTML = '<div class="card empty"><p>Este cliente no tiene LabIA contratado.</p></div>'; return; }
   if (d.motivo === 'sin_pipeline') {
-    box.innerHTML = `<div class="card empty"><h3>No encuentro el pipeline de LabIA</h3><p class="muted">Buscamos en GHL un pipeline con etapas marcadas con 🤖 (las que lleva la IA). ${puedeConfig() ? 'Elige cuál es en <strong>Mi negocio → Conexiones → Setter IA</strong>.' : 'Pide a quien configura AlquimIA que lo elija en Conexiones.'}</p></div>`;
+    box.innerHTML = `<div class="card empty"><h3>No encuentro el pipeline de LabIA</h3><p class="muted">Buscamos en GHL un pipeline con etapas marcadas con 🤖 (las que lleva la IA). ${puedeConfig() ? 'Elige cuál es en <strong>Configuración → Conexiones → Setter IA</strong>.' : 'Pide a quien configura AlquimIA que lo elija en Conexiones.'}</p></div>`;
     return;
   }
   if (d.motivo === 'error') { box.innerHTML = `<p class="error">${esc(d.error)}</p>`; return; }
@@ -7515,7 +7632,7 @@ function pintarLabiaVista() {
         <div><strong>${num(c.citas)}</strong><span>citas</span></div>
         <div><strong>${num(c.bajas)}</strong><span>bajas</span></div>
         <div><strong>${num(c.mensajes_ia)}</strong><span>mensajes de la IA</span></div></div>`
-        : `<p class="muted small">${d.setter?.error ? esc(d.setter.error) : 'Sus cifras salen cuando el setter IA está conectado (Mi negocio → Conexiones → Setter IA).'}</p>`}
+        : `<p class="muted small">${d.setter?.error ? esc(d.setter.error) : 'Sus cifras salen cuando el setter IA está conectado (Configuración → Conexiones → Setter IA).'}</p>`}
     </div>`;
 }
 document.addEventListener('click', (e) => { if (e.target.closest('[data-ver-labia]')) showView('labia'); });
@@ -9348,7 +9465,7 @@ async function cargarSetterRend(code, leads, { desde, hasta }) {
     const pc = (a, b) => (b ? ` <small class="muted">${Math.round((a / b) * 100)} %</small>` : '');
     const estado = !d ? '<p class="muted small">Cargando las cifras del setter IA…</p>'
       : d.error ? `<p class="error small">No se pudieron leer las cifras del setter IA: ${esc(d.error)}</p>`
-      : !d.configurado ? `<p class="muted small">${d.falta === 'url' ? 'Para ver aquí sus cifras (conversaciones, citas, tiempo de respuesta), pon la dirección del setter en <strong>Mi negocio → Conexiones → Setter IA</strong>.' : 'Para ver aquí sus cifras falta la clave <code>SETTER_RESUMEN_KEY</code> en Cloudflare (Mi negocio → Conexiones → Setter IA lo explica).'}</p>` : '';
+      : !d.configurado ? `<p class="muted small">${d.falta === 'url' ? 'Para ver aquí sus cifras (conversaciones, citas, tiempo de respuesta), pon la dirección del setter en <strong>Configuración → Conexiones → Setter IA</strong>.' : 'Para ver aquí sus cifras falta la clave <code>SETTER_RESUMEN_KEY</code> en Cloudflare (Configuración → Conexiones → Setter IA lo explica).'}</p>` : '';
     box.innerHTML = `<section class="rend-setter">
       <header class="rs-cab"><span class="rp-av rs-av" aria-hidden="true">🤖</span><div><strong>Setter IA ${labiaLogo()}</strong><small>Un miembro más del equipo · ${esc(fechaCorta(desde))} – ${esc(fechaCorta(hasta))}</small></div>
         <span class="rs-estado ${d?.cifras ? 'on' : ''}">${d?.cifras ? '● Conectado' : state.config.setterIa?.url ? '● Sin cifras' : '○ Sin conectar'}</span>
@@ -10485,6 +10602,10 @@ function pintarFotoCuenta() {
   const url = fotoUrl(state.user);
   ico.classList.toggle('tb-foto', Boolean(url));
   ico.innerHTML = url ? `<img src="${esc(url)}" alt="">` : icon('user');
+  // Arriba a la derecha: su foto o sus iniciales (en lugar de «Mi cuenta»).
+  const av = url ? `<img src="${esc(url)}" alt="">` : esc(iniciales(state.user?.nombre || (state.superadmin ? 'Admin' : '?')));
+  $('#tb-avatar-img').innerHTML = av;
+  $('#tb-avatar-img2').innerHTML = av;
   $('#cuenta-foto').innerHTML = url ? `<img src="${esc(url)}" alt="Tu foto de perfil">` : esc(iniciales(state.user?.nombre));
   $('#c-foto-quitar').hidden = !url;
 }
@@ -11895,7 +12016,7 @@ function pintarPlantillas() {
   waSucio = false;
 }
 waBox.addEventListener('toggle', () => { if (waBox.open && !waSucio) pintarPlantillas(); });
-// Se abren desde Mi negocio → Mensajes de WhatsApp o desde el enlace de Setting hoy.
+// Se abren desde Configuración → Plantillas de WhatsApp o desde el enlace de Setting hoy.
 document.addEventListener('click', (e) => {
   if (!e.target.closest('[data-abrir-mensajes]')) return;
   $$('.topbar .tb-menu').forEach((m) => { m.open = false; });
@@ -13318,14 +13439,14 @@ async function eliminarEmbudo(id) {
   return true;
 }
 // ---------- Ventas cruzadas: configuración (productos y etiquetas) y pestaña Alumnos (cruzadas-vista.js) ----------
-// Los productos del embudo también van a Mi negocio → Productos: los que no están (por etiqueta o por nombre) se
+// Los productos del embudo también van a Configuración → Productos: los que no están (por etiqueta o por nombre) se
 // añaden; a los que están les faltan sus otras etiquetas, que entran como ofertas (con su mismo precio). → nº de cambios.
 const cruz = montarCruzadas({
   api, state, esc, notice, progress, ls,
   eliminar: eliminarEmbudo,
   abrirCatalogo: async () => (await api('/api/productos')).catalogo.productos,
   irAlumnos: () => showView('xalumnos'),
-  // Al guardar, el servidor añade sus productos a Mi negocio → Productos (devuelve cuántos son nuevos allí).
+  // Al guardar, el servidor añade sus productos a Configuración → Productos (devuelve cuántos son nuevos allí).
   guardar: async (id, c) => {
     const lista = embudos().map((e) => (e.id === id ? { ...e, nombre: c.name } : e));
     const { config, catalogoNuevos } = await api('/api/config', { method: 'POST', body: { ...state.config, embudos: lista, cruzadas: { ...(state.config.cruzadas || {}), [id]: c } } });
@@ -13382,10 +13503,6 @@ function actualizarAuditor() {
   c.hidden = !crit;
   c.textContent = String(crit);
   $('#btn-auditor').classList.toggle('has-crit', crit > 0);
-  // El Auditor está dentro de «Mi negocio»: el aviso de críticos se ve también en el botón del menú.
-  const mn = $('#mn-count');
-  mn.hidden = !crit || (ppActivo() && diasOnb() < 7); // la primera semana de un admin nuevo, sin este aviso
-  mn.textContent = String(crit);
   if ($('#auditor-dialog').open) pintarAuditor();
 }
 
@@ -15317,7 +15434,7 @@ $('#btn-operativa').addEventListener('click', () => { $('#tb-menu-cuenta').open 
 $('#btn-procesos').addEventListener('click', () => { $('#tb-menu-cuenta').open = false; $('#tb-menu-ajustes').open = false; abrirProcesos({ api, dialog: $('#procesos-dialog') }); });
 // La Operativa ocupa todo debajo de la cabecera: al abrir el menú ☰ (móvil) se cierra para ver el menú.
 $('#btn-menu-movil').addEventListener('click', () => { if ($('#operativa-dialog').open) $('#operativa-dialog').close(); }, true);
-// Mi negocio → 📦 Productos (también desde la Inteligencia de negocio): al guardar, la Inteligencia se recalcula.
+// Configuración → 📦 Productos (también desde la Inteligencia de negocio): al guardar, la Inteligencia se recalcula.
 function abrirProductosDlg() {
   $('#tb-menu-ajustes')?.removeAttribute('open');
   if (!state.tags?.length) api('/api/tags').then((d) => { state.tags = d.tags; fillTagList(); }).catch(() => {});

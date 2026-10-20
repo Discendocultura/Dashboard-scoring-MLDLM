@@ -435,7 +435,7 @@ function asistenteHtml() {
     if (n === 1) {
       const b = (id, nombre, txt) => `<button type="button" class="pr-asis-persona${asis.responsable === id ? ' on' : ''}" data-asis-resp="${esc(id)}" aria-pressed="${asis.responsable === id}">${id ? avatar(nombre) : '<span class="pr-av vacio">?</span>'}<span>${esc(txt)}</span></button>`;
       return `<div class="pr-asis-personas">${bib.equipo.map((u) => b(u.id, u.nombre, u.nombre)).join('')}${b('', '', 'Nadie todavía')}</div>
-        ${bib.equipo.length ? '' : '<p class="muted small">Aún no hay nadie más en el equipo. Puedes añadir personas en Mi negocio → Equipo.</p>'}`;
+        ${bib.equipo.length ? '' : '<p class="muted small">Aún no hay nadie más en el equipo. Puedes añadir personas en Configuración → Equipo.</p>'}`;
     }
     if (n === 2) {
       return `<label class="field"><span>Nombre del proceso <b class="pr-asis-oblig">obligatorio</b></span><input data-asis="titulo" maxlength="160" value="${esc(asis.titulo)}" placeholder="Ej.: 📦 Cómo enviamos los pedidos" autocomplete="off"></label>

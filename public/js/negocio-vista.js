@@ -68,13 +68,13 @@ function selectorProductos(d, sel) {
   if (!d.productos?.length) return '';
   return `<nav class="ng-prods" aria-label="Ver el negocio entero o un producto">
     ${d.productos.map((p) => `<button type="button" class="ng-prod-tab${sel === p.id ? ' on' : ''}" data-ng-producto="${esc(p.id)}"><span class="ng-pt-ico">${icoProd(p)}</span><span><strong>${esc(nomProd(p))}</strong><small>${p.sinPrecios ? 'sin precio' : eur(p.facturacion)}${p.cuota != null ? ` · ${pct(p.cuota)}` : ''}</small></span><i class="ng-pt-barra" style="width:${Math.round((p.cuota || 0) * 100)}%"></i></button>`).join('')}
-    <button type="button" class="ng-prod-tab ng-prod-nuevo config-only" data-abrir-productos><span class="ng-pt-ico">＋</span><span><strong>Añadir producto</strong><small>Mi negocio → Productos</small></span></button>
+    <button type="button" class="ng-prod-tab ng-prod-nuevo config-only" data-abrir-productos><span class="ng-pt-ico">＋</span><span><strong>Añadir producto</strong><small>Configuración → Productos</small></span></button>
   </nav>`;
 }
 
 // En la vista general: una tarjeta por producto (se pulsa para ver su ficha).
-// Si los productos salen de los embudos (sin catálogo), una invitación a definirlos en Mi negocio → Productos.
-const ctaCatalogo = (d) => (d.fuenteProductos === 'catalogo' ? '' : `<div class="ng-cta-cat config-only"><span aria-hidden="true">📦</span><div><strong>Afina esto con tus productos</strong><p>Pon en <b>Mi negocio → Productos</b> cada producto con su precio, la etiqueta de quien lo compra y sus ofertas: verás lo que factura cada uno, a qué precio se vende y qué compran después tus clientes.</p></div><button type="button" class="btn primary" data-abrir-productos>Poner mis productos</button></div>`);
+// Si los productos salen de los embudos (sin catálogo), una invitación a definirlos en Configuración → Productos.
+const ctaCatalogo = (d) => (d.fuenteProductos === 'catalogo' ? '' : `<div class="ng-cta-cat config-only"><span aria-hidden="true">📦</span><div><strong>Afina esto con tus productos</strong><p>Pon en <b>Configuración → Productos</b> cada producto con su precio, la etiqueta de quien lo compra y sus ofertas: verás lo que factura cada uno, a qué precio se vende y qué compran después tus clientes.</p></div><button type="button" class="btn primary" data-abrir-productos>Poner mis productos</button></div>`);
 
 function tarjetasProductos(d) {
   if (!d.productos?.length) return ctaCatalogo(d);
@@ -138,9 +138,9 @@ function productoHtml(d, p) {
         ${pocos(p.pocos)}</div></div>
       ${d.productos.length > 1 ? anillo(p.cuota) : ''}
     </section>
-    ${p.sinPrecios ? `<p class="ng-aviso">💶 Este producto tiene ventas sin precio: ponlo en ${p.tipo === 'catalogo' ? 'Mi negocio → Productos' : 'la configuración de su embudo'} para ver lo que factura.</p>` : ''}
+    ${p.sinPrecios ? `<p class="ng-aviso">💶 Este producto tiene ventas sin precio: ponlo en ${p.tipo === 'catalogo' ? 'Configuración → Productos' : 'la configuración de su embudo'} para ver lo que factura.</p>` : ''}
     ${p.calculando ? '<p class="ng-aviso suave">⏳ Contando sus compras en GHL (por su etiqueta)… Se completa solo en unos segundos.</p>' : ''}
-    ${p.tipo === 'catalogo' && p.sinFecha && d.periodo !== 'todo' ? `<p class="ng-aviso suave">📅 ${num(p.sinFecha)} de sus compras no tienen fecha: solo cuentan en «Todo el histórico». ${p.conFechaCampo ? 'Revisa que el workflow de compra rellene su campo de fecha.' : 'Elige su campo de fecha de compra en Mi negocio → Productos.'}</p>` : ''}
+    ${p.tipo === 'catalogo' && p.sinFecha && d.periodo !== 'todo' ? `<p class="ng-aviso suave">📅 ${num(p.sinFecha)} de sus compras no tienen fecha: solo cuentan en «Todo el histórico». ${p.conFechaCampo ? 'Revisa que el workflow de compra rellene su campo de fecha.' : 'Elige su campo de fecha de compra en Configuración → Productos.'}</p>` : ''}
     ${kpis}${recosHtml(p.recomendaciones, `💡 Qué haría con ${esc(nomProd(p))}`) || '<p class="ng-aviso suave">✅ Nada urgente con este producto. Las recomendaciones aparecen cuando los datos lo justifican.</p>'}
     ${ofertas}${viaje}${cicloHtml(p.ciclo, `⏱️ Ciclo de compra · ${esc(nomProd(p))}`)}${segundaHtml({ diasSegunda: p.objetivo?.dias ?? p.despues.dias, mediaSegunda: null, pct: p.objetivo?.pct ?? p.despues.pct, nSegunda: p.objetivo?.n ?? p.despues.n, tramosSegunda: null }, { titulo: `⏩ De ${esc(nomProd(p))} a ${p.objetivo ? `«${esc(p.objetivo.nombre)}»` : 'su siguiente compra'}`, siguiente: p.objetivo?.nombre || p.despues.top[0]?.nombre || '' })}${serie}${tabla}`;
 }
