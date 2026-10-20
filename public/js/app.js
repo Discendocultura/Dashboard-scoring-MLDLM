@@ -844,6 +844,7 @@ function aplicarPpDom() {
   });
   // «Mi negocio» avisa si dentro hay algo nuevo.
   $('#tb-menu-ajustes > summary')?.classList.toggle('pp-nuevo', ['herramientas', 'negocio'].some(ppEsNuevo));
+  $('#tb-avatar')?.classList.toggle('pp-nuevo', ['herramientas', 'negocio'].some(ppEsNuevo));
 }
 function ppVisto(id) {
   if (!ppEsNuevo(id)) return;
@@ -1104,7 +1105,7 @@ const ACCIONES_BUSCAR = [
   ['inicio', '🏠', 'Inicio', 'inicio resumen todos los embudos', '#sb-inicio'],
   ['agencia', '🏢', 'Agencia · todos los clientes', 'agencia todos los clientes centro de mando panel', () => { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); }],
   ['negocio', '📈', 'Inteligencia de negocio', 'ltv roas negocio historico productos facturacion cac', '#sb-negocio'],
-  ['ajustes', '⚙️', 'Configuración', 'configuracion ajustes mi negocio', () => { $('#tb-menu-ajustes').open = true; }],
+  ['ajustes', '⚙️', 'Configuración', 'configuracion ajustes mi negocio perfil', () => abrirMenuConfig()],
   ['productos', '📦', 'Configuración → Productos', 'productos precio catalogo membresia planes ofertas mi negocio', '#btn-productos'],
   ['marca', '🎨', 'Configuración → Marca y avatar', 'marca avatar cliente ideal tono voz mi negocio', '#btn-marca'],
   ['equipo', '👥', 'Configuración → Equipo', 'equipo usuarios invitar personas roles permisos mi negocio', '#btn-equipo'],
@@ -1248,7 +1249,7 @@ $('#btn-reload').addEventListener('click', () => {
 // Configuración; #productos, #marca, #equipo, #conexiones, #atajos / #tus-atajos y #mensajes-whatsapp, su apartado;
 // #agencia, la vista de agencia; #inteligencia-negocio, #operativa y #procesos, lo suyo.
 const ALIAS_NAV = {
-  'mi-negocio': () => { $('#tb-menu-ajustes').open = true; }, configuracion: () => { $('#tb-menu-ajustes').open = true; },
+  'mi-negocio': () => abrirMenuConfig(), configuracion: () => abrirMenuConfig(),
   productos: '#btn-productos', marca: '#btn-marca', 'marca-y-avatar': '#btn-marca', equipo: '#btn-equipo', conexiones: '#btn-conexiones',
   atajos: '#btn-atajos', 'tus-atajos': '#btn-atajos', mensajes: () => abrirMensajes(), 'mensajes-whatsapp': () => abrirMensajes(), 'plantillas-whatsapp': () => abrirMensajes(),
   agencia: () => { if (state.superadmin) { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); } },
@@ -4409,7 +4410,9 @@ $$('.view-tab, .subview-tab[data-view]:not(.subview-labia)').forEach((t) => t.in
 }
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
-// Menús de arriba («Mi negocio» y «Tu cuenta»): se cierran al elegir algo o al pulsar fuera, y solo uno abierto.
+// Configuración (productos, marca, equipo, conexiones y atajos, plantillas de WhatsApp) va dentro del menú de tu perfil.
+function abrirMenuConfig() { $('#tb-menu-cuenta').open = true; $('#tb-menu-ajustes').open = true; }
+// Menús de arriba (selector de cliente y tu perfil): se cierran al elegir algo o al pulsar fuera, y solo uno abierto.
 document.addEventListener('click', (e) => {
   for (const menu of $$('.topbar .tb-menu')) {
     if (!menu.open) continue;

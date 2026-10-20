@@ -28,14 +28,14 @@ export const TOURS = {
     { sel: 'nav.views, #nav-movil', titulo: 'Las pestañas van por momentos', texto: '«Comercial» es lo del día, «Leads» y «Métricas» cómo va, «Anuncios» qué tal funcionan y qué lead trae cada uno, «Crear» lo que preparas con IA y «Plan» la organización.' },
     { sel: '.views [data-view-grupo="crear"]', titulo: 'Crear con IA', texto: 'Páginas, emails, imágenes, anuncios y mensajes del grupo: copias un prompt que ya lleva todo y lo pegas en Claude o en ChatGPT.' },
     { sel: '#sb-operativa, #sb-procesos', titulo: 'Tu día a día', texto: 'En el lateral tienes la Operativa (las tareas), la Inteligencia de negocio y los Procesos, siempre del cliente en el que estás.' },
-    { sel: '#tb-menu-ajustes', titulo: 'Configuración', texto: 'Tus productos, la marca y el avatar (la base de todo lo que escribe la IA), el equipo, las conexiones y atajos y las plantillas de WhatsApp.' },
+    { sel: '#tb-avatar', titulo: 'Tu perfil y la configuración', texto: 'Aquí, en ⚙️ Configuración: Tus productos, la marca y el avatar (la base de todo lo que escribe la IA), el equipo, las conexiones y atajos y las plantillas de WhatsApp.' },
     AYUDA,
   ],
   setter: [
     { sel: '[data-view-grupo="comercial"]', titulo: 'Empieza siempre por «Comercial»', texto: 'A quién escribir hoy, ya ordenado por prioridad y con su temperatura. Pulsa WhatsApp y el mensaje sale escrito.' },
     { sel: '.view-tab[data-view="leads"]:not([hidden]), .view-tab[data-view="vleads"]:not([hidden])', titulo: 'Todos tus leads', texto: 'Cada persona registrada con su puntuación. Pulsa su nombre para ver su ficha completa.' },
     { sel: '#ctx-bar', titulo: 'Qué lanzamiento ves', texto: 'Si hay varios, cámbialo en este desplegable.' },
-    { sel: '#tb-menu-ajustes', titulo: 'Tus mensajes', texto: 'En ⚙️ Comercial → «Mensajes de WhatsApp» están los textos de cada botón. Puedes ajustarlos a tu manera de escribir.' },
+    { sel: '#tb-avatar', titulo: 'Tus mensajes', texto: 'En tu perfil → ⚙️ Configuración → «Plantillas de WhatsApp» están los textos de cada botón. Puedes ajustarlos a tu manera de escribir.' },
     AYUDA,
   ],
   cliente: [

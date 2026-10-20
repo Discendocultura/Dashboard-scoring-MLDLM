@@ -201,6 +201,7 @@ En el diseño **clásico** la cabecera de arriba (logo, cliente, Auditor, Operat
 La tarjeta de **LabIA** del menú lateral también lleva ese fondo espacial (oscuro, brillo azul y estrellas), en los dos diseños.
 
 ### 🧭 Navegación (barra superior y menú lateral)
+- **⚙️ Configuración, dentro de tu perfil** (la foto de arriba a la derecha): ya no sale suelta en la barra superior (también está en el menú lateral). Al pulsarla en el menú del perfil se despliega ahí mismo con sus apartados (`#tb-menu-ajustes`, `abrirMenuConfig`).
 - **Barra superior.** Agencia: logo · **selector** (🏢 Agencia / cliente ▾) · **ADMIN** · buscador · 🔔 · ❓ · ⚙️ **Configuración** · tu foto. Cliente: logo · buscador · 🔔 · ❓ · ⚙️ · tu foto.
   - **Selector de cliente** (`pintarSelectorCliente`): la primera opción es «🏢 Agencia · todos los clientes» (solo el superadmin, que es quien tiene esa vista), separada con una línea de los clientes. La agencia lo ve siempre; quien no es de la agencia, solo si tiene más de un negocio (los suyos, sin Agencia). La etiqueta **ADMIN** (o AGENCIA) solo la ve la agencia.
   - **⚙️ Configuración** (antes «Mi negocio»): solo ajustes del cliente: Productos, Marca y avatar, Equipo, **Conexiones y atajos** (Conexiones y Atajos · Drive, GHL y enlaces, lo que antes era «Tus atajos») y **Plantillas de WhatsApp** (antes «Mensajes de WhatsApp»). Sin número encima.
