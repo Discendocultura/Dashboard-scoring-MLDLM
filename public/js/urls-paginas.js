@@ -71,7 +71,7 @@ export function urlsPropuestas(tipo, { dominio = '', nombre = '' } = {}, { precl
 }
 
 // Campos de enlace de un lanzamiento que salen de las URLs propuestas (los rellenan al crearlo).
-export const CAMPOS_LANZAMIENTO = { gracias: 'graciasUrl', login: 'loginUrl', preclase: 'recursosUrl', grabacion: 'replayUrl', venta: 'raicesUrl', pago: 'paginaPagoUrl' };
+export const CAMPOS_LANZAMIENTO = { registro: 'registroUrl', 'registro-ads': 'registroAdsUrl', gracias: 'graciasUrl', login: 'loginUrl', preclase: 'recursosUrl', grabacion: 'replayUrl', venta: 'raicesUrl', pago: 'paginaPagoUrl' };
 export function enlacesLanzamiento(propuestas = []) {
   const out = {};
   for (const p of propuestas) if (CAMPOS_LANZAMIENTO[p.id]) out[CAMPOS_LANZAMIENTO[p.id]] = p.url;
@@ -91,7 +91,7 @@ export const urlsTexto = (propuestas = []) => propuestas.map((p) => `${p.nombre}
 
 // Configuración → Accesos y enlaces: las páginas del lanzamiento (las URLs propuestas y las que ya tenga puestas),
 // como accesos de tipo «página» con el nombre del lanzamiento delante. → [{ tipo: 'pagina', nombre, url }]
-const NOMBRE_CAMPO = { graciasUrl: 'Gracias por registrarte', loginUrl: 'Acceso a las clases (login)', recursosUrl: 'Preclase (clases y recursos)', replayUrl: 'Grabación del directo (replay)', raicesUrl: 'Página de venta', paginaPagoUrl: 'Página de pago' };
+const NOMBRE_CAMPO = { registroUrl: 'Registro · orgánico', registroAdsUrl: 'Registro · publicidad', graciasUrl: 'Gracias por registrarte', loginUrl: 'Acceso a las clases (login)', recursosUrl: 'Preclase (clases y recursos)', replayUrl: 'Grabación del directo (replay)', raicesUrl: 'Página de venta', paginaPagoUrl: 'Página de pago' };
 export function accesosDePaginas(launch = {}, propuestas = []) {
   const pre = String(launch.name || '').trim().slice(0, 24);
   const nombre = (n) => `${pre ? `${pre} · ` : ''}${n}`.slice(0, 60);

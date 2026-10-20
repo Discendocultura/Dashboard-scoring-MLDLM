@@ -5458,6 +5458,70 @@ function pintarWaDudas() {
 // Páginas de venta y de replay: qué código va en GHL (y dónde) y el enlace con ?cid para los emails.
 const filaCopiar = (etq, txt, nota) => `<div class="enlace-directo-fila"><span class="enlace-directo-etq">${etq}</span><code${txt.includes('\n') ? ' class="multi"' : ''}>${esc(txt)}</code><button type="button" class="btn primary" data-copy-text="${esc(txt)}">Copiar</button><small>${nota}</small></div>`;
 const enlaceEmail = (url) => `${url}${url.includes('?') ? '&' : '?'}cid={{contact.id}}`;
+
+// Captación → Página de registro: las fechas que enseña, la etiqueta que pone su formulario, el código del footer
+// y las etiquetas de fecha y hora para el diseño. Todo sale de este lanzamiento: cambias aquí la fecha y la página
+// la enseña sola (sin tocar GHL).
+const fechaDirectoTxt = (f) => (/^\d{4}-\d{2}-\d{2}$/.test(f || '') ? new Intl.DateTimeFormat('es-ES', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${f}T12:00:00Z`)) : '');
+function diasRegistroForm() {
+  const l = editingCode ? state.config.launches[editingCode] || {} : {};
+  const vs = videosDe({ ...l, formato: formatoDeLanz(editingCode ? l : null) });
+  const val = (k, c) => (k === 1 ? $(V1_PROXY[c]).value : $(`#config-dialog [data-vk="${k}"][data-vc="${c}"]`)?.value || '').trim();
+  return vs.map((v) => ({ k: v.k, nombre: v.nombre, fecha: val(v.k, 'fecha'), hora: val(v.k, 'hora'), suf: v.k === 1 ? '' : String(v.k) }));
+}
+function pintarRegistroKit() {
+  const box = $('#cfg-reg-kit');
+  if (!box) return;
+  const dias = diasRegistroForm();
+  const varios = dias.length > 1;
+  const tag = $('#cfg-registro').value.trim();
+  const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
+  const footer = `<div data-lsd-page="registro" data-lsd-registro data-launch="auto"></div>\n${script}`;
+  const dia = (d) => `<li class="reg-dia${d.fecha ? '' : ' falta'}"><span class="cv-n">${d.k}</span><span><strong>${esc(varios ? d.nombre : 'El directo')}</strong>
+      <span>${d.fecha ? `${esc(fechaDirectoTxt(d.fecha))}${d.hora ? ` · ${esc(d.hora)}h` : ''}` : 'sin fecha todavía'}</span></span></li>`;
+  const etq = (d) => (varios ? ` · ${esc(d.nombre)}` : '');
+  const tags = dias.flatMap((d) => [
+    filaCopiar(`📅 Fecha${etq(d)}`, `<span data-lsd-text="fechaDirecto${d.suf}">${fechaDirectoTxt(d.fecha) || 'fecha'}</span>`, 'Sale así: «martes, 3 de noviembre».'),
+    filaCopiar(`🕖 Hora${etq(d)}`, `<span data-lsd-text="horaDirecto${d.suf}">${d.hora || '19:00'}</span>`, 'Sale sin la «h»: «19:00».'),
+  ]).concat(filaCopiar('⏳ Cuenta atrás hasta el primer directo', '<div data-lsd-countdown-boxes="directo"></div>', 'En cajas (días, horas, minutos). En una línea: <code>&lt;span data-lsd-countdown="directo"&gt;&lt;/span&gt;</code>.'));
+  const html = `<div class="reg-cards">
+      <div class="reg-card"><h4>📅 Las fechas que enseña</h4>
+        <ul class="reg-dias">${dias.map(dia).join('')}</ul>
+        <p class="muted small">Salen ${varios ? 'de la pestaña de cada vídeo' : 'del día y la hora del directo'} (Datos básicos). Si las cambias, la página se actualiza sola, igual que la de gracias y la preclase.</p>
+        <button type="button" class="btn small" data-ir-paso="launch">📅 Cambiar fechas</button></div>
+      <div class="reg-card"><h4>🧾 Su formulario de GHL</h4>
+        <p class="small">Va con el elemento <strong>Formulario</strong> de GHL (o su código de insertar), no con código de AlquimIA. Al enviarse, su workflow pone la etiqueta:</p>
+        ${tag ? `<div class="reg-tag"><code>${esc(tag)}</code><button type="button" class="btn small" data-copy-text="${esc(tag)}">Copiar</button></div>`
+          : '<p class="reg-falta">Falta la etiqueta de registro. <button type="button" class="btn small" data-goto="cfg-registro">Ponerla →</button></p>'}
+        <p class="muted small">Con esa etiqueta la lead entra en el lanzamiento y la automatización de registro la inscribe en la sala de Zoom ${varios ? 'de cada directo' : 'del directo'}.</p></div>
+    </div>
+    <h4 class="reg-sub">🧩 Código de AlquimIA <small class="muted">(uno por página, al final)</small></h4>
+    ${filaCopiar('Footer', footer, 'En un elemento «Código personalizado» al final de la página. Cuenta las visitas (conversión de la página en Métricas) y rellena las fechas y horas.')}
+    <details class="reg-tags"><summary>✍️ <strong>Fechas y horas dentro del diseño</strong> <span class="muted small">· pon el texto real dentro: se ve mientras carga</span></summary>${tags.join('')}</details>
+    <div class="reg-acc">
+      <button type="button" class="btn primary" data-reg-prompt>🎨 Copiar el prompt de diseño</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">🤖 Claude ↗</a>
+      ${['#cfg-registro-url', '#cfg-registro-ads-url'].map((sel, i) => { const u = $(sel).value.trim(); return /^https:\/\//i.test(u) ? `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">👀 Ver ${i ? 'la de publicidad' : 'la página'} ↗</a>` : ''; }).join('')}
+      <small class="muted" data-reg-prompt-st>Con la marca, los datos del lanzamiento, el hueco del formulario y estos códigos.</small>
+    </div>`;
+  if (box.dataset.html !== html) { box.innerHTML = html; box.dataset.html = html; }
+}
+// Se repinta al cambiar lo que enseña (fechas, horas, etiqueta y URLs).
+$('#config-dialog').addEventListener('input', (e) => {
+  const t = e.target;
+  if (['cfg-registro', 'cfg-registro-url', 'cfg-registro-ads-url', 'cfg-directo-fecha', 'cfg-directo-hora'].includes(t.id) || ['fecha', 'hora'].includes(t.dataset?.vc || t.dataset?.v1)) pintarRegistroKit();
+});
+$('#cfg-reg-kit').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-reg-prompt]');
+  if (!b) return;
+  const st = $('[data-reg-prompt-st]', $('#cfg-reg-kit'));
+  if (!editingCode || editingCode !== state.launchCode) { st.textContent = 'Guarda y elige este lanzamiento arriba: el prompt usa el lanzamiento en curso (Crear → Páginas → Página de registro).'; return; }
+  const c = contextoPaginas();
+  const p = !c.falta && paginasDe(c.tipo, c.opts || {}).find((x) => x.id === 'registro');
+  if (!p) { st.textContent = c.falta || 'Este embudo no tiene página de registro.'; return; }
+  pgc.marca = await marcaDeEmbudo(api, state.cliente, state.embudo).catch(() => pgc.marca);
+  const txt = promptDePagina(c, p);
+  try { await navigator.clipboard.writeText(paraIa(txt)); st.textContent = `✓ Copiado: pégalo en ${iaNombre()} con tus pantallazos.`; } catch { window.prompt('Copia el prompt:', txt); }
+});
 // Enlace para los emails (con el ID de la lead), bien visible bajo la URL de su página.
 function pintarEnlaceEmail(box, url, pagina) {
   $(box).innerHTML = url
@@ -5953,6 +6017,8 @@ function openConfig(code, { silencioso = false } = {}) {
   opcionSendflow($('#cfg-sendflow'), l.sendflowId || '');
   $('#cfg-gracias-video').value = l.graciasVideoUrl || '';
   $('#cfg-gracias-url').value = l.graciasUrl || '';
+  $('#cfg-registro-url').value = l.registroUrl || '';
+  $('#cfg-registro-ads-url').value = l.registroAdsUrl || '';
   $('#cfg-cierre').value = l.cierreCarrito || '';
   $('#cfg-dias-carrito').value = l.diasCarrito || '';
   pintarDiasCarrito();
@@ -6005,6 +6071,7 @@ function openConfig(code, { silencioso = false } = {}) {
   pintarPrelanzamientoCfg(l);
   pintarRecursosCfg(l.recursosPre);
   pintarEnlaceDirecto();
+  pintarRegistroKit();
   pintarVentaPasos();
   pintarVentaBarra(l.ventaBarra);
   pintarTitulares(l.titulares);
@@ -6721,6 +6788,8 @@ const CICLO = [
   { id: 'cfg-clase2-at', c: 'nuevo', label: 'Clase 2 · desbloqueo', key: 'clase2At' },
   { id: 'cfg-replay-video', c: 'nuevo', label: 'Vídeo de la grabación', key: 'replayVideoUrl', opcional: true },
   { id: 'cfg-whatsapp-url', c: 'nuevo', label: 'Grupo de WhatsApp', key: 'whatsappUrl' },
+  { id: 'cfg-registro-url', c: 'revisar', label: 'Página de registro' },
+  { id: 'cfg-registro-ads-url', c: 'revisar', label: 'Registro · publicidad', opcional: true },
   { id: 'cfg-gracias-url', c: 'revisar', label: 'Página de gracias', opcional: true },
   { id: 'cfg-gracias-video', c: 'revisar', label: 'Vídeo de gracias', opcional: true },
   { id: 'cfg-cierre', c: 'nuevo', label: 'Cierre del carrito', key: 'cierreCarrito' },
@@ -7151,7 +7220,7 @@ function hubEnhorabuena(nombre) {
     <button type="button" class="hub-bloque-cab" data-hub-ir="${tab}"><span class="hub-cat-ico">${ico}</span><strong>${titulo}</strong><span class="hub-ir">Ir a su apartado →</span></button>
     ${extra}${filas.trim() ? `<ul class="hub-filas">${filas}</ul>` : ''}</section>` : '');
   const enlaces = [
-    ['📝 Registro (login)', 'cfg-login-url'], ['🎓 Página preclase · y para conectarse al directo', 'cfg-recursos-url'], ['🎉 Página de gracias', 'cfg-gracias-url'],
+    ['📝 Página de registro', 'cfg-registro-url'], ['📣 Registro · publicidad', 'cfg-registro-ads-url'], ['🔐 Acceso a las clases (login)', 'cfg-login-url'], ['🎓 Página preclase · y para conectarse al directo', 'cfg-recursos-url'], ['🎉 Página de gracias', 'cfg-gracias-url'],
     ['💬 Grupo de WhatsApp', 'cfg-whatsapp-url'], ['📋 Encuesta', 'cfg-encuesta-url'], ['⭐ Entrada VIP (pago)', 'cfg-vip-url'], ['📼 Página de replay', 'cfg-replay'],
     ['🛒 Página de venta', 'cfg-raices'], ['🧾 Página de pago', 'cfg-pagina-pago'], ['☎️ Reservar llamada', 'cfg-llamada'],
   ].map(([l, id]) => [l, valCfg(id), CON_CID.has(id)]).filter(([, v]) => v);
@@ -7416,6 +7485,8 @@ function readForm() {
       whatsappUrl: $('#cfg-whatsapp-url').value.trim(),
       sendflowId: $('#cfg-sendflow').value,
       graciasVideoUrl: $('#cfg-gracias-video').value.trim(),
+      registroUrl: $('#cfg-registro-url').value.trim(),
+      registroAdsUrl: $('#cfg-registro-ads-url').value.trim(),
       graciasUrl: $('#cfg-gracias-url').value.trim(),
       cierreCarrito: $('#cfg-cierre').value,
       diasCarrito: diasCarritoValido($('#cfg-dias-carrito').value),
@@ -8209,8 +8280,11 @@ function snippetsLanzamiento(code) {
   const qué = deRec ? 'los recursos' : 'las clases';
   const si = (cond, ...items) => (cond ? items : []);
   return [
-    ['REGISTRO · visitas únicas de la página de registro (en el footer; para la conversión de la página en Métricas)',
-      `<div data-lsd-registro data-launch="auto"></div>\n${script}`],
+    ['REGISTRO · bloque del footer (cuenta las visitas para la conversión de la página en Métricas y rellena las fechas)',
+      `<div data-lsd-page="registro" data-lsd-registro data-launch="auto"></div>\n${script}`],
+    ['REGISTRO · fecha y hora de cada directo (salen de Configuración; pon dentro el texto real)',
+      videosDe(l).map((v) => { const s = v.k === 1 ? '' : v.k; return `<span data-lsd-text="fechaDirecto${s}">martes 3 de noviembre</span> · <span data-lsd-text="horaDirecto${s}">19:00</span>h`; }).join('\n')
+      + '\n<div data-lsd-countdown-boxes="directo"></div>'],
     ...si(pre, ['LOGIN · bloque del formulario (no cambia entre lanzamientos)',
       `<div data-lsd-login data-launch="auto"\n     data-title="Accede a ${qué} con tu email y tu WhatsApp"\n     data-movil="si"\n     data-button="Acceder a ${qué}"></div>\n<!-- data-movil: «si» (obligatorio), «opcional» o «no». El WhatsApp se guarda en su ficha de GHL si no tenía teléfono. -->\n${script}`],
     ['RECURSOS · bloque base (una vez por página, en cualquier sitio)', `<div data-lsd-page="recursos" data-launch="auto"></div>\n${script}`],
@@ -16678,7 +16752,7 @@ const afilarPrompt = (prompt, canal, code) => afilar(prompt, { canal, voz: code 
 function emPrompt(code, marca) {
   const l = conEnlacesPropuestos(state.config.launches[code], propuestasEmbudo(embudoDeLanz(state.config.launches[code])));
   const enlaces = {
-    'Página de gracias': l.graciasUrl, 'Acceso a las clases (login)': l.loginUrl, 'Página preclase (clases y recursos)': l.recursosUrl,
+    'Página de registro': l.registroUrl, 'Página de gracias': l.graciasUrl, 'Acceso a las clases (login)': l.loginUrl, 'Página preclase (clases y recursos)': l.recursosUrl,
     'Entrada VIP': Number(l.precioVip) > 0 ? l.vipUrl : '', 'Grupo de WhatsApp': l.whatsappUrl, 'Grabación (replay)': l.replayUrl,
     'Página de venta': l.raicesUrl, 'Página de pago': l.paginaPagoUrl,
   };
@@ -17116,7 +17190,7 @@ function contextoPaginas() {
     const emb = conEnlacesPropuestos(lanz, propuestasEmbudo(state.embudo));
     return { tipo: 'lanzamientos', nombre: emb.name, datos: datosEmbudo(emb, { producto, marca }), codigos: snippetsLanzamiento(state.launchCode), ctx: { script },
       opts: { preclase: conPreclase(lanz) ? (preclaseDeRecursos(lanz) ? 'recursos' : 'clases') : 'no' },
-      urls: { 'Página de gracias': emb.graciasUrl, 'Página preclase': emb.recursosUrl, 'Página de acceso (login)': emb.loginUrl, 'Página de venta': emb.raicesUrl, 'Página de pago': emb.paginaPagoUrl, 'Página de la grabación (replay)': emb.replayUrl, 'Grupo de WhatsApp': emb.whatsappUrl } };
+      urls: { 'Página de registro': emb.registroUrl, 'Página de registro (publicidad)': emb.registroAdsUrl, 'Página de gracias': emb.graciasUrl, 'Página preclase': emb.recursosUrl, 'Página de acceso (login)': emb.loginUrl, 'Página de venta': emb.raicesUrl, 'Página de pago': emb.paginaPagoUrl, 'Página de la grabación (replay)': emb.replayUrl, 'Grupo de WhatsApp': emb.whatsappUrl } };
   }
   if (t === 'meteorico') {
     const code = state.meteo.code;

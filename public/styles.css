@@ -8130,3 +8130,29 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 @media (max-width: 700px) { .ia-marca { grid-template-columns: 1fr; } }
 .cv-zoom-crear { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: -4px; }
 .cv-zoom-crear small { flex: 1 1 260px; }
+
+/* Captación → Página de registro: fechas que enseña, formulario, código del footer y etiquetas del diseño */
+.reg-kit { display: grid; gap: 14px; margin-top: 14px; }
+.reg-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.reg-card { display: grid; gap: 8px; align-content: start; padding: 14px 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); }
+.reg-card h4, .reg-sub { margin: 0; font-size: 15px; }
+.reg-card p { margin: 0; }
+.reg-card > .btn { justify-self: start; }
+.reg-dias { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.reg-dia { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
+.reg-dia .cv-n { flex: none; background: var(--accent); color: var(--accent-ink); }
+.reg-dia > span:last-child { display: grid; line-height: 1.3; }
+.reg-dia > span:last-child > span { color: var(--muted); font-size: 13px; }
+.reg-dia > span:last-child > span::first-letter { text-transform: uppercase; }
+.reg-dia.falta .cv-n { background: var(--surface-2); color: var(--muted); }
+.reg-tag { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.reg-tag code { padding: 4px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); overflow-wrap: anywhere; }
+.reg-falta { color: var(--danger, #c0392b); font-size: 13px; }
+.reg-tags > summary { cursor: pointer; padding: 6px 0; }
+.reg-tags[open] { display: grid; gap: 8px; }
+.reg-acc { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.reg-acc small { flex-basis: 100%; }
+@media (max-width: 600px) {
+  .reg-kit .enlace-directo-fila { grid-template-columns: minmax(0, 1fr); }
+  .reg-kit .enlace-directo-fila .btn { justify-self: start; }
+}

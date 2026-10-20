@@ -35,6 +35,7 @@ test('urls: lanzamiento con registro orgánico y de publicidad; sin preclase no 
 test('urls: rellenan los enlaces del lanzamiento (lo suyo manda) y van en los mensajes del grupo', () => {
   const u = urlsPropuestas('lanzamientos', { dominio: 'midominio.com', nombre: 'el-camino' });
   assert.deepEqual(enlacesLanzamiento(u), {
+    registroUrl: 'https://midominio.com/el-camino-registro', registroAdsUrl: 'https://midominio.com/el-camino-registro-ads',
     graciasUrl: 'https://midominio.com/el-camino-gracias', loginUrl: 'https://midominio.com/el-camino-acceso', recursosUrl: 'https://midominio.com/el-camino-preclase',
     replayUrl: 'https://midominio.com/el-camino-replay', raicesUrl: 'https://midominio.com/el-camino-inscripcion', paginaPagoUrl: 'https://midominio.com/el-camino-pago',
   });
