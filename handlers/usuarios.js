@@ -12,6 +12,8 @@ import { rolExiste } from '../lib/roles.js';
 import { iniciarAlta, confirmarAlta, comprobarCodigo, quitarDosPasos, esAdminEnAlguno } from '../lib/dos-pasos.js';
 import { getSeguridad } from '../lib/seguridad.js';
 import { getConfig } from '../lib/config-store.js';
+import { buzonDe } from '../lib/buzon.js';
+import { sanitizePrefsNotif } from '../public/js/notificaciones.js';
 
 const idsEmbudos = async () => (await getConfig()).embudos.map((e) => e.id);
 
@@ -161,6 +163,22 @@ async function procesar(request, body) {
     }, 'reiniciar onboarding');
     if (!ok) throw bad('Usuario no encontrado', 404);
     return json({ ok: true });
+  }
+
+  // Perfil → Notificaciones: qué avisos quiere recibir y por dónde (campanita / email).
+  if (op === 'notif-prefs') {
+    const s = await sesionPropia(request);
+    if (!s.uid) throw bad('Entraste con la contraseña general: no tienes usuario propio');
+    let prefs = null;
+    await actualizarUsuarios((us) => { const u = us.find((x) => x.id === s.uid); if (u) { u.notifPrefs = sanitizePrefsNotif(body.prefs); prefs = u.notifPrefs; } }, 'preferencias de notificaciones');
+    if (!prefs) throw bad('Usuario no encontrado', 404);
+    return json({ ok: true, notifPrefs: prefs });
+  }
+  // Campanita: los avisos guardados para mí (menciones y asignaciones en la Operativa, tareas terminadas…).
+  if (op === 'mis-avisos') {
+    const s = await sesionPropia(request);
+    if (!s.uid) return json({ ok: true, avisos: [] });
+    return json({ ok: true, avisos: await buzonDe(s.uid) });
   }
 
   if (op === 'notif-visto') {

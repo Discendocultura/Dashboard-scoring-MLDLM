@@ -30,7 +30,7 @@ import { calendarioValido } from '../public/js/mi-calendario.js';
 import { listClientes } from '../lib/clientes.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { listUsersRaw, rolEn, newId } from '../lib/users.js';
-import { todasLasTareas, visiblesOperativa, proyectosQueGestiona, proyectosSoloOperativa, puedeOperativa, clienteDeTarea, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, ordenarTareas, avisarAsignada, avisarMencionOp, esTableroEmbudo, tableroEmbudoDeCodigo, crearTareaEmbudo, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
+import { todasLasTareas, visiblesOperativa, proyectosQueGestiona, proyectosSoloOperativa, puedeOperativa, clienteDeTarea, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, ordenarTareas, avisarAsignada, avisarMencionOp, avisarOp, avisosDeCambio, esTableroEmbudo, tableroEmbudoDeCodigo, crearTareaEmbudo, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
 import { tablerosDe, ordenarTableros, alFinal, MAX_ORDENAR, sanitizeTablero, sanitizeColumnas, GENERAL, sanitizeChecklist, prioridadValida, MAX_ETIQUETAS_TAREA, COLORES_ETIQUETA } from '../public/js/tableros.js';
 import { sanitizeRepetir } from '../public/js/procesos.js';
 import { PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from '../public/js/operativa.js';
@@ -259,7 +259,7 @@ export async function POST(request) {
       const tabs = tablerosDe(await getTableros(), proyecto);
       const opTablero = tabs.some((b) => b.id === body.tarea?.opTablero) ? body.tarea.opTablero : GENERAL;
       const t = await crearTareaAgencia({ ...body.tarea, proyecto, opTablero }, por);
-      if (t.asignado?.id && t.asignado.id !== s.uid) await avisarAsignada({ ...t, clienteNombre: cli?.nombre || 'Agencia', embudo: cli ? 'Operativa' : 'Interno' }, t.asignado.id, { url, por }).catch((e) => console.error('Aviso', e.message));
+      if (t.asignado?.id && t.asignado.id !== s.uid) await avisarAsignada({ ...t, clienteNombre: cli?.nombre || 'Agencia', embudo: cli ? 'Operativa' : 'Interno' }, t.asignado.id, { url, por, ir: { cliente: cli ? cli.id : PROYECTO_AGENCIA, code: CODIGO_AGENCIA, id: t.id } }).catch((e) => console.error('Aviso', e.message));
       return json({ ok: true, tarea: t });
     }
     const cfgTableros = ['columna', 'etiquetas'].includes(body.op) ? await getTableros() : null;
@@ -269,7 +269,9 @@ export async function POST(request) {
     // Solo se avisa a quien puede estar en la tarea: el equipo de la agencia y la gente con acceso a ese proyecto.
     const posibles = ['comentar', 'descripcion'].includes(body.op) ? await equipoPara(s) : [];
     const mencionables = (texto, cid) => personasEn(texto).filter((uid) => uid !== s.uid && asignable(posibles.find((u) => u.id === uid), cid));
+    let previo = null; // cómo estaba (para avisar de lo que ha cambiado: terminada, bloqueada, fecha)
     const t = await cambiarTarea(ref, async (t, lista) => {
+      previo = { hecha: Boolean(t.hecha), fecha: t.fecha || '', bloqueo: t.bloqueo || '', asignado: t.asignado?.tipo === 'persona' ? t.asignado.id : '', creadaPor: t.creadaPor || '' };
       if (body.op === 'estado' && body.estado === 'bloqueado') { comprobar(t); ponerBloqueo(t, body.bloqueo); } else if (body.op === 'estado') {
         comprobar(t);
         ponerEstado(t, String(body.estado || ''), { por });
@@ -360,12 +362,17 @@ export async function POST(request) {
     });
     if (avisar) {
       const proyecto = ref.cliente === PROYECTO_AGENCIA ? 'Agencia' : (await listClientes()).find((c) => c.id === ref.cliente)?.nombre || ref.cliente;
-      await avisarAsignada({ ...t, clienteNombre: proyecto, embudo: '' }, avisar, { url, por }).catch((e) => console.error('Aviso', e.message));
+      await avisarAsignada({ ...t, clienteNombre: proyecto, embudo: '' }, avisar, { url, por, ir: ref }).catch((e) => console.error('Aviso', e.message));
     }
     let mencionados = 0;
+    const nombreProyecto = async () => (ref.cliente === PROYECTO_AGENCIA ? 'Agencia' : (await listClientes()).find((c) => c.id === ref.cliente)?.nombre || '');
     if (mencionar) {
-      const proyecto = ref.cliente === PROYECTO_AGENCIA ? 'Agencia' : (await listClientes()).find((c) => c.id === ref.cliente)?.nombre || '';
-      mencionados = await avisarMencionOp({ ...t, clienteNombre: proyecto }, mencionar.uids, { url, por, texto: mencionar.texto, donde: mencionar.donde }).catch((e) => { console.error('Mención', e.message); return 0; });
+      mencionados = await avisarMencionOp({ ...t, clienteNombre: await nombreProyecto() }, mencionar.uids, { url, por, texto: mencionar.texto, donde: mencionar.donde, ir: ref }).catch((e) => { console.error('Mención', e.message); return 0; });
+    }
+    // Lo demás que interesa a quien tiene la tarea o la creó (cada persona elige en Perfil → Notificaciones).
+    const extra = avisosDeCambio(body.op, previo, t, { uid: s.uid, por, mencionados: mencionar?.uids || [] });
+    for (const a of extra) {
+      await avisarOp(a.tipo, { ...t, clienteNombre: await nombreProyecto() }, a.uids, { url, por, texto: a.texto || '', ir: ref, nombres: a.nombres || [], excepto: s.uid, exceptoNombre: por }).catch((e) => console.error('Aviso', a.tipo, e.message));
     }
     return json({ ok: true, tarea: t, mencionados, ...(nueva ? { nueva: resumenTarea(nueva, { cliente: ref.cliente, code: ref.code }) } : {}) });
   } catch (e) {

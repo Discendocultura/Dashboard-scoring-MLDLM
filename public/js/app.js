@@ -73,6 +73,7 @@ import { iniciarAnimaciones } from './animaciones.js';
 import { FASES_PLAN, enviosPorDefecto, enviosDe, planEnvios, sanitizeEnvios } from './envios.js';
 import { componerEmails } from './emails.js';
 import { saludCliente, ordenSalud, totalesAgencia, urgentesAgencia, agendaAgencia, equipoAgencia } from './agencia-inicio.js';
+import { tiposPara, quiereNotif, CANALES_NOTIF, tipoNotif } from './notificaciones.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -701,6 +702,8 @@ async function start() {
   $('#tb-cuenta-rol').textContent = state.superadmin ? 'Admin agencia' : state.agencia ? `Agencia · ${ROLE_LABEL[role]}` : ROLE_LABEL[role] || role;
   $('#btn-cuenta').hidden = !state.user;
   $('#btn-clave').hidden = !state.user;
+  $('#btn-notif-prefs').hidden = !state.user;
+  cargarAvisos();
   pintarFotoCuenta();
   pintarAviso2fa();
   pintarPlantillas();
@@ -1199,6 +1202,15 @@ document.addEventListener('keydown', (e) => {
     $('#tb-buscar-in').focus();
   }
 });
+
+// ---------- Avisos guardados en el servidor para mí (menciones y asignaciones en la Operativa, tareas terminadas…) ----------
+async function cargarAvisos() {
+  if (!state.user || state.verComo) return;
+  try {
+    state.avisos = (await api('/api/usuarios', { method: 'POST', body: { op: 'mis-avisos' } })).avisos || [];
+    renderNotif();
+  } catch { /* sin conexión: sin estos avisos */ }
+}
 
 // ---------- Quién se ha atascado (para la agencia) ----------
 async function cargarAtascados() {
@@ -9715,6 +9727,8 @@ function mostrarSoloOperativa() {
   $('#role-badge').textContent = state.user ? `${state.user.nombre.split(' ')[0]} · Solo Operativa` : 'Solo Operativa';
   $('#btn-cuenta').hidden = !state.user;
   $('#btn-clave').hidden = !state.user;
+  $('#btn-notif-prefs').hidden = !state.user;
+  cargarAvisos();
   pintarFotoCuenta();
   $('#solo-op').hidden = false;
   $('#solo-op-saludo').textContent = `Hola${state.user ? `, ${state.user.nombre.split(' ')[0]}` : ''} 👋`;
@@ -11565,9 +11579,17 @@ function notifItems() {
   }
   // Agencia: quien se ha atascado en sus primeros pasos («Marta lleva 4 días sin avanzar»).
   for (const a of state.atascados || []) out.push({ tipo: 'atascado', a, key: `a:${a.id}:${a.desde}` });
+  // Lo que me ha llegado del servidor (Operativa: menciones, asignaciones, terminadas, bloqueadas, fechas…).
+  // (Una mención en una tarea de embudo comentada desde la Operativa ya sale por su comentario: no se repite.)
+  const yaEsta = (v) => ['mencion', 'comentario'].includes(v.tipo) && out.some((n) => n.c && n.c.nombre === v.por && n.t.titulo === v.titulo && Math.abs(Date.parse(n.c.en) - Date.parse(v.en)) < 120_000);
+  for (const v of state.avisos || []) if (!yaEsta(v)) out.push({ tipo: v.tipo, v, en: v.en, key: `b:${v.id}` });
   const visto = notifVistoEn();
   const vistas = notifVistas();
-  for (const n of out) n.nueva = n.c ? n.c.en > visto : !vistas.has(n.key);
+  const prefs = state.user?.notifPrefs || {};
+  // Solo lo que cada persona quiere ver en la campanita (Perfil → Notificaciones). Los del servidor ya llegan filtrados.
+  const quiere = (n) => n.v || quiereNotif(prefs, n.tipo, 'campana');
+  out.splice(0, out.length, ...out.filter(quiere));
+  for (const n of out) n.nueva = n.c ? n.c.en > visto : n.v ? n.v.en > visto : !vistas.has(n.key);
   // La primera semana de un admin nuevo, solo lo urgente (como mucho 2): que no le abrume.
   // (Los avisos de personas atascadas son para la agencia: no se dosifican.)
   return [...dosificar(out.filter((n) => n.tipo !== 'atascado'), { nuevo: ppActivo(), dias: diasOnb() }), ...out.filter((n) => n.tipo === 'atascado')];
@@ -11579,7 +11601,21 @@ const cuandoVence = (f) => {
   if (f === addDays(hoy, 1)) return 'vence mañana';
   return `vence el ${fechaCorta(f)}`;
 };
+const AVISO_TXT = {
+  mencion: (v) => `<strong>${esc(v.por)}</strong> te ha mencionado en «${esc(v.titulo)}»`,
+  asignada: (v) => `<strong>${esc(v.por)}</strong> te ha asignado «${esc(v.titulo)}»`,
+  comentario: (v) => `<strong>${esc(v.por)}</strong> ha comentado en tu tarea «${esc(v.titulo)}»`,
+  completada: (v) => `<strong>${esc(v.por)}</strong> ha terminado «${esc(v.titulo)}»`,
+  bloqueada: (v) => `<strong>${esc(v.por)}</strong> ha bloqueado «${esc(v.titulo)}»`,
+  fecha: (v) => `<strong>${esc(v.por)}</strong> ha cambiado la fecha de «${esc(v.titulo)}»`,
+};
 function notifHtml(n) {
+  if (n.v) {
+    const v = n.v;
+    const txt = (AVISO_TXT[v.tipo] || AVISO_TXT.asignada)(v);
+    return `<button type="button" class="notif-item t-${esc(v.tipo)} ${n.nueva ? 'nueva' : ''}" data-naviso="${esc(v.id)}">
+    <span class="notif-ico" aria-hidden="true">${esc(tipoNotif(v.tipo)?.icono || '🔔')}</span><span class="notif-txt">${v.proyecto ? `<span class="notif-emb">📋 ${esc(v.proyecto)}</span>` : ''}${txt}${v.texto ? `<span class="notif-cita">${esc(v.texto.slice(0, 140))}${v.texto.length > 140 ? '…' : ''}</span>` : ''}<span class="notif-when">${esc(hace(v.en))}</span></span>${n.nueva ? '<span class="notif-dot" aria-label="Nueva"></span>' : ''}</button>`;
+  }
   if (n.tipo === 'atascado') {
     const a = n.a;
     const txt = a.sinEntrar ? `no ha entrado todavía (le diste acceso hace ${a.dias} días)` : `lleva ${a.dias} días sin avanzar en sus primeros pasos${a.hechos ? ` (lleva ${a.hechos} hecho${a.hechos === 1 ? '' : 's'})` : ''}`;
@@ -11605,11 +11641,12 @@ function pintarMencionesInicio() {
   if (!card || !state.enInicio) return;
   if (!meSess().uid) { card.hidden = true; return; } // con la contraseña general nadie puede mencionarte
   card.hidden = false;
-  const items = notifItems().filter((n) => n.c).sort((a, b) => b.c.en.localeCompare(a.c.en)).slice(0, 8);
+  const items = notifItems().filter((n) => n.c || (n.v && ['mencion', 'comentario'].includes(n.v.tipo))).sort((a, b) => (b.c?.en || b.v.en).localeCompare(a.c?.en || a.v.en)).slice(0, 8);
   $('#inicio-menciones').innerHTML = items.length ? items.map(notifHtml).join('')
     : `<p class="muted">${state.tareas || state.tareasOtros ? 'Nadie te ha mencionado ni ha comentado en tus tareas.' : 'Cargando…'}</p>`;
 }
 $('#inicio-menciones').addEventListener('click', (e) => {
+  if (abrirAviso(e.target.closest('[data-naviso]'))) return;
   const b = e.target.closest('[data-nt]');
   if (b) abrirTareaEn(b.dataset.ncode, b.dataset.nt, { comentar: Boolean(b.dataset.ntc) });
 });
@@ -11624,14 +11661,16 @@ function renderNotif() {
   $('#btn-notif').classList.toggle('has-new', nuevas > 0);
   const panel = $('#notif-panel');
   if (panel.hidden) return;
+  const cuando = (n) => n.c?.en || n.v?.en || '';
   const grupos = [
-    ['Comentarios y menciones', items.filter((n) => n.c).sort((a, b) => b.c.en.localeCompare(a.c.en)).slice(0, 30)],
+    ['Comentarios y menciones', items.filter((n) => n.c || (n.v && ['mencion', 'comentario'].includes(n.v.tipo))).sort((a, b) => cuando(b).localeCompare(cuando(a))).slice(0, 30)],
+    ['Tus tareas: novedades', items.filter((n) => n.v && !['mencion', 'comentario'].includes(n.v.tipo)).sort((a, b) => cuando(b).localeCompare(cuando(a))).slice(0, 30)],
     ['Tus tareas vencidas', items.filter((n) => n.tipo === 'vencida').sort((a, b) => a.t.fecha.localeCompare(b.t.fecha))],
     [`Vencen en los próximos ${NOTIF_DIAS} días`, items.filter((n) => n.tipo === 'pronto').sort((a, b) => a.t.fecha.localeCompare(b.t.fecha))],
     ['Vencidas del equipo', items.filter((n) => n.tipo === 'equipo')],
     ['Personas atascadas', items.filter((n) => n.tipo === 'atascado')],
   ].filter(([, l]) => l.length);
-  panel.innerHTML = `<div class="notif-head"><strong>Notificaciones</strong><button type="button" class="btn ghost notif-cerrar" aria-label="Cerrar" data-notif-cerrar>✕</button><span class="muted">${esc(nombreEmbudo(codigo()))}${state.tareasOtros?.length ? ` y ${state.tareasOtros.length} embudo${state.tareasOtros.length === 1 ? '' : 's'} más` : ''}</span></div>
+  panel.innerHTML = `<div class="notif-head"><strong>Notificaciones</strong>${state.user ? '<button type="button" class="btn ghost small notif-prefs-b" data-notif-prefs title="Elige qué avisos recibes">⚙️ Elegir</button>' : ''}<button type="button" class="btn ghost notif-cerrar" aria-label="Cerrar" data-notif-cerrar>✕</button><span class="muted">${esc(nombreEmbudo(codigo()))}${state.tareasOtros?.length ? ` y ${state.tareasOtros.length} embudo${state.tareasOtros.length === 1 ? '' : 's'} más` : ''}</span></div>
     ${grupos.length ? grupos.map(([g, l]) => `<div class="notif-grupo"><h4>${esc(g)}</h4>${l.map(notifHtml).join('')}</div>`).join('')
     : '<p class="muted notif-vacio">Todo al día: no tienes comentarios nuevos ni tareas vencidas o a punto de vencer. 🎉</p>'}`;
 }
@@ -11640,10 +11679,10 @@ async function marcarNotifVistas() {
   const items = notifItems();
   try {
     const vistas = notifVistas();
-    items.filter((n) => !n.c).forEach((n) => vistas.add(n.key));
+    items.filter((n) => !n.c && !n.v).forEach((n) => vistas.add(n.key));
     ls.set(`lsd_notif_vistas_${notifQuien()}`, JSON.stringify([...vistas].slice(-500)));
   } catch { /* sin almacenamiento: se volverán a contar */ }
-  if (!items.some((n) => n.c && n.nueva)) return;
+  if (!items.some((n) => (n.c || n.v) && n.nueva)) return;
   const ahora = new Date().toISOString();
   if (state.user) {
     try { state.user.notifVisto = (await api('/api/usuarios', { method: 'POST', body: { op: 'notif-visto' } })).notifVisto; } catch { state.user.notifVisto = ahora; }
@@ -11670,6 +11709,9 @@ $('#btn-notif').addEventListener('click', async (e) => {
 });
 $('#notif-panel').addEventListener('click', (e) => {
   if (e.target.closest('[data-notif-cerrar]')) { cerrarNotif(); return; }
+  if (e.target.closest('[data-notif-prefs]')) { cerrarNotif(); abrirPrefsNotif(); return; }
+  const av = e.target.closest('[data-naviso]');
+  if (av) { cerrarNotif(); abrirAviso(av); return; }
   const b = e.target.closest('[data-nt]');
   if (!b) return;
   cerrarNotif();
@@ -11683,6 +11725,59 @@ setInterval(() => {
   const code = codigo();
   unaVez('tareas', code, () => cargarTareas(code, { periodico: true }));
 }, 120_000);
+// Los avisos del servidor (Operativa…): también cada 2 minutos, aunque no haya embudo (modo «Solo Operativa»).
+setInterval(() => { if (!document.hidden) cargarAvisos(); }, 120_000);
+
+// Abre la tarea de un aviso: en su embudo (Plan → Tareas) si es de este cliente; si no, en la Operativa.
+function abrirAviso(b) {
+  if (!b) return false;
+  const v = (state.avisos || []).find((x) => x.id === b.dataset.naviso);
+  if (!v?.ir) { if (v) abrirOperativa({ api, dialog: $('#operativa-dialog') }); return true; }
+  const actual = state.cliente || state.clientes.find((c) => c.principal)?.id || '';
+  if (v.ir.tipo === 'embudo' && v.ir.cliente === actual) abrirTareaEn(v.ir.code, v.ir.id, {});
+  else abrirOperativa({ api, dialog: $('#operativa-dialog'), ir: { tipo: 'tarea', cliente: v.ir.cliente, code: v.ir.code, id: v.ir.id } });
+  return true;
+}
+
+// ---------- Perfil → Notificaciones: qué avisos quiere cada persona y por dónde ----------
+function pintarPrefsNotif() {
+  const prefs = state.user?.notifPrefs || {};
+  const tipos = tiposPara({ agencia: Boolean(state.agencia), admin: state.role === 'admin' });
+  const fila = (t) => `<div class="np-fila${t.sugerida ? ' sugerida' : ''}">
+      <span class="np-ico" aria-hidden="true">${esc(t.icono)}</span>
+      <div class="np-txt"><strong>${esc(t.nombre)}${t.sugerida ? ' <span class="np-sug">Sugerida ✨</span>' : ''}</strong><small>${esc(t.desc)}</small></div>
+      <div class="np-canales">${Object.entries(CANALES_NOTIF).map(([c, label]) => (t.canales.includes(c)
+        ? `<label class="np-switch" title="${esc(label)}"><input type="checkbox" data-np-tipo="${esc(t.id)}" data-np-canal="${esc(c)}"${quiereNotif(prefs, t.id, c) ? ' checked' : ''}><span class="np-pista" aria-hidden="true"></span><span class="np-lab">${esc(label)}</span></label>`
+        : '<span class="np-no" aria-hidden="true"></span>')).join('')}</div>
+    </div>`;
+  $('#np-body').innerHTML = `<p class="muted">Elige qué avisos te llegan a la <strong>campanita</strong> 🔔 y cuáles también por <strong>email</strong> ✉️ (a ${esc(state.user?.email || 'tu email')}). Se guarda al momento y vale en todos tus dispositivos.</p>
+    <h3 class="np-h">Tus avisos</h3>${tipos.filter((t) => !t.sugerida).map(fila).join('')}
+    <h3 class="np-h">Sugerencias ✨ <small class="muted">avisos nuevos que te pueden venir bien: quítalos si no te sirven</small></h3>${tipos.filter((t) => t.sugerida).map(fila).join('')}`;
+}
+function abrirPrefsNotif() {
+  if (!state.user) return;
+  $('#tb-menu-cuenta').open = false;
+  $('#np-status').textContent = '';
+  pintarPrefsNotif();
+  $('#notif-prefs-dialog').showModal();
+}
+$('#btn-notif-prefs').addEventListener('click', abrirPrefsNotif);
+$('#np-body').addEventListener('change', async (e) => {
+  const i = e.target.closest('[data-np-tipo]');
+  if (!i || !state.user) return;
+  const prefs = structuredClone(state.user.notifPrefs || {});
+  prefs[i.dataset.npTipo] = { ...(prefs[i.dataset.npTipo] || {}), [i.dataset.npCanal]: i.checked };
+  const st = $('#np-status');
+  st.textContent = 'Guardando…';
+  try {
+    state.user.notifPrefs = (await api('/api/usuarios', { method: 'POST', body: { op: 'notif-prefs', prefs } })).notifPrefs;
+    st.textContent = '✓ Guardado';
+    renderNotif();
+  } catch (err) {
+    i.checked = !i.checked;
+    st.textContent = `No se pudo guardar: ${err.message}`;
+  }
+});
 // Quién se ha atascado (agencia): cada hora, por si la pestaña sigue abierta todo el día.
 setInterval(() => { if (!document.hidden) cargarAtascados(); }, 60 * 60_000);
 

@@ -199,7 +199,7 @@ export async function POST(request) {
     });
     if (respuesta) return respuesta;
     const aviso = nuevasAsignadas.length && body.avisar !== false
-      ? await avisarAsignaciones(nuevasAsignadas, { launchName: launch.name, dashboardUrl, exceptUid: s.uid })
+      ? await avisarAsignaciones(nuevasAsignadas, { launchName: launch.name, dashboardUrl, exceptUid: s.uid, code, por: actor(s) })
       : { enviados: 0, errores: [] };
     if (comentario?.menciones.length) {
       aviso.menciones = await avisarMencion(comentada, comentario, { launchName: launch.name, dashboardUrl, exceptUid: s.uid });
