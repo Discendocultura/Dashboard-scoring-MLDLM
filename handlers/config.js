@@ -118,7 +118,9 @@ export async function POST(request) {
       const config = await reintentando(async () => {
         const actual = await getConfig({ fresh: true });
         if (!actual.launches[code]) throw Object.assign(new Error('Lanzamiento no encontrado'), { status: 404, publicMessage: 'Lanzamiento no encontrado' });
-        return saveConfig({ ...actual, launches: { ...actual.launches, [code]: { ...actual.launches[code], logoUrl: url } } }, { version: versionDe(actual), motivo: 'Logo del lanzamiento' });
+        // campo 'producto': el logo del producto que se vende (va en lo de venta: carrito, página de venta…).
+        const campo = body.campo === 'producto' ? 'logoProductoUrl' : 'logoUrl';
+        return saveConfig({ ...actual, launches: { ...actual.launches, [code]: { ...actual.launches[code], [campo]: url } } }, { version: versionDe(actual), motivo: campo === 'logoUrl' ? 'Logo del lanzamiento' : 'Logo del producto' });
       });
       return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
     }

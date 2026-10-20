@@ -147,8 +147,13 @@ const eur = (n) => (Number(n) ? `${Number(n).toLocaleString('es-ES')} €` : '')
 // `temario`: lo que se verá en la masterclass (lo escribe quien prepara los mensajes).
 // Lo que se va desbloqueando en la página preclase, por orden de fecha: [{ at, nombre, extra }].
 // La música y la votación van con su clase (se abren al verla).
+// Preclase de varios recursos: cada recurso de su lista (con su tipo).
+const TIPO_REC_TXT = { video: 'vídeo', audio: 'audio', descargable: 'descargable', enlace: 'enlace' };
+const recursosLista = (emb) => (emb?.preclase !== false && emb?.preclaseTipo === 'recursos' ? (emb.listaRecursos || []).filter((x) => x?.url) : null);
 export function desbloqueosPreclase(emb) {
   if (!emb) return [];
+  const lista = recursosLista(emb);
+  if (lista) return lista.filter((x) => x.at).map((x, i) => ({ at: x.at, nombre: `${x.nombre || `Recurso ${i + 1}`} (${TIPO_REC_TXT[x.tipo] || 'recurso'})`, extra: [] })).sort((a, b) => a.at.localeCompare(b.at));
   const r = recursosDe(emb);
   const out = [];
   for (let k = 1; k <= nClases(emb); k++) {
@@ -169,6 +174,8 @@ export function desbloqueosPreclase(emb) {
 // prompts no inviten a un test, una votación o a comentar si ese lanzamiento no lo tiene.
 export function preclaseIncluye(emb) {
   if (!emb) return [];
+  const lista = recursosLista(emb);
+  if (lista) return lista.map((x, i) => `${x.nombre ? `«${x.nombre}»` : `el recurso ${i + 1}`} (${TIPO_REC_TXT[x.tipo] || 'recurso'})`);
   const r = recursosDe(emb);
   const out = [];
   const clases = Array.from({ length: nClases(emb) }, (_, i) => i + 1).filter((k) => emb[`clase${k}At`]).length;
@@ -208,6 +215,9 @@ export function datosEmbudo(emb, { esMeteo = false, producto = '', marca = '' } 
     if (hay.length) d.push(`- En la preclase hay SOLO esto: ${hay.join(', ')}. No menciones ni invites a nada que no esté en esta lista (ni test, ni votación, ni comentarios, ni descargables si no aparecen).`);
     if (emb.replayUrl) d.push(`- Página de la grabación (replay): ${emb.replayUrl}`);
     if (emb.raicesUrl) d.push(`- Página de venta: ${emb.raicesUrl}`);
+    // Logos (imágenes reales: se usan tal cual, sin redibujarlas): el del lanzamiento (el evento) y el del producto.
+    if (emb.logoUrl) d.push(`- Logo del lanzamiento (el evento gratuito; va en lo de captación, registro y preclase): ${emb.logoUrl}`);
+    if (emb.logoProductoUrl) d.push(`- Logo de ${producto || 'el programa'} (el producto que se vende; va en todo lo de venta: página de venta, pago, grabación, imágenes y mensajes del carrito abierto): ${emb.logoProductoUrl}`);
   }
   return d;
 }

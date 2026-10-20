@@ -95,6 +95,7 @@ const estilo = (ctx) => [
   bloqueVisual(ctx.paleta),
   restoDiseno(ctx) ? `ESTILO VISUAL DE LA MARCA (respétalo: ambiente y lo que no quiere ver):\n${restoDiseno(ctx)}` : (ctx.paleta ? '' : 'Estilo visual: elegante y sobrio, fondo oscuro con un color de acento cálido (si tienes el kit de marca, úsalo).'),
   ctx.logo ? `${ctx.logoDeMarca ? 'Logo de la marca' : 'LOGO DEL LANZAMIENTO'}: ${ctx.logo} (descárgalo de ese enlace; va en todas las imágenes, pequeño arriba y centrado, tal cual: sin redibujarlo, deformarlo ni cambiarle los colores).` : '',
+  ctx.logoProducto ? `LOGO DEL PRODUCTO «${ctx.producto || 'el programa'}»: ${ctx.logoProducto} (descárgalo de ese enlace; va en las imágenes de venta —carrito abierto, bonus y cierre—, en la portada del producto y junto al titular, tal cual: sin redibujarlo, deformarlo ni cambiarle los colores).` : '',
 ].filter(Boolean).join('\n');
 
 const REGLAS = `REGLAS DEL TEXTO:
@@ -105,7 +106,7 @@ const REGLAS = `REGLAS DEL TEXTO:
 // Qué mockup lleva cada imagen (descrito dentro de su prompt: se genera junto con la imagen, sin pasos aparte).
 export function describirMockup(id, ctx = {}, bonus = null) {
   if (id === 'grabacion') return `un portátil y un móvil que muestran la GRABACIÓN de la clase en vídeo: reproductor con el botón de play y la barra de progreso, y en pantalla ${ctx.persona ? `a ${ctx.persona}` : 'a la persona que imparte la clase'} hablando a cámara. Etiqueta pequeña «GRABACIÓN» en el reproductor`;
-  if (id === 'producto') return `el programa «${ctx.producto || 'el producto'}» como un pack premium: un portátil, una tablet y un móvil con el área de alumnos (portada con el nombre «${ctx.producto || 'el producto'}»${ctx.logo ? ' y el logo' : ''}, módulos en miniatura)`;
+  if (id === 'producto') return `el programa «${ctx.producto || 'el producto'}» como un pack premium: un portátil, una tablet y un móvil con el área de alumnos (portada con ${ctx.logoProducto ? `el LOGO DEL PRODUCTO (el enlace de arriba)` : `el nombre «${ctx.producto || 'el producto'}»${ctx.logo ? ' y el logo' : ''}`}, módulos en miniatura)`;
   return `el bonus «${bonus?.nombre || ''}»${bonus?.detalle ? ` (${bonus.detalle})` : ''} como un objeto tangible y valioso (cuaderno, guía, tarjeta de acceso o pantalla, según lo que sea), con su nombre «${bonus?.nombre || ''}» bien legible`;
 }
 
@@ -120,7 +121,7 @@ COMPOSICIÓN (como un cartel editorial, limpio y elegante):
 - Arriba: ${ctx.logo ? `el ${ctx.logoDeMarca ? 'logo de la marca' : 'logo del lanzamiento'} (el enlace de arriba), pequeño y centrado, con líneas finas decorativas a los lados` : `el nombre del lanzamiento${ctx.lanzamiento ? ` («${ctx.lanzamiento}»)` : ''}, pequeño, con líneas finas decorativas a los lados`}.
 - Centro: el titular grande, en una tipografía con carácter; la parte destacada sobre un trazo de pincel del color de acento.
 - Un lado o abajo: un MOCKUP realista en 3D: ${describirMockup(p.mockup, ctx, p.bonus)}. Grande, con sombra suave e iluminación de estudio.
-- Un detalle de urgencia sutil y coherente con el estilo (un reloj de arena, un reloj o una cuenta atrás), sin recargar.
+${ctx.logoProducto && p.grupo !== 'Grabación' ? '- Junto al titular (o sobre el mockup): el LOGO DEL PRODUCTO (el enlace de arriba), mediano y bien visible: es una imagen de venta.\n' : ''}- Un detalle de urgencia sutil y coherente con el estilo (un reloj de arena, un reloj o una cuenta atrás), sin recargar.
 - Abajo: el subtítulo pequeño.
 - Deja aire alrededor; que se entienda en 2 segundos en el móvil.
 
@@ -141,7 +142,7 @@ export function promptMagnificImagenes(piezas, ctx = {}) {
 ${estilo(ctx)}
 
 CÓMO HACERLO:
-1. Kit de marca: busca uno de «${ctx.marca || 'la marca'}» (brand_kit_list); si no hay, créalo con el estilo de arriba.${ctx.logo ? ` Sube el logo desde ${ctx.logo} (creations_upload_image).` : ''}
+1. Kit de marca: busca uno de «${ctx.marca || 'la marca'}» (brand_kit_list); si no hay, créalo con el estilo de arriba.${ctx.logo ? ` Sube el logo desde ${ctx.logo} (creations_upload_image).` : ''}${ctx.logoProducto ? ` Sube también el logo del producto desde ${ctx.logoProducto} (creations_upload_image): va en las imágenes de venta (carrito, bonus y cierre).` : ''}
 2. Antes de generar nada, enséñame el PLAN y el COSTE ESTIMADO en créditos (simulate_cost). Espera a que te diga «adelante».
 3. Todas con el mismo estilo y la misma composición: cuadradas 1:1, logo arriba, titular en el centro con el destacado sobre un trazo de pincel del color de acento, el mockup de cada una y el subtítulo abajo.
 4. Guárdalas en una carpeta «Imágenes ${ctx.lanzamiento || 'lanzamiento'}» y dame la lista con el enlace de cada una.

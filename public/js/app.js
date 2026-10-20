@@ -16795,7 +16795,7 @@ async function renderImagenesIa() {
   if (state.launchCode !== code) return;
   const producto = marca?.producto ? nombreDeProducto(marca.producto) : nombreProducto(state.config);
   const paleta = paletaMarca(marca?.m?.respuestas);
-  const ctx = { marca: clienteNombre(), producto, diseno: disenoTexto(marca?.m), paleta, logo: l.logoUrl || marca?.m?.respuestas?.logo || '', logoDeMarca: !l.logoUrl && Boolean(marca?.m?.respuestas?.logo), lanzamiento: l.name };
+  const ctx = { marca: clienteNombre(), producto, diseno: disenoTexto(marca?.m), paleta, logo: l.logoUrl || marca?.m?.respuestas?.logo || '', logoDeMarca: !l.logoUrl && Boolean(marca?.m?.respuestas?.logo), logoProducto: l.logoProductoUrl || '', lanzamiento: l.name };
   const piezas = piezasImagenes(l, { producto });
   const prompts = { todo: promptMagnificImagenes(piezas, ctx), vertical: PROMPT_VERTICAL };
   for (const p of piezas) prompts[`p:${p.id}`] = promptImagen(p, ctx);
@@ -16855,6 +16855,12 @@ async function renderImagenesIa() {
         ${avisoMarcaHtml(marca)}
       </div>
       <div class="ia-marca-col ia-logo">
+        <h4>🏷️ Logo del producto <small class="muted">${esc(producto || 'lo que se vende')}</small></h4>
+        <div class="ia-logo-fila"><span class="ia-logo-img">${l.logoProductoUrl ? `<img src="${esc(l.logoProductoUrl)}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('No se ve'))">` : '<span>Sin logo</span>'}</span>
+          <input id="img-logo-prod" type="url" inputmode="url" maxlength="600" placeholder="Pega el enlace del logo del producto (https://…/logo.png)" value="${esc(l.logoProductoUrl || '')}"></div>
+        <small class="st-ayuda" id="img-logo-prod-status">${l.logoProductoUrl ? '✓ Va en las imágenes de venta (carrito, bonus y cierre), en los anuncios de venta y en los prompts de las páginas y mensajes de venta' : 'Opcional. Va en las imágenes de venta (cuando abre el carrito), en los anuncios de venta y en los prompts de venta. PNG con fondo transparente.'}</small>
+      </div>
+      <div class="ia-marca-col ia-logo">
         <h4>🏷️ Logo del lanzamiento</h4>
         <div class="ia-logo-fila"><span class="ia-logo-img">${l.logoUrl ? `<img src="${esc(l.logoUrl)}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('No se ve'))">` : '<span>Sin logo</span>'}</span>
           <input id="img-logo" type="url" inputmode="url" maxlength="600" placeholder="Pega el enlace del logo (https://…/logo.png)" value="${esc(l.logoUrl || '')}"></div>
@@ -16868,6 +16874,18 @@ async function renderImagenesIa() {
       ${nBar ? '' : '<p class="muted small">No hay bonus de acción rápida en la oferta de este lanzamiento (Configuración → Oferta): por eso no salen imágenes de bonus.</p>'}
     </section>`;
 
+  $('#img-logo-prod').addEventListener('change', async (e) => {
+    const url = e.target.value.trim();
+    const st = $('#img-logo-prod-status');
+    if (url && !/^https:\/\/\S+$/i.test(url)) { st.textContent = 'Pon el enlace completo, empezando por https://'; return; }
+    st.textContent = 'Guardando…';
+    try {
+      const { config } = await api('/api/config', { method: 'POST', body: { op: 'logoLanzamiento', campo: 'producto', l: code, url } });
+      state.config = config;
+      await renderImagenesIa();
+      $('#img-logo-prod-status').textContent = url ? 'Guardado ✓ · ya va en las imágenes de venta, en los anuncios de venta y en los prompts' : 'Logo quitado';
+    } catch (err) { st.textContent = err.message; }
+  });
   $('#img-logo').addEventListener('change', async (e) => {
     const url = e.target.value.trim();
     const st = $('#img-logo-status');
@@ -16931,7 +16949,7 @@ function ctxAnuncio(c, objetivo) {
   const g = ganadoresAnuncios();
   const f = formatoAnuncios();
   return { objetivo, tipoTexto: TIPO_TXT[c.tipo] || c.tipo, nombreEmbudo: c.nombre, marca: clienteNombre(), datos: c.datos, urls: c.urls,
-    contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto), diseno: disenoTexto(pgc.marca?.m), ganadores: ganadoresTexto(g.filas), notas: (ls.get(notasAnKey()) || '').trim(), evento: (ls.get(eventoAnKey()) || '').trim(), formato: f.id, formatoTexto: f.texto, logo: logoLanzamiento(), narrativa: tipoActual() === 'lanz' ? bloqueNarrativa(state.config.launches[state.launchCode]?.narrativa, 'anuncios') : '' };
+    contexto: contextoMarca(pgc.marca?.m, pgc.marca?.producto), diseno: disenoTexto(pgc.marca?.m), ganadores: ganadoresTexto(g.filas), notas: (ls.get(notasAnKey()) || '').trim(), evento: (ls.get(eventoAnKey()) || '').trim(), formato: f.id, formatoTexto: f.texto, logo: logoLanzamiento(), logoProducto: tipoActual() === 'lanz' ? state.config.launches[state.launchCode]?.logoProductoUrl || '' : '', narrativa: tipoActual() === 'lanz' ? bloqueNarrativa(state.config.launches[state.launchCode]?.narrativa, 'anuncios') : '' };
 }
 // Logo del lanzamiento actual (Anuncios → Crear con IA → Captación): se guarda en el lanzamiento, para todo el equipo.
 const logoLanzamiento = () => (tipoActual() === 'lanz' ? state.config.launches[state.launchCode]?.logoUrl || '' : '');
@@ -16940,6 +16958,13 @@ const campoLogoHtml = () => {
   return `<div class="field an-logo"><span>🖼️ Logo del lanzamiento <small>(para los anuncios de captación)</small></span>
     <div class="an-logo-fila">${url ? `<img src="${esc(url)}" alt="Logo del lanzamiento" class="an-logo-img" loading="lazy">` : ''}<input id="an-logo" type="url" inputmode="url" maxlength="600" placeholder="https://…/logo.png" value="${esc(url)}"></div>
     <small class="st-ayuda" id="an-logo-status">PNG con fondo transparente · GHL → Sitios → Medios → ⋯ → Copiar enlace</small></div>`;
+};
+// Logo del producto (lo que se vende): para los anuncios de venta.
+const campoLogoProductoHtml = () => {
+  const url = tipoActual() === 'lanz' ? state.config.launches[state.launchCode]?.logoProductoUrl || '' : '';
+  return `<div class="field an-logo an-logo-prod"><span>🖼️ Logo del producto <small>(para los anuncios de venta)</small></span>
+    <div class="an-logo-fila">${url ? `<img src="${esc(url)}" alt="Logo del producto" class="an-logo-img" loading="lazy">` : ''}<input id="an-logo-prod" type="url" inputmode="url" maxlength="600" placeholder="https://…/logo-producto.png" value="${esc(url)}"></div>
+    <small class="st-ayuda" id="an-logo-prod-status">El mismo que en Crear → Imágenes · va también en las imágenes del carrito</small></div>`;
 };
 async function renderAnuncios() {
   if (tipoActual() === 'lanz' && state.launchCode) prepararVoz(state.launchCode).catch(() => {});
@@ -16965,7 +16990,7 @@ async function renderAnuncios() {
           <input id="an-evento" list="an-eventos" maxlength="60" placeholder="Ej.: ${esc(nombresEvento(formatoAnuncios().id || 'webinar')[0])}" value="${esc(ls.get(eventoAnKey()) || '')}">
           <datalist id="an-eventos">${nombresEvento(formatoAnuncios().id || 'webinar').map((x) => `<option value="${esc(x)}">`).join('')}</datalist>
           <small class="st-ayuda">Nunca «webinar»${formatoAnuncios().id ? ` · formato ${esc(FORMATOS[formatoAnuncios().id].label)}` : ''}. Vacío: Claude te lo preguntará.</small></label>` : ''}
-        ${lanz ? campoLogoHtml() : ''}
+        ${lanz ? campoLogoHtml() + campoLogoProductoHtml() : ''}
         <label class="field st-ancho"><span>Notas sobre lo que ha funcionado <small>(opcional)</small></span><textarea id="an-notas" rows="2" placeholder="Ej.: el que más vende es un vídeo de Laura a cámara contando su historia; los carruseles no funcionan…">${esc(ls.get(notasAnKey()) || '')}</textarea></label>
       </div>
       <details class="st-plegable"${top.length ? ' open' : ''}><summary>👑 Anuncios ganadores en los que se basan <span class="st-chip">${top.length || 'ninguno aún'}</span></summary>
@@ -17000,16 +17025,17 @@ $('#anuncios-body').addEventListener('input', (e) => {
   if (e.target.id === 'an-evento') ls.set(eventoAnKey(), e.target.value);
 });
 $('#anuncios-body').addEventListener('change', async (e) => {
-  if (e.target.id !== 'an-logo') return;
+  if (e.target.id !== 'an-logo' && e.target.id !== 'an-logo-prod') return;
+  const prod = e.target.id === 'an-logo-prod';
   const url = e.target.value.trim();
-  const st = $('#an-logo-status');
+  const st = $(prod ? '#an-logo-prod-status' : '#an-logo-status');
   if (url && !/^https:\/\/\S+$/i.test(url)) { st.textContent = 'Pon el enlace completo, empezando por https://'; return; }
   st.textContent = 'Guardando…';
   try {
-    const { config } = await api('/api/config', { method: 'POST', body: { op: 'logoLanzamiento', l: state.launchCode, url } });
+    const { config } = await api('/api/config', { method: 'POST', body: { op: 'logoLanzamiento', ...(prod ? { campo: 'producto' } : {}), l: state.launchCode, url } });
     state.config = config;
-    e.target.closest('.an-logo').outerHTML = campoLogoHtml();
-    $('#an-logo-status').textContent = url ? 'Guardado ✓ · ya va en los prompts de captación' : 'Logo quitado';
+    e.target.closest('.an-logo').outerHTML = prod ? campoLogoProductoHtml() : campoLogoHtml();
+    $(prod ? '#an-logo-prod-status' : '#an-logo-status').textContent = url ? `Guardado ✓ · ya va en los prompts de ${prod ? 'venta' : 'captación'}` : 'Logo quitado';
   } catch (ex) { st.textContent = ex.message; }
 });
 $('#anuncios-body').addEventListener('click', async (e) => {
