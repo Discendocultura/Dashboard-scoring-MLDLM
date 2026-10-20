@@ -1,6 +1,7 @@
 // Inteligencia de negocio: el HTML de la pestaña (dashboard y portal del cliente), a partir de GET /api/negocio.
-//   negocioHtml(d, { producto }) → texto HTML. Arriba, «🌐 Todo el negocio» y un botón por producto (data-ng-producto):
-//   con uno elegido, su ficha (productoHtml); si no, la vista general con «📦 Tus productos».
+//   negocioHtml(d, { producto, seccion }) → texto HTML. Arriba, las secciones (data-ng-sec): 📊 Resumen (portada con la
+//   facturación y el semáforo de salud, lo que haría ahora, las cifras en tres familias y «Sigue explorando»),
+//   📦 Productos (cada uno, data-ng-producto abre su ficha), 👥 Clientes, 📅 Evolución y 🧪 Mejora tus datos.
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const eur = (n) => (n == null || !Number.isFinite(n) ? '–' : n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: Math.abs(n) >= 100 ? 0 : 2 }));
 const num = (n) => (n == null || !Number.isFinite(n) ? '–' : Math.round(n).toLocaleString('es-ES'));
@@ -62,11 +63,10 @@ const mini = (serie) => {
   return `<span class="ng-spark" aria-hidden="true">${serie.map((m) => `<i style="height:${Math.max(4, Math.round((m.facturacion / max) * 100))}%" title="${esc(mesTxt(m.mes))}: ${eur(m.facturacion)}"></i>`).join('')}</span>`;
 };
 
-// Selector de arriba: todo el negocio o un producto.
+// En la ficha de un producto: los demás productos, para pasar de uno a otro.
 function selectorProductos(d, sel) {
   if (!d.productos?.length) return '';
   return `<nav class="ng-prods" aria-label="Ver el negocio entero o un producto">
-    <button type="button" class="ng-prod-tab${sel ? '' : ' on'}" data-ng-producto=""><span class="ng-pt-ico">🌐</span><span><strong>Todo el negocio</strong><small>${eur(d.numeros.facturacion)}</small></span></button>
     ${d.productos.map((p) => `<button type="button" class="ng-prod-tab${sel === p.id ? ' on' : ''}" data-ng-producto="${esc(p.id)}"><span class="ng-pt-ico">${icoProd(p)}</span><span><strong>${esc(nomProd(p))}</strong><small>${p.sinPrecios ? 'sin precio' : eur(p.facturacion)}${p.cuota != null ? ` · ${pct(p.cuota)}` : ''}</small></span><i class="ng-pt-barra" style="width:${Math.round((p.cuota || 0) * 100)}%"></i></button>`).join('')}
     <button type="button" class="ng-prod-tab ng-prod-nuevo config-only" data-abrir-productos><span class="ng-pt-ico">＋</span><span><strong>Añadir producto</strong><small>Mi negocio → Productos</small></span></button>
   </nav>`;
@@ -146,36 +146,127 @@ function productoHtml(d, p) {
 }
 const MIN_VIAJE = 10;
 
-export function negocioHtml(d, { producto = '' } = {}) {
-  if (!d || d.vacio) return negocioVacio(d);
-  const prod = producto && d.productos?.find((x) => x.id === producto);
-  if (prod) {
-    const calcP = d.pendientes > 0 ? `<div class="ng-progreso"><span>⏳ Revisando tu histórico: ${d.total - d.pendientes} de ${d.total}. Las cifras se completan solas.</span></div>` : '';
-    return `${selectorProductos(d, prod.id)}${calcP}${productoHtml(d, prod)}`;
-  }
+// Las secciones de la pestaña: cada cosa en su sitio, con una frase que dice qué hay dentro.
+export const SECCIONES_NG = [
+  { id: 'resumen', ico: '📊', label: 'Resumen', sub: 'Cómo va tu negocio y qué hacer ahora' },
+  { id: 'productos', ico: '📦', label: 'Productos', sub: 'Lo que vende y factura cada uno' },
+  { id: 'clientes', ico: '👥', label: 'Clientes', sub: 'Cuánto tardan en comprar y si repiten' },
+  { id: 'evolucion', ico: '📅', label: 'Evolución', sub: 'Mes a mes y cada embudo' },
+  { id: 'datos', ico: '🧪', label: 'Mejora tus datos', sub: 'Lo que falta para afinar las cifras', config: true },
+];
+const SEC_IDS = SECCIONES_NG.map((x) => x.id);
+
+// Semáforo de una cifra: verde (bien), ámbar (vigilar), rojo (mejorar) o gris (sin datos).
+export function semaforoNg(valor, verde, ambar) {
+  if (valor == null || !Number.isFinite(valor)) return 'gris';
+  return valor >= verde ? 'verde' : valor >= ambar ? 'ambar' : 'rojo';
+}
+// Las tres señales de salud de la portada.
+export function saludNg(d) {
+  const n = d.numeros || {};
+  const r = d.recompra || {};
+  return [
+    { id: 'roas', ico: '📈', titulo: 'Rentabilidad de los anuncios', valor: n.roas == null ? '–' : x1(n.roas), color: semaforoNg(n.roas, 3, 1.5),
+      frase: { verde: 'Cada euro en anuncios vuelve multiplicado', ambar: 'Rentable, pero con poco margen', rojo: 'Los anuncios casi no se pagan solos', gris: 'Sin inversión en anuncios en este periodo' } },
+    { id: 'ltvcac', ico: '⚖️', titulo: 'Lo que deja un cliente frente a lo que cuesta', valor: n.ltvCac == null ? '–' : x1(n.ltvCac), color: semaforoNg(n.ltvCac, 3, 1.5),
+      frase: { verde: 'Sano: puedes invertir más para crecer', ambar: 'Bien, vigila el coste por cliente', rojo: 'Ajustado: sube el valor o baja el coste', gris: 'Hace falta inversión y precios' } },
+    { id: 'repite', ico: '🔁', titulo: 'Clientes que vuelven a comprar', valor: r.pct == null ? '–' : pct(r.pct), color: semaforoNg(r.pct, 0.25, 0.1),
+      frase: { verde: 'Tus clientes repiten: cuídalos con ofertas', ambar: 'Algunos repiten: hay margen con una 2.ª oferta', rojo: 'Casi nadie repite: prepara un siguiente producto', gris: 'Aún no hay histórico de recompra' } },
+  ].map((x) => ({ ...x, texto: x.frase[x.color] }));
+}
+const COLOR_TXT = { verde: 'Bien', ambar: 'Vigilar', rojo: 'Mejorar', gris: 'Sin datos' };
+
+// La barra de secciones (y, en «Mejora tus datos», cuánto falta).
+function navSecciones(d, sec) {
+  const badge = (x) => (x.id === 'datos' && d.calidad?.total ? `<em class="ng-nav-b${d.calidad.pct >= 100 ? ' ok' : ''}">${d.calidad.pct}%</em>`
+    : x.id === 'resumen' && d.recomendaciones?.length ? `<em class="ng-nav-b">💡 ${d.recomendaciones.length}</em>`
+      : x.id === 'productos' && d.productos?.length ? `<em class="ng-nav-b">${d.productos.length}</em>` : '');
+  return `<nav class="ng-nav" aria-label="Secciones de Inteligencia de negocio">${SECCIONES_NG.map((x) => `<button type="button" class="ng-nav-t${x.id === sec ? ' on' : ''}${x.config ? ' config-only' : ''}" data-ng-sec="${x.id}" aria-pressed="${x.id === sec}"><span class="ng-nav-ico" aria-hidden="true">${x.ico}</span><span class="ng-nav-txt"><strong>${esc(x.label)}${badge(x)}</strong><small>${esc(x.sub)}</small></span></button>`).join('')}</nav>`;
+}
+const cabSeccion = (x, extra = '') => `<header class="ng-sec-cab"><span class="ng-sec-ico" aria-hidden="true">${x.ico}</span><div><h3>${esc(x.label)}</h3><p>${esc(x.sub)}${extra}</p></div></header>`;
+
+// Gráfica grande de la portada (facturación por mes).
+const sparkGrande = (serie) => {
+  if (!serie?.length || serie.length < 2) return '';
+  const max = Math.max(1, ...serie.map((m) => m.facturacion));
+  return `<div class="ng-hero-spark" aria-hidden="true">${serie.map((m) => `<i style="--h:${Math.max(4, Math.round((m.facturacion / max) * 100))}%" title="${esc(mesTxt(m.mes))}: ${eur(m.facturacion)}"></i>`).join('')}</div>`;
+};
+
+function portada(d) {
   const n = d.numeros;
   const p = d.previo || {};
-  const calc = d.pendientes > 0 ? `<div class="ng-progreso"><span>⏳ Revisando tu histórico: ${d.total - d.pendientes} de ${d.total}. Las cifras se completan solas.</span><span class="ng-barra"><i style="width:${Math.round(((d.total - d.pendientes) / Math.max(1, d.total)) * 100)}%"></i></span></div>` : '';
-  const aviso = n.sinPrecios ? '<p class="ng-aviso">💶 Hay ventas sin precio: pon los precios en la configuración de cada embudo para ver la facturación, el ROAS y lo que deja cada cliente.</p>' : '';
+  const salud = saludNg(d);
+  const verdes = salud.filter((x) => x.color === 'verde').length;
+  const rojos = salud.filter((x) => x.color === 'rojo').length;
+  const frase = rojos ? `Hay ${rojos === 1 ? 'una señal' : `${rojos} señales`} en rojo: mira «Lo que haría ahora».` : verdes === 3 ? 'Todo en verde: es buen momento para invertir más y crecer.' : verdes ? 'Va bien: hay algún punto que vigilar.' : 'Aún faltan datos para valorar la salud del negocio.';
+  return `<section class="ng-hero">
+    <div class="ng-hero-main">
+      <span class="ng-hero-et">💰 Facturación · ${esc(PERIODOS_TXT[d.periodo] || 'el periodo')}</span>
+      <strong class="ng-hero-cifra">${eur(n.facturacion)}</strong>
+      ${delta(n.facturacion, p.facturacion)}
+      <span class="ng-hero-sub"><b>${num(n.clientes)}</b> clientes · <b>${num(n.ventas)}</b> ventas · ticket medio <b>${eur(n.ticket)}</b></span>
+      ${sparkGrande(d.serie)}
+    </div>
+    <div class="ng-salud">
+      <p class="ng-salud-t"><span>🩺 La salud de tu negocio</span><small>${esc(frase)}</small></p>
+      ${salud.map((x) => `<div class="ng-sem s-${x.color}"><span class="ng-sem-luz" aria-hidden="true"></span><div class="ng-sem-txt"><small>${x.ico} ${esc(x.titulo)}</small><strong>${x.valor}</strong><span>${esc(x.texto)}</span></div><em class="ng-sem-et">${COLOR_TXT[x.color]}</em></div>`).join('')}
+    </div>
+  </section>`;
+}
 
-  const kpis = `<div class="ng-kpis">
-    ${tarjeta('💰', 'Facturación', eur(n.facturacion), `${delta(n.facturacion, p.facturacion)}<small>${num(n.clientes)} clientes · ${num(n.ventas)} ventas</small>`, 'Lo facturado (sin IVA) por todos los embudos en el periodo')}
-    ${tarjeta('💎', 'Lo que deja un cliente (LTV)', eur(n.ltv), '<small>De media, sumando todo lo que compra · todo el histórico</small>', 'Lo que paga de media un cliente a lo largo de su vida contigo: todas sus compras de todos los embudos')}
-    ${tarjeta('🎯', 'Coste por lead medio', eur(n.cpl), delta(n.cpl, p.cpl, { menosEsMejor: true }) || '<small>Inversión ÷ registros</small>', 'La inversión en anuncios dividida entre los registros de los embudos con inversión')}
-    ${tarjeta('📈', 'ROAS medio', x1(n.roas), delta(n.roas, p.roas) || '<small>Lo que vuelve por cada euro</small>', 'Facturación ÷ inversión en anuncios, en los embudos con inversión')}
-    ${tarjeta('🧲', 'Coste por cliente (CAC)', eur(n.cac), delta(n.cac, p.cac, { menosEsMejor: true }) || `<small>${num(n.nuevos)} clientes nuevos</small>`, 'La inversión en anuncios dividida entre los clientes nuevos (su primera compra es de este periodo)')}
-    ${tarjeta('🎟️', 'Ticket medio', eur(n.ticket), '<small>Lo que paga de media cada compra</small>', 'Facturación ÷ ventas')}
-    ${tarjeta('🛒', 'Conversión', n.conversion == null ? '–' : pct(n.conversion), '<small>De registro a venta</small>', 'Ventas ÷ registros, en los embudos con registros')}
-    ${tarjeta('💡', 'Lo que vale cada lead', eur(n.valorLead), '<small>Facturación ÷ registros: lo máximo que puedes pagar por lead sin perder</small>', 'Lo que facturas de media por cada persona que se registra')}
-    ${tarjeta('⚖️', 'LTV ÷ CAC', n.ltvCac == null ? '–' : x1(n.ltvCac), `<small class="${n.ltvCac >= 3 ? 'ng-bien' : n.ltvCac != null && n.ltvCac < 1.5 ? 'ng-mal' : ''}">${n.ltvCac == null ? 'Hace falta inversión y precios' : n.ltvCac >= 3 ? 'Sano: puedes invertir más' : n.ltvCac < 1.5 ? 'Ajustado: sube el valor o baja el coste' : 'Bien: vigila el coste por cliente'}</small>`, 'Cuántas veces recuperas lo que cuesta conseguir un cliente. A partir de 3 es sano')}
+// Las cifras, en tres familias con una pregunta cada una (lo que entra, lo que cuesta, cómo conviertes).
+function familias(d) {
+  const n = d.numeros;
+  const p = d.previo || {};
+  const fam = (ico, t, sub, kpis) => `<section class="ng-fam"><header><span aria-hidden="true">${ico}</span><div><h4>${t}</h4><small>${sub}</small></div></header><div class="ng-fam-k">${kpis}</div></section>`;
+  return `<div class="ng-fams">
+    ${fam('💶', '¿Cuánto te deja?', 'Lo que entra por cada venta, cliente y lead', `
+      ${tarjeta('💎', 'Lo que deja un cliente (LTV)', eur(n.ltv), '<small>Todo lo que te compra · histórico</small>', 'Lo que paga de media un cliente a lo largo de su vida contigo: todas sus compras de todos los embudos')}
+      ${tarjeta('🎟️', 'Ticket medio', eur(n.ticket), '<small>Lo que paga cada compra</small>', 'Facturación ÷ ventas')}
+      ${tarjeta('💡', 'Lo que vale cada lead', eur(n.valorLead), '<small>Lo máximo que puedes pagar por lead sin perder</small>', 'Lo que facturas de media por cada persona que se registra')}`)}
+    ${fam('📣', '¿Cuánto te cuesta conseguirlo?', 'Lo que pagas en anuncios por cada lead y cliente', `
+      ${tarjeta('🎯', 'Coste por lead (CPL)', eur(n.cpl), delta(n.cpl, p.cpl, { menosEsMejor: true }) || '<small>Inversión ÷ registros</small>', 'La inversión en anuncios dividida entre los registros de los embudos con inversión')}
+      ${tarjeta('🧲', 'Coste por cliente (CAC)', eur(n.cac), delta(n.cac, p.cac, { menosEsMejor: true }) || `<small>${num(n.nuevos)} clientes nuevos</small>`, 'La inversión en anuncios dividida entre los clientes nuevos (su primera compra es de este periodo)')}
+      ${tarjeta('📈', 'ROAS', x1(n.roas), delta(n.roas, p.roas) || '<small>Lo que vuelve por cada euro</small>', 'Facturación ÷ inversión en anuncios, en los embudos con inversión')}`)}
+    ${fam('🔄', '¿Cómo conviertes?', 'De persona interesada a cliente', `
+      ${tarjeta('🛒', 'Conversión', n.conversion == null ? '–' : pct(n.conversion), '<small>De registro a venta</small>', 'Ventas ÷ registros, en los embudos con registros')}
+      ${tarjeta('🌱', 'Clientes nuevos', num(n.nuevos), '<small>Su primera compra es de este periodo</small>', 'Clientes cuya primera compra contigo es de este periodo')}
+      ${tarjeta('⚖️', 'LTV ÷ CAC', n.ltvCac == null ? '–' : x1(n.ltvCac), '<small>A partir de 3x es sano</small>', 'Cuántas veces recuperas lo que cuesta conseguir un cliente. A partir de 3 es sano')}`)}
   </div>`;
+}
 
-  const recos = recosHtml(d.recomendaciones, '🧭 Qué haría ahora para facturar más');
+// «Sigue explorando»: una tarjeta por sección con un dato de lo que hay dentro.
+function explora(d) {
+  const top = [...(d.productos || [])].sort((a, b) => (b.facturacion || 0) - (a.facturacion || 0))[0];
+  const dato = {
+    productos: top ? `${prodIco(top)}${esc(nomProd(top))} es el que más factura${top.cuota != null ? ` (${pct(top.cuota)})` : ''}` : 'Pon tus productos para verlos uno a uno',
+    clientes: d.ciclo?.n ? `Del registro a la compra: ${d.ciclo.mediana === 0 ? 'el mismo día' : `${num(d.ciclo.mediana)} días`} (mediana)` : d.recompra?.pct != null ? `${pct(d.recompra.pct)} vuelve a comprar` : 'Cuándo compran y qué compran después',
+    evolucion: `${num(d.actividad?.lanzamientos)} lanzamientos · ${num(d.actividad?.activos)} de ${num(d.actividad?.embudos)} embudos activos`,
+    datos: d.calidad?.total ? `Tus datos están al ${d.calidad.pct}%` : 'Revisa qué falta para afinar',
+  };
+  return `<section class="ng-explora"><h4>🔎 Sigue explorando</h4><div class="ng-explora-l">${SECCIONES_NG.filter((x) => x.id !== 'resumen').map((x) => `<button type="button" class="ng-ex${x.config ? ' config-only' : ''}" data-ng-sec="${x.id}"><span class="ng-ex-ico" aria-hidden="true">${x.ico}</span><strong>${esc(x.label)}</strong><small>${dato[x.id]}</small><span class="ng-ex-ir">Ver →</span></button>`).join('')}</div></section>`;
+}
 
-  const ciclo = cicloHtml(d.ciclo, '⏱️ Ciclo de compra · todo el negocio');
-
-  const r = d.recompra;
-  const recompra = `<section class="ng-sec card"><h3>🔁 El cliente a lo largo del tiempo ${pocos(r.pocos)}</h3>
+export function negocioHtml(d, { producto = '', seccion = 'resumen' } = {}) {
+  if (!d || d.vacio) return negocioVacio(d);
+  const prod = producto && d.productos?.find((x) => x.id === producto);
+  const sec = prod ? 'productos' : SEC_IDS.includes(seccion) ? seccion : 'resumen';
+  const def = SECCIONES_NG.find((x) => x.id === sec);
+  const calc = d.pendientes > 0 ? `<div class="ng-progreso"><span>⏳ Revisando tu histórico: ${d.total - d.pendientes} de ${d.total}. Las cifras se completan solas.</span><span class="ng-barra"><i style="width:${Math.round(((d.total - d.pendientes) / Math.max(1, d.total)) * 100)}%"></i></span></div>` : '';
+  const nav = navSecciones(d, sec);
+  if (prod) {
+    return `${nav}${calc}<div class="ng-pagina"><div class="ng-migas"><button type="button" class="ng-volver" data-ng-sec="productos">← Todos los productos</button></div>${selectorProductos(d, prod.id)}${productoHtml(d, prod)}</div>`;
+  }
+  const aviso = d.numeros.sinPrecios ? '<p class="ng-aviso">💶 Hay ventas sin precio: pon los precios en la configuración de cada embudo para ver la facturación, el ROAS y lo que deja cada cliente.</p>' : '';
+  const pocosTxt = d.pocos ? '<p class="ng-aviso suave">🌱 Aún hay pocas ventas: tómate estas cifras como orientativas hasta que haya más histórico.</p>' : '';
+  let cuerpo = '';
+  if (sec === 'resumen') {
+    cuerpo = `${portada(d)}${aviso}${pocosTxt}${recosHtml(d.recomendaciones, '🧭 Lo que haría ahora para facturar más') || '<p class="ng-aviso suave">✅ Nada urgente. Las recomendaciones aparecen aquí cuando los datos lo justifican.</p>'}${familias(d)}${explora(d)}`;
+  } else if (sec === 'productos') {
+    cuerpo = `${cabSeccion(def, ' · pulsa uno para ver su ficha')}${tarjetasProductos(d)}`;
+  } else if (sec === 'clientes') {
+    const r = d.recompra;
+    const recompra = `<section class="ng-sec card"><h3>🔁 El cliente a lo largo del tiempo ${pocos(r.pocos)}</h3>
     <div class="ng-mini">
       <div><strong>${pct(r.pct)}</strong><span>vuelve a comprar (${num(r.repiten)} de ${num(r.clientes)})</span></div>
       <div><strong>${eur(r.ltvRepite)}</strong><span>deja quien repite</span></div>
@@ -184,25 +275,27 @@ export function negocioHtml(d, { producto = '' } = {}) {
     </div>
     ${r.caminos.length ? `<h4>El camino más habitual entre productos</h4><ol class="ng-caminos">${r.caminos.map((x) => `<li><span>${esc(x.camino)}</span><b>${num(x.n)} ${x.n === 1 ? 'cliente' : 'clientes'}</b></li>`).join('')}</ol>` : '<p class="muted small">Cuando haya clientes que compren en más de un embudo o lanzamiento, verás aquí qué producto lleva al siguiente.</p>'}
   </section>`;
-
-  const a = d.actividad;
-  const maxS = Math.max(1, ...d.serie.flatMap((m) => [m.facturacion, m.inversion]));
-  const actividad = `<section class="ng-sec card"><h3>📅 Actividad</h3>
+    cuerpo = `${cabSeccion(def)}${cicloHtml(d.ciclo, '⏱️ Cuánto tardan en comprar')}${recompra}${segundaHtml(d.recompra)}${cruzadasHtml(d.cruzadas)}`;
+  } else if (sec === 'evolucion') {
+    const a = d.actividad;
+    const maxS = Math.max(1, ...d.serie.flatMap((m) => [m.facturacion, m.inversion]));
+    const actividad = `<section class="ng-sec card"><h3>📈 Facturación e inversión por mes</h3>
     <div class="ng-mini">
       <div><strong>${num(a.lanzamientos)}</strong><span>lanzamientos en total</span></div>
       <div><strong>${num(a.ultimoAno)}</strong><span>en los últimos 12 meses</span></div>
       <div><strong>${num(a.activos)} <small>de ${num(a.embudos)}</small></strong><span>embudos activos</span></div>
     </div>
-    ${d.serie.length ? `<h4>Facturación e inversión por mes</h4><div class="ng-serie" role="img" aria-label="Facturación e inversión por mes">${d.serie.map((m) => `<div class="ng-mes" title="${esc(mesTxt(m.mes))}: ${eur(m.facturacion)} facturados, ${eur(m.inversion)} invertidos${m.roas != null ? `, ROAS ${x1(m.roas)}` : ''}">
+    ${d.serie.length ? `<div class="ng-serie" role="img" aria-label="Facturación e inversión por mes">${d.serie.map((m) => `<div class="ng-mes" title="${esc(mesTxt(m.mes))}: ${eur(m.facturacion)} facturados, ${eur(m.inversion)} invertidos${m.roas != null ? `, ROAS ${x1(m.roas)}` : ''}">
       <span class="ng-roas">${m.roas ? x1(m.roas) : ''}</span>
       <span class="ng-cols"><i class="f" style="height:${Math.round((m.facturacion / maxS) * 100)}%"></i><i class="v" style="height:${Math.round((m.inversion / maxS) * 100)}%"></i></span>
       <span class="ng-mes-t">${esc(mesTxt(m.mes))}</span></div>`).join('')}</div>
-      <p class="ng-leyenda"><span><i class="f"></i> Facturación</span><span><i class="v"></i> Inversión</span><span>ROAS encima de cada mes</span></p>` : ''}
+      <p class="ng-leyenda"><span><i class="f"></i> Facturación</span><span><i class="v"></i> Inversión</span><span>ROAS encima de cada mes</span></p>` : '<p class="muted small">Aún no hay meses con ventas en este periodo.</p>'}
   </section>`;
-
-  const embudos = d.embudos.length ? tablaEmbudos(d.embudos, '🧩 Cada embudo') : '';
-
-  return `${selectorProductos(d, '')}${calc}${aviso}${d.pocos ? '<p class="ng-aviso suave">🌱 Aún hay pocas ventas: tómate estas cifras como orientativas hasta que haya más histórico.</p>' : ''}${kpis}${recos}${calidadHtml(d.calidad)}${tarjetasProductos(d)}${ciclo}${recompra}${segundaHtml(d.recompra)}${cruzadasHtml(d.cruzadas)}${actividad}${embudos}`;
+    cuerpo = `${cabSeccion(def)}${actividad}${d.embudos.length ? tablaEmbudos(d.embudos, '🧩 Cada embudo') : ''}`;
+  } else {
+    cuerpo = `${cabSeccion(def)}${calidadHtml(d.calidad) || '<p class="ng-aviso suave">✅ Nada que revisar por ahora.</p>'}`;
+  }
+  return `${nav}${calc}<div class="ng-pagina">${cuerpo}</div>`;
 }
 
 // Ventas cruzadas: qué % de clientes tiene 1, 2, 3… o todos los productos (tarjetas grandes), qué hacer con eso

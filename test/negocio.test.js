@@ -270,3 +270,20 @@ test('productos: membresías con hasta 3 planes y precio por periodo (mensual, t
   assert.deepEqual(faltasProducto(club), []);
   assert.ok(faltasProducto(sanitizeCatalogo({ productos: [{ nombre: 'Vacío', cobro: 'recurrente' }] }).productos[0]).includes('los planes de la membresía'));
 });
+
+test('negocio (vista): secciones, portada con semáforos y ficha de producto', async () => {
+  const { negocioHtml, saludNg, semaforoNg, SECCIONES_NG } = await import('../public/js/negocio-vista.js');
+  assert.deepEqual(SECCIONES_NG.map((x) => x.id), ['resumen', 'productos', 'clientes', 'evolucion', 'datos']);
+  assert.equal(semaforoNg(3.2, 3, 1.5), 'verde');
+  assert.equal(semaforoNg(2, 3, 1.5), 'ambar');
+  assert.equal(semaforoNg(1, 3, 1.5), 'rojo');
+  assert.equal(semaforoNg(null, 3, 1.5), 'gris');
+  const d = { periodo: '12m', numeros: { facturacion: 1000, roas: 4, ltvCac: 1, clientes: 3, ventas: 3 }, recompra: { pct: null, caminos: [] }, serie: [], embudos: [], actividad: {}, productos: [{ id: 'p1', nombre: 'Raíces', tipo: 'catalogo', facturacion: 1000, embudos: [], antes: { top: [] }, despues: { top: [] }, ciclo: {}, serie: [] }], recomendaciones: [] };
+  assert.deepEqual(saludNg(d).map((x) => x.color), ['verde', 'rojo', 'gris']);
+  const html = negocioHtml(d);
+  assert.match(html, /data-ng-sec="resumen"[^>]*aria-pressed="true"/);
+  assert.match(html, /La salud de tu negocio/);
+  assert.match(html, /¿Cuánto te cuesta conseguirlo\?/);
+  assert.match(negocioHtml(d, { seccion: 'productos' }), /data-ng-producto="p1"/);
+  assert.match(negocioHtml(d, { seccion: 'inventada' }), /data-ng-sec="resumen"[^>]*aria-pressed="true"/);
+});

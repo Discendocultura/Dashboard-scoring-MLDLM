@@ -9,7 +9,7 @@ import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIA
 import { respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
-import { negocioHtml, PERIODOS_TXT } from './negocio-vista.js';
+import { negocioHtml, PERIODOS_TXT, SECCIONES_NG } from './negocio-vista.js';
 import { ayudaMetaHtml, limpiarCuentaMeta, pistaError, pasosDe, SERVICIOS, ETAPAS as ETAPAS_CX } from './integrar-crm.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch, CAJAS_PAGO, numeroWhatsApp, enlaceWhatsApp, leerEnlaceWhatsApp } from './page.js';
 import { FORMATOS, formatoValido, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto, nVideos, nombreVideo } from './videos.js';
@@ -1517,7 +1517,8 @@ $('#inicio-embudos').addEventListener('click', (e) => {
 // ---------- 📈 Inteligencia de negocio: el histórico de todos los embudos (negocio-vista.js pinta los bloques) ----------
 // Ocupa el sitio del Inicio. Cada petición completa una pieza del histórico: mientras falten, se vuelve a pedir.
 // Con un producto elegido arriba (ngEstado.producto), su ficha; se repinta con los datos ya cargados (caja._ngDatos).
-const ngEstado = { periodo: ['12m', 'ano', 'todo'].includes(ls.get('lsd_negocio_periodo')) ? ls.get('lsd_negocio_periodo') : '12m', token: 0, producto: '' };
+const ngEstado = { periodo: ['12m', 'ano', 'todo'].includes(ls.get('lsd_negocio_periodo')) ? ls.get('lsd_negocio_periodo') : '12m', token: 0, producto: '', seccion: SECCIONES_NG.some((x) => x.id === ls.get('lsd_negocio_sec')) ? ls.get('lsd_negocio_sec') : 'resumen' };
+const ngOpciones = () => ({ producto: ngEstado.producto, seccion: ngEstado.seccion });
 async function cargarNegocioEn(caja, { cliente = state.cliente, enlaces = true } = {}) {
   const token = ++ngEstado.token;
   caja.innerHTML = `<div class="ng-cab"><div><h2>📈 Inteligencia de negocio</h2><p class="muted">El histórico de todos tus embudos: qué funciona y qué hacer para facturar más.</p></div>
@@ -1529,7 +1530,7 @@ async function cargarNegocioEn(caja, { cliente = state.cliente, enlaces = true }
     try { d = await api(`/api/negocio?periodo=${ngEstado.periodo}`, { cliente }); } catch (e) { if (token === ngEstado.token) cuerpo.innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
     if (token !== ngEstado.token) return;
     caja._ngDatos = d;
-    cuerpo.innerHTML = negocioHtml(d, { producto: ngEstado.producto });
+    cuerpo.innerHTML = negocioHtml(d, ngOpciones());
     if (!d.pendientes) return;
   }
 }
@@ -1559,7 +1560,20 @@ document.addEventListener('click', (e) => {
   const caja = b?.closest('[data-ng-caja]');
   if (!caja?._ngDatos) return;
   ngEstado.producto = b.dataset.ngProducto;
-  $('.ng-cuerpo', caja).innerHTML = negocioHtml(caja._ngDatos, { producto: ngEstado.producto });
+  if (ngEstado.producto) ngEstado.seccion = 'productos';
+  $('.ng-cuerpo', caja).innerHTML = negocioHtml(caja._ngDatos, ngOpciones());
+  const top = caja.getBoundingClientRect().top + window.scrollY - 80;
+  if (window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' });
+});
+// Las secciones (Resumen, Productos, Clientes, Evolución, Mejora tus datos): se pintan con lo ya cargado.
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ng-sec]');
+  const caja = b?.closest('[data-ng-caja]');
+  if (!caja?._ngDatos) return;
+  ngEstado.seccion = b.dataset.ngSec;
+  ngEstado.producto = '';
+  ls.set('lsd_negocio_sec', ngEstado.seccion);
+  $('.ng-cuerpo', caja).innerHTML = negocioHtml(caja._ngDatos, ngOpciones());
   const top = caja.getBoundingClientRect().top + window.scrollY - 80;
   if (window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' });
 });
