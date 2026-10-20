@@ -6008,7 +6008,7 @@ function abrirLanzamientoRapido({ desdeEmbudo = false } = {}) {
   // Automatizaciones: lo que se respondió al crear el embudo (o el lanzamiento anterior); si no, sin marcar.
   { const prevAuto = launchesSorted()[0]?.[1]?.automatizaciones?.origen || embudoInfo()?.autoOrigen || ''; $$('input[name="nl-auto"]').forEach((i) => { i.checked = i.value === prevAuto; }); }
   $('#nl-sendflow').disabled = !state.sendflowConfigured;
-  $('#nl-sendflow-info').textContent = state.sendflowConfigured ? '(crea la campaña en tu SendFlow; el enlace del grupo lo pegas tú después)' : '(SendFlow no está conectado en este cliente: Cuenta → Conexiones)';
+  $('#nl-sendflow-info').textContent = state.sendflowConfigured ? '(crea la campaña vacía en tu SendFlow; sus grupos, el enlace y los mensajes se configuran directamente en SendFlow)' : '(SendFlow no está conectado en este cliente: Cuenta → Conexiones)';
   nlPrefill(previos[0]?.[1] || null);
   const multi = nVideos(embudoInfo()?.formato || 'webinar') > 1;
   $('#nl-fecha-l').textContent = multi ? 'Día del 1.er vídeo' : 'Día del directo';

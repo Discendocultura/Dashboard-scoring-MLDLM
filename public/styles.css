@@ -8087,3 +8087,5 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
   #emb-borrar, #emb-plantilla-guardar { order: 9; }
   #embudo-dialog .dialog-foot > .spacer { flex-basis: 100%; order: 8; height: 0; }
 }
+.sf-nota { margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45; background: color-mix(in srgb, #25d366 9%, var(--surface)); border: 1px solid color-mix(in srgb, #25d366 30%, var(--border)); }
+.sf-nota.full { grid-column: 1 / -1; }
