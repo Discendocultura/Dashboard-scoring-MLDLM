@@ -94,6 +94,8 @@ export function sanitizeDirecta(d = {}) {
     upsells: sanitizeOfertas(d?.upsells, 'up'),
     downsells: sanitizeOfertas(d?.downsells, 'down'),
     ventaUrl: url(d?.ventaUrl), checkoutUrl: url(d?.checkoutUrl), graciasUrl: url(d?.graciasUrl),
+    // Comercial → Llamadas: el calendario de reservas de GHL (las llamadas se mueven en el pipeline de este embudo).
+    llamadaUrl: url(d?.llamadaUrl),
     metaFiltro: str(d?.metaFiltro, 80),
     // Inversión escrita a mano (€ al día) para cuando Meta no está conectado.
     inversionDia: dinero(d?.inversionDia),

@@ -59,6 +59,7 @@ export const TOURS_VISTA = {
     { sel: '#view-hoy [data-wa]', titulo: 'Un clic y listo', texto: 'Se abre tu WhatsApp con el mensaje ya escrito. Al volver, queda marcado como enviado.' },
   ],
   endirecto: [{ sel: V('endirecto'), titulo: 'El día del directo', texto: 'Quién espera, quién entra, las VIP, las ventas y las visitas a la página de venta, minuto a minuto.' }],
+  dhoy: [{ sel: '#dhoy-hero', titulo: 'Tu oportunidad', texto: 'Las compradoras que aún no tienen tu producto principal. Debajo, una a una: WhatsApp con el mensaje escrito y su etapa en el pipeline.' }],
   xhoy: [{ sel: '#xhoy-body', titulo: 'A quién llamar', texto: 'Cada alumno en su fase del pipeline. Pulsa una tarjeta para ver su ficha y «Mover de etapa» para anotar cómo fue.' }],
   llamadas: [{ sel: V('llamadas'), titulo: 'Tus llamadas', texto: 'Las del calendario de GHL. Pulsa una para ver la ficha del lead antes de llamar y anota cómo fue al terminar.' }],
   leads: [

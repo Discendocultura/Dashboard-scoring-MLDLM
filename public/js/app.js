@@ -536,10 +536,10 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'llam', xofertas: 'cruzadas', xhoy: 'cruzadas', tareas: 'siempre', calendario: 'siempre', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', utms: 'anunciosu', xalumnos: 'cruzadas', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
-const VIEW_PERMISO = { avatarc: 'avatar', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', utms: 'avatar', xalumnos: 'leads', xofertas: 'leads', xhoy: 'hoy', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', claude: 'metricas' };
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'llam', xofertas: 'cruzadas', xhoy: 'cruzadas', tareas: 'siempre', calendario: 'siempre', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', dhoy: 'directa', utms: 'anunciosu', xalumnos: 'cruzadas', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
+const VIEW_PERMISO = { avatarc: 'avatar', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', dhoy: 'hoy', utms: 'avatar', xalumnos: 'leads', xofertas: 'leads', xhoy: 'hoy', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', claude: 'metricas' };
 // 'siempre': también en ventas cruzadas (Tareas y Calendario).
-const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], siempre: ['lanz', 'vsl', 'meteorico', 'directa', 'cruzadas'], llam: ['lanz', 'vsl', 'cruzadas'], lanzmeteo: ['lanz', 'meteorico'], anunciosu: ['lanz', 'vsl', 'directa'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
+const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], siempre: ['lanz', 'vsl', 'meteorico', 'directa', 'cruzadas'], llam: ['lanz', 'vsl', 'cruzadas', 'directa'], lanzmeteo: ['lanz', 'meteorico'], anunciosu: ['lanz', 'vsl', 'directa'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
 const embudoInfo = (id = state.embudo) => embudos().find((e) => e.id === id) || null;
@@ -564,6 +564,8 @@ const vistasPermitidas = () => VIEWS.filter((v) => (v === 'labia' ? tipoActual()
   && (v !== 'publicidad' || embudoInfo()?.publicidad !== false)
   // El calendario es el del cliente (todos sus embudos): está en todos.
   && (!pestanasEmbudo() || pestanasEmbudo().includes(v) || v === 'calendario' || v === 'publicidad'
+    // Venta directa → Comercial (Setting hoy y Llamadas) es nuevo: lo ven los que tenían Compradoras.
+    || ((v === 'dhoy' || v === 'llamadas') && tipoActual() === 'directa' && pestanasEmbudo().includes('dclientes'))
     // «UTMs» es nueva: la ven los embudos con pestañas elegidas antes que tengan los ganadores o la publicidad.
     || (v === 'utms' && (['avatar', 'vanuncios', 'danuncios'].some((x) => pestanasEmbudo().includes(x)) || embudoInfo()?.publicidad !== false))
     // «Oferta» es nueva: los embudos de meteóricos con pestañas elegidas antes la ven junto a «Meteóricos».
@@ -1079,6 +1081,7 @@ async function seguirEleccion(eleccion) {
 
 // ---------- Buscador «¿Qué quieres hacer?» ----------
 const CLAVES_VISTA = {
+  dhoy: 'setting hoy escribir whatsapp compradoras sin producto principal seguimiento upsell',
   utms: 'utm utms campañas conjuntos anuncios que lead trae calidad semaforo encuesta embudo por anuncio',
   hoy: 'a quien llamar escribir whatsapp contactar setting hoy', llamadas: 'llamar llamada llamadas calendario cita citas agenda reservas', endirecto: 'directo en vivo webinar zoom',
   leads: 'registrados personas contactos lista ficha', metricas: 'ventas facturacion roas cpl resultados como va numeros', vmetricas: 'ventas facturacion roas resultados como va numeros',
@@ -4040,7 +4043,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'labia', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones', 'xalumnos', 'xofertas', 'xhoy', 'utms'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'labia', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones', 'xalumnos', 'xofertas', 'xhoy', 'utms', 'dhoy'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -4078,6 +4081,7 @@ const AYUDA_VISTA = {
   vmetricas: ['📊 Métricas', 'Cómo va el embudo por fechas: registros, consumo, llamadas, ventas y ROAS. Elige el periodo arriba.'],
   vleads: ['👥 Leads', 'Cada persona con lo que ha visto y su WhatsApp según su estado.'],
   vanuncios: ['👑 Anuncios ganadores', 'Qué campañas, conjuntos y anuncios traen ventas en el periodo elegido.'],
+  dhoy: ['📞 Setting hoy', 'Las compradoras que aún no tienen el producto principal: escríbeles por WhatsApp con el mensaje ya escrito y mueve su etapa en el pipeline del embudo.'],
   utms: ['🎯 UTMs', 'Qué tipo de lead trae cada campaña, conjunto y anuncio: cuántos rellenan la encuesta, ven las clases, compran la VIP, van al directo y compran, en orden como un embudo. Ordena por «Más cerca de la compra» para ver qué anuncios traen a tu avatar comprador.'],
   meteoricos: ['⚡ Meteóricos', 'Cada oferta flash: cuenta atrás, ventas, facturación, visitas a la oferta y quién compra.'],
   moferta: ['🎁 Oferta', 'Los entregables y bonus de la oferta frente a las ventas hora a hora.'],
@@ -4112,14 +4116,14 @@ document.addEventListener('click', (e) => {
 // Pestañas de arriba que agrupan varias vistas (subpestañas): Hoy, Anuncios (cómo van, ganadores y crear con IA), Crear (con IA),
 // Plan (organizar el lanzamiento) y Análisis (para decidir). El orden de cada lista es el de sus subpestañas.
 const GRUPOS = {
-  comercial: ['hoy', 'xhoy', 'llamadas', 'endirecto', 'labia'],
+  comercial: ['hoy', 'dhoy', 'xhoy', 'llamadas', 'endirecto', 'labia'],
   anunciosg: ['publicidad', 'avatar', 'vanuncios', 'danuncios', 'utms'],
   crear: ['paginas', 'emailsia', 'imagenes', 'anuncios', 'grupowa', 'automatizaciones'],
   planificacion: ['objetivos', 'calendario', 'tareas', 'carrito'],
   analisis: ['avatarc', 'comparar', 'rendimiento', 'claude'],
 };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { labia: 'whatsapp', anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', utms: 'target', publicidad: 'megaphone', xalumnos: 'users', xofertas: 'gift', xhoy: 'target' };
+const VIEW_ICONS = { labia: 'whatsapp', anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', dhoy: 'sun2', utms: 'target', publicidad: 'megaphone', xalumnos: 'users', xofertas: 'gift', xhoy: 'target' };
 $$('.view-tab, .subview-tab[data-view]:not(.subview-labia)').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
@@ -4297,7 +4301,12 @@ function showView(view) {
   ls.set(`lsd_view_${state.embudo}`, view);
   if (!enVsl()) ls.set('lsd_view', view);
   $('#vsl-rango').hidden = !['vmetricas', 'vleads', 'vanuncios'].includes(view) && !(view === 'utms' && enVsl());
-  $('#dir-rango').hidden = !['dmetricas', 'dclientes', 'danuncios'].includes(view) && !(view === 'utms' && enDirecta());
+  $('#dir-rango').hidden = !['dmetricas', 'dclientes', 'danuncios', 'dhoy'].includes(view) && !(view === 'utms' && enDirecta());
+  if (view === 'dhoy' && state.config && enDirecta()) {
+    if (!state.directa.datos && !state.directa.cargando) cargarDirecta();
+    pintarHeroPrincipal('#dhoy-hero', state.directa.datos, 'dhoy');
+    cargarSeguimiento();
+  }
   if (view === 'utms' && state.config) { if (enDirecta() && !state.directa.datos && !state.directa.cargando) cargarDirecta(); renderUtms(); }
   if (['dmetricas', 'dclientes', 'danuncios'].includes(view) && state.config && enDirecta()) renderDirecta();
   if (view === 'xalumnos' && state.config && enCruzadas()) cruz.cargar(state.embudo);
@@ -11439,7 +11448,19 @@ async function cargarLlamadas(code) {
 
 const llCancelada = (c) => ['cancelled', 'invalid'].includes(c.status) && c.resultado?.resultado !== 'reagendar';
 const llStart = (c) => Date.parse(c.startTime);
-const leadDe = (contactId) => (enCruzadas() ? cruz.alumnoDe(contactId) : (enVsl() ? state.vsl.leads || [] : state.leads).find((l) => l.id === contactId) || null);
+const leadDe = (contactId) => (enCruzadas() ? cruz.alumnoDe(contactId)
+  : enDirecta() ? (state.directa.datos?.compradores || []).find((c) => c.id === contactId) || null
+  : (enVsl() ? state.vsl.leads || [] : state.leads).find((l) => l.id === contactId) || null);
+// Venta directa: la compradora (sin puntuación): cuándo compró, sus extras y si tiene ya el producto principal.
+function chipsCompradora(c) {
+  if (!c) return '<span class="ll-chip muted">No compró en el periodo elegido</span>';
+  const d = state.config.directas?.[state.embudo] || {};
+  const p = d.upsellPrincipal?.nombre || 'el producto principal';
+  return [`<span class="ll-chip">🛒 Compró el ${esc(new Date(`${c.dia}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }))}${c.importe ? ` · ${eur(c.importe)}` : ''}</span>`,
+    c.extras?.length ? `<span class="ll-chip buy">➕ ${c.extras.length} extra${c.extras.length === 1 ? '' : 's'}</span>` : '',
+    d.upsellPrincipal?.tags?.length ? (c.principal ? `<span class="ll-chip buy">✅ Ya tiene ${esc(p)}</span>` : `<span class="ll-chip">🎯 Aún sin ${esc(p)}</span>`) : ''].join('');
+}
+const chipsSinPuntuacion = (l) => (enDirecta() ? chipsCompradora(l) : chipsAlumno(l));
 // Ventas cruzadas: el alumno no tiene puntuación; lo que se enseña es qué productos tiene y cuál le falta.
 function chipsAlumno(a) {
   if (!a) return '<span class="ll-chip muted">No está entre los alumnos de este embudo</span>';
@@ -11460,7 +11481,7 @@ function llamadaCard(c) {
   const pasada = llStart(c) < ahora;
   const cuando = dia === hoyD ? 'Hoy' : dia === addDays(hoyD, 1) ? 'Mañana' : dia === addDays(hoyD, -1) ? 'Ayer' : d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' });
   const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
-  const chips = enCruzadas() ? chipsAlumno(lead) : lead ? [
+  const chips = enCruzadas() || enDirecta() ? chipsSinPuntuacion(lead) : lead ? [
     `<span class="ll-chip st-${lead.estado.id}" title="Puntuación del lead">${esc(lead.estado.label)} · ${lead.score} pts</span>`,
     lead.s.vip ? '<span class="ll-chip vip">⭐ VIP</span>' : '',
     directoVenta(lead.s, 'asistio') ? '<span class="ll-chip">🔴 Vio el directo</span>' : '',
@@ -11925,7 +11946,7 @@ function hechosLead(lead) {
   ].filter(Boolean);
 }
 function pintarFicha(c, f, error = '') {
-  const alumno = enCruzadas() ? leadDe(c.contactId) : null; // ventas cruzadas: sin puntuación, con sus productos
+  const alumno = enCruzadas() || enDirecta() ? leadDe(c.contactId) : null; // ventas cruzadas y venta directa: sin puntuación
   const lead = alumno ? null : leadDe(c.contactId);
   const k = contactoDe(c);
   const d = new Date(c.startTime);
@@ -11943,7 +11964,7 @@ function pintarFicha(c, f, error = '') {
   $('#ficha-body').innerHTML = `
     ${c.sinLlamada ? '' : `<p class="ficha-cita">📅 Llamada el <strong>${esc(cita)}</strong>${etapa ? ` · etapa <strong>${esc(etapa.name)}</strong>` : ''}${llCancelada(c) ? ' · <strong>cancelada</strong>' : ''}</p>`}
     <div class="ll-contact ficha-contacto">${k.phone ? `<a href="tel:${esc(k.phone)}">${icon('phone')}${esc(k.phone)}</a>` : '<span class="muted">Sin teléfono</span>'}${k.phoneWa ? `<a href="https://wa.me/${esc(k.phoneWa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${enlaceSetter(c.contactId) ? `<a href="${esc(enlaceSetter(c.contactId))}" target="_blank" rel="noopener" title="${esc(lead?.s?.setter?.respondio ? 'Abrir su conversación en el setter IA' : 'Aún no ha hablado con el setter IA: el setter dirá «No encontramos esta conversación»')}">🤖 Abrir en el setter</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}</div>
-    ${enCruzadas() ? `<section class="ficha-sec"><h3>🎓 Sus productos</h3><p class="ficha-meta">${chipsAlumno(alumno)}</p>${c.xMover?.fase ? `<p class="muted small">Ahora en la fase <strong>«${esc(c.xMover.fase)}»</strong> del pipeline de ventas cruzadas.</p>` : ''}</section>` : `<section class="ficha-sec"><h3>🌡️ Temperatura (lead scoring)</h3>${temp}</section>`}
+    ${enCruzadas() || enDirecta() ? `<section class="ficha-sec"><h3>${enDirecta() ? '🛒 Su compra' : '🎓 Sus productos'}</h3><p class="ficha-meta">${chipsSinPuntuacion(alumno)}</p>${c.xMover?.fase ? `<p class="muted small">Ahora en la fase <strong>«${esc(c.xMover.fase)}»</strong> del pipeline de ventas cruzadas.</p>` : ''}</section>` : `<section class="ficha-sec"><h3>🌡️ Temperatura (lead scoring)</h3>${temp}</section>`}
     ${lead ? `<section class="ficha-sec"><h3>🧭 Qué ha hecho</h3><ul class="ficha-hechos">${hechosLead(lead).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
       <p class="ficha-meta">${[c.sinLlamada ? '' : origenChip(c), lead.s.trafico ? `<span class="ll-chip">${lead.s.trafico === 'frio' ? '❄️ Tráfico frío (nueva en GHL)' : '🔥 Tráfico templado (ya estaba en GHL)'}</span>` : '', avatarChip(lead), dias != null ? `<span class="ll-chip">Registrada hace ${dias} día${dias === 1 ? '' : 's'} (${esc(fechaFicha(reg))})</span>` : ''].filter(Boolean).join(' ')}</p></section>` : ''}
     ${r ? `<section class="ficha-sec"><h3>📝 Resultado anotado</h3><p>${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span></p>${c.resultado.notas ? `<p class="ll-notas">${esc(c.resultado.notas)}</p>` : ''}</section>` : ''}
@@ -14520,7 +14541,7 @@ function abrirDirectaConfig(id = state.embudo) {
   const v = (k, x) => { $(`#dc-${k}`).value = x ?? ''; };
   v('name', d.name); v('producto', d.producto); v('precio', d.precio ? String(d.precio).replace('.', ',') : '');
   v('iva', d.iva?.producto || ''); v('ivaPct', d.iva?.pct ?? 21); v('compraTag', d.compraTag); v('emailCompra', d.emailCompra);
-  v('ventaUrl', d.ventaUrl); v('checkoutUrl', d.checkoutUrl); v('graciasUrl', d.graciasUrl);
+  v('ventaUrl', d.ventaUrl); v('checkoutUrl', d.checkoutUrl); v('graciasUrl', d.graciasUrl); v('llamadaUrl', d.llamadaUrl);
   v('metaFiltro', d.metaFiltro); v('inversionDia', d.inversionDia || ''); v('objetivoCpa', d.objetivoCpa || '');
   pintarCodigoMeta('dc-metaFiltro', 'directa', id, d.name);
   v('objetivoRoas', d.objetivoRoas ? String(d.objetivoRoas).replace('.', ',') : ''); v('objetivoVentasMes', d.objetivoVentasMes || ''); v('notas', d.notas);
@@ -14585,7 +14606,7 @@ $('#dc-guardar').addEventListener('click', async () => {
     compraPipeline: val('compraOportunidad').split(':')[0], compraEtapa: val('compraOportunidad').split(':')[1] || '',
     partes: partesElegidas('#dc-partes'),
     bumps: leerOfertas('bumps'), upsells: leerOfertas('upsells'), downsells: leerOfertas('downsells'),
-    ventaUrl: val('ventaUrl'), checkoutUrl: val('checkoutUrl'), graciasUrl: val('graciasUrl'),
+    ventaUrl: val('ventaUrl'), checkoutUrl: val('checkoutUrl'), graciasUrl: val('graciasUrl'), llamadaUrl: val('llamadaUrl'),
     metaFiltro: val('metaFiltro'), inversionDia: val('inversionDia'), objetivoCpa: val('objetivoCpa'),
     objetivoRoas: val('objetivoRoas'), objetivoVentasMes: val('objetivoVentasMes'), notas: $('#dc-notas').value,
   };
@@ -14653,6 +14674,7 @@ function renderDirecta() {
   if (!$('#view-dclientes').hidden) renderDirectaClientes(D);
   if (!$('#view-danuncios').hidden) renderDirectaAnuncios(D);
   if (!$('#view-utms').hidden) renderUtms();
+  if (!$('#view-dhoy').hidden) pintarHeroPrincipal('#dhoy-hero', D, 'dhoy');
 }
 
 // Tarjeta con su propia ayuda «?» (las de los lanzamientos dicen otra cosa).
@@ -14793,15 +14815,9 @@ function renderDirectaClientes(D) {
   const principal = d.upsellPrincipal?.tags?.length ? d.upsellPrincipal.nombre || 'el producto principal' : '';
   sel.innerHTML = `<option value="">Todas</option><option value="-">Sin ningún extra</option><option value="+">Con algún extra</option>${extras.map((o) => `<option value="${esc(o.id)}">${o.t} ${esc(o.nombre || o.tag)}</option>`).join('')}`;
   sel.value = [...sel.options].some((o) => o.value === antes) ? antes : '';
-  // Casilla «Sin <producto principal>»: la lista de seguimiento (solo con teléfono) en vez de la tabla.
-  $('#dc-sinprincipal-l').hidden = !principal;
-  $('#dc-sinprincipal-t').textContent = `📞 Sin ${principal}`;
-  if (!principal) $('#dc-sinprincipal').checked = false;
-  const enSeg = $('#dc-sinprincipal').checked;
-  sel.closest('label').hidden = enSeg;
-  $('#dc-tabla').hidden = enSeg;
-  $('#dc-seg').hidden = !enSeg;
-  if (enSeg) { cargarSeguimiento(); return; }
+  // Las que aún no tienen el producto principal: arriba y bien visible (el seguimiento está en Comercial → Setting hoy).
+  pintarHeroPrincipal('#dc-hero', D, 'dclientes');
+  void principal;
   if (!D || D.error) { $('#dc-body').innerHTML = `<p class="muted">${D?.error ? esc(D.error) : 'Cargando…'}</p>`; $('#dc-n').textContent = ''; return; }
   const q = $('#dc-buscar').value.trim().toLowerCase();
   const f = sel.value;
@@ -14840,6 +14856,40 @@ function renderDirectaClientes(D) {
     <div class="dc-grid">${g.c.map(tarjeta).join('')}</div></section>`).join('')
     + (lista.length > 500 ? `<p class="muted small">…y ${lista.length - 500} más: usa la búsqueda o acorta el periodo.</p>` : '');
 }
+// Tarjeta destacada «X compradoras aún no tienen <principal>» (Compradoras y Comercial → Setting hoy).
+function pintarHeroPrincipal(sel, D, donde) {
+  const caja = $(sel);
+  if (!caja) return;
+  const d = state.config.directas?.[state.embudo] || {};
+  const U = D?.upsellPrincipal;
+  if (!d.upsellPrincipal?.tags?.length) {
+    caja.innerHTML = puedeConfig() ? `<div class="dp-hero dp-vacio"><span class="dp-ico" aria-hidden="true">🎯</span><div><strong>¿A qué producto principal quieres llevar a estas compradoras?</strong><p>Elige sus etiquetas y verás aquí cuántas aún no lo tienen, para escribirles desde Comercial.</p></div><button type="button" class="btn primary" data-dp-config>⚙️ Configurarlo</button></div>` : '';
+    return;
+  }
+  if (!U) { caja.innerHTML = '<div class="dp-hero dp-cargando"><span class="dp-ico" aria-hidden="true">🎯</span><p>Contando quién tiene ya el producto principal…</p></div>'; return; }
+  const nombre = U.nombre || d.upsellPrincipal.nombre || 'el producto principal';
+  const T = U.total;
+  const sin = Math.max(0, T.de - T.n);
+  const pct = T.de ? Math.round((T.n / T.de) * 100) : 0;
+  const precio = Math.max(0, ...Object.values(d.upsellPrincipal.precios || {}).map(Number).filter(Number.isFinite));
+  const verComercial = donde === 'dclientes' && allowedViews().includes('dhoy');
+  caja.innerHTML = `<section class="dp-hero">
+    <div class="dp-main">
+      <span class="dp-kicker">🎯 Tu oportunidad</span>
+      <h2><b>${sin.toLocaleString('es-ES')}</b> compradora${sin === 1 ? '' : 's'} aún no tiene${sin === 1 ? '' : 'n'} <em>${esc(nombre)}</em></h2>
+      <p>De las ${T.de.toLocaleString('es-ES')} compradoras de este embudo, <strong>${T.n.toLocaleString('es-ES')} (${pct} %)</strong> ya han dado el paso.${U.periodo?.de ? ` En el periodo elegido: ${U.periodo.n} de ${U.periodo.de}.` : ''}</p>
+      <div class="dp-barra" role="img" aria-label="${pct} % ya tienen ${esc(nombre)}"><i style="width:${pct}%"></i><span>${pct} % con ${esc(nombre)}</span></div>
+    </div>
+    <div class="dp-lado">
+      ${precio && sin ? `<div class="dp-pot"><small>Si el 10 % diera el paso</small><strong>${eur(Math.round(sin * 0.1) * precio)}</strong><small>(${Math.round(sin * 0.1)} × ${eur(precio)})</small></div>` : ''}
+      ${verComercial ? '<button type="button" class="btn primary dp-ir" data-dp-ir>📞 Escribirles ahora →</button>' : ''}
+    </div></section>`;
+}
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-dp-config]')) { abrirDirectaConfig(); return; }
+  if (e.target.closest('[data-dp-ir]')) showView('dhoy');
+});
+
 // 👑 Anuncios ganadores de la venta directa: menor CAC y más ventas (ganadoresDirecta en directa.js).
 state.danLevel ??= 'ad';
 state.danOrden ??= 'cac';
@@ -15010,7 +15060,6 @@ $('#dc-seg').addEventListener('click', async (e) => {
 });
 $('#dc-seg').addEventListener('change', (e) => { if (e.target.id === 'seg-periodo') { state.seg.soloPeriodo = e.target.checked; renderSeguimiento(); } });
 $('#dc-filtro').addEventListener('change', () => renderDirectaClientes(state.directa.datos));
-$('#dc-sinprincipal').addEventListener('change', () => renderDirectaClientes(state.directa.datos));
 
 // ---------- 📣 Publicidad (métricas de Meta por campaña → conjunto → anuncio) ----------
 // Mismo periodo que Métricas (hoy, 30 y 90 días, mes en curso y pasado, fechas a medida) y, en los

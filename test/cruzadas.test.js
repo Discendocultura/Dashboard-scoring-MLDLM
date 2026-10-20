@@ -234,3 +234,29 @@ test('ventas cruzadas (API): «Mover de etapa» con las mismas opciones que una 
   const setter = (await call('/api/login', { method: 'POST', body: { password: 'setter' } })).res.headers.get('set-cookie').split(';')[0];
   assert.equal((await mover({ contactId: 'cmv2', resultado: 'seguimiento' }, setter)).status, 200);
 });
+
+test('venta directa (API): Comercial → Llamadas usa el pipeline elegido en el embudo', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const c = (await call('/api/config', { cookie: admin })).data;
+  const guardar = async (directa) => {
+    const cur = (await call('/api/config', { cookie: admin })).data;
+    return call('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, _version: cur.version,
+      embudos: [...cur.config.embudos.filter((e) => e.id !== 'dll'), { id: 'dll', tipo: 'directa', nombre: 'D LL' }],
+      directas: { ...(cur.config.directas || {}), dll: directa } } });
+  };
+  void c;
+  // Sin calendario: dice dónde ponerlo
+  await guardar({ name: 'D LL', precio: 27, compraTag: 'compra-guia-sueno' });
+  const sin = await call('/api/llamadas?l=dll', { cookie: admin });
+  assert.equal(sin.data.configurado, false);
+  assert.match(sin.data.motivo, /Enlace para reservar llamada/);
+  // Con calendario y el pipeline de la oportunidad de compra elegido
+  const r = await guardar({ name: 'D LL', precio: 27, compraTag: 'compra-guia-sueno', llamadaUrl: 'https://api.leadconnectorhq.com/widget/booking/cal123', compraPipeline: 'pipeLanz' });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const ll = await call('/api/llamadas?l=dll', { cookie: admin });
+  assert.equal(ll.status, 200, JSON.stringify(ll.data));
+  assert.equal(ll.data.pipeline?.name, 'Leads Lanzamientos');
+  // Sin pipeline elegido: «Leads evergreen»
+  await guardar({ name: 'D LL', precio: 27, compraTag: 'compra-guia-sueno', llamadaUrl: 'https://api.leadconnectorhq.com/widget/booking/cal123' });
+  assert.equal((await call('/api/llamadas?l=dll', { cookie: admin })).data.pipeline?.name, 'Leads evergreen');
+});
