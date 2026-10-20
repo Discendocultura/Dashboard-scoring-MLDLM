@@ -138,9 +138,14 @@ async function soltarEnColumna(t, colId, indice) {
 
 // La Operativa se abre debajo de la cabecera de AlquimIA (que sigue a la vista y se puede usar) y con el mismo diseño
 // que el resto de la app: no parece otra aplicación.
+// También a la derecha del menú lateral, que sigue a la vista: desde él se va a cualquier otro sitio (en el móvil, el
+// lateral es el panel de ☰ y la Operativa ocupa todo el ancho).
 function colocarBajoCabecera(dlg) {
   const alto = document.querySelector('.topbar')?.getBoundingClientRect().bottom || 0;
   dlg.style.setProperty('--op-top', `${Math.max(0, Math.round(alto))}px`);
+  const lat = document.querySelector('#sidebar');
+  const ancho = window.innerWidth > 900 && lat && getComputedStyle(lat).position !== 'fixed' ? Math.round(lat.getBoundingClientRect().right) : 0;
+  dlg.style.setProperty('--op-left', `${Math.max(0, ancho)}px`);
 }
 
 export async function abrirOperativa(opts) {

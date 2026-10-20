@@ -18,6 +18,7 @@ import { tareasDirecta } from '../public/js/directa.js';
 import { tareasCruzada } from '../public/js/cruzadas.js';
 import { dayInMadrid } from '../public/js/scoring.js';
 import { repetirSiToca } from '../lib/operativa.js';
+import { olvidarAgenda } from '../lib/inicio.js';
 
 // Tareas que faltan de la planificación de un meteórico o una VSL (no repite las que ya tiene, por clave o título).
 function planificacion(emb, existentes, config) {
@@ -192,6 +193,7 @@ export async function POST(request) {
       }
 
       await saveTareas(code, tareas);
+      olvidarAgenda(); // el Inicio (tus tareas de hoy, hitos) lo ve al momento
       if (habCambio) await saveHabituales(habituales);
       return null;
     });
