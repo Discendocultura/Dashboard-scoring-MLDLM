@@ -7394,3 +7394,6 @@ body.en-ejemplo .config-only, body.en-ejemplo #sb-add, body.en-ejemplo .sb-edit,
 .utm-sin td { color: var(--text-2); font-style: italic; }
 .utm-table tfoot td { font-weight: 700; border-top: 2px solid var(--border); }
 .utm-nota { margin-top: 10px; }
+.utm-espera { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; border: 1px dashed color-mix(in srgb, var(--dato) 40%, var(--border)); background: color-mix(in srgb, var(--dato) 5%, var(--surface)); }
+.utm-espera > span { font-size: 24px; }
+.utm-espera p { margin: 4px 0 0; }

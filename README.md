@@ -206,6 +206,7 @@ La tarjeta de **LabIA** del menú lateral también lleva ese fondo espacial (osc
 - De paso: un directo que empieza muy tarde (p. ej. a las 23:30) ya no «acaba» a las 00:00: el directo dura hasta medianoche y, como poco, 3 horas desde que empieza (`momentosVideo` en `public/js/page.js`).
 
 ### 🎯 Anuncios → UTMs: qué tipo de lead trae cada campaña, conjunto y anuncio
+- **«Crear anuncios con IA» está ahora en la pestaña Crear** (Crear → Anuncios, junto a Páginas, Emails e Imágenes); en Anuncios quedan Cómo van, Ganadores y UTMs. Si el lanzamiento aún no ha empezado a captar, UTMs lo dice (con la fecha) en vez de una tabla vacía, y recuerda que las campañas de Meta deben llevar el código del lanzamiento en el nombre y los parámetros de URL.
 Subpestaña nueva en **Anuncios** de los lanzamientos, las VSL y la venta directa (`public/js/utms.js`, pruebas en `test/utms.test.js`). Agrupa a cada persona por sus UTM (utm_campaign › utm_term › utm_content; los nombres salen de Meta) y enseña, **en orden como un embudo**, cuántos dan cada paso y su %:
 - **Lanzamiento**: Leads → Rellenó la encuesta → Vio alguna clase → Entrada VIP → Fue al directo → Compró el producto (Raíces).
 - **VSL**: Leads → Vio el vídeo → Vio el 75% → Agendó llamada → Compró (en el periodo elegido).

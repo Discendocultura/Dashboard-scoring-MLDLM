@@ -3756,7 +3756,14 @@ function renderUtms() {
       <span class="utm-paso-ico" aria-hidden="true">${p.ico}</span><b>${T.n[p.id].toLocaleString('es-ES')}</b><small>${esc(p.label)}</small>${i ? `<em>${pct(T.n[p.id], T.leads)} %</em>` : ''}</div>`).join('<span class="utm-flecha" aria-hidden="true">›</span>')}</div>
     ${conSem ? `<p class="utm-sem-ley">🚦 <strong>Calidad del lead (encuesta)</strong>: ${encuesta ? `cada lead se compara con quien ${perfiles.objetivo === 'vip' ? 'compra la entrada VIP (aún hay pocas ventas del producto)' : 'compra'}: 🟢 sus respuestas se parecen a las de quien compra · 🟡 en la media · 🔴 se parecen a las de quien no compra. El % es el de leads en verde.` : 'aparecerá en cuanto haya compras (o entradas VIP) de las que aprender qué respuestas tiene quien compra.'}</p>` : ''}
     ${top.length ? `<div class="utm-top"><strong>🏆 Traen el lead más cerca de la compra</strong>${top.map((x, i) => `<span class="utm-top-i"><b>${['🥇', '🥈', '🥉'][i]} ${esc(x.label)}</b><small>${esc(x.ruta)} · ${x.leads} leads · ${x.calidad}/100</small></span>`).join('')}</div>` : ''}` : '';
-  if (!T.leads) { box.innerHTML = `<p class="muted">Todavía no hay leads ${esc(d.donde)}.</p>`; return; }
+  if (!T.leads) {
+    // Lanzamiento que aún no ha empezado a captar: no es un fallo, es que todavía no hay leads ni gasto.
+    const ini = d.tipo === 'lanz' ? d.cfg.inicioCaptacion : '';
+    box.innerHTML = ini && ini > today()
+      ? `<div class="utm-espera"><span aria-hidden="true">⏳</span><div><strong>La captación empieza el ${esc(formatoDia(ini))}</strong><p class="muted">Desde ese día, en cuanto entren los primeros leads, verás aquí cada campaña, conjunto y anuncio con lo que trae. Para que salgan con su nombre, las campañas de Meta deben llevar «${esc(d.cfg.metaFiltro || state.launchCode)}» en el nombre y los anuncios, los parámetros de URL (utm_campaign, utm_term y utm_content).</p></div></div>`
+      : `<p class="muted">Todavía no hay leads ${esc(d.donde)}.</p>`;
+    return;
+  }
   if (!a.campanas.length) { box.innerHTML = '<p class="muted">Ningún lead trae UTM. Revisa que los anuncios de Meta lleven los parámetros de URL (utm_campaign, utm_term y utm_content) y que GHL los guarde.</p>'; return; }
   const celda = (g, p, i) => {
     const n = g.n[p.id];
@@ -4044,8 +4051,8 @@ document.addEventListener('click', (e) => {
 // Plan (organizar el lanzamiento) y Análisis (para decidir). El orden de cada lista es el de sus subpestañas.
 const GRUPOS = {
   comercial: ['hoy', 'xhoy', 'llamadas', 'endirecto', 'labia'],
-  anunciosg: ['publicidad', 'avatar', 'vanuncios', 'danuncios', 'utms', 'anuncios'],
-  crear: ['paginas', 'emailsia', 'imagenes', 'grupowa', 'automatizaciones'],
+  anunciosg: ['publicidad', 'avatar', 'vanuncios', 'danuncios', 'utms'],
+  crear: ['paginas', 'emailsia', 'imagenes', 'anuncios', 'grupowa', 'automatizaciones'],
   planificacion: ['objetivos', 'calendario', 'tareas', 'carrito'],
   analisis: ['avatarc', 'comparar', 'rendimiento', 'claude'],
 };
