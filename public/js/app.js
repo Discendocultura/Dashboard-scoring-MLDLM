@@ -9,7 +9,7 @@ import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIA
 import { respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
-import { negocioHtml, PERIODOS_TXT, SECCIONES_NG } from './negocio-vista.js';
+import { negocioHtml, PERIODOS_TXT, SECCIONES_NG, recosHtml, botonCalidad } from './negocio-vista.js';
 import { ayudaMetaHtml, limpiarCuentaMeta, pistaError, pasosDe, SERVICIOS, ETAPAS as ETAPAS_CX } from './integrar-crm.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch, CAJAS_PAGO, numeroWhatsApp, enlaceWhatsApp, leerEnlaceWhatsApp } from './page.js';
 import { FORMATOS, formatoValido, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto, nVideos, nombreVideo } from './videos.js';
@@ -1454,6 +1454,9 @@ function irAEmbudoDe(code) {
   return selectLaunch(lanz);
 }
 $('#sidebar').addEventListener('click', (ev) => {
+  // Con la Operativa abierta, ir a cualquier otro sitio del lateral la cierra (Operativa y Configuración, no).
+  const op = $('#operativa-dialog');
+  if (op.open && ev.target.closest('.sb-item, .sb-add, .sb-subitem, .sb-labia-mini') && !ev.target.closest('#sb-operativa, #sb-config')) op.close();
   const b = ev.target.closest('[data-embudo]');
   if (!b) return;
   const { embudo, lanz, meteo } = b.dataset;
@@ -1490,7 +1493,7 @@ function salirInicio() {
 // «Hola 👋 Nombre» en el Inicio (sin usuario, con la contraseña general: solo «Hola 👋»).
 function pintarSaludo() {
   const nombre = String(state.user?.nombre || '').trim().split(/\s+/)[0];
-  $('#inicio-saludo').textContent = `Hola 👋${nombre ? ` ${nombre}` : ''}`;
+  $('#inicio-saludo').textContent = `${saludoHora()}${nombre ? `, ${nombre}` : ''} 👋`;
 }
 async function mostrarInicio({ fresh = false } = {}) {
   state.enInicio = true;
@@ -1510,15 +1513,17 @@ async function mostrarInicio({ fresh = false } = {}) {
   const trabajo = !state.superadmin && !(tiene('metricas') && embudos().length);
   document.body.classList.toggle('inicio-trabajo', trabajo);
   if (trabajo) return pintarInicioTrabajo();
+  document.body.classList.toggle('ini-sin-emb', !embudos().length);
   if (!embudos().length) { $('#inicio-embudos').innerHTML = '<div class="card empty"><p class="muted">Este cliente aún no tiene embudos.</p></div>'; return; }
   const token = (state.inicioToken = (state.inicioToken || 0) + 1);
   pintarInicioPeriodo();
+  cargarNegocioInicio(); // recomendación principal y primeros pasos (una vez por cliente)
   if ($('#inicio-preset').value === 'personalizado' && !($('#inicio-desde').value && $('#inicio-hasta').value)) return;
   const q = (qs) => qInicio(qs, fresh);
   // Volver al Inicio en menos de 5 min: se repinta lo que ya hay, sin pedir de nuevo al servidor.
   if (!fresh && state.inicio?.at && state.inicio.cliente === state.cliente && state.inicio.periodo === inicioPeriodoQs() && Date.now() - state.inicio.at < 5 * 60_000) { pintarInicio(); return; }
   if (fresh || !state.inicio || state.inicio.cliente !== state.cliente || state.inicio.periodo !== inicioPeriodoQs()) {
-    state.inicio = { cliente: state.cliente, periodo: inicioPeriodoQs(), embudos: null, meteoricos: null, agenda: null, anuncios: null };
+    state.inicio = { cliente: state.cliente, periodo: inicioPeriodoQs(), embudos: null, meteoricos: null, agenda: null, anuncios: null, previos: {}, cargadoEn: Date.now() };
     $('#inicio-embudos').innerHTML = '<p class="muted">Cargando…</p>';
     $('#inicio-total').innerHTML = '';
   }
@@ -1533,8 +1538,9 @@ async function mostrarInicio({ fresh = false } = {}) {
   state.inicio.meteoricos = lista.meteoricos.map((m) => ({ ...m, cargando: true }));
   pintarInicio();
   const tareas = [
-    ...lista.embudos.map((e, i) => cargarEmbudoInicio(e, i, fresh)),
-    ...lista.meteoricos.map((m, i) => cargarMeteoInicio(m, i, fresh)),
+    // Cada embudo y, después, con qué compararlo (para el ▲▼ de las cifras).
+    ...lista.embudos.map((e, i) => cargarEmbudoInicio(e, i, fresh).then(() => cargarPrevioInicio(e.id))),
+    ...lista.meteoricos.map((m, i) => cargarMeteoInicio(m, i, fresh).then(() => cargarPrevioInicio(`m:${m.code}`))),
     conLimite(q('parte=agenda')).then((d) => { inicio.agenda = d; }, (err) => { inicio.agenda = { error: err.message }; }),
     ...(inicio.anuncios ? [] : [conLimite(q('parte=anuncios')).then((d) => { inicio.anuncios = d.anuncios; }, (err) => { inicio.anuncios = { error: err.message }; })]),
   ].map((p) => p.then(() => { if (token === state.inicioToken) pintarInicio(); }));
@@ -1604,6 +1610,12 @@ function cargarEmbudoInicio(e, i, fresh) {
   const inicio = state.inicio;
   return conLimite(qInicio(`parte=embudo&id=${encodeURIComponent(e.id)}`, fresh))
     .then((d) => { if (inicio.embudos) inicio.embudos[i] = d.embudo; }, (err) => { if (inicio.embudos) inicio.embudos[i] = { tipo: 'error', tipoOrig: e.tipo, id: e.id, nombre: e.nombre, error: err.message }; });
+}
+function cargarPrevioInicio(id) {
+  const inicio = state.inicio;
+  if (Object.hasOwn(inicio.previos || {}, id)) return Promise.resolve();
+  return conLimite(qInicio(`parte=previo&id=${encodeURIComponent(id)}`, false))
+    .then((d) => { inicio.previos[id] = d.previo || null; }, () => { inicio.previos[id] = null; });
 }
 function cargarMeteoInicio(m, i, fresh) {
   const inicio = state.inicio;
@@ -1703,6 +1715,12 @@ $('#btn-atajos').addEventListener('click', () => { $('#tb-menu-ajustes').open = 
 // Lateral: Operativa y Procesos (los mismos botones que antes estaban en «Mi negocio») y Configuración, que despliega
 // sus apartados (los mismos que el ⚙️ de arriba).
 $('#sb-operativa').addEventListener('click', () => $('#btn-operativa').click());
+// Mientras la Operativa está abierta, el lateral la marca como la sección en la que estás.
+new MutationObserver(() => {
+  const abierta = $('#operativa-dialog').open;
+  document.body.classList.toggle('op-abierta', abierta);
+  $('#sb-operativa').classList.toggle('active', abierta);
+}).observe($('#operativa-dialog'), { attributes: true, attributeFilter: ['open'] });
 $('#sb-procesos').addEventListener('click', () => $('#btn-procesos').click());
 $('#sb-config').addEventListener('click', () => {
   const sub = $('#sb-config-sub');
@@ -1912,161 +1930,205 @@ $('#inicio-agencia').addEventListener('click', (e) => {
 
 const ESTADO_LANZ = { captacion: ['Captación', 'info'], carrito: ['Carrito abierto', 'buy'], cerrado: ['Cerrado', 'muted'] };
 const FASE_METEO_TXT = { calentamiento: ['Calentamiento', 'info'], abierta: ['Oferta abierta', 'buy'], cerrada: ['Cerrada', 'muted'] };
+// ---------- Inicio del cliente: «¿qué tengo que hacer hoy?» y «¿cómo voy?» ----------
+// De arriba abajo: cabecera (saludo, periodo, «Actualizado hace…»), las cifras del periodo con su ▲▼, la checklist de
+// primeros pasos (si faltan datos), ⚠️ Lo urgente (si hay), tus tareas de hoy | próximos hitos, la recomendación
+// principal (la primera de Inteligencia de negocio), tus embudos activos y «Te han mencionado» (si hay). Nada se repite.
+const TIPO_INI = { lanzamiento: ['🚀', 'Lanzamiento'], vsl: ['🎬', 'VSL'], directa: ['🛒', 'Venta directa'], meteo: ['⚡', 'Meteórico'] };
+const pctIni = (x) => (x == null || !Number.isFinite(x) ? '–' : `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')} %`);
+const roasTxt = (r) => (r != null && Number.isFinite(r) ? `${r.toFixed(2).replace('.', ',')}x` : '–');
+function deltaIni(actual, antes, { neutro = false } = {}) {
+  if (actual == null || antes == null || !antes) return '';
+  const c = (actual - antes) / Math.abs(antes);
+  if (!Number.isFinite(c) || Math.abs(c) < 0.005) return '<small class="ng-delta">= que antes</small>';
+  return `<small class="ng-delta ${neutro ? 'neutro' : c > 0 ? 'up' : 'down'}">${c > 0 ? '▲' : '▼'} ${Math.round(Math.abs(c) * 100)} % <span>vs periodo anterior</span></small>`;
+}
+function pintarActualizado() {
+  const ini = state.inicio;
+  const el = $('#inicio-actualizado');
+  if (!el) return;
+  const ts = [...(ini?.embudos || []), ...(ini?.meteoricos || [])].filter((x) => x && !x.cargando).map((x) => x.calculadoEn || ini.cargadoEn).filter(Number.isFinite);
+  el.textContent = ts.length && state.enInicio && !state.enNegocio && modoInicio() !== 'agencia' ? `Actualizado ${haceTxt(Math.min(...ts))}` : '';
+}
+setInterval(pintarActualizado, 60_000);
+
 function pintarInicio() {
   if (!state.enInicio || !state.inicio) return;
   const { agenda: A } = state.inicio;
   const lista = (state.inicio.embudos || []).filter((e) => e.tipo !== 'vacio');
   const metas = state.inicio.meteoricos || [];
   const listos = lista.every((e) => !e.cargando) && metas.every((m) => !m.cargando);
-  const sum = (k) => lista.reduce((t, e) => t + (e.kpis?.[k] || 0), 0) + metas.reduce((t, m) => t + (m[k] || 0), 0);
-  const fact = sum('facturacion');
-  const inv = sum('inversion');
-  $('#inicio-sub').textContent = listos ? 'Todos los embudos de un vistazo · los datos se actualizan cada 15 min' : 'Cargando los embudos…';
+  const cli = state.clientes?.find((c) => c.id === state.cliente)?.nombre || '';
+  const n = lista.length + metas.length;
+  $('#inicio-sub').textContent = listos ? `${cli ? `${cli} · ` : ''}${n} ${n === 1 ? 'embudo activo' : 'embudos activos'}` : 'Cargando tus embudos…';
   $('#inicio-total').innerHTML = '';
-  pintarHeroInicio({ fact, inv, ventas: sum('ventas'), n: lista.length + metas.length, listos, A });
-  const cifra = (label, v) => `<span>${label}<strong>${v}</strong></span>`;
-  const roasIni = (r) => (r != null ? `${r.toFixed(2).replace('.', ',')}x` : '–');
-  const obj = (o) => (o?.length ? `<div class="muted small">🎯 ${o.map((x) => `${esc(x.label)}: ${Math.round((x.pct || 0) * 100)}%`).join(' · ')}</div>` : '');
-  const tarjetas = [
-    ...lista.map((e) => {
-      if (e.cargando) return `<div class="card inicio-emb"><h3>${e.tipo === 'vsl' ? '🎬' : e.tipo === 'directa' ? '🛒' : '🚀'} ${esc(e.nombre)}</h3><p class="muted small">Cargando…</p></div>`;
-      if (e.tipo === 'directa') {
-        return `<button type="button" class="card inicio-emb" data-ir-inicio="directa" data-code="${esc(e.code)}">
-        <h3>🛒 ${esc(e.nombre)} <span class="badge tone-info">${esc(inicioPeriodoTxt())}</span></h3>
-        <div class="ie-cifras">${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${cifra('ROAS', roasIni(e.kpis.roas))}</div>
-        ${e.upsellPrincipal ? `<div class="ie-cifras">${cifra(`Pasan a ${esc(e.upsellPrincipal.nombre || 'el principal')}`, `${e.upsellPrincipal.periodo.pct != null ? `${(Math.round(e.upsellPrincipal.periodo.pct * 1000) / 10).toLocaleString('es-ES')} %` : '–'} <small>(${e.upsellPrincipal.periodo.n})</small>`)}${cifra('Total del embudo', `${e.upsellPrincipal.total.pct != null ? `${(Math.round(e.upsellPrincipal.total.pct * 1000) / 10).toLocaleString('es-ES')} %` : '–'} <small>(${e.upsellPrincipal.total.n} de ${e.upsellPrincipal.total.de})</small>`)}</div>` : ''}
-        <div class="ie-cifras ie-sec">${cifra('Coste por venta', eur(e.kpis.cac))}${cifra('Ticket medio', eur(e.kpis.ticket))}${(e.extras || []).map((x) => cifra(`${x.tipo === 'bump' ? 'Bump' : x.tipo === 'upsell' ? 'Upsell' : 'Downsell'} · ${esc(x.nombre)}`, `${x.pct != null ? `${Math.round(x.pct * 1000) / 10}%`.replace('.', ',') : '–'} <small>(${x.n})</small>`)).join('')}</div></button>`;
-      }
-      if (e.tipo === 'error') return `<div class="card inicio-emb"><h3>${esc(e.nombre)}</h3><p class="error small">${esc(e.error)}</p><button type="button" class="btn small" data-reintentar="embudo:${state.inicio.embudos.indexOf(e)}">Reintentar</button></div>`;
-      const est = e.tipo === 'vsl' ? [esc(inicioPeriodoTxt()), 'info'] : ESTADO_LANZ[e.estado] || ['', 'muted'];
-      return `<button type="button" class="card inicio-emb" data-ir-inicio="${e.tipo === 'vsl' ? 'vsl' : 'lanz'}" data-code="${esc(e.code)}" data-embudo="${esc(e.embudoId || '')}">
-        <h3>${e.tipo === 'vsl' ? '🎬' : '🚀'} ${esc(e.nombre)} <span class="badge tone-${est[1]}">${est[0]}</span></h3>
-        ${e.embudo ? `<span class="muted small">${esc(e.embudo)}</span>` : ''}
-        <div class="ie-cifras">${e.tipo === 'vsl'
-          ? `${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${cifra('ROAS', roasIni(e.kpis.roas))}`
-          : `${cifra('Leads', (e.kpis.registros || 0).toLocaleString('es-ES'))}${cifra('CPL medio', eur(e.kpis.cpl))}${e.kpis.vip != null ? cifra('Entradas VIP', e.kpis.vip) : ''}${cifra('Inversión', e.kpis.inversion ? eur(e.kpis.inversion) : '–')}${cifra('ROAS', roasIni(e.kpis.roas))}`}</div>
-        ${e.tipo !== 'vsl' ? `<div class="ie-cifras ie-sec">${cifra('Ventas', e.kpis.ventas)}${cifra('Facturación', eur(e.kpis.facturacion || 0))}${(e.kpis.bumps || []).map((b) => cifra(`Bump · ${esc(b.nombre)}`, `${b.pct != null ? `${Math.round(b.pct * 1000) / 10}%`.replace('.', ',') : '–'} <small>(${b.n} vendidos)</small>`)).join('')}</div>` : ''}${obj(e.objetivos)}</button>`;
-    }),
-    ...metas.map((m) => {
-      if (m.cargando) return `<div class="card inicio-emb"><h3>⚡ ${esc(m.nombre)}</h3><p class="muted small">Cargando…</p></div>`;
-      if (m.error) return `<div class="card inicio-emb"><h3>⚡ ${esc(m.nombre)}</h3><p class="error small">${esc(m.error)}</p><button type="button" class="btn small" data-reintentar="meteo:${state.inicio.meteoricos.indexOf(m)}">Reintentar</button></div>`;
-      const f = FASE_METEO_TXT[m.fase] || ['', 'muted'];
-      return `<button type="button" class="card inicio-emb" data-ir-inicio="meteo" data-code="${esc(m.code)}">
-        <h3>⚡ ${esc(m.nombre)} <span class="badge tone-${f[1]}">${f[0]}</span></h3>
-        ${m.lanzamiento ? `<span class="muted small">Downsell de ${esc(state.config.launches[m.lanzamiento]?.name || m.lanzamiento)}</span>` : ''}
-        <div class="ie-cifras">${cifra('Ventas', m.ventas)}${cifra('Facturación', eur(m.facturacion || 0))}${cifra('ROAS', m.roas != null ? `${m.roas.toFixed(2).replace('.', ',')}x` : '–')}</div>${obj(m.objetivos)}</button>`;
-    }),
-  ];
-  $('#inicio-embudos').innerHTML = tarjetas.join('') || '<p class="muted">Aún no hay lanzamientos empezados, VSL ni meteóricos recientes.</p>';
+  pintarActualizado();
+  pintarCifrasInicio(lista, metas, listos);
+  pintarUrgente(lista);
+  pintarEmbudosInicio(lista, metas);
   if (listos) pintarSidebar(); // el lateral añade lo facturado por cada embudo
   pintarMencionesInicio();
-  // Avisos del carrito de los lanzamientos con el carrito abierto (con sus ventas).
-  const alertas = lista.filter((e) => e.tipo === 'lanzamiento' && e.estado === 'carrito')
-    .flatMap((e) => alertasCarrito(state.config.launches[e.code], e.kpis.ventas).map((a) => ({ ...a, nombre: e.nombre })));
-  $('#inicio-alertas').innerHTML = alertas.length ? `<div class="notice err alertas-carrito"><span><strong>🚨 Carrito abierto</strong><ul>${alertas.map((a) => `<li><strong>${esc(a.nombre)}:</strong> ${esc(a.texto)}</li>`).join('')}</ul></span></div>` : '';
-  pintarAnunciosInicio(state.inicio.anuncios);
-  if (!A) return;
-  pintarHitosInicio(A);
-  pintarOperativaInicio(A);
+  if (A) { pintarTareasHoy(A); pintarHitosInicio(A); }
+  pintarNegocioInicio();
 }
-// El Inicio del cliente, con la estética del de la agencia: portada (saludo, cifras del periodo y cómo va el trabajo).
-function pintarHeroInicio({ fact, inv, ventas, n, listos, A }) {
+// Las cifras del periodo, cada una con su ▲▼ frente al anterior (solo con los embudos que tienen con qué comparar:
+// VSL y venta directa, los mismos días de antes; lanzamientos y meteóricos, el anterior).
+function pintarCifrasInicio(lista, metas, listos) {
   const box = $('#ini-hero');
   box.hidden = false;
-  const nombre = String(state.user?.nombre || '').trim().split(/\s+/)[0];
-  const cli = state.clientes?.find((c) => c.id === state.cliente)?.nombre || '';
-  const fecha = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' }).format(new Date());
-  const ag = A && !A.error ? A : null;
-  const venc = ag?.vencidas?.total || 0;
-  const pend = ag?.pendientes || 0;
-  const alDia = pend ? Math.round(((pend - venc) / pend) * 100) : 100;
-  const semana = ag ? ag.hitos.filter((h) => h.dia <= dayInMadrid(new Date(Date.now() + 7 * 864e5).toISOString())).length : 0;
-  const color = !ag ? 'gris' : venc === 0 ? 'verde' : alDia >= 80 ? 'ambar' : 'rojo';
-  const chip = (cls, ico, txt, ir) => `<button type="button" class="ini-chip ${cls}" data-ini-abrir="${ir}"><span aria-hidden="true">${ico}</span>${txt}</button>`;
-  const stat = (ico, t, v, sub) => `<div class="ini-stat"><span class="ini-stat-t"><span aria-hidden="true">${ico}</span> ${t}</span><strong>${v}</strong><small>${sub}</small></div>`;
+  const prev = state.inicio.previos || {};
+  const items = [
+    ...lista.filter((e) => e.kpis).map((e) => ({ k: e.kpis, p: prev[e.embudoId || e.code] })),
+    ...metas.filter((m) => !m.cargando && !m.error).map((m) => ({ k: m, p: prev[`m:${m.code}`] })),
+  ];
+  const sum = (arr, f) => arr.reduce((t, x) => t + (Number(f(x)) || 0), 0);
+  const cifra = (k) => {
+    const actual = sum(items, (x) => x.k[k]);
+    const comp = items.filter((x) => x.p);
+    const antes = comp.length ? sum(comp, (x) => x.p[k]) : null;
+    const actualComp = comp.length ? sum(comp, (x) => x.k[k]) : null;
+    return { actual, delta: antes ? deltaIni(actualComp, antes, { neutro: k === 'inversion' }) : '' };
+  };
+  const f = cifra('facturacion'); const v = cifra('ventas'); const inv = cifra('inversion');
+  const stat = (ico, t, val, delta, sub) => `<div class="ini-stat"><span class="ini-stat-t"><span aria-hidden="true">${ico}</span> ${t}</span><strong>${val}</strong>${delta}<small>${sub}</small></div>`;
   box.innerHTML = `<div class="ini-hero-txt">
-      <span class="ag-eyebrow">🏠 ${esc(cli ? `${cli} · ` : '')}${esc(fecha)}</span>
-      <h3>${saludoHora()}${nombre ? `, ${esc(nombre)}` : ''} 👋</h3>
-      <p>${listos ? `${n} ${n === 1 ? 'embudo activo' : 'embudos activos'} · ${esc(inicioPeriodoTxt().toLowerCase())}` : 'Cargando tus embudos…'}</p>
+      <span class="ag-eyebrow">📊 Cómo vas · ${esc(inicioPeriodoTxt().toLowerCase())}</span>
       <div class="ini-stats">
-        ${stat('💰', 'Facturación', eur(fact), 'último lanzamiento de cada embudo, VSL, venta directa y meteóricos')}
-        ${stat('🛒', 'Ventas', ventas.toLocaleString('es-ES'), `${n} ${n === 1 ? 'embudo' : 'embudos'}`)}
-        ${stat('📣', 'Inversión', inv ? eur(inv) : '–', inv ? `ROAS conjunto ${(fact / inv).toFixed(2).replace('.', ',')}x` : 'sin inversión registrada')}
-      </div>
-      <div class="ag-hero-acc">
-        ${state.operativa ? '<button type="button" class="btn" data-ini-abrir="operativa">🗂️ Operativa</button>' : ''}
-        <button type="button" class="btn" data-ini-abrir="negocio">📈 Inteligencia de negocio</button>
-        <button type="button" class="btn" data-ini-abrir="procesos">📚 Procesos</button>
-      </div>
-    </div>
-    <div class="ini-hero-lado">
-      <div class="ini-anillo s-${color}" style="--p:${ag ? alDia : 0}"><div><strong>${ag ? `${alDia}%` : '…'}</strong><span>tareas al día</span></div></div>
-      <div class="ini-chips">
-        ${chip(venc ? 'rojo' : 'ok', '⏰', ag ? `${venc} ${venc === 1 ? 'tarea vencida' : 'tareas vencidas'}` : 'Revisando tareas…', 'vencidas')}
-        ${chip('azul', '📌', ag ? `${ag.proximas?.total || 0} para esta semana` : '…', 'semana')}
-        ${chip('morado', '🔄', ag ? `${ag.enMarcha?.total || 0} en marcha` : '…', 'marcha')}
-        ${chip('ambar', '📅', ag ? `${semana} ${semana === 1 ? 'hito' : 'hitos'} en 7 días` : '…', 'hitos')}
+        ${stat('💰', 'Facturación', listos || f.actual ? eur(f.actual) : '…', f.delta, 'último lanzamiento de cada embudo, VSL, venta directa y meteóricos')}
+        ${stat('🛒', 'Ventas', v.actual.toLocaleString('es-ES'), v.delta, 'de todos tus embudos activos')}
+        ${stat('📣', 'Inversión', inv.actual ? eur(inv.actual) : '–', inv.delta, inv.actual ? `ROAS conjunto ${roasTxt(f.actual / inv.actual)}` : 'sin inversión registrada')}
       </div>
     </div>`;
 }
+// ⚠️ Lo urgente: avisos del carrito y anuncios que se cansan, cada uno con su botón para resolverlo. Sin nada, no sale.
+function pintarUrgente(lista) {
+  const items = [];
+  for (const e of lista.filter((x) => x.tipo === 'lanzamiento' && x.estado === 'carrito')) {
+    for (const a of alertasCarrito(state.config.launches[e.code], e.kpis.ventas)) {
+      items.push({ ico: '🛒', tit: `${e.nombre} · carrito abierto`, txt: a.texto, acc: `<button type="button" class="btn small primary" data-ir-inicio="lanz" data-code="${esc(e.code)}" data-embudo="${esc(e.embudoId || '')}">Ir al lanzamiento →</button>` });
+    }
+  }
+  const An = state.inicio.anuncios;
+  if (An && !An.error && An.configured !== false) {
+    for (const e of (An.embudos || []).filter((x) => !x.error && x.nivel && x.nivel !== 'ok')) {
+      const det = (e.avisos || []).slice(0, 2).map((x) => `${x.nombre ? `${x.nombre}: ` : ''}${x.texto}`).join(' · ');
+      items.push({ ico: e.nivel === 'urgente' ? '🔴' : '🟠', tit: `${e.nombre} · ${e.titulo}`, txt: det,
+        acc: `<button type="button" class="btn small primary" data-ini-crear-anuncios="${esc(e.embudo)}">Preparar anuncios nuevos →</button><button type="button" class="btn small ghost" data-ir-publi="${esc(e.embudo)}">Ver cuáles</button>` });
+    }
+  }
+  $('#inicio-alertas').innerHTML = items.length ? `<section class="ini-urgente" aria-label="Lo urgente"><h2>⚠️ Lo urgente</h2><ul>${items.map((x) => `<li><span class="ini-urg-ico" aria-hidden="true">${x.ico}</span><div class="ini-urg-txt"><strong>${esc(x.tit)}</strong>${x.txt ? `<span>${esc(x.txt)}</span>` : ''}</div><div class="ini-urg-acc">${x.acc}</div></li>`).join('')}</ul></section>` : '';
+}
+$('#inicio-alertas').addEventListener('click', (e) => {
+  const c = e.target.closest('[data-ini-crear-anuncios]');
+  if (c) { setEmbudo(c.dataset.iniCrearAnuncios, { vista: 'anuncios' }); return; }
+  const b = e.target.closest('[data-ir-publi]');
+  if (b) setEmbudo(b.dataset.irPubli, { vista: 'publicidad' });
+});
+// Tus tareas de hoy: como mucho 5, primero las vencidas y luego las de hoy, las tuyas (o de tu rol; con la contraseña
+// general, todas). Se completan aquí con el ✓ (es la misma tarea que en Plan → Tareas y en la Operativa).
+const hechasIni = new Set();
+function pintarTareasHoy(A) {
+  const box = $('#ini-tareas');
+  if (A.error) { box.innerHTML = `<p class="error">${esc(A.error)}</p>`; return; }
+  const yo = meSess();
+  const todas = !state.user;
+  const hoy = today();
+  const mias = (A.deHoy || []).filter((t) => !hechasIni.has(`${t.code}|${t.id}`) && (todas || esMia(t, yo)));
+  const totalPend = Math.max(0, (todas ? A.pendientes || 0 : (A.pendientesPor?.[`persona:${yo.uid}`] || 0) + (A.pendientesPor?.[`rol:${yo.role}`] || 0)) - hechasIni.size);
+  box.innerHTML = mias.length
+    ? `<ul class="ini-tareas">${mias.slice(0, 5).map((t) => { const venc = t.fecha < hoy; return `<li class="${venc ? 'venc' : ''}">
+        <button type="button" class="ini-check" data-ini-hecha="${esc(t.code)}|${esc(t.id)}" aria-label="Completar «${esc(t.titulo)}»" title="Marcar como hecha"><span aria-hidden="true">✓</span></button>
+        <button type="button" class="ini-t" data-ir-code="${esc(t.code)}"><strong>${esc(t.titulo)}</strong><span>${esc(t.nombre)} · ${venc ? `<em>⏰ ${diaCorto(t.fecha)}</em>` : '<em class="hoy">Hoy</em>'}</span></button></li>`; }).join('')}</ul>`
+    : '<p class="ini-vacio">Nada pendiente para hoy ✓</p>';
+  $('#ini-tareas-ver').innerHTML = totalPend ? `<button type="button" class="link" data-ini-abrir="operativa">Ver las ${totalPend} →</button>` : '';
+}
+$('#ini-tareas').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-ini-hecha]');
+  if (!b) return;
+  const [code, id] = b.dataset.iniHecha.split('|');
+  b.disabled = true;
+  b.closest('li')?.classList.add('saliendo');
+  try {
+    await api('/api/tareas', { method: 'POST', body: { l: code, op: 'marcar', id, hecha: true } });
+    hechasIni.add(`${code}|${id}`);
+    if (state.tareas && state.launchCode === code) loadTareas().catch(() => {});
+  } catch (err) { notice(err.message, true); b.disabled = false; b.closest('li')?.classList.remove('saliendo'); return; }
+  setTimeout(() => { if (state.inicio?.agenda) pintarTareasHoy(state.inicio.agenda); }, 250);
+});
 const diaCorto = (d) => esc(dayFmt.format(new Date(`${d}T12:00:00Z`)));
-// Próximos hitos: los 5 más cercanos, en línea de tiempo («Hoy» y «Mañana» destacados).
-function pintarHitosInicio(A) {
-  const hoy = today();
-  const manana = dayInMadrid(new Date(Date.now() + 864e5).toISOString());
-  $('#inicio-hitos').innerHTML = A.error ? `<p class="error">${esc(A.error)}</p>` : A.hitos?.length
-    ? `<ol class="ini-hitos">${A.hitos.slice(0, 5).map((h) => {
-      const cuando = h.dia === hoy ? 'Hoy' : h.dia === manana ? 'Mañana' : '';
-      const [, m, d] = h.dia.split('-');
-      return `<li class="${cuando ? 'pronto' : ''}"><span class="ini-hito-dia"><b>${Number(d)}</b><small>${esc(new Intl.DateTimeFormat('es-ES', { month: 'short', timeZone: 'UTC' }).format(new Date(`2026-${m}-15T12:00:00Z`)))}</small></span>
-        <button type="button" data-ir-code="${esc(h.code)}"><strong>${esc(h.icon)} ${esc(h.titulo)}</strong><span>${esc(h.nombre)}${h.hora ? ` · ${esc(h.hora)}` : ''}${cuando ? ` · <em>${cuando}</em>` : ''}</span></button></li>`;
-    }).join('')}</ol>`
-    : '<p class="muted">Nada en los próximos 14 días.</p>';
-}
-// Operativa del cliente: cifras y tres columnas (vencidas, esta semana y en marcha).
-function pintarOperativaInicio(A) {
-  if (A.error) { $('#inicio-vencidas').innerHTML = `<p class="error">${esc(A.error)}</p>`; return; }
-  const v = A.vencidas || { total: 0, lista: [] };
-  const p = A.proximas || { total: 0, lista: [] };
-  const m = A.enMarcha || { total: 0, lista: [] };
-  const hoy = today();
-  $('#ini-op-cifras').innerHTML = [
-    ['rojo', '⏰', v.total, 'vencidas'], ['azul', '📌', p.total, 'esta semana'], ['morado', '🔄', m.total, 'en marcha'], ['gris', '📋', A.pendientes ?? '–', 'pendientes en total'],
-  ].map(([c, i, n, t]) => `<div class="ini-op-n ${c}"><span aria-hidden="true">${i}</span><strong>${n}</strong><small>${t}</small></div>`).join('');
-  const item = (t, extra) => `<li><button type="button" data-ir-code="${esc(t.code)}"><strong>${esc(t.titulo)}</strong><span>${esc(t.nombre)}${extra ? ` · ${extra}` : ''}</span></button></li>`;
-  const grupo = (cls, tit, g, vacio, extra) => `<section class="ini-op-g ${cls}"><h3>${tit} <b>${g.total}</b></h3>${g.lista.length ? `<ul>${g.lista.slice(0, 5).map((t) => item(t, extra(t))).join('')}</ul>${g.total > 5 ? `<p class="muted small">…y ${g.total - 5} más</p>` : ''}` : `<p class="ini-op-vacio">${vacio}</p>`}</section>`;
-  $('#inicio-vencidas').innerHTML = grupo('rojo', '⏰ Vencidas', v, '🎉 Ninguna', (t) => `<em class="venc">${diaCorto(t.fecha)}</em>`)
-    + grupo('azul', '📌 Esta semana', p, 'Nada con fecha esta semana', (t) => (t.fecha === hoy ? '<em class="hoy">Hoy</em>' : diaCorto(t.fecha)))
-    + grupo('morado', '🔄 En marcha', m, 'Nada para revisar ni bloqueado', (t) => (t.estado === 'bloqueada' ? `<em class="venc">⛔ Bloqueada${t.bloqueo ? `: ${esc(t.bloqueo)}` : ''}</em>` : '👀 Para revisar'));
-}
+// «Ver las N →» (Operativa) y «Ver más recomendaciones →» (Inteligencia de negocio).
 $('#inicio').addEventListener('click', (e) => {
   const b = e.target.closest('[data-ini-abrir]');
-  if (b) {
-    const a = b.dataset.iniAbrir;
-    if (a === 'negocio') return mostrarNegocio();
-    if (a === 'procesos') return abrirProcesos({ api, dialog: $('#procesos-dialog') });
-    if (a === 'operativa') return abrirOperativa({ api, dialog: $('#operativa-dialog') });
-    $('#ini-op-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (a === 'hitos') $('.ini-hitos-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    return;
-  }
-  const f = e.target.closest('[data-ini-scroll]');
-  if (f) { const c = $('#inicio-embudos'); c.scrollBy({ left: Number(f.dataset.iniScroll) * c.clientWidth * 0.9, behavior: 'smooth' }); }
+  if (!b) return;
+  if (b.dataset.iniAbrir === 'negocio') { ngEstado.seccion = 'resumen'; ngEstado.producto = ''; mostrarNegocio(); }
+  if (b.dataset.iniAbrir === 'operativa') abrirOperativa({ api, dialog: $('#operativa-dialog') });
 });
-// Inicio: qué embudos necesitan anuncios nuevos (los avisos de su pestaña Publicidad, en corto).
-function pintarAnunciosInicio(A) {
-  const caja = $('#inicio-anuncios');
-  if (!A || A.configured === false || (!A.error && !A.embudos?.some((e) => e.error || e.nivel !== 'ok'))) {
-    caja.innerHTML = A?.embudos?.length ? '<p class="muted small inicio-anuncios">✅ Anuncios: ningún embudo da señales de cansancio esta semana.</p>' : '';
-    return;
-  }
-  if (A.error) { caja.innerHTML = `<div class="notice warn inicio-anuncios">No se pudieron revisar los anuncios: ${esc(A.error)}</div>`; return; }
-  const lista = A.embudos.filter((e) => e.error || e.nivel !== 'ok');
-  const urgente = lista.some((e) => e.nivel === 'urgente');
-  caja.innerHTML = `<div class="notice ${urgente ? 'err' : 'warn'} inicio-anuncios"><span><strong>📣 Anuncios: ${urgente ? 'toca preparar anuncios nuevos' : 've preparando anuncios nuevos'}</strong> <small class="muted">· última semana frente a la anterior</small>
-    <ul>${lista.map((e) => `<li><button type="button" data-ir-publi="${esc(e.embudo)}"><strong>${e.nivel === 'urgente' ? '🔴' : e.nivel === 'pronto' ? '🟠' : '⚠️'} ${esc(e.nombre)}:</strong> ${esc(e.error || e.titulo)}</button>${e.avisos?.length ? `<ul class="ia-sub">${e.avisos.map((x) => `<li>${x.nombre ? `<strong>${esc(x.nombre)}</strong> · ` : ''}${esc(x.texto)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ul></span></div>`;
+const cuentaAtrasDia = (d) => { const n = Math.round((Date.parse(`${d}T12:00:00Z`) - Date.parse(`${today()}T12:00:00Z`)) / 864e5); return n <= 0 ? 'hoy' : n === 1 ? 'mañana' : `en ${n} días`; };
+// Próximos hitos: los 5 más cercanos; el primero, destacado con su cuenta atrás.
+function pintarHitosInicio(A) {
+  const hs = (A.hitos || []).slice(0, 5);
+  if (A.error) { $('#inicio-hitos').innerHTML = `<p class="error">${esc(A.error)}</p>`; return; }
+  if (!hs.length) { $('#inicio-hitos').innerHTML = '<p class="ini-vacio">Nada en los próximos 14 días.</p>'; return; }
+  const [p, ...resto] = hs;
+  const fecha = (h) => { const [, m, d] = h.dia.split('-'); return `<span class="ini-hito-dia"><b>${Number(d)}</b><small>${esc(new Intl.DateTimeFormat('es-ES', { month: 'short', timeZone: 'UTC' }).format(new Date(`2026-${m}-15T12:00:00Z`)))}</small></span>`; };
+  $('#inicio-hitos').innerHTML = `<button type="button" class="ini-hito-1" data-ir-code="${esc(p.code)}"><span class="ini-hito-cuenta">⏳ ${esc(cuentaAtrasDia(p.dia))}</span><strong>${esc(p.icon)} ${esc(p.titulo)}</strong><span>${esc(p.nombre)} · ${diaCorto(p.dia)}${p.hora ? ` · ${esc(p.hora)}` : ''}</span></button>
+    ${resto.length ? `<ol class="ini-hitos">${resto.map((h) => `<li>${fecha(h)}<button type="button" data-ir-code="${esc(h.code)}"><strong>${esc(h.icon)} ${esc(h.titulo)}</strong><span>${esc(h.nombre)}${h.hora ? ` · ${esc(h.hora)}` : ''}</span></button></li>`).join('')}</ol>` : ''}`;
 }
-$('#inicio-anuncios').addEventListener('click', (e) => { const b = e.target.closest('[data-ir-publi]'); if (b) setEmbudo(b.dataset.irPubli, { vista: 'publicidad' }); });
+// Recomendación principal y checklist de primeros pasos: de Inteligencia de negocio (las mismas funciones). Se pide una
+// vez por cliente; mientras el histórico se calcula, se vuelve a pedir unas cuantas veces.
+async function cargarNegocioInicio() {
+  if (!tiene('metricas') || state.inicioNegocio?.cliente === state.cliente) return;
+  const cliente = state.cliente;
+  state.inicioNegocio = { cliente, d: null };
+  for (let i = 0; i < 15; i++) {
+    let d;
+    try { d = await api('/api/negocio?periodo=12m'); } catch { return; }
+    if (state.cliente !== cliente) return;
+    state.inicioNegocio.d = d;
+    pintarNegocioInicio();
+    if (!d.pendientes) return;
+  }
+}
+function pintarNegocioInicio() {
+  const d = state.inicioNegocio?.cliente === state.cliente ? state.inicioNegocio.d : null;
+  const c = d && !d.vacio ? d.calidad : null;
+  const pend = c?.total && c.pct < 100 && puedeConfig() ? c.items.filter((x) => !x.ok) : [];
+  // La primera recomendación que no sea ya un paso de la checklist (nada repetido).
+  const enPasos = new Set(pend.map((x) => x.titulo));
+  const reco = d && !d.vacio ? (d.recomendaciones || []).find((r) => !enPasos.has(r.titulo)) : null;
+  $('#ini-reco').innerHTML = reco ? `<div class="ini-reco">${recosHtml([reco], '💡 Lo que haría ahora para facturar más')}<button type="button" class="link ini-reco-mas" data-ini-abrir="negocio">Ver más recomendaciones →</button></div>` : '';
+  $('#ini-pasos').innerHTML = pend.length ? `<section class="ini-pasos"><header><span class="ini-pasos-pct" style="--p:${c.pct}"><b>${c.pct}%</b></span><div><h2>🚀 Primeros pasos</h2><p class="muted">Completa tus datos para que las cifras y las recomendaciones sean exactas. Te ${pend.length === 1 ? 'falta 1 cosa' : `faltan ${pend.length}`}.</p></div></header>
+    <ul>${pend.map((x) => `<li><span class="ini-paso-check" aria-hidden="true"></span><span aria-hidden="true">${x.ico}</span><div><strong>${esc(x.titulo)}</strong><small>${esc(x.texto)}</small></div>${botonCalidad(x)}</li>`).join('')}</ul>${c.items.some((x) => x.ok) ? `<p class="ini-pasos-ok">${c.items.filter((x) => x.ok).map((x) => `<span>✓ ${esc(x.titulo)}</span>`).join('')}</p>` : ''}</section>` : '';
+}
+// Tus embudos activos: nombre, tipo, estado y 4 cifras (facturación, ventas, ROAS y conversión; sin registros, el
+// ticket medio). Lo demás, pulsando la tarjeta (su embudo). Con 1, a todo el ancho; con más, en columnas.
+function pintarEmbudosInicio(lista, metas) {
+  const kpi = (l, v) => `<span><small>${l}</small><strong>${v}</strong></span>`;
+  const tarjeta = (tipo, nombre, estado, tono, attrs, k) => `<button type="button" class="card inicio-emb ini-emb t-${tipo}" ${attrs}>
+      <span class="ini-emb-cab"><span class="ini-emb-ico" aria-hidden="true">${TIPO_INI[tipo][0]}</span><span class="ini-emb-nom"><strong>${esc(nombre)}</strong><small>${TIPO_INI[tipo][1]}</small></span>${estado ? `<span class="badge tone-${tono}">${esc(estado)}</span>` : ''}</span>
+      <span class="ini-emb-kpis">${k}</span><span class="ini-emb-ir">Ver el embudo →</span></button>`;
+  const html = [
+    ...lista.map((e) => {
+      const tipo = e.tipo === 'error' ? (e.tipoOrig === 'vsl' ? 'vsl' : e.tipoOrig === 'directa' ? 'directa' : 'lanzamiento') : e.tipo;
+      if (e.cargando) return `<div class="card inicio-emb ini-emb t-${e.tipo === 'vsl' ? 'vsl' : e.tipo === 'directa' ? 'directa' : 'lanzamiento'}"><span class="ini-emb-cab"><span class="ini-emb-nom"><strong>${esc(e.nombre)}</strong><small>Cargando…</small></span></span></div>`;
+      if (e.tipo === 'error') return `<div class="card inicio-emb ini-emb t-${tipo}"><span class="ini-emb-cab"><span class="ini-emb-nom"><strong>${esc(e.nombre)}</strong></span></span><p class="error small">${esc(e.error)}</p><button type="button" class="btn small" data-reintentar="embudo:${state.inicio.embudos.indexOf(e)}">Reintentar</button></div>`;
+      const k = e.kpis || {};
+      const conv = tipo === 'directa' ? kpi('Ticket medio', eur(k.ticket)) : kpi('Conversión', k.registros ? pctIni(k.ventas / k.registros) : '–');
+      const cifras = kpi('Facturación', eur(k.facturacion || 0)) + kpi('Ventas', (k.ventas || 0).toLocaleString('es-ES')) + kpi('ROAS', roasTxt(k.roas)) + conv;
+      if (tipo === 'lanzamiento') { const est = ESTADO_LANZ[e.estado] || ['', 'muted']; return tarjeta('lanzamiento', e.nombre, est[0], est[1], `data-ir-inicio="lanz" data-code="${esc(e.code)}" data-embudo="${esc(e.embudoId || '')}"`, cifras); }
+      return tarjeta(tipo, e.nombre, tipo === 'vsl' ? 'Siempre abierto' : 'Siempre abierta', 'info', `data-ir-inicio="${tipo}" data-code="${esc(e.code)}"`, cifras);
+    }),
+    ...metas.map((m) => {
+      if (m.cargando) return `<div class="card inicio-emb ini-emb t-meteo"><span class="ini-emb-cab"><span class="ini-emb-nom"><strong>${esc(m.nombre)}</strong><small>Cargando…</small></span></span></div>`;
+      if (m.error) return `<div class="card inicio-emb ini-emb t-meteo"><span class="ini-emb-cab"><span class="ini-emb-nom"><strong>${esc(m.nombre)}</strong></span></span><p class="error small">${esc(m.error)}</p><button type="button" class="btn small" data-reintentar="meteo:${state.inicio.meteoricos.indexOf(m)}">Reintentar</button></div>`;
+      const f = FASE_METEO_TXT[m.fase] || ['', 'muted'];
+      return tarjeta('meteo', m.nombre, f[0], f[1], `data-ir-inicio="meteo" data-code="${esc(m.code)}"`,
+        kpi('Facturación', eur(m.facturacion || 0)) + kpi('Ventas', (m.ventas || 0).toLocaleString('es-ES')) + kpi('ROAS', roasTxt(m.roas)) + kpi('Ticket medio', m.ventas ? eur(m.facturacion / m.ventas) : '–'));
+    }),
+  ];
+  $('#inicio-embudos').innerHTML = html.join('') || '<p class="muted">Aún no hay lanzamientos empezados, VSL ni meteóricos recientes.</p>';
+}
+
 
 // Desde el inicio, a cada embudo (sus métricas) o a las tareas de un código.
 $('#inicio').addEventListener('click', (e) => {

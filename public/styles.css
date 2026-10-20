@@ -5174,7 +5174,7 @@ body.solo-operativa .app-body { display: block; }
 
 /* Inicio de trabajo (sin métricas): fuera el periodo y las cifras; dentro la Operativa, sus tareas y sus embudos. */
 body:not(.inicio-trabajo) #inicio-trabajo { display: none; }
-body.inicio-trabajo :is(#inicio .inicio-cab-acc, #inicio-total, #inicio-alertas, #inicio-anuncios, #inicio-embudos, #inicio .inicio-dos, #inicio-agencia, #ini-hero, #inicio .ini-embudos-bloque, #ini-op-card, #inicio .ini-hitos-card) { display: none !important; }
+body.inicio-trabajo :is(#inicio .inicio-cab-acc, #inicio-total, #inicio-alertas, #inicio-embudos, #inicio-agencia, #ini-hero, #ini-pasos, #ini-reco, #inicio .ini-dos, #inicio .ini-embudos-bloque) { display: none !important; }
 #inicio-trabajo > .card { margin-bottom: 16px; }
 .it-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .it-tarea { width: 100%; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; column-gap: 12px; align-items: center; text-align: left; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; transition: border-color .15s, transform .15s; }
@@ -7524,8 +7524,6 @@ body.en-ejemplo .config-only, body.en-ejemplo #sb-add, body.en-ejemplo .sb-edit,
 .ng-nav-b.ok { background: #10b981; color: #fff; }
 
 /* ---------- Inicio del cliente (estética del Inicio de la agencia) ---------- */
-#inicio:has(#ini-hero:not([hidden])) .inicio-cab > div:first-child { display: none; }
-#inicio:has(#ini-hero:not([hidden])) .inicio-cab { justify-content: flex-end; }
 .ini-hero { margin-bottom: 18px; align-items: stretch; }
 .ini-hero-txt { display: flex; flex-direction: column; min-width: 0; }
 .ini-hero h3 { font-size: 30px; }
@@ -7717,3 +7715,108 @@ body.en-ejemplo .config-only, body.en-ejemplo #sb-add, body.en-ejemplo .sb-edit,
 .msj-cab-in p { margin: 4px 0 0; }
 .msj-ico { flex: 0 0 auto; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: color-mix(in srgb, #25d366 16%, transparent); color: #128c4a; }
 .msj-ico svg { width: 22px; height: 22px; }
+/* ---------- Inicio del cliente: «¿qué hago hoy?» y «¿cómo voy?» ---------- */
+body.en-inicio:not(.en-negocio) .container { max-width: 1640px; padding-left: 18px; padding-right: 18px; }
+body.ini-sin-emb :is(#ini-hero, #inicio .ini-dos, #ini-reco, #ini-pasos) { display: none !important; }
+.inicio-cab-acc { align-items: center; }
+.inicio-actualizado { white-space: nowrap; }
+.ini-hero { grid-template-columns: minmax(0, 1fr); padding: 20px 24px; }
+.ini-hero .ini-stats { margin-top: 12px; }
+.ini-stat .ng-delta { font-size: 12.5px; font-weight: 700; }
+.ini-hero .ng-delta.up { color: #6ee7b7; } .ini-hero .ng-delta.down { color: #fca5a5; } .ini-hero .ng-delta.neutro { color: #c7d2fe; }
+.ini-hero .ng-delta span { color: rgb(255 255 255 / .6); font-weight: 500; }
+.ini-hero .ng-delta:not(.up):not(.down):not(.neutro) { color: rgb(255 255 255 / .7); }
+/* Primeros pasos */
+.ini-pasos { padding: 16px 18px; border-radius: 18px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, var(--surface)), var(--surface)); }
+.ini-pasos header { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.ini-pasos h2 { margin: 0; font-size: 17px; }
+.ini-pasos p { margin: 2px 0 0; font-size: 13.5px; }
+.ini-pasos-pct { flex: none; width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--border) 0); position: relative; }
+.ini-pasos-pct::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--surface); }
+.ini-pasos-pct b { position: relative; font-size: 13px; }
+.ini-pasos ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px; }
+.ini-pasos li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
+.ini-pasos li > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ini-pasos li small { color: var(--muted); font-size: 12px; }
+.ini-pasos li.ok { opacity: .6; }
+.ini-paso-check { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border); display: grid; place-items: center; font-size: 11px; font-weight: 800; }
+.ini-pasos li.ok .ini-paso-check { background: #10b981; border-color: #10b981; color: #fff; }
+/* Lo urgente */
+.ini-urgente { padding: 14px 16px; border-radius: 18px; border: 1px solid color-mix(in srgb, #ef4444 40%, var(--border)); background: color-mix(in srgb, #ef4444 7%, var(--surface)); }
+.ini-urgente h2 { margin: 0 0 8px; font-size: 17px; }
+.ini-urgente ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ini-urgente li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
+.ini-urg-ico { font-size: 20px; flex: none; }
+.ini-urg-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ini-urg-txt span { font-size: 13px; color: var(--muted); }
+.ini-urg-acc { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+/* Tareas de hoy | Próximos hitos */
+.ini-dos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.ini-dos > .card h2 { margin-top: 0; }
+.ini-tareas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ini-tareas li { display: flex; align-items: stretch; gap: 8px; transition: opacity .25s, transform .25s; }
+.ini-tareas li.saliendo { opacity: 0; transform: translateX(16px); }
+.ini-check { flex: none; width: 34px; border-radius: 10px; border: 2px solid var(--border); background: var(--surface); color: transparent; font-weight: 800; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+.ini-check:hover, .ini-check:focus-visible { border-color: #10b981; color: #10b981; }
+.ini-tareas li.saliendo .ini-check { background: #10b981; border-color: #10b981; color: #fff; }
+.ini-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.ini-t:hover { border-color: var(--accent); }
+.ini-t strong { font-size: 13.5px; line-height: 1.3; }
+.ini-t span { font-size: 12px; color: var(--muted); }
+.ini-t em { font-style: normal; font-weight: 700; color: var(--accent); }
+.ini-tareas li.venc .ini-t { border-color: color-mix(in srgb, #ef4444 45%, var(--border)); background: color-mix(in srgb, #ef4444 6%, var(--surface)); }
+.ini-tareas li.venc .ini-t em { color: #dc2626; }
+.ini-vacio { margin: 6px 0; color: var(--muted); font-weight: 600; }
+.ini-ver { margin-top: 10px; text-align: right; }
+.ini-ver:empty { display: none; }
+.ini-hito-1 { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 12px 14px; margin-bottom: 8px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--surface)), var(--surface)); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.ini-hito-cuenta { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); }
+.ini-hito-1 strong { font-size: 15.5px; }
+.ini-hito-1 > span:last-child { font-size: 12.5px; color: var(--muted); }
+/* Recomendación principal */
+.ini-reco { position: relative; padding: 4px 0; }
+.ini-reco .ng-sec h3 { font-size: 17px; }
+.ini-reco .ng-recos { grid-template-columns: 1fr; }
+.ini-reco-mas { position: absolute; right: 4px; top: 6px; }
+/* Embudos activos: con 1, todo el ancho; con más, en columnas (la última fila se estira, sin huecos) */
+.ini-embudos { display: flex; flex-wrap: wrap; gap: 14px; }
+.ini-embudos > .ini-emb { flex: 1 1 300px; min-width: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 18px 18px 14px; text-align: left; }
+.ini-emb::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: linear-gradient(90deg, var(--accent), #ffb020); }
+.ini-emb.t-vsl::before { background: linear-gradient(90deg, #6366f1, #22d3ee); }
+.ini-emb.t-directa::before { background: linear-gradient(90deg, #10b981, #84cc16); }
+.ini-emb.t-meteo::before { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+.ini-emb-cab { display: flex; align-items: center; gap: 10px; }
+.ini-emb-ico { font-size: 22px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); flex: none; }
+.ini-emb-nom { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ini-emb-nom strong { font-size: 16px; overflow-wrap: anywhere; }
+.ini-emb-nom small { font-size: 12px; color: var(--muted); }
+.ini-emb-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.ini-emb-kpis > span { display: flex; flex-direction: column; padding: 8px 10px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 5%, var(--surface-2, var(--surface))); }
+.ini-emb-kpis small { font-size: 11.5px; color: var(--muted); }
+.ini-emb-kpis strong { font-size: 18px; letter-spacing: -.01em; }
+.ini-emb-ir { font-size: 13px; font-weight: 700; color: var(--accent); }
+button.ini-emb { cursor: pointer; transition: transform .18s, box-shadow .18s, border-color .18s; }
+button.ini-emb:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); box-shadow: 0 16px 32px -22px var(--accent); }
+@media (max-width: 900px) {
+  .ini-dos { grid-template-columns: 1fr; }
+  .ini-urgente li { flex-wrap: wrap; }
+  .ini-urg-acc { width: 100%; justify-content: flex-start; }
+  .ini-reco-mas { position: static; display: block; margin-top: 6px; }
+}
+@media (max-width: 520px) {
+  .ini-emb-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ini-stats { grid-template-columns: 1fr !important; }
+}
+
+/* La Operativa, a la derecha del menú lateral (que sigue visible y se puede usar) */
+.dialog.op-dlg[open] { left: var(--op-left, 0); width: auto; max-width: none; right: 0; }
+#op-cerrar[hidden] { display: none !important; }
+body.op-abierta .sidebar .sb-item.active:not(#sb-operativa) { background: transparent; box-shadow: none; border-color: transparent; }
+body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: none; }
+.ini-pasos ul { grid-template-columns: 1fr; }
+.ini-pasos li { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; }
+.ini-pasos li > .btn, .ini-pasos li > small { justify-self: end; max-width: 280px; text-align: right; }
+.ini-pasos-ok { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ini-pasos-ok span { font-size: 12px; font-weight: 650; padding: 3px 9px; border-radius: 999px; color: #059669; background: color-mix(in srgb, #10b981 12%, transparent); }
+.ini-check { color: color-mix(in srgb, var(--muted) 60%, transparent); }
+@media (max-width: 700px) { .ini-pasos li { grid-template-columns: auto auto minmax(0, 1fr); } .ini-pasos li > .btn, .ini-pasos li > small { grid-column: 1 / -1; justify-self: start; text-align: left; max-width: none; } }

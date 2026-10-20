@@ -39,12 +39,14 @@ const icoProd = (p) => (p.tipo === 'catalogo' ? ICO_CATALOGO[p.tipoProducto] || 
 const nomProd = (p) => (p.tipo === 'meteorico' ? p.nombre.replace(/^⚡\s*/, '') : p.nombre);
 const prodIco = (p) => `${icoProd(p)} `;
 // «Mejora tus datos»: la nota de calidad y lo que falta, cada cosa con lo que ganas y un botón a donde se pone.
+// El botón de cada cosa que falta (a donde se pone). También lo usa la checklist de primeros pasos del Inicio.
+export const botonCalidad = (x) => (x.accion === 'productos' ? `<button type="button" class="btn small primary" data-abrir-productos>${esc(x.boton)} →</button>`
+  : x.accion.startsWith('config:') ? `<button type="button" class="btn small" data-ng-config="${esc(x.accion.slice(7))}">${esc(x.boton)} →</button>`
+    : `<small class="muted">${esc(x.boton)}</small>`);
 function calidadHtml(c) {
   if (!c?.total) return '';
   const pend = c.items.filter((x) => !x.ok);
-  const boton = (x) => (x.accion === 'productos' ? `<button type="button" class="btn small primary" data-abrir-productos>${esc(x.boton)} →</button>`
-    : x.accion.startsWith('config:') ? `<button type="button" class="btn small" data-ng-config="${esc(x.accion.slice(7))}">${esc(x.boton)} →</button>`
-      : `<small class="muted">${esc(x.boton)}</small>`);
+  const boton = botonCalidad;
   return `<section class="ng-sec ng-calidad card config-only">
     <div class="ng-cal-cab"><div class="ng-anillo ng-cal-anillo" style="--p:${c.pct}"><div><strong>${c.pct}%</strong><span>datos completos</span></div></div>
       <div><h3>🧪 Mejora tus datos</h3><p class="muted">${pend.length ? `Cuanto más completos, más exactas las cifras y mejores las recomendaciones. Te faltan <b>${pend.length}</b> ${pend.length === 1 ? 'cosa' : 'cosas'}:` : '✓ Tus datos están completos: las cifras y las recomendaciones son tan buenas como pueden ser.'}</p></div></div>
@@ -53,7 +55,8 @@ function calidadHtml(c) {
   </section>`;
 }
 
-const recosHtml = (lista, titulo) => (lista?.length ? `<section class="ng-sec"><h3>${titulo}</h3><div class="ng-recos">${lista.map((r) => `<div class="ng-reco"><span class="ng-reco-ico" aria-hidden="true">${esc(r.ico)}</span><div><strong>${esc(r.titulo)}</strong><p>${esc(r.texto)}</p></div></div>`).join('')}</div></section>` : '');
+// También lo usa el Inicio (solo la primera recomendación).
+export const recosHtml = (lista, titulo) => (lista?.length ? `<section class="ng-sec"><h3>${titulo}</h3><div class="ng-recos">${lista.map((r) => `<div class="ng-reco"><span class="ng-reco-ico" aria-hidden="true">${esc(r.ico)}</span><div><strong>${esc(r.titulo)}</strong><p>${esc(r.texto)}</p></div></div>`).join('')}</div></section>` : '');
 // Anillo con el % de la facturación.
 const anillo = (x, txt = 'de tu facturación') => `<div class="ng-anillo" style="--p:${Math.round(Math.max(0, Math.min(1, x || 0)) * 100)}"><div><strong>${pct(x)}</strong><span>${txt}</span></div></div>`;
 // Mini gráfica de barras (facturación por mes).
