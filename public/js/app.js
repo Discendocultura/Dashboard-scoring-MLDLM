@@ -4620,14 +4620,17 @@ function showView(view) {
   pintarNavMovil();
   requestAnimationFrame(revisarBarras);
 }
+// Al pulsar una pestaña se abre siempre en su primera subpestaña (y, dentro, en su primera categoría).
+function abrirDesdeTab(view) {
+  showView(view);
+  const nav = $(`#view-${view} .msubs`);
+  if (nav) pintarMsub(nav, '');
+}
 $$('.view-tab').forEach((t) => t.addEventListener('click', () => {
-  if (!t.dataset.viewGrupo) { showView(t.dataset.view); return; }
-  // Grupo: la última subpestaña usada en este embudo (o la primera que se pueda ver).
-  const vistas = GRUPOS[t.dataset.viewGrupo];
-  const ultima = ls.get(`lsd_${t.dataset.viewGrupo}_${state.embudo}`);
-  showView(vistas.includes(ultima) && allowedViews().includes(ultima) ? ultima : vistas.find((v) => allowedViews().includes(v)));
+  if (!t.dataset.viewGrupo) { abrirDesdeTab(t.dataset.view); return; }
+  abrirDesdeTab(GRUPOS[t.dataset.viewGrupo].find((v) => allowedViews().includes(v)));
 }));
-$$('.subview-tab[data-view]').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
+$$('.subview-tab[data-view]').forEach((t) => t.addEventListener('click', () => abrirDesdeTab(t.dataset.view)));
 
 // Métricas por categorías (subpestañas dentro de Métricas): enseña solo los bloques de la elegida.
 function pintarMsub(nav, cat) {
