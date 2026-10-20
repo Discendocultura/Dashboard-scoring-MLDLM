@@ -218,6 +218,11 @@
     '.lsd-com-resp{display:flex;gap:8px;margin-top:10px;padding:10px;border-radius:10px;background:#faf3ee;border-left:3px solid var(--lsd-com-ac)}.lsd-com-resp p{margin:2px 0 0;white-space:pre-line;overflow-wrap:anywhere}' +
     '.lsd-com-vacio{margin:6px 0 0;padding:14px;text-align:center;border-radius:12px;border:1px dashed #e2d8cf;opacity:.85}.lsd-com-mas{display:block;margin:12px auto 0;padding:9px 16px;border-radius:999px;border:1px solid #e2d8cf;background:#fff;font:inherit;cursor:pointer}' +
     '.lsd-com-cerrado{display:flex;gap:10px;align-items:center;opacity:.85}' +
+    '.lsd-lista{display:flex;flex-direction:column;gap:16px}.lsd-lista-item{padding:18px;border-radius:16px;border:1px solid #e9dfd6;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.05)}' +
+    '.lsd-lista-lock{background:#faf7f4}.lsd-lista-t{display:flex;align-items:center;gap:10px;margin:0 0 8px;font-weight:700;font-size:1.05em}' +
+    '.lsd-lista-n{flex:none;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#2b2320;color:#fff;font-size:.85em}' +
+    '.lsd-lista-s{margin:0 0 10px;opacity:.8;line-height:1.5}.lsd-lista-video{position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;background:#000}' +
+    '.lsd-lista-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}.lsd-lista-mp4{width:100%;border-radius:12px}.lsd-lista-item audio{width:100%}' +
     '@media (max-width:600px){.lsd-com{padding:14px}.lsd-com-n{display:none}.lsd-com-enviar{width:100%}}';
 
   function injectCss() {
@@ -721,9 +726,47 @@
     });
   }
 
+  // Preclase de varios recursos (en vez de clases): <div data-lsd-lista-recursos></div> pinta la lista entera, cada
+  // recurso en su tarjeta (vídeo, audio, descargable o enlace) con candado y fecha hasta que se desbloquea.
+  // Textos opcionales: data-texto-encuesta (si falta la encuesta).
+  function embedVideo(url) {
+    var m = /vimeo\.com\/(?:video\/)?(\d+)(?:\/([0-9a-f]+))?/i.exec(url);
+    if (m) return 'https://player.vimeo.com/video/' + m[1] + (m[2] ? '?h=' + m[2] : '');
+    m = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/i.exec(url);
+    if (m) return 'https://www.youtube-nocookie.com/embed/' + m[1];
+    return '';
+  }
+  var ICONO_LISTA = { video: '🎬', audio: '🎧', descargable: '📄', enlace: '🔗' };
+  var BOTON_LISTA = { video: 'Ver el vídeo', audio: 'Escuchar', descargable: 'Descargar', enlace: 'Abrir' };
+  function pintarListaRecursos(lista) {
+    document.querySelectorAll('[data-lsd-lista-recursos]').forEach(function (el) {
+      if (!lista || !lista.length) { show(el, false); return; }
+      var huella = lista.map(function (x) { return x.id + (x.url ? 'on' : x.faltaEncuesta && x.unlocked ? 'enc' : 'lock'); }).join(',');
+      show(el, true);
+      if (el.getAttribute('data-lsd-lista-estado') === huella) return;
+      el.setAttribute('data-lsd-lista-estado', huella);
+      var encTxt = el.getAttribute('data-texto-encuesta') || 'Rellena primero la encuesta para desbloquearlo.';
+      el.innerHTML = '<div class="lsd-lista">' + lista.map(function (x) {
+        var cuerpo;
+        if (x.url) {
+          var emb = x.tipo === 'video' ? embedVideo(x.url) : '';
+          if (x.tipo === 'video' && emb) cuerpo = '<div class="lsd-lista-video"><iframe src="' + esc(emb) + '" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy" title="' + esc(x.nombre || 'Vídeo') + '"></iframe></div>';
+          else if (x.tipo === 'video' && /\.(mp4|webm|mov)(\?|$)/i.test(x.url)) cuerpo = '<video class="lsd-lista-mp4" controls preload="metadata" src="' + esc(x.url) + '"></video>';
+          else if (x.tipo === 'audio') cuerpo = '<audio controls preload="none" src="' + esc(x.url) + '"></audio>';
+          else cuerpo = '<a class="lsd-recurso-btn" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(BOTON_LISTA[x.tipo] || 'Abrir') + '</a>';
+        } else if (x.unlocked && x.faltaEncuesta) cuerpo = '<p class="lsd-recurso-aviso">🔒 ' + esc(encTxt) + '</p>';
+        else cuerpo = '<p class="lsd-recurso-aviso">🔒 ' + (x.unlockText ? 'Disponible el ' + esc(x.unlockText) + (x.unlockAt ? ' · faltan ' + cdSpan(x.unlockAt) : '') : 'Muy pronto disponible') + '</p>';
+        return '<div class="lsd-lista-item' + (x.url ? '' : ' lsd-lista-lock') + '"><p class="lsd-lista-t"><span class="lsd-lista-n">' + x.n + '</span><span>' + (ICONO_LISTA[x.tipo] || '•') + ' ' + esc(x.nombre || 'Recurso ' + x.n) + '</span></p>' +
+          (x.texto ? '<p class="lsd-lista-s">' + esc(x.texto) + '</p>' : '') + cuerpo + '</div>';
+      }).join('') + '</div>';
+      startCountdowns();
+    });
+  }
+
   function renderRecursos(data, who) {
     ultimaPagina = { data: data, who: who };
     var rec = data.recursos || {};
+    pintarListaRecursos(rec.lista);
     var claseTxt = function (k) { return 'la clase ' + String(k || '').replace('clase', ''); };
     var vista = function (r) { return Boolean(r && (r.claseVista || progresoLocal(data.code, r.tras) >= (r.umbral || 75))); };
     var lockHtml = function (texto, sub) { return '<div class="lsd-rec lsd-rec-lock"><span class="lsd-locked-icon">🔒</span><div><p class="lsd-rec-t">' + esc(texto) + '</p>' + (sub ? '<p class="lsd-rec-s">' + esc(sub) + '</p>' : '') + '</div></div>'; };

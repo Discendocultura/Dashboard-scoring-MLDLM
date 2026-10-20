@@ -23,7 +23,7 @@ import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusM
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
 import { alertasCarrito } from './alertas.js';
 import { BLOQUES, pesosDe, proponerPesos, pesosEfectivos } from './pesos.js';
-import { tieneRecurso, recursosDe, sanitizeRecursos, etapasPreclase, TIPOS_RECURSO, RECURSOS_EXTRA, MAX_PREGUNTAS_COMENTARIOS, clasesConComentarios } from './recursos.js';
+import { tieneRecurso, recursosDe, sanitizeRecursos, etapasPreclase, TIPOS_RECURSO, RECURSOS_EXTRA, MAX_PREGUNTAS_COMENTARIOS, clasesConComentarios, sanitizeListaRecursos, TIPOS_LISTA, nRecursosValido } from './recursos.js';
 import { pintarComentariosLeads } from './comentarios-panel.js';
 import { retrospectiva } from './retrospectiva.js';
 import { diasCarrito, cierrePorDias, diasCarritoValido, CANALES_CARRITO, MAX_ENVIOS_DIA } from './carrito.js';
@@ -5706,6 +5706,11 @@ function pintarPrelanzamientoCfg(l) {
   $$('#config-dialog [data-clase]').forEach((el) => { el.hidden = Number(el.dataset.clase) > nc; });
   // Sin área de recursos preclase: fuera sus páginas, la encuesta de la página y las clases.
   $$('#config-dialog [data-preclase]').forEach((el) => { el.hidden = !preclase; });
+  // Preclase de varios recursos: fuera el calendario y los apartados de las clases (y sus recursos); dentro, la lista.
+  const deRec = preclase && emb.preclaseTipo === 'recursos';
+  $$('#config-dialog [data-sec="2"], #config-dialog [data-sec="4"], #cfg-rec-sec').forEach((el) => { if (deRec) el.hidden = true; });
+  $('#cfg-lista-sec').hidden = !deRec;
+  if (deRec) pintarListaRecCfg(l?.listaRecursos, emb.nRecursos);
   $('#tab-pagina-txt').textContent = preclase ? 'Preclase' : 'Página del directo';
   $$('#config-dialog [data-vip]').forEach((el) => { el.hidden = !vip; });
 }
@@ -5802,6 +5807,8 @@ function openConfig(code, { silencioso = false } = {}) {
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, clase3Url: last.clase3Url, textos: last.textos, imagenes: last.imagenes,
       // Los recursos de la preclase se heredan sin fechas; los que pidió el embudo al crearlo, activos.
       recursosPre: heredarRecursos(last.recursosPre, embudoInfo(state.embudo)?.recursos),
+      // Preclase de varios recursos: los mismos recursos, sin sus fechas.
+      ...(Array.isArray(last.listaRecursos) ? { listaRecursos: last.listaRecursos.map((x) => ({ ...x, at: '' })) } : {}),
       // Pantalla de espera: la que se eligió al crear el embudo; el vídeo, el del último lanzamiento.
       espera: { activa: embudoInfo(state.embudo)?.espera !== false, video: last.espera?.video || '' },
       // La barra fija del replay se hereda sin su fecha (cada lanzamiento tiene la suya).
@@ -7101,10 +7108,26 @@ $('#config-dialog').addEventListener('click', (e) => {
   if (p && !e.target.closest('a, button, code')) p.classList.toggle('abierto');
 });
 
+// ---------- Preclase de varios recursos: la lista (cuántos, en el embudo; qué es cada uno, en el lanzamiento) ----------
+function pintarListaRecCfg(lista, n) {
+  const items = sanitizeListaRecursos(lista, nRecursosValido(n));
+  $('#cfg-lista-rec').innerHTML = items.map((x, i) => `<div class="lista-rec-item" data-lr="${i}">
+      <span class="lista-rec-n" aria-hidden="true">${i + 1}</span>
+      <div class="grid2">
+        <label class="field"><span>Nombre</span><input data-lr-c="nombre" maxlength="120" value="${esc(x.nombre)}" placeholder="P. ej. «Guía de tu ciclo»"></label>
+        <label class="field"><span>Tipo</span><select data-lr-c="tipo">${TIPOS_LISTA.map((t) => `<option value="${t.id}"${t.id === x.tipo ? ' selected' : ''}>${t.icon} ${esc(t.label)}</option>`).join('')}</select></label>
+        <label class="field"><span>Enlace <small>(Vimeo, YouTube, MP4, MP3, PDF o cualquier web)</small></span><input data-lr-c="url" type="url" value="${esc(x.url)}" placeholder="https://…"></label>
+        <label class="field"><span>Se desbloquea <small>(hora de España; vacío = desde el principio)</small></span><input data-lr-c="at" type="datetime-local" value="${esc(x.at)}"></label>
+        <label class="field full"><span>Texto corto <small>(opcional)</small></span><textarea data-lr-c="texto" rows="2" maxlength="400">${esc(x.texto)}</textarea></label>
+      </div>
+    </div>`).join('');
+}
+const leerListaRecCfg = () => $$('#cfg-lista-rec [data-lr]').map((row) => Object.fromEntries($$('[data-lr-c]', row).map((i) => [i.dataset.lrC, i.value.trim()])));
+
 // ---------- Recursos de la preclase (música, test, votación, descargable) ----------
 function nClasesForm() {
   const emb = embudoInfo(editingCode ? embudoDeLanz(state.config.launches[editingCode]) : state.embudo) || {};
-  return emb.preclase === false ? 0 : [1, 2, 3].includes(emb.clases) ? emb.clases : 2;
+  return emb.preclase === false || emb.preclaseTipo === 'recursos' ? 0 : [1, 2, 3].includes(emb.clases) ? emb.clases : 2;
 }
 function heredarRecursos(prev, tipos) {
   const r = sanitizeRecursos(prev, 3);
@@ -7320,6 +7343,7 @@ function readForm() {
       pago: leerPago('cfg'),
       oferta: leerOfertaEditor(),
       recursosPre: leerRecursosCfg(),
+      ...(!$('#cfg-lista-sec').hidden ? { listaRecursos: leerListaRecCfg() } : {}),
       espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim() },
       ventaBarra: leerVentaBarra(),
       titulares: leerTitulares(),
@@ -8075,7 +8099,8 @@ function snippetsLanzamiento(code) {
       `<div data-lsd-login data-launch="auto"\n     data-title="Accede a las clases con tu email y tu WhatsApp"\n     data-movil="si"\n     data-button="Acceder a las clases"></div>\n<!-- data-movil: «si» (obligatorio), «opcional» o «no». El WhatsApp se guarda en su ficha de GHL si no tenía teléfono. -->\n${script}`],
     ['RECURSOS · bloque base (una vez por página, en cualquier sitio)', `<div data-lsd-page="recursos" data-launch="auto"></div>\n${script}`],
     ['RECURSOS · barra de urgencia (dale estilo de barra fija arriba)', '<div class="mi-barra" data-lsd-bar></div>'],
-    ['RECURSOS · vídeo de la clase 1 (bloqueado con cuenta atrás hasta su hora)', '<div data-lsd-video="clase1"></div>'],
+    ...(state.config.launches[code]?.preclaseTipo === 'recursos' ? [['RECURSOS · lista de recursos de la preclase (todos en un bloque, por orden; cada uno con candado y fecha hasta que se abre)', '<div data-lsd-lista-recursos></div>']] : []),
+    ...(nClases(state.config.launches[code]) >= 1 ? [['RECURSOS · vídeo de la clase 1 (bloqueado con cuenta atrás hasta su hora)', '<div data-lsd-video="clase1"></div>']] : []),
     ...(nClases(state.config.launches[code]) >= 2 ? [['RECURSOS · vídeo de la clase 2', '<div data-lsd-video="clase2"></div>']] : []),
     ...(nClases(state.config.launches[code]) >= 3 ? [['RECURSOS · vídeo de la clase 3', '<div data-lsd-video="clase3"></div>']] : []),
     ...(!conVip(state.config.launches[code]) ? [] : [['RECURSOS · oferta VIP (se oculta al empezar el directo y a quien ya es VIP)',
@@ -13164,14 +13189,27 @@ function pintarEmbPrelanz() {
 }
 const embPrelanz = () => (embTipo() === 'lanzamientos' ? {
   preclase: $('#emb-preclase').value === 'si', clases: Number($('#emb-clases').value), vip: $('#emb-vip').value === 'si',
-  recursos: $('#emb-preclase').value === 'si' ? $$('input[name="emb-recurso"]:checked').map((i) => i.value) : [],
+  preclaseTipo: embPreTipo(), nRecursos: Number($('#emb-nrec').value) || 3,
+  recursos: $('#emb-preclase').value === 'si' && embPreTipo() === 'clases' ? $$('input[name="emb-recurso"]:checked').map((i) => i.value) : [],
   espera: $('#emb-preclase').value === 'si' && $('#emb-espera').value === 'si',
   vipContadorBase: Math.max(0, Math.floor(Number($('#emb-vip-base').value.replace(/\./g, '')) || 0)),
 } : {});
 const pintarEmbVipBase = () => { $('#emb-vip-base-box').hidden = embTipo() !== 'lanzamientos' || $('#emb-vip').value !== 'si'; };
 $('#emb-vip').addEventListener('change', pintarEmbVipBase);
 // Sin área preclase no hay clases: se oculta el número de clases.
-const pintarEmbClases = () => { const no = $('#emb-preclase').value === 'no'; $('#emb-clases-box').hidden = no; $('#emb-recursos-card').hidden = no; $('#emb-espera-card').hidden = no; };
+// Tipo de preclase: clases grabadas (con sus recursos: música, test, votación…) o varios recursos (solo cuántos).
+const embPreTipo = () => ($('input[name="emb-pretipo"]:checked')?.value === 'recursos' ? 'recursos' : 'clases');
+const pintarEmbClases = () => {
+  const no = $('#emb-preclase').value === 'no';
+  const deRecursos = embPreTipo() === 'recursos';
+  $('#emb-pretipo-box').hidden = no;
+  $('#emb-clases-box').hidden = no || deRecursos;
+  $('#emb-nrec-box').hidden = no || !deRecursos;
+  $('#emb-recursos-card').hidden = no || deRecursos; // esos recursos son de las clases
+  $('#emb-espera-card').hidden = no;
+};
+$$('input[name="emb-pretipo"]').forEach((i) => i.addEventListener('change', () => { pintarEmbClases(); pintarEmbGuia(); }));
+$('#emb-nrec').addEventListener('change', pintarEmbGuia);
 $('#emb-preclase').addEventListener('change', () => { pintarEmbClases(); pintarEmbGuia(); });
 // Paso «Dashboard»: categorías del menú (Comercial, Leads, Métricas…) con sus secciones para marcar.
 function pintarEmbPestanas(activas, ocultas = []) {
@@ -13351,7 +13389,7 @@ function pintarEmbResumen() {
   if (tipo === 'lanzamientos' && !plantilla) {
     const pre = $('#emb-preclase').value === 'si';
     const rec = $$('input[name="emb-recurso"]:checked').map((i) => i.closest('label').textContent.replace(/\(.*\)/, '').trim());
-    filas.push(['Área preclase', pre ? `Sí · ${$('#emb-clases').selectedOptions[0].text}${rec.length ? ` · ${rec.join(', ')}` : ''}` : 'No']);
+    filas.push(['Área preclase', !pre ? 'No' : embPreTipo() === 'recursos' ? `Sí · ${$('#emb-nrec').selectedOptions[0].text} (vídeos, audios, descargables o enlaces)` : `Sí · ${$('#emb-clases').selectedOptions[0].text}${rec.length ? ` · ${rec.join(', ')}` : ''}`]);
     filas.push(['Entrada VIP', $('#emb-vip').value === 'si' ? `Sí · el contador empieza en ${$('#emb-vip-base').value || 0}` : 'No']);
     if (pre) filas.push(['Pantalla de espera', $('#emb-espera').value === 'si' ? 'Sí, 59 min antes y entra sola al webinar' : 'No']);
   }
@@ -13376,7 +13414,7 @@ $('#emb-plantilla').addEventListener('change', () => irPasoEmb(embPaso));
 
 function pintarEmbGuia() {
   const pasos = guiaEmbudo(embTipo(), embPestanas(), embFormato(), embSubtipo(), { preclase: $('#emb-preclase').value !== 'no', partes: embEdit ? state.config.directas?.[embEdit]?.partes : partesElegidas('#emb-partes') });
-  const rec = embTipo() === 'lanzamientos' && $('#emb-preclase').value !== 'no' ? $$('input[name="emb-recurso"]:checked').map((i) => i.value) : [];
+  const rec = embTipo() === 'lanzamientos' && $('#emb-preclase').value !== 'no' && embPreTipo() === 'clases' ? $$('input[name="emb-recurso"]:checked').map((i) => i.value) : [];
   if (rec.length) {
     pasos.push({ titulo: `${pasos.length + 1} · Recursos de la preclase`, pasos: [
       ...(rec.includes('musica') ? ['<strong>Música:</strong> sube el MP3 a GHL → <em>Medios</em> y copia su enlace (va en Configuración → Preclase).'] : []),
@@ -13468,6 +13506,8 @@ function abrirNuevoEmbudo({ preset } = {}) {
   $('#emb-formato-box').hidden = true;
   $('#emb-preclase').value = 'si';
   $('#emb-clases').value = '2';
+  $('input[name="emb-pretipo"][value="clases"]').checked = true;
+  $('#emb-nrec').value = '3';
   $('#emb-vip').value = 'si';
   $('#emb-vip-base').value = esPrincipal() ? '41' : '0';
   $$('input[name="emb-recurso"]').forEach((i) => { i.checked = false; });
@@ -13508,6 +13548,8 @@ function abrirEditarEmbudo(id) {
   $('#emb-formato').value = e.formato || 'webinar';
   $('#emb-preclase').value = e.preclase === false ? 'no' : 'si';
   $('#emb-clases').value = String(e.clases || 2);
+  $(`input[name="emb-pretipo"][value="${e.preclaseTipo === 'recursos' ? 'recursos' : 'clases'}"]`).checked = true;
+  $('#emb-nrec').value = String(e.nRecursos || 3);
   $('#emb-vip').value = e.vip === false ? 'no' : 'si';
   $$('input[name="emb-recurso"]').forEach((i) => { i.checked = (e.recursos || []).includes(i.value); });
   $('#emb-espera').value = e.espera === false ? 'no' : 'si';

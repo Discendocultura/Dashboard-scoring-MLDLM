@@ -25,6 +25,25 @@ export const TIPOS_RECURSO = [
 ];
 export const RECURSOS_EXTRA = ['musica', 'test', 'votacion', 'descargable', 'comentarios'];
 export const MAX_PREGUNTAS_COMENTARIOS = 5;
+
+// ---- Preclase de «varios recursos» (en vez de clases grabadas): una lista de N recursos, cada uno con su tipo ----
+// El embudo dice cuántos (nRecursos) y cada lanzamiento los rellena: { nombre, tipo, url, at (desbloqueo), texto }.
+export const TIPOS_LISTA = [
+  { id: 'video', label: 'Vídeo', icon: '🎬', boton: 'Ver el vídeo' },
+  { id: 'audio', label: 'Audio', icon: '🎧', boton: 'Escuchar' },
+  { id: 'descargable', label: 'Descargable (PDF, guía…)', icon: '📄', boton: 'Descargar' },
+  { id: 'enlace', label: 'Enlace', icon: '🔗', boton: 'Abrir' },
+];
+export const MAX_LISTA_RECURSOS = 12;
+export const nRecursosValido = (n) => Math.min(MAX_LISTA_RECURSOS, Math.max(1, Math.floor(Number(n)) || 3));
+export function sanitizeListaRecursos(arr, n = 3) {
+  const lista = Array.isArray(arr) ? arr : [];
+  return Array.from({ length: nRecursosValido(n) }, (_, i) => {
+    const x = lista[i] || {};
+    return { nombre: str(x.nombre, 120), tipo: TIPOS_LISTA.some((t) => t.id === x.tipo) ? x.tipo : 'video', url: url(x.url), at: localDT(x.at), texto: str(x.texto, 400) };
+  });
+}
+export const listaRecursosDe = (launch) => (Array.isArray(launch?.listaRecursos) ? launch.listaRecursos : []);
 export const UMBRAL_DESBLOQUEO = 75; // % de la clase que hay que ver para la música y la votación
 
 const str = (v, max) => String(v ?? '').trim().slice(0, max);
@@ -113,6 +132,7 @@ export const recursosDe = (launch) => {
 };
 // ¿Tiene el lanzamiento ese recurso (activo y con lo mínimo para funcionar)?
 export function tieneRecurso(launch, tipo) {
+  if (launch?.preclaseTipo === 'recursos') return false; // esos recursos son de las clases: en la preclase de recursos no van
   const r = recursosDe(launch)[tipo];
   if (!r?.activo) return false;
   if (tipo === 'votacion') return preguntasValidas(r).length > 0;
@@ -129,8 +149,11 @@ export function etapasPreclase(launch, nClases = 2) {
   // El test va como etapa propia, salvo que esté debajo de una clase (entonces es un recurso de esa clase).
   if (tieneRecurso(launch, 'test') && !r.test.tras) items.push({ id: 'test', tipo: 'test', label: r.test.nombre || 'Test', at: madridToEpoch(r.test.at) });
   if (tieneRecurso(launch, 'descargable')) items.push({ id: 'descargable', tipo: 'descargable', label: r.descargable.nombre || 'Recurso', at: madridToEpoch(r.descargable.at) });
+  // Preclase de varios recursos: cada recurso de la lista es una etapa.
+  if (launch?.preclaseTipo === 'recursos') listaRecursosDe(launch).forEach((x, i) => { if (x.url) items.push({ id: `r${i + 1}`, tipo: 'recurso', label: x.nombre || `Recurso ${i + 1}`, at: madridToEpoch(x.at) }); });
   // Por fecha; sin fecha, en el orden en que están (clases, test, descargable) y al final.
-  const orden = items.map((x, i) => ({ ...x, i })).sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity) || a.i - b.i);
+  // (La preclase de varios recursos va en el orden en que se pusieron.)
+  const orden = launch?.preclaseTipo === 'recursos' ? items : items.map((x, i) => ({ ...x, i })).sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity) || a.i - b.i);
   const conEncuesta = Boolean(launch?.encuestaTag);
   const etapas = [];
   if (conEncuesta) etapas.push({ id: 'encuesta', tipo: 'encuesta', label: 'Encuesta', at: null });

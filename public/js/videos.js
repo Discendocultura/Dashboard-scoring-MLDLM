@@ -63,6 +63,8 @@ export const esEnDirecto = (v) => Boolean(v?.zoomMeetingId || v?.zoomJoinUrl);
 // Sin área preclase no hay clases (0) y la puntuación se reparte entre la VIP y los vídeos del lanzamiento.
 export const MAX_CLASES = 3;
 export const conPreclase = (l) => l?.preclase !== false;
-export const nClases = (l) => (!conPreclase(l) ? 0 : [1, 2, 3].includes(Number(l?.nClases)) ? Number(l.nClases) : 2);
+// Preclase de «varios recursos» (preclaseTipo 'recursos'): sin clases grabadas, solo su lista de recursos.
+export const preclaseDeRecursos = (l) => conPreclase(l) && l?.preclaseTipo === 'recursos';
+export const nClases = (l) => (!conPreclase(l) || preclaseDeRecursos(l) ? 0 : [1, 2, 3].includes(Number(l?.nClases)) ? Number(l.nClases) : 2);
 export const clasesDe = (l) => Array.from({ length: nClases(l) }, (_, i) => `clase${i + 1}`);
 export const conVip = (l) => l?.vip !== false;

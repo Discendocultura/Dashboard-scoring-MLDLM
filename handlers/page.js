@@ -18,7 +18,7 @@ import { phaseAt, barFor, replayBarraDe, ventaBarraDe, textosPago, enlaceWhatsAp
 import { videosDe, conVip, nClases, esEnDirecto, sigReplay } from '../public/js/videos.js';
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
-import { recursosDe, tieneRecurso, etapasPreclase, preguntasValidas, UMBRAL_DESBLOQUEO } from '../public/js/recursos.js';
+import { recursosDe, tieneRecurso, etapasPreclase, preguntasValidas, UMBRAL_DESBLOQUEO, listaRecursosDe } from '../public/js/recursos.js';
 import { votoDe, votosDe, resultadosVotos, claveVotos } from '../lib/votos.js';
 
 export function OPTIONS() {
@@ -272,6 +272,14 @@ async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, p
     const unlocked = at == null || now >= at;
     recursos.descargable = { nombre: r.descargable.nombre, unlockAt: at, unlockText: formatLong(at), unlocked, abierto: Boolean(sig?.descarga), url: unlocked ? r.descargable.url : '' };
   }
+  // Preclase de varios recursos: la lista, cada uno con su fecha de desbloqueo (y la encuesta antes, si la hay).
+  if (launch.preclaseTipo === 'recursos') {
+    recursos.lista = listaRecursosDe(launch).map((x, i) => ({ ...x, n: i + 1 })).filter((x) => x.url).map((x) => {
+      const at = madridToEpoch(x.at);
+      const unlocked = at == null || now >= at || (preview && !contact);
+      return { n: x.n, id: `r${x.n}`, nombre: x.nombre, tipo: x.tipo, texto: x.texto, unlockAt: at, unlockText: formatLong(at), unlocked, faltaEncuesta: !encuestaDone, url: unlocked && encuestaDone ? x.url : '' };
+    });
+  }
   const enDirecto = m.directo != null && now >= m.directo - 30 * 60_000;
   const etapas = etapasPreclase(launch, nClases(launch)).map((e) => {
     let estado = 'disponible';
@@ -279,7 +287,7 @@ async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, p
     else if (e.tipo === 'clase') estado = !claseDisponible(e.id) ? 'bloqueada' : vistaClase(e.id) ? 'hecha' : 'disponible';
     else if (e.tipo === 'test') estado = !recursos.test.unlocked || recursos.test.faltaEncuesta ? 'bloqueada' : recursos.test.done ? 'hecha' : 'disponible';
     else if (e.tipo === 'descargable') estado = !recursos.descargable.unlocked ? 'bloqueada' : recursos.descargable.abierto ? 'hecha' : 'disponible';
-    else if (e.tipo === 'directo') estado = sig?.directo_asistio ? 'hecha' : enDirecto ? 'disponible' : 'bloqueada';
+    else if (e.tipo === 'recurso') { const x = recursos.lista?.find((y) => y.id === e.id); estado = x?.unlocked && !x.faltaEncuesta ? 'disponible' : 'bloqueada'; } else if (e.tipo === 'directo') estado = sig?.directo_asistio ? 'hecha' : enDirecto ? 'disponible' : 'bloqueada';
     const at = e.tipo === 'directo' ? m.directo : e.at;
     return { n: e.n, id: e.id, tipo: e.tipo, label: e.label, estado, unlockAt: at ?? null, unlockText: formatLong(at) };
   });
