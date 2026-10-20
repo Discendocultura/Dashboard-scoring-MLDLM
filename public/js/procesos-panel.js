@@ -9,6 +9,8 @@
 import { richToHtml, sanitizeRich, safeHref, videoEmbed, richToText } from './richtext.js';
 import { buscarProcesos, documentado, tieneVideo, estadoFecha, proximaTrasHecho, enProyecto, encajaEnRepetir, primeraFechaRepetir, textoRepetir as REPETIR_TXT } from './procesos.js';
 import { editorRepetir, leerRepetir, pulsarDsem } from './repetir-ui.js';
+import { tablerosDe, columnaDeTarea, ordenColumna } from './tableros.js';
+import { idSeccion } from './procesos.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const hoyMadrid = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
@@ -376,7 +378,7 @@ function abrirAsistente() {
 async function cargarOperativa() {
   if (operativa) return operativa;
   const d = await ctx.api('/api/operativa');
-  operativa = { tareas: d.tareas || [], tableros: d.tableros || [], proyectos: (d.proyectos || []).filter((x) => x.id !== '_agencia') };
+  operativa = { tareas: d.tareas || [], tableros: d.tableros || [], proyectos: d.proyectos || [] };
   return operativa;
 }
 const tablerosDeProy = (id) => [{ id: 'general', nombre: 'General' }, ...operativa.tableros.filter((b) => b.proyecto === id && b.id !== 'general')]
@@ -565,7 +567,7 @@ function crearHtml() {
       <p class="muted">Aquí van los procesos <strong>generales</strong> de la agencia (los que sirven para cualquier cliente). ¿Cómo quieres crearlo?</p>
       <div class="pr-crear-ops">
         <button type="button" class="pr-crear-op" data-pr="crear-cero"><span class="pr-crear-ico">✍️</span><strong>Desde cero</strong><span class="muted small">Escribe el título, los pasos, los vídeos y las subtareas.</span></button>
-        <button type="button" class="pr-crear-op" data-pr="crear-tablero"><span class="pr-crear-ico">📥</span><strong>Importar de un tablero</strong><span class="muted small">Copia una tarea que ya tengas en el tablero de algún cliente: su descripción y su checklist (como subtareas).</span></button>
+        <button type="button" class="pr-crear-op" data-pr="crear-tablero"><span class="pr-crear-ico">📥</span><strong>Importar de un tablero</strong><span class="muted small">Copia una tarea que ya tengas en un tablero de la Operativa (descripción y checklist como subtareas), o el tablero entero: cada columna, una categoría.</span></button>
       </div>
     </section>`;
   }
@@ -581,10 +583,43 @@ function crearHtml() {
       <label class="field"><span>Tablero</span><select data-pr-origen="tablero" ${origen.proyecto ? '' : 'disabled'}><option value="">Todos los tableros</option>${tabs.map((b) => `<option value="${esc(b.id)}"${origen.tablero === b.id ? ' selected' : ''}>${esc(b.nombre)}</option>`).join('')}</select></label>
       <label class="field"><span>Buscar</span><input type="search" data-pr-origen="q" value="${esc(origen.q)}" placeholder="Nombre de la tarea…" ${origen.proyecto ? '' : 'disabled'}></label>
     </div>
+    ${origen.proyecto && origen.tablero ? botonTableroEntero() : ''}
     ${!origen.proyecto ? '<p class="muted">Elige el cliente para ver las tareas de sus tableros.</p>'
     : lista.length ? `<ul class="pr-crear-lista">${lista.map((t) => `<li><button type="button" class="pr-crear-t" data-pr-copiar="${esc(`${t.cliente}|${t.code}|${t.id}`)}"><strong>${esc(t.titulo)}</strong><span class="muted small">${esc(tabs.find((b) => b.id === tableroDe(t))?.nombre || 'General')}${t.embudo ? ` · ${esc(t.embudo)}` : ''}${t.checklist?.length ? ` · ☑ ${t.checklist.length} pasos` : ''}${richToText(t.notas).trim() ? ' · 📝 con descripción' : ''}</span></button></li>`).join('')}</ul>`
     : '<p class="muted">No hay tareas que coincidan.</p>'}
   </section>`;
+}
+
+// «Importar el tablero entero»: cada columna del tablero es una categoría (en su orden) y cada tarjeta, un proceso
+// de esa categoría (en su orden), con su descripción y su checklist como subtareas. Se puede repetir: los procesos
+// llevan el id de su tarea, así que la segunda vez se actualizan en vez de duplicarse.
+function tableroEntero() {
+  const tab = tablerosDe({ tableros: operativa.tableros }, origen.proyecto).find((b) => b.id === origen.tablero);
+  if (!tab) return null;
+  const tareas = operativa.tareas.filter((t) => t.cliente === origen.proyecto && tableroDe(t) === tab.id);
+  const procesos = tab.columnas.flatMap((c) => tareas.filter((t) => columnaDeTarea(t, tab) === c.id).sort(ordenColumna).map((t) => ({
+    id: `op-${t.id}`.slice(0, 40), seccion: idSeccion(c.nombre), titulo: t.titulo, html: t.notas || '',
+    subtareas: (t.checklist || []).map((x) => ({ texto: x.texto, hecha: false })),
+  })));
+  // Solo las columnas con tarjetas (una columna vacía, como «Hecho», no hace falta como categoría).
+  const secciones = tab.columnas.filter((c) => procesos.some((p) => p.seccion === idSeccion(c.nombre))).map((c) => ({ id: idSeccion(c.nombre), titulo: c.nombre }));
+  return { tab, secciones, procesos };
+}
+function botonTableroEntero() {
+  const x = tableroEntero();
+  if (!x || !x.procesos.length) return '';
+  return `<div class="pr-tab-entero"><div><strong>📚 Importar el tablero «${esc(x.tab.nombre)}» entero</strong><span class="muted small">${x.procesos.length} procesos en ${x.secciones.length} categorías: ${x.secciones.map((s) => esc(s.titulo)).join(' · ')}</span></div><button type="button" class="btn primary" data-pr="importar-tablero">Importar todo</button></div>`;
+}
+async function importarTableroEntero() {
+  const x = tableroEntero();
+  if (!x?.procesos.length) return;
+  if (!window.confirm(`Se crearán ${x.procesos.length} procesos en ${x.secciones.length} categorías (las columnas de «${x.tab.nombre}»). Si ya los importaste antes, se actualizan. ¿Seguir?`)) return;
+  try {
+    const d = await enviar({ op: 'importar', biblioteca: { secciones: x.secciones, procesos: x.procesos, origen: x.tab.nombre } });
+    creando = ''; abierto = ''; sec = '';
+    pintar();
+    window.alert(`✓ Tablero «${x.tab.nombre}» importado: ${d.nuevos} procesos nuevos y ${d.actualizados} actualizados.`);
+  } catch (err) { window.alert(err.message); }
 }
 
 async function crearProceso(extra = {}) {
@@ -753,6 +788,7 @@ async function onClick(e) {
   if (a === 'asis-crear') { asisCrear(b); return; }
   if (a === 'crear-cero') { abrirAsistente(); return; }
   if (a === 'crear-volver') { creando = 'elegir'; pintarLista(); return; }
+  if (a === 'importar-tablero') { b.disabled = true; await importarTableroEntero(); b.disabled = false; return; }
   if (a === 'crear-tablero') {
     creando = 'tablero';
     pintarLista();

@@ -7928,3 +7928,6 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .tb-sub-panel { display: flex; flex-direction: column; gap: 2px; padding: 2px 0 6px 14px; margin-left: 14px; border-left: 1px solid rgb(255 255 255 / .12); }
 .tb-sub:not([open]) .tb-sub-panel { display: none; }
 .tb-sub-panel .tb-menu-t { padding-top: 6px; }
+/* Procesos → Importar de un tablero: el tablero entero */
+.pr-tab-entero { display: flex; align-items: center; gap: 14px; justify-content: space-between; flex-wrap: wrap; margin: 6px 0 14px; padding: 12px 14px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--surface)), var(--surface)); }
+.pr-tab-entero > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }

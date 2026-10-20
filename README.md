@@ -1457,6 +1457,8 @@ En el menú lateral, debajo de **Inicio** (con «Decide con criterio» debajo de
 7. **🧭 Tus embudos activos**: nombre, tipo, estado y 4 cifras (Facturación, Ventas, ROAS y Conversión; en venta directa y meteóricos, el ticket medio). Pulsando, su embudo. Con 1, a todo el ancho; con más, en columnas que siempre llenan la fila.
 8. **💬 Te han mencionado**, solo si hay algo. Menos margen a los lados (hasta 1640 px).
 
+**Procesos → Importar un tablero entero de la Operativa** (p. ej. «Procesos Discendo» del proyecto Agencia): en Procesos → ＋ Nuevo proceso → 📥 Importar de un tablero, al elegir el proyecto (ahora también **Agencia**) y el tablero sale «📚 Importar el tablero entero»: cada columna con tarjetas pasa a ser una **categoría** (en su orden) y cada tarjeta un **proceso** de esa categoría (en su orden), con su descripción y su checklist como subtareas. Se puede repetir: cada proceso lleva el id de su tarjeta (`op-<id>`), así que la segunda vez se actualiza en vez de duplicarse (`tableroEntero` en `public/js/procesos-panel.js`, op `importar`).
+
 **Columnas de la Operativa más anchas de serie**: 340 px como mínimo (antes 260); si no caben todas, el tablero se desplaza en horizontal. Las que se han ajustado a mano conservan su ancho (`ANCHO_COL` en `public/js/operativa-panel.js`).
 
 **La Operativa se abre a la derecha del menú lateral**, que sigue visible: pulsar cualquier cosa del lateral la cierra y te lleva allí (y mientras está abierta, «Operativa» sale marcada). Sin «← Volver al inicio».
