@@ -8075,3 +8075,15 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .lista-rec-item > .grid2 { flex: 1; min-width: 0; }
 .lista-rec-item .field.full { grid-column: 1 / -1; }
 @media (max-width: 600px) { .lista-rec-item { flex-direction: column; } }
+.snip-tiene { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
+/* Pies de las ventanas: los botones nunca se aplastan (si no caben, bajan a otra fila) */
+.dialog-foot { flex-wrap: wrap; row-gap: 8px; }
+.dialog-foot > .btn, .dialog-foot > button, .dialog-foot > a.btn { flex-shrink: 0; white-space: nowrap; }
+.dialog-foot > .spacer { flex: 1 1 0; min-width: 0; }
+.dialog-foot { justify-content: flex-end; }
+/* Embudo (nuevo o editar): si no cabe todo en una fila, los botones de avanzar y guardar arriba y juntos; eliminar y plantilla debajo */
+#embudo-dialog .dialog-foot { container-type: inline-size; }
+@container (max-width: 900px) {
+  #emb-borrar, #emb-plantilla-guardar { order: 9; }
+  #embudo-dialog .dialog-foot > .spacer { flex-basis: 100%; order: 8; height: 0; }
+}

@@ -12,7 +12,7 @@ import { lanzarConfeti } from './confeti.js';
 import { negocioHtml, PERIODOS_TXT, SECCIONES_NG, recosHtml, botonCalidad } from './negocio-vista.js';
 import { ayudaMetaHtml, limpiarCuentaMeta, pistaError, pasosDe, SERVICIOS, ETAPAS as ETAPAS_CX } from './integrar-crm.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch, CAJAS_PAGO, numeroWhatsApp, enlaceWhatsApp, leerEnlaceWhatsApp } from './page.js';
-import { FORMATOS, formatoValido, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, esReto, nVideos, nombreVideo } from './videos.js';
+import { FORMATOS, formatoValido, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, conPreclase, preclaseDeRecursos, esReto, nVideos, nombreVideo } from './videos.js';
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, MIN_REGISTROS, resumenLanzamiento, prevision, resumenManual, medias, supuestosEscenario, inversionRecomendada, proyeccion, planificar, PLAN_DEF } from './calculadora.js';
 import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
@@ -8092,51 +8092,59 @@ function respaldoDirecto(launch) {
 function snippetsLanzamiento(code) {
   const origin = location.origin;
   const script = `<script src="${origin}/tracker.js${cParam()}" defer></script>`;
+  // Solo los códigos de lo que tiene este embudo (se eligió al crearlo): sin preclase, nada de login ni de la preclase;
+  // con preclase de varios recursos, su lista en vez de las clases; sin VIP, sin su bloque; sin encuesta, sin la suya.
+  const l = state.config.launches[code] || {};
+  const pre = conPreclase(l);
+  const deRec = preclaseDeRecursos(l);
+  const nc = nClases(l);
+  const qué = deRec ? 'los recursos' : 'las clases';
+  const si = (cond, ...items) => (cond ? items : []);
   return [
     ['REGISTRO · visitas únicas de la página de registro (en el footer; para la conversión de la página en Métricas)',
       `<div data-lsd-registro data-launch="auto"></div>\n${script}`],
-    ['LOGIN · bloque del formulario (no cambia entre lanzamientos)',
-      `<div data-lsd-login data-launch="auto"\n     data-title="Accede a las clases con tu email y tu WhatsApp"\n     data-movil="si"\n     data-button="Acceder a las clases"></div>\n<!-- data-movil: «si» (obligatorio), «opcional» o «no». El WhatsApp se guarda en su ficha de GHL si no tenía teléfono. -->\n${script}`],
+    ...si(pre, ['LOGIN · bloque del formulario (no cambia entre lanzamientos)',
+      `<div data-lsd-login data-launch="auto"\n     data-title="Accede a ${qué} con tu email y tu WhatsApp"\n     data-movil="si"\n     data-button="Acceder a ${qué}"></div>\n<!-- data-movil: «si» (obligatorio), «opcional» o «no». El WhatsApp se guarda en su ficha de GHL si no tenía teléfono. -->\n${script}`],
     ['RECURSOS · bloque base (una vez por página, en cualquier sitio)', `<div data-lsd-page="recursos" data-launch="auto"></div>\n${script}`],
-    ['RECURSOS · barra de urgencia (dale estilo de barra fija arriba)', '<div class="mi-barra" data-lsd-bar></div>'],
-    ...(state.config.launches[code]?.preclaseTipo === 'recursos' ? [['RECURSOS · lista de recursos de la preclase (todos en un bloque, por orden; cada uno con candado y fecha hasta que se abre)', '<div data-lsd-lista-recursos></div>']] : []),
-    ...(nClases(state.config.launches[code]) >= 1 ? [['RECURSOS · vídeo de la clase 1 (bloqueado con cuenta atrás hasta su hora)', '<div data-lsd-video="clase1"></div>']] : []),
-    ...(nClases(state.config.launches[code]) >= 2 ? [['RECURSOS · vídeo de la clase 2', '<div data-lsd-video="clase2"></div>']] : []),
-    ...(nClases(state.config.launches[code]) >= 3 ? [['RECURSOS · vídeo de la clase 3', '<div data-lsd-video="clase3"></div>']] : []),
-    ...(!conVip(state.config.launches[code]) ? [] : [['RECURSOS · oferta VIP (se oculta al empezar el directo y a quien ya es VIP)',
+    ['RECURSOS · barra de urgencia (dale estilo de barra fija arriba)', '<div class="mi-barra" data-lsd-bar></div>']),
+    ...(deRec ? [['RECURSOS · lista de recursos de la preclase (todos en un bloque, por orden; cada uno con candado y fecha hasta que se abre)', '<div data-lsd-lista-recursos></div>']] : []),
+    ...(nc >= 1 ? [['RECURSOS · vídeo de la clase 1 (bloqueado con cuenta atrás hasta su hora)', '<div data-lsd-video="clase1"></div>']] : []),
+    ...(nc >= 2 ? [['RECURSOS · vídeo de la clase 2', '<div data-lsd-video="clase2"></div>']] : []),
+    ...(nc >= 3 ? [['RECURSOS · vídeo de la clase 3', '<div data-lsd-video="clase3"></div>']] : []),
+    ...(!pre || !conVip(l) ? [] : [['RECURSOS · oferta VIP (se oculta al empezar el directo y a quien ya es VIP)',
       '<div data-lsd-if="vip-abierta">\n  Entrada VIP por <span data-lsd-text="precioVip"></span> · se cierra en <span data-lsd-countdown="vip"></span>\n  <a data-lsd-link="vip">Quiero mi entrada VIP</a>\n</div>\n<div data-lsd-if="ya-vip">✓ Ya tienes tu entrada VIP</div>']]),
-    ['RECURSOS · botón del grupo de WhatsApp', '<a data-lsd-link="whatsapp" target="_blank">Unirme al grupo de WhatsApp</a>'],
+    ...si(pre, ['RECURSOS · botón del grupo de WhatsApp', '<a data-lsd-link="whatsapp" target="_blank">Unirme al grupo de WhatsApp</a>'],
     ['RECURSOS · botón del directo', '<a data-lsd-link="directo">Entrar al directo</a>'],
-    ['RECURSOS · plan B del directo: botón directo a Zoom (solo aparece el día del directo, desde su hora y durante 3 h, y solo si AlquimIA no carga; ponlo arriba de la preclase y bajo el acceso. Lleva la fecha, la hora y el Zoom de ESTE lanzamiento: vuelve a pegarlo si cambian)', respaldoDirecto(state.config.launches[code])],
-    ['RECURSOS · encuesta (sin ella no se ven las clases 1 y 2)',
-      '<div data-lsd-if="encuesta-pendiente">\n  Antes de ver las clases, cuéntanos un poco sobre ti\n  <a data-lsd-link="encuesta">Rellenar la encuesta</a>\n</div>\n<div data-lsd-if="encuesta-hecha">✓ ¡Gracias por rellenar la encuesta!</div>'],
+    ['RECURSOS · plan B del directo: botón directo a Zoom (solo aparece el día del directo, desde su hora y durante 3 h, y solo si AlquimIA no carga; ponlo arriba de la preclase y bajo el acceso. Lleva la fecha, la hora y el Zoom de ESTE lanzamiento: vuelve a pegarlo si cambian)', respaldoDirecto(l)]),
+    ...si(pre && Boolean(l.encuestaTag), [`RECURSOS · encuesta (sin ella no se ven ${qué})`,
+      `<div data-lsd-if="encuesta-pendiente">\n  Antes de ver ${qué}, cuéntanos un poco sobre ti\n  <a data-lsd-link="encuesta">Rellenar la encuesta</a>\n</div>\n<div data-lsd-if="encuesta-hecha">✓ ¡Gracias por rellenar la encuesta!</div>`]),
     // Recursos de la preclase (pestaña Preclase): música, test, votación, descargable y etapas.
-    ...(tieneRecurso(state.config.launches[code], 'musica') ? [['RECURSOS · música (debajo de su clase; se desbloquea al ver el 75 % de la clase)', '<div data-lsd-audio="musica"></div>']] : []),
-    ...(tieneRecurso(state.config.launches[code], 'test') ? [['RECURSOS · test (botón; se desbloquea en su fecha y con la encuesta rellenada)',
+    ...(tieneRecurso(l, 'musica') ? [['RECURSOS · música (debajo de su clase; se desbloquea al ver el 75 % de la clase)', '<div data-lsd-audio="musica"></div>']] : []),
+    ...(tieneRecurso(l, 'test') ? [['RECURSOS · test (botón; se desbloquea en su fecha y con la encuesta rellenada)',
       '<div data-lsd-if="test-bloqueado">🔒 El test se abre en <span data-lsd-countdown="test"></span></div>\n<div data-lsd-if="test-falta-encuesta">🔒 Para hacer el test, rellena primero la encuesta (etapa 1)</div>\n<div data-lsd-if="test-disponible">\n  <a data-lsd-link="test">Hacer el test</a>\n</div>\n<div data-lsd-if="test-hecho">✓ ¡Test completado!</div>']] : []),
-    ...(tieneRecurso(state.config.launches[code], 'votacion') ? [['RECURSOS · votación (debajo de su clase; se abre al ver el 75 % de la clase; tipo test enseña los % al responder)', '<div data-lsd-votacion></div>']] : []),
-    ...(tieneRecurso(state.config.launches[code], 'comentarios') ? [['RECURSOS · comentarios de las clases (un solo bloque debajo de la sección de las clases, con una pestaña por clase; cada pestaña se abre cuando su clase está disponible)', '<div data-lsd-comentarios="todas"></div>']] : []),
-    ...(tieneRecurso(state.config.launches[code], 'descargable') ? [['RECURSOS · recurso descargable (se mide quién lo abre)', '<div data-lsd-if="descargable-bloqueado">🔒 Disponible en <span data-lsd-countdown="descargable"></span></div>\n<a data-lsd-if="descargable-disponible" data-lsd-link="descargable">Descargar</a>']] : []),
-    ['RECURSOS · imagen de una etapa (la URL se pone en Configuración → Preclase; sin imagen, se oculta)', '<img data-lsd-img="clase1" alt="">'],
-    ['RECURSOS · etapas (cada caja recibe data-lsd-estado="bloqueada | disponible | hecha" para el diseño)',
-      etapasPreclase(state.config.launches[code], nClases(state.config.launches[code])).map((e) => `<div data-lsd-etapa="${e.id}">Etapa <span data-lsd-etapa-n="${e.id}"></span> · ${e.label}</div>`).join('\n')],
-    ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>'],
+    ...(tieneRecurso(l, 'votacion') ? [['RECURSOS · votación (debajo de su clase; se abre al ver el 75 % de la clase; tipo test enseña los % al responder)', '<div data-lsd-votacion></div>']] : []),
+    ...(tieneRecurso(l, 'comentarios') ? [['RECURSOS · comentarios de las clases (un solo bloque debajo de la sección de las clases, con una pestaña por clase; cada pestaña se abre cuando su clase está disponible)', '<div data-lsd-comentarios="todas"></div>']] : []),
+    ...(tieneRecurso(l, 'descargable') ? [['RECURSOS · recurso descargable (se mide quién lo abre)', '<div data-lsd-if="descargable-bloqueado">🔒 Disponible en <span data-lsd-countdown="descargable"></span></div>\n<a data-lsd-if="descargable-disponible" data-lsd-link="descargable">Descargar</a>']] : []),
+    ...si(nc >= 1, ['RECURSOS · imagen de una etapa (la URL se pone en Configuración → Preclase; sin imagen, se oculta)', '<img data-lsd-img="clase1" alt="">']),
+    ...si(pre, ['RECURSOS · etapas (cada caja recibe data-lsd-estado="bloqueada | disponible | hecha" para el diseño)',
+      etapasPreclase(l, nc).map((e) => `<div data-lsd-etapa="${e.id}">Etapa <span data-lsd-etapa-n="${e.id}"></span> · ${e.label}</div>`).join('\n')],
+    ['RECURSOS · añadir el directo al calendario (Google y, opcional, Apple/Outlook)', '<a data-lsd-link="calendario" target="_blank">Añadir a Google Calendar</a>\n<a data-lsd-link="calendario-ics">Añadir a Apple / Outlook</a>']),
     ['VENTA · página de venta de Raíces: al final de la página, en el pie (apunta quién la visita para «Setting hoy» y pinta la barra fija si está activa en Páginas; los enlaces a esta página en los emails, con ?cid={{contact.id}})', `<div data-lsd-venta data-launch="auto"></div>\n${script}`],
     ['WHATSAPP · botón flotante abajo a la derecha (páginas de venta y de replay; abre el WhatsApp de dudas de Venta → Venta y seguimiento)', WA_FLOTANTE],
     ['PAGO · bloque base de la página de pago (en el pie: barra fija, textos, precios y enlaces de los cajetines; el resto, en Venta → Página de pago)', `<div data-lsd-pago data-launch="auto"></div>\n${script}`],
     ['INSCRIBIRME · botón a la página de pago (páginas de venta y de replay; la URL va en Venta → Página de pago)', '<a data-lsd-link="pagina-pago">Quiero inscribirme en Raíces</a>'],
     ['WHATSAPP · botón para una sección (sin estilo: dale el tuyo)', '<a data-lsd-link="whatsapp-dudas">Escríbenos por WhatsApp</a>'],
     ['GRABACIÓN · bloques de la página del replay (el 1º y la barra arriba del todo; el de vídeo, donde quieras que se vea; el paso a paso, en Grabación → Página de replay)', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
-    ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}'],
+    ...si(pre, ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}']),
     // El enlace para conectarse al directo es el de la preclase: 59 min antes enseña la pantalla de espera y al llegar a cero entra sola.
-    ...(() => {
-      const pre = state.config.launches[code]?.recursosUrl || '';
+    ...(!pre ? [] : (() => {
+      const pre = l.recursosUrl || '';
       const sep = pre.includes('?') ? '&' : '?';
       return pre
         ? [['DIRECTO · enlace para conectarse por EMAIL de GHL (la preclase: pantalla de espera 59 min antes y entra sola)', `${pre}${sep}cid={{contact.id}}`],
           ['DIRECTO · enlace para conectarse por WHATSAPP (la preclase; si el móvil no la recuerda, pide el email)', pre]]
         : [['DIRECTO · enlace para conectarse (email y WhatsApp)', 'Pon primero la URL de la página preclase en Configuración → Preclase → Páginas de GHL.']];
-    })(),
+    })()),
     ['Enlace directo a Zoom (sin pantalla de espera) en emails de GHL', `${origin}/directo?l=auto&cid={{contact.id}}${cParam('&')}`],
     ['Enlace directo a Zoom (sin pantalla de espera) para WhatsApp (pide el email)', `${origin}/directo?l=auto${cParam('&')}`],
     // Lanzamientos de varios vídeos: una página por vídeo y su enlace al directo (si es en directo).
@@ -8151,7 +8159,9 @@ function renderSnippets() {
   const box = $('#snippets');
   if (!code) { box.innerHTML = '<p class="muted">Guarda el lanzamiento para ver sus códigos.</p>'; return; }
   const items = snippetsLanzamiento(code);
-  box.innerHTML = `<p class="muted">Con <code>data-launch="auto"</code> las páginas usan siempre el <strong>lanzamiento en curso</strong> (el último cuyo inicio de captación ya ha llegado): en el próximo lanzamiento no hay que tocar GHL, solo esta configuración.</p>` + items.map(([title, text], i) => `
+  const l = state.config.launches[code] || {};
+  const tiene = [conPreclase(l) ? (preclaseDeRecursos(l) ? '🧩 preclase de varios recursos' : `🎬 preclase con ${nClases(l)} clase${nClases(l) === 1 ? '' : 's'}`) : '🚫 sin preclase', conPreclase(l) && conVip(l) ? '⭐ con VIP' : '', conPreclase(l) && l.encuestaTag ? '📝 con encuesta' : ''].filter(Boolean);
+  box.innerHTML = `<p class="snip-tiene"><strong>Solo ves los códigos de lo que tiene este embudo:</strong> ${tiene.map((t) => `<span class="ll-chip">${esc(t)}</span>`).join(' ')} <small class="muted">(se elige al crear el embudo; cámbialo en su ⚙️)</small></p><p class="muted">Con <code>data-launch="auto"</code> las páginas usan siempre el <strong>lanzamiento en curso</strong> (el último cuyo inicio de captación ya ha llegado): en el próximo lanzamiento no hay que tocar GHL, solo esta configuración.</p>` + items.map(([title, text], i) => `
     <div class="snippet">
       <h3>${esc(title)}</h3>
       <pre id="snip-${i}">${esc(text)}</pre>
