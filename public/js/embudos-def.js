@@ -5,22 +5,22 @@ import { guiaCruzadas } from './cruzadas.js';
 
 export const PESTANAS = {
   lanzamientos: [
-    { id: 'hoy', label: 'Setting hoy', desc: 'A quién escribir hoy por WhatsApp, por prioridad' },
+    { id: 'hoy', label: 'Setting hoy', desc: 'Comercial: a quién escribir hoy por WhatsApp, por prioridad' },
     { id: 'llamadas', label: 'Llamadas', desc: 'Llamadas de valoración: calendario, resultados y pipeline' },
     { id: 'endirecto', label: 'En directo', desc: 'El día del webinar: quién espera, quién entra, VIP, ventas y visitas a la página de venta, minuto a minuto' },
     { id: 'leads', label: 'Leads', desc: 'Lista de registrados con su puntuación y estado' },
     { id: 'metricas', label: 'Métricas', desc: 'Registros, clases, VIP, directo, ventas, coste por lead…' },
-    { id: 'publicidad', label: 'Publicidad', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
+    { id: 'publicidad', label: 'Cómo van (Meta)', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
     { id: 'objetivos', label: 'Planificador', desc: 'Planificador con el histórico (inversión, leads, CPL máximo, equipo y números) y objetivos que salen de la proyección' },
     { id: 'carrito', label: 'Carrito', desc: 'Los días del carrito: hitos automáticos, emails y WhatsApps de cada día y la estrategia' },
     { id: 'claude', label: 'Analizar con Claude', desc: 'El análisis del lanzamiento con Claude y el conector «Dashboard Datos»: qué funcionó, el cuello de botella y mejoras concretas para el próximo' },
-    { id: 'anuncios', label: 'Crear anuncios', desc: 'Anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
+    { id: 'anuncios', label: 'Anuncios', desc: 'Crear anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
     { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos de AlquimIA) para Claude, y el HTML a GHL' },
     { id: 'automatizaciones', label: 'Automatizaciones', desc: 'Los workflows de GHL del embudo: si hay que crearlos de cero, uno a uno con su prompt para Claude (en su carpeta), con su estado y su enlace' },
     { id: 'grupowa', label: 'Grupo de WhatsApp', desc: 'Los mensajes del grupo (calentamiento y carrito): el prompt para escribirlos con Claude y programarlos en SendFlow' },
     { id: 'emailsia', label: 'Emails', desc: 'La secuencia de emails del lanzamiento con IA: calendario de envíos con las fechas reales, asuntos ganadores, la ficha de marca y la narrativa' },
-    { id: 'avatar', label: 'Anuncios ganadores', desc: 'Qué anuncios traen ventas, en este lanzamiento y en los anteriores' },
-    { id: 'utms', label: 'UTMs', desc: 'Qué tipo de lead trae cada campaña, conjunto y anuncio (por sus UTM): cuántos rellenan la encuesta, ven las clases, compran la VIP, van al directo y compran, en orden como un embudo' },
+    { id: 'avatar', label: 'Ganadores', desc: 'Qué anuncios traen ventas, en este lanzamiento y en los anteriores' },
+    { id: 'utms', label: 'UTMs', desc: 'Qué tipo de lead trae cada campaña, conjunto y anuncio: encuesta, clases, VIP, directo y compra en orden como un embudo, con el semáforo de la encuesta; ordena por leads más baratos, cerca de la compra, compras o avatar comprador' },
     { id: 'avatarc', label: 'Avatar comprador', desc: 'Perfil de compradoras, sacado de la encuesta' },
     { id: 'comparar', label: 'Comparar', desc: 'Lanzamientos entre sí, edición actual frente a las anteriores, VSL frente a lanzamiento' },
     { id: 'rendimiento', label: 'Rendimiento del equipo', desc: 'WhatsApps, llamadas, shows, cierres y tiempo de respuesta por persona' },
@@ -29,14 +29,14 @@ export const PESTANAS = {
   ],
   vsl: [
     { id: 'vmetricas', label: 'Métricas', desc: 'Registros, visionado, llamadas, ventas y ROAS por fechas y semanas' },
-    { id: 'publicidad', label: 'Publicidad', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
+    { id: 'publicidad', label: 'Cómo van (Meta)', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
     { id: 'vleads', label: 'Leads', desc: 'Cada persona con lo que ha visto y WhatsApp según su estado' },
     { id: 'llamadas', label: 'Llamadas', desc: 'Llamadas de valoración de la VSL' },
-    { id: 'vanuncios', label: 'Anuncios ganadores', desc: 'Qué campañas, conjuntos y anuncios traen ventas' },
-    { id: 'utms', label: 'UTMs', desc: 'Qué tipo de lead trae cada campaña, conjunto y anuncio (por sus UTM): cuántos rellenan la encuesta, ven las clases, compran la VIP, van al directo y compran, en orden como un embudo' },
+    { id: 'vanuncios', label: 'Ganadores', desc: 'Qué campañas, conjuntos y anuncios traen ventas' },
+    { id: 'utms', label: 'UTMs', desc: 'Qué tipo de lead trae cada campaña, conjunto y anuncio: vio el vídeo, el 75%, agendó llamada y compró, en orden como un embudo, con el semáforo de la encuesta; ordena por leads más baratos, cerca de la compra, compras o avatar comprador' },
     { id: 'comparar', label: 'Comparar', desc: 'Mes a mes y frente a los lanzamientos, con alertas' },
     { id: 'rendimiento', label: 'Rendimiento del equipo', desc: 'WhatsApps, llamadas, shows, cierres y tiempo de respuesta por persona' },
-    { id: 'anuncios', label: 'Crear anuncios', desc: 'Anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
+    { id: 'anuncios', label: 'Anuncios', desc: 'Crear anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
     { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos de AlquimIA) para Claude, y el HTML a GHL' },
     { id: 'automatizaciones', label: 'Automatizaciones', desc: 'Los workflows de GHL del embudo: si hay que crearlos de cero, uno a uno con su prompt para Claude (en su carpeta), con su estado y su enlace' },
     { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para esta VSL' },
@@ -45,9 +45,9 @@ export const PESTANAS = {
 };
 PESTANAS.meteorico = [
   { id: 'meteoricos', label: 'Meteóricos', desc: 'Cada oferta flash: cuenta atrás, ventas, facturación, visitas a la oferta y compradoras' },
-  { id: 'publicidad', label: 'Publicidad', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
+  { id: 'publicidad', label: 'Cómo van (Meta)', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
   { id: 'moferta', label: 'Oferta', desc: 'Entregables y bonus (BAR 30 min, 1 h…) frente a las ventas hora a hora' },
-  { id: 'anuncios', label: 'Crear anuncios', desc: 'Anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
+  { id: 'anuncios', label: 'Anuncios', desc: 'Crear anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
   { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos de AlquimIA) para Claude, y el HTML a GHL' },
   { id: 'automatizaciones', label: 'Automatizaciones', desc: 'Los workflows de GHL del embudo: si hay que crearlos de cero, uno a uno con su prompt para Claude (en su carpeta), con su estado y su enlace' },
   { id: 'grupowa', label: 'Grupo de WhatsApp', desc: 'Los mensajes del grupo: el prompt para escribirlos con Claude y programarlos en SendFlow' },
@@ -58,10 +58,10 @@ PESTANAS.meteorico = [
 PESTANAS.directa = [
   { id: 'dmetricas', label: 'Métricas', desc: 'Ventas, facturación, ticket medio, CPA y ROAS por fechas; % de cada bump, upsell y downsell y conversión de cada página' },
   { id: 'dclientes', label: 'Compradoras', desc: 'Quién ha comprado, cuándo y qué extras se llevó (con su WhatsApp)' },
-  { id: 'publicidad', label: 'Publicidad', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
-  { id: 'danuncios', label: 'Anuncios ganadores', desc: 'Qué anuncios traen ventas al menor coste por venta (CAC) y cuáles traen más ventas' },
-  { id: 'utms', label: 'UTMs', desc: 'Qué tipo de lead trae cada campaña, conjunto y anuncio (por sus UTM): cuántos rellenan la encuesta, ven las clases, compran la VIP, van al directo y compran, en orden como un embudo' },
-  { id: 'anuncios', label: 'Crear anuncios', desc: 'Anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
+  { id: 'publicidad', label: 'Cómo van (Meta)', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
+  { id: 'danuncios', label: 'Ganadores', desc: 'Qué anuncios traen ventas al menor coste por venta (CAC) y cuáles traen más ventas' },
+  { id: 'utms', label: 'UTMs', desc: 'Qué compradora trae cada campaña, conjunto y anuncio: compras, extras y producto principal; ordena por más baratas o más compras' },
+  { id: 'anuncios', label: 'Anuncios', desc: 'Crear anuncios con IA basados en los ganadores y en la ficha de marca: guiones de vídeo, creación en Magnific y copys para Meta, por objetivo' },
   { id: 'paginas', label: 'Páginas', desc: 'Las páginas del embudo con IA: un prompt por página (con la marca, el avatar y los códigos de AlquimIA) para Claude, y el HTML a GHL' },
   { id: 'automatizaciones', label: 'Automatizaciones', desc: 'Los workflows de GHL del embudo: si hay que crearlos de cero, uno a uno con su prompt para Claude (en su carpeta), con su estado y su enlace' },
   { id: 'tareas', label: 'Tareas', desc: 'Tareas del equipo para montar y mejorar el embudo' },
@@ -82,6 +82,7 @@ export const SECCIONES = {
   leads: [
     { id: 'lista', label: 'Lista de leads', desc: 'Cada lead con su puntuación, estado y WhatsApp' },
     { id: 'encuesta', label: 'Encuesta', desc: '% de cada respuesta de la encuesta y respuestas libres' },
+    { id: 'comentarios', label: 'Comentarios', desc: 'Los comentarios de la preclase, para leerlos y moderarlos' },
   ],
   metricas: [
     { id: 'resumen', label: 'Resumen', desc: 'Cifras clave del lanzamiento y facturación' },
@@ -143,6 +144,13 @@ export const CATEGORIAS = {
     { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Calendario y tareas', vistas: ['calendario', 'tareas'] },
   ],
 };
+// Las pestañas de cada tipo, en el mismo orden que se ven en AlquimIA (Comercial, Leads, Métricas, Anuncios, Crear, Plan,
+// Análisis): así el «＋ Nuevo embudo», su ⚙️ y los permisos las enseñan igual.
+for (const [tipo, lista] of Object.entries(PESTANAS)) {
+  const orden = (CATEGORIAS[tipo] || []).flatMap((c) => c.vistas);
+  const pos = (id) => (orden.includes(id) ? orden.indexOf(id) : orden.length);
+  lista.sort((a, b) => pos(a.id) - pos(b.id));
+}
 
 // Variantes del embudo «siempre abierto» (usan el mismo motor que la VSL: registro → contenido →
 // venta, analizado por fechas). Cambian los textos, la guía, las pestañas sugeridas y el auditor.
@@ -217,7 +225,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
       'Guarda el enlace del workflow en <em>Configuración → Accesos y enlaces</em> para tenerlo a mano.',
     ] });
     if (on('llamadas')) s.push(guiaLlamadas('este embudo'));
-    if (on('vmetricas') || on('vanuncios')) s.push(guiaMeta());
+    if (on('vmetricas') || on('vanuncios') || on('utms')) s.push(guiaMeta());
     s.push({ titulo: `${s.length + 1} · En AlquimIA`, pasos: [
       'Al crearlo se abre su configuración: etiquetas, enlaces (página de entrega, página de venta, pagos), precio y filtro de campañas de Meta.',
       'Métricas te dice cuántas descargas, cuántas compran y en cuántos días (por semanas y meses), y lo que cuesta cada descarga.',
@@ -235,7 +243,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
       'Recordatorios de la llamada por email y WhatsApp en un workflow con disparador «Cita reservada».',
     ] });
     s.push(guiaLlamadas('este embudo'));
-    if (on('vmetricas') || on('vanuncios')) s.push(guiaMeta());
+    if (on('vmetricas') || on('vanuncios') || on('utms')) s.push(guiaMeta());
     s.push({ titulo: `${s.length + 1} · En AlquimIA`, pasos: [
       'Pon el <strong>enlace de reserva</strong> y el <strong>pipeline</strong> en la configuración: aquí lo importante son las llamadas (agendadas, shows, cierres) y el coste por llamada.',
       'Anota el resultado de cada llamada en la pestaña <em>Llamadas</em>; <em>Rendimiento del equipo</em> te da el % de show y de cierre por persona.',
@@ -257,7 +265,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
       'Páginas de gracias (tras registrarse y tras reservar llamada): su bloque de código si quieres mostrar un vídeo.',
     ] });
     if (on('llamadas')) s.push(guiaLlamadas('la VSL'));
-    if (on('vmetricas') || on('vanuncios')) s.push(guiaMeta());
+    if (on('vmetricas') || on('vanuncios') || on('utms')) s.push(guiaMeta());
     s.push({ titulo: `${s.length + 1} · En AlquimIA`, pasos: [
       'Al crear el embudo se abre su configuración: pon las etiquetas, los enlaces (página de la VSL, página de venta, pagos, calendario), los precios y el filtro de campañas de Meta.',
       'Revisa los mensajes de WhatsApp en <em>Leads → Mensajes de WhatsApp de la VSL</em>.',
@@ -301,7 +309,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
       'Crea en GHL una <strong>encuesta</strong> (Sitios → Encuestas) con las preguntas del perfil y que, al enviarse, ponga la etiqueta de «encuesta rellenada».',
       'Las respuestas se guardan en campos personalizados del contacto: el perfil de compradoras sale de esos campos.',
     ] });
-    if (on('metricas') || on('avatar') || on('objetivos')) s.push(guiaMeta());
+    if (on('metricas') || on('avatar') || on('utms') || on('objetivos')) s.push(guiaMeta());
     if (on('objetivos')) s.push({ titulo: `${s.length + 1} · Objetivos`, pasos: ['En <em>Plan → Planificador</em> el planificador usa solo los lanzamientos anteriores: inversión recomendada, leads, CPL máximo, equipo de llamadas y números en tres escenarios. Los objetivos salen de esa proyección (se fijan solos la primera vez) y debajo ves cuánto llevas y a qué ritmo hay que ir.'] });
     s.push({ titulo: `${s.length + 1} · En AlquimIA`, pasos: [
       'Crea el primer lanzamiento (se abre al crear el embudo): nombre, código, etiquetas, fechas de captación, clases, directo y cierre, enlaces y precios.',

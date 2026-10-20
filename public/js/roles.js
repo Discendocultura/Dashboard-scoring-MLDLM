@@ -1,22 +1,23 @@
 // Roles y permisos (configurables por la admin en Equipo → Roles y permisos).
 // Admin lo tiene todo siempre. Tareas y Calendario los tiene todo el mundo.
 
+// Agrupados y en el mismo orden que las pestañas de AlquimIA (Comercial, Leads, Métricas, Anuncios, Crear, Plan, Análisis).
 export const PERMISOS = [
-  { id: 'hoy', label: 'Setting hoy', grupo: 'Pestañas' },
-  { id: 'llamadas', label: 'Llamadas', grupo: 'Pestañas' },
-  { id: 'endirecto', label: 'En directo', grupo: 'Pestañas' },
-  { id: 'leads', label: 'Leads', grupo: 'Pestañas' },
-  { id: 'metricas', label: 'Métricas', grupo: 'Pestañas' },
-  { id: 'objetivos', label: 'Planificador (objetivos y previsión)', grupo: 'Pestañas' },
-  { id: 'carrito', label: 'Carrito (días, envíos y estrategia; solo lectura)', grupo: 'Pestañas' },
-  { id: 'avatar', label: 'Avatar y anuncios', grupo: 'Pestañas' },
-  { id: 'comparar', label: 'Comparar', grupo: 'Pestañas' },
-  { id: 'rendimiento', label: 'Rendimiento del equipo', grupo: 'Pestañas' },
-  { id: 'resumen', label: 'Resumen del cliente (portal de solo lectura)', grupo: 'Pestañas' },
-  { id: 'config', label: 'Configuración de lanzamientos', grupo: 'Acciones' },
+  { id: 'hoy', label: 'Setting hoy y LabIA', grupo: 'Comercial' },
+  { id: 'llamadas', label: 'Llamadas', grupo: 'Comercial' },
+  { id: 'endirecto', label: 'En directo', grupo: 'Comercial' },
+  { id: 'leads', label: 'Leads', grupo: 'Leads y métricas' },
+  { id: 'metricas', label: 'Métricas · Cómo van · Claude', grupo: 'Leads y métricas' },
+  { id: 'avatar', label: 'Ganadores · UTMs · Avatar', grupo: 'Anuncios' },
+  { id: 'config', label: 'Configuración y Crear con IA', grupo: 'Crear' },
+  { id: 'objetivos', label: 'Planificador', grupo: 'Plan' },
+  { id: 'carrito', label: 'Carrito y grupo de WA', grupo: 'Plan' },
+  { id: 'comparar', label: 'Comparar', grupo: 'Análisis' },
+  { id: 'rendimiento', label: 'Rendimiento del equipo', grupo: 'Análisis' },
+  { id: 'resumen', label: 'Resumen del cliente', grupo: 'Portal' },
   { id: 'zoom', label: 'Sincronizar Zoom', grupo: 'Acciones' },
-  { id: 'tareas_gestion', label: 'Crear, editar y borrar tareas y eventos', grupo: 'Acciones' },
-  { id: 'mensajes', label: 'Editar mensajes de WhatsApp', grupo: 'Acciones' },
+  { id: 'tareas_gestion', label: 'Gestionar tareas y eventos', grupo: 'Acciones' },
+  { id: 'mensajes', label: 'Editar mensajes de WA', grupo: 'Acciones' },
 ];
 export const PERMISO_IDS = PERMISOS.map((p) => p.id);
 // Pestañas que necesitan los datos de los leads.
