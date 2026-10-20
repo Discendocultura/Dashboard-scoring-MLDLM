@@ -5344,6 +5344,7 @@ function renderVideosCfg(l) {
     + vs.map((v) => `<div class="${v.k === 1 ? 'cfg-video1' : 'cfg-video'} cv-panel" data-k="${v.k}" role="tabpanel"${v.k === videoTab ? '' : ' hidden'}>
       ${grupo(v, '📅 Cuándo', ['fecha', 'hora'])}
       ${grupo(v, '🎥 Su sala de Zoom', ['zoomMeetingId', 'zoomJoinUrl'])}
+      ${state.zoomConfigured ? `<div class="cv-zoom-crear"><button type="button" class="btn small" data-cv-zoom="${v.k}">🎥 Crear su sala de Zoom</button><small class="muted" data-cv-zoom-st="${v.k}">Con su día y su hora, registro obligatorio y los ajustes de la sala del vídeo 1. Rellena su ID y su enlace; luego pulsa Guardar.</small></div>` : ''}
       <div class="cv-grupo"><h4>▶️ Su grabación</h4><p class="muted small">Su vídeo, desde cuándo se ve y su página: en la pestaña «Grabación».</p></div>
     </div>`).join('');
   // Pestaña Grabación: una fila por vídeo (su vídeo de Vimeo, desde cuándo y, si va cada una en su página, su URL).
@@ -5365,6 +5366,27 @@ function pintarGrabModo() {
   sp.textContent = multi && global ? 'URL de la página de las grabaciones (todas en una)' : sp.dataset.def;
 }
 $('#cfg-grab-sec').addEventListener('change', (e) => { if (e.target.name === 'cfg-grab-modo') pintarGrabModo(); });
+// Crear la sala de Zoom de un vídeo desde su pestaña (la misma cuenta de Zoom que el resto): rellena su ID y su enlace.
+$('#cfg-videos').addEventListener('click', async (e) => {
+  const zb = e.target.closest('[data-cv-zoom]');
+  if (!zb) return;
+  const k = Number(zb.dataset.cvZoom);
+  const val = (c) => (k === 1 ? $(V1_PROXY[c]).value : $(`#config-dialog [data-vk="${k}"][data-vc="${c}"]`)?.value || '').trim();
+  const st = $(`[data-cv-zoom-st="${k}"]`);
+  if (!val('fecha') || !val('hora')) { st.textContent = 'Pon antes su día y su hora.'; return; }
+  if (val('zoomMeetingId') && !window.confirm('Este vídeo ya tiene una sala de Zoom. ¿Crear otra y cambiarla?')) return;
+  const l = editingCode ? state.config.launches[editingCode] : {};
+  const nombre = $('#cfg-name').value.trim() || l?.name || 'Lanzamiento';
+  zb.disabled = true;
+  st.textContent = 'Creando la sala en Zoom…';
+  try {
+    const z = await api('/api/zoom-sala', { method: 'POST', body: { topic: `${clienteNombre() ? `${clienteNombre()} · ` : ''}${nombre} · ${nombreVideo(formatoDeLanz(l), k)}`, fecha: val('fecha'), hora: val('hora'), copiarDe: $(V1_PROXY.zoomMeetingId).value.replace(/\D/g, '') } });
+    const poner = (c, v) => { const inp = k === 1 ? $(`#cfg-v1p-${c}`) : $(`#config-dialog [data-vk="${k}"][data-vc="${c}"]`); inp.value = v; inp.dispatchEvent(new Event('input', { bubbles: true })); };
+    poner('zoomMeetingId', z.id);
+    poner('zoomJoinUrl', z.joinUrl);
+    st.textContent = `✓ Sala creada (ID ${z.id}). Pulsa Guardar para que se quede.`;
+  } catch (err) { st.textContent = `No se pudo crear: ${err.message}`; } finally { zb.disabled = false; }
+});
 $('#cfg-videos').addEventListener('click', (e) => {
   const b = e.target.closest('[data-cv-tab]');
   if (!b) return;
@@ -6322,7 +6344,14 @@ $('#nl-crear').addEventListener('click', async () => {
     // 1) Salas de Zoom: la del directo (vídeo 1) y la de los demás vídeos que en el anterior eran en directo.
     if ($('#nl-zoom').checked && state.zoomConfigured) {
       const vids = [{ k: 1, fecha: launch.fechaDirecto, hora: launch.horaDirecto, copiarDe: r.prev?.zoomMeetingId || '' }];
-      (launch.videos || []).forEach((v, i) => { if (r.prev?.videos?.[i]?.zoomMeetingId) vids.push({ k: i + 2, fecha: v.fecha, hora: v.hora, copiarDe: r.prev.videos[i].zoomMeetingId }); });
+      // Los demás vídeos: en directo salvo que en el anterior ese vídeo fuera grabado (sin Zoom). Sin anterior con ese
+      // vídeo, en directo (menos en los retos, que suelen ser grabados), con los ajustes de la sala del vídeo 1 anterior.
+      const reto = esReto(launch.formato || embudoInfo()?.formato);
+      (launch.videos || []).forEach((v, i) => {
+        const pv = r.prev?.videos?.[i];
+        const enDirecto = pv ? Boolean(pv.zoomMeetingId) : !reto;
+        if (enDirecto && v.fecha && v.hora) vids.push({ k: i + 2, fecha: v.fecha, hora: v.hora, copiarDe: pv?.zoomMeetingId || r.prev?.zoomMeetingId || '' });
+      });
       for (const v of vids) {
         st.textContent = `Creando la sala de Zoom${vids.length > 1 ? ` del vídeo ${v.k}` : ''}…`;
         try {

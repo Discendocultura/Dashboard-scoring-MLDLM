@@ -8128,3 +8128,5 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .ia-logo h4 small { font-weight: 600; margin-left: 4px; }
 @media (max-width: 1100px) { .ia-marca { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ia-marca > .ia-marca-col:first-child { grid-column: 1 / -1; } }
 @media (max-width: 700px) { .ia-marca { grid-template-columns: 1fr; } }
+.cv-zoom-crear { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: -4px; }
+.cv-zoom-crear small { flex: 1 1 260px; }
