@@ -481,7 +481,10 @@ const guardarAnchos = () => {
   anchosEnvio = setTimeout(() => ctx.api('/api/operativa', { method: 'POST', body: { op: 'mis-anchos', anchos } }).catch(() => {}), 400);
 };
 const claveAnchos = () => (fProy ? `${fProy}|${(tabsDe(fProy).find((b) => b.id === fTab) || tabsDe(fProy)[0]).id}` : '_todos');
-const plantillaAnchos = (k, ids) => ids.map((id) => (anchos[k]?.[id] ? `${anchos[k][id]}px` : 'minmax(260px, 1fr)')).join(' ');
+const plantillaAnchos = (k, ids) => ids.map((id) => (anchos[k]?.[id] ? `${anchos[k][id]}px` : `minmax(${ANCHO_COL}px, 1fr)`)).join(' ');
+// Ancho de serie de cada columna (sin tocar a mano): más ancho para que las tarjetas se lean bien; si no caben, se
+// desplaza el tablero en horizontal.
+const ANCHO_COL = 340;
 function estiloAnchos(k, ids, enStyle = false) {
   if (!anchos[k] || !Object.keys(anchos[k]).length || window.matchMedia?.('(max-width: 760px)').matches) return '';
   const css = `grid-template-columns:${plantillaAnchos(k, ids)}`;

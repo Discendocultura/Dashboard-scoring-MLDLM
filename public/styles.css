@@ -7820,3 +7820,5 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .ini-pasos-ok span { font-size: 12px; font-weight: 650; padding: 3px 9px; border-radius: 999px; color: #059669; background: color-mix(in srgb, #10b981 12%, transparent); }
 .ini-check { color: color-mix(in srgb, var(--muted) 60%, transparent); }
 @media (max-width: 700px) { .ini-pasos li { grid-template-columns: auto auto minmax(0, 1fr); } .ini-pasos li > .btn, .ini-pasos li > small { grid-column: 1 / -1; justify-self: start; text-align: left; max-width: none; } }
+/* Operativa: columnas más anchas de serie (340 px como mínimo; las ajustadas a mano conservan su ancho) */
+@media (min-width: 761px) { .op-tablero { grid-template-columns: repeat(var(--op-ncol, 3), minmax(340px, 1fr)); } }
