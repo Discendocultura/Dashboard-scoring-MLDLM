@@ -67,6 +67,7 @@ import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './
 import { piezasImagenes, promptImagen, promptMagnificImagenes, PROMPT_VERTICAL, paletaMarca } from './imagenes-ia.js';
 import { paraChatGPT } from './chatgpt.js';
 import { iniciarOnboarding, onbVista, abrirAyuda, verTodas, leerPreview, progresoDe, onbReiniciarAyudas, onbEstado, onbGuardar, onbRol, tour as onbTour } from './onboarding.js';
+import { pasosUtms, arbolUtms, nivelUtms, ordenarUtms, puntuadorEncuesta } from './utms.js';
 import { DESBLOQUEOS, desbloqueos, filtrarVistas, desbloqueoDeVista, siguientePaso, recomendarTipo, buscar as buscarAcciones, dosificar, atascados, diasDesde } from './primeros-pasos.js';
 import { iniciarAnimaciones } from './animaciones.js';
 import { FASES_PLAN, enviosPorDefecto, enviosDe, planEnvios, sanitizeEnvios } from './envios.js';
@@ -535,10 +536,10 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'llam', xofertas: 'cruzadas', xhoy: 'cruzadas', tareas: 'siempre', calendario: 'siempre', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', xalumnos: 'cruzadas', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
-const VIEW_PERMISO = { avatarc: 'avatar', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', xalumnos: 'leads', xofertas: 'leads', xhoy: 'hoy', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', claude: 'metricas' };
+const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'llam', xofertas: 'cruzadas', xhoy: 'cruzadas', tareas: 'siempre', calendario: 'siempre', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', utms: 'anunciosu', xalumnos: 'cruzadas', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
+const VIEW_PERMISO = { avatarc: 'avatar', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', utms: 'avatar', xalumnos: 'leads', xofertas: 'leads', xhoy: 'hoy', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', claude: 'metricas' };
 // 'siempre': también en ventas cruzadas (Tareas y Calendario).
-const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], siempre: ['lanz', 'vsl', 'meteorico', 'directa', 'cruzadas'], llam: ['lanz', 'vsl', 'cruzadas'], lanzmeteo: ['lanz', 'meteorico'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
+const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], siempre: ['lanz', 'vsl', 'meteorico', 'directa', 'cruzadas'], llam: ['lanz', 'vsl', 'cruzadas'], lanzmeteo: ['lanz', 'meteorico'], anunciosu: ['lanz', 'vsl', 'directa'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
 const embudos = () => state.config?.embudos || [];
 const embudoInfo = (id = state.embudo) => embudos().find((e) => e.id === id) || null;
@@ -563,6 +564,8 @@ const vistasPermitidas = () => VIEWS.filter((v) => (v === 'labia' ? tipoActual()
   && (v !== 'publicidad' || embudoInfo()?.publicidad !== false)
   // El calendario es el del cliente (todos sus embudos): está en todos.
   && (!pestanasEmbudo() || pestanasEmbudo().includes(v) || v === 'calendario' || v === 'publicidad'
+    // «UTMs» es nueva: la ven los embudos con pestañas elegidas antes que tengan los ganadores o la publicidad.
+    || (v === 'utms' && (['avatar', 'vanuncios', 'danuncios'].some((x) => pestanasEmbudo().includes(x)) || embudoInfo()?.publicidad !== false))
     // «Oferta» es nueva: los embudos de meteóricos con pestañas elegidas antes la ven junto a «Meteóricos».
     || (v === 'moferta' && pestanasEmbudo().includes('meteoricos'))
     // «En directo» es nueva: los embudos con pestañas elegidas antes la ven junto a Setting hoy o Llamadas.
@@ -1043,6 +1046,7 @@ async function seguirEleccion(eleccion) {
 
 // ---------- Buscador «¿Qué quieres hacer?» ----------
 const CLAVES_VISTA = {
+  utms: 'utm utms campañas conjuntos anuncios que lead trae calidad semaforo encuesta embudo por anuncio',
   hoy: 'a quien llamar escribir whatsapp contactar setting hoy', llamadas: 'llamar llamada llamadas calendario cita citas agenda reservas', endirecto: 'directo en vivo webinar zoom',
   leads: 'registrados personas contactos lista ficha', metricas: 'ventas facturacion roas cpl resultados como va numeros', vmetricas: 'ventas facturacion roas resultados como va numeros',
   vleads: 'registrados personas contactos lista', dmetricas: 'ventas facturacion roas ticket', dclientes: 'compradores clientes ventas', publicidad: 'anuncios meta facebook instagram campanas cpm ctr cpl',
@@ -2639,6 +2643,7 @@ function renderMetrics() {
   renderOrigen(m, launch);
   renderEncuestaMetrics();
   renderGanadores();
+  renderUtms();
   renderObjetivos(m);
   renderAvisos(m, launch);
 
@@ -3709,6 +3714,110 @@ function pintarGanadores(box, leads, launch, level, meta, { vip = true, donde = 
         ${hasSpend ? `<td class="num">${r.cac != null ? eur(r.cac) : '–'}</td><td class="num">${r.roas != null ? `${r.roas.toFixed(1)}x` : '–'}</td>` : ''}</tr>`).join('')}</tbody></table></div>` : ''}
     <p class="muted gan-note">${all.length - conVentas.length ? `${all.length - conVentas.length} ${que}${all.length - conVentas.length === 1 ? '' : 's'} más con registros pero sin ventas todavía. ` : ''}Ventas = compras de Raíces de las personas que se registraron desde ese ${que} (UTM).${vip ? ' Facturado incluye la entrada VIP.' : ''}</p>`;
 }
+// ---------- Anuncios → UTMs: qué tipo de lead trae cada campaña, conjunto y anuncio (public/js/utms.js) ----------
+state.utm = { nivel: 'arbol', orden: 'leads', abiertos: new Set() };
+function datosUtms() {
+  if (enVsl()) {
+    if (!state.vsl.leads) return null;
+    const r = vslRango();
+    return { tipo: 'vsl', cfg: vslCfg(), meta: state.vsl.meta, leads: state.vsl.leads.filter((l) => l.fReg >= r.desde && l.fReg <= r.hasta), donde: 'en el periodo elegido' };
+  }
+  if (enDirecta()) {
+    const D = state.directa.datos;
+    if (!D || D.error) return D?.error ? { error: D.error } : null;
+    return { tipo: 'directa', cfg: state.config.directas?.[state.embudo] || {}, meta: D.anuncios, leads: D.compradores || [], donde: 'en el periodo elegido' };
+  }
+  if (state.leadsDe !== state.launchCode && !state.leads.length) return null;
+  return { tipo: 'lanz', cfg: state.config.launches[state.launchCode] || {}, meta: state.meta, leads: state.leads, donde: 'en este lanzamiento' };
+}
+function renderUtms() {
+  const box = $('#utm-tabla');
+  if (!box || $('#view-utms').hidden) return;
+  $$('#utm-nivel .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.un === state.utm.nivel));
+  $$('#utm-orden .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.uo === state.utm.orden));
+  const d = datosUtms();
+  if (!d) { $('#utm-resumen').innerHTML = ''; box.innerHTML = '<p class="muted">Cargando los leads…</p>'; return; }
+  if (d.error) { $('#utm-resumen').innerHTML = ''; box.innerHTML = `<div class="notice err">${esc(d.error)}</div>`; return; }
+  const producto = d.tipo === 'directa' ? 'el producto principal' : nombreProducto(state.config);
+  const pasos = pasosUtms(d.tipo, d.cfg, { producto, preguntas: preguntasEncuesta() });
+  // Semáforo de la encuesta: aprende de quién compra (las mismas cifras que «Avatar comprador»; con pocas compras, de la VIP).
+  let perfiles = null;
+  if (d.tipo === 'lanz' && preguntasEncuesta().length) { if (!state.avatar) computeAvatares(); perfiles = state.avatar; }
+  if (d.tipo === 'vsl' && preguntasEncuesta().length) perfiles = perfilesCompradoras(state.vsl.leads || [], preguntasEncuesta(), 'compra');
+  const encuesta = puntuadorEncuesta(perfiles);
+  const conSem = d.tipo !== 'directa' && preguntasEncuesta().length > 0;
+  const a = arbolUtms(d.leads, pasos, { names: d.meta?.names || {}, spendBy: d.meta?.spendBy || {}, encuesta });
+  const pct = (n, t) => (t ? Math.round((n / t) * 100) : 0);
+  // El embudo de todos los leads, de izquierda a derecha.
+  const T = a.total;
+  const ads = nivelUtms(a, 'ad').filter((x) => !x.pocos && !x.key.startsWith('__'));
+  const top = ordenarUtms(ads, 'calidad', pasos).slice(0, 3).filter((x) => x.calidad > 0);
+  $('#utm-resumen').innerHTML = T.leads ? `<div class="utm-embudo">${pasos.map((p, i) => `<div class="utm-paso${i === pasos.length - 1 ? ' fin' : ''}" style="--p:${i ? pct(T.n[p.id], T.leads) : 100}%">
+      <span class="utm-paso-ico" aria-hidden="true">${p.ico}</span><b>${T.n[p.id].toLocaleString('es-ES')}</b><small>${esc(p.label)}</small>${i ? `<em>${pct(T.n[p.id], T.leads)} %</em>` : ''}</div>`).join('<span class="utm-flecha" aria-hidden="true">›</span>')}</div>
+    ${conSem ? `<p class="utm-sem-ley">🚦 <strong>Calidad del lead (encuesta)</strong>: ${encuesta ? `cada lead se compara con quien ${perfiles.objetivo === 'vip' ? 'compra la entrada VIP (aún hay pocas ventas del producto)' : 'compra'}: 🟢 sus respuestas se parecen a las de quien compra · 🟡 en la media · 🔴 se parecen a las de quien no compra. El % es el de leads en verde.` : 'aparecerá en cuanto haya compras (o entradas VIP) de las que aprender qué respuestas tiene quien compra.'}</p>` : ''}
+    ${top.length ? `<div class="utm-top"><strong>🏆 Traen el lead más cerca de la compra</strong>${top.map((x, i) => `<span class="utm-top-i"><b>${['🥇', '🥈', '🥉'][i]} ${esc(x.label)}</b><small>${esc(x.ruta)} · ${x.leads} leads · ${x.calidad}/100</small></span>`).join('')}</div>` : ''}` : '';
+  if (!T.leads) { box.innerHTML = `<p class="muted">Todavía no hay leads ${esc(d.donde)}.</p>`; return; }
+  if (!a.campanas.length) { box.innerHTML = '<p class="muted">Ningún lead trae UTM. Revisa que los anuncios de Meta lleven los parámetros de URL (utm_campaign, utm_term y utm_content) y que GHL los guarde.</p>'; return; }
+  const celda = (g, p, i) => {
+    const n = g.n[p.id];
+    const coste = g.coste?.[p.id];
+    const tip = `${n} de ${g.leads} (${pct(n, g.leads)} %)${coste ? ` · ${eur(coste)} por cada uno` : ''}`;
+    return `<td class="num utm-c${i === pasos.length - 1 ? ' fin' : ''}" title="${esc(tip)}"><b>${n.toLocaleString('es-ES')}</b>${i ? `<small>${pct(n, g.leads)} %</small><i style="--p:${pct(n, g.leads)}%"></i>` : coste ? `<small>${eur(coste)}/lead</small>` : ''}</td>`;
+  };
+  const EMO = { verde: '🟢', ambar: '🟡', rojo: '🔴' };
+  const sem = (g) => {
+    if (!conSem) return '';
+    const x = g.semaforo;
+    if (!encuesta) return '<td class="utm-sem"><span class="muted small">—</span></td>';
+    if (!x?.n) return '<td class="utm-sem" title="Nadie de aquí ha rellenado la encuesta"><span class="utm-sem-dot nada">⚪</span><small>sin encuesta</small></td>';
+    const p3 = (k) => Math.round((x[k] / x.n) * 100);
+    const tip = `${x.n} con encuesta: ${x.verde} 🟢 se parecen a quien compra · ${x.ambar} 🟡 en la media · ${x.rojo} 🔴 se parecen a quien no compra. Media ${x.media.toFixed(2)}x${x.pocos ? ' (pocas respuestas: orientativo)' : ''}`;
+    return `<td class="utm-sem" title="${esc(tip)}"><span class="utm-sem-dot ${x.color}">${EMO[x.color]}</span><b>${p3('verde')} %</b><small>${x.pocos ? '≈ ' : ''}${x.n} resp.</small>
+      <span class="utm-sem-bar" aria-hidden="true"><i class="v" style="width:${p3('verde')}%"></i><i class="a" style="width:${p3('ambar')}%"></i><i class="r" style="width:${p3('rojo')}%"></i></span></td>`;
+  };
+  const cal = (g) => `${sem(g)}<td class="num"><span class="utm-cal" style="--q:${g.calidad}" title="${g.pocos ? 'Pocos leads: orientativo' : ''}">${g.pocos ? '≈' : ''}${g.calidad}</span></td>`;
+  const fila = (g, nivel, ruta, path, hijos) => {
+    const abierto = state.utm.abiertos.has(path);
+    const btn = hijos ? `<button type="button" class="utm-abrir" data-utm-abrir="${esc(path)}" aria-expanded="${abierto}" aria-label="${abierto ? 'Plegar' : 'Desplegar'}">${abierto ? '▾' : '▸'}</button>` : '<span class="utm-abrir-hueco"></span>';
+    return `<tr class="utm-n-${nivel}"><td class="utm-nombre">${btn}<span><strong>${esc(g.label)}</strong>${ruta ? `<small>${esc(ruta)}</small>` : ''}</span></td>${pasos.map((p, i) => celda(g, p, i)).join('')}${cal(g)}</tr>`;
+  };
+  let filas = '';
+  if (state.utm.nivel === 'arbol') {
+    for (const c of ordenarUtms(a.campanas, state.utm.orden, pasos)) {
+      const pc = `c:${c.key}`;
+      filas += fila(c, 'c', '', pc, c.hijos.length);
+      if (!state.utm.abiertos.has(pc)) continue;
+      for (const st of ordenarUtms(c.hijos, state.utm.orden, pasos)) {
+        const ps = `${pc}|s:${st.key}`;
+        filas += fila(st, 's', '', ps, st.hijos.length);
+        if (!state.utm.abiertos.has(ps)) continue;
+        for (const ad of ordenarUtms(st.hijos, state.utm.orden, pasos)) filas += fila(ad, 'a', '', `${ps}|a:${ad.key}`, 0);
+      }
+    }
+  } else {
+    for (const g of ordenarUtms(nivelUtms(a, state.utm.nivel), state.utm.orden, pasos).slice(0, 200)) filas += fila(g, state.utm.nivel === 'ad' ? 'a' : 's', g.ruta, '', 0);
+  }
+  if (a.sinUtm) filas += `<tr class="utm-sin">${`<td class="utm-nombre"><span class="utm-abrir-hueco"></span><span><strong>${esc(a.sinUtm.label)}</strong></span></td>`}${pasos.map((p, i) => celda(a.sinUtm, p, i)).join('')}${cal(a.sinUtm)}</tr>`;
+  box.innerHTML = `<div class="table-scroll"><table class="metric-table utm-table">
+    <thead><tr><th>${state.utm.nivel === 'arbol' ? 'Campaña › conjunto › anuncio' : state.utm.nivel === 'ad' ? 'Anuncio' : 'Conjunto'}</th>${pasos.map((p, i) => `<th class="num${i === pasos.length - 1 ? ' fin' : ''}"><span aria-hidden="true">${p.ico}</span> ${esc(p.label)}</th>`).join('')}${conSem ? `<th class="utm-sem" title="Según sus respuestas a la encuesta: 🟢 se parecen a quien compra · 🟡 en la media · 🔴 se parecen a quien no compra. El % es el de leads en verde.">🚦 Calidad del lead (encuesta)</th>` : ''}<th class="num" title="0-100: cuanto más alto, más cerca de la compra está lo que trae">Cerca de la compra</th></tr></thead>
+    <tbody>${filas}</tbody>
+    <tfoot>${fila({ ...T, label: 'Total' }, 't', '', '', 0)}</tfoot></table></div>`;
+}
+$('#view-utms').addEventListener('click', (e) => {
+  const n = e.target.closest('[data-un]');
+  if (n) { state.utm.nivel = n.dataset.un; renderUtms(); return; }
+  const o = e.target.closest('[data-uo]');
+  if (o) { state.utm.orden = o.dataset.uo; renderUtms(); return; }
+  const ab = e.target.closest('[data-utm-abrir]');
+  if (ab) { const k = ab.dataset.utmAbrir; state.utm.abiertos.has(k) ? state.utm.abiertos.delete(k) : state.utm.abiertos.add(k); renderUtms(); return; }
+  if (e.target.closest('#utm-recargar')) {
+    // «En tiempo real»: vuelve a leer los leads de GHL (y la inversión de Meta) de este embudo.
+    if (enVsl()) recargarVsl({ forzar: true });
+    else if (enDirecta()) cargarDirecta({ fresh: true });
+    else loadLeads({ forzar: true });
+  }
+});
+
 $('#gan-level').addEventListener('click', (e) => {
   const b = e.target.closest('[data-gl]');
   if (!b) return;
@@ -3862,7 +3971,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'labia', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones', 'xalumnos', 'xofertas', 'xhoy'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'labia', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones', 'xalumnos', 'xofertas', 'xhoy', 'utms'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -3900,6 +4009,7 @@ const AYUDA_VISTA = {
   vmetricas: ['📊 Métricas', 'Cómo va el embudo por fechas: registros, consumo, llamadas, ventas y ROAS. Elige el periodo arriba.'],
   vleads: ['👥 Leads', 'Cada persona con lo que ha visto y su WhatsApp según su estado.'],
   vanuncios: ['👑 Anuncios ganadores', 'Qué campañas, conjuntos y anuncios traen ventas en el periodo elegido.'],
+  utms: ['🎯 UTMs', 'Qué tipo de lead trae cada campaña, conjunto y anuncio: cuántos rellenan la encuesta, ven las clases, compran la VIP, van al directo y compran, en orden como un embudo. Ordena por «Más cerca de la compra» para ver qué anuncios traen a tu avatar comprador.'],
   meteoricos: ['⚡ Meteóricos', 'Cada oferta flash: cuenta atrás, ventas, facturación, visitas a la oferta y quién compra.'],
   moferta: ['🎁 Oferta', 'Los entregables y bonus de la oferta frente a las ventas hora a hora.'],
 };
@@ -3934,13 +4044,13 @@ document.addEventListener('click', (e) => {
 // Plan (organizar el lanzamiento) y Análisis (para decidir). El orden de cada lista es el de sus subpestañas.
 const GRUPOS = {
   comercial: ['hoy', 'xhoy', 'llamadas', 'endirecto', 'labia'],
-  anunciosg: ['publicidad', 'avatar', 'vanuncios', 'danuncios', 'anuncios'],
+  anunciosg: ['publicidad', 'avatar', 'vanuncios', 'danuncios', 'utms', 'anuncios'],
   crear: ['paginas', 'emailsia', 'imagenes', 'grupowa', 'automatizaciones'],
   planificacion: ['objetivos', 'calendario', 'tareas', 'carrito'],
   analisis: ['avatarc', 'comparar', 'rendimiento', 'claude'],
 };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { labia: 'whatsapp', anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', publicidad: 'megaphone', xalumnos: 'users', xofertas: 'gift', xhoy: 'target' };
+const VIEW_ICONS = { labia: 'whatsapp', anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', utms: 'target', publicidad: 'megaphone', xalumnos: 'users', xofertas: 'gift', xhoy: 'target' };
 $$('.view-tab, .subview-tab[data-view]:not(.subview-labia)').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
@@ -4117,8 +4227,9 @@ function showView(view) {
   for (const v of VIEWS) $(`#view-${v}`).hidden = v !== view;
   ls.set(`lsd_view_${state.embudo}`, view);
   if (!enVsl()) ls.set('lsd_view', view);
-  $('#vsl-rango').hidden = !['vmetricas', 'vleads', 'vanuncios'].includes(view);
-  $('#dir-rango').hidden = !['dmetricas', 'dclientes', 'danuncios'].includes(view);
+  $('#vsl-rango').hidden = !['vmetricas', 'vleads', 'vanuncios'].includes(view) && !(view === 'utms' && enVsl());
+  $('#dir-rango').hidden = !['dmetricas', 'dclientes', 'danuncios'].includes(view) && !(view === 'utms' && enDirecta());
+  if (view === 'utms' && state.config) { if (enDirecta() && !state.directa.datos && !state.directa.cargando) cargarDirecta(); renderUtms(); }
   if (['dmetricas', 'dclientes', 'danuncios'].includes(view) && state.config && enDirecta()) renderDirecta();
   if (view === 'xalumnos' && state.config && enCruzadas()) cruz.cargar(state.embudo);
   if (view === 'xofertas' && state.config && enCruzadas()) cruz.pintarOfertas(state.embudo);
@@ -12157,6 +12268,7 @@ function renderVsl() {
   if (!$('#view-vmetricas').hidden) renderVslMetricas();
   if (!$('#view-vleads').hidden) renderVslLeads();
   if (!$('#view-vanuncios').hidden) renderVslAnuncios();
+  if (!$('#view-utms').hidden) renderUtms();
 }
 const vslCargando = (box) => { box.innerHTML = '<p class="muted">Cargando los leads de la VSL…</p>'; };
 
@@ -14471,6 +14583,7 @@ function renderDirecta() {
   if (!$('#view-dmetricas').hidden) renderDirectaMetricas(D);
   if (!$('#view-dclientes').hidden) renderDirectaClientes(D);
   if (!$('#view-danuncios').hidden) renderDirectaAnuncios(D);
+  if (!$('#view-utms').hidden) renderUtms();
 }
 
 // Tarjeta con su propia ayuda «?» (las de los lanzamientos dicen otra cosa).

@@ -21,7 +21,7 @@ export const DESBLOQUEOS = [
   { id: 'crear', ico: '✨', nombre: 'Crear con IA', texto: 'Tu embudo ya está configurado: aquí creas páginas, emails, imágenes y los mensajes del grupo con IA, con tu marca dentro.',
     vistas: ['paginas', 'emailsia', 'imagenes', 'grupowa', 'automatizaciones'], cuando: (c) => c.configurado || c.dias >= 3 },
   { id: 'anuncios', ico: '📣', nombre: 'Anuncios', texto: 'Ya tienes leads: aquí ves cómo van tus anuncios de Meta (CPM, CTR, CPL…) y preparas los siguientes.',
-    vistas: ['publicidad', 'avatar', 'vanuncios', 'danuncios', 'anuncios'], cuando: (c) => c.leads || c.dias >= 3 },
+    vistas: ['publicidad', 'avatar', 'vanuncios', 'danuncios', 'utms', 'anuncios'], cuando: (c) => c.leads || c.dias >= 3 },
   { id: 'llamadas', ico: '📞', nombre: 'Llamadas', texto: 'Ya tienes calendario de reservas: aquí ves cada llamada con la ficha del lead y anotas cómo fue.',
     vistas: ['llamadas'], cuando: (c) => c.calendario || c.dias >= 5 },
   { id: 'analisis', ico: '🔎', nombre: 'Análisis', texto: 'Compara tus lanzamientos, mira quién te compra y el rendimiento del equipo.',

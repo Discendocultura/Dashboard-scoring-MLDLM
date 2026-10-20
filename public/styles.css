@@ -7345,3 +7345,52 @@ body.pp-activo .vs-mas { display: inline-flex; }
 
 /* Ejemplo con datos inventados: es para mirar; sin botones de editar que luego no pueden guardar. */
 body.en-ejemplo .config-only, body.en-ejemplo #sb-add, body.en-ejemplo .sb-edit, body.en-ejemplo #sb-ejemplo-fila { display: none !important; }
+
+/* ---------- Anuncios → UTMs: qué tipo de lead trae cada campaña, conjunto y anuncio ---------- */
+.utm-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.utm-ctrl { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 6px 0 14px; }
+.utm-embudo { display: flex; align-items: stretch; gap: 6px; overflow-x: auto; padding: 4px 0 10px; }
+.utm-paso { position: relative; flex: 1 1 0; min-width: 104px; display: grid; justify-items: center; gap: 2px; padding: 12px 8px 10px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); overflow: hidden; text-align: center; }
+.utm-paso::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: var(--p); background: linear-gradient(180deg, color-mix(in srgb, var(--dato) 6%, transparent), color-mix(in srgb, var(--dato) 18%, transparent)); z-index: 0; transition: height .5s ease; }
+.utm-paso > * { position: relative; z-index: 1; }
+.utm-paso b { font-size: 20px; color: var(--dato); font-variant-numeric: tabular-nums; }
+.utm-paso small { font-size: 12px; color: var(--text-2); line-height: 1.25; }
+.utm-paso em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--text); }
+.utm-paso.fin { border-color: color-mix(in srgb, var(--dato) 55%, var(--border)); }
+.utm-paso-ico { font-size: 18px; }
+.utm-flecha { align-self: center; color: var(--muted); font-size: 18px; }
+.utm-top { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--dato) 7%, var(--surface)); border: 1px solid color-mix(in srgb, var(--dato) 25%, var(--border)); font-size: 13.5px; }
+.utm-top-i { display: grid; }
+.utm-top-i small { color: var(--muted); font-size: 12px; }
+.utm-sem-ley { margin: 0 0 10px; font-size: 13px; color: var(--text-2); }
+.utm-table td { white-space: nowrap; padding: 8px 10px; }
+.utm-table th { white-space: normal; min-width: 72px; max-width: 110px; line-height: 1.25; vertical-align: bottom; padding: 8px 10px; }
+.utm-table th:first-child { max-width: none; }
+.utm-table th.fin, .utm-table td.fin { background: color-mix(in srgb, var(--dato) 6%, transparent); }
+.utm-nombre { display: flex; align-items: flex-start; gap: 6px; min-width: 190px; max-width: 300px; white-space: normal !important; }
+.utm-nombre > span:last-child { display: grid; min-width: 0; }
+.utm-nombre strong { overflow-wrap: anywhere; }
+.utm-nombre small { color: var(--muted); font-size: 11.5px; }
+.utm-n-s .utm-nombre { padding-left: 22px; }
+.utm-n-a .utm-nombre { padding-left: 44px; }
+.utm-n-a strong { font-weight: 600; }
+.utm-n-c { background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.utm-abrir { border: 0; background: none; color: var(--dato); font-size: 14px; width: 18px; padding: 0; cursor: pointer; flex: none; }
+.utm-abrir-hueco { width: 18px; flex: none; }
+.utm-c { position: relative; vertical-align: top; }
+.utm-c b { display: block; font-variant-numeric: tabular-nums; }
+.utm-c small { display: block; color: var(--muted); font-size: 11.5px; }
+.utm-c i { display: block; height: 4px; margin-top: 3px; border-radius: 99px; background: linear-gradient(90deg, var(--dato) var(--p), color-mix(in srgb, var(--dato) 12%, transparent) var(--p)); }
+.utm-cal { display: inline-grid; place-items: center; min-width: 44px; padding: 3px 8px; border-radius: 999px; font-weight: 750; font-variant-numeric: tabular-nums; color: #fff; background: color-mix(in srgb, var(--dato) calc(25% + var(--q) * 0.75%), #8a93a8); }
+.utm-sem { min-width: 120px; vertical-align: top; }
+.utm-sem-dot { margin-right: 4px; }
+.utm-sem b { font-variant-numeric: tabular-nums; }
+.utm-sem small { display: block; color: var(--muted); font-size: 11.5px; }
+.utm-sem-bar { display: flex; height: 5px; margin-top: 3px; border-radius: 99px; overflow: hidden; background: var(--surface-2); }
+.utm-sem-bar i { display: block; height: 100%; }
+.utm-sem-bar .v { background: #2fb36b; }
+.utm-sem-bar .a { background: #f2c230; }
+.utm-sem-bar .r { background: #e5534b; }
+.utm-sin td { color: var(--text-2); font-style: italic; }
+.utm-table tfoot td { font-weight: 700; border-top: 2px solid var(--border); }
+.utm-nota { margin-top: 10px; }
