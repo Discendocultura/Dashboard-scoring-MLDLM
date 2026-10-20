@@ -8040,3 +8040,21 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 @media (max-width: 640px) { .np-canales { grid-template-columns: 1fr 1fr; } }
 .notif-head { flex-wrap: wrap; }
 .notif-head > .muted { flex-basis: 100%; order: 3; }
+/* Nuevo embudo y nuevo lanzamiento: el número nunca se aplasta y los pasos van en tarjetas, como el resto de configuraciones */
+.wiz-num { flex: none; }
+#emb-pasos, #nl-pasos { display: grid; align-items: stretch; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; padding: 14px 20px; }
+#emb-pasos .wiz-raya, #nl-pasos .wiz-raya { display: none; }
+#emb-pasos .wiz-dot, #nl-pasos .wiz-dot { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 6px; min-height: 76px; padding: 10px 6px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); transition: border-color .15s, background .15s, transform .15s; }
+#emb-pasos .wiz-dot:not(:disabled):hover, #nl-pasos .wiz-dot:not(:disabled):hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+#emb-pasos .wiz-dot:not(:disabled):hover .wiz-lbl, #nl-pasos .wiz-dot:not(:disabled):hover .wiz-lbl { text-decoration: none; }
+#emb-pasos .wiz-dot.actual, #nl-pasos .wiz-dot.actual { border-color: var(--accent); background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--surface)), var(--surface)); box-shadow: 0 10px 24px -18px var(--accent); }
+#emb-pasos .wiz-dot.hecho, #nl-pasos .wiz-dot.hecho { background: color-mix(in srgb, #10b981 6%, var(--surface)); }
+#emb-pasos .wiz-dot:disabled, #nl-pasos .wiz-dot:disabled { opacity: 1; color: var(--muted); background: var(--surface-2); border-style: dashed; }
+#emb-pasos .wiz-num, #nl-pasos .wiz-num { width: 30px; height: 30px; }
+#emb-pasos .wiz-lbl, #nl-pasos .wiz-lbl { font-size: 12.5px; font-weight: 700; hyphens: auto; -webkit-hyphens: auto; }
+@media (max-width: 600px) {
+  #emb-pasos, #nl-pasos { gap: 5px; padding: 10px 12px; }
+  #emb-pasos .wiz-dot, #nl-pasos .wiz-dot { gap: 4px; min-height: 64px; padding: 6px 2px; }
+  #emb-pasos .wiz-num, #nl-pasos .wiz-num { width: 26px; height: 26px; }
+  #emb-pasos .wiz-lbl, #nl-pasos .wiz-lbl { display: block !important; font-size: 10px; line-height: 1.15; }
+}

@@ -13295,7 +13295,7 @@ function propuestasEmbudo(id) {
 }
 
 // ---------- Asistente por pasos ----------
-const PASO_LABEL = { tipo: 'Tipo de embudo', preclase: 'Prelanzamiento', directa: 'Qué lleva', contenido: 'Páginas y WhatsApp', dashboard: 'AlquimIA', final: 'Nombre y resumen' };
+const PASO_LABEL = { tipo: 'Tipo de embudo', preclase: 'Prelan\u00ADzamiento', directa: 'Qué lleva', contenido: 'Páginas y WhatsApp', dashboard: 'AlquimIA', final: 'Nombre y resumen' };
 let embPaso = 0;
 function pasosEmb() {
   const plantilla = !embEdit && $('#emb-plantilla').value;
