@@ -5308,7 +5308,11 @@ const V_CAMPOS = [
 // Lanzamientos de 2, 3 o 4 vídeos: una pestaña por vídeo, todas iguales (día, hora y su sala de Zoom; los vídeos 2-4,
 // además, su página y su vídeo). El vídeo 1 sigue guardándose en las casillas del directo de siempre: su pestaña
 // las refleja (y estas se ocultan mientras haya varios vídeos).
-const V1_PROXY = { fecha: '#cfg-directo-fecha', hora: '#cfg-directo-hora', zoomMeetingId: '#cfg-zoom-id', zoomJoinUrl: '#cfg-zoom-url' };
+const V1_PROXY = { fecha: '#cfg-directo-fecha', hora: '#cfg-directo-hora', zoomMeetingId: '#cfg-zoom-id', zoomJoinUrl: '#cfg-zoom-url', replayUrl: '#cfg-replay', replayVideoUrl: '#cfg-replay-video', replayAt: '#cfg-replay-at' };
+// Grabaciones de un lanzamiento de varios vídeos: todas en una página ('global') o una por vídeo ('video').
+// Sin elegir: una por vídeo si algún vídeo 2-4 ya tiene la suya distinta de la del 1; si no, global.
+const grabModoDe = (l) => l?.grabacionModo || ((l?.videos || []).some((v) => v?.replayUrl && v.replayUrl !== l.replayUrl) ? 'video' : 'global');
+const grabModo = () => $('input[name="cfg-grab-modo"]:checked')?.value || 'global';
 let videoTab = 1;
 function renderVideosCfg(l) {
   const formato = formatoDeLanz(editingCode ? l : null);
@@ -5318,17 +5322,21 @@ function renderVideosCfg(l) {
   sec.hidden = !multi;
   sec.dataset.formato = formato;
   // Con varios vídeos, el día, la hora y el Zoom del vídeo 1 van en su pestaña: fuera las casillas sueltas.
-  Object.values(V1_PROXY).forEach((sel) => { const f = $(sel)?.closest('.field'); if (f) f.hidden = multi; });
+  ['fecha', 'hora', 'zoomMeetingId', 'zoomJoinUrl'].forEach((c) => { const f = $(V1_PROXY[c])?.closest('.field'); if (f) f.hidden = multi; });
+  // Grabación: con varios vídeos, la del vídeo 1 va en su fila (fuera el apartado suelto).
+  $('#cfg-replay-video').closest('.cfg-sec').hidden = multi;
+  $('#cfg-grab-sec').hidden = !multi;
+  if (multi) { const m = grabModoDe(l); $$('input[name="cfg-grab-modo"]').forEach((i) => { i.checked = i.value === m; }); }
   const h3Zoom = $('#cfg-zoom-id').closest('.cfg-sec')?.querySelector('h3');
   if (h3Zoom) { h3Zoom.dataset.def ??= h3Zoom.textContent; h3Zoom.textContent = multi ? 'Botón «Añadir al calendario»' : h3Zoom.dataset.def; }
-  if (!multi) { $('#cfg-videos').innerHTML = ''; return; }
+  if (!multi) { $('#cfg-videos').innerHTML = ''; $('#cfg-grab-videos').innerHTML = ''; pintarGrabModo(); return; }
   videoTab = Math.min(videoTab, vs.length);
   $('#cfg-videos-titulo').textContent = `${FORMATOS[formato].label}: fecha, hora y sala de Zoom de cada vídeo`;
   $('#cfg-videos-nota').textContent = `Cada vídeo tiene su pestaña con lo mismo: el día, la hora y su propia reunión de Zoom (si es grabado, deja vacío su Zoom). Las leads se inscriben en la reunión de cada vídeo al registrarse y al entrar en la preclase. En el ${vs.at(-1).nombre} se hace la venta.`;
   const campo = (v, c, label, type) => {
     const id = v.k === 1 ? `cfg-v1p-${c}` : `cfg-v${v.k}-${c === 'replayUrl' ? 'replay' : c === 'replayVideoUrl' ? 'replay-video' : c === 'replayAt' ? 'replay-at' : c}`;
     const val = v.k === 1 ? ($(V1_PROXY[c])?.value || '') : (v[c] || '');
-    return `<label class="field"><span>${label}</span><input id="${id}" ${v.k === 1 ? `data-v1="${c}"` : `data-vc="${c}"`} type="${type}" value="${esc(val)}"${c === 'zoomMeetingId' ? ' inputmode="numeric" placeholder="812 3456 7890"' : ''}></label>`;
+    return `<label class="field"${c === 'replayUrl' ? ' data-grab-url' : ''}><span>${label}</span><input id="${id}" ${v.k === 1 ? `data-v1="${c}"` : `data-vk="${v.k}" data-vc="${c}"`} type="${type}" value="${esc(val)}"${c === 'zoomMeetingId' ? ' inputmode="numeric" placeholder="812 3456 7890"' : ''}></label>`;
   };
   const lbl = Object.fromEntries(V_CAMPOS.map(([c, label, type]) => [c, [label, type]]));
   const grupo = (v, tit, cs) => `<div class="cv-grupo"><h4>${tit}</h4><div class="grid2">${cs.map((c) => campo(v, c, ...lbl[c])).join('')}</div></div>`;
@@ -5336,9 +5344,27 @@ function renderVideosCfg(l) {
     + vs.map((v) => `<div class="${v.k === 1 ? 'cfg-video1' : 'cfg-video'} cv-panel" data-k="${v.k}" role="tabpanel"${v.k === videoTab ? '' : ' hidden'}>
       ${grupo(v, '📅 Cuándo', ['fecha', 'hora'])}
       ${grupo(v, '🎥 Su sala de Zoom', ['zoomMeetingId', 'zoomJoinUrl'])}
-      ${v.k === 1 ? '<div class="cv-grupo"><h4>▶️ Su página y su vídeo</h4><p class="muted small">Los del primer vídeo van en la pestaña «Grabación».</p></div>' : grupo(v, '▶️ Su página y su vídeo', ['replayUrl', 'replayVideoUrl', 'replayAt'])}
+      <div class="cv-grupo"><h4>▶️ Su grabación</h4><p class="muted small">Su vídeo, desde cuándo se ve y su página: en la pestaña «Grabación».</p></div>
     </div>`).join('');
+  // Pestaña Grabación: una fila por vídeo (su vídeo de Vimeo, desde cuándo y, si va cada una en su página, su URL).
+  $('#cfg-grab-videos').innerHTML = vs.map((v) => `<div class="grab-video" data-k="${v.k}">
+      <h4><span class="cv-n">${v.k}</span>${esc(v.nombre)}${v.venta ? ' <small>· venta</small>' : ''}</h4>
+      <div class="grid2">${['replayVideoUrl', 'replayAt', 'replayUrl'].map((c) => campo(v, c, c === 'replayUrl' ? 'Página de su grabación en GHL' : c === 'replayVideoUrl' ? 'Grabación · vídeo de Vimeo' : lbl[c][0], lbl[c][1])).join('')}</div>
+    </div>`).join('');
+  pintarGrabModo();
 }
+// Global: una sola URL (la de «Página de replay»); por vídeo: la de cada uno en su fila.
+function pintarGrabModo() {
+  const multi = !$('#cfg-grab-sec').hidden;
+  const global = !multi || grabModo() === 'global';
+  $$('#cfg-grab-videos [data-grab-url]').forEach((f) => { f.hidden = global; });
+  const urlF = $('#cfg-replay').closest('.field');
+  urlF.hidden = multi && !global;
+  const sp = urlF.querySelector('span');
+  sp.dataset.def ??= sp.textContent;
+  sp.textContent = multi && global ? 'URL de la página de las grabaciones (todas en una)' : sp.dataset.def;
+}
+$('#cfg-grab-sec').addEventListener('change', (e) => { if (e.target.name === 'cfg-grab-modo') pintarGrabModo(); });
 $('#cfg-videos').addEventListener('click', (e) => {
   const b = e.target.closest('[data-cv-tab]');
   if (!b) return;
@@ -5347,6 +5373,14 @@ $('#cfg-videos').addEventListener('click', (e) => {
   $$('#cfg-videos .cv-panel').forEach((pn) => { pn.hidden = Number(pn.dataset.k) !== videoTab; });
 });
 // La pestaña del vídeo 1 escribe en las casillas del directo de siempre (y avisa a quien las escuche).
+$('#cfg-grab-videos').addEventListener('input', (e) => {
+  const c = e.target.dataset?.v1;
+  if (!c) return;
+  const orig = $(V1_PROXY[c]);
+  orig.value = e.target.value;
+  orig.dispatchEvent(new Event('input', { bubbles: true }));
+  orig.dispatchEvent(new Event('change', { bubbles: true }));
+});
 $('#cfg-videos').addEventListener('input', (e) => {
   const c = e.target.dataset?.v1;
   if (!c) return;
@@ -5355,8 +5389,16 @@ $('#cfg-videos').addEventListener('input', (e) => {
   orig.dispatchEvent(new Event('input', { bubbles: true }));
   orig.dispatchEvent(new Event('change', { bubbles: true }));
 });
+// Vídeos 2-4: sus casillas están repartidas (día/hora/Zoom en Datos básicos; grabación en Grabación). Con las
+// grabaciones en una sola página, todas usan su URL.
 function readVideosCfg() {
-  return $$('#cfg-videos .cfg-video').map((fs) => Object.fromEntries($$('[data-vc]', fs).map((i) => [i.dataset.vc, i.value.trim()])));
+  const ks = [...new Set($$('#config-dialog [data-vk]').map((i) => Number(i.dataset.vk)))].sort((a, b) => a - b);
+  const global = !$('#cfg-grab-sec').hidden && grabModo() === 'global';
+  return ks.map((k) => {
+    const v = Object.fromEntries($$(`#config-dialog [data-vk="${k}"]`).map((i) => [i.dataset.vc, i.value.trim()]));
+    if (global) v.replayUrl = $('#cfg-replay').value.trim();
+    return v;
+  });
 }
 
 // Prelanzamiento del embudo (clases y VIP): solo se ven las casillas que tocan.
@@ -7355,6 +7397,7 @@ function readForm() {
       zoomMeetingId: $('#cfg-zoom-id').value,
       zoomJoinUrl: $('#cfg-zoom-url').value.trim(),
       videos: readVideosCfg(),
+      ...(!$('#cfg-grab-sec').hidden ? { grabacionModo: grabModo() } : {}),
       replayUrl: $('#cfg-replay').value.trim(),
       raicesUrl: $('#cfg-raices').value.trim(),
       whatsappDudas: { numero: $('#cfg-wa-numero').value.trim(), mensaje: $('#cfg-wa-mensaje').value.trim() },
@@ -8170,7 +8213,10 @@ function snippetsLanzamiento(code) {
     ['PAGO · bloque base de la página de pago (en el pie: barra fija, textos, precios y enlaces de los cajetines; el resto, en Venta → Página de pago)', `<div data-lsd-pago data-launch="auto"></div>\n${script}`],
     ['INSCRIBIRME · botón a la página de pago (páginas de venta y de replay; la URL va en Venta → Página de pago)', '<a data-lsd-link="pagina-pago">Quiero inscribirme en Raíces</a>'],
     ['WHATSAPP · botón para una sección (sin estilo: dale el tuyo)', '<a data-lsd-link="whatsapp-dudas">Escríbenos por WhatsApp</a>'],
-    ['GRABACIÓN · bloques de la página del replay (el 1º y la barra arriba del todo; el de vídeo, donde quieras que se vea; el paso a paso, en Grabación → Página de replay)', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`],
+    ...(videosDe(l).length > 1 && grabModoDe(l) === 'global'
+      ? [['GRABACIÓN · bloques de la página de las grabaciones (todas en una: el 1º y la barra arriba del todo; un bloque de vídeo por grabación, en orden; cada uno se abre a su hora)',
+        `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n${videosDe(l).map((v) => `<!-- ${v.nombre} -->\n<div data-lsd-video="${v.replay}"></div>`).join('\n')}\n${script}`]]
+      : [['GRABACIÓN · bloques de la página del replay (el 1º y la barra arriba del todo; el de vídeo, donde quieras que se vea; el paso a paso, en Grabación → Página de replay)', `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="replay"></div>\n${script}`]]),
     ...si(pre, ['Enlace al LOGIN o a los RECURSOS en emails de GHL (añádelo al final de la URL: entra directa)', '?cid={{contact.id}}']),
     // El enlace para conectarse al directo es el de la preclase: 59 min antes enseña la pantalla de espera y al llegar a cero entra sola.
     ...(!pre ? [] : (() => {
@@ -8185,7 +8231,7 @@ function snippetsLanzamiento(code) {
     ['Enlace directo a Zoom (sin pantalla de espera) para WhatsApp (pide el email)', `${origin}/directo?l=auto${cParam('&')}`],
     // Lanzamientos de varios vídeos: una página por vídeo y su enlace al directo (si es en directo).
     ...videosDe(state.config.launches[code]).slice(1).flatMap((v) => [
-      [`${v.nombre.toUpperCase()} · bloques de su página`, `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="${v.replay}"></div>\n${script}`],
+      ...(grabModoDe(l) === 'global' ? [] : [[`${v.nombre.toUpperCase()} · bloques de su página`, `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n<div data-lsd-video="${v.replay}"></div>\n${script}`]]),
       [`${v.nombre} · enlace al directo en emails de GHL (solo si es en directo)`, `${origin}/directo?l=auto&v=${v.k}&cid={{contact.id}}${cParam('&')}`],
     ]),
   ];

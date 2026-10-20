@@ -8116,3 +8116,10 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .hub-doble code, .hub-doble a { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
 .hub-canal { flex: none; width: 128px; font-size: 12px; font-weight: 700; color: var(--text-2); }
 @media (max-width: 600px) { .hub-canal { width: auto; flex-basis: 100%; } }
+/* Grabación: una fila por vídeo y la elección de página global o por vídeo */
+.grab-modo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.grab-videos { display: flex; flex-direction: column; gap: 10px; }
+.grab-video { padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.grab-video h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; }
+.grab-video h4 small { color: var(--muted); font-weight: 600; }
+@media (max-width: 600px) { .grab-modo { grid-template-columns: 1fr; } }
