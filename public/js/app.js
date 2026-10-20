@@ -15462,7 +15462,7 @@ function renderSeguimiento() {
     return `<article class="ll-card seg-card ${segEtapaPendiente(x, S) ? 'pendiente' : /venta/i.test(et?.name || '') ? 'res-venta' : /perdid/i.test(et?.name || '') ? 'res-perdido' : 'res-seguimiento'}" data-seg-card="${esc(x.id)}">
       <div class="ll-when"><span class="ll-dia">${x.diasDesde != null ? (x.diasDesde === 0 ? 'Hoy' : x.diasDesde === 1 ? 'Ayer' : `${x.diasDesde} días`) : '–'}</span><span class="ll-hora" title="${esc(fecha(x.dia))}">${x.dia ? esc(new Date(`${x.dia}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })) : ''}</span></div>
       <div class="ll-main">
-        <div class="ll-name"><button type="button" class="lead-ficha" data-ficha-lead="${esc(x.id)}" title="Ver la ficha completa (encuesta, formulario y notas de GHL)">${esc(x.name || 'Sin nombre')}</button>
+        <div class="ll-name"><span class="seg-ini" aria-hidden="true">${esc(String(x.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?')}</span><button type="button" class="lead-ficha" data-ficha-lead="${esc(x.id)}" title="Ver la ficha completa (encuesta, formulario y notas de GHL)">${esc(x.name || 'Sin nombre')}</button>
           ${et ? `<span class="ll-etapa" style="--c:${esc(et.color || '#8a817b')}" title="Etapa en ${esc(S.pipeline.name)}">${esc(et.name)}</span>` : `<span class="ll-etapa none" title="Aún no tiene oportunidad en ${esc(S.pipeline?.name || 'el pipeline')}: se crea al cambiar la etapa">Sin etapa</span>`}</div>
         <div class="ll-contact">${x.phone ? `<a href="tel:${esc(x.phone)}">${icon('phone')}${esc(x.phone)}</a>` : '<span class="muted">Sin teléfono</span>'}${x.email ? `<span class="muted">${esc(x.email)}</span>` : ''}</div>
         <div class="ll-chips">
@@ -15474,12 +15474,14 @@ function renderSeguimiento() {
         </div>
         ${x.cambio?.nota ? `<p class="ll-notas">${esc(x.cambio.nota)}</p>` : ''}
         <div class="seg-acc">
+          <div class="seg-contactar">
           ${wa ? `<a class="btn small wa" href="https://wa.me/${wa}?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener" data-seg-wa="${esc(x.id)}">${icon('whatsapp')} WhatsApp</a>` : ''}
           ${x.phone ? `<a class="btn small ghost" href="tel:${esc(x.phone)}">${icon('phone')} Llamar</a>` : ''}
-          ${S.pipeline ? `<select data-seg-sel="${esc(x.id)}" aria-label="Nueva etapa">${stages.map((s) => `<option value="${esc(s.id)}"${s.id === x.etapa ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}${x.etapa ? '' : '<option value="" selected>— Elige la etapa —</option>'}</select>
+          </div>
+          ${S.pipeline ? `<div class="seg-mover"><span class="seg-mover-tit">Mover a</span><select data-seg-sel="${esc(x.id)}" aria-label="Nueva etapa">${stages.map((s) => `<option value="${esc(s.id)}"${s.id === x.etapa ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}${x.etapa ? '' : '<option value="" selected>— Elige la etapa —</option>'}</select>
           <input data-seg-nota="${esc(x.id)}" maxlength="500" placeholder="Nota (opcional): qué te ha dicho">
-          <button type="button" class="btn small" data-seg-guardar="${esc(x.id)}">Guardar</button>` : ''}
-          <span class="muted small" data-seg-status="${esc(x.id)}"></span>
+          <button type="button" class="btn small primary" data-seg-guardar="${esc(x.id)}">Guardar</button></div>` : ''}
+          <span class="muted small seg-st" data-seg-status="${esc(x.id)}"></span>
         </div>
       </div>
     </article>`;
