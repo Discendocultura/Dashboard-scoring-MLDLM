@@ -8100,3 +8100,11 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .cv-panel[hidden] { display: none; }
 .cv-grupo h4 { margin: 0 0 8px; font-size: 14px; }
 .cv-grupo + .cv-grupo { padding-top: 12px; border-top: 1px dashed var(--border); }
+.xa-puente-cab { position: relative; }
+.xa-puente-cab [data-x-puente-limpiar] { position: absolute; top: 0; right: 0; }
+#xhoy-body .xa-puente { margin-bottom: 16px; }
+.xa-puente-cab:has([data-x-puente-limpiar]) h3 { padding-right: 96px; }
+@media (max-width: 600px) {
+  .xa-puente-cab:has([data-x-puente-limpiar]) h3 { padding-right: 0; }
+  .xa-puente-cab [data-x-puente-limpiar] { position: static; margin: 0 0 10px; }
+}

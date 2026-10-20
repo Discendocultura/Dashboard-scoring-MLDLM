@@ -99,7 +99,12 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
       }
     }
   }
-  const alumnoDe = (contactId) => datos.alumnos?.find((a) => a.id === contactId) || null;
+  // (con un índice por id: el tablero de «A quién llamar» lo pide para cada tarjeta)
+  let indice = { de: null, m: new Map() };
+  const alumnoDe = (contactId) => {
+    if (indice.de !== datos.alumnos) indice = { de: datos.alumnos, m: new Map((datos.alumnos || []).map((a) => [a.id, a])) };
+    return indice.m.get(contactId) || null;
+  };
   const guardarFiltro = (id) => {
     try { ls.set(lsFiltro(id), JSON.stringify(vista.filtro)); ls.set(lsExtra(id), JSON.stringify({ tel: vista.tel, com: vista.com })); } catch { /* sin almacenamiento */ }
   };
@@ -134,6 +139,25 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
       if (k < 1) requestAnimationFrame(paso);
     };
     requestAnimationFrame(paso);
+  }
+
+  // El «puente» (lo que YA TIENEN → lo que les quieres OFRECER), con un botón por producto a cada lado. Lo usan
+  // Alumnos y «A quién llamar» (Comercial → Hoy) con el mismo filtro (vista.filtro). cuenta(pid): cuántos lo tienen.
+  function puenteHtml(productos, cuenta, total, sub = 'Toca lo que <b>ya tienen</b> y lo que les quieres <b>ofrecer</b>.') {
+    const pill = (p, lado) => {
+      const on = vista.filtro[p.id] === lado;
+      const bloqueado = vista.filtro[p.id] && !on;
+      const n = lado === 'si' ? cuenta(p.id) : total - cuenta(p.id);
+      return `<button type="button" class="xa-pill ${on ? 'on' : ''} ${bloqueado ? 'otro' : ''}" data-x-lado="${lado}" data-x-p="${esc(p.id)}" aria-pressed="${on}" style="--c:${colorDe(productos, p.id)}">
+        <span class="xa-pill-ini" aria-hidden="true">${on ? (lado === 'si' ? '✓' : '🎁') : esc(ini(p.nombre))}</span><span class="xa-pill-t">${esc(p.nombre)}</span><span class="xa-pill-n">${num(n)}<small>${pctTxt(n, total)}</small></span></button>`;
+    };
+    return `<section class="xa-puente">
+      <div class="xa-puente-cab"><h3><span aria-hidden="true">🎯</span> ¿A quién quieres llamar?</h3><p>${sub}</p>${Object.keys(vista.filtro).length ? '<button type="button" class="xa-limpiar" data-x-puente-limpiar><span aria-hidden="true">✕</span> Quitar</button>' : ''}</div>
+      <div class="xa-puente-cols">
+        <div class="xa-lado si"><span class="xa-lado-t"><span aria-hidden="true">✅</span> Ya tienen</span><div class="xa-pills">${productos.map((p) => pill(p, 'si')).join('')}</div></div>
+        <div class="xa-puente-flecha" aria-hidden="true"><span>➜</span></div>
+        <div class="xa-lado no"><span class="xa-lado-t"><span aria-hidden="true">🎁</span> Ofrécele <small>(aún no lo tienen)</small></span><div class="xa-pills">${productos.map((p) => pill(p, 'no')).join('')}</div></div>
+      </div></section>`;
   }
 
   function pintar(id = datos.id) {
@@ -202,20 +226,8 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
         <span class="xa-comb-p">${c.ids.map((pid) => { const pr = productos.find((p) => p.id === pid); return `<span class="xa-chip si" style="--c:${colorDe(productos, pid)}">${esc(pr?.nombre || '')}</span>`; }).join('<i aria-hidden="true">+</i>')}${c.ids.length === 1 ? '<small>solo este</small>' : c.ids.length === productos.length ? '<small>⭐ todos</small>' : ''}</span>
         <span class="xa-comb-b"><i style="--w:${Math.round((c.pct / maxC) * 100)}%"></i></span>
         <span class="xa-comb-n"><b>${pctTxt(c.n, total)}</b><small>${num(c.n)}</small></span></button>`).join('')}</div></section>` : '';
-    const pill = (p, lado) => {
-      const on = vista.filtro[p.id] === lado;
-      const bloqueado = vista.filtro[p.id] && !on;
-      return `<button type="button" class="xa-pill ${on ? 'on' : ''} ${bloqueado ? 'otro' : ''}" data-x-lado="${lado}" data-x-p="${esc(p.id)}" aria-pressed="${on}" style="--c:${colorDe(productos, p.id)}">
-        <span class="xa-pill-ini" aria-hidden="true">${on ? (lado === 'si' ? '✓' : '🎁') : esc(ini(p.nombre))}</span><span class="xa-pill-t">${esc(p.nombre)}</span><span class="xa-pill-n">${num(lado === 'si' ? cuenta(p.id) : total - cuenta(p.id))}<small>${pctTxt(lado === 'si' ? cuenta(p.id) : total - cuenta(p.id), total)}</small></span></button>`;
-    };
     const hay = Object.keys(vista.filtro).length || vista.texto || vista.tel || vista.com || vista.nprod;
-    const puente = `<section class="xa-puente">
-      <div class="xa-puente-cab"><h3><span aria-hidden="true">🎯</span> ¿A quién quieres llamar?</h3><p>Toca lo que <b>ya tienen</b> y lo que les quieres <b>ofrecer</b>.</p></div>
-      <div class="xa-puente-cols">
-        <div class="xa-lado si"><span class="xa-lado-t"><span aria-hidden="true">✅</span> Ya tienen</span><div class="xa-pills">${productos.map((p) => pill(p, 'si')).join('')}</div></div>
-        <div class="xa-puente-flecha" aria-hidden="true"><span>➜</span></div>
-        <div class="xa-lado no"><span class="xa-lado-t"><span aria-hidden="true">🎁</span> Ofrécele <small>(aún no lo tienen)</small></span><div class="xa-pills">${productos.map((p) => pill(p, 'no')).join('')}</div></div>
-      </div></section>`;
+    const puente = puenteHtml(productos, cuenta, total);
     const barra = `<div class="xa-barra" role="status">
       <span class="xa-barra-n" data-x-num>${num(vista.ultimo)}</span>
       <span class="xa-barra-t"><span>personas <em class="xa-barra-pct">${pctTxt(filtrados.length, total)} del total</em></span><small>${frase(productos)}</small></span>
@@ -269,6 +281,15 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     if (xpe) { hoy.etapa = hoy.etapa === xpe.dataset.xpEtapa ? '' : xpe.dataset.xpEtapa; return pintarHoy(); }
     const xpc = e.target.closest('[data-xp-com]');
     if (xpc) { vista.com = xpc.dataset.xpCom; guardarFiltro(state.embudo); return pintarHoy(); }
+    // El puente (qué tienen → qué ofrecer), en Alumnos y en «A quién llamar»: el mismo filtro.
+    if (e.target.closest('[data-x-puente-limpiar]')) { vista.filtro = {}; vista.max = POR_PAGINA; guardarFiltro(state.embudo); return e.target.closest('#xhoy-body') ? pintarHoy() : pintar(); }
+    const hp = e.target.closest('#xhoy-body [data-x-p]');
+    if (hp) {
+      const pid = hp.dataset.xP;
+      if (vista.filtro[pid] === hp.dataset.xLado) delete vista.filtro[pid]; else vista.filtro[pid] = hp.dataset.xLado;
+      guardarFiltro(state.embudo);
+      return pintarHoy();
+    }
     if (!e.target.closest('#xalumnos-body')) return;
     const id = datos.id;
     if (e.target.closest('[data-x-recargar]')) return cargar(id, { fresh: true });
@@ -378,14 +399,21 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     const prio = prioritarioDe(cfg);
     const comerciales = cfg.comerciales;
     if (vista.com && !comerciales.some((x) => x.id === vista.com)) vista.com = '';
-    const suyos = (e) => (vista.com ? e.items.filter((it) => comercialDe(it.contactId, comerciales)?.id === vista.com) : e.items);
-    const nDe = (e) => (vista.com ? suyos(e).length : e.n);
+    // El puente (qué tienen → qué ofrecerles) también filtra aquí: el mismo que en Alumnos.
+    for (const k of Object.keys(vista.filtro)) if (!productos.some((p) => p.id === k)) delete vista.filtro[k];
+    const conPuente = Object.keys(vista.filtro).length > 0;
+    const pasaPuente = (it) => { if (!conPuente) return true; const a = alumnoDe(it.contactId); return Boolean(a) && pasaFiltro(a, vista.filtro, ''); };
+    const suyos = (e) => e.items.filter((it) => (!vista.com || comercialDe(it.contactId, comerciales)?.id === vista.com) && pasaPuente(it));
+    const nDe = (e) => (vista.com || conPuente ? suyos(e).length : e.n);
+    // Para el puente: los alumnos de este pipeline (con lo que tienen) y cuántos tienen cada producto.
+    const enElPipe = d.etapas.flatMap((e) => e.items).map((it) => alumnoDe(it.contactId)).filter(Boolean);
+    const puente = productos.length >= 2 && enElPipe.length ? puenteHtml(productos, (pid) => enElPipe.filter((a) => a.tiene.includes(pid)).length, enElPipe.length, 'Toca lo que <b>ya tienen</b> y lo que les quieres <b>ofrecer</b>: el tablero enseña solo a esas personas (el mismo filtro que en Alumnos).') : '';
     const abiertas = d.etapas.filter((e) => !cerrada(e.nombre));
     const cerradas = d.etapas.filter((e) => cerrada(e.nombre));
     const filtroCom = comerciales.length ? `<div class="xa-seg xp-com" role="group" aria-label="Comercial"><span class="xa-seg-t">👤 Comercial</span><button type="button" class="${vista.com ? '' : 'on'}" data-xp-com="">Todos</button>${comerciales.map((x) => `<button type="button" class="${vista.com === x.id ? 'on' : ''}" data-xp-com="${esc(x.id)}">${x.uid && x.uid === state.user?.id ? '⭐ Los míos' : esc(x.nombre)} <small>${x.pct} %</small></button>`).join('')}</div>` : '';
     // Cada fase es también un filtro: al pulsarla se ven solo las personas de esa fase (otra vez, todas).
     if (hoy.etapa && !d.etapas.some((e) => e.id === hoy.etapa)) hoy.etapa = '';
-    const resumen = `${filtroCom}<div class="xp-resumen" role="group" aria-label="Filtrar por fase">${d.etapas.map((e, i) => `<button type="button" class="xp-res ${cerrada(e.nombre) ? 'cerr' : ''} ${hoy.etapa === e.id ? 'on' : ''}" data-xp-etapa="${esc(e.id)}" aria-pressed="${hoy.etapa === e.id}" title="${hoy.etapa === e.id ? 'Ver todas las fases' : `Ver solo «${esc(e.nombre)}»`}" style="--c:${COLORES[0]};--i:${i}"><span aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><b>${num(nDe(e))}</b><small>${esc(e.nombre)}</small></button>`).join('')}${hoy.etapa ? '<button type="button" class="xp-res-todas" data-xp-etapa="">✕ Todas las fases</button>' : ''}</div>`;
+    const resumen = `${puente}${filtroCom}<div class="xp-resumen" role="group" aria-label="Filtrar por fase">${d.etapas.map((e, i) => `<button type="button" class="xp-res ${cerrada(e.nombre) ? 'cerr' : ''} ${hoy.etapa === e.id ? 'on' : ''}" data-xp-etapa="${esc(e.id)}" aria-pressed="${hoy.etapa === e.id}" title="${hoy.etapa === e.id ? 'Ver todas las fases' : `Ver solo «${esc(e.nombre)}»`}" style="--c:${COLORES[0]};--i:${i}"><span aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><b>${num(nDe(e))}</b><small>${esc(e.nombre)}</small></button>`).join('')}${hoy.etapa ? '<button type="button" class="xp-res-todas" data-xp-etapa="">✕ Todas las fases</button>' : ''}</div>`;
     const tarjeta = (e) => (it, i) => {
       const a = alumnoDe(it.contactId);
       const falta = a ? productos.filter((p) => !a.tiene.includes(p.id)) : [];
