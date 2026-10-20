@@ -1804,11 +1804,8 @@ function pintarInicio() {
   const fact = sum('facturacion');
   const inv = sum('inversion');
   $('#inicio-sub').textContent = listos ? 'Todos los embudos de un vistazo · los datos se actualizan cada 15 min' : 'Cargando los embudos…';
-  $('#inicio-total').innerHTML = [
-    card('Facturación total', eur(fact), `último lanzamiento de cada embudo · VSL y venta directa (${inicioPeriodoTxt().toLowerCase()}) · meteóricos ${$('#inicio-preset').value === '30d' ? 'recientes' : 'del periodo'}`, 'coins', 'money'),
-    card('Ventas', sum('ventas').toLocaleString('es-ES'), `${lista.length} embudo${lista.length === 1 ? '' : 's'}${metas.length ? ` y ${metas.length} meteórico${metas.length === 1 ? '' : 's'}` : ''}`, 'cart', 'buy'),
-    card('Inversión', inv ? eur(inv) : '–', inv ? `ROAS conjunto ${(fact / inv).toFixed(2).replace('.', ',')}x` : 'sin inversión registrada', 'megaphone', 'accent'),
-  ].join('');
+  $('#inicio-total').innerHTML = '';
+  pintarHeroInicio({ fact, inv, ventas: sum('ventas'), n: lista.length + metas.length, listos, A });
   const cifra = (label, v) => `<span>${label}<strong>${v}</strong></span>`;
   const roasIni = (r) => (r != null ? `${r.toFixed(2).replace('.', ',')}x` : '–');
   const obj = (o) => (o?.length ? `<div class="muted small">🎯 ${o.map((x) => `${esc(x.label)}: ${Math.round((x.pct || 0) * 100)}%`).join(' · ')}</div>` : '');
@@ -1850,14 +1847,93 @@ function pintarInicio() {
   $('#inicio-alertas').innerHTML = alertas.length ? `<div class="notice err alertas-carrito"><span><strong>🚨 Carrito abierto</strong><ul>${alertas.map((a) => `<li><strong>${esc(a.nombre)}:</strong> ${esc(a.texto)}</li>`).join('')}</ul></span></div>` : '';
   pintarAnunciosInicio(state.inicio.anuncios);
   if (!A) return;
-  const dia = (d) => esc(dayFmt.format(new Date(`${d}T12:00:00Z`)));
-  $('#inicio-hitos').innerHTML = A.error ? `<p class="error">${esc(A.error)}</p>` : A.hitos?.length
-    ? `<ul class="inicio-lista">${A.hitos.map((h) => `<li><button type="button" data-ir-code="${esc(h.code)}">${esc(h.icon)} ${esc(h.titulo)} · <strong>${esc(h.nombre)}</strong></button><span class="muted small">${dia(h.dia)}${h.hora ? ` ${esc(h.hora)}` : ''}</span></li>`).join('')}</ul>`
-    : '<p class="muted">Nada en los próximos 14 días.</p>';
-  $('#inicio-vencidas').innerHTML = A.error ? `<p class="error">${esc(A.error)}</p>` : A.vencidas?.total
-    ? `<ul class="inicio-lista">${A.vencidas.lista.map((t) => `<li><button type="button" data-ir-code="${esc(t.code)}">${esc(t.titulo)} · <strong>${esc(t.nombre)}</strong></button><span class="muted small">${dia(t.fecha)}</span></li>`).join('')}</ul>${A.vencidas.total > A.vencidas.lista.length ? `<p class="muted small">…y ${A.vencidas.total - A.vencidas.lista.length} más.</p>` : ''}`
-    : '<p class="muted">Ninguna 🎉</p>';
+  pintarHitosInicio(A);
+  pintarOperativaInicio(A);
 }
+// El Inicio del cliente, con la estética del de la agencia: portada (saludo, cifras del periodo y cómo va el trabajo).
+function pintarHeroInicio({ fact, inv, ventas, n, listos, A }) {
+  const box = $('#ini-hero');
+  box.hidden = false;
+  const nombre = String(state.user?.nombre || '').trim().split(/\s+/)[0];
+  const cli = state.clientes?.find((c) => c.id === state.cliente)?.nombre || '';
+  const fecha = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' }).format(new Date());
+  const ag = A && !A.error ? A : null;
+  const venc = ag?.vencidas?.total || 0;
+  const pend = ag?.pendientes || 0;
+  const alDia = pend ? Math.round(((pend - venc) / pend) * 100) : 100;
+  const semana = ag ? ag.hitos.filter((h) => h.dia <= dayInMadrid(new Date(Date.now() + 7 * 864e5).toISOString())).length : 0;
+  const color = !ag ? 'gris' : venc === 0 ? 'verde' : alDia >= 80 ? 'ambar' : 'rojo';
+  const chip = (cls, ico, txt, ir) => `<button type="button" class="ini-chip ${cls}" data-ini-abrir="${ir}"><span aria-hidden="true">${ico}</span>${txt}</button>`;
+  const stat = (ico, t, v, sub) => `<div class="ini-stat"><span class="ini-stat-t"><span aria-hidden="true">${ico}</span> ${t}</span><strong>${v}</strong><small>${sub}</small></div>`;
+  box.innerHTML = `<div class="ini-hero-txt">
+      <span class="ag-eyebrow">🏠 ${esc(cli ? `${cli} · ` : '')}${esc(fecha)}</span>
+      <h3>${saludoHora()}${nombre ? `, ${esc(nombre)}` : ''} 👋</h3>
+      <p>${listos ? `${n} ${n === 1 ? 'embudo activo' : 'embudos activos'} · ${esc(inicioPeriodoTxt().toLowerCase())}` : 'Cargando tus embudos…'}</p>
+      <div class="ini-stats">
+        ${stat('💰', 'Facturación', eur(fact), 'último lanzamiento de cada embudo, VSL, venta directa y meteóricos')}
+        ${stat('🛒', 'Ventas', ventas.toLocaleString('es-ES'), `${n} ${n === 1 ? 'embudo' : 'embudos'}`)}
+        ${stat('📣', 'Inversión', inv ? eur(inv) : '–', inv ? `ROAS conjunto ${(fact / inv).toFixed(2).replace('.', ',')}x` : 'sin inversión registrada')}
+      </div>
+      <div class="ag-hero-acc">
+        ${state.operativa ? '<button type="button" class="btn" data-ini-abrir="operativa">🗂️ Operativa</button>' : ''}
+        <button type="button" class="btn" data-ini-abrir="negocio">📈 Inteligencia de negocio</button>
+        <button type="button" class="btn" data-ini-abrir="procesos">📚 Procesos</button>
+      </div>
+    </div>
+    <div class="ini-hero-lado">
+      <div class="ini-anillo s-${color}" style="--p:${ag ? alDia : 0}"><div><strong>${ag ? `${alDia}%` : '…'}</strong><span>tareas al día</span></div></div>
+      <div class="ini-chips">
+        ${chip(venc ? 'rojo' : 'ok', '⏰', ag ? `${venc} ${venc === 1 ? 'tarea vencida' : 'tareas vencidas'}` : 'Revisando tareas…', 'vencidas')}
+        ${chip('azul', '📌', ag ? `${ag.proximas?.total || 0} para esta semana` : '…', 'semana')}
+        ${chip('morado', '🔄', ag ? `${ag.enMarcha?.total || 0} en marcha` : '…', 'marcha')}
+        ${chip('ambar', '📅', ag ? `${semana} ${semana === 1 ? 'hito' : 'hitos'} en 7 días` : '…', 'hitos')}
+      </div>
+    </div>`;
+}
+const diaCorto = (d) => esc(dayFmt.format(new Date(`${d}T12:00:00Z`)));
+// Próximos hitos: los 5 más cercanos, en línea de tiempo («Hoy» y «Mañana» destacados).
+function pintarHitosInicio(A) {
+  const hoy = today();
+  const manana = dayInMadrid(new Date(Date.now() + 864e5).toISOString());
+  $('#inicio-hitos').innerHTML = A.error ? `<p class="error">${esc(A.error)}</p>` : A.hitos?.length
+    ? `<ol class="ini-hitos">${A.hitos.slice(0, 5).map((h) => {
+      const cuando = h.dia === hoy ? 'Hoy' : h.dia === manana ? 'Mañana' : '';
+      const [, m, d] = h.dia.split('-');
+      return `<li class="${cuando ? 'pronto' : ''}"><span class="ini-hito-dia"><b>${Number(d)}</b><small>${esc(new Intl.DateTimeFormat('es-ES', { month: 'short', timeZone: 'UTC' }).format(new Date(`2026-${m}-15T12:00:00Z`)))}</small></span>
+        <button type="button" data-ir-code="${esc(h.code)}"><strong>${esc(h.icon)} ${esc(h.titulo)}</strong><span>${esc(h.nombre)}${h.hora ? ` · ${esc(h.hora)}` : ''}${cuando ? ` · <em>${cuando}</em>` : ''}</span></button></li>`;
+    }).join('')}</ol>`
+    : '<p class="muted">Nada en los próximos 14 días.</p>';
+}
+// Operativa del cliente: cifras y tres columnas (vencidas, esta semana y en marcha).
+function pintarOperativaInicio(A) {
+  if (A.error) { $('#inicio-vencidas').innerHTML = `<p class="error">${esc(A.error)}</p>`; return; }
+  const v = A.vencidas || { total: 0, lista: [] };
+  const p = A.proximas || { total: 0, lista: [] };
+  const m = A.enMarcha || { total: 0, lista: [] };
+  const hoy = today();
+  $('#ini-op-cifras').innerHTML = [
+    ['rojo', '⏰', v.total, 'vencidas'], ['azul', '📌', p.total, 'esta semana'], ['morado', '🔄', m.total, 'en marcha'], ['gris', '📋', A.pendientes ?? '–', 'pendientes en total'],
+  ].map(([c, i, n, t]) => `<div class="ini-op-n ${c}"><span aria-hidden="true">${i}</span><strong>${n}</strong><small>${t}</small></div>`).join('');
+  const item = (t, extra) => `<li><button type="button" data-ir-code="${esc(t.code)}"><strong>${esc(t.titulo)}</strong><span>${esc(t.nombre)}${extra ? ` · ${extra}` : ''}</span></button></li>`;
+  const grupo = (cls, tit, g, vacio, extra) => `<section class="ini-op-g ${cls}"><h3>${tit} <b>${g.total}</b></h3>${g.lista.length ? `<ul>${g.lista.slice(0, 5).map((t) => item(t, extra(t))).join('')}</ul>${g.total > 5 ? `<p class="muted small">…y ${g.total - 5} más</p>` : ''}` : `<p class="ini-op-vacio">${vacio}</p>`}</section>`;
+  $('#inicio-vencidas').innerHTML = grupo('rojo', '⏰ Vencidas', v, '🎉 Ninguna', (t) => `<em class="venc">${diaCorto(t.fecha)}</em>`)
+    + grupo('azul', '📌 Esta semana', p, 'Nada con fecha esta semana', (t) => (t.fecha === hoy ? '<em class="hoy">Hoy</em>' : diaCorto(t.fecha)))
+    + grupo('morado', '🔄 En marcha', m, 'Nada para revisar ni bloqueado', (t) => (t.estado === 'bloqueada' ? `<em class="venc">⛔ Bloqueada${t.bloqueo ? `: ${esc(t.bloqueo)}` : ''}</em>` : '👀 Para revisar'));
+}
+$('#inicio').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ini-abrir]');
+  if (b) {
+    const a = b.dataset.iniAbrir;
+    if (a === 'negocio') return mostrarNegocio();
+    if (a === 'procesos') return abrirProcesos({ api, dialog: $('#procesos-dialog') });
+    if (a === 'operativa') return abrirOperativa({ api, dialog: $('#operativa-dialog') });
+    $('#ini-op-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (a === 'hitos') $('.ini-hitos-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  const f = e.target.closest('[data-ini-scroll]');
+  if (f) { const c = $('#inicio-embudos'); c.scrollBy({ left: Number(f.dataset.iniScroll) * c.clientWidth * 0.9, behavior: 'smooth' }); }
+});
 // Inicio: qué embudos necesitan anuncios nuevos (los avisos de su pestaña Publicidad, en corto).
 function pintarAnunciosInicio(A) {
   const caja = $('#inicio-anuncios');

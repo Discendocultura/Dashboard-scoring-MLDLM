@@ -154,5 +154,6 @@ test('inicio: lista, cada embudo, cada meteórico y agenda', async () => {
   assert.equal((await call('/api/inicio?parte=meteorico&id=constructor', { cookie: admin })).status, 404);
   const a = await call('/api/inicio?parte=agenda', { cookie: admin });
   assert.ok(Array.isArray(a.data.hitos) && typeof a.data.vencidas.total === 'number');
+  assert.ok(typeof a.data.proximas.total === 'number' && typeof a.data.enMarcha.total === 'number' && typeof a.data.pendientes === 'number');
   assert.equal((await call('/api/inicio?parte=otra', { cookie: admin })).status, 400);
 });
