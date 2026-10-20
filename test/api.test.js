@@ -894,3 +894,30 @@ test('todosLosLeads con «desde»: los más nuevos primero y se para en los ante
   assert.ok(recientes.every((c) => String(c.dateAdded).slice(0, 10) >= desde));
   assert.equal(recientes.length, fechas.filter((f) => f >= desde).length);
 });
+
+test('venta directa ligada a un pipeline de GHL: tablero de Comercial y mover de fase', async () => {
+  const admin = await login('admin');
+  const setter = await login('setter');
+  const config = await import('../handlers/config.js');
+  const cur = (await (await config.GET(req('/api/config', { cookie: admin }))).json()).config;
+  cur.embudos = [...cur.embudos, { id: 'dpl', tipo: 'directa', nombre: 'Guía' }];
+  cur.directas = { ...cur.directas, dpl: { name: 'Guía', compraTag: 'compra-guia', pipelineLigado: 'si', compraPipeline: 'pipeEver', compraEtapa: 'sv2' } };
+  const r = await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: cur }));
+  assert.equal(r.status, 200);
+  const pl = await import('../handlers/pipeline.js');
+  const d = await (await pl.GET(req('/api/pipeline?d=dpl', { cookie: setter }))).json();
+  assert.equal(d.ligado, true);
+  assert.equal(d.pipeline.name, 'Leads evergreen');
+  assert.equal(d.etapaEntrada, 'sv2');
+  assert.ok(d.oportunidades.length >= 10 && d.oportunidades.every((o) => d.pipeline.stages.some((s) => s.id === o.etapa)));
+  const o = d.oportunidades[0];
+  const mover = (body) => pl.POST(req('/api/pipeline', { method: 'POST', cookie: setter, body: { d: 'dpl', op: 'mover', oppId: o.id, contactId: o.contactId, ...body } }));
+  const ok = await (await mover({ etapa: 'sv7' })).json();
+  assert.deepEqual(ok, { ok: true, etapa: 'sv7', status: 'won' });
+  assert.equal((await mover({ etapa: 'otra' })).status, 400); // fase de otro pipeline
+  assert.equal((await mover({ etapa: 'sv3', contactId: 'mockNadie' })).status, 403); // oportunidad que no es de ese contacto
+  // Sin ligar: no hay tablero.
+  cur.directas.dpl.pipelineLigado = 'no';
+  await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...(await (await config.GET(req('/api/config', { cookie: admin }))).json()).config, directas: cur.directas } }));
+  assert.equal((await (await pl.GET(req('/api/pipeline?d=dpl', { cookie: setter }))).json()).ligado, false);
+});
