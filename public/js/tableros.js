@@ -94,9 +94,9 @@ export const columnaHecha = (tab) => tab.columnas.find((c) => c.hecha) || tab.co
 // Tablero de un embudo (el de su lanzamiento en curso): las mismas columnas que su Plan → Tareas — una por fase del
 // tipo de embudo, las extra que haya creado la admin y «Completadas». La columna de cada tarea sale de su fase.
 //   extra: [{ id, label, icon }] (lib/columnas.js)
-export function columnasEmbudo(tipo, extra = []) {
+export function columnasEmbudo(tipo, extra = [], launch = null) {
   return [
-    ...fasesDe(tipo).map((f) => ({ id: f.id, nombre: `${f.icon} ${f.label}`, hecha: false, fase: true })),
+    ...fasesDe(tipo, launch).map((f) => ({ id: f.id, nombre: `${f.icon} ${f.label}`, hecha: false, fase: true })),
     ...(extra || []).map((c) => ({ id: c.id, nombre: `${c.icon || '📌'} ${c.label}`, hecha: false })),
     { id: COLUMNA_HECHAS, nombre: 'Completadas', hecha: true },
   ];

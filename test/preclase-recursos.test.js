@@ -21,3 +21,23 @@ test('preclase de varios recursos: sin clases ni recursos de clase, y cada recur
   assert.deepEqual(etapasPreclase(launch, nClases(launch)).map((e) => e.id), ['r1', 'r3', 'directo']);
   assert.equal(nClases({ ...launch, preclaseTipo: 'clases' }), 2);
 });
+
+import { fasesDe, aplicaTarea, PLANTILLA } from '../public/js/tareas.js';
+import { paginasDe } from '../public/js/paginas.js';
+
+test('tareas y columnas según la preclase del lanzamiento', () => {
+  assert.deepEqual(fasesDe('lanz', { preclase: false }).map((f) => f.id), ['preparacion', 'captacion', 'directo', 'carrito', 'cierre']);
+  assert.equal(fasesDe('lanz', { preclaseTipo: 'recursos' }).find((f) => f.id === 'clases').label, 'Recursos preclase');
+  assert.equal(fasesDe('lanz', {}).find((f) => f.id === 'clases').label, 'Clases previas');
+  const sin = PLANTILLA.filter((x) => aplicaTarea(x, { preclase: false }));
+  assert.ok(!sin.some((x) => x.fase === 'clases'));
+  assert.ok(sin.some((x) => x.fase === 'preparacion' && /preclase/i.test(x.titulo))); // las de preparación siguen
+  assert.ok(!PLANTILLA.filter((x) => aplicaTarea(x, { nClases: 1 })).some((x) => /clase 2/i.test(x.titulo)));
+  assert.ok(aplicaTarea({ titulo: 'x', cond: 'recursos' }, { preclaseTipo: 'recursos' }));
+  assert.ok(!aplicaTarea({ titulo: 'x', cond: 'recursos' }, {}));
+});
+
+test('prompts de páginas según la preclase', () => {
+  assert.ok(!paginasDe('lanzamientos', { preclase: 'no' }).some((p) => ['login', 'preclase'].includes(p.id)));
+  assert.equal(paginasDe('lanzamientos', { preclase: 'recursos' }).find((p) => p.id === 'preclase').nombre, 'Página preclase (recursos)');
+});

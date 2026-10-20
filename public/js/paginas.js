@@ -65,8 +65,24 @@ export const PAGINAS = {
   ],
 };
 
-export const paginasDe = (tipo, { partes = null, sinLlamadas = false } = {}) => (PAGINAS[tipo] || [])
-  .filter((p) => (!p.parte || !partes || partes[p.parte]) && !(p.soloLlamadas && sinLlamadas));
+// preclase (lanzamientos): 'clases' (de siempre), 'recursos' (preclase de varios recursos) o 'no' (sin preclase:
+// fuera el login y la preclase; la página de gracias, sin hablar de clases).
+const PRECLASE_RECURSOS = {
+  nombre: 'Página preclase (recursos)',
+  objetivo: 'Que consuma cada recurso según se desbloquea (vídeos, audios, descargables o enlaces), participe y llegue con ganas al directo (y compre la VIP si la hay).',
+  secciones: ['Barra de urgencia arriba', 'Bienvenida y cómo funciona (los recursos se van abriendo en su fecha)', 'La lista de recursos (un único bloque de AlquimIA que pinta cada recurso con su candado y su cuenta atrás)', 'Encuesta para desbloquear los recursos (si la hay)', 'Grupo de WhatsApp y entrada VIP (si la hay)', 'Botón del directo y añadirlo al calendario'],
+};
+export const paginasDe = (tipo, { partes = null, sinLlamadas = false, preclase = 'clases' } = {}) => (PAGINAS[tipo] || [])
+  .filter((p) => (!p.parte || !partes || partes[p.parte]) && !(p.soloLlamadas && sinLlamadas))
+  .filter((p) => !(tipo === 'lanzamientos' && preclase === 'no' && ['login', 'preclase'].includes(p.id)))
+  .map((p) => {
+    if (tipo !== 'lanzamientos' || preclase === 'clases') return p;
+    if (preclase === 'no') return p.id === 'registro' ? { ...p, objetivo: p.objetivo.replace('a las clases / webinar', 'al webinar') } : p;
+    if (p.id === 'preclase') return { ...p, ...PRECLASE_RECURSOS };
+    if (p.id === 'login') return { ...p, nombre: 'Página de acceso a la preclase (login)', objetivo: 'Que entre a los recursos de la preclase con el email del registro, sin fricción.' };
+    if (p.id === 'registro') return { ...p, objetivo: p.objetivo.replace('a las clases / webinar', 'al webinar (con sus recursos previos)') };
+    return p;
+  });
 
 // Códigos de una página entre todos los del embudo ([[título, código]]): los que casan con `buscar` + los extra.
 export function codigosDePagina(pagina, todos, ctx = {}) {

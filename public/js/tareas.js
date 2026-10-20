@@ -25,7 +25,50 @@ export const FASES_VSL_T = [
   { id: 'optimizacion', label: 'Revisión y mejora', icon: '🔧' },
 ];
 // tipo: 'lanz' | 'vsl' | 'meteorico' (también acepta 'lanzamientos').
-export const fasesDe = (tipo) => (tipo === 'meteorico' ? FASES_METEORICO_T : tipo === 'vsl' || tipo === 'directa' ? FASES_VSL_T : FASES);
+// launch (opcional, en los de lanzamientos): su preclase decide la columna de las clases. Sin preclase no la hay; con
+// la preclase de varios recursos es «Recursos preclase» (mismo id 'clases', para no mover las tareas guardadas).
+export const FASE_RECURSOS = { id: 'clases', label: 'Recursos preclase', icon: '🧩' };
+export const fasesDe = (tipo, launch = null) => {
+  if (tipo === 'meteorico') return FASES_METEORICO_T;
+  if (tipo === 'vsl' || tipo === 'directa') return FASES_VSL_T;
+  if (!launch) return FASES;
+  if (launch.preclase === false) return FASES.filter((f) => f.id !== 'clases');
+  if (launch.preclaseTipo === 'recursos') return FASES.map((f) => (f.id === 'clases' ? FASE_RECURSOS : f));
+  return FASES;
+};
+
+// ¿Va esta tarea habitual con la preclase de este lanzamiento? cond: 'clases' (preclase con clases grabadas),
+// 'recursos' (preclase de varios recursos), 'preclase' (cualquier preclase) o nada (siempre). Las guardadas antes no
+// la llevan: se deduce de su fase y su título.
+export function condTarea(x) {
+  if (x?.cond) return x.cond;
+  const t = String(x?.titulo || '');
+  if (x?.fase === 'clases') return 'clases';
+  if (x?.fase === 'preparacion') return ''; // las de preparación (que nombran de pasada la preclase o las clases) van siempre
+  if (/\bclases?\b/i.test(t)) return 'clases';
+  if (/preclase/i.test(t)) return 'preclase';
+  return '';
+}
+export function aplicaTarea(x, launch = {}) {
+  const pre = launch?.preclase !== false;
+  const deRec = pre && launch?.preclaseTipo === 'recursos';
+  const c = condTarea(x);
+  // Solo las clases que tiene: con 1 clase, nada de la «clase 2».
+  const n = /\bclase\s+(\d)/i.exec(String(x?.titulo || ''));
+  if (c === 'clases' && n && Number(n[1]) > (Number(launch?.nClases) || 2)) return false;
+  if (c === 'clases') return pre && !deRec;
+  if (c === 'recursos') return deRec;
+  if (c === 'preclase') return pre;
+  return true;
+}
+// Tareas de la preclase de varios recursos (en su columna «Recursos preclase»), además de las habituales.
+export const PLANTILLA_RECURSOS = [
+  { id: 'hrec1', fase: 'captacion', titulo: 'Preparar los recursos de la preclase (vídeos, audios, PDFs o enlaces) y pegarlos en Configuración → Preclase → Recursos de la preclase', base: 'captacion', dias: -3, rol: 'tecnico', cond: 'recursos' },
+  { id: 'hrec2', fase: 'clases', titulo: 'Pegar el bloque «RECURSOS · lista de recursos de la preclase» (Códigos) en la página preclase de GHL', base: 'captacion', dias: -2, rol: 'tecnico', cond: 'recursos' },
+  { id: 'hrec3', fase: 'clases', titulo: 'Comprobar que cada recurso de la preclase se desbloquea en su fecha y se ve bien en el móvil', base: 'preclase', dias: 0, rol: 'tecnico', cond: 'recursos' },
+  { id: 'hrec4', fase: 'clases', titulo: 'Avisar por WhatsApp y email de cada recurso nuevo que se abre en la preclase', base: 'preclase', dias: 0, rol: 'tecnico', cond: 'recursos' },
+  { id: 'hrec5', fase: 'clases', titulo: 'Contactar por WhatsApp a las leads calientes de «Setting hoy»', base: 'preclase', dias: 1, rol: 'setter', cond: 'recursos' },
+];
 // Todas las fases válidas (el servidor no sabe de qué tipo es cada tarea al validarla).
 export const TODAS_FASE_IDS = [...new Set([...FASES, ...FASES_METEORICO_T, ...FASES_VSL_T].map((f) => f.id))];
 
@@ -72,8 +115,11 @@ export function addDays(day, n) {
 export function hitos(launch = {}) {
   const day = (v) => String(v || '').slice(0, 10);
   const directo = day(launch.fechaDirecto);
+  // preclase: cuándo empieza la preclase (la clase 1 o, con varios recursos, el primero con fecha).
+  const primerRecurso = (Array.isArray(launch.listaRecursos) ? launch.listaRecursos : []).map((x) => day(x?.at)).filter(Boolean).sort()[0] || '';
   return {
     captacion: day(launch.inicioCaptacion),
+    preclase: day(launch.clase1At) || primerRecurso || day(launch.finCaptacion),
     clase1: day(launch.clase1At),
     clase2: day(launch.clase2At),
     directo,

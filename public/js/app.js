@@ -5737,7 +5737,8 @@ function pintarPrelanzamientoCfg(l) {
   $$('#config-dialog [data-preclase]').forEach((el) => { el.hidden = !preclase; });
   // Preclase de varios recursos: fuera el calendario y los apartados de las clases (y sus recursos); dentro, la lista.
   const deRec = preclase && emb.preclaseTipo === 'recursos';
-  $$('#config-dialog [data-sec="2"], #config-dialog [data-sec="4"], #cfg-rec-sec').forEach((el) => { if (deRec) el.hidden = true; });
+  // (solo los de la pestaña Preclase: Grabación y otras pestañas también tienen apartados 2 y 4)
+  $$('#config-dialog [data-panel="pagina"] [data-sec="2"], #config-dialog [data-panel="pagina"] [data-sec="4"], #cfg-rec-sec').forEach((el) => { el.hidden = !preclase || deRec; });
   $('#cfg-lista-sec').hidden = !deRec;
   if (deRec) pintarListaRecCfg(l?.listaRecursos, emb.nRecursos);
   $('#tab-pagina-txt').textContent = preclase ? 'Preclase' : 'Página del directo';
@@ -8232,7 +8233,8 @@ function pintarCabeceraTareas() {
   if (lista.length) sel.innerHTML = lista.map(([c, m]) => `<option value="${esc(c)}" ${c === state.meteo.code ? 'selected' : ''}>⚡ ${esc(m.name)}</option>`).join('');
 }
 // Fases de las tareas según el tipo de embudo abierto (lanzamiento, VSL o meteórico).
-const fasesT = () => fasesDe(tipoActual());
+// (en los de lanzamientos, según la preclase de su lanzamiento: sin columna de clases, o «Recursos preclase»)
+const fasesT = () => fasesDe(tipoActual(), tipoActual() === 'lanz' ? state.config?.launches?.[codigo()] || null : null);
 
 // Dos cargas del mismo código casi a la vez (al abrir un embudo se pedían dos veces): se reutiliza la primera.
 const enCurso = {};
@@ -17012,6 +17014,7 @@ function contextoPaginas() {
     if (!lanz) return { falta: 'Elige o crea un lanzamiento: las páginas usan sus fechas, precios y códigos.' };
     const emb = conEnlacesPropuestos(lanz, propuestasEmbudo(state.embudo));
     return { tipo: 'lanzamientos', nombre: emb.name, datos: datosEmbudo(emb, { producto, marca }), codigos: snippetsLanzamiento(state.launchCode), ctx: { script },
+      opts: { preclase: conPreclase(lanz) ? (preclaseDeRecursos(lanz) ? 'recursos' : 'clases') : 'no' },
       urls: { 'Página de gracias': emb.graciasUrl, 'Página preclase': emb.recursosUrl, 'Página de acceso (login)': emb.loginUrl, 'Página de venta': emb.raicesUrl, 'Página de pago': emb.paginaPagoUrl, 'Página de la grabación (replay)': emb.replayUrl, 'Grupo de WhatsApp': emb.whatsappUrl } };
   }
   if (t === 'meteorico') {
