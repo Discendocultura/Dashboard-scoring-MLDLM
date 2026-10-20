@@ -7695,3 +7695,16 @@ body.en-ejemplo .config-only, body.en-ejemplo #sb-add, body.en-ejemplo .sb-edit,
   .cliente-pick { flex: 1 1 0; }
   .cliente-pick > summary { display: flex; width: 100%; box-sizing: border-box; }
 }
+/* LabIA en el lateral: pequeño, con el fondo espacial de su cabecera (igual en Clásico, Espacial, día y noche) */
+.sb-labia-mini {
+  opacity: 1; color: #eef0ff; padding: 6px 12px; border-radius: 10px; border: 1px solid rgb(255 255 255 / .08); box-shadow: 0 8px 20px -12px rgb(8 11 24 / .8);
+  background:
+    radial-gradient(1px 1px at 18% 30%, rgb(255 255 255 / .9) 50%, transparent 52%),
+    radial-gradient(1px 1px at 72% 22%, rgb(224 231 255 / .75) 50%, transparent 52%),
+    radial-gradient(1px 1px at 58% 78%, rgb(255 255 255 / .6) 50%, transparent 52%),
+    radial-gradient(1px 1px at 90% 64%, rgb(199 210 254 / .7) 50%, transparent 52%),
+    radial-gradient(120px 60px at 0% 0%, #163055 0%, transparent 75%),
+    linear-gradient(135deg, #0a0e1f 0%, #070914 60%, #120b2a 100%);
+}
+.sb-labia-mini:hover { opacity: 1; border-color: rgb(255 154 60 / .55); background-color: transparent; box-shadow: 0 10px 24px -12px rgb(255 122 24 / .35); }
+.sb-labia-mini .sb-labia-ir { color: #a3a8c9; }
