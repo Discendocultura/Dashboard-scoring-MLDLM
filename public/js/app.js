@@ -5305,27 +5305,56 @@ const V_CAMPOS = [
   ['replayUrl', 'Página del vídeo en GHL', 'url'], ['replayVideoUrl', 'Vídeo de Vimeo', 'url'],
   ['replayAt', 'Se ve desde <small>(vacío = 00:00 del día siguiente si es en directo)</small>', 'datetime-local'],
 ];
-// Vídeos 2, 3 y 4 del lanzamiento (el 1 son los campos del directo de siempre).
+// Lanzamientos de 2, 3 o 4 vídeos: una pestaña por vídeo, todas iguales (día, hora y su sala de Zoom; los vídeos 2-4,
+// además, su página y su vídeo). El vídeo 1 sigue guardándose en las casillas del directo de siempre: su pestaña
+// las refleja (y estas se ocultan mientras haya varios vídeos).
+const V1_PROXY = { fecha: '#cfg-directo-fecha', hora: '#cfg-directo-hora', zoomMeetingId: '#cfg-zoom-id', zoomJoinUrl: '#cfg-zoom-url' };
+let videoTab = 1;
 function renderVideosCfg(l) {
   const formato = formatoDeLanz(editingCode ? l : null);
   const vs = videosDe({ ...l, formato });
   const sec = $('#cfg-videos-sec');
-  sec.hidden = vs.length <= 1;
+  const multi = vs.length > 1;
+  sec.hidden = !multi;
   sec.dataset.formato = formato;
-  // El vídeo 1 usa las casillas del directo: con varios vídeos se llaman como él (PLC 1, Vídeo 1).
-  const n1 = vs.length > 1 ? vs[0].nombre : '';
-  const rotulo = (sel, multi) => { const el = $(sel)?.previousElementSibling; if (el) { el.dataset.def ??= el.innerHTML; el.innerHTML = n1 ? multi : el.dataset.def; } };
-  rotulo('#cfg-directo-fecha', `Día del ${n1}`);
-  rotulo('#cfg-directo-hora', `Hora del ${n1} <small>(hora de España)</small>`);
+  // Con varios vídeos, el día, la hora y el Zoom del vídeo 1 van en su pestaña: fuera las casillas sueltas.
+  Object.values(V1_PROXY).forEach((sel) => { const f = $(sel)?.closest('.field'); if (f) f.hidden = multi; });
   const h3Zoom = $('#cfg-zoom-id').closest('.cfg-sec')?.querySelector('h3');
-  if (h3Zoom) { h3Zoom.dataset.def ??= h3Zoom.textContent; h3Zoom.textContent = n1 ? `${n1} en Zoom (solo si es en directo)` : h3Zoom.dataset.def; }
-  if (vs.length <= 1) { $('#cfg-videos').innerHTML = ''; return; }
-  $('#cfg-videos-titulo').textContent = `${FORMATOS[formato].label}: ${vs.slice(1).map((v) => v.nombre).join(', ')}`;
-  $('#cfg-videos-nota').textContent = `El ${vs[0].nombre} usa las casillas de arriba (fechas y Zoom) y su grabación y su página van en la pestaña «Grabación». Si un vídeo es grabado, deja vacío su Zoom. En el ${vs.at(-1).nombre} se hace la venta.`;
-  $('#cfg-videos').innerHTML = vs.slice(1).map((v) => `<fieldset class="cfg-video" data-k="${v.k}"><legend>${esc(v.nombre)}${v.venta ? ' · vídeo de venta' : ''}</legend><div class="grid2">
-    ${V_CAMPOS.map(([c, label, type]) => `<label class="field"><span>${label}</span><input id="cfg-v${v.k}-${c === 'replayUrl' ? 'replay' : c === 'replayVideoUrl' ? 'replay-video' : c === 'replayAt' ? 'replay-at' : c}" data-vc="${c}" type="${type}" value="${esc(v[c] || '')}"${c === 'zoomMeetingId' ? ' inputmode="numeric"' : ''}></label>`).join('')}
-  </div></fieldset>`).join('');
+  if (h3Zoom) { h3Zoom.dataset.def ??= h3Zoom.textContent; h3Zoom.textContent = multi ? 'Botón «Añadir al calendario»' : h3Zoom.dataset.def; }
+  if (!multi) { $('#cfg-videos').innerHTML = ''; return; }
+  videoTab = Math.min(videoTab, vs.length);
+  $('#cfg-videos-titulo').textContent = `${FORMATOS[formato].label}: fecha, hora y sala de Zoom de cada vídeo`;
+  $('#cfg-videos-nota').textContent = `Cada vídeo tiene su pestaña con lo mismo: el día, la hora y su propia reunión de Zoom (si es grabado, deja vacío su Zoom). Las leads se inscriben en la reunión de cada vídeo al registrarse y al entrar en la preclase. En el ${vs.at(-1).nombre} se hace la venta.`;
+  const campo = (v, c, label, type) => {
+    const id = v.k === 1 ? `cfg-v1p-${c}` : `cfg-v${v.k}-${c === 'replayUrl' ? 'replay' : c === 'replayVideoUrl' ? 'replay-video' : c === 'replayAt' ? 'replay-at' : c}`;
+    const val = v.k === 1 ? ($(V1_PROXY[c])?.value || '') : (v[c] || '');
+    return `<label class="field"><span>${label}</span><input id="${id}" ${v.k === 1 ? `data-v1="${c}"` : `data-vc="${c}"`} type="${type}" value="${esc(val)}"${c === 'zoomMeetingId' ? ' inputmode="numeric" placeholder="812 3456 7890"' : ''}></label>`;
+  };
+  const lbl = Object.fromEntries(V_CAMPOS.map(([c, label, type]) => [c, [label, type]]));
+  const grupo = (v, tit, cs) => `<div class="cv-grupo"><h4>${tit}</h4><div class="grid2">${cs.map((c) => campo(v, c, ...lbl[c])).join('')}</div></div>`;
+  $('#cfg-videos').innerHTML = `<div class="cv-tabs" role="tablist" aria-label="Vídeos">${vs.map((v) => `<button type="button" role="tab" class="cv-tab${v.k === videoTab ? ' on' : ''}" data-cv-tab="${v.k}" aria-selected="${v.k === videoTab}"><span class="cv-n">${v.k}</span>${esc(v.nombre)}${v.venta ? ' <small>· venta</small>' : ''}</button>`).join('')}</div>`
+    + vs.map((v) => `<div class="${v.k === 1 ? 'cfg-video1' : 'cfg-video'} cv-panel" data-k="${v.k}" role="tabpanel"${v.k === videoTab ? '' : ' hidden'}>
+      ${grupo(v, '📅 Cuándo', ['fecha', 'hora'])}
+      ${grupo(v, '🎥 Su sala de Zoom', ['zoomMeetingId', 'zoomJoinUrl'])}
+      ${v.k === 1 ? '<div class="cv-grupo"><h4>▶️ Su página y su vídeo</h4><p class="muted small">Los del primer vídeo van en la pestaña «Grabación».</p></div>' : grupo(v, '▶️ Su página y su vídeo', ['replayUrl', 'replayVideoUrl', 'replayAt'])}
+    </div>`).join('');
 }
+$('#cfg-videos').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-cv-tab]');
+  if (!b) return;
+  videoTab = Number(b.dataset.cvTab);
+  $$('#cfg-videos [data-cv-tab]').forEach((x) => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', String(on)); });
+  $$('#cfg-videos .cv-panel').forEach((pn) => { pn.hidden = Number(pn.dataset.k) !== videoTab; });
+});
+// La pestaña del vídeo 1 escribe en las casillas del directo de siempre (y avisa a quien las escuche).
+$('#cfg-videos').addEventListener('input', (e) => {
+  const c = e.target.dataset?.v1;
+  if (!c) return;
+  const orig = $(V1_PROXY[c]);
+  orig.value = e.target.value;
+  orig.dispatchEvent(new Event('input', { bubbles: true }));
+  orig.dispatchEvent(new Event('change', { bubbles: true }));
+});
 function readVideosCfg() {
   return $$('#cfg-videos .cfg-video').map((fs) => Object.fromEntries($$('[data-vc]', fs).map((i) => [i.dataset.vc, i.value.trim()])));
 }

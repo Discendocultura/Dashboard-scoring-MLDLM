@@ -8089,3 +8089,14 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 }
 .sf-nota { margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45; background: color-mix(in srgb, #25d366 9%, var(--surface)); border: 1px solid color-mix(in srgb, #25d366 30%, var(--border)); }
 .sf-nota.full { grid-column: 1 / -1; }
+/* Lanzamientos de varios vídeos: una pestaña por vídeo, todas iguales */
+.cv-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+.cv-tab { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface); font: inherit; font-weight: 700; color: var(--text-2); cursor: pointer; }
+.cv-tab small { font-weight: 600; color: var(--muted); }
+.cv-tab.on { border-color: var(--accent); color: var(--text); background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--surface)), var(--surface)); }
+.cv-n { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--surface-2); font-size: 12px; }
+.cv-tab.on .cv-n { background: var(--accent); color: var(--accent-ink); }
+.cv-panel { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.cv-panel[hidden] { display: none; }
+.cv-grupo h4 { margin: 0 0 8px; font-size: 14px; }
+.cv-grupo + .cv-grupo { padding-top: 12px; border-top: 1px dashed var(--border); }
