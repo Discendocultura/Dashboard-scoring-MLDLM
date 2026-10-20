@@ -7931,3 +7931,37 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 /* Procesos → Importar de un tablero: el tablero entero */
 .pr-tab-entero { display: flex; align-items: center; gap: 14px; justify-content: space-between; flex-wrap: wrap; margin: 6px 0 14px; padding: 12px 14px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--surface)), var(--surface)); }
 .pr-tab-entero > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+/* ---------- Pasos de la configuración (todos los embudos): todos a la vista, sin desplazar, y visuales ---------- */
+.wiz-pasos { overflow: visible; flex-wrap: nowrap; }
+.wiz-dot { white-space: normal; min-width: 0; text-align: left; line-height: 1.2; }
+.wiz-raya { flex: 1 1 10px; min-width: 6px; }
+/* Venta directa: 4 pasos como tarjetas, en una fila */
+.dc-pasos { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; padding: 14px 20px; }
+.dc-pasos .wiz-raya { display: none; }
+.dc-pasos .wiz-dot.tab { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); transition: border-color .15s, background .15s, transform .15s; }
+.dc-pasos .wiz-dot.tab:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.dc-pasos .wiz-dot.active { border-color: var(--accent); background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--surface)), var(--surface)); box-shadow: 0 10px 24px -18px var(--accent); }
+.dc-pasos .wiz-dot.hecho:not(.active) { background: color-mix(in srgb, #10b981 6%, var(--surface)); }
+.dc-pasos .wiz-num { flex: none; width: 30px; height: 30px; }
+.dc-pasos .wiz-lbl { font-size: 13.5px; font-weight: 700; }
+.dc-sep { border: 0; border-top: 1px dashed var(--border); margin: 22px 0 18px; }
+.sin-extras > .dc-paso-cab:first-child, .sin-extras > hr.dc-sep { display: none; }
+@media (max-width: 600px) {
+  .dc-pasos { gap: 6px; padding: 10px 12px; }
+  .dc-pasos .wiz-dot.tab { flex-direction: column; justify-content: center; gap: 4px; min-height: 54px; padding: 6px 4px; text-align: center; }
+  .dc-pasos .wiz-lbl { display: block !important; font-size: 11px; }
+  .dc-pasos .wiz-lbl > span[aria-hidden] { display: none; }
+}
+/* VSL y meteórico: sus apartados, como pasos numerados en tarjetas (igual que la venta directa) */
+.cfg-pasos-vis { display: grid !important; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; counter-reset: paso; border-bottom: 0 !important; overflow: visible !important; margin-bottom: 16px; }
+.cfg-pasos-vis > .tab { counter-increment: paso; display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 58px; padding: 10px 12px !important; border-radius: 14px; border: 1px solid var(--border) !important; background: var(--surface); white-space: normal; text-align: left; line-height: 1.2; font-weight: 700; transition: border-color .15s, background .15s, transform .15s; }
+.cfg-pasos-vis > .tab::before { content: counter(paso); flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--border-strong, var(--border)); font-weight: 800; color: var(--muted); }
+.cfg-pasos-vis > .tab:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)) !important; }
+.cfg-pasos-vis > .tab.active { border-color: var(--accent) !important; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--surface)), var(--surface)); box-shadow: 0 10px 24px -18px var(--accent); }
+.cfg-pasos-vis > .tab.active::before { background: var(--accent); border-color: var(--accent); color: var(--accent-ink, #fff); }
+.cfg-pasos-vis > .tab svg, .cfg-pasos-vis > .tab .tab-ico { display: none; }
+@media (max-width: 600px) {
+  .cfg-pasos-vis { gap: 6px; }
+  .cfg-pasos-vis > .tab { flex-direction: column; justify-content: center; gap: 4px; padding: 6px 4px !important; font-size: 11px; text-align: center; }
+}

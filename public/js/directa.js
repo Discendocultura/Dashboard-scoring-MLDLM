@@ -1,4 +1,4 @@
-// Embudo de venta directa / producto de entrada (low ticket), siempre abierto:
+// Embudo de venta directa / producto de entrada (low ticket), evergreen:
 //   anuncio → página de venta → checkout (con bump offers) → compra → upsell (y downsell si dice que no).
 // No hay registro ni leads: lo que importa es cuánto cuesta cada venta (CPA), el ticket medio que dejan
 // los bumps, upsells y downsells, y si el embudo se paga solo (ROAS ≥ 1). Cada extra tiene su etiqueta

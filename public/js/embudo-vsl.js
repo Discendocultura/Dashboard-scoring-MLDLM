@@ -1,4 +1,4 @@
-// Embudo VSL (siempre abierto): registro → vídeo → compra directa o llamada de valoración.
+// Embudo VSL (evergreen): registro → vídeo → compra directa o llamada de valoración.
 // Señales de cada lead, rangos de fechas (presets, mes y semanas del mes) y métricas.
 // Lo usan el navegador y los tests.
 import { dayInMadrid, dayOfDateField, waPhone } from './scoring.js';
@@ -144,7 +144,7 @@ export function porDias(leads, rango) {
   return dias;
 }
 
-// Planificación de una VSL (siempre abierta): sus tareas con fechas desde hoy, adaptadas a su
+// Planificación de una VSL (evergreen): sus tareas con fechas desde hoy, adaptadas a su
 // configuración (variante, tipo de pago, llamadas, anuncios). Devuelve [{ clave, fase, titulo, notas, fecha, rol }].
 export function tareasVsl(v, { hoy } = {}) {
   const d = (n) => addDay(hoy, n);

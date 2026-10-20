@@ -71,7 +71,7 @@ export async function GET(request) {
     if (!calendarId) return json({ configurado: false, motivo: launch.esDirecta ? 'Pon en la ⚙️ Configuración del embudo → Páginas el «Enlace para reservar llamada» (el del calendario de GHL).' : launch.esCruzada ? 'Pon en la ⚙️ Configuración del embudo → «Comercial» el enlace del calendario de reservas de GHL.' : launch.esVsl ? 'Pon en Configuración de la VSL → Embudo el «Enlace para reservar llamada» (el del calendario de GHL).' : 'Pon en Configuración → Lanzamiento el «Enlace para reservar llamada» (el del calendario de GHL).' });
     const pipeline = await pipelineLanzamientos(config, launch).catch((e) => { throw permisos(e); });
     const now = Date.now();
-    // La VSL está siempre abierta: sus últimos 60 días.
+    // La VSL es evergreen: sus últimos 60 días.
     const desde = launch.esVsl || launch.esCruzada || launch.esDirecta ? now - 60 * DAY : launch.inicioCaptacion ? Math.min(Date.parse(`${launch.inicioCaptacion}T00:00:00Z`) - 7 * DAY, now - 7 * DAY) : now - 45 * DAY;
     const hasta = now + 30 * DAY;
     const [eventos, calendario, resultados] = await Promise.all([

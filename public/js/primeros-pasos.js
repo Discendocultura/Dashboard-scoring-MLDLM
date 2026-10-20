@@ -70,8 +70,8 @@ export function recomendarTipo({ fecha, venta } = {}) {
     ? { tipo: 'reto', porque: 'Con fecha y cerrando por llamada, un reto de varios días calienta y luego llamas a los más interesados.' }
     : { tipo: 'webinar', porque: 'Con fecha y venta directa, lo clásico: captación → webinar en directo → carrito abierto unos días.' };
   if (fecha === 'no') return venta === 'llamada'
-    ? { tipo: 'llamadas', porque: 'Siempre abierto y cerrando por llamada: formulario de aplicación → llamada de venta.' }
-    : { tipo: 'vsl', porque: 'Siempre abierto y venta directa: registro → vídeo de venta → compra (también puede llevar a llamada).' };
+    ? { tipo: 'llamadas', porque: 'Evergreen y cerrando por llamada: formulario de aplicación → llamada de venta.' }
+    : { tipo: 'vsl', porque: 'Evergreen y venta directa: registro → vídeo de venta → compra (también puede llevar a llamada).' };
   return null;
 }
 

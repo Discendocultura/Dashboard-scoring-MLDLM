@@ -158,18 +158,18 @@ for (const [tipo, lista] of Object.entries(PESTANAS)) {
   lista.sort((a, b) => pos(a.id) - pos(b.id));
 }
 
-// Variantes del embudo «siempre abierto» (usan el mismo motor que la VSL: registro → contenido →
+// Variantes del embudo «evergreen» (usan el mismo motor que la VSL: registro → contenido →
 // venta, analizado por fechas). Cambian los textos, la guía, las pestañas sugeridas y el auditor.
 //   registro: cómo se llama el alta · contenido: lo que consume (con artículo) · vio: KPI de consumo
 export const SUBTIPOS_VSL = {
   vsl: {
-    label: 'VSL (siempre abierta)', ico: '🎬', corto: 'VSL',
+    label: 'VSL (evergreen)', ico: '🎬', corto: 'VSL',
     desc: 'Registro → vídeo de venta → compra directa o llamada. Se analiza por fechas, meses y semanas.',
     registro: 'Registros', contenido: 'la VSL', vio: 'Vieron la VSL', pagina: 'Página de la VSL', video: 'Vídeo de la VSL',
   },
   leadmagnet: {
     label: 'Lead magnet + secuencia de emails', ico: '🧲', corto: 'Lead magnet',
-    desc: 'Descarga de un regalo (guía, checklist, minicurso) → secuencia de emails → venta. Sin fechas: siempre abierto.',
+    desc: 'Descarga de un regalo (guía, checklist, minicurso) → secuencia de emails → venta. Sin fechas: evergreen.',
     registro: 'Descargas', contenido: 'el lead magnet', vio: 'Abrieron el lead magnet', pagina: 'Página del lead magnet', video: 'Vídeo del lead magnet (si es un vídeo)',
     sinLlamadas: true,
   },

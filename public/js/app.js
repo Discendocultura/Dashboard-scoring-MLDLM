@@ -1038,7 +1038,7 @@ async function primerAcceso() {
         <p class="bv-sub">Elige y te llevamos directo. Podrás hacer lo demás cuando quieras.</p>
         <div class="pa-opciones">
           <button type="button" class="pa-opcion" data-pa="crear:lanz"><span class="pa-op-ico" aria-hidden="true">🚀</span><strong>Un lanzamiento</strong><small>Con fechas: captación, directo o clases y carrito</small></button>
-          <button type="button" class="pa-opcion" data-pa="crear:siempre"><span class="pa-op-ico" aria-hidden="true">♾️</span><strong>Un embudo siempre abierto</strong><small>VSL, lead magnet, llamadas, venta directa…</small></button>
+          <button type="button" class="pa-opcion" data-pa="crear:siempre"><span class="pa-op-ico" aria-hidden="true">♾️</span><strong>Un embudo evergreen</strong><small>VSL, lead magnet, llamadas, venta directa…</small></button>
           <button type="button" class="pa-opcion" data-pa="crear:cruzadas"><span class="pa-op-ico" aria-hidden="true">🔁</span><strong>Vender a mis alumnos</strong><small>Ventas cruzadas: a quien ya te compró, el siguiente producto</small></button>
         </div>
         <div class="pa-acc"><button type="button" class="link" data-pa="ejemplo">👀 Primero quiero ver un ejemplo</button><button type="button" class="link" data-pa="luego">Lo haré luego</button></div>`);
@@ -1344,7 +1344,7 @@ function itemsSidebar() {
       for (const [code, m] of ms) out.push({ e, ico, meteo: code, nombre: m.name || code, sub: conFact(code, (FASE_METEO_TXT[faseMeteorico(m).id] || ['Preparación'])[0]) });
     } else {
       const nX = e.tipo === 'cruzadas' ? (state.config.cruzadas?.[e.id]?.productos || []).length : 0;
-      const sub = e.tipo === 'directa' ? 'Venta directa · siempre abierto' : e.tipo === 'cruzadas' ? `Ventas cruzadas · ${nX} producto${nX === 1 ? '' : 's'}` : `${tv?.corto || 'VSL'} · siempre abierto`;
+      const sub = e.tipo === 'directa' ? 'Venta directa · evergreen' : e.tipo === 'cruzadas' ? `Ventas cruzadas · ${nX} producto${nX === 1 ? '' : 's'}` : `${tv?.corto || 'VSL'} · evergreen`;
       out.push({ e, ico, nombre: e.nombre, sub: conFact(e.id, sub) });
     }
   }
@@ -1830,7 +1830,7 @@ function tarjetaSaludAg(c) {
     ${l ? `<p class="ag-cli-lanz"><strong>🚀 ${esc(l.nombre)}</strong>${l.proximoHito ? `<span>Próximo: ${esc(l.proximoHito.label)} · ${esc(fechaCortaAg(l.proximoHito.dia))}</span>` : ''}</p>
       <div class="ag-cli-kpis"><div><span>Registros</span><b>${(l.registros ?? 0).toLocaleString('es-ES')}</b></div><div><span>Ventas</span><b>${(l.ventas ?? 0).toLocaleString('es-ES')}</b></div><div><span>Inversión</span><b>${eur(l.inversion || 0)}</b></div><div><span>ROAS</span><b>${l.roas != null ? `${l.roas.toFixed(2).replace('.', ',')}x` : '–'}</b></div></div>
       ${l.roas != null || obj ? `<div class="ag-roas" title="ROAS frente al objetivo"><div class="ag-barra"><span style="width:${Math.min(100, ((l.roas || 0) / roasMax) * 100)}%"></span>${obj ? `<i style="left:${Math.min(100, (obj / roasMax) * 100)}%" title="Objetivo ${obj.toFixed(2).replace('.', ',')}x"></i>` : ''}</div><small>${obj ? `Objetivo ${obj.toFixed(2).replace('.', ',')}x` : 'Sin objetivo de ROAS'}</small></div>` : ''}`
-    : `<p class="ag-cli-lanz muted">${vsls ? `🎬 ${vsls} embudo${vsls === 1 ? '' : 's'} siempre abierto${vsls === 1 ? '' : 's'}` : 'Sin lanzamiento en curso'}</p>`}
+    : `<p class="ag-cli-lanz muted">${vsls ? `🎬 ${vsls} embudo${vsls === 1 ? '' : 's'} evergreen` : 'Sin lanzamiento en curso'}</p>`}
     <ul class="ag-motivos">${s.motivos.slice(0, 3).map((m) => `<li>${esc(m)}</li>`).join('')}</ul>
     <footer><span class="ag-cons">${chipCon('ghl', 'GHL')}${chipCon('meta', 'Meta')}${chipCon('zoom', 'Zoom')}${chipCon('sendflow', 'SendFlow')}</span><span class="spacer"></span>${entrar}</footer>
     <small class="ag-act">Actualizado ${esc(haceAg(c.actualizado))}</small>
@@ -2121,7 +2121,7 @@ function pintarEmbudosInicio(lista, metas) {
       const conv = tipo === 'directa' ? kpi('Ticket medio', eur(k.ticket)) : kpi('Conversión', k.registros ? pctIni(k.ventas / k.registros) : '–');
       const cifras = kpi('Facturación', eur(k.facturacion || 0)) + kpi('Ventas', (k.ventas || 0).toLocaleString('es-ES')) + kpi('ROAS', roasTxt(k.roas)) + conv;
       if (tipo === 'lanzamiento') { const est = ESTADO_LANZ[e.estado] || ['', 'muted']; return tarjeta('lanzamiento', e.nombre, est[0], est[1], `data-ir-inicio="lanz" data-code="${esc(e.code)}" data-embudo="${esc(e.embudoId || '')}"`, cifras); }
-      return tarjeta(tipo, e.nombre, tipo === 'vsl' ? 'Siempre abierto' : 'Siempre abierta', 'info', `data-ir-inicio="${tipo}" data-code="${esc(e.code)}"`, cifras);
+      return tarjeta(tipo, e.nombre, tipo === 'vsl' ? 'Evergreen' : 'Evergreen', 'info', `data-ir-inicio="${tipo}" data-code="${esc(e.code)}"`, cifras);
     }),
     ...metas.map((m) => {
       if (m.cargando) return `<div class="card inicio-emb ini-emb t-meteo"><span class="ini-emb-cab"><span class="ini-emb-nom"><strong>${esc(m.nombre)}</strong><small>Cargando…</small></span></span></div>`;
@@ -12509,7 +12509,7 @@ $('#btn-roles-save').addEventListener('click', async () => {
 $('.tab[data-tab="roles"]').addEventListener('click', () => { rolesResult(''); loadRoles(); });
 
 // ---------- Embudo VSL ----------
-// Siempre abierta: los leads se cargan una vez y se analizan por el periodo elegido.
+// Evergreen: los leads se cargan una vez y se analizan por el periodo elegido.
 const VR_KEY = 'lsd_vsl_rango';
 state.vsl.sel = (() => { try { return { preset: '30d', ...JSON.parse(ls.get(VR_KEY) || '{}') }; } catch { return { preset: '30d' }; } })();
 // Un periodo guardado que ya no está en la lista (p. ej. «Últimos 7 días»): vuelve a 30 días.
@@ -13050,7 +13050,7 @@ $('#vc-borrar').addEventListener('click', async () => {
 const embDlg = $('#embudo-dialog');
 let embEdit = null; // id del embudo que se edita (null = nuevo)
 // Opción elegida: webinar | v2 | v3 | plf | reto (embudo de lanzamientos con ese formato) o un
-// embudo siempre abierto: vsl | leadmagnet | evergreen | llamadas (motor de la VSL con su variante).
+// embudo evergreen: vsl | leadmagnet | evergreen | llamadas (motor de la VSL con su variante).
 const embOpcion = () => $('input[name="emb-tipo"]:checked').value;
 const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : ['meteorico', 'directa', 'cruzadas'].includes(embOpcion()) ? embOpcion() : SUBTIPO_IDS.includes(embOpcion()) ? 'vsl' : 'lanzamientos');
 const embFormato = () => (embEdit ? $('#emb-formato').value : embTipo() !== 'lanzamientos' ? undefined : embOpcion() === 'reto' ? $('#emb-reto-dias').value : embOpcion());
@@ -13434,7 +13434,7 @@ function abrirEditarEmbudo(id) {
   $('#emb-plantilla-guardar').hidden = !state.superadmin || e.tipo === 'directa' || e.tipo === 'cruzadas';
   $('#emb-crear').textContent = 'Guardar';
   $('#emb-guia-box').open = false;
-  $('#emb-h-tipo').textContent = e.tipo === 'vsl' ? 'Tipo de embudo siempre abierto' : 'Formato de los lanzamientos';
+  $('#emb-h-tipo').textContent = e.tipo === 'vsl' ? 'Tipo de embudo evergreen' : 'Formato de los lanzamientos';
   $('#emb-sub-tipo').textContent = 'El tipo de embudo no se cambia; puedes pulsar cualquier paso de arriba y guardar cuando quieras.';
   // Publicidad: marcada salvo que se quitara (los embudos de antes no la tienen en su lista y la ven).
   pintarEmbPestanas(e.pestanas ? [...e.pestanas, ...(e.publicidad !== false ? ['publicidad'] : [])] : e.publicidad === false ? pestanaIdsSin(e.tipo, 'publicidad') : null, e.ocultas || []);
@@ -14797,10 +14797,12 @@ function pintarDirectaPartes() {
   for (const [parte, lista] of [['bumps', 'bumps'], ['upsell', 'upsells'], ['downsell', 'downsells']]) {
     if (p[parte] && !$('.bump-fila', cajaDir(lista))) { cajaDir(lista).innerHTML = ''; cajaDir(lista).insertAdjacentHTML('beforeend', ofertaFila(lista)); }
   }
-  // Sin bumps, upsell ni downsell, el paso «Extras» no sale.
+  // El paso 3 lleva los extras y las páginas: sin bumps, upsell ni downsell, solo las páginas (y se llama así).
+  const conExtras = Boolean(p.bumps || p.upsell || p.downsell);
   const dot = $('#dc-pasos [data-dc-extras]');
-  dot.hidden = !(p.bumps || p.upsell || p.downsell);
-  dot.previousElementSibling.hidden = dot.hidden;
+  $('.wiz-lbl', dot).innerHTML = conExtras ? '<span aria-hidden="true">➕</span> Extras y páginas' : '<span aria-hidden="true">📄</span> Páginas';
+  const pnl = $('#directa-dialog [data-panel="dcp-extras"]');
+  pnl.classList.toggle('sin-extras', !conExtras);
   pintarPasosDc();
   pintarCodigosDirecta();
 }
@@ -16669,7 +16671,7 @@ async function renderImagenesIa() {
 // (del lanzamiento, de todos los lanzamientos del embudo o de la VSL) y la ficha de marca, avatar y producto.
 const notasAnKey = () => `lsd_an_notas_${state.cliente || ''}_${state.embudo}`;
 const eventoAnKey = () => `lsd_an_evento_${state.cliente || ''}_${state.embudo}`;
-const TIPO_TXT = { lanzamientos: 'Lanzamiento (webinar / clases gratuitas y carrito)', vsl: 'Embudo siempre abierto (VSL)', meteorico: 'Meteórico (oferta flash)', directa: 'Venta directa (producto de entrada)' };
+const TIPO_TXT = { lanzamientos: 'Lanzamiento (webinar / clases gratuitas y carrito)', vsl: 'Embudo evergreen (VSL)', meteorico: 'Meteórico (oferta flash)', directa: 'Venta directa (producto de entrada)' };
 // Filas de anuncios ganadores disponibles ahora mismo: { filas, origen }.
 function ganadoresAnuncios() {
   const t = tipoActual();

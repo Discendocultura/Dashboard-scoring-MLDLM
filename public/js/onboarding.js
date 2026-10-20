@@ -39,7 +39,7 @@ export const TOURS = {
     AYUDA,
   ],
   cliente: [
-    { sel: '#portal-nav', titulo: 'Tus embudos', texto: 'Elige qué quieres ver: un lanzamiento, tu embudo siempre abierto…' },
+    { sel: '#portal-nav', titulo: 'Tus embudos', texto: 'Elige qué quieres ver: un lanzamiento, tu embudo evergreen…' },
     { sel: '#portal-body > :first-child', titulo: 'Tus resultados', texto: 'Las cifras importantes y cómo van frente a los objetivos. Se actualizan solas.' },
     { sel: '#portal-procesos', titulo: 'Vuestros procesos', texto: 'Los que la agencia comparte contigo y los vuestros, paso a paso y en un solo sitio.' },
     { sel: '#portal-cuenta', titulo: 'Tu cuenta', texto: 'Tu contraseña y tus datos.' },
