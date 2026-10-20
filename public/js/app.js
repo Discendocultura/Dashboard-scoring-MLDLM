@@ -536,7 +536,7 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
-const VIEW_EMBUDO = { vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'llam', xofertas: 'cruzadas', xhoy: 'cruzadas', tareas: 'siempre', calendario: 'siempre', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', dhoy: 'directa', utms: 'anunciosu', xalumnos: 'cruzadas', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
+const VIEW_EMBUDO = { mensajes: 'ambos', vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'llam', xofertas: 'cruzadas', xhoy: 'cruzadas', tareas: 'siempre', calendario: 'siempre', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', dhoy: 'directa', utms: 'anunciosu', xalumnos: 'cruzadas', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
 const VIEW_PERMISO = { avatarc: 'avatar', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', dhoy: 'hoy', utms: 'avatar', xalumnos: 'leads', xofertas: 'leads', xhoy: 'hoy', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', claude: 'metricas' };
 // 'siempre': también en ventas cruzadas (Tareas y Calendario).
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], siempre: ['lanz', 'vsl', 'meteorico', 'directa', 'cruzadas'], llam: ['lanz', 'vsl', 'cruzadas', 'directa'], lanzmeteo: ['lanz', 'meteorico'], anunciosu: ['lanz', 'vsl', 'directa'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
@@ -571,7 +571,9 @@ const vistasPermitidas = () => VIEWS.filter((v) => (v === 'labia' ? tipoActual()
     // «Oferta» es nueva: los embudos de meteóricos con pestañas elegidas antes la ven junto a «Meteóricos».
     || (v === 'moferta' && pestanasEmbudo().includes('meteoricos'))
     // «En directo» es nueva: los embudos con pestañas elegidas antes la ven junto a Setting hoy o Llamadas.
-    || (v === 'endirecto' && (pestanasEmbudo().includes('hoy') || pestanasEmbudo().includes('llamadas')))
+    || (v === 'endirecto' && ['hoy', 'llamadas', 'metricas'].some((x) => pestanasEmbudo().includes(x)))
+    // «Mensajes de WhatsApp» (Comercial) es nueva: la ven los embudos con Setting hoy, Llamadas o Leads.
+    || (v === 'mensajes' && ['hoy', 'llamadas', 'leads', 'vleads'].some((x) => pestanasEmbudo().includes(x)))
     // «Carrito» es nueva: los embudos con pestañas elegidas antes la ven junto a Calendario o Tareas.
     || (v === 'carrito' && (pestanasEmbudo().includes('tareas') || pestanasEmbudo().includes('objetivos')))
     // «Grupo de WhatsApp» es nueva: la ven los embudos con pestañas elegidas antes que tengan Tareas o Carrito.
@@ -588,7 +590,8 @@ const vistasPermitidas = () => VIEWS.filter((v) => (v === 'labia' ? tipoActual()
     || ((v === 'claude' || v === 'automatizaciones') && pestanasEmbudo().includes('tareas'))
     // «Anuncios ganadores» de la venta directa es nueva: la ven los que tienen Métricas.
     || (v === 'danuncios' && pestanasEmbudo().includes('dmetricas')))
-  && (v === 'tareas' || v === 'calendario' || tiene(VIEW_PERMISO[v] || v))));
+  // Mensajes de WhatsApp: los ve quien escribe o llama a los leads; los cambia quien tiene «mensajes».
+  && (v === 'tareas' || v === 'calendario' || (v === 'mensajes' ? tiene(['hoy', 'llamadas', 'leads', 'config', 'mensajes']) : tiene(VIEW_PERMISO[v] || v)))));
 const allowedViews = () => (document.body.classList.contains('pp-activo') ? filtrarVistas(vistasPermitidas(), ppAbiertos) : vistasPermitidas());
 // Código del embudo activo para tareas y llamadas: el lanzamiento elegido o el id de la VSL.
 const codigo = () => (enVsl() || enDirecta() || enCruzadas() ? state.embudo : enMeteo() ? state.meteo.code : state.launchCode);
@@ -667,7 +670,6 @@ async function start() {
   state.sendflowConfigured = Boolean(sendflowConfigured);
   // «Mi negocio» sale siempre (Operativa y Procesos son de todos); dentro, cada uno ve lo que su rol puede tocar
   // (las setters, al menos los mensajes de WhatsApp).
-  $('#btn-mensajes').hidden = !tiene(['hoy', 'llamadas', 'leads', 'config', 'mensajes']);
   $('#tb-ajustes-cli').textContent = `Configuración · ${state.clientes?.find((c) => c.id === state.cliente)?.nombre || 'este cliente'}`;
   $('#tb-cuenta-yo').textContent = state.user?.nombre ? String(state.user.nombre) : 'Tu cuenta';
   state.setterResumen = Boolean(setterResumen);
@@ -1108,7 +1110,7 @@ const ACCIONES_BUSCAR = [
   ['equipo', '👥', 'Configuración → Equipo', 'equipo usuarios invitar personas roles permisos mi negocio', '#btn-equipo'],
   ['conexiones', '🔌', 'Configuración → Conexiones', 'conexiones sendflow setter ia integraciones mi negocio', '#btn-conexiones'],
   ['atajos', '🔗', 'Configuración → Atajos (Drive, GHL y enlaces)', 'atajos tus atajos enlaces drive canva ghl', '#btn-atajos'],
-  ['mensajes', '💬', 'Configuración → Plantillas de WhatsApp', 'plantillas mensajes de whatsapp textos botones', '#btn-mensajes'],
+  ['mensajes', '💬', 'Comercial → Mensajes de WhatsApp', 'plantillas mensajes de whatsapp textos botones', () => abrirMensajes()],
   ['operativa', '🗂️', 'Operativa', 'tareas tableros operativa pendientes', '#sb-operativa'],
   ['procesos', '📚', 'Procesos', 'procesos como se hace sop guias', '#sb-procesos'],
   ['clave', '🔑', 'Cambiar contraseña', 'contrasena clave password cuenta', '#btn-clave'],
@@ -1248,7 +1250,7 @@ $('#btn-reload').addEventListener('click', () => {
 const ALIAS_NAV = {
   'mi-negocio': () => { $('#tb-menu-ajustes').open = true; }, configuracion: () => { $('#tb-menu-ajustes').open = true; },
   productos: '#btn-productos', marca: '#btn-marca', 'marca-y-avatar': '#btn-marca', equipo: '#btn-equipo', conexiones: '#btn-conexiones',
-  atajos: '#btn-atajos', 'tus-atajos': '#btn-atajos', mensajes: '#btn-mensajes', 'mensajes-whatsapp': '#btn-mensajes', 'plantillas-whatsapp': '#btn-mensajes',
+  atajos: '#btn-atajos', 'tus-atajos': '#btn-atajos', mensajes: () => abrirMensajes(), 'mensajes-whatsapp': () => abrirMensajes(), 'plantillas-whatsapp': () => abrirMensajes(),
   agencia: () => { if (state.superadmin) { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); } },
   'inteligencia-negocio': '#sb-negocio', negocio: '#sb-negocio', operativa: '#sb-operativa', procesos: '#sb-procesos',
 };
@@ -4250,7 +4252,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'labia', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones', 'xalumnos', 'xofertas', 'xhoy', 'utms', 'dhoy'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'mensajes', 'labia', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones', 'xalumnos', 'xofertas', 'xhoy', 'utms', 'dhoy'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -4261,7 +4263,8 @@ $('#leyenda-estados').innerHTML = ESTADOS.map((e, i) => `<li><span class="estado
 // Ayuda de la primera visita a cada pestaña: qué hay y para qué sirve. Se cierra con «Entendido» y se
 // recuerda por usuario (Cuenta → «Volver a ver las ayudas» las enseña otra vez).
 const AYUDA_VISTA = {
-  hoy: ['☀️ Setting hoy', 'Una sola lista de a quién escribir hoy por WhatsApp, ya ordenada por prioridad (el número de la izquierda) y con el color de su temperatura: rojo muy caliente, naranja caliente, amarillo templado, azul frío. Filtra por motivo o por temperatura con los botones de arriba. Pulsa el botón de WhatsApp de cada lead: el mensaje sale ya escrito (se cambia en Configuración → Plantillas de WhatsApp, o en el enlace de abajo). Al lado, «📨 Plantilla» manda una plantilla de pago y, si responde, contesta el setter IA.'],
+  mensajes: ['💬 Mensajes de WhatsApp', 'Los textos que salen ya escritos al pulsar cada botón de WhatsApp (Setting hoy, Llamadas y Leads). Son solo de este embudo: si los cambias, los demás embudos no cambian.'],
+  hoy: ['☀️ Setting hoy', 'Una sola lista de a quién escribir hoy por WhatsApp, ya ordenada por prioridad (el número de la izquierda) y con el color de su temperatura: rojo muy caliente, naranja caliente, amarillo templado, azul frío. Filtra por motivo o por temperatura con los botones de arriba. Pulsa el botón de WhatsApp de cada lead: el mensaje sale ya escrito (se cambia en Comercial → Mensajes de WhatsApp, o en el enlace de abajo). Al lado, «📨 Plantilla» manda una plantilla de pago y, si responde, contesta el setter IA.'],
   llamadas: ['📞 Llamadas', 'Las llamadas de valoración del calendario de GHL. Pulsa una para ver la ficha del lead antes de llamar y anota el resultado al terminar: alimenta el pipeline y el rendimiento del equipo.'],
   endirecto: ['🔴 En directo', 'El día del webinar, minuto a minuto: quién espera, quién entra, la asistencia, las VIP y las ventas desde que abre el carrito. Se actualiza solo cada minuto.'],
   leads: ['👥 Leads', 'Cada persona registrada con su puntuación (0-100) y su estado: muy caliente, caliente, templado o frío. Filtra, ordena y abre su WhatsApp. En «Encuesta», qué ha respondido la gente.'],
@@ -4323,14 +4326,15 @@ document.addEventListener('click', (e) => {
 // Pestañas de arriba que agrupan varias vistas (subpestañas): Hoy, Anuncios (cómo van, ganadores y crear con IA), Crear (con IA),
 // Plan (organizar el lanzamiento) y Análisis (para decidir). El orden de cada lista es el de sus subpestañas.
 const GRUPOS = {
-  comercial: ['hoy', 'dhoy', 'xhoy', 'llamadas', 'endirecto', 'labia'],
+  comercial: ['hoy', 'dhoy', 'xhoy', 'llamadas', 'mensajes', 'labia'],
+  metricasg: ['metricas', 'endirecto'],
   anunciosg: ['publicidad', 'avatar', 'vanuncios', 'danuncios', 'utms'],
   crear: ['paginas', 'emailsia', 'imagenes', 'anuncios', 'grupowa', 'automatizaciones'],
   planificacion: ['objetivos', 'calendario', 'tareas', 'carrito'],
   analisis: ['avatarc', 'comparar', 'rendimiento', 'claude'],
 };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { labia: 'whatsapp', anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', dhoy: 'sun2', utms: 'target', publicidad: 'megaphone', xalumnos: 'users', xofertas: 'gift', xhoy: 'target' };
+const VIEW_ICONS = { mensajes: 'whatsapp', metricasg: 'trend', labia: 'whatsapp', anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', dhoy: 'sun2', utms: 'target', publicidad: 'megaphone', xalumnos: 'users', xofertas: 'gift', xhoy: 'target' };
 $$('.view-tab, .subview-tab[data-view]:not(.subview-labia)').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
@@ -4534,6 +4538,7 @@ function showView(view) {
   if (view === 'emailsia' && state.config) renderEmailsIa();
   if (view === 'imagenes' && state.config) renderImagenesIa();
   if (view === 'labia') cargarLabia();
+  if (view === 'mensajes' && state.config) pintarVistaMensajes();
   if (view === 'claude' && state.config) renderClaude();
   if (view === 'automatizaciones' && state.config) renderAutomatizaciones();
   if (view === 'publicidad' && state.config) cargarPublicidad();
@@ -4878,7 +4883,7 @@ function hoyItem(l, b = null, n = 0) {
 
 function messageFor(l) {
   const launch = state.config.launches[state.launchCode];
-  return buildMessage(state.config.templates[l.step], { nombre: l.firstName, contactId: l.id, launch, producto: nombreProducto(state.config) });
+  return buildMessage(plantillasEmbudo()[l.step], { nombre: l.firstName, contactId: l.id, launch, producto: nombreProducto(state.config) });
 }
 
 // Nombre del lead → su ficha completa (encuesta, voto, formulario y notas de GHL).
@@ -10080,7 +10085,7 @@ async function loadMarca() {
     <p class="muted small">ⓘ Si en GHL creas una pregunta nueva o duplicas una, GHL crea un campo nuevo: añádelo aquí (y quita el antiguo) para que AlquimIA lea las respuestas nuevas. Si solo cambias el texto o las opciones de una pregunta, el campo es el mismo y no hay que tocar nada.</p>
     <div id="mc-preguntas">${preguntas.map(fila).join('')}</div>
     <button type="button" class="btn" id="mc-add">+ Añadir pregunta</button>
-    <p class="muted small">Los mensajes de WhatsApp se cambian en <em>Setting hoy → Mensajes de WhatsApp</em> (pueden usar <code>{producto}</code>) y las tareas habituales, en <em>Tareas</em>.</p>
+    <p class="muted small">Los mensajes de WhatsApp se cambian en <em>Comercial → Mensajes de WhatsApp</em> (pueden usar <code>{producto}</code>) y las tareas habituales, en <em>Tareas</em>.</p>
     <div class="row"><button type="button" class="btn primary" id="mc-guardar">Guardar marca</button><span class="muted" id="mc-status" aria-live="polite"></span></div>`;
   box.dataset.fila = '1';
   $('#mc-add').onclick = () => $('#mc-preguntas').insertAdjacentHTML('beforeend', fila());
@@ -11922,7 +11927,7 @@ function mensajeFase(contactId) {
   const c = f.cita.c;
   const k = contactoDe(c);
   const d = new Date(c.startTime);
-  return buildMessage(state.config.templates[info.plantilla], {
+  return buildMessage(plantillasEmbudo()[info.plantilla], {
     nombre: k.primerNombre, contactId, launch: embudoActual(), producto: nombreProducto(state.config),
     extra: {
       dia_llamada: d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' }),
@@ -11999,30 +12004,44 @@ $('#llf-list').addEventListener('click', async (e) => {
 });
 $('#f-llamada').addEventListener('change', (e) => { state.filters.llamada = e.target.value; state.page = 0; render(); });
 
-// Plantillas de mensajes por fase en Setting hoy → Mensajes de WhatsApp.
+// Plantillas de mensajes por fase en Comercial → Mensajes de WhatsApp.
 $('#tpl-llamadas').innerHTML = FASES_LLAMADA.filter((f) => f.plantilla).map((f) => `<label class="field"><span>${f.icon} ${esc(f.label)}</span><textarea id="tpl-${f.plantilla}" data-tpl="${f.plantilla}" rows="3"></textarea></label>`).join('');
 
-// Mensajes de WhatsApp (en «Setting hoy»): los ve quien hace el setteo y los cambia quien tiene el permiso «mensajes».
+// Comercial → Mensajes de WhatsApp: cada embudo tiene los suyos (si aún no, los generales del cliente) y
+// cambiarlos no toca los de los demás embudos. Los ve quien hace el setteo; los cambia quien tiene «mensajes».
+const idEmbudoMensajes = () => (enVsl() || enDirecta() || enCruzadas() ? state.embudo : embudoDeLanz(state.config?.launches?.[state.launchCode]));
+const plantillasEmbudo = () => ({ ...(state.config?.templates || {}), ...(state.config?.mensajesEmbudo?.[idEmbudoMensajes()] || {}) });
+const nombreEmbudoMensajes = () => embudos().find((e) => e.id === idEmbudoMensajes())?.nombre || 'este embudo';
+// Desde el buscador, los atajos o el enlace de Setting hoy: abre la subpestaña.
+function abrirMensajes() {
+  $$('.topbar .tb-menu').forEach((m) => { m.open = false; });
+  if (state.enInicio) salirInicio();
+  showView('mensajes');
+}
+function pintarVistaMensajes() {
+  const propios = Boolean(state.config?.mensajesEmbudo?.[idEmbudoMensajes()]);
+  $('#msj-cab').innerHTML = `<div class="msj-cab-in"><span class="msj-ico" aria-hidden="true">${icon('whatsapp')}</span><div><h2>Mensajes de WhatsApp de «${esc(nombreEmbudoMensajes())}»</h2>
+    <p class="muted">Los textos que salen ya escritos al pulsar cada botón de WhatsApp. Son <strong>solo de este embudo</strong>: si los cambias, los demás embudos no cambian. ${propios ? '' : 'Ahora usa los mensajes generales del cliente; al guardar, este embudo tendrá los suyos.'}</p>
+    <p class="muted small">No son las plantillas de pago de WhatsApp: son los textos que la persona envía desde su WhatsApp.</p></div></div>`;
+  $('#wa-plantillas').hidden = enVsl();
+  $('#vsl-plantillas').hidden = !enVsl();
+  if (enVsl()) { if (!vplSucio) pintarPlantillasVsl(); } else if (!waSucio) pintarPlantillas();
+}
 const waBox = $('#wa-plantillas');
 let waSucio = false;
 function pintarPlantillas() {
   const edita = tiene('mensajes');
   $$('#wa-plantillas textarea, #cfg-country').forEach((el) => { el.readOnly = !edita; });
   $('#wa-pl-save').hidden = !edita;
-  $('#wa-pl-sub').textContent = `Los textos que se envían con cada botón de WhatsApp. Pulsa para ${edita ? 'verlos o cambiarlos' : 'verlos (tu rol no puede cambiarlos)'}.`;
-  const tp = state.config?.templates || {};
+  $('#wa-pl-sub').textContent = edita ? 'Cámbialos y pulsa «Guardar mensajes».' : 'Tu rol puede verlos, pero no cambiarlos.';
+  const tp = plantillasEmbudo();
   $$('#wa-plantillas textarea[id^="tpl-"]').forEach((t) => { t.value = tp[t.dataset.tpl || t.id.slice(4)] || ''; });
   $('#cfg-country').value = state.config?.defaultCountryCode || '34';
   waSucio = false;
 }
-waBox.addEventListener('toggle', () => { if (waBox.open && !waSucio) pintarPlantillas(); });
-// Se abren desde Configuración → Plantillas de WhatsApp o desde el enlace de Setting hoy.
 document.addEventListener('click', (e) => {
   if (!e.target.closest('[data-abrir-mensajes]')) return;
-  $$('.topbar .tb-menu').forEach((m) => { m.open = false; });
-  if (!waSucio) pintarPlantillas();
-  waBox.open = true;
-  $('#mensajes-dialog').showModal();
+  abrirMensajes();
 });
 waBox.addEventListener('input', () => { waSucio = true; $('#wa-pl-status').textContent = 'Cambios sin guardar.'; });
 $('#wa-pl-guardar').addEventListener('click', async () => {
@@ -12031,12 +12050,12 @@ $('#wa-pl-guardar').addEventListener('click', async () => {
   b.disabled = true;
   status.textContent = 'Guardando…';
   try {
-    const templates = { ...state.config.templates, ...Object.fromEntries($$('#wa-plantillas textarea[id^="tpl-"]').map((t) => [t.dataset.tpl || t.id.slice(4), t.value])) };
-    const d = await api('/api/config', { method: 'POST', body: { op: 'plantillas', templates, defaultCountryCode: $('#cfg-country').value } });
-    state.config = { ...state.config, templates: d.templates, defaultCountryCode: d.defaultCountryCode };
-    pintarPlantillas();
+    const templates = Object.fromEntries($$('#wa-plantillas textarea[id^="tpl-"]').map((t) => [t.dataset.tpl || t.id.slice(4), t.value]));
+    const d = await api('/api/config', { method: 'POST', body: { op: 'plantillas', embudo: idEmbudoMensajes(), templates, defaultCountryCode: $('#cfg-country').value } });
+    state.config = { ...state.config, templates: d.templates, mensajesEmbudo: d.mensajesEmbudo, defaultCountryCode: d.defaultCountryCode };
+    pintarVistaMensajes();
     render();
-    status.textContent = 'Mensajes guardados ✓';
+    status.textContent = `Mensajes de «${nombreEmbudoMensajes()}» guardados ✓ (los demás embudos no cambian)`;
   } catch (e) {
     status.textContent = e.message;
   } finally {
@@ -12664,7 +12683,7 @@ function vslFiltrados() {
 function waVsl(l) {
   const e = ESTADOS_VSL.find((x) => x.id === l.estado);
   if (!e?.plantilla || !l.phoneWa) return '';
-  const msg = buildMessage(state.config.templates[e.plantilla], { nombre: l.firstName, contactId: l.id, launch: vslCfg(), producto: nombreProducto(state.config) });
+  const msg = buildMessage(plantillasEmbudo()[e.plantilla], { nombre: l.firstName, contactId: l.id, launch: vslCfg(), producto: nombreProducto(state.config) });
   return `https://wa.me/${l.phoneWa}?text=${encodeURIComponent(msg)}`;
 }
 
@@ -12726,12 +12745,12 @@ const vplBox = $('#vsl-plantillas');
 let vplSucio = false;
 function pintarPlantillasVsl() {
   const edita = tiene('mensajes');
-  $$('#vsl-plantillas textarea').forEach((t) => { t.readOnly = !edita; t.value = state.config?.templates?.[t.dataset.vtpl] || ''; });
+  const tp = plantillasEmbudo();
+  $$('#vsl-plantillas textarea').forEach((t) => { t.readOnly = !edita; t.value = tp[t.dataset.vtpl] || ''; });
   $('#vsl-pl-save').hidden = !edita;
-  $('#vsl-pl-sub').textContent = `Los textos de los botones de WhatsApp de esta lista. Pulsa para ${edita ? 'verlos o cambiarlos' : 'verlos (tu rol no puede cambiarlos)'}.`;
+  $('#vsl-pl-sub').textContent = edita ? 'Cámbialos y pulsa «Guardar mensajes».' : 'Tu rol puede verlos, pero no cambiarlos.';
   vplSucio = false;
 }
-vplBox.addEventListener('toggle', () => { if (vplBox.open && !vplSucio) pintarPlantillasVsl(); });
 vplBox.addEventListener('input', () => { vplSucio = true; $('#vsl-pl-status').textContent = 'Cambios sin guardar.'; });
 $('#vsl-pl-guardar').addEventListener('click', async () => {
   const b = $('#vsl-pl-guardar');
@@ -12739,9 +12758,9 @@ $('#vsl-pl-guardar').addEventListener('click', async () => {
   $('#vsl-pl-status').textContent = 'Guardando…';
   try {
     const templates = Object.fromEntries($$('#vsl-plantillas textarea').map((t) => [t.dataset.vtpl, t.value]));
-    const d = await api('/api/config', { method: 'POST', body: { op: 'plantillas', templates } });
-    state.config = { ...state.config, templates: d.templates };
-    pintarPlantillasVsl();
+    const d = await api('/api/config', { method: 'POST', body: { op: 'plantillas', embudo: idEmbudoMensajes(), templates } });
+    state.config = { ...state.config, templates: d.templates, mensajesEmbudo: d.mensajesEmbudo };
+    pintarVistaMensajes();
     renderVslLeads();
     $('#vsl-pl-status').textContent = 'Mensajes guardados ✓';
   } catch (e) {

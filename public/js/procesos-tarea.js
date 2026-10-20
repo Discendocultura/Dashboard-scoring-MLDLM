@@ -115,7 +115,7 @@ export const PROCESOS_TAREA = [
   { re: /leads calientes de .?sett?(ing|eo) hoy/, html: p('hablar hoy con las personas con más intención de compra, cuando aún están calientes.', [
     'En AlquimIA → <strong>Setting hoy</strong>, mira la lista ordenada por puntuación (las de arriba son las más calientes).',
     'Abre la ficha de cada una para ver qué ha hecho: clases vistas, respuestas de la encuesta, visitas a la página de venta.',
-    'Escríbele por WhatsApp con un mensaje personal (usa su nombre y algo de su encuesta). Puedes partir de los mensajes de <strong>Leads → Mensajes de WhatsApp</strong>.',
+    'Escríbele por WhatsApp con un mensaje personal (usa su nombre y algo de su encuesta). Puedes partir de los mensajes de <strong>Comercial → Mensajes de WhatsApp</strong>.',
     'Marca en AlquimIA a quién has contactado y apunta lo importante de cada conversación.',
     'Si alguna quiere hablar, agéndale la llamada.',
   ], 'has contactado a todas las de la lista de hoy y queda apuntado el resultado de cada una.') },

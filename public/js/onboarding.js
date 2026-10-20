@@ -35,7 +35,7 @@ export const TOURS = {
     { sel: '[data-view-grupo="comercial"]', titulo: 'Empieza siempre por «Comercial»', texto: 'A quién escribir hoy, ya ordenado por prioridad y con su temperatura. Pulsa WhatsApp y el mensaje sale escrito.' },
     { sel: '.view-tab[data-view="leads"]:not([hidden]), .view-tab[data-view="vleads"]:not([hidden])', titulo: 'Todos tus leads', texto: 'Cada persona registrada con su puntuación. Pulsa su nombre para ver su ficha completa.' },
     { sel: '#ctx-bar', titulo: 'Qué lanzamiento ves', texto: 'Si hay varios, cámbialo en este desplegable.' },
-    { sel: '#tb-menu-ajustes', titulo: 'Tus mensajes', texto: 'En ⚙️ Configuración → «Plantillas de WhatsApp» están los textos de cada botón. Puedes ajustarlos a tu manera de escribir.' },
+    { sel: '#tb-menu-ajustes', titulo: 'Tus mensajes', texto: 'En ⚙️ Comercial → «Mensajes de WhatsApp» están los textos de cada botón. Puedes ajustarlos a tu manera de escribir.' },
     AYUDA,
   ],
   cliente: [

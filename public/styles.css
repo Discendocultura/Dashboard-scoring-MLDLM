@@ -7708,3 +7708,12 @@ body.en-ejemplo .config-only, body.en-ejemplo #sb-add, body.en-ejemplo .sb-edit,
 }
 .sb-labia-mini:hover { opacity: 1; border-color: rgb(255 154 60 / .55); background-color: transparent; box-shadow: 0 10px 24px -12px rgb(255 122 24 / .35); }
 .sb-labia-mini .sb-labia-ir { color: #a3a8c9; }
+
+/* Comercial → Mensajes de WhatsApp (propios de cada embudo) */
+#view-mensajes { display: grid; gap: 16px; }
+#view-mensajes[hidden] { display: none; }
+.msj-cab-in { display: flex; gap: 14px; align-items: flex-start; padding: 18px 20px; }
+.msj-cab-in h2 { margin: 0 0 4px; font-size: 1.15rem; }
+.msj-cab-in p { margin: 4px 0 0; }
+.msj-ico { flex: 0 0 auto; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: color-mix(in srgb, #25d366 16%, transparent); color: #128c4a; }
+.msj-ico svg { width: 22px; height: 22px; }

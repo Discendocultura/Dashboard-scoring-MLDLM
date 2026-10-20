@@ -15,7 +15,7 @@ const EQUIPO_FIELDS = ['name', 'inicioCaptacion', 'finCaptacion', 'fechaDirecto'
 function equipoConfig(config) {
   const launches = {};
   for (const [code, l] of Object.entries(config.launches)) launches[code] = Object.fromEntries(EQUIPO_FIELDS.map((k) => [k, l[k] ?? '']));
-  return { launches, templates: {}, accesos: [], digestEmail: '', marca: { producto: config.marca?.producto || '' }, defaultCountryCode: config.defaultCountryCode, setterIa: config.setterIa, vsls: Object.fromEntries(Object.entries(config.vsls || {}).map(([id, v]) => [id, { name: v.name }])), embudos: config.embudos };
+  return { launches, templates: {}, mensajesEmbudo: {}, accesos: [], digestEmail: '', marca: { producto: config.marca?.producto || '' }, defaultCountryCode: config.defaultCountryCode, setterIa: config.setterIa, vsls: Object.fromEntries(Object.entries(config.vsls || {}).map(([id, v]) => [id, { name: v.name }])), embudos: config.embudos };
 }
 
 export async function GET(request) {
@@ -43,11 +43,20 @@ export async function POST(request) {
       await requireRole(request, { permiso: 'mensajes' });
       const config = await reintentando(async () => {
         const actual = await getConfig({ fresh: true });
+        const claves = Object.keys(actual.templates);
+        const pais = body.defaultCountryCode ?? actual.defaultCountryCode;
+        // Con «embudo»: solo los de ese embudo (Comercial → Mensajes de WhatsApp); los demás embudos no cambian.
+        if (body.embudo) {
+          if (!actual.embudos.some((e) => e.id === body.embudo)) throw Object.assign(new Error('Embudo no encontrado'), { status: 404, publicMessage: 'Ese embudo ya no existe: recarga la página.' });
+          const propios = { ...(actual.mensajesEmbudo?.[body.embudo] || {}) };
+          for (const k of claves) if (typeof body.templates?.[k] === 'string') propios[k] = body.templates[k];
+          return saveConfig({ ...actual, mensajesEmbudo: { ...(actual.mensajesEmbudo || {}), [body.embudo]: propios }, defaultCountryCode: pais }, { version: versionDe(actual), motivo: 'Mensajes de WhatsApp del embudo' });
+        }
         const templates = { ...actual.templates };
-        for (const k of Object.keys(templates)) if (typeof body.templates?.[k] === 'string') templates[k] = body.templates[k];
-        return saveConfig({ ...actual, templates, defaultCountryCode: body.defaultCountryCode ?? actual.defaultCountryCode }, { version: versionDe(actual), motivo: 'Mensajes de WhatsApp' });
+        for (const k of claves) if (typeof body.templates?.[k] === 'string') templates[k] = body.templates[k];
+        return saveConfig({ ...actual, templates, defaultCountryCode: pais }, { version: versionDe(actual), motivo: 'Mensajes de WhatsApp' });
       });
-      return json({ templates: config.templates, defaultCountryCode: config.defaultCountryCode, version: versionDe(config) });
+      return json({ templates: config.templates, mensajesEmbudo: config.mensajesEmbudo || {}, defaultCountryCode: config.defaultCountryCode, version: versionDe(config) });
     }
     // Marca del cliente (Equipo → Marca): producto, colores y encuesta del avatar. Solo admin.
     if (body.op === 'marca') {

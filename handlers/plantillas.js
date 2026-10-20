@@ -44,7 +44,8 @@ export async function POST(request) {
       const p = {
         id: newId('p'), nombre: String(body.nombre || e.nombre).trim().slice(0, 60), desc: String(body.desc || '').trim().slice(0, 300),
         tipo: e.tipo, formato: e.formato || null, clases: e.clases || null, vip: e.vip, preclase: e.preclase, pestanas: e.pestanas || null,
-        mensajes: { ...config.templates },
+        // Los mensajes de este embudo (los suyos o, si no tiene, los generales del cliente).
+        mensajes: { ...config.templates, ...(config.mensajesEmbudo?.[e.id] || {}) },
         origen: clienteActual().nombre, creada: new Date().toISOString(), por: s.user?.nombre || 'superadmin',
       };
       if (e.tipo === 'lanzamientos') {
@@ -85,7 +86,8 @@ export async function POST(request) {
         const next = {
           ...actual,
           embudos: [...actual.embudos, embudo],
-          templates: body.mensajes === false ? actual.templates : { ...actual.templates, ...(p.mensajes || {}) },
+          // Los mensajes de la plantilla van solo al embudo nuevo: los de los demás embudos no se tocan.
+          mensajesEmbudo: body.mensajes === false ? actual.mensajesEmbudo : { ...(actual.mensajesEmbudo || {}), [id]: { ...(p.mensajes || {}) } },
           vsls: p.tipo === 'vsl' ? { ...actual.vsls, [id]: { ...(p.vsl || {}), name: nombre } } : actual.vsls,
         };
         const saved = await saveConfig(next, { version: versionDe(actual), motivo: `Embudo desde la plantilla «${p.nombre}»` });

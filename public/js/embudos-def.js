@@ -8,6 +8,7 @@ export const PESTANAS = {
     { id: 'hoy', label: 'Setting hoy', desc: 'Comercial: a quién escribir hoy por WhatsApp, por prioridad' },
     { id: 'llamadas', label: 'Llamadas', desc: 'Llamadas de valoración: calendario, resultados y pipeline' },
     { id: 'endirecto', label: 'En directo', desc: 'El día del webinar: quién espera, quién entra, VIP, ventas y visitas a la página de venta, minuto a minuto' },
+    { id: 'mensajes', label: 'Mensajes de WhatsApp', desc: 'Los textos de cada botón de WhatsApp de este embudo (Setting hoy y Llamadas); cambiarlos no toca los demás embudos' },
     { id: 'leads', label: 'Leads', desc: 'Lista de registrados con su puntuación y estado' },
     { id: 'metricas', label: 'Métricas', desc: 'Registros, clases, VIP, directo, ventas, coste por lead…' },
     { id: 'publicidad', label: 'Cómo van (Meta)', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
@@ -32,6 +33,7 @@ export const PESTANAS = {
     { id: 'publicidad', label: 'Cómo van (Meta)', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
     { id: 'vleads', label: 'Leads', desc: 'Cada persona con lo que ha visto y WhatsApp según su estado' },
     { id: 'llamadas', label: 'Llamadas', desc: 'Llamadas de valoración de la VSL' },
+    { id: 'mensajes', label: 'Mensajes de WhatsApp', desc: 'Los textos de cada botón de WhatsApp de esta VSL; cambiarlos no toca los demás embudos' },
     { id: 'vanuncios', label: 'Ganadores', desc: 'Qué campañas, conjuntos y anuncios traen ventas' },
     { id: 'utms', label: 'UTMs', desc: 'Qué tipo de lead trae cada campaña, conjunto y anuncio: vio el vídeo, el 75%, agendó llamada y compró, en orden como un embudo, con el semáforo de la encuesta; ordena por leads más baratos, cerca de la compra, compras o avatar comprador' },
     { id: 'comparar', label: 'Comparar', desc: 'Mes a mes y frente a los lanzamientos, con alertas' },
@@ -109,16 +111,16 @@ export const SECCIONES_VALIDAS = Object.entries(SECCIONES).flatMap(([v, l]) => l
 // Cómo se agrupan las pestañas en el menú del dashboard (categorías → subcategorías), por tipo de embudo.
 export const CATEGORIAS = {
   lanzamientos: [
-    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'Lo del día: a quién escribir, las llamadas y el directo', vistas: ['hoy', 'llamadas', 'endirecto'] },
+    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'Lo del día: a quién escribir, las llamadas y los mensajes de WhatsApp', vistas: ['hoy', 'llamadas', 'mensajes'] },
     { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['leads'] },
-    { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va el lanzamiento, en cifras', vistas: ['metricas'] },
+    { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va el lanzamiento, en cifras (y En directo el día del webinar)', vistas: ['metricas'] },
     { id: 'anunciosg', label: 'Anuncios', icon: '📣', desc: 'Cómo van en Meta, los ganadores y qué tipo de lead trae cada anuncio (UTMs)', vistas: ['publicidad', 'avatar', 'utms'] },
     { id: 'crear', label: 'Crear', icon: '✨', desc: 'Con IA: páginas, emails, imágenes, anuncios, grupo de WhatsApp y automatizaciones', vistas: ['paginas', 'emailsia', 'imagenes', 'anuncios', 'grupowa', 'automatizaciones'] },
     { id: 'planificacion', label: 'Plan', icon: '🗓️', desc: 'Organizar el lanzamiento: planificador, calendario, tareas y carrito', vistas: ['objetivos', 'calendario', 'tareas', 'carrito'] },
     { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Para decidir: avatar comprador, comparativas, rendimiento del equipo y el análisis con Claude', vistas: ['avatarc', 'comparar', 'rendimiento', 'claude'] },
   ],
   vsl: [
-    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'Las llamadas de valoración', vistas: ['llamadas'] },
+    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'Las llamadas de valoración y los mensajes de WhatsApp', vistas: ['llamadas', 'mensajes'] },
     { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['vleads'] },
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va la VSL, por fechas', vistas: ['vmetricas'] },
     { id: 'anunciosg', label: 'Anuncios', icon: '📣', desc: 'Cómo van en Meta, los ganadores y qué tipo de lead trae cada anuncio (UTMs)', vistas: ['publicidad', 'vanuncios', 'utms'] },
@@ -271,7 +273,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
     if (on('vmetricas') || on('vanuncios') || on('utms')) s.push(guiaMeta());
     s.push({ titulo: `${s.length + 1} · En AlquimIA`, pasos: [
       'Al crear el embudo se abre su configuración: pon las etiquetas, los enlaces (página de la VSL, página de venta, pagos, calendario), los precios y el filtro de campañas de Meta.',
-      'Revisa los mensajes de WhatsApp en <em>Leads → Mensajes de WhatsApp de la VSL</em>.',
+      'Revisa los mensajes de WhatsApp en <em>Comercial → Mensajes de WhatsApp</em>.',
     ] });
   } else {
     s.push({ titulo: '1 · Etiquetas en GHL (por lanzamiento)', pasos: [
@@ -304,7 +306,7 @@ export function guiaEmbudo(tipo, pestanas = pestanaIds(tipo), formato = 'webinar
       ...(preclase ? ['La preclase (clases grabadas) es aparte y funciona igual que en el webinar.'] : []),
     ] });
     if (on('hoy') || on('leads')) s.push({ titulo: `${s.length + 1} · Setteo y WhatsApp`, pasos: [
-      'Los leads se puntúan solos con lo que hacen (clases, VIP, directo, grabación). Revisa los textos de WhatsApp en <em>Setting hoy → Mensajes de WhatsApp</em>.',
+      'Los leads se puntúan solos con lo que hacen (clases, VIP, directo, grabación). Revisa los textos de WhatsApp en <em>Comercial → Mensajes de WhatsApp</em>.',
       'Para el webinar en directo con Zoom: crea una app <strong>Server-to-Server OAuth</strong> en Zoom y añade sus claves en Cloudflare (ver la guía del cliente). Así «Sincronizar Zoom» marca quién asistió.',
     ] });
     if (on('llamadas')) s.push(guiaLlamadas('los lanzamientos'));

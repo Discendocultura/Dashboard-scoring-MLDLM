@@ -5,7 +5,7 @@
 export const PERMISOS = [
   { id: 'hoy', label: 'Setting hoy y LabIA', grupo: 'Comercial' },
   { id: 'llamadas', label: 'Llamadas', grupo: 'Comercial' },
-  { id: 'endirecto', label: 'En directo', grupo: 'Comercial' },
+  { id: 'endirecto', label: 'En directo', grupo: 'Métricas' },
   { id: 'leads', label: 'Leads', grupo: 'Leads y métricas' },
   { id: 'metricas', label: 'Métricas · Cómo van · Claude', grupo: 'Leads y métricas' },
   { id: 'avatar', label: 'Ganadores · UTMs · Avatar', grupo: 'Anuncios' },
