@@ -1456,6 +1456,8 @@ En el menú lateral, debajo de **Inicio** (con «Decide con criterio» debajo de
 7. **🧭 Tus embudos activos**: nombre, tipo, estado y 4 cifras (Facturación, Ventas, ROAS y Conversión; en venta directa y meteóricos, el ticket medio). Pulsando, su embudo. Con 1, a todo el ancho; con más, en columnas que siempre llenan la fila.
 8. **💬 Te han mencionado**, solo si hay algo. Menos margen a los lados (hasta 1640 px).
 
+**Columnas de la Operativa más anchas de serie**: 340 px como mínimo (antes 260); si no caben todas, el tablero se desplaza en horizontal. Las que se han ajustado a mano conservan su ancho (`ANCHO_COL` en `public/js/operativa-panel.js`).
+
 **La Operativa se abre a la derecha del menú lateral**, que sigue visible: pulsar cualquier cosa del lateral la cierra y te lleva allí (y mientras está abierta, «Operativa» sale marcada). Sin «← Volver al inicio».
 
 Al iniciar sesión (también tras la verificación en dos pasos) se abre siempre el **Inicio**, que saluda «Hola 👋 Nombre» (el nombre de pila del usuario; con la contraseña general, solo «Hola 👋»). Un enlace directo a una pestaña (`#vista`) sigue abriendo esa pestaña.
