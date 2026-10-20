@@ -7072,6 +7072,7 @@ function hubCategorias(todos, { pct, faltan, revisar, nombre, completo }) {
     </div>
     ${grupos.filter((x) => x.tabs.length).map((x) => `<p class="hub-grupo">${esc(x.titulo)}</p><div class="hub-cats">${x.tabs.map(tarjeta).join('')}</div>`).join('')}`;
 }
+const CON_CID = new Set(['cfg-login-url', 'cfg-recursos-url', 'cfg-replay', 'cfg-raices', 'cfg-pagina-pago']);
 function hubEnhorabuena(nombre) {
   const fila = (label, v, { copiar = true, enlace = false } = {}) => (v ? `<li class="hub-fila"><span class="hub-fila-l">${esc(label)}</span><span class="hub-fila-v">${enlace ? `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a>` : esc(v)}</span>${copiar ? `<button type="button" class="btn small" data-copiar="${esc(v)}" data-copiar-txt="Copiar">Copiar</button>` : ''}</li>` : '');
   const bloque = (ico, titulo, tab, filas, extra = '') => (filas.trim() || extra ? `<section class="hub-bloque">
@@ -7081,8 +7082,13 @@ function hubEnhorabuena(nombre) {
     ['📝 Registro (login)', 'cfg-login-url'], ['🎓 Página preclase · y para conectarse al directo', 'cfg-recursos-url'], ['🎉 Página de gracias', 'cfg-gracias-url'],
     ['💬 Grupo de WhatsApp', 'cfg-whatsapp-url'], ['📋 Encuesta', 'cfg-encuesta-url'], ['⭐ Entrada VIP (pago)', 'cfg-vip-url'], ['📼 Página de replay', 'cfg-replay'],
     ['🛒 Página de venta', 'cfg-raices'], ['🧾 Página de pago', 'cfg-pagina-pago'], ['☎️ Reservar llamada', 'cfg-llamada'],
-  ].map(([l, id]) => [l, valCfg(id)]).filter(([, v]) => v);
-  const todosTxt = enlaces.map(([l, v]) => `${l.replace(/^\S+\s/, '')}: ${v}`).join('\n');
+  ].map(([l, id]) => [l, valCfg(id), CON_CID.has(id)]).filter(([, v]) => v);
+  // Las páginas que leen quién entra (login, preclase, replay, venta, pago) tienen dos enlaces: el de los emails de GHL,
+  // con ?cid={{contact.id}} (entra directa y se sabe quién es), y el de WhatsApp, sin él (si no la recuerda, pide el email).
+  const filaEnlace = ([l, v, conCid]) => (!conCid ? fila(l, v, { enlace: true }) : `<li class="hub-fila hub-fila-doble"><span class="hub-fila-l">${esc(l)}</span><div class="hub-dobles">
+      <div class="hub-doble"><span class="hub-canal">✉️ Para emails</span><code>${esc(enlaceEmail(v))}</code><button type="button" class="btn small" data-copiar="${esc(enlaceEmail(v))}" data-copiar-txt="Copiar">Copiar</button></div>
+      <div class="hub-doble"><span class="hub-canal">💬 Para WhatsApp</span><a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a><button type="button" class="btn small" data-copiar="${esc(v)}" data-copiar-txt="Copiar">Copiar</button></div></div></li>`);
+  const todosTxt = enlaces.map(([l, v, conCid]) => (conCid ? `${l.replace(/^\S+\s/, '')}\n  · Email: ${enlaceEmail(v)}\n  · WhatsApp: ${v}` : `${l.replace(/^\S+\s/, '')}: ${v}`)).join('\n');
   const nc = nClasesForm();
   const clases = Array.from({ length: nc }, (_, i) => fila(`Clase ${i + 1} · se desbloquea`, fechaCfg(valCfg(`cfg-clase${i + 1}-at`)), { copiar: false })).join('');
   const recursos = [['🎵 Música', 'musica'], ['🧪 Test', 'test'], ['🗳️ Votación', 'votacion'], ['📥 Descargable', 'descargable'], ['💬 Comentarios', 'comentarios']]
@@ -7096,7 +7102,7 @@ function hubEnhorabuena(nombre) {
       <button type="button" class="btn primary hub-volver" data-hub-volver>⚙️ Volver a la configuración</button>
     </div>
     <div class="hub-bloques">
-      ${bloque('🔗', '1 · Enlaces para emails y WhatsApp', 'captacion', enlaces.map(([l, v]) => fila(l, v, { enlace: true })).join(''), enlaces.length > 1 ? `<button type="button" class="btn small hub-copiar-todo" data-copiar="${esc(todosTxt)}" data-copiar-txt="📋 Copiar todos">📋 Copiar todos</button>` : '')}
+      ${bloque('🔗', '1 · Enlaces para emails y WhatsApp', 'captacion', enlaces.map(filaEnlace).join(''), enlaces.length > 1 ? `<button type="button" class="btn small hub-copiar-todo" data-copiar="${esc(todosTxt)}" data-copiar-txt="📋 Copiar todos">📋 Copiar todos</button>` : '')}
       ${bloque('📅', '2 · Fechas clave', 'launch', [
         fila('🚀 Empieza la captación', fechaCfg(valCfg('cfg-inicio')), { copiar: false }),
         fila('🔴 Directo', directo.length ? `${fechaCfg(directo[0])}${directo[1] ? `, ${directo[1]} h` : ''}` : '', { copiar: false }),

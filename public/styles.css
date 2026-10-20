@@ -8108,3 +8108,11 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
   .xa-puente-cab:has([data-x-puente-limpiar]) h3 { padding-right: 0; }
   .xa-puente-cab [data-x-puente-limpiar] { position: static; margin: 0 0 10px; }
 }
+/* Resumen final: las páginas con un enlace para emails (con ?cid) y otro para WhatsApp */
+.hub-fila.hub-fila-doble { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.hub-fila-doble > .hub-fila-l { flex-basis: 100%; }
+.hub-dobles { flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.hub-doble { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); min-width: 0; }
+.hub-doble code, .hub-doble a { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+.hub-canal { flex: none; width: 128px; font-size: 12px; font-weight: 700; color: var(--text-2); }
+@media (max-width: 600px) { .hub-canal { width: auto; flex-basis: 100%; } }
