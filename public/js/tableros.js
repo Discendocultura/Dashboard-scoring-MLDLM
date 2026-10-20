@@ -4,6 +4,8 @@
 //   config: { tableros: [{ id, proyecto, nombre, columnas: [{ id, nombre, hecha }] }], plantillas: [{ id, nombre, columnas }] }
 // Cada tarea guarda opTablero y opColumna (no se usa «columna»: es la de las fases del tablero de cada lanzamiento).
 // Lo usan el navegador (panel) y el servidor (lib/operativa.js).
+import { fasesDe, columnaDe, COLUMNA_HECHAS, TODAS_FASE_IDS } from './tareas.js';
+
 export const GENERAL = 'general';
 export const COLUMNAS_SERIE = [
   { id: 'pendiente', nombre: 'Pendiente', hecha: false },
@@ -89,9 +91,22 @@ export function ordenarTableros(cfg, proyecto, ids) {
 export const tableroDeTarea = (t, tableros) => tableros.find((b) => b.id === t.opTablero) || tableros.find((b) => b.id === GENERAL) || tableros[0];
 export const columnaHecha = (tab) => tab.columnas.find((c) => c.hecha) || tab.columnas[tab.columnas.length - 1];
 
+// Tablero de un embudo (el de su lanzamiento en curso): las mismas columnas que su Plan → Tareas — una por fase del
+// tipo de embudo, las extra que haya creado la admin y «Completadas». La columna de cada tarea sale de su fase.
+//   extra: [{ id, label, icon }] (lib/columnas.js)
+export function columnasEmbudo(tipo, extra = []) {
+  return [
+    ...fasesDe(tipo).map((f) => ({ id: f.id, nombre: `${f.icon} ${f.label}`, hecha: false, fase: true })),
+    ...(extra || []).map((c) => ({ id: c.id, nombre: `${c.icon || '📌'} ${c.label}`, hecha: false })),
+    { id: COLUMNA_HECHAS, nombre: 'Completadas', hecha: true },
+  ];
+}
+const esPorFases = (tab) => tab.columnas.some((c) => c.fase);
+
 // Columna de una tarea en su tablero: la que tiene guardada (si existe y encaja con hecha / no hecha); si no, por
 // su estado (hecha → la de hecha; «para revisar» → esa columna si la hay; si no, la primera).
 export function columnaDeTarea(t, tab) {
+  if (esPorFases(tab)) return columnaDe(t, tab.columnas.filter((c) => !c.fase && !c.hecha), tab.columnas.filter((c) => c.fase));
   const col = tab.columnas.find((c) => c.id === t.opColumna);
   if (col && Boolean(col.hecha) === Boolean(t.hecha)) return col.id;
   if (t.hecha) return columnaHecha(tab).id;
@@ -102,8 +117,18 @@ export function columnaDeTarea(t, tab) {
 // Llevar una tarea a una columna: { opTablero, opColumna, hecha, estado } (el estado sigue valiendo para «Mi día»,
 // los avisos y los tableros de cada lanzamiento).
 export function colocar(t, tab, colId) {
+  if (esPorFases(tab)) return colocarPorFase(t, tab.id, colId);
   const col = tab.columnas.find((c) => c.id === colId) || tab.columnas[0];
   return { opTablero: tab.id, opColumna: col.id, hecha: Boolean(col.hecha), estado: col.hecha ? 'hecha' : col.id === 'revision' ? 'revision' : 'pendiente' };
+}
+
+// En el tablero de un embudo: una fase cambia la fase de la tarea (como en Plan → Tareas), una columna extra la deja
+// ahí y «Completadas» la marca como hecha. Sacarla de «Completadas» la vuelve a dejar pendiente.
+export function colocarPorFase(t, tabId, colId) {
+  if (colId === COLUMNA_HECHAS) return { opTablero: tabId, opColumna: '', hecha: true, estado: 'hecha' };
+  const estado = t.hecha || t.estado === 'hecha' ? 'pendiente' : t.estado === 'revision' ? 'revision' : 'pendiente';
+  if (TODAS_FASE_IDS.includes(colId)) return { opTablero: tabId, opColumna: '', fase: colId, columna: '', hecha: false, estado };
+  return { opTablero: tabId, opColumna: '', columna: colId, hecha: false, estado };
 }
 
 // ---------- Etiquetas (comunes a toda la agencia), prioridad, checklist y tareas que se repiten ----------

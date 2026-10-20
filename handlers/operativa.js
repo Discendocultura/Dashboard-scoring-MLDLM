@@ -30,8 +30,8 @@ import { calendarioValido } from '../public/js/mi-calendario.js';
 import { listClientes } from '../lib/clientes.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { listUsersRaw, rolEn, newId } from '../lib/users.js';
-import { todasLasTareas, visiblesOperativa, proyectosQueGestiona, proyectosSoloOperativa, puedeOperativa, clienteDeTarea, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, ordenarTareas, avisarAsignada, avisarMencionOp, esTableroEmbudo, tableroEmbudoDeCodigo, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
-import { COLUMNAS_SERIE, tablerosDe, ordenarTableros, alFinal, MAX_ORDENAR, sanitizeTablero, sanitizeColumnas, GENERAL, sanitizeChecklist, prioridadValida, MAX_ETIQUETAS_TAREA, COLORES_ETIQUETA } from '../public/js/tableros.js';
+import { todasLasTareas, visiblesOperativa, proyectosQueGestiona, proyectosSoloOperativa, puedeOperativa, clienteDeTarea, cambiarTarea, crearTareaAgencia, crearTareasAgencia, camposAgencia, ponerEstado, ponerBloqueo, ordenarTareas, avisarAsignada, avisarMencionOp, esTableroEmbudo, tableroEmbudoDeCodigo, crearTareaEmbudo, esDeAgencia, getTableros, cambiarTableros, moverATablero, repetirSiToca, resumenTarea } from '../lib/operativa.js';
+import { tablerosDe, ordenarTableros, alFinal, MAX_ORDENAR, sanitizeTablero, sanitizeColumnas, GENERAL, sanitizeChecklist, prioridadValida, MAX_ETIQUETAS_TAREA, COLORES_ETIQUETA } from '../public/js/tableros.js';
 import { sanitizeRepetir } from '../public/js/procesos.js';
 import { PROYECTO_AGENCIA, CODIGO_AGENCIA, asignadaA } from '../public/js/operativa.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
@@ -39,6 +39,8 @@ import { leerJSON, guardarJSON } from '../lib/store.js';
 import { sanitizeRich, richToText } from '../public/js/richtext.js';
 import { personasEn, comentarioPlano } from '../public/js/enlaces.js';
 import { normalizarImportacion, personaDe } from '../public/js/tableros-import.js';
+import { getColumnas } from '../lib/columnas.js';
+import { TODAS_FASE_IDS, COLUMNA_HECHAS } from '../public/js/tareas.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -100,8 +102,9 @@ export async function GET(request) {
     const tablerosEmbudo = [];
     for (const t of visibles) {
       if (!t.tableroEmbudo || tablerosEmbudo.some((b) => b.proyecto === t.cliente && b.id === t.tableroEmbudo.id)) continue;
-      tablerosEmbudo.push({ proyecto: t.cliente, id: t.tableroEmbudo.id, nombre: t.tableroEmbudo.nombre, columnas: COLUMNAS_SERIE.map((c) => ({ ...c })), virtual: true });
+      tablerosEmbudo.push({ proyecto: t.cliente, id: t.tableroEmbudo.id, nombre: t.tableroEmbudo.nombre, columnas: t.tableroEmbudo.columnas, virtual: true });
     }
+    for (const t of visibles) delete t.tableroEmbudo; // sus columnas ya van en tablerosEmbudo
     return json({
       tareas: visibles, tablerosEmbudo, equipo, yo: s.uid || '', superadmin: Boolean(s.superadmin), agencia: esDeAgencia(s),
       gestiona: proyectosQueGestiona(s), ...tablerosPara(s, tableros, proyectos), proyectos, misAnchos: sanitizeAnchos(misAnchos),
@@ -247,6 +250,12 @@ export async function POST(request) {
       const clientes = await listClientes();
       const cli = clientes.find((c) => c.id === proyecto);
       if (proyecto !== PROYECTO_AGENCIA && (!cli || (!s.superadmin && !rolEn(s.user || {}, proyecto)))) throw bad('No tienes acceso a ese proyecto', 403);
+      // Desde el tablero de un embudo: a la lista de su lanzamiento (Plan → Tareas), en la fase de la columna.
+      if (cli && esTableroEmbudo(body.tarea?.opTablero) && body.tarea?.code) {
+        if (!agencia && !proyectosQueGestiona(s).includes(proyecto)) throw bad('Solo la agencia o el admin del proyecto crea tareas del lanzamiento aquí', 403);
+        const t = await crearTareaEmbudo(cli, { code: String(body.tarea.code), tablero: body.tarea.opTablero, columna: String(body.tarea.columna || ''), titulo: body.tarea.titulo }, por);
+        return json({ ok: true, tarea: t, code: String(body.tarea.code) });
+      }
       const tabs = tablerosDe(await getTableros(), proyecto);
       const opTablero = tabs.some((b) => b.id === body.tarea?.opTablero) ? body.tarea.opTablero : GENERAL;
       const t = await crearTareaAgencia({ ...body.tarea, proyecto, opTablero }, por);
@@ -274,7 +283,11 @@ export async function POST(request) {
         if (otro && !esAdminDe(ref.cliente)) throw bad('Solo el superadmin o el admin del proyecto mueve tareas de un tablero a otro', 403);
         // Una tarea del lanzamiento, sin tablero indicado: se mueve dentro del tablero de su embudo.
         const tablero = body.tablero || (deEmbudo ? await tableroEmbudoDeCodigo(ref.code) : '');
-        moverATablero(t, cfgTableros, ref.cliente, { tablero, columna: String(body.columna || '') }, por);
+        const columna = String(body.columna || '');
+        if (esTableroEmbudo(tablero) && ref.code === CODIGO_AGENCIA) throw bad('Las tareas de la Operativa no van al tablero de un lanzamiento', 400);
+        // En el de un embudo, una columna que no es fase ni «Completadas» ha de ser una de las extra de su Plan → Tareas.
+        if (esTableroEmbudo(tablero) && columna !== COLUMNA_HECHAS && !TODAS_FASE_IDS.includes(columna) && !(await getColumnas()).some((c) => c.id === columna)) throw bad('Esa columna ya no existe');
+        moverATablero(t, cfgTableros, ref.cliente, { tablero, columna }, por);
         delete t.opOrden;
       } else if (body.op === 'etiquetas') {
         comprobar(t);

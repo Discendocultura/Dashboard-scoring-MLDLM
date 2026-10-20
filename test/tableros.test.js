@@ -246,3 +246,52 @@ test('tableros: uno por defecto por proyecto (si existe); si no, el General', ()
   assert.equal(tableroPorDefecto(cfg, 'p2'), GENERAL);
   assert.equal(tableroPorDefecto({}, 'p1'), GENERAL);
 });
+
+test('tableros: el de un embudo tiene las columnas de Plan → Tareas (fases, extra y Completadas)', async () => {
+  const { columnasEmbudo, colocarPorFase } = await import('../public/js/tableros.js');
+  const tab = { id: 'e-lanz', columnas: columnasEmbudo('lanz', [{ id: 'cabc1', label: 'Esperando', icon: '⏳' }]) };
+  assert.deepEqual(tab.columnas.map((c) => c.id), ['preparacion', 'captacion', 'clases', 'directo', 'carrito', 'cierre', 'cabc1', 'completadas']);
+  assert.deepEqual(columnasEmbudo('vsl').map((c) => c.id), ['preparacion', 'captacion', 'seguimiento', 'optimizacion', 'completadas']);
+  // La columna de cada tarea sale de su fase (como en Plan → Tareas).
+  assert.equal(columnaDeTarea({ fase: 'directo', opColumna: 'pendiente' }, tab), 'directo');
+  assert.equal(columnaDeTarea({ fase: 'directo', columna: 'cabc1' }, tab), 'cabc1');
+  assert.equal(columnaDeTarea({ fase: 'directo', hecha: true }, tab), 'completadas');
+  assert.equal(columnaDeTarea({ fase: 'rara' }, tab), 'preparacion');
+  // Moverla a otra fase cambia su fase; a «Completadas», hecha; sacarla de ahí, pendiente.
+  assert.deepEqual(colocar({ fase: 'preparacion', columna: 'cabc1' }, tab, 'carrito'), { opTablero: 'e-lanz', opColumna: '', fase: 'carrito', columna: '', hecha: false, estado: 'pendiente' });
+  assert.equal(colocar({ fase: 'carrito' }, tab, 'completadas').hecha, true);
+  assert.equal(colocarPorFase({ hecha: true, estado: 'hecha' }, 'e-lanz', 'cierre').estado, 'pendiente');
+  assert.equal(colocarPorFase({ estado: 'revision' }, 'e-lanz', 'cierre').estado, 'revision');
+  // Un tablero normal sigue igual.
+  assert.equal(colocar({}, { id: GENERAL, columnas: sanitizeColumnas([]) }, 'hecha').hecha, true);
+});
+
+test('tableros (API): el tablero del lanzamiento en la Operativa es el de Plan → Tareas (por fases)', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  await call('/api/config', { method: 'POST', cookie: admin, body: { launches: { fases1: { name: 'Fases 1', registroTag: 'registro-fases1' } } } });
+  const r0 = await call('/api/tareas', { method: 'POST', cookie: admin, body: { l: 'fases1', op: 'crear', tarea: { titulo: 'Grabar anuncios', fase: 'captacion' } } });
+  assert.equal(r0.status, 200);
+  let g = (await call('/api/operativa', { cookie: admin })).data;
+  const t = g.tareas.find((x) => x.code === 'fases1');
+  const tab = g.tablerosEmbudo.find((b) => b.id === t.opTablero);
+  assert.ok(tab && !('tableroEmbudo' in t));
+  assert.deepEqual(tab.columnas.map((c) => c.id), ['preparacion', 'captacion', 'clases', 'directo', 'carrito', 'cierre', 'completadas']);
+  assert.equal(columnaDeTarea(t, tab), 'captacion');
+  // Arrastrarla a «Webinar en directo» le cambia la fase (y en Plan → Tareas se ve ahí).
+  const post = (body) => call('/api/operativa', { method: 'POST', cookie: admin, body });
+  let r = await post({ op: 'columna', cliente: t.cliente, code: 'fases1', id: t.id, columna: 'directo' });
+  assert.equal(r.data.tarea.fase, 'directo');
+  assert.equal(r.data.tarea.hecha, false);
+  r = await post({ op: 'columna', cliente: t.cliente, code: 'fases1', id: t.id, columna: 'completadas' });
+  assert.equal(r.data.tarea.hecha, true);
+  assert.equal((await post({ op: 'columna', cliente: t.cliente, code: 'fases1', id: t.id, columna: 'inventada' })).status, 400);
+  const plan = (await call('/api/tareas?l=fases1', { cookie: admin })).data;
+  assert.ok(plan.tareas.find((x) => x.id === t.id).hecha);
+  // «＋ Añadir tarea» en una fase del tablero: va al lanzamiento, en esa fase.
+  r = await post({ op: 'crear', tarea: { titulo: 'Abrir carrito', proyecto: t.cliente, opTablero: tab.id, code: 'fases1', columna: 'carrito' } });
+  assert.equal(r.status, 200);
+  const plan2 = (await call('/api/tareas?l=fases1', { cookie: admin })).data;
+  assert.equal(plan2.tareas.find((x) => x.titulo === 'Abrir carrito').fase, 'carrito');
+  // Con un tablero que no es el de ese lanzamiento, no.
+  assert.equal((await post({ op: 'crear', tarea: { titulo: 'x', proyecto: t.cliente, opTablero: 'e-otro', code: 'fases1', columna: 'carrito' } })).status, 400);
+});

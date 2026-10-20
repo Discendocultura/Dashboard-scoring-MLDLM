@@ -541,7 +541,7 @@ function vistaTablero(lista, hoy) {
   if (editTab) return conLateral(editorTablero());
   const suyas = lista.filter((t) => tabDeT(t).id === tab.id);
   const ayuda = tab.virtual
-    ? `🚀 <strong>Tablero de «${esc(tab.nombre)}»</strong>: son las tareas de ese lanzamiento (las de Plan → Tareas), con lo que hagas aquí guardado allí. Cuando crees otro lanzamiento en este mismo embudo, este tablero pasará a ser el del nuevo, con sus tareas.`
+    ? `🚀 <strong>Tablero de «${esc(tab.nombre)}»</strong>: es el mismo tablero que Plan → Tareas de ese lanzamiento, con una columna por fase. Arrastra una tarjeta a otra fase para cambiarla, o a «Completadas» para darla por hecha; lo que hagas aquí se ve allí y al revés. Cuando crees otro lanzamiento en este mismo embudo, este tablero pasará a ser el del nuevo, con sus tareas.`
     : `Arrastra las tarjetas a otra columna, o arriba y abajo para ordenarlas. Pulsa el círculo ✓ de una tarjeta para completarla. Al llevarlas a ${tab.columnas.filter((c) => c.hecha).map((c) => `«${esc(c.nombre)}»`).join(' o ')} se marcan como hechas.${gestiona(fProy) ? ' Pulsa el título de una columna para cambiarle el nombre.' : ''}`;
   return conLateral(`${cabecera}${rangos}<p class="op-ayuda">${ayuda}</p>
   <div class="op-tablero${quieto}${tab.virtual ? ' es-embudo' : ''}" style="--op-ncol:${tab.columnas.length};${estiloAnchos(`${fProy}|${tab.id}`, tab.columnas.map((c) => c.id), true)}">${tab.columnas.map((c, i) => {
@@ -832,7 +832,7 @@ async function op(t, cuerpo) {
     recienCreada = r.nueva.id; setTimeout(() => { if (recienCreada === r.nueva.id) recienCreada = ''; }, 3000);
     aviso(`🔁 Se ha creado la siguiente «${t.titulo}» para el ${fechaCorta(r.nueva.fecha)}`);
   }
-  Object.assign(t, { etiquetas: n.etiquetas || [], prioridad: n.prioridad || '', checklist: n.checklist || [], repetir: n.repetir?.tipo ? n.repetir : null, opTablero: n.opTablero || '', opColumna: n.opColumna || '', opOrden: n.opOrden, titulo: n.titulo, notas: n.notas || '', fecha: n.fecha || '', estado: estadoOp(n), hecha: Boolean(n.hecha), hechaEn: n.hechaEn || '', bloqueo: n.bloqueo || '', asignado: n.asignado || null, comentarios: (n.comentarios || []).map((c) => ({ id: c.id, uid: c.uid || '', nombre: c.nombre, texto: c.texto, en: c.en })) });
+  Object.assign(t, { etiquetas: n.etiquetas || [], prioridad: n.prioridad || '', checklist: n.checklist || [], repetir: n.repetir?.tipo ? n.repetir : null, opTablero: n.opTablero || '', opColumna: n.opColumna || '', opOrden: n.opOrden, titulo: n.titulo, fase: n.fase ?? t.fase, columna: n.columna || '', notas: n.notas || '', fecha: n.fecha || '', estado: estadoOp(n), hecha: Boolean(n.hecha), hechaEn: n.hechaEn || '', bloqueo: n.bloqueo || '', asignado: n.asignado || null, comentarios: (n.comentarios || []).map((c) => ({ id: c.id, uid: c.uid || '', nombre: c.nombre, texto: c.texto, en: c.en })) });
 }
 
 // Aviso flotante (abajo) que se va solo.
@@ -1369,10 +1369,12 @@ async function onSubmit(e) {
       const titulo = f.titulo.value.trim();
       if (!titulo) { btn?.removeAttribute('disabled'); return; }
       const tab = tabsDe(fProy).find((x) => x.id === fTab) || tabsDe(fProy)[0];
-      const r = await ctx.api('/api/operativa', { method: 'POST', body: { op: 'crear', tarea: { titulo, proyecto: fProy, opTablero: tab.id } } });
+      // En el tablero de un embudo, la tarea va a su lanzamiento (Plan → Tareas), ya en la fase de la columna.
+      const code = tab.virtual ? d.tareas.find((x) => x.cliente === fProy && x.code !== CODIGO_AGENCIA && tabDeT(x).id === tab.id)?.code : '';
+      const r = await ctx.api('/api/operativa', { method: 'POST', body: { op: 'crear', tarea: { titulo, proyecto: fProy, opTablero: tab.id, ...(code ? { code, columna: f.dataset.col } : {}) } } });
       await cargar();
       const t = d.tareas.find((x) => x.id === r.tarea.id);
-      if (t && columnaDeTarea(t, tab) !== f.dataset.col) await op(t, { op: 'columna', columna: f.dataset.col });
+      if (t && !code && columnaDeTarea(t, tab) !== f.dataset.col) await op(t, { op: 'columna', columna: f.dataset.col });
       recienCreada = r.tarea.id;
       setTimeout(() => { if (recienCreada === r.tarea.id) recienCreada = ''; }, 3000);
       pintarVista();
