@@ -106,7 +106,7 @@ export const SECCIONES_VALIDAS = Object.entries(SECCIONES).flatMap(([v, l]) => l
 // Cómo se agrupan las pestañas en el menú del dashboard (categorías → subcategorías), por tipo de embudo.
 export const CATEGORIAS = {
   lanzamientos: [
-    { id: 'comercial', label: 'Hoy', icon: '📞', desc: 'Lo del día: a quién escribir, las llamadas y el directo', vistas: ['hoy', 'llamadas', 'endirecto'] },
+    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'Lo del día: a quién escribir, las llamadas y el directo', vistas: ['hoy', 'llamadas', 'endirecto'] },
     { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['leads'] },
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va el lanzamiento, en cifras', vistas: ['metricas'] },
     { id: 'anunciosg', label: 'Anuncios', icon: '📣', desc: 'Cómo van en Meta, los ganadores y qué tipo de lead trae cada anuncio (UTMs)', vistas: ['publicidad', 'avatar', 'utms'] },
@@ -115,7 +115,7 @@ export const CATEGORIAS = {
     { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Para decidir: avatar comprador, comparativas, rendimiento del equipo y el análisis con Claude', vistas: ['avatarc', 'comparar', 'rendimiento', 'claude'] },
   ],
   vsl: [
-    { id: 'comercial', label: 'Hoy', icon: '📞', desc: 'Las llamadas de valoración', vistas: ['llamadas'] },
+    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'Las llamadas de valoración', vistas: ['llamadas'] },
     { id: 'leads', label: 'Leads', icon: '👥', desc: 'Las personas registradas', vistas: ['vleads'] },
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Cómo va la VSL, por fechas', vistas: ['vmetricas'] },
     { id: 'anunciosg', label: 'Anuncios', icon: '📣', desc: 'Cómo van en Meta, los ganadores y qué tipo de lead trae cada anuncio (UTMs)', vistas: ['publicidad', 'vanuncios', 'utms'] },

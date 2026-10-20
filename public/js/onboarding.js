@@ -25,13 +25,13 @@ export const TOURS = {
   admin: [
     { sel: '#sb-items', titulo: 'Tus embudos', texto: 'Cada embudo (lanzamientos con webinar, VSL, venta directa…) tiene aquí sus datos. Elige uno para verlo.' },
     { sel: '#ctx-bar', titulo: 'Dónde estás', texto: 'El embudo y el lanzamiento que estás viendo. Cámbialo en el desplegable; con «Configurar» pones fechas, precios y enlaces.' },
-    { sel: 'nav.views, #nav-movil', titulo: 'Las pestañas van por momentos', texto: '«Hoy» es lo del día, «Leads» y «Métricas» cómo va, «Anuncios» y «Crear» lo que preparas con IA, y «Plan» la organización.' },
+    { sel: 'nav.views, #nav-movil', titulo: 'Las pestañas van por momentos', texto: '«Comercial» es lo del día, «Leads» y «Métricas» cómo va, «Anuncios» y «Crear» lo que preparas con IA, y «Plan» la organización.' },
     { sel: '.views [data-view-grupo="crear"]', titulo: 'Crear con IA', texto: 'Páginas, emails, imágenes y mensajes del grupo: copias un prompt que ya lleva todo y lo pegas en Claude o en ChatGPT.' },
     { sel: '#tb-menu-ajustes', titulo: 'Mi negocio', texto: 'El equipo, la marca y el avatar (la base de todo lo que escribe la IA) y las conexiones.' },
     AYUDA,
   ],
   setter: [
-    { sel: '[data-view-grupo="comercial"]', titulo: 'Empieza siempre por «Hoy»', texto: 'A quién escribir hoy, ya ordenado por prioridad y con su temperatura. Pulsa WhatsApp y el mensaje sale escrito.' },
+    { sel: '[data-view-grupo="comercial"]', titulo: 'Empieza siempre por «Comercial»', texto: 'A quién escribir hoy, ya ordenado por prioridad y con su temperatura. Pulsa WhatsApp y el mensaje sale escrito.' },
     { sel: '.view-tab[data-view="leads"]:not([hidden]), .view-tab[data-view="vleads"]:not([hidden])', titulo: 'Todos tus leads', texto: 'Cada persona registrada con su puntuación. Pulsa su nombre para ver su ficha completa.' },
     { sel: '#ctx-bar', titulo: 'Qué lanzamiento ves', texto: 'Si hay varios, cámbialo en este desplegable.' },
     { sel: '#tb-menu-ajustes', titulo: 'Tus mensajes', texto: 'En «Mensajes de WhatsApp» están los textos de cada botón. Puedes ajustarlos a tu manera de escribir.' },
@@ -189,6 +189,7 @@ export async function recorridoPrincipal() {
   await ctx?.acciones?.antesDelTour?.(); // p. ej. dejar a la vista el embudo (si estaba en el Inicio)
   return tour(TOURS[ctx?.rol] || TOURS.setter, { id: 'principal' }).then(() => {
     if (onbActivo()) { guardar({ tour: 'principal', paso: 'recorrido' }); if (!ctx.estado.cerrado) abrirPastilla(); }
+    ctx?.acciones?.despuesDelTour?.(); // p. ej. el pop-up con la acción recomendada
   });
 }
 

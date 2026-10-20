@@ -1,6 +1,6 @@
 // Que AlquimIA no abrume a quien empieza con acceso completo (admin nuevo). Aquí va la lógica (sin pantalla), para
 // el navegador (public/js/app.js) y las pruebas:
-//   · Mostrar poco a poco: el primer día, su embudo con Hoy · Leads · Métricas y, en «Mi negocio», Equipo y Marca.
+//   · Mostrar poco a poco: el primer día, su embudo con Comercial · Leads · Métricas y, en «Mi negocio», Equipo y Marca.
 //     El resto aparece cuando tiene sentido (DESBLOQUEOS), con «Nuevo ✨» y una burbuja. «Ver todo» lo enseña ya.
 //   · «Tu siguiente paso»: una sola tarjeta en el Inicio con lo siguiente que le toca hacer.
 //   · Nuevo embudo con 2 preguntas: ¿tiene fecha? ¿por llamada o directa? → el tipo que le encaja.

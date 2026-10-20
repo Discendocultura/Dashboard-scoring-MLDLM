@@ -7397,3 +7397,9 @@ body.en-ejemplo .config-only, body.en-ejemplo #sb-add, body.en-ejemplo .sb-edit,
 .utm-espera { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; border: 1px dashed color-mix(in srgb, var(--dato) 40%, var(--border)); background: color-mix(in srgb, var(--dato) 5%, var(--surface)); }
 .utm-espera > span { font-size: 24px; }
 .utm-espera p { margin: 4px 0 0; }
+.utm-hist { font-weight: 600; color: var(--dato); }
+
+/* Pop-up «Acción recomendada» al terminar el recorrido de burbujas. */
+.accion-rec { padding: 0; overflow: hidden; width: min(520px, calc(100vw - 32px)); }
+.accion-rec .ar-card { grid-template-columns: auto 1fr; border-radius: 0; border: 0; box-shadow: none; padding: 24px 22px; animation: bvEntra .35s ease both; }
+.accion-rec .dialog-foot { padding: 12px 16px; }

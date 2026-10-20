@@ -757,6 +757,7 @@ async function arrancarOnboarding() {
     superadmin: state.superadmin,
     acciones: {
       // Si está en el Inicio (o en el de la agencia), abre su embudo para que se vea de qué habla cada burbuja.
+      despuesDelTour: () => setTimeout(() => popupAccionRecomendada(rol), 500),
       antesDelTour: async () => {
         if (rol === 'cliente' || rol === 'operativa' || !state.enInicio || !state.embudo) return;
         salirInicio();
@@ -861,10 +862,8 @@ function avisarNuevo(id) {
 }
 
 // «Tu siguiente paso»: una sola tarjeta grande en el Inicio (sustituye a la lista de «Primeros pasos»).
-function pintarSiguientePaso() {
-  const box = $('#ini-siguiente');
-  if (!box) return;
-  if (!ppActivo() || !state.enInicio || modoInicio() === 'agencia') { box.hidden = true; return; }
+// Lo siguiente que le toca (admin): CRM → embudo → configurarlo → marca → leads → crear con IA.
+function pasoRecomendado() {
   const est = onbEstado();
   const c = condicionesPp();
   const sinConfigurar = embudos().find((e) => !embudoConfigurado(e)) || embudos()[0];
@@ -872,6 +871,46 @@ function pintarSiguientePaso() {
     crm: state.crm, implementa: state.implementa, embudos: embudos().length, configurado: c.configurado, nombreEmbudo: sinConfigurar?.nombre || '',
     marca: Boolean(est.pasos?.marca), leads: Boolean(est.pasos?.leads), crear: Boolean(est.pasos?.crear),
   });
+  return { paso, emb: sinConfigurar?.id || '' };
+}
+// Hace la acción recomendada (la tarjeta del Inicio y el pop-up de después del recorrido).
+function hacerAccionSig(a, emb = '') {
+  if (a === 'todo') return verTodas();
+  if (a === 'ejemplo') return irEjemplo();
+  if (a === 'crear') return abrirNuevoEmbudo();
+  if (a === 'configurar') return abrirConfigDe(emb);
+  if (a === 'marca') return clicVisible('#btn-marca');
+  if (a === 'leads') return irALeads();
+  if (a === 'comercial') { if (state.enInicio) salirInicio(); return clicVisible('[data-view-grupo="comercial"]'); }
+  if (a === 'crear-ia') { if (state.enInicio) salirInicio(); clicVisible('[data-view-grupo="crear"]'); }
+}
+// Al terminar el recorrido de burbujas: un pop-up con la acción recomendada (una sola, la que más le acerca a vender).
+function popupAccionRecomendada(rol) {
+  let paso = null;
+  let emb = '';
+  if (rol === 'admin') ({ paso, emb } = pasoRecomendado());
+  else if (rol === 'setter') paso = { ico: '📞', titulo: 'Empieza por «Comercial»', texto: 'A quién escribir hoy, ya ordenado por prioridad y con su temperatura. Pulsa WhatsApp y el mensaje sale escrito.', boton: 'Ir a Comercial', accion: 'comercial' };
+  if (!paso || document.querySelector('dialog[open], .onb')) return;
+  const d = document.createElement('dialog');
+  d.className = 'dialog dialog-sm accion-rec';
+  d.innerHTML = `<div class="sig-card ar-card"><span class="sig-ico" aria-hidden="true">${paso.ico}</span><div class="sig-txt"><small>Acción recomendada</small><h3>${esc(paso.titulo)}</h3><p>${esc(paso.texto)}</p></div></div>
+    <footer class="dialog-foot"><button type="button" class="btn ghost" data-ar="luego">Ahora no</button><span class="spacer"></span><button type="button" class="btn primary" data-ar="ir">${esc(paso.boton)} →</button></footer>`;
+  document.body.append(d);
+  d.addEventListener('close', () => d.remove());
+  d.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ar]');
+    if (!b && e.target !== d) return;
+    d.close();
+    if (b?.dataset.ar === 'ir') hacerAccionSig(paso.accion, emb);
+  });
+  d.showModal();
+}
+function pintarSiguientePaso() {
+  const box = $('#ini-siguiente');
+  if (!box) return;
+  if (!ppActivo() || !state.enInicio || modoInicio() === 'agencia') { box.hidden = true; return; }
+  const { paso, emb } = pasoRecomendado();
+  const sinConfigurar = { id: emb };
   box.hidden = false;
   box.innerHTML = paso
     ? `<div class="sig-card"><span class="sig-ico" aria-hidden="true">${paso.ico}</span><div class="sig-txt"><small>Tu siguiente paso</small><h3>${esc(paso.titulo)}</h3><p>${esc(paso.texto)}</p></div>
@@ -903,13 +942,7 @@ $('#ini-siguiente').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-sig]');
   if (!b) return;
   const a = b.dataset.sig;
-  if (a === 'todo') return verTodas();
-  if (a === 'ejemplo') return irEjemplo();
-  if (a === 'crear') return abrirNuevoEmbudo();
-  if (a === 'configurar') return abrirConfigDe(b.dataset.sigEmb);
-  if (a === 'marca') return clicVisible('#btn-marca');
-  if (a === 'leads') return irALeads();
-  if (a === 'crear-ia') { if (state.enInicio) salirInicio(); clicVisible('[data-view-grupo="crear"]'); }
+  hacerAccionSig(a, b.dataset.sigEmb);
 });
 
 // ---------- El ejemplo (datos inventados) ----------
@@ -3715,7 +3748,23 @@ function pintarGanadores(box, leads, launch, level, meta, { vip = true, donde = 
     <p class="muted gan-note">${all.length - conVentas.length ? `${all.length - conVentas.length} ${que}${all.length - conVentas.length === 1 ? '' : 's'} más con registros pero sin ventas todavía. ` : ''}Ventas = compras de Raíces de las personas que se registraron desde ese ${que} (UTM).${vip ? ' Facturado incluye la entrada VIP.' : ''}</p>`;
 }
 // ---------- Anuncios → UTMs: qué tipo de lead trae cada campaña, conjunto y anuncio (public/js/utms.js) ----------
-state.utm = { nivel: 'arbol', orden: 'leads', abiertos: new Set() };
+state.utm = { nivel: 'arbol', orden: 'cpl', abiertos: new Set() };
+// El semáforo de la encuesta aprende mejor del histórico (todos los lanzamientos del embudo): se carga una vez.
+async function cargarHistoricoAvatar() {
+  if (state.allAvatarLeads || state.utm.cargandoHist) return;
+  state.utm.cargandoHist = true;
+  renderUtms();
+  try {
+    const all = [];
+    for (const [code] of launchesSorted()) all.push(...await loadLaunchLeads(code, 'Avatares'));
+    state.allAvatarLeads = all;
+  } catch (err) {
+    notice(`No se pudieron cargar los lanzamientos anteriores: ${err.message}`, true);
+  } finally {
+    state.utm.cargandoHist = false;
+    renderUtms();
+  }
+}
 function datosUtms() {
   if (enVsl()) {
     if (!state.vsl.leads) return null;
@@ -3742,7 +3791,13 @@ function renderUtms() {
   const pasos = pasosUtms(d.tipo, d.cfg, { producto, preguntas: preguntasEncuesta() });
   // Semáforo de la encuesta: aprende de quién compra (las mismas cifras que «Avatar comprador»; con pocas compras, de la VIP).
   let perfiles = null;
-  if (d.tipo === 'lanz' && preguntasEncuesta().length) { if (!state.avatar) computeAvatares(); perfiles = state.avatar; }
+  if (d.tipo === 'lanz' && preguntasEncuesta().length) {
+    if (state.allAvatarLeads) {
+      // Con el histórico: quién compra de verdad en todos los lanzamientos (con pocas ventas, la VIP).
+      const H = state.allAvatarLeads;
+      perfiles = perfilesCompradoras(H, preguntasEncuesta(), H.filter((l) => l.s.compra).length >= 10 ? 'compra' : 'vip');
+    } else { if (!state.avatar) computeAvatares(); perfiles = state.avatar; }
+  }
   if (d.tipo === 'vsl' && preguntasEncuesta().length) perfiles = perfilesCompradoras(state.vsl.leads || [], preguntasEncuesta(), 'compra');
   const encuesta = puntuadorEncuesta(perfiles);
   const conSem = d.tipo !== 'directa' && preguntasEncuesta().length > 0;
@@ -3754,7 +3809,7 @@ function renderUtms() {
   const top = ordenarUtms(ads, 'calidad', pasos).slice(0, 3).filter((x) => x.calidad > 0);
   $('#utm-resumen').innerHTML = T.leads ? `<div class="utm-embudo">${pasos.map((p, i) => `<div class="utm-paso${i === pasos.length - 1 ? ' fin' : ''}" style="--p:${i ? pct(T.n[p.id], T.leads) : 100}%">
       <span class="utm-paso-ico" aria-hidden="true">${p.ico}</span><b>${T.n[p.id].toLocaleString('es-ES')}</b><small>${esc(p.label)}</small>${i ? `<em>${pct(T.n[p.id], T.leads)} %</em>` : ''}</div>`).join('<span class="utm-flecha" aria-hidden="true">›</span>')}</div>
-    ${conSem ? `<p class="utm-sem-ley">🚦 <strong>Calidad del lead (encuesta)</strong>: ${encuesta ? `cada lead se compara con quien ${perfiles.objetivo === 'vip' ? 'compra la entrada VIP (aún hay pocas ventas del producto)' : 'compra'}: 🟢 sus respuestas se parecen a las de quien compra · 🟡 en la media · 🔴 se parecen a las de quien no compra. El % es el de leads en verde.` : 'aparecerá en cuanto haya compras (o entradas VIP) de las que aprender qué respuestas tiene quien compra.'}</p>` : ''}
+    ${conSem ? `<p class="utm-sem-ley">🚦 <strong>Calidad del lead (encuesta)</strong>${d.tipo === 'lanz' ? (state.allAvatarLeads ? ' <span class="utm-hist">📚 aprendiendo de todos los lanzamientos</span>' : state.utm.cargandoHist ? ' <span class="utm-hist">📚 cargando los lanzamientos anteriores…</span>' : ' <button type="button" class="link" data-utm-hist>📚 Aprender de todos los lanzamientos</button>') : ''}: ${encuesta ? `cada lead se compara con quien ${perfiles.objetivo === 'vip' ? 'compra la entrada VIP (aún hay pocas ventas del producto)' : 'compra'}: 🟢 sus respuestas se parecen a las de quien compra · 🟡 en la media · 🔴 se parecen a las de quien no compra. El % es el de leads en verde.` : 'aparecerá en cuanto haya compras (o entradas VIP) de las que aprender qué respuestas tiene quien compra.'}</p>` : ''}
     ${top.length ? `<div class="utm-top"><strong>🏆 Traen el lead más cerca de la compra</strong>${top.map((x, i) => `<span class="utm-top-i"><b>${['🥇', '🥈', '🥉'][i]} ${esc(x.label)}</b><small>${esc(x.ruta)} · ${x.leads} leads · ${x.calidad}/100</small></span>`).join('')}</div>` : ''}` : '';
   if (!T.leads) {
     // Lanzamiento que aún no ha empezado a captar: no es un fallo, es que todavía no hay leads ni gasto.
@@ -3814,7 +3869,14 @@ $('#view-utms').addEventListener('click', (e) => {
   const n = e.target.closest('[data-un]');
   if (n) { state.utm.nivel = n.dataset.un; renderUtms(); return; }
   const o = e.target.closest('[data-uo]');
-  if (o) { state.utm.orden = o.dataset.uo; renderUtms(); return; }
+  if (o) {
+    state.utm.orden = o.dataset.uo;
+    // «Avatar comprador» compara con quien ha comprado en los lanzamientos anteriores.
+    if (o.dataset.uo === 'avatar' && !enVsl() && !enDirecta()) cargarHistoricoAvatar();
+    renderUtms();
+    return;
+  }
+  if (e.target.closest('[data-utm-hist]')) { cargarHistoricoAvatar(); return; }
   const ab = e.target.closest('[data-utm-abrir]');
   if (ab) { const k = ab.dataset.utmAbrir; state.utm.abiertos.has(k) ? state.utm.abiertos.delete(k) : state.utm.abiertos.add(k); renderUtms(); return; }
   if (e.target.closest('#utm-recargar')) {
@@ -15437,7 +15499,7 @@ async function cargarGrupos(code, box, { forzar = false } = {}) {
     ${esLanz && state.grupoWa?.code === code && state.grupoWa.claves && state.leadsDe === code ? (() => {
       const en = state.leads.filter((l) => l.s.enGrupo);
       const sin = en.filter((l) => !l.s.compra).length;
-      return `<div class="notice">🔗 <strong>Cruce exacto con GHL (por teléfono):</strong> ${en.length.toLocaleString('es-ES')} de ${state.leads.length.toLocaleString('es-ES')} leads están en los grupos (${pctOf(en.length, state.leads.length).replace('.', ',')}); ${(en.length - sin).toLocaleString('es-ES')} ya han comprado y <strong>${sin.toLocaleString('es-ES')} siguen sin comprar</strong> (lista en <em>Hoy → Setting hoy</em>). ${state.grupoWa.personas.toLocaleString('es-ES')} personas en los grupos${state.grupoWa.admins ? `, sin contar ${state.grupoWa.admins} administradora${state.grupoWa.admins === 1 ? '' : 's'}` : ''}.</div>`;
+      return `<div class="notice">🔗 <strong>Cruce exacto con GHL (por teléfono):</strong> ${en.length.toLocaleString('es-ES')} de ${state.leads.length.toLocaleString('es-ES')} leads están en los grupos (${pctOf(en.length, state.leads.length).replace('.', ',')}); ${(en.length - sin).toLocaleString('es-ES')} ya han comprado y <strong>${sin.toLocaleString('es-ES')} siguen sin comprar</strong> (lista en <em>Comercial → Setting hoy</em>). ${state.grupoWa.personas.toLocaleString('es-ES')} personas en los grupos${state.grupoWa.admins ? `, sin contar ${state.grupoWa.admins} administradora${state.grupoWa.admins === 1 ? '' : 's'}` : ''}.</div>`;
     })() : ''}
     ${vigilanciaHtml(d.vigilancia, code)}
     ${esLanz ? `<div class="card wa-impacto" data-impacto="${esc(code)}">

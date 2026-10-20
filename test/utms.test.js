@@ -71,3 +71,25 @@ test('UTMs: semáforo de calidad del lead por su encuesta', async () => {
   // Sin compras de las que aprender, no hay semáforo
   assert.equal(puntuadorEncuesta(perfilesCompradoras(leads.map((l) => ({ ...l, s: { compra: false } })), preguntas)), null);
 });
+
+test('UTMs: ordenar por leads más baratos (CPL) y por avatar comprador', () => {
+  const pasos = pasosUtms('lanz', { preclase: false, vip: false });
+  const f = [
+    { key: 'caro', leads: 10, n: { compra: 0 }, coste: { leads: 5 }, semaforo: { media: 0.7, pocos: false } },
+    { key: 'barato', leads: 10, n: { compra: 0 }, coste: { leads: 2 }, semaforo: { media: 1.4, pocos: false } },
+    { key: 'sinGasto', leads: 50, n: { compra: 0 }, coste: {}, semaforo: { media: 2, pocos: true } },
+  ];
+  assert.deepEqual(ordenarUtms(f, 'cpl', pasos).map((x) => x.key), ['barato', 'caro', 'sinGasto']);
+  // Avatar: el que más se parece a quien compra, y los de pocas respuestas al final
+  assert.deepEqual(ordenarUtms(f, 'avatar', pasos).map((x) => x.key), ['barato', 'caro', 'sinGasto']);
+});
+
+test('UTMs: el gasto de Meta se encuentra aunque las UTM lleven el nombre en vez del id', () => {
+  const pasos = pasosUtms('lanz', { preclase: false, vip: false });
+  const a = arbolUtms([lead({ campaign: 'Captación Octubre', term: 'Mujeres 30-40', content: 'Vídeo testimonio' }, {})], pasos,
+    { names: { 111: 'Captación octubre', 222: 'Mujeres 30-40', 333: 'Vídeo testimonio' }, spendBy: { 111: 50, 222: 30, 333: 10 } });
+  const c = a.campanas[0];
+  assert.equal(c.spend, 50);
+  assert.equal(c.hijos[0].spend, 30);
+  assert.equal(c.hijos[0].hijos[0].coste.leads, 10);
+});

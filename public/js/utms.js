@@ -87,6 +87,11 @@ const sumar = (g, x, pasos) => {
 // encuesta: puntuadorEncuesta(...) para el semáforo de calidad por la encuesta (o null).
 export function arbolUtms(leads, pasos, { names = {}, spendBy = {}, minimo = 10, encuesta = null } = {}) {
   puntuar = encuesta;
+  // Las UTM pueden llevar el id ({{ad.id}}) o el nombre ({{ad.name}}): el gasto de Meta va por id, así que también se
+  // busca por nombre (sin mayúsculas ni espacios de más).
+  const clave = (t) => String(t || '').trim().toLowerCase();
+  const idDeNombre = new Map(Object.entries(names).map(([id, n]) => [clave(n), id]));
+  const gastoDe = (k) => Number(spendBy[k]) || Number(spendBy[idDeNombre.get(clave(k))]) || null;
   const total = nueva('total', 'Total', pasos);
   const sinUtm = nueva('__sin', 'Sin UTM (orgánico, directo o enlace sin parámetros)', pasos);
   const campanas = new Map();
@@ -108,7 +113,7 @@ export function arbolUtms(leads, pasos, { names = {}, spendBy = {}, minimo = 10,
     campanas.set(kc, c);
   }
   const cerrar = (g) => {
-    const spend = g.key.startsWith('__') ? null : Number(spendBy[g.key]) || null;
+    const spend = g.key.startsWith('__') ? null : gastoDe(g.key);
     const coste = spend ? Object.fromEntries(pasos.map((p) => [p.id, g.n[p.id] ? spend / g.n[p.id] : null])) : {};
     // Semáforo de la fila: la media de sus leads con encuesta (con menos de 5 respuestas, orientativo).
     const media = g.sem.n ? g.sem.suma / g.sem.n : null;
@@ -134,11 +139,20 @@ export function nivelUtms(arbol, nivel = 'ad') {
   return out;
 }
 
-// Orden: por leads, por compras (el último paso) o por calidad (con los de pocos datos al final).
+// Orden: menor CPL (sin inversión, al final), más cerca de la compra, más compras o avatar comprador (el semáforo de la
+// encuesta: los que traen leads que más se parecen a quien compra). Lo de pocos datos, al final.
 export function ordenarUtms(filas, orden, pasos) {
   const ultimo = pasos.at(-1)?.id;
   const f = [...filas];
   if (orden === 'compras') return f.sort((a, b) => b.n[ultimo] - a.n[ultimo] || b.calidad - a.calidad || b.leads - a.leads);
   if (orden === 'calidad') return f.sort((a, b) => Number(a.pocos) - Number(b.pocos) || b.calidad - a.calidad || b.leads - a.leads);
+  if (orden === 'cpl') {
+    const cpl = (x) => x.coste?.leads ?? Infinity;
+    return f.sort((a, b) => cpl(a) - cpl(b) || b.leads - a.leads);
+  }
+  if (orden === 'avatar') {
+    const m = (x) => (x.semaforo?.media == null ? -1 : x.semaforo.media);
+    return f.sort((a, b) => Number(Boolean(a.semaforo?.pocos)) - Number(Boolean(b.semaforo?.pocos)) || m(b) - m(a) || b.leads - a.leads);
+  }
   return f.sort((a, b) => b.leads - a.leads);
 }

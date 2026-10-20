@@ -346,7 +346,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
 
   const etapasRecomendadas = (animadas = true) => `<div class="xp-flujo ${animadas ? 'anim' : ''}">${ETAPAS_CRUZADAS.map((e, i) => `<span class="xp-etapa" style="--i:${i}" title="${esc(e.desc)}"><span class="xp-etapa-ico" aria-hidden="true">${e.ico}</span>${esc(e.nombre)}</span>`).join('<span class="xp-flujo-f" aria-hidden="true">›</span>')}</div>`;
   const guiaPipeline = () => `<div class="xp-guia">
-    <div class="xp-guia-cab"><span class="xp-guia-ico" aria-hidden="true">🧭</span><div><strong>Te recomiendo crear en GHL un pipeline nuevo: «${esc(PIPELINE_CRUZADAS)}»</strong><small>Así cada alumno al que llamas está en su fase y lo ves aquí, en «Hoy», sin mezclarlo con los lanzamientos.</small></div></div>
+    <div class="xp-guia-cab"><span class="xp-guia-ico" aria-hidden="true">🧭</span><div><strong>Te recomiendo crear en GHL un pipeline nuevo: «${esc(PIPELINE_CRUZADAS)}»</strong><small>Así cada alumno al que llamas está en su fase y lo ves aquí, en «Comercial», sin mezclarlo con los lanzamientos.</small></div></div>
     ${etapasRecomendadas()}
     <ol class="xp-pasos">
       <li>En GHL: <b>Oportunidades → Pipelines → «＋ Crear pipeline»</b>.</li>
