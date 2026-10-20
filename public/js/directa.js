@@ -85,6 +85,8 @@ export function sanitizeDirecta(d = {}) {
     // Oportunidad que crea el workflow de compra (vacío: se detecta sola entre las compradoras).
     compraPipeline: str(d?.compraPipeline, 40).replace(/[^A-Za-z0-9_-]/g, ''),
     compraEtapa: str(d?.compraEtapa, 60).replace(/[^A-Za-z0-9_-]/g, ''),
+    // ¿Ligado a un pipeline de GHL? ('si' | 'no' | '' sin responder): con «sí», Comercial → Pipeline enseña su tablero.
+    pipelineLigado: ['si', 'no'].includes(d?.pipelineLigado) ? d.pipelineLigado : '',
     // Producto principal al que se quiere llevar a las compradoras más tarde (upsell posterior): sus etiquetas de compra.
     upsellPrincipal: sanitizeUpsellPrincipal(d?.upsellPrincipal, d?.compraTag),
     // Mensaje de WhatsApp del seguimiento a las que no tienen el producto principal ({nombre}, {producto}, {principal}, {setter}).
@@ -396,3 +398,6 @@ export function ganadoresDirecta(compradores = [], meta = {}, level = 'ad', { or
   for (const f of filas) f.ganador = top.indexOf(f.id) + 1 || 0;
   return { filas, sinAnuncio, conGasto: Object.keys(spendBy).length > 0 };
 }
+
+// Tablero del pipeline en Comercial: si se dijo que sí (o, en los de antes, si se eligió un pipeline a mano).
+export const pipelineLigadoDe = (d) => Boolean(d?.compraPipeline && d.compraPipeline !== 'no' && (d.pipelineLigado === 'si' || (!d.pipelineLigado)));

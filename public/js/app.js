@@ -38,7 +38,7 @@ import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, su
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { claveTelefono, leerMiembros } from './grupos-wa.js';
 import { TIPOS_MSG, ESTADOS_MSG, GUIA_ARCHIVOS, parsearSecuencia, promptCalentamiento, datosEmbudo, faltaMensaje, faltaEnlaceDirecto, sanitizeMensaje, nuevoIdMsg } from './calentamiento.js';
-import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientesDirecta, ganadoresDirecta } from './directa.js';
+import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientesDirecta, ganadoresDirecta, pipelineLigadoDe } from './directa.js';
 import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
 import { abrirProcesos } from './procesos-panel.js';
 import { abrirAtajos } from './atajos-panel.js';
@@ -536,8 +536,8 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Pestañas: Tareas y Calendario para todos; el resto según los permisos del rol.
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
-const VIEW_EMBUDO = { mensajes: 'ambos', vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'llam', xofertas: 'cruzadas', xhoy: 'cruzadas', tareas: 'siempre', calendario: 'siempre', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', dhoy: 'directa', utms: 'anunciosu', xalumnos: 'cruzadas', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
-const VIEW_PERMISO = { avatarc: 'avatar', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', dhoy: 'hoy', utms: 'avatar', xalumnos: 'leads', xofertas: 'leads', xhoy: 'hoy', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', claude: 'metricas' };
+const VIEW_EMBUDO = { mensajes: 'ambos', vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'llam', xofertas: 'cruzadas', xhoy: 'cruzadas', tareas: 'siempre', calendario: 'siempre', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', dhoy: 'directa', dpipeline: 'directa', utms: 'anunciosu', xalumnos: 'cruzadas', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
+const VIEW_PERMISO = { avatarc: 'avatar', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', dhoy: 'hoy', dpipeline: ['llamadas', 'leads'], utms: 'avatar', xalumnos: 'leads', xofertas: 'leads', xhoy: 'hoy', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', claude: 'metricas' };
 // 'siempre': también en ventas cruzadas (Tareas y Calendario).
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], siempre: ['lanz', 'vsl', 'meteorico', 'directa', 'cruzadas'], llam: ['lanz', 'vsl', 'cruzadas', 'directa'], lanzmeteo: ['lanz', 'meteorico'], anunciosu: ['lanz', 'vsl', 'directa'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
@@ -566,6 +566,8 @@ const vistasPermitidas = () => VIEWS.filter((v) => (v === 'labia' ? tipoActual()
   && (!pestanasEmbudo() || pestanasEmbudo().includes(v) || v === 'calendario' || v === 'publicidad'
     // Venta directa → Comercial (Setting hoy y Llamadas) es nuevo: lo ven los que tenían Compradoras.
     || ((v === 'dhoy' || v === 'llamadas') && tipoActual() === 'directa' && pestanasEmbudo().includes('dclientes'))
+    // «Pipeline» sale solo si el embudo está ligado a un pipeline de GHL (abajo), también con pestañas elegidas antes.
+    || v === 'dpipeline'
     // «UTMs» es nueva: la ven los embudos con pestañas elegidas antes que tengan los ganadores o la publicidad.
     || (v === 'utms' && (['avatar', 'vanuncios', 'danuncios'].some((x) => pestanasEmbudo().includes(x)) || embudoInfo()?.publicidad !== false))
     // «Oferta» es nueva: los embudos de meteóricos con pestañas elegidas antes la ven junto a «Meteóricos».
@@ -590,6 +592,7 @@ const vistasPermitidas = () => VIEWS.filter((v) => (v === 'labia' ? tipoActual()
     || ((v === 'claude' || v === 'automatizaciones') && pestanasEmbudo().includes('tareas'))
     // «Anuncios ganadores» de la venta directa es nueva: la ven los que tienen Métricas.
     || (v === 'danuncios' && pestanasEmbudo().includes('dmetricas')))
+  && (v !== 'dpipeline' || pipelineLigadoDe(state.config?.directas?.[state.embudo]))
   // Mensajes de WhatsApp: los ve quien escribe o llama a los leads; los cambia quien tiene «mensajes».
   && (v === 'tareas' || v === 'calendario' || (v === 'mensajes' ? tiene(['hoy', 'llamadas', 'leads', 'config', 'mensajes']) : tiene(VIEW_PERMISO[v] || v)))));
 const allowedViews = () => (document.body.classList.contains('pp-activo') ? filtrarVistas(vistasPermitidas(), ppAbiertos) : vistasPermitidas());
@@ -1087,6 +1090,7 @@ async function seguirEleccion(eleccion) {
 
 // ---------- Buscador «¿Qué quieres hacer?» ----------
 const CLAVES_VISTA = {
+  dpipeline: 'pipeline fases oportunidades tablero ghl compradoras',
   dhoy: 'setting hoy escribir whatsapp compradoras sin producto principal seguimiento upsell',
   utms: 'utm utms campañas conjuntos anuncios que lead trae calidad semaforo encuesta embudo por anuncio',
   hoy: 'a quien llamar escribir whatsapp contactar setting hoy', llamadas: 'llamar llamada llamadas calendario cita citas agenda reservas', endirecto: 'directo en vivo webinar zoom',
@@ -4314,7 +4318,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'mensajes', 'labia', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones', 'xalumnos', 'xofertas', 'xhoy', 'utms', 'dhoy'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'mensajes', 'labia', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones', 'xalumnos', 'xofertas', 'xhoy', 'utms', 'dhoy', 'dpipeline'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -4353,6 +4357,7 @@ const AYUDA_VISTA = {
   vmetricas: ['📊 Métricas', 'Cómo va el embudo por fechas: registros, consumo, llamadas, ventas y ROAS. Elige el periodo arriba.'],
   vleads: ['👥 Leads', 'Cada persona con lo que ha visto y su WhatsApp según su estado.'],
   vanuncios: ['👑 Anuncios ganadores', 'Qué campañas, conjuntos y anuncios traen ventas en el periodo elegido.'],
+  dpipeline: ['🧭 Pipeline', 'El pipeline de GHL ligado a este embudo: cada contacto en su fase (la que pone el workflow de compra). Muévelo de fase desde su tarjeta.'],
   dhoy: ['📞 Setting hoy', 'Las compradoras que aún no tienen el producto principal: escríbeles por WhatsApp con el mensaje ya escrito y mueve su etapa en el pipeline del embudo.'],
   utms: ['🎯 UTMs', 'Qué tipo de lead trae cada campaña, conjunto y anuncio: cuántos rellenan la encuesta, ven las clases, compran la VIP, van al directo y compran, en orden como un embudo. Ordena por «Más cerca de la compra» para ver qué anuncios traen a tu avatar comprador.'],
   meteoricos: ['⚡ Meteóricos', 'Cada oferta flash: cuenta atrás, ventas, facturación, visitas a la oferta y quién compra.'],
@@ -4388,7 +4393,7 @@ document.addEventListener('click', (e) => {
 // Pestañas de arriba que agrupan varias vistas (subpestañas): Hoy, Anuncios (cómo van, ganadores y crear con IA), Crear (con IA),
 // Plan (organizar el lanzamiento) y Análisis (para decidir). El orden de cada lista es el de sus subpestañas.
 const GRUPOS = {
-  comercial: ['hoy', 'dhoy', 'xhoy', 'llamadas', 'mensajes', 'labia'],
+  comercial: ['hoy', 'dhoy', 'xhoy', 'llamadas', 'dpipeline', 'mensajes', 'labia'],
   metricasg: ['metricas', 'endirecto'],
   anunciosg: ['publicidad', 'avatar', 'vanuncios', 'danuncios', 'utms'],
   crear: ['paginas', 'emailsia', 'imagenes', 'anuncios', 'grupowa', 'automatizaciones'],
@@ -4396,7 +4401,7 @@ const GRUPOS = {
   analisis: ['avatarc', 'comparar', 'rendimiento', 'claude'],
 };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { mensajes: 'whatsapp', metricasg: 'trend', labia: 'whatsapp', anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', dhoy: 'sun2', utms: 'target', publicidad: 'megaphone', xalumnos: 'users', xofertas: 'gift', xhoy: 'target' };
+const VIEW_ICONS = { dpipeline: 'layout', mensajes: 'whatsapp', metricasg: 'trend', labia: 'whatsapp', anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', dhoy: 'sun2', utms: 'target', publicidad: 'megaphone', xalumnos: 'users', xofertas: 'gift', xhoy: 'target' };
 $$('.view-tab, .subview-tab[data-view]:not(.subview-labia)').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
@@ -4575,6 +4580,7 @@ function showView(view) {
   if (!enVsl()) ls.set('lsd_view', view);
   $('#vsl-rango').hidden = !['vmetricas', 'vleads', 'vanuncios'].includes(view) && !(view === 'utms' && enVsl());
   $('#dir-rango').hidden = !['dmetricas', 'dclientes', 'danuncios', 'dhoy'].includes(view) && !(view === 'utms' && enDirecta());
+  if (view === 'dpipeline' && state.config && enDirecta()) cargarPipelineDir();
   if (view === 'dhoy' && state.config && enDirecta()) {
     if (!state.directa.datos && !state.directa.cargando) cargarDirecta();
     pintarHeroPrincipal('#dhoy-hero', state.directa.datos, 'dhoy');
@@ -14788,6 +14794,11 @@ function pintarDirectaPartes() {
   for (const [parte, lista] of [['bumps', 'bumps'], ['upsell', 'upsells'], ['downsell', 'downsells']]) {
     if (p[parte] && !$('.bump-fila', cajaDir(lista))) { cajaDir(lista).innerHTML = ''; cajaDir(lista).insertAdjacentHTML('beforeend', ofertaFila(lista)); }
   }
+  // Sin bumps, upsell ni downsell, el paso «Extras» no sale.
+  const dot = $('#dc-pasos [data-dc-extras]');
+  dot.hidden = !(p.bumps || p.upsell || p.downsell);
+  dot.previousElementSibling.hidden = dot.hidden;
+  pintarPasosDc();
   pintarCodigosDirecta();
 }
 function pintarCodigosDirecta() {
@@ -14818,15 +14829,17 @@ function pendientesDirectaForm() {
       else if (!$('.bump-iva', f).value) out.push({ el: $('.bump-iva', f), label: `${nombre} «${n}»`, txt: 'di si el precio lleva IVA', st: 'falta' });
     }
   }
+  if (!dcPl.ligado) out.push({ el: $('#directa-dialog .dc-pl-opts'), label: 'Pipeline de GHL', txt: 'di si lo ligas a un pipeline (así lo ves en Comercial)', st: 'warn' });
+  else if (dcPl.ligado === 'si' && !dcPl.pipeline) out.push({ el: $('#dc-pl-lista'), label: 'Pipeline de GHL', txt: 'elige el pipeline', st: 'falta' });
   out.push(...reglaCampo('#dc-metaFiltro', 'Campañas de Meta', 'si no, se sumarían todas las campañas de la cuenta'));
   out.push(...reglaCampo('#dc-ventaUrl', 'URL de la página de venta'));
   return out;
 }
-function abrirDirectaConfig(id = state.embudo) {
+function abrirDirectaConfig(id = state.embudo, paso = '') {
   const d = state.config.directas?.[id];
   if (!d) return;
   dcDlg.dataset.id = id;
-  edReabrir.set('directa-dialog', () => abrirDirectaConfig(id));
+  edReabrir.set('directa-dialog', () => abrirDirectaConfig(id, $('#dc-pasos .active')?.dataset.tab));
   $('#dc-titulo').textContent = `🛒 ${d.name}`;
   pintarPartes('#dc-partes', d.partes || partesPorDefecto());
   const v = (k, x) => { $(`#dc-${k}`).value = x ?? ''; };
@@ -14842,9 +14855,12 @@ function abrirDirectaConfig(id = state.embudo) {
   pintarDirectaPartes();
   $('#dc-status').textContent = '';
   dcDlg.showModal();
-  vigilarPendientes(dcDlg, pendientesDirectaForm, { arriba: $('#dc-pendientes') });
+  vigilarPendientes(dcDlg, pendientesDirectaForm);
   pintarSelectFecha($('#dc-compraDateField'), d.compraDateField || '', { vacio: '— Sin campo (día en que se ve la etiqueta) —' });
-  pintarSelectOportunidad(d);
+  dcPl = { ligado: d.pipelineLigado || (d.compraPipeline && d.compraPipeline !== 'no' ? 'si' : ''), pipeline: d.compraPipeline === 'no' ? '' : d.compraPipeline || '', etapa: d.compraEtapa || '' };
+  pintarPipelineDc();
+  irPasoDc(paso || 'dcp-partes');
+  pintarPasosDc();
   $('#dc-uppNombre').value = d.upsellPrincipal?.nombre || '';
   dcUppTags = [...(d.upsellPrincipal?.tags || [])];
   dcUppPrecios = { ...(d.upsellPrincipal?.precios || {}) };
@@ -14869,21 +14885,86 @@ $('#dc-uppTag').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.
 $('#dc-uppTag').addEventListener('change', () => { if (state.tags?.includes($('#dc-uppTag').value.trim())) anadirUppTag(); });
 $('#dc-uppTags').addEventListener('input', (e) => { const i = e.target.closest('[data-upp-precio]'); if (i) dcUppPrecios[i.dataset.uppPrecio] = i.value.trim(); });
 $('#dc-uppTags').addEventListener('click', (e) => { const b = e.target.closest('[data-upp-quitar]'); if (b) { dcUppTags.splice(Number(b.dataset.uppQuitar), 1); pintarUppTags(); } });
-// Pipeline › etapa de la oportunidad que crea el workflow de compra (vacío: se detecta sola; «no»: no se usa).
-async function pintarSelectOportunidad(d) {
-  const sel = $('#dc-compraOportunidad');
-  const actual = d.compraPipeline === 'no' ? 'no' : d.compraPipeline ? `${d.compraPipeline}:${d.compraEtapa || ''}` : '';
-  const pintar = (pipes, error = '') => {
-    const opts = (pipes || []).map((p) => `<optgroup label="${esc(p.name)}"><option value="${esc(p.id)}:">${esc(p.name)} · cualquier etapa</option>${p.stages.map((x) => `<option value="${esc(p.id)}:${esc(x.id)}">${esc(p.name)} › ${esc(x.name)}</option>`).join('')}</optgroup>`).join('');
-    const conocida = !actual || actual === 'no' || (pipes || []).some((p) => actual === `${p.id}:` || p.stages.some((x) => actual === `${p.id}:${x.id}`));
-    sel.innerHTML = `<option value="">🔎 Detectarla sola (la etapa donde caen las compradoras)</option>${conocida ? '' : `<option value="${esc(actual)}">${esc(error ? `Guardada (no se pudieron leer los pipelines: ${error})` : pipes ? 'Guardada (ya no está en GHL)' : 'Cargando pipelines de GHL…')}</option>`}${opts}<option value="no">No usar oportunidades</option>`;
-    sel.value = actual;
-  };
-  pintar(state.pipelinesCompra);
-  if (!state.pipelinesCompra) {
-    try { state.pipelinesCompra = (await api('/api/fields?tipo=pipelines')).pipelines; pintar(state.pipelinesCompra); } catch (e) { pintar(null, e.message); }
-  }
+// ---------- Asistente por pasos de la venta directa ----------
+// Los pasos son pestañas (.tab / .tab-panel): lo que falta se reparte por paso y cada punto lleva su número.
+const dcDots = () => $$('#dc-pasos .wiz-dot').filter((b) => !b.hidden);
+function pintarPasosDc() {
+  const dots = dcDots();
+  const i = Math.max(0, dots.findIndex((b) => b.classList.contains('active')));
+  dots.forEach((b, n) => { $('.wiz-num', b).textContent = n + 1; b.classList.toggle('hecho', n < i); });
+  $('#dc-anterior').hidden = i === 0;
+  $('#dc-siguiente').hidden = i === dots.length - 1;
+  $('#dc-guardar').classList.toggle('primary', i === dots.length - 1);
 }
+function irPasoDc(paso) {
+  const dots = dcDots();
+  const actual = dots.findIndex((b) => b.classList.contains('active'));
+  const b = typeof paso === 'number' ? dots[Math.min(dots.length - 1, Math.max(0, actual + paso))] : $(`#dc-pasos [data-tab="${paso}"]`);
+  b?.click();
+}
+$('#dc-pasos').addEventListener('click', (e) => {
+  if (!e.target.closest('.wiz-dot')) return;
+  pintarPasosDc();
+  $('#directa-dialog .dialog-body').scrollTop = 0;
+  if ($('#dc-pasos .active')?.dataset.tab === 'dcp-pipeline') pintarPipelineDc();
+});
+$('#dc-anterior').addEventListener('click', () => irPasoDc(-1));
+$('#dc-siguiente').addEventListener('click', () => irPasoDc(1));
+
+// Paso «Pipeline de GHL»: 1) ¿ligarlo? sí / no → 2) qué pipeline → 3) en qué fase entran las compradoras.
+// Con «sí», Comercial → Pipeline enseña el tablero con cada contacto en su fase (la que pone el workflow de compra).
+let dcPl = { ligado: '', pipeline: '', etapa: '' };
+async function cargarPipelinesDc({ fresh = false } = {}) {
+  if (state.pipelinesCompra && !fresh) return;
+  state.pipelinesCompraError = '';
+  try { state.pipelinesCompra = (await api('/api/fields?tipo=pipelines')).pipelines; } catch (e) { state.pipelinesCompra = null; state.pipelinesCompraError = e.message; }
+}
+function pintarPipelineDc() {
+  $$('#directa-dialog input[name="dc-pl"]').forEach((r) => { r.checked = r.value === dcPl.ligado; });
+  const si = dcPl.ligado === 'si';
+  $('#dc-pl-paso2').hidden = !si;
+  const pipes = state.pipelinesCompra;
+  const p = (pipes || []).find((x) => x.id === dcPl.pipeline);
+  $('#dc-pl-paso3').hidden = !si || !p;
+  if (!si) return;
+  const lista = $('#dc-pl-lista');
+  if (!pipes) {
+    lista.innerHTML = state.pipelinesCompraError
+      ? `<div class="notice err">No se pudieron leer los pipelines de GHL: ${esc(state.pipelinesCompraError)} <button type="button" class="btn small" data-dc-pl-reintentar>Reintentar</button></div>`
+      : '<p class="muted">Cargando los pipelines de GHL…</p>';
+    if (!state.pipelinesCompraError) cargarPipelinesDc().then(pintarPipelineDc);
+    return;
+  }
+  lista.innerHTML = pipes.length ? pipes.map((x) => `<label class="dc-pl-card${x.id === dcPl.pipeline ? ' on' : ''}">
+      <input type="radio" name="dc-pl-pipe" value="${esc(x.id)}"${x.id === dcPl.pipeline ? ' checked' : ''}>
+      <span class="dc-pl-card-ico" aria-hidden="true">${icon('layout')}</span>
+      <span class="dc-pl-card-t"><strong>${esc(x.name)}</strong><small>${x.stages.length} fase${x.stages.length === 1 ? '' : 's'} · ${esc(x.stages.slice(0, 3).map((st) => st.name).join(' → '))}${x.stages.length > 3 ? ' → …' : ''}</small></span>
+    </label>`).join('')
+    : '<div class="notice warn">Esta cuenta de GHL aún no tiene pipelines. Créalo en GHL (Oportunidades → Pipelines) y pulsa <button type="button" class="btn small" data-dc-pl-reintentar>Actualizar</button></div>';
+  if (dcPl.pipeline && !p) lista.insertAdjacentHTML('afterbegin', '<div class="notice warn">El pipeline que tenía guardado ya no está en GHL: elige otro.</div>');
+  if (!p) return;
+  const entra = p.stages.find((x) => x.id === dcPl.etapa);
+  $('#dc-pl-fases').innerHTML = p.stages.map((x, n) => `${n ? '<span class="dc-pl-flecha" aria-hidden="true">→</span>' : ''}<label class="dc-pl-fase${x.id === dcPl.etapa ? ' on' : ''}"><input type="radio" name="dc-pl-fase" value="${esc(x.id)}"${x.id === dcPl.etapa ? ' checked' : ''}>${x.id === dcPl.etapa ? '📍 ' : ''}${esc(x.name)}</label>`).join('')
+    + `<label class="dc-pl-fase dc-pl-fase-nose${dcPl.etapa ? '' : ' on'}"><input type="radio" name="dc-pl-fase" value=""${dcPl.etapa ? '' : ' checked'}>🤷 No lo sé</label>`;
+  const fase = entra ? `«${esc(entra.name)}»` : 'la fase que tenga puesta';
+  $('#dc-pl-flujo').innerHTML = `<p class="dc-pl-flujo-t">Así llegarán los contactos a Comercial:</p>
+    <ol class="dc-pl-pasos">
+      <li><span class="dc-pl-paso-ico" aria-hidden="true">🛒</span><strong>Alguien compra</strong><small>en el checkout del embudo</small></li>
+      <li><span class="dc-pl-paso-ico" aria-hidden="true">⚙️</span><strong>El workflow de compra de GHL</strong><small>crea su oportunidad en «${esc(p.name)}»</small></li>
+      <li class="fin"><span class="dc-pl-paso-ico" aria-hidden="true">📍</span><strong>Sale en Comercial → Pipeline</strong><small>ya colocado en ${fase}</small></li>
+    </ol>
+    <div class="dc-pl-mini" aria-label="Así se verá el tablero">${p.stages.slice(0, 6).map((x) => `<div class="dc-pl-col${x.id === dcPl.etapa ? ' entra' : ''}"><span>${esc(x.name)}</span>${x.id === dcPl.etapa ? '<i></i><i></i><b>Aquí entran</b>' : ''}</div>`).join('')}${p.stages.length > 6 ? `<div class="dc-pl-col mas"><span>+${p.stages.length - 6}</span></div>` : ''}</div>
+    <div class="notice info dc-pl-aviso">ℹ️ Esto pasa <strong>solo si el workflow de compra</strong> tiene la acción «Crear o actualizar oportunidad» con este pipeline${entra ? ' y esta fase' : ''}. Si no la tiene, las compradoras no saldrán en el tablero hasta que estén en el pipeline. Desde el tablero podrás moverlas de fase.</div>`;
+}
+dcDlg.addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.name === 'dc-pl') { dcPl.ligado = t.value; pintarPipelineDc(); }
+  else if (t.name === 'dc-pl-pipe') { dcPl = { ...dcPl, pipeline: t.value, etapa: '' }; pintarPipelineDc(); }
+  else if (t.name === 'dc-pl-fase') { dcPl.etapa = t.value; pintarPipelineDc(); }
+});
+dcDlg.addEventListener('click', (e) => {
+  if (e.target.closest('[data-dc-pl-reintentar]')) { state.pipelinesCompra = null; state.pipelinesCompraError = ''; cargarPipelinesDc({ fresh: true }).then(pintarPipelineDc); pintarPipelineDc(); }
+});
 $('#dr-config').addEventListener('click', () => abrirDirectaConfig());
 $('#dc-guardar').addEventListener('click', async () => {
   const id = dcDlg.dataset.id;
@@ -14894,7 +14975,9 @@ $('#dc-guardar').addEventListener('click', async () => {
     iva: { pct: val('ivaPct') === '' ? 21 : Number(val('ivaPct').replace(',', '.')), producto: $('#dc-iva').value },
     compraTag: val('compraTag').toLowerCase(), compraDateField: val('compraDateField'), emailCompra: val('emailCompra'),
     upsellPrincipal: { nombre: val('uppNombre'), tags: [...dcUppTags, ...($('#dc-uppTag').value.trim() ? [$('#dc-uppTag').value.trim().toLowerCase()] : [])], precios: dcUppPrecios },
-    compraPipeline: val('compraOportunidad').split(':')[0], compraEtapa: val('compraOportunidad').split(':')[1] || '',
+    // «Sí»: el pipeline y la fase elegidos (también los usan Métricas y Setting hoy). «No» o sin responder: lo que hubiera.
+    pipelineLigado: dcPl.ligado,
+    ...(dcPl.ligado === 'si' && dcPl.pipeline ? { compraPipeline: dcPl.pipeline, compraEtapa: dcPl.etapa } : {}),
     partes: partesElegidas('#dc-partes'),
     bumps: leerOfertas('bumps'), upsells: leerOfertas('upsells'), downsells: leerOfertas('downsells'),
     ventaUrl: val('ventaUrl'), checkoutUrl: val('checkoutUrl'), graciasUrl: val('graciasUrl'), llamadaUrl: val('llamadaUrl'),
@@ -14910,6 +14993,10 @@ $('#dc-guardar').addEventListener('click', async () => {
     state.config = config;
     dcDlg.close();
     pintarSidebar();
+    // El pipeline ligado puede haber cambiado: el tablero de Comercial se vuelve a leer y su pestaña sale o se va.
+    state.dpl = { ...state.dpl, id: '', datos: null, msg: null };
+    refrescarPestanas();
+    if (!$('#view-dpipeline').hidden) cargarPipelineDir({ fresh: true });
     await cargarDirecta({ fresh: true });
   } catch (e) {
     $('#dc-status').textContent = e.message;
@@ -15214,6 +15301,112 @@ function renderDirectaAnuncios(D) {
 $('#dan-level').addEventListener('click', (e) => { const b = e.target.closest('[data-dl]'); if (!b) return; state.danLevel = b.dataset.dl; renderDirectaAnuncios(state.directa.datos); });
 $('#dan-orden').addEventListener('click', (e) => { const b = e.target.closest('[data-do]'); if (!b) return; state.danOrden = b.dataset.do; renderDirectaAnuncios(state.directa.datos); });
 $('#dc-buscar').addEventListener('input', () => renderDirectaClientes(state.directa.datos));
+
+// ---------- 🧭 Comercial → Pipeline: el pipeline de GHL ligado a la venta directa ----------
+// Un tablero con una columna por fase y cada contacto en la suya (la que pone el workflow de compra). Se mueve
+// de fase desde su tarjeta; el servidor solo deja mover oportunidades de ese pipeline.
+state.dpl = { id: '', datos: null, cargando: '', q: '', msg: null };
+async function cargarPipelineDir({ fresh = false } = {}) {
+  const id = state.embudo;
+  if (!fresh && state.dpl.id === id && state.dpl.datos && !state.dpl.datos.error) { renderPipelineDir(); return; }
+  if (state.dpl.cargando === id && !fresh) return;
+  state.dpl = { ...state.dpl, id, datos: fresh ? state.dpl.datos : null, cargando: id };
+  renderPipelineDir();
+  let d;
+  try { d = await api(`/api/pipeline?d=${encodeURIComponent(id)}${fresh ? '&fresh=1' : ''}`); } catch (e) { d = { error: e.message }; }
+  if (state.embudo !== id) return;
+  state.dpl = { ...state.dpl, datos: d, cargando: '' };
+  renderPipelineDir();
+}
+const haceDias = (iso) => {
+  const n = iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000) : null;
+  return n == null || Number.isNaN(n) ? '' : n <= 0 ? 'hoy' : n === 1 ? 'ayer' : `hace ${n} días`;
+};
+function renderPipelineDir() {
+  const caja = $('#dpl-body');
+  if (!caja) return;
+  const D = state.dpl.datos;
+  const cfgBtn = puedeConfig() ? '<button type="button" class="btn small ghost" data-dpl-config>⚙️ Cambiar el pipeline</button>' : '';
+  if (!D) { caja.innerHTML = '<div class="card dpl-cargando"><p class="muted">⏳ Cargando el pipeline de GHL y sus contactos…</p></div>'; return; }
+  if (D.error) { caja.innerHTML = `<div class="card"><div class="notice err">${esc(D.error)} <button type="button" class="btn small" data-dpl-recargar>Reintentar</button> ${cfgBtn}</div></div>`; return; }
+  if (!D.ligado) {
+    caja.innerHTML = `<div class="card dpl-vacio"><span class="dpl-vacio-ico" aria-hidden="true">🧭</span><h3>Este embudo no está ligado a un pipeline</h3>
+      <ol class="dpl-vacio-pasos"><li><b>1</b> ⚙️ Configurar el embudo</li><li><b>2</b> Paso «Pipeline de GHL» → Sí</li><li><b>3</b> Elige el pipeline y su fase</li></ol>
+      ${puedeConfig() ? '<button type="button" class="btn primary" data-dpl-config>Ligar un pipeline</button>' : '<p class="muted">Pídeselo a quien configura el embudo.</p>'}</div>`;
+    return;
+  }
+  const P = D.pipeline;
+  const q = state.dpl.q.trim().toLowerCase();
+  const ops = D.oportunidades.filter((o) => !q || `${o.name} ${o.phone}`.toLowerCase().includes(q));
+  const porFase = Object.fromEntries(P.stages.map((x) => [x.id, []]));
+  for (const o of ops) (porFase[o.etapa] ||= []).push(o);
+  const entra = P.stages.find((x) => x.id === D.etapaEntrada);
+  const cc = state.config.defaultCountryCode || '34';
+  const tarjeta = (o) => {
+    const wa = waPhone(o.phone, cc);
+    return `<article class="kb-card locked dpl-card${o.status === 'won' ? ' won' : o.status === 'lost' ? ' lost' : ''}" data-dpl-op="${esc(o.id)}">
+      <div class="dpl-card-top"><span class="t-avatar" aria-hidden="true">${esc(iniciales(o.name))}</span>
+        <span class="dpl-card-t"><button type="button" class="lead-ficha" data-ficha-lead="${esc(o.contactId)}" title="Ver la ficha">${esc(o.name || 'Sin nombre')}</button>
+        ${o.createdAt ? `<small class="muted">Entró ${esc(haceDias(o.createdAt))}</small>` : ''}</span></div>
+      <div class="dpl-card-acc">
+        ${wa ? `<a class="btn small wa" href="https://wa.me/${wa}" target="_blank" rel="noopener" aria-label="WhatsApp a ${esc(o.name || 'este contacto')}">${icon('whatsapp')}</a>` : ''}
+        ${o.phone ? `<a class="btn small ghost" href="tel:${esc(o.phone)}" aria-label="Llamar a ${esc(o.name || 'este contacto')}">${icon('phone')}</a>` : ''}
+        <select data-dpl-mover="${esc(o.id)}" data-contacto="${esc(o.contactId)}" aria-label="Mover a ${esc(o.name || 'este contacto')} de fase">${P.stages.map((x) => `<option value="${esc(x.id)}"${x.id === o.etapa ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
+      </div>
+    </article>`;
+  };
+  const kpi = (ico, tono, label, valor, sub = '') => `<div class="kpi static tone-${tono}"><span class="kpi-label"><span class="kpi-ico">${icon(ico)}</span>${label}</span><span class="kpi-value">${valor}</span>${sub ? `<span class="kpi-sub">${sub}</span>` : ''}</div>`;
+  const ganadas = D.oportunidades.filter((o) => o.status === 'won').length;
+  const nuevas = D.oportunidades.filter((o) => o.createdAt && Date.now() - new Date(o.createdAt).getTime() < 7 * 86_400_000).length;
+  caja.innerHTML = `<div class="card dpl-cab">
+      <div class="dpl-cab-in"><span class="dpl-ico" aria-hidden="true">${icon('layout')}</span>
+        <div><h2>${esc(P.name)}</h2><p class="muted">Pipeline de GHL ligado a este embudo.${entra ? ` Las compradoras entran en <strong>📍 ${esc(entra.name)}</strong> (lo hace el workflow de compra).` : ''}</p></div>
+        <span class="spacer"></span><button type="button" class="btn small ghost" data-dpl-recargar>${state.dpl.cargando ? 'Actualizando…' : 'Actualizar'}</button>${cfgBtn}</div>
+      <div class="kpis dpl-kpis">${kpi('users', 'info', 'En el pipeline', D.total.toLocaleString('es-ES'))}${kpi('zap', 'accent', 'Nuevos (7 días)', nuevas.toLocaleString('es-ES'))}${kpi('cart', 'buy', 'Ganadas', ganadas.toLocaleString('es-ES'))}</div>
+      <label class="dpl-buscar"><span class="sr-only">Buscar</span><input id="dpl-q" type="search" placeholder="Buscar por nombre o teléfono" value="${esc(state.dpl.q)}"></label>
+      <p class="dpl-st${state.dpl.msg?.err ? ' err' : ''}" role="status">${esc(state.dpl.msg?.txt || '')}</p>
+      ${D.truncado ? `<p class="muted small">Se ven los ${D.oportunidades.length} más nuevos de ${D.total}.</p>` : ''}
+    </div>
+    ${D.oportunidades.length ? '' : `<div class="notice info">ℹ️ Aún no hay nadie en «${esc(P.name)}». Las compradoras aparecerán aquí cuando el workflow de compra de GHL cree su oportunidad en este pipeline.</div>`}
+    <div class="kanban dpl-kanban">${P.stages.map((x) => `<section class="kb-col dpl-col${x.id === D.etapaEntrada ? ' entra' : ''}" style="--kb:${esc(x.color || 'var(--tone-info)')}">
+        <header class="kb-head"><h3>${x.id === D.etapaEntrada ? '📍 ' : ''}${esc(x.name)}</h3><span class="kb-count">${porFase[x.id].length}</span></header>
+        ${x.id === D.etapaEntrada ? '<p class="dpl-entra">Aquí entran las compradoras</p>' : ''}
+        <div class="kb-list">${porFase[x.id].slice(0, 100).map(tarjeta).join('') || '<p class="kb-empty">Nadie en esta fase</p>'}${porFase[x.id].length > 100 ? `<p class="muted small">y ${porFase[x.id].length - 100} más (usa el buscador)</p>` : ''}</div>
+      </section>`).join('')}</div>`;
+}
+$('#dpl-body').addEventListener('input', (e) => {
+  if (e.target.id !== 'dpl-q') return;
+  state.dpl.q = e.target.value;
+  const pos = e.target.selectionStart;
+  renderPipelineDir();
+  const i = $('#dpl-q'); i.focus(); i.setSelectionRange(pos, pos);
+});
+$('#dpl-body').addEventListener('click', (e) => {
+  if (e.target.closest('[data-dpl-recargar]')) cargarPipelineDir({ fresh: true });
+  if (e.target.closest('[data-dpl-config]')) abrirDirectaConfig(state.embudo, 'dcp-pipeline');
+});
+$('#dpl-body').addEventListener('change', async (e) => {
+  const sel = e.target.closest('[data-dpl-mover]');
+  if (!sel) return;
+  const D = state.dpl.datos;
+  const o = D?.oportunidades.find((x) => x.id === sel.dataset.dplMover);
+  if (!o) return;
+  const antes = o.etapa;
+  const fase = D.pipeline.stages.find((x) => x.id === sel.value);
+  sel.disabled = true;
+  try {
+    const r = await api('/api/pipeline', { method: 'POST', body: { d: state.embudo, op: 'mover', oppId: o.id, contactId: o.contactId, etapa: sel.value } });
+    Object.assign(o, { etapa: r.etapa, status: r.status });
+    renderPipelineDir();
+    state.dpl.msg = { txt: `✅ ${o.name || 'Contacto'} pasa a «${fase?.name || 'otra fase'}»` };
+    renderPipelineDir();
+  } catch (err) {
+    o.etapa = antes;
+    renderPipelineDir();
+    state.dpl.msg = { txt: `No se pudo mover a ${o.name || 'este contacto'}: ${err.message}`, err: true };
+    renderPipelineDir();
+  }
+});
 
 // ---------- 📞 Seguimiento: compradoras sin el producto principal (p. ej. del Reto a Raíces) ----------
 // Formato de Llamadas: una tarjeta por persona con sus datos, su etapa en el pipeline (el del workflow de compra,

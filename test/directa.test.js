@@ -93,7 +93,7 @@ test('venta directa: lo que falta, tareas, guía y pestañas', () => {
   assert.equal(t[0].fecha, '2026-10-01');
   assert.equal(guiaDirecta({ bumps: true }).some((s) => /Upsell y downsell/.test(s.titulo)), false);
   assert.equal(guiaEmbudo('directa', undefined, undefined, undefined, { partes: { upsell: true } }).some((s) => /Upsell/.test(s.titulo)), true);
-  assert.deepEqual(pestanaIds('directa'), ['dhoy', 'llamadas', 'dmetricas', 'dclientes', 'publicidad', 'danuncios', 'utms', 'paginas', 'anuncios', 'automatizaciones', 'calendario', 'tareas']);
+  assert.deepEqual(pestanaIds('directa'), ['dhoy', 'llamadas', 'dpipeline', 'dmetricas', 'dclientes', 'publicidad', 'danuncios', 'utms', 'paginas', 'anuncios', 'automatizaciones', 'calendario', 'tareas']);
 });
 
 const ENV = { GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret' };
@@ -279,4 +279,14 @@ test('paso al producto principal (upsell posterior): % del periodo y del total d
   assert.equal(mp.upsellPrincipal.total.facturacion, 797 * 2 + 997.5 * 2);
   assert.equal(m.upsellPrincipal.nombre, 'Raíces');
   assert.equal(metricasDirecta(contactos, { ...d, upsellPrincipal: null }, { desde: '2026-10-01', hasta: '2026-10-31' }).upsellPrincipal, null);
+});
+
+test('venta directa: ligada a un pipeline de GHL', async () => {
+  const { sanitizeDirecta, pipelineLigadoDe } = await import('../public/js/directa.js');
+  assert.equal(sanitizeDirecta({ pipelineLigado: 'quizá' }).pipelineLigado, '');
+  assert.equal(pipelineLigadoDe(sanitizeDirecta({ pipelineLigado: 'si', compraPipeline: 'pipeX' })), true);
+  assert.equal(pipelineLigadoDe(sanitizeDirecta({ pipelineLigado: 'no', compraPipeline: 'pipeX' })), false);
+  assert.equal(pipelineLigadoDe(sanitizeDirecta({ pipelineLigado: 'si' })), false); // sin pipeline elegido
+  assert.equal(pipelineLigadoDe(sanitizeDirecta({ compraPipeline: 'pipeX' })), true); // los de antes, con pipeline a mano
+  assert.equal(pipelineLigadoDe(sanitizeDirecta({ compraPipeline: 'no' })), false);
 });

@@ -60,6 +60,7 @@ PESTANAS.meteorico = [
 PESTANAS.directa = [
   { id: 'dhoy', label: 'Setting hoy', desc: 'Comercial: las compradoras que aún no tienen el producto principal, con su WhatsApp escrito y su etapa en el pipeline del embudo' },
   { id: 'llamadas', label: 'Llamadas', desc: 'Las llamadas del calendario de reservas, con la ficha y el resultado (mueve la oportunidad en el pipeline del embudo)' },
+  { id: 'dpipeline', label: 'Pipeline', desc: 'El pipeline de GHL ligado al embudo, con cada contacto en su fase (sale si en ⚙️ Configurar el embudo dices que sí lo ligas)' },
   { id: 'dmetricas', label: 'Métricas', desc: 'Ventas, facturación, ticket medio, CPA y ROAS por fechas; % de cada bump, upsell y downsell y conversión de cada página' },
   { id: 'dclientes', label: 'Compradoras', desc: 'Quién ha comprado, cuándo y qué extras se llevó (con su WhatsApp)' },
   { id: 'publicidad', label: 'Cómo van (Meta)', desc: 'Las métricas de Meta como en el Administrador de anuncios (campaña → conjunto → anuncio, con gasto, CPM, CTR, coste por resultado…) y avisos de cuándo preparar anuncios nuevos' },
@@ -129,7 +130,7 @@ export const CATEGORIAS = {
     { id: 'analisis', label: 'Análisis', icon: '🔎', desc: 'Comparativas y rendimiento del equipo', vistas: ['comparar', 'rendimiento'] },
   ],
   directa: [
-    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'A quién escribir hoy (las que aún no tienen el producto principal), las llamadas y LabIA', vistas: ['dhoy', 'llamadas'] },
+    { id: 'comercial', label: 'Comercial', icon: '📞', desc: 'A quién escribir hoy (las que aún no tienen el producto principal), las llamadas, el pipeline de GHL y LabIA', vistas: ['dhoy', 'llamadas', 'dpipeline'] },
     { id: 'metricas', label: 'Métricas', icon: '📊', desc: 'Ventas, ticket medio, CPA, ROAS y extras', vistas: ['dmetricas'] },
     { id: 'leads', label: 'Compradoras', icon: '🛍️', desc: 'Quién ha comprado y qué extras', vistas: ['dclientes'] },
     { id: 'anunciosg', label: 'Anuncios', icon: '📣', desc: 'Cómo van en Meta, los ganadores (menor CAC y más ventas) y qué tipo de comprador trae cada anuncio (UTMs)', vistas: ['publicidad', 'danuncios', 'utms'] },

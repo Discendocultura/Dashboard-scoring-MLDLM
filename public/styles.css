@@ -7820,3 +7820,100 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .ini-pasos-ok span { font-size: 12px; font-weight: 650; padding: 3px 9px; border-radius: 999px; color: #059669; background: color-mix(in srgb, #10b981 12%, transparent); }
 .ini-check { color: color-mix(in srgb, var(--muted) 60%, transparent); }
 @media (max-width: 700px) { .ini-pasos li { grid-template-columns: auto auto minmax(0, 1fr); } .ini-pasos li > .btn, .ini-pasos li > small { grid-column: 1 / -1; justify-self: start; text-align: left; max-width: none; } }
+
+/* ---------- Venta directa: configuración por pasos ---------- */
+.dc-pasos .wiz-dot.tab { padding: 4px 8px 4px 4px; border-bottom: 0; min-height: 44px; }
+.dc-pasos .wiz-dot.active { color: var(--text); }
+.dc-pasos .wiz-dot.active .wiz-num { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.dc-pasos .wiz-dot.hecho:not(.active) .wiz-num { border-color: var(--accent); color: var(--accent); }
+.dc-pasos .wiz-dot .tab-falta { margin-left: 2px; }
+.dc-paso-cab { display: flex; gap: 14px; align-items: flex-start; }
+.dc-paso-cab .wiz-sub { margin: 4px 0 0; }
+.dc-paso-ico { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; font-size: 22px; background: var(--accent-soft); }
+#directa-dialog .dc-paso > .cfg-sec { margin: 0; }
+#dc-anterior[hidden], #dc-siguiente[hidden] { display: none; }
+
+/* Paso «Pipeline de GHL»: pregunta → pipeline → fase, uno detrás de otro */
+.dc-pl-q { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.dc-pl-q[hidden] { display: none; }
+.dc-pl-t { margin: 0; display: flex; align-items: center; gap: 10px; font-weight: 700; flex-wrap: wrap; }
+.dc-pl-n { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 800; flex: none; }
+.dc-pl-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.dc-pl-op { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; min-height: 44px; border: 2px solid var(--border); border-radius: 12px; cursor: pointer; background: var(--surface); transition: border-color .15s, background-color .15s; }
+.dc-pl-op:hover { border-color: var(--border-strong); }
+.dc-pl-op:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.dc-pl-op input, .dc-pl-card input { width: 18px; height: 18px; margin-top: 3px; flex: none; accent-color: var(--accent); }
+.dc-pl-op-ico { font-size: 22px; line-height: 1; }
+.dc-pl-op strong, .dc-pl-card strong { display: block; }
+.dc-pl-op small, .dc-pl-card small { color: var(--muted); font-size: 12.5px; }
+.dc-pl-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.dc-pl-card { display: flex; gap: 10px; align-items: flex-start; padding: 12px; min-height: 44px; border: 2px solid var(--border); border-radius: 12px; cursor: pointer; }
+.dc-pl-card.on, .dc-pl-card:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.dc-pl-card-ico { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: color-mix(in srgb, var(--tone-info) 14%, transparent); color: var(--tone-info); flex: none; }
+.dc-pl-card-ico .ico { width: 18px; height: 18px; }
+.dc-pl-card-t { min-width: 0; overflow-wrap: anywhere; }
+.dc-pl-fases { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.dc-pl-fase { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; font-size: 13.5px; font-weight: 600; cursor: pointer; background: var(--surface-2); }
+.dc-pl-fase input { position: absolute; opacity: 0; pointer-events: none; }
+.dc-pl-fase:focus-within { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
+.dc-pl-fase.on { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.dc-pl-fase-nose { border-style: dashed; }
+.dc-pl-flecha { color: var(--muted); font-weight: 700; }
+.dc-pl-flujo { display: grid; gap: 12px; }
+.dc-pl-flujo-t { margin: 4px 0 0; font-weight: 700; }
+.dc-pl-pasos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.dc-pl-pasos li { position: relative; display: grid; gap: 2px; justify-items: center; text-align: center; padding: 12px 10px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
+.dc-pl-pasos li + li::before { content: '→'; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 800; }
+.dc-pl-pasos li.fin { border-color: var(--tone-buy); background: color-mix(in srgb, var(--tone-buy) 10%, var(--surface)); }
+.dc-pl-paso-ico { font-size: 24px; line-height: 1.2; }
+.dc-pl-pasos small { color: var(--muted); font-size: 12.5px; }
+.dc-pl-mini { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.dc-pl-col { flex: 1 0 92px; min-height: 92px; display: flex; flex-direction: column; gap: 5px; padding: 8px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); font-size: 12px; }
+.dc-pl-col span { font-weight: 700; color: var(--text-2); overflow-wrap: anywhere; }
+.dc-pl-col i { display: block; height: 12px; border-radius: 4px; background: color-mix(in srgb, var(--tone-buy) 35%, var(--surface)); }
+.dc-pl-col b { margin-top: auto; font-size: 11px; color: var(--tone-buy); }
+.dc-pl-col.entra { border: 2px solid var(--tone-buy); background: color-mix(in srgb, var(--tone-buy) 8%, var(--surface)); }
+.dc-pl-col.mas { flex: 0 0 52px; align-items: center; justify-content: center; }
+.dc-pl-aviso { margin: 0; }
+@media (max-width: 600px) {
+  .dc-pl-opts { grid-template-columns: 1fr; }
+  .dc-pl-pasos { grid-template-columns: 1fr; gap: 18px; }
+  .dc-pl-pasos li + li::before { content: '↓'; left: 50%; top: -16px; transform: translateX(-50%); }
+  .dc-pasos .wiz-lbl { display: none; }
+  .dc-pasos .wiz-dot.active .wiz-lbl { display: inline; }
+}
+
+/* ---------- Comercial → Pipeline (venta directa ligada a un pipeline de GHL) ---------- */
+#view-dpipeline { display: grid; gap: 14px; }
+#view-dpipeline[hidden] { display: none; }
+.dpl-cab { display: grid; gap: 14px; padding: 18px 20px; }
+.dpl-cab-in { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.dpl-cab-in h2 { margin: 0 0 2px; font-size: 1.15rem; }
+.dpl-cab-in p { margin: 0; }
+.dpl-cab-in > div { flex: 1 1 260px; min-width: 0; }
+.dpl-cab-in .spacer { display: none; }
+.dpl-ico { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: color-mix(in srgb, var(--tone-info) 15%, transparent); color: var(--tone-info); }
+.dpl-ico .ico { width: 22px; height: 22px; }
+.dpl-kpis { margin: 0; }
+.dpl-buscar input { width: 100%; max-width: 360px; min-height: 44px; }
+.dpl-st { margin: 0; min-height: 1.2em; font-weight: 600; color: var(--tone-buy); }
+.dpl-st.err { color: var(--error); }
+.dpl-st:empty { display: none; }
+.dpl-col.entra { box-shadow: inset 0 0 0 2px var(--tone-buy); }
+.dpl-entra { margin: -4px 2px 8px; font-size: 12px; font-weight: 700; color: var(--tone-buy); }
+.dpl-card { cursor: default; gap: 8px; }
+.dpl-card.won { border-left: 3px solid var(--tone-buy); }
+.dpl-card.lost { opacity: .75; }
+.dpl-card-top { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.dpl-card-t { display: grid; min-width: 0; }
+.dpl-card-t .lead-ficha { text-align: left; overflow-wrap: anywhere; }
+.dpl-card-acc { display: flex; gap: 6px; align-items: center; }
+.dpl-card-acc .btn { min-width: 44px; min-height: 40px; display: inline-grid; place-items: center; }
+.dpl-card-acc select { flex: 1; min-width: 0; min-height: 40px; }
+.dpl-vacio { display: grid; justify-items: center; gap: 12px; text-align: center; padding: 28px 18px; }
+.dpl-vacio h3 { margin: 0; }
+.dpl-vacio-ico { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 18px; font-size: 32px; background: var(--accent-soft); }
+.dpl-vacio-pasos { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.dpl-vacio-pasos li { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: var(--surface-2); font-size: 13.5px; font-weight: 600; }
+.dpl-vacio-pasos b { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 12px; }
+#view-dpipeline > * { min-width: 0; }
