@@ -6037,6 +6037,7 @@ function openConfig(code, { silencioso = false } = {}) {
   opcionSendflow($('#cfg-sendflow'), l.sendflowId || '');
   $('#cfg-gracias-video').value = l.graciasVideoUrl || '';
   $('#cfg-gracias-url').value = l.graciasUrl || '';
+  $('#cfg-gracias2-url').value = l.gracias2Url || '';
   $('#cfg-registro-url').value = l.registroUrl || '';
   $('#cfg-registro-ads-url').value = l.registroAdsUrl || '';
   $('#cfg-cierre').value = l.cierreCarrito || '';
@@ -6811,6 +6812,7 @@ const CICLO = [
   { id: 'cfg-registro-url', c: 'revisar', label: 'Página de registro' },
   { id: 'cfg-registro-ads-url', c: 'revisar', label: 'Registro · publicidad', opcional: true },
   { id: 'cfg-gracias-url', c: 'revisar', label: 'Página de gracias', opcional: true },
+  { id: 'cfg-gracias2-url', c: 'revisar', label: 'Segunda página de gracias', opcional: true },
   { id: 'cfg-gracias-video', c: 'revisar', label: 'Vídeo de gracias', opcional: true },
   { id: 'cfg-cierre', c: 'nuevo', label: 'Cierre del carrito', key: 'cierreCarrito' },
   { id: 'cfg-replay', c: 'revisar', label: 'Página de replay' },
@@ -7240,7 +7242,7 @@ function hubEnhorabuena(nombre) {
     <button type="button" class="hub-bloque-cab" data-hub-ir="${tab}"><span class="hub-cat-ico">${ico}</span><strong>${titulo}</strong><span class="hub-ir">Ir a su apartado →</span></button>
     ${extra}${filas.trim() ? `<ul class="hub-filas">${filas}</ul>` : ''}</section>` : '');
   const enlaces = [
-    ['📝 Página de registro', 'cfg-registro-url'], ['📣 Registro · publicidad', 'cfg-registro-ads-url'], ['🔐 Acceso a las clases (login)', 'cfg-login-url'], ['🎓 Página preclase · y para conectarse al directo', 'cfg-recursos-url'], ['🎉 Página de gracias', 'cfg-gracias-url'],
+    ['📝 Página de registro', 'cfg-registro-url'], ['📣 Registro · publicidad', 'cfg-registro-ads-url'], ['🔐 Acceso a las clases (login)', 'cfg-login-url'], ['🎓 Página preclase · y para conectarse al directo', 'cfg-recursos-url'], ['🎉 Página de gracias', 'cfg-gracias-url'], ['🎉 Segunda página de gracias', 'cfg-gracias2-url'],
     ['💬 Grupo de WhatsApp', 'cfg-whatsapp-url'], ['📋 Encuesta', 'cfg-encuesta-url'], ['⭐ Entrada VIP (pago)', 'cfg-vip-url'], ['📼 Página de replay', 'cfg-replay'],
     ['🛒 Página de venta', 'cfg-raices'], ['🧾 Página de pago', 'cfg-pagina-pago'], ['☎️ Reservar llamada', 'cfg-llamada'],
   ].map(([l, id]) => [l, valCfg(id), CON_CID.has(id)]).filter(([, v]) => v);
@@ -7508,6 +7510,7 @@ function readForm() {
       registroUrl: $('#cfg-registro-url').value.trim(),
       registroAdsUrl: $('#cfg-registro-ads-url').value.trim(),
       graciasUrl: $('#cfg-gracias-url').value.trim(),
+      gracias2Url: $('#cfg-gracias2-url').value.trim(),
       cierreCarrito: $('#cfg-cierre').value,
       diasCarrito: diasCarritoValido($('#cfg-dias-carrito').value),
       calendarioUrl: $('#cfg-calendario-url').value.trim(),
@@ -16772,7 +16775,7 @@ const afilarPrompt = (prompt, canal, code) => afilar(prompt, { canal, voz: code 
 function emPrompt(code, marca) {
   const l = conEnlacesPropuestos(state.config.launches[code], propuestasEmbudo(embudoDeLanz(state.config.launches[code])));
   const enlaces = {
-    'Página de registro': l.registroUrl, 'Página de gracias': l.graciasUrl, 'Acceso a las clases (login)': l.loginUrl, 'Página preclase (clases y recursos)': l.recursosUrl,
+    'Página de registro': l.registroUrl, 'Página de gracias': l.graciasUrl, 'Segunda página de gracias': l.gracias2Url, 'Acceso a las clases (login)': l.loginUrl, 'Página preclase (clases y recursos)': l.recursosUrl,
     'Entrada VIP': Number(l.precioVip) > 0 ? l.vipUrl : '', 'Grupo de WhatsApp': l.whatsappUrl, 'Grabación (replay)': l.replayUrl,
     'Página de venta': l.raicesUrl, 'Página de pago': l.paginaPagoUrl,
   };
@@ -17210,7 +17213,7 @@ function contextoPaginas() {
     const emb = conEnlacesPropuestos(lanz, propuestasEmbudo(state.embudo));
     return { tipo: 'lanzamientos', nombre: emb.name, datos: datosEmbudo(emb, { producto, marca }), codigos: snippetsLanzamiento(state.launchCode), ctx: { script },
       opts: { preclase: conPreclase(lanz) ? (preclaseDeRecursos(lanz) ? 'recursos' : 'clases') : 'no' },
-      urls: { 'Página de registro': emb.registroUrl, 'Página de registro (publicidad)': emb.registroAdsUrl, 'Página de gracias': emb.graciasUrl, 'Página preclase': emb.recursosUrl, 'Página de acceso (login)': emb.loginUrl, 'Página de venta': emb.raicesUrl, 'Página de pago': emb.paginaPagoUrl, 'Página de la grabación (replay)': emb.replayUrl, 'Grupo de WhatsApp': emb.whatsappUrl } };
+      urls: { 'Página de registro': emb.registroUrl, 'Página de registro (publicidad)': emb.registroAdsUrl, 'Página de gracias': emb.graciasUrl, 'Segunda página de gracias': emb.gracias2Url, 'Página preclase': emb.recursosUrl, 'Página de acceso (login)': emb.loginUrl, 'Página de venta': emb.raicesUrl, 'Página de pago': emb.paginaPagoUrl, 'Página de la grabación (replay)': emb.replayUrl, 'Grupo de WhatsApp': emb.whatsappUrl } };
   }
   if (t === 'meteorico') {
     const code = state.meteo.code;

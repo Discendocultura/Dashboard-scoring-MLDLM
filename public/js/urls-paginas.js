@@ -91,7 +91,7 @@ export const urlsTexto = (propuestas = []) => propuestas.map((p) => `${p.nombre}
 
 // Configuración → Accesos y enlaces: las páginas del lanzamiento (las URLs propuestas y las que ya tenga puestas),
 // como accesos de tipo «página» con el nombre del lanzamiento delante. → [{ tipo: 'pagina', nombre, url }]
-const NOMBRE_CAMPO = { registroUrl: 'Registro · orgánico', registroAdsUrl: 'Registro · publicidad', graciasUrl: 'Gracias por registrarte', loginUrl: 'Acceso a las clases (login)', recursosUrl: 'Preclase (clases y recursos)', replayUrl: 'Grabación del directo (replay)', raicesUrl: 'Página de venta', paginaPagoUrl: 'Página de pago' };
+const NOMBRE_CAMPO = { registroUrl: 'Registro · orgánico', registroAdsUrl: 'Registro · publicidad', graciasUrl: 'Gracias por registrarte', gracias2Url: 'Gracias por registrarte (2)', loginUrl: 'Acceso a las clases (login)', recursosUrl: 'Preclase (clases y recursos)', replayUrl: 'Grabación del directo (replay)', raicesUrl: 'Página de venta', paginaPagoUrl: 'Página de pago' };
 export function accesosDePaginas(launch = {}, propuestas = []) {
   const pre = String(launch.name || '').trim().slice(0, 24);
   const nombre = (n) => `${pre ? `${pre} · ` : ''}${n}`.slice(0, 60);

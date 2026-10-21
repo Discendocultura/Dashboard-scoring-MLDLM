@@ -133,3 +133,8 @@ test('venta directa: el carrito abandonado usa la URL del checkout (no la «pág
   const lz = automatizacionesDe(autoCtx('lanzamientos', { name: 'Oct', fechaDirecto: '2026-10-20' }, { code: 'oct' })).find((a) => a.id === 'carrito-abandonado');
   assert.ok(lz.faltan.includes('la URL de la página de pago'));
 });
+
+test('accesos: la segunda página de gracias también sale en Accesos y enlaces', () => {
+  const a = accesosDePaginas({ name: 'El Camino', graciasUrl: 'https://lp.ejemplo.com/gracias', gracias2Url: 'https://lp.ejemplo.com/gracias-2' });
+  assert.ok(a.some((x) => x.url === 'https://lp.ejemplo.com/gracias-2' && /Gracias por registrarte \(2\)/.test(x.nombre)));
+});

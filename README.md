@@ -577,6 +577,9 @@ Marcadores para el diseño de GHL (`data-launch="auto"` = lanzamiento en curso, 
 | `<a data-lsd-link="calendario">` / `data-lsd-link="calendario-ics"` | Añadir el directo a Google Calendar (o el enlace que pongas en el dashboard) / archivo .ics para Apple y Outlook |
 | `<span data-lsd-text="clases-titulo|clases-subtitulo|clase1-titulo|clase1-descripcion|clase2-titulo|clase2-descripcion">` | Textos editables en *Página de recursos → Textos de la página* (vacío = se queda el texto del diseño); también textos con nombre propio |
 | `<div data-lsd-embed="gracias"></div>` | Vídeo de la página de gracias (Vimeo o YouTube) desde *Configuración → Captación → Página de gracias*; se oculta si no hay |
+
+**Segunda página de gracias** (*Captación → Página de gracias*, opcional; p. ej. la de un embudo duplicado con otro píxel): lleva los mismos códigos que la primera (`data-lsd-page="gracias"`, vídeo, WhatsApp, VIP…) y enseña lo mismo, porque el contenido sale del lanzamiento, no de la URL. Su URL se guarda en `gracias2Url` y sale en Accesos y enlaces, en el resumen final y en los prompts.
+
 | `<span data-lsd-text="vipContador">` | Prueba social: número de partida (se elige al crear el embudo de lanzamientos, en «Contador de VIP · empieza en», y cada lanzamiento lo puede cambiar en su configuración) + VIP vendidas en este lanzamiento (las de lanzamientos anteriores no cuentan; se actualiza cada minuto) |
 | `<a data-lsd-link="guia">` (cualquier nombre) | Enlace personalizado creado en *Página de recursos → Enlaces personalizados* |
 | `<span data-lsd-text="nombre|fechaDirecto|horaDirecto|directo|clase1|clase2|replay|cierreVip|cierreCarrito|precioVip">` | Escribe el dato |
