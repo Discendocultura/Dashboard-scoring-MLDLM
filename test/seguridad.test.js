@@ -140,7 +140,8 @@ test('seguridad: 2FA obligatoria para admins y desactivar la contraseña general
 
 test('acceso público: no cambia el nombre ni el móvil de un contacto que ya existe', async () => {
   const ghl = await import('../lib/ghl.js');
-  await ghl.upsertContact({ email: 'victima@example.com', firstName: 'Ana', lastName: 'Real', phone: '+34600111222' });
+  const victima = await ghl.upsertContact({ email: 'victima@example.com', firstName: 'Ana', lastName: 'Real' });
+  await ghl.setContactPhone(victima.id, '+34600111222');
   const { ensureRegistered } = await import('../lib/access.js');
   const r = await ensureRegistered({ registroTag: 'reg-prueba' }, { email: 'victima@example.com', name: 'Otro Nombre', phone: '699999999' });
   assert.equal(r.status, 'signed_up_existing');

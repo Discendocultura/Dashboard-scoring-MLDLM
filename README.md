@@ -526,7 +526,7 @@ Dos páginas en GHL (los códigos exactos, con el lanzamiento ya puesto, están 
 <div data-lsd-login data-launch="nov26" data-redirect="https://tu-dominio/recursos-webinar"></div>
 <script src="https://<tu-proyecto>.pages.dev/tracker.js" defer></script>
 ```
-- Escribe su email y su **WhatsApp** (`data-movil`: `si` por defecto, obligatorio; `opcional`; o `no` para quitarlo; `data-movil-nota` cambia la frase de debajo). Si su ficha de GHL **no tiene teléfono**, se guarda ahí (`+34…` si no lleva prefijo) para el setting y las plantillas; **nunca se pisa** el que ya tenga (el formulario es público).
+- Escribe su email y su **WhatsApp** (`data-movil`: `si` por defecto, obligatorio; `opcional`; o `no` para quitarlo; `data-movil-nota` cambia la frase de debajo). Si su ficha de GHL **no tiene teléfono**, se guarda ahí (`+34…` si no lleva prefijo) para el setting y las plantillas; **nunca se pisa** el que ya tenga (el formulario es público). Se guarda **en su ficha, por su id** (`setContactPhone`), nunca en el upsert por email: con email y móvil juntos, GHL podía emparejarlo por móvil con **otro** contacto (le cambiaba el email) o ignorar el móvil sin avisar. Si GHL no lo acepta (ese número ya es de otro contacto y la subcuenta no permite duplicados), entra igual y el número queda en una **nota** de su ficha. Igual para todos los clientes y para el registro desde la preclase y el directo.
 - **Registrada en el lanzamiento** → va a la página de recursos.
 - **No registrada** (nueva o en GHL por otro embudo) → nombre y móvil → se crea/actualiza en GHL con la etiqueta de
   registro → va a la página de recursos.
