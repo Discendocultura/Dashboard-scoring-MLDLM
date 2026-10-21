@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { baseDe, derivadas, arbolPublicidad, avisosAnuncios, filtrarCampanas, resultadoDe, UMBRALES } from '../public/js/publicidad.js';
+import { baseDe, derivadas, arbolPublicidad, avisosAnuncios, filtrarCampanas, resultadoDe, registrosReales, realesDeNodo, UMBRALES } from '../public/js/publicidad.js';
 import { PESTANAS, CATEGORIAS } from '../public/js/embudos-def.js';
 
 const fila = (o) => ({ campaign_id: 'c1', campaign_name: 'DIR-reto · Frío', adset_id: 's1', adset_name: 'Conjunto 1', ad_id: 'a1', ad_name: 'Anuncio 1', spend: '100', impressions: '10000', reach: '5000', clicks: '300', inline_link_clicks: '150', actions: [], action_values: [], ...o });
@@ -79,4 +79,30 @@ test('la pestaña Publicidad está en todos los tipos de embudo y en su categor�
     assert.ok(PESTANAS[tipo].some((p) => p.id === 'publicidad'), tipo);
     assert.ok(CATEGORIAS[tipo].some((c) => c.vistas.includes('publicidad')), tipo);
   }
+});
+
+test('registros reales (GHL) y CPL real con el gasto de Meta', () => {
+  const leads = [{ d: '2026-10-01' }, { d: '2026-10-05' }, { d: '2026-10-09' }, { d: '' }];
+  const rango = { desde: '2026-10-02', hasta: '2026-10-09' };
+  const dia = (l) => l.d;
+  const corto = (r) => r && { registros: r.registros, cpl: r.cpl };
+  assert.deepEqual(corto(registrosReales(leads, rango, 100, { dia })), { registros: 2, cpl: 50 }); // solo los del periodo
+  assert.deepEqual(corto(registrosReales(leads, rango, 100, { dia, todos: true })), { registros: 4, cpl: 25 }); // todo el lanzamiento
+  assert.deepEqual(corto(registrosReales([], rango, 100, { dia })), { registros: 0, cpl: null });
+  assert.equal(registrosReales(null, rango, 100), null); // leads sin cargar
+});
+
+test('registros reales por campaña, conjunto y anuncio según las UTM de Meta (id o nombre)', () => {
+  const leads = [
+    { src: { campaign: 'c1', term: 's1', content: 'a1' } },
+    { src: { campaign: 'c1', term: 's1', content: 'a2' } },
+    { src: { campaign: 'DIR-reto · Frío', term: 'Conjunto 1', content: 'Anuncio 1' } }, // UTM con nombres
+    { src: {} }, {}, // sin UTM
+  ];
+  const r = registrosReales(leads, { desde: '', hasta: '' }, 90, { todos: true });
+  assert.equal(r.registros, 5);
+  assert.equal(realesDeNodo(r.porUtm, { nivel: 'campaign', id: 'c1', nombre: 'DIR-reto · Frio' }), 3); // sin tildes ni mayúsculas
+  assert.equal(realesDeNodo(r.porUtm, { nivel: 'adset', id: 's1', nombre: 'Conjunto 1' }), 3);
+  assert.equal(realesDeNodo(r.porUtm, { nivel: 'ad', id: 'a1', nombre: 'Anuncio 1' }), 2);
+  assert.equal(realesDeNodo(r.porUtm, { nivel: 'ad', id: 'a3', nombre: 'Otro' }), 0);
 });

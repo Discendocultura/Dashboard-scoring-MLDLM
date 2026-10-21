@@ -57,7 +57,7 @@ import { siguientesPasos } from './siguientes-pasos.js';
 import { promptEncuesta, libresAgrupadas } from './encuesta-ia.js';
 import { lanzamientoAAnalizar, promptAnalisis } from './analisis-ia.js';
 import { codigoMeta, choquesMeta, ejemploCampana } from './meta-codigo.js';
-import { UMBRALES as UMBRALES_PUBLI } from './publicidad.js';
+import { UMBRALES as UMBRALES_PUBLI, registrosReales, realesDeNodo } from './publicidad.js';
 import { mensajeSeguimiento, porEtapa as segPorEtapa } from './seguimiento.js';
 import { ESTADOS_AUTO, autoCtx, automatizacionesDe, promptAutomatizacion, descripcionIaGhl, promptPreparacion, revisarExistente } from './automatizaciones.js';
 import { promptNarrativa, bloqueNarrativa, extraerNarrativa, sanitizeNarrativa } from './narrativa.js';
@@ -15984,20 +15984,25 @@ const numEs = (n, d = 0) => (n == null || !Number.isFinite(n) ? '–' : n.toLoca
 const pctEs = (n, d = 2) => (n == null ? '–' : `${numEs(n * 100, d)} %`);
 const roasEs = (n) => (n == null ? '–' : `${numEs(n, 2)}x`);
 // Columnas como en el Administrador de anuncios: Rendimiento, Embudo y conversión, Creatividad.
-function columnasPublicidad(res) {
+// Con registros reales (GHL), sus dos columnas van junto a los registros de Meta.
+function columnasPublicidad(res, conReales = false) {
   const r = res === 'compras' ? ['Compras', 'compras', 'Coste por compra', 'costeCompra'] : ['Registros', 'registros', 'Coste por registro', 'cpl'];
   const c = (label, f, ayuda = '') => ({ label, f, ayuda });
+  const reales = res === 'registros' && conReales ? [
+    c('Registros reales (GHL)', (m) => numEs(m.reales), 'Leads de GHL con la etiqueta de registro cuya UTM de Meta (utm_campaign, utm_term o utm_content) es esta campaña, conjunto o anuncio. El total incluye también los que no traen UTM.'),
+    c('CPL real', (m) => eur(m.cplReal), 'Importe gastado ÷ registros reales (GHL)'),
+  ] : [];
   return {
     rendimiento: [
       c('Importe gastado', (m) => eur(m.gasto)), c('Impresiones', (m) => numEs(m.impresiones)), c('Alcance', (m) => numEs(m.alcance), 'Personas distintas que lo han visto'),
       c('Frecuencia', (m) => numEs(m.frecuencia, 2), 'Impresiones ÷ alcance: veces que lo ha visto cada persona'), c('CPM', (m) => eur(m.cpm), 'Coste por 1.000 impresiones'),
       c('CTR (enlace)', (m) => pctEs(m.ctrEnlace), 'Clics en el enlace ÷ impresiones'), c('CPC (enlace)', (m) => eur(m.cpcEnlace), 'Gasto ÷ clics en el enlace'),
-      c(r[0], (m) => numEs(m[r[1]]), 'Lo que cuenta Meta (píxel o formulario)'), c(r[2], (m) => eur(m[r[3]])),
+      c(r[0], (m) => numEs(m[r[1]]), 'Lo que cuenta Meta (píxel o formulario)'), c(r[2], (m) => eur(m[r[3]])), ...reales,
     ],
     embudo: [
       c('Importe gastado', (m) => eur(m.gasto)), c('Clics en el enlace', (m) => numEs(m.clicsEnlace)), c('Visitas a la página', (m) => numEs(m.visitas), 'Landing page views: el clic que llega a cargar la página'),
       c('% de carga', (m) => pctEs(m.carga, 0), 'Visitas ÷ clics en el enlace: si es bajo, la página tarda en cargar'), c('Coste por visita', (m) => eur(m.costeVisita)),
-      c('Registros', (m) => numEs(m.registros)), c('Coste por registro', (m) => eur(m.cpl)), c('Pagos iniciados', (m) => numEs(m.pagos)), c('Coste pago iniciado', (m) => eur(m.costePago)),
+      c('Registros', (m) => numEs(m.registros)), c('Coste por registro', (m) => eur(m.cpl)), ...reales, c('Pagos iniciados', (m) => numEs(m.pagos)), c('Coste pago iniciado', (m) => eur(m.costePago)),
       c('Compras', (m) => numEs(m.compras)), c('Coste por compra', (m) => eur(m.costeCompra)), c('Valor de compras', (m) => eur(m.valor)), c('ROAS (Meta)', (m) => roasEs(m.roas), 'Valor de las compras que cuenta Meta ÷ gasto'),
     ],
     creatividad: [
@@ -16006,6 +16011,15 @@ function columnasPublicidad(res) {
       c('CTR (todos)', (m) => pctEs(m.ctr)), c('CTR (enlace)', (m) => pctEs(m.ctrEnlace)), c('CPM', (m) => eur(m.cpm)),
     ],
   };
+}
+// Registros reales (GHL) para comparar con los de Meta: en la VSL, por su fecha de registro; en el lanzamiento,
+// con «Todo el lanzamiento» todos los que tienen la etiqueta y, en otro periodo, los creados en GHL en esas fechas
+// (de quien ya estaba en GHL no hay fecha de registro, por eso es aproximado). null si los leads no están cargados.
+function registrosGhlPb(D, gasto) {
+  if (enVsl()) return state.vsl?.leads ? { ...registrosReales(state.vsl.leads, D.rango, gasto, { dia: (l) => l.fReg }), exacto: true } : null;
+  if (tipoActual() !== 'lanz' || !D.code || state.leadsDe !== D.code) return null;
+  const todos = $('#pb-preset').value === 'lanzamiento';
+  return { ...registrosReales(state.leads, D.rango, gasto, { dia: (l) => (l.dateAdded ? dayInMadrid(l.dateAdded) : ''), todos }), exacto: todos };
 }
 const ESTADO_META = { ACTIVE: ['Activa', 'on'], PAUSED: ['En pausa', 'off'], CAMPAIGN_PAUSED: ['Campaña en pausa', 'off'], ADSET_PAUSED: ['Conjunto en pausa', 'off'], DELETED: ['Eliminada', 'off'], ARCHIVED: ['Archivada', 'off'], IN_PROCESS: ['En revisión', 'rev'], PENDING_REVIEW: ['En revisión', 'rev'], DISAPPROVED: ['Rechazado', 'mal'], WITH_ISSUES: ['Con problemas', 'mal'] };
 function renderPublicidad() {
@@ -16022,6 +16036,13 @@ function renderPublicidad() {
   const res = D.resultado || 'registros';
   const t = D.total || {};
   const costeRes = res === 'compras' ? t.costeCompra : t.cpl;
+  const real = res === 'registros' && D.campanas?.length ? registrosGhlPb(D, t.gasto) : null;
+  const aprox = real && !real.exacto ? '≈ ' : '';
+  const realesCards = res !== 'registros' ? [] : !real ? [cardD('Registros reales (GHL)', '–', 'los leads de GHL aún no están cargados', 'users', 'buy', 'Abre Leads o pulsa Actualizar cuando terminen de cargar.')] : [
+    cardD('Registros reales (GHL)', `${aprox}${numEs(real.registros)}`, t.registros ? `Meta cuenta ${numEs(t.registros)}${t.registros !== real.registros ? ` (${numEs(Math.abs(t.registros - real.registros))} ${t.registros > real.registros ? 'más' : 'menos'})` : ''}` : 'con la etiqueta de registro',
+      'users', 'buy', real.exacto ? 'Leads con la etiqueta de registro en GHL en el periodo, vengan o no de los anuncios.' : 'Leads creados en GHL en estas fechas (de quien ya estaba en GHL no hay fecha de registro). Para la cifra exacta, elige «Todo el lanzamiento».'),
+    cardD('CPL real', `${aprox}${eur(real.cpl)}`, `${eur(t.gasto)} / ${numEs(real.registros)} registros reales`, 'coins', 'money', 'Importe gastado en Meta ÷ registros reales de GHL. El «Coste por registro» de Meta solo cuenta lo que ve el píxel o el formulario.'),
+  ];
   $('#pb-kpis').innerHTML = !D.campanas?.length ? '' : [
     cardD('Importe gastado', eur(t.gasto), `${D.campanas.length} campaña${D.campanas.length === 1 ? '' : 's'}`, 'coins', 'accent', 'Lo gastado en Meta en el periodo, en las campañas del embudo.'),
     cardD('Impresiones', t.impresiones >= 100_000 ? t.impresiones.toLocaleString('es-ES', { notation: 'compact', maximumFractionDigits: 1 }) : numEs(t.impresiones), `Alcance ${D.alcanceAproximado ? '≈ ' : ''}${numEs(t.alcance)} · frecuencia ${numEs(t.frecuencia, 2)}`, 'users', 'info', D.alcanceAproximado ? 'Con varias campañas, el alcance es la suma de cada una (una persona que vio dos campañas cuenta dos veces).' : ''),
@@ -16029,10 +16050,13 @@ function renderPublicidad() {
     cardD('CTR (enlace)', pctEs(t.ctrEnlace), `CPC ${eur(t.cpcEnlace)} · ${numEs(t.clicsEnlace)} clics`, 'trend', 'info', 'Clics en el enlace ÷ impresiones. CPC: gasto ÷ clics en el enlace.'),
     cardD('Visitas a la página', numEs(t.visitas), `${pctEs(t.carga, 0)} de los clics · ${eur(t.costeVisita)} cada una`, 'layout', 'info', 'Landing page views de Meta: clics que llegan a cargar la página.'),
     cardD(res === 'compras' ? 'Compras (Meta)' : 'Registros (Meta)', numEs(t[res]), `${eur(costeRes)} cada ${res === 'compras' ? 'compra' : 'registro'}`, res === 'compras' ? 'cart' : 'users', 'buy', 'Lo que cuenta Meta con el píxel o el formulario. Las ventas reales (GHL) están en Métricas.'),
+    ...realesCards,
     ...(t.valor ? [cardD('ROAS (Meta)', roasEs(t.roas), `${eur(t.valor)} en compras`, 'coins', 'money', 'Valor de las compras que cuenta Meta ÷ gasto.')] : []),
   ].join('');
   if (!D.campanas?.length) { $('#pb-arbol').innerHTML = `<p class="muted">Ninguna campaña con gasto en este periodo${D.filtro ? ` con «${esc(D.filtro)}» en el nombre` : ''}. Comprueba el código de las campañas en la configuración del embudo.</p>`; return; }
-  const cols = columnasPublicidad(res)[state.pb.cols];
+  const cols = columnasPublicidad(res, Boolean(real))[state.pb.cols];
+  const metricas = (n) => { if (!real) return n.m; const reales = realesDeNodo(real.porUtm, n); return { ...n.m, reales, cplReal: reales && n.m.gasto ? n.m.gasto / reales : null }; };
+  const sinUtm = real ? real.registros - D.campanas.reduce((s, x) => s + realesDeNodo(real.porUtm, x), 0) : 0;
   const soloActivos = $('#pb-activos').checked;
   const visible = (n) => !soloActivos || !n.estado || n.estado === 'ACTIVE';
   const nivelTxt = { campaign: 'Campaña', adset: 'Conjunto de anuncios', ad: 'Anuncio' };
@@ -16042,13 +16066,14 @@ function renderPublicidad() {
     const hijos = n.hijos?.filter(visible) || [];
     const est = ESTADO_META[n.estado] || (n.estado ? [n.estado.toLowerCase().replace(/_/g, ' '), 'off'] : null);
     const nombre = `${hijos.length ? `<button type="button" class="pb-tog" data-pb-abrir="${esc(n.id)}" aria-expanded="${abierto}" aria-label="${abierto ? 'Cerrar' : 'Abrir'} ${esc(n.nombre)}">${abierto ? '▾' : '▸'}</button>` : '<span class="pb-tog-v"></span>'}<span class="pb-nom"><strong>${esc(n.nombre)}</strong><small class="muted">${nivelTxt[n.nivel]}${hijos.length ? ` · ${hijos.length} ${n.nivel === 'campaign' ? `conjunto${hijos.length === 1 ? '' : 's'}` : `anuncio${hijos.length === 1 ? '' : 's'}`}` : ''}</small></span>${enlaceMeta(n)}`;
-    const propia = `<tr class="pb-${n.nivel}"><td class="pb-c1" style="--pb-prof:${prof}"><div class="pb-c1-in">${nombre}</div></td><td>${est ? `<span class="pb-est pb-est-${est[1]}">${esc(est[0])}</span>` : ''}</td>${cols.map((c) => `<td class="num">${c.f(n.m)}</td>`).join('')}</tr>`;
+    const propia = `<tr class="pb-${n.nivel}"><td class="pb-c1" style="--pb-prof:${prof}"><div class="pb-c1-in">${nombre}</div></td><td>${est ? `<span class="pb-est pb-est-${est[1]}">${esc(est[0])}</span>` : ''}</td>${cols.map((c) => `<td class="num">${c.f(metricas(n))}</td>`).join('')}</tr>`;
     return propia + (abierto ? hijos.map((h) => fila(h, prof + 1)).join('') : '');
   };
   const filas = D.campanas.filter(visible).map((c) => fila(c, 0)).join('');
   $('#pb-arbol').innerHTML = `<div class="table-wrap"><table class="metric-table pb-t"><thead><tr><th>Campaña / conjunto de anuncios / anuncio</th><th>Estado</th>${cols.map((c) => `<th class="num"${c.ayuda ? ` title="${esc(c.ayuda)}"` : ''}>${esc(c.label)}</th>`).join('')}</tr></thead>
     <tbody>${filas || `<tr><td colspan="${cols.length + 2}" class="muted">Ninguna campaña activa: quita «Solo activos».</td></tr>`}</tbody>
-    <tfoot><tr><td><strong>Total</strong></td><td></td>${cols.map((c) => `<td class="num"><strong>${c.f(t)}</strong></td>`).join('')}</tr></tfoot></table></div>
+    <tfoot><tr><td><strong>Total</strong></td><td></td>${cols.map((c) => `<td class="num"><strong>${c.f(real ? { ...t, reales: real.registros, cplReal: real.cpl } : t)}</strong></td>`).join('')}</tr></tfoot></table></div>
+    ${real && sinUtm > 0 ? `<p class="muted small">De los ${numEs(real.registros)} registros reales${real.exacto ? '' : ' (aprox.)'}, <strong>${numEs(sinUtm)}</strong> no traen la UTM de ninguna de estas campañas (orgánicos, otras campañas o sin UTM): cuentan en el total, no en ninguna fila.</p>` : ''}
     <p class="muted small">Pulsa ▸ para abrir una campaña o un conjunto, y ↗ para abrirlo en Meta. Las cifras son las de Meta en el periodo elegido (pueden tardar unas horas en cuadrar con el Administrador). Las ventas reales por anuncio, cruzadas con GHL, están en «Anuncios ganadores».</p>`;
 }
 // Avisos de anuncios nuevos (también los usa el Inicio con la versión corta).

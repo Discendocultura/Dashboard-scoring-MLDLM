@@ -156,6 +156,33 @@ export function avisosAnuncios({ actual = [], anterior = [], estados = {}, tipo 
   return { nivel, titulo, avisos, activos: vivos.length };
 }
 
+// Registros reales (los leads de GHL) del periodo y su CPL con el gasto de Meta. `dia(l)`: día de registro del lead.
+// Con `todos` (todo el lanzamiento) cuentan todos los que tienen la etiqueta, también los que ya estaban en GHL.
+// `porUtm`: cuántos hay por campaña, conjunto y anuncio según sus UTM de Meta (utm_campaign, utm_term y
+// utm_content, con el id o el nombre); se leen con `realesDeNodo`.
+const CAMPO_UTM = { campaign: 'campaign', adset: 'term', ad: 'content' };
+export function registrosReales(leads, rango, gasto, { dia = () => '', todos = false } = {}) {
+  if (!Array.isArray(leads)) return null;
+  const del = todos ? leads : leads.filter((l) => { const d = dia(l); return d && d >= rango.desde && d <= rango.hasta; });
+  const porUtm = { campaign: new Map(), adset: new Map(), ad: new Map() };
+  for (const l of del) {
+    for (const [nivel, campo] of Object.entries(CAMPO_UTM)) {
+      const v = norm(l.src?.[campo]).trim();
+      if (v) porUtm[nivel].set(v, (porUtm[nivel].get(v) || 0) + 1);
+    }
+  }
+  const n = del.length;
+  return { registros: n, cpl: n && gasto ? gasto / n : null, porUtm };
+}
+// Registros reales de una campaña, conjunto o anuncio del árbol (por su id o, si la UTM lleva el nombre, por su nombre).
+export function realesDeNodo(porUtm, n) {
+  const m = porUtm?.[n.nivel];
+  if (!m) return 0;
+  const id = norm(n.id);
+  const nombre = norm(n.nombre).trim();
+  return (m.get(id) || 0) + (nombre && nombre !== id ? m.get(nombre) || 0 : 0);
+}
+
 // Filtro de campañas (texto en el nombre, sin mayúsculas ni tildes), igual que la inversión.
 const norm = (v) => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 export const filtrarCampanas = (rows, filtro = '') => {

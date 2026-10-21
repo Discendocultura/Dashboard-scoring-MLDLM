@@ -5,6 +5,7 @@
 // Uso: node scripts/huellas.js   (y `--comprobar` para solo comprobar; lo usa el test).
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 
 const pub = new URL('../public/', import.meta.url);
 const huella = (ruta) => createHash('sha1').update(readFileSync(new URL(ruta, pub))).digest('hex').slice(0, 10);
@@ -23,7 +24,7 @@ export function htmlConHuellas(html) {
 
 export const PAGINAS = ['index.html', 'marca.html'];
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) { // también con espacios en la ruta
   const comprobar = process.argv.includes('--comprobar');
   let mal = 0;
   for (const p of PAGINAS) {
