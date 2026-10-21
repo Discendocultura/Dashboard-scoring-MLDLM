@@ -31,7 +31,7 @@ export async function GET(request) {
     // La antigua (data.discendocultura.com) ya no se usa para los enlaces nuevos: aunque no esté puesta la variable.
     const dom = dominioLogin(env) || (url.hostname === 'data.discendocultura.com' ? 'alquimia.tenaxdigital.com' : '');
     const origen = dom && !/^(localhost|127\.0\.0\.1)$/.test(url.hostname) ? `https://${dom}` : url.origin;
-    return json({ url: `${origen}/api/zoom-registro?c=${encodeURIComponent(clienteActual().id)}&k=${encodeURIComponent(k)}` });
+    return json({ url: `${origen}/api/zoom-registro?c=${encodeURIComponent(clienteActual().id)}&k=${encodeURIComponent(k).replace(/%3A/gi, ':')}` }); // los «:» sin codificar: GHL no los vuelve a codificar
   } catch (e) {
     return errorResponse(e);
   }
@@ -50,7 +50,8 @@ export async function POST(request) {
       if (!contact) return json({ ok: false, motivo: 'contacto no encontrado', detalle: `No hay ningún contacto con ${email} en el CRM de este cliente.` });
       return json(await inscribirRegistro({ cid: contact.id, contact, pedido: String(body.l || '') }));
     }
-    if ((await verifyToken(url.searchParams.get('k'))) !== valor()) return json({ ok: false, motivo: 'enlace no válido', detalle: 'La URL del webhook no es de este cliente o está incompleta: cópiala de nuevo de AlquimIA.' }, 403);
+    const k = claveDe(url.searchParams.get('k'));
+    if ((await verifyToken(k)) !== valor()) return json({ ok: false, motivo: 'enlace no válido', detalle: porQueNoVale(k) }, 403);
     if (!(await dentroDelLimite(request, 'zoomreg', 600))) return json({ ok: false, motivo: 'demasiadas peticiones' }, 429);
     const body = await readBody(request);
     const cid = String(body.contact_id || body.contactId || body.contact?.id || body.customData?.cid || body.customData?.contact_id || body.cid || body.id || url.searchParams.get('cid') || request.headers.get('cid') || request.headers.get('contact_id') || '').trim();
@@ -61,6 +62,23 @@ export async function POST(request) {
   } catch (e) {
     return errorResponse(e);
   }
+}
+
+// La clave tal como llega: GHL a veces la codifica otra vez (%253A en vez de %3A) o le pega espacios o comillas.
+export function claveDe(k) {
+  let s = String(k || '').trim().replace(/^["']|["']$/g, '');
+  for (let i = 0; i < 3 && /%[0-9a-f]{2}/i.test(s); i++) {
+    try { s = decodeURIComponent(s); } catch { break; }
+  }
+  return s.trim();
+}
+// Por qué no vale la clave (sin enseñar la firma).
+function porQueNoVale(k) {
+  const valorK = k.includes('.') ? k.slice(0, k.lastIndexOf('.')) : '';
+  if (!k) return 'Falta la clave (k=…) en la URL: cópiala entera de AlquimIA (Plan → Automatizaciones → registro).';
+  if (!valorK) return 'La clave (k=…) está cortada: cópiala entera de AlquimIA.';
+  if (valorK !== valor()) return `La clave es de «${valorK.replace(/^zoomreg:/, '')}» y la URL dice c=${clienteActual().id}: copia la URL entera del cliente correcto en AlquimIA.`;
+  return 'La firma de la clave no coincide (está cortada o se generó con otra clave): copia la URL de nuevo de AlquimIA (Plan → Automatizaciones → registro).';
 }
 
 // Inscribe al contacto en los directos abiertos con Zoom de sus lanzamientos y explica cada fallo en claro.

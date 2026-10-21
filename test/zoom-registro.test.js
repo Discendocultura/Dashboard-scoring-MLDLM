@@ -36,3 +36,15 @@ test('zoom-registro: los errores de Zoom se explican en claro', async () => {
   assert.match(explicarZoom('Zoom 400: {"code":304,"message":"Registration has not been enabled"}', '1'), /Registro: obligatorio/);
   assert.match(explicarZoom('Zoom 400: {"code":4711,"message":"Invalid access token, does not contain scopes"}'), /permiso/);
 });
+
+test('zoom-registro: la clave se lee aunque GHL la codifique otra vez', async () => {
+  const { claveDe } = await import('../handlers/zoom-registro.js');
+  assert.equal(claveDe('zoomreg:mldlm.abc_D-1'), 'zoomreg:mldlm.abc_D-1');
+  assert.equal(claveDe('zoomreg%3Amldlm.abc_D-1'), 'zoomreg:mldlm.abc_D-1');
+  assert.equal(claveDe(' "zoomreg%253Amldlm.abc_D-1" '), 'zoomreg:mldlm.abc_D-1');
+  const { setEnv } = await import('../lib/env.js');
+  setEnv({ SESSION_SECRET: 'test-secret-test-secret' });
+  const { signToken, verifyToken } = await import('../lib/auth.js');
+  const t = await signToken('zoomreg:mldlm');
+  assert.equal(await verifyToken(claveDe(encodeURIComponent(encodeURIComponent(t)))), 'zoomreg:mldlm');
+});
