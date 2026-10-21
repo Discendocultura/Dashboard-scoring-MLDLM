@@ -34,6 +34,7 @@ test('zoom-registro: los errores de Zoom se explican en claro', async () => {
   const { explicarZoom } = await import('../handlers/zoom-registro.js');
   assert.match(explicarZoom('Zoom 404: {"code":3001,"message":"Meeting does not exist"}', '812 3456'), /no existe en la cuenta de Zoom/);
   assert.match(explicarZoom('Zoom 400: {"code":304,"message":"Registration has not been enabled"}', '1'), /Registro: obligatorio/);
+  assert.match(explicarZoom('Zoom 400: {"code":3027,"message":"El anfitrión no se puede registrar."}'), /anfitrión/);
   assert.match(explicarZoom('Zoom 400: {"code":4711,"message":"Invalid access token, does not contain scopes"}'), /permiso/);
 });
 

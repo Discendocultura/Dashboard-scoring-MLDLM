@@ -123,7 +123,8 @@ const DETALLE = {
 export function explicarZoom(msg = '', meetingId = '') {
   const m = String(msg);
   const id = String(meetingId).replace(/\D/g, '');
-  const base = /Zoom 404|3001|does not exist|not found/i.test(m) ? `La reunión ${id} no existe en la cuenta de Zoom que usa AlquimIA para este cliente (¿se creó en otra cuenta de Zoom o se borró?).`
+  const base = /3027|host cannot register|anfitri[oó]n no se puede registrar/i.test(m) ? 'Ese email es el del anfitrión de la reunión en Zoom, y Zoom no deja inscribir al anfitrión. Prueba con otro email (con una lead de verdad funciona).'
+    : /Zoom 404|3001|does not exist|not found/i.test(m) ? `La reunión ${id} no existe en la cuenta de Zoom que usa AlquimIA para este cliente (¿se creó en otra cuenta de Zoom o se borró?).`
     : /registration|3043|304|not enabled/i.test(m) ? `La reunión ${id} no tiene activado el registro: en Zoom, edítala y marca «Registro: obligatorio».`
     : /Zoom 401|invalid.?(client|token|access)|4700|4711|scope/i.test(m) ? 'La app de Zoom de este cliente no tiene permiso para inscribir (necesita «meeting:write:registrant» o «meeting:write») o sus claves no valen.'
     : /Zoom 429/i.test(m) ? 'Zoom ha limitado las peticiones: se volverá a intentar en la preclase.'
