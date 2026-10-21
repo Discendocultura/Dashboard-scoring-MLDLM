@@ -2394,6 +2394,7 @@ function programarRender() {
   renderPendiente = requestAnimationFrame(() => { renderPendiente = 0; render(); });
 }
 function render() {
+  if (!$('#view-publicidad').hidden && state.pb?.datos) renderPublicidad(); // registros reales (GHL) con los leads nuevos
   pintarCabeceraVideos();
   actualizarAuditor();
   computeAvatares();
@@ -13027,6 +13028,7 @@ function renderVsl() {
   if (!$('#view-vleads').hidden) renderVslLeads();
   if (!$('#view-vanuncios').hidden) renderVslAnuncios();
   if (!$('#view-utms').hidden) renderUtms();
+  if (!$('#view-publicidad').hidden && state.pb?.datos) renderPublicidad(); // registros reales (GHL)
 }
 const vslCargando = (box) => { box.innerHTML = '<p class="muted">Cargando los leads de la VSL…</p>'; };
 
@@ -15986,11 +15988,11 @@ const roasEs = (n) => (n == null ? '–' : `${numEs(n, 2)}x`);
 // Columnas como en el Administrador de anuncios: Rendimiento, Embudo y conversión, Creatividad.
 // Con registros reales (GHL), sus dos columnas van junto a los registros de Meta.
 function columnasPublicidad(res, conReales = false) {
-  const r = res === 'compras' ? ['Compras', 'compras', 'Coste por compra', 'costeCompra'] : ['Registros', 'registros', 'Coste por registro', 'cpl'];
+  const r = res === 'compras' ? ['Compras (Meta)', 'compras', 'Coste por compra (Meta)', 'costeCompra'] : ['Registros (Meta)', 'registros', 'CPL (Meta)', 'cpl'];
   const c = (label, f, ayuda = '') => ({ label, f, ayuda });
   const reales = res === 'registros' && conReales ? [
     c('Registros reales (GHL)', (m) => numEs(m.reales), 'Leads de GHL con la etiqueta de registro cuya UTM de Meta (utm_campaign, utm_term o utm_content) es esta campaña, conjunto o anuncio. El total incluye también los que no traen UTM.'),
-    c('CPL real', (m) => eur(m.cplReal), 'Importe gastado ÷ registros reales (GHL)'),
+    c('CPL real (GHL)', (m) => eur(m.cplReal), 'Importe gastado ÷ registros reales (GHL)'),
   ] : [];
   return {
     rendimiento: [
@@ -16002,8 +16004,8 @@ function columnasPublicidad(res, conReales = false) {
     embudo: [
       c('Importe gastado', (m) => eur(m.gasto)), c('Clics en el enlace', (m) => numEs(m.clicsEnlace)), c('Visitas a la página', (m) => numEs(m.visitas), 'Landing page views: el clic que llega a cargar la página'),
       c('% de carga', (m) => pctEs(m.carga, 0), 'Visitas ÷ clics en el enlace: si es bajo, la página tarda en cargar'), c('Coste por visita', (m) => eur(m.costeVisita)),
-      c('Registros', (m) => numEs(m.registros)), c('Coste por registro', (m) => eur(m.cpl)), ...reales, c('Pagos iniciados', (m) => numEs(m.pagos)), c('Coste pago iniciado', (m) => eur(m.costePago)),
-      c('Compras', (m) => numEs(m.compras)), c('Coste por compra', (m) => eur(m.costeCompra)), c('Valor de compras', (m) => eur(m.valor)), c('ROAS (Meta)', (m) => roasEs(m.roas), 'Valor de las compras que cuenta Meta ÷ gasto'),
+      c('Registros (Meta)', (m) => numEs(m.registros), 'Lo que cuenta Meta (píxel o formulario)'), c('CPL (Meta)', (m) => eur(m.cpl)), ...reales, c('Pagos iniciados', (m) => numEs(m.pagos)), c('Coste pago iniciado', (m) => eur(m.costePago)),
+      c('Compras (Meta)', (m) => numEs(m.compras)), c('Coste por compra (Meta)', (m) => eur(m.costeCompra)), c('Valor de compras', (m) => eur(m.valor)), c('ROAS (Meta)', (m) => roasEs(m.roas), 'Valor de las compras que cuenta Meta ÷ gasto'),
     ],
     creatividad: [
       c('Importe gastado', (m) => eur(m.gasto)), c('Impresiones', (m) => numEs(m.impresiones)), c('Frecuencia', (m) => numEs(m.frecuencia, 2)),
@@ -16041,7 +16043,7 @@ function renderPublicidad() {
   const realesCards = res !== 'registros' ? [] : !real ? [cardD('Registros reales (GHL)', '–', 'los leads de GHL aún no están cargados', 'users', 'buy', 'Abre Leads o pulsa Actualizar cuando terminen de cargar.')] : [
     cardD('Registros reales (GHL)', `${aprox}${numEs(real.registros)}`, t.registros ? `Meta cuenta ${numEs(t.registros)}${t.registros !== real.registros ? ` (${numEs(Math.abs(t.registros - real.registros))} ${t.registros > real.registros ? 'más' : 'menos'})` : ''}` : 'con la etiqueta de registro',
       'users', 'buy', real.exacto ? 'Leads con la etiqueta de registro en GHL en el periodo, vengan o no de los anuncios.' : 'Leads creados en GHL en estas fechas (de quien ya estaba en GHL no hay fecha de registro). Para la cifra exacta, elige «Todo el lanzamiento».'),
-    cardD('CPL real', `${aprox}${eur(real.cpl)}`, `${eur(t.gasto)} / ${numEs(real.registros)} registros reales`, 'coins', 'money', 'Importe gastado en Meta ÷ registros reales de GHL. El «Coste por registro» de Meta solo cuenta lo que ve el píxel o el formulario.'),
+    cardD('CPL real (GHL)', `${aprox}${eur(real.cpl)}`, `${eur(t.gasto)} / ${numEs(real.registros)} registros reales`, 'coins', 'money', 'Importe gastado en Meta ÷ registros reales de GHL. El «Coste por registro» de Meta solo cuenta lo que ve el píxel o el formulario.'),
   ];
   $('#pb-kpis').innerHTML = !D.campanas?.length ? '' : [
     cardD('Importe gastado', eur(t.gasto), `${D.campanas.length} campaña${D.campanas.length === 1 ? '' : 's'}`, 'coins', 'accent', 'Lo gastado en Meta en el periodo, en las campañas del embudo.'),
@@ -16049,7 +16051,7 @@ function renderPublicidad() {
     cardD('CPM', eur(t.cpm), 'coste por 1.000 impresiones', 'megaphone', 'info', 'Gasto ÷ impresiones × 1.000.'),
     cardD('CTR (enlace)', pctEs(t.ctrEnlace), `CPC ${eur(t.cpcEnlace)} · ${numEs(t.clicsEnlace)} clics`, 'trend', 'info', 'Clics en el enlace ÷ impresiones. CPC: gasto ÷ clics en el enlace.'),
     cardD('Visitas a la página', numEs(t.visitas), `${pctEs(t.carga, 0)} de los clics · ${eur(t.costeVisita)} cada una`, 'layout', 'info', 'Landing page views de Meta: clics que llegan a cargar la página.'),
-    cardD(res === 'compras' ? 'Compras (Meta)' : 'Registros (Meta)', numEs(t[res]), `${eur(costeRes)} cada ${res === 'compras' ? 'compra' : 'registro'}`, res === 'compras' ? 'cart' : 'users', 'buy', 'Lo que cuenta Meta con el píxel o el formulario. Las ventas reales (GHL) están en Métricas.'),
+    cardD(res === 'compras' ? 'Compras (Meta)' : 'Registros (Meta)', numEs(t[res]), res === 'compras' ? `${eur(costeRes)} cada compra` : `CPL (Meta) ${eur(costeRes)}`, res === 'compras' ? 'cart' : 'users', 'buy', 'Lo que cuenta Meta con el píxel o el formulario. Las ventas reales (GHL) están en Métricas.'),
     ...realesCards,
     ...(t.valor ? [cardD('ROAS (Meta)', roasEs(t.roas), `${eur(t.valor)} en compras`, 'coins', 'money', 'Valor de las compras que cuenta Meta ÷ gasto.')] : []),
   ].join('');
