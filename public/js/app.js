@@ -16015,13 +16015,17 @@ function columnasPublicidad(res, conReales = false) {
   };
 }
 // Registros reales (GHL) para comparar con los de Meta: en la VSL, por su fecha de registro; en el lanzamiento,
-// con «Todo el lanzamiento» todos los que tienen la etiqueta y, en otro periodo, los creados en GHL en esas fechas
-// (de quien ya estaba en GHL no hay fecha de registro, por eso es aproximado). null si los leads no están cargados.
+// con «Todo el lanzamiento» todos los que tienen la etiqueta y, en otro periodo, por su alta en GHL (quien ya estaba
+// cuenta desde el inicio de captación). Exacto si el periodo cubre toda la captación; si empieza a mitad, aproximado
+// (de quien ya estaba en GHL no se sabe qué día se registró). null si los leads no están cargados.
 function registrosGhlPb(D, gasto) {
   if (enVsl()) return state.vsl?.leads ? { ...registrosReales(state.vsl.leads, D.rango, gasto, { dia: (l) => l.fReg }), exacto: true } : null;
   if (tipoActual() !== 'lanz' || !D.code || state.leadsDe !== D.code) return null;
+  const inicio = state.config.launches[D.code]?.inicioCaptacion || '';
   const todos = $('#pb-preset').value === 'lanzamiento';
-  return { ...registrosReales(state.leads, D.rango, gasto, { dia: (l) => (l.dateAdded ? dayInMadrid(l.dateAdded) : ''), todos }), exacto: todos };
+  const fin = D.lanzamiento?.hasta || dayInMadrid(new Date().toISOString());
+  const cubre = Boolean(inicio) && D.rango.desde <= inicio && D.rango.hasta >= fin;
+  return { ...registrosReales(state.leads, D.rango, gasto, { dia: (l) => (l.dateAdded ? dayInMadrid(l.dateAdded) : ''), todos, inicio }), exacto: todos || cubre };
 }
 const ESTADO_META = { ACTIVE: ['Activa', 'on'], PAUSED: ['En pausa', 'off'], CAMPAIGN_PAUSED: ['Campaña en pausa', 'off'], ADSET_PAUSED: ['Conjunto en pausa', 'off'], DELETED: ['Eliminada', 'off'], ARCHIVED: ['Archivada', 'off'], IN_PROCESS: ['En revisión', 'rev'], PENDING_REVIEW: ['En revisión', 'rev'], DISAPPROVED: ['Rechazado', 'mal'], WITH_ISSUES: ['Con problemas', 'mal'] };
 function renderPublicidad() {
@@ -16042,7 +16046,7 @@ function renderPublicidad() {
   const aprox = real && !real.exacto ? '≈ ' : '';
   const realesCards = res !== 'registros' ? [] : !real ? [cardD('Registros reales (GHL)', '–', 'los leads de GHL aún no están cargados', 'users', 'buy', 'Abre Leads o pulsa Actualizar cuando terminen de cargar.')] : [
     cardD('Registros reales (GHL)', `${aprox}${numEs(real.registros)}`, t.registros ? `Meta cuenta ${numEs(t.registros)}${t.registros !== real.registros ? ` (${numEs(Math.abs(t.registros - real.registros))} ${t.registros > real.registros ? 'más' : 'menos'})` : ''}` : 'con la etiqueta de registro',
-      'users', 'buy', real.exacto ? 'Leads con la etiqueta de registro en GHL en el periodo, vengan o no de los anuncios.' : 'Leads creados en GHL en estas fechas (de quien ya estaba en GHL no hay fecha de registro). Para la cifra exacta, elige «Todo el lanzamiento».'),
+      'users', 'buy', real.exacto ? 'Leads con la etiqueta de registro en GHL en el periodo, vengan o no de los anuncios.' : 'Leads con la etiqueta de registro según su alta en GHL; quien ya estaba en GHL cuenta desde el inicio de captación (no se sabe qué día se registró). Para la cifra exacta, elige un periodo que incluya el inicio de captación o «Todo el lanzamiento».'),
     cardD('CPL real (GHL)', `${aprox}${eur(real.cpl)}`, `${eur(t.gasto)} / ${numEs(real.registros)} registros reales`, 'coins', 'money', 'Importe gastado en Meta ÷ registros reales de GHL. El «Coste por registro» de Meta solo cuenta lo que ve el píxel o el formulario.'),
   ];
   $('#pb-kpis').innerHTML = !D.campanas?.length ? '' : [

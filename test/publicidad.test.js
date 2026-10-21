@@ -106,3 +106,14 @@ test('registros reales por campaña, conjunto y anuncio según las UTM de Meta (
   assert.equal(realesDeNodo(r.porUtm, { nivel: 'ad', id: 'a1', nombre: 'Anuncio 1' }), 2);
   assert.equal(realesDeNodo(r.porUtm, { nivel: 'ad', id: 'a3', nombre: 'Otro' }), 0);
 });
+
+test('registros reales: quien ya estaba en GHL cuenta desde el inicio de captación', () => {
+  // 24 con la etiqueta: 10 nuevos en la captación (21-oct) y 14 que ya estaban en GHL (uno sin fecha).
+  const leads = [...Array(10).fill({ d: '2026-10-21' }), ...Array(13).fill({ d: '2025-03-02' }), { d: '' }];
+  const dia = (l) => l.d;
+  const hoy = { desde: '2026-10-21', hasta: '2026-10-21' };
+  assert.equal(registrosReales(leads, hoy, 120, { dia }).registros, 10); // sin inicio: solo los nuevos
+  assert.equal(registrosReales(leads, hoy, 120, { dia, inicio: '2026-10-21' }).registros, 24);
+  assert.equal(registrosReales(leads, { desde: '2026-09-22', hasta: '2026-10-21' }, 120, { dia, inicio: '2026-10-21' }).cpl, 5);
+  assert.equal(registrosReales(leads, { desde: '2026-10-22', hasta: '2026-10-25' }, 120, { dia, inicio: '2026-10-21' }).registros, 0); // empieza después del inicio
+});

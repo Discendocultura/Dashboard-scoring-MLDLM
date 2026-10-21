@@ -158,12 +158,15 @@ export function avisosAnuncios({ actual = [], anterior = [], estados = {}, tipo 
 
 // Registros reales (los leads de GHL) del periodo y su CPL con el gasto de Meta. `dia(l)`: día de registro del lead.
 // Con `todos` (todo el lanzamiento) cuentan todos los que tienen la etiqueta, también los que ya estaban en GHL.
+// `inicio` (inicio de captación): quien ya estaba en GHL (o sin fecha) cuenta como registrado ese día, porque
+// en este lanzamiento no pudo registrarse antes.
 // `porUtm`: cuántos hay por campaña, conjunto y anuncio según sus UTM de Meta (utm_campaign, utm_term y
 // utm_content, con el id o el nombre); se leen con `realesDeNodo`.
 const CAMPO_UTM = { campaign: 'campaign', adset: 'term', ad: 'content' };
-export function registrosReales(leads, rango, gasto, { dia = () => '', todos = false } = {}) {
+export function registrosReales(leads, rango, gasto, { dia = () => '', todos = false, inicio = '' } = {}) {
   if (!Array.isArray(leads)) return null;
-  const del = todos ? leads : leads.filter((l) => { const d = dia(l); return d && d >= rango.desde && d <= rango.hasta; });
+  const diaDe = (l) => { const d = dia(l); return inicio && (!d || d < inicio) ? inicio : d; };
+  const del = todos ? leads : leads.filter((l) => { const d = diaDe(l); return d && d >= rango.desde && d <= rango.hasta; });
   const porUtm = { campaign: new Map(), adset: new Map(), ad: new Map() };
   for (const l of del) {
     for (const [nivel, campo] of Object.entries(CAMPO_UTM)) {
