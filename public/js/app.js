@@ -7662,6 +7662,15 @@ async function hacerFoto(code) {
   }
 }
 
+// Etiqueta nueva, solo de este lanzamiento (p. ej. «et-entrada-vip-29octubre26»): nadie la tenía antes, así que no
+// hace falta foto, y hacerla ahora marcaría como «anterior» a quien ya ha comprado en este lanzamiento.
+const btnSinFoto = (missing) => missing.map((f) => `<button type="button" class="btn" data-action="snapshot-omitir" data-campo="${f.field}" title="Para etiquetas nuevas de este lanzamiento: nadie las tenía antes">«${esc(f.label)}»: es una etiqueta nueva de este lanzamiento, no hace falta</button>`).join(' ');
+function sinFoto(launch, fields) {
+  const snapshot = { at: new Date().toISOString(), ...(launch.snapshot || {}), counts: { ...(launch.snapshot?.counts || {}) }, tags: { ...(launch.snapshot?.tags || {}) } };
+  for (const f of fields) { snapshot.tags[f.field] = launch[f.field]; snapshot.counts[f.field] = 0; }
+  return { ...launch, snapshot };
+}
+
 function snapshotSummary(launch) {
   const s = launch.snapshot;
   if (!s) return '';
@@ -7679,7 +7688,7 @@ function renderSnapshotBox() {
   const missing = missingSnapshot(launch);
   box.innerHTML = `${launch.snapshot ? `<p>${snapshotSummary(launch)}</p>` : ''}
     ${missing.length ? `<p><strong>Falta la foto de:</strong> ${missing.map((f) => `«${esc(launch[f.field])}»`).join(', ')}. Hazla solo si todavía no se ha vendido nada en este lanzamiento: quien tenga ya la etiqueta dejará de contar.</p>
-    <button type="button" class="btn" data-action="snapshot">Hacer la foto ahora</button>` : ''}`;
+    <button type="button" class="btn" data-action="snapshot">Hacer la foto ahora</button> ${btnSinFoto(missing)}` : ''}`;
 }
 
 function renderSnapshotWarning() {
@@ -7690,7 +7699,7 @@ function renderSnapshotWarning() {
   queueMicrotask(pintarCabecera);
   if (!missing.length) return;
   el.innerHTML = `<p><strong>Falta la foto de lanzamientos anteriores</strong> (${missing.map((f) => `«${esc(launch[f.field])}»`).join(', ')}). Mientras tanto, quien la tenía de lanzamientos anteriores cuenta como de este. Hazla antes de abrir la venta.</p>
-    <button type="button" class="btn" data-action="snapshot">Hacer la foto ahora</button>`;
+    <button type="button" class="btn" data-action="snapshot">Hacer la foto ahora</button> ${btnSinFoto(missing)}`;
 }
 
 // ---------- Móvil: menú ☰ (embudos y herramientas) y pestañas fijas abajo ----------
@@ -7993,6 +8002,22 @@ document.addEventListener('click', (e) => {
   const m = $('#ctx-mas');
   if (!m.open) return;
   if (!m.contains(e.target) || e.target.closest('.ctx-mas-item:not([data-informe="enlace"]):not([data-informe="enviar"])')) m.open = false;
+});
+
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-action="snapshot-omitir"]');
+  if (!b) return;
+  const code = dlg.open ? editingCode : state.launchCode;
+  const launch = code && state.config.launches[code];
+  const fields = launch ? missingSnapshot(launch).filter((f) => f.field === b.dataset.campo) : [];
+  if (!fields.length || !window.confirm(`¿${fields.map((f) => `«${launch[f.field]}»`).join(', ')} es una etiqueta nueva, solo de este lanzamiento? Quien la tenga contará como de este lanzamiento.`)) return;
+  b.disabled = true;
+  try {
+    const next = { ...state.config, launches: { ...state.config.launches, [code]: sinFoto(launch, fields) } };
+    state.config = (await api('/api/config', { method: 'POST', body: next })).config;
+  } catch (err) { notice(`No se pudo guardar: ${err.message}`, true); }
+  if (dlg.open) renderSnapshotBox();
+  await selectLaunch(state.launchCode, { forzar: true });
 });
 
 document.addEventListener('click', async (e) => {

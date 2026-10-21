@@ -63,7 +63,7 @@ Cada etiqueta que no exista en el GHL del cliente se marca con un aviso al momen
 
 Las etiquetas de **compra VIP**, **compra del programa** y, si existe, **compra en directo** son siempre las
 mismas. GHL no guarda cuándo se puso una etiqueta, así que al **crear un lanzamiento** el dashboard hace una
-"foto": marca con `<código>_vip_previo` / `_compra_previo` / `_compradirecto_previo` a quien ya las tenía.
+"foto": marca con `<código>_vip_previo` / `_compra_previo` / `_compradirecto_previo` a quien ya las tenía. Si la etiqueta (VIP, compra…) es **nueva y solo de este lanzamiento** (p. ej. `et-entrada-vip-29octubre26`), no hace falta foto: en el aviso «Falta la foto», el botón «es una etiqueta nueva de este lanzamiento» la da por hecha sin marcar a nadie (hacerla con ventas ya hechas marcaría como «anterior» a quien acaba de comprar).
 Esas personas aparecen como "VIP anterior" o "Clienta anterior" y no cuentan en las métricas del lanzamiento.
 **Crea el lanzamiento en el dashboard antes de abrir la venta de la VIP.** Si alguien que ya era VIP vuelve
 a comprarla, no se puede distinguir solo con la etiqueta, así que no cuenta en este lanzamiento.
