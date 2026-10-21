@@ -14,6 +14,8 @@ import { clienteActual } from '../lib/cliente.js';
 import { directosAbiertos, inscribirEnDirecto } from '../lib/zoom-inscripcion.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { dentroDelLimite } from '../lib/intentos.js';
+import { env } from '../lib/env.js';
+import { dominioLogin } from '../lib/dominio.js';
 
 const valor = () => `zoomreg:${clienteActual().id}`;
 
@@ -22,7 +24,11 @@ export async function GET(request) {
     await requireSession(request, { permiso: 'config' });
     const url = new URL(request.url);
     const k = await signToken(valor());
-    return json({ url: `${url.origin}/api/zoom-registro?c=${encodeURIComponent(clienteActual().id)}&k=${encodeURIComponent(k)}` });
+    // Con la dirección principal (DOMINIO_LOGIN, p. ej. alquimia.tenaxdigital.com), aunque se abra AlquimIA desde otra.
+    // La antigua (data.discendocultura.com) ya no se usa para los enlaces nuevos: aunque no esté puesta la variable.
+    const dom = dominioLogin(env) || (url.hostname === 'data.discendocultura.com' ? 'alquimia.tenaxdigital.com' : '');
+    const origen = dom && !/^(localhost|127\.0\.0\.1)$/.test(url.hostname) ? `https://${dom}` : url.origin;
+    return json({ url: `${origen}/api/zoom-registro?c=${encodeURIComponent(clienteActual().id)}&k=${encodeURIComponent(k)}` });
   } catch (e) {
     return errorResponse(e);
   }

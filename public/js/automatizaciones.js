@@ -39,6 +39,9 @@ const menosHora = (hora) => { const [h, mi] = String(hora || '19:00').split(':')
 
 // Contexto: los datos del embudo que van en los workflows.
 //   tipo: 'lanzamientos' | 'vsl' | 'directa' | 'meteorico' · obj: el lanzamiento / VSL / venta directa / meteórico
+// Webhook de Zoom del registro de este lanzamiento: la URL firmada del cliente + &l=<código> (inscribe en sus directos
+// aunque GHL aún no haya puesto la etiqueta de registro).
+export const webhookZoomLanz = (c) => (c.zoomWebhook && c.code && !/[?&]l=/.test(c.zoomWebhook) ? `${c.zoomWebhook}&l=${encodeURIComponent(c.code)}` : c.zoomWebhook || '');
 export function autoCtx(tipo, obj = {}, { code = '', cliente = '', producto = '', zoomWebhook = '', setterUrl = '', clienteId = '', plantillasWa = [] } = {}) {
   const o = obj || {};
   return {
@@ -94,7 +97,7 @@ const LANZAMIENTO = [
       ...origenAcciones(c),
       `Email de confirmación: que ya tiene su plaza, cuándo es (${directos(c).join(' · ')}) y un botón a la página preclase ${u(c.recursosUrl, 'URL de la página preclase')}.`,
       ...(c.whatsappUrl ? [`En el email, el enlace al grupo de WhatsApp: ${c.whatsappUrl}.`] : []),
-      ...(c.zoomWebhook ? [`Después de añadir la etiqueta: acción «Webhook» (método POST) a ${c.zoomWebhook} — inscribe a la persona en la reunión de Zoom del directo con su enlace personal (no hace falta mapear campos: basta el contact_id que GHL manda siempre).`] : []),
+      ...(c.zoomWebhook ? [`Después de añadir la etiqueta: acción «Webhook» (método POST) a ${webhookZoomLanz(c)} — inscribe a la persona en la reunión de Zoom de cada directo con su enlace personal (no hace falta mapear campos: basta el contact_id que GHL manda siempre). Es solo para ${c.cliente ? `${c.cliente} y ` : ''}este lanzamiento: no sirve la de otro cliente ni la de otro lanzamiento.`] : []),
     ],
     prueba: (c) => `Regístrate con un email de prueba: en AlquimIA (Leads) debe aparecer con la etiqueta ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')} y te tiene que llegar el email.${c.zoomWebhook ? ' En Zoom → la reunión → Registrantes, debe aparecer su email.' : ''}`,
   },

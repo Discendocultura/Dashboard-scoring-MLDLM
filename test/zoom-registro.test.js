@@ -18,7 +18,14 @@ test('zoom al registrarse: el webhook va en el workflow de registro solo si hay 
   const l = { name: 'Oct', fechaDirecto: '2026-11-20', horaDirecto: '19:00', registroTag: 'registrado-webinar-201126' };
   const con = automatizacionesDe(autoCtx('lanzamientos', l, { code: 'oct', zoomWebhook: 'https://d/api/zoom-registro?c=x&k=y' })).find((x) => x.id === 'registro');
   const c = autoCtx('lanzamientos', l, { code: 'oct', zoomWebhook: 'https://d/api/zoom-registro?c=x&k=y' });
-  assert.ok(con.acciones(c).some((a) => a.includes('Webhook') && a.includes('https://d/api/zoom-registro?c=x&k=y')));
+  assert.ok(con.acciones(c).some((a) => a.includes('Webhook') && a.includes('https://d/api/zoom-registro?c=x&k=y&l=oct')));
   const sin = autoCtx('lanzamientos', l, { code: 'oct' });
   assert.ok(!automatizacionesDe(sin).find((x) => x.id === 'registro').acciones(sin).some((a) => a.includes('Webhook')));
+});
+
+test('zoom-registro: la URL del webhook sale con la dirección principal (no con la antigua)', async () => {
+  const { dominioLogin } = await import('../lib/dominio.js');
+  assert.equal(dominioLogin({ DOMINIO_LOGIN: 'alquimia.tenaxdigital.com' }), 'alquimia.tenaxdigital.com');
+  const src = (await import('node:fs')).readFileSync(new URL('../handlers/zoom-registro.js', import.meta.url), 'utf8');
+  assert.match(src, /data\.discendocultura\.com' \? 'alquimia\.tenaxdigital\.com'/);
 });
