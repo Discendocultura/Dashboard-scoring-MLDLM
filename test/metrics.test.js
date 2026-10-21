@@ -68,3 +68,14 @@ test('métricas de tráfico: CPM, CTR, CPC, visitas y conversión de la página 
   assert.equal(sin.cpl, 5);
   assert.equal(sin.cplPubli, null);
 });
+
+test('avisos: compras VIP con otra etiqueta que la de Configuración', async () => {
+  const { enrichLead, computeMetrics, avisosLanzamiento } = await import('../public/js/metrics.js');
+  const launch = { registroTag: 'reg', vipTag: 'et-compra-entrada-vip', precioVip: 9 };
+  const config = { launches: { x: launch } };
+  const leads = [{ id: 'a', tags: ['reg', 'et-entrada-vip-29octubre26'] }, { id: 'b', tags: ['reg', 'et-compra-entrada-vip'] }].map((c) => enrichLead({ name: '', email: '', phone: '', ...c }, 'x', config));
+  const m = computeMetrics(leads, launch);
+  assert.equal(m.vip, 1);
+  const av = avisosLanzamiento(leads, launch, m).join(' ');
+  assert.match(av, /1 lead con «et-entrada-vip-29octubre26» pero sin la etiqueta VIP de Configuración \(«et-compra-entrada-vip»\)/);
+});

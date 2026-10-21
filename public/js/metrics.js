@@ -410,6 +410,20 @@ export function avisosLanzamiento(leads, launch, m) {
   if (!esSuscripcion(launch) && (launch.unicoTag || launch.fraccionadoTag) && m.pago.sinEtiqueta.n) out.push(`${m.pago.sinEtiqueta.n} ventas de Raíces sin etiqueta de pago único ni fraccionado: revisa los workflows de compra.`);
   if (!launch.unicoTag && !launch.fraccionadoTag && m.compra) out.push('Elige las etiquetas de pago único y fraccionado para separar las ventas y su facturación.');
   if ((launch.publiTag || launch.organicoTag) && m.origen.sinEtiqueta.leads) out.push(`${m.origen.sinEtiqueta.leads} leads sin etiqueta de publicidad ni orgánico: revisa los formularios de registro.`);
+  // Etiquetas que parecen de la entrada VIP pero no son la de Configuración (p. ej. un workflow que pone
+  // «et-entrada-vip-29octubre26» en vez de «et-compra-entrada-vip»): esas compras no cuentan en la facturación.
+  const vipConf = String(launch.vipTag || '').toLowerCase();
+  if (launch.vip !== false) {
+    const otras = new Map();
+    for (const l of leads) {
+      if (l.s.vip || l.s.vip_anterior) continue;
+      for (const t of new Set((l.tags || []).map((x) => String(x).toLowerCase()))) {
+        if (t !== vipConf && /vip/.test(t) && !t.includes('_')) otras.set(t, (otras.get(t) || 0) + 1);
+      }
+    }
+    const top = [...otras].sort((a, b) => b[1] - a[1]).slice(0, 3);
+    if (top.length) out.push(`${top.map(([t, n]) => `${n} lead${n === 1 ? '' : 's'} con «${t}»`).join(', ')} pero sin la etiqueta VIP de Configuración (${vipConf ? `«${vipConf}»` : 'sin poner'}): no cuentan como VIP ni en la facturación. Si es la etiqueta de la compra de este lanzamiento, pon «${vipConf || 'la de Configuración'}» también en el workflow de compra (o cámbiala en Configuración → Etiquetas).`);
+  }
   if (launch.compraDateField) {
     const sinFecha = leads.filter((l) => l.s.compra && !l.s.fecha_compra).length;
     if (sinFecha) out.push(`${sinFecha} ventas de Raíces sin fecha de compra: no salen en las ventas por día ni en las del directo.`);
