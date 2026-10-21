@@ -29,3 +29,10 @@ test('zoom-registro: la URL del webhook sale con la dirección principal (no con
   const src = (await import('node:fs')).readFileSync(new URL('../handlers/zoom-registro.js', import.meta.url), 'utf8');
   assert.match(src, /data\.discendocultura\.com' \? 'alquimia\.tenaxdigital\.com'/);
 });
+
+test('zoom-registro: los errores de Zoom se explican en claro', async () => {
+  const { explicarZoom } = await import('../handlers/zoom-registro.js');
+  assert.match(explicarZoom('Zoom 404: {"code":3001,"message":"Meeting does not exist"}', '812 3456'), /no existe en la cuenta de Zoom/);
+  assert.match(explicarZoom('Zoom 400: {"code":304,"message":"Registration has not been enabled"}', '1'), /Registro: obligatorio/);
+  assert.match(explicarZoom('Zoom 400: {"code":4711,"message":"Invalid access token, does not contain scopes"}'), /permiso/);
+});

@@ -5510,6 +5510,26 @@ $('#config-dialog').addEventListener('input', (e) => {
   const t = e.target;
   if (['cfg-registro', 'cfg-registro-url', 'cfg-registro-ads-url', 'cfg-directo-fecha', 'cfg-directo-hora'].includes(t.id) || ['fecha', 'hora'].includes(t.dataset?.vc || t.dataset?.v1)) pintarRegistroKit();
 });
+// Probar la inscripción en Zoom con el email de alguien ya registrado (la misma lógica que el webhook del registro).
+const MOTIVO_ZOOM = { 'sin zoom': 'Zoom no conectado', 'contacto no encontrado': 'No está en el CRM', 'contacto sin email': 'Sin email', 'sin etiqueta de registro': 'Sin etiqueta de registro', 'sin registro': 'Sin etiqueta de registro', 'sin directo abierto': 'Sin sala de Zoom', zoom: 'Zoom no ha dejado', 'lanzamiento no encontrado': 'Lanzamiento no encontrado' };
+$('#cfg-reg-zoom-probar').addEventListener('click', async () => {
+  const email = $('#cfg-reg-zoom-email').value.trim();
+  const box = $('#cfg-reg-zoom-res');
+  if (!email) { box.innerHTML = '<p class="reg-falta">Pon un email.</p>'; return; }
+  const btn = $('#cfg-reg-zoom-probar');
+  btn.disabled = true;
+  box.innerHTML = '<p class="muted small">Comprobando en el CRM y en Zoom…</p>';
+  try {
+    const r = await api('/api/zoom-registro?probar=1', { method: 'POST', body: { email, l: editingCode || '' } });
+    const l = state.config.launches[editingCode] || {};
+    const fila = (x) => `<li class="${x.ok ? 'ok' : 'mal'}"><span>${x.ok ? '✓' : '✗'}</span><span><strong>${x.k ? esc(nombreVideo(formatoDeLanz(l), x.k)) : 'Lanzamiento'}</strong> · ${x.ok ? (x.ya ? 'ya estaba inscrita' : 'inscrita ahora') : esc(MOTIVO_ZOOM[x.motivo] || x.motivo || 'no se pudo')}${x.detalle ? `<small>${esc(x.detalle)}</small>` : ''}</span></li>`;
+    box.innerHTML = r.inscripciones?.length
+      ? `<ul class="reg-zoom-res">${r.inscripciones.map(fila).join('')}</ul>`
+      : `<p class="reg-falta">✗ ${esc(MOTIVO_ZOOM[r.motivo] || r.motivo || 'No se pudo')}${r.detalle ? `<br><small>${esc(r.detalle)}</small>` : ''}</p>`;
+  } catch (err) {
+    box.innerHTML = `<p class="reg-falta">✗ ${esc(err.message)}</p>`;
+  } finally { btn.disabled = false; }
+});
 $('#cfg-reg-kit').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-reg-prompt]');
   if (!b) return;
