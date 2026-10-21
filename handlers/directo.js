@@ -11,7 +11,7 @@ import { turnstileSiteKey, verifyTurnstile } from '../lib/turnstile.js';
 import { dentroDelLimite } from '../lib/intentos.js';
 import { getConfig } from '../lib/config-store.js';
 import { addRegistrant, zoomConfigured } from '../lib/zoom.js';
-import { deLaReunion } from '../lib/zoom-inscripcion.js';
+import { deLaReunion, datosRegistrante } from '../lib/zoom-inscripcion.js';
 import { entradaDe, guardarInscripcion, marcarEntrada } from '../lib/entradas.js';
 import { html, escapeHtml, isEmail } from '../lib/http.js';
 import { clienteActual } from '../lib/cliente.js';
@@ -159,8 +159,7 @@ export async function GET(request, ctx) {
     const email = contact?.email || emailParam;
     const meetingId = vid?.zoomMeetingId || '';
     if (email && meetingId && zoomConfigured()) {
-      const [firstName, ...rest] = (contact?.name || '').split(' ');
-      joinUrl = await addRegistrant(meetingId, { email, firstName, lastName: rest.join(' ') });
+      joinUrl = await addRegistrant(meetingId, datosRegistrante(contact, email));
       if (joinUrl && contact) await guardarInscripcion(code, k, contact.id, joinUrl).catch((e) => console.error(e));
     }
   } catch (e) {

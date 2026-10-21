@@ -49,3 +49,10 @@ test('zoom-registro: la clave se lee aunque GHL la codifique otra vez', async ()
   const t = await signToken('zoomreg:mldlm');
   assert.equal(await verifyToken(claveDe(encodeURIComponent(encodeURIComponent(t)))), 'zoomreg:mldlm');
 });
+
+test('zoom: los datos de la lead para Zoom (todos los clientes y caminos)', async () => {
+  const { datosRegistrante } = await import('../lib/zoom-inscripcion.js');
+  assert.deepEqual(datosRegistrante({ email: 'Ana@X.com', name: 'Ana López Ruiz', firstName: 'Ana', phone: '+34600' }), { email: 'ana@x.com', firstName: 'Ana', lastName: 'López Ruiz', phone: '+34600' });
+  assert.deepEqual(datosRegistrante({ email: 'sin@nombre.com', name: 'sin@nombre.com' }), { email: 'sin@nombre.com', firstName: 'sin', lastName: '', phone: '' });
+  assert.equal(datosRegistrante(null, 'b@c.com').firstName, 'b');
+});
