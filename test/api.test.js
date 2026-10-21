@@ -157,6 +157,20 @@ test('acceso: registrada, existente sin etiqueta y email nuevo', async () => {
   assert.deepEqual(creada, { ok: true, status: 'created', cid: nueva.id });
   assert.equal(nueva.phone, '+34600112233');
   assert.ok(nueva.tags.includes('registro-webinar-demo'));
+  // Login con WhatsApp: registrada sin teléfono → se guarda como teléfono de SU ficha
+  const mock = await import('../lib/mock.js');
+  const { addTags } = await import('../lib/ghl.js');
+  const sinMovil = await upsertContact({ email: 'sinmovil@example.com', firstName: 'Sara' });
+  await addTags(sinMovil.id, ['registro-webinar-demo']);
+  assert.equal((await call({ email: 'sinmovil@example.com', phone: '611 22 33 44' })).ok, true);
+  assert.equal((await getContact(sinMovil.id)).phone, '+34611223344');
+  // Su móvil ya es de otro contacto: entra igual, no se toca el otro contacto y el número queda en una nota
+  const otraSin = await upsertContact({ email: 'sinmovil2@example.com', firstName: 'Ana' });
+  await addTags(otraSin.id, ['registro-webinar-demo']);
+  assert.equal((await call({ email: 'sinmovil2@example.com', phone: '611 22 33 44' })).ok, true);
+  assert.equal((await getContact(otraSin.id)).phone, '');
+  assert.equal((await getContact(sinMovil.id)).email, 'sinmovil@example.com');
+  assert.ok(mock.notes.some((n) => n.contactId === otraSin.id && n.body.includes('+34611223344')));
   // bots (campo trampa) no crean nada
   assert.deepEqual(await call({ email: 'bot@example.com', name: 'Bot', phone: '600000000', hp: 'x' }), { ok: false, error: 'bot' });
   // El campo antiguo `website` (lo rellenaban algunos autorrellenos) ya no deja fuera a nadie.
