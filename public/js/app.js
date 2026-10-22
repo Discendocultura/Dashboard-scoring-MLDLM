@@ -6,7 +6,7 @@ import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { ORDEN_EDAD } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
-import { resumenThrivecart, ventasDeCsv, productosVistos } from './thrivecart.js';
+import { resumenThrivecart, ventasDeCsv, productosVistos, deProductos } from './thrivecart.js';
 import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
@@ -2846,17 +2846,22 @@ async function renderFacturacionTotal(m) {
   const code = state.launchCode;
   const eco = m.eco || {};
   const metas = meteoDeLanz(code);
+  // Con ventas de ThriveCart de los productos del lanzamiento (renderThrivecart deja m.tc), lo cobrado de verdad.
+  const tc = m.tc;
   const pintar = (meteo) => {
     const fm = meteo?.facturacion ?? null;
-    const total = (eco.facturacion || 0) + (fm || 0);
+    const factL = tc ? tc.fact : eco.facturacion || 0;
+    const total = factL + (fm || 0);
     const inv = (eco.inversion || 0) + (meteo?.inversion || 0);
-    const subLanz = `sin IVA · ${eur(eco.facturacionPrograma || 0)} del programa (${m.compra} ventas)${eco.facturacionVip ? ` + ${eur(eco.facturacionVip)} de VIP (${m.vip})` : ''}${eco.facturacionBumps ? ` + ${eur(eco.facturacionBumps)} de bumps` : ''}`;
+    const subLanz = tc
+      ? `sin IVA · 💳 ThriveCart · ${eur(tc.progPart)} del programa (${tc.ventasProg} ${tc.ventasProg === 1 ? 'venta' : 'ventas'})${m.conVip ? ` + ${eur(tc.vipPart)} de VIP (${tc.vipN})` : ''}, con bumps · por etiquetas ${eur(eco.facturacion || 0)}`
+      : `sin IVA · ${eur(eco.facturacionPrograma || 0)} del programa (${m.compra} ventas)${eco.facturacionVip ? ` + ${eur(eco.facturacionVip)} de VIP (${m.vip})` : ''}${eco.facturacionBumps ? ` + ${eur(eco.facturacionBumps)} de bumps` : ''}`;
     const subMeteo = !metas.length ? 'Sin meteórico posterior (créalo en Métricas → Meteórico posterior)'
       : meteo == null ? 'Cargando…'
         : meteo.error ? `No se pudo leer: ${esc(meteo.error)}`
           : `${meteo.ventas} ventas · ${metas.map(([, x]) => esc(x.name)).join(', ')}`;
     box.innerHTML = [
-      card('Facturación del lanzamiento', eur(eco.facturacion || 0), subLanz, 'coins', 'money'),
+      card('Facturación del lanzamiento', eur(factL), subLanz, 'coins', 'money'),
       card('Facturación del meteórico', !metas.length || meteo?.error ? '–' : meteo == null ? '…' : eur(fm), subMeteo, 'zap', 'vip'),
       card('Facturación total', eur(total), `lanzamiento + meteórico${inv ? ` · ROAS ${(total / inv).toFixed(2).replace('.', ',')}x` : ''}`, 'trend', 'buy'),
     ].join('');
@@ -3261,44 +3266,82 @@ async function renderThrivecart(m, launch) {
   }
   const { ventas, desde, hasta } = tcCache[clave];
   const emails = new Set(state.leads.map((l) => String(l.email || '').toLowerCase()).filter(Boolean));
-  const elegidos = launch.tcProductos || [];
-  const r = resumenThrivecart(ventas, emails, { desde, hasta, productos: elegidos });
+  // Productos del lanzamiento: con VIP, la entrada (tcProductos) y el programa (tcPrograma) van por separado; sin VIP,
+  // todos son el producto del lanzamiento.
+  const conVipL = !!m.conVip;
+  const elegVip = conVipL ? launch.tcProductos || [] : [];
+  const elegProg = conVipL ? launch.tcPrograma || [] : [...(launch.tcProductos || []), ...(launch.tcPrograma || [])];
+  const elegidos = [...elegVip, ...elegProg];
+  const opc = { desde, hasta };
+  const r = resumenThrivecart(ventas, emails, { ...opc, productos: elegidos });
+  const rVip = elegVip.length ? resumenThrivecart(ventas, emails, { ...opc, productos: elegVip }) : null;
+  const rProg = elegProg.length ? resumenThrivecart(ventas, emails, { ...opc, productos: elegProg }) : null;
   const vistos = productosVistos(ventas.filter((v) => v.fecha >= desde && v.fecha <= hasta));
-  box.hidden = !vistos.length && !r.reembolsos;
+  // Lo elegido que aún no ha vendido (puesto por su ID o nombre en Configuración): «esperando la primera venta».
+  const esperando = elegidos.filter((x) => !vistos.some((p) => deProductos({ productoId: p.clave === p.nombre ? '' : p.clave, producto: p.nombre === 'Sin nombre de producto' ? '' : p.nombre }, [x])));
+  box.hidden = !vistos.length && !r.reembolsos && !esperando.length;
   if (box.hidden) return;
   const pct = ivaPct(launch);
-  const netoSinIva = r.neto / (1 + pct / 100);
+  const sinIva = (v) => v / (1 + pct / 100);
+  const netoSinIva = sinIva(r.neto);
   const roas = m.eco.inversion ? netoSinIva / m.eco.inversion : null;
   const x = (v) => (v == null ? '–' : `${v.toFixed(2).replace('.', ',')}x`);
-  // Con los productos del lanzamiento elegidos, lo de arriba sale de ThriveCart (lo cobrado de verdad, con bumps y
-  // reembolsos): en un lanzamiento con VIP, ThriveCart sustituye la parte de la VIP y sus bumps (el programa sigue por
-  // etiquetas); sin VIP, toda la facturación. Lo calculado por etiquetas queda debajo para comparar.
-  if (r.porProductos && r.cobros) {
+  // Lo de arriba sale de ThriveCart cuando hay cobros de los productos elegidos (lo cobrado de verdad, con bumps y
+  // reembolsos). La VIP y sus bumps, todo de ThriveCart. El programa: lo de ThriveCart + las compras con etiqueta de
+  // quien no está entre sus compradoras (p. ej. el fraccionado de Hotmart) + los bumps del fraccionado.
+  if (rVip?.cobros || rProg?.cobros) {
     const kpi = (sel, lbl) => $$(`${sel} .kpi`).find((k) => k.querySelector('.kpi-label')?.textContent.trim().startsWith(lbl));
     const poner = (k, valor, sub) => { if (!k) return; k.querySelector('.kpi-value').innerHTML = valor; k.querySelector('.kpi-sub').innerHTML = sub; };
-    const bumpsVipGhl = (m.bumps || []).filter((b) => b.tipo === 'vip').reduce((t, b) => t + b.facturacion, 0);
-    const fact = (m.conVip ? m.eco.facturacion - m.eco.facturacionVip - bumpsVipGhl : 0) + netoSinIva;
+    const bumpsGhl = (tipos) => (m.bumps || []).filter((b) => tipos.includes(b.tipo)).reduce((t, b) => t + b.facturacion, 0);
+    const vipTc = rVip?.cobros ? sinIva(rVip.neto) : null;
+    const vipPart = vipTc ?? m.eco.facturacionVip + bumpsGhl(['vip']);
+    const compraFuera = rProg?.cobros ? state.leads.filter((l) => l.s.compra && !rProg.emailsCompra.has(String(l.email || '').toLowerCase())) : [];
+    const progTc = rProg?.cobros ? sinIva(rProg.neto) : null;
+    const progResto = compraFuera.reduce((t, l) => t + importeCompra(l, launch), 0) + bumpsGhl(['fraccionado']);
+    const progPart = progTc != null ? progTc + progResto : m.eco.facturacionPrograma + bumpsGhl(['unico', 'fraccionado']);
+    const fact = (conVipL ? vipPart : 0) + progPart;
+    const ventasProg = rProg?.cobros ? rProg.compradoras + compraFuera.length : m.compra;
     const roasTc = m.eco.inversion ? fact / m.eco.inversion : null;
-    const sinIva = (v) => v / (1 + pct / 100);
-    const totBumps = r.extras.reduce((t, e) => t + e.importe, 0);
-    const detalle = `💳 ThriveCart ${eur(netoSinIva)}${totBumps ? ` (bumps ${eur(sinIva(totBumps))})` : ''}${m.conVip && fact > netoSinIva ? ` + programa ${eur(fact - netoSinIva)}` : ''} · por etiquetas ${eur(m.eco.facturacion)}`;
-    poner(kpi('#metric-hero', 'Facturación'), eur(fact), `<strong class="kpi-hero-ventas">${m.compra.toLocaleString('es-ES')} ${m.compra === 1 ? 'venta' : 'ventas'} totales</strong>Sin IVA: ${detalle}`);
+    const detalle = `💳 ${[conVipL ? `VIP ${eur(vipPart)}${vipTc != null ? ' (ThriveCart)' : ''}` : '', `programa ${eur(progPart)}${progTc != null ? ` (ThriveCart ${eur(progTc)}${progResto ? ` + otros ${eur(progResto)}` : ''})` : ''}`].filter(Boolean).join(' + ')} · por etiquetas ${eur(m.eco.facturacion)}`;
+    m.tc = { fact, vipPart, progPart, ventasProg, vipN: rVip?.cobros || m.vip };
+    renderFacturacionTotal(m);
+    poner(kpi('#metric-hero', 'Facturación'), eur(fact), `<strong class="kpi-hero-ventas">${ventasProg.toLocaleString('es-ES')} ${ventasProg === 1 ? 'venta' : 'ventas'} totales</strong>Sin IVA: ${detalle}`);
     poner(kpi('#eco-cards', 'Facturación'), eur(fact), detalle);
     if (roasTc != null) {
       poner(kpi('#metric-hero', 'ROAS'), `${roasTc.toFixed(2).replace('.', ',')}x`, `💳 con lo cobrado en ThriveCart ÷ ${eur(m.eco.inversion)} de inversión`);
       poner(kpi('#eco-cards', 'ROAS'), `${roasTc.toFixed(2)}x`, `💳 con lo cobrado en ThriveCart · beneficio ${eur(fact - m.eco.inversion)} (sin IVA)`);
     }
+    const tarjetasExtra = (rr, tono) => rr.extras.map((e) => card(`${{ bump: 'Bump offer', upsell: 'Upsell', downsell: 'Downsell' }[e.tipo]} · ${esc(e.nombre)}`, pctOf(e.n, rr.cobros).replace('.', ','),
+      `<strong>${e.n} ${e.n === 1 ? 'vendido' : 'vendidos'}</strong> de ${rr.cobros} ventas · ${eur(sinIva(e.importe))} sin IVA · 💳 ThriveCart`, 'gift', tono)).join('');
+    const quitar = (prefijo) => $$('#metric-cards .kpi').filter((k) => k.querySelector('.kpi-label')?.textContent.trim().startsWith(prefijo)).forEach((k) => k.remove());
     // Entradas VIP y sus bumps: los pedidos de ThriveCart y el % de cada bump sobre esas ventas.
-    const vipK = m.conVip ? kpi('#metric-cards', 'Entradas VIP vendidas') : null;
+    const vipK = conVipL && rVip?.cobros ? kpi('#metric-cards', 'Entradas VIP vendidas') : null;
     if (vipK) {
-      poner(vipK, String(r.cobros), `${pctOf(r.cobros, m.total)} de los leads · ${eur(netoSinIva)} sin IVA · 💳 ThriveCart (por etiquetas ${m.vip})`);
-      $$('#metric-cards .kpi').filter((k) => k.querySelector('.kpi-label')?.textContent.trim().startsWith('Bump offer de la VIP')).forEach((k) => k.remove());
-      vipK.insertAdjacentHTML('afterend', r.extras.map((e) => card(`${{ bump: 'Bump offer', upsell: 'Upsell', downsell: 'Downsell' }[e.tipo]} · ${esc(e.nombre)}`, pctOf(e.n, r.cobros).replace('.', ','),
-        `<strong>${e.n} ${e.n === 1 ? 'vendido' : 'vendidos'}</strong> de ${r.cobros} ventas · ${eur(sinIva(e.importe))} sin IVA · 💳 ThriveCart`, 'gift', 'vip')).join(''));
+      poner(vipK, String(rVip.cobros), `${pctOf(rVip.cobros, m.total)} de los leads · ${eur(vipTc)} sin IVA · 💳 ThriveCart (por etiquetas ${m.vip})`);
+      quitar('Bump offer de la VIP');
+      vipK.insertAdjacentHTML('afterend', tarjetasExtra(rVip, 'vip'));
+    }
+    // Programa: sus bumps de ThriveCart (los del pago único por etiquetas se quitan para no contarlos dos veces).
+    if (rProg?.cobros && rProg.extras.length) {
+      quitar('Bump offer del');
+      const ult = kpi('#metric-cards', 'Ventas de') || $$('#metric-cards .kpi').at(-1);
+      ult?.insertAdjacentHTML('afterend', tarjetasExtra(rProg, 'buy'));
     }
   }
   // Compradoras en ThriveCart sin su etiqueta de VIP ni de compra en GHL.
   const sinEtiqueta = state.leads.filter((l) => r.emailsCompra.has(String(l.email || '').toLowerCase()) && !l.s.vip && !l.s.compra && !l.s.vip_anterior && !l.s.compra_previo);
+  // Qué es cada producto en este lanzamiento: con VIP, «Entrada VIP» o «Programa»; sin VIP, sí o no.
+  const rolDe = (p) => {
+    const v = { productoId: p.clave === p.nombre ? '' : p.clave, producto: p.nombre === 'Sin nombre de producto' ? '' : p.nombre };
+    return elegVip.length && deProductos(v, elegVip) ? 'vip' : elegProg.length && deProductos(v, elegProg) ? 'prog' : '';
+  };
+  const filaProd = (p) => {
+    const rol = rolDe(p);
+    const datos = `<span>${esc(p.nombre)} <small class="muted">· ${p.ventas} ${p.ventas === 1 ? 'venta' : 'ventas'} · ${eur(p.importe)}${p.clave !== p.nombre ? ` · ID ${esc(p.clave)}` : ''}</small></span>`;
+    return conVipL
+      ? `<label class="tc-rol">${datos}<select data-tc-rol="${esc(p.clave)}"><option value="">No es de este lanzamiento</option><option value="vip"${rol === 'vip' ? ' selected' : ''}>⭐ Entrada VIP (y sus bumps)</option><option value="prog"${rol === 'prog' ? ' selected' : ''}>🎓 Programa</option></select></label>`
+      : `<label class="chk"><input type="checkbox" data-tc-rol="${esc(p.clave)}" value="prog"${rol ? ' checked' : ''}> ${datos}</label>`;
+  };
   box.innerHTML = `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">💳</span><div><strong>Cobrado en ThriveCart</strong><small class="muted">${r.porProductos ? 'lo cobrado de verdad en los productos de este lanzamiento' : 'lo cobrado de verdad a los leads de este lanzamiento'}</small></div></div>
     <div class="tc-cifras">
       <div><span>Cobrado</span><strong>${eur(r.cobrado)}</strong><small>${r.cobros} ${r.cobros === 1 ? 'cobro' : 'cobros'} · ${r.compradoras} ${r.compradoras === 1 ? 'compradora' : 'compradoras'}</small></div>
@@ -3306,26 +3349,37 @@ async function renderThrivecart(m, launch) {
       <div><span>Neto sin IVA</span><strong>${eur(netoSinIva)}</strong><small>con IVA ${eur(r.neto)} (${pct} %)</small></div>
       <div><span>ROAS real</span><strong>${x(roas)}</strong><small>${m.eco.inversion ? `÷ ${eur(m.eco.inversion)} de inversión` : 'sin inversión todavía'}</small></div>
     </div>
-    ${r.porProducto.length ? `<p class="tc-prod">${r.porProducto.slice(0, 6).map((p) => `<span>${esc(p.producto)} · <strong>${eur(p.importe)}</strong> <small>(${p.cobros})</small></span>`).join('')}</p>` : ''}
+    ${r.porProducto.length ? `<p class="tc-prod">${r.porProducto.slice(0, 6).map((p) => `<span>${esc(p.producto || 'Sin nombre de producto')} · <strong>${eur(p.importe)}</strong> <small>(${p.cobros})</small></span>`).join('')}</p>` : ''}
     ${r.extras.length ? `<div class="tc-extras"><strong>Bumps y ofertas extra · ${r.extras.reduce((t, e) => t + e.n, 0)} en total · ${eur(r.extras.reduce((t, e) => t + e.importe, 0))}</strong>${r.extras.map((e) => `<span class="tc-x tc-x-${e.tipo}">${{ bump: 'Bump', upsell: 'Upsell', downsell: 'Downsell' }[e.tipo]} «${esc(e.nombre)}» · <strong>${e.n}</strong>${e.pct != null ? ` (${Math.round(e.pct * 100)} % de los pedidos)` : ''} · ${eur(e.importe)}</span>`).join('')}</div>` : r.pedidosConLineas ? '<p class="muted small">Ningún bump ni oferta extra en estos pedidos.</p>' : ''}
     <details class="tc-elegir"${elegidos.length ? '' : ' open'}><summary>⚙️ <strong>Qué ventas son de este lanzamiento</strong> <span class="muted small">· ${elegidos.length ? `${elegidos.length} ${elegidos.length === 1 ? 'producto elegido' : 'productos elegidos'}` : 'ahora: las de los emails de sus leads'}</span></summary>
-      <p class="muted small">En ThriveCart hay ventas de varios embudos. Marca los productos de este lanzamiento (entrada VIP, programa…): contarán todas sus ventas del periodo, aunque la compradora no se haya registrado. Sin marcar ninguno, cuentan las ventas de los emails de sus leads.</p>
-      <div class="tc-elegir-lista">${vistos.map((p) => `<label class="chk"><input type="checkbox" data-tc-prod="${esc(p.clave)}"${elegidos.some((x) => [p.clave, p.nombre].map((y) => String(y).toLowerCase()).includes(String(x).toLowerCase())) ? ' checked' : ''}> ${esc(p.nombre)} <small class="muted">· ${p.ventas} ${p.ventas === 1 ? 'venta' : 'ventas'} · ${eur(p.importe)}</small></label>`).join('') || '<p class="muted small">Aún no ha llegado ninguna venta en este periodo.</p>'}</div>
-      ${vistos.length && puedeConfig() ? '<p><button type="button" class="btn small primary" data-tc-guardar>Guardar los productos</button> <span class="muted small" data-tc-st></span></p>' : ''}
+      <p class="muted small">En ThriveCart hay ventas de varios embudos. ${conVipL ? 'Di qué es cada producto de este lanzamiento: la entrada VIP o el programa' : 'Marca los productos de este lanzamiento'}. Contarán todas sus ventas del periodo, aunque la compradora no se haya registrado. Sin elegir ninguno, cuentan las ventas de los emails de sus leads.</p>
+      <div class="tc-elegir-lista">${vistos.map(filaProd).join('') || '<p class="muted small">Aún no ha llegado ninguna venta en este periodo.</p>'}</div>
+      ${esperando.length ? `<p class="muted small">⏳ Esperando la primera venta: ${esperando.map((x) => `<strong>${esc(x)}</strong>`).join(', ')}.</p>` : ''}
+      <p class="muted small">¿Un producto que aún no ha vendido (p. ej. el programa)? Ponlo por su ID o nombre en Configuración → Oferta y contará desde la primera venta.${puedeConfig() ? irA('cfg-tc-programa', 'Ir al campo') : ''}</p>
+      ${vistos.length && puedeConfig() ? '<p><button type="button" class="btn small primary" data-tc-guardar>Guardar</button> <span class="muted small" data-tc-st></span></p>' : ''}
     </details>
     ${r.porProductos && r.sinRegistro ? `<p class="tc-nota muted small">${r.sinRegistro} ${r.sinRegistro === 1 ? 'compradora no está registrada' : 'compradoras no están registradas'} en este lanzamiento (compraron sin pasar por el registro).</p>` : ''}
     ${sinEtiqueta.length ? `<p class="tc-aviso">⚠️ ${sinEtiqueta.length} ${sinEtiqueta.length === 1 ? 'compradora' : 'compradoras'} en ThriveCart sin la etiqueta de VIP ni de compra en GHL: ${sinEtiqueta.slice(0, 5).map((l) => esc(l.name || l.email)).join(', ')}${sinEtiqueta.length > 5 ? '…' : ''}. Revisa el workflow de compra.</p>` : ''}
     ${r.fuera.cobros ? `<p class="tc-nota muted small">Además, ${r.fuera.cobros} ${r.fuera.cobros === 1 ? 'cobro' : 'cobros'} (${eur(r.fuera.importe)}) de emails que no están registrados en este lanzamiento (otros productos o compras sin registro).</p>` : ''}`;
 }
 
+// Guardar qué es cada producto: lo que ya había vendido se cambia; lo puesto a mano que aún no ha vendido se queda.
 $('#metric-tc').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-tc-guardar]');
   if (!b) return;
   const code = state.launchCode;
-  const productos = $$('#metric-tc [data-tc-prod]:checked').map((i) => i.dataset.tcProd);
+  const launch = state.config.launches[code] || {};
+  const filas = $$('#metric-tc [data-tc-rol]');
+  const rol = (el) => (el.type === 'checkbox' ? (el.checked ? 'prog' : '') : el.value);
+  const vistas = filas.map((el) => el.dataset.tcRol);
+  // Lo puesto a mano que no corresponde a ningún producto de la lista (aún sin ventas) se conserva.
+  const sigue = (lista) => (lista || []).filter((x) => !vistas.some((c) => deProductos({ productoId: c, producto: c === 'Sin nombre' ? '' : c }, [x])));
+  const conVipL = filas.some((el) => el.tagName === 'SELECT');
+  const vip = [...sigue(launch.tcProductos), ...filas.filter((el) => rol(el) === 'vip').map((el) => el.dataset.tcRol)];
+  const prog = [...sigue(launch.tcPrograma), ...filas.filter((el) => rol(el) === 'prog').map((el) => el.dataset.tcRol)];
   b.disabled = true;
   try {
-    const r = await api('/api/config', { method: 'POST', body: { op: 'tcProductos', l: code, productos } });
+    const r = await api('/api/config', { method: 'POST', body: conVipL ? { op: 'tcProductos', l: code, productos: vip, programa: prog } : { op: 'tcProductos', l: code, productos: [...sigue(launch.tcProductos), ...prog], programa: sigue(launch.tcPrograma) } });
     state.config = r.config;
     if (r.version != null) state.configVersion = r.version;
     renderMetrics();
@@ -6168,6 +6222,8 @@ function openConfig(code, { silencioso = false } = {}) {
   $('#cfg-iva-pct').value = l.iva?.pct != null && l.iva.pct !== 21 ? String(l.iva.pct).replace('.', ',') : '';
   for (const t of TIPOS_BUMP) pintarBumps(t.id, l[t.campo]);
   $('#cfg-precio-programa').value = l.precioPrograma || '';
+  $('#cfg-tc-vip').value = (l.tcProductos || []).join(', ');
+  $('#cfg-tc-programa').value = (l.tcPrograma || []).join(', ');
   $('#cfg-precio-fraccionado').value = l.precioFraccionado || '';
   $('#cfg-fraccionado-tag').value = l.fraccionadoTag || '';
   $('#cfg-unico-tag').value = l.unicoTag || '';
@@ -7634,6 +7690,8 @@ function readForm() {
       iva: { vip: $('#cfg-iva-vip').value, programa: $('#cfg-iva-programa').value, pct: $('#cfg-iva-pct').value.trim() ? Number($('#cfg-iva-pct').value.trim().replace(',', '.')) : 21 },
       ...Object.fromEntries(TIPOS_BUMP.map((t) => [t.campo, leerBumps(t.id)])),
       precioPrograma: $('#cfg-precio-programa').value,
+      tcProductos: $('#cfg-tc-vip').value.split(/[,\n]/).map((x) => x.trim()).filter(Boolean),
+      tcPrograma: $('#cfg-tc-programa').value.split(/[,\n]/).map((x) => x.trim()).filter(Boolean),
       precioFraccionado: $('#cfg-precio-fraccionado').value,
       fraccionadoTag: $('#cfg-fraccionado-tag').value.trim().toLowerCase(),
       unicoTag: $('#cfg-unico-tag').value.trim().toLowerCase(),

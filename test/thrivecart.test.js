@@ -178,3 +178,15 @@ test('thrivecart CSV: con un número por cobro (transacción), el bump se junta 
   const viejo = [{ importada: true, pedido: 't2', email: 'a@x.com', fecha: Date.parse('2026-10-21T08:01:00Z'), importe: 10 }];
   assert.equal(sinImportadasDe(viejo, r.ventas).length, 0);
 });
+
+test('thrivecart: el producto se elige por su ID (exacto) o por su nombre (o parte, sin tildes)', async () => {
+  const { deProductos } = await import('../public/js/thrivecart.js');
+  const v = { productoId: '15', producto: 'Raíces · pago único' };
+  assert.equal(deProductos(v, ['15']), true);
+  assert.equal(deProductos(v, ['1']), false, 'un ID tiene que ser exacto');
+  assert.equal(deProductos(v, ['raices']), true);
+  assert.equal(deProductos(v, ['RAÍCES · PAGO ÚNICO']), true);
+  assert.equal(deProductos(v, ['vip']), false);
+  assert.equal(deProductos({ productoId: '', producto: '' }, ['Sin nombre']), true);
+  assert.equal(deProductos({ productoId: '', producto: 'Sin nombre de algo' }, ['Sin nombre']), false);
+});

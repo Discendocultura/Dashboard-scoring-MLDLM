@@ -131,7 +131,8 @@ export async function POST(request) {
         const actual = await getConfig({ fresh: true });
         if (!actual.launches[code]) throw Object.assign(new Error('Lanzamiento no encontrado'), { status: 404, publicMessage: 'Lanzamiento no encontrado' });
         const lista = Array.isArray(body.productos) ? body.productos : [];
-        return saveConfig({ ...actual, launches: { ...actual.launches, [code]: { ...actual.launches[code], tcProductos: lista } } }, { version: versionDe(actual), motivo: 'Productos de ThriveCart del lanzamiento' });
+        const cambio = { tcProductos: lista, ...(Array.isArray(body.programa) ? { tcPrograma: body.programa } : {}) };
+        return saveConfig({ ...actual, launches: { ...actual.launches, [code]: { ...actual.launches[code], ...cambio } } }, { version: versionDe(actual), motivo: 'Productos de ThriveCart del lanzamiento' });
       });
       return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
     }

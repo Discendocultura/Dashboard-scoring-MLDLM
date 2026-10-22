@@ -106,10 +106,15 @@ export function productosVistos(ventas = []) {
   return [...m.values()].sort((a, b) => b.ultima - a.ultima);
 }
 // ¿Es esta venta de uno de los productos elegidos? (por id o por nombre, sin distinguir mayúsculas)
+// Un número es el ID del producto en ThriveCart (exacto); un texto, su nombre o parte de él («raices» vale para
+// «Raíces · pago único»), sin distinguir mayúsculas ni tildes.
+export const normProd = (x) => String(x ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
 export const deProductos = (v, productos = []) => {
-  const set = new Set(productos.map((x) => String(x).toLowerCase()));
-  if (!v.productoId && !v.producto) return set.has('sin nombre'); // ventas sin nombre de producto: también se pueden elegir
-  return set.has(String(v.productoId || '').toLowerCase()) || set.has(String(v.producto || '').toLowerCase());
+  const lista = productos.map(normProd).filter(Boolean);
+  if (!v.productoId && !v.producto) return lista.includes('sin nombre'); // ventas sin nombre de producto: también se pueden elegir
+  const id = normProd(v.productoId);
+  const nombre = normProd(v.producto);
+  return lista.some((x) => (/^\d+$/.test(x) ? x === id : x === id || x === nombre || (x.length >= 4 && x !== 'sin nombre' && nombre.includes(x))));
 };
 
 // Añade una venta a la lista (sin repetir el mismo aviso) y se queda con las más recientes.
