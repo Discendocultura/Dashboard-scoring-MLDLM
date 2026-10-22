@@ -724,6 +724,12 @@ test('formularios instantáneos de Meta: el origen sale de la atribución o de l
   const { sourceDe, aplicarCamposFormulario } = await import('../lib/ghl.js');
   assert.deepEqual(sourceDe({ adId: '338', adGroupId: '225', campaignId: '1203', medium: 'facebook' }), { source: 'formulario-meta', medium: 'paid', campaign: '1203', term: '225', content: '338' });
   assert.deepEqual(sourceDe({ utmSource: 'ig', utmMedium: 'paid', utmCampaign: 'c', utmTerm: 't', utmContent: 'a' }), { source: 'ig', medium: 'paid', campaign: 'c', term: 't', content: 'a' });
+  // Una visita posterior sin UTM (encuesta, VIP) pisa la última atribución: vale la primera, la del anuncio.
+  const { source } = await import('../lib/ghl.js');
+  const anuncio = { utmSource: 'fb', utmCampaign: 'camp', utmTerm: 'conj', utmContent: 'anu' };
+  assert.equal(source({ attributionSource: anuncio, lastAttributionSource: { sessionSource: 'Direct traffic', medium: 'direct' } }).campaign, 'camp');
+  assert.equal(source({ attributionSource: { utmCampaign: 'vieja' }, lastAttributionSource: anuncio }).campaign, 'camp');
+  assert.equal(source({ lastAttributionSource: { sessionSource: 'Direct traffic' } }).campaign, '');
   const fa = { campaign: 'fc', adset: 'fs', ad: 'fa' };
   const c1 = aplicarCamposFormulario({ cf: { fc: '1', fs: '2', fa: '3' }, src: { source: '', medium: '', campaign: '', term: '', content: '' } }, fa);
   assert.deepEqual(c1.src, { source: 'formulario-meta', medium: 'paid', campaign: '1', term: '2', content: '3' });
