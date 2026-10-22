@@ -11,7 +11,7 @@ import { json, readBody, errorResponse } from '../lib/http.js';
 import { dentroDelLimite } from '../lib/intentos.js';
 import { env } from '../lib/env.js';
 import { dominioLogin } from '../lib/dominio.js';
-import { ventaDeWebhook, anadirVenta, ventaImportada, yaEsta, sinImportadasDe, MAX_VENTAS } from '../public/js/thrivecart.js';
+import { ventaDeWebhook, repararVentas, anadirVenta, ventaImportada, yaEsta, sinImportadasDe, MAX_VENTAS } from '../public/js/thrivecart.js';
 import { claveDe } from './zoom-registro.js';
 import { quitarCarritoAbandonado } from '../lib/abandonos.js';
 
@@ -26,7 +26,7 @@ export async function GET(request) {
       const desde = Number(url.searchParams.get('desde')) || 0;
       const hasta = Number(url.searchParams.get('hasta')) || Date.now() + 86_400_000;
       const { ventas = [] } = (await leerJSON(CLAVE, () => ({ ventas: [] }))) || {};
-      return json({ ventas: ventas.filter((v) => v.fecha >= desde && v.fecha <= hasta), total: ventas.length });
+      return json({ ventas: repararVentas(ventas).filter((v) => v.fecha >= desde && v.fecha <= hasta), total: ventas.length });
     }
     await requireSession(request, { permiso: 'config' });
     const k = await signToken(valor());

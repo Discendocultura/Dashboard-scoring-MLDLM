@@ -208,3 +208,23 @@ test('thrivecart: el ID de producto se guarda en todos los embudos con venta (VS
   assert.deepEqual(c.meteoricos.m1.tcProductos, ['41']);
   assert.equal(c.cruzadas.x1.productos[0].tcId, '51');
 });
+
+test('ThriveCart: el producto no se lee de una columna de precio y, con bumps, el principal es lo que se compra solo', async () => {
+  const { ventasDeCsv, repararVentas, deProductos, resumenThrivecart } = await import('../public/js/thrivecart.js');
+  const csv = 'Order ID,Date,Email,Product price,Item name,Item amount\n1,2026-10-21,a@x.com,7.43,Entrada VIP,8.99\n2,2026-10-21,b@x.com,9.00,Alimentación fértil,10.89\n2,2026-10-21,b@x.com,9.00,Entrada VIP,8.99\n';
+  const r = ventasDeCsv(csv).ventas;
+  assert.deepEqual(r.map((v) => v.producto), ['Entrada VIP', 'Entrada VIP']);
+  assert.deepEqual(r[1].lineas.map((l) => `${l.tipo}:${l.nombre}`), ['bump:Alimentación fértil', 'producto:Entrada VIP']);
+  // Las ya guardadas con esos fallos se reparan al leerlas, y lo elegido antes («7.43») sigue valiendo.
+  const viejas = [
+    { tipo: 'cobro', importada: true, email: 'a@x.com', importe: 8.99, producto: '7.43', fecha: 1, lineas: [{ nombre: 'Entrada VIP', tipo: 'producto', importe: 8.99 }] },
+    { tipo: 'cobro', importada: true, email: 'b@x.com', importe: 19.88, producto: '9.00', fecha: 2, lineas: [{ nombre: 'Alimentación fértil', tipo: 'producto', importe: 10.89 }, { nombre: 'Entrada VIP', tipo: 'bump', importe: 8.99 }] },
+  ];
+  const rep = repararVentas(viejas);
+  assert.deepEqual(rep.map((v) => v.producto), ['Entrada VIP', 'Entrada VIP']);
+  assert.deepEqual(rep[1].lineas.map((l) => l.tipo), ['bump', 'producto']);
+  assert.ok(deProductos(rep[0], ['7.43']) && deProductos(rep[1], ['9.00']));
+  const res = resumenThrivecart(rep, new Set(), { productos: ['Entrada VIP'] });
+  assert.equal(res.cobros, 2);
+  assert.deepEqual(res.extras.map((e) => `${e.nombre}:${e.n}`), ['Alimentación fértil:1']);
+});
