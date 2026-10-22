@@ -12,6 +12,7 @@ import {
   prioritarioDe, comercialDe, totalReparto, repartoIgual, porCantidad,
 } from './cruzadas.js';
 import { waPhone } from './scoring.js';
+import { resumenThrivecart } from './thrivecart.js';
 
 const POR_PAGINA = 40;
 const POR_COLUMNA = 60; // tarjetas que se pintan en cada fase de «Hoy» (las demás, con «Y N más»)
@@ -512,6 +513,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
       caja.innerHTML = `${cab}${prioHtml}<div class="xa-vacio"><div class="xa-vacio-ico" aria-hidden="true">🎁</div><h3>Aún no hay ofertas</h3>
         <p class="muted">Decide qué ofrecer a quien tiene cada producto (y a qué precio, con qué mensaje). Saldrá en la tarjeta de cada alumno y en su WhatsApp.</p>
         ${puedeConfig() ? '<button type="button" class="btn primary" data-x-config data-x-ir="ofertas">✨ Crear las ofertas</button>' : '<p class="muted small">Pídeselo a quien configura AlquimIA.</p>'}</div>`;
+      pintarTcCruzadas(caja, productos);
       return;
     }
     const cuantos = (o) => (datos.alumnos ? datos.alumnos.filter((a) => ofertaPara(a, cfg.ofertas, prio) === o).length : null);
@@ -525,6 +527,23 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
         <div class="xo-pie"><span class="xo-n">${n == null ? '…' : `<b>${num(n)}</b> alumnos`}</span><button type="button" class="btn small primary" data-x-verofer="${esc(o.tiene)}|${esc(o.ofrece)}">Ver a quién →</button></div>
       </article>`;
     }).join('')}</div>`;
+    pintarTcCruzadas(caja, productos);
+  }
+  // ThriveCart: lo cobrado en los últimos 30 días de cada producto con su ID de ThriveCart (con bumps y reembolsos).
+  async function pintarTcCruzadas(caja, productos) {
+    const conId = productos.filter((p) => p.tcId);
+    if (!conId.length) return;
+    const desde = Date.now() - 30 * 86_400_000;
+    let ventas = [];
+    try { ({ ventas = [] } = await api(`/api/thrivecart?op=ventas&desde=${desde}`)); } catch { return; }
+    if (!caja.isConnected) return;
+    const eur = (n) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+    const filas = conId.map((p) => {
+      const r = resumenThrivecart(ventas, new Set(), { desde, productos: [p.tcId] });
+      const extras = r.extras.reduce((t, e) => t + e.importe, 0);
+      return `<li><b>${esc(p.nombre)}</b> <small class="muted">· ID ${esc(p.tcId)}</small> — ${r.cobros ? `<b>${num(r.cobros)}</b> ${r.cobros === 1 ? 'venta' : 'ventas'} · ${eur(r.neto)} cobrado${extras ? ` (bumps ${eur(extras)})` : ''}${r.reembolsos ? ` · ${r.reembolsos} reembolso${r.reembolsos === 1 ? '' : 's'}` : ''}` : '<span class="muted">sin ventas en estos 30 días</span>'}</li>`;
+    }).join('');
+    caja.insertAdjacentHTML('beforeend', `<section class="tc-box xo-tc"><div class="tc-cab"><span class="tc-ico" aria-hidden="true">💳</span><div><strong>Cobrado en ThriveCart</strong><small class="muted">últimos 30 días, con IVA, bumps y reembolsos</small></div></div><ul class="xo-tc-l">${filas}</ul></section>`);
   }
   document.addEventListener('click', (e) => {
     const bp = e.target.closest('#xofertas-body [data-x-verprio]');
@@ -568,6 +587,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
         <button type="button" class="xc-prio ${p.prioritario ? 'on' : ''}" data-xc-prio aria-pressed="${Boolean(p.prioritario)}" title="${p.prioritario ? 'Es tu producto prioritario: se recomienda siempre primero a quien no lo tiene. Pulsa para quitarlo.' : 'Recomendar siempre este producto primero a quien no lo tiene'}">${p.prioritario ? '⭐ Prioritario' : '☆ Marcar como prioritario'}</button>
         <button type="button" class="btn ghost small xc-quitar" data-xc-quitar title="Quitar este producto" aria-label="Quitar este producto">✕</button></div>
       <label class="field"><span>🏷️ Etiqueta de compra <small>(la que pone GHL a quien lo compra)</small></span><input data-xc-campo="tag" list="tag-list" value="${esc(p.tag)}" maxlength="100" placeholder="Busca la etiqueta…"></label>
+      <label class="field"><span>💳 ID del producto en ThriveCart <small>(opcional: el número del producto en ThriveCart, para ver lo cobrado de verdad)</small></span><input data-xc-campo="tcId" inputmode="numeric" value="${esc(p.tcId || '')}" maxlength="40" placeholder="p. ej. 15"></label>
       <div class="xc-otras"><span class="xc-otras-t">Otras etiquetas que también cuentan <small>(ofertas, ediciones…)</small></span>
         <div class="xc-chips">${p.otras.map((o, j) => `<span class="xc-chip">${esc(o.tag)}<button type="button" data-xc-otra-quitar="${j}" aria-label="Quitar ${esc(o.tag)}">×</button></span>`).join('')}
           <span class="xc-otra-add"><input data-xc-otra list="tag-list" maxlength="100" placeholder="＋ otra etiqueta"><button type="button" class="btn small" data-xc-otra-add>Añadir</button></span></div></div></li>`;

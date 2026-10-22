@@ -3386,6 +3386,80 @@ $('#metric-tc').addEventListener('click', async (e) => {
   } catch (err) { b.disabled = false; $('#metric-tc [data-tc-st]').textContent = err.message; }
 });
 
+// Día «AAAA-MM-DD» → ms al empezar (o acabar) ese día en España.
+const diaMs = (dia, fin = false) => madridToEpoch(`${dia}T${fin ? '23:59' : '00:00'}`) + (fin ? 59_999 : 0);
+// IDs de producto de ThriveCart escritos en un campo («15, 16»).
+const tcIdsDe = (sel) => ($(sel)?.value || '').split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
+// ThriveCart en los demás embudos con venta (VSL, venta directa, meteórico): con el ID del producto en su configuración,
+// lo cobrado de verdad en el periodo (con bumps, upsells y reembolsos) en un recuadro, y la facturación y el ROAS de
+// sus tarjetas pasan a ser los de ThriveCart (lo calculado por etiquetas queda en pequeño para comparar).
+//   desde / hasta: ms. tarjetas: { cont, fact, roas, ventas } el contenedor (selector o elemento) y el texto de las tarjetas a cambiar.
+async function pintarTcEmbudo(box, { productos = [], desde, hasta, inversion = null, iva = 21, tarjetas = {}, abrirConfig = '' }) {
+  if (!box) return;
+  const clave = `${state.cliente || ''}:${desde}:${hasta}`;
+  if (!tcCache[clave] || Date.now() - tcCache[clave].at > 5 * 60_000) {
+    try {
+      const r = await api(`/api/thrivecart?op=ventas&desde=${desde}&hasta=${hasta}`);
+      tcCache[clave] = { at: Date.now(), ventas: r.ventas || [] };
+    } catch { tcCache[clave] = { at: Date.now(), ventas: [] }; }
+  }
+  if (!box.isConnected) return;
+  const { ventas } = tcCache[clave];
+  const conVentas = ventas.some((v) => !v.prueba);
+  const cfgBtn = abrirConfig && puedeConfig() ? ` <button type="button" class="link-btn" data-tc-cfg="${abrirConfig}">Ponerlo →</button>` : '';
+  if (!productos.length) {
+    // Sin ID: solo un aviso si el cliente usa ThriveCart (le han llegado ventas en este periodo).
+    box.hidden = !conVentas;
+    box.innerHTML = conVentas ? `<p class="muted small">💳 ¿Este embudo vende en ThriveCart? Pon el <strong>ID del producto</strong> en su configuración y aquí verás lo cobrado de verdad, con bumps y reembolsos.${cfgBtn}</p>` : '';
+    return;
+  }
+  const r = resumenThrivecart(ventas, new Set(), { desde, hasta, productos });
+  const sinIvaTc = (x) => x / (1 + iva / 100);
+  const neto = sinIvaTc(r.neto);
+  const roas = inversion ? neto / inversion : null;
+  const nombreX = { bump: 'Bump', upsell: 'Upsell', downsell: 'Downsell' };
+  box.hidden = false;
+  box.innerHTML = `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">💳</span><div><strong>Cobrado en ThriveCart</strong><small class="muted">producto${productos.length === 1 ? '' : 's'} con ID ${productos.map(esc).join(', ')} · en el periodo</small></div></div>
+    <div class="tc-cifras">
+      <div><span>Cobrado</span><strong>${eur(r.cobrado)}</strong><small>${r.cobros} ${r.cobros === 1 ? 'venta' : 'ventas'} · ${r.compradoras} ${r.compradoras === 1 ? 'compradora' : 'compradoras'}</small></div>
+      <div><span>Reembolsos</span><strong>${r.reembolsado ? `−${eur(r.reembolsado)}` : eur(0)}</strong><small>${r.reembolsos} ${r.reembolsos === 1 ? 'reembolso' : 'reembolsos'}</small></div>
+      <div><span>Neto sin IVA</span><strong>${eur(neto)}</strong><small>con IVA ${eur(r.neto)} (${iva} %)</small></div>
+      <div><span>ROAS real</span><strong>${roas == null ? '–' : `${roas.toFixed(2).replace('.', ',')}x`}</strong><small>${inversion ? `÷ ${eur(inversion)} de inversión` : 'sin inversión en el periodo'}</small></div>
+    </div>
+    ${r.extras.length ? `<div class="tc-extras"><strong>Bumps y ofertas extra · ${r.extras.reduce((t, e) => t + e.n, 0)} en total · ${eur(r.extras.reduce((t, e) => t + e.importe, 0))}</strong>${r.extras.map((e) => `<span class="tc-x tc-x-${e.tipo}">${nombreX[e.tipo]} «${esc(e.nombre)}» · <strong>${e.n}</strong> (${pctOf(e.n, r.cobros)} de las ventas) · ${eur(e.importe)}</span>`).join('')}</div>` : r.cobros && r.pedidosConLineas ? '<p class="muted small">Ningún bump ni oferta extra en estas ventas.</p>' : ''}
+    ${!r.cobros ? `<p class="muted small">⏳ Aún no ha llegado ninguna venta de ${productos.length === 1 ? 'ese producto' : 'esos productos'} en este periodo. Si ya vendió, revisa el ID en la configuración.${cfgBtn}</p>` : ''}`;
+  if (!r.cobros || !tarjetas.cont) return;
+  const kpi = (lbl) => (typeof tarjetas.cont === 'string' ? $$(`${tarjetas.cont} .kpi`) : [...tarjetas.cont.querySelectorAll('.kpi')]).find((k) => k.querySelector('.kpi-label')?.textContent.trim().startsWith(lbl));
+  const fact = tarjetas.fact && kpi(tarjetas.fact);
+  if (fact && !fact.dataset.tc) {
+    fact.dataset.tc = '1';
+    const antes = fact.querySelector('.kpi-value').textContent;
+    fact.querySelector('.kpi-value').textContent = eur(neto);
+    fact.querySelector('.kpi-sub').innerHTML = `💳 cobrado en ThriveCart (sin IVA)${r.extras.length ? ` · bumps y extras ${eur(sinIvaTc(r.extras.reduce((t, e) => t + e.importe, 0)))}` : ''} · por etiquetas ${esc(antes)}`;
+  }
+  const vk = tarjetas.ventas && kpi(tarjetas.ventas);
+  if (vk && !vk.dataset.tc) {
+    vk.dataset.tc = '1';
+    const antes = vk.querySelector('.kpi-value').textContent;
+    vk.querySelector('.kpi-value').textContent = r.cobros.toLocaleString('es-ES');
+    vk.querySelector('.kpi-sub').innerHTML = `💳 ventas en ThriveCart · por etiquetas ${esc(antes)}`;
+  }
+  const ro = tarjetas.roas && kpi(tarjetas.roas);
+  if (ro && roas != null && !ro.dataset.tc) {
+    ro.dataset.tc = '1';
+    ro.querySelector('.kpi-value').textContent = `${roas.toFixed(2)}x`;
+    ro.querySelector('.kpi-sub').innerHTML = `💳 con lo cobrado en ThriveCart ÷ ${eur(inversion)} de inversión`;
+  }
+}
+// «Ponerlo →»: a la configuración del embudo donde va el ID de ThriveCart.
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tc-cfg]');
+  if (!b) return;
+  if (b.dataset.tcCfg === 'vsl') openVslConfig();
+  else if (b.dataset.tcCfg === 'directa') abrirDirectaConfig();
+  else if (b.dataset.tcCfg.startsWith('meteo:')) abrirMeteoDialog(b.dataset.tcCfg.slice(6));
+});
+
 // Avisos: lo que falta configurar o los datos que no cuadran (lo mismo que llega en el resumen diario).
 function renderAvisos(m, launch) {
   const avisos = avisosLanzamiento(state.leads, launch, m);
@@ -13211,6 +13285,7 @@ function renderVslMetricas() {
     kpi('info', 'trend', 'ROAS', m.roas != null ? `${m.roas.toFixed(2)}x` : '–', `Conversión ${pctOf(m.compraCohorte, m.registros)} (registro → venta)`),
   ].join('');
 
+  pintarTcEmbudo($('#vm-tc'), { productos: v.tcProductos || [], desde: diaMs(r.desde), hasta: diaMs(r.hasta, true), inversion, iva: ivaPct(v), tarjetas: { cont: '#vm-kpis', fact: 'Facturación', roas: 'ROAS', ventas: 'Ventas' }, abrirConfig: 'vsl' });
   mostrarEmails(state.embudo, { kpis: '#em-kpis-v', tabla: '#em-v' });
   mostrarCiclo(state.embudo, { kpi: '#ciclo-kpi-v', detalle: '#ciclo-v', propias: L.filter((l) => l.s.compra), dateField: v.compraDateField, nombre: 'esta VSL' });
   $('#vm-planes-sec').hidden = !m.planes;
@@ -13468,6 +13543,7 @@ async function openVslConfig(id = state.embudo) {
   rot('#vc-vslVideoUrl', tv.video);
   for (const k of VC_TEXTOS) $(`#vc-${k}`).value = v[k] ?? '';
   for (const k of ['precioPrograma', 'precioFraccionado']) $(`#vc-${k}`).value = v[k] ? String(v[k]).replace('.', ',') : '';
+  $('#vc-tcProductos').value = (v.tcProductos || []).join(', ');
   $('#vc-boton').value = v.botonSegundos ? mmss(v.botonSegundos) : '0';
   $('#vc-informeSemanal').checked = Boolean(v.informeSemanal);
   pintarPago('vc', v.pago);
@@ -13540,6 +13616,7 @@ $('#vc-save').addEventListener('click', async () => {
   for (const k of ['precioPrograma', 'precioFraccionado']) vsl[k] = vsl[k].replace(/\./g, '').replace(',', '.');
   for (const k of ['registroDateField', 'compraDateField']) vsl[k] = $(`#vc-${k}`).value;
   vsl.botonSegundos = aSegundos($('#vc-boton').value);
+  vsl.tcProductos = tcIdsDe('#vc-tcProductos');
   vsl.informeSemanal = $('#vc-informeSemanal').checked;
   if (errorPago('vc')) { status.textContent = errorPago('vc'); return; }
   vsl.pago = leerPago('vc');
@@ -14262,7 +14339,7 @@ async function pintarMeteo(box, code, { fresh = false } = {}) {
   const snippet = `<div data-lsd-oferta></div>\n<script src="${location.origin}/oferta.js?${qs}" defer></script>`;
   const foto = m.compraDateField ? '' : `<p class="muted small">Sin campo de fecha de compra, las ventas son quienes tienen la etiqueta y no estaban en la «foto».${d.foto ? ` Foto hecha el ${esc(new Date(d.foto.at).toLocaleString('es-ES'))} (${d.foto.n} personas ya la tenían).` : ' <strong>Aún no hay foto: hazla antes de abrir.</strong>'}</p>${puedeConfig() ? `<button type="button" class="btn" data-meteo-foto="${esc(code)}">${d.foto ? 'Rehacer la foto' : 'Hacer la foto ahora'}</button>` : ''}`;
   const planes = d.planes ? `<section class="meteo-sec"><h3>Planes de la suscripción</h3><div class="table-scroll"><table class="metric-table">${tablaPlanes(d.planes)}</table></div></section>` : '';
-  box.innerHTML = `${cab}<div class="kpis meteo-kpis">${kpis}</div>${planes}${porDia}${m.sendflowId ? '<section class="meteo-sec"><h3>💬 Grupo de WhatsApp</h3><div data-meteo-grupos></div></section>' : ''}${compradoras}
+  box.innerHTML = `${cab}<div class="kpis meteo-kpis">${kpis}</div><div class="tc-box" data-meteo-tc hidden></div>${planes}${porDia}${m.sendflowId ? '<section class="meteo-sec"><h3>💬 Grupo de WhatsApp</h3><div data-meteo-grupos></div></section>' : ''}${compradoras}
     <section class="meteo-sec"><h3>Código para la página de la oferta <span class="muted small">(bloque «Código HTML» en GHL)</span></h3>
       <p class="muted small">Pinta la cuenta atrás («se abre en…», «se cierra en…» con el botón de compra y «ha terminado») y cuenta las visitas. Los textos y horas se cambian en Configurar.</p>
       <pre class="snippet">${esc(snippet)}</pre><button type="button" class="btn" data-copiar-meteo="${esc(snippet)}">Copiar código</button>
@@ -14270,6 +14347,10 @@ async function pintarMeteo(box, code, { fresh = false } = {}) {
       ${foto}</section>
     <section class="meteo-sec"><h3>Emails del meteórico <span class="muted small">(apertura, CTR y qué mejorar)</span></h3><div data-em-meteo></div></section>
     ${m.notas ? `<section class="meteo-sec"><h3>Notas</h3><p class="ll-notas">${esc(m.notas)}</p></section>` : ''}`;
+  // ThriveCart: del calentamiento (o 7 días antes de abrir) a 3 días después del cierre.
+  const tcDesde = m.calentamiento ? diaMs(m.calentamiento) : m.apertura ? madridToEpoch(m.apertura) - 7 * 86_400_000 : 0;
+  const tcHasta = m.cierre ? madridToEpoch(m.cierre) + 3 * 86_400_000 : Date.now() + 86_400_000;
+  pintarTcEmbudo(box.querySelector('[data-meteo-tc]'), { productos: m.tcProductos || [], desde: tcDesde, hasta: tcHasta, inversion: d.inversion || null, iva: ivaPct(m), tarjetas: { cont: box.querySelector('.meteo-kpis'), fact: 'Facturación', ventas: 'Ventas' }, abrirConfig: `meteo:${code}` });
   if (tiene('metricas')) mostrarEmails(code, { tabla: box.querySelector('[data-em-meteo]') });
   if (m.sendflowId && tiene('metricas')) cargarGrupos(code, box.querySelector('[data-meteo-grupos]'));
 }
@@ -14377,6 +14458,7 @@ async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
     el.value = v == null || v === 0 ? '' : String(v);
   }
   for (const k of ['calentamiento', 'abierta', 'cerrada', 'boton']) $(`#mt-t-${k}`).value = m?.textos?.[k] || '';
+  $('#mt-tcProductos').value = (m?.tcProductos || []).join(', ');
   $('#mt-code').value = code || '';
   $('#mt-code').readOnly = Boolean(m);
   pintarCodigoMeta('mt-metaFiltro', 'meteorico', code || '', m?.name || '');
@@ -14405,7 +14487,7 @@ $('#mt-guardar').addEventListener('click', async () => {
   const v = Object.fromEntries(MT_CAMPOS.map((k) => [k, $(`#mt-${k}`).value.trim()]));
   const m = {
     ...(state.config.meteoricos?.[code] || {}), ...v,
-    compraDateField: $('#mt-compraDateField').value,
+    compraDateField: $('#mt-compraDateField').value, tcProductos: tcIdsDe('#mt-tcProductos'),
     textos: Object.fromEntries(['calentamiento', 'abierta', 'cerrada', 'boton'].map((k) => [k, $(`#mt-t-${k}`).value.trim()])),
     embudo: meteoEdit.lanzamiento ? '' : meteoEdit.embudo, lanzamiento: meteoEdit.lanzamiento,
     pago: leerPago('mt'),
@@ -15389,6 +15471,7 @@ function abrirDirectaConfig(id = state.embudo, paso = '') {
   pintarPartes('#dc-partes', d.partes || partesPorDefecto());
   const v = (k, x) => { $(`#dc-${k}`).value = x ?? ''; };
   v('name', d.name); v('producto', d.producto); v('precio', d.precio ? String(d.precio).replace('.', ',') : '');
+  v('tcProductos', (d.tcProductos || []).join(', '));
   v('iva', d.iva?.producto || ''); v('ivaPct', d.iva?.pct ?? 21); v('compraTag', d.compraTag); v('emailCompra', d.emailCompra);
   v('ventaUrl', d.ventaUrl); v('checkoutUrl', d.checkoutUrl); v('graciasUrl', d.graciasUrl); v('llamadaUrl', d.llamadaUrl);
   v('metaFiltro', d.metaFiltro); v('inversionDia', d.inversionDia || ''); v('objetivoCpa', d.objetivoCpa || '');
@@ -15516,7 +15599,7 @@ $('#dc-guardar').addEventListener('click', async () => {
   const val = (k) => $(`#dc-${k}`).value.trim();
   const d = {
     ...state.config.directas[id],
-    name: val('name') || state.config.directas[id].name, producto: val('producto'), precio: val('precio'),
+    name: val('name') || state.config.directas[id].name, producto: val('producto'), precio: val('precio'), tcProductos: tcIdsDe('#dc-tcProductos'),
     iva: { pct: val('ivaPct') === '' ? 21 : Number(val('ivaPct').replace(',', '.')), producto: $('#dc-iva').value },
     compraTag: val('compraTag').toLowerCase(), compraDateField: val('compraDateField'), emailCompra: val('emailCompra'),
     upsellPrincipal: { nombre: val('uppNombre'), tags: [...dcUppTags, ...($('#dc-uppTag').value.trim() ? [$('#dc-uppTag').value.trim().toLowerCase()] : [])], precios: dcUppPrecios },
@@ -15666,6 +15749,7 @@ function renderDirectaMetricas(D) {
     grande(cardD('ROAS', x2(D.roas), D.roas != null ? `${eur(D.facturacion)} ÷ ${eur(D.inversion)} de inversión${D.roas >= 1 ? ' · se paga solo ✓' : ' · aún no se paga solo'}` : invTxt, 'trend', D.roas != null && D.roas < 1 ? 'warn' : 'buy')),
   ].join('');
   pintarUpsellPrincipal(D.upsellPrincipal, d);
+  pintarTcEmbudo($('#dir-tc'), { productos: d.tcProductos || [], desde: diaMs(D.rango.desde), hasta: diaMs(D.rango.hasta, true), inversion: D.inversion, iva: ivaPct(d), tarjetas: { cont: '#dir-hero', fact: 'Facturación', roas: 'ROAS', ventas: 'Ventas' }, abrirConfig: 'directa' });
   const v = D.visitas || {};
   const conVisitas = conParte(d, 'visitas');
   const sinCodigo = (pag) => `pega el código de la ${pag} (⚙️ Configurar → Páginas)`;

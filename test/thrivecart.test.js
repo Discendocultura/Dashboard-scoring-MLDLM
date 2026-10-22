@@ -190,3 +190,21 @@ test('thrivecart: el producto se elige por su ID (exacto) o por su nombre (o par
   assert.equal(deProductos({ productoId: '', producto: '' }, ['Sin nombre']), true);
   assert.equal(deProductos({ productoId: '', producto: 'Sin nombre de algo' }, ['Sin nombre']), false);
 });
+
+test('thrivecart: el ID de producto se guarda en todos los embudos con venta (VSL, venta directa, meteórico, cruzadas)', async () => {
+  const { sanitizeConfig } = await import('../lib/config-store.js');
+  const c = sanitizeConfig({
+    launches: { l1: { registroTag: 'r', tcProductos: ['12'], tcPrograma: ['15', ' 15 '] } },
+    vsls: { vsl: { registroTag: 'v', tcProductos: ['21'] } },
+    embudos: [{ id: 'lanzamientos', tipo: 'lanzamientos' }, { id: 'vsl', tipo: 'vsl' }, { id: 'dir1', tipo: 'directa', name: 'D' }, { id: 'met', tipo: 'meteorico', name: 'M' }, { id: 'x1', tipo: 'cruzadas', name: 'X' }],
+    directas: { dir1: { name: 'D', tcProductos: ['31', '32'] } },
+    meteoricos: { m1: { name: 'M', embudo: 'met', tcProductos: ['41'] } },
+    cruzadas: { x1: { productos: [{ nombre: 'Reto', tag: 'compra-reto', tcId: '51' }] } },
+  });
+  assert.deepEqual(c.launches.l1.tcProductos, ['12']);
+  assert.deepEqual(c.launches.l1.tcPrograma, ['15']);
+  assert.deepEqual(c.vsls.vsl.tcProductos, ['21']);
+  assert.deepEqual(c.directas.dir1.tcProductos, ['31', '32']);
+  assert.deepEqual(c.meteoricos.m1.tcProductos, ['41']);
+  assert.equal(c.cruzadas.x1.productos[0].tcId, '51');
+});

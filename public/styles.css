@@ -8192,3 +8192,5 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .tc-prev-grupos .tc-x { display: inline-block; margin: 2px 2px; }
 .tc-rol { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 6px 0; border-bottom: 1px solid var(--border, #eee); }
 .tc-rol select { max-width: 100%; }
+.xo-tc { margin-top: 16px; }
+.xo-tc-l { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }

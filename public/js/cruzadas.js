@@ -21,7 +21,8 @@ export function sanitizeProductoX(p) {
   const tag = etiqueta(p?.tag);
   const otras = [...new Set((Array.isArray(p?.otras) ? p.otras : []).map((o) => etiqueta(typeof o === 'string' ? o : o?.tag)).filter((t) => t && t !== tag))]
     .slice(0, MAX_OTRAS_X).map((t) => ({ tag: t }));
-  return { id: idValido(p?.id) ? p.id : nuevoIdX(), nombre: limpio(p?.nombre, 60), tag, otras, prioritario: p?.prioritario === true };
+  const tcId = String(p?.tcId ?? '').trim().slice(0, 40); // ID del producto en ThriveCart (opcional)
+  return { id: idValido(p?.id) ? p.id : nuevoIdX(), nombre: limpio(p?.nombre, 60), tag, otras, prioritario: p?.prioritario === true, ...(tcId ? { tcId } : {}) };
 }
 
 // «Hoy» y «Llamadas»: el pipeline de GHL que se recomienda crear para las ventas cruzadas, con sus fases.
