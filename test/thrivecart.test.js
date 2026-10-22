@@ -129,3 +129,42 @@ test('thrivecart: cada lanzamiento cuenta solo sus productos y los bumps salen d
   // Por nombre también vale
   assert.equal(resumenThrivecart(lista, new Set(), { productos: ['curso resistencia'] }).cobrado, 97);
 });
+
+test('thrivecart CSV: una fila por producto del pedido → un pedido con sus bumps; o columnas de bump; fechas de EE. UU.', async () => {
+  const { ventasDeCsv, resumenThrivecart, sinImportadasDe } = await import('../public/js/thrivecart.js');
+  // Una fila por línea con columna de tipo
+  const csv = 'Order ID,Date,Customer email,Product ID,Product name,Item type,Item name,Amount,Status\n'
+    + '1,10/21/2026 10:00,a@x.com,11,Entrada VIP,product,Entrada VIP,9.00,Paid\n'
+    + '1,10/21/2026 10:00,a@x.com,11,Entrada VIP,bump,Guía otoño,10.00,Paid\n'
+    + '2,10/21/2026 11:00,b@x.com,11,Entrada VIP,product,Entrada VIP,9.00,Paid\n'
+    + '2,10/21/2026 11:00,b@x.com,11,Entrada VIP,bump,Masterclass,7.00,Paid\n'
+    + '3,10/22/2026 09:00,c@x.com,11,Entrada VIP,product,Entrada VIP,9.00,Paid\n';
+  const r = ventasDeCsv(csv);
+  assert.equal(r.ventas.length, 3, '5 filas → 3 pedidos');
+  assert.equal(r.resumen.mesPrimero, true);
+  assert.equal(new Date(r.ventas[0].fecha).toISOString().slice(0, 10), '2026-10-21');
+  assert.deepEqual(r.ventas.map((v) => [v.importe, v.producto, v.productoId]), [[19, 'Entrada VIP', '11'], [16, 'Entrada VIP', '11'], [9, 'Entrada VIP', '11']]);
+  const res = resumenThrivecart(r.ventas, new Set(), { productos: ['11'] });
+  assert.equal(res.cobrado, 44);
+  assert.deepEqual(res.extras.map((e) => [e.nombre, e.n, e.importe, Math.round(e.pct * 100)]), [['Guía otoño', 1, 10, 33], ['Masterclass', 1, 7, 33]]);
+  // Sin columna de tipo: lo que va con el producto principal en el mismo pedido es un bump
+  const sinTipo = ventasDeCsv('Order ID,Date,Email,Product,Amount\n7,2026-10-21,a@x.com,Entrada VIP,9\n7,2026-10-21,a@x.com,Guía otoño,10\n8,2026-10-21,b@x.com,Entrada VIP,9\n');
+  assert.deepEqual(sinTipo.ventas.map((v) => [v.producto, v.importe, (v.lineas || []).filter((l) => l.tipo === 'bump').map((l) => l.nombre).join()]), [['Entrada VIP', 19, 'Guía otoño'], ['Entrada VIP', 9, '']]);
+  // Una fila por pedido con columnas de bump
+  const cols = ventasDeCsv('Order ID,Date,Email,Product,Order total,Bump,Bump amount\n9,21/10/2026,a@x.com,Entrada VIP,19,Yes,10\n10,21/10/2026,b@x.com,Entrada VIP,9,No,\n');
+  assert.deepEqual(cols.ventas[0].lineas.map((l) => [l.tipo, l.importe]), [['producto', 9], ['bump', 10]]);
+  assert.equal(cols.resumen.extras[0].n, 1);
+  // Volver a importar: lo importado antes de esos pedidos se sustituye
+  const viejo = [{ importada: true, pedido: '1', email: 'a@x.com', fecha: r.ventas[0].fecha, importe: 10 }, { pedido: '1', email: 'a@x.com', fecha: 1, importe: 19 }];
+  assert.equal(sinImportadasDe(viejo, r.ventas).length, 1, 'se queda la que llegó por aviso');
+});
+
+test('thrivecart: ventas sin nombre de producto se pueden elegir y sus bumps se nombran por el precio', async () => {
+  const { ventasDeCsv, resumenThrivecart } = await import('../public/js/thrivecart.js');
+  const r = ventasDeCsv('Order ID,Date,Email,Amount\n1,2026-10-21,a@x.com,9\n1,2026-10-21,a@x.com,10\n2,2026-10-21,b@x.com,9\n2,2026-10-21,b@x.com,7\n3,2026-10-21,c@x.com,9\n');
+  const res = resumenThrivecart(r.ventas, new Set(), { productos: ['Sin nombre'] });
+  assert.equal(res.cobros, 3);
+  assert.equal(res.cobrado, 44);
+  assert.deepEqual(res.extras.map((e) => [e.nombre, e.n]).sort(), [['Bump de 10 €', 1], ['Bump de 7 €', 1]]);
+  assert.equal(ventasDeCsv('Date,Email,Item,Amount\n2026-10-21,a@x.com,Entrada VIP,9\n').ventas[0].producto, 'Entrada VIP');
+});

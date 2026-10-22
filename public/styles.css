@@ -8189,3 +8189,4 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .tc-elegir > summary { cursor: pointer; }
 .tc-elegir[open] { display: grid; gap: 8px; }
 .tc-elegir-lista { display: grid; gap: 6px; }
+.tc-prev-grupos .tc-x { display: inline-block; margin: 2px 2px; }

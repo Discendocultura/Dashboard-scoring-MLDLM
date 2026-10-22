@@ -3270,6 +3270,21 @@ async function renderThrivecart(m, launch) {
   const netoSinIva = r.neto / (1 + pct / 100);
   const roas = m.eco.inversion ? netoSinIva / m.eco.inversion : null;
   const x = (v) => (v == null ? '–' : `${v.toFixed(2).replace('.', ',')}x`);
+  // Con los productos del lanzamiento elegidos, la facturación y el ROAS de arriba son los de ThriveCart (lo cobrado de
+  // verdad, con bumps y reembolsos); lo calculado por etiquetas queda debajo para comparar.
+  if (r.porProductos && r.cobros) {
+    const kpi = (lbl) => $$('#eco-cards .kpi').find((k) => k.querySelector('.kpi-label')?.textContent.trim().startsWith(lbl));
+    const fact = kpi('Facturación');
+    if (fact) {
+      fact.querySelector('.kpi-value').textContent = eur(netoSinIva);
+      fact.querySelector('.kpi-sub').innerHTML = `💳 cobrado en ThriveCart${r.extras.length ? ` (bumps ${eur(r.extras.reduce((t, e) => t + e.importe, 0) / (1 + pct / 100))})` : ''} · por etiquetas ${eur(m.eco.facturacion)}`;
+    }
+    const ro = kpi('ROAS');
+    if (ro && roas != null) {
+      ro.querySelector('.kpi-value').textContent = `${roas.toFixed(2)}x`;
+      ro.querySelector('.kpi-sub').textContent = `💳 con lo cobrado en ThriveCart · beneficio ${eur(netoSinIva - m.eco.inversion)} (sin IVA)`;
+    }
+  }
   // Compradoras en ThriveCart sin su etiqueta de VIP ni de compra en GHL.
   const sinEtiqueta = state.leads.filter((l) => r.emailsCompra.has(String(l.email || '').toLowerCase()) && !l.s.vip && !l.s.compra && !l.s.vip_anterior && !l.s.compra_previo);
   box.innerHTML = `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">💳</span><div><strong>Cobrado en ThriveCart</strong><small class="muted">${r.porProductos ? 'lo cobrado de verdad en los productos de este lanzamiento' : 'lo cobrado de verdad a los leads de este lanzamiento'}</small></div></div>
@@ -3280,7 +3295,7 @@ async function renderThrivecart(m, launch) {
       <div><span>ROAS real</span><strong>${x(roas)}</strong><small>${m.eco.inversion ? `÷ ${eur(m.eco.inversion)} de inversión` : 'sin inversión todavía'}</small></div>
     </div>
     ${r.porProducto.length ? `<p class="tc-prod">${r.porProducto.slice(0, 6).map((p) => `<span>${esc(p.producto)} · <strong>${eur(p.importe)}</strong> <small>(${p.cobros})</small></span>`).join('')}</p>` : ''}
-    ${r.extras.length ? `<div class="tc-extras"><strong>Bumps y ofertas extra</strong>${r.extras.map((e) => `<span class="tc-x tc-x-${e.tipo}">${{ bump: 'Bump', upsell: 'Upsell', downsell: 'Downsell' }[e.tipo]} «${esc(e.nombre)}» · <strong>${e.n}</strong>${e.pct != null ? ` (${Math.round(e.pct * 100)} % de los pedidos)` : ''} · ${eur(e.importe)}</span>`).join('')}</div>` : r.pedidosConLineas ? '<p class="muted small">Ningún bump ni oferta extra en estos pedidos.</p>' : ''}
+    ${r.extras.length ? `<div class="tc-extras"><strong>Bumps y ofertas extra · ${r.extras.reduce((t, e) => t + e.n, 0)} en total · ${eur(r.extras.reduce((t, e) => t + e.importe, 0))}</strong>${r.extras.map((e) => `<span class="tc-x tc-x-${e.tipo}">${{ bump: 'Bump', upsell: 'Upsell', downsell: 'Downsell' }[e.tipo]} «${esc(e.nombre)}» · <strong>${e.n}</strong>${e.pct != null ? ` (${Math.round(e.pct * 100)} % de los pedidos)` : ''} · ${eur(e.importe)}</span>`).join('')}</div>` : r.pedidosConLineas ? '<p class="muted small">Ningún bump ni oferta extra en estos pedidos.</p>' : ''}
     <details class="tc-elegir"${elegidos.length ? '' : ' open'}><summary>⚙️ <strong>Qué ventas son de este lanzamiento</strong> <span class="muted small">· ${elegidos.length ? `${elegidos.length} ${elegidos.length === 1 ? 'producto elegido' : 'productos elegidos'}` : 'ahora: las de los emails de sus leads'}</span></summary>
       <p class="muted small">En ThriveCart hay ventas de varios embudos. Marca los productos de este lanzamiento (entrada VIP, programa…): contarán todas sus ventas del periodo, aunque la compradora no se haya registrado. Sin marcar ninguno, cuentan las ventas de los emails de sus leads.</p>
       <div class="tc-elegir-lista">${vistos.map((p) => `<label class="chk"><input type="checkbox" data-tc-prod="${esc(p.clave)}"${elegidos.some((x) => [p.clave, p.nombre].map((y) => String(y).toLowerCase()).includes(String(x).toLowerCase())) ? ' checked' : ''}> ${esc(p.nombre)} <small class="muted">· ${p.ventas} ${p.ventas === 1 ? 'venta' : 'ventas'} · ${eur(p.importe)}</small></label>`).join('') || '<p class="muted small">Aún no ha llegado ninguna venta en este periodo.</p>'}</div>
@@ -16265,7 +16280,8 @@ async function pintarThrivecartConexiones() {
 }
 // Importar el CSV de ThriveCart: vista previa (columnas entendidas, cuántas, total) y guardar.
 let tcImport = null;
-const TC_COL = { email: 'Email', importe: 'Importe', producto: 'Producto', fecha: 'Fecha', pedido: 'Pedido', tipo: 'Tipo/estado', nombre: 'Nombre' };
+const TC_COL = { email: 'Email', importe: 'Importe', item: 'Línea', importeItem: 'Importe de la línea', producto: 'Producto', productoId: 'Id del producto', linea: 'Tipo de línea', fecha: 'Fecha', pedido: 'Pedido', tipo: 'Tipo', estado: 'Estado', nombre: 'Nombre', moneda: 'Moneda' };
+const TC_EXTRA = { bump: 'Bump', upsell: 'Upsell', downsell: 'Downsell' };
 $('#conexiones-dialog').addEventListener('change', async (e) => {
   if (e.target.id !== 'tc-csv') return;
   const f = e.target.files?.[0];
@@ -16281,8 +16297,14 @@ $('#conexiones-dialog').addEventListener('change', async (e) => {
   const falta = ['email', 'importe', 'fecha'].filter((k) => r.columnas[k] == null);
   box.innerHTML = falta.length
     ? `<p class="reg-falta">No encuentro la columna de ${falta.map((k) => TC_COL[k].toLowerCase()).join(', ')}. Columnas del archivo: ${r.cabecera.map((c) => `«${esc(c)}»`).join(', ')}.</p>`
-    : `<p class="small">Columnas entendidas: ${Object.entries(r.columnas).map(([k, i]) => `${TC_COL[k]} = «${esc(r.cabecera[i])}»`).join(' · ')}</p>
-      <p class="small"><strong>${cobros.length}</strong> cobros (${eur(suma(cobros))})${reemb.length ? ` y <strong>${reemb.length}</strong> reembolsos (${eur(suma(reemb))})` : ''}${fechas.length ? `, del ${d(fechas[0])} al ${d(fechas.at(-1))}` : ''}${r.descartadas ? ` · ${r.descartadas} filas sin email, importe o fecha, o fallidas (no se importan)` : ''}.</p>
+    : `<p class="small"><strong>${r.resumen.filas}</strong> filas → <strong>${cobros.length}</strong> ${cobros.length === 1 ? 'pedido' : 'pedidos'} (${eur(suma(cobros))})${reemb.length ? ` y <strong>${reemb.length}</strong> reembolsos (${eur(suma(reemb))})` : ''}${fechas.length ? `, del ${d(fechas[0])} al ${d(fechas.at(-1))}` : ''}${r.descartadas ? ` · ${r.descartadas} filas sin email, importe o fecha, o fallidas (no se importan)` : ''}.</p>
+      <div class="tc-prev-grupos">
+        <p class="small"><strong>Productos principales:</strong> ${r.resumen.productos.map((p) => `<span class="tc-x">${esc(p.nombre)} · ${p.n}</span>`).join(' ') || '–'}</p>
+        <p class="small"><strong>Bumps y ofertas extra:</strong> ${r.resumen.extras.map((x) => `<span class="tc-x tc-x-${x.tipo}">${TC_EXTRA[x.tipo]} «${esc(x.nombre)}» · ${x.n} (${cobros.length ? Math.round((x.n / cobros.length) * 100) : 0} %)</span>`).join(' ') || '<span class="muted">no he encontrado ninguno en el archivo</span>'}</p>
+      </div>
+      <details class="small"><summary>Columnas que he entendido</summary><p>${Object.entries(r.columnas).filter(([k]) => TC_COL[k]).map(([k, i]) => `${TC_COL[k]} = «${esc(r.cabecera[i])}»`).join(' · ')}${r.columnas.bumps ? ` · Bump = ${[...r.columnas.bumps.nombre, ...r.columnas.bumps.importe].map((i) => `«${esc(r.cabecera[i])}»`).join(', ')}` : ''}${r.resumen.mesPrimero ? ' · fechas con el mes delante (formato de EE. UU.)' : ''}</p>
+        <p class="muted">Todas las columnas del archivo: ${r.cabecera.map((c) => `«${esc(c)}»`).join(', ')}</p></details>
+      <p class="muted small">Si ya importaste este archivo antes, lo de esos pedidos se sustituye por lo nuevo (no se duplica).</p>
       ${r.ventas.length ? `<button type="button" class="btn primary" id="tc-csv-importar">Importar ${r.ventas.length} ${r.ventas.length === 1 ? 'venta' : 'ventas'}</button>` : ''}`;
 });
 $('#conexiones-dialog').addEventListener('click', async (e) => {
@@ -16294,7 +16316,7 @@ $('#conexiones-dialog').addEventListener('click', async (e) => {
     tcImport = null;
     Object.keys(tcCache).forEach((k) => delete tcCache[k]);
     await pintarThrivecartConexiones();
-    $('#tc-csv-prev').innerHTML = `<p class="small">✓ ${r.nuevas} ${r.nuevas === 1 ? 'venta importada' : 'ventas importadas'}${r.repetidas ? ` · ${r.repetidas} ya ${r.repetidas === 1 ? 'estaba' : 'estaban'} (no se duplican)` : ''}. Ya salen en Métricas → Resumen de cada lanzamiento.</p>`;
+    $('#tc-csv-prev').innerHTML = `<p class="small">✓ ${r.nuevas} ${r.nuevas === 1 ? 'venta importada' : 'ventas importadas'}${r.repetidas ? ` · ${r.repetidas} ya ${r.repetidas === 1 ? 'estaba' : 'estaban'} (no se duplican)` : ''}${r.sustituidas ? ` · ${r.sustituidas} de la importación anterior sustituidas` : ''}. Ya salen en Métricas → Resumen de cada lanzamiento.</p>`;
   } catch (err) {
     b.disabled = false;
     $('#tc-csv-prev').insertAdjacentHTML('beforeend', `<p class="reg-falta">${esc(err.message)}</p>`);
