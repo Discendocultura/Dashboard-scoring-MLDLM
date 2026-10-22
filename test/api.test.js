@@ -724,6 +724,12 @@ test('formularios instantáneos de Meta: el origen sale de la atribución o de l
   const { sourceDe, aplicarCamposFormulario } = await import('../lib/ghl.js');
   assert.deepEqual(sourceDe({ adId: '338', adGroupId: '225', campaignId: '1203', medium: 'facebook' }), { source: 'formulario-meta', medium: 'paid', campaign: '1203', term: '225', content: '338' });
   assert.deepEqual(sourceDe({ utmSource: 'ig', utmMedium: 'paid', utmCampaign: 'c', utmTerm: 't', utmContent: 'a' }), { source: 'ig', medium: 'paid', campaign: 'c', term: 't', content: 'a' });
+  // Una visita posterior sin UTM (encuesta, VIP) pisa la última atribución: vale la primera, la del anuncio.
+  const { source } = await import('../lib/ghl.js');
+  const anuncio = { utmSource: 'fb', utmCampaign: 'camp', utmTerm: 'conj', utmContent: 'anu' };
+  assert.equal(source({ attributionSource: anuncio, lastAttributionSource: { sessionSource: 'Direct traffic', medium: 'direct' } }).campaign, 'camp');
+  assert.equal(source({ attributionSource: { utmCampaign: 'vieja' }, lastAttributionSource: anuncio }).campaign, 'camp');
+  assert.equal(source({ lastAttributionSource: { sessionSource: 'Direct traffic' } }).campaign, '');
   const fa = { campaign: 'fc', adset: 'fs', ad: 'fa' };
   const c1 = aplicarCamposFormulario({ cf: { fc: '1', fs: '2', fa: '3' }, src: { source: '', medium: '', campaign: '', term: '', content: '' } }, fa);
   assert.deepEqual(c1.src, { source: 'formulario-meta', medium: 'paid', campaign: '1', term: '2', content: '3' });
@@ -934,4 +940,13 @@ test('venta directa ligada a un pipeline de GHL: tablero de Comercial y mover de
   cur.directas.dpl.pipelineLigado = 'no';
   await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...(await (await config.GET(req('/api/config', { cookie: admin }))).json()).config, directas: cur.directas } }));
   assert.equal((await (await pl.GET(req('/api/pipeline?d=dpl', { cookie: setter }))).json()).ligado, false);
+});
+
+test('UTM del envío del formulario de registro y atribuciones en lista', async () => {
+  const { utmDeEnvio, source } = await import('../lib/ghl.js');
+  assert.deepEqual(utmDeEnvio({ contactId: 'x', others: { eventData: { url_params: { utm_campaign: 'camp', utm_term: 'conj', utm_content: 'anu', utm_source: 'fb' } } } }), { source: 'fb', campaign: 'camp', term: 'conj', content: 'anu' });
+  assert.equal(utmDeEnvio({ others: { eventData: { page: { url: 'https://web.com/registro?utm_campaign=c2&utm_content=a2' } } } }).campaign, 'c2');
+  assert.equal(utmDeEnvio({ others: { eventData: { url_params: { utm_campaign: '{{campaign.name}}' } } } }), null);
+  assert.equal(utmDeEnvio({ others: { eventData: { page: { url: 'https://web.com/encuesta' } } } }), null);
+  assert.equal(source({ attributions: [{ isFirst: true, utmCampaign: 'primera' }, { isLast: true, medium: 'direct' }] }).campaign, 'primera');
 });

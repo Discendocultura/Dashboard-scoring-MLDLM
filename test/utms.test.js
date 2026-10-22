@@ -93,3 +93,12 @@ test('UTMs: el gasto de Meta se encuentra aunque las UTM lleven el nombre en vez
   assert.equal(c.hijos[0].spend, 30);
   assert.equal(c.hijos[0].hijos[0].coste.leads, 10);
 });
+
+test('UTMs: solo las campañas del lanzamiento; el id y el nombre van en la misma fila', () => {
+  const lead = (campaign, adset = '', ad = '') => ({ s: {}, src: { campaign, term: adset, content: ad } });
+  const leads = [lead('C1'), lead('Captación camino-octubre26'), lead('Captación camino-abril26'), lead('')];
+  const a = arbolUtms(leads, pasosUtms('lanz', { preclase: false, vip: false }), { names: { C1: 'Captación camino-octubre26' }, spendBy: { C1: 100 }, filtro: 'camino-octubre26' });
+  assert.deepEqual(a.campanas.map((c) => [c.label, c.leads, c.coste.leads]), [['Captación camino-octubre26', 2, 50]]);
+  assert.equal(a.sinUtm.leads, 2); // la del lanzamiento anterior y la que no trae UTM
+  assert.equal(a.total.leads, 4);
+});
