@@ -161,7 +161,20 @@ export function resumenThrivecart(ventas = [], emails = new Set(), { desde = 0, 
     }
   }
   const sinRegistro = porProd ? new Set(cobros.map((v) => v.email).filter((e) => e && !emails.has(e))).size : 0;
+  // Por plataforma (ThriveCart / Hotmart) y lo neto que llega: exacto donde la venta lo trae (Hotmart: la comisión de
+  // la productora); del resto solo se sabe el importe cobrado (`sinNeto`, al que la pantalla le quita el IVA).
+  const porFuente = {};
+  for (const v of deLeads) {
+    const f = v.fuente || 'thrivecart';
+    porFuente[f] ||= { cobros: 0, cobrado: 0, neto: 0, reembolsado: 0 };
+    if (v.tipo === 'cobro') { porFuente[f].cobros++; porFuente[f].cobrado = Math.round((porFuente[f].cobrado + v.importe) * 100) / 100; }
+    else porFuente[f].reembolsado = Math.round((porFuente[f].reembolsado - v.importe) * 100) / 100;
+    porFuente[f].neto = Math.round((porFuente[f].neto + (v.neto ?? v.importe)) * 100) / 100;
+  }
+  const netoExacto = Math.round(deLeads.filter((v) => v.neto != null).reduce((t, v) => t + v.neto, 0) * 100) / 100;
+  const sinNeto = suma(deLeads.filter((v) => v.neto == null));
   return {
+    porFuente, netoExacto, sinNeto,
     porProductos: porProd, sinRegistro,
     extras: Object.values(extras).sort((a, b) => b.importe - a.importe).map((x) => ({ ...x, pct: pedidosConLineas ? x.n / pedidosConLineas : null })),
     pedidosConLineas,

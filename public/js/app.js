@@ -2854,7 +2854,7 @@ async function renderFacturacionTotal(m) {
     const total = factL + (fm || 0);
     const inv = (eco.inversion || 0) + (meteo?.inversion || 0);
     const subLanz = tc
-      ? `sin IVA · 💳 ThriveCart · ${eur(tc.progPart)} del programa (${tc.ventasProg} ${tc.ventasProg === 1 ? 'venta' : 'ventas'})${m.conVip ? ` + ${eur(tc.vipPart)} de VIP (${tc.vipN})` : ''}, con bumps · por etiquetas ${eur(eco.facturacion || 0)}`
+      ? `sin IVA · 💶 ventas reales · <strong>te llegan ${eur(tc.netoLlega)}</strong> · ${eur(tc.progPart)} del programa (${tc.ventasProg} ${tc.ventasProg === 1 ? 'venta' : 'ventas'})${m.conVip ? ` + ${eur(tc.vipPart)} de VIP (${tc.vipN})` : ''}, con bumps · por etiquetas ${eur(eco.facturacion || 0)}`
       : `sin IVA · ${eur(eco.facturacionPrograma || 0)} del programa (${m.compra} ventas)${eco.facturacionVip ? ` + ${eur(eco.facturacionVip)} de VIP (${m.vip})` : ''}${eco.facturacionBumps ? ` + ${eur(eco.facturacionBumps)} de bumps` : ''}`;
     const subMeteo = !metas.length ? 'Sin meteórico posterior (créalo en Métricas → Meteórico posterior)'
       : meteo == null ? 'Cargando…'
@@ -3245,6 +3245,42 @@ document.addEventListener('change', (e) => {
 // ThriveCart: lo cobrado de verdad en el lanzamiento (de sus leads, por el email), los reembolsos, el ROAS real y las
 // compras que no tienen su etiqueta en GHL. Solo se ve si ThriveCart ha mandado ventas en el periodo del lanzamiento.
 const tcCache = {};
+// Ventas reales del cliente en [desde, hasta] (ms): las de ThriveCart y las de Hotmart juntas (las de Hotmart llevan
+// fuente 'hotmart', su neto exacto y el producto como «hm:<id>»). Con caché de 5 min por periodo.
+async function ventasReales(desde, hasta) {
+  const clave = `${state.cliente || ''}:${desde}:${hasta}`;
+  if (tcCache[clave] && Date.now() - tcCache[clave].at < 5 * 60_000) return tcCache[clave].ventas;
+  const [tc, hm] = await Promise.all([
+    api(`/api/thrivecart?op=ventas&desde=${desde}&hasta=${hasta}`).catch(() => ({ ventas: [] })),
+    api(`/api/hotmart?op=ventas&desde=${desde}&hasta=${hasta}`).catch(() => ({ ventas: [] })),
+  ]);
+  const ventas = [...(tc.ventas || []), ...(hm.ventas || [])].sort((a, b) => a.fecha - b.fecha);
+  tcCache[clave] = { at: Date.now(), ventas };
+  return ventas;
+}
+// Cabecera y cifras del recuadro de ventas reales (ThriveCart + Hotmart): lo que pagan las clientas (con y sin IVA),
+// los reembolsos, lo NETO que llega (exacto en Hotmart: la comisión de la productora; en ThriveCart, lo cobrado sin
+// IVA, sin la comisión de la pasarela) y el ROAS con cada uno. Devuelve { html, facturacion, netoLlega }.
+function cifrasReales(r, { iva = 21, inversion = null, sub = '' } = {}) {
+  const sinIva = (x) => x / (1 + iva / 100);
+  const facturacion = sinIva(r.neto);
+  const netoLlega = r.netoExacto + sinIva(r.sinNeto);
+  const x2 = (v) => (v == null ? '–' : `${v.toFixed(2).replace('.', ',')}x`);
+  const fuentes = Object.entries(r.porFuente || {});
+  const chip = ([f, d]) => `<span class="tc-fuente tc-f-${f}">${f === 'hotmart' ? '🔥 Hotmart' : '💳 ThriveCart'} · ${d.cobros} ${d.cobros === 1 ? 'venta' : 'ventas'} · ${eur(d.cobrado)}${f === 'hotmart' ? ` · te llegan ${eur(d.neto)}` : ''}</span>`;
+  const html = `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">💶</span><div><strong>Ventas reales</strong><small class="muted">${sub}</small></div>${fuentes.length ? `<div class="tc-fuentes">${fuentes.map(chip).join('')}</div>` : ''}</div>
+    <div class="tc-cifras">
+      <div><span>Lo que pagan</span><strong>${eur(r.cobrado)}</strong><small>${r.cobros} ${r.cobros === 1 ? 'venta' : 'ventas'} · ${r.compradoras} ${r.compradoras === 1 ? 'compradora' : 'compradoras'} · con IVA</small></div>
+      <div><span>Reembolsos</span><strong>${r.reembolsado ? `−${eur(r.reembolsado)}` : eur(0)}</strong><small>${r.reembolsos} ${r.reembolsos === 1 ? 'reembolso o contracargo' : 'reembolsos o contracargos'}</small></div>
+      <div><span>Facturación sin IVA</span><strong>${eur(facturacion)}</strong><small>ROAS ${x2(inversion ? facturacion / inversion : null)}${inversion ? ` · ÷ ${eur(inversion)}` : ''}</small></div>
+      <div class="tc-neto"><span>Neto que te llega</span><strong>${eur(netoLlega)}</strong><small>ROAS neto ${x2(inversion ? netoLlega / inversion : null)}${r.porFuente?.hotmart ? ' · Hotmart exacto (tras su comisión y SeQura)' : ''}${r.porFuente?.thrivecart ? ' · ThriveCart sin IVA' : ''}</small></div>
+    </div>`;
+  return { html, facturacion, netoLlega };
+}
+// Los productos de un embudo para las ventas reales: los de ThriveCart tal cual y los de Hotmart como «hm:<id>».
+const prodsReales = (tc = [], hm = []) => [...(tc || []), ...(hm || []).map((x) => `hm:${x}`)];
+// Nombre de la plataforma de un producto visto («hm:…» es Hotmart).
+const plataformaDe = (clave) => (String(clave).startsWith('hm:') ? 'Hotmart' : 'ThriveCart');
 function periodoLanz(code) {
   const l = state.config.launches[code] || {};
   const desde = l.inicioCaptacion ? Date.parse(`${l.inicioCaptacion}T00:00:00`) - 7 * 86_400_000 : 0;
@@ -3255,22 +3291,15 @@ function periodoLanz(code) {
 async function renderThrivecart(m, launch) {
   const box = $('#metric-tc');
   const code = state.launchCode;
-  const clave = `${state.cliente || ''}:${code}`;
-  if (!tcCache[clave] || Date.now() - tcCache[clave].at > 5 * 60_000) {
-    try {
-      const { desde, hasta } = periodoLanz(code);
-      const r = await api(`/api/thrivecart?op=ventas&desde=${desde}&hasta=${hasta}`);
-      tcCache[clave] = { at: Date.now(), ventas: r.ventas || [], desde, hasta };
-    } catch { tcCache[clave] = { at: Date.now(), ventas: [] }; }
-    if (state.launchCode !== code) return;
-  }
-  const { ventas, desde, hasta } = tcCache[clave];
+  const { desde, hasta } = periodoLanz(code);
+  const ventas = await ventasReales(desde, hasta);
+  if (state.launchCode !== code) return;
   const emails = new Set(state.leads.map((l) => String(l.email || '').toLowerCase()).filter(Boolean));
   // Productos del lanzamiento: con VIP, la entrada (tcProductos) y el programa (tcPrograma) van por separado; sin VIP,
   // todos son el producto del lanzamiento.
   const conVipL = !!m.conVip;
-  const elegVip = conVipL ? launch.tcProductos || [] : [];
-  const elegProg = conVipL ? launch.tcPrograma || [] : [...(launch.tcProductos || []), ...(launch.tcPrograma || [])];
+  const elegVip = conVipL ? prodsReales(launch.tcProductos, launch.hmProductos) : [];
+  const elegProg = conVipL ? prodsReales(launch.tcPrograma, launch.hmPrograma) : prodsReales([...(launch.tcProductos || []), ...(launch.tcPrograma || [])], [...(launch.hmProductos || []), ...(launch.hmPrograma || [])]);
   const elegidos = [...elegVip, ...elegProg];
   const opc = { desde, hasta };
   const r = resumenThrivecart(ventas, emails, { ...opc, productos: elegidos });
@@ -3302,22 +3331,28 @@ async function renderThrivecart(m, launch) {
     const fact = (conVipL ? vipPart : 0) + progPart;
     const ventasProg = rProg?.cobros ? rProg.compradoras + compraFuera.length : m.compra;
     const roasTc = m.eco.inversion ? fact / m.eco.inversion : null;
-    const detalle = `💳 ${[conVipL ? `VIP ${eur(vipPart)}${vipTc != null ? ' (ThriveCart)' : ''}` : '', `programa ${eur(progPart)}${progTc != null ? ` (ThriveCart ${eur(progTc)}${progResto ? ` + otros ${eur(progResto)}` : ''})` : ''}`].filter(Boolean).join(' + ')} · por etiquetas ${eur(m.eco.facturacion)}`;
-    m.tc = { fact, vipPart, progPart, ventasProg, vipN: rVip?.cobros || m.vip };
+    // Lo neto que llega: exacto donde la venta lo trae (Hotmart); lo demás, sin IVA.
+    const netoDe = (rr) => rr.netoExacto + sinIva(rr.sinNeto);
+    const netoVip = rVip?.cobros ? netoDe(rVip) : vipPart;
+    const netoProg = rProg?.cobros ? netoDe(rProg) + progResto : progPart;
+    const netoLlega = (conVipL ? netoVip : 0) + netoProg;
+    const detalle = `💶 ${[conVipL ? `VIP ${eur(vipPart)}${vipTc != null ? ' (ventas reales)' : ''}` : '', `programa ${eur(progPart)}${progTc != null ? ` (ventas reales ${eur(progTc)}${progResto ? ` + otros ${eur(progResto)}` : ''})` : ''}`].filter(Boolean).join(' + ')} · <strong>te llegan ${eur(netoLlega)}</strong> · por etiquetas ${eur(m.eco.facturacion)}`;
+    m.tc = { fact, vipPart, progPart, ventasProg, vipN: rVip?.cobros || m.vip, netoLlega };
     renderFacturacionTotal(m);
     poner(kpi('#metric-hero', 'Facturación'), eur(fact), `<strong class="kpi-hero-ventas">${ventasProg.toLocaleString('es-ES')} ${ventasProg === 1 ? 'venta' : 'ventas'} totales</strong>Sin IVA: ${detalle}`);
     poner(kpi('#eco-cards', 'Facturación'), eur(fact), detalle);
     if (roasTc != null) {
-      poner(kpi('#metric-hero', 'ROAS'), `${roasTc.toFixed(2).replace('.', ',')}x`, `💳 con lo cobrado en ThriveCart ÷ ${eur(m.eco.inversion)} de inversión`);
-      poner(kpi('#eco-cards', 'ROAS'), `${roasTc.toFixed(2)}x`, `💳 con lo cobrado en ThriveCart · beneficio ${eur(fact - m.eco.inversion)} (sin IVA)`);
+      const roasNeto = (netoLlega / m.eco.inversion).toFixed(2).replace('.', ',');
+      poner(kpi('#metric-hero', 'ROAS'), `${roasTc.toFixed(2).replace('.', ',')}x`, `💶 lo que pagan (sin IVA) ÷ ${eur(m.eco.inversion)} · <strong>ROAS neto ${roasNeto}x</strong>`);
+      poner(kpi('#eco-cards', 'ROAS'), `${roasTc.toFixed(2)}x`, `💶 con lo que pagan · ROAS neto ${roasNeto}x · beneficio neto ${eur(netoLlega - m.eco.inversion)}`);
     }
     const tarjetasExtra = (rr, tono) => rr.extras.map((e) => card(`${{ bump: 'Bump offer', upsell: 'Upsell', downsell: 'Downsell' }[e.tipo]} · ${esc(e.nombre)}`, pctOf(e.n, rr.cobros).replace('.', ','),
-      `<strong>${e.n} ${e.n === 1 ? 'vendido' : 'vendidos'}</strong> de ${rr.cobros} ventas · ${eur(sinIva(e.importe))} sin IVA · 💳 ThriveCart`, 'gift', tono)).join('');
+      `<strong>${e.n} ${e.n === 1 ? 'vendido' : 'vendidos'}</strong> de ${rr.cobros} ventas · ${eur(sinIva(e.importe))} sin IVA · 💶 ventas reales`, 'gift', tono)).join('');
     const quitar = (prefijo) => $$('#metric-cards .kpi').filter((k) => k.querySelector('.kpi-label')?.textContent.trim().startsWith(prefijo)).forEach((k) => k.remove());
     // Entradas VIP y sus bumps: los pedidos de ThriveCart y el % de cada bump sobre esas ventas.
     const vipK = conVipL && rVip?.cobros ? kpi('#metric-cards', 'Entradas VIP vendidas') : null;
     if (vipK) {
-      poner(vipK, String(rVip.cobros), `${pctOf(rVip.cobros, m.total)} de los leads · ${eur(vipTc)} sin IVA · 💳 ThriveCart (por etiquetas ${m.vip})`);
+      poner(vipK, String(rVip.cobros), `${pctOf(rVip.cobros, m.total)} de los leads · ${eur(vipTc)} sin IVA · 💶 ventas reales (por etiquetas ${m.vip})`);
       quitar('Bump offer de la VIP');
       vipK.insertAdjacentHTML('afterend', tarjetasExtra(rVip, 'vip'));
     }
@@ -3337,18 +3372,12 @@ async function renderThrivecart(m, launch) {
   };
   const filaProd = (p) => {
     const rol = rolDe(p);
-    const datos = `<span>${esc(p.nombre)} <small class="muted">· ${p.ventas} ${p.ventas === 1 ? 'venta' : 'ventas'} · ${eur(p.importe)}${p.clave !== p.nombre ? ` · ID ${esc(p.clave)}` : ''}</small></span>`;
+    const datos = `<span>${esc(p.nombre)} <small class="muted">· ${p.ventas} ${p.ventas === 1 ? 'venta' : 'ventas'} · ${eur(p.importe)}${p.clave !== p.nombre ? ` · ${plataformaDe(p.clave)} ID ${esc(String(p.clave).replace(/^hm:/, ''))}` : ''}</small></span>`;
     return conVipL
       ? `<label class="tc-rol">${datos}<select data-tc-rol="${esc(p.clave)}"><option value="">No es de este lanzamiento</option><option value="vip"${rol === 'vip' ? ' selected' : ''}>⭐ Entrada VIP (y sus bumps)</option><option value="prog"${rol === 'prog' ? ' selected' : ''}>🎓 Programa</option></select></label>`
       : `<label class="chk"><input type="checkbox" data-tc-rol="${esc(p.clave)}" value="prog"${rol ? ' checked' : ''}> ${datos}</label>`;
   };
-  box.innerHTML = `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">💳</span><div><strong>Cobrado en ThriveCart</strong><small class="muted">${r.porProductos ? 'lo cobrado de verdad en los productos de este lanzamiento' : 'lo cobrado de verdad a los leads de este lanzamiento'}</small></div></div>
-    <div class="tc-cifras">
-      <div><span>Cobrado</span><strong>${eur(r.cobrado)}</strong><small>${r.cobros} ${r.cobros === 1 ? 'cobro' : 'cobros'} · ${r.compradoras} ${r.compradoras === 1 ? 'compradora' : 'compradoras'}</small></div>
-      <div><span>Reembolsos</span><strong>${r.reembolsado ? `−${eur(r.reembolsado)}` : eur(0)}</strong><small>${r.reembolsos} ${r.reembolsos === 1 ? 'reembolso' : 'reembolsos'}</small></div>
-      <div><span>Neto sin IVA</span><strong>${eur(netoSinIva)}</strong><small>con IVA ${eur(r.neto)} (${pct} %)</small></div>
-      <div><span>ROAS real</span><strong>${x(roas)}</strong><small>${m.eco.inversion ? `÷ ${eur(m.eco.inversion)} de inversión` : 'sin inversión todavía'}</small></div>
-    </div>
+  box.innerHTML = `${cifrasReales(r, { iva: pct, inversion: m.eco.inversion, sub: r.porProductos ? 'lo cobrado de verdad en los productos de este lanzamiento (ThriveCart y Hotmart)' : 'lo cobrado de verdad a los leads de este lanzamiento' }).html}
     ${r.porProducto.length ? `<p class="tc-prod">${r.porProducto.slice(0, 6).map((p) => `<span>${esc(p.producto || 'Sin nombre de producto')} · <strong>${eur(p.importe)}</strong> <small>(${p.cobros})</small></span>`).join('')}</p>` : ''}
     ${r.extras.length ? `<div class="tc-extras"><strong>Bumps y ofertas extra · ${r.extras.reduce((t, e) => t + e.n, 0)} en total · ${eur(r.extras.reduce((t, e) => t + e.importe, 0))}</strong>${r.extras.map((e) => `<span class="tc-x tc-x-${e.tipo}">${{ bump: 'Bump', upsell: 'Upsell', downsell: 'Downsell' }[e.tipo]} «${esc(e.nombre)}» · <strong>${e.n}</strong>${e.pct != null ? ` (${Math.round(e.pct * 100)} % de los pedidos)` : ''} · ${eur(e.importe)}</span>`).join('')}</div>` : r.pedidosConLineas ? '<p class="muted small">Ningún bump ni oferta extra en estos pedidos.</p>' : ''}
     <details class="tc-elegir"${elegidos.length ? '' : ' open'}><summary>⚙️ <strong>Qué ventas son de este lanzamiento</strong> <span class="muted small">· ${elegidos.length ? `${elegidos.length} ${elegidos.length === 1 ? 'producto elegido' : 'productos elegidos'}` : 'ahora: las de los emails de sus leads'}</span></summary>
@@ -3375,11 +3404,15 @@ $('#metric-tc').addEventListener('click', async (e) => {
   // Lo puesto a mano que no corresponde a ningún producto de la lista (aún sin ventas) se conserva.
   const sigue = (lista) => (lista || []).filter((x) => !vistas.some((c) => deProductos({ productoId: c, producto: c === 'Sin nombre' ? '' : c }, [x])));
   const conVipL = filas.some((el) => el.tagName === 'SELECT');
-  const vip = [...sigue(launch.tcProductos), ...filas.filter((el) => rol(el) === 'vip').map((el) => el.dataset.tcRol)];
-  const prog = [...sigue(launch.tcPrograma), ...filas.filter((el) => rol(el) === 'prog').map((el) => el.dataset.tcRol)];
+  const sigueHm = (lista) => (lista || []).filter((x) => !vistas.includes(`hm:${x}`));
+  // Lo elegido de cada rol, separado por plataforma (los de Hotmart, sin el «hm:»).
+  const de = (r, hm) => filas.filter((el) => rol(el) === r).map((el) => el.dataset.tcRol).filter((c) => c.startsWith('hm:') === hm).map((c) => (hm ? c.slice(3) : c));
   b.disabled = true;
   try {
-    const r = await api('/api/config', { method: 'POST', body: conVipL ? { op: 'tcProductos', l: code, productos: vip, programa: prog } : { op: 'tcProductos', l: code, productos: [...sigue(launch.tcProductos), ...prog], programa: sigue(launch.tcPrograma) } });
+    const body = conVipL
+      ? { op: 'tcProductos', l: code, productos: [...sigue(launch.tcProductos), ...de('vip', false)], programa: [...sigue(launch.tcPrograma), ...de('prog', false)], hmProductos: [...sigueHm(launch.hmProductos), ...de('vip', true)], hmPrograma: [...sigueHm(launch.hmPrograma), ...de('prog', true)] }
+      : { op: 'tcProductos', l: code, productos: [...sigue(launch.tcProductos), ...de('prog', false)], programa: sigue(launch.tcPrograma), hmProductos: [...sigueHm(launch.hmProductos), ...de('prog', true)], hmPrograma: sigueHm(launch.hmPrograma) };
+    const r = await api('/api/config', { method: 'POST', body });
     state.config = r.config;
     if (r.version != null) state.configVersion = r.version;
     renderMetrics();
@@ -3396,21 +3429,14 @@ const tcIdsDe = (sel) => ($(sel)?.value || '').split(/[,\n]/).map((x) => x.trim(
 //   desde / hasta: ms. tarjetas: { cont, fact, roas, ventas } el contenedor (selector o elemento) y el texto de las tarjetas a cambiar.
 async function pintarTcEmbudo(box, { productos = [], desde, hasta, inversion = null, iva = 21, tarjetas = {}, abrirConfig = '' }) {
   if (!box) return;
-  const clave = `${state.cliente || ''}:${desde}:${hasta}`;
-  if (!tcCache[clave] || Date.now() - tcCache[clave].at > 5 * 60_000) {
-    try {
-      const r = await api(`/api/thrivecart?op=ventas&desde=${desde}&hasta=${hasta}`);
-      tcCache[clave] = { at: Date.now(), ventas: r.ventas || [] };
-    } catch { tcCache[clave] = { at: Date.now(), ventas: [] }; }
-  }
+  const ventas = await ventasReales(desde, hasta);
   if (!box.isConnected) return;
-  const { ventas } = tcCache[clave];
   const conVentas = ventas.some((v) => !v.prueba);
   const cfgBtn = abrirConfig && puedeConfig() ? ` <button type="button" class="link-btn" data-tc-cfg="${abrirConfig}">Ponerlo →</button>` : '';
   if (!productos.length) {
     // Sin ID: solo un aviso si el cliente usa ThriveCart (le han llegado ventas en este periodo).
     box.hidden = !conVentas;
-    box.innerHTML = conVentas ? `<p class="muted small">💳 ¿Este embudo vende en ThriveCart? Pon el <strong>ID del producto</strong> en su configuración y aquí verás lo cobrado de verdad, con bumps y reembolsos.${cfgBtn}</p>` : '';
+    box.innerHTML = conVentas ? `<p class="muted small">💶 ¿Este embudo vende en ThriveCart o Hotmart? Pon el <strong>ID del producto</strong> en su configuración y aquí verás lo que pagan y lo neto que te llega, con bumps y reembolsos.${cfgBtn}</p>` : '';
     return;
   }
   const r = resumenThrivecart(ventas, new Set(), { desde, hasta, productos });
@@ -3419,13 +3445,8 @@ async function pintarTcEmbudo(box, { productos = [], desde, hasta, inversion = n
   const roas = inversion ? neto / inversion : null;
   const nombreX = { bump: 'Bump', upsell: 'Upsell', downsell: 'Downsell' };
   box.hidden = false;
-  box.innerHTML = `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">💳</span><div><strong>Cobrado en ThriveCart</strong><small class="muted">producto${productos.length === 1 ? '' : 's'} con ID ${productos.map(esc).join(', ')} · en el periodo</small></div></div>
-    <div class="tc-cifras">
-      <div><span>Cobrado</span><strong>${eur(r.cobrado)}</strong><small>${r.cobros} ${r.cobros === 1 ? 'venta' : 'ventas'} · ${r.compradoras} ${r.compradoras === 1 ? 'compradora' : 'compradoras'}</small></div>
-      <div><span>Reembolsos</span><strong>${r.reembolsado ? `−${eur(r.reembolsado)}` : eur(0)}</strong><small>${r.reembolsos} ${r.reembolsos === 1 ? 'reembolso' : 'reembolsos'}</small></div>
-      <div><span>Neto sin IVA</span><strong>${eur(neto)}</strong><small>con IVA ${eur(r.neto)} (${iva} %)</small></div>
-      <div><span>ROAS real</span><strong>${roas == null ? '–' : `${roas.toFixed(2).replace('.', ',')}x`}</strong><small>${inversion ? `÷ ${eur(inversion)} de inversión` : 'sin inversión en el periodo'}</small></div>
-    </div>
+  const cif = cifrasReales(r, { iva, inversion, sub: `en el periodo · ${productos.map((x) => (String(x).startsWith('hm:') ? `Hotmart ${esc(x.slice(3))}` : `ThriveCart ${esc(x)}`)).join(', ')}` });
+  box.innerHTML = `${cif.html}
     ${r.extras.length ? `<div class="tc-extras"><strong>Bumps y ofertas extra · ${r.extras.reduce((t, e) => t + e.n, 0)} en total · ${eur(r.extras.reduce((t, e) => t + e.importe, 0))}</strong>${r.extras.map((e) => `<span class="tc-x tc-x-${e.tipo}">${nombreX[e.tipo]} «${esc(e.nombre)}» · <strong>${e.n}</strong> (${pctOf(e.n, r.cobros)} de las ventas) · ${eur(e.importe)}</span>`).join('')}</div>` : r.cobros && r.pedidosConLineas ? '<p class="muted small">Ningún bump ni oferta extra en estas ventas.</p>' : ''}
     ${!r.cobros ? `<p class="muted small">⏳ Aún no ha llegado ninguna venta de ${productos.length === 1 ? 'ese producto' : 'esos productos'} en este periodo. Si ya vendió, revisa el ID en la configuración.${cfgBtn}</p>` : ''}`;
   if (!r.cobros || !tarjetas.cont) return;
@@ -3435,20 +3456,20 @@ async function pintarTcEmbudo(box, { productos = [], desde, hasta, inversion = n
     fact.dataset.tc = '1';
     const antes = fact.querySelector('.kpi-value').textContent;
     fact.querySelector('.kpi-value').textContent = eur(neto);
-    fact.querySelector('.kpi-sub').innerHTML = `💳 cobrado en ThriveCart (sin IVA)${r.extras.length ? ` · bumps y extras ${eur(sinIvaTc(r.extras.reduce((t, e) => t + e.importe, 0)))}` : ''} · por etiquetas ${esc(antes)}`;
+    fact.querySelector('.kpi-sub').innerHTML = `💶 lo que pagan, sin IVA${r.extras.length ? ` (bumps y extras ${eur(sinIvaTc(r.extras.reduce((t, e) => t + e.importe, 0)))})` : ''} · <strong>te llegan ${eur(cif.netoLlega)}</strong> · por etiquetas ${esc(antes)}`;
   }
   const vk = tarjetas.ventas && kpi(tarjetas.ventas);
   if (vk && !vk.dataset.tc) {
     vk.dataset.tc = '1';
     const antes = vk.querySelector('.kpi-value').textContent;
     vk.querySelector('.kpi-value').textContent = r.cobros.toLocaleString('es-ES');
-    vk.querySelector('.kpi-sub').innerHTML = `💳 ventas en ThriveCart · por etiquetas ${esc(antes)}`;
+    vk.querySelector('.kpi-sub').innerHTML = `💶 ventas reales (ThriveCart y Hotmart) · por etiquetas ${esc(antes)}`;
   }
   const ro = tarjetas.roas && kpi(tarjetas.roas);
   if (ro && roas != null && !ro.dataset.tc) {
     ro.dataset.tc = '1';
     ro.querySelector('.kpi-value').textContent = `${roas.toFixed(2)}x`;
-    ro.querySelector('.kpi-sub').innerHTML = `💳 con lo cobrado en ThriveCart ÷ ${eur(inversion)} de inversión`;
+    ro.querySelector('.kpi-sub').innerHTML = `💶 con lo que pagan ÷ ${eur(inversion)} · <strong>ROAS neto ${(cif.netoLlega / inversion).toFixed(2).replace('.', ',')}x</strong>`;
   }
 }
 // «Ponerlo →»: a la configuración del embudo donde va el ID de ThriveCart.
@@ -6298,6 +6319,8 @@ function openConfig(code, { silencioso = false } = {}) {
   $('#cfg-precio-programa').value = l.precioPrograma || '';
   $('#cfg-tc-vip').value = (l.tcProductos || []).join(', ');
   $('#cfg-tc-programa').value = (l.tcPrograma || []).join(', ');
+  $('#cfg-hm-vip').value = (l.hmProductos || []).join(', ');
+  $('#cfg-hm-programa').value = (l.hmPrograma || []).join(', ');
   $('#cfg-precio-fraccionado').value = l.precioFraccionado || '';
   $('#cfg-fraccionado-tag').value = l.fraccionadoTag || '';
   $('#cfg-unico-tag').value = l.unicoTag || '';
@@ -7766,6 +7789,7 @@ function readForm() {
       precioPrograma: $('#cfg-precio-programa').value,
       tcProductos: $('#cfg-tc-vip').value.split(/[,\n]/).map((x) => x.trim()).filter(Boolean),
       tcPrograma: $('#cfg-tc-programa').value.split(/[,\n]/).map((x) => x.trim()).filter(Boolean),
+      hmProductos: tcIdsDe('#cfg-hm-vip'), hmPrograma: tcIdsDe('#cfg-hm-programa'),
       precioFraccionado: $('#cfg-precio-fraccionado').value,
       fraccionadoTag: $('#cfg-fraccionado-tag').value.trim().toLowerCase(),
       unicoTag: $('#cfg-unico-tag').value.trim().toLowerCase(),
@@ -13285,7 +13309,7 @@ function renderVslMetricas() {
     kpi('info', 'trend', 'ROAS', m.roas != null ? `${m.roas.toFixed(2)}x` : '–', `Conversión ${pctOf(m.compraCohorte, m.registros)} (registro → venta)`),
   ].join('');
 
-  pintarTcEmbudo($('#vm-tc'), { productos: v.tcProductos || [], desde: diaMs(r.desde), hasta: diaMs(r.hasta, true), inversion, iva: ivaPct(v), tarjetas: { cont: '#vm-kpis', fact: 'Facturación', roas: 'ROAS', ventas: 'Ventas' }, abrirConfig: 'vsl' });
+  pintarTcEmbudo($('#vm-tc'), { productos: prodsReales(v.tcProductos, v.hmProductos), desde: diaMs(r.desde), hasta: diaMs(r.hasta, true), inversion, iva: ivaPct(v), tarjetas: { cont: '#vm-kpis', fact: 'Facturación', roas: 'ROAS', ventas: 'Ventas' }, abrirConfig: 'vsl' });
   mostrarEmails(state.embudo, { kpis: '#em-kpis-v', tabla: '#em-v' });
   mostrarCiclo(state.embudo, { kpi: '#ciclo-kpi-v', detalle: '#ciclo-v', propias: L.filter((l) => l.s.compra), dateField: v.compraDateField, nombre: 'esta VSL' });
   $('#vm-planes-sec').hidden = !m.planes;
@@ -13544,6 +13568,7 @@ async function openVslConfig(id = state.embudo) {
   for (const k of VC_TEXTOS) $(`#vc-${k}`).value = v[k] ?? '';
   for (const k of ['precioPrograma', 'precioFraccionado']) $(`#vc-${k}`).value = v[k] ? String(v[k]).replace('.', ',') : '';
   $('#vc-tcProductos').value = (v.tcProductos || []).join(', ');
+  $('#vc-hmProductos').value = (v.hmProductos || []).join(', ');
   $('#vc-boton').value = v.botonSegundos ? mmss(v.botonSegundos) : '0';
   $('#vc-informeSemanal').checked = Boolean(v.informeSemanal);
   pintarPago('vc', v.pago);
@@ -13617,6 +13642,7 @@ $('#vc-save').addEventListener('click', async () => {
   for (const k of ['registroDateField', 'compraDateField']) vsl[k] = $(`#vc-${k}`).value;
   vsl.botonSegundos = aSegundos($('#vc-boton').value);
   vsl.tcProductos = tcIdsDe('#vc-tcProductos');
+  vsl.hmProductos = tcIdsDe('#vc-hmProductos');
   vsl.informeSemanal = $('#vc-informeSemanal').checked;
   if (errorPago('vc')) { status.textContent = errorPago('vc'); return; }
   vsl.pago = leerPago('vc');
@@ -14350,7 +14376,7 @@ async function pintarMeteo(box, code, { fresh = false } = {}) {
   // ThriveCart: del calentamiento (o 7 días antes de abrir) a 3 días después del cierre.
   const tcDesde = m.calentamiento ? diaMs(m.calentamiento) : m.apertura ? madridToEpoch(m.apertura) - 7 * 86_400_000 : 0;
   const tcHasta = m.cierre ? madridToEpoch(m.cierre) + 3 * 86_400_000 : Date.now() + 86_400_000;
-  pintarTcEmbudo(box.querySelector('[data-meteo-tc]'), { productos: m.tcProductos || [], desde: tcDesde, hasta: tcHasta, inversion: d.inversion || null, iva: ivaPct(m), tarjetas: { cont: box.querySelector('.meteo-kpis'), fact: 'Facturación', ventas: 'Ventas' }, abrirConfig: `meteo:${code}` });
+  pintarTcEmbudo(box.querySelector('[data-meteo-tc]'), { productos: prodsReales(m.tcProductos, m.hmProductos), desde: tcDesde, hasta: tcHasta, inversion: d.inversion || null, iva: ivaPct(m), tarjetas: { cont: box.querySelector('.meteo-kpis'), fact: 'Facturación', ventas: 'Ventas' }, abrirConfig: `meteo:${code}` });
   if (tiene('metricas')) mostrarEmails(code, { tabla: box.querySelector('[data-em-meteo]') });
   if (m.sendflowId && tiene('metricas')) cargarGrupos(code, box.querySelector('[data-meteo-grupos]'));
 }
@@ -14459,6 +14485,7 @@ async function abrirMeteoDialog(code, { embudo = '', lanzamiento = '' } = {}) {
   }
   for (const k of ['calentamiento', 'abierta', 'cerrada', 'boton']) $(`#mt-t-${k}`).value = m?.textos?.[k] || '';
   $('#mt-tcProductos').value = (m?.tcProductos || []).join(', ');
+  $('#mt-hmProductos').value = (m?.hmProductos || []).join(', ');
   $('#mt-code').value = code || '';
   $('#mt-code').readOnly = Boolean(m);
   pintarCodigoMeta('mt-metaFiltro', 'meteorico', code || '', m?.name || '');
@@ -14487,7 +14514,7 @@ $('#mt-guardar').addEventListener('click', async () => {
   const v = Object.fromEntries(MT_CAMPOS.map((k) => [k, $(`#mt-${k}`).value.trim()]));
   const m = {
     ...(state.config.meteoricos?.[code] || {}), ...v,
-    compraDateField: $('#mt-compraDateField').value, tcProductos: tcIdsDe('#mt-tcProductos'),
+    compraDateField: $('#mt-compraDateField').value, tcProductos: tcIdsDe('#mt-tcProductos'), hmProductos: tcIdsDe('#mt-hmProductos'),
     textos: Object.fromEntries(['calentamiento', 'abierta', 'cerrada', 'boton'].map((k) => [k, $(`#mt-t-${k}`).value.trim()])),
     embudo: meteoEdit.lanzamiento ? '' : meteoEdit.embudo, lanzamiento: meteoEdit.lanzamiento,
     pago: leerPago('mt'),
@@ -15472,6 +15499,7 @@ function abrirDirectaConfig(id = state.embudo, paso = '') {
   const v = (k, x) => { $(`#dc-${k}`).value = x ?? ''; };
   v('name', d.name); v('producto', d.producto); v('precio', d.precio ? String(d.precio).replace('.', ',') : '');
   v('tcProductos', (d.tcProductos || []).join(', '));
+  v('hmProductos', (d.hmProductos || []).join(', '));
   v('iva', d.iva?.producto || ''); v('ivaPct', d.iva?.pct ?? 21); v('compraTag', d.compraTag); v('emailCompra', d.emailCompra);
   v('ventaUrl', d.ventaUrl); v('checkoutUrl', d.checkoutUrl); v('graciasUrl', d.graciasUrl); v('llamadaUrl', d.llamadaUrl);
   v('metaFiltro', d.metaFiltro); v('inversionDia', d.inversionDia || ''); v('objetivoCpa', d.objetivoCpa || '');
@@ -15599,7 +15627,7 @@ $('#dc-guardar').addEventListener('click', async () => {
   const val = (k) => $(`#dc-${k}`).value.trim();
   const d = {
     ...state.config.directas[id],
-    name: val('name') || state.config.directas[id].name, producto: val('producto'), precio: val('precio'), tcProductos: tcIdsDe('#dc-tcProductos'),
+    name: val('name') || state.config.directas[id].name, producto: val('producto'), precio: val('precio'), tcProductos: tcIdsDe('#dc-tcProductos'), hmProductos: tcIdsDe('#dc-hmProductos'),
     iva: { pct: val('ivaPct') === '' ? 21 : Number(val('ivaPct').replace(',', '.')), producto: $('#dc-iva').value },
     compraTag: val('compraTag').toLowerCase(), compraDateField: val('compraDateField'), emailCompra: val('emailCompra'),
     upsellPrincipal: { nombre: val('uppNombre'), tags: [...dcUppTags, ...($('#dc-uppTag').value.trim() ? [$('#dc-uppTag').value.trim().toLowerCase()] : [])], precios: dcUppPrecios },
@@ -15749,7 +15777,7 @@ function renderDirectaMetricas(D) {
     grande(cardD('ROAS', x2(D.roas), D.roas != null ? `${eur(D.facturacion)} ÷ ${eur(D.inversion)} de inversión${D.roas >= 1 ? ' · se paga solo ✓' : ' · aún no se paga solo'}` : invTxt, 'trend', D.roas != null && D.roas < 1 ? 'warn' : 'buy')),
   ].join('');
   pintarUpsellPrincipal(D.upsellPrincipal, d);
-  pintarTcEmbudo($('#dir-tc'), { productos: d.tcProductos || [], desde: diaMs(D.rango.desde), hasta: diaMs(D.rango.hasta, true), inversion: D.inversion, iva: ivaPct(d), tarjetas: { cont: '#dir-hero', fact: 'Facturación', roas: 'ROAS', ventas: 'Ventas' }, abrirConfig: 'directa' });
+  pintarTcEmbudo($('#dir-tc'), { productos: prodsReales(d.tcProductos, d.hmProductos), desde: diaMs(D.rango.desde), hasta: diaMs(D.rango.hasta, true), inversion: D.inversion, iva: ivaPct(d), tarjetas: { cont: '#dir-hero', fact: 'Facturación', roas: 'ROAS', ventas: 'Ventas' }, abrirConfig: 'directa' });
   const v = D.visitas || {};
   const conVisitas = conParte(d, 'visitas');
   const sinCodigo = (pag) => `pega el código de la ${pag} (⚙️ Configurar → Páginas)`;
@@ -16406,8 +16434,101 @@ $('#btn-conexiones').addEventListener('click', () => {
   pintarVigiaConexiones();
   pintarSetterConexiones();
   pintarThrivecartConexiones();
+  pintarHotmartConexiones();
   $('#conexiones-dialog').showModal();
   pintarFuentesConexiones();
+  pintarEstadoCx();
+});
+// Estado de cada conexión (la pastilla de su tarjeta y el resumen de arriba): { clave: ['ok'|'aviso'|'no', texto] }.
+const estadoCx = {};
+const NOMBRE_CX = { thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
+function ponerEstadoCx(clave, tono, texto) {
+  estadoCx[clave] = [tono, texto];
+  const el = $(`#conexiones-dialog [data-cx-estado="${clave}"]`);
+  if (el) { el.className = `cx-estado cx-e-${tono}`; el.textContent = texto; }
+  const res = $('#cx-resumen');
+  if (res) res.innerHTML = Object.entries(NOMBRE_CX).filter(([k]) => estadoCx[k]).map(([k, n]) => `<button type="button" class="cx-res cx-e-${estadoCx[k][0]}" data-cx-ir="${k}"><span>${n}</span><b>${esc(estadoCx[k][1])}</b></button>`).join('');
+}
+function pintarEstadoCx() {
+  const st = state.config?.setterIa;
+  ponerEstadoCx('setter', st?.url ? 'ok' : 'no', st?.url ? 'Conectado' : 'Sin conectar');
+  if (!estadoCx.sendflow) ponerEstadoCx('sendflow', 'aviso', 'Pulsa «Probar»');
+}
+// Pulsar un estado del resumen abre su tarjeta.
+$('#conexiones-dialog').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-cx-ir]');
+  if (!b) return;
+  const card = $(`#conexiones-dialog .cx-card[data-cx="${b.dataset.cxIr}"]`);
+  if (card) { card.open = true; card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+});
+// Hotmart: la credencial de la API (cifrada en AlquimIA), sincronizar / traer el histórico, y la dirección del aviso.
+async function pintarHotmartConexiones() {
+  const box = $('#cx-hotmart');
+  let r;
+  try { r = await api('/api/hotmart'); } catch (e) { box.innerHTML = `<p class="muted">${esc(e.message)}</p>`; ponerEstadoCx('hotmart', 'no', 'Sin acceso'); return; }
+  const cred = r.credencial;
+  ponerEstadoCx('hotmart', cred ? (r.syncError ? 'aviso' : 'ok') : r.total ? 'aviso' : 'no',
+    cred ? (r.syncError ? 'Revisa la conexión' : `API conectada${r.total ? ` · ${r.total} ventas` : ''}`) : r.total ? `Solo avisos · ${r.total} ventas` : 'Sin conectar');
+  const ult = r.ultima ? `Última venta: ${fechaHora(r.ultima.fecha)} · ${esc(r.ultima.producto || '')} · paga ${eur(Math.abs(r.ultima.importe))}${r.ultima.neto != null ? ` · te llegan ${eur(Math.abs(r.ultima.neto))}` : ''}${r.ultima.tipo === 'reembolso' ? ' (reembolso)' : ''}` : 'Todavía no hay ventas.';
+  box.innerHTML = `<div class="hm-paso">
+      <h4 class="cx-h">🔐 1 · Conectar la API <small class="muted">(lo más fiable: trae todas las ventas y el neto exacto)</small></h4>
+      ${cred ? `<p class="cx-ok">✅ Conectada ${cred.origen === 'cloudflare' ? '(con las variables de Cloudflare)' : `· Client ID ${esc(cred.clientId)}`}${r.ultimaSync ? ` · sincronizada ${fechaHora(r.ultimaSync)}` : ''}</p>
+        ${r.syncError ? `<p class="reg-falta">⚠️ ${esc(r.syncError)}</p>` : ''}
+        <p class="hm-acc"><button type="button" class="btn primary" data-hm-sync>🔄 Sincronizar ahora</button><button type="button" class="btn" data-hm-hist>📜 Traer histórico (12 meses)</button>${cred.origen === 'alquimia' && puedeConfig() ? '<button type="button" class="btn ghost small" data-hm-borrar>Quitar la credencial</button>' : ''}</p>
+        <div data-hm-prog class="muted small" role="status"></div>`
+    : puedeConfig() ? `<div class="hm-cred">
+          <label class="field"><span>🆔 Client ID</span><input id="hm-id" autocomplete="off" spellcheck="false" placeholder="p. ej. 1a2b3c4d-…"></label>
+          <label class="field"><span>🗝️ Client Secret</span><input id="hm-secret" type="password" autocomplete="new-password" spellcheck="false"></label>
+          <label class="field"><span>🔒 Basic</span><input id="hm-basic" type="password" autocomplete="new-password" spellcheck="false" placeholder="Basic …"></label>
+        </div>
+        <p class="hm-acc"><button type="button" class="btn primary" data-hm-conectar>🔌 Conectar Hotmart</button> <span class="muted small" data-hm-st role="status"></span></p>
+        <p class="muted small">🔒 Se guardan cifradas. Nadie del equipo las puede volver a ver; para cambiarlas, quítalas y pega las nuevas.</p>`
+      : '<p class="muted">Pide a quien configura AlquimIA que conecte Hotmart.</p>'}
+    </div>
+    <div class="hm-paso">
+      <h4 class="cx-h">🔔 2 · Avisos al momento <small class="muted">(cada venta llega en segundos)</small></h4>
+      ${filaCopiar('🔗 Dirección', r.url, 'En Hotmart, versión 2.0.0. No hace falta el «hottok»: la dirección ya lleva su clave.')}
+    </div>
+    <p class="muted small">${r.total ? `<strong>${r.total}</strong> ${r.total === 1 ? 'venta guardada' : 'ventas guardadas'}. ` : ''}${ult}</p>`;
+}
+$('#conexiones-dialog').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-hm-conectar], [data-hm-sync], [data-hm-hist], [data-hm-borrar]');
+  if (!b) return;
+  const st = $('#cx-hotmart [data-hm-st]') || $('#cx-hotmart [data-hm-prog]');
+  b.disabled = true;
+  try {
+    if (b.matches('[data-hm-conectar]')) {
+      if (st) st.textContent = 'Comprobando con Hotmart…';
+      const r = await api('/api/hotmart?op=credenciales', { method: 'POST', body: { clientId: $('#hm-id').value, clientSecret: $('#hm-secret').value, basic: $('#hm-basic').value } });
+      notice(`✅ Hotmart conectado${r.nuevas ? `: ${r.nuevas} ventas de los últimos 30 días` : ''}.`);
+    } else if (b.matches('[data-hm-borrar]')) {
+      if (!window.confirm('¿Quitar la credencial de Hotmart? Las ventas ya guardadas se quedan.')) { b.disabled = false; return; }
+      await api('/api/hotmart?op=borrar', { method: 'POST', body: {} });
+    } else if (b.matches('[data-hm-sync]')) {
+      if (st) st.textContent = 'Sincronizando…';
+      const r = await api('/api/hotmart?op=sincronizar', { method: 'POST', body: { desde: Date.now() - 30 * 86_400_000, hasta: Date.now() } });
+      notice(`🔄 Hotmart al día${r.nuevas ? `: ${r.nuevas} ventas nuevas o actualizadas` : ''}.`);
+    } else {
+      // Histórico: mes a mes hacia atrás (cada llamada cabe en lo que deja Cloudflare); si un mes no acaba, se repite.
+      let total = 0;
+      for (let i = 0; i < 12; i++) {
+        const hasta = Date.now() - i * 30 * 86_400_000;
+        const desde = hasta - 30 * 86_400_000;
+        for (let intento = 0; intento < 4; intento++) {
+          if (st) st.textContent = `📜 Trayendo el histórico… mes ${i + 1} de 12 (${total} ventas)`;
+          const r = await api('/api/hotmart?op=sincronizar', { method: 'POST', body: { desde, hasta } });
+          total += r.nuevas || 0;
+          if (r.completo !== false) break;
+        }
+      }
+      notice(`📜 Histórico de Hotmart traído: ${total} ventas nuevas o actualizadas.`);
+    }
+    Object.keys(tcCache).forEach((k) => delete tcCache[k]);
+    await pintarHotmartConexiones();
+  } catch (err) {
+    b.disabled = false;
+    if (st) st.textContent = err.message; else window.alert(err.message);
+  }
 });
 // ThriveCart: la dirección de aviso de este cliente (para pegarla en ThriveCart) y la última venta recibida.
 async function pintarThrivecartConexiones() {
@@ -16415,10 +16536,8 @@ async function pintarThrivecartConexiones() {
   try {
     const r = await api('/api/thrivecart');
     const ult = r.ultima ? `Última recibida: ${new Date(r.ultima.fecha).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })} · ${esc(r.ultima.tipo)} · ${esc(r.ultima.producto || '')} · ${eur(r.ultima.importe)}${r.ultima.prueba ? ' (prueba)' : ''}` : 'Todavía no ha llegado ninguna venta.';
-    box.innerHTML = `<ol class="tc-pasos">
-        <li>En ThriveCart: <strong>Settings → Integrations → Webhooks &amp; notifications</strong> → añadir un webhook.</li>
-        <li>Pega esta dirección (es solo de ${esc(clienteNombre() || 'este cliente')}):</li>
-      </ol>
+    ponerEstadoCx('thrivecart', r.total ? 'ok' : 'aviso', r.total ? `Conectado · ${r.total} ${r.total === 1 ? 'venta' : 'ventas'}` : 'Esperando la primera venta');
+    box.innerHTML = `<h4 class="cx-h">🔗 Tu dirección para ThriveCart <small class="muted">(solo de ${esc(clienteNombre() || 'este cliente')})</small></h4>
       ${filaCopiar('🔗 Dirección', r.url, 'No hace falta pasar ninguna clave: la dirección ya lleva la suya.')}
       <p class="muted small">${r.total ? `<strong>${r.total}</strong> ${r.total === 1 ? 'venta recibida' : 'ventas recibidas'}. ` : ''}${ult}</p>
       <p class="muted small">Las ventas en modo prueba de ThriveCart se guardan pero no cuentan. Solo llegan las ventas desde que pegues la dirección.</p>
@@ -16657,6 +16776,7 @@ async function probarSendflow({ reintentar = false } = {}) {
   try {
     const d = await api(`/api/sendflow?op=probar${reintentar ? '&reintentar=1' : ''}`);
     const hora = (ms) => new Date(ms).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    ponerEstadoCx('sendflow', d.ok ? 'ok' : d.configurada === false ? 'no' : 'aviso', d.ok ? 'Conectado' : d.configurada === false ? 'Sin conectar' : d.freno ? 'En pausa' : 'Revisa la clave');
     if (d.freno) {
       box.innerHTML = d.freno.bloqueo
         ? `<div class="notice warn"><strong>⏸️ SendFlow ha bloqueado la clave un rato por exceso de peticiones.</strong> La clave y la conexión están bien. AlquimIA no le pedirá nada hasta las <strong>${hora(d.freno.hasta)}</strong> (para no alargar el bloqueo). Vuelve a probar a partir de esa hora.</div>`

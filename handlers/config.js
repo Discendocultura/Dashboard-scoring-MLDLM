@@ -132,6 +132,7 @@ export async function POST(request) {
         if (!actual.launches[code]) throw Object.assign(new Error('Lanzamiento no encontrado'), { status: 404, publicMessage: 'Lanzamiento no encontrado' });
         const lista = Array.isArray(body.productos) ? body.productos : [];
         const cambio = { tcProductos: lista, ...(Array.isArray(body.programa) ? { tcPrograma: body.programa } : {}) };
+        for (const k of ['hmProductos', 'hmPrograma']) if (Array.isArray(body[k])) cambio[k] = body[k];
         return saveConfig({ ...actual, launches: { ...actual.launches, [code]: { ...actual.launches[code], ...cambio } } }, { version: versionDe(actual), motivo: 'Productos de ThriveCart del lanzamiento' });
       });
       return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });

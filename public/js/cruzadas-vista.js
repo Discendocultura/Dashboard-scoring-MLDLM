@@ -531,19 +531,19 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
   }
   // ThriveCart: lo cobrado en los últimos 30 días de cada producto con su ID de ThriveCart (con bumps y reembolsos).
   async function pintarTcCruzadas(caja, productos) {
-    const conId = productos.filter((p) => p.tcId);
+    const conId = productos.filter((p) => p.tcId || p.hmId);
     if (!conId.length) return;
     const desde = Date.now() - 30 * 86_400_000;
-    let ventas = [];
-    try { ({ ventas = [] } = await api(`/api/thrivecart?op=ventas&desde=${desde}`)); } catch { return; }
+    const [tc, hm] = await Promise.all([api(`/api/thrivecart?op=ventas&desde=${desde}`).catch(() => ({})), api(`/api/hotmart?op=ventas&desde=${desde}`).catch(() => ({}))]);
+    const ventas = [...(tc.ventas || []), ...(hm.ventas || [])];
     if (!caja.isConnected) return;
     const eur = (n) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
     const filas = conId.map((p) => {
-      const r = resumenThrivecart(ventas, new Set(), { desde, productos: [p.tcId] });
+      const r = resumenThrivecart(ventas, new Set(), { desde, productos: [...(p.tcId ? [p.tcId] : []), ...(p.hmId ? [`hm:${p.hmId}`] : [])] });
       const extras = r.extras.reduce((t, e) => t + e.importe, 0);
-      return `<li><b>${esc(p.nombre)}</b> <small class="muted">· ID ${esc(p.tcId)}</small> — ${r.cobros ? `<b>${num(r.cobros)}</b> ${r.cobros === 1 ? 'venta' : 'ventas'} · ${eur(r.neto)} cobrado${extras ? ` (bumps ${eur(extras)})` : ''}${r.reembolsos ? ` · ${r.reembolsos} reembolso${r.reembolsos === 1 ? '' : 's'}` : ''}` : '<span class="muted">sin ventas en estos 30 días</span>'}</li>`;
+      return `<li><b>${esc(p.nombre)}</b> <small class="muted">· ${[p.tcId ? `ThriveCart ${esc(p.tcId)}` : '', p.hmId ? `Hotmart ${esc(p.hmId)}` : ''].filter(Boolean).join(' · ')}</small> — ${r.cobros ? `<b>${num(r.cobros)}</b> ${r.cobros === 1 ? 'venta' : 'ventas'} · ${eur(r.neto)} pagado${r.porFuente?.hotmart ? ` · te llegan ${eur(r.netoExacto + r.sinNeto / 1.21)}` : ''}${extras ? ` (bumps ${eur(extras)})` : ''}${r.reembolsos ? ` · ${r.reembolsos} reembolso${r.reembolsos === 1 ? '' : 's'}` : ''}` : '<span class="muted">sin ventas en estos 30 días</span>'}</li>`;
     }).join('');
-    caja.insertAdjacentHTML('beforeend', `<section class="tc-box xo-tc"><div class="tc-cab"><span class="tc-ico" aria-hidden="true">💳</span><div><strong>Cobrado en ThriveCart</strong><small class="muted">últimos 30 días, con IVA, bumps y reembolsos</small></div></div><ul class="xo-tc-l">${filas}</ul></section>`);
+    caja.insertAdjacentHTML('beforeend', `<section class="tc-box xo-tc"><div class="tc-cab"><span class="tc-ico" aria-hidden="true">💳</span><div><strong>Ventas reales</strong><small class="muted">ThriveCart y Hotmart · últimos 30 días, con IVA, bumps y reembolsos</small></div></div><ul class="xo-tc-l">${filas}</ul></section>`);
   }
   document.addEventListener('click', (e) => {
     const bp = e.target.closest('#xofertas-body [data-x-verprio]');
@@ -588,6 +588,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
         <button type="button" class="btn ghost small xc-quitar" data-xc-quitar title="Quitar este producto" aria-label="Quitar este producto">✕</button></div>
       <label class="field"><span>🏷️ Etiqueta de compra <small>(la que pone GHL a quien lo compra)</small></span><input data-xc-campo="tag" list="tag-list" value="${esc(p.tag)}" maxlength="100" placeholder="Busca la etiqueta…"></label>
       <label class="field"><span>💳 ID del producto en ThriveCart <small>(opcional: el número del producto en ThriveCart, para ver lo cobrado de verdad)</small></span><input data-xc-campo="tcId" inputmode="numeric" value="${esc(p.tcId || '')}" maxlength="40" placeholder="p. ej. 15"></label>
+      <label class="field"><span>🔥 ID del producto en Hotmart <small>(opcional: el número del producto en Hotmart)</small></span><input data-xc-campo="hmId" inputmode="numeric" value="${esc(p.hmId || '')}" maxlength="40" placeholder="p. ej. 4567890"></label>
       <div class="xc-otras"><span class="xc-otras-t">Otras etiquetas que también cuentan <small>(ofertas, ediciones…)</small></span>
         <div class="xc-chips">${p.otras.map((o, j) => `<span class="xc-chip">${esc(o.tag)}<button type="button" data-xc-otra-quitar="${j}" aria-label="Quitar ${esc(o.tag)}">×</button></span>`).join('')}
           <span class="xc-otra-add"><input data-xc-otra list="tag-list" maxlength="100" placeholder="＋ otra etiqueta"><button type="button" class="btn small" data-xc-otra-add>Añadir</button></span></div></div></li>`;
