@@ -292,20 +292,21 @@ export function moverFechasTexto(texto, m, ref = '2026-01-01') {
       return `${sem ? `${mayus(diaSemana(nuevo), sem)} ` : ''}${Number(dd)} de ${mesTxt}${anio ? (todo.includes(' del ') ? ` del ${y}` : ` de ${y}`) : ''}`;
     });
     // «20/10»: solo si es una fecha cercana a la del mensaje (±90 días), para no tocar «2/3» u otras cifras.
-    t = t.replace(/(?<![\w/.,])(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?(?![\w/])/g, (todo, d, mes, anio) => {
+    // Sin «lookbehind» (?<!…): los iPhone con iOS anterior a 16.4 no lo entienden y no arrancaría nada de AlquimIA.
+    t = t.replace(/(^|[^\w/.,])(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?(?![\w/])/g, (todo, antes, d, mes, anio) => {
       const iso = isoDe(Number(d), Number(mes), anio, ref);
       if (!iso || Math.abs(diasEntre(ref, iso)) > 90) return todo;
       const [y, mm, dd] = sumarDias(iso, m.dias).split('-');
       n++;
       const pad = (v, como) => (como.length === 2 ? v : String(Number(v)));
-      return `${pad(dd, d)}/${pad(mm, mes)}${anio ? `/${anio.length === 2 ? y.slice(2) : y}` : ''}`;
+      return `${antes}${pad(dd, d)}/${pad(mm, mes)}${anio ? `/${anio.length === 2 ? y.slice(2) : y}` : ''}`;
     });
   }
   if (m.minutos && Number.isFinite(m.horaAnt)) {
     const viejo = deMin(m.horaAnt);
     const nuevaMin = (m.horaAnt + m.minutos + 1440) % 1440;
-    const re = new RegExp(`(?<!\\d)${viejo.replace(':', '[:.]')}(?!\\d)`, 'g');
-    t = t.replace(re, () => { n++; return deMin(nuevaMin); });
+    const re = new RegExp(`(^|\\D)${viejo.replace(':', '[:.]')}(?!\\d)`, 'g');
+    t = t.replace(re, (todo, antes) => { n++; return `${antes}${deMin(nuevaMin)}`; });
   }
   return { texto: t, n };
 }
