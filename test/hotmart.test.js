@@ -126,3 +126,18 @@ test('hotmart: si Hotmart rechaza el tamaño de página o un filtro opcional, se
   assert.equal(r.compras[0].comisiones.find((c) => c.source === 'PRODUCER').commission.value, 877.36);
   assert.ok(pedidas.some((x) => x.includes('max_results=50&') || x.endsWith('max_results=50')), 'reintenta con páginas de 50');
 });
+
+test('hotmart: si rechaza hasta las fechas, pide sin ellas y filtra aquí por la fecha de cada compra', async () => {
+  const { ventasApi } = await import('../lib/hotmart-api.js');
+  const vieja = { ...compra('HPV', 'v@x.com', 15, 997), purchase: { ...compra('HPV', 'v@x.com', 15, 997).purchase, approved_date: T - 90 * 86_400_000 } };
+  const fetchFn = async (url) => {
+    const u = new URL(String(url));
+    if (u.hostname === 'api-sec-vlc.hotmart.com') return new Response(JSON.stringify({ access_token: 'tk3', expires_in: 3600 }));
+    if (u.searchParams.get('start_date') || u.searchParams.get('transaction_status') || u.searchParams.get('commission_as')) return new Response('{"error":"invalid_parameter"}', { status: 400 });
+    if (u.pathname.endsWith('/sales/history')) return new Response(JSON.stringify({ items: [compra('HPN', 'n@x.com', 15, 997), vieja], page_info: {} }));
+    return new Response(JSON.stringify({ items: [{ transaction: 'HPN', commissions: com(877.36) }], page_info: {} }));
+  };
+  const r = await ventasApi({ clientId: 'sin-fechas', secreto: 's', basic: 'b' }, { desde: T - 30 * 86_400_000, hasta: T + 86_400_000, fetchFn });
+  assert.deepEqual(r.compras.map((c) => c.item.purchase.transaction), ['HPN'], 'la de hace 90 días queda fuera');
+  assert.equal(r.compras[0].comisiones[0].commission.value, 877.36);
+});
