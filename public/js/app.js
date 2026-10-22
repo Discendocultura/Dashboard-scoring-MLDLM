@@ -2231,6 +2231,7 @@ async function loadLeads({ forzar = false } = {}) {
   cargarVotos();
   cargarVisitas();
   cargarVipTc();
+  cargarUtmRegistro();
   if (!forzar && copia?.contacts.length && Date.now() - copia.at < LEADS_FRESCOS_MS) {
     loadMeta(token);
     $('#btn-reload').disabled = false;
@@ -2280,7 +2281,7 @@ async function loadMeta(token) {
 }
 
 function enrich(contact) {
-  const l = enrichLead(contact, state.launchCode, state.config);
+  const l = enrichLead(conUtmRegistro(contact), state.launchCode, state.config);
   marcarVipTc(l);
   // ¿Está en el grupo de WhatsApp del lanzamiento? (cruce por teléfono con SendFlow, si ya se ha cargado)
   if (state.grupoWa?.code === state.launchCode && state.grupoWa.claves) l.s.enGrupo = state.grupoWa.claves.has(claveTelefono(contact.phone));
@@ -4320,7 +4321,8 @@ function renderUtms() {
   if (d.tipo === 'vsl' && preguntasEncuesta().length) perfiles = perfilesCompradoras(state.vsl.leads || [], preguntasEncuesta(), 'compra');
   const encuesta = puntuadorEncuesta(perfiles);
   const conSem = d.tipo !== 'directa' && preguntasEncuesta().length > 0;
-  const a = arbolUtms(d.leads, pasos, { names: d.meta?.names || {}, spendBy: d.meta?.spendBy || {}, encuesta });
+  const filtro = d.tipo === 'lanz' ? d.cfg.metaFiltro || state.launchCode : d.tipo === 'vsl' ? d.cfg.metaFiltro || '' : '';
+  const a = arbolUtms(d.leads, pasos, { names: d.meta?.names || {}, spendBy: d.meta?.spendBy || {}, encuesta, filtro });
   const pct = (n, t) => (t ? Math.round((n / t) * 100) : 0);
   // El embudo de todos los leads, de izquierda a derecha.
   const T = a.total;
@@ -12945,6 +12947,27 @@ function aplicarVisitas() {
     if (pago[l.id]) l.s.inicio_pago = pago[l.id]; else delete l.s.inicio_pago;
     if (antes !== Boolean(l.s.inicio_pago)) { l.score = puntuar(l.s, pesosDe(state.config)); l.estado = estadoFor(l.score); }
   }
+}
+// UTM con las que se registró cada lead, de los envíos del formulario en GHL: mandan sobre las del contacto, que GHL
+// pisa con cada formulario posterior (encuesta, VIP…) y que en quien ya estaba en GHL son las de un lanzamiento anterior.
+async function cargarUtmRegistro() {
+  const code = state.launchCode;
+  if (enVsl() || !state.config.launches[code]) return;
+  try {
+    const d = await api(`/api/leads?op=utm&l=${encodeURIComponent(code)}`);
+    if (state.launchCode !== code) return;
+    state.utmReg = { code, utm: d.utm || {}, error: d.error || '' };
+    if (!Object.keys(state.utmReg.utm).length) return;
+    state.leads = state.leads.map((l) => enrich(l));
+    aplicarVisitas();
+    programarRender();
+  } catch { /* sin envíos: las UTM del contacto */ }
+}
+function conUtmRegistro(contact) {
+  const r = state.utmReg;
+  const u = r?.code === state.launchCode ? r.utm[contact.id] : null;
+  if (!u) return contact;
+  return { ...contact, src: { ...(contact.src || {}), source: u.source || contact.src?.source || '', medium: contact.src?.medium || 'paid', campaign: u.campaign, term: u.term, content: u.content } };
 }
 // Entrada VIP comprada en ThriveCart (los productos VIP elegidos en Configuración → Precios): el lead cuenta como VIP
 // aunque el workflow de GHL no le haya puesto la etiqueta (o se la haya puesto a otro contacto), como en Métricas.

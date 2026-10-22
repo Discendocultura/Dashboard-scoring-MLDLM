@@ -1,8 +1,9 @@
 // Devuelve una página (100) de leads con la etiqueta indicada. El navegador va pidiendo
 // páginas con el cursor hasta tenerlas todas, así escala a miles de leads sin timeouts.
 import { requireRole } from '../lib/auth.js';
-import { contactsByTag, aplicarCamposFormulario } from '../lib/ghl.js';
+import { contactsByTag, aplicarCamposFormulario, utmDeFormularios } from '../lib/ghl.js';
 import { getConfig } from '../lib/config-store.js';
+import { cacheCompartida } from '../lib/store.js';
 import { json, errorResponse } from '../lib/http.js';
 
 // Todas las etiquetas que aparecen en la configuración de lanzamientos, VSL y meteóricos (campos «…Tag»).
@@ -23,6 +24,23 @@ export async function GET(request) {
   try {
     await requireRole(request, { permiso: ['hoy', 'llamadas', 'leads', 'metricas', 'objetivos', 'avatar', 'comparar'] });
     const url = new URL(request.url);
+    // GET /api/leads?op=utm&l=<código> → { utm: { contactId → { campaign, term, content } } } las UTM con las que se
+    // registró cada lead (de los envíos de formularios de GHL desde la víspera del inicio de captación), 10 min en caché.
+    if (url.searchParams.get('op') === 'utm') {
+      const code = url.searchParams.get('l') || '';
+      const launch = (await getConfig()).launches?.[code];
+      if (!launch?.inicioCaptacion) return json({ utm: {} });
+      const d = new Date(`${launch.inicioCaptacion}T12:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - 1);
+      const desde = d.toISOString().slice(0, 10);
+      const hasta = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+      try {
+        return json({ utm: await cacheCompartida(`utm-formularios|${code}`, 10 * 60_000, () => utmDeFormularios({ desde, hasta })) });
+      } catch (e) {
+        console.error('UTM de formularios', e.message);
+        return json({ utm: {}, error: e.ghlStatus === 401 || e.ghlStatus === 403 ? 'El token de GHL no tiene permiso para leer los envíos de formularios (forms.readonly)' : 'No se pudieron leer los envíos de formularios de GHL' });
+      }
+    }
     const tag = (url.searchParams.get('tag') || '').trim();
     if (!tag) return json({ error: 'Falta la etiqueta' }, 400);
     let config = await getConfig();

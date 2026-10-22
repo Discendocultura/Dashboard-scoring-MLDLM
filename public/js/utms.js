@@ -85,7 +85,9 @@ const sumar = (g, x, pasos) => {
 // Árbol campaña › conjunto › anuncio con el embudo de cada uno. names: id → nombre (Meta); spendBy: id → inversión.
 // → { total, campanas: [{ key, label, leads, n, calidad, spend, cpl, coste: { pasoId → coste por cada uno }, hijos }], sinUtm }
 // encuesta: puntuadorEncuesta(...) para el semáforo de calidad por la encuesta (o null).
-export function arbolUtms(leads, pasos, { names = {}, spendBy = {}, minimo = 10, encuesta = null } = {}) {
+// filtro: lo que llevan en el nombre las campañas del embudo (p. ej. el código del lanzamiento). Las UTM de otras
+// campañas (un lanzamiento anterior, otro embudo) no salen como fila: cuentan con «Sin UTM de este lanzamiento».
+export function arbolUtms(leads, pasos, { names = {}, spendBy = {}, minimo = 10, encuesta = null, filtro = '' } = {}) {
   puntuar = encuesta;
   // Las UTM pueden llevar el id ({{ad.id}}) o el nombre ({{ad.name}}): el gasto de Meta va por id, así que también se
   // busca por nombre (sin mayúsculas ni espacios de más).
@@ -93,12 +95,17 @@ export function arbolUtms(leads, pasos, { names = {}, spendBy = {}, minimo = 10,
   const idDeNombre = new Map(Object.entries(names).map(([id, n]) => [clave(n), id]));
   const gastoDe = (k) => Number(spendBy[k]) || Number(spendBy[idDeNombre.get(clave(k))]) || null;
   const total = nueva('total', 'Total', pasos);
-  const sinUtm = nueva('__sin', 'Sin UTM (orgánico, directo o enlace sin parámetros)', pasos);
+  const conocido = (k) => Boolean(k) && (Object.hasOwn(names, k) || idDeNombre.has(clave(k)));
+  const delEmbudo = (u) => [u.campaign, u.adset, u.ad].some(conocido) || (Boolean(filtro) && [u.campaign, names[u.campaign]].some((t) => clave(t).includes(clave(filtro))));
+  const sinUtm = nueva('__sin', filtro ? 'Sin UTM de este lanzamiento (orgánico, otras campañas o enlace sin parámetros)' : 'Sin UTM (orgánico, directo o enlace sin parámetros)', pasos);
   const campanas = new Map();
+  // Con el id o con el nombre, la misma campaña (conjunto, anuncio) va en una sola fila: la del id de Meta.
+  const idDe = (k) => (Object.hasOwn(names, k) ? k : idDeNombre.get(clave(k)) || k);
   for (const x of leads || []) {
     sumar(total, x, pasos);
-    const u = utmDe(x);
-    if (!u.campaign && !u.adset && !u.ad) { sumar(sinUtm, x, pasos); continue; }
+    const u0 = utmDe(x);
+    const u = { campaign: u0.campaign && idDe(u0.campaign), adset: u0.adset && idDe(u0.adset), ad: u0.ad && idDe(u0.ad) };
+    if ((!u.campaign && !u.adset && !u.ad) || (filtro && !delEmbudo(u))) { sumar(sinUtm, x, pasos); continue; }
     const kc = u.campaign || '__sin-campana';
     const c = campanas.get(kc) || Object.assign(nueva(kc, u.campaign ? names[u.campaign] || u.campaign : 'Sin campaña', pasos), { hijos: new Map() });
     sumar(c, x, pasos);

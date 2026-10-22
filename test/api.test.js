@@ -941,3 +941,12 @@ test('venta directa ligada a un pipeline de GHL: tablero de Comercial y mover de
   await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...(await (await config.GET(req('/api/config', { cookie: admin }))).json()).config, directas: cur.directas } }));
   assert.equal((await (await pl.GET(req('/api/pipeline?d=dpl', { cookie: setter }))).json()).ligado, false);
 });
+
+test('UTM del envío del formulario de registro y atribuciones en lista', async () => {
+  const { utmDeEnvio, source } = await import('../lib/ghl.js');
+  assert.deepEqual(utmDeEnvio({ contactId: 'x', others: { eventData: { url_params: { utm_campaign: 'camp', utm_term: 'conj', utm_content: 'anu', utm_source: 'fb' } } } }), { source: 'fb', campaign: 'camp', term: 'conj', content: 'anu' });
+  assert.equal(utmDeEnvio({ others: { eventData: { page: { url: 'https://web.com/registro?utm_campaign=c2&utm_content=a2' } } } }).campaign, 'c2');
+  assert.equal(utmDeEnvio({ others: { eventData: { url_params: { utm_campaign: '{{campaign.name}}' } } } }), null);
+  assert.equal(utmDeEnvio({ others: { eventData: { page: { url: 'https://web.com/encuesta' } } } }), null);
+  assert.equal(source({ attributions: [{ isFirst: true, utmCampaign: 'primera' }, { isLast: true, medium: 'direct' }] }).campaign, 'primera');
+});
