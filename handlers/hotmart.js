@@ -14,9 +14,10 @@ import { json, readBody, errorResponse } from '../lib/http.js';
 import { dentroDelLimite } from '../lib/intentos.js';
 import { env } from '../lib/env.js';
 import { dominioLogin } from '../lib/dominio.js';
-import { ventasDeApi, ventaDeAvisoHotmart, guardarVentaHm, plegarBumps } from '../public/js/hotmart.js';
+import { ventasDeApi, ventaDeAvisoHotmart, abandonoDeAvisoHotmart, guardarVentaHm, plegarBumps } from '../public/js/hotmart.js';
 import { credenciales, ventasApi, guardarCredenciales, CLAVE_CRED } from '../lib/hotmart-api.js';
 import { claveDe } from './zoom-registro.js';
+import { registrarAbandono, compraTrasAbandono } from '../lib/abandonos.js';
 
 const CLAVE = 'lsd_hotmart_ventas';
 const valor = () => `hotmart:${clienteActual().id}`;
@@ -127,7 +128,11 @@ export async function POST(request) {
     }
     if ((await verifyToken(claveDe(url.searchParams.get('k')))) !== valor()) return json({ ok: false, motivo: 'enlace no válido' }, 403);
     if (!(await dentroDelLimite(request, 'hotmart', 1200))) return json({ ok: false, motivo: 'demasiadas peticiones' }, 429);
-    const venta = ventaDeAvisoHotmart(await readBody(request));
+    const cuerpo = await readBody(request);
+    // Carrito abandonado: etiqueta en GHL (si está activo en Conexiones) para que un workflow mande la plantilla.
+    const abandono = abandonoDeAvisoHotmart(cuerpo);
+    if (abandono) return json(await registrarAbandono(abandono));
+    const venta = ventaDeAvisoHotmart(cuerpo);
     if (!venta) return json({ ok: true, ignorado: true }); // otros avisos (carrito abandonado, suscripción…): se contesta bien
     const nueva = await reintentando(async () => {
       const dato = (await leerJSON(CLAVE, () => ({ ventas: [] }))) || { ventas: [] };
@@ -135,6 +140,8 @@ export async function POST(request) {
       if (r.cambio) { dato.ventas = r.lista; await guardarJSON(CLAVE, dato, { motivo: `Hotmart: ${venta.tipo} ${venta.producto}` }); }
       return r.cambio;
     });
+    // Quien compra deja de ser un carrito abandonado: se le quita la etiqueta (el workflow ya no le escribe).
+    if (venta.tipo === 'cobro' && !venta.prueba) await compraTrasAbandono(venta.email).catch((e) => console.error('Carrito abandonado', e.message));
     return json({ ok: true, guardada: nueva });
   } catch (e) {
     return errorResponse(e);

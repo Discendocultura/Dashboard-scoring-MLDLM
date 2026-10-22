@@ -124,6 +124,14 @@ export async function POST(request) {
       });
       return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
     }
+    // Carrito abandonado (Conexiones): activar, etiqueta de GHL, plantilla y espera del workflow.
+    if (body.op === 'carritoAbandonado') {
+      const config = await reintentando(async () => {
+        const actual = await getConfig({ fresh: true });
+        return saveConfig({ ...actual, carritoAbandonado: { ...(actual.carritoAbandonado || {}), ...(body.datos || {}) } }, { version: versionDe(actual), motivo: 'Carrito abandonado' });
+      });
+      return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
+    }
     // Productos de ThriveCart del lanzamiento (Métricas → Cobrado en ThriveCart → «Productos de este lanzamiento»).
     if (body.op === 'tcProductos') {
       const code = String(body.l || '');

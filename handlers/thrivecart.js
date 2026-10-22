@@ -11,8 +11,9 @@ import { json, readBody, errorResponse } from '../lib/http.js';
 import { dentroDelLimite } from '../lib/intentos.js';
 import { env } from '../lib/env.js';
 import { dominioLogin } from '../lib/dominio.js';
-import { ventaDeWebhook, anadirVenta, ventaImportada, yaEsta, sinImportadasDe, MAX_VENTAS } from '../public/js/thrivecart.js';
+import { ventaDeWebhook, abandonoDeWebhook, anadirVenta, ventaImportada, yaEsta, sinImportadasDe, MAX_VENTAS } from '../public/js/thrivecart.js';
 import { claveDe } from './zoom-registro.js';
+import { registrarAbandono, compraTrasAbandono, resumenAbandonos } from '../lib/abandonos.js';
 
 const CLAVE = 'lsd_thrivecart_ventas';
 const valor = () => `thrivecart:${clienteActual().id}`;
@@ -20,6 +21,10 @@ const valor = () => `thrivecart:${clienteActual().id}`;
 export async function GET(request) {
   try {
     const url = new URL(request.url);
+    if (url.searchParams.get('op') === 'abandonos') {
+      await requireSession(request, { permiso: 'config' });
+      return json(await resumenAbandonos(30));
+    }
     if (url.searchParams.get('op') === 'ventas') {
       await requireSession(request);
       const desde = Number(url.searchParams.get('desde')) || 0;
@@ -72,7 +77,11 @@ export async function POST(request) {
     }
     if ((await verifyToken(claveDe(url.searchParams.get('k')))) !== valor()) return json({ ok: false, motivo: 'enlace no válido' }, 403);
     if (!(await dentroDelLimite(request, 'thrivecart', 1200))) return json({ ok: false, motivo: 'demasiadas peticiones' }, 429);
-    const venta = ventaDeWebhook(await readBody(request));
+    const cuerpo = await readBody(request);
+    // Carrito abandonado: etiqueta en GHL (si está activo en Conexiones) para que un workflow mande la plantilla.
+    const abandono = abandonoDeWebhook(cuerpo);
+    if (abandono) return json(await registrarAbandono(abandono));
+    const venta = ventaDeWebhook(cuerpo);
     if (!venta) return json({ ok: true, ignorado: true }); // otros avisos (p. ej. abandono): se contesta bien y no se guarda
     const nueva = await reintentando(async () => {
       const dato = (await leerJSON(CLAVE, () => ({ ventas: [] }))) || { ventas: [] };
@@ -81,6 +90,8 @@ export async function POST(request) {
       if (r.nueva) { dato.ventas = r.lista; await guardarJSON(CLAVE, dato, { motivo: `ThriveCart: ${venta.tipo} ${venta.producto}` }); }
       return r.nueva;
     });
+    // Quien compra deja de ser un carrito abandonado: se le quita la etiqueta (el workflow ya no le escribe).
+    if (venta.tipo === 'cobro' && !venta.prueba) await compraTrasAbandono(venta.email).catch((e) => console.error('Carrito abandonado', e.message));
     return json({ ok: true, guardada: nueva });
   } catch (e) {
     return errorResponse(e);
