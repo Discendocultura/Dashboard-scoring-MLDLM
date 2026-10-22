@@ -3,6 +3,7 @@
 //   GET  /api/thrivecart?op=ventas&desde=…&hasta=… → (equipo) las ventas guardadas en ese periodo (ms)
 //   HEAD /api/thrivecart?c=…&k=…         → 200 (ThriveCart comprueba la dirección al guardarla)
 //   POST /api/thrivecart?c=…&k=…         → (ThriveCart) un aviso: venta, cuota, reembolso o cancelación
+//   POST /api/thrivecart?op=importar     → (equipo, «config») { ventas } las del CSV de ThriveCart (sin repetir las que ya hay)
 import { requireSession, signToken, verifyToken } from '../lib/auth.js';
 import { clienteActual } from '../lib/cliente.js';
 import { leerJSON, guardarJSON, reintentando } from '../lib/store.js';
@@ -10,7 +11,7 @@ import { json, readBody, errorResponse } from '../lib/http.js';
 import { dentroDelLimite } from '../lib/intentos.js';
 import { env } from '../lib/env.js';
 import { dominioLogin } from '../lib/dominio.js';
-import { ventaDeWebhook, anadirVenta } from '../public/js/thrivecart.js';
+import { ventaDeWebhook, anadirVenta, ventaImportada, yaEsta, MAX_VENTAS } from '../public/js/thrivecart.js';
 import { claveDe } from './zoom-registro.js';
 
 const CLAVE = 'lsd_thrivecart_ventas';
@@ -49,12 +50,31 @@ export async function HEAD() {
 export async function POST(request) {
   try {
     const url = new URL(request.url);
+    if (url.searchParams.get('op') === 'importar') {
+      await requireSession(request, { permiso: 'config' });
+      const body = await readBody(request);
+      const entrada = (Array.isArray(body.ventas) ? body.ventas : []).slice(0, MAX_VENTAS).map(ventaImportada).filter(Boolean);
+      const r = await reintentando(async () => {
+        const dato = (await leerJSON(CLAVE, () => ({ ventas: [] }))) || { ventas: [] };
+        let lista = dato.ventas || [];
+        let nuevas = 0;
+        for (const v of entrada) {
+          if (yaEsta(lista, v)) continue;
+          lista = anadirVenta(lista, v).lista;
+          nuevas++;
+        }
+        if (nuevas) { dato.ventas = lista; await guardarJSON(CLAVE, dato, { motivo: `ThriveCart: ${nuevas} ventas importadas del CSV` }); }
+        return { nuevas, repetidas: entrada.length - nuevas };
+      });
+      return json({ ok: true, ...r, descartadas: (Array.isArray(body.ventas) ? body.ventas.length : 0) - entrada.length });
+    }
     if ((await verifyToken(claveDe(url.searchParams.get('k')))) !== valor()) return json({ ok: false, motivo: 'enlace no válido' }, 403);
     if (!(await dentroDelLimite(request, 'thrivecart', 1200))) return json({ ok: false, motivo: 'demasiadas peticiones' }, 429);
     const venta = ventaDeWebhook(await readBody(request));
     if (!venta) return json({ ok: true, ignorado: true }); // otros avisos (p. ej. abandono): se contesta bien y no se guarda
     const nueva = await reintentando(async () => {
       const dato = (await leerJSON(CLAVE, () => ({ ventas: [] }))) || { ventas: [] };
+      if (yaEsta((dato.ventas || []).filter((x) => x.importada), venta)) return false; // ya estaba (importada del CSV)
       const r = anadirVenta(dato.ventas || [], venta);
       if (r.nueva) { dato.ventas = r.lista; await guardarJSON(CLAVE, dato, { motivo: `ThriveCart: ${venta.tipo} ${venta.producto}` }); }
       return r.nueva;

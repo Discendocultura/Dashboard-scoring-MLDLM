@@ -95,3 +95,118 @@ export function resumenThrivecart(ventas = [], emails = new Set(), { desde = 0, 
     emailsCompra: new Set([...new Set(cobros.map((v) => v.email))].filter((e) => deLeads.filter((v) => v.email === e).reduce((t, v) => t + v.importe, 0) > 0.009)),
   };
 }
+
+// ---- Importar ventas anteriores (CSV exportado de ThriveCart) ----
+// ThriveCart solo avisa de las ventas nuevas: las de antes de pegar la dirección se traen con su exportación en CSV.
+
+// CSV → filas (array de arrays), con comillas y saltos de línea dentro de comillas. Separador , o ; (el que haya).
+export function leerCsv(texto = '') {
+  const t = String(texto).replace(/^﻿/, '');
+  const primera = t.split(/\r?\n/, 1)[0] || '';
+  const sep = (primera.match(/;/g) || []).length > (primera.match(/,/g) || []).length ? ';' : ',';
+  const filas = [];
+  let fila = [];
+  let campo = '';
+  let comillas = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (comillas) {
+      if (c === '"' && t[i + 1] === '"') { campo += '"'; i++; } else if (c === '"') comillas = false; else campo += c;
+    } else if (c === '"') comillas = true;
+    else if (c === sep) { fila.push(campo); campo = ''; } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && t[i + 1] === '\n') i++;
+      fila.push(campo); campo = '';
+      if (fila.some((x) => x.trim())) filas.push(fila);
+      fila = [];
+    } else campo += c;
+  }
+  fila.push(campo);
+  if (fila.some((x) => x.trim())) filas.push(fila);
+  return filas;
+}
+
+// Qué columna es cada cosa (cabeceras en inglés o español, como las exporte ThriveCart).
+const COLS = {
+  email: [/e-?mail/],
+  importe: [/^(order )?total|amount|importe|cantidad|price|precio|revenue|paid/],
+  producto: [/product|producto/],
+  fecha: [/date|fecha|time|created/],
+  pedido: [/order.?id|invoice|transaction.?id|^id$|pedido|referencia/],
+  tipo: [/^type$|^tipo$|status|estado|event/],
+  nombre: [/^name$|customer name|nombre|first.?name/],
+  moneda: [/currency|moneda/],
+};
+export function columnasCsv(cab = []) {
+  const n = cab.map((h) => String(h).trim().toLowerCase());
+  const out = {};
+  for (const [k, res] of Object.entries(COLS)) {
+    const i = n.findIndex((h, j) => !Object.values(out).includes(j) && res.some((re) => re.test(h)) && !(k === 'importe' && /refund|reembolso/.test(h)));
+    if (i >= 0) out[k] = i;
+  }
+  return out;
+}
+// «9,00 €», «€9.00», «1.234,50», «1,234.50» → número.
+export function importeTexto(v = '') {
+  let s = String(v).replace(/[^\d,.-]/g, '');
+  if (!s) return null;
+  if (s.includes(',') && s.includes('.')) s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  else if (s.includes(',')) s = /,\d{1,2}$/.test(s) ? s.replace(',', '.') : s.replace(/,/g, '');
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+// «2026-10-21 14:03», «21/10/2026 14:03», «Oct 21, 2026» → ms (hora de España si no la trae).
+export function fechaTexto(v = '') {
+  const s = String(v).trim();
+  const dmy = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?:[ T](\d{1,2}):(\d{2}))?/.exec(s);
+  if (dmy) return Date.parse(`${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}T${(dmy[4] || '12').padStart(2, '0')}:${dmy[5] || '00'}:00+02:00`);
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?/.exec(s);
+  if (iso && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(s)) return Date.parse(`${iso[1]}-${iso[2]}-${iso[3]}T${(iso[4] || '12').padStart(2, '0')}:${iso[5] || '00'}:00+02:00`);
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? t : null;
+}
+// Filas del CSV → ventas (las que no se entienden se cuentan aparte).
+export function ventasDeCsv(texto) {
+  const filas = leerCsv(texto);
+  if (filas.length < 2) return { ventas: [], descartadas: 0, columnas: {}, cabecera: filas[0] || [] };
+  const cab = filas[0];
+  const col = columnasCsv(cab);
+  const ventas = [];
+  let descartadas = 0;
+  for (const f of filas.slice(1)) {
+    const c = (k) => (col[k] != null ? String(f[col[k]] ?? '').trim() : '');
+    const email = c('email').toLowerCase();
+    const importe = importeTexto(c('importe'));
+    const fecha = fechaTexto(c('fecha'));
+    if (!email || importe == null || !fecha) { descartadas++; continue; }
+    const tipoTxt = c('tipo').toLowerCase();
+    const reembolso = /refund|reembols|devoluci/.test(tipoTxt) || importe < 0;
+    if (/fail|declin|pend|abandon|fallid|rechaz/.test(tipoTxt)) { descartadas++; continue; }
+    const tipo = reembolso ? 'reembolso' : 'cobro';
+    const imp = Math.round((reembolso ? -Math.abs(importe) : importe) * 100) / 100;
+    const pedido = c('pedido').slice(0, 60);
+    ventas.push({
+      id: ['csv', pedido, tipo, imp.toFixed(2), email, fecha].join('|').slice(0, 200),
+      evento: `csv.${tipo}`, tipo, pedido, email, nombre: c('nombre').slice(0, 80), importe: imp,
+      moneda: (c('moneda') || 'EUR').toUpperCase().slice(0, 8), producto: c('producto').slice(0, 120), productoId: '', prueba: false, fecha, importada: true,
+    });
+  }
+  return { ventas, descartadas, columnas: col, cabecera: cab };
+}
+// ¿Ya está esta venta (por su aviso o por otra importación)? Mismo email, mismo tipo, mismo importe y mismo día
+// (y mismo pedido si ambos lo tienen).
+export function yaEsta(lista = [], v) {
+  const dia = (ms) => new Date(ms).toISOString().slice(0, 10);
+  return lista.some((x) => x.email === v.email && x.tipo === v.tipo && Math.abs(x.importe - v.importe) < 0.01 && dia(x.fecha) === dia(v.fecha)
+    && (!x.pedido || !v.pedido || x.pedido === v.pedido));
+}
+// Limpia una venta que llega del navegador (importación) antes de guardarla.
+export function ventaImportada(v = {}) {
+  const email = txt(v.email, 200).toLowerCase();
+  const importe = Number(v.importe);
+  const fecha = Number(v.fecha);
+  if (!/^[^@\s]+@[^@\s]+$/.test(email) || !Number.isFinite(importe) || !Number.isFinite(fecha) || fecha < 1.5e12 || fecha > Date.now() + 86_400_000) return null;
+  const tipo = v.tipo === 'reembolso' ? 'reembolso' : 'cobro';
+  const imp = Math.round((tipo === 'reembolso' ? -Math.abs(importe) : Math.abs(importe)) * 100) / 100;
+  const pedido = txt(v.pedido, 60);
+  return { id: ['csv', pedido, tipo, imp.toFixed(2), email, fecha].join('|').slice(0, 200), evento: `csv.${tipo}`, tipo, pedido, email, nombre: txt(v.nombre, 80), importe: imp, moneda: txt(v.moneda, 8).toUpperCase() || 'EUR', producto: txt(v.producto, 120), productoId: '', prueba: false, fecha, importada: true };
+}

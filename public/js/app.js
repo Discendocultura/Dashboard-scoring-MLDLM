@@ -6,7 +6,7 @@ import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { ORDEN_EDAD } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
-import { resumenThrivecart } from './thrivecart.js';
+import { resumenThrivecart, ventasDeCsv } from './thrivecart.js';
 import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
@@ -16229,11 +16229,54 @@ async function pintarThrivecartConexiones() {
       </ol>
       ${filaCopiar('🔗 Dirección', r.url, 'No hace falta pasar ninguna clave: la dirección ya lleva la suya.')}
       <p class="muted small">${r.total ? `<strong>${r.total}</strong> ${r.total === 1 ? 'venta recibida' : 'ventas recibidas'}. ` : ''}${ult}</p>
-      <p class="muted small">Las ventas en modo prueba de ThriveCart se guardan pero no cuentan. Solo llegan las ventas desde que pegues la dirección.</p>`;
+      <p class="muted small">Las ventas en modo prueba de ThriveCart se guardan pero no cuentan. Solo llegan las ventas desde que pegues la dirección.</p>
+      <div class="tc-imp">
+        <h4 class="cx-h">📥 Traer ventas anteriores</h4>
+        <p class="muted small">En ThriveCart, exporta las transacciones del periodo que te falte (en CSV) y súbelo aquí. Antes de guardar verás qué ha entendido; las que ya hayan llegado por aviso no se duplican.</p>
+        <input type="file" id="tc-csv" accept=".csv,text/csv">
+        <div id="tc-csv-prev"></div>
+      </div>`;
   } catch (e) {
     box.innerHTML = `<p class="muted">${esc(e.message)}</p>`;
   }
 }
+// Importar el CSV de ThriveCart: vista previa (columnas entendidas, cuántas, total) y guardar.
+let tcImport = null;
+const TC_COL = { email: 'Email', importe: 'Importe', producto: 'Producto', fecha: 'Fecha', pedido: 'Pedido', tipo: 'Tipo/estado', nombre: 'Nombre' };
+$('#conexiones-dialog').addEventListener('change', async (e) => {
+  if (e.target.id !== 'tc-csv') return;
+  const f = e.target.files?.[0];
+  const box = $('#tc-csv-prev');
+  if (!f) return;
+  const r = ventasDeCsv(await f.text());
+  tcImport = r.ventas;
+  const cobros = r.ventas.filter((v) => v.tipo === 'cobro');
+  const reemb = r.ventas.filter((v) => v.tipo === 'reembolso');
+  const suma = (a) => a.reduce((t, v) => t + v.importe, 0);
+  const fechas = r.ventas.map((v) => v.fecha).sort((a, b) => a - b);
+  const d = (ms) => new Date(ms).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  const falta = ['email', 'importe', 'fecha'].filter((k) => r.columnas[k] == null);
+  box.innerHTML = falta.length
+    ? `<p class="reg-falta">No encuentro la columna de ${falta.map((k) => TC_COL[k].toLowerCase()).join(', ')}. Columnas del archivo: ${r.cabecera.map((c) => `«${esc(c)}»`).join(', ')}.</p>`
+    : `<p class="small">Columnas entendidas: ${Object.entries(r.columnas).map(([k, i]) => `${TC_COL[k]} = «${esc(r.cabecera[i])}»`).join(' · ')}</p>
+      <p class="small"><strong>${cobros.length}</strong> cobros (${eur(suma(cobros))})${reemb.length ? ` y <strong>${reemb.length}</strong> reembolsos (${eur(suma(reemb))})` : ''}${fechas.length ? `, del ${d(fechas[0])} al ${d(fechas.at(-1))}` : ''}${r.descartadas ? ` · ${r.descartadas} filas sin email, importe o fecha, o fallidas (no se importan)` : ''}.</p>
+      ${r.ventas.length ? `<button type="button" class="btn primary" id="tc-csv-importar">Importar ${r.ventas.length} ${r.ventas.length === 1 ? 'venta' : 'ventas'}</button>` : ''}`;
+});
+$('#conexiones-dialog').addEventListener('click', async (e) => {
+  const b = e.target.closest('#tc-csv-importar');
+  if (!b || !tcImport?.length) return;
+  b.disabled = true;
+  try {
+    const r = await api('/api/thrivecart?op=importar', { method: 'POST', body: { ventas: tcImport } });
+    tcImport = null;
+    Object.keys(tcCache).forEach((k) => delete tcCache[k]);
+    await pintarThrivecartConexiones();
+    $('#tc-csv-prev').innerHTML = `<p class="small">✓ ${r.nuevas} ${r.nuevas === 1 ? 'venta importada' : 'ventas importadas'}${r.repetidas ? ` · ${r.repetidas} ya ${r.repetidas === 1 ? 'estaba' : 'estaban'} (no se duplican)` : ''}. Ya salen en Métricas → Resumen de cada lanzamiento.</p>`;
+  } catch (err) {
+    b.disabled = false;
+    $('#tc-csv-prev').insertAdjacentHTML('beforeend', `<p class="reg-falta">${esc(err.message)}</p>`);
+  }
+});
 // Superadmin: qué Meta, Zoom y SendFlow usa el cliente en el que está (el de la agencia, uno propio o ninguno).
 async function pintarFuentesConexiones(aviso = {}) {
   const sec = $('#cx-fuentes');

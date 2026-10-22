@@ -73,4 +73,33 @@ test('thrivecart: la dirección de aviso guarda las ventas y AlquimIA las lee', 
   assert.equal(data.ventas.length, 1);
   assert.equal(data.ventas[0].importe, 9);
   assert.equal((await call('/api/thrivecart?op=ventas')).status, 401, 'sin sesión no se leen las ventas');
+  // Importar del CSV: lo que ya llegó por aviso no se repite
+  const imp = await call('/api/thrivecart?op=importar', { method: 'POST', cookie, body: { ventas: [
+    { email: 'ana@ejemplo.com', tipo: 'cobro', importe: 9, fecha: 1792400000 * 1000, producto: 'Entrada VIP El Camino' },
+    { email: 'eva@x.com', tipo: 'cobro', importe: 497, fecha: Date.now() - 3600_000, producto: 'Raíces', pedido: '777' },
+    { email: 'malo', tipo: 'cobro', importe: 1, fecha: Date.now() },
+  ] } });
+  assert.deepEqual([imp.data.nuevas, imp.data.repetidas, imp.data.descartadas], [1, 1, 1]);
+  assert.equal((await call('/api/thrivecart?op=importar', { method: 'POST', body: { ventas: [] } })).status, 401);
+});
+
+test('thrivecart CSV: columnas en inglés o español, importes con € o coma, reembolsos y fallidas', async () => {
+  const { ventasDeCsv, importeTexto, fechaTexto, yaEsta } = await import('../public/js/thrivecart.js');
+  assert.equal(importeTexto('9,00 €'), 9);
+  assert.equal(importeTexto('€1,234.50'), 1234.5);
+  assert.equal(importeTexto('1.234,50'), 1234.5);
+  assert.equal(new Date(fechaTexto('21/10/2026 14:03')).toISOString(), '2026-10-21T12:03:00.000Z');
+  const csv = 'Order ID,Date,Customer name,Customer email,Product,Amount,Status\n'
+    + '101,2026-10-21 10:00,Ana,ANA@x.com,"Entrada VIP, El Camino","€9.00",Paid\n'
+    + '102,2026-10-21 11:00,Eva,eva@x.com,Raíces,497.00,Refunded\n'
+    + '103,2026-10-21 12:00,Luz,luz@x.com,Raíces,497.00,Failed\n'
+    + '104,,Sin,fecha@x.com,Raíces,10,Paid\n';
+  const r = ventasDeCsv(csv);
+  assert.equal(r.ventas.length, 2);
+  assert.equal(r.descartadas, 2);
+  assert.deepEqual(r.ventas.map((v) => [v.email, v.tipo, v.importe, v.producto]), [['ana@x.com', 'cobro', 9, 'Entrada VIP, El Camino'], ['eva@x.com', 'reembolso', -497, 'Raíces']]);
+  const sc = ventasDeCsv('Fecha;Email;Producto;Importe;Estado\n21/10/2026;a@b.com;VIP;9,00 €;Completado\n');
+  assert.equal(sc.ventas[0].importe, 9);
+  // Ya llegó por aviso: mismo email, tipo, importe y día → no se repite
+  assert.equal(yaEsta([{ email: 'ana@x.com', tipo: 'cobro', importe: 9, fecha: Date.parse('2026-10-21T15:00:00Z'), pedido: '' }], r.ventas[0]), true);
 });
