@@ -1627,3 +1627,12 @@ La primera vez que una lead entra en la preclase (cualquier día antes del direc
 - **Día a día de venta directa en columnas** (de izquierda a derecha, abre mostrando lo más reciente): número de ventas encima, barra, facturación y el día debajo (y las visitas si se miden); el mejor día en verde y hoy resaltado. Arriba, un resumen (ventas, media al día, mejor día, días con ventas) y un **selector de mes** con los 13 últimos meses para ver las compras diarias de cualquier mes sin cambiar el periodo de arriba (`/api/directa?preset=mes&mes=AAAA-MM`).
 
 **Compatibilidad con móviles:** el JS del navegador no usa «lookbehind» en las expresiones regulares (`(?<=`, `(?<!`): Safari de iOS anterior a 16.4 no lo entiende y no arrancaría nada. Lo vigila `test/compat-navegador.test.js`.
+
+## ThriveCart (ventas reales)
+
+Cada venta, cuota y reembolso de ThriveCart llega a AlquimIA por su aviso (webhook) y se guarda resumida por cliente (`lsd_thrivecart_ventas`, sin historial): importe cobrado (con cupones, bumps y plazos), producto, email, fecha y si es de prueba.
+
+- **Conectarlo:** Conexiones → «ThriveCart · ventas reales» da la dirección de este cliente (`/api/thrivecart?c=…&k=…`, firmada como la del registro de Zoom). Se pega en ThriveCart → Settings → Integrations → Webhooks & notifications. No hace falta ninguna clave de ThriveCart.
+- **Métricas → Resumen:** bloque «Cobrado en ThriveCart» con lo cobrado a los leads del lanzamiento (por el email, del inicio de captación −7 días al siguiente lanzamiento), los reembolsos, el neto sin IVA, el ROAS real, el desglose por producto, las compradoras sin su etiqueta de VIP/compra en GHL y los cobros de emails que no están registrados. Las ventas de prueba no cuentan.
+- Código: `public/js/thrivecart.js` (lectura del aviso y resumen), `handlers/thrivecart.js`, pruebas en `test/thrivecart.test.js`.
+

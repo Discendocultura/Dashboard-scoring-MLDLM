@@ -6,7 +6,8 @@ import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { ORDEN_EDAD } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
-import { respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
+import { resumenThrivecart } from './thrivecart.js';
+import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
 import { negocioHtml, PERIODOS_TXT, SECCIONES_NG, recosHtml, botonCalidad } from './negocio-vista.js';
@@ -16,7 +17,7 @@ import { FORMATOS, formatoValido, videosDe, esEnDirecto, sigDirecto, sigReplay, 
 import { ESCENARIOS, ROAS_OBJETIVO_DEF, MIN_REGISTROS, resumenLanzamiento, prevision, resumenManual, medias, supuestosEscenario, inversionRecomendada, proyeccion, planificar, PLAN_DEF } from './calculadora.js';
 import { rendimientoEquipo } from './rendimiento.js';
 import { FASES_METEORICO, faseMeteorico, horasOferta, pendientesMeteorico, hitosMeteorico, fasesMeteoricoCal } from './meteorico.js';
-import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago, vipSinIva, TIPOS_BUMP } from './pago.js';
+import { PLANES_SUSCRIPCION, esSuscripcion, planesActivos, pendientesPago, vipSinIva, TIPOS_BUMP, ivaPct } from './pago.js';
 import { cicloDeContactos, textoDias } from './ciclo.js';
 import { retornoPlantillas, costeEstimado } from './plantillas-wa.js';
 import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusMeteo, tipoEntregable, etiquetaEntregable, SUBTIPOS_ENTREGABLE, OBJETIVOS_BONUS, objetivoBonus, textoGarantia, ventanaBonus, valorOferta, analizarOferta, lecturaBonus, dinero, momentosCarrito } from './oferta.js';
@@ -2949,6 +2950,7 @@ function renderMetrics() {
   ].join('');
 
   renderEconomics(m, launch);
+  renderThrivecart(m, launch);
   renderFacturacionTotal(m);
   renderRetrospectiva(m, launch);
   renderCasiCompradoras(launch);
@@ -3234,6 +3236,51 @@ document.addEventListener('change', (e) => {
   state.carritoRef = e.target.value;
   renderCarritoCompara(state.config.launches[state.launchCode]);
 });
+
+// ThriveCart: lo cobrado de verdad en el lanzamiento (de sus leads, por el email), los reembolsos, el ROAS real y las
+// compras que no tienen su etiqueta en GHL. Solo se ve si ThriveCart ha mandado ventas en el periodo del lanzamiento.
+const tcCache = {};
+function periodoLanz(code) {
+  const l = state.config.launches[code] || {};
+  const desde = l.inicioCaptacion ? Date.parse(`${l.inicioCaptacion}T00:00:00`) - 7 * 86_400_000 : 0;
+  const sig = nextLaunchStart(state.config, code);
+  const hasta = sig ? Date.parse(`${sig}T00:00:00`) : Date.now() + 86_400_000;
+  return { desde, hasta };
+}
+async function renderThrivecart(m, launch) {
+  const box = $('#metric-tc');
+  const code = state.launchCode;
+  const clave = `${state.cliente || ''}:${code}`;
+  if (!tcCache[clave] || Date.now() - tcCache[clave].at > 5 * 60_000) {
+    try {
+      const { desde, hasta } = periodoLanz(code);
+      const r = await api(`/api/thrivecart?op=ventas&desde=${desde}&hasta=${hasta}`);
+      tcCache[clave] = { at: Date.now(), ventas: r.ventas || [], desde, hasta };
+    } catch { tcCache[clave] = { at: Date.now(), ventas: [] }; }
+    if (state.launchCode !== code) return;
+  }
+  const { ventas, desde, hasta } = tcCache[clave];
+  const emails = new Set(state.leads.map((l) => String(l.email || '').toLowerCase()).filter(Boolean));
+  const r = resumenThrivecart(ventas, emails, { desde, hasta });
+  box.hidden = !r.cobros && !r.reembolsos && !r.fuera.cobros;
+  if (box.hidden) return;
+  const pct = ivaPct(launch);
+  const netoSinIva = r.neto / (1 + pct / 100);
+  const roas = m.eco.inversion ? netoSinIva / m.eco.inversion : null;
+  const x = (v) => (v == null ? '–' : `${v.toFixed(2).replace('.', ',')}x`);
+  // Compradoras en ThriveCart sin su etiqueta de VIP ni de compra en GHL.
+  const sinEtiqueta = state.leads.filter((l) => r.emailsCompra.has(String(l.email || '').toLowerCase()) && !l.s.vip && !l.s.compra && !l.s.vip_anterior && !l.s.compra_previo);
+  box.innerHTML = `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">💳</span><div><strong>Cobrado en ThriveCart</strong><small class="muted">lo que se ha cobrado de verdad a los leads de este lanzamiento</small></div></div>
+    <div class="tc-cifras">
+      <div><span>Cobrado</span><strong>${eur(r.cobrado)}</strong><small>${r.cobros} ${r.cobros === 1 ? 'cobro' : 'cobros'} · ${r.compradoras} ${r.compradoras === 1 ? 'compradora' : 'compradoras'}</small></div>
+      <div><span>Reembolsos</span><strong>${r.reembolsado ? `−${eur(r.reembolsado)}` : eur(0)}</strong><small>${r.reembolsos} ${r.reembolsos === 1 ? 'reembolso' : 'reembolsos'}</small></div>
+      <div><span>Neto sin IVA</span><strong>${eur(netoSinIva)}</strong><small>con IVA ${eur(r.neto)} (${pct} %)</small></div>
+      <div><span>ROAS real</span><strong>${x(roas)}</strong><small>${m.eco.inversion ? `÷ ${eur(m.eco.inversion)} de inversión` : 'sin inversión todavía'}</small></div>
+    </div>
+    ${r.porProducto.length ? `<p class="tc-prod">${r.porProducto.slice(0, 6).map((p) => `<span>${esc(p.producto)} · <strong>${eur(p.importe)}</strong> <small>(${p.cobros})</small></span>`).join('')}</p>` : ''}
+    ${sinEtiqueta.length ? `<p class="tc-aviso">⚠️ ${sinEtiqueta.length} ${sinEtiqueta.length === 1 ? 'compradora' : 'compradoras'} en ThriveCart sin la etiqueta de VIP ni de compra en GHL: ${sinEtiqueta.slice(0, 5).map((l) => esc(l.name || l.email)).join(', ')}${sinEtiqueta.length > 5 ? '…' : ''}. Revisa el workflow de compra.</p>` : ''}
+    ${r.fuera.cobros ? `<p class="tc-nota muted small">Además, ${r.fuera.cobros} ${r.fuera.cobros === 1 ? 'cobro' : 'cobros'} (${eur(r.fuera.importe)}) de emails que no están registrados en este lanzamiento (otros productos o compras sin registro).</p>` : ''}`;
+}
 
 // Avisos: lo que falta configurar o los datos que no cuadran (lo mismo que llega en el resumen diario).
 function renderAvisos(m, launch) {
@@ -16166,9 +16213,27 @@ $('#btn-conexiones').addEventListener('click', () => {
   $('#tb-menu-cuenta').open = false;
   pintarVigiaConexiones();
   pintarSetterConexiones();
+  pintarThrivecartConexiones();
   $('#conexiones-dialog').showModal();
   pintarFuentesConexiones();
 });
+// ThriveCart: la dirección de aviso de este cliente (para pegarla en ThriveCart) y la última venta recibida.
+async function pintarThrivecartConexiones() {
+  const box = $('#cx-thrivecart');
+  try {
+    const r = await api('/api/thrivecart');
+    const ult = r.ultima ? `Última recibida: ${new Date(r.ultima.fecha).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })} · ${esc(r.ultima.tipo)} · ${esc(r.ultima.producto || '')} · ${eur(r.ultima.importe)}${r.ultima.prueba ? ' (prueba)' : ''}` : 'Todavía no ha llegado ninguna venta.';
+    box.innerHTML = `<ol class="tc-pasos">
+        <li>En ThriveCart: <strong>Settings → Integrations → Webhooks &amp; notifications</strong> → añadir un webhook.</li>
+        <li>Pega esta dirección (es solo de ${esc(clienteNombre() || 'este cliente')}):</li>
+      </ol>
+      ${filaCopiar('🔗 Dirección', r.url, 'No hace falta pasar ninguna clave: la dirección ya lleva la suya.')}
+      <p class="muted small">${r.total ? `<strong>${r.total}</strong> ${r.total === 1 ? 'venta recibida' : 'ventas recibidas'}. ` : ''}${ult}</p>
+      <p class="muted small">Las ventas en modo prueba de ThriveCart se guardan pero no cuentan. Solo llegan las ventas desde que pegues la dirección.</p>`;
+  } catch (e) {
+    box.innerHTML = `<p class="muted">${esc(e.message)}</p>`;
+  }
+}
 // Superadmin: qué Meta, Zoom y SendFlow usa el cliente en el que está (el de la agencia, uno propio o ninguno).
 async function pintarFuentesConexiones(aviso = {}) {
   const sec = $('#cx-fuentes');
