@@ -107,3 +107,22 @@ test('hotmart: conectar la API, sincronizar y recibir avisos', async () => {
     globalThis.fetch = fetchReal;
   }
 });
+
+test('hotmart: si Hotmart rechaza el tamaño de página o un filtro opcional, se sigue sin él', async () => {
+  const { ventasApi } = await import('../lib/hotmart-api.js');
+  const pedidas = [];
+  const fetchFn = async (url) => {
+    const u = new URL(String(url));
+    pedidas.push(u.pathname + u.search);
+    if (u.hostname === 'api-sec-vlc.hotmart.com') return new Response(JSON.stringify({ access_token: 'tk2', expires_in: 3600 }));
+    const p = u.searchParams;
+    if (p.get('max_results') === '500') return new Response('{"error":"invalid max_results"}', { status: 400 });
+    if (p.get('transaction_status') === 'PARTIALLY_REFUNDED' || p.get('commission_as')) return new Response('{"error":"invalid parameter"}', { status: 400 });
+    if (u.pathname.endsWith('/sales/history')) return new Response(JSON.stringify({ items: p.get('transaction_status') ? [] : [compra('HPX', 'x@x.com', 15, 997)], page_info: {} }));
+    return new Response(JSON.stringify({ items: [{ transaction: 'HPX', commissions: com(877.36) }], page_info: {} }));
+  };
+  const r = await ventasApi({ clientId: 'otro-cliente', secreto: 's', basic: 'b' }, { desde: 0, hasta: Date.now(), fetchFn });
+  assert.equal(r.compras.length, 1);
+  assert.equal(r.compras[0].comisiones.find((c) => c.source === 'PRODUCER').commission.value, 877.36);
+  assert.ok(pedidas.some((x) => x.includes('max_results=50&') || x.endsWith('max_results=50')), 'reintenta con páginas de 50');
+});
