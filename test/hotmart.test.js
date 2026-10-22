@@ -141,3 +141,24 @@ test('hotmart: si rechaza hasta las fechas, pide sin ellas y filtra aquí por la
   assert.deepEqual(r.compras.map((c) => c.item.purchase.transaction), ['HPN'], 'la de hace 90 días queda fuera');
   assert.equal(r.compras[0].comisiones[0].commission.value, 877.36);
 });
+
+test('hotmart: si rechaza la página siguiente, la pide solo con su token y, si no, se queda con lo que trajo', async () => {
+  const { ventasApi } = await import('../lib/hotmart-api.js');
+  const pedidas = [];
+  const fetchFn = async (url) => {
+    const u = new URL(String(url));
+    pedidas.push(u.search);
+    if (u.hostname === 'api-sec-vlc.hotmart.com') return new Response(JSON.stringify({ access_token: 'tk4', expires_in: 3600 }));
+    const p = u.searchParams;
+    if (Number(p.get('end_date')) > Date.now() - 60_000) return new Response('{"error":"invalid_parameter"}', { status: 400 });
+    if (p.get('page_token') && p.get('start_date')) return new Response('{"error":"invalid_parameter"}', { status: 400 });
+    if (u.pathname.endsWith('/sales/history')) {
+      if (p.get('transaction_status')) return new Response(JSON.stringify({ items: [], page_info: {} }));
+      return new Response(JSON.stringify(p.get('page_token') ? { items: [compra('HP2B', 'b@x.com', 15, 97)], page_info: {} } : { items: [compra('HP1B', 'a@x.com', 15, 997)], page_info: { next_page_token: 'tok2' } }));
+    }
+    return new Response(JSON.stringify({ items: [], page_info: {} }));
+  };
+  const r = await ventasApi({ clientId: 'paginas', secreto: 's', basic: 'b' }, { desde: 0, hasta: Date.now(), fetchFn });
+  assert.deepEqual(r.compras.map((c) => c.item.purchase.transaction), ['HP1B', 'HP2B']);
+  assert.ok(pedidas.some((q) => q.startsWith('?page_token=tok2')), 'la segunda página va solo con su token');
+});
