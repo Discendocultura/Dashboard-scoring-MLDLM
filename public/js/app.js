@@ -1,6 +1,6 @@
 import {
   ESTADOS, NEXT_STEPS, buildMessage, waPhone, tagFor, LAUNCH_CODE_RE, THRESHOLDS, watched, SNAPSHOT_TAGS, fotosPendientes, OUTCOMES, dayInMadrid,
-  score as puntuar, estadoFor, textoSetterIa,
+  score as puntuar, estadoFor, textoSetterIa, nextStepFor,
 } from './scoring.js';
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
@@ -2227,9 +2227,10 @@ async function loadLeads({ forzar = false } = {}) {
     state.page = 0;
     render();
   }
-  // Votos y visitas no dependen de los leads: se piden una vez (y se aplican también a los que lleguen).
+  // Votos, visitas y la VIP de ThriveCart no dependen de los leads: se piden una vez (y se aplican también a los que lleguen).
   cargarVotos();
   cargarVisitas();
+  cargarVipTc();
   if (!forzar && copia?.contacts.length && Date.now() - copia.at < LEADS_FRESCOS_MS) {
     loadMeta(token);
     $('#btn-reload').disabled = false;
@@ -2280,6 +2281,7 @@ async function loadMeta(token) {
 
 function enrich(contact) {
   const l = enrichLead(contact, state.launchCode, state.config);
+  marcarVipTc(l);
   // ¿Está en el grupo de WhatsApp del lanzamiento? (cruce por teléfono con SendFlow, si ya se ha cargado)
   if (state.grupoWa?.code === state.launchCode && state.grupoWa.claves) l.s.enGrupo = state.grupoWa.claves.has(claveTelefono(contact.phone));
   return l;
@@ -3317,7 +3319,7 @@ async function renderThrivecart(m, launch) {
     // Entradas VIP y sus bumps: los pedidos de ThriveCart y el % de cada bump sobre esas ventas.
     const vipK = conVipL && rVip?.cobros ? kpi('#metric-cards', 'Entradas VIP vendidas') : null;
     if (vipK) {
-      poner(vipK, String(rVip.cobros), `${pctOf(rVip.cobros, m.total)} de los leads · ${eur(vipTc)} sin IVA · 💳 ThriveCart (por etiquetas ${m.vip})`);
+      poner(vipK, String(rVip.cobros), `${pctOf(rVip.cobros, m.total)} de los leads · ${eur(vipTc)} sin IVA · 💳 ThriveCart (en Leads ${m.vip})`);
       quitar('Bump offer de la VIP');
       vipK.insertAdjacentHTML('afterend', tarjetasExtra(rVip, 'vip'));
     }
@@ -3329,7 +3331,7 @@ async function renderThrivecart(m, launch) {
     }
   }
   // Compradoras en ThriveCart sin su etiqueta de VIP ni de compra en GHL.
-  const sinEtiqueta = state.leads.filter((l) => r.emailsCompra.has(String(l.email || '').toLowerCase()) && !l.s.vip && !l.s.compra && !l.s.vip_anterior && !l.s.compra_previo);
+  const sinEtiqueta = state.leads.filter((l) => r.emailsCompra.has(String(l.email || '').toLowerCase()) && (!l.s.vip || l.s.vip_tc) && !l.s.compra && !l.s.vip_anterior && !l.s.compra_previo);
   // Qué es cada producto en este lanzamiento: con VIP, «Entrada VIP» o «Programa»; sin VIP, sí o no.
   const rolDe = (p) => {
     const v = { productoId: p.clave === p.nombre ? '' : p.clave, producto: p.nombre === 'Sin nombre de producto' ? '' : p.nombre };
@@ -5048,7 +5050,7 @@ function rowHtml(l) {
     <td><div class="lead-name"><button type="button" class="lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || '(sin nombre)')}</button> ${avatarChip(l)} ${faseChip(l.id)} ${preclaseChips(l)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
     ${state.config.launches[state.launchCode]?.encuestaTag ? `<td>${l.s.encuesta ? '<span class="enc-si" title="Ha rellenado la encuesta">✓</span>' : l.s.encuesta_anterior ? '<span class="enc-ant" title="La rellenó en un lanzamiento anterior (ve las clases sin repetirla)">↺</span>' : '<span class="enc-no" title="No ha rellenado la encuesta">✗</span>'}</td>` : ''}
     ${(l.s.clases || ['clase1', 'clase2']).map((c, i) => `<td>${videoChip(l.s, c)}</td>${i === 0 && l.s.recursos?.test ? `<td>${l.s.test ? '<span class="enc-si" title="Ha hecho el test">✓</span>' : '<span class="enc-no" title="No ha hecho el test">✗</span>'}</td>` : ''}`).join('')}
-    ${l.s.conVip === false ? '' : `<td>${l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>`}
+    ${l.s.conVip === false ? '' : `<td>${l.s.vip_tc ? `<span title="Compró la VIP en ThriveCart, pero en GHL no tiene la etiqueta VIP">${chip('VIP 💳', 'on')}</span>` : l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>`}
     ${(l.s.nVideos || 1) > 1 ? `<td colspan="2"><div class="videos-chips">${videosChips(l.s, state.config.launches[state.launchCode])}</div></td>` : `<td>${liveChip(l.s)}</td>
     <td>${videoChip(l.s, 'replay')}</td>`}
     <td>${compraChip(l.s)}</td>
@@ -12943,6 +12945,38 @@ function aplicarVisitas() {
     if (pago[l.id]) l.s.inicio_pago = pago[l.id]; else delete l.s.inicio_pago;
     if (antes !== Boolean(l.s.inicio_pago)) { l.score = puntuar(l.s, pesosDe(state.config)); l.estado = estadoFor(l.score); }
   }
+}
+// Entrada VIP comprada en ThriveCart (los productos VIP elegidos en Configuración → Precios): el lead cuenta como VIP
+// aunque el workflow de GHL no le haya puesto la etiqueta (o se la haya puesto a otro contacto), como en Métricas.
+async function cargarVipTc() {
+  const code = state.launchCode;
+  const launch = state.config.launches[code];
+  if (enVsl() || !launch || !conVip(launch) || !(launch.tcProductos || []).length) { state.vipTc = null; return; }
+  const clave = `${state.cliente || ''}:${code}`;
+  try {
+    if (!tcCache[clave] || Date.now() - tcCache[clave].at > 5 * 60_000) {
+      const { desde, hasta } = periodoLanz(code);
+      const r = await api(`/api/thrivecart?op=ventas&desde=${desde}&hasta=${hasta}`);
+      tcCache[clave] = { at: Date.now(), ventas: r.ventas || [], desde, hasta };
+    }
+    if (state.launchCode !== code) return;
+    const { ventas, desde, hasta } = tcCache[clave];
+    const emails = resumenThrivecart(ventas, new Set(), { desde, hasta, productos: launch.tcProductos }).emailsCompra;
+    state.vipTc = { code, emails };
+    let cambia = false;
+    for (const l of state.leads) cambia = marcarVipTc(l) || cambia;
+    if (cambia) programarRender();
+  } catch { /* sin ThriveCart: la VIP por etiqueta */ }
+}
+function marcarVipTc(l) {
+  const v = state.vipTc;
+  if (!v || v.code !== state.launchCode || l.s.vip || !v.emails.has(String(l.email || '').toLowerCase())) return false;
+  l.s.vip = true;
+  l.s.vip_tc = true; // VIP por ThriveCart, sin su etiqueta en GHL
+  l.score = puntuar(l.s, pesosDe(state.config));
+  l.estado = estadoFor(l.score);
+  l.step = nextStepFor(l.s);
+  return true;
 }
 const pagoTxt = (v) => `💳 Inició el pago${v.veces > 1 ? ` ×${v.veces}` : ''} · ${haceTxt(v.ultima)}`;
 const haceTxt = (ms) => { const m = Math.max(0, Math.round((Date.now() - ms) / 60_000)); return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
