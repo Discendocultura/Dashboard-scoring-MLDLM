@@ -65,29 +65,6 @@ export function ventaDeWebhook(b = {}) {
   };
 }
 
-// Aviso de carrito abandonado de ThriveCart → { fuente, email, nombre, telefono, producto, productoId, fecha }, o null.
-export function abandonoDeWebhook(b = {}) {
-  const g = (...ks) => {
-    for (const k of ks) {
-      const partes = k.split('.');
-      let v = b;
-      for (const p of partes) v = v == null ? undefined : v[p];
-      if (v != null && v !== '') return v;
-      const plano = partes.length > 1 ? b[`${partes[0]}${partes.slice(1).map((p) => `[${p}]`).join('')}`] : undefined;
-      if (plano != null && plano !== '') return plano;
-    }
-    return '';
-  };
-  if (!/abandon/i.test(String(g('event', 'event_type')))) return null;
-  const email = txt(g('customer.email', 'customer_email', 'email'), 200).toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+$/.test(email)) return null;
-  const nombre = txt(g('customer.name', 'customer_name') || [g('customer.first_name'), g('customer.last_name')].filter(Boolean).join(' '), 80);
-  return {
-    fuente: 'thrivecart', email, nombre, telefono: txt(g('customer.contactno', 'customer.phone', 'customer_phone', 'phone'), 30),
-    producto: txt(g('base_product_name', 'product_name'), 120), productoId: txt(g('base_product', 'product_id'), 40), fecha: Date.now(),
-  };
-}
-
 // Qué es cada línea del pedido: el producto, un bump, un upsell o un downsell.
 export const tipoLinea = (t = '', nombre = '') => {
   const x = `${t} ${nombre}`.toLowerCase();

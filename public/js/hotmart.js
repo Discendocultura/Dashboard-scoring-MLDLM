@@ -122,15 +122,3 @@ export function plegarBumps(ventas = []) {
   return out;
 }
 
-// Aviso de carrito abandonado de Hotmart (PURCHASE_OUT_OF_SHOPPING_CART) → { fuente, email, nombre, telefono, producto, productoId, fecha }.
-export function abandonoDeAvisoHotmart(b = {}) {
-  if (!/OUT_OF_SHOPPING_CART|ABANDON/i.test(String(b.event || ''))) return null;
-  const d = b.data || {};
-  const email = txt(d.buyer?.email, 200).toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+$/.test(email)) return null;
-  const tel = d.buyer?.phone || d.buyer?.checkout_phone || [d.buyer?.phone_local_code, d.buyer?.phone_number].filter(Boolean).join('');
-  return {
-    fuente: 'hotmart', email, nombre: txt(d.buyer?.name, 80), telefono: txt(tel, 30),
-    producto: txt(d.product?.name, 120), productoId: d.product?.id ? `hm:${txt(d.product.id, 40)}` : '', fecha: num(b.creation_date) || Date.now(),
-  };
-}

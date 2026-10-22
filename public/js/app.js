@@ -16492,14 +16492,13 @@ $('#btn-conexiones').addEventListener('click', () => {
   pintarSetterConexiones();
   pintarThrivecartConexiones();
   pintarHotmartConexiones();
-  pintarAbandonoConexiones();
   $('#conexiones-dialog').showModal();
   pintarFuentesConexiones();
   pintarEstadoCx();
 });
 // Estado de cada conexión (la pastilla de su tarjeta y el resumen de arriba): { clave: ['ok'|'aviso'|'no', texto] }.
 const estadoCx = {};
-const NOMBRE_CX = { thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', abandono: '🛒 Carrito abandonado', sendflow: '💬 SendFlow', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
+const NOMBRE_CX = { thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
 function ponerEstadoCx(clave, tono, texto) {
   estadoCx[clave] = [tono, texto];
   const el = $(`#conexiones-dialog [data-cx-estado="${clave}"]`);
@@ -16586,54 +16585,6 @@ $('#conexiones-dialog').addEventListener('click', async (e) => {
     b.disabled = false;
     if (st) st.textContent = err.message; else window.alert(err.message);
   }
-});
-// Carrito abandonado: activar, plantilla, espera, el texto del workflow de GHL y cuántos se han recuperado.
-function promptAbandono(ca, pl) {
-  const etq = ca.etiqueta || 'carrito-abandonado';
-  return `Crea un workflow en GHL llamado «AlquimIA · Carrito abandonado» con estos pasos:
-1. Disparador: «Contact Tag» → se añade la etiqueta «${etq}».
-2. Acción «Wait»: esperar ${ca.esperaMin || 30} minutos.
-3. Acción «If/Else»: si el contacto todavía tiene la etiqueta «${etq}» → rama Sí; si no → terminar (ya ha comprado).
-4. En la rama Sí: ${pl ? `añadir la etiqueta «${pl.tag}» (manda la plantilla de WhatsApp «${pl.nombre}»)` : 'enviar la plantilla de WhatsApp de carrito abandonado'} y quitar la etiqueta «${etq}».
-AlquimIA pone «${etq}» cuando alguien deja el pago a medias en ThriveCart o Hotmart, y se la quita en cuanto compra.`;
-}
-async function pintarAbandonoConexiones() {
-  const box = $('#cx-abandono');
-  const ca = state.config?.carritoAbandonado || {};
-  const plantillas = state.config?.setterIa?.plantillas || [];
-  const pl = plantillas.find((p) => p.tag === ca.plantilla) || null;
-  let res = null;
-  try { res = await api('/api/thrivecart?op=abandonos'); } catch { /* sin permiso: solo la configuración */ }
-  ponerEstadoCx('abandono', ca.activo ? 'ok' : 'no', ca.activo ? `Activo${res?.total ? ` · ${res.recuperados}/${res.total} recuperados` : ''}` : 'Desactivado');
-  const dis = puedeConfig() ? '' : ' disabled';
-  box.innerHTML = `<div class="ab-form">
-      <label class="chk ab-activo"><input type="checkbox" id="ab-activo"${ca.activo ? ' checked' : ''}${dis}> <b>Etiquetar en GHL a quien deja el pago a medias</b></label>
-      <div class="grid2">
-        <label class="field"><span>📨 Plantilla de WhatsApp que se manda</span><select id="ab-plantilla"${dis}><option value="">— Elige la plantilla —</option>${plantillas.map((p) => `<option value="${esc(p.tag)}"${p.tag === ca.plantilla ? ' selected' : ''}>${esc(p.nombre || p.tag)}</option>`).join('')}</select>${plantillas.length ? '' : '<small class="muted">Añade tus plantillas aprobadas en «Setter IA · WhatsApp» (más abajo).</small>'}</label>
-        <label class="field"><span>⏱️ Esperar antes de mandarla (minutos)</span><input id="ab-espera" type="number" min="5" max="1440" value="${Number(ca.esperaMin) || 30}"${dis}></label>
-        <label class="field"><span>🏷️ Etiqueta en GHL</span><input id="ab-etiqueta" value="${esc(ca.etiqueta || 'carrito-abandonado')}" maxlength="100"${dis}></label>
-        <label class="chk"><input type="checkbox" id="ab-solo"${ca.soloEmbudos !== false ? ' checked' : ''}${dis}> Solo de los productos que tengo en mis embudos (por su ID)</label>
-      </div>
-      ${puedeConfig() ? '<p class="hm-acc"><button type="button" class="btn primary" data-ab-guardar>Guardar</button> <span class="muted small" data-ab-st role="status"></span></p>' : ''}
-    </div>
-    <h4 class="cx-h">🤖 El workflow de GHL <small class="muted">(cópialo en la IA de workflows de GHL o síguelo a mano)</small></h4>
-    ${filaCopiar('🤖 Para GHL', promptAbandono(ca, pl), 'Si cambias la plantilla, la espera o la etiqueta, guarda y vuelve a copiarlo.')}
-    ${res ? `<div class="ab-res"><div><span>Últimos 30 días</span><strong>${res.total}</strong><small>${res.total === 1 ? 'carrito abandonado' : 'carritos abandonados'}</small></div><div><span>Recuperados</span><strong>${res.recuperados}</strong><small>${pctOf(res.recuperados, res.total)} compraron después</small></div></div>
-      ${res.ultimos.length ? `<ul class="ab-lista">${res.ultimos.map((x) => `<li>${x.recuperado ? '✅' : '🛒'} ${esc(x.nombre || 'Alguien')} · ${esc(x.producto || '')} <small class="muted">· ${x.fuente === 'hotmart' ? 'Hotmart' : 'ThriveCart'} · ${fechaHora(x.fecha)}</small></li>`).join('')}</ul>` : ''}` : ''}`;
-}
-$('#conexiones-dialog').addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-ab-guardar]');
-  if (!b) return;
-  const st = $('#cx-abandono [data-ab-st]');
-  b.disabled = true;
-  try {
-    const datos = { activo: $('#ab-activo').checked, plantilla: $('#ab-plantilla').value, esperaMin: Number($('#ab-espera').value) || 30, etiqueta: $('#ab-etiqueta').value.trim().toLowerCase() || 'carrito-abandonado', soloEmbudos: $('#ab-solo').checked };
-    const r = await api('/api/config', { method: 'POST', body: { op: 'carritoAbandonado', datos } });
-    state.config = r.config;
-    if (r.version != null) state.configVersion = r.version;
-    await pintarAbandonoConexiones();
-    notice(datos.activo ? '🛒 Carrito abandonado activado. Copia el workflow en GHL.' : 'Carrito abandonado desactivado.');
-  } catch (err) { b.disabled = false; if (st) st.textContent = err.message; }
 });
 // ThriveCart: la dirección de aviso de este cliente (para pegarla en ThriveCart) y la última venta recibida.
 async function pintarThrivecartConexiones() {
