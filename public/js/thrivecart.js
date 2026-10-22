@@ -137,7 +137,8 @@ export const deProductos = (v, productos = []) => {
   if (!v.productoId && !v.producto) return lista.includes('sin nombre'); // ventas sin nombre de producto: también se pueden elegir
   const id = normProd(v.productoId);
   const nombre = normProd(v.producto);
-  return lista.some((x) => (/^\d+$/.test(x) ? x === id : x === id || x === nombre || (x.length >= 4 && x !== 'sin nombre' && nombre.includes(x))));
+  const antes = normProd(v.productoAntes); // el «nombre» que tenía antes de repararla (p. ej. «7.43»), por si se eligió así
+  return lista.some((x) => (/^\d+$/.test(x) ? x === id : x === id || x === nombre || (Boolean(antes) && x === antes) || (x.length >= 4 && x !== 'sin nombre' && nombre.includes(x))));
 };
 
 // Añade una venta a la lista (sin repetir el mismo aviso) y se queda con las más recientes.
@@ -246,7 +247,7 @@ const COLS = {
   importe: { si: [/^(order )?total$|^grand.?total$/, /order.?total|total.?paid|^total/, /^(amount|importe|price|precio|cantidad)$/, /amount|importe|price|precio|revenue|paid|cantidad/], no: /refund|reembols|bump|upsell|downsell|tax|iva|fee|comisi|discount|descuento|coupon|cup[oó]n|shipping|env[ií]o|item|línea|linea|\bid$/ },
   item: { si: [/item.?name|charge.?name|line.?item|concepto|art[ií]culo/] },
   importeItem: { si: [/item.?(amount|price|total)|line.?(amount|total)|importe.?(de )?(la )?l[ií]nea/] },
-  producto: { si: [/base.?product.?name|product.?name|nombre.?del.?producto|^product$|^producto$/, /base.?product|product|producto/, /^item$|purchase|description|descripci|offer|oferta|^course$|^curso$|pass|plan$/], no: /\bid\b|\bid$|_id|bump|upsell|downsell|type|tipo/ },
+  producto: { si: [/base.?product.?name|product.?name|nombre.?del.?producto|^product$|^producto$/, /base.?product|product|producto/, /^item$|purchase|description|descripci|offer|oferta|^course$|^curso$|pass|plan$/], no: /\bid\b|\bid$|_id|bump|upsell|downsell|type|tipo|amount|price|precio|importe|total|tax|iva|cost|coste|quantity|cantidad|fee/ },
   productoId: { si: [/base.?product.?id|product.?id|id.?(del )?producto/] },
   linea: { si: [/item.?type|line.?type|charge.?type|purchase.?type|tipo.?de.?(l[ií]nea|art[ií]culo|producto|compra)/] },
   fecha: { si: [/^date$|^fecha$/, /date|fecha|time|created/], no: /next|pr[oó]xim|refund|reembols|birth|nacim/ },
@@ -373,8 +374,9 @@ export function ventasDeCsv(texto) {
   }
   // Sin columna de tipo de línea: es producto principal lo que alguna vez se compró solo o va primero en su pedido;
   // lo demás que va en el mismo pedido es un bump (o upsell/downsell si lo dice el nombre).
+  // Principal: lo que alguna vez se compró solo (en un pedido con bumps, la primera fila puede ser un bump).
   const principales = new Set();
-  for (const g of grupos.values()) if (g[0].linea.nombre) principales.add(g[0].linea.nombre.toLowerCase());
+  for (const g of grupos.values()) if (g.length === 1 && g[0].linea.nombre) principales.add(g[0].linea.nombre.toLowerCase());
   const tipoDe = (r, i, g) => {
     const t = tipoLinea(r.linea.tipoTxt, r.linea.nombre);
     if (r.linea.tipoTxt || t !== 'producto' || g.length === 1) return t;
@@ -413,7 +415,7 @@ export function ventasDeCsv(texto) {
     ventas.push({
       id: ['csv', p.pedido, tipo, imp.toFixed(2), p.email, p.fecha].join('|').slice(0, 200),
       evento: `csv.${tipo}`, tipo, pedido: p.pedido, email: p.email, nombre: p.nombre, importe: imp, moneda: p.moneda,
-      producto: prin.producto || prin.linea.nombre || lineas.find((l) => l.tipo === 'producto')?.nombre || '', productoId: prin.productoId, prueba: false, fecha: p.fecha, importada: true,
+      producto: (!esPrecio(prin.producto) && prin.producto) || prin.linea.nombre || lineas.find((l) => l.tipo === 'producto')?.nombre || '', productoId: prin.productoId, prueba: false, fecha: p.fecha, importada: true,
       ...(lineas.length ? { lineas } : {}),
     });
   }
@@ -427,6 +429,24 @@ export function ventasDeCsv(texto) {
     extras: cuenta(cobros.flatMap((v) => (v.lineas || []).filter((l) => l.tipo !== 'producto').map((l) => [`${l.tipo}|${l.nombre.toLowerCase()}`, { tipo: l.tipo, nombre: l.nombre }]))),
   };
   return { ventas, descartadas, columnas: col, cabecera: cab, resumen };
+}
+// Un «nombre» de producto que en realidad es un importe («7.43», «9,00 €»): viene de una columna equivocada.
+const esPrecio = (t) => /^[\s\d.,€$-]+$/.test(String(t || '')) && /\d/.test(String(t || ''));
+// Arregla ventas importadas antes con dos fallos del CSV: el producto leído de una columna de precio y, en pedidos con
+// bumps, un bump tomado como producto principal. Principal = lo que alguna vez se compró solo.
+export function repararVentas(ventas = []) {
+  const solos = new Set(ventas.filter((v) => v.tipo === 'cobro' && v.lineas?.length === 1).map((v) => v.lineas[0].nombre.toLowerCase()));
+  return ventas.map((v) => {
+    if (v.tipo !== 'cobro' || !v.lineas?.length) return esPrecio(v.producto) ? { ...v, producto: '', productoAntes: v.producto } : v;
+    let lineas = v.lineas;
+    const prin = lineas.findIndex((l) => l.tipo === 'producto');
+    const otro = lineas.findIndex((l) => l.tipo === 'bump' && solos.has(l.nombre.toLowerCase()));
+    const cambia = v.importada && lineas.length > 1 && prin >= 0 && otro >= 0 && !solos.has(lineas[prin].nombre.toLowerCase());
+    if (cambia) lineas = lineas.map((l, i) => (i === otro ? { ...l, tipo: 'producto' } : i === prin ? { ...l, tipo: 'bump' } : l));
+    if (!cambia && !esPrecio(v.producto)) return v;
+    const producto = (!cambia && !esPrecio(v.producto) && v.producto) || lineas.find((l) => l.tipo === 'producto')?.nombre || '';
+    return { ...v, producto, lineas, ...(producto !== v.producto && v.producto ? { productoAntes: v.producto } : {}) };
+  });
 }
 // ¿Ya está esta venta (por su aviso o por otra importación)? Mismo email, mismo tipo, mismo importe y mismo día
 // (y mismo pedido si ambos lo tienen).

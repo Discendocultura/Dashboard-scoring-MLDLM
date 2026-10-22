@@ -3342,7 +3342,10 @@ async function renderThrivecart(m, launch) {
     const detalle = `💶 ${[conVipL ? `VIP ${eur(vipPart)}${vipTc != null ? ' (ventas reales)' : ''}` : '', `programa ${eur(progPart)}${progTc != null ? ` (ventas reales ${eur(progTc)}${progResto ? ` + otros ${eur(progResto)}` : ''})` : ''}`].filter(Boolean).join(' + ')} · <strong>te llegan ${eur(netoLlega)}</strong> · por etiquetas ${eur(m.eco.facturacion)}`;
     m.tc = { fact, vipPart, progPart, ventasProg, vipN: rVip?.cobros || m.vip, netoLlega };
     renderFacturacionTotal(m);
-    poner(kpi('#metric-hero', 'Facturación'), eur(fact), `<strong class="kpi-hero-ventas">${ventasProg.toLocaleString('es-ES')} ${ventasProg === 1 ? 'venta' : 'ventas'} totales</strong>Sin IVA: ${detalle}`);
+    // Ventas: las del programa y, si hay VIP, las entradas (si no, «0 ventas» junto a la facturación de la VIP no cuadra).
+    const nVip = conVipL ? m.tc.vipN : 0;
+    const ventasTxt = `${ventasProg.toLocaleString('es-ES')} ${ventasProg === 1 ? 'venta' : 'ventas'} del programa${conVipL ? ` · ${nVip.toLocaleString('es-ES')} ${nVip === 1 ? 'entrada VIP' : 'entradas VIP'}` : ''}`;
+    poner(kpi('#metric-hero', 'Facturación'), eur(fact), `<strong class="kpi-hero-ventas">${ventasTxt}</strong>Sin IVA: ${detalle}`);
     poner(kpi('#eco-cards', 'Facturación'), eur(fact), detalle);
     if (roasTc != null) {
       const roasNeto = (netoLlega / m.eco.inversion).toFixed(2).replace('.', ',');
