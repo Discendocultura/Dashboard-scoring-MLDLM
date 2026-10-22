@@ -124,6 +124,17 @@ export async function POST(request) {
       });
       return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
     }
+    // Productos de ThriveCart del lanzamiento (Métricas → Cobrado en ThriveCart → «Productos de este lanzamiento»).
+    if (body.op === 'tcProductos') {
+      const code = String(body.l || '');
+      const config = await reintentando(async () => {
+        const actual = await getConfig({ fresh: true });
+        if (!actual.launches[code]) throw Object.assign(new Error('Lanzamiento no encontrado'), { status: 404, publicMessage: 'Lanzamiento no encontrado' });
+        const lista = Array.isArray(body.productos) ? body.productos : [];
+        return saveConfig({ ...actual, launches: { ...actual.launches, [code]: { ...actual.launches[code], tcProductos: lista } } }, { version: versionDe(actual), motivo: 'Productos de ThriveCart del lanzamiento' });
+      });
+      return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config) });
+    }
     // Objetivos y supuestos de la calculadora de un lanzamiento (pestaña Plan → Planificador).
     // Resultados de un lanzamiento ya calculados (Planificador): se guardan con él para cualquier dispositivo.
     if (body.op === 'resultados') {

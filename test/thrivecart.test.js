@@ -103,3 +103,29 @@ test('thrivecart CSV: columnas en inglés o español, importes con € o coma, r
   // Ya llegó por aviso: mismo email, tipo, importe y día → no se repite
   assert.equal(yaEsta([{ email: 'ana@x.com', tipo: 'cobro', importe: 9, fecha: Date.parse('2026-10-21T15:00:00Z'), pedido: '' }], r.ventas[0]), true);
 });
+
+test('thrivecart: cada lanzamiento cuenta solo sus productos y los bumps salen del pedido', async () => {
+  const { ventaDeWebhook, resumenThrivecart, productosVistos, anadirVenta } = await import('../public/js/thrivecart.js');
+  const pedido = (id, email, prod, charges, ev = 'order.success') => ventaDeWebhook({ event: ev, mode: 'live', order_id: id, order_timestamp: '1792400000', base_product: prod === 'VIP Camino' ? '11' : '22', base_product_name: prod,
+    customer: { email }, order: { total_str: String(charges.reduce((t, c) => t + c[1], 0)), charges: charges.map(([name, amount, type]) => ({ name, amount: amount * 100, type })) }, refund: { amount_str: '9.00' } });
+  let lista = [];
+  for (const v of [
+    pedido('1', 'a@x.com', 'VIP Camino', [['VIP Camino', 9, 'product'], ['Guía otoño', 10, 'bump']]),
+    pedido('2', 'b@x.com', 'VIP Camino', [['VIP Camino', 9, 'product']]),
+    pedido('3', 'c@x.com', 'Curso Resistencia', [['Curso Resistencia', 97, 'product']]),
+    pedido('2', 'b@x.com', 'VIP Camino', [], 'order.refund'),
+  ]) lista = anadirVenta(lista, v).lista;
+  const vistos = productosVistos(lista);
+  assert.deepEqual(vistos.map((p) => p.nombre).sort(), ['Curso Resistencia', 'VIP Camino']);
+  // Elegido «VIP Camino» (por su id): solo sus ventas, aunque c@x.com esté registrada; el reembolso de su pedido resta
+  const r = resumenThrivecart(lista, new Set(['a@x.com', 'c@x.com']), { productos: ['11'] });
+  assert.equal(r.porProductos, true);
+  assert.equal(r.cobros, 2);
+  assert.equal(r.cobrado, 28);
+  assert.equal(r.reembolsado, 9);
+  assert.equal(r.sinRegistro, 1, 'b@x.com compró sin registrarse');
+  assert.deepEqual(r.extras.map((x) => [x.tipo, x.nombre, x.n, x.importe]), [['bump', 'Guía otoño', 1, 10]]);
+  assert.equal(r.extras[0].pct, 0.5, '1 de 2 pedidos con el bump');
+  // Por nombre también vale
+  assert.equal(resumenThrivecart(lista, new Set(), { productos: ['curso resistencia'] }).cobrado, 97);
+});

@@ -8183,3 +8183,9 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .tc-aviso { margin: 0; padding: 8px 12px; border-radius: 10px; background: color-mix(in srgb, #f5a623 14%, var(--surface)); }
 .tc-nota { margin: 0; }
 .tc-pasos { margin: 0 0 8px; padding-left: 20px; }
+.tc-extras { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tc-extras > strong { margin-right: 4px; font-size: 13px; }
+.tc-x { padding: 4px 10px; border-radius: 999px; font-size: 13px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.tc-elegir > summary { cursor: pointer; }
+.tc-elegir[open] { display: grid; gap: 8px; }
+.tc-elegir-lista { display: grid; gap: 6px; }

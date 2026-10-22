@@ -51,6 +51,7 @@ export function ventaDeWebhook(b = {}) {
   const fechaTxt = txt(g('order_date', 'date'), 40);
   const fecha = ts ? (ts < 1e12 ? ts * 1000 : ts) : (Date.parse(fechaTxt) || Date.now());
   const producto = txt(g('base_product_name', 'base_product_label', 'product_name', 'order.product_name'), 120);
+  const lineas = tipo === 'cobro' ? lineasPedido(b, producto, importe) : [];
   return {
     id: [evento, pedido, txt(g('invoice_id'), 40), importe.toFixed(2), fecha].join('|').slice(0, 200),
     evento, tipo, pedido, email,
@@ -60,8 +61,55 @@ export function ventaDeWebhook(b = {}) {
     producto, productoId: txt(g('base_product', 'product_id'), 40),
     prueba: String(g('mode')).toLowerCase() === 'test',
     fecha,
+    ...(lineas.length ? { lineas } : {}),
   };
 }
+
+// Qué es cada línea del pedido: el producto, un bump, un upsell o un downsell.
+export const tipoLinea = (t = '', nombre = '') => {
+  const x = `${t} ${nombre}`.toLowerCase();
+  if (/bump/.test(x)) return 'bump';
+  if (/downsell/.test(x)) return 'downsell';
+  if (/upsell|oto/.test(x)) return 'upsell';
+  return 'producto';
+};
+// Las líneas del pedido (order.charges en ThriveCart): nombre, tipo e importe de cada una. Llegan anidadas (JSON) o
+// planas (formulario: «order[charges][0][name]»). Sin líneas, una sola con el producto principal.
+export function lineasPedido(b = {}, producto = '', total = 0) {
+  let charges = b?.order?.charges;
+  if (charges && !Array.isArray(charges) && typeof charges === 'object') charges = Object.values(charges);
+  if (!Array.isArray(charges)) {
+    const porIndice = {};
+    for (const [k, v] of Object.entries(b || {})) {
+      const m = /^order\[charges\]\[(\d+)\]\[(\w+)\]$/.exec(k);
+      if (m) (porIndice[m[1]] ||= {})[m[2]] = v;
+    }
+    charges = Object.keys(porIndice).sort((a, c) => a - c).map((i) => porIndice[i]);
+  }
+  const out = charges.filter((c) => c && typeof c === 'object').map((c) => {
+    const nombre = txt(c.name || c.label || c.item_name || c.product_name, 120);
+    const imp = euros(c.amount_str ?? c.total_str, c.amount ?? c.total);
+    return { nombre, tipo: tipoLinea(c.type || c.item_type || '', nombre), importe: Math.round(imp * 100) / 100, id: txt(c.item_id || c.reference || c.id, 40) };
+  }).filter((l) => l.nombre || l.importe).slice(0, 12);
+  return out.length ? out : (producto || total ? [{ nombre: producto, tipo: 'producto', importe: Math.round(total * 100) / 100, id: '' }] : []);
+}
+// Productos que han llegado en las ventas (para elegir los de cada lanzamiento): [{ clave, nombre, ventas, importe }]
+export function productosVistos(ventas = []) {
+  const m = new Map();
+  for (const v of ventas) {
+    if (v.prueba || v.tipo !== 'cobro') continue;
+    const clave = v.productoId || v.producto || 'Sin nombre';
+    const x = m.get(clave) || { clave, nombre: v.producto || clave, ventas: 0, importe: 0, ultima: 0 };
+    x.ventas++; x.importe = Math.round((x.importe + v.importe) * 100) / 100; x.ultima = Math.max(x.ultima, v.fecha);
+    m.set(clave, x);
+  }
+  return [...m.values()].sort((a, b) => b.ultima - a.ultima);
+}
+// ¿Es esta venta de uno de los productos elegidos? (por id o por nombre, sin distinguir mayúsculas)
+export const deProductos = (v, productos = []) => {
+  const set = new Set(productos.map((x) => String(x).toLowerCase()));
+  return set.has(String(v.productoId || '').toLowerCase()) || set.has(String(v.producto || '').toLowerCase());
+};
 
 // Añade una venta a la lista (sin repetir el mismo aviso) y se queda con las más recientes.
 export const MAX_VENTAS = 4000;
@@ -72,9 +120,17 @@ export function anadirVenta(lista = [], v) {
 
 // Resumen de un lanzamiento: las ventas reales (no de prueba) entre `desde` y `hasta` (ms), y cuáles son de sus leads.
 //   emails: Set de emails (en minúscula) de los leads del lanzamiento.
-export function resumenThrivecart(ventas = [], emails = new Set(), { desde = 0, hasta = Infinity } = {}) {
+//   productos: los de ThriveCart elegidos para el lanzamiento → cuentan sus ventas (aunque el email no esté registrado),
+//   en todo el periodo; sus reembolsos, por el pedido o el email. Sin elegir: las ventas de los emails de sus leads.
+export function resumenThrivecart(ventas = [], emails = new Set(), { desde = 0, hasta = Infinity, productos = [] } = {}) {
   const dentro = ventas.filter((v) => !v.prueba && v.fecha >= desde && v.fecha <= hasta && v.tipo !== 'cancelacion');
-  const deLeads = dentro.filter((v) => emails.has(v.email));
+  const porProd = productos.length > 0;
+  const cobrosProd = porProd ? dentro.filter((v) => v.tipo === 'cobro' && deProductos(v, productos)) : [];
+  const pedidosProd = new Set(cobrosProd.map((v) => v.pedido).filter(Boolean));
+  const emailsProd = new Set(cobrosProd.map((v) => v.email));
+  const deLeads = porProd
+    ? dentro.filter((v) => (v.tipo === 'cobro' ? deProductos(v, productos) : (v.pedido && pedidosProd.has(v.pedido)) || (!v.pedido && emailsProd.has(v.email))))
+    : dentro.filter((v) => emails.has(v.email));
   const suma = (arr) => Math.round(arr.reduce((t, v) => t + (v.importe || 0), 0) * 100) / 100;
   const cobros = deLeads.filter((v) => v.tipo === 'cobro');
   const reembolsos = deLeads.filter((v) => v.tipo === 'reembolso');
@@ -85,8 +141,24 @@ export function resumenThrivecart(ventas = [], emails = new Set(), { desde = 0, 
     if (v.tipo === 'cobro') porProducto[k].cobros++;
     porProducto[k].importe = Math.round((porProducto[k].importe + v.importe) * 100) / 100;
   }
-  const fuera = dentro.filter((v) => v.tipo === 'cobro' && v.email && !emails.has(v.email));
+  const fuera = porProd ? [] : dentro.filter((v) => v.tipo === 'cobro' && v.email && !emails.has(v.email));
+  // Bumps, upsells y downsells (de las líneas de cada pedido): cuántos y cuánto, por nombre.
+  const extras = {};
+  let pedidosConLineas = 0;
+  for (const v of cobros) {
+    if (!v.lineas?.length) continue;
+    pedidosConLineas++;
+    for (const l of v.lineas.filter((x) => x.tipo !== 'producto')) {
+      const k = `${l.tipo}|${l.nombre}`;
+      extras[k] ||= { tipo: l.tipo, nombre: l.nombre || l.tipo, n: 0, importe: 0 };
+      extras[k].n++; extras[k].importe = Math.round((extras[k].importe + l.importe) * 100) / 100;
+    }
+  }
+  const sinRegistro = porProd ? new Set(cobros.map((v) => v.email).filter((e) => e && !emails.has(e))).size : 0;
   return {
+    porProductos: porProd, sinRegistro,
+    extras: Object.values(extras).sort((a, b) => b.importe - a.importe).map((x) => ({ ...x, pct: pedidosConLineas ? x.n / pedidosConLineas : null })),
+    pedidosConLineas,
     cobros: cobros.length, cobrado: suma(cobros), reembolsos: reembolsos.length, reembolsado: -suma(reembolsos),
     neto: suma(deLeads), compradoras: new Set(cobros.map((v) => v.email)).size,
     porProducto: Object.values(porProducto).sort((a, b) => b.importe - a.importe),

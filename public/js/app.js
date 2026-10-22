@@ -6,7 +6,7 @@ import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { ORDEN_EDAD } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
-import { resumenThrivecart, ventasDeCsv } from './thrivecart.js';
+import { resumenThrivecart, ventasDeCsv, productosVistos } from './thrivecart.js';
 import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
@@ -3261,8 +3261,10 @@ async function renderThrivecart(m, launch) {
   }
   const { ventas, desde, hasta } = tcCache[clave];
   const emails = new Set(state.leads.map((l) => String(l.email || '').toLowerCase()).filter(Boolean));
-  const r = resumenThrivecart(ventas, emails, { desde, hasta });
-  box.hidden = !r.cobros && !r.reembolsos && !r.fuera.cobros;
+  const elegidos = launch.tcProductos || [];
+  const r = resumenThrivecart(ventas, emails, { desde, hasta, productos: elegidos });
+  const vistos = productosVistos(ventas.filter((v) => v.fecha >= desde && v.fecha <= hasta));
+  box.hidden = !vistos.length && !r.reembolsos;
   if (box.hidden) return;
   const pct = ivaPct(launch);
   const netoSinIva = r.neto / (1 + pct / 100);
@@ -3270,7 +3272,7 @@ async function renderThrivecart(m, launch) {
   const x = (v) => (v == null ? '–' : `${v.toFixed(2).replace('.', ',')}x`);
   // Compradoras en ThriveCart sin su etiqueta de VIP ni de compra en GHL.
   const sinEtiqueta = state.leads.filter((l) => r.emailsCompra.has(String(l.email || '').toLowerCase()) && !l.s.vip && !l.s.compra && !l.s.vip_anterior && !l.s.compra_previo);
-  box.innerHTML = `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">💳</span><div><strong>Cobrado en ThriveCart</strong><small class="muted">lo que se ha cobrado de verdad a los leads de este lanzamiento</small></div></div>
+  box.innerHTML = `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">💳</span><div><strong>Cobrado en ThriveCart</strong><small class="muted">${r.porProductos ? 'lo cobrado de verdad en los productos de este lanzamiento' : 'lo cobrado de verdad a los leads de este lanzamiento'}</small></div></div>
     <div class="tc-cifras">
       <div><span>Cobrado</span><strong>${eur(r.cobrado)}</strong><small>${r.cobros} ${r.cobros === 1 ? 'cobro' : 'cobros'} · ${r.compradoras} ${r.compradoras === 1 ? 'compradora' : 'compradoras'}</small></div>
       <div><span>Reembolsos</span><strong>${r.reembolsado ? `−${eur(r.reembolsado)}` : eur(0)}</strong><small>${r.reembolsos} ${r.reembolsos === 1 ? 'reembolso' : 'reembolsos'}</small></div>
@@ -3278,9 +3280,30 @@ async function renderThrivecart(m, launch) {
       <div><span>ROAS real</span><strong>${x(roas)}</strong><small>${m.eco.inversion ? `÷ ${eur(m.eco.inversion)} de inversión` : 'sin inversión todavía'}</small></div>
     </div>
     ${r.porProducto.length ? `<p class="tc-prod">${r.porProducto.slice(0, 6).map((p) => `<span>${esc(p.producto)} · <strong>${eur(p.importe)}</strong> <small>(${p.cobros})</small></span>`).join('')}</p>` : ''}
+    ${r.extras.length ? `<div class="tc-extras"><strong>Bumps y ofertas extra</strong>${r.extras.map((e) => `<span class="tc-x tc-x-${e.tipo}">${{ bump: 'Bump', upsell: 'Upsell', downsell: 'Downsell' }[e.tipo]} «${esc(e.nombre)}» · <strong>${e.n}</strong>${e.pct != null ? ` (${Math.round(e.pct * 100)} % de los pedidos)` : ''} · ${eur(e.importe)}</span>`).join('')}</div>` : r.pedidosConLineas ? '<p class="muted small">Ningún bump ni oferta extra en estos pedidos.</p>' : ''}
+    <details class="tc-elegir"${elegidos.length ? '' : ' open'}><summary>⚙️ <strong>Qué ventas son de este lanzamiento</strong> <span class="muted small">· ${elegidos.length ? `${elegidos.length} ${elegidos.length === 1 ? 'producto elegido' : 'productos elegidos'}` : 'ahora: las de los emails de sus leads'}</span></summary>
+      <p class="muted small">En ThriveCart hay ventas de varios embudos. Marca los productos de este lanzamiento (entrada VIP, programa…): contarán todas sus ventas del periodo, aunque la compradora no se haya registrado. Sin marcar ninguno, cuentan las ventas de los emails de sus leads.</p>
+      <div class="tc-elegir-lista">${vistos.map((p) => `<label class="chk"><input type="checkbox" data-tc-prod="${esc(p.clave)}"${elegidos.some((x) => [p.clave, p.nombre].map((y) => String(y).toLowerCase()).includes(String(x).toLowerCase())) ? ' checked' : ''}> ${esc(p.nombre)} <small class="muted">· ${p.ventas} ${p.ventas === 1 ? 'venta' : 'ventas'} · ${eur(p.importe)}</small></label>`).join('') || '<p class="muted small">Aún no ha llegado ninguna venta en este periodo.</p>'}</div>
+      ${vistos.length && puedeConfig() ? '<p><button type="button" class="btn small primary" data-tc-guardar>Guardar los productos</button> <span class="muted small" data-tc-st></span></p>' : ''}
+    </details>
+    ${r.porProductos && r.sinRegistro ? `<p class="tc-nota muted small">${r.sinRegistro} ${r.sinRegistro === 1 ? 'compradora no está registrada' : 'compradoras no están registradas'} en este lanzamiento (compraron sin pasar por el registro).</p>` : ''}
     ${sinEtiqueta.length ? `<p class="tc-aviso">⚠️ ${sinEtiqueta.length} ${sinEtiqueta.length === 1 ? 'compradora' : 'compradoras'} en ThriveCart sin la etiqueta de VIP ni de compra en GHL: ${sinEtiqueta.slice(0, 5).map((l) => esc(l.name || l.email)).join(', ')}${sinEtiqueta.length > 5 ? '…' : ''}. Revisa el workflow de compra.</p>` : ''}
     ${r.fuera.cobros ? `<p class="tc-nota muted small">Además, ${r.fuera.cobros} ${r.fuera.cobros === 1 ? 'cobro' : 'cobros'} (${eur(r.fuera.importe)}) de emails que no están registrados en este lanzamiento (otros productos o compras sin registro).</p>` : ''}`;
 }
+
+$('#metric-tc').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-tc-guardar]');
+  if (!b) return;
+  const code = state.launchCode;
+  const productos = $$('#metric-tc [data-tc-prod]:checked').map((i) => i.dataset.tcProd);
+  b.disabled = true;
+  try {
+    const r = await api('/api/config', { method: 'POST', body: { op: 'tcProductos', l: code, productos } });
+    state.config = r.config;
+    if (r.version != null) state.configVersion = r.version;
+    renderMetrics();
+  } catch (err) { b.disabled = false; $('#metric-tc [data-tc-st]').textContent = err.message; }
+});
 
 // Avisos: lo que falta configurar o los datos que no cuadran (lo mismo que llega en el resumen diario).
 function renderAvisos(m, launch) {
