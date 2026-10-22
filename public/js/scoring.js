@@ -200,7 +200,12 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   // Recursos de la preclase que tiene este lanzamiento (para la puntuación) y el test hecho (su etiqueta).
   // «votacion» es el bloque de participación: votó o comentó (la votación o los comentarios de la preclase).
   s.recursos = { musica: tieneRecurso(cfg, 'musica'), test: tieneRecurso(cfg, 'test'), votacion: tieneRecurso(cfg, 'votacion') || tieneRecurso(cfg, 'comentarios'), descargable: tieneRecurso(cfg, 'descargable'), soloVotacion: tieneRecurso(cfg, 'votacion'), comentarios: tieneRecurso(cfg, 'comentarios') };
-  s.test = s.recursos.test && has(recursosDe(cfg).test.tag);
+  // El test no cuenta antes de su fecha de apertura (nadie puede haberlo hecho) ni si su etiqueta es la de la
+  // encuesta o la de registro (la pondría el formulario equivocado: saldrían todas con el test hecho).
+  const rt = recursosDe(cfg).test;
+  const testAt = madridToEpoch(rt.at);
+  const tagPropio = ![cfg.encuestaTag, cfg.registroTag].some((t) => t && String(t).toLowerCase() === rt.tag);
+  s.test = s.recursos.test && tagPropio && (testAt == null || Date.now() >= testAt) && has(rt.tag);
 
   // Compra: si hay "fecha de compra", manda la fecha (dentro del lanzamiento = de este lanzamiento);
   // si no, la foto de clientas anteriores.

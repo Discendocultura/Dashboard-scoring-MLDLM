@@ -29,6 +29,15 @@ test('recursos de la preclase: señales del lead (música, test y voto)', () => 
   assert.deepEqual(s.recursos, { musica: true, test: true, votacion: true, descargable: false, soloVotacion: true, comentarios: false });
 });
 
+test('test de la preclase: no cuenta antes de abrirse ni con la etiqueta de la encuesta', () => {
+  const conTest = (test, extra = {}) => ({ ...launch, ...extra, recursosPre: sanitizeRecursos({ ...recursosPre, test: { ...recursosPre.test, ...test } }, 2) });
+  // Aún no se ha abierto: aunque tenga la etiqueta, no está hecho
+  assert.equal(signalsFor(['autodiagnostico-completado'], 'oct26', conTest({ at: '2099-01-01T10:00' }), {}).test, false);
+  // La etiqueta del test es la de la encuesta: quien rellena la encuesta no tiene el test hecho
+  assert.equal(signalsFor(['encuesta-x'], 'oct26', conTest({ tag: 'encuesta-x' }), {}).test, false);
+  assert.equal(signalsFor(['encuesta-x'], 'oct26', conTest({}), {}).test, false);
+});
+
 test('comentarios de la preclase: preguntas por clase con ids estables y cuentan como participación', () => {
   const r = sanitizeRecursos({ comentarios: { activo: true, firma: 'Raquel', clases: { clase1: { preguntas: [{ id: 'q2', texto: '¿Qué te ha removido?' }, { texto: 'Nueva' }, { texto: '' }] }, clase2: { preguntas: ['¿Y tú?'] } } } }, 2);
   assert.deepEqual(r.comentarios.clases.clase1.preguntas.map((q) => q.id), ['q2', 'q3']);

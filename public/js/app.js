@@ -7462,8 +7462,10 @@ function pintarRecursosVis() {
   const conCom = tieneRecurso(sim, 'comentarios') ? clasesConComentarios(rec) : [];
   const dentro = (id) => ['musica', 'votacion'].filter((t) => tieneRecurso(sim, t) && rec[t].tras === id).map((t) => (t === 'musica' ? '🎵' : '🗳️')).join('') + (conCom.includes(id) ? '💬' : '');
   const faltan = RECURSOS_EXTRA.filter((t) => rec[t].activo && !tieneRecurso(sim, t));
+  const testTagRepetida = rec.test.activo && rec.test.tag && [sim.encuestaTag, $('#cfg-registro').value.trim()].some((t) => t && t.toLowerCase() === rec.test.tag);
   $('#cfg-rec-etapas').innerHTML = `<strong>Etapas de la página:</strong> ${etapasPreclase(sim, nc).map((e) => `<span class="rec-etapa">${e.n} · ${esc(e.label)}${dentro(e.id) ? ` + ${dentro(e.id)}` : ''}</span>`).join('')}`
-    + (faltan.length ? `<p class="muted small">Sin completar (no salen en la página): ${faltan.map((t) => TIPOS_RECURSO.find((x) => x.id === t).label).join(', ')}. ${faltan.includes('votacion') ? 'La votación necesita al menos una pregunta (las tipo test, con 2 opciones o más).' : ''}${faltan.includes('comentarios') ? ' Los comentarios necesitan al menos una pregunta en alguna clase.' : ''}</p>` : '');
+    + (faltan.length ? `<p class="muted small">Sin completar (no salen en la página): ${faltan.map((t) => TIPOS_RECURSO.find((x) => x.id === t).label).join(', ')}. ${faltan.includes('votacion') ? 'La votación necesita al menos una pregunta (las tipo test, con 2 opciones o más).' : ''}${faltan.includes('comentarios') ? ' Los comentarios necesitan al menos una pregunta en alguna clase.' : ''}</p>` : '')
+    + (testTagRepetida ? '<p class="tag-warn">⚠ La etiqueta del test es la misma que la de la encuesta o la de registro: no contará como hecho. Pon la que añade el workflow del test.</p>' : '');
 }
 $('#cfg-rec-sec').addEventListener('input', pintarRecursosVis);
 $('#cfg-rec-sec').addEventListener('change', () => { pintarRecursosVis(); renderGuia(); });
