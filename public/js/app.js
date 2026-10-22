@@ -3277,7 +3277,7 @@ async function renderThrivecart(m, launch) {
   const rVip = elegVip.length ? resumenThrivecart(ventas, emails, { ...opc, productos: elegVip }) : null;
   const rProg = elegProg.length ? resumenThrivecart(ventas, emails, { ...opc, productos: elegProg }) : null;
   const vistos = productosVistos(ventas.filter((v) => v.fecha >= desde && v.fecha <= hasta));
-  // Lo elegido que aún no ha vendido (puesto por su ID o nombre en Configuración): «esperando la primera venta».
+  // Lo elegido que aún no ha vendido (puesto por su ID en Configuración): «esperando la primera venta».
   const esperando = elegidos.filter((x) => !vistos.some((p) => deProductos({ productoId: p.clave === p.nombre ? '' : p.clave, producto: p.nombre === 'Sin nombre de producto' ? '' : p.nombre }, [x])));
   box.hidden = !vistos.length && !r.reembolsos && !esperando.length;
   if (box.hidden) return;
@@ -3355,7 +3355,7 @@ async function renderThrivecart(m, launch) {
       <p class="muted small">En ThriveCart hay ventas de varios embudos. ${conVipL ? 'Di qué es cada producto de este lanzamiento: la entrada VIP o el programa' : 'Marca los productos de este lanzamiento'}. Contarán todas sus ventas del periodo, aunque la compradora no se haya registrado. Sin elegir ninguno, cuentan las ventas de los emails de sus leads.</p>
       <div class="tc-elegir-lista">${vistos.map(filaProd).join('') || '<p class="muted small">Aún no ha llegado ninguna venta en este periodo.</p>'}</div>
       ${esperando.length ? `<p class="muted small">⏳ Esperando la primera venta: ${esperando.map((x) => `<strong>${esc(x)}</strong>`).join(', ')}.</p>` : ''}
-      <p class="muted small">¿Un producto que aún no ha vendido (p. ej. el programa)? Ponlo por su ID o nombre en Configuración → Precios y contará desde la primera venta.${puedeConfig() ? irA('cfg-tc-programa', 'Ir al campo') : ''}</p>
+      <p class="muted small">¿Un producto que aún no ha vendido (p. ej. el programa)? Pon su ID de ThriveCart en Configuración → Precios y contará desde la primera venta.${puedeConfig() ? irA('cfg-tc-programa', 'Ir al campo') : ''}</p>
       ${vistos.length && puedeConfig() ? '<p><button type="button" class="btn small primary" data-tc-guardar>Guardar</button> <span class="muted small" data-tc-st></span></p>' : ''}
     </details>
     ${r.porProductos && r.sinRegistro ? `<p class="tc-nota muted small">${r.sinRegistro} ${r.sinRegistro === 1 ? 'compradora no está registrada' : 'compradoras no están registradas'} en este lanzamiento (compraron sin pasar por el registro).</p>` : ''}
