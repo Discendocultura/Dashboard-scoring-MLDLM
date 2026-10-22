@@ -162,3 +162,15 @@ test('hotmart: si rechaza la página siguiente, la pide solo con su token y, si 
   assert.deepEqual(r.compras.map((c) => c.item.purchase.transaction), ['HP1B', 'HP2B']);
   assert.ok(pedidas.some((q) => q.startsWith('?page_token=tok2')), 'la segunda página va solo con su token');
 });
+
+test('hotmart: las consultas llevan «Content-Type: application/json» (sin ella Hotmart dice invalid_parameter)', async () => {
+  const { ventasApi } = await import('../lib/hotmart-api.js');
+  const fetchFn = async (url, opts = {}) => {
+    const u = new URL(String(url));
+    if (u.hostname === 'api-sec-vlc.hotmart.com') return new Response(JSON.stringify({ access_token: 'tk5', expires_in: 3600 }));
+    if (opts.headers?.['Content-Type'] !== 'application/json') return new Response('{"error":"invalid_parameter"}', { status: 400 });
+    return new Response(JSON.stringify({ items: u.pathname.endsWith('/sales/history') && !u.searchParams.get('transaction_status') ? [compra('HPC1', 'c@x.com', 15, 997)] : [], page_info: {} }));
+  };
+  const r = await ventasApi({ clientId: 'cabeceras', secreto: 's', basic: 'b' }, { desde: 0, hasta: Date.now(), fetchFn });
+  assert.equal(r.compras.length, 1);
+});
