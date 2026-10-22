@@ -16524,11 +16524,14 @@ async function pintarHotmartConexiones() {
   let r;
   try { r = await api('/api/hotmart'); } catch (e) { box.innerHTML = `<p class="muted">${esc(e.message)}</p>`; ponerEstadoCx('hotmart', 'no', 'Sin acceso'); return; }
   const cred = r.credencial;
-  ponerEstadoCx('hotmart', cred ? (r.syncError ? 'aviso' : 'ok') : r.total ? 'aviso' : 'no',
-    cred ? (r.syncError ? 'Revisa la conexión' : `API conectada${r.total ? ` · ${r.total} ventas` : ''}`) : r.total ? `Solo avisos · ${r.total} ventas` : 'Sin conectar');
+  ponerEstadoCx('hotmart', r.total ? 'ok' : 'aviso', r.total ? `Conectado · ${r.total} ${r.total === 1 ? 'venta' : 'ventas'}` : 'Esperando la primera venta');
   const ult = r.ultima ? `Última venta: ${fechaHora(r.ultima.fecha)} · ${esc(r.ultima.producto || '')} · paga ${eur(Math.abs(r.ultima.importe))}${r.ultima.neto != null ? ` · te llegan ${eur(Math.abs(r.ultima.neto))}` : ''}${r.ultima.tipo === 'reembolso' ? ' (reembolso)' : ''}` : 'Todavía no hay ventas.';
   box.innerHTML = `<div class="hm-paso">
-      <h4 class="cx-h">🔐 1 · Conectar la API <small class="muted">(lo más fiable: trae todas las ventas y el neto exacto)</small></h4>
+      <h4 class="cx-h">🔔 Las ventas nuevas: avisos al momento <small class="muted">(lo único necesario: cada venta llega en segundos, con lo que paga y lo neto exacto)</small></h4>
+      ${filaCopiar('🔗 Dirección', r.url, 'En Hotmart, versión 2.0.0. No hace falta el «hottok»: la dirección ya lleva su clave.')}
+    </div>
+    <details class="hm-paso hm-api">
+      <summary class="cx-h">📜 Opcional · Ventas antiguas por la API <small class="muted">(solo si quieres traer el histórico)</small></summary>
       ${cred ? `<p class="cx-ok">✅ Conectada ${cred.origen === 'cloudflare' ? '(con las variables de Cloudflare)' : `· Client ID ${esc(cred.clientId)}`}${r.ultimaSync ? ` · sincronizada ${fechaHora(r.ultimaSync)}` : ''}</p>
         ${r.syncError ? `<p class="reg-falta">⚠️ ${esc(r.syncError)}</p>` : ''}
         <p class="hm-acc"><button type="button" class="btn primary" data-hm-sync>🔄 Sincronizar ahora</button><button type="button" class="btn" data-hm-hist>📜 Traer histórico (12 meses)</button>${cred.origen === 'alquimia' && puedeConfig() ? '<button type="button" class="btn ghost small" data-hm-borrar>Quitar la credencial</button>' : ''}</p>
@@ -16541,11 +16544,7 @@ async function pintarHotmartConexiones() {
         <p class="hm-acc"><button type="button" class="btn primary" data-hm-conectar>🔌 Conectar Hotmart</button> <span class="muted small" data-hm-st role="status"></span></p>
         <p class="muted small">🔒 Se guardan cifradas. Nadie del equipo las puede volver a ver; para cambiarlas, quítalas y pega las nuevas.</p>`
       : '<p class="muted">Pide a quien configura AlquimIA que conecte Hotmart.</p>'}
-    </div>
-    <div class="hm-paso">
-      <h4 class="cx-h">🔔 2 · Avisos al momento <small class="muted">(cada venta llega en segundos)</small></h4>
-      ${filaCopiar('🔗 Dirección', r.url, 'En Hotmart, versión 2.0.0. No hace falta el «hottok»: la dirección ya lleva su clave.')}
-    </div>
+    </details>
     <p class="muted small">${r.total ? `<strong>${r.total}</strong> ${r.total === 1 ? 'venta guardada' : 'ventas guardadas'}. ` : ''}${ult}</p>`;
 }
 $('#conexiones-dialog').addEventListener('click', async (e) => {

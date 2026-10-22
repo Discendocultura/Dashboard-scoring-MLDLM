@@ -8253,3 +8253,6 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
   .hm-cred { grid-template-columns: 1fr; }
 }
 .tc-cab { flex-wrap: wrap; }
+.hm-api { border: 1px dashed var(--border); border-radius: 12px; padding: 10px 12px; }
+.hm-api > summary { cursor: pointer; margin: 0; }
+.hm-api[open] > summary { margin-bottom: 8px; }
