@@ -3270,19 +3270,31 @@ async function renderThrivecart(m, launch) {
   const netoSinIva = r.neto / (1 + pct / 100);
   const roas = m.eco.inversion ? netoSinIva / m.eco.inversion : null;
   const x = (v) => (v == null ? '–' : `${v.toFixed(2).replace('.', ',')}x`);
-  // Con los productos del lanzamiento elegidos, la facturación y el ROAS de arriba son los de ThriveCart (lo cobrado de
-  // verdad, con bumps y reembolsos); lo calculado por etiquetas queda debajo para comparar.
+  // Con los productos del lanzamiento elegidos, lo de arriba sale de ThriveCart (lo cobrado de verdad, con bumps y
+  // reembolsos): en un lanzamiento con VIP, ThriveCart sustituye la parte de la VIP y sus bumps (el programa sigue por
+  // etiquetas); sin VIP, toda la facturación. Lo calculado por etiquetas queda debajo para comparar.
   if (r.porProductos && r.cobros) {
-    const kpi = (lbl) => $$('#eco-cards .kpi').find((k) => k.querySelector('.kpi-label')?.textContent.trim().startsWith(lbl));
-    const fact = kpi('Facturación');
-    if (fact) {
-      fact.querySelector('.kpi-value').textContent = eur(netoSinIva);
-      fact.querySelector('.kpi-sub').innerHTML = `💳 cobrado en ThriveCart${r.extras.length ? ` (bumps ${eur(r.extras.reduce((t, e) => t + e.importe, 0) / (1 + pct / 100))})` : ''} · por etiquetas ${eur(m.eco.facturacion)}`;
+    const kpi = (sel, lbl) => $$(`${sel} .kpi`).find((k) => k.querySelector('.kpi-label')?.textContent.trim().startsWith(lbl));
+    const poner = (k, valor, sub) => { if (!k) return; k.querySelector('.kpi-value').innerHTML = valor; k.querySelector('.kpi-sub').innerHTML = sub; };
+    const bumpsVipGhl = (m.bumps || []).filter((b) => b.tipo === 'vip').reduce((t, b) => t + b.facturacion, 0);
+    const fact = (m.conVip ? m.eco.facturacion - m.eco.facturacionVip - bumpsVipGhl : 0) + netoSinIva;
+    const roasTc = m.eco.inversion ? fact / m.eco.inversion : null;
+    const sinIva = (v) => v / (1 + pct / 100);
+    const totBumps = r.extras.reduce((t, e) => t + e.importe, 0);
+    const detalle = `💳 ThriveCart ${eur(netoSinIva)}${totBumps ? ` (bumps ${eur(sinIva(totBumps))})` : ''}${m.conVip && fact > netoSinIva ? ` + programa ${eur(fact - netoSinIva)}` : ''} · por etiquetas ${eur(m.eco.facturacion)}`;
+    poner(kpi('#metric-hero', 'Facturación'), eur(fact), `<strong class="kpi-hero-ventas">${m.compra.toLocaleString('es-ES')} ${m.compra === 1 ? 'venta' : 'ventas'} totales</strong>Sin IVA: ${detalle}`);
+    poner(kpi('#eco-cards', 'Facturación'), eur(fact), detalle);
+    if (roasTc != null) {
+      poner(kpi('#metric-hero', 'ROAS'), `${roasTc.toFixed(2).replace('.', ',')}x`, `💳 con lo cobrado en ThriveCart ÷ ${eur(m.eco.inversion)} de inversión`);
+      poner(kpi('#eco-cards', 'ROAS'), `${roasTc.toFixed(2)}x`, `💳 con lo cobrado en ThriveCart · beneficio ${eur(fact - m.eco.inversion)} (sin IVA)`);
     }
-    const ro = kpi('ROAS');
-    if (ro && roas != null) {
-      ro.querySelector('.kpi-value').textContent = `${roas.toFixed(2)}x`;
-      ro.querySelector('.kpi-sub').textContent = `💳 con lo cobrado en ThriveCart · beneficio ${eur(netoSinIva - m.eco.inversion)} (sin IVA)`;
+    // Entradas VIP y sus bumps: los pedidos de ThriveCart y el % de cada bump sobre esas ventas.
+    const vipK = m.conVip ? kpi('#metric-cards', 'Entradas VIP vendidas') : null;
+    if (vipK) {
+      poner(vipK, String(r.cobros), `${pctOf(r.cobros, m.total)} de los leads · ${eur(netoSinIva)} sin IVA · 💳 ThriveCart (por etiquetas ${m.vip})`);
+      $$('#metric-cards .kpi').filter((k) => k.querySelector('.kpi-label')?.textContent.trim().startsWith('Bump offer de la VIP')).forEach((k) => k.remove());
+      vipK.insertAdjacentHTML('afterend', r.extras.map((e) => card(`${{ bump: 'Bump offer', upsell: 'Upsell', downsell: 'Downsell' }[e.tipo]} · ${esc(e.nombre)}`, pctOf(e.n, r.cobros).replace('.', ','),
+        `<strong>${e.n} ${e.n === 1 ? 'vendido' : 'vendidos'}</strong> de ${r.cobros} ventas · ${eur(sinIva(e.importe))} sin IVA · 💳 ThriveCart`, 'gift', 'vip')).join(''));
     }
   }
   // Compradoras en ThriveCart sin su etiqueta de VIP ni de compra en GHL.
@@ -16302,7 +16314,7 @@ $('#conexiones-dialog').addEventListener('change', async (e) => {
         <p class="small"><strong>Productos principales:</strong> ${r.resumen.productos.map((p) => `<span class="tc-x">${esc(p.nombre)} · ${p.n}</span>`).join(' ') || '–'}</p>
         <p class="small"><strong>Bumps y ofertas extra:</strong> ${r.resumen.extras.map((x) => `<span class="tc-x tc-x-${x.tipo}">${TC_EXTRA[x.tipo]} «${esc(x.nombre)}» · ${x.n} (${cobros.length ? Math.round((x.n / cobros.length) * 100) : 0} %)</span>`).join(' ') || '<span class="muted">no he encontrado ninguno en el archivo</span>'}</p>
       </div>
-      <details class="small"><summary>Columnas que he entendido</summary><p>${Object.entries(r.columnas).filter(([k]) => TC_COL[k]).map(([k, i]) => `${TC_COL[k]} = «${esc(r.cabecera[i])}»`).join(' · ')}${r.columnas.bumps ? ` · Bump = ${[...r.columnas.bumps.nombre, ...r.columnas.bumps.importe].map((i) => `«${esc(r.cabecera[i])}»`).join(', ')}` : ''}${r.resumen.mesPrimero ? ' · fechas con el mes delante (formato de EE. UU.)' : ''}</p>
+      <details class="small" open><summary>Columnas que he entendido</summary><p>${Object.entries(r.columnas).filter(([k]) => TC_COL[k]).map(([k, i]) => `${TC_COL[k]} = «${esc(r.cabecera[i])}»`).join(' · ')}${r.columnas.bumps ? ` · Bump = ${[...r.columnas.bumps.nombre, ...r.columnas.bumps.importe].map((i) => `«${esc(r.cabecera[i])}»`).join(', ')}` : ''}${r.resumen.mesPrimero ? ' · fechas con el mes delante (formato de EE. UU.)' : ''} · ${r.resumen.porPedido ? 'pedidos por su número' : 'pedidos = compras del mismo email en menos de 5 minutos'}</p>
         <p class="muted">Todas las columnas del archivo: ${r.cabecera.map((c) => `«${esc(c)}»`).join(', ')}</p></details>
       <p class="muted small">Si ya importaste este archivo antes, lo de esos pedidos se sustituye por lo nuevo (no se duplica).</p>
       ${r.ventas.length ? `<button type="button" class="btn primary" id="tc-csv-importar">Importar ${r.ventas.length} ${r.ventas.length === 1 ? 'venta' : 'ventas'}</button>` : ''}`;

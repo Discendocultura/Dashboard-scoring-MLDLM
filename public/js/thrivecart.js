@@ -313,10 +313,20 @@ export function ventasDeCsv(texto) {
       linea: { nombre: nombreLinea, tipoTxt: c('linea'), importe: impLinea != null ? Math.abs(impLinea) : null }, bumps,
     });
   }
-  // Juntar por pedido (o, sin número de pedido, por email y minuto). Los reembolsos van aparte.
+  // Juntar por pedido. Si la columna es de cobro/factura/transacción (un número por fila, también para cada bump) o no
+  // hay, se juntan las compras del mismo email hechas con menos de 5 minutos de diferencia. Los reembolsos van aparte.
+  const porPedido = col.pedido != null && /order|pedido/i.test(String(cab[col.pedido]));
   const grupos = new Map();
-  for (const r of filasOk) {
-    const k = `${r.reembolso ? 'r' : 'c'}|${r.pedido || `${r.email}|${Math.round(r.fecha / 60_000)}`}`;
+  const ultimo = new Map(); // email|tipo → { k, fecha } del último grupo
+  for (const r of [...filasOk].sort((a, b) => a.fecha - b.fecha)) {
+    const t = r.reembolso ? 'r' : 'c';
+    let k;
+    if (porPedido && r.pedido) k = `${t}|${r.pedido}`;
+    else {
+      const u = ultimo.get(`${r.email}|${t}`);
+      k = t === 'c' && u && r.fecha - u.fecha <= 5 * 60_000 ? u.k : `${t}|${r.email}|${r.fecha}|${grupos.size}`;
+      ultimo.set(`${r.email}|${t}`, { k, fecha: r.fecha });
+    }
     if (!grupos.has(k)) grupos.set(k, []);
     grupos.get(k).push(r);
   }
@@ -371,7 +381,7 @@ export function ventasDeCsv(texto) {
   const cuenta = (pares) => [...pares.reduce((m, [k, x]) => m.set(k, { ...x, n: (m.get(k)?.n || 0) + 1 }), new Map()).values()].sort((a, b) => b.n - a.n);
   const cobros = ventas.filter((v) => v.tipo === 'cobro');
   const resumen = {
-    filas: filas.length - 1, pedidos: cobros.length, reembolsos: ventas.length - cobros.length, mesPrimero: mdy,
+    filas: filas.length - 1, pedidos: cobros.length, reembolsos: ventas.length - cobros.length, mesPrimero: mdy, porPedido,
     productos: cuenta(cobros.map((v) => [v.producto.toLowerCase(), { nombre: v.producto || 'Sin nombre' }])),
     extras: cuenta(cobros.flatMap((v) => (v.lineas || []).filter((l) => l.tipo !== 'producto').map((l) => [`${l.tipo}|${l.nombre.toLowerCase()}`, { tipo: l.tipo, nombre: l.nombre }]))),
   };
@@ -398,11 +408,11 @@ export function ventaImportada(v = {}) {
   })) : [];
   return { id: ['csv', pedido, tipo, imp.toFixed(2), email, fecha].join('|').slice(0, 200), evento: `csv.${tipo}`, tipo, pedido, email, nombre: txt(v.nombre, 80), importe: imp, moneda: txt(v.moneda, 8).toUpperCase() || 'EUR', producto: txt(v.producto, 120), productoId: txt(v.productoId, 40), prueba: false, fecha, importada: true, ...(lineas.length ? { lineas } : {}) };
 }
-// Al volver a importar, lo importado antes de los mismos pedidos (o del mismo email y día, sin pedido) se sustituye:
+// Al volver a importar, lo importado antes de los mismos pedidos o del mismo email y día se sustituye:
 // así un CSV leído antes fila a fila (cada bump como venta suelta) se corrige con el nuevo.
 export function sinImportadasDe(lista = [], nuevas = []) {
   const dia = (ms) => new Date(ms).toISOString().slice(0, 10);
   const pedidos = new Set(nuevas.map((v) => v.pedido).filter(Boolean));
   const emailDia = new Set(nuevas.map((v) => `${v.email}|${dia(v.fecha)}`));
-  return lista.filter((x) => !x.importada || !(x.pedido ? pedidos.has(x.pedido) : emailDia.has(`${x.email}|${dia(x.fecha)}`)));
+  return lista.filter((x) => !x.importada || !(pedidos.has(x.pedido) || emailDia.has(`${x.email}|${dia(x.fecha)}`)));
 }

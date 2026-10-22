@@ -168,3 +168,13 @@ test('thrivecart: ventas sin nombre de producto se pueden elegir y sus bumps se 
   assert.deepEqual(res.extras.map((e) => [e.nombre, e.n]).sort(), [['Bump de 10 €', 1], ['Bump de 7 €', 1]]);
   assert.equal(ventasDeCsv('Date,Email,Item,Amount\n2026-10-21,a@x.com,Entrada VIP,9\n').ventas[0].producto, 'Entrada VIP');
 });
+
+test('thrivecart CSV: con un número por cobro (transacción), el bump se junta con su compra por email y hora', async () => {
+  const { ventasDeCsv, sinImportadasDe } = await import('../public/js/thrivecart.js');
+  const r = ventasDeCsv('Transaction ID,Date,Email,Amount,Status\nt1,2026-10-21 10:00,a@x.com,9,Paid\nt2,2026-10-21 10:01,a@x.com,10,Paid\nt3,2026-10-21 12:00,a@x.com,9,Paid\nt4,2026-10-21 10:00,b@x.com,9,Paid\n');
+  assert.equal(r.resumen.porPedido, false);
+  assert.deepEqual(r.ventas.map((v) => [v.email, v.importe, (v.lineas || []).length]), [['a@x.com', 19, 2], ['b@x.com', 9, 1], ['a@x.com', 9, 1]]);
+  // Lo importado antes fila a fila (t2 como venta suelta) se sustituye al reimportar
+  const viejo = [{ importada: true, pedido: 't2', email: 'a@x.com', fecha: Date.parse('2026-10-21T08:01:00Z'), importe: 10 }];
+  assert.equal(sinImportadasDe(viejo, r.ventas).length, 0);
+});
