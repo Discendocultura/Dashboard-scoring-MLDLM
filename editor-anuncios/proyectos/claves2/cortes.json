@@ -1,0 +1,26 @@
+[
+ {
+  "inicio": 0.0,
+  "fin": 1.398,
+  "tipo": "inicio",
+  "confianza": "alta",
+  "quitado": "(silencio de 1.4 s)",
+  "contexto": "Pones las noticias, a"
+ },
+ {
+  "inicio": 18.16,
+  "fin": 20.52,
+  "tipo": "toma",
+  "confianza": "alta",
+  "quitado": "Creemos que hay otra manera de mirar a la actualidad,",
+  "contexto": "estado de ánimo. Creemos que hay otra manera de mirar a la actualidad, creemos que hay otra"
+ },
+ {
+  "inicio": 52.15,
+  "fin": 53.76,
+  "tipo": "final",
+  "confianza": "alta",
+  "quitado": "(silencio de 1.6 s)",
+  "contexto": "…compartiremos absolutamente todo."
+ }
+]
