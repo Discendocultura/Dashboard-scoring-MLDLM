@@ -102,3 +102,18 @@ test('UTMs: solo las campañas del lanzamiento; el id y el nombre van en la mism
   assert.equal(a.sinUtm.leads, 2); // la del lanzamiento anterior y la que no trae UTM
   assert.equal(a.total.leads, 4);
 });
+
+test('utms: el prompt para Claude lleva cada campaña/conjunto/anuncio y el cruce VIP → compra', async () => {
+  const { pasosUtms, arbolUtms, promptUtms, cruceVipCompra } = await import('../public/js/utms.js');
+  const L = (camp, ad, vip, compra) => ({ s: { vip, compra }, src: { campaign: camp, adset: 's1', ad }, cf: {} });
+  const leads = [L('c1', 'a1', true, true), L('c1', 'a1', true, false), L('c1', 'a2', false, false), L('c1', 'a2', false, true), L('c1', 'a2', false, false)];
+  const cruce = cruceVipCompra(leads);
+  assert.deepEqual([cruce.vip.n, cruce.vip.compran, cruce.noVip.n, cruce.noVip.compran], [2, 1, 3, 1]);
+  const pasos = pasosUtms('lanz', { precioVip: 27 }, { producto: 'Raíces' });
+  const a = arbolUtms(leads, pasos, { names: { c1: 'Campaña 1', s1: 'Conjunto 1', a1: 'Anuncio A', a2: 'Anuncio B' }, spendBy: { c1: 100, a1: 40, a2: 60 } });
+  const p = promptUtms(a, pasos, { negocio: 'Prueba', embudo: 'El Camino', producto: 'Raíces', precioVip: 27, precioPrograma: 997, inversion: 100, cruce });
+  assert.match(p, /\| Campaña \| Campaña 1 \|/);
+  assert.match(p, /\| Anuncio \| Anuncio B \| Campaña 1 › Conjunto 1 \| 60 € \| 3 \| 20 € \|/);
+  assert.match(p, /Con entrada VIP: 2 leads, compran 1 \(50 %\)/);
+  assert.match(p, /Correlación VIP → compra/);
+});

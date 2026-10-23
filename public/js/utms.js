@@ -163,3 +163,73 @@ export function ordenarUtms(filas, orden, pasos) {
   }
   return f.sort((a, b) => b.leads - a.leads);
 }
+
+// Cruce entrada VIP → compra (y asistencia al directo → compra) con los leads: cuántos compran en cada grupo.
+export function cruceVipCompra(leads = []) {
+  const grupo = (fn) => {
+    const g = leads.filter(fn);
+    const c = g.filter((l) => l.s?.compra).length;
+    return { n: g.length, compran: c, pct: g.length ? c / g.length : null };
+  };
+  return { vip: grupo((l) => l.s?.vip), noVip: grupo((l) => !l.s?.vip), todos: grupo(() => true) };
+}
+
+// Prompt para pegar en Claude con TODO lo de la tabla de UTMs: cada campaña, conjunto y anuncio con su inversión, leads,
+// CPL, cada paso del embudo (nº, % y coste por cada uno), la calidad y el semáforo de la encuesta; el cruce VIP → compra y
+// lo que se le pide analizar. ctx: { negocio, embudo, tipo, producto, precioVip, precioPrograma, inversion, fechas, cruce }.
+export function promptUtms(arbol, pasos, ctx = {}) {
+  const eur = (n) => (n == null || !Number.isFinite(n) ? '–' : `${(Math.round(n * 100) / 100).toLocaleString('es-ES')} €`);
+  const pc = (n, t) => (t ? `${(Math.round((n / t) * 1000) / 10).toLocaleString('es-ES')} %` : '–');
+  const resto = pasos.slice(1);
+  const fila = (nivel, g, dentro = '') => {
+    const cpl = g.spend && g.leads ? g.spend / g.leads : null;
+    const celdas = resto.map((p) => `${g.n[p.id]} (${pc(g.n[p.id], g.leads)}${g.coste?.[p.id] ? `, ${eur(g.coste[p.id])}/u` : ''})`);
+    const sem = g.semaforo?.n ? `${Math.round((g.semaforo.verde / g.semaforo.n) * 100)} % de ${g.semaforo.n}` : '–';
+    return `| ${nivel} | ${String(g.label).replace(/\|/g, '/')} | ${dentro.replace(/\|/g, '/')} | ${eur(g.spend)} | ${g.leads} | ${eur(cpl)} | ${celdas.join(' | ')} | ${g.calidad}${g.pocos ? ' (pocos datos)' : ''} | ${sem} |`;
+  };
+  const cab = `| Nivel | Nombre | Dentro de | Inversión | Leads | CPL | ${resto.map((p) => p.label).join(' | ')} | Calidad (0-100) | Encuesta: % parecido a quien compra |\n|${' --- |'.repeat(8 + resto.length)}`;
+  const filas = [];
+  for (const c of arbol.campanas) filas.push(fila('Campaña', c));
+  for (const c of arbol.campanas) for (const s of c.hijos) filas.push(fila('Conjunto', s, c.label));
+  const anuncios = [];
+  for (const c of arbol.campanas) for (const s of c.hijos) for (const a of s.hijos) anuncios.push([a, `${c.label} › ${s.label}`]);
+  anuncios.sort((x, y) => y[0].leads - x[0].leads);
+  for (const [a, ruta] of anuncios.slice(0, 150)) filas.push(fila('Anuncio', a, ruta));
+  if (arbol.sinUtm) filas.push(fila('Sin UTM', arbol.sinUtm));
+  filas.push(fila('TOTAL', arbol.total));
+  const cr = ctx.cruce;
+  const pcx = (x) => (x == null ? '–' : `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')} %`);
+  const cruce = cr && cr.vip.n ? `## Entrada VIP → compra de ${ctx.producto}
+- Con entrada VIP: ${cr.vip.n} leads, compran ${cr.vip.compran} (${pcx(cr.vip.pct)}).
+- Sin entrada VIP: ${cr.noVip.n} leads, compran ${cr.noVip.compran} (${pcx(cr.noVip.pct)}).
+- Todos: ${cr.todos.n} leads, compran ${cr.todos.compran} (${pcx(cr.todos.pct)}).
+` : '';
+  return `Eres analista de tráfico de pago (Meta Ads) para lanzamientos de infoproductos. Analiza estos datos reales de ${ctx.negocio || 'mi negocio'} y dime qué funciona, qué no y qué hago en el siguiente lanzamiento. Responde en español de España, claro y directo, sin tecnicismos innecesarios.
+
+## Contexto
+- Embudo: ${ctx.embudo || '–'} (${ctx.tipo === 'vsl' ? 'VSL evergreen' : ctx.tipo === 'directa' ? 'venta directa' : 'lanzamiento'})${ctx.fechas ? ` · ${ctx.fechas}` : ''}
+- Producto principal: ${ctx.producto}${ctx.precioPrograma ? ` · precio ${eur(Number(ctx.precioPrograma))}` : ''}${ctx.precioVip ? ` · entrada VIP ${eur(Number(ctx.precioVip))}` : ''}
+- Inversión total en Meta: ${eur(ctx.inversion)}
+- Atribución: por las UTM del registro (el último anuncio por el que llegó cada lead). «Sin UTM» = orgánico o enlaces sin parámetros.
+- «Calidad» (0-100) = lo cerca de la compra que llegan los leads de esa fila (pondera cada paso del embudo). «Encuesta» = % de sus leads cuyas respuestas se parecen a las de quien compra.
+- En cada paso: nº de leads (% sobre los leads de esa fila, € que cuesta cada uno con la inversión de esa fila).
+
+${cruce}## Datos por campaña, conjunto y anuncio
+${cab}
+${filas.join('\n')}
+
+## Qué necesito
+1. **Lo que trae compradores:** las campañas, conjuntos y anuncios con más compras y menor coste por compra, con la facturación estimada (compras × precio) y el ROAS de cada uno.
+2. **Leads más baratos:** los de menor CPL, y si esos leads baratos convierten (VIP, directo, compra) o son baratos pero malos.
+3. **Entrada VIP:** qué anuncios y conjuntos traen más compradoras de VIP y a qué coste por VIP.
+4. **Correlación VIP → compra:** con los datos de arriba, ¿quien compra la VIP compra más ${ctx.producto}? Cuantifícalo (cuántas veces más) y dime qué implica: ¿merece la pena empujar la VIP o subir su precio?, ¿qué anuncios traen VIP que luego compran?
+5. **Encuesta y calidad:** qué anuncios traen leads parecidos a quien compra aunque aún no hayan comprado (potencial para retargeting o seguimiento).
+6. **Escalar, mantener o pausar:** una lista concreta por campaña / conjunto / anuncio, con el presupuesto que moverías y por qué.
+7. **Siguiente lanzamiento:** estructura de campañas recomendada, qué ángulos o creatividades repetir y cuáles cambiar, a qué públicos ir y qué probar (tests A/B concretos).
+8. **Cualquier otra cosa** que veas en los datos que me ayude a vender más o a gastar menos.
+
+## Reglas
+- Con pocos datos (menos de 10 leads o menos de 3 compras en una fila) dilo y no saques conclusiones fuertes.
+- Si algo no se puede saber con estos datos, dilo y propón cómo medirlo.
+- Empieza con un resumen de 5 puntos; luego tablas cortas (ganadores, perdedores) y termina con un plan de acción priorizado (qué hago mañana, esta semana y en el próximo lanzamiento).`;
+}

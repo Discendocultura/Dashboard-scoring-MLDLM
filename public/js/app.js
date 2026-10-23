@@ -68,7 +68,7 @@ import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './
 import { piezasImagenes, promptImagen, promptMagnificImagenes, PROMPT_VERTICAL, paletaMarca } from './imagenes-ia.js';
 import { paraChatGPT } from './chatgpt.js';
 import { iniciarOnboarding, onbVista, abrirAyuda, verTodas, leerPreview, progresoDe, onbReiniciarAyudas, onbEstado, onbGuardar, onbRol, tour as onbTour } from './onboarding.js';
-import { pasosUtms, arbolUtms, nivelUtms, ordenarUtms, puntuadorEncuesta } from './utms.js';
+import { pasosUtms, arbolUtms, nivelUtms, ordenarUtms, puntuadorEncuesta, promptUtms, cruceVipCompra } from './utms.js';
 import { DESBLOQUEOS, desbloqueos, filtrarVistas, desbloqueoDeVista, siguientePaso, recomendarTipo, buscar as buscarAcciones, dosificar, atascados, diasDesde } from './primeros-pasos.js';
 import { iniciarAnimaciones } from './animaciones.js';
 import { FASES_PLAN, enviosPorDefecto, enviosDe, planEnvios, sanitizeEnvios } from './envios.js';
@@ -4326,6 +4326,7 @@ function datosUtms() {
 function renderUtms() {
   const box = $('#utm-tabla');
   if (!box || $('#view-utms').hidden) return;
+  $('#utm-prompt').hidden = true;
   $$('#utm-nivel .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.un === state.utm.nivel));
   $$('#utm-orden .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.uo === state.utm.orden));
   const d = datosUtms();
@@ -4409,6 +4410,26 @@ function renderUtms() {
     <thead><tr><th>${state.utm.nivel === 'arbol' ? 'Campaña › conjunto › anuncio' : state.utm.nivel === 'ad' ? 'Anuncio' : 'Conjunto'}</th>${pasos.map((p, i) => `<th class="num${i === pasos.length - 1 ? ' fin' : ''}"><span aria-hidden="true">${p.ico}</span> ${esc(p.label)}</th>`).join('')}${conSem ? `<th class="utm-sem" title="Según sus respuestas a la encuesta: 🟢 se parecen a quien compra · 🟡 en la media · 🔴 se parecen a quien no compra. El % es el de leads en verde.">🚦 Calidad del lead (encuesta)</th>` : ''}<th class="num" title="0-100: cuanto más alto, más cerca de la compra está lo que trae">Cerca de la compra</th></tr></thead>
     <tbody>${filas}</tbody>
     <tfoot>${fila({ ...T, label: 'Total' }, 't', '', '', 0)}</tfoot></table></div>`;
+  pintarPromptUtms(a, pasos, d, producto);
+}
+// Debajo de la tabla: el prompt para analizar en Claude todas las campañas, conjuntos y anuncios (con estos datos).
+function pintarPromptUtms(a, pasos, d, producto) {
+  const box = $('#utm-prompt');
+  const cfg = d.cfg || {};
+  const fechas = d.tipo === 'lanz' ? [cfg.inicioCaptacion, String(cfg.cierreCarrito || '').slice(0, 10)].filter(Boolean).map(formatoDia).join(' → ')
+    : d.tipo === 'vsl' ? (() => { const r = vslRango(); return `${formatoDia(r.desde)} → ${formatoDia(r.hasta)}`; })() : '';
+  const texto = promptUtms(a, pasos, {
+    negocio: clienteNombre(), embudo: d.tipo === 'lanz' ? cfg.name || state.launchCode : cfg.name || state.embudo, tipo: d.tipo, producto, fechas,
+    precioVip: d.tipo === 'lanz' && conVip(cfg) ? cfg.precioVip : null, precioPrograma: d.tipo === 'directa' ? cfg.precio : cfg.precioPrograma,
+    inversion: Number(d.meta?.total) || Number(cfg.inversion) || null,
+    cruce: d.tipo === 'lanz' && conVip(cfg) ? cruceVipCompra(d.leads) : null,
+  });
+  const nFilas = a.campanas.reduce((t, c) => t + 1 + c.hijos.reduce((u, s) => u + 1 + s.hijos.length, 0), 0);
+  box.hidden = false;
+  box.innerHTML = `<div class="utm-prompt-cab"><span class="utm-prompt-ico" aria-hidden="true">🤖</span><div><h3>Analízalo con Claude</h3>
+      <p class="muted">Un prompt con <strong>todos los datos de esta tabla</strong> (${a.campanas.length} ${a.campanas.length === 1 ? 'campaña' : 'campañas'} y ${nFilas} filas: inversión, CPL, cada paso del embudo y su coste${d.tipo === 'lanz' && conVip(cfg) ? ', y el cruce entrada VIP → compra' : ''}). Cópialo y pégalo en Claude: te dirá qué trae compradores, los leads más baratos que de verdad convierten, qué escalar o pausar y qué cambiar en el siguiente lanzamiento.</p></div></div>
+    <p class="utm-prompt-acc"><button type="button" class="btn primary" data-copy-text="${esc(texto)}">📋 Copiar el prompt</button> <a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">Abrir Claude ↗</a></p>
+    <details class="utm-prompt-ver"><summary>Ver el prompt antes de copiarlo</summary><pre>${esc(texto)}</pre></details>`;
 }
 $('#view-utms').addEventListener('click', (e) => {
   const n = e.target.closest('[data-un]');
