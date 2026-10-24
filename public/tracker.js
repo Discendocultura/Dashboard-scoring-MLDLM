@@ -1572,6 +1572,33 @@
     visitaUnaVez(launch, who.cid, pagina, 10 * 60 * 1000);
   }
 
+  // Test A/B de una página (GHL reparte el tráfico entre sus variantes): el bloque de la página lleva
+  // data-lsd-variante="a|b|…". Se recuerda en el navegador qué variante vio y se apunta su visita; en la página de
+  // gracias (registro hecho o compra), su conversión con esa variante. ambito: 'lanz' (ref = código o 'auto') o
+  // 'directa' (ref = id del embudo).
+  function abClave(ambito, ref) { return ambito === 'lanz' ? 'lsd_ab_lanz' : 'lsd_ab_directa_' + ref; }
+  function abVisita(ambito, ref, variante, vid) {
+    variante = String(variante || '').trim().toLowerCase();
+    if (!/^[a-z0-9]{1,12}$/.test(variante) || params.get('lsd_preview')) return;
+    var clave = abClave(ambito, ref);
+    var antes = store(clave);
+    if (antes && antes.ref === ref && antes.variante === variante && Date.now() - antes.at < 24 * 60 * 60 * 1000) return;
+    store(clave, { ref: ref, variante: variante, at: Date.now() });
+    post('/api/ab', { op: 'visita', ambito: ambito, ref: ref, variante: variante, v: vid });
+  }
+  function abConversion(ambito, ref, vid, cid) {
+    var clave = abClave(ambito, ref);
+    var x = store(clave);
+    if (!x || !x.variante || params.get('lsd_preview') || store(clave + '_conv') === x.at) return;
+    store(clave + '_conv', x.at);
+    post('/api/ab', { op: 'conversion', ambito: ambito, ref: x.ref || ref, variante: x.variante, v: vid, cid: cid || undefined });
+  }
+  function idVisitante() {
+    var vid = store('lsd_vid');
+    if (!vid) { vid = 'v' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36); store('lsd_vid', vid); }
+    return vid;
+  }
+
   // Apunta una visita como mucho una vez cada `cadaMs` por navegador, página y lanzamiento: el servidor ya
   // las deduplica, así que recargar la página no gasta otra petición a Cloudflare.
   function visitaUnaVez(launch, cid, pagina, cadaMs) {
@@ -1601,6 +1628,8 @@
       if (!vid) { vid = 'v' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36); store('lsd_vid', vid); }
       // El servidor la cuenta una sola vez por navegador y lanzamiento (aunque recargue).
       visitaUnaVez(launchR, vid, 'registro', 24 * 60 * 60 * 1000);
+      // Test A/B de la página de registro: <div data-lsd-registro data-lsd-variante="b" …>
+      if (registro.getAttribute('data-lsd-variante')) abVisita('lanz', launchR, registro.getAttribute('data-lsd-variante'), vid);
     }
     // Venta directa (low ticket): <div data-lsd-directa="venta|checkout|upsell|downsell|gracias" data-embudo="id">
     // cuenta visitantes únicos de cada página (id anónimo del navegador; una vez al día por página).
@@ -1611,6 +1640,9 @@
       if (!emb) return;
       var vd = store('lsd_vid');
       if (!vd) { vd = 'v' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36); store('lsd_vid', vd); }
+      // Test A/B de la página de venta (data-lsd-variante en su bloque); la compra se apunta en la de gracias.
+      if (pag === 'venta' && el.getAttribute('data-lsd-variante')) abVisita('directa', emb, el.getAttribute('data-lsd-variante'), vd);
+      if (pag === 'gracias') abConversion('directa', emb, vd);
       var clave = 'lsd_vd_' + emb + '_' + pag;
       var antes = store(clave);
       if (antes && Date.now() - antes < 24 * 60 * 60 * 1000) return;
@@ -1678,6 +1710,8 @@
     // los enlaces (checkout de la VIP, directo…) llevan su identidad para medir quién compra.
     if (kind === 'registro' || kind === 'publica' || kind === 'gracias') {
       var whoPub = identity();
+      // Gracias tras el registro: la conversión del test A/B de la página de registro (si vio una variante).
+      if (kind === 'gracias') abConversion('lanz', launchAttr, idVisitante(), whoPub && whoPub.cid);
       fetchPage(launchAttr, whoPub).then(function (d) {
         if (d && !d.error) renderPage(d, whoPub, function () {}, true);
       }).catch(function () { /* sin datos: se queda el texto del diseño */ });

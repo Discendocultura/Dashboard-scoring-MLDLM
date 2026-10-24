@@ -7,6 +7,7 @@ import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { ORDEN_EDAD } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
 import { resumenThrivecart, ventasDeCsv, productosVistos, deProductos } from './thrivecart.js';
+import { resumenAb, MINIMO_AB } from './ab.js';
 import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
@@ -2959,6 +2960,7 @@ function renderMetrics() {
 
   renderEconomics(m, launch);
   renderThrivecart(m, launch);
+  pintarAb($('#metric-ab'), { ambito: 'lanz', ref: state.launchCode, leads: state.leads });
   renderFacturacionTotal(m);
   renderRetrospectiva(m, launch);
   renderCasiCompradoras(launch);
@@ -3424,6 +3426,49 @@ $('#metric-tc').addEventListener('click', async (e) => {
     renderMetrics();
   } catch (err) { b.disabled = false; $('#metric-tc [data-tc-st]').textContent = err.message; }
 });
+
+// ---------- Test A/B de páginas (registro de un lanzamiento, venta de un embudo de venta directa) ----------
+// GHL reparte el tráfico entre las variantes del paso; cada una lleva su bloque con data-lsd-variante. Aquí: visitas,
+// conversiones (registros o compras) y conversión de cada variante, con el veredicto (¿es casualidad?). En los
+// lanzamientos, además, la calidad de los leads de cada variante (encuesta, VIP, compra).
+const abCache = {};
+async function pintarAb(box, { ambito, ref, leads = null }) {
+  if (!box || !ref) return;
+  const clave = `${state.cliente || ''}:${ambito}:${ref}`;
+  if (!abCache[clave] || Date.now() - abCache[clave].at > 60_000) {
+    try { abCache[clave] = { at: Date.now(), variantes: (await api(`/api/ab?ambito=${ambito}&ref=${encodeURIComponent(ref)}`)).variantes || {} }; } catch { abCache[clave] = { at: Date.now(), variantes: {} }; }
+  }
+  if ((ambito === 'lanz' ? state.launchCode : state.embudo) !== ref) return;
+  const V = abCache[clave].variantes;
+  box.hidden = !Object.keys(V).length;
+  if (box.hidden) return;
+  const { filas, veredicto } = resumenAb(V);
+  const conv = ambito === 'lanz' ? 'Registros' : 'Compras';
+  const pct1 = (x) => `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')} %`;
+  // Calidad de los leads de cada variante: de quien se registró con ella, cuántos rellenan la encuesta, compran la VIP…
+  const porId = leads ? new Map(leads.map((l) => [l.id, l])) : null;
+  const launch = ambito === 'lanz' ? state.config.launches[ref] || {} : {};
+  const calidad = porId ? [
+    ...(launch.encuestaTag ? [['Encuesta', (l) => l.s.encuesta || l.s.encuesta_anterior]] : []),
+    ...(conVip(launch) ? [['VIP', (l) => l.s.vip]] : []),
+    ['Compra', (l) => l.s.compra],
+  ] : [];
+  const celdaCal = (f, [, fn]) => {
+    const ls = (V[f.id]?.contactos || []).map((id) => porId.get(id)).filter(Boolean);
+    return `<td class="num" title="De los ${ls.length} registros de esta variante que están en Leads">${ls.length ? pct1(ls.filter(fn).length / ls.length) : '–'}</td>`;
+  };
+  const tono = { gana: 'ok', empate: 'warn', pocos: 'warn', 'sin-datos': 'warn' }[veredicto.tipo];
+  const icono = { gana: '🏆', empate: '⚖️', pocos: '⏳', 'sin-datos': '⏳' }[veredicto.tipo];
+  box.innerHTML = `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">🧪</span><div><strong>Test A/B de la página de ${ambito === 'lanz' ? 'registro' : 'venta'}</strong><small class="muted">GHL reparte el tráfico entre las variantes; AlquimIA mide cada una (visitantes únicos y ${ambito === 'lanz' ? 'quien llega a la página de gracias tras registrarse' : 'quien llega a la página de gracias tras comprar'})</small></div></div>
+    <div class="notice ${tono}"><span>${icono} ${esc(veredicto.texto)}</span></div>
+    <div class="table-scroll"><table class="metric-table"><thead><tr><th>Variante</th><th class="num">Visitas</th><th class="num">${conv}</th><th class="num">Conversión</th><th class="num" title="Cuánto mejor (o peor) convierte que la A">vs A</th><th class="num" title="Confianza de que la diferencia con la A no es casualidad">Confianza</th>${calidad.map(([t]) => `<th class="num" title="De quien se registró con esta variante">${t}</th>`).join('')}</tr></thead>
+    <tbody>${filas.map((f) => `<tr${veredicto.ganadora === f.id ? ' class="ab-ganadora"' : ''}><td><strong>${esc(f.id.toUpperCase())}</strong>${veredicto.ganadora === f.id ? ' 🏆' : ''}</td><td class="num">${f.visitas.toLocaleString('es-ES')}</td><td class="num">${f.conversiones.toLocaleString('es-ES')}</td><td class="num"><strong>${pct1(f.tasa)}</strong></td><td class="num">${f.mejora == null ? '–' : `${f.mejora >= 0 ? '+' : ''}${pct1(f.mejora)}`}</td><td class="num">${f.confianza == null ? '–' : pct1(f.confianza)}</td>${calidad.map((c) => celdaCal(f, c)).join('')}</tr>`).join('')}</tbody></table></div>
+    <p class="muted small">Para decidir hacen falta al menos ${MINIMO_AB.visitas} visitas por variante y ${MINIMO_AB.conversiones} ${conv.toLowerCase()} en total, y un 95 % de confianza. Deja la prueba al menos una semana completa (los días de la semana convierten distinto).${puedeConfig() ? ' <button type="button" class="link" data-ab-reiniciar>Empezar una prueba nueva (borra estos datos)</button>' : ''}</p>`;
+  box.querySelector('[data-ab-reiniciar]')?.addEventListener('click', async () => {
+    if (!window.confirm('¿Empezar una prueba nueva? Se borran las visitas y conversiones de esta prueba (no toca GHL).')) return;
+    try { await api('/api/ab', { method: 'POST', body: { op: 'reiniciar', ambito, ref } }); delete abCache[clave]; pintarAb(box, { ambito, ref, leads }); } catch (e) { notice(e.message, true); }
+  });
+}
 
 // Día «AAAA-MM-DD» → ms al empezar (o acabar) ese día en España.
 const diaMs = (dia, fin = false) => madridToEpoch(`${dia}T${fin ? '23:59' : '00:00'}`) + (fin ? 59_999 : 0);
@@ -8614,6 +8659,12 @@ function snippetsLanzamiento(code) {
   return [
     ['REGISTRO · bloque del footer (cuenta las visitas para la conversión de la página en Métricas y rellena las fechas)',
       `<div data-lsd-page="registro" data-lsd-registro data-launch="auto"></div>\n${script}`],
+    ['TEST A/B · página de registro, variante A (en vez del bloque del footer; el de la B va en la B y el reparto lo hace GHL en el paso del embudo)',
+      `<div data-lsd-page="registro" data-lsd-registro data-lsd-variante="a" data-launch="auto"></div>\n${script}`],
+    ['TEST A/B · página de registro, variante B',
+      `<div data-lsd-page="registro" data-lsd-registro data-lsd-variante="b" data-launch="auto"></div>\n${script}`],
+    ['GRACIAS DEL REGISTRO · bloque (cuenta los registros de cada variante del test A/B de la página de registro)',
+      `<div data-lsd-page="gracias" data-launch="auto"></div>\n${script}`],
     ['REGISTRO · fecha y hora de cada directo (salen de Configuración; pon dentro el texto real)',
       videosDe(l).map((v) => { const s = v.k === 1 ? '' : v.k; return `<span data-lsd-text="fechaDirecto${s}">martes 3 de noviembre</span> · <span data-lsd-text="horaDirecto${s}">19:00</span>h`; }).join('\n')
       + '\n<div data-lsd-countdown-boxes="directo"></div>'],
@@ -15541,7 +15592,9 @@ function pintarCodigosDirecta() {
   const p = partesElegidas('#dc-partes');
   const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
   $('#dc-codigos-box').innerHTML = `<p class="muted small">Pega cada bloque en un elemento «Código HTML» de su página (en cualquier sitio; no se ve). Cuenta visitantes únicos sin gastar llamadas a GHL.</p>`
-    + PAGINAS_DIRECTA.filter((x) => !x.parte || p[x.parte]).map((x) => filaCopiar(x.label, `<div data-lsd-directa="${x.id}" data-embudo="${id}"></div>\n${script}`, x.id === 'checkout' ? 'Llegar aquí = ha pulsado «Comprar» en la página de venta.' : x.id === 'venta' ? 'Base de la conversión de todo el embudo.' : '')).join('');
+    + PAGINAS_DIRECTA.filter((x) => !x.parte || p[x.parte]).map((x) => filaCopiar(x.label, `<div data-lsd-directa="${x.id}" data-embudo="${id}"></div>\n${script}`, x.id === 'checkout' ? 'Llegar aquí = ha pulsado «Comprar» en la página de venta.' : x.id === 'venta' ? 'Base de la conversión de todo el embudo.' : '')).join('')
+    + `<p class="muted small"><strong>🧪 Test A/B de la página de venta:</strong> crea la variante B en el paso del embudo de GHL (él reparte el tráfico) y, en vez del bloque de la página de venta, pon este en cada variante. Las compras de cada una se cuentan en la página de gracias. Resultados en Métricas.</p>`
+    + ['a', 'b'].map((v) => filaCopiar(`Página de venta · variante ${v.toUpperCase()}`, `<div data-lsd-directa="venta" data-lsd-variante="${v}" data-embudo="${id}"></div>\n${script}`, '')).join('');
 }
 
 // Lo que falta en la configuración de una venta directa (lo mismo que pendientesDirecta, mirando el formulario:
@@ -15858,6 +15911,7 @@ function renderDirectaMetricas(D) {
     grande(cardD('ROAS', x2(D.roas), D.roas != null ? `${eur(D.facturacion)} ÷ ${eur(D.inversion)} de inversión${D.roas >= 1 ? ' · se paga solo ✓' : ' · aún no se paga solo'}` : invTxt, 'trend', D.roas != null && D.roas < 1 ? 'warn' : 'buy')),
   ].join('');
   pintarUpsellPrincipal(D.upsellPrincipal, d);
+  pintarAb($('#dir-ab'), { ambito: 'directa', ref: state.embudo });
   pintarTcEmbudo($('#dir-tc'), { productos: prodsReales(d.tcProductos, d.hmProductos), desde: diaMs(D.rango.desde), hasta: diaMs(D.rango.hasta, true), inversion: D.inversion, iva: ivaPct(d), tarjetas: { cont: '#dir-hero', fact: 'Facturación', roas: 'ROAS', ventas: 'Ventas' }, abrirConfig: 'directa' });
   const v = D.visitas || {};
   const conVisitas = conParte(d, 'visitas');

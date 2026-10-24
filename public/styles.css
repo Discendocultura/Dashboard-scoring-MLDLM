@@ -8263,3 +8263,7 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .utm-prompt-ico { width: 44px; height: 44px; flex: none; border-radius: 12px; display: grid; place-items: center; font-size: 22px; background: var(--surface-2); }
 .utm-prompt-acc { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
 .utm-prompt-ver pre { white-space: pre-wrap; max-height: 360px; overflow: auto; font-size: 12px; background: var(--surface-2); padding: 12px; border-radius: 10px; }
+
+/* Test A/B de páginas: la variante ganadora resaltada */
+.ab-box .notice { margin: 10px 0; }
+.ab-box tr.ab-ganadora td { background: color-mix(in srgb, var(--tone-buy) 8%, transparent); }
