@@ -199,6 +199,24 @@ export function promptUtms(arbol, pasos, ctx = {}) {
   for (const [a, ruta] of anuncios.slice(0, 150)) filas.push(fila('Anuncio', a, ruta));
   if (arbol.sinUtm) filas.push(fila('Sin UTM', arbol.sinUtm));
   filas.push(fila('TOTAL', arbol.total));
+  // Encuesta de cada campaña, conjunto y anuncio: cuántas la respondieron y el % de cada respuesta, pregunta a pregunta
+  // (con el de todos los leads al lado para comparar).
+  const preguntas = ctx.preguntas || [];
+  const todos = arbol.total.lista || [];
+  const vipPaso = pasos.find((p) => p.id === 'vip');
+  const bloqueEncuesta = (nivel, g, dentro = '') => {
+    const e = encuestaUtm(g.lista || [], preguntas, todos, { max: 6 });
+    const cab = `### ${nivel}: ${g.label}${dentro ? ` (en ${dentro})` : ''} · ${g.leads} leads${vipPaso ? ` · ${g.n.vip} VIP (${pc(g.n.vip, g.leads)})` : ''} · respondieron la encuesta ${e.respondieron} (${pc(e.respondieron, g.leads)})`;
+    if (!e.preguntas.length) return `${cab}\n- Nadie ha respondido la encuesta.`;
+    return `${cab}\n${e.preguntas.map((q) => `- ${q.name} [${q.respondieron} respuestas, ${pc(q.respondieron, g.leads)} de sus leads]: ${q.opciones.map((o) => `${o.respuesta} ${pc(o.n, q.respondieron)}${g !== arbol.total ? ` (todos ${pc(o.pctTodos, 1)}${Math.abs(o.diferencia) >= 5 ? `, ${o.diferencia > 0 ? '+' : ''}${String(o.diferencia).replace('.', ',')} pts` : ''})` : ''}`).join(' · ')}${q.otras ? ` · y ${q.otras} respuestas más` : ''}`).join('\n')}`;
+  };
+  const encuestaFilas = preguntas.length ? [
+    bloqueEncuesta('TODOS LOS LEADS', arbol.total),
+    ...arbol.campanas.map((c) => bloqueEncuesta('Campaña', c)),
+    ...arbol.campanas.flatMap((c) => c.hijos.map((st) => bloqueEncuesta('Conjunto', st, c.label))),
+    ...anuncios.slice(0, 40).map(([a, ruta]) => bloqueEncuesta('Anuncio', a, ruta)),
+    ...(arbol.sinUtm ? [bloqueEncuesta('Sin UTM', arbol.sinUtm)] : []),
+  ] : [];
   const cr = ctx.cruce;
   const pcx = (x) => (x == null ? '–' : `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')} %`);
   const cruce = cr && cr.vip.n ? `## Entrada VIP → compra de ${ctx.producto}
@@ -219,16 +237,22 @@ export function promptUtms(arbol, pasos, ctx = {}) {
 ${cruce}## Datos por campaña, conjunto y anuncio
 ${cab}
 ${filas.join('\n')}
+${encuestaFilas.length ? `
+## Encuesta por campaña, conjunto y anuncio
+Para cada fila: sus leads, cuántas compraron la VIP, cuántas respondieron la encuesta y, pregunta a pregunta, el % de cada respuesta entre las que la respondieron (entre paréntesis, el de todos los leads y la diferencia en puntos cuando es de 5 o más). Los anuncios, los 40 con más leads.
 
+${encuestaFilas.join('\n\n')}
+` : ''}
 ## Qué necesito
 1. **Lo que trae compradores:** las campañas, conjuntos y anuncios con más compras y menor coste por compra, con la facturación estimada (compras × precio) y el ROAS de cada uno.
 2. **Leads más baratos:** los de menor CPL, y si esos leads baratos convierten (VIP, directo, compra) o son baratos pero malos.
 3. **Entrada VIP:** qué anuncios y conjuntos traen más compradoras de VIP y a qué coste por VIP.
 4. **Correlación VIP → compra:** con los datos de arriba, ¿quien compra la VIP compra más ${ctx.producto}? Cuantifícalo (cuántas veces más) y dime qué implica: ¿merece la pena empujar la VIP o subir su precio?, ¿qué anuncios traen VIP que luego compran?
 5. **Encuesta y calidad:** qué anuncios traen leads parecidos a quien compra aunque aún no hayan comprado (potencial para retargeting o seguimiento).
-6. **Escalar, mantener o pausar:** una lista concreta por campaña / conjunto / anuncio, con el presupuesto que moverías y por qué.
-7. **Siguiente lanzamiento:** estructura de campañas recomendada, qué ángulos o creatividades repetir y cuáles cambiar, a qué públicos ir y qué probar (tests A/B concretos).
-8. **Cualquier otra cosa** que veas en los datos que me ayude a vender más o a gastar menos.
+6. **Qué trae cada campaña, conjunto y anuncio:** para cada uno, cuántas compradoras de la entrada VIP trae y a qué coste, cuántas responden la encuesta (y su % de respuesta), y el perfil que trae según sus respuestas a cada pregunta (en qué se diferencia de la media). Hazlo en una tabla por nivel (campañas, conjuntos y los anuncios principales) y di qué anuncio atrae a qué tipo de persona.
+7. **Escalar, mantener o pausar:** una lista concreta por campaña / conjunto / anuncio, con el presupuesto que moverías y por qué.
+8. **Siguiente lanzamiento:** estructura de campañas recomendada, qué ángulos o creatividades repetir y cuáles cambiar, a qué públicos ir y qué probar (tests A/B concretos).
+9. **Cualquier otra cosa** que veas en los datos que me ayude a vender más o a gastar menos.
 
 ## Reglas
 - Con pocos datos (menos de 10 leads o menos de 3 compras en una fila) dilo y no saques conclusiones fuertes.

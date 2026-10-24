@@ -9,6 +9,7 @@ import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIA
 import { resumenThrivecart, ventasDeCsv, productosVistos, deProductos } from './thrivecart.js';
 import { resumenAb, MINIMO_AB } from './ab.js';
 import { pasosEmbudo, anchosEmbudo, fondoCapa } from './embudo-visual.js';
+import { promptAvatar } from './prompt-avatar.js';
 import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
@@ -4116,7 +4117,18 @@ function renderEncuestaMetrics() {
     <h3 class="av-h">Respuesta a respuesta</h3>
     <p class="av-leyenda">De todas las que dieron cada respuesta, cuántas ${comprador}. La barra más larga es la que mejor convierte. <span class="av-tag t-mas">Compra más</span> <span class="av-tag t-igual">Como la media</span> <span class="av-tag t-menos">Compra menos</span> <span class="av-tag t-pocos">Aún pocas personas</span> (con tan pocas, aún no es fiable)</p>
     <div class="av-qs">${preguntas}</div>
-    <details class="av-tablas"><summary>Ver las tablas con todos los números</summary>${tablas}</details>`;
+    <details class="av-tablas"><summary>Ver las tablas con todos los números</summary>${tablas}</details>
+    ${bloquePromptClaude('Analiza el avatar comprador con Claude', `Un prompt con <strong>toda la información de esta página</strong> (${total.toLocaleString('es-ES')} personas, cada pregunta con todas sus respuestas, quién compra la VIP y quién ${esc(nombreProducto(state.config))}, los perfiles que más y menos compran y el tráfico frío, templado, de publicidad y orgánico). Cópialo y pégalo en Claude: te dará la ficha del avatar comprador, los mensajes que le hablan y a quién dar prioridad.`, promptAvatar(avatarLeads(), preguntasEncuesta(), {
+      negocio: clienteNombre(), embudo: todos ? `todos los lanzamientos de ${clienteNombre()}` : state.config.launches[state.launchCode]?.name || state.launchCode, producto: nombreProducto(state.config),
+      precioVip: state.config.launches[state.launchCode]?.precioVip, precioPrograma: state.config.launches[state.launchCode]?.precioPrograma,
+      alcance: todos ? `${Object.keys(state.config.launches).length} lanzamientos` : 'este lanzamiento', conVip: conVip(state.config.launches[state.launchCode]),
+    }))}`;
+}
+// Bloque «Analízalo con Claude»: el prompt con todos los datos, para copiarlo y pegarlo en Claude.
+function bloquePromptClaude(titulo, texto, prompt) {
+  return `<section class="utm-prompt"><div class="utm-prompt-cab"><span class="utm-prompt-ico" aria-hidden="true">🤖</span><div><h3>${esc(titulo)}</h3><p class="muted">${texto}</p></div></div>
+    <p class="utm-prompt-acc"><button type="button" class="btn primary" data-copy-text="${esc(prompt)}">📋 Copiar el prompt</button> <a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">Abrir Claude ↗</a></p>
+    <details class="utm-prompt-ver"><summary>Ver el prompt antes de copiarlo</summary><pre>${esc(prompt)}</pre></details></section>`;
 }
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-avatar-obj]');
@@ -4585,11 +4597,12 @@ function pintarPromptUtms(a, pasos, d, producto) {
     precioVip: d.tipo === 'lanz' && conVip(cfg) ? cfg.precioVip : null, precioPrograma: d.tipo === 'directa' ? cfg.precio : cfg.precioPrograma,
     inversion: Number(d.meta?.total) || Number(cfg.inversion) || null,
     cruce: d.tipo === 'lanz' && conVip(cfg) ? cruceVipCompra(d.leads) : null,
+    preguntas: d.tipo === 'directa' ? [] : preguntasEncuesta(),
   });
   const nFilas = a.campanas.reduce((t, c) => t + 1 + c.hijos.reduce((u, s) => u + 1 + s.hijos.length, 0), 0);
   box.hidden = false;
   box.innerHTML = `<div class="utm-prompt-cab"><span class="utm-prompt-ico" aria-hidden="true">🤖</span><div><h3>Analízalo con Claude</h3>
-      <p class="muted">Un prompt con <strong>todos los datos de esta tabla</strong> (${a.campanas.length} ${a.campanas.length === 1 ? 'campaña' : 'campañas'} y ${nFilas} filas: inversión, CPL, cada paso del embudo y su coste${d.tipo === 'lanz' && conVip(cfg) ? ', y el cruce entrada VIP → compra' : ''}). Cópialo y pégalo en Claude: te dirá qué trae compradores, los leads más baratos que de verdad convierten, qué escalar o pausar y qué cambiar en el siguiente lanzamiento.</p></div></div>
+      <p class="muted">Un prompt con <strong>todos los datos de esta tabla</strong> (${a.campanas.length} ${a.campanas.length === 1 ? 'campaña' : 'campañas'} y ${nFilas} filas: inversión, CPL, cada paso del embudo y su coste${d.tipo === 'lanz' && conVip(cfg) ? ', las compradoras de la VIP y el cruce entrada VIP → compra' : ''}${d.tipo !== 'directa' && preguntasEncuesta().length ? ', y de cada campaña, conjunto y anuncio quién responde la encuesta y el % de cada respuesta, pregunta a pregunta' : ''}). Cópialo y pégalo en Claude: te dirá qué trae compradores, los leads más baratos que de verdad convierten, qué escalar o pausar y qué cambiar en el siguiente lanzamiento.</p></div></div>
     <p class="utm-prompt-acc"><button type="button" class="btn primary" data-copy-text="${esc(texto)}">📋 Copiar el prompt</button> <a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">Abrir Claude ↗</a></p>
     <details class="utm-prompt-ver"><summary>Ver el prompt antes de copiarlo</summary><pre>${esc(texto)}</pre></details>`;
 }

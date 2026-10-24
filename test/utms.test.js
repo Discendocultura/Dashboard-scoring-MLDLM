@@ -134,3 +134,17 @@ test('UTMs: respuestas a la encuesta de cada fila, pregunta a pregunta, frente a
   assert.equal(mas.diferencia, 23.8);
   assert.equal(menos.n, 1);
 });
+
+test('UTMs: el prompt para Claude lleva la VIP, la encuesta y el % de cada respuesta de cada campaña, conjunto y anuncio', async () => {
+  const { promptUtms } = await import('../public/js/utms.js');
+  const preguntas = [{ id: 'q1', name: '¿Cuánto llevas buscando?', tipo: 'opciones' }];
+  const lead = (c, q1, vip = false) => ({ s: { vip }, cf: q1 ? { q1 } : {}, src: { campaign: c, term: `${c}-s`, content: `${c}-a` } });
+  const leads = [lead('C1', 'Más de 2 años', true), lead('C1', 'Más de 2 años'), lead('C2', 'Menos de 1 año'), lead('C2', '')];
+  const pasos = pasosUtms('lanz', { preclase: false, vip: true }, { preguntas });
+  const txt = promptUtms(arbolUtms(leads, pasos), pasos, { producto: 'Raíces', preguntas });
+  assert.match(txt, /## Encuesta por campaña, conjunto y anuncio/);
+  assert.match(txt, /### Campaña: C1 · 2 leads · 1 VIP \(50 %\) · respondieron la encuesta 2 \(100 %\)/);
+  assert.match(txt, /¿Cuánto llevas buscando\? \[2 respuestas, 100 % de sus leads\]: Más de 2 años 100 % \(todos 66,7 %, \+33,3 pts\)/);
+  assert.match(txt, /### Conjunto: C2-s \(en C2\)/);
+  assert.match(txt, /### Anuncio: C1-a/);
+});
