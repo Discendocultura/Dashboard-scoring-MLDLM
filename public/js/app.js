@@ -3438,12 +3438,12 @@ $('#metric-tc').addEventListener('click', async (e) => {
 // conversiones (registros o compras) y conversión de cada variante, con el veredicto (¿es casualidad?). En los
 // lanzamientos, además, la calidad de los leads de cada variante (encuesta, VIP, compra).
 const abCache = {};
-function montarAbHtml(ambito, ref) {
+function montarAbHtml(ambito, ref, { cabecera = true } = {}) {
   const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
   const lanz = ambito === 'lanz';
   const bloque = (v) => (lanz ? `<div data-lsd-page="registro" data-lsd-registro data-lsd-variante="${v}" data-launch="auto"></div>\n${script}` : `<div data-lsd-directa="venta" data-lsd-variante="${v}" data-embudo="${ref}"></div>\n${script}`);
   const pagina = lanz ? 'registro' : 'venta';
-  return `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">🧪</span><div><strong>Test A/B de la página de ${pagina}</strong><small class="muted">Aún no hay ninguna prueba en marcha en este embudo. Prueba dos versiones de la página y AlquimIA te dirá cuál ${lanz ? 'registra' : 'vende'} más, y si la diferencia es de verdad o casualidad.</small></div></div>
+  return `${cabecera ? `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">🧪</span><div><strong>Test A/B de la página de ${pagina}</strong><small class="muted">Aún no hay ninguna prueba en marcha en este embudo. Prueba dos versiones de la página y AlquimIA te dirá cuál ${lanz ? 'registra' : 'vende'} más, y si la diferencia es de verdad o casualidad.</small></div></div>` : ''}
     <ol class="ab-pasos">
       <li><strong>En GHL</strong>, en el paso de la página de ${pagina} del embudo, crea la <strong>variante B</strong> (prueba A/B del paso) y elige el reparto, p. ej. 50 / 50.</li>
       <li><strong>En la versión A</strong>, cambia el bloque de AlquimIA ${lanz ? 'del footer' : 'de la página de venta'} por este:</li>
@@ -3453,7 +3453,23 @@ function montarAbHtml(ambito, ref) {
     ${filaCopiar('Variante B', bloque('b'), '')}
     <ol class="ab-pasos" start="4"><li>${lanz ? `En la <strong>página de gracias del registro</strong>, este bloque (cuenta los registros de cada variante):` : 'La <strong>página de gracias tras la compra</strong> debe llevar su bloque de siempre (cuenta las compras de cada variante).'}</li></ol>
     ${lanz ? filaCopiar('Gracias del registro', `<div data-lsd-page="gracias" data-launch="auto"></div>\n${script}`, '') : ''}
-    <p class="muted small">En cuanto entren las primeras visitas, aquí verás la conversión de cada variante y cuál gana.</p>`;
+    ${cabecera ? '<p class="muted small">En cuanto entren las primeras visitas, aquí verás la conversión de cada variante y cuál gana.</p>' : ''}`;
+}
+// Configuración → Captación: cómo montar el test A/B de la página de registro y, si ya hay uno, cómo va.
+async function pintarAbConfig() {
+  const box = $('#cfg-ab-reg');
+  if (!box) return;
+  const code = editingCode;
+  box.innerHTML = montarAbHtml('lanz', code || 'auto', { cabecera: false });
+  if (!code) { box.insertAdjacentHTML('beforeend', '<p class="muted small">Guarda el lanzamiento y aquí verás también cómo va la prueba.</p>'); return; }
+  let V = {};
+  try { V = (await api(`/api/ab?ambito=lanz&ref=${encodeURIComponent(code)}`)).variantes || {}; } catch { /* sin datos */ }
+  if (editingCode !== code) return;
+  const { filas, veredicto } = resumenAb(V);
+  const estado = filas.length
+    ? `<div class="notice ${veredicto.tipo === 'gana' ? 'ok' : 'warn'}"><span>🧪 <strong>Prueba en marcha:</strong> ${filas.map((f) => `${f.id.toUpperCase()} ${f.conversiones} de ${f.visitas} (${(Math.round(f.tasa * 1000) / 10).toLocaleString('es-ES')} %)`).join(' · ')}. ${esc(veredicto.texto)} El detalle, en Métricas → Captación.</span></div>`
+    : '<p class="muted small">Aún no hay visitas de ninguna variante: en cuanto pegues los bloques y entren visitas, aquí verás cómo va (y el detalle en Métricas → Captación).</p>';
+  box.insertAdjacentHTML('afterbegin', estado);
 }
 async function pintarAb(box, { ambito, ref, leads = null }) {
   if (!box || !ref) return;
@@ -6557,6 +6573,7 @@ function openConfig(code, { silencioso = false } = {}) {
   pintarRecursosCfg(l.recursosPre);
   pintarEnlaceDirecto();
   pintarRegistroKit();
+  pintarAbConfig();
   pintarVentaPasos();
   pintarVentaBarra(l.ventaBarra);
   pintarTitulares(l.titulares);
