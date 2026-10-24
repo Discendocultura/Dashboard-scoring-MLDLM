@@ -345,8 +345,12 @@ test('página de venta: barra fija por tramos (sin GHL) y fin de cada bonus en e
   const { hitosLanzamiento } = await import('../public/js/calendario.js');
   const h = hitosLanzamiento((await call('/api/config', { cookie: admin })).data.config.launches['ven-26']).filter((x) => x.id.startsWith('bonus-'));
   assert.equal(h.length, 1);
-  assert.equal(h[0].day, local(1));
-  assert.equal(h[0].time, '21:00');
+  // 48 horas exactas: si en medio se cambia la hora (finales de marzo y de octubre), acaba una hora antes o después.
+  const { madridToEpoch } = await import('../public/js/page.js');
+  const fin = new Date(madridToEpoch(`${local(-1)}T21:00`) + 48 * 3_600_000);
+  const madrid = (o) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', ...o }).format(fin);
+  assert.equal(h[0].day, madrid({ year: 'numeric', month: '2-digit', day: '2-digit' }));
+  assert.equal(h[0].time, madrid({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }));
   assert.match(h[0].titulo, /^Último día · Bonus de acción rápida 48 h: Guía del ciclo/);
 });
 
