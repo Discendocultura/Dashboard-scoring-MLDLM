@@ -8,6 +8,7 @@ import { ORDEN_EDAD } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
 import { resumenThrivecart, ventasDeCsv, productosVistos, deProductos } from './thrivecart.js';
 import { resumenAb, MINIMO_AB } from './ab.js';
+import { pasosEmbudo, anchosEmbudo, fondoCapa } from './embudo-visual.js';
 import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
@@ -2217,6 +2218,7 @@ async function loadLeads({ forzar = false } = {}) {
   const haceTxt = hace < 60 ? `${hace} min` : `${Math.round(hace / 60)} h`;
   state.meta = null; // la inversión de Meta es la de este lanzamiento (se vuelve a pedir al terminar)
   if (copia?.contacts.length) {
+    state.leadsAt = copia.at;
     state.leads = copia.contacts.map((c) => enrich(c));
     state.leadsDe = state.launchCode;
     state.page = 0;
@@ -2250,6 +2252,7 @@ async function loadLeads({ forzar = false } = {}) {
       progress(out.length, total, copia?.contacts.length ? `Actualizando… ${out.length}${total ? ` de ${total}` : ''} (ves los datos de hace ${haceTxt})` : `Cargando leads… ${out.length}${total ? ` de ${total}` : ''}`);
     } while (cursor);
     guardarLeads(clave, out);
+    state.leadsAt = Date.now();
     state.leads = out.map((c) => enrich(c));
     state.leadsDe = state.launchCode; // para el auditor: los leads cargados son de este lanzamiento
     state.page = 0;
@@ -2959,6 +2962,7 @@ function renderMetrics() {
   ].join('');
 
   renderEconomics(m, launch);
+  pintarEmbudoVisual(m, launch);
   renderThrivecart(m, launch);
   pintarAb($('#metric-ab'), { ambito: 'lanz', ref: state.launchCode, leads: state.leads });
   renderFacturacionTotal(m);
@@ -3343,6 +3347,7 @@ async function renderThrivecart(m, launch) {
     const netoLlega = (conVipL ? netoVip : 0) + netoProg;
     const detalle = `💶 ${[conVipL ? `VIP ${eur(vipPart)}${vipTc != null ? ' (ventas reales)' : ''}` : '', `programa ${eur(progPart)}${progTc != null ? ` (ventas reales ${eur(progTc)}${progResto ? ` + otros ${eur(progResto)}` : ''})` : ''}`].filter(Boolean).join(' + ')} · <strong>te llegan ${eur(netoLlega)}</strong> · por etiquetas ${eur(m.eco.facturacion)}`;
     m.tc = { fact, vipPart, progPart, ventasProg, vipN: rVip?.cobros || m.vip, netoLlega };
+    pintarEmbudoVisual(m, launch); // con lo cobrado de verdad
     renderFacturacionTotal(m);
     // Ventas: las del programa y, si hay VIP, las entradas (si no, «0 ventas» junto a la facturación de la VIP no cuadra).
     const nVip = conVipL ? m.tc.vipN : 0;
@@ -3469,6 +3474,66 @@ async function pintarAb(box, { ambito, ref, leads = null }) {
     try { await api('/api/ab', { method: 'POST', body: { op: 'reiniciar', ambito, ref } }); delete abCache[clave]; pintarAb(box, { ambito, ref, leads }); } catch (e) { notice(e.message, true); }
   });
 }
+
+// ---------- Embudo en tiempo real (Métricas → Resumen) ----------
+// Cada paso es una capa del embudo (su ancho, según cuántos llegan) con su color; a la derecha, qué % de los registros
+// son, cuántos pasan del paso anterior, lo que cuesta cada uno y lo que factura. Con la página de Métricas abierta, los
+// leads se vuelven a leer de GHL cada 5 minutos.
+const COLORES_EMBUDO = ['#6366f1', '#7c5cf0', '#9550e6', '#b048d4', '#cc45b4', '#e2498d', '#ef5f63', '#f4813f', '#1fb67a'];
+function pintarEmbudoVisual(m, launch) {
+  const box = $('#metric-embudo');
+  if (!box) return;
+  const visitas = state.visitas?.code === state.launchCode ? state.visitas.registro : 0;
+  const tc = m.tc;
+  const pasos = pasosEmbudo(state.leads, launch, {
+    visitasRegistro: visitas, inversion: m.eco.inversion || null, producto: nombreProducto(state.config),
+    ingresosVip: tc ? tc.vipPart : m.eco.facturacionVip, ingresosCompra: tc ? tc.progPart : m.eco.facturacionPrograma, ventasCompra: tc ? tc.ventasProg : null,
+  });
+  box.hidden = !state.leads.length;
+  if (box.hidden) return;
+  const anchos = anchosEmbudo(pasos);
+  const pct1 = (x) => `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')} %`;
+  const num = (n) => n.toLocaleString('es-ES');
+  const color = (i) => (pasos[i].id === 'compra' ? COLORES_EMBUDO.at(-1) : COLORES_EMBUDO[Math.min(pasos.slice(0, i).filter((x) => !x.lateral).length, COLORES_EMBUDO.length - 2)]);
+  const capas = pasos.map((p, i) => {
+    const w = anchos[i];
+    const sig = pasos.findIndex((x, j) => j > i && !x.lateral);
+    const a = (100 - w) / 2;
+    const b = (100 - fondoCapa(w, sig >= 0 ? anchos[sig] : null)) / 2;
+    const datos = [
+      p.pctTotal != null && p.id !== 'registros' ? `<strong>${pct1(p.pctTotal)}</strong> de los registros` : p.id === 'registros' && visitas ? `<strong>${pct1(p.pctPrev)}</strong> de las visitas se registra` : '',
+      p.pctPrev != null && p.id !== 'registros' && !p.lateral ? `<span class="fx-pasa" title="Del paso anterior">↘ pasa el ${pct1(p.pctPrev)}${p.perdidos ? ` · se quedan ${num(p.perdidos)}` : ''}</span>` : '',
+      p.lateral ? '<span class="fx-pasa">compra aparte: no hace falta para seguir el embudo</span>' : '',
+    ].filter(Boolean).join('');
+    const pie = [p.coste ? `💸 ${eur(p.coste)} cada ${p.id === 'visitas' ? 'visita' : p.id === 'registros' ? 'lead' : 'uno'}` : '', p.ingresos ? `💶 ${eur(p.ingresos)} sin IVA` : ''].filter(Boolean);
+    // La rama lateral (la VIP): una píldora que sale del embudo, sin cortar su forma.
+    const forma = p.lateral
+      ? `<div class="fx-rama"><span class="fx-ico" aria-hidden="true">${p.ico}</span><b class="fx-n">${num(p.n)}</b></div>`
+      : `<div class="fx-capa-wrap"><div class="fx-capa" style="clip-path:polygon(${a}% 0,${100 - a}% 0,${100 - b}% 100%,${b}% 100%)"><span class="fx-ico" aria-hidden="true">${p.ico}</span><b class="fx-n">${num(p.n)}</b></div></div>`;
+    return `<div class="fx-fila${p.lateral ? ' lateral' : ''}" style="--c:${p.lateral ? '#e0a21b' : color(i)};--d:${i * 90}ms">
+      ${forma}
+      <div class="fx-info"><span class="fx-lbl">${esc(p.label)}</span>${datos ? `<span class="fx-datos">${datos}</span>` : ''}${pie.length || p.detalle.length ? `<span class="fx-chips">${[...pie, ...p.detalle].map((t) => `<em>${esc(t)}</em>`).join('')}</span>` : ''}</div>
+    </div>`;
+  }).join('');
+  const reg = pasos.find((p) => p.id === 'registros');
+  const fin = pasos.at(-1);
+  const roas = m.tc && m.eco.inversion ? m.tc.fact / m.eco.inversion : m.eco.roas;
+  box.innerHTML = `<div class="fx-cab"><div><h2>Embudo en tiempo real</h2><p class="muted small">Cada capa es un paso, con su ancho según cuántas llegan. Se actualiza solo cada 5 minutos con Métricas abierta.</p></div>
+      <span class="fx-live"><i aria-hidden="true"></i><span data-fx-hace>${state.leadsAt ? `Actualizado ${haceTxt(state.leadsAt)}` : 'En vivo'}</span></span></div>
+    <div class="fx-cuerpo">${capas}</div>
+    <div class="fx-resumen">
+      <div><span>De cada 100 registros</span><b>${reg?.n ? (Math.round((fin.n / reg.n) * 1000) / 10).toLocaleString('es-ES') : '0'}</b><small>compran ${esc(nombreProducto(state.config))}</small></div>
+      ${m.eco.inversion ? `<div><span>Inversión</span><b>${eur(m.eco.inversion)}</b><small>${reg?.n ? `${eur(m.eco.inversion / reg.n)} por lead` : ''}</small></div>` : ''}
+      ${roas != null ? `<div><span>ROAS</span><b>${roas.toFixed(2).replace('.', ',')}x</b><small>${m.tc ? 'con lo cobrado de verdad' : 'por etiquetas'}</small></div>` : ''}
+    </div>`;
+}
+// «Actualizado hace…» y, con Métricas abierta y la pestaña visible, los leads de nuevo cada 5 minutos.
+setInterval(() => {
+  const el = $('#metric-embudo [data-fx-hace]');
+  if (el && state.leadsAt) el.textContent = `Actualizado ${haceTxt(state.leadsAt)}`;
+  const enResumen = !$('#view-metricas')?.hidden && !$('#metric-embudo')?.hidden;
+  if (enResumen && !document.hidden && enLanzamientos() && state.leadsAt && Date.now() - state.leadsAt > 5 * 60_000 && !$('#btn-reload')?.disabled) loadLeads({ forzar: true });
+}, 30_000);
 
 // Día «AAAA-MM-DD» → ms al empezar (o acabar) ese día en España.
 const diaMs = (dia, fin = false) => madridToEpoch(`${dia}T${fin ? '23:59' : '00:00'}`) + (fin ? 59_999 : 0);
