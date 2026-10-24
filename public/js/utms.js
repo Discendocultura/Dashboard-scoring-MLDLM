@@ -6,6 +6,7 @@
 import { watched } from './scoring.js';
 import { videosDe, clasesDe, conVip } from './videos.js';
 import { respuestasDe } from './metrics.js';
+import { ORDEN_EDAD } from './encuesta.js';
 
 // ---------- Calidad del lead por su encuesta (semáforo) ----------
 // Con los perfiles de compradoras (perfilesCompradoras: cada respuesta con su «índice» = cuántas veces más compra
@@ -73,10 +74,11 @@ export function calidad(fila, pasos) {
   return Math.round((suma / pesos) * 100);
 }
 
-const nueva = (key, label, pasos) => ({ key, label, leads: 0, n: Object.fromEntries(pasos.map((p) => [p.id, 0])), sem: { verde: 0, ambar: 0, rojo: 0, suma: 0, n: 0 } });
+const nueva = (key, label, pasos) => ({ key, label, leads: 0, lista: [], n: Object.fromEntries(pasos.map((p) => [p.id, 0])), sem: { verde: 0, ambar: 0, rojo: 0, suma: 0, n: 0 } });
 let puntuar = null; // el de la encuesta, mientras se monta el árbol
 const sumar = (g, x, pasos) => {
   g.leads++;
+  g.lista.push(x); // los leads de la fila (para ver sus respuestas a la encuesta)
   for (const p of pasos) if (p.fn(x)) g.n[p.id]++;
   const v = puntuar ? puntuar(x) : null;
   if (v != null) { g.sem[colorSemaforo(v)]++; g.sem.suma += v; g.sem.n++; }
@@ -137,10 +139,10 @@ export function arbolUtms(leads, pasos, { names = {}, spendBy = {}, minimo = 10,
 export function nivelUtms(arbol, nivel = 'ad') {
   const out = [];
   for (const c of arbol.campanas) {
-    if (nivel === 'campaign') { out.push({ ...c, ruta: '' }); continue; }
+    if (nivel === 'campaign') { out.push({ ...c, ruta: '', campana: c }); continue; }
     for (const s of c.hijos) {
-      if (nivel === 'adset') { out.push({ ...s, ruta: c.label }); continue; }
-      for (const a of s.hijos) out.push({ ...a, ruta: `${c.label} › ${s.label}` });
+      if (nivel === 'adset') { out.push({ ...s, ruta: c.label, campana: c }); continue; }
+      for (const a of s.hijos) out.push({ ...a, ruta: `${c.label} › ${s.label}`, campana: c, conjunto: s });
     }
   }
   return out;
@@ -232,4 +234,32 @@ ${filas.join('\n')}
 - Con pocos datos (menos de 10 leads o menos de 3 compras en una fila) dilo y no saques conclusiones fuertes.
 - Si algo no se puede saber con estos datos, dilo y propón cómo medirlo.
 - Empieza con un resumen de 5 puntos; luego tablas cortas (ganadores, perdedores) y termina con un plan de acción priorizado (qué hago mañana, esta semana y en el próximo lanzamiento).`;
+}
+
+// Respuestas a la encuesta de los leads de una fila (campaña, conjunto o anuncio), pregunta a pregunta, frente a las de
+// todos los leads: { respondieron, total, preguntas: [{ id, name, respondieron, opciones: [{ respuesta, n, pct, pctTodos,
+// diferencia (puntos) }], otras }] }. Por pregunta, las `max` respuestas más repetidas (la edad, por tramos y en orden).
+export function encuestaUtm(lista = [], preguntas = [], todos = [], { max = 8 } = {}) {
+  const reparto = (leads, p) => {
+    const con = leads.filter((l) => respuestasDe(l, p).length);
+    const g = new Map();
+    for (const l of con) for (const r of respuestasDe(l, p)) g.set(r, (g.get(r) || 0) + 1);
+    return { con: con.length, g };
+  };
+  const preguntasOut = preguntas.map((p) => {
+    const fila = reparto(lista, p);
+    const base = reparto(todos, p);
+    let opciones = [...fila.g].map(([respuesta, n]) => {
+      const pct = fila.con ? n / fila.con : 0;
+      const pctTodos = base.con ? (base.g.get(respuesta) || 0) / base.con : 0;
+      return { respuesta, n, pct, pctTodos, diferencia: Math.round((pct - pctTodos) * 1000) / 10 };
+    });
+    if (p.tipo === 'edad') opciones.sort((a, b) => ORDEN_EDAD.indexOf(a.respuesta) - ORDEN_EDAD.indexOf(b.respuesta));
+    else opciones.sort((a, b) => b.n - a.n || a.respuesta.localeCompare(b.respuesta, 'es'));
+    const otras = Math.max(0, opciones.length - max);
+    if (p.tipo !== 'edad') opciones = opciones.slice(0, max);
+    return { id: p.id, name: p.name, tipo: p.tipo, respondieron: fila.con, opciones, otras };
+  }).filter((q) => q.respondieron);
+  const respondieron = lista.filter((l) => preguntas.some((p) => respuestasDe(l, p).length)).length;
+  return { respondieron, total: lista.length, preguntas: preguntasOut };
 }

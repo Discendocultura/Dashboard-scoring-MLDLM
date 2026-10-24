@@ -117,3 +117,20 @@ test('utms: el prompt para Claude lleva cada campaña/conjunto/anuncio y el cruc
   assert.match(p, /Con entrada VIP: 2 leads, compran 1 \(50 %\)/);
   assert.match(p, /Correlación VIP → compra/);
 });
+
+test('UTMs: respuestas a la encuesta de cada fila, pregunta a pregunta, frente a todos los leads', async () => {
+  const { encuestaUtm } = await import('../public/js/utms.js');
+  const preguntas = [{ id: 'q1', name: '¿Cuánto llevas buscando?', tipo: 'opciones' }, { id: 'q2', name: 'Otra', tipo: 'opciones' }];
+  const l = (q1) => ({ s: {}, cf: q1 ? { q1 } : {} });
+  const fila = [l('Más de 2 años'), l('Más de 2 años'), l('Menos de 1 año'), l('')];
+  const todos = [...fila, l('Menos de 1 año'), l('Menos de 1 año'), l('Menos de 1 año'), l('Más de 2 años')];
+  const r = encuestaUtm(fila, preguntas, todos);
+  assert.equal(r.respondieron, 3);
+  assert.equal(r.total, 4);
+  assert.equal(r.preguntas.length, 1, 'sin respuestas, la pregunta no sale');
+  const [mas, menos] = r.preguntas[0].opciones;
+  assert.equal(mas.respuesta, 'Más de 2 años');
+  assert.ok(Math.abs(mas.pct - 2 / 3) < 1e-9 && Math.abs(mas.pctTodos - 3 / 7) < 1e-9);
+  assert.equal(mas.diferencia, 23.8);
+  assert.equal(menos.n, 1);
+});

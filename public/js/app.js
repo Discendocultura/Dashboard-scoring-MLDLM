@@ -69,7 +69,7 @@ import { objetivosDe, ganadoresTexto, PROMPTS_ANUNCIOS, nombresEvento } from './
 import { piezasImagenes, promptImagen, promptMagnificImagenes, PROMPT_VERTICAL, paletaMarca } from './imagenes-ia.js';
 import { paraChatGPT } from './chatgpt.js';
 import { iniciarOnboarding, onbVista, abrirAyuda, verTodas, leerPreview, progresoDe, onbReiniciarAyudas, onbEstado, onbGuardar, onbRol, tour as onbTour } from './onboarding.js';
-import { pasosUtms, arbolUtms, nivelUtms, ordenarUtms, puntuadorEncuesta, promptUtms, cruceVipCompra } from './utms.js';
+import { pasosUtms, arbolUtms, nivelUtms, ordenarUtms, puntuadorEncuesta, promptUtms, cruceVipCompra, encuestaUtm } from './utms.js';
 import { DESBLOQUEOS, desbloqueos, filtrarVistas, desbloqueoDeVista, siguientePaso, recomendarTipo, buscar as buscarAcciones, dosificar, atascados, diasDesde } from './primeros-pasos.js';
 import { iniciarAnimaciones } from './animaciones.js';
 import { FASES_PLAN, enviosPorDefecto, enviosDe, planEnvios, sanitizeEnvios } from './envios.js';
@@ -4337,7 +4337,7 @@ function pintarGanadores(box, leads, launch, level, meta, { vip = true, donde = 
     <p class="muted gan-note">${all.length - conVentas.length ? `${all.length - conVentas.length} ${que}${all.length - conVentas.length === 1 ? '' : 's'} más con registros pero sin ventas todavía. ` : ''}Ventas = compras de Raíces de las personas que se registraron desde ese ${que} (UTM).${vip ? ' Facturado incluye la entrada VIP.' : ''}</p>`;
 }
 // ---------- Anuncios → UTMs: qué tipo de lead trae cada campaña, conjunto y anuncio (public/js/utms.js) ----------
-state.utm = { nivel: 'arbol', orden: 'cpl', abiertos: new Set() };
+state.utm = { nivel: 'arbol', orden: 'cpl', abiertos: new Set(), encuestas: new Set() };
 // El semáforo de la encuesta aprende mejor del histórico (todos los lanzamientos del embudo): se carga una vez.
 async function cargarHistoricoAvatar() {
   if (state.allAvatarLeads || state.utm.cargandoHist) return;
@@ -4393,6 +4393,7 @@ function renderUtms() {
   const conSem = d.tipo !== 'directa' && preguntasEncuesta().length > 0;
   const filtro = d.tipo === 'lanz' ? d.cfg.metaFiltro || state.launchCode : d.tipo === 'vsl' ? d.cfg.metaFiltro || '' : '';
   const a = arbolUtms(d.leads, pasos, { names: d.meta?.names || {}, spendBy: d.meta?.spendBy || {}, encuesta, filtro });
+  state.utm.arbol = a; // para «Desplegar todo»
   const pct = (n, t) => (t ? Math.round((n / t) * 100) : 0);
   // El embudo de todos los leads, de izquierda a derecha.
   const T = a.total;
@@ -4429,32 +4430,65 @@ function renderUtms() {
       <span class="utm-sem-bar" aria-hidden="true"><i class="v" style="width:${p3('verde')}%"></i><i class="a" style="width:${p3('ambar')}%"></i><i class="r" style="width:${p3('rojo')}%"></i></span></td>`;
   };
   const cal = (g) => `${sem(g)}<td class="num"><span class="utm-cal" style="--q:${g.calidad}" title="${g.pocos ? 'Pocos leads: orientativo' : ''}">${g.pocos ? '≈' : ''}${g.calidad}</span></td>`;
-  const fila = (g, nivel, ruta, path, hijos) => {
+  // Cada campaña con su color: sus conjuntos y anuncios lo llevan (borde y etiqueta), así se ve de dónde es cada fila.
+  const PALETA_UTM = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316', '#ef4444', '#84cc16'];
+  const colorCampana = new Map(a.campanas.map((c, i) => [c.key, PALETA_UTM[i % PALETA_UTM.length]]));
+  const preguntas = preguntasEncuesta();
+  const ncols = 1 + pasos.length + (conSem ? 1 : 0) + 1;
+  const TIPO_UTM = { c: ['📣', 'Campaña'], s: ['🎯', 'Conjunto'], a: ['🖼️', 'Anuncio'] };
+  const chip = (txt, cc, ico, title) => `<span class="utm-chip" style="--cc:${cc}" title="${esc(title)}">${ico} ${esc(txt)}</span>`;
+  // Panel de la encuesta de una fila: cada pregunta con el reparto de sus respuestas y la diferencia con todos los leads.
+  const panelEncuesta = (g, cc) => {
+    const e = encuestaUtm(g.lista || [], preguntas, T.lista || []);
+    if (!e.preguntas.length) return `<div class="utm-enc vacia" style="--cc:${cc}"><p class="muted">Nadie de «${esc(g.label)}» ha respondido aún la encuesta.</p></div>`;
+    const pct = (x) => `${Math.round(x * 100)} %`;
+    const dif = (o, q) => (q.respondieron < 5 || Math.abs(o.diferencia) < 5 ? '' : `<em class="utm-dif ${o.diferencia > 0 ? 'mas' : 'menos'}" title="Frente al ${pct(o.pctTodos)} de todos los leads">${o.diferencia > 0 ? '▲ +' : '▼ '}${String(o.diferencia).replace('.', ',')} pts</em>`);
+    return `<div class="utm-enc" style="--cc:${cc}">
+      <div class="utm-enc-cab"><strong>📋 Qué responden en la encuesta</strong><span>${e.respondieron.toLocaleString('es-ES')} de ${e.total.toLocaleString('es-ES')} leads de «${esc(g.label)}» (${pct(e.total ? e.respondieron / e.total : 0)})</span></div>
+      <div class="utm-enc-grid">${e.preguntas.map((q) => `<div class="utm-enc-q"><h4>${esc(q.name)}</h4><small>${q.respondieron} ${q.respondieron === 1 ? 'respuesta' : 'respuestas'}${q.otras ? ` · y ${q.otras} respuestas distintas más` : ''}</small>
+        ${q.opciones.map((o) => `<div class="utm-enc-op" title="${esc(`${o.respuesta}: ${o.n} de ${q.respondieron} (${pct(o.pct)}) · en todos los leads, ${pct(o.pctTodos)}`)}"><span class="utm-enc-r">${esc(o.respuesta)}</span><span class="utm-enc-bar"><i style="width:${Math.round(o.pct * 100)}%"></i><b style="left:${Math.round(o.pctTodos * 100)}%" aria-hidden="true"></b></span><span class="utm-enc-p">${pct(o.pct)}</span>${dif(o, q)}</div>`).join('')}</div>`).join('')}</div>
+      <p class="utm-enc-ley">La barra es el % de esta fila; la rayita, el de todos los leads. ▲▼ cuando se aparta 5 puntos o más (con 5 respuestas o más).</p></div>`;
+  };
+  // Una fila: g (campaña, conjunto o anuncio), nivel c|s|a|t, su campaña (y conjunto) para enseñar de dónde es.
+  const fila = (g, nivel, { path = '', hijos = 0, campana = null, conjunto = null, clase = '' } = {}) => {
     const abierto = state.utm.abiertos.has(path);
+    const cc = campana ? colorCampana.get(campana.key) || '#8a93a8' : nivel === 'c' ? colorCampana.get(g.key) || '#8a93a8' : '#8a93a8';
     const btn = hijos ? `<button type="button" class="utm-abrir" data-utm-abrir="${esc(path)}" aria-expanded="${abierto}" aria-label="${abierto ? 'Plegar' : 'Desplegar'}">${abierto ? '▾' : '▸'}</button>` : '<span class="utm-abrir-hueco"></span>';
-    return `<tr class="utm-n-${nivel}"><td class="utm-nombre">${btn}<span><strong>${esc(g.label)}</strong>${ruta ? `<small>${esc(ruta)}</small>` : ''}</span></td>${pasos.map((p, i) => celda(g, p, i)).join('')}${cal(g)}</tr>`;
+    const encKey = `${nivel}:${path || g.key}`;
+    const encAbierta = state.utm.encuestas.has(encKey);
+    const encBtn = preguntas.length && nivel !== 't' ? `<button type="button" class="utm-enc-btn${encAbierta ? ' on' : ''}" data-utm-enc="${esc(encKey)}" aria-expanded="${encAbierta}">📋 Encuesta${g.sem?.n ? ` · ${g.sem.n}` : ''}</button>` : '';
+    const [ico, tipo] = TIPO_UTM[nivel] || ['', ''];
+    const meta = nivel === 'c' ? `<small>${g.hijos.length} ${g.hijos.length === 1 ? 'conjunto' : 'conjuntos'} · ${g.hijos.reduce((t, x) => t + x.hijos.length, 0)} anuncios${g.spend ? ` · ${eur(g.spend)} invertidos` : ''}</small>` : '';
+    const ruta = campana && nivel !== 'c' ? `<span class="utm-ruta">${chip(campana.label, cc, '📣', `Campaña: ${campana.label}`)}${conjunto ? chip(conjunto.label, cc, '🎯', `Conjunto: ${conjunto.label}`) : ''}</span>` : '';
+    const nombre = nivel === 't' || clase === 'utm-sin' ? `<strong>${esc(g.label)}</strong>` : `<span class="utm-tipo">${ico} ${tipo}</span><strong>${esc(g.label)}</strong>${ruta}${meta}`;
+    const tr = `<tr class="utm-n-${nivel} ${clase}" style="--cc:${cc}"><td class="utm-nombre">${btn}<span class="utm-nm">${nombre}${encBtn}</span></td>${pasos.map((p, i) => celda(g, p, i)).join('')}${cal(g)}</tr>`;
+    return tr + (encAbierta ? `<tr class="utm-enc-fila" style="--cc:${cc}"><td colspan="${ncols}">${panelEncuesta(g, cc)}</td></tr>` : '');
   };
   let filas = '';
   if (state.utm.nivel === 'arbol') {
     for (const c of ordenarUtms(a.campanas, state.utm.orden, pasos)) {
       const pc = `c:${c.key}`;
-      filas += fila(c, 'c', '', pc, c.hijos.length);
+      filas += fila(c, 'c', { path: pc, hijos: c.hijos.length });
       if (!state.utm.abiertos.has(pc)) continue;
       for (const st of ordenarUtms(c.hijos, state.utm.orden, pasos)) {
         const ps = `${pc}|s:${st.key}`;
-        filas += fila(st, 's', '', ps, st.hijos.length);
+        filas += fila(st, 's', { path: ps, hijos: st.hijos.length, campana: c });
         if (!state.utm.abiertos.has(ps)) continue;
-        for (const ad of ordenarUtms(st.hijos, state.utm.orden, pasos)) filas += fila(ad, 'a', '', `${ps}|a:${ad.key}`, 0);
+        for (const ad of ordenarUtms(st.hijos, state.utm.orden, pasos)) filas += fila(ad, 'a', { path: `${ps}|a:${ad.key}`, campana: c, conjunto: st });
       }
     }
   } else {
-    for (const g of ordenarUtms(nivelUtms(a, state.utm.nivel), state.utm.orden, pasos).slice(0, 200)) filas += fila(g, state.utm.nivel === 'ad' ? 'a' : 's', g.ruta, '', 0);
+    const nv = state.utm.nivel === 'ad' ? 'a' : 's';
+    for (const g of ordenarUtms(nivelUtms(a, state.utm.nivel), state.utm.orden, pasos).slice(0, 200)) filas += fila(g, nv, { path: `f:${g.campana?.key}|${g.conjunto?.key || ''}|${g.key}`, campana: g.campana, conjunto: g.conjunto });
   }
-  if (a.sinUtm) filas += `<tr class="utm-sin">${`<td class="utm-nombre"><span class="utm-abrir-hueco"></span><span><strong>${esc(a.sinUtm.label)}</strong></span></td>`}${pasos.map((p, i) => celda(a.sinUtm, p, i)).join('')}${cal(a.sinUtm)}</tr>`;
-  box.innerHTML = `<div class="table-scroll"><table class="metric-table utm-table">
-    <thead><tr><th>${state.utm.nivel === 'arbol' ? 'Campaña › conjunto › anuncio' : state.utm.nivel === 'ad' ? 'Anuncio' : 'Conjunto'}</th>${pasos.map((p, i) => `<th class="num${i === pasos.length - 1 ? ' fin' : ''}"><span aria-hidden="true">${p.ico}</span> ${esc(p.label)}</th>`).join('')}${conSem ? `<th class="utm-sem" title="Según sus respuestas a la encuesta: 🟢 se parecen a quien compra · 🟡 en la media · 🔴 se parecen a quien no compra. El % es el de leads en verde.">🚦 Calidad del lead (encuesta)</th>` : ''}<th class="num" title="0-100: cuanto más alto, más cerca de la compra está lo que trae">Cerca de la compra</th></tr></thead>
+  if (a.sinUtm) filas += fila(a.sinUtm, 's', { path: 'sin-utm', clase: 'utm-sin' });
+  const todasAbiertas = state.utm.nivel === 'arbol' && a.campanas.every((c) => state.utm.abiertos.has(`c:${c.key}`) && c.hijos.every((st) => state.utm.abiertos.has(`c:${c.key}|s:${st.key}`)));
+  const leyenda = a.campanas.map((c) => `<span class="utm-ley-i" style="--cc:${colorCampana.get(c.key)}"><i aria-hidden="true"></i>${esc(c.label)}</span>`).join('');
+  box.innerHTML = `<div class="utm-tabla-cab"><div class="utm-ley">${leyenda}</div>${state.utm.nivel === 'arbol' && a.campanas.length ? `<button type="button" class="btn ghost small" data-utm-todo="${todasAbiertas ? 'plegar' : 'abrir'}">${todasAbiertas ? '▴ Plegar todo' : '▾ Desplegar todo'}</button>` : ''}</div>
+    <div class="table-scroll"><table class="metric-table utm-table${state.utm.nivel === 'arbol' ? '' : ' flat'}">
+    <thead><tr><th>${state.utm.nivel === 'arbol' ? 'Campaña › conjunto › anuncio' : state.utm.nivel === 'ad' ? 'Anuncio <small class="muted">(y de qué campaña y conjunto es)</small>' : 'Conjunto <small class="muted">(y de qué campaña es)</small>'}</th>${pasos.map((p, i) => `<th class="num${i === pasos.length - 1 ? ' fin' : ''}"><span aria-hidden="true">${p.ico}</span> ${esc(p.label)}</th>`).join('')}${conSem ? `<th class="utm-sem" title="Según sus respuestas a la encuesta: 🟢 se parecen a quien compra · 🟡 en la media · 🔴 se parecen a quien no compra. El % es el de leads en verde.">🚦 Calidad del lead (encuesta)</th>` : ''}<th class="num" title="0-100: cuanto más alto, más cerca de la compra está lo que trae">Cerca de la compra</th></tr></thead>
     <tbody>${filas}</tbody>
-    <tfoot>${fila({ ...T, label: 'Total' }, 't', '', '', 0)}</tfoot></table></div>`;
+    <tfoot>${fila({ ...T, label: 'Total' }, 't')}</tfoot></table></div>`;
   pintarPromptUtms(a, pasos, d, producto);
 }
 // Debajo de la tabla: el prompt para analizar en Claude todas las campañas, conjuntos y anuncios (con estos datos).
@@ -4490,6 +4524,16 @@ $('#view-utms').addEventListener('click', (e) => {
   if (e.target.closest('[data-utm-hist]')) { cargarHistoricoAvatar(); return; }
   const ab = e.target.closest('[data-utm-abrir]');
   if (ab) { const k = ab.dataset.utmAbrir; state.utm.abiertos.has(k) ? state.utm.abiertos.delete(k) : state.utm.abiertos.add(k); renderUtms(); return; }
+  // Encuesta de una fila: se abre debajo, con cada pregunta.
+  const en = e.target.closest('[data-utm-enc]');
+  if (en) { const k = en.dataset.utmEnc; state.utm.encuestas.has(k) ? state.utm.encuestas.delete(k) : state.utm.encuestas.add(k); renderUtms(); return; }
+  const todo = e.target.closest('[data-utm-todo]');
+  if (todo) {
+    if (todo.dataset.utmTodo === 'plegar') state.utm.abiertos.clear();
+    else for (const c of state.utm.arbol?.campanas || []) { state.utm.abiertos.add(`c:${c.key}`); for (const st of c.hijos) state.utm.abiertos.add(`c:${c.key}|s:${st.key}`); }
+    renderUtms();
+    return;
+  }
   if (e.target.closest('#utm-recargar')) {
     // «En tiempo real»: vuelve a leer los leads de GHL (y la inversión de Meta) de este embudo.
     if (enVsl()) recargarVsl({ forzar: true });
