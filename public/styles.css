@@ -8375,3 +8375,7 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .fx-rama::before { content: ''; position: absolute; right: 100%; top: 50%; width: 56px; border-top: 2px dashed color-mix(in srgb, #e0a21b 70%, transparent); }
 .fx-rama .fx-n { font-size: 19px; }
 @media (max-width: 720px) { .fx-rama { justify-self: center; margin-right: 0; } .fx-rama::before { display: none; } }
+.ab-pasos { margin: 10px 0 6px; padding-left: 22px; font-size: 13.5px; color: var(--text-2); }
+.ab-pasos li { margin: 4px 0; }
+.ab-box .tc-cab { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 10px; }
+.ab-box .tc-cab > div { display: grid; gap: 2px; min-width: 0; }

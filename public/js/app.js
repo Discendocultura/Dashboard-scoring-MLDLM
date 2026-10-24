@@ -3437,6 +3437,23 @@ $('#metric-tc').addEventListener('click', async (e) => {
 // conversiones (registros o compras) y conversión de cada variante, con el veredicto (¿es casualidad?). En los
 // lanzamientos, además, la calidad de los leads de cada variante (encuesta, VIP, compra).
 const abCache = {};
+function montarAbHtml(ambito, ref) {
+  const script = `<script src="${location.origin}/tracker.js${cParam()}" defer></script>`;
+  const lanz = ambito === 'lanz';
+  const bloque = (v) => (lanz ? `<div data-lsd-page="registro" data-lsd-registro data-lsd-variante="${v}" data-launch="auto"></div>\n${script}` : `<div data-lsd-directa="venta" data-lsd-variante="${v}" data-embudo="${ref}"></div>\n${script}`);
+  const pagina = lanz ? 'registro' : 'venta';
+  return `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">🧪</span><div><strong>Test A/B de la página de ${pagina}</strong><small class="muted">Aún no hay ninguna prueba en marcha en este embudo. Prueba dos versiones de la página y AlquimIA te dirá cuál ${lanz ? 'registra' : 'vende'} más, y si la diferencia es de verdad o casualidad.</small></div></div>
+    <ol class="ab-pasos">
+      <li><strong>En GHL</strong>, en el paso de la página de ${pagina} del embudo, crea la <strong>variante B</strong> (prueba A/B del paso) y elige el reparto, p. ej. 50 / 50.</li>
+      <li><strong>En la versión A</strong>, cambia el bloque de AlquimIA ${lanz ? 'del footer' : 'de la página de venta'} por este:</li>
+    </ol>
+    ${filaCopiar('Variante A', bloque('a'), '')}
+    <ol class="ab-pasos" start="3"><li><strong>En la versión B</strong>, este:</li></ol>
+    ${filaCopiar('Variante B', bloque('b'), '')}
+    <ol class="ab-pasos" start="4"><li>${lanz ? `En la <strong>página de gracias del registro</strong>, este bloque (cuenta los registros de cada variante):` : 'La <strong>página de gracias tras la compra</strong> debe llevar su bloque de siempre (cuenta las compras de cada variante).'}</li></ol>
+    ${lanz ? filaCopiar('Gracias del registro', `<div data-lsd-page="gracias" data-launch="auto"></div>\n${script}`, '') : ''}
+    <p class="muted small">En cuanto entren las primeras visitas, aquí verás la conversión de cada variante y cuál gana.</p>`;
+}
 async function pintarAb(box, { ambito, ref, leads = null }) {
   if (!box || !ref) return;
   const clave = `${state.cliente || ''}:${ambito}:${ref}`;
@@ -3445,8 +3462,9 @@ async function pintarAb(box, { ambito, ref, leads = null }) {
   }
   if ((ambito === 'lanz' ? state.launchCode : state.embudo) !== ref) return;
   const V = abCache[clave].variantes;
-  box.hidden = !Object.keys(V).length;
-  if (box.hidden) return;
+  box.hidden = false;
+  // Sin prueba todavía: cómo montarla, con los códigos de cada variante (está en todos los embudos ya creados).
+  if (!Object.keys(V).length) { box.innerHTML = montarAbHtml(ambito, ref); return; }
   const { filas, veredicto } = resumenAb(V);
   const conv = ambito === 'lanz' ? 'Registros' : 'Compras';
   const pct1 = (x) => `${(Math.round(x * 1000) / 10).toLocaleString('es-ES')} %`;
