@@ -54,10 +54,11 @@ export function pasosEmbudo(leads = [], launch = {}, opts = {}) {
 }
 
 // Ancho de cada capa (en %): proporcional a la raíz (así los pasos pequeños también se ven), entre 26 % y 100 %.
-// La rama lateral no cuenta para el máximo. Cada capa se estrecha hacia abajo (ver fondoCapa).
+// La rama lateral no cuenta para el máximo. Cada capa se estrecha hacia abajo (ver fondoCapa). Mínimo 42 %: dentro
+// van su número y sus %.
 export function anchosEmbudo(pasos = []) {
   const max = Math.max(1, ...pasos.filter((p) => !p.lateral).map((p) => p.n));
-  return pasos.map((p) => Math.round((26 + 74 * Math.sqrt(Math.max(0, p.n) / max)) * 10) / 10);
+  return pasos.map((p) => Math.round((42 + 58 * Math.sqrt(Math.max(0, p.n) / max)) * 10) / 10);
 }
 // Ancho de abajo de una capa: el de la siguiente si es menor; si no, un poco menos que el suyo (siempre se estrecha).
-export const fondoCapa = (w, wSig) => Math.max(18, Math.min(w - 6, wSig ?? w - 8));
+export const fondoCapa = (w, wSig) => Math.max(36, Math.min(w - 6, wSig ?? w - 8));

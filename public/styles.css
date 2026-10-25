@@ -8379,3 +8379,16 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .ab-pasos li { margin: 4px 0; }
 .ab-box .tc-cab { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 10px; }
 .ab-box .tc-cab > div { display: grid; gap: 2px; min-width: 0; }
+
+/* Embudo: los % dentro de cada capa y la VIP en el centro */
+.fx-capa { height: auto; min-height: 78px; flex-direction: column; gap: 2px; padding: 8px 0; }
+.fx-top { display: inline-flex; align-items: center; gap: 10px; position: relative; z-index: 1; }
+.fx-pct { position: relative; z-index: 1; display: flex; flex-wrap: wrap; justify-content: center; gap: 0 10px; max-width: 70%; font-size: 12.5px; font-weight: 650; line-height: 1.35; text-align: center; color: rgba(255, 255, 255, .95); text-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
+.fx-pasa-in { opacity: .85; font-weight: 600; }
+.fx-rama { justify-self: center; margin: 0; flex-direction: column; gap: 2px; padding: 10px 26px; border-radius: 22px; }
+.fx-rama::before { display: none; }
+.fx-rama .fx-pct { max-width: none; }
+@media (max-width: 720px) { .fx-capa { min-height: 70px; } .fx-pct { font-size: 11.5px; max-width: 78%; } }
+
+/* El texto de cada capa cabe en su parte más estrecha (abajo) */
+.fx-capa .fx-pct { flex-direction: column; align-items: center; max-width: calc(var(--wi, 70) * 1% - 8%); }

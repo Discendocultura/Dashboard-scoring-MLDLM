@@ -25,7 +25,7 @@ test('embudo visual: pasos del lanzamiento con conversión, coste e ingresos', (
   assert.deepEqual(pasosEmbudo(leads, { vip: false, preclase: false }).map((x) => x.id), ['registros', 'video', 'compra']);
   const w = anchosEmbudo(p);
   assert.equal(w[0], 100);
-  assert.ok(w.every((x) => x >= 26 && x <= 100));
+  assert.ok(w.every((x) => x >= 42 && x <= 100));
   // La VIP va al lado: el vídeo «pasa» de las clases, no de la VIP, y el embudo nunca se ensancha
   const vip = p.find((x) => x.id === 'vip');
   assert.equal(vip.lateral, true);

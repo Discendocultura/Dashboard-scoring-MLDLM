@@ -3535,16 +3535,19 @@ function pintarEmbudoVisual(m, launch) {
     const sig = pasos.findIndex((x, j) => j > i && !x.lateral);
     const a = (100 - w) / 2;
     const b = (100 - fondoCapa(w, sig >= 0 ? anchos[sig] : null)) / 2;
-    const datos = [
-      p.pctTotal != null && p.id !== 'registros' ? `<strong>${pct1(p.pctTotal)}</strong> de los registros` : p.id === 'registros' && visitas ? `<strong>${pct1(p.pctPrev)}</strong> de las visitas se registra` : '',
-      p.pctPrev != null && p.id !== 'registros' && !p.lateral ? `<span class="fx-pasa" title="Del paso anterior">↘ pasa el ${pct1(p.pctPrev)}${p.perdidos ? ` · se quedan ${num(p.perdidos)}` : ''}</span>` : '',
-      p.lateral ? '<span class="fx-pasa">compra aparte: no hace falta para seguir el embudo</span>' : '',
-    ].filter(Boolean).join('');
+    // Los % van dentro de la capa: el de los registros (o de las visitas) y cuánto pasa del paso anterior.
+    const pctDentro = [
+      p.id === 'registros' ? (visitas && p.pctPrev != null ? `${pct1(p.pctPrev)} de las visitas` : '') : p.pctTotal != null ? `${pct1(p.pctTotal)} de los registros` : '',
+      p.pctPrev != null && !['registros', 'visitas'].includes(p.id) && !p.lateral ? `↘ pasa el ${pct1(p.pctPrev)}` : '',
+    ].filter(Boolean);
+    const dentro = `<span class="fx-top"><span class="fx-ico" aria-hidden="true">${p.ico}</span><b class="fx-n">${num(p.n)}</b></span>${pctDentro.length ? `<span class="fx-pct">${pctDentro.map((t, k) => (k ? `<span class="fx-pasa-in">${t}</span>` : `<span>${t}</span>`)).join('')}</span>` : ''}`;
+    // Al lado: qué es, cuántas se quedan y lo que cuesta y factura.
+    const datos = p.lateral ? '<span class="fx-pasa">compra aparte: no hace falta para seguir el embudo</span>' : p.perdidos && p.id !== 'registros' ? `<span class="fx-pasa">se quedan ${num(p.perdidos)}</span>` : '';
     const pie = [p.coste ? `💸 ${eur(p.coste)} cada ${p.id === 'visitas' ? 'visita' : p.id === 'registros' ? 'lead' : 'uno'}` : '', p.ingresos ? `💶 ${eur(p.ingresos)} sin IVA` : ''].filter(Boolean);
-    // La rama lateral (la VIP): una píldora que sale del embudo, sin cortar su forma.
+    // La VIP, en el centro del embudo: una píldora dorada (compra aparte), sin cortar su forma.
     const forma = p.lateral
-      ? `<div class="fx-rama"><span class="fx-ico" aria-hidden="true">${p.ico}</span><b class="fx-n">${num(p.n)}</b></div>`
-      : `<div class="fx-capa-wrap"><div class="fx-capa" style="clip-path:polygon(${a}% 0,${100 - a}% 0,${100 - b}% 100%,${b}% 100%)"><span class="fx-ico" aria-hidden="true">${p.ico}</span><b class="fx-n">${num(p.n)}</b></div></div>`;
+      ? `<div class="fx-rama">${dentro}</div>`
+      : `<div class="fx-capa-wrap"><div class="fx-capa" style="--wi:${Math.round(100 - 2 * b)};clip-path:polygon(${a}% 0,${100 - a}% 0,${100 - b}% 100%,${b}% 100%)">${dentro}</div></div>`;
     return `<div class="fx-fila${p.lateral ? ' lateral' : ''}" style="--c:${p.lateral ? '#e0a21b' : color(i)};--d:${i * 90}ms">
       ${forma}
       <div class="fx-info"><span class="fx-lbl">${esc(p.label)}</span>${datos ? `<span class="fx-datos">${datos}</span>` : ''}${pie.length || p.detalle.length ? `<span class="fx-chips">${[...pie, ...p.detalle].map((t) => `<em>${esc(t)}</em>`).join('')}</span>` : ''}</div>
