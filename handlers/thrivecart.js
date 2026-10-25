@@ -61,8 +61,11 @@ export async function POST(request) {
         let lista = sinImportadasDe(dato.ventas || [], entrada);
         const sustituidas = antes - lista.length;
         let nuevas = 0;
+        // Para no repetir: lo guardado como se lee (los avisos antiguos, ya con su IVA).
+        let comparar = repararVentas(lista);
         for (const v of entrada) {
-          if (yaEsta(lista, v)) continue;
+          if (yaEsta(comparar, v)) continue;
+          comparar = [...comparar, v];
           lista = anadirVenta(lista, v).lista;
           nuevas++;
         }

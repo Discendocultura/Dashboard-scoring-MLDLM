@@ -47,11 +47,17 @@ export function ventaDeWebhook(b = {}) {
   let importe = 0;
   if (tipo === 'reembolso') importe = -Math.abs(euros(g('refund.amount_str', 'refund_amount_str'), g('refund.amount', 'refund_amount')));
   else if (tipo === 'cobro') importe = euros(g('order.total_str', 'order_total_str', 'total_str'), g('order.total', 'order_total', 'total'));
+  // ThriveCart da el total y cada línea SIN impuestos y el IVA aparte (order.tax): lo que paga la clienta es la suma.
+  const impuesto = tipo === 'cobro' ? Math.max(0, euros(g('order.tax_str', 'order_tax_str', 'tax_str'), g('order.tax', 'order_tax', 'tax'))) : 0;
+  const base = importe;
+  if (impuesto) importe += impuesto;
   const ts = num(g('order_timestamp', 'timestamp'));
   const fechaTxt = txt(g('order_date', 'date'), 40);
   const fecha = ts ? (ts < 1e12 ? ts * 1000 : ts) : (Date.parse(fechaTxt) || Date.now());
   const producto = txt(g('base_product_name', 'base_product_label', 'product_name', 'order.product_name'), 120);
-  const lineas = tipo === 'cobro' ? lineasPedido(b, producto, importe) : [];
+  // Las líneas, con su parte del IVA (en proporción), para que sumen lo que pagó.
+  const factor = impuesto && base ? importe / base : 1;
+  const lineas = tipo === 'cobro' ? lineasPedido(b, producto, base).map((l) => ({ ...l, importe: Math.round(l.importe * factor * 100) / 100 })) : [];
   return {
     id: [evento, pedido, txt(g('invoice_id'), 40), importe.toFixed(2), fecha].join('|').slice(0, 200),
     evento, tipo, pedido, email,
@@ -61,6 +67,8 @@ export function ventaDeWebhook(b = {}) {
     producto, productoId: txt(g('base_product', 'product_id'), 40),
     prueba: String(g('mode')).toLowerCase() === 'test',
     fecha,
+    // Sin el IVA en el aviso no se sabe si lo lleva: se queda sin marcar y al leerla se le suma el de España (repararVentas).
+    ...(tipo === 'cobro' && impuesto ? { impuesto: Math.round(impuesto * 100) / 100 } : {}),
     ...(lineas.length ? { lineas } : {}),
   };
 }
@@ -89,7 +97,8 @@ export function lineasPedido(b = {}, producto = '', total = 0) {
   const out = charges.filter((c) => c && typeof c === 'object').map((c) => {
     const nombre = txt(c.name || c.label || c.item_name || c.product_name, 120);
     const imp = euros(c.amount_str ?? c.total_str, c.amount ?? c.total);
-    return { nombre, tipo: tipoLinea(c.type || c.item_type || '', nombre), importe: Math.round(imp * 100) / 100, id: txt(c.item_id || c.reference || c.id, 40) };
+    // item_type: product | bump | upsell | downsell (type es «single» o «recurring»: no dice qué es).
+    return { nombre, tipo: tipoLinea(c.item_type || c.type || '', nombre), importe: Math.round(imp * 100) / 100, id: txt(c.item_id || c.reference || c.id, 40) };
   }).filter((l) => l.nombre || l.importe).slice(0, 12);
   return out.length ? out : (producto || total ? [{ nombre: producto, tipo: 'producto', importe: Math.round(total * 100) / 100, id: '' }] : []);
 }
@@ -132,11 +141,15 @@ export function anadirVenta(lista = [], v) {
 export function resumenThrivecart(ventas = [], emails = new Set(), { desde = 0, hasta = Infinity, productos = [] } = {}) {
   const dentro = ventas.filter((v) => !v.prueba && v.fecha >= desde && v.fecha <= hasta && v.tipo !== 'cancelacion');
   const porProd = productos.length > 0;
-  const cobrosProd = porProd ? dentro.filter((v) => v.tipo === 'cobro' && deProductos(v, productos)) : [];
+  // Un producto elegido cuenta también con su nombre: si se eligió por un ID o un nombre que solo traen unas ventas
+  // (p. ej. las del CSV), las que llegan por aviso con otro ID pero el mismo producto también son suyas.
+  const nombres = porProd ? new Set(ventas.filter((v) => v.tipo === 'cobro' && v.producto && deProductos(v, productos)).map((v) => normProd(v.producto))) : new Set();
+  const esDe = (v) => deProductos(v, productos) || (Boolean(v.producto) && nombres.has(normProd(v.producto)));
+  const cobrosProd = porProd ? dentro.filter((v) => v.tipo === 'cobro' && esDe(v)) : [];
   const pedidosProd = new Set(cobrosProd.map((v) => v.pedido).filter(Boolean));
   const emailsProd = new Set(cobrosProd.map((v) => v.email));
   const deLeads = porProd
-    ? dentro.filter((v) => (v.tipo === 'cobro' ? deProductos(v, productos) : (v.pedido && pedidosProd.has(v.pedido)) || (!v.pedido && emailsProd.has(v.email))))
+    ? dentro.filter((v) => (v.tipo === 'cobro' ? esDe(v) : (v.pedido && pedidosProd.has(v.pedido)) || (!v.pedido && emailsProd.has(v.email))))
     : dentro.filter((v) => emails.has(v.email));
   const suma = (arr) => Math.round(arr.reduce((t, v) => t + (v.importe || 0), 0) * 100) / 100;
   const cobros = deLeads.filter((v) => v.tipo === 'cobro');
@@ -411,7 +424,22 @@ export function ventasDeCsv(texto) {
 const esPrecio = (t) => /^[\s\d.,€$-]+$/.test(String(t || '')) && /\d/.test(String(t || ''));
 // Arregla ventas importadas antes con dos fallos del CSV: el producto leído de una columna de precio y, en pedidos con
 // bumps, un bump tomado como producto principal. Principal = lo que alguna vez se compró solo.
+// Avisos de ThriveCart guardados antes de leer el IVA (sin el campo `impuesto`): llegaron sin IVA y con los bumps como
+// producto. Se les suma el IVA de España (21 %, `impuestoEstimado`) y el producto principal es el del aviso.
+export const IVA_ESTIMADO = 21;
+function repararAviso(v) {
+  if (v.importada || v.tipo !== 'cobro' || 'impuesto' in v || !/^order\./.test(v.evento || '')) return v;
+  const f = 1 + IVA_ESTIMADO / 100;
+  const r2 = (x) => Math.round(x * f * 100) / 100;
+  let lineas = (v.lineas || []).map((l) => ({ ...l, importe: r2(l.importe) }));
+  if (lineas.length > 1 && lineas.every((l) => l.tipo === 'producto')) {
+    const prin = Math.max(0, lineas.findIndex((l) => normProd(l.nombre) === normProd(v.producto)));
+    lineas = lineas.map((l, i) => (i === prin ? l : { ...l, tipo: tipoLinea('', l.nombre) === 'producto' ? 'bump' : tipoLinea('', l.nombre) }));
+  }
+  return { ...v, importe: r2(v.importe), lineas, impuestoEstimado: true };
+}
 export function repararVentas(ventas = []) {
+  ventas = ventas.map(repararAviso);
   const solos = new Set(ventas.filter((v) => v.tipo === 'cobro' && v.lineas?.length === 1).map((v) => v.lineas[0].nombre.toLowerCase()));
   return ventas.map((v) => {
     if (v.tipo !== 'cobro' || !v.lineas?.length) return esPrecio(v.producto) ? { ...v, producto: '', productoAntes: v.producto } : v;

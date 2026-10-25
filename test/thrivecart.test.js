@@ -6,7 +6,8 @@ import { ventaDeWebhook, anadirVenta, resumenThrivecart, tipoEvento } from '../p
 const aviso = (extra = {}) => ({
   event: 'order.success', mode: 'live', order_id: '123', invoice_id: '9', currency: 'EUR', order_timestamp: '1792400000',
   base_product: '7', base_product_name: 'Entrada VIP El Camino', 'customer[email]': 'Ana@Ejemplo.com', 'customer[name]': 'Ana',
-  'order[total]': '900', 'order[total_str]': '9.00', ...extra,
+  // Como lo manda ThriveCart: el total sin IVA y el IVA aparte (9 € pagados = 7,43 + 1,57)
+  'order[total]': '743', 'order[total_str]': '7.43', 'order[tax]': '157', 'order[tax_str]': '1.57', ...extra,
 });
 
 test('thrivecart: del aviso a una venta (importe, email, producto, fecha)', () => {
@@ -27,8 +28,8 @@ test('thrivecart: del aviso a una venta (importe, email, producto, fecha)', () =
 
 test('thrivecart: sin repetir avisos y resumen del lanzamiento (leads, reembolsos, fuera, pruebas)', () => {
   let lista = [];
-  for (const b of [aviso(), aviso(), aviso({ order_id: '124', 'customer[email]': 'otra@x.com', 'order[total_str]': '97.00' }),
-    aviso({ event: 'order.refund', 'refund[amount_str]': '9.00' }), aviso({ order_id: '125', mode: 'test', 'order[total_str]': '50.00' })]) {
+  for (const b of [aviso(), aviso(), aviso({ order_id: '124', 'customer[email]': 'otra@x.com', 'order[total_str]': '97.00', 'order[tax_str]': '0', 'order[tax]': '0' }),
+    aviso({ event: 'order.refund', 'refund[amount_str]': '9.00' }), aviso({ order_id: '125', mode: 'test', 'order[total_str]': '50.00', 'order[tax_str]': '0', 'order[tax]': '0' })]) {
     lista = anadirVenta(lista, ventaDeWebhook(b)).lista;
   }
   assert.equal(lista.length, 4, 'el aviso repetido no se guarda dos veces');
@@ -227,4 +228,31 @@ test('ThriveCart: el producto no se lee de una columna de precio y, con bumps, e
   const res = resumenThrivecart(rep, new Set(), { productos: ['Entrada VIP'] });
   assert.equal(res.cobros, 2);
   assert.deepEqual(res.extras.map((e) => `${e.nombre}:${e.n}`), ['Alimentación fértil:1']);
+});
+
+test('ThriveCart: el aviso suma el IVA, los bumps por su item_type, y las VIP por aviso cuentan con lo elegido por el CSV', async () => {
+  const { ventaDeWebhook, repararVentas, resumenThrivecart } = await import('../public/js/thrivecart.js');
+  // Aviso nuevo: total y líneas sin IVA, el IVA aparte; type «single» e item_type el tipo de verdad
+  const v = ventaDeWebhook({ event: 'order.success', order_id: '9', base_product: '29', base_product_name: 'Entrada VIP', 'customer[email]': 'a@x.com',
+    'order[total]': '2543', 'order[tax]': '534', 'order[charges][0][name]': 'Entrada VIP', 'order[charges][0][amount]': '743', 'order[charges][0][type]': 'single', 'order[charges][0][item_type]': 'product',
+    'order[charges][1][name]': '5 errores', 'order[charges][1][amount]': '900', 'order[charges][1][type]': 'single', 'order[charges][1][item_type]': 'bump',
+    'order[charges][2][name]': 'Alimentación fértil', 'order[charges][2][amount]': '900', 'order[charges][2][type]': 'single', 'order[charges][2][item_type]': 'bump' });
+  assert.equal(v.importe, 30.77);
+  assert.equal(v.impuesto, 5.34);
+  assert.deepEqual(v.lineas.map((l) => `${l.tipo}:${l.importe}`), ['producto:8.99', 'bump:10.89', 'bump:10.89']);
+  // Guardados antes: CSV con el producto mal leído («7.43») y avisos sin IVA, con otro ID y los bumps como producto
+  const csv = { tipo: 'cobro', importada: true, evento: 'csv.cobro', email: 'c@x.com', importe: 8.99, producto: '7.43', fecha: 1, lineas: [{ nombre: 'Entrada VIP', tipo: 'producto', importe: 8.99 }] };
+  const aviso = (email, importe, lineas) => ({ tipo: 'cobro', evento: 'order.success', email, importe, producto: 'Entrada VIP', productoId: '29', fecha: 2, lineas });
+  const viejas = [csv, aviso('d@x.com', 7.43, [{ nombre: 'Entrada VIP', tipo: 'producto', importe: 7.43 }]),
+    aviso('e@x.com', 25.43, [{ nombre: '5 errores', tipo: 'producto', importe: 9 }, { nombre: 'Alimentación fértil', tipo: 'producto', importe: 9 }, { nombre: 'Entrada VIP', tipo: 'producto', importe: 7.43 }])];
+  const rep = repararVentas(viejas);
+  assert.deepEqual(rep.map((x) => x.importe), [8.99, 8.99, 30.77]);
+  assert.deepEqual(rep[2].lineas.map((l) => l.tipo), ['bump', 'bump', 'producto']);
+  // En Configuración están «26» (otro ID) y «7.43» (el del CSV): los avisos con el ID 29 también cuentan, por su nombre
+  const r = resumenThrivecart(rep, new Set(), { productos: ['26', '7.43'] });
+  assert.equal(r.cobros, 3);
+  assert.equal(r.cobrado, 48.75);
+  assert.deepEqual(r.extras.map((e) => `${e.nombre}:${e.n}`).sort(), ['5 errores:1', 'Alimentación fértil:1']);
+  // Un aviso nuevo (con su IVA) no se toca
+  assert.equal(repararVentas([v])[0].importe, 30.77);
 });
