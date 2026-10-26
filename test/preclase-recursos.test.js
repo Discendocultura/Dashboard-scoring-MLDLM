@@ -15,10 +15,11 @@ test('preclase de varios recursos: la lista tiene los que pide el embudo y se li
 
 test('preclase de varios recursos: sin clases ni recursos de clase, y cada recurso es una etapa', () => {
   const launch = { preclase: true, preclaseTipo: 'recursos', nClases: 2, recursosPre: { descargable: { activo: true, url: 'https://x.com/b.pdf' } },
-    listaRecursos: [{ nombre: 'Vídeo 1', tipo: 'video', url: 'https://vimeo.com/1', at: '' }, { nombre: 'Sin enlace', tipo: 'enlace', url: '', at: '' }, { nombre: 'Audio', tipo: 'audio', url: 'https://x.com/a.mp3', at: '' }] };
+    listaRecursos: [{ nombre: 'Vídeo 1', tipo: 'video', url: 'https://vimeo.com/1', at: '' }, { nombre: 'Sin enlace', tipo: 'enlace', url: '', at: '' }, { nombre: 'Audio', tipo: 'audio', url: 'https://x.com/a.mp3', at: '' }, { nombre: '', tipo: 'video', url: '', at: '' }] };
   assert.equal(nClases(launch), 0);
   assert.equal(tieneRecurso(launch, 'descargable'), false);
-  assert.deepEqual(etapasPreclase(launch, nClases(launch)).map((e) => e.id), ['r1', 'r3', 'directo']);
+  // El que aún no tiene enlace también es etapa (sale bloqueado); el hueco vacío, no.
+  assert.deepEqual(etapasPreclase(launch, nClases(launch)).map((e) => e.id), ['r1', 'r2', 'r3', 'directo']);
   assert.equal(nClases({ ...launch, preclaseTipo: 'clases' }), 2);
 });
 

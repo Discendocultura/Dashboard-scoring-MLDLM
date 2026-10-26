@@ -18,7 +18,7 @@ import { phaseAt, barFor, replayBarraDe, ventaBarraDe, textosPago, enlaceWhatsAp
 import { videosDe, conVip, nClases, esEnDirecto, sigReplay } from '../public/js/videos.js';
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
-import { recursosDe, tieneRecurso, etapasPreclase, preguntasValidas, UMBRAL_DESBLOQUEO, listaRecursosDe } from '../public/js/recursos.js';
+import { recursosDe, tieneRecurso, etapasPreclase, preguntasValidas, UMBRAL_DESBLOQUEO, listaRecursosDe, recursoListaVisible } from '../public/js/recursos.js';
 import { votoDe, votosDe, resultadosVotos, claveVotos } from '../lib/votos.js';
 
 export function OPTIONS() {
@@ -274,10 +274,13 @@ async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, p
   }
   // Preclase de varios recursos: la lista, cada uno con su fecha de desbloqueo (y la encuesta antes, si la hay).
   if (launch.preclaseTipo === 'recursos') {
-    recursos.lista = listaRecursosDe(launch).map((x, i) => ({ ...x, n: i + 1 })).filter((x) => x.url).map((x) => {
+    // También los que aún no tienen enlace (con nombre o fecha): salen con su candado y su fecha; si ya pasó la
+    // fecha y sigue sin enlace, «Muy pronto disponible». Los huecos vacíos, no.
+    recursos.lista = listaRecursosDe(launch).map((x, i) => ({ ...x, n: i + 1 })).filter(recursoListaVisible).map((x) => {
       const at = madridToEpoch(x.at);
       const unlocked = at == null || now >= at || (preview && !contact);
-      return { n: x.n, id: `r${x.n}`, nombre: x.nombre, tipo: x.tipo, texto: x.texto, unlockAt: at, unlockText: formatLong(at), unlocked, faltaEncuesta: !encuestaDone, url: unlocked && encuestaDone ? x.url : '' };
+      const sinEnlace = unlocked && !x.url;
+      return { n: x.n, id: `r${x.n}`, nombre: x.nombre, tipo: x.tipo, texto: x.texto, unlockAt: sinEnlace ? null : at, unlockText: sinEnlace ? '' : formatLong(at), unlocked: unlocked && !sinEnlace, faltaEncuesta: !encuestaDone, url: unlocked && encuestaDone ? x.url || '' : '' };
     });
   }
   const enDirecto = m.directo != null && now >= m.directo - 30 * 60_000;

@@ -44,6 +44,8 @@ export function sanitizeListaRecursos(arr, n = 3) {
   });
 }
 export const listaRecursosDe = (launch) => (Array.isArray(launch?.listaRecursos) ? launch.listaRecursos : []);
+// Un recurso de la lista se enseña (y es etapa) si tiene algo: enlace, nombre o fecha. Sin enlace, bloqueado.
+export const recursoListaVisible = (x) => Boolean(x && (x.url || String(x.nombre || '').trim() || x.at));
 export const UMBRAL_DESBLOQUEO = 75; // % de la clase que hay que ver para la música y la votación
 
 const str = (v, max) => String(v ?? '').trim().slice(0, max);
@@ -150,7 +152,7 @@ export function etapasPreclase(launch, nClases = 2) {
   if (tieneRecurso(launch, 'test') && !r.test.tras) items.push({ id: 'test', tipo: 'test', label: r.test.nombre || 'Test', at: madridToEpoch(r.test.at) });
   if (tieneRecurso(launch, 'descargable')) items.push({ id: 'descargable', tipo: 'descargable', label: r.descargable.nombre || 'Recurso', at: madridToEpoch(r.descargable.at) });
   // Preclase de varios recursos: cada recurso de la lista es una etapa.
-  if (launch?.preclaseTipo === 'recursos') listaRecursosDe(launch).forEach((x, i) => { if (x.url) items.push({ id: `r${i + 1}`, tipo: 'recurso', label: x.nombre || `Recurso ${i + 1}`, at: madridToEpoch(x.at) }); });
+  if (launch?.preclaseTipo === 'recursos') listaRecursosDe(launch).forEach((x, i) => { if (recursoListaVisible(x)) items.push({ id: `r${i + 1}`, tipo: 'recurso', label: x.nombre || `Recurso ${i + 1}`, at: madridToEpoch(x.at) }); });
   // Por fecha; sin fecha, en el orden en que están (clases, test, descargable) y al final.
   // (La preclase de varios recursos va en el orden en que se pusieron.)
   const orden = launch?.preclaseTipo === 'recursos' ? items : items.map((x, i) => ({ ...x, i })).sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity) || a.i - b.i);
