@@ -144,7 +144,11 @@
     '#lsd-encuesta .lsd-enc-marco{width:100%;height:min(70vh,760px);border-radius:14px;overflow:hidden;background:#fff;border:1px solid rgba(0,0,0,.08)}' +
     '#lsd-encuesta .lsd-enc-marco iframe{display:block;width:100%;height:100%;border:0}' +
     '#lsd-encuesta .lsd-enc-btn-sec{margin-top:12px;padding:10px 14px;background:none;color:inherit;border:1.5px solid currentColor;font-size:14px;opacity:.85}' +
-    '@keyframes lsdEncIn{from{opacity:0}to{opacity:1}}@media (prefers-reduced-motion:reduce){#lsd-encuesta{animation:none}}';
+    '#lsd-encuesta.lsd-enc-popup{background:var(--lsd-enc-fondo-popup,rgba(20,14,12,.62));-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}' +
+    '#lsd-encuesta.lsd-enc-popup .lsd-enc-c{max-width:440px;animation:lsdEncPop .35s cubic-bezier(.2,.9,.3,1.2) both}' +
+    '#lsd-encuesta .lsd-enc-c>p.lsd-enc-txt{white-space:pre-line}' +
+    '@keyframes lsdEncIn{from{opacity:0}to{opacity:1}}@keyframes lsdEncPop{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}' +
+    '@media (prefers-reduced-motion:reduce){#lsd-encuesta,#lsd-encuesta .lsd-enc-c{animation:none}}';
   CSS +=
     '#lsd-espera{position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100%;inset:0;z-index:2147483000;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;box-sizing:border-box;' +
     'background:var(--lsd-espera-fondo,radial-gradient(120% 80% at 50% 0%,#fffaf5 0%,#f6ebe1 55%,#f0e4da 100%));color:var(--lsd-espera-texto,#3a2a24);font-family:Lato,Helvetica,Arial,sans-serif;text-align:center;animation:lsdEspIn .6s ease both}' +
@@ -1295,10 +1299,36 @@
     return { at: data.countdownTo, desde: data.countdownTo - ESPERA_MIN * 60000, key: key };
   }
   var esperaTimer = null;
-  // Encuesta primero: en la preclase, si el lanzamiento tiene encuesta y aún no la ha rellenado, lo primero que ve
-  // tras entrar es esta pantalla (encima de todo); hasta rellenarla no ve la página. Al volver de la encuesta (otra
-  // pestaña) o con «Ya la he rellenado», se comprueba y se quita sola. Sin ella en una página: data-encuesta-primero="no"
-  // en el bloque base. Textos: los de la página (Configuración) «encuesta-titulo», «encuesta-texto» y «encuesta-boton».
+  // El copy de la encuesta tal como está en la propia página de la preclase: su sección (la que lleva
+  // data-encuesta-popup, data-lsd-etapa="encuesta", data-lsd-if="encuesta-pendiente" o el botón de la encuesta) →
+  // { titulo, texto } con su primer título y su primer párrafo. Vacío si la página no la tiene.
+  function copyEncuestaPagina() {
+    var dentroPopup = function (x) { return x.closest && x.closest('#lsd-encuesta'); };
+    var cands = Array.prototype.slice.call(document.querySelectorAll('[data-encuesta-popup], [data-lsd-etapa="encuesta"], [data-lsd-if="encuesta-pendiente"], [data-lsd-link="encuesta"]'))
+      .filter(function (x) { return !dentroPopup(x); });
+    var txt = function (x) { return x ? String(x.textContent || '').replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim() : ''; };
+    for (var k = 0; k < cands.length; k++) {
+      // Del elemento hacia arriba (hasta 6 niveles), la primera caja que tenga un título; sin pasar a la página entera.
+      var caja = cands[k];
+      for (var n = 0; caja && caja !== document.body && n < 7; n++, caja = caja.parentElement) {
+        var hs = caja.querySelectorAll('h1,h2,h3,h4');
+        if (!hs.length) continue;
+        if (hs.length > 3) break; // ya es media página: no es la sección de la encuesta
+        var titulo = txt(hs[0]);
+        var ps = Array.prototype.filter.call(caja.querySelectorAll('p'), function (p) { return txt(p) && !p.closest('a,button') && !p.querySelector('a,button'); });
+        if (titulo) return { titulo: titulo.slice(0, 160), texto: ps.slice(0, 2).map(txt).join('\n').slice(0, 500) };
+        break;
+      }
+    }
+    return { titulo: '', texto: '' };
+  }
+
+  // Encuesta primero: en la preclase (todos los lanzamientos de todos los clientes), si el lanzamiento tiene encuesta y
+  // quien entra aún no la ha rellenado, al iniciar sesión sale este popup encima de la página: el mismo copy de la
+  // encuesta que hay en la página (si no, los textos de Configuración «encuesta-titulo» / «encuesta-texto») y el botón
+  // «Personalizar experiencia», que abre la encuesta en otra pestaña. Al volver (o con «Ya la he rellenado») se
+  // comprueba y se quita solo; también cada 8 s. Sin él en una página: data-encuesta-primero="no" en el bloque base.
+  // Con data-encuesta-dentro="si", en vez del popup, la pantalla completa con la encuesta dentro.
   function pantallaEncuesta(data, who, comprobar) {
     var el = document.getElementById('lsd-encuesta');
     var base = document.querySelector('[data-lsd-page]');
@@ -1314,20 +1344,22 @@
     var t = data.texts || {};
     var nombre = ''; // el nombre va en el enlace de la encuesta (para rellenarla); se saluda con él
     try { nombre = String(new URL(href, location.href).searchParams.get('first_name') || '').trim().split(' ')[0].slice(0, 30); } catch (e) { /* sin nombre */ }
+    var dentro = Boolean(base && base.getAttribute('data-encuesta-dentro') === 'si');
+    var pagina = dentro ? { titulo: '', texto: '' } : copyEncuestaPagina();
+    var titulo = pagina.titulo || t['encuesta-titulo'] || ((nombre ? nombre + ', a' : 'A') + 'ntes de entrar, cuéntanos un poco sobre ti');
+    var texto = pagina.titulo ? pagina.texto : t['encuesta-texto'] || (dentro ? 'Rellena esta encuesta de un minuto. En cuanto la termines, se abre tu área con todo el contenido.' : 'Para entrar tienes que completar la encuesta. Es solo un minuto y así personalizamos tu experiencia.');
+    var boton = (base && base.getAttribute('data-encuesta-boton')) || 'Personalizar experiencia';
     el = document.createElement('div');
     el.id = 'lsd-encuesta';
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-modal', 'true');
     el.setAttribute('aria-labelledby', 'lsd-enc-t');
-    // La encuesta se abre aquí mismo (dentro de la pantalla), sin tener que pulsar nada; si no se pudiera ver, el
-    // botón la abre en otra pestaña. Al terminarla, la etiqueta llega a GHL y la pantalla se quita sola.
-    var dentro = !(base && base.getAttribute('data-encuesta-dentro') === 'no');
-    el.className = dentro ? 'lsd-enc-dentro' : '';
-    el.innerHTML = '<div class="lsd-enc-c"><p class="lsd-enc-ico" aria-hidden="true">📝</p><p class="lsd-enc-paso">Paso 1 · antes de empezar</p>' +
-      '<h2 id="lsd-enc-t">' + esc(t['encuesta-titulo'] || ((nombre ? nombre + ', a' : 'A') + 'ntes de entrar, cuéntanos un poco sobre ti')) + '</h2>' +
-      '<p>' + esc(t['encuesta-texto'] || (dentro ? 'Rellena esta encuesta de un minuto. En cuanto la termines, se abre tu área con todo el contenido.' : 'Es solo un minuto. En cuanto la termines, se abre tu área con todo el contenido.')) + '</p>' +
+    el.className = dentro ? 'lsd-enc-dentro' : 'lsd-enc-popup';
+    el.innerHTML = '<div class="lsd-enc-c"><p class="lsd-enc-ico" aria-hidden="true">📝</p>' + (dentro ? '<p class="lsd-enc-paso">Paso 1 · antes de empezar</p>' : '') +
+      '<h2 id="lsd-enc-t">' + esc(titulo) + '</h2>' +
+      (texto ? '<p class="lsd-enc-txt">' + esc(texto) + '</p>' : '') +
       (dentro ? '<div class="lsd-enc-marco"><iframe src="' + esc(href) + '" title="Encuesta" loading="eager" allow="clipboard-write"></iframe></div>' : '') +
-      '<a class="lsd-enc-btn' + (dentro ? ' lsd-enc-btn-sec' : '') + '" href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(dentro ? '¿No se ve la encuesta? Ábrela aquí' : t['encuesta-boton'] || 'Rellenar la encuesta') + '</a>' +
+      '<a class="lsd-enc-btn' + (dentro ? ' lsd-enc-btn-sec' : '') + '" href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(dentro ? '¿No se ve la encuesta? Ábrela aquí' : boton) + '</a>' +
       '<button type="button" class="lsd-enc-ya">Ya la he rellenado</button><p class="lsd-enc-msg" aria-live="polite"></p></div>';
     el.querySelector('.lsd-enc-ya').addEventListener('click', function () {
       var m = el.querySelector('.lsd-enc-msg');
@@ -1335,10 +1367,13 @@
       m.setAttribute('data-esperando', '1');
       comprobar();
     });
+    if (!dentro) el.querySelector('.lsd-enc-btn').addEventListener('click', function () {
+      el.querySelector('.lsd-enc-msg').textContent = 'Cuando la termines, vuelve a esta pestaña: se abrirá sola.';
+    });
     document.body.appendChild(el);
     document.documentElement.style.overflow = 'hidden';
-    // Mientras está la pantalla, se comprueba cada 8 s si ya llegó la encuesta; y al enviar el formulario de la
-    // encuesta (el marco cambia de página), a los 3 s.
+    // Mientras está, se comprueba cada 8 s si ya llegó la encuesta; con la encuesta dentro, también al enviarla (el
+    // marco cambia de página), a los 3 s.
     el.lsdTimer = setInterval(function () { if (!document.hidden) comprobar(); }, 8000);
     var ifr = el.querySelector('iframe'), cargas = 0;
     if (ifr) ifr.addEventListener('load', function () { cargas++; if (cargas > 1) setTimeout(comprobar, 3000); });
