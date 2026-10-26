@@ -139,6 +139,11 @@
     '#lsd-encuesta .lsd-enc-btn{display:block;width:100%;padding:16px 18px;border-radius:999px;background:var(--lsd-acento,#b4552d);color:#fff;font-weight:700;font-size:16px;text-decoration:none;box-sizing:border-box}' +
     '#lsd-encuesta .lsd-enc-ya{display:inline-block;margin-top:14px;padding:6px 10px;border:0;background:none;color:inherit;font:inherit;font-size:14px;text-decoration:underline;opacity:.75;cursor:pointer}' +
     '#lsd-encuesta .lsd-enc-msg{min-height:1.4em;margin:8px 0 0;font-size:14px;opacity:.8}' +
+    '#lsd-encuesta.lsd-enc-dentro{align-items:flex-start;padding:12px}#lsd-encuesta.lsd-enc-dentro .lsd-enc-c{max-width:720px;padding:20px 16px 16px}' +
+    '#lsd-encuesta.lsd-enc-dentro .lsd-enc-ico{font-size:30px;margin-bottom:6px}#lsd-encuesta.lsd-enc-dentro h2{font-size:clamp(19px,4.5vw,24px)}#lsd-encuesta.lsd-enc-dentro p{margin-bottom:12px}' +
+    '#lsd-encuesta .lsd-enc-marco{width:100%;height:min(70vh,760px);border-radius:14px;overflow:hidden;background:#fff;border:1px solid rgba(0,0,0,.08)}' +
+    '#lsd-encuesta .lsd-enc-marco iframe{display:block;width:100%;height:100%;border:0}' +
+    '#lsd-encuesta .lsd-enc-btn-sec{margin-top:12px;padding:10px 14px;background:none;color:inherit;border:1.5px solid currentColor;font-size:14px;opacity:.85}' +
     '@keyframes lsdEncIn{from{opacity:0}to{opacity:1}}@media (prefers-reduced-motion:reduce){#lsd-encuesta{animation:none}}';
   CSS +=
     '#lsd-espera{position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100%;inset:0;z-index:2147483000;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;box-sizing:border-box;' +
@@ -1300,7 +1305,8 @@
     var href = (data.links || {}).encuesta;
     var poner = Boolean(who && who.cid && enc.required && !enc.done && href && !(base && base.getAttribute('data-encuesta-primero') === 'no'));
     if (!poner) {
-      if (el) { el.parentNode.removeChild(el); if (!document.getElementById('lsd-espera')) document.documentElement.style.overflow = ''; }
+      if (who && who.cid && enc.required && !enc.done && !href && window.console) console.warn('[lsd] el lanzamiento pide encuesta pero no tiene su URL: ponla en Configuración (URL de la encuesta) para que salga al entrar.');
+      if (el) { clearInterval(el.lsdTimer); el.parentNode.removeChild(el); if (!document.getElementById('lsd-espera')) document.documentElement.style.overflow = ''; }
       return;
     }
     if (el) { el.querySelector('.lsd-enc-btn').setAttribute('href', href); var m = el.querySelector('.lsd-enc-msg'); if (m.getAttribute('data-esperando')) { m.removeAttribute('data-esperando'); m.textContent = 'Aún no nos ha llegado. Si acabas de terminarla, espera unos segundos y vuelve a pulsar.'; } return; }
@@ -1312,10 +1318,15 @@
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-modal', 'true');
     el.setAttribute('aria-labelledby', 'lsd-enc-t');
+    // La encuesta se abre aquí mismo (dentro de la pantalla), sin tener que pulsar nada; si no se pudiera ver, el
+    // botón la abre en otra pestaña. Al terminarla, la etiqueta llega a GHL y la pantalla se quita sola.
+    var dentro = !(base && base.getAttribute('data-encuesta-dentro') === 'no');
+    el.className = dentro ? 'lsd-enc-dentro' : '';
     el.innerHTML = '<div class="lsd-enc-c"><p class="lsd-enc-ico" aria-hidden="true">📝</p><p class="lsd-enc-paso">Paso 1 · antes de empezar</p>' +
       '<h2 id="lsd-enc-t">' + esc(t['encuesta-titulo'] || ((nombre ? nombre + ', a' : 'A') + 'ntes de entrar, cuéntanos un poco sobre ti')) + '</h2>' +
-      '<p>' + esc(t['encuesta-texto'] || 'Es solo un minuto. En cuanto la termines, se abre tu área con todo el contenido.') + '</p>' +
-      '<a class="lsd-enc-btn" href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(t['encuesta-boton'] || 'Rellenar la encuesta') + '</a>' +
+      '<p>' + esc(t['encuesta-texto'] || (dentro ? 'Rellena esta encuesta de un minuto. En cuanto la termines, se abre tu área con todo el contenido.' : 'Es solo un minuto. En cuanto la termines, se abre tu área con todo el contenido.')) + '</p>' +
+      (dentro ? '<div class="lsd-enc-marco"><iframe src="' + esc(href) + '" title="Encuesta" loading="eager" allow="clipboard-write"></iframe></div>' : '') +
+      '<a class="lsd-enc-btn' + (dentro ? ' lsd-enc-btn-sec' : '') + '" href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(dentro ? '¿No se ve la encuesta? Ábrela aquí' : t['encuesta-boton'] || 'Rellenar la encuesta') + '</a>' +
       '<button type="button" class="lsd-enc-ya">Ya la he rellenado</button><p class="lsd-enc-msg" aria-live="polite"></p></div>';
     el.querySelector('.lsd-enc-ya').addEventListener('click', function () {
       var m = el.querySelector('.lsd-enc-msg');
@@ -1325,6 +1336,11 @@
     });
     document.body.appendChild(el);
     document.documentElement.style.overflow = 'hidden';
+    // Mientras está la pantalla, se comprueba cada 8 s si ya llegó la encuesta; y al enviar el formulario de la
+    // encuesta (el marco cambia de página), a los 3 s.
+    el.lsdTimer = setInterval(function () { if (!document.hidden) comprobar(); }, 8000);
+    var ifr = el.querySelector('iframe'), cargas = 0;
+    if (ifr) ifr.addEventListener('load', function () { cargas++; if (cargas > 1) setTimeout(comprobar, 3000); });
   }
 
   function quitarEspera() {
