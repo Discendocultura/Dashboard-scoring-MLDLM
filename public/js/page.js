@@ -23,13 +23,17 @@ export const PHASE_IDS = [
 
 // Fases de la página según el prelanzamiento (1, 2 o 3 clases; con o sin VIP) y los vídeos del
 // lanzamiento. Con 2 clases, VIP y un vídeo (el webinar de siempre), las de siempre.
+// Cómo se llama cada vídeo en los textos de la barra: si es en directo, «directo 1», «directo 2»… (no «Vídeo 1»);
+// los retos y el PLF, con su nombre («Día 2», «PLC 3»). `primero`: «el 1er directo».
+const ORD = (k) => `${k}${k === 1 || k === 3 ? 'er' : 'º'}`;
+const nombreBarra = (v) => (esEnDirecto(v) && /^v[ií]deo \d+$/i.test(v.nombre) ? `directo ${v.k}` : v.nombre);
 export function phasesFor(launch) {
   const vs = videosDe(launch);
   const nc = nClases(launch);
   const vip = conVip(launch);
   if (vs.length <= 1 && nc === 2 && vip) return PHASES;
   const botonClase = vip ? 'vip' : 'whatsapp';
-  const primero = vs.length > 1 ? `el ${vs[0].nombre}` : 'el directo';
+  const primero = vs.length > 1 ? (nombreBarra(vs[0]).startsWith('directo') ? `el ${ORD(1)} directo` : `el ${vs[0].nombre}`) : 'el directo';
   // Sin área preclase (sin clases): la primera fase es la cuenta atrás hasta el primer vídeo.
   const out = [nc ? { ...PHASES[0] } : { ...PHASES[0], label: 'Antes del directo', button: 'whatsapp', text: `${primero.charAt(0).toUpperCase()}${primero.slice(1)} empieza en {cuenta}` }];
   for (let i = 1; i <= nc; i++) {
@@ -42,15 +46,17 @@ export function phasesFor(launch) {
   for (const v of vs) {
     const s = suf(v.k);
     const directo = esEnDirecto(v);
-    out.push({ id: `dia_directo${s}`, label: `Día del ${v.nombre} (antes de empezar)`, button: directo ? `directo${s}` : '', text: `Hoy es el ${v.nombre} · Empieza en {cuenta}` });
-    out.push({ id: `en_directo${s}`, label: directo ? `${v.nombre} en directo (hasta las 00:00)` : `${v.nombre} recién publicado (hasta las 00:00)`, button: directo ? `directo${s}` : `grabacion${s}`, text: directo ? '🔴 Estamos en directo' : `Ya está disponible el ${v.nombre}` });
+    const n = nombreBarra(v);
+    const visto = directo ? `la grabación del ${n}` : `el ${n}`; // lo que se puede ver después
+    out.push({ id: `dia_directo${s}`, label: `Día del ${n} (antes de empezar)`, button: directo ? `directo${s}` : '', text: `Hoy es el ${n} · Empieza en {cuenta}` });
+    out.push({ id: `en_directo${s}`, label: directo ? `${n.charAt(0).toUpperCase()}${n.slice(1)} en marcha (hasta las 00:00)` : `${n} recién publicado (hasta las 00:00)`, button: directo ? `directo${s}` : `grabacion${s}`, text: directo ? `🔴 Estamos en el ${n}` : `Ya está disponible el ${n}` });
     if (!v.venta) {
       const sig = vs[v.k];
-      out.push({ id: `v${v.k}`, label: `${v.nombre} disponible`, button: `grabacion${s}`, text: `Ya puedes ver el ${v.nombre} · El ${sig.nombre} empieza en {cuenta}` });
+      out.push({ id: `v${v.k}`, label: `${directo ? `Grabación del ${n}` : n} disponible`, button: `grabacion${s}`, text: `Ya puedes ver ${visto} · El ${nombreBarra(sig)} empieza en {cuenta}` });
     }
   }
   const ultimo = vs.at(-1);
-  out.push({ id: 'replay', label: 'Carrito abierto', button: 'venta', text: `El ${ultimo.nombre} se retira en {cuenta}` });
+  out.push({ id: 'replay', label: 'Carrito abierto', button: 'venta', text: `${esEnDirecto(ultimo) ? `La grabación del ${nombreBarra(ultimo)}` : `El ${ultimo.nombre}`} se retira en {cuenta}` });
   out.push(PHASES.at(-1));
   return out;
 }
@@ -61,7 +67,7 @@ export const LINK_KEYS = {
   vip: 'Comprar entrada VIP',
   directo: 'Entrar al directo',
   grabacion: 'Ver la grabación',
-  ...Object.fromEntries(otrosVideos.flatMap((k) => [[`directo${k}`, `Entrar al vídeo ${k} (directo)`], [`grabacion${k}`, `Ver el vídeo ${k}`]])),
+  ...Object.fromEntries(otrosVideos.flatMap((k) => [[`directo${k}`, `Entrar al directo ${k}`], [`grabacion${k}`, `Ver la grabación ${k}`]])),
   venta: 'Página de venta de Raíces',
   'pagina-pago': 'Página de pago (único o fraccionado)',
   pago: 'Pago único de Raíces',

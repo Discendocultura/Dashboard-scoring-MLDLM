@@ -233,6 +233,9 @@
     '.lsd-com-q{margin:4px 0 0;font-size:.82em;opacity:.7}.lsd-com-texto{margin:4px 0 0;white-space:pre-line;overflow-wrap:anywhere;line-height:1.5}' +
     '.lsd-com-resp{display:flex;gap:8px;margin-top:10px;padding:10px;border-radius:10px;background:#faf3ee;border-left:3px solid var(--lsd-com-ac)}.lsd-com-resp p{margin:2px 0 0;white-space:pre-line;overflow-wrap:anywhere}' +
     '.lsd-com-vacio{margin:6px 0 0;padding:14px;text-align:center;border-radius:12px;border:1px dashed #e2d8cf;opacity:.85}.lsd-com-mas{display:block;margin:12px auto 0;padding:9px 16px;border-radius:999px;border:1px solid #e2d8cf;background:#fff;font:inherit;cursor:pointer}' +
+    '.lsd-com-pag{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}.lsd-com-pag .lsd-com-mas{margin:12px 0 0}.lsd-com-mas span{opacity:.7}.lsd-com-menos{margin:12px 0 0;padding:9px 14px;border:0;background:none;font:inherit;text-decoration:underline;opacity:.75;cursor:pointer;color:inherit}' +
+    '.lsd-com-largo{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}.lsd-com-largo.lsd-com-abierto{display:block;-webkit-line-clamp:unset;overflow:visible}' +
+    '.lsd-com-leer{margin:4px 0 0;padding:0;border:0;background:none;font:inherit;font-size:.9em;font-weight:700;color:var(--lsd-com-ac);cursor:pointer}' +
     '.lsd-com-cerrado{display:flex;gap:10px;align-items:center;opacity:.85}' +
     '.lsd-lista{display:flex;flex-direction:column;gap:16px}.lsd-lista-item{padding:18px;border-radius:16px;border:1px solid #e9dfd6;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.05)}' +
     '.lsd-lista-lock{background:#faf7f4}.lsd-lista-t{display:flex;align-items:center;gap:10px;margin:0 0 8px;font-weight:700;font-size:1.05em}' +
@@ -1129,7 +1132,11 @@
       // data-una-respuesta: las preguntas se muestran como lista y se responde a todas en un solo comentario (no
       // hay que elegir; se guarda con la primera pregunta).
       var una = attrs.hasAttribute('data-una-respuesta');
-      var st = bag[k] || (bag[k] = { sel: c.preguntas.length === 1 || una ? c.preguntas[0].id : '', filtro: '', max: 8, texto: '' });
+      // Cuántos comentarios se ven de entrada y cuántos más con cada «Ver más comentarios» (sin scroll infinito):
+      // 5 y 5, o los de data-comentarios-inicio / data-comentarios-paso en el bloque. Los largos, recortados con «Leer más».
+      var inicio = Math.max(1, parseInt(attrs.getAttribute('data-comentarios-inicio'), 10) || 5);
+      var paso = Math.max(1, parseInt(attrs.getAttribute('data-comentarios-paso'), 10) || 5);
+      var st = bag[k] || (bag[k] = { sel: c.preguntas.length === 1 || una ? c.preguntas[0].id : '', filtro: '', max: inicio, texto: '' });
       if (una && !st.sel) st.sel = c.preguntas[0].id;
       // Clase aún no disponible: un aviso y nada más.
       if (!c.abierta) {
@@ -1172,7 +1179,7 @@
         return '<li class="lsd-com-item' + (x.destacado ? ' destacado' : '') + (x.mio ? ' mio' : '') + '"><span class="lsd-com-av">' + esc((x.nombre || '?').charAt(0).toUpperCase()) + '</span><div class="lsd-com-c">' +
           '<div class="lsd-com-meta"><b>' + esc(x.nombre) + '</b>' + (x.mio ? '<span class="lsd-com-chip">Tú</span>' : '') + (x.destacado ? '<span class="lsd-com-chip dest">⭐ Destacado</span>' : '') + '<time datetime="' + esc(x.en) + '">' + haceCuanto(x.en) + '</time></div>' +
           (q && c.preguntas.length > 1 ? '<p class="lsd-com-q">Pregunta ' + q.n + ' · ' + esc(q.texto) + '</p>' : '') +
-          '<p class="lsd-com-texto">' + esc(x.texto) + '</p>' +
+          '<p class="lsd-com-texto' + (x.texto.length > 280 ? ' lsd-com-largo' : '') + '">' + esc(x.texto) + '</p>' + (x.texto.length > 280 ? '<button type="button" class="lsd-com-leer">Leer más</button>' : '') +
           (x.respuesta ? '<div class="lsd-com-resp"><span class="lsd-com-av marca">' + esc(firma.charAt(0).toUpperCase()) + '</span><div><b>' + esc(firma) + '</b> <span class="lsd-com-chip">Equipo</span><p>' + esc(x.respuesta) + '</p></div></div>' : '') +
           '</div></li>';
       };
@@ -1181,13 +1188,20 @@
         : '<header class="lsd-com-head"><span class="lsd-com-ico">💬</span><div><p class="lsd-com-kicker">' + esc(attrs.getAttribute('data-kicker') || 'Clase ' + n + ' · Comparte tu respuesta') + '</p><h3 class="lsd-com-titulo">' + esc(titulo) + '</h3></div><span class="lsd-com-n">' + c.total + (c.total === 1 ? ' comentario' : ' comentarios') + '</span></header>';
       el.innerHTML = (enBloque ? '<div class="lsd-com-in" data-clase="' + esc(k) + '">' : '<section class="lsd-com" data-clase="' + esc(k) + '">') + cabeza +
         form + filtros +
-        (lista.length ? '<ol class="lsd-com-lista">' + lista.slice(0, st.max).map(item).join('') + '</ol>' + (lista.length > st.max ? '<button type="button" class="lsd-com-mas">Ver más comentarios (' + (lista.length - st.max) + ')</button>' : '') : '<p class="lsd-com-vacio">' + (c.comentarios.length ? 'Aún no hay respuestas a esta pregunta.' : 'Sé la primera en responder ✨') + '</p>') +
+        (lista.length ? '<ol class="lsd-com-lista">' + lista.slice(0, st.max).map(item).join('') + '</ol>' + '<div class="lsd-com-pag">' + (lista.length > st.max ? '<button type="button" class="lsd-com-mas">Ver más comentarios <span>(quedan ' + (lista.length - st.max) + ')</span></button>' : '') + (st.max > inicio && lista.length > inicio ? '<button type="button" class="lsd-com-menos">Ver menos</button>' : '') + '</div>' : '<p class="lsd-com-vacio">' + (c.comentarios.length ? 'Aún no hay respuestas a esta pregunta.' : 'Sé la primera en responder ✨') + '</p>') +
         (enBloque ? '</div>' : '</section>');
       var repinta = function () { el.removeAttribute('data-lsd-com-estado'); pintarComentarios(data, who); };
       el.querySelectorAll('[data-preg]').forEach(function (b) { b.addEventListener('click', function () { var t = el.querySelector('.lsd-com-txt-in'); if (t) st.texto = t.value; st.sel = b.getAttribute('data-preg'); st.ok = false; repinta(); var t2 = el.querySelector('.lsd-com-txt-in'); if (t2) t2.focus(); }); });
-      el.querySelectorAll('[data-filtro]').forEach(function (b) { b.addEventListener('click', function () { var t = el.querySelector('.lsd-com-txt-in'); if (t) st.texto = t.value; st.filtro = b.getAttribute('data-filtro'); st.max = 8; repinta(); }); });
+      el.querySelectorAll('[data-filtro]').forEach(function (b) { b.addEventListener('click', function () { var t = el.querySelector('.lsd-com-txt-in'); if (t) st.texto = t.value; st.filtro = b.getAttribute('data-filtro'); st.max = inicio; repinta(); }); });
       var mas = el.querySelector('.lsd-com-mas');
-      if (mas) mas.addEventListener('click', function () { var t = el.querySelector('.lsd-com-txt-in'); if (t) st.texto = t.value; st.max += 10; repinta(); });
+      if (mas) mas.addEventListener('click', function () { var t = el.querySelector('.lsd-com-txt-in'); if (t) st.texto = t.value; st.max += paso; repinta(); });
+      var menos = el.querySelector('.lsd-com-menos');
+      if (menos) menos.addEventListener('click', function () {
+        var t = el.querySelector('.lsd-com-txt-in'); if (t) st.texto = t.value;
+        st.max = inicio; repinta();
+        var l0 = el.querySelector('.lsd-com-lista'); if (l0 && l0.scrollIntoView) l0.scrollIntoView({ block: 'nearest' });
+      });
+      el.querySelectorAll('.lsd-com-leer').forEach(function (b) { b.addEventListener('click', function () { var p = b.previousElementSibling; var abierto = p.classList.toggle('lsd-com-abierto'); b.textContent = abierto ? 'Leer menos' : 'Leer más'; }); });
       var btn = el.querySelector('.lsd-com-enviar');
       if (btn) btn.addEventListener('click', function () {
         var t = el.querySelector('.lsd-com-txt-in');
