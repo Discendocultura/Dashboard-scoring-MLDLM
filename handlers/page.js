@@ -14,7 +14,7 @@ import { verifyToken, signToken, requireRole } from '../lib/auth.js';
 import { marcarActividad } from '../lib/actividad.js';
 import { json, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { signalsFor, withContactId, tagFor } from '../public/js/scoring.js';
-import { phaseAt, barFor, replayBarraDe, ventaBarraDe, textosPago, enlaceWhatsApp, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl } from '../public/js/page.js';
+import { phaseAt, barFor, replayBarraDe, ventaBarraDe, textosPago, enlaceWhatsApp, milestones, redirectFor, madridToEpoch, formatLong, formatDate, formatTime, googleCalendarUrl, directosCalendario } from '../public/js/page.js';
 import { videosDe, conVip, nClases, esEnDirecto, sigReplay } from '../public/js/videos.js';
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
@@ -51,6 +51,7 @@ export async function GET(request, ctx) {
     const vipOpen = conVip(launch) && Boolean(launch.vipUrl) && (m.directo == null || now < m.directo);
     const cq = clienteActual().principal ? '' : `&c=${encodeURIComponent(clienteActual().id)}`;
     const live = `${url.origin}/directo?l=${encodeURIComponent(code)}${cq}`;
+    const calDirectos = directosCalendario(launch, m, live);
 
     const links = {
       ...(launch.enlaces || {}),
@@ -69,11 +70,14 @@ export async function GET(request, ctx) {
       // WhatsApp para resolver dudas (páginas de venta y de replay): tal cual, sin el ID de la lead.
       'whatsapp-dudas': launch.whatsappDudas?.numero ? enlaceWhatsApp(launch.whatsappDudas.numero, String(launch.whatsappDudas.mensaje || '').replaceAll('{producto}', nombreProducto(config))) : launch.whatsappDudasUrl || '',
       recursos: launch.recursosUrl || '',
-      // Añadir al calendario: el enlace configurado o, si no hay, uno de Google Calendar generado solo.
+      // Añadir al calendario: el enlace configurado o, si no hay, uno de Google Calendar generado solo (Google admite
+      // un evento por enlace: con varios directos, «calendario» es el 1 y hay calendario2, calendario3…; el botón
+      // «calendario» abre un menú con todos, ver `calendarios`).
       calendario: launch.calendarioUrl || googleCalendarUrl({
-        title: launch.name || 'Clase en directo', start: m.directo,
+        title: calDirectos[0]?.title || launch.name || 'Clase en directo', start: m.directo,
         details: `Entra al directo aquí: ${live}`,
       }),
+      ...Object.fromEntries(calDirectos.filter((d) => d.k > 1).map((d) => [`calendario${d.k}`, googleCalendarUrl({ title: d.title, start: d.start, details: `Entra al directo aquí: ${d.url}` })])),
       'calendario-ics': m.directo != null ? `${url.origin}/api/ics?l=${encodeURIComponent(code)}${cq}` : '',
       login: launch.loginUrl || '',
     };
@@ -200,6 +204,8 @@ export async function GET(request, ctx) {
       etapas,
       // Inicio de cada vídeo del lanzamiento (cuentas atrás data-lsd-countdown="directo2"…).
       directos: Object.fromEntries(m.videos.map((v) => [v.k === 1 ? 'directo' : `directo${v.k}`, v.inicio])),
+      // Añadir al calendario con varios directos: uno por día (Google) y el archivo con todos (Apple / Outlook).
+      calendarios: calDirectos.length > 1 ? calDirectos.map((d) => ({ nombre: d.nombre, cuando: formatLong(d.start), google: links[d.k === 1 ? 'calendario' : `calendario${d.k}`] })) : [],
       // Reunión de Zoom de cada directo: el navegador descarta un enlace guardado de una reunión anterior.
       zoom: Object.fromEntries(vids.filter((v) => v.zoomMeetingId && (v.k === 1 || esEnDirecto(v))).map((v) => [v.k === 1 ? 'directo' : `directo${v.k}`, String(v.zoomMeetingId).replace(/\D/g, '')])),
       vip: { open: vipOpen, closesAt: m.directo, isVip, precio: launch.precioVip || 0, contador: vipContador },

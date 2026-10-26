@@ -1,9 +1,9 @@
 // Archivo de calendario (.ics) del directo para Apple Calendar, Outlook, etc.
-//   GET /api/ics?l=<código|auto>
+//   GET /api/ics?l=<código|auto>  → todos los directos del lanzamiento (uno por vídeo con fecha)
 import { getConfig } from '../lib/config-store.js';
 import { currentLaunch } from '../lib/digest.js';
 import { errorResponse } from '../lib/http.js';
-import { milestones, icsFile } from '../public/js/page.js';
+import { milestones, icsFile, directosCalendario } from '../public/js/page.js';
 
 export async function GET(request) {
   try {
@@ -14,7 +14,10 @@ export async function GET(request) {
     const launch = code && config.launches[code];
     const start = launch ? milestones(launch).directo : null;
     if (start == null) return new Response('Directo no configurado', { status: 404 });
-    const body = icsFile({ title: launch.name || 'Clase en directo', start, url: `${url.origin}/directo?l=${encodeURIComponent(code)}`, uid: `${code}@lead-scoring` });
+    // Todos los directos del lanzamiento en el mismo archivo (en uno de 2 días, los 2).
+    const live = `${url.origin}/directo?l=${encodeURIComponent(code)}`;
+    const eventos = directosCalendario(launch, milestones(launch), live).map((d) => ({ ...d, uid: d.k === 1 ? `${code}@lead-scoring` : `${code}-${d.k}@lead-scoring` }));
+    const body = icsFile({ eventos });
     return new Response(body, {
       headers: {
         'content-type': 'text/calendar; charset=utf-8',

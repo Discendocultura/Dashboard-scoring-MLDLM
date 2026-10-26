@@ -84,22 +84,38 @@ export function googleCalendarUrl({ title, start, minutes = 180, details = '' })
   return u.toString();
 }
 
-// Archivo .ics (Apple Calendar, Outlook…) del directo.
-export function icsFile({ title, start, minutes = 180, url = '', uid }) {
+// Archivo .ics (Apple Calendar, Outlook…) del directo; con `eventos`, uno por directo (todos en el mismo archivo).
+export function icsFile({ title, start, minutes = 180, url = '', uid, eventos }) {
   const esc = (t) => String(t).replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\n/g, '\\n');
+  const lista = (eventos || [{ title, start, url, uid }]).filter((e) => e.start != null);
   return [
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Lanzamientos MLDLM//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-    'BEGIN:VEVENT',
-    `UID:${uid}`,
-    `DTSTAMP:${gcalDate(Date.now())}`,
-    `DTSTART:${gcalDate(start)}`,
-    `DTEND:${gcalDate(start + minutes * 60_000)}`,
-    `SUMMARY:${esc(title)}`,
-    url ? `DESCRIPTION:${esc(`Entra al directo aquí: ${url}`)}` : '',
-    url ? `URL:${url}` : '',
-    'BEGIN:VALARM', 'TRIGGER:-PT1H', 'ACTION:DISPLAY', `DESCRIPTION:${esc(title)}`, 'END:VALARM',
-    'END:VEVENT', 'END:VCALENDAR',
+    ...lista.flatMap((e) => [
+      'BEGIN:VEVENT',
+      `UID:${e.uid}`,
+      `DTSTAMP:${gcalDate(Date.now())}`,
+      `DTSTART:${gcalDate(e.start)}`,
+      `DTEND:${gcalDate(e.start + (e.minutes || minutes) * 60_000)}`,
+      `SUMMARY:${esc(e.title)}`,
+      e.url ? `DESCRIPTION:${esc(`Entra al directo aquí: ${e.url}`)}` : '',
+      e.url ? `URL:${e.url}` : '',
+      'BEGIN:VALARM', 'TRIGGER:-PT1H', 'ACTION:DISPLAY', `DESCRIPTION:${esc(e.title)}`, 'END:VALARM',
+      'END:VEVENT',
+    ]),
+    'END:VCALENDAR',
   ].filter(Boolean).join('\r\n');
+}
+
+// Los directos de un lanzamiento para el calendario: uno por vídeo con fecha y hora (el 1, «Directo 1»…).
+// Con un solo directo, el título es el del lanzamiento, como siempre.
+export function directosCalendario(launch, m, live) {
+  const nombres = Object.fromEntries(videosDe(launch).map((v) => [v.k, v.nombre]));
+  const conFecha = m.videos.filter((v) => v.inicio != null);
+  const titulo = launch.name || 'Clase en directo';
+  return conFecha.map((v) => {
+    const propio = nombres[v.k] && !/^v[ií]deo \d+$/i.test(nombres[v.k]) ? nombres[v.k] : `Directo ${v.k}`;
+    return { k: v.k, nombre: conFecha.length > 1 ? propio : titulo, title: conFecha.length > 1 ? `${titulo} · ${propio}` : titulo, start: v.inicio, url: v.k === 1 ? live : `${live}&v=${v.k}` };
+  });
 }
 
 export const LOCAL_DT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;

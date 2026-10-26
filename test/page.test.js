@@ -47,3 +47,16 @@ test('añadir al calendario: Google Calendar y .ics con la hora del directo', as
   assert.match(ics, /DTSTART:20261029T180000Z/);
   assert.match(ics, /BEGIN:VALARM/);
 });
+
+test('añadir al calendario con 2 directos: los dos en el .ics y uno por día para Google', async () => {
+  const { icsFile, directosCalendario, milestones } = await import('../public/js/page.js');
+  const launch = { name: 'La Resistencia', formato: 'v2', fechaDirecto: '2026-11-03', horaDirecto: '19:00', videos: [{ fecha: '2026-11-04', hora: '19:00' }] };
+  const ds = directosCalendario(launch, milestones(launch), 'https://x/directo?l=r');
+  assert.deepEqual(ds.map((d) => [d.k, d.nombre, d.title]), [[1, 'Directo 1', 'La Resistencia · Directo 1'], [2, 'Directo 2', 'La Resistencia · Directo 2']]);
+  assert.equal(ds[1].url, 'https://x/directo?l=r&v=2');
+  const ics = icsFile({ eventos: ds.map((d) => ({ ...d, uid: `r-${d.k}@x` })) });
+  assert.equal(ics.match(/BEGIN:VEVENT/g).length, 2);
+  assert.match(ics, /DTSTART:20261103T180000Z[\s\S]*DTSTART:20261104T180000Z/);
+  // Un solo directo: el título del lanzamiento, como siempre
+  assert.deepEqual(directosCalendario({ name: 'El Camino', fechaDirecto: '2026-10-29', horaDirecto: '19:00' }, milestones({ fechaDirecto: '2026-10-29', horaDirecto: '19:00' }), 'u').map((d) => d.title), ['El Camino']);
+});
