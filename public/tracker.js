@@ -124,6 +124,18 @@
     '.lsd-vot-libre{display:block;width:100%;box-sizing:border-box;margin-top:10px;padding:12px 14px;border-radius:10px;border:1px solid #d8d0c9;background:#fff;font:inherit;resize:vertical}' +
     '.lsd-vot-enviar{display:block;width:100%;margin-top:14px;padding:13px 16px;border:0;border-radius:10px;background:var(--lsd-acento,#b4552d);color:#fff;font:inherit;font-weight:700;cursor:pointer}.lsd-vot-enviar:disabled{opacity:.6}' +
     '.lsd-vot-mia{margin-top:8px;padding:10px 12px;border-radius:10px;background:#fff;border:1px solid #e6ded6}.lsd-vot-mia span{font-size:.8em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.7}.lsd-vot-mia p{margin:4px 0 0;white-space:pre-line}';
+  // Encuesta primero (preclase): pantalla completa hasta que la rellena. Colores con variables para cada página:
+  // --lsd-enc-fondo, --lsd-enc-texto, --lsd-enc-tarjeta y --lsd-acento.
+  CSS +=
+    '#lsd-encuesta{position:fixed;inset:0;top:0;right:0;bottom:0;left:0;z-index:2147482990;overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:24px 16px;box-sizing:border-box;' +
+    'background:var(--lsd-enc-fondo,rgba(20,14,12,.94));-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);font-family:inherit;animation:lsdEncIn .4s ease both}' +
+    '#lsd-encuesta .lsd-enc-c{width:100%;max-width:480px;padding:32px 26px;border-radius:20px;background:var(--lsd-enc-tarjeta,#fffaf5);color:var(--lsd-enc-texto,#2b2522);text-align:center;box-shadow:0 30px 80px -30px rgba(0,0,0,.6);box-sizing:border-box}' +
+    '#lsd-encuesta .lsd-enc-ico{font-size:44px;line-height:1;margin:0 0 12px}#lsd-encuesta .lsd-enc-paso{margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--lsd-acento,#b4552d)}' +
+    '#lsd-encuesta h2{margin:0 0 10px;font-size:clamp(22px,5vw,28px);line-height:1.2;color:inherit}#lsd-encuesta p{margin:0 0 18px;line-height:1.55;opacity:.85}' +
+    '#lsd-encuesta .lsd-enc-btn{display:block;width:100%;padding:16px 18px;border-radius:999px;background:var(--lsd-acento,#b4552d);color:#fff;font-weight:700;font-size:16px;text-decoration:none;box-sizing:border-box}' +
+    '#lsd-encuesta .lsd-enc-ya{display:inline-block;margin-top:14px;padding:6px 10px;border:0;background:none;color:inherit;font:inherit;font-size:14px;text-decoration:underline;opacity:.75;cursor:pointer}' +
+    '#lsd-encuesta .lsd-enc-msg{min-height:1.4em;margin:8px 0 0;font-size:14px;opacity:.8}' +
+    '@keyframes lsdEncIn{from{opacity:0}to{opacity:1}}@media (prefers-reduced-motion:reduce){#lsd-encuesta{animation:none}}';
   CSS +=
     '#lsd-espera{position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100%;inset:0;z-index:2147483000;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;box-sizing:border-box;' +
     'background:var(--lsd-espera-fondo,radial-gradient(120% 80% at 50% 0%,#fffaf5 0%,#f6ebe1 55%,#f0e4da 100%));color:var(--lsd-espera-texto,#3a2a24);font-family:Lato,Helvetica,Arial,sans-serif;text-align:center;animation:lsdEspIn .6s ease both}' +
@@ -1179,6 +1191,44 @@
     return { at: data.countdownTo, desde: data.countdownTo - ESPERA_MIN * 60000, key: key };
   }
   var esperaTimer = null;
+  // Encuesta primero: en la preclase, si el lanzamiento tiene encuesta y aún no la ha rellenado, lo primero que ve
+  // tras entrar es esta pantalla (encima de todo); hasta rellenarla no ve la página. Al volver de la encuesta (otra
+  // pestaña) o con «Ya la he rellenado», se comprueba y se quita sola. Sin ella en una página: data-encuesta-primero="no"
+  // en el bloque base. Textos: los de la página (Configuración) «encuesta-titulo», «encuesta-texto» y «encuesta-boton».
+  function pantallaEncuesta(data, who, comprobar) {
+    var el = document.getElementById('lsd-encuesta');
+    var base = document.querySelector('[data-lsd-page]');
+    var enc = data.encuesta || {};
+    var href = (data.links || {}).encuesta;
+    var poner = Boolean(who && who.cid && enc.required && !enc.done && href && !(base && base.getAttribute('data-encuesta-primero') === 'no'));
+    if (!poner) {
+      if (el) { el.parentNode.removeChild(el); if (!document.getElementById('lsd-espera')) document.documentElement.style.overflow = ''; }
+      return;
+    }
+    if (el) { el.querySelector('.lsd-enc-btn').setAttribute('href', href); var m = el.querySelector('.lsd-enc-msg'); if (m.getAttribute('data-esperando')) { m.removeAttribute('data-esperando'); m.textContent = 'Aún no nos ha llegado. Si acabas de terminarla, espera unos segundos y vuelve a pulsar.'; } return; }
+    var t = data.texts || {};
+    var nombre = ''; // el nombre va en el enlace de la encuesta (para rellenarla); se saluda con él
+    try { nombre = String(new URL(href, location.href).searchParams.get('first_name') || '').trim().split(' ')[0].slice(0, 30); } catch (e) { /* sin nombre */ }
+    el = document.createElement('div');
+    el.id = 'lsd-encuesta';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-labelledby', 'lsd-enc-t');
+    el.innerHTML = '<div class="lsd-enc-c"><p class="lsd-enc-ico" aria-hidden="true">📝</p><p class="lsd-enc-paso">Paso 1 · antes de empezar</p>' +
+      '<h2 id="lsd-enc-t">' + esc(t['encuesta-titulo'] || ((nombre ? nombre + ', a' : 'A') + 'ntes de entrar, cuéntanos un poco sobre ti')) + '</h2>' +
+      '<p>' + esc(t['encuesta-texto'] || 'Es solo un minuto. En cuanto la termines, se abre tu área con todo el contenido.') + '</p>' +
+      '<a class="lsd-enc-btn" href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(t['encuesta-boton'] || 'Rellenar la encuesta') + '</a>' +
+      '<button type="button" class="lsd-enc-ya">Ya la he rellenado</button><p class="lsd-enc-msg" aria-live="polite"></p></div>';
+    el.querySelector('.lsd-enc-ya').addEventListener('click', function () {
+      var m = el.querySelector('.lsd-enc-msg');
+      m.textContent = 'Comprobando…';
+      m.setAttribute('data-esperando', '1');
+      comprobar();
+    });
+    document.body.appendChild(el);
+    document.documentElement.style.overflow = 'hidden';
+  }
+
   function quitarEspera() {
     var el = document.getElementById('lsd-espera');
     if (!el) return;
@@ -1449,6 +1499,7 @@
         // Los 59 minutos antes del directo, la preclase se convierte en la pantalla de espera.
         var esp = kind === 'recursos' ? esperaDirecto(data) : null;
         if (esp && serverNow() >= esp.desde) mostrarEspera(data, esp, who); else { quitarEspera(); if (kind === 'recursos') inscribirPorAdelantado(data, who); }
+        if (kind === 'recursos') pantallaEncuesta(data, who, function () { intentos = 0; clearTimeout(timer); cycle(); });
         // Próximo cambio: fase o desbloqueo de vídeo (o el momento de enseñar la pantalla de espera).
         var rec = data.recursos || {};
         var next = [data.changesAt, esp && esp.desde].concat(Object.keys(data.videos).map(function (k) { return data.videos[k].unlockAt; }), Object.keys(rec).map(function (k) { return rec[k] && rec[k].unlockAt; }))
