@@ -38,3 +38,8 @@
   Referrer-Policy: no-referrer
   X-Robots-Tag: noindex
   Cache-Control: no-cache
+
+# Imágenes de las páginas (p. ej. la antorcha del popup de la encuesta de La Resistencia).
+/img/*
+  Cache-Control: public, max-age=86400
+  Access-Control-Allow-Origin: *

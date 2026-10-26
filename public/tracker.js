@@ -131,24 +131,24 @@
   // Encuesta primero (preclase): pantalla completa hasta que la rellena. Colores con variables para cada página:
   // --lsd-enc-fondo, --lsd-enc-texto, --lsd-enc-tarjeta y --lsd-acento.
   CSS +=
-    '#lsd-encuesta{position:fixed;inset:0;top:0;right:0;bottom:0;left:0;z-index:2147482990;overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:24px 16px;box-sizing:border-box;' +
+    '#lsd-encuesta:not(.res-pop){position:fixed;inset:0;top:0;right:0;bottom:0;left:0;z-index:2147482990;overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:24px 16px;box-sizing:border-box;' +
     'background:var(--lsd-enc-fondo,rgba(20,14,12,.94));-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);font-family:inherit;animation:lsdEncIn .4s ease both}' +
-    '#lsd-encuesta .lsd-enc-c{width:100%;max-width:480px;padding:32px 26px;border-radius:20px;background:var(--lsd-enc-tarjeta,#fffaf5);color:var(--lsd-enc-texto,#2b2522);text-align:center;box-shadow:0 30px 80px -30px rgba(0,0,0,.6);box-sizing:border-box}' +
-    '#lsd-encuesta .lsd-enc-ico{font-size:44px;line-height:1;margin:0 0 12px}#lsd-encuesta .lsd-enc-paso{margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--lsd-acento,#b4552d)}' +
-    '#lsd-encuesta h2{margin:0 0 10px;font-size:clamp(22px,5vw,28px);line-height:1.2;color:inherit}#lsd-encuesta p{margin:0 0 18px;line-height:1.55;opacity:.85}' +
-    '#lsd-encuesta .lsd-enc-btn{display:block;width:100%;padding:16px 18px;border-radius:999px;background:var(--lsd-acento,#b4552d);color:#fff;font-weight:700;font-size:16px;text-decoration:none;box-sizing:border-box}' +
-    '#lsd-encuesta .lsd-enc-ya{display:inline-block;margin-top:14px;padding:6px 10px;border:0;background:none;color:inherit;font:inherit;font-size:14px;text-decoration:underline;opacity:.75;cursor:pointer}' +
-    '#lsd-encuesta .lsd-enc-msg{min-height:1.4em;margin:8px 0 0;font-size:14px;opacity:.8}' +
-    '#lsd-encuesta.lsd-enc-dentro{align-items:flex-start;padding:12px}#lsd-encuesta.lsd-enc-dentro .lsd-enc-c{max-width:720px;padding:20px 16px 16px}' +
-    '#lsd-encuesta.lsd-enc-dentro .lsd-enc-ico{font-size:30px;margin-bottom:6px}#lsd-encuesta.lsd-enc-dentro h2{font-size:clamp(19px,4.5vw,24px)}#lsd-encuesta.lsd-enc-dentro p{margin-bottom:12px}' +
-    '#lsd-encuesta .lsd-enc-marco{width:100%;height:min(70vh,760px);border-radius:14px;overflow:hidden;background:#fff;border:1px solid rgba(0,0,0,.08)}' +
-    '#lsd-encuesta .lsd-enc-marco iframe{display:block;width:100%;height:100%;border:0}' +
-    '#lsd-encuesta .lsd-enc-btn-sec{margin-top:12px;padding:10px 14px;background:none;color:inherit;border:1.5px solid currentColor;font-size:14px;opacity:.85}' +
-    '#lsd-encuesta.lsd-enc-popup{background:var(--lsd-enc-fondo-popup,rgba(20,14,12,.62));-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}' +
-    '#lsd-encuesta.lsd-enc-popup .lsd-enc-c{max-width:440px;animation:lsdEncPop .35s cubic-bezier(.2,.9,.3,1.2) both}' +
-    '#lsd-encuesta .lsd-enc-c>p.lsd-enc-txt{white-space:pre-line}' +
+    '#lsd-encuesta:not(.res-pop) .lsd-enc-c{width:100%;max-width:480px;padding:32px 26px;border-radius:20px;background:var(--lsd-enc-tarjeta,#fffaf5);color:var(--lsd-enc-texto,#2b2522);text-align:center;box-shadow:0 30px 80px -30px rgba(0,0,0,.6);box-sizing:border-box}' +
+    '#lsd-encuesta:not(.res-pop) .lsd-enc-ico{font-size:44px;line-height:1;margin:0 0 12px}#lsd-encuesta:not(.res-pop) .lsd-enc-paso{margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--lsd-acento,#b4552d)}' +
+    '#lsd-encuesta:not(.res-pop) h2{margin:0 0 10px;font-size:clamp(22px,5vw,28px);line-height:1.2;color:inherit}#lsd-encuesta:not(.res-pop) p{margin:0 0 18px;line-height:1.55;opacity:.85}' +
+    '#lsd-encuesta:not(.res-pop) .lsd-enc-btn{display:block;width:100%;padding:16px 18px;border-radius:999px;background:var(--lsd-acento,#b4552d);color:#fff;font-weight:700;font-size:16px;text-decoration:none;box-sizing:border-box}' +
+    '#lsd-encuesta:not(.res-pop) .lsd-enc-ya{display:inline-block;margin-top:14px;padding:6px 10px;border:0;background:none;color:inherit;font:inherit;font-size:14px;text-decoration:underline;opacity:.75;cursor:pointer}' +
+    '#lsd-encuesta:not(.res-pop) .lsd-enc-msg{min-height:1.4em;margin:8px 0 0;font-size:14px;opacity:.8}' +
+    '#lsd-encuesta:not(.res-pop).lsd-enc-dentro{align-items:flex-start;padding:12px}#lsd-encuesta:not(.res-pop).lsd-enc-dentro .lsd-enc-c{max-width:720px;padding:20px 16px 16px}' +
+    '#lsd-encuesta:not(.res-pop).lsd-enc-dentro .lsd-enc-ico{font-size:30px;margin-bottom:6px}#lsd-encuesta:not(.res-pop).lsd-enc-dentro h2{font-size:clamp(19px,4.5vw,24px)}#lsd-encuesta:not(.res-pop).lsd-enc-dentro p{margin-bottom:12px}' +
+    '#lsd-encuesta:not(.res-pop) .lsd-enc-marco{width:100%;height:min(70vh,760px);border-radius:14px;overflow:hidden;background:#fff;border:1px solid rgba(0,0,0,.08)}' +
+    '#lsd-encuesta:not(.res-pop) .lsd-enc-marco iframe{display:block;width:100%;height:100%;border:0}' +
+    '#lsd-encuesta:not(.res-pop) .lsd-enc-btn-sec{margin-top:12px;padding:10px 14px;background:none;color:inherit;border:1.5px solid currentColor;font-size:14px;opacity:.85}' +
+    '#lsd-encuesta:not(.res-pop).lsd-enc-popup{background:var(--lsd-enc-fondo-popup,rgba(20,14,12,.62));-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}' +
+    '#lsd-encuesta:not(.res-pop).lsd-enc-popup .lsd-enc-c{max-width:440px;animation:lsdEncPop .35s cubic-bezier(.2,.9,.3,1.2) both}' +
+    '#lsd-encuesta:not(.res-pop) .lsd-enc-c>p.lsd-enc-txt{white-space:pre-line}' +
     '@keyframes lsdEncIn{from{opacity:0}to{opacity:1}}@keyframes lsdEncPop{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}' +
-    '@media (prefers-reduced-motion:reduce){#lsd-encuesta,#lsd-encuesta .lsd-enc-c{animation:none}}';
+    '@media (prefers-reduced-motion:reduce){#lsd-encuesta:not(.res-pop),#lsd-encuesta:not(.res-pop) .lsd-enc-c{animation:none}}';
   CSS +=
     '#lsd-espera{position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100%;inset:0;z-index:2147483000;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;box-sizing:border-box;' +
     'background:var(--lsd-espera-fondo,radial-gradient(120% 80% at 50% 0%,#fffaf5 0%,#f6ebe1 55%,#f0e4da 100%));color:var(--lsd-espera-texto,#3a2a24);font-family:Lato,Helvetica,Arial,sans-serif;text-align:center;animation:lsdEspIn .6s ease both}' +
@@ -1299,6 +1299,41 @@
     return { at: data.countdownTo, desde: data.countdownTo - ESPERA_MIN * 60000, key: key };
   }
   var esperaTimer = null;
+  // Popups de encuesta con la estética de un cliente (sus estilos solo se cargan si se usan). Por cliente (el ?c= del
+  // script) o, en una página, con data-encuesta-estilo="resistencia" (o ="normal") en el bloque base.
+  var TEMA_ENCUESTA = { discendo: 'resistencia' };
+  var RES_POP_CSS = '.res-pop,.res-pop *{box-sizing:border-box;margin:0;padding:0} .res-pop{--gold1:#FFD27A;--gold2:#FFA500;--gold3:#FF6A1A;--navy:#062942; position:fixed;inset:0;z-index:2147482990;display:flex;padding:20px;overflow-y:auto;-webkit-overflow-scrolling:touch; font-family:"Poppins",Arial,sans-serif;-webkit-font-smoothing:antialiased; background:var(--res-pop-fondo,rgba(255,255,255,.12)); opacity:0;visibility:hidden;transition:opacity .35s ease,visibility 0s linear .35s} .res-pop.is-open{opacity:1;visibility:visible;transition:opacity .35s ease} .res-pop-card{position:relative;width:100%; padding:58px 28px 26px;border-radius:28px;text-align:center;color:#fff;isolation:isolate; background:radial-gradient(90% 55% at 50% 0%,rgba(255,150,40,.22),transparent 65%), repeating-linear-gradient(135deg,rgba(255,255,255,.022) 0 2px,transparent 2px 13px), linear-gradient(180deg,#0d3150 0%,#072238 100%); box-shadow:0 0 0 1px rgba(255,255,255,.06),0 50px 100px -30px rgba(0,0,0,.9),0 0 80px -20px rgba(255,140,30,.55); transform:translateY(24px) scale(.96);transition:transform .45s cubic-bezier(.2,.9,.25,1.15)} .res-pop.is-open .res-pop-card{transform:none} .res-pop-card::before{content:"";position:absolute;inset:0;border-radius:28px;padding:1.5px; background:conic-gradient(from var(--res-pop-a,0deg),rgba(255,165,0,.1),var(--gold2),rgba(255,106,26,.35),rgba(255,165,0,.1),rgba(255,165,0,.1)); -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude; animation:resPopSpin 6s linear infinite;pointer-events:none} @property --res-pop-a{syntax:"<angle>";inherits:false;initial-value:0deg} .res-pop-emb{position:absolute;left:50%;top:-38px;transform:translateX(-50%);width:84px;height:84px;border-radius:50%; display:flex;align-items:center;justify-content:center; background:radial-gradient(circle at 50% 35%,#123d61,#06213a);border:1.5px solid rgba(255,165,0,.7); box-shadow:0 0 0 8px rgba(255,165,0,.08),0 0 40px rgba(255,140,30,.6)} .res-pop-emb::after{content:"";position:absolute;inset:-10px;border-radius:50%;border:1px solid rgba(255,165,0,.45);animation:resPopRing 2.6s ease-out infinite} .res-pop-emb img{width:38px;height:auto;animation:resPopFlick 3.2s ease-in-out infinite} .res-pop-card{overflow:visible} .res-pop-wrap{position:relative;width:100%;max-width:480px;margin:auto;padding-top:38px} .res-pop-eye{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--gold1)} .res-pop-eye::before,.res-pop-eye::after{content:"";width:22px;height:1px;background:linear-gradient(90deg,transparent,var(--gold2))} .res-pop-eye::after{background:linear-gradient(90deg,var(--gold2),transparent)} .res-pop-h{margin-top:12px;font-size:26px;line-height:1.18;font-weight:800;color:#fff;letter-spacing:-.01em} .res-pop-h span{background:linear-gradient(180deg,var(--gold1) 0%,var(--gold2) 50%,var(--gold3) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--gold2)} .res-pop-list{list-style:none;display:flex;flex-direction:column;gap:12px;margin:22px 0 0;text-align:left} .res-pop-list li{display:flex;align-items:flex-start;gap:12px;padding:13px 14px;border-radius:16px;background:rgba(3,17,31,.45);border:1px solid rgba(255,165,0,.22); font-size:14.5px;line-height:1.55;font-weight:300;color:#E7EEF5;opacity:0;transform:translateY(8px);transition:opacity .45s ease,transform .45s ease} .res-pop.is-open .res-pop-list li{opacity:1;transform:none} .res-pop.is-open .res-pop-list li:nth-child(1){transition-delay:.18s} .res-pop.is-open .res-pop-list li:nth-child(2){transition-delay:.3s} .res-pop-list strong{font-weight:700;color:#fff} .res-pop-ck{flex:none;width:24px;height:24px;margin-top:1px;border-radius:50%;display:flex;align-items:center;justify-content:center; background:linear-gradient(135deg,var(--gold1),var(--gold2) 55%,var(--gold3));color:var(--navy);box-shadow:0 0 14px -2px rgba(255,120,20,.8)} .res-pop-ck svg{width:13px;height:13px} .res-pop-cta{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:24px;padding:18px 24px;border:0;border-radius:999px;cursor:pointer; background:linear-gradient(135deg,var(--gold1) 0%,var(--gold2) 50%,var(--gold3) 100%);color:var(--navy)!important;text-decoration:none!important; font-family:inherit;font-size:17px;font-weight:800;line-height:1.2;letter-spacing:.01em;overflow:hidden;isolation:isolate; box-shadow:0 16px 36px -12px rgba(255,130,20,.8),inset 0 1px 0 rgba(255,255,255,.5);animation:resPopPulse 2.4s ease-out infinite;transition:transform .25s ease;-webkit-tap-highlight-color:transparent} .res-pop-cta::before{content:"";position:absolute;top:-20%;left:-60%;width:45%;height:140%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.85),transparent);transform:skewX(-20deg);animation:resPopShine 2.8s ease-in-out infinite;z-index:-1} .res-pop-cta:hover{transform:translateY(-2px) scale(1.02)} .res-pop-cta:focus-visible{outline:3px solid #fff;outline-offset:4px} .res-pop-time{flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:rgba(6,41,66,.14);font-size:13px;font-weight:700} .res-pop-time svg{width:14px;height:14px} .res-pop-done{display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;padding:8px 12px;border:0;background:none;cursor:pointer; font-family:inherit;font-size:14px;font-weight:600;color:#C9D6E2;text-decoration:underline;text-underline-offset:4px;text-decoration-color:rgba(255,210,122,.5);transition:color .2s ease} .res-pop-done:hover{color:var(--gold1)} .res-pop-done:focus-visible{outline:2px solid var(--gold2);outline-offset:3px;border-radius:6px} .res-pop-spin{display:none;width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,210,122,.3);border-top-color:var(--gold2);animation:resPopRot .8s linear infinite} .res-pop.is-checking .res-pop-spin{display:inline-block} .res-pop.is-checking .res-pop-done{pointer-events:none;opacity:.8} .res-pop-msg{display:none;align-items:flex-start;gap:10px;margin-top:12px;padding:12px 14px;border-radius:14px;text-align:left; background:rgba(255,165,0,.08);border:1px solid rgba(255,165,0,.4);font-size:13.5px;line-height:1.5;color:#FFD9A0} .res-pop-msg svg{flex:none;width:18px;height:18px;margin-top:1px;color:var(--gold2)} .res-pop.is-pending .res-pop-msg{display:flex;animation:resPopIn .35s ease} @keyframes resPopSpin{to{--res-pop-a:360deg}} @keyframes resPopRing{0%{transform:scale(.92);opacity:.9}100%{transform:scale(1.35);opacity:0}} @keyframes resPopFlick{0%,100%{filter:drop-shadow(0 0 10px rgba(255,150,40,.6))}40%{filter:drop-shadow(0 0 18px rgba(255,150,40,.9))}70%{filter:drop-shadow(0 0 8px rgba(255,150,40,.45))}} @keyframes resPopShine{0%{left:-60%}55%,100%{left:130%}} @keyframes resPopPulse{0%{box-shadow:0 0 0 0 rgba(255,165,0,.5),0 16px 36px -12px rgba(255,130,20,.8)}70%{box-shadow:0 0 0 16px rgba(255,165,0,0),0 16px 36px -12px rgba(255,130,20,.8)}100%{box-shadow:0 0 0 0 rgba(255,165,0,0),0 16px 36px -12px rgba(255,130,20,.8)}} @keyframes resPopRot{to{transform:rotate(360deg)}} @keyframes resPopIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}} @media (min-width:769px){ .res-pop-card{padding:62px 40px 30px} .res-pop-h{font-size:30px} .res-pop-list li{font-size:15px} } @media (max-width:420px){ .res-pop-cta{font-size:16px;padding:17px 16px;gap:8px} .res-pop-time{font-size:12px;padding:3px 8px} } @media (max-width:380px){ .res-pop{padding:14px} .res-pop-card{padding:54px 18px 22px} .res-pop-h{font-size:23px} .res-pop-cta{font-size:16px;padding:16px 18px;flex-wrap:wrap;gap:6px} } @media (prefers-reduced-motion:reduce){.res-pop *,.res-pop *::before,.res-pop *::after{animation:none!important;transition:none!important}.res-pop-list li{opacity:1;transform:none}}';
+  var ICO_CK = '<span class="res-pop-ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
+  // «La Resistencia» (Discendo): tarjeta azul noche con la antorcha, dos puntos y el botón dorado. → el elemento.
+  function popupResistencia(data, href) {
+    if (!document.getElementById('lsd-res-pop-css')) {
+      var fuente = document.createElement('link');
+      fuente.rel = 'stylesheet';
+      fuente.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap';
+      document.head.appendChild(fuente);
+      var st = document.createElement('style');
+      st.id = 'lsd-res-pop-css';
+      st.textContent = RES_POP_CSS;
+      document.head.appendChild(st);
+    }
+    var n = ((data.recursos || {}).lista || []).length;
+    var el = document.createElement('div');
+    el.className = 'res-pop';
+    el.innerHTML = '<div class="res-pop-wrap"><div class="res-pop-card">' +
+      '<span class="res-pop-emb" aria-hidden="true"><img src="' + API + '/img/antorcha-resistencia.png" alt=""></span>' +
+      '<p class="res-pop-eye">Tu llave de acceso</p>' +
+      '<h2 class="res-pop-h" id="lsd-enc-t">Responde y <span>desbloquea</span> tus recursos' + (data.name ? ' de ' + esc(data.name) : '') + '</h2>' +
+      '<ul class="res-pop-list">' +
+        '<li>' + ICO_CK + '<span>Queremos conocerte antes del primer directo. Con tus respuestas <strong>adaptaremos el contenido de los directos</strong>.</span></li>' +
+        '<li>' + ICO_CK + '<span><strong>Desbloquearás ' + (n ? 'los ' + n + ' recursos gratuitos' : 'los recursos gratuitos') + '</strong> para ir bien preparado a los directos.</span></li>' +
+      '</ul>' +
+      '<a class="res-pop-cta lsd-enc-btn" href="' + esc(href) + '" target="_blank" rel="noopener">Personalizar experiencia <span class="res-pop-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>1 min</span></a>' +
+      '<button type="button" class="res-pop-done lsd-enc-ya"><span class="res-pop-spin" aria-hidden="true"></span>Ya la he rellenado</button>' +
+      '<p class="res-pop-msg lsd-enc-msg" role="status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/></svg><span>Aún no nos ha llegado. Si acabas de terminarla, espera unos segundos y vuelve a pulsar.</span></p>' +
+      '</div></div>';
+    return el;
+  }
+
   // El copy de la encuesta tal como está en la propia página de la preclase: su sección (la que lleva
   // data-encuesta-popup, data-lsd-etapa="encuesta", data-lsd-if="encuesta-pendiente" o el botón de la encuesta) →
   // { titulo, texto } con su primer título y su primer párrafo. Vacío si la página no la tiene.
@@ -1340,11 +1375,34 @@
       if (el) { clearInterval(el.lsdTimer); el.parentNode.removeChild(el); if (!document.getElementById('lsd-espera')) document.documentElement.style.overflow = ''; }
       return;
     }
+    if (el && el.classList.contains('res-pop')) {
+      el.querySelector('.lsd-enc-btn').setAttribute('href', href);
+      if (el.classList.contains('is-checking')) { el.classList.remove('is-checking'); el.classList.add('is-pending'); }
+      return;
+    }
     if (el) { el.querySelector('.lsd-enc-btn').setAttribute('href', href); var m = el.querySelector('.lsd-enc-msg'); if (m.getAttribute('data-esperando')) { m.removeAttribute('data-esperando'); m.textContent = 'Aún no nos ha llegado. Si acabas de terminarla, espera unos segundos y vuelve a pulsar.'; } return; }
     var t = data.texts || {};
     var nombre = ''; // el nombre va en el enlace de la encuesta (para rellenarla); se saluda con él
     try { nombre = String(new URL(href, location.href).searchParams.get('first_name') || '').trim().split(' ')[0].slice(0, 30); } catch (e) { /* sin nombre */ }
     var dentro = Boolean(base && base.getAttribute('data-encuesta-dentro') === 'si');
+    var tema = (base && base.getAttribute('data-encuesta-estilo')) || TEMA_ENCUESTA[CLIENTE] || '';
+    if (tema === 'resistencia' && !dentro) {
+      el = popupResistencia(data, href);
+      el.id = 'lsd-encuesta';
+      el.setAttribute('role', 'dialog');
+      el.setAttribute('aria-modal', 'true');
+      el.setAttribute('aria-labelledby', 'lsd-enc-t');
+      el.querySelector('.lsd-enc-ya').addEventListener('click', function () {
+        el.classList.remove('is-pending');
+        el.classList.add('is-checking');
+        comprobar();
+      });
+      document.body.appendChild(el);
+      document.documentElement.style.overflow = 'hidden';
+      requestAnimationFrame(function () { requestAnimationFrame(function () { el.classList.add('is-open'); }); });
+      el.lsdTimer = setInterval(function () { if (!document.hidden) comprobar(); }, 8000);
+      return;
+    }
     var pagina = dentro ? { titulo: '', texto: '' } : copyEncuestaPagina();
     var titulo = pagina.titulo || t['encuesta-titulo'] || ((nombre ? nombre + ', a' : 'A') + 'ntes de entrar, cuéntanos un poco sobre ti');
     var texto = pagina.titulo ? pagina.texto : t['encuesta-texto'] || (dentro ? 'Rellena esta encuesta de un minuto. En cuanto la termines, se abre tu área con todo el contenido.' : 'Para entrar tienes que completar la encuesta. Es solo un minuto y así personalizamos tu experiencia.');
