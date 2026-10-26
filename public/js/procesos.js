@@ -1,9 +1,11 @@
 // Biblioteca de procesos de la agencia (solo superadmin): el «cómo se hace» de todo, con pasos, vídeos y
 // enlaces. Común a todos los clientes (cliente «_agencia», clave lsd_procesos). No son tareas: es la
 // documentación que se consulta (y que más adelante podrán enlazar las tareas de cada embudo).
-//   { secciones: [{ id, titulo }], procesos: [{ id, seccion, titulo, html, asana, actualizado, por,
+//   { secciones: [{ id, titulo, subs: [{ id, titulo }] }], procesos: [{ id, seccion, sub, titulo, html, asana, actualizado, por,
 //     proyectos: [cliente…] (vacío = general, para todos), responsable, fecha, repetir: { tipo, n }, hecho, hechoEn, subtareas: [{ id, texto, hecha }],
 //     comentarios: [{ id, porId, por, en, texto }], actividad: [{ en, por, txt }] }] }
+// Cada sección (categoría) puede tener subcategorías propias (p. ej. Marketing → Anuncios, Embudos); «sub» es la del
+// proceso dentro de su sección ('' = sin subcategoría).
 // Como una tarea de Asana: responsable, fecha (que puede repetirse), descripción, subtareas y comentarios.
 // Lo usan el navegador (panel) y el servidor (para limpiar lo que llega). Se importa desde Asana con un
 // archivo .json (el contenido no va en el código: el repositorio es público).
@@ -11,6 +13,7 @@ import { sanitizeRich, safeHref, richToText } from './richtext.js';
 
 export const MAX_PROCESOS = 400;
 export const MAX_SECCIONES = 40;
+export const MAX_SUBS = 30;
 const ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
 const limpio = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 export const nuevoIdProceso = () => `pr${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -138,8 +141,10 @@ export function textoRepetir(rep) {
 export function sanitizeProceso(p, secciones = []) {
   const id = ID_RE.test(String(p?.id || '')) ? String(p.id) : nuevoIdProceso();
   const seccion = secciones.some((s) => s.id === p?.seccion) ? p.seccion : secciones[0]?.id || 'general';
+  const subs = secciones.find((s) => s.id === seccion)?.subs || [];
   return {
     id, seccion,
+    sub: subs.some((x) => x.id === p?.sub) ? p.sub : '',
     titulo: limpio(p?.titulo, 160) || 'Proceso sin título',
     html: sanitizeRich(p?.html || ''),
     asana: safeHref(p?.asana) && /^https:\/\/app\.asana\.com\//.test(p.asana) ? p.asana : '',
@@ -163,12 +168,33 @@ export function sanitizeProceso(p, secciones = []) {
 }
 export const nuevoIdCorto = idCorto;
 
+function sanitizeSubs(subs) {
+  const vistas = new Set();
+  return (Array.isArray(subs) ? subs : []).slice(0, MAX_SUBS)
+    .map((x) => ({ id: ID_RE.test(String(x?.id || '')) ? String(x.id) : idSeccion(x?.titulo), titulo: limpio(x?.titulo, 60) || 'Sin nombre' }))
+    .filter((x) => !vistas.has(x.id) && vistas.add(x.id));
+}
+
+// Subcategoría nueva en una sección (id a partir del nombre, sin repetir). Devuelve su id.
+export function anadirSub(seccion, titulo) {
+  const t = limpio(titulo, 60);
+  if (!t) throw new Error('Pon un nombre a la subcategoría.');
+  seccion.subs ||= [];
+  if (seccion.subs.length >= MAX_SUBS) throw new Error(`Como mucho ${MAX_SUBS} subcategorías por categoría.`);
+  const igual = seccion.subs.find((x) => idSeccion(x.titulo) === idSeccion(t));
+  if (igual) return igual.id;
+  let id = idSeccion(t);
+  while (seccion.subs.some((x) => x.id === id)) id = `${id.slice(0, 36)}-${Math.random().toString(36).slice(2, 4)}`;
+  seccion.subs.push({ id, titulo: t });
+  return id;
+}
+
 export function sanitizeBiblioteca(b) {
   const vistas = new Set();
   const secciones = (Array.isArray(b?.secciones) ? b.secciones : []).slice(0, MAX_SECCIONES)
-    .map((s) => ({ id: ID_RE.test(String(s?.id || '')) ? String(s.id) : idSeccion(s?.titulo), titulo: limpio(s?.titulo, 60) || 'Sin sección' }))
+    .map((s) => ({ id: ID_RE.test(String(s?.id || '')) ? String(s.id) : idSeccion(s?.titulo), titulo: limpio(s?.titulo, 60) || 'Sin sección', subs: sanitizeSubs(s?.subs) }))
     .filter((s) => !vistas.has(s.id) && vistas.add(s.id));
-  if (!secciones.length) secciones.push({ id: 'general', titulo: 'General' });
+  if (!secciones.length) secciones.push({ id: 'general', titulo: 'General', subs: [] });
   const ids = new Set();
   const procesos = (Array.isArray(b?.procesos) ? b.procesos : []).slice(0, MAX_PROCESOS)
     .map((p) => sanitizeProceso(p, secciones)).filter((p) => !ids.has(p.id) && ids.add(p.id));
@@ -179,11 +205,13 @@ export function sanitizeBiblioteca(b) {
 export function fusionar(actual, entrante) {
   const a = sanitizeBiblioteca(actual);
   const e = sanitizeBiblioteca(entrante);
-  const secciones = [...a.secciones.filter((s) => s.id !== 'general' || a.procesos.some((p) => p.seccion === 'general')), ...e.secciones.filter((s) => !a.secciones.some((x) => x.id === s.id))];
+  // De las secciones que ya estaban se quedan sus subcategorías (y se suman las que traiga el archivo).
+  const conSubs = (s) => { const n = e.secciones.find((x) => x.id === s.id); return n ? { ...s, subs: [...s.subs, ...n.subs.filter((x) => !s.subs.some((y) => y.id === x.id))] } : s; };
+  const secciones = [...a.secciones.filter((s) => s.id !== 'general' || a.procesos.some((p) => p.seccion === 'general')).map(conSubs), ...e.secciones.filter((s) => !a.secciones.some((x) => x.id === s.id))];
   const nuevos = new Map(e.procesos.map((p) => [p.id, p]));
   // Del archivo se toma el contenido (título, sección, descripción y enlace); lo de trabajo (responsable, fechas,
   // subtareas, comentarios y actividad) se queda como estaba.
-  const contenido = (p, n) => ({ ...p, titulo: n.titulo, seccion: n.seccion, html: n.html, asana: n.asana || p.asana, proyectos: n.proyectos?.length ? n.proyectos : p.proyectos });
+  const contenido = (p, n) => ({ ...p, titulo: n.titulo, seccion: n.seccion, sub: n.sub || (n.seccion === p.seccion ? p.sub : ''), html: n.html, asana: n.asana || p.asana, proyectos: n.proyectos?.length ? n.proyectos : p.proyectos });
   const procesos = [...a.procesos.map((p) => (nuevos.has(p.id) ? contenido(p, nuevos.get(p.id)) : p)), ...e.procesos.filter((p) => !a.procesos.some((x) => x.id === p.id))];
   return { biblioteca: sanitizeBiblioteca({ secciones, procesos }), nuevos: e.procesos.filter((p) => !a.procesos.some((x) => x.id === p.id)).length, actualizados: e.procesos.filter((p) => a.procesos.some((x) => x.id === p.id)).length };
 }

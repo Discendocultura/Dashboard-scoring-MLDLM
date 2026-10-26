@@ -1,6 +1,6 @@
 // Panel «📚 Biblioteca de procesos» (Inicio de la agencia y Cuenta; solo la agencia). Secciones a la izquierda,
 // buscador y filtros, tarjetas y la ficha de cada proceso con el formato de una tarea de Asana: título, responsable,
-// fecha (que puede repetirse), sección, descripción con enlaces y vídeos, subtareas, comentarios y actividad.
+// fecha (que puede repetirse), sección (y subcategoría), descripción con enlaces y vídeos, subtareas, comentarios y actividad.
 // Todo se guarda al momento. Se importa desde un archivo .json (por ejemplo, el «Sistema Operativo» de Asana).
 // «＋ Nuevo» pregunta si se crea desde cero o copiando una tarea del tablero de algún cliente (siempre general).
 // Dos pestañas arriba: «🏢 De la agencia» (la biblioteca de la agencia; los clientes ven solo los que la agencia
@@ -43,6 +43,8 @@ const LS_PROY = 'lsd_pr_proyecto';
 let proy = (() => { try { return localStorage.getItem(LS_PROY) || ''; } catch { return ''; } })();
 let lote = false; // abierto el «asignar estos a un proyecto»
 let sec = ''; // sección elegida ('' = todas)
+let subSel = ''; // subcategoría elegida dentro de la sección ('' = todas · '_sin' = las que no tienen)
+let organizar = false; // abierto «Organizar en subcategorías» de la sección elegida
 let q = '';
 let filtro = ''; // '' | 'mios' | 'fecha' | 'vencidos'
 let abierto = ''; // id del proceso abierto
@@ -80,7 +82,7 @@ export async function abrirProcesos(opts) {
       if (!b || b.dataset.prAmbito === ambito) return;
       ambito = b.dataset.prAmbito;
       try { localStorage.setItem(LS_AMB, ambito); } catch { /* sin almacenamiento */ }
-      sec = ''; abierto = ''; filtro = ''; q = ''; lote = false;
+      sec = ''; subSel = ''; organizar = false; abierto = ''; filtro = ''; q = ''; lote = false;
       cargar();
     });
     dlg.addEventListener('change', onChange);
@@ -145,10 +147,23 @@ function pintar() {
   pintarLista();
 }
 
+const secDe = (id = sec) => bib.secciones.find((x) => x.id === id);
+const subsDe = (id = sec) => secDe(id)?.subs || [];
+const subNombre = (p) => subsDe(p.seccion).find((x) => x.id === p.sub)?.titulo || '';
+const enSub = (p) => !subSel || (subSel === '_sin' ? !p.sub : p.sub === subSel);
+
 function seccionesHtml() {
   const n = (id) => bib.procesos.filter((p) => (!id || p.seccion === id) && enProyecto(p, proy)).length;
   const b = (id, ico, txt) => `<button type="button" class="pr-sec${sec === id ? ' on' : ''}" data-pr-sec="${esc(id)}"><span class="pr-sec-ico">${ico}</span><span class="pr-sec-t">${esc(txt)}</span><span class="pr-sec-n">${n(id)}</span></button>`;
-  return b('', '📚', 'Todos') + bib.secciones.map((s) => b(s.id, emojiDe(s.titulo) || '📁', sinEmoji(s.titulo))).join('');
+  // Debajo de la sección elegida, sus subcategorías (y «＋ Subcategoría»).
+  const subs = (s) => {
+    if (s.id !== sec) return '';
+    const m = (id) => bib.procesos.filter((p) => p.seccion === s.id && enProyecto(p, proy) && (id === '_sin' ? !p.sub : p.sub === id)).length;
+    const sb = (id, txt) => `<button type="button" class="pr-subcat${subSel === id ? ' on' : ''}" data-pr-subcat="${esc(id)}"><span class="pr-sec-t">${esc(txt)}</span><span class="pr-sec-n">${m(id)}</span></button>`;
+    const sin = s.subs.length && m('_sin') ? sb('_sin', 'Sin subcategoría') : '';
+    return `<div class="pr-subcats">${s.subs.map((x) => sb(x.id, x.titulo)).join('')}${sin}<button type="button" class="pr-subcat-nueva" data-pr="subcat-nueva">＋ Subcategoría</button></div>`;
+  };
+  return b('', '📚', 'Todos') + bib.secciones.map((s) => b(s.id, emojiDe(s.titulo) || '📁', sinEmoji(s.titulo)) + subs(s)).join('');
 }
 
 function pintarLista() {
@@ -157,6 +172,8 @@ function pintarLista() {
   if (creando) { main.innerHTML = crearHtml(); return; }
   if (abierto && proc()) { pintarProceso(main); return; }
   abierto = '';
+  if (organizar && secDe() && !bib.lectura) { main.innerHTML = organizarHtml(); return; }
+  organizar = false;
   if (!bib.procesos.length && (delCliente() || bib.lectura)) {
     main.innerHTML = delCliente() ? `<div class="pr-vacio">
       <div class="pr-vacio-ico" aria-hidden="true">📁</div>
@@ -180,7 +197,8 @@ function pintarLista() {
     return;
   }
   const hoy = hoyMadrid();
-  let lista = buscarProcesos(bib.procesos.filter((p) => (!sec || p.seccion === sec) && enProyecto(p, proy)), q);
+  if (subSel && subSel !== '_sin' && !subsDe().some((x) => x.id === subSel)) subSel = '';
+  let lista = buscarProcesos(bib.procesos.filter((p) => (!sec || p.seccion === sec) && enSub(p) && enProyecto(p, proy)), q);
   if (filtro === 'mios') lista = lista.filter((p) => p.responsable && p.responsable === bib.yo);
   if (filtro === 'fecha') lista = lista.filter((p) => p.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
   if (filtro === 'vencidos') lista = lista.filter((p) => estadoFecha(p, hoy) === 'vencida');
@@ -189,10 +207,38 @@ function pintarLista() {
   const vencidos = bib.procesos.filter((p) => estadoFecha(p, hoy) === 'vencida').length;
   const chip = (id, txt) => `<button type="button" class="pr-filtro${filtro === id ? ' on' : ''}" data-pr-filtro="${id}">${txt}</button>`;
   const pNombre = proy === '_general' ? 'generales' : proyDe(proy)?.nombre;
-  main.innerHTML = `<header class="pr-main-head"><div><h3>${s ? esc(s.titulo) : '📚 Todos los procesos'}</h3><p class="muted small">${lista.length} proceso${lista.length === 1 ? '' : 's'}${pNombre ? ` · ${proy === '_general' ? 'solo los generales' : `de ${esc(pNombre)} y los generales`}` : ''}${porDoc ? ` · ${porDoc} por documentar` : ''}${q ? ` · buscando «${esc(q)}»` : ''}</p></div>
+  const subT = subSel === '_sin' ? 'Sin subcategoría' : subsDe().find((x) => x.id === subSel)?.titulo || '';
+  // Con una sección elegida (y sin subcategoría concreta), las tarjetas van agrupadas por subcategoría.
+  const grupos = s && !subSel && s.subs.length && !filtro
+    ? [...s.subs.map((x) => ({ t: x.titulo, id: x.id, ps: lista.filter((p) => p.sub === x.id) })), { t: 'Sin subcategoría', id: '_sin', ps: lista.filter((p) => !p.sub) }].filter((g) => g.ps.length)
+    : null;
+  let i0 = 0;
+  const grid = (ps) => `<div class="pr-grid">${ps.map((p) => tarjeta(p, i0++, hoy)).join('')}</div>`;
+  main.innerHTML = `<header class="pr-main-head"><div><h3>${s ? esc(s.titulo) : '📚 Todos los procesos'}${subT ? ` <span class="pr-h-sub">› ${esc(subT)}</span>` : ''}</h3><p class="muted small">${lista.length} proceso${lista.length === 1 ? '' : 's'}${pNombre ? ` · ${proy === '_general' ? 'solo los generales' : `de ${esc(pNombre)} y los generales`}` : ''}${porDoc ? ` · ${porDoc} por documentar` : ''}${q ? ` · buscando «${esc(q)}»` : ''}</p></div>
       <div class="pr-filtros">${chip('', 'Todos')}${bib.yo ? chip('mios', '👤 Míos') : ''}${chip('fecha', '📅 Con fecha')}${chip('vencidos', `⏰ Vencidos${vencidos ? ` <b>${vencidos}</b>` : ''}`)}${delCliente() ? '' : '<button type="button" class="pr-filtro pr-vaciar" data-pr="vaciar" title="Borrar todos los procesos de la biblioteca">🗑️ Vaciar biblioteca</button>'}</div></header>
+    ${s && !bib.lectura ? `<p class="pr-org-abrir"><button type="button" class="btn ghost small" data-pr="organizar">📂 Organizar en subcategorías…</button>${s.subs.length ? '' : ' <span class="muted small">Divide «' + esc(sinEmoji(s.titulo)) + '» en partes (p. ej. Anuncios, Embudos) y coloca en ellas los procesos.</span>'}</p>` : ''}
     ${lista.length && bib.proyectos.length ? loteHtml(lista) : ''}
-    ${lista.length ? `<div class="pr-grid">${lista.map((p, i) => tarjeta(p, i, hoy)).join('')}</div>` : '<p class="muted">No hay procesos que coincidan.</p>'}`;
+    ${!lista.length ? '<p class="muted">No hay procesos que coincidan.</p>' : grupos ? grupos.map((g) => `<section class="pr-grupo"><h4 class="pr-grupo-t"><button type="button" class="link" data-pr-subcat="${esc(g.id)}">📂 ${esc(g.t)}</button> <span class="muted small">${g.ps.length}</span></h4>${grid(g.ps)}</section>`).join('') : grid(lista)}`;
+}
+
+// «Organizar en subcategorías» de la sección elegida: crear, renombrar y quitar subcategorías, y colocar en ellas
+// los procesos que ya hay (cada uno con su desplegable; se guarda al momento).
+function organizarHtml() {
+  const s = secDe();
+  const ps = bib.procesos.filter((p) => p.seccion === s.id && enProyecto(p, proy));
+  const opciones = (p) => `<option value="">— Sin subcategoría —</option>${s.subs.map((x) => `<option value="${esc(x.id)}"${p.sub === x.id ? ' selected' : ''}>${esc(x.titulo)}</option>`).join('')}`;
+  const cuantos = (id) => bib.procesos.filter((p) => p.seccion === s.id && p.sub === id).length;
+  return `<div class="pr-org">
+    <header class="pr-main-head"><div><h3>📂 Subcategorías de ${esc(s.titulo)}</h3><p class="muted small">Crea las partes de esta categoría y elige en cuál va cada proceso. Se guarda solo.</p></div>
+      <button type="button" class="btn primary small" data-pr="organizar-cerrar">✓ Listo</button></header>
+    <section class="pr-org-subs">
+      ${s.subs.length ? `<ul class="pr-org-lista">${s.subs.map((x) => `<li><span class="pr-org-n">📂 <strong>${esc(x.titulo)}</strong> <span class="muted small">${cuantos(x.id)} proceso${cuantos(x.id) === 1 ? '' : 's'}</span></span><span><button type="button" class="btn ghost small" data-pr-subren="${esc(x.id)}" title="Cambiar el nombre">✏️</button><button type="button" class="btn ghost small" data-pr-subdel="${esc(x.id)}" title="Quitar la subcategoría (sus procesos se quedan en ${esc(sinEmoji(s.titulo))})">🗑️</button></span></li>`).join('')}</ul>` : '<p class="muted">Aún no hay subcategorías en esta categoría.</p>'}
+      <form class="pr-org-nueva" data-pr-form="subcat"><input name="texto" maxlength="60" placeholder="Nueva subcategoría (p. ej. 📢 Anuncios)" autocomplete="off" aria-label="Nombre de la subcategoría nueva"><button class="btn small">＋ Añadir</button></form>
+    </section>
+    ${ps.length ? `<section class="pr-org-procs"><h4>Procesos de ${esc(sinEmoji(s.titulo))} <span class="muted small">${ps.length}</span></h4>
+      ${s.subs.length ? '' : '<p class="muted small">Crea primero alguna subcategoría para poder colocar aquí los procesos.</p>'}
+      <ul class="pr-org-lista">${ps.map((p) => `<li><span class="pr-org-n">${esc(p.titulo)}</span><select data-pr-orgsub="${esc(p.id)}" aria-label="Subcategoría de «${esc(p.titulo)}»"${s.subs.length ? '' : ' disabled'}>${opciones(p)}</select></li>`).join('')}</ul></section>` : ''}
+  </div>`;
 }
 
 function tarjeta(p, i, hoy) {
@@ -206,7 +252,7 @@ function tarjeta(p, i, hoy) {
     <span class="pr-card-ico" aria-hidden="true">${hecho ? '✅' : emojiDe(p.titulo) || emojiDe(s?.titulo) || '📄'}</span>
     <strong>${esc(sinEmoji(p.titulo))}</strong>
     <span class="pr-card-txt">${doc ? esc(txt.slice(0, 140)) || 'Vídeo explicativo' : 'Por documentar'}</span>
-    <span class="pr-badges">${p.fecha ? `<span class="pr-badge f-${ef || 'futura'}">${p.repetir.tipo ? '🔁' : '📅'} ${esc(FECHA_TXT[ef] || fechaCorta(p.fecha))}</span>` : ''}${p.subtareas.length ? `<span class="pr-badge">☑️ ${subHechas}/${p.subtareas.length}</span>` : ''}${p.comentarios.length ? `<span class="pr-badge">💬 ${p.comentarios.length}</span>` : ''}${tieneVideo(p) ? '<span class="pr-badge v">🎬 Vídeo</span>' : ''}${!doc ? '<span class="pr-badge pend">✍️ Por documentar</span>' : ''}${!sec && s ? `<span class="pr-badge s">${esc(sinEmoji(s.titulo))}</span>` : ''}${p.compartido && !bib.lectura ? '<span class="pr-badge comp">🤝 Compartido</span>' : ''}</span>
+    <span class="pr-badges">${p.fecha ? `<span class="pr-badge f-${ef || 'futura'}">${p.repetir.tipo ? '🔁' : '📅'} ${esc(FECHA_TXT[ef] || fechaCorta(p.fecha))}</span>` : ''}${p.subtareas.length ? `<span class="pr-badge">☑️ ${subHechas}/${p.subtareas.length}</span>` : ''}${p.comentarios.length ? `<span class="pr-badge">💬 ${p.comentarios.length}</span>` : ''}${tieneVideo(p) ? '<span class="pr-badge v">🎬 Vídeo</span>' : ''}${!doc ? '<span class="pr-badge pend">✍️ Por documentar</span>' : ''}${!sec && s ? `<span class="pr-badge s">${esc(sinEmoji(s.titulo))}${p.sub ? ` › ${esc(sinEmoji(subNombre(p)))}` : ''}</span>` : ''}${p.compartido && !bib.lectura ? '<span class="pr-badge comp">🤝 Compartido</span>' : ''}</span>
     ${bib.proyectos.length ? `<span class="pr-card-proys">${proyectosHtml(p)}</span>` : ''}
     ${p.responsable ? `<span class="pr-card-resp">${avatar(nombreDe(p.responsable))}</span>` : ''}
   </button>`;
@@ -235,7 +281,7 @@ function pintarProceso(main) {
   const ver = (lleno) => !bib.lectura || lleno;
   main.innerHTML = `<article class="pr-tarea">
     <div class="pr-tarea-barra">
-      <button type="button" class="link pr-volver" data-pr="volver">← ${s ? esc(sinEmoji(s.titulo)) : 'Procesos'}</button>
+      <button type="button" class="link pr-volver" data-pr="volver">← ${s ? esc(sinEmoji(s.titulo)) : 'Procesos'}${p.sub ? ` › ${esc(subNombre(p))}` : ''}</button>
       <div class="pr-tarea-acc">
         <button type="button" class="btn small pr-hecho${hecho ? ' on' : ''}" data-pr="hecho">${hecho ? '✓ Hecho' : p.repetir.tipo && p.fecha ? '✓ Hecho · siguiente' : '✓ Marcar como hecho'}</button>
         ${p.asana ? `<a class="btn ghost small" href="${esc(p.asana)}" target="_blank" rel="noopener">Asana ↗</a>` : ''}
@@ -251,6 +297,7 @@ function pintarProceso(main) {
       ${!ver(p.repetir.tipo) ? '' : fila('Se repite', `<span class="pr-rep">${editorRepetir(p.repetir)}${p.repetir.tipo && p.fecha && !encajaEnRepetir(p.fecha, p.repetir) ? `<span class="muted small">Su fecha no cae en el día elegido.</span><button type="button" class="btn small" data-pr="rep-alinear">📅 Pasarlo al ${esc(fechaCorta(primeraFechaRepetir(p.fecha < hoy ? hoy : p.fecha, p.repetir)))}</button>` : p.repetir.tipo && p.fecha ? `<span class="muted small">🔁 Al marcarlo como hecho pasa al ${esc(fechaCorta(proximaTrasHecho(p.fecha, p.repetir, hoy)))}</span>` : p.repetir.tipo ? '<span class="muted small">Pon una fecha para que se repita</span>' : ''}</span>`)}
       ${bib.proyectos.length ? fila('Proyecto', `<span class="pr-proy-chips"><button type="button" class="pr-pchip${p.proyectos.length ? '' : ' on'}" data-pr-proy="">🌐 General (todos)</button>${bib.proyectos.map((x) => `<button type="button" class="pr-pchip${p.proyectos.includes(x.id) ? ' on' : ''}" data-pr-proy="${esc(x.id)}" style="--cl:${esc(x.color || 'var(--accent)')}">${esc(x.nombre)}</button>`).join('')}</span>`) : ''}
       ${fila('Sección', `<select data-pr-campo="seccion" aria-label="Sección">${bib.secciones.map((x) => `<option value="${esc(x.id)}"${x.id === p.seccion ? ' selected' : ''}>${esc(x.titulo)}</option>`).join('')}</select>`)}
+      ${bib.lectura && !p.sub ? '' : fila('Subcategoría', `<select data-pr-campo="sub" aria-label="Subcategoría"><option value="">— Ninguna —</option>${subsDe(p.seccion).map((x) => `<option value="${esc(x.id)}"${x.id === p.sub ? ' selected' : ''}>${esc(x.titulo)}</option>`).join('')}<option value="_nueva">＋ Nueva subcategoría…</option></select>`)}
     </div>
     <section class="pr-bloque">
       <header class="pr-bloque-h"><h4>Descripción</h4>${editandoDesc ? '' : '<button type="button" class="btn ghost small" data-pr="editar-desc">✏️ Editar</button>'}</header>
@@ -405,17 +452,27 @@ const nombreCat = () => (asis.categoria.startsWith('id:') ? bib.secciones.find((
 
 function asisNuevo() {
   const cat = sec && bib.secciones.some((x) => x.id === sec) ? `id:${sec}` : '';
-  asis = { paso: 0, categoria: cat, catNueva: '', responsable: '', titulo: '', objetivo: '', disparador: '', pasos: [''], notas: '', video: '', fecha: '', repetir: { tipo: '' } };
+  asis = { paso: 0, categoria: cat, catNueva: '', sub: cat && subSel && subSel !== '_sin' ? subSel : '', subNueva: '', responsable: '', titulo: '', objetivo: '', disparador: '', pasos: [''], notas: '', video: '', fecha: '', repetir: { tipo: '' } };
 }
 
 function leerAsis() {
   const v = (k) => body().querySelector(`[data-asis="${k}"]`);
-  for (const k of ['catNueva', 'titulo', 'objetivo', 'disparador', 'notas', 'video', 'fecha']) if (v(k)) asis[k] = v(k).value;
+  for (const k of ['catNueva', 'subNueva', 'titulo', 'objetivo', 'disparador', 'notas', 'video', 'fecha']) if (v(k)) asis[k] = v(k).value;
   const ps = [...body().querySelectorAll('[data-asis-paso]')];
   if (ps.length) asis.pasos = ps.map((i) => i.value);
   const ed = body().querySelector('.pr-asis [data-rep-ed]');
   if (ed) asis.repetir = leerRepetir(ed, asis.fecha);
 }
+
+// Subcategoría (opcional) dentro de la categoría elegida: una de las que tiene, ninguna o una nueva.
+function asisSubsHtml() {
+  const subs = asis.categoria.startsWith('id:') ? subsDe(asis.categoria.slice(3)) : [];
+  const chip = (val, txt) => `<button type="button" class="pr-pchip${asis.sub === val ? ' on' : ''}" data-asis-sub="${esc(val)}" aria-pressed="${asis.sub === val}">${esc(txt)}</button>`;
+  return `<div class="field pr-asis-subs"><span>Subcategoría <small>(opcional: una parte de la categoría, p. ej. Anuncios o Embudos dentro de Marketing)</small></span>
+    <div class="pr-proy-chips">${chip('', 'Ninguna')}${subs.map((x) => chip(x.id, x.titulo)).join('')}${chip('_nueva', '＋ Nueva')}</div>
+    ${asis.sub === '_nueva' ? `<input data-asis="subNueva" maxlength="60" value="${esc(asis.subNueva)}" placeholder="Ej.: 📢 Anuncios" autocomplete="off" aria-label="Nombre de la subcategoría nueva">` : ''}</div>`;
+}
+const nombreSubAsis = () => (asis.sub === '_nueva' ? asis.subNueva.trim() : asis.sub && asis.categoria.startsWith('id:') ? subsDe(asis.categoria.slice(3)).find((x) => x.id === asis.sub)?.titulo || '' : '');
 
 function asistenteHtml() {
   const n = asis.paso;
@@ -432,7 +489,8 @@ function asistenteHtml() {
           ${sugeridas.map((t) => card(`sug:${t}`, emojiDe(t), sinEmoji(t), 'Nueva')).join('')}
           ${card('nueva', '＋', 'Otra categoría', 'Ponle tú el nombre')}
         </div>
-        ${asis.categoria === 'nueva' ? `<label class="field"><span>Nombre de la categoría <small>(puedes empezar con un emoji)</small></span><input data-asis="catNueva" maxlength="60" value="${esc(asis.catNueva)}" placeholder="Ej.: 🎓 Formación" autocomplete="off"></label>` : ''}`;
+        ${asis.categoria === 'nueva' ? `<label class="field"><span>Nombre de la categoría <small>(puedes empezar con un emoji)</small></span><input data-asis="catNueva" maxlength="60" value="${esc(asis.catNueva)}" placeholder="Ej.: 🎓 Formación" autocomplete="off"></label>` : ''}
+        ${asis.categoria ? asisSubsHtml() : ''}`;
     }
     if (n === 1) {
       const b = (id, nombre, txt) => `<button type="button" class="pr-asis-persona${asis.responsable === id ? ' on' : ''}" data-asis-resp="${esc(id)}" aria-pressed="${asis.responsable === id}">${id ? avatar(nombre) : '<span class="pr-av vacio">?</span>'}<span>${esc(txt)}</span></button>`;
@@ -462,7 +520,7 @@ function asistenteHtml() {
     const pasos = pasosLista();
     const fila = (ico, k, v) => `<li><span class="pr-asis-r-ico">${ico}</span><span class="pr-asis-r-k">${k}</span><span class="pr-asis-r-v">${v}</span></li>`;
     return `<ul class="pr-asis-resumen">
-      ${fila('📁', 'Categoría', esc(nombreCat()) + (asis.categoria.startsWith('id:') ? '' : ' <span class="muted small">(nueva)</span>'))}
+      ${fila('📁', 'Categoría', esc(nombreCat()) + (asis.categoria.startsWith('id:') ? '' : ' <span class="muted small">(nueva)</span>') + (nombreSubAsis() ? ` › ${esc(nombreSubAsis())}${asis.sub === '_nueva' ? ' <span class="muted small">(nueva)</span>' : ''}` : ''))}
       ${fila('👤', 'Responsable', esc(nombreDe(asis.responsable) || 'Sin asignar'))}
       ${fila('📝', 'En qué consiste', `<strong>${esc(asis.titulo.trim())}</strong>${asis.objetivo.trim() ? `<br><span class="muted">🎯 ${esc(asis.objetivo.trim())}</span>` : ''}${asis.disparador.trim() ? `<br><span class="muted">⏰ ${esc(asis.disparador.trim())}</span>` : ''}`)}
       ${fila('🪜', 'Paso a paso', pasos.length ? `<ol>${pasos.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : '<span class="muted">Ninguno todavía</span>')}
@@ -514,7 +572,9 @@ async function asisCrear(b) {
       const titulo = nombreCat();
       seccion = bib.secciones.find((x) => normCat(x.titulo) === normCat(titulo))?.id || (await enviar({ op: 'seccion', titulo })).seccion;
     }
-    const d = await enviar({ op: 'nuevo', seccion, titulo: asis.titulo.trim(), html: htmlAsis(), subtareas: pasosLista() });
+    let sub = asis.sub === '_nueva' ? '' : asis.sub;
+    if (asis.sub === '_nueva' && asis.subNueva.trim()) sub = (await enviar({ op: 'subcategoria', seccion, titulo: asis.subNueva.trim() })).sub;
+    const d = await enviar({ op: 'nuevo', seccion, sub, titulo: asis.titulo.trim(), html: htmlAsis(), subtareas: pasosLista() });
     const campos = {};
     if (asis.responsable) campos.responsable = asis.responsable;
     if (fecha) campos.fecha = fecha;
@@ -522,7 +582,7 @@ async function asisCrear(b) {
     if (Object.keys(campos).length) await enviar({ op: 'campos', id: d.proceso.id, campos });
     creando = ''; asis = null;
     abierto = d.proceso.id;
-    sec = seccion;
+    sec = seccion; subSel = '';
     q = ''; filtro = ''; editandoDesc = false;
     pintar();
     arriba();
@@ -544,6 +604,7 @@ function asisMover(delta) {
   leerAsis();
   if (delta > 0 && asis.paso === 0 && !asis.categoria) { asisError('Elige una categoría para seguir (o crea una nueva).'); return; }
   if (delta > 0 && asis.paso === 0 && asis.categoria === 'nueva' && !asis.catNueva.trim()) { asisError('Escribe el nombre de la categoría nueva.', '[data-asis="catNueva"]'); return; }
+  if (delta > 0 && asis.paso === 0 && asis.sub === '_nueva' && !asis.subNueva.trim()) { asisError('Escribe el nombre de la subcategoría nueva (o elige «Ninguna»).', '[data-asis="subNueva"]'); return; }
   if (delta > 0 && asis.paso === 2 && !asis.titulo.trim()) { asisError('Ponle un nombre al proceso para seguir.', '[data-asis="titulo"]'); return; }
   if (delta > 0 && asis.paso === 4 && asis.video.trim() && !videoEmbed(asis.video.trim())) { asisError('Ese enlace de vídeo no lo reconozco. Prueba con el de Loom, YouTube, Vimeo o Bunny, o déjalo vacío.', '[data-asis="video"]'); return; }
   asis.paso = Math.max(0, Math.min(ASIS_PASOS.length - 1, asis.paso + delta));
@@ -680,9 +741,20 @@ async function onChange(e) {
     pintarLista();
     return;
   }
+  if (t.dataset.prOrgsub) {
+    try { await enviar({ op: 'campos', id: t.dataset.prOrgsub, campos: { sub: t.value } }); pintar(); } catch (err) { window.alert(err.message); }
+    return;
+  }
   const c = t.dataset.prCampo;
   if (!c || !abierto) return;
   const p = proc();
+  if (c === 'sub' && t.value === '_nueva') {
+    const titulo = (window.prompt(`Nombre de la subcategoría dentro de «${sinEmoji(secDe(p.seccion)?.titulo)}» (p. ej. «📢 Anuncios»)`) || '').trim();
+    if (!titulo) { t.value = p.sub; return; }
+    try { const d = await enviar({ op: 'subcategoria', seccion: p.seccion, titulo }); guardarCampos({ sub: d.sub }); } catch (err) { window.alert(err.message); t.value = p.sub; }
+    return;
+  }
+  if (c === 'seccion') { guardarCampos({ seccion: t.value, sub: '' }); return; }
   if (c === 'titulo') { if (t.value.trim() && t.value.trim() !== p.titulo) guardarCampos({ titulo: t.value }); return; }
   guardarCampos({ [c]: t.value });
 }
@@ -704,6 +776,10 @@ async function onSubmit(e) {
   if (bib.lectura) return;
   const texto = f.texto.value.trim();
   if (!texto) return;
+  if (f.dataset.prForm === 'subcat') {
+    try { await enviar({ op: 'subcategoria', seccion: sec, titulo: texto }); pintar(); body().querySelector('.pr-org-nueva input')?.focus(); } catch (err) { window.alert(err.message); }
+    return;
+  }
   const sub = f.dataset.prForm === 'sub';
   f.querySelector('button')?.setAttribute('disabled', '');
   try {
@@ -733,7 +809,9 @@ async function onClick(e) {
   const ds = e.target.closest('[data-rep-dsem]');
   if (ds && creando === 'asistente') { pulsarDsem(ds); leerAsis(); return; }
   const ct = e.target.closest('[data-asis-cat]');
-  if (ct) { leerAsis(); asis.categoria = ct.dataset.asisCat; pintarLista(); if (asis.categoria === 'nueva') body().querySelector('[data-asis="catNueva"]')?.focus(); return; }
+  const cs = e.target.closest('[data-asis-sub]');
+  if (cs) { leerAsis(); asis.sub = cs.dataset.asisSub; pintarLista(); if (asis.sub === '_nueva') body().querySelector('[data-asis="subNueva"]')?.focus(); return; }
+  if (ct) { leerAsis(); if (asis.categoria !== ct.dataset.asisCat) asis.sub = ''; asis.categoria = ct.dataset.asisCat; pintarLista(); if (asis.categoria === 'nueva') body().querySelector('[data-asis="catNueva"]')?.focus(); return; }
   if (e.target.closest('[data-asis-paso-add]')) { asisPasoAnadir(); return; }
   const pq = e.target.closest('[data-asis-paso-quitar]');
   if (pq) { leerAsis(); asis.pasos.splice(Number(pq.dataset.asisPasoQuitar), 1); pintarLista(); return; }
@@ -742,7 +820,24 @@ async function onClick(e) {
   if (ds && abierto) { pulsarDsem(ds); guardarCampos({ repetir: leerRepetir(ds.closest('[data-rep-ed]'), proc().fecha) }); return; }
   if (e.target.closest('[data-pr="rep-alinear"]') && abierto) { const p = proc(); const hoy = hoyMadrid(); guardarCampos({ fecha: primeraFechaRepetir(p.fecha < hoy ? hoy : p.fecha, p.repetir) }); return; }
   const sb = e.target.closest('[data-pr-sec]');
-  if (sb) { sec = sb.dataset.prSec; abierto = ''; creando = ''; pintar(); return; }
+  if (sb) { sec = sb.dataset.prSec; subSel = ''; organizar = false; abierto = ''; creando = ''; pintar(); return; }
+  const sc = e.target.closest('[data-pr-subcat]');
+  if (sc) { subSel = subSel === sc.dataset.prSubcat ? '' : sc.dataset.prSubcat; organizar = false; abierto = ''; creando = ''; pintar(); return; }
+  const sr = e.target.closest('[data-pr-subren]');
+  if (sr) {
+    const x = subsDe().find((y) => y.id === sr.dataset.prSubren);
+    const titulo = (window.prompt('Nuevo nombre de la subcategoría', x?.titulo || '') || '').trim();
+    if (!titulo || titulo === x?.titulo) return;
+    try { await enviar({ op: 'subcategoria', seccion: sec, sub: x.id, titulo }); pintar(); } catch (err) { window.alert(err.message); }
+    return;
+  }
+  const sd = e.target.closest('[data-pr-subdel]');
+  if (sd) {
+    const x = subsDe().find((y) => y.id === sd.dataset.prSubdel);
+    if (!x || !window.confirm(`¿Quitar la subcategoría «${x.titulo}»? Sus procesos no se borran: se quedan en «${sinEmoji(secDe()?.titulo)}» sin subcategoría.`)) return;
+    try { await enviar({ op: 'subcategoria', seccion: sec, sub: x.id, borrar: true }); if (subSel === x.id) subSel = ''; pintar(); } catch (err) { window.alert(err.message); }
+    return;
+  }
   const fl = e.target.closest('[data-pr-filtro]');
   if (fl) { filtro = fl.dataset.prFiltro; pintarLista(); return; }
   const ab = e.target.closest('[data-pr-abrir]');
@@ -770,6 +865,13 @@ async function onClick(e) {
   if (!b) return;
   const a = b.dataset.pr;
   if (a === 'lote' || a === 'lote-cerrar') { lote = a === 'lote'; pintarLista(); return; }
+  if (a === 'organizar' || a === 'organizar-cerrar') { organizar = a === 'organizar'; pintar(); arriba(); if (organizar) body().querySelector('.pr-org-nueva input')?.focus(); return; }
+  if (a === 'subcat-nueva') {
+    const titulo = (window.prompt(`Nombre de la subcategoría dentro de «${sinEmoji(secDe()?.titulo)}» (p. ej. «📢 Anuncios»)`) || '').trim();
+    if (!titulo) return;
+    try { const d = await enviar({ op: 'subcategoria', seccion: sec, titulo }); subSel = d.sub; organizar = false; abierto = ''; pintar(); } catch (err) { window.alert(err.message); }
+    return;
+  }
   if (a === 'lote-aplicar' || a === 'lote-general') {
     const box = body().querySelector('.pr-lote');
     const ids = box.dataset.prLoteIds.split(',').filter(Boolean);

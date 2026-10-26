@@ -99,3 +99,29 @@ test('procesos: repetir un día concreto (días de la semana, día del mes, «el
   assert.equal(primeraFechaRepetir('2026-10-05', { tipo: 'mensual', dia: 5 }), '2026-10-05');
   assert.equal(primeraFechaRepetir('2026-10-14', { tipo: 'quincenal', dias: [2] }), '2026-10-20'); // el próximo martes, sin saltarse una semana
 });
+
+test('subcategorías: cada sección tiene las suyas; el proceso solo puede estar en una de su sección', async () => {
+  const { sanitizeProceso, anadirSub } = await import('../public/js/procesos.js');
+  const b = sanitizeBiblioteca({
+    secciones: [{ id: 'marketing', titulo: '📣 Marketing', subs: [{ titulo: '📢 Anuncios' }, { id: 'embudos', titulo: 'Embudos' }, { id: 'embudos', titulo: 'repe' }] }, { id: 'ventas', titulo: 'Ventas' }],
+    procesos: [
+      { id: 'a', seccion: 'marketing', sub: 'anuncios', titulo: 'Subir anuncios' },
+      { id: 'b', seccion: 'marketing', sub: 'no-existe', titulo: 'x' },
+      { id: 'c', seccion: 'ventas', sub: 'embudos', titulo: 'de otra sección' },
+    ],
+  });
+  assert.deepEqual(b.secciones[0].subs, [{ id: 'anuncios', titulo: '📢 Anuncios' }, { id: 'embudos', titulo: 'Embudos' }]);
+  assert.deepEqual(b.secciones[1].subs, []);
+  assert.deepEqual(b.procesos.map((p) => p.sub), ['anuncios', '', '']);
+  // Al cambiar de sección, la subcategoría de la otra no vale
+  assert.equal(sanitizeProceso({ ...b.procesos[0], seccion: 'ventas' }, b.secciones).sub, '');
+  // Añadir: sin repetir el nombre (devuelve la que ya estaba)
+  assert.equal(anadirSub(b.secciones[0], 'Embudos'), 'embudos');
+  assert.equal(anadirSub(b.secciones[0], 'Orgánico'), 'organico');
+  assert.equal(b.secciones[0].subs.length, 3);
+  assert.throws(() => anadirSub(b.secciones[0], '  '));
+  // Importar no borra las subcategorías que ya había
+  const r = fusionar(b, { secciones: [{ id: 'marketing', titulo: 'Marketing', subs: [{ id: 'email', titulo: 'Email' }] }], procesos: [{ id: 'a', seccion: 'marketing', titulo: 'Subir anuncios v2' }] });
+  assert.deepEqual(r.biblioteca.secciones[0].subs.map((x) => x.id), ['anuncios', 'embudos', 'organico', 'email']);
+  assert.equal(r.biblioteca.procesos.find((p) => p.id === 'a').sub, 'anuncios');
+});

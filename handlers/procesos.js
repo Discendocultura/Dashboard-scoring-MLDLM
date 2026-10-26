@@ -8,16 +8,20 @@
 // comentarios y actividad.
 //   GET  /api/procesos?ambito=agencia|cliente  → { secciones, procesos, equipo: [{ id, nombre, foto }], yo, proyectos: [{ id, nombre, color }], ambito, cliente, lectura? }
 //   Todos los POST llevan `ambito` (por defecto 'agencia').
-//   POST { op: 'nuevo', seccion, titulo, html?, subtareas?: [texto], origen? }  → proceso nuevo (desde cero o copiando
+//   POST { op: 'nuevo', seccion, sub?, titulo, html?, subtareas?: [texto], origen? }  → proceso nuevo (desde cero o copiando
 //        una tarea de un tablero: su descripción y su checklist como subtareas)
 //   POST { op: 'vaciar', confirmar: 'VACIAR' } → borra todos los procesos y secciones (queda en el historial)
-//   POST { op: 'campos', id, campos }          → título, sección, descripción (html), proyectos, responsable, fecha, repetir,
+//   POST { op: 'campos', id, campos }          → título, sección, subcategoría (sub), descripción (html), proyectos, responsable, fecha, repetir,
 //        compartido (solo en la de la agencia)
 //   POST { op: 'proyectos-lote', ids, proyectos } → varios procesos a la vez a esos proyectos ([] = generales)
 //   POST { op: 'hecho', id, hecho }            → si se repite, pasa a la próxima fecha (y las subtareas se reinician)
 //   POST { op: 'subtarea', id, sid?, texto?, hecha?, borrar? }
 //   POST { op: 'comentar', id, texto } · { op: 'comentario-borrar', id, cid }
 //   POST { op: 'borrar', id } · { op: 'seccion', titulo } · { op: 'importar', biblioteca }
+//   POST { op: 'subcategoria', seccion, titulo }        → subcategoría nueva en esa sección → { sub }
+//   POST { op: 'subcategoria', seccion, sub, titulo }   → la renombra · { …, sub, borrar: true } → la quita (sus
+//        procesos se quedan en la sección, sin subcategoría)
+//   POST { op: 'sub-lote', ids, seccion, sub }          → varios procesos a esa sección y subcategoría ('' = ninguna)
 //   En la del cliente no hay proyectos, ni «compartir», ni vaciar, ni importar.
 import { requireSuperadmin, requireSession, getSession } from '../lib/auth.js';
 import { proyectosSoloOperativa } from '../lib/operativa.js';
@@ -25,7 +29,7 @@ import { leerJSON, guardarJSON, reintentando, conVersion } from '../lib/store.js
 import { listUsersRaw, listUsers } from '../lib/users.js';
 import { clienteActual } from '../lib/cliente.js';
 import { listClientes } from '../lib/clientes.js';
-import { sanitizeBiblioteca, sanitizeProceso, fusionar, idSeccion, proximaTrasHecho, textoRepetir, nuevoIdProceso, nuevoIdCorto, MAX_PROCESOS, MAX_SECCIONES, MAX_SUBTAREAS, MAX_COMENTARIOS } from '../public/js/procesos.js';
+import { sanitizeBiblioteca, sanitizeProceso, fusionar, idSeccion, proximaTrasHecho, textoRepetir, nuevoIdProceso, nuevoIdCorto, anadirSub, MAX_PROCESOS, MAX_SECCIONES, MAX_SUBTAREAS, MAX_COMENTARIOS } from '../public/js/procesos.js';
 import { dayInMadrid } from '../public/js/scoring.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 
@@ -106,7 +110,7 @@ export async function POST(request) {
         if (b.procesos.length >= MAX_PROCESOS) throw bad(`Como mucho ${MAX_PROCESOS} procesos.`);
         // Desde cero o copiando una tarea de un tablero (título, descripción y checklist → subtareas). Siempre general.
         const subtareas = (Array.isArray(body.subtareas) ? body.subtareas : []).map((t) => ({ texto: String(t ?? '') }));
-        const p = sanitizeProceso({ id: nuevoIdProceso(), seccion: body.seccion, titulo: body.titulo || 'Proceso nuevo', html: body.html || '', subtareas, actualizado: ahora, por }, b.secciones);
+        const p = sanitizeProceso({ id: nuevoIdProceso(), seccion: body.seccion, sub: body.sub, titulo: body.titulo || 'Proceso nuevo', html: body.html || '', subtareas, actualizado: ahora, por }, b.secciones);
         const origen = String(body.origen || '').trim().slice(0, 160);
         p.actividad.push({ en: ahora, por, txt: origen ? `creó el proceso a partir de ${origen}` : 'creó el proceso' });
         b.procesos.push(p);
@@ -119,14 +123,16 @@ export async function POST(request) {
         if ('responsable' in c && c.responsable && !eq.some((u) => u.id === c.responsable)) throw bad('Esa persona no está en el equipo.');
         const nuevo = sanitizeProceso({ ...p, ...c, id: p.id }, b.secciones);
         if ('titulo' in c && nuevo.titulo !== p.titulo) anotar(p, `cambió el título a «${nuevo.titulo}»`);
+        const subNombre = (pr) => b.secciones.find((x) => x.id === pr.seccion)?.subs.find((x) => x.id === pr.sub)?.titulo || '';
         if ('seccion' in c && nuevo.seccion !== p.seccion) anotar(p, `lo movió a «${b.secciones.find((x) => x.id === nuevo.seccion)?.titulo || ''}»`);
+        else if (nuevo.sub !== p.sub) anotar(p, nuevo.sub ? `lo puso en la subcategoría «${subNombre(nuevo)}»` : 'lo sacó de su subcategoría');
         if ('html' in c && nuevo.html !== p.html) anotar(p, 'cambió la descripción');
         if ('proyectos' in c && nuevo.proyectos.join() !== p.proyectos.join()) anotar(p, `lo puso en ${nombresProy(nuevo.proyectos)}`);
         if ('responsable' in c && nuevo.responsable !== p.responsable) anotar(p, nuevo.responsable ? `asignó a ${eq.find((u) => u.id === nuevo.responsable)?.nombre || 'alguien'}` : 'quitó el responsable');
         if ('fecha' in c && nuevo.fecha !== p.fecha) anotar(p, nuevo.fecha ? `puso la fecha el ${fechaTxt(nuevo.fecha)}` : 'quitó la fecha');
         if ('repetir' in c && JSON.stringify(nuevo.repetir) !== JSON.stringify(p.repetir)) anotar(p, nuevo.repetir.tipo ? `hizo que se repita: ${textoRepetir(nuevo.repetir).toLowerCase()}` : 'quitó la repetición');
         if ('compartido' in c && nuevo.compartido !== p.compartido) anotar(p, nuevo.compartido ? 'lo compartió con todos los clientes' : 'dejó de compartirlo con los clientes');
-        Object.assign(p, { titulo: nuevo.titulo, seccion: nuevo.seccion, html: nuevo.html, proyectos: nuevo.proyectos, responsable: nuevo.responsable, fecha: nuevo.fecha, repetir: nuevo.repetir, compartido: nuevo.compartido });
+        Object.assign(p, { titulo: nuevo.titulo, seccion: nuevo.seccion, sub: nuevo.sub, html: nuevo.html, proyectos: nuevo.proyectos, responsable: nuevo.responsable, fecha: nuevo.fecha, repetir: nuevo.repetir, compartido: nuevo.compartido });
         extra = { proceso: p };
       } else if (body.op === 'proyectos-lote') {
         const ids = new Set(Array.isArray(body.ids) ? body.ids.map(String) : []);
@@ -197,6 +203,39 @@ export async function POST(request) {
         while (b.secciones.some((x) => x.id === id)) id = `${id.slice(0, 36)}-${Math.random().toString(36).slice(2, 4)}`;
         b.secciones.push({ id, titulo });
         extra = { seccion: id };
+      } else if (body.op === 'subcategoria') {
+        const sc = b.secciones.find((x) => x.id === body.seccion);
+        if (!sc) throw bad('Sección no encontrada', 404);
+        if (!body.sub) {
+          try { extra = { sub: anadirSub(sc, body.titulo) }; } catch (err) { throw bad(err.message); }
+        } else {
+          const sb = sc.subs.find((x) => x.id === body.sub);
+          if (!sb) throw bad('Subcategoría no encontrada', 404);
+          if (body.borrar) {
+            sc.subs = sc.subs.filter((x) => x !== sb);
+            for (const p of b.procesos) if (p.seccion === sc.id && p.sub === sb.id) p.sub = '';
+          } else {
+            const titulo = String(body.titulo || '').trim().slice(0, 60);
+            if (!titulo) throw bad('Pon un nombre a la subcategoría.');
+            sb.titulo = titulo;
+          }
+          extra = { sub: body.borrar ? '' : sb.id };
+        }
+      } else if (body.op === 'sub-lote') {
+        const ids = new Set(Array.isArray(body.ids) ? body.ids.map(String) : []);
+        const sc = b.secciones.find((x) => x.id === body.seccion);
+        if (!sc) throw bad('Sección no encontrada', 404);
+        const sub = sc.subs.some((x) => x.id === body.sub) ? body.sub : '';
+        const nombre = sc.subs.find((x) => x.id === sub)?.titulo || '';
+        let n = 0;
+        for (const p of b.procesos) {
+          if (!ids.has(p.id) || (p.seccion === sc.id && p.sub === sub)) continue;
+          p.seccion = sc.id;
+          p.sub = sub;
+          anotar(p, sub ? `lo puso en «${sc.titulo} › ${nombre}»` : `lo movió a «${sc.titulo}»`);
+          n++;
+        }
+        extra = { cambiados: n };
       } else if (body.op === 'importar') {
         if (!body.biblioteca?.procesos?.length) throw bad('El archivo no trae procesos.');
         const r = fusionar(b, body.biblioteca);
