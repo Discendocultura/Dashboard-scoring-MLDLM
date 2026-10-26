@@ -126,7 +126,7 @@
     '.lsd-vot-mia{margin-top:8px;padding:10px 12px;border-radius:10px;background:#fff;border:1px solid #e6ded6}.lsd-vot-mia span{font-size:.8em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.7}.lsd-vot-mia p{margin:4px 0 0;white-space:pre-line}';
   CSS +=
     '.lsd-cal-menu{display:flex;flex-direction:column;gap:8px;width:100%;max-width:360px;margin:12px auto 0;padding:14px;border-radius:16px;background:#fff;color:#2b2522;box-shadow:0 18px 40px -16px rgba(0,0,0,.45);text-align:left;font-size:15px;box-sizing:border-box;animation:lsdEncIn .2s ease both}' +
-    '.lsd-cal-t{margin:0 0 2px;font-weight:700;font-size:14px}.lsd-cal-op{display:flex;flex-direction:column;gap:2px;padding:11px 14px;border-radius:12px;border:1.5px solid #e6ded6;color:inherit!important;text-decoration:none!important;background:#faf7f4}' +
+    '.lsd-cal-t{margin:0 0 2px;font-weight:700;font-size:14px}.lsd-cal-s{margin:0 0 4px;font-size:12.5px;opacity:.75;line-height:1.4}.lsd-cal-op{display:flex;flex-direction:column;gap:2px;padding:11px 14px;border-radius:12px;border:1.5px solid #e6ded6;color:inherit!important;text-decoration:none!important;background:#faf7f4}' +
     '.lsd-cal-op:hover{border-color:var(--lsd-acento,#b4552d)}.lsd-cal-op span{font-size:13px;opacity:.75}.lsd-cal-op.lsd-cal-hecho{border-color:#3c9a5f}.lsd-cal-op.lsd-cal-hecho strong::after{content:" ✓";color:#3c9a5f}';
   // Encuesta primero (preclase): pantalla completa hasta que la rellena. Colores con variables para cada página:
   // --lsd-enc-fondo, --lsd-enc-texto, --lsd-enc-tarjeta y --lsd-acento.
@@ -556,7 +556,7 @@
     m.className = 'lsd-cal-menu';
     m.setAttribute('role', 'menu');
     m.lsdBtn = btn;
-    m.innerHTML = '<p class="lsd-cal-t">Añade los ' + lista.length + ' directos a tu calendario</p>' + lista.map(function (d) {
+    m.innerHTML = '<p class="lsd-cal-t">Añade los ' + lista.length + ' directos a tu calendario</p><p class="lsd-cal-s">En Google, pulsa cada uno y dale a «Guardar» (Google guarda uno cada vez).</p>' + lista.map(function (d) {
       return '<a class="lsd-cal-op" role="menuitem" href="' + esc(d.google) + '" target="_blank" rel="noopener"><strong>📅 ' + esc(d.nombre) + '</strong><span>' + esc(d.cuando) + ' · Google Calendar</span></a>';
     }).join('') + (calendarios.ics ? '<a class="lsd-cal-op lsd-cal-ics" role="menuitem" href="' + esc(calendarios.ics) + '"><strong>🍎 Apple / Outlook</strong><span>Los ' + lista.length + ' directos de una vez</span></a>' : '');
     btn.insertAdjacentElement('afterend', m);

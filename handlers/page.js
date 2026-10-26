@@ -52,6 +52,7 @@ export async function GET(request, ctx) {
     const cq = clienteActual().principal ? '' : `&c=${encodeURIComponent(clienteActual().id)}`;
     const live = `${url.origin}/directo?l=${encodeURIComponent(code)}${cq}`;
     const calDirectos = directosCalendario(launch, m, live);
+    const detallesCal = (d) => [`Entra al directo aquí: ${d.url}`, ...calDirectos.filter((o) => o.k !== d.k).map((o) => `Añade también el ${o.nombre} (${formatLong(o.start)}) a tu calendario: ${googleCalendarUrl({ title: o.title, start: o.start, details: `Entra al directo aquí: ${o.url}` })}`)].join('\n\n');
 
     const links = {
       ...(launch.enlaces || {}),
@@ -73,11 +74,13 @@ export async function GET(request, ctx) {
       // Añadir al calendario: el enlace configurado o, si no hay, uno de Google Calendar generado solo (Google admite
       // un evento por enlace: con varios directos, «calendario» es el 1 y hay calendario2, calendario3…; el botón
       // «calendario» abre un menú con todos, ver `calendarios`).
+      // Con varios directos, cada evento de Google lleva en su descripción el enlace para añadir los demás (Google
+      // guarda uno por clic: así, al guardar el 1, tiene a mano el 2).
       calendario: launch.calendarioUrl || googleCalendarUrl({
         title: calDirectos[0]?.title || launch.name || 'Clase en directo', start: m.directo,
-        details: `Entra al directo aquí: ${live}`,
+        details: detallesCal(calDirectos[0] || { k: 1, url: live }),
       }),
-      ...Object.fromEntries(calDirectos.filter((d) => d.k > 1).map((d) => [`calendario${d.k}`, googleCalendarUrl({ title: d.title, start: d.start, details: `Entra al directo aquí: ${d.url}` })])),
+      ...Object.fromEntries(calDirectos.filter((d) => d.k > 1).map((d) => [`calendario${d.k}`, googleCalendarUrl({ title: d.title, start: d.start, details: detallesCal(d) })])),
       'calendario-ics': m.directo != null ? `${url.origin}/api/ics?l=${encodeURIComponent(code)}${cq}` : '',
       login: launch.loginUrl || '',
     };
