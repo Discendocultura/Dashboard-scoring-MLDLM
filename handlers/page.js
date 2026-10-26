@@ -6,7 +6,7 @@
 import { cacheCompartida } from '../lib/store.js';
 import { getConfig } from '../lib/config-store.js';
 import { clienteActual } from '../lib/cliente.js';
-import { getContact, getContactCompleto, countByTag } from '../lib/ghl.js';
+import { getContact, getContactCompleto, countByTag, findContactByEmail } from '../lib/ghl.js';
 import { dentroDelLimite } from '../lib/intentos.js';
 import { varianteDe, textosTitular } from '../public/js/titulares.js';
 import { currentLaunch } from '../lib/digest.js';
@@ -136,6 +136,9 @@ export async function GET(request, ctx) {
       } catch (e) {
         console.error(e);
       }
+    } else if (/^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/.test(url.searchParams.get('email') || '')) {
+      // Llega solo con su email (p. ej. del login sin cid): se la busca por email para saber su encuesta, VIP…
+      try { contact = await findContactByEmail(url.searchParams.get('email').trim().toLowerCase()); } catch (e) { console.error(e); }
     }
     const sig = contact ? signalsFor(contact.tags, code, launch, contact) : null;
     const isVip = sig ? sig.vip : null;

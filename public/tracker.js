@@ -466,6 +466,7 @@
     // La preclase avisa de que es ella: a la hora del directo el servidor solo devuelve adónde ir (sin llamar a GHL).
     if (pagina) q.set('pagina', pagina);
     if (who && who.cid) q.set('cid', who.cid);
+    else if (who && who.email) q.set('email', who.email); // sin cid: el servidor la busca por su email
     if (params.get('lsd_preview')) q.set('preview', params.get('lsd_preview'));
     return fetch(API + conCliente('/api/page?' + q.toString())).then(function (r) { return r.json(); }).then(function (d) {
       // En la vista previa la hora del servidor es fija: se toma solo la primera vez (si no, el contador salta atrás).
@@ -1303,9 +1304,9 @@
     var base = document.querySelector('[data-lsd-page]');
     var enc = data.encuesta || {};
     var href = (data.links || {}).encuesta;
-    var poner = Boolean(who && who.cid && enc.required && !enc.done && href && !(base && base.getAttribute('data-encuesta-primero') === 'no'));
+    var poner = Boolean(who && (who.cid || who.email) && enc.required && !enc.done && href && !(base && base.getAttribute('data-encuesta-primero') === 'no'));
     if (!poner) {
-      if (who && who.cid && enc.required && !enc.done && !href && window.console) console.warn('[lsd] el lanzamiento pide encuesta pero no tiene su URL: ponla en Configuración (URL de la encuesta) para que salga al entrar.');
+      if (who && (who.cid || who.email) && enc.required && !enc.done && !href && window.console) console.warn('[lsd] el lanzamiento pide encuesta pero no tiene su URL: ponla en Configuración (URL de la encuesta) para que salga al entrar.');
       if (el) { clearInterval(el.lsdTimer); el.parentNode.removeChild(el); if (!document.getElementById('lsd-espera')) document.documentElement.style.overflow = ''; }
       return;
     }
@@ -1624,7 +1625,7 @@
         // para no gastar peticiones con la página abierta y olvidada.
         var encPend = Boolean(data.encuesta && data.encuesta.required && !data.encuesta.done);
         var testPend = Boolean(data.recursos && data.recursos.test && data.recursos.test.unlocked && !data.recursos.test.done);
-        waitingEncuesta = Boolean((encPend || testPend) && who && who.cid);
+        waitingEncuesta = Boolean((encPend || testPend) && who && (who.cid || who.email));
         if (!waitingEncuesta) intentos = 0;
         if (waitingEncuesta && !document.hidden) {
           var pasos = encPend ? [15, 30, 60, 120, 300] : [60, 120, 300];
