@@ -1385,7 +1385,7 @@
     var nombre = ''; // el nombre va en el enlace de la encuesta (para rellenarla); se saluda con él
     try { nombre = String(new URL(href, location.href).searchParams.get('first_name') || '').trim().split(' ')[0].slice(0, 30); } catch (e) { /* sin nombre */ }
     var dentro = Boolean(base && base.getAttribute('data-encuesta-dentro') === 'si');
-    var tema = (base && base.getAttribute('data-encuesta-estilo')) || TEMA_ENCUESTA[CLIENTE] || '';
+    var tema = (base && base.getAttribute('data-encuesta-estilo')) || TEMA_ENCUESTA[data.cliente || CLIENTE] || TEMA_ENCUESTA[CLIENTE] || '';
     if (tema === 'resistencia' && !dentro) {
       el = popupResistencia(data, href);
       el.id = 'lsd-encuesta';

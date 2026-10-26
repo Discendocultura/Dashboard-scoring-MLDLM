@@ -177,6 +177,7 @@ export async function GET(request, ctx) {
     return json({
       code,
       name: launch.name,
+      cliente: clienteActual().id, // para la estética propia del cliente en la página (p. ej. el popup de la encuesta)
       now,
       preview,
       phase: phase.id,
