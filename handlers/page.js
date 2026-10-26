@@ -130,15 +130,19 @@ export async function GET(request, ctx) {
     }
 
     let contact = null;
+    // Si GHL no contesta (cientos de leads a la vez y su límite de ~100 peticiones cada 10 s), no se la trata como
+    // «sin encuesta»: no se le pide ni se le bloquea nada y la página vuelve a preguntar en unos segundos.
+    let sinGhl = false;
     if (cid) {
       try {
         contact = await getContact(cid);
       } catch (e) {
         console.error(e);
+        sinGhl = true;
       }
     } else if (/^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/.test(url.searchParams.get('email') || '')) {
       // Llega solo con su email (p. ej. del login sin cid): se la busca por email para saber su encuesta, VIP…
-      try { contact = await findContactByEmail(url.searchParams.get('email').trim().toLowerCase()); } catch (e) { console.error(e); }
+      try { contact = await findContactByEmail(url.searchParams.get('email').trim().toLowerCase()); } catch (e) { console.error(e); sinGhl = true; }
     }
     const sig = contact ? signalsFor(contact.tags, code, launch, contact) : null;
     const isVip = sig ? sig.vip : null;
@@ -147,8 +151,8 @@ export async function GET(request, ctx) {
     // En la vista previa del dashboard (sin contacto) se muestran como si ya la hubiera rellenado.
     const encuestaRequired = Boolean(launch.encuestaTag);
     // Quien ya la rellenó en un lanzamiento anterior (misma encuesta y etiqueta) no tiene que repetirla.
-    const encuestaDone = !encuestaRequired || (sig ? sig.encuesta || sig.encuesta_anterior : preview && !cid);
-    links.encuesta = encuestaDone && encuestaRequired && !preview ? '' : encuestaUrl(launch.encuestaUrl, contact);
+    const encuestaDone = !encuestaRequired || sinGhl || (sig ? sig.encuesta || sig.encuesta_anterior : preview && !cid);
+    links.encuesta = sinGhl || (encuestaDone && encuestaRequired && !preview) ? '' : encuestaUrl(launch.encuestaUrl, contact);
 
     const videoDe = (src, unlockAt, gated = false) => {
       const unlocked = Boolean(src) && (unlockAt == null || now >= unlockAt);
@@ -178,6 +182,7 @@ export async function GET(request, ctx) {
       code,
       name: launch.name,
       cliente: clienteActual().id, // para la estética propia del cliente en la página (p. ej. el popup de la encuesta)
+      ...(sinGhl ? { reintentar: true } : {}),
       now,
       preview,
       phase: phase.id,

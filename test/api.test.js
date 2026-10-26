@@ -317,6 +317,13 @@ test('encuesta: sin la etiqueta no se entregan las clases 1 y 2', async () => {
   const enc = new URL(before.links.encuesta);
   assert.equal(enc.searchParams.get('email'), lead.email);              // encuesta rellena con su email
 
+  // GHL saturado (cientos de leads a la vez): no se le pide la encuesta ni se le bloquea; la página reintenta.
+  const sat = await (await page.GET(req(`/api/page?l=enc-test&preview=${encodeURIComponent(tok)}&cid=mockGhlSaturado`))).json();
+  assert.equal(sat.reintentar, true);
+  assert.equal(sat.encuesta.done, true);
+  assert.equal(sat.links.encuesta, '');
+  assert.equal(before.reintentar, undefined);
+
   await addTags(lead.id, ['encuesta-demo']);
   const after = await get();
   assert.equal(after.encuesta.done, true);

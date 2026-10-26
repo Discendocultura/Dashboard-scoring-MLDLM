@@ -1400,7 +1400,6 @@
       document.body.appendChild(el);
       document.documentElement.style.overflow = 'hidden';
       requestAnimationFrame(function () { requestAnimationFrame(function () { el.classList.add('is-open'); }); });
-      el.lsdTimer = setInterval(function () { if (!document.hidden) comprobar(); }, 8000);
       return;
     }
     var pagina = dentro ? { titulo: '', texto: '' } : copyEncuestaPagina();
@@ -1430,9 +1429,9 @@
     });
     document.body.appendChild(el);
     document.documentElement.style.overflow = 'hidden';
-    // Mientras está, se comprueba cada 8 s si ya llegó la encuesta; con la encuesta dentro, también al enviarla (el
-    // marco cambia de página), a los 3 s.
-    el.lsdTimer = setInterval(function () { if (!document.hidden) comprobar(); }, 8000);
+    // Si ya llegó la encuesta se comprueba al volver a la pestaña, al pulsar «Ya la he rellenado» y, con la página
+    // abierta, cada vez más espaciado (15 s, 30 s, 1 min… lo hace cycle()): sin comprobaciones fijas, que con cientos
+    // de leads a la vez agotarían el límite de GHL. Con la encuesta dentro, también al enviarla (a los 3 s).
     var ifr = el.querySelector('iframe'), cargas = 0;
     if (ifr) ifr.addEventListener('load', function () { cargas++; if (cargas > 1) setTimeout(comprobar, 3000); });
   }
@@ -1698,7 +1697,9 @@
       primeraRespuesta = null;
       var reutilizar = p && who && who.cid && p.cid === who.cid && p.kind === kind && p.code === launchAttr && Date.now() - p.at < 30000;
       (reutilizar ? Promise.resolve(p.data) : fetchPage(launchAttr, who, kind)).then(function (data) {
-        if (!data || data.error || redirigido) return;
+        if (redirigido) return;
+        if (!data || (data.error && !data.code)) return reintentar();
+        fallos = 0;
         if (kind === 'recursos' && data.redirectTo && data.links[data.redirectTo]) {
           return /^directo\d?$/.test(data.redirectTo) ? irAlDirecto(data, data.redirectTo, who) : goTo(data.links[data.redirectTo], who);
         }
@@ -1707,7 +1708,7 @@
         // Los 59 minutos antes del directo, la preclase se convierte en la pantalla de espera.
         var esp = kind === 'recursos' ? esperaDirecto(data) : null;
         if (esp && serverNow() >= esp.desde) mostrarEspera(data, esp, who); else { quitarEspera(); if (kind === 'recursos') inscribirPorAdelantado(data, who); }
-        if (kind === 'recursos') pantallaEncuesta(data, who, function () { intentos = 0; clearTimeout(timer); cycle(); });
+        if (kind === 'recursos' && !data.reintentar) pantallaEncuesta(data, who, function () { intentos = 0; clearTimeout(timer); cycle(); });
         // Próximo cambio: fase o desbloqueo de vídeo (o el momento de enseñar la pantalla de espera).
         var rec = data.recursos || {};
         var next = [data.changesAt, esp && esp.desde].concat(Object.keys(data.videos).map(function (k) { return data.videos[k].unlockAt; }), Object.keys(rec).map(function (k) { return rec[k] && rec[k].unlockAt; }))
@@ -1725,8 +1726,20 @@
           next = Math.min(next || Infinity, serverNow() + pasos[Math.min(intentos, pasos.length - 1)] * 1000);
           intentos++;
         }
+        // GHL no contestó (mucha gente a la vez): se vuelve a preguntar en 20-50 s, cada página a su hora.
+        if (data.reintentar) next = Math.min(next || Infinity, serverNow() + 20000 + Math.random() * 30000);
         if (next) timer = setTimeout(cycle, Math.min(next - serverNow() + 1500, 2147483000));
-      }).catch(function () { /* sin conexión: se queda como está */ });
+      }).catch(reintentar);
+    }
+    // Sin respuesta o con error (sin conexión o el servidor saturado): se reintenta solo, cada vez más espaciado y
+    // con algo de azar para que cientos de páginas no vuelvan a pedir a la vez (5-10 s, 10-20 s… hasta 2-4 min).
+    var fallos = 0;
+    function reintentar() {
+      if (redirigido) return;
+      var base = Math.min(5000 * Math.pow(2, fallos), 120000);
+      fallos++;
+      clearTimeout(timer);
+      timer = setTimeout(cycle, base + Math.random() * base);
     }
     var waitingEncuesta = false;
     // Al volver a la pestaña (focus y visibilitychange llegan juntos): una sola comprobación.
