@@ -233,6 +233,17 @@ test('ventas cruzadas (API): «Mover de etapa» con las mismas opciones que una 
   // La setter (con Hoy/Llamadas) también puede moverlos
   const setter = (await call('/api/login', { method: 'POST', body: { password: 'setter' } })).res.headers.get('set-cookie').split(';')[0];
   assert.equal((await mover({ contactId: 'cmv2', resultado: 'seguimiento' }, setter)).status, 200);
+  // A cualquier fase del pipeline por su id (al arrastrar la tarjeta o desde «Mover de etapa»)
+  const etapas = hoy.data.etapas;
+  const porContactar = etapas.find((e) => /por contactar/i.test(e.nombre)) || etapas[0];
+  const m = await mover({ contactId: 'cmv1', etapa: porContactar.id });
+  assert.equal(m.status, 200, JSON.stringify(m.data));
+  assert.deepEqual([m.data.etapa.id, m.data.status], [porContactar.id, 'open']);
+  const venta = etapas.find((e) => e.nombre === 'Venta');
+  assert.equal((await mover({ contactId: 'cmv1', etapa: venta.id })).data.status, 'won');
+  assert.equal((await mover({ contactId: 'cmv1', etapa: 'otraFase' })).status, 400);
+  const tras = await call('/api/cruzadas?x=xmv&fresh=1', { cookie: admin });
+  assert.ok(tras.data.etapas.find((e) => e.id === venta.id).items.some((it) => it.contactId === 'cmv1'));
 });
 
 test('venta directa (API): Comercial → Llamadas usa el pipeline elegido en el embudo', async () => {

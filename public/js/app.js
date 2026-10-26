@@ -13066,16 +13066,27 @@ const LL_EXPLICA_X = {
   noshow: 'No contesta: avanza a «No contesta 1» (o al siguiente).',
   reagendar: 'Vuelve a «Agenda llamada» para que reserve otra vez.',
 };
+// En ventas cruzadas se elige la fase (todas las del pipeline); si es de «no compra», con su motivo.
+const faseNoCompra = (nombre) => /perdid|no compra/i.test(nombre || '');
 function syncLlDialog() {
   const v = $('#ll-resultados input:checked')?.value;
+  if (llActual?.etapas) {
+    const f = llActual.etapas.find((x) => x.id === v);
+    $('#ll-motivo-field').hidden = !faseNoCompra(f?.nombre);
+    $('#ll-explica').textContent = f ? `Pasa a «${f.nombre}» en el pipeline de ventas cruzadas.` : '';
+    return;
+  }
   $('#ll-motivo-field').hidden = v !== 'perdido';
   $('#ll-explica').textContent = (llActual?.cruzada ? LL_EXPLICA_X : LL_EXPLICA)[v] || '';
 }
 function abrirMoverCruzada({ contactId, nombre, fase }) {
-  llActual = { cruzada: true, contactId, nombre };
+  const etapas = cruz.etapasHoy();
+  llActual = { cruzada: true, contactId, nombre, etapas: etapas.length ? etapas : null };
   $('#ll-titulo').textContent = nombre || 'Mover de etapa';
   $('#ll-sub').innerHTML = fase ? `Ahora en <strong>«${esc(fase)}»</strong>. ¿A qué etapa pasa?` : '¿A qué etapa pasa?';
-  $('#ll-resultados').innerHTML = RESULTADOS.map((r) => `<label class="ll-opt ll-${r.id}"><input type="radio" name="ll-res" value="${r.id}"><span>${r.icon} ${esc(r.id === 'noshow' ? 'No contesta' : r.label)}</span></label>`).join('');
+  $('#ll-resultados').innerHTML = etapas.length
+    ? etapas.map((x) => `<label class="ll-opt${x.nombre === fase ? ' actual' : ''}"><input type="radio" name="ll-res" value="${esc(x.id)}"${x.nombre === fase ? ' disabled' : ''}><span>${esc(x.nombre)}${x.nombre === fase ? ' <small>(ahora)</small>' : ''}</span></label>`).join('')
+    : RESULTADOS.map((r) => `<label class="ll-opt ll-${r.id}"><input type="radio" name="ll-res" value="${r.id}"><span>${r.icon} ${esc(r.id === 'noshow' ? 'No contesta' : r.label)}</span></label>`).join('');
   $('#ll-motivo').value = MOTIVOS[0];
   $('#ll-notas').value = '';
   $('#ll-status').textContent = '';
@@ -13335,7 +13346,7 @@ if (ls.get('lsd_ll_ayuda') !== 'cerrada') $('#ll-ayuda').open = true;
 $('#ll-ayuda').addEventListener('toggle', (e) => ls.set('lsd_ll_ayuda', e.target.open ? 'abierta' : 'cerrada'));
 $('#ll-save').addEventListener('click', async () => {
   const resultado = $('#ll-resultados input:checked')?.value;
-  if (!resultado) { $('#ll-status').textContent = 'Elige un resultado.'; return; }
+  if (!resultado) { $('#ll-status').textContent = llActual?.etapas ? 'Elige la etapa.' : 'Elige un resultado.'; return; }
   const btn = $('#ll-save');
   btn.disabled = true;
   $('#ll-status').textContent = 'Guardando en GHL…';
@@ -13343,6 +13354,13 @@ $('#ll-save').addEventListener('click', async () => {
     const c = llActual;
     if (c.cruzada) {
       const x = state.embudo;
+      if (c.etapas) { // una fase del pipeline: se mueve ya en el tablero
+        const f = c.etapas.find((y) => y.id === resultado);
+        const r = await cruz.moverA(c.contactId, resultado, { nombre: c.nombre, motivo: faseNoCompra(f?.nombre) ? $('#ll-motivo').value : '', notas: $('#ll-notas').value });
+        lldlg.close();
+        notice(`${c.nombre || 'Alumno'} → «${r.etapa.nombre}» ✓${r.avisos?.length ? ` (${r.avisos.join(' ')})` : ' · nota guardada en GHL'}`, Boolean(r.avisos?.length));
+        return;
+      }
       const r = await api('/api/cruzadas', { method: 'POST', body: { op: 'mover', x, contactId: c.contactId, nombre: c.nombre, resultado, motivo: resultado === 'perdido' ? $('#ll-motivo').value : '', notas: $('#ll-notas').value } });
       lldlg.close();
       notice(`${c.nombre || 'Alumno'} → «${r.etapa.nombre}» ✓${r.avisos?.length ? ` (${r.avisos.join(' ')})` : ' · nota guardada en GHL'}`, Boolean(r.avisos?.length));
@@ -16308,12 +16326,13 @@ $('#dc-buscar').addEventListener('input', () => renderDirectaClientes(state.dire
 // ---------- 🧭 Comercial → Pipeline: el pipeline de GHL ligado a la venta directa ----------
 // Un tablero con una columna por fase y cada contacto en la suya (la que pone el workflow de compra). Se mueve
 // de fase desde su tarjeta; el servidor solo deja mover oportunidades de ese pipeline.
-state.dpl = { id: '', datos: null, cargando: '', q: '', msg: null };
+state.dpl = { id: '', datos: null, cargando: '', q: '', msg: null, max: {} }; // max: tarjetas a la vista por fase
+const DPL_POR_COL = 50;
 async function cargarPipelineDir({ fresh = false } = {}) {
   const id = state.embudo;
   if (!fresh && state.dpl.id === id && state.dpl.datos && !state.dpl.datos.error) { renderPipelineDir(); return; }
   if (state.dpl.cargando === id && !fresh) return;
-  state.dpl = { ...state.dpl, id, datos: fresh ? state.dpl.datos : null, cargando: id };
+  state.dpl = { ...state.dpl, id, datos: fresh ? state.dpl.datos : null, cargando: id, max: state.dpl.id === id ? state.dpl.max : {} };
   renderPipelineDir();
   let d;
   try { d = await api(`/api/pipeline?d=${encodeURIComponent(id)}${fresh ? '&fresh=1' : ''}`); } catch (e) { d = { error: e.message }; }
@@ -16347,7 +16366,7 @@ function renderPipelineDir() {
   const cc = state.config.defaultCountryCode || '34';
   const tarjeta = (o) => {
     const wa = waPhone(o.phone, cc);
-    return `<article class="kb-card locked dpl-card${o.status === 'won' ? ' won' : o.status === 'lost' ? ' lost' : ''}" data-dpl-op="${esc(o.id)}">
+    return `<article class="kb-card dpl-card${o.status === 'won' ? ' won' : o.status === 'lost' ? ' lost' : ''}" data-dpl-op="${esc(o.id)}" draggable="true" title="Arrástrala a otra fase para moverla">
       <div class="dpl-card-top"><span class="t-avatar" aria-hidden="true">${esc(iniciales(o.name))}</span>
         <span class="dpl-card-t"><button type="button" class="lead-ficha" data-ficha-lead="${esc(o.contactId)}" title="Ver la ficha">${esc(o.name || 'Sin nombre')}</button>
         ${o.createdAt ? `<small class="muted">Entró ${esc(haceDias(o.createdAt))}</small>` : ''}</span></div>
@@ -16371,11 +16390,15 @@ function renderPipelineDir() {
       ${D.truncado ? `<p class="muted small">Se ven los ${D.oportunidades.length} más nuevos de ${D.total}.</p>` : ''}
     </div>
     ${D.oportunidades.length ? '' : `<div class="notice info">ℹ️ Aún no hay nadie en «${esc(P.name)}». Las compradoras aparecerán aquí cuando el workflow de compra de GHL cree su oportunidad en este pipeline.</div>`}
-    <div class="kanban dpl-kanban">${P.stages.map((x) => `<section class="kb-col dpl-col${x.id === D.etapaEntrada ? ' entra' : ''}" style="--kb:${esc(x.color || 'var(--tone-info)')}">
+    <div class="kanban dpl-kanban">${P.stages.map((x) => {
+      const ver = Math.min(porFase[x.id].length, state.dpl.max[x.id] || DPL_POR_COL);
+      const quedan = porFase[x.id].length - ver;
+      return `<section class="kb-col dpl-col${x.id === D.etapaEntrada ? ' entra' : ''}" data-dpl-col="${esc(x.id)}" style="--kb:${esc(x.color || 'var(--tone-info)')}">
         <header class="kb-head"><h3>${x.id === D.etapaEntrada ? '📍 ' : ''}${esc(x.name)}</h3><span class="kb-count">${porFase[x.id].length}</span></header>
         ${x.id === D.etapaEntrada ? '<p class="dpl-entra">Aquí entran las compradoras</p>' : ''}
-        <div class="kb-list">${porFase[x.id].slice(0, 100).map(tarjeta).join('') || '<p class="kb-empty">Nadie en esta fase</p>'}${porFase[x.id].length > 100 ? `<p class="muted small">y ${porFase[x.id].length - 100} más (usa el buscador)</p>` : ''}</div>
-      </section>`).join('')}</div>`;
+        <div class="kb-list">${porFase[x.id].slice(0, ver).map(tarjeta).join('') || '<p class="kb-empty">Nadie en esta fase</p>'}${quedan > 0 ? `<button type="button" class="btn small ghost dpl-mas" data-dpl-mas="${esc(x.id)}">⬇️ Cargar ${Math.min(DPL_POR_COL, quedan)} más <small>(quedan ${quedan.toLocaleString('es-ES')})</small></button>` : ''}</div>
+      </section>`;
+    }).join('')}</div>`;
 }
 $('#dpl-body').addEventListener('input', (e) => {
   if (e.target.id !== 'dpl-q') return;
@@ -16385,30 +16408,66 @@ $('#dpl-body').addEventListener('input', (e) => {
   const i = $('#dpl-q'); i.focus(); i.setSelectionRange(pos, pos);
 });
 $('#dpl-body').addEventListener('click', (e) => {
+  const mas = e.target.closest('[data-dpl-mas]');
+  if (mas) { const k = mas.dataset.dplMas; state.dpl.max[k] = (state.dpl.max[k] || DPL_POR_COL) + DPL_POR_COL; renderPipelineDir(); return; }
   if (e.target.closest('[data-dpl-recargar]')) cargarPipelineDir({ fresh: true });
   if (e.target.closest('[data-dpl-config]')) abrirDirectaConfig(state.embudo, 'dcp-pipeline');
 });
-$('#dpl-body').addEventListener('change', async (e) => {
-  const sel = e.target.closest('[data-dpl-mover]');
-  if (!sel) return;
+// Mover de fase: con el desplegable de la tarjeta o arrastrándola a otra columna (se ve ya en la nueva y, si GHL dice
+// que no, vuelve a la de antes).
+async function moverDpl(o, etapa) {
   const D = state.dpl.datos;
-  const o = D?.oportunidades.find((x) => x.id === sel.dataset.dplMover);
-  if (!o) return;
   const antes = o.etapa;
-  const fase = D.pipeline.stages.find((x) => x.id === sel.value);
-  sel.disabled = true;
+  if (!etapa || etapa === antes) return;
+  const fase = D.pipeline.stages.find((x) => x.id === etapa);
+  o.etapa = etapa;
+  state.dpl.msg = { txt: `Moviendo a ${o.name || 'este contacto'}…` };
+  renderPipelineDir();
   try {
-    const r = await api('/api/pipeline', { method: 'POST', body: { d: state.embudo, op: 'mover', oppId: o.id, contactId: o.contactId, etapa: sel.value } });
+    const r = await api('/api/pipeline', { method: 'POST', body: { d: state.embudo, op: 'mover', oppId: o.id, contactId: o.contactId, etapa } });
     Object.assign(o, { etapa: r.etapa, status: r.status });
-    renderPipelineDir();
     state.dpl.msg = { txt: `✅ ${o.name || 'Contacto'} pasa a «${fase?.name || 'otra fase'}»` };
-    renderPipelineDir();
   } catch (err) {
     o.etapa = antes;
-    renderPipelineDir();
     state.dpl.msg = { txt: `No se pudo mover a ${o.name || 'este contacto'}: ${err.message}`, err: true };
-    renderPipelineDir();
   }
+  renderPipelineDir();
+}
+const dplOp = (id) => state.dpl.datos?.oportunidades?.find((x) => x.id === id);
+$('#dpl-body').addEventListener('change', (e) => {
+  const sel = e.target.closest('[data-dpl-mover]');
+  const o = sel && dplOp(sel.dataset.dplMover);
+  if (o) moverDpl(o, sel.value);
+});
+let dplArrastre = null;
+$('#dpl-body').addEventListener('dragstart', (e) => {
+  const c = e.target.closest('[data-dpl-op]');
+  if (!c) return;
+  dplArrastre = c.dataset.dplOp;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dplArrastre);
+  c.classList.add('dragging');
+});
+$('#dpl-body').addEventListener('dragend', (e) => {
+  e.target.closest('[data-dpl-op]')?.classList.remove('dragging');
+  $$('#dpl-body .kb-col.over').forEach((c) => c.classList.remove('over'));
+  dplArrastre = null;
+});
+$('#dpl-body').addEventListener('dragover', (e) => {
+  const col = dplArrastre && e.target.closest('[data-dpl-col]');
+  if (!col) return;
+  e.preventDefault();
+  $$('#dpl-body .kb-col.over').forEach((c) => c !== col && c.classList.remove('over'));
+  col.classList.add('over');
+});
+$('#dpl-body').addEventListener('drop', (e) => {
+  const col = dplArrastre && e.target.closest('[data-dpl-col]');
+  if (!col) return;
+  e.preventDefault();
+  col.classList.remove('over');
+  const o = dplOp(dplArrastre);
+  dplArrastre = null;
+  if (o) moverDpl(o, col.dataset.dplCol);
 });
 
 // ---------- 📞 Seguimiento: compradoras sin el producto principal (p. ej. del Reto a Raíces) ----------

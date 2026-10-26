@@ -4,12 +4,14 @@
 //   POST /api/cruzadas { op: 'por-contactar', x, contactos: [{ id, nombre }] } (quien configura) → mete esos alumnos en
 //     la fase «Por contactar» del pipeline (si no la hay, la primera), solo a los que aún no están en él. Va por
 //     tandas de 20 (cada alumno son 2 llamadas a GHL: ¿ya está? y crearlo; Cloudflare deja 50 por visita).
+//   POST /api/cruzadas { op: 'mover', x, contactId, nombre, etapa | resultado, motivo, notas } → lo pasa a esa fase
+//     (`etapa`: el id de cualquier fase del pipeline, al arrastrar la tarjeta o desde «Mover de etapa").
 // El pipeline se busca por su nombre (el elegido en la configuración; si no, «Ventas cruzadas»).
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { getPipelines, searchOpportunities, createOpportunity, updateOpportunity, addContactNote } from '../lib/ghl.js';
 import { RESULTADOS, etapasPipeline, etapaDestino } from '../public/js/llamadas.js';
-import { cacheCompartida } from '../lib/store.js';
+import { cacheCompartida, leerCompartida, guardarCompartida } from '../lib/store.js';
 import { PIPELINE_CRUZADAS, sanitizeCruzada, comercialDe } from '../public/js/cruzadas.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 
@@ -104,17 +106,19 @@ export async function POST(request) {
   }
 }
 
-// «Mover de etapa» desde «Hoy» (las mismas opciones que al anotar una llamada de un lanzamiento: Venta, Pendiente de
-// pago, Seguimiento, No compra, No contesta, Reagendar): mueve (o crea) su oportunidad en el pipeline de ventas cruzadas
-// y deja la nota en su ficha de GHL. No hay cita que marcar.
+// «Mover de etapa» desde «Hoy»: a cualquier fase del pipeline (`etapa`, su id: al arrastrar la tarjeta o desde el
+// botón) o, como al anotar una llamada de un lanzamiento, por resultado (Venta, Seguimiento, No contesta…). Mueve (o
+// crea) su oportunidad en el pipeline de ventas cruzadas y deja la nota en su ficha de GHL. No hay cita que marcar.
+export const estadoEtapa = (nombre) => (/perdid|lost|no compra/i.test(nombre || '') ? 'lost' : /venta|ganad|won/i.test(nombre || '') ? 'won' : 'open');
 async function mover(request, body) {
   const s = await requireSession(request, { permiso: ['hoy', 'llamadas'] });
-  const r = RESULTADOS.find((x) => x.id === body.resultado);
-  if (!r) return json({ error: 'Resultado no válido' }, 400);
+  const porEtapa = Boolean(body.etapa);
+  const r = porEtapa ? null : RESULTADOS.find((x) => x.id === body.resultado);
+  if (!porEtapa && !r) return json({ error: 'Resultado no válido' }, 400);
   const contactId = String(body.contactId || '');
   if (!/^[A-Za-z0-9_-]{2,64}$/.test(contactId)) return json({ error: 'Contacto no válido' }, 400);
-  const motivo = r.id === 'perdido' ? String(body.motivo || '').trim().slice(0, 60) : '';
-  if (r.id === 'perdido' && !motivo) return json({ error: 'Indica el motivo por el que no compra' }, 400);
+  const motivo = String(body.motivo || '').trim().slice(0, 60);
+  if (r?.id === 'perdido' && !motivo) return json({ error: 'Indica el motivo por el que no compra' }, 400);
   const notas = String(body.notas || '').trim().slice(0, 2000);
   const config = await getConfig();
   const id = String(body.x || '');
@@ -125,17 +129,39 @@ async function mover(request, body) {
   const pipe = (await getPipelines()).find((p) => norm(p.name) === norm(nombre));
   if (!pipe) return json({ error: `No encuentro el pipeline «${nombre}» en GHL.` }, 400);
   const opp = (await searchOpportunities({ pipelineId: pipe.id, contactId, limit: 1 })).opportunities[0];
-  const etapa = etapaDestino(r.id, etapasPipeline(pipe), opp?.pipelineStageId);
-  if (!etapa) return json({ error: `El pipeline «${pipe.name}» no tiene una fase para «${r.label}».` }, 400);
-  if (opp) await updateOpportunity(opp.id, { pipelineId: pipe.id, pipelineStageId: etapa, status: r.status });
+  const etapa = porEtapa ? (pipe.stages || []).find((x) => x.id === String(body.etapa))?.id : etapaDestino(r.id, etapasPipeline(pipe), opp?.pipelineStageId);
+  if (!etapa) return json({ error: porEtapa ? 'Esa fase no está en el pipeline' : `El pipeline «${pipe.name}» no tiene una fase para «${r.label}».` }, 400);
+  const fase = (pipe.stages || []).find((x) => x.id === etapa);
+  const status = r ? r.status : estadoEtapa(fase?.name);
+  if (opp) await updateOpportunity(opp.id, { pipelineId: pipe.id, pipelineStageId: etapa, status });
   else {
     const com = comercialDe(contactId, c.comerciales);
-    await createOpportunity({ pipelineId: pipe.id, pipelineStageId: etapa, contactId, name: `${String(body.nombre || 'Alumno').trim().slice(0, 80)}${com ? ` · ${com.nombre}` : ''}`.slice(0, 100), status: r.status });
+    await createOpportunity({ pipelineId: pipe.id, pipelineStageId: etapa, contactId, name: `${String(body.nombre || 'Alumno').trim().slice(0, 80)}${com ? ` · ${com.nombre}` : ''}`.slice(0, 100), status });
   }
   const quien = s.user?.nombre || (s.role === 'admin' ? 'Admin' : 'Setter');
   const avisos = [];
-  await addContactNote(contactId, `🔁 Ventas cruzadas: ${r.icon} ${r.label}${motivo ? ` · Motivo: ${motivo}` : ''}${notas ? `\n${notas}` : ''}\n— ${quien}, desde AlquimIA`)
+  const que = r ? `${r.icon} ${r.label}` : `→ «${fase?.name || ''}»`;
+  await addContactNote(contactId, `🔁 Ventas cruzadas: ${que}${motivo ? ` · Motivo: ${motivo}` : ''}${notas ? `\n${notas}` : ''}\n— ${quien}, desde AlquimIA`)
     .catch((e) => avisos.push(`No se pudo guardar la nota en GHL (${String(e.message).slice(0, 120)}).`));
-  const fase = (pipe.stages || []).find((x) => x.id === etapa);
-  return json({ etapa: { id: etapa, nombre: fase?.name || '' }, avisos });
+  await moverEnCopia(pipe.id, { contactId, nombre: String(body.nombre || '').trim().slice(0, 80), etapa, status, telefono: opp?.phone || '' });
+  return json({ etapa: { id: etapa, nombre: fase?.name || '' }, status, avisos });
+}
+
+// Que el resto del equipo lo vea ya en su nueva fase sin volver a leer todo el pipeline de GHL: se mueve en la copia
+// compartida (si la hay).
+async function moverEnCopia(pipeId, { contactId, nombre, etapa, status, telefono }) {
+  const clave = `cruzadas-pipe|${pipeId}`;
+  const v = await leerCompartida(clave, 3 * 60_000);
+  if (!v?.etapas) return;
+  let it = null;
+  for (const e of v.etapas) {
+    const i = e.items.findIndex((x) => x.contactId === contactId);
+    if (i >= 0) { [it] = e.items.splice(i, 1); e.n = Math.max(0, e.n - 1); }
+  }
+  const dest = v.etapas.find((e) => e.id === etapa);
+  if (!dest) return;
+  dest.items.unshift({ ...(it || { contactId, nombre, telefono }), desde: new Date().toISOString(), estado: status });
+  dest.n++;
+  if (!it) v.total = (v.total || 0) + 1;
+  await guardarCompartida(clave, v);
 }

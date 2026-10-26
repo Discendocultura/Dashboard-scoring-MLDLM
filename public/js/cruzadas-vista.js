@@ -15,7 +15,7 @@ import { waPhone } from './scoring.js';
 import { resumenThrivecart } from './thrivecart.js';
 
 const POR_PAGINA = 40;
-const POR_COLUMNA = 60; // tarjetas que se pintan en cada fase de «Hoy» (las demás, con «Y N más»)
+const POR_COLUMNA = 50; // tarjetas que se pintan en cada fase de «Hoy» (las demás, con «Cargar más»)
 const TANDA = 20; // alumnos por visita al servidor al meterlos en «Por contactar» (igual que en handlers/cruzadas.js)
 const FRESCOS_MS = 10 * 60 * 1000;
 // Un solo color (el azul «de datos» del logo) más grises: los productos se distinguen por su nombre, no por
@@ -36,7 +36,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
   const datos = { id: '', clave: '', at: 0, alumnos: null, error: '', cargando: false };
   // tel: '' | 'si' | 'no' (con o sin teléfono) · com: id del comercial ('' = todos) · nprod: cuántos productos (0 = da igual)
   const vista = { filtro: {}, texto: '', max: POR_PAGINA, ultimo: 0, tel: '', com: '', nprod: 0 };
-  const hoy = { id: '', datos: null, error: '', cargando: false, cerradas: false };
+  const hoy = { id: '', datos: null, error: '', cargando: false, cerradas: false, max: {} }; // max: tarjetas a la vista por fase
   const cfgDe = (id) => sanitizeCruzada(state.config?.cruzadas?.[id] || {});
   const lsFiltro = (id) => `lsd_xfiltro_${id}`;
   const lsExtra = (id) => `lsd_xextra_${id}`;
@@ -278,6 +278,8 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     if (cf) { abrirConfig(state.embudo); if (cf.dataset.xIr) setTimeout(() => $(`#xc-${cf.dataset.xIr}`, dlg)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120); return; }
     if (e.target.closest('#xhoy-body [data-x-recargar]')) return cargarHoy(state.embudo, { fresh: true });
     if (e.target.closest('[data-x-cerradas]')) { hoy.cerradas = !hoy.cerradas; return pintarHoy(); }
+    const xpm = e.target.closest('[data-xp-mas]');
+    if (xpm) { const ol = xpm.closest('.xp-col')?.querySelector('ol'); const top = ol?.scrollTop || 0; hoy.max[xpm.dataset.xpMas] = (hoy.max[xpm.dataset.xpMas] || (hoy.etapa ? POR_COLUMNA * 5 : POR_COLUMNA)) + POR_COLUMNA; pintarHoy(); const ol2 = $(`#xhoy-body [data-xp-col="${CSS.escape(xpm.dataset.xpMas)}"] ol`); if (ol2) ol2.scrollTop = top; return; }
     const xpe = e.target.closest('[data-xp-etapa]');
     if (xpe) { hoy.etapa = hoy.etapa === xpe.dataset.xpEtapa ? '' : xpe.dataset.xpEtapa; return pintarHoy(); }
     const xpc = e.target.closest('[data-xp-com]');
@@ -353,6 +355,7 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
   async function cargarHoy(id, { fresh = false } = {}) {
     if (datos.id !== id || (!datos.alumnos && !datos.cargando)) cargar(id); // qué tiene cada uno (y los filtros de este embudo)
     if (!fresh && hoy.id === id && hoy.datos && Date.now() - hoy.at < 2 * 60_000) { pintarHoy(); return; }
+    if (hoy.id !== id) hoy.max = {};
     Object.assign(hoy, { id, datos: null, error: '', cargando: true });
     pintarHoy();
     try {
@@ -425,16 +428,22 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
       const dias = it.desde ? Math.max(0, Math.round((Date.now() - Date.parse(it.desde)) / 86_400_000)) : null;
       // Como las tarjetas de Llamadas: pulsarla abre la ficha y «Mover de etapa» abre las mismas opciones.
       const datosCard = it.contactId ? ` data-xp-card="${esc(it.contactId)}" data-xp-nombre="${esc(it.nombre || a?.name || '')}" data-xp-fase="${esc(e.nombre)}" title="Pulsa para ver la ficha completa"` : '';
-      return `<li class="xp-card${it.contactId ? ' clic' : ''}" style="--i:${Math.min(i, 10)}"${datosCard}>
+      return `<li class="xp-card${it.contactId ? ' clic' : ''}" style="--i:${Math.min(i, 10)}"${datosCard}${it.contactId ? ' draggable="true"' : ''}>
         <div class="xp-card-q"><span class="xa-av peq" style="--c:${tonoDe(it.nombre)}" aria-hidden="true">${esc(ini(it.nombre))}</span><button type="button" class="lead-ficha" data-xp-ficha ${it.contactId ? '' : 'disabled'}>${esc(it.nombre || '(sin nombre)')}</button></div>
         ${a ? `<div class="xa-chips mini">${productos.filter((p) => a.tiene.includes(p.id)).map((p) => `<span class="xa-chip si" style="--c:${colorDe(productos, p.id)}">✓ ${esc(p.nombre)}</span>`).join('')}</div>` : ''}
         ${pOf ? `<span class="xa-oferta" style="--c:${colorDe(productos, pOf.id)}"><span aria-hidden="true">🎁</span> <b>${esc(pOf.nombre)}</b>${of.precio ? `<small>${esc(of.precio)}</small>` : ''}</span>` : falta.length ? `<span class="xa-ofrece"><span aria-hidden="true">🎁</span> ${falta.slice(0, 2).map((p) => esc(p.nombre)).join(' · ')}</span>` : ''}
         <div class="xp-card-pie"><span class="muted small">${dias == null ? '' : dias === 0 ? 'hoy en esta fase' : `${dias} día${dias === 1 ? '' : 's'} en esta fase`}</span><span class="xa-acts">${it.contactId ? '<button type="button" class="btn small xp-mover" data-xp-mover>Mover de etapa</button>' : ''}${tel ? `<a class="xa-act tel" href="tel:${esc(tel.replace(/[^\d+]/g, ''))}" title="Llamar">📞</a>` : ''}${wa ? `<a class="xa-act wa" href="https://wa.me/${esc(wa)}${of?.mensaje ? `?text=${encodeURIComponent(mensajeDe(of, it.nombre, pOf?.nombre))}` : ''}" target="_blank" rel="noopener" title="WhatsApp">${ICO_WA}</a>` : ''}</span></div></li>`;
     };
     const maxCol = hoy.etapa ? POR_COLUMNA * 5 : POR_COLUMNA; // una sola fase: caben más
-    const columna = (e, i) => `<section class="xp-col ${cerrada(e.nombre) ? 'cerr' : ''}" style="--c:${COLORES[0]};--i:${i}">
+    // Cada fase enseña las primeras y, al final, «Cargar más». Se puede arrastrar una tarjeta a otra fase.
+    const columna = (e, i) => {
+      const lista = suyos(e);
+      const ver = Math.min(lista.length, hoy.max[e.id] || maxCol);
+      const sinLeer = nDe(e) - lista.length; // las que GHL no ha dado (más de 2.000 en el pipeline)
+      return `<section class="xp-col ${cerrada(e.nombre) ? 'cerr' : ''}" data-xp-col="${esc(e.id)}" style="--c:${COLORES[0]};--i:${i}">
       <header><span class="xp-col-ico" aria-hidden="true">${ICO_ETAPA(e.nombre)}</span><strong>${esc(e.nombre)}</strong><span class="xp-col-n">${num(nDe(e))}</span></header>
-      ${suyos(e).length ? `<ol>${suyos(e).slice(0, maxCol).map(tarjeta(e)).join('')}</ol>${nDe(e) > Math.min(maxCol, suyos(e).length) ? `<p class="muted small xp-col-mas">Y ${num(nDe(e) - Math.min(maxCol, suyos(e).length))} más${vista.com ? '' : ' (filtra por comercial para ver los tuyos)'}</p>` : ''}` : '<p class="xp-col-vacia">Nadie en esta fase</p>'}</section>`;
+      ${lista.length ? `<ol>${lista.slice(0, ver).map(tarjeta(e)).join('')}</ol>${lista.length > ver ? `<div class="xp-col-mas"><button type="button" class="btn small ghost" data-xp-mas="${esc(e.id)}">⬇️ Cargar ${num(Math.min(POR_COLUMNA, lista.length - ver))} más <small>(quedan ${num(lista.length - ver)})</small></button></div>` : sinLeer > 0 ? `<p class="muted small xp-col-mas">Y ${num(sinLeer)} más que no caben: búscalos en GHL</p>` : ''}` : '<p class="xp-col-vacia">Nadie en esta fase</p>'}</section>`;
+    };
     // Alumnos que aún no están en el pipeline (por su id de contacto, con lo leído de GHL).
     const enPipe = new Set(d.etapas.flatMap((e) => e.items.map((it) => it.contactId)));
     const fuera = datos.alumnos ? datos.alumnos.filter((a) => !enPipe.has(a.id)).length : null;
@@ -448,6 +457,80 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
       : `<div class="xp-tablero">${abiertas.map(columna).join('')}${hoy.cerradas ? cerradas.map((e) => columna(e, d.etapas.indexOf(e))).join('') : ''}</div>`}
       ${cerradas.length && !sola ? `<div class="xa-mas"><button type="button" class="btn ghost" data-x-cerradas>${hoy.cerradas ? 'Ocultar las cerradas' : `Ver las cerradas (${cerradas.map((e) => `${ICO_ETAPA(e.nombre)} ${num(e.n)}`).join(' · ')})`}</button></div>` : ''}`;
   }
+
+  // Pasa a un alumno a otra fase del pipeline (al arrastrar su tarjeta o desde «Mover de etapa»): se ve ya en su nueva
+  // columna y, si GHL dice que no, vuelve a la de antes. → la respuesta del servidor.
+  async function moverA(contactId, etapaId, { nombre = '', motivo = '', notas = '' } = {}) {
+    const d = hoy.datos;
+    const id = hoy.id;
+    const desde = d?.etapas.find((e) => e.items.some((x) => x.contactId === contactId));
+    const dest = d?.etapas.find((e) => e.id === etapaId);
+    let it = null;
+    let pos = -1;
+    if (desde && dest && desde !== dest) {
+      pos = desde.items.findIndex((x) => x.contactId === contactId);
+      [it] = desde.items.splice(pos, 1);
+      desde.n = Math.max(0, desde.n - 1);
+      dest.items.unshift({ ...it, desde: new Date().toISOString() });
+      dest.n++;
+      pintarHoy();
+    }
+    try {
+      return await api('/api/cruzadas', { method: 'POST', body: { op: 'mover', x: id, contactId, nombre: nombre || it?.nombre || '', etapa: etapaId, motivo, notas } });
+    } catch (err) {
+      if (it && hoy.datos === d) { // vuelve a su sitio
+        dest.items.splice(dest.items.findIndex((x) => x.contactId === contactId), 1);
+        dest.n = Math.max(0, dest.n - 1);
+        desde.items.splice(pos, 0, it);
+        desde.n++;
+        pintarHoy();
+      }
+      throw err;
+    }
+  }
+  const etapasHoy = () => (hoy.datos?.etapas || []).map((e) => ({ id: e.id, nombre: e.nombre }));
+
+  // Arrastrar y soltar las tarjetas entre fases.
+  let arrastrando = null;
+  document.addEventListener('dragstart', (e) => {
+    const c = e.target.closest?.('#xhoy-body [data-xp-card]');
+    if (!c) return;
+    arrastrando = { contactId: c.dataset.xpCard, nombre: c.dataset.xpNombre || '', fase: c.closest('[data-xp-col]')?.dataset.xpCol || '' };
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', arrastrando.contactId);
+    c.classList.add('arrastrando');
+    $('#xhoy-body .xp-tablero')?.classList.add('arrastre');
+  });
+  document.addEventListener('dragend', (e) => {
+    e.target.closest?.('[data-xp-card]')?.classList.remove('arrastrando');
+    $$('#xhoy-body .xp-col.over').forEach((c) => c.classList.remove('over'));
+    $('#xhoy-body .xp-tablero')?.classList.remove('arrastre');
+    arrastrando = null;
+  });
+  document.addEventListener('dragover', (e) => {
+    const col = arrastrando && e.target.closest?.('#xhoy-body [data-xp-col]');
+    if (!col) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    $$('#xhoy-body .xp-col.over').forEach((c) => c !== col && c.classList.remove('over'));
+    col.classList.add('over');
+  });
+  document.addEventListener('drop', async (e) => {
+    const col = arrastrando && e.target.closest?.('#xhoy-body [data-xp-col]');
+    if (!col) return;
+    e.preventDefault();
+    col.classList.remove('over');
+    const a = arrastrando;
+    arrastrando = null;
+    if (col.dataset.xpCol === a.fase) return;
+    const fase = hoy.datos?.etapas.find((x) => x.id === col.dataset.xpCol)?.nombre || '';
+    try {
+      const r = await moverA(a.contactId, col.dataset.xpCol, { nombre: a.nombre });
+      notice(`${a.nombre || 'Alumno'} → «${r.etapa?.nombre || fase}» ✓${r.avisos?.length ? ` (${r.avisos.join(' ')})` : ''}`, Boolean(r.avisos?.length));
+    } catch (err) {
+      notice(`No se pudo mover a ${a.nombre || 'este alumno'}: ${err.message}`, true);
+    }
+  });
 
   // La fase donde entran (la misma regla que el servidor): «Por contactar» o, si no, la primera.
   const etapaInicial = (d) => (d.etapas.find((e) => /por contactar/i.test(e.nombre)) || d.etapas[0])?.nombre || 'Por contactar';
@@ -863,5 +946,5 @@ export function montarCruzadas({ api, state, esc, notice, progress, ls, guardar,
     }
   }
 
-  return { cargar, pintar, cargarHoy, pintarHoy, pintarOfertas, abrirConfig, datos, alumnoDe };
+  return { cargar, pintar, cargarHoy, pintarHoy, pintarOfertas, abrirConfig, datos, alumnoDe, moverA, etapasHoy };
 }

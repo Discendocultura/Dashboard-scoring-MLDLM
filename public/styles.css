@@ -8420,3 +8420,14 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 
 /* El texto de cada capa cabe en su parte más estrecha (abajo) */
 .fx-capa .fx-pct { flex-direction: column; align-items: center; max-width: calc(var(--wi, 70) * 1% - 8%); }
+
+/* Ventas cruzadas → «Hoy» y Comercial → Pipeline: arrastrar tarjetas entre fases y «Cargar más» */
+.xp-card[draggable="true"] { cursor: grab; -webkit-user-drag: element; }
+.xp-card.arrastrando { opacity: .45; }
+.xp-tablero.arrastre .xp-col { transition: box-shadow .15s, background .15s; }
+.xp-col.over { background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)); box-shadow: inset 0 0 0 2px var(--accent); }
+.xp-col-mas { padding: 8px 10px 12px; }
+.xp-col-mas .btn, .dpl-mas { width: 100%; justify-content: center; }
+.xp-col-mas .btn small, .dpl-mas small { font-weight: 400; opacity: .75; margin-left: 4px; }
+.dpl-mas { margin-top: 6px; }
+.ll-opt.actual { opacity: .6; }

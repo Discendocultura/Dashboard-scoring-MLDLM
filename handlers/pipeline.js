@@ -4,13 +4,13 @@
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { getPipelines, searchOpportunities, updateOpportunity } from '../lib/ghl.js';
-import { cacheCompartida } from '../lib/store.js';
+import { cacheCompartida, leerCompartida, guardarCompartida } from '../lib/store.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { pipelineLigadoDe } from '../public/js/directa.js';
 
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 const ID_RE = /^[A-Za-z0-9_-]{2,64}$/;
-const PAGINAS = 5; // hasta 500 oportunidades (las más nuevas primero)
+const PAGINAS = 20; // hasta 2.000 oportunidades (las más nuevas primero; Cloudflare deja 50 peticiones por visita)
 
 function permisos(e) {
   if (/GHL 401|GHL 403|not authorized|scope/i.test(String(e.message))) return bad('El token de GHL no tiene permiso para las oportunidades: añade «opportunities» (lectura y escritura) a la integración privada.', 502);
@@ -80,8 +80,11 @@ export async function POST(request) {
     if (!r.opportunities.some((o) => o.id === oppId)) throw bad('Esa oportunidad no está en el pipeline de este embudo', 403);
     const status = estadoDe(st.name);
     await updateOpportunity(oppId, { pipelineId: pipeline.id, pipelineStageId: st.id, status }).catch((e) => { throw permisos(e); });
-    // Que el resto del equipo lo vea ya en su nueva fase (sin esperar a que caduque la copia compartida).
-    await oportunidadesDe(id, pipeline, true).catch(() => {});
+    // Que el resto del equipo lo vea ya en su nueva fase: se cambia en la copia compartida (sin volver a leer de GHL).
+    const clave = `pipeline|${id}|${pipeline.id}`;
+    const copia = await leerCompartida(clave, 2 * 60_000);
+    const o = copia?.ops?.find((x) => x.id === oppId);
+    if (o) { Object.assign(o, { pipelineStageId: st.id, status }); await guardarCompartida(clave, copia); }
     return json({ ok: true, etapa: st.id, status });
   } catch (e) {
     return errorResponse(e);
