@@ -42,3 +42,23 @@ test('prompts de páginas según la preclase', () => {
   assert.ok(!paginasDe('lanzamientos', { preclase: 'no' }).some((p) => ['login', 'preclase'].includes(p.id)));
   assert.equal(paginasDe('lanzamientos', { preclase: 'recursos' }).find((p) => p.id === 'preclase').nombre, 'Página preclase (recursos)');
 });
+
+test('consumo de los recursos de la lista: señales, puntos y textos', async () => {
+  const { signalsFor, score, tagFor } = await import('../public/js/scoring.js');
+  const { listaConsumo, textoRecurso, nivelRecurso } = await import('../public/js/recursos.js');
+  const launch = { preclaseTipo: 'recursos', nClases: 0, preclase: true, vip: false, fechaDirecto: '2026-11-03', horaDirecto: '19:00',
+    listaRecursos: [{ nombre: 'Leyenda', tipo: 'video', url: 'https://vimeo.com/1' }, { nombre: 'Mapa', tipo: 'audio', url: 'https://x/a.mp3' }, { nombre: 'Guía', tipo: 'descargable', url: 'https://x/g.pdf' }, { nombre: '', tipo: 'video', url: '' }] };
+  const lista = listaConsumo(launch);
+  assert.deepEqual(lista.map((x) => x.n), [1, 2, 3]);
+  const tags = ['rec1_abrio', 'rec1_50', 'rec1_90', 'rec2_abrio', 'rec3_abrio'].map((t) => tagFor('resis', t));
+  const s = signalsFor(tags, 'resis', launch, { tags, cf: {} });
+  assert.ok(s.rec1_90 && s.rec2_abrio && !s.rec2_50 && s.rec3_abrio);
+  assert.deepEqual(s.lista.map((x) => x.n), [1, 2, 3]);
+  assert.equal(textoRecurso(s, lista[0]), 'lo vio entero');
+  assert.equal(textoRecurso(s, lista[1]), 'le dio al play');
+  assert.equal(textoRecurso(s, lista[2]), 'lo descargó');
+  assert.equal(nivelRecurso(s, lista[1]), 0.4);
+  // Los recursos puntúan (ocupan el bloque de las clases): más consumo, más puntos
+  const nada = signalsFor([], 'resis', launch, { tags: [], cf: {} });
+  assert.ok(score(s) > score(nada));
+});

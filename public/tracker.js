@@ -784,10 +784,54 @@
   }
   var ICONO_LISTA = { video: '🎬', audio: '🎧', descargable: '📄', enlace: '🔗' };
   var BOTON_LISTA = { video: 'Ver el vídeo', audio: 'Escuchar', descargable: 'Descargar', enlace: 'Abrir' };
-  function pintarListaRecursos(lista) {
+  // Consumo de cada recurso de la lista (etiquetas <lanzamiento>_rec<N>_abrio / _50 / _90): el botón (descargable o
+  // enlace) al pulsarlo; el audio y el vídeo MP4, play y lo visto; Vimeo, con su reproductor (play, 50 y 90 %);
+  // YouTube, al darle al play (cuando el foco pasa al vídeo).
+  function medirRecursoLista(item, x, launch, who) {
+    if (!who || !item) return;
+    var video = 'rec' + x.n;
+    var unaVez = function () { if (store('lsd_' + launch + '_' + video + '_abrio')) return; store('lsd_' + launch + '_' + video + '_abrio', 1); post('/api/track', { launch: launch, video: video, pct: 0, cid: who.cid, email: who.email }); };
+    var btn = item.querySelector('.lsd-recurso-btn');
+    if (btn) btn.addEventListener('click', unaVez);
+    var media = item.querySelector('audio, video');
+    if (media) medirMedia(media, launch, who, video);
+    var ifr = item.querySelector('.lsd-lista-video iframe');
+    if (!ifr) return;
+    if (/vimeo\.com/.test(ifr.src)) {
+      loadVimeo(function () {
+        try {
+          var key = 'lsd_' + launch + '_' + video;
+          var saved = store(key) || {};
+          var buckets = saved.b || {};
+          var sent = saved.s || {};
+          var last = null;
+          var guardar = function () { store(key, { b: buckets, s: sent }); };
+          var enviar = function (p) { if (sent[p]) return; sent[p] = true; guardar(); post('/api/track', { launch: launch, video: video, pct: p, cid: who.cid, email: who.email }); };
+          var pl = new window.Vimeo.Player(ifr);
+          pl.on('play', function () { enviar(0); });
+          pl.on('timeupdate', function (d) {
+            var t = d.seconds, dur = d.duration;
+            if (dur && last !== null && t >= last && t - last <= 3) {
+              for (var i = Math.floor((last / dur) * 100); i <= Math.min(99, Math.floor((t / dur) * 100)); i++) buckets[i] = 1;
+            }
+            last = t;
+            var pct = Object.keys(buckets).length;
+            if (pct >= 50) enviar(50);
+            if (pct >= 90) enviar(90);
+          });
+          pl.on('seeked', function (d) { last = d.seconds; });
+          pl.on('pause', guardar);
+        } catch (e) { /* sin reproductor de Vimeo: se mide al darle al play */ }
+      });
+    }
+    // YouTube (y Vimeo de respaldo): al pulsar dentro del vídeo, la página pierde el foco y lo gana el iframe.
+    window.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement === ifr) unaVez(); }, 0); });
+  }
+
+  function pintarListaRecursos(lista, launch, who) {
     document.querySelectorAll('[data-lsd-lista-recursos]').forEach(function (el) {
       if (!lista || !lista.length) { show(el, false); return; }
-      var huella = lista.map(function (x) { return x.id + (x.url ? 'on' : x.faltaEncuesta && x.unlocked ? 'enc' : 'lock'); }).join(',');
+      var huella = (who ? 'u' : 'a') + lista.map(function (x) { return x.id + (x.url ? 'on' : x.faltaEncuesta && x.unlocked ? 'enc' : 'lock'); }).join(',');
       show(el, true);
       if (el.getAttribute('data-lsd-lista-estado') === huella) return;
       el.setAttribute('data-lsd-lista-estado', huella);
@@ -802,9 +846,11 @@
           else cuerpo = '<a class="lsd-recurso-btn" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(BOTON_LISTA[x.tipo] || 'Abrir') + '</a>';
         } else if (x.unlocked && x.faltaEncuesta) cuerpo = '<p class="lsd-recurso-aviso">🔒 ' + esc(encTxt) + '</p>';
         else cuerpo = '<p class="lsd-recurso-aviso">🔒 ' + (x.unlockText ? 'Disponible el ' + esc(x.unlockText) + (x.unlockAt ? ' · faltan ' + cdSpan(x.unlockAt) : '') : 'Muy pronto disponible') + '</p>';
-        return '<div class="lsd-lista-item' + (x.url ? '' : ' lsd-lista-lock') + '"><p class="lsd-lista-t"><span class="lsd-lista-n">' + x.n + '</span><span>' + (ICONO_LISTA[x.tipo] || '•') + ' ' + esc(x.nombre || 'Recurso ' + x.n) + '</span></p>' +
+        return '<div class="lsd-lista-item' + (x.url ? '' : ' lsd-lista-lock') + (x.hecho ? ' lsd-lista-hecho' : '') + '" data-lsd-recurso="' + x.n + '"><p class="lsd-lista-t"><span class="lsd-lista-n">' + x.n + '</span><span>' + (ICONO_LISTA[x.tipo] || '•') + ' ' + esc(x.nombre || 'Recurso ' + x.n) + '</span></p>' +
           (x.texto ? '<p class="lsd-lista-s">' + esc(x.texto) + '</p>' : '') + cuerpo + '</div>';
       }).join('') + '</div>';
+      var items = el.querySelectorAll('.lsd-lista-item');
+      lista.forEach(function (x, i) { if (x.url) medirRecursoLista(items[i], x, launch, who); });
       startCountdowns();
     });
   }
@@ -812,7 +858,7 @@
   function renderRecursos(data, who) {
     ultimaPagina = { data: data, who: who };
     var rec = data.recursos || {};
-    pintarListaRecursos(rec.lista);
+    pintarListaRecursos(rec.lista, data.code, who);
     var claseTxt = function (k) { return 'la clase ' + String(k || '').replace('clase', ''); };
     var vista = function (r) { return Boolean(r && (r.claseVista || progresoLocal(data.code, r.tras) >= (r.umbral || 75))); };
     var lockHtml = function (texto, sub) { return '<div class="lsd-rec lsd-rec-lock"><span class="lsd-locked-icon">🔒</span><div><p class="lsd-rec-t">' + esc(texto) + '</p>' + (sub ? '<p class="lsd-rec-s">' + esc(sub) + '</p>' : '') + '</div></div>'; };
@@ -1176,15 +1222,19 @@
   }
 
   // Música: cuenta los segundos realmente escuchados (como los vídeos) y avisa al reproducir, al 50 % y al 90 %.
-  function medirAudio(audio, launch, who) {
-    if (!audio || !who) return;
-    var key = 'lsd_' + launch + '_musica';
+  function medirAudio(audio, launch, who) { medirMedia(audio, launch, who, 'musica'); }
+  // Mide un <audio> o <video>: play (0) y lo escuchado / visto de verdad (50 y 90 %, sin contar saltos).
+  // `video`: 'musica' o el recurso de la lista ('rec1', 'rec2'…).
+  function medirMedia(audio, launch, who, video) {
+    if (!audio || !who || audio.getAttribute('data-lsd-medido')) return;
+    audio.setAttribute('data-lsd-medido', '1');
+    var key = 'lsd_' + launch + '_' + video;
     var saved = store(key) || {};
     var buckets = saved.b || {};
     var sent = saved.s || {};
     var last = null;
     var save = function () { store(key, { b: buckets, s: sent }); };
-    var enviar = function (p) { if (sent[p]) return; sent[p] = true; save(); post('/api/track', { launch: launch, video: 'musica', pct: p, cid: who.cid, email: who.email }); };
+    var enviar = function (p) { if (sent[p]) return; sent[p] = true; save(); post('/api/track', { launch: launch, video: video, pct: p, cid: who.cid, email: who.email }); };
     audio.addEventListener('play', function () { enviar(0); });
     audio.addEventListener('timeupdate', function () {
       var d = audio.duration;

@@ -46,6 +46,25 @@ export function sanitizeListaRecursos(arr, n = 3) {
 export const listaRecursosDe = (launch) => (Array.isArray(launch?.listaRecursos) ? launch.listaRecursos : []);
 // Un recurso de la lista se enseña (y es etapa) si tiene algo: enlace, nombre o fecha. Sin enlace, bloqueado.
 export const recursoListaVisible = (x) => Boolean(x && (x.url || String(x.nombre || '').trim() || x.at));
+// Consumo de cada recurso de la lista (etiquetas <lanzamiento>_rec<N>_abrio / _50 / _90, las pone tracker.js vía
+// /api/track): abrio = le dio al play o abrió el enlace / descargable; 50 y 90 = cuánto vio o escuchó (vídeo y audio).
+export const SENALES_LISTA = Array.from({ length: MAX_LISTA_RECURSOS }, (_, i) => [`rec${i + 1}_abrio`, `rec${i + 1}_50`, `rec${i + 1}_90`]).flat();
+// Los recursos de la lista de un lanzamiento (preclase de varios recursos), con su número.
+export const listaConsumo = (launch) => (launch?.preclaseTipo === 'recursos' ? listaRecursosDe(launch).map((x, i) => ({ ...x, n: i + 1 })).filter(recursoListaVisible).map((x) => ({ ...x, nombre: String(x.nombre || '').trim() || `Recurso ${x.n}` })) : []);
+const medible = (x) => x.tipo === 'video' || x.tipo === 'audio';
+// De 0 a 1: lo consumido de un recurso (descargable o enlace: abierto = 1; vídeo o audio: play 0,4 · 50 % 0,75 · 90 % 1).
+export function nivelRecurso(s, x) {
+  const k = `rec${x.n}`;
+  if (!medible(x)) return s[`${k}_abrio`] ? 1 : 0;
+  return s[`${k}_90`] ? 1 : s[`${k}_50`] ? 0.75 : s[`${k}_abrio`] ? 0.4 : 0;
+}
+export function textoRecurso(s, x) {
+  const k = `rec${x.n}`;
+  if (!medible(x)) return s[`${k}_abrio`] ? (x.tipo === 'descargable' ? 'lo descargó' : 'lo abrió') : 'no lo ha abierto';
+  const verbo = x.tipo === 'audio' ? 'escuchó' : 'vio';
+  return s[`${k}_90`] ? `lo ${verbo} entero` : s[`${k}_50`] ? `${verbo} más de la mitad` : s[`${k}_abrio`] ? 'le dio al play' : `no lo ha ${x.tipo === 'audio' ? 'escuchado' : 'visto'}`;
+}
+export const ICONO_RECURSO = { video: '🎬', audio: '🎧', descargable: '📄', enlace: '🔗' };
 export const UMBRAL_DESBLOQUEO = 75; // % de la clase que hay que ver para la música y la votación
 
 const str = (v, max) => String(v ?? '').trim().slice(0, max);

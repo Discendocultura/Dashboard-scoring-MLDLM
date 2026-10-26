@@ -289,7 +289,7 @@ async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, p
       const at = madridToEpoch(x.at);
       const unlocked = at == null || now >= at || (preview && !contact);
       const sinEnlace = unlocked && !x.url;
-      return { n: x.n, id: `r${x.n}`, nombre: x.nombre, tipo: x.tipo, texto: x.texto, unlockAt: sinEnlace ? null : at, unlockText: sinEnlace ? '' : formatLong(at), unlocked: unlocked && !sinEnlace, faltaEncuesta: !encuestaDone, url: unlocked && encuestaDone ? x.url || '' : '' };
+      return { n: x.n, id: `r${x.n}`, nombre: x.nombre, tipo: x.tipo, texto: x.texto, unlockAt: sinEnlace ? null : at, unlockText: sinEnlace ? '' : formatLong(at), unlocked: unlocked && !sinEnlace, faltaEncuesta: !encuestaDone, url: unlocked && encuestaDone ? x.url || '' : '', hecho: Boolean(sig?.[`rec${x.n}_abrio`]) };
     });
   }
   const enDirecto = m.directo != null && now >= m.directo - 30 * 60_000;
@@ -299,7 +299,7 @@ async function recursosPagina(code, launch, { now, sig, contact, encuestaDone, p
     else if (e.tipo === 'clase') estado = !claseDisponible(e.id) ? 'bloqueada' : vistaClase(e.id) ? 'hecha' : 'disponible';
     else if (e.tipo === 'test') estado = !recursos.test.unlocked || recursos.test.faltaEncuesta ? 'bloqueada' : recursos.test.done ? 'hecha' : 'disponible';
     else if (e.tipo === 'descargable') estado = !recursos.descargable.unlocked ? 'bloqueada' : recursos.descargable.abierto ? 'hecha' : 'disponible';
-    else if (e.tipo === 'recurso') { const x = recursos.lista?.find((y) => y.id === e.id); estado = x?.unlocked && !x.faltaEncuesta ? 'disponible' : 'bloqueada'; } else if (e.tipo === 'directo') estado = sig?.directo_asistio ? 'hecha' : enDirecto ? 'disponible' : 'bloqueada';
+    else if (e.tipo === 'recurso') { const x = recursos.lista?.find((y) => y.id === e.id); estado = !(x?.unlocked && !x.faltaEncuesta) ? 'bloqueada' : x.hecho ? 'hecha' : 'disponible'; } else if (e.tipo === 'directo') estado = sig?.directo_asistio ? 'hecha' : enDirecto ? 'disponible' : 'bloqueada';
     const at = e.tipo === 'directo' ? m.directo : e.at;
     return { n: e.n, id: e.id, tipo: e.tipo, label: e.label, estado, unlockAt: at ?? null, unlockText: formatLong(at) };
   });

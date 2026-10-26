@@ -3,7 +3,7 @@
 import { conFraccionado, esSuscripcion, planDeTags, planesActivos, enlacePago, bumpsActivos } from './pago.js';
 import { MAX_VIDEOS, nVideos, sigDirecto, sigReplay, videosDe, videoVenta, clasesDe, conVip } from './videos.js';
 import { madridToEpoch } from './page.js';
-import { tieneRecurso, recursosDe, nivelMusica } from './recursos.js';
+import { tieneRecurso, recursosDe, nivelMusica, SENALES_LISTA, listaConsumo, nivelRecurso } from './recursos.js';
 
 // Señales que se guardan como etiquetas en GHL con el formato `<lanzamiento>_<señal>`,
 // p. ej. `nov26_clase1_50`. Así cada lanzamiento tiene su propio historial.
@@ -31,6 +31,8 @@ export const SIGNALS = [
   // la votación (votó), el descargable (lo abrió) y los comentarios (comentó). El test se sabe por su propia
   // etiqueta de GHL.
   'musica_play', 'musica_50', 'musica_90', 'voto', 'descarga', 'comento',
+  // Preclase de varios recursos: cada recurso de la lista (rec1_abrio, rec1_50, rec1_90…).
+  ...SENALES_LISTA,
 ];
 
 // Setter IA (proyecto aparte): pone estas etiquetas fijas en GHL (sin código de lanzamiento: dicen cómo está la
@@ -237,6 +239,7 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   s.compra_directo = s.compra && Boolean(diaVenta) && buyDay === diaVenta;
   s.nVideos = nVideos(cfg);
   s.clases = clasesDe(cfg); // clases del prelanzamiento de este embudo
+  s.lista = listaConsumo(cfg).map((x) => ({ n: x.n, tipo: x.tipo })); // preclase de varios recursos
   s.conVip = conVip(cfg);
 
   // Origen del lead: publicidad u orgánico, cada uno con su etiqueta (si lleva las dos, cuenta como publicidad).
@@ -287,6 +290,9 @@ export function score(s, aprendidos = null) {
   const clases = s.clases || ['clase1', 'clase2'];
   let ptsClases = 0;
   for (const c of clases) ptsClases += ((P.clase[watched(s, c)] || 0) * 2) / clases.length;
+  // Preclase de varios recursos (sin clases): ese bloque lo ocupan los recursos, según lo consumido de cada uno.
+  const lista = clases.length ? [] : s.lista || [];
+  if (lista.length) ptsClases = (lista.reduce((a, x) => a + nivelRecurso(s, x), 0) / lista.length) * 30;
   pts += (ptsClases * pesos.clases) / 30;
   if (s.vip) pts += pesos.vip;
   const R = s.recursos || {};
@@ -302,7 +308,7 @@ export function score(s, aprendidos = null) {
   pts += (ptsVideo * pesos.video) / 40;
   // Sin entrada VIP, sin área preclase o sin ninguna de las dos: se lleva a 100 para que los estados
   // (caliente…) valgan igual.
-  const max = (clases.length ? pesos.clases : 0) + (s.conVip === false ? 0 : pesos.vip) + pesos.video
+  const max = (clases.length || lista.length ? pesos.clases : 0) + (s.conVip === false ? 0 : pesos.vip) + pesos.video
     + (R.musica ? pesos.musica : 0) + (R.test ? pesos.test : 0) + (R.votacion ? pesos.votacion : 0);
   if (max !== 100) pts = (pts * 100) / max;
   // Inició el pago (llegó a la página de pago con «Quiero inscribirme») y no ha comprado: es lo más cerca de

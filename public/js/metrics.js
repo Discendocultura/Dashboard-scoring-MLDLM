@@ -5,7 +5,7 @@ import {
 } from './scoring.js';
 import { tramoEdad, ORDEN_EDAD } from './encuesta.js';
 import { pesosDe } from './pesos.js';
-import { tieneRecurso } from './recursos.js';
+import { tieneRecurso, listaConsumo } from './recursos.js';
 import { importeVenta, esSuscripcion, resumenPlanes, todosLosBumps, precioBump, sinIva, ivaPct, vipSinIva, ivaPendiente } from './pago.js';
 import { videosDe, videoVenta, clasesDe, conVip } from './videos.js';
 
@@ -228,6 +228,8 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     ...(tieneRecurso(launch, 'votacion') ? [['Votó en la clase', (l) => l.s.voto]] : []),
     ...(tieneRecurso(launch, 'comentarios') ? [['Comentó en la preclase', (l) => l.s.comento]] : []),
     ...(tieneRecurso(launch, 'descargable') ? [['Abrió el descargable', (l) => l.s.descarga]] : []),
+    // Preclase de varios recursos: cada recurso (abierto, descargado o empezado).
+    ...listaConsumo(launch).map((x) => [`${x.tipo === 'descargable' ? 'Descargó' : x.tipo === 'enlace' ? 'Abrió' : x.tipo === 'audio' ? 'Escuchó' : 'Vio'} «${x.nombre}»`, (l) => l.s[`rec${x.n}_abrio`]]),
     ['Tráfico templado', (l) => l.s.trafico === 'templado'],
     ['Contactada por WhatsApp', (l) => l.s.wa_enviado],
     ['Agendó llamada', (l) => l.s.llamada],
@@ -548,6 +550,10 @@ export function asistenciaPorTrafico(leads, launch, { trafico = true, origen = t
     ...clasesDe(launch).flatMap((c, i) => [
       [`Clase ${i + 1} (≥25% vista)`, (m) => m[c]],
       [`Clase ${i + 1} entera (≥90%)`, (m, L) => L.filter((l) => watched(l.s, c) >= 90).length],
+    ]),
+    ...listaConsumo(launch).flatMap((x) => [
+      [`${x.nombre} (${x.tipo === 'descargable' ? 'lo descargaron' : x.tipo === 'enlace' ? 'lo abrieron' : 'lo empezaron'})`, (m, L) => L.filter((l) => l.s[`rec${x.n}_abrio`]).length],
+      ...(x.tipo === 'video' || x.tipo === 'audio' ? [[`${x.nombre} entero (≥90%)`, (m, L) => L.filter((l) => l.s[`rec${x.n}_90`]).length]] : []),
     ]),
     ...(conVip(launch) ? [['Entrada VIP', (m) => m.vip]] : []),
     ...(varios

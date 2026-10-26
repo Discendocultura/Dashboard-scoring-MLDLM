@@ -27,7 +27,7 @@ import { TIPOS_BONUS, TIPOS_BONUS_METEO, TIPOS_ENTREGABLE, tipoBonus, tipoBonusM
 import { ventanaBonusMeteo, analizarOfertaMeteo, lecturaBonusMeteo } from './oferta-meteo.js';
 import { alertasCarrito } from './alertas.js';
 import { BLOQUES, pesosDe, proponerPesos, pesosEfectivos } from './pesos.js';
-import { tieneRecurso, recursosDe, sanitizeRecursos, etapasPreclase, TIPOS_RECURSO, RECURSOS_EXTRA, MAX_PREGUNTAS_COMENTARIOS, clasesConComentarios, sanitizeListaRecursos, TIPOS_LISTA, nRecursosValido } from './recursos.js';
+import { tieneRecurso, recursosDe, sanitizeRecursos, etapasPreclase, TIPOS_RECURSO, RECURSOS_EXTRA, MAX_PREGUNTAS_COMENTARIOS, clasesConComentarios, sanitizeListaRecursos, TIPOS_LISTA, nRecursosValido, listaConsumo, textoRecurso, ICONO_RECURSO } from './recursos.js';
 import { pintarComentariosLeads } from './comentarios-panel.js';
 import { retrospectiva } from './retrospectiva.js';
 import { diasCarrito, cierrePorDias, diasCarritoValido, CANALES_CARRITO, MAX_ENVIOS_DIA } from './carrito.js';
@@ -2391,9 +2391,29 @@ function pintarCabeceraVideos() {
   $('#th-test').hidden = !launch || !tieneRecurso(launch, 'test');
   // Prelanzamiento: columnas de las clases que haya y de la VIP (si la hay).
   const nc = nClases(launch);
+  $('#th-c1').hidden = nc < 1;
   $('#th-c2').hidden = nc < 2;
   $('#th-c3').hidden = nc < 3;
   $('#th-vip').hidden = !conVip(launch);
+  // Preclase de varios recursos (sin clases): una columna por recurso, en su sitio (tras la encuesta).
+  for (const th of $$('.th-rec')) th.remove();
+  const ths = listaConsumo(launch).map((x) => {
+    const th = document.createElement('th');
+    th.className = 'th-rec';
+    th.title = x.nombre;
+    th.textContent = `${ICONO_RECURSO[x.tipo] || '•'} ${x.nombre.length > 18 ? `${x.nombre.slice(0, 17)}…` : x.nombre}`;
+    return th;
+  });
+  if (ths.length) $('#th-c1').before(...ths);
+}
+// Consumo de un recurso de la lista en la tabla de leads (como el de las clases).
+function recursoChip(s, x) {
+  const k = `rec${x.n}`;
+  if (x.tipo === 'descargable' || x.tipo === 'enlace') return s[`${k}_abrio`] ? chip(x.tipo === 'descargable' ? 'Descargado' : 'Abierto', 'on') : chip('—');
+  if (s[`${k}_90`]) return chip('Completo', 'on');
+  if (s[`${k}_50`]) return chip('50%', 'half');
+  if (s[`${k}_abrio`]) return chip('Play', 'half');
+  return chip('—');
 }
 
 // Varias respuestas que llegan casi a la vez (votos, visitas, Meta, llamadas) se pintan juntas en un solo render().
@@ -2623,18 +2643,45 @@ function renderConsumo() {
       ${embudoCv(n.map((x, i) => ({ ico: PASOS_DIR[i][0], label: PASOS_DIR[i][1], n: x, sub: `${pct(x)}% de los registros` })))}
     </div>`;
   }).join('');
+  // Preclase de varios recursos (sin clases): el consumo de cada recurso y el recorrido entero, de la encuesta a la compra.
+  const recs = listaConsumo(launch);
+  const datosRec = recs.map((x) => {
+    const k = `rec${x.n}`;
+    return { x, medible: x.tipo === 'video' || x.tipo === 'audio', abrio: L.filter((l) => l.s[`${k}_abrio`]).length, mitad: L.filter((l) => l.s[`${k}_50`] || l.s[`${k}_90`]).length, entero: L.filter((l) => l.s[`${k}_90`]).length };
+  });
+  const tarjetasRec = datosRec.map(({ x, medible, abrio, mitad, entero }) => `<article class="cv-video">
+      <header><span class="cv-video-ico" aria-hidden="true">${ICONO_RECURSO[x.tipo] || '•'}</span><div><strong>${esc(x.nombre)}</strong><small>${abrio.toLocaleString('es-ES')} leads ${x.tipo === 'descargable' ? 'lo descargaron' : medible ? 'le dieron al play' : 'lo abrieron'}</small></div>
+        <span class="cv-anillo" style="--p:${pct(abrio)}" title="${pct(abrio)}% de los registros"><b>${pct(abrio)}%</b></span></header>
+      <div class="cv-video-pie">${!abrio ? '<span class="muted">Aún nadie lo ha abierto.</span>' : medible ? `<span class="cv-chip">▶️ ${pct(mitad)}% más de la mitad</span><span class="cv-chip cv-chip-ok">🏁 ${pct(entero)}% ${x.tipo === 'audio' ? 'lo escuchó' : 'lo vio'} entero</span>` : `<span class="cv-chip cv-chip-ok">✓ ${pct(abrio)}% de los registros</span>`}</div>
+    </article>`).join('');
+  const recorridoRec = recs.length ? embudoCv([
+    { ico: '📝', label: 'Registros', n: L.length },
+    ...(launch.encuestaTag ? [{ ico: '📋', label: 'Rellenaron la encuesta', n: L.filter((l) => l.s.encuesta || l.s.encuesta_anterior).length }] : []),
+    ...datosRec.map(({ x, abrio }) => ({ ico: ICONO_RECURSO[x.tipo] || '•', label: `${x.nombre}: ${x.tipo === 'descargable' ? 'lo descargaron' : x.tipo === 'enlace' ? 'lo abrieron' : 'lo empezaron'}`, n: abrio, sub: `${pct(abrio)}% de los registros` })),
+    ...vids.map((v) => ({ ico: '🔴', label: `${vids.length > 1 ? v.nombre : 'Directo'}: entraron`, n: L.filter((l) => l.s[`${v.directo}_asistio`] || l.s[`${v.directo}_60`] || l.s[`${v.directo}_120`] || l.s[`${v.directo}_final`]).length })),
+    { ico: '🎬', label: 'Vieron alguna grabación', n: L.filter((l) => vids.some((v) => watched(l.s, v.replay) >= 25)).length },
+    { ico: '✅', label: 'Compraron', n: L.filter((l) => l.s.compra).length, tono: 'buy' },
+  ]) : '';
   // Lo importante arriba, en cuatro tarjetas.
   const algunaClase = clases.length ? L.filter((l) => clases.some((c) => watched(l.s, c) >= 25)).length : null;
   const algunaEntera = clases.length ? L.filter((l) => clases.some((c) => watched(l.s, c) >= 90)).length : null;
   const peor = datos.filter((d) => d.n[0] >= 10).map((d) => ({ ...d, caida: 1 - d.n[3] / d.n[0] })).sort((a, b) => b.caida - a.caida)[0];
   const t = (ico, tono, et, v, sub) => `<div class="cv-hero-card cv-t-${tono}"><span class="cv-hero-ico" aria-hidden="true">${ico}</span><span class="cv-hero-et">${et}</span><strong>${v}</strong><small>${sub}</small></div>`;
+  const algunRec = recs.length ? L.filter((l) => recs.some((x) => l.s[`rec${x.n}_abrio`])).length : null;
+  const todosRec = recs.length ? L.filter((l) => recs.every((x) => l.s[`rec${x.n}_abrio`])).length : null;
   $('#vid-hero').innerHTML = [
+    algunRec != null ? t('📚', 'accent', 'Abrieron algún recurso', `${pct(algunRec)}%`, `${algunRec.toLocaleString('es-ES')} leads`) : '',
+    todosRec != null ? t('🏁', 'buy', 'Abrieron todos los recursos', `${pct(todosRec)}%`, `${todosRec.toLocaleString('es-ES')} leads los ${recs.length}`) : '',
     algunaClase != null ? t('🎓', 'accent', 'Empezaron las clases', `${pct(algunaClase)}%`, `${algunaClase.toLocaleString('es-ES')} vieron al menos el 25 % de alguna`) : '',
     algunaEntera != null ? t('🏁', 'buy', 'Vieron alguna entera', `${pct(algunaEntera)}%`, `${algunaEntera.toLocaleString('es-ES')} leads llegaron al final`) : '',
     datosDir.length ? t('⏱️', 'live', 'Duración media en el directo', fmtMin(datosDir[0].media), datosDir[0].media != null ? `${datosDir[0].entro.toLocaleString('es-ES')} entraron · ${datosDir[0].entro ? pctDe(datosDir[0].fin, datosDir[0].entro) : 0}% hasta el final` : 'pulsa «Sincronizar Zoom» para calcularla') : '',
     peor ? t('📉', 'vip', 'Donde más se pierden', esc(peor.label), `se va el ${Math.round(peor.caida * 100)}% antes del final`) : '',
   ].join('');
   $('#consumo').innerHTML = `
+    ${recs.length ? `<h2>Recursos de la preclase <span class="muted">· cuántos registros abren, ven o descargan cada recurso</span></h2>
+    <div class="cv-videos">${tarjetasRec}</div>
+    <h3 class="cv-h3">Recorrido del lanzamiento <span class="muted">· de la encuesta a la compra</span></h3>
+    ${recorridoRec}` : ''}
     <h2>Consumo de vídeos <span class="muted">· qué parte de los registros llega a cada punto de cada vídeo</span></h2>
     <div class="cv-videos">${tarjetas + tarjetasDir || '<p class="muted">Este lanzamiento no tiene clases ni grabaciones configuradas.</p>'}</div>
     <h3 class="cv-h3">En directo <span class="muted">· sobre el total de registros (Zoom: sincroniza la asistencia con «Sincronizar Zoom»)</span></h3>
@@ -5300,6 +5347,7 @@ function rowHtml(l) {
     <td class="sel-col">${elegible ? `<input type="checkbox" data-sel="${esc(l.id)}" ${state.plSel.has(l.id) ? 'checked' : ''} aria-label="Marcar a ${esc(l.name || 'este lead')}">` : ''}</td>
     <td><div class="lead-name"><button type="button" class="lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || '(sin nombre)')}</button> ${avatarChip(l)} ${faseChip(l.id)} ${preclaseChips(l)}</div><div class="lead-meta">${esc(l.email)}${l.phone ? ` · ${esc(l.phone)}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</div></td>
     ${state.config.launches[state.launchCode]?.encuestaTag ? `<td>${l.s.encuesta ? '<span class="enc-si" title="Ha rellenado la encuesta">✓</span>' : l.s.encuesta_anterior ? '<span class="enc-ant" title="La rellenó en un lanzamiento anterior (ve las clases sin repetirla)">↺</span>' : '<span class="enc-no" title="No ha rellenado la encuesta">✗</span>'}</td>` : ''}
+    ${(l.s.lista || []).length && !(l.s.clases || []).length ? l.s.lista.map((x) => `<td>${recursoChip(l.s, x)}</td>`).join('') : ''}
     ${(l.s.clases || ['clase1', 'clase2']).map((c, i) => `<td>${videoChip(l.s, c)}</td>${i === 0 && l.s.recursos?.test ? `<td>${l.s.test ? '<span class="enc-si" title="Ha hecho el test">✓</span>' : '<span class="enc-no" title="No ha hecho el test">✗</span>'}</td>` : ''}`).join('')}
     ${l.s.conVip === false ? '' : `<td>${l.s.vip_tc ? `<span title="Compró la VIP en ThriveCart, pero en GHL no tiene la etiqueta VIP">${chip('VIP 💳', 'on')}</span>` : l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>`}
     ${(l.s.nVideos || 1) > 1 ? `<td colspan="2"><div class="videos-chips">${videosChips(l.s, state.config.launches[state.launchCode])}</div></td>` : `<td>${liveChip(l.s)}</td>
@@ -7259,6 +7307,7 @@ function pintarEtiquetasAuto() {
   const pct = '25 · 50 · 75 · 90';
   const filas = [
     ...clasesDe(l).map((c, i) => [`Clase ${i + 1} vista`, `${code}_${c}_…`, `% visto: ${pct}`]),
+    ...listaConsumo(l).map((x) => [`${x.nombre} (recurso ${x.n})`, `${code}_rec${x.n}_…`, x.tipo === 'video' || x.tipo === 'audio' ? 'abrio (play) · 50 · 90' : 'abrio (al pulsar el botón)']),
     ...videosDe(l).flatMap((v) => [
       [`${videosDe(l).length > 1 ? v.nombre : 'Directo'} en Zoom`, `${code}_${v.directo}_…`, 'click · asistio · 60 · final'],
       [`${videosDe(l).length > 1 ? `${v.nombre} grabado` : 'Grabación vista'}`, `${code}_${v.replay}_…`, `% visto: ${pct}`],
@@ -13086,8 +13135,11 @@ function hechosLead(lead) {
   }
   const launch = state.config.launches[state.launchCode] || {};
   const pctTxt = (p) => (p >= 90 ? 'entera' : p ? `${p}%` : 'no la ha visto');
+  // En el orden del lanzamiento: encuesta, clases o recursos de la preclase, VIP, directo y grabación, compra.
   return [
+    launch.encuestaTag ? (s.encuesta ? '📋 Rellenó la encuesta' : s.encuesta_anterior ? '📋 Rellenó la encuesta en una edición anterior' : '📋 No ha rellenado la encuesta') : '',
     ...clasesDe(launch).map((c, i) => `🎓 Clase ${i + 1}: ${pctTxt(watched(s, c))}`),
+    ...listaConsumo(launch).map((x) => `${ICONO_RECURSO[x.tipo] || '•'} ${x.nombre}: ${textoRecurso(s, x)}`),
     ...(conVip(launch) ? [s.vip ? '⭐ Compró la entrada VIP' : s.vip_anterior ? '⭐ VIP en una edición anterior' : '⭐ Sin entrada VIP'] : []),
     ...videosDe(launch).map((v) => {
       const live = s[`${v.directo}_final`] ? 'estuvo en directo hasta el final' : s[`${v.directo}_60`] ? 'estuvo en directo más de 60 min' : s[`${v.directo}_asistio`] ? 'entró al directo' : s[`${v.directo}_click`] ? 'pulsó el enlace del directo (no consta que entrara)' : '';
@@ -13095,7 +13147,6 @@ function hechosLead(lead) {
       const nombre = videosDe(launch).length > 1 ? v.nombre : 'Webinar';
       return `🔴 ${nombre}: ${[live, p ? `vio el ${p}% de la grabación` : ''].filter(Boolean).join(' · ') || 'no lo ha visto'}`;
     }),
-    s.encuesta ? '📋 Rellenó la encuesta' : '',
     ...(s.recursos?.musica ? [`🎵 Música: ${s.musica_90 ? 'la escuchó entera' : s.musica_50 ? 'escuchó más de la mitad' : s.musica_play ? 'le dio al play' : 'no la ha escuchado'}`] : []),
     ...(s.recursos?.test ? [s.test ? `🧭 Hizo el test${recursosDe(launch).test.nombre ? ` «${recursosDe(launch).test.nombre}»` : ''}` : '🧭 No ha hecho el test'] : []),
     ...(s.recursos?.comentarios ? [s.comento ? '💬 Comentó en la preclase' : '💬 No ha comentado en la preclase'] : []),

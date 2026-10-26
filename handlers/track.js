@@ -20,12 +20,14 @@ export async function POST(request, ctx) {
     const config = await getConfig();
     const esVsl = Boolean(config.vsls?.[launch]);
     // Recursos de la preclase: la música (0 = la reprodujo, 50 y 90 = cuánto escuchó) y el descargable (0 = lo abrió).
-    const recurso = !esVsl && (video === 'musica' ? [0, 50, 90].includes(p) : video === 'descarga' ? p === 0 : false);
+    // Preclase de varios recursos: rec<N> (0 = le dio al play o lo abrió, 50 y 90 = cuánto vio o escuchó).
+    const rec = /^rec([1-9]|1[0-2])$/.test(String(video)) ? String(video) : '';
+    const recurso = !esVsl && (video === 'musica' || rec ? [0, 50, 90].includes(p) : video === 'descarga' ? p === 0 : false);
     const okVideo = esVsl ? video === 'vsl' : VIDEOS.includes(video);
     if (!recurso && (!okVideo || !THRESHOLDS.includes(p))) return json({ error: 'Datos no válidos' }, 400, CORS_HEADERS);
     if (!esVsl && !Object.hasOwn(config.launches, launch)) return json({ error: 'Lanzamiento desconocido' }, 404, CORS_HEADERS);
 
-    const tags = video === 'musica' ? ['play', 50, 90].filter((t, i) => [0, 50, 90][i] <= p).map((t) => tagFor(launch, `musica_${t}`))
+    const tags = video === 'musica' || rec ? (rec ? ['abrio', 50, 90] : ['play', 50, 90]).filter((t, i) => [0, 50, 90][i] <= p).map((t) => tagFor(launch, `${video}_${t}`))
       : video === 'descarga' ? [tagFor(launch, 'descarga')]
         : THRESHOLDS.filter((t) => t <= p).map((t) => tagFor(launch, `${video}_${t}`));
     // Con su ID se etiqueta directamente (una llamada a GHL en vez de dos: antes se buscaba el contacto).
