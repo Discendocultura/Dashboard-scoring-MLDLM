@@ -40,3 +40,13 @@ export function leerMiembros(csv) {
   }
   return { claves, personas: claves.size, grupos: nGrupos, admins };
 }
+
+// ¿Cuántas en los grupos? Con el cruce por teléfono si la mayoría de leads tiene teléfono en GHL; si no (p. ej. el
+// formulario de registro no lo pide), el cruce se queda corto y vale más el número de personas de los grupos (sin
+// administradoras), con el tope de los leads. → { n, exacto, conTelefono }
+export const MIN_COBERTURA_TELEFONO = 0.6;
+export function enGruposDe(leads = [], grupo = {}) {
+  const conTelefono = leads.filter((l) => claveTelefono(l.phone)).length;
+  if (leads.length && conTelefono / leads.length >= MIN_COBERTURA_TELEFONO) return { n: leads.filter((l) => l.s?.enGrupo).length, exacto: true, conTelefono };
+  return { n: Math.min(grupo.personas || 0, leads.length), exacto: false, conTelefono };
+}

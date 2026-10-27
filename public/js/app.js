@@ -40,7 +40,7 @@ import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE, ROL_OPERATIVA, ROLES_FI
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
-import { claveTelefono, leerMiembros } from './grupos-wa.js';
+import { enGruposDe, claveTelefono, leerMiembros } from './grupos-wa.js';
 import { TIPOS_MSG, ESTADOS_MSG, GUIA_ARCHIVOS, parsearSecuencia, promptCalentamiento, datosEmbudo, faltaMensaje, faltaEnlaceDirecto, sanitizeMensaje, nuevoIdMsg } from './calentamiento.js';
 import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientesDirecta, ganadoresDirecta, pipelineLigadoDe } from './directa.js';
 import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
@@ -17346,6 +17346,8 @@ async function cargarGrupos(code, box, { forzar = false } = {}) {
     ${esLanz && state.grupoWa?.code === code && state.grupoWa.claves && state.leadsDe === code ? (() => {
       const en = state.leads.filter((l) => l.s.enGrupo);
       const sin = en.filter((l) => !l.s.compra).length;
+      const r = enGruposDe(state.leads, state.grupoWa);
+      if (!r.exacto) return `<div class="notice warn"><span>📵 <strong>Solo ${r.conTelefono.toLocaleString('es-ES')} de ${state.leads.length.toLocaleString('es-ES')} leads tienen teléfono en GHL</strong>, así que no se puede saber por teléfono quién está en los grupos. Hay <strong>${state.grupoWa.personas.toLocaleString('es-ES')} personas en los grupos</strong>${state.grupoWa.admins ? ` (sin contar ${state.grupoWa.admins} administradora${state.grupoWa.admins === 1 ? '' : 's'})` : ''}: ≈ ${pctOf(r.n, state.leads.length).replace('.', ',')} de los leads. Para el cruce exacto, haz que el formulario de registro de GHL pida el teléfono (o el WhatsApp) en el campo «Teléfono» del contacto.</span></div>`;
       return `<div class="notice">🔗 <strong>Cruce exacto con GHL (por teléfono):</strong> ${en.length.toLocaleString('es-ES')} de ${state.leads.length.toLocaleString('es-ES')} leads están en los grupos (${pctOf(en.length, state.leads.length).replace('.', ',')}); ${(en.length - sin).toLocaleString('es-ES')} ya han comprado y <strong>${sin.toLocaleString('es-ES')} siguen sin comprar</strong> (lista en <em>Comercial → Setting hoy</em>). ${state.grupoWa.personas.toLocaleString('es-ES')} personas en los grupos${state.grupoWa.admins ? `, sin contar ${state.grupoWa.admins} administradora${state.grupoWa.admins === 1 ? '' : 's'}` : ''}.</div>`;
     })() : ''}
     ${vigilanciaHtml(d.vigilancia, code)}
@@ -17463,8 +17465,9 @@ function textoGrupoWa(m) {
   const g = state.grupoWa?.code === code ? state.grupoWa : null;
   const linea = (txt, title) => `<strong class="kpi-hero-ventas" title="${esc(title)}">💬 ${txt}</strong>`;
   if (g?.claves) {
-    const n = state.leads.filter((l) => l.s.enGrupo).length;
-    return linea(`${pctOf(n, m.total).replace('.', ',')} en grupos de WhatsApp (${n.toLocaleString('es-ES')})`, `Cruce por teléfono con SendFlow: ${g.personas} personas en los grupos, sin contar administradoras`);
+    const r = enGruposDe(state.leads, g);
+    if (!r.exacto) return linea(`≈ ${pctOf(r.n, m.total).replace('.', ',')} en grupos de WhatsApp (${g.personas.toLocaleString('es-ES')} personas)`, `Solo ${r.conTelefono} de ${m.total} leads tienen teléfono en GHL, así que el cruce por teléfono se queda corto: se usan las personas de los grupos (${g.personas}, sin administradoras) ÷ leads.`);
+    return linea(`${pctOf(r.n, m.total).replace('.', ',')} en grupos de WhatsApp (${r.n.toLocaleString('es-ES')})`, `Cruce por teléfono con SendFlow: ${g.personas} personas en los grupos, sin contar administradoras`);
   }
   if (!g) cargarMiembrosGrupo(code);
   const st = gruposStats[code];
