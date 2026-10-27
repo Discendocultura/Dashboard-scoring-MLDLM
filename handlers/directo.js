@@ -11,8 +11,8 @@ import { turnstileSiteKey, verifyTurnstile } from '../lib/turnstile.js';
 import { dentroDelLimite } from '../lib/intentos.js';
 import { getConfig } from '../lib/config-store.js';
 import { addRegistrant, zoomConfigured } from '../lib/zoom.js';
-import { deLaReunion, datosRegistrante } from '../lib/zoom-inscripcion.js';
-import { entradaDe, guardarInscripcion, marcarEntrada } from '../lib/entradas.js';
+import { deLaReunion, datosRegistrante, ocurrenciasDelLanzamiento, guardarEnSusDirectos, reunionCompartida } from '../lib/zoom-inscripcion.js';
+import { entradaDe, marcarEntrada } from '../lib/entradas.js';
 import { html, escapeHtml, isEmail } from '../lib/http.js';
 import { clienteActual } from '../lib/cliente.js';
 import { videosDe } from '../public/js/videos.js';
@@ -109,10 +109,12 @@ export async function GET(request, ctx) {
   // llamar a GHL ni a Zoom. Lo que importa a la hora exacta, cuando entran cientos a la vez.
   if (cid) {
     const ya = await entradaDe(code, k, cid).catch(() => null);
-    if (ya?.join_url && deLaReunion(ya.join_url, vid?.zoomMeetingId)) {
+    // Varios días con la misma reunión de Zoom: un enlace guardado sin sus sesiones (#o=) puede ser solo del primer día.
+    const sinSesiones = ya?.join_url && !ya.join_url.includes('#o=') && reunionCompartida(launch, vid?.zoomMeetingId);
+    if (ya?.join_url && deLaReunion(ya.join_url, vid?.zoomMeetingId) && !sinSesiones) {
       const apunte = marcarEntrada(code, k, cid).catch((e) => console.error(e));
       if (ctx?.waitUntil) ctx.waitUntil(apunte);
-      return new Response(null, { status: 302, headers: new Headers({ location: ya.join_url, 'cache-control': 'no-store', 'set-cookie': cookieWho(`cid:${cid}`) }) });
+      return new Response(null, { status: 302, headers: new Headers({ location: ya.join_url.split('#')[0], 'cache-control': 'no-store', 'set-cookie': cookieWho(`cid:${cid}`) }) });
     }
     contact = await getContact(cid).catch((e) => { console.error(e); return null; });
   }
@@ -159,8 +161,9 @@ export async function GET(request, ctx) {
     const email = contact?.email || emailParam;
     const meetingId = vid?.zoomMeetingId || '';
     if (email && meetingId && zoomConfigured()) {
-      joinUrl = await addRegistrant(meetingId, datosRegistrante(contact, email));
-      if (joinUrl && contact) await guardarInscripcion(code, k, contact.id, joinUrl).catch((e) => console.error(e));
+      const ocurrencias = await ocurrenciasDelLanzamiento(launch, meetingId);
+      joinUrl = await addRegistrant(meetingId, datosRegistrante(contact, email), { ocurrencias });
+      if (joinUrl && contact) await guardarEnSusDirectos(code, launch, meetingId, contact.id, joinUrl, ocurrencias, k).catch((e) => console.error(e));
     }
   } catch (e) {
     console.error(e); // nunca dejamos a nadie fuera del directo: usamos el enlace genérico
