@@ -48,7 +48,9 @@ export function ventaDeWebhook(b = {}) {
   if (tipo === 'reembolso') importe = -Math.abs(euros(g('refund.amount_str', 'refund_amount_str'), g('refund.amount', 'refund_amount')));
   else if (tipo === 'cobro') importe = euros(g('order.total_str', 'order_total_str', 'total_str'), g('order.total', 'order_total', 'total'));
   // ThriveCart da el total y cada línea SIN impuestos y el IVA aparte (order.tax): lo que paga la clienta es la suma.
-  const impuesto = tipo === 'cobro' ? Math.max(0, euros(g('order.tax_str', 'order_tax_str', 'tax_str'), g('order.tax', 'order_tax', 'tax'))) : 0;
+  // Menos de 5 céntimos no es un IVA (p. ej. el campo trae el tipo, 0.21): como si no llegara.
+  const imp0 = tipo === 'cobro' ? Math.max(0, euros(g('order.tax_str', 'order_tax_str', 'tax_str'), g('order.tax', 'order_tax', 'tax'))) : 0;
+  const impuesto = imp0 >= 0.05 ? imp0 : 0;
   const base = importe;
   if (impuesto) importe += impuesto;
   const ts = num(g('order_timestamp', 'timestamp'));
@@ -428,7 +430,8 @@ const esPrecio = (t) => /^[\s\d.,€$-]+$/.test(String(t || '')) && /\d/.test(St
 // producto. Se les suma el IVA de España (21 %, `impuestoEstimado`) y el producto principal es el del aviso.
 export const IVA_ESTIMADO = 21;
 function repararAviso(v) {
-  if (v.importada || v.tipo !== 'cobro' || 'impuesto' in v || !/^order\./.test(v.evento || '')) return v;
+  // Con `impuesto` de menos de 5 céntimos tampoco llegó el IVA de verdad (avisos guardados entre el 25 y el 28/10/2026).
+  if (v.importada || v.tipo !== 'cobro' || Number(v.impuesto) >= 0.05 || !/^order\./.test(v.evento || '')) return v;
   const f = 1 + IVA_ESTIMADO / 100;
   const r2 = (x) => Math.round(x * f * 100) / 100;
   let lineas = (v.lineas || []).map((l) => ({ ...l, importe: r2(l.importe) }));
@@ -436,7 +439,8 @@ function repararAviso(v) {
     const prin = Math.max(0, lineas.findIndex((l) => normProd(l.nombre) === normProd(v.producto)));
     lineas = lineas.map((l, i) => (i === prin ? l : { ...l, tipo: tipoLinea('', l.nombre) === 'producto' ? 'bump' : tipoLinea('', l.nombre) }));
   }
-  return { ...v, importe: r2(v.importe), lineas, impuestoEstimado: true };
+  const { impuesto: _sinIva, ...resto } = v;
+  return { ...resto, importe: r2(v.importe), lineas, impuestoEstimado: true };
 }
 export function repararVentas(ventas = []) {
   ventas = ventas.map(repararAviso);
@@ -481,4 +485,21 @@ export function sinImportadasDe(lista = [], nuevas = []) {
   const pedidos = new Set(nuevas.map((v) => v.pedido).filter(Boolean));
   const emailDia = new Set(nuevas.map((v) => `${v.email}|${dia(v.fecha)}`));
   return lista.filter((x) => !x.importada || !(pedidos.has(x.pedido) || emailDia.has(`${x.email}|${dia(x.fecha)}`)));
+}
+
+// Muestra de un aviso sin datos personales (para ver qué campos manda ThriveCart): las claves y, de los campos de
+// pedido, importes e impuestos, su valor. Sin email, nombre, teléfono ni dirección.
+export function muestraAviso(b = {}) {
+  const plano = {};
+  const recorrer = (o, pre) => {
+    for (const [k, v] of Object.entries(o || {})) {
+      const clave = pre ? `${pre}[${k}]` : k;
+      if (v && typeof v === 'object') recorrer(v, clave);
+      else plano[clave] = v;
+    }
+  };
+  recorrer(b, '');
+  const privado = /email|name|phone|contact|address|street|city|zip|postcode|ip_?address|card|last4|first|last|customer\[/i;
+  const util = /event|mode|currency|total|tax|amount|price|charge|item|product|base|vat|fee|coupon|discount|order\[id\]|invoice|type|quantity|plan/i;
+  return Object.fromEntries(Object.entries(plano).filter(([k]) => !privado.test(k)).slice(0, 150).map(([k, v]) => [k, util.test(k) ? String(v).slice(0, 80) : '·']));
 }

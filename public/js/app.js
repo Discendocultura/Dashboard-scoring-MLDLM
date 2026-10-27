@@ -733,8 +733,16 @@ async function start() {
   const abrirInicio = (state.recienEntrado || ls.get('lsd_inicio') === '1') && !hash;
   state.recienEntrado = false;
   if (hash) ls.set('lsd_inicio', ''); // un enlace directo a una pestaña: lo último ya no es el Inicio
+  // Mientras carga el embudo inicial (al entrar en un cliente puede tardar), la persona ya puede elegir otro embudo o
+  // pestaña: si lo hace, al terminar no se la lleva al Inicio ni a ningún otro sitio.
+  let tocado = false;
+  const alTocar = (e) => { if (e.target.closest?.('#sidebar, .view-tab, .subview-tab, [data-embudo], [data-view], [data-view-grupo], #launch-select, .nav-movil')) tocado = true; };
+  document.addEventListener('pointerdown', alTocar, true);
+  document.addEventListener('keydown', alTocar, true);
   await setEmbudo(state.embudo, { vista: VIEWS.includes(hash) ? hash : null });
-  if (abrirInicio) mostrarInicio();
+  document.removeEventListener('pointerdown', alTocar, true);
+  document.removeEventListener('keydown', alTocar, true);
+  if (abrirInicio && !tocado) mostrarInicio();
   irAliasNavegacion(hash);
   if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); pintarQueFunciono(); }
   if (!$('#view-rendimiento').hidden) loadRendimiento();
