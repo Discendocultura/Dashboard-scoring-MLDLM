@@ -3612,14 +3612,30 @@ function pintarEmbudoVisual(m, launch) {
   const reg = pasos.find((p) => p.id === 'registros');
   const fin = pasos.at(-1);
   const roas = m.tc && m.eco.inversion ? m.tc.fact / m.eco.inversion : m.eco.roas;
-  box.innerHTML = `<div class="fx-cab"><div><h2>Embudo en tiempo real</h2><p class="muted small">Cada capa es un paso, con su ancho según cuántas llegan. Se actualiza solo cada 5 minutos con Métricas abierta.</p></div>
-      <span class="fx-live"><i aria-hidden="true"></i><span data-fx-hace>${state.leadsAt ? `Actualizado ${haceTxt(state.leadsAt)}` : 'En vivo'}</span></span></div>
-    <div class="fx-cuerpo">${capas}</div>
-    <div class="fx-resumen">
-      <div><span>De cada 100 registros</span><b>${reg?.n ? (Math.round((fin.n / reg.n) * 1000) / 10).toLocaleString('es-ES') : '0'}</b><small>compran ${esc(nombreProducto(state.config))}</small></div>
+  const resumen = `<div><span>De cada 100 registros</span><b>${reg?.n ? (Math.round((fin.n / reg.n) * 1000) / 10).toLocaleString('es-ES') : '0'}</b><small>compran ${esc(nombreProducto(state.config))}</small></div>
       ${m.eco.inversion ? `<div><span>Inversión</span><b>${eur(m.eco.inversion)}</b><small>${reg?.n ? `${eur(m.eco.inversion / reg.n)} por lead` : ''}</small></div>` : ''}
-      ${roas != null ? `<div><span>ROAS</span><b>${roas.toFixed(2).replace('.', ',')}x</b><small>${m.tc ? 'con lo cobrado de verdad' : 'por etiquetas'}</small></div>` : ''}
-    </div>`;
+      ${roas != null ? `<div><span>ROAS</span><b>${roas.toFixed(2).replace('.', ',')}x</b><small>${m.tc ? 'con lo cobrado de verdad' : 'por etiquetas'}</small></div>` : ''}`;
+  const hace = state.leadsAt ? `Actualizado ${haceTxt(state.leadsAt)}` : 'En vivo';
+  // Al cargar llegan los datos por partes (copia de los leads, GHL, Meta, visitas, ventas reales): la animación de
+  // entrada solo la primera vez; después se cambian los números sin moverlo, y si no ha cambiado nada, no se toca.
+  const firma = `${state.launchCode}|${capas}|${resumen}`;
+  if (box.dataset.firma === firma) { const h = $('[data-fx-hace]', box); if (h) h.textContent = hace; return; }
+  const yaPintado = box.dataset.code === state.launchCode && $('.fx-cuerpo', box);
+  box.dataset.firma = firma;
+  box.dataset.code = state.launchCode;
+  if (yaPintado) {
+    box.classList.add('fx-quieto');
+    $('.fx-cuerpo', box).innerHTML = capas;
+    $('.fx-resumen', box).innerHTML = resumen;
+    const h = $('[data-fx-hace]', box);
+    if (h) h.textContent = hace;
+    return;
+  }
+  box.classList.remove('fx-quieto');
+  box.innerHTML = `<div class="fx-cab"><div><h2>Embudo en tiempo real</h2><p class="muted small">Cada capa es un paso, con su ancho según cuántas llegan. Se actualiza solo cada 5 minutos con Métricas abierta.</p></div>
+      <span class="fx-live"><i aria-hidden="true"></i><span data-fx-hace>${hace}</span></span></div>
+    <div class="fx-cuerpo">${capas}</div>
+    <div class="fx-resumen">${resumen}</div>`;
 }
 // «Actualizado hace…» y, con Métricas abierta y la pestaña visible, los leads de nuevo cada 5 minutos.
 setInterval(() => {

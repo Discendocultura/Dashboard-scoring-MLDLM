@@ -8433,3 +8433,5 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .dpl-mas { margin-top: 6px; }
 .ll-opt.actual { opacity: .6; }
 .kpi-aviso { display: block; margin-top: 4px; font-weight: 650; color: var(--st-caliente); }
+/* Embudo ya pintado: al llegar más datos cambian los números sin repetir la animación de entrada */
+.fx-embudo.fx-quieto .fx-fila { animation: none; }
