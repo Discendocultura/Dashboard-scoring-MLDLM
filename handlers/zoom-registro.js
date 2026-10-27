@@ -14,7 +14,8 @@ import { getContact, findContactByEmail } from '../lib/ghl.js';
 import { hasTag } from '../lib/access.js';
 import { clienteActual } from '../lib/cliente.js';
 import { directosAbiertos, inscribirEnDirecto } from '../lib/zoom-inscripcion.js';
-import { zoomConfigured } from '../lib/zoom.js';
+import { resumenEnlaces } from '../lib/entradas.js';
+import { zoomConfigured, ajustesReunion } from '../lib/zoom.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { dentroDelLimite } from '../lib/intentos.js';
 import { env } from '../lib/env.js';
@@ -26,6 +27,20 @@ export async function GET(request) {
   try {
     await requireSession(request, { permiso: 'config' });
     const url = new URL(request.url);
+    // GET ?op=comprobar&l=<código> → (solo lectura) cada directo con su reunión de Zoom: si tiene código de acceso, si los
+    // enlaces lo llevan dentro (se entra sin escribirlo), el registro, y los enlaces personales ya guardados.
+    if (url.searchParams.get('op') === 'comprobar') {
+      if (!zoomConfigured()) return json({ error: 'Zoom no está conectado para este cliente' }, 400);
+      const launch = (await getConfig()).launches?.[url.searchParams.get('l') || ''];
+      if (!launch) return json({ error: 'Lanzamiento no encontrado' }, 404);
+      const code = url.searchParams.get('l');
+      const directos = directosAbiertos(launch, 0);
+      return json({ code, directos: await Promise.all(directos.map(async ({ k, meetingId, inicio }) => ({
+        k, inicio: new Date(inicio).toISOString(), meetingId,
+        reunion: await ajustesReunion(meetingId).catch((e) => ({ error: e.message.slice(0, 300) })),
+        enlacesGuardados: await resumenEnlaces(code, k),
+      }))) });
+    }
     const k = await signToken(valor());
     // Con la dirección principal (DOMINIO_LOGIN, p. ej. alquimia.tenaxdigital.com), aunque se abra AlquimIA desde otra.
     // La antigua (data.discendocultura.com) ya no se usa para los enlaces nuevos: aunque no esté puesta la variable.
