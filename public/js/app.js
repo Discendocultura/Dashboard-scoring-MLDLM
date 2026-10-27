@@ -10963,13 +10963,18 @@ $('#ag-body').addEventListener('click', (e) => {
 
 // ---------- Equipo → Marca (producto, colores de los emails y encuesta del avatar del cliente) ----------
 const TIPO_PREGUNTA = { opciones: 'Opciones (una o varias)', texto: 'Texto libre', edad: 'Edad (se agrupa por tramos)' };
-let marcaCampos = null; // campos de texto de GHL para la encuesta
-async function loadMarca() {
+// Campos de GHL para la encuesta, del cliente en el que se está (al cambiar de cliente, o con «Recargar», se piden otra vez).
+let marcaCampos = null;
+let marcaCamposDe = null;
+async function loadMarca({ recargar = false } = {}) {
   const box = $('#marca-body');
   const m = state.config.marca || {};
   const preguntas = preguntasEncuesta();
   box.innerHTML = '<p class="muted">Cargando…</p>';
-  if (!marcaCampos) marcaCampos = await api('/api/fields?tipo=encuesta').then((d) => d.fields).catch(() => []);
+  if (!marcaCampos || recargar || marcaCamposDe !== (state.cliente || '')) {
+    marcaCampos = await api('/api/fields?tipo=encuesta').then((d) => d.fields).catch(() => []);
+    marcaCamposDe = state.cliente || '';
+  }
   const opcionesCampo = (sel) => `<option value="">— Campo de GHL —</option>${marcaCampos.map((f) => `<option value="${esc(f.id)}" ${f.id === sel ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}${sel && !marcaCampos.some((f) => f.id === sel) ? `<option value="${esc(sel)}" selected>${esc(sel)}</option>` : ''}`;
   const fila = (p = {}) => `<div class="marca-preg row">
     <select class="mp-campo" aria-label="Campo de GHL">${opcionesCampo(p.id)}</select>
@@ -10985,11 +10990,12 @@ async function loadMarca() {
     <p class="muted">Las preguntas de la encuesta de GHL (cada una guarda su respuesta en un campo personalizado del contacto). Se cruzan con las ventas en «Avatar y anuncios». Elige el campo de la lista de GHL: el tipo (opciones o texto) se pone solo; para la edad, elige «Edad».</p>
     <p class="muted small">ⓘ Si en GHL creas una pregunta nueva o duplicas una, GHL crea un campo nuevo: añádelo aquí (y quita el antiguo) para que AlquimIA lea las respuestas nuevas. Si solo cambias el texto o las opciones de una pregunta, el campo es el mismo y no hay que tocar nada.</p>
     <div id="mc-preguntas">${preguntas.map(fila).join('')}</div>
-    <button type="button" class="btn" id="mc-add">+ Añadir pregunta</button>
+    <div class="row"><button type="button" class="btn" id="mc-add">+ Añadir pregunta</button> <button type="button" class="btn ghost small" id="mc-recargar" title="Vuelve a leer los campos personalizados de GHL (p. ej. si acabas de crear uno)">↻ Recargar campos de GHL</button> <span class="muted small">${marcaCampos.length} campos de GHL</span></div>
     <p class="muted small">Los mensajes de WhatsApp se cambian en <em>Comercial → Mensajes de WhatsApp</em> (pueden usar <code>{producto}</code>) y las tareas habituales, en <em>Tareas</em>.</p>
     <div class="row"><button type="button" class="btn primary" id="mc-guardar">Guardar marca</button><span class="muted" id="mc-status" aria-live="polite"></span></div>`;
   box.dataset.fila = '1';
   $('#mc-add').onclick = () => $('#mc-preguntas').insertAdjacentHTML('beforeend', fila());
+  $('#mc-recargar').onclick = () => loadMarca({ recargar: true });
   $('#mc-preguntas').onclick = (e) => { if (e.target.closest('.mp-del')) e.target.closest('.marca-preg').remove(); };
   // Al elegir el campo: el tipo y el texto de la pregunta salen de GHL (opciones / texto); se pueden cambiar.
   $('#mc-preguntas').onchange = (e) => {

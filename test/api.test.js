@@ -957,3 +957,15 @@ test('UTM del envío del formulario de registro y atribuciones en lista', async 
   assert.equal(utmDeEnvio({ others: { eventData: { page: { url: 'https://web.com/encuesta' } } } }), null);
   assert.equal(source({ attributions: [{ isFirst: true, utmCampaign: 'primera' }, { isLast: true, medium: 'direct' }] }).campaign, 'primera');
 });
+
+test('encuesta del avatar: se ofrecen todos los campos que guardan una respuesta (no fechas, archivos ni firmas)', async () => {
+  const { tipoEncuesta } = await import('../lib/ghl.js');
+  assert.equal(tipoEncuesta('SINGLE_OPTIONS'), 'opciones');
+  assert.equal(tipoEncuesta('CHECKBOX'), 'opciones');
+  assert.equal(tipoEncuesta('TEXT'), 'texto');
+  assert.equal(tipoEncuesta('TEXTBOX_LIST'), 'texto');
+  assert.equal(tipoEncuesta('NUMERICAL'), 'texto');
+  assert.equal(tipoEncuesta('DATE'), null);
+  assert.equal(tipoEncuesta('FILE_UPLOAD'), null);
+  assert.equal(tipoEncuesta('SIGNATURE'), null);
+});
