@@ -4,7 +4,7 @@ import {
 } from './scoring.js';
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
-import { ORDEN_EDAD } from './encuesta.js';
+import { ORDEN_EDAD, preguntasDe } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
 import { resumenThrivecart, ventasDeCsv, productosVistos, deProductos } from './thrivecart.js';
 import { resumenAb, MINIMO_AB } from './ab.js';
@@ -114,7 +114,8 @@ const state = {
 };
 
 // Preguntas de la encuesta del avatar de este cliente.
-const preguntasEncuesta = () => state.config?.encuesta || [];
+// Preguntas de la encuesta: las del lanzamiento abierto (o, si no tiene, las de siempre del cliente).
+const preguntasEncuesta = () => preguntasDe(state.config, enLanzamientos() ? state.launchCode : null);
 
 // Nombre del producto del cliente: los textos dicen «Raíces» (MLDLM) y en otro cliente se cambian
 // por el suyo en todo lo que se pinta (textos, placeholders y títulos).
@@ -6625,6 +6626,7 @@ function openConfig(code, { silencioso = false } = {}) {
   pintarEnlaceDirecto();
   pintarRegistroKit();
   pintarAbConfig();
+  pintarEncuestaLanz();
   pintarVentaPasos();
   pintarVentaBarra(l.ventaBarra);
   pintarTitulares(l.titulares);
@@ -8019,6 +8021,8 @@ function readForm() {
       vipTag: $('#cfg-vip').value.trim().toLowerCase(),
       compraTag: $('#cfg-compra').value.trim().toLowerCase(),
       encuestaTag: $('#cfg-encuesta-tag').value.trim().toLowerCase(),
+      // Su encuesta del avatar (sin preguntas propias: la de siempre del cliente).
+      encuesta: editorEncLanz ? editorEncLanz.leer() : prev.encuesta || [],
       llamadaTag: $('#cfg-llamada-tag').value.trim().toLowerCase(),
       encuestaUrl: $('#cfg-encuesta-url').value.trim(),
       compraDateField: $('#cfg-compra-fecha').value,
@@ -10966,22 +10970,24 @@ const TIPO_PREGUNTA = { opciones: 'Opciones (una o varias)', texto: 'Texto libre
 // Campos de GHL para la encuesta, del cliente en el que se está (al cambiar de cliente, o con «Recargar», se piden otra vez).
 let marcaCampos = null;
 let marcaCamposDe = null;
-async function loadMarca({ recargar = false } = {}) {
-  const box = $('#marca-body');
-  const m = state.config.marca || {};
-  const preguntas = preguntasEncuesta();
-  box.innerHTML = '<p class="muted">Cargando…</p>';
+async function camposEncuesta(recargar = false) {
   if (!marcaCampos || recargar || marcaCamposDe !== (state.cliente || '')) {
     marcaCampos = await api('/api/fields?tipo=encuesta').then((d) => d.fields).catch(() => []);
     marcaCamposDe = state.cliente || '';
   }
+  return marcaCampos;
+}
+// Editor de las preguntas de una encuesta en `cont` (la de siempre del cliente o la de un lanzamiento): cada pregunta,
+// su campo de GHL (con buscador), su texto y su tipo. → { leer() } las preguntas que hay ahora.
+async function editorEncuesta(cont, preguntas = [], { recargar = false } = {}) {
+  const campos = await camposEncuesta(recargar);
   // Buscador de cada pregunta: deja en la lista solo los campos que tienen todas las palabras (sin tildes).
-  const sinTildes = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const sinTildes = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const encaja = (f, q) => sinTildes(q).split(/\s+/).filter(Boolean).every((w) => sinTildes(f.name).includes(w));
   const opcionesCampo = (sel, q = '') => {
-    const lista = marcaCampos.filter((f) => f.id === sel || !q || encaja(f, q));
+    const lista = campos.filter((f) => f.id === sel || !q || encaja(f, q));
     const n = lista.filter((f) => f.id !== sel || encaja(f, q)).length;
-    return `<option value="">${q ? `— ${n ? `${n} ${n === 1 ? 'campo' : 'campos'} con «${esc(q)}»` : `ningún campo con «${esc(q)}»`} —` : '— Campo de GHL —'}</option>${lista.map((f) => `<option value="${esc(f.id)}" ${f.id === sel ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}${sel && !marcaCampos.some((f) => f.id === sel) ? `<option value="${esc(sel)}" selected>${esc(sel)}</option>` : ''}`;
+    return `<option value="">${q ? `— ${n ? `${n} ${n === 1 ? 'campo' : 'campos'} con «${esc(q)}»` : `ningún campo con «${esc(q)}»`} —` : '— Campo de GHL —'}</option>${lista.map((f) => `<option value="${esc(f.id)}" ${f.id === sel ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}${sel && !campos.some((f) => f.id === sel) ? `<option value="${esc(sel)}" selected>${esc(sel)}</option>` : ''}`;
   };
   const fila = (p = {}) => `<div class="marca-preg row">
     <input class="mp-buscar" type="search" placeholder="🔎 Buscar" aria-label="Buscar el campo de GHL" autocomplete="off">
@@ -10989,51 +10995,83 @@ async function loadMarca({ recargar = false } = {}) {
     <input class="mp-nombre" value="${esc(p.name || '')}" placeholder="Texto de la pregunta" maxlength="160">
     <select class="mp-tipo" aria-label="Tipo">${Object.entries(TIPO_PREGUNTA).map(([k, v]) => `<option value="${k}" ${k === (p.tipo || 'opciones') ? 'selected' : ''}>${v}</option>`).join('')}</select>
     <button type="button" class="btn ghost mp-del" aria-label="Quitar">✕</button></div>`;
-  box.innerHTML = `<div class="grid3">
-      <label class="field"><span>Nombre del producto <small>(lo que se vende en el carrito)</small></span><input id="mc-producto" maxlength="40" value="${esc(m.producto || '')}" placeholder="Raíces, Método X…"></label>
-      <label class="field narrow"><span>Color principal de los emails</span><input id="mc-color" type="color" value="${esc(m.color || '#860d0e')}"></label>
-      <label class="field narrow"><span>Color de los botones</span><input id="mc-color2" type="color" value="${esc(m.color2 || '#c49b79')}"></label>
-    </div>
-    <h3 class="cfg-h3">Encuesta del avatar</h3>
-    <p class="muted">Las preguntas de la encuesta de GHL (cada una guarda su respuesta en un campo personalizado del contacto). Se cruzan con las ventas en «Avatar y anuncios». Elige el campo de la lista de GHL: el tipo (opciones o texto) se pone solo; para la edad, elige «Edad».</p>
-    <p class="muted small">ⓘ Si en GHL creas una pregunta nueva o duplicas una, GHL crea un campo nuevo: añádelo aquí (y quita el antiguo) para que AlquimIA lea las respuestas nuevas. Si solo cambias el texto o las opciones de una pregunta, el campo es el mismo y no hay que tocar nada.</p>
-    <div id="mc-preguntas">${preguntas.map(fila).join('')}</div>
-    <div class="row"><button type="button" class="btn" id="mc-add">+ Añadir pregunta</button> <button type="button" class="btn ghost small" id="mc-recargar" title="Vuelve a leer los campos personalizados de GHL (p. ej. si acabas de crear uno)">↻ Recargar campos de GHL</button> <span class="muted small">${marcaCampos.length} campos de GHL</span></div>
-    <p class="muted small">Los mensajes de WhatsApp se cambian en <em>Comercial → Mensajes de WhatsApp</em> (pueden usar <code>{producto}</code>) y las tareas habituales, en <em>Tareas</em>.</p>
-    <div class="row"><button type="button" class="btn primary" id="mc-guardar">Guardar marca</button><span class="muted" id="mc-status" aria-live="polite"></span></div>`;
-  box.dataset.fila = '1';
-  $('#mc-add').onclick = () => $('#mc-preguntas').insertAdjacentHTML('beforeend', fila());
-  $('#mc-recargar').onclick = () => loadMarca({ recargar: true });
-  $('#mc-preguntas').onclick = (e) => { if (e.target.closest('.mp-del')) e.target.closest('.marca-preg').remove(); };
+  cont.innerHTML = `<div class="mp-lista">${preguntas.map(fila).join('')}</div>
+    <div class="row"><button type="button" class="btn" data-mp-add>+ Añadir pregunta</button> <button type="button" class="btn ghost small" data-mp-recargar title="Vuelve a leer los campos personalizados de GHL (p. ej. si acabas de crear uno)">↻ Recargar campos de GHL</button> <span class="muted small">${campos.length} campos de GHL</span></div>`;
+  const lista = $('.mp-lista', cont);
+  const leer = () => $$('.marca-preg', lista).map((r) => ({ id: $('.mp-campo', r).value, name: $('.mp-nombre', r).value.trim() || $('.mp-campo', r).selectedOptions[0]?.textContent || '', tipo: $('.mp-tipo', r).value })).filter((p) => p.id);
+  const ed = { leer };
+  $('[data-mp-add]', cont).onclick = () => lista.insertAdjacentHTML('beforeend', fila());
+  // Recargar sin perder lo que ya se ha cambiado.
+  $('[data-mp-recargar]', cont).onclick = async () => { const nuevo = await editorEncuesta(cont, leer(), { recargar: true }); ed.leer = nuevo.leer; };
+  lista.onclick = (e) => { if (e.target.closest('.mp-del')) e.target.closest('.marca-preg').remove(); };
   // Al escribir en el buscador: la lista de esa pregunta se queda con lo que encaja; si es uno solo, se elige.
-  $('#mc-preguntas').oninput = (e) => {
+  lista.oninput = (e) => {
     const b = e.target.closest('.mp-buscar');
     if (!b) return;
     const sel = $('.mp-campo', b.closest('.marca-preg'));
     const q = b.value.trim();
     sel.innerHTML = opcionesCampo(sel.value, q);
-    const encontrados = marcaCampos.filter((f) => q && encaja(f, q));
+    const encontrados = campos.filter((f) => q && encaja(f, q));
     if (encontrados.length === 1 && sel.value !== encontrados[0].id) { sel.value = encontrados[0].id; sel.dispatchEvent(new Event('change', { bubbles: true })); }
   };
   // Al elegir el campo: el tipo y el texto de la pregunta salen de GHL (opciones / texto); se pueden cambiar.
-  $('#mc-preguntas').onchange = (e) => {
+  lista.onchange = (e) => {
     const sel = e.target.closest('.mp-campo');
     if (!sel) return;
-    const f = marcaCampos.find((x) => x.id === sel.value);
+    const f = campos.find((x) => x.id === sel.value);
     const fila_ = sel.closest('.marca-preg');
     if (f?.tipo && $('.mp-tipo', fila_).value !== 'edad') $('.mp-tipo', fila_).value = f.tipo;
     if (f && !$('.mp-nombre', fila_).value.trim()) $('.mp-nombre', fila_).value = f.name.replace(/\s*\*\s*$/, '');
   };
+  return ed;
+}
+async function loadMarca() {
+  const box = $('#marca-body');
+  const m = state.config.marca || {};
+  box.innerHTML = '<p class="muted">Cargando…</p>';
+  await camposEncuesta();
+  box.innerHTML = `<div class="grid3">
+      <label class="field"><span>Nombre del producto <small>(lo que se vende en el carrito)</small></span><input id="mc-producto" maxlength="40" value="${esc(m.producto || '')}" placeholder="Raíces, Método X…"></label>
+      <label class="field narrow"><span>Color principal de los emails</span><input id="mc-color" type="color" value="${esc(m.color || '#860d0e')}"></label>
+      <label class="field narrow"><span>Color de los botones</span><input id="mc-color2" type="color" value="${esc(m.color2 || '#c49b79')}"></label>
+    </div>
+    <h3 class="cfg-h3">Encuesta por defecto</h3>
+    <p class="muted">Cada lanzamiento tiene <strong>su propia encuesta</strong> en su configuración (Configuración del lanzamiento → Captación → Encuesta del avatar). Esta es la que usan los lanzamientos que no tienen una propia, la VSL y la venta directa.</p>
+    <p class="muted small">ⓘ Si en GHL creas una pregunta nueva o duplicas una, GHL crea un campo nuevo: añádelo (y quita el antiguo) para que AlquimIA lea las respuestas nuevas. Si solo cambias el texto o las opciones de una pregunta, el campo es el mismo y no hay que tocar nada.</p>
+    <div id="mc-encuesta"></div>
+    <p class="muted small">Los mensajes de WhatsApp se cambian en <em>Comercial → Mensajes de WhatsApp</em> (pueden usar <code>{producto}</code>) y las tareas habituales, en <em>Tareas</em>.</p>
+    <div class="row"><button type="button" class="btn primary" id="mc-guardar">Guardar marca</button><span class="muted" id="mc-status" aria-live="polite"></span></div>`;
+  box.dataset.fila = '1';
+  const ed = await editorEncuesta($('#mc-encuesta'), state.config.encuesta || []);
   $('#mc-guardar').onclick = async () => {
     const st = $('#mc-status');
-    const encuesta = $$('#mc-preguntas .marca-preg').map((r) => ({ id: $('.mp-campo', r).value, name: $('.mp-nombre', r).value.trim() || $('.mp-campo', r).selectedOptions[0]?.textContent || '', tipo: $('.mp-tipo', r).value })).filter((p) => p.id);
     st.textContent = 'Guardando…';
     try {
-      const { config } = await api('/api/config', { method: 'POST', body: { op: 'marca', marca: { producto: $('#mc-producto').value.trim(), color: $('#mc-color').value, color2: $('#mc-color2').value }, encuesta } });
+      const { config } = await api('/api/config', { method: 'POST', body: { op: 'marca', marca: { producto: $('#mc-producto').value.trim(), color: $('#mc-color').value, color2: $('#mc-color2').value }, encuesta: ed.leer() } });
       state.config = config;
       st.textContent = 'Guardado ✓ Recarga AlquimIA para ver el nombre nuevo en todos los textos.';
     } catch (err) { st.textContent = err.message; }
   };
+}
+// Configuración del lanzamiento → Captación: su encuesta del avatar (si no tiene, usa la de siempre del cliente).
+let editorEncLanz = null;
+async function pintarEncuestaLanz() {
+  const box = $('#cfg-encuesta-editor');
+  if (!box) return;
+  const code = editingCode;
+  const propias = code ? state.config.launches[code]?.encuesta || [] : [];
+  const def = state.config.encuesta || [];
+  editorEncLanz = null;
+  box.innerHTML = `<p class="muted small" data-enc-nota>${propias.length ? 'Este lanzamiento tiene su propia encuesta.' : def.length ? `Aún no tiene preguntas propias: usa la encuesta por defecto del cliente (${def.map((p) => `«${esc(p.name)}»`).join(', ')}). Añade aquí las de este lanzamiento.` : 'Aún no tiene preguntas: añade las de la encuesta de GHL de este lanzamiento.'}</p>
+    ${!propias.length && def.length ? '<p><button type="button" class="btn ghost small" data-enc-copiar>Empezar con la encuesta por defecto</button></p>' : ''}
+    <div data-enc-ed><p class="muted">Cargando los campos de GHL…</p></div>`;
+  const ed = await editorEncuesta($('[data-enc-ed]', box), propias);
+  if (editingCode !== code) return;
+  editorEncLanz = ed;
+  $('[data-enc-copiar]', box)?.addEventListener('click', async (e) => {
+    e.target.closest('p').remove();
+    editorEncLanz = await editorEncuesta($('[data-enc-ed]', box), [...editorEncLanz.leer(), ...def]);
+  });
 }
 $('.tab[data-tab="marca"]').addEventListener('click', () => loadMarca().catch((e) => { $('#marca-body').innerHTML = `<p class="error">${esc(e.message)}</p>`; }));
 

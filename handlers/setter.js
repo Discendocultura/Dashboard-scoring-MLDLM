@@ -12,6 +12,7 @@
 // Respuesta: { texto, version, … } (JSON) o, con &formato=texto, solo el texto. Sin emails ni teléfonos.
 // Lleva ETag (= version): si el setter manda If-None-Match con la que ya tiene y nada ha cambiado, 304 sin cuerpo.
 import { env } from '../lib/env.js';
+import { preguntasDe } from '../public/js/encuesta.js';
 import { safeEqual } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { leerMarca } from '../lib/marca.js';
@@ -63,8 +64,8 @@ function responder(request, url, texto, extra = {}) {
 }
 
 // Las preguntas de la encuesta del cliente con sus opciones (las de GHL; si no, las del mock/configuración).
-async function preguntasEncuesta(config) {
-  const ps = config.encuesta || [];
+async function preguntasEncuesta(config, code) {
+  const ps = preguntasDe(config, code);
   if (!ps.length) return [];
   const campos = await listAllFields().catch(() => []);
   return ps.map((p) => ({ ...p, opciones: campos.find((f) => f.id === p.id)?.opciones || p.opciones || [] }));
@@ -101,7 +102,7 @@ export async function GET(request) {
     const l = config.launches[code];
 
     if (ruta === 'lanzamiento') {
-      const [m, preguntas] = await Promise.all([leerMarca(), preguntasEncuesta(config)]);
+      const [m, preguntas] = await Promise.all([leerMarca(), preguntasEncuesta(config, code)]);
       const producto = elegirProducto(m, { pedido: url.searchParams.get('producto') || '', embudo: l.embudo || '' });
       const nombre = producto ? nombreDeProducto(producto, m.productos.indexOf(producto)) : nombreProducto(config);
       const fase = faseActual(l);
@@ -112,7 +113,7 @@ export async function GET(request) {
       const cid = String(url.searchParams.get('cid') || '');
       if (!/^[A-Za-z0-9]{6,40}$/.test(cid)) return mal(400, 'Falta cid (el id del contacto en GHL)');
       const [contact, preguntas, inicioPago, ventaVisita] = await Promise.all([
-        getContactCompleto(cid), preguntasEncuesta(config), visitaDe(code, cid, 'pago').catch(() => null), visitaDe(code, cid, 'venta').catch(() => null),
+        getContactCompleto(cid), preguntasEncuesta(config, code), visitaDe(code, cid, 'pago').catch(() => null), visitaDe(code, cid, 'venta').catch(() => null),
       ]);
       if (!contact) return mal(404, 'Contacto no encontrado en GHL');
       aplicarCamposFormulario(contact, config.formAds);

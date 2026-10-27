@@ -33,3 +33,16 @@ export function tramoEdad(v) {
   return 'Más de 40 años';
 }
 export const ORDEN_EDAD = ['Menos de 30 años', '30 a 34 años', '35 a 37 años', '38 a 40 años', 'Más de 40 años'];
+
+// Preguntas de la encuesta de un lanzamiento (su código o el lanzamiento): las suyas (Configuración del lanzamiento →
+// Captación) o, si no tiene, las de siempre del cliente (Equipo → Marca). Sin lanzamiento (VSL, venta directa), las de siempre.
+export function preguntasDe(config, lanzamiento) {
+  const l = typeof lanzamiento === 'string' ? config?.launches?.[lanzamiento] : lanzamiento;
+  return l?.encuesta?.length ? l.encuesta : config?.encuesta || [];
+}
+// Todas las preguntas del cliente (las de siempre y las de cada lanzamiento), sin repetir: para pedir sus campos a GHL.
+export function todasLasPreguntas(config) {
+  const vistas = new Map();
+  for (const p of [...(config?.encuesta || []), ...Object.values(config?.launches || {}).flatMap((l) => l.encuesta || [])]) if (p?.id && !vistas.has(p.id)) vistas.set(p.id, p);
+  return [...vistas.values()];
+}

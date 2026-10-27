@@ -4,6 +4,7 @@
 // «otros»: el resto de campos personalizados con valor (entre ellos, las respuestas del formulario de
 // reserva de la llamada), sin los técnicos que ya usa el dashboard (fechas, IDs de anuncios).
 import { requireSession } from '../lib/auth.js';
+import { preguntasDe } from '../public/js/encuesta.js';
 import { getConfig } from '../lib/config-store.js';
 import { getContactCompleto, listAllFields, getContactNotes } from '../lib/ghl.js';
 import { json, errorResponse } from '../lib/http.js';
@@ -23,7 +24,7 @@ export async function GET(request) {
     if (!c) return json({ error: 'No se ha encontrado el contacto en GHL' }, 404);
     const campos = await listAllFields().catch(() => []);
     const nombre = new Map(campos.map((f) => [f.id, f]));
-    const preguntas = config.encuesta || [];
+    const preguntas = preguntasDe(config, code);
     // Campos técnicos que el dashboard ya usa por su cuenta: no aportan a la setter.
     const tecnicos = new Set([
       ...Object.values(config.launches || {}).map((l) => l.compraDateField),

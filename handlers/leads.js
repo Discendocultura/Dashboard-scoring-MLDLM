@@ -3,6 +3,7 @@
 import { requireRole } from '../lib/auth.js';
 import { contactsByTag, aplicarCamposFormulario, utmDeFormularios } from '../lib/ghl.js';
 import { getConfig } from '../lib/config-store.js';
+import { todasLasPreguntas } from '../public/js/encuesta.js';
 import { cacheCompartida } from '../lib/store.js';
 import { json, errorResponse } from '../lib/http.js';
 
@@ -60,7 +61,7 @@ export async function GET(request) {
     // Solo se envían al navegador los campos configurados: fecha de compra y preguntas de la encuesta.
     const formAds = config.formAds || {};
     const fields = [...new Set(Object.values(config.launches)
-      .map((l) => l.compraDateField).concat(Object.values(config.vsls || {}).flatMap((v) => [v.compraDateField, v.registroDateField]), Object.values(config.directas || {}).map((d) => d.compraDateField), (config.encuesta || []).map((p) => p.id), formAds.campaign, formAds.adset, formAds.ad).filter(Boolean))];
+      .map((l) => l.compraDateField).concat(Object.values(config.vsls || {}).flatMap((v) => [v.compraDateField, v.registroDateField]), Object.values(config.directas || {}).map((d) => d.compraDateField), todasLasPreguntas(config).map((p) => p.id), formAds.campaign, formAds.adset, formAds.ad).filter(Boolean))];
     const page = await contactsByTag(tag, cursor, fields);
     page.contacts = page.contacts.map((c) => aplicarCamposFormulario(c, formAds));
     return json(page);
