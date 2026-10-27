@@ -14,8 +14,9 @@ import { getContact, findContactByEmail } from '../lib/ghl.js';
 import { hasTag } from '../lib/access.js';
 import { clienteActual } from '../lib/cliente.js';
 import { directosAbiertos, inscribirEnDirecto } from '../lib/zoom-inscripcion.js';
-import { resumenEnlaces } from '../lib/entradas.js';
+import { resumenEnlaces, conOtraReunion } from '../lib/entradas.js';
 import { zoomConfigured, ajustesReunion } from '../lib/zoom.js';
+import { videosDe } from '../public/js/videos.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { dentroDelLimite } from '../lib/intentos.js';
 import { env } from '../lib/env.js';
@@ -64,6 +65,29 @@ export async function POST(request) {
       const contact = await findContactByEmail(email);
       if (!contact) return json({ ok: false, motivo: 'contacto no encontrado', detalle: `No hay ningún contacto con ${email} en el CRM de este cliente.` });
       return json(await inscribirRegistro({ cid: contact.id, contact, pedido: String(body.l || '') }));
+    }
+    // POST ?op=reinscribir { l, k } → (equipo, «config») inscribe en la reunión del directo k a quien tiene guardado el
+    // enlace de otra reunión, por tandas de 12 (Zoom y Cloudflare limitan las llamadas): se repite hasta pendientes = 0.
+    if (url.searchParams.get('op') === 'reinscribir') {
+      await requireSession(request, { permiso: 'config' });
+      const body = await readBody(request);
+      const code = String(body.l || '');
+      const kv = Number(body.k) || 0;
+      const launch = (await getConfig()).launches?.[code];
+      const vid = launch && videosDe(launch)[kv - 1];
+      if (!vid?.zoomMeetingId) return json({ error: 'Ese directo no tiene reunión de Zoom' }, 400);
+      const todos = await conOtraReunion(code, kv, vid.zoomMeetingId);
+      const tanda = todos.slice(0, 12);
+      const fallos = [];
+      let hechas = 0;
+      for (const cid of tanda) {
+        try {
+          const r = await inscribirEnDirecto(code, launch, kv, { cid, confiarRegistro: true });
+          if (r.ok) hechas++; else fallos.push({ cid, motivo: r.motivo });
+        } catch (e) { fallos.push({ cid, motivo: explicarZoom(e.message, vid.zoomMeetingId).slice(0, 200) }); }
+      }
+      // Quien falla (sin email, borrado de GHL…) no se repite en la siguiente tanda: se cuenta aparte.
+      return json({ hechas, fallos, pendientes: Math.max(0, todos.length - tanda.length) });
     }
     const k = claveDe(url.searchParams.get('k'));
     if ((await verifyToken(k)) !== valor()) return json({ ok: false, motivo: 'enlace no válido', detalle: porQueNoVale(k) }, 403);

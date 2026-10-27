@@ -25,4 +25,12 @@ test('zoom: comprobar las reuniones de un lanzamiento (solo lectura, con sesión
   // El del día 2: de su reunión y sin el código dentro
   const { resumenEnlaces } = await import('../lib/entradas.js');
   assert.deepEqual(await resumenEnlaces('res', 2), { total: 1, conCodigo: 0, reuniones: { 87044291509: 1 } });
+  // Reinscribir en la reunión buena a quien tiene guardado el enlace de otra
+  await guardarInscripcion('res', 1, 'mock00001', 'https://us06web.zoom.us/w/99999999999?tk=viejo');
+  const r = await call('/api/zoom-registro?op=reinscribir', { method: 'POST', cookie: admin, body: { l: 'res', k: 1 } });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.hechas, 1);
+  assert.equal(r.data.pendientes, 0);
+  assert.deepEqual((await resumenEnlaces('res', 1)).reuniones, { 83482996867: 2 });
+  assert.equal((await call('/api/zoom-registro?op=reinscribir', { method: 'POST', body: { l: 'res', k: 1 } })).status, 401);
 });
