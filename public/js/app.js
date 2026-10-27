@@ -2754,7 +2754,7 @@ const AYUDA_KPI = {
   'Coste por venta': 'Inversión ÷ ventas del programa.',
   Impresiones: 'Veces que se mostraron los anuncios (Meta).',
   'Clics en el enlace': 'Clics en el enlace de los anuncios (Meta). CTR = clics ÷ impresiones; CPC = inversión ÷ clics.',
-  'Visitas a la página de registro': 'Visitas a la página que cuenta Meta (landing page views): hicieron clic y la página llegó a cargar.',
+  'Visitas a la página de registro': 'Visitantes únicos de la página de registro que cuenta el código de AlquimIA (de anuncios y orgánico). Sin ese código, las visitas que cuenta el píxel de Meta (landing page views).',
 };
 const ayudaKpi = (label) => {
   const t = String(label).replace(/<[^>]+>/g, '').trim();
@@ -4315,7 +4315,11 @@ function renderTrafico(m, launch, tr) {
     card('Inversión', tr.inversion ? eur(tr.inversion) : '–', state.meta?.since ? `Meta Ads · ${esc(state.meta.since)} → ${esc(state.meta.until)}` : 'introducida a mano', 'megaphone', 'accent'),
     card('Impresiones', n(tr.impresiones), `CPM ${eur2(tr.cpm)} (coste por mil)`, 'eye', 'info'),
     card('Clics en el enlace', n(tr.clics), `CTR ${pct1(tr.ctr)} · CPC ${eur2(tr.cpc)}`, 'trend', 'info'),
-    card('Visitas a la página de registro', n(tr.visitas), tr.visitas ? `${pct1(tr.cargan)} de los clics llegan a cargarla · ${eur2(tr.costeVisita)} por visita` : 'landing page views de Meta', 'play', 'info'),
+    // Las visitas reales las cuenta el código de AlquimIA en la página (visitantes únicos); Meta solo ve las que registra
+    // su píxel. Si el píxel ve menos de la mitad de los clics, casi seguro que no está bien puesto en la página.
+    tr.visitasRegistro
+      ? card('Visitas a la página de registro', n(tr.visitasRegistro), `visitantes únicos (código de AlquimIA) · ${eur2(tr.inversion ? tr.inversion / tr.visitasRegistro : null)} por visita${tr.visitas != null ? ` · Meta solo cuenta ${n(tr.visitas)}` : ''}${tr.clics && tr.cargan != null && tr.cargan < 0.5 ? ` <span class="kpi-aviso" title="De ${n(tr.clics)} clics en los anuncios, el píxel de Meta solo ve cargar la página ${n(tr.visitas)} veces (${pct1(tr.cargan)}). Meta no puede optimizar bien sin ese dato: revisa que el píxel de Meta esté en la página de registro (y en la de gracias, con el evento de registro).">⚠️ el píxel de Meta apenas ve visitas: revisa que esté en la página</span>` : ''}`, 'play', 'info')
+      : card('Visitas a la página de registro', n(tr.visitas), tr.visitas ? `${pct1(tr.cargan)} de los clics llegan a cargarla · ${eur2(tr.costeVisita)} por visita (Meta)` : 'landing page views de Meta', 'play', 'info'),
     card('Conversión de la página', pct1(tr.conversionPagina), tr.conversionFuente === 'registro' ? `${n(m.total)} registros / ${n(tr.visitasRegistro)} visitas únicas a la página de registro`
       : tr.conversionPagina != null ? `${n(tr.registrosPubli)} registros${tr.conOrigen ? ' de publicidad' : ''} / ${n(tr.visitas)} visitas (Meta)${tr.registrosMeta ? ` · Meta cuenta ${n(tr.registrosMeta)}` : ''}` : 'registros / visitas únicas a la página de registro', 'funnel', 'buy'),
     card('CPL medio', eur2(tr.cpl), 'inversión / todos los registros', 'users', 'money'),

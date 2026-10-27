@@ -8432,3 +8432,4 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .xp-col-mas .btn small, .dpl-mas small { font-weight: 400; opacity: .75; margin-left: 4px; }
 .dpl-mas { margin-top: 6px; }
 .ll-opt.actual { opacity: .6; }
+.kpi-aviso { display: block; margin-top: 4px; font-weight: 650; color: var(--st-caliente); }
