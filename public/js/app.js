@@ -10975,8 +10975,16 @@ async function loadMarca({ recargar = false } = {}) {
     marcaCampos = await api('/api/fields?tipo=encuesta').then((d) => d.fields).catch(() => []);
     marcaCamposDe = state.cliente || '';
   }
-  const opcionesCampo = (sel) => `<option value="">— Campo de GHL —</option>${marcaCampos.map((f) => `<option value="${esc(f.id)}" ${f.id === sel ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}${sel && !marcaCampos.some((f) => f.id === sel) ? `<option value="${esc(sel)}" selected>${esc(sel)}</option>` : ''}`;
+  // Buscador de cada pregunta: deja en la lista solo los campos que tienen todas las palabras (sin tildes).
+  const sinTildes = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const encaja = (f, q) => sinTildes(q).split(/\s+/).filter(Boolean).every((w) => sinTildes(f.name).includes(w));
+  const opcionesCampo = (sel, q = '') => {
+    const lista = marcaCampos.filter((f) => f.id === sel || !q || encaja(f, q));
+    const n = lista.filter((f) => f.id !== sel || encaja(f, q)).length;
+    return `<option value="">${q ? `— ${n ? `${n} ${n === 1 ? 'campo' : 'campos'} con «${esc(q)}»` : `ningún campo con «${esc(q)}»`} —` : '— Campo de GHL —'}</option>${lista.map((f) => `<option value="${esc(f.id)}" ${f.id === sel ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}${sel && !marcaCampos.some((f) => f.id === sel) ? `<option value="${esc(sel)}" selected>${esc(sel)}</option>` : ''}`;
+  };
   const fila = (p = {}) => `<div class="marca-preg row">
+    <input class="mp-buscar" type="search" placeholder="🔎 Buscar" aria-label="Buscar el campo de GHL" autocomplete="off">
     <select class="mp-campo" aria-label="Campo de GHL">${opcionesCampo(p.id)}</select>
     <input class="mp-nombre" value="${esc(p.name || '')}" placeholder="Texto de la pregunta" maxlength="160">
     <select class="mp-tipo" aria-label="Tipo">${Object.entries(TIPO_PREGUNTA).map(([k, v]) => `<option value="${k}" ${k === (p.tipo || 'opciones') ? 'selected' : ''}>${v}</option>`).join('')}</select>
@@ -10997,6 +11005,16 @@ async function loadMarca({ recargar = false } = {}) {
   $('#mc-add').onclick = () => $('#mc-preguntas').insertAdjacentHTML('beforeend', fila());
   $('#mc-recargar').onclick = () => loadMarca({ recargar: true });
   $('#mc-preguntas').onclick = (e) => { if (e.target.closest('.mp-del')) e.target.closest('.marca-preg').remove(); };
+  // Al escribir en el buscador: la lista de esa pregunta se queda con lo que encaja; si es uno solo, se elige.
+  $('#mc-preguntas').oninput = (e) => {
+    const b = e.target.closest('.mp-buscar');
+    if (!b) return;
+    const sel = $('.mp-campo', b.closest('.marca-preg'));
+    const q = b.value.trim();
+    sel.innerHTML = opcionesCampo(sel.value, q);
+    const encontrados = marcaCampos.filter((f) => q && encaja(f, q));
+    if (encontrados.length === 1 && sel.value !== encontrados[0].id) { sel.value = encontrados[0].id; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+  };
   // Al elegir el campo: el tipo y el texto de la pregunta salen de GHL (opciones / texto); se pueden cambiar.
   $('#mc-preguntas').onchange = (e) => {
     const sel = e.target.closest('.mp-campo');

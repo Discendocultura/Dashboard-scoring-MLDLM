@@ -1523,6 +1523,7 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 .calc-sug { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
 .calc-hist summary { cursor: pointer; }
 .marca-preg { flex-wrap: nowrap; gap: 8px; margin-bottom: 8px; }
+.marca-preg .mp-buscar { flex: 0 1 160px; min-width: 0; }
 .marca-preg .mp-campo { flex: 1 1 30%; min-width: 0; }
 .marca-preg .mp-nombre { flex: 2 1 45%; min-width: 0; }
 .marca-preg .mp-tipo { flex: 1 1 22%; min-width: 0; }
