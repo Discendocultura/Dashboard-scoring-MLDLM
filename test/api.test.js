@@ -171,6 +171,13 @@ test('acceso: registrada, existente sin etiqueta y email nuevo', async () => {
   assert.equal((await getContact(otraSin.id)).phone, '');
   assert.equal((await getContact(sinMovil.id)).email, 'sinmovil@example.com');
   assert.ok(mock.notes.some((n) => n.contactId === otraSin.id && n.body.includes('+34611223344')));
+  // Página que oculta el campo del nombre (La Resistencia): con el alta y el WhatsApp basta, sin nombre
+  assert.deepEqual(await call({ email: 'sinnombre@example.com', phone: '+34 622 33 44 55', alta: 1 }), { ok: false, needs: 'signup', known: false, siteKey: '' }, 'sin decir que no hay nombre, lo sigue pidiendo');
+  const sinNombre = await call({ email: 'sinnombre@example.com', phone: '+34 622 33 44 55', alta: 1, sinNombre: 1 });
+  assert.equal(sinNombre.ok, true);
+  assert.equal(sinNombre.status, 'created');
+  assert.ok((await findContactByEmail('sinnombre@example.com')).tags.includes('registro-webinar-demo'));
+  assert.equal((await call({ email: 'sinnombre2@example.com', alta: 1, sinNombre: 1 })).needs, 'signup', 'sin WhatsApp no se registra');
   // bots (campo trampa) no crean nada
   assert.deepEqual(await call({ email: 'bot@example.com', name: 'Bot', phone: '600000000', hp: 'x' }), { ok: false, error: 'bot' });
   // El campo antiguo `website` (lo rellenaban algunos autorrellenos) ya no deja fuera a nadie.

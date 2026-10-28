@@ -352,7 +352,24 @@
         return f('phone').focus();
       }
       if (conMovil && movil) payload.phone = movil;
-      if (signup) { payload.name = f('name').value.trim(); payload.phone = movil; payload.turnstile = turnstileToken; }
+      if (signup) {
+        payload.name = f('name').value.trim(); payload.phone = movil; payload.turnstile = turnstileToken; payload.alta = 1;
+        // Si la página oculta el campo del nombre, el registro va solo con el email y el WhatsApp.
+        var nombreVisible = f('name').offsetParent !== null && getComputedStyle(f('name')).display !== 'none';
+        if (!nombreVisible) payload.sinNombre = 1;
+        if (!movil) {
+          btn.disabled = false;
+          err.textContent = 'Escribe tu número de WhatsApp para registrarte.';
+          err.hidden = false;
+          return f('phone').focus();
+        }
+        if (turnstileShown && !turnstileToken) {
+          btn.disabled = false;
+          err.textContent = 'Marca la casilla «Verifica que eres un ser humano» y vuelve a pulsar.';
+          err.hidden = false;
+          return;
+        }
+      }
       post('/api/access', payload).then(function (r) {
         btn.disabled = false;
         if (r && r.ok) {
@@ -364,7 +381,9 @@
         }
         if (r && r.needs === 'signup') {
           if (signup) {
-            err.textContent = r.error === 'turnstile' ? 'Confirma que no eres un robot y vuelve a pulsar.' : 'Revisa tu nombre y tu móvil.';
+            err.textContent = r.error === 'turnstile' ? 'La verificación de Cloudflare ha caducado: márcala otra vez y vuelve a pulsar.' : payload.sinNombre ? 'Revisa tu número de WhatsApp (con el prefijo del país si no es de España).' : 'Revisa tu nombre y tu móvil.';
+            // Un token de Cloudflare solo vale una vez: tras un intento fallido se vuelve a pedir la casilla.
+            if (window.turnstile) { try { window.turnstile.reset(); } catch (e2) { /* sin casilla */ } turnstileToken = ''; }
             err.hidden = false;
           }
           return showSignup(r.known, r.siteKey);

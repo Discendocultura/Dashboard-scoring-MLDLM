@@ -14,7 +14,7 @@ export function OPTIONS() {
 
 export async function POST(request) {
   try {
-    const { email, launch: asked, name, phone, hp, turnstile } = await readBody(request);
+    const { email, launch: asked, name, phone, hp, turnstile, alta, sinNombre } = await readBody(request);
     // Campo trampa para bots. Antes se llamaba `website` y algunos autorrellenos lo rellenaban
     // dejando fuera a leads de verdad: ese nombre ya no se mira.
     if (hp) return json({ ok: false, error: 'bot' }, 200, CORS_HEADERS);
@@ -25,11 +25,11 @@ export async function POST(request) {
     const code = !asked || asked === 'auto' ? currentLaunch(config) : asked;
     const launch = config.launches[code];
     if (!launch?.registroTag) return json({ ok: false, error: 'launch' }, 404, CORS_HEADERS);
-    // Solo se pide la verificación anti-bots al registrar (cuando llegan nombre y móvil).
-    if (name && !(await verifyTurnstile(turnstile, request.headers.get('cf-connecting-ip')))) {
+    // Solo se pide la verificación anti-bots al registrar (con nombre o, si la página no enseña el nombre, con «alta»).
+    if ((name || alta) && !(await verifyTurnstile(turnstile, request.headers.get('cf-connecting-ip')))) {
       return json({ ok: false, needs: 'signup', error: 'turnstile', siteKey: turnstileSiteKey() }, 200, CORS_HEADERS);
     }
-    const result = await ensureRegistered(launch, { email, name, phone }, config);
+    const result = await ensureRegistered(launch, { email, name, phone, sinNombre: Boolean(alta && sinNombre) }, config);
     if (result.status === 'needs_signup') return json({ ok: false, needs: 'signup', known: result.known, siteKey: turnstileSiteKey() }, 200, CORS_HEADERS);
     return json({ ok: true, status: result.status, cid: result.contact?.id || '' }, 200, CORS_HEADERS);
   } catch (e) {
