@@ -9,6 +9,7 @@ import { getConfig } from '../lib/config-store.js';
 import { clienteActual } from '../lib/cliente.js';
 import { getContact, getContactCompleto, countByTag, findContactByEmail } from '../lib/ghl.js';
 import { dentroDelLimite } from '../lib/intentos.js';
+import { turnstileSiteKey } from '../lib/turnstile.js';
 import { varianteDe, textosTitular } from '../public/js/titulares.js';
 import { currentLaunch } from '../lib/digest.js';
 import { verifyToken, signToken, requireRole } from '../lib/auth.js';
@@ -183,6 +184,8 @@ export async function GET(request, ctx) {
       code,
       name: launch.name,
       cliente: clienteActual().id, // para la estética propia del cliente en la página (p. ej. el popup de la encuesta)
+      // Clave pública de Cloudflare Turnstile: el formulario de acceso la prepara en segundo plano (registro en un paso).
+      ...(turnstileSiteKey() ? { turnstile: turnstileSiteKey() } : {}),
       ...(sinGhl ? { reintentar: true } : {}),
       now,
       preview,

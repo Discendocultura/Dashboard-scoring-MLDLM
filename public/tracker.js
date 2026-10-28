@@ -302,8 +302,10 @@
     }
     var turnstileToken = '';
     var turnstileShown = false;
+    var esperaToken = null; // quien espera a que Cloudflare dé su visto bueno
 
-    // Verificación anti-bots de Cloudflare (solo si está configurada en el dashboard).
+    // Verificación anti-bots de Cloudflare (solo si está configurada en el dashboard). Solo se ve la casilla si
+    // Cloudflare sospecha (interaction-only): casi siempre se resuelve sola, en segundo plano.
     function showTurnstile(siteKey) {
       if (!siteKey || turnstileShown) return;
       turnstileShown = true;
@@ -313,7 +315,8 @@
       function render() {
         window.turnstile.render(holder, {
           sitekey: siteKey,
-          callback: function (t) { turnstileToken = t; },
+          appearance: 'interaction-only',
+          callback: function (t) { turnstileToken = t; if (esperaToken) { esperaToken(); esperaToken = null; } },
           'expired-callback': function () { turnstileToken = ''; },
         });
       }
@@ -337,9 +340,22 @@
       f('name').focus();
     }
     if (presetEmail) { f('email').value = presetEmail; showSignup(); }
+    // Acceso con email y WhatsApp: la verificación se prepara ya, para registrar en el mismo paso a quien no lo estaba.
+    if (opts.login && conMovil && opts.siteKey) showTurnstile(opts.siteKey);
+    // Hasta 6 s a que Cloudflare termine (si aún está comprobando al pulsar).
+    function conToken(seguir) {
+      if (!turnstileShown || turnstileToken) return seguir();
+      var hecho = false;
+      var fin = function () { if (!hecho) { hecho = true; seguir(); } };
+      esperaToken = fin;
+      setTimeout(fin, 6000);
+    }
 
     form.onsubmit = function (e) {
       e.preventDefault();
+      conToken(enviar);
+    };
+    function enviar() {
       var email = f('email').value.trim().toLowerCase();
       btn.disabled = true;
       err.hidden = true;
@@ -352,6 +368,18 @@
         return f('phone').focus();
       }
       if (conMovil && movil) payload.phone = movil;
+      // Si la página tiene selector de prefijo y ha escrito el «+34…» dentro del campo, se envía así pero en pantalla
+      // queda solo el número (si no, parece un prefijo repetido al lado del selector).
+      var cc = f('phone').parentElement && f('phone').parentElement.querySelector('[data-code]');
+      var codigo = cc && cc.getAttribute('data-code');
+      if (codigo && movil.indexOf('+' + codigo) === 0) f('phone').value = movil.slice(codigo.length + 1);
+      // Acceso con WhatsApp: en el mismo paso, si no estaba registrada, se registra (sin nombre si la página no lo pide).
+      if (opts.login && conMovil && movil && !signup) {
+        payload.alta = 1;
+        payload.turnstile = turnstileToken;
+        if (f('name').offsetParent === null || getComputedStyle(f('name')).display === 'none') payload.sinNombre = 1;
+        else if (f('name').value.trim()) payload.name = f('name').value.trim();
+      }
       if (signup) {
         payload.name = f('name').value.trim(); payload.phone = movil; payload.turnstile = turnstileToken; payload.alta = 1;
         // Si la página oculta el campo del nombre, el registro va solo con el email y el WhatsApp.
@@ -380,6 +408,14 @@
           return done(who);
         }
         if (r && r.needs === 'signup') {
+          // Acceso en un paso y Cloudflare no se ha resuelto solo: se enseña la casilla y se pide marcarla.
+          if (!signup && r.error === 'turnstile') {
+            if (window.turnstile) { try { window.turnstile.reset(); } catch (e3) { /* sin casilla */ } turnstileToken = ''; }
+            err.textContent = 'Un momento: marca la casilla de verificación de abajo y vuelve a pulsar.';
+            err.hidden = false;
+            showTurnstile(r.siteKey);
+            return;
+          }
           if (signup) {
             err.textContent = r.error === 'turnstile' ? 'La verificación de Cloudflare ha caducado: márcala otra vez y vuelve a pulsar.' : payload.sinNombre ? 'Revisa tu número de WhatsApp (con el prefijo del país si no es de España).' : 'Revisa tu nombre y tu móvil.';
             // Un token de Cloudflare solo vale una vez: tras un intento fallido se vuelve a pedir la casilla.
@@ -400,7 +436,7 @@
         box.remove();
         done({ email: email });
       });
-    };
+    }
   }
 
   // Los enlaces al directo de la página se personalizan con la identidad de la lead,
@@ -1781,7 +1817,7 @@
     el.setAttribute('data-lsd-ready', '1');
     var attr = params.get('l') || el.getAttribute('data-launch') || 'auto';
     var ready = attr === 'auto' || !el.getAttribute('data-redirect')
-      ? fetchPage(attr, null).then(function (d) { return { code: d.code, redirect: el.getAttribute('data-redirect') || (d.links && d.links.recursos), error: d.error }; })
+      ? fetchPage(attr, null).then(function (d) { return { code: d.code, redirect: el.getAttribute('data-redirect') || (d.links && d.links.recursos), error: d.error, turnstile: d.turnstile || '' }; })
       : Promise.resolve({ code: attr, redirect: el.getAttribute('data-redirect') });
     ready.catch(function () { return { code: attr, redirect: el.getAttribute('data-redirect') }; }).then(function (cfg) {
       // Sin página a la que ir (no hay lanzamiento en curso o le falta la URL de la página preclase en el
@@ -1804,6 +1840,7 @@
         movilNota: el.getAttribute('data-movil-nota') || 'Te avisaremos por WhatsApp cuando se abra cada clase y antes del directo.',
         title: el.getAttribute('data-title') || 'Accede a las clases con tu email y tu WhatsApp',
         button: el.getAttribute('data-button') || 'Acceder',
+        siteKey: cfg.turnstile || '',
       });
       // Si este navegador ya la conoce, dejamos su email escrito (pero puede cambiarlo).
       if (!preset && stored.email) { var inp = el.querySelector('input[name="email"]'); if (inp) inp.value = stored.email; }

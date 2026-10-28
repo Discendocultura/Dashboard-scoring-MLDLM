@@ -25,11 +25,10 @@ export async function POST(request) {
     const code = !asked || asked === 'auto' ? currentLaunch(config) : asked;
     const launch = config.launches[code];
     if (!launch?.registroTag) return json({ ok: false, error: 'launch' }, 404, CORS_HEADERS);
-    // Solo se pide la verificación anti-bots al registrar (con nombre o, si la página no enseña el nombre, con «alta»).
-    if ((name || alta) && !(await verifyTurnstile(turnstile, request.headers.get('cf-connecting-ip')))) {
-      return json({ ok: false, needs: 'signup', error: 'turnstile', siteKey: turnstileSiteKey() }, 200, CORS_HEADERS);
-    }
-    const result = await ensureRegistered(launch, { email, name, phone, sinNombre: Boolean(alta && sinNombre) }, config);
+    // La verificación anti-bots solo se comprueba si de verdad hay que registrarla (quien ya está registrada entra sin más).
+    const verificar = () => verifyTurnstile(turnstile, request.headers.get('cf-connecting-ip'));
+    const result = await ensureRegistered(launch, { email, name, phone, sinNombre: Boolean(alta && sinNombre) }, config, (name || alta) ? verificar : async () => false);
+    if (result.status === 'verificacion') return json({ ok: false, needs: 'signup', error: 'turnstile', known: result.known, siteKey: turnstileSiteKey() }, 200, CORS_HEADERS);
     if (result.status === 'needs_signup') return json({ ok: false, needs: 'signup', known: result.known, siteKey: turnstileSiteKey() }, 200, CORS_HEADERS);
     return json({ ok: true, status: result.status, cid: result.contact?.id || '' }, 200, CORS_HEADERS);
   } catch (e) {

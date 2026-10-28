@@ -178,6 +178,15 @@ test('acceso: registrada, existente sin etiqueta y email nuevo', async () => {
   assert.equal(sinNombre.status, 'created');
   assert.ok((await findContactByEmail('sinnombre@example.com')).tags.includes('registro-webinar-demo'));
   assert.equal((await call({ email: 'sinnombre2@example.com', alta: 1, sinNombre: 1 })).needs, 'signup', 'sin WhatsApp no se registra');
+  // La verificación anti-bots solo se pide al registrar: a quien ya está registrada no se le llama
+  const { ensureRegistered } = await import('../lib/access.js');
+  let llamadas = 0;
+  const no = async () => { llamadas++; return false; };
+  assert.equal((await ensureRegistered({ registroTag: 'registro-webinar-demo' }, { email: reg.email, phone: '600112233' }, {}, no)).status, 'registered');
+  assert.equal(llamadas, 0);
+  assert.equal((await ensureRegistered({ registroTag: 'registro-webinar-demo' }, { email: 'bloqueada@example.com', phone: '600112244', sinNombre: true }, {}, no)).status, 'verificacion');
+  assert.equal(llamadas, 1);
+  assert.equal(await findContactByEmail('bloqueada@example.com'), null, 'sin pasar la verificación no se crea');
   // bots (campo trampa) no crean nada
   assert.deepEqual(await call({ email: 'bot@example.com', name: 'Bot', phone: '600000000', hp: 'x' }), { ok: false, error: 'bot' });
   // El campo antiguo `website` (lo rellenaban algunos autorrellenos) ya no deja fuera a nadie.
