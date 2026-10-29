@@ -5858,6 +5858,7 @@ $('#btn-zoom').addEventListener('click', async () => {
   btn.disabled = true;
   const resumen = [];
   let failed = 0;
+  let zoomSinInstancias = false;
   try {
     const byEmail = new Map(state.leads.map((l) => [l.email, l]));
     const items = new Map(); // id → etiquetas
@@ -5893,6 +5894,9 @@ $('#btn-zoom').addEventListener('click', async () => {
       resumen.push(`${vids.length > 1 ? `${v.nombre}: ` : ''}${report.attendees.length} asistentes identificados, ${n} leads actualizados`
         + `${unmatched ? `, ${unmatched} emails que no están en este lanzamiento` : ''}`
         + `${report.anonymous ? `, ${report.anonymous} conexiones sin email` : ''}`);
+      // Sin el permiso de instancias, Zoom solo da la última vez que se abrió la sala (si se reabrió después del
+      // directo, sale casi vacío): se avisa de qué permiso falta.
+      if (/list_past_instances/.test(report.fuente?.error || '')) zoomSinInstancias = true;
     }
     const lista = [...items].map(([id, tags]) => ({ id, tags }));
     let done = 0;
@@ -5906,7 +5910,8 @@ $('#btn-zoom').addEventListener('click', async () => {
     delete state.zoomMin?.[state.launchCode];
     if (state.zoomMinCargando) delete state.zoomMinCargando[state.launchCode];
     await loadLeads({ forzar: true });
-    notice(`Zoom: ${resumen.join(' · ')}${failed ? `. ${failed} no se pudieron etiquetar (vuelve a sincronizar)` : ''}.`, failed > 0);
+    notice(`Zoom: ${resumen.join(' · ')}${failed ? `. ${failed} no se pudieron etiquetar (vuelve a sincronizar)` : ''}.`
+      + (zoomSinInstancias ? ' ⚠️ Ojo: la app de Zoom de AlquimIA no tiene el permiso «meeting:read:list_past_instances:admin», así que Zoom solo da la ÚLTIMA vez que se abrió la sala (si se abrió después del directo, el informe sale casi vacío). Añádelo en marketplace.zoom.us → tu app Server-to-Server → Scopes, y vuelve a sincronizar.' : ''), failed > 0 || zoomSinInstancias);
   } catch (e) {
     notice(`No se pudo sincronizar Zoom: ${e.message}`, true);
   } finally {
