@@ -1820,6 +1820,12 @@
       ? fetchPage(attr, null).then(function (d) { return { code: d.code, redirect: el.getAttribute('data-redirect') || (d.links && d.links.recursos), error: d.error, turnstile: d.turnstile || '' }; })
       : Promise.resolve({ code: attr, redirect: el.getAttribute('data-redirect') });
     ready.catch(function () { return { code: attr, redirect: el.getAttribute('data-redirect') }; }).then(function (cfg) {
+      // Viene de otra página del lanzamiento que pedía entrar (la grabación, la venta…): al acabar, vuelve a ella.
+      // Solo a una página del mismo dominio que el login (nada de enviar a webs ajenas).
+      var volver = params.get('volver');
+      if (volver) {
+        try { var vu = new URL(volver, location.href); if (/^https?:$/.test(vu.protocol) && vu.host === location.host) cfg = Object.assign({}, cfg, { redirect: vu.toString() }); } catch (e) { /* URL rara: se queda la de siempre */ }
+      }
       // Sin página a la que ir (no hay lanzamiento en curso o le falta la URL de la página preclase en el
       // dashboard), se avisa en vez de «redirigir» a la misma página.
       var sinDestino = function () {
@@ -2130,7 +2136,14 @@
 
       var gateHost = document.querySelector('[data-lsd-gate]') || containers[0] || pageEl;
       function showGate(presetEmail) {
-        if (loginUrl) return goTo(loginUrl, presetEmail ? { email: presetEmail } : null);
+        // Al login, con la página de vuelta (la grabación, la venta…): al entrar vuelve aquí y no a la preclase.
+        if (loginUrl) {
+          var aqui = new URL(location.href);
+          ['cid', 'email', 'lsd_preview'].forEach(function (k) { aqui.searchParams.delete(k); });
+          var dest = new URL(loginUrl, location.href);
+          if (kind !== 'recursos' && dest.pathname !== aqui.pathname) dest.searchParams.set('volver', aqui.toString());
+          return goTo(dest.toString(), presetEmail ? { email: presetEmail } : null);
+        }
         containers.forEach(function (c) { if (c !== gateHost) c.style.display = 'none'; });
         if (gateHost === pageEl) pageEl.classList.add('lsd-gate-page');
         gate(gateHost, launch, function (w) {
