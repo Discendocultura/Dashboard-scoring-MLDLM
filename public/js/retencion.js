@@ -119,7 +119,7 @@ export function analizarReplay(datos, { nombre = 'la grabación' } = {}) {
     s.push({ tipo: 'pico', t: p.t, texto: `Momento de gran interés: se ve un ${p.extra}% más veces de lo normal (vuelven atrás para verlo).`, accion: 'Úsalo como clip para anuncios, reels o el grupo de WhatsApp, y valora adelantarlo en el vídeo.' });
   }
   if (out.final < 30) {
-    s.push({ tipo: 'final', t: t(TRAMOS - 6), texto: `Solo el ${Math.round(out.final)}% de quien empieza ${nombre} llega al final.`, accion: 'Si la oferta está al final, adelántala o anúnciala al principio («al final te enseño…») para que se queden.' });
+    s.push({ tipo: 'final', t: t(TRAMOS - 6), texto: `Solo el ${Math.round(out.final)}% de quien empieza el vídeo llega al final.`, accion: 'Si la oferta está al final, adelántala o anúnciala al principio («al final te enseño…») para que se queden.' });
   }
   if (!s.length) s.push({ tipo: 'ok', t: 0, texto: 'La retención es estable: no hay caídas bruscas ni tramos que se salten.', accion: 'No hace falta cortar nada; mantén la estructura.' });
   return out;
@@ -163,7 +163,7 @@ export function analizarDirecto(curva, { nombre = 'el directo' } = {}) {
     s.push({ tipo: 'fuga', min: f.min0, min1: f.min1, texto: `Punto de fuga: se van unas ${f.personas.toLocaleString('es-ES')} personas (el ${Math.round(f.caida)}% del máximo).`, accion: 'Mira en la grabación qué pasaba ahí (¿se alargó una parte, bajó el ritmo, empezó la venta?). En el próximo directo acórtalo, o en la grabación córtalo.' });
   }
   if (out.final < 40) {
-    s.push({ tipo: 'final', min: min(Math.max(0, ultimo - 5)), texto: `Al final de ${nombre} quedaba el ${Math.round(out.final)}% del máximo.`, accion: 'Si la oferta va al final, adelántala o anúnciala desde el principio con un motivo para quedarse (bonus en directo, sorteo, preguntas).' });
+    s.push({ tipo: 'final', min: min(Math.max(0, ultimo - 5)), texto: `Al final quedaba el ${Math.round(out.final)}% del máximo.`, accion: 'Si la oferta va al final, adelántala o anúnciala desde el principio con un motivo para quedarse (bonus en directo, sorteo, preguntas).' });
   }
   return out;
 }
