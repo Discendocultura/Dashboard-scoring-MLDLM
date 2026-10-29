@@ -1847,6 +1847,33 @@
     });
   }
 
+  // Textos, cajetines de pago, enlaces de los botones y bonus de acción rápida de las páginas de venta y de pago.
+  function rellenarVenta(data) {
+    var texts = data.texts || {};
+    document.querySelectorAll('[data-lsd-text]').forEach(function (t) {
+      var k = t.getAttribute('data-lsd-text');
+      if (!Object.prototype.hasOwnProperty.call(texts, k)) return;
+      t.textContent = texts[k];
+      show(t, Boolean(texts[k]));
+    });
+    document.querySelectorAll('[data-lsd-caja]').forEach(function (c) {
+      var link = (data.links || {})[c.getAttribute('data-lsd-caja') === 'fraccionado' ? 'pago-fraccionado' : 'pago'];
+      show(c, Boolean(link));
+    });
+    // Botones de la página de venta: <a data-lsd-link="pago|pago-fraccionado|llamada|whatsapp-dudas">.
+    // Sin enlace configurado, el botón se oculta.
+    var links = data.links || {};
+    document.querySelectorAll('[data-lsd-link]').forEach(function (a) {
+      var k = a.getAttribute('data-lsd-link');
+      if (!Object.prototype.hasOwnProperty.call(links, k)) return;
+      if (!links[k]) return show(a, false);
+      a.setAttribute('href', links[k]);
+      show(a, true);
+      if ((k === 'whatsapp' || k === 'whatsapp-dudas') && !a.getAttribute('target')) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener'); }
+    });
+    if (data.bonus) bonusAccionRapida(data.bonus);
+  }
+
   // Página de venta: <div data-lsd-venta data-launch="auto"></div> apunta la visita (sin llamar a GHL)
   // para «Setting hoy» del dashboard: quién la visitó y no ha comprado. Necesita saber quién es: ?cid=
   // en el enlace (los de la preclase y la grabación ya lo llevan) o que el navegador la recuerde.
@@ -1867,31 +1894,22 @@
     setTimeout(mostrarTitulares, 2500);
     fetchPage(launch, who, pagina).then(function (data) {
       if (!data || data.error) return mostrarTitulares();
-      var texts = data.texts || {};
-      document.querySelectorAll('[data-lsd-text]').forEach(function (t) {
-        var k = t.getAttribute('data-lsd-text');
-        if (!Object.prototype.hasOwnProperty.call(texts, k)) return;
-        t.textContent = texts[k];
-        show(t, Boolean(texts[k]));
-      });
+      rellenarVenta(data);
       mostrarTitulares();
-      document.querySelectorAll('[data-lsd-caja]').forEach(function (c) {
-        var link = (data.links || {})[c.getAttribute('data-lsd-caja') === 'fraccionado' ? 'pago-fraccionado' : 'pago'];
-        show(c, Boolean(link));
-      });
-      // Botones de la página de venta: <a data-lsd-link="pago|pago-fraccionado|llamada|whatsapp-dudas">.
-      // Sin enlace configurado, el botón se oculta.
-      var links = data.links || {};
-      document.querySelectorAll('[data-lsd-link]').forEach(function (a) {
-        var k = a.getAttribute('data-lsd-link');
-        if (!Object.prototype.hasOwnProperty.call(links, k)) return;
-        if (!links[k]) return show(a, false);
-        a.setAttribute('href', links[k]);
-        show(a, true);
-        if ((k === 'whatsapp' || k === 'whatsapp-dudas') && !a.getAttribute('target')) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener'); }
-      });
+      // GHL a veces pinta algunos bloques de código (secciones de más abajo) después de que AlquimIA haya leído la
+      // página: durante 30 s, si aparece un bloque nuevo con códigos de AlquimIA, se rellena también.
+      if (window.MutationObserver) {
+        var pendiente = null;
+        var obs = new MutationObserver(function (cambios) {
+          var nuevo = cambios.some(function (c) { return Array.prototype.some.call(c.addedNodes, function (n) { return n.nodeType === 1 && (n.matches('[data-lsd-text],[data-lsd-link],[data-lsd-bonus],[data-lsd-bonus-cerrado],[data-lsd-countdown-bonus],[data-lsd-countdown-boxes-bonus],[data-lsd-caja]') || n.querySelector('[data-lsd-text],[data-lsd-link],[data-lsd-bonus],[data-lsd-bonus-cerrado],[data-lsd-countdown-bonus],[data-lsd-countdown-boxes-bonus],[data-lsd-caja]')); }); });
+          if (!nuevo) return;
+          clearTimeout(pendiente);
+          pendiente = setTimeout(function () { rellenarVenta(data); }, 150);
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+        setTimeout(function () { obs.disconnect(); }, 30000);
+      }
       if (data.embeds) { injectCss(); pintarEmbeds(data.embeds); }
-      if (data.bonus) bonusAccionRapida(data.bonus);
       if (!data.ventaBarra) return;
       injectCss();
       barraVenta(data);
@@ -1907,6 +1925,7 @@
   //   <span data-lsd-countdown-bonus="bar_48h"></span>        cuenta atrás en texto (1 d 23 h 05 min · 5:04:03)
   //   <div data-lsd-countdown-boxes-bonus="bar_48h"></div>    cuenta atrás en cajas (días / horas / min / seg)
   // El tipo es bar_directo, bar_24h o bar_48h; «bar» vale para el primero que haya. Sin ese bonus, se oculta todo.
+  var barTimers = false;
   function bonusAccionRapida(lista) {
     var de = function (k) { return k === 'bar' ? lista[0] : lista.filter(function (b) { return b.tipo === k; })[0]; };
     var abierto = function (b) { return Boolean(b) && serverNow() < b.hasta; };
@@ -1933,6 +1952,8 @@
     pintar();
     startCountdowns();
     // Al terminar cada uno, se cambia solo (la sección del bonus se oculta y sale la de «terminado»).
+    if (barTimers) return;
+    barTimers = true;
     lista.forEach(function (b) {
       var ms = b.hasta - serverNow();
       if (ms > 0 && ms < 2147483000) setTimeout(pintar, ms + 500);
