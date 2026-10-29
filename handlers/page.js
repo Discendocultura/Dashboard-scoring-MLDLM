@@ -185,7 +185,12 @@ export async function GET(request, ctx) {
     if (recursos.test?.url) links.test = recursos.test.url;
     if (recursos.descargable?.url) links.descargable = recursos.descargable.url;
 
-    const bar = barFor(launch, phase.id);
+    // El último directo ya terminó y su grabación ya está (p. ej. a las 22:00) aunque la fase «en directo» dure hasta
+    // las 00:00: las barras ya son las del replay (no «Estamos en directo · Entrar al directo» en la grabación).
+    const ultV = phase.m?.videos?.at(-1);
+    const replayYa = Boolean(ultV) && phase.id === `en_directo${ultV.k === 1 ? '' : ultV.k}` && ultV.replay != null && now >= ultV.replay;
+    const faseBarra = replayYa ? 'replay' : phase.id;
+    const bar = barFor(launch, faseBarra);
     let vendidas = 0;
     try {
       vendidas = await vipVendidas(code, launch);
@@ -205,12 +210,13 @@ export async function GET(request, ctx) {
       preview,
       phase: phase.id,
       countdownTo: phase.countdownTo,
+      ...(replayYa ? { barCountdownTo: phase.m.cierre } : {}),
       changesAt: phase.changesAt,
       redirectTo: redirectFor(launch, phase.id),
       // Página de replay con el carrito abierto: barra fija con cuenta atrás que al llegar a cero lleva a la venta.
       // `video`: solo la página de la grabación del vídeo de venta (en los de varios vídeos, el último).
       replayBarra: (() => {
-        const rb = phase.id === 'replay' && links.venta ? replayBarraDe(launch) : null;
+        const rb = faseBarra === 'replay' && links.venta ? replayBarraDe(launch) : null;
         return rb ? { ...rb, text: conProducto(rb.text, nombreProducto(config)), boton: conProducto(rb.boton, nombreProducto(config)), video: sigReplay(vids.length || 1) } : null;
       })(),
       bar: { text: conProducto(bar.text, nombreProducto(config)), button: bar.button && links[bar.button] ? { key: bar.button, label: bar.buttonLabel, href: links[bar.button] } : null },

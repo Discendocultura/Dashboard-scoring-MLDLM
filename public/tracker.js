@@ -25,6 +25,9 @@
   // El plan B del directo (bloque pegado en GHL) mira esto: si el dashboard cargó, no se enseña nunca.
   window.lsdCargado = true;
   'use strict';
+  // El script pegado varias veces en la misma página (bloques de código repetidos en GHL): solo cuenta el primero.
+  if (window.lsdTrackerActivo) return;
+  window.lsdTrackerActivo = true;
   var script = document.currentScript;
   var API = script ? new URL(script.src).origin : '';
   // Cliente del dashboard (varios clientes): viene en el src del script, p. ej. tracker.js?c=clinica-sol.
@@ -697,7 +700,7 @@
     // Barra de urgencia: <div data-lsd-bar></div>
     document.querySelectorAll('[data-lsd-bar]').forEach(function (el) {
       var b = data.bar || {};
-      var text = esc(b.text || '').replace('{cuenta}', cdSpan(data.countdownTo));
+      var text = esc(b.text || '').replace('{cuenta}', cdSpan(data.barCountdownTo || data.countdownTo));
       var btn = b.button ? '<a class="lsd-bar-btn" href="' + esc(linkWho(b.button.href)) + '"' + (b.button.key === 'whatsapp' ? ' target="_blank" rel="noopener"' : '') + '>' + esc(b.button.label || defaultLabel(b.button.key)) + '</a>' : '';
       el.innerHTML = '<span class="lsd-bar-text">' + text + '</span>' + btn;
       el.setAttribute('data-lsd-phase-now', data.phase);
@@ -2201,8 +2204,15 @@
     if (llamada) initVenta(llamada, 'llamada');
 
     var pageEl = document.querySelector('[data-lsd-page]');
+    // El mismo vídeo pegado dos veces en la página (p. ej. el bloque de código repetido): solo el primero; los demás se ocultan.
+    var vistos = {};
     var containers = Array.prototype.slice.call(document.querySelectorAll('[data-lsd-video]'))
-      .filter(function (c) { return !c.getAttribute('data-lsd-ready'); });
+      .filter(function (c) {
+        var v = c.getAttribute('data-lsd-video');
+        if (vistos[v] && vistos[v] !== c) { c.style.display = 'none'; c.setAttribute('aria-hidden', 'true'); return false; }
+        vistos[v] = c;
+        return !c.getAttribute('data-lsd-ready');
+      });
     if (!containers.length && !pageEl) return;
     containers.forEach(function (c) {
       c.setAttribute('data-lsd-ready', '1');
