@@ -37,7 +37,7 @@ import { leerLeads, guardarLeads, borrarCopias } from './cache-leads.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
-import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto, citasRepetidas } from './llamadas.js';
+import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
 import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE, ROL_OPERATIVA, ROLES_FIJOS } from './roles.js';
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaHtml as guiaPasosHtml } from './embudos-def.js';
@@ -12942,9 +12942,8 @@ function llamadaCard(c) {
   const k = contactoDe(c);
   const phone = k.phone;
   const wa = k.phoneWa;
-  // La misma lead con varias citas vivas: cuál es esta y cuál reservó la última.
-  const rep = state.llRepetidas?.get(c.contactId);
-  const repChip = rep && rep.citas.some((x) => x.id === c.id) ? `<span class="ll-chip ll-rep" title="${esc(`Esta lead tiene ${rep.citas.length} citas: ${rep.citas.map(llCuando).join(' · ')}. Cancela en GHL las que sobran.`)}">⚠️ ${rep.citas.findIndex((x) => x.id === c.id) + 1} de ${rep.citas.length} citas${rep.ultima === c.id ? ' · la última que reservó' : ''}</span>` : '';
+  // La misma lead con varias citas vivas: se enseña la que reservó la última; las demás ocupan huecos en GHL.
+  const repChip = c.otras?.length ? `<span class="ll-chip ll-rep" title="${esc(`Reservó ${c.otras.length + 1} citas. Esta es la última que eligió. Las otras: ${c.otras.map(llCuando).join(' · ')}. Cancélalas en el calendario de GHL: ocupan huecos.`)}">⚠️ Reservó ${c.otras.length + 1} citas · esta es la última</span>` : '';
   return `<article data-ll-card="${esc(c.id)}" title="Pulsa para ver la ficha completa" class="ll-card ${pasada && !r && !llCancelada(c) ? 'pendiente' : ''} ${r ? `res-${r.id}` : ''} ${llCancelada(c) ? 'cancelada' : ''}">
     <div class="ll-when"><span class="ll-dia">${esc(cuando)}</span><span class="ll-hora">${esc(hora)}</span></div>
     <div class="ll-main">
@@ -12971,9 +12970,8 @@ function renderLlamadas() {
   calcularFases();
   const ahora = Date.now();
   const list = d.llamadas;
-  state.llRepetidas = citasRepetidas(list, { cancelada: llCancelada });
-  const repetidas = [...state.llRepetidas.values()];
-  const avisoRep = repetidas.length ? `<div class="notice ll-rep-aviso">⚠️ <strong>${repetidas.length === 1 ? 'Una lead tiene' : `${repetidas.length} leads tienen`} varias citas a la vez</strong> (reservaron otra hora en vez de reprogramar): ${repetidas.map((r) => { const c = r.citas[0]; return `<strong>${esc(leadDe(c.contactId)?.name || c.title || 'Sin nombre')}</strong> (${r.citas.length}: ${r.citas.map((x) => esc(llCuando(x))).join(', ')})`; }).join('; ')}. Pregúntale qué hora prefiere y cancela en el calendario de GHL las que sobran.</div>` : '';
+  const repetidas = list.filter((c) => c.otras?.length);
+  const avisoRep = repetidas.length ? `<div class="notice ll-rep-aviso">⚠️ <strong>${repetidas.length === 1 ? 'Una lead ha reservado' : `${repetidas.length} leads han reservado`} varias citas</strong> (suele pasar cuando no les llega la confirmación y vuelven a reservar). Aquí sale una sola, la última que eligió; las demás siguen en GHL ocupando huecos: ${repetidas.map((c) => `<strong>${esc(leadDe(c.contactId)?.name || c.title || 'Sin nombre')}</strong> (se queda ${esc(llCuando(c))}; sobran ${c.otras.length}: ${c.otras.map((x) => esc(llCuando(x))).join(', ')})`).join('; ')}. Confírmale la hora y cancela las demás en el calendario de GHL.</div>` : '';
   const m = metricasLlamadas(list.map((c) => ({ start: llStart(c), resultado: c.resultado, cancelada: llCancelada(c) })), ahora);
   badge.hidden = !m.sinResultado;
   badge.textContent = m.sinResultado;

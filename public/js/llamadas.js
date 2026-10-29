@@ -126,22 +126,25 @@ export function fasesPorContacto(citas, ahora = Date.now()) {
   return out;
 }
 
-// Citas repetidas: la misma lead con varias citas vivas (sin cancelar y sin resultado anotado), p. ej. porque reservó
-// otra hora en vez de reprogramar. → Map(contactId → citas de esa lead ordenadas por hora, con `ultima` = la que
-// reservó la última). Solo las leads con 2 o más.
-export function citasRepetidas(citas = [], { cancelada = (c) => ['cancelled', 'invalid'].includes(c.status) } = {}) {
+// Citas repetidas: la misma lead con varias citas vivas (sin cancelar y sin resultado), p. ej. porque no le llega la
+// confirmación y vuelve a reservar. Se deja UNA tarjeta, la que reservó la última (su última elección), con las demás
+// en `otras` (hora y cuándo la reservó), para avisar de que ocupan huecos y hay que cancelarlas en GHL.
+export function agruparRepetidas(citas = [], { cancelada = (c) => ['cancelled', 'invalid'].includes(c.status) } = {}) {
+  const viva = (c) => c.contactId && !cancelada(c) && !c.resultado;
+  const t = (c) => Date.parse(c.creada || 0) || 0;
   const por = new Map();
-  for (const c of citas) {
-    if (!c.contactId || cancelada(c) || c.resultado) continue;
-    por.set(c.contactId, [...(por.get(c.contactId) || []), c]);
-  }
-  const out = new Map();
+  for (const c of citas) if (viva(c)) por.set(c.contactId, [...(por.get(c.contactId) || []), c]);
+  const quedan = new Map();
   for (const [id, cs] of por) {
     if (cs.length < 2) continue;
-    const ultima = [...cs].sort((a, b) => Date.parse(b.creada || 0) - Date.parse(a.creada || 0))[0];
-    out.set(id, { citas: [...cs].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime)), ultima: ultima.creada ? ultima.id : '' });
+    const ultima = [...cs].sort((a, b) => t(b) - t(a) || Date.parse(b.startTime) - Date.parse(a.startTime))[0];
+    quedan.set(id, { ...ultima, otras: cs.filter((c) => c !== ultima).sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime)).map((c) => ({ id: c.id, startTime: c.startTime, creada: c.creada || '' })) });
   }
-  return out;
+  return citas.flatMap((c) => {
+    const q = viva(c) && quedan.get(c.contactId);
+    if (!q) return [c];
+    return q.id === c.id ? [q] : [];
+  });
 }
 
 // Reservas superadas: citas canceladas de una lead que tiene otra cita sin cancelar reservada el mismo día (±24 h),
