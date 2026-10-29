@@ -11,6 +11,7 @@ import { resumenAb, MINIMO_AB } from './ab.js';
 import { pasosEmbudo, anchosEmbudo, fondoCapa } from './embudo-visual.js';
 import { promptAvatar } from './prompt-avatar.js';
 import { promptEspera } from './prompt-espera.js';
+import { analizarReplay, analizarDirecto, mmss as tiempoVideo } from './retencion.js';
 import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
@@ -2695,8 +2696,110 @@ function renderConsumo() {
     <h2>Consumo de vídeos <span class="muted">· qué parte de los registros llega a cada punto de cada vídeo</span></h2>
     <div class="cv-videos">${tarjetas + tarjetasDir || '<p class="muted">Este lanzamiento no tiene clases ni grabaciones configuradas.</p>'}</div>
     <h3 class="cv-h3">En directo <span class="muted">· sobre el total de registros (Zoom: sincroniza la asistencia con «Sincronizar Zoom»)</span></h3>
-    ${htmlDirectos || '<p class="muted">Este lanzamiento no tiene vídeos en directo (sin Zoom configurado) o aún no hay datos del directo.</p>'}`;
+    ${htmlDirectos || '<p class="muted">Este lanzamiento no tiene vídeos en directo (sin Zoom configurado) o aún no hay datos del directo.</p>'}
+    ${htmlRetencion(launch, directos, grabados)}`;
 }
+
+// ---------- Retención: puntos de fuga, tramos que se saltan y picos de interés ----------
+// Directo: la curva de Zoom (personas conectadas cada minuto, se guarda al «Sincronizar Zoom»).
+// Grabaciones y clases: lo que mide tracker.js (cuántas personas ven cada tramo y cuántas veces).
+function seriesRetencion(launch, directos, grabados) {
+  const code = state.launchCode;
+  const ret = state.retencion?.[code]?.videos || {};
+  const zm = state.zoomMin?.[code] || {};
+  const vids = videosDe(launch);
+  return [
+    ...directos.map((v) => ({ id: `d${v.k}`, tipo: 'directo', label: vids.length > 1 ? `${v.nombre} (directo)` : 'Directo', ico: '🔴', curva: zm[v.k]?.curva || null })),
+    ...grabados.map(([v, label, ico]) => ({ id: `g-${v}`, tipo: 'replay', label, ico, datos: ret[v] || null })),
+  ];
+}
+function htmlRetencion(launch, directos, grabados) {
+  const code = state.launchCode;
+  if (!state.retencionCargando?.[code]) cargarRetencion(code);
+  const series = seriesRetencion(launch, directos, grabados);
+  if (!series.length) return '';
+  const conDatos = (s) => (s.tipo === 'directo' ? s.curva?.valores?.length : s.datos?.tramos?.some((x) => x[0] > 0));
+  const sel = series.find((s) => s.id === state.retSel && conDatos(s)) || series.find(conDatos) || series[0];
+  const chips = series.map((s) => `<button type="button" class="ret-chip${s === sel ? ' is-on' : ''}${conDatos(s) ? '' : ' is-vacio'}" data-ret-sel="${esc(s.id)}">${s.ico} ${esc(s.label)}</button>`).join('');
+  let cuerpo;
+  if (!conDatos(sel)) {
+    cuerpo = `<p class="muted ret-vacio">${sel.tipo === 'directo'
+      ? 'Aún no hay curva de este directo: después del directo, pulsa <strong>«Sincronizar Zoom»</strong> (Zoom tarda unos minutos en tener el informe). Si ya lo sincronizaste antes de esta función, vuelve a pulsarlo.'
+      : 'Aún no hay datos de este vídeo. Se miden desde ahora: cada persona que lo vea suma a la curva (tramo a tramo, y cuántas veces vuelve a verlo).'}</p>`;
+  } else if (sel.tipo === 'directo') {
+    const an = analizarDirecto(sel.curva, { nombre: sel.label.toLowerCase() });
+    cuerpo = graficaRetencion(an, 'directo') + sugerenciasRetencion(an, 'directo');
+  } else {
+    const an = analizarReplay(sel.datos, { nombre: sel.label.toLowerCase() });
+    cuerpo = graficaRetencion(an, 'replay') + sugerenciasRetencion(an, 'replay');
+  }
+  return `<section class="ret-sec">
+    <h2>📉 Retención <span class="muted">· dónde se van (puntos de fuga), qué se saltan y qué momentos interesan más</span></h2>
+    <div class="ret-chips" role="tablist">${chips}</div>
+    ${cuerpo}
+  </section>`;
+}
+function graficaRetencion(an, tipo) {
+  const W = 720; const H = 270; const L = 42; const R = tipo === 'replay' ? 46 : 14; const T = 18; const B = 34;
+  const pts = an.serie;
+  const n = pts.length;
+  if (n < 2) return '';
+  const x = (i) => L + ((W - L - R) * i) / (n - 1);
+  const y = (p) => T + (H - T - B) * (1 - Math.min(100, Math.max(0, p)) / 100);
+  const linea = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.ret).toFixed(1)}`).join(' ');
+  const area = `${linea} L${x(n - 1).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`;
+  const etqX = (i) => (tipo === 'replay' ? tiempoVideo(pts[i].t) : `min ${pts[i].min}`);
+  const ticks = [0, 0.2, 0.4, 0.6, 0.8, 1].map((f) => Math.round(f * (n - 1)));
+  const grid = [0, 25, 50, 75, 100].map((p) => `<line x1="${L}" x2="${W - R}" y1="${y(p)}" y2="${y(p)}" class="ret-grid"/><text x="${L - 6}" y="${y(p) + 4}" class="ret-ax ret-ax-y">${p}%</text>`).join('');
+  const banda = (i0, i1, cls, txt) => `<g class="${cls}"><rect x="${x(i0).toFixed(1)}" y="${T}" width="${Math.max(3, x(i1) - x(i0)).toFixed(1)}" height="${H - T - B}"/><text x="${((x(i0) + x(i1)) / 2).toFixed(1)}" y="${T + 13}">${txt}</text></g>`;
+  const fugas = an.fugas.map((f) => banda(f.desde, f.hasta, 'ret-fuga', `−${Math.round(f.caida)}%`)).join('');
+  const saltos = (an.saltos || []).map((s) => banda(s.desde, s.hasta, 'ret-salto', '⏭')).join('');
+  // Grabación: además, las veces que se ve cada tramo por persona (eje derecho) y los picos de interés.
+  let interes = '';
+  if (tipo === 'replay') {
+    const maxI = Math.max(1.5, ...pts.filter((p) => p.personas >= 5).map((p) => p.interes));
+    const yi = (v) => T + (H - T - B) * (1 - Math.min(1, Math.max(0, (v - 1) / (maxI - 1))) * 0.9);
+    const li = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${yi(p.personas >= 5 ? p.interes : 1).toFixed(1)}`).join(' ');
+    interes = `<path d="${li}" class="ret-interes"/>
+      <text x="${W - R + 6}" y="${yi(maxI) + 4}" class="ret-ax">×${maxI.toFixed(1)}</text><text x="${W - R + 6}" y="${yi(1) + 4}" class="ret-ax">×1</text>
+      ${(an.picos || []).map((p) => `<g class="ret-pico"><circle cx="${x(p.i).toFixed(1)}" cy="${yi(p.veces).toFixed(1)}" r="6"/><text x="${x(p.i).toFixed(1)}" y="${(yi(p.veces) - 11).toFixed(1)}">⭐ ${tiempoVideo(p.t)}</text><title>${tiempoVideo(p.t)}: se ve ${p.veces} veces por persona (+${p.extra}% de lo normal)</title></g>`).join('')}`;
+  }
+  const pico = tipo === 'directo' && an.pico ? (() => { const i = pts.findIndex((p) => p.n === an.pico); return `<g class="ret-max"><circle cx="${x(i).toFixed(1)}" cy="${y(100)}" r="5"/><text x="${x(i).toFixed(1)}" y="${y(100) - 8}">${an.pico.toLocaleString('es-ES')} personas</text></g>`; })() : '';
+  const leyenda = tipo === 'replay'
+    ? `<span><i class="ret-l-ret"></i>% de quien la empezó que sigue viendo</span><span><i class="ret-l-int"></i>veces que se ve cada momento (eje derecho)</span><span><i class="ret-l-fuga"></i>punto de fuga</span><span><i class="ret-l-salto"></i>se lo saltan</span><span>⭐ pico de interés</span>`
+    : `<span><i class="ret-l-ret"></i>% del máximo de personas conectadas</span><span><i class="ret-l-fuga"></i>punto de fuga</span>`;
+  return `<figure class="ret-fig">
+    <svg class="ret-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Curva de retención">
+      <defs><linearGradient id="ret-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".32"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+      ${grid}${fugas}${saltos}
+      <path d="${area}" fill="url(#ret-g)"/><path d="${linea}" class="ret-linea"/>
+      ${interes}${pico}
+      ${ticks.map((i) => `<text x="${x(i).toFixed(1)}" y="${H - 12}" class="ret-ax ret-ax-x">${etqX(i)}</text>`).join('')}
+    </svg>
+    <figcaption class="ret-ley">${leyenda}</figcaption>
+    <p class="muted ret-base">${tipo === 'replay' ? `${an.base.toLocaleString('es-ES')} personas la empezaron · dura ${tiempoVideo(an.dur)}` : `Máximo: ${an.pico.toLocaleString('es-ES')} personas a la vez (minuto ${an.picoMin}) · minuto 0 = la hora del directo`}${an.suficiente ? '' : ` · <strong>aún son pocos datos</strong> (hacen falta ${tipo === 'replay' ? 20 : 10} personas para sacar conclusiones)`}</p>
+  </figure>`;
+}
+function sugerenciasRetencion(an, tipo) {
+  if (!an.suficiente || !an.sugerencias.length) return '';
+  const ICO = { fuga: '📉', salto: '✂️', pico: '⭐', final: '🏁', tarde: '⏰', ok: '✅' };
+  const cuando = (s) => (tipo === 'replay' ? (s.t1 ? `${tiempoVideo(s.t)}–${tiempoVideo(s.t1)}` : tiempoVideo(s.t)) : (s.min1 != null ? `min ${s.min}–${s.min1}` : `min ${s.min}`));
+  return `<h3 class="cv-h3">🧭 Qué hacer <span class="muted">· sugerencias de AlquimIA a partir de la curva</span></h3>
+    <ul class="ret-sug">${an.sugerencias.map((s) => `<li class="ret-sug-${s.tipo}"><span class="ret-sug-ico" aria-hidden="true">${ICO[s.tipo] || '•'}</span>
+      <div><p>${s.tipo !== 'ok' ? `<span class="ret-sug-t">${cuando(s)}</span> ` : ''}${esc(s.texto)}</p><p class="ret-sug-acc"><strong>→</strong> ${esc(s.accion)}</p></div></li>`).join('')}</ul>`;
+}
+async function cargarRetencion(code) {
+  state.retencionCargando = { ...(state.retencionCargando || {}), [code]: true };
+  state.retencion = state.retencion || {};
+  try { state.retencion[code] = await api(`/api/retencion?l=${encodeURIComponent(code)}`); } catch { state.retencion[code] = { videos: {} }; }
+  if (state.launchCode === code && !$('#view-metricas').hidden) renderConsumo();
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ret-sel]');
+  if (!b) return;
+  state.retSel = b.dataset.retSel;
+  renderConsumo();
+});
 
 // Minutos de cada asistente al directo (guardados en la última «Sincronizar Zoom»): para la duración media.
 async function cargarMinutosZoom(code, ks) {

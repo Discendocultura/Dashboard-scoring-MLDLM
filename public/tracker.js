@@ -71,7 +71,7 @@
   function post(path, payload) {
     var body = JSON.stringify(payload);
     // text/plain evita la petición previa CORS; el servidor lo interpreta como JSON.
-    if ((path === '/api/track' || path === '/api/visita' || payload.op === 'click' || payload.op === 'espera' || payload.op === 'visita') && navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) {
+    if ((path === '/api/track' || path === '/api/retencion' || path === '/api/visita' || payload.op === 'click' || payload.op === 'espera' || payload.op === 'visita') && navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) {
       return Promise.resolve({ ok: true });
     }
     return fetch(API + conCliente(path), { method: 'POST', body: body, headers: { 'content-type': 'text/plain' }, keepalive: true })
@@ -496,6 +496,32 @@
       });
     }
 
+    // Retención (Métricas → Consumo de vídeos): el vídeo en 200 tramos; de cada tramo, si esta persona lo ha visto
+    // alguna vez (una sola vez por navegador) y cuántas veces lo ve (volver atrás a verlo cuenta otra vez). Anónimo:
+    // se manda el total cada 30 s, al pausar y al salir (lo que no se ha mandado aún).
+    var TRAMOS = 200;
+    var rKey = 'lsd_ret_' + launch + '_' + video;
+    var rVistos = (store(rKey) || {}).u || {};
+    var rNuevos = [];
+    var rVeces = {};
+    var rTramo = null;
+    var rDur = false;
+    function tramoEn(seg) { return Math.min(TRAMOS - 1, Math.floor((seg / duration) * TRAMOS)); }
+    function verTramo(j) {
+      rVeces[j] = (rVeces[j] || 0) + 1;
+      if (!rVistos[j]) { rVistos[j] = 1; rNuevos.push(j); }
+    }
+    function enviarRetencion() {
+      if (params.get('lsd_preview') || (!rNuevos.length && !Object.keys(rVeces).length)) return;
+      var datos = { launch: launch, video: video, u: rNuevos, v: rVeces };
+      if (!rDur && duration) { datos.dur = Math.round(duration); rDur = true; }
+      rNuevos = [];
+      rVeces = {};
+      store(rKey, { u: rVistos });
+      post('/api/retencion', datos);
+    }
+    setInterval(enviarRetencion, 30000);
+
     player.getDuration().then(function (d) { duration = d; });
     player.on('timeupdate', function (d) {
       duration = d.duration || duration;
@@ -504,13 +530,19 @@
         var from = Math.floor((last / duration) * 100);
         var to = Math.min(99, Math.floor((t / duration) * 100));
         for (var i = from; i <= to; i++) buckets[i] = 1;
+        // Cada tramo nuevo que se reproduce (sin saltar) es una vista de ese tramo.
+        var a = rTramo == null ? tramoEn(last) : rTramo + 1;
+        var b = tramoEn(t);
+        for (var j = a; j <= b; j++) verTramo(j);
+        rTramo = b;
       }
       last = t;
       check();
     });
-    player.on('seeked', function (d) { last = d.seconds; });
-    player.on('pause', save);
-    window.addEventListener('pagehide', save);
+    player.on('seeked', function (d) { last = d.seconds; rTramo = null; });
+    player.on('pause', function () { save(); enviarRetencion(); });
+    player.on('ended', enviarRetencion);
+    window.addEventListener('pagehide', function () { save(); enviarRetencion(); });
   }
 
   // Lleva a una URL añadiendo la identidad de la lead (cid o email) y conservando el resto.
