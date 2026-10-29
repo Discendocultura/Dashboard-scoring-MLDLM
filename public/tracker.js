@@ -1351,7 +1351,10 @@
     var m = /^dia_directo(\d?)$/.exec(data.phase || '');
     var key = m ? 'directo' + m[1] : '';
     if (!m || !data.countdownTo || !data.links[key]) return null;
-    return { at: data.countdownTo, desde: data.countdownTo - ESPERA_MIN * 60000, key: key };
+    // La cuenta atrás acaba unos minutos antes de la hora (Configuración → Preclase → Pantalla de espera): entran al
+    // directo antes, poco a poco, en vez de todas a la hora en punto.
+    var antes = Math.max(0, Math.min(30, Number((data.espera || {}).antesMin) || 0));
+    return { at: data.countdownTo - antes * 60000, desde: data.countdownTo - ESPERA_MIN * 60000, key: key };
   }
   var esperaTimer = null;
   // Popups de encuesta con la estética de un cliente (sus estilos solo se cargan si se usan). Por cliente (el ?c= del

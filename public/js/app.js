@@ -6677,6 +6677,7 @@ function openConfig(code, { silencioso = false } = {}) {
   pintarReplayBarraCfg();
   $('#cfg-espera-on').checked = l.espera?.activa ?? (embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo)?.espera !== false);
   $('#cfg-espera-video').value = l.espera?.video || '';
+  $('#cfg-espera-antes').value = String(l.espera?.antesMin ?? 5);
   pintarEsperaCfg();
   checkLaunchTags();
   renderGuia();
@@ -8116,7 +8117,7 @@ function readForm() {
       oferta: leerOfertaEditor(),
       recursosPre: leerRecursosCfg(),
       ...(!$('#cfg-lista-sec').hidden ? { listaRecursos: leerListaRecCfg() } : {}),
-      espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim() },
+      espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim(), antesMin: $('#cfg-espera-antes').value.trim() },
       ventaBarra: leerVentaBarra(),
       titulares: leerTitulares(),
       paginaPago: leerPaginaPago(),
