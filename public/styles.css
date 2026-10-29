@@ -8435,3 +8435,7 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .kpi-aviso { display: block; margin-top: 4px; font-weight: 650; color: var(--st-caliente); }
 /* Embudo ya pintado: al llegar más datos cambian los números sin repetir la animación de entrada */
 .fx-embudo.fx-quieto .fx-fila { animation: none; }
+/* Configuración → Pantalla de espera → Diseño propio */
+.espera-diseno { margin-top: 6px; padding: 12px 14px; border: 1px solid var(--border, #e5e5e5); border-radius: 12px; }
+.espera-diseno summary { cursor: pointer; }
+.espera-diseno textarea { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }

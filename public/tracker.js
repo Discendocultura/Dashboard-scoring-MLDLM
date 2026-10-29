@@ -206,6 +206,16 @@
     '#lsd-espera.lsd-espera--video .lsd-espera-lbl{font-size:10px;letter-spacing:.16em}' +
     '#lsd-espera.lsd-espera--video .lsd-espera-msg{margin-top:clamp(12px,2.2vh,20px);font-size:clamp(14px,1.7vw,16px);padding:10px 36px 10px 14px;gap:12px}' +
     '#lsd-espera.lsd-espera--video .lsd-espera-paisaje{height:clamp(90px,min(13vw,17vh),160px)}' +
+    // Aviso «descarga la app de Zoom» con el botón de su dispositivo (debajo del mensaje).
+    '#lsd-espera .lsd-espera-app{display:flex;flex-direction:column;align-items:center;gap:10px;margin:clamp(16px,3vh,26px) auto 0;max-width:520px;padding:14px 18px;box-sizing:border-box;border-radius:18px;background:rgba(255,255,255,.7);border:1px solid #e2d3c5;animation:lsdEspUp .7s .34s ease both}' +
+    '#lsd-espera .lsd-espera-app-txt{margin:0;font-size:clamp(14px,1.8vw,16px);line-height:1.45;text-wrap:balance}' +
+    '#lsd-espera .lsd-espera-app-bts{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}' +
+    '#lsd-espera .lsd-espera-app-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;background:var(--lsd-espera-acento,#860d0e);color:#fff!important;font-size:15px;font-weight:900;text-decoration:none!important;line-height:1.2;transition:transform .2s,box-shadow .2s}' +
+    '#lsd-espera .lsd-espera-app-btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px -8px rgba(0,0,0,.35)}' +
+    '#lsd-espera .lsd-espera-app-btn svg{width:17px;height:17px;flex:none}' +
+    '#lsd-espera .lsd-espera-app-alt{margin:0;font-size:13px;opacity:.75}#lsd-espera .lsd-espera-app-alt a{color:inherit!important;text-decoration:underline}' +
+    '#lsd-espera.lsd-espera--video .lsd-espera-app{margin-top:clamp(10px,2vh,16px);padding:10px 14px;gap:8px}' +
+    '#lsd-espera .lsd-espera-deco{flex:none;position:relative;width:100%}' +
     '@media (prefers-reduced-motion:reduce){#lsd-espera,#lsd-espera *{animation:none!important}}';
   // Comentarios de la preclase (muro debajo de cada clase). Estilos base sobrios: el diseño de la página los
   // viste (todas las clases empiezan por .lsd-com) y puede cambiar el color con --lsd-acento.
@@ -1345,6 +1355,8 @@
   // minutos y segundos y el aviso de que se la llevará al directo; al llegar a cero, va al directo.
   // Textos (Configuración → Preclase): espera-titulo, espera-subtitulo, espera-mensaje; logo: imagen «espera».
   // Colores: variables CSS --lsd-espera-fondo, --lsd-espera-titulo, --lsd-espera-acento, --lsd-espera-texto.
+  // Diseño propio por lanzamiento (data.espera.css y data.espera.decoracion, en lugar del paisaje).
+  // Si el directo es en Zoom, debajo del mensaje: «descarga la app» con el botón de su dispositivo (.lsd-espera-app).
   var ESPERA_MIN = 59;
   function esperaDirecto(data) {
     if (data.espera && data.espera.activa === false) return null; // desactivada en Configuración → Preclase
@@ -1601,6 +1613,34 @@
     goTo(data.links[key], who);
   }
 
+  // «Descarga la app de Zoom» (solo si el directo es en Zoom), con el botón de su dispositivo y, debajo, el otro
+  // del mismo tipo por si no lo hemos acertado. Se abre en otra pestaña: la cuenta atrás sigue.
+  var APP_ZOOM = {
+    iphone: { t: 'iPhone', href: 'https://apps.apple.com/app/zoom-workplace/id546505307' },
+    android: { t: 'Android', href: 'https://play.google.com/store/apps/details?id=us.zoom.videomeetings' },
+    mac: { t: 'Mac', href: 'https://zoom.us/download?os=mac' },
+    windows: { t: 'Windows', href: 'https://zoom.us/download?os=win' },
+  };
+  function dispositivoZoom() {
+    var ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'iphone';
+    if (/Android/i.test(ua)) return 'android';
+    if (/Windows/i.test(ua)) return 'windows';
+    if (/Macintosh|Mac OS X/.test(ua)) return 'mac';
+    return /Mobi/i.test(ua) ? 'android' : 'windows';
+  }
+  function avisoAppZoom(data, key) {
+    if (!((data.zoom || {})[key] || /^https:\/\/([a-z0-9-]+\.)*zoom\.us\//i.test((data.links || {})[key] || ''))) return '';
+    var d = dispositivoZoom();
+    var otro = { iphone: 'android', android: 'iphone', mac: 'windows', windows: 'mac' }[d];
+    var ico = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>';
+    return '<div class="lsd-espera-app" data-dispositivo="' + d + '">' +
+      '<p class="lsd-espera-app-txt">Te recomendamos <strong>descargar la aplicación de Zoom</strong> para seguir el directo sin problemas.</p>' +
+      '<div class="lsd-espera-app-bts"><a class="lsd-espera-app-btn" href="' + APP_ZOOM[d].href + '" target="_blank" rel="noopener">' + ico + 'Descargar para ' + APP_ZOOM[d].t + '</a></div>' +
+      '<p class="lsd-espera-app-alt">¿Usas ' + APP_ZOOM[otro].t + '? <a href="' + APP_ZOOM[otro].href + '" target="_blank" rel="noopener">Descárgala aquí</a></p>' +
+      '</div>';
+  }
+
   function mostrarEspera(data, esp, who) {
     var el = document.getElementById('lsd-espera');
     var t = data.texts || {};
@@ -1612,6 +1652,7 @@
       el.setAttribute('aria-labelledby', 'lsd-espera-t');
       var logo = (data.imagenes || {}).espera;
       var videoEsp = embedSrc((data.espera || {}).video);
+      var diseno = data.espera || {};
       if (videoEsp) el.className = 'lsd-espera--video';
       el.innerHTML = '<div class="lsd-espera-in">' +
         (logo ? '<img class="lsd-espera-logo" src="' + esc(logo) + '" alt="">' : '') +
@@ -1624,9 +1665,11 @@
         '<span class="lsd-espera-sep" aria-hidden="true">:</span>' +
         '<div class="lsd-espera-u"><span class="lsd-espera-num" data-u="s">00</span><span class="lsd-espera-lbl">segundos</span></div></div>' +
         '<p class="lsd-espera-msg"><span class="lsd-espera-dot" aria-hidden="true"></span><span>' + mensajeEspera(t['espera-mensaje'] || 'Quédate aquí, serás redirigida al directo en cuanto el contador llegue a cero.') + '</span></p>' +
+        avisoAppZoom(data, esp.key) +
         '</div>' +
-        // El camino de El Camino, con la peregrina andando (el mismo paisaje que la etapa 1).
-        '<div class="lsd-espera-paisaje" aria-hidden="true"><svg viewBox="0 0 1200 220" preserveAspectRatio="xMidYMax slice">' +
+        // Decoración propia del lanzamiento (Configuración → Pantalla de espera → Diseño propio) o, si no hay,
+        // el camino de El Camino, con la peregrina andando (el mismo paisaje que la etapa 1).
+        (diseno.decoracion ? '<div class="lsd-espera-deco" aria-hidden="true">' + diseno.decoracion + '</div>' : '<div class="lsd-espera-paisaje" aria-hidden="true"><svg viewBox="0 0 1200 220" preserveAspectRatio="xMidYMax slice">' +
         '<circle class="lsd-esp-sol" cx="900" cy="96" r="32" fill="#f3d9bf"/>' +
         '<g class="lsd-esp-nube" fill="#ffffff" opacity=".9"><ellipse cx="120" cy="92" rx="38" ry="11"/><ellipse cx="146" cy="84" rx="22" ry="11"/></g>' +
         '<g class="lsd-esp-nube lsd-esp-nube--2" fill="#ffffff" opacity=".8"><ellipse cx="420" cy="80" rx="30" ry="9"/><ellipse cx="438" cy="74" rx="16" ry="8"/></g>' +
@@ -1642,7 +1685,15 @@
         '<ellipse cx="0" cy="17" rx="11" ry="3" fill="#4a2c20" opacity=".15"/>' +
         '<circle r="15" fill="#860d0e" stroke="#ffffff" stroke-width="3"/>' +
         '<g transform="translate(-8.4 -9) scale(.7)"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="#ffffff"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#860d0e" stroke-width="1" stroke-linecap="round" opacity=".55"/></g>' +
-        '</g></g></svg></div>';
+        '</g></g></svg></div>');
+      // CSS propio del lanzamiento: después del nuestro, así lo pisa.
+      if (diseno.css && !document.getElementById('lsd-espera-propio')) {
+        var st = document.createElement('style');
+        st.id = 'lsd-espera-propio';
+        st.textContent = diseno.css;
+        document.head.appendChild(st);
+      }
+      if (diseno.css || diseno.decoracion) el.className = (el.className + ' lsd-espera--propio').trim();
       document.body.appendChild(el);
       document.documentElement.style.overflow = 'hidden';
       prepararZoom(data, esp, who);

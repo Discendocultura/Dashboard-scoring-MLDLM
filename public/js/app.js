@@ -10,6 +10,7 @@ import { resumenThrivecart, ventasDeCsv, productosVistos, deProductos } from './
 import { resumenAb, MINIMO_AB } from './ab.js';
 import { pasosEmbudo, anchosEmbudo, fondoCapa } from './embudo-visual.js';
 import { promptAvatar } from './prompt-avatar.js';
+import { promptEspera } from './prompt-espera.js';
 import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
@@ -5986,6 +5987,22 @@ function pintarEsperaCfg() {
   $$('#config-dialog [data-espera-campo]').forEach((el) => { el.hidden = !$('#cfg-espera-on').checked; });
 }
 $('#cfg-espera-on').addEventListener('change', pintarEsperaCfg);
+// Prompt para diseñar la pantalla de espera con Claude: narrativa del lanzamiento, estilo de la marca y los textos del formulario.
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-espera-prompt]');
+  if (!b) return;
+  const st = $('[data-espera-prompt-st]');
+  const l = (editingCode && state.config.launches[editingCode]) || {};
+  const texto = (k) => $(`#config-dialog [data-texto="${k}"]`)?.value.trim() || '';
+  const mp = await marcaDeEmbudo(api, state.cliente, editingCode ? embudoDeLanz(l) : state.embudo).catch(() => ({}));
+  const txt = promptEspera({
+    lanzamiento: $('#cfg-name')?.value.trim() || l.name, marca: clienteNombre(), producto: mp.producto ? nombreDeProducto(mp.producto) : nombreProducto(state.config),
+    textos: { titulo: texto('espera-titulo'), subtitulo: texto('espera-subtitulo'), mensaje: texto('espera-mensaje') },
+    logo: $('#cfg-img-espera').value.trim(), video: $('#cfg-espera-video').value.trim(),
+    narrativa: bloqueNarrativa(l.narrativa, 'pagina'), diseno: disenoTexto(mp.m), contexto: contextoMarca(mp.m, mp.producto),
+  });
+  try { await navigator.clipboard.writeText(paraIa(txt)); st.textContent = `✓ Copiado: pégalo en ${iaNombre()}.`; } catch { window.prompt('Copia el prompt:', txt); }
+});
 
 function pintarEnlaceDirecto() {
   const pre = $('#cfg-recursos-url').value.trim();
@@ -6678,6 +6695,9 @@ function openConfig(code, { silencioso = false } = {}) {
   $('#cfg-espera-on').checked = l.espera?.activa ?? (embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo)?.espera !== false);
   $('#cfg-espera-video').value = l.espera?.video || '';
   $('#cfg-espera-antes').value = String(l.espera?.antesMin ?? 5);
+  $('#cfg-espera-css').value = l.espera?.css || '';
+  $('#cfg-espera-deco').value = l.espera?.decoracion || '';
+  $('#cfg-espera-diseno').open = Boolean(l.espera?.css || l.espera?.decoracion);
   pintarEsperaCfg();
   checkLaunchTags();
   renderGuia();
@@ -8117,7 +8137,7 @@ function readForm() {
       oferta: leerOfertaEditor(),
       recursosPre: leerRecursosCfg(),
       ...(!$('#cfg-lista-sec').hidden ? { listaRecursos: leerListaRecCfg() } : {}),
-      espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim(), antesMin: $('#cfg-espera-antes').value.trim() },
+      espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim(), antesMin: $('#cfg-espera-antes').value.trim(), css: $('#cfg-espera-css').value.trim(), decoracion: $('#cfg-espera-deco').value.trim() },
       ventaBarra: leerVentaBarra(),
       titulares: leerTitulares(),
       paginaPago: leerPaginaPago(),

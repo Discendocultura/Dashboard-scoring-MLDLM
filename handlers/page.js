@@ -225,7 +225,11 @@ export async function GET(request, ctx) {
       // Vídeos que se muestran tal cual (sin medir ni bloquear): <div data-lsd-embed="gracias">
       embeds: { gracias: launch.graciasVideoUrl || '', llamada: launch.llamadaVideoUrl || '' },
       // Pantalla de espera antes del directo: si está activa y su vídeo (opcional).
-      espera: { activa: launch.espera?.activa !== false, video: launch.espera?.video || '', antesMin: launch.espera?.antesMin ?? 5 },
+      // El diseño propio solo el día del directo (o en la vista previa): es lo único que lo usa y pesa.
+      espera: {
+        activa: launch.espera?.activa !== false, video: launch.espera?.video || '', antesMin: launch.espera?.antesMin ?? 5,
+        ...((preview || /^dia_directo/.test(phase.id)) && (launch.espera?.css || launch.espera?.decoracion) ? { css: launch.espera.css || '', decoracion: launch.espera.decoracion || '' } : {}),
+      },
       // Imagen de cada etapa (Configuración → Preclase): <img data-lsd-img="clase1|test|clase2…">
       imagenes: launch.imagenes || {},
       links,
