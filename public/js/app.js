@@ -5985,8 +5985,40 @@ function readVideosCfg() {
 // Pantalla de espera: sus campos solo si está activa.
 function pintarEsperaCfg() {
   $$('#config-dialog [data-espera-campo]').forEach((el) => { el.hidden = !$('#cfg-espera-on').checked; });
+  pintarEsperaDirectos();
 }
 $('#cfg-espera-on').addEventListener('change', pintarEsperaCfg);
+// Lanzamientos de varios directos: en cuáles sale la pantalla de espera (null = en todos).
+let esperaDirectosSel = null;
+// Los vídeos en directo según el formulario (los que tienen ID o enlace de Zoom).
+function directosDelForm() {
+  const l = editingCode ? state.config.launches[editingCode] : null;
+  const formato = $('#cfg-videos-sec').dataset.formato || formatoDeLanz(l);
+  const val = (k, c) => (k === 1 ? $(V1_PROXY[c])?.value : $(`#config-dialog [data-vk="${k}"][data-vc="${c}"]`)?.value) || '';
+  return videosDe({ ...(l || {}), formato }).filter((v) => (val(v.k, 'zoomMeetingId') + val(v.k, 'zoomJoinUrl')).trim())
+    .map((v) => ({ k: v.k, nombre: nombreVideo(formato, v.k), fecha: val(v.k, 'fecha'), hora: val(v.k, 'hora') }));
+}
+function pintarEsperaDirectos() {
+  const box = $('#cfg-espera-directos');
+  const ds = $('#cfg-espera-on').checked ? directosDelForm() : [];
+  box.hidden = ds.length < 2;
+  if (box.hidden) { box.innerHTML = ''; return; }
+  box.innerHTML = `<span class="espera-dir-tit"><strong>¿En qué directos?</strong> <small class="muted">(la hora antes de cada directo marcado; en los demás, la preclase se ve normal y a la hora entra sola al directo)</small></span>
+    <div class="espera-dir-lista">${ds.map((d) => `<label class="chk"><input type="checkbox" data-espera-dir="${d.k}"${esperaDirectosSel == null || esperaDirectosSel.has(d.k) ? ' checked' : ''}> ${esc(d.nombre)}${d.fecha ? ` <small class="muted">${esc(formatDate(madridToEpoch(`${d.fecha}T${d.hora || '00:00'}`)))}${d.hora ? ` · ${esc(d.hora)}` : ''}</small>` : ''}</label>`).join('')}</div>`;
+}
+$('#cfg-espera-directos').addEventListener('change', () => {
+  esperaDirectosSel = new Set($$('#cfg-espera-directos [data-espera-dir]:checked').map((i) => Number(i.dataset.esperaDir)));
+});
+// Al poner o quitar el Zoom de un vídeo, cambia la lista.
+$('#config-dialog').addEventListener('change', (e) => {
+  if (e.target.matches('#cfg-zoom-id, #cfg-zoom-url, [data-vc="zoomMeetingId"], [data-vc="zoomJoinUrl"], [data-v1="zoomMeetingId"], [data-v1="zoomJoinUrl"]')) pintarEsperaDirectos();
+});
+// Lo que se guarda: la lista solo si no están todos marcados.
+function esperaDirectosCfg() {
+  const ds = $('#cfg-espera-on').checked ? directosDelForm() : [];
+  if (ds.length < 2 || esperaDirectosSel == null || ds.every((d) => esperaDirectosSel.has(d.k))) return undefined;
+  return ds.filter((d) => esperaDirectosSel.has(d.k)).map((d) => d.k);
+}
 // Prompt para diseñar la pantalla de espera con Claude: narrativa del lanzamiento, estilo de la marca y los textos del formulario.
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-espera-prompt]');
@@ -6695,6 +6727,7 @@ function openConfig(code, { silencioso = false } = {}) {
   $('#cfg-espera-on').checked = l.espera?.activa ?? (embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo)?.espera !== false);
   $('#cfg-espera-video').value = l.espera?.video || '';
   $('#cfg-espera-antes').value = String(l.espera?.antesMin ?? 5);
+  esperaDirectosSel = Array.isArray(l.espera?.directos) ? new Set(l.espera.directos) : null;
   $('#cfg-espera-css').value = l.espera?.css || '';
   $('#cfg-espera-deco').value = l.espera?.decoracion || '';
   $('#cfg-espera-diseno').open = Boolean(l.espera?.css || l.espera?.decoracion);
@@ -8137,7 +8170,7 @@ function readForm() {
       oferta: leerOfertaEditor(),
       recursosPre: leerRecursosCfg(),
       ...(!$('#cfg-lista-sec').hidden ? { listaRecursos: leerListaRecCfg() } : {}),
-      espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim(), antesMin: $('#cfg-espera-antes').value.trim(), css: $('#cfg-espera-css').value.trim(), decoracion: $('#cfg-espera-deco').value.trim() },
+      espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim(), antesMin: $('#cfg-espera-antes').value.trim(), directos: esperaDirectosCfg(), css: $('#cfg-espera-css').value.trim(), decoracion: $('#cfg-espera-deco').value.trim() },
       ventaBarra: leerVentaBarra(),
       titulares: leerTitulares(),
       paginaPago: leerPaginaPago(),

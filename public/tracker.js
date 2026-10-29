@@ -1363,6 +1363,9 @@
     var m = /^dia_directo(\d?)$/.exec(data.phase || '');
     var key = m ? 'directo' + m[1] : '';
     if (!m || !data.countdownTo || !data.links[key]) return null;
+    // Lanzamientos de varios directos: solo en los elegidos (sin lista, en todos).
+    var dirs = (data.espera || {}).directos;
+    if (dirs && dirs.indexOf(Number(m[1]) || 1) < 0) return null;
     // La cuenta atrás acaba unos minutos antes de la hora (Configuración → Preclase → Pantalla de espera): entran al
     // directo antes, poco a poco, en vez de todas a la hora en punto.
     var antes = Math.max(0, Math.min(30, Number((data.espera || {}).antesMin) || 0));

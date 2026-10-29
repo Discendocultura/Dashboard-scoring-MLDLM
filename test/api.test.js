@@ -1015,3 +1015,25 @@ test('encuesta del avatar: se ofrecen todos los campos que guardan una respuesta
   assert.equal(tipoEncuesta('FILE_UPLOAD'), null);
   assert.equal(tipoEncuesta('SIGNATURE'), null);
 });
+
+test('pantalla de espera: un lanzamiento de 3 directos la tiene la hora antes de cada uno (los elegidos)', async () => {
+  const admin = await login('admin');
+  const config = await import('../handlers/config.js');
+  const cur = await (await config.GET(req('/api/config', { cookie: admin }))).json();
+  await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, embudos: [...cur.config.embudos, { id: 'tres-emb', tipo: 'lanzamientos', nombre: 'Tres directos', formato: 'v3' }], launches: { ...cur.config.launches, 'tres-dir': {
+    name: 'Tres', registroTag: 'registro-webinar-demo', embudo: 'tres-emb', inicioCaptacion: '2026-10-01',
+    fechaDirecto: '2026-11-03', horaDirecto: '19:00', zoomMeetingId: '111 111 1111',
+    videos: [{ fecha: '2026-11-04', hora: '19:00', zoomMeetingId: '222 222 2222' }, { fecha: '2026-11-05', hora: '19:00', zoomMeetingId: '333 333 3333' }],
+    espera: { activa: true, directos: [1, 3] },
+  } } } }));
+  const page = await import('../handlers/page.js');
+  const tok = async (at) => (await (await page.POST(req('/api/page', { method: 'POST', cookie: admin, body: { at } }))).json()).token;
+  const get = async (at) => (await page.GET(req(`/api/page?l=tres-dir&preview=${encodeURIComponent(await tok(at))}`))).json();
+  for (const [dia, k] of [['2026-11-03', ''], ['2026-11-04', '2'], ['2026-11-05', '3']]) {
+    const p = await get(`${dia}T18:30`);
+    assert.equal(p.phase, `dia_directo${k}`, dia);
+    assert.ok(p.links[`directo${k}`], dia);
+    assert.deepEqual(p.espera.directos, [1, 3]);
+    assert.equal(p.redirectTo, '', `${dia}: la preclase no redirige antes del directo`);
+  }
+});
