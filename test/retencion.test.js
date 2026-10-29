@@ -104,3 +104,17 @@ test('retención: el tracker suma tramos (anónimo) y Métricas lo lee; Zoom gua
   assert.deepEqual(g.curva, inf.data.curva);
   assert.ok(analizarDirecto(g.curva).pico > 0);
 });
+
+test('zoom: el informe del directo junta las instancias de la sala que empezaron cerca de la hora (no solo la última)', async () => {
+  const { instanciasDelDirecto } = await import('../lib/zoom.js');
+  const hora = Date.parse('2026-10-29T17:30:00Z');
+  const inst = [
+    { uuid: 'ayer', start_time: '2026-10-28T17:25:00Z' },
+    { uuid: 'directo', start_time: '2026-10-29T17:20:00Z' },
+    { uuid: 'se-cayo', start_time: '2026-10-29T18:40:00Z' },
+    { uuid: 'reabierta', start_time: '2026-10-29T21:15:00Z' },
+    { uuid: 'manana', start_time: '2026-10-30T17:25:00Z' },
+  ];
+  assert.deepEqual(instanciasDelDirecto(inst, hora).map((m) => m.uuid), ['directo', 'se-cayo', 'reabierta']);
+  assert.deepEqual(instanciasDelDirecto(inst, null), []);
+});
