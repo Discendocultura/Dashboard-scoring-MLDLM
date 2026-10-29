@@ -1,0 +1,9 @@
+{
+  "nombre": "Discendo",
+  "_que_es": "Navy y naranja. Poppins en títulos y subtítulos. Tono moderno y cercano.",
+  "primario": "#062942", "oscuro": "#031A2B", "acento": "#FFA500", "claro": "#FFFFFF",
+  "fuenteTitulos": "Poppins", "fuenteSubs": "Poppins",
+  "subCuerpo": 74, "subPalabras": 3, "subAltura": 1330,
+  "ganchoDura": 4.5, "grandeCuerpo": 132, "grandeAltura": 1560,
+  "barraAlto": 12
+}

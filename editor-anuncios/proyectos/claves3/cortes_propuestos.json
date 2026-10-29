@@ -1,0 +1,18 @@
+[
+ {
+  "inicio": 0.0,
+  "fin": 21.62,
+  "tipo": "errata",
+  "confianza": "alta",
+  "quitado": "Comentarios de rodaje («no grabes esto», «es cuando yo diga apagón cultural», «deja el dedo pulsado»…)",
+  "contexto": "antes de «¿Te interesa lo que pasa en el mundo…?»"
+ },
+ {
+  "inicio": 68.3,
+  "fin": 70.08,
+  "tipo": "errata",
+  "confianza": "alta",
+  "quitado": "Vale, ya.",
+  "contexto": "…donde compartiremos todo lo que necesitas. [Vale, ya.]"
+ }
+]

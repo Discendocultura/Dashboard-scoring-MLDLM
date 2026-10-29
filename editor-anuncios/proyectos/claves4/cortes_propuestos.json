@@ -1,0 +1,42 @@
+[
+ {
+  "inicio": 0.0,
+  "fin": 0.837,
+  "tipo": "inicio",
+  "confianza": "alta",
+  "quitado": "(silencio de 0.8 s)",
+  "contexto": "El 37 % de"
+ },
+ {
+  "inicio": 2.54,
+  "fin": 21.171,
+  "tipo": "toma",
+  "confianza": "alta",
+  "quitado": "de los españoles evita las noticias a menudo o a veces. Y uno de cada tres de ellos lo hace por lo mismo. Les afectan al estado de ánimo. No es... a ver, empieza otra vez, es estafadal. Ah, no, no están bien, joder. Vale, empiezo. tre... el 37 %",
+  "contexto": "El 37 % de los españoles evita las noticias a menudo o a veces. Y uno de cada tres de ellos lo hace por lo mismo. Les afectan al estado de ánimo. No es... a ver, empieza otra vez, es estafadal. Ah, no, no están bien, joder. Vale, empiezo. tre... el 37 % de los españoles evita"
+ },
+ {
+  "inicio": 67.205,
+  "fin": 68.145,
+  "tipo": "repeticion",
+  "confianza": "alta",
+  "quitado": "más de",
+  "contexto": "ya han pasado más de más de más de"
+ },
+ {
+  "inicio": 68.145,
+  "fin": 69.285,
+  "tipo": "repeticion",
+  "confianza": "alta",
+  "quitado": "más de",
+  "contexto": "pasado más de más de más de 60 .000"
+ },
+ {
+  "inicio": 70.945,
+  "fin": 72.885,
+  "tipo": "repeticion",
+  "confianza": "alta",
+  "quitado": "y que ahora vas a poder...",
+  "contexto": "60 .000 personas y que ahora vas a poder... y que ahora vas"
+ }
+]
