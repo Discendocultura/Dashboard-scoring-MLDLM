@@ -125,3 +125,21 @@ export function fasesPorContacto(citas, ahora = Date.now()) {
   }
   return out;
 }
+
+// Citas repetidas: la misma lead con varias citas vivas (sin cancelar y sin resultado anotado), p. ej. porque reservó
+// otra hora en vez de reprogramar. → Map(contactId → citas de esa lead ordenadas por hora, con `ultima` = la que
+// reservó la última). Solo las leads con 2 o más.
+export function citasRepetidas(citas = [], { cancelada = (c) => ['cancelled', 'invalid'].includes(c.status) } = {}) {
+  const por = new Map();
+  for (const c of citas) {
+    if (!c.contactId || cancelada(c) || c.resultado) continue;
+    por.set(c.contactId, [...(por.get(c.contactId) || []), c]);
+  }
+  const out = new Map();
+  for (const [id, cs] of por) {
+    if (cs.length < 2) continue;
+    const ultima = [...cs].sort((a, b) => Date.parse(b.creada || 0) - Date.parse(a.creada || 0))[0];
+    out.set(id, { citas: [...cs].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime)), ultima: ultima.creada ? ultima.id : '' });
+  }
+  return out;
+}

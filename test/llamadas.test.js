@@ -59,3 +59,20 @@ test('llamadas: pendiente de pago y fase de cada persona según su última llama
   const { buildMessage } = await import('../public/js/scoring.js');
   assert.equal(buildMessage('Hola {nombre}, el {dia_llamada} a las {hora_llamada} {otra}', { nombre: 'Ana', extra: { dia_llamada: 'lunes', hora_llamada: '10:00' } }), 'Hola Ana, el lunes a las 10:00 {otra}');
 });
+
+test('llamadas: la misma lead con varias citas vivas (y cuál reservó la última)', async () => {
+  const { citasRepetidas } = await import('../public/js/llamadas.js');
+  const c = (id, contactId, startTime, creada, extra = {}) => ({ id, contactId, startTime, creada, status: 'confirmed', ...extra });
+  const rep = citasRepetidas([
+    c('a', 'elena', '2026-10-31T12:20:00+01:00', '2026-10-29T20:28:05Z'),
+    c('b', 'elena', '2026-10-31T11:00:00+01:00', '2026-10-29T20:29:19Z'),
+    c('c', 'elena', '2026-10-31T09:00:00+01:00', '2026-10-29T20:29:52Z'),
+    c('d', 'ana', '2026-10-31T10:00:00+01:00', '2026-10-29T10:00:00Z'),
+    c('e', 'ana', '2026-10-30T10:00:00+01:00', '2026-10-28T10:00:00Z', { status: 'cancelled' }),
+    c('f', 'eva', '2026-10-30T10:00:00+01:00', '2026-10-28T10:00:00Z', { resultado: { resultado: 'show' } }),
+    c('g', 'eva', '2026-10-31T10:00:00+01:00', '2026-10-29T10:00:00Z'),
+  ]);
+  assert.deepEqual([...rep.keys()], ['elena']);
+  assert.deepEqual(rep.get('elena').citas.map((x) => x.id), ['c', 'b', 'a']);
+  assert.equal(rep.get('elena').ultima, 'c');
+});

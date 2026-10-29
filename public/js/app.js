@@ -37,7 +37,7 @@ import { leerLeads, guardarLeads, borrarCopias } from './cache-leads.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
 import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.js';
-import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
+import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto, citasRepetidas } from './llamadas.js';
 import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE, ROL_OPERATIVA, ROLES_FIJOS } from './roles.js';
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaHtml as guiaPasosHtml } from './embudos-def.js';
@@ -12895,6 +12895,8 @@ async function cargarLlamadas(code) {
 
 const llCancelada = (c) => ['cancelled', 'invalid'].includes(c.status) && c.resultado?.resultado !== 'reagendar';
 const llStart = (c) => Date.parse(c.startTime);
+// «sáb 31 oct · 09:00» (hora de Madrid).
+const llCuando = (c) => { const d = new Date(c.startTime); const o = { timeZone: 'Europe/Madrid' }; return `${d.toLocaleDateString('es-ES', { ...o, weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')} · ${d.toLocaleTimeString('es-ES', { ...o, hour: '2-digit', minute: '2-digit' })}`; };
 const leadDe = (contactId) => (enCruzadas() ? cruz.alumnoDe(contactId)
   : enDirecta() ? (state.directa.datos?.compradores || []).find((c) => c.id === contactId) || null
   : (enVsl() ? state.vsl.leads || [] : state.leads).find((l) => l.id === contactId) || null);
@@ -12940,6 +12942,9 @@ function llamadaCard(c) {
   const k = contactoDe(c);
   const phone = k.phone;
   const wa = k.phoneWa;
+  // La misma lead con varias citas vivas: cuál es esta y cuál reservó la última.
+  const rep = state.llRepetidas?.get(c.contactId);
+  const repChip = rep && rep.citas.some((x) => x.id === c.id) ? `<span class="ll-chip ll-rep" title="${esc(`Esta lead tiene ${rep.citas.length} citas: ${rep.citas.map(llCuando).join(' · ')}. Cancela en GHL las que sobran.`)}">⚠️ ${rep.citas.findIndex((x) => x.id === c.id) + 1} de ${rep.citas.length} citas${rep.ultima === c.id ? ' · la última que reservó' : ''}</span>` : '';
   return `<article data-ll-card="${esc(c.id)}" title="Pulsa para ver la ficha completa" class="ll-card ${pasada && !r && !llCancelada(c) ? 'pendiente' : ''} ${r ? `res-${r.id}` : ''} ${llCancelada(c) ? 'cancelada' : ''}">
     <div class="ll-when"><span class="ll-dia">${esc(cuando)}</span><span class="ll-hora">${esc(hora)}</span></div>
     <div class="ll-main">
@@ -12947,7 +12952,7 @@ function llamadaCard(c) {
         ${etapa ? `<span class="ll-etapa" style="--c:${esc(etapa.color || '#8a817b')}" title="Etapa en el pipeline de GHL">${esc(etapa.name)}</span>` : '<span class="ll-etapa none" title="Aún no está en el pipeline: se añadirá al anotar el resultado">Sin etapa</span>'}
         ${llCancelada(c) ? '<span class="ll-etapa none">Cita cancelada</span>' : ''}</div>
       <div class="ll-contact">${phone ? `<a href="tel:${esc(phone)}">${icon('phone')}${esc(phone)}</a>` : ''}${wa ? `<a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}${phone ? '' : '<span class="muted">Sin teléfono</span>'}</div>
-      <div class="ll-chips">${origenChip(c)}${chips}</div>
+      <div class="ll-chips">${repChip}${origenChip(c)}${chips}</div>
       ${r ? `<div class="ll-res">${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span>${c.resultado.notas ? `<div class="ll-notas">${esc(c.resultado.notas)}</div>` : ''}</div>` : ''}
     </div>
     <div class="ll-actions">${llCancelada(c) ? '' : `<button type="button" class="btn ${pasada && !r ? 'primary' : ''}" data-ll="${esc(c.id)}">${r ? 'Cambiar resultado' : 'Anotar resultado'}</button>`}</div>
@@ -12966,6 +12971,9 @@ function renderLlamadas() {
   calcularFases();
   const ahora = Date.now();
   const list = d.llamadas;
+  state.llRepetidas = citasRepetidas(list, { cancelada: llCancelada });
+  const repetidas = [...state.llRepetidas.values()];
+  const avisoRep = repetidas.length ? `<div class="notice ll-rep-aviso">⚠️ <strong>${repetidas.length === 1 ? 'Una lead tiene' : `${repetidas.length} leads tienen`} varias citas a la vez</strong> (reservaron otra hora en vez de reprogramar): ${repetidas.map((r) => { const c = r.citas[0]; return `<strong>${esc(leadDe(c.contactId)?.name || c.title || 'Sin nombre')}</strong> (${r.citas.length}: ${r.citas.map((x) => esc(llCuando(x))).join(', ')})`; }).join('; ')}. Pregúntale qué hora prefiere y cancela en el calendario de GHL las que sobran.</div>` : '';
   const m = metricasLlamadas(list.map((c) => ({ start: llStart(c), resultado: c.resultado, cancelada: llCancelada(c) })), ahora);
   badge.hidden = !m.sinResultado;
   badge.textContent = m.sinResultado;
@@ -12973,7 +12981,7 @@ function renderLlamadas() {
   $('#ll-fuente').innerHTML = `Calendario <strong>${esc(d.calendario.name)}</strong>${d.pipeline ? ` · pipeline <strong>${esc(d.pipeline.name)}</strong>` : ' · <span class="error">no encuentro el pipeline «Leads Lanzamientos» en GHL</span>'}`;
   const pct = (v) => (v == null ? '–' : `${Math.round(v * 100)}%`);
   const maxMot = m.motivos[0]?.[1] || 1;
-  top.innerHTML = `
+  top.innerHTML = `${avisoRep}
     <div class="kpis ll-kpis">
       <div class="kpi static tone-info"><span class="kpi-label"><span class="kpi-ico">${icon('calendar')}</span>Reservadas</span><span class="kpi-value">${m.reservadas}</span><span class="kpi-sub">${m.proximas} próximas · ${m.pasadas} ya pasadas</span></div>
       <div class="kpi static tone-live"><span class="kpi-label"><span class="kpi-ico">${icon('phone')}</span>Shows</span><span class="kpi-value">${m.shows} <small class="ll-pct">${pct(m.pctShow)}</small></span><span class="kpi-sub">se presentaron y se hizo la llamada</span></div>

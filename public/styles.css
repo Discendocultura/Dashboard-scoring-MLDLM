@@ -8482,3 +8482,6 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .ret-sug-pico { border-left-color: #8b5cf6 !important; }
 .ret-sug-final, .ret-sug-tarde { border-left-color: var(--accent) !important; }
 .ret-sug-ok { border-left-color: #16a34a !important; }
+/* Llamadas: la misma lead con varias citas */
+.ll-chip.ll-rep { background: rgba(217, 119, 6, .16); color: #d97706; font-weight: 700; }
+.ll-rep-aviso { margin-bottom: 12px; border-color: var(--st-caliente); line-height: 1.5; }
