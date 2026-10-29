@@ -76,3 +76,20 @@ test('llamadas: la misma lead con varias citas vivas (y cuál reservó la últim
   assert.deepEqual(rep.get('elena').citas.map((x) => x.id), ['c', 'b', 'a']);
   assert.equal(rep.get('elena').ultima, 'c');
 });
+
+test('llamadas: fuera las reservas canceladas que sustituyó otra reserva de la misma lead', async () => {
+  const { sinReservasSuperadas } = await import('../public/js/llamadas.js');
+  const c = (id, contactId, creada, status = 'confirmed', extra = {}) => ({ id, contactId, startTime: '2026-10-31T10:00:00+01:00', creada, status, ...extra });
+  const out = sinReservasSuperadas([
+    // Carine: 5 reservas seguidas, 4 canceladas → queda la confirmada.
+    c('c1', 'carine', '2026-10-29T20:44:22Z'), c('c2', 'carine', '2026-10-29T20:45:36Z', 'cancelled'), c('c3', 'carine', '2026-10-29T20:46:09Z', 'cancelled'),
+    c('c4', 'carine', '2026-10-29T20:46:48Z', 'cancelled'), c('c5', 'carine', '2026-10-29T20:47:50Z', 'cancelled'),
+    // Cancelación de verdad (no reservó otra): se queda.
+    c('a1', 'ana', '2026-10-20T10:00:00Z', 'cancelled'),
+    // Cancelada con resultado anotado («reagendar»): se queda.
+    c('e1', 'eva', '2026-10-20T10:00:00Z', 'cancelled', { resultado: { resultado: 'reagendar' } }), c('e2', 'eva', '2026-10-20T11:00:00Z'),
+    // Cancelada hace semanas y otra reserva nueva hoy: son dos reservas distintas, se quedan.
+    c('m1', 'marta', '2026-10-01T10:00:00Z', 'cancelled'), c('m2', 'marta', '2026-10-29T10:00:00Z'),
+  ]);
+  assert.deepEqual(out.map((x) => x.id), ['c1', 'a1', 'e1', 'e2', 'm1', 'm2']);
+});

@@ -143,3 +143,13 @@ export function citasRepetidas(citas = [], { cancelada = (c) => ['cancelled', 'i
   }
   return out;
 }
+
+// Reservas superadas: citas canceladas de una lead que tiene otra cita sin cancelar reservada el mismo día (±24 h),
+// p. ej. reservó varias horas seguidas y luego se cancelaron las que sobraban. En GHL no se ven (el calendario oculta
+// las canceladas) y aquí solo inflaban «Reservadas» y «Canceladas»: fuera. Las que tienen un resultado anotado se quedan.
+export function sinReservasSuperadas(citas = [], { cancelada = (c) => ['cancelled', 'invalid'].includes(c.status) } = {}) {
+  const t = (c) => Date.parse(c.creada || c.startTime) || 0;
+  const vivas = citas.filter((c) => !cancelada(c));
+  return citas.filter((c) => !cancelada(c) || c.resultado || !c.contactId
+    || !vivas.some((v) => v.contactId === c.contactId && Math.abs(t(v) - t(c)) <= 86_400_000));
+}
