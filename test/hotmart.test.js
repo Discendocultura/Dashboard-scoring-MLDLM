@@ -174,3 +174,13 @@ test('hotmart: las consultas llevan «Content-Type: application/json» (sin ella
   const r = await ventasApi({ clientId: 'cabeceras', secreto: 's', basic: 'b' }, { desde: 0, hasta: Date.now(), fetchFn });
   assert.equal(r.compras.length, 1);
 });
+
+test('hotmart: la venta del programa cuenta como compra de quien la pagó (sin contar a quien se le devolvió)', async () => {
+  const { resumenThrivecart } = await import('../public/js/thrivecart.js');
+  const { ventaDeAvisoHotmart: aviso } = await import('../public/js/hotmart.js');
+  const cobro = (email, tx, ev = 'PURCHASE_APPROVED') => aviso({ event: ev, creation_date: Date.parse('2026-10-29T20:22:19Z'), data: { buyer: { email }, product: { id: 4346302, name: 'Raíces Fértiles' }, purchase: { transaction: tx, status: 'APPROVED', approved_date: Date.parse('2026-10-29T20:22:19Z'), price: { value: 997, currency_value: 'EUR' } } } });
+  const ventas = [cobro('ana@x.com', 'HP1'), cobro('eva@x.com', 'HP2'), cobro('eva@x.com', 'HP2', 'PURCHASE_REFUNDED')];
+  const r = resumenThrivecart(ventas, new Set(), { desde: Date.parse('2026-10-14'), hasta: Date.parse('2026-11-05'), productos: ['hm:4346302'] });
+  assert.deepEqual([...r.emailsCompra], ['ana@x.com']);
+  assert.equal(resumenThrivecart(ventas, new Set(), { productos: ['hm:999'] }).emailsCompra.size, 0);
+});

@@ -3537,8 +3537,8 @@ async function renderThrivecart(m, launch) {
       ult?.insertAdjacentHTML('afterend', tarjetasExtra(rProg, 'buy'));
     }
   }
-  // Compradoras en ThriveCart sin su etiqueta de VIP ni de compra en GHL.
-  const sinEtiqueta = state.leads.filter((l) => r.emailsCompra.has(String(l.email || '').toLowerCase()) && (!l.s.vip || l.s.vip_tc) && !l.s.compra && !l.s.vip_anterior && !l.s.compra_previo);
+  // Compradoras en ThriveCart o Hotmart sin su etiqueta de VIP ni de compra en GHL.
+  const sinEtiqueta = state.leads.filter((l) => r.emailsCompra.has(String(l.email || '').toLowerCase()) && (!l.s.vip || l.s.vip_tc) && (!l.s.compra || l.s.compra_real) && !l.s.vip_anterior && !l.s.compra_previo);
   // Qué es cada producto en este lanzamiento: con VIP, «Entrada VIP» o «Programa»; sin VIP, sí o no.
   const rolDe = (p) => {
     const v = { productoId: p.clave === p.nombre ? '' : p.clave, producto: p.nombre === 'Sin nombre de producto' ? '' : p.nombre };
@@ -3562,7 +3562,7 @@ async function renderThrivecart(m, launch) {
       ${vistos.length && puedeConfig() ? '<p><button type="button" class="btn small primary" data-tc-guardar>Guardar</button> <span class="muted small" data-tc-st></span></p>' : ''}
     </details>
     ${r.porProductos && r.sinRegistro ? `<p class="tc-nota muted small">${r.sinRegistro} ${r.sinRegistro === 1 ? 'compradora no está registrada' : 'compradoras no están registradas'} en este lanzamiento (compraron sin pasar por el registro).</p>` : ''}
-    ${sinEtiqueta.length ? `<p class="tc-aviso">⚠️ ${sinEtiqueta.length} ${sinEtiqueta.length === 1 ? 'compradora' : 'compradoras'} en ThriveCart sin la etiqueta de VIP ni de compra en GHL: ${sinEtiqueta.slice(0, 5).map((l) => esc(l.name || l.email)).join(', ')}${sinEtiqueta.length > 5 ? '…' : ''}. Revisa el workflow de compra.</p>` : ''}
+    ${sinEtiqueta.length ? `<p class="tc-aviso">⚠️ ${sinEtiqueta.length} ${sinEtiqueta.length === 1 ? 'compradora' : 'compradoras'} en ThriveCart o Hotmart sin la etiqueta de VIP ni de compra en GHL: ${sinEtiqueta.slice(0, 5).map((l) => esc(l.name || l.email)).join(', ')}${sinEtiqueta.length > 5 ? '…' : ''}. Revisa el workflow de compra.</p>` : ''}
     ${r.fuera.cobros ? `<p class="tc-nota muted small">Además, ${r.fuera.cobros} ${r.fuera.cobros === 1 ? 'cobro' : 'cobros'} (${eur(r.fuera.importe)}) de emails que no están registrados en este lanzamiento (otros productos o compras sin registro).</p>` : ''}`;
 }
 
@@ -5424,7 +5424,7 @@ function videosChips(s, launch) {
 
 function compraChip(s) {
   if (s.compra_directo) return chip('En directo', 'on');
-  if (s.compra) return chip('Compró', 'on');
+  if (s.compra) return s.compra_real ? `<span title="Pagó el programa (ThriveCart o Hotmart), pero en GHL no tiene la etiqueta de compra">${chip('Compró 💳', 'on')}</span>` : chip('Compró', 'on');
   if (s.clienta_anterior) return chip('Clienta anterior');
   return chip('—');
 }
@@ -5482,7 +5482,7 @@ function rowHtml(l) {
     ${state.config.launches[state.launchCode]?.encuestaTag ? `<td>${l.s.encuesta ? '<span class="enc-si" title="Ha rellenado la encuesta">✓</span>' : l.s.encuesta_anterior ? '<span class="enc-ant" title="La rellenó en un lanzamiento anterior (ve las clases sin repetirla)">↺</span>' : '<span class="enc-no" title="No ha rellenado la encuesta">✗</span>'}</td>` : ''}
     ${(l.s.lista || []).length && !(l.s.clases || []).length ? l.s.lista.map((x) => `<td>${recursoChip(l.s, x)}</td>`).join('') : ''}
     ${(l.s.clases || ['clase1', 'clase2']).map((c, i) => `<td>${videoChip(l.s, c)}</td>${i === 0 && l.s.recursos?.test ? `<td>${l.s.test ? '<span class="enc-si" title="Ha hecho el test">✓</span>' : '<span class="enc-no" title="No ha hecho el test">✗</span>'}</td>` : ''}`).join('')}
-    ${l.s.conVip === false ? '' : `<td>${l.s.vip_tc ? `<span title="Compró la VIP en ThriveCart, pero en GHL no tiene la etiqueta VIP">${chip('VIP 💳', 'on')}</span>` : l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>`}
+    ${l.s.conVip === false ? '' : `<td>${l.s.vip_tc ? `<span title="Pagó la VIP (ThriveCart o Hotmart), pero en GHL no tiene la etiqueta VIP">${chip('VIP 💳', 'on')}</span>` : l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>`}
     ${(l.s.nVideos || 1) > 1 ? `<td colspan="2"><div class="videos-chips">${videosChips(l.s, state.config.launches[state.launchCode])}</div></td>` : `<td>${liveChip(l.s)}</td>
     <td>${videoChip(l.s, 'replay')}</td>`}
     <td>${compraChip(l.s)}</td>
@@ -13539,33 +13539,45 @@ function conUtmRegistro(contact) {
   if (!u) return contact;
   return { ...contact, src: { ...(contact.src || {}), source: u.source || contact.src?.source || '', medium: contact.src?.medium || 'paid', campaign: u.campaign, term: u.term, content: u.content } };
 }
-// Entrada VIP comprada en ThriveCart (los productos VIP elegidos en Configuración → Precios): el lead cuenta como VIP
-// aunque el workflow de GHL no le haya puesto la etiqueta (o se la haya puesto a otro contacto), como en Métricas.
+// Ventas reales (ThriveCart y Hotmart) de los productos elegidos en Configuración → Precios: la entrada VIP marca VIP y
+// el programa marca compra, aunque el workflow de GHL no le haya puesto la etiqueta (o se la haya puesto a otro
+// contacto), como en Métricas. Sin VIP en el lanzamiento, todos sus productos son el programa.
 async function cargarVipTc() {
   const code = state.launchCode;
   const launch = state.config.launches[code];
-  if (enVsl() || !launch || !conVip(launch) || !(launch.tcProductos || []).length) { state.vipTc = null; return; }
-  const clave = `${state.cliente || ''}:${code}`;
+  const conV = launch && conVip(launch);
+  const prodVip = conV ? prodsReales(launch.tcProductos, launch.hmProductos) : [];
+  const prodProg = !launch ? [] : conV ? prodsReales(launch.tcPrograma, launch.hmPrograma)
+    : prodsReales([...(launch.tcProductos || []), ...(launch.tcPrograma || [])], [...(launch.hmProductos || []), ...(launch.hmPrograma || [])]);
+  if (enVsl() || !launch || (!prodVip.length && !prodProg.length)) { state.vipTc = null; return; }
   try {
-    if (!tcCache[clave] || Date.now() - tcCache[clave].at > 5 * 60_000) {
-      const { desde, hasta } = periodoLanz(code);
-      const r = await api(`/api/thrivecart?op=ventas&desde=${desde}&hasta=${hasta}`);
-      tcCache[clave] = { at: Date.now(), ventas: r.ventas || [], desde, hasta };
-    }
+    const { desde, hasta } = periodoLanz(code);
+    const ventas = await ventasReales(desde, hasta);
     if (state.launchCode !== code) return;
-    const { ventas, desde, hasta } = tcCache[clave];
-    const emails = resumenThrivecart(ventas, new Set(), { desde, hasta, productos: launch.tcProductos }).emailsCompra;
-    state.vipTc = { code, emails };
+    // Quien lo pagó (sin contar a quien se le devolvió todo).
+    const compradoras = (prods) => (prods.length ? resumenThrivecart(ventas, new Set(), { desde, hasta, productos: prods }).emailsCompra : new Set());
+    state.vipTc = { code, emails: compradoras(prodVip), compra: compradoras(prodProg) };
     let cambia = false;
     for (const l of state.leads) cambia = marcarVipTc(l) || cambia;
     if (cambia) programarRender();
-  } catch { /* sin ThriveCart: la VIP por etiqueta */ }
+  } catch { /* sin ThriveCart ni Hotmart: la VIP y la compra por etiqueta */ }
 }
 function marcarVipTc(l) {
   const v = state.vipTc;
-  if (!v || v.code !== state.launchCode || l.s.vip || !v.emails.has(String(l.email || '').toLowerCase())) return false;
-  l.s.vip = true;
-  l.s.vip_tc = true; // VIP por ThriveCart, sin su etiqueta en GHL
+  if (!v || v.code !== state.launchCode) return false;
+  const email = String(l.email || '').toLowerCase();
+  let cambia = false;
+  if (!l.s.vip && v.emails.has(email)) {
+    l.s.vip = true;
+    l.s.vip_tc = true; // VIP por la venta real, sin su etiqueta en GHL
+    cambia = true;
+  }
+  if (!l.s.compra && v.compra?.has(email)) {
+    l.s.compra = true;
+    l.s.compra_real = true; // compra del programa por la venta real (ThriveCart o Hotmart), sin su etiqueta en GHL
+    cambia = true;
+  }
+  if (!cambia) return false;
   l.score = puntuar(l.s, pesosDe(state.config));
   l.estado = estadoFor(l.score);
   l.step = nextStepFor(l.s);
