@@ -1872,6 +1872,7 @@
       if ((k === 'whatsapp' || k === 'whatsapp-dudas') && !a.getAttribute('target')) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener'); }
     });
     if (data.bonus) bonusAccionRapida(data.bonus);
+    if (data.carrito) fasesVenta(data);
   }
 
   // Página de venta: <div data-lsd-venta data-launch="auto"></div> apunta la visita (sin llamar a GHL)
@@ -1901,7 +1902,7 @@
       if (window.MutationObserver) {
         var pendiente = null;
         var obs = new MutationObserver(function (cambios) {
-          var nuevo = cambios.some(function (c) { return Array.prototype.some.call(c.addedNodes, function (n) { return n.nodeType === 1 && (n.matches('[data-lsd-text],[data-lsd-link],[data-lsd-bonus],[data-lsd-bonus-cerrado],[data-lsd-countdown-bonus],[data-lsd-countdown-boxes-bonus],[data-lsd-caja]') || n.querySelector('[data-lsd-text],[data-lsd-link],[data-lsd-bonus],[data-lsd-bonus-cerrado],[data-lsd-countdown-bonus],[data-lsd-countdown-boxes-bonus],[data-lsd-caja]')); }); });
+          var nuevo = cambios.some(function (c) { return Array.prototype.some.call(c.addedNodes, function (n) { return n.nodeType === 1 && (n.matches('[data-lsd-text],[data-lsd-link],[data-lsd-bonus],[data-lsd-bonus-cerrado],[data-lsd-countdown-bonus],[data-lsd-countdown-boxes-bonus],[data-lsd-caja],[data-lsd-fase-venta],[data-lsd-countdown-carrito],[data-lsd-countdown-boxes-carrito]') || n.querySelector('[data-lsd-text],[data-lsd-link],[data-lsd-bonus],[data-lsd-bonus-cerrado],[data-lsd-countdown-bonus],[data-lsd-countdown-boxes-bonus],[data-lsd-caja],[data-lsd-fase-venta],[data-lsd-countdown-carrito],[data-lsd-countdown-boxes-carrito]')); }); });
           if (!nuevo) return;
           clearTimeout(pendiente);
           pendiente = setTimeout(function () { rellenarVenta(data); }, 150);
@@ -1917,6 +1918,58 @@
     // Visitas a la página de venta (para «Setting hoy») y a la de pago (= inició el pago).
     if (pagina === 'llamada' || !who || !who.cid || params.get('lsd_preview')) return;
     visitaUnaVez(launch, who.cid, pagina, 10 * 60 * 1000);
+  }
+
+  // Fases del carrito en las páginas de venta y de pago (para una barra de urgencia que va cambiando sola):
+  //   <div data-lsd-fase-venta="bar">          mientras dura el primer bonus de acción rápida
+  //   <div data-lsd-fase-venta="abierto">      plazas abiertas (después del BAR, hasta las últimas 24 h)
+  //   <div data-lsd-fase-venta="ultimo-dia">   las últimas 24 h antes del cierre
+  //   <div data-lsd-fase-venta="cerrado">      con el carrito ya cerrado
+  //   (varias a la vez separadas por espacios: data-lsd-fase-venta="abierto ultimo-dia"). Con «antes» (aún sin abrir)
+  //   también. Cuenta atrás al cierre: <span data-lsd-countdown-carrito></span> o <div data-lsd-countdown-boxes-carrito>.
+  //   En <html> queda la clase lsd-fase-<fase> por si el diseño cambia de color en cada fase.
+  var faseTimers = false;
+  function faseVentaDe(data) {
+    var now = serverNow();
+    var c = data.carrito || {};
+    var bar = (data.bonus || [])[0];
+    if (c.cierre && now >= c.cierre) return 'cerrado';
+    if (c.apertura && now < c.apertura) return 'antes';
+    if (bar && now < bar.hasta) return 'bar';
+    if (c.cierre && c.cierre - now <= 24 * 3600000) return 'ultimo-dia';
+    return 'abierto';
+  }
+  function fasesVenta(data) {
+    var fase = faseVentaDe(data);
+    document.querySelectorAll('[data-lsd-fase-venta]').forEach(function (el) {
+      show(el, el.getAttribute('data-lsd-fase-venta').split(/\s+/).indexOf(fase) >= 0);
+    });
+    var html = document.documentElement;
+    html.className = html.className.replace(/\blsd-fase-[a-z-]+\b/g, '').trim() + ' lsd-fase-' + fase;
+    var cierre = (data.carrito || {}).cierre;
+    var abierto = Boolean(cierre) && serverNow() < cierre;
+    document.querySelectorAll('[data-lsd-countdown-carrito]').forEach(function (el) {
+      if (!abierto) { el.innerHTML = ''; return; }
+      if (!el.querySelector('[data-lsd-cd="' + cierre + '"]')) el.innerHTML = cdSpan(cierre);
+    });
+    document.querySelectorAll('[data-lsd-countdown-boxes-carrito]').forEach(function (el) {
+      if (!abierto) { el.innerHTML = ''; el.removeAttribute('data-lsd-cdb-at'); return; }
+      if (Number(el.getAttribute('data-lsd-cdb-at')) === cierre) return;
+      el.setAttribute('data-lsd-cdb-at', cierre);
+      var unit = function (u, label) { return '<div class="lsd-cdb-unit"><span class="lsd-cdb-num" data-u="' + u + '">00</span><span class="lsd-cdb-label">' + label + '</span></div>'; };
+      el.innerHTML = '<div class="lsd-cdb">' + unit('d', 'días') + unit('h', 'horas') + unit('m', 'min') + unit('s', 'seg') + '</div>';
+    });
+    injectCss();
+    startCountdowns();
+    if (faseTimers) return;
+    faseTimers = true;
+    // En cada cambio de fase (abre el carrito, termina el BAR, empiezan las últimas 24 h, cierra), se repinta sola.
+    var c = data.carrito || {};
+    var bar = (data.bonus || [])[0];
+    [c.apertura, bar && bar.hasta, c.cierre && c.cierre - 24 * 3600000, c.cierre].forEach(function (t) {
+      var ms = t - serverNow();
+      if (t && ms > 0 && ms < 2147483000) setTimeout(function () { fasesVenta(data); }, ms + 500);
+    });
   }
 
   // Bonus de acción rápida (BAR) en las páginas de venta y de pago, con el fin puesto en Configuración → Oferta:

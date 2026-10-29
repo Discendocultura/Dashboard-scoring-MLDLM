@@ -20,7 +20,7 @@ import { phaseAt, barFor, replayBarraDe, ventaBarraDe, textosPago, enlaceWhatsAp
 import { videosDe, conVip, nClases, esEnDirecto, sigReplay } from '../public/js/videos.js';
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
-import { ventanaBonus, TIPOS_BONUS } from '../public/js/oferta.js';
+import { ventanaBonus, TIPOS_BONUS, momentosCarrito } from '../public/js/oferta.js';
 import { recursosDe, tieneRecurso, etapasPreclase, preguntasValidas, UMBRAL_DESBLOQUEO, listaRecursosDe, recursoListaVisible } from '../public/js/recursos.js';
 import { votoDe, votosDe, resultadosVotos, claveVotos } from '../lib/votos.js';
 
@@ -129,7 +129,11 @@ export async function GET(request, ctx) {
           Object.assign(texts, { [`${k}-nombre`]: b.nombre, [`${k}-fin`]: formatLong(b.hasta), [`${k}-fecha`]: formatDate(b.hasta), [`${k}-hora`]: formatTime(b.hasta) });
         }
       });
-      return json({ code, now, preview, links: enlacesVenta, texts, bonus, ventaBarra: vb && { ...vb, tramos: vb.tramos.map((t) => ({ ...t, text: conProducto(t.text, producto), boton: t.boton && { ...t.boton, label: conProducto(t.boton.label, producto) } })) } }, 200, CORS_HEADERS);
+      // El carrito (apertura y cierre) para la barra de urgencia que cambia por fases: BAR · plazas abiertas · último día.
+      const mc = momentosCarrito(launch);
+      const carrito = { apertura: mc.apertura ?? null, cierre: mc.cierre ?? null };
+      Object.assign(texts, { 'carrito-fin': formatLong(carrito.cierre), 'carrito-fecha': formatDate(carrito.cierre), 'carrito-hora': formatTime(carrito.cierre) });
+      return json({ code, now, preview, links: enlacesVenta, texts, bonus, carrito, ventaBarra: vb && { ...vb, tramos: vb.tramos.map((t) => ({ ...t, text: conProducto(t.text, producto), boton: t.boton && { ...t.boton, label: conProducto(t.boton.label, producto) } })) } }, 200, CORS_HEADERS);
     }
 
     // A la hora del directo la preclase solo necesita saber adónde ir: se contesta sin llamar a GHL

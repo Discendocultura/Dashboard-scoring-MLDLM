@@ -998,6 +998,10 @@ test('página de venta: bonus de acción rápida con el fin de Configuración �
   assert.equal(d.texts['bar_48h-hora'], '23:59');
   assert.match(d.texts['bar_48h-fin'], /3 de noviembre/);
   assert.equal(d.texts['bar_24h-nombre'], 'Guía');
+  // El carrito, para la barra que cambia por fases (BAR · plazas abiertas · último día · cerrado)
+  assert.deepEqual(d.carrito, { apertura: madridToEpoch('2026-10-30T19:00'), cierre: madridToEpoch('2026-11-06T23:59') });
+  assert.equal(d.texts['carrito-hora'], '23:59');
+  assert.match(d.texts['carrito-fin'], /6 de noviembre/);
 });
 
 test('encuesta del avatar: se ofrecen todos los campos que guardan una respuesta (no fechas, archivos ni firmas)', async () => {
