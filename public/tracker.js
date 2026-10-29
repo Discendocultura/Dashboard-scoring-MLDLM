@@ -1871,7 +1871,7 @@
       show(a, true);
       if ((k === 'whatsapp' || k === 'whatsapp-dudas') && !a.getAttribute('target')) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener'); }
     });
-    if (data.bonus) bonusAccionRapida(data.bonus);
+    if (data.bonus) bonusAccionRapida(data.bonus, data.texts);
     if (data.carrito) fasesVenta(data);
   }
 
@@ -1928,11 +1928,17 @@
   //   (varias a la vez separadas por espacios: data-lsd-fase-venta="abierto ultimo-dia"). Con «antes» (aún sin abrir)
   //   también. Cuenta atrás al cierre: <span data-lsd-countdown-carrito></span> o <div data-lsd-countdown-boxes-carrito>.
   //   En <html> queda la clase lsd-fase-<fase> por si el diseño cambia de color en cada fase.
+  // «bar» = el bonus de acción rápida que está en marcha ahora (el que acaba antes, si hay varios a la vez: p. ej. el
+  // BAR en directo y después el de 48 h); si ya no queda ninguno, el último que hubo.
+  function barActivo(lista) {
+    var orden = (lista || []).slice().sort(function (a, b) { return a.hasta - b.hasta; });
+    return orden.filter(function (b) { return serverNow() < b.hasta; })[0] || orden[orden.length - 1];
+  }
   var faseTimers = false;
   function faseVentaDe(data) {
     var now = serverNow();
     var c = data.carrito || {};
-    var bar = (data.bonus || [])[0];
+    var bar = barActivo(data.bonus);
     if (c.cierre && now >= c.cierre) return 'cerrado';
     if (c.apertura && now < c.apertura) return 'antes';
     if (bar && now < bar.hasta) return 'bar';
@@ -1965,8 +1971,7 @@
     faseTimers = true;
     // En cada cambio de fase (abre el carrito, termina el BAR, empiezan las últimas 24 h, cierra), se repinta sola.
     var c = data.carrito || {};
-    var bar = (data.bonus || [])[0];
-    [c.apertura, bar && bar.hasta, c.cierre && c.cierre - 24 * 3600000, c.cierre].forEach(function (t) {
+    [c.apertura, c.cierre && c.cierre - 24 * 3600000, c.cierre].concat((data.bonus || []).map(function (b) { return b.hasta; })).forEach(function (t) {
       var ms = t - serverNow();
       if (t && ms > 0 && ms < 2147483000) setTimeout(function () { fasesVenta(data); }, ms + 500);
     });
@@ -1979,10 +1984,16 @@
   //   <div data-lsd-countdown-boxes-bonus="bar_48h"></div>    cuenta atrás en cajas (días / horas / min / seg)
   // El tipo es bar_directo, bar_24h o bar_48h; «bar» vale para el primero que haya. Sin ese bonus, se oculta todo.
   var barTimers = false;
-  function bonusAccionRapida(lista) {
-    var de = function (k) { return k === 'bar' ? lista[0] : lista.filter(function (b) { return b.tipo === k; })[0]; };
+  function bonusAccionRapida(lista, texts) {
+    var de = function (k) { return k === 'bar' ? barActivo(lista) : lista.filter(function (b) { return b.tipo === k; })[0]; };
     var abierto = function (b) { return Boolean(b) && serverNow() < b.hasta; };
     var pintar = function () {
+      // Los textos de «bar» (nombre, fin…) son los del BAR que está en marcha ahora.
+      var act = barActivo(lista);
+      if (act && texts) ['nombre', 'fin', 'fecha', 'hora'].forEach(function (k) {
+        var v = texts[act.tipo + '-' + k];
+        if (v != null) document.querySelectorAll('[data-lsd-text="bar-' + k + '"]').forEach(function (t) { t.textContent = v; });
+      });
       document.querySelectorAll('[data-lsd-bonus]').forEach(function (el) { show(el, abierto(de(el.getAttribute('data-lsd-bonus')))); });
       document.querySelectorAll('[data-lsd-bonus-cerrado]').forEach(function (el) { var b = de(el.getAttribute('data-lsd-bonus-cerrado')); show(el, Boolean(b) && !abierto(b)); });
       document.querySelectorAll('[data-lsd-countdown-bonus]').forEach(function (el) {
