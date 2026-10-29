@@ -16,6 +16,19 @@ let entradaHasta = 0;
 const enVentana = () => performance.now() < entradaHasta;
 const abrirVentana = () => { entradaHasta = performance.now() + VENTANA; };
 
+// Lo que ya ha entrado con movimiento en esta visita a la vista (por su sitio: el contenedor con id y su título o su
+// posición). Mientras cargan los datos las tarjetas se vuelven a pintar varias veces; sin esto, cada vez repetirían la
+// entrada (parpadeo). Se vacía al cambiar de vista, subpestaña, embudo o lanzamiento.
+const yaEntraron = new Set();
+let cifrasTranquilasHasta = 0; // mientras cargan, las cifras que se corrigen cambian sin contar ni destellar
+const claveTarjeta = (el) => {
+  const cont = el.parentElement?.closest('[id]')?.id || '';
+  const titulo = el.querySelector?.('.kpi-label, h2, h3, h4, strong')?.textContent.trim().slice(0, 60) || '';
+  const pos = titulo || String([...(el.parentElement?.children || [])].indexOf(el));
+  return `${cont}|${el.className.split(' ')[0]}|${pos}`;
+};
+export function nuevaVisita() { yaEntraron.clear(); cifrasTranquilasHasta = performance.now() + 4000; abrirVentana(); }
+
 // Lo que está por debajo de la pantalla se anima al llegar a ello (también si se salta con un scroll rápido).
 const pendientes = new Set();
 let revisando = 0;
@@ -41,11 +54,25 @@ function animarTarjetas(raiz) {
     if (el.parentElement?.closest(TARJETAS) && nuevas.includes(el.parentElement.closest(TARJETAS))) continue;
     const r = el.getBoundingClientRect();
     if (!r.width && !r.height) continue;
+    // Ya entró en esta visita (se ha vuelto a pintar con datos nuevos): se queda quieta.
+    const k = claveTarjeta(el);
+    if (yaEntraron.has(k)) continue;
+    yaEntraron.add(k);
     el.style.setProperty('--anim-i', String(Math.min(i++, MAX_ESCALON)));
     if (r.top > alto) { el.classList.add('anim-espera'); pendientes.add(el); } else el.classList.add('anim-in');
   }
-  for (const b of raiz.querySelectorAll(BARRAS)) b.classList.add('anim-barra');
-  for (const b of raiz.querySelectorAll(BARRAS_V)) b.classList.add('anim-barra-v');
+  // Las barras, solo las de tarjetas que acaban de entrar (las que se repintan no vuelven a crecer).
+  // Las que no están en ninguna tarjeta, una vez por sitio en esta visita.
+  const entra = (b) => {
+    const t = b.closest(TARJETAS);
+    if (t) return t.classList.contains('anim-in') || t.classList.contains('anim-espera');
+    const k = `barra|${claveTarjeta(b.parentElement || b)}|${[...(b.parentElement?.parentElement?.children || [])].indexOf(b.parentElement)}`;
+    if (yaEntraron.has(k)) return false;
+    yaEntraron.add(k);
+    return true;
+  };
+  for (const b of raiz.querySelectorAll(BARRAS)) if (entra(b)) b.classList.add('anim-barra');
+  for (const b of raiz.querySelectorAll(BARRAS_V)) if (entra(b)) b.classList.add('anim-barra-v');
 }
 
 // ---------- Cifras que cuentan ----------
@@ -82,6 +109,8 @@ function contar(el) {
   const previo = ultimos.get(clave);
   ultimos.set(clave, f.v);
   if (previo === f.v || Math.abs(f.v) < 1 && previo == null && f.dec === 0) return;
+  // Mientras cargan los datos (la copia, luego GHL, Meta, ventas…), una cifra que se corrige cambia sin contar.
+  if (previo != null && performance.now() < cifrasTranquilasHasta) return;
   const desde = previo ?? 0;
   const ini = performance.now();
   const dur = 700;
@@ -141,6 +170,8 @@ export function iniciarAnimaciones(raiz = document.querySelector('#app') || docu
   addEventListener('scroll', programarRevision, { passive: true, capture: true });
   addEventListener('resize', programarRevision, { passive: true });
   // Cambiar de embudo en la barra lateral o volver al Inicio también es «entrar».
-  document.addEventListener('click', (e) => { if (e.target.closest('#sb-items [data-embudo], #sb-inicio, .view-tab, .subview-tab, [data-msub-btn]')) abrirVentana(); }, true);
+  document.addEventListener('click', (e) => { if (e.target.closest('#sb-items [data-embudo], #sb-inicio, .view-tab, .subview-tab, [data-msub-btn]')) nuevaVisita(); }, true);
+  document.addEventListener('change', (e) => { if (e.target.closest('#launch-select')) nuevaVisita(); }, true);
+  cifrasTranquilasHasta = performance.now() + 6000; // al arrancar llegan los datos por partes
   requestAnimationFrame(() => animarTarjetas(raiz));
 }

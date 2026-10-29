@@ -56,3 +56,31 @@ test('zoom: los datos de la lead para Zoom (todos los clientes y caminos)', asyn
   assert.deepEqual(datosRegistrante({ email: 'sin@nombre.com', name: 'sin@nombre.com' }), { email: 'sin@nombre.com', firstName: 'sin', lastName: '', phone: '' });
   assert.equal(datosRegistrante(null, 'b@c.com').firstName, 'b');
 });
+
+test('zoom: con la misma reunión periódica para el día 1 y el día 2, se inscribe en las dos sesiones de una vez', async () => {
+  const { setEnv } = await import('../lib/env.js');
+  setEnv({ GHL_MOCK: '1', SESSION_SECRET: 'test-secret-test-secret' });
+  const mock = await import('../lib/mock.js');
+  const { inscribirEnDirecto, ocurrenciasDelLanzamiento } = await import('../lib/zoom-inscripcion.js');
+  const { entradaDe } = await import('../lib/entradas.js');
+  const dia = (n) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+  const launch = { formato: 'v2', fechaDirecto: dia(5), horaDirecto: '19:00', zoomMeetingId: '83482996867', registroTag: 'reg', videos: [{ fecha: dia(6), hora: '19:00', zoomMeetingId: '83482996867' }] };
+  // Sesiones en Zoom: las de los dos días (y una de otro mes que no es de este lanzamiento)
+  const { milestones } = await import('../public/js/page.js');
+  const [v1, v2] = milestones(launch).videos.map((v) => v.inicio);
+  mock.zoomSesiones.set('83482996867', [{ id: 's1', inicio: v1 }, { id: 's2', inicio: v2 }, { id: 's9', inicio: v2 + 30 * 86_400_000 }]);
+  assert.deepEqual(await ocurrenciasDelLanzamiento(launch, '83482996867'), ['s1', 's2']);
+  const contact = { id: 'cidAB12345', email: 'ana@x.com', name: 'Ana', tags: ['reg'] };
+  const r = await inscribirEnDirecto('res-nov', launch, 1, { cid: contact.id, contact });
+  assert.ok(r.ok);
+  assert.deepEqual(mock.zoomInscritoEn.get('83482996867|ana@x.com'), ['s1', 's2']);
+  // El enlace vale para los dos días: el día 2 ya no vuelve a llamar a Zoom
+  assert.match((await entradaDe('res-nov', 2, contact.id)).join_url, /#o=s1-s2$/);
+  mock.zoomInscritoEn.clear();
+  const r2 = await inscribirEnDirecto('res-nov', launch, 2, { cid: contact.id, contact });
+  assert.equal(r2.ya, true);
+  assert.equal(mock.zoomInscritoEn.size, 0);
+  assert.doesNotMatch(r2.joinUrl, /#/);
+  // Una reunión normal (sin sesiones): como siempre
+  assert.deepEqual(await ocurrenciasDelLanzamiento({ fechaDirecto: dia(5), horaDirecto: '19:00', zoomMeetingId: '81111111111' }, '81111111111'), []);
+});

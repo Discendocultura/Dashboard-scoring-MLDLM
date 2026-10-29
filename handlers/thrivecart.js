@@ -16,6 +16,7 @@ import { claveDe } from './zoom-registro.js';
 import { quitarCarritoAbandonado } from '../lib/abandonos.js';
 
 const CLAVE = 'lsd_thrivecart_ventas';
+const MUESTRAS = 'lsd_thrivecart_muestras';
 const valor = () => `thrivecart:${clienteActual().id}`;
 
 export async function GET(request) {
@@ -27,6 +28,11 @@ export async function GET(request) {
       const hasta = Number(url.searchParams.get('hasta')) || Date.now() + 86_400_000;
       const { ventas = [] } = (await leerJSON(CLAVE, () => ({ ventas: [] }))) || {};
       return json({ ventas: repararVentas(ventas).filter((v) => v.fecha >= desde && v.fecha <= hasta), total: ventas.length });
+    }
+    // GET ?op=muestras → (equipo, «config») los últimos avisos sin datos personales (qué campos manda ThriveCart).
+    if (url.searchParams.get('op') === 'muestras') {
+      await requireSession(request, { permiso: 'config' });
+      return json((await leerJSON(MUESTRAS, () => ({ muestras: [] }))) || { muestras: [] });
     }
     await requireSession(request, { permiso: 'config' });
     const k = await signToken(valor());
@@ -88,6 +94,13 @@ export async function POST(request) {
     });
     // Quien compra deja de ser un carrito abandonado: se le quita la etiqueta de la página de pago (el workflow ya no le escribe).
     if (venta.tipo === 'cobro' && !venta.prueba) await quitarCarritoAbandonado(venta.email).catch((e) => console.error('Carrito abandonado', e.message));
+    // Las 5 últimas muestras de cobro (sin datos personales), para ver qué campos manda ThriveCart (p. ej. el IVA).
+    if (venta.tipo === 'cobro') {
+      try {
+        const m = (await leerJSON(MUESTRAS, () => ({ muestras: [] }))) || { muestras: [] };
+        await guardarJSON(MUESTRAS, { muestras: [{ at: Date.now(), campos: muestraAviso(cuerpo) }, ...(m.muestras || [])].slice(0, 5) }, { motivo: 'ThriveCart: muestra de aviso' });
+      } catch (e) { console.error('muestra', e.message); }
+    }
     return json({ ok: true, guardada: nueva });
   } catch (e) {
     return errorResponse(e);

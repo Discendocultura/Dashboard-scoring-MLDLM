@@ -256,3 +256,17 @@ test('ThriveCart: el aviso suma el IVA, los bumps por su item_type, y las VIP po
   // Un aviso nuevo (con su IVA) no se toca
   assert.equal(repararVentas([v])[0].importe, 30.77);
 });
+
+test('ThriveCart: un IVA de menos de 5 céntimos no es un IVA (se estima) y la muestra del aviso no lleva datos personales', async () => {
+  const { ventaDeWebhook, repararVentas, muestraAviso } = await import('../public/js/thrivecart.js');
+  const v = ventaDeWebhook({ event: 'order.success', order_id: '5', base_product: '29', base_product_name: 'Entrada VIP', 'customer[email]': 'a@x.com', 'order[total]': '743', 'order[tax]': '0.21' });
+  assert.equal(v.importe, 7.43);
+  assert.equal('impuesto' in v, false);
+  assert.equal(repararVentas([v])[0].importe, 8.99);
+  // Guardadas con impuesto 0 (sin IVA de verdad): también se estiman
+  assert.equal(repararVentas([{ ...v, impuesto: 0 }])[0].importe, 8.99);
+  const m = muestraAviso({ event: 'order.success', 'customer[email]': 'a@x.com', 'customer[name]': 'Ana', order: { total: '743', tax: '0.21' } });
+  assert.equal(m['order[tax]'], '0.21');
+  assert.equal(m.event, 'order.success');
+  assert.ok(!Object.keys(m).some((k) => /email|name/.test(k)));
+});

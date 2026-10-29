@@ -171,6 +171,22 @@ test('acceso: registrada, existente sin etiqueta y email nuevo', async () => {
   assert.equal((await getContact(otraSin.id)).phone, '');
   assert.equal((await getContact(sinMovil.id)).email, 'sinmovil@example.com');
   assert.ok(mock.notes.some((n) => n.contactId === otraSin.id && n.body.includes('+34611223344')));
+  // P谩gina que oculta el campo del nombre (La Resistencia): con el alta y el WhatsApp basta, sin nombre
+  assert.deepEqual(await call({ email: 'sinnombre@example.com', phone: '+34 622 33 44 55', alta: 1 }), { ok: false, needs: 'signup', known: false, siteKey: '' }, 'sin decir que no hay nombre, lo sigue pidiendo');
+  const sinNombre = await call({ email: 'sinnombre@example.com', phone: '+34 622 33 44 55', alta: 1, sinNombre: 1 });
+  assert.equal(sinNombre.ok, true);
+  assert.equal(sinNombre.status, 'created');
+  assert.ok((await findContactByEmail('sinnombre@example.com')).tags.includes('registro-webinar-demo'));
+  assert.equal((await call({ email: 'sinnombre2@example.com', alta: 1, sinNombre: 1 })).needs, 'signup', 'sin WhatsApp no se registra');
+  // La verificaci贸n anti-bots solo se pide al registrar: a quien ya est谩 registrada no se le llama
+  const { ensureRegistered } = await import('../lib/access.js');
+  let llamadas = 0;
+  const no = async () => { llamadas++; return false; };
+  assert.equal((await ensureRegistered({ registroTag: 'registro-webinar-demo' }, { email: reg.email, phone: '600112233' }, {}, no)).status, 'registered');
+  assert.equal(llamadas, 0);
+  assert.equal((await ensureRegistered({ registroTag: 'registro-webinar-demo' }, { email: 'bloqueada@example.com', phone: '600112244', sinNombre: true }, {}, no)).status, 'verificacion');
+  assert.equal(llamadas, 1);
+  assert.equal(await findContactByEmail('bloqueada@example.com'), null, 'sin pasar la verificaci贸n no se crea');
   // bots (campo trampa) no crean nada
   assert.deepEqual(await call({ email: 'bot@example.com', name: 'Bot', phone: '600000000', hp: 'x' }), { ok: false, error: 'bot' });
   // El campo antiguo `website` (lo rellenaban algunos autorrellenos) ya no deja fuera a nadie.
@@ -982,4 +998,16 @@ test('p谩gina de venta: bonus de acci贸n r谩pida con el fin de Configuraci贸n 鈫
   assert.equal(d.texts['bar_48h-hora'], '23:59');
   assert.match(d.texts['bar_48h-fin'], /3 de noviembre/);
   assert.equal(d.texts['bar_24h-nombre'], 'Gu铆a');
+});
+
+test('encuesta del avatar: se ofrecen todos los campos que guardan una respuesta (no fechas, archivos ni firmas)', async () => {
+  const { tipoEncuesta } = await import('../lib/ghl.js');
+  assert.equal(tipoEncuesta('SINGLE_OPTIONS'), 'opciones');
+  assert.equal(tipoEncuesta('CHECKBOX'), 'opciones');
+  assert.equal(tipoEncuesta('TEXT'), 'texto');
+  assert.equal(tipoEncuesta('TEXTBOX_LIST'), 'texto');
+  assert.equal(tipoEncuesta('NUMERICAL'), 'texto');
+  assert.equal(tipoEncuesta('DATE'), null);
+  assert.equal(tipoEncuesta('FILE_UPLOAD'), null);
+  assert.equal(tipoEncuesta('SIGNATURE'), null);
 });

@@ -4,7 +4,7 @@ import {
 } from './scoring.js';
 import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
-import { ORDEN_EDAD } from './encuesta.js';
+import { ORDEN_EDAD, preguntasDe } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
 import { resumenThrivecart, ventasDeCsv, productosVistos, deProductos } from './thrivecart.js';
 import { resumenAb, MINIMO_AB } from './ab.js';
@@ -40,7 +40,7 @@ import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE, ROL_OPERATIVA, ROLES_FI
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
-import { claveTelefono, leerMiembros } from './grupos-wa.js';
+import { enGruposDe, claveTelefono, leerMiembros } from './grupos-wa.js';
 import { TIPOS_MSG, ESTADOS_MSG, GUIA_ARCHIVOS, parsearSecuencia, promptCalentamiento, datosEmbudo, faltaMensaje, faltaEnlaceDirecto, sanitizeMensaje, nuevoIdMsg } from './calentamiento.js';
 import { PARTES_DIRECTA, PAGINAS_DIRECTA, partesPorDefecto, conParte, pendientesDirecta, ganadoresDirecta, pipelineLigadoDe } from './directa.js';
 import { abrirPanelMarca, marcaDeEmbudo } from './marca-panel.js';
@@ -114,7 +114,8 @@ const state = {
 };
 
 // Preguntas de la encuesta del avatar de este cliente.
-const preguntasEncuesta = () => state.config?.encuesta || [];
+// Preguntas de la encuesta: las del lanzamiento abierto (o, si no tiene, las de siempre del cliente).
+const preguntasEncuesta = () => preguntasDe(state.config, enLanzamientos() ? state.launchCode : null);
 
 // Nombre del producto del cliente: los textos dicen «Raíces» (MLDLM) y en otro cliente se cambian
 // por el suyo en todo lo que se pinta (textos, placeholders y títulos).
@@ -732,8 +733,16 @@ async function start() {
   const abrirInicio = (state.recienEntrado || ls.get('lsd_inicio') === '1') && !hash;
   state.recienEntrado = false;
   if (hash) ls.set('lsd_inicio', ''); // un enlace directo a una pestaña: lo último ya no es el Inicio
+  // Mientras carga el embudo inicial (al entrar en un cliente puede tardar), la persona ya puede elegir otro embudo o
+  // pestaña: si lo hace, al terminar no se la lleva al Inicio ni a ningún otro sitio.
+  let tocado = false;
+  const alTocar = (e) => { if (e.target.closest?.('#sidebar, .view-tab, .subview-tab, [data-embudo], [data-view], [data-view-grupo], #launch-select, .nav-movil')) tocado = true; };
+  document.addEventListener('pointerdown', alTocar, true);
+  document.addEventListener('keydown', alTocar, true);
   await setEmbudo(state.embudo, { vista: VIEWS.includes(hash) ? hash : null });
-  if (abrirInicio) mostrarInicio();
+  document.removeEventListener('pointerdown', alTocar, true);
+  document.removeEventListener('keydown', alTocar, true);
+  if (abrirInicio && !tocado) mostrarInicio();
   irAliasNavegacion(hash);
   if (!$('#view-comparar').hidden) { renderCompareSelector(); renderComparativas(); pintarQueFunciono(); }
   if (!$('#view-rendimiento').hidden) loadRendimiento();
@@ -2753,7 +2762,7 @@ const AYUDA_KPI = {
   'Coste por venta': 'Inversión ÷ ventas del programa.',
   Impresiones: 'Veces que se mostraron los anuncios (Meta).',
   'Clics en el enlace': 'Clics en el enlace de los anuncios (Meta). CTR = clics ÷ impresiones; CPC = inversión ÷ clics.',
-  'Visitas a la página de registro': 'Visitas a la página que cuenta Meta (landing page views): hicieron clic y la página llegó a cargar.',
+  'Visitas a la página de registro': 'Visitantes únicos de la página de registro que cuenta el código de AlquimIA (de anuncios y orgánico). Sin ese código, las visitas que cuenta el píxel de Meta (landing page views).',
 };
 const ayudaKpi = (label) => {
   const t = String(label).replace(/<[^>]+>/g, '').trim();
@@ -3603,14 +3612,30 @@ function pintarEmbudoVisual(m, launch) {
   const reg = pasos.find((p) => p.id === 'registros');
   const fin = pasos.at(-1);
   const roas = m.tc && m.eco.inversion ? m.tc.fact / m.eco.inversion : m.eco.roas;
-  box.innerHTML = `<div class="fx-cab"><div><h2>Embudo en tiempo real</h2><p class="muted small">Cada capa es un paso, con su ancho según cuántas llegan. Se actualiza solo cada 5 minutos con Métricas abierta.</p></div>
-      <span class="fx-live"><i aria-hidden="true"></i><span data-fx-hace>${state.leadsAt ? `Actualizado ${haceTxt(state.leadsAt)}` : 'En vivo'}</span></span></div>
-    <div class="fx-cuerpo">${capas}</div>
-    <div class="fx-resumen">
-      <div><span>De cada 100 registros</span><b>${reg?.n ? (Math.round((fin.n / reg.n) * 1000) / 10).toLocaleString('es-ES') : '0'}</b><small>compran ${esc(nombreProducto(state.config))}</small></div>
+  const resumen = `<div><span>De cada 100 registros</span><b>${reg?.n ? (Math.round((fin.n / reg.n) * 1000) / 10).toLocaleString('es-ES') : '0'}</b><small>compran ${esc(nombreProducto(state.config))}</small></div>
       ${m.eco.inversion ? `<div><span>Inversión</span><b>${eur(m.eco.inversion)}</b><small>${reg?.n ? `${eur(m.eco.inversion / reg.n)} por lead` : ''}</small></div>` : ''}
-      ${roas != null ? `<div><span>ROAS</span><b>${roas.toFixed(2).replace('.', ',')}x</b><small>${m.tc ? 'con lo cobrado de verdad' : 'por etiquetas'}</small></div>` : ''}
-    </div>`;
+      ${roas != null ? `<div><span>ROAS</span><b>${roas.toFixed(2).replace('.', ',')}x</b><small>${m.tc ? 'con lo cobrado de verdad' : 'por etiquetas'}</small></div>` : ''}`;
+  const hace = state.leadsAt ? `Actualizado ${haceTxt(state.leadsAt)}` : 'En vivo';
+  // Al cargar llegan los datos por partes (copia de los leads, GHL, Meta, visitas, ventas reales): la animación de
+  // entrada solo la primera vez; después se cambian los números sin moverlo, y si no ha cambiado nada, no se toca.
+  const firma = `${state.launchCode}|${capas}|${resumen}`;
+  if (box.dataset.firma === firma) { const h = $('[data-fx-hace]', box); if (h) h.textContent = hace; return; }
+  const yaPintado = box.dataset.code === state.launchCode && $('.fx-cuerpo', box);
+  box.dataset.firma = firma;
+  box.dataset.code = state.launchCode;
+  if (yaPintado) {
+    box.classList.add('fx-quieto');
+    $('.fx-cuerpo', box).innerHTML = capas;
+    $('.fx-resumen', box).innerHTML = resumen;
+    const h = $('[data-fx-hace]', box);
+    if (h) h.textContent = hace;
+    return;
+  }
+  box.classList.remove('fx-quieto');
+  box.innerHTML = `<div class="fx-cab"><div><h2>Embudo en tiempo real</h2><p class="muted small">Cada capa es un paso, con su ancho según cuántas llegan. Se actualiza solo cada 5 minutos con Métricas abierta.</p></div>
+      <span class="fx-live"><i aria-hidden="true"></i><span data-fx-hace>${hace}</span></span></div>
+    <div class="fx-cuerpo">${capas}</div>
+    <div class="fx-resumen">${resumen}</div>`;
 }
 // «Actualizado hace…» y, con Métricas abierta y la pestaña visible, los leads de nuevo cada 5 minutos.
 setInterval(() => {
@@ -4314,7 +4339,11 @@ function renderTrafico(m, launch, tr) {
     card('Inversión', tr.inversion ? eur(tr.inversion) : '–', state.meta?.since ? `Meta Ads · ${esc(state.meta.since)} → ${esc(state.meta.until)}` : 'introducida a mano', 'megaphone', 'accent'),
     card('Impresiones', n(tr.impresiones), `CPM ${eur2(tr.cpm)} (coste por mil)`, 'eye', 'info'),
     card('Clics en el enlace', n(tr.clics), `CTR ${pct1(tr.ctr)} · CPC ${eur2(tr.cpc)}`, 'trend', 'info'),
-    card('Visitas a la página de registro', n(tr.visitas), tr.visitas ? `${pct1(tr.cargan)} de los clics llegan a cargarla · ${eur2(tr.costeVisita)} por visita` : 'landing page views de Meta', 'play', 'info'),
+    // Las visitas reales las cuenta el código de AlquimIA en la página (visitantes únicos); Meta solo ve las que registra
+    // su píxel. Si el píxel ve menos de la mitad de los clics, casi seguro que no está bien puesto en la página.
+    tr.visitasRegistro
+      ? card('Visitas a la página de registro', n(tr.visitasRegistro), `visitantes únicos (código de AlquimIA) · ${eur2(tr.inversion ? tr.inversion / tr.visitasRegistro : null)} por visita${tr.visitas != null ? ` · Meta solo cuenta ${n(tr.visitas)}` : ''}${tr.clics && tr.cargan != null && tr.cargan < 0.5 ? ` <span class="kpi-aviso" title="De ${n(tr.clics)} clics en los anuncios, el píxel de Meta solo ve cargar la página ${n(tr.visitas)} veces (${pct1(tr.cargan)}). Meta no puede optimizar bien sin ese dato: revisa que el píxel de Meta esté en la página de registro (y en la de gracias, con el evento de registro).">⚠️ el píxel de Meta apenas ve visitas: revisa que esté en la página</span>` : ''}`, 'play', 'info')
+      : card('Visitas a la página de registro', n(tr.visitas), tr.visitas ? `${pct1(tr.cargan)} de los clics llegan a cargarla · ${eur2(tr.costeVisita)} por visita (Meta)` : 'landing page views de Meta', 'play', 'info'),
     card('Conversión de la página', pct1(tr.conversionPagina), tr.conversionFuente === 'registro' ? `${n(m.total)} registros / ${n(tr.visitasRegistro)} visitas únicas a la página de registro`
       : tr.conversionPagina != null ? `${n(tr.registrosPubli)} registros${tr.conOrigen ? ' de publicidad' : ''} / ${n(tr.visitas)} visitas (Meta)${tr.registrosMeta ? ` · Meta cuenta ${n(tr.registrosMeta)}` : ''}` : 'registros / visitas únicas a la página de registro', 'funnel', 'buy'),
     card('CPL medio', eur2(tr.cpl), 'inversión / todos los registros', 'users', 'money'),
@@ -6625,6 +6654,7 @@ function openConfig(code, { silencioso = false } = {}) {
   pintarEnlaceDirecto();
   pintarRegistroKit();
   pintarAbConfig();
+  pintarEncuestaLanz();
   pintarVentaPasos();
   pintarVentaBarra(l.ventaBarra);
   pintarTitulares(l.titulares);
@@ -8019,6 +8049,8 @@ function readForm() {
       vipTag: $('#cfg-vip').value.trim().toLowerCase(),
       compraTag: $('#cfg-compra').value.trim().toLowerCase(),
       encuestaTag: $('#cfg-encuesta-tag').value.trim().toLowerCase(),
+      // Su encuesta del avatar (sin preguntas propias: la de siempre del cliente).
+      encuesta: editorEncLanz ? editorEncLanz.leer() : prev.encuesta || [],
       llamadaTag: $('#cfg-llamada-tag').value.trim().toLowerCase(),
       encuestaUrl: $('#cfg-encuesta-url').value.trim(),
       compraDateField: $('#cfg-compra-fecha').value,
@@ -10965,53 +10997,111 @@ $('#ag-body').addEventListener('click', (e) => {
 
 // ---------- Equipo → Marca (producto, colores de los emails y encuesta del avatar del cliente) ----------
 const TIPO_PREGUNTA = { opciones: 'Opciones (una o varias)', texto: 'Texto libre', edad: 'Edad (se agrupa por tramos)' };
-let marcaCampos = null; // campos de texto de GHL para la encuesta
-async function loadMarca() {
-  const box = $('#marca-body');
-  const m = state.config.marca || {};
-  const preguntas = preguntasEncuesta();
-  box.innerHTML = '<p class="muted">Cargando…</p>';
-  if (!marcaCampos) marcaCampos = await api('/api/fields?tipo=encuesta').then((d) => d.fields).catch(() => []);
-  const opcionesCampo = (sel) => `<option value="">— Campo de GHL —</option>${marcaCampos.map((f) => `<option value="${esc(f.id)}" ${f.id === sel ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}${sel && !marcaCampos.some((f) => f.id === sel) ? `<option value="${esc(sel)}" selected>${esc(sel)}</option>` : ''}`;
+// Campos de GHL para la encuesta, del cliente en el que se está (al cambiar de cliente, o con «Recargar», se piden otra vez).
+let marcaCampos = null;
+let marcaCamposDe = null;
+async function camposEncuesta(recargar = false) {
+  if (!marcaCampos || recargar || marcaCamposDe !== (state.cliente || '')) {
+    marcaCampos = await api('/api/fields?tipo=encuesta').then((d) => d.fields).catch(() => []);
+    marcaCamposDe = state.cliente || '';
+  }
+  return marcaCampos;
+}
+// Editor de las preguntas de una encuesta en `cont` (la de siempre del cliente o la de un lanzamiento): cada pregunta,
+// su campo de GHL (con buscador), su texto y su tipo. → { leer() } las preguntas que hay ahora.
+async function editorEncuesta(cont, preguntas = [], { recargar = false } = {}) {
+  const campos = await camposEncuesta(recargar);
+  // Buscador de cada pregunta: deja en la lista solo los campos que tienen todas las palabras (sin tildes).
+  const sinTildes = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const encaja = (f, q) => sinTildes(q).split(/\s+/).filter(Boolean).every((w) => sinTildes(f.name).includes(w));
+  const opcionesCampo = (sel, q = '') => {
+    const lista = campos.filter((f) => f.id === sel || !q || encaja(f, q));
+    const n = lista.filter((f) => f.id !== sel || encaja(f, q)).length;
+    return `<option value="">${q ? `— ${n ? `${n} ${n === 1 ? 'campo' : 'campos'} con «${esc(q)}»` : `ningún campo con «${esc(q)}»`} —` : '— Campo de GHL —'}</option>${lista.map((f) => `<option value="${esc(f.id)}" ${f.id === sel ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}${sel && !campos.some((f) => f.id === sel) ? `<option value="${esc(sel)}" selected>${esc(sel)}</option>` : ''}`;
+  };
   const fila = (p = {}) => `<div class="marca-preg row">
+    <input class="mp-buscar" type="search" placeholder="🔎 Buscar" aria-label="Buscar el campo de GHL" autocomplete="off">
     <select class="mp-campo" aria-label="Campo de GHL">${opcionesCampo(p.id)}</select>
     <input class="mp-nombre" value="${esc(p.name || '')}" placeholder="Texto de la pregunta" maxlength="160">
     <select class="mp-tipo" aria-label="Tipo">${Object.entries(TIPO_PREGUNTA).map(([k, v]) => `<option value="${k}" ${k === (p.tipo || 'opciones') ? 'selected' : ''}>${v}</option>`).join('')}</select>
     <button type="button" class="btn ghost mp-del" aria-label="Quitar">✕</button></div>`;
+  cont.innerHTML = `<div class="mp-lista">${preguntas.map(fila).join('')}</div>
+    <div class="row"><button type="button" class="btn" data-mp-add>+ Añadir pregunta</button> <button type="button" class="btn ghost small" data-mp-recargar title="Vuelve a leer los campos personalizados de GHL (p. ej. si acabas de crear uno)">↻ Recargar campos de GHL</button> <span class="muted small">${campos.length} campos de GHL</span></div>`;
+  const lista = $('.mp-lista', cont);
+  const leer = () => $$('.marca-preg', lista).map((r) => ({ id: $('.mp-campo', r).value, name: $('.mp-nombre', r).value.trim() || $('.mp-campo', r).selectedOptions[0]?.textContent || '', tipo: $('.mp-tipo', r).value })).filter((p) => p.id);
+  const ed = { leer };
+  $('[data-mp-add]', cont).onclick = () => lista.insertAdjacentHTML('beforeend', fila());
+  // Recargar sin perder lo que ya se ha cambiado.
+  $('[data-mp-recargar]', cont).onclick = async () => { const nuevo = await editorEncuesta(cont, leer(), { recargar: true }); ed.leer = nuevo.leer; };
+  lista.onclick = (e) => { if (e.target.closest('.mp-del')) e.target.closest('.marca-preg').remove(); };
+  // Al escribir en el buscador: la lista de esa pregunta se queda con lo que encaja; si es uno solo, se elige.
+  lista.oninput = (e) => {
+    const b = e.target.closest('.mp-buscar');
+    if (!b) return;
+    const sel = $('.mp-campo', b.closest('.marca-preg'));
+    const q = b.value.trim();
+    sel.innerHTML = opcionesCampo(sel.value, q);
+    const encontrados = campos.filter((f) => q && encaja(f, q));
+    if (encontrados.length === 1 && sel.value !== encontrados[0].id) { sel.value = encontrados[0].id; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+  };
+  // Al elegir el campo: el tipo y el texto de la pregunta salen de GHL (opciones / texto); se pueden cambiar.
+  lista.onchange = (e) => {
+    const sel = e.target.closest('.mp-campo');
+    if (!sel) return;
+    const f = campos.find((x) => x.id === sel.value);
+    const fila_ = sel.closest('.marca-preg');
+    if (f?.tipo && $('.mp-tipo', fila_).value !== 'edad') $('.mp-tipo', fila_).value = f.tipo;
+    if (f && !$('.mp-nombre', fila_).value.trim()) $('.mp-nombre', fila_).value = f.name.replace(/\s*\*\s*$/, '');
+  };
+  return ed;
+}
+async function loadMarca() {
+  const box = $('#marca-body');
+  const m = state.config.marca || {};
+  box.innerHTML = '<p class="muted">Cargando…</p>';
+  await camposEncuesta();
   box.innerHTML = `<div class="grid3">
       <label class="field"><span>Nombre del producto <small>(lo que se vende en el carrito)</small></span><input id="mc-producto" maxlength="40" value="${esc(m.producto || '')}" placeholder="Raíces, Método X…"></label>
       <label class="field narrow"><span>Color principal de los emails</span><input id="mc-color" type="color" value="${esc(m.color || '#860d0e')}"></label>
       <label class="field narrow"><span>Color de los botones</span><input id="mc-color2" type="color" value="${esc(m.color2 || '#c49b79')}"></label>
     </div>
-    <h3 class="cfg-h3">Encuesta del avatar</h3>
-    <p class="muted">Las preguntas de la encuesta de GHL (cada una guarda su respuesta en un campo personalizado del contacto). Se cruzan con las ventas en «Avatar y anuncios». Elige el campo de la lista de GHL: el tipo (opciones o texto) se pone solo; para la edad, elige «Edad».</p>
-    <p class="muted small">ⓘ Si en GHL creas una pregunta nueva o duplicas una, GHL crea un campo nuevo: añádelo aquí (y quita el antiguo) para que AlquimIA lea las respuestas nuevas. Si solo cambias el texto o las opciones de una pregunta, el campo es el mismo y no hay que tocar nada.</p>
-    <div id="mc-preguntas">${preguntas.map(fila).join('')}</div>
-    <button type="button" class="btn" id="mc-add">+ Añadir pregunta</button>
+    <h3 class="cfg-h3">Encuesta por defecto</h3>
+    <p class="muted">Cada lanzamiento tiene <strong>su propia encuesta</strong> en su configuración (Configuración del lanzamiento → Captación → Encuesta del avatar). Esta es la que usan los lanzamientos que no tienen una propia, la VSL y la venta directa.</p>
+    <p class="muted small">ⓘ Si en GHL creas una pregunta nueva o duplicas una, GHL crea un campo nuevo: añádelo (y quita el antiguo) para que AlquimIA lea las respuestas nuevas. Si solo cambias el texto o las opciones de una pregunta, el campo es el mismo y no hay que tocar nada.</p>
+    <div id="mc-encuesta"></div>
     <p class="muted small">Los mensajes de WhatsApp se cambian en <em>Comercial → Mensajes de WhatsApp</em> (pueden usar <code>{producto}</code>) y las tareas habituales, en <em>Tareas</em>.</p>
     <div class="row"><button type="button" class="btn primary" id="mc-guardar">Guardar marca</button><span class="muted" id="mc-status" aria-live="polite"></span></div>`;
   box.dataset.fila = '1';
-  $('#mc-add').onclick = () => $('#mc-preguntas').insertAdjacentHTML('beforeend', fila());
-  $('#mc-preguntas').onclick = (e) => { if (e.target.closest('.mp-del')) e.target.closest('.marca-preg').remove(); };
-  // Al elegir el campo: el tipo y el texto de la pregunta salen de GHL (opciones / texto); se pueden cambiar.
-  $('#mc-preguntas').onchange = (e) => {
-    const sel = e.target.closest('.mp-campo');
-    if (!sel) return;
-    const f = marcaCampos.find((x) => x.id === sel.value);
-    const fila_ = sel.closest('.marca-preg');
-    if (f?.tipo && $('.mp-tipo', fila_).value !== 'edad') $('.mp-tipo', fila_).value = f.tipo;
-    if (f && !$('.mp-nombre', fila_).value.trim()) $('.mp-nombre', fila_).value = f.name.replace(/\s*\*\s*$/, '');
-  };
+  const ed = await editorEncuesta($('#mc-encuesta'), state.config.encuesta || []);
   $('#mc-guardar').onclick = async () => {
     const st = $('#mc-status');
-    const encuesta = $$('#mc-preguntas .marca-preg').map((r) => ({ id: $('.mp-campo', r).value, name: $('.mp-nombre', r).value.trim() || $('.mp-campo', r).selectedOptions[0]?.textContent || '', tipo: $('.mp-tipo', r).value })).filter((p) => p.id);
     st.textContent = 'Guardando…';
     try {
-      const { config } = await api('/api/config', { method: 'POST', body: { op: 'marca', marca: { producto: $('#mc-producto').value.trim(), color: $('#mc-color').value, color2: $('#mc-color2').value }, encuesta } });
+      const { config } = await api('/api/config', { method: 'POST', body: { op: 'marca', marca: { producto: $('#mc-producto').value.trim(), color: $('#mc-color').value, color2: $('#mc-color2').value }, encuesta: ed.leer() } });
       state.config = config;
       st.textContent = 'Guardado ✓ Recarga AlquimIA para ver el nombre nuevo en todos los textos.';
     } catch (err) { st.textContent = err.message; }
   };
+}
+// Configuración del lanzamiento → Captación: su encuesta del avatar (si no tiene, usa la de siempre del cliente).
+let editorEncLanz = null;
+async function pintarEncuestaLanz() {
+  const box = $('#cfg-encuesta-editor');
+  if (!box) return;
+  const code = editingCode;
+  const propias = code ? state.config.launches[code]?.encuesta || [] : [];
+  const def = state.config.encuesta || [];
+  editorEncLanz = null;
+  box.innerHTML = `<p class="muted small" data-enc-nota>${propias.length ? 'Este lanzamiento tiene su propia encuesta.' : def.length ? `Aún no tiene preguntas propias: usa la encuesta por defecto del cliente (${def.map((p) => `«${esc(p.name)}»`).join(', ')}). Añade aquí las de este lanzamiento.` : 'Aún no tiene preguntas: añade las de la encuesta de GHL de este lanzamiento.'}</p>
+    ${!propias.length && def.length ? '<p><button type="button" class="btn ghost small" data-enc-copiar>Empezar con la encuesta por defecto</button></p>' : ''}
+    <div data-enc-ed><p class="muted">Cargando los campos de GHL…</p></div>`;
+  const ed = await editorEncuesta($('[data-enc-ed]', box), propias);
+  if (editingCode !== code) return;
+  editorEncLanz = ed;
+  $('[data-enc-copiar]', box)?.addEventListener('click', async (e) => {
+    e.target.closest('p').remove();
+    editorEncLanz = await editorEncuesta($('[data-enc-ed]', box), [...editorEncLanz.leer(), ...def]);
+  });
 }
 $('.tab[data-tab="marca"]').addEventListener('click', () => loadMarca().catch((e) => { $('#marca-body').innerHTML = `<p class="error">${esc(e.message)}</p>`; }));
 
@@ -17286,6 +17376,8 @@ async function cargarGrupos(code, box, { forzar = false } = {}) {
     ${esLanz && state.grupoWa?.code === code && state.grupoWa.claves && state.leadsDe === code ? (() => {
       const en = state.leads.filter((l) => l.s.enGrupo);
       const sin = en.filter((l) => !l.s.compra).length;
+      const r = enGruposDe(state.leads, state.grupoWa);
+      if (!r.exacto) return `<div class="notice warn"><span>📵 <strong>Solo ${r.conTelefono.toLocaleString('es-ES')} de ${state.leads.length.toLocaleString('es-ES')} leads tienen teléfono en GHL</strong>, así que no se puede saber por teléfono quién está en los grupos. Hay <strong>${state.grupoWa.personas.toLocaleString('es-ES')} personas en los grupos</strong>${state.grupoWa.admins ? ` (sin contar ${state.grupoWa.admins} administradora${state.grupoWa.admins === 1 ? '' : 's'})` : ''}: ≈ ${pctOf(r.n, state.leads.length).replace('.', ',')} de los leads. Para el cruce exacto, haz que el formulario de registro de GHL pida el teléfono (o el WhatsApp) en el campo «Teléfono» del contacto.</span></div>`;
       return `<div class="notice">🔗 <strong>Cruce exacto con GHL (por teléfono):</strong> ${en.length.toLocaleString('es-ES')} de ${state.leads.length.toLocaleString('es-ES')} leads están en los grupos (${pctOf(en.length, state.leads.length).replace('.', ',')}); ${(en.length - sin).toLocaleString('es-ES')} ya han comprado y <strong>${sin.toLocaleString('es-ES')} siguen sin comprar</strong> (lista en <em>Comercial → Setting hoy</em>). ${state.grupoWa.personas.toLocaleString('es-ES')} personas en los grupos${state.grupoWa.admins ? `, sin contar ${state.grupoWa.admins} administradora${state.grupoWa.admins === 1 ? '' : 's'}` : ''}.</div>`;
     })() : ''}
     ${vigilanciaHtml(d.vigilancia, code)}
@@ -17403,8 +17495,9 @@ function textoGrupoWa(m) {
   const g = state.grupoWa?.code === code ? state.grupoWa : null;
   const linea = (txt, title) => `<strong class="kpi-hero-ventas" title="${esc(title)}">💬 ${txt}</strong>`;
   if (g?.claves) {
-    const n = state.leads.filter((l) => l.s.enGrupo).length;
-    return linea(`${pctOf(n, m.total).replace('.', ',')} en grupos de WhatsApp (${n.toLocaleString('es-ES')})`, `Cruce por teléfono con SendFlow: ${g.personas} personas en los grupos, sin contar administradoras`);
+    const r = enGruposDe(state.leads, g);
+    if (!r.exacto) return linea(`≈ ${pctOf(r.n, m.total).replace('.', ',')} en grupos de WhatsApp (${g.personas.toLocaleString('es-ES')} personas)`, `Solo ${r.conTelefono} de ${m.total} leads tienen teléfono en GHL, así que el cruce por teléfono se queda corto: se usan las personas de los grupos (${g.personas}, sin administradoras) ÷ leads.`);
+    return linea(`${pctOf(r.n, m.total).replace('.', ',')} en grupos de WhatsApp (${r.n.toLocaleString('es-ES')})`, `Cruce por teléfono con SendFlow: ${g.personas} personas en los grupos, sin contar administradoras`);
   }
   if (!g) cargarMiembrosGrupo(code);
   const st = gruposStats[code];

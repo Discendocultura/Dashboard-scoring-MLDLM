@@ -39,3 +39,8 @@ test('acceso con WhatsApp: el móvil se guarda en la ficha de esa lead, nunca en
     globalThis.fetch = real;
   }
 });
+
+test('acceso: con Turnstile, el alta sin nombre también pide la verificación de Cloudflare', async () => {
+  const src = (await import('node:fs')).readFileSync(new URL('../handlers/access.js', import.meta.url), 'utf8');
+  assert.match(src, /\(name \|\| alta\) \? verificar/);
+});

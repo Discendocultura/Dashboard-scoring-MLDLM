@@ -4,10 +4,12 @@
 // desbloqueados), los enlaces y los textos con fechas. Con `cid` dice además si ya es VIP y si
 // ya ha rellenado la encuesta (si el lanzamiento la exige, las clases 1 y 2 no se ven sin ella).
 import { cacheCompartida } from '../lib/store.js';
+import { preguntasDe } from '../public/js/encuesta.js';
 import { getConfig } from '../lib/config-store.js';
 import { clienteActual } from '../lib/cliente.js';
 import { getContact, getContactCompleto, countByTag, findContactByEmail } from '../lib/ghl.js';
 import { dentroDelLimite } from '../lib/intentos.js';
+import { turnstileSiteKey } from '../lib/turnstile.js';
 import { varianteDe, textosTitular } from '../public/js/titulares.js';
 import { currentLaunch } from '../lib/digest.js';
 import { verifyToken, signToken, requireRole } from '../lib/auth.js';
@@ -192,6 +194,8 @@ export async function GET(request, ctx) {
       code,
       name: launch.name,
       cliente: clienteActual().id, // para la estética propia del cliente en la página (p. ej. el popup de la encuesta)
+      // Clave pública de Cloudflare Turnstile: el formulario de acceso la prepara en segundo plano (registro en un paso).
+      ...(turnstileSiteKey() ? { turnstile: turnstileSiteKey() } : {}),
       ...(sinGhl ? { reintentar: true } : {}),
       now,
       preview,
@@ -358,7 +362,7 @@ async function varianteTitular(launch, config, cid, request) {
     cacheCompartida(`titular|${cid}|${campos.join(',')}`, 2 * 3_600_000, leer),
     new Promise((r) => { setTimeout(() => r(null), 1500); }),
   ]);
-  return lead ? varianteDe(launch.titulares, lead, config.encuesta || []) : null;
+  return lead ? varianteDe(launch.titulares, lead, preguntasDe(config, launch)) : null;
 }
 
 // 27 → "27 €", 27.5 → "27,50 €" (formato español).
