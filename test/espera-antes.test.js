@@ -40,3 +40,12 @@ test('pantalla de espera: en lanzamientos de varios directos, solo en los elegid
   assert.equal(dia('dia_directo2', [2, 3]).key, 'directo2');
   assert.equal(dia('dia_directo3', [1]), null);
 });
+
+test('barras fijas: la cuenta atrás con días también enseña los segundos', async () => {
+  const src = (await import('node:fs')).readFileSync(new URL('../public/tracker.js', import.meta.url), 'utf8');
+  const fmt = new Function(`${/(  function fmtCountdown\(ms, conSeg\) \{[\s\S]*?\n  \})/.exec(src)[1]}; return fmtCountdown;`)();
+  const ms = ((2 * 24 + 0) * 3600 + 45 * 60 + 7) * 1000;
+  assert.equal(fmt(ms), '2 d 0 h 45 min');
+  assert.equal(fmt(ms, true), '2 d 0 h 45 min 07 s');
+  assert.equal(fmt(3 * 3600_000 + 5000, true), '3:00:05');
+});

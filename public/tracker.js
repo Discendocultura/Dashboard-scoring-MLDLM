@@ -581,21 +581,22 @@
 
   var serverNow = function () { return Date.now() + clockSkew; };
 
-  function fmtCountdown(ms) {
+  // conSeg: también los segundos cuando quedan días (barras fijas): «2 d 0 h 45 min 12 s».
+  function fmtCountdown(ms, conSeg) {
     if (ms <= 0) return '0:00:00';
     var s = Math.floor(ms / 1000);
     var d = Math.floor(s / 86400); s %= 86400;
     var h = Math.floor(s / 3600); s %= 3600;
     var m = Math.floor(s / 60); s %= 60;
     var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-    return d > 0 ? d + ' d ' + h + ' h ' + pad(m) + ' min' : h + ':' + pad(m) + ':' + pad(s);
+    return d > 0 ? d + ' d ' + h + ' h ' + pad(m) + ' min' + (conSeg ? ' ' + pad(s) + ' s' : '') : h + ':' + pad(m) + ':' + pad(s);
   }
 
   // Todas las cuentas atrás de la página (<span data-lsd-cd="epoch">) se actualizan cada segundo.
   var cdTimer = null;
   function tickCountdowns() {
     document.querySelectorAll('[data-lsd-cd]').forEach(function (el) {
-      el.textContent = fmtCountdown(Number(el.getAttribute('data-lsd-cd')) - serverNow());
+      el.textContent = fmtCountdown(Number(el.getAttribute('data-lsd-cd')) - serverNow(), el.hasAttribute('data-lsd-cd-seg'));
     });
     // Cuenta atrás en cajas (días / horas / min / seg).
     document.querySelectorAll('[data-lsd-cdb-at]').forEach(function (el) {
@@ -1769,6 +1770,15 @@
   // bar = { text (con {cuenta}), fin (ms), boton: { label, href } | null, color }. Al llegar a cero, alCero(el).
   // Sustituye a las barras <div data-lsd-bar> de la página. Sin bar, se quita.
   var bfTimer = null;
+  function fuenteDePagina(fuera) {
+    var cands = document.querySelectorAll('p, h1, h2, h3, li, .text-output, [class*="paragraph"], [class*="heading"]');
+    for (var i = 0; i < cands.length; i++) {
+      var c = cands[i];
+      if (fuera.contains(c) || c.closest('#lsd-espera, .res-pop, #lsd-encuesta') || !c.offsetHeight || !(c.textContent || '').trim()) continue;
+      return getComputedStyle(c).fontFamily;
+    }
+    return '';
+  }
   function barraFija(bar, alCero) {
     var el = document.getElementById('lsd-rb');
     clearInterval(bfTimer);
@@ -1785,7 +1795,9 @@
       document.body.insertBefore(el, document.body.firstChild);
     }
     if (bar.color) el.style.setProperty('--lsd-rb', bar.color); else el.style.removeProperty('--lsd-rb');
-    el.innerHTML = '<span class="lsd-bar-text">' + esc(bar.text).replace('{cuenta}', cdSpan(bar.fin)) + '</span>'
+    // La fuente de los textos de la página (en GHL va en cada texto, no en el body: si no, saldría la del navegador).
+    if (!el.style.fontFamily) { var f = fuenteDePagina(el); if (f) el.style.fontFamily = f; }
+    el.innerHTML = '<span class="lsd-bar-text">' + esc(bar.text).replace('{cuenta}', cdSpan(bar.fin).replace('<span ', '<span data-lsd-cd-seg ')) + '</span>'
       + (bar.boton && bar.boton.href ? '<a class="lsd-bar-btn" href="' + esc(bar.boton.href) + '">' + esc(bar.boton.label) + '</a>' : '');
     document.querySelectorAll('[data-lsd-bar]').forEach(function (b) { show(b, false); });
     document.body.style.paddingTop = el.offsetHeight + 'px';
