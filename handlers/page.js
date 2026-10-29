@@ -18,6 +18,7 @@ import { phaseAt, barFor, replayBarraDe, ventaBarraDe, textosPago, enlaceWhatsAp
 import { videosDe, conVip, nClases, esEnDirecto, sigReplay } from '../public/js/videos.js';
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
+import { ventanaBonus, TIPOS_BONUS } from '../public/js/oferta.js';
 import { recursosDe, tieneRecurso, etapasPreclase, preguntasValidas, UMBRAL_DESBLOQUEO, listaRecursosDe, recursoListaVisible } from '../public/js/recursos.js';
 import { votoDe, votosDe, resultadosVotos, claveVotos } from '../lib/votos.js';
 
@@ -117,7 +118,16 @@ export async function GET(request, ctx) {
         const v = await varianteTitular(launch, config, cid, request).catch((e) => { console.error('titular', e.message); return null; });
         for (const [k, t] of Object.entries(textosTitular(launch.titulares, v))) texts[k] = conProducto(t, producto);
       }
-      return json({ code, now, preview, links: enlacesVenta, texts, ventaBarra: vb && { ...vb, tramos: vb.tramos.map((t) => ({ ...t, text: conProducto(t.text, producto), boton: t.boton && { ...t.boton, label: conProducto(t.boton.label, producto) } })) } }, 200, CORS_HEADERS);
+      // Bonus de acción rápida (Configuración → Oferta): su fin (el «Fin a mano» o el de su tipo) para la cuenta atrás
+      // y para enseñar u ocultar su sección. Textos: <tipo>-nombre, <tipo>-fin, <tipo>-fecha y <tipo>-hora (y «bar-…»
+      // para el primero).
+      const bonus = barsDe(launch);
+      bonus.forEach((b, i) => {
+        for (const k of i === 0 ? [b.tipo, 'bar'] : [b.tipo]) {
+          Object.assign(texts, { [`${k}-nombre`]: b.nombre, [`${k}-fin`]: formatLong(b.hasta), [`${k}-fecha`]: formatDate(b.hasta), [`${k}-hora`]: formatTime(b.hasta) });
+        }
+      });
+      return json({ code, now, preview, links: enlacesVenta, texts, bonus, ventaBarra: vb && { ...vb, tramos: vb.tramos.map((t) => ({ ...t, text: conProducto(t.text, producto), boton: t.boton && { ...t.boton, label: conProducto(t.boton.label, producto) } })) } }, 200, CORS_HEADERS);
     }
 
     // A la hora del directo la preclase solo necesita saber adónde ir: se contesta sin llamar a GHL
@@ -360,6 +370,13 @@ export function euros(n) {
 // VIP vendidas en este lanzamiento = quien tiene la etiqueta VIP menos las que ya la tenían antes
 // (la "foto" las marcó con <código>_vip_previo). Se guarda 1 minuto para no consultar GHL en cada visita.
 const vipCache = new Map();
+// Los bonus de acción rápida (BAR) de la oferta con su ventana { tipo, nombre, desde, hasta } (epoch ms).
+export function barsDe(launch) {
+  return (launch.oferta?.bonus || []).filter((b) => String(b.tipo || '').startsWith('bar_') && b.nombre)
+    .map((b) => ({ b, w: ventanaBonus(b, launch) })).filter(({ w }) => w.hasta != null)
+    .map(({ b, w }) => ({ tipo: b.tipo, nombre: b.nombre, desde: w.desde ?? null, hasta: w.hasta, corto: TIPOS_BONUS.find((t) => t.id === b.tipo)?.corto || '' }));
+}
+
 async function vipVendidas(code, launch) {
   if (!launch.vipTag) return 0;
   const key = `${clienteActual().id}:${code}`;

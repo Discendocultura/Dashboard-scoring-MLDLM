@@ -1835,6 +1835,7 @@
         if ((k === 'whatsapp' || k === 'whatsapp-dudas') && !a.getAttribute('target')) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener'); }
       });
       if (data.embeds) { injectCss(); pintarEmbeds(data.embeds); }
+      if (data.bonus) bonusAccionRapida(data.bonus);
       if (!data.ventaBarra) return;
       injectCss();
       barraVenta(data);
@@ -1842,6 +1843,44 @@
     // Visitas a la página de venta (para «Setting hoy») y a la de pago (= inició el pago).
     if (pagina === 'llamada' || !who || !who.cid || params.get('lsd_preview')) return;
     visitaUnaVez(launch, who.cid, pagina, 10 * 60 * 1000);
+  }
+
+  // Bonus de acción rápida (BAR) en las páginas de venta y de pago, con el fin puesto en Configuración → Oferta:
+  //   <div data-lsd-bonus="bar_48h">…</div>          se ve hasta que termina (y se oculta solo al llegar a cero)
+  //   <div data-lsd-bonus-cerrado="bar_48h">…</div>  se ve cuando ya ha terminado
+  //   <span data-lsd-countdown-bonus="bar_48h"></span>        cuenta atrás en texto (1 d 23 h 05 min · 5:04:03)
+  //   <div data-lsd-countdown-boxes-bonus="bar_48h"></div>    cuenta atrás en cajas (días / horas / min / seg)
+  // El tipo es bar_directo, bar_24h o bar_48h; «bar» vale para el primero que haya. Sin ese bonus, se oculta todo.
+  function bonusAccionRapida(lista) {
+    var de = function (k) { return k === 'bar' ? lista[0] : lista.filter(function (b) { return b.tipo === k; })[0]; };
+    var abierto = function (b) { return Boolean(b) && serverNow() < b.hasta; };
+    var pintar = function () {
+      document.querySelectorAll('[data-lsd-bonus]').forEach(function (el) { show(el, abierto(de(el.getAttribute('data-lsd-bonus')))); });
+      document.querySelectorAll('[data-lsd-bonus-cerrado]').forEach(function (el) { var b = de(el.getAttribute('data-lsd-bonus-cerrado')); show(el, Boolean(b) && !abierto(b)); });
+      document.querySelectorAll('[data-lsd-countdown-bonus]').forEach(function (el) {
+        var b = de(el.getAttribute('data-lsd-countdown-bonus'));
+        if (!abierto(b)) { el.innerHTML = ''; show(el, false); return; }
+        if (!el.querySelector('[data-lsd-cd="' + b.hasta + '"]')) el.innerHTML = cdSpan(b.hasta);
+        show(el, true);
+      });
+      document.querySelectorAll('[data-lsd-countdown-boxes-bonus]').forEach(function (el) {
+        var b = de(el.getAttribute('data-lsd-countdown-boxes-bonus'));
+        if (!abierto(b)) { el.innerHTML = ''; el.removeAttribute('data-lsd-cdb-at'); show(el, false); return; }
+        show(el, true);
+        if (Number(el.getAttribute('data-lsd-cdb-at')) === b.hasta) return;
+        el.setAttribute('data-lsd-cdb-at', b.hasta);
+        var unit = function (u, label) { return '<div class="lsd-cdb-unit"><span class="lsd-cdb-num" data-u="' + u + '">00</span><span class="lsd-cdb-label">' + label + '</span></div>'; };
+        el.innerHTML = '<div class="lsd-cdb">' + unit('d', 'días') + unit('h', 'horas') + unit('m', 'min') + unit('s', 'seg') + '</div>';
+      });
+    };
+    injectCss();
+    pintar();
+    startCountdowns();
+    // Al terminar cada uno, se cambia solo (la sección del bonus se oculta y sale la de «terminado»).
+    lista.forEach(function (b) {
+      var ms = b.hasta - serverNow();
+      if (ms > 0 && ms < 2147483000) setTimeout(pintar, ms + 500);
+    });
   }
 
   // Test A/B de una página (GHL reparte el tráfico entre sus variantes): el bloque de la página lleva

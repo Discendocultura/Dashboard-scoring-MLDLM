@@ -8908,6 +8908,8 @@ function snippetsLanzamiento(code) {
     ['PAGO · bloque base de la página de pago (en el pie: barra fija, textos, precios y enlaces de los cajetines; el resto, en Venta → Página de pago)', `<div data-lsd-pago data-launch="auto"></div>\n${script}`],
     ['INSCRIBIRME · botón a la página de pago (páginas de venta y de replay; la URL va en Venta → Página de pago)', '<a data-lsd-link="pagina-pago">Quiero inscribirme en Raíces</a>'],
     ['WHATSAPP · botón para una sección (sin estilo: dale el tuyo)', '<a data-lsd-link="whatsapp-dudas">Escríbenos por WhatsApp</a>'],
+    ...((l.oferta?.bonus || []).some((b) => String(b.tipo || '').startsWith('bar_')) ? [['VENTA · bonus de acción rápida (se ve hasta la hora de fin puesta en Configuración → Oferta y se oculta sola; «bar» = el primer BAR, o su tipo: bar_directo, bar_24h, bar_48h)',
+      '<div data-lsd-bonus="bar">\n  <span data-lsd-text="bar-nombre"></span> · solo hasta el <span data-lsd-text="bar-fin"></span>\n  <div data-lsd-countdown-boxes-bonus="bar"></div>\n  <!-- o en texto: <span data-lsd-countdown-bonus="bar"></span> -->\n</div>\n<div data-lsd-bonus-cerrado="bar">El bonus de acción rápida ya ha terminado.</div>']] : []),
     ...(videosDe(l).length > 1 && grabModoDe(l) === 'global'
       ? [['GRABACIÓN · bloques de la página de las grabaciones (todas en una: el 1º y la barra arriba del todo; un bloque de vídeo por grabación, en orden; cada uno se abre a su hora)',
         `<div data-lsd-page="grabacion" data-launch="auto"></div>\n<div class="mi-barra" data-lsd-bar></div>\n${videosDe(l).map((v) => `<!-- ${v.nombre} -->\n<div data-lsd-video="${v.replay}"></div>`).join('\n')}\n${script}`]]
@@ -15168,7 +15170,7 @@ function filaBonus(b = {}, tipos = TIPOS_BONUS) {
     <input class="of-nombre" maxlength="120" placeholder="Nombre del bonus" value="${esc(b.nombre || '')}">
     <input class="of-detalle" maxlength="300" placeholder="Detalle (opcional)" value="${esc(b.detalle || '')}">
     <input class="of-valor" inputmode="decimal" placeholder="Valor €" value="${esc(valorTxt(b.valor))}" aria-label="Valor en euros">
-    <label class="of-hasta"><span>Fin a mano <small>(opcional)</small></span><input type="datetime-local" class="of-hasta-in" value="${esc(b.hasta || '')}"></label>
+    <label class="of-hasta"><span>Termina <small>(opcional: vacío = según su tipo; la página de venta usa esta hora)</small></span><input type="datetime-local" class="of-hasta-in" value="${esc(b.hasta || '')}"></label>
     <button type="button" class="btn ghost of-del" aria-label="Quitar">✕</button>
     <div class="of-obj"><label><span>Objetivo del bonus</span><select class="of-obj-sel"><option value="">Elige…</option>${OBJETIVOS_BONUS.map((o) => `<option value="${o.id}" ${o.id === b.objetivo ? 'selected' : ''}>${o.icon} ${esc(o.label)}</option>`).join('')}</select></label>
       <input class="of-obj-otro" maxlength="160" placeholder="Escribe el objetivo" aria-label="Otro objetivo" value="${esc(b.objetivoOtro || '')}" ${b.objetivo === 'otro' ? '' : 'hidden'}></div>

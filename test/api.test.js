@@ -957,3 +957,29 @@ test('UTM del envío del formulario de registro y atribuciones en lista', async 
   assert.equal(utmDeEnvio({ others: { eventData: { page: { url: 'https://web.com/encuesta' } } } }), null);
   assert.equal(source({ attributions: [{ isFirst: true, utmCampaign: 'primera' }, { isLast: true, medium: 'direct' }] }).campaign, 'primera');
 });
+
+test('página de venta: bonus de acción rápida con el fin de Configuración → Oferta', async () => {
+  const admin = await login('admin');
+  const config = await import('../handlers/config.js');
+  const cur = await (await config.GET(req('/api/config', { cookie: admin }))).json();
+  const oferta = { entregables: [], bonus: [
+    { id: 'b1', tipo: 'bar_48h', nombre: 'Sesión extra', hasta: '2026-11-03T23:59' },
+    { id: 'b2', tipo: 'bar_24h', nombre: 'Guía', hasta: '' },
+    { id: 'b3', tipo: 'bonus', nombre: 'Normal' },
+  ] };
+  await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, launches: { ...cur.config.launches, 'bar-test': {
+    name: 'Bar', registroTag: 'registro-webinar-demo', inicioCaptacion: '2026-10-01', fechaDirecto: '2026-10-29', horaDirecto: '19:00',
+    aperturaCarrito: '2026-10-30T19:00', cierreCarrito: '2026-11-06T23:59', oferta,
+  } } } }));
+  const page = await import('../handlers/page.js');
+  const d = await (await page.GET(req('/api/page?l=bar-test&pagina=venta'))).json();
+  const { madridToEpoch } = await import('../public/js/page.js');
+  assert.deepEqual(d.bonus.map((b) => [b.tipo, b.nombre, b.hasta]), [
+    ['bar_48h', 'Sesión extra', madridToEpoch('2026-11-03T23:59')],      // el fin puesto a mano
+    ['bar_24h', 'Guía', madridToEpoch('2026-10-30T19:00') + 24 * 3600_000], // sin fin: 24 h desde la apertura
+  ]);
+  assert.equal(d.texts['bar-nombre'], 'Sesión extra');
+  assert.equal(d.texts['bar_48h-hora'], '23:59');
+  assert.match(d.texts['bar_48h-fin'], /3 de noviembre/);
+  assert.equal(d.texts['bar_24h-nombre'], 'Guía');
+});
