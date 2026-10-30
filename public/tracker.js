@@ -1762,8 +1762,11 @@
         if (kind === 'grabacion') barraReplay(data, who);
         // Los 59 minutos antes del directo, la preclase se convierte en la pantalla de espera.
         var esp = kind === 'recursos' ? esperaDirecto(data) : null;
-        if (esp && serverNow() >= esp.desde) mostrarEspera(data, esp, who); else { quitarEspera(); if (kind === 'recursos') inscribirPorAdelantado(data, who); }
-        if (kind === 'recursos' && !data.reintentar) pantallaEncuesta(data, who, function () { intentos = 0; clearTimeout(timer); cycle(); });
+        var enEspera = Boolean(esp && serverNow() >= esp.desde);
+        if (enEspera) mostrarEspera(data, esp, who); else { quitarEspera(); if (kind === 'recursos') inscribirPorAdelantado(data, who); }
+        // Con la pantalla de espera del directo no se pide la encuesta (aunque no la haya rellenado): ni el popup ni
+        // las comprobaciones de si ya llegó, que con cientos de leads esperando cargarían GHL justo antes del directo.
+        if (kind === 'recursos' && !data.reintentar) pantallaEncuesta(enEspera ? Object.assign({}, data, { encuesta: { required: false } }) : data, who, function () { intentos = 0; clearTimeout(timer); cycle(); });
         // Próximo cambio: fase o desbloqueo de vídeo (o el momento de enseñar la pantalla de espera).
         var rec = data.recursos || {};
         var next = [data.changesAt, esp && esp.desde].concat(Object.keys(data.videos).map(function (k) { return data.videos[k].unlockAt; }), Object.keys(rec).map(function (k) { return rec[k] && rec[k].unlockAt; }))
@@ -1772,8 +1775,8 @@
         // Encuesta o test pendientes: se comprueba al volver a la pestaña (se rellenan en otra) y, además,
         // cada vez más espaciado (15 s, 30 s, 1 min, 2 min y luego cada 5 min; el test empieza en 1 min)
         // para no gastar peticiones con la página abierta y olvidada.
-        var encPend = Boolean(data.encuesta && data.encuesta.required && !data.encuesta.done);
-        var testPend = Boolean(data.recursos && data.recursos.test && data.recursos.test.unlocked && !data.recursos.test.done);
+        var encPend = !enEspera && Boolean(data.encuesta && data.encuesta.required && !data.encuesta.done);
+        var testPend = !enEspera && Boolean(data.recursos && data.recursos.test && data.recursos.test.unlocked && !data.recursos.test.done);
         waitingEncuesta = Boolean((encPend || testPend) && who && (who.cid || who.email));
         if (!waitingEncuesta) intentos = 0;
         if (waitingEncuesta && !document.hidden) {
