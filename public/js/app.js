@@ -2317,8 +2317,8 @@ function cumple(l, sig) {
   if (sig === 'trafico_templado') return l.s.trafico === 'templado';
   if (sig === 'sin_clases') return !watched(l.s, 'clase1') && !watched(l.s, 'clase2');
   if (sig === 'replay_50') return grabVenta(l.s) >= 50;
-  if (sig === 'setter_plantilla') return Boolean(l.s.setter?.plantilla);
-  if (sig === 'sin_plantilla') return !l.s.setter?.plantilla;
+  if (sig === 'setter_plantilla') return Boolean(l.s.wa_plantilla);
+  if (sig === 'sin_plantilla') return !l.s.wa_plantilla;
   if (sig === 'setter_respondio') return Boolean(l.s.setter?.respondio);
   return Boolean(l.s[sig]);
 }
@@ -5452,9 +5452,9 @@ function preclaseChips(l) {
   return out.join(' ');
 }
 // Dos formas de escribir a un lead: 💬 WhatsApp (gratis, desde tu móvil, con riesgo de bloqueo si se abusa) y
-// 📨 Plantilla (de pago, la envía GHL desde el número oficial; si responde, contesta el setter IA o, sin él, la setter
-// desde Conversaciones de GHL).
-const plantillasWa = () => state.config?.setterIa?.plantillas || [];
+// 📨 Plantilla (de pago, la envía GHL desde el número oficial; si responde, le contesta la setter desde Conversaciones de
+// GHL o, si el cliente usa el setter IA, el setter IA).
+const plantillasWa = () => state.config?.plantillasWa || [];
 const conSetterIa = () => Boolean(state.config?.setterIa?.url);
 const quienResponde = () => (conSetterIa() ? 'le contesta el setter IA' : 'te llega a Conversaciones de GHL y le contestas tú desde allí');
 function envioBtns(l, { corto = false } = {}) {
@@ -5463,7 +5463,7 @@ function envioBtns(l, { corto = false } = {}) {
   if (!plantillasWa().length) return wa;
   const pl = e.baja
     ? '<button type="button" class="btn plantilla" disabled title="Pidió no recibir más mensajes">📨 Baja</button>'
-    : `<button type="button" class="btn plantilla ${e.plantilla ? 'sent' : ''}" data-plantilla="${esc(l.id)}" title="DE PAGO · Plantilla aprobada por Meta, la envía GHL desde el número oficial. Sin riesgo de bloqueo. Si responde, ${quienResponde()}.">📨 ${e.plantilla ? 'Plantilla ✓' : 'Plantilla'} <small class="envio-precio">de pago</small></button>`;
+    : `<button type="button" class="btn plantilla ${l.s.wa_plantilla ? 'sent' : ''}" data-plantilla="${esc(l.id)}" title="DE PAGO · Plantilla aprobada por Meta, la envía GHL desde el número oficial. Sin riesgo de bloqueo. Si responde, ${quienResponde()}.">📨 ${l.s.wa_plantilla ? 'Plantilla ✓' : 'Plantilla'} <small class="envio-precio">de pago</small></button>`;
   return `<span class="envio-btns">${wa}${pl}</span>`;
 }
 // Nota fija encima de Leads y de Setting hoy: qué es cada botón, en una línea cada uno.
@@ -5690,7 +5690,7 @@ document.addEventListener('click', async (e) => {
 });
 
 // ---------- Plantillas de WhatsApp (de pago): a una persona o a muchas a la vez ----------
-// El dashboard pone a cada persona la etiqueta de la plantilla elegida (setter-ia-enviar-…) y la de «contactada» y apunta
+// El dashboard pone a cada persona la etiqueta de la plantilla elegida (wa-enviar-…), la de «plantilla enviada» y la de «contactada» y apunta
 // el envío con su precio (/api/plantillas-wa). El workflow de GHL de esa etiqueta envía la plantilla, le pone
 // setter-ia-plantilla y quita la etiqueta (para poder repetir). Se manda de 20 en 20.
 const euros = (n) => (n == null ? '–' : `${Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`);
@@ -5712,11 +5712,11 @@ function abrirPlantilla(leads) {
   const fuera = leads.length - plLeads.length;
   const uno = leads.length === 1;
   const nombre = uno ? (leads[0].firstName || leads[0].name || 'esta persona') : '';
-  const ya = plLeads.filter((l) => l.s.setter?.plantilla).length;
+  const ya = plLeads.filter((l) => l.s.wa_plantilla).length;
   const conIa = plLeads.filter((l) => l.s.setter?.activo).length;
   $('#pl-titulo').textContent = uno ? `📨 Enviar plantilla a ${nombre}` : `📨 Enviar plantilla a ${plLeads.length} personas`;
   $('#pl-body').innerHTML = `
-    <label class="field"><span>¿Qué plantilla? <small>(las aprobadas: Cuenta → Conexiones → Setter IA)</small></span>
+    <label class="field"><span>¿Qué plantilla? <small>(las aprobadas: Configuración → Conexiones → Plantillas de WhatsApp)</small></span>
       <select id="pl-elegida">${pls.map((p) => `<option value="${esc(p.tag)}">${esc(p.nombre)} · ${eurosUd(p.precio)} cada una</option>`).join('')}</select></label>
     <div class="pl-coste" id="pl-coste"></div>
     ${!uno && fuera ? `<p class="muted small">Se quedan fuera ${fuera}: sin teléfono, ya compraron o pidieron la baja.</p>` : ''}
@@ -5761,7 +5761,7 @@ $('#pl-enviar').addEventListener('click', async () => {
       for (const l of lote) {
         if (!ok.has(l.id)) { fallos++; continue; }
         l.s.wa_enviado = true;
-        l.s.setter = { ...(l.s.setter || {}), plantilla: true, alguna: true };
+        l.s.wa_plantilla = true;
         state.plSel.delete(l.id);
       }
       enviadas += r.enviadas;
@@ -9483,7 +9483,7 @@ function renderAutomatizaciones() {
   if (!box) return;
   const { tipo, code, obj } = autoActual();
   if (!obj) { box.innerHTML = `<div class="card empty"><p class="muted">Elige ${tipo === 'meteorico' ? 'un meteórico' : 'un lanzamiento'} para ver sus automatizaciones.</p></div>`; return; }
-  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente, plantillasWa: state.config.setterIa?.plantillas || [] });
+  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente, plantillasWa: state.config.plantillasWa || [] });
   const lista = automatizacionesDe(c);
   const datos = obj.automatizaciones || {};
   const origen = datos.origen || embudoInfo()?.autoOrigen || '';
@@ -9543,7 +9543,7 @@ document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-au-prompt], [data-au-ia], [data-au-prep]');
   if (!b) return;
   const { tipo, code, obj } = autoActual();
-  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente, plantillasWa: state.config.setterIa?.plantillas || [] });
+  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente, plantillasWa: state.config.plantillasWa || [] });
   const lista = automatizacionesDe(c);
   const x = lista.find((y) => y.id === (b.dataset.auPrompt || b.dataset.auIa));
   const txt = b.hasAttribute('data-au-prep') ? promptPreparacion(lista, c) : b.dataset.auIa ? descripcionIaGhl(x, c) : promptAutomatizacion(x, c);
@@ -17148,7 +17148,7 @@ $('#btn-conexiones').addEventListener('click', () => {
 });
 // Estado de cada conexión (la pastilla de su tarjeta y el resumen de arriba): { clave: ['ok'|'aviso'|'no', texto] }.
 const estadoCx = {};
-const NOMBRE_CX = { thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
+const NOMBRE_CX = { thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
 function ponerEstadoCx(clave, tono, texto) {
   estadoCx[clave] = [tono, texto];
   const el = $(`#conexiones-dialog [data-cx-estado="${clave}"]`);
@@ -17159,6 +17159,8 @@ function ponerEstadoCx(clave, tono, texto) {
 function pintarEstadoCx() {
   const st = state.config?.setterIa;
   ponerEstadoCx('setter', st?.url ? 'ok' : 'no', st?.url ? 'Conectado' : 'Sin conectar');
+  const npl = plantillasWa().length;
+  ponerEstadoCx('plantillas', npl ? 'ok' : 'no', npl ? `${npl} ${npl === 1 ? 'plantilla' : 'plantillas'}` : 'Sin plantillas');
   if (!estadoCx.sendflow) ponerEstadoCx('sendflow', 'aviso', 'Pulsa «Probar»');
 }
 // Pulsar un estado del resumen abre su tarjeta.
@@ -17397,18 +17399,18 @@ $('#cx-av-guardar').addEventListener('click', async () => {
 });
 $('#cx-sendflow-probar').addEventListener('click', () => probarSendflow());
 // Setter IA: su dirección (para «Abrir en el setter») y si la clave de las cifras está puesta en Cloudflare.
-// Código de la etiqueta de una plantilla a partir de su nombre: «Bienvenida webinar» → setter-ia-enviar-bienvenida-webinar.
-const tagPlantilla = (nombre) => `setter-ia-enviar-${String(nombre || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'plantilla'}`;
+// Código de la etiqueta de una plantilla a partir de su nombre: «Bienvenida webinar» → wa-enviar-bienvenida-webinar.
+const tagPlantilla = (nombre) => `wa-enviar-${String(nombre || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'plantilla'}`;
 let cxPlantillas = [];
 function pintarPlantillasCx() {
-  $('#cx-setter-plantillas').innerHTML = cxPlantillas.length ? cxPlantillas.map((p, i) => `<div class="cx-pl" data-cx-pl="${i}">
+  $('#cx-plantillas').innerHTML = cxPlantillas.length ? cxPlantillas.map((p, i) => `<div class="cx-pl" data-cx-pl="${i}">
       <input data-cx-pl-nombre value="${esc(p.nombre)}" maxlength="60" placeholder="Nombre de la plantilla (como en WhatsApp)" aria-label="Nombre de la plantilla">
       <label class="cx-pl-precio" title="Lo que cobra Meta por cada una (aprox.; míralo en tu factura). Sirve para el coste estimado y el gasto."><input data-cx-pl-precio inputmode="decimal" value="${esc(String(p.precio ?? 0.06).replace('.', ','))}" aria-label="Precio por plantilla en euros"> €</label>
       <code title="Código que pone AlquimIA y que dispara el workflow de GHL">${esc(p.tag)}</code>
       <button type="button" class="btn ghost small" data-cx-pl-quitar aria-label="Quitar">✕</button></div>`).join('')
     : '<p class="muted small">Sin plantillas: en Leads y Setting hoy solo saldrá el botón de WhatsApp gratis.</p>';
 }
-$('#cx-setter-plantillas').addEventListener('input', (e) => {
+$('#cx-plantillas').addEventListener('input', (e) => {
   const i = Number(e.target.closest('[data-cx-pl]')?.dataset.cxPl);
   if (!cxPlantillas[i]) return;
   if (e.target.matches('[data-cx-pl-precio]')) { cxPlantillas[i].precio = e.target.value.replace(',', '.'); return; }
@@ -17416,7 +17418,7 @@ $('#cx-setter-plantillas').addEventListener('input', (e) => {
   cxPlantillas[i].nombre = e.target.value;
   if (!cxPlantillas[i].fija) { cxPlantillas[i].tag = tagPlantilla(e.target.value); e.target.closest('[data-cx-pl]').querySelector('code').textContent = cxPlantillas[i].tag; }
 });
-$('#cx-setter-plantillas').addEventListener('click', (e) => {
+$('#cx-plantillas').addEventListener('click', (e) => {
   if (!e.target.closest('[data-cx-pl-quitar]')) return;
   cxPlantillas.splice(Number(e.target.closest('[data-cx-pl]').dataset.cxPl), 1);
   pintarPlantillasCx();
@@ -17424,13 +17426,36 @@ $('#cx-setter-plantillas').addEventListener('click', (e) => {
 $('#cx-pl-add').addEventListener('click', () => {
   cxPlantillas.push({ id: `p${Date.now().toString(36)}`, nombre: '', tag: tagPlantilla(''), precio: 0.06 });
   pintarPlantillasCx();
-  $$('#cx-setter-plantillas [data-cx-pl-nombre]').at(-1)?.focus();
+  $$('#cx-plantillas [data-cx-pl-nombre]').at(-1)?.focus();
+});
+function pintarPlantillasConexiones() {
+  // Las ya guardadas conservan su código (su workflow de GHL ya lo usa); las nuevas lo sacan del nombre.
+  cxPlantillas = plantillasWa().map((p) => ({ ...p, fija: true }));
+  pintarPlantillasCx();
+  $('#cx-pl-status').textContent = '';
+}
+$('#cx-pl-guardar').addEventListener('click', async () => {
+  const st = $('#cx-pl-status');
+  st.textContent = 'Guardando…';
+  try {
+    const vistos = new Set();
+    const plantillasWa = cxPlantillas.filter((p) => p.nombre.trim()).map((p) => {
+      let tag = p.tag;
+      for (let n = 2; vistos.has(tag); n++) tag = `${p.tag}-${n}`;
+      vistos.add(tag);
+      return { id: p.id, nombre: p.nombre.trim(), tag, precio: p.precio };
+    });
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, plantillasWa } });
+    state.config = config;
+    pintarPlantillasConexiones();
+    pintarEstadoCx();
+    render();
+    st.textContent = 'Guardado ✓';
+  } catch (e) { st.textContent = e.message; }
 });
 function pintarSetterConexiones() {
   $('#cx-setter-url').value = state.config.setterIa?.url || '';
-  // Las ya guardadas conservan su código (su workflow de GHL ya lo usa); las nuevas lo sacan del nombre.
-  cxPlantillas = (state.config.setterIa?.plantillas || []).map((p) => ({ ...p, fija: true }));
-  pintarPlantillasCx();
+  pintarPlantillasConexiones();
   $('#cx-setter-status').textContent = '';
   $('#cx-setter-status-url').textContent = '';
   // Pipeline de LabIA: la lista de pipelines del GHL de este cliente.
@@ -17446,7 +17471,7 @@ function pintarSetterConexiones() {
     ? '✓ Clave de las cifras puesta en Cloudflare.'
     : 'Para ver sus cifras en <strong>Rendimiento</strong>, añade en Cloudflare (Workers y Pages → AlquimIA → Configuración → Variables y secretos) el secreto <code>SETTER_RESUMEN_KEY</code> (vale para todos los clientes) con el mismo valor que <code>RESUMEN_KEY</code> del setter, y vuelve a desplegar.';
 }
-// Se guarda con el botón de al lado de la dirección, con Enter en ella o con el de abajo (dirección y plantillas).
+// Se guarda con el botón de al lado de la dirección, con Enter en ella o con el de abajo.
 async function guardarSetter(st) {
   // Vale la de entrar (…/login) o cualquier página del setter: se guarda solo el principio (https://dominio).
   let url = $('#cx-setter-url').value.trim();
@@ -17454,14 +17479,7 @@ async function guardarSetter(st) {
   if (url) { try { const u = new URL(url); if (u.protocol !== 'https:') throw new Error(); url = u.origin; } catch { st.textContent = 'Pega la dirección completa, empezando por https://'; return; } }
   st.textContent = 'Guardando…';
   try {
-    const vistos = new Set();
-    const plantillas = cxPlantillas.filter((p) => p.nombre.trim()).map((p) => {
-      let tag = p.tag;
-      for (let n = 2; vistos.has(tag); n++) tag = `${p.tag}-${n}`;
-      vistos.add(tag);
-      return { id: p.id, nombre: p.nombre.trim(), tag, precio: p.precio };
-    });
-    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, setterIa: { url, plantillas, pipelineId: state.labia ? $('#cx-setter-pipeline').value : state.config.setterIa?.pipelineId || '' } } });
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, setterIa: { url, pipelineId: state.labia ? $('#cx-setter-pipeline').value : state.config.setterIa?.pipelineId || '' } } });
     state.config = config;
     pintarSetterConexiones();
     pintarLabia();

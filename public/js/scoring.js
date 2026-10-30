@@ -39,6 +39,8 @@ export const SIGNALS = [
 // conversación ahora). plantilla = se le mandó la plantilla de WhatsApp; activo = la IA está conversando;
 // pausa = la lleva una persona; humano = la IA pide que la atienda una persona; cita = agendó la llamada;
 // baja = pidió no recibir más mensajes.
+// Plantilla de WhatsApp enviada desde AlquimIA (la pone el propio dashboard al enviarla; no es del setter IA).
+export const PLANTILLA_ENVIADA_TAG = 'wa-plantilla-enviada';
 export const SETTER_IA_TAGS = { plantilla: 'setter-ia-plantilla', activo: 'setter-ia-activo', pausa: 'setter-ia-pausa', humano: 'setter-ia-humano', cita: 'setter-ia-cita', baja: 'setter-ia-baja' };
 export function estadoSetterIa(tags) {
   const t = new Set((tags || []).map((x) => String(x).toLowerCase()));
@@ -199,6 +201,8 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   // o el resultado «Llamada agendada» que marca la setter.
   s.llamada = (has(cfg.llamadaTag) && !s.llamada_previo) || s.res_llamada;
   s.setter = estadoSetterIa(contactTags);
+  // Se le mandó una plantilla de WhatsApp (las de antes las marcaba el workflow con setter-ia-plantilla).
+  s.wa_plantilla = has(PLANTILLA_ENVIADA_TAG) || s.setter.plantilla;
   // Recursos de la preclase que tiene este lanzamiento (para la puntuación) y el test hecho (su etiqueta).
   // «votacion» es el bloque de participación: votó o comentó (la votación o los comentarios de la preclase).
   s.recursos = { musica: tieneRecurso(cfg, 'musica'), test: tieneRecurso(cfg, 'test'), votacion: tieneRecurso(cfg, 'votacion') || tieneRecurso(cfg, 'comentarios'), descargable: tieneRecurso(cfg, 'descargable'), soloVotacion: tieneRecurso(cfg, 'votacion'), comentarios: tieneRecurso(cfg, 'comentarios') };
