@@ -13057,7 +13057,7 @@ function llamadaCard(c) {
     <div class="ll-main">
       <div class="ll-name">${esc(lead?.name || c.title || 'Sin nombre')}
         ${etapa ? `<span class="ll-etapa" style="--c:${esc(etapa.color || '#8a817b')}" title="Etapa en el pipeline de GHL">${esc(etapa.name)}</span>` : '<span class="ll-etapa none" title="Aún no está en el pipeline: se añadirá al anotar el resultado">Sin etapa</span>'}
-        ${llCancelada(c) ? '<span class="ll-etapa none">Cita cancelada</span>' : ''}</div>
+        ${llCancelada(c) ? '<span class="ll-etapa ll-cancelada">❌ Cita cancelada</span>' : ''}</div>
       <div class="ll-contact">${phone ? `<a href="tel:${esc(phone)}">${icon('phone')}${esc(phone)}</a>` : ''}${wa ? `<a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}${phone ? '' : '<span class="muted">Sin teléfono</span>'}</div>
       <div class="ll-chips">${repChip}${cancChip}${origenChip(c)}${chips}</div>
       ${r ? `<div class="ll-res">${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span>${c.resultado.notas ? `<div class="ll-notas">${esc(c.resultado.notas)}</div>` : ''}</div>` : ''}

@@ -1002,7 +1002,8 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .ll-card.res-venta { border-left: 4px solid var(--tone-buy); }
 .ll-card.res-perdido { border-left: 4px solid var(--muted); }
 .ll-card.res-seguimiento { border-left: 4px solid var(--tone-live); }
-.ll-card.cancelada { opacity: .6; }
+.ll-card.cancelada { border: 2px solid var(--error); border-left-width: 6px; background: color-mix(in srgb, var(--error) 6%, var(--surface)); }
+.ll-etapa.ll-cancelada { background: var(--error); color: #fff; }
 .ll-when { flex: none; width: 74px; text-align: center; padding: 6px 0; border-radius: 10px; background: var(--surface-2); display: flex; flex-direction: column; }
 .ll-dia { font-size: 12px; font-weight: 700; color: var(--text-2); text-transform: capitalize; }
 .ll-hora { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
