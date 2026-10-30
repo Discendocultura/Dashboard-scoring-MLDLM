@@ -227,7 +227,7 @@ const listaPlantillas = (c) => c.plantillasWa.map((p) => `«${p.nombre}» → di
 const SETTER = [
   {
     id: 'setter-plantilla', titulo: 'Plantillas de WhatsApp (botón 📨 de AlquimIA)', requiere: [], si: (c) => c.plantillasWa.length,
-    para: 'Cuando alguien del equipo pulsa «📨 Plantilla» en AlquimIA, se pone a la persona una etiqueta y este workflow le envía la plantilla aprobada. Si responde, contesta el setter IA. Son para todo el cliente: UN workflow por plantilla (si ya existen de otro lanzamiento, no los dupliques).',
+    para: 'Cuando alguien del equipo pulsa «📨 Plantilla» en AlquimIA, se pone a la persona una etiqueta y este workflow le envía la plantilla aprobada. Si responde, contesta el setter IA o, si no lo usas, una persona del equipo desde Conversaciones de GHL. Son para todo el cliente: UN workflow por plantilla (si ya existen de otro lanzamiento, no los dupliques).',
     disparador: (c) => `Contact Tag Added. Uno por plantilla: ${listaPlantillas(c)}.`,
     acciones: (c) => [
       'Filtro al principio: la etiqueta NO incluye «setter-ia-baja» (quien pidió la baja no vuelve a recibir plantillas).',
@@ -235,6 +235,7 @@ const SETTER = [
       'Añadir la etiqueta «setter-ia-plantilla» (sin ella el setter no responde y AlquimIA no la cuenta).',
       'Quitar la etiqueta que lo disparó (la de «setter-ia-enviar-…»), para poder volver a enviarla otro día.',
       'Crear o actualizar la oportunidad en el pipeline del lanzamiento, etapa «Contactado».',
+      ...(c.setterUrl ? [] : ['Sin setter IA: «Assign to user» a la persona que hace el setting (así le llega la respuesta en Conversaciones de GHL y en su app) y, si quieres, una notificación interna cuando conteste.']),
     ],
     prueba: () => 'Ponte como contacto de prueba con tu propio número y pulsa «📨 Plantilla» en AlquimIA: en unos segundos te llega la plantilla y en Leads sale «📨 Plantilla ✓».',
   },

@@ -5452,21 +5452,24 @@ function preclaseChips(l) {
   return out.join(' ');
 }
 // Dos formas de escribir a un lead: 💬 WhatsApp (gratis, desde tu móvil, con riesgo de bloqueo si se abusa) y
-// 📨 Plantilla (de pago, la envía GHL desde el número oficial y, si responde, contesta el setter IA).
+// 📨 Plantilla (de pago, la envía GHL desde el número oficial; si responde, contesta el setter IA o, sin él, la setter
+// desde Conversaciones de GHL).
 const plantillasWa = () => state.config?.setterIa?.plantillas || [];
+const conSetterIa = () => Boolean(state.config?.setterIa?.url);
+const quienResponde = () => (conSetterIa() ? 'le contesta el setter IA' : 'te llega a Conversaciones de GHL y le contestas tú desde allí');
 function envioBtns(l, { corto = false } = {}) {
   const e = l.s.setter || {};
   const wa = `<button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}" title="${esc(`GRATIS · Se abre tu WhatsApp con este mensaje ya escrito:\n\n${messageFor(l)}\n\n⚠️ Si escribes a mucha gente que no te tiene guardada, WhatsApp puede bloquear tu número.`)}">💬 ${l.s.wa_enviado ? (corto ? 'Reenviar' : 'Enviado ✓') : 'WhatsApp'} <small class="envio-precio">gratis</small></button>`;
   if (!plantillasWa().length) return wa;
   const pl = e.baja
     ? '<button type="button" class="btn plantilla" disabled title="Pidió no recibir más mensajes">📨 Baja</button>'
-    : `<button type="button" class="btn plantilla ${e.plantilla ? 'sent' : ''}" data-plantilla="${esc(l.id)}" title="DE PAGO · Plantilla aprobada por Meta, la envía GHL desde el número oficial. Sin riesgo de bloqueo. Si responde, le contesta el setter IA.">📨 ${e.plantilla ? 'Plantilla ✓' : 'Plantilla'} <small class="envio-precio">de pago</small></button>`;
+    : `<button type="button" class="btn plantilla ${e.plantilla ? 'sent' : ''}" data-plantilla="${esc(l.id)}" title="DE PAGO · Plantilla aprobada por Meta, la envía GHL desde el número oficial. Sin riesgo de bloqueo. Si responde, ${quienResponde()}.">📨 ${e.plantilla ? 'Plantilla ✓' : 'Plantilla'} <small class="envio-precio">de pago</small></button>`;
   return `<span class="envio-btns">${wa}${pl}</span>`;
 }
 // Nota fija encima de Leads y de Setting hoy: qué es cada botón, en una línea cada uno.
 function pintarNotaEnvios() {
   const html = `<div class="envio-op" title="Se abre tu WhatsApp con el mensaje ya escrito y lo envías tú. Si escribes a mucha gente que no te tiene guardada, WhatsApp puede bloquear tu número: úsalo con pocas personas al día."><strong>💬 WhatsApp · <span class="envio-gratis">gratis</span></strong> <span>desde tu móvil · <b>⚠️ riesgo de bloqueo</b> si escribes a mucha gente</span></div>
-    ${plantillasWa().length ? `<div class="envio-op" title="La envía GHL desde el número oficial con una plantilla aprobada por Meta (cada una cuesta unos céntimos). Sin riesgo de bloqueo y, si contesta, le responde el setter IA."><strong>📨 Plantilla · <span class="envio-pago">de pago</span></strong> <span>la envía GHL · <b>sin riesgo de bloqueo</b> · si responde, contesta el setter IA</span></div>` : ''}`;
+    ${plantillasWa().length ? `<div class="envio-op" title="La envía GHL desde el número oficial con una plantilla aprobada por Meta (cada una cuesta unos céntimos). Sin riesgo de bloqueo y, si contesta, ${quienResponde()}."><strong>📨 Plantilla · <span class="envio-pago">de pago</span></strong> <span>la envía GHL · <b>sin riesgo de bloqueo</b> · si responde, ${conSetterIa() ? 'contesta el setter IA' : 'contestas tú desde GHL'}</span></div>` : ''}`;
   for (const el of $$('[data-nota-envios]')) if (el.innerHTML !== html) el.innerHTML = html;
 }
 function rowHtml(l) {
@@ -5722,7 +5725,7 @@ function abrirPlantilla(leads) {
     <ul class="pl-avisos">
       <li>💶 <strong>Es de pago:</strong> Meta cobra cada plantilla (el precio de arriba es aproximado: mira tu factura).</li>
       <li>✅ <strong>Sin riesgo de bloqueo:</strong> sale del número oficial de WhatsApp de GHL, no del tuyo.</li>
-      <li>🤖 <strong>Si responde, le contesta el setter IA</strong> y la conversación sigue allí.</li>
+      ${conSetterIa() ? '<li>🤖 <strong>Si responde, le contesta el setter IA</strong> y la conversación sigue allí.</li>' : '<li>💬 <strong>Si responde, su mensaje llega a Conversaciones de GHL</strong>: contéstale desde allí (o desde la app de GHL), no desde tu WhatsApp, para que siga saliendo del número oficial.</li>'}
     </ul>
     <div class="pl-progreso" id="pl-progreso" hidden><div class="pl-barra"><i></i></div><span></span></div>
     <p class="muted small" id="pl-status"></p>`;
@@ -5767,7 +5770,7 @@ $('#pl-enviar').addEventListener('click', async () => {
       $('.pl-barra i', prog).style.width = `${Math.round(((i + lote.length) / leads.length) * 100)}%`;
     }
     $('#plantilla-dialog').close();
-    notice(`📨 ${enviadas === 1 ? `Plantilla en camino a ${leads[0].firstName || leads[0].name || 'la lead'}` : `${enviadas} plantillas en camino`} (${euros(coste)}): GHL las envía en unos segundos. Si responden, contesta el setter IA.${fallos ? ` ${fallos} no se pudieron marcar: vuelve a probar con ellas.` : ''}`, Boolean(fallos));
+    notice(`📨 ${enviadas === 1 ? `Plantilla en camino a ${leads[0].firstName || leads[0].name || 'la lead'}` : `${enviadas} plantillas en camino`} (${euros(coste)}): GHL las envía en unos segundos. Si responden, ${conSetterIa() ? 'contesta el setter IA' : 'las verás en Conversaciones de GHL'}.${fallos ? ` ${fallos} no se pudieron marcar: vuelve a probar con ellas.` : ''}`, Boolean(fallos));
   } catch (ex) {
     $('#pl-status').textContent = `${enviadas ? `Se enviaron ${enviadas}. ` : ''}${ex.message}`;
     b.disabled = false;
