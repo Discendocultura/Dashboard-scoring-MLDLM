@@ -87,7 +87,7 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const PAGE_SIZE = 100;
 
 const state = {
-  hoy: { code: '', motivo: '', temp: '', max: 40 }, // ☀️ Setting hoy: filtros de la lista por prioridad
+  hoy: { code: '', motivo: '', temp: '', senales: [], max: 40 }, // ☀️ Setting hoy: filtros de la lista por prioridad (señales: segmento combinado)
   meteo: { code: '', datos: {} }, // ⚡ meteóricos: el elegido y sus métricas
   directa: { datos: null, id: '', cargando: false, buscar: '', filtro: '' }, // 🛒 venta directa: métricas del rango
   vsl: { leads: null, raw: null, meta: null, ganLevel: 'ad', loadToken: 0, mostrar: 100 },
@@ -5559,10 +5559,22 @@ function renderHoy() {
     for (const l of rows) { seen.add(l.id); lista.push({ l, b, prio: i }); }
   }
   const h = state.hoy;
-  if (h.code !== state.launchCode) Object.assign(h, { code: state.launchCode, motivo: '', temp: '', max: HOY_PAGINA });
-  const cuentaMotivo = (id) => lista.filter((x) => x.b.id === id && (!h.temp || x.l.estado.id === h.temp)).length;
-  const cuentaTemp = (id) => lista.filter((x) => x.l.estado.id === id && (!h.motivo || x.b.id === h.motivo)).length;
-  const filtrada = lista.filter((x) => (!h.motivo || x.b.id === h.motivo) && (!h.temp || x.l.estado.id === h.temp));
+  if (h.code !== state.launchCode) Object.assign(h, { code: state.launchCode, motivo: '', temp: '', senales: [], max: HOY_PAGINA });
+  // Segmento: con alguna señal marcada, entran todas las que no han comprado (no solo las de los motivos de arriba),
+  // las que cumplen TODAS las señales marcadas, de más a menos puntuación.
+  const senales = HOY_SENALES.filter((x) => h.senales.includes(x.id));
+  const base = senales.length ? [...lista, ...state.leads.filter((l) => open(l) && !seen.has(l.id)).sort(byScore).map((l) => ({ l, b: null, prio: buckets.length }))] : lista;
+  const cumple = (l, sen = senales) => sen.every((x) => x.si(l.s));
+  const enSegmento = base.filter((x) => cumple(x.l));
+  const cuentaMotivo = (id) => enSegmento.filter((x) => x.b?.id === id && (!h.temp || x.l.estado.id === h.temp)).length;
+  const cuentaTemp = (id) => enSegmento.filter((x) => x.l.estado.id === id && (!h.motivo || x.b?.id === h.motivo)).length;
+  const filtrada = enSegmento.filter((x) => (!h.motivo || x.b?.id === h.motivo) && (!h.temp || x.l.estado.id === h.temp));
+  // Cuántas quedarían al marcar (o quitar) cada señal, con el resto de filtros como están.
+  const cuentaSenal = (x) => {
+    const sen = h.senales.includes(x.id) ? senales : [...senales, x];
+    return (senales.length || h.senales.includes(x.id) ? base : [...base, ...state.leads.filter((l) => open(l) && !seen.has(l.id)).map((l) => ({ l, b: null }))])
+      .filter((y) => cumple(y.l, sen) && (!h.motivo || y.b?.id === h.motivo) && (!h.temp || y.l.estado.id === h.temp)).length;
+  };
   const shown = filtrada.slice(0, h.max);
   pintarNotaEnvios();
   pintarGastoPl();
@@ -5575,14 +5587,20 @@ function renderHoy() {
       <div class="hoy-leyenda" role="group" aria-label="Filtrar por temperatura">${ESTADOS.map((e) => `<button type="button" class="hoy-temp st-${e.id} ${h.temp === e.id ? 'on' : ''}" data-hoy-temp="${e.id}" aria-pressed="${h.temp === e.id}"><span class="dot"></span>${e.label} <b>${cuentaTemp(e.id)}</b></button>`).join('')}</div>
     </div>
     <div class="hoy-motivos" role="group" aria-label="Filtrar por motivo">
-      <button type="button" class="hoy-chip ${h.motivo ? '' : 'on'}" data-hoy-motivo="" aria-pressed="${!h.motivo}">Todas <b>${h.temp ? cuentaTemp(h.temp) : lista.length}</b></button>
+      <button type="button" class="hoy-chip ${h.motivo ? '' : 'on'}" data-hoy-motivo="" aria-pressed="${!h.motivo}">Todas <b>${h.temp ? cuentaTemp(h.temp) : enSegmento.length}</b></button>
       ${buckets.map((b) => { const n = cuentaMotivo(b.id); return n || h.motivo === b.id ? `<button type="button" class="hoy-chip ${h.motivo === b.id ? 'on' : ''}" data-hoy-motivo="${b.id}" aria-pressed="${h.motivo === b.id}" title="${esc(b.hint)}">${esc(b.corto)} <b>${n}</b></button>` : ''; }).join('')}
     </div>
+    <div class="hoy-seg" role="group" aria-label="Crear un segmento combinando señales">
+      <span class="hoy-seg-t">🎯 Segmento <small>pulsa varias para combinarlas</small></span>
+      ${HOY_SENALES.map((x) => { const on = h.senales.includes(x.id); const n = cuentaSenal(x); return `<button type="button" class="hoy-seg-chip ${on ? 'on' : ''}" data-hoy-senal="${x.id}" aria-pressed="${on}" title="${esc(x.title)}"${!on && !n ? ' disabled' : ''}>${x.ico} ${esc(x.txt)} <b>${n}</b></button>`; }).join('')}
+      ${senales.length ? `<button type="button" class="link-btn hoy-seg-quitar" data-hoy-senal="">Quitar segmento</button>` : ''}
+    </div>
+    ${senales.length ? `<p class="hoy-seg-res"><b>${filtrada.length}</b> ${filtrada.length === 1 ? 'persona' : 'personas'} sin comprar que ${senales.map((x) => x.frase).join(' y ')}${h.temp ? ` · ${esc(ESTADOS.find((e) => e.id === h.temp)?.label || '')}` : ''}${h.motivo ? ` · ${esc(buckets.find((b) => b.id === h.motivo)?.corto || '')}` : ''}</p>` : ''}
     ${(() => {
-      // Envío masivo: la plantilla a todas las de esta lista (con el filtro de motivo y temperatura que haya).
+      // Envío masivo: la plantilla a todas las de esta lista (con el filtro de motivo, temperatura y segmento que haya).
       h.plLista = filtrada.map((x) => x.l).filter(plElegible);
       const pl = plantillasWa()[0];
-      return pl && h.plLista.length > 1 ? `<div class="hoy-pl-masivo"><button type="button" class="btn plantilla small" data-hoy-pl>📨 Plantilla a las ${h.plLista.length} de esta lista · ≈ ${euros(costeEstimado(h.plLista.length, pl.precio))}</button><span class="muted small">Elige antes el motivo o la temperatura para afinar a quién.</span></div>` : '';
+      return pl && h.plLista.length > 1 ? `<div class="hoy-pl-masivo"><button type="button" class="btn plantilla small" data-hoy-pl>📨 Plantilla a las ${h.plLista.length} de esta lista · ≈ ${euros(costeEstimado(h.plLista.length, pl.precio))}</button><span class="muted small">${senales.length ? 'Solo a las de este segmento.' : 'Combina señales del segmento, el motivo o la temperatura para afinar a quién.'}</span></div>` : '';
     })()}
     ${avisos}
     ${shown.length ? `<ol class="hoy-list hoy-ranking">${shown.map((x, i) => hoyItem(x.l, x.b, i + 1)).join('')}</ol>` : `<p class="muted hoy-vacio">${lista.length ? 'Nadie con este filtro.' : 'Nada pendiente hoy ✓'}</p>`}
@@ -5591,14 +5609,30 @@ function renderHoy() {
 }
 
 const HOY_PAGINA = 40;
+// Señales para el segmento de Setting hoy: se combinan (tienen que cumplirse todas las marcadas).
+const asistioAlgun = (s, que) => (s.nVideos > 1 ? videosDe(state.config.launches[state.launchCode]) : [{ directo: sigDirecto(1) }])
+  .some((v) => que === 'final' ? s[`${v.directo}_final`] : ['asistio', '60', '120', 'final'].some((k) => s[`${v.directo}_${k}`]));
+const HOY_SENALES = [
+  { id: 'directo', ico: '🔴', txt: 'Asistió al directo', frase: 'asistieron al directo', title: 'Entró al directo (cualquiera de los directos del lanzamiento)', si: (s) => asistioAlgun(s, 'asistio') },
+  { id: 'final', ico: '🏁', txt: 'Hasta el final', frase: 'se quedaron hasta el final del directo', title: 'Se quedó en el directo hasta el final', si: (s) => asistioAlgun(s, 'final') },
+  { id: 'checkout', ico: '💳', txt: 'Inició el checkout', frase: 'llegaron al checkout', title: 'Llegó a la página de pago (pulsó «Quiero inscribirme»)', si: (s) => Boolean(s.inicio_pago) },
+  { id: 'venta', ico: '🛒', txt: 'Visitó la página de venta', frase: 'visitaron la página de venta', title: 'Entró en la página de venta', si: (s) => Boolean(s.venta_visita) },
+  { id: 'grabacion', ico: '🎬', txt: 'Vio la grabación', frase: 'vieron al menos la mitad de la grabación', title: 'Ha visto el 50% o más de la grabación', si: (s) => grabVenta(s) >= 50 },
+  { id: 'vip', ico: '⭐', txt: 'VIP', frase: 'son VIP', title: 'Pagó la entrada VIP', si: (s) => Boolean(s.vip) },
+  { id: 'sinplantilla', ico: '📨', txt: 'Sin plantilla', frase: 'aún no han recibido una plantilla', title: 'Todavía no se le ha enviado ninguna plantilla de WhatsApp (para no repetir)', si: (s) => !s.wa_plantilla },
+  { id: 'sincontactar', ico: '🆕', txt: 'Sin contactar', frase: 'nadie ha contactado todavía', title: 'Nadie del equipo le ha escrito todavía', si: (s) => !s.wa_enviado },
+];
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-hoy-pl]')) { abrirPlantilla(state.hoy.plLista || []); return; }
-  const t = e.target.closest('[data-hoy-temp], [data-hoy-motivo], [data-hoy-mas]');
+  const t = e.target.closest('[data-hoy-temp], [data-hoy-motivo], [data-hoy-mas], [data-hoy-senal]');
   if (!t) return;
   const h = state.hoy;
   if (t.dataset.hoyMas !== undefined) h.max += HOY_PAGINA;
   else {
-    if (t.dataset.hoyTemp !== undefined) h.temp = h.temp === t.dataset.hoyTemp ? '' : t.dataset.hoyTemp;
+    if (t.dataset.hoySenal !== undefined) {
+      const id = t.dataset.hoySenal;
+      h.senales = !id ? [] : h.senales.includes(id) ? h.senales.filter((x) => x !== id) : [...h.senales, id];
+    } else if (t.dataset.hoyTemp !== undefined) h.temp = h.temp === t.dataset.hoyTemp ? '' : t.dataset.hoyTemp;
     else h.motivo = t.dataset.hoyMotivo;
     h.max = HOY_PAGINA;
   }
