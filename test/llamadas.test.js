@@ -59,3 +59,63 @@ test('llamadas: pendiente de pago y fase de cada persona según su última llama
   const { buildMessage } = await import('../public/js/scoring.js');
   assert.equal(buildMessage('Hola {nombre}, el {dia_llamada} a las {hora_llamada} {otra}', { nombre: 'Ana', extra: { dia_llamada: 'lunes', hora_llamada: '10:00' } }), 'Hola Ana, el lunes a las 10:00 {otra}');
 });
+
+test('llamadas: la misma lead con varias citas vivas sale una vez (la última que reservó) con las demás aparte', async () => {
+  const { agruparRepetidas } = await import('../public/js/llamadas.js');
+  const c = (id, contactId, startTime, creada, extra = {}) => ({ id, contactId, startTime, creada, status: 'confirmed', ...extra });
+  const out = agruparRepetidas([
+    c('d', 'ana', '2026-10-30T10:00:00+01:00', '2026-10-29T10:00:00Z'),
+    c('a', 'elena', '2026-10-31T12:20:00+01:00', '2026-10-29T20:28:05Z'),
+    c('b', 'elena', '2026-10-31T11:00:00+01:00', '2026-10-29T20:29:19Z'),
+    c('x', 'elena', '2026-10-30T09:20:00+01:00', '2026-10-29T21:06:36Z'),
+    c('e', 'ana', '2026-10-28T10:00:00+01:00', '2026-10-27T10:00:00Z', { status: 'cancelled' }),
+    c('f', 'eva', '2026-10-28T10:00:00+01:00', '2026-10-27T10:00:00Z', { resultado: { resultado: 'seguimiento' } }),
+    c('g', 'eva', '2026-10-31T10:00:00+01:00', '2026-10-29T10:00:00Z'),
+  ]);
+  assert.deepEqual(out.map((x) => x.id), ['d', 'x', 'e', 'f', 'g']);
+  assert.deepEqual(out[1].otras.map((x) => x.id), ['b', 'a']);
+  assert.equal(out[0].otras, undefined);
+});
+
+test('llamadas: fuera las reservas canceladas que sustituyó otra reserva de la misma lead', async () => {
+  const { sinReservasSuperadas } = await import('../public/js/llamadas.js');
+  const c = (id, contactId, creada, status = 'confirmed', extra = {}) => ({ id, contactId, startTime: '2026-10-31T10:00:00+01:00', creada, status, ...extra });
+  const out = sinReservasSuperadas([
+    // Carine: 5 reservas seguidas, 4 canceladas → queda la confirmada.
+    c('c1', 'carine', '2026-10-29T20:44:22Z'), c('c2', 'carine', '2026-10-29T20:45:36Z', 'cancelled'), c('c3', 'carine', '2026-10-29T20:46:09Z', 'cancelled'),
+    c('c4', 'carine', '2026-10-29T20:46:48Z', 'cancelled'), c('c5', 'carine', '2026-10-29T20:47:50Z', 'cancelled'),
+    // Cancelación de verdad (no reservó otra): se queda.
+    c('a1', 'ana', '2026-10-20T10:00:00Z', 'cancelled'),
+    // Cancelada con resultado anotado («reagendar»): se queda.
+    c('e1', 'eva', '2026-10-20T10:00:00Z', 'cancelled', { resultado: { resultado: 'reagendar' } }), c('e2', 'eva', '2026-10-20T11:00:00Z'),
+    // Cancelada hace semanas y otra reserva nueva hoy: son dos reservas distintas, se quedan.
+    c('m1', 'marta', '2026-10-01T10:00:00Z', 'cancelled'), c('m2', 'marta', '2026-10-29T10:00:00Z'),
+  ]);
+  assert.deepEqual(out.map((x) => x.id), ['c1', 'a1', 'e1', 'e2', 'm1', 'm2']);
+});
+
+test('llamadas: una tarjeta por persona aunque tenga varias canceladas, una cancelada y otra viva en otro día o la misma cita dos veces', async () => {
+  const { agruparRepetidas, sinReservasSuperadas, unaPorPersona } = await import('../public/js/llamadas.js');
+  const c = (id, contactId, startTime, creada, status = 'confirmed', extra = {}) => ({ id, contactId, startTime, creada, status, ...extra });
+  const out = unaPorPersona(agruparRepetidas(sinReservasSuperadas([
+    // Alicia: dos citas el mismo día, las dos canceladas → una (la última que reservó) con la otra en `canceladas`.
+    c('a1', 'alicia', '2026-11-02T09:40:00+01:00', '2026-10-28T10:00:00Z', 'cancelled'),
+    c('a2', 'alicia', '2026-11-02T18:40:00+01:00', '2026-10-29T10:00:00Z', 'cancelled'),
+    // Marta: cancelada hace semanas y otra viva → solo la viva.
+    c('m1', 'marta', '2026-10-05T10:00:00+02:00', '2026-10-01T10:00:00Z', 'cancelled'),
+    c('m2', 'marta', '2026-11-03T10:00:00+01:00', '2026-10-29T10:00:00Z'),
+    // La misma cita dos veces.
+    c('d1', 'dora', '2026-11-03T12:00:00+01:00', '2026-10-29T10:00:00Z'), c('d1', 'dora', '2026-11-03T12:00:00+01:00', '2026-10-29T10:00:00Z'),
+    // Sin contactId pero el mismo teléfono.
+    c('p1', '', '2026-11-02T10:00:00+01:00', '2026-10-28T10:00:00Z', 'cancelled', { contacto: { phone: '+34 699 62 09 53' } }),
+    c('p2', '', '2026-11-04T10:00:00+01:00', '2026-10-29T10:00:00Z', 'confirmed', { contacto: { phone: '34699620953' } }),
+    // Con resultado anotado: historial, se queda junto a la nueva.
+    c('e1', 'eva', '2026-10-20T10:00:00+02:00', '2026-10-18T10:00:00Z', 'cancelled', { resultado: { resultado: 'reagendar' } }),
+    c('e2', 'eva', '2026-11-05T10:00:00+01:00', '2026-10-29T10:00:00Z'),
+  ])));
+  assert.deepEqual(out.map((x) => x.id), ['a2', 'm2', 'd1', 'p2', 'e1', 'e2']);
+  assert.deepEqual(out[0].canceladas.map((x) => x.id), ['a1']);
+  assert.deepEqual(out[1].canceladas.map((x) => x.id), ['m1']);
+  assert.deepEqual(out[3].canceladas.map((x) => x.id), ['p1']);
+  assert.equal(out[2].canceladas, undefined);
+});

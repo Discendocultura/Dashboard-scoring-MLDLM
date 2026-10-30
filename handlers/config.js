@@ -15,7 +15,7 @@ const EQUIPO_FIELDS = ['name', 'inicioCaptacion', 'finCaptacion', 'fechaDirecto'
 function equipoConfig(config) {
   const launches = {};
   for (const [code, l] of Object.entries(config.launches)) launches[code] = Object.fromEntries(EQUIPO_FIELDS.map((k) => [k, l[k] ?? '']));
-  return { launches, templates: {}, mensajesEmbudo: {}, accesos: [], digestEmail: '', marca: { producto: config.marca?.producto || '' }, defaultCountryCode: config.defaultCountryCode, setterIa: config.setterIa, vsls: Object.fromEntries(Object.entries(config.vsls || {}).map(([id, v]) => [id, { name: v.name }])), embudos: config.embudos };
+  return { launches, templates: {}, mensajesEmbudo: {}, accesos: [], digestEmail: '', marca: { producto: config.marca?.producto || '' }, defaultCountryCode: config.defaultCountryCode, setterIa: config.setterIa, plantillasWa: config.plantillasWa, vsls: Object.fromEntries(Object.entries(config.vsls || {}).map(([id, v]) => [id, { name: v.name }])), embudos: config.embudos };
 }
 
 export async function GET(request) {

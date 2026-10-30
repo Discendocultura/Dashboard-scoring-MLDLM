@@ -2,7 +2,7 @@
 //   GET /api/zoom-report?launch=<código>&v=<n>             → lee el informe de Zoom (permiso «zoom») y guarda los
 //       minutos de cada asistente (por email) para la duración media de Métricas → Consumo de vídeos.
 //   GET /api/zoom-report?launch=<código>&v=<n>&guardado=1  → lo guardado en la última sincronización, sin llamar a
-//       Zoom (permiso de Métricas o de Zoom): { minutos: { email: min }, en }.
+//       Zoom (permiso de Métricas o de Zoom): { minutos: { email: min }, curva, en }.
 import { requireRole, requireSession } from '../lib/auth.js';
 import { leerJSON, guardarJSON } from '../lib/store.js';
 import { getConfig } from '../lib/config-store.js';
@@ -10,6 +10,7 @@ import { attendance, zoomConfigured } from '../lib/zoom.js';
 import { json, errorResponse } from '../lib/http.js';
 import { videosDe } from '../public/js/videos.js';
 import { entraronAlDirecto } from '../lib/entradas.js';
+import { madridToEpoch } from '../public/js/page.js';
 
 export async function GET(request) {
   try {
@@ -28,9 +29,11 @@ export async function GET(request) {
     const v = videosDe(launch)[(Number(url.searchParams.get('v')) || 1) - 1];
     if (!v?.zoomMeetingId) return json({ error: `${v?.nombre || 'Este lanzamiento'} no tiene ID de reunión de Zoom` }, 400);
     // Y quién pulsó el enlace / entró por el dashboard (se apunta en D1 para no gastar llamadas a GHL en el directo).
-    const [informe, entraron] = await Promise.all([attendance(v.zoomMeetingId), entraronAlDirecto(code, v.k).catch(() => [])]);
+    const inicio = v.fecha && v.hora ? madridToEpoch(`${v.fecha}T${v.hora}`) : null;
+    const [informe, entraron] = await Promise.all([attendance(v.zoomMeetingId, { inicio }), entraronAlDirecto(code, v.k).catch(() => [])]);
     const minutos = Object.fromEntries(informe.attendees.filter((a) => a.minutes > 0).map((a) => [a.email, a.minutes]));
-    await guardarJSON(claveMinutos(code, v.k), { minutos, en: new Date().toISOString() }).catch((e) => console.error('Minutos de Zoom', e.message));
+    // Con la curva de retención del directo (personas conectadas cada minuto) para Métricas → Consumo de vídeos.
+    await guardarJSON(claveMinutos(code, v.k), { minutos, curva: informe.curva || null, en: new Date().toISOString() }).catch((e) => console.error('Minutos de Zoom', e.message));
     return json({ ...informe, entraron });
   } catch (e) {
     return errorResponse(e);

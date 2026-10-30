@@ -221,22 +221,22 @@ const METEORICO = [
   },
 ];
 
-// Setter IA: el envío de cada plantilla de WhatsApp (botón «📨 Plantilla» de Leads y Setting hoy, Cuenta → Conexiones)
-// y, si está la dirección del setter, el aviso al setter cuando la lead responde. Las etiquetas setter-ia-… son fijas.
+// Plantillas de WhatsApp de la setter (botón «📨 Plantilla» de Leads y Setting hoy, Conexiones → Plantillas de WhatsApp):
+// un workflow por plantilla. Y, solo si el cliente usa el setter IA, el aviso al setter cuando la lead responde.
 const listaPlantillas = (c) => c.plantillasWa.map((p) => `«${p.nombre}» → disparador Contact Tag Added «${p.tag}»`).join(' · ');
 const SETTER = [
   {
     id: 'setter-plantilla', titulo: 'Plantillas de WhatsApp (botón 📨 de AlquimIA)', requiere: [], si: (c) => c.plantillasWa.length,
-    para: 'Cuando alguien del equipo pulsa «📨 Plantilla» en AlquimIA, se pone a la persona una etiqueta y este workflow le envía la plantilla aprobada. Si responde, contesta el setter IA. Son para todo el cliente: UN workflow por plantilla (si ya existen de otro lanzamiento, no los dupliques).',
+    para: 'Cuando la setter pulsa «📨 Plantilla» en AlquimIA, se le pone a la persona una etiqueta y este workflow le envía la plantilla aprobada desde el número oficial de WhatsApp de GHL. Si responde, su mensaje llega a Conversaciones de GHL y la setter le contesta desde allí. Son para todo el cliente: UN workflow por plantilla (si ya existen de otro lanzamiento, no los dupliques).',
     disparador: (c) => `Contact Tag Added. Uno por plantilla: ${listaPlantillas(c)}.`,
     acciones: (c) => [
-      'Filtro al principio: la etiqueta NO incluye «setter-ia-baja» (quien pidió la baja no vuelve a recibir plantillas).',
-      `Enviar la plantilla de WhatsApp aprobada por Meta con ese nombre (${c.plantillasWa.map((p) => `«${p.nombre}»`).join(', ')}).`,
-      'Añadir la etiqueta «setter-ia-plantilla» (sin ella el setter no responde y AlquimIA no la cuenta).',
-      'Quitar la etiqueta que lo disparó (la de «setter-ia-enviar-…»), para poder volver a enviarla otro día.',
+      `Enviar la plantilla de WhatsApp aprobada por Meta con ese nombre (${c.plantillasWa.map((p) => `«${p.nombre}»`).join(', ')}); en su variable {{1}}, el nombre del contacto (First Name).`,
+      `Quitar la etiqueta que lo disparó (${c.plantillasWa.map((p) => `«${p.tag}»`).join(', ')}), para poder volver a enviarla otro día.`,
+      '«Assign to user» a la persona que hace el setting: así le llega la respuesta en Conversaciones de GHL y en su app. Si quieres, añade una notificación interna para ella cuando conteste.',
       'Crear o actualizar la oportunidad en el pipeline del lanzamiento, etapa «Contactado».',
+      ...(c.setterUrl ? ['Como usas el setter IA: añadir también la etiqueta «setter-ia-plantilla» (sin ella el setter IA no responde).'] : []),
     ],
-    prueba: () => 'Ponte como contacto de prueba con tu propio número y pulsa «📨 Plantilla» en AlquimIA: en unos segundos te llega la plantilla y en Leads sale «📨 Plantilla ✓».',
+    prueba: () => 'Ponte como contacto de prueba con tu propio número y pulsa «📨 Plantilla» en AlquimIA: en unos segundos te llega la plantilla y en Leads sale «📨 Plantilla ✓». Contesta y comprueba que la respuesta le llega a la setter en Conversaciones de GHL.',
   },
   {
     id: 'setter-respuesta', titulo: 'Setter IA · respuesta de la lead', requiere: [], si: (c) => c.setterUrl,
@@ -291,7 +291,7 @@ export function descripcionIaGhl(a, c) {
 
 // Primer prompt: preparar GHL (carpeta, etiquetas y lo que necesitan los workflows) antes de crearlos.
 export function promptPreparacion(lista, c) {
-  const etiquetas = [...new Set([c.registroTag || c.registroPropuesta, c.encuestaTag, c.vipTag, c.compraTag, c.unicoTag, c.fraccionadoTag, c.publiTag, c.organicoTag, c.llamadaTag, c.carritoAbandonadoTag, ...(c.setterUrl || c.plantillasWa.length ? ['setter-ia-plantilla', 'setter-ia-activo', 'setter-ia-pausa', 'setter-ia-humano', 'setter-ia-cita', 'setter-ia-baja', ...c.plantillasWa.map((p) => p.tag)] : [])].filter(Boolean))];
+  const etiquetas = [...new Set([c.registroTag || c.registroPropuesta, c.encuestaTag, c.vipTag, c.compraTag, c.unicoTag, c.fraccionadoTag, c.publiTag, c.organicoTag, c.llamadaTag, c.carritoAbandonadoTag, ...(c.plantillasWa.length ? ['wa-plantilla-enviada', ...c.plantillasWa.map((p) => p.tag)] : []), ...(c.setterUrl ? ['setter-ia-plantilla', 'setter-ia-activo', 'setter-ia-pausa', 'setter-ia-humano', 'setter-ia-cita', 'setter-ia-baja'] : [])].filter(Boolean))];
   return [
     `Vamos a preparar GoHighLevel (subcuenta de ${c.cliente || 'la marca'}) para crear las automatizaciones de «${c.nombre}». Todavía no crees ningún workflow.`,
     '',

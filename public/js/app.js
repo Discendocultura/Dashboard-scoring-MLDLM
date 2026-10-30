@@ -10,6 +10,8 @@ import { resumenThrivecart, ventasDeCsv, productosVistos, deProductos } from './
 import { resumenAb, MINIMO_AB } from './ab.js';
 import { pasosEmbudo, anchosEmbudo, fondoCapa } from './embudo-visual.js';
 import { promptAvatar } from './prompt-avatar.js';
+import { promptEspera } from './prompt-espera.js';
+import { analizarReplay, analizarDirecto, mmss as tiempoVideo } from './retencion.js';
 import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
@@ -85,7 +87,7 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const PAGE_SIZE = 100;
 
 const state = {
-  hoy: { code: '', motivo: '', temp: '', max: 40 }, // ☀️ Setting hoy: filtros de la lista por prioridad
+  hoy: { code: '', motivo: '', temp: '', senales: [], max: 40 }, // ☀️ Setting hoy: filtros de la lista por prioridad (señales: segmento combinado)
   meteo: { code: '', datos: {} }, // ⚡ meteóricos: el elegido y sus métricas
   directa: { datos: null, id: '', cargando: false, buscar: '', filtro: '' }, // 🛒 venta directa: métricas del rango
   vsl: { leads: null, raw: null, meta: null, ganLevel: 'ad', loadToken: 0, mostrar: 100 },
@@ -2315,8 +2317,8 @@ function cumple(l, sig) {
   if (sig === 'trafico_templado') return l.s.trafico === 'templado';
   if (sig === 'sin_clases') return !watched(l.s, 'clase1') && !watched(l.s, 'clase2');
   if (sig === 'replay_50') return grabVenta(l.s) >= 50;
-  if (sig === 'setter_plantilla') return Boolean(l.s.setter?.plantilla);
-  if (sig === 'sin_plantilla') return !l.s.setter?.plantilla;
+  if (sig === 'setter_plantilla') return Boolean(l.s.wa_plantilla);
+  if (sig === 'sin_plantilla') return !l.s.wa_plantilla;
   if (sig === 'setter_respondio') return Boolean(l.s.setter?.respondio);
   return Boolean(l.s[sig]);
 }
@@ -2694,8 +2696,110 @@ function renderConsumo() {
     <h2>Consumo de vídeos <span class="muted">· qué parte de los registros llega a cada punto de cada vídeo</span></h2>
     <div class="cv-videos">${tarjetas + tarjetasDir || '<p class="muted">Este lanzamiento no tiene clases ni grabaciones configuradas.</p>'}</div>
     <h3 class="cv-h3">En directo <span class="muted">· sobre el total de registros (Zoom: sincroniza la asistencia con «Sincronizar Zoom»)</span></h3>
-    ${htmlDirectos || '<p class="muted">Este lanzamiento no tiene vídeos en directo (sin Zoom configurado) o aún no hay datos del directo.</p>'}`;
+    ${htmlDirectos || '<p class="muted">Este lanzamiento no tiene vídeos en directo (sin Zoom configurado) o aún no hay datos del directo.</p>'}
+    ${htmlRetencion(launch, directos, grabados)}`;
 }
+
+// ---------- Retención: puntos de fuga, tramos que se saltan y picos de interés ----------
+// Directo: la curva de Zoom (personas conectadas cada minuto, se guarda al «Sincronizar Zoom»).
+// Grabaciones y clases: lo que mide tracker.js (cuántas personas ven cada tramo y cuántas veces).
+function seriesRetencion(launch, directos, grabados) {
+  const code = state.launchCode;
+  const ret = state.retencion?.[code]?.videos || {};
+  const zm = state.zoomMin?.[code] || {};
+  const vids = videosDe(launch);
+  return [
+    ...directos.map((v) => ({ id: `d${v.k}`, tipo: 'directo', label: vids.length > 1 ? `${v.nombre} (directo)` : 'Directo', ico: '🔴', curva: zm[v.k]?.curva || null })),
+    ...grabados.map(([v, label, ico]) => ({ id: `g-${v}`, tipo: 'replay', label, ico, datos: ret[v] || null })),
+  ];
+}
+function htmlRetencion(launch, directos, grabados) {
+  const code = state.launchCode;
+  if (!state.retencionCargando?.[code]) cargarRetencion(code);
+  const series = seriesRetencion(launch, directos, grabados);
+  if (!series.length) return '';
+  const conDatos = (s) => (s.tipo === 'directo' ? s.curva?.valores?.length : s.datos?.tramos?.some((x) => x[0] > 0));
+  const sel = series.find((s) => s.id === state.retSel && conDatos(s)) || series.find(conDatos) || series[0];
+  const chips = series.map((s) => `<button type="button" class="ret-chip${s === sel ? ' is-on' : ''}${conDatos(s) ? '' : ' is-vacio'}" data-ret-sel="${esc(s.id)}">${s.ico} ${esc(s.label)}</button>`).join('');
+  let cuerpo;
+  if (!conDatos(sel)) {
+    cuerpo = `<p class="muted ret-vacio">${sel.tipo === 'directo'
+      ? 'Aún no hay curva de este directo: después del directo, pulsa <strong>«Sincronizar Zoom»</strong> (Zoom tarda unos minutos en tener el informe). Si ya lo sincronizaste antes de esta función, vuelve a pulsarlo.'
+      : 'Aún no hay datos de este vídeo. Se miden desde ahora: cada persona que lo vea suma a la curva (tramo a tramo, y cuántas veces vuelve a verlo).'}</p>`;
+  } else if (sel.tipo === 'directo') {
+    const an = analizarDirecto(sel.curva, { nombre: sel.label.toLowerCase() });
+    cuerpo = graficaRetencion(an, 'directo') + sugerenciasRetencion(an, 'directo');
+  } else {
+    const an = analizarReplay(sel.datos, { nombre: sel.label.toLowerCase() });
+    cuerpo = graficaRetencion(an, 'replay') + sugerenciasRetencion(an, 'replay');
+  }
+  return `<section class="ret-sec">
+    <h2>📉 Retención <span class="muted">· dónde se van (puntos de fuga), qué se saltan y qué momentos interesan más</span></h2>
+    <div class="ret-chips" role="tablist">${chips}</div>
+    ${cuerpo}
+  </section>`;
+}
+function graficaRetencion(an, tipo) {
+  const W = 720; const H = 270; const L = 42; const R = tipo === 'replay' ? 46 : 14; const T = 18; const B = 34;
+  const pts = an.serie;
+  const n = pts.length;
+  if (n < 2) return '';
+  const x = (i) => L + ((W - L - R) * i) / (n - 1);
+  const y = (p) => T + (H - T - B) * (1 - Math.min(100, Math.max(0, p)) / 100);
+  const linea = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.ret).toFixed(1)}`).join(' ');
+  const area = `${linea} L${x(n - 1).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`;
+  const etqX = (i) => (tipo === 'replay' ? tiempoVideo(pts[i].t) : `min ${pts[i].min}`);
+  const ticks = [0, 0.2, 0.4, 0.6, 0.8, 1].map((f) => Math.round(f * (n - 1)));
+  const grid = [0, 25, 50, 75, 100].map((p) => `<line x1="${L}" x2="${W - R}" y1="${y(p)}" y2="${y(p)}" class="ret-grid"/><text x="${L - 6}" y="${y(p) + 4}" class="ret-ax ret-ax-y">${p}%</text>`).join('');
+  const banda = (i0, i1, cls, txt) => `<g class="${cls}"><rect x="${x(i0).toFixed(1)}" y="${T}" width="${Math.max(3, x(i1) - x(i0)).toFixed(1)}" height="${H - T - B}"/><text x="${((x(i0) + x(i1)) / 2).toFixed(1)}" y="${T + 13}">${txt}</text></g>`;
+  const fugas = an.fugas.map((f) => banda(f.desde, f.hasta, 'ret-fuga', `−${Math.round(f.caida)}%`)).join('');
+  const saltos = (an.saltos || []).map((s) => banda(s.desde, s.hasta, 'ret-salto', '⏭')).join('');
+  // Grabación: además, las veces que se ve cada tramo por persona (eje derecho) y los picos de interés.
+  let interes = '';
+  if (tipo === 'replay') {
+    const maxI = Math.max(1.5, ...pts.filter((p) => p.personas >= 5).map((p) => p.interes));
+    const yi = (v) => T + (H - T - B) * (1 - Math.min(1, Math.max(0, (v - 1) / (maxI - 1))) * 0.9);
+    const li = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${yi(p.personas >= 5 ? p.interes : 1).toFixed(1)}`).join(' ');
+    interes = `<path d="${li}" class="ret-interes"/>
+      <text x="${W - R + 6}" y="${yi(maxI) + 4}" class="ret-ax">×${maxI.toFixed(1)}</text><text x="${W - R + 6}" y="${yi(1) + 4}" class="ret-ax">×1</text>
+      ${(an.picos || []).map((p) => `<g class="ret-pico"><circle cx="${x(p.i).toFixed(1)}" cy="${yi(p.veces).toFixed(1)}" r="6"/><text x="${x(p.i).toFixed(1)}" y="${(yi(p.veces) - 11).toFixed(1)}">⭐ ${tiempoVideo(p.t)}</text><title>${tiempoVideo(p.t)}: se ve ${p.veces} veces por persona (+${p.extra}% de lo normal)</title></g>`).join('')}`;
+  }
+  const pico = tipo === 'directo' && an.pico ? (() => { const i = pts.findIndex((p) => p.n === an.pico); return `<g class="ret-max"><circle cx="${x(i).toFixed(1)}" cy="${y(100)}" r="5"/><text x="${x(i).toFixed(1)}" y="${y(100) - 8}">${an.pico.toLocaleString('es-ES')} personas</text></g>`; })() : '';
+  const leyenda = tipo === 'replay'
+    ? `<span><i class="ret-l-ret"></i>% de quien la empezó que sigue viendo</span><span><i class="ret-l-int"></i>veces que se ve cada momento (eje derecho)</span><span><i class="ret-l-fuga"></i>punto de fuga</span><span><i class="ret-l-salto"></i>se lo saltan</span><span>⭐ pico de interés</span>`
+    : `<span><i class="ret-l-ret"></i>% del máximo de personas conectadas</span><span><i class="ret-l-fuga"></i>punto de fuga</span>`;
+  return `<figure class="ret-fig">
+    <svg class="ret-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Curva de retención">
+      <defs><linearGradient id="ret-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".32"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+      ${grid}${fugas}${saltos}
+      <path d="${area}" fill="url(#ret-g)"/><path d="${linea}" class="ret-linea"/>
+      ${interes}${pico}
+      ${ticks.map((i) => `<text x="${x(i).toFixed(1)}" y="${H - 12}" class="ret-ax ret-ax-x">${etqX(i)}</text>`).join('')}
+    </svg>
+    <figcaption class="ret-ley">${leyenda}</figcaption>
+    <p class="muted ret-base">${tipo === 'replay' ? `${an.base.toLocaleString('es-ES')} personas la empezaron · dura ${tiempoVideo(an.dur)}` : `Máximo: ${an.pico.toLocaleString('es-ES')} personas a la vez (minuto ${an.picoMin}) · minuto 0 = la hora del directo`}${an.suficiente ? '' : ` · <strong>aún son pocos datos</strong> (hacen falta ${tipo === 'replay' ? 20 : 10} personas para sacar conclusiones)`}</p>
+  </figure>`;
+}
+function sugerenciasRetencion(an, tipo) {
+  if (!an.suficiente || !an.sugerencias.length) return '';
+  const ICO = { fuga: '📉', salto: '✂️', pico: '⭐', final: '🏁', tarde: '⏰', ok: '✅' };
+  const cuando = (s) => (tipo === 'replay' ? (s.t1 ? `${tiempoVideo(s.t)}–${tiempoVideo(s.t1)}` : tiempoVideo(s.t)) : (s.min1 != null ? `min ${s.min}–${s.min1}` : `min ${s.min}`));
+  return `<h3 class="cv-h3">🧭 Qué hacer <span class="muted">· sugerencias de AlquimIA a partir de la curva</span></h3>
+    <ul class="ret-sug">${an.sugerencias.map((s) => `<li class="ret-sug-${s.tipo}"><span class="ret-sug-ico" aria-hidden="true">${ICO[s.tipo] || '•'}</span>
+      <div><p>${s.tipo !== 'ok' ? `<span class="ret-sug-t">${cuando(s)}</span> ` : ''}${esc(s.texto)}</p><p class="ret-sug-acc"><strong>→</strong> ${esc(s.accion)}</p></div></li>`).join('')}</ul>`;
+}
+async function cargarRetencion(code) {
+  state.retencionCargando = { ...(state.retencionCargando || {}), [code]: true };
+  state.retencion = state.retencion || {};
+  try { state.retencion[code] = await api(`/api/retencion?l=${encodeURIComponent(code)}`); } catch { state.retencion[code] = { videos: {} }; }
+  if (state.launchCode === code && !$('#view-metricas').hidden) renderConsumo();
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ret-sel]');
+  if (!b) return;
+  state.retSel = b.dataset.retSel;
+  renderConsumo();
+});
 
 // Minutos de cada asistente al directo (guardados en la última «Sincronizar Zoom»): para la duración media.
 async function cargarMinutosZoom(code, ks) {
@@ -3433,8 +3537,8 @@ async function renderThrivecart(m, launch) {
       ult?.insertAdjacentHTML('afterend', tarjetasExtra(rProg, 'buy'));
     }
   }
-  // Compradoras en ThriveCart sin su etiqueta de VIP ni de compra en GHL.
-  const sinEtiqueta = state.leads.filter((l) => r.emailsCompra.has(String(l.email || '').toLowerCase()) && (!l.s.vip || l.s.vip_tc) && !l.s.compra && !l.s.vip_anterior && !l.s.compra_previo);
+  // Compradoras en ThriveCart o Hotmart sin su etiqueta de VIP ni de compra en GHL.
+  const sinEtiqueta = state.leads.filter((l) => r.emailsCompra.has(String(l.email || '').toLowerCase()) && (!l.s.vip || l.s.vip_tc) && (!l.s.compra || l.s.compra_real) && !l.s.vip_anterior && !l.s.compra_previo);
   // Qué es cada producto en este lanzamiento: con VIP, «Entrada VIP» o «Programa»; sin VIP, sí o no.
   const rolDe = (p) => {
     const v = { productoId: p.clave === p.nombre ? '' : p.clave, producto: p.nombre === 'Sin nombre de producto' ? '' : p.nombre };
@@ -3458,7 +3562,7 @@ async function renderThrivecart(m, launch) {
       ${vistos.length && puedeConfig() ? '<p><button type="button" class="btn small primary" data-tc-guardar>Guardar</button> <span class="muted small" data-tc-st></span></p>' : ''}
     </details>
     ${r.porProductos && r.sinRegistro ? `<p class="tc-nota muted small">${r.sinRegistro} ${r.sinRegistro === 1 ? 'compradora no está registrada' : 'compradoras no están registradas'} en este lanzamiento (compraron sin pasar por el registro).</p>` : ''}
-    ${sinEtiqueta.length ? `<p class="tc-aviso">⚠️ ${sinEtiqueta.length} ${sinEtiqueta.length === 1 ? 'compradora' : 'compradoras'} en ThriveCart sin la etiqueta de VIP ni de compra en GHL: ${sinEtiqueta.slice(0, 5).map((l) => esc(l.name || l.email)).join(', ')}${sinEtiqueta.length > 5 ? '…' : ''}. Revisa el workflow de compra.</p>` : ''}
+    ${sinEtiqueta.length ? `<p class="tc-aviso">⚠️ ${sinEtiqueta.length} ${sinEtiqueta.length === 1 ? 'compradora' : 'compradoras'} en ThriveCart o Hotmart sin la etiqueta de VIP ni de compra en GHL: ${sinEtiqueta.slice(0, 5).map((l) => esc(l.name || l.email)).join(', ')}${sinEtiqueta.length > 5 ? '…' : ''}. Revisa el workflow de compra.</p>` : ''}
     ${r.fuera.cobros ? `<p class="tc-nota muted small">Además, ${r.fuera.cobros} ${r.fuera.cobros === 1 ? 'cobro' : 'cobros'} (${eur(r.fuera.importe)}) de emails que no están registrados en este lanzamiento (otros productos o compras sin registro).</p>` : ''}`;
 }
 
@@ -5320,7 +5424,7 @@ function videosChips(s, launch) {
 
 function compraChip(s) {
   if (s.compra_directo) return chip('En directo', 'on');
-  if (s.compra) return chip('Compró', 'on');
+  if (s.compra) return s.compra_real ? `<span title="Pagó el programa (ThriveCart o Hotmart), pero en GHL no tiene la etiqueta de compra">${chip('Compró 💳', 'on')}</span>` : chip('Compró', 'on');
   if (s.clienta_anterior) return chip('Clienta anterior');
   return chip('—');
 }
@@ -5348,21 +5452,24 @@ function preclaseChips(l) {
   return out.join(' ');
 }
 // Dos formas de escribir a un lead: 💬 WhatsApp (gratis, desde tu móvil, con riesgo de bloqueo si se abusa) y
-// 📨 Plantilla (de pago, la envía GHL desde el número oficial y, si responde, contesta el setter IA).
-const plantillasWa = () => state.config?.setterIa?.plantillas || [];
+// 📨 Plantilla (de pago, la envía GHL desde el número oficial; si responde, le contesta la setter desde Conversaciones de
+// GHL o, si el cliente usa el setter IA, el setter IA).
+const plantillasWa = () => state.config?.plantillasWa || [];
+const conSetterIa = () => Boolean(state.config?.setterIa?.url);
+const quienResponde = () => (conSetterIa() ? 'le contesta el setter IA' : 'te llega a Conversaciones de GHL y le contestas tú desde allí');
 function envioBtns(l, { corto = false } = {}) {
   const e = l.s.setter || {};
   const wa = `<button type="button" class="btn wa ${l.s.wa_enviado ? 'sent' : ''}" data-wa="${esc(l.id)}" title="${esc(`GRATIS · Se abre tu WhatsApp con este mensaje ya escrito:\n\n${messageFor(l)}\n\n⚠️ Si escribes a mucha gente que no te tiene guardada, WhatsApp puede bloquear tu número.`)}">💬 ${l.s.wa_enviado ? (corto ? 'Reenviar' : 'Enviado ✓') : 'WhatsApp'} <small class="envio-precio">gratis</small></button>`;
   if (!plantillasWa().length) return wa;
   const pl = e.baja
     ? '<button type="button" class="btn plantilla" disabled title="Pidió no recibir más mensajes">📨 Baja</button>'
-    : `<button type="button" class="btn plantilla ${e.plantilla ? 'sent' : ''}" data-plantilla="${esc(l.id)}" title="DE PAGO · Plantilla aprobada por Meta, la envía GHL desde el número oficial. Sin riesgo de bloqueo. Si responde, le contesta el setter IA.">📨 ${e.plantilla ? 'Plantilla ✓' : 'Plantilla'} <small class="envio-precio">de pago</small></button>`;
+    : `<button type="button" class="btn plantilla ${l.s.wa_plantilla ? 'sent' : ''}" data-plantilla="${esc(l.id)}" title="DE PAGO · Plantilla aprobada por Meta, la envía GHL desde el número oficial. Sin riesgo de bloqueo. Si responde, ${quienResponde()}.">📨 ${l.s.wa_plantilla ? 'Plantilla ✓' : 'Plantilla'} <small class="envio-precio">de pago</small></button>`;
   return `<span class="envio-btns">${wa}${pl}</span>`;
 }
 // Nota fija encima de Leads y de Setting hoy: qué es cada botón, en una línea cada uno.
 function pintarNotaEnvios() {
   const html = `<div class="envio-op" title="Se abre tu WhatsApp con el mensaje ya escrito y lo envías tú. Si escribes a mucha gente que no te tiene guardada, WhatsApp puede bloquear tu número: úsalo con pocas personas al día."><strong>💬 WhatsApp · <span class="envio-gratis">gratis</span></strong> <span>desde tu móvil · <b>⚠️ riesgo de bloqueo</b> si escribes a mucha gente</span></div>
-    ${plantillasWa().length ? `<div class="envio-op" title="La envía GHL desde el número oficial con una plantilla aprobada por Meta (cada una cuesta unos céntimos). Sin riesgo de bloqueo y, si contesta, le responde el setter IA."><strong>📨 Plantilla · <span class="envio-pago">de pago</span></strong> <span>la envía GHL · <b>sin riesgo de bloqueo</b> · si responde, contesta el setter IA</span></div>` : ''}`;
+    ${plantillasWa().length ? `<div class="envio-op" title="La envía GHL desde el número oficial con una plantilla aprobada por Meta (cada una cuesta unos céntimos). Sin riesgo de bloqueo y, si contesta, ${quienResponde()}."><strong>📨 Plantilla · <span class="envio-pago">de pago</span></strong> <span>la envía GHL · <b>sin riesgo de bloqueo</b> · si responde, ${conSetterIa() ? 'contesta el setter IA' : 'contestas tú desde GHL'}</span></div>` : ''}`;
   for (const el of $$('[data-nota-envios]')) if (el.innerHTML !== html) el.innerHTML = html;
 }
 function rowHtml(l) {
@@ -5378,7 +5485,7 @@ function rowHtml(l) {
     ${state.config.launches[state.launchCode]?.encuestaTag ? `<td>${l.s.encuesta ? '<span class="enc-si" title="Ha rellenado la encuesta">✓</span>' : l.s.encuesta_anterior ? '<span class="enc-ant" title="La rellenó en un lanzamiento anterior (ve las clases sin repetirla)">↺</span>' : '<span class="enc-no" title="No ha rellenado la encuesta">✗</span>'}</td>` : ''}
     ${(l.s.lista || []).length && !(l.s.clases || []).length ? l.s.lista.map((x) => `<td>${recursoChip(l.s, x)}</td>`).join('') : ''}
     ${(l.s.clases || ['clase1', 'clase2']).map((c, i) => `<td>${videoChip(l.s, c)}</td>${i === 0 && l.s.recursos?.test ? `<td>${l.s.test ? '<span class="enc-si" title="Ha hecho el test">✓</span>' : '<span class="enc-no" title="No ha hecho el test">✗</span>'}</td>` : ''}`).join('')}
-    ${l.s.conVip === false ? '' : `<td>${l.s.vip_tc ? `<span title="Compró la VIP en ThriveCart, pero en GHL no tiene la etiqueta VIP">${chip('VIP 💳', 'on')}</span>` : l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>`}
+    ${l.s.conVip === false ? '' : `<td>${l.s.vip_tc ? `<span title="Pagó la VIP (ThriveCart o Hotmart), pero en GHL no tiene la etiqueta VIP">${chip('VIP 💳', 'on')}</span>` : l.s.vip ? chip('VIP', 'on') : l.s.vip_anterior ? chip('VIP anterior') : chip('—')}</td>`}
     ${(l.s.nVideos || 1) > 1 ? `<td colspan="2"><div class="videos-chips">${videosChips(l.s, state.config.launches[state.launchCode])}</div></td>` : `<td>${liveChip(l.s)}</td>
     <td>${videoChip(l.s, 'replay')}</td>`}
     <td>${compraChip(l.s)}</td>
@@ -5452,73 +5559,172 @@ function renderHoy() {
     for (const l of rows) { seen.add(l.id); lista.push({ l, b, prio: i }); }
   }
   const h = state.hoy;
-  if (h.code !== state.launchCode) Object.assign(h, { code: state.launchCode, motivo: '', temp: '', max: HOY_PAGINA });
-  const cuentaMotivo = (id) => lista.filter((x) => x.b.id === id && (!h.temp || x.l.estado.id === h.temp)).length;
-  const cuentaTemp = (id) => lista.filter((x) => x.l.estado.id === id && (!h.motivo || x.b.id === h.motivo)).length;
-  const filtrada = lista.filter((x) => (!h.motivo || x.b.id === h.motivo) && (!h.temp || x.l.estado.id === h.temp));
+  if (h.code !== state.launchCode) Object.assign(h, { code: state.launchCode, motivo: '', temp: '', senales: [], max: HOY_PAGINA });
+  if (!h.modo) { try { h.modo = localStorage.getItem('lsd_hoy_modo') || 'todos'; } catch { h.modo = 'todos'; } }
+  const todos = h.modo === 'todos';
+  // «Todos los leads»: todas las registradas (también las ya contactadas, sin teléfono, con el setter IA y, al final, las
+  // que ya compraron), con su motivo si lo tienen, de la más caliente a la más fría según lo que hizo (HOY_CALOR) y, a
+  // igualdad, por puntuación. No se quita nadie: es el histórico completo para filtrar y escribir o llamar.
+  const porId = new Map(lista.map((x) => [x.l.id, x]));
+  const porCalor = (a, b) => calorLead(a.l.s) - calorLead(b.l.s) || byScore(a.l, b.l);
+  const universo = state.leads.map((l) => porId.get(l.id) || { l, b: null }).sort(porCalor);
+  // Segmento: con alguna señal marcada, entran también las que no tienen motivo hoy (no solo las de los motivos de
+  // arriba), las que cumplen TODAS las señales marcadas.
+  const senales = HOY_SENALES.filter((x) => h.senales.includes(x.id));
+  const conResto = [...lista, ...state.leads.filter((l) => open(l) && !seen.has(l.id)).map((l) => ({ l, b: null })).sort(porCalor)];
+  const base = todos ? universo : senales.length ? conResto : lista;
+  const cumple = (l, sen = senales) => sen.every((x) => x.si(l.s));
+  const enSegmento = base.filter((x) => cumple(x.l));
+  const cuentaMotivo = (id) => enSegmento.filter((x) => x.b?.id === id && (!h.temp || x.l.estado.id === h.temp)).length;
+  const cuentaTemp = (id) => enSegmento.filter((x) => x.l.estado.id === id && (!h.motivo || x.b?.id === h.motivo)).length;
+  const filtrada = enSegmento.filter((x) => (!h.motivo || x.b?.id === h.motivo) && (!h.temp || x.l.estado.id === h.temp));
+  // Cuántas quedarían al marcar (o quitar) cada señal, con el resto de filtros como están.
+  const cuentaSenal = (x) => {
+    const sen = h.senales.includes(x.id) ? senales : [...senales, x];
+    return (todos ? universo : conResto)
+      .filter((y) => cumple(y.l, sen) && (!h.motivo || y.b?.id === h.motivo) && (!h.temp || y.l.estado.id === h.temp)).length;
+  };
   const shown = filtrada.slice(0, h.max);
   pintarNotaEnvios();
   pintarGastoPl();
   const nIa = state.leads.filter((l) => !l.s.compra && conIa(l)).length;
   const avisos = buckets.filter((b) => b.id === 'grupo').map((b) => `<p class="muted hoy-aviso">💬 ${esc(b.hint)}</p>`).join('')
-    + (nIa ? `<p class="muted hoy-aviso">🤖 ${nIa} ${nIa === 1 ? 'persona la lleva' : 'personas las lleva'} ahora el setter IA: no salen aquí para no escribirles a la vez. Si te pide ayuda, aparecen arriba en «🙋 Pide persona».${allowedViews().includes('labia') ? ' <button type="button" class="link-btn" data-ver-labia>Ver el pipeline de LabIA →</button>' : ''}</p>` : '');
+    + (nIa && !todos ? `<p class="muted hoy-aviso">🤖 ${nIa} ${nIa === 1 ? 'persona la lleva' : 'personas las lleva'} ahora el setter IA: no salen aquí para no escribirles a la vez. Si te pide ayuda, aparecen arriba en «🙋 Pide persona».${allowedViews().includes('labia') ? ' <button type="button" class="link-btn" data-ver-labia>Ver el pipeline de LabIA →</button>' : ''}</p>` : '');
   $('#hoy-lists').innerHTML = `<section class="card hoy-prio">
     <div class="hoy-prio-cab">
-      <h2>Por prioridad <span class="badge">${lista.length}</span></h2>
+      <div class="hoy-modo seg" role="group" aria-label="Qué leads ver">
+        <button type="button" class="${todos ? '' : 'on'}" data-hoy-modo="hoy" aria-pressed="${!todos}" title="A quién escribir hoy: las que tienen un motivo pendiente. Se van quitando al contactarlas o al anotar el resultado">📋 Pendientes de hoy <b>${lista.length}</b></button>
+        <button type="button" class="${todos ? 'on' : ''}" data-hoy-modo="todos" aria-pressed="${todos}" title="Todas las registradas, también las ya contactadas (y al final las que ya compraron), de la más caliente a la más fría">👥 Todos los leads <b>${universo.length}</b></button>
+      </div>
       <div class="hoy-leyenda" role="group" aria-label="Filtrar por temperatura">${ESTADOS.map((e) => `<button type="button" class="hoy-temp st-${e.id} ${h.temp === e.id ? 'on' : ''}" data-hoy-temp="${e.id}" aria-pressed="${h.temp === e.id}"><span class="dot"></span>${e.label} <b>${cuentaTemp(e.id)}</b></button>`).join('')}</div>
     </div>
     <div class="hoy-motivos" role="group" aria-label="Filtrar por motivo">
-      <button type="button" class="hoy-chip ${h.motivo ? '' : 'on'}" data-hoy-motivo="" aria-pressed="${!h.motivo}">Todas <b>${h.temp ? cuentaTemp(h.temp) : lista.length}</b></button>
+      <button type="button" class="hoy-chip ${h.motivo ? '' : 'on'}" data-hoy-motivo="" aria-pressed="${!h.motivo}">Todas <b>${h.temp ? cuentaTemp(h.temp) : enSegmento.length}</b></button>
       ${buckets.map((b) => { const n = cuentaMotivo(b.id); return n || h.motivo === b.id ? `<button type="button" class="hoy-chip ${h.motivo === b.id ? 'on' : ''}" data-hoy-motivo="${b.id}" aria-pressed="${h.motivo === b.id}" title="${esc(b.hint)}">${esc(b.corto)} <b>${n}</b></button>` : ''; }).join('')}
     </div>
+    <div class="hoy-seg" role="group" aria-label="Crear un segmento combinando señales">
+      <span class="hoy-seg-t">🎯 Segmento <small>pulsa varias para combinarlas</small></span>
+      ${HOY_SENALES.map((x) => { const on = h.senales.includes(x.id); const n = cuentaSenal(x); return `<button type="button" class="hoy-seg-chip ${on ? 'on' : ''}" data-hoy-senal="${x.id}" aria-pressed="${on}" title="${esc(x.title)}"${!on && !n ? ' disabled' : ''}>${x.ico} ${esc(x.txt)} <b>${n}</b></button>`; }).join('')}
+      ${senales.length ? `<button type="button" class="link-btn hoy-seg-quitar" data-hoy-senal="">Quitar segmento</button>` : ''}
+    </div>
+    ${todos && !senales.length ? '<p class="muted hoy-aviso">👥 Todas las registradas, de la más caliente a la más fría: checkout, página de venta, directo hasta el final, directo, VIP, grabación, clases… No se quita nadie: las ya contactadas siguen con «✅ Le escribiste» y las que compraron salen al final con «💰 Compró».</p>' : ''}
+    ${senales.length ? `<p class="hoy-seg-res"><b>${filtrada.length}</b> ${filtrada.length === 1 ? 'persona' : 'personas'}${todos ? '' : ' sin comprar'} que ${senales.map((x) => x.frase).join(' y ')}${h.temp ? ` · ${esc(ESTADOS.find((e) => e.id === h.temp)?.label || '')}` : ''}${h.motivo ? ` · ${esc(buckets.find((b) => b.id === h.motivo)?.corto || '')}` : ''}</p>` : ''}
     ${(() => {
-      // Envío masivo: la plantilla a todas las de esta lista (con el filtro de motivo y temperatura que haya).
+      // Envío masivo: la plantilla a todas las de esta lista (con el filtro de motivo, temperatura y segmento que haya).
       h.plLista = filtrada.map((x) => x.l).filter(plElegible);
       const pl = plantillasWa()[0];
-      return pl && h.plLista.length > 1 ? `<div class="hoy-pl-masivo"><button type="button" class="btn plantilla small" data-hoy-pl>📨 Plantilla a las ${h.plLista.length} de esta lista · ≈ ${euros(costeEstimado(h.plLista.length, pl.precio))}</button><span class="muted small">Elige antes el motivo o la temperatura para afinar a quién.</span></div>` : '';
+      return pl && h.plLista.length > 1 ? `<div class="hoy-pl-masivo"><button type="button" class="btn plantilla small" data-hoy-pl>📨 Plantilla a las ${h.plLista.length} de esta lista · ≈ ${euros(costeEstimado(h.plLista.length, pl.precio))}</button><span class="muted small">${senales.length ? 'Solo a las de este segmento.' : 'Combina señales del segmento, el motivo o la temperatura para afinar a quién.'}</span></div>` : '';
     })()}
     ${avisos}
-    ${shown.length ? `<ol class="hoy-list hoy-ranking">${shown.map((x, i) => hoyItem(x.l, x.b, i + 1)).join('')}</ol>` : `<p class="muted hoy-vacio">${lista.length ? 'Nadie con este filtro.' : 'Nada pendiente hoy ✓'}</p>`}
+    ${shown.length ? `<ol class="hoy-list hoy-ranking">${shown.map((x, i) => hoyItem(x.l, x.b, i + 1)).join('')}</ol>` : `<p class="muted hoy-vacio">${base.length ? 'Nadie con este filtro.' : todos ? 'Todavía no hay leads registradas.' : 'Nada pendiente hoy ✓ <button type="button" class="link-btn" data-hoy-modo="todos">Ver todos los leads →</button>'}</p>`}
     ${filtrada.length > shown.length ? `<div class="hoy-mas"><button type="button" class="btn ghost" data-hoy-mas>Ver ${Math.min(HOY_PAGINA, filtrada.length - shown.length)} más</button><span class="muted">${shown.length} de ${filtrada.length}</span></div>` : ''}
   </section>`;
 }
 
 const HOY_PAGINA = 40;
+// Señales para el segmento de Setting hoy: se combinan (tienen que cumplirse todas las marcadas).
+const asistioAlgun = (s, que) => (s.nVideos > 1 ? videosDe(state.config.launches[state.launchCode]) : [{ directo: sigDirecto(1) }])
+  .some((v) => que === 'final' ? s[`${v.directo}_final`] : ['asistio', '60', '120', 'final'].some((k) => s[`${v.directo}_${k}`]));
+const HOY_SENALES = [
+  { id: 'directo', ico: '🔴', txt: 'Asistió al directo', frase: 'asistieron al directo', title: 'Entró al directo (cualquiera de los directos del lanzamiento)', si: (s) => asistioAlgun(s, 'asistio') },
+  { id: 'final', ico: '🏁', txt: 'Hasta el final', frase: 'se quedaron hasta el final del directo', title: 'Se quedó en el directo hasta el final', si: (s) => asistioAlgun(s, 'final') },
+  { id: 'checkout', ico: '💳', txt: 'Inició el checkout', frase: 'llegaron al checkout', title: 'Llegó a la página de pago (pulsó «Quiero inscribirme»)', si: (s) => Boolean(s.inicio_pago) },
+  { id: 'venta', ico: '🛒', txt: 'Visitó la página de venta', frase: 'visitaron la página de venta', title: 'Entró en la página de venta', si: (s) => Boolean(s.venta_visita) },
+  { id: 'grabacion', ico: '🎬', txt: 'Vio la grabación', frase: 'vieron al menos la mitad de la grabación', title: 'Ha visto el 50% o más de la grabación', si: (s) => grabVenta(s) >= 50 },
+  { id: 'vip', ico: '⭐', txt: 'VIP', frase: 'son VIP', title: 'Pagó la entrada VIP', si: (s) => Boolean(s.vip) },
+  { id: 'clases', ico: '📚', txt: 'Vio las clases', frase: 'vieron al menos la mitad de alguna clase grabada', title: 'Ha visto el 50% o más de alguna clase grabada del prelanzamiento', si: (s) => (s.clases || []).some((c) => watched(s, c) >= 50) },
+  { id: 'sinplantilla', ico: '📨', txt: 'Sin plantilla', frase: 'aún no han recibido una plantilla', title: 'Todavía no se le ha enviado ninguna plantilla de WhatsApp (para no repetir)', si: (s) => !s.wa_plantilla },
+  { id: 'contactada', ico: '✅', txt: 'Ya contactadas', frase: 'ya habéis contactado', title: 'Alguien del equipo ya le ha escrito', si: (s) => Boolean(s.wa_enviado) },
+  { id: 'sincompra', ico: '🛍️', txt: 'Sin comprar', frase: 'aún no han comprado', title: 'Todavía no han comprado', si: (s) => !s.compra },
+  { id: 'compro', ico: '💰', txt: 'Compraron', frase: 'ya compraron', title: 'Ya han comprado', si: (s) => Boolean(s.compra) },
+  { id: 'sincontactar', ico: '🆕', txt: 'Sin contactar', frase: 'nadie ha contactado todavía', title: 'Nadie del equipo le ha escrito todavía', si: (s) => !s.wa_enviado },
+];
+// Lo más caliente primero (para «Todos los leads» y los segmentos): la primera señal que cumple, en este orden.
+const HOY_CALOR = [
+  (s) => s.inicio_pago,
+  (s) => s.venta_visita,
+  (s) => asistioAlgun(s, 'final'),
+  (s) => asistioAlgun(s, 'asistio'),
+  (s) => s.vip,
+  (s) => grabVenta(s) >= 50,
+  (s) => (s.clases || []).some((c) => watched(s, c) >= 50),
+  (s) => grabVenta(s) || (s.clases || []).some((c) => watched(s, c)),
+];
+const calorLead = (s) => { if (s.compra) return HOY_CALOR.length + 1; const i = HOY_CALOR.findIndex((f) => f(s)); return i < 0 ? HOY_CALOR.length : i; };
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-hoy-pl]')) { abrirPlantilla(state.hoy.plLista || []); return; }
-  const t = e.target.closest('[data-hoy-temp], [data-hoy-motivo], [data-hoy-mas]');
+  const m = e.target.closest('[data-hoy-modo]');
+  if (m) {
+    Object.assign(state.hoy, { modo: m.dataset.hoyModo, motivo: '', max: HOY_PAGINA });
+    try { localStorage.setItem('lsd_hoy_modo', state.hoy.modo); } catch { /* sin almacenamiento: no pasa nada */ }
+    renderHoy();
+    return;
+  }
+  const t = e.target.closest('[data-hoy-temp], [data-hoy-motivo], [data-hoy-mas], [data-hoy-senal]');
   if (!t) return;
   const h = state.hoy;
   if (t.dataset.hoyMas !== undefined) h.max += HOY_PAGINA;
   else {
-    if (t.dataset.hoyTemp !== undefined) h.temp = h.temp === t.dataset.hoyTemp ? '' : t.dataset.hoyTemp;
+    if (t.dataset.hoySenal !== undefined) {
+      const id = t.dataset.hoySenal;
+      h.senales = !id ? [] : h.senales.includes(id) ? h.senales.filter((x) => x !== id) : [...h.senales, id];
+    } else if (t.dataset.hoyTemp !== undefined) h.temp = h.temp === t.dataset.hoyTemp ? '' : t.dataset.hoyTemp;
     else h.motivo = t.dataset.hoyMotivo;
     h.max = HOY_PAGINA;
   }
   renderHoy();
 });
 
+// Lo que ha hecho el lead, en chips con emoji, del más cerca de comprar (checkout, página de venta) a lo de antes
+// (directo, grabación, clases). Los vídeos llevan una barrita con el % visto; las visitas, las veces y cuándo fue la última.
+function accionChip({ ico, txt, n = 0, pct = null, cuando = '', tono = '', title = '' }) {
+  return `<span class="acc${tono ? ` acc-${tono}` : ''}" title="${esc(title || txt)}"><span class="acc-ico" aria-hidden="true">${ico}</span><span class="acc-txt">${esc(txt)}</span>${n ? `<b class="acc-n">×${n}</b>` : ''}${pct != null ? `<span class="acc-bar" aria-hidden="true"><i style="width:${Math.max(4, Math.min(100, pct))}%"></i></span><b class="acc-pct">${pct}%</b>` : ''}${cuando ? `<small class="acc-cuando">${esc(cuando)}</small>` : ''}</span>`;
+}
+const haceCorto = (ms) => haceTxt(ms).replace('hace ', '');
+function accionesLead(l) {
+  const s = l.s;
+  const out = [];
+  if (s.compra) out.push(accionChip({ ico: '💰', txt: s.compra_directo ? 'Compró en el directo' : 'Compró', tono: 'on', title: `Ya ha comprado${s.fecha_compra ? ` (${s.fecha_compra})` : ''}` }));
+  if (s.inicio_pago) out.push(accionChip({ ico: '💳', txt: 'Checkout', n: s.inicio_pago.veces, cuando: haceCorto(s.inicio_pago.ultima), tono: 'fuego', title: `Llegó a la página de pago (pulsó «Quiero inscribirme») ${s.inicio_pago.veces > 1 ? `${s.inicio_pago.veces} veces` : 'una vez'} · la última ${haceTxt(s.inicio_pago.ultima)}` }));
+  if (s.venta_visita) out.push(accionChip({ ico: '🛒', txt: 'Página de venta', n: s.venta_visita.veces, cuando: haceCorto(s.venta_visita.ultima), tono: 'calor', title: `Visitó la página de venta ${s.venta_visita.veces > 1 ? `${s.venta_visita.veces} veces` : 'una vez'} · la última ${haceTxt(s.venta_visita.ultima)}` }));
+  if (s.vip) out.push(accionChip({ ico: '⭐', txt: 'VIP', tono: 'oro', title: 'Pagó la entrada VIP' }));
+  const launch = state.config.launches[state.launchCode];
+  const vids = (s.nVideos || 1) > 1 ? videosDe(launch) : [{ nombre: 'Directo', directo: sigDirecto(1), replay: 'replay' }];
+  for (const v of vids) {
+    const nom = vids.length > 1 ? nombreCorto(v) : '';
+    const d = s[`${v.directo}_final`] ? ['Hasta el final', 'on'] : s[`${v.directo}_120`] ? ['+2 h', 'on'] : s[`${v.directo}_60`] ? ['+60 min', 'on'] : s[`${v.directo}_asistio`] ? ['Asistió', 'medio'] : s[`${v.directo}_click`] ? ['Clic al enlace', ''] : null;
+    if (d) out.push(accionChip({ ico: '🔴', txt: `${nom ? `${nom} · ` : 'Directo · '}${d[0]}`, tono: d[1], title: `${v.nombre}: ${d[0].toLowerCase()} en directo` }));
+    const g = watched(s, v.replay);
+    if (g) out.push(accionChip({ ico: '🎬', txt: nom ? `${nom} grabación` : 'Grabación', pct: g, tono: g >= 90 ? 'on' : 'medio', title: `Ha visto el ${g}% de la grabación${nom ? ` de ${v.nombre}` : ''}` }));
+  }
+  for (const [i, c] of (s.clases || []).entries()) {
+    const p = watched(s, c);
+    if (p) out.push(accionChip({ ico: '📚', txt: `Clase ${i + 1}`, pct: p, tono: p >= 90 ? 'on' : 'medio', title: `Ha visto el ${p}% de la clase ${i + 1}` }));
+  }
+  if (s.test) out.push(accionChip({ ico: '🧪', txt: 'Test hecho', tono: 'on' }));
+  if (s.recursos?.musica && (s.musica_play || s.musica_50 || s.musica_90)) out.push(accionChip({ ico: '🎵', txt: s.musica_90 ? 'Música entera' : s.musica_50 ? 'Música 50%' : 'Música (play)' }));
+  if (s.encuesta) out.push(accionChip({ ico: '📋', txt: 'Encuesta', tono: 'on', title: 'Ha rellenado la encuesta' }));
+  const voto = s.recursos?.votacion && votoTexto(l.id);
+  if (voto) out.push(accionChip({ ico: '🗳️', txt: voto.length > 26 ? `${voto.slice(0, 25)}…` : voto, title: `Sus respuestas en la clase: ${voto}` }));
+  if (s.enGrupo) out.push(accionChip({ ico: '👥', txt: 'En el grupo', title: 'Sigue en el grupo de WhatsApp del lanzamiento' }));
+  if (s.setter?.alguna) out.push(accionChip({ ico: `🤖${SETTER_ICO(s.setter)}`, txt: textoSetterIa(s.setter), tono: s.setter.humano ? 'fuego' : '' }));
+  if (s.wa_enviado) out.push(accionChip({ ico: '✅', txt: `Le escribiste${l.outcome ? ` · ${OUTCOMES.find((o) => o.id === l.outcome)?.label || ''}` : ''}`, tono: 'hecho' }));
+  return out.length ? out.join('') : accionChip({ ico: '😴', txt: 'Sin actividad todavía', tono: 'nada' });
+}
+
 function hoyItem(l, b = null, n = 0) {
-  const signals = [
-    l.s.setter?.alguna ? `🤖 ${textoSetterIa(l.s.setter)}` : '',
-    l.s.inicio_pago ? pagoTxt(l.s.inicio_pago) : '',
-    l.s.venta_visita ? visitaTxt(l.s.venta_visita) : '',
-    l.s.vip ? 'VIP' : '',
-    l.s.enGrupo ? 'En el grupo de WhatsApp' : '',
-    directoVenta(l.s, 'final') ? 'Directo hasta el final' : directoVenta(l.s, 'asistio') ? 'Asistió al directo' : '',
-    grabVenta(l.s) ? `Grabación ${grabVenta(l.s)}%` : '',
-    watched(l.s, 'clase1') || watched(l.s, 'clase2') ? `Clases ${watched(l.s, 'clase1')}% / ${watched(l.s, 'clase2')}%` : '',
-  ].filter(Boolean).join(' · ');
   return `<li class="hoy-item st-${l.estado.id}">
     ${n ? `<span class="hoy-n" title="${esc(l.estado.label)} · ${l.score}/100">${n}</span>` : ''}
     <div class="hoy-main">
-      <div class="hoy-linea"><span class="lead-name">${esc(l.name || l.email)}</span> <span class="estado st-${l.estado.id}" title="${esc(l.estado.label)}"><span class="dot"></span>${esc(l.estado.label)} · ${l.score}</span> ${b && b.id !== 'calientes' ? `<span class="hoy-motivo">${esc(b.corto)}</span>` : ''} ${avatarChip(l)}</div>
-      <div class="lead-meta">${esc(signals || 'Sin actividad')} · ${NEXT_STEPS[l.step]}</div>
+      <div class="hoy-linea"><button type="button" class="lead-name lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || l.email)}</button>${l.phone ? ` <span class="muted small">${esc(l.phone)}</span>` : ''} <span class="estado st-${l.estado.id}" title="${esc(l.estado.label)}"><span class="dot"></span>${esc(l.estado.label)} · ${l.score}</span> ${b && b.id !== 'calientes' ? `<span class="hoy-motivo">${esc(b.corto)}</span>` : ''} ${avatarChip(l)}</div>
+      <div class="hoy-acc">${accionesLead(l)}</div>
+      <div class="hoy-paso">👉 ${esc(NEXT_STEPS[l.step])}</div>
     </div>
     <div class="hoy-actions">
       ${l.s.setter?.respondio && enlaceSetter(l.id) ? `<a class="btn ghost small" href="${esc(enlaceSetter(l.id))}" target="_blank" rel="noopener" title="Leer la conversación en el setter IA">🤖 Ver chat</a>` : ''}
-      ${envioBtns(l, { corto: true })}
-      ${outcomeSelect(l)}
+      ${l.phoneWa ? `<a class="btn ghost small" href="tel:+${esc(l.phoneWa)}" title="${esc(`Llamar al ${l.phone || `+${l.phoneWa}`}`)}">📞 Llamar</a>` : ''}
+      ${!l.phoneWa ? '<span class="muted small">Sin teléfono</span>' : l.s.compra ? '' : envioBtns(l, { corto: true })}
+      ${l.s.compra ? '' : outcomeSelect(l)}
     </div>
   </li>`;
 }
@@ -5556,7 +5762,7 @@ document.addEventListener('click', async (e) => {
 });
 
 // ---------- Plantillas de WhatsApp (de pago): a una persona o a muchas a la vez ----------
-// El dashboard pone a cada persona la etiqueta de la plantilla elegida (setter-ia-enviar-…) y la de «contactada» y apunta
+// El dashboard pone a cada persona la etiqueta de la plantilla elegida (wa-enviar-…), la de «plantilla enviada» y la de «contactada» y apunta
 // el envío con su precio (/api/plantillas-wa). El workflow de GHL de esa etiqueta envía la plantilla, le pone
 // setter-ia-plantilla y quita la etiqueta (para poder repetir). Se manda de 20 en 20.
 const euros = (n) => (n == null ? '–' : `${Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`);
@@ -5578,11 +5784,11 @@ function abrirPlantilla(leads) {
   const fuera = leads.length - plLeads.length;
   const uno = leads.length === 1;
   const nombre = uno ? (leads[0].firstName || leads[0].name || 'esta persona') : '';
-  const ya = plLeads.filter((l) => l.s.setter?.plantilla).length;
+  const ya = plLeads.filter((l) => l.s.wa_plantilla).length;
   const conIa = plLeads.filter((l) => l.s.setter?.activo).length;
   $('#pl-titulo').textContent = uno ? `📨 Enviar plantilla a ${nombre}` : `📨 Enviar plantilla a ${plLeads.length} personas`;
   $('#pl-body').innerHTML = `
-    <label class="field"><span>¿Qué plantilla? <small>(las aprobadas: Cuenta → Conexiones → Setter IA)</small></span>
+    <label class="field"><span>¿Qué plantilla? <small>(las aprobadas: Configuración → Conexiones → Plantillas de WhatsApp)</small></span>
       <select id="pl-elegida">${pls.map((p) => `<option value="${esc(p.tag)}">${esc(p.nombre)} · ${eurosUd(p.precio)} cada una</option>`).join('')}</select></label>
     <div class="pl-coste" id="pl-coste"></div>
     ${!uno && fuera ? `<p class="muted small">Se quedan fuera ${fuera}: sin teléfono, ya compraron o pidieron la baja.</p>` : ''}
@@ -5591,7 +5797,7 @@ function abrirPlantilla(leads) {
     <ul class="pl-avisos">
       <li>💶 <strong>Es de pago:</strong> Meta cobra cada plantilla (el precio de arriba es aproximado: mira tu factura).</li>
       <li>✅ <strong>Sin riesgo de bloqueo:</strong> sale del número oficial de WhatsApp de GHL, no del tuyo.</li>
-      <li>🤖 <strong>Si responde, le contesta el setter IA</strong> y la conversación sigue allí.</li>
+      ${conSetterIa() ? '<li>🤖 <strong>Si responde, le contesta el setter IA</strong> y la conversación sigue allí.</li>' : '<li>💬 <strong>Si responde, su mensaje llega a Conversaciones de GHL</strong>: contéstale desde allí (o desde la app de GHL), no desde tu WhatsApp, para que siga saliendo del número oficial.</li>'}
     </ul>
     <div class="pl-progreso" id="pl-progreso" hidden><div class="pl-barra"><i></i></div><span></span></div>
     <p class="muted small" id="pl-status"></p>`;
@@ -5627,7 +5833,7 @@ $('#pl-enviar').addEventListener('click', async () => {
       for (const l of lote) {
         if (!ok.has(l.id)) { fallos++; continue; }
         l.s.wa_enviado = true;
-        l.s.setter = { ...(l.s.setter || {}), plantilla: true, alguna: true };
+        l.s.wa_plantilla = true;
         state.plSel.delete(l.id);
       }
       enviadas += r.enviadas;
@@ -5636,7 +5842,7 @@ $('#pl-enviar').addEventListener('click', async () => {
       $('.pl-barra i', prog).style.width = `${Math.round(((i + lote.length) / leads.length) * 100)}%`;
     }
     $('#plantilla-dialog').close();
-    notice(`📨 ${enviadas === 1 ? `Plantilla en camino a ${leads[0].firstName || leads[0].name || 'la lead'}` : `${enviadas} plantillas en camino`} (${euros(coste)}): GHL las envía en unos segundos. Si responden, contesta el setter IA.${fallos ? ` ${fallos} no se pudieron marcar: vuelve a probar con ellas.` : ''}`, Boolean(fallos));
+    notice(`📨 ${enviadas === 1 ? `Plantilla en camino a ${leads[0].firstName || leads[0].name || 'la lead'}` : `${enviadas} plantillas en camino`} (${euros(coste)}): GHL las envía en unos segundos. Si responden, ${conSetterIa() ? 'contesta el setter IA' : 'las verás en Conversaciones de GHL'}.${fallos ? ` ${fallos} no se pudieron marcar: vuelve a probar con ellas.` : ''}`, Boolean(fallos));
   } catch (ex) {
     $('#pl-status').textContent = `${enviadas ? `Se enviaron ${enviadas}. ` : ''}${ex.message}`;
     b.disabled = false;
@@ -5754,6 +5960,7 @@ $('#btn-zoom').addEventListener('click', async () => {
   btn.disabled = true;
   const resumen = [];
   let failed = 0;
+  let zoomSinInstancias = false;
   try {
     const byEmail = new Map(state.leads.map((l) => [l.email, l]));
     const items = new Map(); // id → etiquetas
@@ -5789,6 +5996,9 @@ $('#btn-zoom').addEventListener('click', async () => {
       resumen.push(`${vids.length > 1 ? `${v.nombre}: ` : ''}${report.attendees.length} asistentes identificados, ${n} leads actualizados`
         + `${unmatched ? `, ${unmatched} emails que no están en este lanzamiento` : ''}`
         + `${report.anonymous ? `, ${report.anonymous} conexiones sin email` : ''}`);
+      // Sin el permiso de instancias, Zoom solo da la última vez que se abrió la sala (si se reabrió después del
+      // directo, sale casi vacío): se avisa de qué permiso falta.
+      if (/list_past_instances/.test(report.fuente?.error || '')) zoomSinInstancias = true;
     }
     const lista = [...items].map(([id, tags]) => ({ id, tags }));
     let done = 0;
@@ -5802,7 +6012,8 @@ $('#btn-zoom').addEventListener('click', async () => {
     delete state.zoomMin?.[state.launchCode];
     if (state.zoomMinCargando) delete state.zoomMinCargando[state.launchCode];
     await loadLeads({ forzar: true });
-    notice(`Zoom: ${resumen.join(' · ')}${failed ? `. ${failed} no se pudieron etiquetar (vuelve a sincronizar)` : ''}.`, failed > 0);
+    notice(`Zoom: ${resumen.join(' · ')}${failed ? `. ${failed} no se pudieron etiquetar (vuelve a sincronizar)` : ''}.`
+      + (zoomSinInstancias ? ' ⚠️ Ojo: la app de Zoom de AlquimIA no tiene el permiso «meeting:read:list_past_instances:admin», así que Zoom solo da la ÚLTIMA vez que se abrió la sala (si se abrió después del directo, el informe sale casi vacío). Añádelo en marketplace.zoom.us → tu app Server-to-Server → Scopes, y vuelve a sincronizar.' : ''), failed > 0 || zoomSinInstancias);
   } catch (e) {
     notice(`No se pudo sincronizar Zoom: ${e.message}`, true);
   } finally {
@@ -5984,8 +6195,56 @@ function readVideosCfg() {
 // Pantalla de espera: sus campos solo si está activa.
 function pintarEsperaCfg() {
   $$('#config-dialog [data-espera-campo]').forEach((el) => { el.hidden = !$('#cfg-espera-on').checked; });
+  pintarEsperaDirectos();
 }
 $('#cfg-espera-on').addEventListener('change', pintarEsperaCfg);
+// Lanzamientos de varios directos: en cuáles sale la pantalla de espera (null = en todos).
+let esperaDirectosSel = null;
+// Los vídeos en directo según el formulario (los que tienen ID o enlace de Zoom).
+function directosDelForm() {
+  const l = editingCode ? state.config.launches[editingCode] : null;
+  const formato = $('#cfg-videos-sec').dataset.formato || formatoDeLanz(l);
+  const val = (k, c) => (k === 1 ? $(V1_PROXY[c])?.value : $(`#config-dialog [data-vk="${k}"][data-vc="${c}"]`)?.value) || '';
+  return videosDe({ ...(l || {}), formato }).filter((v) => (val(v.k, 'zoomMeetingId') + val(v.k, 'zoomJoinUrl')).trim())
+    .map((v) => ({ k: v.k, nombre: nombreVideo(formato, v.k), fecha: val(v.k, 'fecha'), hora: val(v.k, 'hora') }));
+}
+function pintarEsperaDirectos() {
+  const box = $('#cfg-espera-directos');
+  const ds = $('#cfg-espera-on').checked ? directosDelForm() : [];
+  box.hidden = ds.length < 2;
+  if (box.hidden) { box.innerHTML = ''; return; }
+  box.innerHTML = `<span class="espera-dir-tit"><strong>¿En qué directos?</strong> <small class="muted">(la hora antes de cada directo marcado; en los demás, la preclase se ve normal y a la hora entra sola al directo)</small></span>
+    <div class="espera-dir-lista">${ds.map((d) => `<label class="chk"><input type="checkbox" data-espera-dir="${d.k}"${esperaDirectosSel == null || esperaDirectosSel.has(d.k) ? ' checked' : ''}> ${esc(d.nombre)}${d.fecha ? ` <small class="muted">${esc(formatDate(madridToEpoch(`${d.fecha}T${d.hora || '00:00'}`)))}${d.hora ? ` · ${esc(d.hora)}` : ''}</small>` : ''}</label>`).join('')}</div>`;
+}
+$('#cfg-espera-directos').addEventListener('change', () => {
+  esperaDirectosSel = new Set($$('#cfg-espera-directos [data-espera-dir]:checked').map((i) => Number(i.dataset.esperaDir)));
+});
+// Al poner o quitar el Zoom de un vídeo, cambia la lista.
+$('#config-dialog').addEventListener('change', (e) => {
+  if (e.target.matches('#cfg-zoom-id, #cfg-zoom-url, [data-vc="zoomMeetingId"], [data-vc="zoomJoinUrl"], [data-v1="zoomMeetingId"], [data-v1="zoomJoinUrl"]')) pintarEsperaDirectos();
+});
+// Lo que se guarda: la lista solo si no están todos marcados.
+function esperaDirectosCfg() {
+  const ds = $('#cfg-espera-on').checked ? directosDelForm() : [];
+  if (ds.length < 2 || esperaDirectosSel == null || ds.every((d) => esperaDirectosSel.has(d.k))) return undefined;
+  return ds.filter((d) => esperaDirectosSel.has(d.k)).map((d) => d.k);
+}
+// Prompt para diseñar la pantalla de espera con Claude: narrativa del lanzamiento, estilo de la marca y los textos del formulario.
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-espera-prompt]');
+  if (!b) return;
+  const st = $('[data-espera-prompt-st]');
+  const l = (editingCode && state.config.launches[editingCode]) || {};
+  const texto = (k) => $(`#config-dialog [data-texto="${k}"]`)?.value.trim() || '';
+  const mp = await marcaDeEmbudo(api, state.cliente, editingCode ? embudoDeLanz(l) : state.embudo).catch(() => ({}));
+  const txt = promptEspera({
+    lanzamiento: $('#cfg-name')?.value.trim() || l.name, marca: clienteNombre(), producto: mp.producto ? nombreDeProducto(mp.producto) : nombreProducto(state.config),
+    textos: { titulo: texto('espera-titulo'), subtitulo: texto('espera-subtitulo'), mensaje: texto('espera-mensaje') },
+    logo: $('#cfg-img-espera').value.trim(), video: $('#cfg-espera-video').value.trim(),
+    narrativa: bloqueNarrativa(l.narrativa, 'pagina'), diseno: disenoTexto(mp.m), contexto: contextoMarca(mp.m, mp.producto),
+  });
+  try { await navigator.clipboard.writeText(paraIa(txt)); st.textContent = `✓ Copiado: pégalo en ${iaNombre()}.`; } catch { window.prompt('Copia el prompt:', txt); }
+});
 
 function pintarEnlaceDirecto() {
   const pre = $('#cfg-recursos-url').value.trim();
@@ -6677,6 +6936,11 @@ function openConfig(code, { silencioso = false } = {}) {
   pintarReplayBarraCfg();
   $('#cfg-espera-on').checked = l.espera?.activa ?? (embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo)?.espera !== false);
   $('#cfg-espera-video').value = l.espera?.video || '';
+  $('#cfg-espera-antes').value = String(l.espera?.antesMin ?? 5);
+  esperaDirectosSel = Array.isArray(l.espera?.directos) ? new Set(l.espera.directos) : null;
+  $('#cfg-espera-css').value = l.espera?.css || '';
+  $('#cfg-espera-deco').value = l.espera?.decoracion || '';
+  $('#cfg-espera-diseno').open = Boolean(l.espera?.css || l.espera?.decoracion);
   pintarEsperaCfg();
   checkLaunchTags();
   renderGuia();
@@ -8116,7 +8380,7 @@ function readForm() {
       oferta: leerOfertaEditor(),
       recursosPre: leerRecursosCfg(),
       ...(!$('#cfg-lista-sec').hidden ? { listaRecursos: leerListaRecCfg() } : {}),
-      espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim() },
+      espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim(), antesMin: $('#cfg-espera-antes').value.trim(), directos: esperaDirectosCfg(), css: $('#cfg-espera-css').value.trim(), decoracion: $('#cfg-espera-deco').value.trim() },
       ventaBarra: leerVentaBarra(),
       titulares: leerTitulares(),
       paginaPago: leerPaginaPago(),
@@ -9291,7 +9555,7 @@ function renderAutomatizaciones() {
   if (!box) return;
   const { tipo, code, obj } = autoActual();
   if (!obj) { box.innerHTML = `<div class="card empty"><p class="muted">Elige ${tipo === 'meteorico' ? 'un meteórico' : 'un lanzamiento'} para ver sus automatizaciones.</p></div>`; return; }
-  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente, plantillasWa: state.config.setterIa?.plantillas || [] });
+  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente, plantillasWa: state.config.plantillasWa || [] });
   const lista = automatizacionesDe(c);
   const datos = obj.automatizaciones || {};
   const origen = datos.origen || embudoInfo()?.autoOrigen || '';
@@ -9351,7 +9615,7 @@ document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-au-prompt], [data-au-ia], [data-au-prep]');
   if (!b) return;
   const { tipo, code, obj } = autoActual();
-  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente, plantillasWa: state.config.setterIa?.plantillas || [] });
+  const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente, plantillasWa: state.config.plantillasWa || [] });
   const lista = automatizacionesDe(c);
   const x = lista.find((y) => y.id === (b.dataset.auPrompt || b.dataset.auIa));
   const txt = b.hasAttribute('data-au-prep') ? promptPreparacion(lista, c) : b.dataset.auIa ? descripcionIaGhl(x, c) : promptAutomatizacion(x, c);
@@ -12738,6 +13002,8 @@ async function cargarLlamadas(code) {
 
 const llCancelada = (c) => ['cancelled', 'invalid'].includes(c.status) && c.resultado?.resultado !== 'reagendar';
 const llStart = (c) => Date.parse(c.startTime);
+// «sáb 31 oct · 09:00» (hora de Madrid).
+const llCuando = (c) => { const d = new Date(c.startTime); const o = { timeZone: 'Europe/Madrid' }; return `${d.toLocaleDateString('es-ES', { ...o, weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')} · ${d.toLocaleTimeString('es-ES', { ...o, hour: '2-digit', minute: '2-digit' })}`; };
 const leadDe = (contactId) => (enCruzadas() ? cruz.alumnoDe(contactId)
   : enDirecta() ? (state.directa.datos?.compradores || []).find((c) => c.id === contactId) || null
   : (enVsl() ? state.vsl.leads || [] : state.leads).find((l) => l.id === contactId) || null);
@@ -12783,6 +13049,9 @@ function llamadaCard(c) {
   const k = contactoDe(c);
   const phone = k.phone;
   const wa = k.phoneWa;
+  // La misma lead con varias citas vivas: se enseña la que reservó la última; las demás ocupan huecos en GHL.
+  const repChip = c.otras?.length ? `<span class="ll-chip ll-rep" title="${esc(`Reservó ${c.otras.length + 1} citas. Esta es la última que eligió. Las otras: ${c.otras.map(llCuando).join(' · ')}. Cancélalas en el calendario de GHL: ocupan huecos.`)}">⚠️ Reservó ${c.otras.length + 1} citas · esta es la última</span>` : '';
+  const cancChip = c.canceladas?.length ? `<span class="ll-chip muted" title="${esc(`Otras citas que canceló: ${c.canceladas.map(llCuando).join(' · ')}`)}">↩️ Canceló ${c.canceladas.length === 1 ? 'otra cita' : `otras ${c.canceladas.length} citas`}</span>` : '';
   return `<article data-ll-card="${esc(c.id)}" title="Pulsa para ver la ficha completa" class="ll-card ${pasada && !r && !llCancelada(c) ? 'pendiente' : ''} ${r ? `res-${r.id}` : ''} ${llCancelada(c) ? 'cancelada' : ''}">
     <div class="ll-when"><span class="ll-dia">${esc(cuando)}</span><span class="ll-hora">${esc(hora)}</span></div>
     <div class="ll-main">
@@ -12790,7 +13059,7 @@ function llamadaCard(c) {
         ${etapa ? `<span class="ll-etapa" style="--c:${esc(etapa.color || '#8a817b')}" title="Etapa en el pipeline de GHL">${esc(etapa.name)}</span>` : '<span class="ll-etapa none" title="Aún no está en el pipeline: se añadirá al anotar el resultado">Sin etapa</span>'}
         ${llCancelada(c) ? '<span class="ll-etapa none">Cita cancelada</span>' : ''}</div>
       <div class="ll-contact">${phone ? `<a href="tel:${esc(phone)}">${icon('phone')}${esc(phone)}</a>` : ''}${wa ? `<a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}${phone ? '' : '<span class="muted">Sin teléfono</span>'}</div>
-      <div class="ll-chips">${origenChip(c)}${chips}</div>
+      <div class="ll-chips">${repChip}${cancChip}${origenChip(c)}${chips}</div>
       ${r ? `<div class="ll-res">${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span>${c.resultado.notas ? `<div class="ll-notas">${esc(c.resultado.notas)}</div>` : ''}</div>` : ''}
     </div>
     <div class="ll-actions">${llCancelada(c) ? '' : `<button type="button" class="btn ${pasada && !r ? 'primary' : ''}" data-ll="${esc(c.id)}">${r ? 'Cambiar resultado' : 'Anotar resultado'}</button>`}</div>
@@ -12809,6 +13078,8 @@ function renderLlamadas() {
   calcularFases();
   const ahora = Date.now();
   const list = d.llamadas;
+  const repetidas = list.filter((c) => c.otras?.length);
+  const avisoRep = repetidas.length ? `<div class="notice ll-rep-aviso">⚠️ <strong>${repetidas.length === 1 ? 'Una lead ha reservado' : `${repetidas.length} leads han reservado`} varias citas</strong> (suele pasar cuando no les llega la confirmación y vuelven a reservar). Aquí sale una sola, la última que eligió; las demás siguen en GHL ocupando huecos: ${repetidas.map((c) => `<strong>${esc(leadDe(c.contactId)?.name || c.title || 'Sin nombre')}</strong> (se queda ${esc(llCuando(c))}; sobran ${c.otras.length}: ${c.otras.map((x) => esc(llCuando(x))).join(', ')})`).join('; ')}. Confírmale la hora y cancela las demás en el calendario de GHL.</div>` : '';
   const m = metricasLlamadas(list.map((c) => ({ start: llStart(c), resultado: c.resultado, cancelada: llCancelada(c) })), ahora);
   badge.hidden = !m.sinResultado;
   badge.textContent = m.sinResultado;
@@ -12816,7 +13087,7 @@ function renderLlamadas() {
   $('#ll-fuente').innerHTML = `Calendario <strong>${esc(d.calendario.name)}</strong>${d.pipeline ? ` · pipeline <strong>${esc(d.pipeline.name)}</strong>` : ' · <span class="error">no encuentro el pipeline «Leads Lanzamientos» en GHL</span>'}`;
   const pct = (v) => (v == null ? '–' : `${Math.round(v * 100)}%`);
   const maxMot = m.motivos[0]?.[1] || 1;
-  top.innerHTML = `
+  top.innerHTML = `${avisoRep}
     <div class="kpis ll-kpis">
       <div class="kpi static tone-info"><span class="kpi-label"><span class="kpi-ico">${icon('calendar')}</span>Reservadas</span><span class="kpi-value">${m.reservadas}</span><span class="kpi-sub">${m.proximas} próximas · ${m.pasadas} ya pasadas</span></div>
       <div class="kpi static tone-live"><span class="kpi-label"><span class="kpi-ico">${icon('phone')}</span>Shows</span><span class="kpi-value">${m.shows} <small class="ll-pct">${pct(m.pctShow)}</small></span><span class="kpi-sub">se presentaron y se hizo la llamada</span></div>
@@ -13382,33 +13653,45 @@ function conUtmRegistro(contact) {
   if (!u) return contact;
   return { ...contact, src: { ...(contact.src || {}), source: u.source || contact.src?.source || '', medium: contact.src?.medium || 'paid', campaign: u.campaign, term: u.term, content: u.content } };
 }
-// Entrada VIP comprada en ThriveCart (los productos VIP elegidos en Configuración → Precios): el lead cuenta como VIP
-// aunque el workflow de GHL no le haya puesto la etiqueta (o se la haya puesto a otro contacto), como en Métricas.
+// Ventas reales (ThriveCart y Hotmart) de los productos elegidos en Configuración → Precios: la entrada VIP marca VIP y
+// el programa marca compra, aunque el workflow de GHL no le haya puesto la etiqueta (o se la haya puesto a otro
+// contacto), como en Métricas. Sin VIP en el lanzamiento, todos sus productos son el programa.
 async function cargarVipTc() {
   const code = state.launchCode;
   const launch = state.config.launches[code];
-  if (enVsl() || !launch || !conVip(launch) || !(launch.tcProductos || []).length) { state.vipTc = null; return; }
-  const clave = `${state.cliente || ''}:${code}`;
+  const conV = launch && conVip(launch);
+  const prodVip = conV ? prodsReales(launch.tcProductos, launch.hmProductos) : [];
+  const prodProg = !launch ? [] : conV ? prodsReales(launch.tcPrograma, launch.hmPrograma)
+    : prodsReales([...(launch.tcProductos || []), ...(launch.tcPrograma || [])], [...(launch.hmProductos || []), ...(launch.hmPrograma || [])]);
+  if (enVsl() || !launch || (!prodVip.length && !prodProg.length)) { state.vipTc = null; return; }
   try {
-    if (!tcCache[clave] || Date.now() - tcCache[clave].at > 5 * 60_000) {
-      const { desde, hasta } = periodoLanz(code);
-      const r = await api(`/api/thrivecart?op=ventas&desde=${desde}&hasta=${hasta}`);
-      tcCache[clave] = { at: Date.now(), ventas: r.ventas || [], desde, hasta };
-    }
+    const { desde, hasta } = periodoLanz(code);
+    const ventas = await ventasReales(desde, hasta);
     if (state.launchCode !== code) return;
-    const { ventas, desde, hasta } = tcCache[clave];
-    const emails = resumenThrivecart(ventas, new Set(), { desde, hasta, productos: launch.tcProductos }).emailsCompra;
-    state.vipTc = { code, emails };
+    // Quien lo pagó (sin contar a quien se le devolvió todo).
+    const compradoras = (prods) => (prods.length ? resumenThrivecart(ventas, new Set(), { desde, hasta, productos: prods }).emailsCompra : new Set());
+    state.vipTc = { code, emails: compradoras(prodVip), compra: compradoras(prodProg) };
     let cambia = false;
     for (const l of state.leads) cambia = marcarVipTc(l) || cambia;
     if (cambia) programarRender();
-  } catch { /* sin ThriveCart: la VIP por etiqueta */ }
+  } catch { /* sin ThriveCart ni Hotmart: la VIP y la compra por etiqueta */ }
 }
 function marcarVipTc(l) {
   const v = state.vipTc;
-  if (!v || v.code !== state.launchCode || l.s.vip || !v.emails.has(String(l.email || '').toLowerCase())) return false;
-  l.s.vip = true;
-  l.s.vip_tc = true; // VIP por ThriveCart, sin su etiqueta en GHL
+  if (!v || v.code !== state.launchCode) return false;
+  const email = String(l.email || '').toLowerCase();
+  let cambia = false;
+  if (!l.s.vip && v.emails.has(email)) {
+    l.s.vip = true;
+    l.s.vip_tc = true; // VIP por la venta real, sin su etiqueta en GHL
+    cambia = true;
+  }
+  if (!l.s.compra && v.compra?.has(email)) {
+    l.s.compra = true;
+    l.s.compra_real = true; // compra del programa por la venta real (ThriveCart o Hotmart), sin su etiqueta en GHL
+    cambia = true;
+  }
+  if (!cambia) return false;
   l.score = puntuar(l.s, pesosDe(state.config));
   l.estado = estadoFor(l.score);
   l.step = nextStepFor(l.s);
@@ -16938,7 +17221,7 @@ $('#btn-conexiones').addEventListener('click', () => {
 });
 // Estado de cada conexión (la pastilla de su tarjeta y el resumen de arriba): { clave: ['ok'|'aviso'|'no', texto] }.
 const estadoCx = {};
-const NOMBRE_CX = { thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
+const NOMBRE_CX = { thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
 function ponerEstadoCx(clave, tono, texto) {
   estadoCx[clave] = [tono, texto];
   const el = $(`#conexiones-dialog [data-cx-estado="${clave}"]`);
@@ -16949,6 +17232,8 @@ function ponerEstadoCx(clave, tono, texto) {
 function pintarEstadoCx() {
   const st = state.config?.setterIa;
   ponerEstadoCx('setter', st?.url ? 'ok' : 'no', st?.url ? 'Conectado' : 'Sin conectar');
+  const npl = plantillasWa().length;
+  ponerEstadoCx('plantillas', npl ? 'ok' : 'no', npl ? `${npl} ${npl === 1 ? 'plantilla' : 'plantillas'}` : 'Sin plantillas');
   if (!estadoCx.sendflow) ponerEstadoCx('sendflow', 'aviso', 'Pulsa «Probar»');
 }
 // Pulsar un estado del resumen abre su tarjeta.
@@ -17187,18 +17472,18 @@ $('#cx-av-guardar').addEventListener('click', async () => {
 });
 $('#cx-sendflow-probar').addEventListener('click', () => probarSendflow());
 // Setter IA: su dirección (para «Abrir en el setter») y si la clave de las cifras está puesta en Cloudflare.
-// Código de la etiqueta de una plantilla a partir de su nombre: «Bienvenida webinar» → setter-ia-enviar-bienvenida-webinar.
-const tagPlantilla = (nombre) => `setter-ia-enviar-${String(nombre || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'plantilla'}`;
+// Código de la etiqueta de una plantilla a partir de su nombre: «Bienvenida webinar» → wa-enviar-bienvenida-webinar.
+const tagPlantilla = (nombre) => `wa-enviar-${String(nombre || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'plantilla'}`;
 let cxPlantillas = [];
 function pintarPlantillasCx() {
-  $('#cx-setter-plantillas').innerHTML = cxPlantillas.length ? cxPlantillas.map((p, i) => `<div class="cx-pl" data-cx-pl="${i}">
+  $('#cx-plantillas').innerHTML = cxPlantillas.length ? cxPlantillas.map((p, i) => `<div class="cx-pl" data-cx-pl="${i}">
       <input data-cx-pl-nombre value="${esc(p.nombre)}" maxlength="60" placeholder="Nombre de la plantilla (como en WhatsApp)" aria-label="Nombre de la plantilla">
       <label class="cx-pl-precio" title="Lo que cobra Meta por cada una (aprox.; míralo en tu factura). Sirve para el coste estimado y el gasto."><input data-cx-pl-precio inputmode="decimal" value="${esc(String(p.precio ?? 0.06).replace('.', ','))}" aria-label="Precio por plantilla en euros"> €</label>
       <code title="Código que pone AlquimIA y que dispara el workflow de GHL">${esc(p.tag)}</code>
       <button type="button" class="btn ghost small" data-cx-pl-quitar aria-label="Quitar">✕</button></div>`).join('')
     : '<p class="muted small">Sin plantillas: en Leads y Setting hoy solo saldrá el botón de WhatsApp gratis.</p>';
 }
-$('#cx-setter-plantillas').addEventListener('input', (e) => {
+$('#cx-plantillas').addEventListener('input', (e) => {
   const i = Number(e.target.closest('[data-cx-pl]')?.dataset.cxPl);
   if (!cxPlantillas[i]) return;
   if (e.target.matches('[data-cx-pl-precio]')) { cxPlantillas[i].precio = e.target.value.replace(',', '.'); return; }
@@ -17206,7 +17491,7 @@ $('#cx-setter-plantillas').addEventListener('input', (e) => {
   cxPlantillas[i].nombre = e.target.value;
   if (!cxPlantillas[i].fija) { cxPlantillas[i].tag = tagPlantilla(e.target.value); e.target.closest('[data-cx-pl]').querySelector('code').textContent = cxPlantillas[i].tag; }
 });
-$('#cx-setter-plantillas').addEventListener('click', (e) => {
+$('#cx-plantillas').addEventListener('click', (e) => {
   if (!e.target.closest('[data-cx-pl-quitar]')) return;
   cxPlantillas.splice(Number(e.target.closest('[data-cx-pl]').dataset.cxPl), 1);
   pintarPlantillasCx();
@@ -17214,13 +17499,36 @@ $('#cx-setter-plantillas').addEventListener('click', (e) => {
 $('#cx-pl-add').addEventListener('click', () => {
   cxPlantillas.push({ id: `p${Date.now().toString(36)}`, nombre: '', tag: tagPlantilla(''), precio: 0.06 });
   pintarPlantillasCx();
-  $$('#cx-setter-plantillas [data-cx-pl-nombre]').at(-1)?.focus();
+  $$('#cx-plantillas [data-cx-pl-nombre]').at(-1)?.focus();
+});
+function pintarPlantillasConexiones() {
+  // Las ya guardadas conservan su código (su workflow de GHL ya lo usa); las nuevas lo sacan del nombre.
+  cxPlantillas = plantillasWa().map((p) => ({ ...p, fija: true }));
+  pintarPlantillasCx();
+  $('#cx-pl-status').textContent = '';
+}
+$('#cx-pl-guardar').addEventListener('click', async () => {
+  const st = $('#cx-pl-status');
+  st.textContent = 'Guardando…';
+  try {
+    const vistos = new Set();
+    const plantillasWa = cxPlantillas.filter((p) => p.nombre.trim()).map((p) => {
+      let tag = p.tag;
+      for (let n = 2; vistos.has(tag); n++) tag = `${p.tag}-${n}`;
+      vistos.add(tag);
+      return { id: p.id, nombre: p.nombre.trim(), tag, precio: p.precio };
+    });
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, plantillasWa } });
+    state.config = config;
+    pintarPlantillasConexiones();
+    pintarEstadoCx();
+    render();
+    st.textContent = 'Guardado ✓';
+  } catch (e) { st.textContent = e.message; }
 });
 function pintarSetterConexiones() {
   $('#cx-setter-url').value = state.config.setterIa?.url || '';
-  // Las ya guardadas conservan su código (su workflow de GHL ya lo usa); las nuevas lo sacan del nombre.
-  cxPlantillas = (state.config.setterIa?.plantillas || []).map((p) => ({ ...p, fija: true }));
-  pintarPlantillasCx();
+  pintarPlantillasConexiones();
   $('#cx-setter-status').textContent = '';
   $('#cx-setter-status-url').textContent = '';
   // Pipeline de LabIA: la lista de pipelines del GHL de este cliente.
@@ -17236,7 +17544,7 @@ function pintarSetterConexiones() {
     ? '✓ Clave de las cifras puesta en Cloudflare.'
     : 'Para ver sus cifras en <strong>Rendimiento</strong>, añade en Cloudflare (Workers y Pages → AlquimIA → Configuración → Variables y secretos) el secreto <code>SETTER_RESUMEN_KEY</code> (vale para todos los clientes) con el mismo valor que <code>RESUMEN_KEY</code> del setter, y vuelve a desplegar.';
 }
-// Se guarda con el botón de al lado de la dirección, con Enter en ella o con el de abajo (dirección y plantillas).
+// Se guarda con el botón de al lado de la dirección, con Enter en ella o con el de abajo.
 async function guardarSetter(st) {
   // Vale la de entrar (…/login) o cualquier página del setter: se guarda solo el principio (https://dominio).
   let url = $('#cx-setter-url').value.trim();
@@ -17244,14 +17552,7 @@ async function guardarSetter(st) {
   if (url) { try { const u = new URL(url); if (u.protocol !== 'https:') throw new Error(); url = u.origin; } catch { st.textContent = 'Pega la dirección completa, empezando por https://'; return; } }
   st.textContent = 'Guardando…';
   try {
-    const vistos = new Set();
-    const plantillas = cxPlantillas.filter((p) => p.nombre.trim()).map((p) => {
-      let tag = p.tag;
-      for (let n = 2; vistos.has(tag); n++) tag = `${p.tag}-${n}`;
-      vistos.add(tag);
-      return { id: p.id, nombre: p.nombre.trim(), tag, precio: p.precio };
-    });
-    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, setterIa: { url, plantillas, pipelineId: state.labia ? $('#cx-setter-pipeline').value : state.config.setterIa?.pipelineId || '' } } });
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, setterIa: { url, pipelineId: state.labia ? $('#cx-setter-pipeline').value : state.config.setterIa?.pipelineId || '' } } });
     state.config = config;
     pintarSetterConexiones();
     pintarLabia();

@@ -1,7 +1,7 @@
 // Añade etiquetas de señales (p. ej. `nov26_directo_asistio`, `nov26_wa_enviado`) a varios
 // contactos. Solo admite etiquetas con el formato del dashboard, nunca etiquetas arbitrarias.
 // `remove` solo puede quitar etiquetas de resultado de la setter (`<código>_res_…`).
-// (Las de las plantillas de WhatsApp, `setter-ia-enviar-…`, van por /api/plantillas-wa, que apunta su coste.)
+// (Las de las plantillas de WhatsApp, `wa-enviar-…`, van por /api/plantillas-wa, que apunta su coste.)
 import { requireSession } from '../lib/auth.js';
 import { registrarActividadEquipo, eventosDeEtiquetas } from '../lib/actividad-equipo.js';
 import { addTags, removeTags } from '../lib/ghl.js';

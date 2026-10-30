@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { estadoSetterIa, textoSetterIa, signalsFor, score } from '../public/js/scoring.js';
 import { limpiarResumen, rangoValido } from '../lib/setter-ia.js';
-import { autoCtx, automatizacionesDe, promptAutomatizacion } from '../public/js/automatizaciones.js';
+import { autoCtx, automatizacionesDe, promptAutomatizacion, promptPreparacion } from '../public/js/automatizaciones.js';
 import { huella } from '../handlers/setter.js';
 import { sanitizeConfig } from '../lib/config-store.js';
 
@@ -55,7 +55,7 @@ test('setter IA: workflows de la plantilla y de la respuesta solo con el setter 
   const L = { name: 'Octubre', fechaDirecto: '2026-10-20', registroTag: 'registrado-webinar-201026' };
   const sin = automatizacionesDe(autoCtx('lanzamientos', L, { code: 'oct' }));
   assert.ok(!sin.some((a) => a.id.startsWith('setter')), 'sin plantillas ni setter, nada');
-  const c = autoCtx('lanzamientos', L, { code: 'oct', setterUrl: 'https://setter.x.dev', clienteId: 'mldlm', plantillasWa: [{ nombre: 'Plantilla del setter IA', tag: 'setter-ia-enviar-plantilla' }] });
+  const c = autoCtx('lanzamientos', L, { code: 'oct', setterUrl: 'https://setter.x.dev', clienteId: 'mldlm', plantillasWa: [{ nombre: 'Bienvenida', tag: 'wa-enviar-bienvenida' }] });
   const con = automatizacionesDe(c);
   const resp = con.find((a) => a.id === 'setter-respuesta');
   assert.ok(con.find((a) => a.id === 'setter-plantilla'));
@@ -97,17 +97,26 @@ test('setter IA: API con ETag (304 si no ha cambiado)', async () => {
   assert.equal(r3.status, 200);
 });
 
-test('plantillas de WhatsApp: una de serie, códigos limpios y sin repetir', async () => {
+test('plantillas de WhatsApp: sin ninguna de serie, códigos limpios y sin repetir, aparte del setter IA', async () => {
   const { sanitizePlantillasWa } = await import('../lib/config-store.js');
-  assert.deepEqual(sanitizePlantillasWa(undefined), [{ id: 'p1', nombre: 'Plantilla del setter IA', tag: 'setter-ia-enviar-plantilla', precio: 0.06 }]);
-  assert.deepEqual(sanitizePlantillasWa([]), [], 'si se quitan todas, no hay botón de plantilla');
+  assert.deepEqual(sanitizePlantillasWa(undefined), [], 'sin configurar, no hay botón de plantilla');
+  assert.deepEqual(sanitizePlantillasWa([]), []);
   const l = sanitizePlantillasWa([
-    { nombre: 'Bienvenida', tag: 'setter-ia-enviar-bienvenida' },
-    { nombre: 'Repetida', tag: 'setter-ia-enviar-bienvenida' },
+    { nombre: 'Checkout sin compra', tag: 'wa-enviar-checkout-sin-compra' },
+    { nombre: 'Antigua', tag: 'setter-ia-enviar-bienvenida' },
+    { nombre: 'Repetida', tag: 'wa-enviar-checkout-sin-compra' },
     { nombre: 'Mala', tag: 'setter-ia-baja' },
+    { nombre: 'La de enviada', tag: 'wa-plantilla-enviada' },
+    { nombre: 'Sin nombre', tag: 'wa-enviar' },
     { nombre: 'Otra', tag: 'compra-raices' },
   ]);
-  assert.deepEqual(l.map((p) => p.tag), ['setter-ia-enviar-bienvenida']);
+  assert.deepEqual(l.map((p) => p.tag), ['wa-enviar-checkout-sin-compra', 'setter-ia-enviar-bienvenida']);
+  // Van en su sitio (plantillasWa), no en el setter IA; las de antes (en setterIa) se pasan solas, sin la de ejemplo.
+  const nueva = sanitizeConfig({ plantillasWa: [{ nombre: 'Checkout sin compra', tag: 'wa-enviar-checkout-sin-compra' }] });
+  assert.deepEqual(nueva.plantillasWa.map((p) => p.tag), ['wa-enviar-checkout-sin-compra']);
+  assert.equal(nueva.setterIa.plantillas, undefined);
+  const vieja = sanitizeConfig({ setterIa: { plantillas: [{ nombre: 'Plantilla del setter IA', tag: 'setter-ia-enviar-plantilla' }, { nombre: 'Bienvenida', tag: 'setter-ia-enviar-bienvenida' }] } });
+  assert.deepEqual(vieja.plantillasWa.map((p) => p.tag), ['setter-ia-enviar-bienvenida']);
 });
 
 test('plantillas de WhatsApp: envío por lotes, solo las configuradas, y queda apuntado el gasto', async () => {
@@ -121,20 +130,27 @@ test('plantillas de WhatsApp: envío por lotes, solo las configuradas, y queda a
   // Un lanzamiento con dos plantillas (una a 0,08 €).
   const config = await import('../handlers/config.js');
   const actual = await (await config.GET(new Request('http://localhost/api/config', { headers: { cookie: admin } }))).json();
-  const cfg = { ...actual.config, _version: actual.version, launches: { demo: { name: 'Demo', registroTag: 'registro-webinar-demo', compraTag: 'clienta-raices' } }, setterIa: { url: '', plantillas: [{ nombre: 'Bienvenida', tag: 'setter-ia-enviar-bienvenida', precio: '0,08' }, { nombre: 'Grabación', tag: 'setter-ia-enviar-grabacion', precio: 0.05 }] } };
+  const cfg = { ...actual.config, _version: actual.version, launches: { demo: { name: 'Demo', registroTag: 'registro-webinar-demo', compraTag: 'clienta-raices' } }, plantillasWa: [{ nombre: 'Bienvenida', tag: 'wa-enviar-bienvenida', precio: '0,08' }, { nombre: 'Grabación', tag: 'wa-enviar-grabacion', precio: 0.05 }] };
   assert.equal((await config.POST(new Request('http://localhost/api/config', { method: 'POST', headers: { cookie: admin }, body: JSON.stringify(cfg) }))).status, 200);
   const { POST, GET } = await import('../handlers/plantillas-wa.js');
   const enviar = (body) => POST(new Request('http://localhost/api/plantillas-wa', { method: 'POST', headers: { cookie: setter }, body: JSON.stringify(body) }));
   const ids = Array.from({ length: 3 }, (_, i) => `mock0000${i + 4}`);
-  const r = await enviar({ l: 'demo', tag: 'setter-ia-enviar-bienvenida', ids });
+  const r = await enviar({ l: 'demo', tag: 'wa-enviar-bienvenida', ids });
   assert.equal(r.status, 200);
   const d = await r.json();
   assert.equal(d.enviadas, 3);
   assert.equal(d.coste, 0.24);
-  assert.equal((await enviar({ l: 'demo', tag: 'setter-ia-enviar-otra', ids })).status, 400, 'una que no está configurada, no');
+  // A cada una: la etiqueta de su workflow y la de «plantilla enviada» (la pone AlquimIA, sin setter IA).
+  const { getContact } = await import('../lib/ghl.js');
+  const t = (await getContact('mock00004')).tags;
+  assert.ok(t.includes('wa-enviar-bienvenida') && t.includes('wa-plantilla-enviada'));
+  const { signalsFor } = await import('../public/js/scoring.js');
+  assert.equal(signalsFor(['reg', 'wa-plantilla-enviada'], 'oct', {}).wa_plantilla, true);
+  assert.equal(signalsFor(['reg', 'setter-ia-plantilla'], 'oct', {}).wa_plantilla, true, 'las de antes también cuentan');
+  assert.equal((await enviar({ l: 'demo', tag: 'wa-enviar-otra', ids })).status, 400, 'una que no está configurada, no');
   assert.equal((await enviar({ l: 'demo', tag: 'setter-ia-baja', ids })).status, 400, 'las de estado del setter, no');
-  assert.equal((await enviar({ l: 'demo', tag: 'setter-ia-enviar-bienvenida', ids: Array.from({ length: 21 }, (_, i) => `mock${String(i).padStart(5, '0')}`) })).status, 400, 'de 20 en 20');
-  assert.equal((await enviar({ l: 'nada', tag: 'setter-ia-enviar-bienvenida', ids })).status, 404);
+  assert.equal((await enviar({ l: 'demo', tag: 'wa-enviar-bienvenida', ids: Array.from({ length: 21 }, (_, i) => `mock${String(i).padStart(5, '0')}`) })).status, 400, 'de 20 en 20');
+  assert.equal((await enviar({ l: 'nada', tag: 'wa-enviar-bienvenida', ids })).status, 404);
   const { addTags } = await import('../lib/ghl.js');
   assert.ok(addTags);
   const g = await (await GET(new Request('http://localhost/api/plantillas-wa?l=demo', { headers: { cookie: setter } }))).json();
@@ -143,7 +159,7 @@ test('plantillas de WhatsApp: envío por lotes, solo las configuradas, y queda a
   assert.equal(g.envios[0].precio, 0.08);
   // apply-tags ya no pone etiquetas de plantilla (así ningún envío se queda sin apuntar su coste).
   const { POST: aplicar } = await import('../handlers/apply-tags.js');
-  assert.equal((await aplicar(new Request('http://localhost/api/apply-tags', { method: 'POST', headers: { cookie: setter }, body: JSON.stringify({ items: [{ id: 'mock00004', tags: ['setter-ia-enviar-bienvenida'] }] }) }))).status, 400);
+  assert.equal((await aplicar(new Request('http://localhost/api/apply-tags', { method: 'POST', headers: { cookie: setter }, body: JSON.stringify({ items: [{ id: 'mock00004', tags: ['wa-enviar-bienvenida'] }] }) }))).status, 400);
 });
 
 test('plantillas de WhatsApp: gasto, respuestas y retorno (solo compras después de la plantilla)', async () => {
@@ -170,16 +186,18 @@ test('plantillas de WhatsApp: gasto, respuestas y retorno (solo compras después
   assert.equal(r.porPlantilla.b.enviadas, 2);
 });
 
-test('plantillas de WhatsApp: workflow por etiqueta, que se quita al enviar', () => {
-  const c = autoCtx('lanzamientos', { name: 'Octubre', fechaDirecto: '2026-10-20' }, { code: 'oct', plantillasWa: [{ nombre: 'Bienvenida', tag: 'setter-ia-enviar-bienvenida' }] });
+test('plantillas de WhatsApp: workflow por etiqueta, que se quita al enviar, sin nada del setter IA', () => {
+  const c = autoCtx('lanzamientos', { name: 'Octubre', fechaDirecto: '2026-10-20' }, { code: 'oct', plantillasWa: [{ nombre: 'Bienvenida', tag: 'wa-enviar-bienvenida' }] });
   const lista = automatizacionesDe(c);
   const a = lista.find((x) => x.id === 'setter-plantilla');
   assert.ok(a);
   assert.ok(!lista.some((x) => x.id === 'setter-respuesta'), 'sin dirección del setter no hay workflow de respuesta');
   const p = promptAutomatizacion(a, c);
-  assert.match(p, /Contact Tag Added.*«setter-ia-enviar-bienvenida»/);
+  assert.match(p, /Contact Tag Added.*«wa-enviar-bienvenida»/);
   assert.match(p, /Quitar la etiqueta que lo disparó/);
-  assert.match(p, /NO incluye «setter-ia-baja»/);
+  assert.match(p, /Assign to user/);
+  assert.doesNotMatch(p, /setter-ia|setter IA/i);
+  assert.doesNotMatch(promptPreparacion([a], c), /setter-ia/);
 });
 
 test('setter IA: clave de las cifras global para todos los clientes; la de un cliente manda', async () => {

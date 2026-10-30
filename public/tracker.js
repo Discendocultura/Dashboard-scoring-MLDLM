@@ -25,6 +25,9 @@
   // El plan B del directo (bloque pegado en GHL) mira esto: si el dashboard cargó, no se enseña nunca.
   window.lsdCargado = true;
   'use strict';
+  // El script pegado varias veces en la misma página (bloques de código repetidos en GHL): solo cuenta el primero.
+  if (window.lsdTrackerActivo) return;
+  window.lsdTrackerActivo = true;
   var script = document.currentScript;
   var API = script ? new URL(script.src).origin : '';
   // Cliente del dashboard (varios clientes): viene en el src del script, p. ej. tracker.js?c=clinica-sol.
@@ -71,7 +74,7 @@
   function post(path, payload) {
     var body = JSON.stringify(payload);
     // text/plain evita la petición previa CORS; el servidor lo interpreta como JSON.
-    if ((path === '/api/track' || path === '/api/visita' || payload.op === 'click' || payload.op === 'espera' || payload.op === 'visita') && navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) {
+    if ((path === '/api/track' || path === '/api/retencion' || path === '/api/visita' || payload.op === 'click' || payload.op === 'espera' || payload.op === 'visita') && navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) {
       return Promise.resolve({ ok: true });
     }
     return fetch(API + conCliente(path), { method: 'POST', body: body, headers: { 'content-type': 'text/plain' }, keepalive: true })
@@ -206,6 +209,16 @@
     '#lsd-espera.lsd-espera--video .lsd-espera-lbl{font-size:10px;letter-spacing:.16em}' +
     '#lsd-espera.lsd-espera--video .lsd-espera-msg{margin-top:clamp(12px,2.2vh,20px);font-size:clamp(14px,1.7vw,16px);padding:10px 36px 10px 14px;gap:12px}' +
     '#lsd-espera.lsd-espera--video .lsd-espera-paisaje{height:clamp(90px,min(13vw,17vh),160px)}' +
+    // Aviso «descarga la app de Zoom» con el botón de su dispositivo (debajo del mensaje).
+    '#lsd-espera .lsd-espera-app{display:flex;flex-direction:column;align-items:center;gap:10px;margin:clamp(16px,3vh,26px) auto 0;max-width:520px;padding:14px 18px;box-sizing:border-box;border-radius:18px;background:rgba(255,255,255,.7);border:1px solid #e2d3c5;animation:lsdEspUp .7s .34s ease both}' +
+    '#lsd-espera .lsd-espera-app-txt{margin:0;font-size:clamp(14px,1.8vw,16px);line-height:1.45;text-wrap:balance}' +
+    '#lsd-espera .lsd-espera-app-bts{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}' +
+    '#lsd-espera .lsd-espera-app-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;background:var(--lsd-espera-acento,#860d0e);color:#fff!important;font-size:15px;font-weight:900;text-decoration:none!important;line-height:1.2;transition:transform .2s,box-shadow .2s}' +
+    '#lsd-espera .lsd-espera-app-btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px -8px rgba(0,0,0,.35)}' +
+    '#lsd-espera .lsd-espera-app-btn svg{width:17px;height:17px;flex:none}' +
+    '#lsd-espera .lsd-espera-app-alt{margin:0;font-size:13px;opacity:.75}#lsd-espera .lsd-espera-app-alt a{color:inherit!important;text-decoration:underline}' +
+    '#lsd-espera.lsd-espera--video .lsd-espera-app{margin-top:clamp(10px,2vh,16px);padding:10px 14px;gap:8px}' +
+    '#lsd-espera .lsd-espera-deco{flex:none;position:relative;width:100%}' +
     '@media (prefers-reduced-motion:reduce){#lsd-espera,#lsd-espera *{animation:none!important}}';
   // Comentarios de la preclase (muro debajo de cada clase). Estilos base sobrios: el diseño de la página los
   // viste (todas las clases empiezan por .lsd-com) y puede cambiar el color con --lsd-acento.
@@ -486,6 +499,32 @@
       });
     }
 
+    // Retención (Métricas → Consumo de vídeos): el vídeo en 200 tramos; de cada tramo, si esta persona lo ha visto
+    // alguna vez (una sola vez por navegador) y cuántas veces lo ve (volver atrás a verlo cuenta otra vez). Anónimo:
+    // se manda el total cada 30 s, al pausar y al salir (lo que no se ha mandado aún).
+    var TRAMOS = 200;
+    var rKey = 'lsd_ret_' + launch + '_' + video;
+    var rVistos = (store(rKey) || {}).u || {};
+    var rNuevos = [];
+    var rVeces = {};
+    var rTramo = null;
+    var rDur = false;
+    function tramoEn(seg) { return Math.min(TRAMOS - 1, Math.floor((seg / duration) * TRAMOS)); }
+    function verTramo(j) {
+      rVeces[j] = (rVeces[j] || 0) + 1;
+      if (!rVistos[j]) { rVistos[j] = 1; rNuevos.push(j); }
+    }
+    function enviarRetencion() {
+      if (params.get('lsd_preview') || (!rNuevos.length && !Object.keys(rVeces).length)) return;
+      var datos = { launch: launch, video: video, u: rNuevos, v: rVeces };
+      if (!rDur && duration) { datos.dur = Math.round(duration); rDur = true; }
+      rNuevos = [];
+      rVeces = {};
+      store(rKey, { u: rVistos });
+      post('/api/retencion', datos);
+    }
+    setInterval(enviarRetencion, 30000);
+
     player.getDuration().then(function (d) { duration = d; });
     player.on('timeupdate', function (d) {
       duration = d.duration || duration;
@@ -494,13 +533,19 @@
         var from = Math.floor((last / duration) * 100);
         var to = Math.min(99, Math.floor((t / duration) * 100));
         for (var i = from; i <= to; i++) buckets[i] = 1;
+        // Cada tramo nuevo que se reproduce (sin saltar) es una vista de ese tramo.
+        var a = rTramo == null ? tramoEn(last) : rTramo + 1;
+        var b = tramoEn(t);
+        for (var j = a; j <= b; j++) verTramo(j);
+        rTramo = b;
       }
       last = t;
       check();
     });
-    player.on('seeked', function (d) { last = d.seconds; });
-    player.on('pause', save);
-    window.addEventListener('pagehide', save);
+    player.on('seeked', function (d) { last = d.seconds; rTramo = null; });
+    player.on('pause', function () { save(); enviarRetencion(); });
+    player.on('ended', enviarRetencion);
+    window.addEventListener('pagehide', function () { save(); enviarRetencion(); });
   }
 
   // Lleva a una URL añadiendo la identidad de la lead (cid o email) y conservando el resto.
@@ -536,21 +581,22 @@
 
   var serverNow = function () { return Date.now() + clockSkew; };
 
-  function fmtCountdown(ms) {
+  // conSeg: también los segundos cuando quedan días (barras fijas): «2 d 0 h 45 min 12 s».
+  function fmtCountdown(ms, conSeg) {
     if (ms <= 0) return '0:00:00';
     var s = Math.floor(ms / 1000);
     var d = Math.floor(s / 86400); s %= 86400;
     var h = Math.floor(s / 3600); s %= 3600;
     var m = Math.floor(s / 60); s %= 60;
     var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-    return d > 0 ? d + ' d ' + h + ' h ' + pad(m) + ' min' : h + ':' + pad(m) + ':' + pad(s);
+    return d > 0 ? d + ' d ' + h + ' h ' + pad(m) + ' min' + (conSeg ? ' ' + pad(s) + ' s' : '') : h + ':' + pad(m) + ':' + pad(s);
   }
 
   // Todas las cuentas atrás de la página (<span data-lsd-cd="epoch">) se actualizan cada segundo.
   var cdTimer = null;
   function tickCountdowns() {
     document.querySelectorAll('[data-lsd-cd]').forEach(function (el) {
-      el.textContent = fmtCountdown(Number(el.getAttribute('data-lsd-cd')) - serverNow());
+      el.textContent = fmtCountdown(Number(el.getAttribute('data-lsd-cd')) - serverNow(), el.hasAttribute('data-lsd-cd-seg'));
     });
     // Cuenta atrás en cajas (días / horas / min / seg).
     document.querySelectorAll('[data-lsd-cdb-at]').forEach(function (el) {
@@ -655,7 +701,7 @@
     // Barra de urgencia: <div data-lsd-bar></div>
     document.querySelectorAll('[data-lsd-bar]').forEach(function (el) {
       var b = data.bar || {};
-      var text = esc(b.text || '').replace('{cuenta}', cdSpan(data.countdownTo));
+      var text = esc(b.text || '').replace('{cuenta}', cdSpan(data.barCountdownTo || data.countdownTo));
       var btn = b.button ? '<a class="lsd-bar-btn" href="' + esc(linkWho(b.button.href)) + '"' + (b.button.key === 'whatsapp' ? ' target="_blank" rel="noopener"' : '') + '>' + esc(b.button.label || defaultLabel(b.button.key)) + '</a>' : '';
       el.innerHTML = '<span class="lsd-bar-text">' + text + '</span>' + btn;
       el.setAttribute('data-lsd-phase-now', data.phase);
@@ -1345,13 +1391,21 @@
   // minutos y segundos y el aviso de que se la llevará al directo; al llegar a cero, va al directo.
   // Textos (Configuración → Preclase): espera-titulo, espera-subtitulo, espera-mensaje; logo: imagen «espera».
   // Colores: variables CSS --lsd-espera-fondo, --lsd-espera-titulo, --lsd-espera-acento, --lsd-espera-texto.
+  // Diseño propio por lanzamiento (data.espera.css y data.espera.decoracion, en lugar del paisaje).
+  // Si el directo es en Zoom, debajo del mensaje: «descarga la app» con el botón de su dispositivo (.lsd-espera-app).
   var ESPERA_MIN = 59;
   function esperaDirecto(data) {
     if (data.espera && data.espera.activa === false) return null; // desactivada en Configuración → Preclase
     var m = /^dia_directo(\d?)$/.exec(data.phase || '');
     var key = m ? 'directo' + m[1] : '';
     if (!m || !data.countdownTo || !data.links[key]) return null;
-    return { at: data.countdownTo, desde: data.countdownTo - ESPERA_MIN * 60000, key: key };
+    // Lanzamientos de varios directos: solo en los elegidos (sin lista, en todos).
+    var dirs = (data.espera || {}).directos;
+    if (dirs && dirs.indexOf(Number(m[1]) || 1) < 0) return null;
+    // La cuenta atrás acaba unos minutos antes de la hora (Configuración → Preclase → Pantalla de espera): entran al
+    // directo antes, poco a poco, en vez de todas a la hora en punto.
+    var antes = Math.max(0, Math.min(30, Number((data.espera || {}).antesMin) || 0));
+    return { at: data.countdownTo - antes * 60000, desde: data.countdownTo - ESPERA_MIN * 60000, key: key };
   }
   var esperaTimer = null;
   // Popups de encuesta con la estética de un cliente (sus estilos solo se cargan si se usan). Por cliente (el ?c= del
@@ -1598,6 +1652,34 @@
     goTo(data.links[key], who);
   }
 
+  // «Descarga la app de Zoom» (solo si el directo es en Zoom), con el botón de su dispositivo y, debajo, el otro
+  // del mismo tipo por si no lo hemos acertado. Se abre en otra pestaña: la cuenta atrás sigue.
+  var APP_ZOOM = {
+    iphone: { t: 'iPhone', href: 'https://apps.apple.com/app/zoom-workplace/id546505307' },
+    android: { t: 'Android', href: 'https://play.google.com/store/apps/details?id=us.zoom.videomeetings' },
+    mac: { t: 'Mac', href: 'https://zoom.us/download?os=mac' },
+    windows: { t: 'Windows', href: 'https://zoom.us/download?os=win' },
+  };
+  function dispositivoZoom() {
+    var ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'iphone';
+    if (/Android/i.test(ua)) return 'android';
+    if (/Windows/i.test(ua)) return 'windows';
+    if (/Macintosh|Mac OS X/.test(ua)) return 'mac';
+    return /Mobi/i.test(ua) ? 'android' : 'windows';
+  }
+  function avisoAppZoom(data, key) {
+    if (!((data.zoom || {})[key] || /^https:\/\/([a-z0-9-]+\.)*zoom\.us\//i.test((data.links || {})[key] || ''))) return '';
+    var d = dispositivoZoom();
+    var otro = { iphone: 'android', android: 'iphone', mac: 'windows', windows: 'mac' }[d];
+    var ico = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>';
+    return '<div class="lsd-espera-app" data-dispositivo="' + d + '">' +
+      '<p class="lsd-espera-app-txt">Te recomendamos <strong>descargar la aplicación de Zoom</strong> para seguir el directo sin problemas.</p>' +
+      '<div class="lsd-espera-app-bts"><a class="lsd-espera-app-btn" href="' + APP_ZOOM[d].href + '" target="_blank" rel="noopener">' + ico + 'Descargar para ' + APP_ZOOM[d].t + '</a></div>' +
+      '<p class="lsd-espera-app-alt">¿Usas ' + APP_ZOOM[otro].t + '? <a href="' + APP_ZOOM[otro].href + '" target="_blank" rel="noopener">Descárgala aquí</a></p>' +
+      '</div>';
+  }
+
   function mostrarEspera(data, esp, who) {
     var el = document.getElementById('lsd-espera');
     var t = data.texts || {};
@@ -1609,6 +1691,7 @@
       el.setAttribute('aria-labelledby', 'lsd-espera-t');
       var logo = (data.imagenes || {}).espera;
       var videoEsp = embedSrc((data.espera || {}).video);
+      var diseno = data.espera || {};
       if (videoEsp) el.className = 'lsd-espera--video';
       el.innerHTML = '<div class="lsd-espera-in">' +
         (logo ? '<img class="lsd-espera-logo" src="' + esc(logo) + '" alt="">' : '') +
@@ -1621,9 +1704,11 @@
         '<span class="lsd-espera-sep" aria-hidden="true">:</span>' +
         '<div class="lsd-espera-u"><span class="lsd-espera-num" data-u="s">00</span><span class="lsd-espera-lbl">segundos</span></div></div>' +
         '<p class="lsd-espera-msg"><span class="lsd-espera-dot" aria-hidden="true"></span><span>' + mensajeEspera(t['espera-mensaje'] || 'Quédate aquí, serás redirigida al directo en cuanto el contador llegue a cero.') + '</span></p>' +
+        avisoAppZoom(data, esp.key) +
         '</div>' +
-        // El camino de El Camino, con la peregrina andando (el mismo paisaje que la etapa 1).
-        '<div class="lsd-espera-paisaje" aria-hidden="true"><svg viewBox="0 0 1200 220" preserveAspectRatio="xMidYMax slice">' +
+        // Decoración propia del lanzamiento (Configuración → Pantalla de espera → Diseño propio) o, si no hay,
+        // el camino de El Camino, con la peregrina andando (el mismo paisaje que la etapa 1).
+        (diseno.decoracion ? '<div class="lsd-espera-deco" aria-hidden="true">' + diseno.decoracion + '</div>' : '<div class="lsd-espera-paisaje" aria-hidden="true"><svg viewBox="0 0 1200 220" preserveAspectRatio="xMidYMax slice">' +
         '<circle class="lsd-esp-sol" cx="900" cy="96" r="32" fill="#f3d9bf"/>' +
         '<g class="lsd-esp-nube" fill="#ffffff" opacity=".9"><ellipse cx="120" cy="92" rx="38" ry="11"/><ellipse cx="146" cy="84" rx="22" ry="11"/></g>' +
         '<g class="lsd-esp-nube lsd-esp-nube--2" fill="#ffffff" opacity=".8"><ellipse cx="420" cy="80" rx="30" ry="9"/><ellipse cx="438" cy="74" rx="16" ry="8"/></g>' +
@@ -1639,7 +1724,15 @@
         '<ellipse cx="0" cy="17" rx="11" ry="3" fill="#4a2c20" opacity=".15"/>' +
         '<circle r="15" fill="#860d0e" stroke="#ffffff" stroke-width="3"/>' +
         '<g transform="translate(-8.4 -9) scale(.7)"><path d="M12 21.5 3.2 10.4C4.6 5.3 8 3 12 3s7.4 2.3 8.8 7.4L12 21.5Z" fill="#ffffff"/><path d="M12 20 12 4.5M12 20 8.6 5.4M12 20 15.4 5.4M12 20 5.6 8.2M12 20 18.4 8.2" stroke="#860d0e" stroke-width="1" stroke-linecap="round" opacity=".55"/></g>' +
-        '</g></g></svg></div>';
+        '</g></g></svg></div>');
+      // CSS propio del lanzamiento: después del nuestro, así lo pisa.
+      if (diseno.css && !document.getElementById('lsd-espera-propio')) {
+        var st = document.createElement('style');
+        st.id = 'lsd-espera-propio';
+        st.textContent = diseno.css;
+        document.head.appendChild(st);
+      }
+      if (diseno.css || diseno.decoracion) el.className = (el.className + ' lsd-espera--propio').trim();
       document.body.appendChild(el);
       document.documentElement.style.overflow = 'hidden';
       prepararZoom(data, esp, who);
@@ -1677,6 +1770,15 @@
   // bar = { text (con {cuenta}), fin (ms), boton: { label, href } | null, color }. Al llegar a cero, alCero(el).
   // Sustituye a las barras <div data-lsd-bar> de la página. Sin bar, se quita.
   var bfTimer = null;
+  function fuenteDePagina(fuera) {
+    var cands = document.querySelectorAll('p, h1, h2, h3, li, .text-output, [class*="paragraph"], [class*="heading"]');
+    for (var i = 0; i < cands.length; i++) {
+      var c = cands[i];
+      if (fuera.contains(c) || c.closest('#lsd-espera, .res-pop, #lsd-encuesta') || !c.offsetHeight || !(c.textContent || '').trim()) continue;
+      return getComputedStyle(c).fontFamily;
+    }
+    return '';
+  }
   function barraFija(bar, alCero) {
     var el = document.getElementById('lsd-rb');
     clearInterval(bfTimer);
@@ -1693,7 +1795,9 @@
       document.body.insertBefore(el, document.body.firstChild);
     }
     if (bar.color) el.style.setProperty('--lsd-rb', bar.color); else el.style.removeProperty('--lsd-rb');
-    el.innerHTML = '<span class="lsd-bar-text">' + esc(bar.text).replace('{cuenta}', cdSpan(bar.fin)) + '</span>'
+    // La fuente de los textos de la página (en GHL va en cada texto, no en el body: si no, saldría la del navegador).
+    if (!el.style.fontFamily) { var f = fuenteDePagina(el); if (f) el.style.fontFamily = f; }
+    el.innerHTML = '<span class="lsd-bar-text">' + esc(bar.text).replace('{cuenta}', cdSpan(bar.fin).replace('<span ', '<span data-lsd-cd-seg ')) + '</span>'
       + (bar.boton && bar.boton.href ? '<a class="lsd-bar-btn" href="' + esc(bar.boton.href) + '">' + esc(bar.boton.label) + '</a>' : '');
     document.querySelectorAll('[data-lsd-bar]').forEach(function (b) { show(b, false); });
     document.body.style.paddingTop = el.offsetHeight + 'px';
@@ -2115,8 +2219,15 @@
     if (llamada) initVenta(llamada, 'llamada');
 
     var pageEl = document.querySelector('[data-lsd-page]');
+    // El mismo vídeo pegado dos veces en la página (p. ej. el bloque de código repetido): solo el primero; los demás se ocultan.
+    var vistos = {};
     var containers = Array.prototype.slice.call(document.querySelectorAll('[data-lsd-video]'))
-      .filter(function (c) { return !c.getAttribute('data-lsd-ready'); });
+      .filter(function (c) {
+        var v = c.getAttribute('data-lsd-video');
+        if (vistos[v] && vistos[v] !== c) { c.style.display = 'none'; c.setAttribute('aria-hidden', 'true'); return false; }
+        vistos[v] = c;
+        return !c.getAttribute('data-lsd-ready');
+      });
     if (!containers.length && !pageEl) return;
     containers.forEach(function (c) {
       c.setAttribute('data-lsd-ready', '1');

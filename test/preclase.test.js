@@ -144,9 +144,9 @@ test('pantalla de espera: se elige en el embudo, el lanzamiento la puede cambiar
     'la-d': { name: 'D', embudo: 'lz2', espera: { activa: true, video: 'javascript:alert(1)' } },
   } });
   assert.equal(cfg.embudos[0].espera, false);
-  assert.deepEqual(cfg.launches['la-a'].espera, { activa: false, video: '' });
-  assert.deepEqual(cfg.launches['la-b'].espera, { activa: true, video: '' });
-  assert.deepEqual(cfg.launches['la-c'].espera, { activa: true, video: 'https://vimeo.com/123' });
+  assert.deepEqual(cfg.launches['la-a'].espera, { activa: false, video: '', antesMin: 5 });
+  assert.deepEqual(cfg.launches['la-b'].espera, { activa: true, video: '', antesMin: 5 });
+  assert.deepEqual(cfg.launches['la-c'].espera, { activa: true, video: 'https://vimeo.com/123', antesMin: 5 });
   assert.equal(cfg.launches['la-d'].espera.video, '');
 });
 

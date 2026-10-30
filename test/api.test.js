@@ -1015,3 +1015,50 @@ test('encuesta del avatar: se ofrecen todos los campos que guardan una respuesta
   assert.equal(tipoEncuesta('FILE_UPLOAD'), null);
   assert.equal(tipoEncuesta('SIGNATURE'), null);
 });
+
+test('pantalla de espera: un lanzamiento de 3 directos la tiene la hora antes de cada uno (los elegidos)', async () => {
+  const admin = await login('admin');
+  const config = await import('../handlers/config.js');
+  const cur = await (await config.GET(req('/api/config', { cookie: admin }))).json();
+  await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, embudos: [...cur.config.embudos, { id: 'tres-emb', tipo: 'lanzamientos', nombre: 'Tres directos', formato: 'v3' }], launches: { ...cur.config.launches, 'tres-dir': {
+    name: 'Tres', registroTag: 'registro-webinar-demo', embudo: 'tres-emb', inicioCaptacion: '2026-10-01',
+    fechaDirecto: '2026-11-03', horaDirecto: '19:00', zoomMeetingId: '111 111 1111',
+    videos: [{ fecha: '2026-11-04', hora: '19:00', zoomMeetingId: '222 222 2222' }, { fecha: '2026-11-05', hora: '19:00', zoomMeetingId: '333 333 3333' }],
+    espera: { activa: true, directos: [1, 3] },
+  } } } }));
+  const page = await import('../handlers/page.js');
+  const tok = async (at) => (await (await page.POST(req('/api/page', { method: 'POST', cookie: admin, body: { at } }))).json()).token;
+  const get = async (at) => (await page.GET(req(`/api/page?l=tres-dir&preview=${encodeURIComponent(await tok(at))}`))).json();
+  for (const [dia, k] of [['2026-11-03', ''], ['2026-11-04', '2'], ['2026-11-05', '3']]) {
+    const p = await get(`${dia}T18:30`);
+    assert.equal(p.phase, `dia_directo${k}`, dia);
+    assert.ok(p.links[`directo${k}`], dia);
+    assert.deepEqual(p.espera.directos, [1, 3]);
+    assert.equal(p.redirectTo, '', `${dia}: la preclase no redirige antes del directo`);
+  }
+});
+
+test('página de replay: con la grabación ya publicada (antes de las 00:00), la barra es la del replay, no «Entrar al directo»', async () => {
+  const admin = await login('admin');
+  const config = await import('../handlers/config.js');
+  const cur = await (await config.GET(req('/api/config', { cookie: admin }))).json();
+  await config.POST(req('/api/config', { method: 'POST', cookie: admin, body: { ...cur.config, launches: { ...cur.config.launches, 'rep-noche': {
+    name: 'Rep', registroTag: 'registro-webinar-demo', inicioCaptacion: '2026-10-20', fechaDirecto: '2026-10-29', horaDirecto: '18:30',
+    zoomMeetingId: '899 9237 7222', replayAt: '2026-10-29T22:00', cierreCarrito: '2026-11-02T23:59', raicesUrl: 'https://ejemplo.com/venta',
+    replayUrl: 'https://ejemplo.com/grabacion', replayVideoUrl: 'https://vimeo.com/1',
+    replayBarra: { activa: true, modo: 'fecha', at: '2026-10-31T23:59' },
+  } } } }));
+  const page = await import('../handlers/page.js');
+  const tok = async (at) => (await (await page.POST(req('/api/page', { method: 'POST', cookie: admin, body: { at } }))).json()).token;
+  const get = async (at) => (await page.GET(req(`/api/page?l=rep-noche&preview=${encodeURIComponent(await tok(at))}`))).json();
+  const directo = await get('2026-10-29T19:30');
+  assert.equal(directo.phase, 'en_directo');
+  assert.equal(directo.bar.button?.key, 'directo');
+  assert.equal(directo.replayBarra, null);
+  const noche = await get('2026-10-29T22:30');
+  assert.equal(noche.phase, 'en_directo');                 // la página preclase sigue mandando al directo hasta las 00:00
+  assert.notEqual(noche.bar.button?.key, 'directo');
+  assert.ok(noche.replayBarra);
+  assert.ok(noche.barCountdownTo > Date.parse('2026-11-02T00:00:00Z'));
+  assert.equal((await get('2026-10-30T10:00')).phase, 'replay');
+});
