@@ -5602,22 +5602,49 @@ document.addEventListener('click', (e) => {
   renderHoy();
 });
 
+// Lo que ha hecho el lead, en chips con emoji, del más cerca de comprar (checkout, página de venta) a lo de antes
+// (directo, grabación, clases). Los vídeos llevan una barrita con el % visto; las visitas, las veces y cuándo fue la última.
+function accionChip({ ico, txt, n = 0, pct = null, cuando = '', tono = '', title = '' }) {
+  return `<span class="acc${tono ? ` acc-${tono}` : ''}" title="${esc(title || txt)}"><span class="acc-ico" aria-hidden="true">${ico}</span><span class="acc-txt">${esc(txt)}</span>${n ? `<b class="acc-n">×${n}</b>` : ''}${pct != null ? `<span class="acc-bar" aria-hidden="true"><i style="width:${Math.max(4, Math.min(100, pct))}%"></i></span><b class="acc-pct">${pct}%</b>` : ''}${cuando ? `<small class="acc-cuando">${esc(cuando)}</small>` : ''}</span>`;
+}
+const haceCorto = (ms) => haceTxt(ms).replace('hace ', '');
+function accionesLead(l) {
+  const s = l.s;
+  const out = [];
+  if (s.inicio_pago) out.push(accionChip({ ico: '💳', txt: 'Checkout', n: s.inicio_pago.veces, cuando: haceCorto(s.inicio_pago.ultima), tono: 'fuego', title: `Llegó a la página de pago (pulsó «Quiero inscribirme») ${s.inicio_pago.veces > 1 ? `${s.inicio_pago.veces} veces` : 'una vez'} · la última ${haceTxt(s.inicio_pago.ultima)}` }));
+  if (s.venta_visita) out.push(accionChip({ ico: '🛒', txt: 'Página de venta', n: s.venta_visita.veces, cuando: haceCorto(s.venta_visita.ultima), tono: 'calor', title: `Visitó la página de venta ${s.venta_visita.veces > 1 ? `${s.venta_visita.veces} veces` : 'una vez'} · la última ${haceTxt(s.venta_visita.ultima)}` }));
+  if (s.vip) out.push(accionChip({ ico: '⭐', txt: 'VIP', tono: 'oro', title: 'Pagó la entrada VIP' }));
+  const launch = state.config.launches[state.launchCode];
+  const vids = (s.nVideos || 1) > 1 ? videosDe(launch) : [{ nombre: 'Directo', directo: sigDirecto(1), replay: 'replay' }];
+  for (const v of vids) {
+    const nom = vids.length > 1 ? nombreCorto(v) : '';
+    const d = s[`${v.directo}_final`] ? ['Hasta el final', 'on'] : s[`${v.directo}_120`] ? ['+2 h', 'on'] : s[`${v.directo}_60`] ? ['+60 min', 'on'] : s[`${v.directo}_asistio`] ? ['Asistió', 'medio'] : s[`${v.directo}_click`] ? ['Clic al enlace', ''] : null;
+    if (d) out.push(accionChip({ ico: '🔴', txt: `${nom ? `${nom} · ` : 'Directo · '}${d[0]}`, tono: d[1], title: `${v.nombre}: ${d[0].toLowerCase()} en directo` }));
+    const g = watched(s, v.replay);
+    if (g) out.push(accionChip({ ico: '🎬', txt: nom ? `${nom} grabación` : 'Grabación', pct: g, tono: g >= 90 ? 'on' : 'medio', title: `Ha visto el ${g}% de la grabación${nom ? ` de ${v.nombre}` : ''}` }));
+  }
+  for (const [i, c] of (s.clases || []).entries()) {
+    const p = watched(s, c);
+    if (p) out.push(accionChip({ ico: '📚', txt: `Clase ${i + 1}`, pct: p, tono: p >= 90 ? 'on' : 'medio', title: `Ha visto el ${p}% de la clase ${i + 1}` }));
+  }
+  if (s.test) out.push(accionChip({ ico: '🧪', txt: 'Test hecho', tono: 'on' }));
+  if (s.recursos?.musica && (s.musica_play || s.musica_50 || s.musica_90)) out.push(accionChip({ ico: '🎵', txt: s.musica_90 ? 'Música entera' : s.musica_50 ? 'Música 50%' : 'Música (play)' }));
+  if (s.encuesta) out.push(accionChip({ ico: '📋', txt: 'Encuesta', tono: 'on', title: 'Ha rellenado la encuesta' }));
+  const voto = s.recursos?.votacion && votoTexto(l.id);
+  if (voto) out.push(accionChip({ ico: '🗳️', txt: voto.length > 26 ? `${voto.slice(0, 25)}…` : voto, title: `Sus respuestas en la clase: ${voto}` }));
+  if (s.enGrupo) out.push(accionChip({ ico: '👥', txt: 'En el grupo', title: 'Sigue en el grupo de WhatsApp del lanzamiento' }));
+  if (s.setter?.alguna) out.push(accionChip({ ico: `🤖${SETTER_ICO(s.setter)}`, txt: textoSetterIa(s.setter), tono: s.setter.humano ? 'fuego' : '' }));
+  if (s.wa_enviado) out.push(accionChip({ ico: '✅', txt: `Le escribiste${l.outcome ? ` · ${OUTCOMES.find((o) => o.id === l.outcome)?.label || ''}` : ''}`, tono: 'hecho' }));
+  return out.length ? out.join('') : accionChip({ ico: '😴', txt: 'Sin actividad todavía', tono: 'nada' });
+}
+
 function hoyItem(l, b = null, n = 0) {
-  const signals = [
-    l.s.setter?.alguna ? `🤖 ${textoSetterIa(l.s.setter)}` : '',
-    l.s.inicio_pago ? pagoTxt(l.s.inicio_pago) : '',
-    l.s.venta_visita ? visitaTxt(l.s.venta_visita) : '',
-    l.s.vip ? 'VIP' : '',
-    l.s.enGrupo ? 'En el grupo de WhatsApp' : '',
-    directoVenta(l.s, 'final') ? 'Directo hasta el final' : directoVenta(l.s, 'asistio') ? 'Asistió al directo' : '',
-    grabVenta(l.s) ? `Grabación ${grabVenta(l.s)}%` : '',
-    watched(l.s, 'clase1') || watched(l.s, 'clase2') ? `Clases ${watched(l.s, 'clase1')}% / ${watched(l.s, 'clase2')}%` : '',
-  ].filter(Boolean).join(' · ');
   return `<li class="hoy-item st-${l.estado.id}">
     ${n ? `<span class="hoy-n" title="${esc(l.estado.label)} · ${l.score}/100">${n}</span>` : ''}
     <div class="hoy-main">
       <div class="hoy-linea"><span class="lead-name">${esc(l.name || l.email)}</span> <span class="estado st-${l.estado.id}" title="${esc(l.estado.label)}"><span class="dot"></span>${esc(l.estado.label)} · ${l.score}</span> ${b && b.id !== 'calientes' ? `<span class="hoy-motivo">${esc(b.corto)}</span>` : ''} ${avatarChip(l)}</div>
-      <div class="lead-meta">${esc(signals || 'Sin actividad')} · ${NEXT_STEPS[l.step]}</div>
+      <div class="hoy-acc">${accionesLead(l)}</div>
+      <div class="hoy-paso">👉 ${esc(NEXT_STEPS[l.step])}</div>
     </div>
     <div class="hoy-actions">
       ${l.s.setter?.respondio && enlaceSetter(l.id) ? `<a class="btn ghost small" href="${esc(enlaceSetter(l.id))}" target="_blank" rel="noopener" title="Leer la conversación en el setter IA">🤖 Ver chat</a>` : ''}
