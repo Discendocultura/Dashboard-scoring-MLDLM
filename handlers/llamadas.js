@@ -9,7 +9,7 @@ import {
   updateAppointmentStatus, addContactNote,
 } from '../lib/ghl.js';
 import { leerJSON, guardarJSON, reintentando, cacheCompartida, leerCompartida, guardarCompartida } from '../lib/store.js';
-import { RESULTADOS, MOTIVOS, PIPELINE_POR_DEFECTO, etapasPipeline, etapaDestino, calendarioDeUrl, sinReservasSuperadas, agruparRepetidas } from '../public/js/llamadas.js';
+import { RESULTADOS, MOTIVOS, PIPELINE_POR_DEFECTO, etapasPipeline, etapaDestino, calendarioDeUrl, sinReservasSuperadas, agruparRepetidas, unaPorPersona } from '../public/js/llamadas.js';
 import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
 import { embudoDe } from '../lib/embudos.js';
 import { PIPELINE_CRUZADAS } from '../public/js/cruzadas.js';
@@ -129,7 +129,8 @@ export async function GET(request) {
       pipeline: pipeline ? { id: pipeline.id, name: pipeline.name, stages: etapas } : null,
       // Sin las reservas canceladas que otra reserva de la misma lead sustituyó (en GHL tampoco se ven).
       // Y la misma lead con varias citas vivas, en una (la última que reservó) con las demás en `otras`.
-      llamadas: agruparRepetidas(sinReservasSuperadas(citas.map((c) => ({ ...c, opp: opps[c.contactId] || null, contacto: contactos[c.contactId] || null, resultado: resultados[c.id] || null })))),
+      // Y al final, una tarjeta por persona: sus otras canceladas (sin resultado) se juntan en `canceladas`.
+      llamadas: unaPorPersona(agruparRepetidas(sinReservasSuperadas(citas.map((c) => ({ ...c, opp: opps[c.contactId] || null, contacto: contactos[c.contactId] || null, resultado: resultados[c.id] || null }))))),
       wa: resultados._wa || {},
     });
   } catch (e) {

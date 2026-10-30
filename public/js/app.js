@@ -13051,6 +13051,7 @@ function llamadaCard(c) {
   const wa = k.phoneWa;
   // La misma lead con varias citas vivas: se enseña la que reservó la última; las demás ocupan huecos en GHL.
   const repChip = c.otras?.length ? `<span class="ll-chip ll-rep" title="${esc(`Reservó ${c.otras.length + 1} citas. Esta es la última que eligió. Las otras: ${c.otras.map(llCuando).join(' · ')}. Cancélalas en el calendario de GHL: ocupan huecos.`)}">⚠️ Reservó ${c.otras.length + 1} citas · esta es la última</span>` : '';
+  const cancChip = c.canceladas?.length ? `<span class="ll-chip muted" title="${esc(`Otras citas que canceló: ${c.canceladas.map(llCuando).join(' · ')}`)}">↩️ Canceló ${c.canceladas.length === 1 ? 'otra cita' : `otras ${c.canceladas.length} citas`}</span>` : '';
   return `<article data-ll-card="${esc(c.id)}" title="Pulsa para ver la ficha completa" class="ll-card ${pasada && !r && !llCancelada(c) ? 'pendiente' : ''} ${r ? `res-${r.id}` : ''} ${llCancelada(c) ? 'cancelada' : ''}">
     <div class="ll-when"><span class="ll-dia">${esc(cuando)}</span><span class="ll-hora">${esc(hora)}</span></div>
     <div class="ll-main">
@@ -13058,7 +13059,7 @@ function llamadaCard(c) {
         ${etapa ? `<span class="ll-etapa" style="--c:${esc(etapa.color || '#8a817b')}" title="Etapa en el pipeline de GHL">${esc(etapa.name)}</span>` : '<span class="ll-etapa none" title="Aún no está en el pipeline: se añadirá al anotar el resultado">Sin etapa</span>'}
         ${llCancelada(c) ? '<span class="ll-etapa none">Cita cancelada</span>' : ''}</div>
       <div class="ll-contact">${phone ? `<a href="tel:${esc(phone)}">${icon('phone')}${esc(phone)}</a>` : ''}${wa ? `<a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}${phone ? '' : '<span class="muted">Sin teléfono</span>'}</div>
-      <div class="ll-chips">${repChip}${origenChip(c)}${chips}</div>
+      <div class="ll-chips">${repChip}${cancChip}${origenChip(c)}${chips}</div>
       ${r ? `<div class="ll-res">${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span>${c.resultado.notas ? `<div class="ll-notas">${esc(c.resultado.notas)}</div>` : ''}</div>` : ''}
     </div>
     <div class="ll-actions">${llCancelada(c) ? '' : `<button type="button" class="btn ${pasada && !r ? 'primary' : ''}" data-ll="${esc(c.id)}">${r ? 'Cambiar resultado' : 'Anotar resultado'}</button>`}</div>

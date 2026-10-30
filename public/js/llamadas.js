@@ -156,3 +156,39 @@ export function sinReservasSuperadas(citas = [], { cancelada = (c) => ['cancelle
   return citas.filter((c) => !cancelada(c) || c.resultado || !c.contactId
     || !vivas.some((v) => v.contactId === c.contactId && Math.abs(t(v) - t(c)) <= 86_400_000));
 }
+
+// Una tarjeta por persona, pase lo que pase: la última red tras agruparRepetidas y sinReservasSuperadas, que solo
+// cubrían casos concretos (varias vivas, canceladas sustituidas por una viva). Así se colaban, p. ej., dos citas
+// canceladas de la misma lead o una cancelada y otra viva reservadas en días distintos.
+// La persona es el contactId; si falta, su teléfono (solo dígitos) o su email. La misma cita (id) solo cuenta una vez.
+// Las que tienen un resultado anotado son historial y se quedan todas. De las canceladas sin resultado: si la persona
+// tiene otra tarjeta, fuera; si solo tiene canceladas, queda la última que reservó. Las que se quitan van en
+// `canceladas` de la tarjeta que queda (hora y cuándo la reservó).
+export function unaPorPersona(citas = [], { cancelada = (c) => ['cancelled', 'invalid'].includes(c.status) } = {}) {
+  const vistos = new Set();
+  const unicas = citas.filter((c) => !c.id || (!vistos.has(c.id) && vistos.add(c.id)));
+  const dig = (x) => String(x || '').replace(/\D/g, '');
+  const persona = (c) => {
+    const k = c.contacto || c.opp || {};
+    const tel = dig(k.phone);
+    return c.contactId ? `id:${c.contactId}` : tel.length >= 7 ? `tel:${tel}` : k.email ? `mail:${String(k.email).trim().toLowerCase()}` : '';
+  };
+  const t = (c) => Date.parse(c.creada || 0) || 0;
+  const sobra = (c) => cancelada(c) && !c.resultado && persona(c);
+  const por = new Map();
+  for (const c of unicas) if (persona(c)) por.set(persona(c), [...(por.get(persona(c)) || []), c]);
+  const quita = new Set();
+  const extra = new Map(); // tarjeta que queda → canceladas que se le juntan
+  for (const cs of por.values()) {
+    const canc = cs.filter(sobra);
+    if (!canc.length) continue;
+    const otras = cs.filter((c) => !sobra(c));
+    const queda = otras.length
+      ? otras.find((c) => !cancelada(c) && !c.resultado) || otras[otras.length - 1]
+      : [...canc].sort((a, b) => t(b) - t(a) || Date.parse(b.startTime) - Date.parse(a.startTime))[0];
+    const fuera = canc.filter((c) => c !== queda);
+    for (const c of fuera) quita.add(c);
+    if (fuera.length) extra.set(queda, fuera.sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime)).map((c) => ({ id: c.id, startTime: c.startTime, creada: c.creada || '' })));
+  }
+  return unicas.filter((c) => !quita.has(c)).map((c) => (extra.has(c) ? { ...c, canceladas: [...(c.canceladas || []), ...extra.get(c)] } : c));
+}
