@@ -3534,6 +3534,10 @@ select.outcome, .rt-toolbar select, .bar-table select { padding-right: 28px; bac
 .hoy-temp.on { background: var(--st); color: #fff; border-color: var(--st); }
 .hoy-temp.on .dot { background: #fff; } .hoy-temp.on b { color: #fff; }
 .hoy-motivos { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.hoy-modo { display: inline-flex; gap: 4px; padding: 3px; border-radius: 12px; background: var(--surface-2, #f1efe9); }
+.hoy-modo button { font: inherit; font-size: 13.5px; font-weight: 600; padding: 7px 13px; border: 0; border-radius: 9px; background: transparent; color: var(--text-2); cursor: pointer; }
+.hoy-modo button b { margin-left: 3px; font-variant-numeric: tabular-nums; }
+.hoy-modo button.on { background: var(--surface, #fff); color: var(--text); box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
 .hoy-seg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1px dashed color-mix(in srgb, var(--accent, #e8820c) 45%, var(--border)); background: color-mix(in srgb, var(--accent, #e8820c) 5%, transparent); }
 .hoy-seg-t { font-weight: 700; font-size: 13px; margin-right: 4px; }
 .hoy-seg-t small { font-weight: 400; color: var(--text-2); margin-left: 4px; }

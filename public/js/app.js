@@ -5560,10 +5560,18 @@ function renderHoy() {
   }
   const h = state.hoy;
   if (h.code !== state.launchCode) Object.assign(h, { code: state.launchCode, motivo: '', temp: '', senales: [], max: HOY_PAGINA });
-  // Segmento: con alguna señal marcada, entran todas las que no han comprado (no solo las de los motivos de arriba),
-  // las que cumplen TODAS las señales marcadas, de más a menos puntuación.
+  if (!h.modo) { try { h.modo = localStorage.getItem('lsd_hoy_modo') || 'hoy'; } catch { h.modo = 'hoy'; } }
+  const todos = h.modo === 'todos';
+  // «Todos los leads»: todas las que no han comprado (también las ya contactadas, sin teléfono o con el setter IA), con su
+  // motivo si lo tienen, de la más caliente a la más fría según lo que hizo (HOY_CALOR) y, a igualdad, por puntuación.
+  const porId = new Map(lista.map((x) => [x.l.id, x]));
+  const porCalor = (a, b) => calorLead(a.l.s) - calorLead(b.l.s) || byScore(a.l, b.l);
+  const universo = state.leads.filter((l) => !l.s.compra).map((l) => porId.get(l.id) || { l, b: null }).sort(porCalor);
+  // Segmento: con alguna señal marcada, entran también las que no tienen motivo hoy (no solo las de los motivos de
+  // arriba), las que cumplen TODAS las señales marcadas.
   const senales = HOY_SENALES.filter((x) => h.senales.includes(x.id));
-  const base = senales.length ? [...lista, ...state.leads.filter((l) => open(l) && !seen.has(l.id)).sort(byScore).map((l) => ({ l, b: null, prio: buckets.length }))] : lista;
+  const conResto = [...lista, ...state.leads.filter((l) => open(l) && !seen.has(l.id)).map((l) => ({ l, b: null })).sort(porCalor)];
+  const base = todos ? universo : senales.length ? conResto : lista;
   const cumple = (l, sen = senales) => sen.every((x) => x.si(l.s));
   const enSegmento = base.filter((x) => cumple(x.l));
   const cuentaMotivo = (id) => enSegmento.filter((x) => x.b?.id === id && (!h.temp || x.l.estado.id === h.temp)).length;
@@ -5572,7 +5580,7 @@ function renderHoy() {
   // Cuántas quedarían al marcar (o quitar) cada señal, con el resto de filtros como están.
   const cuentaSenal = (x) => {
     const sen = h.senales.includes(x.id) ? senales : [...senales, x];
-    return (senales.length || h.senales.includes(x.id) ? base : [...base, ...state.leads.filter((l) => open(l) && !seen.has(l.id)).map((l) => ({ l, b: null }))])
+    return (todos ? universo : conResto)
       .filter((y) => cumple(y.l, sen) && (!h.motivo || y.b?.id === h.motivo) && (!h.temp || y.l.estado.id === h.temp)).length;
   };
   const shown = filtrada.slice(0, h.max);
@@ -5580,10 +5588,13 @@ function renderHoy() {
   pintarGastoPl();
   const nIa = state.leads.filter((l) => !l.s.compra && conIa(l)).length;
   const avisos = buckets.filter((b) => b.id === 'grupo').map((b) => `<p class="muted hoy-aviso">💬 ${esc(b.hint)}</p>`).join('')
-    + (nIa ? `<p class="muted hoy-aviso">🤖 ${nIa} ${nIa === 1 ? 'persona la lleva' : 'personas las lleva'} ahora el setter IA: no salen aquí para no escribirles a la vez. Si te pide ayuda, aparecen arriba en «🙋 Pide persona».${allowedViews().includes('labia') ? ' <button type="button" class="link-btn" data-ver-labia>Ver el pipeline de LabIA →</button>' : ''}</p>` : '');
+    + (nIa && !todos ? `<p class="muted hoy-aviso">🤖 ${nIa} ${nIa === 1 ? 'persona la lleva' : 'personas las lleva'} ahora el setter IA: no salen aquí para no escribirles a la vez. Si te pide ayuda, aparecen arriba en «🙋 Pide persona».${allowedViews().includes('labia') ? ' <button type="button" class="link-btn" data-ver-labia>Ver el pipeline de LabIA →</button>' : ''}</p>` : '');
   $('#hoy-lists').innerHTML = `<section class="card hoy-prio">
     <div class="hoy-prio-cab">
-      <h2>Por prioridad <span class="badge">${lista.length}</span></h2>
+      <div class="hoy-modo seg" role="group" aria-label="Qué leads ver">
+        <button type="button" class="${todos ? '' : 'on'}" data-hoy-modo="hoy" aria-pressed="${!todos}" title="A quién escribir hoy: las que tienen un motivo pendiente. Se van quitando al contactarlas o al anotar el resultado">📋 Pendientes de hoy <b>${lista.length}</b></button>
+        <button type="button" class="${todos ? 'on' : ''}" data-hoy-modo="todos" aria-pressed="${todos}" title="Todas las que no han comprado, también las ya contactadas, ordenadas de la más caliente a la más fría">👥 Todos los leads <b>${universo.length}</b></button>
+      </div>
       <div class="hoy-leyenda" role="group" aria-label="Filtrar por temperatura">${ESTADOS.map((e) => `<button type="button" class="hoy-temp st-${e.id} ${h.temp === e.id ? 'on' : ''}" data-hoy-temp="${e.id}" aria-pressed="${h.temp === e.id}"><span class="dot"></span>${e.label} <b>${cuentaTemp(e.id)}</b></button>`).join('')}</div>
     </div>
     <div class="hoy-motivos" role="group" aria-label="Filtrar por motivo">
@@ -5595,6 +5606,7 @@ function renderHoy() {
       ${HOY_SENALES.map((x) => { const on = h.senales.includes(x.id); const n = cuentaSenal(x); return `<button type="button" class="hoy-seg-chip ${on ? 'on' : ''}" data-hoy-senal="${x.id}" aria-pressed="${on}" title="${esc(x.title)}"${!on && !n ? ' disabled' : ''}>${x.ico} ${esc(x.txt)} <b>${n}</b></button>`; }).join('')}
       ${senales.length ? `<button type="button" class="link-btn hoy-seg-quitar" data-hoy-senal="">Quitar segmento</button>` : ''}
     </div>
+    ${todos && !senales.length ? '<p class="muted hoy-aviso">👥 Todas las que no han comprado, de la más caliente a la más fría: checkout, página de venta, directo hasta el final, directo, VIP, grabación, clases… Las ya contactadas siguen aquí con «✅ Le escribiste».</p>' : ''}
     ${senales.length ? `<p class="hoy-seg-res"><b>${filtrada.length}</b> ${filtrada.length === 1 ? 'persona' : 'personas'} sin comprar que ${senales.map((x) => x.frase).join(' y ')}${h.temp ? ` · ${esc(ESTADOS.find((e) => e.id === h.temp)?.label || '')}` : ''}${h.motivo ? ` · ${esc(buckets.find((b) => b.id === h.motivo)?.corto || '')}` : ''}</p>` : ''}
     ${(() => {
       // Envío masivo: la plantilla a todas las de esta lista (con el filtro de motivo, temperatura y segmento que haya).
@@ -5603,7 +5615,7 @@ function renderHoy() {
       return pl && h.plLista.length > 1 ? `<div class="hoy-pl-masivo"><button type="button" class="btn plantilla small" data-hoy-pl>📨 Plantilla a las ${h.plLista.length} de esta lista · ≈ ${euros(costeEstimado(h.plLista.length, pl.precio))}</button><span class="muted small">${senales.length ? 'Solo a las de este segmento.' : 'Combina señales del segmento, el motivo o la temperatura para afinar a quién.'}</span></div>` : '';
     })()}
     ${avisos}
-    ${shown.length ? `<ol class="hoy-list hoy-ranking">${shown.map((x, i) => hoyItem(x.l, x.b, i + 1)).join('')}</ol>` : `<p class="muted hoy-vacio">${lista.length ? 'Nadie con este filtro.' : 'Nada pendiente hoy ✓'}</p>`}
+    ${shown.length ? `<ol class="hoy-list hoy-ranking">${shown.map((x, i) => hoyItem(x.l, x.b, i + 1)).join('')}</ol>` : `<p class="muted hoy-vacio">${base.length ? 'Nadie con este filtro.' : todos ? 'No hay leads sin comprar.' : 'Nada pendiente hoy ✓ <button type="button" class="link-btn" data-hoy-modo="todos">Ver todos los leads →</button>'}</p>`}
     ${filtrada.length > shown.length ? `<div class="hoy-mas"><button type="button" class="btn ghost" data-hoy-mas>Ver ${Math.min(HOY_PAGINA, filtrada.length - shown.length)} más</button><span class="muted">${shown.length} de ${filtrada.length}</span></div>` : ''}
   </section>`;
 }
@@ -5619,11 +5631,32 @@ const HOY_SENALES = [
   { id: 'venta', ico: '🛒', txt: 'Visitó la página de venta', frase: 'visitaron la página de venta', title: 'Entró en la página de venta', si: (s) => Boolean(s.venta_visita) },
   { id: 'grabacion', ico: '🎬', txt: 'Vio la grabación', frase: 'vieron al menos la mitad de la grabación', title: 'Ha visto el 50% o más de la grabación', si: (s) => grabVenta(s) >= 50 },
   { id: 'vip', ico: '⭐', txt: 'VIP', frase: 'son VIP', title: 'Pagó la entrada VIP', si: (s) => Boolean(s.vip) },
+  { id: 'clases', ico: '📚', txt: 'Vio las clases', frase: 'vieron al menos la mitad de alguna clase grabada', title: 'Ha visto el 50% o más de alguna clase grabada del prelanzamiento', si: (s) => (s.clases || []).some((c) => watched(s, c) >= 50) },
   { id: 'sinplantilla', ico: '📨', txt: 'Sin plantilla', frase: 'aún no han recibido una plantilla', title: 'Todavía no se le ha enviado ninguna plantilla de WhatsApp (para no repetir)', si: (s) => !s.wa_plantilla },
+  { id: 'contactada', ico: '✅', txt: 'Ya contactadas', frase: 'ya habéis contactado', title: 'Alguien del equipo ya le ha escrito', si: (s) => Boolean(s.wa_enviado) },
   { id: 'sincontactar', ico: '🆕', txt: 'Sin contactar', frase: 'nadie ha contactado todavía', title: 'Nadie del equipo le ha escrito todavía', si: (s) => !s.wa_enviado },
 ];
+// Lo más caliente primero (para «Todos los leads» y los segmentos): la primera señal que cumple, en este orden.
+const HOY_CALOR = [
+  (s) => s.inicio_pago,
+  (s) => s.venta_visita,
+  (s) => asistioAlgun(s, 'final'),
+  (s) => asistioAlgun(s, 'asistio'),
+  (s) => s.vip,
+  (s) => grabVenta(s) >= 50,
+  (s) => (s.clases || []).some((c) => watched(s, c) >= 50),
+  (s) => grabVenta(s) || (s.clases || []).some((c) => watched(s, c)),
+];
+const calorLead = (s) => { const i = HOY_CALOR.findIndex((f) => f(s)); return i < 0 ? HOY_CALOR.length : i; };
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-hoy-pl]')) { abrirPlantilla(state.hoy.plLista || []); return; }
+  const m = e.target.closest('[data-hoy-modo]');
+  if (m) {
+    Object.assign(state.hoy, { modo: m.dataset.hoyModo, motivo: '', max: HOY_PAGINA });
+    try { localStorage.setItem('lsd_hoy_modo', state.hoy.modo); } catch { /* sin almacenamiento: no pasa nada */ }
+    renderHoy();
+    return;
+  }
   const t = e.target.closest('[data-hoy-temp], [data-hoy-motivo], [data-hoy-mas], [data-hoy-senal]');
   if (!t) return;
   const h = state.hoy;
@@ -5685,7 +5718,7 @@ function hoyItem(l, b = null, n = 0) {
     </div>
     <div class="hoy-actions">
       ${l.s.setter?.respondio && enlaceSetter(l.id) ? `<a class="btn ghost small" href="${esc(enlaceSetter(l.id))}" target="_blank" rel="noopener" title="Leer la conversación en el setter IA">🤖 Ver chat</a>` : ''}
-      ${envioBtns(l, { corto: true })}
+      ${l.phoneWa ? envioBtns(l, { corto: true }) : '<span class="muted small">Sin teléfono</span>'}
       ${outcomeSelect(l)}
     </div>
   </li>`;
