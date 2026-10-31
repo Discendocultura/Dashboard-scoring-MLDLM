@@ -13100,14 +13100,17 @@ function renderLlamadas() {
     ${m.motivos.length ? `<div class="card ll-motivos"><h3>Por qué no compran</h3>${m.motivos.map(([k, v]) => `<div class="ll-mot"><span>${esc(k)}</span><div class="gan-bar"><span style="width:${(v / maxMot) * 100}%;background:var(--error)"></span><b>${v}</b></div></div>`).join('')}</div>` : ''}`;
   const hoyD = today();
   const pendientes = list.filter((c) => llStart(c) < ahora && !c.resultado && !llCancelada(c)).reverse();
-  const deHoy = list.filter((c) => dayInMadrid(c.startTime) === hoyD && llStart(c) >= ahora);
-  const proximas = list.filter((c) => llStart(c) >= ahora && dayInMadrid(c.startTime) !== hoyD);
+  // Las próximas canceladas van aparte, para que en Hoy y Próximos días solo queden las que faltan por hacer.
+  const deHoy = list.filter((c) => dayInMadrid(c.startTime) === hoyD && llStart(c) >= ahora && !llCancelada(c));
+  const proximas = list.filter((c) => llStart(c) >= ahora && dayInMadrid(c.startTime) !== hoyD && !llCancelada(c));
+  const canceladasProx = list.filter((c) => llStart(c) >= ahora && llCancelada(c));
   const anotadas = list.filter((c) => llStart(c) < ahora && (c.resultado || llCancelada(c))).reverse();
   const sec = (titulo, items, cls = '', vacio = '') => (items.length || vacio ? `<section class="ll-sec ${cls}"><h3>${titulo} <span class="muted">${items.length}</span></h3>${items.map(llamadaCard).join('') || `<p class="muted">${vacio}</p>`}</section>` : '');
   box.innerHTML = list.length ? `
     ${sec('⚠️ Pendientes de anotar', pendientes, 'warn')}
     ${sec('📞 Hoy', deHoy, '', 'No hay más llamadas hoy.')}
     ${sec('🗓️ Próximos días', proximas)}
+    ${canceladasProx.length ? `<details class="ll-sec ll-done ll-cancel-prox"><summary><h3>❌ Canceladas <span class="muted">${canceladasProx.length}</span></h3></summary>${canceladasProx.map(llamadaCard).join('')}</details>` : ''}
     ${anotadas.length ? `<details class="ll-sec ll-done"><summary><h3>✅ Ya anotadas <span class="muted">${anotadas.length}</span></h3></summary>${anotadas.map(llamadaCard).join('')}</details>` : ''}`
     : '<div class="card empty"><p class="muted">Todavía no hay llamadas agendadas en el calendario para este lanzamiento.</p></div>';
   syncLlVista();
