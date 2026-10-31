@@ -2709,7 +2709,7 @@ function seriesRetencion(launch, directos, grabados) {
   const zm = state.zoomMin?.[code] || {};
   const vids = videosDe(launch);
   return [
-    ...directos.map((v) => ({ id: `d${v.k}`, tipo: 'directo', label: vids.length > 1 ? `${v.nombre} (directo)` : 'Directo', ico: '🔴', curva: zm[v.k]?.curva || null })),
+    ...directos.map((v) => ({ id: `d${v.k}`, k: v.k, tipo: 'directo', label: vids.length > 1 ? `${v.nombre} (directo)` : 'Directo', ico: '🔴', curva: zm[v.k]?.curva || null })),
     ...grabados.map(([v, label, ico]) => ({ id: `g-${v}`, tipo: 'replay', label, ico, datos: ret[v] || null })),
   ];
 }
@@ -2728,7 +2728,8 @@ function htmlRetencion(launch, directos, grabados) {
       : 'Aún no hay datos de este vídeo. Se miden desde ahora: cada persona que lo vea suma a la curva (tramo a tramo, y cuántas veces vuelve a verlo).'}</p>`;
   } else if (sel.tipo === 'directo') {
     const an = analizarDirecto(sel.curva, { nombre: sel.label.toLowerCase() });
-    cuerpo = graficaRetencion(an, 'directo') + sugerenciasRetencion(an, 'directo');
+    const ia = directoIa(code, sel.k);
+    cuerpo = graficaRetencion(an, 'directo', ia?.datos?.analisis?.puntos || []) + htmlDirectoIa(code, sel.k, ia) + sugerenciasRetencion(an, 'directo');
   } else {
     const an = analizarReplay(sel.datos, { nombre: sel.label.toLowerCase() });
     cuerpo = graficaRetencion(an, 'replay') + sugerenciasRetencion(an, 'replay');
@@ -2739,7 +2740,7 @@ function htmlRetencion(launch, directos, grabados) {
     ${cuerpo}
   </section>`;
 }
-function graficaRetencion(an, tipo) {
+function graficaRetencion(an, tipo, marcas = []) {
   const W = 720; const H = 270; const L = 42; const R = tipo === 'replay' ? 46 : 14; const T = 18; const B = 34;
   const pts = an.serie;
   const n = pts.length;
@@ -2765,15 +2766,19 @@ function graficaRetencion(an, tipo) {
       ${(an.picos || []).map((p) => `<g class="ret-pico"><circle cx="${x(p.i).toFixed(1)}" cy="${yi(p.veces).toFixed(1)}" r="6"/><text x="${x(p.i).toFixed(1)}" y="${(yi(p.veces) - 11).toFixed(1)}">⭐ ${tiempoVideo(p.t)}</text><title>${tiempoVideo(p.t)}: se ve ${p.veces} veces por persona (+${p.extra}% de lo normal)</title></g>`).join('')}`;
   }
   const pico = tipo === 'directo' && an.pico ? (() => { const i = pts.findIndex((p) => p.n === an.pico); return `<g class="ret-max"><circle cx="${x(i).toFixed(1)}" cy="${y(100)}" r="5"/><text x="${x(i).toFixed(1)}" y="${y(100) - 8}">${an.pico.toLocaleString('es-ES')} personas</text></g>`; })() : '';
+  // Directo: los puntos del análisis de Claude, numerados como en la lista de debajo (al pulsar, se va a su explicación).
+  // Arriba del todo van debajo de la línea (encima está «N personas»).
+  const cerca = (min) => pts.reduce((b, p, i) => (Math.abs(p.min - min) < Math.abs(pts[b].min - min) ? i : b), 0);
+  const ia = marcas.map((m, j) => { const i = cerca(m.min); const cy = y(pts[i].ret) < T + 26 ? y(pts[i].ret) + 16 : y(pts[i].ret); return `<g class="ret-ia ret-ia-${esc(m.tipo)}" data-dia-ir="${j}" tabindex="0" role="button" aria-label="Punto ${j + 1}: min ${m.min} · ${esc(m.titulo)}"><circle cx="${x(i).toFixed(1)}" cy="${cy.toFixed(1)}" r="9"/><text x="${x(i).toFixed(1)}" y="${(cy + 4).toFixed(1)}">${j + 1}</text><title>min ${m.min} · ${esc(m.titulo)}</title></g>`; }).join('');
   const leyenda = tipo === 'replay'
     ? `<span><i class="ret-l-ret"></i>% de quien la empezó que sigue viendo</span><span><i class="ret-l-int"></i>veces que se ve cada momento (eje derecho)</span><span><i class="ret-l-fuga"></i>punto de fuga</span><span><i class="ret-l-salto"></i>se lo saltan</span><span>⭐ pico de interés</span>`
-    : `<span><i class="ret-l-ret"></i>% del máximo de personas conectadas</span><span><i class="ret-l-fuga"></i>punto de fuga</span>`;
+    : `<span><i class="ret-l-ret"></i>% del máximo de personas conectadas</span><span><i class="ret-l-fuga"></i>punto de fuga</span>${marcas.length ? '<span><i class="ret-l-ia"></i>puntos del análisis de Claude (pulsa uno para ver su explicación)</span>' : ''}`;
   return `<figure class="ret-fig">
     <svg class="ret-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Curva de retención">
       <defs><linearGradient id="ret-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".32"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
       ${grid}${fugas}${saltos}
       <path d="${area}" fill="url(#ret-g)"/><path d="${linea}" class="ret-linea"/>
-      ${interes}${pico}
+      ${interes}${pico}${ia}
       ${ticks.map((i) => `<text x="${x(i).toFixed(1)}" y="${H - 12}" class="ret-ax ret-ax-x">${etqX(i)}</text>`).join('')}
     </svg>
     <figcaption class="ret-ley">${leyenda}</figcaption>
@@ -2788,6 +2793,133 @@ function sugerenciasRetencion(an, tipo) {
     <ul class="ret-sug">${an.sugerencias.map((s) => `<li class="ret-sug-${s.tipo}"><span class="ret-sug-ico" aria-hidden="true">${ICO[s.tipo] || '•'}</span>
       <div><p>${s.tipo !== 'ok' ? `<span class="ret-sug-t">${cuando(s)}</span> ` : ''}${esc(s.texto)}</p><p class="ret-sug-acc"><strong>→</strong> ${esc(s.accion)}</p></div></li>`).join('')}</ul>`;
 }
+// ---------- Directo: qué pasaba en cada momento (Claude lee la transcripción y la cruza con la curva) ----------
+// GET/POST /api/directo-ia. El análisis se guarda: solo se vuelve a pedir a Claude con «Volver a analizar» o si
+// cambia la curva o la transcripción.
+const claveDia = (code, k) => `${code}|${k}`;
+function directoIa(code, k) {
+  state.directoIa = state.directoIa || {};
+  const st = state.directoIa[claveDia(code, k)];
+  if (!st) { state.directoIa[claveDia(code, k)] = { cargando: true }; cargarDirectoIa(code, k); }
+  return state.directoIa[claveDia(code, k)];
+}
+async function cargarDirectoIa(code, k) {
+  const st = state.directoIa[claveDia(code, k)];
+  try { st.datos = await api(`/api/directo-ia?launch=${encodeURIComponent(code)}&k=${k}`); } catch (e) { st.error = e.message; }
+  st.cargando = false;
+  if (state.launchCode === code && !$('#view-metricas').hidden) renderConsumo();
+}
+const DIA_TIPO = { pico: ['📈', 'Sube'], interes: ['🎯', 'Engancha'], fuga: ['📉', 'Fuga'] };
+function htmlDirectoIa(code, k, st) {
+  if (!st || st.cargando) return '<section class="dia"><p class="muted">Cargando el análisis del directo…</p></section>';
+  const d = st.datos || {};
+  const a = d.analisis;
+  const tx = d.transcripcion;
+  const fuente = tx ? `${tx.fuente === 'zoom' ? 'de la grabación en la nube de Zoom' : 'pegada a mano'} · ${tx.frases.toLocaleString('es-ES')} frases · la grabación empieza en el minuto ${tx.desfase} del directo` : '';
+  const abierto = st.pedirTexto || (st.abierto ?? (!tx && !d.zoom));
+  const boton = st.generando
+    ? '<button type="button" class="btn" disabled>⏳ Analizando… (puede tardar uno o dos minutos)</button>'
+    : `<button type="button" class="btn${a ? ' ghost' : ' primary'}" data-dia-gen${a ? ' data-dia-regenerar' : ''}${d.claude === false ? ' disabled' : ''}>${a ? '🔄 Volver a analizar' : '🧠 Analizar el directo con la transcripción'}</button>`;
+  const r = a?.resumen || {};
+  const resumen = a ? `<div class="dia-resumen">
+      ${a.prueba ? '<p class="dia-prueba">🧪 Análisis de prueba: sin la clave de Claude se hace solo con la curva. Con ANTHROPIC_API_KEY lo hace Claude leyendo la transcripción.</p>' : ''}
+      ${r.titular ? `<p class="dia-titular">${esc(r.titular)}</p>` : ''}
+      <div class="dia-claves">
+        ${r.dondeSePierde ? `<div><h4>📉 Dónde se pierde más gente</h4><p>${esc(r.dondeSePierde)}</p></div>` : ''}
+        ${r.queEngancha ? `<div><h4>🎯 Lo que engancha</h4><p>${esc(r.queEngancha)}</p></div>` : ''}
+        ${r.oferta ? `<div><h4>💶 El momento de la oferta</h4><p>${esc(r.oferta)}</p></div>` : ''}
+      </div>
+      ${r.prioridades?.length ? `<h4>✅ Prioridades para el próximo directo</h4><ol class="dia-prior">${r.prioridades.map((p) => `<li>${esc(p)}</li>`).join('')}</ol>` : ''}
+    </div>
+    <ol class="dia-puntos">${a.puntos.map((p, j) => { const [ico, et] = DIA_TIPO[p.tipo] || ['•', '']; return `<li id="dia-p-${j}" class="dia-p dia-p-${esc(p.tipo)}">
+      <span class="dia-n" aria-hidden="true">${j + 1}</span>
+      <div><p class="dia-p-cab"><span class="ret-sug-t">min ${p.min}${p.min1 > p.min ? `–${p.min1}` : ''}</span> <span class="dia-tipo">${ico} ${et}</span> <strong>${esc(p.titulo)}</strong></p>
+        ${p.cita ? `<blockquote class="dia-cita">«${esc(p.cita)}»</blockquote>` : ''}
+        ${p.porque ? `<p><strong>Por qué:</strong> ${esc(p.porque)}</p>` : ''}
+        ${p.recomendacion ? `<p class="ret-sug-acc"><strong>→</strong> ${esc(p.recomendacion)}</p>` : ''}</div></li>`; }).join('')}</ol>
+    <p class="muted dia-pie">Hecho con ${esc(a.prueba ? 'datos de prueba' : a.modelo || 'Claude')} el ${new Date(a.en).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })} · guardado: no se vuelve a pedir a Claude hasta que pulses «Volver a analizar».</p>` : '';
+  return `<section class="dia" data-dia-k="${k}">
+    <div class="dia-cab"><h3 class="cv-h3">🧠 Qué pasaba en cada momento <span class="muted">· Claude lee la transcripción del directo y la cruza con la curva</span></h3>${boton}</div>
+    <p class="muted dia-fuente">${tx ? `Transcripción ${fuente}.` : 'La transcripción se saca sola de la <strong>grabación en la nube de Zoom</strong> (si el directo se grabó en la nube con «Transcripción de audio» activada). Si no está, pégala o sube el archivo aquí abajo.'}</p>
+    ${d.claude === false ? '<p class="dia-aviso">Falta la clave de Claude: añade <code>ANTHROPIC_API_KEY</code> (tipo Secret) en Cloudflare y vuelve a desplegar.</p>' : ''}
+    ${st.motivo ? `<p class="dia-aviso">⚠️ No he podido sacar la transcripción de Zoom: ${esc(st.motivo)}</p>` : ''}
+    ${st.error ? `<p class="dia-aviso dia-error">${esc(st.error)}</p>` : ''}
+    ${st.aviso ? `<p class="muted">ℹ️ ${esc(st.aviso)}</p>` : ''}
+    <details class="dia-pegar"${abierto ? ' open' : ''}><summary>📋 ${tx ? 'Cambiar la transcripción o su minuto de inicio' : 'Pegar o subir la transcripción'}</summary>
+      <p class="muted">Vale el archivo <strong>.vtt</strong> que da Zoom (Grabaciones → la reunión → Transcripción de audio → Descargar) o cualquier texto con el tiempo de cada frase, por ejemplo <code>00:12:34 Ana: …</code>.</p>
+      <textarea id="dia-texto" rows="6" placeholder="WEBVTT&#10;&#10;00:00:01.000 --> 00:00:05.000&#10;Ana: ¡Bienvenidas!…">${esc(st.texto || '')}</textarea>
+      <div class="dia-fila">
+        <label class="dia-archivo">📎 Subir archivo <input type="file" id="dia-archivo" accept=".vtt,.txt,.srt,text/vtt,text/plain" hidden></label>
+        <label>La grabación empieza en el minuto <input type="number" id="dia-desfase" value="${esc(String(st.desfase ?? tx?.desfase ?? 0))}" min="-120" max="240" step="1"> del directo</label>
+        <button type="button" class="btn primary" data-dia-gen data-dia-con-texto${st.generando || d.claude === false ? ' disabled' : ''}>Analizar con esta transcripción</button>
+      </div>
+      <p class="muted">0 si empezó a grabar a la hora del directo; 5 si empezó cinco minutos tarde (así cada frase cae en su minuto de la curva).</p>
+    </details>
+    ${resumen}
+  </section>`;
+}
+async function generarDirectoIa(code, k, { conTexto = false, regenerar = false } = {}) {
+  const st = state.directoIa[claveDia(code, k)];
+  const body = { launch: code, k };
+  if (conTexto) {
+    const texto = String(st.texto || '').trim();
+    const desfase = Number(st.desfase ?? st.datos?.transcripcion?.desfase ?? 0);
+    if (texto) body.texto = texto;
+    else if (st.datos?.transcripcion) body.desfase = desfase;
+    else { st.error = 'Pega la transcripción o sube su archivo antes de analizar.'; renderConsumo(); return; }
+    body.desfase = desfase;
+  }
+  if (regenerar) body.regenerar = true;
+  Object.assign(st, { generando: true, error: '', motivo: '', aviso: '' });
+  renderConsumo();
+  try {
+    const r = await api('/api/directo-ia', { method: 'POST', body });
+    if (r.sinTranscripcion) Object.assign(st, { motivo: r.motivo, pedirTexto: true });
+    else {
+      st.datos = { ...st.datos, analisis: r.analisis, transcripcion: r.transcripcion };
+      Object.assign(st, { texto: '', pedirTexto: false, abierto: false });
+      if (r.reutilizado) st.aviso = ('Nada ha cambiado: es el análisis guardado. Para pedir uno nuevo, pulsa «Volver a analizar».');
+    }
+  } catch (e) { st.error = e.message; }
+  st.generando = false;
+  if (state.launchCode === code && !$('#view-metricas').hidden) renderConsumo();
+}
+const diaK = (el) => Number(el.closest('.dia')?.dataset.diaK) || 1;
+document.addEventListener('click', (e) => {
+  const ir = e.target.closest('[data-dia-ir]');
+  if (ir) {
+    const li = document.getElementById(`dia-p-${ir.dataset.diaIr}`);
+    if (li) { li.scrollIntoView({ block: 'center' }); li.classList.remove('is-flash'); void li.offsetWidth; li.classList.add('is-flash'); }
+    return;
+  }
+  const b = e.target.closest('[data-dia-gen]');
+  if (!b) return;
+  generarDirectoIa(state.launchCode, diaK(b), { conTexto: 'diaConTexto' in b.dataset, regenerar: 'diaRegenerar' in b.dataset });
+});
+document.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('[data-dia-ir]')) { e.preventDefault(); e.target.closest('[data-dia-ir]').dispatchEvent(new MouseEvent('click', { bubbles: true })); } });
+document.addEventListener('input', (e) => {
+  if (!['dia-texto', 'dia-desfase'].includes(e.target.id)) return;
+  const st = state.directoIa?.[claveDia(state.launchCode, diaK(e.target))];
+  if (!st) return;
+  if (e.target.id === 'dia-texto') st.texto = e.target.value;
+  if (e.target.id === 'dia-desfase') st.desfase = Number(e.target.value) || 0;
+});
+// El desplegable de pegar la transcripción sigue abierto (o cerrado) aunque se vuelva a pintar la pantalla.
+document.addEventListener('toggle', (e) => {
+  if (!e.target.classList?.contains('dia-pegar')) return;
+  const st = state.directoIa?.[claveDia(state.launchCode, diaK(e.target))];
+  if (st) st.abierto = e.target.open;
+}, true);
+document.addEventListener('change', async (e) => {
+  if (e.target.id !== 'dia-archivo' || !e.target.files?.[0]) return;
+  const f = e.target.files[0];
+  if (f.size > 2_000_000) { e.target.value = ''; window.alert('El archivo es demasiado grande (máximo 2 MB).'); return; }
+  const t = await f.text();
+  const st = state.directoIa?.[claveDia(state.launchCode, diaK(e.target))];
+  if (st) st.texto = t;
+  $('#dia-texto').value = t;
+});
+
 async function cargarRetencion(code) {
   state.retencionCargando = { ...(state.retencionCargando || {}), [code]: true };
   state.retencion = state.retencion || {};

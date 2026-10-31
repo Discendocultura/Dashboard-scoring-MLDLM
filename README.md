@@ -452,6 +452,7 @@ En la subcuenta **Me lo dijo la matrona** → *Ajustes → Integraciones privada
    - `meeting:write:registrant:admin`: inscribir a los leads en la reunión.
    - `meeting:read:list_registrants:admin`: leer los inscritos.
    - `report:read:list_meeting_participants:admin`: leer quién asistió y cuánto tiempo.
+   - Opcional, `cloud_recording:read:list_recording_files:admin`: leer la transcripción de la grabación en la nube para «🧠 Qué pasaba en cada momento» (Métricas → Consumo de vídeos → Retención → Directo). Sin él, la transcripción se pega a mano.
 6. **Activation → Activate your app**.
 
 Si no ves la opción *Server-to-Server OAuth*: *Admin → Gestión de usuarios → Roles → Owner/Admin →
@@ -482,7 +483,7 @@ Funciones avanzadas* y activa "Server-to-Server OAuth app".
    - **Build output directory:** `public`
 4. En *Settings → Variables and Secrets*, añade como **Secret** (en Production) las variables de `.env.example`:
    `GHL_TOKEN`, `GHL_LOCATION_ID`, `ADMIN_PASSWORD`, `SETTER_PASSWORD`, `SESSION_SECRET`
-   y las tres `ZOOM_*`.
+   y las tres `ZOOM_*` (y, para el análisis del directo con Claude, `ANTHROPIC_API_KEY`).
 5. Vuelve a desplegar (*Deployments → Retry deployment*) para que se apliquen las variables.
    El dashboard queda en `https://<tu-proyecto>.pages.dev`. Si quieres, en *Custom domains* puedes
    ponerle un subdominio tuyo, como `leads.melodijolamatrona.com`.
@@ -681,6 +682,11 @@ Todas las vistas «con IA» usan la misma cabecera (`estudioHero`): los **pasos*
 
 ## Métricas → Consumo de vídeos y Conversión (dos pestañas)
 **🎬 Consumo de vídeos** (también el **directo**: tarjeta con el % que entró, la **duración media** —minutos de cada asistente guardados al «Sincronizar Zoom» (`GET /api/zoom-report?…&guardado=1`)— y el **% que llegó al final**; embudo pulsaron → entraron → más de 1 h → más de 2 h, con la señal nueva `directo_120`): arriba, cuatro tarjetas (empezaron las clases, vieron alguna entera, entraron al directo y dónde más se pierden). Una tarjeta por clase o grabación con un anillo del % que la empezó y una **curva de retención** (25 %, 50 %, 75 % y entero). El directo, como un **embudo** que se estrecha con el % que pasa de un paso al siguiente. Al final, **¿Quién ve los vídeos?**: frío vs templado y publicidad vs orgánico en barras emparejadas (la tabla completa sigue en «Ver la tabla completa»).
+
+**🧠 Qué pasaba en cada momento** (debajo de la curva de retención del directo, en «📉 Retención» → 🔴 Directo): el botón **«🧠 Analizar el directo con la transcripción»** junta la curva de Zoom (personas conectadas cada minuto, guardada al «Sincronizar Zoom») con lo que se decía en cada minuto y se lo pide a **Claude** (`claude-opus-5-5`, la API de Anthropic llamada desde el servidor con `fetch`, como el resto de APIs; con salida en JSON con esquema y `fallbacks: "default"`). Devuelve entre 6 y 12 **puntos** —📈 *sube* (picos), 🎯 *engancha* (la audiencia se mantiene) y 📉 *fuga* (caídas)—, cada uno con el minuto, una **cita breve** de la transcripción, **por qué** crees que pasa y una **recomendación** para el próximo directo, y un **resumen**: dónde se pierde más gente, qué engancha, cómo fue el momento de la oferta y 3 prioridades. Los puntos salen **numerados sobre la curva**; al pulsar uno se va a su explicación.
+- **La transcripción**: se saca sola de la **grabación en la nube de Zoom** (el archivo de «Transcripción de audio»; necesita grabar en la nube con la transcripción activada y el permiso `cloud_recording:read:list_recording_files:admin` en la app de Zoom; busca en las instancias de la sala a la hora del directo, como el informe de asistencia). Si no está, la pantalla dice por qué y abre **«📋 Pegar o subir la transcripción»**: el `.vtt` de Zoom, un `.srt` o cualquier texto con el tiempo de cada frase (`00:12:34 Ana: …`). Con **«La grabación empieza en el minuto N del directo»** se alinea cada frase con su minuto de la curva (con Zoom se calcula solo).
+- **Guardado**: la transcripción (`lsd_directo_tx_<código>_<n>`) y el análisis (`lsd_directo_ia_<código>_<n>`). No se vuelve a pedir a Claude mientras no cambien la curva, la transcripción, el minuto de inicio ni el modelo; **«🔄 Volver a analizar»** pide uno nuevo. `GET /api/directo-ia?launch=<código>&k=<n>` (lo guardado) y `POST /api/directo-ia { launch, k, texto?, desfase?, regenerar? }` (permiso de Métricas o de Zoom). Lógica en `lib/directo-ia.js` (leer la transcripción, alinearla, el prompt y limpiar la respuesta) y `transcripcionDelDirecto` en `lib/zoom.js`; pruebas en `test/directo-ia.test.js`.
+- **Clave**: `ANTHROPIC_API_KEY` (tipo Secret en Cloudflare; un cliente con la suya, `ANTHROPIC_API_KEY_<CLIENTE>`). Sin clave, el botón avisa de que falta. En `npm run dev:mock` sin clave se hace un **análisis de prueba** (solo con la curva, marcado como tal) con una transcripción simulada de Zoom.
 
 **🛒 Conversión**: arriba, cuántos compran, el grupo que más compra, cuánto multiplica escribir por WhatsApp y la señal que más predice. Debajo, el **embudo del registro a la compra** (registro → cada clase → directo o grabación → llamada → pago → compra) y, en dos columnas, barras de **¿Quién compra?**, **Compras por temperatura**, **Trabajo de la setter** y **Qué predice la compra** (con la propuesta de pesos plegada). La votación de la clase va aquí. Quien había quitado «Vídeos y conversión» en un embudo deja de ver las dos; la última pestaña elegida «consumo» abre ahora «Consumo de vídeos».
 
