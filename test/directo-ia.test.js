@@ -3,6 +3,7 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { leerTranscripcion, porMinuto, promptDirecto, limpiarAnalisis, firma, pedirAClaude, ESQUEMA, MODELO } from '../lib/directo-ia.js';
+import { rolDirecto, compararDirectos } from '../public/js/directo-ia.js';
 
 const ENV = { GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret' };
 let route;
@@ -162,4 +163,66 @@ test('/api/directo-ia: transcripción de Zoom, análisis guardado, pegar otra tr
   const s = (await call('/api/directo-ia', { method: 'POST', cookie: admin, body: { launch: 'dia-sin', k: 1 } })).data;
   assert.equal(s.sinTranscripcion, true);
   assert.match(s.motivo, /no tiene reunión de Zoom/);
+});
+
+// ---------- Cualquier embudo con directos: webinar, PLF, retos… (va ligado a «vídeo con curva de Zoom») ----------
+const zoom = (id) => ({ fecha: '2026-10-08', hora: '19:00', zoomMeetingId: id });
+const PLF = { name: 'PLF', registroTag: 'reg-plf', formato: 'plf', ...{ fechaDirecto: '2026-10-08', horaDirecto: '19:00', zoomMeetingId: '811 111 1111' }, videos: [zoom('822 222 2222'), zoom('833 333 3333'), zoom('844 444 4444')] };
+const RETO5 = { name: 'Reto', registroTag: 'reg-reto', formato: 'reto5', fechaDirecto: '2026-10-08', horaDirecto: '19:00', zoomMeetingId: '851 111 1111', videos: [{}, {}, {}, zoom('855 555 5555')] };
+
+test('papel de cada directo según el embudo: webinar, PLF (contenido y venta) y reto', () => {
+  assert.deepEqual(rolDirecto({ name: 'W' }, 1), { k: 1, n: 1, nombre: 'Webinar en directo', formato: 'Webinar', venta: true, texto: 'Webinar en directo (webinar): un solo directo en el que se hace la venta' });
+  const plc2 = rolDirecto(PLF, 2);
+  assert.equal(plc2.nombre, 'PLC 2');
+  assert.equal(plc2.venta, false);
+  assert.match(plc2.texto, /el 2\.º de 4 vídeos de un plf \(4 plcs\); es de contenido/);
+  assert.equal(rolDirecto(PLF, 4).venta, true);
+  assert.match(rolDirecto(RETO5, 5).texto, /^Día 5, el 5\.º de 5 vídeos de un reto de 5 días; en este se hace la venta/);
+});
+
+test('prompt de un directo de contenido: sin oferta, cómo deja preparado el siguiente', () => {
+  const p = promptDirecto(curva, [[1, 'Hola']], { nombre: 'PLC 2', rol: rolDirecto(PLF, 2) });
+  assert.match(p, /«PLC 2»: PLC 2, el 2\.º de 4 vídeos de un plf \(4 plcs\); es de contenido: aquí no se vende/);
+  assert.match(p, /cómo se invita a volver al siguiente vídeo/);
+  assert.doesNotMatch(p, /Incluye siempre el momento de la oferta/);
+  assert.match(promptDirecto(curva, [], { rol: rolDirecto(PLF, 4) }), /Incluye siempre el momento de la oferta/);
+});
+
+test('comparación entre directos: máximo, retención al final y la mayor fuga', () => {
+  const escala = (f, cae = 0) => ({ ...curva, valores: curva.valores.map((n, i) => Math.round(n * f) - (i >= 50 ? cae : 0)) });
+  const c = compararDirectos([
+    { k: 2, nombre: 'PLC 2', curva: escala(0.8, 30), analisis: { resumen: { titular: 'Se cae al final' }, puntos: [] } },
+    { k: 1, nombre: 'PLC 1', curva },
+    { k: 3, nombre: 'PLC 3', curva: null },
+  ]);
+  assert.deepEqual(c.filas.map((f) => [f.k, f.pico, f.titular]), [[1, 100, ''], [2, 80, 'Se cae al final']]);
+  assert.match(c.conclusiones[0], /Del PLC 1 al PLC 2 el máximo de personas a la vez baja un 20% \(de 100 a 80\)/);
+  assert.match(c.conclusiones[1], /El que mejor retiene es el PLC 1 \(al final queda el 52% del máximo\); el que menos, el PLC 2 \(15%\)/);
+  assert.ok(c.conclusiones.some((t) => /La mayor fuga está en el PLC 2/.test(t)));
+  assert.deepEqual(compararDirectos([{ k: 1, curva }]), { filas: [], conclusiones: [] });
+});
+
+test('/api/directo-ia en un PLF y en un reto de 5 días: cada directo con su transcripción y su análisis', async () => {
+  const admin = (await route(new Request('http://localhost/api/login', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ password: 'admin' }) }), ENV)).headers.get('set-cookie').split(';')[0];
+  const cfg = (await call('/api/config', { cookie: admin })).data.config;
+  // El formato (cuántos vídeos) es del embudo: un embudo PLF y otro de reto de 5 días.
+  const base = cfg.embudos.find((e) => e.tipo === 'lanzamientos');
+  const embudos = [...cfg.embudos, { ...base, id: 'emb-plf', nombre: 'PLF', formato: 'plf' }, { ...base, id: 'emb-reto', nombre: 'Reto', formato: 'reto5' }];
+  const launches = { ...cfg.launches, 'plf-26': { ...PLF, embudo: 'emb-plf' }, 'reto-26': { ...RETO5, embudo: 'emb-reto' } };
+  assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { ...cfg, embudos, launches } })).status, 200);
+  for (const [code, k] of [['plf-26', 2], ['plf-26', 4], ['reto-26', 5]]) {
+    assert.equal((await call(`/api/zoom-report?launch=${code}&v=${k}`, { cookie: admin })).status, 200);
+    const a = (await call('/api/directo-ia', { method: 'POST', cookie: admin, body: { launch: code, k } })).data;
+    assert.equal(a.transcripcion.fuente, 'zoom', `${code} ${k}`);
+    assert.ok(a.analisis.puntos.length);
+  }
+  // Pegar otra transcripción en el PLC 2 no toca la del PLC 4.
+  await call('/api/directo-ia', { method: 'POST', cookie: admin, body: { launch: 'plf-26', k: 2, texto: '00:01:00 Hola PLC 2' } });
+  const g2 = (await call('/api/directo-ia?launch=plf-26&k=2', { cookie: admin })).data;
+  const g4 = (await call('/api/directo-ia?launch=plf-26&k=4', { cookie: admin })).data;
+  assert.equal(g2.transcripcion.fuente, 'pegada');
+  assert.equal(g4.transcripcion.fuente, 'zoom');
+  // El 5.º día del reto existe (hasta 5 vídeos); un vídeo sin curva pide sincronizar antes.
+  assert.equal((await call('/api/directo-ia?launch=reto-26&k=5', { cookie: admin })).data.analisis.fuente, 'zoom');
+  assert.equal((await call('/api/directo-ia', { method: 'POST', cookie: admin, body: { launch: 'plf-26', k: 3 } })).status, 400);
 });

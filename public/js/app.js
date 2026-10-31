@@ -12,6 +12,7 @@ import { pasosEmbudo, anchosEmbudo, fondoCapa } from './embudo-visual.js';
 import { promptAvatar } from './prompt-avatar.js';
 import { promptEspera } from './prompt-espera.js';
 import { analizarReplay, analizarDirecto, mmss as tiempoVideo } from './retencion.js';
+import { rolDirecto, compararDirectos } from './directo-ia.js';
 import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
@@ -2729,7 +2730,7 @@ function htmlRetencion(launch, directos, grabados) {
   } else if (sel.tipo === 'directo') {
     const an = analizarDirecto(sel.curva, { nombre: sel.label.toLowerCase() });
     const ia = directoIa(code, sel.k);
-    cuerpo = graficaRetencion(an, 'directo', ia?.datos?.analisis?.puntos || []) + htmlDirectoIa(code, sel.k, ia) + sugerenciasRetencion(an, 'directo');
+    cuerpo = compararDirectosHtml(code, series) + graficaRetencion(an, 'directo', ia?.datos?.analisis?.puntos || []) + htmlDirectoIa(code, sel.k, ia, rolDirecto(launch, sel.k)) + sugerenciasRetencion(an, 'directo');
   } else {
     const an = analizarReplay(sel.datos, { nombre: sel.label.toLowerCase() });
     cuerpo = graficaRetencion(an, 'replay') + sugerenciasRetencion(an, 'replay');
@@ -2810,7 +2811,7 @@ async function cargarDirectoIa(code, k) {
   if (state.launchCode === code && !$('#view-metricas').hidden) renderConsumo();
 }
 const DIA_TIPO = { pico: ['📈', 'Sube'], interes: ['🎯', 'Engancha'], fuga: ['📉', 'Fuga'] };
-function htmlDirectoIa(code, k, st) {
+function htmlDirectoIa(code, k, st, rol = null) {
   if (!st || st.cargando) return '<section class="dia"><p class="muted">Cargando el análisis del directo…</p></section>';
   const d = st.datos || {};
   const a = d.analisis;
@@ -2840,6 +2841,7 @@ function htmlDirectoIa(code, k, st) {
     <p class="muted dia-pie">Hecho con ${esc(a.prueba ? 'datos de prueba' : a.modelo || 'Claude')} el ${new Date(a.en).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })} · guardado: no se vuelve a pedir a Claude hasta que pulses «Volver a analizar».</p>` : '';
   return `<section class="dia" data-dia-k="${k}">
     <div class="dia-cab"><h3 class="cv-h3">🧠 Qué pasaba en cada momento <span class="muted">· Claude lee la transcripción del directo y la cruza con la curva</span></h3>${boton}</div>
+    ${rol && rol.n > 1 ? `<p class="dia-rol">${rol.venta ? '💶' : '📚'} ${esc(rol.nombre)} · ${rol.venta ? 'directo de venta' : `directo de contenido (${rol.k} de ${rol.n})`}: cada directo tiene su propia transcripción y su propio análisis.</p>` : ''}
     <p class="muted dia-fuente">${tx ? `Transcripción ${fuente}.` : 'La transcripción se saca sola de la <strong>grabación en la nube de Zoom</strong> (si el directo se grabó en la nube con «Transcripción de audio» activada). Si no está, pégala o sube el archivo aquí abajo.'}</p>
     ${d.claude === false ? '<p class="dia-aviso">Falta la clave de Claude: añade <code>ANTHROPIC_API_KEY</code> (tipo Secret) en Cloudflare y vuelve a desplegar.</p>' : ''}
     ${st.motivo ? `<p class="dia-aviso">⚠️ No he podido sacar la transcripción de Zoom: ${esc(st.motivo)}</p>` : ''}
@@ -2857,6 +2859,21 @@ function htmlDirectoIa(code, k, st) {
     </details>
     ${resumen}
   </section>`;
+}
+// Embudos con varios directos (2 o 3 vídeos, PLF, retos): comparación breve de los que tienen curva, con el titular del
+// análisis de Claude de cada uno si ya está hecho.
+function compararDirectosHtml(code, series) {
+  const dirs = series.filter((s) => s.tipo === 'directo' && s.curva?.valores?.length);
+  if (dirs.length < 2) return '';
+  const cmp = compararDirectos(dirs.map((s) => ({ k: s.k, nombre: s.label.replace(/ \(directo\)$/, ''), curva: s.curva, analisis: directoIa(code, s.k)?.datos?.analisis })));
+  if (!cmp.filas.length) return '';
+  return `<details class="dia-comp" open><summary>⚖️ Comparación entre los ${cmp.filas.length} directos</summary>
+    <div class="dia-comp-tabla"><table><thead><tr><th>Directo</th><th>Máximo</th><th>Al final</th><th>Mayor fuga</th><th>Lo que dice Claude</th></tr></thead><tbody>
+    ${cmp.filas.map((f) => `<tr><td><button type="button" class="dia-comp-ir" data-ret-sel="d${f.k}">${esc(f.nombre)}</button></td><td>${f.pico.toLocaleString('es-ES')} <span class="muted">(min ${f.picoMin})</span></td><td>${f.final}%</td>
+      <td>${f.mayorFuga ? `−${f.mayorFuga.caida}% <span class="muted">(min ${f.mayorFuga.min0}–${f.mayorFuga.min1})</span>` : '—'}</td><td>${f.titular ? esc(f.titular) : '<span class="muted">Sin analizar: ábrelo y pulsa «🧠 Analizar»</span>'}</td></tr>`).join('')}
+    </tbody></table></div>
+    ${cmp.conclusiones.length ? `<ul class="dia-comp-concl">${cmp.conclusiones.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+  </details>`;
 }
 async function generarDirectoIa(code, k, { conTexto = false, regenerar = false } = {}) {
   const st = state.directoIa[claveDia(code, k)];

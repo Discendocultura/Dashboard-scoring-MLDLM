@@ -1,4 +1,6 @@
-// Análisis del directo con Claude (Métricas → Consumo de vídeos → Retención → Directo):
+// Análisis de un directo con Claude (Métricas → Consumo de vídeos → Retención → cada 🔴 directo). Vale para cualquier
+// embudo con vídeos en directo (webinar, 2 o 3 vídeos, PLF, retos): k es el número del vídeo y basta con que tenga
+// curva de Zoom (y, para sacar la transcripción sola, su reunión de Zoom).
 //   GET  /api/directo-ia?launch=<código>&k=<n> → lo guardado: { analisis, transcripcion: { fuente, frases, desfase, en },
 //        claude (hay clave), zoom (hay Zoom y reunión) }.
 //   POST /api/directo-ia { launch, k, texto?, desfase?, regenerar? } → hace el análisis (o devuelve el guardado si no
@@ -12,7 +14,8 @@ import { json, readBody, errorResponse } from '../lib/http.js';
 import { transcripcionDelDirecto, zoomConfigured } from '../lib/zoom.js';
 import { MODELO, claveClaude, claudeConfigurado, leerTranscripcion, porMinuto, promptDirecto, limpiarAnalisis, firma, pedirAClaude, analisisDePrueba } from '../lib/directo-ia.js';
 import { claveMinutos } from './zoom-report.js';
-import { videosDe } from '../public/js/videos.js';
+import { videosDe, MAX_VIDEOS } from '../public/js/videos.js';
+import { rolDirecto } from '../public/js/directo-ia.js';
 import { env } from '../lib/env.js';
 
 const claveTx = (code, k) => `lsd_directo_tx_${code}_${k}`;
@@ -25,7 +28,7 @@ async function lanzamientoYVideo(code, kRaw) {
   const config = await getConfig();
   const launch = Object.hasOwn(config.launches, String(code || '')) ? config.launches[code] : null;
   if (!launch) throw json({ error: 'Lanzamiento desconocido' }, 404);
-  const k = Math.min(Math.max(Number(kRaw) || 1, 1), 4);
+  const k = Math.min(Math.max(Math.round(Number(kRaw)) || 1, 1), MAX_VIDEOS);
   return { config, launch, k, video: videosDe(launch)[k - 1] || null };
 }
 
@@ -84,7 +87,7 @@ export async function POST(request) {
       r = limpiarAnalisis(analisisDePrueba(curva, minutos), curva);
       prueba = true;
     } else {
-      const { json: crudo, modelo } = await pedirAClaude(promptDirecto(curva, minutos, { nombre: video?.nombre, lanzamiento: launch.name, marca: config.marca?.producto }), { clave });
+      const { json: crudo, modelo } = await pedirAClaude(promptDirecto(curva, minutos, { nombre: video?.nombre, lanzamiento: launch.name, marca: config.marca?.producto, rol: rolDirecto(launch, k) }), { clave });
       r = { ...limpiarAnalisis(crudo, curva), modelo };
     }
     const analisis = { ...r, modelo: r.modelo || MODELO, prueba, firma: f, fuente: tx.fuente, en: new Date().toISOString() };
