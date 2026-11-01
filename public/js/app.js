@@ -3157,6 +3157,61 @@ document.addEventListener('click', async (e) => {
   $('#casi-estado').textContent = fallos ? `Etiquetadas ${hechas}; ${fallos} no se pudieron (vuelve a pulsar para reintentarlo).` : `Etiquetadas ${hechas} en GHL ✓`;
 });
 
+// Compradores fichados (Métricas → Ventas): cada persona que compró en este lanzamiento con su email, su WhatsApp,
+// cómo pagó y todo lo que hizo antes (los mismos chips que en Setting hoy). Con buscador y descarga en CSV.
+const compr = { q: '', ver: 30 };
+const compradoresDe = () => state.leads.filter((l) => l.s.compra)
+  .sort((a, b) => (b.s.fecha_compra || '').localeCompare(a.s.fecha_compra || '') || b.score - a.score);
+const pagoTxtDe = (l) => (l.s.plan ? `Plan ${l.s.plan}` : l.s.fraccionado ? 'Fraccionado' : l.s.unico ? 'Pago único' : '');
+function renderCompradores() {
+  const box = $('#compradores-l');
+  if (!box) return;
+  if (compr.code !== state.launchCode) Object.assign(compr, { code: state.launchCode, q: '', ver: 30 });
+  const todos = compradoresDe();
+  if (!todos.length) { box.innerHTML = '<p class="muted">Todavía no hay compras en este lanzamiento. Aquí saldrá cada compradora con lo que hizo antes de comprar.</p>'; return; }
+  const q = compr.q.trim().toLowerCase();
+  const lista = q ? todos.filter((l) => `${l.name} ${l.email} ${l.phone}`.toLowerCase().includes(q)) : todos;
+  const vip = todos.filter((l) => l.s.vip).length;
+  const enDirecto = todos.filter((l) => l.s.compra_directo).length;
+  const conTel = todos.filter((l) => l.phoneWa).length;
+  const fila = (l) => `<li class="cmp-item">
+      <div class="cmp-cab">
+        <button type="button" class="lead-name lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || l.email || 'Sin nombre')}</button>
+        <span class="cmp-meta">${l.s.fecha_compra ? `🛒 ${esc(fechaCorta(l.s.fecha_compra))}` : '🛒 Compró'}${l.s.compra_directo ? ' · en el directo' : ''}${pagoTxtDe(l) ? ` · ${esc(pagoTxtDe(l))}` : ''}${l.s.vip ? ' · ⭐ VIP' : ''}${l.s.origen ? ` · ${l.s.origen === 'publi' ? '📣 Publicidad' : '🌱 Orgánico'}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</span>
+      </div>
+      <div class="cmp-contacto">${l.email ? `<a href="mailto:${esc(l.email)}">✉️ ${esc(l.email)}</a>` : '<span class="muted">Sin email</span>'}${l.phoneWa ? `<a href="https://wa.me/${esc(l.phoneWa)}" target="_blank" rel="noopener">💬 ${esc(l.phone || `+${l.phoneWa}`)}</a>` : '<span class="muted">Sin teléfono</span>'}</div>
+      <div class="hoy-acc">${accionesLead(l)}</div>
+    </li>`;
+  box.innerHTML = `<div class="kpis">${card('Compradores', todos.length, `${conTel} con WhatsApp`, 'users', 'buy')}${enDirecto ? card('Compraron en el directo', enDirecto, `${pctOf(enDirecto, todos.length)} de las ventas`, 'zap', 'live') : ''}${vip ? card('Venían de la VIP', vip, `${pctOf(vip, todos.length)} de las ventas`, 'crown', 'vip') : ''}</div>
+    <div class="row cmp-barra"><input type="search" id="cmp-q" placeholder="Buscar por nombre, email o teléfono" value="${esc(compr.q)}" aria-label="Buscar compradores"> <button type="button" class="btn ghost" id="cmp-csv">⬇️ Descargar CSV</button></div>
+    <ul class="cmp-lista">${lista.slice(0, compr.ver).map(fila).join('') || '<li class="muted">Nadie coincide con la búsqueda.</li>'}</ul>
+    ${lista.length > compr.ver ? `<p><button type="button" class="btn ghost" id="cmp-mas">Ver ${Math.min(30, lista.length - compr.ver)} más (quedan ${lista.length - compr.ver})</button></p>` : ''}`;
+}
+document.addEventListener('input', (e) => {
+  if (e.target.id !== 'cmp-q') return;
+  compr.q = e.target.value;
+  compr.ver = 30;
+  renderCompradores();
+  const inp = $('#cmp-q');
+  inp.focus();
+  inp.setSelectionRange(inp.value.length, inp.value.length);
+});
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#cmp-mas')) { compr.ver += 30; renderCompradores(); return; }
+  if (!e.target.closest('#cmp-csv')) return;
+  // Las acciones, en texto: el título de cada chip (lo mismo que se lee al pasar el ratón).
+  const dec = document.createElement('textarea');
+  const acciones = (l) => [...accionesLead(l).matchAll(/class="acc[^"]*" title="([^"]*)"/g)].map((x) => { dec.innerHTML = x[1]; return dec.value; }).join(' · ');
+  const head = ['Nombre', 'Email', 'Teléfono', 'WhatsApp', 'Fecha compra', 'Compró en el directo', 'Pago', 'VIP', 'Origen', 'Tráfico', 'Puntos', 'Acciones'];
+  const lines = compradoresDe().map((l) => [l.name, l.email, l.phone, l.phoneWa ? `https://wa.me/${l.phoneWa}` : '', l.s.fecha_compra, l.s.compra_directo ? 'Sí' : '', pagoTxtDe(l), l.s.vip ? 'Sí' : '', l.s.origen === 'publi' ? 'Publicidad' : l.s.origen === 'organico' ? 'Orgánico' : '', l.s.trafico === 'frio' ? 'Frío' : l.s.trafico === 'templado' ? 'Templado' : '', l.score, acciones(l)]);
+  const csv = [head, ...lines].map((r) => r.map((x) => `"${String(x ?? '').replaceAll('"', '""')}"`).join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
+  a.download = `compradores-${state.launchCode}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
 // Resumen: facturación del lanzamiento, de su meteórico posterior (downsell) y la suma de las dos.
 async function renderFacturacionTotal(m) {
   const box = $('#fact-total-l');
@@ -3278,6 +3333,7 @@ function renderMetrics() {
   renderFacturacionTotal(m);
   renderRetrospectiva(m, launch);
   renderCasiCompradoras(launch);
+  renderCompradores();
   // Métricas → Downsell abierta: el meteórico y su conversión de ESTE lanzamiento (y con sus leads).
   if (!$('#view-metricas [data-msub="meteorico"]').hidden) renderMeteoLanz();
   // Carrito abierto: ritmo frente al objetivo, bonus que caducan y cierre (visible en todas las pestañas).
@@ -3376,7 +3432,7 @@ function renderConvHero(m, filas) {
   const st = m.setter;
   const cc = st.contactadas ? st.compraContactadas / st.contactadas : null;
   const cn = st.noContactadas ? st.compraNoContactadas / st.noContactadas : null;
-  const top = [...m.lift].filter((r) => r.veces != null && r.con >= 10).sort((a, b) => b.veces - a.veces)[0];
+  const top = m.insights?.top[0];
   const t = (ico, tono, et, v, sub) => `<div class="cv-hero-card cv-t-${tono}"><span class="cv-hero-ico" aria-hidden="true">${ico}</span><span class="cv-hero-et">${et}</span><strong>${v}</strong><small>${sub}</small></div>`;
   const pasos = [
     { ico: '📝', label: 'Se registraron', n: m.total },
@@ -3391,7 +3447,7 @@ function renderConvHero(m, filas) {
     t('🛒', 'buy', 'Compran', pctOf(m.compra, m.total), `${m.compra.toLocaleString('es-ES')} de ${m.total.toLocaleString('es-ES')} registros`),
     mejor ? t('🏆', 'vip', 'El grupo que más compra', pctOf(mejor[2], mejor[1]), esc(String(mejor[0]).replace(/<[^>]+>/g, ''))) : '',
     cc && cn && st.contactadas >= 10 ? t('💬', 'live', 'Escribir por WhatsApp', `×${(cc / cn).toLocaleString('es-ES', { maximumFractionDigits: 1 })}`, `las contactadas compran ${pctOf(st.compraContactadas, st.contactadas)} frente a ${pctOf(st.compraNoContactadas, st.noContactadas)}`) : '',
-    top ? t('✨', 'accent', 'La señal que más predice', `×${top.veces.toLocaleString('es-ES', { maximumFractionDigits: 1 })}`, esc(top.label)) : '',
+    top ? t('✨', 'accent', 'Lo que más multiplica la compra', `×${top.veces.toLocaleString('es-ES', { maximumFractionDigits: 1 })}`, `quienes ${esc(top.frase)}`) : '',
   ].join('');
 }
 
@@ -4652,12 +4708,49 @@ function renderSetterMetrics(m) {
     ${st.resultados.some((r) => r.leads) ? `<div><h4 class="cv-h4">Según el resultado anotado</h4><div class="cv-barras">${barrasCv(st.resultados.filter((r) => r.leads).map((r) => ({ label: esc(r.label), sub: `${r.compras} de ${r.leads}`, v: r.leads ? r.compras / r.leads : 0, txt: pctOf(r.compras, r.leads) })))}</div></div>` : ''}`;
 }
 
-// Qué señales predicen la compra (para afinar la puntuación con datos reales).
+// Qué predice la compra: conclusiones en frases (lo que más multiplica, combinaciones, el retrato de quien compra,
+// lo que apenas importa y cómo deciden), con barras «de cada 100». Lo obvio (llegar al pago) no entra.
+const xVeces = (v) => `×${v.toLocaleString('es-ES', { maximumFractionDigits: 1 })}`;
+const deCada100 = (p) => Math.round(p * 1000) / 10;
+const n100 = (p) => deCada100(p).toLocaleString('es-ES', { maximumFractionDigits: deCada100(p) < 10 ? 1 : 0 });
+// Dos barras «de cada 100 compran…»: con la señal y sin ella, a la misma escala.
+function pqDuo(con, sin, { etCon = 'Con ello', etSin = 'Sin ello' } = {}) {
+  const tope = Math.max(con, sin, 0.0001);
+  const fila = (et, v, cls) => `<div class="pq-duo-f ${cls}"><span>${et}</span><div class="pq-duo-b"><i style="width:${Math.max(2, (v / tope) * 100)}%"></i></div><b>${n100(v)}</b></div>`;
+  return `<div class="pq-duo">${fila(etCon, con, 'pq-si')}${fila(etSin, sin, 'pq-no')}<small>compran de cada 100</small></div>`;
+}
 function renderLift(m) {
-  const rows = [...m.lift].filter((r) => r.con).sort((a, b) => (b.veces ?? -1) - (a.veces ?? -1));
-  const sinDatos = m.lift.filter((r) => !r.con).map((r) => r.label);
-  if (!m.compra) { $('#lift-table').innerHTML = '<div class="cv-vacio"><span aria-hidden="true">✨</span><p>Aún no hay ventas en este lanzamiento. En cuanto las haya, aquí verás qué señales (ver las clases, ir al directo, la VIP…) multiplican la compra.</p></div>'; renderPesos(m.launch); return; }
-  $('#lift-table').innerHTML = barrasCv(rows.map((r) => ({ label: esc(r.label), sub: `compran ${pctOf(r.convCon * r.con, r.con)} con ella (${r.con}) · ${pctOf(r.convSin * r.sin, r.sin)} sin ella`, v: r.veces || 0, txt: r.veces == null ? '–' : `×${r.veces.toLocaleString('es-ES', { maximumFractionDigits: 1 })}`, tono: r.veces >= 2 ? 'fuerte' : r.veces != null && r.veces < 1 ? 'flojo' : '' }))) + (sinDatos.length ? `<p class="muted small">Aún sin datos: ${sinDatos.map(esc).join(' · ')}.</p>` : '');
+  const box = $('#lift-table');
+  const ins = m.insights;
+  if (!m.compra || !ins) { box.innerHTML = '<div class="cv-vacio"><span aria-hidden="true">✨</span><p>Aún no hay ventas en este lanzamiento. En cuanto las haya, aquí verás qué comportamientos de las leads (ver las clases, quedarse al directo, la VIP…) multiplican la compra.</p></div>'; renderPesos(m.launch); return; }
+  const b = (t) => `<strong>${esc(t)}</strong>`;
+  const top = ins.top.map((f, i) => `<article class="pq-top${i ? '' : ' pq-top-1'}">
+      <div class="pq-x">${xVeces(f.veces)}<small>más ventas</small></div>
+      <p>Quienes ${b(f.frase)} compran <strong>${xVeces(f.veces).slice(1)} veces más</strong> que el resto.</p>
+      ${pqDuo(f.convCon, f.convSin)}
+      <small class="muted">${f.con.toLocaleString('es-ES')} personas lo hicieron · ${f.comprasCon} compraron</small>
+    </article>`).join('');
+  const combos = ins.combos.map((c) => `<div class="pq-combo"><span class="pq-combo-ico" aria-hidden="true">🧩</span><p>Quienes ${b(c.a)} <em>y además</em> ${b(c.b)} compran <strong>${n100(c.conv)} de cada 100</strong>${c.veces ? ` (${xVeces(c.veces)} la media)` : ''}. <span class="muted small">${c.con} personas · ${c.compras} compras</span></p></div>`).join('');
+  const retrato = ins.retrato.map((f) => `<div class="pq-ret"><span class="pq-ret-et">${esc(f.frase.charAt(0).toUpperCase() + f.frase.slice(1))}</span>
+      <div class="pq-ret-b"><i class="pq-ret-c" style="width:${deCada100(f.pctCompradoras)}%"></i><b>${Math.round(f.pctCompradoras * 100)}%</b></div>
+      <div class="pq-ret-b pq-ret-todos"><i style="width:${deCada100(f.pctLeads)}%"></i><b>${Math.round(f.pctLeads * 100)}%</b></div></div>`).join('');
+  const d = ins.decision;
+  const deciden = [
+    d.enDirecto ? `<div class="pq-dato"><b>${pctOf(d.enDirecto, ins.compras)}</b><span>compró el mismo día del directo de venta</span><small>${d.enDirecto} de ${ins.compras}: el resto se lo pensó después</small></div>` : '',
+    d.conCheckout && d.checkoutRepetido ? `<div class="pq-dato"><b>${pctOf(d.checkoutRepetido, d.conCheckout)}</b><span>entró en la página de pago más de una vez antes de comprar</span><small>dudan en el último paso: un recordatorio o una garantía ahí ayuda</small></div>` : '',
+    d.visitasMedia ? `<div class="pq-dato"><b>${d.visitasMedia.toLocaleString('es-ES', { maximumFractionDigits: 1 })}</b><span>visitas a la página de venta de media antes de comprar</span><small>casi nadie compra a la primera visita</small></div>` : '',
+    ins.sinNada ? `<div class="pq-dato"><b>${pctOf(ins.sinNada, ins.compras)}</b><span>compró sin hacer nada de lo que medimos</span><small>${ins.sinNada} ${ins.sinNada === 1 ? 'compradora ya venía decidida' : 'compradoras ya venían decididas'} (clientas fieles, boca a boca…)</small></div>` : '',
+    d.aLasPuertas ? `<div class="pq-dato pq-dato-acc"><b>${d.aLasPuertas.toLocaleString('es-ES')}</b><span>llegaron a la página de pago y no compraron</span><small>las más cerca de comprar: están en Setting hoy → «Iniciaron el pago»</small></div>` : '',
+  ].filter(Boolean).join('');
+  const poco = ins.pocoImporta.map((f) => `<li>${b(f.frase.charAt(0).toUpperCase() + f.frase.slice(1))}: ${Math.abs(f.veces - 1) < 0.03 ? 'compran <strong>igual</strong> que el resto' : f.veces < 1 ? `compran <strong>un ${Math.round((1 - f.veces) * 100)} % menos</strong> que el resto` : `solo compran un ${Math.round((f.veces - 1) * 100)} % más que el resto`}</li>`).join('');
+  const resto = [...m.lift].filter((r) => r.con && !r.obvia).sort((a, b2) => (b2.veces ?? -1) - (a.veces ?? -1));
+  box.innerHTML = `${ins.pocosDatos ? '<p class="notice">Todavía hay pocas ventas o pocas personas en cada señal: tómalo como una pista, no como una regla.</p>' : ''}
+    ${top ? `<h4 class="cv-h4">🚀 Lo que más multiplica la compra</h4><div class="pq-tops">${top}</div>` : '<p class="muted">Aún no hay ningún comportamiento con datos suficientes que multiplique la compra.</p>'}
+    ${combos ? `<h4 class="cv-h4">🧩 Combinaciones ganadoras <span class="muted small">· juntas venden más que cada una por separado</span></h4>${combos}` : ''}
+    ${retrato ? `<h4 class="cv-h4">🪞 El retrato de quien compra <span class="muted small">· <span class="pq-ley pq-ley-c"></span> compradoras · <span class="pq-ley"></span> todos los registros</span></h4><div class="pq-rets">${retrato}</div>` : ''}
+    ${deciden ? `<h4 class="cv-h4">🧠 Cómo deciden</h4><div class="pq-datos">${deciden}</div>` : ''}
+    ${poco ? `<h4 class="cv-h4">🤷 Lo que casi no importa <span class="muted small">· no gastes esfuerzo ahí</span></h4><ul class="pq-poco">${poco}</ul>` : ''}
+    ${resto.length ? `<details class="cv-mas"><summary>Ver todas las señales, una a una</summary><div class="cv-barras">${barrasCv(resto.map((r) => ({ label: esc(r.label), sub: `compran ${pctOf(r.convCon * r.con, r.con)} con ella (${r.con}) · ${pctOf(r.convSin * r.sin, r.sin)} sin ella`, v: r.veces || 0, txt: r.veces == null ? '–' : xVeces(r.veces), tono: r.veces >= 2 ? 'fuerte' : r.veces != null && r.veces < 1 ? 'flojo' : '' })))}</div></details>` : ''}`;
   renderPesos(m.launch);
 }
 
