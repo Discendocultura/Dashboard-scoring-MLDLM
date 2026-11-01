@@ -8622,3 +8622,18 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .cmp-meta { font-size: 12.5px; color: var(--text-2); }
 .cmp-contacto { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; }
 .cmp-contacto a { overflow-wrap: anywhere; }
+
+/* 🪞 Así es quien compra (Leads → Encuesta y Avatar comprador) */
+.av-retrato { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.av-retrato h3 { margin: 0 0 6px; }
+.av-retrato-frase { font-size: 17px; line-height: 1.45; font-weight: 600; margin: 0 0 14px; }
+.av-retrato-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 4px; }
+.av-retrato-datos > div { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--accent-soft); }
+.av-retrato-datos b { font-size: 22px; line-height: 1.15; }
+.av-retrato-datos span { font-size: 13px; }
+.av-retrato-datos small { font-size: 11.5px; color: var(--text-2); }
+.av-retrato .pq-ret-et small { font-size: 11.5px; }
+.av-retrato-anti { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--surface-2); }
+.av-retrato-anti p { margin: 0; font-size: 13.5px; line-height: 1.45; }
+.av-retrato-mas { margin: 12px 0 0; }
+.enc-op-lbl .av-tag { margin-left: 6px; vertical-align: 1px; }

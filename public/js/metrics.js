@@ -384,12 +384,22 @@ export function perfilesCompradoras(leads, preguntas, objetivo = 'compra') {
   if (!N) return res;
   const minN = Math.max(8, Math.ceil(N * 0.02));
   const minK = Math.max(3, Math.ceil(K * 0.05));
+  // Texto libre: una respuesta solo es un patrón si la da al menos el 5 % (si no, «Algo concreto 22» con 30 personas
+  // salía como conclusión). Las demás no cuentan ni para las conclusiones ni para los perfiles.
+  const minTexto = Math.max(minN, Math.ceil(N * 0.05));
+  const frecTexto = new Map();
+  for (const p of preguntas.filter((q) => q.tipo === 'texto')) {
+    const f = new Map();
+    for (const l of answered) for (const r of respuestasDe(l, p)) f.set(r, (f.get(r) || 0) + 1);
+    frecTexto.set(p.id, f);
+  }
+  const vale = (p, r) => p.tipo !== 'texto' || frecTexto.get(p.id).get(r) >= minTexto;
 
-  const answersOf = new Map(answered.map((l) => [l, Object.fromEntries(preguntas.map((p) => [p.id, respuestasDe(l, p)]))]));
+  const answersOf = new Map(answered.map((l) => [l, Object.fromEntries(preguntas.map((p) => [p.id, respuestasDe(l, p).filter((r) => vale(p, r))]))]));
   for (const p of preguntas) {
     const g = new Map();
     for (const l of answered) {
-      for (const r of answersOf.get(l)[p.id]) {
+      for (const r of respuestasDe(l, p)) {
         const x = g.get(r) || { respuesta: r, leads: 0, compras: 0 };
         x.leads++;
         if (buys(l)) x.compras++;
@@ -398,7 +408,7 @@ export function perfilesCompradoras(leads, preguntas, objetivo = 'compra') {
     }
     let rows = [...g.values()].map((x) => ({
       ...x, conv: x.compras / x.leads, indice: base ? x.compras / x.leads / base : null,
-      pesoLeads: x.leads / N, pesoCompras: K ? x.compras / K : 0, pocos: x.leads < minN,
+      pesoLeads: x.leads / N, pesoCompras: K ? x.compras / K : 0, pocos: !vale(p, x.respuesta) || x.leads < minN,
     }));
     if (p.tipo === 'edad') rows.sort((a, b) => ORDEN_EDAD.indexOf(a.respuesta) - ORDEN_EDAD.indexOf(b.respuesta));
     else rows.sort((a, b) => b.leads - a.leads);
@@ -448,6 +458,35 @@ export function perfilesCompradoras(leads, preguntas, objetivo = 'compra') {
   res.minN = minN;
   res.minK = minK;
   return res;
+}
+
+// Retrato agregado de quien compra (Leads → Encuesta y Avatar comprador), a partir de perfilesCompradoras:
+//  · por pregunta, la respuesta que más abunda entre las compradoras frente a todas (`mejor`) y la que menos (`peor`),
+//    solo con datos suficientes y si de verdad compra más (o menos) que la media;
+//  · `traits`: esas respuestas juntas, para describir a la compradora típica en una frase (describirAvatar);
+//  · cuántas encajan con el retrato (todas sus respuestas, o casi todas si son 3 o más) y cuánto compran frente a la media.
+export function retratoComprador(leads, preguntas, r) {
+  const buys = (l) => (r.objetivo === 'vip' ? l.s.vip : l.s.compra);
+  const gap = (x) => x.pesoCompras - x.pesoLeads;
+  const rasgos = r.preguntas.map(({ p, rows }) => {
+    const ok = rows.filter((x) => !x.pocos && x.indice != null && x.leads >= (r.minN || 0));
+    const mejor = ok.filter((x) => x.indice >= 1.15 && x.compras >= (r.minK || 0)).sort((a, b) => gap(b) - gap(a))[0] || null;
+    const peor = ok.filter((x) => x.indice <= 0.85).sort((a, b) => gap(a) - gap(b))[0] || null;
+    return { p, mejor, peor };
+  });
+  const traits = rasgos.filter((x) => x.mejor).map((x) => [x.p.id, x.mejor.respuesta]);
+  const antiTraits = rasgos.filter((x) => x.peor).map((x) => [x.p.id, x.peor.respuesta]);
+  const respondieron = leads.filter((l) => preguntas.some((p) => respuestasDe(l, p).length));
+  const coincide = (l, ts) => ts.filter(([id, v]) => respuestasDe(l, preguntas.find((q) => q.id === id)).includes(v)).length;
+  const grupo = (ts, minimo) => {
+    if (!ts.length) return null;
+    const g = respondieron.filter((l) => coincide(l, ts) >= minimo);
+    const k = g.filter(buys).length;
+    return { leads: g.length, compras: k, conv: g.length ? k / g.length : 0, indice: g.length && r.conv ? k / g.length / r.conv : null, pesoLeads: r.leads ? g.length / r.leads : 0, pesoCompras: r.compras ? k / r.compras : 0, minimo, de: ts.length };
+  };
+  // Con 3 rasgos o más, casi nadie los tiene todos: cuenta quien tiene todos menos uno.
+  const encajan = grupo(traits, traits.length >= 3 ? traits.length - 1 : traits.length);
+  return { rasgos, traits, antiTraits, encajan, anti: grupo(antiTraits, antiTraits.length >= 3 ? antiTraits.length - 1 : antiTraits.length) };
 }
 
 // Primer avatar con el que encaja una lead (todas sus respuestas coinciden) o -1.

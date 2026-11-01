@@ -123,3 +123,25 @@ test('computeMetrics: lo obvio (pago, enlace del directo) no entra en las conclu
   assert.ok(frases.length);
   assert.ok(frases.every((f) => !/pago|enlace/i.test(f)));
 });
+
+test('retrato de quien compra: rasgos agregados de la encuesta, sin ruido de respuestas libres sueltas', async () => {
+  const { perfilesCompradoras, retratoComprador } = await import('../public/js/metrics.js');
+  const preguntas = [{ id: 'edad', name: '¿Cuál es tu edad actual?', tipo: 'edad' }, { id: 'tiempo', name: '¿Cuánto tiempo llevas buscando embarazo?', tipo: 'opciones' }, { id: 'freno', name: '¿Qué crees que está retrasando el positivo?', tipo: 'texto' }];
+  const leads = [];
+  for (let i = 0; i < 400; i++) {
+    const mayor = i % 2 === 0; // 38-40 años y más de 1 año: compran mucho más
+    const compra = mayor ? i % 5 === 0 : i % 25 === 1;
+    leads.push({ s: { compra }, cf: { edad: mayor ? 39 : 28, tiempo: mayor ? ['Más de 1 año'] : ['0 - 6 meses'], freno: i % 40 === 0 ? `Algo concreto ${i}` : i % 40 === 2 ? 'Algo raro' : 'El estrés' } });
+  }
+  const r = perfilesCompradoras(leads, preguntas, 'compra');
+  const rt = retratoComprador(leads, preguntas, r);
+  assert.deepEqual(rt.traits.map(([id]) => id).sort(), ['edad', 'tiempo']);
+  assert.ok(rt.traits.some(([, v]) => v === 'Más de 1 año'));
+  assert.ok(rt.encajan.indice > 1.5);
+  assert.ok(rt.encajan.pesoCompras > rt.encajan.pesoLeads);
+  assert.ok(rt.antiTraits.length);
+  // «Algo raro» lo dan 10 de 400 (menos del 5 %): no es un patrón.
+  const freno = r.preguntas.find((x) => x.p.id === 'freno').rows;
+  assert.ok(freno.find((x) => x.respuesta === 'Algo raro').pocos);
+  assert.ok(r.avatares.every((a) => a.traits.every(([, v]) => !/^Algo/.test(v))));
+});

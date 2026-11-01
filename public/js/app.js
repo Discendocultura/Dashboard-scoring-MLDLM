@@ -13,7 +13,7 @@ import { promptAvatar } from './prompt-avatar.js';
 import { promptEspera } from './prompt-espera.js';
 import { analizarReplay, analizarDirecto, mmss as tiempoVideo } from './retencion.js';
 import { rolDirecto, compararDirectos } from './directo-ia.js';
-import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
+import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead, retratoComprador } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
 import { negocioHtml, PERIODOS_TXT, SECCIONES_NG, recosHtml, botonCalidad } from './negocio-vista.js';
@@ -2492,13 +2492,22 @@ function renderEncuestaLeads() {
   if (!preguntas.length) { box.innerHTML = '<div class="card"><p class="muted">Este cliente no tiene preguntas de encuesta. Se configuran en <strong>Equipo → Marca</strong> (los campos de GHL de cada pregunta).</p></div>'; return; }
   const r = resumenEncuesta(state.leads, preguntas);
   const cab = `<div class="card enc-cab"><strong>${r.respondieron}</strong> de ${r.total} leads han respondido la encuesta (<strong>${pctOf(r.respondieron, r.total)}</strong>)${launch?.encuestaTag ? ` · con la etiqueta «${esc(launch.encuestaTag)}»: ${state.leads.filter((l) => l.s.encuesta).length}` : ''}.
-    <span class="muted">Los % de cada pregunta son sobre quienes la contestaron; en las de varias respuestas pueden sumar más de 100%.</span></div>`;
+    <span class="muted">Los % de cada pregunta son sobre quienes la contestaron; en las de varias respuestas pueden sumar más de 100%. «Compra el X %»: de las que dieron esa respuesta, cuántas compraron.</span></div>`;
   if (!r.respondieron) { box.innerHTML = `${cab}<div class="card"><p class="muted">Todavía no hay respuestas de la encuesta en este lanzamiento.</p></div>`; return; }
-  const barras = (q) => `<div class="enc-opciones">${q.opciones.map((o) => `<div class="enc-op">
-      <span class="enc-op-lbl">${esc(o.respuesta)}</span>
+  // Quién compra según cada respuesta: el retrato agregado arriba y, en cada opción, el % que compra con su etiqueta.
+  const pf = perfilesCompradoras(state.leads, preguntas, 'compra');
+  const filaDe = (p, resp) => pf.preguntas.find((x) => x.p.id === p.id)?.rows.find((x) => x.respuesta === resp);
+  const conVentas = pf.compras > 0;
+  const barras = (q) => `<div class="enc-opciones">${q.opciones.map((o) => {
+    const f = filaDe(q.p, o.respuesta);
+    const t = f && conVentas ? etiquetaRespuesta(f) : null;
+    return `<div class="enc-op">
+      <span class="enc-op-lbl">${esc(o.respuesta)}${t ? ` <span class="av-tag t-${t.tono}">${t.texto}</span>` : ''}</span>
       <div class="enc-op-bar"><span style="width:${Math.max(1.5, o.pct * 100)}%"></span></div>
-      <span class="enc-op-n"><strong>${Math.round(o.pct * 1000) / 10}%</strong> <span class="muted">${o.n}${o.compras ? ` · ${o.compras} compr${o.compras === 1 ? 'ó' : 'aron'}` : ''}</span></span></div>`).join('')}</div>`;
-  box.innerHTML = cab + encIaCard(r) + r.preguntas.map((q, i) => {
+      <span class="enc-op-n"><strong>${Math.round(o.pct * 1000) / 10}%</strong> <span class="muted">${o.n}${conVentas ? ` · compra el <b>${pctOf(o.compras, o.n)}</b>` : ''}</span></span></div>`;
+  }).join('')}</div>`;
+  const retrato = conVentas ? retratoHtml(pf, retratoComprador(state.leads, preguntas, pf), 'compran', { enlace: true }) : '';
+  box.innerHTML = cab + retrato + encIaCard(r) + r.preguntas.map((q, i) => {
     const ver = encLibreVer.get(q.p.id) || 30;
     const libres = q.libres.length ? `<details class="enc-libres"${q.opciones.length ? '' : ' open'}><summary>Todas las respuestas (${q.libres.length})</summary>
         <input type="search" class="enc-buscar" data-enc-buscar="${i}" placeholder="Buscar en las respuestas…">
@@ -4430,6 +4439,37 @@ const avatarChip = (l) => (l.avatar >= 0
 const AV_TONES = ['buy', 'vip', 'live'];
 const pct0 = (x) => `${Math.round(x * 100)}%`;
 const veces = (x) => `×${x.toLocaleString('es-ES', { maximumFractionDigits: 1, minimumFractionDigits: 1 })}`;
+// 🪞 Así es quien compra: el retrato agregado de la encuesta (retratoComprador), con la frase de la compradora
+// típica, sus rasgos en barras (compradoras frente a todas), cuánto compran las que encajan y el perfil que compra poco.
+function retratoHtml(r, rt, comprador, { enlace = false } = {}) {
+  const preguntas = preguntasEncuesta();
+  const deSu = (id) => preguntas.find((q) => q.id === id)?.name || '';
+  if (!rt.traits.length) {
+    return `<section class="card av-retrato"><h3>🪞 Así es quien ${esc(comprador.replace('compran', 'compra'))}</h3><p class="muted">Todavía no hay ninguna respuesta que se repita claramente más entre quienes ${esc(comprador)}: hacen falta al menos ${r.minN} personas con la misma respuesta y ${r.minK} ${r.objetivo === 'vip' ? 'VIP' : 'ventas'} entre ellas.${r.objetivo === 'compra' && r.compras < 10 ? ' Mientras, mira «Quién compra la VIP» en Avatar comprador.' : ''}</p></section>`;
+  }
+  const e = rt.encajan;
+  const barras = rt.rasgos.filter((x) => x.mejor).map(({ p, mejor: x }) => `<div class="pq-ret"><span class="pq-ret-et"><small class="muted">${esc(p.name)}</small><br><strong>${esc(x.respuesta)}</strong></span>
+      <div class="pq-ret-b"><i class="pq-ret-c" style="width:${Math.round(x.pesoCompras * 100)}%"></i><b>${Math.round(x.pesoCompras * 100)}%</b></div>
+      <div class="pq-ret-b pq-ret-todos"><i style="width:${Math.round(x.pesoLeads * 100)}%"></i><b>${Math.round(x.pesoLeads * 100)}%</b></div></div>`).join('');
+  const anti = rt.anti && rt.anti.leads ? `<div class="av-retrato-anti"><span aria-hidden="true">⚠️</span><p><strong>Compra poco:</strong> ${esc(describirAvatar(rt.antiTraits, preguntas).replace(/\.$/, ''))}. ${rt.anti.indice != null ? `${esc(comparaMedia(rt.anti.indice).replace(/^./, (c) => c.toUpperCase()))} (${deCada(rt.anti.conv)}).` : ''} <span class="muted small">Son el ${pct0(rt.anti.pesoLeads)} de las que respondieron: revisa si los anuncios atraen a este perfil.</span></p></div>` : '';
+  return `<section class="card av-retrato">
+    <h3>🪞 Así es quien ${esc(comprador.replace('compran', 'compra'))}</h3>
+    <p class="av-retrato-frase">${esc(describirAvatar(rt.traits, preguntas))}</p>
+    ${e && e.leads ? `<div class="av-retrato-datos">
+      <div><b>${deCada(e.conv)}</b><span>de las que encajan ${r.objetivo === 'vip' ? 'compra la VIP' : 'compra'}</span><small>frente a ${deCada(r.conv)} de media${e.indice ? ` · ${esc(comparaMedia(e.indice))}` : ''}</small></div>
+      <div><b>${pct0(e.pesoLeads)}</b><span>de las que respondieron encajan</span><small>${e.leads.toLocaleString('es-ES')} personas${e.minimo < e.de ? ` (con ${e.minimo} de los ${e.de} rasgos)` : ''}</small></div>
+      <div><b>${pct0(e.pesoCompras)}</b><span>de quienes ${esc(comprador)} encajan</span><small>${e.compras} de ${r.compras}</small></div>
+    </div>` : ''}
+    <h4 class="cv-h4">Sus rasgos <span class="muted small">· <span class="pq-ley pq-ley-c"></span> entre quienes ${esc(comprador)} · <span class="pq-ley"></span> entre todas las que respondieron</span></h4>
+    <div class="pq-rets">${barras}</div>
+    ${anti}
+    ${enlace ? '<p class="av-retrato-mas"><button type="button" class="btn ghost" data-ir-vista="avatarc">Ver los perfiles completos en Avatar comprador →</button></p>' : ''}
+  </section>`;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ir-vista]');
+  if (b) document.querySelector(`[data-view="${b.dataset.irVista}"]`)?.click();
+});
 function renderEncuestaMetrics() {
   const box = $('#encuesta-metrics');
   const todos = state.avatarScope === 'todos' && state.allAvatarLeads;
@@ -4513,7 +4553,7 @@ function renderEncuestaMetrics() {
       <tbody>${rows.map((x) => `<tr><td>${x.respuesta ? (x.otras ? `<span class="muted">${esc(x.respuesta)}</span>` : esc(x.respuesta)) : '<span class="muted">Sin respuesta</span>'}</td><td class="num">${x.leads}</td><td class="num">${pctOf(x.leads, total)}</td><td class="num">${x.vip} <span class="muted">${pctOf(x.vip, x.leads)}</span></td><td class="num">${x.compras}</td><td class="num big">${pctOf(x.compras, x.leads)}</td></tr>`).join('')}</tbody></table></div>`;
   }).join('');
 
-  box.innerHTML = `${toggle}${cifras}${resumen}${avatares}
+  box.innerHTML = `${toggle}${cifras}${retratoHtml(r, retratoComprador(avatarLeads(), preguntasEncuesta(), r), comprador)}${resumen}${avatares}
     <h3 class="av-h">Respuesta a respuesta</h3>
     <p class="av-leyenda">De todas las que dieron cada respuesta, cuántas ${comprador}. La barra más larga es la que mejor convierte. <span class="av-tag t-mas">Compra más</span> <span class="av-tag t-igual">Como la media</span> <span class="av-tag t-menos">Compra menos</span> <span class="av-tag t-pocos">Aún pocas personas</span> (con tan pocas, aún no es fiable)</p>
     <div class="av-qs">${preguntas}</div>
