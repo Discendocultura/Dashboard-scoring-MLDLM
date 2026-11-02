@@ -43,6 +43,7 @@ import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE, ROL_OPERATIVA, ROLES_FI
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
 import { CONDICIONES, ACCIONES, faltaEnRegla } from './reglas.js';
 import { revisarHtmlPagina } from './revisar-codigos.js';
+import { objetivosDeBrief } from './agente.js';
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { enGruposDe, claveTelefono, leerMiembros } from './grupos-wa.js';
@@ -15426,13 +15427,14 @@ function pintarBandeja() {
   const item = (x) => `<li class="bj-item est-${x.estado}" data-bj="${esc(x.id)}">
       <div class="bj-txt"><span class="bj-est">${ESTADO_BJ[x.estado][0]} ${ESTADO_BJ[x.estado][1]}${x.auto ? ' · automática' : ''} · ${esc(haceBj(x.creada))}</span>
         <strong>${esc(x.titulo)}</strong>
+        ${x.detalle ? `<small>${esc(x.detalle)}</small>` : ''}
         <small>${x.leads.slice(0, 8).map((l) => `${esc(l.nombre)} (${l.score})`).join(' · ')}${x.leads.length > 8 ? ` · y ${x.leads.length - 8} más` : ''}</small>
-        ${x.estado !== 'pendiente' && x.hechas ? `<small>Hecho con ${x.hechas}${x.fallidas ? ` · ${x.fallidas} fallaron` : ''}${x.decididaPor ? ` · lo aprobó ${esc(x.decididaPor)}` : ''}</small>` : ''}</div>
+        ${x.estado !== 'pendiente' && x.hechas ? `<small>${x.tipo === 'agente' ? `Hecho (${x.hechas} cambio${x.hechas === 1 ? '' : 's'})` : `Hecho con ${x.hechas}`}${x.fallidas ? ` · ${x.fallidas} fallaron` : ''}${x.decididaPor ? ` · lo aprobó ${esc(x.decididaPor)}` : ''}</small>` : ''}</div>
       ${x.estado === 'pendiente' ? '<div class="bj-acc-item"><button type="button" class="btn primary" data-bj-si>✅ Aprobar</button><button type="button" class="btn ghost" data-bj-no>❌ Descartar</button></div>'
         : x.estado === 'aprobada' && x.pendientes?.length ? '<div class="bj-acc-item"><button type="button" class="btn" data-bj-seguir>Seguir</button></div>' : ''}</li>`;
   $('#bj-lista').innerHTML = `
     ${crit.length ? `<h3 class="bj-h">🩺 Del auditor (${esc(state.config.launches[state.launchCode]?.name || '')})</h3><ul class="bj-list">${crit.map((x) => `<li class="bj-item est-crit"><div class="bj-txt"><span class="bj-est">🔴 ${esc(x.area)}</span><strong>${esc(x.titulo)}</strong></div><div class="bj-acc-item"><button type="button" class="btn primary" data-bj-aud='${esc(JSON.stringify(x.accion))}'>${x.accion.tipo === 'zoom' ? 'Crear sala →' : 'Arreglar →'}</button></div></li>`).join('')}</ul>` : ''}
-    <h3 class="bj-h">📥 Propuestas de las reglas</h3>
+    <h3 class="bj-h">📥 Propuestas por decidir <small class="muted">(de las reglas de seguimiento y del agente)</small></h3>
     ${pend.length ? `<ul class="bj-list">${pend.map(item).join('')}</ul>` : `<p class="muted bj-vacio">Nada por decidir. ${bj.reglas.some((r) => r.activa) ? 'Las reglas siguen mirando: cuando algún lead cumpla una, aparecerá aquí (y te aviso por Telegram).' : puedeConfig() ? 'Aún no tienes ninguna regla encendida: en «Reglas de seguimiento» eliges qué hacer con quien llega al pago, ve la oferta del directo…' : ''}</p>`}
     ${resto.length ? `<details class="bj-hist"><summary>Historial (${resto.length})</summary><ul class="bj-list">${resto.map(item).join('')}</ul></details>` : ''}`;
 }
@@ -15499,8 +15501,10 @@ $('#bandeja-dialog').addEventListener('click', async (e) => {
     $$('#bandeja-dialog [data-bj-tab]').forEach((t) => t.classList.toggle('on', t === tab));
     $$('#bandeja-dialog [data-bj-panel]').forEach((p) => { p.hidden = p.dataset.bjPanel !== tab.dataset.bjTab; });
     if (tab.dataset.bjTab === 'reglas') pintarReglas();
+    if (tab.dataset.bjTab === 'agente') pintarAgente();
     return;
   }
+  if (await clickAgente(e)) return;
   const aud = e.target.closest('[data-bj-aud]');
   if (aud) {
     const acc = JSON.parse(aud.dataset.bjAud);
@@ -15533,6 +15537,88 @@ $('#bandeja-dialog').addEventListener('click', async (e) => {
   } catch (err) { notice(err.message, true); }
   await cargarBandeja();
 });
+
+// ---------- 🧭 Agente de lanzamientos (pestaña de la bandeja) ----------
+let agente = null;
+const fmtDiaAg = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : '');
+async function pintarAgente() {
+  const box = $('#ag-body');
+  const code = enVsl() || enDirecta() ? '' : state.launchCode;
+  if (!code) { box.innerHTML = '<p class="muted">Abre un lanzamiento: el agente trabaja sobre el lanzamiento que tengas abierto.</p>'; return; }
+  box.innerHTML = '<p class="muted">Mirando cómo va el lanzamiento…</p>';
+  try { agente = await api(`/api/agente?l=${encodeURIComponent(code)}`); } catch (err) { box.innerHTML = `<p class="error">${esc(err.message)}</p>`; return; }
+  const a = agente;
+  const o = a.objetivos || {};
+  const hoy = a.hoy;
+  const hechas = a.piezas.filter((p) => p.hecha).length;
+  const r = a.ritmo;
+  const accBtn = (acc, txt = 'Hacerlo →') => (acc ? `<button type="button" class="btn small" data-ag-acc='${esc(JSON.stringify(acc))}'>${acc.tipo === 'zoom' ? 'Crear sala →' : txt}</button>` : '');
+  box.innerHTML = `
+    <section class="ag-sec"><h3>1 · Brief</h3>
+      ${o.ventas && o.registros ? `<p class="ag-obj"><strong>${o.ventas}</strong> ventas · <strong>${o.registros}</strong> registros${o.inversion ? ` · <strong>${eur(o.inversion)}</strong> en anuncios (≈ ${eur(o.inversion / o.registros)} por registro)` : ''} <button type="button" class="btn ghost small" data-ag-brief-editar>Cambiar</button></p>` : '<p class="muted">Dime qué quieres conseguir y saco el resto.</p>'}
+      <div class="ag-brief"${o.ventas && o.registros ? ' hidden' : ''}>
+        <label class="field"><span>Ventas que quieres</span><input type="number" min="1" id="ag-ventas" value="${o.ventas || ''}"></label>
+        <label class="field"><span>Inversión en anuncios (€)</span><input type="number" min="0" id="ag-inversion" value="${o.inversion || ''}"></label>
+        <label class="field"><span>Conversión registro → venta (%)</span><input type="number" min="0.1" step="0.1" id="ag-conversion" value="2"></label>
+        <p class="muted small" id="ag-brief-calc"></p>
+        <button type="button" class="btn primary" data-ag-brief-guardar>Guardar el brief</button>
+      </div>
+    </section>
+    <section class="ag-sec"><h3>2 · Cómo va</h3>
+      <div class="ag-kpis">
+        <div><span>Registros</span><strong>${a.registros ?? '–'}</strong>${o.registros ? `<small>de ${o.registros}</small>` : ''}</div>
+        <div><span>Ventas</span><strong>${a.ventas ?? '–'}</strong>${o.ventas ? `<small>de ${o.ventas}</small>` : ''}</div>
+        <div><span>Inversión</span><strong>${a.inversion ? eur(a.inversion) : '–'}</strong>${a.inversion && a.registros ? `<small>${eur(a.inversion / a.registros)} por registro</small>` : ''}</div>
+        ${r ? `<div class="${r.pct != null && r.pct < 85 ? 'mal' : 'bien'}"><span>Ritmo</span><strong>${r.pct ?? '–'} %</strong><small>${r.actualDia}/día · faltan ${r.necesarioDia}/día</small></div>` : ''}
+      </div>
+    </section>
+    <section class="ag-sec"><h3>3 · Plan: las piezas <span class="st-chip">${hechas}/${a.piezas.length}</span></h3>
+      <ul class="ag-piezas">${a.piezas.map((p) => `<li class="${p.hecha ? 'ok' : p.para && p.para < hoy ? 'tarde' : ''}"><span>${p.hecha ? '✅' : p.para && p.para < hoy ? '🔴' : '⬜'}</span><div><strong>${esc(p.titulo)}</strong>${p.para ? `<small>${p.hecha ? '' : 'para el '}${esc(fmtDiaAg(p.para))}</small>` : ''}</div>${p.hecha ? '' : accBtn(p.accion)}</li>`).join('')}</ul>
+    </section>
+    <section class="ag-sec"><h3>4 · Lo que propongo hoy</h3>
+      ${a.propuestas.length ? `<ul class="bj-list">${a.propuestas.map((p) => `<li class="bj-item est-pendiente"><div class="bj-txt"><strong>${esc(p.titulo)}</strong><small>${esc(p.detalle)}</small></div>${p.accion?.tipo === 'brief' ? accBtn(p.accion, 'Poner objetivos →') : ''}</li>`).join('')}</ul>
+        <div class="bj-acc"><button type="button" class="btn primary" data-ag-pilotar>📥 Mandarlas a la bandeja para aprobarlas</button><span class="muted small">Cada día, con la tarea programada, lo hago solo y te aviso por Telegram.</span></div>` : '<p class="muted">Nada que proponer hoy: va según lo previsto. 👌</p>'}
+    </section>`;
+  calcBrief();
+}
+function calcBrief() {
+  const out = $('#ag-brief-calc');
+  if (!out) return;
+  const ob = objetivosDeBrief({ ventas: $('#ag-ventas').value, inversion: $('#ag-inversion').value, conversion: $('#ag-conversion').value });
+  out.textContent = ob.ventas ? `Necesitas unos ${ob.registros} registros${ob.cplObjetivo ? `, a ${String(ob.cplObjetivo).replace('.', ',')} € por registro como mucho` : ''}.` : '';
+}
+$('#ag-body').addEventListener('input', calcBrief);
+async function clickAgente(e) {
+  if (e.target.closest('[data-ag-brief-editar]')) { $('#ag-body .ag-brief').hidden = false; return true; }
+  if (e.target.closest('[data-ag-brief-guardar]')) {
+    try {
+      const r = await api('/api/agente', { method: 'POST', body: { op: 'brief', l: state.launchCode, ventas: $('#ag-ventas').value, inversion: $('#ag-inversion').value, conversion: $('#ag-conversion').value } });
+      state.config = r.config;
+      notice(`🎯 Brief guardado: ${r.objetivos.ventas} ventas y ${r.objetivos.registros} registros.`);
+      pintarAgente();
+    } catch (err) { notice(err.message, true); }
+    return true;
+  }
+  if (e.target.closest('[data-ag-pilotar]')) {
+    try {
+      const r = await api('/api/agente', { method: 'POST', body: { op: 'pilotar' } });
+      notice(r.nuevas ? `📥 ${r.nuevas} propuesta${r.nuevas === 1 ? '' : 's'} en la bandeja.` : 'Ya estaban en la bandeja.');
+      await cargarBandeja();
+      $('#bandeja-dialog [data-bj-tab="bandeja"]').click();
+    } catch (err) { notice(err.message, true); }
+    return true;
+  }
+  const b = e.target.closest('[data-ag-acc]');
+  if (!b) return false;
+  const acc = JSON.parse(b.dataset.agAcc);
+  if (acc.tipo === 'brief') { $('#ag-body .ag-brief').hidden = false; $('#ag-ventas').focus(); return true; }
+  if (acc.tipo === 'bandeja') { $(`#bandeja-dialog [data-bj-tab="${acc.tab}"]`).click(); return true; }
+  $('#bandeja-dialog').close();
+  if (acc.tipo === 'zoom') crearSalaDesdeAuditor(acc.k);
+  else if (acc.tipo === 'campo') { await openConfig(state.launchCode); setTimeout(() => goToField(acc.id), 150); }
+  else if (acc.tipo === 'vista') showView(acc.v);
+  return true;
+}
 
 // ---------- Inicio ----------
 if (tokenReset) {
