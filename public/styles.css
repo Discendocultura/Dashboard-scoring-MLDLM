@@ -8728,3 +8728,15 @@ body:not(.can-bandeja) #btn-bandeja { display: none !important; }
 .cb-tabla tr.mal td:nth-child(2) { color: var(--error); font-weight: 700; }
 .cb-tabla tr.bien td:nth-child(2) { color: #2e7d32; font-weight: 700; }
 @media (max-width: 600px) { .cb-tabla { font-size: 12.5px; } .cb-tabla th:nth-child(3), .cb-tabla td:nth-child(3) { display: none; } }
+.cb-card { border-left: 4px solid var(--accent); }
+.cb-cab { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.cb-cab h2 { margin: 0; }
+.cb-fila { display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: start; }
+.cb-grande { display: grid; gap: 4px; padding: 14px 16px; border-radius: var(--radius); background: var(--surface-2); text-align: center; }
+.cb-grande span { font-size: 13px; color: var(--text-2); font-weight: 700; }
+.cb-grande strong { font-size: 40px; line-height: 1.1; }
+.cb-grande small { color: var(--muted); }
+.cb-grande.mal strong { color: var(--error); }
+.cb-grande.bien strong { color: #2e7d32; }
+.cb-textos .cb { margin-top: 0; }
+@media (max-width: 700px) { .cb-fila { grid-template-columns: 1fr; } }

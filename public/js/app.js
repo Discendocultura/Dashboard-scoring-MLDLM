@@ -3282,7 +3282,41 @@ function fuenteInversion(launch, m) {
   return { ok: false, txt: `Las campañas con «${esc(filtro)}» aún no tienen gasto` };
 }
 
+// 🧠 Cerebro a la vista: arriba de Métricas → Resumen, la predicción de ventas, la fase que más falla y la tabla por
+// fases (lo mismo que la pestaña 🧭 Agente de la bandeja). Se pide al servidor una vez cada 10 min por lanzamiento.
+const cerebroCache = new Map();
+async function pintarCerebroCard() {
+  const box = $('#cerebro-card');
+  const code = state.launchCode;
+  if (!box || !code || enVsl() || enDirecta() || !tiene(['config', 'metricas'])) { if (box) box.hidden = true; return; }
+  const k = `${state.cliente || ''}|${code}`;
+  let c = cerebroCache.get(k);
+  if (!c || Date.now() - c.en > 10 * 60_000) {
+    // Una sola petición aunque se repinte varias veces mientras llega.
+    c = { en: Date.now(), p: api(`/api/agente?l=${encodeURIComponent(code)}`) };
+    cerebroCache.set(k, c);
+  }
+  try { c.a ??= await c.p; } catch { cerebroCache.delete(k); box.hidden = true; return; }
+  if (state.launchCode !== code) return;
+  const a = c.a;
+  const p = a.cerebro?.prediccion;
+  const o = a.objetivos || {};
+  const grande = p && !p.sinConversion
+    ? `<div class="cb-grande ${p.llega === false ? 'mal' : 'bien'}"><span>🔮 Ventas previstas</span><strong>${p.ventas}</strong><small>entre ${p.ventasBajo} y ${p.ventasAlto}${o.ventas ? ` · objetivo ${o.ventas}` : ''}</small></div>`
+    : `<div class="cb-grande"><span>🔮 Registros previstos</span><strong>${p?.registrosFinales ?? a.registros ?? '–'}</strong><small>${o.registros ? `objetivo ${o.registros}` : 'sin objetivo'}</small></div>`;
+  box.innerHTML = `<div class="cb-cab"><h2>🧠 Cerebro del lanzamiento</h2><button type="button" class="btn small" data-cb-agente>Abrir el agente →</button></div>
+    <div class="cb-fila">${grande}<div class="cb-textos">${a.cerebro ? pintarCerebro(a.cerebro) : '<p class="muted">Sin datos todavía.</p>'}</div></div>
+    ${!o.ventas ? '<p class="muted small">💡 Ponle objetivos en el agente (el brief) y te digo si llegas y qué te falta.</p>' : ''}`;
+  box.hidden = false;
+}
+$('#cerebro-card').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-cb-agente]')) return;
+  pintarBandeja();
+  $('#bandeja-dialog').showModal();
+  $('#bandeja-dialog [data-bj-tab="agente"]').click();
+});
 function renderMetrics() {
+  pintarCerebroCard();
   const launch = state.config.launches[state.launchCode];
   const m = currentMetrics();
   m.launch = launch;
