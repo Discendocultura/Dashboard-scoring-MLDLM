@@ -12,7 +12,8 @@ import { pasosEmbudo, anchosEmbudo, fondoCapa } from './embudo-visual.js';
 import { promptAvatar } from './prompt-avatar.js';
 import { promptEspera } from './prompt-espera.js';
 import { analizarReplay, analizarDirecto, mmss as tiempoVideo } from './retencion.js';
-import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead } from './metrics.js';
+import { rolDirecto, compararDirectos } from './directo-ia.js';
+import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafico, resumenEncuesta, resumenTrafico, importeCompra, enrichLead, computeMetrics, bySource, rankingGanadores, historicoAnuncios, ventasPorDia, porRespuesta, avisosLanzamiento, perfilesCompradoras, describirAvatar, avatarDeLead, retratoComprador } from './metrics.js';
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
 import { negocioHtml, PERIODOS_TXT, SECCIONES_NG, recosHtml, botonCalidad } from './negocio-vista.js';
@@ -2491,13 +2492,22 @@ function renderEncuestaLeads() {
   if (!preguntas.length) { box.innerHTML = '<div class="card"><p class="muted">Este cliente no tiene preguntas de encuesta. Se configuran en <strong>Equipo → Marca</strong> (los campos de GHL de cada pregunta).</p></div>'; return; }
   const r = resumenEncuesta(state.leads, preguntas);
   const cab = `<div class="card enc-cab"><strong>${r.respondieron}</strong> de ${r.total} leads han respondido la encuesta (<strong>${pctOf(r.respondieron, r.total)}</strong>)${launch?.encuestaTag ? ` · con la etiqueta «${esc(launch.encuestaTag)}»: ${state.leads.filter((l) => l.s.encuesta).length}` : ''}.
-    <span class="muted">Los % de cada pregunta son sobre quienes la contestaron; en las de varias respuestas pueden sumar más de 100%.</span></div>`;
+    <span class="muted">Los % de cada pregunta son sobre quienes la contestaron; en las de varias respuestas pueden sumar más de 100%. «Compra el X %»: de las que dieron esa respuesta, cuántas compraron.</span></div>`;
   if (!r.respondieron) { box.innerHTML = `${cab}<div class="card"><p class="muted">Todavía no hay respuestas de la encuesta en este lanzamiento.</p></div>`; return; }
-  const barras = (q) => `<div class="enc-opciones">${q.opciones.map((o) => `<div class="enc-op">
-      <span class="enc-op-lbl">${esc(o.respuesta)}</span>
+  // Quién compra según cada respuesta: el retrato agregado arriba y, en cada opción, el % que compra con su etiqueta.
+  const pf = perfilesCompradoras(state.leads, preguntas, 'compra');
+  const filaDe = (p, resp) => pf.preguntas.find((x) => x.p.id === p.id)?.rows.find((x) => x.respuesta === resp);
+  const conVentas = pf.compras > 0;
+  const barras = (q) => `<div class="enc-opciones">${q.opciones.map((o) => {
+    const f = filaDe(q.p, o.respuesta);
+    const t = f && conVentas ? etiquetaRespuesta(f) : null;
+    return `<div class="enc-op">
+      <span class="enc-op-lbl">${esc(o.respuesta)}${t ? ` <span class="av-tag t-${t.tono}">${t.texto}</span>` : ''}</span>
       <div class="enc-op-bar"><span style="width:${Math.max(1.5, o.pct * 100)}%"></span></div>
-      <span class="enc-op-n"><strong>${Math.round(o.pct * 1000) / 10}%</strong> <span class="muted">${o.n}${o.compras ? ` · ${o.compras} compr${o.compras === 1 ? 'ó' : 'aron'}` : ''}</span></span></div>`).join('')}</div>`;
-  box.innerHTML = cab + encIaCard(r) + r.preguntas.map((q, i) => {
+      <span class="enc-op-n"><strong>${Math.round(o.pct * 1000) / 10}%</strong> <span class="muted">${o.n}${conVentas ? ` · compra el <b>${pctOf(o.compras, o.n)}</b>` : ''}</span></span></div>`;
+  }).join('')}</div>`;
+  const retrato = conVentas ? retratoHtml(pf, retratoComprador(state.leads, preguntas, pf), 'compran', { enlace: true }) : '';
+  box.innerHTML = cab + retrato + encIaCard(r) + r.preguntas.map((q, i) => {
     const ver = encLibreVer.get(q.p.id) || 30;
     const libres = q.libres.length ? `<details class="enc-libres"${q.opciones.length ? '' : ' open'}><summary>Todas las respuestas (${q.libres.length})</summary>
         <input type="search" class="enc-buscar" data-enc-buscar="${i}" placeholder="Buscar en las respuestas…">
@@ -2709,7 +2719,7 @@ function seriesRetencion(launch, directos, grabados) {
   const zm = state.zoomMin?.[code] || {};
   const vids = videosDe(launch);
   return [
-    ...directos.map((v) => ({ id: `d${v.k}`, tipo: 'directo', label: vids.length > 1 ? `${v.nombre} (directo)` : 'Directo', ico: '🔴', curva: zm[v.k]?.curva || null })),
+    ...directos.map((v) => ({ id: `d${v.k}`, k: v.k, tipo: 'directo', label: vids.length > 1 ? `${v.nombre} (directo)` : 'Directo', ico: '🔴', curva: zm[v.k]?.curva || null })),
     ...grabados.map(([v, label, ico]) => ({ id: `g-${v}`, tipo: 'replay', label, ico, datos: ret[v] || null })),
   ];
 }
@@ -2728,7 +2738,8 @@ function htmlRetencion(launch, directos, grabados) {
       : 'Aún no hay datos de este vídeo. Se miden desde ahora: cada persona que lo vea suma a la curva (tramo a tramo, y cuántas veces vuelve a verlo).'}</p>`;
   } else if (sel.tipo === 'directo') {
     const an = analizarDirecto(sel.curva, { nombre: sel.label.toLowerCase() });
-    cuerpo = graficaRetencion(an, 'directo') + sugerenciasRetencion(an, 'directo');
+    const ia = directoIa(code, sel.k);
+    cuerpo = compararDirectosHtml(code, series) + graficaRetencion(an, 'directo', ia?.datos?.analisis?.puntos || []) + htmlDirectoIa(code, sel.k, ia, rolDirecto(launch, sel.k)) + sugerenciasRetencion(an, 'directo');
   } else {
     const an = analizarReplay(sel.datos, { nombre: sel.label.toLowerCase() });
     cuerpo = graficaRetencion(an, 'replay') + sugerenciasRetencion(an, 'replay');
@@ -2739,7 +2750,7 @@ function htmlRetencion(launch, directos, grabados) {
     ${cuerpo}
   </section>`;
 }
-function graficaRetencion(an, tipo) {
+function graficaRetencion(an, tipo, marcas = []) {
   const W = 720; const H = 270; const L = 42; const R = tipo === 'replay' ? 46 : 14; const T = 18; const B = 34;
   const pts = an.serie;
   const n = pts.length;
@@ -2765,15 +2776,19 @@ function graficaRetencion(an, tipo) {
       ${(an.picos || []).map((p) => `<g class="ret-pico"><circle cx="${x(p.i).toFixed(1)}" cy="${yi(p.veces).toFixed(1)}" r="6"/><text x="${x(p.i).toFixed(1)}" y="${(yi(p.veces) - 11).toFixed(1)}">⭐ ${tiempoVideo(p.t)}</text><title>${tiempoVideo(p.t)}: se ve ${p.veces} veces por persona (+${p.extra}% de lo normal)</title></g>`).join('')}`;
   }
   const pico = tipo === 'directo' && an.pico ? (() => { const i = pts.findIndex((p) => p.n === an.pico); return `<g class="ret-max"><circle cx="${x(i).toFixed(1)}" cy="${y(100)}" r="5"/><text x="${x(i).toFixed(1)}" y="${y(100) - 8}">${an.pico.toLocaleString('es-ES')} personas</text></g>`; })() : '';
+  // Directo: los puntos del análisis de Claude, numerados como en la lista de debajo (al pulsar, se va a su explicación).
+  // Arriba del todo van debajo de la línea (encima está «N personas»).
+  const cerca = (min) => pts.reduce((b, p, i) => (Math.abs(p.min - min) < Math.abs(pts[b].min - min) ? i : b), 0);
+  const ia = marcas.map((m, j) => { const i = cerca(m.min); const cy = y(pts[i].ret) < T + 26 ? y(pts[i].ret) + 16 : y(pts[i].ret); return `<g class="ret-ia ret-ia-${esc(m.tipo)}" data-dia-ir="${j}" tabindex="0" role="button" aria-label="Punto ${j + 1}: min ${m.min} · ${esc(m.titulo)}"><circle cx="${x(i).toFixed(1)}" cy="${cy.toFixed(1)}" r="9"/><text x="${x(i).toFixed(1)}" y="${(cy + 4).toFixed(1)}">${j + 1}</text><title>min ${m.min} · ${esc(m.titulo)}</title></g>`; }).join('');
   const leyenda = tipo === 'replay'
     ? `<span><i class="ret-l-ret"></i>% de quien la empezó que sigue viendo</span><span><i class="ret-l-int"></i>veces que se ve cada momento (eje derecho)</span><span><i class="ret-l-fuga"></i>punto de fuga</span><span><i class="ret-l-salto"></i>se lo saltan</span><span>⭐ pico de interés</span>`
-    : `<span><i class="ret-l-ret"></i>% del máximo de personas conectadas</span><span><i class="ret-l-fuga"></i>punto de fuga</span>`;
+    : `<span><i class="ret-l-ret"></i>% del máximo de personas conectadas</span><span><i class="ret-l-fuga"></i>punto de fuga</span>${marcas.length ? '<span><i class="ret-l-ia"></i>puntos del análisis de Claude (pulsa uno para ver su explicación)</span>' : ''}`;
   return `<figure class="ret-fig">
     <svg class="ret-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Curva de retención">
       <defs><linearGradient id="ret-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".32"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
       ${grid}${fugas}${saltos}
       <path d="${area}" fill="url(#ret-g)"/><path d="${linea}" class="ret-linea"/>
-      ${interes}${pico}
+      ${interes}${pico}${ia}
       ${ticks.map((i) => `<text x="${x(i).toFixed(1)}" y="${H - 12}" class="ret-ax ret-ax-x">${etqX(i)}</text>`).join('')}
     </svg>
     <figcaption class="ret-ley">${leyenda}</figcaption>
@@ -2788,6 +2803,149 @@ function sugerenciasRetencion(an, tipo) {
     <ul class="ret-sug">${an.sugerencias.map((s) => `<li class="ret-sug-${s.tipo}"><span class="ret-sug-ico" aria-hidden="true">${ICO[s.tipo] || '•'}</span>
       <div><p>${s.tipo !== 'ok' ? `<span class="ret-sug-t">${cuando(s)}</span> ` : ''}${esc(s.texto)}</p><p class="ret-sug-acc"><strong>→</strong> ${esc(s.accion)}</p></div></li>`).join('')}</ul>`;
 }
+// ---------- Directo: qué pasaba en cada momento (Claude lee la transcripción y la cruza con la curva) ----------
+// GET/POST /api/directo-ia. El análisis se guarda: solo se vuelve a pedir a Claude con «Volver a analizar» o si
+// cambia la curva o la transcripción.
+const claveDia = (code, k) => `${code}|${k}`;
+function directoIa(code, k) {
+  state.directoIa = state.directoIa || {};
+  const st = state.directoIa[claveDia(code, k)];
+  if (!st) { state.directoIa[claveDia(code, k)] = { cargando: true }; cargarDirectoIa(code, k); }
+  return state.directoIa[claveDia(code, k)];
+}
+async function cargarDirectoIa(code, k) {
+  const st = state.directoIa[claveDia(code, k)];
+  try { st.datos = await api(`/api/directo-ia?launch=${encodeURIComponent(code)}&k=${k}`); } catch (e) { st.error = e.message; }
+  st.cargando = false;
+  if (state.launchCode === code && !$('#view-metricas').hidden) renderConsumo();
+}
+const DIA_TIPO = { pico: ['📈', 'Sube'], interes: ['🎯', 'Engancha'], fuga: ['📉', 'Fuga'] };
+function htmlDirectoIa(code, k, st, rol = null) {
+  if (!st || st.cargando) return '<section class="dia"><p class="muted">Cargando el análisis del directo…</p></section>';
+  const d = st.datos || {};
+  const a = d.analisis;
+  const tx = d.transcripcion;
+  const fuente = tx ? `${tx.fuente === 'zoom' ? 'de la grabación en la nube de Zoom' : 'pegada a mano'} · ${tx.frases.toLocaleString('es-ES')} frases · la grabación empieza en el minuto ${tx.desfase} del directo` : '';
+  const abierto = st.pedirTexto || (st.abierto ?? (!tx && !d.zoom));
+  const boton = st.generando
+    ? '<button type="button" class="btn" disabled>⏳ Analizando… (puede tardar uno o dos minutos)</button>'
+    : `<button type="button" class="btn${a ? ' ghost' : ' primary'}" data-dia-gen${a ? ' data-dia-regenerar' : ''}${d.claude === false ? ' disabled' : ''}>${a ? '🔄 Volver a analizar' : '🧠 Analizar el directo con la transcripción'}</button>`;
+  const r = a?.resumen || {};
+  const resumen = a ? `<div class="dia-resumen">
+      ${a.prueba ? '<p class="dia-prueba">🧪 Análisis de prueba: sin la clave de Claude se hace solo con la curva. Con ANTHROPIC_API_KEY lo hace Claude leyendo la transcripción.</p>' : ''}
+      ${r.titular ? `<p class="dia-titular">${esc(r.titular)}</p>` : ''}
+      <div class="dia-claves">
+        ${r.dondeSePierde ? `<div><h4>📉 Dónde se pierde más gente</h4><p>${esc(r.dondeSePierde)}</p></div>` : ''}
+        ${r.queEngancha ? `<div><h4>🎯 Lo que engancha</h4><p>${esc(r.queEngancha)}</p></div>` : ''}
+        ${r.oferta ? `<div><h4>💶 El momento de la oferta</h4><p>${esc(r.oferta)}</p></div>` : ''}
+      </div>
+      ${r.prioridades?.length ? `<h4>✅ Prioridades para el próximo directo</h4><ol class="dia-prior">${r.prioridades.map((p) => `<li>${esc(p)}</li>`).join('')}</ol>` : ''}
+    </div>
+    <ol class="dia-puntos">${a.puntos.map((p, j) => { const [ico, et] = DIA_TIPO[p.tipo] || ['•', '']; return `<li id="dia-p-${j}" class="dia-p dia-p-${esc(p.tipo)}">
+      <span class="dia-n" aria-hidden="true">${j + 1}</span>
+      <div><p class="dia-p-cab"><span class="ret-sug-t">min ${p.min}${p.min1 > p.min ? `–${p.min1}` : ''}</span> <span class="dia-tipo">${ico} ${et}</span> <strong>${esc(p.titulo)}</strong></p>
+        ${p.cita ? `<blockquote class="dia-cita">«${esc(p.cita)}»</blockquote>` : ''}
+        ${p.porque ? `<p><strong>Por qué:</strong> ${esc(p.porque)}</p>` : ''}
+        ${p.recomendacion ? `<p class="ret-sug-acc"><strong>→</strong> ${esc(p.recomendacion)}</p>` : ''}</div></li>`; }).join('')}</ol>
+    <p class="muted dia-pie">Hecho con ${esc(a.prueba ? 'datos de prueba' : a.modelo || 'Claude')} el ${new Date(a.en).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })} · guardado: no se vuelve a pedir a Claude hasta que pulses «Volver a analizar».</p>` : '';
+  return `<section class="dia" data-dia-k="${k}">
+    <div class="dia-cab"><h3 class="cv-h3">🧠 Qué pasaba en cada momento <span class="muted">· Claude lee la transcripción del directo y la cruza con la curva</span></h3>${boton}</div>
+    ${rol && rol.n > 1 ? `<p class="dia-rol">${rol.venta ? '💶' : '📚'} ${esc(rol.nombre)} · ${rol.venta ? 'directo de venta' : `directo de contenido (${rol.k} de ${rol.n})`}: cada directo tiene su propia transcripción y su propio análisis.</p>` : ''}
+    <p class="muted dia-fuente">${tx ? `Transcripción ${fuente}.` : 'La transcripción se saca sola de la <strong>grabación en la nube de Zoom</strong> (si el directo se grabó en la nube con «Transcripción de audio» activada). Si no está, pégala o sube el archivo aquí abajo.'}</p>
+    ${d.claude === false ? '<p class="dia-aviso">Falta la clave de Claude: añade <code>ANTHROPIC_API_KEY</code> (tipo Secret) en Cloudflare y vuelve a desplegar.</p>' : ''}
+    ${st.motivo ? `<p class="dia-aviso">⚠️ No he podido sacar la transcripción de Zoom: ${esc(st.motivo)}</p>` : ''}
+    ${st.error ? `<p class="dia-aviso dia-error">${esc(st.error)}</p>` : ''}
+    ${st.aviso ? `<p class="muted">ℹ️ ${esc(st.aviso)}</p>` : ''}
+    <details class="dia-pegar"${abierto ? ' open' : ''}><summary>📋 ${tx ? 'Cambiar la transcripción o su minuto de inicio' : 'Pegar o subir la transcripción'}</summary>
+      <p class="muted">Vale el archivo <strong>.vtt</strong> que da Zoom (Grabaciones → la reunión → Transcripción de audio → Descargar) o cualquier texto con el tiempo de cada frase, por ejemplo <code>00:12:34 Ana: …</code>.</p>
+      <textarea id="dia-texto" rows="6" placeholder="WEBVTT&#10;&#10;00:00:01.000 --> 00:00:05.000&#10;Ana: ¡Bienvenidas!…">${esc(st.texto || '')}</textarea>
+      <div class="dia-fila">
+        <label class="dia-archivo">📎 Subir archivo <input type="file" id="dia-archivo" accept=".vtt,.txt,.srt,text/vtt,text/plain" hidden></label>
+        <label>La grabación empieza en el minuto <input type="number" id="dia-desfase" value="${esc(String(st.desfase ?? tx?.desfase ?? 0))}" min="-120" max="240" step="1"> del directo</label>
+        <button type="button" class="btn primary" data-dia-gen data-dia-con-texto${st.generando || d.claude === false ? ' disabled' : ''}>Analizar con esta transcripción</button>
+      </div>
+      <p class="muted">0 si empezó a grabar a la hora del directo; 5 si empezó cinco minutos tarde (así cada frase cae en su minuto de la curva).</p>
+    </details>
+    ${resumen}
+  </section>`;
+}
+// Embudos con varios directos (2 o 3 vídeos, PLF, retos): comparación breve de los que tienen curva, con el titular del
+// análisis de Claude de cada uno si ya está hecho.
+function compararDirectosHtml(code, series) {
+  const dirs = series.filter((s) => s.tipo === 'directo' && s.curva?.valores?.length);
+  if (dirs.length < 2) return '';
+  const cmp = compararDirectos(dirs.map((s) => ({ k: s.k, nombre: s.label.replace(/ \(directo\)$/, ''), curva: s.curva, analisis: directoIa(code, s.k)?.datos?.analisis })));
+  if (!cmp.filas.length) return '';
+  return `<details class="dia-comp" open><summary>⚖️ Comparación entre los ${cmp.filas.length} directos</summary>
+    <div class="dia-comp-tabla"><table><thead><tr><th>Directo</th><th>Máximo</th><th>Al final</th><th>Mayor fuga</th><th>Lo que dice Claude</th></tr></thead><tbody>
+    ${cmp.filas.map((f) => `<tr><td><button type="button" class="dia-comp-ir" data-ret-sel="d${f.k}">${esc(f.nombre)}</button></td><td>${f.pico.toLocaleString('es-ES')} <span class="muted">(min ${f.picoMin})</span></td><td>${f.final}%</td>
+      <td>${f.mayorFuga ? `−${f.mayorFuga.caida}% <span class="muted">(min ${f.mayorFuga.min0}–${f.mayorFuga.min1})</span>` : '—'}</td><td>${f.titular ? esc(f.titular) : '<span class="muted">Sin analizar: ábrelo y pulsa «🧠 Analizar»</span>'}</td></tr>`).join('')}
+    </tbody></table></div>
+    ${cmp.conclusiones.length ? `<ul class="dia-comp-concl">${cmp.conclusiones.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+  </details>`;
+}
+async function generarDirectoIa(code, k, { conTexto = false, regenerar = false } = {}) {
+  const st = state.directoIa[claveDia(code, k)];
+  const body = { launch: code, k };
+  if (conTexto) {
+    const texto = String(st.texto || '').trim();
+    const desfase = Number(st.desfase ?? st.datos?.transcripcion?.desfase ?? 0);
+    if (texto) body.texto = texto;
+    else if (st.datos?.transcripcion) body.desfase = desfase;
+    else { st.error = 'Pega la transcripción o sube su archivo antes de analizar.'; renderConsumo(); return; }
+    body.desfase = desfase;
+  }
+  if (regenerar) body.regenerar = true;
+  Object.assign(st, { generando: true, error: '', motivo: '', aviso: '' });
+  renderConsumo();
+  try {
+    const r = await api('/api/directo-ia', { method: 'POST', body });
+    if (r.sinTranscripcion) Object.assign(st, { motivo: r.motivo, pedirTexto: true });
+    else {
+      st.datos = { ...st.datos, analisis: r.analisis, transcripcion: r.transcripcion };
+      Object.assign(st, { texto: '', pedirTexto: false, abierto: false });
+      if (r.reutilizado) st.aviso = ('Nada ha cambiado: es el análisis guardado. Para pedir uno nuevo, pulsa «Volver a analizar».');
+    }
+  } catch (e) { st.error = e.message; }
+  st.generando = false;
+  if (state.launchCode === code && !$('#view-metricas').hidden) renderConsumo();
+}
+const diaK = (el) => Number(el.closest('.dia')?.dataset.diaK) || 1;
+document.addEventListener('click', (e) => {
+  const ir = e.target.closest('[data-dia-ir]');
+  if (ir) {
+    const li = document.getElementById(`dia-p-${ir.dataset.diaIr}`);
+    if (li) { li.scrollIntoView({ block: 'center' }); li.classList.remove('is-flash'); void li.offsetWidth; li.classList.add('is-flash'); }
+    return;
+  }
+  const b = e.target.closest('[data-dia-gen]');
+  if (!b) return;
+  generarDirectoIa(state.launchCode, diaK(b), { conTexto: 'diaConTexto' in b.dataset, regenerar: 'diaRegenerar' in b.dataset });
+});
+document.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('[data-dia-ir]')) { e.preventDefault(); e.target.closest('[data-dia-ir]').dispatchEvent(new MouseEvent('click', { bubbles: true })); } });
+document.addEventListener('input', (e) => {
+  if (!['dia-texto', 'dia-desfase'].includes(e.target.id)) return;
+  const st = state.directoIa?.[claveDia(state.launchCode, diaK(e.target))];
+  if (!st) return;
+  if (e.target.id === 'dia-texto') st.texto = e.target.value;
+  if (e.target.id === 'dia-desfase') st.desfase = Number(e.target.value) || 0;
+});
+// El desplegable de pegar la transcripción sigue abierto (o cerrado) aunque se vuelva a pintar la pantalla.
+document.addEventListener('toggle', (e) => {
+  if (!e.target.classList?.contains('dia-pegar')) return;
+  const st = state.directoIa?.[claveDia(state.launchCode, diaK(e.target))];
+  if (st) st.abierto = e.target.open;
+}, true);
+document.addEventListener('change', async (e) => {
+  if (e.target.id !== 'dia-archivo' || !e.target.files?.[0]) return;
+  const f = e.target.files[0];
+  if (f.size > 2_000_000) { e.target.value = ''; window.alert('El archivo es demasiado grande (máximo 2 MB).'); return; }
+  const t = await f.text();
+  const st = state.directoIa?.[claveDia(state.launchCode, diaK(e.target))];
+  if (st) st.texto = t;
+  $('#dia-texto').value = t;
+});
+
 async function cargarRetencion(code) {
   state.retencionCargando = { ...(state.retencionCargando || {}), [code]: true };
   state.retencion = state.retencion || {};
@@ -3008,6 +3166,61 @@ document.addEventListener('click', async (e) => {
   $('#casi-estado').textContent = fallos ? `Etiquetadas ${hechas}; ${fallos} no se pudieron (vuelve a pulsar para reintentarlo).` : `Etiquetadas ${hechas} en GHL ✓`;
 });
 
+// Compradores fichados (Métricas → Ventas): cada persona que compró en este lanzamiento con su email, su WhatsApp,
+// cómo pagó y todo lo que hizo antes (los mismos chips que en Setting hoy). Con buscador y descarga en CSV.
+const compr = { q: '', ver: 30 };
+const compradoresDe = () => state.leads.filter((l) => l.s.compra)
+  .sort((a, b) => (b.s.fecha_compra || '').localeCompare(a.s.fecha_compra || '') || b.score - a.score);
+const pagoTxtDe = (l) => (l.s.plan ? `Plan ${l.s.plan}` : l.s.fraccionado ? 'Fraccionado' : l.s.unico ? 'Pago único' : '');
+function renderCompradores() {
+  const box = $('#compradores-l');
+  if (!box) return;
+  if (compr.code !== state.launchCode) Object.assign(compr, { code: state.launchCode, q: '', ver: 30 });
+  const todos = compradoresDe();
+  if (!todos.length) { box.innerHTML = '<p class="muted">Todavía no hay compras en este lanzamiento. Aquí saldrá cada compradora con lo que hizo antes de comprar.</p>'; return; }
+  const q = compr.q.trim().toLowerCase();
+  const lista = q ? todos.filter((l) => `${l.name} ${l.email} ${l.phone}`.toLowerCase().includes(q)) : todos;
+  const vip = todos.filter((l) => l.s.vip).length;
+  const enDirecto = todos.filter((l) => l.s.compra_directo).length;
+  const conTel = todos.filter((l) => l.phoneWa).length;
+  const fila = (l) => `<li class="cmp-item">
+      <div class="cmp-cab">
+        <button type="button" class="lead-name lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || l.email || 'Sin nombre')}</button>
+        <span class="cmp-meta">${l.s.fecha_compra ? `🛒 ${esc(fechaCorta(l.s.fecha_compra))}` : '🛒 Compró'}${l.s.compra_directo ? ' · en el directo' : ''}${pagoTxtDe(l) ? ` · ${esc(pagoTxtDe(l))}` : ''}${l.s.vip ? ' · ⭐ VIP' : ''}${l.s.origen ? ` · ${l.s.origen === 'publi' ? '📣 Publicidad' : '🌱 Orgánico'}` : ''}${l.s.trafico ? ` · ${l.s.trafico === 'frio' ? 'Tráfico frío' : 'Tráfico templado'}` : ''}</span>
+      </div>
+      <div class="cmp-contacto">${l.email ? `<a href="mailto:${esc(l.email)}">✉️ ${esc(l.email)}</a>` : '<span class="muted">Sin email</span>'}${l.phoneWa ? `<a href="https://wa.me/${esc(l.phoneWa)}" target="_blank" rel="noopener">💬 ${esc(l.phone || `+${l.phoneWa}`)}</a>` : '<span class="muted">Sin teléfono</span>'}</div>
+      <div class="hoy-acc">${accionesLead(l)}</div>
+    </li>`;
+  box.innerHTML = `<div class="kpis">${card('Compradores', todos.length, `${conTel} con WhatsApp`, 'users', 'buy')}${enDirecto ? card('Compraron en el directo', enDirecto, `${pctOf(enDirecto, todos.length)} de las ventas`, 'zap', 'live') : ''}${vip ? card('Venían de la VIP', vip, `${pctOf(vip, todos.length)} de las ventas`, 'crown', 'vip') : ''}</div>
+    <div class="row cmp-barra"><input type="search" id="cmp-q" placeholder="Buscar por nombre, email o teléfono" value="${esc(compr.q)}" aria-label="Buscar compradores"> <button type="button" class="btn ghost" id="cmp-csv">⬇️ Descargar CSV</button></div>
+    <ul class="cmp-lista">${lista.slice(0, compr.ver).map(fila).join('') || '<li class="muted">Nadie coincide con la búsqueda.</li>'}</ul>
+    ${lista.length > compr.ver ? `<p><button type="button" class="btn ghost" id="cmp-mas">Ver ${Math.min(30, lista.length - compr.ver)} más (quedan ${lista.length - compr.ver})</button></p>` : ''}`;
+}
+document.addEventListener('input', (e) => {
+  if (e.target.id !== 'cmp-q') return;
+  compr.q = e.target.value;
+  compr.ver = 30;
+  renderCompradores();
+  const inp = $('#cmp-q');
+  inp.focus();
+  inp.setSelectionRange(inp.value.length, inp.value.length);
+});
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#cmp-mas')) { compr.ver += 30; renderCompradores(); return; }
+  if (!e.target.closest('#cmp-csv')) return;
+  // Las acciones, en texto: el título de cada chip (lo mismo que se lee al pasar el ratón).
+  const dec = document.createElement('textarea');
+  const acciones = (l) => [...accionesLead(l).matchAll(/class="acc[^"]*" title="([^"]*)"/g)].map((x) => { dec.innerHTML = x[1]; return dec.value; }).join(' · ');
+  const head = ['Nombre', 'Email', 'Teléfono', 'WhatsApp', 'Fecha compra', 'Compró en el directo', 'Pago', 'VIP', 'Origen', 'Tráfico', 'Puntos', 'Acciones'];
+  const lines = compradoresDe().map((l) => [l.name, l.email, l.phone, l.phoneWa ? `https://wa.me/${l.phoneWa}` : '', l.s.fecha_compra, l.s.compra_directo ? 'Sí' : '', pagoTxtDe(l), l.s.vip ? 'Sí' : '', l.s.origen === 'publi' ? 'Publicidad' : l.s.origen === 'organico' ? 'Orgánico' : '', l.s.trafico === 'frio' ? 'Frío' : l.s.trafico === 'templado' ? 'Templado' : '', l.score, acciones(l)]);
+  const csv = [head, ...lines].map((r) => r.map((x) => `"${String(x ?? '').replaceAll('"', '""')}"`).join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
+  a.download = `compradores-${state.launchCode}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
 // Resumen: facturación del lanzamiento, de su meteórico posterior (downsell) y la suma de las dos.
 async function renderFacturacionTotal(m) {
   const box = $('#fact-total-l');
@@ -3129,6 +3342,7 @@ function renderMetrics() {
   renderFacturacionTotal(m);
   renderRetrospectiva(m, launch);
   renderCasiCompradoras(launch);
+  renderCompradores();
   // Métricas → Downsell abierta: el meteórico y su conversión de ESTE lanzamiento (y con sus leads).
   if (!$('#view-metricas [data-msub="meteorico"]').hidden) renderMeteoLanz();
   // Carrito abierto: ritmo frente al objetivo, bonus que caducan y cierre (visible en todas las pestañas).
@@ -3227,7 +3441,7 @@ function renderConvHero(m, filas) {
   const st = m.setter;
   const cc = st.contactadas ? st.compraContactadas / st.contactadas : null;
   const cn = st.noContactadas ? st.compraNoContactadas / st.noContactadas : null;
-  const top = [...m.lift].filter((r) => r.veces != null && r.con >= 10).sort((a, b) => b.veces - a.veces)[0];
+  const top = m.insights?.top[0];
   const t = (ico, tono, et, v, sub) => `<div class="cv-hero-card cv-t-${tono}"><span class="cv-hero-ico" aria-hidden="true">${ico}</span><span class="cv-hero-et">${et}</span><strong>${v}</strong><small>${sub}</small></div>`;
   const pasos = [
     { ico: '📝', label: 'Se registraron', n: m.total },
@@ -3242,7 +3456,7 @@ function renderConvHero(m, filas) {
     t('🛒', 'buy', 'Compran', pctOf(m.compra, m.total), `${m.compra.toLocaleString('es-ES')} de ${m.total.toLocaleString('es-ES')} registros`),
     mejor ? t('🏆', 'vip', 'El grupo que más compra', pctOf(mejor[2], mejor[1]), esc(String(mejor[0]).replace(/<[^>]+>/g, ''))) : '',
     cc && cn && st.contactadas >= 10 ? t('💬', 'live', 'Escribir por WhatsApp', `×${(cc / cn).toLocaleString('es-ES', { maximumFractionDigits: 1 })}`, `las contactadas compran ${pctOf(st.compraContactadas, st.contactadas)} frente a ${pctOf(st.compraNoContactadas, st.noContactadas)}`) : '',
-    top ? t('✨', 'accent', 'La señal que más predice', `×${top.veces.toLocaleString('es-ES', { maximumFractionDigits: 1 })}`, esc(top.label)) : '',
+    top ? t('✨', 'accent', 'Lo que más multiplica la compra', `×${top.veces.toLocaleString('es-ES', { maximumFractionDigits: 1 })}`, `quienes ${esc(top.frase)}`) : '',
   ].join('');
 }
 
@@ -4225,6 +4439,37 @@ const avatarChip = (l) => (l.avatar >= 0
 const AV_TONES = ['buy', 'vip', 'live'];
 const pct0 = (x) => `${Math.round(x * 100)}%`;
 const veces = (x) => `×${x.toLocaleString('es-ES', { maximumFractionDigits: 1, minimumFractionDigits: 1 })}`;
+// 🪞 Así es quien compra: el retrato agregado de la encuesta (retratoComprador), con la frase de la compradora
+// típica, sus rasgos en barras (compradoras frente a todas), cuánto compran las que encajan y el perfil que compra poco.
+function retratoHtml(r, rt, comprador, { enlace = false } = {}) {
+  const preguntas = preguntasEncuesta();
+  const deSu = (id) => preguntas.find((q) => q.id === id)?.name || '';
+  if (!rt.traits.length) {
+    return `<section class="card av-retrato"><h3>🪞 Así es quien ${esc(comprador.replace('compran', 'compra'))}</h3><p class="muted">Todavía no hay ninguna respuesta que se repita claramente más entre quienes ${esc(comprador)}: hacen falta al menos ${r.minN} personas con la misma respuesta y ${r.minK} ${r.objetivo === 'vip' ? 'VIP' : 'ventas'} entre ellas.${r.objetivo === 'compra' && r.compras < 10 ? ' Mientras, mira «Quién compra la VIP» en Avatar comprador.' : ''}</p></section>`;
+  }
+  const e = rt.encajan;
+  const barras = rt.rasgos.filter((x) => x.mejor).map(({ p, mejor: x }) => `<div class="pq-ret"><span class="pq-ret-et"><small class="muted">${esc(p.name)}</small><br><strong>${esc(x.respuesta)}</strong></span>
+      <div class="pq-ret-b"><i class="pq-ret-c" style="width:${Math.round(x.pesoCompras * 100)}%"></i><b>${Math.round(x.pesoCompras * 100)}%</b></div>
+      <div class="pq-ret-b pq-ret-todos"><i style="width:${Math.round(x.pesoLeads * 100)}%"></i><b>${Math.round(x.pesoLeads * 100)}%</b></div></div>`).join('');
+  const anti = rt.anti && rt.anti.leads ? `<div class="av-retrato-anti"><span aria-hidden="true">⚠️</span><p><strong>Compra poco:</strong> ${esc(describirAvatar(rt.antiTraits, preguntas).replace(/\.$/, ''))}. ${rt.anti.indice != null ? `${esc(comparaMedia(rt.anti.indice).replace(/^./, (c) => c.toUpperCase()))} (${deCada(rt.anti.conv)}).` : ''} <span class="muted small">Son el ${pct0(rt.anti.pesoLeads)} de las que respondieron: revisa si los anuncios atraen a este perfil.</span></p></div>` : '';
+  return `<section class="card av-retrato">
+    <h3>🪞 Así es quien ${esc(comprador.replace('compran', 'compra'))}</h3>
+    <p class="av-retrato-frase">${esc(describirAvatar(rt.traits, preguntas))}</p>
+    ${e && e.leads ? `<div class="av-retrato-datos">
+      <div><b>${deCada(e.conv)}</b><span>de las que encajan ${r.objetivo === 'vip' ? 'compra la VIP' : 'compra'}</span><small>frente a ${deCada(r.conv)} de media${e.indice ? ` · ${esc(comparaMedia(e.indice))}` : ''}</small></div>
+      <div><b>${pct0(e.pesoLeads)}</b><span>de las que respondieron encajan</span><small>${e.leads.toLocaleString('es-ES')} personas${e.minimo < e.de ? ` (con ${e.minimo} de los ${e.de} rasgos)` : ''}</small></div>
+      <div><b>${pct0(e.pesoCompras)}</b><span>de quienes ${esc(comprador)} encajan</span><small>${e.compras} de ${r.compras}</small></div>
+    </div>` : ''}
+    <h4 class="cv-h4">Sus rasgos <span class="muted small">· <span class="pq-ley pq-ley-c"></span> entre quienes ${esc(comprador)} · <span class="pq-ley"></span> entre todas las que respondieron</span></h4>
+    <div class="pq-rets">${barras}</div>
+    ${anti}
+    ${enlace ? '<p class="av-retrato-mas"><button type="button" class="btn ghost" data-ir-vista="avatarc">Ver los perfiles completos en Avatar comprador →</button></p>' : ''}
+  </section>`;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ir-vista]');
+  if (b) document.querySelector(`[data-view="${b.dataset.irVista}"]`)?.click();
+});
 function renderEncuestaMetrics() {
   const box = $('#encuesta-metrics');
   const todos = state.avatarScope === 'todos' && state.allAvatarLeads;
@@ -4308,7 +4553,7 @@ function renderEncuestaMetrics() {
       <tbody>${rows.map((x) => `<tr><td>${x.respuesta ? (x.otras ? `<span class="muted">${esc(x.respuesta)}</span>` : esc(x.respuesta)) : '<span class="muted">Sin respuesta</span>'}</td><td class="num">${x.leads}</td><td class="num">${pctOf(x.leads, total)}</td><td class="num">${x.vip} <span class="muted">${pctOf(x.vip, x.leads)}</span></td><td class="num">${x.compras}</td><td class="num big">${pctOf(x.compras, x.leads)}</td></tr>`).join('')}</tbody></table></div>`;
   }).join('');
 
-  box.innerHTML = `${toggle}${cifras}${resumen}${avatares}
+  box.innerHTML = `${toggle}${cifras}${retratoHtml(r, retratoComprador(avatarLeads(), preguntasEncuesta(), r), comprador)}${resumen}${avatares}
     <h3 class="av-h">Respuesta a respuesta</h3>
     <p class="av-leyenda">De todas las que dieron cada respuesta, cuántas ${comprador}. La barra más larga es la que mejor convierte. <span class="av-tag t-mas">Compra más</span> <span class="av-tag t-igual">Como la media</span> <span class="av-tag t-menos">Compra menos</span> <span class="av-tag t-pocos">Aún pocas personas</span> (con tan pocas, aún no es fiable)</p>
     <div class="av-qs">${preguntas}</div>
@@ -4503,12 +4748,49 @@ function renderSetterMetrics(m) {
     ${st.resultados.some((r) => r.leads) ? `<div><h4 class="cv-h4">Según el resultado anotado</h4><div class="cv-barras">${barrasCv(st.resultados.filter((r) => r.leads).map((r) => ({ label: esc(r.label), sub: `${r.compras} de ${r.leads}`, v: r.leads ? r.compras / r.leads : 0, txt: pctOf(r.compras, r.leads) })))}</div></div>` : ''}`;
 }
 
-// Qué señales predicen la compra (para afinar la puntuación con datos reales).
+// Qué predice la compra: conclusiones en frases (lo que más multiplica, combinaciones, el retrato de quien compra,
+// lo que apenas importa y cómo deciden), con barras «de cada 100». Lo obvio (llegar al pago) no entra.
+const xVeces = (v) => `×${v.toLocaleString('es-ES', { maximumFractionDigits: 1 })}`;
+const deCada100 = (p) => Math.round(p * 1000) / 10;
+const n100 = (p) => deCada100(p).toLocaleString('es-ES', { maximumFractionDigits: deCada100(p) < 10 ? 1 : 0 });
+// Dos barras «de cada 100 compran…»: con la señal y sin ella, a la misma escala.
+function pqDuo(con, sin, { etCon = 'Con ello', etSin = 'Sin ello' } = {}) {
+  const tope = Math.max(con, sin, 0.0001);
+  const fila = (et, v, cls) => `<div class="pq-duo-f ${cls}"><span>${et}</span><div class="pq-duo-b"><i style="width:${Math.max(2, (v / tope) * 100)}%"></i></div><b>${n100(v)}</b></div>`;
+  return `<div class="pq-duo">${fila(etCon, con, 'pq-si')}${fila(etSin, sin, 'pq-no')}<small>compran de cada 100</small></div>`;
+}
 function renderLift(m) {
-  const rows = [...m.lift].filter((r) => r.con).sort((a, b) => (b.veces ?? -1) - (a.veces ?? -1));
-  const sinDatos = m.lift.filter((r) => !r.con).map((r) => r.label);
-  if (!m.compra) { $('#lift-table').innerHTML = '<div class="cv-vacio"><span aria-hidden="true">✨</span><p>Aún no hay ventas en este lanzamiento. En cuanto las haya, aquí verás qué señales (ver las clases, ir al directo, la VIP…) multiplican la compra.</p></div>'; renderPesos(m.launch); return; }
-  $('#lift-table').innerHTML = barrasCv(rows.map((r) => ({ label: esc(r.label), sub: `compran ${pctOf(r.convCon * r.con, r.con)} con ella (${r.con}) · ${pctOf(r.convSin * r.sin, r.sin)} sin ella`, v: r.veces || 0, txt: r.veces == null ? '–' : `×${r.veces.toLocaleString('es-ES', { maximumFractionDigits: 1 })}`, tono: r.veces >= 2 ? 'fuerte' : r.veces != null && r.veces < 1 ? 'flojo' : '' }))) + (sinDatos.length ? `<p class="muted small">Aún sin datos: ${sinDatos.map(esc).join(' · ')}.</p>` : '');
+  const box = $('#lift-table');
+  const ins = m.insights;
+  if (!m.compra || !ins) { box.innerHTML = '<div class="cv-vacio"><span aria-hidden="true">✨</span><p>Aún no hay ventas en este lanzamiento. En cuanto las haya, aquí verás qué comportamientos de las leads (ver las clases, quedarse al directo, la VIP…) multiplican la compra.</p></div>'; renderPesos(m.launch); return; }
+  const b = (t) => `<strong>${esc(t)}</strong>`;
+  const top = ins.top.map((f, i) => `<article class="pq-top${i ? '' : ' pq-top-1'}">
+      <div class="pq-x">${xVeces(f.veces)}<small>más ventas</small></div>
+      <p>Quienes ${b(f.frase)} compran <strong>${xVeces(f.veces).slice(1)} veces más</strong> que el resto.</p>
+      ${pqDuo(f.convCon, f.convSin)}
+      <small class="muted">${f.con.toLocaleString('es-ES')} personas lo hicieron · ${f.comprasCon} compraron</small>
+    </article>`).join('');
+  const combos = ins.combos.map((c) => `<div class="pq-combo"><span class="pq-combo-ico" aria-hidden="true">🧩</span><p>Quienes ${b(c.a)} <em>y además</em> ${b(c.b)} compran <strong>${n100(c.conv)} de cada 100</strong>${c.veces ? ` (${xVeces(c.veces)} la media)` : ''}. <span class="muted small">${c.con} personas · ${c.compras} compras</span></p></div>`).join('');
+  const retrato = ins.retrato.map((f) => `<div class="pq-ret"><span class="pq-ret-et">${esc(f.frase.charAt(0).toUpperCase() + f.frase.slice(1))}</span>
+      <div class="pq-ret-b"><i class="pq-ret-c" style="width:${deCada100(f.pctCompradoras)}%"></i><b>${Math.round(f.pctCompradoras * 100)}%</b></div>
+      <div class="pq-ret-b pq-ret-todos"><i style="width:${deCada100(f.pctLeads)}%"></i><b>${Math.round(f.pctLeads * 100)}%</b></div></div>`).join('');
+  const d = ins.decision;
+  const deciden = [
+    d.enDirecto ? `<div class="pq-dato"><b>${pctOf(d.enDirecto, ins.compras)}</b><span>compró el mismo día del directo de venta</span><small>${d.enDirecto} de ${ins.compras}: el resto se lo pensó después</small></div>` : '',
+    d.conCheckout && d.checkoutRepetido ? `<div class="pq-dato"><b>${pctOf(d.checkoutRepetido, d.conCheckout)}</b><span>entró en la página de pago más de una vez antes de comprar</span><small>dudan en el último paso: un recordatorio o una garantía ahí ayuda</small></div>` : '',
+    d.visitasMedia ? `<div class="pq-dato"><b>${d.visitasMedia.toLocaleString('es-ES', { maximumFractionDigits: 1 })}</b><span>visitas a la página de venta de media antes de comprar</span><small>casi nadie compra a la primera visita</small></div>` : '',
+    ins.sinNada ? `<div class="pq-dato"><b>${pctOf(ins.sinNada, ins.compras)}</b><span>compró sin hacer nada de lo que medimos</span><small>${ins.sinNada} ${ins.sinNada === 1 ? 'compradora ya venía decidida' : 'compradoras ya venían decididas'} (clientas fieles, boca a boca…)</small></div>` : '',
+    d.aLasPuertas ? `<div class="pq-dato pq-dato-acc"><b>${d.aLasPuertas.toLocaleString('es-ES')}</b><span>llegaron a la página de pago y no compraron</span><small>las más cerca de comprar: están en Setting hoy → «Iniciaron el pago»</small></div>` : '',
+  ].filter(Boolean).join('');
+  const poco = ins.pocoImporta.map((f) => `<li>${b(f.frase.charAt(0).toUpperCase() + f.frase.slice(1))}: ${Math.abs(f.veces - 1) < 0.03 ? 'compran <strong>igual</strong> que el resto' : f.veces < 1 ? `compran <strong>un ${Math.round((1 - f.veces) * 100)} % menos</strong> que el resto` : `solo compran un ${Math.round((f.veces - 1) * 100)} % más que el resto`}</li>`).join('');
+  const resto = [...m.lift].filter((r) => r.con && !r.obvia).sort((a, b2) => (b2.veces ?? -1) - (a.veces ?? -1));
+  box.innerHTML = `${ins.pocosDatos ? '<p class="notice">Todavía hay pocas ventas o pocas personas en cada señal: tómalo como una pista, no como una regla.</p>' : ''}
+    ${top ? `<h4 class="cv-h4">🚀 Lo que más multiplica la compra</h4><div class="pq-tops">${top}</div>` : '<p class="muted">Aún no hay ningún comportamiento con datos suficientes que multiplique la compra.</p>'}
+    ${combos ? `<h4 class="cv-h4">🧩 Combinaciones ganadoras <span class="muted small">· juntas venden más que cada una por separado</span></h4>${combos}` : ''}
+    ${retrato ? `<h4 class="cv-h4">🪞 El retrato de quien compra <span class="muted small">· <span class="pq-ley pq-ley-c"></span> compradoras · <span class="pq-ley"></span> todos los registros</span></h4><div class="pq-rets">${retrato}</div>` : ''}
+    ${deciden ? `<h4 class="cv-h4">🧠 Cómo deciden</h4><div class="pq-datos">${deciden}</div>` : ''}
+    ${poco ? `<h4 class="cv-h4">🤷 Lo que casi no importa <span class="muted small">· no gastes esfuerzo ahí</span></h4><ul class="pq-poco">${poco}</ul>` : ''}
+    ${resto.length ? `<details class="cv-mas"><summary>Ver todas las señales, una a una</summary><div class="cv-barras">${barrasCv(resto.map((r) => ({ label: esc(r.label), sub: `compran ${pctOf(r.convCon * r.con, r.con)} con ella (${r.con}) · ${pctOf(r.convSin * r.sin, r.sin)} sin ella`, v: r.veces || 0, txt: r.veces == null ? '–' : xVeces(r.veces), tono: r.veces >= 2 ? 'fuerte' : r.veces != null && r.veces < 1 ? 'flojo' : '' })))}</div></details>` : ''}`;
   renderPesos(m.launch);
 }
 
@@ -13057,7 +13339,7 @@ function llamadaCard(c) {
     <div class="ll-main">
       <div class="ll-name">${esc(lead?.name || c.title || 'Sin nombre')}
         ${etapa ? `<span class="ll-etapa" style="--c:${esc(etapa.color || '#8a817b')}" title="Etapa en el pipeline de GHL">${esc(etapa.name)}</span>` : '<span class="ll-etapa none" title="Aún no está en el pipeline: se añadirá al anotar el resultado">Sin etapa</span>'}
-        ${llCancelada(c) ? '<span class="ll-etapa none">Cita cancelada</span>' : ''}</div>
+        ${llCancelada(c) ? '<span class="ll-etapa ll-cancelada">❌ Cita cancelada</span>' : ''}</div>
       <div class="ll-contact">${phone ? `<a href="tel:${esc(phone)}">${icon('phone')}${esc(phone)}</a>` : ''}${wa ? `<a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}${phone ? '' : '<span class="muted">Sin teléfono</span>'}</div>
       <div class="ll-chips">${repChip}${cancChip}${origenChip(c)}${chips}</div>
       ${r ? `<div class="ll-res">${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span>${c.resultado.notas ? `<div class="ll-notas">${esc(c.resultado.notas)}</div>` : ''}</div>` : ''}
@@ -13100,14 +13382,17 @@ function renderLlamadas() {
     ${m.motivos.length ? `<div class="card ll-motivos"><h3>Por qué no compran</h3>${m.motivos.map(([k, v]) => `<div class="ll-mot"><span>${esc(k)}</span><div class="gan-bar"><span style="width:${(v / maxMot) * 100}%;background:var(--error)"></span><b>${v}</b></div></div>`).join('')}</div>` : ''}`;
   const hoyD = today();
   const pendientes = list.filter((c) => llStart(c) < ahora && !c.resultado && !llCancelada(c)).reverse();
-  const deHoy = list.filter((c) => dayInMadrid(c.startTime) === hoyD && llStart(c) >= ahora);
-  const proximas = list.filter((c) => llStart(c) >= ahora && dayInMadrid(c.startTime) !== hoyD);
+  // Las próximas canceladas van aparte, para que en Hoy y Próximos días solo queden las que faltan por hacer.
+  const deHoy = list.filter((c) => dayInMadrid(c.startTime) === hoyD && llStart(c) >= ahora && !llCancelada(c));
+  const proximas = list.filter((c) => llStart(c) >= ahora && dayInMadrid(c.startTime) !== hoyD && !llCancelada(c));
+  const canceladasProx = list.filter((c) => llStart(c) >= ahora && llCancelada(c));
   const anotadas = list.filter((c) => llStart(c) < ahora && (c.resultado || llCancelada(c))).reverse();
   const sec = (titulo, items, cls = '', vacio = '') => (items.length || vacio ? `<section class="ll-sec ${cls}"><h3>${titulo} <span class="muted">${items.length}</span></h3>${items.map(llamadaCard).join('') || `<p class="muted">${vacio}</p>`}</section>` : '');
   box.innerHTML = list.length ? `
     ${sec('⚠️ Pendientes de anotar', pendientes, 'warn')}
     ${sec('📞 Hoy', deHoy, '', 'No hay más llamadas hoy.')}
     ${sec('🗓️ Próximos días', proximas)}
+    ${canceladasProx.length ? `<details class="ll-sec ll-done ll-cancel-prox"><summary><h3>❌ Canceladas <span class="muted">${canceladasProx.length}</span></h3></summary>${canceladasProx.map(llamadaCard).join('')}</details>` : ''}
     ${anotadas.length ? `<details class="ll-sec ll-done"><summary><h3>✅ Ya anotadas <span class="muted">${anotadas.length}</span></h3></summary>${anotadas.map(llamadaCard).join('')}</details>` : ''}`
     : '<div class="card empty"><p class="muted">Todavía no hay llamadas agendadas en el calendario para este lanzamiento.</p></div>';
   syncLlVista();

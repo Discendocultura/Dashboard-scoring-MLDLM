@@ -40,4 +40,4 @@ export async function GET(request) {
   }
 }
 
-const claveMinutos = (code, k) => `lsd_zoom_min_${code}_${k}`;
+export const claveMinutos = (code, k) => `lsd_zoom_min_${code}_${k}`;

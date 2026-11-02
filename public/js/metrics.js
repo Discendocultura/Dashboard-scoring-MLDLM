@@ -231,18 +231,97 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     // Preclase de varios recursos: cada recurso (abierto, descargado o empezado).
     ...listaConsumo(launch).map((x) => [`${x.tipo === 'descargable' ? 'Descargó' : x.tipo === 'enlace' ? 'Abrió' : x.tipo === 'audio' ? 'Escuchó' : 'Vio'} «${x.nombre}»`, (l) => l.s[`rec${x.n}_abrio`]]),
     ['Tráfico templado', (l) => l.s.trafico === 'templado'],
+    ...(leads.some((l) => l.s.enGrupo) ? [['Sigue en el grupo de WhatsApp', (l) => l.s.enGrupo]] : []),
     ['Contactada por WhatsApp', (l) => l.s.wa_enviado],
     ['Agendó llamada', (l) => l.s.llamada],
-    ...(leads.some((l) => l.s.inicio_pago) ? [['Inició el pago (página de pago)', (l) => l.s.inicio_pago]] : []),
+    ...(leads.some((l) => l.s.inicio_pago) ? [['Inició el pago (página de pago)', (l) => l.s.inicio_pago, { obvia: true }]] : []),
   ];
-  m.lift = SIGNAL_TESTS.map(([label, fn]) => {
+  m.lift = SIGNAL_TESTS.map(([label, fn, op = {}]) => {
     const yes = leads.filter(fn);
     const no = leads.filter((l) => !fn(l));
     const cy = yes.length ? yes.filter((l) => l.s.compra).length / yes.length : 0;
     const cn = no.length ? no.filter((l) => l.s.compra).length / no.length : 0;
-    return { label, con: yes.length, convCon: cy, sin: no.length, convSin: cn, veces: yes.length && cn ? cy / cn : null };
+    return { label, con: yes.length, convCon: cy, sin: no.length, convSin: cn, veces: yes.length && cn ? cy / cn : null, ...(op.obvia ? { obvia: true } : {}) };
   });
+  // Las que no dicen nada nuevo (sin pasar por el pago o sin pulsar el enlace no se puede comprar) no entran en las conclusiones.
+  m.insights = insightsCompra(leads, SIGNAL_TESTS.filter(([label, , op]) => !op?.obvia && !/^Pulsó el enlace/.test(label)));
   return m;
+}
+
+// «Quienes …»: la señal en plural, para escribir las conclusiones como frases.
+const PLURAL = [
+  [/^Vio /, 'vieron '], [/^Asistió /, 'asistieron '], [/^Rellenó /, 'rellenaron '], [/^Compró /, 'compraron '],
+  [/^Escuchó /, 'escucharon '], [/^Hizo /, 'hicieron '], [/^Votó /, 'votaron '], [/^Comentó /, 'comentaron '],
+  [/^Abrió /, 'abrieron '], [/^Descargó /, 'descargaron '], [/^Agendó /, 'agendaron '], [/^Inició /, 'iniciaron '],
+  [/^Más de 60 min en el directo$/, 'estuvieron más de 60 min en el directo'], [/^Directo hasta el final$/, 'vieron el directo hasta el final'],
+  [/^Tráfico templado$/, 'ya estaban en tu lista (tráfico templado)'], [/^Contactada por WhatsApp$/, 'recibieron tu WhatsApp'],
+  [/^Sigue en el grupo de WhatsApp$/, 'siguen en el grupo de WhatsApp'],
+];
+export function fraseSenal(label) {
+  for (const [re, txt] of PLURAL) if (re.test(label)) return label.replace(re, txt);
+  return label.charAt(0).toLowerCase() + label.slice(1);
+}
+
+// Qué predice la compra, en conclusiones que se entienden de un vistazo (Métricas → Conversión):
+//  · top: lo que más multiplica la compra (con muestra suficiente para no ser casualidad).
+//  · combos: dos señales juntas que compran más que cada una por separado.
+//  · retrato: qué hizo la mayoría de quienes compraron frente a la de todos los registros.
+//  · pocoImporta: lo que casi no cambia la compra (para no gastar esfuerzo ahí).
+//  · sinNada: compradoras que no hicieron ninguna de estas cosas.
+//  · decision: cómo deciden (compra en el directo, vueltas al pago, quien se quedó a las puertas).
+// tests: [[label, fn]]. Fiable = al menos 20 personas con la señal y 3 compras entre ellas.
+export function insightsCompra(leads, tests) {
+  const total = leads.length;
+  const compras = leads.filter((l) => l.s.compra);
+  const base = total ? compras.length / total : 0;
+  const filas = tests.map(([label, fn]) => {
+    const yes = leads.filter(fn);
+    const comprasCon = yes.filter((l) => l.s.compra).length;
+    const sin = total - yes.length;
+    const convCon = yes.length ? comprasCon / yes.length : 0;
+    const convSin = sin ? (compras.length - comprasCon) / sin : 0;
+    return {
+      label, frase: fraseSenal(label), fn, con: yes.length, comprasCon, convCon, convSin,
+      veces: yes.length && convSin ? convCon / convSin : null,
+      pctCompradoras: compras.length ? comprasCon / compras.length : 0,
+      pctLeads: total ? yes.length / total : 0,
+      fiable: yes.length >= 20 && comprasCon >= 3,
+    };
+  }).filter((f) => f.con);
+  const limpia = ({ fn, ...f }) => f;
+  const fiables = filas.filter((f) => f.fiable && f.veces != null);
+  const top = fiables.filter((f) => f.veces >= 1.5).sort((a, b) => b.veces - a.veces).slice(0, 3);
+  // Solo lo que hace una parte (ni casi nadie ni casi todas) y apenas mueve la compra.
+  const pocoImporta = fiables.filter((f) => f.veces < 1.3 && f.pctLeads >= 0.1 && f.pctLeads <= 0.9).sort((a, b) => a.veces - b.veces).slice(0, 3);
+  // Parejas: si una incluye a la otra (todas las de A tienen B) no aporta nada; y tiene que superar a las dos sueltas.
+  const combos = [];
+  for (let i = 0; i < fiables.length; i++) {
+    for (let j = i + 1; j < fiables.length; j++) {
+      const a = fiables[i]; const b = fiables[j];
+      const ambas = leads.filter((l) => a.fn(l) && b.fn(l));
+      if (ambas.length === a.con || ambas.length === b.con || ambas.length < 15) continue;
+      const cc = ambas.filter((l) => l.s.compra).length;
+      const conv = cc / ambas.length;
+      if (cc < 3 || conv < Math.max(a.convCon, b.convCon) * 1.1) continue;
+      combos.push({ a: a.frase, b: b.frase, con: ambas.length, compras: cc, conv, veces: base ? conv / base : null });
+    }
+  }
+  combos.sort((x, y) => y.conv - x.conv);
+  const retrato = filas.filter((f) => f.fiable && f.pctCompradoras - f.pctLeads >= 0.05).sort((a, b) => (b.pctCompradoras - b.pctLeads) - (a.pctCompradoras - a.pctLeads)).slice(0, 5);
+  const sinNada = compras.filter((l) => !tests.some(([, fn]) => fn(l))).length;
+  const visitas = compras.filter((l) => l.s.venta_visita?.veces);
+  const decision = {
+    enDirecto: compras.filter((l) => l.s.compra_directo).length,
+    checkoutRepetido: compras.filter((l) => (l.s.inicio_pago?.veces || 0) > 1).length,
+    conCheckout: compras.filter((l) => l.s.inicio_pago).length,
+    aLasPuertas: leads.filter((l) => l.s.inicio_pago && !l.s.compra).length,
+    visitasMedia: visitas.length ? visitas.reduce((t, l) => t + l.s.venta_visita.veces, 0) / visitas.length : null,
+  };
+  return {
+    total, compras: compras.length, base,
+    top: top.map(limpia), combos: combos.slice(0, 2), retrato: retrato.map(limpia), pocoImporta: pocoImporta.map(limpia),
+    sinNada, decision, pocosDatos: compras.length < 5 || !fiables.length,
+  };
 }
 
 // Ventas según la respuesta a una pregunta de la encuesta (campo de GHL). Si la respuesta es
@@ -305,12 +384,22 @@ export function perfilesCompradoras(leads, preguntas, objetivo = 'compra') {
   if (!N) return res;
   const minN = Math.max(8, Math.ceil(N * 0.02));
   const minK = Math.max(3, Math.ceil(K * 0.05));
+  // Texto libre: una respuesta solo es un patrón si la da al menos el 5 % (si no, «Algo concreto 22» con 30 personas
+  // salía como conclusión). Las demás no cuentan ni para las conclusiones ni para los perfiles.
+  const minTexto = Math.max(minN, Math.ceil(N * 0.05));
+  const frecTexto = new Map();
+  for (const p of preguntas.filter((q) => q.tipo === 'texto')) {
+    const f = new Map();
+    for (const l of answered) for (const r of respuestasDe(l, p)) f.set(r, (f.get(r) || 0) + 1);
+    frecTexto.set(p.id, f);
+  }
+  const vale = (p, r) => p.tipo !== 'texto' || frecTexto.get(p.id).get(r) >= minTexto;
 
-  const answersOf = new Map(answered.map((l) => [l, Object.fromEntries(preguntas.map((p) => [p.id, respuestasDe(l, p)]))]));
+  const answersOf = new Map(answered.map((l) => [l, Object.fromEntries(preguntas.map((p) => [p.id, respuestasDe(l, p).filter((r) => vale(p, r))]))]));
   for (const p of preguntas) {
     const g = new Map();
     for (const l of answered) {
-      for (const r of answersOf.get(l)[p.id]) {
+      for (const r of respuestasDe(l, p)) {
         const x = g.get(r) || { respuesta: r, leads: 0, compras: 0 };
         x.leads++;
         if (buys(l)) x.compras++;
@@ -319,7 +408,7 @@ export function perfilesCompradoras(leads, preguntas, objetivo = 'compra') {
     }
     let rows = [...g.values()].map((x) => ({
       ...x, conv: x.compras / x.leads, indice: base ? x.compras / x.leads / base : null,
-      pesoLeads: x.leads / N, pesoCompras: K ? x.compras / K : 0, pocos: x.leads < minN,
+      pesoLeads: x.leads / N, pesoCompras: K ? x.compras / K : 0, pocos: !vale(p, x.respuesta) || x.leads < minN,
     }));
     if (p.tipo === 'edad') rows.sort((a, b) => ORDEN_EDAD.indexOf(a.respuesta) - ORDEN_EDAD.indexOf(b.respuesta));
     else rows.sort((a, b) => b.leads - a.leads);
@@ -369,6 +458,35 @@ export function perfilesCompradoras(leads, preguntas, objetivo = 'compra') {
   res.minN = minN;
   res.minK = minK;
   return res;
+}
+
+// Retrato agregado de quien compra (Leads → Encuesta y Avatar comprador), a partir de perfilesCompradoras:
+//  · por pregunta, la respuesta que más abunda entre las compradoras frente a todas (`mejor`) y la que menos (`peor`),
+//    solo con datos suficientes y si de verdad compra más (o menos) que la media;
+//  · `traits`: esas respuestas juntas, para describir a la compradora típica en una frase (describirAvatar);
+//  · cuántas encajan con el retrato (todas sus respuestas, o casi todas si son 3 o más) y cuánto compran frente a la media.
+export function retratoComprador(leads, preguntas, r) {
+  const buys = (l) => (r.objetivo === 'vip' ? l.s.vip : l.s.compra);
+  const gap = (x) => x.pesoCompras - x.pesoLeads;
+  const rasgos = r.preguntas.map(({ p, rows }) => {
+    const ok = rows.filter((x) => !x.pocos && x.indice != null && x.leads >= (r.minN || 0));
+    const mejor = ok.filter((x) => x.indice >= 1.15 && x.compras >= (r.minK || 0)).sort((a, b) => gap(b) - gap(a))[0] || null;
+    const peor = ok.filter((x) => x.indice <= 0.85).sort((a, b) => gap(a) - gap(b))[0] || null;
+    return { p, mejor, peor };
+  });
+  const traits = rasgos.filter((x) => x.mejor).map((x) => [x.p.id, x.mejor.respuesta]);
+  const antiTraits = rasgos.filter((x) => x.peor).map((x) => [x.p.id, x.peor.respuesta]);
+  const respondieron = leads.filter((l) => preguntas.some((p) => respuestasDe(l, p).length));
+  const coincide = (l, ts) => ts.filter(([id, v]) => respuestasDe(l, preguntas.find((q) => q.id === id)).includes(v)).length;
+  const grupo = (ts, minimo) => {
+    if (!ts.length) return null;
+    const g = respondieron.filter((l) => coincide(l, ts) >= minimo);
+    const k = g.filter(buys).length;
+    return { leads: g.length, compras: k, conv: g.length ? k / g.length : 0, indice: g.length && r.conv ? k / g.length / r.conv : null, pesoLeads: r.leads ? g.length / r.leads : 0, pesoCompras: r.compras ? k / r.compras : 0, minimo, de: ts.length };
+  };
+  // Con 3 rasgos o más, casi nadie los tiene todos: cuenta quien tiene todos menos uno.
+  const encajan = grupo(traits, traits.length >= 3 ? traits.length - 1 : traits.length);
+  return { rasgos, traits, antiTraits, encajan, anti: grupo(antiTraits, antiTraits.length >= 3 ? antiTraits.length - 1 : antiTraits.length) };
 }
 
 // Primer avatar con el que encaja una lead (todas sus respuestas coinciden) o -1.
