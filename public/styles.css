@@ -849,6 +849,7 @@ button.kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .habitual-check { white-space: normal; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); line-height: 1.4; }
 .habitual-check input { margin-top: 3px; }
 .dialog-md { width: min(760px, calc(100vw - 32px)); }
+.dialog-lg { width: min(1040px, calc(100vw - 32px)); }
 .tv-meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .tv-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); }
 .tv-chip .ico { width: 14px; height: 14px; }
@@ -8673,3 +8674,20 @@ body:not(.can-bandeja) #btn-bandeja { display: none !important; }
 .bj-falta { grid-column: 1 / -1; margin: 0; color: var(--error); font-size: 13px; }
 .bj-acc { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
 @media (max-width: 600px) { .bj-item { flex-direction: column; } }
+
+/* ---------- Páginas con Claude y biblioteca de bloques ---------- */
+.pagia-tabs { display: flex; gap: 6px; margin: 12px 0 8px; }
+.pagia-vista { width: 100%; height: min(60vh, 560px); border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
+.pagia-html { width: 100%; font-family: ui-monospace, monospace; font-size: 12px; }
+.pagia-acc { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.pagia-rev { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 6px; }
+.pagia-rev li { padding: 8px 12px; border-radius: var(--radius-sm); background: var(--surface-2); line-height: 1.4; font-size: 14px; }
+.pagia-rev li.cambio { border-left: 3px solid var(--accent); }
+.pagia-rev li.aviso { border-left: 3px solid var(--error); }
+.pagia-rev li.ok { border-left: 3px solid #2e7d32; }
+.pg-acciones-ia { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.bq-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.bq-item { display: flex; gap: 10px; justify-content: space-between; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); flex-wrap: wrap; }
+.bq-item small { color: var(--muted); }
+.bq-acc { display: flex; gap: 6px; flex-wrap: wrap; }
+.bq-nuevo { display: grid; gap: 8px; margin-top: 12px; }

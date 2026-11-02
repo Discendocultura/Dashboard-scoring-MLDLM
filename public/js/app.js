@@ -42,6 +42,7 @@ import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto 
 import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE, ROL_OPERATIVA, ROLES_FIJOS } from './roles.js';
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
 import { CONDICIONES, ACCIONES, faltaEnRegla } from './reglas.js';
+import { revisarHtmlPagina } from './revisar-codigos.js';
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { enGruposDe, claveTelefono, leerMiembros } from './grupos-wa.js';
@@ -19079,14 +19080,108 @@ async function renderPaginas() {
       <div class="pg-chips"><span class="st-chip">${n} código${n === 1 ? '' : 's'} de AlquimIA</span>${p.formulario ? `<span class="st-chip">formulario de ${p.formulario === 'pago' ? 'pago' : 'registro'} de GHL</span>` : ''}</div>
       <div class="pg-acciones"><button type="button" class="btn primary" data-pag-copiar="${esc(p.id)}">📋 Copiar el prompt</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener" title="Abrir Claude en una pestaña nueva">🤖 Claude ↗</a></div>
       ${filaChatGPT(`data-pag-copiar="${esc(p.id)}"`, { tipo: 'codigo', txt: '📋 Copiar para ChatGPT' })}
+      <div class="pg-acciones-ia"><button type="button" class="btn" data-pag-ia="${esc(p.id)}" title="AlquimIA se lo pide a Claude y revisa los códigos antes de dártelo">✨ Crear con Claude</button><button type="button" class="btn ghost" data-pag-rev="${esc(p.id)}" title="Pega el código que te dio Claude (o el de tu página) y AlquimIA comprueba y arregla los códigos">🔍 Revisar mi código</button></div>
       <details class="st-ver pg-cuerpo"><summary>Personalizar y ver el prompt</summary>
         <p class="small"><strong>Lleva:</strong> ${esc(p.secciones.join(' · '))}</p>
         <label class="field"><span>Indicaciones para esta página <small>(opcional)</small></span><textarea rows="2" data-pag-notas="${esc(p.id)}" placeholder="Ej.: más corta; empieza con un testimonio…">${esc(ls.get(notasPagKey(p.id)) || '')}</textarea></label>
         <details><summary class="small">Ver el prompt</summary><pre class="snippet pg-prompt" data-pag-prompt="${esc(p.id)}"></pre></details>
       </details>
     </article>`;
-    }).join('')}</div>`;
+    }).join('')}</div>
+    <section class="card" id="bq-sec">
+      <h3>📚 Biblioteca de bloques</h3>
+      <p class="muted small">Lo que ya te funciona (una barra de urgencia, el BAR, el selector de grabaciones, un botón flotante…) guardado para usarlo en el siguiente lanzamiento${state.superadmin ? ' o con otro cliente (en «De la agencia»)' : ''}. «Usar en…» lo añade a las indicaciones de una página para que Claude lo incluya tal cual.</p>
+      <div id="bq-lista"><p class="muted small">Cargando…</p></div>
+      <details class="bq-nuevo-det"><summary class="small">＋ Añadir un bloque a mano</summary>
+        <div class="bq-nuevo"><input id="bq-nombre" placeholder="Nombre (p. ej. Barra de urgencia por fases)"><textarea id="bq-html" rows="5" class="snippet" placeholder="Pega aquí el código del bloque"></textarea>
+        ${state.superadmin ? '<label class="check"><input type="checkbox" id="bq-agencia"> De la agencia (para todos los clientes)</label>' : ''}
+        <button type="button" class="btn" id="bq-anadir">Guardar el bloque</button></div></details>
+    </section>`;
+  pintarBloques();
 }
+// ---- Páginas con Claude (✨) y revisión de códigos (🔍) ----
+const pagia = { pagina: null, html: '', prompt: '', codigos: [] };
+function pintarRevision(r) {
+  const filas = [...r.cambios.map((t) => ['cambio', `🔧 ${t}`]), ...r.avisos.map((t) => ['aviso', `⚠️ ${t}`])];
+  $('#pagia-revision').innerHTML = `<ul class="pagia-rev">${filas.length ? filas.map(([c, t]) => `<li class="${c}">${esc(t)}</li>`).join('') : '<li class="ok">✅ Los códigos de AlquimIA están todos y bien puestos.</li>'}</ul>`;
+  pagia.html = r.html;
+  $('#pagia-html').value = r.html;
+  $('#pagia-vista').srcdoc = r.html;
+  $('#pagia-res').hidden = false;
+}
+async function crearConClaude() {
+  const st = $('#pagia-estado');
+  $('#pagia-res').hidden = true;
+  st.textContent = '✨ Claude está haciendo la página con tu marca, tu narrativa y tus códigos… (puede tardar 1-2 minutos)';
+  try {
+    const r = await api('/api/paginas-ia', { method: 'POST', body: { op: 'crear', prompt: pagia.prompt, codigos: pagia.codigos } });
+    st.textContent = 'Lista. Revisada antes de dártela:';
+    pintarRevision(r);
+  } catch (err) { st.textContent = `No se ha podido: ${err.message}`; }
+}
+function abrirPagia(pId, modo) {
+  const c = contextoPaginas();
+  const p = paginasDe(c.tipo, c.opts || {}).find((x) => x.id === pId);
+  if (!p) return;
+  Object.assign(pagia, { pagina: p, prompt: promptDePagina(c, p), codigos: codigosDePagina(p, c.codigos, c.ctx) });
+  $('#pagia-titulo').textContent = `${modo === 'crear' ? '✨' : '🔍'} ${p.nombre}`;
+  $('#pagia-pegar').hidden = modo === 'crear';
+  $('#pagia-otra').hidden = modo !== 'crear';
+  $('#pagia-res').hidden = true;
+  $('#pagia-estado').textContent = modo === 'crear' ? '' : `Comprobará ${pagia.codigos.length} código${pagia.codigos.length === 1 ? '' : 's'} de AlquimIA de esta página.`;
+  $('#pagia-dialog').showModal();
+  if (modo === 'crear') crearConClaude();
+}
+$('#pagia-revisar').addEventListener('click', () => {
+  const html = $('#pagia-pegado').value.trim();
+  if (!html) { $('#pagia-estado').textContent = 'Pega antes el código.'; return; }
+  $('#pagia-estado').textContent = 'Revisado:';
+  pintarRevision(revisarHtmlPagina(html, pagia.codigos));
+});
+$('#pagia-otra').addEventListener('click', crearConClaude);
+$('#pagia-dialog').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-pagia-ver]');
+  if (!t) return;
+  $$('#pagia-dialog [data-pagia-ver]').forEach((x) => x.classList.toggle('on', x === t));
+  $('#pagia-vista').hidden = t.dataset.pagiaVer !== 'vista';
+  $('#pagia-html').hidden = t.dataset.pagiaVer !== 'codigo';
+});
+$('#pagia-html').addEventListener('input', (e) => { pagia.html = e.target.value; });
+$('#pagia-copiar').addEventListener('click', async (e) => {
+  try { await navigator.clipboard.writeText(pagia.html); e.target.textContent = 'Copiado ✓'; } catch { window.prompt('Copia el código:', pagia.html); }
+  setTimeout(() => { e.target.textContent = '📋 Copiar para GHL'; }, 2000);
+});
+$('#pagia-guardar').addEventListener('click', async () => {
+  const nombre = window.prompt('Nombre del bloque en la biblioteca:', `${pagia.pagina?.nombre || 'Página'} · ${state.config.launches[state.launchCode]?.name || clienteNombre() || ''}`.trim());
+  if (!nombre) return;
+  const agencia = state.superadmin && window.confirm('¿Guardarlo en la biblioteca de la agencia (para todos los clientes)?\n\nAceptar: de la agencia · Cancelar: solo de este cliente');
+  try { await api('/api/paginas-ia', { method: 'POST', body: { op: 'bloque', agencia, bloque: { nombre, html: pagia.html, pagina: pagia.pagina?.id || '' } } }); notice('📚 Guardado en la biblioteca.'); pintarBloques(); } catch (err) { notice(err.message, true); }
+});
+// ---- Biblioteca de bloques ----
+let bloques = { cliente: [], agencia: null };
+async function pintarBloques() {
+  const box = $('#bq-lista');
+  if (!box) return;
+  try { bloques = await api('/api/paginas-ia?bloques=1'); } catch (err) { box.innerHTML = `<p class="muted small">${esc(err.message)}</p>`; return; }
+  const c = contextoPaginas();
+  const pags = c.falta ? [] : paginasDe(c.tipo, c.opts || {});
+  const item = (b, ag) => `<li class="bq-item" data-bq="${esc(b.id)}" data-bq-ag="${ag ? 1 : 0}"><div><strong>${esc(b.nombre)}</strong><br><small>${ag ? 'De la agencia' : 'De este cliente'} · ${esc(new Date(b.en).toLocaleDateString('es-ES'))}${b.por ? ` · ${esc(b.por)}` : ''}</small></div>
+    <div class="bq-acc"><button type="button" class="btn small" data-bq-copiar>📋 Copiar</button>${pags.length ? `<select data-bq-usar class="small"><option value="">Usar en…</option>${pags.map((p) => `<option value="${esc(p.id)}">${esc(p.nombre)}</option>`).join('')}</select>` : ''}<button type="button" class="btn ghost small" data-bq-borrar title="Borrar">🗑</button></div></li>`;
+  const todos = [...(bloques.agencia || []).map((b) => item(b, true)), ...bloques.cliente.map((b) => item(b, false))];
+  box.innerHTML = todos.length ? `<ul class="bq-lista">${todos.join('')}</ul>` : '<p class="muted small">Aún no hay bloques. Guarda uno desde «✨ Crear con Claude» o «🔍 Revisar mi código», o añádelo a mano.</p>';
+}
+const bloqueDe = (el) => { const li = el.closest('[data-bq]'); const ag = li.dataset.bqAg === '1'; return { li, ag, b: (ag ? bloques.agencia : bloques.cliente).find((x) => x.id === li.dataset.bq) }; };
+$('#paginas-body').addEventListener('change', (e) => {
+  const sel = e.target.closest('[data-bq-usar]');
+  if (!sel || !sel.value) return;
+  const { b } = bloqueDe(sel);
+  const k = notasPagKey(sel.value);
+  ls.set(k, `${(ls.get(k) || '').trim()}\n\nIncluye tal cual este bloque, que ya funciona («${b.nombre}»), adaptando solo colores y textos a la página:\n${b.html}`.trim());
+  const ta = $(`[data-pag-notas="${sel.value}"]`);
+  if (ta) ta.value = ls.get(k);
+  notice(`📚 «${b.nombre}» añadido a las indicaciones de esa página: va en su prompt y en «✨ Crear con Claude».`);
+  sel.value = '';
+});
 $('#paginas-body').addEventListener('toggle', (e) => {
   const pre = e.target.querySelector?.('[data-pag-prompt]');
   if (!e.target.open || !pre || !e.target.contains(pre)) return;
@@ -19105,6 +19200,28 @@ $('#paginas-body').addEventListener('click', async (e) => {
     const t = urlsTexto(propuestasEmbudo(state.embudo));
     try { await navigator.clipboard.writeText(t); bu.textContent = 'Copiadas ✓'; } catch { window.prompt('Copia las URLs:', t); }
     setTimeout(() => { bu.textContent = '📋 Copiar todas'; }, 2000);
+    return;
+  }
+  const ia = e.target.closest('[data-pag-ia], [data-pag-rev]');
+  if (ia) { abrirPagia(ia.dataset.pagIa || ia.dataset.pagRev, ia.dataset.pagIa ? 'crear' : 'revisar'); return; }
+  const bq = e.target.closest('[data-bq-copiar], [data-bq-borrar]');
+  if (bq) {
+    const { b, ag } = bloqueDe(bq);
+    if (bq.matches('[data-bq-copiar]')) { try { await navigator.clipboard.writeText(b.html); bq.textContent = 'Copiado ✓'; } catch { window.prompt('Copia el bloque:', b.html); } return; }
+    if (!window.confirm(`¿Borrar «${b.nombre}» de la biblioteca?`)) return;
+    try { await api('/api/paginas-ia', { method: 'POST', body: { op: 'borrar-bloque', id: b.id, agencia: ag } }); pintarBloques(); } catch (err) { notice(err.message, true); }
+    return;
+  }
+  if (e.target.closest('#bq-anadir')) {
+    const nombre = $('#bq-nombre').value.trim();
+    const html = $('#bq-html').value.trim();
+    if (!nombre || !html) { notice('Pon un nombre y pega el código del bloque.', true); return; }
+    try {
+      await api('/api/paginas-ia', { method: 'POST', body: { op: 'bloque', agencia: Boolean($('#bq-agencia')?.checked), bloque: { nombre, html } } });
+      $('#bq-nombre').value = ''; $('#bq-html').value = '';
+      notice('📚 Bloque guardado.');
+      pintarBloques();
+    } catch (err) { notice(err.message, true); }
     return;
   }
   const b = e.target.closest('[data-pag-copiar]');
