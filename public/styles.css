@@ -8746,3 +8746,17 @@ body:not(.can-bandeja) #btn-bandeja { display: none !important; }
 .capi-token { margin: 0; font-size: 13.5px; }
 .capi-token.mal { color: var(--error); }
 .capi-log ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+
+/* 🎓 Alumnos de Skool (Métricas → Ventas) */
+.sk-n0 { background: var(--accent); }
+.sk-n1 { background: var(--st-frio); }
+.sk-n2 { background: #8a5cc2; }
+.sk-n3 { background: #2f9e6e; }
+.sk-split { height: 26px; margin-top: 14px; }
+.sk-fila { gap: 10px; flex-wrap: wrap; align-items: center; }
+.sk-imp { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+.sk-imp > summary { cursor: pointer; }
+.sk-imp ol { margin: 8px 0; padding-left: 18px; }
+.sk-prev { margin-top: 10px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-2); }
+.sk-prev p { margin: 0 0 8px; }
+.sk-tag { margin-top: 6px; }

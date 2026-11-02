@@ -7,6 +7,7 @@ import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { ORDEN_EDAD, preguntasDe } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
 import { resumenThrivecart, ventasDeCsv, productosVistos, deProductos } from './thrivecart.js';
+import { miembrosDeCsv, resumenSkool, tagAlumno, slugNivel } from './skool.js';
 import { resumenAb, MINIMO_AB } from './ab.js';
 import { pasosEmbudo, anchosEmbudo, fondoCapa } from './embudo-visual.js';
 import { promptAvatar } from './prompt-avatar.js';
@@ -3172,6 +3173,112 @@ document.addEventListener('click', async (e) => {
   $('#casi-estado').textContent = fallos ? `Etiquetadas ${hechas}; ${fallos} no se pudieron (vuelve a pulsar para reintentarlo).` : `Etiquetadas ${hechas} en GHL ✓`;
 });
 
+// 🎓 Alumnos de Skool (Métricas → Ventas): se sube el CSV de miembros de Skool (filtrado o no por fechas) y cada miembro
+// queda guardado como venta real (fuente «skool», con su nivel, precio y lo cobrado). Aquí, los que se unieron en el
+// periodo del lanzamiento: reparto por nivel, lo cobrado, lo que suman al mes y cuántos estaban registrados; y el botón
+// que pone en GHL la etiqueta de alumno de su nivel (`alumno-claves-premium`). La facturación y el ROAS salen arriba,
+// en «Ventas reales», al marcar sus niveles como productos del lanzamiento.
+const skool = { prev: null };
+const skoolPrefijo = (code) => ls.get(`lsd_skool_pref_${state.cliente || ''}_${code}`) || `alumno-${slugNivel(nombreProducto(state.config)) || 'skool'}`;
+async function renderSkool() {
+  const box = $('#skool-l');
+  if (!box) return;
+  const code = state.launchCode;
+  const { desde, hasta } = periodoLanz(code);
+  const ventas = (await ventasReales(desde, hasta)).filter((v) => v.fuente === 'skool');
+  if (state.launchCode !== code) return;
+  const emails = new Set(state.leads.map((l) => String(l.email || '').toLowerCase()).filter(Boolean));
+  const r = resumenSkool(ventas, { desde, hasta, emails });
+  const puede = puedeConfig();
+  const importar = puede ? `<details class="sk-imp"${r.total ? '' : ' open'}><summary>⬆️ <strong>${r.total ? 'Actualizar con un CSV nuevo' : 'Importar el CSV de miembros de Skool'}</strong></summary>
+      <ol class="muted small"><li>En Skool: <strong>Miembros</strong> → filtra si quieres por fecha de alta → <strong>Exportar CSV</strong>.</li><li>Súbelo aquí: verás lo que se va a guardar antes de confirmarlo.</li><li>Puedes subirlo las veces que quieras: cada miembro se actualiza (lo cobrado crece con cada renovación), no se repite.</li></ol>
+      <div class="row sk-fila"><input type="file" id="sk-csv" accept=".csv,text/csv"> <label class="field inline"><span>1 $ =</span><input type="number" id="sk-cambio" step="0.0001" min="0.1" max="5" value="${esc(ls.get('lsd_skool_cambio') || '')}" placeholder="0,86" style="width:90px"> <span>€</span></label></div>
+      <p class="muted small">El cambio solo hace falta si Skool cobra en dólares: así la facturación y el ROAS salen en euros, como la inversión de Meta.</p>
+      <div id="sk-prev"></div>
+    </details>` : '';
+  if (!r.total) {
+    box.innerHTML = `<p class="muted">Aún no hay alumnos de Skool que se unieran en las fechas de este lanzamiento.${puede ? '' : ' Pídele a quien configura el embudo que suba el CSV de miembros de Skool.'}</p>${importar}`;
+    return;
+  }
+  const pref = skoolPrefijo(code);
+  const fila = (f) => `<tr><td><strong>${esc(f.nivel)}</strong></td><td class="num">${f.n} <span class="muted">${pctOf(f.n, r.total)}</span></td><td class="num">${eur(f.cobrado)}</td><td class="num">${f.mrr ? eur(f.mrr) : '–'}</td><td class="num">${f.registrados} <span class="muted">${pctOf(f.registrados, f.n)}</span></td><td><code>${esc(tagAlumno(pref, f.nivel))}</code></td></tr>`;
+  const barra = `<div class="split-bar sk-split" role="img" aria-label="Reparto por nivel">${r.filas.map((f, i) => `<span class="sk-n${i % 4}" style="flex:${f.n}" title="${esc(f.nivel)}: ${f.n}">${Math.round(f.pct * 100)}%</span>`).join('')}</div>
+    <div class="split-legend">${r.filas.map((f, i) => `<span><span class="sw sk-n${i % 4}"></span><strong>${esc(f.nivel)}:</strong> ${f.n} (${pctOf(f.n, r.total)})</span>`).join('')}</div>`;
+  const etiquetar = puede ? `<div class="sk-tag"><h4 class="cv-h4">🏷️ Etiqueta de alumno en GHL</h4>
+      <div class="row sk-fila"><label class="field inline"><span>Prefijo</span><input id="sk-pref" value="${esc(pref)}" style="width:200px"></label> <span class="muted small">→ ${r.filas.slice(0, 3).map((f) => `<code>${esc(tagAlumno(pref, f.nivel))}</code>`).join(' · ')}</span></div>
+      <p class="row"><button type="button" class="btn primary" id="sk-etiquetar">Etiquetar a los ${r.total} en GHL</button> <span class="muted small" id="sk-tag-st">Busca a cada uno por su email en GHL y le pone la etiqueta de su nivel. A quien no esté en GHL no se le crea: te lo digo.</span></p></div>` : '';
+  box.innerHTML = `<div class="kpis">
+      ${card('Alumnos nuevos', r.total, `se unieron en el lanzamiento · ${r.registrados} estaban registrados (${pctOf(r.registrados, r.total)})`, 'users', 'buy')}
+      ${card('Cobrado en Skool', eur(r.cobrado), `${r.sinLtv ? `${r.sinLtv} sin LTV en el CSV: cuenta su precio · ` : ''}con IVA, lo que han pagado hasta hoy`, 'coins', 'money')}
+      ${r.mrr ? card('Ingreso al mes', eur(r.mrr), 'lo que suman sus cuotas cada mes (los anuales, entre 12)', 'trend', 'vip') : ''}
+    </div>
+    ${barra}
+    <div class="table-scroll"><table class="metric-table"><thead><tr><th>Nivel</th><th class="num">Alumnos</th><th class="num">Cobrado</th><th class="num">Al mes</th><th class="num">Registrados</th><th>Etiqueta</th></tr></thead><tbody>${r.filas.map(fila).join('')}</tbody></table></div>
+    <p class="muted small">Para que cuenten en la <strong>facturación y el ROAS</strong> del lanzamiento, márcalos en Resumen → «Ventas reales» → «Qué ventas son de este lanzamiento» (salen como «Skool · ${esc(r.filas[0].nivel)}»…). Sin marcar nada, cuentan solo los alumnos que estaban registrados.</p>
+    ${etiquetar}${importar}`;
+}
+document.addEventListener('change', async (e) => {
+  if (e.target.id === 'sk-cambio') { ls.set('lsd_skool_cambio', e.target.value); return; }
+  if (e.target.id === 'sk-pref') { ls.set(`lsd_skool_pref_${state.cliente || ''}_${state.launchCode}`, slugNivel(e.target.value)); renderSkool(); return; }
+  if (e.target.id !== 'sk-csv' || !e.target.files?.[0]) return;
+  const r = miembrosDeCsv(await e.target.files[0].text());
+  skool.prev = r;
+  const prev = $('#sk-prev');
+  if (!r.miembros.length) {
+    prev.innerHTML = `<p class="notice err">No encuentro ${r.faltan.includes('email') ? 'la columna del email' : 'miembros con email'} en este archivo.${r.cabecera ? ` Columnas: ${r.cabecera.map((c) => `«${esc(c)}»`).join(', ')}.` : ''}</p>`;
+    return;
+  }
+  const niveles = [...new Set(r.miembros.map((m) => m.nivel))];
+  const fechas = r.miembros.map((m) => m.fecha).filter(Boolean).sort((a, b) => a - b);
+  const usd = r.miembros.some((m) => m.moneda === 'USD');
+  const dia = (ms) => new Date(ms).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  const falta = ['nivel', 'precio', 'ltv'].filter((k) => r.columnas[k] == null);
+  prev.innerHTML = `<div class="sk-prev">
+    <p><strong>${r.miembros.length} miembros</strong>${fechas.length ? ` · se unieron del ${dia(fechas[0])} al ${dia(fechas.at(-1))}` : ''} · niveles: ${niveles.map((n) => `<strong>${esc(n)}</strong> (${r.miembros.filter((m) => m.nivel === n).length})`).join(', ')}${usd ? ' · en dólares' : ''}.</p>
+    ${r.faltan.includes('fecha') ? '<p class="notice err">No encuentro la columna de la fecha de alta: sin ella no se sabe qué miembros son de cada lanzamiento.</p>' : ''}
+    ${falta.length ? `<p class="notice">No encuentro ${falta.map((k) => ({ nivel: 'el nivel', precio: 'el precio', ltv: 'lo cobrado (LTV)' }[k])).join(', ')}. ${falta.includes('ltv') ? 'Sin el LTV, cada alumno cuenta como un cobro de su precio.' : ''}</p>` : ''}
+    ${usd ? '<p class="muted small">Pon arriba cuántos euros es un dólar antes de importar.</p>' : ''}
+    <p><button type="button" class="btn primary" id="sk-importar"${r.faltan.includes('fecha') ? ' disabled' : ''}>Importar ${r.miembros.length} miembros</button> <span class="muted small" id="sk-imp-st"></span></p></div>`;
+});
+document.addEventListener('click', async (e) => {
+  if (e.target.id === 'sk-importar') {
+    const b = e.target;
+    const r = skool.prev;
+    const cambio = Number(String($('#sk-cambio')?.value || '').replace(',', '.'));
+    if (r.miembros.some((m) => m.moneda === 'USD') && !(cambio > 0)) { $('#sk-imp-st').textContent = 'Pon el cambio del dólar (1 $ = … €).'; return; }
+    b.disabled = true;
+    try {
+      const x = await api('/api/skool?op=importar', { method: 'POST', body: { miembros: r.miembros, cambio } });
+      Object.keys(tcCache).forEach((k) => delete tcCache[k]);
+      skool.prev = null;
+      notice(`Skool: ${x.nuevos} alumnos nuevos y ${x.actualizados} actualizados${x.descartados ? ` (${x.descartados} sin email o fecha válidos)` : ''}.`);
+      renderMetrics();
+    } catch (ex) { b.disabled = false; $('#sk-imp-st').textContent = ex.message; }
+    return;
+  }
+  if (e.target.id !== 'sk-etiquetar') return;
+  const b = e.target;
+  const code = state.launchCode;
+  const pref = skoolPrefijo(code);
+  const { desde, hasta } = periodoLanz(code);
+  const r = resumenSkool(await ventasReales(desde, hasta), { desde, hasta });
+  const items = r.miembros.map((v) => ({ email: v.email, tag: tagAlumno(pref, v.plan) })).filter((x) => x.tag);
+  if (!items.length) return;
+  if (!window.confirm(`Se va a poner en GHL la etiqueta de su nivel a ${items.length} alumnos (${[...new Set(items.map((x) => x.tag))].join(', ')}). Si algún workflow empieza con esas etiquetas, se pondrá en marcha. ¿Continuar?`)) return;
+  b.disabled = true;
+  const st = $('#sk-tag-st');
+  let ok = 0; const fuera = []; let fallos = 0;
+  for (let i = 0; i < items.length; i += 25) {
+    try {
+      const { results } = await api('/api/skool?op=etiquetar', { method: 'POST', body: { items: items.slice(i, i + 25) } });
+      for (const x of results) { if (x.ok) ok++; else if (x.motivo === 'no está en GHL') fuera.push(x.email); else fallos++; }
+    } catch { fallos += items.slice(i, i + 25).length; }
+    if (st) st.textContent = `Etiquetando… ${Math.min(i + 25, items.length)} de ${items.length}`;
+  }
+  b.disabled = false;
+  if (st) st.innerHTML = `✓ ${ok} etiquetados en GHL.${fuera.length ? ` ${fuera.length} no están en GHL: ${fuera.slice(0, 8).map(esc).join(', ')}${fuera.length > 8 ? '…' : ''}.` : ''}${fallos ? ` ${fallos} fallaron: vuelve a pulsar para reintentarlo.` : ''}`;
+});
+
 // Compradores fichados (Métricas → Ventas): cada persona que compró en este lanzamiento con su email, su WhatsApp,
 // cómo pagó y todo lo que hizo antes (los mismos chips que en Setting hoy). Con buscador y descarga en CSV.
 const compr = { q: '', ver: 30 };
@@ -3383,6 +3490,7 @@ function renderMetrics() {
   renderRetrospectiva(m, launch);
   renderCasiCompradoras(launch);
   renderCompradores();
+  renderSkool();
   // Métricas → Downsell abierta: el meteórico y su conversión de ESTE lanzamiento (y con sus leads).
   if (!$('#view-metricas [data-msub="meteorico"]').hidden) renderMeteoLanz();
   // Carrito abierto: ritmo frente al objetivo, bonus que caducan y cierre (visible en todas las pestañas).
@@ -3674,11 +3782,12 @@ const tcCache = {};
 async function ventasReales(desde, hasta) {
   const clave = `${state.cliente || ''}:${desde}:${hasta}`;
   if (tcCache[clave] && Date.now() - tcCache[clave].at < 5 * 60_000) return tcCache[clave].ventas;
-  const [tc, hm] = await Promise.all([
+  const [tc, hm, sk] = await Promise.all([
     api(`/api/thrivecart?op=ventas&desde=${desde}&hasta=${hasta}`).catch(() => ({ ventas: [] })),
     api(`/api/hotmart?op=ventas&desde=${desde}&hasta=${hasta}`).catch(() => ({ ventas: [] })),
+    api(`/api/skool?op=ventas&desde=${desde}&hasta=${hasta}`).catch(() => ({ ventas: [] })),
   ]);
-  const ventas = [...(tc.ventas || []), ...(hm.ventas || [])].sort((a, b) => a.fecha - b.fecha);
+  const ventas = [...(tc.ventas || []), ...(hm.ventas || []), ...(sk.ventas || [])].sort((a, b) => a.fecha - b.fecha);
   tcCache[clave] = { at: Date.now(), ventas };
   return ventas;
 }
@@ -3691,7 +3800,7 @@ function cifrasReales(r, { iva = 21, inversion = null, sub = '' } = {}) {
   const netoLlega = r.netoExacto + sinIva(r.sinNeto);
   const x2 = (v) => (v == null ? '–' : `${v.toFixed(2).replace('.', ',')}x`);
   const fuentes = Object.entries(r.porFuente || {});
-  const chip = ([f, d]) => `<span class="tc-fuente tc-f-${f}">${f === 'hotmart' ? '🔥 Hotmart' : '💳 ThriveCart'} · ${d.cobros} ${d.cobros === 1 ? 'venta' : 'ventas'} · ${eur(d.cobrado)}${f === 'hotmart' ? ` · te llegan ${eur(d.neto)}` : ''}</span>`;
+  const chip = ([f, d]) => `<span class="tc-fuente tc-f-${f}">${f === 'hotmart' ? '🔥 Hotmart' : f === 'skool' ? '🎓 Skool' : '💳 ThriveCart'} · ${d.cobros} ${d.cobros === 1 ? 'venta' : 'ventas'} · ${eur(d.cobrado)}${f === 'hotmart' ? ` · te llegan ${eur(d.neto)}` : ''}</span>`;
   const html = `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">💶</span><div><strong>Ventas reales</strong><small class="muted">${sub}</small></div>${fuentes.length ? `<div class="tc-fuentes">${fuentes.map(chip).join('')}</div>` : ''}</div>
     <div class="tc-cifras">
       <div><span>Lo que pagan</span><strong>${eur(r.cobrado)}</strong><small>${r.cobros} ${r.cobros === 1 ? 'venta' : 'ventas'} · ${r.compradoras} ${r.compradoras === 1 ? 'compradora' : 'compradoras'} · con IVA</small></div>
@@ -3704,7 +3813,7 @@ function cifrasReales(r, { iva = 21, inversion = null, sub = '' } = {}) {
 // Los productos de un embudo para las ventas reales: los de ThriveCart tal cual y los de Hotmart como «hm:<id>».
 const prodsReales = (tc = [], hm = []) => [...(tc || []), ...(hm || []).map((x) => `hm:${x}`)];
 // Nombre de la plataforma de un producto visto («hm:…» es Hotmart).
-const plataformaDe = (clave) => (String(clave).startsWith('hm:') ? 'Hotmart' : 'ThriveCart');
+const plataformaDe = (clave) => (String(clave).startsWith('hm:') ? 'Hotmart' : /^skool · /i.test(String(clave)) ? 'Skool' : 'ThriveCart');
 function periodoLanz(code) {
   const l = state.config.launches[code] || {};
   const desde = l.inicioCaptacion ? Date.parse(`${l.inicioCaptacion}T00:00:00`) - 7 * 86_400_000 : 0;
