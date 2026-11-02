@@ -8679,6 +8679,15 @@ function readForm() {
   };
 }
 
+// Zoom automático: al cambiar el día o la hora de un directo, el servidor mueve su sala de Zoom (y lo cuenta aquí).
+function avisarZoomMovidas(lista) {
+  if (!lista?.length) return;
+  const f = (m) => `${m.video === 'Webinar en directo' ? 'el directo' : m.video} de «${m.nombre}» (${fechaCortaAud(m.fecha)} a las ${m.hora})`;
+  const bien = lista.filter((m) => m.movida);
+  const mal = lista.filter((m) => !m.movida);
+  if (bien.length) notice(`🎥 Sala de Zoom movida: ${bien.map(f).join(' · ')}.`);
+  if (mal.length) notice(`⚠️ No se ha movido la sala de Zoom de ${mal.map((m) => `${f(m)}: ${m.motivo}`).join(' · ')}.`, true);
+}
 $('#cfg-save').addEventListener('click', async () => {
   const status = $('#cfg-status');
   try {
@@ -8700,8 +8709,9 @@ $('#cfg-save').addEventListener('click', async () => {
     status.textContent = 'Guardando…';
     $('#cfg-save').disabled = true;
     const isNew = !editingCode;
-    const { config } = await api('/api/config', { method: 'POST', body: next });
+    const { config, zoomMovidas } = await api('/api/config', { method: 'POST', body: next });
     state.config = config;
+    avisarZoomMovidas(zoomMovidas);
     editingCode = code;
     $('#cfg-code').readOnly = true;
     status.textContent = 'Guardado ✓';
@@ -15280,12 +15290,34 @@ function pintarAuditor() {
   const item = (x) => `<li class="aud-item n-${x.nivel}" data-aud="${esc(audKey(x))}">
       <span class="aud-ico" aria-hidden="true">${AUD_NIVEL[x.nivel].icon}</span>
       <div class="aud-txt"><span class="aud-area">${esc(x.area)}</span><strong>${esc(x.titulo)}</strong>${x.detalle ? `<small>${esc(x.detalle)}</small>` : ''}</div>
-      <div class="aud-acc">${x.accion ? `<button type="button" class="btn primary" data-aud-ir='${esc(JSON.stringify(x.accion))}'>Arreglar →</button>` : ''}
+      <div class="aud-acc">${x.accion ? `<button type="button" class="btn primary" data-aud-ir='${esc(JSON.stringify(x.accion))}'>${x.accion.tipo === 'zoom' ? 'Crear sala →' : 'Arreglar →'}</button>` : ''}
         <button type="button" class="btn ghost" data-aud-ign title="No volver a avisar de esto en este lanzamiento">Ignorar</button></div></li>`;
   $('#aud-lista').innerHTML = (activos.length ? `<ul class="aud-list">${activos.map(item).join('')}</ul>` : '<p class="aud-vacio">No hay nada pendiente: configuración, tareas y datos están en orden. 🎉</p>')
     + (ignorados.length ? `<details class="aud-ign"><summary>${ignorados.length} ignorado${ignorados.length === 1 ? '' : 's'}</summary><ul class="aud-list">${ignorados.map((x) => item(x).replace('data-aud-ign title="No volver a avisar de esto en este lanzamiento">Ignorar', 'data-aud-rest>Volver a avisar')).join('')}</ul></details>` : '');
 }
 
+// «Crear sala →» del auditor: crea la sala de Zoom del vídeo con su día y hora (con los ajustes de la del vídeo 1) y la guarda.
+async function crearSalaDesdeAuditor(k) {
+  const code = state.launchCode;
+  const l = state.config.launches[code];
+  const v = videosDe(l)[k - 1];
+  if (!v) return;
+  if (!state.zoomConfigured) { notice('Zoom no está conectado en este cliente (Cuenta → Conexiones).', true); return; }
+  if (!v.fecha || !v.hora) { notice(`Pon antes el día y la hora del ${v.nombre} en Configuración.`, true); await openConfig(code); return; }
+  if (!window.confirm(`¿Crear la sala de Zoom del ${v.nombre} (${fechaCortaAud(v.fecha)} a las ${v.hora}) y guardarla en el lanzamiento?`)) return;
+  try {
+    notice('🎥 Creando la sala en Zoom…');
+    const z = await api('/api/zoom-sala', { method: 'POST', body: { topic: `${clienteNombre() ? `${clienteNombre()} · ` : ''}${l.name}${videosDe(l).length > 1 ? ` · ${v.nombre}` : ''}`, fecha: v.fecha, hora: v.hora, copiarDe: k === 1 ? '' : String(l.zoomMeetingId || '').replace(/\D/g, '') } });
+    const actual = state.config.launches[code];
+    const nuevo = k === 1 ? { ...actual, zoomMeetingId: z.id, zoomJoinUrl: z.joinUrl }
+      : { ...actual, videos: Array.from({ length: Math.max(k - 1, (actual.videos || []).length) }, (_, i) => (i === k - 2 ? { ...(actual.videos?.[i] || {}), zoomMeetingId: z.id, zoomJoinUrl: z.joinUrl } : actual.videos?.[i] || {})) };
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, launches: { ...state.config.launches, [code]: nuevo } } });
+    state.config = config;
+    notice(`✅ Sala de Zoom del ${v.nombre} creada y guardada (ID ${z.id}).`);
+    actualizarAuditor();
+    if (!$('#auditor-dialog').open) { pintarAuditor(); $('#auditor-dialog').showModal(); }
+  } catch (err) { notice(`No se pudo crear la sala: ${err.message}`, true); }
+}
 $('#btn-auditor').addEventListener('click', () => {
   pintarAuditor();
   const sim = $('#aud-simulacro');
@@ -15334,6 +15366,7 @@ $('#aud-lista').addEventListener('click', async (e) => {
   else if (acc.tipo === 'tarea') abrirTarea(acc.id);
   else if (acc.tipo === 'vista') showView(acc.v);
   else if (acc.tipo === 'directa') abrirDirectaConfig();
+  else if (acc.tipo === 'zoom') crearSalaDesdeAuditor(acc.k);
   else if (acc.tipo === 'vsl') { await openVslConfig(); $(`#vsl-config-dialog .tab[data-tab="${acc.tab}"]`)?.click(); }
 });
 

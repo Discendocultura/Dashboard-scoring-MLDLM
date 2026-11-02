@@ -1,7 +1,9 @@
 import { requireRole, requireSession, tienePermiso } from '../lib/auth.js';
 import { PERMISOS_DATOS } from '../public/js/roles.js';
 import { getConfig, saveConfig } from '../lib/config-store.js';
-import { zoomConfigured } from '../lib/zoom.js';
+import { zoomConfigured, moverReunion } from '../lib/zoom.js';
+import { salasAMover } from '../public/js/videos.js';
+import { dayInMadrid } from '../public/js/scoring.js';
 import { sendflowConfigurado } from '../lib/sendflow.js';
 import { sanitizeNarrativa } from '../public/js/narrativa.js';
 import { sanitizeAutomatizaciones } from '../public/js/automatizaciones.js';
@@ -181,6 +183,17 @@ export async function POST(request) {
       { ...actual, ...body, ...('vsl' in body && !('vsls' in body) ? { vsls: { ...actual.vsls, vsl: body.vsl } } : {}) },
       { version },
     );
+    // Zoom automático: si ha cambiado el día o la hora de un directo, su sala de Zoom se mueve con él.
+    let zoomMovidas = [];
+    const mover = zoomConfigured() ? salasAMover(actual.launches, config.launches, dayInMadrid(new Date().toISOString())) : [];
+    for (const m of mover) {
+      try {
+        const r = await moverReunion(m.id, m);
+        if (!r.igual) zoomMovidas.push({ nombre: m.nombre, video: m.video, fecha: m.fecha, hora: m.hora, movida: r.movida, motivo: r.motivo || '' });
+      } catch (err) {
+        zoomMovidas.push({ nombre: m.nombre, video: m.video, fecha: m.fecha, hora: m.hora, movida: false, motivo: String(err.publicMessage || err.message).slice(0, 160) });
+      }
+    }
     // Los productos de las ventas cruzadas entran solos en Mi negocio → Productos (si falla, se reintenta al leerlo).
     let catalogoNuevos = 0;
     if (Object.keys(config.cruzadas || {}).length) {
@@ -189,7 +202,7 @@ export async function POST(request) {
         catalogoNuevos = Math.max(0, (await cargarCatalogo()).productos.length - antes);
       } catch (err) { console.error('Productos de ventas cruzadas', err.message); }
     }
-    return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config), catalogoNuevos });
+    return json({ config: configDeEmbudos(config, ses.embudos), version: versionDe(config), catalogoNuevos, ...(zoomMovidas.length ? { zoomMovidas } : {}) });
   } catch (e) {
     return errorResponse(e);
   }

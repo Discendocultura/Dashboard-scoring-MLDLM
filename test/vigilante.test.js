@@ -62,3 +62,46 @@ test('/api/vigilante: clave del cron y botón «Revisar ahora»', async () => {
   assert.ok(Array.isArray(r.problemas));
   assert.equal((await POST(new Request('http://localhost/api/vigilante', { method: 'POST', body: '{"op":"revisar"}' }))).status, 401);
 });
+
+test('Zoom automático: qué salas se mueven al cambiar el día o la hora del directo', async () => {
+  const { salasAMover } = await import('../public/js/videos.js');
+  const antes = { a: { name: 'A', formato: 'v2', fechaDirecto: '2026-11-10', horaDirecto: '19:00', zoomMeetingId: '111', videos: [{ fecha: '2026-11-11', hora: '19:00', zoomMeetingId: '222' }] },
+    b: { name: 'B', fechaDirecto: '2026-11-20', horaDirecto: '19:00', zoomMeetingId: '333' } };
+  const despues = { ...antes, a: { ...antes.a, horaDirecto: '18:30', videos: [{ fecha: '2026-11-12', hora: '19:00', zoomMeetingId: '222' }] } };
+  assert.deepEqual(salasAMover(antes, despues, '2026-11-02').map((m) => `${m.id}@${m.fecha}T${m.hora}`), ['111@2026-11-10T18:30', '222@2026-11-12T19:00']);
+  // Sala cambiada a la vez que la fecha, directo pasado o sala compartida con otro lanzamiento: no se toca
+  assert.deepEqual(salasAMover(antes, { ...antes, a: { ...antes.a, horaDirecto: '18:30', zoomMeetingId: '999' } }, '2026-11-02'), []);
+  assert.deepEqual(salasAMover(antes, despues, '2026-11-15'), []);
+  assert.deepEqual(salasAMover(antes, { ...despues, b: { ...antes.b, zoomMeetingId: '111' } }, '2026-11-02').map((m) => m.id), ['222']);
+});
+
+test('Vigilante: salas de Zoom que no existen, a otra hora o sin registro', async () => {
+  const { revisarSalas } = await import('../lib/vigilante.js');
+  const salas = { 111: { tipo: 2, inicio: '2026-11-03T19:00', registro: 0 }, 222: { tipo: 2, inicio: '2026-11-05T19:00', registro: 2 } };
+  const l = { formato: 'v2', fechaDirecto: '2026-11-03', horaDirecto: '19:00', zoomMeetingId: '111', videos: [{ fecha: '2026-11-04', hora: '19:00', zoomMeetingId: '222' }] };
+  const r = await revisarSalas(l, '2026-11-02', { leer: async (id) => salas[id] || null });
+  assert.deepEqual(r.map((x) => `${x.nivel}:${x.titulo}`), ['critico:La sala de Zoom del Vídeo 2 está puesta para otro momento', 'critico:La sala de Zoom del Vídeo 2 no tiene registro']);
+  const r2 = await revisarSalas({ ...l, zoomMeetingId: '404' }, '2026-11-02', { leer: async (id) => salas[id] || null });
+  assert.deepEqual(r2[0].accion, { tipo: 'zoom', k: 1 });
+  assert.match(r2[0].titulo, /no existe/);
+  // Zoom caído: no se inventa un problema
+  assert.deepEqual(await revisarSalas(l, '2026-11-02', { leer: async () => { throw new Error('Zoom 500'); } }), []);
+});
+
+test('Zoom automático: al guardar la configuración con otra hora, la sala se mueve en Zoom', async () => {
+  const { setEnv } = await import('../lib/env.js');
+  const { crearD1Local } = await import('../lib/d1-local.js');
+  setEnv({ DB: crearD1Local() });
+  const { POST: login } = await import('../handlers/login.js');
+  const cookie = (await login(new Request('http://localhost/api/login', { method: 'POST', body: '{"password":"admin"}' }))).headers.get('set-cookie').split(';')[0];
+  const config = await import('../handlers/config.js');
+  const { crearReunion, leerReunion } = await import('../lib/zoom.js');
+  const z = await crearReunion({ topic: 'x', fecha: '2099-01-10', hora: '19:00' });
+  const cur = await (await config.GET(new Request('http://localhost/api/config', { headers: { cookie } }))).json();
+  const l = { name: 'Zoom auto', registroTag: 'reg-zoom-auto', fechaDirecto: '2099-01-10', horaDirecto: '19:00', zoomMeetingId: z.id };
+  const post = (launches) => config.POST(new Request('http://localhost/api/config', { method: 'POST', headers: { cookie }, body: JSON.stringify({ ...cur.config, launches: { ...cur.config.launches, ...launches } }) }));
+  assert.equal((await post({ zauto: l })).status, 200);
+  const r = await (await post({ zauto: { ...l, fechaDirecto: '2099-01-11', horaDirecto: '18:30' } })).json();
+  assert.deepEqual(r.zoomMovidas.map((m) => m.movida), [true]);
+  assert.equal((await leerReunion(z.id)).inicio, '2099-01-11T18:30');
+});

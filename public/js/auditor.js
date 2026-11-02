@@ -79,7 +79,7 @@ export function auditarLanzamiento(p) {
     const pedido = Array.isArray(l.espera?.directos) && l.espera.directos.includes(v.k);
     if (pedido || (esEnDirecto(vids[0]) && !v.replayVideoUrl)) {
       add(pedido ? urgencia(diasHasta(v.fecha, hoy)) : diasHasta(v.fecha, hoy) <= 3 ? 'importante' : 'aviso', 'Enlaces y páginas', `Falta el Zoom del ${v.nombre}`,
-        `${pedido ? 'Tiene pantalla de espera, pero' : 'Si es en directo:'} sin el ID de Zoom no sale la pantalla de espera ese día y a la hora la página manda a la grabación. Se emite el ${fmt(v.fecha)} (${cuando(diasHasta(v.fecha, hoy))}).`, campo(`cfg-v${v.k}-zoomMeetingId`));
+        `${pedido ? 'Tiene pantalla de espera, pero' : 'Si es en directo:'} sin el ID de Zoom no sale la pantalla de espera ese día y a la hora la página manda a la grabación. Se emite el ${fmt(v.fecha)} (${cuando(diasHasta(v.fecha, hoy))}).`, { tipo: 'zoom', k: v.k });
     }
   }
   if (l.espera?.activa !== false && Number(l.espera?.antesMin) === 0 && vids.some((v) => esEnDirecto(v) && esperaEn(v.k) && v.fecha && dia(v.fecha) >= hoy)) {
@@ -143,7 +143,7 @@ export function auditarLanzamiento(p) {
     if (l[k]) continue;
     const yaPaso = H[hito].d && H[hito].d < hoy && hito !== 'captacion';
     if (yaPaso && ['clase1', 'clase2', 'clase3'].includes(hito)) continue; // ya no tiene arreglo útil
-    add(urgencia(n(hito)), 'Enlaces y páginas', `Falta ${t}`, antesDe(hito), campo(id));
+    add(urgencia(n(hito)), 'Enlaces y páginas', `Falta ${t}`, antesDe(hito), k === 'zoomMeetingId' ? { tipo: 'zoom', k: 1 } : campo(id));
   }
   // Pantalla de espera activa: el plan B del directo (botón directo a Zoom en las páginas de GHL, por si el
   // dashboard no carga, p. ej. bloqueos de red a Cloudflare en España) necesita el enlace genérico de Zoom.
