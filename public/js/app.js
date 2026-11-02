@@ -15001,7 +15001,34 @@ function pintarAuditor() {
     + (ignorados.length ? `<details class="aud-ign"><summary>${ignorados.length} ignorado${ignorados.length === 1 ? '' : 's'}</summary><ul class="aud-list">${ignorados.map((x) => item(x).replace('data-aud-ign title="No volver a avisar de esto en este lanzamiento">Ignorar', 'data-aud-rest>Volver a avisar')).join('')}</ul></details>` : '');
 }
 
-$('#btn-auditor').addEventListener('click', () => { pintarAuditor(); $('#auditor-dialog').showModal(); });
+$('#btn-auditor').addEventListener('click', () => {
+  pintarAuditor();
+  const sim = $('#aud-simulacro');
+  sim.hidden = enVsl() || enDirecta() || !state.config.launches[state.launchCode];
+  if (sim.dataset.code !== state.launchCode) { sim.dataset.code = state.launchCode || ''; $('#aud-sim-res').innerHTML = ''; }
+  $('#auditor-dialog').showModal();
+});
+// Simulacro: el servidor abre las páginas publicadas en GHL (aquí el navegador no puede por CORS).
+$('#aud-sim-btn').addEventListener('click', async () => {
+  const b = $('#aud-sim-btn');
+  const res = $('#aud-sim-res');
+  b.disabled = true;
+  b.textContent = 'Revisando…';
+  try {
+    const r = await api('/api/vigilante', { method: 'POST', body: { op: 'revisar', code: state.launchCode } });
+    if (!r.paginas.length) { res.innerHTML = '<p class="muted aud-nota">No hay páginas publicadas configuradas todavía (login, preclase, grabación, venta…).</p>'; return; }
+    res.innerHTML = `<ul class="aud-sim-list">${r.paginas.map((p) => `<li class="${p.ok ? 'ok' : 'mal'}">
+      <span aria-hidden="true">${p.ok ? '✅' : p.problemas.some((x) => x.nivel === 'critico') ? '🔴' : '🟠'}</span>
+      <div><strong>${esc(p.label)}</strong> <a href="${esc(p.url)}" target="_blank" rel="noopener" class="muted">abrir ↗</a>
+      ${p.problemas.map((x) => `<small><b>${esc(x.titulo)}</b> · ${esc(x.detalle)}</small>`).join('')}</div></li>`).join('')}</ul>
+      <p class="muted aud-nota">${r.paginas.filter((p) => p.ok).length}/${r.paginas.length} páginas bien · revisado a las ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</p>`;
+  } catch (err) {
+    res.innerHTML = `<p class="aud-nota" style="color:var(--error)">${esc(err.message || 'No se ha podido revisar')}</p>`;
+  } finally {
+    b.disabled = false;
+    b.textContent = 'Revisar páginas ahora';
+  }
+});
 $('#aud-lista').addEventListener('click', async (e) => {
   const li = e.target.closest('[data-aud]');
   if (!li) return;

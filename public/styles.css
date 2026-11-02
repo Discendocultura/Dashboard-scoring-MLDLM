@@ -1462,6 +1462,13 @@ input[type="color"] { width: 64px; height: 36px; padding: 2px; border-radius: 8p
 .aud-ign { margin-top: 14px; }
 .aud-ign summary { cursor: pointer; color: var(--text-2); font-weight: 700; }
 .aud-ign .aud-item { opacity: .6; }
+.aud-simulacro { margin-top: 18px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.aud-sim-head { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.aud-sim-head small { display: block; margin-top: 4px; line-height: 1.4; max-width: 46ch; }
+.aud-sim-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.aud-sim-list li { display: flex; gap: 10px; align-items: flex-start; }
+.aud-sim-list li small { display: block; margin-top: 2px; line-height: 1.4; }
+.aud-sim-list li a { font-size: 12px; }
 .aud-nota { font-size: 12.5px; }
 @media (max-width: 640px) { .aud-item { flex-wrap: wrap; } .aud-acc { width: 100%; justify-content: flex-start; } }
 
