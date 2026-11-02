@@ -1,0 +1,21 @@
+{
+ "cortes_originales": [
+  [
+   0.0,
+   0.88
+  ],
+  [
+   110.0,
+   110.72
+  ],
+  [
+   127.28,
+   130.08
+  ]
+ ],
+ "puntos_corte": [
+  109.12
+ ],
+ "segundos_quitados": 4.4,
+ "duracion_nueva": 125.68
+}
