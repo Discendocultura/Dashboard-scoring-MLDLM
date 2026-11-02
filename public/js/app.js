@@ -3178,12 +3178,30 @@ document.addEventListener('click', async (e) => {
 // periodo del lanzamiento: reparto por nivel, lo cobrado, lo que suman al mes y cuántos estaban registrados; y el botón
 // que pone en GHL la etiqueta de alumno de su nivel (`alumno-claves-premium`). La facturación y el ROAS salen arriba,
 // en «Ventas reales», al marcar sus niveles como productos del lanzamiento.
-const skool = { prev: null };
+// Colores e iconos de los niveles, del más barato al más caro (el más caro, la corona).
+const SK_COLORES = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899'];
+const skIcono = (i, n) => (n === 1 ? '🎓' : i === n - 1 ? '👑' : i === 0 ? '🌱' : ['🚀', '💎', '⭐'][(i - 1) % 3]);
+// Anillo SVG con un trozo por nivel (se dibuja con una animación al aparecer).
+function skDonut(filas, total) {
+  const R = 52; const C = 2 * Math.PI * R;
+  let acum = 0;
+  const trozos = filas.map((f, i) => {
+    const largo = (f.n / total) * C;
+    const t = `<circle class="sk-seg" cx="70" cy="70" r="${R}" stroke="${SK_COLORES[i % SK_COLORES.length]}" stroke-dasharray="${Math.max(0, largo - 2).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-acum).toFixed(2)}" style="--c:${C.toFixed(2)};animation-delay:${i * 120}ms"><title>${esc(f.nivel)}: ${f.n} (${Math.round(f.pct * 100)} %)</title></circle>`;
+    acum += largo;
+    return t;
+  }).join('');
+  return `<svg class="sk-donut" viewBox="0 0 140 140" role="img" aria-label="Reparto de alumnos por nivel"><circle cx="70" cy="70" r="${R}" class="sk-donut-fondo"/>${trozos}
+    <text x="70" y="66" class="sk-donut-n">${total}</text><text x="70" y="86" class="sk-donut-t">alumnos</text></svg>`;
+}
+const skool = { prev: null, m: null };
 const skoolPrefijo = (code) => ls.get(`lsd_skool_pref_${state.cliente || ''}_${code}`) || `alumno-${slugNivel(nombreProducto(state.config)) || 'skool'}`;
-async function renderSkool() {
+async function renderSkool(m = skool.m) {
+  skool.m = m;
   const box = $('#skool-l');
   if (!box) return;
   const code = state.launchCode;
+  const launch = state.config.launches[code] || {};
   const { desde, hasta } = periodoLanz(code);
   const ventas = (await ventasReales(desde, hasta)).filter((v) => v.fuente === 'skool');
   if (state.launchCode !== code) return;
@@ -3197,24 +3215,66 @@ async function renderSkool() {
       <div id="sk-prev"></div>
     </details>` : '';
   if (!r.total) {
-    box.innerHTML = `<p class="muted">Aún no hay alumnos de Skool que se unieran en las fechas de este lanzamiento.${puede ? '' : ' Pídele a quien configura el embudo que suba el CSV de miembros de Skool.'}</p>${importar}`;
+    box.innerHTML = `<div class="sk-vacio"><span class="sk-vacio-ico" aria-hidden="true">🎓</span><div><strong>Tu comunidad de Skool, aquí</strong><p class="muted">Sube el CSV de miembros y verás cuántos alumnos trajo este lanzamiento, en qué nivel, cuánto han pagado y el ROAS real.${puede ? '' : ' Pídele a quien configura el embudo que lo suba.'}</p></div></div>${importar}`;
     return;
   }
   const pref = skoolPrefijo(code);
-  const fila = (f) => `<tr><td><strong>${esc(f.nivel)}</strong></td><td class="num">${f.n} <span class="muted">${pctOf(f.n, r.total)}</span></td><td class="num">${eur(f.cobrado)}</td><td class="num">${f.mrr ? eur(f.mrr) : '–'}</td><td class="num">${f.registrados} <span class="muted">${pctOf(f.registrados, f.n)}</span></td><td><code>${esc(tagAlumno(pref, f.nivel))}</code></td></tr>`;
-  const barra = `<div class="split-bar sk-split" role="img" aria-label="Reparto por nivel">${r.filas.map((f, i) => `<span class="sk-n${i % 4}" style="flex:${f.n}" title="${esc(f.nivel)}: ${f.n}">${Math.round(f.pct * 100)}%</span>`).join('')}</div>
-    <div class="split-legend">${r.filas.map((f, i) => `<span><span class="sw sk-n${i % 4}"></span><strong>${esc(f.nivel)}:</strong> ${f.n} (${pctOf(f.n, r.total)})</span>`).join('')}</div>`;
-  const etiquetar = puede ? `<div class="sk-tag"><h4 class="cv-h4">🏷️ Etiqueta de alumno en GHL</h4>
+  const n = r.filas.length;
+  const color = (i) => SK_COLORES[i % SK_COLORES.length];
+  const inversion = m?.eco?.inversion || 0;
+  const sinIva = r.cobrado / (1 + ivaPct(launch) / 100);
+  const roas = inversion ? sinIva / inversion : null;
+  const x2 = (v) => `${v.toFixed(2).replace('.', ',')}x`;
+  const dia = (ms) => new Date(ms).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' });
+  const fechas = r.miembros.map((v) => v.fecha).sort((a, b) => a - b);
+  // Cabecera: lo grande.
+  const stat = (et, v, sub, cls = '') => `<div class="sk-stat ${cls}"><span>${et}</span><b>${v}</b><small>${sub}</small></div>`;
+  const hero = `<div class="sk-hero">
+      <div class="sk-hero-main">
+        <span class="sk-kicker">🎓 Comunidad Skool${launch.name ? ` · ${esc(launch.name)}` : ''}</span>
+        <div class="sk-big"><b>${r.total.toLocaleString('es-ES')}</b><span>${r.total === 1 ? 'alumno nuevo' : 'alumnos nuevos'}</span></div>
+        <p>se unieron del ${dia(fechas[0])} al ${dia(fechas.at(-1))} · <strong>${r.registrados}</strong> venían de tus leads (${pctOf(r.registrados, r.total)})</p>
+      </div>
+      <div class="sk-stats">
+        ${stat('Cobrado', eur(r.cobrado), `con IVA · ${eur(sinIva)} sin IVA`)}
+        ${r.mrr ? stat('Ingreso al mes', eur(r.mrr), 'lo que suman sus cuotas') : ''}
+        ${r.mrr ? stat('Si siguen un año', eur(r.mrr * 12), 'ingreso anual recurrente') : ''}
+        ${roas != null ? stat('ROAS de Skool', x2(roas), `${eur(sinIva)} ÷ ${eur(inversion)} invertidos`, roas >= 1 ? 'sk-ok' : 'sk-bajo') : ''}
+      </div>
+    </div>`;
+  // Un nivel = una tarjeta de suscripción.
+  const tier = (f, i) => `<article class="sk-tier" style="--t:${color(i)};animation-delay:${120 + i * 90}ms">
+      <header><span class="sk-tier-ico" aria-hidden="true">${skIcono(i, n)}</span><div><h4>${esc(f.nivel)}</h4>${f.precioMes != null ? `<small>${eur(f.precioMes)}/mes</small>` : ''}</div><span class="sk-tier-pct">${Math.round(f.pct * 100)}%</span></header>
+      <div class="sk-tier-n"><b>${f.n}</b> ${f.n === 1 ? 'alumno' : 'alumnos'}</div>
+      <div class="sk-tier-bar"><i style="width:${Math.max(3, f.pct * 100)}%"></i></div>
+      <dl><div><dt>Cobrado</dt><dd>${eur(f.cobrado)}</dd></div><div><dt>Por alumno</dt><dd>${eur(f.ticket)}</dd></div>${f.mrr ? `<div><dt>Al mes</dt><dd>${eur(f.mrr)}</dd></div>` : ''}<div><dt>De tus leads</dt><dd>${pctOf(f.registrados, f.n)}</dd></div></dl>
+      <code class="sk-tier-tag">🏷️ ${esc(tagAlumno(pref, f.nivel))}</code>
+    </article>`;
+  const reparto = `<div class="sk-reparto">
+      <div class="sk-donut-box">${skDonut(r.filas, r.total)}<ul class="sk-ley">${r.filas.map((f, i) => `<li><i style="background:${color(i)}"></i>${esc(f.nivel)} <b>${Math.round(f.pct * 100)}%</b></li>`).join('')}</ul></div>
+      <div class="sk-tiers">${r.filas.map(tier).join('')}</div>
+    </div>`;
+  // Altas por día y los últimos en unirse.
+  const maxDia = Math.max(1, ...r.porDia.map((d) => d.n));
+  const record = r.porDia.find((d) => d.n === maxDia);
+  const diaCorto = (k) => new Date(`${k}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const altas = r.porDia.length > 1 ? `<section class="sk-panel"><h4 class="cv-h4">📈 Altas por día</h4>
+      <div class="sk-dias" style="--n:${r.porDia.length}">${r.porDia.map((d, i) => `<div class="sk-dia${d === record ? ' sk-record' : ''}" title="${esc(diaCorto(d.dia))}: ${d.n} ${d.n === 1 ? 'alta' : 'altas'}"><b>${d.n || ''}</b><i style="height:${d.n ? Math.max(6, (d.n / maxDia) * 100) : 0}%;animation-delay:${i * 40}ms"></i><span>${r.porDia.length <= 14 || i % Math.ceil(r.porDia.length / 10) === 0 ? esc(diaCorto(d.dia)) : ''}</span></div>`).join('')}</div>
+      <p class="muted small">🔥 Día récord: <strong>${esc(diaCorto(record.dia))}</strong> con ${record.n} ${record.n === 1 ? 'alta' : 'altas'}${launch.fechaDirecto && record.dia === launch.fechaDirecto ? ' (el día del directo)' : ''}.</p></section>` : '';
+  const nivelIdx = new Map(r.filas.map((f, i) => [f.nivel, i]));
+  const ini = (v) => String(v.nombre || v.email).split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
+  const ultimos = [...r.miembros].sort((a, b) => b.fecha - a.fecha).slice(0, 6);
+  const lista = `<section class="sk-panel"><h4 class="cv-h4">✨ Últimos en unirse</h4><ul class="sk-ult">${ultimos.map((v) => {
+    const i = nivelIdx.get(v.plan) ?? 0;
+    const lead = state.leads.find((l) => String(l.email || '').toLowerCase() === v.email);
+    return `<li><span class="sk-av" style="--t:${color(i)}">${esc(ini(v))}</span><div>${lead ? `<button type="button" class="lead-ficha" data-ficha-lead="${esc(lead.id)}">${esc(v.nombre || v.email)}</button>` : `<strong>${esc(v.nombre || v.email)}</strong>`}<small>${esc(haceTxt(v.fecha))}${lead ? '' : ' · no estaba registrado'}</small></div><span class="sk-chip" style="--t:${color(i)}">${skIcono(i, n)} ${esc(v.plan)}</span></li>`;
+  }).join('')}</ul></section>`;
+  const etiquetar = puede ? `<section class="sk-tag"><div><h4 class="cv-h4">🏷️ Etiqueta de alumno en GHL</h4>
       <div class="row sk-fila"><label class="field inline"><span>Prefijo</span><input id="sk-pref" value="${esc(pref)}" style="width:200px"></label> <span class="muted small">→ ${r.filas.slice(0, 3).map((f) => `<code>${esc(tagAlumno(pref, f.nivel))}</code>`).join(' · ')}</span></div>
-      <p class="row"><button type="button" class="btn primary" id="sk-etiquetar">Etiquetar a los ${r.total} en GHL</button> <span class="muted small" id="sk-tag-st">Busca a cada uno por su email en GHL y le pone la etiqueta de su nivel. A quien no esté en GHL no se le crea: te lo digo.</span></p></div>` : '';
-  box.innerHTML = `<div class="kpis">
-      ${card('Alumnos nuevos', r.total, `se unieron en el lanzamiento · ${r.registrados} estaban registrados (${pctOf(r.registrados, r.total)})`, 'users', 'buy')}
-      ${card('Cobrado en Skool', eur(r.cobrado), `${r.sinLtv ? `${r.sinLtv} sin LTV en el CSV: cuenta su precio · ` : ''}con IVA, lo que han pagado hasta hoy`, 'coins', 'money')}
-      ${r.mrr ? card('Ingreso al mes', eur(r.mrr), 'lo que suman sus cuotas cada mes (los anuales, entre 12)', 'trend', 'vip') : ''}
-    </div>
-    ${barra}
-    <div class="table-scroll"><table class="metric-table"><thead><tr><th>Nivel</th><th class="num">Alumnos</th><th class="num">Cobrado</th><th class="num">Al mes</th><th class="num">Registrados</th><th>Etiqueta</th></tr></thead><tbody>${r.filas.map(fila).join('')}</tbody></table></div>
-    <p class="muted small">Para que cuenten en la <strong>facturación y el ROAS</strong> del lanzamiento, márcalos en Resumen → «Ventas reales» → «Qué ventas son de este lanzamiento» (salen como «Skool · ${esc(r.filas[0].nivel)}»…). Sin marcar nada, cuentan solo los alumnos que estaban registrados.</p>
+      <p class="muted small" id="sk-tag-st">Busca a cada uno por su email en GHL y le pone la etiqueta de su nivel. A quien no esté en GHL no se le crea: te lo digo.</p></div>
+      <button type="button" class="btn primary sk-tag-btn" id="sk-etiquetar">Etiquetar a los ${r.total} en GHL</button></section>` : '';
+  box.innerHTML = `${hero}${reparto}<div class="sk-dos">${altas}${lista}</div>
+    <p class="sk-nota">💡 Para que cuenten en la <strong>facturación y el ROAS</strong> de todo el lanzamiento, márcalos en Resumen → «Ventas reales» → «Qué ventas son de este lanzamiento» (salen como «Skool · ${esc(r.filas[0].nivel)}»…). Sin marcar nada, cuentan solo los alumnos que estaban registrados.</p>
     ${etiquetar}${importar}`;
 }
 document.addEventListener('change', async (e) => {
@@ -3490,7 +3550,7 @@ function renderMetrics() {
   renderRetrospectiva(m, launch);
   renderCasiCompradoras(launch);
   renderCompradores();
-  renderSkool();
+  renderSkool(m);
   // Métricas → Downsell abierta: el meteórico y su conversión de ESTE lanzamiento (y con sus leads).
   if (!$('#view-metricas [data-msub="meteorico"]').hidden) renderMeteoLanz();
   // Carrito abierto: ritmo frente al objetivo, bonus que caducan y cierre (visible en todas las pestañas).

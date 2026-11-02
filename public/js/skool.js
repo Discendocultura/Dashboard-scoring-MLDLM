@@ -122,14 +122,30 @@ export function resumenSkool(ventas = [], { desde = 0, hasta = Infinity, emails 
   const r2 = (x) => Math.round(x * 100) / 100;
   const niveles = new Map();
   for (const v of dentro) {
-    const x = niveles.get(v.plan) || { nivel: v.plan, n: 0, cobrado: 0, mrr: 0, registrados: 0 };
+    const x = niveles.get(v.plan) || { nivel: v.plan, n: 0, cobrado: 0, mrr: 0, registrados: 0, conPrecio: 0 };
     x.n++; x.cobrado = r2(x.cobrado + v.importe); x.mrr = r2(x.mrr + mrrDe(v));
+    if (v.precio != null) x.conPrecio++;
     if (emails?.has(v.email)) x.registrados++;
     niveles.set(v.plan, x);
   }
-  const filas = [...niveles.values()].map((x) => ({ ...x, pct: total ? x.n / total : 0 })).sort((a, b) => b.n - a.n);
+  // Por nivel: su % de alumnos, lo cobrado por alumno (ticket) y su precio al mes. Del que menos paga por alumno al que
+  // más (no por el precio al mes: un VIP anual sale más barato al mes que un Premium mensual, pero paga mucho más).
+  const filas = [...niveles.values()].map(({ conPrecio, ...x }) => ({ ...x, pct: total ? x.n / total : 0, ticket: r2(x.cobrado / x.n), precioMes: conPrecio ? r2(x.mrr / conPrecio) : null }))
+    .sort((a, b) => a.ticket - b.ticket || b.n - a.n);
+  // Altas por día (hora de España), del primer al último día con altas, con los días sin ninguna a 0.
+  const diaDe = (ms) => new Date(ms).toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const cuenta = new Map();
+  for (const v of dentro) cuenta.set(diaDe(v.fecha), (cuenta.get(diaDe(v.fecha)) || 0) + 1);
+  const dias = [...cuenta.keys()].sort();
+  const porDia = [];
+  if (dias.length) {
+    for (let d = Date.parse(`${dias[0]}T12:00:00Z`); d <= Date.parse(`${dias.at(-1)}T12:00:00Z`) && porDia.length < 120; d += 86_400_000) {
+      const k = new Date(d).toISOString().slice(0, 10);
+      porDia.push({ dia: k, n: cuenta.get(k) || 0 });
+    }
+  }
   return {
-    total, filas,
+    total, filas, porDia,
     cobrado: r2(filas.reduce((t, f) => t + f.cobrado, 0)),
     mrr: r2(filas.reduce((t, f) => t + f.mrr, 0)),
     registrados: filas.reduce((t, f) => t + f.registrados, 0),
