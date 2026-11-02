@@ -8710,3 +8710,11 @@ body:not(.can-bandeja) #btn-bandeja { display: none !important; }
 .ag-piezas li small { color: var(--muted); }
 .ag-piezas li.ok { opacity: .7; }
 .ag-piezas li.tarde { border-left: 3px solid var(--error); }
+.ag-ia { border-top: 1px solid var(--border); padding-top: 14px; }
+.ag-ia h4 { font-size: 14px; margin: 12px 0 6px; }
+.ag-ia-resumen { font-size: 15px; line-height: 1.5; margin: 0 0 10px; }
+.ag-ia-diag { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ag-ia-diag li { display: flex; gap: 10px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--surface-2); }
+.ag-ia-diag li > div { display: grid; gap: 2px; }
+.ag-ia-diag small { color: var(--text-2); line-height: 1.45; }
+.ag-borrador { white-space: pre-wrap; max-height: 260px; overflow: auto; }

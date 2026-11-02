@@ -3,9 +3,11 @@
 //   GET  /api/agente?l=<código> (sesión)     → { ritmo, piezas, propuestas, … } para la pantalla del agente
 //   POST { op: 'brief', l, ventas, inversion, conversion } → guarda los objetivos que salen del brief (permiso config)
 //   POST { op: 'pilotar' }                  → las propuestas de hoy a la bandeja, ya (permiso config)
+//   POST { op: 'diagnostico', l, forzar?, mandar? } → el diagnóstico de Claude (y sus propuestas a la bandeja)
 import { requireSession, fallaClaveTarea } from '../lib/auth.js';
 import { env } from '../lib/env.js';
-import { estadoAgente, pilotar } from '../lib/agente.js';
+import { estadoPublico, pilotar, diagnosticar } from '../lib/agente.js';
+import { anadirPropuestasAgente } from '../lib/reglas.js';
 import { getConfig, saveConfig } from '../lib/config-store.js';
 import { reintentando, versionDe } from '../lib/store.js';
 import { objetivosDeBrief } from '../public/js/agente.js';
@@ -22,7 +24,7 @@ export async function GET(request) {
       return json(await pilotar({ url: dashboardUrl(request) }));
     }
     await requireSession(request, { permiso: ['config', 'metricas'] });
-    return json(await estadoAgente({ code: url.searchParams.get('l') || '' }));
+    return json(await estadoPublico({ code: url.searchParams.get('l') || '' }));
   } catch (e) {
     return errorResponse(e);
   }
@@ -33,6 +35,13 @@ export async function POST(request) {
     await requireSession(request, { permiso: 'config' });
     const body = await readBody(request);
     if (body.op === 'pilotar') return json(await pilotar({ url: dashboardUrl(request), avisar: false }));
+    // Diagnóstico de Claude ahora (forzar: uno nuevo aunque ya haya el de hoy). { mandar: true } → sus propuestas a la bandeja.
+    if (body.op === 'diagnostico') {
+      const r = await diagnosticar({ code: String(body.l || ''), forzar: body.forzar === true });
+      if (!r.ia) return json({ error: 'Falta la clave de Claude: añade ANTHROPIC_API_KEY (tipo Secret) en Cloudflare y vuelve a desplegar.' }, 400);
+      const nuevas = body.mandar ? (await anadirPropuestasAgente(String(body.l || ''), r.propuestasIa)).length : 0;
+      return json({ ...r, nuevas });
+    }
     if (body.op === 'brief') {
       const code = String(body.l || '');
       const ob = objetivosDeBrief(body);

@@ -60,3 +60,20 @@ test('agente: brief por la API, propuestas a la bandeja y aprobarlas crea tareas
   if (items.some((x) => x.accion.tipo === 'tareas')) assert.ok((await (await import('../lib/tareas.js')).getTareas('agt')).length >= 1);
   assert.equal((await GET(new Request('http://localhost/api/agente?key=mala'))).status, 401);
 });
+
+test('agente con Claude: el prompt lleva los datos y la comparativa; diagnóstico guardado del día y propuestas con borrador', async () => {
+  const { promptAgente, diagnosticoDelDia, propuestasDeDiagnostico } = await import('../lib/agente-ia.js');
+  const estado = { code: 'ia1', hoy: '2026-11-10', objetivos: { ventas: 40, registros: 2000 }, registros: 500, ventas: 0, inversion: 2000, ritmo: { pct: 50, actualDia: 50, necesarioDia: 150, quedan: 10 }, piezas: [{ titulo: 'Página de venta', hecha: false, para: '2026-11-18' }], propuestas: [{ titulo: '📉 Vas al 50 % del ritmo' }] };
+  const anteriores = [{ name: 'Octubre', fechaDirecto: '2026-10-05', resultados: { registros: 1800, ventas: 35 }, aprendizajes: { funciono: 'Los reels de testimonio' } }];
+  const p = promptAgente({ estado, l: { name: 'Nov', narrativa: { texto: 'La gran idea' } }, anteriores, marca: 'Marca X' });
+  for (const x of ['50 % del previsto', '1800', 'Los reels de testimonio', 'Página de venta', 'La gran idea', 'Marca X', '0.25 € por registro'.replace('0.25', '4.00')]) assert.ok(p.includes(x), x);
+  // Modo de prueba (sin clave): diagnóstico de prueba, se guarda y se reutiliza el mismo día
+  const config = { launches: { ia1: { name: 'Nov', embudo: 'lanz' } } };
+  const d1 = await diagnosticoDelDia({ estado, l: config.launches.ia1, config });
+  const d2 = await diagnosticoDelDia({ estado, l: config.launches.ia1, config });
+  assert.equal(d2.guardado, true);
+  assert.equal(d1.resumen, d2.resumen);
+  const props = propuestasDeDiagnostico(d1, '2026-11-10');
+  assert.equal(props[0].clave, 'ia|2026-11-10|0');
+  assert.match(props[0].accion.tareas[0].notas, /Borrador de Claude/);
+});

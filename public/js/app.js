@@ -15578,8 +15578,23 @@ async function pintarAgente() {
     <section class="ag-sec"><h3>4 · Lo que propongo hoy</h3>
       ${a.propuestas.length ? `<ul class="bj-list">${a.propuestas.map((p) => `<li class="bj-item est-pendiente"><div class="bj-txt"><strong>${esc(p.titulo)}</strong><small>${esc(p.detalle)}</small></div>${p.accion?.tipo === 'brief' ? accBtn(p.accion, 'Poner objetivos →') : ''}</li>`).join('')}</ul>
         <div class="bj-acc"><button type="button" class="btn primary" data-ag-pilotar>📥 Mandarlas a la bandeja para aprobarlas</button><span class="muted small">Cada día, con la tarea programada, lo hago solo y te aviso por Telegram.</span></div>` : '<p class="muted">Nada que proponer hoy: va según lo previsto. 👌</p>'}
+    </section>
+    <section class="ag-sec ag-ia"><h3>5 · 🧠 Diagnóstico de Claude</h3>
+      <div id="ag-ia">${pintarIa(a.ia, a.claude)}</div>
     </section>`;
   calcBrief();
+}
+const GRAV_IA = { bien: '🟢', atencion: '🟠', urgente: '🔴' };
+function pintarIa(ia, conClaude) {
+  if (!conClaude) return '<p class="muted">Para que Claude haga el diagnóstico, añade <strong>ANTHROPIC_API_KEY</strong> (tipo Secret) en Cloudflare y vuelve a desplegar.</p>';
+  if (!ia) return `<p class="muted">Claude mira tus datos, los compara con tus lanzamientos anteriores y lo que aprendiste en ellos, y te dice qué pasa, por qué y qué haría (con los borradores hechos). Se hace solo una vez al día con la tarea programada; también ahora:</p>
+    <button type="button" class="btn primary" data-ag-ia>🧠 Pedir el diagnóstico a Claude</button>`;
+  return `<p class="ag-ia-resumen">${esc(ia.resumen)}</p>
+    <ul class="ag-ia-diag">${(ia.diagnostico || []).map((d) => `<li><span>${GRAV_IA[d.gravedad] || '•'}</span><div><strong>${esc(d.titulo)}</strong><small>${esc(d.detalle)}</small></div></li>`).join('')}</ul>
+    <h4>Lo que haría Claude</h4>
+    <ul class="bj-list">${(ia.propuestas || []).map((p) => `<li class="bj-item est-pendiente"><div class="bj-txt"><strong>${esc(p.titulo)}</strong><small>${esc(p.detalle)} · para el rol ${esc(p.rol)}</small>${p.borrador ? `<details><summary class="small">Ver el borrador</summary><pre class="snippet ag-borrador">${esc(p.borrador)}</pre></details>` : ''}</div></li>`).join('')}</ul>
+    <div class="bj-acc"><button type="button" class="btn primary" data-ag-ia-mandar>📥 Mandarlas a la bandeja</button><button type="button" class="btn ghost" data-ag-ia data-forzar="1">🔁 Otro diagnóstico</button>
+    <span class="muted small">Hecho ${esc(new Date(ia.en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }))}${ia.anteriores ? ` · comparado con ${ia.anteriores} lanzamiento${ia.anteriores === 1 ? '' : 's'} anterior${ia.anteriores === 1 ? '' : 'es'}` : ' · sin lanzamientos anteriores con resultados para comparar'}</span></div>`;
 }
 function calcBrief() {
   const out = $('#ag-brief-calc');
@@ -15597,6 +15612,18 @@ async function clickAgente(e) {
       notice(`🎯 Brief guardado: ${r.objetivos.ventas} ventas y ${r.objetivos.registros} registros.`);
       pintarAgente();
     } catch (err) { notice(err.message, true); }
+    return true;
+  }
+  const bIa = e.target.closest('[data-ag-ia], [data-ag-ia-mandar]');
+  if (bIa) {
+    const mandar = bIa.matches('[data-ag-ia-mandar]');
+    bIa.disabled = true;
+    if (!mandar) $('#ag-ia').insertAdjacentHTML('afterbegin', '<p class="muted">🧠 Claude está analizando el lanzamiento… (unos 30-60 segundos)</p>');
+    try {
+      const r = await api('/api/agente', { method: 'POST', body: { op: 'diagnostico', l: state.launchCode, forzar: bIa.dataset.forzar === '1', mandar } });
+      if (mandar) { notice(r.nuevas ? `📥 ${r.nuevas} propuesta${r.nuevas === 1 ? '' : 's'} de Claude en la bandeja.` : 'Ya estaban en la bandeja.'); await cargarBandeja(); }
+      $('#ag-ia').innerHTML = pintarIa(r.ia, true);
+    } catch (err) { notice(err.message, true); bIa.disabled = false; $('#ag-ia > p.muted:first-child')?.remove(); }
     return true;
   }
   if (e.target.closest('[data-ag-pilotar]')) {
