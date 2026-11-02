@@ -6,6 +6,7 @@ import { getConfig } from '../lib/config-store.js';
 import { marcarActividad } from '../lib/actividad.js';
 import { json, readBody, errorResponse, isEmail, CORS_HEADERS } from '../lib/http.js';
 import { VIDEOS, THRESHOLDS, tagFor } from '../public/js/scoring.js';
+import { enviarEventoMeta, datosNavegador } from '../lib/meta-capi.js';
 
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -13,7 +14,8 @@ export function OPTIONS() {
 
 export async function POST(request, ctx) {
   try {
-    const { launch, video, pct, cid, email } = await readBody(request);
+    const body = await readBody(request);
+    const { launch, video, pct, cid, email } = body;
     if (!(await dentroDelLimite(request, 'track', 400))) return json({ ok: true }, 200, CORS_HEADERS);
     const p = Number(pct);
     // La VSL tiene un único vídeo («vsl»); los lanzamientos, clase 1, clase 2 y grabación.
@@ -47,6 +49,12 @@ export async function POST(request, ctx) {
       await addTags(contact.id, tags);
     }
     { const a = marcarActividad('video'); ctx?.waitUntil?.(a); }
+    // Conversions API: «vio la clase 1» (la mitad o más), con lo del navegador. Mismo id a los 50 y a los 90: Meta lo cuenta una vez.
+    if (!esVsl && video === 'clase1' && p >= 50) {
+      const meta = enviarEventoMeta({ tipo: 'clase1', eventId: `clase1-${launch}-${cid || email}`, config, url: request.headers.get('referer') || '',
+        datos: { externalId: typeof cid === 'string' ? cid : '', email: isEmail(email) ? email : '', ...datosNavegador(request, body) }, custom: { content_name: config.launches[launch]?.name || launch } });
+      if (ctx?.waitUntil) ctx.waitUntil(meta); else await meta;
+    }
     return json({ ok: true }, 200, CORS_HEADERS);
   } catch (e) {
     return errorResponse(e, CORS_HEADERS);

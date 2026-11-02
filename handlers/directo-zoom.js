@@ -13,6 +13,7 @@ import { json, readBody, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { dentroDelLimite } from '../lib/intentos.js';
 import { videosDe, esEnDirecto } from '../public/js/videos.js';
 import { milestones } from '../public/js/page.js';
+import { enviarEventoMeta, datosNavegador } from '../lib/meta-capi.js';
 
 export { deLaReunion } from '../lib/zoom-inscripcion.js';
 
@@ -25,9 +26,10 @@ const VENTANA_DESPUES = 4 * 3600_000;
 // La inscripción se puede hacer desde que se abre la preclase (hasta 30 días antes del directo).
 const VENTANA_PREP = 30 * 24 * 3600_000;
 
-export async function POST(request) {
+export async function POST(request, ctx) {
   try {
-    const { op, launch: code, k: kRaw, cid } = await readBody(request);
+    const body = await readBody(request);
+    const { op, launch: code, k: kRaw, cid } = body;
     if (!['prep', 'click', 'espera'].includes(op) || typeof cid !== 'string' || !/^[A-Za-z0-9]{6,40}$/.test(cid)) return json({ error: 'Datos no válidos' }, 400, CORS_HEADERS);
     if (!(await dentroDelLimite(request, 'directo-zoom', 120))) return json({ ok: false, motivo: 'demasiadas peticiones' }, 200, CORS_HEADERS);
     const config = await getConfig();
@@ -46,6 +48,10 @@ export async function POST(request) {
     }
     if (op === 'click') {
       await marcarEntrada(code, k, cid);
+      // Conversions API: «entró al directo», con lo del navegador para que Meta la reconozca (sin esperar a Meta).
+      const meta = enviarEventoMeta({ tipo: 'directo', eventId: `directo${k}-${code}-${cid}`, config, url: request.headers.get('referer') || '',
+        datos: { externalId: cid, email: typeof body.email === 'string' ? body.email : '', ...datosNavegador(request, body) }, custom: { content_name: launch?.name || code } });
+      if (ctx?.waitUntil) ctx.waitUntil(meta); else await meta;
       return json({ ok: true }, 200, CORS_HEADERS);
     }
     // op: 'prep' (si ya estaba inscrita, su enlace sin llamar a Zoom; si se cambió la reunión, se reinscribe)

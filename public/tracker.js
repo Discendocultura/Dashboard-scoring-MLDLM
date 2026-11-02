@@ -71,7 +71,17 @@
     store(STORE, { cid: who.cid || saved.cid, email: who.email || saved.email, ok: ok });
   }
 
+  // Cookies del píxel de Meta (_fbp, _fbc; o el fbclid del anuncio): AlquimIA las manda a Meta con la Conversions API
+  // (vio la clase 1, entró al directo) para que reconozca a la persona aunque el píxel del navegador esté bloqueado.
+  function cookiesMeta() {
+    var c = function (n) { var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; };
+    var fbc = c('_fbc');
+    var clid = params.get('fbclid');
+    if (!fbc && clid) fbc = 'fb.1.' + Date.now() + '.' + clid;
+    return { fbp: c('_fbp'), fbc: fbc };
+  }
   function post(path, payload) {
+    if (path === '/api/track' || payload.op === 'click') { try { var cm = cookiesMeta(); if (cm.fbp) payload.fbp = cm.fbp; if (cm.fbc) payload.fbc = cm.fbc; } catch (e) { /* sin cookies */ } }
     var body = JSON.stringify(payload);
     // text/plain evita la petición previa CORS; el servidor lo interpreta como JSON.
     if ((path === '/api/track' || path === '/api/retencion' || path === '/api/visita' || payload.op === 'click' || payload.op === 'espera' || payload.op === 'visita') && navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) {
@@ -1645,7 +1655,7 @@
     if (!params.get('lsd_preview') && who && who.cid && url && /^https:\/\/([a-z0-9-]+\.)*zoom\.us\//i.test(url)) {
       if (redirigido) return;
       redirigido = true;
-      post('/api/directo-zoom', { op: 'click', launch: data.code, k: kDe(key), cid: who.cid });
+      post('/api/directo-zoom', { op: 'click', launch: data.code, k: kDe(key), cid: who.cid, email: who.email || '' });
       location.replace(url);
       return;
     }

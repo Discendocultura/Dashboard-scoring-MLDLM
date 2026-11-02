@@ -14,6 +14,7 @@ import { dominioLogin } from '../lib/dominio.js';
 import { ventaDeWebhook, repararVentas, anadirVenta, ventaImportada, yaEsta, sinImportadasDe, MAX_VENTAS } from '../public/js/thrivecart.js';
 import { claveDe } from './zoom-registro.js';
 import { quitarCarritoAbandonado } from '../lib/abandonos.js';
+import { enviarEventoMeta } from '../lib/meta-capi.js';
 
 const CLAVE = 'lsd_thrivecart_ventas';
 const MUESTRAS = 'lsd_thrivecart_muestras';
@@ -54,7 +55,7 @@ export async function HEAD() {
   return new Response(null, { status: 200 });
 }
 
-export async function POST(request) {
+export async function POST(request, ctx) {
   try {
     const url = new URL(request.url);
     if (url.searchParams.get('op') === 'importar') {
@@ -94,6 +95,14 @@ export async function POST(request) {
     });
     // Quien compra deja de ser un carrito abandonado: se le quita la etiqueta de la página de pago (el workflow ya no le escribe).
     if (venta.tipo === 'cobro' && !venta.prueba) await quitarCarritoAbandonado(venta.email).catch((e) => console.error('Carrito abandonado', e.message));
+    // Conversions API: la compra, con su valor, para que Meta optimice a quien compra (solo la primera vez que llega).
+    if (venta.tipo === 'cobro' && !venta.prueba && nueva) {
+      const fecha = Number(venta.fecha) > 1e12 && Date.now() - Number(venta.fecha) < 6 * 86_400_000 ? Number(venta.fecha) : Date.now();
+      const meta = enviarEventoMeta({ tipo: 'compras', eventId: `tc-${venta.id}`, cuando: fecha,
+        datos: { email: venta.email, nombre: venta.nombre, telefono: venta.telefono },
+        custom: { value: Number(venta.importe) || 0, currency: String(venta.moneda || 'EUR').toUpperCase(), content_name: venta.producto || '' } });
+      if (ctx?.waitUntil) ctx.waitUntil(meta); else await meta;
+    }
     // Las 5 últimas muestras de cobro (sin datos personales), para ver qué campos manda ThriveCart (p. ej. el IVA).
     if (venta.tipo === 'cobro') {
       try {

@@ -17881,19 +17881,52 @@ $('#marca-dialog').addEventListener('close', () => {
   if (!$('#view-automatizaciones').hidden && state.config) renderAutomatizaciones();
 });
 
+// 🎯 Meta · Conversions API: píxel, qué eventos se mandan, código de prueba y los últimos envíos.
+async function pintarCapiConexiones() {
+  const box = $('#cx-capi');
+  if (!box) return;
+  let d;
+  try { d = await api('/api/meta-capi'); } catch (err) { box.innerHTML = `<p class="muted">${esc(err.message)}</p>`; return; }
+  const c = d.config;
+  ponerEstadoCx('capi', c.activo && d.token ? 'ok' : c.pixelId ? 'aviso' : 'no', c.activo && d.token ? 'Activa' : !d.token ? 'Falta el token' : c.pixelId ? 'Apagada' : 'Sin conectar');
+  box.innerHTML = `<div class="capi-form">
+      <label class="check"><input type="checkbox" id="capi-activo"${c.activo ? ' checked' : ''}> <strong>Mandar los eventos a Meta</strong></label>
+      <label class="field"><span>ID del píxel (o conjunto de datos)</span><input id="capi-pixel" inputmode="numeric" value="${esc(c.pixelId || '')}" placeholder="p. ej. 1234567890123456"></label>
+      <fieldset class="capi-ev"><legend>Qué eventos</legend>${Object.entries(d.eventos).map(([k, e]) => `<label class="check"><input type="checkbox" data-capi-ev="${k}"${c.eventos[k] ? ' checked' : ''}> ${esc(e.label)} <code>${esc(e.nombre)}</code></label>`).join('')}</fieldset>
+      <label class="field"><span>Código de prueba <small>(opcional: TEST…; mientras esté puesto, los eventos solo salen en «Probar eventos»)</small></span><input id="capi-test" value="${esc(c.testCode || '')}" placeholder="TEST12345"></label>
+      <p class="capi-token ${d.token ? 'ok' : 'mal'}">${d.token ? '✅ Token encontrado en Cloudflare' : '⚠️ Falta el token: META_CAPI_TOKEN en Cloudflare (paso 2)'}</p>
+      <div class="bj-acc"><button type="button" class="btn primary" id="capi-guardar">Guardar</button><button type="button" class="btn" id="capi-probar">Enviar evento de prueba</button><span class="muted small" id="capi-st"></span></div>
+    </div>
+    ${d.log.length ? `<details class="capi-log"><summary class="small">Últimos envíos (${d.log.length})</summary><ul>${d.log.map((x) => `<li>${x.ok ? '✅' : '⚠️'} ${esc(x.evento)}${x.prueba ? ' (prueba)' : ''} · ${esc(new Date(x.en).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}${x.error ? ` · ${esc(x.error)}` : ''}</li>`).join('')}</ul></details>` : ''}`;
+}
+$('#conexiones-dialog').addEventListener('click', async (e) => {
+  const b = e.target.closest('#capi-guardar, #capi-probar');
+  if (!b) return;
+  const st = $('#capi-st');
+  const metaCapi = { activo: $('#capi-activo').checked, pixelId: $('#capi-pixel').value.trim(), testCode: $('#capi-test').value.trim(), eventos: Object.fromEntries($$('[data-capi-ev]').map((x) => [x.dataset.capiEv, x.checked])) };
+  b.disabled = true;
+  st.textContent = b.id === 'capi-guardar' ? 'Guardando…' : 'Enviando…';
+  try {
+    const r = await api('/api/meta-capi', { method: 'POST', body: { op: b.id === 'capi-guardar' ? 'guardar' : 'prueba', metaCapi } });
+    if (r.config) state.config = { ...state.config, metaCapi: r.config };
+    st.textContent = b.id === 'capi-guardar' ? '✓ Guardado' : r.enviado ? '✓ Enviado: mira «Probar eventos» en Meta' : `⚠️ ${r.motivo || 'No se ha enviado'}`;
+    if (b.id === 'capi-guardar') pintarCapiConexiones();
+  } catch (err) { st.textContent = err.message; } finally { b.disabled = false; }
+});
 $('#btn-conexiones').addEventListener('click', () => {
   $('#tb-menu-cuenta').open = false;
   pintarVigiaConexiones();
   pintarSetterConexiones();
   pintarThrivecartConexiones();
   pintarHotmartConexiones();
+  pintarCapiConexiones();
   $('#conexiones-dialog').showModal();
   pintarFuentesConexiones();
   pintarEstadoCx();
 });
 // Estado de cada conexión (la pastilla de su tarjeta y el resumen de arriba): { clave: ['ok'|'aviso'|'no', texto] }.
 const estadoCx = {};
-const NOMBRE_CX = { thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
+const NOMBRE_CX = { capi: '🎯 Conversions API', thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
 function ponerEstadoCx(clave, tono, texto) {
   estadoCx[clave] = [tono, texto];
   const el = $(`#conexiones-dialog [data-cx-estado="${clave}"]`);
