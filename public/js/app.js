@@ -41,6 +41,7 @@ import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.j
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
 import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE, ROL_OPERATIVA, ROLES_FIJOS } from './roles.js';
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
+import { CONDICIONES, ACCIONES, faltaEnRegla } from './reglas.js';
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { enGruposDe, claveTelefono, leerMiembros } from './grupos-wa.js';
@@ -694,7 +695,9 @@ async function start() {
   document.body.classList.toggle('is-superadmin', state.superadmin);
   document.body.classList.toggle('is-agencia', state.agencia);
   document.body.classList.toggle('can-operativa', state.operativa);
+  document.body.classList.toggle('can-bandeja', !state.ejemplo && tiene(['hoy', 'leads', 'config']));
   pintarCliente(me.cliente);
+  if (!state.ejemplo && tiene(['hoy', 'leads', 'config'])) cargarBandeja();
   // El cliente (solo lectura) ve únicamente su portal de resultados.
   if (role === ROL_CLIENTE) {
     pintarFotoCuenta();
@@ -1281,7 +1284,7 @@ $('#btn-reload').addEventListener('click', () => {
 // Configuración; #productos, #marca, #equipo, #conexiones, #atajos / #tus-atajos y #mensajes-whatsapp, su apartado;
 // #agencia, la vista de agencia; #inteligencia-negocio, #operativa y #procesos, lo suyo.
 const ALIAS_NAV = {
-  'mi-negocio': () => abrirMenuConfig(), configuracion: () => abrirMenuConfig(),
+  'mi-negocio': () => abrirMenuConfig(), configuracion: () => abrirMenuConfig(), bandeja: '#btn-bandeja', decisiones: '#btn-bandeja',
   productos: '#btn-productos', marca: '#btn-marca', 'marca-y-avatar': '#btn-marca', equipo: '#btn-equipo', conexiones: '#btn-conexiones',
   atajos: '#btn-atajos', 'tus-atajos': '#btn-atajos', mensajes: () => abrirMensajes(), 'mensajes-whatsapp': () => abrirMensajes(), 'plantillas-whatsapp': () => abrirMensajes(),
   agencia: () => { if (state.superadmin) { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); } },
@@ -15396,6 +15399,138 @@ $('#aud-lista').addEventListener('click', async (e) => {
   else if (acc.tipo === 'directa') abrirDirectaConfig();
   else if (acc.tipo === 'zoom') crearSalaDesdeAuditor(acc.k);
   else if (acc.tipo === 'vsl') { await openVslConfig(); $(`#vsl-config-dialog .tab[data-tab="${acc.tab}"]`)?.click(); }
+});
+
+// ---------- 📥 Bandeja de decisiones y reglas de seguimiento ----------
+const bj = { reglas: [], items: [], cargada: 0 };
+async function cargarBandeja() {
+  try {
+    const r = await api('/api/reglas');
+    Object.assign(bj, { reglas: r.reglas, items: r.items, cargada: Date.now() });
+  } catch { bj.items = []; }
+  const n = bj.items.filter((x) => x.estado === 'pendiente').length;
+  $('#bandeja-count').hidden = !n;
+  $('#bandeja-count').textContent = String(n);
+  if ($('#bandeja-dialog').open) pintarBandeja();
+}
+// Cada 5 min (con la pestaña visible) por si las reglas proponen algo nuevo.
+setInterval(() => { if (document.visibilityState === 'visible' && document.body.classList.contains('can-bandeja')) cargarBandeja(); }, 5 * 60_000);
+const ESTADO_BJ = { pendiente: ['🟡', 'Por decidir'], aprobada: ['⏳', 'En marcha'], hecha: ['✅', 'Hecha'], descartada: ['✖️', 'Descartada'] };
+const haceBj = (iso) => { const m = Math.round((Date.now() - Date.parse(iso)) / 60_000); return m < 60 ? `hace ${Math.max(1, m)} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} días`; };
+function pintarBandeja() {
+  const pend = bj.items.filter((x) => x.estado === 'pendiente');
+  const resto = bj.items.filter((x) => x.estado !== 'pendiente').slice(0, 15);
+  // Lo crítico del auditor del lanzamiento abierto, con su botón de arreglar.
+  const crit = puedeConfig() ? auditoria().filter((x) => x.nivel === 'critico' && x.accion && !audIgnorados().has(audKey(x))).slice(0, 5) : [];
+  const item = (x) => `<li class="bj-item est-${x.estado}" data-bj="${esc(x.id)}">
+      <div class="bj-txt"><span class="bj-est">${ESTADO_BJ[x.estado][0]} ${ESTADO_BJ[x.estado][1]}${x.auto ? ' · automática' : ''} · ${esc(haceBj(x.creada))}</span>
+        <strong>${esc(x.titulo)}</strong>
+        <small>${x.leads.slice(0, 8).map((l) => `${esc(l.nombre)} (${l.score})`).join(' · ')}${x.leads.length > 8 ? ` · y ${x.leads.length - 8} más` : ''}</small>
+        ${x.estado !== 'pendiente' && x.hechas ? `<small>Hecho con ${x.hechas}${x.fallidas ? ` · ${x.fallidas} fallaron` : ''}${x.decididaPor ? ` · lo aprobó ${esc(x.decididaPor)}` : ''}</small>` : ''}</div>
+      ${x.estado === 'pendiente' ? '<div class="bj-acc-item"><button type="button" class="btn primary" data-bj-si>✅ Aprobar</button><button type="button" class="btn ghost" data-bj-no>❌ Descartar</button></div>'
+        : x.estado === 'aprobada' && x.pendientes?.length ? '<div class="bj-acc-item"><button type="button" class="btn" data-bj-seguir>Seguir</button></div>' : ''}</li>`;
+  $('#bj-lista').innerHTML = `
+    ${crit.length ? `<h3 class="bj-h">🩺 Del auditor (${esc(state.config.launches[state.launchCode]?.name || '')})</h3><ul class="bj-list">${crit.map((x) => `<li class="bj-item est-crit"><div class="bj-txt"><span class="bj-est">🔴 ${esc(x.area)}</span><strong>${esc(x.titulo)}</strong></div><div class="bj-acc-item"><button type="button" class="btn primary" data-bj-aud='${esc(JSON.stringify(x.accion))}'>${x.accion.tipo === 'zoom' ? 'Crear sala →' : 'Arreglar →'}</button></div></li>`).join('')}</ul>` : ''}
+    <h3 class="bj-h">📥 Propuestas de las reglas</h3>
+    ${pend.length ? `<ul class="bj-list">${pend.map(item).join('')}</ul>` : `<p class="muted bj-vacio">Nada por decidir. ${bj.reglas.some((r) => r.activa) ? 'Las reglas siguen mirando: cuando algún lead cumpla una, aparecerá aquí (y te aviso por Telegram).' : puedeConfig() ? 'Aún no tienes ninguna regla encendida: en «Reglas de seguimiento» eliges qué hacer con quien llega al pago, ve la oferta del directo…' : ''}</p>`}
+    ${resto.length ? `<details class="bj-hist"><summary>Historial (${resto.length})</summary><ul class="bj-list">${resto.map(item).join('')}</ul></details>` : ''}`;
+}
+function pintarReglas() {
+  const pl = state.config.plantillasWa || [];
+  const roles = [['setter', 'Setter'], ['closer', 'Closer'], ['admin', 'Admin']];
+  $('#bj-reglas').innerHTML = bj.reglas.map((r) => {
+    const c = CONDICIONES[r.id];
+    const falta = r.activa ? faltaEnRegla(r, pl) : '';
+    return `<fieldset class="bj-regla${r.activa ? ' on' : ''}" data-regla="${r.id}">
+      <label class="bj-regla-head"><input type="checkbox" data-r="activa"${r.activa ? ' checked' : ''}> <span>${c.icono} <strong>${esc(c.label)}</strong></span></label>
+      <div class="bj-regla-body">
+        <label class="field"><span>Qué hacer</span><select data-r="tipo">${Object.entries(ACCIONES).map(([k, v]) => `<option value="${k}"${r.accion.tipo === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+        <label class="field" data-r-show="plantilla"${r.accion.tipo === 'plantilla' ? '' : ' hidden'}><span>Plantilla</span><select data-r="plantilla"><option value="">— Elige —</option>${pl.map((p) => `<option value="${esc(p.tag)}"${r.accion.tag === p.tag ? ' selected' : ''}>${esc(p.nombre)} · ${String(p.precio).replace('.', ',')} €</option>`).join('')}</select>${pl.length ? '' : '<small class="muted">Aún no hay plantillas: añádelas en Conexiones → Plantillas de WhatsApp.</small>'}</label>
+        <label class="field" data-r-show="etiqueta"${r.accion.tipo === 'etiqueta' ? '' : ' hidden'}><span>Etiqueta de GHL</span><input data-r="etiqueta" value="${esc(r.accion.tipo === 'etiqueta' ? r.accion.tag : '')}" placeholder="p. ej. setter-ia-activar"></label>
+        <label class="field" data-r-show="tarea"${r.accion.tipo === 'tarea' ? '' : ' hidden'}><span>Para quién</span><select data-r="rol">${roles.map(([k, v]) => `<option value="${k}"${r.accion.rol === k ? ' selected' : ''}>Rol ${v}</option>`).join('')}</select></label>
+        <label class="field"><span>Cómo</span><select data-r="modo"><option value="proponer"${r.modo === 'proponer' ? ' selected' : ''}>Proponer (yo apruebo)</option><option value="auto"${r.modo === 'auto' ? ' selected' : ''}>Automático</option></select></label>
+        <label class="field"><span>Máximo al día</span><input type="number" min="1" max="200" data-r="max" value="${r.max}"></label>
+        ${falta ? `<p class="bj-falta">⚠️ ${esc(falta)}</p>` : ''}
+      </div></fieldset>`;
+  }).join('');
+}
+function leerReglasForm() {
+  return $$('#bj-reglas [data-regla]').map((f) => {
+    const v = (k) => f.querySelector(`[data-r="${k}"]`);
+    const tipo = v('tipo').value;
+    return { id: f.dataset.regla, activa: v('activa').checked, modo: v('modo').value, max: Number(v('max').value), accion: { tipo, tag: tipo === 'plantilla' ? v('plantilla').value : tipo === 'etiqueta' ? v('etiqueta').value.trim() : '', rol: v('rol').value } };
+  });
+}
+$('#bj-reglas').addEventListener('change', (e) => {
+  const f = e.target.closest('[data-regla]');
+  if (!f) return;
+  if (e.target.dataset.r === 'tipo') f.querySelectorAll('[data-r-show]').forEach((x) => { x.hidden = x.dataset.rShow !== e.target.value; });
+  if (e.target.dataset.r === 'activa') f.classList.toggle('on', e.target.checked);
+  if (e.target.dataset.r === 'modo' && e.target.value === 'auto') $('#bj-st').textContent = 'En automático la regla actúa sola (con el máximo al día). Si dudas, empieza con «Proponer».';
+});
+$('#bj-guardar').addEventListener('click', async () => {
+  const st = $('#bj-st');
+  st.textContent = 'Guardando…';
+  try {
+    bj.reglas = (await api('/api/reglas', { method: 'POST', body: { op: 'reglas', reglas: leerReglasForm() } })).reglas;
+    pintarReglas();
+    const mal = bj.reglas.filter((r) => r.activa && faltaEnRegla(r, state.config.plantillasWa || []));
+    st.textContent = mal.length ? '⚠️ Guardado, pero alguna regla encendida no tiene su acción completa.' : '✓ Guardado. Las reglas miran cada vez que pasa la tarea programada.';
+  } catch (err) { st.textContent = err.message; }
+});
+$('#bj-revisar').addEventListener('click', async () => {
+  const st = $('#bj-st');
+  st.textContent = 'Buscando leads…';
+  try {
+    const r = await api('/api/reglas', { method: 'POST', body: { op: 'revisar' } });
+    st.textContent = r.accion === 'evaluar' ? `Revisados ${r.leads} leads: ${r.nuevas ? `${r.nuevas} propuesta${r.nuevas === 1 ? '' : 's'} nueva${r.nuevas === 1 ? '' : 's'}` : 'nada nuevo'}.` : r.accion === 'tanda' ? `Hecha una tanda de una propuesta aprobada (${r.hechas}).` : r.motivo || 'Nada que hacer.';
+    await cargarBandeja();
+  } catch (err) { st.textContent = err.message; }
+});
+$('#btn-bandeja').addEventListener('click', async () => {
+  pintarBandeja();
+  $('#bandeja-dialog').showModal();
+  if (Date.now() - bj.cargada > 30_000) await cargarBandeja();
+});
+$('#bandeja-dialog').addEventListener('click', async (e) => {
+  const tab = e.target.closest('[data-bj-tab]');
+  if (tab) {
+    $$('#bandeja-dialog [data-bj-tab]').forEach((t) => t.classList.toggle('on', t === tab));
+    $$('#bandeja-dialog [data-bj-panel]').forEach((p) => { p.hidden = p.dataset.bjPanel !== tab.dataset.bjTab; });
+    if (tab.dataset.bjTab === 'reglas') pintarReglas();
+    return;
+  }
+  const aud = e.target.closest('[data-bj-aud]');
+  if (aud) {
+    const acc = JSON.parse(aud.dataset.bjAud);
+    $('#bandeja-dialog').close();
+    if (acc.tipo === 'zoom') crearSalaDesdeAuditor(acc.k);
+    else if (acc.tipo === 'campo') { await openConfig(state.launchCode); setTimeout(() => goToField(acc.id), 150); }
+    else if (acc.tipo === 'tarea') abrirTarea(acc.id);
+    else if (acc.tipo === 'vista') showView(acc.v);
+    return;
+  }
+  const li = e.target.closest('[data-bj]');
+  const b = e.target.closest('[data-bj-si], [data-bj-no], [data-bj-seguir]');
+  if (!li || !b) return;
+  const id = li.dataset.bj;
+  const it = bj.items.find((x) => x.id === id);
+  if (b.matches('[data-bj-si]') && it && !window.confirm(`¿Aprobar?\n\n${it.titulo}`)) return;
+  b.disabled = true;
+  try {
+    let r = b.matches('[data-bj-seguir]') ? await api('/api/reglas', { method: 'POST', body: { op: 'continuar', id } })
+      : await api('/api/reglas', { method: 'POST', body: { op: 'decidir', id, si: b.matches('[data-bj-si]') } });
+    let total = r.hechas || 0;
+    // Grandes: de 20 en 20 mientras quedan (como el envío masivo de plantillas).
+    while (r.restantes > 0 && r.hechas > 0) {
+      b.textContent = `Enviando… ${total}`;
+      r = await api('/api/reglas', { method: 'POST', body: { op: 'continuar', id } });
+      total += r.hechas || 0;
+    }
+    if (r.estado === 'descartada') notice('Descartada: no se volverá a proponer con estos leads.');
+    else notice(`✅ Hecho con ${total} lead${total === 1 ? '' : 's'}.`);
+  } catch (err) { notice(err.message, true); }
+  await cargarBandeja();
 });
 
 // ---------- Inicio ----------

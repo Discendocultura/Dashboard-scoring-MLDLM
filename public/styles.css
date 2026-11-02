@@ -8646,3 +8646,30 @@ body.op-abierta .sidebar .sb-item.active:not(#sb-operativa)::before { display: n
 .av-retrato-anti p { margin: 0; font-size: 13.5px; line-height: 1.45; }
 .av-retrato-mas { margin: 12px 0 0; }
 .enc-op-lbl .av-tag { margin-left: 6px; vertical-align: 1px; }
+
+/* ---------- Bandeja de decisiones y reglas de seguimiento ---------- */
+body:not(.can-bandeja) #btn-bandeja { display: none !important; }
+#bandeja-dialog .tabs { margin-bottom: 14px; }
+.bj-h { font-size: 14px; margin: 16px 0 8px; color: var(--text-2); }
+.bj-h:first-child { margin-top: 0; }
+.bj-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.bj-item { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.bj-item.est-pendiente { border-left: 4px solid var(--accent); }
+.bj-item.est-crit { border-left: 4px solid var(--error); }
+.bj-item.est-hecha, .bj-item.est-descartada { opacity: .75; }
+.bj-txt { display: grid; gap: 3px; min-width: 0; }
+.bj-txt small { color: var(--muted); line-height: 1.4; }
+.bj-est { font-size: 12px; color: var(--text-2); font-weight: 700; }
+.bj-acc-item { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+.bj-vacio { padding: 10px 0; line-height: 1.5; }
+.bj-hist { margin-top: 14px; }
+.bj-hist summary { cursor: pointer; color: var(--text-2); font-weight: 700; margin-bottom: 8px; }
+.bj-intro { line-height: 1.5; margin: 0 0 12px; }
+.bj-regla { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin: 0 0 10px; background: var(--surface); }
+.bj-regla.on { border-color: var(--accent); background: var(--accent-soft); }
+.bj-regla-head { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.bj-regla-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 10px; }
+.bj-regla:not(.on) .bj-regla-body { display: none; }
+.bj-falta { grid-column: 1 / -1; margin: 0; color: var(--error); font-size: 13px; }
+.bj-acc { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+@media (max-width: 600px) { .bj-item { flex-direction: column; } }
