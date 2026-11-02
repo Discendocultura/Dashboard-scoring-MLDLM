@@ -7127,6 +7127,8 @@ function openConfig(code, { silencioso = false } = {}) {
   $('#cfg-clase3-at').value = l.clase3At || '';
   for (const k of ['clase1', 'clase2', 'clase3', 'test', 'descargable', 'espera']) $(`#cfg-img-${k}`).value = l.imagenes?.[k] || '';
   $('#cfg-replay-video').value = l.replayVideoUrl || '';
+  $('#cfg-grab-auto').checked = l.grabacionAuto !== false;
+  $('#cfg-grab-auto-st').textContent = '';
   $('#cfg-replay-at').value = l.replayAt || '';
   $('#cfg-vip-url').value = l.vipUrl || '';
   $('#cfg-vip-base').value = l.vipContadorBase ?? embudoInfo(embudoDeLanz(l))?.vipContadorBase ?? (esPrincipal() ? 41 : 0);
@@ -8614,6 +8616,7 @@ function readForm() {
       clase3Url: $('#cfg-clase3-url').value.trim(),
       clase3At: $('#cfg-clase3-at').value,
       replayVideoUrl: $('#cfg-replay-video').value.trim(),
+      grabacionAuto: $('#cfg-grab-auto').checked ? undefined : false,
       replayAt: $('#cfg-replay-at').value,
       vipUrl: $('#cfg-vip-url').value.trim(),
       vipContadorBase: $('#cfg-vip-base').value.trim(),
@@ -8688,6 +8691,31 @@ function avisarZoomMovidas(lista) {
   if (bien.length) notice(`🎥 Sala de Zoom movida: ${bien.map(f).join(' · ')}.`);
   if (mal.length) notice(`⚠️ No se ha movido la sala de Zoom de ${mal.map((m) => `${f(m)}: ${m.motivo}`).join(' · ')}.`, true);
 }
+// Grabación automática: avanzar ahora (sin esperar a la tarea programada).
+const ESTADO_GRAB = { esperando: '⏳', subiendo: '☁️', lista: '✅', error: '⚠️', sin: '⚠️', fallo: '⚠️' };
+$('#cfg-grab-auto-btn').addEventListener('click', async () => {
+  const st = $('#cfg-grab-auto-st');
+  const b = $('#cfg-grab-auto-btn');
+  if (!editingCode) { st.textContent = 'Guarda antes el lanzamiento.'; return; }
+  b.disabled = true;
+  st.textContent = 'Buscando…';
+  try {
+    const r = await api('/api/grabacion', { method: 'POST', body: { op: 'avanzar', code: editingCode } });
+    if (r.motivo) st.textContent = r.motivo;
+    else if (!r.pasos.length) st.textContent = 'Ahora no hay ningún directo por subir (se busca desde 1 h después de empezar y durante 4 días, si no tiene ya vídeo).';
+    else {
+      st.textContent = r.pasos.map((x) => `${ESTADO_GRAB[x.estado] || '•'} ${x.video}: ${x.estado === 'lista' ? 'lista y puesta' : x.detalle}`).join(' · ');
+      // Lo puesto en el servidor, también en el formulario abierto (para no borrarlo al guardar).
+      const cfg = (await api('/api/config')).config;
+      for (const x of r.pasos.filter((p) => p.estado === 'lista')) {
+        const v = videosDe(cfg.launches[editingCode])[x.k - 1];
+        const inp = x.k === 1 ? $('#cfg-replay-video') : $(`#config-dialog [data-vk="${x.k}"][data-vc="replayVideoUrl"]`);
+        if (v?.replayVideoUrl && inp && !inp.value.trim()) { inp.value = v.replayVideoUrl; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+      }
+      state.config = cfg;
+    }
+  } catch (err) { st.textContent = err.message; } finally { b.disabled = false; }
+});
 $('#cfg-save').addEventListener('click', async () => {
   const status = $('#cfg-status');
   try {
