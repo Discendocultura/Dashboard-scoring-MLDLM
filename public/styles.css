@@ -8718,3 +8718,13 @@ body:not(.can-bandeja) #btn-bandeja { display: none !important; }
 .ag-ia-diag li > div { display: grid; gap: 2px; }
 .ag-ia-diag small { color: var(--text-2); line-height: 1.45; }
 .ag-borrador { white-space: pre-wrap; max-height: 260px; overflow: auto; }
+.cb { margin-top: 12px; display: grid; gap: 8px; }
+.cb-pred, .cb-fase { margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface-2); line-height: 1.5; }
+.cb-fase { border-left: 3px solid var(--error); }
+.cb-tabla { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.cb-tabla th, .cb-tabla td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.cb-tabla td small { display: block; color: var(--muted); }
+.cb-tabla td:not(:first-child) small { display: inline; }
+.cb-tabla tr.mal td:nth-child(2) { color: var(--error); font-weight: 700; }
+.cb-tabla tr.bien td:nth-child(2) { color: #2e7d32; font-weight: 700; }
+@media (max-width: 600px) { .cb-tabla { font-size: 12.5px; } .cb-tabla th:nth-child(3), .cb-tabla td:nth-child(3) { display: none; } }

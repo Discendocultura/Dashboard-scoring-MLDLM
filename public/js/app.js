@@ -44,6 +44,7 @@ import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCo
 import { CONDICIONES, ACCIONES, faltaEnRegla } from './reglas.js';
 import { revisarHtmlPagina } from './revisar-codigos.js';
 import { objetivosDeBrief } from './agente.js';
+import { fmtRatio } from './cerebro.js';
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { enGruposDe, claveTelefono, leerMiembros } from './grupos-wa.js';
@@ -15570,7 +15571,9 @@ async function pintarAgente() {
         <div><span>Ventas</span><strong>${a.ventas ?? '–'}</strong>${o.ventas ? `<small>de ${o.ventas}</small>` : ''}</div>
         <div><span>Inversión</span><strong>${a.inversion ? eur(a.inversion) : '–'}</strong>${a.inversion && a.registros ? `<small>${eur(a.inversion / a.registros)} por registro</small>` : ''}</div>
         ${r ? `<div class="${r.pct != null && r.pct < 85 ? 'mal' : 'bien'}"><span>Ritmo</span><strong>${r.pct ?? '–'} %</strong><small>${r.actualDia}/día · faltan ${r.necesarioDia}/día</small></div>` : ''}
+        ${a.cerebro?.prediccion && !a.cerebro.prediccion.sinConversion ? `<div class="${a.cerebro.prediccion.llega === false ? 'mal' : 'bien'}"><span>🔮 Ventas previstas</span><strong>${a.cerebro.prediccion.ventas}</strong><small>entre ${a.cerebro.prediccion.ventasBajo} y ${a.cerebro.prediccion.ventasAlto}</small></div>` : ''}
       </div>
+      ${a.cerebro ? pintarCerebro(a.cerebro) : ''}
     </section>
     <section class="ag-sec"><h3>3 · Plan: las piezas <span class="st-chip">${hechas}/${a.piezas.length}</span></h3>
       <ul class="ag-piezas">${a.piezas.map((p) => `<li class="${p.hecha ? 'ok' : p.para && p.para < hoy ? 'tarde' : ''}"><span>${p.hecha ? '✅' : p.para && p.para < hoy ? '🔴' : '⬜'}</span><div><strong>${esc(p.titulo)}</strong>${p.para ? `<small>${p.hecha ? '' : 'para el '}${esc(fmtDiaAg(p.para))}</small>` : ''}</div>${p.hecha ? '' : accBtn(p.accion)}</li>`).join('')}</ul>
@@ -15583,6 +15586,19 @@ async function pintarAgente() {
       <div id="ag-ia">${pintarIa(a.ia, a.claude)}</div>
     </section>`;
   calcBrief();
+}
+// 🧠 Cerebro: previsión y cada fase frente a tus anteriores y a la mediana de la agencia (anónima).
+function pintarCerebro(c) {
+  const filas = c.comparativa.filas.filter((f) => f.actual != null || f.propio || f.ref);
+  const marca = (f) => (f.vsRef == null ? '' : f.vsRef <= -0.15 ? 'mal' : f.vsRef >= 0.15 ? 'bien' : '');
+  return `<div class="cb">
+    ${c.texto ? `<p class="cb-pred">🔮 ${esc(c.texto)}</p>` : ''}
+    ${c.textoFase ? `<p class="cb-fase">🧠 ${esc(c.textoFase)}</p>` : ''}
+    ${filas.length ? `<table class="cb-tabla"><thead><tr><th>Fase</th><th>Este lanzamiento</th><th>Tus anteriores</th><th>Agencia (mediana)</th></tr></thead><tbody>
+      ${filas.map((f) => `<tr class="${marca(f)}"><td><strong>${esc(f.fase)}</strong><small>${esc(f.label)}</small></td><td>${f.actual == null ? '<span class="muted">aún no</span>' : esc(fmtRatio(f, f.actual))}${f.vsRef != null ? ` <small>${f.vsRef >= 0 ? '+' : ''}${Math.round(f.vsRef * 100)} %</small>` : ''}</td><td>${f.propio ? esc(fmtRatio(f, f.propio.valor)) : '–'}</td><td>${f.ref ? `${esc(fmtRatio(f, f.ref.mediana))} <small>(${esc(fmtRatio(f, f.ref.p25))}–${esc(fmtRatio(f, f.ref.p75))})</small>` : '–'}</td></tr>`).join('')}
+    </tbody></table>` : ''}
+    <p class="muted small">${c.referencia ? `Agencia: ${c.referencia.lanzamientos} lanzamientos cerrados${c.referencia.formato === 'todos' ? ' (todos los formatos)' : ' del mismo formato'}, en anónimo.` : 'La referencia de la agencia sale cuando haya al menos 3 lanzamientos cerrados con resultados.'} ${c.anteriores ? `Tuyos: ${c.anteriores}.` : ''} Los resultados de cada lanzamiento se guardan al abrir Plan → Planificador.</p>
+  </div>`;
 }
 const GRAV_IA = { bien: '🟢', atencion: '🟠', urgente: '🔴' };
 function pintarIa(ia, conClaude) {
