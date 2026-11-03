@@ -18,7 +18,7 @@ import { ventasDeApi, ventaDeAvisoHotmart, guardarVentaHm, plegarBumps } from '.
 import { credenciales, ventasApi, guardarCredenciales, CLAVE_CRED } from '../lib/hotmart-api.js';
 import { claveDe } from './zoom-registro.js';
 import { quitarCarritoAbandonado } from '../lib/abandonos.js';
-import { enviarEventoMeta } from '../lib/meta-capi.js';
+import { enviarEventoMeta, ltvDe, tipoVenta } from '../lib/meta-capi.js';
 
 const CLAVE = 'lsd_hotmart_ventas';
 const valor = () => `hotmart:${clienteActual().id}`;
@@ -143,9 +143,11 @@ export async function POST(request, ctx) {
     // Conversions API: la compra, con su valor, para que Meta optimice a quien compra (solo la primera vez que llega).
     if (venta.tipo === 'cobro' && !venta.prueba && nueva) {
       const fecha = Number(venta.fecha) > 1e12 && Date.now() - Number(venta.fecha) < 6 * 86_400_000 ? Number(venta.fecha) : Date.now();
-      const meta = enviarEventoMeta({ tipo: 'compras', eventId: `hm-${venta.id}`, cuando: fecha,
+      // Con si es primera compra o renovación/cuota y lo que esa persona lleva gastado (ltv) en todas las pasarelas.
+      const meta = (async () => enviarEventoMeta({ tipo: 'compras', eventId: `hm-${venta.id}`, cuando: fecha,
         datos: { email: venta.email, nombre: venta.nombre, telefono: venta.telefono },
-        custom: { value: Number(venta.importe) || 0, currency: String(venta.moneda || 'EUR').toUpperCase(), content_name: venta.producto || '' } });
+        custom: { value: Number(venta.importe) || 0, currency: String(venta.moneda || 'EUR').toUpperCase(), content_name: venta.producto || '',
+          tipo_venta: tipoVenta(venta), ltv: await ltvDe(venta.email, [venta]).catch(() => 0) } }))();
       if (ctx?.waitUntil) ctx.waitUntil(meta); else await meta;
     }
     return json({ ok: true, guardada: nueva });

@@ -6,7 +6,8 @@ import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { ORDEN_EDAD, preguntasDe } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
-import { resumenThrivecart, ventasDeCsv, productosVistos, deProductos } from './thrivecart.js';
+import { resumenThrivecart, ventasDeCsv, leerCsv, productosVistos, deProductos } from './thrivecart.js';
+import { filasClientesCsv } from './meta-capi.js';
 import { resumenAb, MINIMO_AB } from './ab.js';
 import { pasosEmbudo, anchosEmbudo, fondoCapa } from './embudo-visual.js';
 import { promptAvatar } from './prompt-avatar.js';
@@ -5925,9 +5926,8 @@ function renderHoy() {
       ${buckets.map((b) => { const n = cuentaMotivo(b.id); return n || h.motivo === b.id ? `<button type="button" class="hoy-chip ${h.motivo === b.id ? 'on' : ''}" data-hoy-motivo="${b.id}" aria-pressed="${h.motivo === b.id}" title="${esc(b.hint)}">${esc(b.corto)} <b>${n}</b></button>` : ''; }).join('')}
     </div>
     <div class="hoy-seg" role="group" aria-label="Crear un segmento combinando señales">
-      <span class="hoy-seg-t">🎯 Segmento <small>pulsa varias para combinarlas</small></span>
-      ${HOY_SENALES.map((x) => { const on = h.senales.includes(x.id); const n = cuentaSenal(x); return `<button type="button" class="hoy-seg-chip ${on ? 'on' : ''}" data-hoy-senal="${x.id}" aria-pressed="${on}" title="${esc(x.title)}"${!on && !n ? ' disabled' : ''}>${x.ico} ${esc(x.txt)} <b>${n}</b></button>`; }).join('')}
-      ${senales.length ? `<button type="button" class="link-btn hoy-seg-quitar" data-hoy-senal="">Quitar segmento</button>` : ''}
+      <div class="hoy-seg-cab"><span class="hoy-seg-t">🎯 Elige un segmento</span><small>Pulsa una o varias tarjetas: se combinan (tienen que cumplirse todas)</small>${senales.length ? '<button type="button" class="btn ghost small hoy-seg-quitar" data-hoy-senal="">✕ Quitar segmento</button>' : ''}</div>
+      <div class="hoy-seg-grupos">${HOY_GRUPOS.map((g) => `<div class="hoy-seg-grupo"><span class="hoy-seg-gt">${g.t}</span><div class="hoy-seg-tarjetas">${HOY_SENALES.filter((x) => x.grupo === g.id).map((x) => { const on = h.senales.includes(x.id); const n = cuentaSenal(x); return `<button type="button" class="hoy-seg-chip ${on ? 'on' : ''}" data-hoy-senal="${x.id}" aria-pressed="${on}" title="${esc(x.title)}"${!on && !n ? ' disabled' : ''}><span class="hoy-seg-ico" aria-hidden="true">${x.ico}</span><span class="hoy-seg-txt">${esc(x.txt)}</span><b>${n}</b></button>`; }).join('')}</div></div>`).join('')}</div>
     </div>
     ${todos && !senales.length ? '<p class="muted hoy-aviso">👥 Todas las registradas, de la más caliente a la más fría: checkout, página de venta, directo hasta el final, directo, VIP, grabación, clases… No se quita nadie: las ya contactadas siguen con «✅ Le escribiste» y las que compraron salen al final con «💰 Compró».</p>' : ''}
     ${senales.length ? `<p class="hoy-seg-res"><b>${filtrada.length}</b> ${filtrada.length === 1 ? 'persona' : 'personas'}${todos ? '' : ' sin comprar'} que ${senales.map((x) => x.frase).join(' y ')}${h.temp ? ` · ${esc(ESTADOS.find((e) => e.id === h.temp)?.label || '')}` : ''}${h.motivo ? ` · ${esc(buckets.find((b) => b.id === h.motivo)?.corto || '')}` : ''}</p>` : ''}
@@ -5946,20 +5946,27 @@ function renderHoy() {
 const HOY_PAGINA = 40;
 // Señales para el segmento de Setting hoy: se combinan (tienen que cumplirse todas las marcadas).
 const asistioAlgun = (s, que) => (s.nVideos > 1 ? videosDe(state.config.launches[state.launchCode]) : [{ directo: sigDirecto(1) }])
-  .some((v) => que === 'final' ? s[`${v.directo}_final`] : ['asistio', '60', '120', 'final'].some((k) => s[`${v.directo}_${k}`]));
+  .some((v) => que === 'final' || que === '75' ? s[`${v.directo}_${que}`] : ['asistio', '60', '75', '120', 'final'].some((k) => s[`${v.directo}_${k}`]));
 const HOY_SENALES = [
-  { id: 'directo', ico: '🔴', txt: 'Asistió al directo', frase: 'asistieron al directo', title: 'Entró al directo (cualquiera de los directos del lanzamiento)', si: (s) => asistioAlgun(s, 'asistio') },
-  { id: 'final', ico: '🏁', txt: 'Hasta el final', frase: 'se quedaron hasta el final del directo', title: 'Se quedó en el directo hasta el final', si: (s) => asistioAlgun(s, 'final') },
-  { id: 'checkout', ico: '💳', txt: 'Inició el checkout', frase: 'llegaron al checkout', title: 'Llegó a la página de pago (pulsó «Quiero inscribirme»)', si: (s) => Boolean(s.inicio_pago) },
-  { id: 'venta', ico: '🛒', txt: 'Visitó la página de venta', frase: 'visitaron la página de venta', title: 'Entró en la página de venta', si: (s) => Boolean(s.venta_visita) },
-  { id: 'grabacion', ico: '🎬', txt: 'Vio la grabación', frase: 'vieron al menos la mitad de la grabación', title: 'Ha visto el 50% o más de la grabación', si: (s) => grabVenta(s) >= 50 },
-  { id: 'vip', ico: '⭐', txt: 'VIP', frase: 'son VIP', title: 'Pagó la entrada VIP', si: (s) => Boolean(s.vip) },
-  { id: 'clases', ico: '📚', txt: 'Vio las clases', frase: 'vieron al menos la mitad de alguna clase grabada', title: 'Ha visto el 50% o más de alguna clase grabada del prelanzamiento', si: (s) => (s.clases || []).some((c) => watched(s, c) >= 50) },
-  { id: 'sinplantilla', ico: '📨', txt: 'Sin plantilla', frase: 'aún no han recibido una plantilla', title: 'Todavía no se le ha enviado ninguna plantilla de WhatsApp (para no repetir)', si: (s) => !s.wa_plantilla },
-  { id: 'contactada', ico: '✅', txt: 'Ya contactadas', frase: 'ya habéis contactado', title: 'Alguien del equipo ya le ha escrito', si: (s) => Boolean(s.wa_enviado) },
-  { id: 'sincompra', ico: '🛍️', txt: 'Sin comprar', frase: 'aún no han comprado', title: 'Todavía no han comprado', si: (s) => !s.compra },
-  { id: 'compro', ico: '💰', txt: 'Compraron', frase: 'ya compraron', title: 'Ya han comprado', si: (s) => Boolean(s.compra) },
-  { id: 'sincontactar', ico: '🆕', txt: 'Sin contactar', frase: 'nadie ha contactado todavía', title: 'Nadie del equipo le ha escrito todavía', si: (s) => !s.wa_enviado },
+  { id: 'directo', grupo: 'directo', ico: '🔴', txt: 'Asistió al directo', frase: 'asistieron al directo', title: 'Entró al directo (cualquiera de los directos del lanzamiento)', si: (s) => asistioAlgun(s, 'asistio') },
+  { id: 'p75', grupo: 'directo', ico: '⏱️', txt: 'Hasta el 75 %', frase: 'estuvieron al menos el 75 % del directo', title: 'Estuvo conectada al menos el 75 % de lo que duró el directo (sale al sincronizar la asistencia de Zoom)', si: (s) => asistioAlgun(s, '75') },
+  { id: 'final', grupo: 'directo', ico: '🏁', txt: 'Hasta el final', frase: 'se quedaron hasta el final del directo', title: 'Se quedó en el directo hasta el final (la oferta)', si: (s) => asistioAlgun(s, 'final') },
+  { id: 'checkout', grupo: 'compra', ico: '💳', txt: 'Inició el checkout', frase: 'llegaron al checkout', title: 'Llegó a la página de pago (pulsó «Quiero inscribirme»)', si: (s) => Boolean(s.inicio_pago) },
+  { id: 'venta', grupo: 'compra', ico: '🛒', txt: 'Visitó la página de venta', frase: 'visitaron la página de venta', title: 'Entró en la página de venta', si: (s) => Boolean(s.venta_visita) },
+  { id: 'vip', grupo: 'compra', ico: '⭐', txt: 'VIP', frase: 'son VIP', title: 'Pagó la entrada VIP', si: (s) => Boolean(s.vip) },
+  { id: 'sincompra', grupo: 'compra', ico: '🛍️', txt: 'Sin comprar', frase: 'aún no han comprado', title: 'Todavía no han comprado', si: (s) => !s.compra },
+  { id: 'compro', grupo: 'compra', ico: '💰', txt: 'Compraron', frase: 'ya compraron', title: 'Ya han comprado', si: (s) => Boolean(s.compra) },
+  { id: 'grabacion', grupo: 'contenido', ico: '🎬', txt: 'Vio la grabación', frase: 'vieron al menos la mitad de la grabación', title: 'Ha visto el 50% o más de la grabación', si: (s) => grabVenta(s) >= 50 },
+  { id: 'clases', grupo: 'contenido', ico: '📚', txt: 'Vio las clases', frase: 'vieron al menos la mitad de alguna clase grabada', title: 'Ha visto el 50% o más de alguna clase grabada del prelanzamiento', si: (s) => (s.clases || []).some((c) => watched(s, c) >= 50) },
+  { id: 'sincontactar', grupo: 'contacto', ico: '🆕', txt: 'Sin contactar', frase: 'nadie ha contactado todavía', title: 'Nadie del equipo le ha escrito todavía', si: (s) => !s.wa_enviado },
+  { id: 'contactada', grupo: 'contacto', ico: '✅', txt: 'Ya contactadas', frase: 'ya habéis contactado', title: 'Alguien del equipo ya le ha escrito', si: (s) => Boolean(s.wa_enviado) },
+  { id: 'sinplantilla', grupo: 'contacto', ico: '📨', txt: 'Sin plantilla', frase: 'aún no han recibido una plantilla', title: 'Todavía no se le ha enviado ninguna plantilla de WhatsApp (para no repetir)', si: (s) => !s.wa_plantilla },
+];
+const HOY_GRUPOS = [
+  { id: 'directo', t: '🎥 En el directo' },
+  { id: 'compra', t: '🛒 Compra' },
+  { id: 'contenido', t: '📺 Contenido' },
+  { id: 'contacto', t: '💬 Contacto' },
 ];
 // Lo más caliente primero (para «Todos los leads» y los segmentos): la primera señal que cumple, en este orden.
 const HOY_CALOR = [
@@ -6014,7 +6021,7 @@ function accionesLead(l) {
   const vids = (s.nVideos || 1) > 1 ? videosDe(launch) : [{ nombre: 'Directo', directo: sigDirecto(1), replay: 'replay' }];
   for (const v of vids) {
     const nom = vids.length > 1 ? nombreCorto(v) : '';
-    const d = s[`${v.directo}_final`] ? ['Hasta el final', 'on'] : s[`${v.directo}_120`] ? ['+2 h', 'on'] : s[`${v.directo}_60`] ? ['+60 min', 'on'] : s[`${v.directo}_asistio`] ? ['Asistió', 'medio'] : s[`${v.directo}_click`] ? ['Clic al enlace', ''] : null;
+    const d = s[`${v.directo}_final`] ? ['Hasta el final', 'on'] : s[`${v.directo}_75`] ? ['75 % o más', 'on'] : s[`${v.directo}_120`] ? ['+2 h', 'on'] : s[`${v.directo}_60`] ? ['+60 min', 'on'] : s[`${v.directo}_asistio`] ? ['Asistió', 'medio'] : s[`${v.directo}_click`] ? ['Clic al enlace', ''] : null;
     if (d) out.push(accionChip({ ico: '🔴', txt: `${nom ? `${nom} · ` : 'Directo · '}${d[0]}`, tono: d[1], title: `${v.nombre}: ${d[0].toLowerCase()} en directo` }));
     const g = watched(s, v.replay);
     if (g) out.push(accionChip({ ico: '🎬', txt: nom ? `${nom} grabación` : 'Grabación', pct: g, tono: g >= 90 ? 'on' : 'medio', title: `Ha visto el ${g}% de la grabación${nom ? ` de ${v.nombre}` : ''}` }));
@@ -6303,6 +6310,7 @@ $('#btn-zoom').addEventListener('click', async () => {
         if (!lead) { unmatched++; continue; }
         const sigs = [`${v.directo}_asistio`];
         if (a.minutes >= 60) sigs.push(`${v.directo}_60`);
+        if (a.p75) sigs.push(`${v.directo}_75`);
         if (a.minutes >= 120) sigs.push(`${v.directo}_120`);
         if (a.final) sigs.push(`${v.directo}_final`);
         const missing = sigs.filter((t) => !lead.s[t]).map((t) => tagFor(state.launchCode, t));
@@ -17882,36 +17890,100 @@ $('#marca-dialog').addEventListener('close', () => {
 });
 
 // 🎯 Meta · Conversions API: píxel, qué eventos se mandan, código de prueba y los últimos envíos.
+const ORIGEN_TOKEN = {
+  propio: (f) => `✅ Token guardado aquí (…${f})`,
+  cloudflare: (f) => `✅ Token de Cloudflare: META_CAPI_TOKEN (…${f})`,
+  anuncios: () => '⚠️ No has puesto token: se está usando el de los anuncios, que normalmente NO puede mandar eventos al píxel. Genera uno (paso 2) y pégalo aquí.',
+  '': () => '⚠️ Falta el token (paso 2): sin él no se envía nada a Meta.',
+};
 async function pintarCapiConexiones() {
   const box = $('#cx-capi');
   if (!box) return;
   let d;
   try { d = await api('/api/meta-capi'); } catch (err) { box.innerHTML = `<p class="muted">${esc(err.message)}</p>`; return; }
   const c = d.config;
-  ponerEstadoCx('capi', c.activo && d.token ? 'ok' : c.pixelId ? 'aviso' : 'no', c.activo && d.token ? 'Activa' : !d.token ? 'Falta el token' : c.pixelId ? 'Apagada' : 'Sin conectar');
+  const t = d.token;
+  const tokenOk = t.hay && t.origen !== 'anuncios';
+  ponerEstadoCx('capi', c.activo && tokenOk ? 'ok' : c.pixelId || t.hay ? 'aviso' : 'no', c.activo && tokenOk ? 'Activa' : !tokenOk ? 'Falta el token' : c.pixelId ? 'Apagada' : 'Sin conectar');
   box.innerHTML = `<div class="capi-form">
       <label class="check"><input type="checkbox" id="capi-activo"${c.activo ? ' checked' : ''}> <strong>Mandar los eventos a Meta</strong></label>
-      <label class="field"><span>ID del píxel (o conjunto de datos)</span><input id="capi-pixel" inputmode="numeric" value="${esc(c.pixelId || '')}" placeholder="p. ej. 1234567890123456"></label>
-      <fieldset class="capi-ev"><legend>Qué eventos</legend>${Object.entries(d.eventos).map(([k, e]) => `<label class="check"><input type="checkbox" data-capi-ev="${k}"${c.eventos[k] ? ' checked' : ''}> ${esc(e.label)} <code>${esc(e.nombre)}</code></label>`).join('')}</fieldset>
+      <label class="field"><span>1 · ID del píxel (o conjunto de datos)</span><input id="capi-pixel" inputmode="numeric" value="${esc(c.pixelId || '')}" placeholder="p. ej. 1234567890123456"></label>
+      <div class="capi-tokenbox">
+        <label class="field"><span>2 · Token de la Conversions API</span><input id="capi-token" type="password" autocomplete="off" placeholder="${t.origen === 'propio' ? 'Guardado · pega otro para cambiarlo' : 'Pega aquí el token (EAA…)'}"></label>
+        <p class="capi-token ${tokenOk ? 'ok' : 'mal'}">${esc(ORIGEN_TOKEN[t.origen || ''](t.final))}</p>
+        <div class="bj-acc"><button type="button" class="btn" id="capi-token-guardar">Guardar token</button>${t.origen === 'propio' ? '<button type="button" class="btn ghost" id="capi-token-quitar">Quitar</button>' : ''}<button type="button" class="btn" id="capi-comprobar">3 · Comprobar</button><span class="muted small" id="capi-token-st"></span></div>
+      </div>
+      <fieldset class="capi-ev"><legend>Qué eventos se mandan</legend>${Object.entries(d.eventos).map(([k, e]) => `<label class="check"><input type="checkbox" data-capi-ev="${k}"${c.eventos[k] ? ' checked' : ''}> ${esc(e.label)} <code>${esc(e.nombre)}</code></label>`).join('')}</fieldset>
       <label class="field"><span>Código de prueba <small>(opcional: TEST…; mientras esté puesto, los eventos solo salen en «Probar eventos»)</small></span><input id="capi-test" value="${esc(c.testCode || '')}" placeholder="TEST12345"></label>
-      <p class="capi-token ${d.token ? 'ok' : 'mal'}">${d.token ? '✅ Token encontrado en Cloudflare' : '⚠️ Falta el token: META_CAPI_TOKEN en Cloudflare (paso 2)'}</p>
       <div class="bj-acc"><button type="button" class="btn primary" id="capi-guardar">Guardar</button><button type="button" class="btn" id="capi-probar">Enviar evento de prueba</button><span class="muted small" id="capi-st"></span></div>
+      <div class="capi-csv">
+        <strong>📄 Subir clientes por CSV</strong>
+        <p class="muted small">Ventas que no llegan solas (high-ticket, transferencias, otra plataforma, antiguas). Columnas: email (o teléfono), importe y fecha; si las tiene, nombre, producto y teléfono. Las compras de los últimos 7 días se mandan a Meta como «Purchase»; todas van a la audiencia <b>«AlquimIA · Clientes con su valor»</b> con lo que ha gastado cada persona, para crear audiencias parecidas a quien más gasta (Meta solo acepta eventos de 7 días o menos).</p>
+        <label class="btn"><input type="file" id="capi-csv" accept=".csv,text/csv" hidden>Elegir CSV…</label> <span class="muted small" id="capi-csv-st"></span>
+      </div>
     </div>
-    ${d.log.length ? `<details class="capi-log"><summary class="small">Últimos envíos (${d.log.length})</summary><ul>${d.log.map((x) => `<li>${x.ok ? '✅' : '⚠️'} ${esc(x.evento)}${x.prueba ? ' (prueba)' : ''} · ${esc(new Date(x.en).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}${x.error ? ` · ${esc(x.error)}` : ''}</li>`).join('')}</ul></details>` : ''}`;
+    ${d.log.length ? `<details class="capi-log"><summary class="small">Últimos envíos (${d.log.length})</summary><ul>${d.log.map((x) => `<li>${x.ok ? '✅' : '⚠️'} ${esc(x.evento)}${x.n ? ` · ${x.n}` : ''}${x.prueba ? ' (prueba)' : ''} · ${esc(new Date(x.en).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}${x.error ? ` · ${esc(x.error)}` : ''}</li>`).join('')}</ul></details>` : ''}`;
 }
+const capiForm = () => ({ activo: $('#capi-activo').checked, pixelId: $('#capi-pixel').value.trim(), testCode: $('#capi-test').value.trim(), eventos: Object.fromEntries($$('[data-capi-ev]').map((x) => [x.dataset.capiEv, x.checked])) });
 $('#conexiones-dialog').addEventListener('click', async (e) => {
-  const b = e.target.closest('#capi-guardar, #capi-probar');
+  const b = e.target.closest('#capi-guardar, #capi-probar, #capi-token-guardar, #capi-token-quitar, #capi-comprobar');
   if (!b) return;
-  const st = $('#capi-st');
-  const metaCapi = { activo: $('#capi-activo').checked, pixelId: $('#capi-pixel').value.trim(), testCode: $('#capi-test').value.trim(), eventos: Object.fromEntries($$('[data-capi-ev]').map((x) => [x.dataset.capiEv, x.checked])) };
+  const deToken = ['capi-token-guardar', 'capi-token-quitar', 'capi-comprobar'].includes(b.id);
+  const st = deToken ? $('#capi-token-st') : $('#capi-st');
   b.disabled = true;
-  st.textContent = b.id === 'capi-guardar' ? 'Guardando…' : 'Enviando…';
   try {
-    const r = await api('/api/meta-capi', { method: 'POST', body: { op: b.id === 'capi-guardar' ? 'guardar' : 'prueba', metaCapi } });
+    if (b.id === 'capi-token-guardar') {
+      const token = $('#capi-token').value.trim();
+      if (!token) { st.textContent = 'Pega primero el token.'; return; }
+      st.textContent = 'Guardando…';
+      const form = capiForm();
+      await api('/api/meta-capi', { method: 'POST', body: { op: 'token', token } });
+      const r = await api('/api/meta-capi', { method: 'POST', body: { op: 'comprobar', metaCapi: form } });
+      await pintarCapiConexiones();
+      $('#capi-token-st').textContent = r.ok ? `✅ Guardado y funciona${r.nombre ? ` con «${r.nombre}»` : ''}` : `✓ Guardado, pero: ${r.motivo}`;
+      return;
+    }
+    if (b.id === 'capi-token-quitar') {
+      if (!confirm('¿Quitar el token guardado? Se dejarán de mandar eventos si no hay otro.')) return;
+      await api('/api/meta-capi', { method: 'POST', body: { op: 'quitar-token' } });
+      await pintarCapiConexiones();
+      return;
+    }
+    if (b.id === 'capi-comprobar') {
+      st.textContent = 'Preguntando a Meta…';
+      const r = await api('/api/meta-capi', { method: 'POST', body: { op: 'comprobar', metaCapi: capiForm() } });
+      st.textContent = r.ok ? `✅ Funciona${r.nombre ? `: «${r.nombre}»` : ''}` : `❌ ${r.motivo}`;
+      return;
+    }
+    st.textContent = b.id === 'capi-guardar' ? 'Guardando…' : 'Enviando…';
+    const r = await api('/api/meta-capi', { method: 'POST', body: { op: b.id === 'capi-guardar' ? 'guardar' : 'prueba', metaCapi: capiForm() } });
     if (r.config) state.config = { ...state.config, metaCapi: r.config };
     st.textContent = b.id === 'capi-guardar' ? '✓ Guardado' : r.enviado ? '✓ Enviado: mira «Probar eventos» en Meta' : `⚠️ ${r.motivo || 'No se ha enviado'}`;
     if (b.id === 'capi-guardar') pintarCapiConexiones();
   } catch (err) { st.textContent = err.message; } finally { b.disabled = false; }
+});
+$('#conexiones-dialog').addEventListener('change', async (e) => {
+  if (e.target.id !== 'capi-csv') return;
+  const file = e.target.files?.[0];
+  const st = $('#capi-csv-st');
+  if (!file) return;
+  try {
+    const texto = await file.text();
+    const { ventas, cabecera } = ventasDeCsv(texto);
+    const filas = filasClientesCsv(ventas, cabecera, leerCsv(texto));
+    if (!filas.length) { st.textContent = '⚠️ No he encontrado filas con email, importe y fecha.'; return; }
+    const personas = new Set(filas.map((f) => f.email)).size;
+    if (!confirm(`${filas.length} ventas de ${personas} personas. ¿Mandarlas a Meta?`)) return;
+    st.textContent = 'Enviando…';
+    const r = await api('/api/meta-capi', { method: 'POST', body: { op: 'csv', filas } });
+    const txt = [
+      `✓ ${r.personas} personas`,
+      r.recientes ? (r.compras.enviados ? `${r.compras.enviados} compras recientes a Meta` : `⚠️ compras: ${r.compras.motivo}`) : 'ninguna compra de los últimos 7 días',
+      r.audiencia.subidas ? `${r.audiencia.subidas} en la audiencia «${r.audiencia.audiencia}»` : `⚠️ audiencia: ${r.audiencia.motivo}`,
+    ].join(' · ');
+    await pintarCapiConexiones();
+    $('#capi-csv-st').textContent = txt;
+  } catch (err) { st.textContent = err.message; } finally { e.target.value = ''; }
 });
 $('#btn-conexiones').addEventListener('click', () => {
   $('#tb-menu-cuenta').open = false;
