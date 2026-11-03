@@ -9267,3 +9267,109 @@ dialog.dlg-pagina .dialog-head::after { content: ''; position: absolute; right: 
 #marca-dialog.dlg-pagina .mp-paso-btn { transition: background .2s, transform .2s; }
 #marca-dialog.dlg-pagina .mp-paso-btn:hover { transform: translateX(2px); }
 @media (max-width: 760px) { #marca-dialog.dlg-pagina .mp-main { padding: 16px 14px; border-radius: 18px; } }
+
+/* ======================================================================
+   Menú de pasos «espacial» (Configuración del lanzamiento y Marca y avatar): cielo con estrellas y nebulosas,
+   con sus propios colores oscuros para que todo lo de dentro se lea bien en claro y en oscuro.
+   ====================================================================== */
+#config-dialog.cfg-pagina .cfg-side, #marca-dialog.dlg-pagina .mp-rail {
+  --surface: rgba(255, 255, 255, .07); --surface-2: rgba(255, 255, 255, .04); --surface-3: rgba(255, 255, 255, .1);
+  --border: rgba(255, 255, 255, .12); --border-strong: rgba(255, 255, 255, .22);
+  --text: #f1f2ff; --text-2: #cdd1ee; --muted: #9ea4cc; --accent: #ff7a18; --accent-ink: #fff; --tone-buy: #34d399;
+  position: sticky; isolation: isolate; color: var(--text); color-scheme: dark; border: 1px solid rgba(140, 120, 255, .22);
+  background-color: #070a22;
+  background-image:
+    radial-gradient(1px 1px at 18px 26px, #fff 50%, transparent 55%), radial-gradient(1px 1px at 120px 80px, #c7d2fe 50%, transparent 55%),
+    radial-gradient(1.4px 1.4px at 70px 150px, #fff 50%, transparent 55%), radial-gradient(1px 1px at 190px 200px, #fbcfe8 50%, transparent 55%),
+    radial-gradient(1.6px 1.6px at 240px 40px, #a5f3fc 50%, transparent 55%),
+    radial-gradient(120% 60% at 100% 0%, rgba(139, 92, 246, .38), transparent 60%),
+    radial-gradient(110% 55% at 0% 100%, rgba(255, 122, 24, .28), transparent 62%),
+    radial-gradient(90% 45% at 0% 35%, rgba(34, 211, 238, .14), transparent 60%),
+    linear-gradient(180deg, #080b26 0%, #0c0f33 50%, #170c3b 100%);
+  background-size: 260px 240px, 260px 240px, 260px 240px, 260px 240px, 260px 240px, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  background-attachment: local;
+  box-shadow: 0 30px 70px -34px rgba(40, 20, 120, .75), inset 0 1px 0 rgba(255, 255, 255, .1); }
+/* Estrellas que titilan. */
+#config-dialog.cfg-pagina .cfg-side::before, #marca-dialog.dlg-pagina .mp-rail::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+  background-image: radial-gradient(1.8px 1.8px at 40px 60px, #fff 50%, transparent 60%), radial-gradient(1.6px 1.6px at 210px 130px, #fde68a 50%, transparent 60%), radial-gradient(1.8px 1.8px at 120px 300px, #c4b5fd 50%, transparent 60%), radial-gradient(1.4px 1.4px at 230px 420px, #fff 50%, transparent 60%);
+  background-size: 280px 480px; animation: esp-titila 4.5s ease-in-out infinite alternate; }
+@keyframes esp-titila { from { opacity: .25; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { #config-dialog.cfg-pagina .cfg-side::before, #marca-dialog.dlg-pagina .mp-rail::before { animation: none; } }
+#config-dialog.cfg-pagina .cfg-side ::-webkit-scrollbar-thumb, #marca-dialog.dlg-pagina .mp-rail ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .2); }
+#config-dialog.cfg-pagina .cfg-side { scrollbar-color: rgba(255, 255, 255, .25) transparent; }
+
+/* Configuración: lo de dentro del cielo. */
+#config-dialog.cfg-pagina .cfg-side .field > span { color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+#config-dialog.cfg-pagina .cfg-side select { background-color: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .16); color: var(--text); }
+#config-dialog.cfg-pagina .cfg-side select option { background: #0f1130; color: #eef0ff; }
+#config-dialog.cfg-pagina .cfg-side .cfg-pick .btn { background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .18); color: var(--text); }
+#config-dialog.cfg-pagina .cfg-side .cfg-listo { border: 1px solid rgba(255, 255, 255, .14); background: linear-gradient(160deg, rgba(255, 255, 255, .11), rgba(255, 255, 255, .03)); backdrop-filter: blur(6px); box-shadow: 0 14px 30px -20px rgba(0, 0, 0, .6); }
+#config-dialog.cfg-pagina .cfg-side .cfg-listo .btn { background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .16); color: var(--text); }
+#config-dialog.cfg-pagina .cfg-side .cfg-listo-barra { background: rgba(255, 255, 255, .12); }
+#config-dialog.cfg-pagina .cfg-side .cfg-listo-barra span { background: linear-gradient(90deg, #ff9a1f, #ff4d1f 55%, #c03ff0); box-shadow: 0 0 12px rgba(255, 90, 40, .6); }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav-g { color: #a5b4fc; opacity: .9; }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav .tab { color: var(--text-2); }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav .tab .tab-ico { background: rgba(255, 255, 255, .08); color: #e0e7ff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav .tab:hover:not(.active) { background: rgba(255, 255, 255, .07); }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav .tab.active { color: #fff; background: linear-gradient(120deg, rgba(255, 122, 24, .32), rgba(168, 85, 247, .22)); box-shadow: inset 3px 0 0 #ff8a2a, 0 10px 24px -14px rgba(255, 110, 30, .8); }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav .tab.active .tab-ico { background: linear-gradient(140deg, #ff9a3c, #ff5e1a); color: #fff; box-shadow: 0 0 16px rgba(255, 120, 40, .7); }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav .tab:has(.tab-falta.ok) .tab-ico { box-shadow: inset 0 0 0 1.5px #34d399; color: #6ee7b7; }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav-t small { color: var(--muted); }
+#config-dialog.cfg-pagina .cfg-side .tab .tab-falta { background: #f43f5e; box-shadow: 0 0 10px rgba(244, 63, 94, .55); }
+#config-dialog.cfg-pagina .cfg-side .tab .tab-falta.ok { background: rgba(52, 211, 153, .18); color: #6ee7b7; box-shadow: none; }
+
+/* Marca y avatar: lo de dentro del cielo. */
+#marca-dialog.dlg-pagina .mp-rail { top: 76px; padding: 16px; border-radius: 22px; }
+#marca-dialog.dlg-pagina .mp-rail-top { border-bottom-color: rgba(255, 255, 255, .12); }
+#marca-dialog.dlg-pagina .mp-rail .mp-anillo .f { stroke: rgba(255, 255, 255, .14); }
+#marca-dialog.dlg-pagina .mp-rail .mp-anillo .v { stroke: #ff8a2a; filter: drop-shadow(0 0 4px rgba(255, 120, 40, .8)); }
+#marca-dialog.dlg-pagina .mp-rail .mp-etapa-t { color: #a5b4fc; }
+#marca-dialog.dlg-pagina .mp-rail .mp-paso-btn:hover { background: rgba(255, 255, 255, .07); }
+#marca-dialog.dlg-pagina .mp-rail .mp-paso-btn.on { color: #fff; background: linear-gradient(120deg, rgba(255, 122, 24, .32), rgba(168, 85, 247, .22)); box-shadow: inset 3px 0 0 #ff8a2a, 0 10px 24px -14px rgba(255, 110, 30, .8); }
+#marca-dialog.dlg-pagina .mp-rail .mp-dot { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .16); color: #e0e7ff; }
+#marca-dialog.dlg-pagina .mp-rail .mp-paso-btn.on .mp-dot { border-color: #ff8a2a; box-shadow: 0 0 14px rgba(255, 120, 40, .7); }
+#marca-dialog.dlg-pagina .mp-rail .mp-paso-btn.est-hecho .mp-dot { background: #10b981; border-color: #34d399; color: #fff; box-shadow: 0 0 10px rgba(52, 211, 153, .5); }
+#marca-dialog.dlg-pagina .mp-rail .mp-paso-btn small, #marca-dialog.dlg-pagina .mp-rail .mp-paso-t small { color: var(--muted); }
+
+/* ======================================================================
+   Configuración del lanzamiento: más clara (un solo encabezado por apartado) y con el paso actual de protagonista.
+   ====================================================================== */
+/* Portada más compacta: lo importante está debajo. */
+#config-dialog.cfg-pagina .dialog-head { padding: 26px 34px; margin-bottom: 18px; }
+#config-dialog.cfg-pagina .dialog-head .pg-sub { display: none; }
+/* Sin títulos repetidos: el del apartado ya sale en su tarjeta guiada. */
+#config-dialog.cfg-pagina .cfg-main:has(.tab-panel.cfg-guiado:not([hidden])) .cfg-main-head h3 { display: none; }
+#config-dialog.cfg-pagina .cfg-main:has(.tab-panel.cfg-guiado:not([hidden])) .cfg-main-head { padding: 0; margin: 0; border: 0; }
+#config-dialog.cfg-pagina .cfg-main { padding: 22px 26px 26px; }
+/* El paso actual: una tarjeta con degradado, su icono grande, la barra y «Ahora: …» en blanco. */
+#config-dialog.cfg-pagina .cfg-guia { position: relative; overflow: hidden; isolation: isolate; gap: 18px; padding: 22px 24px; margin-bottom: 18px; border: 0; border-radius: 22px; color: #fff;
+  background: radial-gradient(120% 140% at 100% 0%, rgba(168, 85, 247, .55), transparent 60%), linear-gradient(120deg, #ff7a18, #ff4d1f 55%, #d9367a);
+  box-shadow: 0 24px 50px -28px rgba(255, 77, 31, .75); }
+#config-dialog.cfg-pagina .cfg-guia::after { content: ''; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(1.4px 1.4px at 30px 40px, rgba(255, 255, 255, .8) 50%, transparent 55%), radial-gradient(1px 1px at 160px 90px, rgba(255, 255, 255, .6) 50%, transparent 55%); background-size: 220px 140px; opacity: .5; }
+#config-dialog.cfg-pagina .cfg-guia-ico { width: 64px; height: 64px; font-size: 32px; border-radius: 20px; background: rgba(255, 255, 255, .18); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .3); backdrop-filter: blur(4px); }
+#config-dialog.cfg-pagina .cfg-guia-t { color: #fff; }
+#config-dialog.cfg-pagina .cfg-guia-t > small:first-child { color: rgba(255, 255, 255, .85); }
+#config-dialog.cfg-pagina .cfg-guia-t strong { font-size: 22px; letter-spacing: -.01em; color: #fff; }
+#config-dialog.cfg-pagina .cfg-guia-t span, #config-dialog.cfg-pagina .cfg-guia-t small { color: rgba(255, 255, 255, .88); }
+#config-dialog.cfg-pagina .cfg-guia-barra { background: rgba(255, 255, 255, .25); height: 8px; }
+#config-dialog.cfg-pagina .cfg-guia-barra i { background: #fff; box-shadow: 0 0 12px rgba(255, 255, 255, .8); }
+#config-dialog.cfg-pagina .cfg-guia-ahora { background: #fff; color: #c2410c; border: 0; border-radius: 14px; padding: 10px 18px; font-weight: 800; box-shadow: 0 12px 26px -14px rgba(0, 0, 0, .5); }
+#config-dialog.cfg-pagina .cfg-guia-ahora small { color: #9a3412; }
+#config-dialog.cfg-pagina .cfg-guia-ahora:hover { transform: translateY(-1px); }
+/* Lo que falta: una tira compacta de chips (no otro bloque grande). */
+#config-dialog.cfg-pagina .cfg-pend { padding: 12px 14px; border-radius: 16px; }
+#config-dialog.cfg-pagina .cfg-pend-cab { margin-bottom: 8px; }
+/* Bloques numerados: el que toca, resaltado; los completos, con su check verde. */
+#config-dialog.cfg-pagina .cfg-sec.paso-actual { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent), 0 18px 40px -30px rgb(0 0 0 / .45); }
+#config-dialog.cfg-pagina .cfg-sec.paso-ok { border-color: color-mix(in srgb, var(--tone-buy, #1f9d55) 30%, var(--border)); }
+#config-dialog.cfg-pagina .cfg-paso-n { width: 30px; height: 30px; font-size: 13px; font-weight: 800; border-radius: 10px; }
+/* Anterior / siguiente: una barra clara al final de cada apartado. */
+#config-dialog.cfg-pagina .cfg-guia-pie { margin-top: 10px; padding: 14px 16px; border-radius: 18px; border: 1px solid var(--border); background: var(--surface-2); }
+#config-dialog.cfg-pagina .cfg-guia-pie .btn.primary { padding: 11px 18px; border-radius: 12px; font-weight: 700; }
+@media (max-width: 760px) {
+  #config-dialog.cfg-pagina .cfg-guia { padding: 16px; gap: 12px; }
+  #config-dialog.cfg-pagina .cfg-guia-ico { width: 48px; height: 48px; font-size: 24px; }
+  #config-dialog.cfg-pagina .cfg-guia-t strong { font-size: 18px; }
+  #config-dialog.cfg-pagina .cfg-guia-ahora { width: 100%; }
+}
+@media (max-width: 760px) { #config-dialog.cfg-pagina .cfg-side, #marca-dialog.dlg-pagina .mp-rail { position: relative; top: auto; max-height: none; } }
