@@ -1725,7 +1725,7 @@ $('#sb-negocio').addEventListener('click', () => mostrarNegocio());
 // showModal), pero se muestran dentro de la página, sin ventana encima.
 // Al salir con su ✕ (o al terminar, p. ej. al crear un lanzamiento), se vuelve a donde se estaba.
 let paginaVolver = 'inicio';
-const PAGINA_BTN = { conexiones: '#btn-conexiones', 'productos-dialog': '#btn-productos', 'marca-dialog': '#btn-marca', 'equipo-dialog': '#btn-equipo' };
+const PAGINA_BTN = { 'config-dialog': '#btn-config', conexiones: '#btn-conexiones', 'productos-dialog': '#btn-productos', 'marca-dialog': '#btn-marca', 'equipo-dialog': '#btn-equipo' };
 function cerrarPaginas() {
   for (const d of $$('dialog.dlg-pagina')) if (d.open && d.id !== state.enPagina) d.close();
 }
@@ -1746,7 +1746,8 @@ function mostrarPagina(id) {
 }
 const mostrarConexiones = () => mostrarPagina('conexiones');
 for (const d of $$('dialog.dlg-pagina')) {
-  d.showModal = () => { mostrarPagina(d.id); if (!d.open) d.show(); };
+  // Al abrir, arriba del todo (show() lleva el foco al primer campo y bajaría la página hasta él).
+  d.showModal = () => { mostrarPagina(d.id); if (!d.open) { d.show(); window.scrollTo(0, 0); } };
   // Cerrarla (su ✕ o «Cerrar») es volver al Inicio; si se cierra por ir a otra página, no.
   d.addEventListener('close', () => {
     if (state.enPagina !== d.id) return;
@@ -7311,10 +7312,10 @@ $$('#config-dialog .cfg-nav .tab').forEach((t) => t.addEventListener('click', ()
   if (t.dataset.tab === 'resumen') { $('#cfg-hub').dataset.html = ''; pintarHub(); }
   $('#cfg-titulo').textContent = $('.cfg-nav-t', t)?.firstChild?.textContent?.trim() || $('.cfg-nav-t', t)?.textContent.trim() || '';
   cfgDlg.classList.remove('cfg-en-menu');
-  $('.cfg-main', cfgDlg).scrollTop = 0;
-  $('.dialog-body', cfgDlg).scrollTop = 0;
+  // Es una página: al cambiar de apartado, arriba del todo (a la altura de los apartados).
+  if (cfgDlg.open && window.scrollY > cfgDlg.querySelector('.cfg-body').offsetTop) window.scrollTo({ top: cfgDlg.querySelector('.cfg-body').getBoundingClientRect().top + window.scrollY - 80 });
 }));
-$('#cfg-volver').addEventListener('click', () => { cfgDlg.classList.add('cfg-en-menu'); $('.dialog-body', cfgDlg).scrollTop = 0; });
+$('#cfg-volver').addEventListener('click', () => { cfgDlg.classList.add('cfg-en-menu'); window.scrollTo({ top: 0 }); });
 
 // ---------- 📨 Informes: email diario de captación / carrito ----------
 let infEmails = [];
@@ -7373,6 +7374,7 @@ $('#inf-enviar').addEventListener('click', async () => {
 function openConfig(code, { silencioso = false } = {}) {
   const yaAbierta = $('#config-dialog').open || silencioso;
   editingCode = code && state.config.launches[code] ? code : null;
+  $('#cfg-pg-nombre').textContent = editingCode ? state.config.launches[editingCode].name || editingCode : 'Nuevo lanzamiento';
   if (!silencioso) { const c = editingCode; edReabrir.set('config-dialog', () => openConfig(c)); }
   hubVerCategorias = false;
   // Al abrir: un lanzamiento que ya existe, en su resumen; uno nuevo, en «Datos básicos» (en el móvil, el menú).
