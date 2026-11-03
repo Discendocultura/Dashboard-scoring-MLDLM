@@ -15264,7 +15264,7 @@ function irPasoEmb(i) {
   $('#emb-status').textContent = '';
   if (actual === 'final') pintarEmbResumen();
   if (actual === 'contenido') pintarEmbOrigen();
-  $('#embudo-dialog .dialog-body').scrollTop = 0;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function validarPasoEmb() {
   if (pasosEmb()[embPaso] === 'dashboard' && !embPestanas().length) { $('#emb-status').textContent = 'Deja al menos una sección marcada.'; return false; }
@@ -15372,6 +15372,7 @@ function abrirNuevoEmbudo({ preset } = {}) {
   $('#emb-plantilla-guardar').hidden = true;
   cargarPlantillas();
   $('#emb-titulo').textContent = 'Nuevo embudo';
+  $('#emb-pg-sub').hidden = false;
   $('.emb-tipos').hidden = false;
   $('input[name="emb-tipo"][value="webinar"]').checked = true;
   $('#emb-formato-box').hidden = true;
@@ -15438,6 +15439,7 @@ function abrirEditarEmbudo(id) {
   $('#emb-plantilla-box').hidden = true;
   $('#emb-plantilla-guardar').hidden = !state.superadmin || e.tipo === 'directa' || e.tipo === 'cruzadas';
   $('#emb-crear').textContent = 'Guardar';
+  $('#emb-pg-sub').hidden = true;
   $('#emb-guia-box').open = false;
   $('#emb-h-tipo').textContent = e.tipo === 'vsl' ? 'Tipo de embudo evergreen' : 'Formato de los lanzamientos';
   $('#emb-sub-tipo').textContent = 'El tipo de embudo no se cambia; puedes pulsar cualquier paso de arriba y guardar cuando quieras.';
