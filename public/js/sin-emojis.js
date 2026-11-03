@@ -35,7 +35,8 @@ const SE_QUEDAN = new Set(['↗', '↘', '←', '→', '↑', '↓', '↔', '↕
 const base = (e) => e.replace(/[️‍]|\p{Emoji_Modifier}/gu, '');
 const esEmoji = (e) => !SE_QUEDAN.has(base(e)) && !/^[0-9#*]$/.test(base(e));
 
-const RESPETAR = '.con-emojis, textarea, input, pre, code, script, style, svg, [contenteditable=""], [contenteditable="true"], .gw-msg, .xo-msg, .seg-msg, .nl-preview, .wa-pl-body, .cc-prev, .ll-notas, .rich';
+// El menú lateral, la Operativa y los Procesos se quedan con sus emojis (así gustan).
+const RESPETAR = '#sidebar, #operativa-dialog, #procesos-dialog, .con-emojis, textarea, input, pre, code, script, style, svg, [contenteditable=""], [contenteditable="true"], .gw-msg, .xo-msg, .seg-msg, .nl-preview, .wa-pl-body, .cc-prev, .ll-notas, .rich';
 const svgDe = (e) => {
   const b = base(e);
   const k = MAPA.get(b) || MAPA.get(e);
