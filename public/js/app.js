@@ -859,7 +859,7 @@ function revisarPp() {
       for (const id of nuevos) onbGuardar({ paso: `u-${id}` });
     } else ppAbiertos = new Set(DESBLOQUEOS.map((d) => d.id));
     aplicarPpDom();
-    if (state.config && state.embudo && !state.enInicio && !state.enNegocio) refrescarPestanas();
+    if (state.config && state.embudo && !state.enInicio && !state.enNegocio && !state.enConexiones) refrescarPestanas();
     pintarSiguientePaso();
     pintarEjemploLateral();
     if (nuevos.length && !ppPendiente) ppPendiente = nuevos[0];
@@ -1328,7 +1328,7 @@ function pintarSelectorCliente() {
   if (!c) return;
   const pick = $('#cliente-pick');
   pick.hidden = !(state.agencia || state.clientes.length > 1) || state.role === ROL_CLIENTE && state.clientes.length < 2;
-  const enAgencia = Boolean(state.superadmin && state.enInicio && !state.enNegocio && modoInicio() === 'agencia');
+  const enAgencia = Boolean(state.superadmin && state.enInicio && !state.enNegocio && !state.enConexiones && modoInicio() === 'agencia');
   $('#cp-ico').textContent = enAgencia ? '🏢' : '';
   $('#cp-ico').hidden = !enAgencia;
   $('#cp-txt').textContent = enAgencia ? 'Agencia' : c.nombre;
@@ -1400,12 +1400,13 @@ function pintarSidebar() {
     return `<div class="sb-row"><button type="button" class="sb-item${activo ? ' active' : ''}" data-embudo="${esc(x.e.id)}"${x.code ? ` data-lanz="${esc(x.code)}"` : ''}${x.meteo ? ` data-meteo="${esc(x.meteo)}"` : ''}><span class="sb-ico" aria-hidden="true">${x.ico}</span><span class="sb-txt"><strong>${esc(x.nombre)}</strong><small>${esc(x.sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(x.e.id)}" title="Pestañas, nombre y guía de «${esc(x.e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
   }).join('');
   // «Inicio» es el del cliente en el que está (la vista de agencia se elige en el selector de arriba).
-  const agencia = Boolean(state.enInicio) && !state.enNegocio && modoInicio() === 'agencia';
+  const agencia = Boolean(state.enInicio) && !state.enNegocio && !state.enConexiones && modoInicio() === 'agencia';
   $('#sb-inicio').hidden = false;
-  $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio) && !agencia && !state.enNegocio);
+  $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio) && !agencia && !state.enNegocio && !state.enConexiones);
   // «Inteligencia de negocio»: para quien ve las métricas (el rol Cliente la tiene en su portal).
   $('#sb-negocio').hidden = !(tiene('metricas') && embudos().length);
   $('#sb-negocio').classList.toggle('active', Boolean(state.enNegocio));
+  $('#sb-config-sub [data-proxy="#btn-conexiones"]')?.classList.toggle('active', Boolean(state.enConexiones));
   pintarSelectorCliente();
 }
 
@@ -1530,8 +1531,9 @@ function salirInicio() {
   if (!state.enInicio) return;
   state.enInicio = false;
   state.enNegocio = false;
+  state.enConexiones = false;
   ls.set('lsd_inicio', '');
-  document.body.classList.remove('en-inicio', 'en-negocio');
+  document.body.classList.remove('en-inicio', 'en-negocio', 'en-conexiones');
   $('#sb-negocio').classList.remove('active');
   $('#sb-inicio').classList.remove('active');
   // Mostrar poco a poco: al salir del Inicio por un atajo (buscador, «Tu siguiente paso»…), solo las pestañas que tocan.
@@ -1545,7 +1547,8 @@ function pintarSaludo() {
 async function mostrarInicio({ fresh = false } = {}) {
   state.enInicio = true;
   state.enNegocio = false;
-  document.body.classList.remove('en-negocio');
+  state.enConexiones = false;
+  document.body.classList.remove('en-negocio', 'en-conexiones');
   pintarSaludo();
   ls.set('lsd_inicio', '1');
   document.body.classList.add('en-inicio');
@@ -1703,7 +1706,9 @@ async function cargarNegocioEn(caja, { cliente = state.cliente, enlaces = true }
 function mostrarNegocio() {
   state.enInicio = true;
   state.enNegocio = true;
+  state.enConexiones = false;
   ls.set('lsd_inicio', '');
+  document.body.classList.remove('en-conexiones');
   document.body.classList.add('en-inicio', 'en-negocio');
   $('#alertas-carrito').hidden = true;
   pintarNavMovil();
@@ -1712,6 +1717,19 @@ function mostrarNegocio() {
   cargarNegocioEn($('#negocio'));
 }
 $('#sb-negocio').addEventListener('click', () => mostrarNegocio());
+// Conexiones: una página más (como el Inicio), con el menú lateral y la barra de arriba a mano.
+function mostrarConexiones() {
+  state.enInicio = true;
+  state.enNegocio = false;
+  state.enConexiones = true;
+  ls.set('lsd_inicio', '');
+  document.body.classList.remove('en-negocio');
+  document.body.classList.add('en-inicio', 'en-conexiones');
+  $('#alertas-carrito').hidden = true;
+  pintarNavMovil();
+  pintarSidebar();
+  window.scrollTo(0, 0);
+}
 document.addEventListener('change', (e) => {
   const sel = e.target.closest('[data-ng-periodo]');
   if (!sel) return;
@@ -1995,7 +2013,7 @@ function pintarActualizado() {
   const el = $('#inicio-actualizado');
   if (!el) return;
   const ts = [...(ini?.embudos || []), ...(ini?.meteoricos || [])].filter((x) => x && !x.cargando).map((x) => x.calculadoEn || ini.cargadoEn).filter(Number.isFinite);
-  el.textContent = ts.length && state.enInicio && !state.enNegocio && modoInicio() !== 'agencia' ? `Actualizado ${haceTxt(Math.min(...ts))}` : '';
+  el.textContent = ts.length && state.enInicio && !state.enNegocio && !state.enConexiones && modoInicio() !== 'agencia' ? `Actualizado ${haceTxt(Math.min(...ts))}` : '';
 }
 setInterval(pintarActualizado, 60_000);
 
@@ -18238,12 +18256,12 @@ async function pintarAtribConexiones() {
       <p class="small">${d.personas ? `✅ <b>${numEs(d.personas)}</b> personas con su anuncio de origen guardado (${numEs(d.conAnuncio)} con el id exacto del anuncio · ${numEs(d.ultimos7)} en los últimos 7 días).` : 'Aún no ha llegado nadie con los parámetros: en cuanto alguien entre desde un anuncio con ellos, aparecerá aquí.'}</p>
     </div>`;
 }
-$('#conexiones-dialog').addEventListener('click', async (e) => {
+$('#conexiones').addEventListener('click', async (e) => {
   if (!e.target.closest('#atrib-copiar')) return;
   try { await navigator.clipboard.writeText($('#atrib-params').value); $('#atrib-st').textContent = '✓ Copiados'; } catch { $('#atrib-params').select(); $('#atrib-st').textContent = 'Cópialos con Ctrl+C'; }
 });
 const capiForm = () => ({ activo: $('#capi-activo').checked, pixelId: $('#capi-pixel').value.trim(), testCode: $('#capi-test').value.trim(), eventos: Object.fromEntries($$('[data-capi-ev]').map((x) => [x.dataset.capiEv, x.checked])) });
-$('#conexiones-dialog').addEventListener('click', async (e) => {
+$('#conexiones').addEventListener('click', async (e) => {
   const cal = e.target.closest('#capi-calidad');
   if (cal) {
     const box = $('#capi-calidad-res');
@@ -18291,7 +18309,7 @@ $('#conexiones-dialog').addEventListener('click', async (e) => {
     if (b.id === 'capi-guardar') pintarCapiConexiones();
   } catch (err) { st.textContent = err.message; } finally { b.disabled = false; }
 });
-$('#conexiones-dialog').addEventListener('change', async (e) => {
+$('#conexiones').addEventListener('change', async (e) => {
   if (e.target.id !== 'capi-csv') return;
   const file = e.target.files?.[0];
   const st = $('#capi-csv-st');
@@ -18324,21 +18342,16 @@ $('#btn-conexiones').addEventListener('click', () => {
   pintarCapiConexiones();
   pintarAtribConexiones();
   cargarClaude();
-  $('#conexiones-dialog').showModal();
+  mostrarConexiones();
   pintarFuentesConexiones();
   pintarEstadoCx();
 });
-// Estado de cada conexión (la pastilla de su tarjeta y el resumen de arriba): { clave: ['ok'|'aviso'|'no', texto] }.
+// Estado de cada conexión (la pastilla de su tarjeta): { clave: ['ok'|'aviso'|'no', texto] }.
 const estadoCx = {};
-const NOMBRE_CX = { capi: '🎯 Conversions API', atrib: '🧭 Atribución', zoom: '🎥 Zoom', vimeo: '📼 Vimeo', thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', claude: '🧠 Claude', chatgpt: '🧠 ChatGPT', setter: '🤖 LabIA', vigia: '🛎️ Vigilancia' };
 function ponerEstadoCx(clave, tono, texto) {
   estadoCx[clave] = [tono, texto];
-  const el = $(`#conexiones-dialog [data-cx-estado="${clave}"]`);
+  const el = $(`#conexiones [data-cx-estado="${clave}"]`);
   if (el) { el.className = `cx-estado cx-e-${tono}`; el.textContent = texto; }
-  const res = $('#cx-resumen');
-  // Con el logo oficial de la app (el mismo de su tarjeta) en lugar del emoji, si lo tiene.
-  const nombre = (k, n) => { const img = $(`#conexiones-dialog .cx-card[data-cx="${k}"] .cx-logo-img img`); return img ? `<img class="cx-res-logo" src="${img.getAttribute('src')}" alt="">${esc(n.replace(/^\S+\s/, ''))}` : esc(n); };
-  if (res) res.innerHTML = Object.entries(NOMBRE_CX).filter(([k]) => estadoCx[k]).map(([k, n]) => `<button type="button" class="cx-res cx-e-${estadoCx[k][0]}" data-cx-ir="${k}"><span>${nombre(k, n)}</span><b>${esc(estadoCx[k][1])}</b></button>`).join('');
 }
 function pintarEstadoCx() {
   const st = state.config?.setterIa;
@@ -18347,13 +18360,6 @@ function pintarEstadoCx() {
   ponerEstadoCx('plantillas', npl ? 'ok' : 'no', npl ? `${npl} ${npl === 1 ? 'plantilla' : 'plantillas'}` : 'Sin plantillas');
   if (!estadoCx.sendflow) ponerEstadoCx('sendflow', 'aviso', 'Pulsa «Probar»');
 }
-// Pulsar un estado del resumen abre su tarjeta.
-$('#conexiones-dialog').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-cx-ir]');
-  if (!b) return;
-  const card = $(`#conexiones-dialog .cx-card[data-cx="${b.dataset.cxIr}"]`);
-  if (card) { card.open = true; card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-});
 // Zoom, SendFlow y Vimeo: la cuenta propia del cliente, pegada aquí (cifrada en AlquimIA, como Hotmart).
 const PROPIAS = {
   zoom: { nombre: 'Zoom', campos: [['accountId', '🆔 Account ID', ''], ['clientId', '🪪 Client ID', ''], ['clientSecret', '🗝️ Client Secret', 'secreto'], ['hostEmail', '✉️ Email de la anfitriona', 'opcional']] },
@@ -18384,7 +18390,7 @@ async function pintarPropiasConexiones() {
   }
   for (const s of Object.keys(PROPIAS)) pintarPropia(s, r[s]);
 }
-$('#conexiones-dialog').addEventListener('click', async (e) => {
+$('#conexiones').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-pr-guardar], [data-pr-quitar]');
   if (!b) return;
   const servicio = b.dataset.prGuardar || b.dataset.prQuitar;
@@ -18439,7 +18445,7 @@ async function pintarHotmartConexiones() {
     </details>
     <p class="muted small">${r.total ? `<strong>${r.total}</strong> ${r.total === 1 ? 'venta guardada' : 'ventas guardadas'}. ` : ''}${ult}</p>`;
 }
-$('#conexiones-dialog').addEventListener('click', async (e) => {
+$('#conexiones').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-hm-conectar], [data-hm-sync], [data-hm-hist], [data-hm-borrar]');
   if (!b) return;
   const st = $('#cx-hotmart [data-hm-st]') || $('#cx-hotmart [data-hm-prog]');
@@ -18503,7 +18509,7 @@ async function pintarThrivecartConexiones() {
 let tcImport = null;
 const TC_COL = { email: 'Email', importe: 'Importe', item: 'Línea', importeItem: 'Importe de la línea', producto: 'Producto', productoId: 'Id del producto', linea: 'Tipo de línea', fecha: 'Fecha', pedido: 'Pedido', tipo: 'Tipo', estado: 'Estado', nombre: 'Nombre', moneda: 'Moneda' };
 const TC_EXTRA = { bump: 'Bump', upsell: 'Upsell', downsell: 'Downsell' };
-$('#conexiones-dialog').addEventListener('change', async (e) => {
+$('#conexiones').addEventListener('change', async (e) => {
   if (e.target.id !== 'tc-csv') return;
   const f = e.target.files?.[0];
   const box = $('#tc-csv-prev');
@@ -18528,7 +18534,7 @@ $('#conexiones-dialog').addEventListener('change', async (e) => {
       <p class="muted small">Si ya importaste este archivo antes, lo de esos pedidos se sustituye por lo nuevo (no se duplica).</p>
       ${r.ventas.length ? `<button type="button" class="btn primary" id="tc-csv-importar">Importar ${r.ventas.length} ${r.ventas.length === 1 ? 'venta' : 'ventas'}</button>` : ''}`;
 });
-$('#conexiones-dialog').addEventListener('click', async (e) => {
+$('#conexiones').addEventListener('click', async (e) => {
   const b = e.target.closest('#tc-csv-importar');
   if (!b || !tcImport?.length) return;
   b.disabled = true;
@@ -18588,7 +18594,6 @@ $('#cx-fuentes').addEventListener('click', async (e) => {
     return;
   }
   if (e.target.closest('[data-cx-guia]')) {
-    $('#conexiones-dialog').close();
     $('#btn-agencia').click();
     $('#agencia-dialog .tab[data-tab="clientes"]')?.click();
     try { pintarClientes((await api('/api/clientes')).clientes); } catch { return; }
@@ -18729,7 +18734,6 @@ async function guardarSetter(st) {
 }
 // Sin LabIA: a su página (Hoy → LabIA, con lo que gana y «Quiero LabIA»); si ese embudo no la tiene (o aún no hay ninguno), directo a pedirlo.
 $('#cx-quiero-labia').addEventListener('click', () => {
-  $('#conexiones-dialog').close();
   if (allowedViews().includes('labia') && $('#empty-state').hidden) { if (state.enInicio) salirInicio(); showView('labia'); return; }
   window.location.href = `mailto:hola@discendocultura.com?subject=${encodeURIComponent(`Quiero LabIA para ${state.clientes.find((c) => c.id === state.cliente)?.nombre || 'mi negocio'}`)}`;
 });
