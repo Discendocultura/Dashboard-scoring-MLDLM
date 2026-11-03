@@ -6203,13 +6203,20 @@ function accionesLead(l) {
   return out.length ? out.join('') : accionChip({ ico: '😴', txt: 'Sin actividad todavía', tono: 'nada' });
 }
 
+// Siguiente paso de la tarjeta, explicado: qué conseguir con ella según lo que ha visto del vídeo de venta.
+const PASO_TXT = {
+  grabacion: 'que vea la grabación (aún no ha visto el vídeo de venta)',
+  raices: 'preséntale la oferta (ya vio más de la mitad de la grabación)',
+  cierre: 'ciérrala o proponle una llamada (vio el vídeo de venta casi entero)',
+  comprado: 'ya compró: no hace falta escribirle',
+};
 function hoyItem(l, b = null, n = 0) {
   return `<li class="hoy-item st-${l.estado.id}">
-    ${n ? `<span class="hoy-n" title="${esc(l.estado.label)} · ${l.score}/100">${n}</span>` : ''}
+    ${n ? `<span class="hoy-n" title="Puesto ${n} de la lista de hoy (primero, las más calientes)">${n}</span>` : ''}
     <div class="hoy-main">
-      <div class="hoy-linea"><button type="button" class="lead-name lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || l.email)}</button>${l.phone ? ` <span class="muted small">${esc(l.phone)}</span>` : ''} <span class="estado st-${l.estado.id}" title="${esc(l.estado.label)}"><span class="dot"></span>${esc(l.estado.label)} · ${l.score}</span> ${b && b.id !== 'calientes' ? `<span class="hoy-motivo">${esc(b.corto)}</span>` : ''} ${avatarChip(l)}</div>
-      <div class="hoy-acc">${accionesLead(l)}</div>
-      <div class="hoy-paso">👉 ${esc(NEXT_STEPS[l.step])}</div>
+      <div class="hoy-linea"><button type="button" class="lead-name lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || l.email)}</button>${l.phone ? ` <span class="muted small">${esc(l.phone)}</span>` : ''} <span class="estado st-${l.estado.id}" title="Puntuación de 0 a 100: suma lo que ha hecho (clases, directo, grabación, VIP, página de venta…)"><span class="dot"></span>${esc(l.estado.label)} · ${l.score} pts</span> ${b && b.id !== 'calientes' ? `<span class="hoy-motivo" title="${esc(b.hint || b.title || '')}">Te sale por: <b>${esc(b.corto)}</b></span>` : ''} ${avatarChip(l)}</div>
+      <div class="hoy-acc"><span class="hoy-et">Ha hecho:</span>${accionesLead(l)}</div>
+      <div class="hoy-paso">👉 <strong>Siguiente paso:</strong> ${esc(PASO_TXT[l.step] || NEXT_STEPS[l.step])}</div>
     </div>
     <div class="hoy-actions">
       ${l.s.setter?.respondio && enlaceSetter(l.id) ? `<a class="btn ghost small" href="${esc(enlaceSetter(l.id))}" target="_blank" rel="noopener" title="Leer la conversación en el setter IA">🤖 Ver chat</a>` : ''}
