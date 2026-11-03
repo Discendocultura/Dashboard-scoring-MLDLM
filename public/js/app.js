@@ -5652,6 +5652,7 @@ $$('.view-tab, .subview-tab[data-view]:not(.subview-labia)').forEach((t) => t.in
   }
 }
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
+$$('[data-tab-emoji]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico tab-emo" aria-hidden="true">${b.dataset.tabEmoji}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
 // Configuración (productos, marca, equipo, conexiones y atajos, plantillas de WhatsApp) va dentro del menú de tu perfil.
 function abrirMenuConfig() { $('#tb-menu-cuenta').open = true; $('#tb-menu-ajustes').open = true; }

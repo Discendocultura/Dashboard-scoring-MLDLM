@@ -9373,3 +9373,14 @@ dialog.dlg-pagina .dialog-head::after { content: ''; position: absolute; right: 
   #config-dialog.cfg-pagina .cfg-guia-ahora { width: 100%; }
 }
 @media (max-width: 760px) { #config-dialog.cfg-pagina .cfg-side, #marca-dialog.dlg-pagina .mp-rail { position: relative; top: auto; max-height: none; } }
+
+/* Menús espaciales (Configuración y Marca y avatar): emojis en vez de iconos y, al pasar o pulsar, cristal suave en vez de naranja. */
+.tab-emo { font-size: 16px; line-height: 1; }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav .tab .tab-ico, #marca-dialog.dlg-pagina .mp-rail .mp-dot { background: rgba(255, 255, 255, .07); border: 0; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); font-size: 16px; transition: background .2s, box-shadow .2s, transform .2s; }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav .tab:hover:not(.active), #marca-dialog.dlg-pagina .mp-rail .mp-paso-btn:hover:not(.on) { background: rgba(255, 255, 255, .06); color: #fff; }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav .tab:hover .tab-ico, #marca-dialog.dlg-pagina .mp-rail .mp-paso-btn:hover .mp-dot { background: rgba(255, 255, 255, .13); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22); transform: scale(1.08); }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav .tab.active, #marca-dialog.dlg-pagina .mp-rail .mp-paso-btn.on { color: #fff; background: linear-gradient(120deg, rgba(129, 140, 248, .24), rgba(192, 132, 252, .14)); box-shadow: inset 0 0 0 1px rgba(165, 180, 252, .28), 0 10px 26px -16px rgba(129, 140, 248, .9); }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav .tab.active .tab-ico, #marca-dialog.dlg-pagina .mp-rail .mp-paso-btn.on .mp-dot { background: rgba(255, 255, 255, .16); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .3), 0 0 18px rgba(165, 180, 252, .45); }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav .tab:has(.tab-falta.ok) .tab-ico { box-shadow: inset 0 0 0 1.5px #34d399; }
+#marca-dialog.dlg-pagina .mp-rail .mp-paso-btn.est-hecho .mp-dot { background: rgba(16, 185, 129, .22); box-shadow: inset 0 0 0 1.5px #34d399; color: #6ee7b7; }
+#config-dialog.cfg-pagina .cfg-side .cfg-nav .tab:focus-visible, #marca-dialog.dlg-pagina .mp-rail .mp-paso-btn:focus-visible { outline: 2px solid rgba(165, 180, 252, .8); outline-offset: 2px; }
