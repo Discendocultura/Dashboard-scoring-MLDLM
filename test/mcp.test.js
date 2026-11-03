@@ -56,13 +56,17 @@ test('sin token: 401 con dónde autorizarse, y metadatos OAuth', async () => {
   assert.equal((await mcp('basura.firma', 'initialize', {})).status, 401);
 });
 
-test('registro: solo redirecciones a Claude (o localhost)', async () => {
+test('registro: solo redirecciones a Claude, ChatGPT (o localhost)', async () => {
   assert.equal((await call('/api/oauth/register', { method: 'POST', body: { redirect_uris: ['https://malo.example/cb'] } })).status, 400);
   assert.equal((await call('/api/oauth/register', { method: 'POST', body: { redirect_uris: ['http://claude.ai/cb'] } })).status, 400);
   const ok = await call('/api/oauth/register', { method: 'POST', body: { client_name: 'Claude', redirect_uris: [CB] } });
   assert.equal(ok.status, 201);
   assert.ok(ok.data.client_id);
   assert.equal((await call('/api/oauth/register', { method: 'POST', body: { redirect_uris: ['http://localhost:6274/oauth/callback'] } })).status, 201);
+  const gpt = await call('/api/oauth/register', { method: 'POST', body: { redirect_uris: ['https://chatgpt.com/connector_platform_oauth_redirect'] } });
+  assert.equal(gpt.status, 201);
+  assert.equal(gpt.data.client_name, 'ChatGPT');
+  assert.equal((await call('/api/oauth/register', { method: 'POST', body: { redirect_uris: ['https://chatgpt.com.malo.example/cb'] } })).status, 400);
 });
 
 test('permiso: sin sesión pide entrar; con otra redirección no vuelve; cancelar vuelve con access_denied', async () => {

@@ -9,7 +9,7 @@
 //   POST /api/oauth/conexiones { op: 'revocar', id }
 import { getSession, signToken, verifyToken } from '../lib/auth.js';
 import {
-  registrarCliente, validarAutorizacion, urlVuelta, crearGrant, canjearCodigo, refrescar, leerGrants, revocarGrant, grantPublico,
+  registrarCliente, validarAutorizacion, appDeRedireccion, urlVuelta, crearGrant, canjearCodigo, refrescar, leerGrants, revocarGrant, grantPublico,
 } from '../lib/oauth.js';
 import { clienteActual } from '../lib/cliente.js';
 import { json, html, readBody, errorResponse, escapeHtml } from '../lib/http.js';
@@ -68,11 +68,12 @@ async function autorizarGet(request) {
   const ocultos = ['client_id', 'redirect_uri', 'response_type', 'code_challenge', 'code_challenge_method', 'state', 'scope', 'resource']
     .map((k) => (url.searchParams.has(k) ? `<input type="hidden" name="${k}" value="${escapeHtml(url.searchParams.get(k))}">` : '')).join('');
   const quien = s.user?.nombre || (s.role === 'admin' ? 'la contraseña general de admin' : 'la contraseña general');
-  return pagina('Conectar Claude', `<h1>¿Conectar ${escapeHtml(a.cliente.n)} con tu AlquimIA?</h1>
-    <p>Claude entrará como <strong>${escapeHtml(quien)}</strong>, con tus mismos permisos y clientes.</p>
+  const app = appDeRedireccion(a.redirect);
+  return pagina(`Conectar ${app}`, `<h1>¿Conectar ${escapeHtml(a.cliente.n)} con tu AlquimIA?</h1>
+    <p>${app} entrará como <strong>${escapeHtml(quien)}</strong>, con tus mismos permisos y clientes.</p>
     <p>Podrá <strong>consultar</strong> (sin cambiar nada):</p>
     <ul><li>Embudos, lanzamientos y sus fechas</li><li>Métricas (registros, ventas, ROAS…)</li><li>La encuesta, anónima (sin nombres, emails ni teléfonos)</li><li>La ficha de marca y avatar y la narrativa</li><li>Tareas y el calendario y resultados de los emails</li></ul>
-    <p class="muted">Lo puedes desconectar cuando quieras en AlquimIA (Agencia → Claude) o en los ajustes de conectores de Claude. Volverás a <code>${escapeHtml(new URL(a.redirect).host)}</code>.</p>
+    <p class="muted">Lo puedes desconectar cuando quieras en AlquimIA (Configuración → Conexiones) o en los ajustes de conectores de ${app}. Volverás a <code>${escapeHtml(new URL(a.redirect).host)}</code>.</p>
     <form method="post" action="/api/oauth/authorize">${ocultos}<input type="hidden" name="csrf" value="${escapeHtml(csrf)}">
       <div class="acc"><button class="prim" name="decision" value="permitir">Permitir</button><button name="decision" value="cancelar">Cancelar</button></div></form>`);
 }

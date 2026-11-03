@@ -11770,26 +11770,35 @@ $('#ag-enviar').addEventListener('click', async (e) => {
   e.target.disabled = false;
 });
 // ---------- Agencia → Claude (conector MCP) ----------
+// Conexiones de Claude y de ChatGPT (el mismo conector MCP): se pintan en Agencia → Claude (todas) y en sus
+// tarjetas de Conexiones (cada una, las suyas).
+const esChatgpt = (c) => /chatgpt|openai/i.test(c.app || '');
 async function cargarClaude() {
-  // Se pinta en Agencia → Claude y en la tarjeta de Claude de Conexiones.
-  const cajas = [$('#cl-lista'), $('#cx-claude-lista')];
+  const cajas = [$('#cl-lista'), $('#cx-claude-lista'), $('#cx-chatgpt-lista')];
   try {
     const d = await api('/api/oauth/conexiones');
     $('#cl-url').textContent = d.url;
-    $('#cx-claude-url').value = d.url;
+    for (const x of $$('.cx-mcp-url')) x.value = d.url;
     const fecha = (x) => (x ? new Date(x).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
-    const html = d.conexiones.length
-      ? `<p>Conexiones activas${state.superadmin ? ' (de todo el equipo)' : ''}:</p><ul class="tg-lista">${d.conexiones.map((c) => `<li><span>🧠 ${esc(c.app)} · <strong>${esc(c.nombre)}</strong> <span class="muted small">· conectado ${esc(fecha(c.creado))} · último uso ${esc(fecha(c.ultimoUso))}</span></span><button type="button" class="btn ghost small" data-cl-quitar="${esc(c.id)}">Desconectar</button></li>`).join('')}</ul>`
-      : '<p>Aún no hay ninguna conexión.</p>';
-    for (const c of cajas) c.innerHTML = html;
-    ponerEstadoCx('claude', d.conexiones.length ? 'ok' : 'no', d.conexiones.length ? 'Conectado' : 'Sin conectar');
+    const lista = (cs) => (cs.length
+      ? `<p>Conexiones activas${state.superadmin ? ' (de todo el equipo)' : ''}:</p><ul class="tg-lista">${cs.map((c) => `<li><span>🧠 ${esc(c.app)} · <strong>${esc(c.nombre)}</strong> <span class="muted small">· conectado ${esc(fecha(c.creado))} · último uso ${esc(fecha(c.ultimoUso))}</span></span><button type="button" class="btn ghost small" data-cl-quitar="${esc(c.id)}">Desconectar</button></li>`).join('')}</ul>`
+      : '<p>Aún no hay ninguna conexión.</p>');
+    const gpt = d.conexiones.filter(esChatgpt);
+    const claude = d.conexiones.filter((c) => !esChatgpt(c));
+    $('#cl-lista').innerHTML = lista(d.conexiones);
+    $('#cx-claude-lista').innerHTML = lista(claude);
+    $('#cx-chatgpt-lista').innerHTML = lista(gpt);
+    ponerEstadoCx('claude', claude.length ? 'ok' : 'no', claude.length ? 'Conectado' : 'Sin conectar');
+    ponerEstadoCx('chatgpt', gpt.length ? 'ok' : 'no', gpt.length ? 'Conectado' : 'Sin conectar');
   } catch (err) { for (const c of cajas) c.textContent = err.message; }
 }
 $('#cl-box').addEventListener('toggle', () => { if ($('#cl-box').open) cargarClaude(); });
-$('#cx-claude-copiar').addEventListener('click', async (e) => {
-  const ok = await copiarAlPortapapeles($('#cx-claude-url').value);
-  e.target.textContent = ok ? 'Copiada ✓' : 'Cópiala a mano';
-  setTimeout(() => { e.target.textContent = 'Copiar'; }, 2500);
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-cx-copiar-mcp]');
+  if (!b) return;
+  const ok = await copiarAlPortapapeles($(b.dataset.cxCopiarMcp).value);
+  b.textContent = ok ? 'Copiada ✓' : 'Cópiala a mano';
+  setTimeout(() => { b.textContent = 'Copiar'; }, 2500);
 });
 $('#cl-copiar').addEventListener('click', async (e) => {
   const ok = await copiarAlPortapapeles($('#cl-url').textContent);
@@ -11798,9 +11807,9 @@ $('#cl-copiar').addEventListener('click', async (e) => {
 });
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-cl-quitar]');
-  if (!b || !window.confirm('¿Desconectar Claude? Dejará de poder consultar AlquimIA con esta conexión.')) return;
+  if (!b || !window.confirm('¿Desconectar esta conexión? Dejará de poder consultar AlquimIA con ella.')) return;
   b.disabled = true;
-  try { await api('/api/oauth/conexiones', { method: 'POST', body: { op: 'revocar', id: b.dataset.clQuitar } }); notice('Claude desconectado.'); } catch (err) { notice(err.message, true); }
+  try { await api('/api/oauth/conexiones', { method: 'POST', body: { op: 'revocar', id: b.dataset.clQuitar } }); notice('Desconectado.'); } catch (err) { notice(err.message, true); }
   cargarClaude();
 });
 // ---------- Agencia → Bot de Telegram ----------
@@ -18321,7 +18330,7 @@ $('#btn-conexiones').addEventListener('click', () => {
 });
 // Estado de cada conexión (la pastilla de su tarjeta y el resumen de arriba): { clave: ['ok'|'aviso'|'no', texto] }.
 const estadoCx = {};
-const NOMBRE_CX = { capi: '🎯 Conversions API', atrib: '🧭 Atribución', zoom: '🎥 Zoom', vimeo: '📼 Vimeo', thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', claude: '🧠 Claude', setter: '🤖 LabIA', vigia: '🛎️ Vigilancia' };
+const NOMBRE_CX = { capi: '🎯 Conversions API', atrib: '🧭 Atribución', zoom: '🎥 Zoom', vimeo: '📼 Vimeo', thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', claude: '🧠 Claude', chatgpt: '🧠 ChatGPT', setter: '🤖 LabIA', vigia: '🛎️ Vigilancia' };
 function ponerEstadoCx(clave, tono, texto) {
   estadoCx[clave] = [tono, texto];
   const el = $(`#conexiones-dialog [data-cx-estado="${clave}"]`);
