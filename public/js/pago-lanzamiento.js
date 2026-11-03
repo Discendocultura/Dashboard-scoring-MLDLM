@@ -21,17 +21,20 @@ export function participo(s, launch) {
 // → { entradas, precioEntrada, ingresosEntradas, cpaEntrada, roasEntradas, autoliquidable, beneficioEntradas,
 //     participan, pctParticipan, puntuacionMedia, notaEntrada, calientes, compraPrograma, convPrograma,
 //     roasTotal, facturacionTotal, faltanParaAutoliquidar }
-export function metricasPago(leads = [], launch = {}, { inversion = 0, facturacionPrograma = 0, facturacionVip = 0 } = {}) {
+export function metricasPago(leads = [], launch = {}, { inversion = 0, facturacionPrograma = 0, facturacionVip = 0, bumps = [] } = {}) {
   const entradas = leads.length;
   const precio = entradaSinIva(launch);
-  const ingresosEntradas = entradas * precio;
+  // Con los bump offers de la entrada (hasta 4): lo que deja de verdad cada compra de entrada.
+  const ingresosBumps = bumps.reduce((t, b) => t + (Number(b.facturacion) || 0), 0);
+  const ingresosEntradas = entradas * precio + ingresosBumps;
   const inv = Number(inversion) || 0;
   const participan = leads.filter((l) => participo(l.s, launch)).length;
   const puntuacionMedia = entradas ? leads.reduce((t, l) => t + (Number(l.score) || 0), 0) / entradas : null;
   const compraPrograma = leads.filter((l) => l.s?.compra).length;
   const facturacionTotal = ingresosEntradas + (Number(facturacionVip) || 0) + (Number(facturacionPrograma) || 0);
   return {
-    entradas, precioEntrada: precio, ingresosEntradas,
+    entradas, precioEntrada: precio, ingresosEntradas, ingresosBumps, ticketEntrada: entradas ? ingresosEntradas / entradas : null,
+    bumps: bumps.map((b) => ({ nombre: b.nombre, precio: b.precio, n: b.n, pct: b.pct, facturacion: b.facturacion })),
     cpaEntrada: inv && entradas ? inv / entradas : null,
     roasEntradas: inv ? ingresosEntradas / inv : null,
     autoliquidable: inv > 0 && ingresosEntradas >= inv,

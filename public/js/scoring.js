@@ -237,7 +237,7 @@ export function signalsFor(contactTags, launch, cfg = {}, contact = {}) {
   // Bump offers: los de la VIP cuentan con la VIP de este lanzamiento; los del pago único o fraccionado,
   // con la compra de este lanzamiento en ese tipo de pago.
   const bumpsDe = (tipo, ok) => (ok ? bumpsActivos(cfg, tipo).filter((b) => has(b.tag)).map((b) => b.id) : []);
-  s.bumps = [...bumpsDe('vip', s.vip), ...bumpsDe('unico', s.compra && !s.fraccionado), ...bumpsDe('fraccionado', s.fraccionado)];
+  s.bumps = [...bumpsDe('entrada', cfg.entradaPago === true), ...bumpsDe('vip', s.vip), ...bumpsDe('unico', s.compra && !s.fraccionado), ...bumpsDe('fraccionado', s.fraccionado)];
   // Compra el día del vídeo de venta (el webinar en directo, o el último vídeo del lanzamiento).
   const diaVenta = videoVenta(cfg)?.fecha || '';
   s.compra_directo = s.compra && Boolean(diaVenta) && buyDay === diaVenta;

@@ -45,3 +45,25 @@ test('Lanzamiento de pago: el embudo lo marca, el lanzamiento lo hereda y las mÃ
   assert.equal(m.entrada.roasEntradas, 54 / 30);
   assert.equal(computeMetrics(leads, c.launches.w1, { metaSpend: 30 }).entrada, undefined);
 });
+
+test('Lanzamiento de pago: hasta 4 bump offers en la compra de la entrada, en la facturaciÃ³n y en la tarjeta', async () => {
+  const bumps = [1, 2, 3, 4, 5].map((i) => ({ id: `b${i}`, nombre: `Bump ${i}`, precio: '10', iva: 'mas', tag: `bump-${i}` }));
+  const c = sanitizeConfig({
+    embudos: [{ id: 'reto', tipo: 'lanzamientos', nombre: 'Reto de pago', formato: 'reto5', entradaPago: true }, { id: 'web', tipo: 'lanzamientos', nombre: 'Webinar', formato: 'webinar' }],
+    launches: { r1: { name: 'Reto', embudo: 'reto', registroTag: 'compro-entrada', precioEntrada: '27', iva: { entrada: 'mas' }, entradaBumps: bumps }, w1: { name: 'Web', embudo: 'web', registroTag: 'reg', entradaBumps: bumps } },
+  });
+  assert.equal(c.launches.r1.entradaBumps.length, 4); // como mucho 4
+  const { signalsFor } = await import('../public/js/scoring.js');
+  const leads = [['compro-entrada', 'bump-1', 'bump-2'], ['compro-entrada', 'bump-1'], ['compro-entrada']]
+    .map((tags) => ({ s: signalsFor(tags, 'r1', c.launches.r1, {}), score: 0, estado: { id: 'frio' } }));
+  const m = computeMetrics(leads, c.launches.r1, { metaSpend: 100 });
+  const b1 = m.bumps.find((b) => b.id === 'b1');
+  assert.deepEqual([b1.tipo, b1.n, b1.base, b1.facturacion], ['entrada', 2, 3, 20]);
+  assert.equal(m.eco.facturacionBumps, 30);
+  assert.equal(m.eco.facturacion, 3 * 27 + 30);
+  assert.equal(m.entrada.ingresosBumps, 30);
+  assert.equal(m.entrada.ticketEntrada, (81 + 30) / 3);
+  assert.equal(m.entrada.bumps.length, 4);
+  // En un lanzamiento que no es de pago, no cuentan
+  assert.ok(!computeMetrics(leads, c.launches.w1, { metaSpend: 100 }).bumps.some((b) => b.tipo === 'entrada'));
+});

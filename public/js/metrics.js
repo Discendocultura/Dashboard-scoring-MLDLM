@@ -115,11 +115,12 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
   // Bump offers (de la VIP, del pago único y del fraccionado): cuántas los compran sobre su base (las VIP, o
   // las ventas en ese tipo de pago), su % y lo que facturan sin IVA.
   const baseBump = {
+    entrada: m.total,
     vip: m.vip,
     unico: leads.filter((l) => l.s.compra && !l.s.fraccionado).length,
     fraccionado: leads.filter((l) => l.s.fraccionado).length,
   };
-  m.bumps = todosLosBumps(launch).filter((b) => b.tipo !== 'vip' || conVip(launch)).map((b) => {
+  m.bumps = todosLosBumps(launch).filter((b) => (b.tipo !== 'vip' || conVip(launch)) && (b.tipo !== 'entrada' || esDePago(launch))).map((b) => {
     const n = leads.filter((l) => l.s.bumps?.includes(b.id)).length;
     return { id: b.id, tipo: b.tipo, nombre: b.nombre || 'Bump offer', precio: precioBump(b, launch), n, base: baseBump[b.tipo], pct: baseBump[b.tipo] ? n / baseBump[b.tipo] : null, facturacion: n * precioBump(b, launch) };
   });
@@ -144,7 +145,7 @@ export function computeMetrics(leads, launch, { metaSpend = null } = {}) {
     // CAC: lo que cuesta conseguir cada clienta nueva de Raíces en este lanzamiento.
     cac: inversion && m.compra ? inversion / m.compra : null,
   };
-  if (esDePago(launch)) m.entrada = metricasPago(leads, launch, { inversion, facturacionPrograma, facturacionVip: m.vip * vipSinIva(launch) });
+  if (esDePago(launch)) m.entrada = metricasPago(leads, launch, { inversion, facturacionPrograma, facturacionVip: m.vip * vipSinIva(launch), bumps: m.bumps.filter((b) => b.tipo === 'entrada') });
 
   // Origen de los leads (etiquetas de publicidad / orgánico): suma 100% con los que no llevan ninguna.
   const origenDe = (fn) => {

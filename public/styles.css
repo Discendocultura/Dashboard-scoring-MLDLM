@@ -8905,3 +8905,8 @@ body:not(.can-bandeja) #btn-bandeja { display: none !important; }
 .pg-dato > b { font-size: 22px; font-weight: 800; line-height: 1.15; justify-self: start; align-self: flex-start; }
 .pg-dato > small { font-size: 12px; color: var(--text-2); }
 .pg-total { background: color-mix(in srgb, var(--accent, #e8820c) 8%, var(--surface, #fff)); }
+
+.pg-bumps { margin-top: 12px; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--border); }
+.pg-bumps ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.pg-bumps li { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: baseline; }
+.pg-bumps li small { grid-column: 1 / -1; color: var(--text-2); font-size: 12px; }

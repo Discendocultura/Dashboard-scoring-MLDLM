@@ -3474,7 +3474,7 @@ function pintarPagoCard() {
   card.innerHTML = `<div class="pg-cab"><h3>🎟️ Lanzamiento de pago</h3><span class="pg-estado ${p.autoliquidable ? 'ok' : 'no'}">${p.autoliquidable ? '✅ Los anuncios ya se pagan solos con las entradas' : p.faltanParaAutoliquidar ? `Faltan ${numEs(p.faltanParaAutoliquidar)} entradas para que los anuncios se paguen solos` : 'Sin inversión todavía'}</span></div>
     ${sinPrecio ? '<p class="notice warn">Pon el precio de la entrada en Configuración → Oferta para calcular los ingresos y el ROAS de las entradas.</p>' : ''}
     <div class="pg-grid">
-      <div class="pg-dato"><span>Entradas vendidas</span><b>${numEs(p.entradas)}</b><small>${eur(p.precioEntrada)} cada una sin IVA</small></div>
+      <div class="pg-dato"><span>Entradas vendidas</span><b>${numEs(p.entradas)}</b><small>${eur(p.precioEntrada)} cada una sin IVA${p.ingresosBumps ? ` · ticket medio ${eur(p.ticketEntrada)} con bumps` : ''}</small></div>
       <div class="pg-dato"><span>Coste por entrada</span><b>${eur(p.cpaEntrada)}</b><small>inversión ÷ entradas</small></div>
       <div class="pg-dato"><span>ROAS de las entradas</span><b class="pb-roas ${p.roasEntradas >= 1 ? 'bien' : p.roasEntradas >= 0.6 ? 'medio' : 'mal'}">${roas(p.roasEntradas)}</b><small>${eur(p.ingresosEntradas)} en entradas · ${p.beneficioEntradas >= 0 ? 'ganas' : 'pierdes'} ${eur(Math.abs(p.beneficioEntradas))} antes de vender el programa</small></div>
       <div class="pg-dato"><span>Participan</span><b>${pct(p.pctParticipan)}</b><small>${numEs(p.participan)} entran al directo o ven la grabación</small></div>
@@ -3482,6 +3482,7 @@ function pintarPagoCard() {
       <div class="pg-dato"><span>Entrada → programa</span><b>${pct(p.convPrograma)}</b><small>${numEs(p.compraPrograma)} compran el programa</small></div>
       <div class="pg-dato pg-total"><span>ROAS total</span><b class="pb-roas ${p.roasTotal >= 2 ? 'bien' : p.roasTotal >= 1 ? 'medio' : 'mal'}">${roas(p.roasTotal)}</b><small>${eur(p.facturacionTotal)}: entradas + VIP + programa</small></div>
     </div>
+    ${p.bumps.length ? `<div class="pg-bumps"><strong>➕ Bump offers de la entrada</strong><ul>${p.bumps.map((b) => `<li><span>${esc(b.nombre || 'Bump')}</span><b>${pct(b.pct)}</b><small>${numEs(b.n)} de ${numEs(p.entradas)} · ${eur(b.facturacion)}</small></li>`).join('')}</ul></div>` : ''}
     <p class="muted small">${esc(textoPago(p))} En Publicidad, los anuncios se miden por compra de la entrada; con «Ventas reales» ves qué anuncio trae compradoras de entrada que luego compran el programa.</p>`;
 }
 async function pintarCerebroCard() {
@@ -7157,6 +7158,8 @@ $('#config-dialog').addEventListener('click', (e) => {
   const add = e.target.closest('[data-bump-add]');
   if (add) {
     const caja = cajaBumps(add.dataset.bumpAdd);
+    const max = TIPOS_BUMP.find((t) => t.id === add.dataset.bumpAdd)?.max;
+    if (max && $$('.bump-fila', caja).length >= max) { notice(`Como mucho ${max} bump offers aquí.`, true); return; }
     $('.bump-vacio', caja)?.remove();
     caja.insertAdjacentHTML('beforeend', bumpFila());
     $('.bump-fila:last-child .bump-nombre', caja).focus();
@@ -7332,7 +7335,7 @@ function openConfig(code, { silencioso = false } = {}) {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
       // La encuesta es siempre la misma: misma URL y misma etiqueta.
       encuestaTag: last.encuestaTag, encuestaUrl: last.encuestaUrl,
-      precioVip: last.precioVip, iva: last.iva, vipBumps: last.vipBumps, unicoBumps: last.unicoBumps, fraccionadoBumps: last.fraccionadoBumps, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, pago: last.pago, oferta: last.oferta, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag,
+      precioVip: last.precioVip, iva: last.iva, vipBumps: last.vipBumps, entradaBumps: last.entradaBumps, unicoBumps: last.unicoBumps, fraccionadoBumps: last.fraccionadoBumps, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, pago: last.pago, oferta: last.oferta, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag,
       vipContadorBase: embudoInfo(state.embudo)?.vipContadorBase ?? last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, clase3Url: last.clase3Url, textos: last.textos, imagenes: last.imagenes,
@@ -7422,7 +7425,7 @@ function openConfig(code, { silencioso = false } = {}) {
   $('#cfg-precio-vip').value = l.precioVip || '';
   $('#cfg-precio-entrada').value = l.precioEntrada || '';
   $('#cfg-iva-entrada').value = l.iva?.entrada || '';
-  $('#cfg-entrada-box').hidden = $('#cfg-iva-entrada-box').hidden = !l.entradaPago;
+  $('#cfg-entrada-box').hidden = $('#cfg-iva-entrada-box').hidden = $('#cfg-entrada-bumps-box').hidden = !l.entradaPago;
   $('#cfg-iva-vip').value = l.iva?.vip || '';
   $('#cfg-iva-programa').value = l.iva?.programa || '';
   $('#cfg-iva-pct').value = l.iva?.pct != null && l.iva.pct !== 21 ? String(l.iva.pct).replace('.', ',') : '';
