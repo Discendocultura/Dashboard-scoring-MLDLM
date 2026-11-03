@@ -8921,7 +8921,7 @@ body:not(.can-bandeja) #btn-bandeja { display: none !important; }
 
 /* ---------- Conexiones: una página (con el menú lateral y la barra de arriba) ---------- */
 body:not(.en-conexiones) #conexiones { display: none; }
-body.en-conexiones #inicio, body.en-conexiones #solo-op, body.en-conexiones #negocio { display: none !important; }
+body.en-pagina #inicio, body.en-pagina #solo-op, body.en-pagina #negocio { display: none !important; }
 .sb-subitem.active { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--text); }
 .cx-pagina { max-width: 1180px; margin: 0 auto; padding: 6px 0 64px; animation: cx-entra .35s ease-out; }
 @keyframes cx-entra { from { transform: translateY(8px); } to { transform: none; } }
@@ -9048,3 +9048,39 @@ body.en-conexiones #inicio, body.en-conexiones #solo-op, body.en-conexiones #neg
   .btn.hoy-seg-enviar { width: 100%; justify-content: center; white-space: normal; text-align: center; }
   .hoy-seg-pie { min-width: 0; } .hoy-seg-pie > * { min-width: 0; max-width: 100%; }
 }
+
+/* ---------- Productos, Marca y avatar y Equipo: páginas completas (como Conexiones) ---------- */
+body:not(.en-pagina) dialog.dlg-pagina { display: none !important; }
+dialog.dlg-pagina[open] { position: static; inset: auto; display: block; width: auto; max-width: 1180px; height: auto; max-height: none; margin: 0 auto; padding: 0 0 64px; border: 0; border-radius: 0; box-shadow: none; background: transparent; color: var(--text); overflow: visible; animation: cx-entra .35s ease-out; }
+dialog.dlg-pagina > form, dialog.dlg-pagina > .dialog-body, dialog.dlg-pagina .dialog-body { max-height: none; height: auto; overflow: visible; }
+dialog.dlg-pagina .dialog-head { position: relative; overflow: hidden; isolation: isolate; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 14px 18px; padding: 34px 40px; margin-bottom: 22px; border-radius: 26px;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+  background: radial-gradient(110% 140% at 0% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 58%), radial-gradient(80% 120% at 100% 100%, color-mix(in srgb, #7c5cff 16%, transparent), transparent 62%), var(--surface);
+  box-shadow: 0 30px 60px -46px rgb(60 30 0 / .45); }
+dialog.dlg-pagina .dialog-head::before { content: ''; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(color-mix(in srgb, var(--text) 13%, transparent) 1px, transparent 1.4px); background-size: 22px 22px; mask-image: linear-gradient(105deg, transparent 45%, #000 85%); opacity: .5; }
+dialog.dlg-pagina .pg-head-t { flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.pg-kicker { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; font-size: 11.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); }
+.pg-kicker::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+dialog.dlg-pagina .dialog-head h2 { margin: 0; font-size: clamp(26px, 3vw, 38px); line-height: 1.1; letter-spacing: -.02em; font-weight: 800; }
+dialog.dlg-pagina .dialog-head h2 .muted { font-size: .55em; font-weight: 600; letter-spacing: 0; }
+.pg-sub { margin: 0; max-width: 62ch; font-size: 15.5px; line-height: 1.5; color: var(--text-2); }
+/* Sin ✕ ni «Cerrar»: se sale con el menú, como de cualquier página. */
+dialog.dlg-pagina .dialog-head > .btn[aria-label="Cerrar"], dialog.dlg-pagina .dialog-head .btn.ghost[aria-label="Cerrar"], dialog.dlg-pagina > form > .dialog-foot { display: none; }
+dialog.dlg-pagina .dialog-body { padding: 0; gap: 18px; }
+dialog.dlg-pagina .mp-intro { margin: 0; font-size: 15px; color: var(--text-2); }
+#equipo-dialog.dlg-pagina .tabs { position: sticky; top: 64px; z-index: 3; padding: 6px; border-radius: 16px; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(10px); border: 1px solid var(--border); box-shadow: 0 10px 24px -20px rgb(0 0 0 / .4); }
+#equipo-dialog.dlg-pagina .tab-panel { padding: 22px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); }
+#productos-dialog.dlg-pagina #pd-body > *, #marca-dialog.dlg-pagina #mk-body { min-width: 0; }
+#marca-dialog .mk-cliente-sel { align-self: flex-end; }
+@media (max-width: 760px) {
+  dialog.dlg-pagina[open] { padding-bottom: 32px; }
+  dialog.dlg-pagina .dialog-head { padding: 24px 20px; border-radius: 20px; }
+  #equipo-dialog.dlg-pagina .tabs { top: 56px; overflow-x: auto; }
+  #equipo-dialog.dlg-pagina .tab-panel { padding: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { dialog.dlg-pagina[open] { animation: none; } }
+#marca-dialog.dlg-pagina .fiesta-confeti { width: 100%; height: 100%; }
+#marca-dialog.dlg-pagina .mp-rail { top: 76px; }
+#equipo-dialog.dlg-pagina .portal-nota { display: block; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); }
+#equipo-dialog.dlg-pagina .portal-nota .btn { margin-top: 8px; }
+#marca-dialog.dlg-pagina .dialog-body { overflow-x: clip; }

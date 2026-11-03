@@ -859,7 +859,7 @@ function revisarPp() {
       for (const id of nuevos) onbGuardar({ paso: `u-${id}` });
     } else ppAbiertos = new Set(DESBLOQUEOS.map((d) => d.id));
     aplicarPpDom();
-    if (state.config && state.embudo && !state.enInicio && !state.enNegocio && !state.enConexiones) refrescarPestanas();
+    if (state.config && state.embudo && !state.enInicio && !state.enNegocio && !state.enPagina) refrescarPestanas();
     pintarSiguientePaso();
     pintarEjemploLateral();
     if (nuevos.length && !ppPendiente) ppPendiente = nuevos[0];
@@ -935,7 +935,7 @@ function popupAccionRecomendada(rol) {
   let emb = '';
   if (rol === 'admin') ({ paso, emb } = pasoRecomendado());
   else if (rol === 'setter') paso = { ico: '📞', titulo: 'Empieza por «Comercial»', texto: 'A quién escribir hoy, ya ordenado por prioridad y con su temperatura. Pulsa WhatsApp y el mensaje sale escrito.', boton: 'Ir a Comercial', accion: 'comercial' };
-  if (!paso || document.querySelector('dialog[open], .onb')) return;
+  if (!paso || document.querySelector('dialog[open]:not(.dlg-pagina), .onb')) return;
   const d = document.createElement('dialog');
   d.className = 'dialog dialog-sm accion-rec';
   d.innerHTML = `<div class="sig-card ar-card"><span class="sig-ico" aria-hidden="true">${paso.ico}</span><div class="sig-txt"><small>Acción recomendada</small><h3>${esc(paso.titulo)}</h3><p>${esc(paso.texto)}</p></div></div>
@@ -1226,7 +1226,7 @@ document.addEventListener('keydown', (e) => {
   const escribiendo = e.target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
   if ((e.key === '/' && !escribiendo) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) {
     // Con una ventana abierta, el primer acceso o una burbuja delante, la tecla es de lo que se ve.
-    if ($('#app').hidden || document.querySelector('dialog[open], .bv:not([hidden]), .onb')) return;
+    if ($('#app').hidden || document.querySelector('dialog[open]:not(.dlg-pagina), .bv:not([hidden]), .onb')) return;
     e.preventDefault();
     if (getComputedStyle($('#tb-buscar')).display === 'none') $('#tb-buscar').classList.add('abierto');
     $('#tb-buscar-in').focus();
@@ -1328,7 +1328,7 @@ function pintarSelectorCliente() {
   if (!c) return;
   const pick = $('#cliente-pick');
   pick.hidden = !(state.agencia || state.clientes.length > 1) || state.role === ROL_CLIENTE && state.clientes.length < 2;
-  const enAgencia = Boolean(state.superadmin && state.enInicio && !state.enNegocio && !state.enConexiones && modoInicio() === 'agencia');
+  const enAgencia = Boolean(state.superadmin && state.enInicio && !state.enNegocio && !state.enPagina && modoInicio() === 'agencia');
   $('#cp-ico').textContent = enAgencia ? '🏢' : '';
   $('#cp-ico').hidden = !enAgencia;
   $('#cp-txt').textContent = enAgencia ? 'Agencia' : c.nombre;
@@ -1400,13 +1400,13 @@ function pintarSidebar() {
     return `<div class="sb-row"><button type="button" class="sb-item${activo ? ' active' : ''}" data-embudo="${esc(x.e.id)}"${x.code ? ` data-lanz="${esc(x.code)}"` : ''}${x.meteo ? ` data-meteo="${esc(x.meteo)}"` : ''}><span class="sb-ico" aria-hidden="true">${x.ico}</span><span class="sb-txt"><strong>${esc(x.nombre)}</strong><small>${esc(x.sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(x.e.id)}" title="Pestañas, nombre y guía de «${esc(x.e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
   }).join('');
   // «Inicio» es el del cliente en el que está (la vista de agencia se elige en el selector de arriba).
-  const agencia = Boolean(state.enInicio) && !state.enNegocio && !state.enConexiones && modoInicio() === 'agencia';
+  const agencia = Boolean(state.enInicio) && !state.enNegocio && !state.enPagina && modoInicio() === 'agencia';
   $('#sb-inicio').hidden = false;
-  $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio) && !agencia && !state.enNegocio && !state.enConexiones);
+  $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio) && !agencia && !state.enNegocio && !state.enPagina);
   // «Inteligencia de negocio»: para quien ve las métricas (el rol Cliente la tiene en su portal).
   $('#sb-negocio').hidden = !(tiene('metricas') && embudos().length);
   $('#sb-negocio').classList.toggle('active', Boolean(state.enNegocio));
-  $('#sb-config-sub [data-proxy="#btn-conexiones"]')?.classList.toggle('active', Boolean(state.enConexiones));
+  $$('#sb-config-sub [data-proxy]').forEach((b) => b.classList.toggle('active', Boolean(state.enPagina) && b.dataset.proxy === PAGINA_BTN[state.enPagina]));
   pintarSelectorCliente();
 }
 
@@ -1531,9 +1531,10 @@ function salirInicio() {
   if (!state.enInicio) return;
   state.enInicio = false;
   state.enNegocio = false;
-  state.enConexiones = false;
+  state.enPagina = false;
+  cerrarPaginas();
   ls.set('lsd_inicio', '');
-  document.body.classList.remove('en-inicio', 'en-negocio', 'en-conexiones');
+  document.body.classList.remove('en-inicio', 'en-negocio', 'en-conexiones', 'en-pagina');
   $('#sb-negocio').classList.remove('active');
   $('#sb-inicio').classList.remove('active');
   // Mostrar poco a poco: al salir del Inicio por un atajo (buscador, «Tu siguiente paso»…), solo las pestañas que tocan.
@@ -1547,8 +1548,9 @@ function pintarSaludo() {
 async function mostrarInicio({ fresh = false } = {}) {
   state.enInicio = true;
   state.enNegocio = false;
-  state.enConexiones = false;
-  document.body.classList.remove('en-negocio', 'en-conexiones');
+  state.enPagina = false;
+  cerrarPaginas();
+  document.body.classList.remove('en-negocio', 'en-conexiones', 'en-pagina');
   pintarSaludo();
   ls.set('lsd_inicio', '1');
   document.body.classList.add('en-inicio');
@@ -1706,9 +1708,10 @@ async function cargarNegocioEn(caja, { cliente = state.cliente, enlaces = true }
 function mostrarNegocio() {
   state.enInicio = true;
   state.enNegocio = true;
-  state.enConexiones = false;
+  state.enPagina = false;
+  cerrarPaginas();
   ls.set('lsd_inicio', '');
-  document.body.classList.remove('en-conexiones');
+  document.body.classList.remove('en-conexiones', 'en-pagina');
   document.body.classList.add('en-inicio', 'en-negocio');
   $('#alertas-carrito').hidden = true;
   pintarNavMovil();
@@ -1717,18 +1720,32 @@ function mostrarNegocio() {
   cargarNegocioEn($('#negocio'));
 }
 $('#sb-negocio').addEventListener('click', () => mostrarNegocio());
-// Conexiones: una página más (como el Inicio), con el menú lateral y la barra de arriba a mano.
-function mostrarConexiones() {
+// Páginas de configuración (Conexiones, Productos, Marca y avatar, Equipo): una página más, como el Inicio, con el
+// menú lateral y la barra de arriba a mano. Productos, Marca y Equipo siguen siendo <dialog> (sus paneles los abren con
+// showModal), pero se muestran dentro de la página, sin ventana encima.
+const PAGINA_BTN = { conexiones: '#btn-conexiones', 'productos-dialog': '#btn-productos', 'marca-dialog': '#btn-marca', 'equipo-dialog': '#btn-equipo' };
+function cerrarPaginas() {
+  for (const d of $$('dialog.dlg-pagina')) if (d.open && d.id !== state.enPagina) d.close();
+}
+function mostrarPagina(id) {
   state.enInicio = true;
   state.enNegocio = false;
-  state.enConexiones = true;
+  state.enPagina = id;
+  cerrarPaginas();
   ls.set('lsd_inicio', '');
   document.body.classList.remove('en-negocio');
-  document.body.classList.add('en-inicio', 'en-conexiones');
+  document.body.classList.add('en-inicio', 'en-pagina');
+  document.body.classList.toggle('en-conexiones', id === 'conexiones');
   $('#alertas-carrito').hidden = true;
   pintarNavMovil();
   pintarSidebar();
   window.scrollTo(0, 0);
+}
+const mostrarConexiones = () => mostrarPagina('conexiones');
+for (const d of $$('dialog.dlg-pagina')) {
+  d.showModal = () => { mostrarPagina(d.id); if (!d.open) d.show(); };
+  // Cerrarla (su ✕ o «Cerrar») es volver al Inicio; si se cierra por ir a otra página, no.
+  d.addEventListener('close', () => { if (state.enPagina === d.id) mostrarInicio(); });
 }
 document.addEventListener('change', (e) => {
   const sel = e.target.closest('[data-ng-periodo]');
@@ -2013,7 +2030,7 @@ function pintarActualizado() {
   const el = $('#inicio-actualizado');
   if (!el) return;
   const ts = [...(ini?.embudos || []), ...(ini?.meteoricos || [])].filter((x) => x && !x.cargando).map((x) => x.calculadoEn || ini.cargadoEn).filter(Number.isFinite);
-  el.textContent = ts.length && state.enInicio && !state.enNegocio && !state.enConexiones && modoInicio() !== 'agencia' ? `Actualizado ${haceTxt(Math.min(...ts))}` : '';
+  el.textContent = ts.length && state.enInicio && !state.enNegocio && !state.enPagina && modoInicio() !== 'agencia' ? `Actualizado ${haceTxt(Math.min(...ts))}` : '';
 }
 setInterval(pintarActualizado, 60_000);
 
@@ -5773,7 +5790,7 @@ const nav = { restaurando: false };
 }
 window.addEventListener('popstate', (e) => {
   if (nav.saltarPop) { nav.saltarPop = false; return; }
-  const abiertas = [...document.querySelectorAll('dialog[open]')];
+  const abiertas = [...document.querySelectorAll('dialog[open]:not(.dlg-pagina)')];
   if (abiertas.length) { nav.restaurando = true; abiertas.at(-1).close(); nav.restaurando = false; return; }
   if (!$('#notif-panel').hidden) { cerrarNotif(); return; }
   const menu = $$('.topbar .tb-menu').find((m) => m.open);
