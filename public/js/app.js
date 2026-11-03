@@ -18097,6 +18097,7 @@ $('#btn-conexiones').addEventListener('click', () => {
   pintarSetterConexiones();
   pintarThrivecartConexiones();
   pintarHotmartConexiones();
+  pintarPropiasConexiones();
   pintarCapiConexiones();
   $('#conexiones-dialog').showModal();
   pintarFuentesConexiones();
@@ -18104,7 +18105,7 @@ $('#btn-conexiones').addEventListener('click', () => {
 });
 // Estado de cada conexión (la pastilla de su tarjeta y el resumen de arriba): { clave: ['ok'|'aviso'|'no', texto] }.
 const estadoCx = {};
-const NOMBRE_CX = { capi: '🎯 Conversions API', thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
+const NOMBRE_CX = { capi: '🎯 Conversions API', zoom: '🎥 Zoom', vimeo: '📼 Vimeo', thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
 function ponerEstadoCx(clave, tono, texto) {
   estadoCx[clave] = [tono, texto];
   const el = $(`#conexiones-dialog [data-cx-estado="${clave}"]`);
@@ -18125,6 +18126,62 @@ $('#conexiones-dialog').addEventListener('click', (e) => {
   if (!b) return;
   const card = $(`#conexiones-dialog .cx-card[data-cx="${b.dataset.cxIr}"]`);
   if (card) { card.open = true; card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+});
+// Zoom, SendFlow y Vimeo: la cuenta propia del cliente, pegada aquí (cifrada en AlquimIA, como Hotmart).
+const PROPIAS = {
+  zoom: { nombre: 'Zoom', campos: [['accountId', '🆔 Account ID', ''], ['clientId', '🪪 Client ID', ''], ['clientSecret', '🗝️ Client Secret', 'secreto'], ['hostEmail', '✉️ Email de la anfitriona', 'opcional']] },
+  sendflow: { nombre: 'SendFlow', campos: [['apiKey', '🗝️ Clave de SendAPI', 'secreto']], ayuda: 'En SendFlow → «API Keys» → copia la clave (empieza por <code>send_api-</code>).' },
+  vimeo: { nombre: 'Vimeo', campos: [['token', '🗝️ Token personal', 'secreto']] },
+};
+function pintarPropia(servicio, e) {
+  const box = $(`#cx-propio-${servicio}`);
+  if (!box) return;
+  const p = PROPIAS[servicio];
+  const usaTxt = { propio: `✅ Ya está conectada tu cuenta de ${p.nombre}. No hace falta hacer nada.`, agencia: `ℹ️ Ahora usa la cuenta de ${p.nombre} de la agencia. Para usar la tuya, pégala aquí.`, ninguno: `Aún no hay ninguna cuenta de ${p.nombre} conectada.` };
+  if (servicio !== 'sendflow') ponerEstadoCx(servicio, e.usa === 'ninguno' ? 'no' : e.usa === 'agencia' ? 'aviso' : 'ok', e.usa === 'ninguno' ? 'Sin conectar' : e.usa === 'agencia' ? 'De la agencia' : 'Conectado');
+  const form = puedeConfig() ? `<div class="hm-cred">${p.campos.map(([k, label, tipo]) => `<label class="field"><span>${label}${tipo === 'opcional' ? ' <small>(opcional)</small>' : ''}</span><input data-pr-campo="${k}" ${tipo === 'secreto' ? 'type="password" autocomplete="new-password"' : 'autocomplete="off"'} spellcheck="false"></label>`).join('')}</div>
+      ${p.ayuda ? `<p class="muted small">${p.ayuda}</p>` : ''}
+      <p class="hm-acc"><button type="button" class="btn primary" data-pr-guardar="${servicio}">🔌 Conectar ${p.nombre}</button> <span class="muted small" data-pr-st role="status"></span></p>
+      <p class="muted small">🔒 Se guarda cifrado y solo para este negocio. Nadie del equipo lo puede volver a ver; para cambiarlo, pega el nuevo.</p>`
+    : `<p class="muted">Pide a quien configura AlquimIA que conecte ${p.nombre}.</p>`;
+  box.innerHTML = e.conectada
+    ? `<p class="cx-ok">✅ Conectado con tu cuenta de ${p.nombre} · ${esc(e.resumen || '')}${e.guardada ? ` · desde ${fechaHora(Date.parse(e.guardada))}` : ''}</p>
+      ${puedeConfig() ? `<p class="hm-acc"><button type="button" class="btn small" data-pr-quitar="${servicio}">Quitar</button></p><details class="hm-api"><summary class="cx-h">🔁 Cambiar por otra cuenta</summary>${form}</details>` : ''}`
+    : `<p class="${e.usa === 'propio' ? 'cx-ok' : 'muted'}">${usaTxt[e.usa] || usaTxt.ninguno}</p>${e.usa === 'propio' ? `<details class="hm-api"><summary class="cx-h">🔁 Cambiar por otra cuenta</summary>${form}</details>` : form}`;
+}
+async function pintarPropiasConexiones() {
+  let r;
+  try { r = await api('/api/conexiones-propias'); } catch (e) {
+    for (const s of Object.keys(PROPIAS)) { const b = $(`#cx-propio-${s}`); if (b) b.innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
+    return;
+  }
+  for (const s of Object.keys(PROPIAS)) pintarPropia(s, r[s]);
+}
+$('#conexiones-dialog').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-pr-guardar], [data-pr-quitar]');
+  if (!b) return;
+  const servicio = b.dataset.prGuardar || b.dataset.prQuitar;
+  const nombre = PROPIAS[servicio].nombre;
+  const box = $(`#cx-propio-${servicio}`);
+  const st = box.querySelector('[data-pr-st]');
+  b.disabled = true;
+  try {
+    let r;
+    if (b.dataset.prQuitar) {
+      if (!window.confirm(`¿Quitar tu cuenta de ${nombre}? AlquimIA volverá a lo de antes (o se quedará sin ${nombre}).`)) { b.disabled = false; return; }
+      r = await api('/api/conexiones-propias', { method: 'POST', body: { op: 'quitar', servicio } });
+    } else {
+      const datos = Object.fromEntries([...box.querySelectorAll('[data-pr-campo]')].map((i) => [i.dataset.prCampo, i.value]));
+      if (st) st.textContent = `Comprobando con ${nombre}…`;
+      r = await api('/api/conexiones-propias', { method: 'POST', body: { op: 'guardar', servicio, datos } });
+      notice(`✅ ${nombre} conectado con tu cuenta.`);
+    }
+    for (const s of Object.keys(PROPIAS)) pintarPropia(s, r[s]);
+    if (servicio === 'sendflow') probarSendflow({ reintentar: true });
+  } catch (err) {
+    if (st) st.textContent = `⚠️ ${err.message}`; else notice(err.message);
+    b.disabled = false;
+  }
 });
 // Hotmart: la credencial de la API (cifrada en AlquimIA), sincronizar / traer el histórico, y la dirección del aviso.
 async function pintarHotmartConexiones() {
@@ -18464,7 +18521,7 @@ async function probarSendflow({ reintentar = false } = {}) {
       return;
     }
     if (!d.configurada) {
-      box.innerHTML = `<div class="notice warn"><strong>Aún no está conectado.</strong> Falta la variable <code>${esc(d.variable)}</code> en Cloudflare (tipo <em>Secret</em>) con la clave de SendFlow → «API Keys». Después, <em>Deployments → Retry deployment</em> y vuelve a probar.</div>`;
+      box.innerHTML = '<div class="notice warn"><strong>Aún no está conectado.</strong> Pega arriba tu clave de SendFlow (SendFlow → «API Keys») y pulsa «Conectar SendFlow».</div>';
       return;
     }
     if (!d.ok) {

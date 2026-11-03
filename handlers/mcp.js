@@ -9,6 +9,7 @@ import { listClientes } from '../lib/clientes.js';
 import { rolEn } from '../lib/users.js';
 import { VERSION } from '../lib/version.js';
 import { json } from '../lib/http.js';
+import { cargarConexiones } from '../lib/conexiones-propias.js';
 
 export const PROTOCOLOS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const CORS = { 'access-control-allow-origin': '*', 'access-control-expose-headers': 'www-authenticate', 'access-control-allow-headers': 'authorization, content-type, mcp-protocol-version, mcp-session-id' };
@@ -43,6 +44,7 @@ async function llamarTool(params, ctx) {
   if (!cliente) return fallo(`No tienes acceso al cliente «${args.cliente}». Tus clientes: ${clientes.map((c) => `${c.nombre} (${c.id})`).join(', ') || 'ninguno'}.`);
   try {
     return await runCliente(cliente, async () => {
+      await cargarConexiones().catch(() => {});
       // La sesión en ESE cliente (su rol y permisos allí).
       const s = await sesionDeGrant(ctx.grant, ctx.origin);
       if (!s?.role) return fallo(`No tienes acceso a «${cliente.nombre}».`);
