@@ -18111,7 +18111,9 @@ function ponerEstadoCx(clave, tono, texto) {
   const el = $(`#conexiones-dialog [data-cx-estado="${clave}"]`);
   if (el) { el.className = `cx-estado cx-e-${tono}`; el.textContent = texto; }
   const res = $('#cx-resumen');
-  if (res) res.innerHTML = Object.entries(NOMBRE_CX).filter(([k]) => estadoCx[k]).map(([k, n]) => `<button type="button" class="cx-res cx-e-${estadoCx[k][0]}" data-cx-ir="${k}"><span>${n}</span><b>${esc(estadoCx[k][1])}</b></button>`).join('');
+  // Con el logo oficial de la app (el mismo de su tarjeta) en lugar del emoji, si lo tiene.
+  const nombre = (k, n) => { const img = $(`#conexiones-dialog .cx-card[data-cx="${k}"] .cx-logo-img img`); return img ? `<img class="cx-res-logo" src="${img.getAttribute('src')}" alt="">${esc(n.replace(/^\S+\s/, ''))}` : esc(n); };
+  if (res) res.innerHTML = Object.entries(NOMBRE_CX).filter(([k]) => estadoCx[k]).map(([k, n]) => `<button type="button" class="cx-res cx-e-${estadoCx[k][0]}" data-cx-ir="${k}"><span>${nombre(k, n)}</span><b>${esc(estadoCx[k][1])}</b></button>`).join('');
 }
 function pintarEstadoCx() {
   const st = state.config?.setterIa;
