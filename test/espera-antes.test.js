@@ -49,3 +49,12 @@ test('barras fijas: la cuenta atrás con días también enseña los segundos', a
   assert.equal(fmt(ms, true), '2 d 0 h 45 min 07 s');
   assert.equal(fmt(3 * 3600_000 + 5000, true), '3:00:05');
 });
+
+test('pantalla de espera: clave de acceso de Zoom destacada («si te pide clave, es esta»)', async () => {
+  const l = (espera) => sanitizeConfig({ launches: { lx: { name: 'X', registroTag: 'reg-x', ...(espera ? { espera } : {}) } } }).launches.lx.espera;
+  assert.equal(l({ activa: true, clave: ' 1234 ' }).clave, '1234');
+  assert.equal(l({ activa: true, clave: '' }).clave, undefined);
+  const src = (await import('node:fs')).readFileSync(new URL('../public/tracker.js', import.meta.url), 'utf8');
+  assert.match(src, /Si al redirigir te pide <strong>clave de acceso<\/strong>, es esta:/);
+  assert.match(src, /\(data\.espera \|\| \{\}\)\.clave \?/);
+});

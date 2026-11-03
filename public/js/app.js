@@ -7219,6 +7219,7 @@ function openConfig(code, { silencioso = false } = {}) {
   $('#cfg-espera-on').checked = l.espera?.activa ?? (embudoInfo(editingCode ? embudoDeLanz(l) : state.embudo)?.espera !== false);
   $('#cfg-espera-video').value = l.espera?.video || '';
   $('#cfg-espera-antes').value = String(l.espera?.antesMin ?? 5);
+  $('#cfg-espera-clave').value = l.espera?.clave || '';
   esperaDirectosSel = Array.isArray(l.espera?.directos) ? new Set(l.espera.directos) : null;
   $('#cfg-espera-css').value = l.espera?.css || '';
   $('#cfg-espera-deco').value = l.espera?.decoracion || '';
@@ -8662,7 +8663,7 @@ function readForm() {
       oferta: leerOfertaEditor(),
       recursosPre: leerRecursosCfg(),
       ...(!$('#cfg-lista-sec').hidden ? { listaRecursos: leerListaRecCfg() } : {}),
-      espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim(), antesMin: $('#cfg-espera-antes').value.trim(), directos: esperaDirectosCfg(), css: $('#cfg-espera-css').value.trim(), decoracion: $('#cfg-espera-deco').value.trim() },
+      espera: { activa: $('#cfg-espera-on').checked, video: $('#cfg-espera-video').value.trim(), antesMin: $('#cfg-espera-antes').value.trim(), clave: $('#cfg-espera-clave').value.trim(), directos: esperaDirectosCfg(), css: $('#cfg-espera-css').value.trim(), decoracion: $('#cfg-espera-deco').value.trim() },
       ventaBarra: leerVentaBarra(),
       titulares: leerTitulares(),
       paginaPago: leerPaginaPago(),

@@ -234,6 +234,7 @@ export async function GET(request, ctx) {
       // El diseño propio solo el día del directo (o en la vista previa): es lo único que lo usa y pesa.
       espera: {
         activa: launch.espera?.activa !== false, video: launch.espera?.video || '', antesMin: launch.espera?.antesMin ?? 5,
+        ...(launch.espera?.clave ? { clave: launch.espera.clave } : {}),
         ...(launch.espera?.directos ? { directos: launch.espera.directos } : {}),
         ...((preview || /^dia_directo/.test(phase.id)) && (launch.espera?.css || launch.espera?.decoracion) ? { css: launch.espera.css || '', decoracion: launch.espera.decoracion || '' } : {}),
       },

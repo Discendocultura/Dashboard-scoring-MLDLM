@@ -174,6 +174,9 @@
     'box-shadow:0 10px 28px rgba(134,13,14,.10);animation:lsdEspUp .7s .36s ease both,lsdEspAura 2.8s 1.2s ease-in-out infinite}' +
     '#lsd-espera .lsd-espera-msg>span:last-child{flex:1;text-align:center;text-wrap:balance}' +
     '#lsd-espera .lsd-espera-msg strong{font-weight:900;color:var(--lsd-espera-acento,#860d0e)}' +
+    '#lsd-espera .lsd-espera-clave{display:flex;align-items:center;justify-content:center;gap:12px;margin:clamp(16px,3vh,24px) auto 0;max-width:560px;padding:14px 20px;box-sizing:border-box;border-radius:18px;background:#fff4d6;border:2px solid #e0a526;box-shadow:0 8px 24px -12px rgba(160,110,0,.55);font-size:clamp(17px,2.4vw,21px);line-height:1.4;color:#4a2c20;animation:lsdEspUp .7s .34s ease both}' +
+    '#lsd-espera .lsd-espera-clave-ico{font-size:1.5em;line-height:1}' +
+    '#lsd-espera .lsd-espera-clave-num{display:inline-block;margin-left:4px;padding:2px 12px;border-radius:10px;background:#fff;border:1.5px dashed #c48a12;font-size:1.25em;font-weight:900;letter-spacing:.12em;color:var(--lsd-espera-acento,#860d0e);font-variant-numeric:tabular-nums}' +
     '#lsd-espera .lsd-espera-dot{position:relative;flex:none;width:12px;height:12px;border-radius:50%;background:var(--lsd-espera-acento,#860d0e)}' +
     '#lsd-espera .lsd-espera-dot::before,#lsd-espera .lsd-espera-dot::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--lsd-espera-acento,#860d0e);opacity:.45;animation:lsdEspOnda 1.8s ease-out infinite}' +
     '#lsd-espera .lsd-espera-dot::after{animation-delay:.9s}' +
@@ -1704,6 +1707,8 @@
         '<span class="lsd-espera-sep" aria-hidden="true">:</span>' +
         '<div class="lsd-espera-u"><span class="lsd-espera-num" data-u="s">00</span><span class="lsd-espera-lbl">segundos</span></div></div>' +
         '<p class="lsd-espera-msg"><span class="lsd-espera-dot" aria-hidden="true"></span><span>' + mensajeEspera(t['espera-mensaje'] || 'Quédate aquí, serás redirigida al directo en cuanto el contador llegue a cero.') + '</span></p>' +
+        // Clave de acceso de Zoom (Configuración → Pantalla de espera): destacada, para que nadie se quede fuera.
+        ((data.espera || {}).clave ? '<p class="lsd-espera-clave" role="note"><span class="lsd-espera-clave-ico" aria-hidden="true">🔑</span><span>Si al redirigir te pide <strong>clave de acceso</strong>, es esta: <b class="lsd-espera-clave-num">' + esc(data.espera.clave) + '</b></span></p>' : '') +
         avisoAppZoom(data, esp.key) +
         '</div>' +
         // Decoración propia del lanzamiento (Configuración → Pantalla de espera → Diseño propio) o, si no hay,
