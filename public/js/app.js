@@ -8,6 +8,7 @@ import { ORDEN_EDAD, preguntasDe } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
 import { resumenThrivecart, ventasDeCsv, leerCsv, productosVistos, deProductos } from './thrivecart.js';
 import { filasClientesCsv } from './meta-capi.js';
+import { miembrosDeCsv, resumenSkool, tagAlumno, slugNivel } from './skool.js';
 import { resumenAb, MINIMO_AB } from './ab.js';
 import { pasosEmbudo, anchosEmbudo, fondoCapa } from './embudo-visual.js';
 import { promptAvatar } from './prompt-avatar.js';
@@ -87,6 +88,10 @@ import { componerEmails } from './emails.js';
 import { saludCliente, ordenSalud, totalesAgencia, urgentesAgencia, agendaAgencia, equipoAgencia } from './agencia-inicio.js';
 import { tiposPara, quiereNotif, CANALES_NOTIF, tipoNotif } from './notificaciones.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
+import { sinEmojis } from './sin-emojis.js';
+
+// AlquimIA sin emojis en la interfaz: iconos de línea en su lugar (los mensajes a las leads conservan los suyos).
+sinEmojis();
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -3173,6 +3178,172 @@ document.addEventListener('click', async (e) => {
   $('#casi-estado').textContent = fallos ? `Etiquetadas ${hechas}; ${fallos} no se pudieron (vuelve a pulsar para reintentarlo).` : `Etiquetadas ${hechas} en GHL ✓`;
 });
 
+// 🎓 Alumnos de Skool (Métricas → Ventas): se sube el CSV de miembros de Skool (filtrado o no por fechas) y cada miembro
+// queda guardado como venta real (fuente «skool», con su nivel, precio y lo cobrado). Aquí, los que se unieron en el
+// periodo del lanzamiento: reparto por nivel, lo cobrado, lo que suman al mes y cuántos estaban registrados; y el botón
+// que pone en GHL la etiqueta de alumno de su nivel (`alumno-claves-premium`). La facturación y el ROAS salen arriba,
+// en «Ventas reales», al marcar sus niveles como productos del lanzamiento.
+// Colores e iconos de los niveles, del más barato al más caro (el más caro, la corona).
+const SK_COLORES = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899'];
+const skIcono = (i, n) => (n === 1 ? '🎓' : i === n - 1 ? '👑' : i === 0 ? '🌱' : ['🚀', '💎', '⭐'][(i - 1) % 3]);
+// Anillo SVG con un trozo por nivel (se dibuja con una animación al aparecer).
+function skDonut(filas, total) {
+  const R = 52; const C = 2 * Math.PI * R;
+  let acum = 0;
+  const trozos = filas.map((f, i) => {
+    const largo = (f.n / total) * C;
+    const t = `<circle class="sk-seg" cx="70" cy="70" r="${R}" stroke="${SK_COLORES[i % SK_COLORES.length]}" stroke-dasharray="${Math.max(0, largo - 2).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-acum).toFixed(2)}" style="--c:${C.toFixed(2)};animation-delay:${i * 120}ms"><title>${esc(f.nivel)}: ${f.n} (${Math.round(f.pct * 100)} %)</title></circle>`;
+    acum += largo;
+    return t;
+  }).join('');
+  return `<svg class="sk-donut" viewBox="0 0 140 140" role="img" aria-label="Reparto de alumnos por nivel"><circle cx="70" cy="70" r="${R}" class="sk-donut-fondo"/>${trozos}
+    <text x="70" y="66" class="sk-donut-n">${total}</text><text x="70" y="86" class="sk-donut-t">alumnos</text></svg>`;
+}
+const skool = { prev: null, m: null };
+const skoolPrefijo = (code) => ls.get(`lsd_skool_pref_${state.cliente || ''}_${code}`) || `alumno-${slugNivel(nombreProducto(state.config)) || 'skool'}`;
+async function renderSkool(m = skool.m) {
+  skool.m = m;
+  const box = $('#skool-l');
+  if (!box) return;
+  const code = state.launchCode;
+  const launch = state.config.launches[code] || {};
+  const { desde, hasta } = periodoLanz(code);
+  const ventas = (await ventasReales(desde, hasta)).filter((v) => v.fuente === 'skool');
+  if (state.launchCode !== code) return;
+  const emails = new Set(state.leads.map((l) => String(l.email || '').toLowerCase()).filter(Boolean));
+  const r = resumenSkool(ventas, { desde, hasta, emails });
+  const puede = puedeConfig();
+  const importar = puede ? `<details class="sk-imp"${r.total ? '' : ' open'}><summary>⬆️ <strong>${r.total ? 'Actualizar con un CSV nuevo' : 'Importar el CSV de miembros de Skool'}</strong></summary>
+      <ol class="muted small"><li>En Skool: <strong>Miembros</strong> → filtra si quieres por fecha de alta → <strong>Exportar CSV</strong>.</li><li>Súbelo aquí: verás lo que se va a guardar antes de confirmarlo.</li><li>Puedes subirlo las veces que quieras: cada miembro se actualiza (lo cobrado crece con cada renovación), no se repite.</li></ol>
+      <div class="row sk-fila"><input type="file" id="sk-csv" accept=".csv,text/csv"> <label class="field inline"><span>1 $ =</span><input type="number" id="sk-cambio" step="0.0001" min="0.1" max="5" value="${esc(ls.get('lsd_skool_cambio') || '')}" placeholder="0,86" style="width:90px"> <span>€</span></label></div>
+      <p class="muted small">El cambio solo hace falta si Skool cobra en dólares: así la facturación y el ROAS salen en euros, como la inversión de Meta.</p>
+      <div id="sk-prev"></div>
+    </details>` : '';
+  if (!r.total) {
+    box.innerHTML = `<div class="sk-vacio"><span class="sk-vacio-ico" aria-hidden="true">🎓</span><div><strong>Tu comunidad de Skool, aquí</strong><p class="muted">Sube el CSV de miembros y verás cuántos alumnos trajo este lanzamiento, en qué nivel, cuánto han pagado y el ROAS real.${puede ? '' : ' Pídele a quien configura el embudo que lo suba.'}</p></div></div>${importar}`;
+    return;
+  }
+  const pref = skoolPrefijo(code);
+  const n = r.filas.length;
+  const color = (i) => SK_COLORES[i % SK_COLORES.length];
+  const inversion = m?.eco?.inversion || 0;
+  const sinIva = r.cobrado / (1 + ivaPct(launch) / 100);
+  const roas = inversion ? sinIva / inversion : null;
+  const x2 = (v) => `${v.toFixed(2).replace('.', ',')}x`;
+  const dia = (ms) => new Date(ms).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' });
+  const fechas = r.miembros.map((v) => v.fecha).sort((a, b) => a - b);
+  // Cabecera: lo grande.
+  const stat = (et, v, sub, cls = '') => `<div class="sk-stat ${cls}"><span>${et}</span><b>${v}</b><small>${sub}</small></div>`;
+  const hero = `<div class="sk-hero">
+      <div class="sk-hero-main">
+        <span class="sk-kicker">🎓 Comunidad Skool${launch.name ? ` · ${esc(launch.name)}` : ''}</span>
+        <div class="sk-big"><b>${r.total.toLocaleString('es-ES')}</b><span>${r.total === 1 ? 'alumno nuevo' : 'alumnos nuevos'}</span></div>
+        <p>se unieron del ${dia(fechas[0])} al ${dia(fechas.at(-1))} · <strong>${r.registrados}</strong> venían de tus leads (${pctOf(r.registrados, r.total)})</p>
+      </div>
+      <div class="sk-stats">
+        ${stat('Cobrado', eur(r.cobrado), `con IVA · ${eur(sinIva)} sin IVA`)}
+        ${r.mrr ? stat('Ingreso al mes', eur(r.mrr), 'lo que suman sus cuotas') : ''}
+        ${r.mrr ? stat('Si siguen un año', eur(r.mrr * 12), 'ingreso anual recurrente') : ''}
+        ${roas != null ? stat('ROAS de Skool', x2(roas), `${eur(sinIva)} ÷ ${eur(inversion)} invertidos`, roas >= 1 ? 'sk-ok' : 'sk-bajo') : ''}
+      </div>
+    </div>`;
+  // Un nivel = una tarjeta de suscripción.
+  const tier = (f, i) => `<article class="sk-tier" style="--t:${color(i)};animation-delay:${120 + i * 90}ms">
+      <header><span class="sk-tier-ico" aria-hidden="true">${skIcono(i, n)}</span><div><h4>${esc(f.nivel)}</h4>${f.precioMes != null ? `<small>${eur(f.precioMes)}/mes</small>` : ''}</div><span class="sk-tier-pct">${Math.round(f.pct * 100)}%</span></header>
+      <div class="sk-tier-n"><b>${f.n}</b> ${f.n === 1 ? 'alumno' : 'alumnos'}</div>
+      <div class="sk-tier-bar"><i style="width:${Math.max(3, f.pct * 100)}%"></i></div>
+      <dl><div><dt>Cobrado</dt><dd>${eur(f.cobrado)}</dd></div><div><dt>Por alumno</dt><dd>${eur(f.ticket)}</dd></div>${f.mrr ? `<div><dt>Al mes</dt><dd>${eur(f.mrr)}</dd></div>` : ''}<div><dt>De tus leads</dt><dd>${pctOf(f.registrados, f.n)}</dd></div></dl>
+      <code class="sk-tier-tag">🏷️ ${esc(tagAlumno(pref, f.nivel))}</code>
+    </article>`;
+  const reparto = `<div class="sk-reparto">
+      <div class="sk-donut-box">${skDonut(r.filas, r.total)}<ul class="sk-ley">${r.filas.map((f, i) => `<li><i style="background:${color(i)}"></i>${esc(f.nivel)} <b>${Math.round(f.pct * 100)}%</b></li>`).join('')}</ul></div>
+      <div class="sk-tiers">${r.filas.map(tier).join('')}</div>
+    </div>`;
+  // Altas por día y los últimos en unirse.
+  const maxDia = Math.max(1, ...r.porDia.map((d) => d.n));
+  const record = r.porDia.find((d) => d.n === maxDia);
+  const diaCorto = (k) => new Date(`${k}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const altas = r.porDia.length > 1 ? `<section class="sk-panel"><h4 class="cv-h4">📈 Altas por día</h4>
+      <div class="sk-dias" style="--n:${r.porDia.length}">${r.porDia.map((d, i) => `<div class="sk-dia${d === record ? ' sk-record' : ''}" title="${esc(diaCorto(d.dia))}: ${d.n} ${d.n === 1 ? 'alta' : 'altas'}"><b>${d.n || ''}</b><i style="height:${d.n ? Math.max(6, (d.n / maxDia) * 100) : 0}%;animation-delay:${i * 40}ms"></i><span>${r.porDia.length <= 14 || i % Math.ceil(r.porDia.length / 10) === 0 ? esc(diaCorto(d.dia)) : ''}</span></div>`).join('')}</div>
+      <p class="muted small">🔥 Día récord: <strong>${esc(diaCorto(record.dia))}</strong> con ${record.n} ${record.n === 1 ? 'alta' : 'altas'}${launch.fechaDirecto && record.dia === launch.fechaDirecto ? ' (el día del directo)' : ''}.</p></section>` : '';
+  const nivelIdx = new Map(r.filas.map((f, i) => [f.nivel, i]));
+  const ini = (v) => String(v.nombre || v.email).split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
+  const ultimos = [...r.miembros].sort((a, b) => b.fecha - a.fecha).slice(0, 6);
+  const lista = `<section class="sk-panel"><h4 class="cv-h4">✨ Últimos en unirse</h4><ul class="sk-ult">${ultimos.map((v) => {
+    const i = nivelIdx.get(v.plan) ?? 0;
+    const lead = state.leads.find((l) => String(l.email || '').toLowerCase() === v.email);
+    return `<li><span class="sk-av" style="--t:${color(i)}">${esc(ini(v))}</span><div>${lead ? `<button type="button" class="lead-ficha" data-ficha-lead="${esc(lead.id)}">${esc(v.nombre || v.email)}</button>` : `<strong>${esc(v.nombre || v.email)}</strong>`}<small>${esc(haceTxt(v.fecha))}${lead ? '' : ' · no estaba registrado'}</small></div><span class="sk-chip" style="--t:${color(i)}">${skIcono(i, n)} ${esc(v.plan)}</span></li>`;
+  }).join('')}</ul></section>`;
+  const etiquetar = puede ? `<section class="sk-tag"><div><h4 class="cv-h4">🏷️ Etiqueta de alumno en GHL</h4>
+      <div class="row sk-fila"><label class="field inline"><span>Prefijo</span><input id="sk-pref" value="${esc(pref)}" style="width:200px"></label> <span class="muted small">→ ${r.filas.slice(0, 3).map((f) => `<code>${esc(tagAlumno(pref, f.nivel))}</code>`).join(' · ')}</span></div>
+      <p class="muted small" id="sk-tag-st">Busca a cada uno por su email en GHL y le pone la etiqueta de su nivel. A quien no esté en GHL no se le crea: te lo digo.</p></div>
+      <button type="button" class="btn primary sk-tag-btn" id="sk-etiquetar">Etiquetar a los ${r.total} en GHL</button></section>` : '';
+  box.innerHTML = `${hero}${reparto}<div class="sk-dos">${altas}${lista}</div>
+    <p class="sk-nota">💡 Para que cuenten en la <strong>facturación y el ROAS</strong> de todo el lanzamiento, márcalos en Resumen → «Ventas reales» → «Qué ventas son de este lanzamiento» (salen como «Skool · ${esc(r.filas[0].nivel)}»…). Sin marcar nada, cuentan solo los alumnos que estaban registrados.</p>
+    ${etiquetar}${importar}`;
+}
+document.addEventListener('change', async (e) => {
+  if (e.target.id === 'sk-cambio') { ls.set('lsd_skool_cambio', e.target.value); return; }
+  if (e.target.id === 'sk-pref') { ls.set(`lsd_skool_pref_${state.cliente || ''}_${state.launchCode}`, slugNivel(e.target.value)); renderSkool(); return; }
+  if (e.target.id !== 'sk-csv' || !e.target.files?.[0]) return;
+  const r = miembrosDeCsv(await e.target.files[0].text());
+  skool.prev = r;
+  const prev = $('#sk-prev');
+  if (!r.miembros.length) {
+    prev.innerHTML = `<p class="notice err">No encuentro ${r.faltan.includes('email') ? 'la columna del email' : 'miembros con email'} en este archivo.${r.cabecera ? ` Columnas: ${r.cabecera.map((c) => `«${esc(c)}»`).join(', ')}.` : ''}</p>`;
+    return;
+  }
+  const niveles = [...new Set(r.miembros.map((m) => m.nivel))];
+  const fechas = r.miembros.map((m) => m.fecha).filter(Boolean).sort((a, b) => a - b);
+  const usd = r.miembros.some((m) => m.moneda === 'USD');
+  const dia = (ms) => new Date(ms).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  const falta = ['nivel', 'precio', 'ltv'].filter((k) => r.columnas[k] == null);
+  prev.innerHTML = `<div class="sk-prev">
+    <p><strong>${r.miembros.length} miembros</strong>${fechas.length ? ` · se unieron del ${dia(fechas[0])} al ${dia(fechas.at(-1))}` : ''} · niveles: ${niveles.map((n) => `<strong>${esc(n)}</strong> (${r.miembros.filter((m) => m.nivel === n).length})`).join(', ')}${usd ? ' · en dólares' : ''}.</p>
+    ${r.faltan.includes('fecha') ? '<p class="notice err">No encuentro la columna de la fecha de alta: sin ella no se sabe qué miembros son de cada lanzamiento.</p>' : ''}
+    ${falta.length ? `<p class="notice">No encuentro ${falta.map((k) => ({ nivel: 'el nivel', precio: 'el precio', ltv: 'lo cobrado (LTV)' }[k])).join(', ')}. ${falta.includes('ltv') ? 'Sin el LTV, cada alumno cuenta como un cobro de su precio.' : ''}</p>` : ''}
+    ${usd ? '<p class="muted small">Pon arriba cuántos euros es un dólar antes de importar.</p>' : ''}
+    <p><button type="button" class="btn primary" id="sk-importar"${r.faltan.includes('fecha') ? ' disabled' : ''}>Importar ${r.miembros.length} miembros</button> <span class="muted small" id="sk-imp-st"></span></p></div>`;
+});
+document.addEventListener('click', async (e) => {
+  if (e.target.id === 'sk-importar') {
+    const b = e.target;
+    const r = skool.prev;
+    const cambio = Number(String($('#sk-cambio')?.value || '').replace(',', '.'));
+    if (r.miembros.some((m) => m.moneda === 'USD') && !(cambio > 0)) { $('#sk-imp-st').textContent = 'Pon el cambio del dólar (1 $ = … €).'; return; }
+    b.disabled = true;
+    try {
+      const x = await api('/api/skool?op=importar', { method: 'POST', body: { miembros: r.miembros, cambio } });
+      Object.keys(tcCache).forEach((k) => delete tcCache[k]);
+      skool.prev = null;
+      notice(`Skool: ${x.nuevos} alumnos nuevos y ${x.actualizados} actualizados${x.descartados ? ` (${x.descartados} sin email o fecha válidos)` : ''}.`);
+      renderMetrics();
+    } catch (ex) { b.disabled = false; $('#sk-imp-st').textContent = ex.message; }
+    return;
+  }
+  if (e.target.id !== 'sk-etiquetar') return;
+  const b = e.target;
+  const code = state.launchCode;
+  const pref = skoolPrefijo(code);
+  const { desde, hasta } = periodoLanz(code);
+  const r = resumenSkool(await ventasReales(desde, hasta), { desde, hasta });
+  const items = r.miembros.map((v) => ({ email: v.email, tag: tagAlumno(pref, v.plan) })).filter((x) => x.tag);
+  if (!items.length) return;
+  if (!window.confirm(`Se va a poner en GHL la etiqueta de su nivel a ${items.length} alumnos (${[...new Set(items.map((x) => x.tag))].join(', ')}). Si algún workflow empieza con esas etiquetas, se pondrá en marcha. ¿Continuar?`)) return;
+  b.disabled = true;
+  const st = $('#sk-tag-st');
+  let ok = 0; const fuera = []; let fallos = 0;
+  for (let i = 0; i < items.length; i += 25) {
+    try {
+      const { results } = await api('/api/skool?op=etiquetar', { method: 'POST', body: { items: items.slice(i, i + 25) } });
+      for (const x of results) { if (x.ok) ok++; else if (x.motivo === 'no está en GHL') fuera.push(x.email); else fallos++; }
+    } catch { fallos += items.slice(i, i + 25).length; }
+    if (st) st.textContent = `Etiquetando… ${Math.min(i + 25, items.length)} de ${items.length}`;
+  }
+  b.disabled = false;
+  if (st) st.innerHTML = `✓ ${ok} etiquetados en GHL.${fuera.length ? ` ${fuera.length} no están en GHL: ${fuera.slice(0, 8).map(esc).join(', ')}${fuera.length > 8 ? '…' : ''}.` : ''}${fallos ? ` ${fallos} fallaron: vuelve a pulsar para reintentarlo.` : ''}`;
+});
+
 // Compradores fichados (Métricas → Ventas): cada persona que compró en este lanzamiento con su email, su WhatsApp,
 // cómo pagó y todo lo que hizo antes (los mismos chips que en Setting hoy). Con buscador y descarga en CSV.
 const compr = { q: '', ver: 30 };
@@ -3384,6 +3555,7 @@ function renderMetrics() {
   renderRetrospectiva(m, launch);
   renderCasiCompradoras(launch);
   renderCompradores();
+  renderSkool(m);
   // Métricas → Downsell abierta: el meteórico y su conversión de ESTE lanzamiento (y con sus leads).
   if (!$('#view-metricas [data-msub="meteorico"]').hidden) renderMeteoLanz();
   // Carrito abierto: ritmo frente al objetivo, bonus que caducan y cierre (visible en todas las pestañas).
@@ -3675,11 +3847,12 @@ const tcCache = {};
 async function ventasReales(desde, hasta) {
   const clave = `${state.cliente || ''}:${desde}:${hasta}`;
   if (tcCache[clave] && Date.now() - tcCache[clave].at < 5 * 60_000) return tcCache[clave].ventas;
-  const [tc, hm] = await Promise.all([
+  const [tc, hm, sk] = await Promise.all([
     api(`/api/thrivecart?op=ventas&desde=${desde}&hasta=${hasta}`).catch(() => ({ ventas: [] })),
     api(`/api/hotmart?op=ventas&desde=${desde}&hasta=${hasta}`).catch(() => ({ ventas: [] })),
+    api(`/api/skool?op=ventas&desde=${desde}&hasta=${hasta}`).catch(() => ({ ventas: [] })),
   ]);
-  const ventas = [...(tc.ventas || []), ...(hm.ventas || [])].sort((a, b) => a.fecha - b.fecha);
+  const ventas = [...(tc.ventas || []), ...(hm.ventas || []), ...(sk.ventas || [])].sort((a, b) => a.fecha - b.fecha);
   tcCache[clave] = { at: Date.now(), ventas };
   return ventas;
 }
@@ -3692,7 +3865,7 @@ function cifrasReales(r, { iva = 21, inversion = null, sub = '' } = {}) {
   const netoLlega = r.netoExacto + sinIva(r.sinNeto);
   const x2 = (v) => (v == null ? '–' : `${v.toFixed(2).replace('.', ',')}x`);
   const fuentes = Object.entries(r.porFuente || {});
-  const chip = ([f, d]) => `<span class="tc-fuente tc-f-${f}">${f === 'hotmart' ? '🔥 Hotmart' : '💳 ThriveCart'} · ${d.cobros} ${d.cobros === 1 ? 'venta' : 'ventas'} · ${eur(d.cobrado)}${f === 'hotmart' ? ` · te llegan ${eur(d.neto)}` : ''}</span>`;
+  const chip = ([f, d]) => `<span class="tc-fuente tc-f-${f}">${f === 'hotmart' ? '🔥 Hotmart' : f === 'skool' ? '🎓 Skool' : '💳 ThriveCart'} · ${d.cobros} ${d.cobros === 1 ? 'venta' : 'ventas'} · ${eur(d.cobrado)}${f === 'hotmart' ? ` · te llegan ${eur(d.neto)}` : ''}</span>`;
   const html = `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">💶</span><div><strong>Ventas reales</strong><small class="muted">${sub}</small></div>${fuentes.length ? `<div class="tc-fuentes">${fuentes.map(chip).join('')}</div>` : ''}</div>
     <div class="tc-cifras">
       <div><span>Lo que pagan</span><strong>${eur(r.cobrado)}</strong><small>${r.cobros} ${r.cobros === 1 ? 'venta' : 'ventas'} · ${r.compradoras} ${r.compradoras === 1 ? 'compradora' : 'compradoras'} · con IVA</small></div>
@@ -3705,7 +3878,7 @@ function cifrasReales(r, { iva = 21, inversion = null, sub = '' } = {}) {
 // Los productos de un embudo para las ventas reales: los de ThriveCart tal cual y los de Hotmart como «hm:<id>».
 const prodsReales = (tc = [], hm = []) => [...(tc || []), ...(hm || []).map((x) => `hm:${x}`)];
 // Nombre de la plataforma de un producto visto («hm:…» es Hotmart).
-const plataformaDe = (clave) => (String(clave).startsWith('hm:') ? 'Hotmart' : 'ThriveCart');
+const plataformaDe = (clave) => (String(clave).startsWith('hm:') ? 'Hotmart' : /^skool · /i.test(String(clave)) ? 'Skool' : 'ThriveCart');
 function periodoLanz(code) {
   const l = state.config.launches[code] || {};
   const desde = l.inicioCaptacion ? Date.parse(`${l.inicioCaptacion}T00:00:00`) - 7 * 86_400_000 : 0;
@@ -6041,13 +6214,20 @@ function accionesLead(l) {
   return out.length ? out.join('') : accionChip({ ico: '😴', txt: 'Sin actividad todavía', tono: 'nada' });
 }
 
+// Siguiente paso de la tarjeta, explicado: qué conseguir con ella según lo que ha visto del vídeo de venta.
+const PASO_TXT = {
+  grabacion: 'que vea la grabación (aún no ha visto el vídeo de venta)',
+  raices: 'preséntale la oferta (ya vio más de la mitad de la grabación)',
+  cierre: 'ciérrala o proponle una llamada (vio el vídeo de venta casi entero)',
+  comprado: 'ya compró: no hace falta escribirle',
+};
 function hoyItem(l, b = null, n = 0) {
   return `<li class="hoy-item st-${l.estado.id}">
-    ${n ? `<span class="hoy-n" title="${esc(l.estado.label)} · ${l.score}/100">${n}</span>` : ''}
+    ${n ? `<span class="hoy-n" title="Puesto ${n} de la lista de hoy (primero, las más calientes)">${n}</span>` : ''}
     <div class="hoy-main">
-      <div class="hoy-linea"><button type="button" class="lead-name lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || l.email)}</button>${l.phone ? ` <span class="muted small">${esc(l.phone)}</span>` : ''} <span class="estado st-${l.estado.id}" title="${esc(l.estado.label)}"><span class="dot"></span>${esc(l.estado.label)} · ${l.score}</span> ${b && b.id !== 'calientes' ? `<span class="hoy-motivo">${esc(b.corto)}</span>` : ''} ${avatarChip(l)}</div>
-      <div class="hoy-acc">${accionesLead(l)}</div>
-      <div class="hoy-paso">👉 ${esc(NEXT_STEPS[l.step])}</div>
+      <div class="hoy-linea"><button type="button" class="lead-name lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || l.email)}</button>${l.phone ? ` <span class="muted small">${esc(l.phone)}</span>` : ''} <span class="estado st-${l.estado.id}" title="Puntuación de 0 a 100: suma lo que ha hecho (clases, directo, grabación, VIP, página de venta…)"><span class="dot"></span>${esc(l.estado.label)} · ${l.score} pts</span> ${b && b.id !== 'calientes' ? `<span class="hoy-motivo" title="${esc(b.hint || b.title || '')}">Te sale por: <b>${esc(b.corto)}</b></span>` : ''} ${avatarChip(l)}</div>
+      <div class="hoy-acc"><span class="hoy-et">Ha hecho:</span>${accionesLead(l)}</div>
+      <div class="hoy-paso">👉 <strong>Siguiente paso:</strong> ${esc(PASO_TXT[l.step] || NEXT_STEPS[l.step])}</div>
     </div>
     <div class="hoy-actions">
       ${l.s.setter?.respondio && enlaceSetter(l.id) ? `<a class="btn ghost small" href="${esc(enlaceSetter(l.id))}" target="_blank" rel="noopener" title="Leer la conversación en el setter IA">🤖 Ver chat</a>` : ''}
@@ -13425,7 +13605,7 @@ function llamadaCard(c) {
     <div class="ll-main">
       <div class="ll-name">${esc(lead?.name || c.title || 'Sin nombre')}
         ${etapa ? `<span class="ll-etapa" style="--c:${esc(etapa.color || '#8a817b')}" title="Etapa en el pipeline de GHL">${esc(etapa.name)}</span>` : '<span class="ll-etapa none" title="Aún no está en el pipeline: se añadirá al anotar el resultado">Sin etapa</span>'}
-        ${llCancelada(c) ? '<span class="ll-etapa ll-cancelada">❌ Cita cancelada</span>' : ''}</div>
+        ${llCancelada(c) ? '<span class="ll-etapa ll-cancelada">⛔ Cita cancelada</span>' : ''}</div>
       <div class="ll-contact">${phone ? `<a href="tel:${esc(phone)}">${icon('phone')}${esc(phone)}</a>` : ''}${wa ? `<a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}${phone ? '' : '<span class="muted">Sin teléfono</span>'}</div>
       <div class="ll-chips">${repChip}${cancChip}${origenChip(c)}${chips}</div>
       ${r ? `<div class="ll-res">${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span>${c.resultado.notas ? `<div class="ll-notas">${esc(c.resultado.notas)}</div>` : ''}</div>` : ''}
@@ -13471,15 +13651,17 @@ function renderLlamadas() {
   // Las próximas canceladas van aparte, para que en Hoy y Próximos días solo queden las que faltan por hacer.
   const deHoy = list.filter((c) => dayInMadrid(c.startTime) === hoyD && llStart(c) >= ahora && !llCancelada(c));
   const proximas = list.filter((c) => llStart(c) >= ahora && dayInMadrid(c.startTime) !== hoyD && !llCancelada(c));
-  const canceladasProx = list.filter((c) => llStart(c) >= ahora && llCancelada(c));
-  const anotadas = list.filter((c) => llStart(c) < ahora && (c.resultado || llCancelada(c))).reverse();
+  // Lo ya cerrado, agrupado por cómo acabó (todas las ventas juntas, todas las canceladas juntas…), lo más reciente arriba.
+  const porResultado = RESULTADOS.map((r) => ({ r, items: list.filter((c) => c.resultado?.resultado === r.id).reverse() }));
+  const canceladas = list.filter((c) => !c.resultado && llCancelada(c)).sort((a, b) => llStart(b) - llStart(a));
+  const grupoCerrado = (titulo, items, cls = '') => (items.length ? `<details class="ll-sec ll-done ${cls}"><summary><h3>${titulo} <span class="muted">${items.length}</span></h3></summary>${items.map(llamadaCard).join('')}</details>` : '');
   const sec = (titulo, items, cls = '', vacio = '') => (items.length || vacio ? `<section class="ll-sec ${cls}"><h3>${titulo} <span class="muted">${items.length}</span></h3>${items.map(llamadaCard).join('') || `<p class="muted">${vacio}</p>`}</section>` : '');
   box.innerHTML = list.length ? `
     ${sec('⚠️ Pendientes de anotar', pendientes, 'warn')}
     ${sec('📞 Hoy', deHoy, '', 'No hay más llamadas hoy.')}
     ${sec('🗓️ Próximos días', proximas)}
-    ${canceladasProx.length ? `<details class="ll-sec ll-done ll-cancel-prox"><summary><h3>❌ Canceladas <span class="muted">${canceladasProx.length}</span></h3></summary>${canceladasProx.map(llamadaCard).join('')}</details>` : ''}
-    ${anotadas.length ? `<details class="ll-sec ll-done"><summary><h3>✅ Ya anotadas <span class="muted">${anotadas.length}</span></h3></summary>${anotadas.map(llamadaCard).join('')}</details>` : ''}`
+    ${porResultado.map(({ r, items }) => grupoCerrado(`${r.icon} ${r.id === 'venta' ? 'Ventas' : r.label}`, items, `ll-g-${r.id}`)).join('')}
+    ${grupoCerrado('⛔ Citas canceladas', canceladas, 'll-cancel-prox')}`
     : '<div class="card empty"><p class="muted">Todavía no hay llamadas agendadas en el calendario para este lanzamiento.</p></div>';
   syncLlVista();
 }
@@ -17991,6 +18173,7 @@ $('#btn-conexiones').addEventListener('click', () => {
   pintarSetterConexiones();
   pintarThrivecartConexiones();
   pintarHotmartConexiones();
+  pintarPropiasConexiones();
   pintarCapiConexiones();
   $('#conexiones-dialog').showModal();
   pintarFuentesConexiones();
@@ -17998,13 +18181,15 @@ $('#btn-conexiones').addEventListener('click', () => {
 });
 // Estado de cada conexión (la pastilla de su tarjeta y el resumen de arriba): { clave: ['ok'|'aviso'|'no', texto] }.
 const estadoCx = {};
-const NOMBRE_CX = { capi: '🎯 Conversions API', thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
+const NOMBRE_CX = { capi: '🎯 Conversions API', zoom: '🎥 Zoom', vimeo: '📼 Vimeo', thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
 function ponerEstadoCx(clave, tono, texto) {
   estadoCx[clave] = [tono, texto];
   const el = $(`#conexiones-dialog [data-cx-estado="${clave}"]`);
   if (el) { el.className = `cx-estado cx-e-${tono}`; el.textContent = texto; }
   const res = $('#cx-resumen');
-  if (res) res.innerHTML = Object.entries(NOMBRE_CX).filter(([k]) => estadoCx[k]).map(([k, n]) => `<button type="button" class="cx-res cx-e-${estadoCx[k][0]}" data-cx-ir="${k}"><span>${n}</span><b>${esc(estadoCx[k][1])}</b></button>`).join('');
+  // Con el logo oficial de la app (el mismo de su tarjeta) en lugar del emoji, si lo tiene.
+  const nombre = (k, n) => { const img = $(`#conexiones-dialog .cx-card[data-cx="${k}"] .cx-logo-img img`); return img ? `<img class="cx-res-logo" src="${img.getAttribute('src')}" alt="">${esc(n.replace(/^\S+\s/, ''))}` : esc(n); };
+  if (res) res.innerHTML = Object.entries(NOMBRE_CX).filter(([k]) => estadoCx[k]).map(([k, n]) => `<button type="button" class="cx-res cx-e-${estadoCx[k][0]}" data-cx-ir="${k}"><span>${nombre(k, n)}</span><b>${esc(estadoCx[k][1])}</b></button>`).join('');
 }
 function pintarEstadoCx() {
   const st = state.config?.setterIa;
@@ -18019,6 +18204,62 @@ $('#conexiones-dialog').addEventListener('click', (e) => {
   if (!b) return;
   const card = $(`#conexiones-dialog .cx-card[data-cx="${b.dataset.cxIr}"]`);
   if (card) { card.open = true; card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+});
+// Zoom, SendFlow y Vimeo: la cuenta propia del cliente, pegada aquí (cifrada en AlquimIA, como Hotmart).
+const PROPIAS = {
+  zoom: { nombre: 'Zoom', campos: [['accountId', '🆔 Account ID', ''], ['clientId', '🪪 Client ID', ''], ['clientSecret', '🗝️ Client Secret', 'secreto'], ['hostEmail', '✉️ Email de la anfitriona', 'opcional']] },
+  sendflow: { nombre: 'SendFlow', campos: [['apiKey', '🗝️ Clave de SendAPI', 'secreto']], ayuda: 'En SendFlow → «API Keys» → copia la clave (empieza por <code>send_api-</code>).' },
+  vimeo: { nombre: 'Vimeo', campos: [['token', '🗝️ Token personal', 'secreto']] },
+};
+function pintarPropia(servicio, e) {
+  const box = $(`#cx-propio-${servicio}`);
+  if (!box) return;
+  const p = PROPIAS[servicio];
+  const usaTxt = { propio: `✅ Ya está conectada tu cuenta de ${p.nombre}. No hace falta hacer nada.`, agencia: `ℹ️ Ahora usa la cuenta de ${p.nombre} de la agencia. Para usar la tuya, pégala aquí.`, ninguno: `Aún no hay ninguna cuenta de ${p.nombre} conectada.` };
+  if (servicio !== 'sendflow') ponerEstadoCx(servicio, e.usa === 'ninguno' ? 'no' : e.usa === 'agencia' ? 'aviso' : 'ok', e.usa === 'ninguno' ? 'Sin conectar' : e.usa === 'agencia' ? 'De la agencia' : 'Conectado');
+  const form = puedeConfig() ? `<div class="hm-cred">${p.campos.map(([k, label, tipo]) => `<label class="field"><span>${label}${tipo === 'opcional' ? ' <small>(opcional)</small>' : ''}</span><input data-pr-campo="${k}" ${tipo === 'secreto' ? 'type="password" autocomplete="new-password"' : 'autocomplete="off"'} spellcheck="false"></label>`).join('')}</div>
+      ${p.ayuda ? `<p class="muted small">${p.ayuda}</p>` : ''}
+      <p class="hm-acc"><button type="button" class="btn primary" data-pr-guardar="${servicio}">🔌 Conectar ${p.nombre}</button> <span class="muted small" data-pr-st role="status"></span></p>
+      <p class="muted small">🔒 Se guarda cifrado y solo para este negocio. Nadie del equipo lo puede volver a ver; para cambiarlo, pega el nuevo.</p>`
+    : `<p class="muted">Pide a quien configura AlquimIA que conecte ${p.nombre}.</p>`;
+  box.innerHTML = e.conectada
+    ? `<p class="cx-ok">✅ Conectado con tu cuenta de ${p.nombre} · ${esc(e.resumen || '')}${e.guardada ? ` · desde ${fechaHora(Date.parse(e.guardada))}` : ''}</p>
+      ${puedeConfig() ? `<p class="hm-acc"><button type="button" class="btn small" data-pr-quitar="${servicio}">Quitar</button></p><details class="hm-api"><summary class="cx-h">🔁 Cambiar por otra cuenta</summary>${form}</details>` : ''}`
+    : `<p class="${e.usa === 'propio' ? 'cx-ok' : 'muted'}">${usaTxt[e.usa] || usaTxt.ninguno}</p>${e.usa === 'propio' ? `<details class="hm-api"><summary class="cx-h">🔁 Cambiar por otra cuenta</summary>${form}</details>` : form}`;
+}
+async function pintarPropiasConexiones() {
+  let r;
+  try { r = await api('/api/conexiones-propias'); } catch (e) {
+    for (const s of Object.keys(PROPIAS)) { const b = $(`#cx-propio-${s}`); if (b) b.innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
+    return;
+  }
+  for (const s of Object.keys(PROPIAS)) pintarPropia(s, r[s]);
+}
+$('#conexiones-dialog').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-pr-guardar], [data-pr-quitar]');
+  if (!b) return;
+  const servicio = b.dataset.prGuardar || b.dataset.prQuitar;
+  const nombre = PROPIAS[servicio].nombre;
+  const box = $(`#cx-propio-${servicio}`);
+  const st = box.querySelector('[data-pr-st]');
+  b.disabled = true;
+  try {
+    let r;
+    if (b.dataset.prQuitar) {
+      if (!window.confirm(`¿Quitar tu cuenta de ${nombre}? AlquimIA volverá a lo de antes (o se quedará sin ${nombre}).`)) { b.disabled = false; return; }
+      r = await api('/api/conexiones-propias', { method: 'POST', body: { op: 'quitar', servicio } });
+    } else {
+      const datos = Object.fromEntries([...box.querySelectorAll('[data-pr-campo]')].map((i) => [i.dataset.prCampo, i.value]));
+      if (st) st.textContent = `Comprobando con ${nombre}…`;
+      r = await api('/api/conexiones-propias', { method: 'POST', body: { op: 'guardar', servicio, datos } });
+      notice(`✅ ${nombre} conectado con tu cuenta.`);
+    }
+    for (const s of Object.keys(PROPIAS)) pintarPropia(s, r[s]);
+    if (servicio === 'sendflow') probarSendflow({ reintentar: true });
+  } catch (err) {
+    if (st) st.textContent = `⚠️ ${err.message}`; else notice(err.message);
+    b.disabled = false;
+  }
 });
 // Hotmart: la credencial de la API (cifrada en AlquimIA), sincronizar / traer el histórico, y la dirección del aviso.
 async function pintarHotmartConexiones() {
@@ -18358,7 +18599,7 @@ async function probarSendflow({ reintentar = false } = {}) {
       return;
     }
     if (!d.configurada) {
-      box.innerHTML = `<div class="notice warn"><strong>Aún no está conectado.</strong> Falta la variable <code>${esc(d.variable)}</code> en Cloudflare (tipo <em>Secret</em>) con la clave de SendFlow → «API Keys». Después, <em>Deployments → Retry deployment</em> y vuelve a probar.</div>`;
+      box.innerHTML = '<div class="notice warn"><strong>Aún no está conectado.</strong> Pega arriba tu clave de SendFlow (SendFlow → «API Keys») y pulsa «Conectar SendFlow».</div>';
       return;
     }
     if (!d.ok) {
