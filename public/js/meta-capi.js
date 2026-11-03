@@ -5,6 +5,8 @@ export const EVENTOS_CAPI = {
   compras: { nombre: 'Purchase', label: 'Ventas de cualquier tipo, con su valor y lo que lleva gastado esa persona (Hotmart, ThriveCart y CSV)', porDefecto: true },
   cualificado: { nombre: 'LeadCualificado', label: 'Lead cualificado (llega a «Caliente» en la puntuación de AlquimIA)', porDefecto: true },
   llamada: { nombre: 'Schedule', label: 'Llamada agendada (la reserve el lead o la agende el setter)', porDefecto: true },
+  lead: { nombre: 'Lead', label: 'Registro (Lead) desde el servidor · enciéndelo solo si tu píxel no lo manda ya, para no contarlo dos veces', porDefecto: false },
+  pago: { nombre: 'InitiateCheckout', label: 'Llegó a la página de pago (InitiateCheckout) · igual: solo si tu píxel no lo manda', porDefecto: false },
   directo: { nombre: 'EntroAlDirecto', label: 'Entró al directo', porDefecto: true },
   oferta: { nombre: 'SeQuedoHastaLaOferta', label: 'Se quedó en el directo hasta la oferta', porDefecto: true },
   clase1: { nombre: 'VioClase1', label: 'Vio la clase 1 (la mitad o más) · opcional: demasiados eventos distraen a Meta', porDefecto: false },

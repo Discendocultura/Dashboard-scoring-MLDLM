@@ -6,11 +6,12 @@
 //   POST { op: 'quitar-token' }           → lo borra
 //   POST { op: 'comprobar', metaCapi? }   → ¿este token puede escribir en este píxel? (no manda ningún evento)
 //   POST { op: 'prueba', metaCapi? }      → manda «PruebaAlquimIA» con tu email y tu navegador (para verlo en «Probar eventos»)
+//   POST { op: 'calidad' }              → nota de calidad de Meta (Event Match Quality) de cada evento del píxel
 //   POST { op: 'csv', filas }             → clientes de un CSV: compras de los últimos 7 días a Meta + audiencia con su valor
 import { requireSession, fallaClaveTarea } from '../lib/auth.js';
 import { getConfig, saveConfig } from '../lib/config-store.js';
 import { reintentando, versionDe } from '../lib/store.js';
-import { EVENTOS_CAPI, sanitizeMetaCapi, tokenCapi, guardarTokenCapi, quitarTokenCapi, comprobarConexion, ultimosEnvios, enviarEventoMeta, datosNavegador, importarClientesCsv } from '../lib/meta-capi.js';
+import { EVENTOS_CAPI, sanitizeMetaCapi, tokenCapi, guardarTokenCapi, quitarTokenCapi, comprobarConexion, ultimosEnvios, enviarEventoMeta, datosNavegador, importarClientesCsv, notaCalidadMeta } from '../lib/meta-capi.js';
 import { enviarSenales } from '../lib/meta-capi-senales.js';
 import { env } from '../lib/env.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
@@ -54,6 +55,7 @@ export async function POST(request) {
         datos: { email: s.user?.email || '', nombre: s.user?.nombre || '', externalId: s.uid || 'admin', ...datosNavegador(request) } });
       return json({ ...r, config: config.metaCapi });
     }
+    if (body.op === 'calidad') return json(await notaCalidadMeta(sanitizeMetaCapi((await getConfig({ fresh: true })).metaCapi).pixelId));
     if (body.op === 'csv') {
       if (!Array.isArray(body.filas) || !body.filas.length) return json({ error: 'El CSV no trae filas con email y fecha' }, 400);
       return json(await importarClientesCsv(body.filas));

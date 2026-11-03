@@ -8884,3 +8884,10 @@ body:not(.can-bandeja) #btn-bandeja { display: none !important; }
 .emo-dot { display: inline-block; width: .62em; height: .62em; border-radius: 50%; vertical-align: .05em; background: #9ca3af; flex: none; }
 .emo-dot.dot-red { background: #dc2626; } .emo-dot.dot-green { background: #16a34a; } .emo-dot.dot-orange { background: #ea580c; }
 .emo-dot.dot-yellow { background: #eab308; } .emo-dot.dot-blue { background: #2563eb; } .emo-dot.dot-purple { background: #7c3aed; }
+
+/* Publicidad: ROAS real con color (verde ≥ 2x, ámbar 1-2x, rojo < 1x) */
+.pb-roas { font-weight: 700; padding: 1px 6px; border-radius: 6px; }
+.pb-roas.bien { color: #0f7a3d; background: color-mix(in srgb, #16a34a 14%, transparent); }
+.pb-roas.medio { color: #9a5b00; background: color-mix(in srgb, #f59e0b 16%, transparent); }
+.pb-roas.mal { color: #b42318; background: color-mix(in srgb, #ef4444 13%, transparent); }
+.capi-nota { margin: 6px 0; padding-left: 18px; display: grid; gap: 4px; }

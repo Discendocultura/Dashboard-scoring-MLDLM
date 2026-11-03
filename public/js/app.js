@@ -8,6 +8,7 @@ import { ORDEN_EDAD, preguntasDe } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
 import { resumenThrivecart, ventasDeCsv, leerCsv, productosVistos, deProductos } from './thrivecart.js';
 import { filasClientesCsv } from './meta-capi.js';
+import { ventasEnArbol, vista731 } from './origen.js';
 import { miembrosDeCsv, resumenSkool, tagAlumno, slugNivel } from './skool.js';
 import { resumenAb, MINIMO_AB } from './ab.js';
 import { pasosEmbudo, anchosEmbudo, fondoCapa } from './embudo-visual.js';
@@ -17877,6 +17878,15 @@ async function cargarPublicidad({ fresh = false } = {}) {
   if (token !== state.pb.token) return;
   state.pb.datos = { ...d, clave };
   renderPublicidad();
+  if (!d.configured || d.sinCampanas || d.error) return;
+  // Ventas reales (atribución propia + GHL) y gasto de 7 días, 3 días y hoy: después, para no retrasar la tabla.
+  const [ventas, g731] = await Promise.all([
+    api(`/api/publicidad?${qs}&parte=ventas`).catch((e) => ({ error: e.message })),
+    api(`/api/publicidad?${qs}&parte=731`).catch((e) => ({ error: e.message })),
+  ]);
+  if (token !== state.pb.token) return;
+  state.pb.datos = { ...state.pb.datos, ventasReales: ventas, g731 };
+  renderPublicidad();
 }
 $('#pb-preset').addEventListener('change', () => { ls.set(`lsd_pb_preset_${state.embudo}`, $('#pb-preset').value); pintarPbCampos(); cargarPublicidad(); });
 ['#pb-desde', '#pb-hasta'].forEach((x) => $(x).addEventListener('change', () => { if ($('#pb-desde').value && $('#pb-hasta').value) cargarPublicidad(); }));
@@ -17896,6 +17906,8 @@ $('#pb-arbol').addEventListener('click', (e) => {
 const numEs = (n, d = 0) => (n == null || !Number.isFinite(n) ? '–' : n.toLocaleString('es-ES', { maximumFractionDigits: d, minimumFractionDigits: d }));
 const pctEs = (n, d = 2) => (n == null ? '–' : `${numEs(n * 100, d)} %`);
 const roasEs = (n) => (n == null ? '–' : `${numEs(n, 2)}x`);
+// ROAS con color: verde desde 2x, ámbar entre 1x y 2x, rojo por debajo de 1x (pierde dinero).
+const roasHtml = (n) => (n == null ? '–' : `<span class="pb-roas ${n >= 2 ? 'bien' : n >= 1 ? 'medio' : 'mal'}">${numEs(n, 2)}x</span>`);
 // Columnas como en el Administrador de anuncios: Rendimiento, Embudo y conversión, Creatividad.
 // Con registros reales (GHL), sus dos columnas van junto a los registros de Meta.
 function columnasPublicidad(res, conReales = false) {
@@ -17918,6 +17930,21 @@ function columnasPublicidad(res, conReales = false) {
       c('Registros (Meta)', (m) => numEs(m.registros), 'Lo que cuenta Meta (píxel o formulario)'), c('CPL (Meta)', (m) => eur(m.cpl)), ...reales, c('Pagos iniciados', (m) => numEs(m.pagos)), c('Coste pago iniciado', (m) => eur(m.costePago)),
       c('Compras (Meta)', (m) => numEs(m.compras)), c('Coste por compra (Meta)', (m) => eur(m.costeCompra)), c('Valor de compras', (m) => eur(m.valor)), c('ROAS (Meta)', (m) => roasEs(m.roas), 'Valor de las compras que cuenta Meta ÷ gasto'),
     ],
+    ventas: [
+      c('Importe gastado', (m) => eur(m.gasto)),
+      c('Ventas reales', (m) => numEs(m.real?.ventas ?? null), 'Primeras compras de personas que llegaron por este anuncio (Hotmart, ThriveCart, Skool), aunque compraran días después o por WhatsApp'),
+      c('Coste por venta', (m) => eur(m.real?.cpa ?? null), 'Gasto ÷ ventas reales'),
+      c('Ingresos directos', (m) => eur(m.real?.directos ?? null), 'Lo que pagaron en su primera compra'),
+      c('Ingresos indirectos', (m) => eur(m.real?.indirectos ?? null), 'Lo que compraron después: upsells, renovaciones, otros productos'),
+      c('Ingresos reales', (m) => eur(m.real?.ingresos ?? null), 'Directos + indirectos − reembolsos'),
+      c('ROAS real', (m) => roasHtml(m.real?.roas ?? null), 'Ingresos reales ÷ gasto'),
+      c('ROAS (Meta)', (m) => roasEs(m.roas), 'Lo que cuenta el píxel de Meta, para comparar'),
+    ],
+    '731': [
+      c('Gasto 7 días', (m) => eur(m.v731?.g7 ?? null)), c('ROAS 7 días', (m) => roasHtml(m.v731?.r7 ?? null), 'Ingresos reales ÷ gasto de los últimos 7 días'),
+      c('Gasto 3 días', (m) => eur(m.v731?.g3 ?? null)), c('ROAS 3 días', (m) => roasHtml(m.v731?.r3 ?? null), 'Últimos 3 días: si cae frente a los 7 días, el anuncio se está agotando'),
+      c('Gasto hoy', (m) => eur(m.v731?.g1 ?? null)), c('ROAS hoy', (m) => roasHtml(m.v731?.r1 ?? null), 'Solo hoy: orientativo, las ventas del día aún están llegando'),
+    ],
     creatividad: [
       c('Importe gastado', (m) => eur(m.gasto)), c('Impresiones', (m) => numEs(m.impresiones)), c('Frecuencia', (m) => numEs(m.frecuencia, 2)),
       c('Reproducciones 3 s', (m) => numEs(m.repro3s)), c('Hook rate', (m) => pctEs(m.hook, 1), 'Reproducciones de 3 s ÷ impresiones: cuánto engancha el inicio del vídeo (bien: 25 % o más)'),
@@ -17939,6 +17966,31 @@ function registrosGhlPb(D, gasto) {
   return { ...registrosReales(state.leads, D.rango, gasto, { dia: (l) => (l.dateAdded ? dayInMadrid(l.dateAdded) : ''), todos, inicio }), exacto: todos || cubre };
 }
 const ESTADO_META = { ACTIVE: ['Activa', 'on'], PAUSED: ['En pausa', 'off'], CAMPAIGN_PAUSED: ['Campaña en pausa', 'off'], ADSET_PAUSED: ['Conjunto en pausa', 'off'], DELETED: ['Eliminada', 'off'], ARCHIVED: ['Archivada', 'off'], IN_PROCESS: ['En revisión', 'rev'], PENDING_REVIEW: ['En revisión', 'rev'], DISAPPROVED: ['Rechazado', 'mal'], WITH_ISSUES: ['Con problemas', 'mal'] };
+// Tarjetas de ventas reales (atribución propia): ventas, ingresos y ROAS reales del periodo.
+function cardsVentasReales(D) {
+  const VR = D.ventasReales;
+  if (!VR) return D.campanas?.length ? [cardD('Ventas reales', '…', 'cruzando ventas con anuncios', 'cart', 'buy', '')] : [];
+  if (VR.error) return [cardD('Ventas reales', '–', VR.error, 'cart', 'buy', '')];
+  const r = ventasEnArbol(structuredClone({ campanas: D.campanas, total: D.total }), VR.ventas, D.rango).total;
+  const gasto = D.total?.gasto || 0;
+  return [
+    cardD('Ventas reales', numEs(r.ventas), `${eur(gasto && r.ventas ? gasto / r.ventas : null)} cada una`, 'cart', 'buy', 'Primeras compras (Hotmart, ThriveCart, Skool) de personas que llegaron por estas campañas, aunque compraran días después o por WhatsApp. Ver «Ventas reales» en las columnas.'),
+    cardD('Ingresos reales', eur(r.ingresos), `${eur(r.directos)} directos · ${eur(r.indirectos)} después`, 'coins', 'money', 'Directos: la primera compra. Después: upsells, renovaciones y otros productos de esas mismas personas. Menos reembolsos.'),
+    cardD('ROAS real', roasEs(gasto ? r.ingresos / gasto : null), `Meta dice ${roasEs(D.total?.roas ?? null)}`, 'trend', 'money', 'Ingresos reales ÷ gasto. El de Meta solo cuenta lo que ve el píxel.'),
+  ];
+}
+const totales731 = (v731, D) => {
+  const o = { g7: 0, g3: 0, g1: 0, i7: 0, i3: 0, i1: 0 };
+  for (const c of D.campanas || []) { const x = v731.get(String(c.id)); if (x) for (const k of Object.keys(o)) o[k] += x[k]; }
+  for (const n of [7, 3, 1]) o[`r${n}`] = o[`g${n}`] ? o[`i${n}`] / o[`g${n}`] : null;
+  return o;
+};
+function notaVentasReales(D, R) {
+  const VR = D.ventasReales;
+  if (!VR) return '<p class="muted small">Cruzando las ventas con los anuncios…</p>';
+  if (VR.error) return `<p class="muted small">${esc(VR.error)}</p>`;
+  return `<p class="muted small">De las ventas del periodo: <strong>${numEs(R.atribuidas)}</strong> asignadas a estas campañas${R.otras ? `, ${numEs(R.otras)} de otras campañas o de fuera de Meta` : ''}${R.sinOrigen ? `, <strong>${numEs(R.sinOrigen)}</strong> sin origen conocido (llegaron antes de poner los parámetros en los anuncios o sin pasar por una página con AlquimIA)` : ''}. Se asigna cada venta al anuncio que trajo a esa persona la primera vez (si no lo captó AlquimIA, el que apuntó GHL al registrarse). Para que cuadre, pon en tus anuncios los parámetros de URL de Conexiones → Atribución.</p>`;
+}
 function renderPublicidad() {
   const D = state.pb.datos;
   $$('#pb-cols .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.pc === state.pb.cols));
@@ -17969,10 +18021,19 @@ function renderPublicidad() {
     cardD(res === 'compras' ? 'Compras (Meta)' : 'Registros (Meta)', numEs(t[res]), res === 'compras' ? `${eur(costeRes)} cada compra` : `CPL (Meta) ${eur(costeRes)}`, res === 'compras' ? 'cart' : 'users', 'buy', 'Lo que cuenta Meta con el píxel o el formulario. Las ventas reales (GHL) están en Métricas.'),
     ...realesCards,
     ...(t.valor ? [cardD('ROAS (Meta)', roasEs(t.roas), `${eur(t.valor)} en compras`, 'coins', 'money', 'Valor de las compras que cuenta Meta ÷ gasto.')] : []),
+    ...cardsVentasReales(D),
   ].join('');
   if (!D.campanas?.length) { $('#pb-arbol').innerHTML = `<p class="muted">Ninguna campaña con gasto en este periodo${D.filtro ? ` con «${esc(D.filtro)}» en el nombre` : ''}. Comprueba el código de las campañas en la configuración del embudo.</p>`; return; }
-  const cols = columnasPublicidad(res, Boolean(real))[state.pb.cols];
-  const metricas = (n) => { if (!real) return n.m; const reales = realesDeNodo(real.porUtm, n); return { ...n.m, reales, cplReal: reales && n.m.gasto ? n.m.gasto / reales : null }; };
+  const cols = columnasPublicidad(res, Boolean(real))[state.pb.cols] || columnasPublicidad(res, Boolean(real)).rendimiento;
+  const VR = D.ventasReales && !D.ventasReales.error ? D.ventasReales : null;
+  const resumenVR = VR ? ventasEnArbol(D, VR.ventas, D.rango) : null;
+  const v731 = VR && D.g731?.hoy ? vista731(D, D.g731, VR.ventas) : new Map();
+  const metricas = (n) => {
+    const base = { ...n.m, real: n.real, v731: v731.get(String(n.id)) };
+    if (!real) return base;
+    const reales = realesDeNodo(real.porUtm, n);
+    return { ...base, reales, cplReal: reales && n.m.gasto ? n.m.gasto / reales : null };
+  };
   const sinUtm = real ? real.registros - D.campanas.reduce((s, x) => s + realesDeNodo(real.porUtm, x), 0) : 0;
   const soloActivos = $('#pb-activos').checked;
   const visible = (n) => !soloActivos || !n.estado || n.estado === 'ACTIVE';
@@ -17989,7 +18050,8 @@ function renderPublicidad() {
   const filas = D.campanas.filter(visible).map((c) => fila(c, 0)).join('');
   $('#pb-arbol').innerHTML = `<div class="table-wrap"><table class="metric-table pb-t"><thead><tr><th>Campaña / conjunto de anuncios / anuncio</th><th>Estado</th>${cols.map((c) => `<th class="num"${c.ayuda ? ` title="${esc(c.ayuda)}"` : ''}>${esc(c.label)}</th>`).join('')}</tr></thead>
     <tbody>${filas || `<tr><td colspan="${cols.length + 2}" class="muted">Ninguna campaña activa: quita «Solo activos».</td></tr>`}</tbody>
-    <tfoot><tr><td><strong>Total</strong></td><td></td>${cols.map((c) => `<td class="num"><strong>${c.f(real ? { ...t, reales: real.registros, cplReal: real.cpl } : t)}</strong></td>`).join('')}</tr></tfoot></table></div>
+    <tfoot><tr><td><strong>Total</strong></td><td></td>${cols.map((c) => `<td class="num"><strong>${c.f({ ...t, real: D.totalReal, v731: totales731(v731, D), ...(real ? { reales: real.registros, cplReal: real.cpl } : {}) })}</strong></td>`).join('')}</tr></tfoot></table></div>
+    ${['ventas', '731'].includes(state.pb.cols) ? notaVentasReales(D, resumenVR) : ''}
     ${real && sinUtm > 0 ? `<p class="muted small">De los ${numEs(real.registros)} registros reales${real.exacto ? '' : ' (aprox.)'}, <strong>${numEs(sinUtm)}</strong> no traen la UTM de ninguna de estas campañas (orgánicos, otras campañas o sin UTM): cuentan en el total, no en ninguna fila.</p>` : ''}
     <p class="muted small">Pulsa ▸ para abrir una campaña o un conjunto, y ↗ para abrirlo en Meta. Las cifras son las de Meta en el periodo elegido (pueden tardar unas horas en cuadrar con el Administrador). Las ventas reales por anuncio, cruzadas con GHL, están en «Anuncios ganadores».</p>`;
 }
@@ -18097,17 +18159,46 @@ async function pintarCapiConexiones() {
       </div>
       <fieldset class="capi-ev"><legend>Qué eventos se mandan</legend>${Object.entries(d.eventos).map(([k, e]) => `<label class="check"><input type="checkbox" data-capi-ev="${k}"${c.eventos[k] ? ' checked' : ''}> ${esc(e.label)} <code>${esc(e.nombre)}</code></label>`).join('')}</fieldset>
       <label class="field"><span>Código de prueba <small>(opcional: TEST…; mientras esté puesto, los eventos solo salen en «Probar eventos»)</small></span><input id="capi-test" value="${esc(c.testCode || '')}" placeholder="TEST12345"></label>
-      <div class="bj-acc"><button type="button" class="btn primary" id="capi-guardar">Guardar</button><button type="button" class="btn" id="capi-probar">Enviar evento de prueba</button><span class="muted small" id="capi-st"></span></div>
+      <div class="bj-acc"><button type="button" class="btn primary" id="capi-guardar">Guardar</button><button type="button" class="btn" id="capi-probar">Enviar evento de prueba</button><button type="button" class="btn ghost" id="capi-calidad">Nota de calidad de Meta</button><span class="muted small" id="capi-st"></span></div>
+      <div id="capi-calidad-res"></div>
       <div class="capi-csv">
         <strong>📄 Subir clientes por CSV</strong>
         <p class="muted small">Ventas que no llegan solas (high-ticket, transferencias, otra plataforma, antiguas). Columnas: email (o teléfono), importe y fecha; si las tiene, nombre, producto y teléfono. Las compras de los últimos 7 días se mandan a Meta como «Purchase»; todas van a la audiencia <b>«AlquimIA · Clientes con su valor»</b> con lo que ha gastado cada persona, para crear audiencias parecidas a quien más gasta (Meta solo acepta eventos de 7 días o menos).</p>
         <label class="btn"><input type="file" id="capi-csv" accept=".csv,text/csv" hidden>Elegir CSV…</label> <span class="muted small" id="capi-csv-st"></span>
       </div>
     </div>
-    ${d.log.length ? `<details class="capi-log"><summary class="small">Últimos envíos (${d.log.length})</summary><ul>${d.log.map((x) => `<li>${x.ok ? '✅' : '⚠️'} ${esc(x.evento)}${x.n ? ` · ${x.n}` : ''}${x.prueba ? ' (prueba)' : ''} · ${esc(new Date(x.en).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}${x.error ? ` · ${esc(x.error)}` : ''}</li>`).join('')}</ul></details>` : ''}`;
+    ${d.log.length ? `<details class="capi-log"><summary class="small">Últimos envíos (${d.log.length})</summary><ul>${d.log.map((x) => `<li>${x.ok ? '✅' : '⚠️'} ${esc(x.evento)}${x.n ? ` · ${x.n}` : ''}${x.prueba ? ' (prueba)' : ''}${x.calidad ? ` · <span class="muted" title="% de eventos con cada dato: cuantos más, mejor reconoce Meta a la persona">con email ${x.calidad.email} %, teléfono ${x.calidad.telefono} %, clic del anuncio ${x.calidad.clic} %</span>` : ''} · ${esc(new Date(x.en).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}${x.error ? ` · ${esc(x.error)}` : ''}</li>`).join('')}</ul></details>` : ''}`;
 }
+// Conexiones → Atribución de anuncios: parámetros de URL para los anuncios y cuántas personas tienen origen.
+async function pintarAtribConexiones() {
+  const box = $('#cx-atrib');
+  if (!box) return;
+  let d;
+  try { d = await api('/api/origen'); } catch (err) { box.innerHTML = `<p class="muted">${esc(err.message)}</p>`; return; }
+  ponerEstadoCx('atrib', d.personas ? 'ok' : 'no', d.personas ? `${numEs(d.personas)} con origen` : 'Sin datos aún');
+  box.innerHTML = `<div class="capi-form">
+      <label class="field"><span>Parámetros de URL para tus anuncios</span><textarea id="atrib-params" rows="3" readonly>${esc(d.params)}</textarea></label>
+      <div class="bj-acc"><button type="button" class="btn primary" id="atrib-copiar">Copiar parámetros</button><span class="muted small" id="atrib-st"></span></div>
+      <p class="small">${d.personas ? `✅ <b>${numEs(d.personas)}</b> personas con su anuncio de origen guardado (${numEs(d.conAnuncio)} con el id exacto del anuncio · ${numEs(d.ultimos7)} en los últimos 7 días).` : 'Aún no ha llegado nadie con los parámetros: en cuanto alguien entre desde un anuncio con ellos, aparecerá aquí.'}</p>
+    </div>`;
+}
+$('#conexiones-dialog').addEventListener('click', async (e) => {
+  if (!e.target.closest('#atrib-copiar')) return;
+  try { await navigator.clipboard.writeText($('#atrib-params').value); $('#atrib-st').textContent = '✓ Copiados'; } catch { $('#atrib-params').select(); $('#atrib-st').textContent = 'Cópialos con Ctrl+C'; }
+});
 const capiForm = () => ({ activo: $('#capi-activo').checked, pixelId: $('#capi-pixel').value.trim(), testCode: $('#capi-test').value.trim(), eventos: Object.fromEntries($$('[data-capi-ev]').map((x) => [x.dataset.capiEv, x.checked])) });
 $('#conexiones-dialog').addEventListener('click', async (e) => {
+  const cal = e.target.closest('#capi-calidad');
+  if (cal) {
+    const box = $('#capi-calidad-res');
+    box.innerHTML = '<p class="muted small">Preguntando a Meta…</p>';
+    try {
+      const r = await api('/api/meta-capi', { method: 'POST', body: { op: 'calidad' } });
+      box.innerHTML = !r.ok ? `<p class="small">⚠️ ${esc(r.motivo)}</p>` : !r.eventos.length ? '<p class="small muted">Meta aún no tiene nota: necesita unos días de eventos.</p>'
+        : `<ul class="capi-nota">${r.eventos.map((x) => `<li><b>${esc(x.evento)}</b> <span class="pb-roas ${x.nota >= 7 ? 'bien' : x.nota >= 5 ? 'medio' : 'mal'}">${numEs(x.nota, 1)} / 10</span></li>`).join('')}</ul><p class="small muted">Calidad de la coincidencia: cuánto reconoce Meta a las personas de cada evento. Desde 7 es buena; para subirla, que lleguen email, teléfono y el clic del anuncio (parámetros de Atribución).</p>`;
+    } catch (err) { box.innerHTML = `<p class="small">${esc(err.message)}</p>`; }
+    return;
+  }
   const b = e.target.closest('#capi-guardar, #capi-probar, #capi-token-guardar, #capi-token-quitar, #capi-comprobar');
   if (!b) return;
   const deToken = ['capi-token-guardar', 'capi-token-quitar', 'capi-comprobar'].includes(b.id);
@@ -18175,13 +18266,14 @@ $('#btn-conexiones').addEventListener('click', () => {
   pintarHotmartConexiones();
   pintarPropiasConexiones();
   pintarCapiConexiones();
+  pintarAtribConexiones();
   $('#conexiones-dialog').showModal();
   pintarFuentesConexiones();
   pintarEstadoCx();
 });
 // Estado de cada conexión (la pastilla de su tarjeta y el resumen de arriba): { clave: ['ok'|'aviso'|'no', texto] }.
 const estadoCx = {};
-const NOMBRE_CX = { capi: '🎯 Conversions API', zoom: '🎥 Zoom', vimeo: '📼 Vimeo', thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
+const NOMBRE_CX = { capi: '🎯 Conversions API', atrib: '🧭 Atribución', zoom: '🎥 Zoom', vimeo: '📼 Vimeo', thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
 function ponerEstadoCx(clave, tono, texto) {
   estadoCx[clave] = [tono, texto];
   const el = $(`#conexiones-dialog [data-cx-estado="${clave}"]`);

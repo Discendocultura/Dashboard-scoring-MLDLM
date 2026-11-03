@@ -24,7 +24,7 @@ test('CAPI: datos normalizados y cifrados como pide Meta', async () => {
 test('CAPI: configuración, eventos apagados y envío de compra / clase 1 / directo', async () => {
   const { sanitizeMetaCapi } = await import('../public/js/meta-capi.js');
   const { enviarEventoMeta, enviados } = await import('../lib/meta-capi.js');
-  assert.deepEqual(sanitizeMetaCapi({ activo: true, pixelId: '12 34', eventos: { clase1: false } }), { pixelId: '1234', activo: false, eventos: { compras: true, cualificado: true, llamada: true, directo: true, oferta: true, clase1: false } });
+  assert.deepEqual(sanitizeMetaCapi({ activo: true, pixelId: '12 34', eventos: { clase1: false } }), { pixelId: '1234', activo: false, eventos: { compras: true, cualificado: true, llamada: true, lead: false, pago: false, directo: true, oferta: true, clase1: false } });
   assert.equal(sanitizeMetaCapi({}).eventos.clase1, false); // opcional: apagado por defecto
   const config = { metaCapi: { activo: true, pixelId: '1234567890', eventos: { clase1: false }, testCode: 'TEST99' } };
   assert.equal((await enviarEventoMeta({ tipo: 'clase1', eventId: 'x', config, datos: { email: 'a@b.es' } })).motivo, 'Ese evento está apagado');
