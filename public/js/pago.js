@@ -111,7 +111,7 @@ export const MODOS_IVA = ['incluido', 'mas', 'exento'];
 export function sanitizeIva(v) {
   const modo = (x) => (MODOS_IVA.includes(x) ? x : '');
   const pct = Number(v?.pct);
-  return { pct: Number.isFinite(pct) && v?.pct !== '' && v?.pct != null ? Math.min(100, Math.max(0, pct)) : IVA_DEF, vip: modo(v?.vip), programa: modo(v?.programa) };
+  return { pct: Number.isFinite(pct) && v?.pct !== '' && v?.pct != null ? Math.min(100, Math.max(0, pct)) : IVA_DEF, vip: modo(v?.vip), programa: modo(v?.programa), entrada: modo(v?.entrada) };
 }
 export const ivaPct = (launch) => (Number.isFinite(Number(launch?.iva?.pct)) ? Number(launch.iva.pct) : IVA_DEF);
 // Importe sin IVA de un precio según cómo se escribió.

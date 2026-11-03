@@ -8891,3 +8891,17 @@ body:not(.can-bandeja) #btn-bandeja { display: none !important; }
 .pb-roas.medio { color: #9a5b00; background: color-mix(in srgb, #f59e0b 16%, transparent); }
 .pb-roas.mal { color: #b42318; background: color-mix(in srgb, #ef4444 13%, transparent); }
 .capi-nota { margin: 6px 0; padding-left: 18px; display: grid; gap: 4px; }
+
+/* Lanzamiento de pago (Métricas → Resumen) */
+.pg-card { border: 1px solid color-mix(in srgb, var(--accent, #e8820c) 35%, var(--border)); }
+.pg-cab { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.pg-cab h3 { margin: 0; }
+.pg-estado { font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+.pg-estado.ok { background: color-mix(in srgb, #16a34a 14%, transparent); color: #0f7a3d; }
+.pg-estado.no { background: color-mix(in srgb, #f59e0b 16%, transparent); color: #9a5b00; }
+.pg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.pg-dato { display: flex; flex-direction: column; gap: 3px; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2, #faf8f5); min-width: 0; }
+.pg-dato > span { font-size: 12px; color: var(--text-2); font-weight: 600; }
+.pg-dato > b { font-size: 22px; font-weight: 800; line-height: 1.15; justify-self: start; align-self: flex-start; }
+.pg-dato > small { font-size: 12px; color: var(--text-2); }
+.pg-total { background: color-mix(in srgb, var(--accent, #e8820c) 8%, var(--surface, #fff)); }

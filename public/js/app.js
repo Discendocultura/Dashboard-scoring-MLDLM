@@ -8,6 +8,7 @@ import { ORDEN_EDAD, preguntasDe } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
 import { resumenThrivecart, ventasDeCsv, leerCsv, productosVistos, deProductos } from './thrivecart.js';
 import { filasClientesCsv } from './meta-capi.js';
+import { esDePago, textoPago } from './pago-lanzamiento.js';
 import { ventasEnArbol, vista731 } from './origen.js';
 import { miembrosDeCsv, resumenSkool, tagAlumno, slugNivel } from './skool.js';
 import { resumenAb, MINIMO_AB } from './ab.js';
@@ -3458,6 +3459,31 @@ function fuenteInversion(launch, m) {
 // 🧠 Cerebro a la vista: arriba de Métricas → Resumen, la predicción de ventas, la fase que más falla y la tabla por
 // fases (lo mismo que la pestaña 🧭 Agente de la bandeja). Se pide al servidor una vez cada 10 min por lanzamiento.
 const cerebroCache = new Map();
+// Lanzamiento de pago (Métricas → Resumen): entradas, coste por entrada, si los anuncios se pagan solos con las
+// entradas, la calidad de quien compra la entrada y cuántas pasan al programa.
+function pintarPagoCard() {
+  const card = $('#pago-card');
+  if (!card) return;
+  const launch = state.config.launches[state.launchCode];
+  const p = esDePago(launch) && state.leads?.length ? currentMetrics().entrada : null;
+  card.hidden = !p;
+  if (card.hidden) return;
+  const pct = (v) => (v == null ? '–' : `${Math.round(v * 100)} %`);
+  const roas = (v) => (v == null ? '–' : `${v.toFixed(2).replace('.', ',')}x`);
+  const sinPrecio = !Number(launch.precioEntrada);
+  card.innerHTML = `<div class="pg-cab"><h3>🎟️ Lanzamiento de pago</h3><span class="pg-estado ${p.autoliquidable ? 'ok' : 'no'}">${p.autoliquidable ? '✅ Los anuncios ya se pagan solos con las entradas' : p.faltanParaAutoliquidar ? `Faltan ${numEs(p.faltanParaAutoliquidar)} entradas para que los anuncios se paguen solos` : 'Sin inversión todavía'}</span></div>
+    ${sinPrecio ? '<p class="notice warn">Pon el precio de la entrada en Configuración → Oferta para calcular los ingresos y el ROAS de las entradas.</p>' : ''}
+    <div class="pg-grid">
+      <div class="pg-dato"><span>Entradas vendidas</span><b>${numEs(p.entradas)}</b><small>${eur(p.precioEntrada)} cada una sin IVA</small></div>
+      <div class="pg-dato"><span>Coste por entrada</span><b>${eur(p.cpaEntrada)}</b><small>inversión ÷ entradas</small></div>
+      <div class="pg-dato"><span>ROAS de las entradas</span><b class="pb-roas ${p.roasEntradas >= 1 ? 'bien' : p.roasEntradas >= 0.6 ? 'medio' : 'mal'}">${roas(p.roasEntradas)}</b><small>${eur(p.ingresosEntradas)} en entradas · ${p.beneficioEntradas >= 0 ? 'ganas' : 'pierdes'} ${eur(Math.abs(p.beneficioEntradas))} antes de vender el programa</small></div>
+      <div class="pg-dato"><span>Participan</span><b>${pct(p.pctParticipan)}</b><small>${numEs(p.participan)} entran al directo o ven la grabación</small></div>
+      <div class="pg-dato"><span>Nota por entrada</span><b>${p.notaEntrada == null ? '–' : `${p.notaEntrada.toFixed(1).replace('.', ',')} / 10`}</b><small>puntuación media de quien compró · ${numEs(p.calientes)} calientes</small></div>
+      <div class="pg-dato"><span>Entrada → programa</span><b>${pct(p.convPrograma)}</b><small>${numEs(p.compraPrograma)} compran el programa</small></div>
+      <div class="pg-dato pg-total"><span>ROAS total</span><b class="pb-roas ${p.roasTotal >= 2 ? 'bien' : p.roasTotal >= 1 ? 'medio' : 'mal'}">${roas(p.roasTotal)}</b><small>${eur(p.facturacionTotal)}: entradas + VIP + programa</small></div>
+    </div>
+    <p class="muted small">${esc(textoPago(p))} En Publicidad, los anuncios se miden por compra de la entrada; con «Ventas reales» ves qué anuncio trae compradoras de entrada que luego compran el programa.</p>`;
+}
 async function pintarCerebroCard() {
   const box = $('#cerebro-card');
   const code = state.launchCode;
@@ -3490,6 +3516,7 @@ $('#cerebro-card').addEventListener('click', (e) => {
 });
 function renderMetrics() {
   pintarCerebroCard();
+  pintarPagoCard();
   const launch = state.config.launches[state.launchCode];
   const m = currentMetrics();
   m.launch = launch;
@@ -3514,7 +3541,7 @@ function renderMetrics() {
   // captación → calentamiento (encuesta, VIP) → directo → carrito (llamadas, ventas, bumps del programa).
   const roasTxt = m.eco.roas != null ? `${m.eco.roas.toFixed(2).replace('.', ',')}x` : '–';
   const inv = fuenteInversion(launch, m);
-  const factSub = [`programa ${eur(m.eco.facturacionPrograma)}`, m.conVip ? `VIP ${eur(m.eco.facturacionVip)}` : '', m.eco.facturacionBumps ? `bumps ${eur(m.eco.facturacionBumps)}` : ''].filter(Boolean).join(' + ');
+  const factSub = [m.eco.facturacionEntradas ? `entradas ${eur(m.eco.facturacionEntradas)}` : '', `programa ${eur(m.eco.facturacionPrograma)}`, m.conVip ? `VIP ${eur(m.eco.facturacionVip)}` : '', m.eco.facturacionBumps ? `bumps ${eur(m.eco.facturacionBumps)}` : ''].filter(Boolean).join(' + ');
   const grande = (html) => html.replace('class="kpi static', 'class="kpi static kpi-hero');
   $('#metric-hero').innerHTML = [
     grande(card('Leads totales', m.total.toLocaleString('es-ES'), `${launch.sendflowId ? textoGrupoWa(m) : ''}${m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'registros del lanzamiento'}`, 'users', 'accent')),
@@ -3935,7 +3962,7 @@ async function renderThrivecart(m, launch) {
     const netoVip = rVip?.cobros ? netoDe(rVip) : vipPart;
     const netoProg = rProg?.cobros ? netoDe(rProg) + progResto : progPart;
     const netoLlega = (conVipL ? netoVip : 0) + netoProg;
-    const detalle = `💶 ${[conVipL ? `VIP ${eur(vipPart)}${vipTc != null ? ' (ventas reales)' : ''}` : '', `programa ${eur(progPart)}${progTc != null ? ` (ventas reales ${eur(progTc)}${progResto ? ` + otros ${eur(progResto)}` : ''})` : ''}`].filter(Boolean).join(' + ')} · <strong>te llegan ${eur(netoLlega)}</strong> · por etiquetas ${eur(m.eco.facturacion)}`;
+    const detalle = `💶 ${[m.eco.facturacionEntradas ? `entradas ${eur(m.eco.facturacionEntradas)}` : '', conVipL ? `VIP ${eur(vipPart)}${vipTc != null ? ' (ventas reales)' : ''}` : '', `programa ${eur(progPart)}${progTc != null ? ` (ventas reales ${eur(progTc)}${progResto ? ` + otros ${eur(progResto)}` : ''})` : ''}`].filter(Boolean).join(' + ')} · <strong>te llegan ${eur(netoLlega)}</strong> · por etiquetas ${eur(m.eco.facturacion)}`;
     m.tc = { fact, vipPart, progPart, ventasProg, vipN: rVip?.cobros || m.vip, netoLlega };
     pintarEmbudoVisual(m, launch); // con lo cobrado de verdad
     renderFacturacionTotal(m);
@@ -7393,6 +7420,9 @@ function openConfig(code, { silencioso = false } = {}) {
   $('#cfg-llamada-video').value = l.llamadaVideoUrl || '';
   pintarLlamadaPasos();
   $('#cfg-precio-vip').value = l.precioVip || '';
+  $('#cfg-precio-entrada').value = l.precioEntrada || '';
+  $('#cfg-iva-entrada').value = l.iva?.entrada || '';
+  $('#cfg-entrada-box').hidden = $('#cfg-iva-entrada-box').hidden = !l.entradaPago;
   $('#cfg-iva-vip').value = l.iva?.vip || '';
   $('#cfg-iva-programa').value = l.iva?.programa || '';
   $('#cfg-iva-pct').value = l.iva?.pct != null && l.iva.pct !== 21 ? String(l.iva.pct).replace('.', ',') : '';
@@ -8876,7 +8906,8 @@ function readForm() {
       llamadaGraciasUrl: $('#cfg-llamada-gracias').value.trim(),
       llamadaVideoUrl: $('#cfg-llamada-video').value.trim(),
       precioVip: $('#cfg-precio-vip').value,
-      iva: { vip: $('#cfg-iva-vip').value, programa: $('#cfg-iva-programa').value, pct: $('#cfg-iva-pct').value.trim() ? Number($('#cfg-iva-pct').value.trim().replace(',', '.')) : 21 },
+      precioEntrada: $('#cfg-precio-entrada').value,
+      iva: { vip: $('#cfg-iva-vip').value, entrada: $('#cfg-iva-entrada').value, programa: $('#cfg-iva-programa').value, pct: $('#cfg-iva-pct').value.trim() ? Number($('#cfg-iva-pct').value.trim().replace(',', '.')) : 21 },
       ...Object.fromEntries(TIPOS_BUMP.map((t) => [t.campo, leerBumps(t.id)])),
       precioPrograma: $('#cfg-precio-programa').value,
       tcProductos: $('#cfg-tc-vip').value.split(/[,\n]/).map((x) => x.trim()).filter(Boolean),
@@ -14969,7 +15000,9 @@ let embEdit = null; // id del embudo que se edita (null = nuevo)
 // embudo evergreen: vsl | leadmagnet | evergreen | llamadas (motor de la VSL con su variante).
 const embOpcion = () => $('input[name="emb-tipo"]:checked').value;
 const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : ['meteorico', 'directa', 'cruzadas'].includes(embOpcion()) ? embOpcion() : SUBTIPO_IDS.includes(embOpcion()) ? 'vsl' : 'lanzamientos');
-const embFormato = () => (embEdit ? $('#emb-formato').value : embTipo() !== 'lanzamientos' ? undefined : embOpcion() === 'reto' ? $('#emb-reto-dias').value : embOpcion());
+const embFormato = () => (embEdit ? $('#emb-formato').value : embTipo() !== 'lanzamientos' ? undefined : embOpcion() === 'reto' ? $('#emb-reto-dias').value : embOpcion() === 'pago' ? $('#emb-pago-formato').value : embOpcion());
+// Lanzamiento de pago (entrada de pago): al crear, la opción «🎟️»; al editar, lo que ya era.
+const embEntradaPago = () => (embEdit ? embudoInfo(embEdit)?.entradaPago === true : embOpcion() === 'pago');
 const embSubtipo = () => (embTipo() !== 'vsl' ? undefined : embEdit ? $('#emb-subtipo').value : embOpcion());
 // Pestañas elegidas en el paso «Dashboard»: las marcadas y las que tienen alguna sección marcada.
 const embPestanas = () => [...new Set([
@@ -15012,6 +15045,7 @@ function pintarEmbPestanas(activas, ocultas = []) {
   pintarEmbPrelanz();
   const tipo = embTipo();
   $('#emb-reto-box').hidden = Boolean(embEdit) || embOpcion() !== 'reto';
+  $('#emb-pago-box').hidden = Boolean(embEdit) || embOpcion() !== 'pago';
   $('#emb-subtipo-box').hidden = !embEdit || tipo !== 'vsl';
   // Sugerencias solo al crear: editando, «sin lista» significa «todas» (si no, se perdería p. ej. Llamadas).
   activas ??= embEdit ? null : pestanasSugeridas(tipo, embSubtipo());
@@ -15181,7 +15215,7 @@ function pintarEmbResumen() {
   const plantilla = !embEdit && plantillasAg.find((x) => x.id === $('#emb-plantilla').value);
   const opcion = embEdit ? null : $('input[name="emb-tipo"]:checked')?.closest('.emb-tipo');
   const tipoTxt = plantilla ? `Plantilla «${plantilla.nombre}»` : opcion ? $('strong', opcion).textContent : tipo === 'vsl' ? SUBTIPOS_VSL[embSubtipo()].corto : tipo === 'meteorico' ? 'Meteóricos' : FORMATOS[embFormato()]?.label || 'Lanzamientos';
-  const filas = [['Tipo', tipoTxt + (!embEdit && embOpcion() === 'reto' ? ` · ${$('#emb-reto-dias').selectedOptions[0].text}` : '')]];
+  const filas = [['Tipo', tipoTxt + (!embEdit && embOpcion() === 'reto' ? ` · ${$('#emb-reto-dias').selectedOptions[0].text}` : '') + (!embEdit && embOpcion() === 'pago' ? ` · ${$('#emb-pago-formato').selectedOptions[0].text}` : '')]];
   if (tipo === 'lanzamientos' && !plantilla) {
     const pre = $('#emb-preclase').value === 'si';
     const rec = $$('input[name="emb-recurso"]:checked').map((i) => i.closest('label').textContent.replace(/\(.*\)/, '').trim());
@@ -15381,6 +15415,7 @@ $$('input[name="emb-tipo"]').forEach((r) => r.addEventListener('change', () => {
 $('#emb-pestanas').addEventListener('change', pintarEmbGuia);
 $('#emb-formato').addEventListener('change', pintarEmbGuia);
 $('#emb-reto-dias').addEventListener('change', pintarEmbGuia);
+$('#emb-pago-formato').addEventListener('change', pintarEmbGuia);
 $('#emb-subtipo').addEventListener('change', pintarEmbGuia);
 
 $('#emb-crear').addEventListener('click', async () => {
@@ -15425,7 +15460,7 @@ $('#emb-crear').addEventListener('click', async () => {
     for (let n = 2; usados.has(id) || id.length < 2; n++) id = `${base.slice(0, 18)}-${n}`;
     const body = {
       ...state.config,
-      embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz() } : {}), ...(todas ? {} : { pestanas }), publicidad: pestanas.includes('publicidad'), ...(ocultas.length ? { ocultas } : {}), ...embOrigenGuardar() }],
+      embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz(), ...(embEntradaPago() ? { entradaPago: true } : {}) } : {}), ...(todas ? {} : { pestanas }), publicidad: pestanas.includes('publicidad'), ...(ocultas.length ? { ocultas } : {}), ...embOrigenGuardar() }],
       // VSL y venta directa nacen con su código para el nombre de las campañas de Meta (VSL-id, DIR-id).
       vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre, subtipo, metaFiltro: codigoMeta('vsl', id, nombre) } } : state.config.vsls,
       directas: tipo === 'directa' ? { ...(state.config.directas || {}), [id]: { name: nombre, producto: nombre, partes: partesElegidas('#emb-partes'), metaFiltro: codigoMeta('directa', id, nombre) } } : state.config.directas,
