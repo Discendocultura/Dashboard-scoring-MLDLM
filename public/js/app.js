@@ -6088,7 +6088,7 @@ function renderHoy() {
     { id: 'venta', corto: '🛒 Página de venta', title: '🛒 Visitaron la página de venta y no han comprado', hint: 'Están decidiendo ahora: escríbeles cuanto antes', rows: state.leads.filter((l) => open(l) && l.s.venta_visita), orden: (a, b) => b.s.venta_visita.ultima - a.s.venta_visita.ultima },
     { id: 'calientes', corto: '🔥 Muy caliente', title: '🔥 Muy calientes sin contactar', hint: 'Máxima prioridad', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.estado.id === 'muy-caliente') },
     { id: 'vip', corto: '⭐ VIP', title: '⭐ VIP que no han comprado', hint: 'Pagaron la entrada: están cerca', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.vip) },
-    ...(state.config.launches[state.launchCode]?.sendflowId ? [{ id: 'grupo', corto: '💬 En el grupo', title: '💬 En el grupo de WhatsApp y sin comprar', hint: state.grupoWa?.code === state.launchCode && state.grupoWa.claves ? 'Siguen en el grupo del lanzamiento: interesadas. Escríbeles 1:1, primero las más calientes' : state.grupoWa?.error ? `No se pudo cruzar con el grupo: ${state.grupoWa.error}` : 'Cruzando con el grupo de SendFlow… (la primera vez puede tardar 1-2 minutos)', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.enGrupo) }] : []),
+    ...(state.config.launches[state.launchCode]?.sendflowId ? [{ id: 'grupo', corto: '💬 En el grupo', title: '💬 En el grupo de WhatsApp y sin comprar', hint: state.grupoWa?.code === state.launchCode && state.grupoWa.claves ? `Siguen en el grupo del lanzamiento y no han comprado (también las que te salen por otro motivo). SendFlow cuenta ${state.grupoWa.personas.toLocaleString('es-ES')} personas en los grupos; aquí salen las que tienen ese mismo teléfono en GHL` : state.grupoWa?.error ? `No se pudo cruzar con el grupo: ${state.grupoWa.error}` : 'Cruzando con el grupo de SendFlow… (la primera vez puede tardar 1-2 minutos)', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.enGrupo) }] : []),
     { id: 'grabacion', corto: '🎬 Vio la grabación', title: '🎬 Vieron la grabación y no han comprado', hint: '≥50% de la grabación', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && !l.s.vip && l.estado.id !== 'muy-caliente' && grabVenta(l.s) >= 50) },
     { id: 'seguimiento', corto: '💬 Seguimiento', title: '💬 Seguimiento pendiente', hint: 'Respondieron, interesadas o no contestan', rows: state.leads.filter((l) => open(l) && ['respondio', 'interesada', 'no_contesta'].includes(l.outcome)) },
     { id: 'sinresultado', corto: '📝 Anotar resultado', title: '📝 Contactadas sin resultado anotado', hint: 'Anota qué pasó', rows: state.leads.filter((l) => open(l) && l.s.wa_enviado && !l.outcome) },
@@ -6118,14 +6118,18 @@ function renderHoy() {
   const base = todos ? universo : senales.length ? conResto : lista;
   const cumple = (l, sen = senales) => sen.every((x) => x.si(l.s));
   const enSegmento = base.filter((x) => cumple(x.l));
-  const cuentaMotivo = (id) => enSegmento.filter((x) => x.b?.id === id && (!h.temp || x.l.estado.id === h.temp)).length;
-  const cuentaTemp = (id) => enSegmento.filter((x) => x.l.estado.id === id && (!h.motivo || x.b?.id === h.motivo)).length;
-  const filtrada = enSegmento.filter((x) => (!h.motivo || x.b?.id === h.motivo) && (!h.temp || x.l.estado.id === h.temp));
+  // «En el grupo» cuenta a todas las que siguen en el grupo (sin comprar), aunque te salgan por un motivo más urgente
+  // o ya les hayas escrito: si no, la cifra se quedaba muy por debajo de la gente que hay de verdad en el grupo.
+  const deMotivo = (x, id) => !id || (id === 'grupo' ? Boolean(x.l.s.enGrupo) : x.b?.id === id);
+  const fuente = (id) => (id === 'grupo' && !todos ? conResto : base).filter((x) => cumple(x.l));
+  const cuentaMotivo = (id) => fuente(id).filter((x) => deMotivo(x, id) && (!h.temp || x.l.estado.id === h.temp)).length;
+  const cuentaTemp = (id) => fuente(h.motivo).filter((x) => x.l.estado.id === id && deMotivo(x, h.motivo)).length;
+  const filtrada = fuente(h.motivo).filter((x) => deMotivo(x, h.motivo) && (!h.temp || x.l.estado.id === h.temp));
   // Cuántas quedarían al marcar (o quitar) cada señal, con el resto de filtros como están.
   const cuentaSenal = (x) => {
     const sen = h.senales.includes(x.id) ? senales : [...senales, x];
     return (todos ? universo : conResto)
-      .filter((y) => cumple(y.l, sen) && (!h.motivo || y.b?.id === h.motivo) && (!h.temp || y.l.estado.id === h.temp)).length;
+      .filter((y) => cumple(y.l, sen) && deMotivo(y, h.motivo) && (!h.temp || y.l.estado.id === h.temp)).length;
   };
   const shown = filtrada.slice(0, h.max);
   pintarNotaEnvios();
@@ -6145,18 +6149,26 @@ function renderHoy() {
       <button type="button" class="hoy-chip ${h.motivo ? '' : 'on'}" data-hoy-motivo="" aria-pressed="${!h.motivo}">Todas <b>${h.temp ? cuentaTemp(h.temp) : enSegmento.length}</b></button>
       ${buckets.map((b) => { const n = cuentaMotivo(b.id); return n || h.motivo === b.id ? `<button type="button" class="hoy-chip ${h.motivo === b.id ? 'on' : ''}" data-hoy-motivo="${b.id}" aria-pressed="${h.motivo === b.id}" title="${esc(b.hint)}">${esc(b.corto)} <b>${n}</b></button>` : ''; }).join('')}
     </div>
-    <div class="hoy-seg" role="group" aria-label="Crear un segmento combinando señales">
-      <div class="hoy-seg-cab"><span class="hoy-seg-t">🎯 Elige un segmento</span><small>Pulsa una o varias tarjetas: se combinan (tienen que cumplirse todas)</small>${senales.length ? '<button type="button" class="btn ghost small hoy-seg-quitar" data-hoy-senal="">✕ Quitar segmento</button>' : ''}</div>
-      <div class="hoy-seg-grupos">${HOY_GRUPOS.map((g) => `<div class="hoy-seg-grupo"><span class="hoy-seg-gt">${g.t}</span><div class="hoy-seg-tarjetas">${HOY_SENALES.filter((x) => x.grupo === g.id).map((x) => { const on = h.senales.includes(x.id); const n = cuentaSenal(x); return `<button type="button" class="hoy-seg-chip ${on ? 'on' : ''}" data-hoy-senal="${x.id}" aria-pressed="${on}" title="${esc(x.title)}"${!on && !n ? ' disabled' : ''}><span class="hoy-seg-ico" aria-hidden="true">${x.ico}</span><span class="hoy-seg-txt">${esc(x.txt)}</span><b>${n}</b></button>`; }).join('')}</div></div>`).join('')}</div>
-    </div>
-    ${todos && !senales.length ? '<p class="muted hoy-aviso">👥 Todas las registradas, de la más caliente a la más fría: checkout, página de venta, directo hasta el final, directo, VIP, grabación, clases… No se quita nadie: las ya contactadas siguen con «✅ Le escribiste» y las que compraron salen al final con «💰 Compró».</p>' : ''}
-    ${senales.length ? `<p class="hoy-seg-res"><b>${filtrada.length}</b> ${filtrada.length === 1 ? 'persona' : 'personas'}${todos ? '' : ' sin comprar'} que ${senales.map((x) => x.frase).join(' y ')}${h.temp ? ` · ${esc(ESTADOS.find((e) => e.id === h.temp)?.label || '')}` : ''}${h.motivo ? ` · ${esc(buckets.find((b) => b.id === h.motivo)?.corto || '')}` : ''}</p>` : ''}
     ${(() => {
-      // Envío masivo: la plantilla a todas las de esta lista (con el filtro de motivo, temperatura y segmento que haya).
+      // Segmento (señales en filas horizontales) y, abajo, a cuántas se queda y el envío de la plantilla a todas ellas.
       h.plLista = filtrada.map((x) => x.l).filter(plElegible);
       const pl = plantillasWa()[0];
-      return pl && h.plLista.length > 1 ? `<div class="hoy-pl-masivo"><button type="button" class="btn plantilla small" data-hoy-pl>📨 Plantilla a las ${h.plLista.length} de esta lista · ≈ ${euros(costeEstimado(h.plLista.length, pl.precio))}</button><span class="muted small">${senales.length ? 'Solo a las de este segmento.' : 'Combina señales del segmento, el motivo o la temperatura para afinar a quién.'}</span></div>` : '';
+      const n = h.plLista.length;
+      const quien = senales.length
+        ? `<b>${filtrada.length}</b> ${filtrada.length === 1 ? 'persona' : 'personas'}${todos ? '' : ' sin comprar'} que ${senales.map((x) => x.frase).join(' y ')}`
+        : `<b>${filtrada.length}</b> ${filtrada.length === 1 ? 'persona' : 'personas'} en esta lista`;
+      const filtros = [h.temp && ESTADOS.find((e) => e.id === h.temp)?.label, h.motivo && buckets.find((b) => b.id === h.motivo)?.corto].filter(Boolean).map((t) => ` · ${esc(t)}`).join('');
+      const envio = !pl
+        ? (puedeConfig() ? '<button type="button" class="btn ghost hoy-seg-enviar" data-hoy-pl-config>📨 Añade una plantilla para enviársela a esta lista</button>' : '')
+        : n ? `<button type="button" class="btn plantilla hoy-seg-enviar" data-hoy-pl>📨 Enviar plantilla a ${n === 1 ? 'esta persona' : `estas ${n}`} <small>≈ ${euros(costeEstimado(n, pl.precio))}</small></button>`
+          : '<span class="muted small">Nadie de esta lista puede recibir plantilla (sin teléfono, de baja o ya compraron).</span>';
+      return `<div class="hoy-seg" role="group" aria-label="Crear un segmento combinando señales y enviarle una plantilla">
+      <div class="hoy-seg-cab"><span class="hoy-seg-t">🎯 Segmenta y envía una plantilla</span><small>Marca una o varias señales (se suman: tienen que cumplirse todas) y envía la plantilla de WhatsApp a todas de una vez.</small>${senales.length ? '<button type="button" class="btn ghost small hoy-seg-quitar" data-hoy-senal="">✕ Quitar segmento</button>' : ''}</div>
+      <div class="hoy-seg-grupos">${HOY_GRUPOS.map((g) => { const sens = HOY_SENALES.filter((x) => x.grupo === g.id && (!x.hay || x.hay())); return sens.length ? `<div class="hoy-seg-grupo"><span class="hoy-seg-gt">${g.t}</span><div class="hoy-seg-tarjetas">${sens.map((x) => { const on = h.senales.includes(x.id); const c = cuentaSenal(x); return `<button type="button" class="hoy-seg-chip ${on ? 'on' : ''}" data-hoy-senal="${x.id}" aria-pressed="${on}" title="${esc(x.title)}"${!on && !c ? ' disabled' : ''}><span class="hoy-seg-ico" aria-hidden="true">${x.ico}</span><span class="hoy-seg-txt">${esc(x.txt)}</span><b>${c}</b></button>`; }).join('')}</div></div>` : ''; }).join('')}</div>
+      <div class="hoy-seg-pie${senales.length ? ' activo' : ''}"><p class="hoy-seg-res">${quien}${filtros}</p>${envio}</div>
+    </div>`;
     })()}
+    ${todos && !senales.length ? '<p class="muted hoy-aviso">👥 Todas las registradas, de la más caliente a la más fría: checkout, página de venta, directo hasta el final, directo, VIP, grabación, clases… No se quita nadie: las ya contactadas siguen con «✅ Le escribiste» y las que compraron salen al final con «💰 Compró».</p>' : ''}
     ${avisos}
     ${shown.length ? `<ol class="hoy-list hoy-ranking">${shown.map((x, i) => hoyItem(x.l, x.b, i + 1)).join('')}</ol>` : `<p class="muted hoy-vacio">${base.length ? 'Nadie con este filtro.' : todos ? 'Todavía no hay leads registradas.' : 'Nada pendiente hoy ✓ <button type="button" class="link-btn" data-hoy-modo="todos">Ver todos los leads →</button>'}</p>`}
     ${filtrada.length > shown.length ? `<div class="hoy-mas"><button type="button" class="btn ghost" data-hoy-mas>Ver ${Math.min(HOY_PAGINA, filtrada.length - shown.length)} más</button><span class="muted">${shown.length} de ${filtrada.length}</span></div>` : ''}
@@ -6178,6 +6190,7 @@ const HOY_SENALES = [
   { id: 'compro', grupo: 'compra', ico: '💰', txt: 'Compraron', frase: 'ya compraron', title: 'Ya han comprado', si: (s) => Boolean(s.compra) },
   { id: 'grabacion', grupo: 'contenido', ico: '🎬', txt: 'Vio la grabación', frase: 'vieron al menos la mitad de la grabación', title: 'Ha visto el 50% o más de la grabación', si: (s) => grabVenta(s) >= 50 },
   { id: 'clases', grupo: 'contenido', ico: '📚', txt: 'Vio las clases', frase: 'vieron al menos la mitad de alguna clase grabada', title: 'Ha visto el 50% o más de alguna clase grabada del prelanzamiento', si: (s) => (s.clases || []).some((c) => watched(s, c) >= 50) },
+  { id: 'grupo', grupo: 'contacto', ico: '💬', txt: 'En el grupo', frase: 'siguen en el grupo de WhatsApp', title: 'Sigue en el grupo de WhatsApp del lanzamiento (cruzado por teléfono con SendFlow)', si: (s) => Boolean(s.enGrupo), hay: () => Boolean(state.config.launches[state.launchCode]?.sendflowId) },
   { id: 'sincontactar', grupo: 'contacto', ico: '🆕', txt: 'Sin contactar', frase: 'nadie ha contactado todavía', title: 'Nadie del equipo le ha escrito todavía', si: (s) => !s.wa_enviado },
   { id: 'contactada', grupo: 'contacto', ico: '✅', txt: 'Ya contactadas', frase: 'ya habéis contactado', title: 'Alguien del equipo ya le ha escrito', si: (s) => Boolean(s.wa_enviado) },
   { id: 'sinplantilla', grupo: 'contacto', ico: '📨', txt: 'Sin plantilla', frase: 'aún no han recibido una plantilla', title: 'Todavía no se le ha enviado ninguna plantilla de WhatsApp (para no repetir)', si: (s) => !s.wa_plantilla },
@@ -6202,6 +6215,7 @@ const HOY_CALOR = [
 const calorLead = (s) => { if (s.compra) return HOY_CALOR.length + 1; const i = HOY_CALOR.findIndex((f) => f(s)); return i < 0 ? HOY_CALOR.length : i; };
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-hoy-pl]')) { abrirPlantilla(state.hoy.plLista || []); return; }
+  if (e.target.closest('[data-hoy-pl-config]')) { $('#btn-conexiones').click(); const c = $('#conexiones .cx-card[data-cx="plantillas"]'); if (c) { c.open = true; c.scrollIntoView({ behavior: 'smooth', block: 'start' }); } return; }
   const m = e.target.closest('[data-hoy-modo]');
   if (m) {
     Object.assign(state.hoy, { modo: m.dataset.hoyModo, motivo: '', max: HOY_PAGINA });

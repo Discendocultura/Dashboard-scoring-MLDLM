@@ -8981,3 +8981,70 @@ body.en-conexiones #inicio, body.en-conexiones #solo-op, body.en-conexiones #neg
   .cx-pagina .cx-body { grid-template-columns: 1fr; }
 }
 @media (max-width: 520px) { .cx-hero-orbita { display: none; } .cx-hero h2 { font-size: 28px; } }
+
+/* ---------- Setting hoy: tarjetas de leads y segmento (rediseño) ---------- */
+/* Tarjeta: superficie limpia, franja de su temperatura a la izquierda y el puesto en un cuadradito. */
+.hoy-ranking { display: flex; flex-direction: column; gap: 8px; padding: 0; margin-top: 10px; }
+.hoy-ranking .hoy-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; margin: 0; padding: 14px 16px 14px 18px;
+  border: 1px solid var(--border); border-left: 0; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--st) 7%, var(--surface)), var(--surface) 42%);
+  box-shadow: inset 4px 0 0 var(--st), 0 1px 2px rgb(0 0 0 / .04); transition: box-shadow .2s ease, transform .2s ease; }
+.hoy-ranking .hoy-item:hover { transform: translateY(-1px); box-shadow: inset 4px 0 0 var(--st), 0 14px 30px -20px color-mix(in srgb, var(--st) 80%, transparent); }
+.hoy-ranking .hoy-n { width: 34px; min-width: 34px; height: 34px; align-self: start; border-radius: 11px; font-size: 14px; font-weight: 800;
+  color: var(--st); background: color-mix(in srgb, var(--st) 13%, var(--surface)); border: 1px solid color-mix(in srgb, var(--st) 28%, transparent); }
+.hoy-ranking .hoy-main { min-width: 0; }
+.hoy-ranking .hoy-linea { gap: 4px 10px; }
+.hoy-ranking .lead-name { font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; }
+.hoy-ranking .hoy-linea .estado { font-size: 13px; }
+.hoy-ranking .hoy-motivo { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 3px 9px; }
+.hoy-ranking .hoy-motivo .ico { width: 13px; height: 13px; }
+.hoy-ranking .hoy-actions { justify-content: flex-end; }
+/* «Ha hecho»: chips compactos, del color de lo que significan. */
+.hoy-acc { gap: 6px; margin-top: 9px; }
+.hoy-et { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.hoy-acc .acc { gap: 6px; padding: 4px 11px 4px 8px; font-size: 12.5px; line-height: 1.25; border-radius: 999px; }
+.hoy-acc .acc-ico { width: auto; height: auto; border-radius: 0; background: none; display: inline-flex; align-items: center; font-size: 14px; color: var(--acc); }
+.hoy-acc .acc-ico .ico, .hoy-acc .acc-ico svg { width: 15px; height: 15px; margin: 0; }
+.hoy-acc .acc-ico .ico-sep { margin-right: 0; }
+.hoy-acc .acc-n { margin-left: -2px; }
+.hoy-acc .acc-fuego { border-width: 1px; }
+.hoy-paso { margin-top: 9px; font-size: 13px; line-height: 1.45; }
+.hoy-paso .ico { width: 14px; height: 14px; color: var(--accent); vertical-align: -2px; }
+@media (max-width: 760px) {
+  .hoy-ranking .hoy-item { grid-template-columns: auto minmax(0, 1fr); padding: 12px 12px 12px 14px; gap: 10px 12px; }
+  .hoy-ranking .hoy-n { width: 28px; min-width: 28px; height: 28px; border-radius: 9px; font-size: 12.5px; }
+  .hoy-ranking .hoy-actions { grid-column: 1 / -1; width: auto; padding-left: 0; justify-content: flex-start; }
+}
+
+/* Segmento: cada grupo de señales en una fila horizontal (etiqueta + pastillas) y, abajo, el envío. */
+.hoy-seg { padding: 16px 18px; border-radius: 18px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, var(--surface)), var(--surface) 60%); }
+.hoy-seg-cab { align-items: center; margin-bottom: 12px; }
+.hoy-seg-t { font-size: 15.5px; }
+.hoy-seg-grupos { display: flex; flex-direction: column; gap: 0; grid-template-columns: none; border-top: 1px solid var(--border); }
+.hoy-seg-grupo { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 12px; padding: 9px 2px; background: none; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; }
+.hoy-seg-gt { margin: 0; font-size: 11.5px; letter-spacing: .06em; display: inline-flex; align-items: center; gap: 6px; }
+.hoy-seg-tarjetas { display: flex; flex-wrap: wrap; gap: 6px; grid-template-columns: none; }
+.hoy-seg-chip { flex-direction: row; min-height: 0; gap: 7px; padding: 6px 8px 6px 11px; border-radius: 999px; border-width: 1px; background: var(--surface); font-size: 13px; }
+.hoy-seg-ico { font-size: 14px; display: inline-flex; color: var(--accent); }
+.hoy-seg-ico .ico { width: 15px; height: 15px; margin: 0; }
+.hoy-seg-txt { font-size: 13px; }
+.hoy-seg-chip b { min-width: 24px; padding: 1px 7px; border-radius: 999px; font-size: 12px; line-height: 1.5; text-align: center; background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.hoy-seg-chip.on { color: #fff; }
+.hoy-seg-chip.on .hoy-seg-ico { color: #fff; }
+.hoy-seg-chip.on b { background: rgb(255 255 255 / .25); }
+.hoy-seg-chip.on::after { content: none; }
+.hoy-seg-pie { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); }
+.hoy-seg-pie.activo { background: color-mix(in srgb, var(--accent) 11%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+.hoy-seg-pie .hoy-seg-res { margin: 0; padding: 0; background: none; font-size: 14px; }
+.hoy-seg-pie .hoy-seg-res b { font-size: 18px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.btn.hoy-seg-enviar { font-weight: 700; padding: 10px 16px; border-radius: 12px; }
+.hoy-seg-enviar small { font-weight: 600; opacity: .85; margin-left: 4px; }
+@media (max-width: 760px) {
+  .hoy-seg { padding: 12px; }
+  .hoy-seg-grupo { grid-template-columns: 1fr; gap: 6px; }
+  .hoy-seg-tarjetas { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -12px; padding-right: 12px; }
+  .hoy-seg-tarjetas::-webkit-scrollbar { display: none; }
+  .hoy-seg-chip { flex: none; }
+  .btn.hoy-seg-enviar { width: 100%; justify-content: center; white-space: normal; text-align: center; }
+  .hoy-seg-pie { min-width: 0; } .hoy-seg-pie > * { min-width: 0; max-width: 100%; }
+}
