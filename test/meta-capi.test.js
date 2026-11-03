@@ -127,3 +127,18 @@ test('Zoom: «hasta el 75 %» del directo y la señal para el segmento de Settin
   const { isValidSignalTag, tagFor } = await import('../public/js/scoring.js');
   assert.ok(isValidSignalTag(tagFor('nov', 'directo_75')) && isValidSignalTag(tagFor('nov', 'directo2_75')));
 });
+
+test('Zoom: cada asistente con su email por inscripción o, si no, por el nombre de una única inscrita', async () => {
+  const { emailDeParticipante } = await import('../lib/zoom.js');
+  const emailDe = emailDeParticipante([
+    { id: 'r1', email: 'Ana@X.es', first_name: 'Ana', last_name: 'López' },
+    { id: 'r2', email: 'controlpat@x.es', first_name: 'controlpat2008', last_name: '-' },
+    { id: 'r3', email: 'm1@x.es', first_name: 'María', last_name: '-' },
+    { id: 'r4', email: 'm2@x.es', first_name: 'María', last_name: '-' },
+  ]);
+  assert.equal(emailDe({ name: 'Otro', user_email: 'Yo@Zoom.es' }), 'yo@zoom.es');
+  assert.equal(emailDe({ name: 'Cambiado', registrant_id: 'r1' }), 'ana@x.es');
+  assert.equal(emailDe({ name: 'controlpat2008 -' }), 'controlpat@x.es');
+  assert.equal(emailDe({ name: 'ana lopez' }), 'ana@x.es');
+  assert.equal(emailDe({ name: 'María -' }), ''); // dos inscritas con ese nombre: no se adivina
+});
