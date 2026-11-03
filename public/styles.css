@@ -9167,3 +9167,103 @@ dialog.dlg-pagina .mp-intro { margin: 0; font-size: 15px; color: var(--text-2); 
   #config-dialog.cfg-pagina .dialog-foot { bottom: calc(10px + env(safe-area-inset-bottom)); padding: 10px; }
 }
 @media (max-width: 760px) { #config-dialog.cfg-pagina .pg-sub { display: none; } #config-dialog.cfg-pagina .cfg-main-head h3 { font-size: 19px; } #config-dialog.cfg-pagina .cfg-main-head { flex-wrap: wrap; } #config-dialog.cfg-pagina .dialog-head h2 { font-size: 24px; } }
+
+/* ======================================================================
+   Páginas de configuración · rediseño (Equipo, Configuración del lanzamiento, Marca y avatar)
+   ====================================================================== */
+/* Portada común: un halo de color que respira y el título con más presencia. */
+dialog.dlg-pagina .dialog-head::after { content: ''; position: absolute; right: -80px; top: -120px; width: 360px; height: 360px; z-index: -1; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 30%, transparent), transparent 65%); filter: blur(10px); animation: pg-halo 9s ease-in-out infinite alternate; }
+@keyframes pg-halo { to { transform: translate(-40px, 30px) scale(1.15); } }
+@media (prefers-reduced-motion: reduce) { dialog.dlg-pagina .dialog-head::after { animation: none; } }
+
+/* ---------- Equipo ---------- */
+#equipo-dialog.dlg-pagina .tabs { display: flex; gap: 6px; padding: 6px; border-radius: 18px; }
+#equipo-dialog.dlg-pagina .tabs .tab { flex: 1 1 0; justify-content: center; min-height: 46px; padding: 10px 14px; border: 0; border-radius: 13px; font-weight: 700; color: var(--text-2); background: none; transition: background .2s, color .2s, box-shadow .2s; }
+#equipo-dialog.dlg-pagina .tabs .tab:hover { background: var(--surface-2); color: var(--text); }
+#equipo-dialog.dlg-pagina .tabs .tab.active { color: #fff; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #a540f5)); box-shadow: 0 10px 22px -12px var(--accent); }
+#equipo-dialog.dlg-pagina .tabs .tab.active svg, #equipo-dialog.dlg-pagina .tabs .tab.active .ico { color: #fff; }
+#equipo-dialog.dlg-pagina .tab-panel { border: 0; background: none; padding: 0; gap: 18px; }
+.eq-intro { margin: 0; font-size: 14.5px; max-width: 80ch; }
+/* Cada persona, una tarjeta (la tabla se pinta como rejilla: los botones y cambios siguen igual). */
+#equipo-dialog .equipo-table { display: block; width: 100%; border: 0; background: none; box-shadow: none; }
+#equipo-dialog .equipo-table thead { display: none; }
+#equipo-dialog .equipo-table tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 390px), 1fr)); gap: 14px; }
+#equipo-dialog .equipo-table tr { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; padding: 20px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / .04); transition: transform .2s, box-shadow .2s, border-color .2s; }
+#equipo-dialog .equipo-table tr::before { content: ''; position: absolute; inset: 0 0 auto; height: 4px; border-radius: 22px 22px 0 0; background: linear-gradient(90deg, var(--accent), #a540f5); opacity: .8; }
+#equipo-dialog .equipo-table tr:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); box-shadow: 0 22px 44px -30px rgb(0 0 0 / .45); }
+#equipo-dialog .equipo-table tr.inactivo { opacity: .6; }
+#equipo-dialog .equipo-table tr.inactivo::before { background: var(--border-strong, var(--border)); }
+#equipo-dialog .equipo-table td { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; padding: 0; border: 0; background: none; font-size: 13.5px; }
+#equipo-dialog .equipo-table td:first-child { grid-column: 1 / -1; padding-bottom: 14px; border-bottom: 1px dashed var(--border); }
+#equipo-dialog .equipo-table td:first-child .t-who { gap: 12px; align-items: center; }
+#equipo-dialog .equipo-table td:first-child .t-who > :first-child { width: 48px; height: 48px; font-size: 18px; flex: none; }
+#equipo-dialog .equipo-table td:first-child strong { font-size: 16px; }
+#equipo-dialog .equipo-table td:not(:first-child):not(.eq-actions)::before { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+#equipo-dialog .equipo-table tr:not([data-fuera]) td:nth-child(2)::before { content: 'Rol'; }
+#equipo-dialog .equipo-table tr:not([data-fuera]) td:nth-child(3)::before { content: 'Embudos que ve'; }
+#equipo-dialog .equipo-table tr:not([data-fuera]) td:nth-child(4)::before { content: 'Marca obligatoria'; }
+#equipo-dialog .equipo-table tr:not([data-fuera]) td:nth-child(5)::before { content: 'Primeros pasos'; }
+#equipo-dialog .equipo-table tr:not([data-fuera]) td:nth-child(6)::before { content: 'Último acceso'; }
+#equipo-dialog .equipo-table td select { width: 100%; min-height: 38px; border-radius: 10px; }
+#equipo-dialog .equipo-table td.eq-actions { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; gap: 6px; padding-top: 14px; border-top: 1px dashed var(--border); }
+#equipo-dialog .equipo-table td.eq-actions .btn { border-radius: 10px; }
+#equipo-dialog .equipo-table td.eq-actions [data-eq="borrar"] { margin-left: auto; }
+#equipo-dialog .equipo-table tr.eq-accesos-row, #equipo-dialog .equipo-table tr[class*="editor"] { grid-column: 1 / -1; display: block; }
+#equipo-dialog .equipo-table tr.eq-accesos-row::before { content: none; }
+#equipo-dialog .equipo-table tr.eq-accesos-row td { display: block; }
+/* «Añadir a alguien»: una tarjeta destacada. */
+.eq-add-card { display: grid; gap: 16px; padding: 22px 24px; border-radius: 22px; border: 1.5px dashed color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%), var(--surface); }
+.eq-add-cab { display: flex; align-items: center; gap: 14px; }
+.eq-add-cab h3 { margin: 0; font-size: 18px; }
+.eq-add-cab p { margin: 2px 0 0; }
+.eq-add-ico { width: 46px; height: 46px; flex: none; display: grid; place-items: center; border-radius: 14px; font-size: 24px; font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--accent), #a540f5); box-shadow: 0 12px 24px -14px var(--accent); }
+.eq-add-card .equipo-add { display: grid; grid-template-columns: 1.2fr 1.4fr .9fr auto; gap: 12px; align-items: end; margin: 0; }
+.eq-add-card .equipo-add .field { margin: 0; }
+.eq-add-card .equipo-add input, .eq-add-card .equipo-add select { min-height: 44px; border-radius: 12px; }
+.eq-add-card #btn-eq-crear { min-height: 44px; padding: 0 20px; border-radius: 12px; font-weight: 700; }
+#equipo-dialog.dlg-pagina .portal-nota { border: 1px solid var(--border); background: var(--surface); }
+/* Roles y permisos: la tabla con aire y la primera columna fija. */
+#equipo-dialog .roles-table { border-radius: 18px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); }
+#equipo-dialog .roles-table th { position: sticky; top: 0; background: var(--surface-2); font-size: 12px; letter-spacing: .04em; }
+#equipo-dialog .roles-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
+#equipo-dialog .roles-table td, #equipo-dialog .roles-table th { padding: 10px 12px; }
+@media (max-width: 760px) {
+  .eq-add-card { padding: 16px; }
+  .eq-add-card .equipo-add { grid-template-columns: 1fr; }
+  #equipo-dialog .equipo-table tr { grid-template-columns: 1fr; padding: 16px; }
+  #equipo-dialog.dlg-pagina .tabs .tab { flex: none; }
+}
+
+/* ---------- Configuración del lanzamiento ---------- */
+#config-dialog.cfg-pagina .cfg-nav { gap: 2px; }
+#config-dialog.cfg-pagina .cfg-nav .tab { padding: 9px 10px; transition: background .2s, transform .2s; }
+#config-dialog.cfg-pagina .cfg-nav .tab:hover:not(.active) { background: var(--surface-2); transform: translateX(2px); }
+#config-dialog.cfg-pagina .cfg-nav .tab.active .cfg-nav-t { color: var(--text); }
+#config-dialog.cfg-pagina .cfg-nav-g { margin-top: 10px; font-size: 10.5px; letter-spacing: .12em; }
+#config-dialog.cfg-pagina .cfg-listo { border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%), var(--surface); }
+#config-dialog.cfg-pagina .cfg-main-head { padding-bottom: 14px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+#config-dialog.cfg-pagina .cfg-main .cfg-sec { border: 1px solid var(--border); border-radius: 18px; padding: 20px 22px 22px; background: var(--surface); box-shadow: 0 1px 2px rgb(0 0 0 / .04); transition: border-color .2s, box-shadow .2s; }
+#config-dialog.cfg-pagina .cfg-main .cfg-sec:focus-within { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent), 0 18px 36px -28px rgb(0 0 0 / .4); }
+#config-dialog.cfg-pagina .cfg-main input, #config-dialog.cfg-pagina .cfg-main select { min-height: 42px; border-radius: 11px; }
+#config-dialog.cfg-pagina .hub-cat { transition: transform .2s, box-shadow .2s, border-color .2s; }
+#config-dialog.cfg-pagina .hub-cat:hover { transform: translateY(-3px); box-shadow: 0 20px 40px -28px rgb(0 0 0 / .45); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+#config-dialog.cfg-pagina .hub-hero { border-radius: 20px; }
+
+/* ---------- Marca y avatar ---------- */
+#marca-dialog.dlg-pagina .dialog-head .mq-prog { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; width: 100%; max-width: 640px; margin-top: 6px; }
+#marca-dialog.dlg-pagina .dialog-head .mq-prog-bar { flex: 1 1 260px; height: 12px; border-radius: 99px; background: color-mix(in srgb, var(--text) 9%, transparent); overflow: hidden; }
+#marca-dialog.dlg-pagina .dialog-head .mq-prog-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ff9a1f, #ff4d1f 50%, #a540f5); box-shadow: 0 0 14px color-mix(in srgb, #ff4d1f 50%, transparent); transition: width .6s cubic-bezier(.2, .8, .2, 1); }
+#marca-dialog.dlg-pagina .dialog-head #mk-prog-txt { font-weight: 700; font-size: 13.5px; }
+#marca-dialog.dlg-pagina .mp-cliente { border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
+#marca-dialog.dlg-pagina .mp-rail { background: var(--surface); border-radius: 22px; box-shadow: 0 20px 44px -38px rgb(0 0 0 / .45); }
+#marca-dialog.dlg-pagina .mp-main { padding: 24px 26px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: 0 24px 50px -40px rgb(0 0 0 / .4); }
+#marca-dialog.dlg-pagina .mp-hero { border-radius: 20px; }
+#marca-dialog.dlg-pagina .as-campo { border-radius: 16px; transition: border-color .2s, box-shadow .2s; }
+#marca-dialog.dlg-pagina .as-campo:focus-within { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent); }
+#marca-dialog.dlg-pagina .as-campo input, #marca-dialog.dlg-pagina .as-campo textarea { border-radius: 11px; }
+#marca-dialog.dlg-pagina .mp-paso-btn { transition: background .2s, transform .2s; }
+#marca-dialog.dlg-pagina .mp-paso-btn:hover { transform: translateX(2px); }
+@media (max-width: 760px) { #marca-dialog.dlg-pagina .mp-main { padding: 16px 14px; border-radius: 18px; } }
