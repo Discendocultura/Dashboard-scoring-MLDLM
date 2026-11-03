@@ -83,7 +83,7 @@ import { piezasImagenes, promptImagen, promptMagnificImagenes, PROMPT_VERTICAL, 
 import { paraChatGPT } from './chatgpt.js';
 import { iniciarOnboarding, onbVista, abrirAyuda, verTodas, leerPreview, progresoDe, onbReiniciarAyudas, onbEstado, onbGuardar, onbRol, tour as onbTour } from './onboarding.js';
 import { pasosUtms, arbolUtms, nivelUtms, ordenarUtms, puntuadorEncuesta, promptUtms, cruceVipCompra, encuestaUtm } from './utms.js';
-import { DESBLOQUEOS, desbloqueos, filtrarVistas, desbloqueoDeVista, siguientePaso, recomendarTipo, buscar as buscarAcciones, dosificar, atascados, diasDesde } from './primeros-pasos.js';
+import { DESBLOQUEOS, desbloqueos, filtrarVistas, desbloqueoDeVista, siguientePaso, buscar as buscarAcciones, dosificar, atascados, diasDesde } from './primeros-pasos.js';
 import { iniciarAnimaciones } from './animaciones.js';
 import { FASES_PLAN, enviosPorDefecto, enviosDe, planEnvios, sanitizeEnvios } from './envios.js';
 import { componerEmails } from './emails.js';
@@ -1723,11 +1723,14 @@ $('#sb-negocio').addEventListener('click', () => mostrarNegocio());
 // Páginas de configuración (Conexiones, Productos, Marca y avatar, Equipo): una página más, como el Inicio, con el
 // menú lateral y la barra de arriba a mano. Productos, Marca y Equipo siguen siendo <dialog> (sus paneles los abren con
 // showModal), pero se muestran dentro de la página, sin ventana encima.
+// Al salir con su ✕ (o al terminar, p. ej. al crear un lanzamiento), se vuelve a donde se estaba.
+let paginaVolver = 'inicio';
 const PAGINA_BTN = { conexiones: '#btn-conexiones', 'productos-dialog': '#btn-productos', 'marca-dialog': '#btn-marca', 'equipo-dialog': '#btn-equipo' };
 function cerrarPaginas() {
   for (const d of $$('dialog.dlg-pagina')) if (d.open && d.id !== state.enPagina) d.close();
 }
 function mostrarPagina(id) {
+  if (!state.enPagina) paginaVolver = !state.enInicio ? 'embudo' : state.enNegocio ? 'negocio' : 'inicio';
   state.enInicio = true;
   state.enNegocio = false;
   state.enPagina = id;
@@ -1745,7 +1748,10 @@ const mostrarConexiones = () => mostrarPagina('conexiones');
 for (const d of $$('dialog.dlg-pagina')) {
   d.showModal = () => { mostrarPagina(d.id); if (!d.open) d.show(); };
   // Cerrarla (su ✕ o «Cerrar») es volver al Inicio; si se cierra por ir a otra página, no.
-  d.addEventListener('close', () => { if (state.enPagina === d.id) mostrarInicio(); });
+  d.addEventListener('close', () => {
+    if (state.enPagina !== d.id) return;
+    if (paginaVolver === 'embudo') { salirInicio(); pintarNavMovil(); pintarSidebar(); } else if (paginaVolver === 'negocio') mostrarNegocio(); else mostrarInicio();
+  });
 }
 document.addEventListener('change', (e) => {
   const sel = e.target.closest('[data-ng-periodo]');
@@ -7655,7 +7661,7 @@ function irPasoNl(i) {
   $('#nl-crear').hidden = !ultimo;
   $('#nl-status').textContent = '';
   pintarNl();
-  $('#nl-dialog .dialog-body').scrollTop = 0;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 // Antes de pasar del primer paso: nombre, día y lo demás bien.
 function nlPuedeSeguir() {
@@ -15259,11 +15265,6 @@ function irPasoEmb(i) {
   $('#embudo-dialog .dialog-body').scrollTop = 0;
 }
 function validarPasoEmb() {
-  // Nuevo embudo con la lista de tipos plegada: hay que contestar las 2 preguntas (o abrir la lista y elegir).
-  if (pasosEmb()[embPaso] === 'tipo' && !embEdit && !embDlg.classList.contains('ver-tipos') && !(embReco.fecha && embReco.venta)) {
-    $('#emb-status').textContent = 'Contesta las dos preguntas (o pulsa «Ver todos los tipos» y elige uno).';
-    return false;
-  }
   if (pasosEmb()[embPaso] === 'dashboard' && !embPestanas().length) { $('#emb-status').textContent = 'Deja al menos una sección marcada.'; return false; }
   if (pasosEmb()[embPaso] === 'contenido') {
     const o = embOrigen();
@@ -15363,40 +15364,8 @@ $('#emb-plantilla-guardar').addEventListener('click', async () => {
 });
 const clienteNombre = () => state.clientes.find((c) => c.id === state.cliente)?.nombre || '';
 
-// «＋ Nuevo embudo» con 2 preguntas: ¿tiene fecha? ¿por llamada o directa? → el tipo que le encaja. «Ver todos los tipos» enseña la lista entera.
-let embReco = {};
-function pintarEmbReco() {
-  $$('#emb-reco [data-emb-preg]').forEach((g) => $$('button', g).forEach((b) => {
-    const on = embReco[g.dataset.embPreg] === b.dataset.v;
-    b.classList.toggle('on', on);
-    b.setAttribute('aria-checked', String(on));
-  }));
-  const r = embReco.fecha && embReco.venta ? recomendarTipo(embReco) : null;
-  const res = $('#emb-reco-res');
-  res.hidden = !r;
-  if (!r) return;
-  const radio = $(`input[name="emb-tipo"][value="${r.tipo}"]`);
-  const nombre = radio?.closest('.emb-tipo')?.querySelector('strong')?.textContent || r.tipo;
-  const ico = radio?.closest('.emb-tipo')?.querySelector('.emb-ico')?.textContent || '✨';
-  res.innerHTML = `<strong>${ico} Te encaja: ${esc(nombre)}</strong><small>${esc(r.porque)} Pulsa «Siguiente» o mira los demás tipos.</small>`;
-  if (radio && !radio.checked) { radio.checked = true; pintarEmbPestanas(null); pintarEmbVipBase(); }
-}
-function verTiposEmb(ver) {
-  embDlg.classList.toggle('ver-tipos', ver);
-  $('#emb-ver-tipos').setAttribute('aria-expanded', String(ver));
-  $('#emb-ver-tipos').textContent = ver ? 'Ocultar la lista de tipos ▴' : 'Ver todos los tipos ▾';
-}
-$('#emb-reco').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-emb-preg] button');
-  if (b) { embReco[b.closest('[data-emb-preg]').dataset.embPreg] = b.dataset.v; pintarEmbReco(); return; }
-  if (e.target.closest('#emb-ver-tipos')) verTiposEmb(!embDlg.classList.contains('ver-tipos'));
-});
-
 function abrirNuevoEmbudo({ preset } = {}) {
   embEdit = null;
-  embReco = preset === 'lanz' ? { fecha: 'si' } : preset === 'siempre' ? { fecha: 'no' } : {};
-  $('#emb-reco').hidden = false;
-  verTiposEmb(preset === 'cruzadas');
   $('#emb-plantilla').value = '';
   $('#emb-plantilla-guardar').hidden = true;
   cargarPlantillas();
@@ -15429,7 +15398,6 @@ function abrirNuevoEmbudo({ preset } = {}) {
   $('#emb-h-tipo').textContent = '¿Qué tipo de embudo es?';
   $('#emb-sub-tipo').textContent = 'Elige el que más se parezca. En los siguientes pasos lo terminas de ajustar.';
   if (preset === 'cruzadas') $('input[name="emb-tipo"][value="cruzadas"]').checked = true;
-  pintarEmbReco();
   pintarEmbPestanas(null);
   irPasoEmb(0);
   embDlg.showModal();
@@ -15439,8 +15407,6 @@ function abrirEditarEmbudo(id) {
   const e = embudoInfo(id);
   if (!e) return;
   embEdit = id;
-  $('#emb-reco').hidden = true;
-  verTiposEmb(true);
   $('#emb-titulo').textContent = `${e.tipo === 'vsl' ? textosVsl(state.config.vsls[id]).ico : e.tipo === 'directa' ? '🛒' : e.tipo === 'cruzadas' ? '🔁' : e.tipo === 'meteorico' ? '⚡' : '🚀'} ${e.nombre}`;
   $('#emb-subtipo').value = subtipoValido(state.config.vsls[id]?.subtipo);
   $('.emb-tipos').hidden = true;

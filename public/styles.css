@@ -7457,7 +7457,6 @@ body.pp-activo .vs-mas { display: inline-flex; }
 .emb-reco-res[hidden] { display: none; }
 .emb-reco-res small { color: var(--text-2); font-size: 13px; line-height: 1.5; }
 .emb-ver-tipos { justify-self: start; font-size: 13.5px; }
-#embudo-dialog:not(.ver-tipos) .emb-tipos { display: none; }
 
 /* Agencia → Clientes: «Implementa la agencia» (extra de pago). */
 .cl-sw-impl .cl-impl-txt { font-size: 13px; font-weight: 650; white-space: nowrap; }
@@ -9065,7 +9064,7 @@ dialog.dlg-pagina .dialog-head h2 { margin: 0; font-size: clamp(26px, 3vw, 38px)
 dialog.dlg-pagina .dialog-head h2 .muted { font-size: .55em; font-weight: 600; letter-spacing: 0; }
 .pg-sub { margin: 0; max-width: 62ch; font-size: 15.5px; line-height: 1.5; color: var(--text-2); }
 /* Sin ✕ ni «Cerrar»: se sale con el menú, como de cualquier página. */
-dialog.dlg-pagina .dialog-head > .btn[aria-label="Cerrar"], dialog.dlg-pagina .dialog-head .btn.ghost[aria-label="Cerrar"], dialog.dlg-pagina > form > .dialog-foot { display: none; }
+dialog.dlg-pagina .dialog-head > .btn[aria-label="Cerrar"], dialog.dlg-pagina .dialog-head .btn.ghost[aria-label="Cerrar"], #equipo-dialog.dlg-pagina > form > .dialog-foot { display: none; }
 dialog.dlg-pagina .dialog-body { padding: 0; gap: 18px; }
 dialog.dlg-pagina .mp-intro { margin: 0; font-size: 15px; color: var(--text-2); }
 #equipo-dialog.dlg-pagina .tabs { position: sticky; top: 64px; z-index: 3; padding: 6px; border-radius: 16px; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(10px); border: 1px solid var(--border); box-shadow: 0 10px 24px -20px rgb(0 0 0 / .4); }
@@ -9084,3 +9083,66 @@ dialog.dlg-pagina .mp-intro { margin: 0; font-size: 15px; color: var(--text-2); 
 #equipo-dialog.dlg-pagina .portal-nota { display: block; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); }
 #equipo-dialog.dlg-pagina .portal-nota .btn { margin-top: 8px; }
 #marca-dialog.dlg-pagina .dialog-body { overflow-x: clip; }
+
+/* ---------- Nuevo lanzamiento: página con pasos grandes, cada paso en su tarjeta y la barra de acciones fija ---------- */
+.nl-grad { background: linear-gradient(95deg, #ff9a1f, #ff4d1f 45%, #a540f5); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.nl-pagina[open] { max-width: 1040px; }
+.nl-pagina > form { display: flex; flex-direction: column; }
+/* Pasos: una barra de progreso con 4 hitos unidos por una línea que se va rellenando. */
+.nl-pagina .wiz-pasos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; padding: 18px 22px; margin: 0 0 18px; overflow: visible; border: 1px solid var(--border); border-radius: 20px; background: var(--surface); box-shadow: 0 1px 2px rgb(0 0 0 / .04); }
+.nl-pagina .wiz-dot { position: relative; flex-direction: column; justify-content: flex-start; gap: 8px; padding: 0 6px; border-radius: 0; text-align: center; font-size: 13px; }
+.nl-pagina .wiz-dot::before { content: ''; position: absolute; top: 19px; left: calc(-50% + 26px); right: calc(50% + 26px); height: 3px; border-radius: 3px; background: var(--border); transition: background .3s; }
+.nl-pagina .wiz-dot:first-child::before { content: none; }
+.nl-pagina .wiz-dot.actual::before, .nl-pagina .wiz-dot.hecho::before { background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #a540f5)); }
+.nl-pagina .wiz-num { width: 40px; height: 40px; font-size: 15px; border-width: 2px; transition: transform .25s, box-shadow .25s, background .25s; }
+.nl-pagina .wiz-dot.actual .wiz-num { transform: scale(1.08); box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent), 0 10px 22px -10px var(--accent); }
+.nl-pagina .wiz-dot.hecho .wiz-num { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.nl-pagina .wiz-lbl { font-weight: 700; line-height: 1.25; }
+.nl-pagina .wiz-dot.actual .wiz-lbl { color: var(--text); }
+/* Cada paso: una tarjeta amplia con su título grande. */
+.nl-pagina .dialog-body { gap: 14px; }
+.nl-pagina .wiz-paso { display: grid; gap: 16px; padding: 26px 28px; border-radius: 22px; border: 1px solid var(--border); background: var(--surface); box-shadow: 0 24px 50px -40px rgb(0 0 0 / .4); animation: nl-paso .3s ease-out; }
+.nl-pagina .wiz-paso[hidden] { display: none; }
+@keyframes nl-paso { from { transform: translateY(6px); } to { transform: none; } }
+.nl-pagina .wiz-h { font-size: 24px; letter-spacing: -.015em; }
+.nl-pagina .wiz-sub { margin: -10px 0 4px; font-size: 15px; }
+.nl-pagina .st-form { gap: 16px 20px; }
+.nl-pagina .st-form input, .nl-pagina .st-form select { min-height: 44px; font-size: 15px; }
+.nl-pagina #nl-nombre { font-size: 18px; font-weight: 700; }
+.nl-pagina .nl-sec { padding: 16px 18px; border-radius: 16px; gap: 12px; background: color-mix(in srgb, var(--surface-2) 55%, var(--surface)); }
+.nl-pagina .nl-sec-t { font-size: 15px; font-weight: 700; }
+/* «Qué te dejo hecho»: cada opción como una tarjeta que se marca entera. */
+.nl-pagina .nl-hacer { gap: 10px; background: none; border: 0; padding: 0; }
+.nl-pagina .nl-hacer-t { font-size: 15px; font-weight: 700; }
+.nl-pagina .nl-hacer .chk, .nl-pagina .nl-narr-ops .chk { padding: 14px 16px; border-radius: 14px; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; transition: border-color .2s, background .2s, box-shadow .2s; }
+.nl-pagina .nl-hacer .chk:hover, .nl-pagina .nl-narr-ops .chk:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.nl-pagina .nl-hacer .chk:has(input:checked), .nl-pagina .nl-narr-ops .chk:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); box-shadow: 0 8px 20px -16px var(--accent); }
+.nl-pagina .nl-hacer .chk:has(input:disabled) { cursor: default; opacity: .7; }
+.nl-pagina .nl-hacer .nl-zoom { padding: 14px 16px; border: 1.5px solid var(--border); background: var(--surface); }
+.nl-pagina .nl-narr-ops { display: grid; gap: 8px; }
+.nl-pagina .nl-preview { border-radius: 16px; }
+/* Barra de acciones: fija abajo, siempre a mano. */
+.nl-pagina .dialog-foot { position: sticky; bottom: 14px; z-index: 4; display: flex; align-items: center; gap: 10px; margin-top: 18px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(12px); box-shadow: 0 18px 40px -22px rgb(0 0 0 / .45); }
+.nl-pagina .dialog-foot .btn.primary { padding: 11px 20px; font-weight: 700; border-radius: 12px; }
+.nl-pagina #nl-crear { background: linear-gradient(95deg, #ff8a1f, #ff4d1f 55%, #c03ff0); border: 0; box-shadow: 0 12px 26px -12px #ff4d1f; }
+.nl-pagina #nl-status:empty { display: none; }
+.nl-pagina #nl-status { margin: 0; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--text); font-weight: 600; }
+@media (max-width: 760px) {
+  .nl-pagina .wiz-pasos { padding: 14px 8px; }
+  .nl-pagina .wiz-num { width: 34px; height: 34px; }
+  .nl-pagina .wiz-dot::before { top: 16px; left: calc(-50% + 22px); right: calc(50% + 22px); }
+  .nl-pagina .wiz-lbl { font-size: 11.5px; }
+  .nl-pagina .wiz-paso { padding: 18px 16px; border-radius: 18px; }
+  .nl-pagina .wiz-h { font-size: 20px; }
+  .nl-pagina .dialog-foot { bottom: calc(10px + env(safe-area-inset-bottom)); flex-wrap: wrap; gap: 6px 8px; padding: 10px; }
+  .nl-pagina .dialog-foot .spacer { display: none; }
+  .nl-pagina #nl-manual { order: 3; width: 100%; min-height: 0; padding: 2px; font-size: 12.5px; }
+  .nl-pagina .dialog-foot .btn.primary, .nl-pagina #nl-atras { flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .nl-pagina .wiz-paso { animation: none; } }
+@media (max-width: 600px) { .nl-pagina .wiz-lbl { display: block; } }
+.nl-pagina #nl-pasos .wiz-dot, .nl-pagina #nl-pasos .wiz-dot.actual, .nl-pagina #nl-pasos .wiz-dot.hecho, .nl-pagina #nl-pasos .wiz-dot:disabled { min-height: 0; padding: 0 6px; border: 0; border-radius: 0; background: none; box-shadow: none; transform: none; justify-content: flex-start; }
+.nl-pagina #nl-pasos .wiz-dot:disabled { color: var(--muted); }
+.nl-pagina #nl-pasos .wiz-dot:disabled .wiz-num { border-style: dashed; }
+.nl-pagina #nl-pasos .wiz-dot:not(:disabled):hover .wiz-num { transform: scale(1.06); }
