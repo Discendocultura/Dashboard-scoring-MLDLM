@@ -13593,7 +13593,7 @@ function llamadaCard(c) {
     <div class="ll-main">
       <div class="ll-name">${esc(lead?.name || c.title || 'Sin nombre')}
         ${etapa ? `<span class="ll-etapa" style="--c:${esc(etapa.color || '#8a817b')}" title="Etapa en el pipeline de GHL">${esc(etapa.name)}</span>` : '<span class="ll-etapa none" title="Aún no está en el pipeline: se añadirá al anotar el resultado">Sin etapa</span>'}
-        ${llCancelada(c) ? '<span class="ll-etapa ll-cancelada">❌ Cita cancelada</span>' : ''}</div>
+        ${llCancelada(c) ? '<span class="ll-etapa ll-cancelada">⛔ Cita cancelada</span>' : ''}</div>
       <div class="ll-contact">${phone ? `<a href="tel:${esc(phone)}">${icon('phone')}${esc(phone)}</a>` : ''}${wa ? `<a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}${phone ? '' : '<span class="muted">Sin teléfono</span>'}</div>
       <div class="ll-chips">${repChip}${cancChip}${origenChip(c)}${chips}</div>
       ${r ? `<div class="ll-res">${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span>${c.resultado.notas ? `<div class="ll-notas">${esc(c.resultado.notas)}</div>` : ''}</div>` : ''}
@@ -13639,15 +13639,17 @@ function renderLlamadas() {
   // Las próximas canceladas van aparte, para que en Hoy y Próximos días solo queden las que faltan por hacer.
   const deHoy = list.filter((c) => dayInMadrid(c.startTime) === hoyD && llStart(c) >= ahora && !llCancelada(c));
   const proximas = list.filter((c) => llStart(c) >= ahora && dayInMadrid(c.startTime) !== hoyD && !llCancelada(c));
-  const canceladasProx = list.filter((c) => llStart(c) >= ahora && llCancelada(c));
-  const anotadas = list.filter((c) => llStart(c) < ahora && (c.resultado || llCancelada(c))).reverse();
+  // Lo ya cerrado, agrupado por cómo acabó (todas las ventas juntas, todas las canceladas juntas…), lo más reciente arriba.
+  const porResultado = RESULTADOS.map((r) => ({ r, items: list.filter((c) => c.resultado?.resultado === r.id).reverse() }));
+  const canceladas = list.filter((c) => !c.resultado && llCancelada(c)).sort((a, b) => llStart(b) - llStart(a));
+  const grupoCerrado = (titulo, items, cls = '') => (items.length ? `<details class="ll-sec ll-done ${cls}"><summary><h3>${titulo} <span class="muted">${items.length}</span></h3></summary>${items.map(llamadaCard).join('')}</details>` : '');
   const sec = (titulo, items, cls = '', vacio = '') => (items.length || vacio ? `<section class="ll-sec ${cls}"><h3>${titulo} <span class="muted">${items.length}</span></h3>${items.map(llamadaCard).join('') || `<p class="muted">${vacio}</p>`}</section>` : '');
   box.innerHTML = list.length ? `
     ${sec('⚠️ Pendientes de anotar', pendientes, 'warn')}
     ${sec('📞 Hoy', deHoy, '', 'No hay más llamadas hoy.')}
     ${sec('🗓️ Próximos días', proximas)}
-    ${canceladasProx.length ? `<details class="ll-sec ll-done ll-cancel-prox"><summary><h3>❌ Canceladas <span class="muted">${canceladasProx.length}</span></h3></summary>${canceladasProx.map(llamadaCard).join('')}</details>` : ''}
-    ${anotadas.length ? `<details class="ll-sec ll-done"><summary><h3>✅ Ya anotadas <span class="muted">${anotadas.length}</span></h3></summary>${anotadas.map(llamadaCard).join('')}</details>` : ''}`
+    ${porResultado.map(({ r, items }) => grupoCerrado(`${r.icon} ${r.id === 'venta' ? 'Ventas' : r.label}`, items, `ll-g-${r.id}`)).join('')}
+    ${grupoCerrado('⛔ Citas canceladas', canceladas, 'll-cancel-prox')}`
     : '<div class="card empty"><p class="muted">Todavía no hay llamadas agendadas en el calendario para este lanzamiento.</p></div>';
   syncLlVista();
 }
