@@ -11,6 +11,7 @@ import { currentLaunch } from '../lib/digest.js';
 import { marcarVisita, visitasDe, contarVisitas } from '../lib/entradas.js';
 import { json, readBody, errorResponse, CORS_HEADERS } from '../lib/http.js';
 import { addTags, getContact } from '../lib/ghl.js';
+import { enviarEventoMeta, datosNavegador } from '../lib/meta-capi.js';
 
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -23,7 +24,8 @@ const lanzamiento = (config, code) => {
 
 export async function POST(request, ctx) {
   try {
-    const { launch, cid, pagina } = await readBody(request);
+    const body = await readBody(request);
+    const { launch, cid, pagina } = body;
     if (typeof cid !== 'string' || !/^[A-Za-z0-9]{6,40}$/.test(cid)) return json({ error: 'Datos no válidos' }, 400, CORS_HEADERS);
     if (!(await dentroDelLimite(request, 'visita', 300))) return json({ ok: true }, 200, CORS_HEADERS);
     const config = await getConfig();
@@ -33,6 +35,12 @@ export async function POST(request, ctx) {
     const veces = await marcarVisita(code, cid, Date.now(), esPago ? 'pago' : pagina === 'registro' ? 'registro' : 'venta');
     // La primera vez que llega a la página de pago: la etiqueta de carrito abandonado en GHL (dispara el workflow
     // de recuperación, que la quita si compra). Solo una llamada a GHL por lead, y sin esperar a que acabe.
+    // Conversions API: «llegó a la página de pago» (InitiateCheckout), la primera vez, si está encendido.
+    if (esPago && veces === 1) {
+      const meta = enviarEventoMeta({ tipo: 'pago', eventId: `pago-${code}-${cid}`, config, url: request.headers.get('referer') || '',
+        datos: { externalId: cid, ...datosNavegador(request, body) }, custom: { content_name: config.launches[code].name || code } });
+      if (ctx?.waitUntil) ctx.waitUntil(meta); else await meta;
+    }
     const tag = config.launches[code].carritoAbandonadoTag;
     if (esPago && veces === 1 && tag) {
       const reg = config.launches[code].registroTag;

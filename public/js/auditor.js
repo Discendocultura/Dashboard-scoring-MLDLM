@@ -3,7 +3,7 @@
 //   nivel: 'critico' | 'importante' | 'aviso'
 //   accion: { tipo: 'campo', id } (Configuración) | { tipo: 'tarea', id } | { tipo: 'vista', v } | { tipo: 'vsl', tab }
 import { watched } from './scoring.js';
-import { videosDe, nClases, conVip } from './videos.js';
+import { videosDe, nClases, conVip, esEnDirecto } from './videos.js';
 import { SUBTIPOS_VSL, subtipoValido, conPrep } from './embudos-def.js';
 import { esSuscripcion, pendientesPago, enlacePago } from './pago.js';
 
@@ -72,6 +72,26 @@ export function auditarLanzamiento(p) {
       if (!v.replayUrl) add(urgencia(nv), 'Páginas y vídeos', `Falta la página del ${v.nombre}`, 'Es adonde manda la página preclase y el WhatsApp cuando toca este vídeo.', campo(`cfg-v${v.k}-replay`));
     }
   }
+  // Directos 2, 3…: sin Zoom no hay pantalla de espera ese día y a la hora la página manda a la grabación.
+  const esperaEn = (k) => l.espera?.activa !== false && (!Array.isArray(l.espera?.directos) || l.espera.directos.includes(k));
+  for (const v of vids.slice(1)) {
+    if (esEnDirecto(v) || !v.fecha || dia(v.fecha) < hoy) continue;
+    const pedido = Array.isArray(l.espera?.directos) && l.espera.directos.includes(v.k);
+    if (pedido || (esEnDirecto(vids[0]) && !v.replayVideoUrl)) {
+      add(pedido ? urgencia(diasHasta(v.fecha, hoy)) : diasHasta(v.fecha, hoy) <= 3 ? 'importante' : 'aviso', 'Enlaces y páginas', `Falta el Zoom del ${v.nombre}`,
+        `${pedido ? 'Tiene pantalla de espera, pero' : 'Si es en directo:'} sin el ID de Zoom no sale la pantalla de espera ese día y a la hora la página manda a la grabación. Se emite el ${fmt(v.fecha)} (${cuando(diasHasta(v.fecha, hoy))}).`, { tipo: 'zoom', k: v.k });
+    }
+  }
+  if (l.espera?.activa !== false && Number(l.espera?.antesMin) === 0 && vids.some((v) => esEnDirecto(v) && esperaEn(v.k) && v.fecha && dia(v.fecha) >= hoy)) {
+    add('aviso', 'Enlaces y páginas', 'La pantalla de espera manda al directo a la hora en punto', 'Con 0 minutos entra todo el mundo a la vez. Lo normal es 5 minutos antes (Preclase → Pantalla de espera).', campo('cfg-espera-antes'));
+  }
+  // El carrito abre mucho después de que empiece el vídeo de venta: en el vídeo se dice «ya está abierto» y no lo está.
+  const vv = vids.at(-1);
+  if (l.aperturaCarrito && vv?.fecha && vv?.hora && dia(vv.fecha) >= hoy) {
+    const horas = (Date.parse(`${String(l.aperturaCarrito).slice(0, 16)}Z`) - Date.parse(`${dia(vv.fecha)}T${vv.hora}Z`)) / 3_600_000;
+    if (horas > 3) add(diasHasta(vv.fecha, hoy) <= 3 ? 'importante' : 'aviso', 'Fechas', `El carrito abre ${horas >= 24 ? `${Math.round(horas / 24)} día${Math.round(horas / 24) === 1 ? '' : 's'}` : `${Math.round(horas)} h`} después del ${vv.nombre.toLowerCase().startsWith('webinar') ? 'webinar' : vv.nombre}`,
+      `Apertura: ${fmt(l.aperturaCarrito)} ${String(l.aperturaCarrito).slice(11, 16)}; el vídeo de venta es el ${fmt(vv.fecha)} a las ${vv.hora}. ¿Es a propósito?`, campo('cfg-apertura-carrito'));
+  }
   for (const [k, id, t] of [1, 2, 3].slice(0, nClases(l)).map((i) => [`clase${i}At`, `cfg-clase${i}-at`, `Falta cuándo se desbloquea la clase ${i}`])) {
     if (!l[k]) add(urgencia(n('directo')), 'Fechas', t, 'La página preclase no sabrá cuándo enseñarla.', campo(id));
   }
@@ -123,7 +143,7 @@ export function auditarLanzamiento(p) {
     if (l[k]) continue;
     const yaPaso = H[hito].d && H[hito].d < hoy && hito !== 'captacion';
     if (yaPaso && ['clase1', 'clase2', 'clase3'].includes(hito)) continue; // ya no tiene arreglo útil
-    add(urgencia(n(hito)), 'Enlaces y páginas', `Falta ${t}`, antesDe(hito), campo(id));
+    add(urgencia(n(hito)), 'Enlaces y páginas', `Falta ${t}`, antesDe(hito), k === 'zoomMeetingId' ? { tipo: 'zoom', k: 1 } : campo(id));
   }
   // Pantalla de espera activa: el plan B del directo (botón directo a Zoom en las páginas de GHL, por si el
   // dashboard no carga, p. ej. bloqueos de red a Cloudflare en España) necesita el enlace genérico de Zoom.

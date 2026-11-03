@@ -71,7 +71,65 @@
     store(STORE, { cid: who.cid || saved.cid, email: who.email || saved.email, ok: ok });
   }
 
+  // Cookies del píxel de Meta (_fbp, _fbc; o el fbclid del anuncio): AlquimIA las manda a Meta con la Conversions API
+  // (vio la clase 1, entró al directo) para que reconozca a la persona aunque el píxel del navegador esté bloqueado.
+  // Consentimiento de cookies (RGPD): con data-consentimiento="si" en el script (o ?consent=1 en su src), AlquimIA no
+  // guarda el origen del anuncio ni lee las cookies de Meta hasta que la persona acepta. Reconoce los avisos de cookies
+  // más usados (Complianz, Cookiebot, CookieYes) y, para cualquier otro, basta con llamar a window.AlquimIA.consentir().
+  var PIDE_CONSENT = Boolean(script && (script.getAttribute('data-consentimiento') === 'si' || new URL(script.src).searchParams.get('consent') === '1'));
+  function hayConsentimiento() {
+    if (!PIDE_CONSENT) return true;
+    if (window.alquimiaConsentimiento === true || store('lsd_consent') === 1) return true;
+    var ck = '';
+    try { ck = decodeURIComponent(document.cookie || ''); } catch (e) { ck = document.cookie || ''; }
+    return /cmplz_marketing=allow/.test(ck) || /CookieConsent=[^;]*marketing:true/.test(ck) || /cookieyes-consent=[^;]*advertisement:yes/.test(ck);
+  }
+  function cookiesMeta() {
+    if (!hayConsentimiento()) return { fbp: '', fbc: '' };
+    var c = function (n) { var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; };
+    var fbc = c('_fbc');
+    var clid = params.get('fbclid');
+    if (!fbc && clid) fbc = 'fb.1.' + Date.now() + '.' + clid;
+    return { fbp: c('_fbp'), fbc: fbc };
+  }
+  // Atribución propia: de qué anuncio llega (UTM e id de Meta de la URL). Se guarda el primer toque (nunca se pisa) y el
+  // último, y se manda a AlquimIA en cuanto se sabe quién es (cid o email), una vez por toque nuevo.
+  var ORIGEN = 'lsd_origen';
+  function capturarOrigen() {
+    if (!hayConsentimiento()) return;
+    var g = function (k) { var v = params.get(k); return v && !/\{\{/.test(v) ? v.slice(0, 300) : ''; };
+    var t = { source: g('utm_source'), medium: g('utm_medium'), campaign: g('utm_campaign'), term: g('utm_term'), content: g('utm_content'),
+      campaignId: g('campaign_id') || g('utm_id'), adsetId: g('adset_id'), adId: g('ad_id'), fbclid: g('fbclid') };
+    var hay = false;
+    for (var k in t) { if (t[k]) hay = true; else delete t[k]; }
+    if (!hay) return;
+    t.en = Date.now();
+    t.url = (location.hostname + location.pathname).slice(0, 300);
+    var o = store(ORIGEN) || {};
+    if (!o.p) o.p = t;
+    o.u = t;
+    o.env = '';
+    store(ORIGEN, o);
+  }
+  var origenEnviando = false;
+  function enviarOrigen(w) {
+    if (!w || (!w.cid && !w.email) || origenEnviando || !hayConsentimiento()) return;
+    var o = store(ORIGEN);
+    var quien = (w.cid || '') + '|' + (w.email || '');
+    if (!o || !o.p || o.env === quien) return;
+    origenEnviando = true;
+    fetch(API + conCliente('/api/origen'), { method: 'POST', body: JSON.stringify({ cid: w.cid, email: w.email, p: o.p, u: o.u }), headers: { 'content-type': 'text/plain' }, keepalive: true })
+      .then(function (r) { if (r.ok) { o.env = quien; store(ORIGEN, o); } })
+      .catch(function () { /* se reintenta en la próxima visita */ })
+      .then(function () { origenEnviando = false; });
+  }
+  window.AlquimIA = window.AlquimIA || {};
+  window.AlquimIA.consentir = function () { store('lsd_consent', 1); capturarOrigen(); enviarOrigen(identity()); };
+  try { capturarOrigen(); } catch (e) { /* sin almacenamiento */ }
+
   function post(path, payload) {
+    if (payload && (payload.cid || payload.email)) { try { enviarOrigen({ cid: payload.cid, email: payload.email }); } catch (e) { /* nada */ } }
+    if (path === '/api/track' || path === '/api/visita' || payload.op === 'click') { try { var cm = cookiesMeta(); if (cm.fbp) payload.fbp = cm.fbp; if (cm.fbc) payload.fbc = cm.fbc; } catch (e) { /* sin cookies */ } }
     var body = JSON.stringify(payload);
     // text/plain evita la petición previa CORS; el servidor lo interpreta como JSON.
     if ((path === '/api/track' || path === '/api/retencion' || path === '/api/visita' || payload.op === 'click' || payload.op === 'espera' || payload.op === 'visita') && navigator.sendBeacon && navigator.sendBeacon(API + conCliente(path), new Blob([body], { type: 'text/plain' }))) {
@@ -1648,7 +1706,7 @@
     if (!params.get('lsd_preview') && who && who.cid && url && /^https:\/\/([a-z0-9-]+\.)*zoom\.us\//i.test(url)) {
       if (redirigido) return;
       redirigido = true;
-      post('/api/directo-zoom', { op: 'click', launch: data.code, k: kDe(key), cid: who.cid });
+      post('/api/directo-zoom', { op: 'click', launch: data.code, k: kDe(key), cid: who.cid, email: who.email || '' });
       location.replace(url);
       return;
     }
@@ -2318,6 +2376,7 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
+  try { enviarOrigen(identity()); } catch (e) { /* nada */ }
 
   // Constructores como GHL a veces meten los «códigos personalizados» después de cargar la página: si aparece
   // un bloque del dashboard nuevo (comentarios, votación, música, textos…) y ya tenemos los datos, se pinta también.

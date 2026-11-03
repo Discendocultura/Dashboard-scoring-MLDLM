@@ -111,7 +111,7 @@ export const MODOS_IVA = ['incluido', 'mas', 'exento'];
 export function sanitizeIva(v) {
   const modo = (x) => (MODOS_IVA.includes(x) ? x : '');
   const pct = Number(v?.pct);
-  return { pct: Number.isFinite(pct) && v?.pct !== '' && v?.pct != null ? Math.min(100, Math.max(0, pct)) : IVA_DEF, vip: modo(v?.vip), programa: modo(v?.programa) };
+  return { pct: Number.isFinite(pct) && v?.pct !== '' && v?.pct != null ? Math.min(100, Math.max(0, pct)) : IVA_DEF, vip: modo(v?.vip), programa: modo(v?.programa), entrada: modo(v?.entrada) };
 }
 export const ivaPct = (launch) => (Number.isFinite(Number(launch?.iva?.pct)) ? Number(launch.iva.pct) : IVA_DEF);
 // Importe sin IVA de un precio según cómo se escribió.
@@ -132,9 +132,9 @@ export function ivaPendiente(launch) {
 // Cada precio dice si lleva el IVA incluido o es «+ IVA» (`iva`); en la facturación y el ROAS cuenta sin IVA.
 //  [{ id, activo, nombre, precio, iva: 'incluido' | 'mas' | '', tag }]
 export const MAX_BUMPS = 5;
-export function sanitizeBumps(lista) {
+export function sanitizeBumps(lista, max = MAX_BUMPS) {
   if (!Array.isArray(lista)) return [];
-  return lista.slice(0, MAX_BUMPS).map((b, i) => ({
+  return lista.slice(0, max).map((b, i) => ({
     id: /^[a-z0-9_-]{1,24}$/i.test(String(b?.id || '')) ? String(b.id) : `bump${i + 1}`,
     activo: b?.activo !== false,
     nombre: String(b?.nombre ?? '').trim().slice(0, 80),
@@ -143,8 +143,11 @@ export function sanitizeBumps(lista) {
     tag: String(b?.tag ?? '').trim().toLowerCase().slice(0, 120),
   })).filter((b) => b.nombre || b.tag || b.precio);
 }
-// Dónde puede haber bump offers: con la entrada VIP, con el pago único y con el pago fraccionado.
+// Dónde puede haber bump offers: con la entrada VIP, con el pago único, con el pago fraccionado y, en los lanzamientos
+// de pago, con la compra de la entrada al evento (hasta 4).
+export const MAX_BUMPS_ENTRADA = 4;
 export const TIPOS_BUMP = [
+  { id: 'entrada', campo: 'entradaBumps', label: 'entrada al evento', base: 'entradas', max: MAX_BUMPS_ENTRADA },
   { id: 'vip', campo: 'vipBumps', label: 'entrada VIP', base: 'VIP' },
   { id: 'unico', campo: 'unicoBumps', label: 'pago único', base: 'ventas en pago único' },
   { id: 'fraccionado', campo: 'fraccionadoBumps', label: 'pago fraccionado', base: 'ventas en pago fraccionado' },

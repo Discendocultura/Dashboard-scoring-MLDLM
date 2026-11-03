@@ -68,3 +68,24 @@ export const preclaseDeRecursos = (l) => conPreclase(l) && l?.preclaseTipo === '
 export const nClases = (l) => (!conPreclase(l) || preclaseDeRecursos(l) ? 0 : [1, 2, 3].includes(Number(l?.nClases)) ? Number(l.nClases) : 2);
 export const clasesDe = (l) => Array.from({ length: nClases(l) }, (_, i) => `clase${i + 1}`);
 export const conVip = (l) => l?.vip !== false;
+
+// Salas de Zoom que hay que mover porque se ha cambiado el día o la hora de su directo (misma sala, fecha nueva,
+// aún por llegar). Si la misma sala la usa otro lanzamiento, no se toca. → [{ code, nombre, k, video, id, fecha, hora }]
+export function salasAMover(antes, despues, hoy) {
+  const usos = {};
+  for (const l of Object.values(despues || {})) for (const v of videosDe(l)) if (v.zoomMeetingId) usos[v.zoomMeetingId] = (usos[v.zoomMeetingId] || 0) + 1;
+  const out = [];
+  for (const [code, l] of Object.entries(despues || {})) {
+    const prev = antes?.[code];
+    if (!prev) continue;
+    const vp = videosDe(prev);
+    for (const v of videosDe(l)) {
+      const p = vp[v.k - 1];
+      if (!v.zoomMeetingId || !p || p.zoomMeetingId !== v.zoomMeetingId || usos[v.zoomMeetingId] > 1) continue;
+      if (!v.fecha || !/^\d{2}:\d{2}$/.test(v.hora) || v.fecha < hoy) continue;
+      if (p.fecha === v.fecha && p.hora === v.hora) continue;
+      out.push({ code, nombre: l.name || code, k: v.k, video: v.nombre, id: v.zoomMeetingId, fecha: v.fecha, hora: v.hora });
+    }
+  }
+  return out.slice(0, 5);
+}

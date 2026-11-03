@@ -6,7 +6,11 @@ import { icon } from './icons.js';
 import { nombreProducto, conProducto, PRODUCTO_MLDLM } from './producto.js';
 import { ORDEN_EDAD, preguntasDe } from './encuesta.js';
 import { sanitizeTitulares, resultadosTitulares, preguntasParaTitular, MAX_VARIANTES } from './titulares.js';
-import { resumenThrivecart, ventasDeCsv, productosVistos, deProductos } from './thrivecart.js';
+import { resumenThrivecart, ventasDeCsv, leerCsv, productosVistos, deProductos } from './thrivecart.js';
+import { filasClientesCsv } from './meta-capi.js';
+import { esDePago, textoPago } from './pago-lanzamiento.js';
+import { ventasEnArbol, vista731 } from './origen.js';
+import { miembrosDeCsv, resumenSkool, tagAlumno, slugNivel } from './skool.js';
 import { resumenAb, MINIMO_AB } from './ab.js';
 import { pasosEmbudo, anchosEmbudo, fondoCapa } from './embudo-visual.js';
 import { promptAvatar } from './prompt-avatar.js';
@@ -41,6 +45,10 @@ import { hitosLanzamiento, fasesLanzamiento, EVENTO_TIPOS } from './calendario.j
 import { RESULTADOS, MOTIVOS, metricasLlamadas, FASES_LLAMADA, fasesPorContacto } from './llamadas.js';
 import { PERMISOS, PERMISOS_DATOS, idDeRol, ROL_CLIENTE, ROL_OPERATIVA, ROLES_FIJOS } from './roles.js';
 import { auditarLanzamiento, auditarVsl, proximoHito, diasHasta, cuando, fechaCortaAud } from './auditor.js';
+import { CONDICIONES, ACCIONES, faltaEnRegla } from './reglas.js';
+import { revisarHtmlPagina } from './revisar-codigos.js';
+import { objetivosDeBrief } from './agente.js';
+import { fmtRatio } from './cerebro.js';
 import { PESTANAS, SECCIONES, CATEGORIAS, SUBTIPOS_VSL, SUBTIPO_IDS, conPrep, subtipoValido, textosVsl, pestanasSugeridas, guiaEmbudo, guiaHtml as guiaPasosHtml } from './embudos-def.js';
 import { rangoDe, semanasDelMes, enrichVsl, computeVsl, porSemanas, porDias, ESTADOS_VSL, importeVsl, addDay } from './embudo-vsl.js';
 import { enGruposDe, claveTelefono, leerMiembros } from './grupos-wa.js';
@@ -75,13 +83,17 @@ import { piezasImagenes, promptImagen, promptMagnificImagenes, PROMPT_VERTICAL, 
 import { paraChatGPT } from './chatgpt.js';
 import { iniciarOnboarding, onbVista, abrirAyuda, verTodas, leerPreview, progresoDe, onbReiniciarAyudas, onbEstado, onbGuardar, onbRol, tour as onbTour } from './onboarding.js';
 import { pasosUtms, arbolUtms, nivelUtms, ordenarUtms, puntuadorEncuesta, promptUtms, cruceVipCompra, encuestaUtm } from './utms.js';
-import { DESBLOQUEOS, desbloqueos, filtrarVistas, desbloqueoDeVista, siguientePaso, recomendarTipo, buscar as buscarAcciones, dosificar, atascados, diasDesde } from './primeros-pasos.js';
+import { DESBLOQUEOS, desbloqueos, filtrarVistas, desbloqueoDeVista, siguientePaso, buscar as buscarAcciones, dosificar, atascados, diasDesde } from './primeros-pasos.js';
 import { iniciarAnimaciones } from './animaciones.js';
 import { FASES_PLAN, enviosPorDefecto, enviosDe, planEnvios, sanitizeEnvios } from './envios.js';
 import { componerEmails } from './emails.js';
 import { saludCliente, ordenSalud, totalesAgencia, urgentesAgencia, agendaAgencia, equipoAgencia } from './agencia-inicio.js';
 import { tiposPara, quiereNotif, CANALES_NOTIF, tipoNotif } from './notificaciones.js';
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
+import { sinEmojis } from './sin-emojis.js';
+
+// AlquimIA sin emojis en la interfaz: iconos de línea en su lugar (los mensajes a las leads conservan los suyos).
+sinEmojis();
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -694,7 +706,9 @@ async function start() {
   document.body.classList.toggle('is-superadmin', state.superadmin);
   document.body.classList.toggle('is-agencia', state.agencia);
   document.body.classList.toggle('can-operativa', state.operativa);
+  document.body.classList.toggle('can-bandeja', !state.ejemplo && tiene(['hoy', 'leads', 'config']));
   pintarCliente(me.cliente);
+  if (!state.ejemplo && tiene(['hoy', 'leads', 'config'])) cargarBandeja();
   // El cliente (solo lectura) ve únicamente su portal de resultados.
   if (role === ROL_CLIENTE) {
     pintarFotoCuenta();
@@ -845,7 +859,7 @@ function revisarPp() {
       for (const id of nuevos) onbGuardar({ paso: `u-${id}` });
     } else ppAbiertos = new Set(DESBLOQUEOS.map((d) => d.id));
     aplicarPpDom();
-    if (state.config && state.embudo && !state.enInicio && !state.enNegocio) refrescarPestanas();
+    if (state.config && state.embudo && !state.enInicio && !state.enNegocio && !state.enPagina) refrescarPestanas();
     pintarSiguientePaso();
     pintarEjemploLateral();
     if (nuevos.length && !ppPendiente) ppPendiente = nuevos[0];
@@ -921,7 +935,7 @@ function popupAccionRecomendada(rol) {
   let emb = '';
   if (rol === 'admin') ({ paso, emb } = pasoRecomendado());
   else if (rol === 'setter') paso = { ico: '📞', titulo: 'Empieza por «Comercial»', texto: 'A quién escribir hoy, ya ordenado por prioridad y con su temperatura. Pulsa WhatsApp y el mensaje sale escrito.', boton: 'Ir a Comercial', accion: 'comercial' };
-  if (!paso || document.querySelector('dialog[open], .onb')) return;
+  if (!paso || document.querySelector('dialog[open]:not(.dlg-pagina), .onb')) return;
   const d = document.createElement('dialog');
   d.className = 'dialog dialog-sm accion-rec';
   d.innerHTML = `<div class="sig-card ar-card"><span class="sig-ico" aria-hidden="true">${paso.ico}</span><div class="sig-txt"><small>Acción recomendada</small><h3>${esc(paso.titulo)}</h3><p>${esc(paso.texto)}</p></div></div>
@@ -1212,7 +1226,7 @@ document.addEventListener('keydown', (e) => {
   const escribiendo = e.target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
   if ((e.key === '/' && !escribiendo) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) {
     // Con una ventana abierta, el primer acceso o una burbuja delante, la tecla es de lo que se ve.
-    if ($('#app').hidden || document.querySelector('dialog[open], .bv:not([hidden]), .onb')) return;
+    if ($('#app').hidden || document.querySelector('dialog[open]:not(.dlg-pagina), .bv:not([hidden]), .onb')) return;
     e.preventDefault();
     if (getComputedStyle($('#tb-buscar')).display === 'none') $('#tb-buscar').classList.add('abierto');
     $('#tb-buscar-in').focus();
@@ -1281,7 +1295,7 @@ $('#btn-reload').addEventListener('click', () => {
 // Configuración; #productos, #marca, #equipo, #conexiones, #atajos / #tus-atajos y #mensajes-whatsapp, su apartado;
 // #agencia, la vista de agencia; #inteligencia-negocio, #operativa y #procesos, lo suyo.
 const ALIAS_NAV = {
-  'mi-negocio': () => abrirMenuConfig(), configuracion: () => abrirMenuConfig(),
+  'mi-negocio': () => abrirMenuConfig(), configuracion: () => abrirMenuConfig(), bandeja: '#btn-bandeja', decisiones: '#btn-bandeja',
   productos: '#btn-productos', marca: '#btn-marca', 'marca-y-avatar': '#btn-marca', equipo: '#btn-equipo', conexiones: '#btn-conexiones',
   atajos: '#btn-atajos', 'tus-atajos': '#btn-atajos', mensajes: () => abrirMensajes(), 'mensajes-whatsapp': () => abrirMensajes(), 'plantillas-whatsapp': () => abrirMensajes(),
   agencia: () => { if (state.superadmin) { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); } },
@@ -1314,7 +1328,7 @@ function pintarSelectorCliente() {
   if (!c) return;
   const pick = $('#cliente-pick');
   pick.hidden = !(state.agencia || state.clientes.length > 1) || state.role === ROL_CLIENTE && state.clientes.length < 2;
-  const enAgencia = Boolean(state.superadmin && state.enInicio && !state.enNegocio && modoInicio() === 'agencia');
+  const enAgencia = Boolean(state.superadmin && state.enInicio && !state.enNegocio && !state.enPagina && modoInicio() === 'agencia');
   $('#cp-ico').textContent = enAgencia ? '🏢' : '';
   $('#cp-ico').hidden = !enAgencia;
   $('#cp-txt').textContent = enAgencia ? 'Agencia' : c.nombre;
@@ -1386,12 +1400,13 @@ function pintarSidebar() {
     return `<div class="sb-row"><button type="button" class="sb-item${activo ? ' active' : ''}" data-embudo="${esc(x.e.id)}"${x.code ? ` data-lanz="${esc(x.code)}"` : ''}${x.meteo ? ` data-meteo="${esc(x.meteo)}"` : ''}><span class="sb-ico" aria-hidden="true">${x.ico}</span><span class="sb-txt"><strong>${esc(x.nombre)}</strong><small>${esc(x.sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(x.e.id)}" title="Pestañas, nombre y guía de «${esc(x.e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
   }).join('');
   // «Inicio» es el del cliente en el que está (la vista de agencia se elige en el selector de arriba).
-  const agencia = Boolean(state.enInicio) && !state.enNegocio && modoInicio() === 'agencia';
+  const agencia = Boolean(state.enInicio) && !state.enNegocio && !state.enPagina && modoInicio() === 'agencia';
   $('#sb-inicio').hidden = false;
-  $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio) && !agencia && !state.enNegocio);
+  $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio) && !agencia && !state.enNegocio && !state.enPagina);
   // «Inteligencia de negocio»: para quien ve las métricas (el rol Cliente la tiene en su portal).
   $('#sb-negocio').hidden = !(tiene('metricas') && embudos().length);
   $('#sb-negocio').classList.toggle('active', Boolean(state.enNegocio));
+  $$('#sb-config-sub [data-proxy]').forEach((b) => b.classList.toggle('active', Boolean(state.enPagina) && b.dataset.proxy === PAGINA_BTN[state.enPagina]));
   pintarSelectorCliente();
 }
 
@@ -1516,8 +1531,10 @@ function salirInicio() {
   if (!state.enInicio) return;
   state.enInicio = false;
   state.enNegocio = false;
+  state.enPagina = false;
+  cerrarPaginas();
   ls.set('lsd_inicio', '');
-  document.body.classList.remove('en-inicio', 'en-negocio');
+  document.body.classList.remove('en-inicio', 'en-negocio', 'en-conexiones', 'en-pagina');
   $('#sb-negocio').classList.remove('active');
   $('#sb-inicio').classList.remove('active');
   // Mostrar poco a poco: al salir del Inicio por un atajo (buscador, «Tu siguiente paso»…), solo las pestañas que tocan.
@@ -1531,7 +1548,9 @@ function pintarSaludo() {
 async function mostrarInicio({ fresh = false } = {}) {
   state.enInicio = true;
   state.enNegocio = false;
-  document.body.classList.remove('en-negocio');
+  state.enPagina = false;
+  cerrarPaginas();
+  document.body.classList.remove('en-negocio', 'en-conexiones', 'en-pagina');
   pintarSaludo();
   ls.set('lsd_inicio', '1');
   document.body.classList.add('en-inicio');
@@ -1689,7 +1708,10 @@ async function cargarNegocioEn(caja, { cliente = state.cliente, enlaces = true }
 function mostrarNegocio() {
   state.enInicio = true;
   state.enNegocio = true;
+  state.enPagina = false;
+  cerrarPaginas();
   ls.set('lsd_inicio', '');
+  document.body.classList.remove('en-conexiones', 'en-pagina');
   document.body.classList.add('en-inicio', 'en-negocio');
   $('#alertas-carrito').hidden = true;
   pintarNavMovil();
@@ -1698,6 +1720,40 @@ function mostrarNegocio() {
   cargarNegocioEn($('#negocio'));
 }
 $('#sb-negocio').addEventListener('click', () => mostrarNegocio());
+// Páginas de configuración (Conexiones, Productos, Marca y avatar, Equipo): una página más, como el Inicio, con el
+// menú lateral y la barra de arriba a mano. Productos, Marca y Equipo siguen siendo <dialog> (sus paneles los abren con
+// showModal), pero se muestran dentro de la página, sin ventana encima.
+// Al salir con su ✕ (o al terminar, p. ej. al crear un lanzamiento), se vuelve a donde se estaba.
+let paginaVolver = 'inicio';
+const PAGINA_BTN = { 'config-dialog': '#btn-config', conexiones: '#btn-conexiones', 'productos-dialog': '#btn-productos', 'marca-dialog': '#btn-marca', 'equipo-dialog': '#btn-equipo' };
+function cerrarPaginas() {
+  for (const d of $$('dialog.dlg-pagina')) if (d.open && d.id !== state.enPagina) d.close();
+}
+function mostrarPagina(id) {
+  if (!state.enPagina) paginaVolver = !state.enInicio ? 'embudo' : state.enNegocio ? 'negocio' : 'inicio';
+  state.enInicio = true;
+  state.enNegocio = false;
+  state.enPagina = id;
+  cerrarPaginas();
+  ls.set('lsd_inicio', '');
+  document.body.classList.remove('en-negocio');
+  document.body.classList.add('en-inicio', 'en-pagina');
+  document.body.classList.toggle('en-conexiones', id === 'conexiones');
+  $('#alertas-carrito').hidden = true;
+  pintarNavMovil();
+  pintarSidebar();
+  window.scrollTo(0, 0);
+}
+const mostrarConexiones = () => mostrarPagina('conexiones');
+for (const d of $$('dialog.dlg-pagina')) {
+  // Al abrir, arriba del todo (show() lleva el foco al primer campo y bajaría la página hasta él).
+  d.showModal = () => { mostrarPagina(d.id); if (!d.open) { d.show(); window.scrollTo(0, 0); } };
+  // Cerrarla (su ✕ o «Cerrar») es volver al Inicio; si se cierra por ir a otra página, no.
+  d.addEventListener('close', () => {
+    if (state.enPagina !== d.id) return;
+    if (paginaVolver === 'embudo') { salirInicio(); pintarNavMovil(); pintarSidebar(); } else if (paginaVolver === 'negocio') mostrarNegocio(); else mostrarInicio();
+  });
+}
 document.addEventListener('change', (e) => {
   const sel = e.target.closest('[data-ng-periodo]');
   if (!sel) return;
@@ -1981,7 +2037,7 @@ function pintarActualizado() {
   const el = $('#inicio-actualizado');
   if (!el) return;
   const ts = [...(ini?.embudos || []), ...(ini?.meteoricos || [])].filter((x) => x && !x.cargando).map((x) => x.calculadoEn || ini.cargadoEn).filter(Number.isFinite);
-  el.textContent = ts.length && state.enInicio && !state.enNegocio && modoInicio() !== 'agencia' ? `Actualizado ${haceTxt(Math.min(...ts))}` : '';
+  el.textContent = ts.length && state.enInicio && !state.enNegocio && !state.enPagina && modoInicio() !== 'agencia' ? `Actualizado ${haceTxt(Math.min(...ts))}` : '';
 }
 setInterval(pintarActualizado, 60_000);
 
@@ -3166,6 +3222,172 @@ document.addEventListener('click', async (e) => {
   $('#casi-estado').textContent = fallos ? `Etiquetadas ${hechas}; ${fallos} no se pudieron (vuelve a pulsar para reintentarlo).` : `Etiquetadas ${hechas} en GHL ✓`;
 });
 
+// 🎓 Alumnos de Skool (Métricas → Ventas): se sube el CSV de miembros de Skool (filtrado o no por fechas) y cada miembro
+// queda guardado como venta real (fuente «skool», con su nivel, precio y lo cobrado). Aquí, los que se unieron en el
+// periodo del lanzamiento: reparto por nivel, lo cobrado, lo que suman al mes y cuántos estaban registrados; y el botón
+// que pone en GHL la etiqueta de alumno de su nivel (`alumno-claves-premium`). La facturación y el ROAS salen arriba,
+// en «Ventas reales», al marcar sus niveles como productos del lanzamiento.
+// Colores e iconos de los niveles, del más barato al más caro (el más caro, la corona).
+const SK_COLORES = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899'];
+const skIcono = (i, n) => (n === 1 ? '🎓' : i === n - 1 ? '👑' : i === 0 ? '🌱' : ['🚀', '💎', '⭐'][(i - 1) % 3]);
+// Anillo SVG con un trozo por nivel (se dibuja con una animación al aparecer).
+function skDonut(filas, total) {
+  const R = 52; const C = 2 * Math.PI * R;
+  let acum = 0;
+  const trozos = filas.map((f, i) => {
+    const largo = (f.n / total) * C;
+    const t = `<circle class="sk-seg" cx="70" cy="70" r="${R}" stroke="${SK_COLORES[i % SK_COLORES.length]}" stroke-dasharray="${Math.max(0, largo - 2).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-acum).toFixed(2)}" style="--c:${C.toFixed(2)};animation-delay:${i * 120}ms"><title>${esc(f.nivel)}: ${f.n} (${Math.round(f.pct * 100)} %)</title></circle>`;
+    acum += largo;
+    return t;
+  }).join('');
+  return `<svg class="sk-donut" viewBox="0 0 140 140" role="img" aria-label="Reparto de alumnos por nivel"><circle cx="70" cy="70" r="${R}" class="sk-donut-fondo"/>${trozos}
+    <text x="70" y="66" class="sk-donut-n">${total}</text><text x="70" y="86" class="sk-donut-t">alumnos</text></svg>`;
+}
+const skool = { prev: null, m: null };
+const skoolPrefijo = (code) => ls.get(`lsd_skool_pref_${state.cliente || ''}_${code}`) || `alumno-${slugNivel(nombreProducto(state.config)) || 'skool'}`;
+async function renderSkool(m = skool.m) {
+  skool.m = m;
+  const box = $('#skool-l');
+  if (!box) return;
+  const code = state.launchCode;
+  const launch = state.config.launches[code] || {};
+  const { desde, hasta } = periodoLanz(code);
+  const ventas = (await ventasReales(desde, hasta)).filter((v) => v.fuente === 'skool');
+  if (state.launchCode !== code) return;
+  const emails = new Set(state.leads.map((l) => String(l.email || '').toLowerCase()).filter(Boolean));
+  const r = resumenSkool(ventas, { desde, hasta, emails });
+  const puede = puedeConfig();
+  const importar = puede ? `<details class="sk-imp"${r.total ? '' : ' open'}><summary>⬆️ <strong>${r.total ? 'Actualizar con un CSV nuevo' : 'Importar el CSV de miembros de Skool'}</strong></summary>
+      <ol class="muted small"><li>En Skool: <strong>Miembros</strong> → filtra si quieres por fecha de alta → <strong>Exportar CSV</strong>.</li><li>Súbelo aquí: verás lo que se va a guardar antes de confirmarlo.</li><li>Puedes subirlo las veces que quieras: cada miembro se actualiza (lo cobrado crece con cada renovación), no se repite.</li></ol>
+      <div class="row sk-fila"><input type="file" id="sk-csv" accept=".csv,text/csv"> <label class="field inline"><span>1 $ =</span><input type="number" id="sk-cambio" step="0.0001" min="0.1" max="5" value="${esc(ls.get('lsd_skool_cambio') || '')}" placeholder="0,86" style="width:90px"> <span>€</span></label></div>
+      <p class="muted small">El cambio solo hace falta si Skool cobra en dólares: así la facturación y el ROAS salen en euros, como la inversión de Meta.</p>
+      <div id="sk-prev"></div>
+    </details>` : '';
+  if (!r.total) {
+    box.innerHTML = `<div class="sk-vacio"><span class="sk-vacio-ico" aria-hidden="true">🎓</span><div><strong>Tu comunidad de Skool, aquí</strong><p class="muted">Sube el CSV de miembros y verás cuántos alumnos trajo este lanzamiento, en qué nivel, cuánto han pagado y el ROAS real.${puede ? '' : ' Pídele a quien configura el embudo que lo suba.'}</p></div></div>${importar}`;
+    return;
+  }
+  const pref = skoolPrefijo(code);
+  const n = r.filas.length;
+  const color = (i) => SK_COLORES[i % SK_COLORES.length];
+  const inversion = m?.eco?.inversion || 0;
+  const sinIva = r.cobrado / (1 + ivaPct(launch) / 100);
+  const roas = inversion ? sinIva / inversion : null;
+  const x2 = (v) => `${v.toFixed(2).replace('.', ',')}x`;
+  const dia = (ms) => new Date(ms).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' });
+  const fechas = r.miembros.map((v) => v.fecha).sort((a, b) => a - b);
+  // Cabecera: lo grande.
+  const stat = (et, v, sub, cls = '') => `<div class="sk-stat ${cls}"><span>${et}</span><b>${v}</b><small>${sub}</small></div>`;
+  const hero = `<div class="sk-hero">
+      <div class="sk-hero-main">
+        <span class="sk-kicker">🎓 Comunidad Skool${launch.name ? ` · ${esc(launch.name)}` : ''}</span>
+        <div class="sk-big"><b>${r.total.toLocaleString('es-ES')}</b><span>${r.total === 1 ? 'alumno nuevo' : 'alumnos nuevos'}</span></div>
+        <p>se unieron del ${dia(fechas[0])} al ${dia(fechas.at(-1))} · <strong>${r.registrados}</strong> venían de tus leads (${pctOf(r.registrados, r.total)})</p>
+      </div>
+      <div class="sk-stats">
+        ${stat('Cobrado', eur(r.cobrado), `con IVA · ${eur(sinIva)} sin IVA`)}
+        ${r.mrr ? stat('Ingreso al mes', eur(r.mrr), 'lo que suman sus cuotas') : ''}
+        ${r.mrr ? stat('Si siguen un año', eur(r.mrr * 12), 'ingreso anual recurrente') : ''}
+        ${roas != null ? stat('ROAS de Skool', x2(roas), `${eur(sinIva)} ÷ ${eur(inversion)} invertidos`, roas >= 1 ? 'sk-ok' : 'sk-bajo') : ''}
+      </div>
+    </div>`;
+  // Un nivel = una tarjeta de suscripción.
+  const tier = (f, i) => `<article class="sk-tier" style="--t:${color(i)};animation-delay:${120 + i * 90}ms">
+      <header><span class="sk-tier-ico" aria-hidden="true">${skIcono(i, n)}</span><div><h4>${esc(f.nivel)}</h4>${f.precioMes != null ? `<small>${eur(f.precioMes)}/mes</small>` : ''}</div><span class="sk-tier-pct">${Math.round(f.pct * 100)}%</span></header>
+      <div class="sk-tier-n"><b>${f.n}</b> ${f.n === 1 ? 'alumno' : 'alumnos'}</div>
+      <div class="sk-tier-bar"><i style="width:${Math.max(3, f.pct * 100)}%"></i></div>
+      <dl><div><dt>Cobrado</dt><dd>${eur(f.cobrado)}</dd></div><div><dt>Por alumno</dt><dd>${eur(f.ticket)}</dd></div>${f.mrr ? `<div><dt>Al mes</dt><dd>${eur(f.mrr)}</dd></div>` : ''}<div><dt>De tus leads</dt><dd>${pctOf(f.registrados, f.n)}</dd></div></dl>
+      <code class="sk-tier-tag">🏷️ ${esc(tagAlumno(pref, f.nivel))}</code>
+    </article>`;
+  const reparto = `<div class="sk-reparto">
+      <div class="sk-donut-box">${skDonut(r.filas, r.total)}<ul class="sk-ley">${r.filas.map((f, i) => `<li><i style="background:${color(i)}"></i>${esc(f.nivel)} <b>${Math.round(f.pct * 100)}%</b></li>`).join('')}</ul></div>
+      <div class="sk-tiers">${r.filas.map(tier).join('')}</div>
+    </div>`;
+  // Altas por día y los últimos en unirse.
+  const maxDia = Math.max(1, ...r.porDia.map((d) => d.n));
+  const record = r.porDia.find((d) => d.n === maxDia);
+  const diaCorto = (k) => new Date(`${k}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const altas = r.porDia.length > 1 ? `<section class="sk-panel"><h4 class="cv-h4">📈 Altas por día</h4>
+      <div class="sk-dias" style="--n:${r.porDia.length}">${r.porDia.map((d, i) => `<div class="sk-dia${d === record ? ' sk-record' : ''}" title="${esc(diaCorto(d.dia))}: ${d.n} ${d.n === 1 ? 'alta' : 'altas'}"><b>${d.n || ''}</b><i style="height:${d.n ? Math.max(6, (d.n / maxDia) * 100) : 0}%;animation-delay:${i * 40}ms"></i><span>${r.porDia.length <= 14 || i % Math.ceil(r.porDia.length / 10) === 0 ? esc(diaCorto(d.dia)) : ''}</span></div>`).join('')}</div>
+      <p class="muted small">🔥 Día récord: <strong>${esc(diaCorto(record.dia))}</strong> con ${record.n} ${record.n === 1 ? 'alta' : 'altas'}${launch.fechaDirecto && record.dia === launch.fechaDirecto ? ' (el día del directo)' : ''}.</p></section>` : '';
+  const nivelIdx = new Map(r.filas.map((f, i) => [f.nivel, i]));
+  const ini = (v) => String(v.nombre || v.email).split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
+  const ultimos = [...r.miembros].sort((a, b) => b.fecha - a.fecha).slice(0, 6);
+  const lista = `<section class="sk-panel"><h4 class="cv-h4">✨ Últimos en unirse</h4><ul class="sk-ult">${ultimos.map((v) => {
+    const i = nivelIdx.get(v.plan) ?? 0;
+    const lead = state.leads.find((l) => String(l.email || '').toLowerCase() === v.email);
+    return `<li><span class="sk-av" style="--t:${color(i)}">${esc(ini(v))}</span><div>${lead ? `<button type="button" class="lead-ficha" data-ficha-lead="${esc(lead.id)}">${esc(v.nombre || v.email)}</button>` : `<strong>${esc(v.nombre || v.email)}</strong>`}<small>${esc(haceTxt(v.fecha))}${lead ? '' : ' · no estaba registrado'}</small></div><span class="sk-chip" style="--t:${color(i)}">${skIcono(i, n)} ${esc(v.plan)}</span></li>`;
+  }).join('')}</ul></section>`;
+  const etiquetar = puede ? `<section class="sk-tag"><div><h4 class="cv-h4">🏷️ Etiqueta de alumno en GHL</h4>
+      <div class="row sk-fila"><label class="field inline"><span>Prefijo</span><input id="sk-pref" value="${esc(pref)}" style="width:200px"></label> <span class="muted small">→ ${r.filas.slice(0, 3).map((f) => `<code>${esc(tagAlumno(pref, f.nivel))}</code>`).join(' · ')}</span></div>
+      <p class="muted small" id="sk-tag-st">Busca a cada uno por su email en GHL y le pone la etiqueta de su nivel. A quien no esté en GHL no se le crea: te lo digo.</p></div>
+      <button type="button" class="btn primary sk-tag-btn" id="sk-etiquetar">Etiquetar a los ${r.total} en GHL</button></section>` : '';
+  box.innerHTML = `${hero}${reparto}<div class="sk-dos">${altas}${lista}</div>
+    <p class="sk-nota">💡 Para que cuenten en la <strong>facturación y el ROAS</strong> de todo el lanzamiento, márcalos en Resumen → «Ventas reales» → «Qué ventas son de este lanzamiento» (salen como «Skool · ${esc(r.filas[0].nivel)}»…). Sin marcar nada, cuentan solo los alumnos que estaban registrados.</p>
+    ${etiquetar}${importar}`;
+}
+document.addEventListener('change', async (e) => {
+  if (e.target.id === 'sk-cambio') { ls.set('lsd_skool_cambio', e.target.value); return; }
+  if (e.target.id === 'sk-pref') { ls.set(`lsd_skool_pref_${state.cliente || ''}_${state.launchCode}`, slugNivel(e.target.value)); renderSkool(); return; }
+  if (e.target.id !== 'sk-csv' || !e.target.files?.[0]) return;
+  const r = miembrosDeCsv(await e.target.files[0].text());
+  skool.prev = r;
+  const prev = $('#sk-prev');
+  if (!r.miembros.length) {
+    prev.innerHTML = `<p class="notice err">No encuentro ${r.faltan.includes('email') ? 'la columna del email' : 'miembros con email'} en este archivo.${r.cabecera ? ` Columnas: ${r.cabecera.map((c) => `«${esc(c)}»`).join(', ')}.` : ''}</p>`;
+    return;
+  }
+  const niveles = [...new Set(r.miembros.map((m) => m.nivel))];
+  const fechas = r.miembros.map((m) => m.fecha).filter(Boolean).sort((a, b) => a - b);
+  const usd = r.miembros.some((m) => m.moneda === 'USD');
+  const dia = (ms) => new Date(ms).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  const falta = ['nivel', 'precio', 'ltv'].filter((k) => r.columnas[k] == null);
+  prev.innerHTML = `<div class="sk-prev">
+    <p><strong>${r.miembros.length} miembros</strong>${fechas.length ? ` · se unieron del ${dia(fechas[0])} al ${dia(fechas.at(-1))}` : ''} · niveles: ${niveles.map((n) => `<strong>${esc(n)}</strong> (${r.miembros.filter((m) => m.nivel === n).length})`).join(', ')}${usd ? ' · en dólares' : ''}.</p>
+    ${r.faltan.includes('fecha') ? '<p class="notice err">No encuentro la columna de la fecha de alta: sin ella no se sabe qué miembros son de cada lanzamiento.</p>' : ''}
+    ${falta.length ? `<p class="notice">No encuentro ${falta.map((k) => ({ nivel: 'el nivel', precio: 'el precio', ltv: 'lo cobrado (LTV)' }[k])).join(', ')}. ${falta.includes('ltv') ? 'Sin el LTV, cada alumno cuenta como un cobro de su precio.' : ''}</p>` : ''}
+    ${usd ? '<p class="muted small">Pon arriba cuántos euros es un dólar antes de importar.</p>' : ''}
+    <p><button type="button" class="btn primary" id="sk-importar"${r.faltan.includes('fecha') ? ' disabled' : ''}>Importar ${r.miembros.length} miembros</button> <span class="muted small" id="sk-imp-st"></span></p></div>`;
+});
+document.addEventListener('click', async (e) => {
+  if (e.target.id === 'sk-importar') {
+    const b = e.target;
+    const r = skool.prev;
+    const cambio = Number(String($('#sk-cambio')?.value || '').replace(',', '.'));
+    if (r.miembros.some((m) => m.moneda === 'USD') && !(cambio > 0)) { $('#sk-imp-st').textContent = 'Pon el cambio del dólar (1 $ = … €).'; return; }
+    b.disabled = true;
+    try {
+      const x = await api('/api/skool?op=importar', { method: 'POST', body: { miembros: r.miembros, cambio } });
+      Object.keys(tcCache).forEach((k) => delete tcCache[k]);
+      skool.prev = null;
+      notice(`Skool: ${x.nuevos} alumnos nuevos y ${x.actualizados} actualizados${x.descartados ? ` (${x.descartados} sin email o fecha válidos)` : ''}.`);
+      renderMetrics();
+    } catch (ex) { b.disabled = false; $('#sk-imp-st').textContent = ex.message; }
+    return;
+  }
+  if (e.target.id !== 'sk-etiquetar') return;
+  const b = e.target;
+  const code = state.launchCode;
+  const pref = skoolPrefijo(code);
+  const { desde, hasta } = periodoLanz(code);
+  const r = resumenSkool(await ventasReales(desde, hasta), { desde, hasta });
+  const items = r.miembros.map((v) => ({ email: v.email, tag: tagAlumno(pref, v.plan) })).filter((x) => x.tag);
+  if (!items.length) return;
+  if (!window.confirm(`Se va a poner en GHL la etiqueta de su nivel a ${items.length} alumnos (${[...new Set(items.map((x) => x.tag))].join(', ')}). Si algún workflow empieza con esas etiquetas, se pondrá en marcha. ¿Continuar?`)) return;
+  b.disabled = true;
+  const st = $('#sk-tag-st');
+  let ok = 0; const fuera = []; let fallos = 0;
+  for (let i = 0; i < items.length; i += 25) {
+    try {
+      const { results } = await api('/api/skool?op=etiquetar', { method: 'POST', body: { items: items.slice(i, i + 25) } });
+      for (const x of results) { if (x.ok) ok++; else if (x.motivo === 'no está en GHL') fuera.push(x.email); else fallos++; }
+    } catch { fallos += items.slice(i, i + 25).length; }
+    if (st) st.textContent = `Etiquetando… ${Math.min(i + 25, items.length)} de ${items.length}`;
+  }
+  b.disabled = false;
+  if (st) st.innerHTML = `✓ ${ok} etiquetados en GHL.${fuera.length ? ` ${fuera.length} no están en GHL: ${fuera.slice(0, 8).map(esc).join(', ')}${fuera.length > 8 ? '…' : ''}.` : ''}${fallos ? ` ${fallos} fallaron: vuelve a pulsar para reintentarlo.` : ''}`;
+});
+
 // Compradores fichados (Métricas → Ventas): cada persona que compró en este lanzamiento con su email, su WhatsApp,
 // cómo pagó y todo lo que hizo antes (los mismos chips que en Setting hoy). Con buscador y descarga en CSV.
 const compr = { q: '', ver: 30 };
@@ -3276,7 +3498,68 @@ function fuenteInversion(launch, m) {
   return { ok: false, txt: `Las campañas con «${esc(filtro)}» aún no tienen gasto` };
 }
 
+// 🧠 Cerebro a la vista: arriba de Métricas → Resumen, la predicción de ventas, la fase que más falla y la tabla por
+// fases (lo mismo que la pestaña 🧭 Agente de la bandeja). Se pide al servidor una vez cada 10 min por lanzamiento.
+const cerebroCache = new Map();
+// Lanzamiento de pago (Métricas → Resumen): entradas, coste por entrada, si los anuncios se pagan solos con las
+// entradas, la calidad de quien compra la entrada y cuántas pasan al programa.
+function pintarPagoCard() {
+  const card = $('#pago-card');
+  if (!card) return;
+  const launch = state.config.launches[state.launchCode];
+  const p = esDePago(launch) && state.leads?.length ? currentMetrics().entrada : null;
+  card.hidden = !p;
+  if (card.hidden) return;
+  const pct = (v) => (v == null ? '–' : `${Math.round(v * 100)} %`);
+  const roas = (v) => (v == null ? '–' : `${v.toFixed(2).replace('.', ',')}x`);
+  const sinPrecio = !Number(launch.precioEntrada);
+  card.innerHTML = `<div class="pg-cab"><h3>🎟️ Lanzamiento de pago</h3><span class="pg-estado ${p.autoliquidable ? 'ok' : 'no'}">${p.autoliquidable ? '✅ Los anuncios ya se pagan solos con las entradas' : p.faltanParaAutoliquidar ? `Faltan ${numEs(p.faltanParaAutoliquidar)} entradas para que los anuncios se paguen solos` : 'Sin inversión todavía'}</span></div>
+    ${sinPrecio ? '<p class="notice warn">Pon el precio de la entrada en Configuración → Oferta para calcular los ingresos y el ROAS de las entradas.</p>' : ''}
+    <div class="pg-grid">
+      <div class="pg-dato"><span>Entradas vendidas</span><b>${numEs(p.entradas)}</b><small>${eur(p.precioEntrada)} cada una sin IVA${p.ingresosBumps ? ` · ticket medio ${eur(p.ticketEntrada)} con bumps` : ''}</small></div>
+      <div class="pg-dato"><span>Coste por entrada</span><b>${eur(p.cpaEntrada)}</b><small>inversión ÷ entradas</small></div>
+      <div class="pg-dato"><span>ROAS de las entradas</span><b class="pb-roas ${p.roasEntradas >= 1 ? 'bien' : p.roasEntradas >= 0.6 ? 'medio' : 'mal'}">${roas(p.roasEntradas)}</b><small>${eur(p.ingresosEntradas)} en entradas · ${p.beneficioEntradas >= 0 ? 'ganas' : 'pierdes'} ${eur(Math.abs(p.beneficioEntradas))} antes de vender el programa</small></div>
+      <div class="pg-dato"><span>Participan</span><b>${pct(p.pctParticipan)}</b><small>${numEs(p.participan)} entran al directo o ven la grabación</small></div>
+      <div class="pg-dato"><span>Nota por entrada</span><b>${p.notaEntrada == null ? '–' : `${p.notaEntrada.toFixed(1).replace('.', ',')} / 10`}</b><small>puntuación media de quien compró · ${numEs(p.calientes)} calientes</small></div>
+      <div class="pg-dato"><span>Entrada → programa</span><b>${pct(p.convPrograma)}</b><small>${numEs(p.compraPrograma)} compran el programa</small></div>
+      <div class="pg-dato pg-total"><span>ROAS total</span><b class="pb-roas ${p.roasTotal >= 2 ? 'bien' : p.roasTotal >= 1 ? 'medio' : 'mal'}">${roas(p.roasTotal)}</b><small>${eur(p.facturacionTotal)}: entradas + VIP + programa</small></div>
+    </div>
+    ${p.bumps.length ? `<div class="pg-bumps"><strong>➕ Bump offers de la entrada</strong><ul>${p.bumps.map((b) => `<li><span>${esc(b.nombre || 'Bump')}</span><b>${pct(b.pct)}</b><small>${numEs(b.n)} de ${numEs(p.entradas)} · ${eur(b.facturacion)}</small></li>`).join('')}</ul></div>` : ''}
+    <p class="muted small">${esc(textoPago(p))} En Publicidad, los anuncios se miden por compra de la entrada; con «Ventas reales» ves qué anuncio trae compradoras de entrada que luego compran el programa.</p>`;
+}
+async function pintarCerebroCard() {
+  const box = $('#cerebro-card');
+  const code = state.launchCode;
+  if (!box || !code || enVsl() || enDirecta() || !tiene(['config', 'metricas'])) { if (box) box.hidden = true; return; }
+  const k = `${state.cliente || ''}|${code}`;
+  let c = cerebroCache.get(k);
+  if (!c || Date.now() - c.en > 10 * 60_000) {
+    // Una sola petición aunque se repinte varias veces mientras llega.
+    c = { en: Date.now(), p: api(`/api/agente?l=${encodeURIComponent(code)}`) };
+    cerebroCache.set(k, c);
+  }
+  try { c.a ??= await c.p; } catch { cerebroCache.delete(k); box.hidden = true; return; }
+  if (state.launchCode !== code) return;
+  const a = c.a;
+  const p = a.cerebro?.prediccion;
+  const o = a.objetivos || {};
+  const grande = p && !p.sinConversion
+    ? `<div class="cb-grande ${p.llega === false ? 'mal' : 'bien'}"><span>🔮 Ventas previstas</span><strong>${p.ventas}</strong><small>entre ${p.ventasBajo} y ${p.ventasAlto}${o.ventas ? ` · objetivo ${o.ventas}` : ''}</small></div>`
+    : `<div class="cb-grande"><span>🔮 Registros previstos</span><strong>${p?.registrosFinales ?? a.registros ?? '–'}</strong><small>${o.registros ? `objetivo ${o.registros}` : 'sin objetivo'}</small></div>`;
+  box.innerHTML = `<div class="cb-cab"><h2>🧠 Cerebro del lanzamiento</h2><button type="button" class="btn small" data-cb-agente>Abrir el agente →</button></div>
+    <div class="cb-fila">${grande}<div class="cb-textos">${a.cerebro ? pintarCerebro(a.cerebro) : '<p class="muted">Sin datos todavía.</p>'}</div></div>
+    ${!o.ventas ? '<p class="muted small">💡 Ponle objetivos en el agente (el brief) y te digo si llegas y qué te falta.</p>' : ''}`;
+  box.hidden = false;
+}
+$('#cerebro-card').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-cb-agente]')) return;
+  pintarBandeja();
+  $('#bandeja-dialog').showModal();
+  $('#bandeja-dialog [data-bj-tab="agente"]').click();
+});
 function renderMetrics() {
+  pintarCerebroCard();
+  pintarPagoCard();
   const launch = state.config.launches[state.launchCode];
   const m = currentMetrics();
   m.launch = launch;
@@ -3301,7 +3584,7 @@ function renderMetrics() {
   // captación → calentamiento (encuesta, VIP) → directo → carrito (llamadas, ventas, bumps del programa).
   const roasTxt = m.eco.roas != null ? `${m.eco.roas.toFixed(2).replace('.', ',')}x` : '–';
   const inv = fuenteInversion(launch, m);
-  const factSub = [`programa ${eur(m.eco.facturacionPrograma)}`, m.conVip ? `VIP ${eur(m.eco.facturacionVip)}` : '', m.eco.facturacionBumps ? `bumps ${eur(m.eco.facturacionBumps)}` : ''].filter(Boolean).join(' + ');
+  const factSub = [m.eco.facturacionEntradas ? `entradas ${eur(m.eco.facturacionEntradas)}` : '', `programa ${eur(m.eco.facturacionPrograma)}`, m.conVip ? `VIP ${eur(m.eco.facturacionVip)}` : '', m.eco.facturacionBumps ? `bumps ${eur(m.eco.facturacionBumps)}` : ''].filter(Boolean).join(' + ');
   const grande = (html) => html.replace('class="kpi static', 'class="kpi static kpi-hero');
   $('#metric-hero').innerHTML = [
     grande(card('Leads totales', m.total.toLocaleString('es-ES'), `${launch.sendflowId ? textoGrupoWa(m) : ''}${m.clientaAnterior || m.vipAnterior ? `${m.vipAnterior} VIP y ${m.clientaAnterior} clientas de lanzamientos anteriores` : 'registros del lanzamiento'}`, 'users', 'accent')),
@@ -3343,6 +3626,7 @@ function renderMetrics() {
   renderRetrospectiva(m, launch);
   renderCasiCompradoras(launch);
   renderCompradores();
+  renderSkool(m);
   // Métricas → Downsell abierta: el meteórico y su conversión de ESTE lanzamiento (y con sus leads).
   if (!$('#view-metricas [data-msub="meteorico"]').hidden) renderMeteoLanz();
   // Carrito abierto: ritmo frente al objetivo, bonus que caducan y cierre (visible en todas las pestañas).
@@ -3634,11 +3918,12 @@ const tcCache = {};
 async function ventasReales(desde, hasta) {
   const clave = `${state.cliente || ''}:${desde}:${hasta}`;
   if (tcCache[clave] && Date.now() - tcCache[clave].at < 5 * 60_000) return tcCache[clave].ventas;
-  const [tc, hm] = await Promise.all([
+  const [tc, hm, sk] = await Promise.all([
     api(`/api/thrivecart?op=ventas&desde=${desde}&hasta=${hasta}`).catch(() => ({ ventas: [] })),
     api(`/api/hotmart?op=ventas&desde=${desde}&hasta=${hasta}`).catch(() => ({ ventas: [] })),
+    api(`/api/skool?op=ventas&desde=${desde}&hasta=${hasta}`).catch(() => ({ ventas: [] })),
   ]);
-  const ventas = [...(tc.ventas || []), ...(hm.ventas || [])].sort((a, b) => a.fecha - b.fecha);
+  const ventas = [...(tc.ventas || []), ...(hm.ventas || []), ...(sk.ventas || [])].sort((a, b) => a.fecha - b.fecha);
   tcCache[clave] = { at: Date.now(), ventas };
   return ventas;
 }
@@ -3651,7 +3936,7 @@ function cifrasReales(r, { iva = 21, inversion = null, sub = '' } = {}) {
   const netoLlega = r.netoExacto + sinIva(r.sinNeto);
   const x2 = (v) => (v == null ? '–' : `${v.toFixed(2).replace('.', ',')}x`);
   const fuentes = Object.entries(r.porFuente || {});
-  const chip = ([f, d]) => `<span class="tc-fuente tc-f-${f}">${f === 'hotmart' ? '🔥 Hotmart' : '💳 ThriveCart'} · ${d.cobros} ${d.cobros === 1 ? 'venta' : 'ventas'} · ${eur(d.cobrado)}${f === 'hotmart' ? ` · te llegan ${eur(d.neto)}` : ''}</span>`;
+  const chip = ([f, d]) => `<span class="tc-fuente tc-f-${f}">${f === 'hotmart' ? '🔥 Hotmart' : f === 'skool' ? '🎓 Skool' : '💳 ThriveCart'} · ${d.cobros} ${d.cobros === 1 ? 'venta' : 'ventas'} · ${eur(d.cobrado)}${f === 'hotmart' ? ` · te llegan ${eur(d.neto)}` : ''}</span>`;
   const html = `<div class="tc-cab"><span class="tc-ico" aria-hidden="true">💶</span><div><strong>Ventas reales</strong><small class="muted">${sub}</small></div>${fuentes.length ? `<div class="tc-fuentes">${fuentes.map(chip).join('')}</div>` : ''}</div>
     <div class="tc-cifras">
       <div><span>Lo que pagan</span><strong>${eur(r.cobrado)}</strong><small>${r.cobros} ${r.cobros === 1 ? 'venta' : 'ventas'} · ${r.compradoras} ${r.compradoras === 1 ? 'compradora' : 'compradoras'} · con IVA</small></div>
@@ -3664,7 +3949,7 @@ function cifrasReales(r, { iva = 21, inversion = null, sub = '' } = {}) {
 // Los productos de un embudo para las ventas reales: los de ThriveCart tal cual y los de Hotmart como «hm:<id>».
 const prodsReales = (tc = [], hm = []) => [...(tc || []), ...(hm || []).map((x) => `hm:${x}`)];
 // Nombre de la plataforma de un producto visto («hm:…» es Hotmart).
-const plataformaDe = (clave) => (String(clave).startsWith('hm:') ? 'Hotmart' : 'ThriveCart');
+const plataformaDe = (clave) => (String(clave).startsWith('hm:') ? 'Hotmart' : /^skool · /i.test(String(clave)) ? 'Skool' : 'ThriveCart');
 function periodoLanz(code) {
   const l = state.config.launches[code] || {};
   const desde = l.inicioCaptacion ? Date.parse(`${l.inicioCaptacion}T00:00:00`) - 7 * 86_400_000 : 0;
@@ -3720,7 +4005,7 @@ async function renderThrivecart(m, launch) {
     const netoVip = rVip?.cobros ? netoDe(rVip) : vipPart;
     const netoProg = rProg?.cobros ? netoDe(rProg) + progResto : progPart;
     const netoLlega = (conVipL ? netoVip : 0) + netoProg;
-    const detalle = `💶 ${[conVipL ? `VIP ${eur(vipPart)}${vipTc != null ? ' (ventas reales)' : ''}` : '', `programa ${eur(progPart)}${progTc != null ? ` (ventas reales ${eur(progTc)}${progResto ? ` + otros ${eur(progResto)}` : ''})` : ''}`].filter(Boolean).join(' + ')} · <strong>te llegan ${eur(netoLlega)}</strong> · por etiquetas ${eur(m.eco.facturacion)}`;
+    const detalle = `💶 ${[m.eco.facturacionEntradas ? `entradas ${eur(m.eco.facturacionEntradas)}` : '', conVipL ? `VIP ${eur(vipPart)}${vipTc != null ? ' (ventas reales)' : ''}` : '', `programa ${eur(progPart)}${progTc != null ? ` (ventas reales ${eur(progTc)}${progResto ? ` + otros ${eur(progResto)}` : ''})` : ''}`].filter(Boolean).join(' + ')} · <strong>te llegan ${eur(netoLlega)}</strong> · por etiquetas ${eur(m.eco.facturacion)}`;
     m.tc = { fact, vipPart, progPart, ventasProg, vipN: rVip?.cobros || m.vip, netoLlega };
     pintarEmbudoVisual(m, launch); // con lo cobrado de verdad
     renderFacturacionTotal(m);
@@ -5367,6 +5652,7 @@ $$('.view-tab, .subview-tab[data-view]:not(.subview-labia)').forEach((t) => t.in
   }
 }
 $$('[data-tab-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico">${icon(b.dataset.tabIcon)}</span>`));
+$$('[data-tab-emoji]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tab-ico tab-emo" aria-hidden="true">${b.dataset.tabEmoji}</span>`));
 $$('[data-tb-icon]').forEach((b) => b.insertAdjacentHTML('afterbegin', `<span class="tb-ico">${icon(b.dataset.tbIcon)}</span>`));
 // Configuración (productos, marca, equipo, conexiones y atajos, plantillas de WhatsApp) va dentro del menú de tu perfil.
 function abrirMenuConfig() { $('#tb-menu-cuenta').open = true; $('#tb-menu-ajustes').open = true; }
@@ -5512,7 +5798,7 @@ const nav = { restaurando: false };
 }
 window.addEventListener('popstate', (e) => {
   if (nav.saltarPop) { nav.saltarPop = false; return; }
-  const abiertas = [...document.querySelectorAll('dialog[open]')];
+  const abiertas = [...document.querySelectorAll('dialog[open]:not(.dlg-pagina)')];
   if (abiertas.length) { nav.restaurando = true; abiertas.at(-1).close(); nav.restaurando = false; return; }
   if (!$('#notif-panel').hidden) { cerrarNotif(); return; }
   const menu = $$('.topbar .tb-menu').find((m) => m.open);
@@ -5827,7 +6113,7 @@ function renderHoy() {
     { id: 'venta', corto: '🛒 Página de venta', title: '🛒 Visitaron la página de venta y no han comprado', hint: 'Están decidiendo ahora: escríbeles cuanto antes', rows: state.leads.filter((l) => open(l) && l.s.venta_visita), orden: (a, b) => b.s.venta_visita.ultima - a.s.venta_visita.ultima },
     { id: 'calientes', corto: '🔥 Muy caliente', title: '🔥 Muy calientes sin contactar', hint: 'Máxima prioridad', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.estado.id === 'muy-caliente') },
     { id: 'vip', corto: '⭐ VIP', title: '⭐ VIP que no han comprado', hint: 'Pagaron la entrada: están cerca', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.vip) },
-    ...(state.config.launches[state.launchCode]?.sendflowId ? [{ id: 'grupo', corto: '💬 En el grupo', title: '💬 En el grupo de WhatsApp y sin comprar', hint: state.grupoWa?.code === state.launchCode && state.grupoWa.claves ? 'Siguen en el grupo del lanzamiento: interesadas. Escríbeles 1:1, primero las más calientes' : state.grupoWa?.error ? `No se pudo cruzar con el grupo: ${state.grupoWa.error}` : 'Cruzando con el grupo de SendFlow… (la primera vez puede tardar 1-2 minutos)', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.enGrupo) }] : []),
+    ...(state.config.launches[state.launchCode]?.sendflowId ? [{ id: 'grupo', corto: '💬 En el grupo', title: '💬 En el grupo de WhatsApp y sin comprar', hint: state.grupoWa?.code === state.launchCode && state.grupoWa.claves ? `Siguen en el grupo del lanzamiento y no han comprado (también las que te salen por otro motivo). SendFlow cuenta ${state.grupoWa.personas.toLocaleString('es-ES')} personas en los grupos; aquí salen las que tienen ese mismo teléfono en GHL` : state.grupoWa?.error ? `No se pudo cruzar con el grupo: ${state.grupoWa.error}` : 'Cruzando con el grupo de SendFlow… (la primera vez puede tardar 1-2 minutos)', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && l.s.enGrupo) }] : []),
     { id: 'grabacion', corto: '🎬 Vio la grabación', title: '🎬 Vieron la grabación y no han comprado', hint: '≥50% de la grabación', rows: state.leads.filter((l) => open(l) && !l.s.wa_enviado && !l.s.vip && l.estado.id !== 'muy-caliente' && grabVenta(l.s) >= 50) },
     { id: 'seguimiento', corto: '💬 Seguimiento', title: '💬 Seguimiento pendiente', hint: 'Respondieron, interesadas o no contestan', rows: state.leads.filter((l) => open(l) && ['respondio', 'interesada', 'no_contesta'].includes(l.outcome)) },
     { id: 'sinresultado', corto: '📝 Anotar resultado', title: '📝 Contactadas sin resultado anotado', hint: 'Anota qué pasó', rows: state.leads.filter((l) => open(l) && l.s.wa_enviado && !l.outcome) },
@@ -5857,14 +6143,18 @@ function renderHoy() {
   const base = todos ? universo : senales.length ? conResto : lista;
   const cumple = (l, sen = senales) => sen.every((x) => x.si(l.s));
   const enSegmento = base.filter((x) => cumple(x.l));
-  const cuentaMotivo = (id) => enSegmento.filter((x) => x.b?.id === id && (!h.temp || x.l.estado.id === h.temp)).length;
-  const cuentaTemp = (id) => enSegmento.filter((x) => x.l.estado.id === id && (!h.motivo || x.b?.id === h.motivo)).length;
-  const filtrada = enSegmento.filter((x) => (!h.motivo || x.b?.id === h.motivo) && (!h.temp || x.l.estado.id === h.temp));
+  // «En el grupo» cuenta a todas las que siguen en el grupo (sin comprar), aunque te salgan por un motivo más urgente
+  // o ya les hayas escrito: si no, la cifra se quedaba muy por debajo de la gente que hay de verdad en el grupo.
+  const deMotivo = (x, id) => !id || (id === 'grupo' ? Boolean(x.l.s.enGrupo) : x.b?.id === id);
+  const fuente = (id) => (id === 'grupo' && !todos ? conResto : base).filter((x) => cumple(x.l));
+  const cuentaMotivo = (id) => fuente(id).filter((x) => deMotivo(x, id) && (!h.temp || x.l.estado.id === h.temp)).length;
+  const cuentaTemp = (id) => fuente(h.motivo).filter((x) => x.l.estado.id === id && deMotivo(x, h.motivo)).length;
+  const filtrada = fuente(h.motivo).filter((x) => deMotivo(x, h.motivo) && (!h.temp || x.l.estado.id === h.temp));
   // Cuántas quedarían al marcar (o quitar) cada señal, con el resto de filtros como están.
   const cuentaSenal = (x) => {
     const sen = h.senales.includes(x.id) ? senales : [...senales, x];
     return (todos ? universo : conResto)
-      .filter((y) => cumple(y.l, sen) && (!h.motivo || y.b?.id === h.motivo) && (!h.temp || y.l.estado.id === h.temp)).length;
+      .filter((y) => cumple(y.l, sen) && deMotivo(y, h.motivo) && (!h.temp || y.l.estado.id === h.temp)).length;
   };
   const shown = filtrada.slice(0, h.max);
   pintarNotaEnvios();
@@ -5884,19 +6174,26 @@ function renderHoy() {
       <button type="button" class="hoy-chip ${h.motivo ? '' : 'on'}" data-hoy-motivo="" aria-pressed="${!h.motivo}">Todas <b>${h.temp ? cuentaTemp(h.temp) : enSegmento.length}</b></button>
       ${buckets.map((b) => { const n = cuentaMotivo(b.id); return n || h.motivo === b.id ? `<button type="button" class="hoy-chip ${h.motivo === b.id ? 'on' : ''}" data-hoy-motivo="${b.id}" aria-pressed="${h.motivo === b.id}" title="${esc(b.hint)}">${esc(b.corto)} <b>${n}</b></button>` : ''; }).join('')}
     </div>
-    <div class="hoy-seg" role="group" aria-label="Crear un segmento combinando señales">
-      <span class="hoy-seg-t">🎯 Segmento <small>pulsa varias para combinarlas</small></span>
-      ${HOY_SENALES.map((x) => { const on = h.senales.includes(x.id); const n = cuentaSenal(x); return `<button type="button" class="hoy-seg-chip ${on ? 'on' : ''}" data-hoy-senal="${x.id}" aria-pressed="${on}" title="${esc(x.title)}"${!on && !n ? ' disabled' : ''}>${x.ico} ${esc(x.txt)} <b>${n}</b></button>`; }).join('')}
-      ${senales.length ? `<button type="button" class="link-btn hoy-seg-quitar" data-hoy-senal="">Quitar segmento</button>` : ''}
-    </div>
-    ${todos && !senales.length ? '<p class="muted hoy-aviso">👥 Todas las registradas, de la más caliente a la más fría: checkout, página de venta, directo hasta el final, directo, VIP, grabación, clases… No se quita nadie: las ya contactadas siguen con «✅ Le escribiste» y las que compraron salen al final con «💰 Compró».</p>' : ''}
-    ${senales.length ? `<p class="hoy-seg-res"><b>${filtrada.length}</b> ${filtrada.length === 1 ? 'persona' : 'personas'}${todos ? '' : ' sin comprar'} que ${senales.map((x) => x.frase).join(' y ')}${h.temp ? ` · ${esc(ESTADOS.find((e) => e.id === h.temp)?.label || '')}` : ''}${h.motivo ? ` · ${esc(buckets.find((b) => b.id === h.motivo)?.corto || '')}` : ''}</p>` : ''}
     ${(() => {
-      // Envío masivo: la plantilla a todas las de esta lista (con el filtro de motivo, temperatura y segmento que haya).
+      // Segmento (señales en filas horizontales) y, abajo, a cuántas se queda y el envío de la plantilla a todas ellas.
       h.plLista = filtrada.map((x) => x.l).filter(plElegible);
       const pl = plantillasWa()[0];
-      return pl && h.plLista.length > 1 ? `<div class="hoy-pl-masivo"><button type="button" class="btn plantilla small" data-hoy-pl>📨 Plantilla a las ${h.plLista.length} de esta lista · ≈ ${euros(costeEstimado(h.plLista.length, pl.precio))}</button><span class="muted small">${senales.length ? 'Solo a las de este segmento.' : 'Combina señales del segmento, el motivo o la temperatura para afinar a quién.'}</span></div>` : '';
+      const n = h.plLista.length;
+      const quien = senales.length
+        ? `<b>${filtrada.length}</b> ${filtrada.length === 1 ? 'persona' : 'personas'}${todos ? '' : ' sin comprar'} que ${senales.map((x) => x.frase).join(' y ')}`
+        : `<b>${filtrada.length}</b> ${filtrada.length === 1 ? 'persona' : 'personas'} en esta lista`;
+      const filtros = [h.temp && ESTADOS.find((e) => e.id === h.temp)?.label, h.motivo && buckets.find((b) => b.id === h.motivo)?.corto].filter(Boolean).map((t) => ` · ${esc(t)}`).join('');
+      const envio = !pl
+        ? (puedeConfig() ? '<button type="button" class="btn ghost hoy-seg-enviar" data-hoy-pl-config>📨 Añade una plantilla para enviársela a esta lista</button>' : '')
+        : n ? `<button type="button" class="btn plantilla hoy-seg-enviar" data-hoy-pl>📨 Enviar plantilla a ${n === 1 ? 'esta persona' : `estas ${n}`} <small>≈ ${euros(costeEstimado(n, pl.precio))}</small></button>`
+          : '<span class="muted small">Nadie de esta lista puede recibir plantilla (sin teléfono, de baja o ya compraron).</span>';
+      return `<div class="hoy-seg" role="group" aria-label="Crear un segmento combinando señales y enviarle una plantilla">
+      <div class="hoy-seg-cab"><span class="hoy-seg-t">🎯 Segmenta y envía una plantilla</span><small>Marca una o varias señales (se suman: tienen que cumplirse todas) y envía la plantilla de WhatsApp a todas de una vez.</small>${senales.length ? '<button type="button" class="btn ghost small hoy-seg-quitar" data-hoy-senal="">✕ Quitar segmento</button>' : ''}</div>
+      <div class="hoy-seg-grupos">${HOY_GRUPOS.map((g) => { const sens = HOY_SENALES.filter((x) => x.grupo === g.id && (!x.hay || x.hay())); return sens.length ? `<div class="hoy-seg-grupo"><span class="hoy-seg-gt">${g.t}</span><div class="hoy-seg-tarjetas">${sens.map((x) => { const on = h.senales.includes(x.id); const c = cuentaSenal(x); return `<button type="button" class="hoy-seg-chip ${on ? 'on' : ''}" data-hoy-senal="${x.id}" aria-pressed="${on}" title="${esc(x.title)}"${!on && !c ? ' disabled' : ''}><span class="hoy-seg-ico" aria-hidden="true">${x.ico}</span><span class="hoy-seg-txt">${esc(x.txt)}</span><b>${c}</b></button>`; }).join('')}</div></div>` : ''; }).join('')}</div>
+      <div class="hoy-seg-pie${senales.length ? ' activo' : ''}"><p class="hoy-seg-res">${quien}${filtros}</p>${envio}</div>
+    </div>`;
     })()}
+    ${todos && !senales.length ? '<p class="muted hoy-aviso">👥 Todas las registradas, de la más caliente a la más fría: checkout, página de venta, directo hasta el final, directo, VIP, grabación, clases… No se quita nadie: las ya contactadas siguen con «✅ Le escribiste» y las que compraron salen al final con «💰 Compró».</p>' : ''}
     ${avisos}
     ${shown.length ? `<ol class="hoy-list hoy-ranking">${shown.map((x, i) => hoyItem(x.l, x.b, i + 1)).join('')}</ol>` : `<p class="muted hoy-vacio">${base.length ? 'Nadie con este filtro.' : todos ? 'Todavía no hay leads registradas.' : 'Nada pendiente hoy ✓ <button type="button" class="link-btn" data-hoy-modo="todos">Ver todos los leads →</button>'}</p>`}
     ${filtrada.length > shown.length ? `<div class="hoy-mas"><button type="button" class="btn ghost" data-hoy-mas>Ver ${Math.min(HOY_PAGINA, filtrada.length - shown.length)} más</button><span class="muted">${shown.length} de ${filtrada.length}</span></div>` : ''}
@@ -5906,20 +6203,28 @@ function renderHoy() {
 const HOY_PAGINA = 40;
 // Señales para el segmento de Setting hoy: se combinan (tienen que cumplirse todas las marcadas).
 const asistioAlgun = (s, que) => (s.nVideos > 1 ? videosDe(state.config.launches[state.launchCode]) : [{ directo: sigDirecto(1) }])
-  .some((v) => que === 'final' ? s[`${v.directo}_final`] : ['asistio', '60', '120', 'final'].some((k) => s[`${v.directo}_${k}`]));
+  .some((v) => que === 'final' || que === '75' ? s[`${v.directo}_${que}`] : ['asistio', '60', '75', '120', 'final'].some((k) => s[`${v.directo}_${k}`]));
 const HOY_SENALES = [
-  { id: 'directo', ico: '🔴', txt: 'Asistió al directo', frase: 'asistieron al directo', title: 'Entró al directo (cualquiera de los directos del lanzamiento)', si: (s) => asistioAlgun(s, 'asistio') },
-  { id: 'final', ico: '🏁', txt: 'Hasta el final', frase: 'se quedaron hasta el final del directo', title: 'Se quedó en el directo hasta el final', si: (s) => asistioAlgun(s, 'final') },
-  { id: 'checkout', ico: '💳', txt: 'Inició el checkout', frase: 'llegaron al checkout', title: 'Llegó a la página de pago (pulsó «Quiero inscribirme»)', si: (s) => Boolean(s.inicio_pago) },
-  { id: 'venta', ico: '🛒', txt: 'Visitó la página de venta', frase: 'visitaron la página de venta', title: 'Entró en la página de venta', si: (s) => Boolean(s.venta_visita) },
-  { id: 'grabacion', ico: '🎬', txt: 'Vio la grabación', frase: 'vieron al menos la mitad de la grabación', title: 'Ha visto el 50% o más de la grabación', si: (s) => grabVenta(s) >= 50 },
-  { id: 'vip', ico: '⭐', txt: 'VIP', frase: 'son VIP', title: 'Pagó la entrada VIP', si: (s) => Boolean(s.vip) },
-  { id: 'clases', ico: '📚', txt: 'Vio las clases', frase: 'vieron al menos la mitad de alguna clase grabada', title: 'Ha visto el 50% o más de alguna clase grabada del prelanzamiento', si: (s) => (s.clases || []).some((c) => watched(s, c) >= 50) },
-  { id: 'sinplantilla', ico: '📨', txt: 'Sin plantilla', frase: 'aún no han recibido una plantilla', title: 'Todavía no se le ha enviado ninguna plantilla de WhatsApp (para no repetir)', si: (s) => !s.wa_plantilla },
-  { id: 'contactada', ico: '✅', txt: 'Ya contactadas', frase: 'ya habéis contactado', title: 'Alguien del equipo ya le ha escrito', si: (s) => Boolean(s.wa_enviado) },
-  { id: 'sincompra', ico: '🛍️', txt: 'Sin comprar', frase: 'aún no han comprado', title: 'Todavía no han comprado', si: (s) => !s.compra },
-  { id: 'compro', ico: '💰', txt: 'Compraron', frase: 'ya compraron', title: 'Ya han comprado', si: (s) => Boolean(s.compra) },
-  { id: 'sincontactar', ico: '🆕', txt: 'Sin contactar', frase: 'nadie ha contactado todavía', title: 'Nadie del equipo le ha escrito todavía', si: (s) => !s.wa_enviado },
+  { id: 'directo', grupo: 'directo', ico: '🔴', txt: 'Asistió al directo', frase: 'asistieron al directo', title: 'Entró al directo (cualquiera de los directos del lanzamiento)', si: (s) => asistioAlgun(s, 'asistio') },
+  { id: 'p75', grupo: 'directo', ico: '⏱️', txt: 'Hasta el 75 %', frase: 'estuvieron al menos el 75 % del directo', title: 'Estuvo conectada al menos el 75 % de lo que duró el directo (sale al sincronizar la asistencia de Zoom)', si: (s) => asistioAlgun(s, '75') },
+  { id: 'final', grupo: 'directo', ico: '🏁', txt: 'Hasta el final', frase: 'se quedaron hasta el final del directo', title: 'Se quedó en el directo hasta el final (la oferta)', si: (s) => asistioAlgun(s, 'final') },
+  { id: 'checkout', grupo: 'compra', ico: '💳', txt: 'Inició el checkout', frase: 'llegaron al checkout', title: 'Llegó a la página de pago (pulsó «Quiero inscribirme»)', si: (s) => Boolean(s.inicio_pago) },
+  { id: 'venta', grupo: 'compra', ico: '🛒', txt: 'Visitó la página de venta', frase: 'visitaron la página de venta', title: 'Entró en la página de venta', si: (s) => Boolean(s.venta_visita) },
+  { id: 'vip', grupo: 'compra', ico: '⭐', txt: 'VIP', frase: 'son VIP', title: 'Pagó la entrada VIP', si: (s) => Boolean(s.vip) },
+  { id: 'sincompra', grupo: 'compra', ico: '🛍️', txt: 'Sin comprar', frase: 'aún no han comprado', title: 'Todavía no han comprado', si: (s) => !s.compra },
+  { id: 'compro', grupo: 'compra', ico: '💰', txt: 'Compraron', frase: 'ya compraron', title: 'Ya han comprado', si: (s) => Boolean(s.compra) },
+  { id: 'grabacion', grupo: 'contenido', ico: '🎬', txt: 'Vio la grabación', frase: 'vieron al menos la mitad de la grabación', title: 'Ha visto el 50% o más de la grabación', si: (s) => grabVenta(s) >= 50 },
+  { id: 'clases', grupo: 'contenido', ico: '📚', txt: 'Vio las clases', frase: 'vieron al menos la mitad de alguna clase grabada', title: 'Ha visto el 50% o más de alguna clase grabada del prelanzamiento', si: (s) => (s.clases || []).some((c) => watched(s, c) >= 50) },
+  { id: 'grupo', grupo: 'contacto', ico: '💬', txt: 'En el grupo', frase: 'siguen en el grupo de WhatsApp', title: 'Sigue en el grupo de WhatsApp del lanzamiento (cruzado por teléfono con SendFlow)', si: (s) => Boolean(s.enGrupo), hay: () => Boolean(state.config.launches[state.launchCode]?.sendflowId) },
+  { id: 'sincontactar', grupo: 'contacto', ico: '🆕', txt: 'Sin contactar', frase: 'nadie ha contactado todavía', title: 'Nadie del equipo le ha escrito todavía', si: (s) => !s.wa_enviado },
+  { id: 'contactada', grupo: 'contacto', ico: '✅', txt: 'Ya contactadas', frase: 'ya habéis contactado', title: 'Alguien del equipo ya le ha escrito', si: (s) => Boolean(s.wa_enviado) },
+  { id: 'sinplantilla', grupo: 'contacto', ico: '📨', txt: 'Sin plantilla', frase: 'aún no han recibido una plantilla', title: 'Todavía no se le ha enviado ninguna plantilla de WhatsApp (para no repetir)', si: (s) => !s.wa_plantilla },
+];
+const HOY_GRUPOS = [
+  { id: 'directo', t: '🎥 En el directo' },
+  { id: 'compra', t: '🛒 Compra' },
+  { id: 'contenido', t: '📺 Contenido' },
+  { id: 'contacto', t: '💬 Contacto' },
 ];
 // Lo más caliente primero (para «Todos los leads» y los segmentos): la primera señal que cumple, en este orden.
 const HOY_CALOR = [
@@ -5935,6 +6240,7 @@ const HOY_CALOR = [
 const calorLead = (s) => { if (s.compra) return HOY_CALOR.length + 1; const i = HOY_CALOR.findIndex((f) => f(s)); return i < 0 ? HOY_CALOR.length : i; };
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-hoy-pl]')) { abrirPlantilla(state.hoy.plLista || []); return; }
+  if (e.target.closest('[data-hoy-pl-config]')) { $('#btn-conexiones').click(); const c = $('#conexiones .cx-card[data-cx="plantillas"]'); if (c) { c.open = true; c.scrollIntoView({ behavior: 'smooth', block: 'start' }); } return; }
   const m = e.target.closest('[data-hoy-modo]');
   if (m) {
     Object.assign(state.hoy, { modo: m.dataset.hoyModo, motivo: '', max: HOY_PAGINA });
@@ -5974,7 +6280,7 @@ function accionesLead(l) {
   const vids = (s.nVideos || 1) > 1 ? videosDe(launch) : [{ nombre: 'Directo', directo: sigDirecto(1), replay: 'replay' }];
   for (const v of vids) {
     const nom = vids.length > 1 ? nombreCorto(v) : '';
-    const d = s[`${v.directo}_final`] ? ['Hasta el final', 'on'] : s[`${v.directo}_120`] ? ['+2 h', 'on'] : s[`${v.directo}_60`] ? ['+60 min', 'on'] : s[`${v.directo}_asistio`] ? ['Asistió', 'medio'] : s[`${v.directo}_click`] ? ['Clic al enlace', ''] : null;
+    const d = s[`${v.directo}_final`] ? ['Hasta el final', 'on'] : s[`${v.directo}_75`] ? ['75 % o más', 'on'] : s[`${v.directo}_120`] ? ['+2 h', 'on'] : s[`${v.directo}_60`] ? ['+60 min', 'on'] : s[`${v.directo}_asistio`] ? ['Asistió', 'medio'] : s[`${v.directo}_click`] ? ['Clic al enlace', ''] : null;
     if (d) out.push(accionChip({ ico: '🔴', txt: `${nom ? `${nom} · ` : 'Directo · '}${d[0]}`, tono: d[1], title: `${v.nombre}: ${d[0].toLowerCase()} en directo` }));
     const g = watched(s, v.replay);
     if (g) out.push(accionChip({ ico: '🎬', txt: nom ? `${nom} grabación` : 'Grabación', pct: g, tono: g >= 90 ? 'on' : 'medio', title: `Ha visto el ${g}% de la grabación${nom ? ` de ${v.nombre}` : ''}` }));
@@ -5994,13 +6300,20 @@ function accionesLead(l) {
   return out.length ? out.join('') : accionChip({ ico: '😴', txt: 'Sin actividad todavía', tono: 'nada' });
 }
 
+// Siguiente paso de la tarjeta, explicado: qué conseguir con ella según lo que ha visto del vídeo de venta.
+const PASO_TXT = {
+  grabacion: 'que vea la grabación (aún no ha visto el vídeo de venta)',
+  raices: 'preséntale la oferta (ya vio más de la mitad de la grabación)',
+  cierre: 'ciérrala o proponle una llamada (vio el vídeo de venta casi entero)',
+  comprado: 'ya compró: no hace falta escribirle',
+};
 function hoyItem(l, b = null, n = 0) {
   return `<li class="hoy-item st-${l.estado.id}">
-    ${n ? `<span class="hoy-n" title="${esc(l.estado.label)} · ${l.score}/100">${n}</span>` : ''}
+    ${n ? `<span class="hoy-n" title="Puesto ${n} de la lista de hoy (primero, las más calientes)">${n}</span>` : ''}
     <div class="hoy-main">
-      <div class="hoy-linea"><button type="button" class="lead-name lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || l.email)}</button>${l.phone ? ` <span class="muted small">${esc(l.phone)}</span>` : ''} <span class="estado st-${l.estado.id}" title="${esc(l.estado.label)}"><span class="dot"></span>${esc(l.estado.label)} · ${l.score}</span> ${b && b.id !== 'calientes' ? `<span class="hoy-motivo">${esc(b.corto)}</span>` : ''} ${avatarChip(l)}</div>
-      <div class="hoy-acc">${accionesLead(l)}</div>
-      <div class="hoy-paso">👉 ${esc(NEXT_STEPS[l.step])}</div>
+      <div class="hoy-linea"><button type="button" class="lead-name lead-ficha" data-ficha-lead="${esc(l.id)}" title="Ver la ficha completa">${esc(l.name || l.email)}</button>${l.phone ? ` <span class="muted small">${esc(l.phone)}</span>` : ''} <span class="estado st-${l.estado.id}" title="Puntuación de 0 a 100: suma lo que ha hecho (clases, directo, grabación, VIP, página de venta…)"><span class="dot"></span>${esc(l.estado.label)} · ${l.score} pts</span> ${b && b.id !== 'calientes' ? `<span class="hoy-motivo" title="${esc(b.hint || b.title || '')}">Te sale por: <b>${esc(b.corto)}</b></span>` : ''} ${avatarChip(l)}</div>
+      <div class="hoy-acc"><span class="hoy-et">Ha hecho:</span>${accionesLead(l)}</div>
+      <div class="hoy-paso">👉 <strong>Siguiente paso:</strong> ${esc(PASO_TXT[l.step] || NEXT_STEPS[l.step])}</div>
     </div>
     <div class="hoy-actions">
       ${l.s.setter?.respondio && enlaceSetter(l.id) ? `<a class="btn ghost small" href="${esc(enlaceSetter(l.id))}" target="_blank" rel="noopener" title="Leer la conversación en el setter IA">🤖 Ver chat</a>` : ''}
@@ -6263,6 +6576,7 @@ $('#btn-zoom').addEventListener('click', async () => {
         if (!lead) { unmatched++; continue; }
         const sigs = [`${v.directo}_asistio`];
         if (a.minutes >= 60) sigs.push(`${v.directo}_60`);
+        if (a.p75) sigs.push(`${v.directo}_75`);
         if (a.minutes >= 120) sigs.push(`${v.directo}_120`);
         if (a.final) sigs.push(`${v.directo}_final`);
         const missing = sigs.filter((t) => !lead.s[t]).map((t) => tagFor(state.launchCode, t));
@@ -6901,6 +7215,8 @@ $('#config-dialog').addEventListener('click', (e) => {
   const add = e.target.closest('[data-bump-add]');
   if (add) {
     const caja = cajaBumps(add.dataset.bumpAdd);
+    const max = TIPOS_BUMP.find((t) => t.id === add.dataset.bumpAdd)?.max;
+    if (max && $$('.bump-fila', caja).length >= max) { notice(`Como mucho ${max} bump offers aquí.`, true); return; }
     $('.bump-vacio', caja)?.remove();
     caja.insertAdjacentHTML('beforeend', bumpFila());
     $('.bump-fila:last-child .bump-nombre', caja).focus();
@@ -6997,10 +7313,10 @@ $$('#config-dialog .cfg-nav .tab').forEach((t) => t.addEventListener('click', ()
   if (t.dataset.tab === 'resumen') { $('#cfg-hub').dataset.html = ''; pintarHub(); }
   $('#cfg-titulo').textContent = $('.cfg-nav-t', t)?.firstChild?.textContent?.trim() || $('.cfg-nav-t', t)?.textContent.trim() || '';
   cfgDlg.classList.remove('cfg-en-menu');
-  $('.cfg-main', cfgDlg).scrollTop = 0;
-  $('.dialog-body', cfgDlg).scrollTop = 0;
+  // Es una página: al cambiar de apartado, arriba del todo (a la altura de los apartados).
+  if (cfgDlg.open && window.scrollY > cfgDlg.querySelector('.cfg-body').offsetTop) window.scrollTo({ top: cfgDlg.querySelector('.cfg-body').getBoundingClientRect().top + window.scrollY - 80 });
 }));
-$('#cfg-volver').addEventListener('click', () => { cfgDlg.classList.add('cfg-en-menu'); $('.dialog-body', cfgDlg).scrollTop = 0; });
+$('#cfg-volver').addEventListener('click', () => { cfgDlg.classList.add('cfg-en-menu'); window.scrollTo({ top: 0 }); });
 
 // ---------- 📨 Informes: email diario de captación / carrito ----------
 let infEmails = [];
@@ -7059,6 +7375,7 @@ $('#inf-enviar').addEventListener('click', async () => {
 function openConfig(code, { silencioso = false } = {}) {
   const yaAbierta = $('#config-dialog').open || silencioso;
   editingCode = code && state.config.launches[code] ? code : null;
+  $('#cfg-pg-nombre').textContent = editingCode ? state.config.launches[editingCode].name || editingCode : 'Nuevo lanzamiento';
   if (!silencioso) { const c = editingCode; edReabrir.set('config-dialog', () => openConfig(c)); }
   hubVerCategorias = false;
   // Al abrir: un lanzamiento que ya existe, en su resumen; uno nuevo, en «Datos básicos» (en el móvil, el menú).
@@ -7076,7 +7393,7 @@ function openConfig(code, { silencioso = false } = {}) {
       vipTag: last.vipTag, compraTag: last.compraTag, llamadaTag: last.llamadaTag, compraDateField: last.compraDateField,
       // La encuesta es siempre la misma: misma URL y misma etiqueta.
       encuestaTag: last.encuestaTag, encuestaUrl: last.encuestaUrl,
-      precioVip: last.precioVip, iva: last.iva, vipBumps: last.vipBumps, unicoBumps: last.unicoBumps, fraccionadoBumps: last.fraccionadoBumps, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, pago: last.pago, oferta: last.oferta, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag,
+      precioVip: last.precioVip, iva: last.iva, vipBumps: last.vipBumps, entradaBumps: last.entradaBumps, unicoBumps: last.unicoBumps, fraccionadoBumps: last.fraccionadoBumps, precioPrograma: last.precioPrograma, precioFraccionado: last.precioFraccionado, pago: last.pago, oferta: last.oferta, fraccionadoTag: last.fraccionadoTag, unicoTag: last.unicoTag, publiTag: last.publiTag, organicoTag: last.organicoTag,
       vipContadorBase: embudoInfo(state.embudo)?.vipContadorBase ?? last.vipContadorBase,
       // Las clases son las mismas en cada lanzamiento: se heredan sus vídeos y textos.
       clase1Url: last.clase1Url, clase2Url: last.clase2Url, clase3Url: last.clase3Url, textos: last.textos, imagenes: last.imagenes,
@@ -7127,6 +7444,8 @@ function openConfig(code, { silencioso = false } = {}) {
   $('#cfg-clase3-at').value = l.clase3At || '';
   for (const k of ['clase1', 'clase2', 'clase3', 'test', 'descargable', 'espera']) $(`#cfg-img-${k}`).value = l.imagenes?.[k] || '';
   $('#cfg-replay-video').value = l.replayVideoUrl || '';
+  $('#cfg-grab-auto').checked = l.grabacionAuto !== false;
+  $('#cfg-grab-auto-st').textContent = '';
   $('#cfg-replay-at').value = l.replayAt || '';
   $('#cfg-vip-url').value = l.vipUrl || '';
   $('#cfg-vip-base').value = l.vipContadorBase ?? embudoInfo(embudoDeLanz(l))?.vipContadorBase ?? (esPrincipal() ? 41 : 0);
@@ -7162,6 +7481,9 @@ function openConfig(code, { silencioso = false } = {}) {
   $('#cfg-llamada-video').value = l.llamadaVideoUrl || '';
   pintarLlamadaPasos();
   $('#cfg-precio-vip').value = l.precioVip || '';
+  $('#cfg-precio-entrada').value = l.precioEntrada || '';
+  $('#cfg-iva-entrada').value = l.iva?.entrada || '';
+  $('#cfg-entrada-box').hidden = $('#cfg-iva-entrada-box').hidden = $('#cfg-entrada-bumps-box').hidden = !l.entradaPago;
   $('#cfg-iva-vip').value = l.iva?.vip || '';
   $('#cfg-iva-programa').value = l.iva?.programa || '';
   $('#cfg-iva-pct').value = l.iva?.pct != null && l.iva.pct !== 21 ? String(l.iva.pct).replace('.', ',') : '';
@@ -7343,7 +7665,7 @@ function irPasoNl(i) {
   $('#nl-crear').hidden = !ultimo;
   $('#nl-status').textContent = '';
   pintarNl();
-  $('#nl-dialog .dialog-body').scrollTop = 0;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 // Antes de pasar del primer paso: nombre, día y lo demás bien.
 function nlPuedeSeguir() {
@@ -8615,6 +8937,7 @@ function readForm() {
       clase3Url: $('#cfg-clase3-url').value.trim(),
       clase3At: $('#cfg-clase3-at').value,
       replayVideoUrl: $('#cfg-replay-video').value.trim(),
+      grabacionAuto: $('#cfg-grab-auto').checked ? undefined : false,
       replayAt: $('#cfg-replay-at').value,
       vipUrl: $('#cfg-vip-url').value.trim(),
       vipContadorBase: $('#cfg-vip-base').value.trim(),
@@ -8645,7 +8968,8 @@ function readForm() {
       llamadaGraciasUrl: $('#cfg-llamada-gracias').value.trim(),
       llamadaVideoUrl: $('#cfg-llamada-video').value.trim(),
       precioVip: $('#cfg-precio-vip').value,
-      iva: { vip: $('#cfg-iva-vip').value, programa: $('#cfg-iva-programa').value, pct: $('#cfg-iva-pct').value.trim() ? Number($('#cfg-iva-pct').value.trim().replace(',', '.')) : 21 },
+      precioEntrada: $('#cfg-precio-entrada').value,
+      iva: { vip: $('#cfg-iva-vip').value, entrada: $('#cfg-iva-entrada').value, programa: $('#cfg-iva-programa').value, pct: $('#cfg-iva-pct').value.trim() ? Number($('#cfg-iva-pct').value.trim().replace(',', '.')) : 21 },
       ...Object.fromEntries(TIPOS_BUMP.map((t) => [t.campo, leerBumps(t.id)])),
       precioPrograma: $('#cfg-precio-programa').value,
       tcProductos: $('#cfg-tc-vip').value.split(/[,\n]/).map((x) => x.trim()).filter(Boolean),
@@ -8680,6 +9004,40 @@ function readForm() {
   };
 }
 
+// Zoom automático: al cambiar el día o la hora de un directo, el servidor mueve su sala de Zoom (y lo cuenta aquí).
+function avisarZoomMovidas(lista) {
+  if (!lista?.length) return;
+  const f = (m) => `${m.video === 'Webinar en directo' ? 'el directo' : m.video} de «${m.nombre}» (${fechaCortaAud(m.fecha)} a las ${m.hora})`;
+  const bien = lista.filter((m) => m.movida);
+  const mal = lista.filter((m) => !m.movida);
+  if (bien.length) notice(`🎥 Sala de Zoom movida: ${bien.map(f).join(' · ')}.`);
+  if (mal.length) notice(`⚠️ No se ha movido la sala de Zoom de ${mal.map((m) => `${f(m)}: ${m.motivo}`).join(' · ')}.`, true);
+}
+// Grabación automática: avanzar ahora (sin esperar a la tarea programada).
+const ESTADO_GRAB = { esperando: '⏳', subiendo: '☁️', lista: '✅', error: '⚠️', sin: '⚠️', fallo: '⚠️' };
+$('#cfg-grab-auto-btn').addEventListener('click', async () => {
+  const st = $('#cfg-grab-auto-st');
+  const b = $('#cfg-grab-auto-btn');
+  if (!editingCode) { st.textContent = 'Guarda antes el lanzamiento.'; return; }
+  b.disabled = true;
+  st.textContent = 'Buscando…';
+  try {
+    const r = await api('/api/grabacion', { method: 'POST', body: { op: 'avanzar', code: editingCode } });
+    if (r.motivo) st.textContent = r.motivo;
+    else if (!r.pasos.length) st.textContent = 'Ahora no hay ningún directo por subir (se busca desde 1 h después de empezar y durante 4 días, si no tiene ya vídeo).';
+    else {
+      st.textContent = r.pasos.map((x) => `${ESTADO_GRAB[x.estado] || '•'} ${x.video}: ${x.estado === 'lista' ? 'lista y puesta' : x.detalle}`).join(' · ');
+      // Lo puesto en el servidor, también en el formulario abierto (para no borrarlo al guardar).
+      const cfg = (await api('/api/config')).config;
+      for (const x of r.pasos.filter((p) => p.estado === 'lista')) {
+        const v = videosDe(cfg.launches[editingCode])[x.k - 1];
+        const inp = x.k === 1 ? $('#cfg-replay-video') : $(`#config-dialog [data-vk="${x.k}"][data-vc="replayVideoUrl"]`);
+        if (v?.replayVideoUrl && inp && !inp.value.trim()) { inp.value = v.replayVideoUrl; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+      }
+      state.config = cfg;
+    }
+  } catch (err) { st.textContent = err.message; } finally { b.disabled = false; }
+});
 $('#cfg-save').addEventListener('click', async () => {
   const status = $('#cfg-status');
   try {
@@ -8701,8 +9059,9 @@ $('#cfg-save').addEventListener('click', async () => {
     status.textContent = 'Guardando…';
     $('#cfg-save').disabled = true;
     const isNew = !editingCode;
-    const { config } = await api('/api/config', { method: 'POST', body: next });
+    const { config, zoomMovidas } = await api('/api/config', { method: 'POST', body: next });
     state.config = config;
+    avisarZoomMovidas(zoomMovidas);
     editingCode = code;
     $('#cfg-code').readOnly = true;
     status.textContent = 'Guardado ✓';
@@ -11470,18 +11829,36 @@ $('#ag-enviar').addEventListener('click', async (e) => {
   e.target.disabled = false;
 });
 // ---------- Agencia → Claude (conector MCP) ----------
+// Conexiones de Claude y de ChatGPT (el mismo conector MCP): se pintan en Agencia → Claude (todas) y en sus
+// tarjetas de Conexiones (cada una, las suyas).
+const esChatgpt = (c) => /chatgpt|openai/i.test(c.app || '');
 async function cargarClaude() {
-  const box = $('#cl-lista');
+  const cajas = [$('#cl-lista'), $('#cx-claude-lista'), $('#cx-chatgpt-lista')];
   try {
     const d = await api('/api/oauth/conexiones');
     $('#cl-url').textContent = d.url;
+    for (const x of $$('.cx-mcp-url')) x.value = d.url;
     const fecha = (x) => (x ? new Date(x).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
-    box.innerHTML = d.conexiones.length
-      ? `<p>Conexiones activas${state.superadmin ? ' (de todo el equipo)' : ''}:</p><ul class="tg-lista">${d.conexiones.map((c) => `<li><span>🧠 ${esc(c.app)} · <strong>${esc(c.nombre)}</strong> <span class="muted small">· conectado ${esc(fecha(c.creado))} · último uso ${esc(fecha(c.ultimoUso))}</span></span><button type="button" class="btn ghost small" data-cl-quitar="${esc(c.id)}">Desconectar</button></li>`).join('')}</ul>`
-      : '<p>Aún no hay ninguna conexión.</p>';
-  } catch (err) { box.textContent = err.message; }
+    const lista = (cs) => (cs.length
+      ? `<p>Conexiones activas${state.superadmin ? ' (de todo el equipo)' : ''}:</p><ul class="tg-lista">${cs.map((c) => `<li><span>🧠 ${esc(c.app)} · <strong>${esc(c.nombre)}</strong> <span class="muted small">· conectado ${esc(fecha(c.creado))} · último uso ${esc(fecha(c.ultimoUso))}</span></span><button type="button" class="btn ghost small" data-cl-quitar="${esc(c.id)}">Desconectar</button></li>`).join('')}</ul>`
+      : '<p>Aún no hay ninguna conexión.</p>');
+    const gpt = d.conexiones.filter(esChatgpt);
+    const claude = d.conexiones.filter((c) => !esChatgpt(c));
+    $('#cl-lista').innerHTML = lista(d.conexiones);
+    $('#cx-claude-lista').innerHTML = lista(claude);
+    $('#cx-chatgpt-lista').innerHTML = lista(gpt);
+    ponerEstadoCx('claude', claude.length ? 'ok' : 'no', claude.length ? 'Conectado' : 'Sin conectar');
+    ponerEstadoCx('chatgpt', gpt.length ? 'ok' : 'no', gpt.length ? 'Conectado' : 'Sin conectar');
+  } catch (err) { for (const c of cajas) c.textContent = err.message; }
 }
 $('#cl-box').addEventListener('toggle', () => { if ($('#cl-box').open) cargarClaude(); });
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-cx-copiar-mcp]');
+  if (!b) return;
+  const ok = await copiarAlPortapapeles($(b.dataset.cxCopiarMcp).value);
+  b.textContent = ok ? 'Copiada ✓' : 'Cópiala a mano';
+  setTimeout(() => { b.textContent = 'Copiar'; }, 2500);
+});
 $('#cl-copiar').addEventListener('click', async (e) => {
   const ok = await copiarAlPortapapeles($('#cl-url').textContent);
   e.target.textContent = ok ? 'Copiada ✓' : 'Cópiala a mano';
@@ -11489,9 +11866,9 @@ $('#cl-copiar').addEventListener('click', async (e) => {
 });
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-cl-quitar]');
-  if (!b || !window.confirm('¿Desconectar Claude? Dejará de poder consultar AlquimIA con esta conexión.')) return;
+  if (!b || !window.confirm('¿Desconectar esta conexión? Dejará de poder consultar AlquimIA con ella.')) return;
   b.disabled = true;
-  try { await api('/api/oauth/conexiones', { method: 'POST', body: { op: 'revocar', id: b.dataset.clQuitar } }); notice('Claude desconectado.'); } catch (err) { notice(err.message, true); }
+  try { await api('/api/oauth/conexiones', { method: 'POST', body: { op: 'revocar', id: b.dataset.clQuitar } }); notice('Desconectado.'); } catch (err) { notice(err.message, true); }
   cargarClaude();
 });
 // ---------- Agencia → Bot de Telegram ----------
@@ -13340,7 +13717,7 @@ function llamadaCard(c) {
     <div class="ll-main">
       <div class="ll-name">${esc(lead?.name || c.title || 'Sin nombre')}
         ${etapa ? `<span class="ll-etapa" style="--c:${esc(etapa.color || '#8a817b')}" title="Etapa en el pipeline de GHL">${esc(etapa.name)}</span>` : '<span class="ll-etapa none" title="Aún no está en el pipeline: se añadirá al anotar el resultado">Sin etapa</span>'}
-        ${llCancelada(c) ? '<span class="ll-etapa ll-cancelada">❌ Cita cancelada</span>' : ''}</div>
+        ${llCancelada(c) ? '<span class="ll-etapa ll-cancelada">⛔ Cita cancelada</span>' : ''}</div>
       <div class="ll-contact">${phone ? `<a href="tel:${esc(phone)}">${icon('phone')}${esc(phone)}</a>` : ''}${wa ? `<a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${k.email ? `<span class="muted">${esc(k.email)}</span>` : ''}${phone ? '' : '<span class="muted">Sin teléfono</span>'}</div>
       <div class="ll-chips">${repChip}${cancChip}${origenChip(c)}${chips}</div>
       ${r ? `<div class="ll-res">${r.icon} <strong>${esc(r.label)}</strong>${c.resultado.motivo ? ` · ${esc(c.resultado.motivo)}` : ''} <span class="muted">· ${esc(c.resultado.por || '')}</span>${c.resultado.notas ? `<div class="ll-notas">${esc(c.resultado.notas)}</div>` : ''}</div>` : ''}
@@ -13386,15 +13763,17 @@ function renderLlamadas() {
   // Las próximas canceladas van aparte, para que en Hoy y Próximos días solo queden las que faltan por hacer.
   const deHoy = list.filter((c) => dayInMadrid(c.startTime) === hoyD && llStart(c) >= ahora && !llCancelada(c));
   const proximas = list.filter((c) => llStart(c) >= ahora && dayInMadrid(c.startTime) !== hoyD && !llCancelada(c));
-  const canceladasProx = list.filter((c) => llStart(c) >= ahora && llCancelada(c));
-  const anotadas = list.filter((c) => llStart(c) < ahora && (c.resultado || llCancelada(c))).reverse();
+  // Lo ya cerrado, agrupado por cómo acabó (todas las ventas juntas, todas las canceladas juntas…), lo más reciente arriba.
+  const porResultado = RESULTADOS.map((r) => ({ r, items: list.filter((c) => c.resultado?.resultado === r.id).reverse() }));
+  const canceladas = list.filter((c) => !c.resultado && llCancelada(c)).sort((a, b) => llStart(b) - llStart(a));
+  const grupoCerrado = (titulo, items, cls = '') => (items.length ? `<details class="ll-sec ll-done ${cls}"><summary><h3>${titulo} <span class="muted">${items.length}</span></h3></summary>${items.map(llamadaCard).join('')}</details>` : '');
   const sec = (titulo, items, cls = '', vacio = '') => (items.length || vacio ? `<section class="ll-sec ${cls}"><h3>${titulo} <span class="muted">${items.length}</span></h3>${items.map(llamadaCard).join('') || `<p class="muted">${vacio}</p>`}</section>` : '');
   box.innerHTML = list.length ? `
     ${sec('⚠️ Pendientes de anotar', pendientes, 'warn')}
     ${sec('📞 Hoy', deHoy, '', 'No hay más llamadas hoy.')}
     ${sec('🗓️ Próximos días', proximas)}
-    ${canceladasProx.length ? `<details class="ll-sec ll-done ll-cancel-prox"><summary><h3>❌ Canceladas <span class="muted">${canceladasProx.length}</span></h3></summary>${canceladasProx.map(llamadaCard).join('')}</details>` : ''}
-    ${anotadas.length ? `<details class="ll-sec ll-done"><summary><h3>✅ Ya anotadas <span class="muted">${anotadas.length}</span></h3></summary>${anotadas.map(llamadaCard).join('')}</details>` : ''}`
+    ${porResultado.map(({ r, items }) => grupoCerrado(`${r.icon} ${r.id === 'venta' ? 'Ventas' : r.label}`, items, `ll-g-${r.id}`)).join('')}
+    ${grupoCerrado('⛔ Citas canceladas', canceladas, 'll-cancel-prox')}`
     : '<div class="card empty"><p class="muted">Todavía no hay llamadas agendadas en el calendario para este lanzamiento.</p></div>';
   syncLlVista();
 }
@@ -14701,7 +15080,9 @@ let embEdit = null; // id del embudo que se edita (null = nuevo)
 // embudo evergreen: vsl | leadmagnet | evergreen | llamadas (motor de la VSL con su variante).
 const embOpcion = () => $('input[name="emb-tipo"]:checked').value;
 const embTipo = () => (embEdit ? embudoInfo(embEdit).tipo : ['meteorico', 'directa', 'cruzadas'].includes(embOpcion()) ? embOpcion() : SUBTIPO_IDS.includes(embOpcion()) ? 'vsl' : 'lanzamientos');
-const embFormato = () => (embEdit ? $('#emb-formato').value : embTipo() !== 'lanzamientos' ? undefined : embOpcion() === 'reto' ? $('#emb-reto-dias').value : embOpcion());
+const embFormato = () => (embEdit ? $('#emb-formato').value : embTipo() !== 'lanzamientos' ? undefined : embOpcion() === 'reto' ? $('#emb-reto-dias').value : embOpcion() === 'pago' ? $('#emb-pago-formato').value : embOpcion());
+// Lanzamiento de pago (entrada de pago): al crear, la opción «🎟️»; al editar, lo que ya era.
+const embEntradaPago = () => (embEdit ? embudoInfo(embEdit)?.entradaPago === true : embOpcion() === 'pago');
 const embSubtipo = () => (embTipo() !== 'vsl' ? undefined : embEdit ? $('#emb-subtipo').value : embOpcion());
 // Pestañas elegidas en el paso «Dashboard»: las marcadas y las que tienen alguna sección marcada.
 const embPestanas = () => [...new Set([
@@ -14744,6 +15125,7 @@ function pintarEmbPestanas(activas, ocultas = []) {
   pintarEmbPrelanz();
   const tipo = embTipo();
   $('#emb-reto-box').hidden = Boolean(embEdit) || embOpcion() !== 'reto';
+  $('#emb-pago-box').hidden = Boolean(embEdit) || embOpcion() !== 'pago';
   $('#emb-subtipo-box').hidden = !embEdit || tipo !== 'vsl';
   // Sugerencias solo al crear: editando, «sin lista» significa «todas» (si no, se perdería p. ej. Llamadas).
   activas ??= embEdit ? null : pestanasSugeridas(tipo, embSubtipo());
@@ -14884,14 +15266,9 @@ function irPasoEmb(i) {
   $('#emb-status').textContent = '';
   if (actual === 'final') pintarEmbResumen();
   if (actual === 'contenido') pintarEmbOrigen();
-  $('#embudo-dialog .dialog-body').scrollTop = 0;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function validarPasoEmb() {
-  // Nuevo embudo con la lista de tipos plegada: hay que contestar las 2 preguntas (o abrir la lista y elegir).
-  if (pasosEmb()[embPaso] === 'tipo' && !embEdit && !embDlg.classList.contains('ver-tipos') && !(embReco.fecha && embReco.venta)) {
-    $('#emb-status').textContent = 'Contesta las dos preguntas (o pulsa «Ver todos los tipos» y elige uno).';
-    return false;
-  }
   if (pasosEmb()[embPaso] === 'dashboard' && !embPestanas().length) { $('#emb-status').textContent = 'Deja al menos una sección marcada.'; return false; }
   if (pasosEmb()[embPaso] === 'contenido') {
     const o = embOrigen();
@@ -14913,7 +15290,7 @@ function pintarEmbResumen() {
   const plantilla = !embEdit && plantillasAg.find((x) => x.id === $('#emb-plantilla').value);
   const opcion = embEdit ? null : $('input[name="emb-tipo"]:checked')?.closest('.emb-tipo');
   const tipoTxt = plantilla ? `Plantilla «${plantilla.nombre}»` : opcion ? $('strong', opcion).textContent : tipo === 'vsl' ? SUBTIPOS_VSL[embSubtipo()].corto : tipo === 'meteorico' ? 'Meteóricos' : FORMATOS[embFormato()]?.label || 'Lanzamientos';
-  const filas = [['Tipo', tipoTxt + (!embEdit && embOpcion() === 'reto' ? ` · ${$('#emb-reto-dias').selectedOptions[0].text}` : '')]];
+  const filas = [['Tipo', tipoTxt + (!embEdit && embOpcion() === 'reto' ? ` · ${$('#emb-reto-dias').selectedOptions[0].text}` : '') + (!embEdit && embOpcion() === 'pago' ? ` · ${$('#emb-pago-formato').selectedOptions[0].text}` : '')]];
   if (tipo === 'lanzamientos' && !plantilla) {
     const pre = $('#emb-preclase').value === 'si';
     const rec = $$('input[name="emb-recurso"]:checked').map((i) => i.closest('label').textContent.replace(/\(.*\)/, '').trim());
@@ -14991,44 +15368,13 @@ $('#emb-plantilla-guardar').addEventListener('click', async () => {
 });
 const clienteNombre = () => state.clientes.find((c) => c.id === state.cliente)?.nombre || '';
 
-// «＋ Nuevo embudo» con 2 preguntas: ¿tiene fecha? ¿por llamada o directa? → el tipo que le encaja. «Ver todos los tipos» enseña la lista entera.
-let embReco = {};
-function pintarEmbReco() {
-  $$('#emb-reco [data-emb-preg]').forEach((g) => $$('button', g).forEach((b) => {
-    const on = embReco[g.dataset.embPreg] === b.dataset.v;
-    b.classList.toggle('on', on);
-    b.setAttribute('aria-checked', String(on));
-  }));
-  const r = embReco.fecha && embReco.venta ? recomendarTipo(embReco) : null;
-  const res = $('#emb-reco-res');
-  res.hidden = !r;
-  if (!r) return;
-  const radio = $(`input[name="emb-tipo"][value="${r.tipo}"]`);
-  const nombre = radio?.closest('.emb-tipo')?.querySelector('strong')?.textContent || r.tipo;
-  const ico = radio?.closest('.emb-tipo')?.querySelector('.emb-ico')?.textContent || '✨';
-  res.innerHTML = `<strong>${ico} Te encaja: ${esc(nombre)}</strong><small>${esc(r.porque)} Pulsa «Siguiente» o mira los demás tipos.</small>`;
-  if (radio && !radio.checked) { radio.checked = true; pintarEmbPestanas(null); pintarEmbVipBase(); }
-}
-function verTiposEmb(ver) {
-  embDlg.classList.toggle('ver-tipos', ver);
-  $('#emb-ver-tipos').setAttribute('aria-expanded', String(ver));
-  $('#emb-ver-tipos').textContent = ver ? 'Ocultar la lista de tipos ▴' : 'Ver todos los tipos ▾';
-}
-$('#emb-reco').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-emb-preg] button');
-  if (b) { embReco[b.closest('[data-emb-preg]').dataset.embPreg] = b.dataset.v; pintarEmbReco(); return; }
-  if (e.target.closest('#emb-ver-tipos')) verTiposEmb(!embDlg.classList.contains('ver-tipos'));
-});
-
 function abrirNuevoEmbudo({ preset } = {}) {
   embEdit = null;
-  embReco = preset === 'lanz' ? { fecha: 'si' } : preset === 'siempre' ? { fecha: 'no' } : {};
-  $('#emb-reco').hidden = false;
-  verTiposEmb(preset === 'cruzadas');
   $('#emb-plantilla').value = '';
   $('#emb-plantilla-guardar').hidden = true;
   cargarPlantillas();
   $('#emb-titulo').textContent = 'Nuevo embudo';
+  $('#emb-pg-sub').hidden = false;
   $('.emb-tipos').hidden = false;
   $('input[name="emb-tipo"][value="webinar"]').checked = true;
   $('#emb-formato-box').hidden = true;
@@ -15057,7 +15403,6 @@ function abrirNuevoEmbudo({ preset } = {}) {
   $('#emb-h-tipo').textContent = '¿Qué tipo de embudo es?';
   $('#emb-sub-tipo').textContent = 'Elige el que más se parezca. En los siguientes pasos lo terminas de ajustar.';
   if (preset === 'cruzadas') $('input[name="emb-tipo"][value="cruzadas"]').checked = true;
-  pintarEmbReco();
   pintarEmbPestanas(null);
   irPasoEmb(0);
   embDlg.showModal();
@@ -15067,8 +15412,6 @@ function abrirEditarEmbudo(id) {
   const e = embudoInfo(id);
   if (!e) return;
   embEdit = id;
-  $('#emb-reco').hidden = true;
-  verTiposEmb(true);
   $('#emb-titulo').textContent = `${e.tipo === 'vsl' ? textosVsl(state.config.vsls[id]).ico : e.tipo === 'directa' ? '🛒' : e.tipo === 'cruzadas' ? '🔁' : e.tipo === 'meteorico' ? '⚡' : '🚀'} ${e.nombre}`;
   $('#emb-subtipo').value = subtipoValido(state.config.vsls[id]?.subtipo);
   $('.emb-tipos').hidden = true;
@@ -15098,6 +15441,7 @@ function abrirEditarEmbudo(id) {
   $('#emb-plantilla-box').hidden = true;
   $('#emb-plantilla-guardar').hidden = !state.superadmin || e.tipo === 'directa' || e.tipo === 'cruzadas';
   $('#emb-crear').textContent = 'Guardar';
+  $('#emb-pg-sub').hidden = true;
   $('#emb-guia-box').open = false;
   $('#emb-h-tipo').textContent = e.tipo === 'vsl' ? 'Tipo de embudo evergreen' : 'Formato de los lanzamientos';
   $('#emb-sub-tipo').textContent = 'El tipo de embudo no se cambia; puedes pulsar cualquier paso de arriba y guardar cuando quieras.';
@@ -15113,6 +15457,7 @@ $$('input[name="emb-tipo"]').forEach((r) => r.addEventListener('change', () => {
 $('#emb-pestanas').addEventListener('change', pintarEmbGuia);
 $('#emb-formato').addEventListener('change', pintarEmbGuia);
 $('#emb-reto-dias').addEventListener('change', pintarEmbGuia);
+$('#emb-pago-formato').addEventListener('change', pintarEmbGuia);
 $('#emb-subtipo').addEventListener('change', pintarEmbGuia);
 
 $('#emb-crear').addEventListener('click', async () => {
@@ -15157,7 +15502,7 @@ $('#emb-crear').addEventListener('click', async () => {
     for (let n = 2; usados.has(id) || id.length < 2; n++) id = `${base.slice(0, 18)}-${n}`;
     const body = {
       ...state.config,
-      embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz() } : {}), ...(todas ? {} : { pestanas }), publicidad: pestanas.includes('publicidad'), ...(ocultas.length ? { ocultas } : {}), ...embOrigenGuardar() }],
+      embudos: [...embudos(), { id, tipo, nombre, ...(formato ? { formato, ...embPrelanz(), ...(embEntradaPago() ? { entradaPago: true } : {}) } : {}), ...(todas ? {} : { pestanas }), publicidad: pestanas.includes('publicidad'), ...(ocultas.length ? { ocultas } : {}), ...embOrigenGuardar() }],
       // VSL y venta directa nacen con su código para el nombre de las campañas de Meta (VSL-id, DIR-id).
       vsls: tipo === 'vsl' ? { ...state.config.vsls, [id]: { name: nombre, subtipo, metaFiltro: codigoMeta('vsl', id, nombre) } } : state.config.vsls,
       directas: tipo === 'directa' ? { ...(state.config.directas || {}), [id]: { name: nombre, producto: nombre, partes: partesElegidas('#emb-partes'), metaFiltro: codigoMeta('directa', id, nombre) } } : state.config.directas,
@@ -15281,13 +15626,62 @@ function pintarAuditor() {
   const item = (x) => `<li class="aud-item n-${x.nivel}" data-aud="${esc(audKey(x))}">
       <span class="aud-ico" aria-hidden="true">${AUD_NIVEL[x.nivel].icon}</span>
       <div class="aud-txt"><span class="aud-area">${esc(x.area)}</span><strong>${esc(x.titulo)}</strong>${x.detalle ? `<small>${esc(x.detalle)}</small>` : ''}</div>
-      <div class="aud-acc">${x.accion ? `<button type="button" class="btn primary" data-aud-ir='${esc(JSON.stringify(x.accion))}'>Arreglar →</button>` : ''}
+      <div class="aud-acc">${x.accion ? `<button type="button" class="btn primary" data-aud-ir='${esc(JSON.stringify(x.accion))}'>${x.accion.tipo === 'zoom' ? 'Crear sala →' : 'Arreglar →'}</button>` : ''}
         <button type="button" class="btn ghost" data-aud-ign title="No volver a avisar de esto en este lanzamiento">Ignorar</button></div></li>`;
   $('#aud-lista').innerHTML = (activos.length ? `<ul class="aud-list">${activos.map(item).join('')}</ul>` : '<p class="aud-vacio">No hay nada pendiente: configuración, tareas y datos están en orden. 🎉</p>')
     + (ignorados.length ? `<details class="aud-ign"><summary>${ignorados.length} ignorado${ignorados.length === 1 ? '' : 's'}</summary><ul class="aud-list">${ignorados.map((x) => item(x).replace('data-aud-ign title="No volver a avisar de esto en este lanzamiento">Ignorar', 'data-aud-rest>Volver a avisar')).join('')}</ul></details>` : '');
 }
 
-$('#btn-auditor').addEventListener('click', () => { pintarAuditor(); $('#auditor-dialog').showModal(); });
+// «Crear sala →» del auditor: crea la sala de Zoom del vídeo con su día y hora (con los ajustes de la del vídeo 1) y la guarda.
+async function crearSalaDesdeAuditor(k) {
+  const code = state.launchCode;
+  const l = state.config.launches[code];
+  const v = videosDe(l)[k - 1];
+  if (!v) return;
+  if (!state.zoomConfigured) { notice('Zoom no está conectado en este cliente (Cuenta → Conexiones).', true); return; }
+  if (!v.fecha || !v.hora) { notice(`Pon antes el día y la hora del ${v.nombre} en Configuración.`, true); await openConfig(code); return; }
+  if (!window.confirm(`¿Crear la sala de Zoom del ${v.nombre} (${fechaCortaAud(v.fecha)} a las ${v.hora}) y guardarla en el lanzamiento?`)) return;
+  try {
+    notice('🎥 Creando la sala en Zoom…');
+    const z = await api('/api/zoom-sala', { method: 'POST', body: { topic: `${clienteNombre() ? `${clienteNombre()} · ` : ''}${l.name}${videosDe(l).length > 1 ? ` · ${v.nombre}` : ''}`, fecha: v.fecha, hora: v.hora, copiarDe: k === 1 ? '' : String(l.zoomMeetingId || '').replace(/\D/g, '') } });
+    const actual = state.config.launches[code];
+    const nuevo = k === 1 ? { ...actual, zoomMeetingId: z.id, zoomJoinUrl: z.joinUrl }
+      : { ...actual, videos: Array.from({ length: Math.max(k - 1, (actual.videos || []).length) }, (_, i) => (i === k - 2 ? { ...(actual.videos?.[i] || {}), zoomMeetingId: z.id, zoomJoinUrl: z.joinUrl } : actual.videos?.[i] || {})) };
+    const { config } = await api('/api/config', { method: 'POST', body: { ...state.config, launches: { ...state.config.launches, [code]: nuevo } } });
+    state.config = config;
+    notice(`✅ Sala de Zoom del ${v.nombre} creada y guardada (ID ${z.id}).`);
+    actualizarAuditor();
+    if (!$('#auditor-dialog').open) { pintarAuditor(); $('#auditor-dialog').showModal(); }
+  } catch (err) { notice(`No se pudo crear la sala: ${err.message}`, true); }
+}
+$('#btn-auditor').addEventListener('click', () => {
+  pintarAuditor();
+  const sim = $('#aud-simulacro');
+  sim.hidden = enVsl() || enDirecta() || !state.config.launches[state.launchCode];
+  if (sim.dataset.code !== state.launchCode) { sim.dataset.code = state.launchCode || ''; $('#aud-sim-res').innerHTML = ''; }
+  $('#auditor-dialog').showModal();
+});
+// Simulacro: el servidor abre las páginas publicadas en GHL (aquí el navegador no puede por CORS).
+$('#aud-sim-btn').addEventListener('click', async () => {
+  const b = $('#aud-sim-btn');
+  const res = $('#aud-sim-res');
+  b.disabled = true;
+  b.textContent = 'Revisando…';
+  try {
+    const r = await api('/api/vigilante', { method: 'POST', body: { op: 'revisar', code: state.launchCode } });
+    if (!r.paginas.length) { res.innerHTML = '<p class="muted aud-nota">No hay páginas publicadas configuradas todavía (login, preclase, grabación, venta…).</p>'; return; }
+    res.innerHTML = `<ul class="aud-sim-list">${r.paginas.map((p) => `<li class="${p.ok ? 'ok' : 'mal'}">
+      <span aria-hidden="true">${p.ok ? '✅' : p.problemas.some((x) => x.nivel === 'critico') ? '🔴' : '🟠'}</span>
+      <div><strong>${esc(p.label)}</strong> <a href="${esc(p.url)}" target="_blank" rel="noopener" class="muted">abrir ↗</a>
+      ${p.problemas.map((x) => `<small><b>${esc(x.titulo)}</b> · ${esc(x.detalle)}</small>`).join('')}</div></li>`).join('')}</ul>
+      <p class="muted aud-nota">${r.paginas.filter((p) => p.ok).length}/${r.paginas.length} páginas bien · revisado a las ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</p>`;
+  } catch (err) {
+    res.innerHTML = `<p class="aud-nota" style="color:var(--error)">${esc(err.message || 'No se ha podido revisar')}</p>`;
+  } finally {
+    b.disabled = false;
+    b.textContent = 'Revisar páginas ahora';
+  }
+});
 $('#aud-lista').addEventListener('click', async (e) => {
   const li = e.target.closest('[data-aud]');
   if (!li) return;
@@ -15308,8 +15702,268 @@ $('#aud-lista').addEventListener('click', async (e) => {
   else if (acc.tipo === 'tarea') abrirTarea(acc.id);
   else if (acc.tipo === 'vista') showView(acc.v);
   else if (acc.tipo === 'directa') abrirDirectaConfig();
+  else if (acc.tipo === 'zoom') crearSalaDesdeAuditor(acc.k);
   else if (acc.tipo === 'vsl') { await openVslConfig(); $(`#vsl-config-dialog .tab[data-tab="${acc.tab}"]`)?.click(); }
 });
+
+// ---------- 📥 Bandeja de decisiones y reglas de seguimiento ----------
+const bj = { reglas: [], items: [], cargada: 0 };
+async function cargarBandeja() {
+  try {
+    const r = await api('/api/reglas');
+    Object.assign(bj, { reglas: r.reglas, items: r.items, cargada: Date.now() });
+  } catch { bj.items = []; }
+  const n = bj.items.filter((x) => x.estado === 'pendiente').length;
+  $('#bandeja-count').hidden = !n;
+  $('#bandeja-count').textContent = String(n);
+  if ($('#bandeja-dialog').open) pintarBandeja();
+}
+// Cada 5 min (con la pestaña visible) por si las reglas proponen algo nuevo.
+setInterval(() => { if (document.visibilityState === 'visible' && document.body.classList.contains('can-bandeja')) cargarBandeja(); }, 5 * 60_000);
+const ESTADO_BJ = { pendiente: ['🟡', 'Por decidir'], aprobada: ['⏳', 'En marcha'], hecha: ['✅', 'Hecha'], descartada: ['✖️', 'Descartada'] };
+const haceBj = (iso) => { const m = Math.round((Date.now() - Date.parse(iso)) / 60_000); return m < 60 ? `hace ${Math.max(1, m)} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} días`; };
+function pintarBandeja() {
+  const pend = bj.items.filter((x) => x.estado === 'pendiente');
+  const resto = bj.items.filter((x) => x.estado !== 'pendiente').slice(0, 15);
+  // Lo crítico del auditor del lanzamiento abierto, con su botón de arreglar.
+  const crit = puedeConfig() ? auditoria().filter((x) => x.nivel === 'critico' && x.accion && !audIgnorados().has(audKey(x))).slice(0, 5) : [];
+  const item = (x) => `<li class="bj-item est-${x.estado}" data-bj="${esc(x.id)}">
+      <div class="bj-txt"><span class="bj-est">${ESTADO_BJ[x.estado][0]} ${ESTADO_BJ[x.estado][1]}${x.auto ? ' · automática' : ''} · ${esc(haceBj(x.creada))}</span>
+        <strong>${esc(x.titulo)}</strong>
+        ${x.detalle ? `<small>${esc(x.detalle)}</small>` : ''}
+        <small>${x.leads.slice(0, 8).map((l) => `${esc(l.nombre)} (${l.score})`).join(' · ')}${x.leads.length > 8 ? ` · y ${x.leads.length - 8} más` : ''}</small>
+        ${x.estado !== 'pendiente' && x.hechas ? `<small>${x.tipo === 'agente' ? `Hecho (${x.hechas} cambio${x.hechas === 1 ? '' : 's'})` : `Hecho con ${x.hechas}`}${x.fallidas ? ` · ${x.fallidas} fallaron` : ''}${x.decididaPor ? ` · lo aprobó ${esc(x.decididaPor)}` : ''}</small>` : ''}</div>
+      ${x.estado === 'pendiente' ? '<div class="bj-acc-item"><button type="button" class="btn primary" data-bj-si>✅ Aprobar</button><button type="button" class="btn ghost" data-bj-no>❌ Descartar</button></div>'
+        : x.estado === 'aprobada' && x.pendientes?.length ? '<div class="bj-acc-item"><button type="button" class="btn" data-bj-seguir>Seguir</button></div>' : ''}</li>`;
+  $('#bj-lista').innerHTML = `
+    ${crit.length ? `<h3 class="bj-h">🩺 Del auditor (${esc(state.config.launches[state.launchCode]?.name || '')})</h3><ul class="bj-list">${crit.map((x) => `<li class="bj-item est-crit"><div class="bj-txt"><span class="bj-est">🔴 ${esc(x.area)}</span><strong>${esc(x.titulo)}</strong></div><div class="bj-acc-item"><button type="button" class="btn primary" data-bj-aud='${esc(JSON.stringify(x.accion))}'>${x.accion.tipo === 'zoom' ? 'Crear sala →' : 'Arreglar →'}</button></div></li>`).join('')}</ul>` : ''}
+    <h3 class="bj-h">📥 Propuestas por decidir <small class="muted">(de las reglas de seguimiento y del agente)</small></h3>
+    ${pend.length ? `<ul class="bj-list">${pend.map(item).join('')}</ul>` : `<p class="muted bj-vacio">Nada por decidir. ${bj.reglas.some((r) => r.activa) ? 'Las reglas siguen mirando: cuando algún lead cumpla una, aparecerá aquí (y te aviso por Telegram).' : puedeConfig() ? 'Aún no tienes ninguna regla encendida: en «Reglas de seguimiento» eliges qué hacer con quien llega al pago, ve la oferta del directo…' : ''}</p>`}
+    ${resto.length ? `<details class="bj-hist"><summary>Historial (${resto.length})</summary><ul class="bj-list">${resto.map(item).join('')}</ul></details>` : ''}`;
+}
+function pintarReglas() {
+  const pl = state.config.plantillasWa || [];
+  const roles = [['setter', 'Setter'], ['closer', 'Closer'], ['admin', 'Admin']];
+  $('#bj-reglas').innerHTML = bj.reglas.map((r) => {
+    const c = CONDICIONES[r.id];
+    const falta = r.activa ? faltaEnRegla(r, pl) : '';
+    return `<fieldset class="bj-regla${r.activa ? ' on' : ''}" data-regla="${r.id}">
+      <label class="bj-regla-head"><input type="checkbox" data-r="activa"${r.activa ? ' checked' : ''}> <span>${c.icono} <strong>${esc(c.label)}</strong></span></label>
+      <div class="bj-regla-body">
+        <label class="field"><span>Qué hacer</span><select data-r="tipo">${Object.entries(ACCIONES).map(([k, v]) => `<option value="${k}"${r.accion.tipo === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+        <label class="field" data-r-show="plantilla"${r.accion.tipo === 'plantilla' ? '' : ' hidden'}><span>Plantilla</span><select data-r="plantilla"><option value="">— Elige —</option>${pl.map((p) => `<option value="${esc(p.tag)}"${r.accion.tag === p.tag ? ' selected' : ''}>${esc(p.nombre)} · ${String(p.precio).replace('.', ',')} €</option>`).join('')}</select>${pl.length ? '' : '<small class="muted">Aún no hay plantillas: añádelas en Conexiones → Plantillas de WhatsApp.</small>'}</label>
+        <label class="field" data-r-show="etiqueta"${r.accion.tipo === 'etiqueta' ? '' : ' hidden'}><span>Etiqueta de GHL</span><input data-r="etiqueta" value="${esc(r.accion.tipo === 'etiqueta' ? r.accion.tag : '')}" placeholder="p. ej. setter-ia-activar"></label>
+        <label class="field" data-r-show="tarea"${r.accion.tipo === 'tarea' ? '' : ' hidden'}><span>Para quién</span><select data-r="rol">${roles.map(([k, v]) => `<option value="${k}"${r.accion.rol === k ? ' selected' : ''}>Rol ${v}</option>`).join('')}</select></label>
+        <label class="field"><span>Cómo</span><select data-r="modo"><option value="proponer"${r.modo === 'proponer' ? ' selected' : ''}>Proponer (yo apruebo)</option><option value="auto"${r.modo === 'auto' ? ' selected' : ''}>Automático</option></select></label>
+        <label class="field"><span>Máximo al día</span><input type="number" min="1" max="200" data-r="max" value="${r.max}"></label>
+        ${falta ? `<p class="bj-falta">⚠️ ${esc(falta)}</p>` : ''}
+      </div></fieldset>`;
+  }).join('');
+}
+function leerReglasForm() {
+  return $$('#bj-reglas [data-regla]').map((f) => {
+    const v = (k) => f.querySelector(`[data-r="${k}"]`);
+    const tipo = v('tipo').value;
+    return { id: f.dataset.regla, activa: v('activa').checked, modo: v('modo').value, max: Number(v('max').value), accion: { tipo, tag: tipo === 'plantilla' ? v('plantilla').value : tipo === 'etiqueta' ? v('etiqueta').value.trim() : '', rol: v('rol').value } };
+  });
+}
+$('#bj-reglas').addEventListener('change', (e) => {
+  const f = e.target.closest('[data-regla]');
+  if (!f) return;
+  if (e.target.dataset.r === 'tipo') f.querySelectorAll('[data-r-show]').forEach((x) => { x.hidden = x.dataset.rShow !== e.target.value; });
+  if (e.target.dataset.r === 'activa') f.classList.toggle('on', e.target.checked);
+  if (e.target.dataset.r === 'modo' && e.target.value === 'auto') $('#bj-st').textContent = 'En automático la regla actúa sola (con el máximo al día). Si dudas, empieza con «Proponer».';
+});
+$('#bj-guardar').addEventListener('click', async () => {
+  const st = $('#bj-st');
+  st.textContent = 'Guardando…';
+  try {
+    bj.reglas = (await api('/api/reglas', { method: 'POST', body: { op: 'reglas', reglas: leerReglasForm() } })).reglas;
+    pintarReglas();
+    const mal = bj.reglas.filter((r) => r.activa && faltaEnRegla(r, state.config.plantillasWa || []));
+    st.textContent = mal.length ? '⚠️ Guardado, pero alguna regla encendida no tiene su acción completa.' : '✓ Guardado. Las reglas miran cada vez que pasa la tarea programada.';
+  } catch (err) { st.textContent = err.message; }
+});
+$('#bj-revisar').addEventListener('click', async () => {
+  const st = $('#bj-st');
+  st.textContent = 'Buscando leads…';
+  try {
+    const r = await api('/api/reglas', { method: 'POST', body: { op: 'revisar' } });
+    st.textContent = r.accion === 'evaluar' ? `Revisados ${r.leads} leads: ${r.nuevas ? `${r.nuevas} propuesta${r.nuevas === 1 ? '' : 's'} nueva${r.nuevas === 1 ? '' : 's'}` : 'nada nuevo'}.` : r.accion === 'tanda' ? `Hecha una tanda de una propuesta aprobada (${r.hechas}).` : r.motivo || 'Nada que hacer.';
+    await cargarBandeja();
+  } catch (err) { st.textContent = err.message; }
+});
+$('#btn-bandeja').addEventListener('click', async () => {
+  pintarBandeja();
+  $('#bandeja-dialog').showModal();
+  if (Date.now() - bj.cargada > 30_000) await cargarBandeja();
+});
+$('#bandeja-dialog').addEventListener('click', async (e) => {
+  const tab = e.target.closest('[data-bj-tab]');
+  if (tab) {
+    $$('#bandeja-dialog [data-bj-tab]').forEach((t) => t.classList.toggle('on', t === tab));
+    $$('#bandeja-dialog [data-bj-panel]').forEach((p) => { p.hidden = p.dataset.bjPanel !== tab.dataset.bjTab; });
+    if (tab.dataset.bjTab === 'reglas') pintarReglas();
+    if (tab.dataset.bjTab === 'agente') pintarAgente();
+    return;
+  }
+  if (await clickAgente(e)) return;
+  const aud = e.target.closest('[data-bj-aud]');
+  if (aud) {
+    const acc = JSON.parse(aud.dataset.bjAud);
+    $('#bandeja-dialog').close();
+    if (acc.tipo === 'zoom') crearSalaDesdeAuditor(acc.k);
+    else if (acc.tipo === 'campo') { await openConfig(state.launchCode); setTimeout(() => goToField(acc.id), 150); }
+    else if (acc.tipo === 'tarea') abrirTarea(acc.id);
+    else if (acc.tipo === 'vista') showView(acc.v);
+    return;
+  }
+  const li = e.target.closest('[data-bj]');
+  const b = e.target.closest('[data-bj-si], [data-bj-no], [data-bj-seguir]');
+  if (!li || !b) return;
+  const id = li.dataset.bj;
+  const it = bj.items.find((x) => x.id === id);
+  if (b.matches('[data-bj-si]') && it && !window.confirm(`¿Aprobar?\n\n${it.titulo}`)) return;
+  b.disabled = true;
+  try {
+    let r = b.matches('[data-bj-seguir]') ? await api('/api/reglas', { method: 'POST', body: { op: 'continuar', id } })
+      : await api('/api/reglas', { method: 'POST', body: { op: 'decidir', id, si: b.matches('[data-bj-si]') } });
+    let total = r.hechas || 0;
+    // Grandes: de 20 en 20 mientras quedan (como el envío masivo de plantillas).
+    while (r.restantes > 0 && r.hechas > 0) {
+      b.textContent = `Enviando… ${total}`;
+      r = await api('/api/reglas', { method: 'POST', body: { op: 'continuar', id } });
+      total += r.hechas || 0;
+    }
+    if (r.estado === 'descartada') notice('Descartada: no se volverá a proponer con estos leads.');
+    else notice(`✅ Hecho con ${total} lead${total === 1 ? '' : 's'}.`);
+  } catch (err) { notice(err.message, true); }
+  await cargarBandeja();
+});
+
+// ---------- 🧭 Agente de lanzamientos (pestaña de la bandeja) ----------
+let agente = null;
+const fmtDiaAg = (d) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : '');
+async function pintarAgente() {
+  const box = $('#ag-body');
+  const code = enVsl() || enDirecta() ? '' : state.launchCode;
+  if (!code) { box.innerHTML = '<p class="muted">Abre un lanzamiento: el agente trabaja sobre el lanzamiento que tengas abierto.</p>'; return; }
+  box.innerHTML = '<p class="muted">Mirando cómo va el lanzamiento…</p>';
+  try { agente = await api(`/api/agente?l=${encodeURIComponent(code)}`); } catch (err) { box.innerHTML = `<p class="error">${esc(err.message)}</p>`; return; }
+  const a = agente;
+  const o = a.objetivos || {};
+  const hoy = a.hoy;
+  const hechas = a.piezas.filter((p) => p.hecha).length;
+  const r = a.ritmo;
+  const accBtn = (acc, txt = 'Hacerlo →') => (acc ? `<button type="button" class="btn small" data-ag-acc='${esc(JSON.stringify(acc))}'>${acc.tipo === 'zoom' ? 'Crear sala →' : txt}</button>` : '');
+  box.innerHTML = `
+    <section class="ag-sec"><h3>1 · Brief</h3>
+      ${o.ventas && o.registros ? `<p class="ag-obj"><strong>${o.ventas}</strong> ventas · <strong>${o.registros}</strong> registros${o.inversion ? ` · <strong>${eur(o.inversion)}</strong> en anuncios (≈ ${eur(o.inversion / o.registros)} por registro)` : ''} <button type="button" class="btn ghost small" data-ag-brief-editar>Cambiar</button></p>` : '<p class="muted">Dime qué quieres conseguir y saco el resto.</p>'}
+      <div class="ag-brief"${o.ventas && o.registros ? ' hidden' : ''}>
+        <label class="field"><span>Ventas que quieres</span><input type="number" min="1" id="ag-ventas" value="${o.ventas || ''}"></label>
+        <label class="field"><span>Inversión en anuncios (€)</span><input type="number" min="0" id="ag-inversion" value="${o.inversion || ''}"></label>
+        <label class="field"><span>Conversión registro → venta (%)</span><input type="number" min="0.1" step="0.1" id="ag-conversion" value="2"></label>
+        <p class="muted small" id="ag-brief-calc"></p>
+        <button type="button" class="btn primary" data-ag-brief-guardar>Guardar el brief</button>
+      </div>
+    </section>
+    <section class="ag-sec"><h3>2 · Cómo va</h3>
+      <div class="ag-kpis">
+        <div><span>Registros</span><strong>${a.registros ?? '–'}</strong>${o.registros ? `<small>de ${o.registros}</small>` : ''}</div>
+        <div><span>Ventas</span><strong>${a.ventas ?? '–'}</strong>${o.ventas ? `<small>de ${o.ventas}</small>` : ''}</div>
+        <div><span>Inversión</span><strong>${a.inversion ? eur(a.inversion) : '–'}</strong>${a.inversion && a.registros ? `<small>${eur(a.inversion / a.registros)} por registro</small>` : ''}</div>
+        ${r ? `<div class="${r.pct != null && r.pct < 85 ? 'mal' : 'bien'}"><span>Ritmo</span><strong>${r.pct ?? '–'} %</strong><small>${r.actualDia}/día · faltan ${r.necesarioDia}/día</small></div>` : ''}
+        ${a.cerebro?.prediccion && !a.cerebro.prediccion.sinConversion ? `<div class="${a.cerebro.prediccion.llega === false ? 'mal' : 'bien'}"><span>🔮 Ventas previstas</span><strong>${a.cerebro.prediccion.ventas}</strong><small>entre ${a.cerebro.prediccion.ventasBajo} y ${a.cerebro.prediccion.ventasAlto}</small></div>` : ''}
+      </div>
+      ${a.cerebro ? pintarCerebro(a.cerebro) : ''}
+    </section>
+    <section class="ag-sec"><h3>3 · Plan: las piezas <span class="st-chip">${hechas}/${a.piezas.length}</span></h3>
+      <ul class="ag-piezas">${a.piezas.map((p) => `<li class="${p.hecha ? 'ok' : p.para && p.para < hoy ? 'tarde' : ''}"><span>${p.hecha ? '✅' : p.para && p.para < hoy ? '🔴' : '⬜'}</span><div><strong>${esc(p.titulo)}</strong>${p.para ? `<small>${p.hecha ? '' : 'para el '}${esc(fmtDiaAg(p.para))}</small>` : ''}</div>${p.hecha ? '' : accBtn(p.accion)}</li>`).join('')}</ul>
+    </section>
+    <section class="ag-sec"><h3>4 · Lo que propongo hoy</h3>
+      ${a.propuestas.length ? `<ul class="bj-list">${a.propuestas.map((p) => `<li class="bj-item est-pendiente"><div class="bj-txt"><strong>${esc(p.titulo)}</strong><small>${esc(p.detalle)}</small></div>${p.accion?.tipo === 'brief' ? accBtn(p.accion, 'Poner objetivos →') : ''}</li>`).join('')}</ul>
+        <div class="bj-acc"><button type="button" class="btn primary" data-ag-pilotar>📥 Mandarlas a la bandeja para aprobarlas</button><span class="muted small">Cada día, con la tarea programada, lo hago solo y te aviso por Telegram.</span></div>` : '<p class="muted">Nada que proponer hoy: va según lo previsto. 👌</p>'}
+    </section>
+    <section class="ag-sec ag-ia"><h3>5 · 🧠 Diagnóstico de Claude</h3>
+      <div id="ag-ia">${pintarIa(a.ia, a.claude)}</div>
+    </section>`;
+  calcBrief();
+}
+// 🧠 Cerebro: previsión y cada fase frente a tus anteriores y a la mediana de la agencia (anónima).
+function pintarCerebro(c) {
+  const filas = c.comparativa.filas.filter((f) => f.actual != null || f.propio || f.ref);
+  const marca = (f) => (f.vsRef == null ? '' : f.vsRef <= -0.15 ? 'mal' : f.vsRef >= 0.15 ? 'bien' : '');
+  return `<div class="cb">
+    ${c.texto ? `<p class="cb-pred">🔮 ${esc(c.texto)}</p>` : ''}
+    ${c.textoFase ? `<p class="cb-fase">🧠 ${esc(c.textoFase)}</p>` : ''}
+    ${filas.length ? `<table class="cb-tabla"><thead><tr><th>Fase</th><th>Este lanzamiento</th><th>Tus anteriores</th><th>Agencia (mediana)</th></tr></thead><tbody>
+      ${filas.map((f) => `<tr class="${marca(f)}"><td><strong>${esc(f.fase)}</strong><small>${esc(f.label)}</small></td><td>${f.actual == null ? '<span class="muted">aún no</span>' : esc(fmtRatio(f, f.actual))}${f.vsRef != null ? ` <small>${f.vsRef >= 0 ? '+' : ''}${Math.round(f.vsRef * 100)} %</small>` : ''}</td><td>${f.propio ? esc(fmtRatio(f, f.propio.valor)) : '–'}</td><td>${f.ref ? `${esc(fmtRatio(f, f.ref.mediana))} <small>(${esc(fmtRatio(f, f.ref.p25))}–${esc(fmtRatio(f, f.ref.p75))})</small>` : '–'}</td></tr>`).join('')}
+    </tbody></table>` : ''}
+    <p class="muted small">${c.referencia ? `Agencia: ${c.referencia.lanzamientos} lanzamientos cerrados${c.referencia.formato === 'todos' ? ' (todos los formatos)' : ' del mismo formato'}, en anónimo.` : 'La referencia de la agencia sale cuando haya al menos 3 lanzamientos cerrados con resultados.'} ${c.anteriores ? `Tuyos: ${c.anteriores}.` : ''} Los resultados de cada lanzamiento se guardan al abrir Plan → Planificador.</p>
+  </div>`;
+}
+const GRAV_IA = { bien: '🟢', atencion: '🟠', urgente: '🔴' };
+function pintarIa(ia, conClaude) {
+  if (!conClaude) return '<p class="muted">Para que Claude haga el diagnóstico, añade <strong>ANTHROPIC_API_KEY</strong> (tipo Secret) en Cloudflare y vuelve a desplegar.</p>';
+  if (!ia) return `<p class="muted">Claude mira tus datos, los compara con tus lanzamientos anteriores y lo que aprendiste en ellos, y te dice qué pasa, por qué y qué haría (con los borradores hechos). Se hace solo una vez al día con la tarea programada; también ahora:</p>
+    <button type="button" class="btn primary" data-ag-ia>🧠 Pedir el diagnóstico a Claude</button>`;
+  return `<p class="ag-ia-resumen">${esc(ia.resumen)}</p>
+    <ul class="ag-ia-diag">${(ia.diagnostico || []).map((d) => `<li><span>${GRAV_IA[d.gravedad] || '•'}</span><div><strong>${esc(d.titulo)}</strong><small>${esc(d.detalle)}</small></div></li>`).join('')}</ul>
+    <h4>Lo que haría Claude</h4>
+    <ul class="bj-list">${(ia.propuestas || []).map((p) => `<li class="bj-item est-pendiente"><div class="bj-txt"><strong>${esc(p.titulo)}</strong><small>${esc(p.detalle)} · para el rol ${esc(p.rol)}</small>${p.borrador ? `<details><summary class="small">Ver el borrador</summary><pre class="snippet ag-borrador">${esc(p.borrador)}</pre></details>` : ''}</div></li>`).join('')}</ul>
+    <div class="bj-acc"><button type="button" class="btn primary" data-ag-ia-mandar>📥 Mandarlas a la bandeja</button><button type="button" class="btn ghost" data-ag-ia data-forzar="1">🔁 Otro diagnóstico</button>
+    <span class="muted small">Hecho ${esc(new Date(ia.en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }))}${ia.anteriores ? ` · comparado con ${ia.anteriores} lanzamiento${ia.anteriores === 1 ? '' : 's'} anterior${ia.anteriores === 1 ? '' : 'es'}` : ' · sin lanzamientos anteriores con resultados para comparar'}</span></div>`;
+}
+function calcBrief() {
+  const out = $('#ag-brief-calc');
+  if (!out) return;
+  const ob = objetivosDeBrief({ ventas: $('#ag-ventas').value, inversion: $('#ag-inversion').value, conversion: $('#ag-conversion').value });
+  out.textContent = ob.ventas ? `Necesitas unos ${ob.registros} registros${ob.cplObjetivo ? `, a ${String(ob.cplObjetivo).replace('.', ',')} € por registro como mucho` : ''}.` : '';
+}
+$('#ag-body').addEventListener('input', calcBrief);
+async function clickAgente(e) {
+  if (e.target.closest('[data-ag-brief-editar]')) { $('#ag-body .ag-brief').hidden = false; return true; }
+  if (e.target.closest('[data-ag-brief-guardar]')) {
+    try {
+      const r = await api('/api/agente', { method: 'POST', body: { op: 'brief', l: state.launchCode, ventas: $('#ag-ventas').value, inversion: $('#ag-inversion').value, conversion: $('#ag-conversion').value } });
+      state.config = r.config;
+      notice(`🎯 Brief guardado: ${r.objetivos.ventas} ventas y ${r.objetivos.registros} registros.`);
+      pintarAgente();
+    } catch (err) { notice(err.message, true); }
+    return true;
+  }
+  const bIa = e.target.closest('[data-ag-ia], [data-ag-ia-mandar]');
+  if (bIa) {
+    const mandar = bIa.matches('[data-ag-ia-mandar]');
+    bIa.disabled = true;
+    if (!mandar) $('#ag-ia').insertAdjacentHTML('afterbegin', '<p class="muted">🧠 Claude está analizando el lanzamiento… (unos 30-60 segundos)</p>');
+    try {
+      const r = await api('/api/agente', { method: 'POST', body: { op: 'diagnostico', l: state.launchCode, forzar: bIa.dataset.forzar === '1', mandar } });
+      if (mandar) { notice(r.nuevas ? `📥 ${r.nuevas} propuesta${r.nuevas === 1 ? '' : 's'} de Claude en la bandeja.` : 'Ya estaban en la bandeja.'); await cargarBandeja(); }
+      $('#ag-ia').innerHTML = pintarIa(r.ia, true);
+    } catch (err) { notice(err.message, true); bIa.disabled = false; $('#ag-ia > p.muted:first-child')?.remove(); }
+    return true;
+  }
+  if (e.target.closest('[data-ag-pilotar]')) {
+    try {
+      const r = await api('/api/agente', { method: 'POST', body: { op: 'pilotar' } });
+      notice(r.nuevas ? `📥 ${r.nuevas} propuesta${r.nuevas === 1 ? '' : 's'} en la bandeja.` : 'Ya estaban en la bandeja.');
+      await cargarBandeja();
+      $('#bandeja-dialog [data-bj-tab="bandeja"]').click();
+    } catch (err) { notice(err.message, true); }
+    return true;
+  }
+  const b = e.target.closest('[data-ag-acc]');
+  if (!b) return false;
+  const acc = JSON.parse(b.dataset.agAcc);
+  if (acc.tipo === 'brief') { $('#ag-body .ag-brief').hidden = false; $('#ag-ventas').focus(); return true; }
+  if (acc.tipo === 'bandeja') { $(`#bandeja-dialog [data-bj-tab="${acc.tab}"]`).click(); return true; }
+  $('#bandeja-dialog').close();
+  if (acc.tipo === 'zoom') crearSalaDesdeAuditor(acc.k);
+  else if (acc.tipo === 'campo') { await openConfig(state.launchCode); setTimeout(() => goToField(acc.id), 150); }
+  else if (acc.tipo === 'vista') showView(acc.v);
+  return true;
+}
 
 // ---------- Inicio ----------
 if (tokenReset) {
@@ -17301,6 +17955,15 @@ async function cargarPublicidad({ fresh = false } = {}) {
   if (token !== state.pb.token) return;
   state.pb.datos = { ...d, clave };
   renderPublicidad();
+  if (!d.configured || d.sinCampanas || d.error) return;
+  // Ventas reales (atribución propia + GHL) y gasto de 7 días, 3 días y hoy: después, para no retrasar la tabla.
+  const [ventas, g731] = await Promise.all([
+    api(`/api/publicidad?${qs}&parte=ventas`).catch((e) => ({ error: e.message })),
+    api(`/api/publicidad?${qs}&parte=731`).catch((e) => ({ error: e.message })),
+  ]);
+  if (token !== state.pb.token) return;
+  state.pb.datos = { ...state.pb.datos, ventasReales: ventas, g731 };
+  renderPublicidad();
 }
 $('#pb-preset').addEventListener('change', () => { ls.set(`lsd_pb_preset_${state.embudo}`, $('#pb-preset').value); pintarPbCampos(); cargarPublicidad(); });
 ['#pb-desde', '#pb-hasta'].forEach((x) => $(x).addEventListener('change', () => { if ($('#pb-desde').value && $('#pb-hasta').value) cargarPublicidad(); }));
@@ -17320,6 +17983,8 @@ $('#pb-arbol').addEventListener('click', (e) => {
 const numEs = (n, d = 0) => (n == null || !Number.isFinite(n) ? '–' : n.toLocaleString('es-ES', { maximumFractionDigits: d, minimumFractionDigits: d }));
 const pctEs = (n, d = 2) => (n == null ? '–' : `${numEs(n * 100, d)} %`);
 const roasEs = (n) => (n == null ? '–' : `${numEs(n, 2)}x`);
+// ROAS con color: verde desde 2x, ámbar entre 1x y 2x, rojo por debajo de 1x (pierde dinero).
+const roasHtml = (n) => (n == null ? '–' : `<span class="pb-roas ${n >= 2 ? 'bien' : n >= 1 ? 'medio' : 'mal'}">${numEs(n, 2)}x</span>`);
 // Columnas como en el Administrador de anuncios: Rendimiento, Embudo y conversión, Creatividad.
 // Con registros reales (GHL), sus dos columnas van junto a los registros de Meta.
 function columnasPublicidad(res, conReales = false) {
@@ -17342,6 +18007,21 @@ function columnasPublicidad(res, conReales = false) {
       c('Registros (Meta)', (m) => numEs(m.registros), 'Lo que cuenta Meta (píxel o formulario)'), c('CPL (Meta)', (m) => eur(m.cpl)), ...reales, c('Pagos iniciados', (m) => numEs(m.pagos)), c('Coste pago iniciado', (m) => eur(m.costePago)),
       c('Compras (Meta)', (m) => numEs(m.compras)), c('Coste por compra (Meta)', (m) => eur(m.costeCompra)), c('Valor de compras', (m) => eur(m.valor)), c('ROAS (Meta)', (m) => roasEs(m.roas), 'Valor de las compras que cuenta Meta ÷ gasto'),
     ],
+    ventas: [
+      c('Importe gastado', (m) => eur(m.gasto)),
+      c('Ventas reales', (m) => numEs(m.real?.ventas ?? null), 'Primeras compras de personas que llegaron por este anuncio (Hotmart, ThriveCart, Skool), aunque compraran días después o por WhatsApp'),
+      c('Coste por venta', (m) => eur(m.real?.cpa ?? null), 'Gasto ÷ ventas reales'),
+      c('Ingresos directos', (m) => eur(m.real?.directos ?? null), 'Lo que pagaron en su primera compra'),
+      c('Ingresos indirectos', (m) => eur(m.real?.indirectos ?? null), 'Lo que compraron después: upsells, renovaciones, otros productos'),
+      c('Ingresos reales', (m) => eur(m.real?.ingresos ?? null), 'Directos + indirectos − reembolsos'),
+      c('ROAS real', (m) => roasHtml(m.real?.roas ?? null), 'Ingresos reales ÷ gasto'),
+      c('ROAS (Meta)', (m) => roasEs(m.roas), 'Lo que cuenta el píxel de Meta, para comparar'),
+    ],
+    '731': [
+      c('Gasto 7 días', (m) => eur(m.v731?.g7 ?? null)), c('ROAS 7 días', (m) => roasHtml(m.v731?.r7 ?? null), 'Ingresos reales ÷ gasto de los últimos 7 días'),
+      c('Gasto 3 días', (m) => eur(m.v731?.g3 ?? null)), c('ROAS 3 días', (m) => roasHtml(m.v731?.r3 ?? null), 'Últimos 3 días: si cae frente a los 7 días, el anuncio se está agotando'),
+      c('Gasto hoy', (m) => eur(m.v731?.g1 ?? null)), c('ROAS hoy', (m) => roasHtml(m.v731?.r1 ?? null), 'Solo hoy: orientativo, las ventas del día aún están llegando'),
+    ],
     creatividad: [
       c('Importe gastado', (m) => eur(m.gasto)), c('Impresiones', (m) => numEs(m.impresiones)), c('Frecuencia', (m) => numEs(m.frecuencia, 2)),
       c('Reproducciones 3 s', (m) => numEs(m.repro3s)), c('Hook rate', (m) => pctEs(m.hook, 1), 'Reproducciones de 3 s ÷ impresiones: cuánto engancha el inicio del vídeo (bien: 25 % o más)'),
@@ -17363,6 +18043,31 @@ function registrosGhlPb(D, gasto) {
   return { ...registrosReales(state.leads, D.rango, gasto, { dia: (l) => (l.dateAdded ? dayInMadrid(l.dateAdded) : ''), todos, inicio }), exacto: todos || cubre };
 }
 const ESTADO_META = { ACTIVE: ['Activa', 'on'], PAUSED: ['En pausa', 'off'], CAMPAIGN_PAUSED: ['Campaña en pausa', 'off'], ADSET_PAUSED: ['Conjunto en pausa', 'off'], DELETED: ['Eliminada', 'off'], ARCHIVED: ['Archivada', 'off'], IN_PROCESS: ['En revisión', 'rev'], PENDING_REVIEW: ['En revisión', 'rev'], DISAPPROVED: ['Rechazado', 'mal'], WITH_ISSUES: ['Con problemas', 'mal'] };
+// Tarjetas de ventas reales (atribución propia): ventas, ingresos y ROAS reales del periodo.
+function cardsVentasReales(D) {
+  const VR = D.ventasReales;
+  if (!VR) return D.campanas?.length ? [cardD('Ventas reales', '…', 'cruzando ventas con anuncios', 'cart', 'buy', '')] : [];
+  if (VR.error) return [cardD('Ventas reales', '–', VR.error, 'cart', 'buy', '')];
+  const r = ventasEnArbol(structuredClone({ campanas: D.campanas, total: D.total }), VR.ventas, D.rango).total;
+  const gasto = D.total?.gasto || 0;
+  return [
+    cardD('Ventas reales', numEs(r.ventas), `${eur(gasto && r.ventas ? gasto / r.ventas : null)} cada una`, 'cart', 'buy', 'Primeras compras (Hotmart, ThriveCart, Skool) de personas que llegaron por estas campañas, aunque compraran días después o por WhatsApp. Ver «Ventas reales» en las columnas.'),
+    cardD('Ingresos reales', eur(r.ingresos), `${eur(r.directos)} directos · ${eur(r.indirectos)} después`, 'coins', 'money', 'Directos: la primera compra. Después: upsells, renovaciones y otros productos de esas mismas personas. Menos reembolsos.'),
+    cardD('ROAS real', roasEs(gasto ? r.ingresos / gasto : null), `Meta dice ${roasEs(D.total?.roas ?? null)}`, 'trend', 'money', 'Ingresos reales ÷ gasto. El de Meta solo cuenta lo que ve el píxel.'),
+  ];
+}
+const totales731 = (v731, D) => {
+  const o = { g7: 0, g3: 0, g1: 0, i7: 0, i3: 0, i1: 0 };
+  for (const c of D.campanas || []) { const x = v731.get(String(c.id)); if (x) for (const k of Object.keys(o)) o[k] += x[k]; }
+  for (const n of [7, 3, 1]) o[`r${n}`] = o[`g${n}`] ? o[`i${n}`] / o[`g${n}`] : null;
+  return o;
+};
+function notaVentasReales(D, R) {
+  const VR = D.ventasReales;
+  if (!VR) return '<p class="muted small">Cruzando las ventas con los anuncios…</p>';
+  if (VR.error) return `<p class="muted small">${esc(VR.error)}</p>`;
+  return `<p class="muted small">De las ventas del periodo: <strong>${numEs(R.atribuidas)}</strong> asignadas a estas campañas${R.otras ? `, ${numEs(R.otras)} de otras campañas o de fuera de Meta` : ''}${R.sinOrigen ? `, <strong>${numEs(R.sinOrigen)}</strong> sin origen conocido (llegaron antes de poner los parámetros en los anuncios o sin pasar por una página con AlquimIA)` : ''}. Se asigna cada venta al anuncio que trajo a esa persona la primera vez (si no lo captó AlquimIA, el que apuntó GHL al registrarse). Para que cuadre, pon en tus anuncios los parámetros de URL de Conexiones → Atribución.</p>`;
+}
 function renderPublicidad() {
   const D = state.pb.datos;
   $$('#pb-cols .seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.pc === state.pb.cols));
@@ -17393,10 +18098,19 @@ function renderPublicidad() {
     cardD(res === 'compras' ? 'Compras (Meta)' : 'Registros (Meta)', numEs(t[res]), res === 'compras' ? `${eur(costeRes)} cada compra` : `CPL (Meta) ${eur(costeRes)}`, res === 'compras' ? 'cart' : 'users', 'buy', 'Lo que cuenta Meta con el píxel o el formulario. Las ventas reales (GHL) están en Métricas.'),
     ...realesCards,
     ...(t.valor ? [cardD('ROAS (Meta)', roasEs(t.roas), `${eur(t.valor)} en compras`, 'coins', 'money', 'Valor de las compras que cuenta Meta ÷ gasto.')] : []),
+    ...cardsVentasReales(D),
   ].join('');
   if (!D.campanas?.length) { $('#pb-arbol').innerHTML = `<p class="muted">Ninguna campaña con gasto en este periodo${D.filtro ? ` con «${esc(D.filtro)}» en el nombre` : ''}. Comprueba el código de las campañas en la configuración del embudo.</p>`; return; }
-  const cols = columnasPublicidad(res, Boolean(real))[state.pb.cols];
-  const metricas = (n) => { if (!real) return n.m; const reales = realesDeNodo(real.porUtm, n); return { ...n.m, reales, cplReal: reales && n.m.gasto ? n.m.gasto / reales : null }; };
+  const cols = columnasPublicidad(res, Boolean(real))[state.pb.cols] || columnasPublicidad(res, Boolean(real)).rendimiento;
+  const VR = D.ventasReales && !D.ventasReales.error ? D.ventasReales : null;
+  const resumenVR = VR ? ventasEnArbol(D, VR.ventas, D.rango) : null;
+  const v731 = VR && D.g731?.hoy ? vista731(D, D.g731, VR.ventas) : new Map();
+  const metricas = (n) => {
+    const base = { ...n.m, real: n.real, v731: v731.get(String(n.id)) };
+    if (!real) return base;
+    const reales = realesDeNodo(real.porUtm, n);
+    return { ...base, reales, cplReal: reales && n.m.gasto ? n.m.gasto / reales : null };
+  };
   const sinUtm = real ? real.registros - D.campanas.reduce((s, x) => s + realesDeNodo(real.porUtm, x), 0) : 0;
   const soloActivos = $('#pb-activos').checked;
   const visible = (n) => !soloActivos || !n.estado || n.estado === 'ACTIVE';
@@ -17413,7 +18127,8 @@ function renderPublicidad() {
   const filas = D.campanas.filter(visible).map((c) => fila(c, 0)).join('');
   $('#pb-arbol').innerHTML = `<div class="table-wrap"><table class="metric-table pb-t"><thead><tr><th>Campaña / conjunto de anuncios / anuncio</th><th>Estado</th>${cols.map((c) => `<th class="num"${c.ayuda ? ` title="${esc(c.ayuda)}"` : ''}>${esc(c.label)}</th>`).join('')}</tr></thead>
     <tbody>${filas || `<tr><td colspan="${cols.length + 2}" class="muted">Ninguna campaña activa: quita «Solo activos».</td></tr>`}</tbody>
-    <tfoot><tr><td><strong>Total</strong></td><td></td>${cols.map((c) => `<td class="num"><strong>${c.f(real ? { ...t, reales: real.registros, cplReal: real.cpl } : t)}</strong></td>`).join('')}</tr></tfoot></table></div>
+    <tfoot><tr><td><strong>Total</strong></td><td></td>${cols.map((c) => `<td class="num"><strong>${c.f({ ...t, real: D.totalReal, v731: totales731(v731, D), ...(real ? { reales: real.registros, cplReal: real.cpl } : {}) })}</strong></td>`).join('')}</tr></tfoot></table></div>
+    ${['ventas', '731'].includes(state.pb.cols) ? notaVentasReales(D, resumenVR) : ''}
     ${real && sinUtm > 0 ? `<p class="muted small">De los ${numEs(real.registros)} registros reales${real.exacto ? '' : ' (aprox.)'}, <strong>${numEs(sinUtm)}</strong> no traen la UTM de ninguna de estas campañas (orgánicos, otras campañas o sin UTM): cuentan en el total, no en ninguna fila.</p>` : ''}
     <p class="muted small">Pulsa ▸ para abrir una campaña o un conjunto, y ↗ para abrirlo en Meta. Las cifras son las de Meta en el periodo elegido (pueden tardar unas horas en cuadrar con el Administrador). Las ventas reales por anuncio, cruzadas con GHL, están en «Anuncios ganadores».</p>`;
 }
@@ -17495,25 +18210,151 @@ $('#marca-dialog').addEventListener('close', () => {
   if (!$('#view-automatizaciones').hidden && state.config) renderAutomatizaciones();
 });
 
+// 🎯 Meta · Conversions API: píxel, qué eventos se mandan, código de prueba y los últimos envíos.
+const ORIGEN_TOKEN = {
+  propio: (f) => `✅ Token guardado aquí (…${f})`,
+  cloudflare: (f) => `✅ Token de Cloudflare: META_CAPI_TOKEN (…${f})`,
+  anuncios: () => '⚠️ No has puesto token: se está usando el de los anuncios, que normalmente NO puede mandar eventos al píxel. Genera uno (paso 2) y pégalo aquí.',
+  '': () => '⚠️ Falta el token (paso 2): sin él no se envía nada a Meta.',
+};
+async function pintarCapiConexiones() {
+  const box = $('#cx-capi');
+  if (!box) return;
+  let d;
+  try { d = await api('/api/meta-capi'); } catch (err) { box.innerHTML = `<p class="muted">${esc(err.message)}</p>`; return; }
+  const c = d.config;
+  const t = d.token;
+  const tokenOk = t.hay && t.origen !== 'anuncios';
+  ponerEstadoCx('capi', c.activo && tokenOk ? 'ok' : c.pixelId || t.hay ? 'aviso' : 'no', c.activo && tokenOk ? 'Activa' : !tokenOk ? 'Falta el token' : c.pixelId ? 'Apagada' : 'Sin conectar');
+  box.innerHTML = `<div class="capi-form">
+      <label class="check"><input type="checkbox" id="capi-activo"${c.activo ? ' checked' : ''}> <strong>Mandar los eventos a Meta</strong></label>
+      <label class="field"><span>1 · ID del píxel (o conjunto de datos)</span><input id="capi-pixel" inputmode="numeric" value="${esc(c.pixelId || '')}" placeholder="p. ej. 1234567890123456"></label>
+      <div class="capi-tokenbox">
+        <label class="field"><span>2 · Token de la Conversions API</span><input id="capi-token" type="password" autocomplete="off" placeholder="${t.origen === 'propio' ? 'Guardado · pega otro para cambiarlo' : 'Pega aquí el token (EAA…)'}"></label>
+        <p class="capi-token ${tokenOk ? 'ok' : 'mal'}">${esc(ORIGEN_TOKEN[t.origen || ''](t.final))}</p>
+        <div class="bj-acc"><button type="button" class="btn" id="capi-token-guardar">Guardar token</button>${t.origen === 'propio' ? '<button type="button" class="btn ghost" id="capi-token-quitar">Quitar</button>' : ''}<button type="button" class="btn" id="capi-comprobar">3 · Comprobar</button><span class="muted small" id="capi-token-st"></span></div>
+      </div>
+      <fieldset class="capi-ev"><legend>Qué eventos se mandan</legend>${Object.entries(d.eventos).map(([k, e]) => `<label class="check"><input type="checkbox" data-capi-ev="${k}"${c.eventos[k] ? ' checked' : ''}> ${esc(e.label)} <code>${esc(e.nombre)}</code></label>`).join('')}</fieldset>
+      <label class="field"><span>Código de prueba <small>(opcional: TEST…; mientras esté puesto, los eventos solo salen en «Probar eventos»)</small></span><input id="capi-test" value="${esc(c.testCode || '')}" placeholder="TEST12345"></label>
+      <div class="bj-acc"><button type="button" class="btn primary" id="capi-guardar">Guardar</button><button type="button" class="btn" id="capi-probar">Enviar evento de prueba</button><button type="button" class="btn ghost" id="capi-calidad">Nota de calidad de Meta</button><span class="muted small" id="capi-st"></span></div>
+      <div id="capi-calidad-res"></div>
+      <div class="capi-csv">
+        <strong>📄 Subir clientes por CSV</strong>
+        <p class="muted small">Ventas que no llegan solas (high-ticket, transferencias, otra plataforma, antiguas). Columnas: email (o teléfono), importe y fecha; si las tiene, nombre, producto y teléfono. Las compras de los últimos 7 días se mandan a Meta como «Purchase»; todas van a la audiencia <b>«AlquimIA · Clientes con su valor»</b> con lo que ha gastado cada persona, para crear audiencias parecidas a quien más gasta (Meta solo acepta eventos de 7 días o menos).</p>
+        <label class="btn"><input type="file" id="capi-csv" accept=".csv,text/csv" hidden>Elegir CSV…</label> <span class="muted small" id="capi-csv-st"></span>
+      </div>
+    </div>
+    ${d.log.length ? `<details class="capi-log"><summary class="small">Últimos envíos (${d.log.length})</summary><ul>${d.log.map((x) => `<li>${x.ok ? '✅' : '⚠️'} ${esc(x.evento)}${x.n ? ` · ${x.n}` : ''}${x.prueba ? ' (prueba)' : ''}${x.calidad ? ` · <span class="muted" title="% de eventos con cada dato: cuantos más, mejor reconoce Meta a la persona">con email ${x.calidad.email} %, teléfono ${x.calidad.telefono} %, clic del anuncio ${x.calidad.clic} %</span>` : ''} · ${esc(new Date(x.en).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}${x.error ? ` · ${esc(x.error)}` : ''}</li>`).join('')}</ul></details>` : ''}`;
+}
+// Conexiones → Atribución de anuncios: parámetros de URL para los anuncios y cuántas personas tienen origen.
+async function pintarAtribConexiones() {
+  const box = $('#cx-atrib');
+  if (!box) return;
+  let d;
+  try { d = await api('/api/origen'); } catch (err) { box.innerHTML = `<p class="muted">${esc(err.message)}</p>`; return; }
+  ponerEstadoCx('atrib', d.personas ? 'ok' : 'no', d.personas ? `${numEs(d.personas)} con origen` : 'Sin datos aún');
+  box.innerHTML = `<div class="capi-form">
+      <label class="field"><span>Parámetros de URL para tus anuncios</span><textarea id="atrib-params" rows="3" readonly>${esc(d.params)}</textarea></label>
+      <div class="bj-acc"><button type="button" class="btn primary" id="atrib-copiar">Copiar parámetros</button><span class="muted small" id="atrib-st"></span></div>
+      <p class="small">${d.personas ? `✅ <b>${numEs(d.personas)}</b> personas con su anuncio de origen guardado (${numEs(d.conAnuncio)} con el id exacto del anuncio · ${numEs(d.ultimos7)} en los últimos 7 días).` : 'Aún no ha llegado nadie con los parámetros: en cuanto alguien entre desde un anuncio con ellos, aparecerá aquí.'}</p>
+    </div>`;
+}
+$('#conexiones').addEventListener('click', async (e) => {
+  if (!e.target.closest('#atrib-copiar')) return;
+  try { await navigator.clipboard.writeText($('#atrib-params').value); $('#atrib-st').textContent = '✓ Copiados'; } catch { $('#atrib-params').select(); $('#atrib-st').textContent = 'Cópialos con Ctrl+C'; }
+});
+const capiForm = () => ({ activo: $('#capi-activo').checked, pixelId: $('#capi-pixel').value.trim(), testCode: $('#capi-test').value.trim(), eventos: Object.fromEntries($$('[data-capi-ev]').map((x) => [x.dataset.capiEv, x.checked])) });
+$('#conexiones').addEventListener('click', async (e) => {
+  const cal = e.target.closest('#capi-calidad');
+  if (cal) {
+    const box = $('#capi-calidad-res');
+    box.innerHTML = '<p class="muted small">Preguntando a Meta…</p>';
+    try {
+      const r = await api('/api/meta-capi', { method: 'POST', body: { op: 'calidad' } });
+      box.innerHTML = !r.ok ? `<p class="small">⚠️ ${esc(r.motivo)}</p>` : !r.eventos.length ? '<p class="small muted">Meta aún no tiene nota: necesita unos días de eventos.</p>'
+        : `<ul class="capi-nota">${r.eventos.map((x) => `<li><b>${esc(x.evento)}</b> <span class="pb-roas ${x.nota >= 7 ? 'bien' : x.nota >= 5 ? 'medio' : 'mal'}">${numEs(x.nota, 1)} / 10</span></li>`).join('')}</ul><p class="small muted">Calidad de la coincidencia: cuánto reconoce Meta a las personas de cada evento. Desde 7 es buena; para subirla, que lleguen email, teléfono y el clic del anuncio (parámetros de Atribución).</p>`;
+    } catch (err) { box.innerHTML = `<p class="small">${esc(err.message)}</p>`; }
+    return;
+  }
+  const b = e.target.closest('#capi-guardar, #capi-probar, #capi-token-guardar, #capi-token-quitar, #capi-comprobar');
+  if (!b) return;
+  const deToken = ['capi-token-guardar', 'capi-token-quitar', 'capi-comprobar'].includes(b.id);
+  const st = deToken ? $('#capi-token-st') : $('#capi-st');
+  b.disabled = true;
+  try {
+    if (b.id === 'capi-token-guardar') {
+      const token = $('#capi-token').value.trim();
+      if (!token) { st.textContent = 'Pega primero el token.'; return; }
+      st.textContent = 'Guardando…';
+      const form = capiForm();
+      await api('/api/meta-capi', { method: 'POST', body: { op: 'token', token } });
+      const r = await api('/api/meta-capi', { method: 'POST', body: { op: 'comprobar', metaCapi: form } });
+      await pintarCapiConexiones();
+      $('#capi-token-st').textContent = r.ok ? `✅ Guardado y funciona${r.nombre ? ` con «${r.nombre}»` : ''}` : `✓ Guardado, pero: ${r.motivo}`;
+      return;
+    }
+    if (b.id === 'capi-token-quitar') {
+      if (!confirm('¿Quitar el token guardado? Se dejarán de mandar eventos si no hay otro.')) return;
+      await api('/api/meta-capi', { method: 'POST', body: { op: 'quitar-token' } });
+      await pintarCapiConexiones();
+      return;
+    }
+    if (b.id === 'capi-comprobar') {
+      st.textContent = 'Preguntando a Meta…';
+      const r = await api('/api/meta-capi', { method: 'POST', body: { op: 'comprobar', metaCapi: capiForm() } });
+      st.textContent = r.ok ? `✅ Funciona${r.nombre ? `: «${r.nombre}»` : ''}` : `❌ ${r.motivo}`;
+      return;
+    }
+    st.textContent = b.id === 'capi-guardar' ? 'Guardando…' : 'Enviando…';
+    const r = await api('/api/meta-capi', { method: 'POST', body: { op: b.id === 'capi-guardar' ? 'guardar' : 'prueba', metaCapi: capiForm() } });
+    if (r.config) state.config = { ...state.config, metaCapi: r.config };
+    st.textContent = b.id === 'capi-guardar' ? '✓ Guardado' : r.enviado ? '✓ Enviado: mira «Probar eventos» en Meta' : `⚠️ ${r.motivo || 'No se ha enviado'}`;
+    if (b.id === 'capi-guardar') pintarCapiConexiones();
+  } catch (err) { st.textContent = err.message; } finally { b.disabled = false; }
+});
+$('#conexiones').addEventListener('change', async (e) => {
+  if (e.target.id !== 'capi-csv') return;
+  const file = e.target.files?.[0];
+  const st = $('#capi-csv-st');
+  if (!file) return;
+  try {
+    const texto = await file.text();
+    const { ventas, cabecera } = ventasDeCsv(texto);
+    const filas = filasClientesCsv(ventas, cabecera, leerCsv(texto));
+    if (!filas.length) { st.textContent = '⚠️ No he encontrado filas con email, importe y fecha.'; return; }
+    const personas = new Set(filas.map((f) => f.email)).size;
+    if (!confirm(`${filas.length} ventas de ${personas} personas. ¿Mandarlas a Meta?`)) return;
+    st.textContent = 'Enviando…';
+    const r = await api('/api/meta-capi', { method: 'POST', body: { op: 'csv', filas } });
+    const txt = [
+      `✓ ${r.personas} personas`,
+      r.recientes ? (r.compras.enviados ? `${r.compras.enviados} compras recientes a Meta` : `⚠️ compras: ${r.compras.motivo}`) : 'ninguna compra de los últimos 7 días',
+      r.audiencia.subidas ? `${r.audiencia.subidas} en la audiencia «${r.audiencia.audiencia}»` : `⚠️ audiencia: ${r.audiencia.motivo}`,
+    ].join(' · ');
+    await pintarCapiConexiones();
+    $('#capi-csv-st').textContent = txt;
+  } catch (err) { st.textContent = err.message; } finally { e.target.value = ''; }
+});
 $('#btn-conexiones').addEventListener('click', () => {
   $('#tb-menu-cuenta').open = false;
   pintarVigiaConexiones();
   pintarSetterConexiones();
   pintarThrivecartConexiones();
   pintarHotmartConexiones();
-  $('#conexiones-dialog').showModal();
+  pintarPropiasConexiones();
+  pintarCapiConexiones();
+  pintarAtribConexiones();
+  cargarClaude();
+  mostrarConexiones();
   pintarFuentesConexiones();
   pintarEstadoCx();
 });
-// Estado de cada conexión (la pastilla de su tarjeta y el resumen de arriba): { clave: ['ok'|'aviso'|'no', texto] }.
+// Estado de cada conexión (la pastilla de su tarjeta): { clave: ['ok'|'aviso'|'no', texto] }.
 const estadoCx = {};
-const NOMBRE_CX = { thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
 function ponerEstadoCx(clave, tono, texto) {
   estadoCx[clave] = [tono, texto];
-  const el = $(`#conexiones-dialog [data-cx-estado="${clave}"]`);
+  const el = $(`#conexiones [data-cx-estado="${clave}"]`);
   if (el) { el.className = `cx-estado cx-e-${tono}`; el.textContent = texto; }
-  const res = $('#cx-resumen');
-  if (res) res.innerHTML = Object.entries(NOMBRE_CX).filter(([k]) => estadoCx[k]).map(([k, n]) => `<button type="button" class="cx-res cx-e-${estadoCx[k][0]}" data-cx-ir="${k}"><span>${n}</span><b>${esc(estadoCx[k][1])}</b></button>`).join('');
 }
 function pintarEstadoCx() {
   const st = state.config?.setterIa;
@@ -17522,12 +18363,61 @@ function pintarEstadoCx() {
   ponerEstadoCx('plantillas', npl ? 'ok' : 'no', npl ? `${npl} ${npl === 1 ? 'plantilla' : 'plantillas'}` : 'Sin plantillas');
   if (!estadoCx.sendflow) ponerEstadoCx('sendflow', 'aviso', 'Pulsa «Probar»');
 }
-// Pulsar un estado del resumen abre su tarjeta.
-$('#conexiones-dialog').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-cx-ir]');
+// Zoom, SendFlow y Vimeo: la cuenta propia del cliente, pegada aquí (cifrada en AlquimIA, como Hotmart).
+const PROPIAS = {
+  zoom: { nombre: 'Zoom', campos: [['accountId', '🆔 Account ID', ''], ['clientId', '🪪 Client ID', ''], ['clientSecret', '🗝️ Client Secret', 'secreto'], ['hostEmail', '✉️ Email de la anfitriona', 'opcional']] },
+  sendflow: { nombre: 'SendFlow', campos: [['apiKey', '🗝️ Clave de SendAPI', 'secreto']], ayuda: 'En SendFlow → «API Keys» → copia la clave (empieza por <code>send_api-</code>).' },
+  vimeo: { nombre: 'Vimeo', campos: [['token', '🗝️ Token personal', 'secreto']] },
+};
+function pintarPropia(servicio, e) {
+  const box = $(`#cx-propio-${servicio}`);
+  if (!box) return;
+  const p = PROPIAS[servicio];
+  const usaTxt = { propio: `✅ Ya está conectada tu cuenta de ${p.nombre}. No hace falta hacer nada.`, agencia: `ℹ️ Ahora usa la cuenta de ${p.nombre} de la agencia. Para usar la tuya, pégala aquí.`, ninguno: `Aún no hay ninguna cuenta de ${p.nombre} conectada.` };
+  if (servicio !== 'sendflow') ponerEstadoCx(servicio, e.usa === 'ninguno' ? 'no' : e.usa === 'agencia' ? 'aviso' : 'ok', e.usa === 'ninguno' ? 'Sin conectar' : e.usa === 'agencia' ? 'De la agencia' : 'Conectado');
+  const form = puedeConfig() ? `<div class="hm-cred">${p.campos.map(([k, label, tipo]) => `<label class="field"><span>${label}${tipo === 'opcional' ? ' <small>(opcional)</small>' : ''}</span><input data-pr-campo="${k}" ${tipo === 'secreto' ? 'type="password" autocomplete="new-password"' : 'autocomplete="off"'} spellcheck="false"></label>`).join('')}</div>
+      ${p.ayuda ? `<p class="muted small">${p.ayuda}</p>` : ''}
+      <p class="hm-acc"><button type="button" class="btn primary" data-pr-guardar="${servicio}">🔌 Conectar ${p.nombre}</button> <span class="muted small" data-pr-st role="status"></span></p>
+      <p class="muted small">🔒 Se guarda cifrado y solo para este negocio. Nadie del equipo lo puede volver a ver; para cambiarlo, pega el nuevo.</p>`
+    : `<p class="muted">Pide a quien configura AlquimIA que conecte ${p.nombre}.</p>`;
+  box.innerHTML = e.conectada
+    ? `<p class="cx-ok">✅ Conectado con tu cuenta de ${p.nombre} · ${esc(e.resumen || '')}${e.guardada ? ` · desde ${fechaHora(Date.parse(e.guardada))}` : ''}</p>
+      ${puedeConfig() ? `<p class="hm-acc"><button type="button" class="btn small" data-pr-quitar="${servicio}">Quitar</button></p><details class="hm-api"><summary class="cx-h">🔁 Cambiar por otra cuenta</summary>${form}</details>` : ''}`
+    : `<p class="${e.usa === 'propio' ? 'cx-ok' : 'muted'}">${usaTxt[e.usa] || usaTxt.ninguno}</p>${e.usa === 'propio' ? `<details class="hm-api"><summary class="cx-h">🔁 Cambiar por otra cuenta</summary>${form}</details>` : form}`;
+}
+async function pintarPropiasConexiones() {
+  let r;
+  try { r = await api('/api/conexiones-propias'); } catch (e) {
+    for (const s of Object.keys(PROPIAS)) { const b = $(`#cx-propio-${s}`); if (b) b.innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
+    return;
+  }
+  for (const s of Object.keys(PROPIAS)) pintarPropia(s, r[s]);
+}
+$('#conexiones').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-pr-guardar], [data-pr-quitar]');
   if (!b) return;
-  const card = $(`#conexiones-dialog .cx-card[data-cx="${b.dataset.cxIr}"]`);
-  if (card) { card.open = true; card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  const servicio = b.dataset.prGuardar || b.dataset.prQuitar;
+  const nombre = PROPIAS[servicio].nombre;
+  const box = $(`#cx-propio-${servicio}`);
+  const st = box.querySelector('[data-pr-st]');
+  b.disabled = true;
+  try {
+    let r;
+    if (b.dataset.prQuitar) {
+      if (!window.confirm(`¿Quitar tu cuenta de ${nombre}? AlquimIA volverá a lo de antes (o se quedará sin ${nombre}).`)) { b.disabled = false; return; }
+      r = await api('/api/conexiones-propias', { method: 'POST', body: { op: 'quitar', servicio } });
+    } else {
+      const datos = Object.fromEntries([...box.querySelectorAll('[data-pr-campo]')].map((i) => [i.dataset.prCampo, i.value]));
+      if (st) st.textContent = `Comprobando con ${nombre}…`;
+      r = await api('/api/conexiones-propias', { method: 'POST', body: { op: 'guardar', servicio, datos } });
+      notice(`✅ ${nombre} conectado con tu cuenta.`);
+    }
+    for (const s of Object.keys(PROPIAS)) pintarPropia(s, r[s]);
+    if (servicio === 'sendflow') probarSendflow({ reintentar: true });
+  } catch (err) {
+    if (st) st.textContent = `⚠️ ${err.message}`; else notice(err.message);
+    b.disabled = false;
+  }
 });
 // Hotmart: la credencial de la API (cifrada en AlquimIA), sincronizar / traer el histórico, y la dirección del aviso.
 async function pintarHotmartConexiones() {
@@ -17558,7 +18448,7 @@ async function pintarHotmartConexiones() {
     </details>
     <p class="muted small">${r.total ? `<strong>${r.total}</strong> ${r.total === 1 ? 'venta guardada' : 'ventas guardadas'}. ` : ''}${ult}</p>`;
 }
-$('#conexiones-dialog').addEventListener('click', async (e) => {
+$('#conexiones').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-hm-conectar], [data-hm-sync], [data-hm-hist], [data-hm-borrar]');
   if (!b) return;
   const st = $('#cx-hotmart [data-hm-st]') || $('#cx-hotmart [data-hm-prog]');
@@ -17622,7 +18512,7 @@ async function pintarThrivecartConexiones() {
 let tcImport = null;
 const TC_COL = { email: 'Email', importe: 'Importe', item: 'Línea', importeItem: 'Importe de la línea', producto: 'Producto', productoId: 'Id del producto', linea: 'Tipo de línea', fecha: 'Fecha', pedido: 'Pedido', tipo: 'Tipo', estado: 'Estado', nombre: 'Nombre', moneda: 'Moneda' };
 const TC_EXTRA = { bump: 'Bump', upsell: 'Upsell', downsell: 'Downsell' };
-$('#conexiones-dialog').addEventListener('change', async (e) => {
+$('#conexiones').addEventListener('change', async (e) => {
   if (e.target.id !== 'tc-csv') return;
   const f = e.target.files?.[0];
   const box = $('#tc-csv-prev');
@@ -17647,7 +18537,7 @@ $('#conexiones-dialog').addEventListener('change', async (e) => {
       <p class="muted small">Si ya importaste este archivo antes, lo de esos pedidos se sustituye por lo nuevo (no se duplica).</p>
       ${r.ventas.length ? `<button type="button" class="btn primary" id="tc-csv-importar">Importar ${r.ventas.length} ${r.ventas.length === 1 ? 'venta' : 'ventas'}</button>` : ''}`;
 });
-$('#conexiones-dialog').addEventListener('click', async (e) => {
+$('#conexiones').addEventListener('click', async (e) => {
   const b = e.target.closest('#tc-csv-importar');
   if (!b || !tcImport?.length) return;
   b.disabled = true;
@@ -17707,7 +18597,6 @@ $('#cx-fuentes').addEventListener('click', async (e) => {
     return;
   }
   if (e.target.closest('[data-cx-guia]')) {
-    $('#conexiones-dialog').close();
     $('#btn-agencia').click();
     $('#agencia-dialog .tab[data-tab="clientes"]')?.click();
     try { pintarClientes((await api('/api/clientes')).clientes); } catch { return; }
@@ -17819,6 +18708,7 @@ function pintarSetterConexiones() {
   $('#cx-setter-status-url').textContent = '';
   // Pipeline de LabIA: la lista de pipelines del GHL de este cliente.
   $('#cx-setter-pipe-campo').hidden = !state.labia;
+  $('#cx-sin-labia').hidden = state.labia;
   if (state.labia) {
     const sel = $('#cx-setter-pipeline');
     const actual = state.config.setterIa?.pipelineId || '';
@@ -17845,6 +18735,11 @@ async function guardarSetter(st) {
     st.textContent = url ? `Guardado ✓ · ${url}` : 'Guardado ✓';
   } catch (e) { st.textContent = e.message; }
 }
+// Sin LabIA: a su página (Hoy → LabIA, con lo que gana y «Quiero LabIA»); si ese embudo no la tiene (o aún no hay ninguno), directo a pedirlo.
+$('#cx-quiero-labia').addEventListener('click', () => {
+  if (allowedViews().includes('labia') && $('#empty-state').hidden) { if (state.enInicio) salirInicio(); showView('labia'); return; }
+  window.location.href = `mailto:hola@discendocultura.com?subject=${encodeURIComponent(`Quiero LabIA para ${state.clientes.find((c) => c.id === state.cliente)?.nombre || 'mi negocio'}`)}`;
+});
 $('#cx-setter-guardar').addEventListener('click', () => guardarSetter($('#cx-setter-status')));
 $('#cx-setter-pipeline').addEventListener('change', () => { labiaDatos = null; guardarSetter($('#cx-setter-status-url')); });
 $('#cx-setter-guardar-url').addEventListener('click', () => guardarSetter($('#cx-setter-status-url')));
@@ -17867,7 +18762,7 @@ async function probarSendflow({ reintentar = false } = {}) {
       return;
     }
     if (!d.configurada) {
-      box.innerHTML = `<div class="notice warn"><strong>Aún no está conectado.</strong> Falta la variable <code>${esc(d.variable)}</code> en Cloudflare (tipo <em>Secret</em>) con la clave de SendFlow → «API Keys». Después, <em>Deployments → Retry deployment</em> y vuelve a probar.</div>`;
+      box.innerHTML = '<div class="notice warn"><strong>Aún no está conectado.</strong> Pega arriba tu clave de SendFlow (SendFlow → «API Keys») y pulsa «Conectar SendFlow».</div>';
       return;
     }
     if (!d.ok) {
@@ -18857,14 +19752,108 @@ async function renderPaginas() {
       <div class="pg-chips"><span class="st-chip">${n} código${n === 1 ? '' : 's'} de AlquimIA</span>${p.formulario ? `<span class="st-chip">formulario de ${p.formulario === 'pago' ? 'pago' : 'registro'} de GHL</span>` : ''}</div>
       <div class="pg-acciones"><button type="button" class="btn primary" data-pag-copiar="${esc(p.id)}">📋 Copiar el prompt</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener" title="Abrir Claude en una pestaña nueva">🤖 Claude ↗</a></div>
       ${filaChatGPT(`data-pag-copiar="${esc(p.id)}"`, { tipo: 'codigo', txt: '📋 Copiar para ChatGPT' })}
+      <div class="pg-acciones-ia"><button type="button" class="btn" data-pag-ia="${esc(p.id)}" title="AlquimIA se lo pide a Claude y revisa los códigos antes de dártelo">✨ Crear con Claude</button><button type="button" class="btn ghost" data-pag-rev="${esc(p.id)}" title="Pega el código que te dio Claude (o el de tu página) y AlquimIA comprueba y arregla los códigos">🔍 Revisar mi código</button></div>
       <details class="st-ver pg-cuerpo"><summary>Personalizar y ver el prompt</summary>
         <p class="small"><strong>Lleva:</strong> ${esc(p.secciones.join(' · '))}</p>
         <label class="field"><span>Indicaciones para esta página <small>(opcional)</small></span><textarea rows="2" data-pag-notas="${esc(p.id)}" placeholder="Ej.: más corta; empieza con un testimonio…">${esc(ls.get(notasPagKey(p.id)) || '')}</textarea></label>
         <details><summary class="small">Ver el prompt</summary><pre class="snippet pg-prompt" data-pag-prompt="${esc(p.id)}"></pre></details>
       </details>
     </article>`;
-    }).join('')}</div>`;
+    }).join('')}</div>
+    <section class="card" id="bq-sec">
+      <h3>📚 Biblioteca de bloques</h3>
+      <p class="muted small">Lo que ya te funciona (una barra de urgencia, el BAR, el selector de grabaciones, un botón flotante…) guardado para usarlo en el siguiente lanzamiento${state.superadmin ? ' o con otro cliente (en «De la agencia»)' : ''}. «Usar en…» lo añade a las indicaciones de una página para que Claude lo incluya tal cual.</p>
+      <div id="bq-lista"><p class="muted small">Cargando…</p></div>
+      <details class="bq-nuevo-det"><summary class="small">＋ Añadir un bloque a mano</summary>
+        <div class="bq-nuevo"><input id="bq-nombre" placeholder="Nombre (p. ej. Barra de urgencia por fases)"><textarea id="bq-html" rows="5" class="snippet" placeholder="Pega aquí el código del bloque"></textarea>
+        ${state.superadmin ? '<label class="check"><input type="checkbox" id="bq-agencia"> De la agencia (para todos los clientes)</label>' : ''}
+        <button type="button" class="btn" id="bq-anadir">Guardar el bloque</button></div></details>
+    </section>`;
+  pintarBloques();
 }
+// ---- Páginas con Claude (✨) y revisión de códigos (🔍) ----
+const pagia = { pagina: null, html: '', prompt: '', codigos: [] };
+function pintarRevision(r) {
+  const filas = [...r.cambios.map((t) => ['cambio', `🔧 ${t}`]), ...r.avisos.map((t) => ['aviso', `⚠️ ${t}`])];
+  $('#pagia-revision').innerHTML = `<ul class="pagia-rev">${filas.length ? filas.map(([c, t]) => `<li class="${c}">${esc(t)}</li>`).join('') : '<li class="ok">✅ Los códigos de AlquimIA están todos y bien puestos.</li>'}</ul>`;
+  pagia.html = r.html;
+  $('#pagia-html').value = r.html;
+  $('#pagia-vista').srcdoc = r.html;
+  $('#pagia-res').hidden = false;
+}
+async function crearConClaude() {
+  const st = $('#pagia-estado');
+  $('#pagia-res').hidden = true;
+  st.textContent = '✨ Claude está haciendo la página con tu marca, tu narrativa y tus códigos… (puede tardar 1-2 minutos)';
+  try {
+    const r = await api('/api/paginas-ia', { method: 'POST', body: { op: 'crear', prompt: pagia.prompt, codigos: pagia.codigos } });
+    st.textContent = 'Lista. Revisada antes de dártela:';
+    pintarRevision(r);
+  } catch (err) { st.textContent = `No se ha podido: ${err.message}`; }
+}
+function abrirPagia(pId, modo) {
+  const c = contextoPaginas();
+  const p = paginasDe(c.tipo, c.opts || {}).find((x) => x.id === pId);
+  if (!p) return;
+  Object.assign(pagia, { pagina: p, prompt: promptDePagina(c, p), codigos: codigosDePagina(p, c.codigos, c.ctx) });
+  $('#pagia-titulo').textContent = `${modo === 'crear' ? '✨' : '🔍'} ${p.nombre}`;
+  $('#pagia-pegar').hidden = modo === 'crear';
+  $('#pagia-otra').hidden = modo !== 'crear';
+  $('#pagia-res').hidden = true;
+  $('#pagia-estado').textContent = modo === 'crear' ? '' : `Comprobará ${pagia.codigos.length} código${pagia.codigos.length === 1 ? '' : 's'} de AlquimIA de esta página.`;
+  $('#pagia-dialog').showModal();
+  if (modo === 'crear') crearConClaude();
+}
+$('#pagia-revisar').addEventListener('click', () => {
+  const html = $('#pagia-pegado').value.trim();
+  if (!html) { $('#pagia-estado').textContent = 'Pega antes el código.'; return; }
+  $('#pagia-estado').textContent = 'Revisado:';
+  pintarRevision(revisarHtmlPagina(html, pagia.codigos));
+});
+$('#pagia-otra').addEventListener('click', crearConClaude);
+$('#pagia-dialog').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-pagia-ver]');
+  if (!t) return;
+  $$('#pagia-dialog [data-pagia-ver]').forEach((x) => x.classList.toggle('on', x === t));
+  $('#pagia-vista').hidden = t.dataset.pagiaVer !== 'vista';
+  $('#pagia-html').hidden = t.dataset.pagiaVer !== 'codigo';
+});
+$('#pagia-html').addEventListener('input', (e) => { pagia.html = e.target.value; });
+$('#pagia-copiar').addEventListener('click', async (e) => {
+  try { await navigator.clipboard.writeText(pagia.html); e.target.textContent = 'Copiado ✓'; } catch { window.prompt('Copia el código:', pagia.html); }
+  setTimeout(() => { e.target.textContent = '📋 Copiar para GHL'; }, 2000);
+});
+$('#pagia-guardar').addEventListener('click', async () => {
+  const nombre = window.prompt('Nombre del bloque en la biblioteca:', `${pagia.pagina?.nombre || 'Página'} · ${state.config.launches[state.launchCode]?.name || clienteNombre() || ''}`.trim());
+  if (!nombre) return;
+  const agencia = state.superadmin && window.confirm('¿Guardarlo en la biblioteca de la agencia (para todos los clientes)?\n\nAceptar: de la agencia · Cancelar: solo de este cliente');
+  try { await api('/api/paginas-ia', { method: 'POST', body: { op: 'bloque', agencia, bloque: { nombre, html: pagia.html, pagina: pagia.pagina?.id || '' } } }); notice('📚 Guardado en la biblioteca.'); pintarBloques(); } catch (err) { notice(err.message, true); }
+});
+// ---- Biblioteca de bloques ----
+let bloques = { cliente: [], agencia: null };
+async function pintarBloques() {
+  const box = $('#bq-lista');
+  if (!box) return;
+  try { bloques = await api('/api/paginas-ia?bloques=1'); } catch (err) { box.innerHTML = `<p class="muted small">${esc(err.message)}</p>`; return; }
+  const c = contextoPaginas();
+  const pags = c.falta ? [] : paginasDe(c.tipo, c.opts || {});
+  const item = (b, ag) => `<li class="bq-item" data-bq="${esc(b.id)}" data-bq-ag="${ag ? 1 : 0}"><div><strong>${esc(b.nombre)}</strong><br><small>${ag ? 'De la agencia' : 'De este cliente'} · ${esc(new Date(b.en).toLocaleDateString('es-ES'))}${b.por ? ` · ${esc(b.por)}` : ''}</small></div>
+    <div class="bq-acc"><button type="button" class="btn small" data-bq-copiar>📋 Copiar</button>${pags.length ? `<select data-bq-usar class="small"><option value="">Usar en…</option>${pags.map((p) => `<option value="${esc(p.id)}">${esc(p.nombre)}</option>`).join('')}</select>` : ''}<button type="button" class="btn ghost small" data-bq-borrar title="Borrar">🗑</button></div></li>`;
+  const todos = [...(bloques.agencia || []).map((b) => item(b, true)), ...bloques.cliente.map((b) => item(b, false))];
+  box.innerHTML = todos.length ? `<ul class="bq-lista">${todos.join('')}</ul>` : '<p class="muted small">Aún no hay bloques. Guarda uno desde «✨ Crear con Claude» o «🔍 Revisar mi código», o añádelo a mano.</p>';
+}
+const bloqueDe = (el) => { const li = el.closest('[data-bq]'); const ag = li.dataset.bqAg === '1'; return { li, ag, b: (ag ? bloques.agencia : bloques.cliente).find((x) => x.id === li.dataset.bq) }; };
+$('#paginas-body').addEventListener('change', (e) => {
+  const sel = e.target.closest('[data-bq-usar]');
+  if (!sel || !sel.value) return;
+  const { b } = bloqueDe(sel);
+  const k = notasPagKey(sel.value);
+  ls.set(k, `${(ls.get(k) || '').trim()}\n\nIncluye tal cual este bloque, que ya funciona («${b.nombre}»), adaptando solo colores y textos a la página:\n${b.html}`.trim());
+  const ta = $(`[data-pag-notas="${sel.value}"]`);
+  if (ta) ta.value = ls.get(k);
+  notice(`📚 «${b.nombre}» añadido a las indicaciones de esa página: va en su prompt y en «✨ Crear con Claude».`);
+  sel.value = '';
+});
 $('#paginas-body').addEventListener('toggle', (e) => {
   const pre = e.target.querySelector?.('[data-pag-prompt]');
   if (!e.target.open || !pre || !e.target.contains(pre)) return;
@@ -18883,6 +19872,28 @@ $('#paginas-body').addEventListener('click', async (e) => {
     const t = urlsTexto(propuestasEmbudo(state.embudo));
     try { await navigator.clipboard.writeText(t); bu.textContent = 'Copiadas ✓'; } catch { window.prompt('Copia las URLs:', t); }
     setTimeout(() => { bu.textContent = '📋 Copiar todas'; }, 2000);
+    return;
+  }
+  const ia = e.target.closest('[data-pag-ia], [data-pag-rev]');
+  if (ia) { abrirPagia(ia.dataset.pagIa || ia.dataset.pagRev, ia.dataset.pagIa ? 'crear' : 'revisar'); return; }
+  const bq = e.target.closest('[data-bq-copiar], [data-bq-borrar]');
+  if (bq) {
+    const { b, ag } = bloqueDe(bq);
+    if (bq.matches('[data-bq-copiar]')) { try { await navigator.clipboard.writeText(b.html); bq.textContent = 'Copiado ✓'; } catch { window.prompt('Copia el bloque:', b.html); } return; }
+    if (!window.confirm(`¿Borrar «${b.nombre}» de la biblioteca?`)) return;
+    try { await api('/api/paginas-ia', { method: 'POST', body: { op: 'borrar-bloque', id: b.id, agencia: ag } }); pintarBloques(); } catch (err) { notice(err.message, true); }
+    return;
+  }
+  if (e.target.closest('#bq-anadir')) {
+    const nombre = $('#bq-nombre').value.trim();
+    const html = $('#bq-html').value.trim();
+    if (!nombre || !html) { notice('Pon un nombre y pega el código del bloque.', true); return; }
+    try {
+      await api('/api/paginas-ia', { method: 'POST', body: { op: 'bloque', agencia: Boolean($('#bq-agencia')?.checked), bloque: { nombre, html } } });
+      $('#bq-nombre').value = ''; $('#bq-html').value = '';
+      notice('📚 Bloque guardado.');
+      pintarBloques();
+    } catch (err) { notice(err.message, true); }
     return;
   }
   const b = e.target.closest('[data-pag-copiar]');

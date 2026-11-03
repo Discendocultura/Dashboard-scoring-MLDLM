@@ -18,6 +18,7 @@ import { ventasDeApi, ventaDeAvisoHotmart, guardarVentaHm, plegarBumps } from '.
 import { credenciales, ventasApi, guardarCredenciales, CLAVE_CRED } from '../lib/hotmart-api.js';
 import { claveDe } from './zoom-registro.js';
 import { quitarCarritoAbandonado } from '../lib/abandonos.js';
+import { enviarEventoMeta, ltvDe, tipoVenta } from '../lib/meta-capi.js';
 
 const CLAVE = 'lsd_hotmart_ventas';
 const valor = () => `hotmart:${clienteActual().id}`;
@@ -106,7 +107,7 @@ export async function HEAD() {
   return new Response(null, { status: 200 });
 }
 
-export async function POST(request) {
+export async function POST(request, ctx) {
   try {
     const url = new URL(request.url);
     const op = url.searchParams.get('op');
@@ -139,6 +140,16 @@ export async function POST(request) {
     });
     // Quien compra deja de ser un carrito abandonado: se le quita la etiqueta de la página de pago (el workflow ya no le escribe).
     if (venta.tipo === 'cobro' && !venta.prueba) await quitarCarritoAbandonado(venta.email).catch((e) => console.error('Carrito abandonado', e.message));
+    // Conversions API: la compra, con su valor, para que Meta optimice a quien compra (solo la primera vez que llega).
+    if (venta.tipo === 'cobro' && !venta.prueba && nueva) {
+      const fecha = Number(venta.fecha) > 1e12 && Date.now() - Number(venta.fecha) < 6 * 86_400_000 ? Number(venta.fecha) : Date.now();
+      // Con si es primera compra o renovación/cuota y lo que esa persona lleva gastado (ltv) en todas las pasarelas.
+      const meta = (async () => enviarEventoMeta({ tipo: 'compras', eventId: `hm-${venta.id}`, cuando: fecha,
+        datos: { email: venta.email, nombre: venta.nombre, telefono: venta.telefono },
+        custom: { value: Number(venta.importe) || 0, currency: String(venta.moneda || 'EUR').toUpperCase(), content_name: venta.producto || '',
+          tipo_venta: tipoVenta(venta), ltv: await ltvDe(venta.email, [venta]).catch(() => 0) } }))();
+      if (ctx?.waitUntil) ctx.waitUntil(meta); else await meta;
+    }
     return json({ ok: true, guardada: nueva });
   } catch (e) {
     return errorResponse(e);

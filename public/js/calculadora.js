@@ -26,14 +26,17 @@ export function resumenLanzamiento(code, launch, m) {
   // Inversión: la de Meta o, si no hay (o es 0), la puesta a mano en el lanzamiento.
   const inversion = n(m.eco?.inversion) || n(launch?.inversion);
   return {
-    code, name: launch?.name || code, fecha: launch?.inicioCaptacion || launch?.fechaDirecto || '',
-    registros: m.total, vip: m.vip, ventas: m.compra,
+    code, name: launch?.name || code, fecha: launch?.inicioCaptacion || launch?.fechaDirecto || '', formato: launch?.formato || 'webinar',
+    registros: m.total, vip: m.vip, ventas: m.compra, clase1: n(m.clase1), directo: n(m.live), final: n(m.liveFinal),
     inversion, facturacion: n(m.eco?.facturacion), facturacionPrograma: n(fact),
     precioVip: n(launch?.precioVip),
     cpl: div(inversion, m.total),
     convVip: div(m.vip, m.total),
     convVenta: div(m.compra, m.total),
     convClase1: div(m.clase1, m.total),
+    // Directo: entran y se quedan hasta la oferta (para el cerebro de lanzamientos).
+    convDirecto: div(n(m.live), m.total),
+    convFinal: div(n(m.liveFinal), m.total),
     ticket: div(n(fact), m.compra),
     roas: div(n(m.eco?.facturacion), inversion),
     // Llamadas de valoración: cuántas agendaron y cuántas de ellas compraron.

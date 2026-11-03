@@ -17,9 +17,12 @@ import { sendflowDeCliente, campanasSendflow } from '../lib/sendflow.js';
 import { env } from '../lib/env.js';
 import { actualizarUsuarios } from '../lib/users.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
+import { cargarConexiones } from '../lib/conexiones-propias.js';
 
 // Con LabIA o no (lo marcado o, en los de antes, si su setter IA está conectado): la casilla de su tarjeta.
-const conEstados = (lista) => Promise.all(lista.map(async (c) => ({ ...conEstado(c), labiaActiva: typeof c.labia === 'boolean' ? c.labia : await runCliente(c, async () => labiaActivo(c, await getConfig().catch(() => null))) })));
+// Antes, las conexiones propias de cada uno (Zoom/SendFlow pegados en su AlquimIA) para saber qué usa.
+const cargarTodas = (lista) => Promise.all(lista.map((c) => runCliente(c, () => cargarConexiones().catch(() => null))));
+const conEstados = async (lista) => { await cargarTodas(lista); return Promise.all(lista.map(async (c) => ({ ...conEstado(c), labiaActiva: typeof c.labia === 'boolean' ? c.labia : await runCliente(c, async () => labiaActivo(c, await getConfig().catch(() => null))) }))); };
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status, publicMessage: msg });
 
 const conEstado = (c) => ({
@@ -47,6 +50,7 @@ export async function POST(request) {
     await requireSuperadmin(request);
     const body = await readBody(request);
     const lista = await listClientes({ fresh: true });
+    if (String(body.op || '').startsWith('probar')) await cargarTodas(lista);
     if (body.op === 'guardar') {
       const c = body.cliente || {};
       const i = lista.findIndex((x) => x.id === String(c.id || '').trim().toLowerCase());
@@ -83,7 +87,7 @@ export async function POST(request) {
       return json(await runCliente(c, async () => {
         const { cual, clave } = sendflowDeCliente(c);
         if (cual === 'ninguno') return { ok: true, cual, texto: 'Este cliente no usa SendFlow.' };
-        if (!clave) return { ok: false, cual, error: `Falta en Cloudflare: ${cual === 'propio' ? `SENDFLOW_API_KEY_${sufijo(c.id)}` : 'SENDFLOW_API_KEY'}. Añádela (tipo Secret) y vuelve a desplegar (Deployments → ⋯ → Retry deployment).` };
+        if (!clave) return { ok: false, cual, error: `Que lo conecte el cliente en su AlquimIA → Conexiones → SendFlow, o falta en Cloudflare: ${cual === 'propio' ? `SENDFLOW_API_KEY_${sufijo(c.id)}` : 'SENDFLOW_API_KEY'}. Añádela (tipo Secret) y vuelve a desplegar (Deployments → ⋯ → Retry deployment).` };
         try {
           const lista = await campanasSendflow();
           return { ok: true, cual, texto: `${cual === 'propio' ? 'Su SendFlow' : 'El SendFlow de la agencia'} responde (${(lista || []).length} campañas).` };
