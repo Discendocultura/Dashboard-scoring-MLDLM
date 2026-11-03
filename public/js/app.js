@@ -11771,17 +11771,26 @@ $('#ag-enviar').addEventListener('click', async (e) => {
 });
 // ---------- Agencia → Claude (conector MCP) ----------
 async function cargarClaude() {
-  const box = $('#cl-lista');
+  // Se pinta en Agencia → Claude y en la tarjeta de Claude de Conexiones.
+  const cajas = [$('#cl-lista'), $('#cx-claude-lista')];
   try {
     const d = await api('/api/oauth/conexiones');
     $('#cl-url').textContent = d.url;
+    $('#cx-claude-url').value = d.url;
     const fecha = (x) => (x ? new Date(x).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
-    box.innerHTML = d.conexiones.length
+    const html = d.conexiones.length
       ? `<p>Conexiones activas${state.superadmin ? ' (de todo el equipo)' : ''}:</p><ul class="tg-lista">${d.conexiones.map((c) => `<li><span>🧠 ${esc(c.app)} · <strong>${esc(c.nombre)}</strong> <span class="muted small">· conectado ${esc(fecha(c.creado))} · último uso ${esc(fecha(c.ultimoUso))}</span></span><button type="button" class="btn ghost small" data-cl-quitar="${esc(c.id)}">Desconectar</button></li>`).join('')}</ul>`
       : '<p>Aún no hay ninguna conexión.</p>';
-  } catch (err) { box.textContent = err.message; }
+    for (const c of cajas) c.innerHTML = html;
+    ponerEstadoCx('claude', d.conexiones.length ? 'ok' : 'no', d.conexiones.length ? 'Conectado' : 'Sin conectar');
+  } catch (err) { for (const c of cajas) c.textContent = err.message; }
 }
 $('#cl-box').addEventListener('toggle', () => { if ($('#cl-box').open) cargarClaude(); });
+$('#cx-claude-copiar').addEventListener('click', async (e) => {
+  const ok = await copiarAlPortapapeles($('#cx-claude-url').value);
+  e.target.textContent = ok ? 'Copiada ✓' : 'Cópiala a mano';
+  setTimeout(() => { e.target.textContent = 'Copiar'; }, 2500);
+});
 $('#cl-copiar').addEventListener('click', async (e) => {
   const ok = await copiarAlPortapapeles($('#cl-url').textContent);
   e.target.textContent = ok ? 'Copiada ✓' : 'Cópiala a mano';
@@ -18305,13 +18314,14 @@ $('#btn-conexiones').addEventListener('click', () => {
   pintarPropiasConexiones();
   pintarCapiConexiones();
   pintarAtribConexiones();
+  cargarClaude();
   $('#conexiones-dialog').showModal();
   pintarFuentesConexiones();
   pintarEstadoCx();
 });
 // Estado de cada conexión (la pastilla de su tarjeta y el resumen de arriba): { clave: ['ok'|'aviso'|'no', texto] }.
 const estadoCx = {};
-const NOMBRE_CX = { capi: '🎯 Conversions API', atrib: '🧭 Atribución', zoom: '🎥 Zoom', vimeo: '📼 Vimeo', thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', setter: '🤖 Setter IA', vigia: '🛎️ Vigilancia' };
+const NOMBRE_CX = { capi: '🎯 Conversions API', atrib: '🧭 Atribución', zoom: '🎥 Zoom', vimeo: '📼 Vimeo', thrivecart: '💳 ThriveCart', hotmart: '🔥 Hotmart', sendflow: '💬 SendFlow', plantillas: '📨 Plantillas de WhatsApp', claude: '🧠 Claude', setter: '🤖 LabIA', vigia: '🛎️ Vigilancia' };
 function ponerEstadoCx(clave, tono, texto) {
   estadoCx[clave] = [tono, texto];
   const el = $(`#conexiones-dialog [data-cx-estado="${clave}"]`);
@@ -18681,6 +18691,7 @@ function pintarSetterConexiones() {
   $('#cx-setter-status-url').textContent = '';
   // Pipeline de LabIA: la lista de pipelines del GHL de este cliente.
   $('#cx-setter-pipe-campo').hidden = !state.labia;
+  $('#cx-sin-labia').hidden = state.labia;
   if (state.labia) {
     const sel = $('#cx-setter-pipeline');
     const actual = state.config.setterIa?.pipelineId || '';
@@ -18707,6 +18718,12 @@ async function guardarSetter(st) {
     st.textContent = url ? `Guardado ✓ · ${url}` : 'Guardado ✓';
   } catch (e) { st.textContent = e.message; }
 }
+// Sin LabIA: a su página (Hoy → LabIA, con lo que gana y «Quiero LabIA»); si ese embudo no la tiene (o aún no hay ninguno), directo a pedirlo.
+$('#cx-quiero-labia').addEventListener('click', () => {
+  $('#conexiones-dialog').close();
+  if (allowedViews().includes('labia') && $('#empty-state').hidden) { if (state.enInicio) salirInicio(); showView('labia'); return; }
+  window.location.href = `mailto:hola@discendocultura.com?subject=${encodeURIComponent(`Quiero LabIA para ${state.clientes.find((c) => c.id === state.cliente)?.nombre || 'mi negocio'}`)}`;
+});
 $('#cx-setter-guardar').addEventListener('click', () => guardarSetter($('#cx-setter-status')));
 $('#cx-setter-pipeline').addEventListener('change', () => { labiaDatos = null; guardarSetter($('#cx-setter-status-url')); });
 $('#cx-setter-guardar-url').addEventListener('click', () => guardarSetter($('#cx-setter-status-url')));

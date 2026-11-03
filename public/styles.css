@@ -8910,3 +8910,10 @@ body:not(.can-bandeja) #btn-bandeja { display: none !important; }
 .pg-bumps ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
 .pg-bumps li { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: baseline; }
 .pg-bumps li small { grid-column: 1 / -1; color: var(--text-2); font-size: 12px; }
+/* Conexiones → LabIA y Claude */
+.cx-logo-labia { background: #16131f !important; border-color: #16131f !important; }
+.cx-logo-claude { background: #faf6f1 !important; }
+.cx-card .cx-card-t strong .cx-labia .labia-logo { height: 28px; margin: 0 2px 0 0; vertical-align: -8px; }
+.cx-card-sub { color: var(--text-2); font-weight: 600; font-size: 14px; }
+.cx-sin-labia { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, #ff7a2f 10%, var(--surface)); border: 1px solid color-mix(in srgb, #ff7a2f 35%, var(--border)); color: var(--text); font-size: 14px; }
+#cx-claude-url { font-family: ui-monospace, monospace; font-size: 13px; }
