@@ -88,3 +88,35 @@ test('calendario: envíos del carrito (suaves) y recursos de la preclase con fec
   assert.equal(por['envio-2026-11-03-whatsapp'].titulo, 'Grupo de WhatsApp: 1 mensaje · 12:00');
   assert.ok(por['envio-2026-11-03-emails'].suave && por['envio-2026-11-03-whatsapp'].suave);
 });
+
+test('barra de venta por días: un mensaje por día (apertura, bonus, penúltimo y último día) y el de a mano manda', async () => {
+  const { barraVentaDias, tramosBarraVenta } = await import('../public/js/carrito.js');
+  const C = {
+    fechaDirecto: '2026-11-05', horaDirecto: '19:00', aperturaCarrito: '2026-11-05T20:30', cierreCarrito: '2026-11-09T23:59',
+    oferta: { bonus: [{ id: 'g', tipo: 'bar_48h', nombre: 'Guía' }, { id: 'c', tipo: 'bonus', nombre: 'Comunidad' }] },
+    ventaBarra: { activa: true, porDias: true, dias: { '2026-11-08': 'Mañana cerramos · {cuenta}' }, botonDias: { conBoton: true, destino: 'pago', boton: 'Entrar' } },
+  };
+  const d = barraVentaDias(C);
+  assert.deepEqual(d.map((x) => x.day), ['2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08', '2026-11-09']);
+  assert.match(d[0].defecto, /^🔓 Las puertas ya están abiertas/);
+  assert.match(d[2].defecto, /^🎁 Último día para llevarte el bonus «Guía» · Acaba en \{cuenta\}/); // acaba a las 20:30 del 7
+  assert.match(d[3].defecto, /^⚠️ Solo quedan 2 días/);
+  assert.equal(d[3].texto, 'Mañana cerramos · {cuenta}');
+  assert.equal(d[3].aMano, true);
+  assert.match(d[4].defecto, /^⏳ Último día para entrar/);
+  const t = tramosBarraVenta(C);
+  // El día del bonus: hasta su fin (cuenta hasta su fin) y el resto del día (cuenta hasta el cierre)
+  const del7 = t.filter((x) => x.hasta > '2026-11-07T00:00' && x.hasta <= '2026-11-08T00:00');
+  assert.deepEqual(del7.map((x) => [x.hasta, x.cuenta]), [['2026-11-07T20:30', '2026-11-07T20:30'], ['2026-11-08T00:00', '2026-11-09T23:59']]);
+  assert.equal(t.at(-1).hasta, '2026-11-09T23:59');
+  assert.ok(t.every((x) => x.conBoton && x.destino === 'pago' && x.boton === 'Entrar'));
+  // Sin «por días», los tramos a mano de siempre
+  assert.deepEqual(tramosBarraVenta({ ...C, ventaBarra: { activa: true, tramos: [{ texto: 'A', hasta: '2026-11-09T23:59' }] } }), [{ texto: 'A', hasta: '2026-11-09T23:59' }]);
+  // Se guarda saneado: días válidos, posición y botón
+  const cfg = sanitizeConfig({ launches: { 'nov-26': { name: 'Nov', registroTag: 'r', ventaBarra: { activa: true, porDias: true, posicion: 'abajo', dias: { '2026-11-08': ' Hola ', mal: 'x', '2026-11-09': '' }, botonDias: { conBoton: false, destino: 'raro' } } } } });
+  const vb = cfg.launches['nov-26'].ventaBarra;
+  assert.equal(vb.porDias, true);
+  assert.equal(vb.posicion, 'abajo');
+  assert.deepEqual(vb.dias, { '2026-11-08': 'Hola' });
+  assert.deepEqual(vb.botonDias, { conBoton: false, destino: 'pagina-pago', boton: '' });
+});

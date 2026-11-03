@@ -526,3 +526,21 @@ test('preclase: comentarios por clase (muro público, moderación y respuesta de
   assert.ok(todo.comentarios.find((x) => x.id === c.id).oculto);
   assert.equal((await call('/api/comentarios?l=com-26&todo=1')).status, 401);
 });
+
+test('página de venta: barra por días del carrito, con su cuenta atrás y abajo', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const { data: c } = await call('/api/config', { cookie: admin });
+  const launch = {
+    name: 'Venta días', registroTag: 'registro-webinar-demo', inicioCaptacion: local(-10), fechaDirecto: local(-1), horaDirecto: '19:00',
+    aperturaCarrito: `${local(-1)}T21:00`, cierreCarrito: `${local(3)}T23:59`, raicesUrl: 'https://ghl.com/venta', ventaUrl: 'https://pay.com/raices',
+    ventaBarra: { activa: true, porDias: true, posicion: 'abajo', dias: { [local(3)]: 'Hoy cerramos · {cuenta}' }, botonDias: { conBoton: true, destino: 'pago', boton: 'Entrar' } },
+  };
+  assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { ...c.config, _version: c.version, launches: { ...c.config.launches, 'pdi-26': launch } } })).status, 200);
+  const p = (await call('/api/page?l=pdi-26&pagina=venta&cid=mock00001')).data;
+  assert.equal(p.ventaBarra.abajo, true);
+  assert.equal(p.ventaBarra.tramos.at(-1).text, 'Hoy cerramos · {cuenta}');
+  // Los días de antes del último cuentan hasta el cierre del carrito, no hasta su medianoche
+  const cierre = p.ventaBarra.tramos.at(-1).hasta;
+  assert.ok(p.ventaBarra.tramos.slice(0, -1).every((t) => t.cuenta === cierre && t.hasta < cierre));
+  assert.deepEqual(p.ventaBarra.tramos[0].boton, { label: 'Entrar', href: 'https://pay.com/raices?cid=mock00001' });
+});

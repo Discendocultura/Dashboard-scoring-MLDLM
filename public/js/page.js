@@ -264,27 +264,43 @@ export function replayBarraDe(launch) {
 
 // Barra fija de la página de venta: varios tramos seguidos, cada uno con su texto ({cuenta} = cuenta atrás
 // hasta su fin) y, si se quiere, un botón. Al acabar un tramo empieza el siguiente; tras el último, se quita.
+// `porDias`: en vez de tramos a mano, un mensaje por cada día del carrito (lo calcula `tramosBarraVenta` en
+// carrito.js con los bonus y el cierre; `dias` = { 'YYYY-MM-DD': texto } lo cambiado a mano en Configuración →
+// Carrito) y un mismo botón para todos (`botonDias`). `posicion`: arriba (de siempre) o abajo.
 export const VENTA_BARRA_MAX = 12;
 export function sanitizeVentaBarra(r) {
   const txt = (v, n) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
+  const destino = (d) => (Object.hasOwn(LINK_KEYS, d) && d ? d : 'pagina-pago');
   const tramos = (Array.isArray(r?.tramos) ? r.tramos : []).slice(0, VENTA_BARRA_MAX).map((t) => ({
     texto: txt(t?.texto, 200),
     hasta: LOCAL_DT_RE.test(String(t?.hasta || '')) ? String(t.hasta) : '',
     conBoton: Boolean(t?.conBoton),
-    destino: Object.hasOwn(LINK_KEYS, t?.destino) && t.destino ? t.destino : 'pagina-pago',
+    destino: destino(t?.destino),
     boton: txt(t?.boton, 40),
   })).filter((t) => t.texto || t.hasta).sort((a, b) => (a.hasta || '9').localeCompare(b.hasta || '9'));
-  return { activa: Boolean(r?.activa), color: /^#[0-9a-f]{6}$/i.test(String(r?.color || '')) ? String(r.color).toLowerCase() : '', tramos };
+  const dias = {};
+  for (const [k, v] of Object.entries(r?.dias && typeof r.dias === 'object' ? r.dias : {}).slice(0, 40)) {
+    const t = txt(v, 200);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(k) && t) dias[k] = t;
+  }
+  const b = r?.botonDias || {};
+  return {
+    activa: Boolean(r?.activa), color: /^#[0-9a-f]{6}$/i.test(String(r?.color || '')) ? String(r.color).toLowerCase() : '', tramos,
+    porDias: Boolean(r?.porDias), dias, botonDias: { conBoton: b.conBoton !== false, destino: destino(b.destino), boton: txt(b.boton, 40) },
+    posicion: r?.posicion === 'abajo' ? 'abajo' : 'arriba',
+  };
 }
-// Lo que necesita la página: los tramos con fecha (ms), su texto y su botón ya con el enlace; null si no hay.
-export function ventaBarraDe(launch, links = {}) {
+// Lo que necesita la página: los tramos con fecha (ms), su texto, hasta cuándo cuenta su cuenta atrás (`cuenta`,
+// si no es su fin) y su botón ya con el enlace; null si no hay. `tramos` (opcional): los ya calculados por días.
+export function ventaBarraDe(launch, links = {}, tramosCalc = null) {
   const r = launch?.ventaBarra;
   if (!r?.activa) return null;
-  const tramos = (r.tramos || []).map((t) => ({
+  const tramos = (tramosCalc || r.tramos || []).map((t) => ({
     text: t.texto || '⏳ Quedan {cuenta}', hasta: madridToEpoch(t.hasta),
+    ...(t.cuenta && madridToEpoch(t.cuenta) != null ? { cuenta: madridToEpoch(t.cuenta) } : {}),
     boton: t.conBoton && links[t.destino] ? { label: t.boton || 'Quiero entrar', href: links[t.destino] } : null,
   })).filter((t) => t.hasta != null).sort((a, b) => a.hasta - b.hasta);
-  return tramos.length ? { color: r.color || '', tramos } : null;
+  return tramos.length ? { color: r.color || '', ...(r.posicion === 'abajo' ? { abajo: true } : {}), tramos } : null;
 }
 
 // WhatsApp para dudas: el enlace se genera solo con el número y el mensaje que sale ya escrito al abrirlo.

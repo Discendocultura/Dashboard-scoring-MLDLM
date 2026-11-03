@@ -37,7 +37,7 @@ import { BLOQUES, pesosDe, proponerPesos, pesosEfectivos } from './pesos.js';
 import { tieneRecurso, recursosDe, sanitizeRecursos, etapasPreclase, TIPOS_RECURSO, RECURSOS_EXTRA, MAX_PREGUNTAS_COMENTARIOS, clasesConComentarios, sanitizeListaRecursos, TIPOS_LISTA, nRecursosValido, listaConsumo, textoRecurso, ICONO_RECURSO } from './recursos.js';
 import { pintarComentariosLeads } from './comentarios-panel.js';
 import { retrospectiva } from './retrospectiva.js';
-import { diasCarrito, cierrePorDias, diasCarritoValido, CANALES_CARRITO, MAX_ENVIOS_DIA } from './carrito.js';
+import { diasCarrito, cierrePorDias, diasCarritoValido, CANALES_CARRITO, MAX_ENVIOS_DIA, barraVentaDias } from './carrito.js';
 import { leerLeads, guardarLeads, borrarCopias } from './cache-leads.js';
 import { INDICADORES, indicadoresLanzamiento, indicadoresVsl, mediaIndicadores, diferencias, alertas, ultimosMeses } from './comparar.js';
 import { fasesDe, puedeMarcar, esMia, vencida, addDays, vencidasEquipo, SUBS_PREPARACION, subDe, columnaDe, COLUMNA_HECHAS, COLOR_COLUMNAS } from './tareas.js';
@@ -7078,7 +7078,8 @@ function pintarBarraTramos(pre, vb = {}) {
 // Cómo se verá: cada tramo, de cuándo a cuándo, en orden.
 function resumenBarraTramos(pre) {
   const on = $(`#cfg-${pre}-on`).checked;
-  $$(`#config-dialog [data-tramos-campo="${pre}"]`).forEach((el) => { el.hidden = !on; });
+  const modo = $(`#cfg-${pre}-modo`)?.value;
+  $$(`#config-dialog [data-tramos-campo="${pre}"]`).forEach((el) => { el.hidden = !on || Boolean(el.dataset.vbModo && modo && el.dataset.vbModo !== modo); });
   $$(`#cfg-${pre}-tramos .vb-tramo`).forEach((r, i) => {
     $('.vb-n', r).textContent = `${i + 1}`;
     r.classList.toggle('sin-boton', $('.vb-con', r).value !== 'si');
@@ -7214,8 +7215,55 @@ function pintarPagoPasos() {
       `📍 <strong>Dónde:</strong> donde quieras el cajetín. Dale el diseño que quieras: solo mantén los atributos <code>data-lsd-…</code> (título, precio, texto y botón salen de aquí). ${c.id === 'fraccionado' ? 'Sin enlace de pago fraccionado, el cajetín se oculta solo.' : ''}`)).join('')
     + filaCopiar('4 · Botón de WhatsApp flotante (opcional)', WA_FLOTANTE, '📍 <strong>Dónde:</strong> en cualquier sitio (o en el footer): se queda fijo abajo a la derecha. Abre el WhatsApp de dudas de «Venta → Venta y seguimiento».');
 }
-const leerVentaBarra = () => leerBarraTramos('vb');
-const pintarVentaBarra = (vb) => pintarBarraTramos('vb', vb);
+// Barra de la página de venta: además de los tramos, el modo «un mensaje por día del carrito» (los textos
+// cambiados a mano se escriben en Configuración → Carrito, en cada día), el botón de ese modo y dónde se ve.
+let vbDiasEdit = {};
+function leerVbDias() {
+  for (const i of $$('#carrito-dias .car-barra')) {
+    const v = i.value.trim();
+    if (!v || v === i.dataset.def) delete vbDiasEdit[i.dataset.day]; else vbDiasEdit[i.dataset.day] = v;
+  }
+  return { ...vbDiasEdit };
+}
+const leerVentaBarra = () => ({
+  ...leerBarraTramos('vb'),
+  porDias: $('#cfg-vb-modo').value === 'dias', dias: leerVbDias(), posicion: $('#cfg-vb-pos').value,
+  botonDias: { conBoton: $('#cfg-vb-d-con').value === 'si', destino: $('#cfg-vb-d-destino').value, boton: $('#cfg-vb-d-boton').value.trim() },
+});
+function pintarVentaBarra(vb = {}) {
+  vbDiasEdit = { ...(vb.dias || {}) };
+  // Sin nada configurado (o ya por días), por días; con tramos escritos de antes, se quedan los tramos.
+  $('#cfg-vb-modo').value = vb.porDias || !(vb.tramos || []).some((t) => t.texto || t.hasta) ? 'dias' : 'tramos';
+  $('#cfg-vb-pos').value = vb.posicion === 'abajo' ? 'abajo' : 'arriba';
+  const b = vb.botonDias || {};
+  const destinos = [...new Set([...VB_DESTINOS, ...Object.keys(LINK_KEYS).filter((k) => k)])];
+  $('#cfg-vb-d-destino').innerHTML = destinos.map((k) => `<option value="${k}" ${k === (b.destino || 'pagina-pago') ? 'selected' : ''}>${esc(LINK_KEYS[k])}</option>`).join('');
+  $('#cfg-vb-d-con').value = b.conBoton === false ? 'no' : 'si';
+  $('#cfg-vb-d-boton').value = b.boton || '';
+  pintarBarraTramos('vb', vb);
+  pintarVbDias();
+}
+// Las fechas, la oferta y la barra tal y como están ahora en el formulario (sin guardar).
+function lanzEnFormulario() {
+  let launch = null;
+  try { launch = readForm().launch; } catch { launch = null; }
+  return { ...(launch || { ...(state.config.launches[editingCode] || {}), fechaDirecto: $('#cfg-directo-fecha').value, horaDirecto: $('#cfg-directo-hora').value, aperturaCarrito: $('#cfg-apertura-carrito').value, cierreCarrito: $('#cfg-cierre').value }), oferta: leerOfertaEditor(), ventaBarra: leerVentaBarra() };
+}
+// Resumen de lo que dirá la barra cada día (modo «por días»), con el paso a Configuración → Carrito para cambiarlo.
+function pintarVbDias() {
+  $$('#config-dialog [data-vb-d-boton]').forEach((el) => { el.hidden = $('#cfg-vb-d-con').value !== 'si'; });
+  const box = $('#cfg-vb-dias');
+  if ($('#cfg-vb-modo').value !== 'dias') { box.innerHTML = ''; return; }
+  const dias = barraVentaDias(lanzEnFormulario());
+  const fecha = (d) => formatDate(madridToEpoch(`${d}T12:00`));
+  box.innerHTML = !dias.length ? '⚠️ Pon antes la apertura y el cierre del carrito (Datos básicos): de ahí salen los días.'
+    : `<strong>Así se verá cada día</strong>:<ol>${dias.map((d) => `<li><strong>${esc(fecha(d.day))}</strong>: «${esc(d.texto)}»${d.aMano ? ' <span class="muted">(cambiado a mano)</span>' : ''}</li>`).join('')}</ol>
+      <button type="button" class="btn small" id="cfg-vb-ir-carrito">✏️ Cambiar el texto de un día (Carrito)</button>`;
+}
+for (const id of ['#cfg-vb-modo', '#cfg-vb-pos', '#cfg-vb-d-con', '#cfg-vb-d-destino']) $(id).addEventListener('change', () => { resumenBarraTramos('vb'); pintarVbDias(); });
+$('#cfg-vb-on').addEventListener('change', pintarVbDias);
+$('#cfg-vb-dias').addEventListener('click', (e) => { if (e.target.closest('#cfg-vb-ir-carrito')) $('.tab[data-tab="carrito"]').click(); });
+$('.tab[data-tab="embudo"]').addEventListener('click', pintarVbDias);
 
 // Barra fija de la página de replay: sus campos solo si está activa; fecha u minutos según el modo.
 function pintarReplayBarraCfg() {
@@ -7375,8 +7423,8 @@ function openConfig(code, { silencioso = false } = {}) {
       titulares: last.titulares,
       // La página de pago se hereda con su copy; su barra, sin fechas.
       ...(last.paginaPago ? { paginaPago: { ...last.paginaPago, barra: { ...(last.paginaPago.barra || {}), tramos: (last.paginaPago.barra?.tramos || []).map((t) => ({ ...t, hasta: '' })) } } } : {}),
-      // La barra de la página de venta se hereda con sus textos y botones, sin fechas.
-      ...(last.ventaBarra?.tramos?.length ? { ventaBarra: { ...last.ventaBarra, tramos: last.ventaBarra.tramos.map((t) => ({ ...t, hasta: '' })) } } : {}),
+      // La barra de la página de venta se hereda con sus textos y botones, sin fechas (ni los textos de cada día).
+      ...(last.ventaBarra?.tramos?.length || last.ventaBarra?.porDias ? { ventaBarra: { ...last.ventaBarra, dias: {}, tramos: (last.ventaBarra.tramos || []).map((t) => ({ ...t, hasta: '' })) } } : {}),
       ...(base && !launchesSorted().some(([, x]) => embudoDeLanz(x) === state.embudo) ? { barra: base.barra } : {}),
       inicioCaptacion: dayInMadrid(new Date().toISOString()), // el día en España (de madrugada, UTC aún es ayer)
     };
@@ -16747,6 +16795,8 @@ function pintarCarrito({ leerEnvios = true } = {}) {
     oferta: leerOfertaEditor(), ventaBarra: leerVentaBarra(), carritoNotas: notas, carritoEnvios: envios, envios: enviosFases,
   };
   const r = diasCarrito(datos);
+  // Barra de la página de venta «por días»: el texto de cada día (por defecto el que sale solo; se puede cambiar).
+  const barraDia = datos.ventaBarra?.activa && datos.ventaBarra?.porDias ? new Map(barraVentaDias(datos).map((x) => [x.day, x])) : new Map();
   // Lo de por defecto de cada día (su fase), para enseñarlo si no se ha cambiado ese día.
   const planDef = new Map(planEnvios({ ...datos, carritoEnvios: {} }).map((x) => [x.day, x]));
   const box = $('#carrito-dias');
@@ -16763,6 +16813,7 @@ function pintarCarrito({ leerEnvios = true } = {}) {
       <h4>Envíos del día</h4>
       <div class="car-envios">${CANALES_CARRITO.map((c) => { const def = planDef.get(d.day)?.[c.id] || []; return canalHtml(d.day, c, envios[d.day]?.[c.id] ?? def, { def }); }).join('')}</div>
       ${r.dias.length > 1 ? `<button type="button" class="btn ghost small car-copiar" data-day="${d.day}" title="Pone estos mismos emails y mensajes de WhatsApp (con sus horas) en los demás días de carrito">Copiar estos envíos al resto de días</button>` : ''}
+      ${barraDia.has(d.day) ? `<label class="field"><span>📣 Barra de la página de venta este día <small>({cuenta} = cuenta atrás · vacío = el de por defecto)</small></span><input class="car-barra" data-day="${d.day}" data-def="${esc(barraDia.get(d.day).defecto)}" maxlength="200" value="${esc(barraDia.get(d.day).texto)}" placeholder="${esc(barraDia.get(d.day).defecto)}"></label>` : ''}
       <label class="field"><span>Estrategia / notas del día <small>(a mano)</small></span><textarea class="car-nota" data-day="${d.day}" rows="3" maxlength="1500" placeholder="Ej.: email de testimonios a las 10:00, directo de dudas en Instagram, WhatsApp a las que vieron la página de venta…">${esc(d.nota)}</textarea></label>
     </article>`).join('')}</div>`;
 }

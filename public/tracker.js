@@ -171,6 +171,8 @@
     '.lsd-rb .lsd-cd{display:inline-block;margin-left:4px;padding:2px 10px;border-radius:8px;background:rgba(255,255,255,.18);font-size:1.1em}' +
     '.lsd-rb .lsd-bar-btn{background:#fff;color:var(--lsd-rb,#860d0e);font-weight:700;padding:7px 16px}' +
     '@media (max-width:600px){.lsd-rb{font-size:14px;padding:8px 12px}.lsd-rb .lsd-bar-btn{padding:6px 12px}}' +
+    // Barra de la página de venta abajo del todo (Configuración → Página de venta → Dónde se ve).
+    '.lsd-rb.lsd-rb-abajo{top:auto;bottom:0;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));box-shadow:0 -2px 12px rgba(0,0,0,.18)}' +
     '.lsd-embed{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}.lsd-embed iframe{position:absolute;top:0;left:0;inset:0;width:100%;height:100%;border:0}' +
     '.lsd-bar-btn{display:inline-block;padding:6px 14px;border-radius:999px;background:#b4552d;color:#fff;font-weight:600;text-decoration:none}' +
     // Recursos de la preclase: música, votación (el diseño de la página puede cambiar --lsd-acento)
@@ -1841,7 +1843,7 @@
     var el = document.getElementById('lsd-rb');
     clearInterval(bfTimer);
     if (!bar) {
-      if (el) { el.parentNode.removeChild(el); document.body.style.paddingTop = ''; }
+      if (el) { el.parentNode.removeChild(el); document.body.style.paddingTop = ''; document.body.style.paddingBottom = ''; }
       return null;
     }
     if (!el) {
@@ -1852,14 +1854,26 @@
       el.setAttribute('aria-label', 'Cuenta atrás');
       document.body.insertBefore(el, document.body.firstChild);
     }
+    el.classList.toggle('lsd-rb-abajo', Boolean(bar.abajo));
     if (bar.color) el.style.setProperty('--lsd-rb', bar.color); else el.style.removeProperty('--lsd-rb');
     // La fuente de los textos de la página (en GHL va en cada texto, no en el body: si no, saldría la del navegador).
     if (!el.style.fontFamily) { var f = fuenteDePagina(el); if (f) el.style.fontFamily = f; }
-    el.innerHTML = '<span class="lsd-bar-text">' + esc(bar.text).replace('{cuenta}', cdSpan(bar.fin).replace('<span ', '<span data-lsd-cd-seg ')) + '</span>'
+    // La cuenta atrás va hasta `cuenta` (p. ej. el cierre del carrito) o, si no, hasta el fin del tramo.
+    el.innerHTML = '<span class="lsd-bar-text">' + esc(bar.text).replace('{cuenta}', cdSpan(bar.cuenta || bar.fin).replace('<span ', '<span data-lsd-cd-seg ')) + '</span>'
       + (bar.boton && bar.boton.href ? '<a class="lsd-bar-btn" href="' + esc(bar.boton.href) + '">' + esc(bar.boton.label) + '</a>' : '');
     document.querySelectorAll('[data-lsd-bar]').forEach(function (b) { show(b, false); });
-    document.body.style.paddingTop = el.offsetHeight + 'px';
-    if (!barraFija.resize) { barraFija.resize = true; window.addEventListener('resize', function () { var b = document.getElementById('lsd-rb'); if (b) document.body.style.paddingTop = b.offsetHeight + 'px'; }); }
+    // El hueco para que la barra no tape nada: arriba o abajo de la página.
+    var hueco = function () {
+      var b = document.getElementById('lsd-rb');
+      if (!b) return;
+      var abajo = b.classList.contains('lsd-rb-abajo');
+      document.body.style.paddingTop = abajo ? '' : b.offsetHeight + 'px';
+      document.body.style.paddingBottom = abajo ? b.offsetHeight + 'px' : '';
+    };
+    hueco();
+    if (!barraFija.resize) { barraFija.resize = true; window.addEventListener('resize', hueco); }
+    // La cuenta atrás y la fuente se pintan después: el hueco sigue la altura real de la barra.
+    if (window.ResizeObserver) { if (!barraFija.ro) barraFija.ro = new ResizeObserver(hueco); barraFija.ro.observe(el); }
     startCountdowns();
     bfTimer = setInterval(function () {
       if (serverNow() < bar.fin) return;
@@ -1899,7 +1913,7 @@
     var vb = data.ventaBarra;
     var tramo = vb && vb.tramos.filter(function (t) { return t.hasta > serverNow(); })[0];
     if (!tramo) return barraFija(null);
-    barraFija({ text: tramo.text, fin: tramo.hasta, boton: tramo.boton, color: vb.color }, function () { barraVenta(data); });
+    barraFija({ text: tramo.text, fin: tramo.hasta, cuenta: tramo.cuenta, boton: tramo.boton, color: vb.color, abajo: vb.abajo }, function () { barraVenta(data); });
   }
 
   // Primera respuesta de /api/page (la de init): si ya llevaba la identidad de la lead, el primer ciclo

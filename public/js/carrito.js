@@ -103,10 +103,14 @@ export function diasCarrito(launch = {}) {
 
   // Barra de la página de venta: qué mensaje empieza a verse cada día.
   if (launch.ventaBarra?.activa) {
-    const tramos = (launch.ventaBarra.tramos || []).map((t) => ({ ...t, fin: madridToEpoch(t.hasta) })).filter((t) => t.fin != null).sort((a, b) => a.fin - b.fin);
+    const tramos = tramosBarraVenta(launch).map((t) => ({ ...t, fin: madridToEpoch(t.hasta) })).filter((t) => t.fin != null).sort((a, b) => a.fin - b.fin);
     let inicio = M.apertura;
+    let previo = null;
     for (const t of tramos) {
-      if (t.fin > M.apertura) add(Math.max(inicio, M.apertura), '📣', `Barra de la página de venta: «${(t.texto || '⏳ Quedan {cuenta}').replace('{cuenta}', '⏱')}»${t.conBoton ? '' : ' (solo texto)'}`, Math.max(inicio, M.apertura) + 1);
+      // El mismo texto dos veces el mismo día (p. ej. el día de un bonus, por días) solo se apunta una vez.
+      const clave = `${dia(Math.max(inicio, M.apertura))}|${t.texto}`;
+      if (t.fin > M.apertura && clave !== previo) add(Math.max(inicio, M.apertura), '📣', `Barra de la página de venta: «${(t.texto || '⏳ Quedan {cuenta}').replace('{cuenta}', '⏱')}»${t.conBoton ? '' : ' (solo texto)'}`, Math.max(inicio, M.apertura) + 1);
+      if (t.fin > M.apertura) previo = clave;
       inicio = t.fin;
     }
   }
@@ -118,4 +122,64 @@ export function diasCarrito(launch = {}) {
     x.etiqueta = x.day === hasta ? 'Último día' : x.day === desde ? 'Apertura' : x.day === addDays(hasta, -1) ? 'Penúltimo día' : '';
   }
   return { faltan: [], garantia: textoGarantia(launch.oferta?.garantia), dias };
+}
+
+// ---------- Barra de la página de venta «por días» (Configuración → Venta → Página de venta) ----------
+// Un mensaje por cada día del carrito. Por defecto sale de lo que pasa ese día (la apertura, el último día de un
+// bonus, el penúltimo y el último día) y en Configuración → Carrito se puede cambiar el de cualquier día
+// (`ventaBarra.dias`). El día de un bonus que acaba, la barra cuenta hasta su fin y después, hasta el cierre.
+const localFmt = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const aLocal = (ms) => localFmt.format(new Date(ms)).replace(' ', 'T');
+const DIA_MS = 86_400_000;
+const listaBonus = (nombres) => {
+  const n = nombres.map((x) => `«${x}»`);
+  return n.length > 1 ? `los bonus ${n.slice(0, -1).join(', ')} y ${n.at(-1)}` : `el bonus ${n[0]}`;
+};
+
+// [{ day, partes: [{ desde, hasta, cuenta (ms), defecto }], defecto, texto, aMano }] — uno por día del carrito.
+export function barraVentaDias(launch = {}) {
+  const M = momentosCarrito(launch);
+  const cierre = madridToEpoch(launch.cierreCarrito);
+  if (M.apertura == null || cierre == null || cierre <= M.apertura) return [];
+  const desde = dia(M.apertura);
+  const hasta = dia(cierre);
+  const bonus = (launch.oferta?.bonus || []).map((b) => ({ nombre: b.nombre, ...ventanaBonus(b, launch) }))
+    .filter((b) => b.hasta != null && b.hasta < cierre && b.hasta > M.apertura);
+  const aMano = launch.ventaBarra?.dias || {};
+  const out = [];
+  for (let d = desde, i = 0; d <= hasta && i < MAX_DIAS; d = addDays(d, 1), i++) {
+    const ini = Math.max(madridToEpoch(`${d}T00:00`), M.apertura);
+    const fin = d === hasta ? cierre : madridToEpoch(`${addDays(d, 1)}T00:00`);
+    const general = d === hasta ? '⏳ Último día para entrar · Las puertas se cierran en {cuenta}'
+      : d === addDays(hasta, -1) ? '⚠️ Solo quedan 2 días · Las puertas se cierran en {cuenta}'
+      : d === desde ? '🔓 Las puertas ya están abiertas · Se cierran en {cuenta}'
+      : '🔓 Las puertas están abiertas · Se cierran en {cuenta}';
+    // Bonus que acaban este día (los que acaban a las 00:00 son del día anterior), agrupados por su fin.
+    const fines = new Map();
+    for (const b of bonus) if (b.hasta > ini && b.hasta <= fin) fines.set(b.hasta, [...(fines.get(b.hasta) || []), b]);
+    const partes = [];
+    let previo = ini;
+    for (const h of [...fines.keys()].sort((a, b) => a - b)) {
+      const bs = fines.get(h);
+      const largo = bs.some((b) => b.desde != null && h - b.desde > DIA_MS);
+      partes.push({ desde: previo, hasta: h, cuenta: h, defecto: `🎁 ${largo ? 'Último día para llevarte' : 'Llévate'} ${listaBonus(bs.map((b) => b.nombre))} · Acaba en {cuenta}` });
+      previo = h;
+    }
+    if (fin > previo) partes.push({ desde: previo, hasta: fin, cuenta: cierre, defecto: general });
+    const defecto = partes[0]?.defecto || general;
+    out.push({ day: d, partes, defecto, texto: aMano[d] || defecto, aMano: Boolean(aMano[d]) });
+  }
+  return out;
+}
+
+// Los tramos de la barra (formato de `sanitizeVentaBarra`): los de a mano o, «por días», los de cada día
+// (el texto cambiado a mano de un día vale para todo ese día).
+export function tramosBarraVenta(launch = {}) {
+  const vb = launch.ventaBarra || {};
+  if (!vb.porDias) return vb.tramos || [];
+  const b = vb.botonDias || {};
+  return barraVentaDias(launch).flatMap((d) => d.partes.map((p) => ({
+    texto: d.aMano ? d.texto : p.defecto, hasta: aLocal(p.hasta), cuenta: aLocal(p.cuenta),
+    conBoton: b.conBoton !== false, destino: b.destino || 'pagina-pago', boton: b.boton || '',
+  })));
 }

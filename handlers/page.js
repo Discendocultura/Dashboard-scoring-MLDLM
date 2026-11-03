@@ -21,6 +21,7 @@ import { videosDe, conVip, nClases, esEnDirecto, sigReplay } from '../public/js/
 import { planesActivos, enlacePago } from '../public/js/pago.js';
 import { conProducto, nombreProducto } from '../public/js/producto.js';
 import { ventanaBonus, TIPOS_BONUS, momentosCarrito } from '../public/js/oferta.js';
+import { tramosBarraVenta } from '../public/js/carrito.js';
 import { recursosDe, tieneRecurso, etapasPreclase, preguntasValidas, UMBRAL_DESBLOQUEO, listaRecursosDe, recursoListaVisible } from '../public/js/recursos.js';
 import { votoDe, votosDe, resultadosVotos, claveVotos } from '../lib/votos.js';
 
@@ -109,7 +110,7 @@ export async function GET(request, ctx) {
       return json({ code, now, preview, links: enlaces, texts: {}, embeds: { llamada: launch.llamadaVideoUrl || '' } }, 200, CORS_HEADERS);
     }
     if (ligera === 'venta' || ligera === 'pago') {
-      const vb = ventaBarraDe(ligera === 'pago' ? { ventaBarra: launch.paginaPago?.barra } : launch, links);
+      const vb = ligera === 'pago' ? ventaBarraDe({ ventaBarra: launch.paginaPago?.barra }, links) : ventaBarraDe(launch, links, tramosBarraVenta(launch));
       const producto = nombreProducto(config);
       // Enlaces de los botones de la página de venta (pago, llamada, WhatsApp de dudas), con el ID de la lead.
       const enlacesVenta = Object.fromEntries(['pagina-pago', 'pago', 'pago-fraccionado', 'llamada', 'whatsapp-dudas', 'whatsapp'].map((k) => [k, links[k] || '']));
