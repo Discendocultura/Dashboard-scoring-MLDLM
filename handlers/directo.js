@@ -15,7 +15,8 @@ import { deLaReunion, datosRegistrante, ocurrenciasDelLanzamiento, guardarEnSusD
 import { entradaDe, marcarEntrada } from '../lib/entradas.js';
 import { html, escapeHtml, isEmail } from '../lib/http.js';
 import { clienteActual } from '../lib/cliente.js';
-import { videosDe } from '../public/js/videos.js';
+import { videosDe, esEnDirecto } from '../public/js/videos.js';
+import { milestones } from '../public/js/page.js';
 import { currentLaunch } from '../lib/digest.js';
 
 const page = (title, body) => html(`<!doctype html><html lang="es"><head><meta charset="utf-8">
@@ -78,6 +79,18 @@ function rememberedWho(request) {
 
 const isCid = (v) => /^[A-Za-z0-9]{6,40}$/.test(v);
 
+// Enlace sin número de directo (`/directo?l=…`, el de los emails, WhatsApp y botones): el directo de HOY, no
+// siempre el 1. Es el primer directo en Zoom que aún no ha acabado (hasta 4 h después de empezar); si ya pasaron
+// todos, el último. Así, el día 2 nadie entra a la sala del día 1.
+const DESPUES_DIRECTO = 4 * 3600_000;
+export function directoPorHora(launch, ahora = Date.now()) {
+  const m = milestones(launch).videos;
+  const vivos = videosDe(launch).map((v, i) => ({ k: i + 1, v, inicio: m[i]?.inicio }))
+    .filter(({ k, v, inicio }) => (k === 1 || esEnDirecto(v)) && inicio != null)
+    .sort((a, b) => a.inicio - b.inicio);
+  return (vivos.find((x) => ahora <= x.inicio + DESPUES_DIRECTO) || vivos.at(-1))?.k || 1;
+}
+
 export async function GET(request, ctx) {
   const url = new URL(request.url);
   let code = url.searchParams.get('l') || '';
@@ -86,7 +99,8 @@ export async function GET(request, ctx) {
   if (!isCid(cid)) cid = '';
   if (!cid && !emailParam) ({ cid = '', email: emailParam = '' } = rememberedWho(request));
 
-  const kPedido = Math.min(Math.max(Number(url.searchParams.get('v')) || 1, 1), 4);
+  const vParam = Number(url.searchParams.get('v'));
+  let kPedido = Math.min(Math.max(vParam || 1, 1), 4);
   if (emailParam && !isEmail(emailParam)) return emailForm(code, 'Ese email no parece correcto.', kPedido);
 
   let launch;
@@ -100,10 +114,14 @@ export async function GET(request, ctx) {
     console.error(e);
   }
   if (!launch) return page('Enlace no válido', '<h1>Enlace no válido</h1><p>Revisa el enlace que te hemos enviado.</p>');
+  // Sin ?v=: el directo que toca por la hora (el día 2, la sala del día 2).
+  if (!vParam) kPedido = directoPorHora(launch);
   // Vídeo del lanzamiento (el 1 = el webinar de siempre).
   const vid = videosDe(launch)[kPedido - 1] || videosDe(launch)[0];
   const k = vid?.k || 1;
-  const fallback = vid?.zoomJoinUrl || launch.zoomJoinUrl;
+  // Enlace genérico de respaldo: el de ESTE directo (nunca el del 1 para otro día).
+  const idSala = String(vid?.zoomMeetingId || '').replace(/\D/g, '');
+  const fallback = vid?.zoomJoinUrl || (idSala ? `https://zoom.us/j/${idSala}` : '') || (k === 1 ? launch.zoomJoinUrl : '');
   const cookieWho = (who) => `${WHO_COOKIE}=${encodeURIComponent(who)}; Path=/directo; Max-Age=${WHO_MAX_AGE}; HttpOnly; Secure; SameSite=Lax`;
   // Ya inscrita en Zoom (desde la pantalla de espera o una entrada anterior): entra al momento, sin
   // llamar a GHL ni a Zoom. Lo que importa a la hora exacta, cuando entran cientos a la vez.
