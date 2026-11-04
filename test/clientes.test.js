@@ -46,9 +46,11 @@ test('varios clientes: registro, datos separados, equipo por cliente y accesos d
   assert.equal(m.ok, true);
   assert.match(m.nombre, /555/);
   assert.ok(m.app?.id); // de qué app es el token (para autorizar la cuenta en esa app)
-  // Zoom y SendFlow: sin elegir, el de la agencia (no tiene los suyos); con «propio», dice qué variables faltan.
+  // Zoom y SendFlow: sin elegir, un cliente dado de alta desde el corte (CORTE_AGENCIA) no usa el de la agencia
+  // (antes del corte, sí); con «propio», dice qué variables faltan.
+  const { CORTE_AGENCIA } = await import('../lib/conexiones-propias.js');
   let z = (await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'probar-zoom', id: 'clinica-sol' } })).data;
-  assert.equal(z.cual, 'agencia');
+  assert.equal(z.cual, Date.now() >= CORTE_AGENCIA ? 'ninguno' : 'agencia');
   await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'guardar', cliente: { ...sol, metaAdAccount: 'act_555', zoom: 'propio', sendflow: 'ninguno' } } });
   z = (await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'probar-zoom', id: 'clinica-sol' } })).data;
   assert.equal(z.ok, false);

@@ -77,3 +77,11 @@ test('agente con Claude: el prompt lleva los datos y la comparativa; diagnóstic
   assert.equal(props[0].clave, 'ia|2026-11-10|0');
   assert.match(props[0].accion.tareas[0].notas, /Borrador de Claude/);
 });
+
+test('cerebro: las fases del lanzamiento en marcha salen de sus métricas (solo sus leads), no del total de la etiqueta', async () => {
+  const { ratiosActuales } = await import('../lib/cerebro.js');
+  const l = { vipTag: 'vip', compraTag: 'compra-programa', fechaDirecto: '2020-01-01' };
+  const m = { total: 1000, vip: 47, clase1: 300, live: 160, liveFinal: 60, compra: 8, eco: { cpl: 1.68 } };
+  const r = await ratiosActuales('nov', l, { registros: 1000, ventas: 14, inversion: 1680, m });
+  assert.deepEqual([r.cpl, r.convVip, r.convClase1, r.convDirecto, r.convFinal, r.convVenta], [1.68, 0.047, 0.3, 0.16, 0.06, 0.008]);
+});
