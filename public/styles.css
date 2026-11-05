@@ -9384,3 +9384,30 @@ dialog.dlg-pagina .dialog-head::after { content: ''; position: absolute; right: 
 #config-dialog.cfg-pagina .cfg-side .cfg-nav .tab:has(.tab-falta.ok) .tab-ico { box-shadow: inset 0 0 0 1.5px #34d399; }
 #marca-dialog.dlg-pagina .mp-rail .mp-paso-btn.est-hecho .mp-dot { background: rgba(16, 185, 129, .22); box-shadow: inset 0 0 0 1.5px #34d399; color: #6ee7b7; }
 #config-dialog.cfg-pagina .cfg-side .cfg-nav .tab:focus-visible, #marca-dialog.dlg-pagina .mp-rail .mp-paso-btn:focus-visible { outline: 2px solid rgba(165, 180, 252, .8); outline-offset: 2px; }
+
+/* 📣 Gasto total en publicidad por embudo (Inicio) */
+.ini-gasto-cab { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; justify-content: space-between; }
+.ini-gasto-cab h2 { margin: 0; }
+.ini-gasto-per { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.ini-gasto-tabs button { padding: 6px 12px; font-size: 13px; }
+.ini-gasto-fechas { display: flex; flex-wrap: wrap; gap: 8px; }
+.ini-gasto-total { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin: 14px 0 10px; }
+.ini-gasto-total strong { font-size: 28px; letter-spacing: -.02em; }
+.ini-gasto-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ini-gasto-lista li { display: grid; grid-template-columns: minmax(140px, 1.2fr) minmax(80px, 2fr) auto; gap: 12px; align-items: center; padding: 8px 10px; border-radius: 12px; background: var(--surface-2); }
+.ini-gasto-lista li.otras { opacity: .8; }
+.ini-gasto-nom { display: flex; flex-direction: column; font-weight: 650; min-width: 0; }
+.ini-gasto-nom small { font-weight: 500; }
+.ini-gasto-barra { height: 8px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+.ini-gasto-barra span { display: block; height: 100%; border-radius: 99px; background: var(--tone-info); }
+.ini-gasto-cifra { display: flex; flex-direction: column; align-items: flex-end; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .ini-gasto-lista li { grid-template-columns: 1fr auto; }
+  .ini-gasto-barra { grid-column: 1 / -1; grid-row: 2; }
+  .ini-gasto-per, .ini-gasto-tabs { width: 100%; }
+  .ini-gasto-tabs { display: grid; grid-template-columns: 1fr 1fr; }
+  .ini-gasto-tabs button { white-space: nowrap; }
+  .ini-gasto-fechas { display: grid; grid-template-columns: 1fr; width: 100%; }
+  .ini-gasto-fechas .field { min-width: 0; }
+  .ini-gasto-fechas input { min-width: 0; width: 100%; box-sizing: border-box; }
+}

@@ -1564,6 +1564,7 @@ async function mostrarInicio({ fresh = false } = {}) {
   // Sin permiso de métricas (o sin embudos): el Inicio de trabajo, sin cifras de ventas.
   const trabajo = !state.superadmin && !(tiene('metricas') && embudos().length);
   document.body.classList.toggle('inicio-trabajo', trabajo);
+  $('#ini-gasto').hidden = true;
   if (trabajo) return pintarInicioTrabajo();
   document.body.classList.toggle('ini-sin-emb', !embudos().length);
   if (!embudos().length) { $('#inicio-embudos').innerHTML = '<div class="card empty"><p class="muted">Este cliente aún no tiene embudos.</p></div>'; return; }
@@ -1817,7 +1818,7 @@ $('#sb-config').addEventListener('click', () => {
   $('#sb-config').setAttribute('aria-expanded', String(!sub.hidden));
   $('#sb-config').classList.toggle('abierto', !sub.hidden);
 });
-$('#inicio-actualizar').addEventListener('click', () => mostrarInicio({ fresh: true }));
+$('#inicio-actualizar').addEventListener('click', () => { state.gastoInicio = null; mostrarInicio({ fresh: true }); });
 
 // ---------- Inicio de la agencia (superadmin): todos los clientes de un vistazo ----------
 // Sale del último resumen guardado de cada cliente (el del panel de agencia) y actualiza de uno en uno los que
@@ -2059,7 +2060,73 @@ function pintarInicio() {
   pintarMencionesInicio();
   if (A) { pintarTareasHoy(A); pintarHitosInicio(A); }
   pintarNegocioInicio();
+  cargarGastoInicio();
 }
+// 📣 Gasto total en publicidad por embudo, con su propio periodo (mes anterior, mes en curso, 7 días o a medida).
+// Una sola consulta a Meta (cacheada en el servidor); aquí se guarda 5 min por cliente y periodo.
+const gastoQs = () => {
+  const p = ls.get('lsd_inicio_gasto') || 'mes-actual';
+  if (p !== 'personalizado') return `periodo=${p}`;
+  const d = $('#ini-gasto-desde').value; const h = $('#ini-gasto-hasta').value;
+  return d && h ? `periodo=personalizado&desde=${d}&hasta=${h}` : '';
+};
+async function cargarGastoInicio(fresh = false) {
+  const card = $('#ini-gasto');
+  if (!state.enInicio || !state.inicio) return;
+  card.hidden = false;
+  const p = ls.get('lsd_inicio_gasto') || 'mes-actual';
+  $$('#ini-gasto [data-gasto-p]').forEach((b) => { b.classList.toggle('on', b.dataset.gastoP === p); b.setAttribute('aria-selected', String(b.dataset.gastoP === p)); });
+  $('#ini-gasto-fechas').hidden = p !== 'personalizado';
+  // Fechas a medida: las últimas elegidas o, si no hay, los últimos 30 días.
+  if (p === 'personalizado' && !($('#ini-gasto-desde').value && $('#ini-gasto-hasta').value)) {
+    const [d, h] = String(ls.get('lsd_inicio_gasto_fechas') || '').split('|');
+    $('#ini-gasto-hasta').value = h || today();
+    $('#ini-gasto-desde').value = d || new Date(Date.parse(`${today()}T12:00:00Z`) - 29 * 86_400_000).toISOString().slice(0, 10);
+  }
+  const qs = gastoQs();
+  const cuerpo = $('#ini-gasto-cuerpo');
+  if (!qs) { cuerpo.innerHTML = '<p class="muted">Elige las fechas.</p>'; return; }
+  const clave = `${state.cliente}|${qs}`;
+  const g = state.gastoInicio;
+  if (!fresh && g?.clave === clave && (g.cargando || Date.now() - g.at < 5 * 60_000)) { if (!g.cargando) pintarGastoInicio(g.datos); return; }
+  state.gastoInicio = { clave, cargando: true };
+  cuerpo.innerHTML = '<p class="muted">Cargando…</p>';
+  try {
+    const d = await api(`/api/inicio?parte=gasto&${qs}${fresh ? '&fresh=1' : ''}`);
+    if (state.gastoInicio?.clave !== clave) return;
+    state.gastoInicio = { clave, at: Date.now(), datos: d.gasto };
+    pintarGastoInicio(d.gasto);
+  } catch (e) {
+    if (state.gastoInicio?.clave !== clave) return;
+    state.gastoInicio = null;
+    cuerpo.innerHTML = `<p class="error">${esc(e.message)}</p>`;
+  }
+}
+function pintarGastoInicio(g) {
+  const cuerpo = $('#ini-gasto-cuerpo');
+  if (g.configured === false) { cuerpo.innerHTML = '<p class="muted">Conecta la cuenta publicitaria de Meta para ver aquí lo que gasta cada embudo.</p>'; return; }
+  const dia = (d) => dayFmt.format(new Date(`${d}T12:00:00Z`));
+  const filas = [...g.embudos.filter((e) => e.gasto > 0), ...(g.otras?.gasto > 0 ? [{ id: '', nombre: 'Otras campañas', icono: '❔', gasto: g.otras.gasto, campanas: g.otras.campanas, otras: true }] : [])];
+  const max = Math.max(...filas.map((e) => e.gasto), 1);
+  const sinGasto = g.embudos.filter((e) => !e.gasto).map((e) => e.nombre);
+  cuerpo.innerHTML = `<div class="ini-gasto-total"><strong>${eur(g.total)}</strong><span class="muted small">del ${esc(dia(g.rango.desde))} al ${esc(dia(g.rango.hasta))}</span></div>
+    ${filas.length ? `<ul class="ini-gasto-lista">${filas.map((e) => `<li${e.otras ? ' class="otras" title="Campañas cuyo nombre no lleva el filtro de ningún embudo"' : ''}>
+        <span class="ini-gasto-nom"><span><span aria-hidden="true">${e.icono}</span> ${esc(e.nombre)}</span><small class="muted">${e.campanas} ${e.campanas === 1 ? 'campaña' : 'campañas'}</small></span>
+        <span class="ini-gasto-barra" aria-hidden="true"><span style="width:${Math.max(2, Math.round((e.gasto / max) * 100))}%"></span></span>
+        <span class="ini-gasto-cifra"><strong>${eur(e.gasto)}</strong><small class="muted">${g.total ? Math.round((e.gasto / g.total) * 100) : 0} %</small></span>
+      </li>`).join('')}</ul>` : '<p class="ini-vacio">Sin gasto en publicidad en estas fechas.</p>'}
+    ${sinGasto.length && filas.length ? `<p class="muted small">Sin gasto: ${esc(sinGasto.join(', '))}.</p>` : ''}`;
+}
+$('#ini-gasto').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-gasto-p]');
+  if (!b) return;
+  ls.set('lsd_inicio_gasto', b.dataset.gastoP);
+  cargarGastoInicio();
+});
+['#ini-gasto-desde', '#ini-gasto-hasta'].forEach((s) => $(s).addEventListener('change', () => {
+  if ($('#ini-gasto-desde').value && $('#ini-gasto-hasta').value) ls.set('lsd_inicio_gasto_fechas', `${$('#ini-gasto-desde').value}|${$('#ini-gasto-hasta').value}`);
+  cargarGastoInicio();
+}));
 // Las cifras del periodo, cada una con su ▲▼ frente al anterior (solo con los embudos que tienen con qué comparar:
 // VSL y venta directa, los mismos días de antes; lanzamientos y meteóricos, el anterior).
 function pintarCifrasInicio(lista, metas, listos) {

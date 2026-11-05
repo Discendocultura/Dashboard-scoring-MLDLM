@@ -1,5 +1,5 @@
 // Inicio del cliente (todos sus embudos de un vistazo).
-//   GET /api/inicio?parte=lista | parte=embudo&id=… | parte=meteorico&id=… | parte=agenda | parte=anuncios  [&periodo=…&desde=&hasta=] [&fresh=1]
+//   GET /api/inicio?parte=lista | parte=embudo&id=… | parte=meteorico&id=… | parte=agenda | parte=anuncios | parte=gasto  [&periodo=…&desde=&hasta=] [&fresh=1]
 import { requireSession } from '../lib/auth.js';
 import { inicioCliente } from '../lib/inicio.js';
 import { clienteActual } from '../lib/cliente.js';
