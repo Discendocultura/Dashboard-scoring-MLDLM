@@ -9802,10 +9802,11 @@ button.ms-pill { cursor: pointer; }
 .evg-dia { position: relative; min-width: 0; min-height: 118px; padding: 11px 9px 9px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; text-align: left; cursor: pointer; overflow: hidden; transition: transform .15s, box-shadow .15s, border-color .15s; }
 .evg-dia::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: var(--c); opacity: .9; }
 .evg-dia:hover, .evg-dia:focus-visible { transform: translateY(-2px); box-shadow: var(--evg-sombra); border-color: color-mix(in srgb, var(--c) 50%, var(--border)); outline: none; }
-.evg-dia.is-vacio { background: transparent; border-style: dashed; }
+.evg-dia.is-vacio { background: var(--surface); border-style: dashed; border-color: var(--border-strong); }
 .evg-dia.is-vacio::before { opacity: .35; }
-.evg-dia.is-pasado { opacity: .55; }
-.evg-dia.is-pasado:hover { opacity: .85; }
+.evg-dia.is-pasado { background: var(--surface); color: var(--muted); }
+.evg-dia.is-pasado > * { opacity: .6; }
+.evg-dia.is-pasado:hover > * { opacity: .9; }
 .evg-dn { display: flex; align-items: center; gap: 5px; width: 100%; }
 .evg-dn b { display: grid; place-items: center; min-width: 26px; height: 26px; padding: 0 4px; border-radius: 9px; font-size: 13.5px; font-weight: 800; }
 .evg-dia.is-hoy .evg-dn b { background: var(--text); color: var(--surface); }
