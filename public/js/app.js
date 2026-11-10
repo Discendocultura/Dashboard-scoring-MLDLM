@@ -15290,7 +15290,6 @@ function dominioSugerido() {
 }
 function pintarEmbOrigen() {
   const o = embOrigen();
-  $('#emb-montaje-card').hidden = embTipo() !== 'lanzamientos';
   $('#emb-wa-card').hidden = !embConWa();
   $('#emb-urls-box').hidden = o.paginas !== 'cero';
   $('#emb-dominio-box').hidden = !o.proponer;
@@ -15306,12 +15305,16 @@ function aplicarOrigenEmb() {
   pintarEmbGuia();
 }
 $('#emb-pag-card').addEventListener('change', () => { pintarEmbOrigen(); aplicarOrigenEmb(); });
-// 🚀 «Móntalo con IA»: páginas, mensajes y automatizaciones se crean de cero (las hace Claude en el Montaje).
-$('#emb-montaje').addEventListener('change', (e) => {
-  if (e.target.checked) for (const n of ['emb-pag', 'emb-wa', 'emb-auto']) $$(`input[name="${n}"]`).forEach((i) => { i.checked = i.value === 'cero'; });
+// 🚀 Paso «¿Cómo quieres montarlo?» (lanzamientos): con IA, páginas, mensajes y automatizaciones son «de cero» (las hace
+// Claude en Crear → Montaje) y el paso «Páginas y WhatsApp» no hace falta.
+const embModo = () => $('input[name="emb-modo"]:checked')?.value || '';
+const embConIa = () => embTipo() === 'lanzamientos' && embModo() === 'ia';
+$$('input[name="emb-modo"]').forEach((r) => r.addEventListener('change', () => {
+  if (embConIa()) for (const n of ['emb-pag', 'emb-wa', 'emb-auto']) $$(`input[name="${n}"]`).forEach((i) => { i.checked = i.value === 'cero'; });
   pintarEmbOrigen();
   aplicarOrigenEmb();
-});
+  irPasoEmb(embPaso); // la lista de pasos cambia
+}));
 $('#emb-wa-card').addEventListener('change', () => { pintarEmbOrigen(); aplicarOrigenEmb(); });
 $('#emb-auto-card').addEventListener('change', () => { pintarEmbOrigen(); aplicarOrigenEmb(); });
 // URLs propuestas del embudo que se está creando o editando (paso final).
@@ -15348,7 +15351,7 @@ function embOrigenGuardar() {
   const nombre = $('#emb-url-nombre').value.trim() || slugUrl($('#emb-nombre').value);
   return {
     paginasOrigen: o.paginas || undefined, waOrigen: o.wa || undefined, autoOrigen: o.auto || undefined,
-    montajeIa: embTipo() === 'lanzamientos' && $('#emb-montaje').checked ? true : undefined,
+    montajeIa: embConIa() ? true : undefined,
     urls: o.proponer && dominioValido($('#emb-dominio').value) && slugUrl(nombre) ? { dominio: dominioValido($('#emb-dominio').value), nombre: slugUrl(nombre) } : undefined,
   };
 }
@@ -15360,14 +15363,14 @@ function propuestasEmbudo(id) {
 }
 
 // ---------- Asistente por pasos ----------
-const PASO_LABEL = { tipo: 'Tipo de embudo', preclase: 'Prelan\u00ADzamiento', directa: 'Qué lleva', contenido: 'Páginas y WhatsApp', dashboard: 'AlquimIA', final: 'Nombre y resumen' };
+const PASO_LABEL = { tipo: 'Tipo de embudo', modo: 'Cómo montarlo', preclase: 'Prelan\u00ADzamiento', directa: 'Qué lleva', contenido: 'Páginas y WhatsApp', dashboard: 'AlquimIA', final: 'Nombre y resumen' };
 let embPaso = 0;
 function pasosEmb() {
   const plantilla = !embEdit && $('#emb-plantilla').value;
   const lanz = embTipo() === 'lanzamientos';
   // Editando: el tipo no cambia (solo el formato de los lanzamientos o la variante de la VSL).
   const conTipo = !embEdit || lanz || embTipo() === 'vsl';
-  return [...(conTipo ? ['tipo'] : []), ...(lanz && !plantilla ? ['preclase'] : []), ...(embTipo() === 'directa' && !embEdit && !plantilla ? ['directa'] : []), ...(plantilla ? [] : [...(embTipo() === 'cruzadas' ? [] : ['contenido']), 'dashboard']), 'final'];
+  return [...(conTipo ? ['tipo'] : []), ...(lanz ? ['modo'] : []), ...(lanz && !plantilla ? ['preclase'] : []), ...(embTipo() === 'directa' && !embEdit && !plantilla ? ['directa'] : []), ...(plantilla ? [] : [...(embTipo() === 'cruzadas' || embConIa() ? [] : ['contenido']), 'dashboard']), 'final'];
 }
 function irPasoEmb(i) {
   const pasos = pasosEmb();
@@ -15386,6 +15389,7 @@ function irPasoEmb(i) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function validarPasoEmb() {
+  if (pasosEmb()[embPaso] === 'modo' && !embModo()) { $('#emb-status').textContent = 'Elige si lo montas a mano o con IA.'; return false; }
   if (pasosEmb()[embPaso] === 'dashboard' && !embPestanas().length) { $('#emb-status').textContent = 'Deja al menos una sección marcada.'; return false; }
   if (pasosEmb()[embPaso] === 'contenido') {
     const o = embOrigen();
@@ -15508,7 +15512,7 @@ function abrirNuevoEmbudo({ preset } = {}) {
   pintarEmbVipBase();
   $('#emb-nombre').value = '';
   $$('input[name="emb-pag"], input[name="emb-wa"], input[name="emb-auto"]').forEach((i) => { i.checked = false; });
-  $('#emb-montaje').checked = false;
+  $$('input[name="emb-modo"]').forEach((i) => { i.checked = false; });
   $('#emb-urls-si').checked = true;
   $('#emb-dominio').value = dominioSugerido();
   $('#emb-url-nombre').value = '';
@@ -15549,7 +15553,7 @@ function abrirEditarEmbudo(id) {
   $$('input[name="emb-pag"]').forEach((i) => { i.checked = i.value === e.paginasOrigen; });
   $$('input[name="emb-wa"]').forEach((i) => { i.checked = i.value === e.waOrigen; });
   $$('input[name="emb-auto"]').forEach((i) => { i.checked = i.value === e.autoOrigen; });
-  $('#emb-montaje').checked = Boolean(e.montajeIa);
+  $$('input[name="emb-modo"]').forEach((i) => { i.checked = i.value === (e.montajeIa ? 'ia' : 'manual'); });
   $('#emb-urls-si').checked = Boolean(e.urls) || e.paginasOrigen !== 'cero';
   $('#emb-dominio').value = (e.urls?.dominio || dominioSugerido()).replace(/^https:\/\//, '');
   $('#emb-url-nombre').value = e.urls?.nombre || '';

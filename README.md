@@ -1321,7 +1321,7 @@ La operativa de un lanzamiento nuevo, fase a fase, para que Claude haga sola tod
 5. **Emails y WhatsApp**: toda la secuencia, con el calendario del lanzamiento y los emails de lanzamientos anteriores.
 6. **Automatizaciones en GHL**: los workflows de Crear → Automatizaciones, en su carpeta y en borrador, desde el navegador.
 
-**Desde «＋ Nuevo embudo»:** en el paso «Páginas y WhatsApp» marca **🚀 Móntalo con IA** (deja páginas, mensajes y automatizaciones como «de cero»). Al crear su primer lanzamiento, el botón del ¡enhorabuena! es «Empezar el montaje con IA» y te lleva a Crear → Montaje, ya empezado. Se puede cambiar en el ⚙️ del embudo.
+**Desde «＋ Nuevo embudo»:** el paso 2, **«¿Cómo quieres montarlo?»** (solo lanzamientos), da a elegir **Manual** (lo montas tú con los prompts de Crear) o **Automatizado con IA**. Con IA, páginas, mensajes y automatizaciones quedan «de cero» y el paso «Páginas y WhatsApp» desaparece. Al crear el primer lanzamiento, el botón del ¡enhorabuena! es «Empezar el montaje con IA» y lleva a Crear → Montaje, ya empezado. Se cambia en el ⚙️ del embudo.
 
 **Todo con tu suscripción de Claude, sin API:** AlquimIA no llama a Claude en el Montaje; solo le da la información por el conector y guarda lo que Claude le devuelve.
 
