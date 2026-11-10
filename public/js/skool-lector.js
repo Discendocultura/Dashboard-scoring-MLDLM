@@ -10,6 +10,7 @@
 
 /* eslint-disable no-var, prefer-arrow-callback, func-names */
 function lector(ORIGEN, CLI) {
+  var VERSION_LECTOR_DENTRO = 2; // = VERSION_LECTOR (abajo): sube con cada cambio del lector
   if (window.__alqSkool) return;
   window.__alqSkool = 1;
   var caja = document.createElement('div');
@@ -266,7 +267,7 @@ function lector(ORIGEN, CLI) {
         resumenFichas = await abrirFichas(base);
         filas = Object.keys(res).map(function (e) { return res[e]; });
       }
-      var datos = { tipo: 'alquimia-skool', version: 1, fichas: resumenFichas, cliente: CLI, comunidad: location.pathname.split('/')[1] || '', url: base.href, at: Date.now(), paginas: paginas, filas: filas, catalogo: cat };
+      var datos = { tipo: 'alquimia-skool', version: VERSION_LECTOR_DENTRO, fichas: resumenFichas, cliente: CLI, comunidad: location.pathname.split('/')[1] || '', url: base.href, at: Date.now(), paginas: paginas, filas: filas, catalogo: cat };
       var ok = false;
       window.addEventListener('message', function (e) {
         if (ok || e.origin !== ORIGEN || !e.data || e.data.tipo !== 'alquimia-skool-ok') return;
@@ -300,9 +301,19 @@ function lector(ORIGEN, CLI) {
 
 // El enlace del marcador (para arrastrarlo a la barra de marcadores). `origen`: la dirección de AlquimIA
 // (https://…), `cliente`: el cliente al que van los alumnos.
+// El marcador CARGA el lector más nuevo desde AlquimIA (/api/skool-lector): así no se queda viejo aunque se
+// arrastrase hace meses. Si Skool no deja cargar scripts de fuera (o AlquimIA no responde en 6 s), usa el que lleva
+// dentro (el de cuando se arrastró).
+export const VERSION_LECTOR = 2;
+export const codigoLector = (origen, cliente = '') => `(${lector.toString()})(${JSON.stringify(String(origen))},${JSON.stringify(String(cliente || ''))})`;
 export function enlaceLector(origen, cliente = '') {
-  const codigo = `(${lector.toString()})(${JSON.stringify(String(origen))},${JSON.stringify(String(cliente || ''))})`;
-  return `javascript:${encodeURIComponent(codigo)}`;
+  const O = JSON.stringify(String(origen));
+  const C = JSON.stringify(String(cliente || ''));
+  const cargador = `(function(O,C){var hecho=false;var dentro=function(){if(hecho)return;hecho=true;(${lector.toString()})(O,C);};`
+    + `var s=document.createElement('script');s.src=O+'/api/skool-lector?o='+encodeURIComponent(O)+'&cl='+encodeURIComponent(C)+'&t='+Date.now();`
+    + `s.onload=function(){if(hecho)return;if(window.__alqLectorNuevo){hecho=true;window.__alqLectorNuevo(O,C);}else dentro();};s.onerror=dentro;`
+    + `setTimeout(function(){if(!hecho&&!window.__alqLectorNuevo)dentro();},6000);(document.head||document.documentElement).appendChild(s);})(${O},${C})`;
+  return `javascript:${encodeURIComponent(cargador)}`;
 }
 
 // Para las pruebas: el lector tal cual (se ejecuta en un DOM de prueba).

@@ -255,3 +255,17 @@ test('membresía: con la ficha de cada alumno, el plan es «tier.name» (no la p
   assert.ok(!c.some((x) => x.clave === 'ficha.membership.price.interval'));
   assert.ok(!c.some((x) => x.clave === 'user.name'));
 });
+
+test('membresía: el marcador carga el lector más nuevo de AlquimIA (y lleva uno dentro por si no puede)', async () => {
+  const { enlaceLector, VERSION_LECTOR } = await import('../public/js/skool-lector.js');
+  const codigo = decodeURIComponent(enlaceLector('https://alq.dev', 'discendo').slice(11));
+  assert.ok(codigo.includes("/api/skool-lector?o="));
+  assert.ok(codigo.includes('__alqLectorNuevo'));
+  assert.ok(codigo.includes(`VERSION_LECTOR_DENTRO = ${VERSION_LECTOR}`));
+  const h = await import('../handlers/skool-lector.js');
+  const r = h.GET();
+  assert.match(r.headers.get('content-type'), /javascript/);
+  const js = await r.text();
+  assert.ok(js.startsWith('window.__alqLectorNuevo = function lector('));
+  assert.doesNotThrow(() => new Function(js));
+});

@@ -6,7 +6,7 @@
 //  · Etiquetas de GHL por plan (y de baja): se sincronizan desde aquí y disparan los flujos de GHL (venta cruzada…).
 //  · Alumnos, como una pestaña de setter: segmentos, búsqueda, y a cada uno WhatsApp o email (desde GHL).
 import { CAMPOS, clavesDe, adivinarMapa, normalizar, metricasMembresia, tagDePlan, etiquetasPendientes, SEGMENTOS, rellenar, waDe, precioMes, EMAIL_RE, resumenGhl, conMembresia, candidatosPlan, repartoPlan, diagnosticoSkool, esCodigo, codigosSinNombre } from './membresia.js';
-import { enlaceLector, esDatosSkool, ORIGEN_SKOOL } from './skool-lector.js';
+import { enlaceLector, esDatosSkool, ORIGEN_SKOOL, VERSION_LECTOR } from './skool-lector.js';
 import { limpiarNombre, pareceSlug } from './membresia.js';
 
 const DIA = 86_400_000;
@@ -186,6 +186,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
       ${lista('minus', '#e11d48', 'Bajas', `${(p.muestra?.bajas || []).slice(0, 12).map(esc).join(' · ')}${p.bajas > 12 ? '…' : ''}`)}`;
     return `<section class="ms-imp">
       <header class="ms-imp-h"><span class="ms-kpi-ico" style="--t:#6d4aff">${ico('search')}</span><div><h3>Revisa la lectura antes de guardarla</h3><p class="muted small">${num(d.filas.length)} miembros de «${esc(d.comunidad || 'Skool')}». <strong>Comprueba que coincide con el número que marca Skool.</strong></p></div></header>
+      ${(Number(d.version) || 1) < VERSION_LECTOR ? `<p class="ms-aviso">${ico('alert')} <span><strong>Tu marcador de Skool es antiguo</strong> (no abre la ficha de cada alumno). Borra el de tu barra de marcadores y arrastra de nuevo el botón <strong>«AlquimIA · Skool»</strong> de «Cómo actualizar los alumnos». El nuevo se actualiza solo a partir de ahora.</span></p>` : ''}
       ${d.fichas ? `<p class="ms-aviso ${d.fichas.conFicha ? 'ms-aviso-verde' : ''}">${ico(d.fichas.conFicha ? 'check' : 'alert')} <span>${d.fichas.conFicha ? `Fichas abiertas: <strong>${num(d.fichas.conFicha)} de ${num(d.filas.length)}</strong> alumnos con sus datos completos (plan, precio…).` : 'No se pudo leer la ficha de ningún alumno: se usan los datos de la lista.'}${d.fichas.sinPagina ? ` ${num(d.fichas.sinPagina)} no se abrieron (estaban en otra página de Skool).` : ''}${d.fichas.parado ? ' (Lectura parada a mano.)' : ''}</span></p>` : ''}
       ${imp.aviso ? `<p class="ms-aviso">${ico('alert')} Faltan muchos de los alumnos activos: puede que la lectura esté a medias (por ejemplo, Skool tenía un filtro puesto). Por seguridad, nadie se da de baja por no salir. Si de verdad están todos, marca la casilla.</p>` : ''}
       <label class="ms-check"><input type="checkbox" id="ms-completa"${imp.completa ? ' checked' : ''}><span>Esta lectura trae <strong>a todos los alumnos activos</strong>: quien no salga, se da de baja.</span></label>
