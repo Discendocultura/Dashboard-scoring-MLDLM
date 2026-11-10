@@ -223,3 +223,22 @@ test('membresía: los planes que llegan como código (id de Skool) se traducen a
   assert.equal(r2.cambios.length, 0);
   assert.equal(r2.estado.alumnos['a@x.com'].plan, 'VIP');
 });
+
+test('membresía: nombre de la persona (no el usuario de Skool) y lo que paga cada código de plan', async () => {
+  const mb = await import('../public/js/membresia.js');
+  assert.equal(mb.limpiarNombre('jose-luis-garcia-perez-4175 Garcia Perez'), 'Jose Luis Garcia Perez');
+  assert.equal(mb.limpiarNombre('nuria-ruiz-2833 Ruiz becerro'), 'Nuria Ruiz Becerro'.replace('Becerro', 'becerro'));
+  assert.equal(mb.limpiarNombre('Ana María López'), 'Ana María López');
+  assert.equal(mb.rellenar('Hola {nombre}', { nombre: 'maria-vazquez-9641 Vazquez' }), 'Hola Maria');
+  // Con «name» (usuario) y «firstName», se coge el nombre de pila.
+  const filas = [{ 'u.email': 'a@x.com', 'u.name': 'ana-ruiz-12', 'u.firstName': 'Ana', 'u.lastName': 'Ruiz' }];
+  const m = mb.adivinarMapa(filas);
+  assert.equal(m.nombre, 'u.firstName');
+  assert.equal(mb.normalizar(filas[0], m).nombre, 'Ana Ruiz');
+  assert.ok(mb.pareceSlug(filas, 'u.name') && !mb.pareceSlug(filas, 'u.firstName'));
+  const cods = mb.codigosSinNombre([
+    { plan: 'e169edfa8cf441d08e6aed114ef56939', precio: 367, intervalo: 'año' },
+    { plan: 'e169edfa8cf441d08e6aed114ef56939', precio: 367, intervalo: 'año' },
+  ]);
+  assert.deepEqual([cods[0].n, cods[0].precio, cods[0].intervalo, cods[0].mes], [2, 367, 'año', 30.58]);
+});

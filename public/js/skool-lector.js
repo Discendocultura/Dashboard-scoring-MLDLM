@@ -77,11 +77,18 @@ function lector(ORIGEN, CLI) {
   // y su precio si lo trae. Sirve para traducir el código de plan de cada alumno («c852af…» → «VIP»).
   var COD = /^[a-f0-9]{16,}$|^[0-9a-f]{8}-[0-9a-f]{4}-|^(price|prod|plan|sub)_[A-Za-z0-9]{8,}$/i;
   var NOMBRE = /^(name|title|label|display_?name|tier_?name|plan_?name|nombre|product_?name)$/i;
+  // Nombre de cada código: el del propio objeto o, si no tiene (un precio dentro de su plan), el del más cercano por
+  // encima. Si el propio nombre es solo la periodicidad («Monthly», «Anual»), se junta con el del plan: «VIP anual».
+  var PERIODO = /^(monthly|annual|annually|yearly|month|year|mensual|anual|trimestral|quarterly|semanal|weekly)$/i;
   var catalogo = function (raiz, cat) {
-    (function walk(o, d) {
+    // `arriba`: nombre heredado, solo dentro de algo que se llama precio/plan/tier/producto (si no, un código cualquiera
+    // dentro de la comunidad cogería el nombre de la comunidad).
+    var EN_PRECIO = /price|tier|plan|product|membership|level|subscription|pricing|offer/i;
+    (function walk(o, d, arriba) {
       if (!o || typeof o !== 'object' || d > 40 || Object.keys(cat).length > 3000) return;
-      if (Array.isArray(o)) { for (var i = 0; i < o.length; i++) walk(o[i], d + 1); return; }
-      var ids = []; var nombre = ''; var importe = null; var intervalo = '';
+      if (Array.isArray(o)) { for (var i = 0; i < o.length; i++) walk(o[i], d + 1, arriba); return; }
+      var conEmail = emails(o, 0, new Set()).size > 0; // una persona: su nombre no es el de un plan
+      var ids = []; var nombre = ''; var importe = null; var intervalo = ''; var hijos = [];
       for (var k in o) {
         var v = o[k];
         if (typeof v === 'string') {
@@ -89,14 +96,23 @@ function lector(ORIGEN, CLI) {
           if (COD.test(t)) ids.push(t);
           else if (NOMBRE.test(k) && t && t.length <= 60 && !EM.test(t)) nombre = nombre || t;
           else if (/interval|period|recurr/i.test(k) && t.length < 20) intervalo = intervalo || t;
-          else if (t.charAt(0) === '{' && t.length < 20000) walk(json(t), d + 1);
+          else if ((t.charAt(0) === '{' || t.charAt(0) === '[') && t.length < 50000) { var pj = json(t); if (pj && typeof pj === 'object') hijos.push({ v: pj, k: k }); }
         } else if (typeof v === 'number' && /amount|price|cost|unit/i.test(k) && importe == null) importe = v;
-        else if (v && typeof v === 'object') walk(v, d + 1);
+        else if (v && typeof v === 'object') hijos.push({ v: v, k: k });
       }
-      if (nombre && ids.length && !emails(o, 0, new Set()).size) {
-        for (var j = 0; j < ids.length; j++) if (!cat[ids[j]]) cat[ids[j]] = { nombre: nombre, importe: importe, intervalo: intervalo };
+      var propio = conEmail ? '' : nombre;
+      var ES = { monthly: 'mensual', month: 'mensual', mensual: 'mensual', annual: 'anual', annually: 'anual', yearly: 'anual', year: 'anual', anual: 'anual', quarterly: 'trimestral', trimestral: 'trimestral', weekly: 'semanal', semanal: 'semanal' };
+      var ef = propio && PERIODO.test(propio) && arriba ? arriba + ' ' + (ES[propio.toLowerCase()] || propio.toLowerCase()) : propio || (conEmail ? '' : arriba);
+      var dist = propio ? 0 : 1;
+      if (ef && !conEmail) {
+        for (var j = 0; j < ids.length; j++) {
+          var x = cat[ids[j]];
+          if (!x || x.dist > dist) cat[ids[j]] = { nombre: ef, importe: importe, intervalo: intervalo, dist: dist };
+        }
       }
-    })(raiz, 0);
+      var paraHijos = conEmail ? '' : (propio && !PERIODO.test(propio) ? propio : arriba);
+      for (var h = 0; h < hijos.length; h++) walk(hijos[h].v, d + 1, EN_PRECIO.test(hijos[h].k) ? paraHijos : '');
+    })(raiz, 0, '');
   };
   var datosDe = function (html) {
     var m = /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/.exec(html);

@@ -20,7 +20,7 @@ const DIA = 86_400_000;
 // entera, en minúsculas); `no`: claves que no son.
 export const CAMPOS = [
   { id: 'email', label: 'Email', buscar: [/(^|\.)e-?mail$/, /email/], obligatorio: true },
-  { id: 'nombre', label: 'Nombre', buscar: [/(^|\.)(full_?name|display_?name|name)$/, /(^|\.)first_?name$/], no: /group|community|tier|plan|level|product|price|question/ },
+  { id: 'nombre', label: 'Nombre', buscar: [/(^|\.)first_?name$/, /(^|\.)(full_?name|display_?name)$/, /(^|\.)name$/], no: /group|community|tier|plan|level|product|price|question/ },
   { id: 'apellido', label: 'Apellido', buscar: [/(^|\.)last_?name$/] },
   { id: 'telefono', label: 'Teléfono', buscar: [/phone|tel[eé]fono|m[oó]vil|whatsapp/] },
   { id: 'plan', label: 'Plan', buscar: [/(^|\.)(tier|plan|membership_?(tier|level|type|name)|price_?name|product_?name)$/, /tier_?name|plan_?name|tier|plan/], no: /price|amount|cents|level$|points|id$/ },
@@ -184,7 +184,7 @@ export function normalizar(fila = {}, mapa = {}, opts = {}) {
   const g = (k) => (mapa[k] ? fila[mapa[k]] : undefined);
   const email = txt(g('email'), 200).toLowerCase();
   if (!EMAIL_RE.test(email)) return null;
-  const nombre = [txt(g('nombre'), 80), mapa.apellido && mapa.apellido !== mapa.nombre ? txt(g('apellido'), 80) : ''].filter(Boolean).join(' ').slice(0, 80);
+  const nombre = limpiarNombre([txt(g('nombre'), 80), mapa.apellido && mapa.apellido !== mapa.nombre ? txt(g('apellido'), 80) : ''].filter(Boolean).join(' ')).slice(0, 80);
   const tel = txt(g('telefono'), 30).replace(/[^\d+]/g, '');
   const precioTxt = g('precio');
   const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
@@ -222,9 +222,15 @@ export function codigosSinNombre(alumnos = [], { todos = false } = {}) {
     x.n++;
     const p = precioMes(a);
     if (p) x.precios.set(p, (x.precios.get(p) || 0) + 1);
+    // Lo que paga tal cual (44 € al mes, 367 € al año): así se reconoce mejor el plan.
+    if (a.precio != null) { const k = `${a.precio}|${a.intervalo === 'año' ? 'año' : 'mes'}`; x.pagos = x.pagos || new Map(); x.pagos.set(k, (x.pagos.get(k) || 0) + 1); }
     m.set(c, x);
   }
-  return [...m.values()].map(({ precios, ...x }) => ({ ...x, mes: [...precios.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null })).sort((a, b) => b.n - a.n);
+  return [...m.values()].map(({ precios, pagos, ...x }) => {
+    const [pk] = [...(pagos || new Map()).entries()].sort((a, b) => b[1] - a[1])[0] || [];
+    const [precio, intervalo] = pk ? pk.split('|') : [];
+    return { ...x, mes: [...precios.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null, ...(pk ? { precio: Number(precio), intervalo } : {}) };
+  }).sort((a, b) => b.n - a.n);
 }
 
 // Precio al mes de un alumno (los anuales, entre 12). Sin precio en Skool, el del plan (Membresía → Planes).
@@ -408,8 +414,22 @@ export function resumenGhl(alumnos = []) {
 }
 
 // Mensaje con {nombre} (nombre de pila) y {plan}.
+// Nombre de persona: si viene el usuario de Skool («jose-luis-garcia-4175 Garcia»), se convierte en «Jose Luis Garcia»
+// (sin el número y sin repetir los apellidos que ya estaban).
+const SLUG_RE = /^[a-z0-9\u00e0-\u00ff]+(?:-[a-z0-9\u00e0-\u00ff]+)+$/;
+export function limpiarNombre(n = '') {
+  const partes = String(n || '').trim().split(/\s+/).filter(Boolean);
+  if (!partes.length || !SLUG_RE.test(partes[0])) return partes.join(' ');
+  const pal = partes[0].split('-').filter((x) => !/^\d+$/.test(x)).map((x) => x.charAt(0).toUpperCase() + x.slice(1));
+  const ya = new Set(pal.map((x) => x.toLowerCase()));
+  const resto = partes.slice(1).filter((x) => !ya.has(x.toLowerCase()));
+  return [...pal, ...resto].join(' ');
+}
+// ¿Son usuarios de Skool (slugs) los valores de esa clave? (para no usarla como nombre si hay otra mejor)
+export const pareceSlug = (filas = [], clave = '') => { const v = filas.slice(0, 200).map((f) => String(f?.[clave] ?? '').trim()).filter(Boolean); return v.length > 0 && v.filter((x) => SLUG_RE.test(x)).length / v.length > 0.6; };
+
 export const rellenar = (plantilla, a = {}) => String(plantilla || '')
-  .replace(/\{nombre\}/g, (a.nombre || '').split(' ')[0] || '')
+  .replace(/\{nombre\}/g, limpiarNombre(a.nombre || '').split(' ')[0] || '')
   .replace(/\{plan\}/g, a.plan || '');
 
 // Teléfono → número para wa.me (sin + ni espacios; sin prefijo, España).

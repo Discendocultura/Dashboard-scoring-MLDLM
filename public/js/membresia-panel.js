@@ -7,6 +7,7 @@
 //  · Alumnos, como una pestaña de setter: segmentos, búsqueda, y a cada uno WhatsApp o email (desde GHL).
 import { CAMPOS, clavesDe, adivinarMapa, normalizar, metricasMembresia, tagDePlan, etiquetasPendientes, SEGMENTOS, rellenar, waDe, precioMes, EMAIL_RE, resumenGhl, conMembresia, candidatosPlan, repartoPlan, diagnosticoSkool, esCodigo, codigosSinNombre } from './membresia.js';
 import { enlaceLector, esDatosSkool, ORIGEN_SKOOL } from './skool-lector.js';
+import { limpiarNombre, pareceSlug } from './membresia.js';
 
 const DIA = 86_400_000;
 const eur = (n) => (n == null || !Number.isFinite(n) ? '–' : n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: Math.abs(n) >= 100 ? 0 : 2 }));
@@ -22,6 +23,8 @@ function hace(t, ahora = Date.now()) {
   const m = Math.round(d / 30.44);
   return m < 12 ? `hace ${m} ${m === 1 ? 'mes' : 'meses'}` : `hace ${Math.round(m / 12)} ${Math.round(m / 12) === 1 ? 'año' : 'años'}`;
 }
+// Nombre para mostrar (sin el usuario de Skool «nombre-apellido-1234»).
+const nom = (a) => limpiarNombre(a.nombre || '') || a.email;
 const antig = (t, ahora = Date.now()) => { if (!t) return '–'; const m = (ahora - t) / (30.44 * DIA); return m < 1 ? `${Math.max(1, Math.round((ahora - t) / DIA))} d` : m < 12 ? `${Math.round(m)} m` : `${(m / 12).toLocaleString('es-ES', { maximumFractionDigits: 1 })} a`; };
 
 export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, cliente, abrir }) {
@@ -48,6 +51,8 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     const claves = new Set(clavesDe(d.filas).map((c) => c.clave));
     const adiv = adivinarMapa(d.filas);
     for (const k of Object.keys(mapa)) if (typeof mapa[k] === 'string' && !claves.has(mapa[k])) { if (adiv[k]) mapa[k] = adiv[k]; else delete mapa[k]; }
+    // Nombre: si el dato guardado es el usuario de Skool (slug) y hay nombre de pila, se usa el nombre de pila.
+    if (mapa.nombre && adiv.nombre && mapa.nombre !== adiv.nombre && pareceSlug(d.filas, mapa.nombre) && !pareceSlug(d.filas, adiv.nombre)) { mapa.nombre = adiv.nombre; if (adiv.apellido) mapa.apellido = adiv.apellido; }
     // Plan: si el guardado deja a muchos «Sin plan» y hay una clave que cubre más, se usa esa.
     let planCambiado = '';
     const cands = candidatosPlan(d.filas);
@@ -122,7 +127,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
   const planesOrden = () => [...new Set((st.datos?.alumnos || []).map((a) => a.plan))].sort((a, b) => a.localeCompare(b, 'es'));
   const colorPlan = (p) => { if (p === 'Sin plan') return '#9ca3af'; const l = planesOrden().filter((x) => x !== 'Sin plan'); const i = l.indexOf(p); return PALETA[(i < 0 ? 0 : i) % PALETA.length]; };
   const chipPlan = (p) => `<span class="ms-plan" style="--c:${colorPlan(p)}"><i></i>${esc(p)}</span>`;
-  const iniciales = (a) => (String(a.nombre || a.email).trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join('') || '?').toUpperCase();
+  const iniciales = (a) => (String(nom(a)).trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join('') || '?').toUpperCase();
   const avatar = (a) => `<span class="ms-av" style="--c:${colorPlan(a.plan)}" aria-hidden="true">${esc(iniciales(a))}</span>`;
   // Punto de actividad: verde (entró esta semana), ámbar (hace 1-2 semanas), rojo (más).
   const tonoUltima = (t) => (!t ? '' : Date.now() - t < 7 * DIA ? 'ok' : Date.now() - t < 14 * DIA ? 'med' : 'mal');
@@ -189,7 +194,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
         <div class="ms-mapa-grid">${CAMPOS.filter((c) => c.id !== 'plan' && c.id !== 'planAlt').map((c) => `<label class="field"><span>${esc(c.label)}${c.obligatorio ? ' *' : ''}</span><select data-ms-mapa="${c.id}">${opt(imp.mapa[c.id])}</select></label>`).join('')}</div>
         <label class="ms-check"><input type="checkbox" id="ms-centimos"${imp.mapa.centimos ? ' checked' : ''}><span>Los importes vienen en céntimos (2900 = 29 €)</span></label>
       </details>
-      ${muestra.length ? `<p class="ms-sub">Así quedan los 5 primeros:</p><ul class="ms-muestra">${muestra.map((a) => `<li>${avatar(a)}<div><strong>${esc(a.nombre || a.email)}</strong><span class="muted small">${esc(a.email)}</span></div>${chipPlan(a.plan)}<span>${a.precio != null ? `${eur(a.precio)}/${a.intervalo}` : '<span class="muted">sin precio</span>'}</span><span title="Lo cobrado">${ico('heart')} ${eur(a.ltv)}</span><span title="Alta">${ico('calendar')} ${fecha(a.alta)}</span>${a.puntos != null ? `<span title="Puntos">${ico('star')} ${num(a.puntos)}</span>` : ''}</li>`).join('')}</ul>` : `<p class="ms-error">${ico('alert')} Sin el email no se puede guardar: elige arriba qué dato es el email.</p>`}
+      ${muestra.length ? `<p class="ms-sub">Así quedan los 5 primeros:</p><ul class="ms-muestra">${muestra.map((a) => `<li>${avatar(a)}<div><strong>${esc(nom(a))}</strong><span class="muted small">${esc(a.email)}</span></div>${chipPlan(a.plan)}<span>${a.precio != null ? `${eur(a.precio)}/${a.intervalo}` : '<span class="muted">sin precio</span>'}</span><span title="Lo cobrado">${ico('heart')} ${eur(a.ltv)}</span><span title="Alta">${ico('calendar')} ${fecha(a.alta)}</span>${a.puntos != null ? `<span title="Puntos">${ico('star')} ${num(a.puntos)}</span>` : ''}</li>`).join('')}</ul>` : `<p class="ms-error">${ico('alert')} Sin el email no se puede guardar: elige arriba qué dato es el email.</p>`}
       <div class="ms-imp-bts"><button type="button" class="btn primary" data-ms="guardar-foto"${imp.alumnos?.length && p && !p.error ? '' : ' disabled'}>${ico('check')} Guardar ${num(imp.alumnos?.length || 0)} alumnos</button><button type="button" class="btn ghost" data-ms="cancelar-foto">Cancelar</button></div>
     </section>`;
   }
@@ -223,7 +228,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     const nombres = donde === 'imp' ? st.importacion?.opts?.nombres || {} : cfg().nombres || {};
     return `<section class="ms-nombres"><header><span class="ms-kpi-ico" style="--t:#e11d48">${ico('tag')}</span><div><strong>Ponle nombre a tus planes</strong><span class="muted small">Skool da cada plan como un código. Por cuántos alumnos tiene y lo que pagan, escribe cuál es (VIP, Estándar…). Si dos códigos son el mismo plan (mensual y anual), ponles el mismo nombre.</span></div></header>
       <datalist id="ms-nombres-dl">${usados.map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
-      <div class="ms-nombres-l">${cods.map((c) => `<label class="ms-nombre-f"><code title="${esc(c.codigo)}">${esc(c.codigo.slice(0, 10))}…</code><span><strong>${num(c.n)}</strong> ${c.n === 1 ? 'alumno' : 'alumnos'}${c.mes ? ` · <strong>${eur(c.mes)}</strong>/mes` : ''}</span><input data-ms-nombre="${esc(c.codigo)}" data-ms-donde="${donde}" list="ms-nombres-dl" maxlength="60" placeholder="Nombre del plan" value="${esc(nombres[c.codigo] || c.nombre || '')}"></label>`).join('')}</div>
+      <div class="ms-nombres-l">${cods.map((c) => `<label class="ms-nombre-f"><code title="${esc(c.codigo)}">${esc(c.codigo.slice(0, 10))}…</code><span><strong>${num(c.n)}</strong> ${c.n === 1 ? 'alumno' : 'alumnos'}${c.precio != null ? ` · pagan <strong>${eur(c.precio)}</strong> al ${c.intervalo === 'año' ? 'año' : 'mes'}${c.intervalo === 'año' && c.mes ? ` (${eur(c.mes)}/mes)` : ''}` : c.mes ? ` · <strong>${eur(c.mes)}</strong>/mes` : ''}</span><input data-ms-nombre="${esc(c.codigo)}" data-ms-donde="${donde}" list="ms-nombres-dl" maxlength="60" placeholder="Nombre del plan" value="${esc(nombres[c.codigo] || c.nombre || '')}"></label>`).join('')}</div>
       ${donde === 'ya' ? `<p><button type="button" class="btn primary" data-ms="guardar-nombres">${ico('check')} Guardar los nombres</button> <span class="muted small">Se renombran al momento: no hace falta volver a leer Skool.</span></p>` : '<p class="muted small">Se guardan con la lectura.</p>'}
     </section>`;
   }
@@ -268,7 +273,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     const maxAnt = Math.max(1, ...m.antiguedad.map((x) => x.n));
     const crec = m.crecimiento;
     const chipCrec = una || crec == null ? '' : `<span class="ms-crec ${crec >= 0 ? 'ok' : 'mal'}">${ico(crec >= 0 ? 'trend' : 'down')} ${crec >= 0 ? '+' : ''}${pct(crec)} <small>vs hace 30 días</small></span>`;
-    const fila = (a, extra, tono = '') => `<li><button type="button" class="ms-mini" data-ms-ver="${esc(a.email)}">${avatar(a)}<span class="ms-mini-t"><span class="ms-mini-n">${esc(a.nombre || a.email)}</span><span class="ms-mini-x">${esc(a.plan)}</span></span><span class="ms-pill ${tono}">${extra}</span></button></li>`;
+    const fila = (a, extra, tono = '') => `<li><button type="button" class="ms-mini" data-ms-ver="${esc(a.email)}">${avatar(a)}<span class="ms-mini-t"><span class="ms-mini-n">${esc(nom(a))}</span><span class="ms-mini-x">${esc(a.plan)}</span></span><span class="ms-pill ${tono}">${extra}</span></button></li>`;
     const maxPts = Math.max(1, ...m.masActivos.map((a) => a.puntos || 0));
     const tonoChurn = (x) => (x > 0.1 ? 'mal' : x > 0.05 ? 'med' : 'ok');
     return `
@@ -309,7 +314,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
         <section class="ms-card"><h3 class="ms-h">${ico('calendar')} Antigüedad</h3><ul class="ms-barras">${m.antiguedad.map((x) => `<li><span>${esc(x.label)}</span><span class="ms-barrita"><span style="width:${Math.round((x.n / maxAnt) * 100)}%"></span></span><strong>${num(x.n)}</strong></li>`).join('')}</ul></section>
       </div>
       <div class="ms-cols ms-cols-3">
-        <section class="ms-card"><h3 class="ms-h">${ico('star', 'ms-t-amar')} Más activos</h3>${m.conActividad ? `<ol class="ms-lista">${m.masActivos.map((a) => `<li><button type="button" class="ms-mini" data-ms-ver="${esc(a.email)}">${avatar(a)}<span class="ms-mini-t"><span class="ms-mini-n">${esc(a.nombre || a.email)}</span><span class="ms-meter"><span style="width:${Math.round(((a.puntos || 0) / maxPts) * 100)}%"></span></span></span><span class="ms-pill">${num(a.puntos)} pts</span></button></li>`).join('')}</ol>` : '<p class="muted small">Skool no ha traído puntos ni última conexión: elígelos al revisar la próxima lectura.</p>'}</section>
+        <section class="ms-card"><h3 class="ms-h">${ico('star', 'ms-t-amar')} Más activos</h3>${m.conActividad ? `<ol class="ms-lista">${m.masActivos.map((a) => `<li><button type="button" class="ms-mini" data-ms-ver="${esc(a.email)}">${avatar(a)}<span class="ms-mini-t"><span class="ms-mini-n">${esc(nom(a))}</span><span class="ms-meter"><span style="width:${Math.round(((a.puntos || 0) / maxPts) * 100)}%"></span></span></span><span class="ms-pill">${num(a.puntos)} pts</span></button></li>`).join('')}</ol>` : '<p class="muted small">Skool no ha traído puntos ni última conexión: elígelos al revisar la próxima lectura.</p>'}</section>
         <section class="ms-card"><h3 class="ms-h">${ico('alert', 'ms-t-mal')} En riesgo <span class="muted small">14+ días sin entrar</span></h3>${m.enRiesgo.length ? `<ol class="ms-lista">${m.enRiesgo.slice(0, 8).map((a) => fila(a, hace(a.ultima), 'mal')).join('')}</ol>${m.enRiesgo.length > 8 ? `<button type="button" class="link-btn ms-ver-todos" data-ms-seg="riesgo">Ver los ${num(m.enRiesgo.length)} y escribirles →</button>` : ''}` : `<p class="ms-ok-t small">${m.conActividad ? `${ico('check')} Nadie: todos han entrado en las últimas 2 semanas.` : 'Hace falta la última conexión de Skool.'}</p>`}</section>
         <section class="ms-card"><h3 class="ms-h">${ico('wave', 'ms-t-azul')} Bajas recientes <span class="muted small">para recuperar</span></h3>${m.bajasRecientes.length ? `<ol class="ms-lista">${m.bajasRecientes.slice(0, 8).map((a) => fila(a, `${eur(ltvDe(a))} · ${hace(a.bajaEn)}`)).join('')}</ol>${m.bajasRecientes.length > 8 ? `<button type="button" class="link-btn ms-ver-todos" data-ms-seg="bajas">Ver las ${num(m.bajasRecientes.length)} →</button>` : ''}` : `<p class="muted small">Ninguna en los últimos 30 días.</p>`}</section>
       </div>`;
@@ -356,6 +361,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     const c = cfg();
     const pagina = l.slice(0, st.limite || 60);
     return `
+      ${codigosSinNombre(al).length ? tarjetaNombres(codigosSinNombre(al, { todos: true }), 'ya') : ''}
       <div class="ms-segs" role="tablist" aria-label="Segmentos">${SEGMENTOS.map((s) => { const n = al.filter((a) => s.f(a, ahora)).length; if (!n && s.id !== 'todos' && st.seg !== s.id) return ''; return `<button type="button" class="ms-seg${st.seg === s.id ? ' activa' : ''}" data-ms-seg="${s.id}">${ico(ICO_SEG[s.id] || 'users')}<span>${esc(s.label)}</span><em>${num(n)}</em></button>`; }).join('')}</div>
       <div class="ms-filtros"><label class="ms-buscar">${ico('search')}<input type="search" id="ms-q" placeholder="Buscar por nombre o email" value="${esc(st.q)}"></label>
         <div class="ms-planchips">${(() => { const enSeg = al.filter((a) => (SEGMENTOS.find((s) => s.id === st.seg) || SEGMENTOS[0]).f(a, ahora)); const n = (p) => enSeg.filter((a) => a.plan === p).length; return `<button type="button" class="ms-planf${st.plan ? '' : ' activa'}" data-ms-planf="">Todos <em>${num(enSeg.length)}</em></button>${planesOrden().filter((p) => n(p) || st.plan === p).map((p) => `<button type="button" class="ms-planf${st.plan === p ? ' activa' : ''}${p === 'Sin plan' ? ' sin' : ''}" data-ms-planf="${esc(p)}" style="--c:${p === 'Sin plan' ? '#9ca3af' : colorPlan(p)}"><i></i>${esc(p)} <em>${num(n(p))}</em></button>`).join('')}`; })()}</div>
@@ -368,7 +374,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
         const tono = tonoUltima(a.ultima);
         const estadoGhl = a.enGhl === true ? `<span class="ms-ghlst ok" title="${esc((a.ghlTags || []).length ? `En GHL · etiquetas: ${(a.ghlTags || []).join(', ')}` : 'En GHL')}">${ico('link')} GHL</span>` : a.enGhl === false ? '<span class="ms-ghlst mal" title="Su email de Skool no está en GHL">' + ico('x') + ' sin GHL</span>' : '';
         return `<li class="ms-al${a.activo === false ? ' baja' : ''}" data-email="${esc(a.email)}" style="--c:${colorPlan(a.plan)}">
-          <div class="ms-al-q">${avatar(a)}<div><div class="ms-al-n"><strong>${esc(a.nombre || a.email)}</strong>${chipPlan(a.plan)}${a.activo === false ? `<span class="ms-pill mal">Baja ${hace(a.bajaEn)}</span>` : ''}</div><span class="muted small">${esc(a.email)}${a.telefono ? ` · ${esc(a.telefono)}` : ''}</span> ${estadoGhl}</div></div>
+          <div class="ms-al-q">${avatar(a)}<div><div class="ms-al-n"><strong>${esc(nom(a))}</strong>${chipPlan(a.plan)}${a.activo === false ? `<span class="ms-pill mal">Baja ${hace(a.bajaEn)}</span>` : ''}</div><span class="muted small">${esc(a.email)}${a.telefono ? ` · ${esc(a.telefono)}` : ''}</span> ${estadoGhl}</div></div>
           <div class="ms-al-d">
             <span title="Antigüedad">${ico('calendar')}${antig(a.alta)}</span>
             <span title="Lo que ha pagado en total">${ico('heart')}${eur(ltvDe(a))}</span>
@@ -377,7 +383,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
             ${a.ultima ? `<span class="ms-ult ${tono}" title="Última conexión en Skool"><i></i>${hace(a.ultima)}</span>` : ''}
             ${ult ? `<span class="muted" title="Último mensaje desde aquí">${ult.canal === 'wa' ? WA : ico('mail')}${hace(ult.t)}</span>` : ''}
           </div>
-          <div class="ms-al-a">${wa ? `<a class="btn small wa" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(rellenar(c.mensajeWa || 'Hola {nombre}, ', a))}" target="_blank" rel="noopener" data-ms-wa="${esc(a.email)}" aria-label="WhatsApp a ${esc(a.nombre || a.email)}">${WA} WhatsApp</a>` : a.enGhl === false ? '<span class="ms-sinmovil" title="Su email de Skool no está en GHL: créalo con «Crear en GHL»">' + ico('phone') + ' sin móvil</span>' : a.enGhl === true ? '<span class="ms-sinmovil" title="Su ficha de GHL no tiene móvil. Si se lo pones, pulsa «Volver a cruzar».">' + ico('phone') + ' sin móvil</span>' : `<button type="button" class="btn small" data-ms-tel="${esc(a.email)}" title="Busca su ficha en GHL por su email y trae su móvil">${ico('phone')} Buscar móvil</button>`}<button type="button" class="btn small" data-ms-email="${esc(a.email)}" aria-label="Email a ${esc(a.nombre || a.email)}">${ico('mail')} Email</button></div>
+          <div class="ms-al-a">${wa ? `<a class="btn small wa" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(rellenar(c.mensajeWa || 'Hola {nombre}, ', a))}" target="_blank" rel="noopener" data-ms-wa="${esc(a.email)}" aria-label="WhatsApp a ${esc(nom(a))}">${WA} WhatsApp</a>` : a.enGhl === false ? '<span class="ms-sinmovil" title="Su email de Skool no está en GHL: créalo con «Crear en GHL»">' + ico('phone') + ' sin móvil</span>' : a.enGhl === true ? '<span class="ms-sinmovil" title="Su ficha de GHL no tiene móvil. Si se lo pones, pulsa «Volver a cruzar».">' + ico('phone') + ' sin móvil</span>' : `<button type="button" class="btn small" data-ms-tel="${esc(a.email)}" title="Busca su ficha en GHL por su email y trae su móvil">${ico('phone')} Buscar móvil</button>`}<button type="button" class="btn small" data-ms-email="${esc(a.email)}" aria-label="Email a ${esc(nom(a))}">${ico('mail')} Email</button></div>
         </li>`;
       }).join('')}</ul>
       ${l.length > pagina.length ? `<p class="ms-mas"><button type="button" class="btn" data-ms="mas">Ver más (${num(l.length - pagina.length)})</button></p>` : ''}
@@ -437,7 +443,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     const c = cfg();
     const dlg = document.createElement('dialog');
     dlg.className = 'dialog ms-email-dlg';
-    dlg.innerHTML = `<form method="dialog"><header class="dialog-head"><h2>✉️ Email a ${esc(a.nombre || a.email)}</h2><button class="btn ghost" value="cancel" aria-label="Cerrar">✕</button></header>
+    dlg.innerHTML = `<form method="dialog"><header class="dialog-head"><h2>✉️ Email a ${esc(nom(a))}</h2><button class="btn ghost" value="cancel" aria-label="Cerrar">✕</button></header>
       <div class="dialog-body"><p class="muted small">Se envía desde GHL (su conversación queda en la ficha del contacto) a <strong>${esc(a.email)}</strong>.</p>
       <label class="field"><span>Asunto</span><input name="asunto" required maxlength="150" value="${esc(rellenar(c.asunto || '', a))}"></label>
       <label class="field"><span>Texto</span><textarea name="texto" rows="8" required maxlength="5000">${esc(rellenar(c.cuerpo || `Hola {nombre},\n\n`, a))}</textarea></label></div>
@@ -453,7 +459,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
       try {
         const r = await api('/api/membresia', { method: 'POST', body: { op: 'email', email, asunto, texto } });
         a.contactos = r.contactos;
-        notice(`Email enviado a ${a.nombre || a.email}.`);
+        notice(`Email enviado a ${nom(a)}.`);
         pintar();
       } catch (e) { notice(e.message, true); }
     });
