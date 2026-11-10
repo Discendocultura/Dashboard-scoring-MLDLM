@@ -96,6 +96,7 @@ import { conMembresia } from './membresia.js';
 import { conEmailDiario } from './email-diario.js';
 import { montarEmailDiario } from './email-diario-panel.js';
 import { montarMontaje } from './montaje-panel.js';
+import { montarFabrica } from './fabrica-panel.js';
 
 // AlquimIA sin emojis en la interfaz: iconos de línea en su lugar (los mensajes a las leads conservan los suyos).
 sinEmojis();
@@ -18326,6 +18327,11 @@ $('#ms-cerrar').addEventListener('click', () => $('#membresia-dialog').close());
 // 📬 Email diario (página completa): ver email-diario-panel.js.
 const emailDiario = montarEmailDiario({ api, esc, ls, cliente: () => state.cliente });
 // 🚀 Montaje con IA (Crear → Montaje): el lanzamiento fase a fase.
+const fabrica = montarFabrica({ api, esc, notice, ls, puedeConfig, ctx: () => {
+  const c = contextoPaginas();
+  return { embudo: state.embudo, embudoNombre: c.nombre || '', code: pbCodigo(), cliente: state.cliente, clienteNombre: clienteNombre(),
+    lanz: tipoActual() === 'lanz', marca: { nombre: pgc.marca?.nombre || clienteNombre(), producto: nombreProducto(state.config) } };
+} });
 const montaje = montarMontaje({ api, esc, cliente: () => state.cliente, clienteNombre: () => clienteNombre(), alCambiar: () => cargarMontajesSb({ forzar: true }) });
 $('#sb-email-diario').addEventListener('click', () => { const d = $('#email-diario-dialog'); d.showModal(); emailDiario.abrir(); });
 $('#evg-cerrar').addEventListener('click', () => $('#email-diario-dialog').close());
@@ -19712,6 +19718,7 @@ async function renderAnuncios() {
       pasos: ['Elige el <strong>objetivo</strong> y copia su prompt', 'Pégalo en <strong>Claude</strong> con <strong>Magnific</strong> conectado (o en <strong>ChatGPT</strong>, con su prompt)', 'Sube los creativos a <strong>Meta</strong> con el mismo nombre'],
       primeraVez: PRIMERA_VEZ_CLAUDE,
       antes: `${avisoMarcaHtml(pgc.marca)}${lanz ? narrativaCardHtml(state.launchCode) : ''}` })}
+    <div id="fabrica-box"></div>
     <section class="card st-ajustes">
       <div class="st-sec-cab"><h3>⚙️ Ajustes de los prompts</h3><span class="muted small">Entran en todos los prompts de esta página</span></div>
       <div class="st-form">
@@ -19741,6 +19748,7 @@ async function renderAnuncios() {
       <div class="ia-gpt an-gpt"><span class="ia-gpt-q">💬 ¿Usas ChatGPT?</span><div class="an-mas-btns">${PROMPTS_ANUNCIOS.map((p) => `<button type="button" class="btn small btn-gpt" data-ia="chatgpt" data-an-copiar="${o.id}:${p.id}" title="${esc(p.id === 'magnific' ? 'Imágenes: las genera ChatGPT, una a una' : p.id === 'todo' ? 'Guiones → textos → imágenes generadas por ChatGPT' : `${p.titulo}: ${p.desc}`)}">${p.icono} ${esc({ todo: 'Todo en uno', guiones: 'Guiones', magnific: 'Imágenes', copys: 'Copys' }[p.id] || p.titulo)}</button>`).join('')}<a class="btn small ghost" href="https://chatgpt.com/" target="_blank" rel="noopener">Abrir ChatGPT ↗</a></div></div>
       <details class="st-ver"><summary>Ver el prompt «Todo en uno»</summary><pre class="snippet pg-prompt" data-an-prompt="${o.id}"></pre></details>
     </article>`).join('')}</div>`;
+  fabrica.montar($('#fabrica-box'));
 }
 $('#anuncios-body').addEventListener('toggle', (e) => {
   const pre = e.target.querySelector?.('[data-an-prompt]');
