@@ -95,6 +95,7 @@ import { montarMembresia } from './membresia-panel.js';
 import { conMembresia } from './membresia.js';
 import { conEmailDiario } from './email-diario.js';
 import { montarEmailDiario } from './email-diario-panel.js';
+import { montarMontaje } from './montaje-panel.js';
 
 // AlquimIA sin emojis en la interfaz: iconos de línea en su lugar (los mensajes a las leads conservan los suyos).
 sinEmojis();
@@ -562,7 +563,7 @@ const tieneDatos = () => tiene(PERMISOS_DATOS);
 // Cada embudo tiene sus pestañas (Llamadas y Tareas están en los dos). Las de la VSL usan los permisos equivalentes.
 // En qué embudos sale cada vista: 'lanz' (por defecto), 'vsl', 'meteorico', 'ambos' (lanzamientos y VSL) o 'todos'.
 const VIEW_EMBUDO = { mensajes: 'ambos', vmetricas: 'vsl', vleads: 'vsl', vanuncios: 'vsl', llamadas: 'llam', xofertas: 'cruzadas', xhoy: 'cruzadas', tareas: 'siempre', calendario: 'siempre', comparar: 'ambos', rendimiento: 'ambos', meteoricos: 'meteorico', moferta: 'meteorico', dmetricas: 'directa', dclientes: 'directa', danuncios: 'directa', dhoy: 'directa', dpipeline: 'directa', utms: 'anunciosu', xalumnos: 'cruzadas', publicidad: 'todos', grupowa: 'lanzmeteo', paginas: 'todos', anuncios: 'todos', automatizaciones: 'todos' };
-const VIEW_PERMISO = { avatarc: 'avatar', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', dhoy: 'hoy', dpipeline: ['llamadas', 'leads'], utms: 'avatar', xalumnos: 'leads', xofertas: 'leads', xhoy: 'hoy', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', claude: 'metricas' };
+const VIEW_PERMISO = { avatarc: 'avatar', vmetricas: 'metricas', vleads: 'leads', vanuncios: 'avatar', meteoricos: 'metricas', moferta: 'metricas', dmetricas: 'metricas', dclientes: 'leads', danuncios: 'metricas', dhoy: 'hoy', dpipeline: ['llamadas', 'leads'], utms: 'avatar', xalumnos: 'leads', xofertas: 'leads', xhoy: 'hoy', publicidad: 'metricas', grupowa: 'carrito', paginas: 'config', anuncios: 'config', emailsia: 'config', imagenes: 'config', automatizaciones: 'config', montaje: 'config', claude: 'metricas' };
 // 'siempre': también en ventas cruzadas (Tareas y Calendario).
 const tiposVista = (v) => ({ ambos: ['lanz', 'vsl'], todos: ['lanz', 'vsl', 'meteorico', 'directa'], siempre: ['lanz', 'vsl', 'meteorico', 'directa', 'cruzadas'], llam: ['lanz', 'vsl', 'cruzadas', 'directa'], lanzmeteo: ['lanz', 'meteorico'], anunciosu: ['lanz', 'vsl', 'directa'] }[VIEW_EMBUDO[v]] || [VIEW_EMBUDO[v] || 'lanz']);
 // Embudos del cliente (menú lateral): { id, tipo: 'lanzamientos' | 'vsl', nombre }. state.embudo = id del activo.
@@ -589,6 +590,8 @@ const vistasPermitidas = () => VIEWS.filter((v) => (v === 'labia' ? tipoActual()
   && (v !== 'publicidad' || embudoInfo()?.publicidad !== false)
   // El calendario es el del cliente (todos sus embudos): está en todos.
   && (!pestanasEmbudo() || pestanasEmbudo().includes(v) || v === 'calendario' || v === 'publicidad'
+    // «Montaje» (Crear) es nuevo: en todos los embudos de lanzamientos.
+    || v === 'montaje'
     // Venta directa → Comercial (Setting hoy y Llamadas) es nuevo: lo ven los que tenían Compradoras.
     || ((v === 'dhoy' || v === 'llamadas') && tipoActual() === 'directa' && pestanasEmbudo().includes('dclientes'))
     // «Pipeline» sale solo si el embudo está ligado a un pipeline de GHL (abajo), también con pestañas elegidas antes.
@@ -1398,12 +1401,29 @@ function itemsSidebar() {
   }
   return out;
 }
+// 🚀 Montaje con IA: «Fase 3/6 · espera tu aprobado» bajo cada lanzamiento que se está montando (se lee una vez por cliente).
+const montajesSb = { cliente: '', datos: {}, cargando: false };
+function badgeMontaje(code) {
+  const r = code && montajesSb.cliente === state.cliente ? montajesSb.datos[code] : null;
+  return r && !r.hecho ? `<span class="sb-montaje${r.estado === 'revisar' ? ' is-revisar' : ''}">🚀 ${esc(r.texto)}</span>` : '';
+}
+async function cargarMontajesSb({ forzar = false } = {}) {
+  if (!puedeConfig() || !state.config?.launches || montajesSb.cargando || (!forzar && montajesSb.cliente === state.cliente)) return;
+  const cliente = state.cliente;
+  const codes = Object.keys(state.config.launches).slice(0, 60);
+  montajesSb.cargando = true;
+  try {
+    const r = codes.length ? await api(`/api/montaje?resumen=${encodeURIComponent(codes.join(','))}`) : { resumenes: {} };
+    if (cliente === state.cliente) { montajesSb.cliente = cliente; montajesSb.datos = r.resumenes || {}; pintarSidebar(); }
+  } catch { /* sin etiqueta */ } finally { montajesSb.cargando = false; }
+}
 function pintarSidebar() {
   pintarLabia();
+  if (montajesSb.cliente !== state.cliente) cargarMontajesSb();
   const enEmbudo = !state.enInicio;
   $('#sb-items').innerHTML = itemsSidebar().map((x) => {
     const activo = enEmbudo && x.e.id === state.embudo && (x.code ? state.launchCode === x.code : x.meteo ? state.meteo?.code === x.meteo : true);
-    return `<div class="sb-row"><button type="button" class="sb-item${activo ? ' active' : ''}" data-embudo="${esc(x.e.id)}"${x.code ? ` data-lanz="${esc(x.code)}"` : ''}${x.meteo ? ` data-meteo="${esc(x.meteo)}"` : ''}><span class="sb-ico" aria-hidden="true">${x.ico}</span><span class="sb-txt"><strong>${esc(x.nombre)}</strong><small>${esc(x.sub)}</small></span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(x.e.id)}" title="Pestañas, nombre y guía de «${esc(x.e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
+    return `<div class="sb-row"><button type="button" class="sb-item${activo ? ' active' : ''}" data-embudo="${esc(x.e.id)}"${x.code ? ` data-lanz="${esc(x.code)}"` : ''}${x.meteo ? ` data-meteo="${esc(x.meteo)}"` : ''}><span class="sb-ico" aria-hidden="true">${x.ico}</span><span class="sb-txt"><strong>${esc(x.nombre)}</strong><small>${esc(x.sub)}</small>${badgeMontaje(x.code)}</span></button>${puedeConfig() ? `<button type="button" class="sb-edit" data-emb-edit="${esc(x.e.id)}" title="Pestañas, nombre y guía de «${esc(x.e.nombre)}»" aria-label="Ajustes del embudo">⚙️</button>` : ''}</div>`;
   }).join('');
   // «Inicio» es el del cliente en el que está (la vista de agencia se elige en el selector de arriba).
   const agencia = Boolean(state.enInicio) && !state.enNegocio && !state.enPagina && modoInicio() === 'agencia';
@@ -5636,7 +5656,7 @@ function renderCompareTable(results) {
 }
 
 // ---------- Vistas ----------
-const VIEWS = ['hoy', 'llamadas', 'endirecto', 'mensajes', 'labia', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones', 'xalumnos', 'xofertas', 'xhoy', 'utms', 'dhoy', 'dpipeline'];
+const VIEWS = ['hoy', 'llamadas', 'endirecto', 'mensajes', 'labia', 'leads', 'metricas', 'objetivos', 'avatar', 'avatarc', 'comparar', 'tareas', 'calendario', 'carrito', 'vmetricas', 'vleads', 'vanuncios', 'rendimiento', 'meteoricos', 'moferta', 'dmetricas', 'dclientes', 'danuncios', 'publicidad', 'grupowa', 'paginas', 'anuncios', 'emailsia', 'imagenes', 'claude', 'automatizaciones', 'montaje', 'xalumnos', 'xofertas', 'xhoy', 'utms', 'dhoy', 'dpipeline'];
 // Iconos de las pestañas y de las cabeceras de sección (data-icon en el HTML).
 // Pestañas que agrupan varias vistas en subpestañas:
 // «Comercial» (Setting hoy y Llamadas), «Análisis» (Objetivos, Avatar y anuncios / Anuncios ganadores y
@@ -5714,12 +5734,12 @@ const GRUPOS = {
   comercial: ['hoy', 'dhoy', 'xhoy', 'llamadas', 'dpipeline', 'mensajes', 'labia'],
   metricasg: ['metricas', 'endirecto'],
   anunciosg: ['publicidad', 'avatar', 'vanuncios', 'danuncios', 'utms'],
-  crear: ['paginas', 'emailsia', 'imagenes', 'anuncios', 'grupowa', 'automatizaciones'],
+  crear: ['montaje', 'paginas', 'emailsia', 'imagenes', 'anuncios', 'grupowa', 'automatizaciones'],
   planificacion: ['objetivos', 'calendario', 'tareas', 'carrito'],
   analisis: ['avatarc', 'comparar', 'rendimiento', 'claude'],
 };
 const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(view)) || null;
-const VIEW_ICONS = { dpipeline: 'layout', mensajes: 'whatsapp', metricasg: 'trend', labia: 'whatsapp', anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', dhoy: 'sun2', utms: 'target', publicidad: 'megaphone', xalumnos: 'users', xofertas: 'gift', xhoy: 'target' };
+const VIEW_ICONS = { dpipeline: 'layout', mensajes: 'whatsapp', metricasg: 'trend', labia: 'whatsapp', anunciosg: 'megaphone', crear: 'layout', avatarc: 'survey', endirecto: 'live', meteoricos: 'zap', moferta: 'gift', comercial: 'phone', analisis: 'compare', planificacion: 'calendar', hoy: 'sun2', llamadas: 'phone', leads: 'users', metricas: 'trend', objetivos: 'target', avatar: 'crown', comparar: 'compare', tareas: 'list', calendario: 'calendar', vmetricas: 'trend', vleads: 'users', vanuncios: 'crown', rendimiento: 'users', carrito: 'cart', grupowa: 'whatsapp', paginas: 'layout', anuncios: 'megaphone', emailsia: 'mail', imagenes: 'image', claude: 'claude', automatizaciones: 'gear', montaje: 'rocket', dmetricas: 'trend', dclientes: 'cart', danuncios: 'crown', dhoy: 'sun2', utms: 'target', publicidad: 'megaphone', xalumnos: 'users', xofertas: 'gift', xhoy: 'target' };
 $$('.view-tab, .subview-tab[data-view]:not(.subview-labia)').forEach((t) => t.insertAdjacentHTML('afterbegin', icon(VIEW_ICONS[t.dataset.view || t.dataset.viewGrupo])));
 // Cada pestaña y subpestaña explica qué hay dentro al pasar el ratón (la misma descripción que al crear el embudo).
 {
@@ -5930,6 +5950,7 @@ function showView(view) {
   if (view === 'mensajes' && state.config) pintarVistaMensajes();
   if (view === 'claude' && state.config) renderClaude();
   if (view === 'automatizaciones' && state.config) renderAutomatizaciones();
+  if (view === 'montaje' && state.config) montaje.abrir(state.launchCode);
   if (view === 'publicidad' && state.config) cargarPublicidad();
   // Planificador: al abrirla se cargan solos los lanzamientos anteriores que falten.
   if (view === 'objetivos' && state.config?.launches?.[state.launchCode] && !enVsl() && !enMeteo() && state.leads) renderObjetivos(currentMetrics());
@@ -18281,6 +18302,8 @@ $('#sb-membresia').addEventListener('click', () => { const d = $('#membresia-dia
 $('#ms-cerrar').addEventListener('click', () => $('#membresia-dialog').close());
 // 📬 Email diario (página completa): ver email-diario-panel.js.
 const emailDiario = montarEmailDiario({ api, esc, ls, cliente: () => state.cliente });
+// 🚀 Montaje con IA (Crear → Montaje): el lanzamiento fase a fase.
+const montaje = montarMontaje({ api, esc, cliente: () => state.cliente, clienteNombre: () => clienteNombre(), alCambiar: () => cargarMontajesSb({ forzar: true }) });
 $('#sb-email-diario').addEventListener('click', () => { const d = $('#email-diario-dialog'); d.showModal(); emailDiario.abrir(); });
 $('#evg-cerrar').addEventListener('click', () => $('#email-diario-dialog').close());
 document.addEventListener('click', (e) => { if (e.target.closest('[data-abrir-productos]')) abrirProductosDlg(); });

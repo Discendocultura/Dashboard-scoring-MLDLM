@@ -1309,6 +1309,24 @@ Junto al campo «Campañas de Meta» de cada VSL, venta directa y meteórico, el
 ## 🏷️ Etiqueta de registro: nomenclatura fija
 La etiqueta de registro de cada lanzamiento (la que pone el workflow de registro y con la que el dashboard cuenta los leads) es SIEMPRE **`registrado-webinar-DDMMAA`** con la fecha del directo: directo el 29/10/2026 → `registrado-webinar-291026`; el 5/7/2027 → `registrado-webinar-050727`. La propone el asistente de nuevo lanzamiento; en Configuración → Etiquetas, si la que hay es otra, sale «Poner «registrado-webinar-…»» y la lista de comprobación la marca como «no sigue la nomenclatura»; los prompts de automatizaciones usan siempre la buena. Código: `etiquetaRegistro()` en `public/js/lanzamiento-rapido.js`.
 
+## 🚀 Montaje con IA (Crear → Montaje)
+
+La operativa de un lanzamiento nuevo, fase a fase, para que Claude haga sola todo lo posible. Está en **todos los clientes**, en cada lanzamiento, como primera pestaña de **Crear**. Lo ve quien tiene el permiso de configuración; **aprobar y reabrir una fase, solo admin**.
+
+**Las 6 fases** (cada una se abre cuando se aprueba la anterior):
+1. **Narrativa e identidad visual**: narrativa, colores (con su #RRGGBB, salen como muestras), símbolos, tipografías (opcional) y logo (SVG o URL de la imagen). Al aprobarla, la narrativa pasa a ser **la del lanzamiento** (la que usan los prompts de páginas, anuncios, emails y WhatsApp).
+2. **Contenido y producto**: el contenido gratuito (clases o webinar), el producto y la oferta.
+3. **Páginas en GHL**: registro, gracias, replay y venta. Claude las monta en GHL desde el navegador (la API de GHL no crea páginas de embudo) y guarda la URL de cada una.
+4. **Copy de las páginas**: el texto de cada página, que luego pega en las de la fase 3.
+5. **Emails y WhatsApp**: toda la secuencia, con el calendario del lanzamiento y los emails de lanzamientos anteriores.
+6. **Automatizaciones en GHL**: los workflows de Crear → Automatizaciones, en su carpeta y en borrador, desde el navegador.
+
+**Cómo se usa:** pulsa **Empezar el montaje** y **Copiar instrucciones para Claude**, y pégalas en Claude (Cowork, o Claude Code con Chrome) con el conector de AlquimIA. Claude llama a «montaje_lanzamiento» (la fase que toca, qué entregar, las reglas, la ficha de marca y lo ya aprobado), hace la fase y la guarda con «guardar_fase_montaje». Cuando están todas las piezas queda **Para revisar** y Claude para. Tú pulsas **Aprobar fase** o **Pedir cambios** (Claude los ve primero la próxima vez) y le dices «sigue».
+
+**Reglas:** la IA nunca aprueba, no escribe en una fase bloqueada ni aprobada, y nunca publica, envía ni programa nada a leads. Si una persona edita una fase aprobada, vuelve a «para revisar». Cada lanzamiento en montaje lleva su etiqueta en el menú lateral («🚀 Fase 3/6 · espera tu aprobado»). En cada fase, «Ver lo que se le pide a la IA» enseña el encargo completo, y «Copiar el encargo» lo copia por si quieres pegarlo a mano.
+
+Se guarda por cliente y lanzamiento (`lsd_montaje_<código>`). Lógica: `public/js/montaje.js`; servidor: `lib/montaje.js`; API: `/api/montaje`; pantalla: `public/js/montaje-panel.js`.
+
 ## ⚙️ Automatizaciones de GHL (Crear → Automatizaciones)
 Al crear un embudo («Nuevo embudo», paso *¿Partes de cero?*) y un lanzamiento (asistente, paso *¿Qué te dejo hecho?*) se pregunta si **las automatizaciones de GoHighLevel ya existen o hay que crearlas de cero** (se guarda en el embudo, `autoOrigen`, y en el lanzamiento, `automatizaciones.origen`; se puede cambiar en la pestaña).
 - **La lista** depende del tipo de embudo, con los datos reales de la Configuración (etiquetas, URLs, fechas): lanzamiento → registro (etiqueta fija + publicidad/orgánico + confirmación), encuesta, compra VIP (si hay VIP), recordatorios del directo (día antes, 1 h antes y al empezar, con el enlace de la preclase; uno por vídeo en PLF), grabación disponible, compra del programa (único/fraccionado, campo de fecha, sacarla de los avisos), carrito abandonado y llamada (si hay calendario) · VSL → registro, llamada, seguimiento y compra · venta directa → compra, extras (bumps, upsell, downsell) y carrito abandonado · meteórico → compra y últimas horas.
