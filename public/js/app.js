@@ -96,11 +96,8 @@ import { conMembresia } from './membresia.js';
 import { conEmailDiario } from './email-diario.js';
 import { montarEmailDiario } from './email-diario-panel.js';
 import { montarMontaje } from './montaje-panel.js';
-<<<<<<< Updated upstream
 import { montarFabrica } from './fabrica-panel.js';
-=======
 import { promptTareaCowork, FRECUENCIA_COWORK } from './montaje.js';
->>>>>>> Stashed changes
 
 // AlquimIA sin emojis en la interfaz: iconos de línea en su lugar (los mensajes a las leads conservan los suyos).
 sinEmojis();

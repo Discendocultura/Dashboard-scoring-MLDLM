@@ -10193,7 +10193,6 @@ button.ms-pill { cursor: pointer; }
 .emb-modo-tag { font-style: normal; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: #fff; }
 @media (prefers-reduced-motion: reduce) { .emb-modo { transition: none; } .emb-modo:hover { transform: none; } }
 
-<<<<<<< Updated upstream
 /* ===== Anuncios · 🏭 Fábrica de variaciones ===== */
 .fb { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; border-top: 3px solid var(--accent); }
 .fb-cab { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: flex-start; }
@@ -10250,8 +10249,6 @@ button.ms-pill { cursor: pointer; }
   .fb-pasos { grid-template-columns: repeat(2, 1fr); }
   .fb-lote-form { grid-template-columns: 1fr; position: static; }
   .fb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-=======
->>>>>>> Stashed changes
 /* Lo propio de un negocio (Membresía, Email diario…), en la barra superior */
 .tb-negocio { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 .tb-negocio[hidden] { display: none; }
@@ -10273,8 +10270,6 @@ button.ms-pill { cursor: pointer; }
   .topbar .tb-negocio { display: none !important; }
   .sb-negocio-movil:not([hidden]) { display: contents; }
 }
-<<<<<<< Updated upstream
-=======
 
 /* 🤖 Crear con IA (Crear → Automatizaciones): estado del encargo a Claude */
 .au-enc { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
@@ -10289,4 +10284,3 @@ button.ms-pill { cursor: pointer; }
 
 .mj-auto { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 13.5px; font-weight: 600; cursor: pointer; }
 .mj-auto input { accent-color: var(--accent); width: 16px; height: 16px; }
->>>>>>> Stashed changes
