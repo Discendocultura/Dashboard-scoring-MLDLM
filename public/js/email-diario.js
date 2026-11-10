@@ -8,18 +8,18 @@ export const CLIENTES_EMAIL_DIARIO = ['discendo'];
 export const conEmailDiario = (clienteId) => CLIENTES_EMAIL_DIARIO.includes(String(clienteId || ''));
 
 export const TIPOS = {
-  urgencia: { label: 'Urgencia · fecha límite', color: '#c0622a', ico: '⏳', pista: 'Los 7 días antes del cierre de una entrada: recuerda la fecha límite' },
-  curiosidad: { label: 'Curiosidad · tema del mes', color: '#8a5fa8', ico: '✨', pista: 'Entre 8 y 21 días antes de un cierre: despierta interés por el tema' },
-  prueba: { label: 'Prueba social', color: '#3f8f6e', ico: '💬', pista: 'Caso o testimonio de un miembro (solo nombre de pila)' },
-  whatsapp: { label: 'Grupo de WhatsApp · oferta flash', color: '#2f9a57', ico: '📲', pista: 'Invitación al grupo con oferta flash' },
-  clase: { label: 'Clase en directo', color: '#b5445e', ico: '🎙️', pista: 'Invitación a una clase en directo próxima' },
+  urgencia: { label: 'Urgencia · fecha límite', corto: 'Urgencia', color: '#d9480f', icono: 'clock', ico: '⏳', pista: 'Los 7 días antes del cierre de una entrada: recuerda la fecha límite' },
+  curiosidad: { label: 'Curiosidad · tema del mes', corto: 'Curiosidad', color: '#7c4dcc', icono: 'sparkle', ico: '✨', pista: 'Entre 8 y 21 días antes de un cierre: despierta interés por el tema' },
+  prueba: { label: 'Prueba social', corto: 'Prueba social', color: '#14866d', icono: 'chat', ico: '💬', pista: 'Caso o testimonio de un miembro (solo nombre de pila)' },
+  whatsapp: { label: 'Grupo de WhatsApp · oferta flash', corto: 'WhatsApp', color: '#1f9d55', icono: 'whatsapp', ico: '📲', pista: 'Invitación al grupo con oferta flash' },
+  clase: { label: 'Clase en directo', corto: 'Clase en directo', color: '#c2255c', icono: 'live', ico: '🎙️', pista: 'Invitación a una clase en directo próxima' },
 };
 export const ESTADOS = {
-  borrador: { label: 'Borrador', color: '#8c8270' },
-  listo: { label: 'Listo para revisar', color: '#c0912f' },
-  aprobado: { label: 'Aprobado', color: '#2f6fd6' },
-  programado: { label: 'Programado en GHL', color: '#5b4bc4' },
-  enviado: { label: 'Enviado', color: '#3f8f6e' },
+  borrador: { label: 'Borrador', color: '#8c857e', icono: 'pencil', paso: 0 },
+  listo: { label: 'Listo para revisar', color: '#c98a00', icono: 'eye', paso: 1 },
+  aprobado: { label: 'Aprobado', color: '#2f6aa8', icono: 'check', paso: 2 },
+  programado: { label: 'Programado en GHL', color: '#6b4fc8', icono: 'clock', paso: 3 },
+  enviado: { label: 'Enviado', color: '#138a4b', icono: 'mail', paso: 4 },
 };
 // Un email programado o enviado ya no se toca: GHL envía la versión del momento de programar y no se puede cancelar
 // por la API.
