@@ -1440,12 +1440,6 @@ function pintarSidebar() {
   $('#tb-email-diario').hidden = !(conEmailDiario(state.cliente) && (tiene('hoy') || tiene('metricas') || tiene('config')));
   $('#tb-email-diario').classList.toggle('active', state.enPagina === 'email-diario-dialog');
   $('#tb-negocio').hidden = $('#tb-membresia').hidden && $('#tb-email-diario').hidden;
-  // En el móvil no cabe arriba: va en el menú ☰ (los mismos botones).
-  $('#sb-negocio-movil').hidden = $('#tb-negocio').hidden;
-  $('#sbm-membresia').hidden = $('#tb-membresia').hidden;
-  $('#sbm-email-diario').hidden = $('#tb-email-diario').hidden;
-  $('#sbm-membresia').classList.toggle('active', state.enPagina === 'membresia-dialog');
-  $('#sbm-email-diario').classList.toggle('active', state.enPagina === 'email-diario-dialog');
   $('#sb-negocio').classList.toggle('active', Boolean(state.enNegocio));
   $$('#sb-config-sub [data-proxy]').forEach((b) => b.classList.toggle('active', Boolean(state.enPagina) && b.dataset.proxy === PAGINA_BTN[state.enPagina]));
   pintarSelectorCliente();
