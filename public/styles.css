@@ -9827,6 +9827,15 @@ button.ms-pill { cursor: pointer; }
 .evg-dia.is-bloq .evg-marca { background: #f2b84b; color: #1f2a44; }
 .evg-dia.is-salto { --c: #d93025; background: color-mix(in srgb, #d93025 9%, var(--surface)); border: 1.5px solid color-mix(in srgb, #d93025 55%, transparent); border-style: solid; }
 .evg-dia.is-salto .evg-marca { background: #d93025; color: #fff; }
+/* Saltar en un clic: aparece al pasar por el día (en pantallas táctiles, siempre) */
+.evg-saltar { position: absolute; top: 9px; right: 7px; z-index: 1; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px 3px 6px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; opacity: 0; transform: translateY(-2px); transition: opacity .15s, transform .15s, color .15s, border-color .15s, background .15s; }
+.evg-saltar .ico { width: 13px; height: 13px; }
+.evg-dia:hover .evg-saltar, .evg-dia:focus-within .evg-saltar, .evg-saltar.is-on { opacity: 1; transform: none; }
+.evg-saltar:hover, .evg-saltar:focus-visible { color: #fff; background: #d93025; border-color: #d93025; outline: none; }
+.evg-saltar.is-on { color: #d93025; border-color: color-mix(in srgb, #d93025 45%, var(--border)); }
+.evg-saltar.is-on:hover { color: #fff; background: #138a4b; border-color: #138a4b; }
+@media (hover: none) { .evg-saltar { opacity: 1; transform: none; } }
+
 
 /* Tarjetas */
 .evg-card { margin-top: 16px; padding: 18px 20px; border: 1px solid var(--border); border-radius: var(--evg-r); background: var(--surface); box-shadow: var(--shadow-sm); }
@@ -10011,6 +10020,9 @@ button.ms-pill { cursor: pointer; }
   .evg-dn { justify-content: center; }
   .evg-dn b { min-width: 22px; height: 22px; font-size: 12px; }
   .evg-cierre, .evg-ia { width: 16px; height: 16px; border-radius: 5px; }
+  .evg-saltar { top: auto; bottom: 3px; right: 50%; transform: translateX(50%) !important; padding: 2px; }
+  .evg-saltar span { display: none; }
+  .evg-dia:has(.evg-saltar) { padding-bottom: 26px; }
   .evg-ia { margin-left: 0; }
   .evg-dia .evg-tipo { padding: 3px; }
   .evg-dia .evg-tipo span, .evg-marca span, .evg-asunto, .evg-mas, .evg-dia .evg-pill { display: none; }

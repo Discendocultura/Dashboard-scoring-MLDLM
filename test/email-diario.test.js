@@ -177,3 +177,20 @@ test('recorrido: la IA deja el borrador, admin aprueba, simulación, envío real
   assert.equal(dmes.emails[manana].status, 'enviado');
   assert.equal(dmes.emails[manana].m.entregados, 1221);
 });
+
+test('saltar un día en un clic (desde el calendario): la IA no lo redacta y se puede reactivar', async () => {
+  const admin = await login('admin');
+  await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'guardar', cliente: { id: 'discendo', nombre: 'Discendo', locationId: 'RXK123' } } });
+  const { runCliente } = await import('../lib/cliente.js');
+  const { TOOLS } = await import('../lib/mcp-tools.js');
+  const { hoyMadrid } = await import('../lib/email-diario.js');
+  const dia = sumarDias(hoyMadrid(), 9);
+  const ctx = () => runCliente({ id: 'discendo', nombre: 'Discendo', locationId: 'RXK123' }, () => TOOLS.find((t) => t.name === 'email_diario_contexto').run({ dia }, { s: { role: 'admin' } }));
+  const s1 = await call('/api/email-diario', { method: 'POST', cookie: admin, cliente: 'discendo', body: { op: 'saltar', dia, skip: true } });
+  assert.equal(s1.data.email.skip, true);
+  assert.equal((await ctx()).puedeRedactar, false);
+  assert.match((await ctx()).motivo, /saltado/);
+  const s2 = await call('/api/email-diario', { method: 'POST', cookie: admin, cliente: 'discendo', body: { op: 'saltar', dia, skip: false } });
+  assert.equal(s2.data.email, null); // reactivado y sin texto: el día vuelve a estar vacío
+  assert.equal((await ctx()).puedeRedactar, true);
+});

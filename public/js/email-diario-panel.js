@@ -125,11 +125,14 @@ export function montarEmailDiario({ api, esc, cliente, ls }) {
       const tipo = e?.type || (b || pasado ? null : tipoSugerido(entregables, dia));
       const color = TIPOS[tipo]?.color || 'var(--border-strong)';
       const cierres = entregables.filter((x) => x.date === dia);
-      celdas += `<button type="button" class="evg-dia${dia === d.hoy ? ' is-hoy' : ''}${dia === d.manana ? ' is-manana' : ''}${pasado ? ' is-pasado' : ''}${b ? ' is-bloq' : ''}${e?.skip ? ' is-salto' : ''}${con ? ' is-con' : ' is-vacio'}" style="--c:${color}" data-evg-abrir="${dia}" aria-label="${esc(fLarga(dia))}">
+      // Saltar o reactivar en un clic, sin abrir el día: de mañana en adelante, fuera de franjas y sin programar.
+      const saltable = dia >= d.manana && !b && !(e && BLOQUEADO.has(e.status));
+      celdas += `<div role="button" tabindex="0" class="evg-dia${dia === d.hoy ? ' is-hoy' : ''}${dia === d.manana ? ' is-manana' : ''}${pasado ? ' is-pasado' : ''}${b ? ' is-bloq' : ''}${e?.skip ? ' is-salto' : ''}${con ? ' is-con' : ' is-vacio'}" style="--c:${color}" data-evg-abrir="${dia}" aria-label="${esc(fLarga(dia))}">
+        ${saltable ? `<button type="button" class="evg-saltar${e?.skip ? ' is-on' : ''}" data-evg-saltar="${dia}" title="${e?.skip ? 'Reactivar este día' : 'Saltar este día: no se redacta ni se envía'}" aria-label="${e?.skip ? 'Reactivar' : 'Saltar'} el ${esc(fLarga(dia))}">${i(e?.skip ? 'refresh' : 'ban')}<span>${e?.skip ? 'Reactivar' : 'Saltar'}</span></button>` : ''}
         <span class="evg-dn"><b>${n}</b>${cierres.map((x) => `<span class="evg-cierre" title="Cierra la entrada a ${esc(x.name)}">${i('flag')}</span>`).join('')}${e?.origen === 'ia' && con ? `<span class="evg-ia" title="Lo redactó la IA">${i('bot')}</span>` : ''}</span>
         ${b ? `<span class="evg-marca">${i('lock')}<span>${esc(b.label)}</span></span>` : e?.skip ? `<span class="evg-marca">${i('ban')}<span>Saltado</span></span>` : tipoChip(tipo, { sugerido: !con })}
         ${con && !b ? `<span class="evg-asunto">${esc(e.subject || 'Sin asunto')}</span>${estadoPill(e)}` : b || e?.skip || pasado ? '' : `<span class="evg-mas">${i('plus')}Escribir</span>`}
-      </button>`;
+      </div>`;
     }
     const delMes = Object.entries(d.emails).filter(([x]) => x.startsWith(st.mes));
     const nSalto = delMes.filter(([, e]) => e.skip).length;
@@ -323,7 +326,20 @@ export function montarEmailDiario({ api, esc, cliente, ls }) {
     const c = ev.target.closest('[data-evg-cta]');
     if (c && ev.target.dataset.k === 'name') c.querySelector('.evg-cta-boton').textContent = ev.target.value || 'Texto del botón';
   });
+  body.addEventListener('keydown', (ev) => {
+    const celda = ev.target.closest?.('.evg-dia[data-evg-abrir]');
+    if (celda && ev.target === celda && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); st.abierto = celda.dataset.evgAbrir; pintarEditor(); }
+  });
   body.addEventListener('click', async (ev) => {
+    const salta = ev.target.closest('[data-evg-saltar]');
+    if (salta) {
+      const dia = salta.dataset.evgSaltar;
+      const skip = !st.datos.emails[dia]?.skip;
+      await post('saltar', { dia, skip }, skip ? `${fLarga(dia)}: saltado. Ese día no se redacta ni se envía.` : `${fLarga(dia)}: reactivado.`);
+      return;
+    }
+    const celda = ev.target.closest('.evg-dia[data-evg-abrir]');
+    if (celda) { st.abierto = celda.dataset.evgAbrir; pintarEditor(); return; }
     const el = ev.target.closest('button');
     if (!el) return;
     const d = st.datos;
