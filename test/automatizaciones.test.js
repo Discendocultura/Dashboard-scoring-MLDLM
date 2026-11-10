@@ -14,8 +14,11 @@ const OCT = {
 test('lista del lanzamiento: numeradas, con el nombre en carpeta y sin las que no tocan', () => {
   const c = autoCtx('lanzamientos', OCT, { code: 'camino-oct26', cliente: 'Me lo dijo la matrona', producto: 'Raíces' });
   const l = automatizacionesDe(c);
-  assert.deepEqual(l.map((a) => a.id), ['registro', 'encuesta', 'vip', 'recordatorios', 'grabacion', 'compra', 'carrito-abandonado']);
-  assert.equal(l[0].nombre, '[camino-oct26] 01 · Registro al webinar');
+  // Las 4 de siempre (los recordatorios y la grabación van como campañas de email) + las que dependen del embudo.
+  assert.deepEqual(l.map((a) => a.id), ['registro', 'carrito-abandonado', 'compra', 'bonus', 'encuesta', 'vip']);
+  assert.equal(l[0].nombre, '[camino-oct26] 01 · Registro completado');
+  assert.equal(l[2].titulo, 'Compra del producto principal');
+  assert.equal(l[3].titulo, 'Asignación de bonus');
   assert.equal(c.carpeta, 'El Camino Octubre 2026');
   assert.ok(l.every((a) => !a.faltan.length));
   // Sin VIP ni encuesta, no salen; con calendario de llamadas, sí la llamada.
@@ -25,30 +28,27 @@ test('lista del lanzamiento: numeradas, con el nombre en carpeta y sin las que n
 
 test('prompt: carpeta, nombre, etiqueta de registro fija, fechas reales, borrador y prueba', () => {
   const c = autoCtx('lanzamientos', OCT, { code: 'camino-oct26', cliente: 'Me lo dijo la matrona' });
-  const [reg, , , rec] = automatizacionesDe(c);
+  const [reg] = automatizacionesDe(c);
   const p = promptAutomatizacion(reg, c);
   assert.match(p, /CARPETA: «El Camino Octubre 2026»/);
-  assert.match(p, /NOMBRE DEL WORKFLOW: «\[camino-oct26\] 01 · Registro al webinar»/);
+  assert.match(p, /NOMBRE DEL WORKFLOW: «\[camino-oct26\] 01 · Registro completado»/);
   assert.match(p, /Añadir la etiqueta «registrado-webinar-291026»/);
   assert.match(p, /nomenclatura «registrado-webinar-DDMMAA»/);
   assert.match(p, /anuncios, añade la etiqueta «publi».*«organico»/);
   assert.match(p, /BORRADOR/);
   assert.match(p, /no puede crear workflows/);
   assert.match(p, /CÓMO PROBARLO/);
-  const r = promptAutomatizacion(rec, c);
-  assert.match(r, /miércoles 28\/10\/2026 a las 19:00/); // el día antes
-  assert.match(r, /jueves 29\/10\/2026 a las 17:30/); // 1 h antes
-  assert.match(r, /jueves 29\/10\/2026 a las 18:30 → «Estamos en directo».*camino-preclase/);
-  assert.match(descripcionIaGhl(reg, c), /^Crea un workflow llamado «\[camino-oct26\] 01 · Registro al webinar»/);
+  assert.match(descripcionIaGhl(reg, c), /^Crea un workflow llamado «\[camino-oct26\] 01 · Registro completado»/);
 });
 
 test('sin datos: la etiqueta propuesta por la fecha y [FALTA] donde no hay', () => {
   const c = autoCtx('lanzamientos', { name: 'Nov', fechaDirecto: '2026-11-17' }, { code: 'nov' });
   const l = automatizacionesDe(c);
   assert.match(promptAutomatizacion(l[0], c), /«registrado-webinar-171126»/);
-  const rec = l.find((a) => a.id === 'recordatorios');
-  assert.ok(rec.faltan.includes('la URL de la página preclase'));
-  assert.match(promptAutomatizacion(rec, c), /\[FALTA: URL de la página preclase\]/);
+  const reg = l.find((a) => a.id === 'registro');
+  assert.match(promptAutomatizacion(reg, c), /\[FALTA: URL de la página preclase\]/);
+  // Sin bonus en la oferta, la asignación lo marca como [FALTA].
+  assert.match(promptAutomatizacion(l.find((a) => a.id === 'bonus'), c), /\[FALTA\] los bonus de la oferta/);
 });
 
 test('preparación y «ya existen»', () => {
@@ -57,7 +57,7 @@ test('preparación y «ya existen»', () => {
   const p = promptPreparacion(l, c);
   assert.match(p, /crea la carpeta «El Camino Octubre 2026»/);
   assert.match(p, /- registrado-webinar-291026/);
-  assert.match(p, /\[camino-oct26\] 07 · Carrito abandonado/);
+  assert.match(p, /\[camino-oct26\] 02 · Carrito abandonado/);
   assert.match(revisarExistente(l[0], c), /«registrado-webinar-291026»/);
 });
 
@@ -137,4 +137,14 @@ test('venta directa: el carrito abandonado usa la URL del checkout (no la «pág
 test('accesos: la segunda página de gracias también sale en Accesos y enlaces', () => {
   const a = accesosDePaginas({ name: 'El Camino', graciasUrl: 'https://lp.ejemplo.com/gracias', gracias2Url: 'https://lp.ejemplo.com/gracias-2' });
   assert.ok(a.some((x) => x.url === 'https://lp.ejemplo.com/gracias-2' && /Gracias por registrarte \(2\)/.test(x.nombre)));
+});
+
+test('asignación de bonus: una rama por bonus con su ventana y su etiqueta', () => {
+  const c = autoCtx('lanzamientos', { ...OCT, aperturaCarrito: '2026-10-29T20:00', cierreCarrito: '2026-11-04T23:59', oferta: { bonus: [{ nombre: 'Sesión en directo', tipo: 'bar_24h' }, { nombre: 'Guía Ñandú', tipo: 'bonus' }] } }, { code: 'camino-oct26' });
+  const b = automatizacionesDe(c).find((a) => a.id === 'bonus');
+  const p = promptAutomatizacion(b, c);
+  assert.match(p, /«Sesión en directo» \(BAR 24 h: compras del jue, 29 oct, 20:00 al vie, 30 oct, 20:00\)/);
+  assert.match(p, /«bonus-sesion-en-directo»/);
+  assert.match(p, /«bonus-guia-nandu»/);
+  assert.match(p, /Contact Tag Added: «clienta-raices»/);
 });

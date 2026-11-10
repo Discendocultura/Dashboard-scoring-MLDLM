@@ -3,7 +3,7 @@
 // producto con Claude y 5 qué vende cada embudo; al terminar, confeti. Además, la caché que usan los prompts
 // (WhatsApp, páginas) para leer la marca.
 import { paraChatGPT } from './chatgpt.js';
-import { SECCIONES_MARCA, SECCIONES_PRODUCTO, MAX_PRODUCTOS, MAX_DOCS, nombreDeProducto, progreso, promptFicha, docsDeProducto, productoDeEmbudo, pasosAsistente, pasosEquipo, estadoProceso, ETAPAS_MARCA } from './marca.js';
+import { SECCIONES_MARCA, SECCIONES_PRODUCTO, MAX_PRODUCTOS, MAX_DOCS, nombreDeProducto, progreso, promptFicha, docsDeProducto, USOS_DOC, productoDeEmbudo, pasosAsistente, pasosEquipo, estadoProceso, ETAPAS_MARCA } from './marca.js';
 import { pintarCampos, autoguardado, destinoDeBase, extraerTexto, extDe, ACCEPT_DOCS } from './marca-form.js';
 import { lanzarConfeti } from './confeti.js';
 
@@ -300,12 +300,14 @@ function fichaHtml(p, i) {
   </section>`;
 }
 
+const opcionesUso = (actual) => [['', 'Sobre la marca o el avatar'], ...Object.entries(USOS_DOC)].map(([v, t]) => `<option value="${v}"${v === (actual || '') ? ' selected' : ''}>${esc(t)}</option>`).join('');
 function docsHtml() {
   const nombreProd = (id) => (id ? nombreDeProducto(m.productos.find((p) => p.id === id)) : 'General (la marca)');
   if (!docsActivos) return '<p class="notice warn">Los documentos necesitan la base de datos D1 de Cloudflare.</p>';
   return `<p class="muted small">Estudios del avatar, encuestas, transcripciones de llamadas, testimonios… (PDF, Word, TXT, MD o CSV). Se guarda solo el texto, que entra en el prompt de la ficha. Los PDF escaneados (fotos) no se pueden leer.</p>
-    <ul class="mq-docs">${m.docs.map((d) => `<li><span>📄 ${esc(d.nombre)}</span><small class="muted">${esc(nombreProd(d.productoId))} · ${Math.max(1, Math.round(d.chars / 1000))} mil caracteres · ${esc(fecha(d.en))}${d.por ? ` · ${esc(d.por)}` : ''}</small>${ctx.puedeEditar ? `<button type="button" class="btn ghost" data-mk="doc-borrar" data-id="${esc(d.id)}">Quitar</button>` : ''}</li>`).join('') || '<li class="muted">Aún no hay documentos.</li>'}</ul>
-    ${ctx.puedeEditar && m.docs.length < MAX_DOCS ? `<div class="mq-subir"><label class="field inline"><span>Es sobre</span><select id="mk-doc-prod"><option value="">General (la marca)</option>${m.productos.map((p, i) => `<option value="${esc(p.id)}">${esc(nombreDeProducto(p, i))}</option>`).join('')}</select></label>
+    <p class="muted small">🧭 <strong>Guías:</strong> marca en «Qué es» si un documento es tu <strong>guía de emails</strong>, <strong>de copy</strong> o <strong>de automatizaciones</strong>. No entra en la ficha: Claude la sigue al pie de la letra en el Montaje (Crear → Montaje) y en cada automatización que le encargues.</p>
+    <ul class="mq-docs">${m.docs.map((d) => `<li><span>📄 ${esc(d.nombre)}</span><small class="muted">${esc(nombreProd(d.productoId))} · ${Math.max(1, Math.round(d.chars / 1000))} mil caracteres · ${esc(fecha(d.en))}${d.por ? ` · ${esc(d.por)}` : ''}</small>${USOS_DOC[d.uso] ? ` · <strong>${esc(USOS_DOC[d.uso])}</strong>` : ''}${ctx.puedeEditar ? `<select class="mk-doc-uso" data-mk-uso="${esc(d.id)}" aria-label="Qué es «${esc(d.nombre)}»">${opcionesUso(d.uso)}</select><button type="button" class="btn ghost" data-mk="doc-borrar" data-id="${esc(d.id)}">Quitar</button>` : ''}</li>`).join('') || '<li class="muted">Aún no hay documentos.</li>'}</ul>
+    ${ctx.puedeEditar && m.docs.length < MAX_DOCS ? `<div class="mq-subir"><label class="field inline"><span>Qué es</span><select id="mk-doc-uso">${opcionesUso('')}</select></label><label class="field inline"><span>Es sobre</span><select id="mk-doc-prod"><option value="">General (la marca)</option>${m.productos.map((p, i) => `<option value="${esc(p.id)}">${esc(nombreDeProducto(p, i))}</option>`).join('')}</select></label>
       <label class="btn primary">Subir documentos<input type="file" id="mk-doc-file" accept="${ACCEPT_DOCS}" multiple hidden></label><span id="mk-doc-st" class="small" role="status"></span></div>` : ''}`;
 }
 
@@ -368,6 +370,11 @@ async function onClick(e) {
 }
 
 async function onChange(e) {
+  const usoSel = e.target.closest('[data-mk-uso]');
+  if (usoSel) {
+    try { await post({ op: 'doc-uso', id: usoSel.dataset.mkUso, uso: usoSel.value }); estado('✓ Guardado'); pintar(); } catch (err) { window.alert(err.message); }
+    return;
+  }
   const sel = e.target.closest('[data-mk-embudo]');
   if (sel) {
     try { await post({ op: 'embudo', embudo: sel.dataset.mkEmbudo, productoId: sel.value }); estado('✓ Guardado'); refrescar(); } catch (err) { window.alert(err.message); }
@@ -376,12 +383,13 @@ async function onChange(e) {
   if (e.target.id !== 'mk-doc-file') return;
   const st = raiz().querySelector('#mk-doc-st');
   const productoId = raiz().querySelector('#mk-doc-prod').value;
+  const uso = raiz().querySelector('#mk-doc-uso')?.value || '';
   for (const f of [...e.target.files]) {
     st.textContent = `Leyendo «${f.name}»…`;
     try {
       const texto = await extraerTexto(f);
       st.textContent = `Subiendo «${f.name}»…`;
-      const d = await post({ op: 'doc-subir', nombre: f.name, tipo: extDe(f.name), productoId, texto });
+      const d = await post({ op: 'doc-subir', nombre: f.name, tipo: extDe(f.name), productoId, uso, texto });
       if (d.recortado) window.alert(`«${f.name}» es muy largo: se ha guardado el principio.`);
     } catch (err) { window.alert(`«${f.name}»: ${err.message}`); }
   }

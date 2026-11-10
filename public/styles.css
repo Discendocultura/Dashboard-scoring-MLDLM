@@ -10339,3 +10339,79 @@ button.ms-pill { cursor: pointer; }
   .fb-dock #fb-notas { display: none; }
   .fb-listo { flex-direction: column; }
 }
+
+/* ✨ Lo propio de un negocio (Membresía, Email diario…), en la barra superior.
+   Cada botón con su color (--h1 → --h2): borde en degradado, emoji en una «gema» que brilla, destello al pasar el ratón. */
+.tb-negocio { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.tb-negocio[hidden], .tb-neg[hidden] { display: none; }
+.tb-neg {
+  --h1: #8b5cf6; --h2: #ec4899;
+  position: relative; isolation: isolate; overflow: hidden;
+  display: inline-flex; align-items: center; gap: 9px; height: 40px; padding: 0 16px 0 5px;
+  border: 1.5px solid transparent; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  font: inherit; font-size: 13.5px; font-weight: 700; letter-spacing: -.005em; color: var(--text);
+  background:
+    linear-gradient(color-mix(in srgb, var(--h1) 9%, var(--surface)), color-mix(in srgb, var(--h2) 7%, var(--surface))) padding-box,
+    linear-gradient(120deg, var(--h1), var(--h2)) border-box;
+  box-shadow: 0 6px 18px -10px color-mix(in srgb, var(--h1) 70%, transparent);
+  transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s, color .2s;
+}
+.tb-neg#tb-email-diario { --h1: #06b6d4; --h2: #3b82f6; }
+.tb-neg-ico {
+  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-size: 16px; line-height: 1;
+  background: linear-gradient(140deg, var(--h1), var(--h2));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--h1) 16%, transparent), 0 4px 12px -2px color-mix(in srgb, var(--h2) 60%, transparent), inset 0 1px 0 rgb(255 255 255 / .35);
+  transition: transform .35s cubic-bezier(.2,.8,.2,1.4);
+}
+.tb-neg-txt { position: relative; z-index: 1; }
+/* Destello que cruza el botón */
+.tb-neg::after {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / .55) 48%, transparent 66%);
+  transform: translateX(-120%); transition: transform .7s ease;
+}
+.tb-neg:hover { transform: translateY(-2px); box-shadow: 0 12px 26px -10px color-mix(in srgb, var(--h1) 85%, transparent), 0 0 0 4px color-mix(in srgb, var(--h1) 12%, transparent); }
+.tb-neg:hover::after { transform: translateX(120%); }
+.tb-neg:hover .tb-neg-ico { transform: rotate(-8deg) scale(1.1); }
+.tb-neg:active { transform: translateY(0) scale(.98); }
+/* La página abierta: el botón entero en su degradado */
+.tb-neg.active { color: #fff; background: linear-gradient(120deg, var(--h1), var(--h2)) padding-box, linear-gradient(120deg, var(--h1), var(--h2)) border-box; box-shadow: 0 10px 28px -8px color-mix(in srgb, var(--h1) 90%, transparent); }
+.tb-neg.active .tb-neg-ico { background: rgb(255 255 255 / .22); box-shadow: inset 0 1px 0 rgb(255 255 255 / .4); }
+.tb-neg:focus-visible { outline: 2px solid var(--h1); outline-offset: 3px; }
+/* Espacial y modo noche: cristal oscuro con el borde de neón */
+:root[data-estilo="espacial"] .tb-neg, :root[data-theme="dark"] .tb-neg {
+  color: #f3f1ff;
+  background:
+    linear-gradient(color-mix(in srgb, var(--h1) 20%, #0b0a18), color-mix(in srgb, var(--h2) 14%, #0b0a18)) padding-box,
+    linear-gradient(120deg, var(--h1), var(--h2)) border-box;
+  box-shadow: 0 0 18px -6px color-mix(in srgb, var(--h1) 80%, transparent);
+}
+:root[data-estilo="espacial"] .tb-neg:hover, :root[data-theme="dark"] .tb-neg:hover { box-shadow: 0 0 26px -4px color-mix(in srgb, var(--h1) 95%, transparent), 0 0 0 4px color-mix(in srgb, var(--h1) 18%, transparent); }
+:root[data-estilo="espacial"] .tb-neg::after, :root[data-theme="dark"] .tb-neg::after { background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / .22) 48%, transparent 66%); }
+:root[data-estilo="espacial"] .tb-neg.active, :root[data-theme="dark"] .tb-neg.active { background: linear-gradient(120deg, var(--h1), var(--h2)) padding-box, linear-gradient(120deg, var(--h1), var(--h2)) border-box; }
+@media (max-width: 1180px) and (min-width: 641px) {
+  .tb-neg { padding: 0 5px; }
+  .tb-neg-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+}
+/* Móvil: no caben junto a los iconos, así que van en su propia fila debajo, a lo ancho */
+@media (max-width: 640px) {
+  .topbar:has(> #tb-negocio:not([hidden])) { flex-wrap: wrap !important; row-gap: 8px; }
+  .topbar > .tb-negocio { order: 99; flex: 1 0 100%; }
+  .topbar:has(> #tb-negocio:not([hidden])) > .brand { flex: 1 1 0; min-width: 0; overflow: hidden; }
+  .tb-negocio .tb-neg { flex: 1 1 0; justify-content: center; height: 38px; }
+}
+@media (prefers-reduced-motion: reduce) { .tb-neg, .tb-neg-ico, .tb-neg::after { transition: none; } .tb-neg:hover { transform: none; } }
+
+/* 🤖 Crear con IA (Crear → Automatizaciones): estado del encargo a Claude */
+.au-enc { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+.au-enc-pend { background: color-mix(in srgb, var(--tone-vip) 14%, var(--surface)); color: var(--tone-vip); }
+.au-enc-hac { background: color-mix(in srgb, var(--tone-info) 14%, var(--surface)); color: var(--tone-info); }
+.au-enc-err { background: color-mix(in srgb, #d93025 11%, var(--surface)); color: #b3261e; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.au-enc-ok { background: color-mix(in srgb, var(--tone-buy) 14%, var(--surface)); color: var(--tone-buy); }
+.au-cowork { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border)); background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 60%), var(--surface); }
+.au-cowork > div { flex: 1 1 320px; }
+.au-cowork h4 { margin: 0 0 4px; }
+.au-cowork p { margin: 0; }
+
+.mj-auto { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.mj-auto input { accent-color: var(--accent); width: 16px; height: 16px; }

@@ -136,6 +136,9 @@ export function sanitizeProducto(p) {
   };
 }
 
+// «Qué es» cada documento: sin uso, sobre la marca o el avatar (entra en la ficha); con uso, una guía de cómo se hace
+// algo (no entra en la ficha: va tal cual en la fase del Montaje que toca y en los encargos a Claude).
+export const USOS_DOC = { emails: 'Guía de emails', copy: 'Guía de copy', automatizaciones: 'Guía de automatizaciones' };
 export function sanitizeDocMeta(d) {
   const ext = String(d?.tipo || '').toLowerCase();
   return {
@@ -146,6 +149,7 @@ export function sanitizeDocMeta(d) {
     chars: Math.max(0, Math.min(MAX_DOC_CHARS, Math.floor(Number(d?.chars) || 0))),
     en: String(d?.en || '').slice(0, 30),
     por: String(d?.por || '').slice(0, 60),
+    ...(USOS_DOC[d?.uso] ? { uso: d.uso } : {}),
   };
 }
 
@@ -214,6 +218,11 @@ export function disenoTexto(m) {
 
 // El contexto que llevan todos los prompts: la ficha del producto si ya está hecha; si no, las respuestas.
 // '' si no hay nada.
+// Las respuestas del cuestionario (marca y producto) en texto, aunque haya ficha (el Montaje usa las dos).
+export function respuestasMarca(m, producto) {
+  if (!m) return '';
+  return [respuestasTexto(SECCIONES_MARCA.filter((s) => s.id !== 'diseno'), m.respuestas), producto ? respuestasTexto(SECCIONES_PRODUCTO, producto.respuestas) : ''].filter(Boolean).join('\n\n');
+}
 export function contextoMarca(m, producto) {
   if (!m) return '';
   if (producto?.ficha) return producto.ficha;
@@ -227,7 +236,7 @@ export function contextoMarca(m, producto) {
 // Para no disparar los tokens: como mucho 40.000 caracteres por documento y 160.000 entre todos (primero los del producto).
 export const MAX_DOC_PROMPT = 40_000;
 export const MAX_DOCS_PROMPT = 160_000;
-export const docsDeProducto = (m, producto) => (m?.docs || []).filter((d) => !d.productoId || d.productoId === producto?.id);
+export const docsDeProducto = (m, producto) => (m?.docs || []).filter((d) => !d.uso && (!d.productoId || d.productoId === producto?.id));
 export function promptFicha(m, producto, textos = {}) {
   const docs = docsDeProducto(m, producto).filter((d) => textos[d.id])
     .sort((a, b) => Number(Boolean(b.productoId)) - Number(Boolean(a.productoId)));
