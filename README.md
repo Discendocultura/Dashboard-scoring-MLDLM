@@ -1321,6 +1321,10 @@ La operativa de un lanzamiento nuevo, fase a fase, para que Claude haga sola tod
 5. **Emails y WhatsApp**: toda la secuencia, con el calendario del lanzamiento y los emails de lanzamientos anteriores.
 6. **Automatizaciones en GHL**: los workflows de Crear → Automatizaciones, en su carpeta y en borrador, desde el navegador.
 
+**Desde «＋ Nuevo embudo»:** en el paso «Páginas y WhatsApp» marca **🚀 Móntalo con IA** (deja páginas, mensajes y automatizaciones como «de cero»). Al crear su primer lanzamiento, el botón del ¡enhorabuena! es «Empezar el montaje con IA» y te lleva a Crear → Montaje, ya empezado. Se puede cambiar en el ⚙️ del embudo.
+
+**Todo con tu suscripción de Claude, sin API:** AlquimIA no llama a Claude en el Montaje; solo le da la información por el conector y guarda lo que Claude le devuelve.
+
 **Cómo se usa:** pulsa **Empezar el montaje** y **Copiar instrucciones para Claude**, y pégalas en Claude (Cowork, o Claude Code con Chrome) con el conector de AlquimIA. Claude llama a «montaje_lanzamiento» (la fase que toca, qué entregar, las reglas, la ficha de marca y lo ya aprobado), hace la fase y la guarda con «guardar_fase_montaje». Cuando están todas las piezas queda **Para revisar** y Claude para. Tú pulsas **Aprobar fase** o **Pedir cambios** (Claude los ve primero la próxima vez) y le dices «sigue».
 
 **Reglas:** la IA nunca aprueba, no escribe en una fase bloqueada ni aprobada, y nunca publica, envía ni programa nada a leads. Si una persona edita una fase aprobada, vuelve a «para revisar». Cada lanzamiento en montaje lleva su etiqueta en el menú lateral («🚀 Fase 3/6 · espera tu aprobado»). En cada fase, «Ver lo que se le pide a la IA» enseña el encargo completo, y «Copiar el encargo» lo copia por si quieres pegarlo a mano.

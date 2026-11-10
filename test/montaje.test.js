@@ -122,3 +122,14 @@ test('flujo completo: la IA entrega, se piden cambios, solo admin aprueba, la na
   assert.deepEqual(Object.keys(r.data.resumenes), ['ene']);
   assert.equal(r.data.resumenes.ene.texto, 'Fase 2/6 · lista para la IA');
 });
+
+test('«Móntalo con IA» se guarda en el embudo de lanzamientos (y no en otros tipos)', async () => {
+  const admin = await login('admin');
+  const cfg = await call('/api/config', { cookie: admin });
+  const embudos = [...cfg.data.config.embudos, { id: 'ia', tipo: 'lanzamientos', nombre: 'Con IA', montajeIa: true }];
+  const g = await call('/api/config', { method: 'POST', cookie: admin, body: { ...cfg.data.config, embudos, _version: cfg.data.version } });
+  assert.equal(g.status, 200);
+  const e = (await call('/api/config', { cookie: admin })).data.config.embudos.find((x) => x.id === 'ia');
+  assert.equal(e.montajeIa, true);
+  assert.equal(e.paginasOrigen, undefined);
+});

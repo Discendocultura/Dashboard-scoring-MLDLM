@@ -8030,7 +8030,9 @@ $('#nl-crear').addEventListener('click', async () => {
     const desdeEmbudo = nlDesdeEmbudo;
     nlCreado = true;
     nlDlg.close();
-    celebrar({ embudo: state.embudo, code: r.code, hecho, desdeEmbudo, copiaDe: r.prev ? r.prevCode : '', alSeguir: () => openConfig(r.code) });
+    // Embudo «Móntalo con IA»: del ¡enhorabuena! al Montaje (Crear → Montaje), ya empezado.
+    const conIa = Boolean(embudoInfo(state.embudo)?.montajeIa);
+    celebrar({ embudo: state.embudo, code: r.code, hecho, desdeEmbudo, copiaDe: r.prev ? r.prevCode : '', alSeguir: conIa ? () => irAMontaje(r.code) : () => openConfig(r.code) });
   } catch (err) {
     st.textContent = err.message;
   } finally {
@@ -8052,7 +8054,7 @@ async function celebrar({ embudo, code = '', hecho = [], desdeEmbudo = false, co
     : `«${esc(launch.name)}» ya está listo para revisar.`;
   $('#fiesta-hecho').innerHTML = hecho.map((h) => `<li${h.startsWith('⚠️') ? ' class="mal"' : ''}>${esc(h)}</li>`).join('');
   $('#fiesta-pasos').innerHTML = siguientesPasos({ embudo: e, launch, tagExiste: Boolean(launch?.registroTag && state.tags.some((t) => t.toLowerCase() === launch.registroTag.toLowerCase())) }).map((p) => `<li><strong>${p.icono} ${esc(p.titulo)}</strong><span>${esc(p.detalle)}</span></li>`).join('');
-  $('#fiesta-ok').textContent = launch ? 'Revisar la configuración →' : 'Empezar →';
+  $('#fiesta-ok').textContent = launch ? (e.montajeIa ? '🚀 Empezar el montaje con IA →' : 'Revisar la configuración →') : 'Empezar →';
   fiestaSeguir = alSeguir;
   fiestaCode = launch ? code : '';
   $('#fiesta-deshacer').hidden = !launch;
@@ -8111,6 +8113,13 @@ $('#fiesta-deshacer').addEventListener('click', async (e) => {
     notice(err.message, true);
   }
 });
+// Abre Crear → Montaje del lanzamiento y lo deja empezado.
+async function irAMontaje(code) {
+  try { await api('/api/montaje', { method: 'POST', body: { op: 'empezar', l: code } }); } catch (err) { notice(err.message, true); }
+  if (state.launchCode !== code) await selectLaunch(code);
+  showView('montaje');
+  cargarMontajesSb({ forzar: true });
+}
 fiestaDlg.addEventListener('close', () => {
   const seguir = fiestaSeguir;
   fiestaSeguir = null;
@@ -15281,6 +15290,7 @@ function dominioSugerido() {
 }
 function pintarEmbOrigen() {
   const o = embOrigen();
+  $('#emb-montaje-card').hidden = embTipo() !== 'lanzamientos';
   $('#emb-wa-card').hidden = !embConWa();
   $('#emb-urls-box').hidden = o.paginas !== 'cero';
   $('#emb-dominio-box').hidden = !o.proponer;
@@ -15296,6 +15306,12 @@ function aplicarOrigenEmb() {
   pintarEmbGuia();
 }
 $('#emb-pag-card').addEventListener('change', () => { pintarEmbOrigen(); aplicarOrigenEmb(); });
+// 🚀 «Móntalo con IA»: páginas, mensajes y automatizaciones se crean de cero (las hace Claude en el Montaje).
+$('#emb-montaje').addEventListener('change', (e) => {
+  if (e.target.checked) for (const n of ['emb-pag', 'emb-wa', 'emb-auto']) $$(`input[name="${n}"]`).forEach((i) => { i.checked = i.value === 'cero'; });
+  pintarEmbOrigen();
+  aplicarOrigenEmb();
+});
 $('#emb-wa-card').addEventListener('change', () => { pintarEmbOrigen(); aplicarOrigenEmb(); });
 $('#emb-auto-card').addEventListener('change', () => { pintarEmbOrigen(); aplicarOrigenEmb(); });
 // URLs propuestas del embudo que se está creando o editando (paso final).
@@ -15332,6 +15348,7 @@ function embOrigenGuardar() {
   const nombre = $('#emb-url-nombre').value.trim() || slugUrl($('#emb-nombre').value);
   return {
     paginasOrigen: o.paginas || undefined, waOrigen: o.wa || undefined, autoOrigen: o.auto || undefined,
+    montajeIa: embTipo() === 'lanzamientos' && $('#emb-montaje').checked ? true : undefined,
     urls: o.proponer && dominioValido($('#emb-dominio').value) && slugUrl(nombre) ? { dominio: dominioValido($('#emb-dominio').value), nombre: slugUrl(nombre) } : undefined,
   };
 }
@@ -15491,6 +15508,7 @@ function abrirNuevoEmbudo({ preset } = {}) {
   pintarEmbVipBase();
   $('#emb-nombre').value = '';
   $$('input[name="emb-pag"], input[name="emb-wa"], input[name="emb-auto"]').forEach((i) => { i.checked = false; });
+  $('#emb-montaje').checked = false;
   $('#emb-urls-si').checked = true;
   $('#emb-dominio').value = dominioSugerido();
   $('#emb-url-nombre').value = '';
@@ -15531,6 +15549,7 @@ function abrirEditarEmbudo(id) {
   $$('input[name="emb-pag"]').forEach((i) => { i.checked = i.value === e.paginasOrigen; });
   $$('input[name="emb-wa"]').forEach((i) => { i.checked = i.value === e.waOrigen; });
   $$('input[name="emb-auto"]').forEach((i) => { i.checked = i.value === e.autoOrigen; });
+  $('#emb-montaje').checked = Boolean(e.montajeIa);
   $('#emb-urls-si').checked = Boolean(e.urls) || e.paginasOrigen !== 'cero';
   $('#emb-dominio').value = (e.urls?.dominio || dominioSugerido()).replace(/^https:\/\//, '');
   $('#emb-url-nombre').value = e.urls?.nombre || '';
