@@ -9848,6 +9848,7 @@ button.ms-pill { cursor: pointer; }
 .evg-intro .ico { color: var(--accent); flex: none; margin-top: 1px; }
 .evg-campo { display: grid; gap: 5px; margin-bottom: 12px; font-size: 12.5px; font-weight: 700; color: var(--text-2); }
 .evg-campo small { font-weight: 500; color: var(--muted); }
+.evg-campo .evg-campo-err { color: #c0362c; font-weight: 600; }
 .evg-campo input, .evg-campo select, .evg-campo textarea { width: 100%; box-sizing: border-box; font-weight: 400; }
 .evg-campo textarea { line-height: 1.6; resize: vertical; }
 .evg-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0 14px; }

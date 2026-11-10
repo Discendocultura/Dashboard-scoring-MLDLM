@@ -196,12 +196,25 @@ export function montarEmailDiario({ api, esc, cliente, ls }) {
         <div class="evg-form">
           ${campo('fromName', 'Nombre del remitente', c.fromName)}${campo('fromEmail', 'Email del remitente', c.fromEmail, ' type="email" placeholder="hola@tudominio.com"')}${campo('replyTo', 'Responder a <small>opcional</small>', c.replyTo)}
           ${campo('audienceTag', `Etiqueta que lo recibe${a?.contactos != null ? ` <small>${a.contactos.toLocaleString('es-ES')} contactos</small>` : ''}`, c.audienceTag, ' list="evg-etiquetas" placeholder="Busca una etiqueta de GHL"')}
-          ${campo('sendTime', 'Hora de envío por defecto', c.sendTime, ' type="time"')}${campo('ghlUserId', 'Usuario de GHL que programa <small>su id</small>', c.ghlUserId)}
+          ${campo('sendTime', 'Hora de envío por defecto', c.sendTime, ' type="time"')}${selectorAdmin(a, c.ghlUserId, dis)}
         </div>
         <datalist id="evg-etiquetas">${(a?.etiquetas || []).map((t) => `<option value="${esc(t)}"></option>`).join('')}</datalist>
         <label class="evg-campo"><span>Pie legal <small>se añade al final de cada email</small></span><textarea id="evg-c-pie" rows="4"${dis}>${esc(c.pie)}</textarea></label>
       </section>
       ${d.admin ? `<div class="evg-pie-acc"><button type="button" class="btn ghost" data-evg-op="simular">${i('flask')}Probar la tarea de las 20:00</button>${c.modo === 'real' ? `<button type="button" class="btn ghost" data-evg-op="programar-ahora">${i('rocket')}Programar ahora el de mañana</button>` : ''}<button type="button" class="btn primary" data-evg-guardar="envio">${i('save')}Guardar</button></div>` : '<p class="evg-vacio">Solo una persona admin cambia el envío.</p>'}`;
+  }
+
+  // Quién programa en GHL: los usuarios admin de la subcuenta (si solo hay uno, ya va elegido).
+  function selectorAdmin(a, actual, dis) {
+    const admins = a?.admins || [];
+    const elegido = actual || (admins.filter((u) => !u.agencia).length === 1 ? admins.find((u) => !u.agencia).id : '');
+    const conocido = admins.some((u) => u.id === elegido);
+    const opciones = [
+      `<option value=""${elegido ? '' : ' selected'}>${a ? (admins.length ? 'Elige quién programa…' : 'No hay admins en GHL') : 'Cargando los admins de GHL…'}</option>`,
+      ...admins.map((u) => `<option value="${esc(u.id)}"${u.id === elegido ? ' selected' : ''}${u.email ? ` title="${esc(u.email)}"` : ''}>${esc(u.nombre)}${u.agencia ? ' (agencia)' : ''}</option>`),
+      elegido && !conocido && a ? `<option value="${esc(elegido)}" selected>El elegido antes (ya no es admin o no se encuentra)</option>` : '',
+    ].join('');
+    return `<label class="evg-campo"><span>Quién lo programa en GHL <small>un admin de la subcuenta</small></span><select id="evg-c-ghlUserId"${dis}>${opciones}</select>${a?.errorAdmins ? `<small class="evg-campo-err">${esc(a.errorAdmins)}</small>` : ''}</label>`;
   }
 
   // El tren de lotes, el ritmo y los avisos (se recalcula en vivo al cambiar los números).
