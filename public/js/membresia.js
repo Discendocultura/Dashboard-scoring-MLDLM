@@ -94,27 +94,30 @@ export function nombrePlan(v, { nombres = {}, catalogo = {} } = {}) {
 }
 const PISTA_PLAN = /tier|plan|membership|price|product|subscription|suscrip|nivel|package|paquete|access|acceso/i;
 const NO_PLAN = /mail|first_?name|last_?name|full_?name|display_?name|(^|\.)name$|nombre|phone|tel|bio|avatar|image|photo|picture|url|link|href|location|city|country|pais|ciudad|lang|locale|timezone|tz$|(^|\.)id$|_id$|uuid|token|slug|handle|ip$|color|theme|question|answer|respuesta|pregunta/i;
+// «…tier.name», «membership.plan.title»: el nombre DEL PLAN (no de una persona), aunque acabe en «name».
+const NOMBRE_DE_PLAN = /(tier|plan|product|membership|price|level|subscription|package)[^.]*\.(name|title|label|display_?name)$/i;
+const PERIODO_RE = /^(month|monthly|year|yearly|annual|annually|week|weekly|day|daily|quarter|quarterly|mes|mensual|año|anual|semana|semanal|trimestral)$/i;
 export function candidatosPlan(filas = []) {
   const total = filas.length || 1;
   const m = new Map();
   for (const f of filas) {
     for (const [k, v] of Object.entries(f || {})) {
-      if (NO_PLAN.test(k)) continue;
+      if (NO_PLAN.test(k) && !NOMBRE_DE_PLAN.test(k)) continue;
       const t = txt(v, 80);
       if (!t) continue;
       const x = m.get(k) || { clave: k, n: 0, valores: new Map(), malos: 0, codigos: 0 };
       x.n++;
       if (esCodigo(t)) x.codigos++;
-      if (/^-?[\d.,]+$/.test(t) || EMAIL_RE.test(t) || /^https?:/i.test(t) || /^\d{4}-\d{2}-\d{2}/.test(t) || /^(true|false|null|undefined)$/i.test(t)) x.malos++;
+      if (/^-?[\d.,]+$/.test(t) || EMAIL_RE.test(t) || /^https?:/i.test(t) || /^\d{4}-\d{2}-\d{2}/.test(t) || /^(true|false|null|undefined)$/i.test(t) || PERIODO_RE.test(t)) x.malos++;
       if (x.valores.size <= 40) x.valores.set(t, (x.valores.get(t) || 0) + 1);
       m.set(k, x);
     }
   }
   return [...m.values()]
     .filter((x) => x.malos / x.n < 0.1 && x.valores.size >= 1 && x.valores.size <= 25 && x.n / total >= 0.2)
-    .map((x) => ({ clave: x.clave, cobertura: x.n / total, pista: PISTA_PLAN.test(x.clave), codigos: x.codigos / x.n > 0.5, valores: [...x.valores.entries()].map(([valor, n]) => ({ valor, n })).sort((a, b) => b.n - a.n) }))
+    .map((x) => ({ clave: x.clave, cobertura: x.n / total, pista: PISTA_PLAN.test(x.clave), nombreDePlan: NOMBRE_DE_PLAN.test(x.clave), codigos: x.codigos / x.n > 0.5, valores: [...x.valores.entries()].map(([valor, n]) => ({ valor, n })).sort((a, b) => b.n - a.n) }))
     // Primero los que traen NOMBRES de plan; los de códigos (ids), al final: solo valen si no hay otra cosa.
-    .sort((a, b) => (a.codigos - b.codigos) || (b.pista - a.pista) || (b.cobertura - a.cobertura) || (a.valores.length - b.valores.length));
+    .sort((a, b) => (a.codigos - b.codigos) || (b.pista - a.pista) || (b.nombreDePlan - a.nombreDePlan) || (b.cobertura - a.cobertura) || (a.valores.length - b.valores.length));
 }
 
 // Cómo se reparten los alumnos por plan con un mapa (para verlo antes de guardar). → [{ valor, n }] (con «Sin plan»)

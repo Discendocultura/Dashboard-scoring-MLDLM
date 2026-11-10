@@ -9643,3 +9643,4 @@ button.ms-pill { cursor: pointer; }
 .ms-nombres-l { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
 .ms-nombre-f { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); font-size: 13px; min-width: 0; }
 .ms-nombre-f input { grid-column: 1 / -1; width: 100%; }
+.ms-aviso-verde { background: color-mix(in srgb, #16a34a 12%, var(--surface)); }

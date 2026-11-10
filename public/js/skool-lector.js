@@ -120,7 +120,114 @@ function lector(ORIGEN, CLI) {
   };
   var res = {};
   var cat = {};
+  var pagDe = {}; // en qué página de Miembros sale cada alumno (para abrir su ficha)
   var paginas = 0;
+  var espera = function (ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); };
+  var hasta = async function (cond, ms) { var t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (cond()) return true; } catch (e) { /* aún no */ } await espera(150); } return false; };
+  // ---- Fichas: abrir cada alumno (clic en su nombre) y quedarse con lo que Skool carga al abrirla ----
+  // Se escuchan las respuestas JSON de la página (fetch y XHR) y, tras cada clic, las que hablan de ese alumno (traen su
+  // email o su id, o son de «member») se guardan como «ficha.*». También el texto de la ventana que se abre.
+  var capt = [];
+  var escuchar = function () {
+    if (window.__alqFetch) return;
+    window.__alqFetch = 1;
+    var f0 = window.fetch;
+    window.fetch = function () {
+      var pr = f0.apply(this, arguments);
+      pr.then(function (r) { try { if (/json/i.test(r.headers.get('content-type') || '')) r.clone().json().then(function (j) { capt.push({ t: Date.now(), url: String(r.url || ''), j: j }); }).catch(function () {}); } catch (e) { /* nada */ } }).catch(function () {});
+      return pr;
+    };
+    var X = XMLHttpRequest.prototype; var o0 = X.open; var s0 = X.send;
+    X.open = function (m, u) { this.__alqU = u; return o0.apply(this, arguments); };
+    X.send = function () { var x = this; x.addEventListener('load', function () { try { if (/json/i.test(x.getResponseHeader('content-type') || '')) capt.push({ t: Date.now(), url: String(x.__alqU || ''), j: JSON.parse(x.responseText) }); } catch (e) { /* nada */ } }); return s0.apply(this, arguments); };
+  };
+  var valorDe = function (f, re) { for (var k in f) if (re.test(k)) return String(f[k] || '').trim(); return ''; };
+  var nombreVisible = function (f) {
+    var n = (valorDe(f, /(^|\.)first_?name$/i) + ' ' + valorDe(f, /(^|\.)last_?name$/i)).trim();
+    return n || valorDe(f, /(^|\.)(display_?name|full_?name)$/i);
+  };
+  var buscarEl = function (nombre) {
+    var n = String(nombre || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (n.length < 3) return null;
+    var els = document.querySelectorAll('a,button,[role="button"],span,div,p,h1,h2,h3,h4,strong');
+    var mejor = null;
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (caja.contains(el)) continue;
+      var t = (el.textContent || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      if (t === n && (!mejor || mejor.contains(el))) mejor = el;
+    }
+    return mejor ? (mejor.closest('a,button,[role="button"]') || mejor) : null;
+  };
+  var ventana = function () { var l = document.querySelectorAll('[role="dialog"],[aria-modal="true"],[class*="Modal"],[class*="modal"]'); for (var i = l.length - 1; i >= 0; i--) if (!caja.contains(l[i]) && (l[i].textContent || '').trim()) return l[i]; return null; };
+  var cerrar = async function (urlAntes) {
+    if (location.href !== urlAntes) { history.back(); await hasta(function () { return location.href === urlAntes; }, 5000); await espera(500); return; }
+    var v = ventana();
+    if (!v) return;
+    var x = v.querySelector('[aria-label*="lose" i],[aria-label*="errar" i],button[class*="lose" i]');
+    if (x) x.click();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }));
+    await hasta(function () { return !ventana(); }, 2000);
+  };
+  var irAPagina = async function (p, base) {
+    var u = new URL(base.href);
+    if (p > 1) u.searchParams.set('p', String(p));
+    var actual = new URL(location.href);
+    if ((actual.searchParams.get('p') || '1') === String(p) && actual.pathname === u.pathname) return true;
+    var rt = window.next && window.next.router;
+    if (!rt || !rt.push) return false; // sin el navegador de Skool solo se abre la página que se ve
+    rt.push(u.pathname + u.search);
+    await hasta(function () { return (new URL(location.href).searchParams.get('p') || '1') === String(p); }, 8000);
+    await espera(1200);
+    return true;
+  };
+  var abrirFichas = async function (base) {
+    escuchar();
+    var emails0 = Object.keys(res);
+    var paginasL = [];
+    for (var i = 0; i < emails0.length; i++) if (paginasL.indexOf(pagDe[emails0[i]] || 1) < 0) paginasL.push(pagDe[emails0[i]] || 1);
+    paginasL.sort(function (a, b) { return a - b; });
+    var hechos = 0; var conFicha = 0; var parar = false; var sinPagina = 0;
+    for (var pi = 0; pi < paginasL.length && !parar; pi++) {
+      var pg = paginasL[pi];
+      var dePag = emails0.filter(function (e) { return (pagDe[e] || 1) === pg; });
+      if (!(await irAPagina(pg, base))) { sinPagina += dePag.length; hechos += dePag.length; continue; }
+      for (var j = 0; j < dePag.length && !parar; j++) {
+        var e = dePag[j];
+        var f = res[e];
+        hechos++;
+        pon('Abriendo la ficha de cada alumno… <b>' + hechos + ' / ' + emails0.length + '</b><br><small>No toques esta pestaña mientras tanto.</small><br><button type="button" id="alq-parar" style="margin-top:8px;padding:6px 12px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer">Parar y enviar lo leído</button>');
+        var bp = document.getElementById('alq-parar');
+        if (bp) bp.onclick = function () { parar = true; };
+        var nombre = nombreVisible(f);
+        await hasta(function () { return buscarEl(nombre); }, 4000);
+        var el = buscarEl(nombre);
+        if (!el) continue;
+        var uid = valorDe(f, /(^|\.)id$/i);
+        var urlAntes = location.href;
+        var t0 = Date.now();
+        el.click();
+        await hasta(function () { return ventana() || location.href !== urlAntes || capt.some(function (c) { return c.t >= t0; }); }, 3000);
+        await espera(900);
+        var añadidos = 0;
+        for (var c = 0; c < capt.length; c++) {
+          if (capt[c].t < t0) continue;
+          var txtJ = '';
+          try { txtJ = JSON.stringify(capt[c].j); } catch (er) { continue; }
+          if (txtJ.length > 400000) continue;
+          if (txtJ.toLowerCase().indexOf(e) < 0 && !(uid && txtJ.indexOf(uid) >= 0) && !/member/i.test(capt[c].url)) continue;
+          var pl = plano(capt[c].j, 'ficha', {}, 0);
+          for (var k in pl) if (!(k in f) && añadidos < 200) { f[k] = pl[k]; añadidos++; }
+        }
+        var v = ventana();
+        if (v) { f['ficha.texto'] = (v.innerText || '').replace(/\s+\n/g, '\n').slice(0, 2000); añadidos++; }
+        if (añadidos) conFicha++;
+        await cerrar(urlAntes);
+        await espera(250);
+      }
+    }
+    return { conFicha: conFicha, sinPagina: sinPagina, parado: parar };
+  };
   (async function () {
     try {
       var base = new URL(location.href);
@@ -135,6 +242,7 @@ function lector(ORIGEN, CLI) {
         if (!d) break;
         var antes = Object.keys(res).length;
         miembros(d, res);
+        for (var ek in res) if (!pagDe[ek]) pagDe[ek] = p;
         catalogo(d, cat);
         if (Object.keys(res).length === antes) break;
         paginas = p;
@@ -146,7 +254,19 @@ function lector(ORIGEN, CLI) {
         fin(12000);
         return;
       }
-      var datos = { tipo: 'alquimia-skool', version: 1, cliente: CLI, comunidad: location.pathname.split('/')[1] || '', url: base.href, at: Date.now(), paginas: paginas, filas: filas, catalogo: cat };
+      // ¿Abrir la ficha de cada alumno? Ahí Skool enseña su plan, lo que paga y más; tarda unos segundos por alumno.
+      var minutos = Math.max(1, Math.round(filas.length * 3 / 60));
+      var elegir = await new Promise(function (ok) {
+        pon('Leídos <b>' + filas.length + ' alumnos</b> (' + paginas + (paginas === 1 ? ' página' : ' páginas') + ').<br>Para traer <b>el plan y todos sus datos</b>, abro la ficha de cada uno (unos ' + minutos + ' min).<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" id="alq-fichas" style="padding:8px 14px;border-radius:10px;border:0;background:#6d4aff;color:#fff;font-weight:700;cursor:pointer">Abrir cada ficha</button><button type="button" id="alq-ya" style="padding:8px 14px;border-radius:10px;border:1px solid #ccc;background:#fff;cursor:pointer">Enviar sin abrirlas</button></div>');
+        document.getElementById('alq-fichas').onclick = function () { ok(true); };
+        document.getElementById('alq-ya').onclick = function () { ok(false); };
+      });
+      var resumenFichas = null;
+      if (elegir) {
+        resumenFichas = await abrirFichas(base);
+        filas = Object.keys(res).map(function (e) { return res[e]; });
+      }
+      var datos = { tipo: 'alquimia-skool', version: 1, fichas: resumenFichas, cliente: CLI, comunidad: location.pathname.split('/')[1] || '', url: base.href, at: Date.now(), paginas: paginas, filas: filas, catalogo: cat };
       var ok = false;
       window.addEventListener('message', function (e) {
         if (ok || e.origin !== ORIGEN || !e.data || e.data.tipo !== 'alquimia-skool-ok') return;

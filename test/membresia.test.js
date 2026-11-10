@@ -242,3 +242,16 @@ test('membresía: nombre de la persona (no el usuario de Skool) y lo que paga ca
   ]);
   assert.deepEqual([cods[0].n, cods[0].precio, cods[0].intervalo, cods[0].mes], [2, 367, 'año', 30.58]);
 });
+
+test('membresía: con la ficha de cada alumno, el plan es «tier.name» (no la periodicidad ni el nombre de la persona)', async () => {
+  const mb = await import('../public/js/membresia.js');
+  const filas = ['VIP', 'Estándar', 'VIP anual', 'Estándar'].map((t, i) => ({
+    'user.email': `a${i}@x.com`, 'user.name': `ana-${i}-ruiz-1${i}`, 'user.firstName': `Ana${i}`,
+    'member.priceId': `c852af5034d04f7f9f26fe34d0cf3a1${i}`,
+    'ficha.membership.price.interval': i === 2 ? 'year' : 'month', 'ficha.membership.tier.name': t,
+  }));
+  assert.equal(mb.adivinarMapa(filas).plan, 'ficha.membership.tier.name');
+  const c = mb.candidatosPlan(filas);
+  assert.ok(!c.some((x) => x.clave === 'ficha.membership.price.interval'));
+  assert.ok(!c.some((x) => x.clave === 'user.name'));
+});
