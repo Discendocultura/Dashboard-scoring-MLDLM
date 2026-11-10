@@ -146,3 +146,21 @@ test('membresía: cruce con GHL (resumen) y a quien no está en GHL no se le int
   const estado = { alumnos: Object.fromEntries(al.map((a) => [a.email, { ...a, plan: 'VIP', activo: true }])) };
   assert.deepEqual(etiquetasPendientes(estado, {}).map((p) => p.email), ['a@x.com', 'c@x.com']);
 });
+
+test('membresía: solo en Discendo, tendencia del MRR y altas/bajas por semana', async () => {
+  const { conMembresia } = await import('../public/js/membresia.js');
+  assert.equal(conMembresia('discendo'), true);
+  assert.equal(conMembresia('mldlm'), false);
+  assert.equal(conMembresia(''), false);
+  const ahora = Date.parse('2026-11-10T10:00:00Z');
+  const estado = {
+    alumnos: { 'a@x.com': { email: 'a@x.com', plan: 'VIP', precio: 100, intervalo: 'mes', activo: true }, 'b@x.com': { email: 'b@x.com', plan: 'VIP', precio: 100, intervalo: 'mes', activo: true } },
+    eventos: [{ t: ahora - 3 * DIA, tipo: 'alta', email: 'b@x.com', plan: 'VIP', mes: 100 }, { t: ahora - 10 * DIA, tipo: 'baja', email: 'c@x.com', plan: 'VIP', mes: 50 }],
+  };
+  const m = metricasMembresia(estado, { ahora });
+  assert.equal(m.mrr, 200);
+  assert.equal(m.mrrAntes, 150); // 200 − 100 (alta) + 50 (baja)
+  assert.equal(Math.round(m.crecimiento * 1000) / 1000, 0.333);
+  assert.equal(m.semanas.length, 12);
+  assert.deepEqual([m.semanas[11].altas, m.semanas[11].bajas, m.semanas[10].bajas], [1, 0, 1]);
+});

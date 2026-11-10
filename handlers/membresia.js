@@ -15,10 +15,11 @@
 //   POST /api/membresia { op: 'email', email, asunto, texto } → (Setting hoy) le manda un email desde GHL.
 //   POST /api/membresia { op: 'apuntar', email, canal }    → (Setting hoy) apunta que se le escribió por WhatsApp.
 import { requireSession } from '../lib/auth.js';
+import { clienteActual } from '../lib/cliente.js';
 import { leerJSON, guardarJSON, reintentando } from '../lib/store.js';
 import { findContactByEmail, addTags, removeTags, sendEmail, upsertContact, setContactPhone } from '../lib/ghl.js';
 import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
-import { aplicarFoto, tagDePlan, TAG_OK, EMAIL_RE, rellenar, intervaloDe } from '../public/js/membresia.js';
+import { aplicarFoto, conMembresia, tagDePlan, TAG_OK, EMAIL_RE, rellenar, intervaloDe } from '../public/js/membresia.js';
 
 const CLAVE = 'lsd_membresia';
 const CLAVE_CFG = 'lsd_membresia_cfg';
@@ -100,9 +101,14 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 // Texto del email → HTML sencillo (párrafos y saltos de línea; los enlaces, clicables).
 export const htmlDeTexto = (t) => String(t).split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, '<br>').replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>')}</p>`).join('');
 
+// Solo en el cliente de Discendo (el dueño de la membresía): en otro cliente, ni se lee ni se guarda nada.
+const soloDiscendo = () => (conMembresia(clienteActual().id) ? null : json({ error: 'La membresía de Skool es de Discendo: entra en Discendo para verla' }, 403));
+
 export async function GET(request) {
   try {
     await requireSession(request, { permiso: PERMISO_VER });
+    const fuera = soloDiscendo();
+    if (fuera) return fuera;
     const [estado, cfg] = await Promise.all([leerEstado(), leerCfg()]);
     const emails = new Set(Object.keys(estado.alumnos || {}));
     return json({
@@ -123,6 +129,10 @@ export async function POST(request) {
   try {
     const body = await readBody(request);
     const op = body.op;
+    // Antes de nada, una sesión válida (sin ella, 401 como en todo) y el cliente de Discendo.
+    await requireSession(request, { permiso: PERMISO_VER });
+    const fuera = soloDiscendo();
+    if (fuera) return fuera;
     if (op === 'foto') {
       await requireSession(request, { permiso: 'config' });
       const foto = (Array.isArray(body.alumnos) ? body.alumnos : []).slice(0, MAX_ALUMNOS).map(limpiarAlumno).filter(Boolean);

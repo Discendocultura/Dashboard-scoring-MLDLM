@@ -8,6 +8,10 @@
 // Lo usan el navegador (panel) y el servidor (handlers/membresia.js) y las pruebas.
 
 export const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i;
+
+// La membresía es de Discendo: solo existe en su cliente (la ven quienes tienen acceso a Discendo).
+export const CLIENTES_MEMBRESIA = ['discendo'];
+export const conMembresia = (clienteId) => CLIENTES_MEMBRESIA.includes(String(clienteId || ''));
 const txt = (v, max = 160) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
 const DIA = 86_400_000;
@@ -232,7 +236,20 @@ export function metricasMembresia(estado = {}, { ahora = Date.now(), precios = {
   const enRiesgo = activos.filter((a) => a.ultima && ahora - a.ultima > riesgoDias * DIA).sort((a, b) => a.ultima - b.ultima);
   const antiguedad = [['< 1 mes', 0, 1], ['1-3 meses', 1, 3], ['3-6 meses', 3, 6], ['6-12 meses', 6, 12], ['+1 año', 12, Infinity]]
     .map(([label, d, h]) => ({ label, n: activos.filter((a) => { const m = a.alta ? mesesEntre(a.alta, ahora) : 0; return m >= d && m < h; }).length }));
+  // Hace `ventana` días: el MRR de hoy sin lo que entró y con lo que salió desde entonces (aprox.: los cambios de plan no cuentan).
+  const entra = ev.filter((e) => e.tipo === 'alta' || e.tipo === 'vuelve').reduce((s2, e) => s2 + (e.mes || 0), 0);
+  const sale = ev.filter((e) => e.tipo === 'baja').reduce((s2, e) => s2 + (e.mes || 0), 0);
+  const mrrAntes = r2(Math.max(0, mrr - entra + sale));
+  // Altas y bajas por semana (las últimas 12), para la gráfica de evolución.
+  const semanas = [];
+  for (let i = 11; i >= 0; i--) {
+    const fin = ahora - i * 7 * DIA;
+    const ini = fin - 7 * DIA;
+    const en = (estado.eventos || []).filter((e) => e.t > ini && e.t <= fin);
+    semanas.push({ ini, fin, altas: en.filter((e) => e.tipo === 'alta' || e.tipo === 'vuelve').length, bajas: en.filter((e) => e.tipo === 'baja').length });
+  }
   return {
+    mrrAntes, crecimiento: mrrAntes ? (mrr - mrrAntes) / mrrAntes : null, semanas,
     activos: nActivos, total: lista.length, mrr, arr: r2(mrr * 12), arpu: nActivos ? r2(mrr / nActivos) : 0,
     altas: t('altas'), bajas, neto: t('altas') - bajas, churn: nActivos + bajas ? bajas / (nActivos + bajas) : 0,
     mrrPerdido: r2(t('mrrPerdido')),

@@ -5,7 +5,7 @@
 //    media, antigüedad, más activos, en riesgo y bajas recientes.
 //  · Etiquetas de GHL por plan (y de baja): se sincronizan desde aquí y disparan los flujos de GHL (venta cruzada…).
 //  · Alumnos, como una pestaña de setter: segmentos, búsqueda, y a cada uno WhatsApp o email (desde GHL).
-import { CAMPOS, clavesDe, adivinarMapa, normalizar, metricasMembresia, tagDePlan, etiquetasPendientes, SEGMENTOS, rellenar, waDe, precioMes, EMAIL_RE, resumenGhl } from './membresia.js';
+import { CAMPOS, clavesDe, adivinarMapa, normalizar, metricasMembresia, tagDePlan, etiquetasPendientes, SEGMENTOS, rellenar, waDe, precioMes, EMAIL_RE, resumenGhl, conMembresia } from './membresia.js';
 import { enlaceLector, esDatosSkool, ORIGEN_SKOOL } from './skool-lector.js';
 
 const DIA = 86_400_000;
@@ -29,6 +29,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
   const st = { datos: null, cargando: false, vista: ls.get('lsd_ms_vista') || 'resumen', seg: 'todos', plan: '', q: '', importacion: null, skoolTab: null };
 
   async function cargar() {
+    if (!conMembresia(cliente())) { pintar(); return; }
     st.cargando = true;
     try { st.datos = await api('/api/membresia'); } catch (e) { notice(e.message, true); st.datos = st.datos || { alumnos: [], eventos: [], cfg: {}, ltvExtra: {} }; }
     st.cargando = false;
@@ -69,7 +70,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     pintar();
   }
   window.addEventListener('message', (e) => {
-    if (!ORIGEN_SKOOL.test(e.origin) || !esDatosSkool(e.data)) return;
+    if (!ORIGEN_SKOOL.test(e.origin) || !esDatosSkool(e.data) || !conMembresia(cliente())) return;
     try { e.source?.postMessage({ tipo: 'alquimia-skool-ok' }, e.origin); } catch { /* la pestaña de Skool ya no está */ }
     if (st.importacion?.datos?.at === e.data.at) return; // el lector lo repite hasta que contestamos
     if (e.data.cliente && cliente() && e.data.cliente !== cliente()) return notice('Esos alumnos de Skool son de otro cliente: cambia de cliente y vuelve a pulsar el marcador.', true);
@@ -77,31 +78,80 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
   });
 
   // ---------- Pintar ----------
-  function kpi(label, valor, sub = '', clase = '') {
-    return `<div class="ms-kpi ${clase}"><span class="ms-kpi-l">${esc(label)}</span><strong class="ms-kpi-v">${valor}</strong>${sub ? `<span class="ms-kpi-s">${sub}</span>` : ''}</div>`;
+  // Iconos de línea (los mismos trazos que el resto de AlquimIA) y colores fijos por plan.
+  const I = {
+    users: '<path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="7.5" r="3.5"/><path d="M20 19v-1.3a3.3 3.3 0 0 0-2.5-3.2M15.5 4.3a3.5 3.5 0 0 1 0 6.4"/>',
+    euro: '<path d="M17.5 6.5A7 7 0 1 0 17.5 17.5"/><path d="M4 10h10M4 14h9"/>',
+    trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+    down: '<path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/>',
+    heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
+    star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+    alert: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.01"/>',
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+    tag: '<path d="M3.5 12.5V4.5h8l9 9-8 8z"/><circle cx="8" cy="8.5" r="1.4"/>',
+    link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+    mail: '<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4 7l8 6 8-6"/>',
+    refresh: '<path d="M20 11a8 8 0 0 0-14.3-4.6L4 8"/><path d="M4 4v4h4M4 13a8 8 0 0 0 14.3 4.6L20 16"/><path d="M20 20v-4h-4"/>',
+    clip: '<rect x="6" y="4.5" width="12" height="16" rx="2"/><path d="M9 4.5V3.5h6v1"/><path d="M9 10h6M9 14h4"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    minus: '<path d="M5 12h14"/>',
+    swap: '<path d="M7 7h12l-3-3M17 17H5l3 3"/>',
+    bookmark: '<path d="M6.5 3.5h11v17l-5.5-4-5.5 4z"/>',
+    calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+    eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>',
+    crown: '<path d="M4 18h16M4.5 15.5L3 7l5 4 4-6 4 6 5-4-1.5 8.5z"/>',
+    chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    sparkle: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
+    search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/>',
+    info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8v.01"/>',
+    wave: '<path d="M7 11V6.5a1.5 1.5 0 0 1 3 0V11M10 10V5a1.5 1.5 0 0 1 3 0v5M13 10V6a1.5 1.5 0 0 1 3 0v6M16 10.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.5A6.5 6.5 0 0 1 5 15.5L4 12a1.5 1.5 0 0 1 2.7-1.2L7 11.5"/>',
+    seed: '<path d="M12 20v-8M12 12C12 7 8 5 4 5c0 4 3 7 8 7zM12 14c0-4 3-6 7-6 0 4-3 6-7 6z"/>',
+  };
+  const ico = (n, cls = '') => `<svg class="ms-i ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n] || ''}</svg>`;
+  const WA = '<svg class="ms-i" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.2A9.7 9.7 0 0 0 3.6 16.8L2.3 21.7l5-1.3A9.7 9.7 0 1 0 12 2.2zm0 17.7a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 19.9zm4.4-6c-.2-.1-1.4-.7-1.7-.8-.2-.1-.4-.1-.5.1l-.8.9c-.1.2-.3.2-.5.1a6.6 6.6 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.7-1.8c-.2-.5-.4-.4-.5-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.9 11.9 0 0 0 4.6 4c1.7.7 2.4.8 3.2.7a2.8 2.8 0 0 0 1.8-1.3 2.3 2.3 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z"/></svg>';
+  const PALETA = ['#6d4aff', '#f97316', '#0ea5e9', '#16a34a', '#e11d48', '#ca8a04', '#0891b2', '#9333ea'];
+  const planesOrden = () => [...new Set((st.datos?.alumnos || []).map((a) => a.plan))].sort((a, b) => a.localeCompare(b, 'es'));
+  const colorPlan = (p) => { const l = planesOrden(); const i = l.indexOf(p); return PALETA[(i < 0 ? 0 : i) % PALETA.length]; };
+  const chipPlan = (p) => `<span class="ms-plan" style="--c:${colorPlan(p)}"><i></i>${esc(p)}</span>`;
+  const iniciales = (a) => (String(a.nombre || a.email).trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join('') || '?').toUpperCase();
+  const avatar = (a) => `<span class="ms-av" style="--c:${colorPlan(a.plan)}" aria-hidden="true">${esc(iniciales(a))}</span>`;
+  // Punto de actividad: verde (entró esta semana), ámbar (hace 1-2 semanas), rojo (más).
+  const tonoUltima = (t) => (!t ? '' : Date.now() - t < 7 * DIA ? 'ok' : Date.now() - t < 14 * DIA ? 'med' : 'mal');
+  const ayuda = (t) => `<span class="ms-ayuda" tabindex="0" title="${esc(t)}" aria-label="${esc(t)}">${ico('info')}</span>`;
+
+  function kpi(icono, tono, label, valor, sub = '', def = '', extra = '') {
+    return `<div class="ms-kpi" style="--t:${tono}"><span class="ms-kpi-ico">${ico(icono)}</span><div class="ms-kpi-c"><span class="ms-kpi-l">${esc(label)}${def ? ayuda(def) : ''}</span><strong class="ms-kpi-v">${valor}</strong>${sub ? `<span class="ms-kpi-s">${sub}</span>` : ''}${extra}</div></div>`;
   }
   function pestanas() {
     const v = st.vista === 'importar' ? 'resumen' : st.vista;
-    const tabs = [['resumen', '📊 Resumen'], ['alumnos', '🎓 Alumnos'], ...(puedeConfig() ? [['planes', '🏷️ Planes y etiquetas']] : [])];
-    return `<div class="ms-tabs" role="tablist">${tabs.map(([id, l]) => `<button type="button" role="tab" class="ms-tab${v === id ? ' activa' : ''}" aria-selected="${v === id}" data-ms-vista="${id}">${l}</button>`).join('')}</div>`;
+    const n = (st.datos?.alumnos || []).filter((a) => a.activo !== false).length;
+    const tabs = [['resumen', 'chart', 'Resumen', ''], ['alumnos', 'users', 'Alumnos', n ? num(n) : ''], ...(puedeConfig() ? [['planes', 'tag', 'Planes y etiquetas', '']] : [])];
+    return `<div class="ms-tabs" role="tablist">${tabs.map(([id, ic, l, c]) => `<button type="button" role="tab" class="ms-tab${v === id ? ' activa' : ''}" aria-selected="${v === id}" data-ms-vista="${id}">${ico(ic)}<span>${l}</span>${c ? `<em>${c}</em>` : ''}</button>`).join('')}</div>`;
   }
   function barra() {
     const d = st.datos || {};
-    const ult = d.ultimaLectura ? `Última lectura de Skool: <strong>${hace(d.ultimaLectura)}</strong> (${fecha(d.ultimaLectura)})` : 'Aún no se ha leído Skool';
-    return `<div class="ms-barra"><p class="muted small">${ult}${d.comunidad ? ` · comunidad «${esc(d.comunidad)}»` : ''}</p>
-      ${puedeConfig() ? `<div class="ms-barra-bts"><button type="button" class="btn primary" data-ms="actualizar">🔄 Actualizar alumnos</button><button type="button" class="btn" data-ms="pegar">📋 Pegar los datos de Skool</button></div>` : ''}</div>`;
+    const fresca = d.ultimaLectura && Date.now() - d.ultimaLectura < 2 * DIA;
+    return `<div class="ms-barra">
+      <div class="ms-lectura ${d.ultimaLectura ? (fresca ? 'ok' : 'vieja') : ''}">${ico(d.ultimaLectura ? (fresca ? 'check' : 'clock') : 'info')}<div><strong>${d.ultimaLectura ? `Datos de Skool de ${hace(d.ultimaLectura)}` : 'Aún no se ha leído Skool'}</strong><span>${d.ultimaLectura ? `${fecha(d.ultimaLectura)}${d.comunidad ? ` · comunidad «${esc(d.comunidad)}»` : ''}${fresca ? '' : ' · conviene actualizar'}` : 'Sigue los 3 pasos de abajo'}</span></div></div>
+      ${puedeConfig() ? `<div class="ms-barra-bts"><button type="button" class="btn primary" data-ms="actualizar">${ico('refresh')} Actualizar alumnos</button><button type="button" class="btn" data-ms="pegar" title="Si el marcador te dio el botón «Copiar»">${ico('clip')} Pegar datos</button></div>` : ''}
+    </div>`;
   }
+  // Los 3 pasos para leer Skool, como tarjetas (abiertos hasta la primera lectura; luego, plegados).
   function guia() {
     const c = cfg();
     const href = enlaceLector(location.origin, cliente() || '');
-    return `<details class="ms-guia"${st.datos?.lecturas ? '' : ' open'}><summary><strong>Cómo se leen los alumnos de Skool</strong> <span class="muted small">(Skool no tiene conexión directa: se leen con tu sesión, desde tu navegador)</span></summary>
-      <ol>
-        <li><strong>Una sola vez:</strong> arrastra este botón a tu barra de marcadores → <a class="ms-marcador" href="${esc(href)}" title="Arrástralo a la barra de marcadores (no lo pulses aquí)" onclick="event.preventDefault()">📥 AlquimIA · Skool</a> <span class="muted small">(si no ves la barra: Ctrl/Cmd + Mayús + B)</span></li>
-        <li>Pulsa <strong>🔄 Actualizar alumnos</strong>: se abre la página de <strong>Miembros</strong> de tu comunidad en Skool (con tu sesión de administrador).</li>
-        <li>En esa pestaña, pulsa el marcador <strong>📥 AlquimIA · Skool</strong>. Lee todos los miembros, página a página, y los manda aquí. Revisas lo que cambia y guardas.</li>
+    const leido = Boolean(st.datos?.lecturas);
+    const paso = (n, icono, titulo, cuerpo, hecho) => `<li class="ms-paso${hecho ? ' hecho' : ''}"><span class="ms-paso-n">${hecho ? ico('check') : n}</span><div><strong>${ico(icono)} ${titulo}</strong>${cuerpo}</div></li>`;
+    return `<details class="ms-guia"${leido ? '' : ' open'}><summary>${ico('sparkle')} <strong>Cómo actualizar los alumnos</strong> <span class="muted small">Skool no tiene conexión directa: se leen desde tu navegador, con tu sesión</span></summary>
+      <ol class="ms-pasos">
+        ${paso(1, 'bookmark', 'Guarda el marcador (una vez)', `<p>Arrástralo a tu barra de marcadores:</p><a class="ms-marcador" href="${esc(href)}" title="Arrástralo a la barra de marcadores (aquí no hace nada)" onclick="event.preventDefault()">${ico('bookmark')} AlquimIA · Skool</a><p class="muted small">¿No ves la barra? Ctrl/Cmd + Mayús + B</p>`, leido)}
+        ${paso(2, 'link', 'Tu página de Miembros', `<p>La dirección de Miembros de tu comunidad:</p><input id="ms-url" type="url" placeholder="https://www.skool.com/tu-comunidad/-/members" value="${esc(c.urlSkool || '')}" aria-label="Dirección de Miembros en Skool">`, Boolean(c.urlSkool))}
+        ${paso(3, 'refresh', 'Actualiza', '<p>Pulsa <strong>Actualizar alumnos</strong> y, en la pestaña de Skool que se abre, el marcador. Los alumnos vuelven aquí y revisas qué cambia antes de guardar.</p>', leido)}
       </ol>
-      <label class="field"><span>Dirección de Miembros de tu comunidad en Skool</span><input id="ms-url" type="url" placeholder="https://www.skool.com/tu-comunidad/-/members" value="${esc(c.urlSkool || '')}"></label>
-      <p class="muted small">No se guarda tu contraseña de Skool ni se toca nada allí: solo se lee lo que ves como administrador. Si tu navegador no deja mandar los datos solos, el marcador te da un botón «Copiar» y aquí usas <strong>📋 Pegar los datos de Skool</strong>.</p>
+      <p class="muted small ms-seguro">${ico('check')} No se guarda tu contraseña de Skool ni se toca nada allí: solo se lee lo que ves como administrador.</p>
     </details>`;
   }
 
@@ -112,62 +162,113 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     const opt = (sel) => `<option value="">— No viene —</option>${claves.map((c) => `<option value="${esc(c.clave)}"${c.clave === sel ? ' selected' : ''}>${esc(c.clave)} · ${esc(c.ejemplos.join(' | ').slice(0, 60))}</option>`).join('')}`;
     const p = imp.preview;
     const muestra = (imp.alumnos || []).slice(0, 5);
+    const lista = (icono, tono, titulo, items) => (items?.length ? `<div class="ms-cambio" style="--t:${tono}"><strong>${ico(icono)} ${titulo}</strong><span>${items}</span></div>` : '');
     const resumen = !p ? '<p class="muted">Calculando qué cambia…</p>' : p.error ? `<p class="ms-error">${esc(p.error)}</p>` : `
       <div class="ms-kpis ms-kpis-imp">
-        ${kpi('Leídos de Skool', num(p.leidos))}
-        ${kpi(p.primera ? 'Alumnos de partida' : 'Altas', num(p.altas), p.primera ? 'primera lectura: punto de partida' : '', 'ms-ok')}
-        ${p.primera ? '' : kpi('Bajas', num(p.bajas), imp.completa ? 'no salen en Skool o figuran como baja' : 'solo las que Skool marca como baja', p.bajas ? 'ms-mal' : '')}
-        ${p.primera ? '' : kpi('Cambian de plan', num(p.cambios))}
-        ${p.vuelven ? kpi('Vuelven', num(p.vuelven), '', 'ms-ok') : ''}
+        ${kpi('users', '#6d4aff', 'Leídos de Skool', num(p.leidos), `${num(d.paginas)} ${d.paginas === 1 ? 'página' : 'páginas'}`)}
+        ${kpi('plus', '#16a34a', p.primera ? 'Alumnos de partida' : 'Altas', num(p.altas), p.primera ? 'primera lectura' : 'nuevos desde la anterior')}
+        ${p.primera ? '' : kpi('minus', '#e11d48', 'Bajas', num(p.bajas), imp.completa ? 'no salen o Skool las marca' : 'solo las que Skool marca')}
+        ${p.primera ? '' : kpi('swap', '#0ea5e9', 'Cambian de plan', num(p.cambios))}
+        ${p.vuelven ? kpi('wave', '#16a34a', 'Vuelven', num(p.vuelven)) : ''}
       </div>
-      ${p.muestra?.cambios?.length ? `<p class="small">Cambios de plan: ${p.muestra.cambios.slice(0, 8).map((c) => `${esc(c.email)} (${esc(c.de)} → ${esc(c.a)})`).join(' · ')}</p>` : ''}
-      ${p.muestra?.bajas?.length ? `<p class="small">Bajas: ${p.muestra.bajas.slice(0, 12).map(esc).join(' · ')}${p.bajas > 12 ? '…' : ''}</p>` : ''}`;
+      ${lista('swap', '#0ea5e9', 'Cambios de plan', (p.muestra?.cambios || []).slice(0, 8).map((c) => `${esc(c.email)}: ${esc(c.de)} → ${esc(c.a)}`).join(' · '))}
+      ${lista('minus', '#e11d48', 'Bajas', `${(p.muestra?.bajas || []).slice(0, 12).map(esc).join(' · ')}${p.bajas > 12 ? '…' : ''}`)}`;
     return `<section class="ms-imp">
-      <h3>Revisa la lectura de Skool antes de guardarla</h3>
-      <p class="muted small">${num(d.filas.length)} miembros leídos en ${num(d.paginas)} ${d.paginas === 1 ? 'página' : 'páginas'} de «${esc(d.comunidad || 'Skool')}». Comprueba que la cifra coincide con la de Skool. Abajo, qué dato de Skool es cada cosa: AlquimIA lo adivina y puedes corregirlo (se recuerda para la próxima vez).</p>
-      ${imp.aviso ? '<p class="ms-aviso">⚠️ Faltan muchos de los alumnos activos: puede que la lectura esté a medias (por ejemplo, Skool enseñaba un filtro). Por seguridad, de momento nadie se da de baja por no salir. Si de verdad están todos, marca la casilla.</p>' : ''}
+      <header class="ms-imp-h"><span class="ms-kpi-ico" style="--t:#6d4aff">${ico('search')}</span><div><h3>Revisa la lectura antes de guardarla</h3><p class="muted small">${num(d.filas.length)} miembros de «${esc(d.comunidad || 'Skool')}». <strong>Comprueba que coincide con el número que marca Skool.</strong></p></div></header>
+      ${imp.aviso ? `<p class="ms-aviso">${ico('alert')} Faltan muchos de los alumnos activos: puede que la lectura esté a medias (por ejemplo, Skool tenía un filtro puesto). Por seguridad, nadie se da de baja por no salir. Si de verdad están todos, marca la casilla.</p>` : ''}
       <label class="ms-check"><input type="checkbox" id="ms-completa"${imp.completa ? ' checked' : ''}><span>Esta lectura trae <strong>a todos los alumnos activos</strong>: quien no salga, se da de baja.</span></label>
       ${resumen}
-      <details class="ms-mapa"${imp.alumnos?.length ? '' : ' open'}><summary>Qué dato de Skool es cada cosa</summary>
+      <details class="ms-mapa"${imp.alumnos?.length ? '' : ' open'}><summary>${ico('swap')} Qué dato de Skool es cada cosa <span class="muted small">(AlquimIA lo adivina; corrígelo si algo no cuadra, se recuerda)</span></summary>
         <div class="ms-mapa-grid">${CAMPOS.map((c) => `<label class="field"><span>${esc(c.label)}${c.obligatorio ? ' *' : ''}</span><select data-ms-mapa="${c.id}">${opt(imp.mapa[c.id])}</select></label>`).join('')}</div>
         <label class="ms-check"><input type="checkbox" id="ms-centimos"${imp.mapa.centimos ? ' checked' : ''}><span>Los importes vienen en céntimos (2900 = 29 €)</span></label>
       </details>
-      ${muestra.length ? `<div class="ms-tabla-wrap"><table class="ms-tabla"><thead><tr><th>Alumno</th><th>Plan</th><th>Precio</th><th>LTV</th><th>Alta</th><th>Puntos</th><th>Última conexión</th></tr></thead><tbody>${muestra.map((a) => `<tr><td>${esc(a.nombre || '–')}<br><span class="muted small">${esc(a.email)}</span></td><td>${esc(a.plan)}</td><td>${a.precio != null ? `${eur(a.precio)}/${a.intervalo}` : '–'}</td><td>${eur(a.ltv)}</td><td>${fecha(a.alta)}</td><td>${num(a.puntos)}</td><td>${hace(a.ultima)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="ms-error">Sin el email no se puede guardar: elige arriba qué dato es el email.</p>'}
-      <div class="ms-imp-bts"><button type="button" class="btn primary" data-ms="guardar-foto"${imp.alumnos?.length && p && !p.error ? '' : ' disabled'}>Guardar ${num(imp.alumnos?.length || 0)} alumnos</button><button type="button" class="btn ghost" data-ms="cancelar-foto">Cancelar</button></div>
+      ${muestra.length ? `<p class="ms-sub">Así quedan los 5 primeros:</p><ul class="ms-muestra">${muestra.map((a) => `<li>${avatar(a)}<div><strong>${esc(a.nombre || a.email)}</strong><span class="muted small">${esc(a.email)}</span></div>${chipPlan(a.plan)}<span>${a.precio != null ? `${eur(a.precio)}/${a.intervalo}` : '<span class="muted">sin precio</span>'}</span><span title="Lo cobrado">${ico('heart')} ${eur(a.ltv)}</span><span title="Alta">${ico('calendar')} ${fecha(a.alta)}</span>${a.puntos != null ? `<span title="Puntos">${ico('star')} ${num(a.puntos)}</span>` : ''}</li>`).join('')}</ul>` : `<p class="ms-error">${ico('alert')} Sin el email no se puede guardar: elige arriba qué dato es el email.</p>`}
+      <div class="ms-imp-bts"><button type="button" class="btn primary" data-ms="guardar-foto"${imp.alumnos?.length && p && !p.error ? '' : ' disabled'}>${ico('check')} Guardar ${num(imp.alumnos?.length || 0)} alumnos</button><button type="button" class="btn ghost" data-ms="cancelar-foto">Cancelar</button></div>
     </section>`;
+  }
+
+  // Dónut del MRR por plan (SVG).
+  function donut(filas, total) {
+    if (!total) return '';
+    const R = 42; const C = 2 * Math.PI * R;
+    let acc = 0;
+    const arcos = filas.filter((f) => f.mrr > 0).map((f) => {
+      const largo = (f.mrr / total) * C;
+      const s = `<circle r="${R}" cx="60" cy="60" fill="none" stroke="${colorPlan(f.plan)}" stroke-width="16" stroke-dasharray="${largo.toFixed(2)} ${(C - largo).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}"><title>${esc(f.plan)}: ${eur(f.mrr)} (${pct(f.mrr / total)})</title></circle>`;
+      acc += largo;
+      return s;
+    }).join('');
+    return `<div class="ms-donut"><svg viewBox="0 0 120 120" role="img" aria-label="MRR por plan"><g transform="rotate(-90 60 60)"><circle r="${R}" cx="60" cy="60" fill="none" stroke="var(--surface-3)" stroke-width="16"/>${arcos}</g></svg>
+      <ul>${filas.filter((f) => f.mrr > 0).map((f) => `<li><i style="background:${colorPlan(f.plan)}"></i><span>${esc(f.plan)}</span><strong>${pct(f.mrr / total)}</strong></li>`).join('')}</ul></div>`;
+  }
+  // Altas (arriba, verde) y bajas (abajo, rojo) de las últimas 12 semanas.
+  function evolucion(semanas) {
+    const max = Math.max(1, ...semanas.map((s) => Math.max(s.altas, s.bajas)));
+    const W = 24; const H = 56;
+    const barras = semanas.map((s, i) => {
+      const x = i * (W + 6);
+      const ha = (s.altas / max) * H; const hb = (s.bajas / max) * H;
+      const t = `Semana del ${fecha(s.ini + DIA)}: ${s.altas} altas, ${s.bajas} bajas`;
+      return `<g><title>${t}</title><rect x="${x}" y="${H - ha}" width="${W}" height="${Math.max(ha, s.altas ? 2 : 0)}" rx="4" fill="#16a34a"/><rect x="${x}" y="${H + 2}" width="${W}" height="${Math.max(hb, s.bajas ? 2 : 0)}" rx="4" fill="#e11d48"/>${s.altas ? `<text x="${x + W / 2}" y="${H - ha - 4}" text-anchor="middle">${s.altas}</text>` : ''}${s.bajas ? `<text x="${x + W / 2}" y="${H + hb + 13}" text-anchor="middle">${s.bajas}</text>` : ''}</g>`;
+    }).join('');
+    return `<svg class="ms-evo" viewBox="-2 -14 ${12 * (W + 6)} ${2 * H + 30}" preserveAspectRatio="none" role="img" aria-label="Altas y bajas por semana"><line x1="0" x2="${12 * (W + 6) - 6}" y1="${H + 1}" y2="${H + 1}" stroke="var(--border-strong)"/>${barras}</svg>`;
   }
 
   function vistaResumen() {
     const al = st.datos?.alumnos || [];
     if (!al.length) {
-      return `<div class="ms-vacio"><span aria-hidden="true">🎓</span><div><strong>Tu membresía de Skool, aquí</strong><p class="muted">Lee tus alumnos de Skool y verás tu MRR, el churn de cada plan, quién está más activo, quién se está enfriando y a quién escribir.${puedeConfig() ? ' Sigue los pasos de arriba.' : ' Pídele a quien configura AlquimIA que lea los alumnos.'}</p></div></div>`;
+      return `<div class="ms-vacio"><span class="ms-vacio-ico">${ico('users')}</span><div><strong>Tu membresía de Skool, de un vistazo</strong><p class="muted">Lee tus alumnos y verás tu MRR, el churn de cada plan, quién está más activo, quién se está enfriando y a quién escribir.${puedeConfig() ? ' Sigue los 3 pasos de arriba.' : ' Pídele a quien configura AlquimIA que lea los alumnos.'}</p></div></div>`;
     }
     const m = metricas();
     const c = cfg();
-    const maxAnt = Math.max(1, ...m.antiguedad.map((x) => x.n));
     const pend = etiquetasPendientes(estado(), c);
-    const lecturaUnica = (st.datos?.lecturas || 0) < 2;
-    const fila = (a, extra) => `<li><button type="button" class="ms-mini" data-ms-ver="${esc(a.email)}"><span class="ms-mini-n">${esc(a.nombre || a.email)}</span><span class="ms-mini-x">${esc(a.plan)} · ${extra}</span></button></li>`;
+    const una = (st.datos?.lecturas || 0) < 2;
+    const sinDato = 'sale desde la 2.ª lectura';
+    const maxAnt = Math.max(1, ...m.antiguedad.map((x) => x.n));
+    const crec = m.crecimiento;
+    const chipCrec = una || crec == null ? '' : `<span class="ms-crec ${crec >= 0 ? 'ok' : 'mal'}">${ico(crec >= 0 ? 'trend' : 'down')} ${crec >= 0 ? '+' : ''}${pct(crec)} <small>vs hace 30 días</small></span>`;
+    const fila = (a, extra, tono = '') => `<li><button type="button" class="ms-mini" data-ms-ver="${esc(a.email)}">${avatar(a)}<span class="ms-mini-t"><span class="ms-mini-n">${esc(a.nombre || a.email)}</span><span class="ms-mini-x">${esc(a.plan)}</span></span><span class="ms-pill ${tono}">${extra}</span></button></li>`;
+    const maxPts = Math.max(1, ...m.masActivos.map((a) => a.puntos || 0));
+    const tonoChurn = (x) => (x > 0.1 ? 'mal' : x > 0.05 ? 'med' : 'ok');
     return `
+      <section class="ms-hero">
+        <div class="ms-hero-mrr"><span class="ms-hero-l">${ico('euro')} Ingresos recurrentes al mes (MRR) ${ayuda('Lo que pagan al mes los alumnos activos (los anuales, entre 12)')}</span><strong>${eur(m.mrr)}</strong>${chipCrec}<span class="muted small">ARR ${eur(m.arr)} · ${num(m.activos)} alumnos activos · ${eur(m.arpu)} de media al mes</span></div>
+        ${donut(m.filas, m.mrr)}
+      </section>
       <div class="ms-kpis">
-        ${kpi('Alumnos activos', num(m.activos), `${num(m.total - m.activos)} bajas en total`)}
-        ${kpi('MRR', eur(m.mrr), `ARR ${eur(m.arr)}`, 'ms-dest')}
-        ${kpi('Ingreso medio por alumno', eur(m.arpu), 'al mes (ARPU)')}
-        ${kpi(`Churn ${m.ventana} días`, lecturaUnica ? '–' : pct(m.churn), lecturaUnica ? 'sale a partir de la 2.ª lectura' : `${num(m.bajas)} bajas · ${eur(m.mrrPerdido)} de MRR perdido`, m.churn > 0.08 ? 'ms-mal' : '')}
-        ${kpi(`Altas ${m.ventana} días`, lecturaUnica ? '–' : num(m.altas), lecturaUnica ? '' : `neto ${m.neto >= 0 ? '+' : ''}${num(m.neto)}`, m.neto >= 0 ? 'ms-ok' : 'ms-mal')}
-        ${kpi('LTV medio', eur(m.ltvMedio), `${eur(m.ltvTotal)} cobrado en total`)}
+        ${kpi('users', '#6d4aff', 'Alumnos activos', num(m.activos), `${num(m.total - m.activos)} bajas en total`)}
+        ${kpi('down', m.churn > 0.08 ? '#e11d48' : '#ca8a04', `Churn ${m.ventana} días`, una ? '–' : pct(m.churn), una ? sinDato : `${num(m.bajas)} bajas · −${eur(m.mrrPerdido)}/mes`, '% de alumnos que se dieron de baja en los últimos 30 días')}
+        ${kpi('seed', '#16a34a', `Altas ${m.ventana} días`, una ? '–' : num(m.altas), una ? sinDato : `neto ${m.neto >= 0 ? '+' : ''}${num(m.neto)} alumnos`)}
+        ${kpi('heart', '#e11d48', 'LTV medio', eur(m.ltvMedio), `${eur(m.ltvTotal)} cobrado en total`, 'Lo que ha pagado de media cada alumno (Skool + Hotmart + ThriveCart)')}
       </div>
-      ${m.sinPrecio ? `<p class="ms-aviso">⚠️ ${num(m.sinPrecio)} alumnos activos sin precio: Skool no lo trae para su plan. Ponlo en <button type="button" class="link-btn" data-ms-vista="planes">Planes y etiquetas</button> para que cuenten en el MRR.</p>` : ''}
-      <h3 class="ms-h">Por plan</h3>
-      <div class="ms-tabla-wrap"><table class="ms-tabla ms-planes"><thead><tr><th>Plan</th><th>Activos</th><th>MRR</th><th>% del MRR</th><th>ARPU</th><th>Altas</th><th>Bajas</th><th>Churn ${m.ventana} d</th><th>LTV medio</th><th>LTV esperado</th><th>Vida media</th><th>Etiqueta GHL</th></tr></thead>
-      <tbody>${m.filas.map((f) => `<tr><td><strong>${esc(f.plan)}</strong></td><td>${num(f.activos)}</td><td>${eur(f.mrr)}</td><td><span class="ms-barrita"><span style="width:${m.mrr ? Math.round((f.mrr / m.mrr) * 100) : 0}%"></span></span>${m.mrr ? pct(f.mrr / m.mrr) : '–'}</td><td>${eur(f.arpu)}</td><td>${lecturaUnica ? '–' : num(f.altas)}</td><td>${lecturaUnica ? '–' : num(f.bajas)}</td><td class="${f.churn > 0.08 ? 'ms-mal-t' : ''}">${lecturaUnica ? '–' : pct(f.churn)}</td><td>${eur(f.ltvMedio)}</td><td title="Lo que paga al mes ÷ churn mensual">${f.ltvEsperado != null ? eur(f.ltvEsperado) : '–'}</td><td>${f.vidaMeses ? `${f.vidaMeses.toLocaleString('es-ES')} meses` : '–'}</td><td><code>${esc(tagDePlan(c, f.plan) || '—')}</code></td></tr>`).join('')}</tbody></table></div>
-      ${bloqueGhl()}
-      ${puedeConfig() ? `<div class="ms-sync"><div><strong>Etiquetas de GHL</strong> <span class="muted small">Cada alumno lleva la de su plan (y las bajas, la de baja${c.tagBaja ? ` «${esc(c.tagBaja)}»` : ': ponla en Planes y etiquetas'}). Es lo que dispara tus flujos de GHL.</span></div>${pend.length ? `<button type="button" class="btn primary" data-ms="sincronizar">🏷️ Poner etiquetas a ${num(pend.length)} ${pend.length === 1 ? 'alumno' : 'alumnos'}</button>` : '<span class="ms-ok-t">✅ Todas al día</span>'}</div>` : ''}
+      ${m.sinPrecio ? `<p class="ms-aviso">${ico('alert')} ${num(m.sinPrecio)} alumnos activos sin precio: Skool no lo trae para su plan. Ponlo en <button type="button" class="link-btn" data-ms-vista="planes">Planes y etiquetas</button> para que cuenten en el MRR.</p>` : ''}
+      <h3 class="ms-h">${ico('crown')} Tus planes</h3>
+      <div class="ms-planes-g">${m.filas.map((f) => `<article class="ms-pcard" style="--c:${colorPlan(f.plan)}">
+        <header><span class="ms-pcard-n">${esc(f.plan)}</span><span class="ms-pill ${una ? '' : tonoChurn(f.churn)}" title="Churn de los últimos 30 días">${una ? 'churn: 2.ª lectura' : `churn ${pct(f.churn)}`}</span></header>
+        <div class="ms-pcard-big"><strong>${num(f.activos)}</strong><span>alumnos</span><strong class="ms-pcard-mrr">${eur(f.mrr)}</strong><span>/mes</span></div>
+        <div class="ms-share" title="${m.mrr ? pct(f.mrr / m.mrr) : '–'} del MRR"><span style="width:${m.mrr ? Math.round((f.mrr / m.mrr) * 100) : 0}%"></span></div>
+        <dl>
+          <div><dt>Media al mes</dt><dd>${eur(f.arpu)}</dd></div>
+          <div><dt>LTV medio</dt><dd>${eur(f.ltvMedio)}</dd></div>
+          <div><dt>LTV esperado ${ayuda('Lo que paga al mes ÷ churn mensual: lo que dejará de media un alumno nuevo de este plan')}</dt><dd>${f.ltvEsperado != null ? eur(f.ltvEsperado) : '–'}</dd></div>
+          <div><dt>Se quedan</dt><dd>${f.vidaMeses ? `${f.vidaMeses.toLocaleString('es-ES')} meses` : '–'}</dd></div>
+          ${una ? '' : `<div><dt>Altas / bajas</dt><dd><span class="ms-ok-t">+${num(f.altas)}</span> / <span class="ms-mal-t">−${num(f.bajas)}</span></dd></div>`}
+        </dl>
+        <footer>${ico('tag')} <code>${esc(tagDePlan(c, f.plan) || 'sin etiqueta')}</code></footer>
+      </article>`).join('')}</div>
+      <div class="ms-dos">
+        ${bloqueGhl()}
+        ${puedeConfig() ? `<section class="ms-accion"><header><span class="ms-kpi-ico" style="--t:#f97316">${ico('tag')}</span><div><strong>Etiquetas de GHL</strong><span class="muted small">Cada alumno, la de su plan; las bajas, ${c.tagBaja ? `<code>${esc(c.tagBaja)}</code>` : 'la de baja (ponla en Planes)'}. Disparan tus flujos de GHL.</span></div></header>
+          ${pend.length ? `<button type="button" class="btn primary" data-ms="sincronizar">${ico('tag')} Poner etiquetas a ${num(pend.length)} ${pend.length === 1 ? 'alumno' : 'alumnos'}</button>` : `<p class="ms-ok-t">${ico('check')} Todas al día</p>`}</section>` : ''}
+      </div>
       <div class="ms-cols">
-        <section class="ms-card"><h3 class="ms-h">Antigüedad de los activos</h3><ul class="ms-barras">${m.antiguedad.map((x) => `<li><span>${esc(x.label)}</span><span class="ms-barrita"><span style="width:${Math.round((x.n / maxAnt) * 100)}%"></span></span><strong>${num(x.n)}</strong></li>`).join('')}</ul></section>
-        <section class="ms-card"><h3 class="ms-h">🔥 Más activos</h3>${m.conActividad ? `<ol class="ms-lista">${m.masActivos.map((a) => fila(a, `${num(a.puntos)} pts`)).join('')}</ol>` : '<p class="muted small">Skool no ha traído puntos ni última conexión (elige esos datos al revisar la próxima lectura).</p>'}</section>
-        <section class="ms-card"><h3 class="ms-h">⚠️ En riesgo <span class="muted small">sin entrar 14+ días</span></h3>${m.enRiesgo.length ? `<ol class="ms-lista">${m.enRiesgo.slice(0, 10).map((a) => fila(a, hace(a.ultima))).join('')}</ol>${m.enRiesgo.length > 10 ? `<button type="button" class="link-btn" data-ms-seg="riesgo">Ver los ${num(m.enRiesgo.length)} →</button>` : ''}` : `<p class="muted small">${m.conActividad ? 'Nadie: todos han entrado en las últimas 2 semanas. 👏' : 'Hace falta la última conexión de Skool.'}</p>`}</section>
-        <section class="ms-card"><h3 class="ms-h">👋 Bajas recientes <span class="muted small">para recuperar</span></h3>${m.bajasRecientes.length ? `<ol class="ms-lista">${m.bajasRecientes.slice(0, 10).map((a) => fila(a, `${hace(a.bajaEn)} · LTV ${eur(ltvDe(a))}`)).join('')}</ol>` : '<p class="muted small">Ninguna en los últimos 30 días.</p>'}</section>
+        <section class="ms-card ms-card-evo"><h3 class="ms-h">${ico('chart')} Altas y bajas por semana</h3>${una ? `<p class="muted small">${sinDato}: con cada lectura de Skool se ven las altas y bajas de cada semana.</p>` : `${evolucion(m.semanas)}<p class="ms-leyenda"><span><i style="background:#16a34a"></i>Altas</span><span><i style="background:#e11d48"></i>Bajas</span><span class="muted">últimas 12 semanas</span></p>`}</section>
+        <section class="ms-card"><h3 class="ms-h">${ico('calendar')} Antigüedad</h3><ul class="ms-barras">${m.antiguedad.map((x) => `<li><span>${esc(x.label)}</span><span class="ms-barrita"><span style="width:${Math.round((x.n / maxAnt) * 100)}%"></span></span><strong>${num(x.n)}</strong></li>`).join('')}</ul></section>
+      </div>
+      <div class="ms-cols ms-cols-3">
+        <section class="ms-card"><h3 class="ms-h">${ico('star', 'ms-t-amar')} Más activos</h3>${m.conActividad ? `<ol class="ms-lista">${m.masActivos.map((a) => `<li><button type="button" class="ms-mini" data-ms-ver="${esc(a.email)}">${avatar(a)}<span class="ms-mini-t"><span class="ms-mini-n">${esc(a.nombre || a.email)}</span><span class="ms-meter"><span style="width:${Math.round(((a.puntos || 0) / maxPts) * 100)}%"></span></span></span><span class="ms-pill">${num(a.puntos)} pts</span></button></li>`).join('')}</ol>` : '<p class="muted small">Skool no ha traído puntos ni última conexión: elígelos al revisar la próxima lectura.</p>'}</section>
+        <section class="ms-card"><h3 class="ms-h">${ico('alert', 'ms-t-mal')} En riesgo <span class="muted small">14+ días sin entrar</span></h3>${m.enRiesgo.length ? `<ol class="ms-lista">${m.enRiesgo.slice(0, 8).map((a) => fila(a, hace(a.ultima), 'mal')).join('')}</ol>${m.enRiesgo.length > 8 ? `<button type="button" class="link-btn ms-ver-todos" data-ms-seg="riesgo">Ver los ${num(m.enRiesgo.length)} y escribirles →</button>` : ''}` : `<p class="ms-ok-t small">${m.conActividad ? `${ico('check')} Nadie: todos han entrado en las últimas 2 semanas.` : 'Hace falta la última conexión de Skool.'}</p>`}</section>
+        <section class="ms-card"><h3 class="ms-h">${ico('wave', 'ms-t-azul')} Bajas recientes <span class="muted small">para recuperar</span></h3>${m.bajasRecientes.length ? `<ol class="ms-lista">${m.bajasRecientes.slice(0, 8).map((a) => fila(a, `${eur(ltvDe(a))} · ${hace(a.bajaEn)}`)).join('')}</ol>${m.bajasRecientes.length > 8 ? `<button type="button" class="link-btn ms-ver-todos" data-ms-seg="bajas">Ver las ${num(m.bajasRecientes.length)} →</button>` : ''}` : `<p class="muted small">Ninguna en los últimos 30 días.</p>`}</section>
       </div>`;
   }
 
@@ -176,14 +277,16 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     const g = resumenGhl(st.datos?.alumnos || []);
     if (!g.total) return '';
     const cruzados = g.enGhl + g.noEsta;
+    const pctGhl = g.total ? g.enGhl / g.total : 0;
+    const R = 20; const C = 2 * Math.PI * R;
     const bts = puedeConfig() ? [
-      g.sinCruzar ? `<button type="button" class="btn primary" data-ms="cruzar">🔗 Cruzar ${num(g.sinCruzar)} ${g.sinCruzar === 1 ? 'alumno' : 'alumnos'} con GHL</button>` : '',
-      g.noEsta ? `<button type="button" class="btn" data-ms="crear-ghl">➕ Crear en GHL ${g.noEsta === 1 ? 'el que no está' : `los ${num(g.noEsta)} que no están`}</button>` : '',
-      cruzados ? '<button type="button" class="btn ghost" data-ms="recruzar">🔄 Volver a cruzar todos</button>' : '',
+      g.sinCruzar ? `<button type="button" class="btn primary" data-ms="cruzar">${ico('link')} Cruzar ${num(g.sinCruzar)} con GHL</button>` : '',
+      g.noEsta ? `<button type="button" class="btn" data-ms="crear-ghl">${ico('plus')} Crear en GHL ${g.noEsta === 1 ? 'el que falta' : `los ${num(g.noEsta)} que faltan`}</button>` : '',
+      cruzados ? `<button type="button" class="btn ghost" data-ms="recruzar">${ico('refresh')} Volver a cruzar</button>` : '',
     ].join('') : '';
-    return `<div class="ms-sync ms-ghl"><div><strong>🔗 Cruce con GHL</strong> <span class="muted small">Por el email de Skool se busca su ficha en GHL: su móvil (para WhatsApp), sus etiquetas y a quién se le pueden poner.</span>
-      <div class="ms-ghl-n"><span class="ms-ok-t">✅ ${num(g.enGhl)} en GHL</span>${g.noEsta ? `<button type="button" class="link-btn ms-mal-t" data-ms-seg="singhl">❌ ${num(g.noEsta)} no están</button>` : ''}${g.sinCruzar ? `<span class="muted">⏳ ${num(g.sinCruzar)} sin cruzar</span>` : ''}<span>📱 ${num(g.conMovil)} con móvil</span></div></div>
-      ${bts ? `<div class="ms-barra-bts">${bts}</div>` : ''}</div>`;
+    return `<section class="ms-accion ms-ghl"><header><svg class="ms-anillo" viewBox="0 0 50 50" aria-hidden="true"><circle cx="25" cy="25" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="6"/><circle cx="25" cy="25" r="${R}" fill="none" stroke="#16a34a" stroke-width="6" stroke-linecap="round" stroke-dasharray="${(pctGhl * C).toFixed(2)} ${C.toFixed(2)}" transform="rotate(-90 25 25)"/><text x="25" y="29" text-anchor="middle">${Math.round(pctGhl * 100)}%</text></svg><div><strong>Cruce con GHL</strong><span class="muted small">Por su email de Skool: su ficha, su móvil y sus etiquetas.</span></div></header>
+      <div class="ms-ghl-n"><span class="ms-pill ok">${ico('check')} ${num(g.enGhl)} en GHL</span>${g.noEsta ? `<button type="button" class="ms-pill mal" data-ms-seg="singhl" title="Ver quiénes">${ico('x')} ${num(g.noEsta)} no están</button>` : ''}${g.sinCruzar ? `<span class="ms-pill">${ico('clock')} ${num(g.sinCruzar)} sin cruzar</span>` : ''}<span class="ms-pill">${ico('phone')} ${num(g.conMovil)} con móvil</span></div>
+      ${bts ? `<div class="ms-barra-bts">${bts}</div>` : ''}</section>`;
   }
   // Cruza (o crea, o etiqueta) en tandas de 10 y vuelve a cargar. → resultados
   async function cruzar(emails, op = 'contacto', etiqueta = 'Cruzando con GHL') {
@@ -201,52 +304,72 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     l = l.sort(seg.orden || ((a, b) => (b.alta || 0) - (a.alta || 0)));
     return l;
   }
+  const ICO_SEG = { todos: 'users', nuevos: 'seed', activos: 'star', riesgo: 'alert', ltv: 'heart', singhl: 'link', bajas: 'wave' };
   function vistaAlumnos() {
     const al = st.datos?.alumnos || [];
     if (!al.length) return vistaResumen();
     const ahora = Date.now();
-    const planes = [...new Set(al.map((a) => a.plan))].sort();
     const l = filtrados();
     const c = cfg();
-    const pagina = l.slice(0, st.limite || 100);
+    const pagina = l.slice(0, st.limite || 60);
     return `
-      <div class="ms-segs">${SEGMENTOS.map((s) => { const n = al.filter((a) => s.f(a, ahora)).length; return `<button type="button" class="ms-seg${st.seg === s.id ? ' activa' : ''}" data-ms-seg="${s.id}"><span aria-hidden="true">${s.ico}</span> ${esc(s.label)} <strong>${num(n)}</strong></button>`; }).join('')}</div>
-      <div class="ms-filtros"><input type="search" id="ms-q" placeholder="Buscar por nombre o email" value="${esc(st.q)}"><select id="ms-plan"><option value="">Todos los planes</option>${planes.map((p) => `<option${p === st.plan ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select><span class="muted small">${num(l.length)} ${l.length === 1 ? 'alumno' : 'alumnos'}</span></div>
+      <div class="ms-segs" role="tablist" aria-label="Segmentos">${SEGMENTOS.map((s) => { const n = al.filter((a) => s.f(a, ahora)).length; if (!n && s.id !== 'todos' && st.seg !== s.id) return ''; return `<button type="button" class="ms-seg${st.seg === s.id ? ' activa' : ''}" data-ms-seg="${s.id}">${ico(ICO_SEG[s.id] || 'users')}<span>${esc(s.label)}</span><em>${num(n)}</em></button>`; }).join('')}</div>
+      <div class="ms-filtros"><label class="ms-buscar">${ico('search')}<input type="search" id="ms-q" placeholder="Buscar por nombre o email" value="${esc(st.q)}"></label>
+        <div class="ms-planchips"><button type="button" class="ms-planf${st.plan ? '' : ' activa'}" data-ms-planf="">Todos</button>${planesOrden().map((p) => `<button type="button" class="ms-planf${st.plan === p ? ' activa' : ''}" data-ms-planf="${esc(p)}" style="--c:${colorPlan(p)}"><i></i>${esc(p)}</button>`).join('')}</div>
+        <span class="muted small">${num(l.length)} ${l.length === 1 ? 'alumno' : 'alumnos'}</span></div>
+      ${l.length ? '' : '<p class="muted">Nadie en este segmento.</p>'}
       <ul class="ms-alumnos">${pagina.map((a) => {
         const wa = waDe(a.telefono);
         const ult = (a.contactos || []).at(-1);
-        return `<li class="ms-al${a.activo === false ? ' baja' : ''}" data-email="${esc(a.email)}">
-          <div class="ms-al-q"><strong>${esc(a.nombre || a.email)}</strong><span class="ms-badge">${esc(a.plan)}</span>${a.activo === false ? `<span class="ms-badge mal">Baja ${hace(a.bajaEn)}</span>` : ''}${a.enGhl === true ? `<span class="ms-badge ghl" title="${esc((a.ghlTags || []).length ? `Etiquetas en GHL: ${(a.ghlTags || []).join(', ')}` : 'En GHL, sin etiquetas')}">GHL ✓</span>` : a.enGhl === false ? '<span class="ms-badge mal" title="Su email de Skool no está en GHL">No está en GHL</span>' : ''}<br><span class="muted small">${esc(a.email)}${a.telefono ? ` · ${esc(a.telefono)}` : ''}</span></div>
-          <div class="ms-al-d"><span title="Antigüedad">🗓️ ${antig(a.alta)}</span><span title="Lo que ha pagado en total">💶 ${eur(ltvDe(a))}</span>${precioMes(a, c.precios || {}) ? `<span title="Lo que paga al mes">${eur(precioMes(a, c.precios || {}))}/mes</span>` : ''}${a.puntos != null ? `<span title="Puntos en Skool">⭐ ${num(a.puntos)}</span>` : ''}${a.ultima ? `<span title="Última conexión en Skool">👀 ${hace(a.ultima)}</span>` : ''}${ult ? `<span class="muted" title="Último mensaje desde aquí">${ult.canal === 'wa' ? '💬' : '✉️'} ${hace(ult.t)}</span>` : ''}</div>
-          <div class="ms-al-a">${wa ? `<a class="btn small wa" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(rellenar(c.mensajeWa || 'Hola {nombre}, ', a))}" target="_blank" rel="noopener" data-ms-wa="${esc(a.email)}">💬 WhatsApp</a>` : a.enGhl === false ? '<span class="muted small" title="Su email de Skool no está en GHL">Sin móvil</span>' : a.enGhl === true ? '<span class="muted small" title="Su ficha de GHL no tiene móvil. Si se lo pones en GHL, pulsa «Volver a cruzar todos».">Sin móvil en GHL</span>' : `<button type="button" class="btn small" data-ms-tel="${esc(a.email)}" title="Busca su ficha en GHL por su email y trae su móvil">📱 Buscar móvil</button>`}<button type="button" class="btn small" data-ms-email="${esc(a.email)}">✉️ Email</button></div>
+        const mes = precioMes(a, c.precios || {});
+        const tono = tonoUltima(a.ultima);
+        const estadoGhl = a.enGhl === true ? `<span class="ms-ghlst ok" title="${esc((a.ghlTags || []).length ? `En GHL · etiquetas: ${(a.ghlTags || []).join(', ')}` : 'En GHL')}">${ico('link')} GHL</span>` : a.enGhl === false ? '<span class="ms-ghlst mal" title="Su email de Skool no está en GHL">' + ico('x') + ' sin GHL</span>' : '';
+        return `<li class="ms-al${a.activo === false ? ' baja' : ''}" data-email="${esc(a.email)}" style="--c:${colorPlan(a.plan)}">
+          <div class="ms-al-q">${avatar(a)}<div><div class="ms-al-n"><strong>${esc(a.nombre || a.email)}</strong>${chipPlan(a.plan)}${a.activo === false ? `<span class="ms-pill mal">Baja ${hace(a.bajaEn)}</span>` : ''}</div><span class="muted small">${esc(a.email)}${a.telefono ? ` · ${esc(a.telefono)}` : ''}</span> ${estadoGhl}</div></div>
+          <div class="ms-al-d">
+            <span title="Antigüedad">${ico('calendar')}${antig(a.alta)}</span>
+            <span title="Lo que ha pagado en total">${ico('heart')}${eur(ltvDe(a))}</span>
+            ${mes ? `<span title="Lo que paga al mes">${ico('euro')}${eur(mes)}/mes</span>` : ''}
+            ${a.puntos != null ? `<span title="Puntos en Skool">${ico('star')}${num(a.puntos)}</span>` : ''}
+            ${a.ultima ? `<span class="ms-ult ${tono}" title="Última conexión en Skool"><i></i>${hace(a.ultima)}</span>` : ''}
+            ${ult ? `<span class="muted" title="Último mensaje desde aquí">${ult.canal === 'wa' ? WA : ico('mail')}${hace(ult.t)}</span>` : ''}
+          </div>
+          <div class="ms-al-a">${wa ? `<a class="btn small wa" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(rellenar(c.mensajeWa || 'Hola {nombre}, ', a))}" target="_blank" rel="noopener" data-ms-wa="${esc(a.email)}" aria-label="WhatsApp a ${esc(a.nombre || a.email)}">${WA} WhatsApp</a>` : a.enGhl === false ? '<span class="ms-sinmovil" title="Su email de Skool no está en GHL: créalo con «Crear en GHL»">' + ico('phone') + ' sin móvil</span>' : a.enGhl === true ? '<span class="ms-sinmovil" title="Su ficha de GHL no tiene móvil. Si se lo pones, pulsa «Volver a cruzar».">' + ico('phone') + ' sin móvil</span>' : `<button type="button" class="btn small" data-ms-tel="${esc(a.email)}" title="Busca su ficha en GHL por su email y trae su móvil">${ico('phone')} Buscar móvil</button>`}<button type="button" class="btn small" data-ms-email="${esc(a.email)}" aria-label="Email a ${esc(a.nombre || a.email)}">${ico('mail')} Email</button></div>
         </li>`;
       }).join('')}</ul>
       ${l.length > pagina.length ? `<p class="ms-mas"><button type="button" class="btn" data-ms="mas">Ver más (${num(l.length - pagina.length)})</button></p>` : ''}
-      ${l.some((a) => !a.telefono && a.enGhl == null) ? `<p class="muted small">Skool no da el móvil: se trae de su ficha de GHL cruzando por su email. <button type="button" class="link-btn" data-ms="moviles">Cruzar con GHL los ${num(l.filter((a) => !a.telefono && a.enGhl == null).length)} de esta lista sin cruzar</button></p>` : ''}`;
+      ${l.some((a) => !a.telefono && a.enGhl == null) ? `<p class="ms-aviso ms-aviso-azul">${ico('phone')} Skool no da el móvil: se trae de su ficha de GHL por su email. <button type="button" class="link-btn" data-ms="moviles">Cruzar los ${num(l.filter((a) => !a.telefono && a.enGhl == null).length)} de esta lista</button></p>` : ''}`;
   }
 
   function vistaPlanes() {
     const c = cfg();
-    const planes = [...new Set((st.datos?.alumnos || []).map((a) => a.plan))].sort();
+    const planes = planesOrden();
     return `<section class="ms-planes-cfg">
-      <p class="muted small">Cada plan con su etiqueta de GHL (la que dispara su flujo: bienvenida, venta cruzada, subida de plan…). Si la dejas vacía, se usa <code>${esc(c.prefijo || 'alumno')}-&lt;plan&gt;</code>. El precio solo hace falta si Skool no lo trae.</p>
-      <div class="ms-grid2"><label class="field"><span>Prefijo de las etiquetas</span><input id="ms-prefijo" value="${esc(c.prefijo || 'alumno')}" maxlength="40"></label>
-      <label class="field"><span>Etiqueta para las bajas <small>(dispara el flujo de recuperación)</small></span><input id="ms-tagbaja" value="${esc(c.tagBaja || '')}" placeholder="membresia-baja" maxlength="80"></label></div>
-      ${planes.length ? `<div class="ms-tabla-wrap"><table class="ms-tabla"><thead><tr><th>Plan (como sale en Skool)</th><th>Etiqueta de GHL</th><th>Precio si Skool no lo trae</th></tr></thead><tbody>${planes.map((p) => `<tr data-ms-plan="${esc(p)}"><td><strong>${esc(p)}</strong></td><td><input class="ms-in-tag" value="${esc(c.etiquetas?.[p] || '')}" placeholder="${esc(tagDePlan({ prefijo: c.prefijo }, p))}" maxlength="80"></td><td class="ms-precio"><input class="ms-in-precio" type="number" min="0" step="0.01" value="${c.precios?.[p]?.importe ?? ''}" placeholder="–"> € / <select class="ms-in-int"><option value="mes"${c.precios?.[p]?.intervalo === 'año' ? '' : ' selected'}>mes</option><option value="año"${c.precios?.[p]?.intervalo === 'año' ? ' selected' : ''}>año</option></select></td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Los planes aparecen aquí cuando leas los alumnos de Skool.</p>'}
-      <h3 class="ms-h">Mensajes por defecto</h3>
-      <p class="muted small">Con <code>{nombre}</code> (nombre de pila) y <code>{plan}</code>. Se pueden cambiar antes de enviar cada uno.</p>
-      <label class="field"><span>WhatsApp</span><textarea id="ms-msg-wa" rows="2" maxlength="1000" placeholder="Hola {nombre}, ">${esc(c.mensajeWa || '')}</textarea></label>
-      <label class="field"><span>Asunto del email</span><input id="ms-asunto" maxlength="150" value="${esc(c.asunto || '')}"></label>
+      <div class="ms-grid2">
+        <label class="field"><span>${ico('tag')} Prefijo de las etiquetas</span><input id="ms-prefijo" value="${esc(c.prefijo || 'alumno')}" maxlength="40"><small class="muted">Sin etiqueta propia, cada plan lleva <code>${esc(c.prefijo || 'alumno')}-&lt;plan&gt;</code></small></label>
+        <label class="field"><span>${ico('wave')} Etiqueta de las bajas</span><input id="ms-tagbaja" value="${esc(c.tagBaja || '')}" placeholder="membresia-baja" maxlength="80"><small class="muted">Dispara tu flujo de recuperación en GHL</small></label>
+      </div>
+      <h3 class="ms-h">${ico('crown')} Cada plan</h3>
+      ${planes.length ? `<div class="ms-plancfg">${planes.map((p) => `<div class="ms-plancfg-f" data-ms-plan="${esc(p)}" style="--c:${colorPlan(p)}">
+        <div class="ms-plancfg-n">${chipPlan(p)}</div>
+        <label class="field"><span>Etiqueta de GHL</span><input class="ms-in-tag" value="${esc(c.etiquetas?.[p] || '')}" placeholder="${esc(tagDePlan({ prefijo: c.prefijo }, p))}" maxlength="80"></label>
+        <label class="field"><span>Precio <small>(si Skool no lo trae)</small></span><span class="ms-precio"><input class="ms-in-precio" type="number" min="0" step="0.01" value="${c.precios?.[p]?.importe ?? ''}" placeholder="–"> € / <select class="ms-in-int"><option value="mes"${c.precios?.[p]?.intervalo === 'año' ? '' : ' selected'}>mes</option><option value="año"${c.precios?.[p]?.intervalo === 'año' ? ' selected' : ''}>año</option></select></span></label>
+      </div>`).join('')}</div>` : '<p class="muted">Los planes aparecen aquí cuando leas los alumnos de Skool.</p>'}
+      <h3 class="ms-h">${ico('mail')} Mensajes por defecto</h3>
+      <p class="muted small">Con <code>{nombre}</code> (nombre de pila) y <code>{plan}</code>. Antes de enviar cada uno se pueden cambiar.</p>
+      <label class="field"><span>${WA} WhatsApp</span><textarea id="ms-msg-wa" rows="2" maxlength="1000" placeholder="Hola {nombre}, ">${esc(c.mensajeWa || '')}</textarea></label>
+      <div class="ms-grid2"><label class="field"><span>${ico('mail')} Asunto del email</span><input id="ms-asunto" maxlength="150" value="${esc(c.asunto || '')}"></label></div>
       <label class="field"><span>Texto del email</span><textarea id="ms-cuerpo" rows="5" maxlength="5000">${esc(c.cuerpo || '')}</textarea></label>
-      <p><button type="button" class="btn primary" data-ms="guardar-cfg">Guardar</button></p>
+      <p><button type="button" class="btn primary" data-ms="guardar-cfg">${ico('check')} Guardar</button></p>
     </section>`;
   }
 
   function pintar() {
     if (!body) return;
+    if (!conMembresia(cliente())) { body.innerHTML = '<p class="muted">La membresía de Skool es de Discendo: entra en Discendo para verla.</p>'; return; }
     if (!st.datos) { body.innerHTML = '<p class="muted">Cargando la membresía…</p>'; return; }
     const v = st.importacion ? 'importar' : st.vista;
-    body.innerHTML = `${barra()}${puedeConfig() ? guia() : ''}${st.importacion ? '' : pestanas()}<div class="ms-vista">${v === 'importar' ? vistaImportar() : v === 'alumnos' ? vistaAlumnos() : v === 'planes' && puedeConfig() ? vistaPlanes() : vistaResumen()}</div>`;
+    body.innerHTML = `${barra()}${puedeConfig() && !st.importacion ? guia() : ''}${st.importacion ? '' : pestanas()}<div class="ms-vista">${v === 'importar' ? vistaImportar() : v === 'alumnos' ? vistaAlumnos() : v === 'planes' && puedeConfig() ? vistaPlanes() : vistaResumen()}</div>`;
   }
 
   // ---------- Acciones ----------
@@ -295,10 +418,11 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
   }
 
   body?.addEventListener('click', async (e) => {
-    const t = e.target.closest('[data-ms],[data-ms-vista],[data-ms-seg],[data-ms-email],[data-ms-tel],[data-ms-wa],[data-ms-ver]');
+    const t = e.target.closest('[data-ms],[data-ms-vista],[data-ms-seg],[data-ms-email],[data-ms-tel],[data-ms-wa],[data-ms-ver],[data-ms-planf]');
     if (!t) return;
+    if (t.dataset.msPlanf != null) { st.plan = t.dataset.msPlanf; st.limite = 60; pintar(); return; }
     if (t.dataset.msVista) { st.vista = t.dataset.msVista; ls.set('lsd_ms_vista', st.vista); pintar(); return; }
-    if (t.dataset.msSeg) { st.seg = t.dataset.msSeg; st.vista = 'alumnos'; st.limite = 100; pintar(); return; }
+    if (t.dataset.msSeg) { st.seg = t.dataset.msSeg; st.vista = 'alumnos'; st.limite = 60; pintar(); return; }
     if (t.dataset.msVer) { st.vista = 'alumnos'; st.seg = SEGMENTOS.some((s) => s.id === 'bajas') && (st.datos.alumnos.find((a) => a.email === t.dataset.msVer)?.activo === false) ? 'bajas' : 'todos'; st.q = t.dataset.msVer; pintar(); return; }
     if (t.dataset.msEmail) { correo(t.dataset.msEmail); return; }
     if (t.dataset.msWa) {
@@ -396,7 +520,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
       } catch (err) { notice(err.message, true); }
       return;
     }
-    if (op === 'mas') { st.limite = (st.limite || 100) + 100; pintar(); return; }
+    if (op === 'mas') { st.limite = (st.limite || 60) + 60; pintar(); return; }
     if (op === 'guardar-cfg') {
       const etiquetas = {}; const precios = {};
       for (const tr of body.querySelectorAll('[data-ms-plan]')) {

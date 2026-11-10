@@ -92,6 +92,7 @@ import { tiposPara, quiereNotif, CANALES_NOTIF, tipoNotif } from './notificacion
 import { sanitizeRich, richToHtml, richToText, richTieneVideo, richTieneEnlace, videoEmbed, safeHref } from './richtext.js';
 import { sinEmojis } from './sin-emojis.js';
 import { montarMembresia } from './membresia-panel.js';
+import { conMembresia } from './membresia.js';
 
 // AlquimIA sin emojis en la interfaz: iconos de línea en su lugar (los mensajes a las leads conservan los suyos).
 sinEmojis();
@@ -1407,7 +1408,8 @@ function pintarSidebar() {
   $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio) && !agencia && !state.enNegocio && !state.enPagina);
   // «Inteligencia de negocio»: para quien ve las métricas (el rol Cliente la tiene en su portal).
   $('#sb-negocio').hidden = !(tiene('metricas') && embudos().length);
-  $('#sb-membresia').hidden = !(tiene('hoy') || tiene('metricas') || tiene('config'));
+  // Solo en Discendo (la membresía de Skool es suya) y para quien tiene acceso a sus datos.
+  $('#sb-membresia').hidden = !(conMembresia(state.cliente) && (tiene('hoy') || tiene('metricas') || tiene('config')));
   $('#sb-membresia').classList.toggle('active', state.enPagina === 'membresia-dialog');
   $('#sb-negocio').classList.toggle('active', Boolean(state.enNegocio));
   $$('#sb-config-sub [data-proxy]').forEach((b) => b.classList.toggle('active', Boolean(state.enPagina) && b.dataset.proxy === PAGINA_BTN[state.enPagina]));
