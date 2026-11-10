@@ -18464,7 +18464,15 @@ const emailDiario = montarEmailDiario({ api, esc, ls, cliente: () => state.clien
 const fabrica = montarFabrica({ api, esc, notice, ls, puedeConfig, ctx: () => {
   const c = contextoPaginas();
   return { embudo: state.embudo, embudoNombre: c.nombre || '', code: pbCodigo(), cliente: state.cliente, clienteNombre: clienteNombre(),
-    lanz: tipoActual() === 'lanz', marca: { nombre: pgc.marca?.nombre || clienteNombre(), producto: nombreProducto(state.config) } };
+    lanz: tipoActual() === 'lanz', marca: { nombre: pgc.marca?.nombre || clienteNombre(), producto: nombreProducto(state.config) },
+    // Registros reales (GHL) por anuncio, por sus UTM: como en Publicidad (null si los leads de este embudo no están cargados).
+    porUtm: (rango, preset) => {
+      if (!rango?.desde) return null;
+      if (enVsl()) return state.vsl?.leads ? registrosReales(state.vsl.leads, rango, 0, { dia: (l) => l.fReg })?.porUtm || null : null;
+      if (tipoActual() !== 'lanz' || state.leadsDe !== pbCodigo() || !state.leads?.length) return null;
+      const inicio = state.config.launches[pbCodigo()]?.inicioCaptacion || '';
+      return registrosReales(state.leads, rango, 0, { dia: (l) => (l.dateAdded ? dayInMadrid(l.dateAdded) : ''), todos: preset === 'lanzamiento', inicio })?.porUtm || null;
+    } };
 } });
 const montaje = montarMontaje({ api, esc, cliente: () => state.cliente, clienteNombre: () => clienteNombre(), alCambiar: () => cargarMontajesSb({ forzar: true }) });
 $('#tb-email-diario').addEventListener('click', () => { const d = $('#email-diario-dialog'); d.showModal(); emailDiario.abrir(); });

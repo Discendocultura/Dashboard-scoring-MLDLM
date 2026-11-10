@@ -7,12 +7,14 @@
 // AlquimIA no llama a ninguna IA de imagen ni de vídeo: se usan los créditos de Magnific y el Drive que ya se pagan.
 // Lo usan el navegador (pestaña) y el servidor (handlers/fabrica.js, lib/mcp-tools.js).
 import { ventasEnArbol } from './origen.js';
+import { realesDeNodo } from './publicidad.js';
 
 const txt = (v, max = 400) => String(v ?? '').replace(/[\u0000-\u0008\u000b-\u001f]/g, ' ').trim().slice(0, max);
 const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
 
 // Anuncios del árbol de Publicidad (campañas → conjuntos → anuncios), con sus ventas reales, de más a menos vendedor.
-export function ganadoresDe(arbol, ventas = [], { desde = '', hasta = '9999' } = {}) {
+// `porUtm` (de registrosReales): registros reales (GHL) por anuncio según sus UTM → CPL real. Sin él, el CPL de Meta.
+export function ganadoresDe(arbol, ventas = [], { desde = '', hasta = '9999', porUtm = null } = {}) {
   if (!arbol?.campanas) return [];
   ventasEnArbol(arbol, ventas, { desde, hasta });
   const out = [];
@@ -22,16 +24,19 @@ export function ganadoresDe(arbol, ventas = [], { desde = '', hasta = '9999' } =
         const m = a.m || {};
         const real = a.real || {};
         const ingresos = r2(real.ingresos);
+        const leads = porUtm ? realesDeNodo(porUtm, { ...a, nivel: 'ad' }) : null;
+        const ventasR = real.ventas || 0;
         out.push({
           id: String(a.id), nombre: a.nombre || '', campana: c.nombre || '', conjunto: s.nombre || '', estado: a.estado || '',
           gasto: r2(m.gasto), ctr: m.ctrEnlace ?? m.ctr ?? null, cpl: m.cpl ?? null, registros: m.registros || 0, compras: m.compras || 0,
-          ventas: real.ventas || 0, ingresos, roasReal: m.gasto ? r2(ingresos / m.gasto) : null, roasMeta: m.roas ?? null, hook: m.hook ?? null,
+          ventas: ventasR, ingresos, roasReal: m.gasto ? r2(ingresos / m.gasto) : null, roasMeta: m.roas ?? null, hook: m.hook ?? null,
+          leads, cplReal: leads && m.gasto ? r2(m.gasto / leads) : null, cac: ventasR && m.gasto ? r2(m.gasto / ventasR) : null,
         });
       }
     }
   }
   return out.filter((a) => a.gasto > 0 || a.ventas > 0)
-    .sort((a, b) => (b.ventas - a.ventas) || (b.ingresos - a.ingresos) || (b.compras - a.compras) || (b.registros - a.registros) || ((b.ctr || 0) - (a.ctr || 0)));
+    .sort((a, b) => (b.ventas - a.ventas) || (b.ingresos - a.ingresos) || (b.compras - a.compras) || ((b.leads ?? b.registros) - (a.leads ?? a.registros)) || ((b.ctr || 0) - (a.ctr || 0)));
 }
 
 // Qué se puede cambiar en una variación (se eligen varios).
@@ -50,7 +55,8 @@ export const cambiosPara = (tipo) => CAMBIOS.filter((c) => (tipo === 'video' ? c
 const eur = (n) => (n == null ? '–' : `${Number(n).toLocaleString('es-ES', { maximumFractionDigits: 2 })} €`);
 const porQueGano = (a) => [
   a.ventas ? `${a.ventas} ventas reales (${eur(a.ingresos)}, ROAS real ${a.roasReal != null ? `${a.roasReal}x` : '–'})` : '',
-  a.registros ? `${a.registros} registros${a.cpl != null ? ` a ${eur(a.cpl)}` : ''}` : '',
+  a.cac != null ? `CAC ${eur(a.cac)} (inversión ÷ ventas reales)` : '',
+  a.leads ? `${a.leads} registros reales${a.cplReal != null ? ` · CPL real ${eur(a.cplReal)}` : ''}` : a.registros ? `${a.registros} registros según Meta${a.cpl != null ? ` a ${eur(a.cpl)}` : ''}` : '',
   a.ctr != null ? `CTR de enlace ${(Number(a.ctr) * 100).toLocaleString('es-ES', { maximumFractionDigits: 2 })} %` : '',
   a.gasto ? `${eur(a.gasto)} invertidos` : '',
 ].filter(Boolean).join(' · ');
@@ -114,7 +120,7 @@ export function sanitizeLote(l = {}, { ahora = Date.now() } = {}) {
     id: txt(it.id, 30), nombre: txt(it.nombre, 160), campana: txt(it.campana, 160), conjunto: txt(it.conjunto, 160),
     tipo: it.tipo === 'video' ? 'video' : it.tipo === 'carrusel' ? 'carrusel' : 'imagen',
     imagen: url(it.imagen), miniatura: url(it.miniatura), video: url(it.video), texto: txt(it.texto, 2000), titulo: txt(it.titulo, 200), enlace: url(it.enlace),
-    gasto: num(it.gasto), ventas: num(it.ventas), ingresos: num(it.ingresos), roasReal: num(it.roasReal), ctr: num(it.ctr), registros: num(it.registros), cpl: num(it.cpl),
+    gasto: num(it.gasto), ventas: num(it.ventas), ingresos: num(it.ingresos), roasReal: num(it.roasReal), ctr: num(it.ctr), registros: num(it.registros), cpl: num(it.cpl), leads: num(it.leads), cplReal: num(it.cplReal), cac: num(it.cac),
     n: Math.min(Math.max(Math.round(Number(it.n) || 3), 1), 10),
     cambios: (Array.isArray(it.cambios) ? it.cambios : []).filter((c) => CAMBIOS.some((x) => x.id === c)).slice(0, 8),
     prompt: txt(it.prompt, 8000),

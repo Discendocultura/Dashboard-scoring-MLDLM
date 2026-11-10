@@ -8,7 +8,7 @@ const eur = (n) => (n == null || !Number.isFinite(Number(n)) ? '–' : Number(n)
 const PRESETS = [['lanzamiento', 'Este lanzamiento'], ['30d', '30 días'], ['90d', '90 días']];
 
 export function montarFabrica({ api, esc, notice, ls, puedeConfig, ctx }) {
-  // ctx(): { embudo, embudoNombre, code, cliente, clienteNombre, lanz, marca: { nombre, producto } }
+  // ctx(): { embudo, embudoNombre, code, cliente, clienteNombre, lanz, marca: { nombre, producto }, porUtm(rango, preset) }
   const st = { cargando: false, error: '', ganadores: null, crea: {}, sel: {}, lotes: [], preset: ls.get('lsd_fab_preset') || '90d', listo: null, clave: '' };
 
   async function cargar(box, { fresh = false } = {}) {
@@ -24,7 +24,9 @@ export function montarFabrica({ api, esc, notice, ls, puedeConfig, ctx }) {
       if (!d.configured) throw new Error('Meta no está conectado en este cliente (Conexiones → Anuncios).');
       if (d.sinCampanas) throw new Error('Este embudo no tiene campañas de Meta (revisa el código de campaña en su configuración).');
       const v = await api(`/api/publicidad?${qs}&parte=ventas`).catch(() => ({ ventas: [] }));
-      const g = ganadoresDe(d, v.ventas || [], { desde: d.rango?.desde || '', hasta: d.rango?.hasta || '9999' }).slice(0, 24);
+      const porUtm = c.porUtm?.(d.rango || {}, preset) || null;
+      st.conReales = Boolean(porUtm);
+      const g = ganadoresDe(d, v.ventas || [], { desde: d.rango?.desde || '', hasta: d.rango?.hasta || '9999', porUtm }).slice(0, 24);
       const ids = g.map((x) => x.id).filter((id) => !st.crea[id]);
       st.avisoCrea = '';
       // De 12 en 12: si un trozo falla, el resto se ve igual.
@@ -68,9 +70,12 @@ export function montarFabrica({ api, esc, notice, ls, puedeConfig, ctx }) {
         <div class="fb-kpis">
           <span class="fb-kpi fb-kpi-v" title="Ventas reales (primeras compras) de quien llegó por este anuncio"><b>${num(g.ventas)}</b><small>${g.ventas === 1 ? 'venta' : 'ventas'}</small></span>
           <span class="fb-kpi fb-roas ${roasCls(g.roasReal)}" title="ROAS real: lo cobrado de verdad ÷ lo invertido"><b>${roasTxt(g.roasReal)}</b><small>ROAS real</small></span>
-          <span class="fb-kpi" title="Invertido en el periodo"><b>${eur(g.gasto)}</b><small>invertido</small></span>
+          <span class="fb-kpi fb-cac" title="CAC: lo invertido en este anuncio ÷ sus ventas reales (lo que cuesta conseguir un cliente)"><b>${g.cac != null ? eur(g.cac) : '–'}</b><small>CAC</small></span>
+          ${g.leads != null
+            ? `<span class="fb-kpi fb-cpl" title="CPL real: lo invertido ÷ los registros reales de GHL que llegaron por este anuncio (según sus UTM)"><b>${g.cplReal != null ? eur(g.cplReal) : '–'}</b><small>CPL real · ${num(g.leads)} reg.</small></span>`
+            : `<span class="fb-kpi fb-cpl meta" title="CPL de Meta (lo que cuenta el píxel). El real aparece cuando estén cargados los registros del embudo."><b>${g.cpl != null ? eur(g.cpl) : '–'}</b><small>CPL Meta</small></span>`}
         </div>
-        <div class="fb-g-m">${g.ctr != null ? `<span>👆 CTR ${num(Number(g.ctr) * 100, 2)} %</span>` : ''}${g.registros ? `<span>📝 ${num(g.registros)} registros</span>` : ''}${g.ingresos ? `<span>💶 ${eur(g.ingresos)} cobrados</span>` : ''}</div>
+        <div class="fb-g-m"><span>💸 ${eur(g.gasto)} invertidos</span>${g.ctr != null ? `<span>👆 CTR ${num(Number(g.ctr) * 100, 2)} %</span>` : ''}${g.leads != null && g.registros ? `<span title="Registros que cuenta Meta">📝 ${num(g.registros)} según Meta</span>` : g.registros ? `<span>📝 ${num(g.registros)} registros</span>` : ''}${g.ingresos ? `<span>💶 ${eur(g.ingresos)} cobrados</span>` : ''}</div>
         ${g.texto ? `<p class="fb-g-t">${esc(g.texto.slice(0, 160))}${g.texto.length > 160 ? '…' : ''}</p>` : ''}
         ${sel ? `<div class="fb-g-opc"><div class="fb-n"><span>Variaciones</span><span class="fb-n-ctl"><button type="button" data-fb-mas="${esc(g.id)}|-1" aria-label="Una menos">−</button><b>${sel.n}</b><button type="button" data-fb-mas="${esc(g.id)}|1" aria-label="Una más">+</button></span></div>
           <span class="fb-opc-t">Qué cambiar</span>
@@ -100,6 +105,7 @@ export function montarFabrica({ api, esc, notice, ls, puedeConfig, ctx }) {
     const gs = st.ganadores || [];
     const tot = { gasto: gs.reduce((t, g) => t + (g.gasto || 0), 0), ventas: gs.reduce((t, g) => t + (g.ventas || 0), 0), ingresos: gs.reduce((t, g) => t + (g.ingresos || 0), 0) };
     const mejor = gs.filter((g) => g.ventas && g.roasReal != null).sort((a, b) => b.roasReal - a.roasReal)[0];
+    const leadsTot = st.conReales ? gs.reduce((t, g) => t + (g.leads || 0), 0) : 0;
     const paso = st.listo ? 4 : sel.length ? 3 : gs.length ? 2 : 1;
     const pasos = ['Ganadores', 'Elige y qué cambiar', 'Prepara el lote', 'Claude + Magnific → Drive'];
     box.innerHTML = `<section class="fb">
@@ -113,7 +119,8 @@ export function montarFabrica({ api, esc, notice, ls, puedeConfig, ctx }) {
         ${gs.length ? `<div class="fb-stats">
           <div><small>Anuncios con gasto</small><b>${num(gs.length)}</b></div>
           <div><small>Ventas reales</small><b>${num(tot.ventas)}</b></div>
-          <div><small>Cobrado</small><b>${eur(tot.ingresos)}</b></div>
+          <div title="Inversión total ÷ ventas reales"><small>CAC medio</small><b>${tot.ventas ? eur(tot.gasto / tot.ventas) : '–'}</b></div>
+          <div title="${st.conReales ? 'Inversión total ÷ registros reales de GHL con UTM de estos anuncios' : 'Hace falta tener cargados los registros del embudo'}"><small>CPL real medio</small><b>${leadsTot ? eur(tot.gasto / leadsTot) : '–'}</b></div>
           <div><small>Mejor ROAS real</small><b>${mejor ? roasTxt(mejor.roasReal) : '–'}</b></div>
         </div>` : ''}
         <ol class="fb-pasos">${pasos.map((t, i) => `<li class="${i + 1 < paso ? 'hecho' : i + 1 === paso ? 'on' : ''}"><b>${i + 1 < paso ? '✓' : i + 1}</b><span>${t}</span></li>`).join('')}</ol>
@@ -123,7 +130,7 @@ export function montarFabrica({ api, esc, notice, ls, puedeConfig, ctx }) {
       ${st.cargando ? `<p class="fb-leyendo"><span class="fb-spin" aria-hidden="true"></span> Leyendo los anuncios de Meta y sus ventas reales…</p>${esqueleto()}`
         : st.error ? `<p class="fb-error">⚠️ ${esc(st.error)}</p>`
         : !st.ganadores ? '' : !gs.length ? '<p class="muted">No hay anuncios con gasto en este periodo.</p>' : `
-        <div class="fb-sec"><h4>🏆 El podio</h4><span class="muted small">Ordenados por <strong>ventas reales</strong> (a igualdad: lo cobrado, compras, registros y CTR). Pulsa un anuncio para añadirlo al lote.</span></div>
+        <div class="fb-sec"><h4>🏆 El podio</h4><span class="muted small">Ordenados por <strong>ventas reales</strong> (a igualdad: lo cobrado, compras, registros reales y CTR). Pulsa un anuncio para añadirlo al lote.</span></div>
         <div class="fb-grid fb-grid-podio">${gs.slice(0, 3).map(tarjeta).join('')}</div>
         ${gs.length > 3 ? `<div class="fb-sec"><h4>El resto de anuncios</h4><span class="muted small">${gs.length - 3} más</span></div>
         <div class="fb-grid">${gs.slice(3).map((g, i) => tarjeta(g, i + 3)).join('')}</div>` : ''}`}

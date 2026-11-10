@@ -102,3 +102,20 @@ test('recorrido: se guarda el lote, Claude lo lee por el conector y lo marca hec
   assert.equal((await call('/api/fabrica', { method: 'POST', cookie: admin, body: { op: 'borrar', id } })).status, 200);
   assert.equal((await call('/api/fabrica', { cookie: admin })).data.lotes.length, 0);
 });
+
+test('ganadores: CPL real (registros de GHL por la UTM del anuncio) y CAC (inversión ÷ ventas reales)', () => {
+  const ventas = [{ dia: '2026-11-01', importe: 300, tipo: 'directa', toque: { adId: '30002', source: 'facebook' } }, { dia: '2026-11-02', importe: 300, tipo: 'directa', toque: { adId: '30002', source: 'facebook' } }];
+  const porUtm = { campaign: new Map(), adset: new Map(), ad: new Map([['30002', 20], ['video historia', 8]]) };
+  const g = ganadoresDe(arbol(), ventas, { desde: '2026-10-01', hasta: '2026-11-30', porUtm });
+  const img = g.find((x) => x.id === '30002');
+  assert.equal(img.leads, 20);
+  assert.equal(img.cplReal, 2.5);
+  assert.equal(img.cac, 25);
+  const vid = g.find((x) => x.id === '30001');
+  assert.equal(vid.leads, 8); // por el nombre del anuncio en la UTM
+  assert.equal(vid.cplReal, 12.5);
+  assert.equal(vid.cac, null);
+  // Sin los registros cargados: sin CPL real (se enseña el de Meta).
+  assert.equal(ganadoresDe(arbol(), ventas).find((x) => x.id === '30002').leads, null);
+  assert.match(promptVariacion(img, {}), /CAC 25 €.*CPL real 2,5 €/s);
+});

@@ -10208,7 +10208,7 @@ button.ms-pill { cursor: pointer; }
 .fb-p { border: 0; background: transparent; color: rgb(255 255 255 / .75); padding: 7px 14px; border-radius: 999px; cursor: pointer; font: inherit; font-size: .84rem; white-space: nowrap; }
 .fb-p:hover { color: #fff; background: rgb(255 255 255 / .08); }
 .fb-p.on { background: #fff; color: #140a2e; font-weight: 700; }
-.fb-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.fb-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
 .fb-stats > div { padding: 12px 14px; border-radius: 14px; background: rgb(255 255 255 / .07); border: 1px solid rgb(255 255 255 / .12); display: grid; gap: 2px; }
 .fb-stats small { color: rgb(255 255 255 / .6); font-size: .74rem; }
 .fb-stats b { font-size: 1.35rem; letter-spacing: -.01em; }
@@ -10259,7 +10259,8 @@ button.ms-pill { cursor: pointer; }
 .fb-g:hover .fb-m-check { transform: scale(1.1); }
 .fb-g.on .fb-m-check { color: #fff; background: linear-gradient(135deg, #ffab00, #ff4b00); }
 .fb-g-c { padding: 12px 14px 14px; display: grid; gap: 10px; min-width: 0; }
-.fb-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.fb-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.fb-cpl.meta small { font-style: italic; }
 .fb-kpi { display: grid; gap: 1px; padding: 7px 8px; border-radius: 10px; background: var(--surface-2); min-width: 0; }
 .fb-kpi b { font-size: .98rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fb-kpi small { font-size: .68rem; color: var(--muted); }
@@ -10332,8 +10333,6 @@ button.ms-pill { cursor: pointer; }
   .fb-pasos li span { font-size: .76rem; }
   .fb-grid, .fb-grid-podio { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .fb-grid-podio > :first-child { grid-column: 1 / -1; }
-  .fb-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .fb-kpis .fb-kpi:last-child { grid-column: 1 / -1; }
   .fb-m-pie strong { font-size: .86rem; }
   .fb-dock { margin: 0 8px 8px; bottom: 140px; }
   .fb-dock #fb-notas { display: none; }
