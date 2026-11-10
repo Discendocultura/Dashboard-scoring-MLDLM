@@ -1150,8 +1150,8 @@ const ACCIONES_BUSCAR = [
   ['inicio', '🏠', 'Inicio', 'inicio resumen todos los embudos', '#sb-inicio'],
   ['agencia', '🏢', 'Agencia · todos los clientes', 'agencia todos los clientes centro de mando panel', () => { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); }],
   ['negocio', '📈', 'Inteligencia de negocio', 'ltv roas negocio historico productos facturacion cac', '#sb-negocio'],
-  ['membresia', '🎓', 'Membresía de Skool', 'membresia skool alumnos mrr churn ltv planes etiquetas cross sell', '#sb-membresia'],
-  ['email-diario', '📬', 'Email diario', 'email diario evergreen calendario emails aprobar programar lotes ghl', '#sb-email-diario'],
+  ['membresia', '🎓', 'Membresía de Skool', 'membresia skool alumnos mrr churn ltv planes etiquetas cross sell', '#tb-membresia'],
+  ['email-diario', '📬', 'Email diario', 'email diario evergreen calendario emails aprobar programar lotes ghl', '#tb-email-diario'],
   ['ajustes', '⚙️', 'Configuración', 'configuracion ajustes mi negocio perfil', () => abrirMenuConfig()],
   ['productos', '📦', 'Configuración → Productos', 'productos precio catalogo membresia planes ofertas mi negocio', '#btn-productos'],
   ['marca', '🎨', 'Configuración → Marca y avatar', 'marca avatar cliente ideal tono voz mi negocio', '#btn-marca'],
@@ -1309,7 +1309,7 @@ const ALIAS_NAV = {
   productos: '#btn-productos', marca: '#btn-marca', 'marca-y-avatar': '#btn-marca', equipo: '#btn-equipo', conexiones: '#btn-conexiones',
   atajos: '#btn-atajos', 'tus-atajos': '#btn-atajos', mensajes: () => abrirMensajes(), 'mensajes-whatsapp': () => abrirMensajes(), 'plantillas-whatsapp': () => abrirMensajes(),
   agencia: () => { if (state.superadmin) { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); } },
-  'inteligencia-negocio': '#sb-negocio', negocio: '#sb-negocio', membresia: '#sb-membresia', operativa: '#sb-operativa', procesos: '#sb-procesos',
+  'inteligencia-negocio': '#sb-negocio', negocio: '#sb-negocio', membresia: '#tb-membresia', operativa: '#sb-operativa', procesos: '#sb-procesos',
 };
 function irAliasNavegacion(hash) {
   const a = ALIAS_NAV[hash];
@@ -1433,11 +1433,18 @@ function pintarSidebar() {
   // «Inteligencia de negocio»: para quien ve las métricas (el rol Cliente la tiene en su portal).
   $('#sb-negocio').hidden = !(tiene('metricas') && embudos().length);
   // Solo en Discendo (la membresía de Skool es suya) y para quien tiene acceso a sus datos.
-  $('#sb-membresia').hidden = !(conMembresia(state.cliente) && (tiene('hoy') || tiene('metricas') || tiene('config')));
-  $('#sb-membresia').classList.toggle('active', state.enPagina === 'membresia-dialog');
+  $('#tb-membresia').hidden = !(conMembresia(state.cliente) && (tiene('hoy') || tiene('metricas') || tiene('config')));
+  $('#tb-membresia').classList.toggle('active', state.enPagina === 'membresia-dialog');
   // 📬 Email diario: solo en los clientes de CLIENTES_EMAIL_DIARIO (hoy, Discendo).
-  $('#sb-email-diario').hidden = !(conEmailDiario(state.cliente) && (tiene('hoy') || tiene('metricas') || tiene('config')));
-  $('#sb-email-diario').classList.toggle('active', state.enPagina === 'email-diario-dialog');
+  $('#tb-email-diario').hidden = !(conEmailDiario(state.cliente) && (tiene('hoy') || tiene('metricas') || tiene('config')));
+  $('#tb-email-diario').classList.toggle('active', state.enPagina === 'email-diario-dialog');
+  $('#tb-negocio').hidden = $('#tb-membresia').hidden && $('#tb-email-diario').hidden;
+  // En el móvil no cabe arriba: va en el menú ☰ (los mismos botones).
+  $('#sb-negocio-movil').hidden = $('#tb-negocio').hidden;
+  $('#sbm-membresia').hidden = $('#tb-membresia').hidden;
+  $('#sbm-email-diario').hidden = $('#tb-email-diario').hidden;
+  $('#sbm-membresia').classList.toggle('active', state.enPagina === 'membresia-dialog');
+  $('#sbm-email-diario').classList.toggle('active', state.enPagina === 'email-diario-dialog');
   $('#sb-negocio').classList.toggle('active', Boolean(state.enNegocio));
   $$('#sb-config-sub [data-proxy]').forEach((b) => b.classList.toggle('active', Boolean(state.enPagina) && b.dataset.proxy === PAGINA_BTN[state.enPagina]));
   pintarSelectorCliente();
@@ -1759,7 +1766,7 @@ $('#sb-negocio').addEventListener('click', () => mostrarNegocio());
 // showModal), pero se muestran dentro de la página, sin ventana encima.
 // Al salir con su ✕ (o al terminar, p. ej. al crear un lanzamiento), se vuelve a donde se estaba.
 let paginaVolver = 'inicio';
-const PAGINA_BTN = { 'membresia-dialog': '#sb-membresia', 'email-diario-dialog': '#sb-email-diario', 'config-dialog': '#btn-config', conexiones: '#btn-conexiones', 'productos-dialog': '#btn-productos', 'marca-dialog': '#btn-marca', 'equipo-dialog': '#btn-equipo' };
+const PAGINA_BTN = { 'membresia-dialog': '#tb-membresia', 'email-diario-dialog': '#tb-email-diario', 'config-dialog': '#btn-config', conexiones: '#btn-conexiones', 'productos-dialog': '#btn-productos', 'marca-dialog': '#btn-marca', 'equipo-dialog': '#btn-equipo' };
 function cerrarPaginas() {
   for (const d of $$('dialog.dlg-pagina')) if (d.open && d.id !== state.enPagina) d.close();
 }
@@ -18322,7 +18329,7 @@ const membresia = montarMembresia({
   api, esc, notice, progress, ls, puedeConfig, cliente: () => state.cliente,
   abrir: () => { const d = $('#membresia-dialog'); if (!d.open) d.showModal(); },
 });
-$('#sb-membresia').addEventListener('click', () => { const d = $('#membresia-dialog'); d.showModal(); membresia.abrir(); });
+$('#tb-membresia').addEventListener('click', () => { const d = $('#membresia-dialog'); d.showModal(); membresia.abrir(); });
 $('#ms-cerrar').addEventListener('click', () => $('#membresia-dialog').close());
 // 📬 Email diario (página completa): ver email-diario-panel.js.
 const emailDiario = montarEmailDiario({ api, esc, ls, cliente: () => state.cliente });
@@ -18333,7 +18340,7 @@ const fabrica = montarFabrica({ api, esc, notice, ls, puedeConfig, ctx: () => {
     lanz: tipoActual() === 'lanz', marca: { nombre: pgc.marca?.nombre || clienteNombre(), producto: nombreProducto(state.config) } };
 } });
 const montaje = montarMontaje({ api, esc, cliente: () => state.cliente, clienteNombre: () => clienteNombre(), alCambiar: () => cargarMontajesSb({ forzar: true }) });
-$('#sb-email-diario').addEventListener('click', () => { const d = $('#email-diario-dialog'); d.showModal(); emailDiario.abrir(); });
+$('#tb-email-diario').addEventListener('click', () => { const d = $('#email-diario-dialog'); d.showModal(); emailDiario.abrir(); });
 $('#evg-cerrar').addEventListener('click', () => $('#email-diario-dialog').close());
 document.addEventListener('click', (e) => { if (e.target.closest('[data-abrir-productos]')) abrirProductosDlg(); });
 $('#btn-marca').addEventListener('click', () => {
