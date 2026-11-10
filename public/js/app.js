@@ -1421,6 +1421,8 @@ async function cargarMontajesSb({ forzar = false } = {}) {
 }
 function pintarSidebar() {
   pintarLabia();
+  // 📅 Membresía (Discendo): el aviso del día 1 de sincronizar Skool. Antes de montarse el panel, aún no existe.
+  try { membresia.comprobarAviso(); } catch { /* todavía no */ }
   if (montajesSb.cliente !== state.cliente) cargarMontajesSb();
   const enEmbudo = !state.enInicio;
   $('#sb-items').innerHTML = itemsSidebar().map((x) => {

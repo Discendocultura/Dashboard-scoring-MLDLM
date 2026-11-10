@@ -666,8 +666,85 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     } catch (e) { notice(e.message, true); }
   })();
 
+  // ---------- 📅 Aviso del día 1: «Sincroniza tus datos de Skool» ----------
+  // Sale (a quien puede actualizar) desde el día 1 de cada mes hasta que alguien pulsa «Ya lo he hecho» o se lee Skool
+  // ese mes. «Más tarde» lo esconde solo en esta pestaña del navegador.
+  const avisoVisto = new Set(); // cliente|mes ya comprobado en esta carga de la página
+  const mesActual = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' }).slice(0, 7);
+  const claveLuego = () => `lsd_ms_aviso_luego_${cliente()}_${mesActual()}`;
+  function dialogoAviso() {
+    let d = document.getElementById('ms-aviso');
+    if (d) return d;
+    d = document.createElement('dialog');
+    d.id = 'ms-aviso';
+    d.className = 'msa-dlg';
+    d.setAttribute('aria-labelledby', 'ms-aviso-t');
+    document.body.appendChild(d);
+    d.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-msa]');
+      if (!b) return;
+      const op = b.dataset.msa;
+      if (op === 'luego') { try { sessionStorage.setItem(claveLuego(), '1'); } catch { /* sin almacenamiento */ } d.close(); return; }
+      if (op === 'ahora') {
+        d.close();
+        abrir();
+        pintar();
+        if (!st.datos) await cargar();
+        body.querySelector('[data-ms="actualizar"]')?.click();
+        return;
+      }
+      if (op === 'hecho') {
+        b.disabled = true;
+        try {
+          await api('/api/membresia', { method: 'POST', body: { op: 'aviso-hecho' } });
+          d.close();
+          notice('Hecho: el aviso no vuelve a salir hasta el mes que viene.');
+        } catch (err) { b.disabled = false; notice(err.message, true); }
+      }
+    });
+    return d;
+  }
+  function pintarAviso(ultimaLectura) {
+    const d = dialogoAviso();
+    const href = enlaceLector(location.origin, cliente() || '');
+    const mes = new Date().toLocaleDateString('es-ES', { month: 'long', timeZone: 'Europe/Madrid' });
+    const paso = (n, icono, titulo, cuerpo) => `<li class="ms-paso"><span class="ms-paso-n">${n}</span><div><strong>${ico(icono)} ${titulo}</strong>${cuerpo}</div></li>`;
+    d.innerHTML = `<div class="msa"><div class="msa-c">
+      <header class="msa-h"><span class="msa-ico">${ico('refresh')}</span><div><span class="msa-k">Membresía · ${esc(mes)}</span><h2 id="ms-aviso-t">Sincroniza tus datos de Skool</h2>
+        <p>Es día de poner al día los alumnos: altas, bajas y cambios de plan del mes. Así las cifras (MRR, churn, LTV) y las etiquetas de GHL son las de verdad.${ultimaLectura ? ` <span class="muted">Última lectura: ${esc(fecha(ultimaLectura))}.</span>` : ''}</p></div></header>
+      <ol class="ms-pasos">
+        ${paso(1, 'refresh', 'Pulsa «Sincronizar ahora»', '<p>Se abre Membresía y, en otra pestaña, tu página de <strong>Miembros</strong> de Skool (con tu sesión de administrador).</p>')}
+        ${paso(2, 'bookmark', 'En Skool, pulsa el marcador «AlquimIA · Skool»', `<p>Está en tu barra de marcadores. ¿No lo tienes? Arrastra este botón a la barra (Ctrl/Cmd + Mayús + B para verla):</p><a class="ms-marcador" href="${esc(href)}" title="Arrástralo a la barra de marcadores (aquí no hace nada)" onclick="event.preventDefault()">${ico('bookmark')} AlquimIA · Skool</a>`)}
+        ${paso(3, 'search', 'Revisa y guarda', '<p>Los alumnos vuelven solos a AlquimIA. Comprueba que el número coincide con el de Skool, mira las altas, bajas y cambios de plan y pulsa <strong>Guardar</strong>.</p>')}
+        ${paso(4, 'tag', 'Pon las etiquetas de GHL', '<p>Si sale «Poner etiquetas a … alumnos», púlsalo: así arrancan los flujos de GHL (bienvenida, venta cruzada, bajas).</p>')}
+      </ol>
+      <p class="muted small">Cuando lo hayas hecho, pulsa <strong>Ya lo he hecho</strong> y no vuelve a salir hasta el día 1 del mes que viene. Si guardas una lectura de Skool este mes, se quita solo.</p>
+      </div><div class="msa-acc"><button type="button" class="btn ghost" data-msa="luego">Más tarde</button><button type="button" class="btn" data-msa="ahora">${ico('refresh')} Sincronizar ahora</button><button type="button" class="btn primary" data-msa="hecho">${ico('check')} Ya lo he hecho</button></div>
+    </div>`;
+    if (!d.open) d.showModal();
+    // Que se abra por arriba (el navegador salta al primer enlace) y con el título enfocado.
+    const t = d.querySelector('#ms-aviso-t');
+    t.tabIndex = -1;
+    t.focus({ preventScroll: true });
+    d.querySelector('.msa-c').scrollTop = 0;
+  }
+  // La app lo llama al entrar en un cliente: solo en Discendo, a quien puede actualizar y una vez por carga de página.
+  async function comprobarAviso() {
+    const c = cliente();
+    if (!conMembresia(c) || !puedeConfig()) return;
+    const k = `${c}|${mesActual()}`;
+    if (avisoVisto.has(k)) return;
+    avisoVisto.add(k);
+    try { if (sessionStorage.getItem(claveLuego())) return; } catch { /* sin almacenamiento */ }
+    try {
+      const r = await api('/api/membresia?aviso=1');
+      if (r.toca && cliente() === c) pintarAviso(r.ultimaLectura);
+    } catch { /* sin aviso */ }
+  }
+
   return {
     abrir: () => { pintar(); cargar(); },
+    comprobarAviso,
     recibir,
     _st: st,
     EMAIL_RE,

@@ -19,7 +19,8 @@ import { clienteActual } from '../lib/cliente.js';
 import { leerJSON, guardarJSON, reintentando, leerCompartida, guardarCompartida } from '../lib/store.js';
 import { findContactByEmail, addTags, removeTags, sendEmail, upsertContact, setContactPhone } from '../lib/ghl.js';
 import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
-import { aplicarFoto, conMembresia, esCodigo, nombrePlan, tagDePlan, TAG_OK, EMAIL_RE, rellenar, intervaloDe } from '../public/js/membresia.js';
+import { aplicarFoto, conMembresia, esCodigo, nombrePlan, tagDePlan, TAG_OK, EMAIL_RE, rellenar, intervaloDe, tocaAvisoSkool, MES_RE } from '../public/js/membresia.js';
+import { dayInMadrid } from '../public/js/scoring.js';
 
 const CLAVE = 'lsd_membresia';
 const CLAVE_CFG = 'lsd_membresia_cfg';
@@ -83,6 +84,8 @@ function limpiarCfg(c = {}, antes = {}) {
     mensajeWa: txt(c.mensajeWa, 1000),
     asunto: txt(c.asunto, 150),
     cuerpo: txt(c.cuerpo, 5000),
+    // Mes en el que alguien pulsó «Ya lo he hecho» en el aviso de sincronizar Skool.
+    ...(MES_RE.test(String(c.avisoSync || '')) ? { avisoSync: c.avisoSync } : {}),
   };
 }
 
@@ -110,6 +113,9 @@ export const htmlDeTexto = (t) => String(t).split(/\n{2,}/).map((p) => `<p>${esc
 // Solo en el cliente de Discendo (el dueño de la membresía): en otro cliente, ni se lee ni se guarda nada.
 const soloDiscendo = () => (conMembresia(clienteActual().id) ? null : json({ error: 'La membresía de Skool es de Discendo: entra en Discendo para verla' }, 403));
 
+const hoyMadrid = () => dayInMadrid(new Date().toISOString());
+const avisoToca = (estado, cfg) => tocaAvisoSkool({ hoy: hoyMadrid(), hecho: cfg?.avisoSync || '', mesLectura: estado?.ultimaLectura ? dayInMadrid(new Date(estado.ultimaLectura).toISOString()).slice(0, 7) : '' });
+
 export async function GET(request) {
   try {
     await requireSession(request, { permiso: PERMISO_VER });
@@ -127,6 +133,8 @@ export async function GET(request) {
       return json({ datos: e.datos });
     }
     const [estado, cfg] = await Promise.all([leerEstado(), leerCfg()]);
+    // Aviso mensual de sincronizar Skool (lo pide la app al entrar en Discendo).
+    if (new URL(request.url).searchParams.has('aviso')) return json({ toca: avisoToca(estado, cfg), ultimaLectura: estado.ultimaLectura || null });
     const emails = new Set(Object.keys(estado.alumnos || {}));
     return json({
       alumnos: Object.values(estado.alumnos || {}),
@@ -135,6 +143,7 @@ export async function GET(request) {
       lecturas: estado.lecturas || 0,
       comunidad: estado.comunidad || '',
       cfg: limpiarCfg(cfg, cfg),
+      avisoSync: avisoToca(estado, cfg),
       ltvExtra: emails.size ? await ltvOtras(emails) : {},
     });
   } catch (e) {
@@ -175,6 +184,16 @@ export async function POST(request) {
         return { ...resumen, guardado: true };
       };
       return json(body.confirmar ? await reintentando(hacer) : await hacer());
+    }
+    // «Ya lo he hecho» en el aviso de sincronizar Skool: no vuelve a salir (a nadie del equipo) hasta el mes que viene.
+    if (op === 'aviso-hecho') {
+      await requireSession(request, { permiso: 'config' });
+      const mes = hoyMadrid().slice(0, 7);
+      await reintentando(async () => {
+        const antes = await leerCfg();
+        await guardarJSON(CLAVE_CFG, limpiarCfg({ ...antes, avisoSync: mes }, antes), { motivo: `Membresía: aviso de sincronizar Skool hecho (${mes})` });
+      });
+      return json({ ok: true, mes });
     }
     if (op === 'cfg') {
       await requireSession(request, { permiso: 'config' });
