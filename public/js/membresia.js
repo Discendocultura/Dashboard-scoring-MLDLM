@@ -12,6 +12,15 @@ export const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i;
 // La membresía es de Discendo: solo existe en su cliente (la ven quienes tienen acceso a Discendo).
 export const CLIENTES_MEMBRESIA = ['discendo'];
 export const conMembresia = (clienteId) => CLIENTES_MEMBRESIA.includes(String(clienteId || ''));
+// Aviso mensual «Sincroniza tus datos de Skool»: sale desde el día 1 de cada mes hasta que alguien pulsa «Ya lo he
+// hecho» (se guarda el mes, `hecho` = 'AAAA-MM') o se lee Skool ese mes. `hoy` = 'AAAA-MM-DD' (hora de Madrid) y
+// `mesLectura` = 'AAAA-MM' de la última lectura.
+export const MES_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+export function tocaAvisoSkool({ hoy = '', hecho = '', mesLectura = '' } = {}) {
+  const mes = String(hoy).slice(0, 7);
+  if (!MES_RE.test(mes)) return false;
+  return hecho !== mes && mesLectura !== mes;
+}
 const txt = (v, max = 160) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
 const DIA = 86_400_000;
