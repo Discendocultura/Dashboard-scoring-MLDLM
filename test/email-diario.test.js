@@ -2,7 +2,7 @@
 // admin aprueba, la tarea de las 20:00 programa en GHL en lotes (o lo simula) y solo está en Discendo.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { tipoSugerido, bloqueoDe, sendAtGhl, estimarLotes, decidirProgramacion, htmlEmail, cambiaTexto, conEmailDiario, limpiarConfig, sumarDias } from '../public/js/email-diario.js';
+import { tipoSugerido, bloqueoDe, sendAtGhl, estimarLotes, decidirProgramacion, htmlEmail, cambiaTexto, conEmailDiario, limpiarConfig, limpiarLotes, sumarDias } from '../public/js/email-diario.js';
 import { promptCowork } from '../public/js/email-diario-panel.js';
 
 const ENV = { GHL_MOCK: '1', ADMIN_PASSWORD: 'admin', SETTER_PASSWORD: 'setter', SESSION_SECRET: 'test-secret-test-secret', DIGEST_KEY: 'clave-larga-de-prueba-123' };
@@ -46,10 +46,18 @@ test('franjas, hora de GHL y lotes', () => {
   assert.equal(sendAtGhl('2026-11-11', '12:30'), '2026-11-11 12:30 PM');
   assert.equal(sendAtGhl('2026-11-11', '00:15'), '2026-11-11 12:15 AM');
   assert.equal(sendAtGhl('2026-11-11', '18:05'), '2026-11-11 06:05 PM');
-  assert.deepEqual(estimarLotes(4200, { tamano: 100, cada: 5 }, '09:00'), { lotes: 42, minutos: 205, fin: '12:25', otroDia: false });
+  assert.deepEqual(estimarLotes(4200, { tamano: 100, cada: 5 }, '09:00'), { lotes: 42, minutos: 205, fin: '12:25', otroDia: false, porMinuto: 20, pasaDiario: false });
   assert.equal(estimarLotes(30000, { tamano: 100, cada: 5 }, '09:00').otroDia, true);
   // Los lotes siempre tienen un tamaño razonable y la simulación es lo que hay por defecto.
-  assert.deepEqual(limpiarConfig({ lotes: { tamano: 999999, cada: 0 } }).lotes, { tamano: 100, cada: 5 });
+  assert.deepEqual(limpiarConfig({}).lotes, { tamano: 100, cada: 1 }); // por defecto, lo que recomienda GHL
+  assert.deepEqual(limpiarConfig({ lotes: { tamano: 999999, cada: 0 } }).lotes, { tamano: 100, cada: 1 });
+  // Como mucho 500 envíos por minuto, 1 minuto como mínimo entre lotes y 2.000 por lote.
+  assert.deepEqual(limpiarLotes({ tamano: 2000, cada: 1 }), { tamano: 500, cada: 1 });
+  assert.deepEqual(limpiarLotes({ tamano: 2000, cada: 5 }), { tamano: 2000, cada: 5 });
+  assert.deepEqual(limpiarLotes({ tamano: 300, cada: 0.2 }), { tamano: 300, cada: 1 });
+  assert.equal(estimarLotes(4200, { tamano: 100, cada: 1 }, '09:00').fin, '09:41');
+  assert.equal(estimarLotes(4200, { tamano: 100, cada: 1 }).porMinuto, 100);
+  assert.equal(estimarLotes(30000, { tamano: 500, cada: 1 }).pasaDiario, true);
   assert.equal(limpiarConfig({}).modo, 'simulacion');
 });
 

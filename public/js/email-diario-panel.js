@@ -2,7 +2,7 @@
 // emails del mes, el editor de cada día (revisar, aprobar, saltar, con la vista previa en vivo), las fechas límite, el
 // envío en lotes, los CTA, el registro de lo que hace la tarea de las 20:00 y «Cómo funciona» (con el prompt de la
 // tarea de Cowork). Datos: /api/email-diario. Lógica común: email-diario.js. Iconos: los de línea de icons.js.
-import { TIPOS, ESTADOS, BLOQUEADO, bloqueoDe, proximoCierre, tipoSugerido, estimarLotes, htmlEmail, sumarDias, diasEntre, conEmailDiario } from './email-diario.js';
+import { TIPOS, ESTADOS, BLOQUEADO, bloqueoDe, proximoCierre, tipoSugerido, estimarLotes, htmlEmail, sumarDias, diasEntre, conEmailDiario, limpiarLotes, loteMaximo, LOTE_MIN, CADA_MAX, MAX_POR_MINUTO, LIMITE_DIARIO_GHL } from './email-diario.js';
 import { icon } from './icons.js';
 
 const WD = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -175,8 +175,6 @@ export function montarEmailDiario({ api, esc, cliente, ls }) {
     const dis = d.admin ? '' : ' disabled';
     const a = st.audiencia;
     const modo = st.modo || c.modo;
-    const est = a?.contactos != null ? estimarLotes(a.contactos, c.lotes, c.sendTime) : null;
-    const nBarras = est ? Math.min(est.lotes, 40) : 0;
     const campo = (id, t, v, extra = '') => `<label class="evg-campo"><span>${t}</span><input id="evg-c-${id}" value="${esc(v)}"${extra}${dis}></label>`;
     return `<div class="evg-modos" role="radiogroup" aria-label="Simulación o envío real">
         <label class="evg-modo-card${modo !== 'real' ? ' is-on' : ''}"><input type="radio" name="evg-modo" value="simulacion"${modo !== 'real' ? ' checked' : ''}${dis}><span class="evg-modo-ico" style="--c:#c98a00">${i('flask')}</span><span><b>Simulación</b><small>A las 20:00 solo apunta en el registro lo que programaría. No toca GHL.</small></span></label>
@@ -185,13 +183,13 @@ export function montarEmailDiario({ api, esc, cliente, ls }) {
       <section class="evg-card">
         <header class="evg-card-cab"><span class="evg-card-ico" style="--c:var(--tone-live)">${i('box')}</span><div><h3>Envío en lotes</h3><p>Siempre en lotes pequeños, para que los proveedores de correo no lo vean como spam.</p></div></header>
         <div class="evg-lotes">
-          <label class="evg-num"><span>Contactos por lote</span><input type="number" id="evg-c-tamano" min="10" max="2000" value="${c.lotes.tamano}"${dis}></label>
+          <label class="evg-num"><span>Contactos por lote</span><input type="number" id="evg-c-tamano" min="${LOTE_MIN}" max="${loteMaximo(c.lotes.cada)}" value="${c.lotes.tamano}"${dis}></label>
           <span class="evg-lotes-x">${i('clock')}</span>
-          <label class="evg-num"><span>Minutos entre lotes</span><input type="number" id="evg-c-cada" min="1" max="120" value="${c.lotes.cada}"${dis}></label>
+          <label class="evg-num"><span>Minutos entre lotes</span><input type="number" id="evg-c-cada" min="1" max="${CADA_MAX}" value="${c.lotes.cada}"${dis}></label>
+          ${d.admin ? `<button type="button" class="btn ghost small" data-evg-lotes-def>${i('refresh')}Valores por defecto</button>` : ''}
         </div>
-        ${est ? `<div class="evg-tren" aria-label="${est.lotes} lotes">${Array.from({ length: nBarras }, (_, k) => `<i style="--k:${k}"></i>`).join('')}${est.lotes > nBarras ? `<span>+${est.lotes - nBarras}</span>` : ''}</div>
-          <p class="evg-tren-pie"><span>${i('play')}${esc(c.sendTime)} · primer lote</span><b>${a.contactos.toLocaleString('es-ES')} contactos · ${est.lotes} ${est.lotes === 1 ? 'lote' : 'lotes'}</b><span>${i('flag')}${esc(est.fin)}${est.otroDia ? ' (día siguiente)' : ''} · último</span></p>
-          ${est.otroDia ? `<p class="evg-aviso">${i('alert')}Son demasiados lotes para un día: sube el tamaño o baja los minutos.</p>` : ''}` : a?.error ? `<p class="evg-aviso">${i('alert')}${esc(a.error)}</p>` : '<p class="evg-vacio">Elige la etiqueta de audiencia para ver cuánto tarda en salir.</p>'}
+        <p class="evg-limites">${i('shield')}<span>Lo que admite GHL: <b>1 minuto como mínimo</b> entre lotes y, por seguridad, <b>${MAX_POR_MINUTO} envíos por minuto como mucho</b> (con 1 minuto, lotes de ${MAX_POR_MINUTO} como máximo). GHL recomienda empezar con lotes de 50 a 100. Por defecto: 100 cada minuto.</span></p>
+        <div id="evg-lotes-info">${infoLotes(a, c.lotes, c.sendTime)}</div>
       </section>
       <section class="evg-card">
         <header class="evg-card-cab"><span class="evg-card-ico" style="--c:var(--tone-info)">${i('user')}</span><div><h3>Remitente y audiencia</h3><p>Quién lo envía y a qué etiqueta de GHL llega.</p></div></header>
@@ -204,6 +202,20 @@ export function montarEmailDiario({ api, esc, cliente, ls }) {
         <label class="evg-campo"><span>Pie legal <small>se añade al final de cada email</small></span><textarea id="evg-c-pie" rows="4"${dis}>${esc(c.pie)}</textarea></label>
       </section>
       ${d.admin ? `<div class="evg-pie-acc"><button type="button" class="btn ghost" data-evg-op="simular">${i('flask')}Probar la tarea de las 20:00</button>${c.modo === 'real' ? `<button type="button" class="btn ghost" data-evg-op="programar-ahora">${i('rocket')}Programar ahora el de mañana</button>` : ''}<button type="button" class="btn primary" data-evg-guardar="envio">${i('save')}Guardar</button></div>` : '<p class="evg-vacio">Solo una persona admin cambia el envío.</p>'}`;
+  }
+
+  // El tren de lotes, el ritmo y los avisos (se recalcula en vivo al cambiar los números).
+  function infoLotes(a, lotes, hora) {
+    if (a?.error) return `<p class="evg-aviso">${i('alert')}${esc(a.error)}</p>`;
+    if (a?.contactos == null) return '<p class="evg-vacio">Elige la etiqueta de audiencia para ver cuánto tarda en salir.</p>';
+    const l = limpiarLotes(lotes);
+    const est = estimarLotes(a.contactos, l, hora);
+    const n = Math.min(est.lotes, 40);
+    return `<div class="evg-tren" aria-label="${est.lotes} lotes">${Array.from({ length: n }, (_, k) => `<i style="--k:${k}"></i>`).join('')}${est.lotes > n ? `<span>+${est.lotes - n}</span>` : ''}</div>
+      <p class="evg-tren-pie"><span>${i('play')}${esc(hora)} · primer lote</span><b>${a.contactos.toLocaleString('es-ES')} contactos · ${est.lotes} ${est.lotes === 1 ? 'lote' : 'lotes'} de ${l.tamano} · ${est.porMinuto.toLocaleString('es-ES')} por minuto</b><span>${i('flag')}${esc(est.fin)}${est.otroDia ? ' (día siguiente)' : ''} · último</span></p>
+      ${Number(lotes.tamano) !== l.tamano || Number(lotes.cada) !== l.cada ? `<p class="evg-aviso">${i('alert')}GHL no admite ese ritmo: se guardará como ${l.tamano} cada ${l.cada} min (como mucho ${MAX_POR_MINUTO} por minuto, y de 1 a ${CADA_MAX} minutos entre lotes).</p>` : ''}
+      ${est.otroDia ? `<p class="evg-aviso">${i('alert')}El último lote saldría al día siguiente: sube el tamaño del lote o baja los minutos.</p>` : ''}
+      ${est.pasaDiario ? `<p class="evg-aviso">${i('alert')}La etiqueta tiene más de ${LIMITE_DIARIO_GHL.toLocaleString('es-ES')} contactos: es el límite diario de GHL con dominio compartido. Hace falta un dominio de envío dedicado o una audiencia más pequeña.</p>` : ''}`;
   }
 
   function vistaCtas(d) {
@@ -323,6 +335,13 @@ export function montarEmailDiario({ api, esc, cliente, ls }) {
     if (ev.target.name === 'evg-modo') { st.modo = ev.target.value; for (const c of body.querySelectorAll('.evg-modo-card')) c.classList.toggle('is-on', c.querySelector('input').checked); }
   });
   body.addEventListener('input', (ev) => {
+    if (ev.target.id === 'evg-c-tamano' || ev.target.id === 'evg-c-cada') {
+      const lotes = { tamano: body.querySelector('#evg-c-tamano').value, cada: body.querySelector('#evg-c-cada').value };
+      body.querySelector('#evg-c-tamano').max = loteMaximo(Number(lotes.cada) || 1);
+      const box = body.querySelector('#evg-lotes-info');
+      if (box) box.innerHTML = infoLotes(st.audiencia, lotes, body.querySelector('#evg-c-sendTime')?.value || st.datos.estado.config.sendTime);
+      return;
+    }
     const c = ev.target.closest('[data-evg-cta]');
     if (c && ev.target.dataset.k === 'name') c.querySelector('.evg-cta-boton').textContent = ev.target.value || 'Texto del botón';
   });
@@ -364,6 +383,12 @@ export function montarEmailDiario({ api, esc, cliente, ls }) {
       return;
     }
     if (el.dataset.evgBloqX) { await post('ajustes', { bloqueos: d.estado.bloqueos.filter((b) => b.id !== el.dataset.evgBloqX) }, 'Franja quitada.'); return; }
+    if ('evgLotesDef' in el.dataset) {
+      body.querySelector('#evg-c-tamano').value = 100;
+      body.querySelector('#evg-c-cada').value = 1;
+      body.querySelector('#evg-c-tamano').dispatchEvent(new Event('input', { bubbles: true }));
+      return;
+    }
     if ('evgCtaAdd' in el.dataset) { st.ctasEdit = [...leerCtas(), { id: `cta${Date.now().toString(36)}`, name: '', url: '', use: '' }]; pintar(); return; }
     if (el.dataset.evgCtaX) { const l = leerCtas(); l.splice(Number(el.dataset.evgCtaX), 1); st.ctasEdit = l; pintar(); return; }
     if (el.dataset.evgGuardar === 'ctas') { const r = await post('ajustes', { ctas: leerCtas() }, 'CTAs guardados.'); if (r) { st.ctasEdit = null; pintar(); } return; }

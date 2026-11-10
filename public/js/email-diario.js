@@ -30,7 +30,19 @@ export const ENTREGABLES = [
   { id: 'tertulia', name: 'La Tertulia · masterclass en directo' },
   { id: 'vive', name: 'Vive la Historia' },
 ];
-export const LOTES_DEFECTO = { tamano: 100, cada: 5 }; // 100 contactos cada 5 minutos
+// Lotes, con lo que admite GHL (help.gohighlevel.com, «How to batch schedule email campaigns» y «LC Email»):
+//  · el intervalo, de 1 minuto como mínimo (no admite segundos); aquí, en minutos, hasta 2 horas;
+//  · GHL recomienda empezar con lotes de 50-100 emails: por defecto, 100 cada minuto;
+//  · como techo de seguridad, 500 envíos por minuto (GHL permite hasta 1.000 con intervalos de 1 minuto) y 2.000 por lote;
+//  · el envío diario de una subcuenta con dominio compartido es de 25.000 como mucho (menos en sus primeros 7 días).
+export const LOTES_DEFECTO = { tamano: 100, cada: 1 };
+export const LOTE_MIN = 10;
+export const LOTE_MAX = 2000;
+export const CADA_MAX = 120;
+export const MAX_POR_MINUTO = 500;
+export const LIMITE_DIARIO_GHL = 25000;
+// El mayor lote que cabe con ese intervalo sin pasar de MAX_POR_MINUTO.
+export const loteMaximo = (cada) => Math.min(LOTE_MAX, MAX_POR_MINUTO * Math.max(1, cada));
 export const CONFIG_DEFECTO = {
   fromEmail: '', fromName: '', replyTo: '', audienceTag: '', sendTime: '09:00', ghlUserId: '', pie: '',
   lotes: { ...LOTES_DEFECTO }, modo: 'simulacion',
@@ -53,15 +65,22 @@ export const mesDe = (dia) => String(dia).slice(0, 7);
 
 // ---------- Configuración (limpia) ----------
 export function limpiarConfig(c = {}) {
-  const lotes = c.lotes || {};
-  const ent = (v, lo, hi, def) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= lo && n <= hi ? n : def; };
   return {
     fromEmail: linea(c.fromEmail, 120), fromName: linea(c.fromName, 80), replyTo: linea(c.replyTo, 120),
     audienceTag: linea(c.audienceTag, 120), sendTime: esHora(c.sendTime) ? c.sendTime : '09:00',
     ghlUserId: linea(c.ghlUserId, 40).replace(/[^A-Za-z0-9]/g, ''), pie: txt(c.pie, 3000),
-    lotes: { tamano: ent(lotes.tamano, 10, 2000, LOTES_DEFECTO.tamano), cada: ent(lotes.cada, 1, 120, LOTES_DEFECTO.cada) },
+    lotes: limpiarLotes(c.lotes || {}),
     modo: c.modo === 'real' ? 'real' : 'simulacion',
   };
+}
+// Fuera de rango, el valor por defecto; un lote demasiado grande para su intervalo, se baja al máximo permitido.
+export function limpiarLotes(lotes = {}) {
+  const ent = (v) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? n : null; };
+  const c = ent(lotes.cada);
+  const cada = c != null && c >= 1 && c <= CADA_MAX ? c : LOTES_DEFECTO.cada;
+  const t = ent(lotes.tamano);
+  const tamano = t != null && t >= LOTE_MIN && t <= LOTE_MAX ? Math.min(t, loteMaximo(cada)) : Math.min(LOTES_DEFECTO.tamano, loteMaximo(cada));
+  return { tamano, cada };
 }
 export function limpiarEntregables(lista = []) {
   return ENTREGABLES.map((e) => {
@@ -123,7 +142,7 @@ export function estimarLotes(contactos, { tamano, cada }, hora = '09:00') {
   const minutos = (lotes - 1) * cada;
   const [h, m] = hora.split(':').map(Number);
   const t = h * 60 + m + minutos;
-  return { lotes, minutos, fin: `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`, otroDia: t >= 24 * 60 };
+  return { lotes, minutos, fin: `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`, otroDia: t >= 24 * 60, porMinuto: Math.round(tamano / cada), pasaDiario: n > LIMITE_DIARIO_GHL };
 }
 // Qué hace la tarea de las 20:00 con el email del día siguiente. → { accion: 'programar' | 'nada' | 'aviso', motivo }
 export function decidirProgramacion(estado, dia) {

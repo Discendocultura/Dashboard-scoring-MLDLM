@@ -9892,6 +9892,8 @@ button.ms-pill { cursor: pointer; }
 .evg-lotes-x { display: grid; place-items: center; width: 36px; height: 36px; margin-bottom: 4px; border-radius: 50%; background: var(--surface-2); color: var(--muted); }
 .evg-num { display: grid; gap: 5px; font-size: 12.5px; font-weight: 700; color: var(--text-2); }
 .evg-num input { width: 130px; font-size: 22px; font-weight: 800; padding: 8px 12px; }
+.evg-limites { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); color: var(--text-2); font-size: 12.5px; line-height: 1.5; }
+.evg-limites .ico { width: 15px; height: 15px; color: var(--tone-info); flex: none; margin-top: 2px; }
 .evg-tren { display: flex; align-items: flex-end; gap: 4px; height: 56px; margin: 18px 0 6px; padding: 0 2px; }
 .evg-tren i { flex: 1; max-width: 22px; height: 100%; border-radius: 6px 6px 3px 3px; background: linear-gradient(180deg, var(--tone-live), color-mix(in srgb, var(--tone-live) 45%, var(--accent))); opacity: calc(1 - var(--k) * .012); transform-origin: bottom; animation: evg-sube .5s calc(var(--k) * 18ms) both cubic-bezier(.2, .8, .3, 1.2); }
 .evg-tren span { align-self: center; font-size: 12px; font-weight: 700; color: var(--muted); }
