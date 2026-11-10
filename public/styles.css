@@ -9644,3 +9644,58 @@ button.ms-pill { cursor: pointer; }
 .ms-nombre-f { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); font-size: 13px; min-width: 0; }
 .ms-nombre-f input { grid-column: 1 / -1; width: 100%; }
 .ms-aviso-verde { background: color-mix(in srgb, #16a34a 12%, var(--surface)); }
+
+/* ---------- Operativa: tableros arriba (pestañas de carpeta unidas al tablero) y ficha de tarea centrada ---------- */
+.op-con-lat { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.op-lat {
+  position: static; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "t a" "l l";
+  align-items: center; gap: 4px 10px; padding: 0 4px; border: 0; border-radius: 0; background: none;
+}
+.op-lat-t { grid-area: t; display: inline-flex; justify-content: flex-start; gap: 8px; margin: 0 6px; font-size: 11px; font-weight: 800; letter-spacing: .1em; color: var(--accent); }
+.op-lat-t::before { content: ''; width: 14px; height: 10px; border-radius: 2px 2px 3px 3px; background: currentColor; clip-path: polygon(0 0, 42% 0, 52% 22%, 100% 22%, 100% 100%, 0 100%); }
+.op-lat-t span { color: var(--text-2); }
+.op-lat-lista { grid-area: l; flex-direction: row; gap: 4px; overflow-x: auto; overflow-y: hidden; padding-top: 4px; scrollbar-width: thin; }
+.op-lat-acc { grid-area: a; flex-direction: row; gap: 4px; padding: 0; border: 0; justify-content: flex-end; }
+.op-tab-b {
+  width: auto; flex: none; max-width: 260px; gap: 8px; padding: 9px 14px 10px; font-size: 13.5px;
+  border: 1px solid var(--border); border-bottom: 0; border-radius: 14px 14px 0 0;
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent); color: var(--text-2);
+  transform: translateY(2px); transition: background .15s, color .15s, transform .15s, box-shadow .15s;
+}
+.op-tab-b:hover { background: var(--surface); color: var(--text); transform: translateY(0); }
+.op-lat-nom { white-space: nowrap; display: block; overflow: hidden; text-overflow: ellipsis; }
+.op-lat-ico { width: 24px; height: 24px; border-radius: 7px; font-size: 13px; }
+.op-tab-b.on {
+  z-index: 1; transform: none; background: var(--surface); color: var(--text);
+  border-color: var(--border); box-shadow: inset 0 3px 0 0 var(--accent), 0 -6px 16px -10px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.op-tab-b.on::before { content: ''; position: absolute; left: 0; right: 0; bottom: -2px; top: auto; width: auto; height: 3px; border-radius: 0; background: var(--surface); }
+.op-tab-b.on .op-lat-ico { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+.op-tab-nuevo { border-style: dashed; border-bottom: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--border)); border-radius: 12px; background: transparent; transform: none; padding: 7px 12px; color: var(--accent); }
+.op-tab-nuevo:hover { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.op-tab-nuevo .op-lat-ico { width: 20px; height: 20px; }
+.op-lat-lista .op-tab-b.tab-antes { box-shadow: -3px 0 0 0 var(--accent); }
+.op-lat-lista .op-tab-b.tab-despues { box-shadow: 3px 0 0 0 var(--accent); }
+.op-lat-main { position: relative; margin-top: -1px; padding: 16px; border: 1px solid var(--border); border-radius: 0 18px 18px 18px; background: var(--surface); box-shadow: var(--shadow-sm); }
+:root[data-estilo="espacial"] .op-lat-main, :root[data-estilo="espacial"] .op-tab-b.on, :root[data-estilo="espacial"] .op-tab-b.on::before { background: #17142c; }
+@media (max-width: 900px) {
+  .op-lat { grid-template-areas: "a a" "l l"; padding: 0; }
+  .op-lat-t { display: none; }
+  .op-lat-acc { justify-content: flex-start; }
+  .op-lat-main { padding: 12px; border-radius: 0 14px 14px 14px; }
+}
+
+/* Ficha de una tarea: ventana en el centro (antes, un panel pegado a la derecha) */
+.op-ficha {
+  top: calc(50% + var(--topbar-h, 64px) / 2); left: 50%; right: auto; bottom: auto; width: min(780px, 94vw);
+  max-height: min(calc(100vh - var(--topbar-h, 64px) - 40px), 940px);
+  transform: translate(-50%, -50%); border: 1px solid var(--border); border-radius: 22px;
+  box-shadow: 0 40px 90px -24px rgb(0 0 0 / .55); animation: opFichaCentro .22s cubic-bezier(.2, .8, .2, 1) both;
+}
+.op-ficha-fondo { background: rgb(15 12 30 / .42); backdrop-filter: blur(2px); }
+@keyframes opFichaCentro { from { opacity: 0; transform: translate(-50%, calc(-50% + 18px)) scale(.97); } to { opacity: 1; transform: translate(-50%, -50%); } }
+@media (max-width: 640px) {
+  .op-ficha { top: auto; bottom: 0; left: 0; width: 100vw; max-height: calc(100vh - var(--topbar-h, 56px) - 12px); transform: none; border-radius: 22px 22px 0 0; animation: opFichaSube .25s cubic-bezier(.2, .8, .2, 1) both; }
+  @keyframes opFichaSube { from { opacity: .4; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+}
+@media (prefers-reduced-motion: reduce) { .op-ficha { animation: none; } }
