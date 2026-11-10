@@ -19,7 +19,7 @@ import { clienteActual } from '../lib/cliente.js';
 import { leerJSON, guardarJSON, reintentando } from '../lib/store.js';
 import { findContactByEmail, addTags, removeTags, sendEmail, upsertContact, setContactPhone } from '../lib/ghl.js';
 import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
-import { aplicarFoto, conMembresia, tagDePlan, TAG_OK, EMAIL_RE, rellenar, intervaloDe } from '../public/js/membresia.js';
+import { aplicarFoto, conMembresia, esCodigo, nombrePlan, tagDePlan, TAG_OK, EMAIL_RE, rellenar, intervaloDe } from '../public/js/membresia.js';
 
 const CLAVE = 'lsd_membresia';
 const CLAVE_CFG = 'lsd_membresia_cfg';
@@ -44,6 +44,7 @@ function limpiarAlumno(a) {
     nombre: txt(a.nombre, 80),
     telefono: tel.replace(/\D/g, '').length >= 8 ? tel : '',
     plan: txt(a.plan, 60) || 'Sin plan',
+    ...(esCodigo(a.planId) ? { planId: txt(a.planId, 80) } : {}),
     precio: num(a.precio, 1e6),
     intervalo: a.intervalo === 'año' ? 'año' : 'mes',
     ltv: num(a.ltv),
@@ -72,6 +73,8 @@ function limpiarCfg(c = {}, antes = {}) {
     etiquetas,
     tagBaja: tag(c.tagBaja),
     precios,
+    // Nombre de cada código de plan de Skool («c852af…» → «VIP»). Varios códigos pueden ir al mismo plan.
+    nombres: Object.fromEntries(Object.entries(c.nombres || {}).slice(0, 80).map(([k, v]) => [txt(k, 80), txt(v, 60)]).filter(([k, v]) => esCodigo(k) && v)),
     mapa,
     urlSkool: /^https:\/\/([a-z0-9-]+\.)*skool\.com\//i.test(url) ? url : '',
     mensajeWa: txt(c.mensajeWa, 1000),
@@ -164,7 +167,24 @@ export async function POST(request) {
       const antes = await leerCfg();
       const cfg = limpiarCfg({ ...antes, ...(body.cfg || {}) }, antes);
       await guardarJSON(CLAVE_CFG, cfg, { motivo: 'Membresía: configuración' });
-      return json({ ok: true, cfg });
+      // Con nombres nuevos para los códigos de plan, lo ya guardado se renombra al momento (alumnos e historial).
+      let renombrados = 0;
+      if (body.cfg?.nombres && Object.keys(cfg.nombres).length) {
+        await reintentando(async () => {
+          const est = await leerEstado();
+          renombrados = 0;
+          for (const a of Object.values(est.alumnos || {})) {
+            const cod = a.planId || (esCodigo(a.plan) ? a.plan : '');
+            const nuevo = cod ? nombrePlan(cod, { nombres: cfg.nombres }) : a.plan;
+            if (cod && nuevo !== cod && a.plan !== nuevo) { a.planId = cod; a.plan = nuevo; renombrados++; }
+          }
+          for (const e of est.eventos || []) {
+            for (const k of ['plan', 'de']) if (e[k] && esCodigo(e[k]) && cfg.nombres[e[k]]) e[k] = cfg.nombres[e[k]];
+          }
+          if (renombrados) await guardarJSON(CLAVE, est, { motivo: `Membresía: nombre de los planes (${renombrados} alumnos)` });
+        });
+      }
+      return json({ ok: true, cfg, renombrados });
     }
     if (op === 'etiquetar' || op === 'contacto' || op === 'crear') {
       await requireSession(request, { permiso: op === 'contacto' ? ['hoy', 'config'] : 'config' });
@@ -173,7 +193,9 @@ export async function POST(request) {
       const [estado, cfg] = await Promise.all([leerEstado(), leerCfg()]);
       // Etiquetas que gestiona el panel (las de todos los planes y la de baja): solo esas se quitan.
       const planes = new Set(Object.values(estado.alumnos || {}).map((a) => a.plan));
-      const gestionadas = new Set([...[...planes].map((p) => tagDePlan(cfg, p)), ...Object.values(cfg.etiquetas || {}), cfg.tagBaja].filter(Boolean));
+      // (también las que se pusieron cuando el plan era un código: «alumno-c852af…», para quitarlas)
+      const codigos = new Set(Object.values(estado.alumnos || {}).map((a) => a.planId).filter(Boolean));
+      const gestionadas = new Set([...[...planes, ...codigos].map((p) => tagDePlan(cfg, p)), ...Object.values(cfg.etiquetas || {}), cfg.tagBaja].filter(Boolean));
       const ahora = Date.now();
       const cambios = {};
       const results = await mapLimit(emails, 4, async (email) => {

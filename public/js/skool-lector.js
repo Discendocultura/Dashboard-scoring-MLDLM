@@ -73,11 +73,37 @@ function lector(ORIGEN, CLI) {
       } else for (var k in o) walk(o[k], d + 1);
     })(raiz, 0);
   };
+  // Lista de planes / precios de la comunidad (fuera de los miembros): cada objeto con un código (id) y un nombre,
+  // y su precio si lo trae. Sirve para traducir el código de plan de cada alumno («c852af…» → «VIP»).
+  var COD = /^[a-f0-9]{16,}$|^[0-9a-f]{8}-[0-9a-f]{4}-|^(price|prod|plan|sub)_[A-Za-z0-9]{8,}$/i;
+  var NOMBRE = /^(name|title|label|display_?name|tier_?name|plan_?name|nombre|product_?name)$/i;
+  var catalogo = function (raiz, cat) {
+    (function walk(o, d) {
+      if (!o || typeof o !== 'object' || d > 40 || Object.keys(cat).length > 3000) return;
+      if (Array.isArray(o)) { for (var i = 0; i < o.length; i++) walk(o[i], d + 1); return; }
+      var ids = []; var nombre = ''; var importe = null; var intervalo = '';
+      for (var k in o) {
+        var v = o[k];
+        if (typeof v === 'string') {
+          var t = v.trim();
+          if (COD.test(t)) ids.push(t);
+          else if (NOMBRE.test(k) && t && t.length <= 60 && !EM.test(t)) nombre = nombre || t;
+          else if (/interval|period|recurr/i.test(k) && t.length < 20) intervalo = intervalo || t;
+          else if (t.charAt(0) === '{' && t.length < 20000) walk(json(t), d + 1);
+        } else if (typeof v === 'number' && /amount|price|cost|unit/i.test(k) && importe == null) importe = v;
+        else if (v && typeof v === 'object') walk(v, d + 1);
+      }
+      if (nombre && ids.length && !emails(o, 0, new Set()).size) {
+        for (var j = 0; j < ids.length; j++) if (!cat[ids[j]]) cat[ids[j]] = { nombre: nombre, importe: importe, intervalo: intervalo };
+      }
+    })(raiz, 0);
+  };
   var datosDe = function (html) {
     var m = /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/.exec(html);
     return m ? json(m[1]) : null;
   };
   var res = {};
+  var cat = {};
   var paginas = 0;
   (async function () {
     try {
@@ -93,6 +119,7 @@ function lector(ORIGEN, CLI) {
         if (!d) break;
         var antes = Object.keys(res).length;
         miembros(d, res);
+        catalogo(d, cat);
         if (Object.keys(res).length === antes) break;
         paginas = p;
         await new Promise(function (ok) { setTimeout(ok, 300); });
@@ -103,7 +130,7 @@ function lector(ORIGEN, CLI) {
         fin(12000);
         return;
       }
-      var datos = { tipo: 'alquimia-skool', version: 1, cliente: CLI, comunidad: location.pathname.split('/')[1] || '', url: base.href, at: Date.now(), paginas: paginas, filas: filas };
+      var datos = { tipo: 'alquimia-skool', version: 1, cliente: CLI, comunidad: location.pathname.split('/')[1] || '', url: base.href, at: Date.now(), paginas: paginas, filas: filas, catalogo: cat };
       var ok = false;
       window.addEventListener('message', function (e) {
         if (ok || e.origin !== ORIGEN || !e.data || e.data.tipo !== 'alquimia-skool-ok') return;

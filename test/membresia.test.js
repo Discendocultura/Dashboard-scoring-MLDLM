@@ -193,3 +193,33 @@ test('membresía: el plan es el dato que viene en todos (no el primero que se ll
   assert.ok(!/a\d@x\.com/.test(d));
   assert.ok(!/A\d\b/.test(d.split('\n').find((l) => l.startsWith('user.firstName'))));
 });
+
+test('membresía: los planes que llegan como código (id de Skool) se traducen a su nombre y no dan etiquetas raras', async () => {
+  const mb = await import('../public/js/membresia.js');
+  const COD_VIP = 'c852af5034d04f7f9f26fe34d0cf3a11'; const COD_VIP_ANUAL = '9fa75948b07f48be90f8819d09427296'; const COD_EST = '55ef3a086c9045deb605b640c905aa01';
+  assert.ok(mb.esCodigo(COD_VIP) && mb.esCodigo('price_1AbCdEfGhIjK') && !mb.esCodigo('VIP') && !mb.esCodigo('Estándar anual'));
+  const filas = [
+    { 'u.email': 'a@x.com', 'm.priceId': COD_VIP, 'm.tierName': 'VIP' },
+    { 'u.email': 'b@x.com', 'm.priceId': COD_EST, 'm.tierName': 'Estándar' },
+  ];
+  // Con un dato de nombres, se prefiere al de códigos aunque este se llame «price/plan».
+  assert.equal(mb.adivinarMapa(filas).plan, 'm.tierName');
+  // Solo códigos: se traducen con el catálogo de Skool o con los nombres puestos a mano.
+  const solo = [{ 'u.email': 'a@x.com', 'm.plan': COD_VIP, 'm.price': 44 }, { 'u.email': 'b@x.com', 'm.plan': COD_VIP_ANUAL, 'm.price': 33 }, { 'u.email': 'c@x.com', 'm.plan': COD_EST, 'm.price': 14 }];
+  const mapa = { email: 'u.email', plan: 'm.plan', precio: 'm.price' };
+  assert.equal(mb.normalizar(solo[2], mapa, { catalogo: { [COD_EST]: { nombre: 'Estándar' } } }).plan, 'Estándar');
+  const n = mb.normalizar(solo[0], mapa, { nombres: { [COD_VIP]: 'VIP' } });
+  assert.deepEqual([n.plan, n.planId], ['VIP', COD_VIP]);
+  // Dos códigos con el mismo nombre = un solo plan.
+  const rep = mb.repartoPlan(solo, mapa, { nombres: { [COD_VIP]: 'VIP', [COD_VIP_ANUAL]: 'VIP', [COD_EST]: 'Estándar' } });
+  assert.deepEqual(rep, [{ valor: 'VIP', n: 2 }, { valor: 'Estándar', n: 1 }]);
+  // Pendientes de nombre, con alumnos y precio, y sin etiqueta de GHL mientras sean código.
+  const al = solo.map((f) => mb.normalizar(f, mapa));
+  assert.deepEqual(mb.codigosSinNombre(al).map((c) => [c.codigo, c.n, c.mes]), [[COD_VIP, 1, 44], [COD_VIP_ANUAL, 1, 33], [COD_EST, 1, 14]]);
+  assert.equal(mb.tagDePlan({}, COD_VIP), '');
+  // Pasar de código a nombre no es un cambio de plan.
+  const r1 = mb.aplicarFoto({}, [al[0]], { ahora: 1.8e12 });
+  const r2 = mb.aplicarFoto(r1.estado, [n], { ahora: 1.8e12 + 1 });
+  assert.equal(r2.cambios.length, 0);
+  assert.equal(r2.estado.alumnos['a@x.com'].plan, 'VIP');
+});

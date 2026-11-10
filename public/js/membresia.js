@@ -85,7 +85,14 @@ export function adivinarMapa(filas = []) {
 // Claves de las filas que podrían ser el PLAN: texto (no números, emails, fechas ni enlaces), entre 1 y 25 valores
 // distintos y en al menos el 20 % de los alumnos. Ordenadas: primero las que tienen nombre de plan/tier/nivel de
 // pago (`pista`) y luego por cuántos alumnos la traen. → [{ clave, cobertura (0-1), valores: [{ valor, n }], pista }]
-const PISTA_PLAN = /tier|plan|membership|price_?name|product|subscription|suscrip|nivel|package|paquete|access|acceso/i;
+// Código interno (id de Skool o de Stripe): «c852af5034d04f7f…», un uuid, «price_1Ab…». No es un nombre de plan.
+export const esCodigo = (v) => { const t = String(v ?? '').trim(); return /^[a-f0-9]{16,}$/i.test(t) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-/i.test(t) || /^(price|prod|plan|sub|si|pi)_[A-Za-z0-9]{8,}$/.test(t) || (/^[A-Za-z0-9_-]{20,}$/.test(t) && /\d/.test(t) && !/\s/.test(t)); };
+// Nombre de un plan: el puesto a mano (Planes y etiquetas), el que trae Skool en su lista de planes o el valor tal cual.
+export function nombrePlan(v, { nombres = {}, catalogo = {} } = {}) {
+  const t = String(v ?? '').trim();
+  return txt(nombres[t], 60) || txt(catalogo[t]?.nombre ?? catalogo[t], 60) || t;
+}
+const PISTA_PLAN = /tier|plan|membership|price|product|subscription|suscrip|nivel|package|paquete|access|acceso/i;
 const NO_PLAN = /mail|first_?name|last_?name|full_?name|display_?name|(^|\.)name$|nombre|phone|tel|bio|avatar|image|photo|picture|url|link|href|location|city|country|pais|ciudad|lang|locale|timezone|tz$|(^|\.)id$|_id$|uuid|token|slug|handle|ip$|color|theme|question|answer|respuesta|pregunta/i;
 export function candidatosPlan(filas = []) {
   const total = filas.length || 1;
@@ -95,8 +102,9 @@ export function candidatosPlan(filas = []) {
       if (NO_PLAN.test(k)) continue;
       const t = txt(v, 80);
       if (!t) continue;
-      const x = m.get(k) || { clave: k, n: 0, valores: new Map(), malos: 0 };
+      const x = m.get(k) || { clave: k, n: 0, valores: new Map(), malos: 0, codigos: 0 };
       x.n++;
+      if (esCodigo(t)) x.codigos++;
       if (/^-?[\d.,]+$/.test(t) || EMAIL_RE.test(t) || /^https?:/i.test(t) || /^\d{4}-\d{2}-\d{2}/.test(t) || /^(true|false|null|undefined)$/i.test(t)) x.malos++;
       if (x.valores.size <= 40) x.valores.set(t, (x.valores.get(t) || 0) + 1);
       m.set(k, x);
@@ -104,15 +112,16 @@ export function candidatosPlan(filas = []) {
   }
   return [...m.values()]
     .filter((x) => x.malos / x.n < 0.1 && x.valores.size >= 1 && x.valores.size <= 25 && x.n / total >= 0.2)
-    .map((x) => ({ clave: x.clave, cobertura: x.n / total, pista: PISTA_PLAN.test(x.clave), valores: [...x.valores.entries()].map(([valor, n]) => ({ valor, n })).sort((a, b) => b.n - a.n) }))
-    .sort((a, b) => (b.pista - a.pista) || (b.cobertura - a.cobertura) || (a.valores.length - b.valores.length));
+    .map((x) => ({ clave: x.clave, cobertura: x.n / total, pista: PISTA_PLAN.test(x.clave), codigos: x.codigos / x.n > 0.5, valores: [...x.valores.entries()].map(([valor, n]) => ({ valor, n })).sort((a, b) => b.n - a.n) }))
+    // Primero los que traen NOMBRES de plan; los de códigos (ids), al final: solo valen si no hay otra cosa.
+    .sort((a, b) => (a.codigos - b.codigos) || (b.pista - a.pista) || (b.cobertura - a.cobertura) || (a.valores.length - b.valores.length));
 }
 
 // Cómo se reparten los alumnos por plan con un mapa (para verlo antes de guardar). → [{ valor, n }] (con «Sin plan»)
-export function repartoPlan(filas = [], mapa = {}) {
+export function repartoPlan(filas = [], mapa = {}, opts = {}) {
   const c = new Map();
   for (const f of filas) {
-    const a = normalizar(f, mapa);
+    const a = normalizar(f, mapa, opts);
     if (!a) continue;
     c.set(a.plan, (c.get(a.plan) || 0) + 1);
   }
@@ -170,7 +179,8 @@ export function intervaloDe(...vals) {
 const BAJA_RE = /churn|cancel|baja|inactive|expired|removed|banned|left|unpaid|past_?due/i;
 
 // Fila plana + mapa → alumno { email, nombre, telefono, plan, precio, intervalo, ltv, alta, puntos, nivelSkool, ultima, baja }.
-export function normalizar(fila = {}, mapa = {}) {
+// `opts`: { nombres, catalogo } para traducir los códigos de plan a su nombre (ver nombrePlan); el código queda en `planId`.
+export function normalizar(fila = {}, mapa = {}, opts = {}) {
   const g = (k) => (mapa[k] ? fila[mapa[k]] : undefined);
   const email = txt(g('email'), 200).toLowerCase();
   if (!EMAIL_RE.test(email)) return null;
@@ -183,7 +193,12 @@ export function normalizar(fila = {}, mapa = {}) {
     email,
     nombre,
     telefono: tel.replace(/\D/g, '').length >= 8 ? tel : '',
-    plan: txt(g('plan'), 60) || txt(g('planAlt'), 60) || 'Sin plan',
+    ...(() => {
+      const crudo = txt(g('plan'), 80) || txt(g('planAlt'), 80);
+      if (!crudo) return { plan: 'Sin plan' };
+      const plan = nombrePlan(crudo, opts).slice(0, 60);
+      return { plan, ...(esCodigo(crudo) ? { planId: crudo } : {}) };
+    })(),
     precio: importeDe(precioTxt, !!mapa.centimos),
     intervalo: intervaloDe(g('intervalo'), typeof precioTxt === 'string' ? precioTxt : '') || (mapa.intervaloFijo === 'año' ? 'año' : 'mes'),
     ltv: importeDe(g('ltv'), !!mapa.centimos),
@@ -193,6 +208,23 @@ export function normalizar(fila = {}, mapa = {}) {
     ultima: fechaDe(g('ultima')),
     baja: estado ? BAJA_RE.test(estado) : false,
   };
+}
+
+// Planes que siguen siendo un código (sin nombre): cuántos alumnos y lo que suelen pagar al mes, para reconocerlos.
+// `alumnos`: normalizados o guardados. → [{ codigo, n, mes (el precio al mes más repetido) }]
+// Con `todos`, también los que ya tienen nombre (para poder cambiarlo o juntarlos). → [{ codigo, n, mes, nombre }]
+export function codigosSinNombre(alumnos = [], { todos = false } = {}) {
+  const m = new Map();
+  for (const a of alumnos) {
+    const c = esCodigo(a.plan) ? (a.planId || a.plan) : todos && a.planId ? a.planId : '';
+    if (!c) continue;
+    const x = m.get(c) || { codigo: c, n: 0, precios: new Map(), nombre: esCodigo(a.plan) ? '' : a.plan };
+    x.n++;
+    const p = precioMes(a);
+    if (p) x.precios.set(p, (x.precios.get(p) || 0) + 1);
+    m.set(c, x);
+  }
+  return [...m.values()].map(({ precios, ...x }) => ({ ...x, mes: [...precios.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null })).sort((a, b) => b.n - a.n);
 }
 
 // Precio al mes de un alumno (los anuales, entre 12). Sin precio en Skool, el del plan (Membresía → Planes).
@@ -232,7 +264,7 @@ export function aplicarFoto(estado = {}, foto = [], { ahora = Date.now(), comple
     if (a.activo === false) {
       a.activo = true; delete a.bajaEn; vuelven.push(n.email);
       eventos.push({ t: ahora, tipo: 'vuelve', email: n.email, plan: a.plan, mes: precioMes(a) });
-    } else if (plan0 && n.plan && plan0 !== n.plan && plan0 !== 'Sin plan' && n.plan !== 'Sin plan') {
+    } else if (plan0 && n.plan && plan0 !== n.plan && plan0 !== 'Sin plan' && n.plan !== 'Sin plan' && !esCodigo(plan0) && !esCodigo(n.plan)) {
       cambios.push({ email: n.email, de: plan0, a: n.plan });
       eventos.push({ t: ahora, tipo: 'cambio', email: n.email, de: plan0, plan: n.plan, mes: precioMes(a) });
     } else iguales++;
@@ -330,6 +362,7 @@ export const TAG_OK = /^[a-z0-9][a-z0-9 _-]{1,80}$/;
 export function tagDePlan(cfg = {}, plan = '') {
   const t = txt(cfg.etiquetas?.[plan], 80).toLowerCase();
   if (t && TAG_OK.test(t)) return t;
+  if (esCodigo(plan)) return ''; // un código sin nombre no da etiqueta («alumno-c852af…» no le sirve a nadie)
   const p = slug(cfg.prefijo || 'alumno');
   const n = slug(plan);
   return p && n && n !== 'sin-plan' ? `${p}-${n}` : '';

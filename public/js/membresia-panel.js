@@ -5,7 +5,7 @@
 //    media, antigüedad, más activos, en riesgo y bajas recientes.
 //  · Etiquetas de GHL por plan (y de baja): se sincronizan desde aquí y disparan los flujos de GHL (venta cruzada…).
 //  · Alumnos, como una pestaña de setter: segmentos, búsqueda, y a cada uno WhatsApp o email (desde GHL).
-import { CAMPOS, clavesDe, adivinarMapa, normalizar, metricasMembresia, tagDePlan, etiquetasPendientes, SEGMENTOS, rellenar, waDe, precioMes, EMAIL_RE, resumenGhl, conMembresia, candidatosPlan, repartoPlan, diagnosticoSkool } from './membresia.js';
+import { CAMPOS, clavesDe, adivinarMapa, normalizar, metricasMembresia, tagDePlan, etiquetasPendientes, SEGMENTOS, rellenar, waDe, precioMes, EMAIL_RE, resumenGhl, conMembresia, candidatosPlan, repartoPlan, diagnosticoSkool, esCodigo, codigosSinNombre } from './membresia.js';
 import { enlaceLector, esDatosSkool, ORIGEN_SKOOL } from './skool-lector.js';
 
 const DIA = 86_400_000;
@@ -54,7 +54,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     const cob = (k) => cands.find((c) => c.clave === k)?.cobertura ?? 0;
     const mejor = cands.find((c) => c.pista) || null;
     if (mejor && mapa.plan !== mejor.clave && cob(mapa.plan) < mejor.cobertura - 0.05) { planCambiado = mapa.plan || ''; mapa.plan = mejor.clave; }
-    st.importacion = { datos: d, mapa, preview: null, completa: true, planCambiado };
+    st.importacion = { datos: d, mapa, preview: null, completa: true, planCambiado, opts: { nombres: { ...(cfg().nombres || {}) }, catalogo: d.catalogo && typeof d.catalogo === 'object' ? d.catalogo : {} } };
     st.vista = 'importar';
     abrir();
     pintar();
@@ -63,7 +63,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
   async function previsualizar() {
     const imp = st.importacion;
     if (!imp || !puedeConfig()) return;
-    const alumnos = imp.datos.filas.map((f) => normalizar(f, imp.mapa)).filter(Boolean);
+    const alumnos = imp.datos.filas.map((f) => normalizar(f, imp.mapa, imp.opts)).filter(Boolean);
     imp.alumnos = alumnos;
     if (!alumnos.length) { imp.preview = null; pintar(); return; }
     try { imp.preview = await api('/api/membresia', { method: 'POST', body: { op: 'foto', alumnos, completa: imp.completa } }); } catch (e) { imp.preview = { error: e.message }; }
@@ -197,7 +197,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
   // El plan de cada alumno, antes de guardar: cómo se reparten con el dato elegido y otras claves que podrían ser.
   function seccionPlan(imp) {
     const filas = imp.datos.filas;
-    const rep = repartoPlan(filas, imp.mapa);
+    const rep = repartoPlan(filas, imp.mapa, imp.opts);
     const total = rep.reduce((t, x) => t + x.n, 0) || 1;
     const sin = rep.find((x) => x.valor === 'Sin plan')?.n || 0;
     const cands = candidatosPlan(filas).filter((c) => c.clave !== imp.mapa.plan).slice(0, 6);
@@ -206,10 +206,25 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     return `<section class="ms-planrev${sin ? ' aviso' : ''}">
       <header><span class="ms-kpi-ico" style="--t:${sin ? '#e11d48' : '#16a34a'}">${ico(sin ? 'alert' : 'crown')}</span><div><strong>Plan de cada alumno</strong><span class="muted small">${sin ? `<strong class="ms-mal-t">${num(sin)} alumnos sin plan</strong> con este dato: elige abajo el que lo trae para todos (o uno de respaldo).` : 'Todos los alumnos tienen plan. Comprueba que los nombres y las cifras son las de Skool.'}</span></div></header>
       ${imp.planCambiado ? `<p class="ms-aviso ms-aviso-azul">${ico('info')} El dato del plan que se usó la otra vez (<code>${esc(imp.planCambiado)}</code>) no venía en muchos alumnos: ahora uso <code>${esc(imp.mapa.plan)}</code>.</p>` : ''}
+      ${codigosSinNombre(imp.alumnos || [], { todos: true }).some((c) => !c.nombre) || Object.keys(imp.opts?.nombres || {}).length ? tarjetaNombres(codigosSinNombre(imp.alumnos || [], { todos: true }), 'imp') : ''}
       <div class="ms-reparto">${rep.map((x, i) => `<div class="ms-reparto-f${x.valor === 'Sin plan' ? ' sin' : ''}"><span class="ms-plan" style="--c:${x.valor === 'Sin plan' ? '#9ca3af' : colores[i % colores.length]}"><i></i>${esc(x.valor)}</span><span class="ms-barrita"><span style="width:${Math.round((x.n / total) * 100)}%;${x.valor === 'Sin plan' ? 'background:#9ca3af' : `background:${colores[i % colores.length]}`}"></span></span><strong>${num(x.n)}</strong></div>`).join('')}</div>
       <div class="ms-grid2"><label class="field"><span>Dato de Skool con el plan</span><select data-ms-mapa="plan">${opt(imp.mapa.plan)}</select></label><label class="field"><span>Si no viene, usar este otro</span><select data-ms-mapa="planAlt">${opt(imp.mapa.planAlt)}</select></label></div>
       ${cands.length ? `<p class="ms-sub">Otros datos que podrían ser el plan (pulsa para usarlo):</p><div class="ms-cands">${cands.map((c) => `<button type="button" class="ms-cand" data-ms-usar-plan="${esc(c.clave)}"><code>${esc(c.clave)}</code><span class="muted small">${pct(c.cobertura)} de los alumnos</span><span class="ms-cand-v">${c.valores.slice(0, 5).map((v) => `${esc(v.valor)} (${num(v.n)})`).join(' · ')}${c.valores.length > 5 ? ' …' : ''}</span></button>`).join('')}</div>` : ''}
       <p class="muted small">¿No encuentras el plan? <button type="button" class="link-btn" data-ms="diagnostico">Copiar un resumen de los datos de Skool sin datos personales</button> y pégaselo a Claude para ajustarlo.</p>
+    </section>`;
+  }
+
+  // «Ponle nombre a tus planes»: Skool da un código por plan (o por precio). Con cuántos alumnos tiene y lo que pagan
+  // al mes se reconoce cuál es; varios códigos pueden ir al mismo nombre (precio mensual y anual del mismo plan).
+  // `donde`: 'imp' (al revisar una lectura; se guarda al guardar) o 'ya' (lo ya guardado: se guarda con su botón).
+  function tarjetaNombres(cods, donde) {
+    if (!cods.length || !puedeConfig()) return '';
+    const usados = [...new Set([...Object.values(cfg().nombres || {}), ...planesOrden().filter((p) => !esCodigo(p) && p !== 'Sin plan')])];
+    const nombres = donde === 'imp' ? st.importacion?.opts?.nombres || {} : cfg().nombres || {};
+    return `<section class="ms-nombres"><header><span class="ms-kpi-ico" style="--t:#e11d48">${ico('tag')}</span><div><strong>Ponle nombre a tus planes</strong><span class="muted small">Skool da cada plan como un código. Por cuántos alumnos tiene y lo que pagan, escribe cuál es (VIP, Estándar…). Si dos códigos son el mismo plan (mensual y anual), ponles el mismo nombre.</span></div></header>
+      <datalist id="ms-nombres-dl">${usados.map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
+      <div class="ms-nombres-l">${cods.map((c) => `<label class="ms-nombre-f"><code title="${esc(c.codigo)}">${esc(c.codigo.slice(0, 10))}…</code><span><strong>${num(c.n)}</strong> ${c.n === 1 ? 'alumno' : 'alumnos'}${c.mes ? ` · <strong>${eur(c.mes)}</strong>/mes` : ''}</span><input data-ms-nombre="${esc(c.codigo)}" data-ms-donde="${donde}" list="ms-nombres-dl" maxlength="60" placeholder="Nombre del plan" value="${esc(nombres[c.codigo] || c.nombre || '')}"></label>`).join('')}</div>
+      ${donde === 'ya' ? `<p><button type="button" class="btn primary" data-ms="guardar-nombres">${ico('check')} Guardar los nombres</button> <span class="muted small">Se renombran al momento: no hace falta volver a leer Skool.</span></p>` : '<p class="muted small">Se guardan con la lectura.</p>'}
     </section>`;
   }
 
@@ -257,6 +272,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     const maxPts = Math.max(1, ...m.masActivos.map((a) => a.puntos || 0));
     const tonoChurn = (x) => (x > 0.1 ? 'mal' : x > 0.05 ? 'med' : 'ok');
     return `
+      ${codigosSinNombre(al).length ? tarjetaNombres(codigosSinNombre(al, { todos: true }), 'ya') : ''}
       <section class="ms-hero">
         <div class="ms-hero-mrr"><span class="ms-hero-l">${ico('euro')} Ingresos recurrentes al mes (MRR) ${ayuda('Lo que pagan al mes los alumnos activos (los anuales, entre 12)')}</span><strong>${eur(m.mrr)}</strong>${chipCrec}<span class="muted small">ARR ${eur(m.arr)} · ${num(m.activos)} alumnos activos · ${eur(m.arpu)} de media al mes</span></div>
         ${donut(m.filas, m.mrr)}
@@ -487,6 +503,17 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
       recibir(d);
       return;
     }
+    if (op === 'guardar-nombres') {
+      const nombres = { ...(cfg().nombres || {}) };
+      for (const i of body.querySelectorAll('[data-ms-nombre][data-ms-donde="ya"]')) { const v = i.value.trim(); if (v) nombres[i.dataset.msNombre] = v; else delete nombres[i.dataset.msNombre]; }
+      t.disabled = true;
+      try {
+        const r = await api('/api/membresia', { method: 'POST', body: { op: 'cfg', cfg: { nombres } } });
+        notice(`Planes con nombre: ${num(r.renombrados || 0)} alumnos actualizados. Las etiquetas de GHL ya usan el nombre.`);
+        await cargar();
+      } catch (err) { notice(err.message, true); t.disabled = false; }
+      return;
+    }
     if (op === 'diagnostico' && st.importacion) {
       const texto = diagnosticoSkool(st.importacion.datos.filas);
       try { await navigator.clipboard.writeText(texto); notice('Resumen copiado (sin emails, nombres ni teléfonos). Pégaselo a Claude.'); } catch { window.prompt('Copia este resumen:', texto); }
@@ -497,7 +524,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
       const imp = st.importacion;
       t.disabled = true;
       try {
-        await guardarCfg({ mapa: imp.mapa });
+        await guardarCfg({ mapa: imp.mapa, nombres: imp.opts?.nombres || {} });
         const r = await api('/api/membresia', { method: 'POST', body: { op: 'foto', alumnos: imp.alumnos, completa: imp.completa, confirmar: true, comunidad: imp.datos.comunidad } });
         notice(r.primera ? `Membresía lista: ${r.altas} alumnos.` : `Membresía actualizada: ${r.altas} altas, ${r.bajas} bajas y ${r.cambios} cambios de plan.`);
         st.importacion = null;
@@ -573,6 +600,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
   body?.addEventListener('change', (e) => {
     const imp = st.importacion;
     if (e.target.dataset.msMapa && imp) { if (e.target.value) imp.mapa[e.target.dataset.msMapa] = e.target.value; else delete imp.mapa[e.target.dataset.msMapa]; previsualizar(); pintar(); return; }
+    if (e.target.dataset.msNombre && e.target.dataset.msDonde === 'imp' && imp) { const v = e.target.value.trim(); if (v) imp.opts.nombres[e.target.dataset.msNombre] = v; else delete imp.opts.nombres[e.target.dataset.msNombre]; previsualizar(); pintar(); return; }
     if (e.target.id === 'ms-centimos' && imp) { imp.mapa.centimos = e.target.checked; previsualizar(); return; }
     if (e.target.id === 'ms-completa' && imp) { imp.completa = e.target.checked; imp.tocadoCompleta = true; imp.aviso = false; previsualizar(); return; }
     if (e.target.id === 'ms-plan') { st.plan = e.target.value; pintar(); }

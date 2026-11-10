@@ -9636,3 +9636,10 @@ button.ms-pill { cursor: pointer; }
 .ms-cand-v { font-size: 12px; overflow-wrap: anywhere; }
 .ms-planf em { font-style: normal; font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 999px; background: var(--surface-3); }
 .ms-planf.sin { color: var(--muted); }
+.ms-nombres { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: var(--radius); border: 2px solid color-mix(in srgb, #e11d48 35%, var(--border)); background: color-mix(in srgb, #e11d48 5%, var(--surface)); }
+.ms-nombres header { display: flex; gap: 12px; align-items: center; }
+.ms-nombres header > div { display: flex; flex-direction: column; min-width: 0; }
+.ms-nombres p { margin: 0; }
+.ms-nombres-l { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.ms-nombre-f { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); font-size: 13px; min-width: 0; }
+.ms-nombre-f input { grid-column: 1 / -1; width: 100%; }
