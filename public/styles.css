@@ -10193,6 +10193,7 @@ button.ms-pill { cursor: pointer; }
 .emb-modo-tag { font-style: normal; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: #fff; }
 @media (prefers-reduced-motion: reduce) { .emb-modo { transition: none; } .emb-modo:hover { transform: none; } }
 
+<<<<<<< Updated upstream
 /* ===== Anuncios · 🏭 Fábrica de variaciones ===== */
 .fb { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; border-top: 3px solid var(--accent); }
 .fb-cab { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: flex-start; }
@@ -10249,6 +10250,8 @@ button.ms-pill { cursor: pointer; }
   .fb-pasos { grid-template-columns: repeat(2, 1fr); }
   .fb-lote-form { grid-template-columns: 1fr; position: static; }
   .fb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+=======
+>>>>>>> Stashed changes
 /* Lo propio de un negocio (Membresía, Email diario…), en la barra superior */
 .tb-negocio { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 .tb-negocio[hidden] { display: none; }
@@ -10270,3 +10273,20 @@ button.ms-pill { cursor: pointer; }
   .topbar .tb-negocio { display: none !important; }
   .sb-negocio-movil:not([hidden]) { display: contents; }
 }
+<<<<<<< Updated upstream
+=======
+
+/* 🤖 Crear con IA (Crear → Automatizaciones): estado del encargo a Claude */
+.au-enc { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+.au-enc-pend { background: color-mix(in srgb, var(--tone-vip) 14%, var(--surface)); color: var(--tone-vip); }
+.au-enc-hac { background: color-mix(in srgb, var(--tone-info) 14%, var(--surface)); color: var(--tone-info); }
+.au-enc-err { background: color-mix(in srgb, #d93025 11%, var(--surface)); color: #b3261e; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.au-enc-ok { background: color-mix(in srgb, var(--tone-buy) 14%, var(--surface)); color: var(--tone-buy); }
+.au-cowork { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border)); background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 60%), var(--surface); }
+.au-cowork > div { flex: 1 1 320px; }
+.au-cowork h4 { margin: 0 0 4px; }
+.au-cowork p { margin: 0; }
+
+.mj-auto { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.mj-auto input { accent-color: var(--accent); width: 16px; height: 16px; }
+>>>>>>> Stashed changes

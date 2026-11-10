@@ -1,6 +1,6 @@
 // 🚀 Montaje con IA (Crear → Montaje): la operativa de un lanzamiento nuevo por fases, para que Claude haga sola todo lo
 // posible y una persona admin apruebe cada fase antes de pasar a la siguiente. Para todos los clientes.
-//   1 Narrativa e identidad visual · 2 Contenido y producto · 3 Páginas en GHL · 4 Copy de las páginas
+//   1 Narrativa e identidad visual · 2 Contenido y producto · 3 Copy de las páginas · 4 Páginas en GHL
 //   5 Emails y WhatsApp · 6 Automatizaciones en GHL
 // Claude trabaja con el conector de AlquimIA («montaje_lanzamiento» para leer qué toca y «guardar_fase_montaje» para
 // dejar lo hecho) y, en las fases de GHL (páginas y automatizaciones), desde el navegador (Claude in Chrome o Cowork):
@@ -54,14 +54,14 @@ export const FASES = [
     ],
   },
   {
-    id: 'paginas', n: 3, titulo: 'Páginas del embudo en GHL', corto: 'Páginas', icono: 'layout', emoji: '🧱',
-    objetivo: 'Montar en GoHighLevel las páginas de registro, gracias, replay y venta, con la estructura, el diseño de la fase 1 y los códigos de AlquimIA.',
-    piezas: () => paginasMontaje().map((p) => ({ id: p.id, titulo: NOMBRE_PAGINA[p.id], tipo: 'ghl', que: `${p.objetivo} Secciones: ${(p.secciones || []).join(' · ')}.` })),
+    id: 'copy', n: 3, titulo: 'Copy de las páginas', corto: 'Copy', icono: 'pencil', emoji: '✍️',
+    objetivo: 'Los textos definitivos de cada página (registro, gracias, replay y venta), sección a sección. Se revisan y se editan aquí antes de aprobar: las páginas se montan ya con este copy.',
+    piezas: () => paginasMontaje().map((p) => ({ id: p.id, titulo: `Copy de ${NOMBRE_PAGINA[p.id].toLowerCase()}`, tipo: 'texto', que: `El texto de cada sección de la página de ${NOMBRE_PAGINA[p.id].toLowerCase()}, en orden (${(p.secciones || []).join(' · ')}), con titulares, subtítulos y botones.` })),
   },
   {
-    id: 'copy', n: 4, titulo: 'Copy de las páginas', corto: 'Copy', icono: 'pencil', emoji: '✍️',
-    objetivo: 'Los textos definitivos de cada página, sección a sección, y pegarlos en las páginas de la fase 3.',
-    piezas: () => paginasMontaje().map((p) => ({ id: p.id, titulo: `Copy de ${NOMBRE_PAGINA[p.id].toLowerCase()}`, tipo: 'texto', que: `El texto de cada sección de la página de ${NOMBRE_PAGINA[p.id].toLowerCase()}, en orden, con titulares, subtítulos y botones.` })),
+    id: 'paginas', n: 4, titulo: 'Páginas del embudo en GHL', corto: 'Páginas', icono: 'layout', emoji: '🧱',
+    objetivo: 'Montar en GoHighLevel las páginas de registro, gracias, replay y venta con el copy aprobado, el diseño de la fase 1 y los códigos de AlquimIA.',
+    piezas: () => paginasMontaje().map((p) => ({ id: p.id, titulo: NOMBRE_PAGINA[p.id], tipo: 'ghl', que: `${p.objetivo} Secciones: ${(p.secciones || []).join(' · ')}.` })),
   },
   {
     id: 'mensajes', n: 5, titulo: 'Emails y WhatsApp', corto: 'Mensajes', icono: 'mail', emoji: '💬',
@@ -74,9 +74,15 @@ export const FASES = [
   {
     id: 'automatizaciones', n: 6, titulo: 'Automatizaciones en GHL', corto: 'Automatizaciones', icono: 'gear', emoji: '⚙️',
     objetivo: 'Crear en GoHighLevel, desde el navegador, los workflows del lanzamiento, en su carpeta y en borrador.',
-    piezas: (ctx) => automatizacionesDe(ctx.auto || autoCtx('lanzamientos', {}, { code: ctx.code || '' })).map((a) => ({ id: `wf-${a.n}`, titulo: a.nombre, tipo: 'ghl', que: a.para, faltan: a.faltan })),
+    piezas: (ctx) => automatizacionesDe(ctx.auto || autoCtx('lanzamientos', {}, { code: ctx.code || '' })).map((a) => ({ id: `wf-${a.id}`, titulo: a.nombre, tipo: 'ghl', que: a.para, faltan: a.faltan })),
   },
 ];
+// Guías que se suben en Marca y avatar → Documentos («Qué es»): entran tal cual en la fase que toca.
+export const GUIAS = {
+  emails: { titulo: 'Guía de emails', fase: 'mensajes', desc: 'estructura, persuasión, tono y longitud de los emails' },
+  copy: { titulo: 'Guía de copy', fase: 'copy', desc: 'cómo se escribe el copy de las páginas' },
+  automatizaciones: { titulo: 'Guía de automatizaciones', fase: 'automatizaciones', desc: 'lo que lleva siempre cada workflow de GHL' },
+};
 export const FASE = Object.fromEntries(FASES.map((f) => [f.id, f]));
 export const esFase = (id) => Boolean(FASE[id]);
 
@@ -135,7 +141,8 @@ export function limpiarMontaje(m = {}) {
     };
   }
   const registro = (Array.isArray(m?.registro) ? m.registro : []).slice(0, 80).map((r) => ({ at: String(r.at || ''), fase: String(r.fase || ''), accion: String(r.accion || ''), quien: String(r.quien || ''), detalle: limpiarTexto(r.detalle, 600) }));
-  return { fases, registro, ...(m?.creado?.at ? { creado: { por: String(m.creado.por || ''), at: String(m.creado.at) } } : {}) };
+  // auto: false → la tarea de Cowork no lo avanza sola (por defecto sí).
+  return { fases, registro, ...(m?.creado?.at ? { creado: { por: String(m.creado.por || ''), at: String(m.creado.at) } } : {}), ...(m?.auto === false ? { auto: false } : {}) };
 }
 
 // Estado de cada fase, con las bloqueadas (la anterior no está aprobada): [{ id, estado }]
@@ -197,29 +204,33 @@ function pasosFase(faseId, ctx) {
       'Define el producto y la oferta. Si el lanzamiento ya tiene oferta o precios en AlquimIA (abajo), respétalos y complétalos; si no, propón y explica el porqué en la nota.',
       'No inventes testimonios ni cifras: si faltan, pon [PENDIENTE: …].',
     ];
+    case 'copy': return [
+      'Escribe el copy definitivo de cada página, sección por sección, en el orden de su estructura (abajo), con la voz de la marca y la narrativa aprobada.',
+      'Básate en la ficha y las respuestas de Marca y avatar y en sus documentos («documentos_marca»): usa las palabras literales del avatar, sus dolores, deseos y objeciones. Si hay guía de copy, síguela al pie de la letra.',
+      'Mira también lo que más vendió antes («perfil_comprador», «anuncios_que_venden») y, si hay encuestas, «encuesta_para_copy».',
+      'Testimonios: solo los reales y con el nombre de pila. Nada de jerga interna («carrito», «BAR», «lanzamiento») en textos para leads. Si falta un dato, pon [PENDIENTE: …].',
+      'Solo texto: todavía no toques GHL. El equipo lo revisa y lo puede editar aquí antes de aprobarlo.',
+    ];
     case 'paginas': return [
       'Abre GoHighLevel en el navegador (Claude in Chrome o Cowork). La API de GHL no crea páginas de embudo: hazlo en Sites → Funnels.',
       `Crea (o usa, si ya existe) el embudo «${l.name || ctx.code}» y dentro una página por cada pieza: registro, gracias, replay y venta.`,
-      'Monta cada página con las secciones de su pieza, los colores, tipografías, símbolos y logo de la fase 1. Usa textos provisionales que empiecen por [COPY] (el definitivo es la fase 4).',
+      'Monta cada página con el COPY APROBADO de la fase 3 (abajo), tal cual, y con los colores, tipografías, símbolos y logo de la fase 1. No reescribas el copy.',
       `Los códigos de AlquimIA de cada página (formulario, cuentas atrás, barra, grabación…) están en ${app} → Crear → Páginas («Copiar el prompt» de cada página): pégalos en un elemento «Código personalizado».`,
       'No publiques el embudo ni cambies dominios. Al terminar cada página, guarda su URL (la de vista previa vale) y márcala como hecha. Si algo no se puede, dilo en la nota.',
     ];
-    case 'copy': return [
-      'Escribe el copy definitivo de cada página, sección por sección y en el orden de la fase 3, con la voz de la marca y la narrativa aprobada.',
-      'Usa el lenguaje literal del avatar (la herramienta «encuesta_para_copy» si hay encuestas) y lo que más vendió antes («perfil_comprador», «anuncios_que_venden»).',
-      'Cuando esté guardado, pégalo en las páginas de GHL de la fase 3 en lugar de los textos [COPY], desde el navegador. No publiques.',
-      'Testimonios: solo los reales y con el nombre de pila. Nada de jerga interna («carrito», «BAR», «lanzamiento») en textos para leads.',
-    ];
     case 'mensajes': return [
+      'Si hay GUÍA DE EMAILS (abajo), es la norma: estructura, persuasión, longitud y tono de cada email salen de ahí. Si choca con otra instrucción, manda la guía.',
       'Usa «emails_lanzamiento» para ver los emails de lanzamientos anteriores y sus asuntos ganadores, y sigue el calendario de abajo (fechas y horas reales).',
-      'Escribe TODOS los emails y TODOS los mensajes del grupo de WhatsApp con la voz de la marca y la narrativa. Cada uno con su día y hora.',
+      'Escribe TODOS los emails y TODOS los mensajes del grupo de WhatsApp con la voz de la marca, la narrativa y lo que sabes del avatar (Marca y avatar y sus documentos). Cada uno con su día y hora.',
+      'Los recordatorios del directo, el aviso de la grabación y los emails de venta del carrito van como CAMPAÑAS DE EMAIL independientes (no dentro de los workflows): escríbelos todos aquí con su día y hora.',
       'No los programes ni los envíes: quedan en AlquimIA para revisar.',
     ];
     case 'automatizaciones': return [
       'Abre GoHighLevel en el navegador: Automatización → Workflows. La API de GHL no crea workflows.',
       `Crea la carpeta «${l.name || ctx.code}» y dentro cada workflow de la lista, en orden, con su prompt de abajo. Déjalos en BORRADOR (sin publicar).`,
       'Después de cada uno, guarda su URL y márcalo como hecho (puedes guardar la fase a medias con listo: false). Si un dato falta, dilo en la nota y sigue con el siguiente.',
-      'Para los textos de emails y WhatsApp, usa los de la fase 5.',
+      'Para los textos de emails y WhatsApp, usa los aprobados en la fase 5.',
+      'Si hay GUÍA DE AUTOMATIZACIONES (abajo), lo que dice que lleva cada workflow se monta SIEMPRE, además de lo que trae su prompt.',
     ];
     default: return [];
   }
@@ -243,8 +254,15 @@ export function briefFase(faseId, m = {}, ctx = {}) {
     '- Guarda lo que vayas haciendo con «guardar_fase_montaje» (listo: false) y, cuando esté todo, con listo: true. Entonces PARA: una persona admin la revisa y la aprueba en AlquimIA. No pases a la fase siguiente hasta que esté aprobada.',
     '- Nunca publiques, envíes ni programes nada a leads. Nunca crees etiquetas de GHL que no estén en las instrucciones.',
     '- En la nota, explica en 3-6 líneas qué has hecho, qué has decidido y qué necesita revisar una persona.',
+    '- Todo sale de Marca y avatar (ficha, respuestas y documentos) y de lo ya aprobado: no inventes datos del cliente.',
   ];
+  // Marca y avatar: la ficha, las respuestas del cuestionario y los documentos (base de todo lo que se escribe).
   if (ctx.ficha) lineas.push('', '## Ficha de marca, producto y avatar', ctx.ficha);
+  if (ctx.respuestas && ctx.respuestas !== ctx.ficha) lineas.push('', '## Respuestas de Marca y avatar', ctx.respuestas);
+  if (ctx.docs?.length) lineas.push('', '## Documentos de Marca y avatar (léelos con «documentos_marca»)', ...ctx.docs.map((d) => `- ${d.id} · ${d.nombre}${GUIAS[d.uso] ? ` (${GUIAS[d.uso].titulo.toLowerCase()})` : ''} · ${Math.max(1, Math.round((d.chars || 0) / 1000))} mil caracteres`));
+  if (!ctx.ficha && !ctx.respuestas) lineas.push('', '## Marca y avatar', '(Este cliente aún no tiene rellenado Marca y avatar: pídeselo al equipo antes de escribir nada.)');
+  const guia = { mensajes: ctx.guias?.emails, copy: ctx.guias?.copy, automatizaciones: ctx.guias?.automatizaciones }[faseId];
+  if (guia) lineas.push('', `## ${GUIAS[{ mensajes: 'emails', copy: 'copy', automatizaciones: 'automatizaciones' }[faseId]].titulo.toUpperCase()} (síguela: manda sobre lo de arriba)`, guia);
   if (ctx.diseno && ['identidad', 'paginas'].includes(faseId)) lineas.push('', '## Estilo visual de la marca', ctx.diseno);
   const previo = aprobadoHasta(m, faseId, ctx);
   if (previo) lineas.push('', '# LO YA APROBADO (síguelo)', previo);
@@ -264,7 +282,7 @@ export function briefFase(faseId, m = {}, ctx = {}) {
     lineas.push('', '## Calendario de emails', emails || '(Faltan las fechas del lanzamiento en AlquimIA: propón un calendario.)', '', '## Calendario de WhatsApp', wa || '(Faltan las fechas del lanzamiento en AlquimIA: propón un calendario.)');
   }
   if (faseId === 'automatizaciones' && ctx.auto) {
-    lineas.push('', '## Workflows', ...automatizacionesDe(ctx.auto).map((a) => `### wf-${a.n} · ${a.nombre}${x.piezas?.[`wf-${a.n}`]?.hecho ? ' ✓ (ya hecho)' : ''}\n${promptAutomatizacion(a, ctx.auto)}`));
+    lineas.push('', '## Workflows', ...automatizacionesDe(ctx.auto).map((a) => `### wf-${a.id} · ${a.nombre}${x.piezas?.[`wf-${a.id}`]?.hecho ? ' ✓ (ya hecho)' : ''}\n${promptAutomatizacion(a, ctx.auto)}`));
   }
   return lineas.filter((v) => v !== '').join('\n');
 }
@@ -281,5 +299,25 @@ export function promptArranque({ code, nombre, clienteId = '', cliente = '' }) {
     '5. Cuando te diga «sigue», vuelve al paso 1: si hay cambios pedidos, haz esos primero.',
     '',
     'Nunca publiques, envíes ni programes nada a leads.',
+  ].join('\n');
+}
+
+// Tarea programada de Cowork (una vez): recoge los encargos de «Crear con IA» y avanza los montajes que esperan a la
+// IA, con la suscripción de Claude. Mismo texto en Crear → Automatizaciones y en Crear → Montaje.
+export const FRECUENCIA_COWORK = 'cada 30 minutos (o cada hora)';
+export function promptTareaCowork() {
+  return [
+    'Eres quien monta los lanzamientos de la agencia en GoHighLevel con el conector de AlquimIA. Cada vez que se ejecute esta tarea:',
+    '',
+    '1. Llama a «ver_embudos» para saber los clientes a los que tienes acceso.',
+    '2. Para cada cliente, llama a «trabajo_pendiente» (con su id de cliente).',
+    '3. ENCARGOS (automatizaciones de «Crear con IA»), uno a uno:',
+    '   a. «actualizar_encargo» con estado «haciendo».',
+    '   b. Abre GoHighLevel en el navegador (la subcuenta de ese cliente) y monta el workflow siguiendo su prompt y, si la hay, la guía de automatizaciones. En BORRADOR: nunca lo publiques.',
+    '   c. «actualizar_encargo» con estado «hecho» y la URL del workflow; si no se puede, «error» con el motivo.',
+    '4. MONTAJES: para cada uno, «montaje_lanzamiento» con su lanzamiento, haz esa fase entera siguiendo el encargo (Marca y avatar, guías y lo aprobado) y guárdala con «guardar_fase_montaje» (listo: true). Solo una fase por montaje: la siguiente espera el aprobado de una persona.',
+    '5. Si no hay nada pendiente, termina sin hacer nada.',
+    '',
+    'Reglas: nunca publiques, envíes ni programes nada a leads; nunca crees etiquetas que no estén en las instrucciones; no toques workflows ni páginas de otros lanzamientos. Al terminar, resume en 2-3 líneas qué has hecho.',
   ].join('\n');
 }

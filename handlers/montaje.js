@@ -5,9 +5,10 @@
 //   POST { op: 'guardar', l, fase, piezas, nota?, listo? } → lo que edita una persona
 //   POST { op: 'aprobar' | 'reabrir', l, fase }  → solo admin
 //   POST { op: 'cambios', l, fase, texto }       → pide cambios a la IA
+//   POST { op: 'auto', l, valor }                → que la tarea de Cowork lo avance sola (sí por defecto) o no
 import { requireSession } from '../lib/auth.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
-import { leerMontaje, empezar, guardarFase, aprobarFase, pedirCambios, reabrirFase, ctxBrief, resumenes } from '../lib/montaje.js';
+import { leerMontaje, empezar, guardarFase, aprobarFase, pedirCambios, reabrirFase, ctxBrief, resumenes, fijarAuto } from '../lib/montaje.js';
 import { FASES, briefFase, piezasDe } from '../public/js/montaje.js';
 
 const quienEs = (s) => s.user?.nombre || s.user?.email || (s.role === 'admin' ? 'Admin' : 'Equipo');
@@ -45,6 +46,7 @@ export async function POST(request) {
       case 'aprobar': soloAdmin(s); return json({ montaje: await aprobarFase(code, fase, quien) });
       case 'reabrir': soloAdmin(s); return json({ montaje: await reabrirFase(code, fase, quien) });
       case 'cambios': return json({ montaje: await pedirCambios(code, fase, body.texto, quien) });
+      case 'auto': return json({ montaje: await fijarAuto(code, Boolean(body.valor), quien) });
       default: return json({ error: 'Operación desconocida' }, 400);
     }
   } catch (e) {

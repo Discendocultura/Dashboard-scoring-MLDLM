@@ -14,7 +14,7 @@ import { usaD1 } from '../lib/store.js';
 import { debeRellenarMarca } from '../lib/users.js';
 import {
   leerMarca, guardarCampos, crearProducto, borrarProducto, guardarFicha, productoDeEmbudoGuardar,
-  enlaceCliente, subirDoc, borrarDoc, textosDocs, vistaPublica, guardarPaso, terminarAsistente, reabrirAsistente,
+  enlaceCliente, subirDoc, borrarDoc, usoDoc, textosDocs, vistaPublica, guardarPaso, terminarAsistente, reabrirAsistente,
 } from '../lib/marca.js';
 import { progresoTotal } from '../public/js/marca.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
@@ -76,8 +76,9 @@ export async function POST(request) {
     let r;
     if (op === 'campos') r = await guardarCampos({ ambito: body.ambito, productoId: String(body.productoId || ''), campos: body.campos && typeof body.campos === 'object' ? body.campos : {} }, por);
     else if (op === 'producto-nuevo') r = await crearProducto(String(body.nombre || '').slice(0, 200), por);
-    else if (op === 'doc-subir') r = await subirDoc({ nombre: body.nombre, tipo: body.tipo, productoId: body.productoId, texto: String(body.texto || '').slice(0, 400_000) }, por);
+    else if (op === 'doc-subir') r = await subirDoc({ nombre: body.nombre, tipo: body.tipo, productoId: body.productoId, uso: String(body.uso || ''), texto: String(body.texto || '').slice(0, 400_000) }, por);
     else if (op === 'doc-borrar') r = await borrarDoc(String(body.id || ''), por);
+    else if (op === 'doc-uso') r = await usoDoc(String(body.id || ''), String(body.uso || ''), por);
     else if (op === 'producto-borrar') r = await borrarProducto(String(body.id || ''), por);
     else if (op === 'ficha') r = await guardarFicha(String(body.productoId || ''), body.ficha, por);
     else if (op === 'embudo') r = await productoDeEmbudoGuardar(String(body.embudo || '').slice(0, 24), String(body.productoId || ''), por);

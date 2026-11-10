@@ -23,7 +23,7 @@ const login = async (password) => {
 };
 
 test('las 6 fases, en orden: solo se abre la siguiente cuando se aprueba la anterior', () => {
-  assert.deepEqual(FASES.map((f) => f.id), ['identidad', 'contenido', 'paginas', 'copy', 'mensajes', 'automatizaciones']);
+  assert.deepEqual(FASES.map((f) => f.id), ['identidad', 'contenido', 'copy', 'paginas', 'mensajes', 'automatizaciones']);
   assert.deepEqual(estadosFases({}).map((x) => x.estado), ['pendiente', 'bloqueada', 'bloqueada', 'bloqueada', 'bloqueada', 'bloqueada']);
   const m = { fases: { identidad: { estado: 'aprobada' }, contenido: { estado: 'revisar' } } };
   assert.deepEqual(estadosFases(m).map((x) => x.estado).slice(0, 3), ['aprobada', 'revisar', 'bloqueada']);
@@ -73,7 +73,7 @@ test('flujo completo: la IA entrega, se piden cambios, solo admin aprueba, la na
   assert.equal(g.status, 200);
   assert.equal(g.data.admin, true);
   assert.match(g.data.brief.identidad, /Prompt de narrativa/);
-  assert.ok(g.data.piezas.automatizaciones.length >= 3); // los workflows del lanzamiento
+  assert.deepEqual(g.data.piezas.automatizaciones.map((p) => p.id), ['wf-registro', 'wf-carrito-abandonado', 'wf-compra', 'wf-bonus']); // los workflows del lanzamiento
   assert.equal((await call('/api/montaje?l=no-existe', { cookie: admin })).status, 404);
 
   const { TOOLS } = await import('../lib/mcp-tools.js');
@@ -132,4 +132,74 @@ test('«Móntalo con IA» se guarda en el embudo de lanzamientos (y no en otros 
   const e = (await call('/api/config', { cookie: admin })).data.config.embudos.find((x) => x.id === 'ia');
   assert.equal(e.montajeIa, true);
   assert.equal(e.paginasOrigen, undefined);
+});
+
+test('encargos «Crear con IA»: se encargan, Claude los coge y los cierra, y la automatización queda creada', async () => {
+  const admin = await login('admin');
+  const cfg = await call('/api/config', { cookie: admin });
+  const launches = { ...cfg.data.config.launches, abr: { name: 'Abril', fechaDirecto: '2027-04-20', horaDirecto: '19:00', compraTag: 'compra-abr' } };
+  assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { ...cfg.data.config, launches, _version: cfg.data.version } })).status, 200);
+  const prompt = 'Vas a crear un workflow en GoHighLevel para el lanzamiento «Abril»: registro completado, con su etiqueta y su email.';
+  const e = await call('/api/encargos', { method: 'POST', cookie: admin, body: { op: 'encargar', tipo: 'lanzamientos', l: 'abr', ref: 'registro', titulo: '[abr] 01 · Registro completado', prompt } });
+  assert.equal(e.status, 200, JSON.stringify(e.data));
+  // Pedirla otra vez no duplica.
+  await call('/api/encargos', { method: 'POST', cookie: admin, body: { op: 'encargar', tipo: 'lanzamientos', l: 'abr', ref: 'registro', titulo: '[abr] 01 · Registro completado', prompt } });
+  const lista = await call('/api/encargos?l=abr', { cookie: admin });
+  assert.equal(lista.data.items.length, 1);
+
+  const { TOOLS } = await import('../lib/mcp-tools.js');
+  const tool = (n) => TOOLS.find((t) => t.name === n);
+  const s = { role: 'admin' };
+  const tp = await tool('trabajo_pendiente').run({}, { s });
+  assert.equal(tp.encargos.length, 1);
+  assert.match(tp.encargos[0].prompt, /registro completado/);
+  const id = tp.encargos[0].id;
+  await tool('actualizar_encargo').run({ id, estado: 'haciendo' }, { s });
+  assert.equal((await tool('trabajo_pendiente').run({}, { s })).encargos.length, 0); // ya lo tiene Claude
+  await assert.rejects(tool('actualizar_encargo').run({ id, estado: 'hecho' }, { s }), /URL del workflow/);
+  const h = await tool('actualizar_encargo').run({ id, estado: 'hecho', url: 'https://app.gohighlevel.com/v2/location/x/workflow/123' }, { s });
+  assert.equal(h.estado, 'hecho');
+  const cfg2 = await call('/api/config', { cookie: admin });
+  assert.deepEqual(cfg2.data.config.launches.abr.automatizaciones.items.registro, { estado: 'creada', url: 'https://app.gohighlevel.com/v2/location/x/workflow/123' });
+  // Cancelado: Claude no lo hace.
+  const e2 = await call('/api/encargos', { method: 'POST', cookie: admin, body: { op: 'encargar', tipo: 'lanzamientos', l: 'abr', ref: 'bonus', titulo: '[abr] 04 · Asignación de bonus', prompt } });
+  await call('/api/encargos', { method: 'POST', cookie: admin, body: { op: 'cancelar', id: e2.data.encargo.id } });
+  await assert.rejects(tool('actualizar_encargo').run({ id: e2.data.encargo.id, estado: 'haciendo' }, { s }), /cancelaron/);
+  // Sin permiso de configuración no se encarga.
+  const setter = await login('setter');
+  assert.equal((await call('/api/encargos', { method: 'POST', cookie: setter, body: { op: 'encargar', tipo: 'lanzamientos', l: 'abr', ref: 'registro', titulo: 'x', prompt } })).status, 403);
+});
+
+test('Marca y avatar: guías de emails y automatizaciones en el encargo; montajes que esperan a Claude', async () => {
+  const admin = await login('admin');
+  const sube = (nombre, uso, texto) => call('/api/marca', { method: 'POST', cookie: admin, body: { op: 'doc-subir', nombre, tipo: 'txt', uso, texto } });
+  assert.equal((await sube('Estudio avatar.txt', '', 'Las madres dicen literalmente: «no llego a todo», y eso les pesa mucho.')).status, 200);
+  assert.equal((await sube('Guía emails.txt', 'emails', 'ESTRUCTURA: gancho, historia, lección y una sola llamada a la acción. Máximo 250 palabras.')).status, 200);
+  assert.equal((await sube('Guía workflows.txt', 'automatizaciones', 'Todo workflow lleva SIEMPRE una nota interna con el código del lanzamiento y un Wait de 1 minuto al empezar.')).status, 200);
+
+  const { ctxBrief } = await import('../lib/montaje.js');
+  const ctx = await ctxBrief('ene');
+  const emails = briefFase('mensajes', {}, ctx);
+  assert.match(emails, /GUÍA DE EMAILS[^]*gancho, historia, lección/);
+  assert.match(emails, /Estudio avatar\.txt/); // la lista de documentos
+  assert.doesNotMatch(briefFase('copy', {}, ctx), /gancho, historia/); // la de emails no va en el copy
+  assert.match(briefFase('automatizaciones', {}, { ...ctx }), /GUÍA DE AUTOMATIZACIONES[^]*nota interna/);
+
+  const { TOOLS } = await import('../lib/mcp-tools.js');
+  const tool = (n) => TOOLS.find((t) => t.name === n);
+  const s = { role: 'admin' };
+  const docs = await tool('documentos_marca').run({}, { s });
+  const est = docs.documentos.find((d) => d.nombre === 'Estudio avatar.txt');
+  assert.equal(docs.documentos.find((d) => d.nombre === 'Guía emails.txt').que, 'Guía de emails');
+  assert.match((await tool('documentos_marca').run({ id: est.id }, { s })).texto, /no llego a todo/);
+
+  // Hay un encargo pendiente: la guía de automatizaciones viene con él.
+  const prompt = 'Vas a crear un workflow en GoHighLevel para el lanzamiento «Abril»: carrito abandonado con su espera.';
+  await call('/api/encargos', { method: 'POST', cookie: admin, body: { op: 'encargar', tipo: 'lanzamientos', l: 'abr', ref: 'carrito-abandonado', titulo: '[abr] 02 · Carrito abandonado', prompt } });
+  const tp = await tool('trabajo_pendiente').run({}, { s });
+  assert.match(tp.guiaAutomatizaciones, /nota interna/);
+  // El montaje de «ene» tiene la fase 2 por empezar: espera a Claude. Si se apaga «Claude lo avanza solo», no.
+  assert.ok(tp.montajes.some((x) => x.lanzamiento === 'ene' && x.fase === 'contenido'));
+  await call('/api/montaje', { method: 'POST', cookie: admin, body: { op: 'auto', l: 'ene', valor: false } });
+  assert.ok(!(await tool('trabajo_pendiente').run({}, { s })).montajes.some((x) => x.lanzamiento === 'ene'));
 });

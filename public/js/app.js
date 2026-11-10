@@ -96,7 +96,11 @@ import { conMembresia } from './membresia.js';
 import { conEmailDiario } from './email-diario.js';
 import { montarEmailDiario } from './email-diario-panel.js';
 import { montarMontaje } from './montaje-panel.js';
+<<<<<<< Updated upstream
 import { montarFabrica } from './fabrica-panel.js';
+=======
+import { promptTareaCowork, FRECUENCIA_COWORK } from './montaje.js';
+>>>>>>> Stashed changes
 
 // AlquimIA sin emojis en la interfaz: iconos de línea en su lugar (los mensajes a las leads conservan los suyos).
 sinEmojis();
@@ -10309,10 +10313,24 @@ function campoAuto(tipo, x, c) {
   const k = (x.requiere || []).find((r) => !c[r]);
   return CAMPO_DIRECTA[k] || 'tab:directa';
 }
+// 🤖 Encargos a Claude del embudo abierto (Crear con IA): { code, items, ghl }. Mientras haya alguno en marcha, se
+// vuelven a leer cada minuto con la pestaña abierta.
+let encargosTimer = null;
+async function cargarEncargos(code) {
+  try {
+    const r = await api(`/api/encargos?l=${encodeURIComponent(code)}`);
+    state.encargos = { code, items: r.items || [], ghl: r.ghl || '' };
+  } catch { state.encargos = { code, items: [], ghl: '', error: true }; }
+  if (!$('#view-automatizaciones')?.hidden) renderAutomatizaciones();
+}
+const encargoDe = (ref) => (state.encargos?.items || []).find((x) => x.ref === ref && x.estado !== 'cancelado');
 function renderAutomatizaciones() {
   const box = $('#automatizaciones-body');
   if (!box) return;
   const { tipo, code, obj } = autoActual();
+  if (obj && puedeConfig() && state.encargos?.code !== code) { state.encargos = { code, items: [], ghl: '', cargando: true }; cargarEncargos(code); }
+  clearTimeout(encargosTimer);
+  if ((state.encargos?.items || []).some((x) => x.estado === 'pendiente' || x.estado === 'haciendo')) encargosTimer = setTimeout(() => { if (!$('#view-automatizaciones')?.hidden && state.encargos?.code) cargarEncargos(state.encargos.code); }, 60_000);
   if (!obj) { box.innerHTML = `<div class="card empty"><p class="muted">Elige ${tipo === 'meteorico' ? 'un meteórico' : 'un lanzamiento'} para ver sus automatizaciones.</p></div>`; return; }
   const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente, plantillasWa: state.config.plantillasWa || [] });
   const lista = automatizacionesDe(c);
@@ -10322,6 +10340,16 @@ function renderAutomatizaciones() {
   const n = { creada: lista.filter((x) => est(x.id) !== 'pendiente').length, probada: lista.filter((x) => est(x.id) === 'probada').length };
   const pct = lista.length ? Math.round((n.creada / lista.length) * 100) : 0;
   const puede = puedeConfig();
+  // Crear con IA: encargarla a Claude (la monta la tarea de Cowork) o abrir la IA de GHL con la descripción copiada.
+  const encargoHtml = (x) => {
+    const en = encargoDe(x.id);
+    const chip = !en ? '' : en.estado === 'pendiente' ? `<span class="au-enc au-enc-pend">⏳ Encargada a Claude · la recoge en su próxima pasada</span><button type="button" class="btn ghost small" data-au-cancelar="${esc(en.id)}">Cancelar</button>`
+      : en.estado === 'haciendo' ? '<span class="au-enc au-enc-hac">🛠️ Claude la está montando en GHL…</span>'
+      : en.estado === 'error' ? `<span class="au-enc au-enc-err" title="${esc(en.nota)}">⚠️ Claude no pudo: ${esc(en.nota || 'sin motivo')}</span>`
+      : en.estado === 'hecho' && est(x.id) !== 'pendiente' ? '<span class="au-enc au-enc-ok">✅ Montada por Claude</span>' : '';
+    const enMarcha = en && (en.estado === 'pendiente' || en.estado === 'haciendo');
+    return `${chip}${puede && !enMarcha ? `<button type="button" class="btn primary small" data-au-encargar="${esc(x.id)}" title="Claude la monta en GHL desde el navegador con tu suscripción (tarea programada de Cowork)">🤖 ${en?.estado === 'error' ? 'Reintentar con IA' : est(x.id) !== 'pendiente' ? 'Volver a crear con IA' : 'Crear con IA'}</button>` : ''}<button type="button" class="btn small au-btn-ghl" data-au-ghl="${esc(x.id)}" title="Abre los workflows de GHL y copia la descripción para su asistente de IA">✨ Abrir en la IA de GHL</button><button type="button" class="btn ghost small" data-au-prompt="${esc(x.id)}" title="El prompt completo, por si prefieres pegárselo tú a Claude">📋 Prompt</button>`;
+  };
   const item = (x) => {
     const e = est(x.id);
     const url = datos.items?.[x.id]?.url || '';
@@ -10334,7 +10362,7 @@ function renderAutomatizaciones() {
       ${origen === 'existen' ? `<p class="au-revisar">🔁 <strong>Qué revisar:</strong> ${esc(revisarExistente(x, c))}</p>` : ''}
       <details class="au-det"><summary>Ver cómo es</summary><p><strong>Disparador:</strong> ${esc(x.disparador(c))}</p><ol>${x.acciones(c).map((y) => `<li>${esc(y)}</li>`).join('')}</ol><p class="muted small"><strong>Prueba:</strong> ${esc(x.prueba(c))}</p></details>
       <div class="au-acc">
-        ${origen === 'cero' ? `<button type="button" class="btn primary small" data-au-prompt="${esc(x.id)}">📋 Prompt para Claude</button><button type="button" class="btn small au-btn-ghl" data-au-ia="${esc(x.id)}" title="Descripción corta para el asistente de IA de workflows de GHL">🤖 Prompt para la IA de GHL</button>` : ''}
+        ${origen === 'cero' ? encargoHtml(x) : ''}
         <input type="url" class="au-url" data-au-url="${esc(x.id)}" value="${esc(url)}" placeholder="URL del workflow en GHL (al crearlo)" ${puede ? '' : 'disabled'}>
         ${url ? `<a class="btn ghost small" href="${esc(url)}" target="_blank" rel="noopener">Abrir</a>` : ''}
       </div>
@@ -10353,6 +10381,7 @@ function renderAutomatizaciones() {
       ${c.registroDistinta ? `<p class="au-falta">⚠️ La etiqueta de registro de la Configuración es «${esc(c.registroDistinta)}» y no sigue la nomenclatura: los workflows usarán <strong>«${esc(c.registroPropuesta)}»</strong>. Cámbiala también en Configuración → Etiquetas (botón «Poner…») para que AlquimIA cuente los leads.${irA('tab:etiquetas', 'Abrir Etiquetas')}</p>` : ''}
       ${origen === 'cero' ? `<p class="small muted">ℹ️ El conector de GHL no puede crear workflows (la API solo los lee). Claude los monta desde el navegador (<strong>Claude in Chrome</strong> o <strong>Cowork</strong>), en la carpeta <strong>«${esc(c.carpeta)}»</strong>, y los deja en borrador para que los revises. Si tu GHL tiene el asistente de IA de workflows, usa «Para la IA de GHL». Cuando esté creado, pega su URL: pasa a Configuración → Accesos y enlaces.</p>` : ''}
     </section>
+    ${origen === 'cero' ? `<section class="card au-cowork"><div><h4>🤖 Crear con IA: Claude las monta solo</h4><p class="muted small">Pulsa <strong>Crear con IA</strong> en cada automatización y Claude la monta en GHL desde el navegador, en borrador, con tu suscripción (sin API). Para que lo haga sin que tengas que pedírselo, crea <strong>una vez</strong> una tarea programada en Cowork ${esc(FRECUENCIA_COWORK)} con este texto. La misma tarea avanza también los lanzamientos en Crear → Montaje.</p></div><button type="button" class="btn small" data-au-cowork>📋 Copiar la tarea de Cowork</button></section>` : ''}
     ${origen === 'cero' ? `<section class="card au-prep"><div><h4>0 · Antes de empezar: preparar GHL</h4><p class="muted small">Crea la carpeta «${esc(c.carpeta)}», comprueba y crea las etiquetas (${esc([c.registroTag || c.registroPropuesta, c.compraTag].filter(Boolean).join(', ') || '…')}) y lista lo que falte.</p></div><button type="button" class="btn primary small" data-au-prep>📋 Copiar el prompt</button></section>` : ''}
     ${origen ? lista.map(item).join('') : '<div class="card empty"><p class="muted">Elige una opción para ver la lista de automatizaciones de este embudo.</p></div>'}`;
 }
@@ -10369,6 +10398,32 @@ async function guardarAuto(cambio, workflow = null) {
   renderAutomatizaciones();
 }
 document.addEventListener('click', async (e) => {
+  const enc = e.target.closest('[data-au-encargar], [data-au-cancelar], [data-au-ghl], [data-au-cowork]');
+  if (enc) {
+    if (enc.hasAttribute('data-au-cowork')) { const ok = await copiarAlPortapapeles(promptTareaCowork()); notice(ok ? `Copiada. En Cowork: Tareas programadas → Nueva, pega el texto y elige ${FRECUENCIA_COWORK}.` : 'No se pudo copiar.', !ok); return; }
+    if (enc.dataset.auCancelar) {
+      try { await api('/api/encargos', { method: 'POST', body: { op: 'cancelar', id: enc.dataset.auCancelar } }); notice('Encargo cancelado.'); } catch (err) { notice(err.message, true); }
+      cargarEncargos(autoActual().code);
+      return;
+    }
+    const { tipo, code, obj } = autoActual();
+    const c = autoCtx(tipo, obj, { code, cliente: clienteNombre(), producto: nombreProducto(state.config), zoomWebhook: webhookZoomDe(tipo, obj), setterUrl: state.config.setterIa?.url || '', clienteId: state.cliente, plantillasWa: state.config.plantillasWa || [] });
+    const x = automatizacionesDe(c).find((y) => y.id === (enc.dataset.auEncargar || enc.dataset.auGhl));
+    if (!x) return;
+    if (enc.dataset.auGhl) {
+      const ok = await copiarAlPortapapeles(descripcionIaGhl(x, c));
+      if (state.encargos?.ghl) window.open(state.encargos.ghl, '_blank', 'noopener');
+      notice(ok ? `Descripción copiada. ${state.encargos?.ghl ? 'Se ha abierto GHL: ' : 'Abre GHL → '}Automatización → Workflows → «Crear con IA» y pégala.` : 'No se pudo copiar.', !ok);
+      return;
+    }
+    enc.disabled = true;
+    try {
+      await api('/api/encargos', { method: 'POST', body: { op: 'encargar', tipo, l: code, ref: x.id, titulo: x.nombre, prompt: promptAutomatizacion(x, c) } });
+      notice(`🤖 «${x.titulo}» encargada a Claude. La montará en GHL en la próxima pasada de la tarea de Cowork.`);
+    } catch (err) { notice(err.message, true); enc.disabled = false; }
+    cargarEncargos(code);
+    return;
+  }
   const o = e.target.closest('[data-au-origen]');
   if (o) { guardarAuto({ raiz: { origen: o.dataset.auOrigen } }); return; }
   const b = e.target.closest('[data-au-prompt], [data-au-ia], [data-au-prep]');

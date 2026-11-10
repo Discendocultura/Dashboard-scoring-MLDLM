@@ -1,12 +1,12 @@
 // 🚀 Montaje con IA (Crear → Montaje): las 6 fases del lanzamiento en fila, lo que ha hecho la IA en cada una con su
 // vista previa, editar, aprobar (admin), pedir cambios y reabrir (admin), y los prompts para que Claude lo haga solo.
 // Datos: /api/montaje. Lógica común: montaje.js. Iconos: los de línea de icons.js.
-import { FASES, FASE, ESTADOS_FASE, estadosFases, faseActual, aprobadas, empezado, piezasDe, piezaCompleta, coloresDe, esSvg, svgLimpio, promptArranque } from './montaje.js';
+import { FASES, FASE, ESTADOS_FASE, estadosFases, faseActual, aprobadas, empezado, piezasDe, piezaCompleta, coloresDe, esSvg, svgLimpio, promptArranque, promptTareaCowork, FRECUENCIA_COWORK } from './montaje.js';
 import { icon } from './icons.js';
 
 const i = (n, cls = '') => icon(n, cls);
 const fechaHora = (iso) => { try { return new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }); } catch { return ''; } };
-const ACCIONES = { empezado: 'Empezó el montaje', 'ia-avance': 'La IA guardó avances', 'ia-lista': 'La IA la entregó para revisar', editada: 'La editó', aprobada: 'La aprobó', cambios: 'Pidió cambios', reabierta: 'La reabrió' };
+const ACCIONES = { empezado: 'Empezó el montaje', 'ia-avance': 'La IA guardó avances', 'ia-lista': 'La IA la entregó para revisar', editada: 'La editó', aprobada: 'La aprobó', cambios: 'Pidió cambios', reabierta: 'La reabrió', 'auto-si': 'Encendió «Claude lo avanza solo»', 'auto-no': 'Apagó «Claude lo avanza solo»' };
 
 export function montarMontaje({ api, esc, cliente, clienteNombre, alCambiar = () => {}, root = () => document.getElementById('montaje-body') }) {
   const st = { code: '', datos: null, fase: '', editando: new Set(), pidiendo: false, msg: '', error: '', ocupado: false, cargando: false };
@@ -113,11 +113,14 @@ export function montarMontaje({ api, esc, cliente, clienteNombre, alCambiar = ()
           <h2>«${esc(nombre)}» <span class="mj-grad">${actual ? `fase ${FASE[actual].n} de ${FASES.length}` : 'montado'}</span></h2>
           <p>${actual ? `Ahora toca <strong>${esc(FASE[actual].titulo.toLowerCase())}</strong>: ${esc(ESTADOS_FASE[estados.find((e) => e.id === actual).estado].label.toLowerCase())}.` : 'Las 6 fases están aprobadas. Ya puedes revisar el embudo en GHL y publicarlo.'}</p>
           <div class="mj-hero-acc">
-            <button type="button" class="btn primary" data-mj-copiar="arranque">${i('claude')} Copiar instrucciones para Claude</button>
+            <label class="mj-auto" title="La tarea programada de Cowork hace la fase que toca y la deja para revisar, sin que tengas que pedírselo"><input type="checkbox" data-mj-auto ${m.auto === false ? '' : 'checked'} ${st.ocupado ? 'disabled' : ''}><span>Claude lo avanza solo</span></label>
+            <button type="button" class="btn small" data-mj-copiar="cowork" title="Créala una vez en Cowork (${esc(FRECUENCIA_COWORK)}): hace los encargos y avanza los montajes">${i('clock')} Copiar la tarea de Cowork</button>
+            <button type="button" class="btn ghost small" data-mj-copiar="arranque" title="Para hacerlo ahora mismo en una conversación con Claude">${i('claude')} Hacerlo ahora en Claude</button>
             <details class="mj-como"><summary>${i('help')} Cómo se usa</summary><ol>
-              <li>Abre Claude (Cowork, o Claude Code con Chrome) con el conector de AlquimIA y pega las instrucciones.</li>
-              <li>Claude hace la fase que toca y la deja aquí «para revisar». En páginas y automatizaciones, trabaja en GHL desde el navegador.</li>
-              <li>Revisa y pulsa <strong>Aprobar</strong> o <strong>Pedir cambios</strong>. Después dile «sigue».</li></ol></details>
+              <li>Crea una vez en Cowork la tarea programada (${esc(FRECUENCIA_COWORK)}) con «Copiar la tarea de Cowork». Con «Claude lo avanza solo» encendido, hace la fase que toca y la deja aquí «para revisar».</li>
+              <li>Revisa, <strong>edita</strong> lo que quieras y pulsa <strong>Aprobar</strong> (o <strong>Pedir cambios</strong>). En la siguiente pasada, Claude sigue con la fase siguiente.</li>
+              <li>Todo sale de <strong>Marca y avatar</strong> (respuestas, ficha y documentos) y de tus guías de emails, copy y automatizaciones.</li>
+              <li>¿Prisa? «Hacerlo ahora en Claude» copia las instrucciones para pegarlas en una conversación.</li></ol></details>
           </div></div>
         <div class="mj-anillo" style="--p:${pct}" role="img" aria-label="${n} de ${FASES.length} fases aprobadas"><span><strong>${n}</strong>/${FASES.length}</span><small>aprobadas</small></div>
       </div>
@@ -167,6 +170,11 @@ export function montarMontaje({ api, esc, cliente, clienteNombre, alCambiar = ()
     return piezas;
   }
 
+  document.addEventListener('change', async (e) => {
+    const box = root();
+    if (!box || !box.contains(e.target) || !e.target.matches('[data-mj-auto]')) return;
+    await post('auto', { valor: e.target.checked }, e.target.checked ? 'Claude lo avanzará solo con la tarea de Cowork.' : 'Hecho: Claude solo lo avanzará cuando se lo pidas.');
+  });
   document.addEventListener('click', async (e) => {
     const box = root();
     if (!box || !box.contains(e.target)) return;
@@ -174,6 +182,7 @@ export function montarMontaje({ api, esc, cliente, clienteNombre, alCambiar = ()
     if (!b) return;
     if (b.matches('[data-mj-empezar]')) { await post('empezar', {}, 'Montaje empezado: copia las instrucciones y pégaselas a Claude.'); return; }
     if (b.dataset.mjFase) { st.fase = b.dataset.mjFase; st.editando.clear(); st.pidiendo = false; st.msg = ''; st.error = ''; pintar(); return; }
+    if (b.dataset.mjCopiar === 'cowork') { copiar(promptTareaCowork(), `Tarea copiada. En Cowork: Tareas programadas → Nueva, pégala y elige ${FRECUENCIA_COWORK}.`); return; }
     if (b.dataset.mjCopiar === 'arranque') { copiar(box.dataset.arranque || '', 'Instrucciones copiadas: pégalas en Claude (Cowork o Claude Code con Chrome).'); return; }
     if (b.dataset.mjCopiar === 'fase') { copiar(st.datos?.brief?.[st.fase] || '', 'Encargo de la fase copiado.'); return; }
     if (b.dataset.mjEditar) { const id = b.dataset.mjEditar; if (st.editando.has(id)) st.editando.delete(id); else st.editando.add(id); pintar(); return; }

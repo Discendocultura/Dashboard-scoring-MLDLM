@@ -6,6 +6,7 @@
 // Se guarda en el lanzamiento (o la VSL, venta directa o meteórico): automatizaciones = { origen, items }
 //   origen: 'existen' (ya están en GHL: solo revisar) | 'cero' (crearlas) · items: { id: { estado, url } }
 import { etiquetaRegistro } from './lanzamiento-rapido.js';
+import { ventanaBonus, tipoBonus } from './oferta.js';
 
 export const ESTADOS_AUTO = [
   { id: 'pendiente', label: 'Pendiente', icon: '○' },
@@ -65,8 +66,19 @@ export function autoCtx(tipo, obj = {}, { code = '', cliente = '', producto = ''
     whatsappUrl: o.whatsappUrl || '', whatsappDudasUrl: o.whatsappDudasUrl || '', encuestaUrl: o.encuestaUrl || '',
     llamadaUrl: o.llamadaUrl || '', llamadaGraciasUrl: o.llamadaGraciasUrl || '', vslUrl: o.vslUrl || '', ofertaUrl: o.ofertaUrl || '',
     apertura: o.apertura || '', cierre: o.cierre || '',
+    // Bonus de la oferta con su ventana (Asignación de bonus): { nombre, tipo, desde, hasta } (texto en hora de Madrid).
+    bonus: tipo === 'lanzamientos' ? (Array.isArray(o.oferta?.bonus) ? o.oferta.bonus : []).filter((b) => b?.nombre).slice(0, 20).map((b) => {
+      let v = {};
+      try { v = ventanaBonus(b, o); } catch { /* sin fechas */ }
+      return { nombre: b.nombre, tipo: tipoBonus(b.tipo).label, desde: epochTxt(v.desde), hasta: epochTxt(v.hasta) };
+    }) : [],
   };
 }
+
+const epochTxt = (ms) => (Number.isFinite(ms) ? new Date(ms).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
+
+// Etiqueta a partir de un nombre: minúsculas, sin tildes y con guiones.
+const slugTag = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'bonus';
 
 // Qué dato falta, con su nombre en Configuración.
 const NOMBRES = {
@@ -89,7 +101,7 @@ const directos = (c) => (c.videos.length > 1 ? c.videos.map((v, i) => `${v.nombr
 // Lista por tipo de embudo. Cada una: { id, titulo, para, disparador, acciones(ctx), requiere, prueba, si?(ctx) }
 const LANZAMIENTO = [
   {
-    id: 'registro', titulo: 'Registro al webinar', requiere: ['registroTag', 'fechaDirecto'],
+    id: 'registro', titulo: 'Registro completado', requiere: ['registroTag', 'fechaDirecto'],
     para: 'Marca a cada persona que se registra con la etiqueta del lanzamiento: es la que usa AlquimIA para contar los leads.',
     disparador: () => 'Form Submitted: el formulario de registro del lanzamiento (si hay dos, el orgánico y el de anuncios, pon los dos como disparadores).',
     acciones: (c) => [
@@ -100,6 +112,40 @@ const LANZAMIENTO = [
       ...(c.zoomWebhook ? [`Después de añadir la etiqueta: acción «Webhook» (método POST) a ${webhookZoomLanz(c)} — inscribe a la persona en la reunión de Zoom de cada directo con su enlace personal (no hace falta mapear campos: basta el contact_id que GHL manda siempre). Es solo para ${c.cliente ? `${c.cliente} y ` : ''}este lanzamiento: no sirve la de otro cliente ni la de otro lanzamiento.`] : []),
     ],
     prueba: (c) => `Regístrate con un email de prueba: en AlquimIA (Leads) debe aparecer con la etiqueta ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')} y te tiene que llegar el email.${c.zoomWebhook ? ' En Zoom → la reunión → Registrantes, debe aparecer su email.' : ''}`,
+  },
+  {
+    id: 'carrito-abandonado', titulo: 'Carrito abandonado', requiere: ['paginaPagoUrl'],
+    para: 'Recupera a quien empieza a pagar y no termina.',
+    disparador: (c) => `Order Form Submission (empieza el pago) en la página de pago ${u(c.paginaPagoUrl, 'URL de la página de pago')}, o el evento de carrito abandonado de vuestra pasarela.`,
+    acciones: (c) => [
+      '«Wait» 1 hora.',
+      `Si NO tiene la etiqueta ${t(c.compraTag, 'etiqueta de compra')}: ${c.carritoAbandonadoTag ? `añadir la etiqueta «${c.carritoAbandonadoTag}» y ` : ''}email (y WhatsApp) «¿Te ayudo a terminar tu inscripción?»${c.whatsappDudasUrl ? ` con el WhatsApp de dudas ${c.whatsappDudasUrl}` : ''}.`,
+    ],
+    prueba: () => 'Empieza un pago de prueba y no lo termines: a la hora debe llegar el aviso.',
+  },
+  {
+    id: 'compra', titulo: 'Compra del producto principal', requiere: ['compraTag'],
+    para: 'Marca a quien compra el producto principal (pago único o fraccionado), guarda la fecha, le da la bienvenida y la saca de los avisos de venta.',
+    disparador: (c) => `Order Submitted / Payment Received del programa${c.producto ? ` «${c.producto}»` : ''} (pago único${c.ventaUrl ? ` ${c.ventaUrl}` : ''} y fraccionado${c.ventaFraccionadoUrl ? ` ${c.ventaFraccionadoUrl}` : ''}).`,
+    acciones: (c) => [
+      `Añadir la etiqueta ${t(c.compraTag, 'etiqueta de compra')}.`,
+      ...(c.unicoTag || c.fraccionadoTag ? [`Según el pago: pago único → ${t(c.unicoTag, 'etiqueta de pago único')}; fraccionado → ${t(c.fraccionadoTag, 'etiqueta de fraccionado')}.`] : []),
+      ...(c.compraDateField ? [`Actualizar el campo de fecha «${c.compraDateField}» con la fecha de hoy (así AlquimIA cuenta la venta en este lanzamiento).`] : []),
+      `Quitarla del workflow «[${c.code || 'código'}] Carrito abandonado» (Remove from workflow). Las campañas de email de venta ya excluyen a quien tiene ${t(c.compraTag, 'etiqueta de compra')}.`,
+      'Email de bienvenida al programa con el acceso [texto provisional: REVISAR].',
+    ],
+    prueba: (c) => `Compra de prueba (cupón del 100 % o modo test): en Métricas debe sumar una venta y el contacto tener ${t(c.compraTag, 'etiqueta de compra')}.`,
+  },
+  {
+    id: 'bonus', titulo: 'Asignación de bonus', requiere: ['compraTag'],
+    para: 'Da a cada compradora los bonus que le tocan según cuándo compró (en directo, primeras 24 h, 48 h o todo el carrito) y le manda su acceso.',
+    disparador: (c) => `Contact Tag Added: ${t(c.compraTag, 'etiqueta de compra')} (lo añade «[${c.code || 'código'}] Compra del producto principal»).`,
+    acciones: (c) => [
+      ...(c.bonus.length ? c.bonus.map((b, i) => `Bonus ${i + 1} «${b.nombre}» (${b.tipo}${b.desde && b.hasta ? `: compras del ${b.desde} al ${b.hasta}` : b.hasta ? `: hasta el ${b.hasta}` : ''}): rama «If/Else» por la fecha de compra (hora de Madrid) → si entra en la ventana, añadir la etiqueta «bonus-${slugTag(b.nombre)}» y email con el acceso a «${b.nombre}» [texto provisional: REVISAR].`)
+        : ['[FALTA] los bonus de la oferta (Configuración → Oferta): una rama por bonus según la fecha de compra, con su etiqueta «bonus-<nombre>» y su email de acceso.']),
+      'Si compró fuera de todas las ventanas de BAR, solo los bonus del carrito completo.',
+    ],
+    prueba: (c) => `Compra de prueba dentro de una ventana: el contacto debe quedar con la etiqueta del bonus que toca${c.bonus[0] ? ` (p. ej. «bonus-${slugTag(c.bonus[0].nombre)}»)` : ''} y recibir su email.`,
   },
   {
     id: 'encuesta', titulo: 'Encuesta rellenada', requiere: ['encuestaTag'], si: (c) => c.encuestaTag || c.encuestaUrl,
@@ -114,52 +160,6 @@ const LANZAMIENTO = [
     disparador: (c) => `Order Submitted / Payment Received del producto de la entrada VIP${c.vipUrl ? ` (enlace de pago ${c.vipUrl})` : ''}.`,
     acciones: (c) => [`Añadir la etiqueta ${t(c.vipTag, 'etiqueta VIP')}.`, 'Email de bienvenida VIP con lo que incluye y cómo acceder [texto provisional: REVISAR].'],
     prueba: (c) => `Haz una compra de prueba de la VIP (cupón del 100 % o modo test): en Leads debe salir como VIP (${t(c.vipTag, 'etiqueta VIP')}).`,
-  },
-  {
-    id: 'recordatorios', titulo: 'Recordatorios del directo', requiere: ['registroTag', 'fechaDirecto', 'horaDirecto', 'recursosUrl'],
-    para: 'Que nadie se pierda el directo: recordatorios el día antes, una hora antes y al empezar, con el enlace para conectarse.',
-    disparador: (c) => `Contact Tag Added: ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')}.`,
-    acciones: (c) => [
-      `«Wait» hasta el ${fechaTxt(`${menosDias(c.fechaDirecto || '2000-01-02', 1)}T19:00`) || '[día antes] a las 19:00'} → email (y WhatsApp si lo usáis): «Mañana es el directo».`,
-      `«Wait» hasta el ${fechaTxt(`${c.fechaDirecto}T${menosHora(c.horaDirecto)}`) || '[día del directo, 1 h antes]'} → «Empezamos en 1 hora».`,
-      `«Wait» hasta el ${fechaTxt(`${c.fechaDirecto}T${c.horaDirecto || '19:00'}`) || '[hora del directo]'} → «Estamos en directo» con el enlace para conectarse: la página preclase ${u(c.recursosUrl, 'URL de la página preclase')} (59 minutos antes muestra la cuenta atrás y a la hora entra sola al directo).`,
-      ...(c.videos.length > 1 ? [`Repite los tres avisos para cada vídeo: ${directos(c).join(' · ')}.`] : []),
-      'Si la persona entra después de una de esas horas, que salte ese aviso (opción de «Wait»: si ya pasó, continuar).',
-    ],
-    prueba: () => 'Con el contacto de prueba registrado, revisa en el historial del workflow que queda esperando hasta la primera fecha.',
-  },
-  {
-    id: 'grabacion', titulo: 'Grabación disponible', requiere: ['registroTag', 'replayUrl', 'replayAt'],
-    para: 'Avisa de que ya está la grabación a quien no ha comprado.',
-    disparador: (c) => `Contact Tag Added: ${t(c.registroTag || c.registroPropuesta, 'registrado-webinar-DDMMAA')}.`,
-    acciones: (c) => [
-      `«Wait» hasta el ${fechaTxt(c.replayAt) || '[cuándo se desbloquea la grabación]'}.`,
-      `Si NO tiene la etiqueta ${t(c.compraTag, 'etiqueta de compra')}: email «Ya tienes la grabación» con el botón a ${u(c.replayUrl, 'URL de la página de replay')}.`,
-    ],
-    prueba: () => 'Comprueba en el historial del workflow que el contacto de prueba espera hasta la fecha de la grabación.',
-  },
-  {
-    id: 'compra', titulo: 'Compra del programa', requiere: ['compraTag'],
-    para: 'Marca a quien compra (pago único o fraccionado), guarda la fecha y la saca de los avisos de venta.',
-    disparador: (c) => `Order Submitted / Payment Received del programa${c.producto ? ` «${c.producto}»` : ''} (pago único${c.ventaUrl ? ` ${c.ventaUrl}` : ''} y fraccionado${c.ventaFraccionadoUrl ? ` ${c.ventaFraccionadoUrl}` : ''}).`,
-    acciones: (c) => [
-      `Añadir la etiqueta ${t(c.compraTag, 'etiqueta de compra')}.`,
-      ...(c.unicoTag || c.fraccionadoTag ? [`Según el pago: pago único → ${t(c.unicoTag, 'etiqueta de pago único')}; fraccionado → ${t(c.fraccionadoTag, 'etiqueta de fraccionado')}.`] : []),
-      ...(c.compraDateField ? [`Actualizar el campo de fecha «${c.compraDateField}» con la fecha de hoy (así AlquimIA cuenta la venta en este lanzamiento).`] : []),
-      `Quitarla de los workflows «[${c.code || 'código'}] Grabación disponible» y «[${c.code || 'código'}] Carrito abandonado» (Remove from workflow).`,
-      'Email de bienvenida al programa con el acceso [texto provisional: REVISAR].',
-    ],
-    prueba: (c) => `Compra de prueba (cupón del 100 % o modo test): en Métricas debe sumar una venta y el contacto tener ${t(c.compraTag, 'etiqueta de compra')}.`,
-  },
-  {
-    id: 'carrito-abandonado', titulo: 'Carrito abandonado', requiere: ['paginaPagoUrl'],
-    para: 'Recupera a quien empieza a pagar y no termina.',
-    disparador: (c) => `Order Form Submission (empieza el pago) en la página de pago ${u(c.paginaPagoUrl, 'URL de la página de pago')}, o el evento de carrito abandonado de vuestra pasarela.`,
-    acciones: (c) => [
-      '«Wait» 1 hora.',
-      `Si NO tiene la etiqueta ${t(c.compraTag, 'etiqueta de compra')}: ${c.carritoAbandonadoTag ? `añadir la etiqueta «${c.carritoAbandonadoTag}» y ` : ''}email (y WhatsApp) «¿Te ayudo a terminar tu inscripción?»${c.whatsappDudasUrl ? ` con el WhatsApp de dudas ${c.whatsappDudasUrl}` : ''}.`,
-    ],
-    prueba: () => 'Empieza un pago de prueba y no lo termines: a la hora debe llegar el aviso.',
   },
   {
     id: 'llamada', titulo: 'Llamada de admisión reservada', requiere: ['llamadaUrl'], si: (c) => c.llamadaUrl || c.llamadaTag,
