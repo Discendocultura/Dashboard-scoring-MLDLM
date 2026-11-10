@@ -119,7 +119,8 @@ test('flujo completo: código con PKCE, herramientas, renovación, código reusa
   const lista = await mcp(t.data.access_token, 'tools/list', {});
   const nombres = lista.data.result.tools.map((x) => x.name);
   for (const n of ['ver_embudos', 'metricas_embudo', 'encuesta_para_copy', 'marca_y_narrativa', 'datos_informe', 'tareas_lanzamiento', 'emails_lanzamiento']) assert.ok(nombres.includes(n), n);
-  assert.ok(lista.data.result.tools.every((x) => x.annotations.readOnlyHint));
+  // Todas de solo lectura salvo la que deja el borrador del email diario (nunca aprueba ni envía).
+  assert.deepEqual(lista.data.result.tools.filter((x) => !x.annotations.readOnlyHint).map((x) => x.name), ['guardar_borrador_email']);
 
   const ve = await mcp(t.data.access_token, 'tools/call', { name: 'ver_embudos', arguments: {} });
   assert.ok(!ve.data.result.isError, ve.text);

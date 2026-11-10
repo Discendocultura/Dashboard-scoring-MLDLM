@@ -9699,3 +9699,78 @@ button.ms-pill { cursor: pointer; }
   @keyframes opFichaSube { from { opacity: .4; transform: translateY(40px); } to { opacity: 1; transform: none; } }
 }
 @media (prefers-reduced-motion: reduce) { .op-ficha { animation: none; } }
+/* ---------- 📬 Email diario (email-diario-panel.js) ---------- */
+.evg-hoy { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 14px; background: var(--surface); }
+.evg-kicker { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted, #888); }
+.evg-hoy-t { margin: 4px 0 0; font-weight: 600; }
+.evg-hoy-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.evg-modo { padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: rgba(217, 119, 6, .14); color: #b45309; }
+.evg-modo.is-real { background: rgba(22, 163, 74, .14); color: #15803d; }
+.evg-ok, .evg-err, .evg-aviso { margin: 10px 0; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45; }
+.evg-ok { background: rgba(22, 163, 74, .1); }
+.evg-err { background: rgba(220, 38, 38, .1); }
+.evg-aviso { background: rgba(217, 119, 6, .1); }
+.evg-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 12px; }
+.evg-tab { padding: 7px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.evg-tab.is-on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.evg-calcab { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.evg-mesnav { display: flex; align-items: center; gap: 10px; }
+.evg-mesnav b { min-width: 160px; text-align: center; font-size: 17px; }
+.evg-ley { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 10px; font-size: 12px; color: var(--muted, #888); }
+.evg-ley i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 3px; vertical-align: middle; }
+.evg-i-bloq { background: #1f2a44; }
+.evg-i-salto { background: #d93025; }
+.evg-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.evg-wd { padding: 4px 0; font-size: 11px; font-weight: 700; text-align: center; text-transform: uppercase; color: var(--muted, #888); }
+.evg-dia { min-width: 0; min-height: 104px; padding: 7px; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; text-align: left; cursor: pointer; overflow: hidden; }
+.evg-dia:hover, .evg-dia:focus-visible { border-color: var(--accent); }
+.evg-dia.is-hoy { box-shadow: inset 0 0 0 2px var(--accent); }
+.evg-dia.is-pasado { opacity: .62; }
+.evg-dia.is-vacio { border-style: dashed; }
+.evg-dia.is-bloq { background: #1f2a44 repeating-linear-gradient(-45deg, rgba(255, 255, 255, .07) 0 8px, transparent 8px 16px); border-color: #1f2a44; color: #e8ecf5; }
+.evg-dia.is-salto { background: rgba(217, 48, 37, .12); border: 2px solid #d93025; }
+.evg-dn { display: flex; justify-content: space-between; font-size: 14px; }
+.evg-chip { max-width: 100%; padding: 2px 7px; border-radius: 6px; background: var(--c, #8c8270); color: #fff; font-size: 10.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.evg-chip-bloq { background: #f2b84b; color: #1f2a44; }
+.evg-chip-salto { background: #d93025; }
+.evg-asunto { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+.evg-est { display: flex; align-items: center; gap: 5px; margin-top: auto; font-size: 10.5px; color: var(--muted, #888); }
+.evg-est i, .evg-ed-est i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.evg-dia.is-bloq .evg-est { color: #cfd7e6; }
+.evg-mas { margin-top: auto; color: var(--muted, #888); font-size: 11px; }
+.evg-card { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.evg-card h3 { margin: 0 0 8px; font-size: 15px; }
+.evg-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.evg-cards .evg-card { margin-top: 0; }
+.evg-lista { list-style: none; margin: 0 0 8px; padding: 0; }
+.evg-lista li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }
+.evg-lista code { word-break: break-all; }
+.evg-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.evg-fila input { flex: 1 1 160px; min-width: 0; }
+.evg-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 14px; }
+.evg-radio { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; font-size: 13px; line-height: 1.45; }
+.evg-est-lotes { font-size: 13px; }
+.evg-reg { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.evg-reg li { display: flex; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-left: 4px solid #16a34a; border-radius: 10px; background: var(--surface); }
+.evg-reg li.is-mal { border-left-color: #d97706; }
+.evg-reg p { margin: 0; font-size: 13px; line-height: 1.45; }
+.evg-pasos { margin: 0 0 8px; padding-left: 20px; line-height: 1.55; }
+.evg-pasos li { margin-bottom: 8px; }
+.evg-pre { white-space: pre-wrap; padding: 12px; border-radius: 10px; background: var(--bg, #f6f4ef); font-size: 12.5px; line-height: 1.5; }
+.evg-editor { width: min(860px, calc(100vw - 32px)); padding: 0; background: var(--surface); }
+.evg-ed { padding: 20px 22px; }
+.evg-ed-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.evg-ed-cab h3 { margin: 0; font-size: 19px; }
+.evg-ed-cab p { margin: 2px 0 0; font-size: 13px; }
+.evg-ed-est { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted, #666); }
+.evg-ed textarea { width: 100%; box-sizing: border-box; line-height: 1.55; }
+.evg-ed-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.evg-aprobar { background: #16a34a; border-color: #16a34a; color: #fff; }
+.evg-met { margin: 10px 0 0; font-size: 13px; }
+.evg-vista-asunto { margin: 14px 0 6px; font-size: 13px; }
+.evg-iframe { width: 100%; height: 520px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+@media (max-width: 720px) {
+  .evg-dia { min-height: 64px; padding: 5px; }
+  .evg-asunto, .evg-est, .evg-chip-bloq { display: none; }
+  .evg-chip { font-size: 0; padding: 0; width: 10px; height: 10px; border-radius: 50%; }
+}

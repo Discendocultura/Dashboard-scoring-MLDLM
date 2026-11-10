@@ -938,6 +938,29 @@ La encuesta de la Etapa 1 puede ser siempre la misma: misma URL y misma etiqueta
 - **Objetivo de cada bonus**: acelera el resultado, resuelve un problema futuro, reduce la percepción de riesgo u «Otro» (escrito a mano). Sale junto al bonus en el resumen de la oferta.
 - **Garantía**: ¿hay garantía de 15 días? y, además, ¿hay alguna otra? (con cuál es). También en los meteóricos.
 - Tipos de entregable: contenido grabado, sesiones grupales o individuales, presencial, descargable, audio, chatbot / agente, comunidad (plataforma propia, Skool, Telegram o WhatsApp), soporte (chatbot de soporte, seguimiento individual o email / WhatsApp) y servicio.
+## 📬 Email diario evergreen (solo Discendo)
+Un email al día a una etiqueta de GHL (la membresía «Claves» de Discendo), con urgencias por las fechas límite de entrada a los entregables del mes (La Crónica, La Tertulia, Vive la Historia). Sustituye al calendario que vivía en un artefacto de Claude. Botón **📬 Email diario** del menú lateral (página completa, como la Membresía). Solo sale en los clientes de `CLIENTES_EMAIL_DIARIO` (`public/js/email-diario.js`); para dárselo a otro cliente, se añade ahí su código.
+
+**El día a día** (nada sale sin que una persona admin lo apruebe):
+1. **07:00 · la IA deja el borrador de mañana.** Lo hace una tarea programada de **Cowork** con la suscripción de Claude (sin créditos de API): redacta con la guía de estilo, la estructura y los emails de ejemplo del proyecto de Cowork y lo guarda por el conector de AlquimIA con dos herramientas: `email_diario_contexto` (el tipo del día, la próxima fecha límite con su tema y notas, los CTA con su id, si el día está bloqueado o saltado y los asuntos de los días cercanos) y `guardar_borrador_email` (la única herramienta del conector que escribe: deja un **borrador**, nunca aprueba ni envía; no escribe en días bloqueados, saltados o pasados, ni pisa un email aprobado, programado o escrito por una persona). El texto de la tarea, listo para copiar, está en la pestaña «📖 Cómo funciona».
+2. **Durante el día · se revisa en AlquimIA**: editor de cada día con tipo, hora, CTA, asunto (contador de 50), preheader, cuerpo (párrafos con una línea en blanco, `**negrita**`, `[CTA]` en una línea sola donde va el botón) y **vista previa** con el HTML real (botón del CTA y pie legal).
+3. **Aprobar: solo admin.** Si después se cambia el texto, vuelve a borrador y hay que aprobarlo otra vez.
+4. **20:00 · AlquimIA lo programa en GHL** para el día siguiente a su hora, **siempre en lotes** (`scheduleType: batch`: N contactos cada M minutos; por defecto 100 cada 5; la pestaña «Envío y lotes» calcula a qué hora sale el último lote con los contactos que tiene hoy la etiqueta). Crea la campaña con el HTML del calendario (o la actualiza si ya existía, para no duplicar: el id se guarda antes de programar) y la programa a la etiqueta de audiencia. Programado ya no se puede cambiar (GHL envía esa versión y su API no deja cancelar). Sin aprobar, bloqueado o saltado: no programa nada y lo apunta en el **Registro**.
+5. **Después**: lo enviado pasa a «Enviado» y AlquimIA lee de GHL entregados, apertura, clics y bajas (los de los últimos 30 días, 8 por vez).
+6. **La prueba** se hace a mano desde GHL («Enviar prueba») antes de activar el envío real.
+
+**Simulación o envío real** (Envío y lotes): por defecto, **simulación**: la tarea de las 20:00 solo apunta en el Registro lo que programaría, sin tocar GHL. «🧪 Probar la tarea de las 20:00» lo simula en el momento. Con **envío real** aparece «📤 Programar ahora el de mañana» (por si la tarea no corrió).
+
+**Tareas de cron-job.org** (como el resumen diario; no dependen de ningún ordenador), hora de Madrid:
+- 20:00 · `https://<tu-proyecto>.pages.dev/api/email-diario?c=discendo&key=<DIGEST_KEY>&tarea=programar` (programa el de mañana y actualiza las métricas).
+- 12:00 · `…&tarea=revisar` (apunta un aviso si mañana aún no tiene borrador o no está aprobado).
+
+**Resto de pestañas**: **Calendario** (mes con el tipo, el estado, la IA, los cierres 🏁, las franjas bloqueadas y los días saltados bien visibles), **Fechas límite** (tema, fecha y notas para la IA de cada entregable; los tipos se sugieren solos: urgencia a 7 días o menos del cierre, curiosidad de 8 a 21), **Envío y lotes** (remitente, responder a, etiqueta de audiencia con las de GHL, hora por defecto, id del usuario de GHL que programa, pie legal, lotes y modo), **CTAs** y **Registro**. Ajustes, fechas, CTAs y franjas: solo admin.
+
+**GHL**: API «Email Marketing V2» (`/emails/public/v2/locations/<id>/campaigns…`, versión `2021-04-15`; en `lib/ghl.js`: `crearCampanaEmail`, `actualizarCampanaEmail`, `programarCampanaEmail`, `etiquetaId`). La integración privada necesita el permiso **«Email Campaigns: schedule» (`emails/schedule.write`)** además de los de lectura de emails; sin él, la tarea de las 20:00 falla y lo dice en el Registro.
+
+**Datos**: `lsd_evg_estado` (ajustes, fechas límite, CTAs y franjas), `lsd_evg_emails_<AAAA-MM>` (los emails de cada mes) y `lsd_evg_log` (registro). API: `GET /api/email-diario?mes=AAAA-MM`, `GET …?audiencia=1`, `POST { op: 'email' | 'saltar' | 'aprobar' | 'desaprobar' | 'ajustes' | 'simular' | 'programar-ahora' }`. Código: `public/js/email-diario.js` (reglas, lotes y HTML), `public/js/email-diario-panel.js` (pantalla), `lib/email-diario.js` y `handlers/email-diario.js`; pruebas en `test/email-diario.test.js`.
+
 ## ✉️ Emails: apertura, CTR e indicadores
 
 - **Métricas → Resumen**: «Apertura media de los emails» y «CTR medio de los emails» (medias ponderadas por entregas).
