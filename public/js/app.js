@@ -21,6 +21,7 @@ import { nextLaunchStart, respuestasDe as respuestasEncuesta, asistenciaPorTrafi
 import { comparaMedia, etiquetaRespuesta, deCada, conclusionesAvatares } from './avatares-texto.js';
 import { lanzarConfeti } from './confeti.js';
 import { negocioHtml, PERIODOS_TXT, SECCIONES_NG, recosHtml, botonCalidad } from './negocio-vista.js';
+import { historicoHtml } from './historico.js';
 import { ayudaMetaHtml, limpiarCuentaMeta, pistaError, pasosDe, SERVICIOS, ETAPAS as ETAPAS_CX } from './integrar-crm.js';
 import { LINK_KEYS, phaseAt, barFor, formatLong, formatDate, phasesFor, madridToEpoch, CAJAS_PAGO, numeroWhatsApp, enlaceWhatsApp, leerEnlaceWhatsApp } from './page.js';
 import { FORMATOS, formatoValido, videosDe, esEnDirecto, sigDirecto, sigReplay, nClases, clasesDe, conVip, conPreclase, preclaseDeRecursos, esReto, nVideos, nombreVideo } from './videos.js';
@@ -1150,7 +1151,8 @@ const ACCIONES_BUSCAR = [
   ['config', '⚙️', 'Configuración de este embudo', 'cambiar el precio precios fechas etiquetas configurar ajustes enlaces oferta', () => abrirConfigDe(state.embudo)],
   ['inicio', '🏠', 'Inicio', 'inicio resumen todos los embudos', '#sb-inicio'],
   ['agencia', '🏢', 'Agencia · todos los clientes', 'agencia todos los clientes centro de mando panel', () => { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); }],
-  ['negocio', '📈', 'Inteligencia de negocio', 'ltv roas negocio historico productos facturacion cac', '#sb-negocio'],
+  ['negocio', '📈', 'Inteligencia de negocio', 'ltv roas negocio productos facturacion cac', '#sb-negocio'],
+  ['historico', '🗂️', 'Histórico de lanzamientos', 'historico lanzamientos comparar comparativa anteriores evolucion embudo', '#sb-historico'],
   ['membresia', '🎓', 'Membresía de Skool', 'membresia skool alumnos mrr churn ltv planes etiquetas cross sell', '#tb-membresia'],
   ['email-diario', '📬', 'Email diario', 'email diario evergreen calendario emails aprobar programar lotes ghl', '#tb-email-diario'],
   ['ajustes', '⚙️', 'Configuración', 'configuracion ajustes mi negocio perfil', () => abrirMenuConfig()],
@@ -1310,7 +1312,7 @@ const ALIAS_NAV = {
   productos: '#btn-productos', marca: '#btn-marca', 'marca-y-avatar': '#btn-marca', equipo: '#btn-equipo', conexiones: '#btn-conexiones',
   atajos: '#btn-atajos', 'tus-atajos': '#btn-atajos', mensajes: () => abrirMensajes(), 'mensajes-whatsapp': () => abrirMensajes(), 'plantillas-whatsapp': () => abrirMensajes(),
   agencia: () => { if (state.superadmin) { ls.set('lsd_inicio_modo', 'agencia'); mostrarInicio(); } },
-  'inteligencia-negocio': '#sb-negocio', negocio: '#sb-negocio', membresia: '#tb-membresia', operativa: '#sb-operativa', procesos: '#sb-procesos',
+  'inteligencia-negocio': '#sb-negocio', negocio: '#sb-negocio', historico: '#sb-historico', 'historico-lanzamientos': '#sb-historico', membresia: '#tb-membresia', operativa: '#sb-operativa', procesos: '#sb-procesos',
 };
 function irAliasNavegacion(hash) {
   const a = ALIAS_NAV[hash];
@@ -1435,6 +1437,8 @@ function pintarSidebar() {
   $('#sb-inicio').classList.toggle('active', Boolean(state.enInicio) && !agencia && !state.enNegocio && !state.enPagina);
   // «Inteligencia de negocio»: para quien ve las métricas (el rol Cliente la tiene en su portal).
   $('#sb-negocio').hidden = !(tiene('metricas') && embudos().length);
+  // 🗂️ Histórico de lanzamientos: con algún embudo de lanzamientos.
+  $('#sb-historico').hidden = !(tiene('metricas') && embudos().some((e) => e.tipo === 'lanzamientos'));
   // Solo en Discendo (la membresía de Skool es suya) y para quien tiene acceso a sus datos.
   $('#tb-membresia').hidden = !(conMembresia(state.cliente) && (tiene('hoy') || tiene('metricas') || tiene('config')));
   $('#tb-membresia').classList.toggle('active', state.enPagina === 'membresia-dialog');
@@ -1442,7 +1446,8 @@ function pintarSidebar() {
   $('#tb-email-diario').hidden = !(conEmailDiario(state.cliente) && (tiene('hoy') || tiene('metricas') || tiene('config')));
   $('#tb-email-diario').classList.toggle('active', state.enPagina === 'email-diario-dialog');
   $('#tb-negocio').hidden = $('#tb-membresia').hidden && $('#tb-email-diario').hidden;
-  $('#sb-negocio').classList.toggle('active', Boolean(state.enNegocio));
+  $('#sb-negocio').classList.toggle('active', Boolean(state.enNegocio) && !state.enHistorico);
+  $('#sb-historico').classList.toggle('active', Boolean(state.enHistorico));
   $$('#sb-config-sub [data-proxy]').forEach((b) => b.classList.toggle('active', Boolean(state.enPagina) && b.dataset.proxy === PAGINA_BTN[state.enPagina]));
   pintarSelectorCliente();
 }
@@ -1568,11 +1573,13 @@ function salirInicio() {
   if (!state.enInicio) return;
   state.enInicio = false;
   state.enNegocio = false;
+  state.enHistorico = false;
   state.enPagina = false;
   cerrarPaginas();
   ls.set('lsd_inicio', '');
-  document.body.classList.remove('en-inicio', 'en-negocio', 'en-conexiones', 'en-pagina');
+  document.body.classList.remove('en-inicio', 'en-negocio', 'en-historico', 'en-conexiones', 'en-pagina');
   $('#sb-negocio').classList.remove('active');
+  $('#sb-historico').classList.remove('active');
   $('#sb-inicio').classList.remove('active');
   // Mostrar poco a poco: al salir del Inicio por un atajo (buscador, «Tu siguiente paso»…), solo las pestañas que tocan.
   if (state.config && state.embudo && document.body.classList.contains('pp-activo')) refrescarPestanas();
@@ -1585,9 +1592,10 @@ function pintarSaludo() {
 async function mostrarInicio({ fresh = false } = {}) {
   state.enInicio = true;
   state.enNegocio = false;
+  state.enHistorico = false;
   state.enPagina = false;
   cerrarPaginas();
-  document.body.classList.remove('en-negocio', 'en-conexiones', 'en-pagina');
+  document.body.classList.remove('en-negocio', 'en-historico', 'en-conexiones', 'en-pagina');
   pintarSaludo();
   ls.set('lsd_inicio', '1');
   document.body.classList.add('en-inicio');
@@ -1746,10 +1754,11 @@ async function cargarNegocioEn(caja, { cliente = state.cliente, enlaces = true }
 function mostrarNegocio() {
   state.enInicio = true;
   state.enNegocio = true;
+  state.enHistorico = false;
   state.enPagina = false;
   cerrarPaginas();
   ls.set('lsd_inicio', '');
-  document.body.classList.remove('en-conexiones', 'en-pagina');
+  document.body.classList.remove('en-conexiones', 'en-pagina', 'en-historico');
   document.body.classList.add('en-inicio', 'en-negocio');
   $('#alertas-carrito').hidden = true;
   pintarNavMovil();
@@ -1758,6 +1767,75 @@ function mostrarNegocio() {
   cargarNegocioEn($('#negocio'));
 }
 $('#sb-negocio').addEventListener('click', () => mostrarNegocio());
+// 🗂️ Histórico de lanzamientos (debajo de Inteligencia de negocio): todos los lanzamientos, fase a fase, para compararlos.
+// Va como Inteligencia de negocio (state.enNegocio) y, además, state.enHistorico. Ver historico.js y lib/historico.js.
+const hlEstado = { token: 0, datos: null, cliente: '', embudo: ls.get('lsd_hl_embudo') || '', orden: ls.get('lsd_hl_orden') || 'recientes', ocultos: new Set() };
+const hlOcultosKey = () => `lsd_hl_ocultos_${state.cliente}`;
+function pintarHistorico() {
+  const cuerpo = $('#historico .hl-cuerpo');
+  if (!cuerpo || !hlEstado.datos) return;
+  const d = hlEstado.datos;
+  if (hlEstado.embudo && !(d.embudos || []).some((e) => e.id === hlEstado.embudo)) hlEstado.embudo = '';
+  cuerpo.innerHTML = historicoHtml(d, { embudo: hlEstado.embudo, ocultos: hlEstado.ocultos, orden: hlEstado.orden, esc });
+}
+async function cargarHistoricoLanz({ fresh = '' } = {}) {
+  const caja = $('#historico');
+  const token = ++hlEstado.token;
+  if (hlEstado.cliente !== state.cliente) {
+    hlEstado.cliente = state.cliente;
+    hlEstado.datos = null;
+    try { hlEstado.ocultos = new Set(JSON.parse(ls.get(hlOcultosKey()) || '[]')); } catch { hlEstado.ocultos = new Set(); }
+  }
+  if (!caja.querySelector('.hl-cuerpo')) {
+    caja.innerHTML = `<div class="hl-cab"><div><span class="hl-kicker">Comparativa</span><h2>🗂️ Histórico de lanzamientos</h2><p class="muted">Todos tus lanzamientos, de todos los embudos, fase a fase: de los registros a la facturación. Quita o pon lanzamientos para comparar los que quieras.</p></div></div>
+      <div class="hl-cuerpo"></div>`;
+  }
+  if (hlEstado.datos) pintarHistorico(); else $('#historico .hl-cuerpo').innerHTML = '<p class="muted">Cargando…</p>';
+  let qs = fresh ? `?fresh=${encodeURIComponent(fresh)}` : '';
+  for (let i = 0; i < 80; i++) {
+    let d;
+    try { d = await api(`/api/historico${qs}`); } catch (e) { if (token === hlEstado.token) $('#historico .hl-cuerpo').innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+    if (token !== hlEstado.token) return;
+    qs = '';
+    hlEstado.datos = d;
+    pintarHistorico();
+    if (!d.pendientes) return;
+  }
+}
+function mostrarHistorico() {
+  state.enInicio = true;
+  state.enNegocio = true;
+  state.enHistorico = true;
+  state.enPagina = false;
+  cerrarPaginas();
+  ls.set('lsd_inicio', '');
+  document.body.classList.remove('en-conexiones', 'en-pagina');
+  document.body.classList.add('en-inicio', 'en-negocio', 'en-historico');
+  $('#alertas-carrito').hidden = true;
+  pintarNavMovil();
+  pintarSidebar();
+  window.scrollTo(0, 0);
+  cargarHistoricoLanz();
+}
+$('#sb-historico').addEventListener('click', () => mostrarHistorico());
+$('#historico').addEventListener('click', (e) => {
+  const emb = e.target.closest('[data-hl-embudo]');
+  if (emb) { hlEstado.embudo = emb.dataset.hlEmbudo; ls.set('lsd_hl_embudo', hlEstado.embudo); pintarHistorico(); return; }
+  const lz = e.target.closest('[data-hl-lanz]');
+  if (lz) {
+    const c = lz.dataset.hlLanz;
+    if (hlEstado.ocultos.has(c)) hlEstado.ocultos.delete(c); else hlEstado.ocultos.add(c);
+    ls.set(hlOcultosKey(), JSON.stringify([...hlEstado.ocultos]));
+    pintarHistorico();
+    return;
+  }
+  const fr = e.target.closest('[data-hl-fresh]');
+  if (fr) { fr.disabled = true; fr.textContent = 'Calculando…'; cargarHistoricoLanz({ fresh: fr.dataset.hlFresh }); }
+});
+$('#historico').addEventListener('change', (e) => {
+  const o = e.target.closest('[data-hl-orden]');
+  if (o) { hlEstado.orden = o.value; ls.set('lsd_hl_orden', o.value); pintarHistorico(); }
+});
 // Páginas de configuración (Conexiones, Productos, Marca y avatar, Equipo): una página más, como el Inicio, con el
 // menú lateral y la barra de arriba a mano. Productos, Marca y Equipo siguen siendo <dialog> (sus paneles los abren con
 // showModal), pero se muestran dentro de la página, sin ventana encima.
@@ -1768,13 +1846,14 @@ function cerrarPaginas() {
   for (const d of $$('dialog.dlg-pagina')) if (d.open && d.id !== state.enPagina) d.close();
 }
 function mostrarPagina(id) {
-  if (!state.enPagina) paginaVolver = !state.enInicio ? 'embudo' : state.enNegocio ? 'negocio' : 'inicio';
+  if (!state.enPagina) paginaVolver = !state.enInicio ? 'embudo' : state.enHistorico ? 'historico' : state.enNegocio ? 'negocio' : 'inicio';
   state.enInicio = true;
   state.enNegocio = false;
+  state.enHistorico = false;
   state.enPagina = id;
   cerrarPaginas();
   ls.set('lsd_inicio', '');
-  document.body.classList.remove('en-negocio');
+  document.body.classList.remove('en-negocio', 'en-historico');
   document.body.classList.add('en-inicio', 'en-pagina');
   document.body.classList.toggle('en-conexiones', id === 'conexiones');
   $('#alertas-carrito').hidden = true;
@@ -1789,7 +1868,7 @@ for (const d of $$('dialog.dlg-pagina')) {
   // Cerrarla (su ✕ o «Cerrar») es volver al Inicio; si se cierra por ir a otra página, no.
   d.addEventListener('close', () => {
     if (state.enPagina !== d.id) return;
-    if (paginaVolver === 'embudo') { salirInicio(); pintarNavMovil(); pintarSidebar(); } else if (paginaVolver === 'negocio') mostrarNegocio(); else mostrarInicio();
+    if (paginaVolver === 'embudo') { salirInicio(); pintarNavMovil(); pintarSidebar(); } else if (paginaVolver === 'negocio') mostrarNegocio(); else if (paginaVolver === 'historico') mostrarHistorico(); else mostrarInicio();
   });
 }
 document.addEventListener('change', (e) => {
