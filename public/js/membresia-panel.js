@@ -5,7 +5,7 @@
 //    media, antigüedad, más activos, en riesgo y bajas recientes.
 //  · Etiquetas de GHL por plan (y de baja): se sincronizan desde aquí y disparan los flujos de GHL (venta cruzada…).
 //  · Alumnos, como una pestaña de setter: segmentos, búsqueda, y a cada uno WhatsApp o email (desde GHL).
-import { CAMPOS, clavesDe, adivinarMapa, normalizar, metricasMembresia, tagDePlan, etiquetasPendientes, SEGMENTOS, rellenar, waDe, precioMes, EMAIL_RE, resumenGhl, conMembresia } from './membresia.js';
+import { CAMPOS, clavesDe, adivinarMapa, normalizar, metricasMembresia, tagDePlan, etiquetasPendientes, SEGMENTOS, rellenar, waDe, precioMes, EMAIL_RE, resumenGhl, conMembresia, candidatosPlan, repartoPlan, diagnosticoSkool } from './membresia.js';
 import { enlaceLector, esDatosSkool, ORIGEN_SKOOL } from './skool-lector.js';
 
 const DIA = 86_400_000;
@@ -48,7 +48,13 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     const claves = new Set(clavesDe(d.filas).map((c) => c.clave));
     const adiv = adivinarMapa(d.filas);
     for (const k of Object.keys(mapa)) if (typeof mapa[k] === 'string' && !claves.has(mapa[k])) { if (adiv[k]) mapa[k] = adiv[k]; else delete mapa[k]; }
-    st.importacion = { datos: d, mapa, preview: null, completa: true };
+    // Plan: si el guardado deja a muchos «Sin plan» y hay una clave que cubre más, se usa esa.
+    let planCambiado = '';
+    const cands = candidatosPlan(d.filas);
+    const cob = (k) => cands.find((c) => c.clave === k)?.cobertura ?? 0;
+    const mejor = cands.find((c) => c.pista) || null;
+    if (mejor && mapa.plan !== mejor.clave && cob(mapa.plan) < mejor.cobertura - 0.05) { planCambiado = mapa.plan || ''; mapa.plan = mejor.clave; }
+    st.importacion = { datos: d, mapa, preview: null, completa: true, planCambiado };
     st.vista = 'importar';
     abrir();
     pintar();
@@ -114,7 +120,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
   const WA = '<svg class="ms-i" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.2A9.7 9.7 0 0 0 3.6 16.8L2.3 21.7l5-1.3A9.7 9.7 0 1 0 12 2.2zm0 17.7a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 19.9zm4.4-6c-.2-.1-1.4-.7-1.7-.8-.2-.1-.4-.1-.5.1l-.8.9c-.1.2-.3.2-.5.1a6.6 6.6 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.7-1.8c-.2-.5-.4-.4-.5-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.9 11.9 0 0 0 4.6 4c1.7.7 2.4.8 3.2.7a2.8 2.8 0 0 0 1.8-1.3 2.3 2.3 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z"/></svg>';
   const PALETA = ['#6d4aff', '#f97316', '#0ea5e9', '#16a34a', '#e11d48', '#ca8a04', '#0891b2', '#9333ea'];
   const planesOrden = () => [...new Set((st.datos?.alumnos || []).map((a) => a.plan))].sort((a, b) => a.localeCompare(b, 'es'));
-  const colorPlan = (p) => { const l = planesOrden(); const i = l.indexOf(p); return PALETA[(i < 0 ? 0 : i) % PALETA.length]; };
+  const colorPlan = (p) => { if (p === 'Sin plan') return '#9ca3af'; const l = planesOrden().filter((x) => x !== 'Sin plan'); const i = l.indexOf(p); return PALETA[(i < 0 ? 0 : i) % PALETA.length]; };
   const chipPlan = (p) => `<span class="ms-plan" style="--c:${colorPlan(p)}"><i></i>${esc(p)}</span>`;
   const iniciales = (a) => (String(a.nombre || a.email).trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join('') || '?').toUpperCase();
   const avatar = (a) => `<span class="ms-av" style="--c:${colorPlan(a.plan)}" aria-hidden="true">${esc(iniciales(a))}</span>`;
@@ -178,12 +184,32 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
       ${imp.aviso ? `<p class="ms-aviso">${ico('alert')} Faltan muchos de los alumnos activos: puede que la lectura esté a medias (por ejemplo, Skool tenía un filtro puesto). Por seguridad, nadie se da de baja por no salir. Si de verdad están todos, marca la casilla.</p>` : ''}
       <label class="ms-check"><input type="checkbox" id="ms-completa"${imp.completa ? ' checked' : ''}><span>Esta lectura trae <strong>a todos los alumnos activos</strong>: quien no salga, se da de baja.</span></label>
       ${resumen}
+      ${seccionPlan(imp)}
       <details class="ms-mapa"${imp.alumnos?.length ? '' : ' open'}><summary>${ico('swap')} Qué dato de Skool es cada cosa <span class="muted small">(AlquimIA lo adivina; corrígelo si algo no cuadra, se recuerda)</span></summary>
-        <div class="ms-mapa-grid">${CAMPOS.map((c) => `<label class="field"><span>${esc(c.label)}${c.obligatorio ? ' *' : ''}</span><select data-ms-mapa="${c.id}">${opt(imp.mapa[c.id])}</select></label>`).join('')}</div>
+        <div class="ms-mapa-grid">${CAMPOS.filter((c) => c.id !== 'plan' && c.id !== 'planAlt').map((c) => `<label class="field"><span>${esc(c.label)}${c.obligatorio ? ' *' : ''}</span><select data-ms-mapa="${c.id}">${opt(imp.mapa[c.id])}</select></label>`).join('')}</div>
         <label class="ms-check"><input type="checkbox" id="ms-centimos"${imp.mapa.centimos ? ' checked' : ''}><span>Los importes vienen en céntimos (2900 = 29 €)</span></label>
       </details>
       ${muestra.length ? `<p class="ms-sub">Así quedan los 5 primeros:</p><ul class="ms-muestra">${muestra.map((a) => `<li>${avatar(a)}<div><strong>${esc(a.nombre || a.email)}</strong><span class="muted small">${esc(a.email)}</span></div>${chipPlan(a.plan)}<span>${a.precio != null ? `${eur(a.precio)}/${a.intervalo}` : '<span class="muted">sin precio</span>'}</span><span title="Lo cobrado">${ico('heart')} ${eur(a.ltv)}</span><span title="Alta">${ico('calendar')} ${fecha(a.alta)}</span>${a.puntos != null ? `<span title="Puntos">${ico('star')} ${num(a.puntos)}</span>` : ''}</li>`).join('')}</ul>` : `<p class="ms-error">${ico('alert')} Sin el email no se puede guardar: elige arriba qué dato es el email.</p>`}
       <div class="ms-imp-bts"><button type="button" class="btn primary" data-ms="guardar-foto"${imp.alumnos?.length && p && !p.error ? '' : ' disabled'}>${ico('check')} Guardar ${num(imp.alumnos?.length || 0)} alumnos</button><button type="button" class="btn ghost" data-ms="cancelar-foto">Cancelar</button></div>
+    </section>`;
+  }
+
+  // El plan de cada alumno, antes de guardar: cómo se reparten con el dato elegido y otras claves que podrían ser.
+  function seccionPlan(imp) {
+    const filas = imp.datos.filas;
+    const rep = repartoPlan(filas, imp.mapa);
+    const total = rep.reduce((t, x) => t + x.n, 0) || 1;
+    const sin = rep.find((x) => x.valor === 'Sin plan')?.n || 0;
+    const cands = candidatosPlan(filas).filter((c) => c.clave !== imp.mapa.plan).slice(0, 6);
+    const opt = (sel) => `<option value="">— Ninguno —</option>${clavesDe(filas, 5000).map((c) => `<option value="${esc(c.clave)}"${c.clave === sel ? ' selected' : ''}>${esc(c.clave)} · ${esc(c.ejemplos.join(' | ').slice(0, 50))}</option>`).join('')}`;
+    const colores = ['#6d4aff', '#f97316', '#0ea5e9', '#16a34a', '#e11d48', '#ca8a04', '#0891b2', '#9333ea'];
+    return `<section class="ms-planrev${sin ? ' aviso' : ''}">
+      <header><span class="ms-kpi-ico" style="--t:${sin ? '#e11d48' : '#16a34a'}">${ico(sin ? 'alert' : 'crown')}</span><div><strong>Plan de cada alumno</strong><span class="muted small">${sin ? `<strong class="ms-mal-t">${num(sin)} alumnos sin plan</strong> con este dato: elige abajo el que lo trae para todos (o uno de respaldo).` : 'Todos los alumnos tienen plan. Comprueba que los nombres y las cifras son las de Skool.'}</span></div></header>
+      ${imp.planCambiado ? `<p class="ms-aviso ms-aviso-azul">${ico('info')} El dato del plan que se usó la otra vez (<code>${esc(imp.planCambiado)}</code>) no venía en muchos alumnos: ahora uso <code>${esc(imp.mapa.plan)}</code>.</p>` : ''}
+      <div class="ms-reparto">${rep.map((x, i) => `<div class="ms-reparto-f${x.valor === 'Sin plan' ? ' sin' : ''}"><span class="ms-plan" style="--c:${x.valor === 'Sin plan' ? '#9ca3af' : colores[i % colores.length]}"><i></i>${esc(x.valor)}</span><span class="ms-barrita"><span style="width:${Math.round((x.n / total) * 100)}%;${x.valor === 'Sin plan' ? 'background:#9ca3af' : `background:${colores[i % colores.length]}`}"></span></span><strong>${num(x.n)}</strong></div>`).join('')}</div>
+      <div class="ms-grid2"><label class="field"><span>Dato de Skool con el plan</span><select data-ms-mapa="plan">${opt(imp.mapa.plan)}</select></label><label class="field"><span>Si no viene, usar este otro</span><select data-ms-mapa="planAlt">${opt(imp.mapa.planAlt)}</select></label></div>
+      ${cands.length ? `<p class="ms-sub">Otros datos que podrían ser el plan (pulsa para usarlo):</p><div class="ms-cands">${cands.map((c) => `<button type="button" class="ms-cand" data-ms-usar-plan="${esc(c.clave)}"><code>${esc(c.clave)}</code><span class="muted small">${pct(c.cobertura)} de los alumnos</span><span class="ms-cand-v">${c.valores.slice(0, 5).map((v) => `${esc(v.valor)} (${num(v.n)})`).join(' · ')}${c.valores.length > 5 ? ' …' : ''}</span></button>`).join('')}</div>` : ''}
+      <p class="muted small">¿No encuentras el plan? <button type="button" class="link-btn" data-ms="diagnostico">Copiar un resumen de los datos de Skool sin datos personales</button> y pégaselo a Claude para ajustarlo.</p>
     </section>`;
   }
 
@@ -241,6 +267,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
         ${kpi('seed', '#16a34a', `Altas ${m.ventana} días`, una ? '–' : num(m.altas), una ? sinDato : `neto ${m.neto >= 0 ? '+' : ''}${num(m.neto)} alumnos`)}
         ${kpi('heart', '#e11d48', 'LTV medio', eur(m.ltvMedio), `${eur(m.ltvTotal)} cobrado en total`, 'Lo que ha pagado de media cada alumno (Skool + Hotmart + ThriveCart)')}
       </div>
+      ${(() => { const sin = al.filter((a) => a.activo !== false && a.plan === 'Sin plan').length; return sin && puedeConfig() ? `<p class="ms-aviso">${ico('alert')} <span><strong>${num(sin)} alumnos activos sin plan.</strong> El dato de Skool que se tomó como plan no viene en todos. Pulsa <strong>Actualizar alumnos</strong> y, al revisar la lectura, elige en «Plan de cada alumno» el dato que lo trae para todos.</span></p>` : ''; })()}
       ${m.sinPrecio ? `<p class="ms-aviso">${ico('alert')} ${num(m.sinPrecio)} alumnos activos sin precio: Skool no lo trae para su plan. Ponlo en <button type="button" class="link-btn" data-ms-vista="planes">Planes y etiquetas</button> para que cuenten en el MRR.</p>` : ''}
       <h3 class="ms-h">${ico('crown')} Tus planes</h3>
       <div class="ms-planes-g">${m.filas.map((f) => `<article class="ms-pcard" style="--c:${colorPlan(f.plan)}">
@@ -315,7 +342,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     return `
       <div class="ms-segs" role="tablist" aria-label="Segmentos">${SEGMENTOS.map((s) => { const n = al.filter((a) => s.f(a, ahora)).length; if (!n && s.id !== 'todos' && st.seg !== s.id) return ''; return `<button type="button" class="ms-seg${st.seg === s.id ? ' activa' : ''}" data-ms-seg="${s.id}">${ico(ICO_SEG[s.id] || 'users')}<span>${esc(s.label)}</span><em>${num(n)}</em></button>`; }).join('')}</div>
       <div class="ms-filtros"><label class="ms-buscar">${ico('search')}<input type="search" id="ms-q" placeholder="Buscar por nombre o email" value="${esc(st.q)}"></label>
-        <div class="ms-planchips"><button type="button" class="ms-planf${st.plan ? '' : ' activa'}" data-ms-planf="">Todos</button>${planesOrden().map((p) => `<button type="button" class="ms-planf${st.plan === p ? ' activa' : ''}" data-ms-planf="${esc(p)}" style="--c:${colorPlan(p)}"><i></i>${esc(p)}</button>`).join('')}</div>
+        <div class="ms-planchips">${(() => { const enSeg = al.filter((a) => (SEGMENTOS.find((s) => s.id === st.seg) || SEGMENTOS[0]).f(a, ahora)); const n = (p) => enSeg.filter((a) => a.plan === p).length; return `<button type="button" class="ms-planf${st.plan ? '' : ' activa'}" data-ms-planf="">Todos <em>${num(enSeg.length)}</em></button>${planesOrden().filter((p) => n(p) || st.plan === p).map((p) => `<button type="button" class="ms-planf${st.plan === p ? ' activa' : ''}${p === 'Sin plan' ? ' sin' : ''}" data-ms-planf="${esc(p)}" style="--c:${p === 'Sin plan' ? '#9ca3af' : colorPlan(p)}"><i></i>${esc(p)} <em>${num(n(p))}</em></button>`).join('')}`; })()}</div>
         <span class="muted small">${num(l.length)} ${l.length === 1 ? 'alumno' : 'alumnos'}</span></div>
       ${l.length ? '' : '<p class="muted">Nadie en este segmento.</p>'}
       <ul class="ms-alumnos">${pagina.map((a) => {
@@ -418,8 +445,9 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
   }
 
   body?.addEventListener('click', async (e) => {
-    const t = e.target.closest('[data-ms],[data-ms-vista],[data-ms-seg],[data-ms-email],[data-ms-tel],[data-ms-wa],[data-ms-ver],[data-ms-planf]');
+    const t = e.target.closest('[data-ms],[data-ms-vista],[data-ms-seg],[data-ms-email],[data-ms-tel],[data-ms-wa],[data-ms-ver],[data-ms-planf],[data-ms-usar-plan]');
     if (!t) return;
+    if (t.dataset.msUsarPlan && st.importacion) { st.importacion.mapa.plan = t.dataset.msUsarPlan; st.importacion.planCambiado = ''; previsualizar(); pintar(); return; }
     if (t.dataset.msPlanf != null) { st.plan = t.dataset.msPlanf; st.limite = 60; pintar(); return; }
     if (t.dataset.msVista) { st.vista = t.dataset.msVista; ls.set('lsd_ms_vista', st.vista); pintar(); return; }
     if (t.dataset.msSeg) { st.seg = t.dataset.msSeg; st.vista = 'alumnos'; st.limite = 60; pintar(); return; }
@@ -457,6 +485,11 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
       try { d = JSON.parse(txt); } catch { /* no es JSON */ }
       if (!esDatosSkool(d)) { notice('En el portapapeles no hay datos del marcador de Skool. Pulsa «Copiar para AlquimIA» en Skool y vuelve a probar.', true); return; }
       recibir(d);
+      return;
+    }
+    if (op === 'diagnostico' && st.importacion) {
+      const texto = diagnosticoSkool(st.importacion.datos.filas);
+      try { await navigator.clipboard.writeText(texto); notice('Resumen copiado (sin emails, nombres ni teléfonos). Pégaselo a Claude.'); } catch { window.prompt('Copia este resumen:', texto); }
       return;
     }
     if (op === 'cancelar-foto') { st.importacion = null; pintar(); return; }

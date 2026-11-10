@@ -164,3 +164,32 @@ test('membresía: solo en Discendo, tendencia del MRR y altas/bajas por semana',
   assert.equal(m.semanas.length, 12);
   assert.deepEqual([m.semanas[11].altas, m.semanas[11].bajas, m.semanas[10].bajas], [1, 0, 1]);
 });
+
+test('membresía: el plan es el dato que viene en todos (no el primero que se llama «plan»), con respaldo y diagnóstico', async () => {
+  const { candidatosPlan, repartoPlan, diagnosticoSkool, adivinarMapa: adivinar, normalizar: norm, aplicarFoto: foto } = await import('../public/js/membresia.js');
+  // «member.planName» solo lo traen 3 de 10 (los que cambiaron de plan); «member.tierName» lo traen todos.
+  const filas = Array.from({ length: 10 }, (_, i) => ({
+    'user.email': `a${i}@x.com`, 'user.firstName': `A${i}`, 'user.country': i % 2 ? 'ES' : 'MX',
+    'member.tierName': i < 3 ? 'VIP' : 'Estándar', ...(i < 3 ? { 'member.planName': 'VIP anual' } : {}), 'member.tierId': String(100 + (i < 3 ? 1 : 2)),
+  }));
+  const c = candidatosPlan(filas);
+  assert.equal(c[0].clave, 'member.tierName');
+  assert.ok(!c.some((x) => x.clave === 'user.country' && x.pista));
+  assert.ok(!c.some((x) => x.clave === 'member.tierId'));
+  const mapa = adivinar(filas);
+  assert.equal(mapa.plan, 'member.tierName');
+  assert.deepEqual(repartoPlan(filas, mapa), [{ valor: 'Estándar', n: 7 }, { valor: 'VIP', n: 3 }]);
+  // Con el dato malo, 7 sin plan; con respaldo, ninguno.
+  assert.equal(repartoPlan(filas, { ...mapa, plan: 'member.planName' }).find((x) => x.valor === 'Sin plan').n, 7);
+  assert.equal(norm(filas[5], { email: 'user.email', plan: 'member.planName', planAlt: 'member.tierName' }).plan, 'Estándar');
+  // Arreglar el plan («Sin plan» → «VIP») no cuenta como cambio de plan.
+  const r1 = foto({}, [{ email: 'a@x.com', plan: 'Sin plan' }], { ahora: 1.8e12 });
+  const r2 = foto(r1.estado, [{ email: 'a@x.com', plan: 'VIP' }], { ahora: 1.8e12 + 1000 });
+  assert.equal(r2.cambios.length, 0);
+  assert.equal(r2.estado.alumnos['a@x.com'].plan, 'VIP');
+  // El diagnóstico no lleva emails ni nombres.
+  const d = diagnosticoSkool(filas);
+  assert.ok(d.includes('member.tierName'));
+  assert.ok(!/a\d@x\.com/.test(d));
+  assert.ok(!/A\d\b/.test(d.split('\n').find((l) => l.startsWith('user.firstName'))));
+});

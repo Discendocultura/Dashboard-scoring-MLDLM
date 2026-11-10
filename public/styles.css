@@ -9621,3 +9621,18 @@ button.ms-pill { cursor: pointer; }
   .ms-plancfg-f { grid-template-columns: 1fr; }
   .ms-donut svg { width: 96px; height: 96px; }
 }
+.ms-planrev { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface-2); }
+.ms-planrev.aviso { border-color: color-mix(in srgb, #e11d48 35%, var(--border)); background: color-mix(in srgb, #e11d48 5%, var(--surface)); }
+.ms-planrev header { display: flex; gap: 12px; align-items: center; }
+.ms-planrev header > div { display: flex; flex-direction: column; min-width: 0; }
+.ms-reparto { display: grid; gap: 6px; }
+.ms-reparto-f { display: grid; grid-template-columns: minmax(110px, 200px) 1fr 50px; gap: 10px; align-items: center; font-size: 13px; }
+.ms-reparto-f strong { text-align: right; }
+.ms-reparto-f.sin strong { color: #be123c; }
+.ms-cands { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+.ms-cand { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--border-strong); background: var(--surface); font: inherit; cursor: pointer; color: inherit; min-width: 0; }
+.ms-cand:hover { border-color: #6d4aff; border-style: solid; }
+.ms-cand code { overflow-wrap: anywhere; }
+.ms-cand-v { font-size: 12px; overflow-wrap: anywhere; }
+.ms-planf em { font-style: normal; font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 999px; background: var(--surface-3); }
+.ms-planf.sin { color: var(--muted); }

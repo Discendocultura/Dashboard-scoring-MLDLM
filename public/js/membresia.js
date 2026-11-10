@@ -24,6 +24,7 @@ export const CAMPOS = [
   { id: 'apellido', label: 'Apellido', buscar: [/(^|\.)last_?name$/] },
   { id: 'telefono', label: 'Teléfono', buscar: [/phone|tel[eé]fono|m[oó]vil|whatsapp/] },
   { id: 'plan', label: 'Plan', buscar: [/(^|\.)(tier|plan|membership_?(tier|level|type|name)|price_?name|product_?name)$/, /tier_?name|plan_?name|tier|plan/], no: /price|amount|cents|level$|points|id$/ },
+  { id: 'planAlt', label: 'Plan, si no viene el anterior', buscar: [] },
   { id: 'precio', label: 'Precio', buscar: [/(^|\.)(price|amount|unit_?amount|recurring_?amount)$/, /price|amount|mrr/], no: /ltv|lifetime|total|paid|name|id$|currency/ },
   { id: 'intervalo', label: 'Cada cuánto paga', buscar: [/interval|billing_?(period|cycle)|recurr|frecuencia|periodo/], no: /count|amount/ },
   { id: 'ltv', label: 'Lo cobrado (LTV)', buscar: [/ltv|lifetime|total_?(paid|spent|revenue)|revenue/] },
@@ -57,6 +58,13 @@ export function adivinarMapa(filas = []) {
   const esEmail = (c) => c.ejemplos.length && c.ejemplos.every((e) => EMAIL_RE.test(e));
   for (const campo of CAMPOS) {
     let elegida = null;
+    if (campo.id === 'plan') {
+      // El plan: la clave que viene en casi todos, con pocos valores de texto (nombres de plan) y nombre de plan/tier.
+      const c = candidatosPlan(filas).find((x) => x.pista && !usadas.has(x.clave));
+      if (c) { mapa.plan = c.clave; usadas.add(c.clave); }
+      continue;
+    }
+    if (campo.id === 'planAlt') continue;
     if (campo.id === 'email') elegida = claves.find((c) => esEmail(c) && /mail/i.test(c.clave)) || claves.find(esEmail);
     for (const re of campo.buscar) {
       if (elegida) break;
@@ -72,6 +80,60 @@ export function adivinarMapa(filas = []) {
   // (se ve en la vista previa y se puede cambiar: «los importes vienen en céntimos»).
   if (p.length && (/cent/i.test(mapa.precio) || p.every((x) => Number.isInteger(x) && x >= 1000))) mapa.centimos = true;
   return mapa;
+}
+
+// Claves de las filas que podrían ser el PLAN: texto (no números, emails, fechas ni enlaces), entre 1 y 25 valores
+// distintos y en al menos el 20 % de los alumnos. Ordenadas: primero las que tienen nombre de plan/tier/nivel de
+// pago (`pista`) y luego por cuántos alumnos la traen. → [{ clave, cobertura (0-1), valores: [{ valor, n }], pista }]
+const PISTA_PLAN = /tier|plan|membership|price_?name|product|subscription|suscrip|nivel|package|paquete|access|acceso/i;
+const NO_PLAN = /mail|first_?name|last_?name|full_?name|display_?name|(^|\.)name$|nombre|phone|tel|bio|avatar|image|photo|picture|url|link|href|location|city|country|pais|ciudad|lang|locale|timezone|tz$|(^|\.)id$|_id$|uuid|token|slug|handle|ip$|color|theme|question|answer|respuesta|pregunta/i;
+export function candidatosPlan(filas = []) {
+  const total = filas.length || 1;
+  const m = new Map();
+  for (const f of filas) {
+    for (const [k, v] of Object.entries(f || {})) {
+      if (NO_PLAN.test(k)) continue;
+      const t = txt(v, 80);
+      if (!t) continue;
+      const x = m.get(k) || { clave: k, n: 0, valores: new Map(), malos: 0 };
+      x.n++;
+      if (/^-?[\d.,]+$/.test(t) || EMAIL_RE.test(t) || /^https?:/i.test(t) || /^\d{4}-\d{2}-\d{2}/.test(t) || /^(true|false|null|undefined)$/i.test(t)) x.malos++;
+      if (x.valores.size <= 40) x.valores.set(t, (x.valores.get(t) || 0) + 1);
+      m.set(k, x);
+    }
+  }
+  return [...m.values()]
+    .filter((x) => x.malos / x.n < 0.1 && x.valores.size >= 1 && x.valores.size <= 25 && x.n / total >= 0.2)
+    .map((x) => ({ clave: x.clave, cobertura: x.n / total, pista: PISTA_PLAN.test(x.clave), valores: [...x.valores.entries()].map(([valor, n]) => ({ valor, n })).sort((a, b) => b.n - a.n) }))
+    .sort((a, b) => (b.pista - a.pista) || (b.cobertura - a.cobertura) || (a.valores.length - b.valores.length));
+}
+
+// Cómo se reparten los alumnos por plan con un mapa (para verlo antes de guardar). → [{ valor, n }] (con «Sin plan»)
+export function repartoPlan(filas = [], mapa = {}) {
+  const c = new Map();
+  for (const f of filas) {
+    const a = normalizar(f, mapa);
+    if (!a) continue;
+    c.set(a.plan, (c.get(a.plan) || 0) + 1);
+  }
+  return [...c.entries()].map(([valor, n]) => ({ valor, n })).sort((a, b) => (a.valor === 'Sin plan') - (b.valor === 'Sin plan') || b.n - a.n);
+}
+
+// Resumen de las claves que trae Skool SIN datos personales (para pedir ayuda): cuántos la traen, de qué tipo y, solo
+// en las que no son personales, unos valores de ejemplo.
+export function diagnosticoSkool(filas = []) {
+  const total = filas.length;
+  const personal = /mail|name|nombre|phone|tel|bio|avatar|image|photo|picture|url|link|location|city|address|direcci|ip$|token|answer|respuesta|question|pregunta|handle|slug/i;
+  const lineas = clavesDe(filas, 5000).map((c) => {
+    const vals = filas.map((f) => f?.[c.clave]).filter((v) => v != null && v !== '');
+    const nums = vals.filter((v) => /^-?[\d.,]+$/.test(String(v))).length;
+    const tipo = nums === vals.length ? 'número' : vals.some((v) => EMAIL_RE.test(String(v))) ? 'email' : vals.some((v) => /^\d{4}-\d{2}-\d{2}/.test(String(v))) ? 'fecha' : 'texto';
+    const distintos = new Set(vals.map(String)).size;
+    const ver = !personal.test(c.clave) && tipo !== 'email' && distintos <= 25;
+    const ej = ver ? [...new Set(vals.map((v) => txt(v, 30)))].slice(0, 8).join(' | ') : '(oculto)';
+    return `${c.clave} · ${c.n}/${total} · ${tipo} · ${distintos} distintos · ${ej}`;
+  });
+  return [`Skool: ${total} filas, ${lineas.length} claves`, ...lineas].join('\n');
 }
 
 // Fecha de Skool → epoch ms: ISO, «2026-10-16 10:00:00», segundos o ms.
@@ -121,7 +183,7 @@ export function normalizar(fila = {}, mapa = {}) {
     email,
     nombre,
     telefono: tel.replace(/\D/g, '').length >= 8 ? tel : '',
-    plan: txt(g('plan'), 60) || 'Sin plan',
+    plan: txt(g('plan'), 60) || txt(g('planAlt'), 60) || 'Sin plan',
     precio: importeDe(precioTxt, !!mapa.centimos),
     intervalo: intervaloDe(g('intervalo'), typeof precioTxt === 'string' ? precioTxt : '') || (mapa.intervaloFijo === 'año' ? 'año' : 'mes'),
     ltv: importeDe(g('ltv'), !!mapa.centimos),
@@ -170,7 +232,7 @@ export function aplicarFoto(estado = {}, foto = [], { ahora = Date.now(), comple
     if (a.activo === false) {
       a.activo = true; delete a.bajaEn; vuelven.push(n.email);
       eventos.push({ t: ahora, tipo: 'vuelve', email: n.email, plan: a.plan, mes: precioMes(a) });
-    } else if (plan0 && n.plan && plan0 !== n.plan) {
+    } else if (plan0 && n.plan && plan0 !== n.plan && plan0 !== 'Sin plan' && n.plan !== 'Sin plan') {
       cambios.push({ email: n.email, de: plan0, a: n.plan });
       eventos.push({ t: ahora, tipo: 'cambio', email: n.email, de: plan0, plan: n.plan, mes: precioMes(a) });
     } else iguales++;
