@@ -269,3 +269,24 @@ test('membresía: el marcador carga el lector más nuevo de AlquimIA (y lleva un
   assert.ok(js.startsWith('window.__alqLectorNuevo = function lector('));
   assert.doesNotThrow(() => new Function(js));
 });
+
+test('membresía: lo que enseña la tarjeta de Skool (precio, renovación, cancelada) y el LTV en céntimos', async () => {
+  const mb = await import('../public/js/membresia.js');
+  const filas = [
+    { email: 'a@x.com', 'tarjeta.precio': '$367/año', 'tarjeta.renueva': '2027-11-08T12:00:00.000Z', 'tarjeta.alta': '2026-11-08T12:00:00.000Z', 'tarjeta.ultima': '2026-11-10T00:00:00.000Z', 'ficha.membership.ltv': 36700, 'ficha.membership.tier.name': 'VIP anual' },
+    { email: 'b@x.com', 'tarjeta.precio': '$44/mes', 'tarjeta.renovacion': 'no se renueva', 'ficha.membership.ltv': 4400, 'ficha.membership.tier.name': 'VIP' },
+  ];
+  const m = mb.adivinarMapa(filas);
+  assert.equal(m.precio, 'tarjeta.precio');
+  assert.equal(m.renueva, 'tarjeta.renueva');
+  assert.equal(m.renovacion, 'tarjeta.renovacion');
+  assert.equal(m.plan, 'ficha.membership.tier.name');
+  const a = mb.normalizar(filas[0], m);
+  assert.deepEqual([a.precio, a.intervalo, a.moneda, a.noRenueva, a.renueva, a.ltv], [367, 'año', 'USD', false, Date.parse('2027-11-08T12:00:00.000Z'), 367]);
+  const b = mb.normalizar(filas[1], m);
+  assert.deepEqual([b.precio, b.intervalo, b.noRenueva, b.baja, b.ltv], [44, 'mes', true, false, 44]);
+  const ahora = Date.parse('2026-11-10T10:00:00Z');
+  const seg = (id) => mb.SEGMENTOS.find((s) => s.id === id).f;
+  assert.equal(seg('norenuevan')({ ...b, activo: true }, ahora), true);
+  assert.equal(seg('renuevan')({ ...a, activo: true, renueva: ahora + 10 * 86400000 }, ahora), true);
+});

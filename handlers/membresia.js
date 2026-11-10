@@ -52,6 +52,9 @@ function limpiarAlumno(a) {
     puntos: num(a.puntos, 1e9),
     nivelSkool: num(a.nivelSkool, 1000),
     ultima: fecha(a.ultima),
+    renueva: fecha(a.renueva),
+    noRenueva: a.noRenueva === true,
+    moneda: a.moneda === 'USD' ? 'USD' : a.moneda === 'EUR' ? 'EUR' : '',
     baja: a.baja === true,
   };
 }

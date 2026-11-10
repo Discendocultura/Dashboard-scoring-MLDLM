@@ -25,13 +25,15 @@ export const CAMPOS = [
   { id: 'telefono', label: 'Teléfono', buscar: [/phone|tel[eé]fono|m[oó]vil|whatsapp/] },
   { id: 'plan', label: 'Plan', buscar: [/(^|\.)(tier|plan|membership_?(tier|level|type|name)|price_?name|product_?name)$/, /tier_?name|plan_?name|tier|plan/], no: /price|amount|cents|level$|points|id$/ },
   { id: 'planAlt', label: 'Plan, si no viene el anterior', buscar: [] },
-  { id: 'precio', label: 'Precio', buscar: [/(^|\.)(price|amount|unit_?amount|recurring_?amount)$/, /price|amount|mrr/], no: /ltv|lifetime|total|paid|name|id$|currency/ },
+  { id: 'precio', label: 'Precio', buscar: [/^tarjeta\.precio$/, /(^|\.)(price|amount|unit_?amount|recurring_?amount)$/, /price|amount|mrr/], no: /ltv|lifetime|total|paid|name|id$|currency/ },
   { id: 'intervalo', label: 'Cada cuánto paga', buscar: [/interval|billing_?(period|cycle)|recurr|frecuencia|periodo/], no: /count|amount/ },
   { id: 'ltv', label: 'Lo cobrado (LTV)', buscar: [/ltv|lifetime|total_?(paid|spent|revenue)|revenue/] },
-  { id: 'alta', label: 'Fecha de alta', buscar: [/(^|\.)(joined|joined_?at|approved_?at|member_?since|created_?at)$/, /joined|approved|since|created/], no: /group|post|last|update|renew|cancel|churn/ },
+  { id: 'alta', label: 'Fecha de alta', buscar: [/^tarjeta\.alta$/, /(^|\.)(joined|joined_?at|approved_?at|member_?since|created_?at)$/, /joined|approved|since|created/], no: /group|post|last|update|renew|cancel|churn/ },
   { id: 'puntos', label: 'Puntos (actividad)', buscar: [/(^|\.)points$/, /points|puntos/] },
   { id: 'nivelSkool', label: 'Nivel de Skool', buscar: [/(^|\.)level$/, /level$/], no: /tier|plan/ },
-  { id: 'ultima', label: 'Última conexión', buscar: [/last_?(active|seen|online|login|visit)/, /last_?activity|online_?at/] },
+  { id: 'ultima', label: 'Última conexión', buscar: [/^tarjeta\.ultima$/, /last_?(active|seen|online|login|visit)/, /last_?activity|online_?at/] },
+  { id: 'renueva', label: 'Próxima renovación', buscar: [/^tarjeta\.renueva$/, /renew|next_?(billing|payment|charge)|period_?end|current_?period/], no: /count|auto|cancel/ },
+  { id: 'renovacion', label: 'No renueva (canceló)', buscar: [/^tarjeta\.renovacion$/, /cancel_?at_?period_?end|cancel_?at$|will_?cancel/] },
   { id: 'estado', label: 'Estado', buscar: [/(^|\.)(status|state|membership_?status)$/, /churn|cancel/], no: /email|phone/ },
 ];
 
@@ -204,11 +206,25 @@ export function normalizar(fila = {}, mapa = {}, opts = {}) {
     })(),
     precio: importeDe(precioTxt, !!mapa.centimos),
     intervalo: intervaloDe(g('intervalo'), typeof precioTxt === 'string' ? precioTxt : '') || (mapa.intervaloFijo === 'año' ? 'año' : 'mes'),
-    ltv: importeDe(g('ltv'), !!mapa.centimos),
+    ltv: (() => {
+      const l = importeDe(g('ltv'), !!mapa.centimos);
+      const p = importeDe(precioTxt, !!mapa.centimos);
+      // Un LTV en céntimos (12000 = 120 $) junto a un precio en unidades (44 $/mes): más de 5 años de cuotas
+      // en un número entero redondo es que viene en céntimos.
+      const entero = Number.isInteger(Number(g('ltv')));
+      // Los importes de los datos internos de Skool (la ficha) van en céntimos; los de la tarjeta, en unidades.
+      if (l != null && !mapa.centimos && entero && /^ficha\./.test(mapa.ltv || '') && /^tarjeta\./.test(mapa.precio || '')) return r2(l / 100);
+      if (l != null && p && !mapa.centimos && entero && l > p * 60 && l % 100 === 0) return r2(l / 100);
+      return l;
+    })(),
     alta: fechaDe(g('alta')),
     puntos: num(g('puntos')),
     nivelSkool: num(g('nivelSkool')),
     ultima: fechaDe(g('ultima')),
+    renueva: fechaDe(g('renueva')),
+    // Canceló la renovación: sigue dentro hasta que acabe lo pagado (no es una baja todavía).
+    noRenueva: (() => { const v = String(g('renovacion') ?? '').trim().toLowerCase(); return Boolean(v) && v !== 'false' && v !== '0' && v !== 'null'; })(),
+    moneda: /\$|usd/i.test(String(precioTxt ?? '')) ? 'USD' : /€|eur/i.test(String(precioTxt ?? '')) ? 'EUR' : '',
     baja: estado ? BAJA_RE.test(estado) : false,
   };
 }
@@ -401,6 +417,8 @@ export const SEGMENTOS = [
   { id: 'riesgo', label: 'En riesgo (sin entrar 14+ días)', ico: '⚠️', f: (a, ahora) => a.activo !== false && a.ultima && ahora - a.ultima > 14 * DIA },
   { id: 'ltv', label: 'Por lo que han pagado', ico: '💎', f: (a) => a.activo !== false && (a.ltv ?? 0) > 0, orden: (a, b) => (b.ltv ?? 0) - (a.ltv ?? 0) },
   { id: 'singhl', label: 'No están en GHL', ico: '🔗', f: (a) => a.enGhl === false },
+  { id: 'renuevan', label: 'Renuevan en 30 días', ico: '🔁', f: (a, ahora) => a.activo !== false && !a.noRenueva && a.renueva && a.renueva >= ahora && a.renueva - ahora <= 30 * DIA, orden: (a, b) => a.renueva - b.renueva },
+  { id: 'norenuevan', label: 'Han cancelado la renovación', ico: '⏳', f: (a) => a.activo !== false && a.noRenueva, orden: (a, b) => (a.renueva || 0) - (b.renueva || 0) },
   { id: 'bajas', label: 'Bajas (para recuperar)', ico: '👋', f: (a) => a.activo === false, orden: (a, b) => (b.bajaEn || 0) - (a.bajaEn || 0) },
 ];
 

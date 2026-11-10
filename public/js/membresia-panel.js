@@ -10,7 +10,9 @@ import { enlaceLector, esDatosSkool, ORIGEN_SKOOL, VERSION_LECTOR } from './skoo
 import { limpiarNombre, pareceSlug } from './membresia.js';
 
 const DIA = 86_400_000;
-const eur = (n) => (n == null || !Number.isFinite(n) ? '–' : n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: Math.abs(n) >= 100 ? 0 : 2 }));
+// Moneda del panel: la que cobra Skool (si casi todos pagan en dólares, en dólares).
+let MONEDA = 'EUR';
+const eur = (n) => (n == null || !Number.isFinite(n) ? '–' : n.toLocaleString('es-ES', { style: 'currency', currency: MONEDA, maximumFractionDigits: Math.abs(n) >= 100 ? 0 : 2 }));
 const pct = (x) => (x == null || !Number.isFinite(x) ? '–' : `${(x * 100).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`);
 const num = (n) => (n == null || !Number.isFinite(n) ? '–' : n.toLocaleString('es-ES'));
 const fecha = (t) => (t ? new Date(t).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : '–');
@@ -25,6 +27,15 @@ function hace(t, ahora = Date.now()) {
 }
 // Nombre para mostrar (sin el usuario de Skool «nombre-apellido-1234»).
 const nom = (a) => limpiarNombre(a.nombre || '') || a.email;
+// «en 12 días», «en 3 meses», «hoy».
+function dentroDe(t, ahora = Date.now()) {
+  const d = Math.round((t - ahora) / DIA);
+  if (d <= 0) return 'hoy';
+  if (d === 1) return 'mañana';
+  if (d < 45) return `en ${d} días`;
+  const m = Math.round(d / 30.44);
+  return m < 12 ? `en ${m} meses` : `en ${Math.round(m / 12)} ${Math.round(m / 12) === 1 ? 'año' : 'años'}`;
+}
 const antig = (t, ahora = Date.now()) => { if (!t) return '–'; const m = (ahora - t) / (30.44 * DIA); return m < 1 ? `${Math.max(1, Math.round((ahora - t) / DIA))} d` : m < 12 ? `${Math.round(m)} m` : `${(m / 12).toLocaleString('es-ES', { maximumFractionDigits: 1 })} a`; };
 
 export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, cliente, abrir }) {
@@ -315,8 +326,19 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
         <section class="ms-card ms-card-evo"><h3 class="ms-h">${ico('chart')} Altas y bajas por semana</h3>${una ? `<p class="muted small">${sinDato}: con cada lectura de Skool se ven las altas y bajas de cada semana.</p>` : `${evolucion(m.semanas)}<p class="ms-leyenda"><span><i style="background:#16a34a"></i>Altas</span><span><i style="background:#e11d48"></i>Bajas</span><span class="muted">últimas 12 semanas</span></p>`}</section>
         <section class="ms-card"><h3 class="ms-h">${ico('calendar')} Antigüedad</h3><ul class="ms-barras">${m.antiguedad.map((x) => `<li><span>${esc(x.label)}</span><span class="ms-barrita"><span style="width:${Math.round((x.n / maxAnt) * 100)}%"></span></span><strong>${num(x.n)}</strong></li>`).join('')}</ul></section>
       </div>
+      ${(() => {
+        const ahora = Date.now();
+        const act = al.filter((a) => a.activo !== false);
+        if (!act.some((a) => a.renueva || a.noRenueva)) return '';
+        const pronto = act.filter((a) => !a.noRenueva && a.renueva && a.renueva >= ahora && a.renueva - ahora <= 30 * DIA);
+        const noR = act.filter((a) => a.noRenueva);
+        const mrrNoR = noR.reduce((t, a) => t + precioMes(a, c.precios || {}), 0);
+        const cobroPronto = pronto.reduce((t, a) => t + (a.precio ?? 0), 0);
+        return `<div class="ms-dos"><section class="ms-accion"><header><span class="ms-kpi-ico" style="--t:#0ea5e9">${ico('refresh')}</span><div><strong>Renuevan en los próximos 30 días</strong><span class="muted small">${num(pronto.length)} ${pronto.length === 1 ? 'alumno' : 'alumnos'} · ${eur(cobroPronto)} por cobrar. Buen momento para escribirles antes del cobro.</span></div></header>${pronto.length ? `<button type="button" class="btn" data-ms-seg="renuevan">${ico('users')} Ver quiénes</button>` : ''}</section>
+          <section class="ms-accion"><header><span class="ms-kpi-ico" style="--t:#e11d48">${ico('clock')}</span><div><strong>Han cancelado la renovación</strong><span class="muted small">${num(noR.length)} ${noR.length === 1 ? 'alumno sigue' : 'alumnos siguen'} dentro hasta que acabe lo pagado · ${eur(mrrNoR)}/mes que se van a perder si no se les recupera.</span></div></header>${noR.length ? `<button type="button" class="btn primary" data-ms-seg="norenuevan">${ico('mail')} Escribirles</button>` : `<p class="ms-ok-t">${ico('check')} Nadie</p>`}</section></div>`;
+      })()}
       <div class="ms-cols ms-cols-3">
-        <section class="ms-card"><h3 class="ms-h">${ico('star', 'ms-t-amar')} Más activos</h3>${m.conActividad ? `<ol class="ms-lista">${m.masActivos.map((a) => `<li><button type="button" class="ms-mini" data-ms-ver="${esc(a.email)}">${avatar(a)}<span class="ms-mini-t"><span class="ms-mini-n">${esc(nom(a))}</span><span class="ms-meter"><span style="width:${Math.round(((a.puntos || 0) / maxPts) * 100)}%"></span></span></span><span class="ms-pill">${num(a.puntos)} pts</span></button></li>`).join('')}</ol>` : '<p class="muted small">Skool no ha traído puntos ni última conexión: elígelos al revisar la próxima lectura.</p>'}</section>
+        <section class="ms-card"><h3 class="ms-h">${ico('star', 'ms-t-amar')} Más activos</h3>${m.conActividad ? `<ol class="ms-lista">${m.masActivos.map((a) => `<li><button type="button" class="ms-mini" data-ms-ver="${esc(a.email)}">${avatar(a)}<span class="ms-mini-t"><span class="ms-mini-n">${esc(nom(a))}</span>${a.puntos != null ? `<span class="ms-meter"><span style="width:${Math.round(((a.puntos || 0) / maxPts) * 100)}%"></span></span>` : `<span class="ms-mini-x">${esc(a.plan)}</span>`}</span><span class="ms-pill ${a.puntos != null ? '' : tonoUltima(a.ultima)}">${a.puntos != null ? `${num(a.puntos)} pts` : hace(a.ultima)}</span></button></li>`).join('')}</ol>` : '<p class="muted small">Skool no ha traído puntos ni última conexión: elígelos al revisar la próxima lectura.</p>'}</section>
         <section class="ms-card"><h3 class="ms-h">${ico('alert', 'ms-t-mal')} En riesgo <span class="muted small">14+ días sin entrar</span></h3>${m.enRiesgo.length ? `<ol class="ms-lista">${m.enRiesgo.slice(0, 8).map((a) => fila(a, hace(a.ultima), 'mal')).join('')}</ol>${m.enRiesgo.length > 8 ? `<button type="button" class="link-btn ms-ver-todos" data-ms-seg="riesgo">Ver los ${num(m.enRiesgo.length)} y escribirles →</button>` : ''}` : `<p class="ms-ok-t small">${m.conActividad ? `${ico('check')} Nadie: todos han entrado en las últimas 2 semanas.` : 'Hace falta la última conexión de Skool.'}</p>`}</section>
         <section class="ms-card"><h3 class="ms-h">${ico('wave', 'ms-t-azul')} Bajas recientes <span class="muted small">para recuperar</span></h3>${m.bajasRecientes.length ? `<ol class="ms-lista">${m.bajasRecientes.slice(0, 8).map((a) => fila(a, `${eur(ltvDe(a))} · ${hace(a.bajaEn)}`)).join('')}</ol>${m.bajasRecientes.length > 8 ? `<button type="button" class="link-btn ms-ver-todos" data-ms-seg="bajas">Ver las ${num(m.bajasRecientes.length)} →</button>` : ''}` : `<p class="muted small">Ninguna en los últimos 30 días.</p>`}</section>
       </div>`;
@@ -354,7 +376,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     l = l.sort(seg.orden || ((a, b) => (b.alta || 0) - (a.alta || 0)));
     return l;
   }
-  const ICO_SEG = { todos: 'users', nuevos: 'seed', activos: 'star', riesgo: 'alert', ltv: 'heart', singhl: 'link', bajas: 'wave' };
+  const ICO_SEG = { todos: 'users', nuevos: 'seed', activos: 'star', riesgo: 'alert', ltv: 'heart', singhl: 'link', renuevan: 'refresh', norenuevan: 'clock', bajas: 'wave' };
   function vistaAlumnos() {
     const al = st.datos?.alumnos || [];
     if (!al.length) return vistaResumen();
@@ -383,6 +405,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
             ${mes ? `<span title="Lo que paga al mes">${ico('euro')}${eur(mes)}/mes</span>` : ''}
             ${a.puntos != null ? `<span title="Puntos en Skool">${ico('star')}${num(a.puntos)}</span>` : ''}
             ${a.ultima ? `<span class="ms-ult ${tono}" title="Última conexión en Skool"><i></i>${hace(a.ultima)}</span>` : ''}
+            ${a.activo !== false && a.noRenueva ? `<span class="ms-pill mal" title="Ha cancelado la renovación: sigue dentro hasta ${fecha(a.renueva)}">${ico('clock')} No renueva${a.renueva ? ` · sale ${dentroDe(a.renueva)}` : ''}</span>` : a.activo !== false && a.renueva ? `<span class="${a.renueva - Date.now() < 15 * DIA ? 'ms-pill med' : ''}" title="Próxima renovación: ${fecha(a.renueva)}">${ico('refresh')}renueva ${dentroDe(a.renueva)}</span>` : ''}
             ${ult ? `<span class="muted" title="Último mensaje desde aquí">${ult.canal === 'wa' ? WA : ico('mail')}${hace(ult.t)}</span>` : ''}
           </div>
           <div class="ms-al-a">${wa ? `<a class="btn small wa" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(rellenar(c.mensajeWa || 'Hola {nombre}, ', a))}" target="_blank" rel="noopener" data-ms-wa="${esc(a.email)}" aria-label="WhatsApp a ${esc(nom(a))}">${WA} WhatsApp</a>` : a.enGhl === false ? '<span class="ms-sinmovil" title="Su email de Skool no está en GHL: créalo con «Crear en GHL»">' + ico('phone') + ' sin móvil</span>' : a.enGhl === true ? '<span class="ms-sinmovil" title="Su ficha de GHL no tiene móvil. Si se lo pones, pulsa «Volver a cruzar».">' + ico('phone') + ' sin móvil</span>' : `<button type="button" class="btn small" data-ms-tel="${esc(a.email)}" title="Busca su ficha en GHL por su email y trae su móvil">${ico('phone')} Buscar móvil</button>`}<button type="button" class="btn small" data-ms-email="${esc(a.email)}" aria-label="Email a ${esc(nom(a))}">${ico('mail')} Email</button></div>
@@ -420,6 +443,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     if (!conMembresia(cliente())) { body.innerHTML = '<p class="muted">La membresía de Skool es de Discendo: entra en Discendo para verla.</p>'; return; }
     if (!st.datos) { body.innerHTML = '<p class="muted">Cargando la membresía…</p>'; return; }
     const v = st.importacion ? 'importar' : st.vista;
+    { const l = st.datos.alumnos || []; const usd = l.filter((a) => a.moneda === 'USD').length; const eu = l.filter((a) => a.moneda === 'EUR').length; MONEDA = usd > eu ? 'USD' : 'EUR'; }
     body.innerHTML = `${barra()}${puedeConfig() && !st.importacion ? guia() : ''}${st.importacion ? '' : pestanas()}<div class="ms-vista">${v === 'importar' ? vistaImportar() : v === 'alumnos' ? vistaAlumnos() : v === 'planes' && puedeConfig() ? vistaPlanes() : vistaResumen()}</div>`;
   }
 

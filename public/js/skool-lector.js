@@ -10,7 +10,7 @@
 
 /* eslint-disable no-var, prefer-arrow-callback, func-names */
 function lector(ORIGEN, CLI) {
-  var VERSION_LECTOR_DENTRO = 2; // = VERSION_LECTOR (abajo): sube con cada cambio del lector
+  var VERSION_LECTOR_DENTRO = 3; // = VERSION_LECTOR (abajo): sube con cada cambio del lector
   if (window.__alqSkool) return;
   window.__alqSkool = 1;
   var caja = document.createElement('div');
@@ -160,6 +160,62 @@ function lector(ORIGEN, CLI) {
     }
     return mejor ? (mejor.closest('a,button,[role="button"]') || mejor) : null;
   };
+  // La tarjeta del alumno en la lista de Miembros: el bloque más pequeño que contiene su nombre y un botón
+  // «Membresía» / «Membership». → { tarjeta, boton } (o null).
+  var MEMB = /^\s*(membres\S{0,3}a|membership)\s*$/i;
+  var buscarTarjeta = function (nombre) {
+    var n = String(nombre || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (n.length < 3) return null;
+    var els = document.querySelectorAll('a,span,div,p,h1,h2,h3,h4,strong');
+    var nom = null;
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (caja.contains(el)) continue;
+      var t = (el.textContent || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      if (t === n && (!nom || nom.contains(el))) nom = el;
+    }
+    for (var a = nom; a && a !== document.body; a = a.parentElement) {
+      var bs = a.querySelectorAll('button,a,[role="button"]');
+      for (var j = 0; j < bs.length; j++) if (MEMB.test(bs[j].textContent || '') || MEMB.test(bs[j].getAttribute('aria-label') || '')) return { tarjeta: a, boton: bs[j] };
+    }
+    return nom ? { tarjeta: nom.parentElement, boton: null } : null;
+  };
+  // Lo que dice la tarjeta: «$367/año», «Se renueva en 363 días», «Se unió el nov. 8, 2026», «Activo hace 19h».
+  var MESES = { ene: 0, jan: 0, feb: 1, mar: 2, abr: 3, apr: 3, may: 4, jun: 5, jul: 6, ago: 7, aug: 7, sep: 8, set: 8, oct: 9, nov: 10, dic: 11, dec: 11 };
+  var fechaTexto = function (t) {
+    var m = /([a-záéíóú]{3})[a-záéíóú]*\.?\s+(\d{1,2}),?\s+(\d{4})/i.exec(t) || null;
+    if (m && MESES[m[1].toLowerCase()] != null) return new Date(Date.UTC(+m[3], MESES[m[1].toLowerCase()], +m[2], 12)).toISOString();
+    m = /(\d{1,2})\s+(?:de\s+)?([a-záéíóú]{3})[a-záéíóú]*\.?\s+(?:de\s+)?(\d{4})/i.exec(t);
+    if (m && MESES[m[2].toLowerCase()] != null) return new Date(Date.UTC(+m[3], MESES[m[2].toLowerCase()], +m[1], 12)).toISOString();
+    return '';
+  };
+  var haceTexto = function (t) {
+    var m = /(\d+)\s*(min|m\b|h|d|sem|w|mes|mo|a\b|y)/i.exec(t);
+    if (!m) return /ahora|now|online|en l[ií]nea/i.test(t) ? new Date().toISOString() : '';
+    var u = m[2].toLowerCase(); var n = +m[1];
+    var ms = /^min|^m$/.test(u) ? 6e4 : u === 'h' ? 36e5 : u === 'd' ? 864e5 : /^sem|^w/.test(u) ? 6048e5 : /^mes|^mo/.test(u) ? 2592e6 : 31536e6;
+    return new Date(Date.now() - n * ms).toISOString();
+  };
+  var leerTarjeta = function (tarjeta, f) {
+    var t = (tarjeta && tarjeta.innerText || '').replace(/ /g, ' ');
+    if (!t) return 0;
+    var n = 0;
+    var put = function (k, v) { if (v && !(k in f)) { f[k] = v; n++; } };
+    put('tarjeta.texto', t.slice(0, 1500));
+    var pm = /([$€£]\s?[\d.,]+|[\d.,]+\s?[$€£]|[\d.,]+\s?(?:usd|eur))\s*\/\s*(año|mes|semana|year|month|week|yr|mo)\b/i.exec(t);
+    if (pm) put('tarjeta.precio', pm[0].replace(/\s+/g, ''));
+    if (/gratis|free/i.test(t) && !pm) put('tarjeta.precio', '0/mes');
+    var rn = /(?:se renueva en|renews in)\s+(\d+)\s+(d[ií]as?|days?|mes(?:es)?|months?|años?|years?)/i.exec(t);
+    if (rn) { var dias = /^d/i.test(rn[2]) ? +rn[1] : /^m/i.test(rn[2]) ? +rn[1] * 30 : +rn[1] * 365; put('tarjeta.renueva', new Date(Date.now() + dias * 864e5).toISOString()); }
+    var un = /(?:se uni[oó] el|joined)\s+([^\n]+)/i.exec(t);
+    if (un) put('tarjeta.alta', fechaTexto(un[1]));
+    var ac = /(?:activ[oa]|active)\s+([^\n]+)/i.exec(t);
+    if (ac) put('tarjeta.ultima', haceTexto(ac[1]));
+    var cn = /(se uni[oó] directamente|joined directly|invitad[oa]|invited)[^\n]*/i.exec(t);
+    if (cn) put('tarjeta.como', cn[0].trim());
+    if (/cancel|se cancela|no se renueva|churn/i.test(t)) put('tarjeta.renovacion', 'no se renueva');
+    return n;
+  };
   var ventana = function () { var l = document.querySelectorAll('[role="dialog"],[aria-modal="true"],[class*="Modal"],[class*="modal"]'); for (var i = l.length - 1; i >= 0; i--) if (!caja.contains(l[i]) && (l[i].textContent || '').trim()) return l[i]; return null; };
   var cerrar = async function (urlAntes) {
     if (location.href !== urlAntes) { history.back(); await hasta(function () { return location.href === urlAntes; }, 5000); await espera(500); return; }
@@ -201,9 +257,13 @@ function lector(ORIGEN, CLI) {
         var bp = document.getElementById('alq-parar');
         if (bp) bp.onclick = function () { parar = true; };
         var nombre = nombreVisible(f);
-        await hasta(function () { return buscarEl(nombre); }, 4000);
-        var el = buscarEl(nombre);
-        if (!el) continue;
+        await hasta(function () { return buscarTarjeta(nombre); }, 4000);
+        var tj = buscarTarjeta(nombre);
+        if (!tj) continue;
+        // Lo que ya enseña la tarjeta (precio, renovación, alta, última conexión), aunque no haya botón.
+        var deTarjeta = leerTarjeta(tj.tarjeta, f);
+        if (!tj.boton) { if (deTarjeta) conFicha++; continue; }
+        var el = tj.boton; // el botón «Membresía» de su tarjeta (no su nombre: ese abre el perfil)
         var uid = valorDe(f, /(^|\.)id$/i);
         var urlAntes = location.href;
         var t0 = Date.now();
@@ -304,7 +364,7 @@ function lector(ORIGEN, CLI) {
 // El marcador CARGA el lector más nuevo desde AlquimIA (/api/skool-lector): así no se queda viejo aunque se
 // arrastrase hace meses. Si Skool no deja cargar scripts de fuera (o AlquimIA no responde en 6 s), usa el que lleva
 // dentro (el de cuando se arrastró).
-export const VERSION_LECTOR = 2;
+export const VERSION_LECTOR = 3;
 export const codigoLector = (origen, cliente = '') => `(${lector.toString()})(${JSON.stringify(String(origen))},${JSON.stringify(String(cliente || ''))})`;
 export function enlaceLector(origen, cliente = '') {
   const O = JSON.stringify(String(origen));
