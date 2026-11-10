@@ -1,0 +1,229 @@
+// Membresía de Skool (Configuración → 🎓 Membresía): los alumnos, sus planes, altas y bajas, y lo que se les manda.
+//   GET  /api/membresia                                    → (equipo: Setting hoy o Métricas) { alumnos, eventos, cfg,
+//        ltvExtra (lo que cada alumno ha pagado en Hotmart y ThriveCart), ultimaLectura }
+//   POST /api/membresia { op: 'foto', alumnos, completa, confirmar, comunidad, url } → («config») lectura nueva de
+//        Skool (del lector del navegador). Sin `confirmar`, solo dice qué cambiaría (altas, bajas, cambios de plan).
+//        Con `completa: false` nadie se da de baja por no salir (la lectura podría estar a medias).
+//   POST /api/membresia { op: 'cfg', cfg }                 → («config») planes: etiqueta de GHL y precio de cada uno,
+//        etiqueta de baja, dirección de Miembros de Skool, mensajes por defecto.
+//   POST /api/membresia { op: 'etiquetar', emails: [≤10] } → («config») pone a cada uno la etiqueta de su plan en GHL
+//        (y quita la de otros planes y la de baja; a las bajas, la de baja). Así se disparan los flujos de GHL.
+//   POST /api/membresia { op: 'contacto', emails: [≤10] }  → (Setting hoy) busca su ficha en GHL (teléfono para WhatsApp).
+//   POST /api/membresia { op: 'email', email, asunto, texto } → (Setting hoy) le manda un email desde GHL.
+//   POST /api/membresia { op: 'apuntar', email, canal }    → (Setting hoy) apunta que se le escribió por WhatsApp.
+import { requireSession } from '../lib/auth.js';
+import { leerJSON, guardarJSON, reintentando } from '../lib/store.js';
+import { findContactByEmail, addTags, removeTags, sendEmail } from '../lib/ghl.js';
+import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
+import { aplicarFoto, etiquetasPendientes, tagDePlan, TAG_OK, EMAIL_RE, rellenar, intervaloDe } from '../public/js/membresia.js';
+
+const CLAVE = 'lsd_membresia';
+const CLAVE_CFG = 'lsd_membresia_cfg';
+const MAX_ALUMNOS = 6000;
+const txt = (v, max = 160) => String(v ?? '').replace(/[\u0000-\u0008\u000b-\u001f]/g, ' ').trim().slice(0, max);
+const PERMISO_VER = ['hoy', 'metricas', 'config'];
+
+const vacio = () => ({ alumnos: {}, eventos: [] });
+const leerEstado = async () => (await leerJSON(CLAVE, vacio)) || vacio();
+const leerCfg = async () => (await leerJSON(CLAVE_CFG, () => ({}))) || {};
+
+// Lo que llega del navegador (que lo leyó de Skool): solo los campos conocidos, con su tipo y tamaño.
+function limpiarAlumno(a) {
+  if (!a || typeof a !== 'object') return null;
+  const email = txt(a.email, 200).toLowerCase();
+  if (!EMAIL_RE.test(email)) return null;
+  const num = (v, max = 1e7) => { const n = Number(v); return v != null && v !== '' && Number.isFinite(n) && Math.abs(n) <= max ? Math.round(n * 100) / 100 : null; };
+  const fecha = (v) => { const n = Number(v); return Number.isFinite(n) && n > 1e12 && n < 4.1e12 ? n : null; };
+  const tel = txt(a.telefono, 30).replace(/[^\d+]/g, '');
+  return {
+    email,
+    nombre: txt(a.nombre, 80),
+    telefono: tel.replace(/\D/g, '').length >= 8 ? tel : '',
+    plan: txt(a.plan, 60) || 'Sin plan',
+    precio: num(a.precio, 1e6),
+    intervalo: a.intervalo === 'año' ? 'año' : 'mes',
+    ltv: num(a.ltv),
+    alta: fecha(a.alta),
+    puntos: num(a.puntos, 1e9),
+    nivelSkool: num(a.nivelSkool, 1000),
+    ultima: fecha(a.ultima),
+    baja: a.baja === true,
+  };
+}
+
+function limpiarCfg(c = {}, antes = {}) {
+  const tag = (v) => { const t = txt(v, 80).toLowerCase(); return TAG_OK.test(t) ? t : ''; };
+  const etiquetas = {};
+  for (const [p, t] of Object.entries(c.etiquetas || {}).slice(0, 40)) { const v = tag(t); if (v) etiquetas[txt(p, 60)] = v; }
+  const precios = {};
+  for (const [p, x] of Object.entries(c.precios || {}).slice(0, 40)) {
+    const n = Number(x?.importe);
+    if (Number.isFinite(n) && n >= 0 && n < 1e6) precios[txt(p, 60)] = { importe: Math.round(n * 100) / 100, intervalo: intervaloDe(x?.intervalo) || 'mes' };
+  }
+  const mapa = {};
+  for (const [k, v] of Object.entries(c.mapa || antes.mapa || {}).slice(0, 30)) if (/^[a-zA-Z]{2,20}$/.test(k)) mapa[k] = typeof v === 'boolean' ? v : txt(v, 200);
+  const url = txt(c.urlSkool, 300);
+  return {
+    prefijo: txt(c.prefijo, 40) || 'alumno',
+    etiquetas,
+    tagBaja: tag(c.tagBaja),
+    precios,
+    mapa,
+    urlSkool: /^https:\/\/([a-z0-9-]+\.)*skool\.com\//i.test(url) ? url : '',
+    mensajeWa: txt(c.mensajeWa, 1000),
+    asunto: txt(c.asunto, 150),
+    cuerpo: txt(c.cuerpo, 5000),
+  };
+}
+
+// Lo pagado en Hotmart y ThriveCart por cada alumno (Skool ya trae su LTV): cobros − reembolsos.
+async function ltvOtras(emails) {
+  const [hm, tc] = await Promise.all(['lsd_hotmart_ventas', 'lsd_thrivecart_ventas'].map((k) => leerJSON(k, () => ({ ventas: [] })).catch(() => ({ ventas: [] }))));
+  const out = {};
+  const vistos = new Set();
+  for (const v of [...(hm?.ventas || []), ...(tc?.ventas || [])]) {
+    const e = String(v.email || '').toLowerCase();
+    if (!emails.has(e) || v.prueba || vistos.has(v.id)) continue;
+    vistos.add(v.id);
+    const imp = Math.abs(Number(v.importe) || 0);
+    if (v.tipo === 'cobro') out[e] = (out[e] || 0) + imp;
+    else if (v.tipo === 'reembolso') out[e] = (out[e] || 0) - imp;
+  }
+  for (const k of Object.keys(out)) out[k] = Math.max(0, Math.round(out[k] * 100) / 100);
+  return out;
+}
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// Texto del email → HTML sencillo (párrafos y saltos de línea; los enlaces, clicables).
+export const htmlDeTexto = (t) => String(t).split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, '<br>').replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>')}</p>`).join('');
+
+export async function GET(request) {
+  try {
+    await requireSession(request, { permiso: PERMISO_VER });
+    const [estado, cfg] = await Promise.all([leerEstado(), leerCfg()]);
+    const emails = new Set(Object.keys(estado.alumnos || {}));
+    return json({
+      alumnos: Object.values(estado.alumnos || {}),
+      eventos: (estado.eventos || []).slice(-1500),
+      ultimaLectura: estado.ultimaLectura || null,
+      lecturas: estado.lecturas || 0,
+      comunidad: estado.comunidad || '',
+      cfg: limpiarCfg(cfg, cfg),
+      ltvExtra: emails.size ? await ltvOtras(emails) : {},
+    });
+  } catch (e) {
+    return errorResponse(e);
+  }
+}
+
+export async function POST(request) {
+  try {
+    const body = await readBody(request);
+    const op = body.op;
+    if (op === 'foto') {
+      await requireSession(request, { permiso: 'config' });
+      const foto = (Array.isArray(body.alumnos) ? body.alumnos : []).slice(0, MAX_ALUMNOS).map(limpiarAlumno).filter(Boolean);
+      if (!foto.length) return json({ error: 'No llega ningún alumno con email válido' }, 400);
+      const completa = body.completa !== false;
+      const hacer = async () => {
+        const estado = await leerEstado();
+        const r = aplicarFoto(estado, foto, { ahora: Date.now(), completa });
+        const resumen = {
+          leidos: foto.length, altas: r.altas.length, bajas: r.bajas.length, cambios: r.cambios.length, vuelven: r.vuelven.length, iguales: r.iguales, primera: r.primera,
+          activosAntes: Object.values(estado.alumnos || {}).filter((a) => a.activo !== false).length,
+          muestra: { altas: r.altas.slice(0, 30), bajas: r.bajas.slice(0, 30), cambios: r.cambios.slice(0, 30), vuelven: r.vuelven.slice(0, 30) },
+        };
+        if (!body.confirmar) return resumen;
+        const nuevo = { ...r.estado, comunidad: txt(body.comunidad, 80) || estado.comunidad || '' };
+        // Tope de tamaño: si hubiera más, se quedan los activos y las bajas más recientes.
+        const lista = Object.values(nuevo.alumnos);
+        if (lista.length > MAX_ALUMNOS) {
+          lista.sort((a, b) => (a.activo === false) - (b.activo === false) || (b.bajaEn || b.visto || 0) - (a.bajaEn || a.visto || 0));
+          nuevo.alumnos = Object.fromEntries(lista.slice(0, MAX_ALUMNOS).map((a) => [a.email, a]));
+        }
+        await guardarJSON(CLAVE, nuevo, { motivo: `Membresía: ${r.altas.length} altas, ${r.bajas.length} bajas, ${r.cambios.length} cambios de plan` });
+        return { ...resumen, guardado: true };
+      };
+      return json(body.confirmar ? await reintentando(hacer) : await hacer());
+    }
+    if (op === 'cfg') {
+      await requireSession(request, { permiso: 'config' });
+      const antes = await leerCfg();
+      const cfg = limpiarCfg({ ...antes, ...(body.cfg || {}) }, antes);
+      await guardarJSON(CLAVE_CFG, cfg, { motivo: 'Membresía: configuración' });
+      return json({ ok: true, cfg });
+    }
+    if (op === 'etiquetar' || op === 'contacto') {
+      await requireSession(request, { permiso: op === 'etiquetar' ? 'config' : ['hoy', 'config'] });
+      const emails = [...new Set((Array.isArray(body.emails) ? body.emails : []).map((e) => txt(e, 200).toLowerCase()).filter((e) => EMAIL_RE.test(e)))];
+      if (!emails.length || emails.length > 10) return json({ error: 'Envía entre 1 y 10 alumnos por petición' }, 400);
+      const [estado, cfg] = await Promise.all([leerEstado(), leerCfg()]);
+      const pend = new Map(etiquetasPendientes(estado, cfg).map((p) => [p.email, p]));
+      // Etiquetas que gestiona el panel (las de todos los planes y la de baja): solo esas se quitan.
+      const planes = new Set(Object.values(estado.alumnos || {}).map((a) => a.plan));
+      const gestionadas = new Set([...[...planes].map((p) => tagDePlan(cfg, p)), ...Object.values(cfg.etiquetas || {}), cfg.tagBaja].filter(Boolean));
+      const cambios = {};
+      const results = await mapLimit(emails, 4, async (email) => {
+        const a = estado.alumnos?.[email];
+        if (!a) return { email, ok: false, motivo: 'no es alumno' };
+        try {
+          const c = await findContactByEmail(email);
+          if (!c?.id) return { email, ok: false, motivo: 'no está en GHL' };
+          const datos = { ghlId: c.id, ...(c.phone && !a.telefono ? { telefono: c.phone } : {}) };
+          if (op === 'etiquetar') {
+            const quiere = a.activo === false ? [cfg.tagBaja].filter(Boolean) : [tagDePlan(cfg, a.plan)].filter(Boolean);
+            const tiene = (c.tags || []).map((t) => String(t).toLowerCase());
+            const poner = quiere.filter((t) => !tiene.includes(t));
+            const quitar = tiene.filter((t) => gestionadas.has(t) && !quiere.includes(t));
+            if (poner.length) await addTags(c.id, poner);
+            if (quitar.length) await removeTags(c.id, quitar);
+            datos.tags = quiere;
+            cambios[email] = datos;
+            return { email, ok: true, poner, quitar, telefono: datos.telefono || a.telefono || '' };
+          }
+          cambios[email] = datos;
+          return { email, ok: true, telefono: c.phone || a.telefono || '', pendiente: pend.get(email) || null };
+        } catch (e) {
+          console.error('Membresía GHL', e.message);
+          return { email, ok: false, motivo: 'error de GHL' };
+        }
+      });
+      if (Object.keys(cambios).length) {
+        await reintentando(async () => {
+          const est = await leerEstado();
+          for (const [email, d] of Object.entries(cambios)) if (est.alumnos?.[email]) Object.assign(est.alumnos[email], d);
+          await guardarJSON(CLAVE, est, { motivo: op === 'etiquetar' ? 'Membresía: etiquetas de GHL' : 'Membresía: fichas de GHL' });
+        });
+      }
+      return json({ results });
+    }
+    if (op === 'email' || op === 'apuntar') {
+      const s = await requireSession(request, { permiso: ['hoy', 'config'] });
+      const email = txt(body.email, 200).toLowerCase();
+      const estado = await leerEstado();
+      const a = estado.alumnos?.[email];
+      if (!a) return json({ error: 'No es alumno de la membresía' }, 404);
+      const canal = op === 'email' ? 'email' : body.canal === 'wa' ? 'wa' : '';
+      if (!canal) return json({ error: 'Canal no válido' }, 400);
+      if (op === 'email') {
+        const asunto = rellenar(txt(body.asunto, 150), a);
+        const texto = rellenar(txt(body.texto, 5000), a);
+        if (!asunto || !texto) return json({ error: 'Falta el asunto o el texto' }, 400);
+        const id = a.ghlId || (await findContactByEmail(email))?.id;
+        if (!id) return json({ error: 'Este alumno no está en GHL: no se le puede mandar el email desde aquí' }, 404);
+        await sendEmail(id, { subject: asunto, html: htmlDeTexto(texto) });
+        a.ghlId = id;
+      }
+      a.contactos = [...(a.contactos || []), { t: Date.now(), canal, por: txt(s.user?.nombre || s.user?.email || s.role, 60) }].slice(-20);
+      await reintentando(async () => {
+        const est = await leerEstado();
+        if (est.alumnos?.[email]) { est.alumnos[email].contactos = a.contactos; if (a.ghlId) est.alumnos[email].ghlId = a.ghlId; }
+        await guardarJSON(CLAVE, est, { motivo: `Membresía: ${canal === 'email' ? 'email' : 'WhatsApp'} a un alumno` });
+      });
+      return json({ ok: true, contactos: a.contactos });
+    }
+    return json({ error: 'Operación desconocida' }, 400);
+  } catch (e) {
+    return errorResponse(e);
+  }
+}
