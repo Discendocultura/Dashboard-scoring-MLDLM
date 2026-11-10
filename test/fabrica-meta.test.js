@@ -35,3 +35,26 @@ test('creatividades de Meta: miniatura grande, portada del vídeo y reintento si
     assert.equal(pedidas.length, 4);
   } finally { globalThis.fetch = orig; }
 });
+
+test('creatividades de Meta: si un anuncio no existe, Meta rechaza el lote y se piden de uno en uno', async () => {
+  const { creatividadesMeta } = await import('../lib/meta.js');
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (u) => {
+    const url = new URL(u);
+    const ids = url.searchParams.get('ids').split(',');
+    const f = url.searchParams.get('fields');
+    const r = (body, status = 200) => new Response(JSON.stringify(body), { status });
+    if (ids.includes('999')) return r({ error: { message: '(#100) Some of the aliases you requested do not exist: 999', code: 100 } }, 400);
+    if (f === 'creative') return r(Object.fromEntries(ids.map((id) => [id, { creative: { id: `c${id}` } }])));
+    if (f.startsWith('object_type')) return r(Object.fromEntries(ids.map((id) => [id, { object_type: 'PHOTO', image_url: `https://cdn.test/${id}.jpg` }])));
+    return r({});
+  };
+  try {
+    const avisos = [];
+    const c = await creatividadesMeta(['111', '999', '222'], { avisos });
+    assert.deepEqual(Object.keys(c).sort(), ['111', '222']);
+    assert.equal(c[111].imagen, 'https://cdn.test/c111.jpg');
+    assert.equal(avisos.length, 1);
+    assert.match(avisos[0], /do not exist/);
+  } finally { globalThis.fetch = orig; }
+});

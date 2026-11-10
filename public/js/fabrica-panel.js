@@ -27,7 +27,12 @@ export function montarFabrica({ api, esc, notice, ls, puedeConfig, ctx }) {
       const g = ganadoresDe(d, v.ventas || [], { desde: d.rango?.desde || '', hasta: d.rango?.hasta || '9999' }).slice(0, 24);
       const ids = g.map((x) => x.id).filter((id) => !st.crea[id]);
       st.avisoCrea = '';
-      if (ids.length) Object.assign(st.crea, (await api(`/api/fabrica?creatividades=${ids.join(',')}`).catch((e) => { st.avisoCrea = e.message; return { creatividades: {} }; })).creatividades || {});
+      // De 12 en 12: si un trozo falla, el resto se ve igual.
+      for (let i = 0; i < ids.length; i += 12) {
+        const r = await api(`/api/fabrica?creatividades=${ids.slice(i, i + 12).join(',')}`).catch((e) => ({ creatividades: {}, aviso: e.message }));
+        Object.assign(st.crea, r.creatividades || {});
+        if (r.aviso && !st.avisoCrea.includes(r.aviso)) st.avisoCrea = [st.avisoCrea, r.aviso].filter(Boolean).join(' · ');
+      }
       st.ganadores = g.map((x) => ({ ...x, ...(st.crea[x.id] || {}) }));
     } catch (e) { st.error = e.message; }
     st.cargando = false;
@@ -114,7 +119,7 @@ export function montarFabrica({ api, esc, notice, ls, puedeConfig, ctx }) {
         <ol class="fb-pasos">${pasos.map((t, i) => `<li class="${i + 1 < paso ? 'hecho' : i + 1 === paso ? 'on' : ''}"><b>${i + 1 < paso ? '✓' : i + 1}</b><span>${t}</span></li>`).join('')}</ol>
       </header>
       <div class="fb-cuerpo">
-      ${st.avisoCrea ? `<p class="fb-aviso">🖼️ No se han podido traer las imágenes de los anuncios: ${esc(st.avisoCrea)}</p>` : ''}
+      ${st.avisoCrea && (st.ganadores || []).some((g) => !g.imagen && !g.miniatura) ? `<p class="fb-aviso">🖼️ Algunas imágenes no han llegado de Meta: ${esc(st.avisoCrea)}</p>` : ''}
       ${st.cargando ? `<p class="fb-leyendo"><span class="fb-spin" aria-hidden="true"></span> Leyendo los anuncios de Meta y sus ventas reales…</p>${esqueleto()}`
         : st.error ? `<p class="fb-error">⚠️ ${esc(st.error)}</p>`
         : !st.ganadores ? '' : !gs.length ? '<p class="muted">No hay anuncios con gasto en este periodo.</p>' : `

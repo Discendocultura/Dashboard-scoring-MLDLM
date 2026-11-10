@@ -35,7 +35,14 @@ export async function GET(request) {
   try {
     await requireSession(request, { permiso: PERMISO_VER });
     const ids = new URL(request.url).searchParams.get('creatividades');
-    if (ids != null) return json({ creatividades: await creatividadesMeta(ids.split(',')) });
+    // Nunca un error: lo que se pueda traer y, si algo falla, el motivo (para que el panel lo diga).
+    if (ids != null) {
+      const avisos = [];
+      try { return json({ creatividades: await creatividadesMeta(ids.split(','), { avisos }), aviso: avisos.join(' · ') }); } catch (e) {
+        console.error('Fábrica · creatividades', e);
+        return json({ creatividades: {}, aviso: e.publicMessage || String(e.message || e).replace(/access_token=[^&\s]+/g, '…').slice(0, 300) });
+      }
+    }
     return json({ lotes: (await leerLotes()).slice(-MAX_LOTES).reverse() });
   } catch (e) {
     return errorResponse(e);
