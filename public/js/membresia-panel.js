@@ -300,18 +300,23 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
         ${kpi('down', m.churn > 0.08 ? '#e11d48' : '#ca8a04', `Churn ${m.ventana} días`, una ? '–' : pct(m.churn), una ? sinDato : `${num(m.bajas)} bajas · −${eur(m.mrrPerdido)}/mes`, '% de alumnos que se dieron de baja en los últimos 30 días')}
         ${kpi('seed', '#16a34a', `Altas ${m.ventana} días`, una ? '–' : num(m.altas), una ? sinDato : `neto ${m.neto >= 0 ? '+' : ''}${num(m.neto)} alumnos`)}
         ${kpi('heart', '#e11d48', 'LTV medio', eur(m.ltvMedio), `${eur(m.ltvTotal)} cobrado en total`, 'Lo que ha pagado de media cada alumno (Skool + Hotmart + ThriveCart)')}
+        ${kpi('x', '#be123c', 'Cancelados / no renuevan', num(m.cancelados + m.noRenuevan), `${num(m.cancelados)} ${m.cancelados === 1 ? 'cancelado' : 'cancelados'} · ${num(m.noRenuevan)} no ${m.noRenuevan === 1 ? 'renueva' : 'renuevan'} · ${pct(m.total ? (m.cancelados + m.noRenuevan) / m.total : 0)} del total`, 'Cancelados: ya no están en Skool. No renuevan: han cancelado la renovación y se irán cuando acabe lo que pagaron')}
       </div>
       ${(() => { const sin = al.filter((a) => a.activo !== false && a.plan === 'Sin plan').length; return sin && puedeConfig() ? `<p class="ms-aviso">${ico('alert')} <span><strong>${num(sin)} alumnos activos sin plan.</strong> El dato de Skool que se tomó como plan no viene en todos. Pulsa <strong>Actualizar alumnos</strong> y, al revisar la lectura, elige en «Plan de cada alumno» el dato que lo trae para todos.</span></p>` : ''; })()}
       ${m.sinPrecio ? `<p class="ms-aviso">${ico('alert')} ${num(m.sinPrecio)} alumnos activos sin precio: Skool no lo trae para su plan. Ponlo en <button type="button" class="link-btn" data-ms-vista="planes">Planes y etiquetas</button> para que cuenten en el MRR.</p>` : ''}
+      ${m.reparto.length ? `<section class="ms-card ms-reparto-planes"><h3 class="ms-h">${ico('users')} Alumnos por plan <span class="muted small">% de los ${num(m.activos)} alumnos activos</span></h3>
+        <div class="ms-apilada" role="img" aria-label="Reparto de alumnos por plan">${m.reparto.map((x) => `<span style="width:${(x.pct * 100).toFixed(2)}%;background:${colorPlan(x.plan)}" title="${esc(x.plan)}: ${num(x.n)} alumnos (${pct(x.pct)})">${x.pct >= 0.08 ? pct(x.pct) : ''}</span>`).join('')}</div>
+        <ul class="ms-apilada-l">${m.reparto.map((x) => `<li><i style="background:${colorPlan(x.plan)}"></i><span>${esc(x.plan)}</span><strong>${pct(x.pct)}</strong><span class="muted">${num(x.n)}</span></li>`).join('')}</ul></section>` : ''}
       <h3 class="ms-h">${ico('crown')} Tus planes</h3>
       <div class="ms-planes-g">${m.filas.map((f) => `<article class="ms-pcard" style="--c:${colorPlan(f.plan)}">
         <header><span class="ms-pcard-n">${esc(f.plan)}</span><span class="ms-pill ${una ? '' : tonoChurn(f.churn)}" title="Churn de los últimos 30 días">${una ? 'churn: 2.ª lectura' : `churn ${pct(f.churn)}`}</span></header>
-        <div class="ms-pcard-big"><strong>${num(f.activos)}</strong><span>alumnos</span><strong class="ms-pcard-mrr">${eur(f.mrr)}</strong><span>/mes</span></div>
+        <div class="ms-pcard-big"><strong>${num(f.activos)}</strong><span>alumnos · <b class="ms-pcard-pct">${pct(m.activos ? f.activos / m.activos : 0)}</b></span><strong class="ms-pcard-mrr">${eur(f.mrr)}</strong><span>/mes</span></div>
         <div class="ms-share" title="${m.mrr ? pct(f.mrr / m.mrr) : '–'} del MRR"><span style="width:${m.mrr ? Math.round((f.mrr / m.mrr) * 100) : 0}%"></span></div>
         <dl>
           <div><dt>Media al mes</dt><dd>${eur(f.arpu)}</dd></div>
           <div><dt>LTV medio</dt><dd>${eur(f.ltvMedio)}</dd></div>
           <div><dt>LTV esperado ${ayuda('Lo que paga al mes ÷ churn mensual: lo que dejará de media un alumno nuevo de este plan')}</dt><dd>${f.ltvEsperado != null ? eur(f.ltvEsperado) : '–'}</dd></div>
+          <div><dt>Cancelados / no renuevan</dt><dd><span class="${f.cancelados ? 'ms-mal-t' : ''}">${num(f.cancelados)}</span> / <span class="${f.noRenuevan ? 'ms-mal-t' : ''}">${num(f.noRenuevan)}</span></dd></div>
           <div><dt>Se quedan</dt><dd>${f.vidaMeses ? `${f.vidaMeses.toLocaleString('es-ES')} meses` : '–'}</dd></div>
           ${una ? '' : `<div><dt>Altas / bajas</dt><dd><span class="ms-ok-t">+${num(f.altas)}</span> / <span class="ms-mal-t">−${num(f.bajas)}</span></dd></div>`}
         </dl>
@@ -644,6 +649,22 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
     clearTimeout(tq);
     tq = setTimeout(() => { st.q = e.target.value; const pos = e.target.selectionStart; pintar(); const q = document.getElementById('ms-q'); q?.focus(); q?.setSelectionRange(pos, pos); }, 250);
   });
+
+  // Llegada desde el botón «Enviar a AlquimIA» del marcador (#membresia-entrada=<código>): cuando la app está lista,
+  // se recogen los datos con la sesión de quien está dentro y se enseña la revisión.
+  (async function entrada() {
+    const m = /#membresia-entrada=([a-f0-9]{32})/.exec(location.hash);
+    if (!m) return;
+    history.replaceState(history.state, '', location.pathname + location.search);
+    const t0 = Date.now();
+    while (Date.now() - t0 < 60000 && document.getElementById('app')?.hidden !== false) await new Promise((ok) => setTimeout(ok, 300));
+    if (!conMembresia(cliente())) return notice('Esos alumnos de Skool son de Discendo: entra en Discendo y vuelve a pulsar el marcador.', true);
+    try {
+      const r = await api(`/api/membresia?entrada=${m[1]}`);
+      if (!st.datos) await cargar();
+      recibir(r.datos);
+    } catch (e) { notice(e.message, true); }
+  })();
 
   return {
     abrir: () => { pintar(); cargar(); },

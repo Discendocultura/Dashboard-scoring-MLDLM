@@ -319,12 +319,12 @@ export function metricasMembresia(estado = {}, { ahora = Date.now(), precios = {
   const ltvDe = (a) => r2((a.ltv ?? 0) + (ltvExtra[a.email] || 0));
   const planes = new Map();
   const plan = (p) => {
-    if (!planes.has(p)) planes.set(p, { plan: p, activos: 0, mrr: 0, altas: 0, bajas: 0, mrrPerdido: 0, ltvSuma: 0, ltvN: 0, vidaSuma: 0, vidaN: 0 });
+    if (!planes.has(p)) planes.set(p, { plan: p, activos: 0, cancelados: 0, noRenuevan: 0, mrr: 0, altas: 0, bajas: 0, mrrPerdido: 0, ltvSuma: 0, ltvN: 0, vidaSuma: 0, vidaN: 0 });
     return planes.get(p);
   };
   for (const a of lista) {
     const x = plan(a.plan || 'Sin plan');
-    if (a.activo !== false) { x.activos++; x.mrr = r2(x.mrr + precioMes(a, precios)); }
+    if (a.activo !== false) { x.activos++; x.mrr = r2(x.mrr + precioMes(a, precios)); if (a.noRenueva) x.noRenuevan++; } else x.cancelados++;
     const l = ltvDe(a);
     if (l > 0) { x.ltvSuma += l; x.ltvN++; }
     if (a.alta) { x.vidaSuma += mesesEntre(a.alta, a.activo === false ? (a.bajaEn || ahora) : ahora); x.vidaN++; }
@@ -339,7 +339,7 @@ export function metricasMembresia(estado = {}, { ahora = Date.now(), precios = {
     const churn = base ? x.bajas / base : 0;
     const arpu = x.activos ? r2(x.mrr / x.activos) : 0;
     return {
-      plan: x.plan, activos: x.activos, mrr: x.mrr, altas: x.altas, bajas: x.bajas, churn, mrrPerdido: x.mrrPerdido, arpu,
+      plan: x.plan, activos: x.activos, cancelados: x.cancelados, noRenuevan: x.noRenuevan, mrr: x.mrr, altas: x.altas, bajas: x.bajas, churn, mrrPerdido: x.mrrPerdido, arpu,
       ltvMedio: x.ltvN ? r2(x.ltvSuma / x.ltvN) : 0,
       vidaMeses: x.vidaN ? Math.round((x.vidaSuma / x.vidaN) * 10) / 10 : 0,
       // LTV esperado de un alumno nuevo: lo que paga al mes ÷ el churn mensual (con poco churn, sin cifra).
@@ -375,6 +375,11 @@ export function metricasMembresia(estado = {}, { ahora = Date.now(), precios = {
     ltvMedio: (() => { const l = lista.map(ltvDe).filter((x) => x > 0); return l.length ? r2(l.reduce((s, x) => s + x, 0) / l.length) : 0; })(),
     ltvTotal: r2(lista.reduce((s, a) => s + ltvDe(a), 0)),
     filas, masActivos, enRiesgo, antiguedad, conActividad,
+    // % de los alumnos activos en cada plan (no del dinero: eso es el % del MRR).
+    reparto: filas.filter((f) => f.activos).map((f) => ({ plan: f.plan, n: f.activos, pct: nActivos ? f.activos / nActivos : 0 })).sort((a, b) => b.n - a.n),
+    // Cancelados (ya fuera) y no renovados (cancelaron la renovación y se irán al acabar lo pagado).
+    cancelados: lista.filter((a) => a.activo === false).length,
+    noRenuevan: activos.filter((a) => a.noRenueva).length,
     bajasRecientes: lista.filter((a) => a.activo === false && a.bajaEn && a.bajaEn >= desde).sort((a, b) => b.bajaEn - a.bajaEn),
     sinPrecio: activos.filter((a) => !precioMes(a, precios)).length,
     ventana,

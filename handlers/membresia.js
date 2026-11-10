@@ -16,7 +16,7 @@
 //   POST /api/membresia { op: 'apuntar', email, canal }    → (Setting hoy) apunta que se le escribió por WhatsApp.
 import { requireSession } from '../lib/auth.js';
 import { clienteActual } from '../lib/cliente.js';
-import { leerJSON, guardarJSON, reintentando } from '../lib/store.js';
+import { leerJSON, guardarJSON, reintentando, leerCompartida, guardarCompartida } from '../lib/store.js';
 import { findContactByEmail, addTags, removeTags, sendEmail, upsertContact, setContactPhone } from '../lib/ghl.js';
 import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
 import { aplicarFoto, conMembresia, esCodigo, nombrePlan, tagDePlan, TAG_OK, EMAIL_RE, rellenar, intervaloDe } from '../public/js/membresia.js';
@@ -115,6 +115,17 @@ export async function GET(request) {
     await requireSession(request, { permiso: PERMISO_VER });
     const fuera = soloDiscendo();
     if (fuera) return fuera;
+    // Datos que mandó el marcador de Skool con «Enviar a AlquimIA» (ver handlers/skool-entrada.js): de un solo uso.
+    const entrada = new URL(request.url).searchParams.get('entrada');
+    if (entrada) {
+      await requireSession(request, { permiso: 'config' });
+      if (!/^[a-f0-9]{32}$/.test(entrada)) return json({ error: 'Código no válido' }, 400);
+      const clave = `skool-entrada|${entrada}`;
+      const e = await leerCompartida(clave, 2 * 3600_000);
+      if (!e?.datos) return json({ error: 'Esos datos de Skool ya se recogieron o han caducado: vuelve a pulsar el marcador en Skool.' }, 404);
+      await guardarCompartida(clave, null);
+      return json({ datos: e.datos });
+    }
     const [estado, cfg] = await Promise.all([leerEstado(), leerCfg()]);
     const emails = new Set(Object.keys(estado.alumnos || {}));
     return json({

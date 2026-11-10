@@ -290,3 +290,19 @@ test('membresía: lo que enseña la tarjeta de Skool (precio, renovación, cance
   assert.equal(seg('norenuevan')({ ...b, activo: true }, ahora), true);
   assert.equal(seg('renuevan')({ ...a, activo: true, renueva: ahora + 10 * 86400000 }, ahora), true);
 });
+
+test('membresía: % de alumnos por plan y cancelados / no renovados', async () => {
+  const mb = await import('../public/js/membresia.js');
+  const al = (email, plan, extra = {}) => ({ email, plan, precio: 10, intervalo: 'mes', activo: true, ...extra });
+  const estado = { alumnos: Object.fromEntries([
+    al('a@x.com', 'VIP'), al('b@x.com', 'VIP', { noRenueva: true }), al('c@x.com', 'Estándar'), al('d@x.com', 'Estándar'),
+    al('e@x.com', 'Estándar', { activo: false, bajaEn: 1 }),
+  ].map((a) => [a.email, a])), eventos: [] };
+  const m = mb.metricasMembresia(estado, { ahora: Date.parse('2026-11-10T10:00:00Z') });
+  assert.deepEqual(m.reparto.map((x) => [x.plan, x.n, x.pct]), [['VIP', 2, 0.5], ['Estándar', 2, 0.5]]);
+  assert.equal(m.cancelados, 1);
+  assert.equal(m.noRenuevan, 1);
+  const est = m.filas.find((f) => f.plan === 'Estándar');
+  assert.deepEqual([est.cancelados, est.noRenuevan], [1, 0]);
+  assert.deepEqual([m.filas.find((f) => f.plan === 'VIP').noRenuevan], [1]);
+});

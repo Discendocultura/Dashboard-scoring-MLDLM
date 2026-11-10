@@ -10041,3 +10041,11 @@ button.ms-pill { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .evg-dlg *, .evg-editor, .evg-editor * { animation: none !important; transition: none !important; }
 }
+.ms-reparto-planes { display: flex; flex-direction: column; gap: 10px; }
+.ms-apilada { display: flex; height: 30px; border-radius: 10px; overflow: hidden; background: var(--surface-3); }
+.ms-apilada span { display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 800; min-width: 3px; white-space: nowrap; overflow: hidden; }
+.ms-apilada span + span { border-left: 2px solid var(--surface); }
+.ms-apilada-l { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; }
+.ms-apilada-l li { display: inline-flex; align-items: center; gap: 6px; }
+.ms-apilada-l i { width: 10px; height: 10px; border-radius: 3px; }
+.ms-pcard-pct { color: var(--text); font-weight: 800; }

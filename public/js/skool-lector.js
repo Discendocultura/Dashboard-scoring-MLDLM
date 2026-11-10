@@ -10,7 +10,7 @@
 
 /* eslint-disable no-var, prefer-arrow-callback, func-names */
 function lector(ORIGEN, CLI) {
-  var VERSION_LECTOR_DENTRO = 3; // = VERSION_LECTOR (abajo): sube con cada cambio del lector
+  var VERSION_LECTOR_DENTRO = 4; // = VERSION_LECTOR (abajo): sube con cada cambio del lector
   if (window.__alqSkool) return;
   window.__alqSkool = 1;
   var caja = document.createElement('div');
@@ -335,23 +335,44 @@ function lector(ORIGEN, CLI) {
         pon('✅ <b>' + filas.length + ' alumnos</b> enviados a AlquimIA. Revísalos allí antes de guardar. Ya puedes cerrar esta pestaña.');
         fin(8000);
       });
-      var w = window.opener && !window.opener.closed ? window.opener : null;
+      // Envío: 1) a la pestaña de AlquimIA que abrió Skool (si Skool no ha cortado la conexión), sin que se note;
+      // 2) con el botón «Enviar a AlquimIA»: un formulario al servidor de AlquimIA en una pestaña nueva (lo abre un clic,
+      // así que el navegador no lo bloquea); 3) «Copiar» y pegarlo en AlquimIA.
+      var w = null;
+      try { w = window.opener && !window.opener.closed ? window.opener : null; } catch (e) { w = null; }
       var intentos = 0;
-      var enviar = function () {
-        if (ok) return;
-        try { if (w) w.postMessage(datos, ORIGEN); } catch (e) { /* la pestaña de AlquimIA ya no está */ }
-        intentos++;
-        if (intentos === 3 && !ok) w = window.open(ORIGEN + '/' + (CLI ? '?c=' + encodeURIComponent(CLI) : '') + '#membresia', 'alquimia-skool');
-        if (intentos < 60) setTimeout(enviar, 700);
-        else if (!ok) {
-          pon('Leídos <b>' + filas.length + ' alumnos</b>, pero tu navegador no deja mandarlos solos.<br><button type="button" id="alq-copiar" style="margin-top:8px;padding:8px 14px;border-radius:10px;border:0;background:#6d4aff;color:#fff;font-weight:700;cursor:pointer">Copiar para AlquimIA</button><br><small>Después, en AlquimIA → Membresía → «Pegar los datos de Skool».</small>');
-          document.getElementById('alq-copiar').onclick = function () {
-            navigator.clipboard.writeText(JSON.stringify(datos)).then(function () { pon('Copiado ✅. Pégalo en AlquimIA → Membresía → «Pegar los datos de Skool».'); fin(9000); });
-          };
-        }
+      var porPestana = function () {
+        if (ok || !w || intentos++ > 8) return;
+        try { w.postMessage(datos, ORIGEN); } catch (e) { /* la pestaña de AlquimIA ya no está */ }
+        setTimeout(porPestana, 600);
       };
-      pon('Leídos <b>' + filas.length + ' alumnos</b> (' + paginas + (paginas === 1 ? ' página' : ' páginas') + '). Mandándolos a AlquimIA…');
-      enviar();
+      var BTN = 'margin-top:8px;padding:9px 14px;border-radius:10px;font-weight:700;cursor:pointer;font:inherit;font-weight:700;';
+      pon('Leídos <b>' + filas.length + ' alumnos</b> (' + paginas + (paginas === 1 ? ' página' : ' páginas') + ')' + (resumenFichas ? ', con <b>' + resumenFichas.conFicha + '</b> fichas' : '') + '.'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" id="alq-enviar" style="' + BTN + 'border:0;background:#6d4aff;color:#fff">Enviar a AlquimIA</button>'
+        + '<button type="button" id="alq-copiar" style="' + BTN + 'border:1px solid #ccc;background:#fff;color:#1f2430">Copiar</button></div>'
+        + '<small style="display:block;margin-top:6px;color:#666">«Enviar» abre AlquimIA en otra pestaña con la revisión. Si no funciona, «Copiar» y en AlquimIA → Membresía → «Pegar datos».</small>');
+      document.getElementById('alq-enviar').onclick = function () {
+        var f = document.createElement('form');
+        f.method = 'POST';
+        f.action = ORIGEN + '/api/skool-entrada' + (CLI ? '?c=' + encodeURIComponent(CLI) : '');
+        f.target = '_blank';
+        f.style.display = 'none';
+        var t = document.createElement('textarea');
+        t.name = 'datos';
+        t.value = JSON.stringify(datos);
+        f.appendChild(t);
+        document.body.appendChild(f);
+        f.submit();
+        setTimeout(function () { f.remove(); }, 1000);
+        ok = true;
+        pon('✅ <b>' + filas.length + ' alumnos</b> enviados. Se abre AlquimIA en otra pestaña con la revisión (si no se abre, mira si tu navegador ha bloqueado una ventana y permítela).<br><small>Ya puedes cerrar esta pestaña.</small>');
+        fin(15000);
+      };
+      document.getElementById('alq-copiar').onclick = function () {
+        navigator.clipboard.writeText(JSON.stringify(datos)).then(function () { ok = true; pon('Copiado ✅. Pégalo en AlquimIA → Membresía → «Pegar datos».'); fin(10000); })
+          .catch(function () { pon('Tu navegador no deja copiar desde aquí. Usa «Enviar a AlquimIA».'); });
+      };
+      porPestana();
     } catch (e) {
       pon('No he podido leer los miembros: ' + String(e && e.message || e).slice(0, 120));
       fin(10000);
@@ -364,7 +385,7 @@ function lector(ORIGEN, CLI) {
 // El marcador CARGA el lector más nuevo desde AlquimIA (/api/skool-lector): así no se queda viejo aunque se
 // arrastrase hace meses. Si Skool no deja cargar scripts de fuera (o AlquimIA no responde en 6 s), usa el que lleva
 // dentro (el de cuando se arrastró).
-export const VERSION_LECTOR = 3;
+export const VERSION_LECTOR = 4;
 export const codigoLector = (origen, cliente = '') => `(${lector.toString()})(${JSON.stringify(String(origen))},${JSON.stringify(String(cliente || ''))})`;
 export function enlaceLector(origen, cliente = '') {
   const O = JSON.stringify(String(origen));
