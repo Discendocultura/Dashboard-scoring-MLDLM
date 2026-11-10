@@ -8,14 +8,17 @@
 //        etiqueta de baja, dirección de Miembros de Skool, mensajes por defecto.
 //   POST /api/membresia { op: 'etiquetar', emails: [≤10] } → («config») pone a cada uno la etiqueta de su plan en GHL
 //        (y quita la de otros planes y la de baja; a las bajas, la de baja). Así se disparan los flujos de GHL.
-//   POST /api/membresia { op: 'contacto', emails: [≤10] }  → (Setting hoy) busca su ficha en GHL (teléfono para WhatsApp).
+//   POST /api/membresia { op: 'contacto', emails: [≤10] }  → (Setting hoy) cruza cada alumno (por su email) con su ficha de
+//        GHL: si está, su id, su móvil y sus etiquetas; si no, se apunta «no está en GHL».
+//   POST /api/membresia { op: 'crear', emails: [≤10] }     → («config») crea en GHL la ficha de quien no la tiene (email,
+//        nombre y móvil de Skool), para poder etiquetarlo y escribirle.
 //   POST /api/membresia { op: 'email', email, asunto, texto } → (Setting hoy) le manda un email desde GHL.
 //   POST /api/membresia { op: 'apuntar', email, canal }    → (Setting hoy) apunta que se le escribió por WhatsApp.
 import { requireSession } from '../lib/auth.js';
 import { leerJSON, guardarJSON, reintentando } from '../lib/store.js';
-import { findContactByEmail, addTags, removeTags, sendEmail } from '../lib/ghl.js';
+import { findContactByEmail, addTags, removeTags, sendEmail, upsertContact, setContactPhone } from '../lib/ghl.js';
 import { json, readBody, errorResponse, mapLimit } from '../lib/http.js';
-import { aplicarFoto, etiquetasPendientes, tagDePlan, TAG_OK, EMAIL_RE, rellenar, intervaloDe } from '../public/js/membresia.js';
+import { aplicarFoto, tagDePlan, TAG_OK, EMAIL_RE, rellenar, intervaloDe } from '../public/js/membresia.js';
 
 const CLAVE = 'lsd_membresia';
 const CLAVE_CFG = 'lsd_membresia_cfg';
@@ -153,36 +156,44 @@ export async function POST(request) {
       await guardarJSON(CLAVE_CFG, cfg, { motivo: 'Membresía: configuración' });
       return json({ ok: true, cfg });
     }
-    if (op === 'etiquetar' || op === 'contacto') {
-      await requireSession(request, { permiso: op === 'etiquetar' ? 'config' : ['hoy', 'config'] });
+    if (op === 'etiquetar' || op === 'contacto' || op === 'crear') {
+      await requireSession(request, { permiso: op === 'contacto' ? ['hoy', 'config'] : 'config' });
       const emails = [...new Set((Array.isArray(body.emails) ? body.emails : []).map((e) => txt(e, 200).toLowerCase()).filter((e) => EMAIL_RE.test(e)))];
       if (!emails.length || emails.length > 10) return json({ error: 'Envía entre 1 y 10 alumnos por petición' }, 400);
       const [estado, cfg] = await Promise.all([leerEstado(), leerCfg()]);
-      const pend = new Map(etiquetasPendientes(estado, cfg).map((p) => [p.email, p]));
       // Etiquetas que gestiona el panel (las de todos los planes y la de baja): solo esas se quitan.
       const planes = new Set(Object.values(estado.alumnos || {}).map((a) => a.plan));
       const gestionadas = new Set([...[...planes].map((p) => tagDePlan(cfg, p)), ...Object.values(cfg.etiquetas || {}), cfg.tagBaja].filter(Boolean));
+      const ahora = Date.now();
       const cambios = {};
       const results = await mapLimit(emails, 4, async (email) => {
         const a = estado.alumnos?.[email];
         if (!a) return { email, ok: false, motivo: 'no es alumno' };
         try {
-          const c = await findContactByEmail(email);
-          if (!c?.id) return { email, ok: false, motivo: 'no está en GHL' };
-          const datos = { ghlId: c.id, ...(c.phone && !a.telefono ? { telefono: c.phone } : {}) };
+          let c = await findContactByEmail(email);
+          // Crear su ficha en GHL (solo si se pide y no la tiene): con su email y nombre de Skool, y su móvil si lo hay.
+          if (!c?.id && op === 'crear') {
+            const [first, ...rest] = String(a.nombre || '').split(' ');
+            c = await upsertContact({ email, firstName: first || '', lastName: rest.join(' '), source: 'AlquimIA · Membresía Skool' });
+            if (c?.id && a.telefono) c = (await setContactPhone(c.id, a.telefono).catch(() => null)) || c;
+          }
+          // Cruce: si está en GHL, su id, su móvil (el de GHL si Skool no lo da) y sus etiquetas; si no, se apunta.
+          if (!c?.id) { cambios[email] = { enGhl: false, cruzado: ahora }; return { email, ok: false, motivo: 'no está en GHL', enGhl: false }; }
+          const tiene = (c.tags || []).map((t) => String(t).toLowerCase());
+          const datos = { enGhl: true, cruzado: ahora, ghlId: c.id, ghlTags: tiene.slice(0, 60), ...(c.phone ? { telefonoGhl: c.phone } : {}), ...(c.phone && !a.telefono ? { telefono: c.phone } : {}) };
           if (op === 'etiquetar') {
             const quiere = a.activo === false ? [cfg.tagBaja].filter(Boolean) : [tagDePlan(cfg, a.plan)].filter(Boolean);
-            const tiene = (c.tags || []).map((t) => String(t).toLowerCase());
             const poner = quiere.filter((t) => !tiene.includes(t));
             const quitar = tiene.filter((t) => gestionadas.has(t) && !quiere.includes(t));
             if (poner.length) await addTags(c.id, poner);
             if (quitar.length) await removeTags(c.id, quitar);
             datos.tags = quiere;
+            datos.ghlTags = [...tiene.filter((t) => !quitar.includes(t)), ...poner].slice(0, 60);
             cambios[email] = datos;
-            return { email, ok: true, poner, quitar, telefono: datos.telefono || a.telefono || '' };
+            return { email, ok: true, enGhl: true, poner, quitar, telefono: datos.telefono || a.telefono || '' };
           }
           cambios[email] = datos;
-          return { email, ok: true, telefono: c.phone || a.telefono || '', pendiente: pend.get(email) || null };
+          return { email, ok: true, enGhl: true, creado: op === 'crear', telefono: datos.telefono || a.telefono || '', ghlTags: datos.ghlTags };
         } catch (e) {
           console.error('Membresía GHL', e.message);
           return { email, ok: false, motivo: 'error de GHL' };
@@ -192,7 +203,7 @@ export async function POST(request) {
         await reintentando(async () => {
           const est = await leerEstado();
           for (const [email, d] of Object.entries(cambios)) if (est.alumnos?.[email]) Object.assign(est.alumnos[email], d);
-          await guardarJSON(CLAVE, est, { motivo: op === 'etiquetar' ? 'Membresía: etiquetas de GHL' : 'Membresía: fichas de GHL' });
+          await guardarJSON(CLAVE, est, { motivo: op === 'etiquetar' ? 'Membresía: etiquetas de GHL' : op === 'crear' ? 'Membresía: alumnos creados en GHL' : 'Membresía: cruce con GHL' });
         });
       }
       return json({ results });

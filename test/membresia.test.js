@@ -134,3 +134,15 @@ test('membresía: el marcador de Skool y los datos que acepta AlquimIA', () => {
   assert.ok(!esDatosSkool({ tipo: 'alquimia-skool', filas: [[1]] }));
   assert.equal(htmlDeTexto('Hola <b>Ana</b>\nmira https://x.es\n\nAdiós'), '<p>Hola &lt;b&gt;Ana&lt;/b&gt;<br>mira <a href="https://x.es">https://x.es</a></p><p>Adiós</p>');
 });
+
+test('membresía: cruce con GHL (resumen) y a quien no está en GHL no se le intenta etiquetar', async () => {
+  const { resumenGhl } = await import('../public/js/membresia.js');
+  const al = [
+    { email: 'a@x.com', enGhl: true, telefono: '612345678' },
+    { email: 'b@x.com', enGhl: false },
+    { email: 'c@x.com' },
+  ];
+  assert.deepEqual(resumenGhl(al), { total: 3, enGhl: 1, noEsta: 1, sinCruzar: 1, conMovil: 1 });
+  const estado = { alumnos: Object.fromEntries(al.map((a) => [a.email, { ...a, plan: 'VIP', activo: true }])) };
+  assert.deepEqual(etiquetasPendientes(estado, {}).map((p) => p.email), ['a@x.com', 'c@x.com']);
+});

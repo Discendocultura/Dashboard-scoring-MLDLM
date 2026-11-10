@@ -5,7 +5,7 @@
 //    media, antigüedad, más activos, en riesgo y bajas recientes.
 //  · Etiquetas de GHL por plan (y de baja): se sincronizan desde aquí y disparan los flujos de GHL (venta cruzada…).
 //  · Alumnos, como una pestaña de setter: segmentos, búsqueda, y a cada uno WhatsApp o email (desde GHL).
-import { CAMPOS, clavesDe, adivinarMapa, normalizar, metricasMembresia, tagDePlan, etiquetasPendientes, SEGMENTOS, rellenar, waDe, precioMes, EMAIL_RE } from './membresia.js';
+import { CAMPOS, clavesDe, adivinarMapa, normalizar, metricasMembresia, tagDePlan, etiquetasPendientes, SEGMENTOS, rellenar, waDe, precioMes, EMAIL_RE, resumenGhl } from './membresia.js';
 import { enlaceLector, esDatosSkool, ORIGEN_SKOOL } from './skool-lector.js';
 
 const DIA = 86_400_000;
@@ -161,6 +161,7 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
       <h3 class="ms-h">Por plan</h3>
       <div class="ms-tabla-wrap"><table class="ms-tabla ms-planes"><thead><tr><th>Plan</th><th>Activos</th><th>MRR</th><th>% del MRR</th><th>ARPU</th><th>Altas</th><th>Bajas</th><th>Churn ${m.ventana} d</th><th>LTV medio</th><th>LTV esperado</th><th>Vida media</th><th>Etiqueta GHL</th></tr></thead>
       <tbody>${m.filas.map((f) => `<tr><td><strong>${esc(f.plan)}</strong></td><td>${num(f.activos)}</td><td>${eur(f.mrr)}</td><td><span class="ms-barrita"><span style="width:${m.mrr ? Math.round((f.mrr / m.mrr) * 100) : 0}%"></span></span>${m.mrr ? pct(f.mrr / m.mrr) : '–'}</td><td>${eur(f.arpu)}</td><td>${lecturaUnica ? '–' : num(f.altas)}</td><td>${lecturaUnica ? '–' : num(f.bajas)}</td><td class="${f.churn > 0.08 ? 'ms-mal-t' : ''}">${lecturaUnica ? '–' : pct(f.churn)}</td><td>${eur(f.ltvMedio)}</td><td title="Lo que paga al mes ÷ churn mensual">${f.ltvEsperado != null ? eur(f.ltvEsperado) : '–'}</td><td>${f.vidaMeses ? `${f.vidaMeses.toLocaleString('es-ES')} meses` : '–'}</td><td><code>${esc(tagDePlan(c, f.plan) || '—')}</code></td></tr>`).join('')}</tbody></table></div>
+      ${bloqueGhl()}
       ${puedeConfig() ? `<div class="ms-sync"><div><strong>Etiquetas de GHL</strong> <span class="muted small">Cada alumno lleva la de su plan (y las bajas, la de baja${c.tagBaja ? ` «${esc(c.tagBaja)}»` : ': ponla en Planes y etiquetas'}). Es lo que dispara tus flujos de GHL.</span></div>${pend.length ? `<button type="button" class="btn primary" data-ms="sincronizar">🏷️ Poner etiquetas a ${num(pend.length)} ${pend.length === 1 ? 'alumno' : 'alumnos'}</button>` : '<span class="ms-ok-t">✅ Todas al día</span>'}</div>` : ''}
       <div class="ms-cols">
         <section class="ms-card"><h3 class="ms-h">Antigüedad de los activos</h3><ul class="ms-barras">${m.antiguedad.map((x) => `<li><span>${esc(x.label)}</span><span class="ms-barrita"><span style="width:${Math.round((x.n / maxAnt) * 100)}%"></span></span><strong>${num(x.n)}</strong></li>`).join('')}</ul></section>
@@ -168,6 +169,28 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
         <section class="ms-card"><h3 class="ms-h">⚠️ En riesgo <span class="muted small">sin entrar 14+ días</span></h3>${m.enRiesgo.length ? `<ol class="ms-lista">${m.enRiesgo.slice(0, 10).map((a) => fila(a, hace(a.ultima))).join('')}</ol>${m.enRiesgo.length > 10 ? `<button type="button" class="link-btn" data-ms-seg="riesgo">Ver los ${num(m.enRiesgo.length)} →</button>` : ''}` : `<p class="muted small">${m.conActividad ? 'Nadie: todos han entrado en las últimas 2 semanas. 👏' : 'Hace falta la última conexión de Skool.'}</p>`}</section>
         <section class="ms-card"><h3 class="ms-h">👋 Bajas recientes <span class="muted small">para recuperar</span></h3>${m.bajasRecientes.length ? `<ol class="ms-lista">${m.bajasRecientes.slice(0, 10).map((a) => fila(a, `${hace(a.bajaEn)} · LTV ${eur(ltvDe(a))}`)).join('')}</ol>` : '<p class="muted small">Ninguna en los últimos 30 días.</p>'}</section>
       </div>`;
+  }
+
+  // Cruce con GHL por el email de Skool: quién tiene ficha (y su móvil y etiquetas), quién no, y los botones.
+  function bloqueGhl() {
+    const g = resumenGhl(st.datos?.alumnos || []);
+    if (!g.total) return '';
+    const cruzados = g.enGhl + g.noEsta;
+    const bts = puedeConfig() ? [
+      g.sinCruzar ? `<button type="button" class="btn primary" data-ms="cruzar">🔗 Cruzar ${num(g.sinCruzar)} ${g.sinCruzar === 1 ? 'alumno' : 'alumnos'} con GHL</button>` : '',
+      g.noEsta ? `<button type="button" class="btn" data-ms="crear-ghl">➕ Crear en GHL ${g.noEsta === 1 ? 'el que no está' : `los ${num(g.noEsta)} que no están`}</button>` : '',
+      cruzados ? '<button type="button" class="btn ghost" data-ms="recruzar">🔄 Volver a cruzar todos</button>' : '',
+    ].join('') : '';
+    return `<div class="ms-sync ms-ghl"><div><strong>🔗 Cruce con GHL</strong> <span class="muted small">Por el email de Skool se busca su ficha en GHL: su móvil (para WhatsApp), sus etiquetas y a quién se le pueden poner.</span>
+      <div class="ms-ghl-n"><span class="ms-ok-t">✅ ${num(g.enGhl)} en GHL</span>${g.noEsta ? `<button type="button" class="link-btn ms-mal-t" data-ms-seg="singhl">❌ ${num(g.noEsta)} no están</button>` : ''}${g.sinCruzar ? `<span class="muted">⏳ ${num(g.sinCruzar)} sin cruzar</span>` : ''}<span>📱 ${num(g.conMovil)} con móvil</span></div></div>
+      ${bts ? `<div class="ms-barra-bts">${bts}</div>` : ''}</div>`;
+  }
+  // Cruza (o crea, o etiqueta) en tandas de 10 y vuelve a cargar. → resultados
+  async function cruzar(emails, op = 'contacto', etiqueta = 'Cruzando con GHL') {
+    if (!emails.length) return [];
+    const res = await enLotes(emails, op, etiqueta);
+    await cargar();
+    return res;
   }
 
   function filtrados() {
@@ -193,13 +216,13 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
         const wa = waDe(a.telefono);
         const ult = (a.contactos || []).at(-1);
         return `<li class="ms-al${a.activo === false ? ' baja' : ''}" data-email="${esc(a.email)}">
-          <div class="ms-al-q"><strong>${esc(a.nombre || a.email)}</strong><span class="ms-badge">${esc(a.plan)}</span>${a.activo === false ? `<span class="ms-badge mal">Baja ${hace(a.bajaEn)}</span>` : ''}<br><span class="muted small">${esc(a.email)}${a.telefono ? ` · ${esc(a.telefono)}` : ''}</span></div>
+          <div class="ms-al-q"><strong>${esc(a.nombre || a.email)}</strong><span class="ms-badge">${esc(a.plan)}</span>${a.activo === false ? `<span class="ms-badge mal">Baja ${hace(a.bajaEn)}</span>` : ''}${a.enGhl === true ? `<span class="ms-badge ghl" title="${esc((a.ghlTags || []).length ? `Etiquetas en GHL: ${(a.ghlTags || []).join(', ')}` : 'En GHL, sin etiquetas')}">GHL ✓</span>` : a.enGhl === false ? '<span class="ms-badge mal" title="Su email de Skool no está en GHL">No está en GHL</span>' : ''}<br><span class="muted small">${esc(a.email)}${a.telefono ? ` · ${esc(a.telefono)}` : ''}</span></div>
           <div class="ms-al-d"><span title="Antigüedad">🗓️ ${antig(a.alta)}</span><span title="Lo que ha pagado en total">💶 ${eur(ltvDe(a))}</span>${precioMes(a, c.precios || {}) ? `<span title="Lo que paga al mes">${eur(precioMes(a, c.precios || {}))}/mes</span>` : ''}${a.puntos != null ? `<span title="Puntos en Skool">⭐ ${num(a.puntos)}</span>` : ''}${a.ultima ? `<span title="Última conexión en Skool">👀 ${hace(a.ultima)}</span>` : ''}${ult ? `<span class="muted" title="Último mensaje desde aquí">${ult.canal === 'wa' ? '💬' : '✉️'} ${hace(ult.t)}</span>` : ''}</div>
-          <div class="ms-al-a">${wa ? `<a class="btn small wa" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(rellenar(c.mensajeWa || 'Hola {nombre}, ', a))}" target="_blank" rel="noopener" data-ms-wa="${esc(a.email)}">💬 WhatsApp</a>` : `<button type="button" class="btn small" data-ms-tel="${esc(a.email)}" title="Busca su móvil en GHL">📱 Buscar móvil</button>`}<button type="button" class="btn small" data-ms-email="${esc(a.email)}">✉️ Email</button></div>
+          <div class="ms-al-a">${wa ? `<a class="btn small wa" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(rellenar(c.mensajeWa || 'Hola {nombre}, ', a))}" target="_blank" rel="noopener" data-ms-wa="${esc(a.email)}">💬 WhatsApp</a>` : a.enGhl === false ? '<span class="muted small" title="Su email de Skool no está en GHL">Sin móvil</span>' : a.enGhl === true ? '<span class="muted small" title="Su ficha de GHL no tiene móvil. Si se lo pones en GHL, pulsa «Volver a cruzar todos».">Sin móvil en GHL</span>' : `<button type="button" class="btn small" data-ms-tel="${esc(a.email)}" title="Busca su ficha en GHL por su email y trae su móvil">📱 Buscar móvil</button>`}<button type="button" class="btn small" data-ms-email="${esc(a.email)}">✉️ Email</button></div>
         </li>`;
       }).join('')}</ul>
       ${l.length > pagina.length ? `<p class="ms-mas"><button type="button" class="btn" data-ms="mas">Ver más (${num(l.length - pagina.length)})</button></p>` : ''}
-      ${l.length && l.some((a) => !a.telefono) ? `<p class="muted small">Skool no da el móvil: «📱 Buscar móvil» lo trae de su ficha de GHL (por su email). <button type="button" class="link-btn" data-ms="moviles">Buscar el de los ${num(Math.min(50, l.filter((a) => !a.telefono).length))} primeros de la lista</button></p>` : ''}`;
+      ${l.some((a) => !a.telefono && a.enGhl == null) ? `<p class="muted small">Skool no da el móvil: se trae de su ficha de GHL cruzando por su email. <button type="button" class="link-btn" data-ms="moviles">Cruzar con GHL los ${num(l.filter((a) => !a.telefono && a.enGhl == null).length)} de esta lista sin cruzar</button></p>` : ''}`;
   }
 
   function vistaPlanes() {
@@ -288,7 +311,8 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
       try {
         const [r] = await enLotes([t.dataset.msTel], 'contacto', 'Buscando en GHL');
         const a = st.datos.alumnos.find((x) => x.email === t.dataset.msTel);
-        if (r?.ok && r.telefono) { a.telefono = r.telefono; pintar(); } else notice(r?.ok ? 'Su ficha de GHL no tiene móvil.' : `No se ha podido: ${r?.motivo || 'error'}.`, !r?.ok);
+        if (a && r) { a.enGhl = r.enGhl ?? a.enGhl; if (r.telefono) a.telefono = r.telefono; if (r.ghlTags) a.ghlTags = r.ghlTags; pintar(); }
+        if (!r?.ok || !r.telefono) notice(r?.ok ? 'Su ficha de GHL no tiene móvil.' : r?.motivo === 'no está en GHL' ? 'Su email de Skool no está en GHL.' : `No se ha podido: ${r?.motivo || 'error'}.`, !r?.ok && r?.motivo !== 'no está en GHL');
       } catch (err) { notice(err.message, true); }
       t.disabled = false;
       return;
@@ -322,6 +346,31 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
         st.importacion = null;
         st.vista = 'resumen';
         await cargar();
+        // Los alumnos nuevos se cruzan solos con GHL (móvil, etiquetas, si están).
+        const nuevos = (st.datos?.alumnos || []).filter((a) => a.enGhl == null).map((a) => a.email);
+        if (nuevos.length) {
+          const res = await cruzar(nuevos);
+          notice(`Cruce con GHL: ${res.filter((x) => x.enGhl).length} de ${res.length} están en GHL${res.some((x) => x.enGhl === false) ? ` · ${res.filter((x) => x.enGhl === false).length} no` : ''}.`);
+        }
+      } catch (err) { notice(err.message, true); t.disabled = false; }
+      return;
+    }
+    if (op === 'cruzar' || op === 'recruzar') {
+      const l = (st.datos?.alumnos || []).filter((a) => op === 'recruzar' || a.enGhl == null).map((a) => a.email);
+      t.disabled = true;
+      try {
+        const res = await cruzar(l);
+        notice(`Cruce con GHL: ${res.filter((x) => x.enGhl).length} de ${res.length} están en GHL${res.some((x) => x.enGhl === false) ? `, ${res.filter((x) => x.enGhl === false).length} no` : ''}${res.some((x) => x.motivo === 'error de GHL') ? ` (${res.filter((x) => x.motivo === 'error de GHL').length} con error: vuelve a probar)` : ''}.`);
+      } catch (err) { notice(err.message, true); t.disabled = false; }
+      return;
+    }
+    if (op === 'crear-ghl') {
+      const l = (st.datos?.alumnos || []).filter((a) => a.enGhl === false).map((a) => a.email);
+      if (!l.length || !window.confirm(`Se creará en GHL la ficha de ${l.length} ${l.length === 1 ? 'alumno' : 'alumnos'} (email, nombre y, si lo hay, móvil de Skool). Si tienes flujos que se disparan con contactos nuevos, se dispararán. ¿Seguimos?`)) return;
+      t.disabled = true;
+      try {
+        const res = await cruzar(l, 'crear', 'Creando fichas en GHL');
+        notice(`Creados en GHL: ${res.filter((x) => x.ok).length} de ${res.length}.`, res.some((x) => !x.ok));
       } catch (err) { notice(err.message, true); t.disabled = false; }
       return;
     }
@@ -334,18 +383,16 @@ export function montarMembresia({ api, esc, notice, progress, ls, puedeConfig, c
         const res = await enLotes(pend.map((p) => p.email), 'etiquetar', 'Poniendo etiquetas en GHL');
         const ok = res.filter((r) => r.ok).length;
         const noGhl = res.filter((r) => r.motivo === 'no está en GHL').length;
-        notice(`Etiquetas puestas a ${ok} alumnos${noGhl ? ` · ${noGhl} no están en GHL (no se crean)` : ''}${res.length - ok - noGhl ? ` · ${res.length - ok - noGhl} con error` : ''}.`, ok < res.length && !noGhl);
+        notice(`Etiquetas puestas a ${ok} alumnos${noGhl ? ` · ${noGhl} no están en GHL (créalos con «➕ Crear en GHL»)` : ''}${res.length - ok - noGhl ? ` · ${res.length - ok - noGhl} con error` : ''}.`, ok < res.length && !noGhl);
         await cargar();
       } catch (err) { notice(err.message, true); t.disabled = false; }
       return;
     }
     if (op === 'moviles') {
-      const emails = filtrados().filter((a) => !a.telefono).slice(0, 50).map((a) => a.email);
+      const emails = filtrados().filter((a) => !a.telefono && a.enGhl == null).map((a) => a.email);
       try {
-        const res = await enLotes(emails, 'contacto', 'Buscando móviles en GHL');
-        for (const r of res) { const a = st.datos.alumnos.find((x) => x.email === r.email); if (a && r.telefono) a.telefono = r.telefono; }
-        notice(`Móvil encontrado para ${res.filter((r) => r.telefono).length} de ${res.length}.`);
-        pintar();
+        const res = await cruzar(emails, 'contacto', 'Buscando sus fichas en GHL');
+        notice(`Móvil encontrado para ${res.filter((r) => r.telefono).length} de ${res.length}${res.some((r) => r.enGhl === false) ? ` · ${res.filter((r) => r.enGhl === false).length} no están en GHL` : ''}.`);
       } catch (err) { notice(err.message, true); }
       return;
     }

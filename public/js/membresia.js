@@ -262,6 +262,7 @@ export function etiquetasPendientes(estado = {}, cfg = {}) {
   const out = [];
   const tagBaja = TAG_OK.test(txt(cfg.tagBaja, 80).toLowerCase()) ? txt(cfg.tagBaja, 80).toLowerCase() : '';
   for (const a of Object.values(estado.alumnos || {})) {
+    if (a.enGhl === false) continue; // no está en GHL: no hay a quién ponérsela (se crea antes su ficha)
     const puestas = a.tags || [];
     const quiere = a.activo === false ? (tagBaja ? [tagBaja] : []) : [tagDePlan(cfg, a.plan)].filter(Boolean);
     const poner = quiere.filter((t) => !puestas.includes(t));
@@ -278,8 +279,21 @@ export const SEGMENTOS = [
   { id: 'activos', label: 'Más activos', ico: '🔥', f: (a) => a.activo !== false && (a.puntos ?? 0) > 0, orden: (a, b) => (b.puntos ?? 0) - (a.puntos ?? 0) },
   { id: 'riesgo', label: 'En riesgo (sin entrar 14+ días)', ico: '⚠️', f: (a, ahora) => a.activo !== false && a.ultima && ahora - a.ultima > 14 * DIA },
   { id: 'ltv', label: 'Por lo que han pagado', ico: '💎', f: (a) => a.activo !== false && (a.ltv ?? 0) > 0, orden: (a, b) => (b.ltv ?? 0) - (a.ltv ?? 0) },
+  { id: 'singhl', label: 'No están en GHL', ico: '🔗', f: (a) => a.enGhl === false },
   { id: 'bajas', label: 'Bajas (para recuperar)', ico: '👋', f: (a) => a.activo === false, orden: (a, b) => (b.bajaEn || 0) - (a.bajaEn || 0) },
 ];
+
+// Cruce con GHL (por el email de Skool): cuántos tienen ficha, cuántos no, cuántos faltan por cruzar y con móvil.
+export function resumenGhl(alumnos = []) {
+  const l = Array.isArray(alumnos) ? alumnos : Object.values(alumnos);
+  return {
+    total: l.length,
+    enGhl: l.filter((a) => a.enGhl === true).length,
+    noEsta: l.filter((a) => a.enGhl === false).length,
+    sinCruzar: l.filter((a) => a.enGhl == null).length,
+    conMovil: l.filter((a) => waDe(a.telefono)).length,
+  };
+}
 
 // Mensaje con {nombre} (nombre de pila) y {plan}.
 export const rellenar = (plantilla, a = {}) => String(plantilla || '')

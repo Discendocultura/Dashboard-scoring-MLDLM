@@ -9491,3 +9491,6 @@ dialog.dlg-pagina .dialog-head::after { content: ''; position: absolute; right: 
   .ms-al-a { justify-content: flex-start; }
   .ms-kpi-v { font-size: 19px; }
 }
+.ms-ghl { align-items: flex-start; }
+.ms-ghl-n { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 13px; }
+.ms-badge.ghl { background: color-mix(in srgb, var(--tone-buy, #15803d) 14%, var(--surface)); }
