@@ -36,7 +36,7 @@ const base = (e) => e.replace(/[️‍]|\p{Emoji_Modifier}/gu, '');
 const esEmoji = (e) => !SE_QUEDAN.has(base(e)) && !/^[0-9#*]$/.test(base(e));
 
 // El menú lateral, la Operativa y los Procesos se quedan con sus emojis (así gustan).
-const RESPETAR = '#sidebar, #tb-negocio, #config-dialog .cfg-side, #marca-dialog .mp-rail, #operativa-dialog, #procesos-dialog, .con-emojis, textarea, input, pre, code, script, style, svg, [contenteditable=""], [contenteditable="true"], .gw-msg, .xo-msg, .seg-msg, .nl-preview, .wa-pl-body, .cc-prev, .ll-notas, .rich';
+const RESPETAR = '#sidebar, #tb-negocio, #historico, #config-dialog .cfg-side, #marca-dialog .mp-rail, #operativa-dialog, #procesos-dialog, .con-emojis, textarea, input, pre, code, script, style, svg, [contenteditable=""], [contenteditable="true"], .gw-msg, .xo-msg, .seg-msg, .nl-preview, .wa-pl-body, .cc-prev, .ll-notas, .rich';
 const svgDe = (e) => {
   const b = base(e);
   const k = MAPA.get(b) || MAPA.get(e);
