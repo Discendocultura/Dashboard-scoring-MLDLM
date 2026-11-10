@@ -1,7 +1,7 @@
 // 📬 Email diario evergreen (solo los clientes de CLIENTES_EMAIL_DIARIO; hoy, Discendo).
 //   GET  /api/email-diario?mes=AAAA-MM            → { estado, emails (del mes y una semana a cada lado), registro, hoy,
 //        manana, admin }. Actualiza antes las métricas de lo ya enviado.
-//   GET  /api/email-diario?audiencia=1            → { contactos (de la etiqueta de audiencia), etiquetas } (de GHL)
+//   GET  /api/email-diario?audiencia=1            → { contactos (de la etiqueta de audiencia), etiquetas, admins, errorAdmins } (de GHL)
 //   GET  /api/email-diario?key=DIGEST_KEY&c=<cliente>&tarea=programar → tarea de las 20:00 (cron-job.org): programa
 //        en GHL el email aprobado de mañana, en lotes (o lo simula). tarea=revisar → aviso si mañana aún no está listo.
 //   POST { op: 'email', dia, email }      → guarda el texto de un día (vuelve a borrador si estaba aprobado)
@@ -15,7 +15,7 @@ import { clienteActual } from '../lib/cliente.js';
 import { json, readBody, errorResponse } from '../lib/http.js';
 import { conEmailDiario, sumarDias } from '../public/js/email-diario.js';
 import { leerEstado, guardarEstado, emailsEntre, guardarEmail, aprobar, quitarAprobacion, leerRegistro, tareaProgramar, tareaRevisar, actualizarMetricas, hoyMadrid } from '../lib/email-diario.js';
-import { countByTag, listTags } from '../lib/ghl.js';
+import { countByTag, listTags, adminsGhl } from '../lib/ghl.js';
 
 const MES_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const noDisponible = () => json({ error: 'El email diario no está activado en este cliente.' }, 404);
@@ -40,8 +40,8 @@ export async function GET(request) {
     if (!conEmailDiario(clienteActual().id)) return noDisponible();
     if (url.searchParams.has('audiencia')) {
       const { config } = await leerEstado();
-      const [contactos, etiquetas] = await Promise.all([config.audienceTag ? countByTag(config.audienceTag) : null, listTags()]);
-      return json({ contactos, etiquetas });
+      const [contactos, etiquetas, admins] = await Promise.all([config.audienceTag ? countByTag(config.audienceTag) : null, listTags(), adminsGhl().catch((e) => ({ error: e.publicMessage || e.message }))]);
+      return json({ contactos, etiquetas, admins: Array.isArray(admins) ? admins : [], errorAdmins: admins.error || '' });
     }
     const hoy = hoyMadrid();
     const mes = MES_RE.test(url.searchParams.get('mes') || '') ? url.searchParams.get('mes') : hoy.slice(0, 7);

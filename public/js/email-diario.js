@@ -154,7 +154,7 @@ export function decidirProgramacion(estado, dia) {
   if (!e || !tieneTexto(e)) return { accion: 'aviso', motivo: 'No hay email para mañana: no se programa nada.' };
   if (e.status !== 'aprobado') return { accion: 'aviso', motivo: `El email de mañana no está aprobado (está en «${ESTADOS[e.status]?.label || e.status}»): no se programa.` };
   const c = estado.config || {};
-  const falta = [!c.audienceTag && 'la etiqueta de audiencia', !c.fromEmail && 'el email del remitente', !c.fromName && 'el nombre del remitente', !c.ghlUserId && 'el usuario de GHL', !e.subject && 'el asunto', !e.body && 'el cuerpo'].filter(Boolean);
+  const falta = [!c.audienceTag && 'la etiqueta de audiencia', !c.fromEmail && 'el email del remitente', !c.fromName && 'el nombre del remitente', !c.ghlUserId && 'quién lo programa en GHL (Envío y lotes)', !e.subject && 'el asunto', !e.body && 'el cuerpo'].filter(Boolean);
   if (falta.length) return { accion: 'aviso', motivo: `Falta ${falta.join(', ')}: no se programa.` };
   return { accion: 'programar', motivo: '' };
 }

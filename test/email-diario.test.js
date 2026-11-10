@@ -202,3 +202,12 @@ test('saltar un día en un clic (desde el calendario): la IA no lo redacta y se 
   assert.equal(s2.data.email, null); // reactivado y sin texto: el día vuelve a estar vacío
   assert.equal((await ctx()).puedeRedactar, true);
 });
+
+test('quién programa en GHL: un desplegable con los admin de la subcuenta', async () => {
+  const admin = await login('admin');
+  await call('/api/clientes', { method: 'POST', cookie: admin, body: { op: 'guardar', cliente: { id: 'discendo', nombre: 'Discendo', locationId: 'RXK123' } } });
+  const a = (await call('/api/email-diario?audiencia=1', { cookie: admin, cliente: 'discendo' })).data;
+  assert.equal(a.errorAdmins, '');
+  assert.deepEqual(a.admins.map((u) => u.nombre), ['Equipo Discendo', 'Quique de la Cierva', 'Agencia']);
+  assert.equal(a.admins[0].id, 'zWxZIMFDQySCbty72AVx');
+});
