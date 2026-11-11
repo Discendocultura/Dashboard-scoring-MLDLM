@@ -1,0 +1,6 @@
+[
+ {"inicio": 0.0, "fin": 19.7, "tipo": "toma", "confianza": "alta", "quitado": "Primera toma fallida y comentarios de rodaje", "contexto": "Vale, empiezo. El 37 % de"},
+ {"inicio": 55.45, "fin": 56.0, "tipo": "pausa", "confianza": "alta", "quitado": "(pausa de 0.7 s)", "contexto": "el segundo día tendrás … una masterclass"},
+ {"inicio": 67.2, "fin": 69.28, "tipo": "repeticion", "confianza": "alta", "quitado": "más de 60… más de 60…", "contexto": "ya han pasado más de más de más de 60.000 personas"},
+ {"inicio": 70.94, "fin": 72.89, "tipo": "repeticion", "confianza": "alta", "quitado": "y que ahora vas a poder viv…", "contexto": "60.000 personas y que ahora vas a poder… y que ahora vas a poder vivir"}
+]

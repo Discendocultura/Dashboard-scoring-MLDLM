@@ -1,0 +1,18 @@
+[
+ {
+  "inicio": 0.0,
+  "fin": 2.254,
+  "tipo": "inicio",
+  "confianza": "alta",
+  "quitado": "(silencio de 2.3 s)",
+  "contexto": "Desde que empezaste a"
+ },
+ {
+  "inicio": 135.38,
+  "fin": 138.24,
+  "tipo": "final",
+  "confianza": "alta",
+  "quitado": "(silencio de 2.9 s)",
+  "contexto": "…y nos vemos dentro."
+ }
+]

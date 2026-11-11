@@ -1,0 +1,55 @@
+[
+ {
+  "inicio": 22.78,
+  "fin": 37.02,
+  "motivos": [
+   "«por» dura 0.8 s",
+   "hueco con voz de 0.8 s tras «FSH.»"
+  ],
+  "antes": "ciclo esos folículos, digamos que son como reclutados, seleccionados por el ovario y empiezan a crecer dentro de nuestro ovario gracias a la hormona FSH. ¿Qué es lo que pasa durante la ovulación? Digamos que esto sería un folículo, ¿vale?",
+  "despues": "ciclo, esos folículos digamos que son como reclutados, seleccionados por el ovario y empiezan a crecer dentro de nuestro ovario gracias a la hormona FSH. ¿Qué es lo que pasa durante la ovulación? Digamos que esto sería un folículo, ¿vale?",
+  "aplicado": false
+ },
+ {
+  "inicio": 54.13,
+  "fin": 62.97,
+  "motivos": [
+   "«óvulo» dura 1.7 s",
+   "«salga» dura 1.5 s"
+  ],
+  "antes": "permitiendo que el óvulo salga a la cavidad y esto va a ser captado por la trompa de falopio.",
+  "despues": "permitiendo que, pues, el minion, que sería el óvulo, se salga, ¿vale?, a la cavidad y esto va a ser captado por la trompa de falopio.",
+  "aplicado": true
+ },
+ {
+  "inicio": 75.24,
+  "fin": 86.96,
+  "motivos": [
+   "«y» dura 3.7 s"
+  ],
+  "antes": "entre otras cosas va a permitir que se pueda desarrollar el embarazo y que Una de las principales hormonas que va a producir el cuerpo lúteo es la",
+  "despues": "entre otras cosas va a permitir que se pueda desarrollar el embarazo y que ese embarazo pueda evolucionar bien porque va a empezar a producir hormonas. Una de las principales hormonas que va a producir el cuerpo lúteo es la",
+  "aplicado": true
+ },
+ {
+  "inicio": 122.82,
+  "fin": 131.38,
+  "motivos": [
+   "hueco con voz de 0.6 s tras «tanto,»"
+  ],
+  "antes": "desarrollada, que esto no pasa hasta prácticamente final del primer trimestre. Por lo tanto, es fundamental que nuestro cuerpo lúteo sea saludable, que pueda producir",
+  "despues": "que totalmente desarrollada, esto no pasa hasta prácticamente final del primer trimestre. Por lo tanto, es fundamental que nuestro cuerpo lúteo sea saludable, pueda producir...",
+  "aplicado": false
+ },
+ {
+  "inicio": 132.04,
+  "fin": 148.64,
+  "motivos": [
+   "hueco con voz de 1.1 s tras «pues,»",
+   "«12,» dura 0.8 s"
+  ],
+  "antes": "para que el bebé se pueda implantar, para que no aparezcan en el final, pues, estos manchados premenstruales que aparecen muchas veces y que lógicamente el embarazo se pueda dar y se desarrolle bien durante estas 12, 13 primeras semanas hasta que un poco la placenta coja el control.",
+  "despues": "para que el bebé se pueda implantar, para que no aparezcan en el final pues estos, eh, manchados premenstruales que aparecen muchas veces y que lógicamente el embarazo se pueda dar y se desarrolle bien durante estas 12, 13 primeras semanas hasta que un poco la placenta coja el control.",
+  "aplicado": true
+ }
+]

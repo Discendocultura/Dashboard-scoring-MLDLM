@@ -1,0 +1,11 @@
+{
+  "nombre": "Íntimo",
+  "_que_es": "Cercano y pausado, como un podcast o una confesión: color cálido, viñeta suave, zoom lento constante, una onda de voz discreta abajo y la frase entera en serif grande como una cita (las palabras dichas se encienden). Sin escenas ruidosas. Ideal para historias personales y testimonios.",
+  "subtitulos": "cita",
+  "subAltura": 1420,
+  "gancho": "cita",
+  "marco": "intimo",
+  "filtro": "saturate(.9) sepia(.12) brightness(1.02)",
+  "zoomLento": true,
+  "cta": "abajo"
+}

@@ -1,0 +1,15 @@
+{
+  "nombre": "MLDLM · Me lo dijo la matrona (El Camino)",
+  "_que_es": "Burdeos, tierra y crema. Lato 900 en todo; destacados en cursiva burdeos. Narrativa del Camino de Santiago (sendero punteado, concha, mojones). Guía completa en plantillas/mldlm-guia.md.",
+  "primario": "#860d0e", "oscuro": "#5e0909", "acento": "#c49b79", "claro": "#fbf6f1",
+  "fuenteTitulos": "Lato", "fuenteSubs": "Lato",
+  "subCuerpo": 74, "subRealce": "pildora", "subPalabras": 3, "subAltura": 1330,
+  "ganchoDura": 4.5, "grandeCuerpo": 132, "grandeAltura": 1560,
+  "barraAlto": 12,
+  "extra": {
+    "tierraOscuro": "#a98262", "tierraClaro": "#e6d4c3", "pastel": "#f0e4da", "blanco": "#ffffff",
+    "linea": "#e2d3c5", "texto": "#3a2a24", "titulos": "#4a2c20", "suave": "#6b5448", "mudo": "#8a7468",
+    "oro": "#d9b47a", "oroClaro": "#f3e2bf", "whatsapp": "#25D366", "whatsappOscuro": "#1da851",
+    "colinas": ["#f2e6db", "#ecdccd", "#e2c9b2"]
+  }
+}

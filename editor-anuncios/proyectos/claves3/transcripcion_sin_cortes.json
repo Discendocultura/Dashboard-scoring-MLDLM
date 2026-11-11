@@ -1,0 +1,745 @@
+{
+ "texto": "¿Te interesa lo que pasa en el mundo, pero ya no sabes de quién fiarte y no me extraña? El 74 % de los españoles desconfía de las noticias en Internet. A eso lo llamamos apagón cultural. Nunca hemos tenido tanta información y tan poco criterio para ordenarla. La salida no es dejar de informarse, es tener el contexto que casi nadie te da. Por eso hemos creado La Resistencia, un evento gratuito online de dos días en el que daremos una masterclass sobre un tema de plena actualidad, La Leyenda Negra. Y el segundo día te mostraremos nuestro método con ejemplos prácticos para que aprendas historia sin memorizar como ya lo han hecho más de 60 .000 personas que han pasado por este evento. Pulse el enlace, consigue tu plaza gratuita y después únete al grupo de WhatsApp privado donde compartiremos todo lo que necesitas. Vale, ya.",
+ "words": [
+  {
+   "text": "¿Te",
+   "start": 21.42,
+   "end": 21.9
+  },
+  {
+   "text": "interesa",
+   "start": 21.9,
+   "end": 22.38
+  },
+  {
+   "text": "lo",
+   "start": 22.38,
+   "end": 22.5
+  },
+  {
+   "text": "que",
+   "start": 22.5,
+   "end": 22.62
+  },
+  {
+   "text": "pasa",
+   "start": 22.62,
+   "end": 22.72
+  },
+  {
+   "text": "en",
+   "start": 22.72,
+   "end": 22.88
+  },
+  {
+   "text": "el",
+   "start": 22.88,
+   "end": 23.02
+  },
+  {
+   "text": "mundo,",
+   "start": 23.02,
+   "end": 23.24
+  },
+  {
+   "text": "pero",
+   "start": 23.34,
+   "end": 23.52
+  },
+  {
+   "text": "ya",
+   "start": 23.52,
+   "end": 23.72
+  },
+  {
+   "text": "no",
+   "start": 23.72,
+   "end": 23.88
+  },
+  {
+   "text": "sabes",
+   "start": 23.88,
+   "end": 24.04
+  },
+  {
+   "text": "de",
+   "start": 24.04,
+   "end": 24.28
+  },
+  {
+   "text": "quién",
+   "start": 24.28,
+   "end": 24.5
+  },
+  {
+   "text": "fiarte",
+   "start": 24.5,
+   "end": 24.96
+  },
+  {
+   "text": "y",
+   "start": 24.96,
+   "end": 25.2
+  },
+  {
+   "text": "no",
+   "start": 25.2,
+   "end": 25.28
+  },
+  {
+   "text": "me",
+   "start": 25.28,
+   "end": 25.52
+  },
+  {
+   "text": "extraña?",
+   "start": 25.52,
+   "end": 25.9
+  },
+  {
+   "text": "El",
+   "start": 26.14,
+   "end": 26.34
+  },
+  {
+   "text": "74",
+   "start": 26.34,
+   "end": 26.8
+  },
+  {
+   "text": "%",
+   "start": 26.8,
+   "end": 27.26
+  },
+  {
+   "text": "de",
+   "start": 27.26,
+   "end": 27.44
+  },
+  {
+   "text": "los",
+   "start": 27.44,
+   "end": 27.66
+  },
+  {
+   "text": "españoles",
+   "start": 27.66,
+   "end": 28.1
+  },
+  {
+   "text": "desconfía",
+   "start": 28.1,
+   "end": 29.14
+  },
+  {
+   "text": "de",
+   "start": 29.14,
+   "end": 29.4
+  },
+  {
+   "text": "las",
+   "start": 29.4,
+   "end": 29.56
+  },
+  {
+   "text": "noticias",
+   "start": 29.56,
+   "end": 29.84
+  },
+  {
+   "text": "en",
+   "start": 29.84,
+   "end": 30.08
+  },
+  {
+   "text": "Internet.",
+   "start": 30.08,
+   "end": 30.42
+  },
+  {
+   "text": "A",
+   "start": 30.92,
+   "end": 30.98
+  },
+  {
+   "text": "eso",
+   "start": 30.98,
+   "end": 31.08
+  },
+  {
+   "text": "lo",
+   "start": 31.08,
+   "end": 31.28
+  },
+  {
+   "text": "llamamos",
+   "start": 31.28,
+   "end": 31.9
+  },
+  {
+   "text": "apagón",
+   "start": 31.9,
+   "end": 32.74
+  },
+  {
+   "text": "cultural.",
+   "start": 32.74,
+   "end": 33.22
+  },
+  {
+   "text": "Nunca",
+   "start": 33.84,
+   "end": 34.08
+  },
+  {
+   "text": "hemos",
+   "start": 34.08,
+   "end": 34.28
+  },
+  {
+   "text": "tenido",
+   "start": 34.28,
+   "end": 34.6
+  },
+  {
+   "text": "tanta",
+   "start": 34.6,
+   "end": 34.94
+  },
+  {
+   "text": "información",
+   "start": 34.94,
+   "end": 35.48
+  },
+  {
+   "text": "y",
+   "start": 35.48,
+   "end": 35.72
+  },
+  {
+   "text": "tan",
+   "start": 35.72,
+   "end": 35.92
+  },
+  {
+   "text": "poco",
+   "start": 35.92,
+   "end": 36.1
+  },
+  {
+   "text": "criterio",
+   "start": 36.1,
+   "end": 36.46
+  },
+  {
+   "text": "para",
+   "start": 36.46,
+   "end": 36.68
+  },
+  {
+   "text": "ordenarla.",
+   "start": 36.68,
+   "end": 37.12
+  },
+  {
+   "text": "La",
+   "start": 37.5,
+   "end": 37.66
+  },
+  {
+   "text": "salida",
+   "start": 37.66,
+   "end": 37.88
+  },
+  {
+   "text": "no",
+   "start": 37.88,
+   "end": 37.96
+  },
+  {
+   "text": "es",
+   "start": 37.96,
+   "end": 38.1
+  },
+  {
+   "text": "dejar",
+   "start": 38.1,
+   "end": 38.34
+  },
+  {
+   "text": "de",
+   "start": 38.34,
+   "end": 38.52
+  },
+  {
+   "text": "informarse,",
+   "start": 38.52,
+   "end": 38.92
+  },
+  {
+   "text": "es",
+   "start": 39.06,
+   "end": 39.12
+  },
+  {
+   "text": "tener",
+   "start": 39.12,
+   "end": 39.28
+  },
+  {
+   "text": "el",
+   "start": 39.28,
+   "end": 39.56
+  },
+  {
+   "text": "contexto",
+   "start": 39.56,
+   "end": 39.96
+  },
+  {
+   "text": "que",
+   "start": 39.96,
+   "end": 40.4
+  },
+  {
+   "text": "casi",
+   "start": 40.4,
+   "end": 40.62
+  },
+  {
+   "text": "nadie",
+   "start": 40.62,
+   "end": 40.78
+  },
+  {
+   "text": "te",
+   "start": 40.78,
+   "end": 40.96
+  },
+  {
+   "text": "da.",
+   "start": 40.96,
+   "end": 41.1
+  },
+  {
+   "text": "Por",
+   "start": 41.62,
+   "end": 41.72
+  },
+  {
+   "text": "eso",
+   "start": 41.72,
+   "end": 42.0
+  },
+  {
+   "text": "hemos",
+   "start": 42.0,
+   "end": 42.28
+  },
+  {
+   "text": "creado",
+   "start": 42.28,
+   "end": 42.5
+  },
+  {
+   "text": "La",
+   "start": 42.5,
+   "end": 42.74
+  },
+  {
+   "text": "Resistencia,",
+   "start": 42.74,
+   "end": 43.38
+  },
+  {
+   "text": "un",
+   "start": 43.76,
+   "end": 43.86
+  },
+  {
+   "text": "evento",
+   "start": 43.86,
+   "end": 44.26
+  },
+  {
+   "text": "gratuito",
+   "start": 44.26,
+   "end": 44.88
+  },
+  {
+   "text": "online",
+   "start": 44.88,
+   "end": 45.34
+  },
+  {
+   "text": "de",
+   "start": 45.34,
+   "end": 45.52
+  },
+  {
+   "text": "dos",
+   "start": 45.52,
+   "end": 45.68
+  },
+  {
+   "text": "días",
+   "start": 45.68,
+   "end": 45.96
+  },
+  {
+   "text": "en",
+   "start": 45.96,
+   "end": 46.2
+  },
+  {
+   "text": "el",
+   "start": 46.2,
+   "end": 46.3
+  },
+  {
+   "text": "que",
+   "start": 46.3,
+   "end": 46.42
+  },
+  {
+   "text": "daremos",
+   "start": 46.42,
+   "end": 46.7
+  },
+  {
+   "text": "una",
+   "start": 46.7,
+   "end": 46.92
+  },
+  {
+   "text": "masterclass",
+   "start": 46.92,
+   "end": 47.68
+  },
+  {
+   "text": "sobre",
+   "start": 47.68,
+   "end": 48.0
+  },
+  {
+   "text": "un",
+   "start": 48.0,
+   "end": 48.1
+  },
+  {
+   "text": "tema",
+   "start": 48.1,
+   "end": 48.28
+  },
+  {
+   "text": "de",
+   "start": 48.28,
+   "end": 48.58
+  },
+  {
+   "text": "plena",
+   "start": 48.58,
+   "end": 48.76
+  },
+  {
+   "text": "actualidad,",
+   "start": 48.76,
+   "end": 49.22
+  },
+  {
+   "text": "La",
+   "start": 49.4,
+   "end": 49.54
+  },
+  {
+   "text": "Leyenda",
+   "start": 49.54,
+   "end": 49.8
+  },
+  {
+   "text": "Negra.",
+   "start": 49.8,
+   "end": 50.18
+  },
+  {
+   "text": "Y",
+   "start": 50.5,
+   "end": 50.62
+  },
+  {
+   "text": "el",
+   "start": 50.62,
+   "end": 50.7
+  },
+  {
+   "text": "segundo",
+   "start": 50.7,
+   "end": 50.92
+  },
+  {
+   "text": "día",
+   "start": 50.92,
+   "end": 51.1
+  },
+  {
+   "text": "te",
+   "start": 51.1,
+   "end": 51.3
+  },
+  {
+   "text": "mostraremos",
+   "start": 51.3,
+   "end": 51.7
+  },
+  {
+   "text": "nuestro",
+   "start": 51.7,
+   "end": 52.0
+  },
+  {
+   "text": "método",
+   "start": 52.0,
+   "end": 52.42
+  },
+  {
+   "text": "con",
+   "start": 52.42,
+   "end": 52.62
+  },
+  {
+   "text": "ejemplos",
+   "start": 52.62,
+   "end": 52.98
+  },
+  {
+   "text": "prácticos",
+   "start": 52.98,
+   "end": 53.78
+  },
+  {
+   "text": "para",
+   "start": 53.78,
+   "end": 54.02
+  },
+  {
+   "text": "que",
+   "start": 54.02,
+   "end": 54.2
+  },
+  {
+   "text": "aprendas",
+   "start": 54.2,
+   "end": 54.44
+  },
+  {
+   "text": "historia",
+   "start": 54.44,
+   "end": 54.84
+  },
+  {
+   "text": "sin",
+   "start": 54.84,
+   "end": 55.04
+  },
+  {
+   "text": "memorizar",
+   "start": 55.04,
+   "end": 55.82
+  },
+  {
+   "text": "como",
+   "start": 55.82,
+   "end": 56.14
+  },
+  {
+   "text": "ya",
+   "start": 56.14,
+   "end": 56.36
+  },
+  {
+   "text": "lo",
+   "start": 56.36,
+   "end": 56.54
+  },
+  {
+   "text": "han",
+   "start": 56.54,
+   "end": 56.66
+  },
+  {
+   "text": "hecho",
+   "start": 56.66,
+   "end": 56.96
+  },
+  {
+   "text": "más",
+   "start": 56.96,
+   "end": 57.46
+  },
+  {
+   "text": "de",
+   "start": 57.46,
+   "end": 58.12
+  },
+  {
+   "text": "60",
+   "start": 58.12,
+   "end": 58.4
+  },
+  {
+   "text": ".000",
+   "start": 58.4,
+   "end": 58.56
+  },
+  {
+   "text": "personas",
+   "start": 58.56,
+   "end": 59.08
+  },
+  {
+   "text": "que",
+   "start": 59.08,
+   "end": 59.58
+  },
+  {
+   "text": "han",
+   "start": 59.58,
+   "end": 59.76
+  },
+  {
+   "text": "pasado",
+   "start": 59.76,
+   "end": 60.12
+  },
+  {
+   "text": "por",
+   "start": 60.12,
+   "end": 60.56
+  },
+  {
+   "text": "este",
+   "start": 60.56,
+   "end": 60.72
+  },
+  {
+   "text": "evento.",
+   "start": 60.72,
+   "end": 60.98
+  },
+  {
+   "text": "Pulse",
+   "start": 61.26,
+   "end": 61.4
+  },
+  {
+   "text": "el",
+   "start": 61.4,
+   "end": 61.54
+  },
+  {
+   "text": "enlace,",
+   "start": 61.54,
+   "end": 62.14
+  },
+  {
+   "text": "consigue",
+   "start": 62.38,
+   "end": 62.54
+  },
+  {
+   "text": "tu",
+   "start": 62.54,
+   "end": 62.66
+  },
+  {
+   "text": "plaza",
+   "start": 62.66,
+   "end": 62.84
+  },
+  {
+   "text": "gratuita",
+   "start": 62.84,
+   "end": 63.24
+  },
+  {
+   "text": "y",
+   "start": 63.24,
+   "end": 63.46
+  },
+  {
+   "text": "después",
+   "start": 63.46,
+   "end": 63.72
+  },
+  {
+   "text": "únete",
+   "start": 63.72,
+   "end": 63.94
+  },
+  {
+   "text": "al",
+   "start": 63.94,
+   "end": 64.04
+  },
+  {
+   "text": "grupo",
+   "start": 64.04,
+   "end": 64.26
+  },
+  {
+   "text": "de",
+   "start": 64.26,
+   "end": 64.4
+  },
+  {
+   "text": "WhatsApp",
+   "start": 64.4,
+   "end": 64.8
+  },
+  {
+   "text": "privado",
+   "start": 64.8,
+   "end": 65.8
+  },
+  {
+   "text": "donde",
+   "start": 65.8,
+   "end": 66.1
+  },
+  {
+   "text": "compartiremos",
+   "start": 66.1,
+   "end": 67.06
+  },
+  {
+   "text": "todo",
+   "start": 67.06,
+   "end": 67.24
+  },
+  {
+   "text": "lo",
+   "start": 67.24,
+   "end": 67.38
+  },
+  {
+   "text": "que",
+   "start": 67.38,
+   "end": 67.54
+  },
+  {
+   "text": "necesitas.",
+   "start": 67.54,
+   "end": 68.5
+  },
+  {
+   "text": "Vale,",
+   "start": 68.88,
+   "end": 68.94
+  },
+  {
+   "text": "ya.",
+   "start": 69.04,
+   "end": 69.12
+  }
+ ]
+}

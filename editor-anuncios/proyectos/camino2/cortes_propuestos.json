@@ -1,0 +1,26 @@
+[
+ {
+  "inicio": 0.0,
+  "fin": 0.848,
+  "tipo": "inicio",
+  "confianza": "alta",
+  "quitado": "(silencio de 0.8 s)",
+  "contexto": "La mayoría de mujeres"
+ },
+ {
+  "inicio": 110.004,
+  "fin": 110.691,
+  "tipo": "pausa",
+  "confianza": "revisar",
+  "quitado": "(silencio de 0.7 s)",
+  "contexto": "pilares clave para dejar de buscar embarazo"
+ },
+ {
+  "inicio": 127.309,
+  "fin": 130.08,
+  "tipo": "final",
+  "confianza": "alta",
+  "quitado": "(silencio de 2.8 s)",
+  "contexto": "y nos vemos dentro."
+ }
+]

@@ -1,0 +1,12 @@
+node_modules/
+brutos/*
+salidas/*
+public/*
+out/
+tmp*/
+!brutos/.gitkeep
+!salidas/.gitkeep
+!public/.gitkeep
+proyectos/*/*.wav
+proyectos/*.log
+broll/img/

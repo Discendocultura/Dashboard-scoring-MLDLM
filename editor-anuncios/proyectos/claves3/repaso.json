@@ -1,0 +1,12 @@
+[
+ {
+  "inicio": 37.11,
+  "fin": 43.52,
+  "motivos": [
+   "hueco con voz de 0.5 s tras «da.»"
+  ],
+  "antes": "La salida no es dejar de informarse, es tener el contexto que casi nadie te da. Por eso hemos creado La Resistencia,",
+  "despues": "La salida no es dejar de informarse, es tener el contexto que casi nadie te da. Por eso hemos creado la resistencia.",
+  "aplicado": false
+ }
+]
