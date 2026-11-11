@@ -1407,9 +1407,15 @@ function itemsSidebar() {
 }
 // 🚀 Montaje con IA: «Fase 3/6 · espera tu aprobado» bajo cada lanzamiento que se está montando (se lee una vez por cliente).
 const montajesSb = { cliente: '', datos: {}, cargando: false };
+// Seis segmentos (verde = aprobada, la de ahora en su color) y debajo «Montaje IA · 1/6» con lo que toca.
+const MONTAJE_SB_TXT = { pendiente: 'lista para la IA', trabajando: 'la IA está en ello', revisar: 'espera tu aprobado', cambios: 'cambios pedidos' };
 function badgeMontaje(code) {
   const r = code && montajesSb.cliente === state.cliente ? montajesSb.datos[code] : null;
-  return r && !r.hecho ? `<span class="sb-montaje${r.estado === 'revisar' ? ' is-revisar' : ''}">🚀 ${esc(r.texto)}</span>` : '';
+  if (!r || r.hecho) return '';
+  const total = r.total || 6;
+  const segs = Array.from({ length: total }, (_, i) => `<i class="${i < (r.aprobadas || 0) ? 'ok' : i === (r.n || 1) - 1 ? 'ahora' : ''}"></i>`).join('');
+  const txt = MONTAJE_SB_TXT[r.estado] || '';
+  return `<span class="sb-mj is-${esc(r.estado || 'pendiente')}" title="Montaje con IA · ${esc(r.texto)}"><span class="sb-mj-segs" aria-hidden="true">${segs}</span><span class="sb-mj-t"><b>Montaje IA ${r.n || 1}/${total}</b>${txt ? ` · ${esc(txt)}` : ''}</span></span>`;
 }
 async function cargarMontajesSb({ forzar = false } = {}) {
   if (!puedeConfig() || !state.config?.launches || montajesSb.cargando || (!forzar && montajesSb.cliente === state.cliente)) return;
@@ -1552,10 +1558,16 @@ $('#sidebar').addEventListener('click', (ev) => {
   const { embudo, lanz, meteo } = b.dataset;
   // Un lanzamiento concreto: ese lanzamiento dentro de su embudo.
   if (lanz && state.config.launches[lanz]) {
-    if (embudo === state.embudo && !state.enInicio) { if (lanz !== state.launchCode) selectLaunch(lanz).then(pintarSidebar); return; }
+    // Pulsando la etiqueta del montaje: directo a su pestaña Montaje (allí se aprueba o se cancela).
+    const aMontaje = Boolean(ev.target.closest('.sb-mj'));
+    if (embudo === state.embudo && !state.enInicio) {
+      const p = lanz !== state.launchCode ? selectLaunch(lanz).then(pintarSidebar) : Promise.resolve();
+      if (aMontaje) p.then(() => showView('montaje'));
+      return;
+    }
     state.launchCode = lanz;
     ls.set('lsd_launch', lanz);
-    setEmbudo(embudo);
+    if (aMontaje) setEmbudo(embudo, { vista: 'montaje' }); else setEmbudo(embudo);
     return;
   }
   // Un meteórico concreto: su vista, con ese meteórico elegido.

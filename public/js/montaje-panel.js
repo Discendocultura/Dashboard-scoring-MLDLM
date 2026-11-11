@@ -6,7 +6,7 @@ import { icon } from './icons.js';
 
 const i = (n, cls = '') => icon(n, cls);
 const fechaHora = (iso) => { try { return new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }); } catch { return ''; } };
-const ACCIONES = { empezado: 'Empezó el montaje', 'ia-avance': 'La IA guardó avances', 'ia-lista': 'La IA la entregó para revisar', editada: 'La editó', aprobada: 'La aprobó', cambios: 'Pidió cambios', reabierta: 'La reabrió', 'auto-si': 'Encendió «Claude lo avanza solo»', 'auto-no': 'Apagó «Claude lo avanza solo»' };
+const ACCIONES = { empezado: 'Empezó el montaje', 'ia-avance': 'La IA guardó avances', 'ia-lista': 'La IA la entregó para revisar', editada: 'La editó', aprobada: 'La aprobó', cambios: 'Pidió cambios', reabierta: 'La reabrió', 'auto-si': 'Encendió «Claude lo avanza solo»', 'auto-no': 'Apagó «Claude lo avanza solo»', cancelado: 'Canceló el montaje' };
 
 export function montarMontaje({ api, esc, cliente, clienteNombre, alCambiar = () => {}, root = () => document.getElementById('montaje-body') }) {
   const st = { code: '', datos: null, fase: '', editando: new Set(), pidiendo: false, msg: '', error: '', ocupado: false, cargando: false };
@@ -121,6 +121,7 @@ export function montarMontaje({ api, esc, cliente, clienteNombre, alCambiar = ()
               <li>Revisa, <strong>edita</strong> lo que quieras y pulsa <strong>Aprobar</strong> (o <strong>Pedir cambios</strong>). En la siguiente pasada, Claude sigue con la fase siguiente.</li>
               <li>Todo sale de <strong>Marca y avatar</strong> (respuestas, ficha y documentos) y de tus guías de emails, copy y automatizaciones.</li>
               <li>¿Prisa? «Hacerlo ahora en Claude» copia las instrucciones para pegarlas en una conversación.</li></ol></details>
+            ${!aprobadas(m) || admin ? `<button type="button" class="btn ghost small mj-cancelar" data-mj-cancelar ${st.ocupado ? 'disabled' : ''} title="¿Lo empezaste sin querer o el embudo ya está montado? Lo deja como si nunca se hubiera empezado">${i('x')} Cancelar el montaje</button>` : ''}
           </div></div>
         <div class="mj-anillo" style="--p:${pct}" role="img" aria-label="${n} de ${FASES.length} fases aprobadas"><span><strong>${n}</strong>/${FASES.length}</span><small>aprobadas</small></div>
       </div>
@@ -180,6 +181,12 @@ export function montarMontaje({ api, esc, cliente, clienteNombre, alCambiar = ()
     if (!box || !box.contains(e.target)) return;
     const b = e.target.closest('button, summary');
     if (!b) return;
+    if (b.matches('[data-mj-cancelar]')) {
+      const n = aprobadas(st.datos?.montaje || {});
+      const aviso = `¿Cancelar el montaje de «${st.datos?.nombre || st.code}»?\n\nSe borra lo que la IA y el equipo han hecho en sus fases${n ? ` (también las ${n} ya aprobadas)` : ''} y Claude deja de avanzarlo. El lanzamiento y su configuración no se tocan.`;
+      if (confirm(aviso)) { st.fase = ''; await post('cancelar', {}, 'Montaje cancelado. Puedes volver a empezarlo cuando quieras.'); }
+      return;
+    }
     if (b.matches('[data-mj-empezar]')) { await post('empezar', {}, 'Montaje empezado: copia las instrucciones y pégaselas a Claude.'); return; }
     if (b.dataset.mjFase) { st.fase = b.dataset.mjFase; st.editando.clear(); st.pidiendo = false; st.msg = ''; st.error = ''; pintar(); return; }
     if (b.dataset.mjCopiar === 'cowork') { copiar(promptTareaCowork(), `Tarea copiada. En Cowork: Tareas programadas → Nueva, pégala y elige ${FRECUENCIA_COWORK}.`); return; }

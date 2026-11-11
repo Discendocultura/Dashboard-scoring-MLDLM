@@ -203,3 +203,38 @@ test('Marca y avatar: guías de emails y automatizaciones en el encargo; montaje
   await call('/api/montaje', { method: 'POST', cookie: admin, body: { op: 'auto', l: 'ene', valor: false } });
   assert.ok(!(await tool('trabajo_pendiente').run({}, { s })).montajes.some((x) => x.lanzamiento === 'ene'));
 });
+
+test('cancelar el montaje: vuelve a «sin empezar»; con fases aprobadas, solo admin', async () => {
+  const admin = await login('admin');
+  const cfg = await call('/api/config', { cookie: admin });
+  const launches = { ...cfg.data.config.launches, feb: { name: 'Febrero', fechaDirecto: '2027-02-20' }, mar: { name: 'Marzo', fechaDirecto: '2027-03-20' } };
+  assert.equal((await call('/api/config', { method: 'POST', cookie: admin, body: { ...cfg.data.config, launches, _version: cfg.data.version } })).status, 200);
+  const post = (cookie, body) => call('/api/montaje', { method: 'POST', cookie, body });
+
+  // Empezado sin querer: se cancela y desaparece del menú (y la tarea de Cowork ya no lo ve).
+  assert.equal((await post(admin, { op: 'empezar', l: 'feb' })).status, 200);
+  assert.ok((await call('/api/montaje?resumen=feb', { cookie: admin })).data.resumenes.feb);
+  const c = await post(admin, { op: 'cancelar', l: 'feb' });
+  assert.equal(c.status, 200, JSON.stringify(c.data));
+  assert.deepEqual(c.data.montaje.fases, {});
+  assert.equal(c.data.montaje.creado, undefined);
+  assert.equal(c.data.montaje.registro[0].accion, 'cancelado');
+  assert.equal((await call('/api/montaje?resumen=feb', { cookie: admin })).data.resumenes.feb, undefined);
+  const { montajesQueEsperan } = await import('../lib/montaje.js');
+  assert.ok(!(await montajesQueEsperan().catch(() => [])).some((x) => x.lanzamiento === 'feb'));
+  // Sin montaje, no hay nada que cancelar; se puede volver a empezar.
+  assert.equal((await post(admin, { op: 'cancelar', l: 'feb' })).status, 400);
+  assert.equal((await post(admin, { op: 'empezar', l: 'feb' })).status, 200);
+
+  // Con una fase aprobada: alguien con Configuración que no es admin, no; admin, sí.
+  const { TOOLS } = await import('../lib/mcp-tools.js');
+  await TOOLS.find((t) => t.name === 'guardar_fase_montaje').run({ lanzamiento: 'mar', fase: 'identidad', piezas: { narrativa: { texto: 'TÍTULO: «Mar»' }, paleta: { texto: 'Mar #123456, arena #d9b38c', colores: ['#123456', '#d9b38c'] }, simbolos: { texto: 'Ola.' }, logo: { url: 'https://example.com/l.png' } }, listo: true }, { s: { role: 'admin' } });
+  assert.equal((await post(admin, { op: 'aprobar', l: 'mar', fase: 'identidad' })).status, 200);
+  const u = (await call('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'crear', nombre: 'Téc', email: 'tec-mj@ejemplo.com', rol: 'tecnico', enviar: false } })).data;
+  const res = await route(new Request('http://localhost/api/login', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ email: 'tec-mj@ejemplo.com', password: u.password }) }), ENV);
+  const tecnico = res.headers.get('set-cookie')?.split(';')[0];
+  const no = await post(tecnico, { op: 'cancelar', l: 'mar' });
+  assert.equal(no.status, 403, JSON.stringify(no.data));
+  assert.match(no.data.error, /solo una persona admin/);
+  assert.equal((await post(admin, { op: 'cancelar', l: 'mar' })).status, 200);
+});

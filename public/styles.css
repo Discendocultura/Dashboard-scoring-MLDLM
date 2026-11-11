@@ -10163,8 +10163,22 @@ button.ms-pill { cursor: pointer; }
 .mj-intro strong { display: block; margin-bottom: 3px; }
 .mj-intro small { color: var(--text-2); font-size: 13px; line-height: 1.4; }
 
-.sb-montaje { display: inline-block; margin-top: 2px; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent); white-space: nowrap; }
-.sb-montaje.is-revisar { background: color-mix(in srgb, var(--tone-vip) 16%, var(--surface)); color: var(--tone-vip); }
+/* 🚀 Montaje con IA en el menú lateral: seis segmentos y «Montaje IA 1/6 · lo que toca», sin salirse del hueco */
+.sb-mj { --mj: #8b5cf6; display: grid; gap: 4px; margin-top: 6px; max-width: 100%; }
+.sb-mj.is-revisar { --mj: #f59e0b; }
+.sb-mj.is-cambios { --mj: #ef4444; }
+.sb-mj.is-trabajando { --mj: #3b82f6; }
+.sb-mj-segs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; max-width: 132px; }
+.sb-mj-segs i { height: 4px; border-radius: 99px; background: color-mix(in srgb, var(--text) 12%, transparent); }
+.sb-mj-segs i.ok { background: #10b981; }
+.sb-mj-segs i.ahora { background: var(--mj); box-shadow: 0 0 0 2px color-mix(in srgb, var(--mj) 22%, transparent); animation: sbMjLatido 1.8s ease-in-out infinite; }
+@keyframes sbMjLatido { 50% { opacity: .55; } }
+.sb-mj-t { font-size: 11px; line-height: 1.3; color: var(--text-2); white-space: normal; overflow-wrap: anywhere; }
+.sb-mj-t b { color: var(--mj); font-weight: 750; }
+@media (prefers-reduced-motion: reduce) { .sb-mj-segs i.ahora { animation: none; } }
+/* Cancelar el montaje: discreto, en rojo al pasar */
+.mj-cancelar { color: var(--text-2); }
+.mj-cancelar:hover { color: var(--error); border-color: color-mix(in srgb, var(--error) 45%, transparent); background: color-mix(in srgb, var(--error) 8%, transparent); }
 
 @media (max-width: 720px) {
   .mj-hero { grid-template-columns: 1fr; padding: 18px 16px; }
