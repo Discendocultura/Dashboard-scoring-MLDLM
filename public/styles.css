@@ -10543,3 +10543,11 @@ body.en-historico #negocio { display: none !important; }
   .hl-podio-c strong { font-size: 20px; }
 }
 @media (prefers-reduced-motion: reduce) { .hl-skel, .hl-spin { animation: none; } }
+
+/* Operativa: editar un comentario */
+.pr-x-ed { font-size: 12px; }
+.pr-x-ed:hover { color: var(--text); }
+.pr-com.editando .pr-com-c { border-color: color-mix(in srgb, #8b5cf6 45%, var(--border)); box-shadow: 0 0 0 3px color-mix(in srgb, #8b5cf6 12%, transparent); }
+.pr-com-edit { display: grid; gap: 8px; margin-top: 6px; }
+.pr-com-edit textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); resize: vertical; }
+.pr-com-edit footer { display: flex; gap: 6px; justify-content: flex-end; }

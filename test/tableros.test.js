@@ -295,3 +295,33 @@ test('tableros (API): el tablero del lanzamiento en la Operativa es el de Plan �
   // Con un tablero que no es el de ese lanzamiento, no.
   assert.equal((await post({ op: 'crear', tarea: { titulo: 'x', proyecto: t.cliente, opTablero: 'e-otro', code: 'fases1', columna: 'carrito' } })).status, 400);
 });
+
+test('operativa (API): cada persona edita sus comentarios (y solo los suyos)', async () => {
+  const admin = (await call('/api/login', { method: 'POST', body: { password: 'admin' } })).res.headers.get('set-cookie').split(';')[0];
+  const entra = async (nombre, email) => {
+    const u = (await call('/api/usuarios', { method: 'POST', cookie: admin, body: { op: 'crear', nombre, email, rol: 'admin', enviar: false } })).data;
+    return (await call('/api/login', { method: 'POST', body: { email, password: u.password } })).res.headers.get('set-cookie').split(';')[0];
+  };
+  const ana = await entra('Ana Edita', 'ana-edita@ejemplo.com');
+  const luis = await entra('Luis Mira', 'luis-mira@ejemplo.com');
+  const post = (cookie, body) => call('/api/operativa', { method: 'POST', cookie, body });
+  const id = (await post(admin, { op: 'crear', tarea: { titulo: 'Revisar el copy', proyecto: 'mldlm' } })).data.tarea.id;
+  const t = (await call('/api/operativa', { cookie: admin })).data.tareas.find((x) => x.id === id);
+  const ref = { cliente: t.cliente, code: t.code, id };
+  const c = (await post(ana, { ...ref, op: 'comentar', texto: 'Lo miro mañna' })).data.tarea.comentarios.at(-1);
+  // Otra persona (aunque sea admin) no puede editarlo; su autora, sí.
+  const no = await post(luis, { ...ref, op: 'editar-comentario', cid: c.id, texto: 'cambiado' });
+  assert.equal(no.status, 403, JSON.stringify(no.data));
+  assert.equal((await post(ana, { ...ref, op: 'editar-comentario', cid: c.id, texto: '   ' })).status, 400);
+  const ok = await post(ana, { ...ref, op: 'editar-comentario', cid: c.id, texto: 'Lo miro mañana' });
+  assert.equal(ok.status, 200, JSON.stringify(ok.data));
+  const editado = ok.data.tarea.comentarios.find((x) => x.id === c.id);
+  assert.equal(editado.texto, 'Lo miro mañana');
+  assert.ok(editado.editado);
+  assert.equal(editado.en, c.en); // la fecha del comentario no cambia
+  // Y se guarda: al volver a leer la Operativa sigue editado.
+  const leido = (await call('/api/operativa', { cookie: ana })).data.tareas.find((x) => x.id === id).comentarios.find((x) => x.id === c.id);
+  assert.equal(leido.texto, 'Lo miro mañana');
+  assert.ok(leido.editado);
+  assert.equal((await post(ana, { ...ref, op: 'editar-comentario', cid: 'no-existe', texto: 'x' })).status, 404);
+});

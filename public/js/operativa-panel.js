@@ -52,6 +52,7 @@ let q = '';
 let abierta = null; // { cliente, code, id }
 let creando = false;
 let editandoDesc = false;
+let editandoCom = ''; // el comentario que se está editando (su id)
 let editandoTitulo = false;
 let tabArrastrada = ''; // pestaña de tablero que se está arrastrando
 let colArrastrada = ''; // columna de un tablero que se está arrastrando (a izquierda o derecha)
@@ -792,7 +793,13 @@ function pintarFicha() {
     </section>
     ${bloqueChecklist(t)}
     <section class="pr-bloque"><h4>Comentarios ${t.comentarios?.length ? `<span class="muted">${t.comentarios.length}</span>` : ''}</h4>
-      <ol class="pr-hilo">${(t.comentarios || []).map((c) => `<li class="pr-com"><span class="pr-av">${esc(iniciales(c.nombre))}</span><div class="pr-com-c"><header><strong>${esc(c.nombre)}</strong><span class="muted small">${esc(cuando(c.en))}</span>${gestiona(t.cliente) || c.uid === d.yo ? `<button type="button" class="pr-x" data-op-com-borrar="${esc(c.id)}" aria-label="Borrar comentario">✕</button>` : ''}</header><div class="pr-com-t">${enlacesEnTexto(esc(c.texto).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`)).replace(/\n/g, '<br>')}</div></div></li>`).join('') || '<li class="muted small">Sin comentarios.</li>'}</ol>
+      <ol class="pr-hilo">${(t.comentarios || []).map((c) => {
+        const mio = Boolean(d.yo) && c.uid === d.yo;
+        const editando = mio && editandoCom === c.id;
+        return `<li class="pr-com${editando ? ' editando' : ''}"><span class="pr-av">${esc(iniciales(c.nombre))}</span><div class="pr-com-c"><header><strong>${esc(c.nombre)}</strong><span class="muted small">${esc(cuando(c.en))}${c.editado ? ' · editado' : ''}</span>${mio && !editando ? `<button type="button" class="pr-x pr-x-ed" data-op-com-editar="${esc(c.id)}" aria-label="Editar comentario" title="Editar">✏️</button>` : ''}${(gestiona(t.cliente) || mio) && !editando ? `<button type="button" class="pr-x" data-op-com-borrar="${esc(c.id)}" aria-label="Borrar comentario" title="Borrar">✕</button>` : ''}</header>
+          ${editando ? `<form class="pr-com-edit" data-op-form="editar-comentario" data-cid="${esc(c.id)}"><textarea name="texto" rows="3" maxlength="2000">${esc(c.texto)}</textarea><footer><button type="button" class="btn ghost small" data-op-com-cancelar>Cancelar</button><button class="btn primary small">Guardar</button></footer></form>`
+            : `<div class="pr-com-t">${enlacesEnTexto(esc(c.texto).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`)).replace(/\n/g, '<br>')}</div>`}</div></li>`;
+      }).join('') || '<li class="muted small">Sin comentarios.</li>'}</ol>
       <form class="pr-comentar" data-op-form="comentar"><textarea name="texto" rows="2" maxlength="2000" placeholder="Escribe un comentario… (@ para enlazar otra tarea o un tablero)"></textarea><button class="btn primary small">Comentar</button></form>
     </section>
     ${''}${deAgencia ? '<p class="op-ficha-pie"><button type="button" class="btn ghost small danger" data-op="borrar">🗑️ Borrar tarea</button></p>' : '<p class="muted small op-ficha-pie">Esta tarea vive en el proyecto del cliente: lo que cambies aquí se guarda allí.</p>'}`;
@@ -826,7 +833,7 @@ function irA(r) {
   }
   const k = `${r.cliente}|${r.code}|${r.id}`;
   if (!buscarT(k)) { aviso('Esa tarea ya no existe o no la tienes asignada'); return; }
-  abierta = k; creando = false; editandoDesc = false; editandoTitulo = false; pickerEtq = false;
+  abierta = k; creando = false; editandoDesc = false; editandoTitulo = false; pickerEtq = false; editandoCom = '';
   pintar();
 }
 
@@ -1135,6 +1142,15 @@ async function onClick(e) {
   if (vp) { fProy = vp.dataset.opVerProy; fEmb = ''; vista = 'tablero'; pintar(); return; }
   const vpe = e.target.closest('[data-op-ver-persona]');
   if (vpe) { fPersona = vpe.dataset.opVerPersona; vista = 'tablero'; pintar(); return; }
+  const cEd = e.target.closest('[data-op-com-editar]');
+  if (cEd) {
+    editandoCom = cEd.dataset.opComEditar;
+    pintarFicha();
+    const ta = body().querySelector('.pr-com-edit textarea');
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+    return;
+  }
+  if (e.target.closest('[data-op-com-cancelar]')) { editandoCom = ''; pintarFicha(); return; }
   const cb = e.target.closest('[data-op-com-borrar]');
   if (cb) {
     if (!window.confirm('¿Borrar este comentario?')) return;
@@ -1387,6 +1403,14 @@ async function onSubmit(e) {
       setTimeout(() => { if (recienCreada === r.tarea.id) recienCreada = ''; }, 3000);
       pintarVista();
       body().querySelector('.op-add textarea')?.focus(); // para seguir añadiendo
+      return;
+    }
+    if (f.dataset.opForm === 'editar-comentario') {
+      const texto = f.texto.value.trim();
+      if (!texto) { btn?.removeAttribute('disabled'); window.alert('El comentario está vacío: si quieres quitarlo, bórralo con ✕.'); return; }
+      await op(buscarT(abierta), { op: 'editar-comentario', cid: f.dataset.cid, texto });
+      editandoCom = '';
+      pintarFicha();
       return;
     }
     if (f.dataset.opForm === 'comentar') {

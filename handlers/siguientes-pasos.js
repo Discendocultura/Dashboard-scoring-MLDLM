@@ -1,20 +1,16 @@
 // Email «¿Y ahora qué?» a quien acaba de crear un embudo o un lanzamiento (pantalla de enhorabuena).
 //   POST /api/siguientes-pasos { embudo: <id>, launch?: <código> } → { enviado, email, pasos } · permiso «config»
-// Sale desde el GHL de la agencia (como la recuperación de contraseña), con el remitente «Equipo Estelabs» si
+// Sale desde el GHL de la agencia (como la recuperación de contraseña), con el remitente «Equipo Alquimia» si
 // EMAIL_REMITENTE está puesto; el contenido lleva la marca y el nombre del cliente.
 import { requireSession } from '../lib/auth.js';
 import { getConfig } from '../lib/config-store.js';
 import { enPrincipal, clienteActual } from '../lib/cliente.js';
 import { listUsers, ensureContact, emailLayout, guardarContactos } from '../lib/users.js';
-import { sendEmail, listTags } from '../lib/ghl.js';
-import { env } from '../lib/env.js';
+import { listTags } from '../lib/ghl.js';
+import { enviarDelEquipo } from '../lib/remitente.js';
 import { siguientesPasos } from '../public/js/siguientes-pasos.js';
 import { json, readBody, errorResponse, escapeHtml } from '../lib/http.js';
 
-const remitente = () => {
-  const dir = String(env.EMAIL_REMITENTE || '').trim();
-  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(dir) ? `Equipo Estelabs <${dir}>` : undefined;
-};
 
 export function emailPasos({ nombre, que, cliente, pasos }) {
   const hola = String(nombre || '').trim().split(/\s+/)[0];
@@ -49,11 +45,7 @@ export async function POST(request) {
         if (!u) throw new Error('Usuario no encontrado');
         const nuevo = !u.contactId;
         const contactId = await ensureContact(u);
-        const emailFrom = remitente();
-        try { await sendEmail(contactId, { subject, html, emailFrom }); } catch (e) {
-          if (!emailFrom) throw e;
-          await sendEmail(contactId, { subject, html });
-        }
+        await enviarDelEquipo(contactId, { subject, html });
         if (nuevo) await guardarContactos([u]);
       });
     } catch (e) {

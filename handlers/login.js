@@ -9,7 +9,7 @@
 // Tras 5 fallos seguidos con un email (o 20 desde una misma conexión) se bloquea 15 minutos.
 import { roleForPassword, sessionCookie, signToken, verifyToken, clearVerComo } from '../lib/auth.js';
 import { listUsers, actualizarUsuarios, checkPassword, normEmail, publicUser, hashPassword, ensureContact } from '../lib/users.js';
-import { sendEmail } from '../lib/ghl.js';
+import { enviarDelEquipo } from '../lib/remitente.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { safeEqual } from '../lib/auth.js';
 import { escapeHtml } from '../lib/http.js';
@@ -102,18 +102,13 @@ function emailRecuperar(nombre, url) {
     <p style="margin:22px 0"><a href="${escapeHtml(url)}" style="display:inline-block;background:#ff7a18;color:#fff;padding:14px 26px;border-radius:12px;text-decoration:none;font-weight:bold">Crear contraseña nueva →</a></p>
     <p style="margin:0 0 6px;font-size:13px;color:#5b6080">El enlace caduca en 1 hora y solo se puede usar una vez.</p>
     <p style="margin:0;font-size:13px;color:#5b6080">Si no lo has pedido tú, ignora este email: tu contraseña no cambia.</p>
-    <p style="margin:20px 0 0">Un saludo,<br><strong>Equipo Estelabs</strong></p>
+    <p style="margin:20px 0 0">Un saludo,<br><strong>Equipo Alquimia</strong></p>
   </div>
 </div>`;
 }
 
-// Remitente del email de recuperación: «Equipo Estelabs <EMAIL_REMITENTE>». Sin la variable, el de GHL por defecto
-// (la API de GHL solo deja cambiar el nombre junto con la dirección).
-export const NOMBRE_REMITENTE = 'Equipo Estelabs';
-function remitenteRecuperar() {
-  const dir = String(env.EMAIL_REMITENTE || '').trim();
-  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(dir) ? `${NOMBRE_REMITENTE} <${dir}>` : undefined;
-}
+// Remitente del email de recuperación: «Equipo Alquimia <EMAIL_REMITENTE>» (lib/remitente.js).
+export { NOMBRE_REMITENTE } from '../lib/remitente.js';
 
 async function recuperar(request, body) {
   const email = normEmail(body.email);
@@ -132,13 +127,8 @@ async function recuperar(request, body) {
     await enPrincipal(async () => {
       const contactId = await ensureContact(user);
       const msg = { subject: 'Crea tu contraseña nueva', html: emailRecuperar(user.nombre, url) };
-      const emailFrom = remitenteRecuperar();
       // Si GHL no acepta el remitente (dirección sin verificar), se envía con el remitente por defecto: que llegue igual.
-      try { await sendEmail(contactId, { ...msg, emailFrom }); } catch (e) {
-        if (!emailFrom) throw e;
-        console.error('Remitente del email de recuperación rechazado', e.message || e);
-        await sendEmail(contactId, msg);
-      }
+      await enviarDelEquipo(contactId, msg);
     });
   } catch (e) {
     console.error('Email de recuperación', e.message || e); // sin decir si el email existe

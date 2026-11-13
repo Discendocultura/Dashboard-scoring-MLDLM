@@ -6,7 +6,7 @@
 //   POST { op: 'estado', cliente, code, id, estado }  (pendiente | revision | hecha)
 //   POST { op: 'bloqueo', …, motivo }  (marca de bloqueada; motivo vacío = desbloquear)  · { op: 'fecha', …, fecha }
 //   POST { op: 'asignar', …, uid }   (superadmin o admin del proyecto; uid '' = sin asignar; avisa por email)
-//   POST { op: 'comentar', …, texto } · { op: 'borrar-comentario', …, cid }
+//   POST { op: 'comentar', …, texto } · { op: 'editar-comentario', …, cid, texto } (solo quien lo escribió) · { op: 'borrar-comentario', …, cid }
 //   POST { op: 'titulo', …, titulo }  (cambiar el nombre de la tarea)
 //   POST { op: 'descripcion', …, notas }  (texto con formato: negrita, listas, enlaces, vídeos)
 //   POST { op: 'crear', tarea: { titulo, notas, fecha, asignado, proyecto?, opTablero? } }  → tarea nueva (de la
@@ -267,7 +267,7 @@ export async function POST(request) {
     let avisar = '';
     let mencionar = null; // { uids, texto, donde }: a quién avisar de que le han mencionado con «@»
     // Solo se avisa a quien puede estar en la tarea: el equipo de la agencia y la gente con acceso a ese proyecto.
-    const posibles = ['comentar', 'descripcion'].includes(body.op) ? await equipoPara(s) : [];
+    const posibles = ['comentar', 'editar-comentario', 'descripcion'].includes(body.op) ? await equipoPara(s) : [];
     const mencionables = (texto, cid) => personasEn(texto).filter((uid) => uid !== s.uid && asignable(posibles.find((u) => u.id === uid), cid));
     let previo = null; // cómo estaba (para avisar de lo que ha cambiado: terminada, bloqueada, fecha)
     const t = await cambiarTarea(ref, async (t, lista) => {
@@ -339,6 +339,20 @@ export async function POST(request) {
         const menciones = mencionables(texto, clienteDeTarea(t, ref));
         t.comentarios = [...(Array.isArray(t.comentarios) ? t.comentarios : []), { id: newId('c'), uid: s.uid || '', nombre: por, texto, en: new Date().toISOString(), menciones }].slice(-100);
         if (menciones.length) mencionar = { uids: menciones, texto: comentarioPlano(texto), donde: 'un comentario' };
+      } else if (body.op === 'editar-comentario') {
+        // Solo quien lo escribió. Si al editarlo menciona a alguien nuevo con «@», se le avisa (a los de antes, no otra vez).
+        const c = (t.comentarios || []).find((x) => x.id === body.cid);
+        if (!c) throw bad('Ese comentario ya no existe', 404);
+        if (!(s.uid && c.uid === s.uid)) throw bad('Solo puedes editar tus comentarios', 403);
+        const texto = String(body.texto ?? '').replace(/\r/g, '').trim().slice(0, 2000);
+        if (!texto) throw bad('El comentario está vacío');
+        const antes = new Set(c.menciones || []);
+        const menciones = mencionables(texto, clienteDeTarea(t, ref));
+        c.texto = texto;
+        c.menciones = menciones;
+        c.editado = new Date().toISOString();
+        const nuevas = menciones.filter((uid) => !antes.has(uid));
+        if (nuevas.length) mencionar = { uids: nuevas, texto: comentarioPlano(texto), donde: 'un comentario' };
       } else if (body.op === 'borrar-comentario') {
         const c = (t.comentarios || []).find((x) => x.id === body.cid);
         if (!c) throw bad('Ese comentario ya no existe', 404);
