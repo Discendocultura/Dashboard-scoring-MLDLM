@@ -7,7 +7,7 @@ import { getConfig } from '../lib/config-store.js';
 import { enPrincipal, clienteActual } from '../lib/cliente.js';
 import { listUsers, ensureContact, emailLayout, guardarContactos } from '../lib/users.js';
 import { listTags } from '../lib/ghl.js';
-import { enviarDelEquipo } from '../lib/remitente.js';
+import { enviarAlEquipo } from '../lib/remitente.js';
 import { siguientesPasos } from '../public/js/siguientes-pasos.js';
 import { json, readBody, errorResponse, escapeHtml } from '../lib/http.js';
 
@@ -43,10 +43,7 @@ export async function POST(request) {
         const users = await listUsers({ fresh: true });
         const u = users.find((x) => x.id === s.user.id);
         if (!u) throw new Error('Usuario no encontrado');
-        const nuevo = !u.contactId;
-        const contactId = await ensureContact(u);
-        await enviarDelEquipo(contactId, { subject, html });
-        if (nuevo) await guardarContactos([u]);
+        await enviarAlEquipo(u, { subject, html });
       });
     } catch (e) {
       console.error('Email de siguientes pasos', e.message || e);

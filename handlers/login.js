@@ -9,7 +9,7 @@
 // Tras 5 fallos seguidos con un email (o 20 desde una misma conexión) se bloquea 15 minutos.
 import { roleForPassword, sessionCookie, signToken, verifyToken, clearVerComo } from '../lib/auth.js';
 import { listUsers, actualizarUsuarios, checkPassword, normEmail, publicUser, hashPassword, ensureContact } from '../lib/users.js';
-import { enviarDelEquipo } from '../lib/remitente.js';
+import { enviarAlEquipo } from '../lib/remitente.js';
 import { enPrincipal } from '../lib/cliente.js';
 import { safeEqual } from '../lib/auth.js';
 import { escapeHtml } from '../lib/http.js';
@@ -125,10 +125,9 @@ async function recuperar(request, body) {
   const url = `${new URL(request.url).origin}/?reset=${user.id}.${token}`;
   try {
     await enPrincipal(async () => {
-      const contactId = await ensureContact(user);
       const msg = { subject: 'Crea tu contraseña nueva', html: emailRecuperar(user.nombre, url) };
-      // Si GHL no acepta el remitente (dirección sin verificar), se envía con el remitente por defecto: que llegue igual.
-      await enviarDelEquipo(contactId, msg);
+      // Desde la cuenta de emails del equipo; si GHL no acepta el remitente, con el de por defecto: que llegue igual.
+      await enviarAlEquipo(user, msg);
     });
   } catch (e) {
     console.error('Email de recuperación', e.message || e); // sin decir si el email existe
